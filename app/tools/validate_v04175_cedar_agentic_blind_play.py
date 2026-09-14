@@ -19,7 +19,7 @@ def require(path: str, *tokens: str) -> None:
     assert not missing, f"{path}: missing {missing}"
 
 
-require("pubspec.yaml", "version: 0.41.77+221")
+require("pubspec.yaml", "version: 0.41.78+222")
 require(
     "lib/core/ai/durable_generation_runner.dart",
     "CedarToyArcadeSkill.gatewayToolIds",
@@ -98,16 +98,16 @@ require(
 )
 require(
     ".github/workflows/build-apk.yml",
-    "agent/v04177-cedar-background-turn-loop",
-    "AI-Companion-v0.41.77-221-Cedar-Background-Turn-Loop-APK",
+    "agent/v04178-stop-transfer-interlock",
+    "AI-Companion-v0.41.78-222-Stop-Transfer-Interlock-APK",
     "validate_v04175_cedar_agentic_blind_play.py",
 )
 require(
     "AI_Companion_当前总账.md",
-    "v0.41.77+221",
+    "v0.41.78+222",
     "模型自主发现",
     "盲玩隔离",
     "总账 v2",
 )
 
-print("v0.41.77+221 Cedar agentic blind-play validation passed.")
+print("v0.41.78+222 Cedar agentic blind-play validation passed.")

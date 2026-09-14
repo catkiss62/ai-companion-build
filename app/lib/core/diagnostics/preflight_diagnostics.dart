@@ -199,6 +199,25 @@ class PreflightDiagnosticsService {
       attachmentPipeline = await AttachmentPipelineTelemetry.snapshot(db);
       final chatTurnLease =
           await db.localLeaseDiagnostic('chat_turn_lease');
+      const stateWriterLeaseKeys = <String>[
+        'chat_turn_lease',
+        'recovery_orchestrator_lease_until',
+        'post_turn_memory_lease',
+        'proactive_lease_until',
+        'relationship_assimilation_lease_until',
+        'deferred_followup_lease_until',
+        'self_drive_lease_until',
+        'thought_lifecycle_lease_until',
+        'memory_maintenance_lease_until',
+        'thought_consolidation_lease_until',
+        'ai_self_reflection_lease_until',
+        'conversation_summary_lease_until',
+        'long_running_maintenance_lease',
+      ];
+      final stateWriterLeases = <String, Object?>{};
+      for (final key in stateWriterLeaseKeys) {
+        stateWriterLeases[key] = await db.localLeaseDiagnostic(key);
+      }
       final autonomousActions =
           await db.autonomousActionDiagnosticStats(now: now);
       final autonomousBehaviors =
@@ -433,6 +452,7 @@ class PreflightDiagnosticsService {
         'failedGenerationNeedsAttention': failedGeneration != null,
         'recordCounts': memoryStats,
         'chatTurnLease': chatTurnLease,
+        'stateWriterLeases': stateWriterLeases,
         'emotionObservability': emotionDiagnostics,
         'visibleReasoningLanguage': reasoningLanguageDiagnostics,
         'memoryRetrieval': memoryRetrievalDiagnostics,

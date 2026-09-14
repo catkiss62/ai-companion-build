@@ -198,6 +198,11 @@ class AgentToolRunner {
         ));
       } on GenerationCancelledByUserException {
         rethrow;
+      } on GenerationSuspendedByRuntimeGateException {
+        // Backup/restore has frozen the runtime. Let the durable generation
+        // runner suspend the whole turn instead of persisting a fabricated
+        // tool failure after the freeze boundary.
+        rethrow;
       } catch (error) {
         final code = 'executor_${error.runtimeType}';
         final result = AgentToolResult(
@@ -654,7 +659,9 @@ class AgentToolRunner {
               guide: guide,
               action: action,
               outcome: outcome,
+              cancellationToken: cancellationToken,
             );
+      cancellationToken?.throwIfCancelled();
       verifiedNextActor = platformAction
           ? (persisted?.nextActor ?? 'wait')
           : verification.nextActor;
@@ -714,6 +721,7 @@ class AgentToolRunner {
     required String guide,
     required String action,
     required McpToolOutcome outcome,
+    GenerationCancellationToken? cancellationToken,
   }) async {
     final structured = _resolveMcpTurnState(outcome);
     if (outcome.text.length > CedarToyActivityStore.maxGuidePromptChars) {
@@ -733,6 +741,7 @@ class AgentToolRunner {
         thinking: true,
         effort: ReasoningEffort.high,
         maxTokens: 420,
+        cancellationToken: cancellationToken,
         messages: <Map<String, Object?>>[
           <String, Object?>{
             'role': 'system',

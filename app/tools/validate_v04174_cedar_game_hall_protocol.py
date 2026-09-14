@@ -19,7 +19,7 @@ def require(path: str, *tokens: str) -> None:
     assert not missing, f"{path}: missing {missing}"
 
 
-require("pubspec.yaml", "version: 0.41.77+221")
+require("pubspec.yaml", "version: 0.41.78+222")
 require(
     "lib/core/mcp/cedar_game_protocol.dart",
     "class CedarCatalogParser",
@@ -107,8 +107,8 @@ for game in (
 
 require(
     ".github/workflows/build-apk.yml",
-    "agent/v04177-cedar-background-turn-loop",
-    "AI-Companion-v0.41.77-221-Cedar-Background-Turn-Loop-APK",
+    "agent/v04178-stop-transfer-interlock",
+    "AI-Companion-v0.41.78-222-Stop-Transfer-Interlock-APK",
     "validate_v04174_cedar_game_hall_protocol.py",
 )
 require(

@@ -30,18 +30,37 @@
 | 项目 | 当前事实 |
 |---|---|
 | 仓库 | `catkiss62/ai-companion-build`；Flutter/Android 工程位于 `app/` |
-| 当前开发分支 | `agent/v04177-cedar-background-turn-loop` |
-| 当前目标版本 | `v0.41.77+221 / schema 61 / Snapshot protocol 6` |
+| 当前开发分支 | `agent/v04178-stop-transfer-interlock` |
+| 当前目标版本 | `v0.41.78+222 / schema 61 / Snapshot protocol 6` |
 | 当前状态 | `IMPLEMENTED LOCALLY / LOCAL STATIC VALIDATION PASSED / CI PENDING / TRUE DEVICE PENDING` |
-| 上一可安装基线 | `v0.41.75+219`，Actions run `34857965280` 全绿，`794/794` Flutter tests；APK SHA-256 `9e638816031900660cadd08ac5d5dc6f40955319ac261139f1ee619197114f1f` |
+| 当前真机失败基线 | `v0.41.77+221`；停止“正在回复”后旧后台请求仍占写入租约，聊天、保存和恢复可一起被阻塞 |
 | `main` | 仍是 v0.38.5 旧基线；不得作为 v0.41.x 后续开发起点，本批不合并 |
 | +219 构建提交 | 远端功能 head `0295ceeeafe9e18f057b6f8f5d54a8dae8820ed2`；tree `3cf8a09813c135b8bce4e5b9a66381ba2a03f5cf` |
 | +220 构建提交 | 远端功能 head `f3a4e95e35c5ca47fb68e84aa8d12a850cfbd91a`；tree `0efb121197441a2522f987a5b506e32dda53e555` |
-| 当前构建产物 | `AI-Companion-v0.41.76-220-Cedar-Protocol-Continuation-APK.apk`；SHA-256 `3bcab458f8138d97f4f150c5e92d1f5653e018ee87e5a64cbdde6b56f8a2a6d9` |
+| +221 构建提交 | 远端功能 head `bf4c8216235d067884bb2f5fa303d17eec8eb6a3`；tree `125c47730e7b5c37ab74af4721904db194742e75` |
+| 上一构建产物 | `AI-Companion-v0.41.77-221-Cedar-Background-Turn-Loop-APK.apk`；SHA-256 `6d74a7c622a80f0d57a97b94249a4ac0cd6f17a3102c6084cd2d22e9eefb9270` |
 
 既有能力保护索引：Desire / Thought / Intent / Gate、Somatic 双通道、玩游 Key、普通聊天、沉浸房间、查手机、造梗来源、D6、Phase 2B、App 内 Agent 能力桥、Memory 2D、`fact_state / attention_state / recall_policy`、`spontaneous_salience`、`reminiscence/identity`、Skills、MCP、`【检查系统】`、中断灰显、Token 命中/缓存优化、Phase 3、Harness、`screen_observation.inspect`、Genie-TTS 四音色、schema 61 与 Snapshot protocol 6 均不得回归。
 
-## 4. 当前任务：v0.41.77+221 Cedar 后台换手闭环
+## 4. 当前任务：v0.41.78+222 停止与备份互锁
+
+### 真机证据与确定根因
+
+- 输入诊断：`ai_companion_diagnostics_2026-09-14T19-26-44-504222Z.txt` 与 `ai_companion_diagnostics_2026-09-14T19-36-04-931983Z.txt`；输入备份仅在临时工作区校验，不进入 Git。旧备份 ZIP、32 个条目及其 31 个声明 SHA-256 均通过，因此“不能读档”不是备份文件损坏。
+- 两份诊断的 `stateGeneration` 从 144 变为 145，同时中断展示数从 22 回到旧备份中的 20；结合恢复算法 `max(local, backup)+1`，证明期间至少有一次恢复真实成功。19:36 诊断生成早于 03:38 的失败提示，不能拿其空闲快照否定恢复时仍有写入者。
+- 停止键原先只把 SQLite generation job 标成 `cancelled_by_user` 并取消当前 FlutterEngine 的内存 token。若回复已由后台 FlutterEngine 恢复，前台拿不到其 token；后台 runner 也没有 token，只在收到下一段 SSE 时复查数据库。Provider 卡住且不再发 delta 时，UI 看似已停止，HTTP 仍可活到 120 秒超时并继续持有 `chat_turn_lease`。
+- 后台 `RecoveryOrchestrator` 可在 Cedar/Memory JSON 网络调用期间持有 `recovery_orchestrator_lease_until` 六分钟；普通备份/恢复只等写入者 90 秒。原后台 `DeepSeekClient` 不观察 `transfer_lock`，所以冻结无法中断网络等待，90 秒报错是必然并发结果，不是正常导出耗时。
+- 普通备份使用无所有者的全局 `transfer_lock=0/1`。旧页面或旧异步操作的 `finally` 能在新操作已置 1 后再写回 0，随后 `SnapshotService` 的内部锁检查就会报“创建普通备份前必须先冻结本机写入”。这是确定的旧操作误解锁新操作竞态。
+
+### 本批实现与完成判据
+
+1. `DurableGenerationRunner` 每 250 ms 读取 durable job 状态；跨 FlutterEngine 看见 `cancelled_by_user` 后立即取消有效 token并关闭专属 stream/JSON HTTP client，不再依赖下一段 SSE。停止按钮最长等待 5 秒确认 `chat_turn_lease` 真正释放；若极端情况下仍未退出，明确提示尚未停止完成，不再假装成功。
+2. 后台 `DeepSeekClient` 增加 runtime gate。备份/恢复置锁后，后台 stream 与 JSON 请求立即关闭；这是运行时暂停，不冒充用户停止，也不删除待恢复用户轮。Cedar Outcome 核验与 NSFW 路由沿同一取消边界传播，不在冻结后继续写状态。
+3. 普通保存/恢复改用 `transfer_lock_owner` 所有权 token。只有持有同一 token 的操作才能验锁和解锁；旧页面的迟到 `finally` 无法清掉新锁。ZIP 按状态与媒体哈希清单生成后先解冻，再打开系统保存页；用户选定位置后由 Android 独立执行 portable-ZIP、源/目标字节与 SHA-256 复核。删除了保存框之前重复的一次完整解包/哈希，并增加“冻结→整理生成→打开保存位置”阶段提示，既保留最终完整性边界，也避免无反馈地重复扫描几十 MiB。
+4. 脱敏诊断新增全部状态写入 lease 的 held/到期元数据与具体阻塞项，不包含 lease owner token、聊天正文、房间消息或凭据。新测试模拟永不返回的 HTTP 请求，验证用户 Stop 和 transfer freeze 都会在 2 秒内关闭它，并加入源码合同测试覆盖 durable poll、owned freeze 和停止等待。
+5. `git diff --check`、workflow YAML、Python compileall、当前总账门、+222/+221/+220 Cedar 与 Stop 专项门均通过；Actions 当前源码门中本机可执行的 `99/99` validators 通过。另 3 项依赖 Actions 恢复的私有桌宠/LingChat 载荷或本机不存在的 `kotlinc`。本地无 Flutter/Dart，必须由 CI 完成 Analyze、全量 Flutter tests、arm64 Release、签名、Artifact 与未发布 Draft。当前尚未推送；用户对 +221 分支的公开推送授权不自动扩展为 +222，推送前需取得本版明确授权。自动化通过后仍为 `TRUE DEVICE PENDING`。
+
+## 5. 上一已完成基线：v0.41.77+221 Cedar 后台换手闭环
 
 ### 新真机证据与已证实根因
 
@@ -65,7 +84,9 @@
 - `CedarJsonDecisionExecutor` 取代 `_judge` 内的原样循环：第一次使用 high thinking 与 2400 token 保留棋局判断能力；仅在空/损坏 JSON 或瞬时网络、429/5xx 时重试一次，第二次切到 non-thinking/low/1400 token 并追加立即输出完整 JSON 的恢复指令；401/403 不重试。
 - 共玩动作通过 `CedarRoomActionPayload` 把已生成短对白复制进将提交的同一 params，不改变 move/revision/wait；主聊天结果将真实 `new/join/state/move` 作为机器 Prompt action，同时保留中文“游玩”展示词。恢复循环成功后清除旧 `cedar_toy_last_continuation_error`。
 - 新增真实失败形状测试：第一次响应只有 `reasoning_content` 且 `content=""`，第二次必须以不同请求产出 `move` JSON；另覆盖 401 单次失败，以及 `your_turn=true + pending room message` 的 session 仍可行动、对白与 move 同 payload。`git diff --check`、workflow YAML、Python compileall、+221 专项及 Actions 当前源码门中本机可执行的 `98/98` validators 已通过；另 3 项依赖 Actions 恢复的私有桌宠/LingChat 载荷或本机不存在的 `kotlinc`。本机无 Flutter/Dart，编译、Analyze、全量 Flutter tests、arm64 APK 与签名必须由 CI 证明。
-- `IMPLEMENTED LOCALLY / LOCAL STATIC VALIDATION PASSED / CI PENDING / TRUE DEVICE PENDING`：尚未提交、未运行 CI、未生成 APK。
+- 用户已明确授权把 +221 两个提交推送到公开仓库的 `agent/v04177-cedar-background-turn-loop`，功能 tree 与本地 `f1712da` 完全一致；远端构建功能 head 为 `bf4c8216235d067884bb2f5fa303d17eec8eb6a3`。
+- Actions run `34882529012`（run 875）全绿：源码/历史门、Kotlin/JVM、Flutter Analyze、`801/801` Flutter tests、arm64 Release、固定签名、私有资源恢复与完整性检查、checksum、Artifact 和 Draft 均通过。Signer SHA-256 `305eb3d80983b963c64818ddf1ad561f279de6d47b3ed2c781ada448c7c25148`。
+- Artifact `10363514027`，ZIP digest `e114c7ea5f0e0e312e3937c88933fbc475d48ad37570ccdb4b15abf0614eee16`；Draft `https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-ebb3a7c0512aee5ca374`。APK SHA-256 `6d74a7c622a80f0d57a97b94249a4ac0cd6f17a3102c6084cd2d22e9eefb9270`。当前为 `CI PASSED / APK READY / TRUE DEVICE PENDING`；自动化通过不等于网页换手体验已获真机证明。
 
 ## 5. 已完成但真机失败基线：v0.41.76+220 Cedar 玩家协议与后台连续行动收口
 
@@ -152,8 +173,8 @@
 
 | 优先级 | 条件 | 下一步 |
 |---|---|---|
-| P0 | +220 APK READY | 联合真机验证自行建房、房间加入后自动连续落子/对白、盲玩隔离、防沉迷 rest、暂离恢复、中文面板与房间 DeepSeek |
-| P1 | Cedar 真机主链通过 | 设计全工具动作展示，参考悬浮聊天框已有“正在做什么/哪里出错/下一步”表达，不直接暴露密钥、原始内部协议或冗长 JSON |
+| P0 | +222 CI/APK 完成 | 真机复现“正在回复→停止→立即新对话/保存/恢复”，确认旧请求真实退出且无半覆盖，再联合回归 Cedar 网页连续换手 |
+| P1 | 停止与备份互锁真机通过 | 继续验证自行建房、无需 APK 内催促的自动连续落子/对白、盲玩隔离、防沉迷 rest、暂离恢复、中文面板与房间 DeepSeek |
 | P2 | 用户要求继续既有路线 | 从冻结归档顶部“当前任务完成后的后续导航”和 `app/docs/DOCUMENTATION_MAP.md` 定点恢复，不全文读取归档 |
 
 ## 8. 关键文件导航
@@ -161,7 +182,9 @@
 - Cedar 模型入口与循环：`app/lib/core/ai/durable_generation_runner.dart`、`app/lib/core/agent/agent_tool_planner.dart`、`agent_task_loop.dart`、`agent_tool_runner.dart`
 - Cedar 玩家协议与状态：`app/lib/core/mcp/cedar_toy_client.dart`、`cedar_toy_activity.dart`、`cedar_game_protocol.dart`、`cedar_toy_autonomy_engine.dart`、`cedar_toy_arcade_skill.dart`
 - UI：`app/lib/features/chat/cedar_toy_activity_window.dart`
+- 停止与跨引擎生成：`app/lib/features/chat/chat_controller.dart`、`app/lib/core/ai/durable_generation_runner.dart`、`deepseek_client.dart`、`durable_generation_recovery.dart`
+- 备份冻结与诊断：`app/lib/features/transfer/transfer_page.dart`、`app/lib/core/database/app_database.dart`、`app/lib/core/sync/snapshot_service.dart`、`app/lib/core/diagnostics/preflight_diagnostics.dart`
 - 兼容审计：`app/docs/CEDAR_TOY_GAME_COMPATIBILITY_v0.41.74.md`
 - 当前专项测试：`app/test/cedar_game_hall_protocol_v04174_test.dart`
-- 当前专项门禁：`app/tools/validate_v04176_cedar_protocol_continuation.py`
+- 当前专项测试与门禁：`app/test/stop_transfer_interlock_v04178_test.dart`、`app/tools/validate_v04178_stop_transfer_interlock.py`
 - 冻结历史：`app/docs/ledger/archive/AI_Companion_总账归档_截至_v0.41.74+218.md`

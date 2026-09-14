@@ -4654,6 +4654,98 @@ class AppDatabase {
     );
   }
 
+  /// Freezes all companion-state writers for one transfer operation.
+  ///
+  /// `transfer_lock` remains the compatibility gate read by every subsystem,
+  /// while the separate owner token prevents an older page/operation's late
+  /// `finally` block from unlocking a newer backup or restore.
+  Future<String> acquireTransferFreeze({String purpose = 'transfer'}) async {
+    final db = await database;
+    final ownerEpoch = await _leaseOwnerEpoch();
+    final normalizedPurpose =
+        purpose.trim().replaceAll(RegExp(r'[^a-zA-Z0-9_-]'), '_');
+    final safePurpose = normalizedPurpose.length <= 40
+        ? normalizedPurpose
+        : normalizedPurpose.substring(0, 40);
+    final token =
+        '$ownerEpoch:${safePurpose.isEmpty ? 'transfer' : safePurpose}:${_uuid.v4()}';
+    return db.transaction<String>((txn) async {
+      final rows = await txn.query(
+        'settings',
+        columns: const ['key', 'value'],
+        where: 'key IN (?, ?, ?, ?, ?)',
+        whereArgs: const [
+          'active_brain',
+          'transfer_lock',
+          'transfer_lock_owner',
+          'pending_outbound_snapshot_id',
+          'pending_import_snapshot_id',
+        ],
+      );
+      final settings = <String, String>{
+        for (final row in rows)
+          if (row['key'] is String)
+            row['key'] as String: row['value'] as String? ?? '',
+      };
+      if (settings['active_brain'] == '0') {
+        throw StateError('当前设备不是 Active Brain，不能冻结本机写入。');
+      }
+      final locked = settings['transfer_lock'] == '1';
+      final owner = settings['transfer_lock_owner'] ?? '';
+      final hasDurableTransfer =
+          (settings['pending_outbound_snapshot_id'] ?? '').isNotEmpty ||
+              (settings['pending_import_snapshot_id'] ?? '').isNotEmpty;
+      if (locked &&
+          (owner.startsWith('$ownerEpoch:') || hasDurableTransfer)) {
+        throw StateError('另一项备份、恢复或设备接管仍在处理中。');
+      }
+      for (final entry in <String, String>{
+        'transfer_lock': '1',
+        'transfer_lock_owner': token,
+      }.entries) {
+        await txn.insert(
+          'settings',
+          {'key': entry.key, 'value': entry.value},
+          conflictAlgorithm: ConflictAlgorithm.replace,
+        );
+      }
+      return token;
+    });
+  }
+
+  Future<bool> ownsTransferFreeze(String token) async {
+    if (token.isEmpty) return false;
+    return await getSetting('transfer_lock') == '1' &&
+        await getSetting('transfer_lock_owner') == token;
+  }
+
+  Future<bool> releaseTransferFreeze(String token) async {
+    if (token.isEmpty) return false;
+    final db = await database;
+    return db.transaction<bool>((txn) async {
+      final rows = await txn.query(
+        'settings',
+        columns: const ['value'],
+        where: 'key = ?',
+        whereArgs: const ['transfer_lock_owner'],
+        limit: 1,
+      );
+      final owner = rows.isEmpty ? '' : rows.first['value'] as String? ?? '';
+      if (owner != token) return false;
+      for (final entry in const <String, String>{
+        'transfer_lock': '0',
+        'transfer_lock_owner': '',
+      }.entries) {
+        await txn.insert(
+          'settings',
+          {'key': entry.key, 'value': entry.value},
+          conflictAlgorithm: ConflictAlgorithm.replace,
+        );
+      }
+      return true;
+    });
+  }
+
   /// Reserve a monotonically increasing state generation for one frozen
   /// outbound takeover snapshot. `transfer_lock=1` is mandatory so no writer
   /// can create state after the generation is reserved but before export.
@@ -4734,6 +4826,7 @@ class AppDatabase {
         'pending_outbound_snapshot_id': '',
         'pending_outbound_generation': '0',
         'transfer_lock': '0',
+        'transfer_lock_owner': '',
       }.entries) {
         await txn.insert(
           'settings',
@@ -4853,6 +4946,7 @@ class AppDatabase {
         'state_generation': '$nextGeneration',
         'active_brain': '1',
         'transfer_lock': '0',
+        'transfer_lock_owner': '',
         'pending_import_snapshot_id': '',
         'pending_import_lineage_id': '',
         'pending_import_source_device_id': '',
@@ -4900,6 +4994,7 @@ class AppDatabase {
         'state_generation': '$next',
         'active_brain': '1',
         'transfer_lock': '0',
+        'transfer_lock_owner': '',
         'pending_import_snapshot_id': '',
         'pending_import_lineage_id': '',
         'pending_import_source_device_id': '',
@@ -4949,6 +5044,11 @@ class AppDatabase {
       await txn.insert(
         'settings',
         {'key': 'transfer_lock', 'value': '0'},
+        conflictAlgorithm: ConflictAlgorithm.replace,
+      );
+      await txn.insert(
+        'settings',
+        {'key': 'transfer_lock_owner', 'value': ''},
         conflictAlgorithm: ConflictAlgorithm.replace,
       );
     });
@@ -17555,11 +17655,29 @@ class AppDatabase {
 
   Future<void> setSetting(String key, String value) async {
     final db = await database;
-    await db.insert(
-      'settings',
-      {'key': key, 'value': value},
-      conflictAlgorithm: ConflictAlgorithm.replace,
-    );
+    await db.transaction((txn) async {
+      // Legacy Nearby/manual-transfer cleanup paths may finish after a newer
+      // plain backup or restore acquired an owned freeze. They are allowed to
+      // clear their old unowned lock, but never an operation that now has a
+      // transfer_lock_owner. Owned release goes through releaseTransferFreeze.
+      if (key == 'transfer_lock' && value != '1') {
+        final rows = await txn.query(
+          'settings',
+          columns: const ['value'],
+          where: 'key = ?',
+          whereArgs: const ['transfer_lock_owner'],
+          limit: 1,
+        );
+        final owner =
+            rows.isEmpty ? '' : rows.first['value'] as String? ?? '';
+        if (owner.isNotEmpty) return;
+      }
+      await txn.insert(
+        'settings',
+        {'key': key, 'value': value},
+        conflictAlgorithm: ConflictAlgorithm.replace,
+      );
+    });
   }
 
   Future<void> _setSettingInTransaction(
@@ -18999,6 +19117,7 @@ class AppDatabase {
         'nsfw_route_turn_id': '',
         'auto_memory': '1',
         'transfer_lock': '0',
+        'transfer_lock_owner': '',
         'perception_enabled': '1',
         'ai_self_reflection_enabled': '1',
         'tts_enabled': '0',

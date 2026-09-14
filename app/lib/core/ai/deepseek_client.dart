@@ -62,13 +62,19 @@ class DeepSeekClient {
   DeepSeekClient({
     http.Client? client,
     http.Client Function()? streamClientFactory,
+    http.Client Function()? jsonClientFactory,
+    Future<bool> Function()? abortWhen,
   })  : _client = client ?? http.Client(),
-        _streamClientFactory = streamClientFactory ?? http.Client.new;
+        _streamClientFactory = streamClientFactory ?? http.Client.new,
+        _jsonClientFactory = jsonClientFactory ?? http.Client.new,
+        _abortWhen = abortWhen;
 
   static const String defaultEndpoint = 'https://api.deepseek.com/chat/completions';
 
   final http.Client _client;
   final http.Client Function() _streamClientFactory;
+  final http.Client Function() _jsonClientFactory;
+  final Future<bool> Function()? _abortWhen;
   final Set<http.Client> _streamClients = <http.Client>{};
 
   Stream<DeepSeekDelta> streamChat({
@@ -107,10 +113,36 @@ class DeepSeekClient {
     // request. JSON maintenance calls and a later chat turn remain unaffected.
     final streamClient = _streamClientFactory();
     _streamClients.add(streamClient);
+    var runtimeGateAborted = false;
+    var gateCheckRunning = false;
+    Timer? runtimeGateTimer;
     if (cancellationToken != null) {
       unawaited(cancellationToken.whenCancelled.then((_) {
         streamClient.close();
       }));
+    }
+    final abortWhen = _abortWhen;
+    if (abortWhen != null) {
+      Future<void> checkRuntimeGate() async {
+        if (gateCheckRunning || runtimeGateAborted) return;
+        gateCheckRunning = true;
+        try {
+          if (await abortWhen()) {
+            runtimeGateAborted = true;
+            streamClient.close();
+          }
+        } catch (_) {
+          // A diagnostic gate check must never break an otherwise valid call.
+        } finally {
+          gateCheckRunning = false;
+        }
+      }
+
+      runtimeGateTimer = Timer.periodic(
+        const Duration(milliseconds: 250),
+        (_) => unawaited(checkRuntimeGate()),
+      );
+      unawaited(checkRuntimeGate());
     }
 
     try {
@@ -178,8 +210,12 @@ class DeepSeekClient {
       if (cancellationToken?.isCancelled ?? false) {
         throw const GenerationCancelledByUserException();
       }
+      if (runtimeGateAborted) {
+        throw const GenerationSuspendedByRuntimeGateException();
+      }
       rethrow;
     } finally {
+      runtimeGateTimer?.cancel();
       _streamClients.remove(streamClient);
       streamClient.close();
     }
@@ -193,63 +229,118 @@ class DeepSeekClient {
     bool thinking = false,
     ReasoningEffort effort = ReasoningEffort.high,
     int maxTokens = 1400,
+    GenerationCancellationToken? cancellationToken,
   }) async {
     final provider = ChatApiProvider.fromEndpoint(endpoint);
-    final response = await _client
-        .post(
-          Uri.parse(endpoint),
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': 'Bearer ${apiKey.trim()}',
-          },
-          body: jsonEncode({
-            'model': provider.effectiveModel(model),
-            'messages': messages,
-            ...provider.thinkingRequestFields(
-              thinking: thinking,
-              effort: effort,
-            ),
-            'max_tokens': maxTokens,
-            'response_format': {'type': 'json_object'},
-            'stream': false,
-          }),
-        )
-        .timeout(const Duration(seconds: 120));
-    if (response.statusCode < 200 || response.statusCode >= 300) {
-      throw DeepSeekException(response.statusCode, _extractError(response.body));
+    final abortWhen = _abortWhen;
+    final ownsClient = cancellationToken != null || abortWhen != null;
+    final requestClient = ownsClient ? _jsonClientFactory() : _client;
+    var runtimeGateAborted = false;
+    var gateCheckRunning = false;
+    Timer? runtimeGateTimer;
+    if (cancellationToken != null) {
+      unawaited(cancellationToken.whenCancelled.then((_) {
+        requestClient.close();
+      }));
     }
-    Map<String, dynamic> root;
-    try {
-      final decoded = jsonDecode(response.body);
-      if (decoded is! Map) throw const FormatException();
-      root = decoded.cast<String, dynamic>();
-    } on FormatException {
-      throw const MalformedJsonCompletionException();
-    }
-    final choices = root['choices'];
-    if (choices is! List || choices.isEmpty) {
-      throw const MalformedJsonCompletionException();
-    }
-    final firstRaw = choices.first;
-    if (firstRaw is! Map) {
-      throw const MalformedJsonCompletionException();
-    }
-    final first = firstRaw.cast<String, dynamic>();
-    final messageRaw = first['message'];
-    if (messageRaw is! Map) {
-      throw const MalformedJsonCompletionException();
-    }
-    final message = messageRaw.cast<String, dynamic>();
-    final content = message['content'];
-    if (content is! String || content.trim().isEmpty) {
-      throw const EmptyJsonCompletionException();
+    if (abortWhen != null) {
+      Future<void> checkRuntimeGate() async {
+        if (gateCheckRunning || runtimeGateAborted) return;
+        gateCheckRunning = true;
+        try {
+          if (await abortWhen()) {
+            runtimeGateAborted = true;
+            requestClient.close();
+          }
+        } catch (_) {
+          // Gate probing is best effort; the provider timeout still applies.
+        } finally {
+          gateCheckRunning = false;
+        }
+      }
+
+      runtimeGateTimer = Timer.periodic(
+        const Duration(milliseconds: 250),
+        (_) => unawaited(checkRuntimeGate()),
+      );
+      unawaited(checkRuntimeGate());
     }
     try {
-      final decoded = jsonDecode(content.trim());
-      if (decoded is! Map) throw const FormatException();
-      return decoded.cast<String, dynamic>();
-    } on FormatException {
-      throw const MalformedJsonCompletionException();
+      cancellationToken?.throwIfCancelled();
+      final response = await requestClient
+          .post(
+            Uri.parse(endpoint),
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': 'Bearer ${apiKey.trim()}',
+            },
+            body: jsonEncode({
+              'model': provider.effectiveModel(model),
+              'messages': messages,
+              ...provider.thinkingRequestFields(
+                thinking: thinking,
+                effort: effort,
+              ),
+              'max_tokens': maxTokens,
+              'response_format': {'type': 'json_object'},
+              'stream': false,
+            }),
+          )
+          .timeout(const Duration(seconds: 120));
+      cancellationToken?.throwIfCancelled();
+      if (runtimeGateAborted) {
+        throw const GenerationSuspendedByRuntimeGateException();
+      }
+      if (response.statusCode < 200 || response.statusCode >= 300) {
+        throw DeepSeekException(
+          response.statusCode,
+          _extractError(response.body),
+        );
+      }
+      Map<String, dynamic> root;
+      try {
+        final decoded = jsonDecode(response.body);
+        if (decoded is! Map) throw const FormatException();
+        root = decoded.cast<String, dynamic>();
+      } on FormatException {
+        throw const MalformedJsonCompletionException();
+      }
+      final choices = root['choices'];
+      if (choices is! List || choices.isEmpty) {
+        throw const MalformedJsonCompletionException();
+      }
+      final firstRaw = choices.first;
+      if (firstRaw is! Map) {
+        throw const MalformedJsonCompletionException();
+      }
+      final first = firstRaw.cast<String, dynamic>();
+      final messageRaw = first['message'];
+      if (messageRaw is! Map) {
+        throw const MalformedJsonCompletionException();
+      }
+      final message = messageRaw.cast<String, dynamic>();
+      final content = message['content'];
+      if (content is! String || content.trim().isEmpty) {
+        throw const EmptyJsonCompletionException();
+      }
+      try {
+        final decoded = jsonDecode(content.trim());
+        if (decoded is! Map) throw const FormatException();
+        return decoded.cast<String, dynamic>();
+      } on FormatException {
+        throw const MalformedJsonCompletionException();
+      }
+    } catch (_) {
+      if (cancellationToken?.isCancelled ?? false) {
+        throw const GenerationCancelledByUserException();
+      }
+      if (runtimeGateAborted) {
+        throw const GenerationSuspendedByRuntimeGateException();
+      }
+      rethrow;
+    } finally {
+      runtimeGateTimer?.cancel();
+      if (ownsClient) requestClient.close();
     }
   }
 

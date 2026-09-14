@@ -1,6 +1,7 @@
 import 'dart:math';
 
 import '../ai/durable_generation_recovery.dart';
+import '../ai/generation_cancellation.dart';
 import '../ai/memory_extractor.dart';
 import '../database/app_database.dart';
 import '../diagnostics/runtime_error_category.dart';
@@ -91,6 +92,8 @@ class RecoveryOrchestrator {
           if (albumState != 'failed') {
             await db.setSetting('companion_album_last_error', '');
           }
+        } on GenerationSuspendedByRuntimeGateException {
+          throw const _RecoveryOrchestratorOwnershipLost();
         } catch (albumError) {
           await db.setSetting(
             'companion_album_last_error',
@@ -110,6 +113,8 @@ class RecoveryOrchestrator {
           cedarContinuationState =
               await proactive.continueCedarActivityIfDue(now: now);
           await db.setSetting('cedar_toy_last_continuation_error', '');
+        } on GenerationSuspendedByRuntimeGateException {
+          throw const _RecoveryOrchestratorOwnershipLost();
         } catch (cedarError) {
           cedarContinuationState = 'failed';
           await db.setSetting(
@@ -161,6 +166,8 @@ class RecoveryOrchestrator {
       if (blocking == null && allowProactive) {
         try {
           cedarDirectShare = await proactive.deliverPendingCedarShareIfAny();
+        } on GenerationSuspendedByRuntimeGateException {
+          throw const _RecoveryOrchestratorOwnershipLost();
         } catch (cedarShareError) {
           await db.setSetting(
             'cedar_toy_last_direct_share_error',

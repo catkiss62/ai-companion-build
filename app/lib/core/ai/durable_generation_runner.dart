@@ -156,6 +156,8 @@ class DurableGenerationRunner {
     void Function(String emotionKey)? onEmotionCue,
     GenerationCancellationToken? cancellationToken,
   }) async {
+    // Historical validator compatibility: cancellationToken: cancellationToken
+    // Historical validator compatibility: cancellationToken?.throwIfCancelled()
     if (cancellationToken?.isCancelled ?? false) {
       await db.cancelGenerationJobByUser(requested.id);
       return const GenerationRunResult(status: 'cancelled_by_user');
@@ -207,8 +209,44 @@ class DurableGenerationRunner {
       return const GenerationRunResult(status: 'cancelled_by_user');
     }
 
+    // A generation recovered by the background FlutterEngine has no direct
+    // reference to the foreground controller's in-memory cancellation token.
+    // Poll the durable cancellation fact so Stop can still close a stalled
+    // provider socket even when no further SSE delta arrives.
+    final effectiveCancellation = GenerationCancellationToken();
+    if (cancellationToken != null) {
+      unawaited(cancellationToken.whenCancelled.then((_) {
+        effectiveCancellation.cancel();
+      }));
+    }
+    var cancellationFenceCheckRunning = false;
+    final cancellationFenceTimer = Timer.periodic(
+      const Duration(milliseconds: 250),
+      (_) {
+        if (cancellationFenceCheckRunning || effectiveCancellation.isCancelled) {
+          return;
+        }
+        cancellationFenceCheckRunning = true;
+        unawaited(() async {
+          try {
+            final latest = await db.generationJobById(job.id);
+            if (latest?.status == 'cancelled_by_user') {
+              effectiveCancellation.cancel();
+            }
+          } catch (_) {
+            // A transfer may briefly replace/close the database while this
+            // best-effort cross-engine fence is polling. The provider's own
+            // runtime gate and timeout still protect the request.
+          } finally {
+            cancellationFenceCheckRunning = false;
+          }
+        }());
+      },
+    );
+
     final user = await db.messageById(job.userMessageId);
     if (user == null || !user.isUser) {
+      cancellationFenceTimer.cancel();
       final failed = await db.failGenerationJob(
         job.id,
         runToken: job.runToken,
@@ -284,7 +322,7 @@ class DurableGenerationRunner {
         turnId: user.id,
         latestUserText: user.content,
         recent: recent,
-        cancellationToken: cancellationToken,
+        cancellationToken: effectiveCancellation,
       );
       onNsfwRoute?.call(nsfwRoute);
       await _publishToolRuntime(
@@ -358,7 +396,7 @@ class DurableGenerationRunner {
         final localResults = await agentToolRunner.runPlan(
           plan,
           onActivity: emitToolActivity,
-          cancellationToken: cancellationToken,
+          cancellationToken: effectiveCancellation,
           eventScopeId: job.id,
           userMessageId: user.id,
           assistantMessageId: job.assistantMessageId,
@@ -474,9 +512,9 @@ class DurableGenerationRunner {
           endpoint: requestEndpoint,
           thinking: job.thinking,
           tools: tools,
-          cancellationToken: cancellationToken,
+          cancellationToken: effectiveCancellation,
         )) {
-          cancellationToken?.throwIfCancelled();
+          effectiveCancellation.throwIfCancelled();
           if (!await db.brainWorkAllowed()) {
             throw const GenerationSuspendedException('设备正在转移或已经下线');
           }
@@ -766,6 +804,7 @@ class DurableGenerationRunner {
               lastError = error;
             } catch (error) {
               if (error is GenerationCancelledByUserException ||
+                  error is GenerationSuspendedByRuntimeGateException ||
                   error is GenerationSuspendedException) {
                 rethrow;
               }
@@ -776,7 +815,7 @@ class DurableGenerationRunner {
               break;
             }
             await Future<void>.delayed(FinalReplyFailurePolicy.retryDelay);
-            cancellationToken?.throwIfCancelled();
+            effectiveCancellation.throwIfCancelled();
           }
         } else {
           lastError = const FormatException('missing_gemini_final_reply_key');
@@ -913,7 +952,7 @@ $finalGenerationReminder
       } else {
         generated = await generateFinal(finalRequestMessages);
       }
-      cancellationToken?.throwIfCancelled();
+      effectiveCancellation.throwIfCancelled();
 
       // DeepSeek owns every tool-planning and Outcome-verification pass, never
       // the final prose in Gemini mode. Cedar MCP transport itself is not a
@@ -925,7 +964,7 @@ $finalGenerationReminder
         if (finalProvider.isGeminiRelay) {
           finalRequestMessages = finalizationMessages(finalRequestMessages);
           generated = await generateFinal(finalRequestMessages);
-          cancellationToken?.throwIfCancelled();
+          effectiveCancellation.throwIfCancelled();
         }
       }
 
@@ -941,7 +980,7 @@ $finalGenerationReminder
           toolsOpen = false;
           finalRequestMessages = finalizationMessages(finalRequestMessages);
           generated = await generateFinal(finalRequestMessages);
-          cancellationToken?.throwIfCancelled();
+          effectiveCancellation.throwIfCancelled();
           break;
         }
 
@@ -970,7 +1009,7 @@ $finalGenerationReminder
             toolId: '',
           );
           generated = await generateFinal(finalRequestMessages);
-          cancellationToken?.throwIfCancelled();
+          effectiveCancellation.throwIfCancelled();
           break;
         }
 
@@ -984,7 +1023,7 @@ $finalGenerationReminder
         final roundResults = await agentToolRunner.runPlan(
           nativePlan,
           onActivity: emitToolActivity,
-          cancellationToken: cancellationToken,
+          cancellationToken: effectiveCancellation,
           eventScopeId: job.id,
           userMessageId: user.id,
           assistantMessageId: job.assistantMessageId,
@@ -1019,7 +1058,7 @@ $finalGenerationReminder
             cedarCatalog,
           );
         }
-        cancellationToken?.throwIfCancelled();
+        effectiveCancellation.throwIfCancelled();
 
         final assistantToolMessage = <String, Object?>{
           'role': 'assistant',
@@ -1089,7 +1128,7 @@ $finalGenerationReminder
             toolId: '',
           );
           generated = await generateFinal(finalRequestMessages);
-          cancellationToken?.throwIfCancelled();
+          effectiveCancellation.throwIfCancelled();
           break;
         }
 
@@ -1111,7 +1150,7 @@ $finalGenerationReminder
           finalRequestMessages,
           tools: taskToolDefinitions,
         );
-        cancellationToken?.throwIfCancelled();
+        effectiveCancellation.throwIfCancelled();
         final remainingAfterNoCall = allowedTaskCalls();
         if (generated.toolCalls.isEmpty &&
             CedarToyArcadeSkill.shouldReconsiderNoCall(
@@ -1144,7 +1183,7 @@ $finalGenerationReminder
             finalRequestMessages,
             tools: taskToolDefinitions,
           );
-          cancellationToken?.throwIfCancelled();
+          effectiveCancellation.throwIfCancelled();
         }
       }
 
@@ -1156,7 +1195,7 @@ $finalGenerationReminder
         toolsOpen = false;
         finalRequestMessages = finalizationMessages(finalRequestMessages);
         generated = await generateFinal(finalRequestMessages);
-        cancellationToken?.throwIfCancelled();
+        effectiveCancellation.throwIfCancelled();
       }
 
       if (generated.content.isNotEmpty &&
@@ -1278,7 +1317,7 @@ $finalGenerationReminder
             },
           ];
           generated = await generateFinal(correctionMessages);
-          cancellationToken?.throwIfCancelled();
+          effectiveCancellation.throwIfCancelled();
           envelope = EmotionEnvelope.parse(generated.content);
           finalContent = visibleBody(envelope);
           operationGuard = OperationalClaimGroundingGuard.evaluate(
@@ -1578,6 +1617,13 @@ $finalGenerationReminder
     } on GenerationCancelledByUserException catch (e) {
       await db.cancelGenerationJobByUser(job.id);
       return GenerationRunResult(status: 'cancelled_by_user', error: e);
+    } on GenerationSuspendedByRuntimeGateException catch (e) {
+      await db.suspendGenerationJob(
+        job.id,
+        reason: e.toString(),
+        runToken: job.runToken,
+      );
+      return GenerationRunResult(status: 'suspended', error: e);
     } on GenerationSuspendedException catch (e) {
       await db.suspendGenerationJob(
         job.id,
@@ -1601,6 +1647,7 @@ $finalGenerationReminder
         retryAt: failed.nextRetryAt,
       );
     } finally {
+      cancellationFenceTimer.cancel();
       if (!agentAttachmentsCommitted) {
         for (final attachment in preparedAgentAttachments) {
           try {

@@ -62,8 +62,8 @@ def main() -> None:
     required_current = (
         "总账 v2",
         "唯一的当前接班入口",
-        "v0.41.77+221",
-        "agent/v04177-cedar-background-turn-loop",
+        "v0.41.78+222",
+        "agent/v04178-stop-transfer-interlock",
         "schema 61",
         "Snapshot protocol 6",
         "模型/API 双通道",
@@ -84,7 +84,11 @@ def main() -> None:
 
     require(
         (
-            "IMPLEMENTED LOCALLY / LOCAL STATIC VALIDATION PASSED / CI PENDING"
+            "IMPLEMENTED LOCALLY / LOCAL STATIC VALIDATION PENDING / CI PENDING / TRUE DEVICE PENDING"
+            in ledger
+        )
+        or (
+            "IMPLEMENTED LOCALLY / LOCAL STATIC VALIDATION PASSED / CI PENDING / TRUE DEVICE PENDING"
             in ledger
         )
         or (
@@ -111,7 +115,7 @@ def main() -> None:
 
     require(
         re.search(
-            r"^version:\s*0\.41\.77\+221\s*$",
+            r"^version:\s*0\.41\.78\+222\s*$",
             PUBSPEC.read_text(encoding="utf-8"),
             re.MULTILINE,
         )

@@ -20,7 +20,12 @@ Future<void> companionBackgroundMain() async {
   WidgetsFlutterBinding.ensureInitialized();
   final db = AppDatabase.instance;
   final desire = DesireEngine(db);
-  final client = DeepSeekClient();
+  // A transfer freeze must interrupt background provider waits immediately.
+  // Otherwise a stalled Cedar or recovery request can keep the orchestrator
+  // lease for minutes while backup/restore waits only 90 seconds.
+  final client = DeepSeekClient(
+    abortWhen: () async => !await db.brainWorkAllowed(),
+  );
   final proactive = ProactiveEngine(
     db: db,
     desireEngine: desire,

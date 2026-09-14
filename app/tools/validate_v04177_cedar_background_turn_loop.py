@@ -19,7 +19,7 @@ def require(path: str, *tokens: str) -> None:
     assert not missing, f"{path}: missing {missing}"
 
 
-require("pubspec.yaml", "version: 0.41.77+221")
+require("pubspec.yaml", "version: 0.41.78+222")
 require(
     "lib/core/ai/deepseek_client.dart",
     "class EmptyJsonCompletionException",
@@ -69,16 +69,16 @@ require(
 )
 require(
     ".github/workflows/build-apk.yml",
-    "agent/v04177-cedar-background-turn-loop",
-    "AI-Companion-v0.41.77-221-Cedar-Background-Turn-Loop-APK",
+    "agent/v04178-stop-transfer-interlock",
+    "AI-Companion-v0.41.78-222-Stop-Transfer-Interlock-APK",
     "validate_v04177_cedar_background_turn_loop.py",
 )
 require(
     "AI_Companion_当前总账.md",
-    "v0.41.77+221",
+    "v0.41.78+222",
     "Cedar 后台换手闭环",
     "根因已由同一时刻备份、诊断与源码三方证明",
     "Unexpected end of input",
 )
 
-print("v0.41.77+221 Cedar background turn-loop validation passed.")
+print("v0.41.78+222 Cedar background turn-loop validation passed.")

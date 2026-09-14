@@ -65,7 +65,11 @@ class ChatController extends ChangeNotifier {
     EmotionSoundService? emotionSoundService,
     this.externalRecoveryOrchestrator = false,
   })  : db = db ?? AppDatabase.instance,
-        client = client ?? DeepSeekClient(),
+        client = client ??
+            DeepSeekClient(
+              abortWhen: () async =>
+                  !await (db ?? AppDatabase.instance).brainWorkAllowed(),
+            ),
         visionClient = visionClient ?? QwenVisionClient(),
         secureConfig = secureConfig ?? SecureConfig.instance,
         android = android ?? AndroidBridge.instance,
@@ -1600,7 +1604,10 @@ class ChatController extends ChangeNotifier {
 
   /// Stops the current reply as one operation: model stream, durable recovery,
   /// streaming UI, and speech. The database transition wins against late
-  /// tokens through the existing run-token fence.
+  /// tokens through the existing run-token fence. Do not report completion
+  /// until the foreground or background runner has released the durable chat
+  /// lease; otherwise the UI can say "stopped" while backup and the next turn
+  /// are still blocked by the old provider socket.
   Future<void> cancelCurrentGeneration() async {
     if (_disposed || cancellingGeneration) return;
     cancellingGeneration = true;
@@ -1625,8 +1632,18 @@ class ChatController extends ChangeNotifier {
           await db.recentGenerationInterruptions(limit: 20);
     }
 
+    final deadline = DateTime.now().add(const Duration(seconds: 5));
+    while (await db.isLocalLeaseHeld('chat_turn_lease') &&
+        DateTime.now().isBefore(deadline)) {
+      await Future<void>.delayed(const Duration(milliseconds: 50));
+    }
+    final stopped = !await db.isLocalLeaseHeld('chat_turn_lease');
+
     externalGenerationActive = false;
     _externalGenerationAssistantMessageId = null;
+    if (!stopped) {
+      error = '停止请求已经写入，但旧回复连接尚未退出；请稍候，不要立即恢复备份。';
+    }
     cancellingGeneration = false;
     _safeNotify();
   }

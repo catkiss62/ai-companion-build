@@ -145,6 +145,8 @@ $latestUserText''',
       return decision;
     } on GenerationCancelledByUserException {
       rethrow;
+    } on GenerationSuspendedByRuntimeGateException {
+      rethrow;
     } catch (_) {
       // Routing only selects prompt depth. A classifier failure falls back to
       // the light daily layer; relationship capability, libido and

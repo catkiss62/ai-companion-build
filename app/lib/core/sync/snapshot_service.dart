@@ -1532,6 +1532,7 @@ class SnapshotService {
 
   static const Map<String, String> _restoredRuntimeSettings = <String, String>{
     'transfer_lock': '0',
+    'transfer_lock_owner': '',
     'pending_outbound_snapshot_id': '',
     'pending_outbound_generation': '0',
     'pending_import_snapshot_id': '',

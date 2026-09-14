@@ -394,18 +394,24 @@ class _TransferPageState extends State<TransferPage> {
       'conversation_summary_lease_until',
       'long_running_maintenance_lease',
     ];
+    var lastHeldKey = '';
     while (DateTime.now().isBefore(deadline)) {
       var held = false;
       for (final key in keys) {
         if (await db.isLocalLeaseHeld(key)) {
           held = true;
+          lastHeldKey = key;
           break;
         }
       }
       if (!held) return;
       await Future<void>.delayed(const Duration(milliseconds: 400));
     }
-    throw StateError('当前仍有聊天、记忆或后台整理正在写入，请等这一轮完成后重新发送状态包。');
+    throw StateError(
+      '当前仍有聊天、记忆或后台整理正在写入（阻塞项：'
+      '${lastHeldKey.isEmpty ? 'unknown' : lastHeldKey}），'
+      '请等这一轮完成后重新发送状态包。',
+    );
   }
 
   Future<void> _receive() async {
@@ -859,18 +865,30 @@ class _TransferPageState extends State<TransferPage> {
   Future<void> _backupExport() async {
     setState(() => busy = true);
     SnapshotBundle? bundle;
+    String? freezeToken;
     try {
       await SnapshotCacheJanitor.clean();
-      await db.setSetting('transfer_lock', '1');
+      _append('正在冻结本机写入并等待当前任务安全停下…');
+      final acquiredFreeze =
+          await db.acquireTransferFreeze(purpose: 'backup_export');
+      freezeToken = acquiredFreeze;
       await _waitForStateWriters();
+      if (!await db.ownsTransferFreeze(acquiredFreeze)) {
+        throw StateError('备份冻结所有权已变化，已拒绝导出不一致状态。');
+      }
+      _append('正在整理聊天、记忆与媒体并生成备份文件…');
       bundle = await snapshots.exportBackupBundle();
-      final metadata = await snapshots.inspectBundle(bundle.filePath);
-      if (!metadata.isBackup) {
+      if (!bundle.metadata.isBackup) {
         throw const FormatException('新备份没有通过内部完整性检查。');
       }
-      // The complete, inspected ZIP is now immutable. Release writers before
-      // the user chooses a destination or native streaming verifies the copy.
-      await db.setSetting('transfer_lock', '0');
+      // Export already hashes every source entry while constructing the ZIP.
+      // Android performs the independent portable-ZIP and copy/hash check
+      // after the picker. Avoid a redundant full extract/hash pass here: on a
+      // large relationship state it delayed the picker without adding a new
+      // integrity boundary.
+      await db.releaseTransferFreeze(acquiredFreeze);
+      freezeToken = null;
+      _append('备份已经生成，正在打开系统保存位置…');
       final now = DateTime.now().toUtc();
       final stamp = now.toIso8601String().replaceAll(':', '-').split('.').first;
       final saved = await android.savePlainBackup(
@@ -894,7 +912,9 @@ class _TransferPageState extends State<TransferPage> {
       _append('保存备份失败：$e。本机数据和主设备状态没有改变。');
     } finally {
       if (bundle != null) await _deleteCachePath(bundle.filePath);
-      await db.setSetting('transfer_lock', '0');
+      if (freezeToken != null) {
+        await db.releaseTransferFreeze(freezeToken);
+      }
       if (mounted) setState(() => busy = false);
     }
   }
@@ -915,6 +935,7 @@ class _TransferPageState extends State<TransferPage> {
   }) async {
     setState(() => busy = true);
     String? restoredPath;
+    String? freezeToken;
     try {
       await SnapshotCacheJanitor.clean();
       final opened = await picker();
@@ -929,13 +950,21 @@ class _TransferPageState extends State<TransferPage> {
         confirmRestore: (metadata) async {
           if (!await _confirmBackupRestore(metadata)) return false;
           if (!await _confirmLineageReplacement(metadata)) return false;
-          await db.setSetting('transfer_lock', '1');
+          final acquiredFreeze =
+              await db.acquireTransferFreeze(purpose: 'backup_restore');
+          freezeToken = acquiredFreeze;
           await _waitForStateWriters();
+          if (!await db.ownsTransferFreeze(acquiredFreeze)) {
+            throw StateError('恢复冻结所有权已变化，已拒绝替换本机状态。');
+          }
           return true;
         },
       );
       if (result == null) {
-        await db.setSetting('transfer_lock', '0');
+        if (freezeToken != null) {
+          await db.releaseTransferFreeze(freezeToken!);
+          freezeToken = null;
+        }
         _append('已取消恢复，不改变本机数据。');
         return;
       }
@@ -950,13 +979,12 @@ class _TransferPageState extends State<TransferPage> {
         _append('备份已恢复并通过校验。本机仍是当前主设备，可以继续正常使用。');
       }
     } catch (e) {
-      final active = await db.getSetting('active_brain');
-      if (active != '0') await db.setSetting('transfer_lock', '0');
       _append('恢复备份失败：$e；本机原数据没有被半覆盖。');
     } finally {
       if (restoredPath != null) await _deleteCachePath(restoredPath);
-      final active = await db.getSetting('active_brain');
-      if (active != '0') await db.setSetting('transfer_lock', '0');
+      if (freezeToken != null) {
+        await db.releaseTransferFreeze(freezeToken!);
+      }
       if (mounted) setState(() => busy = false);
     }
   }

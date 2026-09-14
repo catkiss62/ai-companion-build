@@ -25,3 +25,13 @@ class GenerationCancelledByUserException implements Exception {
   @override
   String toString() => 'generation_cancelled_by_user';
 }
+
+/// The current provider request was stopped because this runtime is no longer
+/// allowed to write (for example while a backup freezes state). Unlike an
+/// explicit user Stop, this must preserve the durable user turn for recovery.
+class GenerationSuspendedByRuntimeGateException implements Exception {
+  const GenerationSuspendedByRuntimeGateException();
+
+  @override
+  String toString() => 'generation_suspended_by_runtime_gate';
+}
