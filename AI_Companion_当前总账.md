@@ -36,7 +36,7 @@
 |---|---|
 | 仓库 | 公开仓库 `catkiss62/ai-companion-build`；完整 Flutter/Android 工程在 `app/` |
 | 持续提交与 APK 授权 | 2026-09-02 用户明确“以后一直允许提交”，并于 2026-09-03 再确认：人机恋项目范围内，可将任务相关源码和文档提交推送到本仓库当前或后续明确的开发分支，并直接执行常规 Actions/APK 创建流程，不再逐批重复询问。此授权不包含合并 `main`、发布正式 Release、删除分支/数据、改变仓库权限或公开密钥/隐私资料；这些仍须单独确认 |
-| 当前开发分支 | `agent/v04173-cedar-deterministic-entry-reply-completion`，从 +216 已构建 head `48850b16ede20e2c66af32f8f02b66acd487452e` 建立；目标版本 `v0.41.73+217 / schema 61 / Snapshot protocol 6`，当前状态 `LOCAL IMPLEMENTED / CI PENDING / APK PENDING / TRUE DEVICE PENDING`。本批修复 +216 真机证实的双弈/花园与猫用户入口零工具调用、普通最终回复截断漏判、主动分享半句落库与错误显示可刷新；同批依用户最新实测结论删除无效的“轻语 / 耳语 / 气声”三个手动测试音色，恢复四音色生产包；不改 Cedar 服务端规则、单人三档、数据库 schema 或 Snapshot protocol |
+| 当前开发分支 | `agent/v04173-cedar-deterministic-entry-reply-completion`，从 +216 已构建 head `48850b16ede20e2c66af32f8f02b66acd487452e` 建立；目标版本 `v0.41.73+217 / schema 61 / Snapshot protocol 6`，当前状态 `LOCAL IMPLEMENTED / CI RETRY PENDING / APK PENDING / TRUE DEVICE PENDING`。本批修复 +216 真机证实的双弈/花园与猫用户入口零工具调用、普通最终回复截断漏判、主动分享半句落库与错误显示可刷新；同批依用户最新实测结论删除无效的“轻语 / 耳语 / 气声”三个手动测试音色，恢复四音色生产包；前两轮 CI 的真实失败与窄修见 +217 详细记录，不改 Cedar 服务端规则、单人三档、数据库 schema 或 Snapshot protocol |
 | 上一运行代码基线 | `agent/v0417-forthright-fiery-personality`，功能 head `58c244a4b08033f403776f1ec31bbece5557506d`；Desire/Moe/主动性状态主干仍沿革自 `agent/v0415-personality-state-diversity` / `494796ef02e369f98e6896bc5acea7185e3c35dd` |
 | 有效构建 head / tree | +216 Actions build head `33747687fe6b620530ba1dd6c11e710acc0a3caa` / tree `a0a8dd27ca7c6a74de7b37279e3da5a36368996c`，远端 tree 与本地构建源码逐字一致。公开提交不含用户附件、诊断、备份、密钥、模型权重、参考音频、声学张量或 APK Artifact |
 | App / 数据库 | 当前施工目标为 `0.41.73+217 / schema 61 / Snapshot protocol 6`；最新已构建测试 APK 仍为 `0.41.72+216`。本批不升级 SQLite schema 或 Snapshot protocol，旧备份兼容边界不变 |
@@ -45,7 +45,7 @@
 | APK SHA-256 | `9c0c76123d3701bea51edb9f1a9c41041adca3ef4914c8516913c5f318af688f`；CI checksum 与 Draft asset digest 一致，固定测试签名证书 SHA-256 仍为 `305eb3d80983b963c64818ddf1ad561f279de6d47b3ed2c781ada448c7c25148` |
 | Artifact / Release | Artifact [`10324702656`](https://github.com/catkiss62/ai-companion-build/actions/runs/34781049060/artifacts/10324702656)，ZIP 542,922,295 bytes / digest `5f7544279fac390d17c9bbfe63da3ec03d6dd1fc8bf9c5b4dc3af07ff905b742`；[Draft Release](https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-69730c44a344f0eee6fe) 未发布，含 APK、`.sha256` 与 CI monitor，`main` 未合并 |
 | `main` | 仍停在 v0.38.5 旧基线，未合并 v0.41.x；**不得从 `main` 误判当前项目或作为后续开发基线** |
-| 当前总状态 | +204 小酒狐语音链 `TRUE DEVICE PASSED`；+206 双通道回复主要链 `TRUE DEVICE PARTIAL`；+208 设置精确回退为 `CI PASSED / APK READY / TRUE DEVICE PASSED`。+209、+210 均为 `CI PASSED / APK READY / TRUE DEVICE PENDING`。+211 Cedar 基础链为 `TRUE DEVICE PARTIAL`；+213 为 `TRUE DEVICE PARTIAL · CO-PLAY LOOP BUG FOUND`；+214 为 `TRUE DEVICE PARTIAL · REALTIME/ROOM-CHAT/FINALIZATION BUGS FOUND`；+215 为 `TRUE DEVICE PARTIAL`。+216 的单人三档与七候选为 `CI PASSED / APK READY / TRUE DEVICE PARTIAL`，但 2026-09-14 两份新存档证明双弈与花园与猫明确请求均可零 Cedar 调用，主动分享还可把半句落库；+217 已本地实现窄修与三测试音色退役，待提交/CI/APK/真机 |
+| 当前总状态 | +204 小酒狐语音链 `TRUE DEVICE PASSED`；+206 双通道回复主要链 `TRUE DEVICE PARTIAL`；+208 设置精确回退为 `CI PASSED / APK READY / TRUE DEVICE PASSED`。+209、+210 均为 `CI PASSED / APK READY / TRUE DEVICE PENDING`。+211 Cedar 基础链为 `TRUE DEVICE PARTIAL`；+213 为 `TRUE DEVICE PARTIAL · CO-PLAY LOOP BUG FOUND`；+214 为 `TRUE DEVICE PARTIAL · REALTIME/ROOM-CHAT/FINALIZATION BUGS FOUND`；+215 为 `TRUE DEVICE PARTIAL`。+216 的单人三档与七候选为 `CI PASSED / APK READY / TRUE DEVICE PARTIAL`，但 2026-09-14 两份新存档证明双弈与花园与猫明确请求均可零 Cedar 调用，主动分享还可把半句落库；+217 已推送主体修复和首轮空安全窄修，第二轮 CI `779/780`，现修补目录动作词后待第三轮 CI/APK/真机 |
 
 ### 3. 当前下一步任务包（新窗口必须完整接住）
 
@@ -98,7 +98,7 @@
 
 ## 近期详细记录与全局索引（按需检索）
 
-### 2026-09-14 v0.41.73+217 双弈确定性入口与回复完整性热修（LOCAL IMPLEMENTED / CI PENDING）
+### 2026-09-14 v0.41.73+217 双弈确定性入口与回复完整性热修（LOCAL IMPLEMENTED / CI RETRY PENDING）
 
 1. +216 真机备份 `AI_Companion_Backup_2026-09-14T01-17-56.aibackup` 与脱敏诊断 `ai_companion_diagnostics_2026-09-14T01-17-59-051369Z.txt` 已定点读取；附件只用于本地取证，不进入公开 Git。数据库为 schema 61 / generation 135，导出于 2026-09-14 09:17（UTC+8）；导出时无 active generation、无 chat lease，说明当前不是仍卡死，而是此前错误已经按 completed 落库。
 2. 双弈失败发生在 MCP 之前：用户明确说去游戏厅玩双弈后，模型内心已识别目标，却声称“当前没有 active MCP tools”，随后让用户自己拉房。后续用户说明已开局、下到一半、对面没有落子并发送 `5JH5MDVT`，五轮均为普通 DeepSeek completed job；保留的 33 条 Agent Outcome 最后 Cedar 调用仍停在旧日 fishing，活动状态只有 fishing session。+216 的目录标题触发只负责给模型附工具 schema，仍允许模型零调用后直接说话；因此过去围绕超时、actor、`next_call` 的修复没有触及本次入口失败。
@@ -117,6 +117,7 @@
 15. 用户决定退役的三个 TTS 测试候选已从 Dart `TtsVoiceMode`、设置下拉、Android `VOICE_CASES`、benchmark catalog 和 APK 生产 manifest 全部移除；工作流不再下载/覆盖 v0.7.7 七候选私有 overlay，恢复已钉 SHA 的 v0.7.6 四音色包。migration marker 升为 `ai-companion-v04173-build217-jiuhu-four-voices-v1`，旧三项固定设置自然回退 `auto`，保留日常/温柔/活泼/可爱、三语前端、Stop 与单 AudioTrack。
 16. 本地验证：+217 专项、+216 Cedar、+215 实时房间、+214 Agent/MCP、+213 切换、+204 四音色、退役三测试音色、当前总账与 Python compileall 均通过，workflow YAML 可解析，`git diff --check` 通过。按工作流非注释命令枚举 98 项本地 validators，95 项通过；余下三项分别是桌宠恢复脚本在本地临时恢复后拒绝覆盖既有目标、LingChat 私有 effects 未恢复、当前容器缺 `kotlinc`，均须由 Actions 干净环境验证。验证过程产生的未跟踪桌宠副本已清理；状态复核发现 6 个授权/覆盖素材属于基线已跟踪文件后已逐一恢复，当前无这部分删除或内容改动，用户附件/备份亦未改。当前容器仍无 Dart/Flutter，因此 Analyze、Flutter tests、Kotlin/JVM、Release、签名与 APK 仍严格为 CI 待证。
 17. 首轮远端实现提交为 `c7a1b7cc627540d9a1ba9e9e76c81f5292e669af` / tree `07ad822805b4d026697b4766c57ae5d1021f16c1`，与本地实现 tree 精确一致；Actions run [`34804548001`](https://github.com/catkiss62/ai-companion-build/actions/runs/34804548001) 已通过总账、变更范围、私有四音色/417 桌宠/LingChat/塔罗恢复、全部源码与历史 regression validators及 Flutter 依赖解析，随后在 Kotlin/JVM 步触发的 debug Flutter 编译停止。官方日志只报两处同源 Dart 空安全错误：可变且被闭包捕获的 `cedarSession` 无法在 `cedarSession != null` 后自动提升，故 `guideComplete` 与 `promptContext` 参数仍被视为 nullable；Analyze、Flutter tests、Release 与 APK 均尚未运行。本次窄修已在构建 Prompt 前冻结 final `cedarPromptSession` 供空安全提升，不改变 Cedar 路由、切换或回复语义；+217/+216/当前总账专项、Python compileall 与 `git diff --check` 再次通过，待第二轮完整 CI，不把首轮记为功能测试通过。
+18. 空安全窄修经授权 GitHub 通道写入远端提交 `c3b9d6f67b460eec02fe73652d01bcf2651b2add` / tree `85f3657cfe8b61dc1dfbe2c22215fe7a27fe09b4`，与本地修复 tree 精确一致。第二轮 Actions run [`34809767905`](https://github.com/catkiss62/ai-companion-build/actions/runs/34809767905) 已通过总账、变更范围、全部私有载荷恢复、源码/历史 validators、Kotlin/JVM 与 Flutter Analyze，证明首轮 nullable 编译错误已修复；Flutter tests 为 `779 passed / 1 failed`，失败只在新增目录标题测试：输入“现在去花园与猫开一个存档吧”期望 `garden_cat`，实际为空。根因不是标题公共前缀或多游戏歧义，而是 `catalogMentionedGameIds` 前置动作词只含“玩/来/进/加入/开房”等，漏掉明确的“开/创建/存档”，在目录解析前提前返回。当前窄修只补这三个建档动作词；单目标仍须唯一匹配，多游戏“可以玩玩”建议仍不会立即切换。+217 专项和 `git diff --check` 已通过，待第三轮完整 CI；第二轮未进入 Release/APK，失败诊断 Draft 上传本身也失败，均不得记为 APK READY。
 
 ### 2026-09-13 v0.41.72+216 Cedar 信任优先、快速/观战节奏、即时分享与小酒狐七候选（CI PASSED / APK READY / TRUE DEVICE PENDING）
 

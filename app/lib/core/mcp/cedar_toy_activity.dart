@@ -1379,7 +1379,8 @@ ${session.guide}
     String userText,
     String catalog,
   ) {
-    if (!RegExp(r'(玩|来|进|加入|开房|房间|一局|棋|游戏)').hasMatch(userText) ||
+    if (!RegExp(r'(玩|来|进|加入|开|创建|存档|房间|一局|棋|游戏)')
+            .hasMatch(userText) ||
         catalog.trim().isEmpty) return const <String>[];
     final matches = <String>[];
     final entries = RegExp(
