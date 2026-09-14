@@ -1,7 +1,7 @@
 status=success
-run_id=34866765746
-run_url=https://github.com/catkiss62/ai-companion-build/actions/runs/34866765746
-head_sha=f3a4e95e35c5ca47fb68e84aa8d12a850cfbd91a
+run_id=34882529012
+run_url=https://github.com/catkiss62/ai-companion-build/actions/runs/34882529012
+head_sha=bf4c8216235d067884bb2f5fa303d17eec8eb6a3
 signer_sha256=30:5E:B3:D8:09:83:B9:63:C6:48:18:DD:F1:AD:56:1F:27:9D:E6:D4:7B:3E:D2:C7:81:AD:A4:48:C7:C2:51:48
-3bcab458f8138d97f4f150c5e92d1f5653e018ee87e5a64cbdde6b56f8a2a6d9  AI-Companion-v0.41.76-220-Cedar-Protocol-Continuation-APK.apk
-release_url=https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-390da0c4ad01f6d108aa
+6d74a7c622a80f0d57a97b94249a4ac0cd6f17a3102c6084cd2d22e9eefb9270  AI-Companion-v0.41.77-221-Cedar-Background-Turn-Loop-APK.apk
+release_url=https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-ebb3a7c0512aee5ca374
