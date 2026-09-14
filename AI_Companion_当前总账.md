@@ -30,35 +30,43 @@
 | 项目 | 当前事实 |
 |---|---|
 | 仓库 | `catkiss62/ai-companion-build`；Flutter/Android 工程位于 `app/` |
-| 当前开发分支 | `agent/v04178-stop-transfer-interlock` |
-| 当前目标版本 | `v0.41.78+222 / schema 61 / Snapshot protocol 6` |
+| 当前开发分支 | `agent/v04179-cedar-runtime-preemption` |
+| 当前目标版本 | `v0.41.79+223 / schema 61 / Snapshot protocol 6` |
 | 当前状态 | `IMPLEMENTED LOCALLY / LOCAL STATIC VALIDATION PASSED / CI PENDING / TRUE DEVICE PENDING` |
-| 当前真机失败基线 | `v0.41.77+221`；停止“正在回复”后旧后台请求仍占写入租约，聊天、保存和恢复可一起被阻塞 |
+| 当前真机失败基线 | `v0.41.78+222`；Cedar 后台规划连续超时时长时占用恢复器全局写租约，游戏厅显示永久执行，聊天、备份和恢复一起失去响应；04:40 高疲劳仍继续钓鱼 |
 | `main` | 仍是 v0.38.5 旧基线；不得作为 v0.41.x 后续开发起点，本批不合并 |
 | +219 构建提交 | 远端功能 head `0295ceeeafe9e18f057b6f8f5d54a8dae8820ed2`；tree `3cf8a09813c135b8bce4e5b9a66381ba2a03f5cf` |
 | +220 构建提交 | 远端功能 head `f3a4e95e35c5ca47fb68e84aa8d12a850cfbd91a`；tree `0efb121197441a2522f987a5b506e32dda53e555` |
 | +221 构建提交 | 远端功能 head `bf4c8216235d067884bb2f5fa303d17eec8eb6a3`；tree `125c47730e7b5c37ab74af4721904db194742e75` |
-| 上一构建产物 | `AI-Companion-v0.41.77-221-Cedar-Background-Turn-Loop-APK.apk`；SHA-256 `6d74a7c622a80f0d57a97b94249a4ac0cd6f17a3102c6084cd2d22e9eefb9270` |
+| +222 构建提交 | 远端功能提交 `ccbe5bcbe9b3fc65941846f74aa4d95b6be50c7d`；授权提交/head `93fcb2fbbf78be80a5da9724fd6b051956e1ff34`；最终 tree `f167bdf6a16700333a978f5f6b99498fdfec3974` |
+| +223 本地功能提交 | `dd5786f7`；待本总账提交后推送与 Actions |
+| 当前构建产物 | `AI-Companion-v0.41.79-223-Cedar-Runtime-Preemption-APK.apk`；待 Actions 构建与校验 |
 
 既有能力保护索引：Desire / Thought / Intent / Gate、Somatic 双通道、玩游 Key、普通聊天、沉浸房间、查手机、造梗来源、D6、Phase 2B、App 内 Agent 能力桥、Memory 2D、`fact_state / attention_state / recall_policy`、`spontaneous_salience`、`reminiscence/identity`、Skills、MCP、`【检查系统】`、中断灰显、Token 命中/缓存优化、Phase 3、Harness、`screen_observation.inspect`、Genie-TTS 四音色、schema 61 与 Snapshot protocol 6 均不得回归。
 
-## 4. 当前任务：v0.41.78+222 停止与备份互锁
+## 4. 当前任务：v0.41.79+223 Cedar 运行时抢占、开关与夜间节律
 
 ### 真机证据与确定根因
 
-- 输入诊断：`ai_companion_diagnostics_2026-09-14T19-26-44-504222Z.txt` 与 `ai_companion_diagnostics_2026-09-14T19-36-04-931983Z.txt`；输入备份仅在临时工作区校验，不进入 Git。旧备份 ZIP、32 个条目及其 31 个声明 SHA-256 均通过，因此“不能读档”不是备份文件损坏。
-- 两份诊断的 `stateGeneration` 从 144 变为 145，同时中断展示数从 22 回到旧备份中的 20；结合恢复算法 `max(local, backup)+1`，证明期间至少有一次恢复真实成功。19:36 诊断生成早于 03:38 的失败提示，不能拿其空闲快照否定恢复时仍有写入者。
-- 停止键原先只把 SQLite generation job 标成 `cancelled_by_user` 并取消当前 FlutterEngine 的内存 token。若回复已由后台 FlutterEngine 恢复，前台拿不到其 token；后台 runner 也没有 token，只在收到下一段 SSE 时复查数据库。Provider 卡住且不再发 delta 时，UI 看似已停止，HTTP 仍可活到 120 秒超时并继续持有 `chat_turn_lease`。
-- 后台 `RecoveryOrchestrator` 可在 Cedar/Memory JSON 网络调用期间持有 `recovery_orchestrator_lease_until` 六分钟；普通备份/恢复只等写入者 90 秒。原后台 `DeepSeekClient` 不观察 `transfer_lock`，所以冻结无法中断网络等待，90 秒报错是必然并发结果，不是正常导出耗时。
-- 普通备份使用无所有者的全局 `transfer_lock=0/1`。旧页面或旧异步操作的 `finally` 能在新操作已置 1 后再写回 0，随后 `SnapshotService` 的内部锁检查就会报“创建普通备份前必须先冻结本机写入”。这是确定的旧操作误解锁新操作竞态。
+- 最新同时刻诊断 `ai_companion_diagnostics_2026-09-14T20-59-35-975006Z.txt` 与真机截图相互印证：当时没有活跃 chat job，`chat_turn_lease=false`，但 `recovery_orchestrator_lease_until` 处于 running，Cedar 活动状态一直是“规划下一步 / fishing”。因此不是 NSFW、主聊天网络或 UI 动画本身卡住。
+- Cedar `_judge` 的单次请求可等 120 秒，超时后又被当成瞬态故障立即重试；整个网络等待同时持有六分钟恢复器全局写租约。这正好解释“钓鱼永远转圈、聊天/备份/恢复全部像死机”。
+- 原实现只在启动后台 Cedar 前检查开关，没有在请求期间监视关闭、前台聊天或备份冻结；迟到的远端结果还能把已暂停状态覆盖回“正在执行”。
+- 04:40 诊断中疲劳已为 `0.74`，但已承诺的 Cedar session 绕过 Desire/Thought 竞争直接续步；所以原先“夜间依思考、疲劳和困意降低频率、优先睡觉”只管到选游戏，没有管到正在玩的游戏。
 
 ### 本批实现与完成判据
 
-1. `DurableGenerationRunner` 每 250 ms 读取 durable job 状态；跨 FlutterEngine 看见 `cancelled_by_user` 后立即取消有效 token并关闭专属 stream/JSON HTTP client，不再依赖下一段 SSE。停止按钮最长等待 5 秒确认 `chat_turn_lease` 真正释放；若极端情况下仍未退出，明确提示尚未停止完成，不再假装成功。
-2. 后台 `DeepSeekClient` 增加 runtime gate。备份/恢复置锁后，后台 stream 与 JSON 请求立即关闭；这是运行时暂停，不冒充用户停止，也不删除待恢复用户轮。Cedar Outcome 核验与 NSFW 路由沿同一取消边界传播，不在冻结后继续写状态。
-3. 普通保存/恢复改用 `transfer_lock_owner` 所有权 token。只有持有同一 token 的操作才能验锁和解锁；旧页面的迟到 `finally` 无法清掉新锁。ZIP 按状态与媒体哈希清单生成后先解冻，再打开系统保存页；用户选定位置后由 Android 独立执行 portable-ZIP、源/目标字节与 SHA-256 复核。删除了保存框之前重复的一次完整解包/哈希，并增加“冻结→整理生成→打开保存位置”阶段提示，既保留最终完整性边界，也避免无反馈地重复扫描几十 MiB。
-4. 脱敏诊断新增全部状态写入 lease 的 held/到期元数据与具体阻塞项，不包含 lease owner token、聊天正文、房间消息或凭据。新测试模拟永不返回的 HTTP 请求，验证用户 Stop 和 transfer freeze 都会在 2 秒内关闭它，并加入源码合同测试覆盖 durable poll、owned freeze 和停止等待。
-5. `git diff --check`、workflow YAML、Python compileall、当前总账门、+222/+221/+220 Cedar 与 Stop 专项门均通过；Actions 当前源码门中本机可执行的 `99/99` validators 通过。另 3 项依赖 Actions 恢复的私有桌宠/LingChat 载荷或本机不存在的 `kotlinc`。本地无 Flutter/Dart，必须由 CI 完成 Analyze、全量 Flutter tests、arm64 Release、签名、Artifact 与未发布 Draft。用户已明确授权将 +222 的两个提交推送到公开仓库 `catkiss62/ai-companion-build` 的 `agent/v04178-stop-transfer-interlock`，运行 Actions 并创建未发布 Draft APK；同时授权本窗口后续 AI 伴侣项目按明确开发分支继续推送和构建。自动化通过后仍为 `TRUE DEVICE PENDING`。
+1. Cedar 网络调用改为独立 30 秒上限；provider 超时不在同一轮再试一次。空/损坏 JSON 和 429/5xx 仍保留最多一次改变策略的窄重试。
+2. 每次 Cedar 动作使用独立 `executionId` 与 SQLite 原子 fence。请求期间每 200 ms 观察 Active Brain/transfer freeze、主/自主开关、前台 `chat_turn_lease` 与 fence；触发后立即关闭 HTTP，迟到结果无权写回。升级或恢复遇到旧执行动画也会自动判为孤儿状态清理。
+3. `RecoveryOrchestrator` 在 Cedar 网络等待前释放全局恢复器租约，只留 `cedar_toy_action_lease_until` 这一狭义动作锁。聊天可直接取得前台租约并抢占 Cedar；备份/恢复冻结会中断 Cedar，等狭义锁退出后再制作快照。
+4. 关闭“Cedar Toy”或“允许她自主玩”任一开关都会原子暂停当前 session、清除执行动画、保留远端存档；只有两个开关都再开启时，才自动恢复“因开关而暂停”的游戏，不会擅自恢复用户手动暂停的对局。
+5. 已承诺 session 续步前也进入与 Desire Core 同源的疲劳/休息竞争，叠加本局 Thought 强度和用户是否在观看。例如 04:40、疲劳 0.74、无强烈玩游戏念头时至少延后 45 分钟；进度不删除，真正强烈的念头仍可胜出。
+6. 新固定测试覆盖夜间休息胜出、强 Thought 例外、阻塞 Cedar JSON 立即取消、超时不同轮重试、执行代号序列化与源码跨模块合同。自动化通过后仍为 `TRUE DEVICE PENDING`。
+7. 本地 `git diff --check`、workflow YAML、Python compileall、当前总账门与 +215—+223 Cedar/Stop 专项门通过；Actions 实际列出的 103 个源码门本地通过 100 个。剩余 3 个分别依赖 CI 恢复的 417 文件桌宠资源、LingChat 私有资源和本机不存在的 `kotlinc`；本机同样没有 Flutter/Dart，因此 Analyze、Flutter tests、Kotlin/JVM、arm64 Release 和签名必须由 Actions 证明。
+
+## 5. 上一已完成基线：v0.41.78+222 停止与备份互锁
+
+- 两个 +222 提交位于 `agent/v04178-stop-transfer-interlock`。Actions run `34892223932`（run 876）全绿，`805/805` Flutter tests、arm64 Release、固定签名、Artifact 和 Draft 均通过。
+- Artifact `10367902104`，Draft `https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-70f3bfb17381ac00cd4f`，APK SHA-256 `5034db229522d55882bdc62a5bc0c097bd9145cdda178bf8befbc032dbf80bf8`。+222 修复了跨 FlutterEngine Stop 与 `transfer_lock_owner` owned freeze，但最新真机证明 Cedar 自己的长网络等待仍可饿饿全局系统。
 
 ## 5. 上一已完成基线：v0.41.77+221 Cedar 后台换手闭环
 
