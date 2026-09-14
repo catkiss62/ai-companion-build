@@ -13,6 +13,40 @@ void main() {
       isTrue,
     );
     expect(CedarParticipationMode.multiplayer.requiresInvitation, isTrue);
+
+    CedarToyActivityState stateFor(
+      CedarParticipationMode mode, {
+      bool approved = false,
+    }) =>
+        CedarToyActivityState(
+          activeGameId: 'game',
+          sessions: <String, CedarGameSession>{
+            'game': CedarGameSession(
+              id: 'game',
+              gameId: 'game',
+              guide: 'guide',
+              guideComplete: true,
+              mode: mode,
+              phase: CedarActivityPhase.active,
+              invitationApproved: approved,
+              updatedAt: DateTime.fromMillisecondsSinceEpoch(1),
+            ),
+          },
+          updatedAt: DateTime.fromMillisecondsSinceEpoch(1),
+        );
+    expect(
+      stateFor(CedarParticipationMode.coPlay).hasUserTurnContinuation,
+      isTrue,
+    );
+    expect(
+      stateFor(CedarParticipationMode.hybrid).hasUserTurnContinuation,
+      isFalse,
+    );
+    expect(
+      stateFor(CedarParticipationMode.hybrid, approved: true)
+          .hasUserTurnContinuation,
+      isTrue,
+    );
   });
 
   test('live catalog parser returns Chinese titles without hardcoded games', () {

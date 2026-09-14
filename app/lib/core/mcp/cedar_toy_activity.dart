@@ -480,6 +480,7 @@ class CedarToyActivityState {
     if (session == null || !session.continuable) return false;
     return session.phase == CedarActivityPhase.awaitingInvitation ||
         session.phase == CedarActivityPhase.waitingUser ||
+        session.mode.requiresInvitation ||
         (session.mode.supportsSharedParticipation &&
             session.invitationApproved);
   }
