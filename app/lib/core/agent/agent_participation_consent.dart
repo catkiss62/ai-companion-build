@@ -19,13 +19,18 @@ class AgentParticipationConsentPolicy {
     r'(?:房间码|房号|room\s*id).{0,24}[A-Za-z0-9]{5,16}',
     caseSensitive: false,
   );
+  static final RegExp _standaloneRoomCode = RegExp(
+    r'^[A-Z0-9]{5,16}$',
+    caseSensitive: false,
+  );
 
   static bool explicitlyGranted(String text) {
     final clean = text.trim();
     if (clean.isEmpty || _denial.hasMatch(clean)) return false;
     return _userInitiated.hasMatch(clean) ||
         _accepted.hasMatch(clean) ||
-        _roomShared.hasMatch(clean);
+        _roomShared.hasMatch(clean) ||
+        _standaloneRoomCode.hasMatch(clean);
   }
 
   static bool describesExistingRoom(String text) {
@@ -33,7 +38,8 @@ class AgentParticipationConsentPolicy {
     if (clean.isEmpty || _denial.hasMatch(clean)) return false;
     return RegExp(
       r'((?:我|这边).{0,20}(?:已经|刚刚|刚才)?(?:开|建|创建)(?:好|了).{0,20}(?:房|房间|对局))|'
-      r'((?:房间码|房号|room\s*id).{0,24}[A-Za-z0-9]{5,16})',
+      r'((?:房间码|房号|room\s*id).{0,24}[A-Za-z0-9]{5,16})|'
+      r'(^[A-Z0-9]{5,16}$)',
       caseSensitive: false,
     ).hasMatch(clean);
   }

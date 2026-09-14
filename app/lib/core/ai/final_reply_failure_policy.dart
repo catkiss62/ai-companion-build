@@ -47,8 +47,23 @@ class FinalReplyFailurePolicy {
     return reason == 'length' ||
         reason == 'content_filter' ||
         reason == 'safety' ||
-        reason == 'error';
+        reason == 'error' ||
+        reason == 'stream_incomplete';
   }
+
+  /// A provider may incorrectly report `stop` after cutting a structured
+  /// dialogue line. Keep this deliberately narrow: natural short replies and
+  /// unfinished thoughts are valid style, while an unmatched opening quote is
+  /// strong evidence that the transport/model stopped mid-body.
+  static bool hasStrongIncompleteStructure(String raw) {
+    final text = raw.trimRight();
+    if (text.isEmpty) return false;
+    return _count(text, '「') > _count(text, '」') ||
+        _count(text, '“') > _count(text, '”');
+  }
+
+  static int _count(String source, String token) =>
+      RegExp(RegExp.escape(token)).allMatches(source).length;
 
   static bool isTransient(Object error) {
     if (error is GenerationCancelledByUserException) return false;

@@ -5,6 +5,7 @@ import 'dart:math';
 import 'package:uuid/uuid.dart';
 
 import '../ai/deepseek_client.dart';
+import '../ai/final_reply_failure_policy.dart';
 import '../ai/model_profile.dart';
 import '../ai/prompt_builder.dart';
 import '../autonomy/public_web_discovery_engine.dart';
@@ -94,10 +95,25 @@ class _ProactiveGenerationCandidate {
   const _ProactiveGenerationCandidate({
     required this.reasoning,
     required this.content,
+    this.finishReason = '',
+    this.sawTerminalSignal = false,
   });
 
   final String reasoning;
   final String content;
+  final String finishReason;
+  final bool sawTerminalSignal;
+
+  _ProactiveGenerationCandidate copyWith({
+    String? reasoning,
+    String? content,
+  }) =>
+      _ProactiveGenerationCandidate(
+        reasoning: reasoning ?? this.reasoning,
+        content: content ?? this.content,
+        finishReason: finishReason,
+        sawTerminalSignal: sawTerminalSignal,
+      );
 }
 
 String _visibleChineseProactiveReasoning(String raw) {
@@ -1249,6 +1265,8 @@ ${startsFreshTopic ? '本类型属于新话题通道：ANSWERED CHAT HISTORY 已
     ) async {
       final reasoning = StringBuffer();
       final content = StringBuffer();
+      var finishReason = '';
+      var sawTerminalSignal = false;
       await for (final delta in ai.streamChat(
         apiKey: apiKey,
         model: model,
@@ -1269,10 +1287,16 @@ ${startsFreshTopic ? '本类型属于新话题通道：ANSWERED CHAT HISTORY 已
         }
         reasoning.write(delta.reasoning);
         content.write(delta.content);
+        if (delta.done || delta.finishReason != null) {
+          sawTerminalSignal = true;
+        }
+        if (delta.finishReason != null) finishReason = delta.finishReason!;
       }
       return _ProactiveGenerationCandidate(
         reasoning: reasoning.toString().trim(),
         content: content.toString().trim(),
+        finishReason: finishReason,
+        sawTerminalSignal: sawTerminalSignal,
       );
     }
 
@@ -1328,6 +1352,48 @@ ${startsFreshTopic ? '本类型属于新话题通道：ANSWERED CHAT HISTORY 已
       );
     }
 
+    bool incompleteCandidate(_ProactiveGenerationCandidate value) =>
+        !value.sawTerminalSignal ||
+        FinalReplyFailurePolicy.isIncompleteFinishReason(value.finishReason) ||
+        FinalReplyFailurePolicy.hasStrongIncompleteStructure(value.content);
+
+    if (incompleteCandidate(candidate)) {
+      final retryContext = <Map<String, Object?>>[
+        ...context,
+        <String, Object?>{
+          'role': 'system',
+          'content': '''【主动消息完整性重试】
+上一份候选被确认在流式传输或对白结构中截断。丢弃它并重新生成一条完整、较短的主动消息；不要从半句续写，不要复述内部错误。若没有值得完整说完的内容，只输出 WAIT。''',
+        },
+      ];
+      final retried = await generateCandidate(retryContext);
+      if (retried == null) {
+        await noteGeneration('preempted', reasonTag: 'writer_lease');
+        return ProactiveDecision(
+          sent: false,
+          reason: '主动消息完整性重试时写入权限已经转移',
+          gateScore: gateScore,
+          intentKind: intentKind,
+          deliveryStyle: deliveryStyle,
+        );
+      }
+      candidate = retried;
+      if (incompleteCandidate(candidate)) {
+        await noteGeneration('failed', reasonTag: 'reply_incomplete');
+        await db.addProactiveHistory(
+          triggerReason: '${intent.drive.name}:${intent.reason}',
+          decision: 'reply_incomplete',
+        );
+        return ProactiveDecision(
+          sent: false,
+          reason: '主动消息连续两次截断，未把半句发送或写入聊天',
+          gateScore: gateScore,
+          intentKind: intentKind,
+          deliveryStyle: deliveryStyle,
+        );
+      }
+    }
+
     bool isWait(_ProactiveGenerationCandidate value) =>
         value.content.isEmpty || value.content == 'WAIT';
 
@@ -1335,10 +1401,7 @@ ${startsFreshTopic ? '本类型属于新话题通道：ANSWERED CHAT HISTORY 已
     // explicitly share the same machine-only envelope normalization before
     // guards, SQLite, notification, overlay and TTS can see the content.
     var emotionEnvelope = EmotionEnvelope.parse(candidate.content);
-    candidate = _ProactiveGenerationCandidate(
-      reasoning: candidate.reasoning,
-      content: emotionEnvelope.visibleText,
-    );
+    candidate = candidate.copyWith(content: emotionEnvelope.visibleText);
 
     if (isWait(candidate)) {
       if (webShareCandidateId != null) {
@@ -1462,11 +1525,22 @@ ${PromptBuilder.visibleChineseGenerationReminder(proactive: true)}
           deliveryStyle: deliveryStyle,
         );
       }
+      if (incompleteCandidate(retried)) {
+        await noteGeneration('failed', reasonTag: 'reply_incomplete');
+        await db.addProactiveHistory(
+          triggerReason: '${intent.drive.name}:${intent.reason}',
+          decision: 'reply_incomplete',
+        );
+        return ProactiveDecision(
+          sent: false,
+          reason: '主动消息纠正结果仍被截断，未写入聊天',
+          gateScore: gateScore,
+          intentKind: intentKind,
+          deliveryStyle: deliveryStyle,
+        );
+      }
       emotionEnvelope = EmotionEnvelope.parse(retried.content);
-      candidate = _ProactiveGenerationCandidate(
-        reasoning: retried.reasoning,
-        content: emotionEnvelope.visibleText,
-      );
+      candidate = retried.copyWith(content: emotionEnvelope.visibleText);
       if (isWait(candidate)) {
         if (webShareCandidateId != null) {
           await publicWebSharing.markDeclined(webShareCandidateId);
@@ -1554,8 +1628,7 @@ ${PromptBuilder.visibleChineseGenerationReminder(proactive: true)}
         publicWebOutcomeAvailable: webShareCandidateId != null,
         cedarOutcomeAvailable: isCedarGameShare,
       );
-      candidate = _ProactiveGenerationCandidate(
-        reasoning: candidate.reasoning,
+      candidate = candidate.copyWith(
         content: salvaged.isNotEmpty
             ? salvaged
             : '「刚才那件事我其实还没做，先不拿它当开场了。」',

@@ -1375,9 +1375,13 @@ ${session.guide}
           .where((item) => item.gameId.isNotEmpty && item.action.isNotEmpty)
           .toList(growable: false);
 
-  static bool catalogMentionsGame(String userText, String catalog) {
+  static List<String> catalogMentionedGameIds(
+    String userText,
+    String catalog,
+  ) {
     if (!RegExp(r'(玩|来|进|加入|开房|房间|一局|棋|游戏)').hasMatch(userText) ||
-        catalog.trim().isEmpty) return false;
+        catalog.trim().isEmpty) return const <String>[];
+    final matches = <String>[];
     final entries = RegExp(
       r'(?:^|[|：:]\s*)([A-Za-z][A-Za-z0-9_.:-]{1,79})·([^，,·|\n]{2,30})',
       multiLine: true,
@@ -1386,9 +1390,47 @@ ${session.guide}
       final id = entry.group(1) ?? '';
       final title = entry.group(2)?.trim() ?? '';
       if ((id.isNotEmpty && userText.toLowerCase().contains(id.toLowerCase())) ||
-          (title.isNotEmpty && userText.contains(title))) return true;
+          _mentionsCatalogTitle(userText, title)) {
+        matches.add(id);
+      }
+    }
+    return matches.toSet().toList(growable: false);
+  }
+
+  static String catalogMentionedGameId(String userText, String catalog) {
+    final matches = catalogMentionedGameIds(userText, catalog);
+    return matches.length == 1 ? matches.single : '';
+  }
+
+  static bool catalogMentionsGame(String userText, String catalog) =>
+      catalogMentionedGameIds(userText, catalog).isNotEmpty;
+
+  static bool _mentionsCatalogTitle(String userText, String title) {
+    if (title.isEmpty) return false;
+    if (userText.contains(title)) return true;
+    final titleRunes = title.runes.toList(growable: false);
+    for (var length = titleRunes.length - 1; length >= 4; length -= 1) {
+      final prefix = String.fromCharCodes(titleRunes.take(length));
+      if (userText.contains(prefix)) return true;
     }
     return false;
+  }
+
+  static bool requestsImmediateGameEntry(String userText) {
+    final clean = userText.trim();
+    if (clean.isEmpty) return false;
+    final explicitlyDeferred = RegExp(
+      r'(以后|有空|改天|哪天|下次|偶尔|可以考虑|可以玩玩|推荐你)',
+    ).hasMatch(clean);
+    final explicitlyImmediate = RegExp(
+      r'(现在|马上|立刻|这就|赶紧|立即)',
+    ).hasMatch(clean);
+    if (explicitlyDeferred && !explicitlyImmediate) return false;
+    return explicitlyImmediate ||
+        RegExp(r'(?:^|[，。！？\s])(?:去|来).{0,20}玩').hasMatch(clean) ||
+        RegExp(r'(?:玩|进|进入|加入|开|创建).{0,20}(?:吧|一下|一局|存档|房间)')
+            .hasMatch(clean) ||
+        RegExp(r'^(?:去)?玩\S+').hasMatch(clean);
   }
 
   static Map<String, CedarGameSession> _boundedSessions(

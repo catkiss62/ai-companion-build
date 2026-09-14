@@ -35,7 +35,6 @@ import '../somatic/somatic_engine.dart';
 import '../stickers/sticker_expression_service.dart';
 import '../storage/secure_config.dart';
 import '../platform/android_bridge.dart';
-import 'chat_api_provider.dart';
 import 'deepseek_client.dart';
 import 'dialogue_expression_plan.dart';
 import 'final_reply_failure_policy.dart';
@@ -110,7 +109,7 @@ class FinalReplyIncompleteException implements Exception {
   final String finishReason;
 
   @override
-  String toString() => 'Gemini 回复未完整结束';
+  String toString() => '回复未完整结束';
 }
 
 /// Runs one durable assistant-generation job.
@@ -312,11 +311,28 @@ class DurableGenerationRunner {
       var streamedToolPreamble = '';
       var upstreamReasoningDeltaSeen = false;
       var reasoningDeltaForwardedToSurface = false;
-      final localPlan = AgentToolPlanner.routeLocally(user.content);
-      if (localPlan != null) {
-        agentPlanningRounds = 1;
+      final cedarActivityStore = CedarToyActivityStore(db);
+      var cedarState = await cedarActivityStore.loadState();
+      var cedarSession = cedarState.activeSession;
+      var cedarCatalog = await cedarActivityStore.loadCatalog();
+      var explicitCedarGameId = CedarToyActivityStore.catalogMentionedGameId(
+        user.content,
+        cedarCatalog,
+      );
+      final immediateCedarEntry =
+          CedarToyActivityStore.requestsImmediateGameEntry(user.content);
+      final cedarConfigured =
+          (await db.getSetting('cedar_toy_enabled')) != '0' &&
+          ((await secureConfig.readCedarToyToken())?.trim().isNotEmpty ?? false);
+      var localPlan = AgentToolPlanner.routeLocally(user.content);
+
+      Future<void> runLocalPlan(AgentToolPlan plan) async {
+        // Deterministic local routing is one planning stage even when an empty
+        // cache needs list -> guide bootstrap calls. Preserve model-loop room
+        // for the actual guide-driven play decision.
+        if (agentPlanningRounds == 0) agentPlanningRounds = 1;
         final localResults = await agentToolRunner.runPlan(
-          localPlan,
+          plan,
           onActivity: emitToolActivity,
           cancellationToken: cancellationToken,
           eventScopeId: job.id,
@@ -327,7 +343,7 @@ class DurableGenerationRunner {
         agentToolResults.addAll(localResults);
         agentToolCalls += localResults.length;
         executedToolFingerprints.addAll(
-          localPlan.calls
+          plan.calls
               .take(localResults.length)
               .map(AgentTaskLoopPolicy.callFingerprint),
         );
@@ -337,26 +353,79 @@ class DurableGenerationRunner {
         preparedAgentMediaUsageKeys.addAll(
           localResults.expand((result) => result.mediaUsageKeys),
         );
+        // A deterministic Cedar list/guide read can change catalog, session
+        // or switch-queue state. Reload before the next stage.
+        cedarState = await cedarActivityStore.loadState();
+        cedarSession = cedarState.activeSession;
+        cedarCatalog = await cedarActivityStore.loadCatalog();
+      }
+
+      var deterministicCatalogBootstrap = false;
+      // A named catalog game is an unambiguous read-only request. Resolve its
+      // real guide deterministically so the model cannot silently choose zero
+      // Cedar calls and merely promise to enter. With no cached catalog, first
+      // fetch the real list, then resolve and read the named target guide.
+      if (localPlan == null && cedarConfigured && immediateCedarEntry) {
+        if (explicitCedarGameId.isNotEmpty &&
+            (cedarState.activeGameId != explicitCedarGameId ||
+                cedarState.sessions[explicitCedarGameId]?.guideComplete !=
+                    true)) {
+          localPlan = AgentToolPlan(calls: <AgentToolCall>[
+            AgentToolCall(
+              toolId: AgentToolRegistry.cedarToyGetGuide.id,
+              arguments: <String, String>{'game': explicitCedarGameId},
+              reasonTag: 'explicit_game_mention',
+            ),
+          ]);
+        } else if (cedarCatalog.isEmpty &&
+            CedarToyArcadeSkill.isRelevant(user.content)) {
+          deterministicCatalogBootstrap = true;
+          localPlan = AgentToolPlan(calls: <AgentToolCall>[
+            AgentToolCall(
+              toolId: AgentToolRegistry.cedarToyListGames.id,
+              arguments: const <String, String>{},
+              reasonTag: 'explicit_arcade_catalog',
+            ),
+          ]);
+        }
+      }
+      if (localPlan != null) await runLocalPlan(localPlan);
+
+      if (deterministicCatalogBootstrap) {
+        explicitCedarGameId = CedarToyActivityStore.catalogMentionedGameId(
+          user.content,
+          cedarCatalog,
+        );
+        if (explicitCedarGameId.isNotEmpty &&
+            (cedarState.activeGameId != explicitCedarGameId ||
+                cedarState.sessions[explicitCedarGameId]?.guideComplete !=
+                    true)) {
+          await runLocalPlan(AgentToolPlan(calls: <AgentToolCall>[
+            AgentToolCall(
+              toolId: AgentToolRegistry.cedarToyGetGuide.id,
+              arguments: <String, String>{'game': explicitCedarGameId},
+              reasonTag: 'explicit_game_mention_after_catalog',
+            ),
+          ]));
+        }
       }
       // Legacy special-style snapshots stay in the schema only for backup
       // compatibility. New ordinary-chat roleplay provenance comes from the
       // prompt's world-book context.
       generationSpecialStyleTrialId = '';
       generationSpecialStyleKey = '';
-      final cedarActivityStore = CedarToyActivityStore(db);
-      final cedarState = await cedarActivityStore.loadState();
-      final cedarSession = cedarState.activeSession;
-      final cedarCatalog = await cedarActivityStore.loadCatalog();
       final cedarExplicitRequest = CedarToyArcadeSkill.isRelevant(user.content) ||
-          CedarToyActivityStore.catalogMentionsGame(user.content, cedarCatalog);
+          CedarToyActivityStore.catalogMentionsGame(
+            user.content,
+            cedarCatalog,
+          );
       // A solo game continues on its own lightweight background clock. Only a
       // co-play/user-waiting session may keep Cedar tools in an ordinary user
       // turn, otherwise unrelated chat would accidentally advance the game.
       final cedarSessionActive = cedarState.hasUserTurnContinuation;
       final cedarSkillActive =
           (cedarExplicitRequest || cedarSessionActive) &&
-          (await db.getSetting('cedar_toy_enabled')) != '0' &&
-          ((await secureConfig.readCedarToyToken())?.trim().isNotEmpty ?? false);
+          cedarConfigured;
       final promptBuild = await PromptBuilder(db).buildChatPrompt(
         latestUserText: user.content,
         recent: recent,
@@ -377,8 +446,10 @@ class DurableGenerationRunner {
               CedarToyArcadeSkill.prompt,
               if (cedarSession != null && cedarSession.guideComplete)
                 cedarActivityStore.promptContext(cedarSession, state: cedarState),
-              if (cedarExplicitRequest)
-                '用户本轮明确提到游戏厅或游玩。若指定的目标游戏不同于当前 game，必须先对目标 game 调用 get_guide；当前游戏的指南绝不授权另一个游戏。若正有原子动作执行中，应诚实说明并把切换请求排队，不可假装已经进入目标游戏。',
+              if (explicitCedarGameId.isNotEmpty && immediateCedarEntry)
+                '用户本轮明确提到游戏厅或游玩。若指定的目标游戏不同于当前 game，必须先对目标 game 调用 get_guide；当前游戏的指南绝不授权另一个游戏。无在途原子动作时可立即切换，旧 session 仍保留可恢复；若正有原子动作执行中，应诚实说明当前动作和排队目标，不可假装已经进入。不得等待一个跨游戏无法通用定义的“整把打完”而无限拖延切换。',
+              if (cedarExplicitRequest && !immediateCedarEntry)
+                '用户本轮提到了一个或多个目录游戏，但没有明确要求现在进入；这可以作为建议或未来探索方向，不得擅自把多个候选中的第一个当成立即命令，也不得声称已经切换或建档。',
               if (AgentParticipationConsentPolicy.describesExistingRoom(
                 user.content,
               ))
@@ -543,9 +614,23 @@ class DurableGenerationRunner {
           }
         }
         if (!sawTerminalSignal) {
+          final partialContent = content.toString().trim();
+          // A natural-language body with no partial native/DSML call is a
+          // confirmable reply draft. Keep machine-shaped fragments on the
+          // ordinary retry/failure path so they can never be user-approved.
+          if (toolCallBuilders.isEmpty &&
+              partialContent.isNotEmpty &&
+              !AgentToolTextEnvelope.looksLikeMachinePayload(partialContent)) {
+            return (
+              reasoning: reasoning.toString().trim(),
+              content: partialContent,
+              toolCalls: const <DeepSeekToolCall>[],
+              finishReason: 'stream_incomplete',
+            );
+          }
           throw GenerationStreamIncompleteException(
             reasoning: reasoning.trim(),
-            content: content.trim(),
+            content: partialContent,
           );
         }
         final indexes = toolCallBuilders.keys.toList()..sort();
@@ -600,14 +685,52 @@ class DurableGenerationRunner {
         String content,
         List<DeepSeekToolCall> toolCalls,
         String finishReason,
-      })> generateFinal(List<Map<String, Object?>> messages) async {
-        if (!finalProvider.isGeminiRelay) {
-          return generate(
+      })> generateCheckedDeepSeek(
+        List<Map<String, Object?>> messages,
+      ) async {
+        try {
+          final result = await generate(
             messages,
             requestApiKey: apiKey,
             requestEndpoint: endpoint,
             emitDeltas: false,
           );
+          if (result.content.isNotEmpty &&
+              (FinalReplyFailurePolicy.isIncompleteFinishReason(
+                    result.finishReason,
+                  ) ||
+                  FinalReplyFailurePolicy.hasStrongIncompleteStructure(
+                    result.content,
+                  ))) {
+            throw FinalReplyIncompleteException(
+              reasoning: result.reasoning,
+              content: result.content,
+              finishReason: result.finishReason.isEmpty
+                  ? 'incomplete_structure'
+                  : result.finishReason,
+            );
+          }
+          return result;
+        } on GenerationStreamIncompleteException catch (error) {
+          if (error.content.isNotEmpty) {
+            throw FinalReplyIncompleteException(
+              reasoning: error.reasoning,
+              content: error.content,
+              finishReason: 'stream_incomplete',
+            );
+          }
+          rethrow;
+        }
+      }
+
+      Future<({
+        String reasoning,
+        String content,
+        List<DeepSeekToolCall> toolCalls,
+        String finishReason,
+      })> generateFinal(List<Map<String, Object?>> messages) async {
+        if (!finalProvider.isGeminiRelay) {
+          return generateCheckedDeepSeek(messages);
         }
         Object? lastError;
         if (configuredFinalApiKey.isNotEmpty) {
@@ -628,13 +751,18 @@ class DurableGenerationRunner {
                 throw const EmptyFinalReplyException();
               }
               if (result.content.isNotEmpty &&
-                  FinalReplyFailurePolicy.isIncompleteFinishReason(
-                    result.finishReason,
-                  )) {
+                  (FinalReplyFailurePolicy.isIncompleteFinishReason(
+                        result.finishReason,
+                      ) ||
+                      FinalReplyFailurePolicy.hasStrongIncompleteStructure(
+                        result.content,
+                      ))) {
                 throw FinalReplyIncompleteException(
                   reasoning: result.reasoning,
                   content: result.content,
-                  finishReason: result.finishReason,
+                  finishReason: result.finishReason.isEmpty
+                      ? 'incomplete_structure'
+                      : result.finishReason,
                 );
               }
               if (result.reasoning.isNotEmpty) {
@@ -672,12 +800,7 @@ class DurableGenerationRunner {
         }
         providerNotice =
             'Gemini 调用失败（${FinalReplyFailurePolicy.userCategory(lastError!)}），本轮已由 DeepSeek 兜底。';
-        return generate(
-          messages,
-          requestApiKey: apiKey,
-          requestEndpoint: endpoint,
-          emitDeltas: false,
-        );
+        return generateCheckedDeepSeek(messages);
       }
 
       Set<String> cedarStageToolIds() {
@@ -688,11 +811,14 @@ class DurableGenerationRunner {
         final guided = cedarSession?.guideComplete == true || agentToolResults.any((result) =>
             result.toolId == AgentToolRegistry.cedarToyGetGuide.id &&
             result.status == AgentToolStatus.succeeded);
+        final explicitTargetAlreadyGuided = explicitCedarGameId.isNotEmpty &&
+            cedarSession?.gameId == explicitCedarGameId &&
+            cedarSession?.guideComplete == true;
         return <String>{
           if (!listed) AgentToolRegistry.cedarToyListGames.id,
           if (listed &&
               (!guided ||
-                  cedarExplicitRequest ||
+                  (cedarExplicitRequest && !explicitTargetAlreadyGuided) ||
                   cedarState.queuedSwitches.isNotEmpty))
             AgentToolRegistry.cedarToyGetGuide.id,
           if (guided) AgentToolRegistry.cedarToyPlay.id,
@@ -791,6 +917,34 @@ $finalGenerationReminder
         generated = await generateFinal(finalRequestMessages);
       }
       cancellationToken?.throwIfCancelled();
+
+      final explicitCedarTargetReady = immediateCedarEntry &&
+          explicitCedarGameId.isNotEmpty &&
+          cedarState.activeGameId == explicitCedarGameId &&
+          cedarState.sessions[explicitCedarGameId]?.guideComplete == true;
+      if (toolsOpen &&
+          generated.toolCalls.isEmpty &&
+          explicitCedarTargetReady &&
+          AgentTaskLoopPolicy.allowedCalls(
+                planningRounds: agentPlanningRounds,
+                toolCalls: agentToolCalls,
+              ) >
+              0) {
+        finalRequestMessages = <Map<String, Object?>>[
+          ...finalRequestMessages,
+          <String, Object?>{
+            'role': 'system',
+            'content': '''【明确游戏请求·零调用重试】
+目标游戏 $explicitCedarGameId 的真实指南已就绪，但上一次规划没有调用任何工具。用户明确要求实际进入/游玩，不得只口头答应。若指南存在当前可执行的创建、加入、同步、开局或查询动作，现在调用 cedar_toy_play；只有指南确实缺少必需的用户选择或参数时，才改为自然地询问，且不得声称已执行。''',
+          },
+        ];
+        agentPlanningRounds++;
+        generated = await generateInternal(
+          finalRequestMessages,
+          tools: taskToolDefinitions,
+        );
+        cancellationToken?.throwIfCancelled();
+      }
 
       // DeepSeek owns every tool-planning and Outcome-verification pass, never
       // the final prose in Gemini mode. Cedar MCP transport itself is not a
@@ -971,6 +1125,22 @@ $finalGenerationReminder
         finalRequestMessages = finalizationMessages(finalRequestMessages);
         generated = await generateFinal(finalRequestMessages);
         cancellationToken?.throwIfCancelled();
+      }
+
+      if (generated.content.isNotEmpty &&
+          (FinalReplyFailurePolicy.isIncompleteFinishReason(
+                generated.finishReason,
+              ) ||
+              FinalReplyFailurePolicy.hasStrongIncompleteStructure(
+                generated.content,
+              ))) {
+        throw FinalReplyIncompleteException(
+          reasoning: generated.reasoning,
+          content: generated.content,
+          finishReason: generated.finishReason.isEmpty
+              ? 'incomplete_structure'
+              : generated.finishReason,
+        );
       }
 
       final agentTaskVerification = AgentTaskLoopPolicy.verify(
@@ -1328,7 +1498,7 @@ $finalGenerationReminder
         final failed = await db.failGenerationJob(
           job.id,
           runToken: job.runToken,
-          error: 'gemini_incomplete_empty_body',
+          error: 'final_reply_incomplete_empty_body',
           recoverable: true,
         );
         return GenerationRunResult(
@@ -1347,7 +1517,7 @@ $finalGenerationReminder
         role: 'assistant',
         content: visible,
         reasoningContent: preserveProviderReasoning(e.reasoning),
-        model: ChatApiProvider.aiWangYouModel,
+        model: job.model,
         createdAt: DateTime.now(),
         deviceId: await db.ensureDeviceId(),
         segments: ChatSegmentCodec.parseAssistantText(visible),
@@ -1371,7 +1541,7 @@ $finalGenerationReminder
       return GenerationRunResult(
         status: 'incomplete',
         assistant: draft,
-        notice: 'Gemini 回复已截断。当前文字尚未进入上下文或记忆，请选择“重新生成”或“保留这段回复”。',
+        notice: '回复已截断。当前文字尚未进入上下文或记忆，请选择“重新生成”或“保留这段回复”。',
       );
     } on GenerationCancelledByUserException catch (e) {
       await db.cancelGenerationJobByUser(job.id);
@@ -1462,7 +1632,7 @@ $finalGenerationReminder
       role: 'assistant',
       content: visible,
       reasoningContent: preserveProviderReasoning(job.partialReasoning),
-      model: ChatApiProvider.aiWangYouModel,
+      model: job.model,
       createdAt: DateTime.now(),
       deviceId: await db.ensureDeviceId(),
       segments: ChatSegmentCodec.parseAssistantText(visible),

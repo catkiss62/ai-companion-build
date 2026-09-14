@@ -6,7 +6,6 @@ import 'package:path/path.dart' as p;
 import 'package:uuid/uuid.dart';
 
 import '../../core/agent/agent_tool.dart';
-import '../../core/ai/chat_api_provider.dart';
 import '../../core/ai/deepseek_client.dart';
 import '../../core/ai/durable_generation_recovery.dart';
 import '../../core/ai/durable_generation_runner.dart';
@@ -370,11 +369,11 @@ class ChatController extends ChangeNotifier {
       role: 'assistant',
       content: job.partialContent,
       reasoningContent: job.partialReasoning,
-      model: ChatApiProvider.aiWangYouModel,
+      model: job.model,
       createdAt: job.updatedAt,
       segments: ChatSegmentCodec.parseAssistantText(job.partialContent),
     );
-    notice ??= 'Gemini 回复已截断。当前文字尚未进入上下文或记忆，请选择“重新生成”或“保留这段回复”。';
+    notice ??= '回复已截断。当前文字尚未进入上下文或记忆，请选择“重新生成”或“保留这段回复”。';
   }
 
   Future<void> acknowledgeOverlayUnread() async {

@@ -16,10 +16,10 @@ def require(path: str, *tokens: str) -> None:
     assert not missing, f'{path}: missing {missing}'
 
 
-require('pubspec.yaml', 'version: 0.41.72+216')
-require('lib/core/agent/agent_self_reader.dart', "buildLabel = 'v0.41.72+216'")
-require('test/agent_self_reader_v0416_test.dart', 'build=v0.41.72+216 schema=61')
-require('lib/core/mcp/mcp_http_client.dart', "'version': '0.41.72'")
+require('pubspec.yaml', 'version: 0.41.73+217')
+require('lib/core/agent/agent_self_reader.dart', "buildLabel = 'v0.41.73+217'")
+require('test/agent_self_reader_v0416_test.dart', 'build=v0.41.73+217 schema=61')
+require('lib/core/mcp/mcp_http_client.dart', "'version': '0.41.73'")
 require(
     'lib/core/mcp/cedar_toy_activity.dart',
     'enum CedarViewingPace',
@@ -79,8 +79,8 @@ require(
 )
 require(
     '.github/workflows/build-apk.yml',
-    'agent/v04172-cedar-trust-watch-modes',
-    'AI-Companion-v0.41.72-216-Cedar-Trust-Watch-Modes-APK',
+    'agent/v04173-cedar-deterministic-entry-reply-completion',
+    'AI-Companion-v0.41.73-217-Cedar-Entry-Reply-Completion-APK',
     'validate_v04172_cedar_trust_watch_modes.py',
 )
 require(

@@ -1221,6 +1221,7 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
                                 controller.incompleteReplyDraft?.id
                             ? _confirmRegenerateIncompleteReply
                             : item.message!.isAssistant &&
+                                    !item.message!.isProactive &&
                                     item.message!.id == latestAssistantId &&
                                     controller.incompleteReplyDraft == null &&
                                     !controller.generationActive

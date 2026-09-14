@@ -3,10 +3,7 @@ enum TtsVoiceMode {
   daily('daily', '日常'),
   gentle('gentle', '温柔'),
   lively('lively', '活泼'),
-  cute('cute', '可爱'),
-  softSpeech('soft_speech', '轻语'),
-  whisper('whisper', '耳语'),
-  breathy('breathy', '气声');
+  cute('cute', '可爱');
 
   const TtsVoiceMode(this.key, this.label);
 

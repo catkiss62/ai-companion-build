@@ -17,7 +17,7 @@ import java.io.File
  */
 object GenieRuntimeAssetStore {
     // Historical migration contract: ai-companion-v04160-build204-jiuhu-v076-integrity-v1
-    private const val MIGRATION_ID = "ai-companion-v04172-build216-jiuhu-v077-seven-voices-v1"
+    private const val MIGRATION_ID = "ai-companion-v04173-build217-jiuhu-four-voices-v1"
 
     fun prepare(
         context: Context,

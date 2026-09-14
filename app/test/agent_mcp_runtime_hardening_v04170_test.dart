@@ -77,6 +77,14 @@ void main() {
       isTrue,
     );
     expect(
+      AgentParticipationConsentPolicy.describesExistingRoom('5JH5MDVT'),
+      isTrue,
+    );
+    expect(
+      AgentParticipationConsentPolicy.explicitlyGranted('5JH5MDVT'),
+      isTrue,
+    );
+    expect(
       AgentParticipationConsentPolicy.explicitlyGranted('暂时不玩'),
       isFalse,
     );

@@ -56,37 +56,17 @@ void main() {
     );
   });
 
-  test('three appended ASMR candidates stay manual-only', () {
-    const manualOnly = <TtsVoiceMode>[
-      TtsVoiceMode.softSpeech,
-      TtsVoiceMode.whisper,
-      TtsVoiceMode.breathy,
-    ];
-    expect(TtsVoiceMode.values.sublist(5), manualOnly);
-    for (final mode in manualOnly) {
-      expect(
-        TtsVoiceProfilePolicy.resolve(
-          mode,
-          emotionKey: 'happy',
-          confidence: 0.99,
-        ),
-        mode,
-      );
-    }
-    const knownAutomaticEmotions = <String>[
-      'normal', 'serious', 'confident', 'angry', 'disgust', 'confused',
-      'calm', 'worried', 'crying', 'afraid', 'nervous', 'shy',
-      'embarrassed', 'affection', 'happy', 'excited', 'surprised',
-      'playful', 'helpless', 'flustered',
-    ];
-    for (final emotion in knownAutomaticEmotions) {
-      final resolved = TtsVoiceProfilePolicy.resolve(
-        TtsVoiceMode.auto,
-        emotionKey: emotion,
-        confidence: 1,
-      );
-      expect(manualOnly, isNot(contains(resolved)));
-    }
+  test('only the four validated Jiuhu voices remain selectable', () {
+    expect(TtsVoiceMode.values, <TtsVoiceMode>[
+      TtsVoiceMode.auto,
+      TtsVoiceMode.daily,
+      TtsVoiceMode.gentle,
+      TtsVoiceMode.lively,
+      TtsVoiceMode.cute,
+    ]);
+    expect(TtsVoiceMode.fromSetting('soft_speech'), TtsVoiceMode.auto);
+    expect(TtsVoiceMode.fromSetting('whisper'), TtsVoiceMode.auto);
+    expect(TtsVoiceMode.fromSetting('breathy'), TtsVoiceMode.auto);
   });
 
   test('acoustic chunks obey language limits and preserve surrogate pairs', () {

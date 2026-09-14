@@ -43,5 +43,24 @@ void main() {
       FinalReplyFailurePolicy.isIncompleteFinishReason('content_filter'),
       isTrue,
     );
+    expect(
+      FinalReplyFailurePolicy.isIncompleteFinishReason('stream_incomplete'),
+      isTrue,
+    );
+  });
+
+  test('only strong structural evidence marks a stop reply incomplete', () {
+    expect(
+      FinalReplyFailurePolicy.hasStrongIncompleteStructure('「我现在满脑子'),
+      isTrue,
+    );
+    expect(
+      FinalReplyFailurePolicy.hasStrongIncompleteStructure('「说完了。」'),
+      isFalse,
+    );
+    expect(
+      FinalReplyFailurePolicy.hasStrongIncompleteStructure('忽然有点想你'),
+      isFalse,
+    );
   });
 }

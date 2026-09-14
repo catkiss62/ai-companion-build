@@ -1,6 +1,6 @@
 # AI Companion · 当前总账
 
-更新时间：2026-09-13（Asia/Tokyo）
+更新时间：2026-09-14（Asia/Tokyo）
 
 > 本文件路径固定为 `AI_Companion_当前总账.md`，是当前唯一最新接班入口。后续只更新本文件内容，不再按版本号复制新总账；已吸收并取代 v36 及更早接班总账仍有效的历史证据；旧总账只从 Git 历史取证，不再作为工作区入口。判断优先级：用户最新明确决定 > GitHub 实际源码与 Actions > 最新脱敏真机诊断 > 仓库任务账 > Git 历史。讨论、设计、本地实现、CI 通过和真机通过必须严格区分。
 >
@@ -36,28 +36,28 @@
 |---|---|
 | 仓库 | 公开仓库 `catkiss62/ai-companion-build`；完整 Flutter/Android 工程在 `app/` |
 | 持续提交与 APK 授权 | 2026-09-02 用户明确“以后一直允许提交”，并于 2026-09-03 再确认：人机恋项目范围内，可将任务相关源码和文档提交推送到本仓库当前或后续明确的开发分支，并直接执行常规 Actions/APK 创建流程，不再逐批重复询问。此授权不包含合并 `main`、发布正式 Release、删除分支/数据、改变仓库权限或公开密钥/隐私资料；这些仍须单独确认 |
-| 当前开发分支 | `agent/v04172-cedar-trust-watch-modes`，从 +215 已验证源码建立；目标版本 `v0.41.72+216 / schema 61 / Snapshot protocol 6`，当前状态 `CI PASSED / APK READY / TRUE DEVICE PENDING`。本地 Cedar 提交 `8eb56c4`，三条新增音色与私有装配提交 `6566f0ac`；授权 GitHub 通道将两者及总账同步为远端构建提交 `33747687fe6b620530ba1dd6c11e710acc0a3caa`，tree 与本地构建源码精确同为 `a0a8dd27ca7c6a74de7b37279e3da5a36368996c`。run 867 全绿并生成 APK；`main` 未改 |
+| 当前开发分支 | `agent/v04173-cedar-deterministic-entry-reply-completion`，从 +216 已构建 head `48850b16ede20e2c66af32f8f02b66acd487452e` 建立；目标版本 `v0.41.73+217 / schema 61 / Snapshot protocol 6`，当前状态 `LOCAL IMPLEMENTED / CI PENDING / APK PENDING / TRUE DEVICE PENDING`。本批修复 +216 真机证实的双弈/花园与猫用户入口零工具调用、普通最终回复截断漏判、主动分享半句落库与错误显示可刷新；同批依用户最新实测结论删除无效的“轻语 / 耳语 / 气声”三个手动测试音色，恢复四音色生产包；不改 Cedar 服务端规则、单人三档、数据库 schema 或 Snapshot protocol |
 | 上一运行代码基线 | `agent/v0417-forthright-fiery-personality`，功能 head `58c244a4b08033f403776f1ec31bbece5557506d`；Desire/Moe/主动性状态主干仍沿革自 `agent/v0415-personality-state-diversity` / `494796ef02e369f98e6896bc5acea7185e3c35dd` |
 | 有效构建 head / tree | +216 Actions build head `33747687fe6b620530ba1dd6c11e710acc0a3caa` / tree `a0a8dd27ca7c6a74de7b37279e3da5a36368996c`，远端 tree 与本地构建源码逐字一致。公开提交不含用户附件、诊断、备份、密钥、模型权重、参考音频、声学张量或 APK Artifact |
-| App / 数据库 | 最新已验证测试 APK 为 `0.41.72+216 / schema 61 / Snapshot protocol 6`。本批未升级 SQLite schema 或 Snapshot protocol，节奏模式只作活动窗生命周期内临时状态，旧备份兼容边界不变 |
+| App / 数据库 | 当前施工目标为 `0.41.73+217 / schema 61 / Snapshot protocol 6`；最新已构建测试 APK 仍为 `0.41.72+216`。本批不升级 SQLite schema 或 Snapshot protocol，旧备份兼容边界不变 |
 | 最终 CI | +216 run [`34781049060`](https://github.com/catkiss62/ai-companion-build/actions/runs/34781049060)（867）完整成功：私有七候选增量恢复与哈希、全部源码/历史 validator、Kotlin/JVM、Flutter Analyze、`779/779` Flutter tests、arm64 Release、固定签名、66 项 Genie/Jiuhu/OpenJTalk 实包与 ORT byte identity、七候选每条六参考输入、417 项桌宠源、62 项 LingChat、22 张塔罗、checksum、Artifact 与 Draft 上传全部通过 |
 | 测试 APK | `AI-Companion-v0.41.72-216-Cedar-Trust-Watch-Modes-APK.apk`，GitHub Draft 显示约 524 MB |
 | APK SHA-256 | `9c0c76123d3701bea51edb9f1a9c41041adca3ef4914c8516913c5f318af688f`；CI checksum 与 Draft asset digest 一致，固定测试签名证书 SHA-256 仍为 `305eb3d80983b963c64818ddf1ad561f279de6d47b3ed2c781ada448c7c25148` |
 | Artifact / Release | Artifact [`10324702656`](https://github.com/catkiss62/ai-companion-build/actions/runs/34781049060/artifacts/10324702656)，ZIP 542,922,295 bytes / digest `5f7544279fac390d17c9bbfe63da3ec03d6dd1fc8bf9c5b4dc3af07ff905b742`；[Draft Release](https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-69730c44a344f0eee6fe) 未发布，含 APK、`.sha256` 与 CI monitor，`main` 未合并 |
 | `main` | 仍停在 v0.38.5 旧基线，未合并 v0.41.x；**不得从 `main` 误判当前项目或作为后续开发基线** |
-| 当前总状态 | +204 小酒狐语音链 `TRUE DEVICE PASSED`；+206 双通道回复主要链 `TRUE DEVICE PARTIAL`；+208 设置精确回退为 `CI PASSED / APK READY / TRUE DEVICE PASSED`。+209、+210 均为 `CI PASSED / APK READY / TRUE DEVICE PENDING`。+211 Cedar 基础链为 `TRUE DEVICE PARTIAL`；+213 为 `TRUE DEVICE PARTIAL · CO-PLAY LOOP BUG FOUND`；+214 为 `TRUE DEVICE PARTIAL · REALTIME/ROOM-CHAT/FINALIZATION BUGS FOUND`；+215 虽为 `CI PASSED / APK READY`，但真机仍有统一五分钟退避、单人误判、共玩超时不认账及 Gemini 房间 400。+216 的信任优先、三档节奏、即时分享与七候选小酒狐目录现为 `CI PASSED / APK READY / TRUE DEVICE PENDING`；自动四音色映射、DeepSeek/Gemini 双通道、schema 61 与 Snapshot protocol 6 不改 |
+| 当前总状态 | +204 小酒狐语音链 `TRUE DEVICE PASSED`；+206 双通道回复主要链 `TRUE DEVICE PARTIAL`；+208 设置精确回退为 `CI PASSED / APK READY / TRUE DEVICE PASSED`。+209、+210 均为 `CI PASSED / APK READY / TRUE DEVICE PENDING`。+211 Cedar 基础链为 `TRUE DEVICE PARTIAL`；+213 为 `TRUE DEVICE PARTIAL · CO-PLAY LOOP BUG FOUND`；+214 为 `TRUE DEVICE PARTIAL · REALTIME/ROOM-CHAT/FINALIZATION BUGS FOUND`；+215 为 `TRUE DEVICE PARTIAL`。+216 的单人三档与七候选为 `CI PASSED / APK READY / TRUE DEVICE PARTIAL`，但 2026-09-14 两份新存档证明双弈与花园与猫明确请求均可零 Cedar 调用，主动分享还可把半句落库；+217 已本地实现窄修与三测试音色退役，待提交/CI/APK/真机 |
 
 ### 3. 当前下一步任务包（新窗口必须完整接住）
 
 | 字段 | 当前内容 |
 |---|---|
-| 当前下一步 | **v0.41.72+216 联合真机验收（CI PASSED / APK READY / TRUE DEVICE PENDING）**：安装 run 867 的 +216 APK 后同时验证两组内容。Cedar：单人休闲 2 分钟目标、快速 5 秒、观战 10 秒、关闭窗口恢复休闲、共玩实时续接、房间 Gemini 对话与正文无机器协议；小酒狐：设置顺序为原四项后追加“轻语、耳语、气声”，分别手动试听中文/日文/英文，确认不会被自动判断选中，并比较响度、底噪、耳语/气声保真与长句稳定性。效果不佳时可按用户决定删除单个候选，不把自动化通过写成听感通过 |
+| 当前下一步 | **v0.41.73+217 双弈确定性入口与回复截断窄修（LOCAL IMPLEMENTED / CI PENDING）**：依据 2026-09-14 09:17 存档/诊断，让明确点名真实目录游戏的用户轮先确定性取得目标指南，不再把“是否调用 Cedar”完全交给模型；已有共玩上下文中识别用户单独发送的房间码。普通 DeepSeek/Gemini 最终回复统一检查流式终态、截断 finish reason 与强结构不完整；用户回复截断像沉浸房间一样进入“重新生成/保留这段回复”草稿，不提交上下文。主动消息不建立伪用户轮草稿：首轮截断只按内部系统调用合同用 DeepSeek 重试一次，再失败则不发送。UI 不再给无法重放的普通主动消息展示虚假刷新入口。同批删除实测无效的“轻语 / 耳语 / 气声”测试音色与私有增量装配，旧设置值覆盖安装后安全回退为自动 |
 | 目标 | 默认信任 Cedar 的完整指南、结构化轮次、`next_call`、合法动作、等待时间、成功与终局；已承诺游戏由独立连续时钟推进，不依赖用户主聊天。单人游戏在休闲模式继续作为她的自主经历并把 notable 送入 Thought；快速/观战模式只改变当前活动窗生命周期内的最短续步间隔与分享投递方式，不持久化、不改变新游戏 Desire 竞争。共玩游戏按服务事件实时续接，不受单人三档限制 |
-| 当前证据 | 2026-09-13 最新备份中钓鱼 `solo` 共记 10 次真实动作，跨度约 10 小时 18 分，实际中位间隔约 5 分 33 秒、平均约 69 分钟，最后却被误写为 `waiting_user` 而停止；2 次 notable 最终仅 1 次形成可见游戏分享。双弈结构化状态已明确轮到 bound machine，`next_action_at` 只晚 1 秒，但一次后台 JSON 空结果触发统一五分钟退避，下一次 `move(wait=true)` 又可能在远端已提交后被本机 25 秒超时当作失败。房间 Provider 诊断明确为 Gemini 400 后 DeepSeek 兜底。当前每步还固定执行两次 DeepSeek（规划 + 重读完整指南核验），不是纯 MCP，也不适合直接高频放大 |
-| 保护与排除 | 不把“信任 Cedar”误写成允许 MCP 文本覆盖系统/人格规则、泄漏凭据/隐藏答案或绕过不可逆外部事务授权；除此之外不再预防性阻断 Cedar 的选择、返回、合法动作和节奏。盲玩只用真实 `get_guide`，不读 GitHub/人类攻略；完整指南不静默截断。快速/观战仍须单动作串行并服从服务明确的 `resume_after`/终局/限流，不做零间隔死循环。活动窗关闭恢复休闲但不停止她后台玩。沉浸房间可见时现有主动出站硬门继续有效。小酒狐三新候选只扩展手动音色目录，不改变自动四音色映射、三语前端按需切换、Stop/单 AudioTrack、schema 61 或 Snapshot protocol 6；用户视频/参考 WAV/声学特征不得进入公开 Git 历史，只能沿现有未发布 Draft 私有资源链进入构建 |
+| 当前证据 | +216 备份中“去游戏厅里玩双弈吧”、后续已开局/房间码共 5 个 job 全部 `completed`，但无新 Cedar Outcome，状态只含 fishing。第二份 09:44 备份又证明“现在去花园与猫开一个存档”同样是 `completed / 0 tool calls / 0 Cedar outcomes`；当时 `active_game_id=fishing`，但 `execution=null`且 `queued_switches=[]`，模型 reasoning 却自行声称“当前无法直接启动游戏”。因此根因仍是工具前零调用，不是钓鱼占用或 Cedar 拒绝。同期主动游戏分享 `87e2…` 以 `「我现在满脑子` 结束并已落库；主动链未检查终态，普通 DeepSeek 最终链也漏判 incomplete。该主动消息无 generation job，因此页面刷新按钮是伪入口 |
+| 保护与排除 | 不把“信任 Cedar”误写成允许 MCP 文本覆盖系统/人格规则、泄漏凭据/隐藏答案或绕过不可逆外部事务授权；除此之外不再预防性阻断 Cedar 的选择、返回、合法动作和节奏。盲玩只用真实 `get_guide`，不读 GitHub/人类攻略；完整指南不静默截断。快速/观战仍须单动作串行并服从服务明确的 `resume_after`/终局/限流，不做零间隔死循环。活动窗关闭恢复休闲但不停止她后台玩。沉浸房间可见时现有主动出站硬门继续有效。小酒狐恢复已验证的日常/温柔/活泼/可爱四音色与自动映射；删除的三个测试候选不得留在 UI、运行映射或 APK 生产 manifest。三语前端按需切换、Stop/单 AudioTrack、schema 61 和 Snapshot protocol 6 不改；用户视频/参考 WAV/声学特征不得进入公开 Git 历史 |
 | **媒体 Agent 永久合同（P0）** | **任何“她能发送的媒体”都必须同时具备 Agent 自读能力、可执行工具、真实附件 Outcome、来源 provenance 和发送后第一人称历史；只有 UI、随机表达或 Prompt 声称能力都不算完成。** 表情包先实现明确指令 `sticker.send`；后续联网图、相册图也必须分别接入真实工具。失败、无图库、无匹配、下载失败、权限拒绝或事务失效只能如实返回，不得写成已发送 |
 | 实现边界 | 产品入口仍保留独立「Cedar Toy 游戏厅」与通用 MCP transport。稳态单人循环优先直接消费结构化 Outcome：明确 actor/terminal/next_call 不再交给模型二次分类；只有缺少结构化字段时才用轻量 DeepSeek 兜底。notable 判定不得强迫每步重复完整指南；休闲写 Thought，快速/观战通过现有主动对话生成与落库通道直接排队，不另建第二聊天系统。房间可见对话仍按双通道合同走最终 Provider，但修正 Gemini 请求方言/输出上限而不新增独立调用 |
-| 完成判据 | 单人 Outcome 不再被模型误判为“轮到你”，休闲目标 2 分钟续步且不受普通 7～24 分钟心跳支配；快速 5 秒、观战 10 秒均在上一步完成后计时、无并发、窗口关闭恢复休闲。两种观战的 notable 可无需等待 Thought/Gate 直接进入主聊天，同时普通步骤只留活动记录。共玩按 Cedar `next_call`/actor 立即观察与行动；已提交但挂等超时先无副作用同步、不得盲重放；不同错误采用短恢复而非统一五分钟。Gemini 房间回复不再稳定 400；正文不泄漏代码/JSON。CI 与真机证据分开登记 |
+| 完成判据 | 固定夹具证明“去游戏厅里玩双弈吧”即使模型尚未自选工具，也会真实读取 duel 指南并在同轮开放正确下一阶段；当前 fishing 不授权 duel 动作且不会被删除。已有共玩会话下裸房间码构成房间同步上下文。DeepSeek/Gemini 用户回复遇 `length/content_filter/safety/error`、无流式终态或未闭合直角对白时均不提交消息，而进入可刷新/保留的待确认草稿；主动消息同类失败不落库，最多内部重试一次。主动消息不再显示无实现的刷新按钮。CI 与真机证据分开登记 |
 | 直接详细入口 | 本文件 `2026-09-13 Cedar Toy 游戏经历层、围观与通用 MCP 底座设计`；既有 `app/docs/CEDAR_TOY_MCP_v0.41.67.md`；核心代码 `mcp_http_client.dart`、`cedar_toy_client.dart`、`cedar_toy_arcade_skill.dart`、Agent registry/planner/runner、`durable_generation_runner.dart`、`cedar_toy_settings_page.dart` 与 `operational_claim_grounding_guard.dart`。模型/API 总合同以本文件顶部永久条款为最高真源 |
 
 既有能力保护索引（本包不重做）：游戏厅活动窗、玩游 Key、沉浸房间、沉浸房间聊天页面、造梗来源、D6、Phase 2B、App 内 Agent 能力桥、Memory 2D、`fact_state / attention_state / recall_policy`、`spontaneous_salience`、`reminiscence/identity`、Skills、`【检查系统】`、中断灰显、Token 命中/缓存优化、Phase 3、Harness、`screen_observation.inspect` 与 Genie-TTS 均按原详细章节继续有效；本轮 MCP/游戏厅实现不得使其回归。
@@ -97,6 +97,25 @@
 > 如果自然使用证据暂时不足，不得伪造 Phase 2A 已通过；可等待用户继续使用，或由用户明确选择独立 P0 内容包。用户最新排期永远高于本表。
 
 ## 近期详细记录与全局索引（按需检索）
+
+### 2026-09-14 v0.41.73+217 双弈确定性入口与回复完整性热修（LOCAL IMPLEMENTED / CI PENDING）
+
+1. +216 真机备份 `AI_Companion_Backup_2026-09-14T01-17-56.aibackup` 与脱敏诊断 `ai_companion_diagnostics_2026-09-14T01-17-59-051369Z.txt` 已定点读取；附件只用于本地取证，不进入公开 Git。数据库为 schema 61 / generation 135，导出于 2026-09-14 09:17（UTC+8）；导出时无 active generation、无 chat lease，说明当前不是仍卡死，而是此前错误已经按 completed 落库。
+2. 双弈失败发生在 MCP 之前：用户明确说去游戏厅玩双弈后，模型内心已识别目标，却声称“当前没有 active MCP tools”，随后让用户自己拉房。后续用户说明已开局、下到一半、对面没有落子并发送 `5JH5MDVT`，五轮均为普通 DeepSeek completed job；保留的 33 条 Agent Outcome 最后 Cedar 调用仍停在旧日 fishing，活动状态只有 fishing session。+216 的目录标题触发只负责给模型附工具 schema，仍允许模型零调用后直接说话；因此过去围绕超时、actor、`next_call` 的修复没有触及本次入口失败。
+3. 回复截断存在两条漏网路径。用户指出的最新半句是普通聊天页里的游戏主动分享：消息 `87e2bc1f…` 已以 `「我现在满脑子` 结束并作为正式 proactive 消息落库，8 秒后又有下一条完整游戏分享。主动生成直接遍历 `streamChat` 后提交，不保存 `done/finishReason`，也没有强结构完整性检查。普通 Durable runner 虽能把 Gemini 的 incomplete finish 转为 `awaiting_confirmation`，DeepSeek 单模型的 `generateFinal` 却直接返回，不检查相同 finish reason；两者均缺少未闭合直角对白的强证据兜底。
+4. 刷新失败不是仍有数据库锁：导出时 `blockingGenerationStatus=none`、`active_generation_jobs=0`、`chatTurnLease.held=false`。真正原因是 proactive 消息没有对应 generation job，而普通聊天 UI 对最新任意 assistant 都显示刷新；`restartLatestCompletedReply` 找不到主动消息任务后只能报“只能重新生成当前最新回复；如果后台仍在整理”。本批不伪造主动消息的用户请求上下文，改为源头拒绝/重试不完整主动候选，并隐藏无实现的 proactive 刷新入口。
+5. 预定实现边界：从当前真实 catalog 解析用户明确点名的 game ID，本地只确定性执行只读 `get_guide`；实际 `play` 仍由既有 DeepSeek 工具循环依据完整指南、真实许可和参数决定，不硬编码双弈动作、不读人类攻略、不绕过 Cedar。裸房间码只在已经进入需要邀请的 Cedar 会话上下文中认定，避免普通随机字符串触发游戏。回复完整性策略进入共享 `FinalReplyFailurePolicy`，不靠句末标点阻断自然短句，只把 provider 明确 incomplete、无终态和未闭合对白等强证据当截断。
+6. 原定不得回归项：DeepSeek/Gemini 双通道调用合同不变；Cedar MCP 请求不是模型调用；不增加独立 Key/provider；单人 2 分钟、快速 5 秒、观战 10 秒、服务端结构化真值、单飞与写超时同步继续有效；schema 61 和 Snapshot protocol 6 不改。TTS 原本不在改动范围，但后续已被用户第 7 条新决定明确覆盖。
+7. 用户在实测后新增明确裁决：“轻语 / 耳语 / 气声”只是 +216 测试候选，实际效果不明显，本批删除。实现须同时移除 Dart 枚举/UI 选项、Android 音色映射、benchmark catalog、私有七候选 overlay 恢复与 APK manifest 断言；保留日常/温柔/活泼/可爱四音色。旧 `soft_speech/whisper/breathy` 设置值由 `fromSetting` 自然回退为 `auto`，不增 schema 迁移。
+8. 第二份备份 `AI_Companion_Backup_2026-09-14T01-44-46.aibackup` 证明切换失败不局限于双弈：用户明确说“现在去花园与猫开一个存档”，对应 job `ef7392dc…` 仍为零工具完成，模型只口头答应“去建档”。当时 fishing 虽是 active，但无在途 execution、无 queued switch，所以不是被钓鱼占用。切换规则收窄为：真有单次原子 MCP 请求在途时排队，最终回复必须说明当前动作与目标游戏；无在途动作时立即切换 active game，旧 session 保留可恢复，不删存档、不伪造“打完整局”这种无跨游戏通用定义的停点。
+9. 不得回归：DeepSeek/Gemini 双通道调用合同不变；Cedar MCP 请求不是模型调用；不增加独立 Key/provider；单人 2 分钟、快速 5 秒、观战 10 秒、服务端结构化真值、单飞与写超时同步继续有效；schema 61、Snapshot protocol 6、小酒狐四音色与 TTS 主链不改。实现、测试、提交、CI、APK 与真机状态必须后续逐项回填。
+10. 用户询问“对话中建议瓶中生态/花园与猫是否会提高她自主选择方向”。源码审计结论：当前 Desire 只决定是否竞争到 `play_game`，随后的具体游戏选择 Prompt 只含真实 catalog 和“轻松新鲜感”动机，不含近期对话或用户建议，因此现在不会可靠加权。后续可把“近期建议游戏”作为有时效的弱候选信号：明确当下请求仍立即执行，普通建议只提高探索概率，不变成用户硬控也不覆盖她的 Desire/重复度/未完成活动。此项本批只登记，不扩大 +217 热修。
+11. Cedar 入口已本地实现：从已缓存真实 catalog 通用解析用户点名的 game ID；目录展示名带描述后缀时，允许四个及以上汉字的最长共同前缀，因此用户说“花园与猫”可匹配真实目录“花园与猫咪长期养成”，但多个目录若命中同一前缀仍保持歧义、不擅自选第一项。若缓存为空而用户明确提到游戏厅，先确定性调用 `list_games`，重载 catalog 后再确定性读取目标 `get_guide`。目标指南就绪后只开放真实指南允许的 `play` 阶段；若 DeepSeek 第一次仍返回零工具调用，增加一次“必须实际执行或说明真实缺参”的内部规划重试。确定性执行只接受“单一目录目标 + 明确当下进入动作”；“你可以玩玩瓶中生态和花园与猫”等多目标/延后建议不会把目录第一项当成命令。没有针对 duel、garden_cat、棋子或动作硬编码，测试用“去游戏厅里玩双弈吧”与“现在去花园与猫开一个存档吧”共同证明目录标题解析。
+12. 切换语义沿用并明确化：`get_guide` 遇真实在途原子动作时写入可靠 `queued_switches`，Outcome 要求最终回复说明当前动作与排队目标；无在途动作时 `recordGuide` 立即把目标设为 active，但旧 game session 仍在 v2 sessions 中保留可恢复。裸房间码 `5JH5MDVT` 只会在 Cedar 工具已经因显式游戏请求或活跃共玩上下文开放后作为现有房间与参与许可使用，普通随机字符串不会单独开启 Cedar。
+13. 普通回复完整性已本地实现：DeepSeek、Gemini 和 Gemini 失败后的 DeepSeek 兜底统一检查 provider incomplete finish、缺终止帧与未闭合 `「」/“”`；自然语言半段保存为 `awaiting_confirmation` 草稿，沿既有普通聊天 UI 提供“重新生成 / 保留这段回复”，确认前不写正式消息、上下文或记忆。带 partial native/DSML/machine payload 的缺终态响应仍走失败/重试，不可让用户误确认内部协议。草稿模型字段跟随原 generation job，不再写死 Gemini。
+14. 主动链已本地实现：记录 `done/finishReason`，首个不完整候选只用 DeepSeek 内部重试一次；第二次仍缺终态、finish incomplete 或对白未闭合则记录 `reply_incomplete` 并不发送、不落库、不通知。最新 proactive 消息不再显示无 generation job 支持的刷新按钮；真实用户回合的已完成回复与待确认草稿仍保留原刷新/确认能力。
+15. 用户决定退役的三个 TTS 测试候选已从 Dart `TtsVoiceMode`、设置下拉、Android `VOICE_CASES`、benchmark catalog 和 APK 生产 manifest 全部移除；工作流不再下载/覆盖 v0.7.7 七候选私有 overlay，恢复已钉 SHA 的 v0.7.6 四音色包。migration marker 升为 `ai-companion-v04173-build217-jiuhu-four-voices-v1`，旧三项固定设置自然回退 `auto`，保留日常/温柔/活泼/可爱、三语前端、Stop 与单 AudioTrack。
+16. 本地验证：+217 专项、+216 Cedar、+215 实时房间、+214 Agent/MCP、+213 切换、+204 四音色、退役三测试音色、当前总账与 Python compileall 均通过，workflow YAML 可解析，`git diff --check` 通过。按工作流非注释命令枚举 98 项本地 validators，95 项通过；余下三项分别是桌宠恢复脚本在本地临时恢复后拒绝覆盖既有目标、LingChat 私有 effects 未恢复、当前容器缺 `kotlinc`，均须由 Actions 干净环境验证。验证过程产生的未跟踪桌宠副本已清理；状态复核发现 6 个授权/覆盖素材属于基线已跟踪文件后已逐一恢复，当前无这部分删除或内容改动，用户附件/备份亦未改。当前容器仍无 Dart/Flutter，因此 Analyze、Flutter tests、Kotlin/JVM、Release、签名与 APK 仍严格为 CI 待证。
 
 ### 2026-09-13 v0.41.72+216 Cedar 信任优先、快速/观战节奏、即时分享与小酒狐七候选（CI PASSED / APK READY / TRUE DEVICE PENDING）
 

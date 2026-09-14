@@ -58,10 +58,56 @@ void main() {
 
   test('a catalog title triggers Cedar without hardcoding a game name', () {
     const catalog =
-        '小游戏: turtle_soup·海龟汤横向思维推理·作者 | duel·双弈，25款棋牌骰对弈·作者';
+        '小游戏: turtle_soup·海龟汤横向思维推理·作者 | duel·双弈，25款棋牌骰对弈·作者 | garden_cat·花园与猫咪长期养成·作者';
     expect(
       CedarToyActivityStore.catalogMentionsGame('快来双弈玩五子棋', catalog),
       isTrue,
+    );
+    expect(
+      CedarToyActivityStore.catalogMentionedGameId('去游戏厅里玩双弈吧', catalog),
+      'duel',
+    );
+    expect(
+      CedarToyActivityStore.catalogMentionedGameId(
+        '现在去花园与猫开一个存档吧',
+        catalog,
+      ),
+      'garden_cat',
+    );
+    expect(
+      CedarToyActivityStore.requestsImmediateGameEntry(
+        '现在去花园与猫开一个存档吧',
+      ),
+      isTrue,
+    );
+    expect(
+      CedarToyActivityStore.requestsImmediateGameEntry(
+        '你可以玩玩瓶中生态和花园与猫',
+      ),
+      isFalse,
+    );
+    expect(
+      CedarToyActivityStore.catalogMentionedGameId(
+        '你可以玩玩双弈和花园与猫',
+        catalog,
+      ),
+      isEmpty,
+    );
+    expect(
+      CedarToyActivityStore.catalogMentionsGame(
+        '你可以玩玩双弈和花园与猫',
+        catalog,
+      ),
+      isTrue,
+    );
+    const ambiguousCatalog =
+        '小游戏: garden_cat·花园与猫咪长期养成·作者 | garden_party·花园与猫咪派对·作者';
+    expect(
+      CedarToyActivityStore.catalogMentionedGameId(
+        '现在去花园与猫玩吧',
+        ambiguousCatalog,
+      ),
+      isEmpty,
     );
     expect(
       CedarToyActivityStore.catalogMentionsGame('今天随便聊聊', catalog),
