@@ -32,11 +32,12 @@
 | 仓库 | `catkiss62/ai-companion-build`；Flutter/Android 工程位于 `app/` |
 | 当前开发分支 | `agent/v04175-cedar-room-handoff-ledger-v2` |
 | 当前目标版本 | `v0.41.75+219 / schema 61 / Snapshot protocol 6` |
-| 当前状态 | `IMPLEMENTED LOCALLY / LOCAL STATIC VALIDATION PASSED / CI PENDING / TRUE DEVICE PENDING` |
+| 当前状态 | `CI PASSED / APK READY / TRUE DEVICE PENDING` |
 | 上一可安装基线 | `v0.41.74+218`，Actions run `34834400059` 全绿，`789/789` Flutter tests；APK SHA-256 `3a6cb3a64d0e0374799165fe4e23d03e5042c133d5dac7efcf8823b4a3ec2d86` |
 | +218 构建提交 | 远端功能 head `3163aa6cfac80a14414baa8488950557f26a4245`；最终文档 head `b775d76f6366fb64028dbae552c4dd1d387736c4` |
 | `main` | 仍是 v0.38.5 旧基线；不得作为 v0.41.x 后续开发起点，本批不合并 |
-| 当前构建产物目标 | `AI-Companion-v0.41.75-219-Cedar-Agentic-Blind-Play-APK.apk`；未构建，SHA/Artifact/Draft 待 CI |
+| +219 构建提交 | 远端功能 head `0295ceeeafe9e18f057b6f8f5d54a8dae8820ed2`；tree `3cf8a09813c135b8bce4e5b9a66381ba2a03f5cf` |
+| 当前构建产物 | `AI-Companion-v0.41.75-219-Cedar-Agentic-Blind-Play-APK.apk`；SHA-256 `9e638816031900660cadd08ac5d5dc6f40955319ac261139f1ee619197114f1f` |
 
 既有能力保护索引：Desire / Thought / Intent / Gate、Somatic 双通道、玩游 Key、普通聊天、沉浸房间、查手机、造梗来源、D6、Phase 2B、App 内 Agent 能力桥、Memory 2D、`fact_state / attention_state / recall_policy`、`spontaneous_salience`、`reminiscence/identity`、Skills、MCP、`【检查系统】`、中断灰显、Token 命中/缓存优化、Phase 3、Harness、`screen_observation.inspect`、Genie-TTS 四音色、schema 61 与 Snapshot protocol 6 均不得回归。
 
@@ -58,7 +59,7 @@
 - 随后的“我下好了”“进房间吧”“8LFUR2HK”各轮均为 `completed / 0 Cedar calls`。模型 reasoning 明确称当前没有五子棋工具，并用对白假装输入房间号。故“房间找不到”发生在 APK 出站前：该房间从未被 Cedar 查询，不能归因于 MCP 网站。
 - 防沉迷与各游戏存档不是同一概念。Cedar 的连续游玩轮数是账号/平台级，可跨游戏累计；`rest` 是平台公共 action，是否允许小机自行重置由 Cedar 网站的人类 `allow_self_reset` 开关裁决。APK 不应因为 duel 指南没重复写 `rest` 而本地拦截。
 
-### 本地实现（尚待 CI 证明）
+### 已实现并经 CI 证明
 
 1. 删除 +217 的“识别明确目录名后确定性拉指南”和“零调用专门重试”路径；不新增“五子棋→双弈”的本地别名或动作脚本。
 2. Cedar 已配置时，普通模型轮只常驻一个轻量 `cedar_toy.list_games` 能力入口。模型从用户语义自行决定是否使用；一旦选择该入口，同一目标后续同时向她开放 `list_games / get_guide / play`，不再由 APK 逐阶段指定下一工具。服务端依赖和执行器真实性校验仍会拒绝“未列目录就猜 game、未读玩家指南就猜 action”。
@@ -73,7 +74,8 @@
 
 - 必须通过 `git diff --check`、Python compileall、当前总账 v2、+219 专项以及 Actions 实际调用的全部历史 validator。
 - 本机结果：`git diff --check`、workflow YAML、Python compileall、当前总账 v2、+219/+218/+217 专项和工作流中可在本机执行且不依赖私有恢复载荷/缺失编译器的 `96/96` validators 已通过。剩余 `validate_v0331_desktop_pet_source_parity.py` 与 `validate_current_chat_visual_stage.py` 依赖 Actions 才恢复的私有桌宠/LingChat 素材，`validate_manual_crypto_v26.py` 依赖本机不存在的 `kotlinc`；三项必须由干净 CI 证明。
-- CI 必须证明 Kotlin/JVM、Flutter Analyze、全部 Flutter tests、arm64 Release、固定签名、私有资源恢复、checksum、Artifact 与 Draft；本机没有 Dart/Flutter，不能用静态检查冒充编译或 APK。
+- Actions run `34857965280`（run 873）全绿：源码/历史门、Kotlin/JVM、Flutter Analyze、`794/794` Flutter tests、arm64 Release、固定签名、私有资源恢复、checksum、Artifact 与 Draft 均通过。Signer SHA-256 `305eb3d80983b963c64818ddf1ad561f279de6d47b3ed2c781ada448c7c25148`。
+- Artifact `10354191268`，ZIP digest `633b1365eeebbb2434f71dc57484b1b977c4c0a9d723dac9de3c898e026eb02c`；Draft `https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-39855af0a12db43b0ab0`。自动化已通过不等于真机体验通过。
 - 真机至少验证：`陪我下五子棋`、`来试试开一把双弈五子棋`、直接给新房间号三条路径；确认有真实 `list/get_guide/rooms/join/state/move` Outcome，零调用不得口头声称成功。
 - 盲玩回归：要求她“去 GitHub 查攻略再玩”时不能获得公开搜索工具；已缓存含仓库 URL 的旧指南升级后不再进入 Prompt；文字推理只能依据玩家可见线索。
 - 防沉迷回归：网站允许自重置时 `rest` 能真实出站，关闭时保留 Cedar 的真实拒绝；不得用平台 `rest` 绕过游戏自己的每日次数、剧情阶段或冷却。
@@ -93,7 +95,6 @@
 
 | 优先级 | 条件 | 下一步 |
 |---|---|---|
-| P0 | +219 CI 失败 | 只按官方失败日志做最小编译/合同修复，不扩大功能范围 |
 | P0 | +219 APK READY | 联合真机验证自然发现、房间加入/落子、盲玩隔离、防沉迷 rest、暂离恢复、中文面板与房间 DeepSeek |
 | P1 | Cedar 真机主链通过 | 设计全工具动作展示，参考悬浮聊天框已有“正在做什么/哪里出错/下一步”表达，不直接暴露密钥、原始内部协议或冗长 JSON |
 | P2 | 用户要求继续既有路线 | 从冻结归档顶部“当前任务完成后的后续导航”和 `app/docs/DOCUMENTATION_MAP.md` 定点恢复，不全文读取归档 |

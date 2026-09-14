@@ -74,8 +74,6 @@ def main() -> None:
         "playerSafeGuide",
         "public_web.search",
         "allow_self_reset",
-        "IMPLEMENTED LOCALLY",
-        "CI PENDING",
         "TRUE DEVICE PENDING",
         "全工具调用动作展示",
         str(ARCHIVE.relative_to(ROOT)),
@@ -83,6 +81,15 @@ def main() -> None:
     )
     for fact in required_current:
         require(fact in ledger, f"missing current ledger fact: {fact}")
+
+    require(
+        (
+            "IMPLEMENTED LOCALLY / LOCAL STATIC VALIDATION PASSED / CI PENDING"
+            in ledger
+        )
+        or "CI PASSED / APK READY / TRUE DEVICE PENDING" in ledger,
+        "current ledger has neither a valid pre-CI nor post-CI status",
+    )
 
     required_archive = (
         "总账双层同步强制规则（每次正式修改前后都必须执行）",
