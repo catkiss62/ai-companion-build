@@ -97,7 +97,7 @@ require(
 require(
     "AI_Companion_当前总账.md",
     "v0.41.73+217 双弈确定性入口与回复完整性热修",
-    "LOCAL IMPLEMENTED",
+    "CI PASSED",
 )
 
 runner = read("lib/core/ai/durable_generation_runner.dart")
