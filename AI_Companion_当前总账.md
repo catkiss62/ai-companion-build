@@ -58,7 +58,7 @@
 2. 后台 `DeepSeekClient` 增加 runtime gate。备份/恢复置锁后，后台 stream 与 JSON 请求立即关闭；这是运行时暂停，不冒充用户停止，也不删除待恢复用户轮。Cedar Outcome 核验与 NSFW 路由沿同一取消边界传播，不在冻结后继续写状态。
 3. 普通保存/恢复改用 `transfer_lock_owner` 所有权 token。只有持有同一 token 的操作才能验锁和解锁；旧页面的迟到 `finally` 无法清掉新锁。ZIP 按状态与媒体哈希清单生成后先解冻，再打开系统保存页；用户选定位置后由 Android 独立执行 portable-ZIP、源/目标字节与 SHA-256 复核。删除了保存框之前重复的一次完整解包/哈希，并增加“冻结→整理生成→打开保存位置”阶段提示，既保留最终完整性边界，也避免无反馈地重复扫描几十 MiB。
 4. 脱敏诊断新增全部状态写入 lease 的 held/到期元数据与具体阻塞项，不包含 lease owner token、聊天正文、房间消息或凭据。新测试模拟永不返回的 HTTP 请求，验证用户 Stop 和 transfer freeze 都会在 2 秒内关闭它，并加入源码合同测试覆盖 durable poll、owned freeze 和停止等待。
-5. `git diff --check`、workflow YAML、Python compileall、当前总账门、+222/+221/+220 Cedar 与 Stop 专项门均通过；Actions 当前源码门中本机可执行的 `99/99` validators 通过。另 3 项依赖 Actions 恢复的私有桌宠/LingChat 载荷或本机不存在的 `kotlinc`。本地无 Flutter/Dart，必须由 CI 完成 Analyze、全量 Flutter tests、arm64 Release、签名、Artifact 与未发布 Draft。当前尚未推送；用户对 +221 分支的公开推送授权不自动扩展为 +222，推送前需取得本版明确授权。自动化通过后仍为 `TRUE DEVICE PENDING`。
+5. `git diff --check`、workflow YAML、Python compileall、当前总账门、+222/+221/+220 Cedar 与 Stop 专项门均通过；Actions 当前源码门中本机可执行的 `99/99` validators 通过。另 3 项依赖 Actions 恢复的私有桌宠/LingChat 载荷或本机不存在的 `kotlinc`。本地无 Flutter/Dart，必须由 CI 完成 Analyze、全量 Flutter tests、arm64 Release、签名、Artifact 与未发布 Draft。用户已明确授权将 +222 的两个提交推送到公开仓库 `catkiss62/ai-companion-build` 的 `agent/v04178-stop-transfer-interlock`，运行 Actions 并创建未发布 Draft APK；同时授权本窗口后续 AI 伴侣项目按明确开发分支继续推送和构建。自动化通过后仍为 `TRUE DEVICE PENDING`。
 
 ## 5. 上一已完成基线：v0.41.77+221 Cedar 后台换手闭环
 
