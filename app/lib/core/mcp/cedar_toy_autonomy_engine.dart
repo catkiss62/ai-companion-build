@@ -1,11 +1,14 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:math';
 
 import '../ai/deepseek_client.dart';
 import '../ai/final_reply_failure_policy.dart';
+import '../ai/generation_cancellation.dart';
 import '../ai/model_profile.dart';
 import '../agent/agent_tool_text_envelope.dart';
 import '../database/app_database.dart';
+import '../desire/desire_core_policy.dart';
 import '../diagnostics/runtime_error_category.dart';
 import '../models/desire_state.dart';
 import '../storage/secure_config.dart';
@@ -38,7 +41,8 @@ class CedarJsonDecisionRetryPolicy {
       error is EmptyJsonCompletionException ||
       error is MalformedJsonCompletionException ||
       error is FormatException ||
-      FinalReplyFailurePolicy.isTransient(error);
+      (error is! TimeoutException &&
+          FinalReplyFailurePolicy.isTransient(error));
 
   static String errorCategory(Object error) {
     if (error is EmptyJsonCompletionException) return 'empty_model_content';
@@ -80,6 +84,8 @@ class CedarJsonDecisionExecutor {
     required String apiKey,
     required String endpoint,
     required String instruction,
+    GenerationCancellationToken? cancellationToken,
+    Duration requestTimeout = const Duration(seconds: 30),
   }) async {
     Object? lastError;
     for (var attempt = 1;
@@ -93,6 +99,8 @@ class CedarJsonDecisionExecutor {
           thinking: CedarJsonDecisionRetryPolicy.thinkingForAttempt(attempt),
           effort: CedarJsonDecisionRetryPolicy.effortForAttempt(attempt),
           maxTokens: CedarJsonDecisionRetryPolicy.maxTokensForAttempt(attempt),
+          cancellationToken: cancellationToken,
+          requestTimeout: requestTimeout,
           messages: CedarJsonDecisionRetryPolicy.messagesForAttempt(
             attempt: attempt,
             instruction: instruction,
@@ -109,10 +117,87 @@ class CedarJsonDecisionExecutor {
           rethrow;
         }
         await onRetry?.call(error);
-        await Future<void>.delayed(CedarJsonDecisionRetryPolicy.retryDelay);
+        await Future.any<void>(<Future<void>>[
+          Future<void>.delayed(CedarJsonDecisionRetryPolicy.retryDelay),
+          if (cancellationToken != null) cancellationToken.whenCancelled,
+        ]);
+        cancellationToken?.throwIfCancelled();
       }
     }
     throw lastError!;
+  }
+}
+
+class CedarContinuationGateDecision {
+  const CedarContinuationGateDecision({
+    required this.allowed,
+    required this.delay,
+    required this.reason,
+    required this.effectiveFatigue,
+    required this.playScore,
+    required this.restScore,
+  });
+
+  final bool allowed;
+  final Duration delay;
+  final String reason;
+  final double effectiveFatigue;
+  final double playScore;
+  final double restScore;
+}
+
+/// Applies the same fatigue-vs-thought competition to an already committed
+/// Cedar session. A committed game keeps its save, but it no longer bypasses
+/// sleepiness and run mechanically through the night.
+class CedarContinuationGatePolicy {
+  const CedarContinuationGatePolicy._();
+
+  static CedarContinuationGateDecision evaluate({
+    required DateTime now,
+    required double storedFatigue,
+    required double curiosity,
+    required double reflection,
+    required double strongestGameThought,
+    required bool activelyWatched,
+  }) {
+    final fatigue = max(
+      storedFatigue.clamp(0.0, 1.0).toDouble(),
+      DesireCorePolicy.circadianFatigueFloor(now.toLocal()),
+    );
+    final restScore = DesireCorePolicy.fatigueRestScore(fatigue);
+    final playScore = (max(curiosity, reflection * 0.82) +
+            0.18 +
+            strongestGameThought.clamp(0.0, 1.0).toDouble() * 0.20 +
+            (activelyWatched ? 0.18 : 0.0) -
+            DesireCorePolicy.fatigueActionPenalty(fatigue))
+        .clamp(0.0, 0.92)
+        .toDouble();
+    if (fatigue < DesireCorePolicy.fatigueCompetitionFloor ||
+        playScore > restScore + 0.04) {
+      return CedarContinuationGateDecision(
+        allowed: true,
+        delay: Duration.zero,
+        reason: activelyWatched ? 'watched_or_thought_override' : 'play_wins',
+        effectiveFatigue: fatigue,
+        playScore: playScore,
+        restScore: restScore,
+      );
+    }
+    final delay = fatigue >= 0.76
+        ? const Duration(minutes: 60)
+        : fatigue >= 0.66
+            ? const Duration(minutes: 45)
+            : fatigue >= 0.56
+                ? const Duration(minutes: 20)
+                : const Duration(minutes: 8);
+    return CedarContinuationGateDecision(
+      allowed: false,
+      delay: delay,
+      reason: 'rest_wins',
+      effectiveFatigue: fatigue,
+      playScore: playScore,
+      restScore: restScore,
+    );
   }
 }
 
@@ -128,6 +213,68 @@ class CedarRoomActionPayload {
     if (clean.isNotEmpty) result['message'] = clean;
     return result;
   }
+}
+
+class _CedarExecutionScope {
+  _CedarExecutionScope({
+    required this.db,
+    required this.store,
+    required this.executionId,
+  });
+
+  final AppDatabase db;
+  final CedarToyActivityStore store;
+  final String executionId;
+  final GenerationCancellationToken cancellation =
+      GenerationCancellationToken();
+  Timer? _timer;
+  bool _checking = false;
+  String preemptReason = '';
+
+  Future<void> start() async {
+    await _check();
+    if (cancellation.isCancelled) return;
+    _timer = Timer.periodic(
+      const Duration(milliseconds: 200),
+      (_) => unawaited(_check()),
+    );
+  }
+
+  Future<void> _check() async {
+    if (_checking || cancellation.isCancelled) return;
+    _checking = true;
+    try {
+      String reason = '';
+      if (!await db.brainWorkAllowed()) {
+        reason = 'runtime_gate';
+      } else if ((await db.getSetting('cedar_toy_enabled')) == '0' ||
+          (await db.getSetting(CedarToyAutonomyEngine.enabledKey)) == '0') {
+        reason = 'disabled';
+      } else if (await db.isLocalLeaseHeld('chat_turn_lease')) {
+        reason = 'foreground_chat';
+      } else if (!await store.isExecutionCurrent(executionId)) {
+        reason = 'execution_fenced';
+      }
+      if (reason.isEmpty) return;
+      preemptReason = reason;
+      cancellation.cancel();
+      await db.setSetting('cedar_toy_last_preempt_reason', reason);
+      await db.setSetting(
+        'cedar_toy_last_preempt_at',
+        DateTime.now().millisecondsSinceEpoch.toString(),
+      );
+    } catch (_) {
+      // Gate polling is a best-effort wake-up accelerator. The provider's
+      // short timeout and the fenced result write remain the hard safety
+      // boundaries if SQLite is momentarily unavailable during this probe.
+    } finally {
+      _checking = false;
+    }
+  }
+
+  void throwIfPreempted() => cancellation.throwIfCancelled();
+
+  void close() => _timer?.cancel();
 }
 
 /// Advances at most one Cedar activity step after the shared Desire selector
@@ -148,6 +295,113 @@ class CedarToyAutonomyEngine {
   final AppDatabase db;
   final DeepSeekClient ai;
   final SecureConfig secureConfig;
+
+  Future<CedarAutonomyProgress> _runExecution({
+    required CedarToyActivityStore store,
+    required String gameId,
+    required String action,
+    required Future<CedarAutonomyProgress> Function(
+      _CedarExecutionScope scope,
+    ) body,
+  }) async {
+    final acquired = await db.tryAcquireLocalLease(
+      'cedar_toy_action_lease_until',
+      holdFor: const Duration(minutes: 2),
+    );
+    if (!acquired) return const CedarAutonomyProgress('action_in_progress');
+    String executionId = '';
+    _CedarExecutionScope? scope;
+    try {
+      executionId = await store.beginExecution(gameId: gameId, action: action);
+      scope = _CedarExecutionScope(
+        db: db,
+        store: store,
+        executionId: executionId,
+      );
+      await scope.start();
+      scope.throwIfPreempted();
+      return await body(scope);
+    } on GenerationCancelledByUserException {
+      final preemptReason = scope?.preemptReason ?? '';
+      final reason = preemptReason.isEmpty ? 'cancelled' : preemptReason;
+      if (reason == 'runtime_gate') {
+        throw const GenerationSuspendedByRuntimeGateException();
+      }
+      return CedarAutonomyProgress('preempted_$reason');
+    } on GenerationSuspendedByRuntimeGateException {
+      rethrow;
+    } on CedarExecutionPreemptedException catch (error) {
+      return CedarAutonomyProgress('preempted_${error.reason}');
+    } catch (error) {
+      if (gameId != 'catalog' && executionId.isNotEmpty) {
+        try {
+          await store.deferContinuation(
+            gameId: gameId,
+            delay: const Duration(minutes: 5),
+            executionId: executionId,
+          );
+        } on CedarExecutionPreemptedException {
+          return const CedarAutonomyProgress('preempted_execution_fenced');
+        }
+      }
+      await db.setSetting(
+        'cedar_toy_last_execution_error_category',
+        classifyRuntimeError(error),
+      );
+      await db.setSetting(
+        'cedar_toy_last_execution_error_at',
+        DateTime.now().millisecondsSinceEpoch.toString(),
+      );
+      return const CedarAutonomyProgress('execution_failed');
+    } finally {
+      scope?.close();
+      if (executionId.isNotEmpty) {
+        await store.finishExecution(executionId: executionId);
+      }
+      await db.releaseLocalLease('cedar_toy_action_lease_until');
+    }
+  }
+
+  Future<CedarContinuationGateDecision> _continuationGate({
+    required DateTime now,
+    required CedarGameSession session,
+    required CedarToyActivityStore store,
+  }) async {
+    final snapshot = await db.loadDesire();
+    final thoughts = await db.activeThoughts(limit: 40);
+    var strongestGameThought = 0.0;
+    for (final thought in thoughts) {
+      if (!thought.source.startsWith('mcp/cedar_game:') ||
+          (!thought.source.contains(':${session.gameId}:') &&
+              thought.topicKey != 'cedar_game:${session.gameId}')) {
+        continue;
+      }
+      strongestGameThought = max(strongestGameThought, thought.strength);
+    }
+    final pace = await store.currentViewingPace(now: now);
+    final decision = CedarContinuationGatePolicy.evaluate(
+      now: now,
+      storedFatigue: snapshot.drives[DriveKey.fatigue] ?? 0.0,
+      curiosity: snapshot.drives[DriveKey.curiosity] ?? 0.0,
+      reflection: snapshot.drives[DriveKey.reflection] ?? 0.0,
+      strongestGameThought: strongestGameThought,
+      activelyWatched: pace.isWatching,
+    );
+    await db.setSetting(
+      'cedar_toy_last_continuation_gate_v1',
+      jsonEncode(<String, Object?>{
+        'allowed': decision.allowed,
+        'reason': decision.reason,
+        'fatigue': decision.effectiveFatigue,
+        'playScore': decision.playScore,
+        'restScore': decision.restScore,
+        'delaySeconds': decision.delay.inSeconds,
+        'activelyWatched': pace.isWatching,
+        'evaluatedAt': now.millisecondsSinceEpoch,
+      }),
+    );
+    return decision;
+  }
 
   Future<CedarAutonomyAvailability> availability({required DateTime now}) async {
     if ((await db.getSetting('cedar_toy_enabled')) == '0' ||
@@ -203,49 +457,85 @@ class CedarToyAutonomyEngine {
     if (token.isEmpty || apiKey.isEmpty) {
       return const CedarAutonomyProgress('missing_config');
     }
-    final endpoint = await secureConfig.readEndpoint();
-    final client = CedarToyClient(token: token);
     final store = CedarToyActivityStore(db);
     final state = await store.loadState();
+    final session = state.activeSession;
+    final endpoint = await secureConfig.readEndpoint();
+    final client = CedarToyClient(token: token);
     if (state.queuedSwitches.isNotEmpty) {
       final queued = state.queuedSwitches.first;
       final catalog = await store.loadCatalog();
       if (!_containsIdentifier(catalog, queued.targetGameId)) {
         return const CedarAutonomyProgress('queued_game_not_in_catalog');
       }
-      final guideOutcome = await client.getGuide(queued.targetGameId);
-      if (guideOutcome.isError || guideOutcome.text.trim().isEmpty) {
-        return const CedarAutonomyProgress('queued_guide_failed');
-      }
-      final recorded = await store.recordGuide(
+      return _runExecution(
+        store: store,
         gameId: queued.targetGameId,
-        guide: CedarToyClient.playerSafeGuideOutcome(guideOutcome),
-      );
-      return CedarAutonomyProgress(
-        recorded.guideComplete ? 'queued_guide_ready' : 'guide_too_long',
+        action: '读取游戏指南',
+        body: (scope) async {
+          final guideOutcome = await client.getGuide(
+            queued.targetGameId,
+            cancellationToken: scope.cancellation,
+          );
+          scope.throwIfPreempted();
+          if (guideOutcome.isError || guideOutcome.text.trim().isEmpty) {
+            return const CedarAutonomyProgress('queued_guide_failed');
+          }
+          final recorded = await store.recordGuide(
+            gameId: queued.targetGameId,
+            guide: CedarToyClient.playerSafeGuideOutcome(guideOutcome),
+            executionId: scope.executionId,
+          );
+          return CedarAutonomyProgress(
+            recorded.guideComplete ? 'queued_guide_ready' : 'guide_too_long',
+          );
+        },
       );
     }
-    final session = state.activeSession;
     if (session == null || !session.needsContinuation) {
       return const CedarAutonomyProgress('waiting');
     }
-    if (session.companionCanObserve) {
-      return _observeSession(
-        now: now,
-        apiKey: apiKey,
-        endpoint: endpoint,
-        client: client,
-        store: store,
-        session: session,
-      );
-    }
-    return _advanceSession(
-      now: now,
-      apiKey: apiKey,
-      endpoint: endpoint,
-      client: client,
+    return _runExecution(
       store: store,
-      session: session,
+      gameId: session.gameId,
+      action: session.companionCanObserve
+          ? _identifier(session.continuationAction)
+          : '规划下一步',
+      body: (scope) async {
+        final gate = await _continuationGate(
+          now: now,
+          session: session,
+          store: store,
+        );
+        scope.throwIfPreempted();
+        if (!gate.allowed) {
+          await store.deferContinuation(
+            gameId: session.gameId,
+            delay: gate.delay,
+            executionId: scope.executionId,
+          );
+          return const CedarAutonomyProgress('night_rest_deferred');
+        }
+        return session.companionCanObserve
+            ? _observeSession(
+                now: now,
+                apiKey: apiKey,
+                endpoint: endpoint,
+                client: client,
+                store: store,
+                session: session,
+                scope: scope,
+              )
+            : _advanceSessionLocked(
+                now: now,
+                apiKey: apiKey,
+                endpoint: endpoint,
+                client: client,
+                store: store,
+                session: session,
+                scope: scope,
+              );
+      },
     );
   }
 
@@ -266,67 +556,93 @@ class CedarToyAutonomyEngine {
     if (session == null ||
         session.phase == CedarActivityPhase.completed ||
         session.phase == CedarActivityPhase.failed) {
-      final catalogOutcome = await client.listGames();
-      if (catalogOutcome.isError || catalogOutcome.text.trim().isEmpty) {
-        return const CedarAutonomyProgress('catalog_failed');
-      }
-      final catalog = CedarToyClient.redactSecrets(catalogOutcome.text);
-      await store.saveCatalog(catalog);
-      final recent = await db.recentMessages(limit: 12);
-      final recentSuggestions = <CedarCatalogEntry>[];
-      final suggestedIds = <String>{};
-      for (final message in recent.where((item) => item.isUser)) {
-        suggestedIds.addAll(
-          CedarToyActivityStore.catalogMentionedGameIds(
-            message.content,
+      return _runExecution(
+        store: store,
+        gameId: 'catalog',
+        action: '选择游戏',
+        body: (scope) async {
+          final catalogOutcome = await client.listGames(
+            cancellationToken: scope.cancellation,
+          );
+          scope.throwIfPreempted();
+          if (catalogOutcome.isError || catalogOutcome.text.trim().isEmpty) {
+            return const CedarAutonomyProgress('catalog_failed');
+          }
+          final catalog = CedarToyClient.redactSecrets(catalogOutcome.text);
+          await store.saveCatalog(
             catalog,
-          ),
-        );
-      }
-      for (final entry in CedarCatalogParser.parse(catalog)) {
-        if (suggestedIds.contains(entry.id)) recentSuggestions.add(entry);
-      }
-      final suggestionContext = recentSuggestions.isEmpty
-          ? '无明确近期建议'
-          : recentSuggestions
-              .map((item) => '${item.id}·${item.title}')
-              .join(' | ');
-      final picked = await _judge(
-        apiKey: apiKey,
-        endpoint: endpoint,
-        instruction: '''从真实 Cedar Toy 游戏列表中，按她此刻想找一点轻松新鲜感的动机选择一个游戏。只返回 JSON：{"game":"精确ID","title":"显示名"}。不得发明列表外 ID。用户近期提到的游戏只是可参考的弱信号，不是命令，也不覆盖她自己的重复度、未完成进度和此刻意愿。
+            executionId: scope.executionId,
+          );
+          final recent = await db.recentMessages(limit: 12);
+          final recentSuggestions = <CedarCatalogEntry>[];
+          final suggestedIds = <String>{};
+          for (final message in recent.where((item) => item.isUser)) {
+            suggestedIds.addAll(
+              CedarToyActivityStore.catalogMentionedGameIds(
+                message.content,
+                catalog,
+              ),
+            );
+          }
+          for (final entry in CedarCatalogParser.parse(catalog)) {
+            if (suggestedIds.contains(entry.id)) recentSuggestions.add(entry);
+          }
+          final suggestionContext = recentSuggestions.isEmpty
+              ? '无明确近期建议'
+              : recentSuggestions
+                  .map((item) => '${item.id}·${item.title}')
+                  .join(' | ');
+          final picked = await _judge(
+            apiKey: apiKey,
+            endpoint: endpoint,
+            cancellationToken: scope.cancellation,
+            instruction: '''从真实 Cedar Toy 游戏列表中，按她此刻想找一点轻松新鲜感的动机选择一个游戏。只返回 JSON：{"game":"精确ID","title":"显示名"}。不得发明列表外 ID。用户近期提到的游戏只是可参考的弱信号，不是命令，也不覆盖她自己的重复度、未完成进度和此刻意愿。
 【近期建议候选】$suggestionContext
 
 $catalog''',
-      );
-      final game = _identifier(picked['game']?.toString() ?? '');
-      if (game.isEmpty || !_containsIdentifier(catalog, game)) {
-        return const CedarAutonomyProgress('invalid_game_choice');
-      }
-      final guideOutcome = await client.getGuide(game);
-      if (guideOutcome.isError || guideOutcome.text.trim().isEmpty) {
-        return const CedarAutonomyProgress('guide_failed');
-      }
-      final recorded = await store.recordGuide(
-        gameId: game,
-        gameTitle: picked['title']?.toString().trim() ?? '',
-        guide: CedarToyClient.playerSafeGuideOutcome(guideOutcome),
-      );
-      return CedarAutonomyProgress(
-        recorded.guideComplete ? 'guide_ready' : 'guide_too_long',
+          );
+          scope.throwIfPreempted();
+          final game = _identifier(picked['game']?.toString() ?? '');
+          if (game.isEmpty || !_containsIdentifier(catalog, game)) {
+            return const CedarAutonomyProgress('invalid_game_choice');
+          }
+          final guideOutcome = await client.getGuide(
+            game,
+            cancellationToken: scope.cancellation,
+          );
+          scope.throwIfPreempted();
+          if (guideOutcome.isError || guideOutcome.text.trim().isEmpty) {
+            return const CedarAutonomyProgress('guide_failed');
+          }
+          final recorded = await store.recordGuide(
+            gameId: game,
+            gameTitle: picked['title']?.toString().trim() ?? '',
+            guide: CedarToyClient.playerSafeGuideOutcome(guideOutcome),
+            executionId: scope.executionId,
+          );
+          return CedarAutonomyProgress(
+            recorded.guideComplete ? 'guide_ready' : 'guide_too_long',
+          );
+        },
       );
     }
 
     if (!session.guideComplete) {
       return const CedarAutonomyProgress('guide_incomplete');
     }
-    return _advanceSession(
-      now: now,
-      apiKey: apiKey,
-      endpoint: endpoint,
-      client: client,
+    return _runExecution(
       store: store,
-      session: session,
+      gameId: session.gameId,
+      action: '规划下一步',
+      body: (scope) => _advanceSessionLocked(
+        now: now,
+        apiKey: apiKey,
+        endpoint: endpoint,
+        client: client,
+        store: store,
+        session: session,
+        scope: scope,
+      ),
     );
   }
 
@@ -337,12 +653,14 @@ $catalog''',
     required CedarToyClient client,
     required CedarToyActivityStore store,
     required CedarGameSession session,
+    required _CedarExecutionScope scope,
   }) async {
     final action = _identifier(session.continuationAction);
     if (action.isEmpty || !_containsIdentifier(session.guide, action)) {
       await store.deferContinuation(
         gameId: session.gameId,
         delay: const Duration(seconds: 15),
+        executionId: scope.executionId,
       );
       return const CedarAutonomyProgress('invalid_continuation_call');
     }
@@ -355,14 +673,10 @@ $catalog''',
       await store.deferContinuation(
         gameId: session.gameId,
         delay: const Duration(seconds: 15),
+        executionId: scope.executionId,
       );
       return const CedarAutonomyProgress('invalid_continuation_params');
     }
-    final actionLease = await db.tryAcquireLocalLease(
-      'cedar_toy_action_lease_until',
-      holdFor: const Duration(minutes: 5),
-    );
-    if (!actionLease) return const CedarAutonomyProgress('action_in_progress');
     var roomMessage = '';
     try {
       if (session.hasPendingRoomMessage &&
@@ -374,11 +688,18 @@ $catalog''',
           action: action,
           params: params,
           intent: '回应对方刚在房间说的话，不打断对局。',
+          cancellationToken: scope.cancellation,
         );
         params = CedarRoomActionPayload.withMessage(params, roomMessage);
       }
-      await store.beginExecution(gameId: session.gameId, action: action);
-      final outcome = await client.play(session.gameId, action, params);
+      scope.throwIfPreempted();
+      final outcome = await client.play(
+        session.gameId,
+        action,
+        params,
+        cancellationToken: scope.cancellation,
+      );
+      scope.throwIfPreempted();
       if (outcome.isError) {
         await db.setSetting(
           'cedar_toy_last_observe_error_category',
@@ -388,6 +709,7 @@ $catalog''',
         await store.deferContinuation(
           gameId: session.gameId,
           delay: const Duration(seconds: 5),
+          executionId: scope.executionId,
         );
         return const CedarAutonomyProgress('observe_failed');
       }
@@ -401,6 +723,7 @@ $catalog''',
         shareLevel: 'quiet',
         invitationApproved: session.invitationApproved,
         roomMessageSent: roomMessage.isNotEmpty,
+        executionId: scope.executionId,
       );
       await db.setSetting('cedar_toy_last_observe_error_category', '');
       await db.setSetting('cedar_toy_last_realtime_observe_error', '');
@@ -412,6 +735,11 @@ $catalog''',
                 : 'remote_wait_renewed',
       );
     } catch (error) {
+      if (error is GenerationCancelledByUserException ||
+          error is GenerationSuspendedByRuntimeGateException ||
+          error is CedarExecutionPreemptedException) {
+        rethrow;
+      }
       if (error is McpHttpException &&
           error.code == 'network_or_timeout' &&
           session.continuationWaitScope.trim().isNotEmpty) {
@@ -423,6 +751,7 @@ $catalog''',
         await store.deferContinuation(
           gameId: session.gameId,
           delay: const Duration(seconds: 1),
+          executionId: scope.executionId,
         );
         return const CedarAutonomyProgress('remote_wait_renewed');
       }
@@ -434,43 +763,9 @@ $catalog''',
       await store.deferContinuation(
         gameId: session.gameId,
         delay: const Duration(seconds: 5),
+        executionId: scope.executionId,
       );
       return const CedarAutonomyProgress('observe_failed');
-    } finally {
-      await store.finishExecution();
-      await db.releaseLocalLease('cedar_toy_action_lease_until');
-    }
-  }
-
-  Future<CedarAutonomyProgress> _advanceSession({
-    required DateTime now,
-    required String apiKey,
-    required String endpoint,
-    required CedarToyClient client,
-    required CedarToyActivityStore store,
-    required CedarGameSession session,
-  }) async {
-    final actionLease = await db.tryAcquireLocalLease(
-      'cedar_toy_action_lease_until',
-      holdFor: const Duration(minutes: 5),
-    );
-    if (!actionLease) return const CedarAutonomyProgress('action_in_progress');
-    try {
-      await store.beginExecution(
-        gameId: session.gameId,
-        action: '规划下一步',
-      );
-      return await _advanceSessionLocked(
-        now: now,
-        apiKey: apiKey,
-        endpoint: endpoint,
-        client: client,
-        store: store,
-        session: session,
-      );
-    } finally {
-      await store.finishExecution();
-      await db.releaseLocalLease('cedar_toy_action_lease_until');
     }
   }
 
@@ -481,12 +776,14 @@ $catalog''',
     required CedarToyClient client,
     required CedarToyActivityStore store,
     required CedarGameSession session,
+    required _CedarExecutionScope scope,
   }) async {
     final state = await store.loadState();
     final playProtocol = await store.loadPlayProtocol();
     final judged = await _judge(
       apiKey: apiKey,
       endpoint: endpoint,
+      cancellationToken: scope.cancellation,
       instruction: '''你在为 AI 伴侣推进一局真实 Cedar Toy 游戏。只依据完整指南与本机真实局面，返回 JSON：
 {"participation_mode":"solo|co_play|multiplayer|hybrid|unknown","action":"指南中的精确动作名","params":{},"room_reply_intent":"若是共玩，用一句中文描述此刻想在房间说什么；这只是内部意图，不是最终可见台词"}
 共玩、多人模式必须先邀请用户；混合模式可以独自开始，但只有用户明确同意后才能进入其中的共玩分支。这时 action 可以为空，绝不能假装已经 play。单人模式每次只推进一步。不得打开 GitHub 或补写结果。
@@ -494,6 +791,7 @@ $catalog''',
 
 ${store.promptContext(session, state: state, playProtocol: playProtocol)}''',
     );
+    scope.throwIfPreempted();
     // Participation is session identity. Once established, do not let a fresh
     // planner pass reinterpret a solo game as co-play (or the reverse).
     final judgedMode = CedarParticipationMode.fromKey(
@@ -509,6 +807,7 @@ ${store.promptContext(session, state: state, playProtocol: playProtocol)}''',
         gameId: session.gameId,
         mode: mode,
         reason: '她想玩 ${session.displayName}，真实指南表明需要你一起参与。',
+        executionId: scope.executionId,
       );
       await _seedThought(
         text: '我在游戏厅看中了“${session.displayName}”，但这是共玩游戏。我想先邀请你，等你答应再开局。',
@@ -519,12 +818,18 @@ ${store.promptContext(session, state: state, playProtocol: playProtocol)}''',
       return const CedarAutonomyProgress('invitation_staged', notable: true);
     }
     if (!platformAction && mode == CedarParticipationMode.unknown) {
-      await store.deferContinuation(gameId: session.gameId);
+      await store.deferContinuation(
+        gameId: session.gameId,
+        executionId: scope.executionId,
+      );
       return const CedarAutonomyProgress('mode_unknown');
     }
     if (action.isEmpty ||
         (!_containsIdentifier(session.guide, action) && !platformAction)) {
-      await store.deferContinuation(gameId: session.gameId);
+      await store.deferContinuation(
+        gameId: session.gameId,
+        executionId: scope.executionId,
+      );
       return const CedarAutonomyProgress('invalid_action_choice');
     }
     if (!platformAction &&
@@ -534,6 +839,7 @@ ${store.promptContext(session, state: state, playProtocol: playProtocol)}''',
       await store.deferContinuation(
         gameId: session.gameId,
         delay: const Duration(seconds: 15),
+        executionId: scope.executionId,
       );
       return const CedarAutonomyProgress('read_only_loop_blocked');
     }
@@ -544,6 +850,7 @@ ${store.promptContext(session, state: state, playProtocol: playProtocol)}''',
       await store.deferContinuation(
         gameId: session.gameId,
         delay: const Duration(minutes: 2),
+        executionId: scope.executionId,
       );
       return const CedarAutonomyProgress('platform_action_loop_blocked');
     }
@@ -573,18 +880,31 @@ ${store.promptContext(session, state: state, playProtocol: playProtocol)}''',
         action: action,
         params: params,
         intent: judged['room_reply_intent']?.toString().trim() ?? '',
+        cancellationToken: scope.cancellation,
       );
+      scope.throwIfPreempted();
       params = CedarRoomActionPayload.withMessage(params, roomMessage);
     }
-    await store.beginExecution(gameId: session.gameId, action: action);
+    await store.updateExecutionAction(
+      executionId: scope.executionId,
+      action: action,
+    );
+    scope.throwIfPreempted();
     late McpToolOutcome outcome;
     try {
-      outcome = await client.play(session.gameId, action, params);
+      outcome = await client.play(
+        session.gameId,
+        action,
+        params,
+        cancellationToken: scope.cancellation,
+      );
+      scope.throwIfPreempted();
     } catch (error) {
       if (error is McpHttpException && error.code == 'network_or_timeout') {
         await store.markWriteOutcomeUncertain(
           gameId: session.gameId,
           action: action,
+          executionId: scope.executionId,
         );
         return const CedarAutonomyProgress('write_outcome_sync');
       }
@@ -599,13 +919,16 @@ ${store.promptContext(session, state: state, playProtocol: playProtocol)}''',
             mode: mode,
             action: action,
             outcome: outcome,
+            cancellationToken: scope.cancellation,
           );
+    scope.throwIfPreempted();
     final shareLevel = verification.shareLevel;
     final updated = platformAction
         ? await store.recordPlatformAction(
             gameId: session.gameId,
             action: action,
             outcome: outcome,
+            executionId: scope.executionId,
           )
         : await store.recordPlay(
             gameId: session.gameId,
@@ -617,6 +940,7 @@ ${store.promptContext(session, state: state, playProtocol: playProtocol)}''',
             invitationApproved: session.invitationApproved,
             resumeAfterSeconds: verification.resumeAfterSeconds,
             roomMessageSent: roomMessage.isNotEmpty,
+            executionId: scope.executionId,
           );
     if (!outcome.isError &&
         shareLevel != 'quiet' &&
@@ -643,6 +967,7 @@ ${store.promptContext(session, state: state, playProtocol: playProtocol)}''',
     required CedarParticipationMode mode,
     required String action,
     required McpToolOutcome outcome,
+    GenerationCancellationToken? cancellationToken,
   }) async {
     final outcomeText = CedarToyClient.redactSecrets(outcome.text);
     final structured = _resolveMcpTurnState(outcome);
@@ -666,6 +991,7 @@ ${store.promptContext(session, state: state, playProtocol: playProtocol)}''',
       final judged = await _judgeOutcome(
         apiKey: apiKey,
         endpoint: endpoint,
+        cancellationToken: cancellationToken,
         instruction: '''你只分类一次真实 Cedar Toy play Outcome，只返回 JSON：
 {"next_actor":"companion|user|shared|wait|finished","share_level":"quiet|notable|required","resume_after_seconds":0}
 不得规划下一动作，不得补写结果。需要用户决定/输入时为 user 或 shared；远端计时/其他玩家时为 wait；明确结束才为 finished。只有 Outcome 明确给出等待/轮询时长时填写 15～3600 秒，否则为 0。
@@ -695,6 +1021,10 @@ $outcomeText''',
         resumeAfterSeconds: structuredResume ??
             (rawResume <= 0 ? 0 : rawResume.clamp(15, 3600).toInt()),
       );
+    } on GenerationCancelledByUserException {
+      rethrow;
+    } on GenerationSuspendedByRuntimeGateException {
+      rethrow;
     } catch (_) {
       return (
         nextActor: structured?.nextActor ??
@@ -728,6 +1058,7 @@ $outcomeText''',
     required String action,
     required Map<String, Object?> params,
     required String intent,
+    GenerationCancellationToken? cancellationToken,
   }) async {
     final prompt = <Map<String, Object?>>[
       <String, Object?>{
@@ -765,6 +1096,8 @@ game=${session.gameId}
         // ordinary chat and immersive rooms only.
         thinking: false,
         maxTokens: 512,
+        cancellationToken: cancellationToken,
+        requestTimeout: const Duration(seconds: 30),
       )) {
         content += delta.content;
         if (delta.finishReason != null) finishReason = delta.finishReason!;
@@ -777,6 +1110,10 @@ game=${session.gameId}
       }
       await db.setSetting('cedar_room_last_final_provider_notice', '');
       return clean;
+    } on GenerationCancelledByUserException {
+      rethrow;
+    } on GenerationSuspendedByRuntimeGateException {
+      rethrow;
     } catch (_) {
       await db.setSetting('cedar_room_last_final_provider_notice', '');
       return session.pendingRoomMessage.isNotEmpty
@@ -831,6 +1168,7 @@ game=${session.gameId}
     required String apiKey,
     required String endpoint,
     required String instruction,
+    GenerationCancellationToken? cancellationToken,
   }) async {
     return CedarJsonDecisionExecutor(
       ai: ai,
@@ -856,6 +1194,7 @@ game=${session.gameId}
       apiKey: apiKey,
       endpoint: endpoint,
       instruction: instruction,
+      cancellationToken: cancellationToken,
     );
   }
 
@@ -863,6 +1202,7 @@ game=${session.gameId}
     required String apiKey,
     required String endpoint,
     required String instruction,
+    GenerationCancellationToken? cancellationToken,
   }) =>
       ai.jsonCompletion(
         apiKey: apiKey,
@@ -871,6 +1211,8 @@ game=${session.gameId}
         thinking: false,
         effort: ReasoningEffort.low,
         maxTokens: 300,
+        cancellationToken: cancellationToken,
+        requestTimeout: const Duration(seconds: 30),
         messages: <Map<String, Object?>>[
           <String, Object?>{'role': 'system', 'content': instruction},
         ],

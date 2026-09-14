@@ -381,6 +381,7 @@ class _TransferPageState extends State<TransferPage> {
     final deadline = DateTime.now().add(const Duration(seconds: 90));
     const keys = <String>[
       'chat_turn_lease',
+      'cedar_toy_action_lease_until',
       'recovery_orchestrator_lease_until',
       'post_turn_memory_lease',
       'proactive_lease_until',

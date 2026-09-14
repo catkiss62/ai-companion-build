@@ -644,8 +644,10 @@ class AgentToolRunner {
     }
     late McpToolOutcome outcome;
     var verifiedNextActor = 'wait';
+    var executionId = '';
     try {
-      await activityStore.beginExecution(gameId: game, action: action);
+      executionId =
+          await activityStore.beginExecution(gameId: game, action: action);
       outcome = await client.play(
         game,
         action,
@@ -670,6 +672,7 @@ class AgentToolRunner {
           gameId: game,
           action: action,
           outcome: outcome,
+          executionId: executionId,
         );
       } else {
         await activityStore.recordPlay(
@@ -683,6 +686,7 @@ class AgentToolRunner {
           resumeAfterSeconds: verification.resumeAfterSeconds,
           roomMessageSent:
               (params['message']?.toString().trim().isNotEmpty ?? false),
+          executionId: executionId,
         );
       }
       try {
@@ -692,7 +696,9 @@ class AgentToolRunner {
         // wake hint is temporarily unavailable.
       }
     } finally {
-      await activityStore.finishExecution();
+      if (executionId.isNotEmpty) {
+        await activityStore.finishExecution(executionId: executionId);
+      }
       await db.releaseLocalLease('cedar_toy_action_lease_until');
     }
     final attachments = await _cedarImageAttachments(

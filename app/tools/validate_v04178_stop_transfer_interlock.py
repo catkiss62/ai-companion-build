@@ -19,7 +19,7 @@ def require(path: str, *tokens: str) -> None:
     assert not missing, f"{path}: missing {missing}"
 
 
-require("pubspec.yaml", "version: 0.41.78+222")
+require("pubspec.yaml", "version: 0.41.79+223")
 require(
     "lib/core/ai/generation_cancellation.dart",
     "class GenerationSuspendedByRuntimeGateException",
@@ -105,16 +105,16 @@ require(
 )
 require(
     ".github/workflows/build-apk.yml",
-    "agent/v04178-stop-transfer-interlock",
-    "AI-Companion-v0.41.78-222-Stop-Transfer-Interlock-APK",
+    "agent/v04179-cedar-runtime-preemption",
+    "AI-Companion-v0.41.79-223-Cedar-Runtime-Preemption-APK",
     "validate_v04178_stop_transfer_interlock.py",
 )
 require(
     "AI_Companion_当前总账.md",
-    "v0.41.78+222",
+    "v0.41.79+223",
     "停止与备份互锁",
     "transfer_lock_owner",
     "TRUE DEVICE PENDING",
 )
 
-print("v0.41.78+222 Stop/transfer interlock validation passed.")
+print("v0.41.79+223 Stop/transfer interlock validation passed.")

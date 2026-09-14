@@ -110,11 +110,17 @@ class RecoveryOrchestrator {
       var cedarContinuationState = 'not_checked';
       if (blocking == null && allowProactive) {
         try {
-          cedarContinuationState =
-              await proactive.continueCedarActivityIfDue(now: now);
+          // Cedar planning and MCP calls are network waits. Never keep the
+          // orchestrator's global state-writer lease across them: foreground
+          // chat and backup/restore must remain able to take priority while a
+          // game provider is slow. The Cedar action lease remains the narrow
+          // writer fence for this operation.
+          cedarContinuationState = await _continueCedarOutsideLease(now);
           await db.setSetting('cedar_toy_last_continuation_error', '');
         } on GenerationSuspendedByRuntimeGateException {
           throw const _RecoveryOrchestratorOwnershipLost();
+        } on _RecoveryOrchestratorOwnershipLost {
+          rethrow;
         } catch (cedarError) {
           cedarContinuationState = 'failed';
           await db.setSetting(
@@ -301,6 +307,19 @@ class RecoveryOrchestrator {
       holdFor: const Duration(minutes: 6),
     );
     if (!renewed) throw const _RecoveryOrchestratorOwnershipLost();
+  }
+
+  Future<String> _continueCedarOutsideLease(DateTime now) async {
+    await db.releaseLocalLease(_orchestratorLease);
+    try {
+      return await proactive.continueCedarActivityIfDue(now: now);
+    } finally {
+      final reacquired = await db.tryAcquireLocalLease(
+        _orchestratorLease,
+        holdFor: const Duration(minutes: 6),
+      );
+      if (!reacquired) throw const _RecoveryOrchestratorOwnershipLost();
+    }
   }
 
   Future<bool> _reactiveHeartbeatIsDue({

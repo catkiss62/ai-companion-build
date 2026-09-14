@@ -88,6 +88,7 @@ class DeepSeekClient {
     List<Map<String, Object?>> tools = const <Map<String, Object?>>[],
     String? toolChoice,
     GenerationCancellationToken? cancellationToken,
+    Duration requestTimeout = const Duration(seconds: 120),
   }) async* {
     final provider = ChatApiProvider.fromEndpoint(endpoint);
     final request = http.Request('POST', Uri.parse(endpoint))
@@ -149,7 +150,7 @@ class DeepSeekClient {
       cancellationToken?.throwIfCancelled();
       final response = await streamClient
           .send(request)
-          .timeout(const Duration(seconds: 120));
+          .timeout(requestTimeout);
       cancellationToken?.throwIfCancelled();
       if (response.statusCode < 200 || response.statusCode >= 300) {
         final body = await response.stream.bytesToString();
@@ -157,7 +158,7 @@ class DeepSeekClient {
       }
 
       final lines = response.stream
-          .timeout(const Duration(seconds: 120))
+          .timeout(requestTimeout)
           .transform(utf8.decoder)
           .transform(const LineSplitter());
 
@@ -230,6 +231,7 @@ class DeepSeekClient {
     ReasoningEffort effort = ReasoningEffort.high,
     int maxTokens = 1400,
     GenerationCancellationToken? cancellationToken,
+    Duration requestTimeout = const Duration(seconds: 120),
   }) async {
     final provider = ChatApiProvider.fromEndpoint(endpoint);
     final abortWhen = _abortWhen;
@@ -286,7 +288,7 @@ class DeepSeekClient {
               'stream': false,
             }),
           )
-          .timeout(const Duration(seconds: 120));
+          .timeout(requestTimeout);
       cancellationToken?.throwIfCancelled();
       if (runtimeGateAborted) {
         throw const GenerationSuspendedByRuntimeGateException();

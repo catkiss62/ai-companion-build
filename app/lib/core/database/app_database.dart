@@ -4702,6 +4702,11 @@ class AppDatabase {
       for (final entry in <String, String>{
         'transfer_lock': '1',
         'transfer_lock_owner': token,
+        // Fence any Cedar result that was computed from the pre-freeze state.
+        // The transfer page still waits for the narrow Cedar action lease to
+        // drain before reading the snapshot.
+        'cedar_toy_execution_fence_v1':
+            'cancel-transfer-${_uuid.v4()}',
       }.entries) {
         await txn.insert(
           'settings',
@@ -17680,6 +17685,43 @@ class AppDatabase {
     });
   }
 
+  /// Writes a related group of settings in one SQLite transaction.
+  ///
+  /// When [guardKey] is supplied, the write is committed only while its exact
+  /// value still equals [expectedGuardValue]. This is used by cross-engine
+  /// workers to fence a late network result after the user paused or disabled
+  /// the owning feature.
+  Future<bool> setSettingsAtomically(
+    Map<String, String> values, {
+    String? guardKey,
+    String expectedGuardValue = '',
+  }) async {
+    if (values.isEmpty) return true;
+    final db = await database;
+    return db.transaction<bool>((txn) async {
+      if (guardKey != null) {
+        final rows = await txn.query(
+          'settings',
+          columns: const ['value'],
+          where: 'key = ?',
+          whereArgs: <Object?>[guardKey],
+          limit: 1,
+        );
+        final current =
+            rows.isEmpty ? '' : rows.first['value'] as String? ?? '';
+        if (current != expectedGuardValue) return false;
+      }
+      for (final entry in values.entries) {
+        await txn.insert(
+          'settings',
+          <String, String>{'key': entry.key, 'value': entry.value},
+          conflictAlgorithm: ConflictAlgorithm.replace,
+        );
+      }
+      return true;
+    });
+  }
+
   Future<void> _setSettingInTransaction(
     DatabaseExecutor txn,
     String key,
@@ -17791,6 +17833,20 @@ class AppDatabase {
         },
         conflictAlgorithm: ConflictAlgorithm.replace,
       );
+      if (key == 'chat_turn_lease') {
+        // Foreground chat has priority over autonomous Cedar work. Fencing in
+        // the same transaction as lease acquisition closes the small polling
+        // race in which a background result could otherwise overwrite state
+        // just after the user sent a message.
+        await txn.insert(
+          'settings',
+          {
+            'key': 'cedar_toy_execution_fence_v1',
+            'value': 'cancel-foreground-chat-${_uuid.v4()}',
+          },
+          conflictAlgorithm: ConflictAlgorithm.replace,
+        );
+      }
       return true;
     });
     if (acquired) {

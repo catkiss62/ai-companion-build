@@ -201,6 +201,7 @@ class PreflightDiagnosticsService {
           await db.localLeaseDiagnostic('chat_turn_lease');
       const stateWriterLeaseKeys = <String>[
         'chat_turn_lease',
+        'cedar_toy_action_lease_until',
         'recovery_orchestrator_lease_until',
         'post_turn_memory_lease',
         'proactive_lease_until',
@@ -418,6 +419,23 @@ class PreflightDiagnosticsService {
             await db.getSetting('cedar_toy_json_retry_last_at') ?? '',
           ) ??
           0;
+      cedarRealtime['lastPreemptReason'] =
+          (await db.getSetting('cedar_toy_last_preempt_reason') ?? 'none')
+              .trim();
+      cedarRealtime['lastPreemptAt'] = int.tryParse(
+            await db.getSetting('cedar_toy_last_preempt_at') ?? '',
+          ) ??
+          0;
+      final cedarGateRaw =
+          await db.getSetting('cedar_toy_last_continuation_gate_v1') ?? '';
+      if (cedarGateRaw.isNotEmpty) {
+        try {
+          final decoded = jsonDecode(cedarGateRaw);
+          if (decoded is Map) {
+            cedarRealtime['continuationGate'] = decoded;
+          }
+        } catch (_) {}
+      }
       cedarRealtime['roomDialogueProvider'] = 'deepseek';
       cedarRealtime['roomFinalProviderFallback'] = false;
       cedarRealtime['roomMessageBodiesIncluded'] = false;

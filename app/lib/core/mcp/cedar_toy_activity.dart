@@ -1,5 +1,7 @@
 import 'dart:convert';
 
+import 'package:uuid/uuid.dart';
+
 import '../database/app_database.dart';
 import 'cedar_game_protocol.dart';
 import 'cedar_toy_client.dart';
@@ -433,16 +435,19 @@ class CedarGameReference {
 
 class CedarGameExecution {
   const CedarGameExecution({
+    required this.id,
     required this.gameId,
     required this.action,
     required this.startedAt,
   });
 
+  final String id;
   final String gameId;
   final String action;
   final DateTime startedAt;
 
   Map<String, Object?> toJson() => <String, Object?>{
+        'id': id,
         'game_id': gameId,
         'action': action,
         'started_at': startedAt.millisecondsSinceEpoch,
@@ -450,12 +455,22 @@ class CedarGameExecution {
 
   factory CedarGameExecution.fromJson(Map<Object?, Object?> json) =>
       CedarGameExecution(
+        id: json['id']?.toString() ?? '',
         gameId: json['game_id']?.toString() ?? '',
         action: json['action']?.toString() ?? '',
         startedAt: DateTime.fromMillisecondsSinceEpoch(
           (json['started_at'] as num?)?.toInt() ?? 0,
         ),
       );
+}
+
+class CedarExecutionPreemptedException implements Exception {
+  const CedarExecutionPreemptedException([this.reason = 'preempted']);
+
+  final String reason;
+
+  @override
+  String toString() => 'cedar_execution_preempted:$reason';
 }
 
 class CedarToyActivityState {
@@ -566,6 +581,10 @@ class CedarToyActivityStore {
   static const viewerHeartbeatSettingKey = 'cedar_toy_viewer_heartbeat_at_v1';
   static const pendingDirectSharesSettingKey =
       'cedar_toy_pending_direct_shares_v1';
+  static const executionFenceSettingKey =
+      'cedar_toy_execution_fence_v1';
+  static const switchPausedGameSettingKey =
+      'cedar_toy_switch_paused_game_v1';
   static const maxGuidePromptChars = 120000;
   static const maxStoredTextChars = 1024 * 1024;
   static const maxEventSummaryChars = 6000;
@@ -580,6 +599,7 @@ class CedarToyActivityStore {
   static const viewerHeartbeatTtl = Duration(hours: 6);
 
   final AppDatabase db;
+  static const Uuid _uuid = Uuid();
 
   Future<void> beginViewing() async {
     final now = DateTime.now();
@@ -692,11 +712,20 @@ class CedarToyActivityStore {
             await _saveState(state);
           }
           final execution = state.execution;
+          final executionLeaseHeld = execution != null &&
+              await db.isLocalLeaseHeld('cedar_toy_action_lease_until');
           if (execution != null &&
-              DateTime.now().difference(execution.startedAt) >
-                  const Duration(minutes: 5)) {
+              (execution.id.isEmpty ||
+                  (await db.getSetting(executionFenceSettingKey)) !=
+                      execution.id ||
+                  (!executionLeaseHeld &&
+                      DateTime.now().difference(execution.startedAt) >
+                          const Duration(minutes: 2)))) {
             state = state.copyWith(clearExecution: true);
-            await _saveState(state);
+            await db.setSettingsAtomically(<String, String>{
+              ..._stateSettingValues(state),
+              executionFenceSettingKey: 'cancel-stale-${_uuid.v4()}',
+            });
           }
           return state;
         }
@@ -751,10 +780,24 @@ class CedarToyActivityStore {
     return due.isAfter(now) ? due.difference(now) : Duration.zero;
   }
 
-  Future<void> saveCatalog(String catalog) async {
+  Future<void> saveCatalog(
+    String catalog, {
+    String executionId = '',
+  }) async {
     final clean = catalog.trim();
     if (clean.isEmpty || clean.length > maxStoredTextChars) return;
-    await db.setSetting(catalogSettingKey, clean);
+    final catalogSaved = executionId.isEmpty
+        ? await db.setSettingsAtomically(<String, String>{
+            catalogSettingKey: clean,
+          })
+        : await db.setSettingsAtomically(
+            <String, String>{catalogSettingKey: clean},
+            guardKey: executionFenceSettingKey,
+            expectedGuardValue: executionId,
+          );
+    if (!catalogSaved) {
+      throw const CedarExecutionPreemptedException('catalog_fenced');
+    }
     final state = await loadState();
     var changed = false;
     final sessions = Map<String, CedarGameSession>.from(state.sessions);
@@ -765,10 +808,13 @@ class CedarToyActivityStore {
       changed = true;
     }
     if (changed) {
-      await _saveState(state.copyWith(
+      final saved = await _saveState(state.copyWith(
         sessions: sessions,
         updatedAt: DateTime.now(),
-      ));
+      ), executionId: executionId);
+      if (!saved && executionId.isNotEmpty) {
+        throw const CedarExecutionPreemptedException('catalog_fenced');
+      }
     }
   }
 
@@ -788,6 +834,7 @@ class CedarToyActivityStore {
     required String gameId,
     required String guide,
     String gameTitle = '',
+    String executionId = '',
   }) async {
     final clean = guide.trim();
     final complete = clean.isNotEmpty && clean.length <= maxGuidePromptChars;
@@ -839,7 +886,10 @@ class CedarToyActivityStore {
       clearExecution: true,
       updatedAt: now,
     );
-    await _saveState(state);
+    final saved = await _saveState(state, executionId: executionId);
+    if (!saved && executionId.isNotEmpty) {
+      throw const CedarExecutionPreemptedException('guide_fenced');
+    }
     return session;
   }
 
@@ -871,36 +921,91 @@ class CedarToyActivityStore {
     return item;
   }
 
-  Future<void> beginExecution({
+  Future<String> beginExecution({
     required String gameId,
     required String action,
   }) async {
     final state = await loadState();
     final now = DateTime.now();
-    await _saveState(state.copyWith(
-      execution: CedarGameExecution(gameId: gameId, action: action, startedAt: now),
+    final executionId = _uuid.v4();
+    final next = state.copyWith(
+      execution: CedarGameExecution(
+        id: executionId,
+        gameId: gameId,
+        action: action,
+        startedAt: now,
+      ),
       updatedAt: now,
-    ));
+    );
+    await db.setSettingsAtomically(<String, String>{
+      ..._stateSettingValues(next),
+      executionFenceSettingKey: executionId,
+    });
+    return executionId;
   }
 
-  Future<void> finishExecution() async {
+  Future<void> finishExecution({required String executionId}) async {
     final state = await loadState();
-    if (state.execution == null) return;
+    if (state.execution?.id != executionId) return;
     await _saveState(state.copyWith(
       clearExecution: true,
       updatedAt: DateTime.now(),
-    ));
+    ), executionId: executionId);
+  }
+
+  Future<void> updateExecutionAction({
+    required String executionId,
+    required String action,
+  }) async {
+    final state = await loadState();
+    final execution = state.execution;
+    if (execution == null || execution.id != executionId) {
+      throw const CedarExecutionPreemptedException('execution_fenced');
+    }
+    final saved = await _saveState(
+      state.copyWith(
+        execution: CedarGameExecution(
+          id: execution.id,
+          gameId: execution.gameId,
+          action: action,
+          startedAt: execution.startedAt,
+        ),
+        updatedAt: DateTime.now(),
+      ),
+      executionId: executionId,
+    );
+    if (!saved) {
+      throw const CedarExecutionPreemptedException('execution_fenced');
+    }
+  }
+
+  Future<bool> isExecutionCurrent(String executionId) async {
+    return executionId.isNotEmpty &&
+        (await db.getSetting(executionFenceSettingKey)) == executionId;
+  }
+
+  Future<void> cancelExecution({String reason = 'cancelled'}) async {
+    final state = await loadState();
+    final now = DateTime.now();
+    await db.setSettingsAtomically(<String, String>{
+      ..._stateSettingValues(state.copyWith(
+        clearExecution: true,
+        updatedAt: now,
+      )),
+      executionFenceSettingKey: 'cancel-$reason-${_uuid.v4()}',
+    });
   }
 
   Future<void> deferContinuation({
     required String gameId,
     Duration delay = const Duration(seconds: 15),
+    String executionId = '',
   }) async {
     final state = await loadState();
     final session = state.sessions[gameId];
     if (session == null || !session.needsContinuation) return;
     final now = DateTime.now();
-    await _saveState(state.copyWith(
+    final saved = await _saveState(state.copyWith(
       sessions: Map<String, CedarGameSession>.from(state.sessions)
         ..[gameId] = session.copyWith(
           nextActionAt: now.add(delay),
@@ -908,12 +1013,16 @@ class CedarToyActivityStore {
         ),
       clearExecution: true,
       updatedAt: now,
-    ));
+    ), executionId: executionId);
+    if (!saved && executionId.isNotEmpty) {
+      throw const CedarExecutionPreemptedException('defer_fenced');
+    }
   }
 
   Future<void> markWriteOutcomeUncertain({
     required String gameId,
     required String action,
+    String executionId = '',
   }) async {
     final state = await loadState();
     final session = state.sessions[gameId];
@@ -947,18 +1056,22 @@ class CedarToyActivityStore {
       updatedAt: now,
       events: _append(session.events, event),
     );
-    await _saveState(state.copyWith(
+    final saved = await _saveState(state.copyWith(
       sessions: Map<String, CedarGameSession>.from(state.sessions)
         ..[gameId] = next,
       clearExecution: true,
       updatedAt: now,
-    ));
+    ), executionId: executionId);
+    if (!saved && executionId.isNotEmpty) {
+      throw const CedarExecutionPreemptedException('uncertain_fenced');
+    }
   }
 
   Future<CedarGameSession> markInvitationRequired({
     required String gameId,
     required CedarParticipationMode mode,
     String reason = '',
+    String executionId = '',
   }) async {
     var state = await loadState();
     final existing = state.sessions[gameId];
@@ -988,7 +1101,10 @@ class CedarToyActivityStore {
       clearExecution: true,
       updatedAt: now,
     );
-    await _saveState(state);
+    final saved = await _saveState(state, executionId: executionId);
+    if (!saved && executionId.isNotEmpty) {
+      throw const CedarExecutionPreemptedException('invitation_fenced');
+    }
     return next;
   }
 
@@ -1002,6 +1118,7 @@ class CedarToyActivityStore {
     required bool invitationApproved,
     int resumeAfterSeconds = 0,
     bool roomMessageSent = false,
+    String executionId = '',
   }) async {
     var state = await loadState();
     final existing = state.sessions[gameId];
@@ -1147,7 +1264,10 @@ class CedarToyActivityStore {
       updatedAt: now,
     );
     state = _withExtractedNotices(state, next, onlyEvent: event);
-    await _saveState(state);
+    final saved = await _saveState(state, executionId: executionId);
+    if (!saved && executionId.isNotEmpty) {
+      throw const CedarExecutionPreemptedException('play_result_fenced');
+    }
     return next;
   }
 
@@ -1155,6 +1275,7 @@ class CedarToyActivityStore {
     required String gameId,
     required String action,
     required McpToolOutcome outcome,
+    String executionId = '',
   }) async {
     final state = await loadState();
     final existing = state.sessions[gameId];
@@ -1181,20 +1302,29 @@ class CedarToyActivityStore {
               : const Duration(seconds: 1))
           : existing.nextActionAt,
     );
-    await _saveState(state.copyWith(
+    final saved = await _saveState(state.copyWith(
       sessions: Map<String, CedarGameSession>.from(state.sessions)
         ..[gameId] = next,
       clearExecution: true,
       updatedAt: now,
-    ));
+    ), executionId: executionId);
+    if (!saved && executionId.isNotEmpty) {
+      throw const CedarExecutionPreemptedException('platform_result_fenced');
+    }
     return next;
   }
 
   Future<void> pause() async {
     final state = await loadState();
     final existing = state.activeSession;
-    if (existing == null || !existing.phase.continuable ||
-        existing.phase == CedarActivityPhase.paused) return;
+    if (existing == null || !existing.phase.continuable) {
+      if (state.execution != null) await cancelExecution(reason: 'pause');
+      return;
+    }
+    if (existing.phase == CedarActivityPhase.paused) {
+      await cancelExecution(reason: 'pause');
+      return;
+    }
     final now = DateTime.now();
     final next = existing.copyWith(
       phase: CedarActivityPhase.paused,
@@ -1202,11 +1332,56 @@ class CedarToyActivityStore {
       updatedAt: now,
       clearNextActionAt: true,
     );
-    await _saveState(state.copyWith(
+    final paused = state.copyWith(
       sessions: Map<String, CedarGameSession>.from(state.sessions)
         ..[existing.gameId] = next,
+      clearExecution: true,
       updatedAt: now,
-    ));
+    );
+    await db.setSettingsAtomically(<String, String>{
+      ..._stateSettingValues(paused),
+      executionFenceSettingKey: 'cancel-pause-${_uuid.v4()}',
+    });
+  }
+
+  Future<void> suspendForSwitch() async {
+    final state = await loadState();
+    final session = state.activeSession;
+    if (session == null || !session.phase.continuable) {
+      await cancelExecution(reason: 'switch_off');
+      return;
+    }
+    final shouldRemember = session.phase != CedarActivityPhase.paused;
+    final rememberedGame =
+        (await db.getSetting(switchPausedGameSettingKey) ?? '').trim();
+    final now = DateTime.now();
+    final next = session.copyWith(
+      phase: CedarActivityPhase.paused,
+      waitingReason: '游戏厅开关已关闭，远端存档保留',
+      clearNextActionAt: true,
+      updatedAt: now,
+    );
+    await db.setSettingsAtomically(<String, String>{
+      ..._stateSettingValues(state.copyWith(
+        sessions: Map<String, CedarGameSession>.from(state.sessions)
+          ..[session.gameId] = next,
+        clearExecution: true,
+        updatedAt: now,
+      )),
+      executionFenceSettingKey: 'cancel-switch-${_uuid.v4()}',
+      switchPausedGameSettingKey:
+          shouldRemember ? session.gameId : rememberedGame,
+    });
+  }
+
+  Future<void> resumeAfterSwitchIfNeeded() async {
+    if ((await db.getSetting('cedar_toy_enabled')) == '0' ||
+        (await db.getSetting('cedar_toy_autonomy_enabled')) == '0') return;
+    final gameId =
+        (await db.getSetting(switchPausedGameSettingKey) ?? '').trim();
+    if (gameId.isEmpty) return;
+    await db.setSetting(switchPausedGameSettingKey, '');
+    await resumeGame(gameId);
   }
 
   Future<void> pauseAndRelease() async {
@@ -1316,17 +1491,17 @@ class CedarToyActivityStore {
   }
 
   Future<void> clear() async {
-    await db.setSetting(stateSettingKey, '');
-    await db.setSetting(sessionSettingKey, '');
-    await db.setSetting(
-      realtimeDiagnosticsSettingKey,
-      jsonEncode(const <String, Object?>{
+    await db.setSettingsAtomically(<String, String>{
+      stateSettingKey: '',
+      sessionSettingKey: '',
+      executionFenceSettingKey: 'cancel-clear-${_uuid.v4()}',
+      realtimeDiagnosticsSettingKey: jsonEncode(const <String, Object?>{
         'activeSession': false,
         'roomMessageBodiesIncluded': false,
         'continuationParamsIncluded': false,
         'roomIdentityIncluded': false,
       }),
-    );
+    });
   }
 
   Future<void> save(CedarGameSession session) async {
@@ -1382,16 +1557,24 @@ ${CedarPlayerProtocolContract.actionSignaturesFor(session.gameId)}
 '''.trim();
   }
 
-  Future<void> _saveState(CedarToyActivityState state) async {
-    await db.setSetting(stateSettingKey, jsonEncode(state.toJson()));
+  Future<bool> _saveState(
+    CedarToyActivityState state, {
+    String executionId = '',
+  }) async =>
+      db.setSettingsAtomically(
+        _stateSettingValues(state),
+        guardKey: executionId.isEmpty ? null : executionFenceSettingKey,
+        expectedGuardValue: executionId,
+      );
+
+  Map<String, String> _stateSettingValues(CedarToyActivityState state) {
     final active = state.activeSession;
-    await db.setSetting(sessionSettingKey,
-        active == null ? '' : jsonEncode(active.toJson()));
     // Keep diagnostics useful without copying room ids, continuation params,
     // outcomes, or message bodies into the redacted report path.
-    await db.setSetting(
-      realtimeDiagnosticsSettingKey,
-      jsonEncode(<String, Object?>{
+    return <String, String>{
+      stateSettingKey: jsonEncode(state.toJson()),
+      sessionSettingKey: active == null ? '' : jsonEncode(active.toJson()),
+      realtimeDiagnosticsSettingKey: jsonEncode(<String, Object?>{
         'activeSession': active != null,
         'phase': active?.phase.key ?? 'none',
         'mode': active?.mode.key ?? 'none',
@@ -1406,8 +1589,12 @@ ${CedarPlayerProtocolContract.actionSignaturesFor(session.gameId)}
         'roomMessageBodiesIncluded': false,
         'continuationParamsIncluded': false,
         'roomIdentityIncluded': false,
+        'executionActive': state.execution != null,
+        'executionAgeMs': state.execution == null
+            ? 0
+            : DateTime.now().difference(state.execution!.startedAt).inMilliseconds,
       }),
-    );
+    };
   }
 
   CedarToyActivityState? _repairRealtimeState(CedarToyActivityState state) {

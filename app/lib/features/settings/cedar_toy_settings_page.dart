@@ -3,8 +3,10 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 
 import '../../core/database/app_database.dart';
+import '../../core/mcp/cedar_toy_activity.dart';
 import '../../core/mcp/cedar_toy_client.dart';
 import '../../core/mcp/cedar_toy_autonomy_engine.dart';
+import '../../core/platform/android_bridge.dart';
 import '../../core/storage/secure_config.dart';
 
 class CedarToySettingsPage extends StatefulWidget {
@@ -142,6 +144,21 @@ class _CedarToySettingsPageState extends State<CedarToySettingsPage> {
         });
       });
 
+  Future<void> _setRuntimeSwitch(String key, bool value) => _run(() async {
+        await _db.setSetting(key, value ? '1' : '0');
+        final store = CedarToyActivityStore(_db);
+        if (value) {
+          await store.resumeAfterSwitchIfNeeded();
+        } else {
+          await store.suspendForSwitch();
+        }
+        try {
+          await AndroidBridge.instance.wakeBackgroundBrain(
+            reason: value ? 'cedar_switch_enabled' : 'cedar_switch_disabled',
+          );
+        } catch (_) {}
+      });
+
   @override
   Widget build(BuildContext context) => Scaffold(
         appBar: AppBar(title: const Text('Cedar Toy 游戏厅')),
@@ -159,7 +176,7 @@ class _CedarToySettingsPageState extends State<CedarToySettingsPage> {
                         ? null
                         : (value) async {
                             setState(() => _enabled = value);
-                            await _db.setSetting('cedar_toy_enabled', value ? '1' : '0');
+                            await _setRuntimeSwitch('cedar_toy_enabled', value);
                           },
                   ),
                   SwitchListTile(
@@ -171,9 +188,9 @@ class _CedarToySettingsPageState extends State<CedarToySettingsPage> {
                         ? null
                         : (value) async {
                             setState(() => _autonomyEnabled = value);
-                            await _db.setSetting(
+                            await _setRuntimeSwitch(
                               CedarToyAutonomyEngine.enabledKey,
-                              value ? '1' : '0',
+                              value,
                             );
                           },
                   ),
