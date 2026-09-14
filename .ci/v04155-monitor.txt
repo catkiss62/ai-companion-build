@@ -1,7 +1,7 @@
 status=success
-run_id=34857965280
-run_url=https://github.com/catkiss62/ai-companion-build/actions/runs/34857965280
-head_sha=0295ceeeafe9e18f057b6f8f5d54a8dae8820ed2
+run_id=34866765746
+run_url=https://github.com/catkiss62/ai-companion-build/actions/runs/34866765746
+head_sha=f3a4e95e35c5ca47fb68e84aa8d12a850cfbd91a
 signer_sha256=30:5E:B3:D8:09:83:B9:63:C6:48:18:DD:F1:AD:56:1F:27:9D:E6:D4:7B:3E:D2:C7:81:AD:A4:48:C7:C2:51:48
-9e638816031900660cadd08ac5d5dc6f40955319ac261139f1ee619197114f1f  AI-Companion-v0.41.75-219-Cedar-Agentic-Blind-Play-APK.apk
-release_url=https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-39855af0a12db43b0ab0
+3bcab458f8138d97f4f150c5e92d1f5653e018ee87e5a64cbdde6b56f8a2a6d9  AI-Companion-v0.41.76-220-Cedar-Protocol-Continuation-APK.apk
+release_url=https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-390da0c4ad01f6d108aa
