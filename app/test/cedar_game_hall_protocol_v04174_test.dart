@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:ai_companion_localfirst/core/agent/agent_tool_planner.dart';
 import 'package:ai_companion_localfirst/core/agent/agent_tool_registry.dart';
 import 'package:ai_companion_localfirst/core/agent/agent_task_loop.dart';
@@ -10,6 +12,8 @@ import 'package:ai_companion_localfirst/core/mcp/cedar_toy_client.dart';
 import 'package:ai_companion_localfirst/core/mcp/mcp_protocol.dart';
 import 'package:ai_companion_localfirst/core/mcp/mcp_turn_state_resolver.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:http/http.dart' as http;
+import 'package:http/testing.dart';
 
 void main() {
   test('hybrid can start solo while shared observation still needs consent', () {
@@ -219,6 +223,134 @@ void main() {
       ),
       isFalse,
     );
+    expect(
+      CedarJsonDecisionRetryPolicy.errorCategory(
+        const EmptyJsonCompletionException(),
+      ),
+      'empty_model_content',
+    );
+    expect(
+      CedarJsonDecisionRetryPolicy.errorCategory(
+        const FormatException('Unexpected end of input'),
+      ),
+      'malformed_model_json',
+    );
+  });
+
+  test('empty thinking body retries with a different JSON strategy', () async {
+    final requests = <Map<String, dynamic>>[];
+    final retryErrors = <Object>[];
+    var callCount = 0;
+    final client = DeepSeekClient(
+      client: MockClient((request) async {
+        requests.add(jsonDecode(request.body) as Map<String, dynamic>);
+        callCount += 1;
+        if (callCount == 1) {
+          return http.Response(
+            '{"choices":[{"message":{"reasoning_content":"已完成棋局分析",'
+            '"content":""},"finish_reason":"length"}]}',
+            200,
+            headers: const {'content-type': 'application/json'},
+          );
+        }
+        return http.Response(
+          '{"choices":[{"message":{"content":"{\\"participation_mode\\":'
+          '\\"co_play\\",\\"action\\":\\"move\\",\\"params\\":{'
+          '\\"room_id\\":\\"ROOM\\",\\"move\\":{\\"row\\":7,'
+          '\\"col\\":7}},\\"room_reply_intent\\":\\"接住这一手\\"}"},'
+          '"finish_reason":"stop"}]}',
+          200,
+          headers: const {'content-type': 'application/json'},
+        );
+      }),
+    );
+
+    final result = await CedarJsonDecisionExecutor(
+      ai: client,
+      onRetry: (error) async => retryErrors.add(error),
+    ).decide(
+      apiKey: 'test',
+      endpoint: DeepSeekClient.defaultEndpoint,
+      instruction: '只返回下一手 JSON',
+    );
+
+    expect(callCount, 2);
+    expect(retryErrors.single, isA<EmptyJsonCompletionException>());
+    expect(result['action'], 'move');
+    expect(requests.first['thinking'], {'type': 'enabled'});
+    expect(requests.first['reasoning_effort'], 'high');
+    expect(requests.first['max_tokens'], 2400);
+    expect((requests.first['messages'] as List), hasLength(1));
+    expect(requests.last['thinking'], {'type': 'disabled'});
+    expect(requests.last.containsKey('reasoning_effort'), isFalse);
+    expect(requests.last['max_tokens'], 1400);
+    expect((requests.last['messages'] as List), hasLength(2));
+    client.close();
+  });
+
+  test('stable Cedar JSON authorization error is not retried', () async {
+    var callCount = 0;
+    final client = DeepSeekClient(
+      client: MockClient((request) async {
+        callCount += 1;
+        return http.Response(
+          '{"error":{"message":"bad key"}}',
+          401,
+          headers: const {'content-type': 'application/json'},
+        );
+      }),
+    );
+
+    await expectLater(
+      CedarJsonDecisionExecutor(ai: client).decide(
+        apiKey: 'test',
+        endpoint: DeepSeekClient.defaultEndpoint,
+        instruction: '只返回 JSON',
+      ),
+      throwsA(
+        isA<DeepSeekException>().having(
+          (error) => error.statusCode,
+          'statusCode',
+          401,
+        ),
+      ),
+    );
+    expect(callCount, 1);
+    client.close();
+  });
+
+  test('web room handoff stays actionable and submits reply with move', () {
+    final session = CedarGameSession(
+      id: 'duel-room',
+      gameId: 'duel',
+      guide: 'move room_id move revision wait message',
+      guideComplete: true,
+      mode: CedarParticipationMode.coPlay,
+      phase: CedarActivityPhase.active,
+      nextActor: 'companion',
+      lastAction: 'state',
+      lastOutcome: '{"your_turn":true,"revision":4}',
+      pendingRoomMessage: 'person：下好了',
+      invitationApproved: true,
+      updatedAt: DateTime.fromMillisecondsSinceEpoch(1),
+    );
+    final payload = CedarRoomActionPayload.withMessage(
+      <String, Object?>{
+        'room_id': 'ROOM',
+        'revision': 4,
+        'move': <String, Object?>{'row': 7, 'col': 7},
+        'wait': false,
+      },
+      ' 看到了，这手接住了。 ',
+    );
+
+    expect(session.needsContinuation, isTrue);
+    expect(session.companionCanContinue, isTrue);
+    expect(session.hasPendingRoomMessage, isTrue);
+    expect(payload['message'], '看到了，这手接住了。');
+    expect(payload['move'], {'row': 7, 'col': 7});
+    expect(payload['revision'], 4);
+    expect(payload['wait'], isFalse);
   });
 
   test('Cedar discovery has a wider bounded loop than ordinary Agent tasks', () {

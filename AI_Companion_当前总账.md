@@ -30,9 +30,9 @@
 | 项目 | 当前事实 |
 |---|---|
 | 仓库 | `catkiss62/ai-companion-build`；Flutter/Android 工程位于 `app/` |
-| 当前开发分支 | `agent/v04176-cedar-protocol-continuation` |
-| 当前目标版本 | `v0.41.76+220 / schema 61 / Snapshot protocol 6` |
-| 当前状态 | `CI PASSED / APK READY / TRUE DEVICE PENDING` |
+| 当前开发分支 | `agent/v04177-cedar-background-turn-loop` |
+| 当前目标版本 | `v0.41.77+221 / schema 61 / Snapshot protocol 6` |
+| 当前状态 | `IMPLEMENTED LOCALLY / LOCAL STATIC VALIDATION PASSED / CI PENDING / TRUE DEVICE PENDING` |
 | 上一可安装基线 | `v0.41.75+219`，Actions run `34857965280` 全绿，`794/794` Flutter tests；APK SHA-256 `9e638816031900660cadd08ac5d5dc6f40955319ac261139f1ee619197114f1f` |
 | `main` | 仍是 v0.38.5 旧基线；不得作为 v0.41.x 后续开发起点，本批不合并 |
 | +219 构建提交 | 远端功能 head `0295ceeeafe9e18f057b6f8f5d54a8dae8820ed2`；tree `3cf8a09813c135b8bce4e5b9a66381ba2a03f5cf` |
@@ -41,7 +41,33 @@
 
 既有能力保护索引：Desire / Thought / Intent / Gate、Somatic 双通道、玩游 Key、普通聊天、沉浸房间、查手机、造梗来源、D6、Phase 2B、App 内 Agent 能力桥、Memory 2D、`fact_state / attention_state / recall_policy`、`spontaneous_salience`、`reminiscence/identity`、Skills、MCP、`【检查系统】`、中断灰显、Token 命中/缓存优化、Phase 3、Harness、`screen_observation.inspect`、Genie-TTS 四音色、schema 61 与 Snapshot protocol 6 均不得回归。
 
-## 4. 当前任务：v0.41.76+220 Cedar 玩家协议与后台连续行动收口
+## 4. 当前任务：v0.41.77+221 Cedar 后台换手闭环
+
+### 新真机证据与已证实根因
+
+- 根因已由同一时刻备份、诊断与源码三方证明；以下链路不是概率推断。
+- 输入附件：`AI_Companion_Backup_2026-09-14T17-21-26(1).aibackup`、`ai_companion_diagnostics_2026-09-14T17-21-30-335220Z(1).txt`，仅用于临时取证，不进入 Git。
+- 房间 `NDNSYLER` 的长轮询已成功取得网页用户消息和落子；服务端真实返回 `revision=4 / your_turn=true`，本地也正确保存 `next_actor=companion / continuation_pending=true / pending_room_message=true`。因此网页、绑定身份、房间、长轮询和回合判定均不是本次断点。
+- 紧接着后台规划在 `DeepSeekClient.jsonCompletion` 对空 `message.content` 直接执行 `jsonDecode`，留下原始错误 `FormatException: Unexpected end of input (at character 1)`。+220 的两次请求完全相同，诊断累计 `jsonRetryCount=8` 后仍失败；规划未产出 action/params，所以既不落子也不把待回复房间消息随动作发回。主聊天的 Agent 路径仍可落子，因而形成“只有在 APK 内逐步催促才继续”的表象。
+- +220 测试只证明 `FormatException` 属于可重试错误，没有模拟思考响应 `reasoning_content` 非空但 `content` 为空，也没有覆盖“网页发言并落子 → 长轮询 → 后台规划 → 房间回复与合法落子”的完整换手链。这是 CI 全绿仍漏报的原因。
+
+### 本批实现边界与完成判据
+
+1. Cedar 后台 JSON 决策必须为短小结构化任务保留足够正文预算；空正文不得直接交给 `jsonDecode`，错误需要携带脱敏类别而不记录推理或房间正文。
+2. 窄重试仍最多一次，但第二次必须改变请求：关闭高强度思考、增加正文预算并明确要求立刻输出 JSON；不得原样重复同一失败请求。
+3. `your_turn=true` 与待回复房间消息恢复后，下一次后台 tick 必须选出真实 action/params，房间对白只随将要提交的合法动作发送；不得写死房间号、五子棋落点或棋类策略。
+4. 保留 +220 玩家协议缓存、盲玩隔离、真实 action 名、DeepSeek 内部调用单通道、单动作串行和服务端结构化回合真值；不扩大到全工具 UI。
+5. 固定测试至少覆盖：空正文检测；第二次请求策略不同；稳定 401/403 不重试；模拟网页消息与 `your_turn=true` 后进入动作规划；生成的房间 `message` 与合法 `move` 同次提交。完成后跑全量 validators、Flutter analyze/tests、arm64 Release、签名、Artifact 与 Draft；自动化通过仍标记 `TRUE DEVICE PENDING`。
+
+### 当前实现与验证
+
+- `DeepSeekClient.jsonCompletion` 现在把成功 HTTP 响应中的空/缺失正文识别为不携带 Prompt、推理或房间内容的 `EmptyJsonCompletionException`，并把非 object 的 choice/message/JSON 正文统一收敛为格式错误；脱敏诊断分类为 `empty_model_content` 或 `malformed_model_json`。
+- `CedarJsonDecisionExecutor` 取代 `_judge` 内的原样循环：第一次使用 high thinking 与 2400 token 保留棋局判断能力；仅在空/损坏 JSON 或瞬时网络、429/5xx 时重试一次，第二次切到 non-thinking/low/1400 token 并追加立即输出完整 JSON 的恢复指令；401/403 不重试。
+- 共玩动作通过 `CedarRoomActionPayload` 把已生成短对白复制进将提交的同一 params，不改变 move/revision/wait；主聊天结果将真实 `new/join/state/move` 作为机器 Prompt action，同时保留中文“游玩”展示词。恢复循环成功后清除旧 `cedar_toy_last_continuation_error`。
+- 新增真实失败形状测试：第一次响应只有 `reasoning_content` 且 `content=""`，第二次必须以不同请求产出 `move` JSON；另覆盖 401 单次失败，以及 `your_turn=true + pending room message` 的 session 仍可行动、对白与 move 同 payload。`git diff --check`、workflow YAML、Python compileall、+221 专项及 Actions 当前源码门中本机可执行的 `98/98` validators 已通过；另 3 项依赖 Actions 恢复的私有桌宠/LingChat 载荷或本机不存在的 `kotlinc`。本机无 Flutter/Dart，编译、Analyze、全量 Flutter tests、arm64 APK 与签名必须由 CI 证明。
+- `IMPLEMENTED LOCALLY / LOCAL STATIC VALIDATION PASSED / CI PENDING / TRUE DEVICE PENDING`：尚未提交、未运行 CI、未生成 APK。
+
+## 5. 已完成但真机失败基线：v0.41.76+220 Cedar 玩家协议与后台连续行动收口
 
 ### 新真机证据与根因
 

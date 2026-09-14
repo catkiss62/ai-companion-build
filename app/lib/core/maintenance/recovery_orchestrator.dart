@@ -109,6 +109,7 @@ class RecoveryOrchestrator {
         try {
           cedarContinuationState =
               await proactive.continueCedarActivityIfDue(now: now);
+          await db.setSetting('cedar_toy_last_continuation_error', '');
         } catch (cedarError) {
           cedarContinuationState = 'failed';
           await db.setSetting(

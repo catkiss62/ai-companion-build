@@ -1,5 +1,11 @@
 String classifyRuntimeError(Object error) {
   final text = error.toString().toLowerCase();
+  if (text.contains('empty_json_completion_content')) {
+    return 'empty_model_content';
+  }
+  if (text.contains('malformed_json_completion_content')) {
+    return 'malformed_model_json';
+  }
   if (text.contains('unsupported maintenance table/column')) {
     return 'unsupported_table_contract';
   }

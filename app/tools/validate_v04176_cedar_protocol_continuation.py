@@ -19,7 +19,7 @@ def require(path: str, *tokens: str) -> None:
     assert not missing, f"{path}: missing {missing}"
 
 
-require("pubspec.yaml", "version: 0.41.76+220")
+require("pubspec.yaml", "version: 0.41.77+221")
 require(
     "lib/core/mcp/cedar_toy_client.dart",
     "getPlayerPlayProtocol",
@@ -66,7 +66,7 @@ require(
     "static const maxAttempts = 2",
     "error is FormatException",
     "FinalReplyFailurePolicy.isTransient(error)",
-    "empty_cedar_json_decision",
+    "EmptyJsonCompletionException",
     "CedarJsonDecisionRetryPolicy.retryDelay",
     "cedar_toy_json_retry_count",
 )
@@ -96,13 +96,13 @@ require(
 )
 require(
     ".github/workflows/build-apk.yml",
-    "agent/v04176-cedar-protocol-continuation",
-    "AI-Companion-v0.41.76-220-Cedar-Protocol-Continuation-APK",
+    "agent/v04177-cedar-background-turn-loop",
+    "AI-Companion-v0.41.77-221-Cedar-Background-Turn-Loop-APK",
     "validate_v04176_cedar_protocol_continuation.py",
 )
 require(
     "AI_Companion_当前总账.md",
-    "v0.41.76+220",
+    "v0.41.77+221",
     "Cedar 玩家协议与后台连续行动收口",
     "Unexpected end of input",
 )
@@ -112,4 +112,4 @@ assert (
     or "CI PASSED / APK READY / TRUE DEVICE PENDING" in ledger
 ), "AI_Companion_当前总账.md: missing valid pre-CI or post-CI status"
 
-print("v0.41.76+220 Cedar protocol-continuation validation passed.")
+print("v0.41.77+221 Cedar protocol-continuation validation passed.")

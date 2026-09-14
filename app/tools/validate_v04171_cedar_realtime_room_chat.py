@@ -16,9 +16,9 @@ def require(path: str, *tokens: str) -> None:
     assert not missing, f'{path}: missing {missing}'
 
 
-require('pubspec.yaml', 'version: 0.41.76+220')
-require('lib/core/agent/agent_self_reader.dart', "buildLabel = 'v0.41.76+220'")
-require('test/agent_self_reader_v0416_test.dart', 'build=v0.41.76+220 schema=61')
+require('pubspec.yaml', 'version: 0.41.77+221')
+require('lib/core/agent/agent_self_reader.dart', "buildLabel = 'v0.41.77+221'")
+require('test/agent_self_reader_v0416_test.dart', 'build=v0.41.77+221 schema=61')
 require(
     'lib/core/mcp/mcp_turn_state_resolver.dart',
     "'room'",
@@ -45,7 +45,7 @@ require(
     'lib/core/mcp/cedar_toy_autonomy_engine.dart',
     '_observeSession',
     '_composeRoomDialogue',
-    "params['message'] = roomMessage",
+    'params = CedarRoomActionPayload.withMessage(params, roomMessage)',
     "params['wait'] =",
     'Room dialogue is a session-local action annotation',
     "apiKey: apiKey",
@@ -112,8 +112,8 @@ require(
 )
 require(
     '.github/workflows/build-apk.yml',
-    'agent/v04176-cedar-protocol-continuation',
-    'AI-Companion-v0.41.76-220-Cedar-Protocol-Continuation-APK',
+    'agent/v04177-cedar-background-turn-loop',
+    'AI-Companion-v0.41.77-221-Cedar-Background-Turn-Loop-APK',
     'validate_v04171_cedar_realtime_room_chat.py',
 )
 require(

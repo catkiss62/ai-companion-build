@@ -35,7 +35,99 @@ class CedarJsonDecisionRetryPolicy {
   static const retryDelay = Duration(milliseconds: 450);
 
   static bool isRetryable(Object error) =>
-      error is FormatException || FinalReplyFailurePolicy.isTransient(error);
+      error is EmptyJsonCompletionException ||
+      error is MalformedJsonCompletionException ||
+      error is FormatException ||
+      FinalReplyFailurePolicy.isTransient(error);
+
+  static String errorCategory(Object error) {
+    if (error is EmptyJsonCompletionException) return 'empty_model_content';
+    if (error is MalformedJsonCompletionException || error is FormatException) {
+      return 'malformed_model_json';
+    }
+    return classifyRuntimeError(error);
+  }
+
+  static bool thinkingForAttempt(int attempt) => attempt <= 1;
+
+  static ReasoningEffort effortForAttempt(int attempt) =>
+      attempt <= 1 ? ReasoningEffort.high : ReasoningEffort.low;
+
+  static int maxTokensForAttempt(int attempt) => attempt <= 1 ? 2400 : 1400;
+
+  static List<Map<String, Object?>> messagesForAttempt({
+    required int attempt,
+    required String instruction,
+  }) =>
+      <Map<String, Object?>>[
+        <String, Object?>{'role': 'system', 'content': instruction},
+        if (attempt > 1)
+          const <String, Object?>{
+            'role': 'user',
+            'content':
+                '上一次没有产生可解析正文。不要继续展开推理；现在立刻只输出请求中规定的一个完整 JSON object。',
+          },
+      ];
+}
+
+class CedarJsonDecisionExecutor {
+  const CedarJsonDecisionExecutor({required this.ai, this.onRetry});
+
+  final DeepSeekClient ai;
+  final Future<void> Function(Object error)? onRetry;
+
+  Future<Map<String, dynamic>> decide({
+    required String apiKey,
+    required String endpoint,
+    required String instruction,
+  }) async {
+    Object? lastError;
+    for (var attempt = 1;
+        attempt <= CedarJsonDecisionRetryPolicy.maxAttempts;
+        attempt++) {
+      try {
+        final result = await ai.jsonCompletion(
+          apiKey: apiKey,
+          model: DeepSeekModelProfile.flash,
+          endpoint: endpoint,
+          thinking: CedarJsonDecisionRetryPolicy.thinkingForAttempt(attempt),
+          effort: CedarJsonDecisionRetryPolicy.effortForAttempt(attempt),
+          maxTokens: CedarJsonDecisionRetryPolicy.maxTokensForAttempt(attempt),
+          messages: CedarJsonDecisionRetryPolicy.messagesForAttempt(
+            attempt: attempt,
+            instruction: instruction,
+          ),
+        );
+        if (result.isEmpty) {
+          throw const EmptyJsonCompletionException();
+        }
+        return result;
+      } catch (error) {
+        lastError = error;
+        if (attempt >= CedarJsonDecisionRetryPolicy.maxAttempts ||
+            !CedarJsonDecisionRetryPolicy.isRetryable(error)) {
+          rethrow;
+        }
+        await onRetry?.call(error);
+        await Future<void>.delayed(CedarJsonDecisionRetryPolicy.retryDelay);
+      }
+    }
+    throw lastError!;
+  }
+}
+
+class CedarRoomActionPayload {
+  const CedarRoomActionPayload._();
+
+  static Map<String, Object?> withMessage(
+    Map<String, Object?> params,
+    String message,
+  ) {
+    final result = Map<String, Object?>.from(params);
+    final clean = message.trim();
+    if (clean.isNotEmpty) result['message'] = clean;
+    return result;
+  }
 }
 
 /// Advances at most one Cedar activity step after the shared Desire selector
@@ -283,7 +375,7 @@ $catalog''',
           params: params,
           intent: '回应对方刚在房间说的话，不打断对局。',
         );
-        if (roomMessage.isNotEmpty) params['message'] = roomMessage;
+        params = CedarRoomActionPayload.withMessage(params, roomMessage);
       }
       await store.beginExecution(gameId: session.gameId, action: action);
       final outcome = await client.play(session.gameId, action, params);
@@ -456,7 +548,7 @@ ${store.promptContext(session, state: state, playProtocol: playProtocol)}''',
       return const CedarAutonomyProgress('platform_action_loop_blocked');
     }
     final rawParams = judged['params'];
-    final params = rawParams is Map
+    Map<String, Object?> params = rawParams is Map
         ? rawParams.map((key, value) => MapEntry(key.toString(), value))
         : <String, Object?>{};
     if (!platformAction &&
@@ -482,7 +574,7 @@ ${store.promptContext(session, state: state, playProtocol: playProtocol)}''',
         params: params,
         intent: judged['room_reply_intent']?.toString().trim() ?? '',
       );
-      if (roomMessage.isNotEmpty) params['message'] = roomMessage;
+      params = CedarRoomActionPayload.withMessage(params, roomMessage);
     }
     await store.beginExecution(gameId: session.gameId, action: action);
     late McpToolOutcome outcome;
@@ -740,32 +832,9 @@ game=${session.gameId}
     required String endpoint,
     required String instruction,
   }) async {
-    Object? lastError;
-    for (var attempt = 1;
-        attempt <= CedarJsonDecisionRetryPolicy.maxAttempts;
-        attempt++) {
-      try {
-        final result = await ai.jsonCompletion(
-          apiKey: apiKey,
-          model: DeepSeekModelProfile.flash,
-          endpoint: endpoint,
-          thinking: true,
-          effort: ReasoningEffort.high,
-          maxTokens: 900,
-          messages: <Map<String, Object?>>[
-            <String, Object?>{'role': 'system', 'content': instruction},
-          ],
-        );
-        if (result.isEmpty) {
-          throw const FormatException('empty_cedar_json_decision');
-        }
-        return result;
-      } catch (error) {
-        lastError = error;
-        if (attempt >= CedarJsonDecisionRetryPolicy.maxAttempts ||
-            !CedarJsonDecisionRetryPolicy.isRetryable(error)) {
-          rethrow;
-        }
+    return CedarJsonDecisionExecutor(
+      ai: ai,
+      onRetry: (error) async {
         final retryCount = int.tryParse(
               await db.getSetting('cedar_toy_json_retry_count') ?? '',
             ) ??
@@ -776,16 +845,18 @@ game=${session.gameId}
         );
         await db.setSetting(
           'cedar_toy_json_retry_last_category',
-          classifyRuntimeError(error),
+          CedarJsonDecisionRetryPolicy.errorCategory(error),
         );
         await db.setSetting(
           'cedar_toy_json_retry_last_at',
           DateTime.now().millisecondsSinceEpoch.toString(),
         );
-        await Future<void>.delayed(CedarJsonDecisionRetryPolicy.retryDelay);
-      }
-    }
-    throw lastError!;
+      },
+    ).decide(
+      apiKey: apiKey,
+      endpoint: endpoint,
+      instruction: instruction,
+    );
   }
 
   Future<Map<String, dynamic>> _judgeOutcome({

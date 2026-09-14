@@ -218,15 +218,39 @@ class DeepSeekClient {
     if (response.statusCode < 200 || response.statusCode >= 300) {
       throw DeepSeekException(response.statusCode, _extractError(response.body));
     }
-    final root = jsonDecode(response.body) as Map<String, dynamic>;
-    final choices = root['choices'] as List?;
-    if (choices == null || choices.isEmpty) {
-      throw const FormatException('聊天 API 返回中没有 choices');
+    Map<String, dynamic> root;
+    try {
+      final decoded = jsonDecode(response.body);
+      if (decoded is! Map) throw const FormatException();
+      root = decoded.cast<String, dynamic>();
+    } on FormatException {
+      throw const MalformedJsonCompletionException();
     }
-    final message =
-        ((choices.first as Map<String, dynamic>)['message'] as Map).cast<String, dynamic>();
-    final content = message['content'] as String? ?? '{}';
-    return (jsonDecode(content) as Map).cast<String, dynamic>();
+    final choices = root['choices'];
+    if (choices is! List || choices.isEmpty) {
+      throw const MalformedJsonCompletionException();
+    }
+    final firstRaw = choices.first;
+    if (firstRaw is! Map) {
+      throw const MalformedJsonCompletionException();
+    }
+    final first = firstRaw.cast<String, dynamic>();
+    final messageRaw = first['message'];
+    if (messageRaw is! Map) {
+      throw const MalformedJsonCompletionException();
+    }
+    final message = messageRaw.cast<String, dynamic>();
+    final content = message['content'];
+    if (content is! String || content.trim().isEmpty) {
+      throw const EmptyJsonCompletionException();
+    }
+    try {
+      final decoded = jsonDecode(content.trim());
+      if (decoded is! Map) throw const FormatException();
+      return decoded.cast<String, dynamic>();
+    } on FormatException {
+      throw const MalformedJsonCompletionException();
+    }
   }
 
   String _extractError(String body) {
@@ -249,6 +273,24 @@ class DeepSeekClient {
     _streamClients.clear();
     _client.close();
   }
+}
+
+/// A successful HTTP response that never produced the requested JSON body.
+/// Keep this deliberately body-free: callers
+/// may persist the exception category, so neither reasoning nor prompt data may
+/// be carried by the error.
+class EmptyJsonCompletionException implements Exception {
+  const EmptyJsonCompletionException();
+
+  @override
+  String toString() => 'empty_json_completion_content';
+}
+
+class MalformedJsonCompletionException implements Exception {
+  const MalformedJsonCompletionException();
+
+  @override
+  String toString() => 'malformed_json_completion_content';
 }
 
 class DeepSeekException implements Exception {

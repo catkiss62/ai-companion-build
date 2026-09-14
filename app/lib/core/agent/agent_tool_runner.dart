@@ -696,6 +696,7 @@ class AgentToolRunner {
     return _cedarResult(
       toolId: AgentToolRegistry.cedarToyPlay.id,
       action: '游玩',
+      machineAction: action,
       outcome: outcome,
       attachments: attachments,
       verifiedNextActor: verifiedNextActor,
@@ -838,12 +839,15 @@ ${CedarToyClient.redactSecrets(outcome.text)}''',
     required String toolId,
     required String action,
     required McpToolOutcome outcome,
+    String machineAction = '',
     List<MessageAttachment> attachments = const <MessageAttachment>[],
     String verifiedNextActor = '',
     Map<String, Object?> submittedArguments = const <String, Object?>{},
     bool playerGuide = false,
     String extraPromptData = '',
   }) {
+    final promptAction =
+        machineAction.trim().isEmpty ? action : machineAction.trim();
     final safe = playerGuide
         ? CedarToyClient.playerSafeGuideOutcome(outcome)
         : CedarToyClient.redactSecrets(outcome.text.toString());
@@ -852,7 +856,8 @@ ${CedarToyClient.redactSecrets(outcome.text)}''',
         toolId: toolId,
         status: AgentToolStatus.failed,
         displayText: 'Cedar Toy $action失败',
-        promptData: 'Cedar Toy 远端返回失败：${_boundedCedar(safe)}；不得编造成功结果。',
+        promptData:
+            'Cedar Toy 真实 $promptAction 远端返回失败：${_boundedCedar(safe)}；不得编造成功结果。',
         errorCode: 'cedar_remote_error',
       );
     }
@@ -861,7 +866,7 @@ ${CedarToyClient.redactSecrets(outcome.text)}''',
         toolId: toolId,
         status: AgentToolStatus.noResult,
         displayText: 'Cedar Toy 没有返回可用结果',
-        promptData: 'Cedar Toy $action没有真实 Outcome；不得补写结果。',
+        promptData: 'Cedar Toy $promptAction 没有真实 Outcome；不得补写结果。',
         errorCode: 'cedar_empty_result',
       );
     }
@@ -870,7 +875,7 @@ ${CedarToyClient.redactSecrets(outcome.text)}''',
       status: AgentToolStatus.succeeded,
       displayText: '已取得 Cedar Toy 真实$action结果',
       promptData: <String>[
-        '【Cedar Toy 真实 $action Outcome】',
+        '【Cedar Toy 真实 $promptAction Outcome】',
         if (submittedArguments.isNotEmpty)
           '【本机已实际提交的参数·仅用于最终事实核对】${jsonEncode(submittedArguments)}',
         _boundedCedar(safe),

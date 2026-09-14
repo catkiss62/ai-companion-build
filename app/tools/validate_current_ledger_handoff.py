@@ -62,8 +62,8 @@ def main() -> None:
     required_current = (
         "总账 v2",
         "唯一的当前接班入口",
-        "v0.41.76+220",
-        "agent/v04176-cedar-protocol-continuation",
+        "v0.41.77+221",
+        "agent/v04177-cedar-background-turn-loop",
         "schema 61",
         "Snapshot protocol 6",
         "模型/API 双通道",
@@ -111,7 +111,7 @@ def main() -> None:
 
     require(
         re.search(
-            r"^version:\s*0\.41\.76\+220\s*$",
+            r"^version:\s*0\.41\.77\+221\s*$",
             PUBSPEC.read_text(encoding="utf-8"),
             re.MULTILINE,
         )
