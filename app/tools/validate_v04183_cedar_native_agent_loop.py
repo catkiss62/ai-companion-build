@@ -53,6 +53,12 @@ require(
     "observed.state != 'remote_event_companion_turn'",
     "provider_http_${error.statusCode}",
     "cedar_toy_last_execution_error_detail",
+    "keepExecution: true",
+)
+require(
+    "lib/core/mcp/cedar_toy_activity.dart",
+    "bool keepExecution = false",
+    "clearExecution: !keepExecution",
 )
 
 engine = read("lib/core/mcp/cedar_toy_autonomy_engine.dart")

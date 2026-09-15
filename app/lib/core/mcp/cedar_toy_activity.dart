@@ -1183,6 +1183,7 @@ class CedarToyActivityStore {
     int resumeAfterSeconds = 0,
     bool roomMessageSent = false,
     String executionId = '',
+    bool keepExecution = false,
   }) async {
     var state = await loadState();
     final existing = state.sessions[gameId];
@@ -1348,7 +1349,7 @@ class CedarToyActivityStore {
       activeGameId: next.isUnroutableRemoteWait ? '' : gameId,
       sessions: Map<String, CedarGameSession>.from(state.sessions)
         ..[gameId] = storedNext,
-      clearExecution: true,
+      clearExecution: !keepExecution,
       updatedAt: now,
     );
     state = _withExtractedNotices(state, storedNext, onlyEvent: event);
@@ -1364,6 +1365,7 @@ class CedarToyActivityStore {
     required String action,
     required McpToolOutcome outcome,
     String executionId = '',
+    bool keepExecution = false,
   }) async {
     final state = await loadState();
     final existing = state.sessions[gameId];
@@ -1393,7 +1395,7 @@ class CedarToyActivityStore {
     final saved = await _saveState(state.copyWith(
       sessions: Map<String, CedarGameSession>.from(state.sessions)
         ..[gameId] = next,
-      clearExecution: true,
+      clearExecution: !keepExecution,
       updatedAt: now,
     ), executionId: executionId);
     if (!saved && executionId.isNotEmpty) {

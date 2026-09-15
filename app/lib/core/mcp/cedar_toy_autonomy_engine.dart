@@ -1020,6 +1020,7 @@ $catalog''',
             session.invitationApproved || session.hasContinuationCall,
         roomMessageSent: roomMessage.isNotEmpty,
         executionId: scope.executionId,
+        keepExecution: true,
       );
       await db.setSetting('cedar_toy_last_observe_error_category', '');
       await db.setSetting('cedar_toy_last_realtime_observe_error', '');
@@ -1251,6 +1252,7 @@ ${store.promptContext(session, state: state, playProtocol: playProtocol)}''',
             action: action,
             outcome: outcome,
             executionId: scope.executionId,
+            keepExecution: true,
           )
         : await store.recordPlay(
             gameId: session.gameId,
@@ -1264,6 +1266,7 @@ ${store.promptContext(session, state: state, playProtocol: playProtocol)}''',
             resumeAfterSeconds: verification.resumeAfterSeconds,
             roomMessageSent: roomMessage.isNotEmpty,
             executionId: scope.executionId,
+            keepExecution: true,
           );
     if (!outcome.isError &&
         shareLevel != 'quiet' &&
