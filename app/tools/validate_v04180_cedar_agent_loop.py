@@ -38,6 +38,7 @@ require(
     "cedarNoCallRetryUsed = false",
     "CedarAgentLoopPolicy.shouldFinalizeRound",
     "cedarActivityStore.promptContext",
+    "cedarRoundRequestsContinuation",
 )
 require(
     "lib/core/agent/agent_tool_runner.dart",

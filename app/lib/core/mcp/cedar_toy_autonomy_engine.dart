@@ -643,12 +643,13 @@ $catalog''',
       );
     }
 
-    if (!session.guideComplete) {
+    final activeSession = session!;
+    if (!activeSession.guideComplete) {
       return const CedarAutonomyProgress('guide_incomplete');
     }
     return _runExecution(
       store: store,
-      gameId: session.gameId,
+      gameId: activeSession.gameId,
       action: '规划下一步',
       body: (scope) => _advanceSessionLocked(
         now: now,
@@ -656,7 +657,7 @@ $catalog''',
         endpoint: endpoint,
         client: client,
         store: store,
-        session: session,
+        session: activeSession,
         scope: scope,
       ),
     );

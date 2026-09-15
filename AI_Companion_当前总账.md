@@ -64,6 +64,7 @@
 6. 新固定脚本测试覆盖“目录→指南→建房/加入→服务端挂等→用户网页落子/发言→她自动落子/回话”的停止合同、服务端续接、许可识别和可恢复门禁；CI 还必须跑全部历史门、Analyze、Flutter tests、Kotlin/JVM、arm64 Release、签名与 Draft。
 7. 用户补充的“花园与猫停在等待游戏、无动作且不再切换”已定位为另一条同源死锁：`waiting_remote + next_actor=wait` 在既无 `next_call` 也无唤醒时间时，不归续跑时钟接管，却被新游戏可用性永久视为占用。本批在 Outcome 落库边界直接暂存远端进度并释放活动位，同时为旧存档增加恢复停放；有明确服务端续接或定时的等待不受影响。
 8. 首次 Actions run `34924279335` 在源码门提前失败：历史 `validate_v04172_cedar_trust_watch_modes.py` 仍把 MCP 客户端版本固定为 `0.41.79`，尚未进入 Flutter 编译/测试；该合同已更新为 `0.41.80`。本地 `git diff --check`、workflow YAML、Python compileall、+224 专项门及工作流中可本机执行的 `101/101` validators 已通过；余下 3 项依赖 CI 私有素材或缺失编译器，Analyze、Flutter tests、Kotlin/JVM、arm64 Release、签名与 Draft 均等待重新运行证明。
+9. 第二次 Actions run `34925158591` 已通过完整源码门，但 Kotlin/JVM 步骤触发 Flutter debug 编译后发现两处确定性类型错误：统一循环仍引用已移除的 `verifiedContinuation`，以及可变 nullable session 跨闭包失去类型提升。前者已改为本轮真实 Cedar 结果的 continuation 汇总，后者在空/终局分支返回后固定非空 activeSession；需重新运行 CI 证明编译与后续全链。
 
 ## 5. 上一自动化基线：v0.41.79+223 Cedar 运行时抢占、开关与夜间节律
 

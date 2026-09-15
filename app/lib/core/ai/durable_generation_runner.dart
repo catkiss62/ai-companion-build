@@ -1080,6 +1080,11 @@ $finalGenerationReminder
         final cedarRound = roundResults.any(
           (result) => result.toolId.startsWith('cedar_toy.'),
         );
+        final cedarRoundRequestsContinuation = roundResults.any(
+          (result) =>
+              result.toolId.startsWith('cedar_toy.') &&
+              result.continuationRecommended,
+        );
         if (cedarRound) {
           // One no-call recovery belongs to one real Cedar stage. A later
           // successful Outcome is new information and may legitimately need
@@ -1185,7 +1190,8 @@ $finalGenerationReminder
         if (generated.toolCalls.isEmpty &&
             CedarToyArcadeSkill.shouldReconsiderNoCall(
               cedarEngaged: cedarLoopEngaged(),
-              lastOutcomeRequestsContinuation: verifiedContinuation,
+              lastOutcomeRequestsContinuation:
+                  cedarRoundRequestsContinuation,
               retryUsed: cedarNoCallRetryUsed,
               remainingCalls: remainingAfterNoCall,
               completedPlanningRounds: agentPlanningRounds,
