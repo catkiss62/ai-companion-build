@@ -1,5 +1,9 @@
 #!/usr/bin/env python3
-"""Cross-module contracts for +225 native background Cedar Agent tools."""
+"""Cross-module contracts for +225 native background Cedar Agent tools.
+
+This source-gate file also keeps branch publication on the full APK workflow;
+documentation-only updates must not be mistaken for the functional candidate.
+"""
 
 from pathlib import Path
 
