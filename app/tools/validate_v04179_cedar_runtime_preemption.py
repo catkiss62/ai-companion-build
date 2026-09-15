@@ -93,7 +93,8 @@ require(
 )
 require(
     "test/cedar_runtime_preemption_v04179_test.dart",
-    "late-night fatigue defers a committed unattended game",
+    "late-night unattended game sleeps until the morning boundary",
+    "Duration(hours: 2, minutes: 20)",
     "Cedar JSON cancellation closes a blocked planner immediately",
     "a provider timeout retries once with the bounded fallback",
     "execution identity survives state serialization",
@@ -101,7 +102,8 @@ require(
 require(
     "docs/TEST_CHECKLIST.md",
     "v0.41.79+223 Cedar 运行时抢占、开关与夜间节律真机验收增量",
-    "rest_wins",
+    "night_sleep",
+    "早上 07:00",
     "cedar_toy_action_lease_until",
 )
 require(
