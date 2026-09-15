@@ -206,6 +206,15 @@ class CedarGameSession {
           (nextActor == 'wait' && nextActionAt != null));
   bool get hasContinuationCall => continuationAction.trim().isNotEmpty;
   bool get hasPendingRoomMessage => pendingRoomMessage.trim().isNotEmpty;
+  /// Cedar can legitimately ask the client to wait, but a wait without an
+  /// exact follow-up call or a wake-up time has no executable route. Keeping
+  /// such a session active forever blocks both this game and every other game.
+  bool get isUnroutableRemoteWait =>
+      guideComplete &&
+      phase == CedarActivityPhase.waitingRemote &&
+      nextActor == 'wait' &&
+      !hasContinuationCall &&
+      nextActionAt == null;
   bool get companionCanObserve =>
       CedarServerContinuationPolicy.canObserve(
         guideComplete: guideComplete,
@@ -1287,18 +1296,31 @@ class CedarToyActivityStore {
               ),
       events: _append(existing.events, event),
     );
+    // Enforce the invariant at the write boundary as well as when recovering
+    // historical state. A successful play that says only "wait" but supplies
+    // no next_call and no resume time must not become the permanent active
+    // game. Keep its remote progress as a resumable parked session.
+    final storedNext = next.isUnroutableRemoteWait
+        ? next.copyWith(
+            phase: CedarActivityPhase.paused,
+            waitingReason:
+                '服务端没有提供下一调用或唤醒时间，已暂存远端进度并释放当前游戏',
+            updatedAt: now,
+          )
+        : next;
     state = state.copyWith(
-      activeGameId: gameId,
-      sessions: Map<String, CedarGameSession>.from(state.sessions)..[gameId] = next,
+      activeGameId: next.isUnroutableRemoteWait ? '' : gameId,
+      sessions: Map<String, CedarGameSession>.from(state.sessions)
+        ..[gameId] = storedNext,
       clearExecution: true,
       updatedAt: now,
     );
-    state = _withExtractedNotices(state, next, onlyEvent: event);
+    state = _withExtractedNotices(state, storedNext, onlyEvent: event);
     final saved = await _saveState(state, executionId: executionId);
     if (!saved && executionId.isNotEmpty) {
       throw const CedarExecutionPreemptedException('play_result_fenced');
     }
-    return next;
+    return storedNext;
   }
 
   Future<CedarGameSession> recordPlatformAction({
@@ -1422,6 +1444,33 @@ class CedarToyActivityStore {
       activeGameId: '',
       updatedAt: DateTime.now(),
     ));
+  }
+
+  /// Parks a server wait that supplied neither `next_call` nor a resume time.
+  /// The remote save remains resumable, while the empty active slot allows the
+  /// Agent to choose another game instead of deadlocking the whole arcade.
+  Future<bool> parkUnroutableRemoteWait() async {
+    final state = await loadState();
+    final session = state.activeSession;
+    if (session == null || !session.isUnroutableRemoteWait) return false;
+    final now = DateTime.now();
+    final parked = session.copyWith(
+      phase: CedarActivityPhase.paused,
+      waitingReason: '服务端没有提供下一调用或唤醒时间，已暂存远端进度并释放当前游戏',
+      clearNextActionAt: true,
+      updatedAt: now,
+    );
+    await db.setSettingsAtomically(<String, String>{
+      ..._stateSettingValues(state.copyWith(
+        activeGameId: '',
+        sessions: Map<String, CedarGameSession>.from(state.sessions)
+          ..[session.gameId] = parked,
+        clearExecution: true,
+        updatedAt: now,
+      )),
+      executionFenceSettingKey: 'park-unroutable-wait-${_uuid.v4()}',
+    });
+    return true;
   }
 
   Future<void> resumeGame([String gameId = '']) async {

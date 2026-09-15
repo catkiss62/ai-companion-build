@@ -32,7 +32,7 @@
 | 仓库 | `catkiss62/ai-companion-build`；Flutter/Android 工程位于 `app/` |
 | 当前开发分支 | `agent/v04180-cedar-agent-loop` |
 | 当前目标版本 | `v0.41.80+224 / schema 61 / Snapshot protocol 6` |
-| 当前状态 | `IMPLEMENTED LOCALLY / LOCAL STATIC VALIDATION PENDING / CI PENDING / TRUE DEVICE PENDING` |
+| 当前状态 | `IMPLEMENTED LOCALLY / LOCAL STATIC VALIDATION PASSED / CI RE-RUN PENDING / TRUE DEVICE PENDING` |
 | 当前真机失败基线 | `v0.41.78+222`；后台钓鱼 JSON 规划累计重试且单次卡满 120 秒，双弈已被错误记为 `completed/leave`；+223 仅有 CI 证据，尚无真机证明 |
 | `main` | 仍是 v0.38.5 旧基线；不得作为 v0.41.x 后续开发起点，本批不合并 |
 | +219 构建提交 | 远端功能 head `0295ceeeafe9e18f057b6f8f5d54a8dae8820ed2`；tree `3cf8a09813c135b8bce4e5b9a66381ba2a03f5cf` |
@@ -62,6 +62,8 @@
 4. 前台写超时进入“结果未知/同步”而不击穿整条聊天；远端 Outcome 已返回时必须先保存 next_actor/next_call/消息去重与别名，再响应停止或前台抢占，且绝不重放写动作。
 5. 再读指南只更新元数据，保留已有房间状态。后台与前台共用同一 Cedar Skill 和服务端续接权威；夜间竞争、双开关暂停、狭义动作锁、备份冻结和全局聊天抢占继续沿用 +223。
 6. 新固定脚本测试覆盖“目录→指南→建房/加入→服务端挂等→用户网页落子/发言→她自动落子/回话”的停止合同、服务端续接、许可识别和可恢复门禁；CI 还必须跑全部历史门、Analyze、Flutter tests、Kotlin/JVM、arm64 Release、签名与 Draft。
+7. 用户补充的“花园与猫停在等待游戏、无动作且不再切换”已定位为另一条同源死锁：`waiting_remote + next_actor=wait` 在既无 `next_call` 也无唤醒时间时，不归续跑时钟接管，却被新游戏可用性永久视为占用。本批在 Outcome 落库边界直接暂存远端进度并释放活动位，同时为旧存档增加恢复停放；有明确服务端续接或定时的等待不受影响。
+8. 首次 Actions run `34924279335` 在源码门提前失败：历史 `validate_v04172_cedar_trust_watch_modes.py` 仍把 MCP 客户端版本固定为 `0.41.79`，尚未进入 Flutter 编译/测试；该合同已更新为 `0.41.80`。本地 `git diff --check`、workflow YAML、Python compileall、+224 专项门及工作流中可本机执行的 `101/101` validators 已通过；余下 3 项依赖 CI 私有素材或缺失编译器，Analyze、Flutter tests、Kotlin/JVM、arm64 Release、签名与 Draft 均等待重新运行证明。
 
 ## 5. 上一自动化基线：v0.41.79+223 Cedar 运行时抢占、开关与夜间节律
 

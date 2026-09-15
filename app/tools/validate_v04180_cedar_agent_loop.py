@@ -54,6 +54,9 @@ require(
     "existing.copyWith",
     "CedarServerContinuationPolicy.canObserve",
     "CedarServerContinuationPolicy.usesRealtimePace",
+    "isUnroutableRemoteWait",
+    "parkUnroutableRemoteWait",
+    "activeGameId: next.isUnroutableRemoteWait ? '' : gameId",
 )
 require(
     "lib/core/mcp/cedar_toy_autonomy_engine.dart",
@@ -62,6 +65,7 @@ require(
     "sharedRuntime",
     "CedarServerContinuationPolicy.authorizesExactAction",
     "Persist its structured result",
+    "unroutable_wait_parked",
 )
 require(
     "lib/core/agent/agent_participation_consent.dart",
@@ -79,6 +83,7 @@ require(
     "test/cedar_agent_loop_v04180_test.dart",
     "one user goal stays open through discovery and room creation",
     "server next_call keeps an established room alive without local labels",
+    "remote wait without a continuation route cannot pin the arcade",
     "normal request grants the requested shared-game authority",
 )
 require(

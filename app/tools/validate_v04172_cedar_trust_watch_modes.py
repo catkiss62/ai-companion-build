@@ -19,7 +19,7 @@ def require(path: str, *tokens: str) -> None:
 require('pubspec.yaml', 'version: 0.41.80+224')
 require('lib/core/agent/agent_self_reader.dart', "buildLabel = 'v0.41.80+224'")
 require('test/agent_self_reader_v0416_test.dart', 'build=v0.41.80+224 schema=61')
-require('lib/core/mcp/mcp_http_client.dart', "'version': '0.41.79'")
+require('lib/core/mcp/mcp_http_client.dart', "'version': '0.41.80'")
 require(
     'lib/core/mcp/cedar_toy_activity.dart',
     'enum CedarViewingPace',

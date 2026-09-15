@@ -2,6 +2,7 @@ import 'package:ai_companion_localfirst/core/agent/agent_participation_consent.d
 import 'package:ai_companion_localfirst/core/agent/agent_tool.dart';
 import 'package:ai_companion_localfirst/core/mcp/cedar_agent_loop_policy.dart';
 import 'package:ai_companion_localfirst/core/mcp/cedar_game_protocol.dart';
+import 'package:ai_companion_localfirst/core/mcp/cedar_toy_activity.dart';
 import 'package:ai_companion_localfirst/core/mcp/cedar_toy_arcade_skill.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -133,6 +134,36 @@ void main() {
         participationActive: false,
       ),
       isTrue,
+    );
+  });
+
+  test('remote wait without a continuation route cannot pin the arcade', () {
+    CedarGameSession waiting({
+      String continuationAction = '',
+      DateTime? nextActionAt,
+    }) =>
+        CedarGameSession(
+          id: 'session',
+          gameId: 'garden_cat',
+          guide: 'complete guide',
+          guideComplete: true,
+          mode: CedarParticipationMode.solo,
+          phase: CedarActivityPhase.waitingRemote,
+          updatedAt: DateTime.utc(2026, 9, 15),
+          nextActor: 'wait',
+          continuationAction: continuationAction,
+          nextActionAt: nextActionAt,
+        );
+
+    expect(waiting().isUnroutableRemoteWait, isTrue);
+    expect(
+      waiting(continuationAction: 'state').isUnroutableRemoteWait,
+      isFalse,
+    );
+    expect(
+      waiting(nextActionAt: DateTime.utc(2026, 9, 15, 1))
+          .isUnroutableRemoteWait,
+      isFalse,
     );
   });
 

@@ -415,6 +415,12 @@ class CedarToyAutonomyEngine {
       return const CedarAutonomyAvailability(false, 'unconfigured');
     }
     final session = await CedarToyActivityStore(db).load();
+    // A remote wait without next_call or a wake-up time is not a committed
+    // activity: there is no legal action for the continuation clock to run.
+    // Let progress park it and free the Agent to select another game.
+    if (session?.isUnroutableRemoteWait == true) {
+      return const CedarAutonomyAvailability(true, 'unroutable_wait');
+    }
     // Historical committed-activity contract: companionCanContinue. The
     // realtime successor also includes server-authorized observation calls.
     if (session?.needsContinuation == true) {
@@ -552,7 +558,15 @@ class CedarToyAutonomyEngine {
     final endpoint = await secureConfig.readEndpoint();
     final client = CedarToyClient(token: token);
     final store = CedarToyActivityStore(db);
-    final session = await store.load();
+    var session = await store.load();
+    if (session?.isUnroutableRemoteWait == true) {
+      await store.parkUnroutableRemoteWait();
+      session = null;
+      await db.setSetting(
+        'cedar_toy_last_continuation_state',
+        'unroutable_wait_parked',
+      );
+    }
     await db.setSetting(lastProgressKey, now.millisecondsSinceEpoch.toString());
 
     if (session == null ||
