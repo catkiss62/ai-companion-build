@@ -23,9 +23,9 @@ def require(path: str, *tokens: str) -> None:
     assert not missing, f"{path}: missing {missing}"
 
 
-require("pubspec.yaml", "version: 0.41.81+225")
-require("lib/core/mcp/mcp_http_client.dart", "'version': '0.41.81'")
-require("lib/core/agent/agent_self_reader.dart", "v0.41.81+225")
+require("pubspec.yaml", "version: 0.41.82+226")
+require("lib/core/mcp/mcp_http_client.dart", "'version': '0.41.82'")
+require("lib/core/agent/agent_self_reader.dart", "v0.41.82+226")
 require(
     "lib/core/mcp/cedar_toy_autonomy_engine.dart",
     "class CedarAgentActionPlanner",
@@ -71,17 +71,17 @@ require(
 require(
     "AI_Companion_当前总账.md",
     "v0.41.81+225",
-    "agent/v04181-cedar-background-agent-tools",
+    "agent/v04182-cedar-state-machine-e2e",
     "jsonRetryCount=58",
     "CedarAgentActionPlanner",
     "CI PENDING / TRUE DEVICE PENDING",
 )
 require(
     ".github/workflows/build-apk.yml",
-    "agent/v04181-cedar-background-agent-tools",
+    "agent/v04182-cedar-state-machine-e2e",
     "validate_v04181_cedar_background_agent_tools.py",
-    "AI-Companion-v0.41.81-225-Cedar-Background-Agent-Tools-APK",
-    "v0.41.81-cedar-background-agent-tools-test",
+    "AI-Companion-v0.41.82-226-Cedar-State-Machine-E2E-APK",
+    "v0.41.82-cedar-state-machine-e2e-test",
 )
 
 print("v0.41.81+225 Cedar background Agent-tools validation passed.")

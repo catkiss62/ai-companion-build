@@ -30,10 +30,10 @@
 | 项目 | 当前事实 |
 |---|---|
 | 仓库 | `catkiss62/ai-companion-build`；Flutter/Android 工程位于 `app/` |
-| 当前开发分支 | `agent/v04181-cedar-background-agent-tools` |
-| 当前目标版本 | `v0.41.81+225 / schema 61 / Snapshot protocol 6` |
-| 当前状态 | `CI PASSED / APK READY / TRUE DEVICE PENDING` |
-| 当前真机失败基线 | `v0.41.80+224`；双弈已成功观察到网页落子、房间消息及 `your_turn=true`，随后后台动作规划首次空正文、第二次选择只读 `state`，每 15 秒原地重试且未执行 `move` |
+| 当前开发分支 | `agent/v04182-cedar-state-machine-e2e` |
+| 当前目标版本 | `v0.41.82+226 / schema 61 / Snapshot protocol 6` |
+| 当前状态 | `IMPLEMENTED LOCALLY / LOCAL STATIC VALIDATION PASSED / CI PENDING / TRUE DEVICE PENDING` |
+| 当前真机失败基线 | `v0.41.81+225`；Cedar 已成功建房并返回真实回合信息，但前台 `wait=true` 写请求先被 25 秒 MCP transport 判超时；后台动作规划超时不重试并退避，普通聊天页可见时又禁止 Cedar 续跑，形成“网站已成功、APK 卡住不动” |
 | `main` | 仍是 v0.38.5 旧基线；不得作为 v0.41.x 后续开发起点，本批不合并 |
 | +219 构建提交 | 远端功能 head `0295ceeeafe9e18f057b6f8f5d54a8dae8820ed2`；tree `3cf8a09813c135b8bce4e5b9a66381ba2a03f5cf` |
 | +220 构建提交 | 远端功能 head `f3a4e95e35c5ca47fb68e84aa8d12a850cfbd91a`；tree `0efb121197441a2522f987a5b506e32dda53e555` |
@@ -44,7 +44,27 @@
 
 既有能力保护索引：Desire / Thought / Intent / Gate、Somatic 双通道、玩游 Key、普通聊天、沉浸房间、查手机、造梗来源、D6、Phase 2B、App 内 Agent 能力桥、Memory 2D、`fact_state / attention_state / recall_policy`、`spontaneous_salience`、`reminiscence/identity`、Skills、MCP、`【检查系统】`、中断灰显、Token 命中/缓存优化、Phase 3、Harness、`screen_observation.inspect`、Genie-TTS 四音色、schema 61 与 Snapshot protocol 6 均不得回归。
 
-## 4. 当前任务：v0.41.81+225 Cedar 后台原生 Agent 工具闭环
+## 4. 当前任务：v0.41.82+226 Cedar 权威状态机端到端闭环
+
+### +225 真机证据、上游协议与已确认结构根因
+
+- 最新诊断显示 `active/multiplayer/nextActor=companion/lastAction=new`，Cedar 后台大脑健康、无在途 execution，但前台最后一次 `cedar_toy.play` 为 `cedar_network_or_timeout`；备份同时证明远端房间已经创建、网页落子和消息已经推进 revision，故障位于 APK 收到/等待回包后的状态出口，不是 Cedar 网站没有返回。
+- CedarDuet 当前公开协议明确：`rooms → state → move` 可恢复房间；`state(wait=true)` 是 30 秒短心跳，`still_waiting` 需要续订；`revision` 与结构化回合状态是权威；普通房间消息在非本机回合不会单独唤醒小机，而会在真正轮到它时随可见 events 一并交付。
+- APK 把 `new/move + wait=true` 的“写入”和“等待下一回合”耦合在同一个请求，而通用 MCP 客户端 25 秒先于 Cedar 30 秒心跳超时，所以远端已提交、本机却判失败。前台与后台在收到成功 Outcome 后还先等待一次非必要模型分类，导致权威状态迟迟不落库。
+- 后台 planner 固定 30 秒且明确排除 timeout 重试，外层失败后又退避 5 分钟；普通聊天页只要可见（即使没有 chat writer lease）也会阻止 Cedar；Stop 的 SQL 又遗漏 `awaiting_confirmation`，一次卡住的回复可留下永久 blocking job，连聊天和备份一起封死。
+
+### 本批实现与完成判据
+
+1. 双弈普通 `new/join/move/...` 一律 `wait=false` 立即取得并持久化写结果；只有服务端签发或本机安全派生的只读 `state(wait=true)` 由后台观察器执行。Cedar 专用 transport 为 40 秒，完整接住上游 30 秒 heartbeat。
+2. Cedar 结构化 `next_actor/revision/resume_after/next_call` 到达后直接作为控制状态落库，不再先等 DeepSeek 做第二次裁判；模型仍负责真正需要判断的动作选择和可选房间表达，不能覆盖服务端回合真值。
+3. `new/move` 回包丢失时禁止原样重放：已有 room_id 只做 `state(full_state=true,wait=false)`，无 room_id 先做 `rooms`，再从唯一活跃房间建立只读 observer。成功 poll 返回 `your_turn=true` 时清除旧 wait continuation，随后由原生 `cedar_toy.play` 工具规划并落子。
+4. 页面可见不再等同于聊天写入；只有真实 `chat_turn_lease` 抢占 Cedar。动作 lease 在长规划中周期续约且仍受 Active Brain、transfer freeze、双开关和 execution fence 中断。规划 timeout 允许一次 20 秒有界 fallback，失败 15 秒后重试，不再静默五分钟。
+5. 夜间 00:00–07:00 在未主动观看时硬性睡眠到 07:00，强 Thought 不能让后台游戏整夜空转；主动观看仍可明确覆盖。关闭 Cedar 或自主游戏开关会原子暂停并 fence 当前执行，清除 next-action 时钟，远端存档保留。
+6. Stop 可终止 `pending/running/retry_wait/awaiting_confirmation/failed` 任一未完成回复；真实 SQLite 测试证明幽灵 job 被删除为非阻塞状态后，普通备份 freeze 可以立即取得。
+7. 新测试不是源码字符串：使用 `sqflite_common_ffi` 打开真实 AppDatabase schema，并以 fake DeepSeek 原生 tool-call + fake MCP 完成 `new → 她落子 → state 长轮询 → 网页落子/消息 → 她再次自动落子`；同时断言写操作永不携带 long-poll、服务端结构化状态不触发第二次模型等待、开关关闭清时钟、写超时只读同步和 Stop/备份互锁。
+8. 本机没有 Flutter/Dart SDK；当前 `git diff --check` 与 +211～+225 Cedar 专项 Python 门已通过。必须由 Actions 完成 `flutter pub get / analyze / 全量 tests / arm64 Release / 固定签名 / Draft`，在此之前严格保持 `CI PENDING / TRUE DEVICE PENDING`。
+
+## 5. 上一基线：v0.41.81+225 Cedar 后台原生 Agent 工具闭环
 
 ### +224 真机证据与已确认根因
 

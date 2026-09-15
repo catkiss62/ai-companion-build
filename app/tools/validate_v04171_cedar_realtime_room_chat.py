@@ -16,9 +16,9 @@ def require(path: str, *tokens: str) -> None:
     assert not missing, f'{path}: missing {missing}'
 
 
-require('pubspec.yaml', 'version: 0.41.81+225')
-require('lib/core/agent/agent_self_reader.dart', "buildLabel = 'v0.41.81+225'")
-require('test/agent_self_reader_v0416_test.dart', 'build=v0.41.81+225 schema=61')
+require('pubspec.yaml', 'version: 0.41.82+226')
+require('lib/core/agent/agent_self_reader.dart', "buildLabel = 'v0.41.82+226'")
+require('test/agent_self_reader_v0416_test.dart', 'build=v0.41.82+226 schema=61')
 require(
     'lib/core/mcp/mcp_turn_state_resolver.dart',
     "'room'",
@@ -46,7 +46,7 @@ require(
     '_observeSession',
     '_composeRoomDialogue',
     'params = CedarRoomActionPayload.withMessage(params, roomMessage)',
-    "params['wait'] =",
+    'CedarActionTransportPolicy.immediateResponseParams',
     'Room dialogue is a session-local action annotation',
     "apiKey: apiKey",
     'AgentToolTextEnvelope.looksLikeMachinePayload',
@@ -112,8 +112,8 @@ require(
 )
 require(
     '.github/workflows/build-apk.yml',
-    'agent/v04181-cedar-background-agent-tools',
-    'AI-Companion-v0.41.81-225-Cedar-Background-Agent-Tools-APK',
+    'agent/v04182-cedar-state-machine-e2e',
+    'AI-Companion-v0.41.82-226-Cedar-State-Machine-E2E-APK',
     'validate_v04171_cedar_realtime_room_chat.py',
 )
 require(

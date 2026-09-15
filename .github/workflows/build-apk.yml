@@ -382,7 +382,7 @@
 # Historical v0.41.61 workflow: Shuai API Gemini plus immersive-room multilingual projection and thought summaries.
 # Historical v0.41.63 workflow: immersive streaming TTS and settings hardening candidate.
 # Exact source tree is recorded in the ledger after the implementation commit.
-name: Build AI Companion v0.41.81+225 APK (Cedar Background Agent Tools)
+name: Build AI Companion v0.41.82+226 APK (Cedar State Machine E2E)
 
 on:
   push:
@@ -416,7 +416,7 @@ on:
       - agent/v04173-cedar-deterministic-entry-reply-completion
       - agent/v04176-cedar-protocol-continuation
       - agent/v04179-cedar-runtime-preemption
-      - agent/v04181-cedar-background-agent-tools
+      - agent/v04182-cedar-state-machine-e2e
   workflow_dispatch:
   pull_request:
     branches:
@@ -805,7 +805,7 @@ jobs:
         run: |
           set -euo pipefail
           test -f app/pubspec.yaml
-          grep -Fqx 'version: 0.41.81+225' app/pubspec.yaml
+          grep -Fqx 'version: 0.41.82+226' app/pubspec.yaml
           grep -Fqx '  static const int schemaVersion = 61;' app/lib/core/database/app_database.dart
           test -d app/lib
           test -d app/android
@@ -819,7 +819,7 @@ jobs:
           test -f app/android/app/src/main/jniLibs/arm64-v8a/libc++_shared.so
           test ! -d app/android/app/src/main/assets/tts_models
           test ! -d app/android/app/src/main/assets/legacy_tts
-          echo 'Building v0.41.81+225 Cedar background Agent-tools candidate.'
+          echo 'Building v0.41.82+226 Cedar state-machine E2E candidate.'
 
       - name: Restore exact 417-file desktop-pet source pack
         working-directory: app
@@ -1016,6 +1016,7 @@ jobs:
           python3 tools/validate_v04179_cedar_runtime_preemption.py
           python3 tools/validate_v04180_cedar_agent_loop.py
           python3 tools/validate_v04181_cedar_background_agent_tools.py
+          python3 tools/validate_v04182_cedar_state_machine_e2e.py
 
       - name: Resolve Flutter packages
         working-directory: app
@@ -1339,26 +1340,26 @@ jobs:
           APK='app/build/app/outputs/flutter-apk/app-release.apk'
           sha256sum "$APK" | tee app/app-release.apk.sha256
 
-      - name: Upload v0.41.81+225 APK as workflow artifact
+      - name: Upload v0.41.82+226 APK as workflow artifact
         uses: actions/upload-artifact@v4
         with:
-          name: AI-Companion-v0.41.81-225-Cedar-Background-Agent-Tools-APK
+          name: AI-Companion-v0.41.82-226-Cedar-State-Machine-E2E-APK
           path: |
             app/build/app/outputs/flutter-apk/app-release.apk
             app/app-release.apk.sha256
           if-no-files-found: error
           retention-days: 14
 
-      - name: Upload v0.41.81+225 APK to draft release
+      - name: Upload v0.41.82+226 APK to draft release
         shell: bash
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
-          TAG='v0.41.81-cedar-background-agent-tools-test'
-          APK_NAME='AI-Companion-v0.41.81-225-Cedar-Background-Agent-Tools-APK.apk'
+          TAG='v0.41.82-cedar-state-machine-e2e-test'
+          APK_NAME='AI-Companion-v0.41.82-226-Cedar-State-Machine-E2E-APK.apk'
           SHA_NAME="${APK_NAME}.sha256"
-          CI_NAME='AI-Companion-v0.41.81-225-Cedar-Background-Agent-Tools-CI-Monitor.txt'
+          CI_NAME='AI-Companion-v0.41.82-226-Cedar-State-Machine-E2E-CI-Monitor.txt'
           cp app/build/app/outputs/flutter-apk/app-release.apk "app/${APK_NAME}"
           sed "s#app/build/app/outputs/flutter-apk/app-release.apk#${APK_NAME}#" \
             app/app-release.apk.sha256 > "app/${SHA_NAME}"
@@ -1375,14 +1376,14 @@ jobs:
               --repo "${GITHUB_REPOSITORY}" \
               --target "${GITHUB_SHA}" \
               --draft \
-              --title 'AI Companion v0.41.81+225 Cedar background Agent-tools candidate' \
-              --notes 'Unpublished Draft schema-61 candidate. Background Cedar turns now require the same native cedar_toy.play function-call contract used by the foreground Agent. Empty text, free JSON, wrong-game calls and repeated read-only state queries cannot authorize an action; one corrective replan is bounded before the execution fence and narrow lease are released. Existing next_call authority, runtime preemption, night pacing, game-hall switches, backup/restore interlock, blind play, redaction and snapshot protocol 6 remain.'
+              --title 'AI Companion v0.41.82+226 Cedar state-machine E2E candidate' \
+              --notes 'Unpublished Draft schema-61 candidate. Cedar writes now return immediately and persist authoritative turn state before any optional model work; server long-polls are background-only and aligned to the 30-second heartbeat. Visible chat no longer strands a room, planner timeout retries are bounded, Stop cancels awaiting-confirmation jobs, night sleep and the game-hall switch fence execution, and a real SQLite plus fake MCP/model end-to-end test covers two autonomous turns. Snapshot protocol 6 remains.'
           else
             gh release edit "${TAG}" \
               --repo "${GITHUB_REPOSITORY}" \
               --target "${GITHUB_SHA}" \
-              --title 'AI Companion v0.41.81+225 Cedar background Agent-tools candidate' \
-              --notes 'Unpublished Draft schema-61 candidate. Background Cedar turns now require the same native cedar_toy.play function-call contract used by the foreground Agent. Empty text, free JSON, wrong-game calls and repeated read-only state queries cannot authorize an action; one corrective replan is bounded before the execution fence and narrow lease are released. Existing next_call authority, runtime preemption, night pacing, game-hall switches, backup/restore interlock, blind play, redaction and snapshot protocol 6 remain.'
+              --title 'AI Companion v0.41.82+226 Cedar state-machine E2E candidate' \
+              --notes 'Unpublished Draft schema-61 candidate. Cedar writes now return immediately and persist authoritative turn state before any optional model work; server long-polls are background-only and aligned to the 30-second heartbeat. Visible chat no longer strands a room, planner timeout retries are bounded, Stop cancels awaiting-confirmation jobs, night sleep and the game-hall switch fence execution, and a real SQLite plus fake MCP/model end-to-end test covers two autonomous turns. Snapshot protocol 6 remains.'
           fi
           RELEASE_URL="$(gh release view "${TAG}" --repo "${GITHUB_REPOSITORY}" --json url --jq '.url')"
           echo "release_url=${RELEASE_URL}" >> "app/${CI_NAME}"
@@ -1434,8 +1435,8 @@ jobs:
           BUILD_RESULT: ${{ needs.build-apk.result }}
         run: |
           set -uo pipefail
-          TAG='v0.41.81-cedar-background-agent-tools-test'
-          CI_NAME='AI-Companion-v0.41.81-225-Cedar-Background-Agent-Tools-CI-Monitor.txt'
+          TAG='v0.41.82-cedar-state-machine-e2e-test'
+          CI_NAME='AI-Companion-v0.41.82-226-Cedar-State-Machine-E2E-CI-Monitor.txt'
           REPORT="${RUNNER_TEMP}/${CI_NAME}"
           JOBS_JSON="${RUNNER_TEMP}/jobs.json"
           {
@@ -1476,8 +1477,8 @@ jobs:
               --repo "${GITHUB_REPOSITORY}" \
               --target "${GITHUB_SHA}" \
               --draft \
-              --title 'AI Companion v0.41.81+225 Cedar background Agent-tools candidate' \
-              --notes 'Draft failure diagnostics for the schema-61 Cedar background Agent-tools candidate. It is not a published release; private packs, credentials, user images, captions, diagnostics, backups and conversation content are not included in CI assets.'
+              --title 'AI Companion v0.41.82+226 Cedar state-machine E2E candidate' \
+              --notes 'Draft failure diagnostics for the schema-61 Cedar state-machine E2E candidate. It is not a published release; private packs, credentials, user images, captions, diagnostics, backups and conversation content are not included in CI assets.'
           fi
           RELEASE_URL="$(gh release view "${TAG}" --repo "${GITHUB_REPOSITORY}" --json url --jq '.url')"
           echo "release_url=${RELEASE_URL}" >> "${REPORT}"

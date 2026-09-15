@@ -19,7 +19,7 @@ def require(path: str, *tokens: str) -> None:
     assert not missing, f"{path}: missing {missing}"
 
 
-require("pubspec.yaml", "version: 0.41.81+225")
+require("pubspec.yaml", "version: 0.41.82+226")
 require(
     "lib/core/ai/deepseek_client.dart",
     "Duration requestTimeout = const Duration(seconds: 120)",
@@ -62,7 +62,7 @@ autonomy = read("lib/core/mcp/cedar_toy_autonomy_engine.dart")
 retry_start = autonomy.index("static bool isRetryable")
 retry_end = autonomy.index("static String errorCategory", retry_start)
 retry_policy = autonomy[retry_start:retry_end]
-assert "error is! TimeoutException" in retry_policy
+assert "error is TimeoutException" in retry_policy
 assert "FinalReplyFailurePolicy.isTransient" in retry_policy
 require(
     "lib/core/maintenance/recovery_orchestrator.dart",
@@ -95,7 +95,7 @@ require(
     "test/cedar_runtime_preemption_v04179_test.dart",
     "late-night fatigue defers a committed unattended game",
     "Cedar JSON cancellation closes a blocked planner immediately",
-    "a provider timeout is not retried inside the same Cedar cycle",
+    "a provider timeout retries once with the bounded fallback",
     "execution identity survives state serialization",
 )
 require(
@@ -106,8 +106,8 @@ require(
 )
 require(
     ".github/workflows/build-apk.yml",
-    "agent/v04181-cedar-background-agent-tools",
-    "AI-Companion-v0.41.81-225-Cedar-Background-Agent-Tools-APK",
+    "agent/v04182-cedar-state-machine-e2e",
+    "AI-Companion-v0.41.82-226-Cedar-State-Machine-E2E-APK",
     "validate_v04179_cedar_runtime_preemption.py",
 )
 require(

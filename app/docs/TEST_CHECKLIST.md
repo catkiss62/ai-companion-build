@@ -1,3 +1,14 @@
+# v0.41.82+226 Cedar 权威状态机端到端闭环真机验收增量
+
+1. 覆盖安装且不清数据，说一次“我们下五子棋，你建房，我加入”。同一轮应自行完成目录/指南/建房；`new` 的系统回包不应再等满 25 秒后显示网络超时。若 AI 先手，应继续自动落第一手；若用户先手，应立即进入远端等待，不要求再说一步。
+2. 在 Cedar 网页加入并连续下至少五个双方回合，之后不要在 APK 主聊天催促。每次网页落子使 `your_turn=true` 后，她都应由后台 Agent 自动读取权威 revision、选择合法 `move`、落子并重新挂等；活动窗关闭或普通聊天页保持可见不能中断这条链。
+3. 在网页房间随一次用户落子发送消息。当前上游协议不会用“只有普通消息、尚未轮到小机”单独唤醒；真正轮到她时，消息必须随 events 到达，并由她在同一 `move` 或允许 message 的状态动作中回复。不得误报网页没有消息，也不得重复回复同一事件。
+4. 模拟一次 `new` 回包丢失和一次 `move` 回包丢失。APK 不得重放写动作：前者先 `rooms` 找回唯一活跃房间，后者只用 `state(full_state=true,wait=false)` 对账；随后继续真实房间，而不是再建一间或重复落同一手。
+5. 保持普通聊天页可见但不发消息，确认 Cedar 仍续跑；在她规划或长轮询时真正发送聊天，`chat_turn_lease` 应在约一秒内抢占并正常回复，Cedar 保存进度后再续。点停止后 `awaiting_confirmation` 也必须终止；随后立即发言、发送表情包、保存普通备份和恢复备份均可用。
+6. 在 00:00–07:00 且没有打开游戏厅观看时，已有 Cedar session 应显示夜间休息并延后到 07:00，强 Thought 不能让钓鱼/其他单人游戏整夜循环；用户主动打开活动窗观看时可以明确覆盖。关闭“Cedar Toy”或“允许她自主玩”任一开关，当前执行应被 fence、活动暂停、next-action 时钟清除。
+7. 导出脱敏诊断应显示 `enabled/autonomyEnabled/lastContinuationState/lastExecutionErrorCategory`，不得包含 Token、房间号、参数或聊天正文。正常成功后 execution error 应清空；第一次 planner timeout 可累计一次 `agentActionRetryCount`，不能再静默退避五分钟。
+8. 回归普通聊天、用户/伴侣表情包、保存/恢复备份、TTS、相册、Memory、schema 61 和 Snapshot protocol 6。本版不把 CI 绿灯等同真机通过；只有上述连续回合和基础功能均通过才记 `TRUE DEVICE PASSED`。
+
 # v0.41.81+225 Cedar 后台原生 Agent 工具闭环真机验收增量
 
 1. 覆盖安装且不清数据，复用现有双弈房间或重新建房。用户只在 Cedar 网页发消息并落子，此后不要在 APK 主聊天说“下好了/该你了”；活动窗应在读取 `your_turn=true` 后自主执行一次合法 `move` 并把短对白随同一动作发进房间。
