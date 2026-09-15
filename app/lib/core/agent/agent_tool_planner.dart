@@ -340,6 +340,7 @@ class AgentToolPlanner {
 
   static AgentToolPlan fromNativeToolCalls(
     List<DeepSeekToolCall> nativeCalls, {
+    AgentToolOrigin origin = AgentToolOrigin.userTurn,
     String latestUserText = '',
     bool cedarSessionActive = false,
     bool cedarBlindPlay = false,
@@ -370,7 +371,9 @@ class AgentToolPlanner {
       final definition = AgentToolRegistry.byId(toolId);
       if (definition == null ||
           !definition.executable ||
-          !definition.userTurnAvailable ||
+          !(origin == AgentToolOrigin.autonomous
+              ? definition.autonomousAvailable
+              : definition.userTurnAvailable) ||
           (cedarBlindPlay && const <String>{
             'public_web.search',
             'image.find_and_save',
@@ -387,7 +390,11 @@ class AgentToolPlanner {
         if (decoded is Map) {
           for (final entry in decoded.entries.take(6)) {
             final key = _bounded(entry.key.toString().trim(), 40);
-            final value = _bounded(entry.value?.toString().trim() ?? '', 500);
+            final rawValue = entry.value;
+            final serialized = rawValue is Map || rawValue is List
+                ? jsonEncode(rawValue)
+                : rawValue?.toString() ?? '';
+            final value = _bounded(serialized.trim(), 500);
             if (key.isNotEmpty && value.isNotEmpty) arguments[key] = value;
           }
         }
@@ -398,9 +405,11 @@ class AgentToolPlanner {
       final call = AgentToolCall(
         toolId: toolId,
         arguments: arguments,
-        reasonTag: definition.risk == AgentToolRisk.readOnly
-            ? 'model_selected'
-            : 'explicit_request',
+        reasonTag: origin == AgentToolOrigin.autonomous
+            ? 'autonomous_agent'
+            : definition.risk == AgentToolRisk.readOnly
+                ? 'model_selected'
+                : 'explicit_request',
       );
       if (excludedCallFingerprints.contains(
         AgentTaskLoopPolicy.callFingerprint(call),

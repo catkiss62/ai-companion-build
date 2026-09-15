@@ -420,6 +420,9 @@ class PreflightDiagnosticsService {
           cedarExecutionErrorCategory.isEmpty
               ? 'none'
               : cedarExecutionErrorCategory;
+      cedarRealtime['lastExecutionErrorDetail'] =
+          (await db.getSetting('cedar_toy_last_execution_error_detail') ?? '')
+              .trim();
       cedarRealtime['lastExecutionErrorAt'] = int.tryParse(
             await db.getSetting('cedar_toy_last_execution_error_at') ?? '',
           ) ??

@@ -57,6 +57,7 @@ class AgentToolRunner {
 
   Future<List<AgentToolResult>> runPlan(
     AgentToolPlan plan, {
+    AgentToolOrigin origin = AgentToolOrigin.userTurn,
     AgentToolActivityCallback? onActivity,
     GenerationCancellationToken? cancellationToken,
     String eventScopeId = '',
@@ -88,11 +89,19 @@ class AgentToolRunner {
                       AgentToolRegistry.cedarToyManageActivity.id) &&
               call.reasonTag == 'explicit_request' &&
               userMessageId.trim().isNotEmpty;
+      final availableForOrigin = definition != null &&
+          (origin == AgentToolOrigin.autonomous
+              ? definition.autonomousAvailable
+              : definition.userTurnAvailable);
+      final writeAuthorized = definition != null &&
+          (definition.risk == AgentToolRisk.readOnly ||
+              (origin == AgentToolOrigin.autonomous
+                  ? definition.autonomousAvailable
+                  : explicitUserWrite));
       if (definition == null ||
           !definition.executable ||
-          !definition.userTurnAvailable ||
-          (definition.risk != AgentToolRisk.readOnly &&
-              !explicitUserWrite)) {
+          !availableForOrigin ||
+          !writeAuthorized) {
         final result = AgentToolResult(
           toolId: call.toolId,
           status: AgentToolStatus.blocked,
@@ -107,6 +116,7 @@ class AgentToolRunner {
           eventScopeId: eventScopeId,
           result: result,
           startedAt: startedAt,
+          origin: origin,
         );
         continue;
       }
@@ -191,6 +201,7 @@ class AgentToolRunner {
             eventScopeId: eventScopeId,
             result: result,
             startedAt: startedAt,
+            origin: origin,
           );
         }
         onActivity?.call(AgentToolActivity(
@@ -227,6 +238,7 @@ class AgentToolRunner {
           eventScopeId: eventScopeId,
           result: result,
           startedAt: startedAt,
+          origin: origin,
         );
         onActivity?.call(AgentToolActivity(
           toolId: call.toolId,
@@ -1240,6 +1252,7 @@ ${CedarToyClient.redactSecrets(outcome.text)}''',
       eventScopeId: eventScopeId,
       result: result,
       startedAt: DateTime.now(),
+      origin: AgentToolOrigin.userTurn,
     );
   }
 
@@ -2047,6 +2060,7 @@ ${lines.join('\n')}
     required String eventScopeId,
     required AgentToolResult result,
     required DateTime startedAt,
+    required AgentToolOrigin origin,
   }) async {
     if (result.status == AgentToolStatus.requested ||
         result.status == AgentToolStatus.running) {
@@ -2069,7 +2083,7 @@ ${lines.join('\n')}
                 callIndex: callIndex,
               ),
         toolId: call.toolId,
-        origin: AgentToolOrigin.userTurn.key,
+        origin: origin.key,
         status: result.status.key,
         reasonTag: call.reasonTag,
         outcomeKind: switch (result.status) {

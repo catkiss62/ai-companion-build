@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import '../agent/agent_tool.dart';
+import '../agent/agent_native_tool_accumulator.dart';
 import '../agent/agent_participation_consent.dart';
 import '../agent/agent_tool_planner.dart';
 import '../agent/agent_tool_registry.dart';
@@ -43,29 +44,6 @@ import 'generation_cancellation.dart';
 import 'model_profile.dart';
 import 'nsfw_context_router.dart';
 import 'prompt_builder.dart';
-
-final class _DeepSeekToolCallBuilder {
-  _DeepSeekToolCallBuilder(this.index);
-
-  final int index;
-  String id = '';
-  String name = '';
-  final StringBuffer arguments = StringBuffer();
-
-  void add(DeepSeekToolCallDelta fragment) {
-    if (fragment.id.isNotEmpty) id = fragment.id;
-    if (fragment.name.isNotEmpty) name = fragment.name;
-    if (fragment.argumentsFragment.isNotEmpty) {
-      arguments.write(fragment.argumentsFragment);
-    }
-  }
-
-  DeepSeekToolCall build() => DeepSeekToolCall(
-        id: id.isEmpty ? 'call_$index' : id,
-        name: name,
-        arguments: arguments.toString(),
-      );
-}
 
 class GenerationRunResult {
   const GenerationRunResult({
@@ -501,7 +479,7 @@ class DurableGenerationRunner {
         var sawTerminalSignal = false;
         var finishReason = '';
         var publishedAnswering = false;
-        final toolCallBuilders = <int, _DeepSeekToolCallBuilder>{};
+        final toolCallAccumulator = AgentNativeToolCallAccumulator();
         charsAtCheckpoint = 0;
         lastCheckpoint = DateTime.now();
         await for (final delta in client.streamChat(
@@ -576,14 +554,7 @@ class DurableGenerationRunner {
               ));
             }
           }
-          for (final fragment in delta.toolCallDeltas) {
-            toolCallBuilders
-                .putIfAbsent(
-                  fragment.index,
-                  () => _DeepSeekToolCallBuilder(fragment.index),
-                )
-                .add(fragment);
-          }
+          toolCallAccumulator.addAll(delta.toolCallDeltas);
           if (!emitDeltas && publishReasoning && delta.reasoning.isNotEmpty) {
             onDelta?.call(DeepSeekDelta(reasoning: delta.reasoning));
             if (onDelta != null) reasoningDeltaForwardedToSurface = true;
@@ -639,7 +610,7 @@ class DurableGenerationRunner {
           // A natural-language body with no partial native/DSML call is a
           // confirmable reply draft. Keep machine-shaped fragments on the
           // ordinary retry/failure path so they can never be user-approved.
-          if (toolCallBuilders.isEmpty &&
+          if (toolCallAccumulator.isEmpty &&
               partialContent.isNotEmpty &&
               !AgentToolTextEnvelope.looksLikeMachinePayload(partialContent)) {
             return (
@@ -654,11 +625,7 @@ class DurableGenerationRunner {
             content: partialContent,
           );
         }
-        final indexes = toolCallBuilders.keys.toList()..sort();
-        var toolCalls = indexes
-            .map((index) => toolCallBuilders[index]!.build())
-            .take(2)
-            .toList(growable: false);
+        var toolCalls = toolCallAccumulator.build(limit: 2);
         var normalizedContent = content.trim();
         if (tools.isNotEmpty) {
           final textEnvelope = AgentToolTextEnvelope.parse(normalizedContent);

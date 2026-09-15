@@ -1,11 +1,18 @@
 import 'dart:convert';
 
 import 'package:ai_companion_localfirst/core/ai/deepseek_client.dart';
+import 'package:ai_companion_localfirst/core/agent/agent_tool.dart';
+import 'package:ai_companion_localfirst/core/agent/agent_tool_planner.dart';
+import 'package:ai_companion_localfirst/core/agent/agent_tool_runner.dart';
 import 'package:ai_companion_localfirst/core/mcp/cedar_toy_activity.dart';
 import 'package:ai_companion_localfirst/core/mcp/cedar_toy_autonomy_engine.dart';
+import 'package:ai_companion_localfirst/core/database/app_database.dart';
+import 'package:ai_companion_localfirst/core/platform/android_bridge.dart';
+import 'package:ai_companion_localfirst/core/storage/secure_config.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
+import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 
 String _toolResponse(Map<String, Object?> arguments) {
   final event = jsonEncode(<String, Object?>{
@@ -49,6 +56,8 @@ Map<String, Object?> _decision({
     };
 
 void main() {
+  sqfliteFfiInit();
+
   test('background action accepts a native play call with empty model body',
       () async {
     Map<String, dynamic>? requestBody;
@@ -76,7 +85,7 @@ void main() {
     expect(result.mode, CedarParticipationMode.multiplayer);
     expect(result.params['revision'], 4);
     expect(result.params['move'], {'row': 7, 'col': 7});
-    expect(requestBody?['tool_choice'], 'required');
+    expect(requestBody?['tool_choice'], 'auto');
     expect((requestBody?['tools'] as List), hasLength(1));
     expect(
       requestBody?['tools'][0]['function']['name'],
@@ -221,5 +230,63 @@ void main() {
 
     expect(result.params, {'room_id': 'ROOM', 'revision': 5});
     client.close();
+  });
+
+  test('autonomous native parsing grants only registry-approved tools', () {
+    DeepSeekToolCall call(String name, Map<String, Object?> arguments) =>
+        DeepSeekToolCall(
+          id: 'call',
+          name: name,
+          arguments: jsonEncode(arguments),
+        );
+
+    final cedar = AgentToolPlanner.fromNativeToolCalls(
+      <DeepSeekToolCall>[
+        call('cedar_toy_play', _decision()),
+      ],
+      origin: AgentToolOrigin.autonomous,
+      cedarSessionActive: true,
+      maxCalls: 1,
+    );
+    expect(cedar.calls.single.toolId, 'cedar_toy.play');
+    expect(cedar.calls.single.reasonTag, 'autonomous_agent');
+
+    final sticker = AgentToolPlanner.fromNativeToolCalls(
+      <DeepSeekToolCall>[
+        call('sticker_send', const <String, Object?>{'intent': '开心'}),
+      ],
+      origin: AgentToolOrigin.autonomous,
+      latestUserText: '发个表情包',
+      maxCalls: 1,
+    );
+    expect(sticker.isEmpty, isTrue);
+  });
+
+  test('autonomous runner blocks capabilities not granted by the registry',
+      () async {
+    final db = await AppDatabase.createForTesting(databaseFactoryFfi);
+    try {
+      final results = await AgentToolRunner(
+        db: db,
+        android: AndroidBridge.instance,
+        secureConfig: SecureConfig.instance,
+      ).runPlan(
+        const AgentToolPlan(
+          calls: <AgentToolCall>[
+            AgentToolCall(
+              toolId: 'sticker.send',
+              arguments: <String, String>{'intent': '开心'},
+              reasonTag: 'autonomous_agent',
+            ),
+          ],
+        ),
+        origin: AgentToolOrigin.autonomous,
+        eventScopeId: 'autonomous-registry-test',
+      );
+      expect(results.single.status, AgentToolStatus.blocked);
+      expect(results.single.errorCode, 'registry_blocked');
+    } finally {
+      await db.closeForTesting();
+    }
   });
 }

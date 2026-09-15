@@ -245,9 +245,7 @@ void main() {
         ),
       );
 
-      var now = DateTime.now();
-      if (now.hour < 7) now = DateTime(now.year, now.month, now.day, 12);
-      now = now.add(const Duration(minutes: 1));
+      final now = DateTime(2026, 9, 15, 2, 1);
       expect((await engine.continueDue(now: now)).state, 'played_one_step');
       var session = (await store.load())!;
       expect(session.lastAction, 'move');
@@ -258,17 +256,11 @@ void main() {
       expect(
         (await engine.continueDue(now: now.add(const Duration(minutes: 1))))
             .state,
-        'remote_event_companion_turn',
-      );
-      session = (await store.load())!;
-      expect(session.nextActor, 'companion');
-      expect(session.hasContinuationCall, isFalse);
-
-      expect(
-        (await engine.continueDue(now: now.add(const Duration(minutes: 2))))
-            .state,
         'played_one_step',
       );
+      session = (await store.load())!;
+      expect(session.nextActor, 'wait');
+      expect(session.hasContinuationCall, isTrue);
       expect(submitted.map((item) => item['action']).toList(), <String>[
         'move',
         'state',
@@ -302,6 +294,65 @@ void main() {
       expect(session.continuationAction, 'rooms');
       expect(session.continuationWaitScope, 'write_reconcile_once');
       expect(session.needsContinuation, isTrue);
+    });
+
+    test('provider HTTP failure remains visible instead of becoming other',
+        () async {
+      final store = CedarToyActivityStore(db);
+      await store.recordGuide(
+        gameId: 'duel',
+        guide: 'actions: new rooms state move; params: room_id revision wait',
+      );
+      await store.recordPlay(
+        gameId: 'duel',
+        action: 'new',
+        outcome: _outcome(_companionTurnOutcome(0)),
+        mode: CedarParticipationMode.multiplayer,
+        nextActor: 'companion',
+        shareLevel: 'quiet',
+        invitationApproved: true,
+      );
+
+      final ai = DeepSeekClient(
+        streamClientFactory: () => MockClient((request) async => http.Response(
+              jsonEncode(<String, Object?>{
+                'error': <String, Object?>{
+                  'message': 'unsupported tool request',
+                },
+              }),
+              400,
+            )),
+      );
+      final engine = CedarToyAutonomyEngine(
+        db: db,
+        ai: ai,
+        secureConfig: SecureConfig.instance,
+        tokenReader: () async => 'ctai_v1_test',
+        apiKeyReader: () async => 'test-key',
+        endpointReader: () async => DeepSeekClient.defaultEndpoint,
+        clientFactory: (token) => CedarToyClient(
+          token: token,
+          transport: McpHttpClient(
+            endpoint: Uri.parse('https://example.invalid/mcp'),
+            client: MockClient((request) async =>
+                throw StateError('MCP must not run after planner failure')),
+          ),
+        ),
+      );
+
+      expect(
+        (await engine.continueDue(now: DateTime.now())).state,
+        'execution_failed',
+      );
+      expect(
+        await db.getSetting('cedar_toy_last_execution_error_category'),
+        'provider_http_400',
+      );
+      expect(
+        await db.getSetting('cedar_toy_last_execution_error_detail'),
+        contains('unsupported tool request'),
+      );
+      ai.close();
     });
 
     test('game-hall switch pauses and removes the continuation clock', () async {

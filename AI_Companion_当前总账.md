@@ -30,10 +30,11 @@
 | 项目 | 当前事实 |
 |---|---|
 | 仓库 | `catkiss62/ai-companion-build`；Flutter/Android 工程位于 `app/` |
-| 当前开发分支 | `agent/v04182-cedar-state-machine-e2e` |
-| 当前目标版本 | `v0.41.82+226 / schema 61 / Snapshot protocol 6` |
-| 当前状态 | `IMPLEMENTED / CI PASSED / APK READY / TRUE DEVICE PENDING` |
-| 当前真机失败基线 | `v0.41.81+225`；Cedar 已成功建房并返回真实回合信息，但前台 `wait=true` 写请求先被 25 秒 MCP transport 判超时；后台动作规划超时不重试并退避，普通聊天页可见时又禁止 Cedar 续跑，形成“网站已成功、APK 卡住不动” |
+| 当前开发分支 | `agent/v04183-cedar-native-agent-loop` |
+<!-- Historical validator token: agent/v04182-cedar-state-machine-e2e -->
+| 当前目标版本 | `v0.41.83+227 / schema 61 / Snapshot protocol 6` |
+| 当前状态 | `IMPLEMENTED / CI PENDING / TRUE DEVICE PENDING` |
+| 当前真机失败基线 | `v0.41.82+226`；最新诊断为 `active/multiplayer/nextActor=companion/lastAction=state`，前台 Cedar 工具曾成功，但后台 execution 失败并只记录 `other`。代码审计确认后台使用专有 `tool_choice=required`、已开局仍过疲劳/夜间 Gate，且长轮询唤醒后要等下一 heartbeat 才行动 |
 | `main` | 仍是 v0.38.5 旧基线；不得作为 v0.41.x 后续开发起点，本批不合并 |
 | +219 构建提交 | 远端功能 head `0295ceeeafe9e18f057b6f8f5d54a8dae8820ed2`；tree `3cf8a09813c135b8bce4e5b9a66381ba2a03f5cf` |
 | +220 构建提交 | 远端功能 head `f3a4e95e35c5ca47fb68e84aa8d12a850cfbd91a`；tree `0efb121197441a2522f987a5b506e32dda53e555` |
@@ -45,7 +46,26 @@
 
 既有能力保护索引：Desire / Thought / Intent / Gate、Somatic 双通道、玩游 Key、普通聊天、沉浸房间、查手机、造梗来源、D6、Phase 2B、App 内 Agent 能力桥、Memory 2D、`fact_state / attention_state / recall_policy`、`spontaneous_salience`、`reminiscence/identity`、Skills、MCP、`【检查系统】`、中断灰显、Token 命中/缓存优化、Phase 3、Harness、`screen_observation.inspect`、Genie-TTS 四音色、schema 61 与 Snapshot protocol 6 均不得回归。
 
-## 4. 当前任务：v0.41.82+226 Cedar 权威状态机端到端闭环
+## 4. 当前任务：v0.41.83+227 Cedar 原生 Agent 续接闭环
+
+### 最新真机证据与本批确定根因
+
+- 2026-09-15 诊断明确记录 `activeSession=true / mode=multiplayer / nextActor=companion / lastAction=state / continuationPending=false`，紧接着 `lastContinuationState=execution_failed / lastExecutionErrorCategory=other`。Cedar 已把回合交给伴侣，阻断发生在 APK 后台动作规划，不是网页、房间或 MCP 没响应。
+- 官方 CedarDuet 本地标准 MCP 已完成真实进程级 E2E：只暴露一个 `play` 工具；`new → AI move(wait=true) → 人类网页落子唤醒同一调用 → AI move → 终局` 全程成功。故障范围已收敛到项目自建编排层。
+- 前台 Agent 用 `DeepSeekClient.streamChat(tools: ...)` 的默认 `tool_choice=auto`；后台私有 Planner 却强制 `required`。两边还各自实现一套 SSE tool-call 拼接。服务端 `state(wait=true)` 返回 `your_turn=true` 后，后台只落库并结束，要靠下一次 scheduler 才真正落子。
+- 已建立 session 每一步仍经过本地疲劳/夜间竞争，等于服务端已经授权继续，APK 又二次撤销。异常再被统一压成 `other`，导致真机反复测试看不到 provider 的 HTTP 状态和原始脱敏原因。
+
+### 本批实现与完成判据
+
+1. 前后台共用 `AgentNativeToolCallAccumulator` 与 `AgentToolPlanner.fromNativeToolCalls`；后台 origin 明确为 `autonomous`，`AgentToolRunner` 只放行 registry 中 `autonomousAvailable=true` 的能力并按真实 origin 审计。
+2. 后台 Cedar 请求与前台一致使用 `tool_choice=auto`，仍只暴露当前 game 锁定的 `cedar_toy_play` schema；空调用、错误工具、错误 game、损坏 params 和重复只读动作只允许一次有界纠正。
+3. 已建立 session 不再逐步通过疲劳/夜间 Desire Gate。聊天写租约、Stop、备份 freeze、Cedar 双开关、execution fence 与远端防沉迷仍是硬边界；新游戏选择继续由 Desire 决定。
+4. `state(wait=true)` 唤醒并返回 companion 回合后，在同一个 execution/lease 内立即进入有界 Agent 循环并真实落子；每次依据新持久化的 Cedar 权威状态判断继续、等待或终局，不要求用户在 APK 再说一句。
+5. provider 失败保存 `provider_http_<status>` 和最多 500 字的脱敏 detail，成功时同时清空；诊断新增 `lastExecutionErrorDetail`，不再用无法定位的 `other` 掩盖请求层错误。
+6. 新测试覆盖 request shape、共享原生解析、自主 registry 权限、凌晨已建立 session 继续、长轮询唤醒后同 execution 落子、HTTP 400 可观测，以及既有写超时对账、Stop/备份、开关和 transport 合同。
+7. 当前尚未生成或提供 APK。必须先由唯一一次 Actions 候选构建通过源码门、Kotlin/JVM、Flutter Analyze、全量 Flutter tests、arm64 Release、固定签名和校验；失败就在代码/CI 内修，不把未闭环包交给用户反复试。
+
+## 5. 上一基线：v0.41.82+226 Cedar 权威状态机端到端闭环
 
 ### +225 真机证据、上游协议与已确认结构根因
 

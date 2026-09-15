@@ -7,6 +7,8 @@ import '../ai/final_reply_failure_policy.dart';
 import '../ai/generation_cancellation.dart';
 import '../ai/model_profile.dart';
 import '../agent/agent_tool_planner.dart';
+import '../agent/agent_native_tool_accumulator.dart';
+import '../agent/agent_tool.dart';
 import '../agent/agent_tool_text_envelope.dart';
 import '../database/app_database.dart';
 import '../desire/desire_core_policy.dart';
@@ -156,29 +158,6 @@ class CedarAgentActionPlanningException implements Exception {
   String toString() => 'CedarAgentActionPlanningException: $category';
 }
 
-final class _CedarToolCallBuilder {
-  _CedarToolCallBuilder(this.index);
-
-  final int index;
-  String id = '';
-  String name = '';
-  final StringBuffer arguments = StringBuffer();
-
-  void add(DeepSeekToolCallDelta fragment) {
-    if (fragment.id.isNotEmpty) id = fragment.id;
-    if (fragment.name.isNotEmpty) name = fragment.name;
-    if (fragment.argumentsFragment.isNotEmpty) {
-      arguments.write(fragment.argumentsFragment);
-    }
-  }
-
-  DeepSeekToolCall build() => DeepSeekToolCall(
-        id: id.isEmpty ? 'cedar_call_$index' : id,
-        name: name,
-        arguments: arguments.toString(),
-      );
-}
-
 /// Plans a background Cedar step through the same native function-call
 /// contract used by foreground Agent turns. Natural-language or free-form JSON
 /// bodies are deliberately ignored: an executable step must be represented by
@@ -275,7 +254,7 @@ class CedarAgentActionPlanner {
       'description': '指南中的精确可执行动作名。轮到 companion 且状态已读取时，禁止 state/status/observe/rooms/actions/catalog/help/look/inventory/announcements 等只读动作。',
     };
 
-    final builders = <int, _CedarToolCallBuilder>{};
+    final accumulator = AgentNativeToolCallAccumulator();
     await for (final delta in ai.streamChat(
       apiKey: apiKey,
       model: DeepSeekModelProfile.flash,
@@ -284,7 +263,11 @@ class CedarAgentActionPlanner {
       effort: thinking ? ReasoningEffort.high : ReasoningEffort.low,
       maxTokens: thinking ? 2400 : 1400,
       tools: <Map<String, Object?>>[tool],
-      toolChoice: 'required',
+      // Match the foreground Agent request contract. DeepSeek's documented
+      // function-calling flow lets the model select the supplied tool with
+      // `auto`; forcing `required` was a background-only request shape that
+      // some compatible endpoints reject before Cedar is ever reached.
+      toolChoice: 'auto',
       cancellationToken: cancellationToken,
       requestTimeout: requestTimeout,
       messages: <Map<String, Object?>>[
@@ -293,40 +276,31 @@ class CedarAgentActionPlanner {
           <String, Object?>{'role': 'user', 'content': correction},
       ],
     )) {
-      for (final fragment in delta.toolCallDeltas) {
-        builders
-            .putIfAbsent(
-              fragment.index,
-              () => _CedarToolCallBuilder(fragment.index),
-            )
-            .add(fragment);
-      }
+      accumulator.addAll(delta.toolCallDeltas);
     }
-    if (builders.length != 1) {
+    if (accumulator.length != 1) {
       throw const CedarAgentActionPlanningException('missing_tool_call');
     }
-    return builders.values.single.build();
+    return accumulator.build(limit: 1).single;
   }
 
   static CedarAgentActionDecision _parse(
     DeepSeekToolCall call, {
     required String expectedGameId,
   }) {
-    if (call.name !=
-        AgentToolPlanner.nativeNameForToolId('cedar_toy.play')) {
+    final plan = AgentToolPlanner.fromNativeToolCalls(
+      <DeepSeekToolCall>[call],
+      origin: AgentToolOrigin.autonomous,
+      latestUserText: '继续当前 Cedar 游戏',
+      cedarSessionActive: true,
+      cedarBlindPlay: true,
+      maxCalls: 1,
+    );
+    if (plan.calls.length != 1 || plan.calls.single.toolId != 'cedar_toy.play') {
       throw const CedarAgentActionPlanningException('wrong_tool_call');
     }
-    late Map<String, dynamic> arguments;
-    try {
-      final decoded = jsonDecode(call.arguments);
-      if (decoded is! Map) throw const FormatException('arguments_not_object');
-      arguments = decoded.cast<String, dynamic>();
-    } catch (_) {
-      throw const CedarAgentActionPlanningException(
-        'malformed_tool_arguments',
-      );
-    }
-    final game = arguments['game']?.toString().trim() ?? '';
+    final arguments = plan.calls.single.arguments;
+    final game = arguments['game']?.trim() ?? '';
     if (game != expectedGameId) {
       throw const CedarAgentActionPlanningException('wrong_game');
     }
@@ -337,7 +311,7 @@ class CedarAgentActionPlanner {
     final rawParams = arguments['params_json'];
     Map<String, Object?> params;
     try {
-      final decoded = rawParams is String ? jsonDecode(rawParams) : rawParams;
+      final decoded = jsonDecode(rawParams ?? '{}');
       if (decoded is! Map) throw const FormatException('params_not_object');
       params = decoded.map(
         (key, value) => MapEntry(key.toString(), value),
@@ -348,7 +322,8 @@ class CedarAgentActionPlanner {
     final mode = CedarParticipationMode.fromKey(
       arguments['participation_mode']?.toString(),
     );
-    final invitationApproved = arguments['invitation_approved'] == true;
+    final invitationApproved =
+        arguments['invitation_approved']?.toLowerCase() == 'true';
     return CedarAgentActionDecision(
       gameId: game,
       action: action,
@@ -620,6 +595,7 @@ class CedarToyAutonomyEngine {
       scope.throwIfPreempted();
       final progress = await body(scope);
       await db.setSetting('cedar_toy_last_execution_error_category', '');
+      await db.setSetting('cedar_toy_last_execution_error_detail', '');
       await db.setSetting('cedar_toy_last_execution_error_at', '0');
       return progress;
     } on GenerationCancelledByUserException {
@@ -647,9 +623,11 @@ class CedarToyAutonomyEngine {
       }
       await db.setSetting(
         'cedar_toy_last_execution_error_category',
-        error is CedarAgentActionPlanningException
-            ? error.category
-            : classifyRuntimeError(error),
+        _executionErrorCategory(error),
+      );
+      await db.setSetting(
+        'cedar_toy_last_execution_error_detail',
+        _bounded(CedarToyClient.redactSecrets(error.toString()), 500),
       );
       await db.setSetting(
         'cedar_toy_last_execution_error_at',
@@ -811,39 +789,34 @@ class CedarToyAutonomyEngine {
           ? _identifier(session.continuationAction)
           : '规划下一步',
       body: (scope) async {
-        final gate = await _continuationGate(
-          now: now,
-          session: session,
-          store: store,
-        );
-        scope.throwIfPreempted();
-        if (!gate.allowed) {
-          await store.deferContinuation(
-            gameId: session.gameId,
-            delay: gate.delay,
-            executionId: scope.executionId,
+        var current = session;
+        if (current.companionCanObserve) {
+          final observed = await _observeSession(
+            now: now,
+            apiKey: apiKey,
+            endpoint: endpoint,
+            client: client,
+            store: store,
+            session: current,
+            scope: scope,
           );
-          return const CedarAutonomyProgress('night_rest_deferred');
+          if (observed.state != 'remote_event_companion_turn') return observed;
+          scope.throwIfPreempted();
+          final refreshed = await store.load();
+          if (refreshed == null || refreshed.nextActor != 'companion') {
+            return observed;
+          }
+          current = refreshed;
         }
-        return session.companionCanObserve
-            ? _observeSession(
-                now: now,
-                apiKey: apiKey,
-                endpoint: endpoint,
-                client: client,
-                store: store,
-                session: session,
-                scope: scope,
-              )
-            : _advanceSessionLocked(
-                now: now,
-                apiKey: apiKey,
-                endpoint: endpoint,
-                client: client,
-                store: store,
-                session: session,
-                scope: scope,
-              );
+        return _runCompanionTurnLoop(
+          now: now,
+          apiKey: apiKey,
+          endpoint: endpoint,
+          client: client,
+          store: store,
+          session: current,
+          scope: scope,
+        );
       },
     );
   }
@@ -1307,6 +1280,54 @@ ${store.promptContext(session, state: state, playProtocol: playProtocol)}''',
       outcome.isError ? 'play_failed' : 'played_one_step',
       notable: shareLevel != 'quiet',
     );
+  }
+
+  /// Keep one server-authorized companion turn inside one bounded Agent
+  /// execution. In particular, a long-poll wake-up that says `your_turn=true`
+  /// is acted on immediately instead of being parked until another scheduler
+  /// heartbeat. Cedar's persisted turn state is the stopping authority.
+  Future<CedarAutonomyProgress> _runCompanionTurnLoop({
+    required DateTime now,
+    required String apiKey,
+    required String endpoint,
+    required CedarToyClient client,
+    required CedarToyActivityStore store,
+    required CedarGameSession session,
+    required _CedarExecutionScope scope,
+  }) async {
+    var current = session;
+    CedarAutonomyProgress last = const CedarAutonomyProgress('waiting');
+    for (var round = 0;
+        round < CedarAgentLoopPolicy.maxPlanningRounds;
+        round++) {
+      scope.throwIfPreempted();
+      last = await _advanceSessionLocked(
+        now: now,
+        apiKey: apiKey,
+        endpoint: endpoint,
+        client: client,
+        store: store,
+        session: current,
+        scope: scope,
+      );
+      if (last.state != 'played_one_step') return last;
+      final refreshed = await store.load();
+      if (refreshed == null ||
+          !refreshed.needsContinuation ||
+          refreshed.nextActor != 'companion') {
+        return last;
+      }
+      current = refreshed;
+    }
+    return const CedarAutonomyProgress('agent_loop_budget_reached');
+  }
+
+  static String _executionErrorCategory(Object error) {
+    if (error is DeepSeekException) {
+      return 'provider_http_${error.statusCode}';
+    }
+    if (error is CedarAgentActionPlanningException) return error.category;
+    return classifyRuntimeError(error);
   }
 
   Future<({String nextActor, String shareLevel, int resumeAfterSeconds})>

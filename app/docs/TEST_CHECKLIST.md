@@ -1,3 +1,13 @@
+# v0.41.83+227 Cedar 原生 Agent 续接闭环真机验收增量
+
+1. 覆盖安装且不清数据，复用诊断中已有的双弈房间。诊断为 `active/multiplayer/nextActor=companion/lastAction=state` 时，不在 APK 再说“动一下”；后台必须使用与前台相同的原生工具调用解析链直接选择并提交合法 `move`。
+2. 在 Cedar 网页连续完成至少五次“用户落子→伴侣落子”。`state(wait=true)` 一旦返回 `your_turn=true`，同一个后台 execution 必须立即规划并落子，不能先结束为 `remote_event_companion_turn` 再等下一次 heartbeat。
+3. 已建立的远端 session 不再逐步经过疲劳、夜间或 Desire 二次裁决；只有用户聊天写租约、停止、备份/恢复 freeze、Cedar 双开关和 execution fence 可以抢占。新游戏的自主选择仍按 Desire 节律，服务端防沉迷仍按真实 Outcome 处理。
+4. 抓取一次后台模型请求，必须带唯一 `cedar_toy_play` schema 且 `tool_choice=auto`，不得使用后台专有的 `required` 请求形状。SSE 分片工具名/参数由前后台共享的 `AgentNativeToolCallAccumulator` 组装。
+5. 让 Provider 返回 HTTP 400/401/429/5xx。诊断必须显示 `provider_http_<status>` 与脱敏、限长的 `lastExecutionErrorDetail`，不得再只显示 `other`，且不得包含 Token、房间号、聊天正文或完整参数。
+6. 回归错误游戏、重复只读动作、损坏参数和零工具调用：最多一次纠正后有界失败并释放动作租约；不得重放不确定写动作。自主 origin 只允许 registry 中 `autonomousAvailable=true` 的能力，表情包、屏幕观察等不能借游戏后台越权。
+7. 回归普通聊天、停止、表情包、保存/恢复备份、TTS、相册、Memory、schema 61 和 Snapshot protocol 6。只有 Actions 的源码门、Kotlin/JVM、Flutter Analyze、全量 Flutter tests、arm64 Release、签名和 APK 校验全部通过后才提供这一个候选包；CI 通过仍不冒充真机通过。
+
 # v0.41.82+226 Cedar 权威状态机端到端闭环真机验收增量
 
 1. 覆盖安装且不清数据，说一次“我们下五子棋，你建房，我加入”。同一轮应自行完成目录/指南/建房；`new` 的系统回包不应再等满 25 秒后显示网络超时。若 AI 先手，应继续自动落第一手；若用户先手，应立即进入远端等待，不要求再说一步。
