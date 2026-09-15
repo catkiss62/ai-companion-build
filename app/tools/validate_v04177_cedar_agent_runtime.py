@@ -115,7 +115,11 @@ require(
     "v0.41.77+221",
     "Cedar 统一 Agent 游戏运行时",
     "后台模型规划、语义重规划和房间台词生成全部移出 Cedar 动作锁",
-    "CI PENDING",
 )
+ledger = read("AI_Companion_当前总账.md")
+assert (
+    "IMPLEMENTED LOCALLY / LOCAL STATIC VALIDATION PASSED / CI PENDING" in ledger
+    or "CI PASSED / APK READY / TRUE DEVICE PENDING" in ledger
+), "AI_Companion_当前总账.md: missing valid pre-CI or post-CI status"
 
 print("v0.41.77+221 unified Cedar Agent runtime validation passed.")

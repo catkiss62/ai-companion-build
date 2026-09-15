@@ -32,11 +32,11 @@
 | 仓库 | `catkiss62/ai-companion-build`；Flutter/Android 工程位于 `app/` |
 | 当前开发分支 | `agent/v04177-cedar-agent-runtime` |
 | 当前目标版本 | `v0.41.77+221 / schema 61 / Snapshot protocol 6` |
-| 当前状态 | `IMPLEMENTED LOCALLY / LOCAL STATIC VALIDATION PASSED / CI PENDING / TRUE DEVICE PENDING` |
+| 当前状态 | `CI PASSED / APK READY / TRUE DEVICE PENDING` |
 | 上一构建基线 | `v0.41.76+220`，Actions run `34866765746` 全绿，`798/798` Flutter tests；APK SHA-256 `3bcab458f8138d97f4f150c5e92d1f5653e018ee87e5a64cbdde6b56f8a2a6d9` |
 | `main` | 仍是 v0.38.5 旧基线；不得作为 v0.41.x 开发起点，本批不合并 |
-| 本批构建提交 | PENDING |
-| 本批 APK | PENDING |
+| 本批构建提交 | 远端 `ebb9bdb9ca60d20d06230316653ea33f9f906101`（tree `428d33d8c40f6182f87891d82938b2ea0a608f33`；与本地功能提交 `4432345` 的 tree 完全一致） |
+| 本批 APK | Actions run `34957413847` / run 887 全绿；Artifact `10391813056`；Draft `untagged-0f2d68c5727698712956`；APK SHA-256 `61bbf6b899b2f4c058ca154bca130202b9df23dd3d698d7c50daef7676885f12` |
 
 既有能力保护索引：Desire / Thought / Intent / Gate、Somatic、普通聊天、沉浸房间、查手机、Phase 2B/3、Agent 能力桥、Memory 2D、Skills、MCP、`【检查系统】`、中断恢复、screen observation、Genie-TTS 四音色、schema 61 与 Snapshot protocol 6 均不得回归。全工具调用动作展示是后续独立任务，本批只重构 MCP 游戏厅。
 
@@ -69,9 +69,9 @@
 
 ### 当前验证与待办
 
-- 已通过：`git diff --check`、workflow YAML、Python compileall，以及 Actions 当前列出的本机可执行 `98/101` validators。余下桌宠源码一致性、聊天视觉私有载荷和手工加密 Kotlin 三项依赖 Actions 恢复的私有资源/本机缺失编译器；本机无 Dart/Flutter，编译、Analyze、Flutter tests、Kotlin/JVM、arm64 APK、签名、Artifact 与 Draft 必须由 CI 证明。
-- 尚未完成：完整工作流 validators、本地差异复核、提交/推送、Actions 与 APK。因此当前不能声称已经修好或真机通过。
-- 真机必须验证：自然说“陪我下五子棋”能自行找到双弈并建/进房；轮到她后无需主聊天提醒会自动落子；花园与猫读指南后会实际开始/恢复；聊天不再因后台规划锁排队；网站允许时 `rest` 可出站；暂离保留 session；盲玩隔离与房间 DeepSeek 不回归。
+- 已通过：`git diff --check`、workflow YAML、Python compileall、本机可执行 `98/101` validators；Actions 在恢复私有资源后通过完整源码门、Kotlin/JVM、Flutter Analyze、`802/802` Flutter tests、Release APK、签名/载荷校验、Artifact 和 Draft 上传。
+- 构建：run `34957413847`；APK `AI-Companion-v0.41.77-221-Cedar-Agent-Runtime-APK.apk`（544,858,502 bytes）；SHA-256 `61bbf6b899b2f4c058ca154bca130202b9df23dd3d698d7c50daef7676885f12`；签名证书 SHA-256 `305eb3d80983b963c64818ddf1ad561f279de6d47b3ed2c781ada448c7c25148`。
+- 尚未完成的只有真机验收，不能把 CI 通过写成真机通过。必须验证：自然说“陪我下五子棋”能自行找到双弈并建/进房；轮到她后无需主聊天提醒会自动落子；花园与猫读指南后会实际开始/恢复；聊天不再因后台规划锁排队；网站允许时 `rest` 可出站；暂离保留 session；盲玩隔离与房间 DeepSeek 不回归。
 
 ## 5. 最近基线导航
 
@@ -83,7 +83,7 @@
 
 | 优先级 | 条件 | 下一步 |
 |---|---|---|
-| P0 | +221 CI/APK 就绪 | 联合真机跑双弈、花园与猫及一项严格合法动作游戏；先看真实调用序列，不再让用户猜根因 |
+| P0 | +221 APK 已就绪 | 联合真机跑双弈、花园与猫及一项严格合法动作游戏；先看真实调用序列，不再让用户猜根因 |
 | P1 | 统一游戏运行时真机通过 | 设计全工具调用动作展示，参考悬浮聊天框“正在做什么/哪里出错/下一步”表达，不直接显示密钥或冗长原始协议 |
 | P2 | 后续出现新游戏 | 只在服务器返回矩阵之外的新协议结构时扩充公共解析器，不按 game id 增加步骤脚本 |
 
