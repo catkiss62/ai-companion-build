@@ -32,7 +32,7 @@
 | 仓库 | `catkiss62/ai-companion-build`；Flutter/Android 工程位于 `app/` |
 | 当前开发分支 | `agent/v04180-cedar-agent-loop` |
 | 当前目标版本 | `v0.41.80+224 / schema 61 / Snapshot protocol 6` |
-| 当前状态 | `IMPLEMENTED LOCALLY / LOCAL STATIC VALIDATION PASSED / CI RE-RUN PENDING / TRUE DEVICE PENDING` |
+| 当前状态 | `CI PASSED / APK READY / TRUE DEVICE PENDING` |
 | 当前真机失败基线 | `v0.41.78+222`；后台钓鱼 JSON 规划累计重试且单次卡满 120 秒，双弈已被错误记为 `completed/leave`；+223 仅有 CI 证据，尚无真机证明 |
 | `main` | 仍是 v0.38.5 旧基线；不得作为 v0.41.x 后续开发起点，本批不合并 |
 | +219 构建提交 | 远端功能 head `0295ceeeafe9e18f057b6f8f5d54a8dae8820ed2`；tree `3cf8a09813c135b8bce4e5b9a66381ba2a03f5cf` |
@@ -40,7 +40,7 @@
 | +221 构建提交 | 远端功能 head `bf4c8216235d067884bb2f5fa303d17eec8eb6a3`；tree `125c47730e7b5c37ab74af4721904db194742e75` |
 | +222 构建提交 | 远端功能提交 `ccbe5bcbe9b3fc65941846f74aa4d95b6be50c7d`；授权提交/head `93fcb2fbbf78be80a5da9724fd6b051956e1ff34`；最终 tree `f167bdf6a16700333a978f5f6b99498fdfec3974` |
 | +223 构建提交 | 远端功能提交 `2217a5021b9175cd612fadd45fa9b68a58b9ea24`；实现总账提交 `54ea75e50501fd27281cc4d985e76dabd8aca7d9`；构建触发 head `c90b60d5d456e5d30512a088592cf94f2ce4478f`；构建 tree `342d431730d6d3f0568b4e2525d8ab9b0e36a7c5` |
-| 当前构建产物 | 尚未构建；`CI PENDING` |
+| 当前构建产物 | Actions run `34925717983`；Artifact `10379647780`；未发布 Draft `https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-c9a13c9a99a54cb6df4c`；APK SHA-256 `dada0ff780f3a704a01af4b9cae94a8cd9b8ce13f4a5055aa570a459c69ff5bc` |
 
 既有能力保护索引：Desire / Thought / Intent / Gate、Somatic 双通道、玩游 Key、普通聊天、沉浸房间、查手机、造梗来源、D6、Phase 2B、App 内 Agent 能力桥、Memory 2D、`fact_state / attention_state / recall_policy`、`spontaneous_salience`、`reminiscence/identity`、Skills、MCP、`【检查系统】`、中断灰显、Token 命中/缓存优化、Phase 3、Harness、`screen_observation.inspect`、Genie-TTS 四音色、schema 61 与 Snapshot protocol 6 均不得回归。
 
@@ -65,6 +65,7 @@
 7. 用户补充的“花园与猫停在等待游戏、无动作且不再切换”已定位为另一条同源死锁：`waiting_remote + next_actor=wait` 在既无 `next_call` 也无唤醒时间时，不归续跑时钟接管，却被新游戏可用性永久视为占用。本批在 Outcome 落库边界直接暂存远端进度并释放活动位，同时为旧存档增加恢复停放；有明确服务端续接或定时的等待不受影响。
 8. 首次 Actions run `34924279335` 在源码门提前失败：历史 `validate_v04172_cedar_trust_watch_modes.py` 仍把 MCP 客户端版本固定为 `0.41.79`，尚未进入 Flutter 编译/测试；该合同已更新为 `0.41.80`。本地 `git diff --check`、workflow YAML、Python compileall、+224 专项门及工作流中可本机执行的 `101/101` validators 已通过；余下 3 项依赖 CI 私有素材或缺失编译器，Analyze、Flutter tests、Kotlin/JVM、arm64 Release、签名与 Draft 均等待重新运行证明。
 9. 第二次 Actions run `34925158591` 已通过完整源码门，但 Kotlin/JVM 步骤触发 Flutter debug 编译后发现两处确定性类型错误：统一循环仍引用已移除的 `verifiedContinuation`，以及可变 nullable session 跨闭包失去类型提升。前者已改为本轮真实 Cedar 结果的 continuation 汇总，后者在空/终局分支返回后固定非空 activeSession；需重新运行 CI 证明编译与后续全链。
+10. 第三次 Actions run `34925717983` 全绿：完整源码/历史门、Kotlin/JVM、Flutter Analyze、`816/816` Flutter tests、arm64 Release、固定签名、Genie/桌宠/塔罗载荷、checksum、Artifact 与未发布 Draft 均通过。Artifact `10379647780`（ZIP digest `5539fbeaff65cabaa66a9a2e0f369f9d1c94452683d4cc8ccae82af413b5e8aa`）；Draft `https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-c9a13c9a99a54cb6df4c`；APK SHA-256 `dada0ff780f3a704a01af4b9cae94a8cd9b8ce13f4a5055aa570a459c69ff5bc`。当前严格为 `CI PASSED / APK READY / TRUE DEVICE PENDING`，仍需真机证明“建房→网页加入/发言/落子→她自动接招”和“无路由等待释放”体验。
 
 ## 5. 上一自动化基线：v0.41.79+223 Cedar 运行时抢占、开关与夜间节律
 

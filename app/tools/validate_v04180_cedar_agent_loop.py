@@ -104,7 +104,7 @@ require(
     "AI_Companion_当前总账.md",
     "v0.41.80+224",
     "Cedar Agent 完整续接链",
-    "CI PENDING",
+    "CI PASSED / APK READY / TRUE DEVICE PENDING",
 )
 
 print("v0.41.80+224 Cedar Agent-loop validation passed.")
