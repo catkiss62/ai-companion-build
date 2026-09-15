@@ -90,6 +90,8 @@ class CedarPlatformActionPolicy {
   /// user goal. Passive state/status/observe polls are deliberately excluded:
   /// their next timing and actor come from the service response instead.
   static bool continuesPlanning(String action) => const <String>{
+        'list_games',
+        'get_guide',
         'rooms',
         'actions',
         'catalog',

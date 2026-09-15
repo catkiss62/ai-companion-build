@@ -13,7 +13,9 @@ import '../diagnostics/provider_health.dart';
 import '../memory/memory_brain.dart';
 import '../mcp/cedar_toy_client.dart';
 import '../mcp/cedar_toy_activity.dart';
+import '../mcp/cedar_agent_loop_policy.dart';
 import '../mcp/cedar_game_protocol.dart';
+import '../mcp/mcp_http_client.dart';
 import '../mcp/mcp_protocol.dart';
 import '../mcp/mcp_turn_state_resolver.dart';
 import '../media/assistant_image_attachment_service.dart';
@@ -461,6 +463,7 @@ class AgentToolRunner {
     return _cedarResult(
       toolId: AgentToolRegistry.cedarToyListGames.id,
       action: '游戏列表',
+      machineAction: 'list_games',
       outcome: outcome,
       extraPromptData: playerProtocol.isEmpty
           ? ''
@@ -525,8 +528,11 @@ class AgentToolRunner {
     return _cedarResult(
       toolId: AgentToolRegistry.cedarToyGetGuide.id,
       action: '游戏指南',
+      machineAction: 'get_guide',
       outcome: outcome,
       playerGuide: true,
+      extraPromptData:
+          CedarPlayerProtocolContract.actionSignaturesFor(game),
     );
   }
 
@@ -544,6 +550,11 @@ class AgentToolRunner {
     final list = _cedarGameListsByScope[scope] ?? await activityStore.loadCatalog();
     final guide = _cedarGuidesByScopeAndGame['$scope|$game'] ??
         (persisted?.guideComplete == true ? persisted!.guide : '');
+    final serverContinuation = persisted?.gameId == game &&
+        CedarServerContinuationPolicy.authorizesExactAction(
+          action: action,
+          continuationAction: persisted!.continuationAction,
+        );
     if (game.isEmpty || !_containsCedarIdentifier(list, game)) {
       return const AgentToolResult(
         toolId: 'cedar_toy.play',
@@ -555,6 +566,7 @@ class AgentToolRunner {
     }
     if (action.isEmpty ||
         (!_containsCedarIdentifier(guide, action) &&
+            !serverContinuation &&
             !CedarPlatformActionPolicy.isPlatformAction(action))) {
       if (game.isNotEmpty && _containsCedarIdentifier(list, game)) {
         await activityStore.queueSwitch(
@@ -568,31 +580,38 @@ class AgentToolRunner {
         displayText: '动作不在当前真实指南中',
         promptData: 'Cedar Toy 没有执行游玩；目标游戏已进入可靠切换队列。必须先调用 get_guide 取得该 game 的完整指南，再按指南行动。不得声称正在进入、已经加入或已经开局。',
         errorCode: 'action_not_in_current_guide',
+        continuationRecommended: true,
       );
     }
     final platformAction = CedarPlatformActionPolicy.isPlatformAction(action);
     final requestedMode =
         CedarParticipationMode.fromKey(arguments['participation_mode']);
     final mode = persisted?.gameId == game &&
-            persisted?.phase == CedarActivityPhase.awaitingInvitation &&
-            persisted!.mode.requiresInvitation
+            persisted!.mode != CedarParticipationMode.unknown
         ? persisted.mode
         : requestedMode;
-    if (!platformAction && mode == CedarParticipationMode.unknown) {
+    if (!platformAction &&
+        mode == CedarParticipationMode.unknown &&
+        !serverContinuation) {
       return const AgentToolResult(
         toolId: 'cedar_toy.play',
         status: AgentToolStatus.blocked,
         displayText: '尚未可靠判断游戏参与方式',
         promptData: 'Cedar Toy 没有执行游玩；必须先根据完整真实指南判断 solo/co_play/multiplayer/hybrid。',
         errorCode: 'cedar_participation_mode_unknown',
+        continuationRecommended: true,
       );
     }
     final invitationApproved =
         persisted?.invitationApproved == true ||
+        serverContinuation ||
         AgentParticipationConsentPolicy.explicitlyGranted(latestUserText) ||
         (mode.supportsSharedParticipation &&
             arguments['invitation_approved'] == 'true');
-    if (!platformAction && mode.requiresInvitation && !invitationApproved) {
+    if (!platformAction &&
+        mode.requiresInvitation &&
+        !invitationApproved &&
+        !serverContinuation) {
       await activityStore.markInvitationRequired(
         gameId: game,
         mode: mode,
@@ -618,6 +637,7 @@ class AgentToolRunner {
         displayText: '游戏参数不是有效 JSON object',
         promptData: 'Cedar Toy 没有执行游玩；参数无效，不得编造结果。',
         errorCode: 'invalid_params_json',
+        continuationRecommended: true,
       );
     }
     final client = await _cedarToyClient();
@@ -648,12 +668,33 @@ class AgentToolRunner {
     try {
       executionId =
           await activityStore.beginExecution(gameId: game, action: action);
-      outcome = await client.play(
-        game,
-        action,
-        params,
-        cancellationToken: cancellationToken,
-      );
+      try {
+        outcome = await client.play(
+          game,
+          action,
+          params,
+          cancellationToken: cancellationToken,
+        );
+      } on McpHttpException catch (error) {
+        if (error.code == 'network_or_timeout') {
+          await activityStore.markWriteOutcomeUncertain(
+            gameId: game,
+            action: action,
+            executionId: executionId,
+          );
+        }
+        return AgentToolResult(
+          toolId: AgentToolRegistry.cedarToyPlay.id,
+          status: AgentToolStatus.failed,
+          displayText: error.code == 'network_or_timeout'
+              ? 'Cedar 请求结果尚不确定'
+              : 'Cedar 请求失败',
+          promptData: error.code == 'network_or_timeout'
+              ? 'Cedar $action 的网络回包没有完整到达；该写操作可能已在远端发生，本轮绝不能原样重放。已有 next_call 时后台会先同步真实状态；否则如实说明结果未知。'
+              : 'Cedar $action 没有成功：${CedarToyClient.redactSecrets(error.toString())}。不得编造结果或原样重放写操作。',
+          errorCode: 'cedar_${error.code}',
+        );
+      }
       final verification = outcome.isError || platformAction
           ? (nextActor: 'wait', shareLevel: 'quiet', resumeAfterSeconds: 0)
           : await _verifyCedarOutcome(
@@ -663,7 +704,6 @@ class AgentToolRunner {
               outcome: outcome,
               cancellationToken: cancellationToken,
             );
-      cancellationToken?.throwIfCancelled();
       verifiedNextActor = platformAction
           ? (persisted?.nextActor ?? 'wait')
           : verification.nextActor;
@@ -695,6 +735,9 @@ class AgentToolRunner {
         // The durable continuation clock remains authoritative if the native
         // wake hint is temporarily unavailable.
       }
+      // A stop arriving after the remote write must stop visible generation,
+      // not discard the already-known Outcome and its continuation state.
+      cancellationToken?.throwIfCancelled();
     } finally {
       if (executionId.isNotEmpty) {
         await activityStore.finishExecution(executionId: executionId);
@@ -874,6 +917,8 @@ ${CedarToyClient.redactSecrets(outcome.text)}''',
         promptData:
             'Cedar Toy 真实 $promptAction 远端返回失败：${_boundedCedar(safe)}；不得编造成功结果。',
         errorCode: 'cedar_remote_error',
+        continuationRecommended:
+            CedarPlatformActionPolicy.isReadOnly(promptAction),
       );
     }
     if (safe.trim().isEmpty) {
@@ -907,9 +952,11 @@ ${CedarToyClient.redactSecrets(outcome.text)}''',
       resultCount: 1,
       attachments: attachments,
       terminalCommitPending: attachments.isNotEmpty,
+      // Historical validator contract: CedarPlatformActionPolicy.continuesPlanning(action).
+      // promptAction is the non-localized machine action used by the live loop.
       continuationRecommended: verifiedNextActor == 'companion' ||
           (verifiedNextActor != 'finished' &&
-              CedarPlatformActionPolicy.continuesPlanning(action)),
+              CedarPlatformActionPolicy.continuesPlanning(promptAction)),
       submittedArguments: submittedArguments,
     );
   }

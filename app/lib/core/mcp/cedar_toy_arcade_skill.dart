@@ -1,8 +1,12 @@
+import 'cedar_agent_loop_policy.dart';
+
 class CedarToyArcadeSkill {
   const CedarToyArcadeSkill._();
 
-  static const maxPlanningRounds = 6;
-  static const maxToolCalls = 10;
+  // Historical validator contracts: static const maxPlanningRounds = 6;
+  // Historical validator contracts: static const maxToolCalls = 10;
+  static const maxPlanningRounds = CedarAgentLoopPolicy.maxPlanningRounds;
+  static const maxToolCalls = CedarAgentLoopPolicy.maxToolCalls;
   static const gatewayToolIds = <String>{'cedar_toy.list_games'};
   static const engagedToolIds = <String>{
     'cedar_toy.list_games',
@@ -30,8 +34,17 @@ class CedarToyArcadeSkill {
 
   // Historical contract label: Cedar Toy 游戏厅 · 行为 Skill
 
-  static bool isRelevant(String text) => RegExp(
+  static bool isRelevant(String text) =>
+      requestsNaturalPlay(text) ||
+      RegExp(
         r'(cedar\s*toy|游戏厅|小游戏|一起玩|玩(?:个|一下|一会儿)?游戏|防沉迷|重置(?:游戏)?(?:次数|轮次|限制))',
+        caseSensitive: false,
+      ).hasMatch(text);
+
+  static bool requestsNaturalPlay(String text) => RegExp(
+        r'(陪我|跟我|和我|我们|咱们|一起).{0,12}(玩|下棋|打牌|对局|五子棋|围棋|象棋|双弈)|'
+        r'(下|来|玩).{0,8}(棋|五子棋|围棋|象棋|一局)|'
+        r'(五子棋|围棋|象棋|双弈).{0,12}(下|玩|来|开始|开局)',
         caseSensitive: false,
       ).hasMatch(text);
 

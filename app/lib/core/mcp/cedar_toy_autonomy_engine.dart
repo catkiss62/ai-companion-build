@@ -13,6 +13,8 @@ import '../diagnostics/runtime_error_category.dart';
 import '../models/desire_state.dart';
 import '../storage/secure_config.dart';
 import 'cedar_toy_activity.dart';
+import 'cedar_agent_loop_policy.dart';
+import 'cedar_toy_arcade_skill.dart';
 import 'cedar_toy_client.dart';
 import 'cedar_game_protocol.dart';
 import 'mcp_protocol.dart';
@@ -656,7 +658,12 @@ $catalog''',
     required _CedarExecutionScope scope,
   }) async {
     final action = _identifier(session.continuationAction);
-    if (action.isEmpty || !_containsIdentifier(session.guide, action)) {
+    // This exact action and parameter object came from Cedar's signed Outcome.
+    // Requiring a compact human guide to repeat it can strand a valid room.
+    if (!CedarServerContinuationPolicy.authorizesExactAction(
+      action: action,
+      continuationAction: session.continuationAction,
+    )) {
       await store.deferContinuation(
         gameId: session.gameId,
         delay: const Duration(seconds: 15),
@@ -699,7 +706,6 @@ $catalog''',
         params,
         cancellationToken: scope.cancellation,
       );
-      scope.throwIfPreempted();
       if (outcome.isError) {
         await db.setSetting(
           'cedar_toy_last_observe_error_category',
@@ -721,7 +727,8 @@ $catalog''',
         mode: session.mode,
         nextActor: resolved?.nextActor ?? 'wait',
         shareLevel: 'quiet',
-        invitationApproved: session.invitationApproved,
+        invitationApproved:
+            session.invitationApproved || session.hasContinuationCall,
         roomMessageSent: roomMessage.isNotEmpty,
         executionId: scope.executionId,
       );
@@ -784,7 +791,9 @@ $catalog''',
       apiKey: apiKey,
       endpoint: endpoint,
       cancellationToken: scope.cancellation,
-      instruction: '''你在为 AI 伴侣推进一局真实 Cedar Toy 游戏。只依据完整指南与本机真实局面，返回 JSON：
+      instruction: '''${CedarToyArcadeSkill.prompt}
+
+你在为 AI 伴侣推进一局真实 Cedar Toy 游戏。只依据完整指南与本机真实局面，返回 JSON：
 {"participation_mode":"solo|co_play|multiplayer|hybrid|unknown","action":"指南中的精确动作名","params":{},"room_reply_intent":"若是共玩，用一句中文描述此刻想在房间说什么；这只是内部意图，不是最终可见台词"}
 共玩、多人模式必须先邀请用户；混合模式可以独自开始，但只有用户明确同意后才能进入其中的共玩分支。这时 action 可以为空，绝不能假装已经 play。单人模式每次只推进一步。不得打开 GitHub 或补写结果。
 平台公共 action `rest / announcements / vote` 由 Cedar 的 play schema 授权，不要求在单个游戏指南重复出现；`rest` 只在真实防沉迷提醒/锁定需要重置时使用，是否允许由 Cedar 端的人类开关裁决。若 last_action 已是 state/status/observe/rooms/actions 等只读动作，且 next_actor=companion 或 Outcome 已给出合法动作，本次必须选择真实推进动作，不得重复只读查询。近期用户建议只是参考，不是命令；最终仍从服务端合法动作中自己决定。
@@ -802,7 +811,18 @@ ${store.promptContext(session, state: state, playProtocol: playProtocol)}''',
         : session.mode;
     final action = _identifier(judged['action']?.toString() ?? '');
     final platformAction = CedarPlatformActionPolicy.isPlatformAction(action);
-    if (!platformAction && mode.requiresInvitation && !session.invitationApproved) {
+    // Once Cedar has issued a continuation or created server-side room state,
+    // that server state is the authority. A later local classifier may not
+    // revoke an already-running session and strand its next_call.
+    final serverSessionStarted = session.hasContinuationCall ||
+        session.ownRoomAliases.isNotEmpty ||
+        (session.lastAction.isNotEmpty &&
+            !CedarPlatformActionPolicy.isReadOnly(session.lastAction) &&
+            !CedarPlatformActionPolicy.isPlatformAction(session.lastAction));
+    if (!platformAction &&
+        mode.requiresInvitation &&
+        !session.invitationApproved &&
+        !serverSessionStarted) {
       await store.markInvitationRequired(
         gameId: session.gameId,
         mode: mode,
@@ -817,7 +837,9 @@ ${store.promptContext(session, state: state, playProtocol: playProtocol)}''',
       );
       return const CedarAutonomyProgress('invitation_staged', notable: true);
     }
-    if (!platformAction && mode == CedarParticipationMode.unknown) {
+    if (!platformAction &&
+        mode == CedarParticipationMode.unknown &&
+        !serverSessionStarted) {
       await store.deferContinuation(
         gameId: session.gameId,
         executionId: scope.executionId,
@@ -858,9 +880,12 @@ ${store.promptContext(session, state: state, playProtocol: playProtocol)}''',
     Map<String, Object?> params = rawParams is Map
         ? rawParams.map((key, value) => MapEntry(key.toString(), value))
         : <String, Object?>{};
+    final sharedRuntime = mode.supportsSharedParticipation ||
+        session.hasContinuationCall ||
+        session.hasPendingRoomMessage ||
+        session.ownRoomAliases.isNotEmpty;
     if (!platformAction &&
-        mode.supportsSharedParticipation &&
-        session.invitationApproved &&
+        sharedRuntime &&
         _guideSupportsParameter(session.guide, action, 'wait')) {
       // A move and a long poll are separate operations. Waiting on the same
       // request can commit the move remotely and then make the local 25-second
@@ -870,8 +895,7 @@ ${store.promptContext(session, state: state, playProtocol: playProtocol)}''',
     }
     var roomMessage = '';
     if (!platformAction &&
-        mode.supportsSharedParticipation &&
-        session.invitationApproved &&
+        sharedRuntime &&
         _guideSupportsParameter(session.guide, action, 'message')) {
       roomMessage = await _composeRoomDialogue(
         apiKey: apiKey,
@@ -898,7 +922,6 @@ ${store.promptContext(session, state: state, playProtocol: playProtocol)}''',
         params,
         cancellationToken: scope.cancellation,
       );
-      scope.throwIfPreempted();
     } catch (error) {
       if (error is McpHttpException && error.code == 'network_or_timeout') {
         await store.markWriteOutcomeUncertain(
@@ -921,7 +944,6 @@ ${store.promptContext(session, state: state, playProtocol: playProtocol)}''',
             outcome: outcome,
             cancellationToken: scope.cancellation,
           );
-    scope.throwIfPreempted();
     final shareLevel = verification.shareLevel;
     final updated = platformAction
         ? await store.recordPlatformAction(
@@ -937,7 +959,8 @@ ${store.promptContext(session, state: state, playProtocol: playProtocol)}''',
             mode: mode,
             nextActor: verification.nextActor,
             shareLevel: shareLevel,
-            invitationApproved: session.invitationApproved,
+            invitationApproved:
+                session.invitationApproved || serverSessionStarted,
             resumeAfterSeconds: verification.resumeAfterSeconds,
             roomMessageSent: roomMessage.isNotEmpty,
             executionId: scope.executionId,
@@ -1022,9 +1045,21 @@ $outcomeText''',
             (rawResume <= 0 ? 0 : rawResume.clamp(15, 3600).toInt()),
       );
     } on GenerationCancelledByUserException {
-      rethrow;
+      // The remote write already completed. Persist its structured result
+      // before honoring foreground preemption; never turn Stop into data loss.
+      return (
+        nextActor: structured?.nextActor ??
+            (mode == CedarParticipationMode.solo ? 'companion' : 'wait'),
+        shareLevel: 'quiet',
+        resumeAfterSeconds: structuredResume ?? 0,
+      );
     } on GenerationSuspendedByRuntimeGateException {
-      rethrow;
+      return (
+        nextActor: structured?.nextActor ??
+            (mode == CedarParticipationMode.solo ? 'companion' : 'wait'),
+        shareLevel: 'quiet',
+        resumeAfterSeconds: structuredResume ?? 0,
+      );
     } catch (_) {
       return (
         nextActor: structured?.nextActor ??

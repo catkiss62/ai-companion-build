@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:uuid/uuid.dart';
 
 import '../database/app_database.dart';
+import 'cedar_agent_loop_policy.dart';
 import 'cedar_game_protocol.dart';
 import 'cedar_toy_client.dart';
 import 'mcp_protocol.dart';
@@ -206,13 +207,14 @@ class CedarGameSession {
   bool get hasContinuationCall => continuationAction.trim().isNotEmpty;
   bool get hasPendingRoomMessage => pendingRoomMessage.trim().isNotEmpty;
   bool get companionCanObserve =>
-      continuable &&
-      mode.supportsSharedParticipation &&
-      invitationApproved &&
-      phase != CedarActivityPhase.awaitingInvitation &&
-      phase != CedarActivityPhase.paused &&
-      hasContinuationCall &&
-      const <String>{'user', 'shared', 'wait'}.contains(nextActor);
+      CedarServerContinuationPolicy.canObserve(
+        guideComplete: guideComplete,
+        phaseContinuable: phase.continuable &&
+            phase != CedarActivityPhase.awaitingInvitation,
+        paused: phase == CedarActivityPhase.paused,
+        hasContinuationCall: hasContinuationCall,
+        nextActor: nextActor,
+      );
   bool get needsContinuation => companionCanContinue || companionCanObserve;
   String get displayName => gameTitle.trim().isEmpty ? gameId : gameTitle;
 
@@ -494,12 +496,16 @@ class CedarToyActivityState {
   bool get hasUserTurnContinuation {
     final session = activeSession;
     if (session == null || !session.continuable) return false;
-    return session.phase == CedarActivityPhase.guideReady ||
-        session.phase == CedarActivityPhase.awaitingInvitation ||
-        session.phase == CedarActivityPhase.waitingUser ||
-        session.mode.requiresInvitation ||
-        (session.mode.supportsSharedParticipation &&
-            session.invitationApproved);
+    return CedarServerContinuationPolicy.needsUserTurnTools(
+      guideReady: session.phase == CedarActivityPhase.guideReady,
+      awaitingInvitation:
+          session.phase == CedarActivityPhase.awaitingInvitation,
+      waitingUser: session.phase == CedarActivityPhase.waitingUser,
+      hasContinuationCall: session.hasContinuationCall,
+      participationActive: session.mode.requiresInvitation ||
+          (session.mode.supportsSharedParticipation &&
+              session.invitationApproved),
+    );
   }
 
   CedarToyActivityState copyWith({
@@ -853,28 +859,49 @@ class CedarToyActivityStore {
           : '指南已取得，但超过当前完整判断容量，已停止而没有截断盲玩。',
       createdAt: now,
     );
-    final session = CedarGameSession(
-      id: existing?.id ?? 'cedar-${now.microsecondsSinceEpoch}',
-      gameId: gameId,
-      gameTitle: catalogTitle.isNotEmpty
-          ? catalogTitle
-          : gameTitle.trim().isNotEmpty
-              ? gameTitle.trim()
-              : existing?.gameTitle ?? '',
-      guide: clean.length <= maxStoredTextChars ? clean : '',
-      guideComplete: complete,
-      mode: existing?.mode ?? CedarParticipationMode.unknown,
-      phase: complete ? CedarActivityPhase.guideReady : CedarActivityPhase.failed,
-      lastAction: existing?.lastAction ?? '',
-      lastOutcome: existing?.lastOutcome ?? '',
-      nextActor: 'companion',
-      viewerUrl: existing?.viewerUrl ?? '',
-      invitationApproved: existing?.invitationApproved ?? false,
-      updatedAt: now,
-      nextActionAt: complete ? now : null,
-      events: _append(existing?.events ?? const [], event),
-      adviceNotes: existing?.adviceNotes ?? const <String>[],
-    );
+    final resolvedTitle = catalogTitle.isNotEmpty
+        ? catalogTitle
+        : gameTitle.trim().isNotEmpty
+            ? gameTitle.trim()
+            : existing?.gameTitle ?? '';
+    // Refreshing a guide is metadata, not a new game transition. Preserve an
+    // existing room's actor, next_call, messages, aliases and pause state; the
+    // previous implementation silently reset all of them to guideReady.
+    final session = existing == null
+        ? CedarGameSession(
+            id: 'cedar-${now.microsecondsSinceEpoch}',
+            gameId: gameId,
+            gameTitle: resolvedTitle,
+            guide: clean.length <= maxStoredTextChars ? clean : '',
+            guideComplete: complete,
+            mode: CedarParticipationMode.unknown,
+            phase: complete
+                ? CedarActivityPhase.guideReady
+                : CedarActivityPhase.failed,
+            updatedAt: now,
+            nextActionAt: complete ? now : null,
+            events: _append(const <CedarGameEvent>[], event),
+          )
+        : existing.copyWith(
+            gameTitle: resolvedTitle,
+            guide: complete ? clean : existing.guide,
+            guideComplete: complete ? true : existing.guideComplete,
+            phase: existing.phase == CedarActivityPhase.completed ||
+                    existing.phase == CedarActivityPhase.failed
+                ? (complete
+                    ? CedarActivityPhase.guideReady
+                    : CedarActivityPhase.failed)
+                : existing.phase,
+            updatedAt: now,
+            events: _append(existing.events, event),
+            nextActionAt: existing.phase == CedarActivityPhase.completed ||
+                    existing.phase == CedarActivityPhase.failed
+                ? (complete ? now : null)
+                : existing.nextActionAt,
+            clearNextActionAt:
+                !complete && (existing.phase == CedarActivityPhase.completed ||
+                    existing.phase == CedarActivityPhase.failed),
+          );
     final sessions = Map<String, CedarGameSession>.from(state.sessions)
       ..[gameId] = session;
     state = state.copyWith(
@@ -1203,11 +1230,14 @@ class CedarToyActivityStore {
             pendingRoomMessage.isNotEmpty);
     final effectiveInvitationApproved =
         invitationApproved || existing.invitationApproved;
-    final realtime = mode.supportsSharedParticipation &&
-        effectiveInvitationApproved &&
-        (continuation != null ||
-            pendingRoomMessage.isNotEmpty ||
-            normalizedActor == 'companion');
+    final realtime = CedarServerContinuationPolicy.usesRealtimePace(
+      hasContinuationCall: continuation != null,
+      hasPendingRoomMessage: pendingRoomMessage.isNotEmpty,
+      companionTurn: normalizedActor == 'companion' &&
+          (mode.supportsSharedParticipation ||
+              existing.hasContinuationCall ||
+              existing.ownRoomAliases.isNotEmpty),
+    );
     final viewingPace = await currentViewingPace(now: now);
     final ordinaryRetryGap = mode.supportsSharedParticipation &&
             effectiveInvitationApproved

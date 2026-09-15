@@ -28,6 +28,7 @@ import '../models/chat_segment.dart';
 import '../models/desire_state.dart';
 import '../models/generation_job.dart';
 import '../models/message_attachment.dart';
+import '../mcp/cedar_agent_loop_policy.dart';
 import '../mcp/cedar_toy_arcade_skill.dart';
 import '../mcp/cedar_toy_activity.dart';
 import '../models/thought.dart';
@@ -441,7 +442,6 @@ class DurableGenerationRunner {
       final cedarSkillActive =
           (cedarExplicitRequest || cedarSessionActive) &&
           cedarConfigured;
-      var cedarInstructionsInjected = cedarSkillActive;
       final cedarPromptSession = cedarSession;
       final promptBuild = await PromptBuilder(db).buildChatPrompt(
         latestUserText: user.content,
@@ -959,6 +959,38 @@ $finalGenerationReminder
       // model call. A
       // no-tool plan therefore needs one explicit Gemini expression request.
       // DeepSeek-only mode preserves its established one-request behavior.
+      if (toolsOpen &&
+          generated.toolCalls.isEmpty &&
+          CedarAgentLoopPolicy.shouldRetryInitialNoCall(
+            cedarRequested: cedarSkillActive,
+            retryUsed: cedarNoCallRetryUsed,
+            remainingCalls: allowedTaskCalls(),
+          )) {
+        cedarNoCallRetryUsed = true;
+        final noCallRecoveryCount = int.tryParse(
+              await db.getSetting('cedar_toy_no_call_recheck_count') ?? '',
+            ) ??
+            0;
+        await db.setSetting(
+          'cedar_toy_no_call_recheck_count',
+          '${noCallRecoveryCount + 1}',
+        );
+        finalRequestMessages = <Map<String, Object?>>[
+          ...finalRequestMessages,
+          <String, Object?>{
+            'role': 'system',
+            'content': CedarToyArcadeSkill.noCallReconsiderationInstruction(
+              allowedTaskCalls(),
+            ),
+          },
+        ];
+        agentPlanningRounds++;
+        generated = await generateInternal(
+          finalRequestMessages,
+          tools: taskToolDefinitions,
+        );
+        effectiveCancellation.throwIfCancelled();
+      }
       if (toolsOpen && generated.toolCalls.isEmpty) {
         toolsOpen = false;
         if (finalProvider.isGeminiRelay) {
@@ -1049,6 +1081,10 @@ $finalGenerationReminder
           (result) => result.toolId.startsWith('cedar_toy.'),
         );
         if (cedarRound) {
+          // One no-call recovery belongs to one real Cedar stage. A later
+          // successful Outcome is new information and may legitimately need
+          // its own single reconsideration (list -> guide -> play, etc.).
+          cedarNoCallRetryUsed = false;
           cedarState = await cedarActivityStore.loadState();
           cedarSession = cedarState.activeSession;
           cedarCatalog = await cedarActivityStore.loadCatalog();
@@ -1077,13 +1113,11 @@ $finalGenerationReminder
               'content': roundResults[index].promptData,
             },
         ];
-        final injectCedarInstructions =
-            cedarRound && !cedarInstructionsInjected;
         final history = <Map<String, Object?>>[
           ...finalRequestMessages,
           assistantToolMessage,
           ...toolResultMessages,
-          if (injectCedarInstructions)
+          if (cedarRound)
             <String, Object?>{
               'role': 'system',
               'content': <String>[
@@ -1097,25 +1131,21 @@ $finalGenerationReminder
               ].join('\n\n'),
             },
         ];
-        if (injectCedarInstructions) cedarInstructionsInjected = true;
         final proposalExecuted = AgentTaskLoopPolicy.containsProposal(
           nativePlan,
-        );
-        final verifiedContinuation = roundResults.any(
-          (result) => result.succeeded && result.continuationRecommended,
-        );
-        final cedarTurnHandedOff = roundResults.any(
-          (result) =>
-              result.toolId == AgentToolRegistry.cedarToyPlay.id &&
-              !result.continuationRecommended,
         );
         final loopLimitReached =
             agentPlanningRounds >= planningRoundLimit() ||
                 agentToolCalls >= toolCallLimit();
-        final shouldFinalize = (proposalExecuted && !verifiedContinuation) ||
-            cedarTurnHandedOff ||
-            AgentTaskLoopPolicy.hasCommitPendingMedia(roundResults) ||
-            loopLimitReached;
+        // Historical validator label: cedarTurnHandedOff. The server-aware
+        // loop policy now owns that decision for every Cedar result shape.
+        final shouldFinalize = CedarAgentLoopPolicy.shouldFinalizeRound(
+          results: roundResults,
+          proposalExecuted: proposalExecuted,
+          commitPendingMedia:
+              AgentTaskLoopPolicy.hasCommitPendingMedia(roundResults),
+          loopLimitReached: loopLimitReached,
+        );
         if (shouldFinalize) {
           if (loopLimitReached && !proposalExecuted) {
             agentLoopBudgetExhausted = true;

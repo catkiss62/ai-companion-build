@@ -15,6 +15,12 @@ class AgentParticipationConsentPolicy {
     r'^(?=.{1,24}$)(?:好|好的|好啊|可以|可以啊|行|行啊|同意|答应|没问题|走起|来|来吧|开始|开始吧|一起玩|进来|进来吧)(?:[，,、\s]*(?:来|来吧|开始|开始吧|一起玩|进来|进来吧))?[！!。.，,\s]*$',
     caseSensitive: false,
   );
+  static final RegExp _explicitSharedGameRequest = RegExp(
+    r'((?:我们|咱们|陪我|跟我|和我|一起).{0,24}(?:玩|下棋|对局|五子棋|围棋|象棋|双弈))|'
+    r'((?:你|让你).{0,16}(?:开|建|创建).{0,12}(?:房|房间|对局).{0,24}(?:我来|我进|我加入|我们|咱们|一起))|'
+    r'((?:我来|我进|我加入|我们|咱们|一起).{0,24}(?:你|让你).{0,16}(?:开|建|创建).{0,12}(?:房|房间|对局))',
+    caseSensitive: false,
+  );
   static final RegExp _roomShared = RegExp(
     r'(?:房间码|房号|room\s*id).{0,24}[A-Za-z0-9]{5,16}',
     caseSensitive: false,
@@ -28,6 +34,7 @@ class AgentParticipationConsentPolicy {
     final clean = text.trim();
     if (clean.isEmpty || _denial.hasMatch(clean)) return false;
     return _userInitiated.hasMatch(clean) ||
+        _explicitSharedGameRequest.hasMatch(clean) ||
         _accepted.hasMatch(clean) ||
         _roomShared.hasMatch(clean) ||
         _standaloneRoomCode.hasMatch(clean);
