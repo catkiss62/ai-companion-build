@@ -48,7 +48,7 @@ require(
     'AgentParticipationConsentPolicy.explicitlyGranted(latestUserText)',
     'McpTurnStateResolver.resolveStructured(outcome.structuredContent)',
     '结构化回合状态',
-    "continuationRecommended: verifiedNextActor == 'companion'",
+    "continuationRecommended: CedarAgentTurnPolicy.continueInCurrentTurn",
 )
 require(
     'lib/core/agent/agent_tool.dart',

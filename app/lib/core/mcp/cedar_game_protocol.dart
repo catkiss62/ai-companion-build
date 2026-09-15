@@ -90,6 +90,8 @@ class CedarPlatformActionPolicy {
   /// user goal. Passive state/status/observe polls are deliberately excluded:
   /// their next timing and actor come from the service response instead.
   static bool continuesPlanning(String action) => const <String>{
+        'list_games',
+        'get_guide',
         'rooms',
         'actions',
         'catalog',
@@ -105,6 +107,53 @@ class CedarPlatformActionPolicy {
         'quit',
         'exit',
       }.contains(action);
+}
+
+/// Shared stop/continue semantics for both the foreground chat loop and the
+/// durable background clock. Game-specific rules remain in the live guide and
+/// Outcome; this policy only interprets the public Agent protocol.
+class CedarAgentTurnPolicy {
+  const CedarAgentTurnPolicy._();
+
+  static bool continueInCurrentTurn({
+    required bool succeeded,
+    required String protocolAction,
+    required String nextActor,
+  }) =>
+      succeeded &&
+      (nextActor == 'companion' ||
+          (nextActor != 'finished' &&
+              CedarPlatformActionPolicy.continuesPlanning(protocolAction)));
+
+  static bool scheduleBackground({
+    required bool succeeded,
+    required String nextActor,
+    required bool hasTimer,
+    required bool hasServerContinuation,
+    required bool hasPendingRoomMessage,
+  }) =>
+      succeeded &&
+      (nextActor == 'companion' ||
+          hasTimer ||
+          hasServerContinuation ||
+          hasPendingRoomMessage);
+
+  /// Reading a guide is preparation, not a game state that can legitimately
+  /// demand waiting or declare completion. This generic guard prevents every
+  /// solo game from falling into the historical "guide -> 等待游戏" trap while
+  /// still allowing a co-play game to stage its consent invitation.
+  static bool permitsStopBeforePlay({
+    required bool hasRealPlayOutcome,
+    required bool invitationApproved,
+    required bool modeRequiresInvitation,
+    required String disposition,
+  }) {
+    if (disposition == 'invite_user') {
+      return modeRequiresInvitation && !invitationApproved;
+    }
+    if (hasRealPlayOutcome) return true;
+    return false;
+  }
 }
 
 /// Minimal player-operation signatures for a known upstream guide omission.

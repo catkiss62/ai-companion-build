@@ -1,14 +1,13 @@
 import 'dart:convert';
-import 'dart:math';
 
 import '../ai/deepseek_client.dart';
-import '../ai/final_reply_failure_policy.dart';
 import '../ai/model_profile.dart';
 import '../agent/agent_tool_text_envelope.dart';
 import '../database/app_database.dart';
 import '../diagnostics/runtime_error_category.dart';
 import '../models/desire_state.dart';
 import '../storage/secure_config.dart';
+import 'cedar_agent_decision.dart';
 import 'cedar_toy_activity.dart';
 import 'cedar_toy_client.dart';
 import 'cedar_game_protocol.dart';
@@ -28,25 +27,16 @@ class CedarAutonomyProgress {
   final bool notable;
 }
 
-class CedarJsonDecisionRetryPolicy {
-  const CedarJsonDecisionRetryPolicy._();
-
-  static const maxAttempts = 2;
-  static const retryDelay = Duration(milliseconds: 450);
-
-  static bool isRetryable(Object error) =>
-      error is FormatException || FinalReplyFailurePolicy.isTransient(error);
-}
-
 /// Advances at most one Cedar activity step after the shared Desire selector
-/// chooses `play_game`. All interpretation is one DeepSeek JSON judgment; MCP
-/// itself only supplies real tools and outcomes.
+/// chooses `play_game`. Control decisions use required native function calls;
+/// MCP itself supplies the real tools, state and outcomes.
 class CedarToyAutonomyEngine {
   CedarToyAutonomyEngine({
     required this.db,
     required this.ai,
     required this.secureConfig,
-  });
+    CedarAgentDecisionModel? decisionModel,
+  }) : _injectedDecisionModel = decisionModel;
 
   static const enabledKey = 'cedar_toy_autonomy_enabled';
   static const shareEnabledKey = 'cedar_toy_game_share_enabled';
@@ -56,6 +46,14 @@ class CedarToyAutonomyEngine {
   final AppDatabase db;
   final DeepSeekClient ai;
   final SecureConfig secureConfig;
+  final CedarAgentDecisionModel? _injectedDecisionModel;
+
+  CedarAgentDecisionModel get _decisionModel =>
+      _injectedDecisionModel ??
+      DeepSeekCedarAgentDecisionModel(
+        client: ai,
+        onRetry: _recordDecisionRetry,
+      );
 
   Future<CedarAutonomyAvailability> availability({required DateTime now}) async {
     if ((await db.getSetting('cedar_toy_enabled')) == '0' ||
@@ -199,15 +197,15 @@ class CedarToyAutonomyEngine {
           : recentSuggestions
               .map((item) => '${item.id}·${item.title}')
               .join(' | ');
-      final picked = await _judge(
+      final picked = await _decisionModel.chooseGame(
         apiKey: apiKey,
         endpoint: endpoint,
-        instruction: '''从真实 Cedar Toy 游戏列表中，按她此刻想找一点轻松新鲜感的动机选择一个游戏。只返回 JSON：{"game":"精确ID","title":"显示名"}。不得发明列表外 ID。用户近期提到的游戏只是可参考的弱信号，不是命令，也不覆盖她自己的重复度、未完成进度和此刻意愿。
+        instruction: '''从真实 Cedar Toy 游戏列表中，按她此刻想找一点轻松新鲜感的动机选择一个游戏，并调用 cedar_choose_game。不得发明列表外 ID。用户近期提到的游戏只是可参考的弱信号，不是命令，也不覆盖她自己的重复度、未完成进度和此刻意愿。
 【近期建议候选】$suggestionContext
 
 $catalog''',
       );
-      final game = _identifier(picked['game']?.toString() ?? '');
+      final game = _identifier(picked.game);
       if (game.isEmpty || !_containsIdentifier(catalog, game)) {
         return const CedarAutonomyProgress('invalid_game_choice');
       }
@@ -217,7 +215,7 @@ $catalog''',
       }
       final recorded = await store.recordGuide(
         gameId: game,
-        gameTitle: picked['title']?.toString().trim() ?? '',
+        gameTitle: picked.title,
         guide: CedarToyClient.playerSafeGuideOutcome(guideOutcome),
       );
       return CedarAutonomyProgress(
@@ -266,24 +264,31 @@ $catalog''',
       );
       return const CedarAutonomyProgress('invalid_continuation_params');
     }
+    var roomMessage = '';
+    if (session.hasPendingRoomMessage &&
+        _guideSupportsParameter(session.guide, action, 'message')) {
+      roomMessage = await _composeRoomDialogue(
+        apiKey: apiKey,
+        endpoint: endpoint,
+        session: session,
+        action: action,
+        params: params,
+        intent: '回应对方刚在房间说的话，不打断对局。',
+      );
+      if (roomMessage.isNotEmpty) params['message'] = roomMessage;
+    }
     final actionLease = await db.tryAcquireLocalLease(
       'cedar_toy_action_lease_until',
       holdFor: const Duration(minutes: 5),
     );
     if (!actionLease) return const CedarAutonomyProgress('action_in_progress');
-    var roomMessage = '';
     try {
-      if (session.hasPendingRoomMessage &&
-          _guideSupportsParameter(session.guide, action, 'message')) {
-        roomMessage = await _composeRoomDialogue(
-          apiKey: apiKey,
-          endpoint: endpoint,
-          session: session,
-          action: action,
-          params: params,
-          intent: '回应对方刚在房间说的话，不打断对局。',
-        );
-        if (roomMessage.isNotEmpty) params['message'] = roomMessage;
+      final fresh = await store.loadSession(session.gameId);
+      if (fresh == null ||
+          fresh.updatedAt.millisecondsSinceEpoch !=
+              session.updatedAt.millisecondsSinceEpoch ||
+          (await store.loadState()).activeGameId != session.gameId) {
+        return const CedarAutonomyProgress('state_changed_replan');
       }
       await store.beginExecution(gameId: session.gameId, action: action);
       final outcome = await client.play(session.gameId, action, params);
@@ -358,31 +363,17 @@ $catalog''',
     required CedarToyActivityStore store,
     required CedarGameSession session,
   }) async {
-    final actionLease = await db.tryAcquireLocalLease(
-      'cedar_toy_action_lease_until',
-      holdFor: const Duration(minutes: 5),
+    return _advanceSessionPlanned(
+      now: now,
+      apiKey: apiKey,
+      endpoint: endpoint,
+      client: client,
+      store: store,
+      session: session,
     );
-    if (!actionLease) return const CedarAutonomyProgress('action_in_progress');
-    try {
-      await store.beginExecution(
-        gameId: session.gameId,
-        action: '规划下一步',
-      );
-      return await _advanceSessionLocked(
-        now: now,
-        apiKey: apiKey,
-        endpoint: endpoint,
-        client: client,
-        store: store,
-        session: session,
-      );
-    } finally {
-      await store.finishExecution();
-      await db.releaseLocalLease('cedar_toy_action_lease_until');
-    }
   }
 
-  Future<CedarAutonomyProgress> _advanceSessionLocked({
+  Future<CedarAutonomyProgress> _advanceSessionPlanned({
     required DateTime now,
     required String apiKey,
     required String endpoint,
@@ -392,27 +383,118 @@ $catalog''',
   }) async {
     final state = await store.loadState();
     final playProtocol = await store.loadPlayProtocol();
-    final judged = await _judge(
-      apiKey: apiKey,
-      endpoint: endpoint,
-      instruction: '''你在为 AI 伴侣推进一局真实 Cedar Toy 游戏。只依据完整指南与本机真实局面，返回 JSON：
-{"participation_mode":"solo|co_play|multiplayer|hybrid|unknown","action":"指南中的精确动作名","params":{},"room_reply_intent":"若是共玩，用一句中文描述此刻想在房间说什么；这只是内部意图，不是最终可见台词"}
-共玩、多人模式必须先邀请用户；混合模式可以独自开始，但只有用户明确同意后才能进入其中的共玩分支。这时 action 可以为空，绝不能假装已经 play。单人模式每次只推进一步。不得打开 GitHub 或补写结果。
+    final decisionInstruction = '''你是 AI 伴侣在 Cedar Toy 的统一玩家 Agent。只依据完整玩家指南、实时 play schema、当前聊天建议与最新真实 Outcome，调用 cedar_agent_turn。
+disposition=act 时必须填写指南中的精确 action 和 params；需要邀请、等待用户、等待远端或确认结束时分别选择 invite_user/await_user/await_remote/complete，不能用空 action 冒充行动。共玩、多人模式必须先邀请用户；混合模式可以独自开始，但只有用户明确同意后才能进入其中的共玩分支。单人游戏只要仍有玩家可见合法动作，就继续自己选择并推进，不得把“需要 Agent 决策”误判成等待用户。
+这是盲玩：不得打开 GitHub、源码、人类攻略、题库答案或外部网页，也不得补写结果。
 平台公共 action `rest / announcements / vote` 由 Cedar 的 play schema 授权，不要求在单个游戏指南重复出现；`rest` 只在真实防沉迷提醒/锁定需要重置时使用，是否允许由 Cedar 端的人类开关裁决。若 last_action 已是 state/status/observe/rooms/actions 等只读动作，且 next_actor=companion 或 Outcome 已给出合法动作，本次必须选择真实推进动作，不得重复只读查询。近期用户建议只是参考，不是命令；最终仍从服务端合法动作中自己决定。
 
-${store.promptContext(session, state: state, playProtocol: playProtocol)}''',
+${store.promptContext(session, state: state, playProtocol: playProtocol)}''';
+    var judged = await _decisionModel.decideTurn(
+      apiKey: apiKey,
+      endpoint: endpoint,
+      instruction: decisionInstruction,
     );
     // Participation is session identity. Once established, do not let a fresh
     // planner pass reinterpret a solo game as co-play (or the reverse).
-    final judgedMode = CedarParticipationMode.fromKey(
-      judged['participation_mode']?.toString(),
-    );
-    final mode = session.mode == CedarParticipationMode.unknown
+    final judgedMode = judged.participationMode;
+    var mode = session.mode == CedarParticipationMode.unknown
         ? judgedMode
         : session.mode;
-    final action = _identifier(judged['action']?.toString() ?? '');
-    final platformAction = CedarPlatformActionPolicy.isPlatformAction(action);
-    if (!platformAction && mode.requiresInvitation && !session.invitationApproved) {
+    var action = _identifier(judged.action);
+    var platformAction = CedarPlatformActionPolicy.isPlatformAction(action);
+    final initialStopUnsupported =
+        judged.disposition != CedarAgentDisposition.act &&
+            !CedarAgentTurnPolicy.permitsStopBeforePlay(
+              hasRealPlayOutcome: session.lastOutcome.trim().isNotEmpty,
+              invitationApproved: session.invitationApproved,
+              modeRequiresInvitation: mode.requiresInvitation,
+              disposition: judged.disposition.key,
+            );
+    final initialActionInvalid =
+        judged.disposition == CedarAgentDisposition.act &&
+            (!mode.requiresInvitation || session.invitationApproved) &&
+            (action.isEmpty ||
+                (!_containsIdentifier(session.guide, action) &&
+                    !platformAction));
+    if (initialStopUnsupported || initialActionInvalid) {
+      final corrected = await _decisionModel.decideTurn(
+        apiKey: apiKey,
+        endpoint: endpoint,
+        instruction: '''$decisionInstruction
+
+【协议纠正】上一选择不符合当前玩家协议：可能在尚无真实 play Outcome 时等待/结束，也可能使用了指南之外的 action。读取指南只是准备，不是游戏要求等待。现在必须选择一个指南允许的真实开始、恢复或状态动作；只有共玩且尚未获许可时才能 invite_user。''',
+      );
+      final correctedMode = session.mode == CedarParticipationMode.unknown
+          ? corrected.participationMode
+          : session.mode;
+      final correctedAction = _identifier(corrected.action);
+      final correctedPlatform =
+          CedarPlatformActionPolicy.isPlatformAction(correctedAction);
+      final correctedCanAct = corrected.disposition == CedarAgentDisposition.act &&
+          correctedAction.isNotEmpty &&
+          (_containsIdentifier(session.guide, correctedAction) ||
+              correctedPlatform) &&
+          (!correctedMode.requiresInvitation || session.invitationApproved);
+      if (!correctedCanAct) {
+        await store.deferContinuation(
+          gameId: session.gameId,
+          delay: const Duration(seconds: 15),
+        );
+        return const CedarAutonomyProgress('semantic_replan_failed');
+      }
+      judged = corrected;
+      mode = correctedMode;
+      action = correctedAction;
+      platformAction = correctedPlatform;
+    }
+    final params = Map<String, Object?>.from(judged.params);
+    if (judged.disposition == CedarAgentDisposition.act &&
+        !platformAction &&
+        mode.supportsSharedParticipation &&
+        session.invitationApproved &&
+        _guideSupportsParameter(session.guide, action, 'wait')) {
+      // A move and a long poll are separate operations. Waiting on the same
+      // request can commit the move remotely and then make the local transport
+      // timeout look like a failed write.
+      params['wait'] = false;
+    }
+    var roomMessage = '';
+    if (judged.disposition == CedarAgentDisposition.act &&
+        !platformAction &&
+        mode.supportsSharedParticipation &&
+        session.invitationApproved &&
+        _guideSupportsParameter(session.guide, action, 'message')) {
+      // Compose before taking the action lease. Natural-language generation is
+      // planning, not a remote side effect, and must not queue a user turn.
+      roomMessage = await _composeRoomDialogue(
+        apiKey: apiKey,
+        endpoint: endpoint,
+        session: session,
+        action: action,
+        params: params,
+        intent: judged.roomReplyIntent,
+      );
+      if (roomMessage.isNotEmpty) params['message'] = roomMessage;
+    }
+    // Model planning is not a Cedar side effect and must never block a user
+    // turn. Acquire the shared action lease only after every planning/replan
+    // request has completed, then reject stale plans before changing state.
+    final actionLease = await db.tryAcquireLocalLease(
+      'cedar_toy_action_lease_until',
+      holdFor: const Duration(minutes: 5),
+    );
+    if (!actionLease) return const CedarAutonomyProgress('action_in_progress');
+    try {
+      final fresh = await store.loadSession(session.gameId);
+      if (fresh == null ||
+          fresh.updatedAt.millisecondsSinceEpoch !=
+              session.updatedAt.millisecondsSinceEpoch ||
+          (await store.loadState()).activeGameId != session.gameId) {
+        return const CedarAutonomyProgress('state_changed_replan');
+      }
+    if (!platformAction &&
+        (judged.disposition == CedarAgentDisposition.inviteUser ||
+            (mode.requiresInvitation && !session.invitationApproved))) {
       await store.markInvitationRequired(
         gameId: session.gameId,
         mode: mode,
@@ -429,6 +511,32 @@ ${store.promptContext(session, state: state, playProtocol: playProtocol)}''',
     if (!platformAction && mode == CedarParticipationMode.unknown) {
       await store.deferContinuation(gameId: session.gameId);
       return const CedarAutonomyProgress('mode_unknown');
+    }
+    if (judged.disposition != CedarAgentDisposition.act) {
+      final nextActor = switch (judged.disposition) {
+        CedarAgentDisposition.awaitUser => 'user',
+        CedarAgentDisposition.awaitRemote => 'wait',
+        CedarAgentDisposition.complete => 'finished',
+        // invite_user was handled above. If the session already has consent,
+        // asking again is a stale plan and should be retried, not persisted.
+        CedarAgentDisposition.inviteUser => 'companion',
+        CedarAgentDisposition.act => 'companion',
+      };
+      if (nextActor == 'companion') {
+        await store.deferContinuation(
+          gameId: session.gameId,
+          delay: const Duration(seconds: 2),
+        );
+        return const CedarAutonomyProgress('stale_agent_disposition');
+      }
+      await store.recordAgentDisposition(
+        gameId: session.gameId,
+        mode: mode,
+        nextActor: nextActor,
+        reason: judged.reason,
+        resumeAfterSeconds: judged.resumeAfterSeconds,
+      );
+      return CedarAutonomyProgress('agent_${judged.disposition.key}');
     }
     if (action.isEmpty ||
         (!_containsIdentifier(session.guide, action) && !platformAction)) {
@@ -454,35 +562,6 @@ ${store.promptContext(session, state: state, playProtocol: playProtocol)}''',
         delay: const Duration(minutes: 2),
       );
       return const CedarAutonomyProgress('platform_action_loop_blocked');
-    }
-    final rawParams = judged['params'];
-    final params = rawParams is Map
-        ? rawParams.map((key, value) => MapEntry(key.toString(), value))
-        : <String, Object?>{};
-    if (!platformAction &&
-        mode.supportsSharedParticipation &&
-        session.invitationApproved &&
-        _guideSupportsParameter(session.guide, action, 'wait')) {
-      // A move and a long poll are separate operations. Waiting on the same
-      // request can commit the move remotely and then make the local 25-second
-      // transport timeout look like a failed move. Ask Cedar for the immediate
-      // committed result; follow its returned next_call for observation.
-      params['wait'] = false;
-    }
-    var roomMessage = '';
-    if (!platformAction &&
-        mode.supportsSharedParticipation &&
-        session.invitationApproved &&
-        _guideSupportsParameter(session.guide, action, 'message')) {
-      roomMessage = await _composeRoomDialogue(
-        apiKey: apiKey,
-        endpoint: endpoint,
-        session: session,
-        action: action,
-        params: params,
-        intent: judged['room_reply_intent']?.toString().trim() ?? '',
-      );
-      if (roomMessage.isNotEmpty) params['message'] = roomMessage;
     }
     await store.beginExecution(gameId: session.gameId, action: action);
     late McpToolOutcome outcome;
@@ -541,6 +620,10 @@ ${store.promptContext(session, state: state, playProtocol: playProtocol)}''',
       outcome.isError ? 'play_failed' : 'played_one_step',
       notable: shareLevel != 'quiet',
     );
+    } finally {
+      await store.finishExecution();
+      await db.releaseLocalLease('cedar_toy_action_lease_until');
+    }
   }
 
   Future<({String nextActor, String shareLevel, int resumeAfterSeconds})>
@@ -571,11 +654,10 @@ ${store.promptContext(session, state: state, playProtocol: playProtocol)}''',
       final fallbackActor = mode == CedarParticipationMode.solo
           ? 'companion'
           : 'wait';
-      final judged = await _judgeOutcome(
+      final judged = await _decisionModel.classifyOutcome(
         apiKey: apiKey,
         endpoint: endpoint,
-        instruction: '''你只分类一次真实 Cedar Toy play Outcome，只返回 JSON：
-{"next_actor":"companion|user|shared|wait|finished","share_level":"quiet|notable|required","resume_after_seconds":0}
+        instruction: '''你只分类一次真实 Cedar Toy play Outcome，并调用 cedar_classify_outcome。
 不得规划下一动作，不得补写结果。需要用户决定/输入时为 user 或 shared；远端计时/其他玩家时为 wait；明确结束才为 finished。只有 Outcome 明确给出等待/轮询时长时填写 15～3600 秒，否则为 0。
 game=${session.gameId}
 mode=${mode.key}
@@ -583,9 +665,9 @@ action=$action
 【真实 Outcome】
 $outcomeText''',
       );
-      final actor = judged['next_actor']?.toString() ?? '';
-      final share = judged['share_level']?.toString() ?? '';
-      final rawResume = (judged['resume_after_seconds'] as num?)?.toInt() ?? 0;
+      final actor = judged.nextActor;
+      final share = judged.shareLevel;
+      final rawResume = judged.resumeAfterSeconds;
       return (
         nextActor: structured?.nextActor ?? (const <String>{
           'companion',
@@ -604,11 +686,12 @@ $outcomeText''',
             (rawResume <= 0 ? 0 : rawResume.clamp(15, 3600).toInt()),
       );
     } catch (_) {
+      // A classifier failure is not a Cedar instruction to wait. Keep the
+      // session runnable so the next Agent pass can reconcile from the stored
+      // real Outcome (normally with a read-only state action) without replaying
+      // the write that already succeeded.
       return (
-        nextActor: structured?.nextActor ??
-            (mode == CedarParticipationMode.solo
-                ? 'companion'
-                : 'wait'),
+        nextActor: structured?.nextActor ?? 'companion',
         shareLevel: 'quiet',
         resumeAfterSeconds: structuredResume ?? 0,
       );
@@ -735,75 +818,21 @@ game=${session.gameId}
     return false;
   }
 
-  Future<Map<String, dynamic>> _judge({
-    required String apiKey,
-    required String endpoint,
-    required String instruction,
-  }) async {
-    Object? lastError;
-    for (var attempt = 1;
-        attempt <= CedarJsonDecisionRetryPolicy.maxAttempts;
-        attempt++) {
-      try {
-        final result = await ai.jsonCompletion(
-          apiKey: apiKey,
-          model: DeepSeekModelProfile.flash,
-          endpoint: endpoint,
-          thinking: true,
-          effort: ReasoningEffort.high,
-          maxTokens: 900,
-          messages: <Map<String, Object?>>[
-            <String, Object?>{'role': 'system', 'content': instruction},
-          ],
-        );
-        if (result.isEmpty) {
-          throw const FormatException('empty_cedar_json_decision');
-        }
-        return result;
-      } catch (error) {
-        lastError = error;
-        if (attempt >= CedarJsonDecisionRetryPolicy.maxAttempts ||
-            !CedarJsonDecisionRetryPolicy.isRetryable(error)) {
-          rethrow;
-        }
-        final retryCount = int.tryParse(
-              await db.getSetting('cedar_toy_json_retry_count') ?? '',
-            ) ??
-            0;
-        await db.setSetting(
-          'cedar_toy_json_retry_count',
-          '${retryCount + 1}',
-        );
-        await db.setSetting(
-          'cedar_toy_json_retry_last_category',
-          classifyRuntimeError(error),
-        );
-        await db.setSetting(
-          'cedar_toy_json_retry_last_at',
-          DateTime.now().millisecondsSinceEpoch.toString(),
-        );
-        await Future<void>.delayed(CedarJsonDecisionRetryPolicy.retryDelay);
-      }
-    }
-    throw lastError!;
+  Future<void> _recordDecisionRetry(Object error) async {
+    final retryCount = int.tryParse(
+          await db.getSetting('cedar_toy_json_retry_count') ?? '',
+        ) ??
+        0;
+    await db.setSetting('cedar_toy_json_retry_count', '${retryCount + 1}');
+    await db.setSetting(
+      'cedar_toy_json_retry_last_category',
+      classifyRuntimeError(error),
+    );
+    await db.setSetting(
+      'cedar_toy_json_retry_last_at',
+      DateTime.now().millisecondsSinceEpoch.toString(),
+    );
   }
-
-  Future<Map<String, dynamic>> _judgeOutcome({
-    required String apiKey,
-    required String endpoint,
-    required String instruction,
-  }) =>
-      ai.jsonCompletion(
-        apiKey: apiKey,
-        model: DeepSeekModelProfile.flash,
-        endpoint: endpoint,
-        thinking: false,
-        effort: ReasoningEffort.low,
-        maxTokens: 300,
-        messages: <Map<String, Object?>>[
-          <String, Object?>{'role': 'system', 'content': instruction},
-        ],
-      );
 
   Future<String> _seedThought({
     required String text,

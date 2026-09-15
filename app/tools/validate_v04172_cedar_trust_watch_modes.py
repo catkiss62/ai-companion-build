@@ -42,7 +42,7 @@ require(
     'session.mode == CedarParticipationMode.unknown',
     "params['wait'] = false",
     "mode == CedarParticipationMode.solo",
-    '_judgeOutcome',
+    '_decisionModel.classifyOutcome',
     'thinking: false',
     'maxTokens: 512',
     'directWhenWatched: true',
@@ -79,8 +79,8 @@ require(
 )
 require(
     '.github/workflows/build-apk.yml',
-    'agent/v04176-cedar-protocol-continuation',
-    'AI-Companion-v0.41.76-220-Cedar-Protocol-Continuation-APK',
+    'agent/v04177-cedar-agent-runtime',
+    'AI-Companion-v0.41.77-221-Cedar-Agent-Runtime-APK',
     'validate_v04172_cedar_trust_watch_modes.py',
 )
 require(

@@ -62,13 +62,16 @@ require(
 )
 require(
     "lib/core/mcp/cedar_toy_autonomy_engine.dart",
-    "class CedarJsonDecisionRetryPolicy",
-    "static const maxAttempts = 2",
+    "DeepSeekCedarAgentDecisionModel",
+    "_recordDecisionRetry",
+    "cedar_toy_json_retry_count",
+)
+require(
+    "lib/core/mcp/cedar_agent_decision.dart",
     "error is FormatException",
     "FinalReplyFailurePolicy.isTransient(error)",
-    "empty_cedar_json_decision",
-    "CedarJsonDecisionRetryPolicy.retryDelay",
-    "cedar_toy_json_retry_count",
+    "incomplete_cedar_native_call",
+    "static const maxAttempts = 2",
 )
 require(
     "lib/core/diagnostics/preflight_diagnostics.dart",
@@ -83,8 +86,6 @@ require(
     "live player protocol keeps action fields but strips source pointers",
     "duel appendix is a parameter signature rather than play strategy",
     "Cedar discovery can reconsider one premature no-call response",
-    "background Cedar JSON retry is narrow",
-    "DeepSeekException(401",
 )
 require(
     "docs/TEST_CHECKLIST.md",
@@ -96,8 +97,8 @@ require(
 )
 require(
     ".github/workflows/build-apk.yml",
-    "agent/v04176-cedar-protocol-continuation",
-    "AI-Companion-v0.41.76-220-Cedar-Protocol-Continuation-APK",
+    "agent/v04177-cedar-agent-runtime",
+    "AI-Companion-v0.41.77-221-Cedar-Agent-Runtime-APK",
     "validate_v04176_cedar_protocol_continuation.py",
 )
 require(

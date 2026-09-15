@@ -2,7 +2,6 @@ import 'dart:convert';
 
 import '../ai/deepseek_client.dart';
 import '../ai/generation_cancellation.dart';
-import '../ai/model_profile.dart';
 import '../ai/qwen_vision_client.dart';
 import '../autonomy/layered_public_web_provider.dart';
 import '../autonomy/public_web_appraisal_policy.dart';
@@ -14,6 +13,7 @@ import '../memory/memory_brain.dart';
 import '../mcp/cedar_toy_client.dart';
 import '../mcp/cedar_toy_activity.dart';
 import '../mcp/cedar_game_protocol.dart';
+import '../mcp/cedar_agent_decision.dart';
 import '../mcp/mcp_protocol.dart';
 import '../mcp/mcp_turn_state_resolver.dart';
 import '../media/assistant_image_attachment_service.dart';
@@ -455,7 +455,8 @@ class AgentToolRunner {
     }
     return _cedarResult(
       toolId: AgentToolRegistry.cedarToyListGames.id,
-      action: '游戏列表',
+      actionLabel: '游戏列表',
+      protocolAction: 'list_games',
       outcome: outcome,
       extraPromptData: playerProtocol.isEmpty
           ? ''
@@ -519,7 +520,8 @@ class AgentToolRunner {
     }
     return _cedarResult(
       toolId: AgentToolRegistry.cedarToyGetGuide.id,
-      action: '游戏指南',
+      actionLabel: '游戏指南',
+      protocolAction: 'get_guide',
       outcome: outcome,
       playerGuide: true,
     );
@@ -695,7 +697,8 @@ class AgentToolRunner {
     );
     return _cedarResult(
       toolId: AgentToolRegistry.cedarToyPlay.id,
-      action: '游玩',
+      actionLabel: '游玩',
+      protocolAction: action,
       outcome: outcome,
       attachments: attachments,
       verifiedNextActor: verifiedNextActor,
@@ -725,18 +728,11 @@ class AgentToolRunner {
     try {
       final apiKey = (await secureConfig.readApiKey())?.trim() ?? '';
       if (apiKey.isEmpty) throw const FormatException('missing_deepseek_key');
-      final judged = await _ai.jsonCompletion(
+      final judged = await DeepSeekCedarAgentDecisionModel(client: _ai)
+          .classifyOutcome(
         apiKey: apiKey,
-        model: DeepSeekModelProfile.flash,
         endpoint: await secureConfig.readEndpoint(),
-        thinking: true,
-        effort: ReasoningEffort.high,
-        maxTokens: 420,
-        messages: <Map<String, Object?>>[
-          <String, Object?>{
-            'role': 'system',
-            'content': '''你只核验一次真实 Cedar Toy play Outcome。依据完整指南、刚执行的 action 与真实 Outcome，只返回 JSON：
-{"next_actor":"companion|user|shared|wait|finished","share_level":"quiet|notable|required","resume_after_seconds":0}
+        instruction: '''你只核验一次真实 Cedar Toy play Outcome。依据完整指南、刚执行的 action 与真实 Outcome，调用 cedar_classify_outcome。
 不得规划下一动作，不得补写结果。需要用户决定/输入时为 user 或 shared；远端计时/其他玩家时为 wait；明确结束才为 finished。只有指南或 Outcome 明确给出等待/轮询时长时填写 15～3600 秒，否则为 0。
 game=$game
 action=$action
@@ -744,12 +740,10 @@ action=$action
 $guide
 【真实 Outcome】
 ${CedarToyClient.redactSecrets(outcome.text)}''',
-          },
-        ],
       );
-      final actor = judged['next_actor']?.toString() ?? '';
-      final share = judged['share_level']?.toString() ?? '';
-      final rawResume = (judged['resume_after_seconds'] as num?)?.toInt() ?? 0;
+      final actor = judged.nextActor;
+      final share = judged.shareLevel;
+      final rawResume = judged.resumeAfterSeconds;
       return (
         nextActor: structured?.nextActor ?? (const <String>{
           'companion',
@@ -771,7 +765,10 @@ ${CedarToyClient.redactSecrets(outcome.text)}''',
       // The real MCP action already happened. Never retry that side effect
       // because only its post-Outcome classifier failed.
       return (
-        nextActor: structured?.nextActor ?? 'wait',
+        // A local classifier failure is not a Cedar wait instruction. The
+        // durable Agent must remain able to reconcile from real state instead
+        // of freezing the game behind a fabricated waiting phase.
+        nextActor: structured?.nextActor ?? 'companion',
         shareLevel: 'quiet',
         resumeAfterSeconds: 0,
       );
@@ -836,7 +833,8 @@ ${CedarToyClient.redactSecrets(outcome.text)}''',
 
   AgentToolResult _cedarResult({
     required String toolId,
-    required String action,
+    required String actionLabel,
+    required String protocolAction,
     required McpToolOutcome outcome,
     List<MessageAttachment> attachments = const <MessageAttachment>[],
     String verifiedNextActor = '',
@@ -851,7 +849,7 @@ ${CedarToyClient.redactSecrets(outcome.text)}''',
       return AgentToolResult(
         toolId: toolId,
         status: AgentToolStatus.failed,
-        displayText: 'Cedar Toy $action失败',
+        displayText: 'Cedar Toy $actionLabel失败',
         promptData: 'Cedar Toy 远端返回失败：${_boundedCedar(safe)}；不得编造成功结果。',
         errorCode: 'cedar_remote_error',
       );
@@ -861,16 +859,16 @@ ${CedarToyClient.redactSecrets(outcome.text)}''',
         toolId: toolId,
         status: AgentToolStatus.noResult,
         displayText: 'Cedar Toy 没有返回可用结果',
-        promptData: 'Cedar Toy $action没有真实 Outcome；不得补写结果。',
+        promptData: 'Cedar Toy $actionLabel没有真实 Outcome；不得补写结果。',
         errorCode: 'cedar_empty_result',
       );
     }
     return AgentToolResult(
       toolId: toolId,
       status: AgentToolStatus.succeeded,
-      displayText: '已取得 Cedar Toy 真实$action结果',
+      displayText: '已取得 Cedar Toy 真实$actionLabel结果',
       promptData: <String>[
-        '【Cedar Toy 真实 $action Outcome】',
+        '【Cedar Toy 真实 $actionLabel Outcome】',
         if (submittedArguments.isNotEmpty)
           '【本机已实际提交的参数·仅用于最终事实核对】${jsonEncode(submittedArguments)}',
         _boundedCedar(safe),
@@ -887,9 +885,11 @@ ${CedarToyClient.redactSecrets(outcome.text)}''',
       resultCount: 1,
       attachments: attachments,
       terminalCommitPending: attachments.isNotEmpty,
-      continuationRecommended: verifiedNextActor == 'companion' ||
-          (verifiedNextActor != 'finished' &&
-              CedarPlatformActionPolicy.continuesPlanning(action)),
+      continuationRecommended: CedarAgentTurnPolicy.continueInCurrentTurn(
+        succeeded: true,
+        protocolAction: protocolAction,
+        nextActor: verifiedNextActor,
+      ),
       submittedArguments: submittedArguments,
     );
   }

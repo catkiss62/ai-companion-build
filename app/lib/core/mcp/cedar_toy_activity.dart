@@ -911,6 +911,71 @@ class CedarToyActivityStore {
     ));
   }
 
+  /// Records an Agent stop decision without pretending it came from Cedar.
+  /// Service-provided structured turn state remains authoritative and should
+  /// normally be recorded through [recordPlay]. This path is only for games
+  /// whose player-facing Outcome is free-form and explicitly asks the Agent
+  /// to wait, involve the user, or acknowledges completion.
+  Future<CedarGameSession> recordAgentDisposition({
+    required String gameId,
+    required CedarParticipationMode mode,
+    required String nextActor,
+    String reason = '',
+    int resumeAfterSeconds = 0,
+  }) async {
+    var state = await loadState();
+    final existing = state.sessions[gameId];
+    if (existing == null) throw StateError('cedar_session_missing');
+    final actor = const <String>{'user', 'wait', 'finished'}.contains(nextActor)
+        ? nextActor
+        : 'companion';
+    final now = DateTime.now();
+    final boundedResume = resumeAfterSeconds.clamp(0, 3600).toInt();
+    final phase = switch (actor) {
+      'user' => CedarActivityPhase.waitingUser,
+      'wait' => CedarActivityPhase.waitingRemote,
+      'finished' => CedarActivityPhase.completed,
+      _ => CedarActivityPhase.active,
+    };
+    final safeReason = _bounded(reason.trim(), 500);
+    final event = CedarGameEvent(
+      id: 'agent-state-${now.microsecondsSinceEpoch}',
+      kind: 'agent_disposition',
+      summary: _bounded(
+        safeReason.isEmpty ? 'Agent 根据当前玩家可见状态暂停推进。' : safeReason,
+        500,
+      ),
+      createdAt: now,
+    );
+    final next = existing.copyWith(
+      mode: existing.mode == CedarParticipationMode.unknown
+          ? mode
+          : existing.mode,
+      phase: phase,
+      nextActor: actor,
+      waitingReason: switch (actor) {
+        'user' => safeReason.isEmpty ? '等待你参与下一步' : safeReason,
+        'wait' => safeReason.isEmpty ? '等待游戏允许继续' : safeReason,
+        'finished' => safeReason.isEmpty ? '本局已经结束' : safeReason,
+        _ => '',
+      },
+      nextActionAt: actor == 'wait'
+          ? now.add(Duration(seconds: boundedResume > 0 ? boundedResume : 15))
+          : null,
+      clearNextActionAt: actor != 'wait',
+      updatedAt: now,
+      events: _append(existing.events, event),
+    );
+    state = state.copyWith(
+      sessions: Map<String, CedarGameSession>.from(state.sessions)
+        ..[gameId] = next,
+      clearExecution: true,
+      updatedAt: now,
+    );
+    await _saveState(state);
+    return next;
+  }
+
   Future<void> markWriteOutcomeUncertain({
     required String gameId,
     required String action,
@@ -1079,11 +1144,13 @@ class CedarToyActivityStore {
     final boundedResumeSeconds = resumeAfterSeconds.clamp(0, 3600).toInt();
     final scheduledWait =
         normalizedActor != 'finished' && boundedResumeSeconds > 0;
-    final shouldContinue = !outcome.isError &&
-        (normalizedActor == 'companion' ||
-            scheduledWait ||
-            continuation != null ||
-            pendingRoomMessage.isNotEmpty);
+    final shouldContinue = CedarAgentTurnPolicy.scheduleBackground(
+      succeeded: !outcome.isError,
+      nextActor: normalizedActor,
+      hasTimer: scheduledWait,
+      hasServerContinuation: continuation != null,
+      hasPendingRoomMessage: pendingRoomMessage.isNotEmpty,
+    );
     final effectiveInvitationApproved =
         invitationApproved || existing.invitationApproved;
     final realtime = mode.supportsSharedParticipation &&

@@ -335,7 +335,8 @@ class DurableGenerationRunner {
         cedarSession = cedarState.activeSession;
       }
       final immediateCedarEntry =
-          CedarToyActivityStore.requestsImmediateGameEntry(user.content);
+          CedarToyActivityStore.requestsImmediateGameEntry(user.content) ||
+          CedarToyArcadeSkill.requestsGamePlay(user.content);
       final cedarConfigured =
           (await db.getSetting('cedar_toy_enabled')) != '0' &&
           ((await secureConfig.readCedarToyToken())?.trim().isNotEmpty ?? false);
@@ -1065,16 +1066,10 @@ $finalGenerationReminder
         final verifiedContinuation = roundResults.any(
           (result) => result.succeeded && result.continuationRecommended,
         );
-        final cedarTurnHandedOff = roundResults.any(
-          (result) =>
-              result.toolId == AgentToolRegistry.cedarToyPlay.id &&
-              !result.continuationRecommended,
-        );
         final loopLimitReached =
             agentPlanningRounds >= planningRoundLimit() ||
                 agentToolCalls >= toolCallLimit();
         final shouldFinalize = (proposalExecuted && !verifiedContinuation) ||
-            cedarTurnHandedOff ||
             AgentTaskLoopPolicy.hasCommitPendingMedia(roundResults) ||
             loopLimitReached;
         if (shouldFinalize) {

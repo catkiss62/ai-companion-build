@@ -30,8 +30,19 @@ class CedarToyArcadeSkill {
 
   // Historical contract label: Cedar Toy 游戏厅 · 行为 Skill
 
-  static bool isRelevant(String text) => RegExp(
+  static bool isRelevant(String text) => requestsGamePlay(text) || RegExp(
         r'(cedar\s*toy|游戏厅|小游戏|一起玩|玩(?:个|一下|一会儿)?游戏|防沉迷|重置(?:游戏)?(?:次数|轮次|限制))',
+        caseSensitive: false,
+      ).hasMatch(text);
+
+  /// Natural play intent without naming Cedar or a catalog id. This opens the
+  /// discovery gateway only; the model still has to find a matching entry in
+  /// the live catalog before any guide or action is accepted.
+  static bool requestsGamePlay(String text) => RegExp(
+        r'((陪我|和我|跟我|陪你|咱们|我们|一起).{0,12}(玩|下|来|开).{0,12}(游戏|一局|一把|棋|牌|五子棋|围棋|象棋))|'
+        r'((玩|下|来|开).{0,10}(五子棋|围棋|象棋|棋牌|纸牌|卡牌|一局|一把).{0,6}(吧|吗|嘛|呀|如何|怎么样)?)|'
+        r'((开始|继续|加入|进入).{0,12}(游戏|对局|房间))|'
+        r'(play.{0,16}(game|chess|cards?).{0,8}(with me|together))',
         caseSensitive: false,
       ).hasMatch(text);
 

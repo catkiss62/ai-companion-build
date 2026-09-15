@@ -82,7 +82,7 @@ require(
 require(
     "lib/core/agent/agent_tool_runner.dart",
     "final playerGuide = CedarToyClient.playerSafeGuideOutcome(outcome)",
-    "CedarPlatformActionPolicy.continuesPlanning(action)",
+    "CedarAgentTurnPolicy.continueInCurrentTurn",
 )
 require(
     "lib/core/mcp/cedar_toy_autonomy_engine.dart",
@@ -98,8 +98,8 @@ require(
 )
 require(
     ".github/workflows/build-apk.yml",
-    "agent/v04176-cedar-protocol-continuation",
-    "AI-Companion-v0.41.76-220-Cedar-Protocol-Continuation-APK",
+    "agent/v04177-cedar-agent-runtime",
+    "AI-Companion-v0.41.77-221-Cedar-Agent-Runtime-APK",
     "validate_v04175_cedar_agentic_blind_play.py",
 )
 require(

@@ -62,14 +62,16 @@ def main() -> None:
     required_current = (
         "总账 v2",
         "唯一的当前接班入口",
-        "v0.41.76+220",
-        "agent/v04176-cedar-protocol-continuation",
+        "v0.41.77+221",
+        "agent/v04177-cedar-agent-runtime",
         "schema 61",
         "Snapshot protocol 6",
         "模型/API 双通道",
         "Cedar 信任优先",
-        "Cedar 盲玩隔离",
+        "盲玩隔离",
         "模型自主发现",
+        "统一 Agent 游戏运行时",
+        "required function call",
         "陪我下五子棋",
         "playerSafeGuide",
         "public_web.search",
@@ -111,7 +113,7 @@ def main() -> None:
 
     require(
         re.search(
-            r"^version:\s*0\.41\.76\+220\s*$",
+            r"^version:\s*0\.41\.77\+221\s*$",
             PUBSPEC.read_text(encoding="utf-8"),
             re.MULTILINE,
         )

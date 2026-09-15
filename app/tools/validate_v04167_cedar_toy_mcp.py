@@ -67,7 +67,7 @@ contains(
     "_cedarGuidesByScopeAndGame",
     "game_not_in_current_list",
     "action_not_in_current_guide",
-    "【Cedar Toy 真实 $action Outcome】",
+    "【Cedar Toy 真实 $actionLabel Outcome】",
 )
 contains(
     "lib/core/ai/durable_generation_runner.dart",

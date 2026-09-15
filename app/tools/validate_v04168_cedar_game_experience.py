@@ -43,8 +43,8 @@ require(
     "lib/core/mcp/cedar_toy_autonomy_engine.dart",
     "wantAction" if False else "CedarToyAutonomyEngine",
     "DeepSeekModelProfile.flash",
-    "jsonCompletion",
-    "每次只推进一步",
+    "_decisionModel.decideTurn",
+    "CedarAgentDisposition.act",
     "mcp/cedar_game:",
 )
 require(

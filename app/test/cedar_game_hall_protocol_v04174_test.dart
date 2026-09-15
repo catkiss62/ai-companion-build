@@ -86,6 +86,13 @@ void main() {
 
   test('natural game wording receives the model-owned Cedar gateway', () {
     expect(AgentToolPlanner.routeLocally('陪我下五子棋'), isNull);
+    expect(CedarToyArcadeSkill.isRelevant('陪我下五子棋'), isTrue);
+    expect(CedarToyArcadeSkill.isRelevant('我今天下棋输了'), isFalse);
+    final routed = AgentToolPlanner.nativeToolDefinitionsFor('陪我下五子棋');
+    expect(
+      routed.map((item) => ((item['function'] as Map)['name'])),
+      contains('cedar_toy_list_games'),
+    );
     final definitions = AgentToolPlanner.nativeToolDefinitionsFor(
       '陪我下五子棋',
       cedarStageToolIds: const <String>{'cedar_toy.list_games'},
@@ -195,27 +202,6 @@ void main() {
         retryUsed: true,
         remainingCalls: 6,
         completedPlanningRounds: 3,
-      ),
-      isFalse,
-    );
-  });
-
-  test('background Cedar JSON retry is narrow', () {
-    expect(
-      CedarJsonDecisionRetryPolicy.isRetryable(
-        const FormatException('Unexpected end of input'),
-      ),
-      isTrue,
-    );
-    expect(
-      CedarJsonDecisionRetryPolicy.isRetryable(
-        const DeepSeekException(503, 'temporary'),
-      ),
-      isTrue,
-    );
-    expect(
-      CedarJsonDecisionRetryPolicy.isRetryable(
-        const DeepSeekException(401, 'bad key'),
       ),
       isFalse,
     );

@@ -54,7 +54,7 @@ require(
 require(
     'lib/core/ai/durable_generation_runner.dart',
     'final-expression',
-    'cedarTurnHandedOff',
+    'verifiedContinuation',
     '本机已实际提交的参数',
 )
 require(
@@ -112,8 +112,8 @@ require(
 )
 require(
     '.github/workflows/build-apk.yml',
-    'agent/v04176-cedar-protocol-continuation',
-    'AI-Companion-v0.41.76-220-Cedar-Protocol-Continuation-APK',
+    'agent/v04177-cedar-agent-runtime',
+    'AI-Companion-v0.41.77-221-Cedar-Agent-Runtime-APK',
     'validate_v04171_cedar_realtime_room_chat.py',
 )
 require(

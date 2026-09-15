@@ -107,8 +107,8 @@ for game in (
 
 require(
     ".github/workflows/build-apk.yml",
-    "agent/v04176-cedar-protocol-continuation",
-    "AI-Companion-v0.41.76-220-Cedar-Protocol-Continuation-APK",
+    "agent/v04177-cedar-agent-runtime",
+    "AI-Companion-v0.41.77-221-Cedar-Agent-Runtime-APK",
     "validate_v04174_cedar_game_hall_protocol.py",
 )
 require(
