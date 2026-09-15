@@ -399,6 +399,11 @@ class PreflightDiagnosticsService {
       final cedarJsonRetryCategory =
           (await db.getSetting('cedar_toy_json_retry_last_category') ?? '')
               .trim();
+      final cedarAgentActionRetryCategory = (await db.getSetting(
+                'cedar_toy_agent_action_retry_last_category',
+              ) ??
+              '')
+          .trim();
       cedarRealtime['lastObserveErrorCategory'] =
           cedarObserveErrorCategory.isEmpty ? 'none' : cedarObserveErrorCategory;
       cedarRealtime['playerProtocolCached'] =
@@ -417,6 +422,18 @@ class PreflightDiagnosticsService {
           cedarJsonRetryCategory.isEmpty ? 'none' : cedarJsonRetryCategory;
       cedarRealtime['jsonRetryLastAt'] = int.tryParse(
             await db.getSetting('cedar_toy_json_retry_last_at') ?? '',
+          ) ??
+          0;
+      cedarRealtime['agentActionRetryCount'] = int.tryParse(
+            await db.getSetting('cedar_toy_agent_action_retry_count') ?? '',
+          ) ??
+          0;
+      cedarRealtime['agentActionRetryLastCategory'] =
+          cedarAgentActionRetryCategory.isEmpty
+              ? 'none'
+              : cedarAgentActionRetryCategory;
+      cedarRealtime['agentActionRetryLastAt'] = int.tryParse(
+            await db.getSetting('cedar_toy_agent_action_retry_last_at') ?? '',
           ) ??
           0;
       cedarRealtime['lastPreemptReason'] =

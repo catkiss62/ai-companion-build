@@ -6,6 +6,7 @@ import '../ai/deepseek_client.dart';
 import '../ai/final_reply_failure_policy.dart';
 import '../ai/generation_cancellation.dart';
 import '../ai/model_profile.dart';
+import '../agent/agent_tool_planner.dart';
 import '../agent/agent_tool_text_envelope.dart';
 import '../database/app_database.dart';
 import '../desire/desire_core_policy.dart';
@@ -127,6 +128,240 @@ class CedarJsonDecisionExecutor {
       }
     }
     throw lastError!;
+  }
+}
+
+class CedarAgentActionDecision {
+  const CedarAgentActionDecision({
+    required this.gameId,
+    required this.action,
+    required this.params,
+    required this.mode,
+    required this.invitationApproved,
+  });
+
+  final String gameId;
+  final String action;
+  final Map<String, Object?> params;
+  final CedarParticipationMode mode;
+  final bool invitationApproved;
+}
+
+class CedarAgentActionPlanningException implements Exception {
+  const CedarAgentActionPlanningException(this.category);
+
+  final String category;
+
+  @override
+  String toString() => 'CedarAgentActionPlanningException: $category';
+}
+
+final class _CedarToolCallBuilder {
+  _CedarToolCallBuilder(this.index);
+
+  final int index;
+  String id = '';
+  String name = '';
+  final StringBuffer arguments = StringBuffer();
+
+  void add(DeepSeekToolCallDelta fragment) {
+    if (fragment.id.isNotEmpty) id = fragment.id;
+    if (fragment.name.isNotEmpty) name = fragment.name;
+    if (fragment.argumentsFragment.isNotEmpty) {
+      arguments.write(fragment.argumentsFragment);
+    }
+  }
+
+  DeepSeekToolCall build() => DeepSeekToolCall(
+        id: id.isEmpty ? 'cedar_call_$index' : id,
+        name: name,
+        arguments: arguments.toString(),
+      );
+}
+
+/// Plans a background Cedar step through the same native function-call
+/// contract used by foreground Agent turns. Natural-language or free-form JSON
+/// bodies are deliberately ignored: an executable step must be represented by
+/// exactly one `cedar_toy.play` call.
+class CedarAgentActionPlanner {
+  const CedarAgentActionPlanner({required this.ai, this.onRetry});
+
+  static const maxAttempts = 2;
+
+  final DeepSeekClient ai;
+  final Future<void> Function(Object error)? onRetry;
+
+  Future<CedarAgentActionDecision> decide({
+    required String apiKey,
+    required String endpoint,
+    required String gameId,
+    required String instruction,
+    required bool Function(String action) acceptsAction,
+    GenerationCancellationToken? cancellationToken,
+  }) async {
+    Object? lastError;
+    for (var attempt = 1; attempt <= maxAttempts; attempt++) {
+      try {
+        final call = await _requestToolCall(
+          apiKey: apiKey,
+          endpoint: endpoint,
+          gameId: gameId,
+          instruction: instruction,
+          correction: attempt == 1
+              ? ''
+              : '上一方案未形成可执行推进动作（可能为空、重复只读查询、动作不在指南或游戏 ID 错误）。'
+                  '不要解释，不要再次查询状态；现在必须调用一次 cedar_toy_play，选择指南允许的真实推进动作。',
+          thinking: attempt == 1,
+          cancellationToken: cancellationToken,
+        );
+        final decision = _parse(call, expectedGameId: gameId);
+        if (!acceptsAction(decision.action)) {
+          throw const CedarAgentActionPlanningException(
+            'non_executable_action',
+          );
+        }
+        return decision;
+      } catch (error) {
+        lastError = error;
+        if (attempt >= maxAttempts || !_isRetryable(error)) rethrow;
+        await onRetry?.call(error);
+        cancellationToken?.throwIfCancelled();
+      }
+    }
+    throw lastError!;
+  }
+
+  Future<DeepSeekToolCall> _requestToolCall({
+    required String apiKey,
+    required String endpoint,
+    required String gameId,
+    required String instruction,
+    required String correction,
+    required bool thinking,
+    GenerationCancellationToken? cancellationToken,
+  }) async {
+    final definitions = AgentToolPlanner.nativeToolDefinitionsFor(
+      '继续当前 Cedar 游戏',
+      cedarStageToolIds: const <String>{'cedar_toy.play'},
+      cedarBlindPlay: true,
+    );
+    if (definitions.length != 1) {
+      throw const CedarAgentActionPlanningException(
+        'play_tool_schema_unavailable',
+      );
+    }
+    final tool = (jsonDecode(jsonEncode(definitions.single)) as Map)
+        .cast<String, Object?>();
+    final function = (tool['function'] as Map).cast<String, Object?>();
+    final parameters =
+        (function['parameters'] as Map).cast<String, Object?>();
+    final properties =
+        (parameters['properties'] as Map).cast<String, Object?>();
+    properties['game'] = <String, Object?>{
+      'type': 'string',
+      'enum': <String>[gameId],
+      'description': '当前已锁定的真实游戏 ID，只能填写 $gameId。',
+    };
+    properties['action'] = const <String, Object?>{
+      'type': 'string',
+      'description': '指南中的精确可执行动作名。轮到 companion 且状态已读取时，禁止 state/status/observe/rooms/actions/catalog/help/look/inventory/announcements 等只读动作。',
+    };
+
+    final builders = <int, _CedarToolCallBuilder>{};
+    await for (final delta in ai.streamChat(
+      apiKey: apiKey,
+      model: DeepSeekModelProfile.flash,
+      endpoint: endpoint,
+      thinking: thinking,
+      effort: thinking ? ReasoningEffort.high : ReasoningEffort.low,
+      maxTokens: thinking ? 2400 : 1400,
+      tools: <Map<String, Object?>>[tool],
+      toolChoice: 'required',
+      cancellationToken: cancellationToken,
+      requestTimeout: const Duration(seconds: 30),
+      messages: <Map<String, Object?>>[
+        <String, Object?>{'role': 'system', 'content': instruction},
+        if (correction.isNotEmpty)
+          <String, Object?>{'role': 'user', 'content': correction},
+      ],
+    )) {
+      for (final fragment in delta.toolCallDeltas) {
+        builders
+            .putIfAbsent(
+              fragment.index,
+              () => _CedarToolCallBuilder(fragment.index),
+            )
+            .add(fragment);
+      }
+    }
+    if (builders.length != 1) {
+      throw const CedarAgentActionPlanningException('missing_tool_call');
+    }
+    return builders.values.single.build();
+  }
+
+  static CedarAgentActionDecision _parse(
+    DeepSeekToolCall call, {
+    required String expectedGameId,
+  }) {
+    if (call.name !=
+        AgentToolPlanner.nativeNameForToolId('cedar_toy.play')) {
+      throw const CedarAgentActionPlanningException('wrong_tool_call');
+    }
+    late Map<String, dynamic> arguments;
+    try {
+      final decoded = jsonDecode(call.arguments);
+      if (decoded is! Map) throw const FormatException('arguments_not_object');
+      arguments = decoded.cast<String, dynamic>();
+    } catch (_) {
+      throw const CedarAgentActionPlanningException(
+        'malformed_tool_arguments',
+      );
+    }
+    final game = arguments['game']?.toString().trim() ?? '';
+    if (game != expectedGameId) {
+      throw const CedarAgentActionPlanningException('wrong_game');
+    }
+    final action = _identifier(arguments['action']?.toString() ?? '');
+    if (action.isEmpty) {
+      throw const CedarAgentActionPlanningException('invalid_action');
+    }
+    final rawParams = arguments['params_json'];
+    Map<String, Object?> params;
+    try {
+      final decoded = rawParams is String ? jsonDecode(rawParams) : rawParams;
+      if (decoded is! Map) throw const FormatException('params_not_object');
+      params = decoded.map(
+        (key, value) => MapEntry(key.toString(), value),
+      );
+    } catch (_) {
+      throw const CedarAgentActionPlanningException('malformed_params');
+    }
+    final mode = CedarParticipationMode.fromKey(
+      arguments['participation_mode']?.toString(),
+    );
+    final invitationApproved = arguments['invitation_approved'] == true;
+    return CedarAgentActionDecision(
+      gameId: game,
+      action: action,
+      params: params,
+      mode: mode,
+      invitationApproved: invitationApproved,
+    );
+  }
+
+  static bool _isRetryable(Object error) =>
+      error is CedarAgentActionPlanningException ||
+      CedarJsonDecisionRetryPolicy.isRetryable(error);
+
+  static String errorCategory(Object error) =>
+      error is CedarAgentActionPlanningException
+          ? error.category
+          : CedarJsonDecisionRetryPolicy.errorCategory(error);
+
+  static String _identifier(String value) {
+    final clean = value.trim();
+    return RegExp(r'^[A-Za-z0-9_.:-]{1,80}$').hasMatch(clean) ? clean : '';
   }
 }
 
@@ -280,8 +515,8 @@ class _CedarExecutionScope {
 }
 
 /// Advances at most one Cedar activity step after the shared Desire selector
-/// chooses `play_game`. All interpretation is one DeepSeek JSON judgment; MCP
-/// itself only supplies real tools and outcomes.
+/// chooses `play_game`. Executable continuation decisions use the same native
+/// Cedar function-call contract as a foreground Agent turn.
 class CedarToyAutonomyEngine {
   CedarToyAutonomyEngine({
     required this.db,
@@ -348,7 +583,9 @@ class CedarToyAutonomyEngine {
       }
       await db.setSetting(
         'cedar_toy_last_execution_error_category',
-        classifyRuntimeError(error),
+        error is CedarAgentActionPlanningException
+            ? error.category
+            : classifyRuntimeError(error),
       );
       await db.setSetting(
         'cedar_toy_last_execution_error_at',
@@ -802,16 +1039,32 @@ $catalog''',
   }) async {
     final state = await store.loadState();
     final playProtocol = await store.loadPlayProtocol();
-    final judged = await _judge(
+    final decision = await CedarAgentActionPlanner(
+      ai: ai,
+      onRetry: (error) => _recordAgentActionRetry(error),
+    ).decide(
       apiKey: apiKey,
       endpoint: endpoint,
+      gameId: session.gameId,
       cancellationToken: scope.cancellation,
+      acceptsAction: (candidate) {
+        final platform =
+            CedarPlatformActionPolicy.isPlatformAction(candidate);
+        if (!platform && !_containsIdentifier(session.guide, candidate)) {
+          return false;
+        }
+        if (session.nextActor == 'companion' &&
+            CedarPlatformActionPolicy.isReadOnly(session.lastAction) &&
+            CedarPlatformActionPolicy.isReadOnly(candidate)) {
+          return false;
+        }
+        return true;
+      },
       instruction: '''${CedarToyArcadeSkill.prompt}
 
-你在为 AI 伴侣推进一局真实 Cedar Toy 游戏。只依据完整指南与本机真实局面，返回 JSON：
-{"participation_mode":"solo|co_play|multiplayer|hybrid|unknown","action":"指南中的精确动作名","params":{},"room_reply_intent":"若是共玩，用一句中文描述此刻想在房间说什么；这只是内部意图，不是最终可见台词"}
-共玩、多人模式必须先邀请用户；混合模式可以独自开始，但只有用户明确同意后才能进入其中的共玩分支。这时 action 可以为空，绝不能假装已经 play。单人模式每次只推进一步。不得打开 GitHub 或补写结果。
-平台公共 action `rest / announcements / vote` 由 Cedar 的 play schema 授权，不要求在单个游戏指南重复出现；`rest` 只在真实防沉迷提醒/锁定需要重置时使用，是否允许由 Cedar 端的人类开关裁决。若 last_action 已是 state/status/observe/rooms/actions 等只读动作，且 next_actor=companion 或 Outcome 已给出合法动作，本次必须选择真实推进动作，不得重复只读查询。近期用户建议只是参考，不是命令；最终仍从服务端合法动作中自己决定。
+你是 AI 伴侣的后台 Agent，正在推进一局真实 Cedar Toy 游戏。你拥有且必须使用本请求提供的 cedar_toy_play 函数；只调用一次，不输出正文或自由 JSON。参数必须来自完整指南与本机真实局面，不得猜造游戏、房间、revision、棋步或结果。
+共玩、多人模式必须已有用户邀请/同意；混合模式可以独自开始，但只有用户明确同意后才能进入共玩分支。单人模式每次只推进一步。不得打开 GitHub 或补写结果。
+平台公共 action `rest / announcements / vote` 由 Cedar play schema 授权，不要求在单个游戏指南重复出现；`rest` 只在真实防沉迷提醒/锁定需要重置时使用。若 last_action 已是 state/status/observe/rooms/actions 等只读动作，且 next_actor=companion 或 Outcome 已给出合法动作，本次必须调用真实推进动作，不得重复查询。服务端 next_call 若存在则是最高优先级；近期用户建议只是参考，不是逐步命令。
 
 ${store.promptContext(session, state: state, playProtocol: playProtocol)}''',
     );
@@ -819,12 +1072,12 @@ ${store.promptContext(session, state: state, playProtocol: playProtocol)}''',
     // Participation is session identity. Once established, do not let a fresh
     // planner pass reinterpret a solo game as co-play (or the reverse).
     final judgedMode = CedarParticipationMode.fromKey(
-      judged['participation_mode']?.toString(),
+      decision.mode.key,
     );
     final mode = session.mode == CedarParticipationMode.unknown
         ? judgedMode
         : session.mode;
-    final action = _identifier(judged['action']?.toString() ?? '');
+    final action = _identifier(decision.action);
     final platformAction = CedarPlatformActionPolicy.isPlatformAction(action);
     // Once Cedar has issued a continuation or created server-side room state,
     // that server state is the authority. A later local classifier may not
@@ -891,10 +1144,7 @@ ${store.promptContext(session, state: state, playProtocol: playProtocol)}''',
       );
       return const CedarAutonomyProgress('platform_action_loop_blocked');
     }
-    final rawParams = judged['params'];
-    Map<String, Object?> params = rawParams is Map
-        ? rawParams.map((key, value) => MapEntry(key.toString(), value))
-        : <String, Object?>{};
+    Map<String, Object?> params = Map<String, Object?>.from(decision.params);
     final sharedRuntime = mode.supportsSharedParticipation ||
         session.hasContinuationCall ||
         session.hasPendingRoomMessage ||
@@ -918,7 +1168,7 @@ ${store.promptContext(session, state: state, playProtocol: playProtocol)}''',
         session: session,
         action: action,
         params: params,
-        intent: judged['room_reply_intent']?.toString().trim() ?? '',
+        intent: '',
         cancellationToken: scope.cancellation,
       );
       scope.throwIfPreempted();
@@ -1246,6 +1496,20 @@ game=${session.gameId}
       instruction: instruction,
       cancellationToken: cancellationToken,
     );
+  }
+
+  Future<void> _recordAgentActionRetry(Object error) async {
+    final retryCount = int.tryParse(
+          await db.getSetting('cedar_toy_agent_action_retry_count') ?? '',
+        ) ??
+        0;
+    await db.setSettingsAtomically(<String, String>{
+      'cedar_toy_agent_action_retry_count': '${retryCount + 1}',
+      'cedar_toy_agent_action_retry_last_category':
+          CedarAgentActionPlanner.errorCategory(error),
+      'cedar_toy_agent_action_retry_last_at':
+          DateTime.now().millisecondsSinceEpoch.toString(),
+    });
   }
 
   Future<Map<String, dynamic>> _judgeOutcome({
