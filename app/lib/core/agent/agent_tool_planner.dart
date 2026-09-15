@@ -349,7 +349,10 @@ class AgentToolPlanner {
   }) {
     final calls = <AgentToolCall>[];
     final seen = <String>{};
-    final allowedForCurrentText = _routeToolIds(latestUserText);
+    // Some lightweight routes intentionally return const sets. The active
+    // Cedar session augments this call-local allowlist, never the shared route
+    // result itself.
+    final allowedForCurrentText = <String>{..._routeToolIds(latestUserText)};
     if (cedarSessionActive) {
       allowedForCurrentText.addAll(const <String>{
         'cedar_toy.list_games',

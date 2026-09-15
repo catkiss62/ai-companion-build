@@ -56,6 +56,7 @@ Map<String, Object?> _decision({
     };
 
 void main() {
+  TestWidgetsFlutterBinding.ensureInitialized();
   sqfliteFfiInit();
 
   test('background action accepts a native play call with empty model body',

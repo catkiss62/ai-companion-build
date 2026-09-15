@@ -245,7 +245,8 @@ void main() {
         ),
       );
 
-      final now = DateTime(2026, 9, 15, 2, 1);
+      final future = DateTime.now().add(const Duration(days: 2));
+      final now = DateTime(future.year, future.month, future.day, 2, 1);
       expect((await engine.continueDue(now: now)).state, 'played_one_step');
       var session = (await store.load())!;
       expect(session.lastAction, 'move');
@@ -341,7 +342,10 @@ void main() {
       );
 
       expect(
-        (await engine.continueDue(now: DateTime.now())).state,
+        (await engine.continueDue(
+          now: DateTime.now().add(const Duration(minutes: 1)),
+        ))
+            .state,
         'execution_failed',
       );
       expect(
