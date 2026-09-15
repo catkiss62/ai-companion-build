@@ -1,7 +1,7 @@
 status=success
-run_id=34957413847
-run_url=https://github.com/catkiss62/ai-companion-build/actions/runs/34957413847
-head_sha=ebb9bdb9ca60d20d06230316653ea33f9f906101
+run_id=34957849643
+run_url=https://github.com/catkiss62/ai-companion-build/actions/runs/34957849643
+head_sha=7fe5930f7776d6e2c69659b7ac3644b7255a65a1
 signer_sha256=30:5E:B3:D8:09:83:B9:63:C6:48:18:DD:F1:AD:56:1F:27:9D:E6:D4:7B:3E:D2:C7:81:AD:A4:48:C7:C2:51:48
-61bbf6b899b2f4c058ca154bca130202b9df23dd3d698d7c50daef7676885f12  AI-Companion-v0.41.77-221-Cedar-Agent-Runtime-APK.apk
-release_url=https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-0f2d68c5727698712956
+6ec8dddade41518e90af053c03bd500f64d3e8e5938807bf62ad6a366d6d804c  AI-Companion-v0.41.82-226-Cedar-State-Machine-E2E-APK.apk
+release_url=https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-6fff0a6242b90c8e0f99
