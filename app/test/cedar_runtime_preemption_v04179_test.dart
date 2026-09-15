@@ -24,7 +24,7 @@ class _BlockingClient extends http.BaseClient {
 }
 
 void main() {
-  test('late-night fatigue defers a committed unattended game', () {
+  test('late-night unattended game sleeps until the morning boundary', () {
     final decision = CedarContinuationGatePolicy.evaluate(
       now: DateTime(2026, 9, 15, 4, 40),
       storedFatigue: 0.74,
@@ -35,8 +35,8 @@ void main() {
     );
 
     expect(decision.allowed, isFalse);
-    expect(decision.reason, 'rest_wins');
-    expect(decision.delay, const Duration(minutes: 45));
+    expect(decision.reason, 'night_sleep');
+    expect(decision.delay, const Duration(hours: 2, minutes: 20));
     expect(decision.restScore, greaterThan(decision.playScore));
   });
 
