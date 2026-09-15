@@ -134,8 +134,6 @@ class RecoveryOrchestrator {
         cedarDelay = const Duration(seconds: 5);
       } else if (cedarContinuationState == 'action_in_progress') {
         cedarDelay = const Duration(seconds: 5);
-      } else if (cedarContinuationState == 'immersive_chat_page_visible') {
-        cedarDelay = const Duration(minutes: 2);
       } else if (cedarContinuationState == 'observe_failed') {
         cedarDelay = const Duration(seconds: 5);
       } else if (cedarContinuationState == 'play_failed' ||
@@ -149,6 +147,8 @@ class RecoveryOrchestrator {
           cedarContinuationState == 'queued_guide_failed' ||
           cedarContinuationState == 'queued_game_not_in_catalog') {
         cedarDelay = const Duration(minutes: 1);
+      } else if (cedarContinuationState == 'execution_failed') {
+        cedarDelay = const Duration(seconds: 15);
       } else if (cedarContinuationState == 'failed' ||
           cedarContinuationState.endsWith('failed')) {
         cedarDelay = const Duration(seconds: 30);
@@ -241,7 +241,6 @@ class RecoveryOrchestrator {
       await _guardOrchestratorOwnership();
       if (cedarContinuationState != 'user_chat' &&
           cedarContinuationState != 'action_in_progress' &&
-          cedarContinuationState != 'immersive_chat_page_visible' &&
           cedarContinuationState != 'observe_failed' &&
           cedarContinuationState != 'failed' &&
           !cedarContinuationState.endsWith('failed') &&

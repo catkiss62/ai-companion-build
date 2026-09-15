@@ -44,8 +44,8 @@ class CedarJsonDecisionRetryPolicy {
       error is EmptyJsonCompletionException ||
       error is MalformedJsonCompletionException ||
       error is FormatException ||
-      (error is! TimeoutException &&
-          FinalReplyFailurePolicy.isTransient(error));
+      error is TimeoutException ||
+      FinalReplyFailurePolicy.isTransient(error);
 
   static String errorCategory(Object error) {
     if (error is EmptyJsonCompletionException) return 'empty_model_content';
@@ -198,6 +198,7 @@ class CedarAgentActionPlanner {
     required String instruction,
     required bool Function(String action) acceptsAction,
     GenerationCancellationToken? cancellationToken,
+    Duration requestTimeout = const Duration(seconds: 45),
   }) async {
     Object? lastError;
     for (var attempt = 1; attempt <= maxAttempts; attempt++) {
@@ -213,6 +214,12 @@ class CedarAgentActionPlanner {
                   '不要解释，不要再次查询状态；现在必须调用一次 cedar_toy_play，选择指南允许的真实推进动作。',
           thinking: attempt == 1,
           cancellationToken: cancellationToken,
+          requestTimeout: attempt == 1
+              ? requestTimeout
+              : Duration(
+                  milliseconds:
+                      requestTimeout.inMilliseconds.clamp(1, 20000).toInt(),
+                ),
         );
         final decision = _parse(call, expectedGameId: gameId);
         if (!acceptsAction(decision.action)) {
@@ -239,6 +246,7 @@ class CedarAgentActionPlanner {
     required String correction,
     required bool thinking,
     GenerationCancellationToken? cancellationToken,
+    required Duration requestTimeout,
   }) async {
     final definitions = AgentToolPlanner.nativeToolDefinitionsFor(
       '继续当前 Cedar 游戏',
@@ -278,7 +286,7 @@ class CedarAgentActionPlanner {
       tools: <Map<String, Object?>>[tool],
       toolChoice: 'required',
       cancellationToken: cancellationToken,
-      requestTimeout: const Duration(seconds: 30),
+      requestTimeout: requestTimeout,
       messages: <Map<String, Object?>>[
         <String, Object?>{'role': 'system', 'content': instruction},
         if (correction.isNotEmpty)
@@ -397,9 +405,10 @@ class CedarContinuationGatePolicy {
     required double strongestGameThought,
     required bool activelyWatched,
   }) {
+    final localNow = now.toLocal();
     final fatigue = max(
       storedFatigue.clamp(0.0, 1.0).toDouble(),
-      DesireCorePolicy.circadianFatigueFloor(now.toLocal()),
+      DesireCorePolicy.circadianFatigueFloor(localNow),
     );
     final restScore = DesireCorePolicy.fatigueRestScore(fatigue);
     final playScore = (max(curiosity, reflection * 0.82) +
@@ -409,6 +418,22 @@ class CedarContinuationGatePolicy {
             DesireCorePolicy.fatigueActionPenalty(fatigue))
         .clamp(0.0, 0.92)
         .toDouble();
+    if (!activelyWatched && localNow.hour < 7) {
+      final wakeAt = DateTime(
+        localNow.year,
+        localNow.month,
+        localNow.day,
+        7,
+      );
+      return CedarContinuationGateDecision(
+        allowed: false,
+        delay: wakeAt.difference(localNow),
+        reason: 'night_sleep',
+        effectiveFatigue: fatigue,
+        playScore: playScore,
+        restScore: restScore,
+      );
+    }
     if (fatigue < DesireCorePolicy.fatigueCompetitionFloor ||
         playScore > restScore + 0.04) {
       return CedarContinuationGateDecision(
@@ -466,6 +491,7 @@ class _CedarExecutionScope {
       GenerationCancellationToken();
   Timer? _timer;
   bool _checking = false;
+  DateTime _nextLeaseRenewAt = DateTime.fromMillisecondsSinceEpoch(0);
   String preemptReason = '';
 
   Future<void> start() async {
@@ -491,6 +517,16 @@ class _CedarExecutionScope {
         reason = 'foreground_chat';
       } else if (!await store.isExecutionCurrent(executionId)) {
         reason = 'execution_fenced';
+      } else if (!DateTime.now().isBefore(_nextLeaseRenewAt)) {
+        final renewed = await db.renewLocalLease(
+          'cedar_toy_action_lease_until',
+          holdFor: const Duration(minutes: 2),
+        );
+        if (!renewed) {
+          reason = 'action_lease_lost';
+        } else {
+          _nextLeaseRenewAt = DateTime.now().add(const Duration(seconds: 45));
+        }
       }
       if (reason.isEmpty) return;
       preemptReason = reason;
@@ -522,7 +558,14 @@ class CedarToyAutonomyEngine {
     required this.db,
     required this.ai,
     required this.secureConfig,
-  });
+    Future<String?> Function()? tokenReader,
+    Future<String?> Function()? apiKeyReader,
+    Future<String> Function()? endpointReader,
+    CedarToyClient Function(String token)? clientFactory,
+  })  : _tokenReader = tokenReader,
+        _apiKeyReader = apiKeyReader,
+        _endpointReader = endpointReader,
+        _clientFactory = clientFactory;
 
   static const enabledKey = 'cedar_toy_autonomy_enabled';
   static const shareEnabledKey = 'cedar_toy_game_share_enabled';
@@ -532,6 +575,24 @@ class CedarToyAutonomyEngine {
   final AppDatabase db;
   final DeepSeekClient ai;
   final SecureConfig secureConfig;
+  final Future<String?> Function()? _tokenReader;
+  final Future<String?> Function()? _apiKeyReader;
+  final Future<String> Function()? _endpointReader;
+  final CedarToyClient Function(String token)? _clientFactory;
+
+  Future<String> _readToken() async =>
+      ((await (_tokenReader?.call() ?? secureConfig.readCedarToyToken())) ?? '')
+          .trim();
+
+  Future<String> _readApiKey() async =>
+      ((await (_apiKeyReader?.call() ?? secureConfig.readApiKey())) ?? '')
+          .trim();
+
+  Future<String> _readEndpoint() =>
+      _endpointReader?.call() ?? secureConfig.readEndpoint();
+
+  CedarToyClient _client(String token) =>
+      _clientFactory?.call(token) ?? CedarToyClient(token: token);
 
   Future<CedarAutonomyProgress> _runExecution({
     required CedarToyActivityStore store,
@@ -557,7 +618,10 @@ class CedarToyAutonomyEngine {
       );
       await scope.start();
       scope.throwIfPreempted();
-      return await body(scope);
+      final progress = await body(scope);
+      await db.setSetting('cedar_toy_last_execution_error_category', '');
+      await db.setSetting('cedar_toy_last_execution_error_at', '0');
+      return progress;
     } on GenerationCancelledByUserException {
       final preemptReason = scope?.preemptReason ?? '';
       final reason = preemptReason.isEmpty ? 'cancelled' : preemptReason;
@@ -574,7 +638,7 @@ class CedarToyAutonomyEngine {
         try {
           await store.deferContinuation(
             gameId: gameId,
-            delay: const Duration(minutes: 5),
+            delay: const Duration(seconds: 15),
             executionId: executionId,
           );
         } on CedarExecutionPreemptedException {
@@ -647,7 +711,7 @@ class CedarToyAutonomyEngine {
         (await db.getSetting(enabledKey)) == '0') {
       return const CedarAutonomyAvailability(false, 'disabled');
     }
-    final token = (await secureConfig.readCedarToyToken())?.trim() ?? '';
+    final token = await _readToken();
     if (token.isEmpty) {
       return const CedarAutonomyAvailability(false, 'unconfigured');
     }
@@ -688,7 +752,7 @@ class CedarToyAutonomyEngine {
   Future<Duration?> continuationDelay({required DateTime now}) async {
     if ((await db.getSetting('cedar_toy_enabled')) == '0' ||
         (await db.getSetting(enabledKey)) == '0') return null;
-    final token = (await secureConfig.readCedarToyToken())?.trim() ?? '';
+    final token = await _readToken();
     if (token.isEmpty) return null;
     return CedarToyActivityStore(db).nextContinuationDelay(now);
   }
@@ -697,16 +761,16 @@ class CedarToyAutonomyEngine {
     final delay = await continuationDelay(now: now);
     if (delay == null) return const CedarAutonomyProgress('no_continuation');
     if (delay > Duration.zero) return const CedarAutonomyProgress('not_due');
-    final token = (await secureConfig.readCedarToyToken())?.trim() ?? '';
-    final apiKey = (await secureConfig.readApiKey())?.trim() ?? '';
+    final token = await _readToken();
+    final apiKey = await _readApiKey();
     if (token.isEmpty || apiKey.isEmpty) {
       return const CedarAutonomyProgress('missing_config');
     }
     final store = CedarToyActivityStore(db);
     final state = await store.loadState();
     final session = state.activeSession;
-    final endpoint = await secureConfig.readEndpoint();
-    final client = CedarToyClient(token: token);
+    final endpoint = await _readEndpoint();
+    final client = _client(token);
     if (state.queuedSwitches.isNotEmpty) {
       final queued = state.queuedSwitches.first;
       final catalog = await store.loadCatalog();
@@ -787,13 +851,13 @@ class CedarToyAutonomyEngine {
   Future<CedarAutonomyProgress> progress({required DateTime now}) async {
     final availability = await this.availability(now: now);
     if (!availability.available) return CedarAutonomyProgress(availability.reason);
-    final token = (await secureConfig.readCedarToyToken())?.trim() ?? '';
-    final apiKey = (await secureConfig.readApiKey())?.trim() ?? '';
+    final token = await _readToken();
+    final apiKey = await _readApiKey();
     if (token.isEmpty || apiKey.isEmpty) {
       return const CedarAutonomyProgress('missing_config');
     }
-    final endpoint = await secureConfig.readEndpoint();
-    final client = CedarToyClient(token: token);
+    final endpoint = await _readEndpoint();
+    final client = _client(token);
     final store = CedarToyActivityStore(db);
     var session = await store.load();
     if (session?.isUnroutableRemoteWait == true) {
@@ -1149,14 +1213,11 @@ ${store.promptContext(session, state: state, playProtocol: playProtocol)}''',
         session.hasContinuationCall ||
         session.hasPendingRoomMessage ||
         session.ownRoomAliases.isNotEmpty;
-    if (!platformAction &&
-        sharedRuntime &&
-        _guideSupportsParameter(session.guide, action, 'wait')) {
-      // A move and a long poll are separate operations. Waiting on the same
-      // request can commit the move remotely and then make the local 25-second
-      // transport timeout look like a failed move. Ask Cedar for the immediate
-      // committed result; follow its returned next_call for observation.
-      params['wait'] = false;
+    if (!platformAction && sharedRuntime) {
+      params = CedarActionTransportPolicy.immediateResponseParams(
+        gameId: session.gameId,
+        params: params,
+      );
     }
     var roomMessage = '';
     if (!platformAction &&
@@ -1192,6 +1253,7 @@ ${store.promptContext(session, state: state, playProtocol: playProtocol)}''',
         await store.markWriteOutcomeUncertain(
           gameId: session.gameId,
           action: action,
+          params: params,
           executionId: scope.executionId,
         );
         return const CedarAutonomyProgress('write_outcome_sync');
@@ -1261,6 +1323,16 @@ ${store.promptContext(session, state: state, playProtocol: playProtocol)}''',
     final structured = _resolveMcpTurnState(outcome);
     final structuredResume =
         McpResumeAfterResolver.resolveStructured(outcome.structuredContent);
+    // Turn ownership and cadence from Cedar are the complete control result.
+    // Persist them immediately; an optional model classification must never
+    // sit between a committed remote move and the local durable state update.
+    if (structured != null) {
+      return (
+        nextActor: structured.nextActor,
+        shareLevel: 'quiet',
+        resumeAfterSeconds: structuredResume ?? 0,
+      );
+    }
     if (outcomeText.length > CedarToyActivityStore.maxGuidePromptChars) {
       return (
         nextActor: structured?.nextActor ?? 'wait',

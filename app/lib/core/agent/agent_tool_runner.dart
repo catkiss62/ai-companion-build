@@ -640,6 +640,10 @@ class AgentToolRunner {
         continuationRecommended: true,
       );
     }
+    params = CedarActionTransportPolicy.immediateResponseParams(
+      gameId: game,
+      params: params,
+    );
     final client = await _cedarToyClient();
     if (client == null) return _cedarUnavailable(AgentToolRegistry.cedarToyPlay.id);
     final actionLease = await db.tryAcquireLocalLease(
@@ -680,6 +684,7 @@ class AgentToolRunner {
           await activityStore.markWriteOutcomeUncertain(
             gameId: game,
             action: action,
+            params: params,
             executionId: executionId,
           );
         }
@@ -693,6 +698,7 @@ class AgentToolRunner {
               ? 'Cedar $action 的网络回包没有完整到达；该写操作可能已在远端发生，本轮绝不能原样重放。已有 next_call 时后台会先同步真实状态；否则如实说明结果未知。'
               : 'Cedar $action 没有成功：${CedarToyClient.redactSecrets(error.toString())}。不得编造结果或原样重放写操作。',
           errorCode: 'cedar_${error.code}',
+          continuationRecommended: error.code == 'network_or_timeout',
         );
       }
       final verification = outcome.isError || platformAction
@@ -773,6 +779,19 @@ class AgentToolRunner {
     GenerationCancellationToken? cancellationToken,
   }) async {
     final structured = _resolveMcpTurnState(outcome);
+    final structuredResume =
+        McpResumeAfterResolver.resolveStructured(outcome.structuredContent);
+    // Cedar already returned the control state. Save it without inserting a
+    // second provider request between the remote commit and durable local
+    // continuation; that optional classifier previously made successful game
+    // actions look like a frozen ordinary chat turn.
+    if (structured != null) {
+      return (
+        nextActor: structured.nextActor,
+        shareLevel: 'quiet',
+        resumeAfterSeconds: structuredResume ?? 0,
+      );
+    }
     if (outcome.text.length > CedarToyActivityStore.maxGuidePromptChars) {
       return (
         nextActor: structured?.nextActor ?? 'wait',
@@ -791,6 +810,7 @@ class AgentToolRunner {
         effort: ReasoningEffort.high,
         maxTokens: 420,
         cancellationToken: cancellationToken,
+        requestTimeout: const Duration(seconds: 20),
         messages: <Map<String, Object?>>[
           <String, Object?>{
             'role': 'system',

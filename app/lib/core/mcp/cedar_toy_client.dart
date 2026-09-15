@@ -8,7 +8,13 @@ class CedarToyClient {
     required this.token,
     McpHttpClient? transport,
   }) : transport = transport ??
-            McpHttpClient(endpoint: endpointForToken(token));
+            McpHttpClient(
+              endpoint: endpointForToken(token),
+              // Duel's canonical state wait may hold the request for 30s.
+              // Keep the transport beyond that heartbeat so an ordinary
+              // empty poll remains state instead of becoming a false timeout.
+              timeout: const Duration(seconds: 40),
+            );
 
   static const baseUrl = 'https://toy.cedarstar.org/';
   static final RegExp _tokenPattern = RegExp(r'ctai_v1_[A-Za-z0-9_-]+');

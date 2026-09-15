@@ -83,6 +83,28 @@ class AppDatabase {
   AppDatabase._();
 
   static final AppDatabase instance = AppDatabase._();
+
+  /// Opens the real schema on an isolated database factory. This exists so
+  /// state-machine tests exercise the same SQL transactions as Android rather
+  /// than asserting source strings or reimplementing database behavior.
+  static Future<AppDatabase> createForTesting(
+    DatabaseFactory factory, {
+    String path = inMemoryDatabasePath,
+  }) async {
+    final instance = AppDatabase._();
+    final opened = await factory.openDatabase(path);
+    await instance._createSchema(opened);
+    instance._db = opened;
+    return instance;
+  }
+
+  Future<void> closeForTesting() async {
+    final opened = _db;
+    _db = null;
+    _opening = null;
+    _ownedLeaseTokens.clear();
+    if (opened != null) await opened.close();
+  }
   static const String dbName = 'ai_companion.db';
   // Historical validator compatibility token: static const int schemaVersion = 24;
   // Historical validator compatibility token: static const int schemaVersion = 25;
@@ -7003,8 +7025,9 @@ class AppDatabase {
 
   /// Terminally fences one reply and withdraws its user turn when Stop wins.
   ///
-  /// This is intentionally valid for pending, running, retry-wait, and failed
-  /// jobs. A Stop pressed after the stream has already failed must still win.
+  /// This is intentionally valid for pending, running, retry-wait,
+  /// awaiting-confirmation, and failed jobs. A Stop pressed after the stream
+  /// has already failed or parked a partial draft must still win.
   /// Clearing run_token and deleting the user message in one transaction means
   /// future prompts, memory extraction and either chat surface cannot observe
   /// a half-turn. If completion commits first, its completed status makes this
@@ -7039,7 +7062,7 @@ class AppDatabase {
             'completed_at': now,
             'updated_at': now,
           },
-          where: "id = ? AND status IN ('pending','running','retry_wait','failed')",
+          where: "id = ? AND status IN ('pending','running','retry_wait','awaiting_confirmation','failed')",
           whereArgs: [id],
         );
         cancelled = changed == 1;

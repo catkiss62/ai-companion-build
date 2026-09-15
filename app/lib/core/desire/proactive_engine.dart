@@ -31,6 +31,7 @@ import '../models/proactive_intent.dart';
 import '../models/proactive_frequency.dart';
 import '../models/proactive_notification_settings.dart';
 import '../models/thought.dart';
+import '../mcp/cedar_game_protocol.dart';
 import '../mcp/cedar_toy_activity.dart';
 import '../mcp/cedar_toy_autonomy_engine.dart';
 import '../perception/perception_engine.dart';
@@ -203,10 +204,9 @@ class ProactiveEngine {
   Future<String> continueCedarActivityIfDue({required DateTime now}) async {
     if ((await db.getSetting('transfer_lock')) == '1' ||
         !(await db.brainWorkAllowed())) return 'inactive_brain';
-    if (await db.isLocalLeaseHeld('chat_turn_lease')) return 'user_chat';
-    if (await android.isImmersiveChatPageVisible()) {
-      return 'immersive_chat_page_visible';
-    }
+    if (CedarContinuationPriorityPolicy.shouldDefer(
+      chatTurnLeaseHeld: await db.isLocalLeaseHeld('chat_turn_lease'),
+    )) return 'user_chat';
     final result = await cedarToyAutonomy.continueDue(now: now);
     return result.state;
   }

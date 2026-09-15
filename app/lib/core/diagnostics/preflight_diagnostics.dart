@@ -404,6 +404,26 @@ class PreflightDiagnosticsService {
               ) ??
               '')
           .trim();
+      final cedarExecutionErrorCategory = (await db.getSetting(
+                'cedar_toy_last_execution_error_category',
+              ) ??
+              '')
+          .trim();
+      cedarRealtime['enabled'] =
+          (await db.getSetting('cedar_toy_enabled')) != '0';
+      cedarRealtime['autonomyEnabled'] =
+          (await db.getSetting('cedar_toy_autonomy_enabled')) != '0';
+      cedarRealtime['lastContinuationState'] =
+          (await db.getSetting('cedar_toy_last_continuation_state') ?? 'never')
+              .trim();
+      cedarRealtime['lastExecutionErrorCategory'] =
+          cedarExecutionErrorCategory.isEmpty
+              ? 'none'
+              : cedarExecutionErrorCategory;
+      cedarRealtime['lastExecutionErrorAt'] = int.tryParse(
+            await db.getSetting('cedar_toy_last_execution_error_at') ?? '',
+          ) ??
+          0;
       cedarRealtime['lastObserveErrorCategory'] =
           cedarObserveErrorCategory.isEmpty ? 'none' : cedarObserveErrorCategory;
       cedarRealtime['playerProtocolCached'] =

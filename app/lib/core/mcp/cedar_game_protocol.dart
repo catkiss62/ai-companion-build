@@ -109,6 +109,37 @@ class CedarPlatformActionPolicy {
       }.contains(action);
 }
 
+/// Keeps a Cedar action and a server-side long poll as two different durable
+/// operations. CedarDuet may commit `new`/`move` before waiting for the other
+/// player; the generic MCP transport times out sooner than that wait window,
+/// so carrying `wait=true` on an ordinary action makes a successful write look
+/// like a failed one. The immediate outcome is persisted first and its
+/// `next_call` is then owned by the background continuation loop.
+class CedarActionTransportPolicy {
+  const CedarActionTransportPolicy._();
+
+  static Map<String, Object?> immediateResponseParams({
+    required String gameId,
+    required Map<String, Object?> params,
+  }) {
+    final normalized = Map<String, Object?>.from(params);
+    if (gameId == 'duel' && normalized['wait'] == true) {
+      normalized['wait'] = false;
+    }
+    return normalized;
+  }
+}
+
+/// Merely displaying the APK chat page is not active foreground work. A real
+/// chat lease preempts Cedar atomically; page visibility alone must not strand
+/// a committed room turn forever.
+class CedarContinuationPriorityPolicy {
+  const CedarContinuationPriorityPolicy._();
+
+  static bool shouldDefer({required bool chatTurnLeaseHeld}) =>
+      chatTurnLeaseHeld;
+}
+
 /// Minimal player-operation signatures for a known upstream guide omission.
 ///
 /// These fields describe how to submit an action; they contain no strategy,

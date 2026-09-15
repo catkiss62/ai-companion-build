@@ -5,6 +5,7 @@ import 'package:uuid/uuid.dart';
 import '../database/app_database.dart';
 import 'cedar_agent_loop_policy.dart';
 import 'cedar_game_protocol.dart';
+import 'cedar_duel_observer_resolver.dart';
 import 'cedar_toy_client.dart';
 import 'mcp_protocol.dart';
 import 'mcp_turn_state_resolver.dart';
@@ -1058,15 +1059,37 @@ class CedarToyActivityStore {
   Future<void> markWriteOutcomeUncertain({
     required String gameId,
     required String action,
+    Map<String, Object?> params = const <String, Object?>{},
     String executionId = '',
   }) async {
     final state = await loadState();
     final session = state.sessions[gameId];
     if (session == null) return;
     final now = DateTime.now();
-    final canSynchronize = session.mode.supportsSharedParticipation &&
-        session.invitationApproved &&
-        session.hasContinuationCall;
+    McpContinuationCall? reconciliation;
+    if (gameId == 'duel') {
+      final roomId = params['room_id']?.toString().trim() ?? '';
+      reconciliation = roomId.isEmpty
+          ? const McpContinuationCall(
+              game: 'duel',
+              action: 'rooms',
+              params: <String, Object?>{},
+              waitScope: 'write_reconcile_once',
+            )
+          : McpContinuationCall(
+              game: 'duel',
+              action: 'state',
+              params: <String, Object?>{
+                'room_id': roomId,
+                'full_state': true,
+                'wait': false,
+              },
+              waitScope: 'write_reconcile_once',
+            );
+    } else if (session.hasContinuationCall) {
+      reconciliation = _savedContinuation(session);
+    }
+    final canSynchronize = reconciliation != null;
     final event = CedarGameEvent(
       id: 'sync-${now.microsecondsSinceEpoch}',
       kind: 'write_outcome_uncertain',
@@ -1090,6 +1113,11 @@ class CedarToyActivityStore {
             : const Duration(seconds: 15),
       ),
       updatedAt: now,
+      continuationAction: reconciliation?.action,
+      continuationParamsJson:
+          reconciliation == null ? null : jsonEncode(reconciliation.params),
+      continuationWaitScope: reconciliation?.waitScope,
+      clearContinuation: reconciliation == null,
       events: _append(session.events, event),
     );
     final saved = await _saveState(state.copyWith(
@@ -1197,10 +1225,18 @@ class CedarToyActivityStore {
     // returns a fresh snapshot without another next_call, renew the same
     // already-authorized read action instead of silently dropping the room
     // observer. A different write action never inherits it.
+    final derivedDuelObserver = gameId == 'duel' &&
+            returnedContinuation == null &&
+            const <String>{'user', 'shared', 'wait'}.contains(normalizedActor)
+        ? (_duelObserver(outcome))
+        : null;
+    final renewableServerWait =
+        existing.continuationWaitScope == 'current_request_only' &&
+            action == existing.continuationAction &&
+            const <String>{'user', 'shared', 'wait'}.contains(normalizedActor);
     final continuation = returnedContinuation ??
-        (!outcome.isError &&
-                action == existing.continuationAction &&
-                normalizedActor != 'finished'
+        derivedDuelObserver ??
+        (!outcome.isError && renewableServerWait
             ? _savedContinuation(existing)
             : null);
     final phase = switch (normalizedActor) {
@@ -1944,6 +1980,21 @@ ${CedarPlayerProtocolContract.actionSignaturesFor(session.gameId)}
         continue;
       }
       final resolved = McpContinuationCallResolver.resolve(block.text);
+      if (resolved != null) return resolved;
+    }
+    return null;
+  }
+
+  static McpContinuationCall? _duelObserver(McpToolOutcome outcome) {
+    final structured = CedarDuelObserverResolver.resolveStructured(
+      outcome.structuredContent,
+    );
+    if (structured != null) return structured;
+    for (final block in outcome.content) {
+      if (block.kind != McpContentKind.text || block.text.trim().isEmpty) {
+        continue;
+      }
+      final resolved = CedarDuelObserverResolver.resolve(block.text);
       if (resolved != null) return resolved;
     }
     return null;

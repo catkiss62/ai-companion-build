@@ -40,7 +40,7 @@ void main() {
     expect(decision.restScore, greaterThan(decision.playScore));
   });
 
-  test('a genuinely strong game motive may beat rest competition', () {
+  test('a genuinely strong game motive cannot bypass unattended night sleep', () {
     final decision = CedarContinuationGatePolicy.evaluate(
       now: DateTime(2026, 9, 15, 1, 0),
       storedFatigue: 0.60,
@@ -50,8 +50,22 @@ void main() {
       activelyWatched: false,
     );
 
+    expect(decision.allowed, isFalse);
+    expect(decision.reason, 'night_sleep');
+    expect(decision.delay, const Duration(hours: 6));
+  });
+
+  test('active night watching remains an explicit user-paced exception', () {
+    final decision = CedarContinuationGatePolicy.evaluate(
+      now: DateTime(2026, 9, 15, 1, 0),
+      storedFatigue: 0.60,
+      curiosity: 0.82,
+      reflection: 0.55,
+      strongestGameThought: 0.95,
+      activelyWatched: true,
+    );
+
     expect(decision.allowed, isTrue);
-    expect(decision.playScore, greaterThan(decision.restScore));
   });
 
   test('Cedar JSON cancellation closes a blocked planner immediately', () async {
@@ -75,7 +89,7 @@ void main() {
     client.close();
   });
 
-  test('a provider timeout is not retried inside the same Cedar cycle', () async {
+  test('a provider timeout retries once with the bounded fallback', () async {
     var clientsCreated = 0;
     final client = DeepSeekClient(
       jsonClientFactory: () {
@@ -94,12 +108,12 @@ void main() {
     );
 
     await expectLater(request, throwsA(isA<TimeoutException>()));
-    expect(clientsCreated, 1);
+    expect(clientsCreated, 2);
     expect(
       CedarJsonDecisionRetryPolicy.isRetryable(
         TimeoutException('provider stalled'),
       ),
-      isFalse,
+      isTrue,
     );
     client.close();
   });
