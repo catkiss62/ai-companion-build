@@ -33,8 +33,8 @@
 | 当前开发分支 | `agent/v04183-cedar-native-agent-loop` |
 <!-- Historical validator token: agent/v04182-cedar-state-machine-e2e -->
 | 当前目标版本 | `v0.41.83+227 / schema 61 / Snapshot protocol 6` |
-| 当前状态 | `IMPLEMENTED / CI PENDING / TRUE DEVICE PENDING` |
-| 当前真机失败基线 | `v0.41.82+226`；最新诊断为 `active/multiplayer/nextActor=companion/lastAction=state`，前台 Cedar 工具曾成功，但后台 execution 失败并只记录 `other`。代码审计确认后台使用专有 `tool_choice=required`、已开局仍过疲劳/夜间 Gate，且长轮询唤醒后要等下一 heartbeat 才行动 |
+| 当前状态 | `CI PASSED / APK READY / TRUE DEVICE PARTIAL · BACKGROUND PAYLOAD + TERMINAL HANDOFF BUGS FOUND` |
+| 当前真机失败基线 | `v0.41.83+227`；真机已经证明能建房并连续自动接招多步，但后台一次原生 `play` 只给出动作名、遗漏必需业务参数，服务端拒绝后恢复查询同样缺参数并停住。随后前台提醒可继续落子；最终 Cedar 终局真值已写入 APK，却没有交给普通聊天或主动联系，导致她不知道胜负。另确认自主联系的新话题通道主动清空最近聊天，Usage/Accessibility 推断会跨熄屏空档夸大持续使用，情绪短音效在隐藏情绪标签到达时即播放、早于可见正文 |
 | `main` | 仍是 v0.38.5 旧基线；不得作为 v0.41.x 后续开发起点，本批不合并 |
 | +219 构建提交 | 远端功能 head `0295ceeeafe9e18f057b6f8f5d54a8dae8820ed2`；tree `3cf8a09813c135b8bce4e5b9a66381ba2a03f5cf` |
 | +220 构建提交 | 远端功能 head `f3a4e95e35c5ca47fb68e84aa8d12a850cfbd91a`；tree `0efb121197441a2522f987a5b506e32dda53e555` |
@@ -42,28 +42,60 @@
 | +222 构建提交 | 远端功能提交 `ccbe5bcbe9b3fc65941846f74aa4d95b6be50c7d`；授权提交/head `93fcb2fbbf78be80a5da9724fd6b051956e1ff34`；最终 tree `f167bdf6a16700333a978f5f6b99498fdfec3974` |
 | +223 构建提交 | 远端功能提交 `2217a5021b9175cd612fadd45fa9b68a58b9ea24`；实现总账提交 `54ea75e50501fd27281cc4d985e76dabd8aca7d9`；构建触发 head `c90b60d5d456e5d30512a088592cf94f2ce4478f`；构建 tree `342d431730d6d3f0568b4e2525d8ab9b0e36a7c5` |
 | +226 构建提交 | 权威状态机功能提交 `d1b3c0dcb45ac9aad1c808452bb3c8ce4c8ce4e5`；构建准备提交 `c37f02d6a2a06678ffc83cd493e296aadd2be22d`；最终构建 head `7fe5930f7776d6e2c69659b7ac3644b7255a65a1`；最终 tree `4fafd7c4fbf94b84b9d446d1a6565455fc654cb8` |
-| 当前构建产物 | Actions run `34957849643`；Artifact `10392840422`（ZIP digest `e88cb2422f94f88f681003dc9ce3a91ac8631c14d3ef858815f5639bfebe8837`）；未发布 Draft `https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-6fff0a6242b90c8e0f99`；APK SHA-256 `6ec8dddade41518e90af053c03bd500f64d3e8e5938807bf62ad6a366d6d804c` |
+| +227 构建提交 | 远端构建 head `50f98dc95f1bbb24ae65b9e3e4c4320db142423e`；tree `d16e5db8684e917c9dcbabe34d6e55f0979b0614`；本地等价 tree 相同 |
+| 当前构建产物 | Actions run `34986707242` 全绿，`831/831` Flutter tests；Artifact `10403779518`（ZIP digest `2af91b0804c9d7d6f6a29eff9437943b4d047afd891ca6785ad2c869ae54269d`）；未发布 Draft `https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-b7c7b05ece3557dbdeb1`；APK SHA-256 `be380911b7f5deb2e8b50a4e8d4f9363f94c0e7399fb75a4ca227c22922fa028` |
 
 既有能力保护索引：Desire / Thought / Intent / Gate、Somatic 双通道、玩游 Key、普通聊天、沉浸房间、查手机、造梗来源、D6、Phase 2B、App 内 Agent 能力桥、Memory 2D、`fact_state / attention_state / recall_policy`、`spontaneous_salience`、`reminiscence/identity`、Skills、MCP、`【检查系统】`、中断灰显、Token 命中/缓存优化、Phase 3、Harness、`screen_observation.inspect`、Genie-TTS 四音色、schema 61 与 Snapshot protocol 6 均不得回归。
 
-## 4. 当前任务：v0.41.83+227 Cedar 原生 Agent 续接闭环
+## 4. 当前任务：+227 真机复盘与下一批修复边界（本轮只记账）
 
-### 最新真机证据与本批确定根因
+### +227 自动化闭环与真机结论
 
-- 2026-09-15 诊断明确记录 `activeSession=true / mode=multiplayer / nextActor=companion / lastAction=state / continuationPending=false`，紧接着 `lastContinuationState=execution_failed / lastExecutionErrorCategory=other`。Cedar 已把回合交给伴侣，阻断发生在 APK 后台动作规划，不是网页、房间或 MCP 没响应。
-- 官方 CedarDuet 本地标准 MCP 已完成真实进程级 E2E：只暴露一个 `play` 工具；`new → AI move(wait=true) → 人类网页落子唤醒同一调用 → AI move → 终局` 全程成功。故障范围已收敛到项目自建编排层。
-- 前台 Agent 用 `DeepSeekClient.streamChat(tools: ...)` 的默认 `tool_choice=auto`；后台私有 Planner 却强制 `required`。两边还各自实现一套 SSE tool-call 拼接。服务端 `state(wait=true)` 返回 `your_turn=true` 后，后台只落库并结束，要靠下一次 scheduler 才真正落子。
-- 已建立 session 每一步仍经过本地疲劳/夜间竞争，等于服务端已经授权继续，APK 又二次撤销。异常再被统一压成 `other`，导致真机反复测试看不到 provider 的 HTTP 状态和原始脱敏原因。
+- `v0.41.83+227 / schema 61 / Snapshot protocol 6` 已在远端构建 head `50f98dc` 完成源码与历史门、Kotlin/JVM、Flutter Analyze、`831/831` Flutter tests、arm64 Release、固定签名、Genie/桌宠/LingChat/塔罗载荷、checksum、Artifact 与 Draft；严格状态是 `CI PASSED / APK READY`。
+- 真机不再是“完全不能下棋”：同一局真实完成建房、网页玩家与伴侣多轮交替，后台连续保存多次 `state → move → state → move`，证明 +227 的 `tool_choice=auto`、共享 SSE tool-call 组装、长轮询同 execution 换手与 execution 生命周期修复均实际生效。
+- 但真机仍未达到共玩闭环，因此只能标记 `TRUE DEVICE PARTIAL`。本轮用户明确要求不改代码、不构建，只记录证据、根因和下一批次顺序；不得把下述方案写成已实现。
 
-### 本批实现与完成判据
+### P0-A：后台动作参数没有在出站前形成可执行契约
 
-1. 前后台共用 `AgentNativeToolCallAccumulator` 与 `AgentToolPlanner.fromNativeToolCalls`；后台 origin 明确为 `autonomous`，`AgentToolRunner` 只放行 registry 中 `autonomousAvailable=true` 的能力并按真实 origin 审计。
-2. 后台 Cedar 请求与前台一致使用 `tool_choice=auto`，仍只暴露当前 game 锁定的 `cedar_toy_play` schema；空调用、错误工具、错误 game、损坏 params 和重复只读动作只允许一次有界纠正。
-3. 已建立 session 不再逐步通过疲劳/夜间 Desire Gate。聊天写租约、Stop、备份 freeze、Cedar 双开关、execution fence 与远端防沉迷仍是硬边界；新游戏选择继续由 Desire 决定。
-4. `state(wait=true)` 唤醒并返回 companion 回合后，在同一个 execution/lease 内立即进入有界 Agent 循环并真实落子；每次依据新持久化的 Cedar 权威状态判断继续、等待或终局，不要求用户在 APK 再说一句。
-5. provider 失败保存 `provider_http_<status>` 和最多 500 字的脱敏 detail，成功时同时清空；诊断新增 `lastExecutionErrorDetail`，不再用无法定位的 `other` 掩盖请求层错误。
-6. 新测试覆盖 request shape、共享原生解析、自主 registry 权限、凌晨已建立 session 继续、长轮询唤醒后同 execution 落子、HTTP 400 可观测，以及既有写超时对账、Stop/备份、开关和 transport 合同。
-7. 当前尚未生成或提供 APK。必须先由唯一一次 Actions 候选构建通过源码门、Kotlin/JVM、Flutter Analyze、全量 Flutter tests、arm64 Release、固定签名和校验；失败就在代码/CI 内修，不把未闭环包交给用户反复试。
+- 终局前一次服务端只读状态已明确返回“轮到伴侣”及新 revision。后台随后选择了合法动作名 `move`，但 `params` 遗漏必需的 `move` 对象；Cedar 返回结构化 `missing_move_fields`。下一次恢复又调用 `state` 但遗漏 `room_id`，再次被拒；随后 `rooms` 成功找回唯一进行中房间，却没有确定性补全 `room_id / revision / full_state` 并继续，最终仍需用户回 APK 提醒。
+- 诊断同时保留 `agentActionRetryLastCategory=non_executable_action`，且这次真机时间线中没有对应的 `origin=autonomous` 成功工具审计；随后两次成功 Cedar 调用均来自 `user_turn`。故障在 APK 后台参数规划/校验，不是 Cedar 网站、房间、回合识别、Android 后台存活或 MCP transport。
+- 当前 `CedarAgentActionPlanner._parse` 只验证“恰好一个工具、工具名、game、action 非空、params 是 object”；`acceptsAction` 只验证动作名存在且不重复只读。它没有按实时 `play` schema、指南动作签名和当前 session 校验 action-specific required fields，`CedarActionTransportPolicy` 也只处理 `wait=false`，不会补齐房间身份或 revision。
+- 下一批应建立一个前后台共用的 `CedarExecutableCall` 边界：模型仍自主选策略与落点，但在任何网络写入前，按实时 schema + 当前权威 session 校验 `room_id / revision / move` 等必需结构。缺少可由 session 确定的字段时确定性补齐；缺少必须由模型决定的业务对象时，把精确 field error 和最新完整安全状态交回一次有界重规划。若恢复到了 `rooms`，必须确定性执行 `state(full_state=true,wait=false)` 水合后再规划，不得停在房间列表。
+- 完成判据不是单一五子棋补丁：参数验证由 action/schema 驱动，测试需模拟“合法动作名 + 缺必需对象”“恢复 state 缺 room_id”“rooms 找回唯一房间后水合并继续”，并证明不会猜房间、revision、落点或重放不确定写入。
+
+### P0-B：终局真值已入库，却没有交给聊天与她自己
+
+- 最后一轮后台 `state` 在用户发送“结束了”前约 1 秒已经保存 `status=finished / nextActor=finished / winner=human / result=loss`，并把 session 置为 `phase=completed`。这证明 APK 已接收并解析终局数据，不是“最后一个响应没回来”。
+- 同一快照仍为 `pendingRoomMessage=true`；终局观察路径固定以 `shareLevel=quiet` 落库，只返回 `remote_room_message`，没有生成“我看见本局结束且我输了”的一次性终局事件。下一个 heartbeat 遇到 completed session 会进入选新游戏分支，也不会消费这条终局。
+- 普通聊天只有 `cedarExplicitRequest || cedarState.hasUserTurnContinuation` 时才注入 Cedar Prompt；`hasUserTurnContinuation` 对 completed session 直接返回 false。因此用户紧接着说“结束了”时，模型没有收到刚写入的 Cedar 终局，把它误解为用户主动喊停；直到用户明说自己赢了，才按用户文字生成认输对白。这是确定性的终局 handoff 缺口，不是模型棋力或服务器胜负判断错误。
+- 下一批应把服务端终局变成“恰好一次、可恢复、可去重”的一等领域事件：先持久化 terminal fact，再在后台/前台共同可见的 scene anchor 中消费；即使 phase 已 completed，紧邻用户消息也必须注入脱敏的 game/status/winner/result/settlement 摘要。只有成功生成对应聊天/房间表达后才能清除 pending terminal delivery；进程重启可恢复但不得重复报喜/认输。
+
+### P1：自主联系的新话题策略切断了刚结束的场景
+
+- 终局确认后的最后一条主动消息间隔约 52 秒，来源为 `awareness / curiosity`。诊断显示当时 `userSceneGapMinutes=1 / same_scene`，但 `proactiveSceneContinuity.hold=false`，随后仍成功投递一个与棋局无关的“还在忙什么”问题。
+- 根因是 `ProactivePresentationPolicy.startsFreshTopic(curiosity)=true`；`ProactiveEngine` 对此直接设置 `promptHistory=[]`，并要求不注入旧聊天、Memory 与连续性正文。该规则原意是防止主动新话题反复抄旧对话，但在一分钟内的活跃场景也会主动失忆。因此这条消息不是“上下文有但 Gemini 没用”，而是 APK 明确没有把最近棋局给它。
+- 下一批不应简单恢复全部旧历史。应在 fresh-topic 前增加 active-scene fence：最近真实用户/助手往返、未消费的 Cedar terminal、在途共同活动或短间隔同场景存在时，优先 `stay_with_user_topic/followup`，或只注入一条结构化 scene anchor 并禁止矛盾新话题；实在没有相关内容就 WAIT。只有场景真正结束或间隔足够长，curiosity/socialShare 才进入空历史的新话题通道。
+
+### P1：手机感知目前是粗粒度推断，且时间窗口算法会夸大
+
+- 诊断明确写明自主 `screenObservation` 为 `configured=false / implementationStatus=user_turn_only / schedulerAvailable=false / providerAvailable=false`。她目前不能自主看屏幕内容；能取得的是屏幕亮灭、当前 App 候选、Usage 事件、Accessibility 事件计数及少量脱敏摘要。对外表达必须说成“刚检测到/看起来/可能”，不能声称真正看见用户一直在做什么。
+- 一次错误主动消息发生在 `screen_on` 后约 18 秒，之前存在真实熄屏空档；但当次 perception 却给出 `dominant_minutes=28` 并生成“最近一段时间持续使用手机”。`PerceptionInterpreter._summarizeUsage` 按 package 保存 foreground start，只有同 package background 才闭合；多个未闭合 package 会一起延长到当前时间，且没有用 `screen_off` 截断。旧前台事件因此可能跨过熄屏/锁屏空档继续累计。
+- 另一条错误主动消息来自 `app_switching`，窗口内记录 `switches_30m=64`。原始事件同时包含 SystemUI、桌面、输入法、系统选择器、APK 自身悬浮恢复等高频窗口变化；当前摘要只按 Usage foreground package 变化计数，缺少“单一当前前台时间线、系统/桌面/IME/自身过滤、屏幕会话边界”的共同约束，容易把几次拿起手机及系统切换写成整晚忙碌。
+- 下一批先修事实层再调文案：以 screen-on session 为硬边界；screen-off 时闭合所有前台段并清除 current；同一时刻只允许一个前台 package；系统、launcher、IME、permission/doc picker 与本应用 overlay 不计用户 App 切换；持续时长只计算相邻 foreground/background 或下一 foreground 之间的可证明交集。长熄屏后重新亮屏，只允许“刚拿起手机/当前可能在某类 App”，没有连续交互证据不得生成“持续一阵/一晚上”。
+- 如果未来要让她“真正知道屏幕在干嘛”，沿用既定隐私边界：先做用户明确开启的一次/一段低频屏幕观察会话，不把 Accessibility 文本统计冒充视觉，也不默认永久后台截图。
+
+### P2：情绪短音效应与第一帧可见正文同步
+
+- 当前设置中情绪短音效已开启、音量 `15%`。`DurableGenerationRunner` 在流式内容刚解析到隐藏情绪标签时立即调用 `onEmotionCue`；`ChatController.startEmotionCue` 随即播放。情绪标签通常先于可展示正文，Gemini/双通道较慢时，音效会明显早于气泡文字。
+- 下一批应把“识别情绪”和“播放提示”分开：标签到达时只锁存 emotion key；当去除标签后的第一段可见正文真正追加到 UI（或完整回复第一次显示）时原子触发一次。无可见正文、取消、重试、工具中间轮不得播放；自动 TTS 继续复用同一个 cue future，避免叠音或二次播放。需要覆盖标签跨 chunk、首个 chunk 只有标签、慢正文、取消/恢复和主动消息。
+
+### 下一批执行顺序与禁止路线
+
+1. 先做 P0-A 参数契约与确定性恢复，再做 P0-B 终局事件 handoff；两者必须由同一条真实 server-authoritative session 驱动，不能再靠用户输入关键词唤醒。
+2. 再做 active-scene fence，把 Cedar terminal 与短间隔聊天统一纳入主动联系连续性；不得用“多塞最近消息”破坏 fresh-topic 防旧话题复读的原始目标。
+3. 再修 phone-usage 时间线事实层，最后改情绪音效触发时点。手机语义未经事实修正前，不得只加 Prompt 禁词或把阈值调高掩盖错误累计。
+4. 禁止写死本次房间、玩家身份、revision、棋步、五子棋策略、用户原话或附件文件名；总账与测试夹具必须使用虚构标识和抽象终局。
+5. 下一候选版本可为 `v0.41.84+228`，但当前严格是 `PLANNED / NO SOURCE CHANGE / NO BUILD`。只有源码、回归、CI 和新 APK 都完成后才改写状态；真机完成判据是“不催促连续接招 + 自动知道终局并自然承认结果 + 一分钟内自主联系不跳出场景 + 长熄屏后不声称持续操作 + 音效与正文同帧出现”。
 
 ## 5. 上一基线：v0.41.82+226 Cedar 权威状态机端到端闭环
 
@@ -265,9 +297,10 @@
 
 | 优先级 | 条件 | 下一步 |
 |---|---|---|
-| P0 | 安装 +226 Draft APK | 验证 `new/join/move` 写入后立即落库；在 Cedar 网页落子并发房间消息后，不在 APK 内催促，确认她能经后台观察器自动接招并回复 |
-| P1 | +226 连续换手通过 | 在 Cedar 正在规划时分别关闭两个开关、发普通聊天、保存/恢复备份；确认规划立即退出、无迟到写回且普通聊天与备份不再被拖死；另验证 00:00–07:00 未主动观看时休眠、主动观看可覆盖 |
-| P2 | 用户要求继续既有路线 | 从冻结归档顶部“当前任务完成后的后续导航”和 `app/docs/DOCUMENTATION_MAP.md` 定点恢复，不全文读取归档 |
+| P0 | 用户授权下一轮编码 | 从 +227 权威 tree 开始：先建立共享 `CedarExecutableCall` 出站契约及 `rooms → full state → replan` 确定性恢复，再实现可持久化、恰好一次消费的 Cedar terminal event；不得先做 Prompt 文案补丁 |
+| P1 | P0 源码与回归完成 | 加入主动联系 active-scene fence；随后按 screen-on session 重建 Usage/Accessibility 单前台时间线；最后把 emotion cue 延迟到第一段可见正文提交 UI 的同一时点 |
+| P2 | +228 候选 CI 全绿 | 真机一次性验收：网页落子后无 APK 催促仍连续接招；终局自动知道胜负；一分钟内主动联系不跳场景；长熄屏后不声称持续操作；情绪音效不早于可见正文 |
+| P3 | 用户要求继续既有路线 | 从冻结归档顶部“当前任务完成后的后续导航”和 `app/docs/DOCUMENTATION_MAP.md` 定点恢复，不全文读取归档 |
 
 ## 8. 关键文件导航
 
@@ -275,8 +308,11 @@
 - Cedar 玩家协议与状态：`app/lib/core/mcp/cedar_toy_client.dart`、`cedar_toy_activity.dart`、`cedar_game_protocol.dart`、`cedar_toy_autonomy_engine.dart`、`cedar_toy_arcade_skill.dart`
 - UI：`app/lib/features/chat/cedar_toy_activity_window.dart`
 - 停止与跨引擎生成：`app/lib/features/chat/chat_controller.dart`、`app/lib/core/ai/durable_generation_runner.dart`、`deepseek_client.dart`、`durable_generation_recovery.dart`
+- 主动联系连续性：`app/lib/core/desire/proactive_engine.dart`、`app/lib/core/desire/proactive_presentation.dart`
+- 手机事实层：`app/lib/core/perception/perception_interpreter.dart`、`app/lib/core/perception/current_device_context_refresher.dart` 及 Android Usage/Accessibility bridge
+- 情绪音效：`app/lib/core/ai/durable_generation_runner.dart`、`app/lib/features/chat/chat_controller.dart`、`app/lib/core/tts/emotion_sound_service.dart`
 - 备份冻结与诊断：`app/lib/features/transfer/transfer_page.dart`、`app/lib/core/database/app_database.dart`、`app/lib/core/sync/snapshot_service.dart`、`app/lib/core/diagnostics/preflight_diagnostics.dart`
 - 兼容审计：`app/docs/CEDAR_TOY_GAME_COMPATIBILITY_v0.41.74.md`
-- 当前专项测试：`app/test/cedar_game_hall_protocol_v04174_test.dart`
-- 当前专项测试与门禁：`app/test/stop_transfer_interlock_v04178_test.dart`、`app/tools/validate_v04178_stop_transfer_interlock.py`
+- Cedar 现有专项测试与门禁：`app/test/cedar_game_hall_protocol_v04174_test.dart`、`app/tools/validate_v04183_cedar_native_agent_loop.py`
+- 停止/备份专项门禁：`app/test/stop_transfer_interlock_v04178_test.dart`、`app/tools/validate_v04178_stop_transfer_interlock.py`
 - 冻结历史：`app/docs/ledger/archive/AI_Companion_总账归档_截至_v0.41.74+218.md`
