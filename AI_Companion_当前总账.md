@@ -33,8 +33,8 @@
 | 当前开发分支 | `agent/v04183-cedar-native-agent-loop` |
 <!-- Historical validator token: agent/v04182-cedar-state-machine-e2e -->
 | 当前目标版本 | `v0.41.83+227 / schema 61 / Snapshot protocol 6` |
-| 当前状态 | `CI PASSED / APK READY / TRUE DEVICE PARTIAL · BACKGROUND PAYLOAD + TERMINAL HANDOFF BUGS FOUND` |
-| 当前真机失败基线 | `v0.41.83+227`；真机已经证明能建房并连续自动接招多步，但后台一次原生 `play` 只给出动作名、遗漏必需业务参数，服务端拒绝后恢复查询同样缺参数并停住。随后前台提醒可继续落子；最终 Cedar 终局真值已写入 APK，却没有交给普通聊天或主动联系，导致她不知道胜负。另确认自主联系的新话题通道主动清空最近聊天，Usage/Accessibility 推断会跨熄屏空档夸大持续使用，情绪短音效在隐藏情绪标签到达时即播放、早于可见正文 |
+| 当前状态 | `CI PASSED / APK READY / TRUE DEVICE PARTIAL · BACKGROUND PAYLOAD + TERMINAL HANDOFF + AUTONOMOUS WEB REGISTRY BUGS FOUND` |
+| 当前真机失败基线 | `v0.41.83+227`；真机已经证明能建房并连续自动接招多步，但后台一次原生 `play` 只给出动作名、遗漏必需业务参数，服务端拒绝后恢复查询同样缺参数并停住。随后前台提醒可继续落子；最终 Cedar 终局真值已写入 APK，却没有交给普通聊天或主动联系，导致她不知道胜负。另确认自主联网发现虽被 Desire 选中，却被能力注册表在搜索前拒绝；自主联系会在短间隔场景中直接开启无历史新话题；Usage/Accessibility 推断保留了熄屏事实，却仍会让熄屏前活动跨会话主导“持续使用”判断；情绪短音效在隐藏情绪标签到达时即播放、早于可见正文。普通回复中的自主表情已经真机命中，暂不存在调低概率的确证 |
 | `main` | 仍是 v0.38.5 旧基线；不得作为 v0.41.x 后续开发起点，本批不合并 |
 | +219 构建提交 | 远端功能 head `0295ceeeafe9e18f057b6f8f5d54a8dae8820ed2`；tree `3cf8a09813c135b8bce4e5b9a66381ba2a03f5cf` |
 | +220 构建提交 | 远端功能 head `f3a4e95e35c5ca47fb68e84aa8d12a850cfbd91a`；tree `0efb121197441a2522f987a5b506e32dda53e555` |
@@ -70,19 +70,45 @@
 - 普通聊天只有 `cedarExplicitRequest || cedarState.hasUserTurnContinuation` 时才注入 Cedar Prompt；`hasUserTurnContinuation` 对 completed session 直接返回 false。因此用户紧接着说“结束了”时，模型没有收到刚写入的 Cedar 终局，把它误解为用户主动喊停；直到用户明说自己赢了，才按用户文字生成认输对白。这是确定性的终局 handoff 缺口，不是模型棋力或服务器胜负判断错误。
 - 下一批应把服务端终局变成“恰好一次、可恢复、可去重”的一等领域事件：先持久化 terminal fact，再在后台/前台共同可见的 scene anchor 中消费；即使 phase 已 completed，紧邻用户消息也必须注入脱敏的 game/status/winner/result/settlement 摘要。只有成功生成对应聊天/房间表达后才能清除 pending terminal delivery；进程重启可恢复但不得重复报喜/认输。
 
-### P1：自主联系的新话题策略切断了刚结束的场景
+### P0-C：自主联网发现被能力注册表在真正搜索前拒绝
+
+- 最新诊断中公共联网已启用，候选库仍保留既有候选，Desire/行为层在最近 24 小时也多次选中 `public_web_discovery`；但这些新任务全部以 `discovery_exception` 失败，且没有产生对应的新自主工具请求、provider 成功或新候选。这解释了近期几乎没有新的联网分享：不是她没有好奇心，也不是单纯被聊天话题挤掉，而是发现链根本没有开始搜索。
+- 确定根因是注册合同自相矛盾：专用 `PublicWebDiscoveryEngine` 调用 `AutonomousActionCoordinator.requestFromDesire(publicWeb)`，后者要求注册工具同时为 executable 且 `autonomousAvailable=true`；当前 `definitionForAutonomous(publicWeb)` 却映射到 `publicWebSearch`，该定义明确为 `autonomousAvailable=false`，因此在 provider 调用前抛错。上层 blanket catch 只留下宽泛的 `discovery_exception`，掩盖了真正的 `registry_denied`。
+- 下一批应统一“专用自主发现调度器”和能力注册表合同：为受预算、隐私和现有 provider 门控约束的只读公共网页发现提供明确的 autonomous capability，不把它扩大成模型可任意调用全部外部工具。启动/静态合同测试必须保证调度器引用的能力可执行；运行诊断要至少区分 `registry_denied / request_record_failed / planner_failed / provider_failed / appraisal_failed`，不得继续把所有失败压成一个异常名。
+- 修复前不得先降低分享分数、主观兴趣阈值、每日预算或冷却。现存可分享候选很少，是因为候选生命周期已经进入 held/reviewed/verify-pending，而新发现连续失败；必须先恢复“行为被选中 → 真实请求 → provider → 核验 → 入候选库”的闭环，再用真机数据判断内容选择是否过严。
+
+### P1：活跃对话只推迟主动出站 10 分钟，不把新话题改写成接话
 
 - 终局确认后的最后一条主动消息间隔约 52 秒，来源为 `awareness / curiosity`。诊断显示当时 `userSceneGapMinutes=1 / same_scene`，但 `proactiveSceneContinuity.hold=false`，随后仍成功投递一个与棋局无关的“还在忙什么”问题。
 - 根因是 `ProactivePresentationPolicy.startsFreshTopic(curiosity)=true`；`ProactiveEngine` 对此直接设置 `promptHistory=[]`，并要求不注入旧聊天、Memory 与连续性正文。该规则原意是防止主动新话题反复抄旧对话，但在一分钟内的活跃场景也会主动失忆。因此这条消息不是“上下文有但 Gemini 没用”，而是 APK 明确没有把最近棋局给它。
-- 下一批不应简单恢复全部旧历史。应在 fresh-topic 前增加 active-scene fence：最近真实用户/助手往返、未消费的 Cedar terminal、在途共同活动或短间隔同场景存在时，优先 `stay_with_user_topic/followup`，或只注入一条结构化 scene anchor 并禁止矛盾新话题；实在没有相关内容就 WAIT。只有场景真正结束或间隔足够长，curiosity/socialShare 才进入空历史的新话题通道。
+- 用户已明确否决“遇到活跃场景就把主动消息改写成 followup/当前话题”的方案，因为那仍会让对话持续挤掉真正的新话题与联网分享。正确方案是只推迟主动出站：若距离最近一条真实用户消息、真实助手回复、共同活动或刚落库 terminal event 不满 10 分钟，则把该主动候选的 due time 滑到最新活动后 10 分钟；期间再次对话就继续顺延。
+- 推迟不能消耗候选、Thought、分享条目、主动联系次数或每日额度，不能记成 WAIT/declined，也不能把 `socialShare/curiosity` 改写为接话。安静窗口到达后重新竞争并给仍有效的待发新话题合理优先级；网页分享需在发送前重读核验，过期或失效才可放弃。仍沿用一次只发最高优先候选、频率上限和去重，避免 10 分钟后堆积突发。
+- Cedar 后台合法落子/观察不属于“主动聊天出站”，不得因此停棋。终局事件若用户在 10 分钟内继续说话，应直接作为普通回复的 scene anchor 交给她；若用户没有继续对话，终局表达与其他主动消息一样等安静窗口后再发送。公共网页发现也可在资源与租约允许时静默进行，等待的只是对用户的出站分享。
+- 固定验收时间线：`t+1` 产生新话题候选但不发送；`t+8` 又有真实对话，则 due time 从 `t+10` 滑到 `t+18`；每次推迟计数均不增加。安静满 10 分钟后候选仍在，除非经确定性新鲜度/安全核验失效。
 
-### P1：手机感知目前是粗粒度推断，且时间窗口算法会夸大
+### P1：网页抓取确实读了页面，但最终对话只拿到压缩后的二手证据
 
-- 诊断明确写明自主 `screenObservation` 为 `configured=false / implementationStatus=user_turn_only / schedulerAvailable=false / providerAvailable=false`。她目前不能自主看屏幕内容；能取得的是屏幕亮灭、当前 App 候选、Usage 事件、Accessibility 事件计数及少量脱敏摘要。对外表达必须说成“刚检测到/看起来/可能”，不能声称真正看见用户一直在做什么。
-- 一次错误主动消息发生在 `screen_on` 后约 18 秒，之前存在真实熄屏空档；但当次 perception 却给出 `dominant_minutes=28` 并生成“最近一段时间持续使用手机”。`PerceptionInterpreter._summarizeUsage` 按 package 保存 foreground start，只有同 package background 才闭合；多个未闭合 package 会一起延长到当前时间，且没有用 `screen_off` 截断。旧前台事件因此可能跨过熄屏/锁屏空档继续累计。
-- 另一条错误主动消息来自 `app_switching`，窗口内记录 `switches_30m=64`。原始事件同时包含 SystemUI、桌面、输入法、系统选择器、APK 自身悬浮恢复等高频窗口变化；当前摘要只按 Usage foreground package 变化计数，缺少“单一当前前台时间线、系统/桌面/IME/自身过滤、屏幕会话边界”的共同约束，容易把几次拿起手机及系统切换写成整晚忙碌。
-- 下一批先修事实层再调文案：以 screen-on session 为硬边界；screen-off 时闭合所有前台段并清除 current；同一时刻只允许一个前台 package；系统、launcher、IME、permission/doc picker 与本应用 overlay 不计用户 App 切换；持续时长只计算相邻 foreground/background 或下一 foreground 之间的可证明交集。长熄屏后重新亮屏，只允许“刚拿起手机/当前可能在某类 App”，没有连续交互证据不得生成“持续一阵/一晚上”。
-- 如果未来要让她“真正知道屏幕在干嘛”，沿用既定隐私边界：先做用户明确开启的一次/一段低频屏幕观察会话，不把 Accessibility 文本统计冒充视觉，也不默认永久后台截图。
+- 一次明确的用户查询样本已证明 provider 不是只搜标题：当前链路先取得最多若干搜索结果，再对最多 3 个 URL 执行完整 cleaned-page extract，长页面按分块通读并汇总；该样本至少有一个来源达到 `read_state=verified`。因此“完全没有读网站”并不准确。
+- 但用户的体验判断仍然成立：完整提取正文随后没有以可追溯证据形式交给最终对话模型。用户回合工具结果和普通 Prompt 只保留短 summary、合并 key points、uncertainties 与 URL；自主分享即使在发送前刷新，也只把数据库中的压缩候选交回生成器。最终模型实际只能复述整理稿，不能回到页面证据核对细节、比较来源或说明哪一条来自哪里。
+- 当前实现支持多个搜索结果，不是硬编码“只能搜一个网站”；但只有成功提取、核验和语义评估的结果才会进入最终上下文，所以实际回合可能只剩一个来源。下一批不得用凑数方式强制多站点；对电影、新闻等可交叉验证的主题应尽量取得 2～3 个独立来源，若只有一个可靠来源则如实说明覆盖不足。
+- 下一批应增加只存在于当前执行内存的 `VerifiedWebEvidenceBundle`：保留每个来源的标题、URL、读取时间、与查询相关的证据片段及来源归属，并提供跨来源一致点、冲突点和未知项。短页面可在预算内给出完整 cleaned text；长页面使用完整页面分块索引加相关证据 span，而不是把任意超长原文直接塞进最终模型。页面正文不进入数据库/备份，继续防止隐私扩大、token 失控和网页 Prompt injection。
+- 用户回合中，内部 DeepSeek 判断证据不足时可再做一次有界补充搜索/读取；所有真实 Outcome 收齐后，双模型模式仍只调用一次 Gemini 形成最终可见回复。自主分享的 refresh 结果也必须把本次临时 evidence bundle 直接交给该次生成，而不是刷新完成后又退回旧摘要。面向用户的“整理后网页卡片”继续存在，但只是阅读辅助，不能代替她本轮实际可用的网页证据。
+
+### P1：手机感知知道熄屏，但熄屏证据没有截断旧活动的叙事影响
+
+- 用户提供的思考记录以及源码共同证明她确实知道屏幕已熄灭、熄屏时长和此前切换 App；`screen_state` 观察置信度也高，并会降低当前忙碌分。问题不是“没有熄屏信息”，更不应关闭手机判断。她有时能正确判断，必须保留这项主体能力。
+- 真正冲突发生在时间语义层：Usage/Accessibility 活动摘要会在熄屏时照常生成；foreground start 只在同 package background 时闭合，多个未闭合 App 可一起延长到现在，也没有由 screen-off 事件截断。内在状态在处理熄屏之前就可能把 `dominantActivityMinutes` 写成持久的“持续使用手机”Thought；之后即使同时看到“屏幕已熄灭”，旧 Thought 仍可能比当前熄屏事实更主导措辞。
+- `recent_activity` 与 `app_switching` 虽有过期时间，也可能由跨屏幕会话的旧 Usage 窗口重新生成。系统界面、桌面、输入法、权限/文件选择器及本应用悬浮恢复还会放大切换数。因此一小时熄屏后短暂拿起手机，系统可能正确识别“刚亮屏”和当前 App，却同时错误继承成“持续操作了一晚上”。
+- 下一批应建立按 `screen_on / screen_off / user_present` 切分的 Screen Session 时间线。screen-off 必须闭合当前 foreground 段；“当前连续使用”只能来自本次 screen-on session。熄屏前的真实活动不能删除，而应作为有时限的历史事实保留并明确标注“熄屏前”；硬屏幕转换优先于推测活动，任何 App 证据都不得跨过它证明连续性。
+- Prompt 应给出有序事实而非互相打架的摘要：熄屏持续多久、本次亮屏多久、亮屏前可证明的活跃时长、本次亮屏后的可证明时长。熄屏期间不得从旧 Usage 重新喂入“仍在持续使用”的 Thought；长熄屏后刚亮屏可以判断“刚拿起/刚恢复操作”，不能判断“连续整晚”。相反，持续亮屏且有 40 分钟可靠交互时仍允许她判断“用了一阵”；40 分钟使用后熄屏 5 分钟应表达为“刚才在忙，现在放下了”。
+- 同一时刻只允许一个真实前台 App，并过滤 SystemUI、launcher、IME、permission/doc picker 与本应用 overlay。措辞强度按事实置信度校准，但不得用禁止判断、统一模糊话或单纯提高阈值掩盖时间线错误。
+- 她目前能取得的是屏幕亮灭、当前 App 候选、Usage/Accessibility 事件及脱敏摘要，并不等于自主看见屏幕画面。若未来扩展视觉观察，仍须用户明确开启低频会话，不能把事件统计冒充视觉。
+
+### 观察项：普通回复的自主表情真机可用，现有概率暂不改
+
+- 最新真机样本中，助手在一次普通对话回复里自行附上了表情，且该消息不是主动联系；这直接证明普通回复的 `StickerExpressionService`、已启用表情包和附件发送链仍能工作。普通路径本来就同时受语气类型、短回复、无代码/URL、语义匹配、最近未使用及自然档随机门约束，数日少见可以由复合条件解释，目前没有证据证明概率被错误降低。
+- 因此下一批不改普通回复现有低/自然/频繁概率，也不放宽语义匹配或去重。先增加不含私密内容的分阶段计数（未满足语气、文本过长、随机门、无语义候选、近期去重、成功附加），真机再出现长期稀少时才凭统计定位，禁止为了“看起来更频繁”强行调参。
+- “普通回复中她自行选表情”与“无人发消息时的主动联系直接带表情”是两条路径。当前主动引擎只构造空附件，除特定游戏分享图片外没有调用表情服务，因此后者目前属于未接入能力，不是现有概率回归。是否让真正主动联系携带表情需以后由用户明确选定为新能力；本轮不把两者混同，也不擅自实现。
 
 ### P2：情绪短音效应与第一帧可见正文同步
 
@@ -91,11 +117,11 @@
 
 ### 下一批执行顺序与禁止路线
 
-1. 先做 P0-A 参数契约与确定性恢复，再做 P0-B 终局事件 handoff；两者必须由同一条真实 server-authoritative session 驱动，不能再靠用户输入关键词唤醒。
-2. 再做 active-scene fence，把 Cedar terminal 与短间隔聊天统一纳入主动联系连续性；不得用“多塞最近消息”破坏 fresh-topic 防旧话题复读的原始目标。
-3. 再修 phone-usage 时间线事实层，最后改情绪音效触发时点。手机语义未经事实修正前，不得只加 Prompt 禁词或把阈值调高掩盖错误累计。
-4. 禁止写死本次房间、玩家身份、revision、棋步、五子棋策略、用户原话或附件文件名；总账与测试夹具必须使用虚构标识和抽象终局。
-5. 下一候选版本可为 `v0.41.84+228`，但当前严格是 `PLANNED / NO SOURCE CHANGE / NO BUILD`。只有源码、回归、CI 和新 APK 都完成后才改写状态；真机完成判据是“不催促连续接招 + 自动知道终局并自然承认结果 + 一分钟内自主联系不跳出场景 + 长熄屏后不声称持续操作 + 音效与正文同帧出现”。
+1. 先做 P0-A 参数契约与确定性恢复、P0-B 终局事件 handoff、P0-C 自主联网注册合同；三者都有确定根因，应先修执行断点，不能靠 Prompt、阈值或用户关键词绕过。
+2. 再做主动出站 10 分钟滑动推迟和联网 `VerifiedWebEvidenceBundle`。推迟只作用于主动消息交付，不中断 Cedar 行动和安全的静默发现；新话题不得被改写成 followup，也不得在延迟期间被计数或消费。
+3. 再修 phone-usage 的 screen-session 事实层，最后改情绪音效触发时点。普通回复表情只加可解释诊断，暂不调概率；真正主动联系带表情不在本批默认范围。
+4. 禁止写死本次房间、玩家身份、revision、棋步、游戏策略、用户原话、私密网页内容或附件文件名；总账与测试夹具必须使用虚构标识和抽象终局/网页证据。
+5. 下一候选版本可为 `v0.41.84+228`，但当前严格是 `PLANNED / NO SOURCE CHANGE / NO BUILD`。只有源码、回归、CI 和新 APK 都完成后才改写状态；真机完成判据至少包括“不催促连续接招 + 自动知道终局并自然承认结果 + 活跃对话期间新话题保留并在静默 10 分钟后送达 + 自主联网重新产生并核验候选 + 对话能引用实际页面证据而非只复述卡片摘要 + 长熄屏不被说成连续操作 + 音效与正文同帧出现”。
 
 ## 5. 上一基线：v0.41.82+226 Cedar 权威状态机端到端闭环
 
@@ -297,9 +323,9 @@
 
 | 优先级 | 条件 | 下一步 |
 |---|---|---|
-| P0 | 用户授权下一轮编码 | 从 +227 权威 tree 开始：先建立共享 `CedarExecutableCall` 出站契约及 `rooms → full state → replan` 确定性恢复，再实现可持久化、恰好一次消费的 Cedar terminal event；不得先做 Prompt 文案补丁 |
-| P1 | P0 源码与回归完成 | 加入主动联系 active-scene fence；随后按 screen-on session 重建 Usage/Accessibility 单前台时间线；最后把 emotion cue 延迟到第一段可见正文提交 UI 的同一时点 |
-| P2 | +228 候选 CI 全绿 | 真机一次性验收：网页落子后无 APK 催促仍连续接招；终局自动知道胜负；一分钟内主动联系不跳场景；长熄屏后不声称持续操作；情绪音效不早于可见正文 |
+| P0 | 用户授权下一轮编码 | 从 +227 权威 tree 开始：建立共享 `CedarExecutableCall` 出站契约及 `rooms → full state → replan` 恢复，实现恰好一次 Cedar terminal event，并修正公共网页自主调度与能力注册表的确定冲突；不得先做 Prompt 或阈值补丁 |
+| P1 | P0 源码与回归完成 | 主动消息按真实互动执行 10 分钟滑动推迟且不消费候选；把完整读取形成的临时 `VerifiedWebEvidenceBundle` 交给最终对话/分享；随后按 screen session 重建 Usage/Accessibility 单前台时间线，最后把 emotion cue 延迟到第一段可见正文 |
+| P2 | +228 候选 CI 全绿 | 真机一次性验收：无 APK 催促连续接招并知道终局；活跃对话中的新话题保留到静默窗口；自主联网重新入库并分享；对话能使用实际网页证据；长熄屏不被误判为持续操作；音效不早于正文。普通回复表情只观察诊断，不以本次偶发或稀少单独判失败 |
 | P3 | 用户要求继续既有路线 | 从冻结归档顶部“当前任务完成后的后续导航”和 `app/docs/DOCUMENTATION_MAP.md` 定点恢复，不全文读取归档 |
 
 ## 8. 关键文件导航
@@ -309,7 +335,9 @@
 - UI：`app/lib/features/chat/cedar_toy_activity_window.dart`
 - 停止与跨引擎生成：`app/lib/features/chat/chat_controller.dart`、`app/lib/core/ai/durable_generation_runner.dart`、`deepseek_client.dart`、`durable_generation_recovery.dart`
 - 主动联系连续性：`app/lib/core/desire/proactive_engine.dart`、`app/lib/core/desire/proactive_presentation.dart`
+- 公共联网发现、核验与分享：`app/lib/core/autonomy/public_web_discovery_engine.dart`、`app/lib/core/autonomy/layered_public_web_provider.dart`、`app/lib/core/autonomy/public_web_share_coordinator.dart`、`app/lib/core/autonomy/autonomous_action_coordinator.dart`、`app/lib/core/agent/agent_tool_registry.dart` 及用户回合 `public_web.search` 结果组装路径
 - 手机事实层：`app/lib/core/perception/perception_interpreter.dart`、`app/lib/core/perception/current_device_context_refresher.dart` 及 Android Usage/Accessibility bridge
+- 表情自主选择：`app/lib/core/stickers/sticker_expression_service.dart`、`app/lib/core/ai/durable_generation_runner.dart` 与 `app/lib/core/desire/proactive_engine.dart`
 - 情绪音效：`app/lib/core/ai/durable_generation_runner.dart`、`app/lib/features/chat/chat_controller.dart`、`app/lib/core/tts/emotion_sound_service.dart`
 - 备份冻结与诊断：`app/lib/features/transfer/transfer_page.dart`、`app/lib/core/database/app_database.dart`、`app/lib/core/sync/snapshot_service.dart`、`app/lib/core/diagnostics/preflight_diagnostics.dart`
 - 兼容审计：`app/docs/CEDAR_TOY_GAME_COMPATIBILITY_v0.41.74.md`
