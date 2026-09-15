@@ -4,7 +4,7 @@
 # v0.41.76+220 completes Cedar player protocol discovery and background continuation.
 # v0.41.77+221 closes the proven empty-body failure in the background room-turn loop.
 # v0.41.79+223 makes Cedar preemptible and restores night/switch policy.
-# v0.41.80+224 unifies foreground/background Cedar Agent continuation.
+# v0.41.81+225 replaces background free-JSON action guessing with native Cedar Agent tools.
 # Historical v0.41.70 workflow: agent/v04170-agent-mcp-runtime-hardening | AI-Companion-v0.41.70-214-Agent-MCP-Runtime-Hardening-APK
 # Historical v0.38.9 validator compatibility:
 # Build AI Companion v0.38.9+108 APK (Simulated Phone Reference UI)
@@ -382,7 +382,7 @@
 # Historical v0.41.61 workflow: Shuai API Gemini plus immersive-room multilingual projection and thought summaries.
 # Historical v0.41.63 workflow: immersive streaming TTS and settings hardening candidate.
 # Exact source tree is recorded in the ledger after the implementation commit.
-name: Build AI Companion v0.41.80+224 APK (Cedar Agent Loop)
+name: Build AI Companion v0.41.81+225 APK (Cedar Background Agent Tools)
 
 on:
   push:
@@ -416,7 +416,7 @@ on:
       - agent/v04173-cedar-deterministic-entry-reply-completion
       - agent/v04176-cedar-protocol-continuation
       - agent/v04179-cedar-runtime-preemption
-      - agent/v04180-cedar-agent-loop
+      - agent/v04181-cedar-background-agent-tools
   workflow_dispatch:
   pull_request:
     branches:
@@ -805,7 +805,7 @@ jobs:
         run: |
           set -euo pipefail
           test -f app/pubspec.yaml
-          grep -Fqx 'version: 0.41.80+224' app/pubspec.yaml
+          grep -Fqx 'version: 0.41.81+225' app/pubspec.yaml
           grep -Fqx '  static const int schemaVersion = 61;' app/lib/core/database/app_database.dart
           test -d app/lib
           test -d app/android
@@ -819,7 +819,7 @@ jobs:
           test -f app/android/app/src/main/jniLibs/arm64-v8a/libc++_shared.so
           test ! -d app/android/app/src/main/assets/tts_models
           test ! -d app/android/app/src/main/assets/legacy_tts
-          echo 'Building v0.41.80+224 Cedar Agent-loop candidate.'
+          echo 'Building v0.41.81+225 Cedar background Agent-tools candidate.'
 
       - name: Restore exact 417-file desktop-pet source pack
         working-directory: app
@@ -1015,6 +1015,7 @@ jobs:
           python3 tools/validate_v04178_stop_transfer_interlock.py
           python3 tools/validate_v04179_cedar_runtime_preemption.py
           python3 tools/validate_v04180_cedar_agent_loop.py
+          python3 tools/validate_v04181_cedar_background_agent_tools.py
 
       - name: Resolve Flutter packages
         working-directory: app
@@ -1338,26 +1339,26 @@ jobs:
           APK='app/build/app/outputs/flutter-apk/app-release.apk'
           sha256sum "$APK" | tee app/app-release.apk.sha256
 
-      - name: Upload v0.41.80+224 APK as workflow artifact
+      - name: Upload v0.41.81+225 APK as workflow artifact
         uses: actions/upload-artifact@v4
         with:
-          name: AI-Companion-v0.41.80-224-Cedar-Agent-Loop-APK
+          name: AI-Companion-v0.41.81-225-Cedar-Background-Agent-Tools-APK
           path: |
             app/build/app/outputs/flutter-apk/app-release.apk
             app/app-release.apk.sha256
           if-no-files-found: error
           retention-days: 14
 
-      - name: Upload v0.41.80+224 APK to draft release
+      - name: Upload v0.41.81+225 APK to draft release
         shell: bash
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
-          TAG='v0.41.80-cedar-agent-loop-test'
-          APK_NAME='AI-Companion-v0.41.80-224-Cedar-Agent-Loop-APK.apk'
+          TAG='v0.41.81-cedar-background-agent-tools-test'
+          APK_NAME='AI-Companion-v0.41.81-225-Cedar-Background-Agent-Tools-APK.apk'
           SHA_NAME="${APK_NAME}.sha256"
-          CI_NAME='AI-Companion-v0.41.80-224-Cedar-Agent-Loop-CI-Monitor.txt'
+          CI_NAME='AI-Companion-v0.41.81-225-Cedar-Background-Agent-Tools-CI-Monitor.txt'
           cp app/build/app/outputs/flutter-apk/app-release.apk "app/${APK_NAME}"
           sed "s#app/build/app/outputs/flutter-apk/app-release.apk#${APK_NAME}#" \
             app/app-release.apk.sha256 > "app/${SHA_NAME}"
@@ -1374,14 +1375,14 @@ jobs:
               --repo "${GITHUB_REPOSITORY}" \
               --target "${GITHUB_SHA}" \
               --draft \
-              --title 'AI Companion v0.41.80+224 Cedar Agent-loop candidate' \
-              --notes 'Unpublished Draft schema-61 candidate. Unifies one Cedar user goal across live catalog, guide, room creation, service-issued continuation, automatic room observation and the companion move. The server next_call is authoritative, refreshed guides preserve active room state, and Stop persists any already-returned remote Outcome before ending visible generation. Existing runtime preemption, night pacing, game-hall switches, backup/restore interlock, blind play, redaction and snapshot protocol 6 remain.'
+              --title 'AI Companion v0.41.81+225 Cedar background Agent-tools candidate' \
+              --notes 'Unpublished Draft schema-61 candidate. Background Cedar turns now require the same native cedar_toy.play function-call contract used by the foreground Agent. Empty text, free JSON, wrong-game calls and repeated read-only state queries cannot authorize an action; one corrective replan is bounded before the execution fence and narrow lease are released. Existing next_call authority, runtime preemption, night pacing, game-hall switches, backup/restore interlock, blind play, redaction and snapshot protocol 6 remain.'
           else
             gh release edit "${TAG}" \
               --repo "${GITHUB_REPOSITORY}" \
               --target "${GITHUB_SHA}" \
-              --title 'AI Companion v0.41.80+224 Cedar Agent-loop candidate' \
-              --notes 'Unpublished Draft schema-61 candidate. Unifies one Cedar user goal across live catalog, guide, room creation, service-issued continuation, automatic room observation and the companion move. The server next_call is authoritative, refreshed guides preserve active room state, and Stop persists any already-returned remote Outcome before ending visible generation. Existing runtime preemption, night pacing, game-hall switches, backup/restore interlock, blind play, redaction and snapshot protocol 6 remain.'
+              --title 'AI Companion v0.41.81+225 Cedar background Agent-tools candidate' \
+              --notes 'Unpublished Draft schema-61 candidate. Background Cedar turns now require the same native cedar_toy.play function-call contract used by the foreground Agent. Empty text, free JSON, wrong-game calls and repeated read-only state queries cannot authorize an action; one corrective replan is bounded before the execution fence and narrow lease are released. Existing next_call authority, runtime preemption, night pacing, game-hall switches, backup/restore interlock, blind play, redaction and snapshot protocol 6 remain.'
           fi
           RELEASE_URL="$(gh release view "${TAG}" --repo "${GITHUB_REPOSITORY}" --json url --jq '.url')"
           echo "release_url=${RELEASE_URL}" >> "app/${CI_NAME}"
@@ -1433,8 +1434,8 @@ jobs:
           BUILD_RESULT: ${{ needs.build-apk.result }}
         run: |
           set -uo pipefail
-          TAG='v0.41.80-cedar-agent-loop-test'
-          CI_NAME='AI-Companion-v0.41.80-224-Cedar-Agent-Loop-CI-Monitor.txt'
+          TAG='v0.41.81-cedar-background-agent-tools-test'
+          CI_NAME='AI-Companion-v0.41.81-225-Cedar-Background-Agent-Tools-CI-Monitor.txt'
           REPORT="${RUNNER_TEMP}/${CI_NAME}"
           JOBS_JSON="${RUNNER_TEMP}/jobs.json"
           {
@@ -1475,8 +1476,8 @@ jobs:
               --repo "${GITHUB_REPOSITORY}" \
               --target "${GITHUB_SHA}" \
               --draft \
-              --title 'AI Companion v0.41.80+224 Cedar Agent-loop candidate' \
-              --notes 'Draft failure diagnostics for the schema-61 Cedar Agent-loop candidate. It is not a published release; private packs, credentials, user images, captions, diagnostics, backups and conversation content are not included in CI assets.'
+              --title 'AI Companion v0.41.81+225 Cedar background Agent-tools candidate' \
+              --notes 'Draft failure diagnostics for the schema-61 Cedar background Agent-tools candidate. It is not a published release; private packs, credentials, user images, captions, diagnostics, backups and conversation content are not included in CI assets.'
           fi
           RELEASE_URL="$(gh release view "${TAG}" --repo "${GITHUB_REPOSITORY}" --json url --jq '.url')"
           echo "release_url=${RELEASE_URL}" >> "${REPORT}"

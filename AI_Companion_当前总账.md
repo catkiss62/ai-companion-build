@@ -30,21 +30,38 @@
 | 项目 | 当前事实 |
 |---|---|
 | 仓库 | `catkiss62/ai-companion-build`；Flutter/Android 工程位于 `app/` |
-| 当前开发分支 | `agent/v04180-cedar-agent-loop` |
-| 当前目标版本 | `v0.41.80+224 / schema 61 / Snapshot protocol 6` |
-| 当前状态 | `CI PASSED / APK READY / TRUE DEVICE PENDING` |
-| 当前真机失败基线 | `v0.41.78+222`；后台钓鱼 JSON 规划累计重试且单次卡满 120 秒，双弈已被错误记为 `completed/leave`；+223 仅有 CI 证据，尚无真机证明 |
+| 当前开发分支 | `agent/v04181-cedar-background-agent-tools` |
+| 当前目标版本 | `v0.41.81+225 / schema 61 / Snapshot protocol 6` |
+| 当前状态 | `IMPLEMENTED LOCALLY / LOCAL STATIC VALIDATION PENDING / CI PENDING / TRUE DEVICE PENDING` |
+| 当前真机失败基线 | `v0.41.80+224`；双弈已成功观察到网页落子、房间消息及 `your_turn=true`，随后后台动作规划首次空正文、第二次选择只读 `state`，每 15 秒原地重试且未执行 `move` |
 | `main` | 仍是 v0.38.5 旧基线；不得作为 v0.41.x 后续开发起点，本批不合并 |
 | +219 构建提交 | 远端功能 head `0295ceeeafe9e18f057b6f8f5d54a8dae8820ed2`；tree `3cf8a09813c135b8bce4e5b9a66381ba2a03f5cf` |
 | +220 构建提交 | 远端功能 head `f3a4e95e35c5ca47fb68e84aa8d12a850cfbd91a`；tree `0efb121197441a2522f987a5b506e32dda53e555` |
 | +221 构建提交 | 远端功能 head `bf4c8216235d067884bb2f5fa303d17eec8eb6a3`；tree `125c47730e7b5c37ab74af4721904db194742e75` |
 | +222 构建提交 | 远端功能提交 `ccbe5bcbe9b3fc65941846f74aa4d95b6be50c7d`；授权提交/head `93fcb2fbbf78be80a5da9724fd6b051956e1ff34`；最终 tree `f167bdf6a16700333a978f5f6b99498fdfec3974` |
 | +223 构建提交 | 远端功能提交 `2217a5021b9175cd612fadd45fa9b68a58b9ea24`；实现总账提交 `54ea75e50501fd27281cc4d985e76dabd8aca7d9`；构建触发 head `c90b60d5d456e5d30512a088592cf94f2ce4478f`；构建 tree `342d431730d6d3f0568b4e2525d8ab9b0e36a7c5` |
-| 当前构建产物 | Actions run `34925717983`；Artifact `10379647780`；未发布 Draft `https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-c9a13c9a99a54cb6df4c`；APK SHA-256 `dada0ff780f3a704a01af4b9cae94a8cd9b8ce13f4a5055aa570a459c69ff5bc` |
+| 当前构建产物 | 待 Actions；上一 +224 产物为 run `34925717983` / Artifact `10379647780` / Draft `untagged-c9a13c9a99a54cb6df4c` |
 
 既有能力保护索引：Desire / Thought / Intent / Gate、Somatic 双通道、玩游 Key、普通聊天、沉浸房间、查手机、造梗来源、D6、Phase 2B、App 内 Agent 能力桥、Memory 2D、`fact_state / attention_state / recall_policy`、`spontaneous_salience`、`reminiscence/identity`、Skills、MCP、`【检查系统】`、中断灰显、Token 命中/缓存优化、Phase 3、Harness、`screen_observation.inspect`、Genie-TTS 四音色、schema 61 与 Snapshot protocol 6 均不得回归。
 
-## 4. 当前任务：v0.41.80+224 Cedar Agent 完整续接链
+## 4. 当前任务：v0.41.81+225 Cedar 后台原生 Agent 工具闭环
+
+### +224 真机证据与已确认根因
+
+- 同时刻诊断与备份证明 Cedar 房间、身份绑定、长轮询、房间消息、revision 和回合识别都已工作：活动 session 为 `active/multiplayer`，`next_actor=companion`，最近一次 `state` Outcome 明确 `your_turn=true`，且待回复房间消息已经进入本机。
+- 该次成功 `state` 后没有任何 `move` 事件。约 18 秒后记录 `empty_model_content`，再约 2.6 秒 session 被写成“15 秒后继续”，精确命中后台 `invalid_action_choice / read_only_loop_blocked` 分支；累计 `jsonRetryCount=58`。
+- 代码确认前台用户轮通过 `DeepSeekClient.streamChat(tools: ...)` 与原生 Agent tool-call 规划；后台 `_advanceSessionLocked` 却仍调用 `_judge → jsonCompletion`，让模型以自由 JSON 填 `action/params`。+224 只共享了 Prompt、Gate 和部分循环条件，并没有共享真实工具规划通道。这就是“看到轮到她但不落子、每 15 秒转一次”的直接结构断点。
+
+### 本批实现与完成判据
+
+1. 后台可执行动作改由 `CedarAgentActionPlanner` 通过前台同源的 `AgentToolPlanner.nativeToolDefinitionsFor` 获取唯一 `cedar_toy.play` schema，并以 `tool_choice=required` 请求原生函数调用；自然语言正文、空正文和自由 JSON 一律不能授权动作。
+2. 工具 schema 把 `game` 锁定为当前 session ID；返回必须恰好一个 `cedar_toy_play`，且 action 在完整指南或公共平台动作中、params 为 JSON object。错误游戏、错误工具、损坏参数或未调用工具均拒绝。
+3. 当服务端已经显示 `next_actor=companion` 且上一动作是只读查询时，新的只读 action 在本地立即拒绝；允许一次带具体拒绝原因的 non-thinking 工具重规划。第二次仍失败则抛出分类错误，由既有执行外层清除 execution fence、释放狭义 Cedar lease 并延后，不得无限占住聊天、备份或其他游戏。
+4. 结果分类、房间短对白和目录偏好等非执行判断可以继续使用 JSON/文本通道；只有“下一步要执行什么”强制走工具调用。本批不重写停止/备份互锁、夜间 Desire/Thought Gate、服务端 `next_call` 权威、写入不确定同步或游戏厅双开关。
+5. 新固定测试覆盖：正文为空但存在原生工具调用仍成功；首次重复 `state` 后第二次 `move`；错误游戏 ID 纠正；连续两次无效动作有界失败；供应商把 `params_json` 返回 object 时的防御解析。诊断新增 `agentActionRetryCount / LastCategory / LastAt`，不记录房间号、消息或参数。
+6. 当前功能提交为 `83c3234`；本机无 Flutter/Dart SDK，`git diff --check` 与 Python 语法检查已通过，完整 Analyze、Flutter tests、Kotlin/JVM、arm64 Release、签名、Artifact 和 Draft 必须由 Actions 证明。自动化通过仍只能标记 `CI PASSED / APK READY / TRUE DEVICE PENDING`。
+
+## 5. 上一基线：v0.41.80+224 Cedar Agent 完整续接链
 
 ### 已确认的跨层根因
 
