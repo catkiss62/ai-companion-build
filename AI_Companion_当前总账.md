@@ -1,6 +1,6 @@
 # AI Companion · 当前总账
 
-更新时间：2026-09-14（Asia/Tokyo）
+更新时间：2026-09-15（Asia/Tokyo）
 
 > 本文件是唯一的当前接班入口，采用“总账 v2”结构，只保存永久边界、当前基线、当前任务和最近证据。冻结历史位于 `app/docs/ledger/archive/AI_Companion_总账归档_截至_v0.41.74+218.md`，仅在修改旧模块或核对历史证据时定点检索，不再随每次任务重写或上传整份历史。
 >
@@ -30,21 +30,40 @@
 | 项目 | 当前事实 |
 |---|---|
 | 仓库 | `catkiss62/ai-companion-build`；Flutter/Android 工程位于 `app/` |
-| 当前开发分支 | `agent/v04179-cedar-runtime-preemption` |
-| 当前目标版本 | `v0.41.79+223 / schema 61 / Snapshot protocol 6` |
-| 当前状态 | `CI PASSED / APK READY / TRUE DEVICE PENDING` |
-| 当前真机失败基线 | `v0.41.78+222`；Cedar 后台规划连续超时时长时占用恢复器全局写租约，游戏厅显示永久执行，聊天、备份和恢复一起失去响应；04:40 高疲劳仍继续钓鱼 |
+| 当前开发分支 | `agent/v04180-cedar-agent-loop` |
+| 当前目标版本 | `v0.41.80+224 / schema 61 / Snapshot protocol 6` |
+| 当前状态 | `IMPLEMENTED LOCALLY / LOCAL STATIC VALIDATION PENDING / CI PENDING / TRUE DEVICE PENDING` |
+| 当前真机失败基线 | `v0.41.78+222`；后台钓鱼 JSON 规划累计重试且单次卡满 120 秒，双弈已被错误记为 `completed/leave`；+223 仅有 CI 证据，尚无真机证明 |
 | `main` | 仍是 v0.38.5 旧基线；不得作为 v0.41.x 后续开发起点，本批不合并 |
 | +219 构建提交 | 远端功能 head `0295ceeeafe9e18f057b6f8f5d54a8dae8820ed2`；tree `3cf8a09813c135b8bce4e5b9a66381ba2a03f5cf` |
 | +220 构建提交 | 远端功能 head `f3a4e95e35c5ca47fb68e84aa8d12a850cfbd91a`；tree `0efb121197441a2522f987a5b506e32dda53e555` |
 | +221 构建提交 | 远端功能 head `bf4c8216235d067884bb2f5fa303d17eec8eb6a3`；tree `125c47730e7b5c37ab74af4721904db194742e75` |
 | +222 构建提交 | 远端功能提交 `ccbe5bcbe9b3fc65941846f74aa4d95b6be50c7d`；授权提交/head `93fcb2fbbf78be80a5da9724fd6b051956e1ff34`；最终 tree `f167bdf6a16700333a978f5f6b99498fdfec3974` |
 | +223 构建提交 | 远端功能提交 `2217a5021b9175cd612fadd45fa9b68a58b9ea24`；实现总账提交 `54ea75e50501fd27281cc4d985e76dabd8aca7d9`；构建触发 head `c90b60d5d456e5d30512a088592cf94f2ce4478f`；构建 tree `342d431730d6d3f0568b4e2525d8ab9b0e36a7c5` |
-| 当前构建产物 | `AI-Companion-v0.41.79-223-Cedar-Runtime-Preemption-APK.apk`；APK SHA-256 `4ae81e27c5787171649e2dcdadf9c8a298335fc48b8136cda6e97ed2607cae2b` |
+| 当前构建产物 | 尚未构建；`CI PENDING` |
 
 既有能力保护索引：Desire / Thought / Intent / Gate、Somatic 双通道、玩游 Key、普通聊天、沉浸房间、查手机、造梗来源、D6、Phase 2B、App 内 Agent 能力桥、Memory 2D、`fact_state / attention_state / recall_policy`、`spontaneous_salience`、`reminiscence/identity`、Skills、MCP、`【检查系统】`、中断灰显、Token 命中/缓存优化、Phase 3、Harness、`screen_observation.inspect`、Genie-TTS 四音色、schema 61 与 Snapshot protocol 6 均不得回归。
 
-## 4. 当前任务：v0.41.79+223 Cedar 运行时抢占、开关与夜间节律
+## 4. 当前任务：v0.41.80+224 Cedar Agent 完整续接链
+
+### 已确认的跨层根因
+
+- 前台用户回合与后台游戏厅各有一套停止条件、参与模式和续接门禁；“给 Agent 权限”进入模型后，仍会被本地重复分类和单步关环覆盖。
+- `list_games/get_guide` 的机器动作曾被中文展示名替代，发现动作无法可靠继续；一次 `play` 又被通用 proposal 规则直接当成整项任务完成。
+- Cedar 已签发 `next_call` 后，本地仍要求精简指南重复动作名并重新猜 participation mode，导致真实房间的服务端续接被 APK 自己否决。
+- 刷新指南会重建 session，把 active/waiting/paused、next_actor、next_call、房间消息和别名重置成 guideReady；停止若发生在远端写回之后、本机落状态之前，也会丢掉已知 Outcome。
+- 真机 +222 备份显示 fishing 为 `active/solo/companion`、后台 JSON 重试 14 次且最后超时 120 秒，duel 已是 `completed/leave`；这是钓鱼持续转圈并挤占系统、下棋提前结束的直接状态证据。
+
+### 本批实现与完成判据
+
+1. `CedarAgentLoopPolicy` 统一前台停止合同：目录、指南、发现查询和 `next_actor=companion` 均继续同一个用户目标；只有服务端交给用户/远端、终局、不可恢复写入不确定或 10 轮/16 调用硬预算才收尾。
+2. 每个真实 Cedar 阶段允许一次零调用复核，并在每次 Outcome 后重新注入最新 catalog、完整指南、实时玩家 schema 与 session；保留真实 machine action，中文仅作展示。
+3. `next_call` 的精确 action/params 视为 Cedar 服务端续接能力，不再由 participation_mode、旧邀请标记或精简指南二次否决；普通“我们下棋，你建房，我加入”直接构成共玩许可。
+4. 前台写超时进入“结果未知/同步”而不击穿整条聊天；远端 Outcome 已返回时必须先保存 next_actor/next_call/消息去重与别名，再响应停止或前台抢占，且绝不重放写动作。
+5. 再读指南只更新元数据，保留已有房间状态。后台与前台共用同一 Cedar Skill 和服务端续接权威；夜间竞争、双开关暂停、狭义动作锁、备份冻结和全局聊天抢占继续沿用 +223。
+6. 新固定脚本测试覆盖“目录→指南→建房/加入→服务端挂等→用户网页落子/发言→她自动落子/回话”的停止合同、服务端续接、许可识别和可恢复门禁；CI 还必须跑全部历史门、Analyze、Flutter tests、Kotlin/JVM、arm64 Release、签名与 Draft。
+
+## 5. 上一自动化基线：v0.41.79+223 Cedar 运行时抢占、开关与夜间节律
 
 ### 真机证据与确定根因
 

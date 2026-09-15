@@ -19,7 +19,7 @@ def require(path: str, *tokens: str) -> None:
     assert not missing, f"{path}: missing {missing}"
 
 
-require("pubspec.yaml", "version: 0.41.79+223")
+require("pubspec.yaml", "version: 0.41.80+224")
 require(
     "lib/core/mcp/cedar_toy_activity.dart",
     "catalogMentionedGameId",
@@ -90,8 +90,8 @@ require(
 )
 require(
     ".github/workflows/build-apk.yml",
-    "agent/v04179-cedar-runtime-preemption",
-    "AI-Companion-v0.41.79-223-Cedar-Runtime-Preemption-APK",
+    "agent/v04180-cedar-agent-loop",
+    "AI-Companion-v0.41.80-224-Cedar-Agent-Loop-APK",
     "validate_v04173_cedar_reply_completion.py",
 )
 require(

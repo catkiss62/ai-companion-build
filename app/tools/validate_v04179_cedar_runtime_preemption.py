@@ -19,7 +19,7 @@ def require(path: str, *tokens: str) -> None:
     assert not missing, f"{path}: missing {missing}"
 
 
-require("pubspec.yaml", "version: 0.41.79+223")
+require("pubspec.yaml", "version: 0.41.80+224")
 require(
     "lib/core/ai/deepseek_client.dart",
     "Duration requestTimeout = const Duration(seconds: 120)",
@@ -106,15 +106,15 @@ require(
 )
 require(
     ".github/workflows/build-apk.yml",
-    "agent/v04179-cedar-runtime-preemption",
-    "AI-Companion-v0.41.79-223-Cedar-Runtime-Preemption-APK",
+    "agent/v04180-cedar-agent-loop",
+    "AI-Companion-v0.41.80-224-Cedar-Agent-Loop-APK",
     "validate_v04179_cedar_runtime_preemption.py",
 )
 require(
     "AI_Companion_当前总账.md",
-    "v0.41.79+223",
+    "v0.41.80+224",
     "Cedar 运行时抢占、开关与夜间节律",
     "TRUE DEVICE PENDING",
 )
 
-print("v0.41.79+223 Cedar runtime-preemption validation passed.")
+print("v0.41.80+224 Cedar runtime-preemption validation passed.")
