@@ -32,7 +32,7 @@
 | 仓库 | `catkiss62/ai-companion-build`；Flutter/Android 工程位于 `app/` |
 | 当前开发分支 | `agent/v04182-cedar-state-machine-e2e` |
 | 当前目标版本 | `v0.41.82+226 / schema 61 / Snapshot protocol 6` |
-| 当前状态 | `IMPLEMENTED LOCALLY / LOCAL STATIC VALIDATION PASSED / CI PENDING / TRUE DEVICE PENDING` |
+| 当前状态 | `IMPLEMENTED / CI PASSED / APK READY / TRUE DEVICE PENDING` |
 | 当前真机失败基线 | `v0.41.81+225`；Cedar 已成功建房并返回真实回合信息，但前台 `wait=true` 写请求先被 25 秒 MCP transport 判超时；后台动作规划超时不重试并退避，普通聊天页可见时又禁止 Cedar 续跑，形成“网站已成功、APK 卡住不动” |
 | `main` | 仍是 v0.38.5 旧基线；不得作为 v0.41.x 后续开发起点，本批不合并 |
 | +219 构建提交 | 远端功能 head `0295ceeeafe9e18f057b6f8f5d54a8dae8820ed2`；tree `3cf8a09813c135b8bce4e5b9a66381ba2a03f5cf` |
@@ -40,7 +40,8 @@
 | +221 构建提交 | 远端功能 head `bf4c8216235d067884bb2f5fa303d17eec8eb6a3`；tree `125c47730e7b5c37ab74af4721904db194742e75` |
 | +222 构建提交 | 远端功能提交 `ccbe5bcbe9b3fc65941846f74aa4d95b6be50c7d`；授权提交/head `93fcb2fbbf78be80a5da9724fd6b051956e1ff34`；最终 tree `f167bdf6a16700333a978f5f6b99498fdfec3974` |
 | +223 构建提交 | 远端功能提交 `2217a5021b9175cd612fadd45fa9b68a58b9ea24`；实现总账提交 `54ea75e50501fd27281cc4d985e76dabd8aca7d9`；构建触发 head `c90b60d5d456e5d30512a088592cf94f2ce4478f`；构建 tree `342d431730d6d3f0568b4e2525d8ab9b0e36a7c5` |
-| 当前构建产物 | Actions run `34942815929`；Artifact `10386601803`；未发布 Draft `https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-c67e2101abe1e5aa26e9`；APK SHA-256 `921c7df125c57a208a67b21aee5401ba9c54ab6937aa1843d96300d8d2dac1f3` |
+| +226 构建提交 | 权威状态机功能提交 `d1b3c0dcb45ac9aad1c808452bb3c8ce4c8ce4e5`；构建准备提交 `c37f02d6a2a06678ffc83cd493e296aadd2be22d`；最终构建 head `7fe5930f7776d6e2c69659b7ac3644b7255a65a1`；最终 tree `4fafd7c4fbf94b84b9d446d1a6565455fc654cb8` |
+| 当前构建产物 | Actions run `34957849643`；Artifact `10392840422`（ZIP digest `e88cb2422f94f88f681003dc9ce3a91ac8631c14d3ef858815f5639bfebe8837`）；未发布 Draft `https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-6fff0a6242b90c8e0f99`；APK SHA-256 `6ec8dddade41518e90af053c03bd500f64d3e8e5938807bf62ad6a366d6d804c` |
 
 既有能力保护索引：Desire / Thought / Intent / Gate、Somatic 双通道、玩游 Key、普通聊天、沉浸房间、查手机、造梗来源、D6、Phase 2B、App 内 Agent 能力桥、Memory 2D、`fact_state / attention_state / recall_policy`、`spontaneous_salience`、`reminiscence/identity`、Skills、MCP、`【检查系统】`、中断灰显、Token 命中/缓存优化、Phase 3、Harness、`screen_observation.inspect`、Genie-TTS 四音色、schema 61 与 Snapshot protocol 6 均不得回归。
 
@@ -62,7 +63,7 @@
 5. 夜间 00:00–07:00 在未主动观看时硬性睡眠到 07:00，强 Thought 不能让后台游戏整夜空转；主动观看仍可明确覆盖。关闭 Cedar 或自主游戏开关会原子暂停并 fence 当前执行，清除 next-action 时钟，远端存档保留。
 6. Stop 可终止 `pending/running/retry_wait/awaiting_confirmation/failed` 任一未完成回复；真实 SQLite 测试证明幽灵 job 被删除为非阻塞状态后，普通备份 freeze 可以立即取得。
 7. 新测试不是源码字符串：使用 `sqflite_common_ffi` 打开真实 AppDatabase schema，并以 fake DeepSeek 原生 tool-call + fake MCP 完成 `new → 她落子 → state 长轮询 → 网页落子/消息 → 她再次自动落子`；同时断言写操作永不携带 long-poll、服务端结构化状态不触发第二次模型等待、开关关闭清时钟、写超时只读同步和 Stop/备份互锁。
-8. 本机没有 Flutter/Dart SDK；当前 `git diff --check` 与 +211～+225 Cedar 专项 Python 门已通过。必须由 Actions 完成 `flutter pub get / analyze / 全量 tests / arm64 Release / 固定签名 / Draft`，在此之前严格保持 `CI PENDING / TRUE DEVICE PENDING`。
+8. 本机没有 Flutter/Dart SDK；提交前 `git diff --check` 与 +211～+225 Cedar 专项 Python 门已通过。Actions run `34957849643`（run 889）随后全绿：源码与历史门、Kotlin/JVM、Flutter Analyze、全量 Flutter tests、arm64 Release、固定签名、Genie/桌宠/LingChat/塔罗载荷、checksum、Artifact 与未发布 Draft 均成功。Artifact `10392840422`，ZIP digest `e88cb2422f94f88f681003dc9ce3a91ac8631c14d3ef858815f5639bfebe8837`；Draft `https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-6fff0a6242b90c8e0f99`；APK SHA-256 `6ec8dddade41518e90af053c03bd500f64d3e8e5938807bf62ad6a366d6d804c`。当前严格为 `CI PASSED / APK READY / TRUE DEVICE PENDING`，自动化端到端通过不等于真机已经修好。
 
 ## 5. 上一基线：v0.41.81+225 Cedar 后台原生 Agent 工具闭环
 
@@ -244,8 +245,8 @@
 
 | 优先级 | 条件 | 下一步 |
 |---|---|---|
-| P0 | 安装 +223 Draft APK | 在 Cedar 正在规划时分别关闭两个开关、发普通聊天、保存/恢复备份；确认规划立即退出、无迟到写回且全局系统不再被拖死 |
-| P1 | 运行时抢占真机通过 | 验证 04:40 高疲劳无强 Thought 时休息延后；再验证网页换手后无需 APK 内催促即可连续落子与回复房间消息 |
+| P0 | 安装 +226 Draft APK | 验证 `new/join/move` 写入后立即落库；在 Cedar 网页落子并发房间消息后，不在 APK 内催促，确认她能经后台观察器自动接招并回复 |
+| P1 | +226 连续换手通过 | 在 Cedar 正在规划时分别关闭两个开关、发普通聊天、保存/恢复备份；确认规划立即退出、无迟到写回且普通聊天与备份不再被拖死；另验证 00:00–07:00 未主动观看时休眠、主动观看可覆盖 |
 | P2 | 用户要求继续既有路线 | 从冻结归档顶部“当前任务完成后的后续导航”和 `app/docs/DOCUMENTATION_MAP.md` 定点恢复，不全文读取归档 |
 
 ## 8. 关键文件导航
