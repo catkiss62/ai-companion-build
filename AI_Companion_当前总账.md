@@ -244,6 +244,7 @@
 
 - 从 +228 权威源码切出 `maintenance/repository-governance-20260919`；只调整仓库维护入口，不改 App 运行逻辑、版本、schema、资源、历史、`main` 或既有 108 个 validator 的内容与顺序。
 - 工作流逐行 validator 调用收口为 `app/tools/validation_suite.txt` 与 `run_validation_suite.py`；维护合同见 `app/docs/REPOSITORY_MAINTENANCE.md`。100,000-byte 限制只约束当前入口，历史继续按阶段只读归档并由索引定点读取，不要求每轮同时读取两份总账。
+- 远端最终维护 head `fa99f32012fa1a0716b746d36b958a8e777ef9b8` 的 Actions run `35446649873` 已全绿：108/108 validator、Kotlin/JVM、Flutter Analyze、全量 Flutter tests、Release APK、固定签名、Genie/桌宠/LingChat/塔罗载荷、checksum、Artifact 与 Draft 上传均通过。Artifact `10585920727`，ZIP digest `01cbeec18ca2fa2c4ad141cedea736253d7441edb8473d647cb7f55b0f6b37e6`，APK SHA-256 `47ae7577495b22e73f2ee79f25091ec4507a47dbaf04b84a02e1059a42865dea`。首轮 `35446489156` 暴露旧 +194 validator 硬编码完整命令字符串，已以不执行的精确兼容标记修复；第二轮证明统一清单没有漏掉历史合同。本切片严格为 `CI PASSED / APK READY / APP RUNTIME UNCHANGED`，不把仓库维护误报为新的真机功能验收。
 
 ### 下一批执行顺序与禁止路线
 
