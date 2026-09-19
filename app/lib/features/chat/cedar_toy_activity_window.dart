@@ -481,7 +481,7 @@ class _CedarToyActivityWindowState extends State<CedarToyActivityWindow> {
             child: Image.file(
               file,
               fit: BoxFit.contain,
-              errorBuilder: (_, __, ___) => const SizedBox.shrink(),
+              errorBuilder: (_, _, _) => const SizedBox.shrink(),
             ),
           );
         },
@@ -493,7 +493,7 @@ class _CedarToyActivityWindowState extends State<CedarToyActivityWindow> {
         child: Image.memory(
           base64Decode(event.imageData),
           fit: BoxFit.contain,
-          errorBuilder: (_, __, ___) => const SizedBox.shrink(),
+          errorBuilder: (_, _, _) => const SizedBox.shrink(),
         ),
       );
     } catch (_) {
