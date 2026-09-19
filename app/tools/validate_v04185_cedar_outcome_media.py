@@ -62,6 +62,11 @@ require(
     "activity event preserves the same durable attachment reference",
     "Stop discards every materialized but undelivered attachment",
 )
+media_test = read("test/cedar_outcome_media_v04185_test.dart")
+assert media_test.count("import 'dart:convert';") == 1, "duplicate dart:convert import"
+assert "\nimport " not in media_test[media_test.index("void main()") :], (
+    "test imports must precede declarations"
+)
 require(
     "AI_Companion_当前总账.md",
     "v0.41.85+229",
