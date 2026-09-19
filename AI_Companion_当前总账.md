@@ -37,7 +37,8 @@
 | +228 远端 | head `29e87d016c8bd81f52f89f95191bd1a1a01a5b57`；tree `c4a112a56d8b634cf3a1a66636979a0833538b7d`；Actions `35440359036`；Artifact `10583263879`；APK SHA-256 `159e283173e49da2924d25b37ba7647893cdafdcc31b63f0e31b7c64e086849b` |
 | 仓库维护基线 | `maintenance/repository-governance-20260919`；远端文档 head `123e272196e8ae93f3518157917d76f6af4f1784`；完整构建 head `fa99f32012fa1a0716b746d36b958a8e777ef9b8`；Actions `35446649873` 全绿；文档-only run `35447342921` 正确跳过 APK |
 | 当前功能分支 | `agent/v04186-autonomy-tts-diagnostics`，从 +229 总账 head `3245996` 分出；候选版本 `v0.41.86+230` |
-| 当前任务状态 | `IMPLEMENTED LOCALLY / LOCAL STATIC VALIDATION PASSED / CI PENDING / APK PENDING / TRUE DEVICE PENDING`；+228/+229 的既有状态不因新分支自动升级 |
+| 当前任务状态 | `CI PASSED / APK READY / TRUE DEVICE PENDING`；+228/+229 的既有状态不因新分支自动升级 |
+| +230 远端 | 构建 head `6c53a40b5d7413942c12ca84001bb66205c160d1`；tree `9c3674e87f37798964e293b1ffdeaedf4e582c74`；Actions `35458277355`（attempt 2 全绿）；Artifact `10589621373`；APK SHA-256 `de27ec0c0146ef3a879f0bb9d8ae2c06dbfdc3225d8f6694fe8e01c7c5ab8d4a` |
 | +229 远端 | 构建 head `0f4ffc6c2b08a310a5f04919a045c98b2e8e63e3`；tree `9e0913202787feca13462c07fdd0941f10d0d4b9`；Actions `35450357850`；Artifact `10587305305`；APK SHA-256 `acbd5c81be69c5c27ae2822ea112fb2b0639a00636b61af7b0f642c02fbcddc6` |
 | `main` | 仍为 v0.38.5 旧基线；不得作为 v0.41.x 起点，本批不合并 |
 
@@ -122,7 +123,7 @@
 
 ### 6.2 v0.41.86+230 实施登记（2026-09-20）
 
-状态：`IMPLEMENTED LOCALLY / LOCAL STATIC VALIDATION PASSED / CI PENDING / APK PENDING / TRUE DEVICE PENDING`。
+状态：`CI PASSED / APK READY / TRUE DEVICE PENDING`。
 
 本批只实施用户已经确认的三组变更：
 
@@ -143,12 +144,19 @@
 - `rest` 的后台执行增加本地证据门；成功后由原 1 秒改为当前 viewing pace（休闲默认 2 分钟）。恢复同局若本次真实推进失败，会恢复 checkpoint 并延后 8 分钟，不把失败当成已开启新 episode。实时共玩判定和回合优先级未改。
 - 新增 Flutter 纯策略测试、Kotlin TTS 证据测试、+230 跨模块源码门，并更新 110 项 validation manifest、工作流、版本和真机清单。本地逐项运行 110 个源码门：107 个通过；另外 2 个只因仓库按治理规则未携带 CI 才恢复的桌宠/LingChat 私有资源包，1 个只因本机无 `kotlinc` 未运行。`git diff --check`、Python 编译、Workflow YAML 与 +230/+229/+228/总账专项门通过。本机无 Flutter/Dart/Gradle 分发，完整编译测试仍由 Actions 判定。
 
+Actions 与交付证据：
+
+- 构建 head `6c53a40b5d7413942c12ca84001bb66205c160d1`；tree `9c3674e87f37798964e293b1ffdeaedf4e582c74`。首轮 Actions 仅在恢复 LingChat 私有视觉资源时遇到远端 `curl (35) Connection reset by peer`，尚未进入编译；不改业务代码，按同一 run 重跑失败任务。
+- Actions `35458277355` attempt 2 全绿：110 个源码门、Kotlin 桌宠/悬浮层与新增 TTS 证据测试、Flutter analyze、全部 Flutter tests、arm64 Release、稳定签名、Genie/桌宠/塔罗载荷、Artifact 与 Draft 上传均成功。
+- Artifact `10589621373`，名称 `AI-Companion-v0.41.86-230-Autonomy-TTS-Diagnostics-APK`，大小 `538,050,951` bytes，ZIP digest `899a04d4819a6751c41b60a3ada9e62607bb2b7f30dc4969ec874adfac0ce25e`；APK SHA-256 `de27ec0c0146ef3a879f0bb9d8ae2c06dbfdc3225d8f6694fe8e01c7c5ab8d4a`；稳定测试签名 SHA-256 未变：`30:5E:B3:D8:09:83:B9:63:C6:48:18:DD:F1:AD:56:1F:27:9D:E6:D4:7B:3E:D2:C7:81:AD:A4:48:C7:C2:51:48`。
+- Draft Release 为未发布地址 `https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-4c16dc23432898cc5020`；本批未合并 `main`、未发布正式 Release。当前只能升级为 `CI PASSED / APK READY / TRUE DEVICE PENDING`。
+
 | 优先级 | 条件 | 下一步 |
 |---|---|---|
 | P0 | +228 真机异常仍可复现 | 只凭同一时刻诊断/备份定位；先判断已有修复是否失效，不重复叠补丁 |
-| P1 | 下一功能批 | 实现“高兴→可爱”；先增强四参考音频的 TTS 回声诊断，不在无证据时直接改声学推理 |
-| P1 | 游戏自主性批 | 实现单人 episode checkpoint 与统一竞争；保留同局恢复、实时共玩承诺和服务端权威状态 |
-| P1 | 防沉迷决策确认后 | 解析服务端提醒/锁定/恢复证据，接入 checkpoint；按最终决定实现受约束的自主 `rest`，并修正成功后 1 秒续跑 |
+| P1 | +230 真机测试 | 确认“高兴→可爱”；若再次播放参考语音，立即导出同一时刻诊断，不凭感觉修改声学链 |
+| P1 | +230 单人游戏测试 | 观察第 3 个状态变化或 25 分钟 checkpoint 后是否与联网/主动聊天/休息/沉默重新竞争；确认同局可恢复且实时共玩不受损 |
+| P1 | +230 防沉迷测试 | 分别验证提醒、锁定、`allow_self_reset` 开/关与自主重置；确认只有真实服务端证据可触发 `rest`，成功后按正常 2 分钟休闲节奏而非 1 秒续跑 |
 | P1 | +229 真机测试 | 核对旅行/下矿活动窗图片、聊天附件、附件来源、失败降级与 Stop |
 | P1 | 用户要“帮助”板块 | 先做功能清单与信息架构：`【检查系统】`、Agent/MCP 能力、权限与隐私、Stop、备份恢复、故障排查、当前限制；不把帮助页当新的执行器 |
 | P2 | Agent 后续加入修改能力 | 再为语义不明或可破坏操作加入“是/否”确认；只读和明确执行继续自然语言直达 |
