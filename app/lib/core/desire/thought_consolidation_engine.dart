@@ -1,5 +1,6 @@
 import '../database/app_database.dart';
 import '../models/thought.dart';
+import 'cedar_game_thought_policy.dart';
 import 'thought_similarity.dart';
 
 class ThoughtConsolidationResult {
@@ -74,6 +75,7 @@ class ThoughtConsolidationEngine {
         for (var j = i + 1; j < thoughts.length; j++) {
           final b = thoughts[j];
           if (consumed.contains(b.id) || a.driveKey != b.driveKey) continue;
+          if (!CedarGameThoughtPolicy.canConsolidateByTopic(a, b)) continue;
           final sameTopic = a.topicKey.isNotEmpty &&
               b.topicKey.isNotEmpty &&
               a.topicKey == b.topicKey;

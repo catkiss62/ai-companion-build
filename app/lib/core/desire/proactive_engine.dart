@@ -49,6 +49,7 @@ import '../tts/emotion_sound_service.dart';
 import '../tts/tts_provider.dart';
 import '../tts/tts_service.dart';
 import '../presentation/chat_visuals.dart';
+import 'cedar_game_thought_policy.dart';
 import 'deferred_followup_engine.dart';
 import 'desire_core_policy.dart';
 import 'desire_engine.dart';
@@ -1027,6 +1028,14 @@ class ProactiveEngine {
         : max(0, evaluationStartedAt.difference(lastUser).inMinutes);
     final isCedarGameShare = selectedSourceType == 'mcp' &&
         (intentThought?.source.startsWith('mcp/cedar_game:') ?? false);
+    final cedarOutcomeAt = isCedarGameShare
+        ? CedarGameThoughtPolicy.evidenceAt(intentThought!)
+        : null;
+    final cedarOutcomeAgeMinutes = cedarOutcomeAt == null
+        ? null
+        : max(0, evaluationStartedAt.difference(cedarOutcomeAt).inMinutes);
+    final cedarOutcomeIsRecent = cedarOutcomeAt != null &&
+        CedarGameThoughtPolicy.isRecent(intentThought!, evaluationStartedAt);
     final isImmediateCedarShare = isCedarGameShare &&
         forceForDebug &&
         forcedThoughtIdForDebug == intentThought?.id;
@@ -1253,9 +1262,14 @@ ${jsonEncode({
             'source_type': selectedSourceType,
             'temporal_grounding': MemoryGroundingPolicy.thoughtTemporalNote(
               provenance: intentThought.provenance.key,
-              sourceTime: intentThought.updatedAt,
+              sourceTime: cedarOutcomeAt ?? intentThought.updatedAt,
               now: evaluationStartedAt,
             ),
+            if (isCedarGameShare) ...<String, Object?>{
+              'cedar_event_occurred_at': cedarOutcomeAt!.toIso8601String(),
+              'cedar_event_age_minutes': cedarOutcomeAgeMinutes!,
+              'cedar_event_is_recent': cedarOutcomeIsRecent,
+            },
             'thought': intentThought.text.length <=
                     (isCedarGameShare ? 6000 : 500)
                 ? intentThought.text
@@ -1276,6 +1290,11 @@ ${jsonEncode({
         : '''
 这是用户正在观战时、已被结果分类器确认“值得分享”的 Cedar 真实游戏进展。本轮必须直接生成一条自然聊天正文，不输出 WAIT。
 MCP Outcome 是她自己刚完成的真实游戏操作结果，可以用第一人称分享感受；但具体操作、坐标、战绩和结果必须与 SELECTED_THOUGHT_DATA 中的真值一致，不得补写。''';
+    final cedarTemporalContract = !isCedarGameShare
+        ? ''
+        : '''
+这是一个带不可变发生时间的 Cedar 真实 Outcome。Thought 正文里的“刚”只代表事件生成当时，不能覆盖 SELECTED_THOUGHT_DATA 的 cedar_event_age_minutes。
+只有 cedar_event_is_recent=true 才能说“刚才/刚刚/刚在”；否则仍可分享真实内容，但必须明确说成“之前/上次/前面玩的时候”，不得暗示当前游戏正在运行。''';
     context.add({
       'role': 'system',
       'content': '''
@@ -1293,6 +1312,7 @@ Gate：${gateScore.toStringAsFixed(2)}
 $webShareContract
 $sourceAgnosticShareContract
 $watchedCedarShareContract
+$cedarTemporalContract
 $selectedThoughtData
 ${selection != null && selection.rawRepetitionPenalty > 0 ? '近期同类主动主题已连续出现 ${selection.rawRepeatDepth} 次，本轮已经在本地选择阶段降权；若当前最终意图不是该主题，不要擅自绕回重复的亲密联系。' : ''}
 过去主动消息样本：${rhythmProfile.sampleCount}；当前主题历史样本：${rhythmProfile.topicSampleCount}；同类主动意图样本：${rhythmProfile.intentSampleCount}。当前粗粒度时间段=${rhythmProfile.currentHourBucket}，活动情境=${rhythmProfile.currentActivityContext}。这些只作为轻量节奏参考，不要向用户提及统计。
@@ -1518,6 +1538,8 @@ ${startsFreshTopic ? '本类型属于新话题通道：ANSWERED CHAT HISTORY 已
       text: candidate.content,
       publicWebOutcomeAvailable: webShareCandidateId != null,
       cedarOutcomeAvailable: isCedarGameShare,
+      cedarOutcomeAt: cedarOutcomeAt,
+      now: evaluationStartedAt,
     );
     var memoryTemporalGuard = ProactiveMemoryTemporalGuard.evaluate(
       text: '${candidate.reasoning}\n${candidate.content}',
@@ -1659,6 +1681,8 @@ ${PromptBuilder.visibleChineseGenerationReminder(proactive: true)}
         text: candidate.content,
         publicWebOutcomeAvailable: webShareCandidateId != null,
         cedarOutcomeAvailable: isCedarGameShare,
+        cedarOutcomeAt: cedarOutcomeAt,
+        now: evaluationStartedAt,
       );
       memoryTemporalGuard = ProactiveMemoryTemporalGuard.evaluate(
         text: '${candidate.reasoning}\n${candidate.content}',
@@ -1685,7 +1709,14 @@ ${PromptBuilder.visibleChineseGenerationReminder(proactive: true)}
         text: candidate.content,
         publicWebOutcomeAvailable: webShareCandidateId != null,
         cedarOutcomeAvailable: isCedarGameShare,
+        cedarOutcomeAt: cedarOutcomeAt,
+        now: evaluationStartedAt,
       );
+      if (salvaged.isEmpty &&
+          operationGuard.reason == 'stale_cedar_event_presented_as_recent') {
+        await noteGeneration('guard_blocked', reasonTag: 'grounding_guard');
+        return blockGrounding(operationGuard.reason);
+      }
       candidate = candidate.copyWith(
         content: salvaged.isNotEmpty
             ? salvaged

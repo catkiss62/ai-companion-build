@@ -1,4 +1,5 @@
 import '../models/thought.dart';
+import 'cedar_game_thought_policy.dart';
 
 /// A Thought may remain useful for ordinary conversational recall while being
 /// too weak to initiate an unsolicited action. This policy is deliberately
@@ -8,6 +9,7 @@ class ProactiveThoughtReadinessPolicy {
 
   static bool isReady(CompanionThought thought, DateTime now) {
     if (!thought.canDriveIntentAt(now)) return false;
+    if (!CedarGameThoughtPolicy.canInitiateShare(thought, now)) return false;
     if (thought.isFixation) return thought.strength >= 0.18;
     final minimum = switch (thought.provenance) {
       ThoughtProvenance.publicWebCandidate => 0.50,

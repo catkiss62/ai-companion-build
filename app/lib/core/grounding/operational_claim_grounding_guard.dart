@@ -85,9 +85,15 @@ class OperationalClaimGroundingGuard {
   );
   static final RegExp _cedarPlayClaim = RegExp(
     r'((刚刚|刚才|已经|真的|确实)?(玩了|玩过|开了一局|打了一局|完成了).{0,18}(游戏|一局|关卡))|'
+    r'((刚在|刚从).{0,12}(钓鱼|下矿|采矿|旅行|探索|决斗|对弈|种植|花园|游戏))|'
+    r'((钓了|甩了|抛了).{0,10}(竿|条|鱼))|'
+    r'((下矿|挖矿|采矿|种植|浇水|旅行|探索|决斗|对弈).{0,14}(了|完成|结束|到达|获得|拿到))|'
     r'((赢了|输了|通关了|得了|拿到).{0,12}(分|胜利|奖励|道具|成就))|'
     r'((游戏|这一局|这局).{0,12}(赢了|输了|结束了|通关了|存档了|得分))|'
     r'((我)?(这就|马上|现在就).{0,6}(进去|进房|加入|开局|开始玩|杀进去))',
+  );
+  static final RegExp _cedarImmediateTimeAnchor = RegExp(
+    r'(刚刚|刚才|方才|才刚|刚在)',
   );
   static final RegExp _selfMoveCoordinateClaim = RegExp(
     r'(?:我|这手|刚才|刚刚|已经|直接|那就)[^。！？!?\n]{0,20}'
@@ -105,6 +111,8 @@ class OperationalClaimGroundingGuard {
     Iterable<AgentToolResult> currentToolResults = const <AgentToolResult>[],
     bool publicWebOutcomeAvailable = false,
     bool cedarOutcomeAvailable = false,
+    DateTime? cedarOutcomeAt,
+    DateTime? now,
   }) {
     if (_machineProtocol.hasMatch(text) ||
         _machineProtocolJson.hasMatch(text) ||
@@ -149,6 +157,14 @@ class OperationalClaimGroundingGuard {
               result.toolId == 'image.find_and_save' ||
               result.toolId == 'image.web_send',
         );
+    final hasCurrentCedarOutcome = successfulResults.any(
+      (result) => result.toolId == 'cedar_toy.play',
+    );
+    final cedarEvidenceIsRecent = hasCurrentCedarOutcome ||
+        (cedarOutcomeAt != null &&
+            !(now ?? DateTime.now()).isBefore(cedarOutcomeAt) &&
+            (now ?? DateTime.now()).difference(cedarOutcomeAt) <=
+                const Duration(hours: 1));
     final sentences = _sentences(text);
     for (final sentence in sentences) {
       if (_metaOrNegated.hasMatch(sentence)) continue;
@@ -182,11 +198,20 @@ class OperationalClaimGroundingGuard {
         );
       }
 
-      if (_cedarPlayClaim.hasMatch(sentence) &&
+      final cedarPlayClaim = _cedarPlayClaim.hasMatch(sentence);
+      if (cedarPlayClaim &&
+          _cedarImmediateTimeAnchor.hasMatch(sentence) &&
+          !cedarEvidenceIsRecent) {
+        return const OperationalClaimGroundingResult(
+          allowed: false,
+          reason: 'stale_cedar_event_presented_as_recent',
+          requiredToolId: 'cedar_toy.play',
+        );
+      }
+      if (cedarPlayClaim &&
           !cedarOutcomeAvailable &&
-          !successfulResults.any(
-            (result) => result.toolId == 'cedar_toy.play',
-          )) {
+          cedarOutcomeAt == null &&
+          !hasCurrentCedarOutcome) {
         return const OperationalClaimGroundingResult(
           allowed: false,
           reason: 'ungrounded_cedar_toy_play',
@@ -266,6 +291,8 @@ class OperationalClaimGroundingGuard {
     Iterable<AgentToolResult> currentToolResults = const <AgentToolResult>[],
     bool publicWebOutcomeAvailable = false,
     bool cedarOutcomeAvailable = false,
+    DateTime? cedarOutcomeAt,
+    DateTime? now,
   }) {
     return _sentences(text)
         .where(
@@ -274,6 +301,8 @@ class OperationalClaimGroundingGuard {
             currentToolResults: currentToolResults,
             publicWebOutcomeAvailable: publicWebOutcomeAvailable,
             cedarOutcomeAvailable: cedarOutcomeAvailable,
+            cedarOutcomeAt: cedarOutcomeAt,
+            now: now,
           ).allowed,
         )
         .join('\n')

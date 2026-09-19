@@ -39,8 +39,9 @@
 | 功能状态 | `CI PASSED / APK READY / TRUE DEVICE PENDING` |
 | +228 远端 | head `29e87d016c8bd81f52f89f95191bd1a1a01a5b57`；tree `c4a112a56d8b634cf3a1a66636979a0833538b7d`；Actions `35440359036`；Artifact `10583263879`；APK SHA-256 `159e283173e49da2924d25b37ba7647893cdafdcc31b63f0e31b7c64e086849b` |
 | 仓库维护基线 | `maintenance/repository-governance-20260919`；远端文档 head `123e272196e8ae93f3518157917d76f6af4f1784`；完整构建 head `fa99f32012fa1a0716b746d36b958a8e777ef9b8`；Actions `35446649873` 全绿；文档-only run `35447342921` 正确跳过 APK |
-| 当前功能分支 | `agent/v04188-wishlist-cedar-card-guardrails`，从 +231 文档收口 head `664ba8e` 分出；候选版本 `v0.41.88+232` |
-| 当前任务状态 | `CI PASSED / APK READY / TRUE DEVICE PENDING`；+228～+231 的既有状态不因新分支自动升级 |
+| 当前功能分支 | `agent/v04189-cedar-temporal-wishlist-cache`，从 +232 远端文档 head `189f8b1` 分出；候选版本 `v0.41.89+233` |
+| 当前任务状态 | `IMPLEMENTATION STARTED / CI PENDING / TRUE DEVICE PENDING`；+232 已有 2 项真机通过、1 项持续观察，见 6.5 |
+| +233 当前任务 | 先修 Cedar Outcome Thought 的事件身份、一次分享与时间锚定；再做愿望单安全主题投影；最后只做语义等价的 DeepSeek 缓存观测/低风险优化。三部分独立提交与验证门，不改人格、疲劳、Cedar 玩法/循环所有权或 Gemini 按次回复链 |
 | +232 目标 | 游戏厅“最近进展”窄面板复用“游戏活动”同款 Card 颜色；愿望单按安全主题表达并合并同主题活动愿望；登记 Cortico 低风险参考、唯一循环所有权与后续诊断护栏；不改 Agent 循环、疲劳、缓存、TTS、schema、世界书或人格 |
 | +232 远端 | 构建 head `3783aa7ccae0d547d4a0a1c18d4f388c398be574`；tree `54da8912e76ce5d59ec142387f1708a972196640`；Actions `35469452065` 全绿；Artifact `10592781832`；APK SHA-256 `ccb0352275d197592b1fd5b9a1ca479f89ec21101f472b234e85f8f7d5968622` |
 | +231 远端 | 构建 head `75d9e0a311d5b322f53a742b9016aac16d44c9d9`；tree `2b337e3b4d23a1c4bdc097ee999fc569ddafb7fe`；Actions `35464168272` 全绿；Artifact `10591085711`；APK SHA-256 `1b10c1f49f0d192913c2f15e9f46345160cc2c0ee22acf751eb6755a70a3e565` |
@@ -247,7 +248,9 @@ Actions 与交付证据：
 
 ### 6.5 v0.41.88+232 愿望单主题身份、Cedar 同色卡片与扩展护栏（2026-09-20）
 
-状态：`CI PASSED / APK READY / TRUE DEVICE PENDING`。
+状态：`CI PASSED / APK READY / TRUE DEVICE PARTIAL`。
+
+历史实现分支：`agent/v04188-wishlist-cedar-card-guardrails`。
 
 本批范围与证据：
 
@@ -267,6 +270,27 @@ Actions 与交付证据：
 - Actions `35469452065` 全绿：112 个源码/历史门、Kotlin 桌宠/悬浮层测试、Flutter analyze、全部 Flutter tests、arm64 Release、稳定签名、Genie/桌宠/LingChat/塔罗载荷、Artifact 与 Draft 上传全部成功。
 - Artifact `10592781832`，名称 `AI-Companion-v0.41.88-232-Wishlist-Cedar-Card-Guardrails-APK`，大小 `538,061,525` bytes，ZIP digest `de6b7f2fd789d3d3e0d195ab7f6a6851fcb834aa783955bd8d33d3462b549aea`；APK SHA-256 `ccb0352275d197592b1fd5b9a1ca479f89ec21101f472b234e85f8f7d5968622`；稳定测试签名 SHA-256 未变：`30:5E:B3:D8:09:83:B9:63:C6:48:18:DD:F1:AD:56:1F:27:9D:E6:D4:7B:3E:D2:C7:81:AD:A4:48:C7:C2:51:48`。
 - Draft Release 为未发布地址 `https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-8043368def99d2e0f7b0`；仍是测试 APK，不是正式 Release。
+
+真机回填与持续观察：
+
+- 游戏厅“最近进展”卡片颜色已确认与“游戏活动”一致，升级为 `TRUE DEVICE PASSED`。
+- 旧固定愿望在正常刷新后已确认写法发生迁移，升级为 `TRUE DEVICE PASSED`；其中未知主题仍可能落入“想认真弄明白最近惦记的那个问题”等过度模糊兜底，这属于 +233 的安全主题投影改进，不推翻迁移成功结论。
+- 同一钓鱼/旅行主题长期只保留一条愿望仍随自然数据持续观察，不阻塞开发，不为造样本修改真实欲望或游戏偏好。
+
+### 6.6 v0.41.89+233 Cedar 事件时序真实性、愿望安全主题与缓存命中（2026-09-20）
+
+状态：`IMPLEMENTATION STARTED / CI PENDING / TRUE DEVICE PENDING`。
+
+开工证据与边界：
+
+1. 同一时刻备份 `AI_Companion_Backup_2026-09-19T22-01-12.aibackup` 与诊断 `ai_companion_diagnostics_2026-09-19T22-01-20-863164Z.txt` 证明：最新主动消息声称“刚在钓鱼里连甩了十竿”，本轮没有新的 `cedar_toy.play` Outcome；它复用了来源事件 `play-1789520410317668` 的旧钓鱼正文。对应 Thought 已跨同主题合并 1759 次、累计主动 action 37 次，原始事件时间与 `updated_at` 被维护/合并刷新的时间严重分离。
+2. 根因是结构性的而非钓鱼词表单点：Thought consolidation 把所有相同 `cedar_game:<game>` 主题当重复项合并；合并保留旧事件来源/正文，却刷新 `updated_at`；主动出站又把任意 `mcp/cedar_game:*` 来源直接视为有 Cedar Outcome，未验证具体事件是否新鲜。高疲劳只改变竞争结果，不是伪造根因。
+3. Cedar Outcome Thought 必须保留不可混合的事件身份：不同事件不得只因游戏主题相同而合并；同一真实 Outcome 最多主动分享一次；超过 48 小时的 Outcome 不再主动翻出分享，但仍可在用户对话、长期记忆和历史回忆中以“之前/上次”等形式出现。
+4. “刚才/刚刚/刚在”等即时表达只由 60 分钟内的具体成功 Outcome 授权；维护、合并、复活或候选选择不得刷新证据时间。超过窗口仍可分享真实旧事，但必须使用历史时间锚。规则覆盖所有 Cedar 游戏动作，不写成钓鱼专属补丁。
+5. 愿望单继续保护 Thought 私密正文。未知主题不得直接展示任意 topic key 或内部推理；只使用独立、受约束的安全公开主题。缺少安全主题时不再伪装成“那个问题”，也不为写详细而发明新目标或改变成长分数。
+6. 缓存优化排在上述真实性修复之后。先补不含 Prompt 正文的段落类别、顺序、长度与哈希观测，再只调整稳定前缀、动态尾部和确定性序列化；Gemini `final_reply` 不纳入，禁止删记忆、冻结实时状态、弱化工具真值或重新合并已隔离的 Agent/Cedar 循环。
+
+实施顺序与提交门：Cedar 时序真实性、愿望安全主题、DeepSeek 缓存分别独立提交并运行专项回归；最后才更新版本、总账与完整 validator。Actions 全绿只升级为 `CI PASSED / APK READY`，Cedar 历史时态、愿望显示与缓存行为仍需真机分别确认。
 
 ## 7. 历史验证兼容摘要
 

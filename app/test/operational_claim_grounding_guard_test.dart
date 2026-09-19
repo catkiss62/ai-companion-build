@@ -81,10 +81,51 @@ void main() {
   });
 
   test('durable autonomous Cedar outcome authorizes its later share', () {
+    final now = DateTime(2026, 9, 20, 6);
     expect(
       OperationalClaimGroundingGuard.evaluate(
         text: '我刚才玩了一局游戏。',
         cedarOutcomeAvailable: true,
+        cedarOutcomeAt: now.subtract(const Duration(minutes: 12)),
+        now: now,
+      ).allowed,
+      isTrue,
+    );
+  });
+
+  test('old Cedar outcome cannot be presented as just completed', () {
+    final now = DateTime(2026, 9, 20, 6);
+    final result = OperationalClaimGroundingGuard.evaluate(
+      text: '我刚在钓鱼里连甩了十竿，还钓上来三条鱼。',
+      cedarOutcomeAvailable: true,
+      cedarOutcomeAt: now.subtract(const Duration(hours: 4)),
+      now: now,
+    );
+    expect(result.allowed, isFalse);
+    expect(result.reason, 'stale_cedar_event_presented_as_recent');
+  });
+
+  test('old Cedar outcome remains shareable with an honest history anchor', () {
+    final now = DateTime(2026, 9, 20, 6);
+    expect(
+      OperationalClaimGroundingGuard.evaluate(
+        text: '上次钓鱼时连甩了十竿，还碰到过分裂鱼钩。',
+        cedarOutcomeAvailable: true,
+        cedarOutcomeAt: now.subtract(const Duration(days: 1)),
+        now: now,
+      ).allowed,
+      isTrue,
+    );
+  });
+
+  test('fresh Cedar fishing action is authorized by its exact outcome time', () {
+    final now = DateTime(2026, 9, 20, 6);
+    expect(
+      OperationalClaimGroundingGuard.evaluate(
+        text: '我刚在钓鱼里连甩了十竿。',
+        cedarOutcomeAvailable: true,
+        cedarOutcomeAt: now.subtract(const Duration(minutes: 59)),
+        now: now,
       ).allowed,
       isTrue,
     );
