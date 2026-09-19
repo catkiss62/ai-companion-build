@@ -71,9 +71,16 @@ require(
     "AI_Companion_当前总账.md",
     "v0.41.85+229",
     "agent/v04185-cedar-media-bridge",
-    "IMPLEMENTED LOCALLY / LOCAL STATIC VALIDATION PASSED / CI PENDING / TRUE DEVICE PENDING",
     "正式记录（无容量上限）",
 )
+ledger = read("AI_Companion_当前总账.md")
+assert any(
+    status in ledger
+    for status in (
+        "IMPLEMENTED LOCALLY / LOCAL STATIC VALIDATION PASSED / CI PENDING / TRUE DEVICE PENDING",
+        "CI PASSED / APK READY / TRUE DEVICE PENDING",
+    )
+), "ledger must carry a valid +229 delivery state"
 require(
     ".github/workflows/build-apk.yml",
     "agent/v04185-cedar-media-bridge",
