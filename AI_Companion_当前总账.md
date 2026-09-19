@@ -1,6 +1,6 @@
 # AI Companion · 当前总账
 
-更新时间：2026-09-15（Asia/Tokyo）
+更新时间：2026-09-19（Asia/Tokyo）
 
 > 本文件是唯一的当前接班入口，采用“总账 v2”结构，只保存永久边界、当前基线、当前任务和最近证据。冻结历史位于 `app/docs/ledger/archive/AI_Companion_总账归档_截至_v0.41.74+218.md`，仅在修改旧模块或核对历史证据时定点检索，不再随每次任务重写或上传整份历史。
 >
@@ -33,7 +33,8 @@
 | 当前开发分支 | `agent/v04183-cedar-native-agent-loop` |
 <!-- Historical validator token: agent/v04182-cedar-state-machine-e2e -->
 | 当前目标版本 | `v0.41.83+227 / schema 61 / Snapshot protocol 6` |
-| 当前状态 | `CI PASSED / APK READY / TRUE DEVICE PARTIAL · BACKGROUND PAYLOAD + TERMINAL HANDOFF + AUTONOMOUS WEB REGISTRY BUGS FOUND` |
+| 当前状态 | `CI PASSED / APK READY / TRUE DEVICE PARTIAL · USER ROLLED BACK TO +225 AFTER +227 TOKEN/LOOP REGRESSION · NEXT BATCH PLANNED ONLY` |
+| 当前真机安装态 | 用户因 +227 Agent 循环带来的异常高 Token 消耗已回退到 `v0.41.81+225`；仓库权威开发基线仍是 +227 tree，下一批必须从 +227 修正，不能把回退安装态误写成源码回退 |
 | 当前真机失败基线 | `v0.41.83+227`；真机已经证明能建房并连续自动接招多步，但后台一次原生 `play` 只给出动作名、遗漏必需业务参数，服务端拒绝后恢复查询同样缺参数并停住。随后前台提醒可继续落子；最终 Cedar 终局真值已写入 APK，却没有交给普通聊天或主动联系，导致她不知道胜负。另确认自主联网发现虽被 Desire 选中，却被能力注册表在搜索前拒绝；自主联系会在短间隔场景中直接开启无历史新话题；Usage/Accessibility 推断保留了熄屏事实，却仍会让熄屏前活动跨会话主导“持续使用”判断；情绪短音效在隐藏情绪标签到达时即播放、早于可见正文。普通回复中的自主表情已经真机命中，暂不存在调低概率的确证 |
 | `main` | 仍是 v0.38.5 旧基线；不得作为 v0.41.x 后续开发起点，本批不合并 |
 | +219 构建提交 | 远端功能 head `0295ceeeafe9e18f057b6f8f5d54a8dae8820ed2`；tree `3cf8a09813c135b8bce4e5b9a66381ba2a03f5cf` |
@@ -110,6 +111,81 @@
 - 因此下一批不改普通回复现有低/自然/频繁概率，也不放宽语义匹配或去重。先增加不含私密内容的分阶段计数（未满足语气、文本过长、随机门、无语义候选、近期去重、成功附加），真机再出现长期稀少时才凭统计定位，禁止为了“看起来更频繁”强行调参。
 - “普通回复中她自行选表情”与“无人发消息时的主动联系直接带表情”是两条路径。当前主动引擎只构造空附件，除特定游戏分享图片外没有调用表情服务，因此后者目前属于未接入能力，不是现有概率回归。是否让真正主动联系携带表情需以后由用户明确选定为新能力；本轮不把两者混同，也不擅自实现。
 
+### 2026-09-19 补充审计：Agent 循环 Token 放大是实现回归，不是 MCP 固有成本
+
+- 两份真机状态与 +225/+227 源码差异已经足以定因，不需要把整个备份逐表重读。MCP HTTP 请求本身不消耗语言模型 Token；异常增长来自 APK 在一次已承诺游戏续步里反复调用 DeepSeek 规划器。
+- +227 的 `CedarAgentLoopPolicy` 允许一个目标最多 `10` 个规划回合、`16` 次工具调用；后台 `_runCompanionTurnLoop` 也会在刷新后的 session 仍为 `needsContinuation && nextActor=companion` 时连续推进最多 10 次。每一步都是新的高思考 DeepSeek 请求（正文预算上限 2400），损坏/空响应还可增加一次低思考 1400-token 重试；非结构化 Outcome 另有分类调用。
+- 每一步又重复注入完整指南、实时 `play` schema、当前 Outcome 与动态 session。当前活动钓鱼指南约 1.3k 字符、实时 schema 约 6.5k 字符，尚未计入固定 Skill、动作签名和模型输出；循环十次就是十个独立请求，而不是一次请求里的十个廉价工具调用。动态状态每步变化也会破坏尾部缓存复用。
+- +225 在每次已承诺续步前仍执行 `_continuationGate`，且一个时钟机会只推进一步；+227 提交 `2553585` 从 `continueDue` 路径移除了这道门并直接进入十轮循环。因此用户观察到 +225 较克制、+227 几乎一直玩并且 Token 倍增，与源码差异完全一致。
+- 当前 `DeepSeekClient` 没有把供应商 `usage`（输入、输出、缓存命中/未命中）写入诊断，现有计数只能证明调用结构，不能从 APK 内精确核对账单缓存率。下一批必须先补按 lane 的 usage telemetry：`user_chat / cedar_foreground / cedar_background_plan / cedar_outcome / web_appraisal / proactive` 分别记录调用数、input/output/cache hit/cache miss、重试、取消和执行 ID；不得记录 Prompt 正文或密钥。
+- 修复不应放弃双弈。多人/共玩模式收到服务端 `next_actor=companion` 时，应在同一次唤醒中完成恰好一个“规划 + 合法动作”，随后服从新的服务端 actor/terminal；只有协议明确表示同一原子回合还缺一个必需动作时，才允许最多一次有理由的补步。单人/异步游戏每个调度机会只做一步，随后重新进入已有 Desire/Thought/疲劳/休息竞争并尊重 `resume_after`，不能用通用 10 轮追到模型预算耗尽。
+- 用户明确发起且确需多工具的前台 Agent 可以保留有界循环，但停止条件必须是“真实目标已完成 / 服务端等待用户或远端 / 终局 / 不可恢复错误”，不是看到 `companion` 就机械跑满；每次执行还要有模型调用数和 Token 双预算。静态 Skill/指南/schema 应形成稳定前缀并按内容 hash 复用，动态 session/Outcome 放在末尾，减少缓存抖动。
+- 固定验收：一次双弈远端落子只触发一次后台规划并完成一次真实应答，不需要用户回 APK 催；单人钓鱼一次 cadence 只推进一步，之后重新竞争；达到预算立即安全停靠；诊断能解释每条模型账单。没有 usage 遥测前不得承诺具体节省百分比，但移除通用十连规划会消除当前最大的倍增项。
+
+### P0-D：游戏续跑必须重新服从主体节律，不能由已开局状态垄断全天
+
+- 当前 Desire 只在“是否新开一局、选哪一局”时竞争；一旦 session 处于 `needsContinuation`，专用 continuation clock 会先于普通主动 heartbeat 接管。+227 又移除了续步 Gate，于是已经开局的游戏绕开疲劳、休息和其他欲望，并可在一次 tick 内连续十步。这正是“除了睡觉一直在玩”的主要实现原因，不是她单纯特别喜欢钓鱼。
+- 不必先造一套庞大的生物钟才能修复。第一步应恢复每步之间的既有 Gate，区分实时共玩义务与可选单人消遣，并增加“每局每日动作数 / 连续活动时长 / 最近休息时间”的软预算。以后若仍需更自然的昼夜变化，再让生物钟作为 Gate 的输入，而不是用新系统掩盖无限续跑。
+- 实时双弈不能被可选欲望竞争拖延：远端玩家刚走一步且权威状态轮到她时，应及时回一步；Desire/疲劳决定的是是否发起或继续可选单人游玩，不应把已经承诺的真人对局晾住。
+
+### 观察项：当前没有“各游戏固定概率”，钓鱼上瘾首先是 session 垄断
+
+- 新游戏选择由模型从 catalog 里判断，没有一张可审计的逐游戏数值概率表。Prompt 声称会考虑重复度、未完成状态和当前欲望，但实际选择输入只有 catalog 与最多三条近期用户建议，没有传入逐游戏最近次数、动作数、时长或新鲜度统计。
+- 活跃 session 在完成、暂停或释放前会一直占据活动位；钓鱼又是 `solo/active/next_actor=companion`，因此它常常根本不回到“选下一款游戏”的阶段。现阶段不能据此断言选择器偏爱钓鱼，也不应直接降低钓鱼概率打断真实爱好。
+- 下一批先补不含内容的逐游戏诊断：成为候选次数、被选择次数、continuation 次数、当日动作数、session 年龄、完成/暂停/释放原因、最近 N 局分布。修复无限续跑后再观察；若仍单一，再加入“长期偏好 + 新鲜度衰减 + 动作/时长预算”的软选择，而非纯随机轮盘。
+
+### P1：普通“看看”不能等同于联网授权，Cedar 场景优先于公共网页
+
+- `AgentToolPlanner.routeLocally` 当前把句首 `搜索/搜一下/查一下/查查/检索/找一下/看看` 都视为 web command；所以即使没有“上网、联网、网页、网址”，`看看有什么好东西` 也会被硬路由到 `public_web.search`。`_webQuery` 还会把句首“看看”剥掉，进一步坐实错误路由。
+- 激活 Cedar 场景时，除特定盲玩隔离分支外公共网页 schema 仍可能同时暴露；因此钓鱼中的“看看氧气瓶”也可能先去互联网，而不是依据当前游戏指南/局面行动。
+- 下一批将“看看/找找/查查”单独视为普通观察动词，不构成联网授权。只有明确网页标记、URL，或保守定义的当前公共事实需求（例如最新新闻、实时价格、天气）才能本地硬路由联网；活动 Cedar session 中可被指南识别的对象/动作先交给 Cedar。含糊句保持普通对话或请求澄清，不得私自搜索。
+- 固定回归至少覆盖：`看看有什么好东西` 不搜索；钓鱼中 `看看氧气瓶` 走当前游戏；`上网看看氧气瓶资料` 仍可搜索；明确 URL 与“今天的天气/最新消息”不回归。
+
+### P0-E：Stop 没有取消网页网络链，只取消了链尾写回
+
+- `AgentToolRunner._searchWeb` 只在 `provider.discover` 和 appraiser 返回后检查 cancellation token；`LayeredPublicWebProvider.discover`、Tavily search/extract、Agnes 压缩与 `DeepSeekPublicWebAppraiser.appraise` 都没有接收取消信号。在途 HTTP 仍会一直等各自超时，Stop 后界面因此像卡住，杀 App 才能真正打断进程。
+- 下一批必须把同一 generation cancellation token 贯穿 search、extract、分块重读、压缩和 appraiser；每阶段及每个 chunk 都设 checkpoint，并让在途 HTTP 可 abort/close。`finally` 必须释放 client；取消后的迟到结果不得写浏览记录、候选、工具 Outcome 或最终回复。
+- 用阻塞 fake 分别卡住 search/extract/compactor/appraiser，断言 Stop 很快返回、generation job 进入已取消终态、无取消后写入、下一条聊天可立即开始。仅在 `_searchWeb` 尾部再加一次 `isCancelled` 检查不算修复。
+
+### P0-C 补充：自主相册不是被游戏概率直接挤掉，当前是“无新网页源 + 备用源下载失败”
+
+- 两份快照中相册候选从 99 增至 102，但 `public_web` 仍停在既有 `deleted 6 / expired 13 / rejected 47 / saved 2`，没有新的自主网页图片；新增成功保存来自 `user_message`，不是自主联网。
+- 这与已确认的自主 public-web registry denial 同源：发现链在真正搜索前被拒，因而没有新的已核验网页候选和图片 URL 进入相册。游戏恢复器可能因 blocking generation 少获得机会，但相册 runner 排在 Cedar 前面，游戏占比不是首要根因。
+- 最近备用 FishArchive 尝试均以 `FormatException: unsupported_image_bytes` 失败；现实现又会在一次失败后把当天标成已尝试，直到次日才再试。因此即便网页源断了，备用源也会被单个坏响应烧掉全天机会。
+- 修复顺序：先完成 P0-C 能力注册合同；再验证 FishArchive 实际 MIME、字节签名、重定向与预览/CDN URL，选择受支持预览或在安全边界内转码；一次坏图应有界换候选，只有成功或明确耗尽候选才结束当天。诊断分别记录发现源失败、下载失败、格式不支持、策展拒绝，不再混成“没有保存”。
+
+### P1：游戏记忆需要领域标记与收敛，不新增会吞掉偏好的顶层 kind
+
+- 最新快照约 371 条长期记忆中，按现有 metadata/topic 可确定的游戏相关记录约 109 条：`shared_experience 69 / user_profile 25 / ai_self 12 / preference 3`，其中大量是钓鱼进度、宝箱、地图、渔获等可由 Cedar 存档恢复的操作状态。相比早一份快照约 53 条，增长已经足以造成普通回忆噪音。
+- 不建议新建互斥的 `kind=game`：喜欢某款游戏仍是真实 `preference`，共同游玩中的关系节点仍是 `shared_experience`，她自己的玩法倾向仍是 `ai_self`。把它们全部改成 game 会丢掉原有记忆语义。
+- 建议增加正交的 `memory_domain=cedar_game`（或等价 topic/tag namespace）与检索策略：权威进度只留在 Cedar session/events；普通操作片段低显著度、可过期，并按 `game_id + objective` 合并/取代；真实偏好保留 preference，重要关系瞬间保留 shared_experience，但都带游戏领域标记，普通聊天仅在相关话题检索。
+- 现有记录可以在 schema 升级时按结构化 topic/object/game ID/tags 做幂等迁移，保留原 kind、记录 migration version 并可回滚；含糊项不动。不能只用“钓鱼”等正文关键词批量迁移，也不需要用户手改或由我们直接改上传存档。
+
+### 观察项：`duel · 轮到你` 的映射正确，但显示依据已经陈旧
+
+- 两份状态都把 duel 保存为 `multiplayer / waiting_user / next_actor=user / last_action=rooms`，所以 UI 按本机字段显示“轮到你”本身没有映射错误。
+- 但该 session 从较早快照到最新回退快照都未更新，最后动作只是 `rooms`，并不能证明远端对局此刻仍轮到用户。它是旧的水合/终局 handoff 缺口留下的陈旧本地状态。
+- 恢复、导入或发现 shared session 过旧时，先只读 `state(full_state=true, wait=false)` 水合权威状态；水合完成前显示“待同步”，不能直接给出可行动的“轮到你”。不要反过来改坏正确的 `next_actor=user → 轮到你` 映射。
+
+### 观察项：TTS 引擎不在存档里；导入恢复的是设置与初始化状态
+
+- `.aibackup` 只含结构化 state/manifest 与媒体，不含 TTS 模型、原生库或语音资产；这些能力位于 APK assets/native runtime。存档确实保存 `tts_enabled / auto_tts / language / voice_mode / tone / speed / pitch / volume / reading_scope / replacements` 等设置，所以导入后可恢复开关、选择并触发数据库/UI 重新协调，但不是“把 TTS 系统装进来”。
+- +225 到 +226 的源码差异没有修改 TTS 或桌宠 overlay；两份现有诊断导出时也都显示 overlay running/attached/visible。当前缺少“+226 桌宠点不出时、导入前”的同时刻诊断，不能把回顾性现象归因于某个确定提交。
+- 两份状态都保留独立的 `tts_generate_failed: call(...) must not be null` 运行时错误，它可能解释语音失败，但不能解释所有桌宠显示。先记观察，不做猜测性修补；若复现，应在导入/重启前后各导出一次诊断，核对初始化、默认设置 seed、数据库 downgrade/upgrade 与 overlay attach 生命周期。
+
+### P2：情绪“调皮”由模型显式选择，当前缺少重复抑制
+
+- 两份快照之间新增 163 条 assistant 消息，其中 100 条为 `playful/调皮`，约占 61%；绝大多数来源是 `emotion_source=llm` 的有效 `<emotion>调皮</emotion>`，不是解析失败后的随机映射。最近世界书更新后的 36 条有情绪消息中，24 条仍为模型显式调皮，偏斜持续存在。
+- Prompt 要求模型从“正常 + 19 种情绪”中选一项，并写明无清晰色彩时用正常；实现没有数值抽样、每类概率、重复冷却或近期标签惩罚。因此答案是：主要由模型自己选择，但系统给它的性格、世界书、游戏/斗嘴语境会影响选择，且没有防止连续滥用的机制。
+- 最新“性格光谱”包含轻度毒舌、任性、神人/思维跳跃以及低频极端阈值，容易让模型把广义的活泼、吐槽、游戏行为都压成“调皮”。不能靠把 portrait 随机换掉解决；下一批在情绪标签契约中明确“调皮只用于本轮存在真实恶作剧、逗弄、故意曲解或小挑战；普通活泼/游戏操作/轻松说话默认正常或按真实情绪”，并加入近期标签分布诊断。若做重复抑制，只能要求模型重新核对语义，不能在模型确实调皮时强制改成别的情绪。
+
+### 已锁定的内容/UI 修改（下一批一起实施，本轮不改源码）
+
+- 世界书“性格光谱”以最新活动备份中的用户修订版为唯一内容权威：document id `ddb1d132-435c-4fc3-943c-5291cd7f3916`，`updated_at=1789748359077`，新原文 SHA-256 `fcc1074203b31cdf36466b39b3b6b08b5abd7497855155c31558177242dfe0fb`；当前内置旧文 SHA-256 `e7035045f0853b5e15eb610ed02441d86519e866443870e4b08a394319907dd2`。下一次必须把 `world_book_presets.dart` 的内置 preset 换成新文，并只对“仍精确等于旧内置 hash/稳定 ID”的记录做保守迁移；用户后续再编辑的内容绝不覆盖。新文核心结构为自主性/生活底色/情绪惯性，日常层（松弛低能耗、撒娇依附、轻度毒舌），情境层（任性、思维跳跃），极端层（雌小鬼、傲娇、病娇仅低频强触发），以及单一聚焦/去表演化。
+- 规则 05 的【描写风格】中，在“声音可以是零碎的……但不能过于简短，一声‘嗯……’就结束是不合格的。”段落后精确追加：`每一段动作、神态之后都需要配一段对话。` 需要更新内置默认、对应内容 hash/迁移和测试，不能只改用户当前数据库。
+- 普通聊天“重新生成/刷新回复”确认后必须立即设 `_followLatest=true` 并锚定底部；旧回复被事务移除、生成开始和新回复最终提交后都不能保留上方旧视口。现有 `_confirmRegenerateLatestReply` / `_confirmRegenerateIncompleteReply` 只 await controller，没有恢复 follow 状态，这就是确定缺口。
+- 情绪短音效仍按下方既定 P2 与首帧可见正文同步；上述“调皮”标签校准与音效时序是两件事，分别验收。
+
 ### P2：情绪短音效应与第一帧可见正文同步
 
 - 当前设置中情绪短音效已开启、音量 `15%`。`DurableGenerationRunner` 在流式内容刚解析到隐藏情绪标签时立即调用 `onEmotionCue`；`ChatController.startEmotionCue` 随即播放。情绪标签通常先于可展示正文，Gemini/双通道较慢时，音效会明显早于气泡文字。
@@ -117,11 +193,12 @@
 
 ### 下一批执行顺序与禁止路线
 
-1. 先做 P0-A 参数契约与确定性恢复、P0-B 终局事件 handoff、P0-C 自主联网注册合同；三者都有确定根因，应先修执行断点，不能靠 Prompt、阈值或用户关键词绕过。
-2. 再做主动出站 10 分钟滑动推迟和联网 `VerifiedWebEvidenceBundle`。推迟只作用于主动消息交付，不中断 Cedar 行动和安全的静默发现；新话题不得被改写成 followup，也不得在延迟期间被计数或消费。
-3. 再修 phone-usage 的 screen-session 事实层，最后改情绪音效触发时点。普通回复表情只加可解释诊断，暂不调概率；真正主动联系带表情不在本批默认范围。
-4. 禁止写死本次房间、玩家身份、revision、棋步、游戏策略、用户原话、私密网页内容或附件文件名；总账与测试夹具必须使用虚构标识和抽象终局/网页证据。
-5. 下一候选版本可为 `v0.41.84+228`，但当前严格是 `PLANNED / NO SOURCE CHANGE / NO BUILD`。只有源码、回归、CI 和新 APK 都完成后才改写状态；真机完成判据至少包括“不催促连续接招 + 自动知道终局并自然承认结果 + 活跃对话期间新话题保留并在静默 10 分钟后送达 + 自主联网重新产生并核验候选 + 对话能引用实际页面证据而非只复述卡片摘要 + 长熄屏不被说成连续操作 + 音效与正文同帧出现”。
+1. 先止损 +227 Token/节律回归：把共玩“远端一步→本机一步”和单人“一次 cadence→一步”分开，恢复每步 Gate、调用/Token 预算与 usage 遥测；同时完成 P0-A 参数契约、确定性恢复和 P0-B 终局 handoff。双弈无需放弃，也不得继续让通用十轮后台循环上线。
+2. 同批修 P0-C 自主联网注册、P0-E 网页 Stop 真取消、普通“看看”误路由和自主相册来源失败。四项共用联网能力边界与取消链，应以真实 provider/outcome/相册诊断一起验收，不能靠关键词黑名单或调低游戏概率绕过。
+3. 再做主动出站 10 分钟滑动推迟、联网 `VerifiedWebEvidenceBundle`、游戏 memory domain 与陈旧 shared-session 水合。推迟只作用于主动消息交付，不中断实时双弈应答和安全的静默发现；新话题不得改写成 followup，也不得在延迟期间被计数或消费。
+4. 再修 phone-usage 的 screen-session 事实层、规则 05、性格光谱保守迁移、刷新回复锚底、情绪标签校准与情绪音效触发时点。普通回复表情只加可解释诊断，暂不调概率；真正主动联系带表情不在本批默认范围。
+5. 禁止写死本次房间、玩家身份、revision、棋步、游戏策略、用户原话、私密网页内容或附件文件名；总账与测试夹具必须使用虚构标识和抽象终局/网页证据。
+6. 下一候选版本可为 `v0.41.84+228`，但当前严格是 `PLANNED / NO SOURCE CHANGE / NO BUILD`。只有源码、回归、CI 和新 APK 都完成后才改写状态；真机完成判据至少包括“Token usage 可归因且不再十连放大 + 不催促连续接招 + 自动知道终局并自然承认结果 + 活跃对话期间新话题保留并在静默 10 分钟后送达 + 自主联网重新产生并核验候选 + Stop 能立即取消在途网页 + 对话能引用实际页面证据而非只复述卡片摘要 + 自主相册重新取得有效网页图片 + 长熄屏不被说成连续操作 + 刷新回复锚底 + 音效与正文同帧出现”。
 
 ## 5. 上一基线：v0.41.82+226 Cedar 权威状态机端到端闭环
 
@@ -323,22 +400,23 @@
 
 | 优先级 | 条件 | 下一步 |
 |---|---|---|
-| P0 | 用户授权下一轮编码 | 从 +227 权威 tree 开始：建立共享 `CedarExecutableCall` 出站契约及 `rooms → full state → replan` 恢复，实现恰好一次 Cedar terminal event，并修正公共网页自主调度与能力注册表的确定冲突；不得先做 Prompt 或阈值补丁 |
-| P1 | P0 源码与回归完成 | 主动消息按真实互动执行 10 分钟滑动推迟且不消费候选；把完整读取形成的临时 `VerifiedWebEvidenceBundle` 交给最终对话/分享；随后按 screen session 重建 Usage/Accessibility 单前台时间线，最后把 emotion cue 延迟到第一段可见正文 |
-| P2 | +228 候选 CI 全绿 | 真机一次性验收：无 APK 催促连续接招并知道终局；活跃对话中的新话题保留到静默窗口；自主联网重新入库并分享；对话能使用实际网页证据；长熄屏不被误判为持续操作；音效不早于正文。普通回复表情只观察诊断，不以本次偶发或稀少单独判失败 |
+| P0 | 用户授权下一轮编码 | 从 +227 权威 tree 开始，先消除后台十轮 Token/节律回归并补 usage 遥测；建立共享 `CedarExecutableCall`、`rooms → full state → replan` 与恰好一次 terminal event；同时修自主网页 registry、在途取消、“看看”误路由和相册有效来源。不得先做概率或文案遮掩 |
+| P1 | P0 源码与回归完成 | 主动消息执行 10 分钟滑动推迟且不消费候选；把 `VerifiedWebEvidenceBundle` 交给最终对话/分享；增加 game memory domain 与陈旧 shared-session 水合；随后修 screen session、最新性格光谱/规则 05、刷新锚底、情绪标签校准和 emotion cue 正文同步 |
+| P2 | +228 候选 CI 全绿 | 真机一次性验收：Token 不再十连放大且账单可解释；无 APK 催促连续接招并知道终局；单人游戏重新服从节律；主动新话题保留到静默窗口；自主联网/相册恢复；Stop 立即终止网页；对话使用实际网页证据；长熄屏不被误判；刷新锚底；音效不早于正文。普通表情只观察诊断，不凭偶发稀少判失败 |
 | P3 | 用户要求继续既有路线 | 从冻结归档顶部“当前任务完成后的后续导航”和 `app/docs/DOCUMENTATION_MAP.md` 定点恢复，不全文读取归档 |
 
 ## 8. 关键文件导航
 
 - Cedar 模型入口与循环：`app/lib/core/ai/durable_generation_runner.dart`、`app/lib/core/agent/agent_tool_planner.dart`、`agent_task_loop.dart`、`agent_tool_runner.dart`
-- Cedar 玩家协议与状态：`app/lib/core/mcp/cedar_toy_client.dart`、`cedar_toy_activity.dart`、`cedar_game_protocol.dart`、`cedar_toy_autonomy_engine.dart`、`cedar_toy_arcade_skill.dart`
-- UI：`app/lib/features/chat/cedar_toy_activity_window.dart`
+- Cedar 玩家协议、Token/节律与状态：`app/lib/core/mcp/cedar_agent_loop_policy.dart`、`cedar_toy_client.dart`、`cedar_toy_activity.dart`、`cedar_game_protocol.dart`、`cedar_toy_autonomy_engine.dart`、`cedar_toy_arcade_skill.dart`、`app/lib/core/ai/deepseek_client.dart`
+- UI：`app/lib/features/chat/cedar_toy_activity_window.dart`、`chat_page.dart`、`chat_controller.dart`
 - 停止与跨引擎生成：`app/lib/features/chat/chat_controller.dart`、`app/lib/core/ai/durable_generation_runner.dart`、`deepseek_client.dart`、`durable_generation_recovery.dart`
 - 主动联系连续性：`app/lib/core/desire/proactive_engine.dart`、`app/lib/core/desire/proactive_presentation.dart`
 - 公共联网发现、核验与分享：`app/lib/core/autonomy/public_web_discovery_engine.dart`、`app/lib/core/autonomy/layered_public_web_provider.dart`、`app/lib/core/autonomy/public_web_share_coordinator.dart`、`app/lib/core/autonomy/autonomous_action_coordinator.dart`、`app/lib/core/agent/agent_tool_registry.dart` 及用户回合 `public_web.search` 结果组装路径
 - 手机事实层：`app/lib/core/perception/perception_interpreter.dart`、`app/lib/core/perception/current_device_context_refresher.dart` 及 Android Usage/Accessibility bridge
 - 表情自主选择：`app/lib/core/stickers/sticker_expression_service.dart`、`app/lib/core/ai/durable_generation_runner.dart` 与 `app/lib/core/desire/proactive_engine.dart`
-- 情绪音效：`app/lib/core/ai/durable_generation_runner.dart`、`app/lib/features/chat/chat_controller.dart`、`app/lib/core/tts/emotion_sound_service.dart`
+- 情绪选择与音效：`app/lib/core/ai/prompt_builder.dart`、`app/lib/core/emotion/emotion_contract.dart`、`emotion_classifier_service.dart`、`app/lib/core/ai/durable_generation_runner.dart`、`app/lib/features/chat/chat_controller.dart`、`app/lib/core/tts/emotion_sound_service.dart`
+- 世界书、规则与记忆迁移：`app/lib/core/reference/world_book_presets.dart`、`app/lib/core/rules/rule_layer_content_v04155_user_defaults.dart`、`rule_layer_defaults.dart`、`app/lib/core/memory/` 与 `app/lib/core/database/app_database.dart`
 - 备份冻结与诊断：`app/lib/features/transfer/transfer_page.dart`、`app/lib/core/database/app_database.dart`、`app/lib/core/sync/snapshot_service.dart`、`app/lib/core/diagnostics/preflight_diagnostics.dart`
 - 兼容审计：`app/docs/CEDAR_TOY_GAME_COMPATIBILITY_v0.41.74.md`
 - Cedar 现有专项测试与门禁：`app/test/cedar_game_hall_protocol_v04174_test.dart`、`app/tools/validate_v04183_cedar_native_agent_loop.py`
