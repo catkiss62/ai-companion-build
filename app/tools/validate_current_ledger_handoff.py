@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Validate the small canonical ledger and immutable historical archive."""
+"""Validate the canonical ledger index and immutable historical archives."""
 
 from __future__ import annotations
 
@@ -18,12 +18,23 @@ ARCHIVE = (
     / "archive"
     / "AI_Companion_总账归档_截至_v0.41.74+218.md"
 )
+RECENT_ARCHIVE = (
+    ROOT
+    / "app"
+    / "docs"
+    / "ledger"
+    / "archive"
+    / "AI_Companion_总账归档_截至_v0.41.84+228.md"
+)
 PUBSPEC = ROOT / "app" / "pubspec.yaml"
 DATABASE = ROOT / "app" / "lib" / "core" / "database" / "app_database.dart"
 DOCUMENTATION_MAP = ROOT / "app" / "docs" / "DOCUMENTATION_MAP.md"
+INDEX_END_MARKER = "<!-- END QUICK HANDOFF INDEX -->"
 
 ARCHIVE_SHA256 = "602c712f0fb06e70c054c2d54fe0e280f312923864040a3a177ee8e7da67ed70"
 ARCHIVE_BYTES = 1_587_679
+RECENT_ARCHIVE_SHA256 = "47d053d842a73e3ff8107dabe867bd503e8a7e77daaecc2afb1867068faa952c"
+RECENT_ARCHIVE_BYTES = 98_372
 
 
 def require(condition: bool, message: str) -> None:
@@ -34,18 +45,22 @@ def require(condition: bool, message: str) -> None:
 def main() -> None:
     ledger_bytes = LEDGER.read_bytes()
     archive_bytes = ARCHIVE.read_bytes()
+    recent_archive_bytes = RECENT_ARCHIVE.read_bytes()
     ledger = ledger_bytes.decode("utf-8")
     archive = archive_bytes.decode("utf-8")
+    recent_archive = recent_archive_bytes.decode("utf-8")
 
     require(
         ledger.startswith("# AI Companion · 当前总账\n"),
         "current ledger is not the canonical UTF-8 Markdown document",
     )
-    require(len(ledger_bytes) <= 100_000, "current ledger exceeded 100 KB")
     require(
         "\x00" not in ledger and "\ufffd" not in ledger,
         "current ledger contains binary or replacement characters",
     )
+    require(INDEX_END_MARKER in ledger, "current ledger lost its quick-index boundary")
+    quick_index = ledger.split(INDEX_END_MARKER, 1)[0].encode("utf-8")
+    require(len(quick_index) <= 100_000, "current ledger quick index exceeded 100 KB")
     require(
         len(archive_bytes) == ARCHIVE_BYTES,
         "frozen ledger archive byte count changed",
@@ -57,6 +72,18 @@ def main() -> None:
     require(
         archive.startswith("# AI Companion · 当前总账\n"),
         "frozen archive is not the expected historical ledger",
+    )
+    require(
+        len(recent_archive_bytes) == RECENT_ARCHIVE_BYTES,
+        "recent frozen ledger archive byte count changed",
+    )
+    require(
+        hashlib.sha256(recent_archive_bytes).hexdigest() == RECENT_ARCHIVE_SHA256,
+        "recent frozen ledger archive was modified",
+    )
+    require(
+        recent_archive.startswith("# AI Companion · 当前总账\n"),
+        "recent frozen archive is not the expected historical ledger",
     )
 
     required_current = (
@@ -78,6 +105,8 @@ def main() -> None:
         "全工具调用动作展示",
         str(ARCHIVE.relative_to(ROOT)),
         ARCHIVE_SHA256,
+        str(RECENT_ARCHIVE.relative_to(ROOT)),
+        RECENT_ARCHIVE_SHA256,
     )
     for fact in required_current:
         require(fact in ledger, f"missing current ledger fact: {fact}")
@@ -115,7 +144,7 @@ def main() -> None:
 
     require(
         re.search(
-            r"^version:\s*0\.41\.84\+228\s*$",
+            r"^version:\s*0\.41\.85\+229\s*$",
             PUBSPEC.read_text(encoding="utf-8"),
             re.MULTILINE,
         )
@@ -139,11 +168,18 @@ def main() -> None:
         "AI_Companion_总账归档_截至_v0.41.74+218.md" in documentation_map,
         "documentation map lost the frozen archive entry",
     )
+    require(
+        "AI_Companion_总账归档_截至_v0.41.84+228.md" in documentation_map,
+        "documentation map lost the recent frozen archive entry",
+    )
 
     print("current ledger v2 handoff: OK")
     print(f"current bytes: {len(ledger_bytes)}")
+    print(f"quick index bytes: {len(quick_index)}")
     print(f"frozen archive bytes: {len(archive_bytes)}")
     print(f"frozen archive sha256: {ARCHIVE_SHA256}")
+    print(f"recent frozen archive bytes: {len(recent_archive_bytes)}")
+    print(f"recent frozen archive sha256: {RECENT_ARCHIVE_SHA256}")
 
 
 if __name__ == "__main__":
