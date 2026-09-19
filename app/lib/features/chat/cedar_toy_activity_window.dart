@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:io';
 
 import 'package:flutter/material.dart';
 
@@ -7,6 +8,7 @@ import '../../core/database/app_database.dart';
 import '../../core/mcp/cedar_toy_activity.dart';
 import '../../core/mcp/cedar_toy_client.dart';
 import '../../core/platform/android_bridge.dart';
+import '../../core/storage/message_attachment_storage.dart';
 
 /// Optional presentation shell for Cedar Toy activity state. The MCP runner
 /// and durable session do not depend on this widget, so the experiment can be
@@ -391,9 +393,10 @@ class _CedarToyActivityWindowState extends State<CedarToyActivityWindow> {
           ),
         ],
         if (session.events.isNotEmpty &&
-            session.events.last.imageData.isNotEmpty) ...[
+            (session.events.last.imageReference.isNotEmpty ||
+                session.events.last.imageData.isNotEmpty)) ...[
           const SizedBox(height: 10),
-          _activityImage(session.events.last.imageData),
+          _activityImage(session.events.last),
         ],
         if (session.viewerUrl.isNotEmpty) ...[
           const SizedBox(height: 10),
@@ -466,12 +469,29 @@ class _CedarToyActivityWindowState extends State<CedarToyActivityWindow> {
     );
   }
 
-  Widget _activityImage(String data) {
+  Widget _activityImage(CedarGameEvent event) {
+    if (event.imageReference.isNotEmpty) {
+      return FutureBuilder<File>(
+        future: MessageAttachmentStorage().fileFor(event.imageReference),
+        builder: (context, snapshot) {
+          final file = snapshot.data;
+          if (file == null) return const SizedBox.shrink();
+          return ClipRRect(
+            borderRadius: BorderRadius.circular(12),
+            child: Image.file(
+              file,
+              fit: BoxFit.contain,
+              errorBuilder: (_, __, ___) => const SizedBox.shrink(),
+            ),
+          );
+        },
+      );
+    }
     try {
       return ClipRRect(
         borderRadius: BorderRadius.circular(12),
         child: Image.memory(
-          base64Decode(data),
+          base64Decode(event.imageData),
           fit: BoxFit.contain,
           errorBuilder: (_, __, ___) => const SizedBox.shrink(),
         ),
