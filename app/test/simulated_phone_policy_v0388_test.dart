@@ -179,7 +179,7 @@ void main() {
       bornAt: now,
       updatedAt: now,
       fedCount: 2,
-      topicKey: 'shared:whale-art',
+      topicKey: 'shared.activity.fishing',
     );
 
     expect(

@@ -24,6 +24,7 @@ require(
     ],
 )
 require("lib/core/agent/agent_self_reader.dart", ["v0.41.89+233"])
+require("test/agent_self_reader_v0416_test.dart", ["build=v0.41.89+233 schema=61"])
 require("lib/core/mcp/mcp_http_client.dart", ["'version': '0.41.89'"])
 require(
     "../.github/workflows/build-apk.yml",
