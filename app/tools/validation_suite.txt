@@ -115,3 +115,4 @@ tools/validate_v04186_autonomy_tts_diagnostics.py
 tools/validate_v04187_help_cedar_activity_ui.py
 tools/validate_v04188_wishlist_cedar_card_guardrails.py
 tools/validate_v04189_cedar_event_temporal_truth.py
+tools/validate_v04189_wishlist_safe_subject.py

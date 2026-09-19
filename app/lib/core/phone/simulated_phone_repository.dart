@@ -617,14 +617,17 @@ class SimulatedPhoneRepository {
       if (version == SimulatedPhonePolicy.wishPresentationVersion) return wish;
       final drive = wish.metadata['drive_key'] as String? ?? '';
       final sourceId = wish.metadata['source_thought_id'] as String? ?? wish.id;
+      final sourceTopic = wish.metadata['source_topic_key'] as String? ?? '';
       changed = true;
       return wish.copyWith(
         body: SimulatedPhonePolicy.wishText(
           drive,
+          topicKey: sourceTopic,
           stableKey: '$drive|legacy:$sourceId',
         ),
         metadata: {
           ...wish.metadata,
+          'safe_subject_key': SimulatedPhonePolicy.wishSubjectKey(sourceTopic),
           'presentation_version': SimulatedPhonePolicy.wishPresentationVersion,
         },
       );
@@ -658,6 +661,8 @@ class SimulatedPhoneRepository {
             'source_topic_key': replacement.topicKey,
             'drive_key': replacement.driveKey,
             'semantic_key': semanticKey,
+            'safe_subject_key':
+                SimulatedPhonePolicy.wishSubjectKeyForThought(replacement),
             'presentation_version':
                 SimulatedPhonePolicy.wishPresentationVersion,
           },
@@ -678,12 +683,24 @@ class SimulatedPhoneRepository {
               ...wish.metadata,
               'source_topic_key': thought.topicKey,
               'semantic_key': semanticKey,
+              'safe_subject_key':
+                  SimulatedPhonePolicy.wishSubjectKeyForThought(thought),
               'presentation_version':
                   SimulatedPhonePolicy.wishPresentationVersion,
             },
           ),
           ...completed.where((entry) => entry.id != wish.id),
         ];
+        changed = true;
+        releasedActiveSlot = true;
+        continue;
+      }
+      if (!SimulatedPhonePolicy.wishEligible(
+        thought: thought,
+        desire: desire,
+      )) {
+        // The Thought itself is preserved. Only its unsafe or no-longer-valid
+        // public projection leaves the active wish list.
         changed = true;
         releasedActiveSlot = true;
         continue;
@@ -705,6 +722,8 @@ class SimulatedPhoneRepository {
           'source_topic_key': thought.topicKey,
           'drive_key': thought.driveKey,
           'semantic_key': semanticKey,
+          'safe_subject_key':
+              SimulatedPhonePolicy.wishSubjectKeyForThought(thought),
           'presentation_version': SimulatedPhonePolicy.wishPresentationVersion,
         },
       );
@@ -754,6 +773,8 @@ class SimulatedPhoneRepository {
               'source_topic_key': thought.topicKey,
               'drive_key': thought.driveKey,
               'semantic_key': semanticKey,
+              'safe_subject_key':
+                  SimulatedPhonePolicy.wishSubjectKeyForThought(thought),
               'presentation_version':
                   SimulatedPhonePolicy.wishPresentationVersion,
             },

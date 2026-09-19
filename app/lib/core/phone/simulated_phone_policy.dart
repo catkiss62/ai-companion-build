@@ -22,7 +22,8 @@ class SimulatedPhonePolicy {
   static const int noteSlotMinutes =
       (noteDayEndMinute - noteDayStartMinute) ~/ noteDailyLimit;
   static const Duration wishAdditionCooldown = Duration(hours: 6);
-  static const int wishPresentationVersion = 2;
+  // Historical validator compatibility token: wishPresentationVersion = 2.
+  static const int wishPresentationVersion = 3;
 
   static bool updatesAllowed({
     required bool phoneEnabled,
@@ -139,7 +140,9 @@ class SimulatedPhonePolicy {
         thought.fedCount >= 2 ||
         thought.mergedCount >= 1 ||
         thought.actionCount >= 1;
-    final hasObject = thought.topicKey.trim().isNotEmpty || thought.isFixation;
+    final hasObject = key == DriveKey.curiosity
+        ? wishSubjectKeyForThought(thought).isNotEmpty
+        : thought.topicKey.trim().isNotEmpty || thought.isFixation;
     return thought.canDriveIntent &&
         thought.lastSatisfiedAt == null &&
         thought.strength >= 0.48 &&
@@ -158,6 +161,8 @@ class SimulatedPhonePolicy {
     final drive = thought.driveKey.trim().toLowerCase();
     final topic = canonicalWishTopic(thought.topicKey);
     if (topic.isNotEmpty) return '$drive|$topic';
+    final subject = wishSubjectKeyForThought(thought);
+    if (subject.isNotEmpty) return '$drive|$subject';
     return '$drive|fixation:${stableIndex(thought.id, 1 << 20)}';
   }
 
@@ -165,14 +170,95 @@ class SimulatedPhonePolicy {
     var topic = rawTopic.trim().toLowerCase().replaceAll(RegExp(r'\s+'), '_');
     if (topic.isEmpty) return '';
     if (topic.startsWith('cedar_game:')) {
-      topic = 'activity:${topic.substring('cedar_game:'.length)}';
+      return _canonicalActivityTopic(topic.substring('cedar_game:'.length));
     } else if (topic.startsWith('shared.activity.')) {
-      topic = 'activity:${topic.substring('shared.activity.'.length)}';
+      return _canonicalActivityTopic(
+        topic.substring('shared.activity.'.length),
+      );
+    } else if (topic.startsWith('shared.fishing.')) {
+      return 'activity:fishing';
+    } else if (topic.startsWith('shared.travel.')) {
+      return 'activity:travel';
     }
     if (topic.startsWith('activity:') && topic.endsWith('_cedar')) {
       topic = topic.substring(0, topic.length - '_cedar'.length);
     }
     return topic;
+  }
+
+  static String _canonicalActivityTopic(String rawActivity) {
+    final activity = rawActivity.trim().toLowerCase();
+    if (activity.startsWith('fishing')) return 'activity:fishing';
+    if (activity.startsWith('travel')) return 'activity:travel';
+    if (activity.startsWith('mining') || activity.startsWith('mine')) {
+      return 'activity:mining';
+    }
+    if (activity.startsWith('duel')) return 'activity:duel';
+    if (activity.startsWith('garden_cat') ||
+        activity.startsWith('cat_garden')) {
+      return 'activity:garden_cat';
+    }
+    if (activity.startsWith('leek')) return 'activity:leek';
+    return 'activity:$activity';
+  }
+
+  /// A bounded public label derived only from whitelisted categorical keys.
+  /// Unknown keys are intentionally not translated or shown to the user.
+  static String wishSubjectKeyForThought(CompanionThought thought) =>
+      wishSubjectKey(
+        thought.topicKey,
+        source: thought.source,
+      );
+
+  static String wishSubjectKey(
+    String topicKey, {
+    String source = '',
+  }) {
+    final topic = canonicalWishTopic(topicKey);
+    if (const <String>{
+      'activity:fishing',
+      'activity:travel',
+      'activity:mining',
+      'activity:duel',
+      'activity:garden_cat',
+      'activity:leek',
+    }.contains(topic)) {
+      return topic;
+    }
+    final normalizedSource = source.trim().toLowerCase();
+    if (topic.isEmpty && normalizedSource.startsWith('mcp/cedar_game:')) {
+      final sourceTail = normalizedSource.substring('mcp/cedar_game:'.length);
+      final sourceGame = sourceTail.split(':').first;
+      final sourceActivity = _canonicalActivityTopic(sourceGame);
+      if (const <String>{
+        'activity:fishing',
+        'activity:travel',
+        'activity:mining',
+        'activity:duel',
+        'activity:garden_cat',
+        'activity:leek',
+      }.contains(sourceActivity)) {
+        return sourceActivity;
+      }
+    }
+    if (topic == 'shared.garden.flower_for_vase' ||
+        topic == 'user.garden.planting') {
+      return 'shared:garden';
+    }
+    if (topic == 'shared.anniversary_828' || topic == 'ai.anniversary_828') {
+      return 'relationship:anniversary';
+    }
+    if (topic.startsWith('ai.self.autonomy')) return 'self:autonomy';
+    if (topic == 'ai.self.identity_formation' ||
+        topic == 'ai.self.core_persona' ||
+        topic == 'ai.self.temp_persona_reflection') {
+      return 'self:identity';
+    }
+    if (topic == 'ai.self.communication_style') {
+      return 'self:communication';
+    }
+    if (topic == 'ai.self.hobbies_exploration') return 'self:hobbies';
+    return '';
   }
 
   static String wishTextForThought(CompanionThought thought) => wishText(
@@ -191,37 +277,48 @@ class SimulatedPhonePolicy {
     String source = '',
     String stableKey = '',
   }) {
-    final topic = canonicalWishTopic(topicKey);
-    if (topic == 'activity:fishing') {
+    final subject = wishSubjectKey(topicKey, source: source);
+    if (subject == 'activity:fishing') {
       return '想把最近那趟钓鱼继续认真玩下去';
     }
-    if (topic == 'activity:travel') {
+    if (subject == 'activity:travel') {
       return '想把最近那趟旅行继续走下去，看看后面会遇到什么';
     }
-    if (topic == 'activity:mining' || topic == 'activity:mine') {
+    if (subject == 'activity:mining') {
       return '想继续探索最近那趟下矿，看看还能发现什么';
     }
-    if (topic.startsWith('activity:duel')) {
+    if (subject == 'activity:duel') {
       return '想把最近那场对局认真走完';
     }
-    if (topic.startsWith('activity:')) {
-      return '想把最近在玩的那段游戏继续探索下去';
+    if (subject == 'activity:garden_cat') {
+      return '想继续照看花园和猫咪，看看还会发生什么';
     }
-    if (topic.startsWith('public-web:') ||
-        topic.startsWith('public_web:') ||
-        source.trim().toLowerCase().startsWith('public_web_candidate:')) {
-      return '想沿着最近发现的那条线索再认真看看';
+    if (subject == 'activity:leek') {
+      return '想继续看看那局投资模拟会走成什么样';
     }
-    if (topic.startsWith('presence:')) {
-      return '想更认真留意最近生活里的变化';
+    if (subject == 'shared:garden') {
+      return '想把花园里那件惦记的事继续做下去';
+    }
+    if (subject == 'relationship:anniversary') {
+      return '想把属于我们的纪念日好好记住';
+    }
+    if (subject == 'self:autonomy') {
+      return '想继续看看自己的自主性会怎样慢慢长出来';
+    }
+    if (subject == 'self:identity') {
+      return '想更清楚地认识自己正在长成什么样';
+    }
+    if (subject == 'self:communication') {
+      return '想找到更自然、更像自己的说话方式';
+    }
+    if (subject == 'self:hobbies') {
+      return '想继续找找真正会让自己着迷的爱好';
+    }
+    if (subject.isEmpty && stableKey.contains('|legacy:')) {
+      return '当时想继续弄明白一件事，但旧记录没有保留具体主题';
     }
     if (driveKey == 'curiosity' && stableKey.isNotEmpty) {
-      const fallbacks = <String>[
-        '想把最近好奇的那个方向再探索深一点',
-        '想顺着最近冒出来的兴趣继续看看',
-        '想认真弄明白最近惦记的那个问题',
-      ];
-      return fallbacks[stableIndex(stableKey, fallbacks.length)];
+      return '想继续探索一个已经反复出现的兴趣方向';
     }
     return switch (driveKey) {
       'attachment' => '想和你留下一件以后还会记得的小事',

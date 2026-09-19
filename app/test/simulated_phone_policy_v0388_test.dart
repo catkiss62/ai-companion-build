@@ -110,7 +110,7 @@ void main() {
     );
     CompanionThought thought({
       int fedCount = 2,
-      String topicKey = 'public-web:whale-art',
+      String topicKey = 'ai.self.autonomy',
       double strength = 0.70,
       DateTime? lastSatisfiedAt,
     }) =>
@@ -238,29 +238,102 @@ void main() {
       source: 'cedar_game_activity',
       topicKey: 'cedar_game:fishing',
     );
-    final publicWeb = CompanionThought(
-      id: 'web-private',
-      text: 'PRIVATE WEB REASONING',
-      driveKey: DriveKey.curiosity.name,
-      kind: 'thread',
-      strength: 0.7,
-      bornAt: now,
-      updatedAt: now,
-      fedCount: 2,
-      source: 'public_web_candidate:secret',
-      topicKey: 'public-web:whale-art',
-    );
 
     final fishingText = SimulatedPhonePolicy.wishTextForThought(fishing);
-    final webText = SimulatedPhonePolicy.wishTextForThought(publicWeb);
     expect(fishingText, contains('钓鱼'));
-    expect(webText, contains('线索'));
     expect(fishingText, isNot(contains('PRIVATE')));
-    expect(webText, isNot(contains('PRIVATE')));
     expect(
       fishingText,
       isNot('想认真找点没见过的新鲜东西看看'),
     );
+  });
+
+  test('unknown curiosity topic is not projected without a safe subject', () {
+    final now = DateTime(2026, 9, 20, 12);
+    final desire = DesireSnapshot(
+      drives: {...DesireSnapshot.defaultDrives(), DriveKey.curiosity: 0.72},
+      baselines: DesireSnapshot.defaultBaselines(),
+    );
+    final unknown = CompanionThought(
+      id: 'unknown-private',
+      text: 'PRIVATE UNKNOWN REASONING',
+      driveKey: DriveKey.curiosity.name,
+      kind: 'fixation',
+      strength: 0.8,
+      bornAt: now,
+      updatedAt: now,
+      fedCount: 3,
+      topicKey: 'private.unrecognized.topic',
+    );
+    expect(
+      SimulatedPhonePolicy.wishEligible(thought: unknown, desire: desire),
+      isFalse,
+    );
+    expect(SimulatedPhonePolicy.wishSubjectKeyForThought(unknown), isEmpty);
+  });
+
+  test('safe self topic produces a concrete wish without private text', () {
+    final now = DateTime(2026, 9, 20, 12);
+    final autonomy = CompanionThought(
+      id: 'self-autonomy',
+      text: 'PRIVATE AUTONOMY REASONING',
+      driveKey: DriveKey.curiosity.name,
+      kind: 'fixation',
+      strength: 0.8,
+      bornAt: now,
+      updatedAt: now,
+      fedCount: 3,
+      topicKey: 'ai.self.autonomy_growth',
+    );
+    final text = SimulatedPhonePolicy.wishTextForThought(autonomy);
+    expect(text, contains('自主性'));
+    expect(text, isNot(contains('PRIVATE')));
+    expect(text, isNot(contains('那个问题')));
+  });
+
+  test('fishing detail aliases share one safe public subject', () {
+    expect(
+      SimulatedPhonePolicy.canonicalWishTopic(
+        'cedar_game:fishing_bait_change',
+      ),
+      'activity:fishing',
+    );
+    expect(
+      SimulatedPhonePolicy.canonicalWishTopic(
+        'shared.activity.fishing.autumn_fish',
+      ),
+      'activity:fishing',
+    );
+    expect(
+      SimulatedPhonePolicy.canonicalWishTopic(
+        'shared.fishing.reed_river_map',
+      ),
+      'activity:fishing',
+    );
+    final now = DateTime(2026, 9, 20, 12);
+    final sourceOnly = CompanionThought(
+      id: 'source-only-fishing',
+      text: 'PRIVATE',
+      driveKey: DriveKey.curiosity.name,
+      kind: 'fixation',
+      strength: 0.8,
+      bornAt: now,
+      updatedAt: now,
+      source: 'mcp/cedar_game:fishing:play-1234567890123456',
+    );
+    expect(
+      SimulatedPhonePolicy.wishSubjectKeyForThought(sourceOnly),
+      'activity:fishing',
+    );
+  });
+
+  test('legacy wish admits when its old record lost the concrete subject', () {
+    final text = SimulatedPhonePolicy.wishText(
+      DriveKey.curiosity.name,
+      stableKey: 'curiosity|legacy:old-id',
+    );
+    expect(text, contains('旧记录没有保留具体主题'));
+    expect(text, isNot(contains('那个问题')));
   });
 
   test('notes use six daytime slots and never update in deep night', () {
