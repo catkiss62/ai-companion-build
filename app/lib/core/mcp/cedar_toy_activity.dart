@@ -87,6 +87,7 @@ class CedarGameEvent {
     this.notable = false,
     this.imageData = '',
     this.imageMimeType = '',
+    this.imageReference = '',
   });
 
   final String id;
@@ -99,6 +100,25 @@ class CedarGameEvent {
   final bool notable;
   final String imageData;
   final String imageMimeType;
+  final String imageReference;
+
+  CedarGameEvent withAttachmentImage({
+    required String reference,
+    required String mimeType,
+  }) =>
+      CedarGameEvent(
+        id: id,
+        kind: kind,
+        summary: summary,
+        createdAt: createdAt,
+        action: action,
+        contentKinds: <String>{...contentKinds, 'image'}.toList(growable: false),
+        viewerUrl: viewerUrl,
+        notable: notable,
+        imageData: imageData,
+        imageMimeType: mimeType,
+        imageReference: reference,
+      );
 
   CedarGameEvent withoutInlineMedia() => imageData.isEmpty
       ? this
@@ -111,6 +131,8 @@ class CedarGameEvent {
           contentKinds: contentKinds,
           viewerUrl: viewerUrl,
           notable: notable,
+          imageMimeType: imageMimeType,
+          imageReference: imageReference,
         );
 
   Map<String, Object?> toJson() => <String, Object?>{
@@ -124,6 +146,7 @@ class CedarGameEvent {
         'notable': notable,
         'image_data': imageData,
         'image_mime_type': imageMimeType,
+        'image_reference': imageReference,
       };
 
   factory CedarGameEvent.fromJson(Map<Object?, Object?> json) => CedarGameEvent(
@@ -142,6 +165,7 @@ class CedarGameEvent {
         notable: json['notable'] == true,
         imageData: json['image_data']?.toString() ?? '',
         imageMimeType: json['image_mime_type']?.toString() ?? '',
+        imageReference: json['image_reference']?.toString() ?? '',
       );
 }
 
@@ -1413,6 +1437,46 @@ class CedarToyActivityStore {
       throw const CedarExecutionPreemptedException('play_result_fenced');
     }
     return storedNext;
+  }
+
+  Future<bool> attachMediaToEvent({
+    required String gameId,
+    required String eventId,
+    required String imageReference,
+    required String imageMimeType,
+    String executionId = '',
+  }) async {
+    final reference = imageReference.trim();
+    final mimeType = imageMimeType.trim().toLowerCase();
+    if (gameId.trim().isEmpty ||
+        eventId.trim().isEmpty ||
+        reference.isEmpty ||
+        !mimeType.startsWith('image/')) {
+      return false;
+    }
+    final state = await loadState();
+    final existing = state.sessions[gameId];
+    if (existing == null) return false;
+    var matched = false;
+    final events = existing.events.map((event) {
+      if (event.id != eventId) return event;
+      matched = true;
+      return event.withAttachmentImage(
+        reference: reference,
+        mimeType: mimeType,
+      );
+    }).toList(growable: false);
+    if (!matched) return false;
+    final now = DateTime.now();
+    final next = existing.copyWith(events: events, updatedAt: now);
+    return _saveState(
+      state.copyWith(
+        sessions: Map<String, CedarGameSession>.from(state.sessions)
+          ..[gameId] = next,
+        updatedAt: now,
+      ),
+      executionId: executionId,
+    );
   }
 
   Future<CedarGameSession> recordPlatformAction({
