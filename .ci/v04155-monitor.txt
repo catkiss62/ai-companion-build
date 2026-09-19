@@ -1,7 +1,7 @@
 status=success
-run_id=35458277355
-run_url=https://github.com/catkiss62/ai-companion-build/actions/runs/35458277355
-head_sha=6c53a40b5d7413942c12ca84001bb66205c160d1
+run_id=35464168272
+run_url=https://github.com/catkiss62/ai-companion-build/actions/runs/35464168272
+head_sha=75d9e0a311d5b322f53a742b9016aac16d44c9d9
 signer_sha256=30:5E:B3:D8:09:83:B9:63:C6:48:18:DD:F1:AD:56:1F:27:9D:E6:D4:7B:3E:D2:C7:81:AD:A4:48:C7:C2:51:48
-de27ec0c0146ef3a879f0bb9d8ae2c06dbfdc3225d8f6694fe8e01c7c5ab8d4a  AI-Companion-v0.41.86-230-Autonomy-TTS-Diagnostics-APK.apk
-release_url=https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-4c16dc23432898cc5020
+1b10c1f49f0d192913c2f15e9f46345160cc2c0ee22acf751eb6755a70a3e565  AI-Companion-v0.41.87-231-Help-Cedar-Activity-UI-APK.apk
+release_url=https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-83ba209cc91853c32913
