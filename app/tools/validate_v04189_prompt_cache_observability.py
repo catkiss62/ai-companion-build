@@ -3,6 +3,7 @@ from pathlib import Path
 
 
 ROOT = Path(__file__).resolve().parents[1]
+REPOSITORY = ROOT.parent
 
 
 def require(path: str, needles: list[str]) -> None:
@@ -22,6 +23,30 @@ require(
         "sha256.convert(utf8.encode(value))",
     ],
 )
+require("lib/core/agent/agent_self_reader.dart", ["v0.41.89+233"])
+require("lib/core/mcp/mcp_http_client.dart", ["'version': '0.41.89'"])
+require(
+    "../.github/workflows/build-apk.yml",
+    [
+        "agent/v04189-cedar-temporal-wishlist-cache",
+        "AI-Companion-v0.41.89-233-Cedar-Temporal-Wishlist-Cache-APK",
+        "v0.41.89-cedar-temporal-wishlist-cache-test",
+    ],
+)
+
+if "version: 0.41.89+233" not in (ROOT / "pubspec.yaml").read_text(
+    encoding="utf-8"
+):
+    raise SystemExit("pubspec.yaml: v0.41.89+233 version missing")
+
+ledger = (REPOSITORY / "AI_Companion_当前总账.md").read_text(encoding="utf-8")
+for token in (
+    "IMPLEMENTED LOCALLY / LOCAL STATIC VALIDATION PASSED / CI PENDING / TRUE DEVICE PENDING",
+    "recentPromptShapes",
+    "工具 schema 的 Map key 做递归确定性排序",
+):
+    if token not in ledger:
+        raise SystemExit(f"current ledger: missing {token}")
 require(
     "lib/core/diagnostics/model_usage_telemetry.dart",
     [

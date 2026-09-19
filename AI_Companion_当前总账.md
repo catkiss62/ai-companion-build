@@ -40,7 +40,7 @@
 | +228 远端 | head `29e87d016c8bd81f52f89f95191bd1a1a01a5b57`；tree `c4a112a56d8b634cf3a1a66636979a0833538b7d`；Actions `35440359036`；Artifact `10583263879`；APK SHA-256 `159e283173e49da2924d25b37ba7647893cdafdcc31b63f0e31b7c64e086849b` |
 | 仓库维护基线 | `maintenance/repository-governance-20260919`；远端文档 head `123e272196e8ae93f3518157917d76f6af4f1784`；完整构建 head `fa99f32012fa1a0716b746d36b958a8e777ef9b8`；Actions `35446649873` 全绿；文档-only run `35447342921` 正确跳过 APK |
 | 当前功能分支 | `agent/v04189-cedar-temporal-wishlist-cache`，从 +232 远端文档 head `189f8b1` 分出；候选版本 `v0.41.89+233` |
-| 当前任务状态 | `IMPLEMENTATION STARTED / CI PENDING / TRUE DEVICE PENDING`；+232 已有 2 项真机通过、1 项持续观察，见 6.5 |
+| 当前任务状态 | `IMPLEMENTED LOCALLY / LOCAL STATIC VALIDATION PASSED / CI PENDING / TRUE DEVICE PENDING`；+232 已有 2 项真机通过、1 项持续观察，见 6.5 |
 | +233 当前任务 | 先修 Cedar Outcome Thought 的事件身份、一次分享与时间锚定；再做愿望单安全主题投影；最后只做语义等价的 DeepSeek 缓存观测/低风险优化。三部分独立提交与验证门，不改人格、疲劳、Cedar 玩法/循环所有权或 Gemini 按次回复链 |
 | +232 目标 | 游戏厅“最近进展”窄面板复用“游戏活动”同款 Card 颜色；愿望单按安全主题表达并合并同主题活动愿望；登记 Cortico 低风险参考、唯一循环所有权与后续诊断护栏；不改 Agent 循环、疲劳、缓存、TTS、schema、世界书或人格 |
 | +232 远端 | 构建 head `3783aa7ccae0d547d4a0a1c18d4f388c398be574`；tree `54da8912e76ce5d59ec142387f1708a972196640`；Actions `35469452065` 全绿；Artifact `10592781832`；APK SHA-256 `ccb0352275d197592b1fd5b9a1ca479f89ec21101f472b234e85f8f7d5968622` |
@@ -184,7 +184,7 @@ Actions 与交付证据：
 | P2 | 记忆/人设/规则修改提案 | `memory.propose_change / personality.propose_change / rules.propose_change` 当前均不可执行。以后只先做可审查 diff 提案；写入、删除或其他可破坏操作必须增加确认、版本与回滚，当前只读 Agent 不增加多余确认。 |
 | P3 | 视频理解 | `video_understanding.inspect` 仍为占位。以后独立评估短片抽帧、预算、临时文件隐私、取消和结果持久化；不冒充当前已能看视频。 |
 | P3 | Live2D 反应接入 | 模型、动作和素材已在独立 Live2D 仓库完成；伴侣侧以后专门设计“LLM 语义反应 + 本地低延迟关键词/事件反射 + 动作仲裁/冷却/打断”，避免只等完整 LLM 回复才动，也不得让关键词层直接改写人格或对话。完成基础 P1 后再立专项版本。 |
-| P3 | DeepSeek 缓存命中优化 | 排在当前 UI/愿望单真机包与疲劳专项之后；Gemini 按次收费，不纳入本任务。先按 `usage_lane` 测量稳定前缀、动态边界、工具 schema 顺序和重复上下文体积，再做不改变语义的稳定排序/分层拼装与 A/B；接受高动态陪伴项目不可能获得静态客服式命中率，禁止为缓存率推倒项目、删记忆事实、冻结实时状态或把多个循环重新合并。 |
+| P3 | DeepSeek 缓存命中优化 | `v0.41.89+233 IMPLEMENTED LOCALLY / CI PENDING`：已补齐细分 `usage_lane`、body-free 段落顺序/长度/哈希观测，并对工具 schema 做语义等价的确定性 key 排序；没有重排提示词、删记忆或冻结实时状态。后续只在真机积累足够样本后按 lane 对比 `recentPromptShapes` 与 hit/miss，再决定是否存在可证明、低风险的第二步 A/B；Gemini `final_reply` 仍不纳入。 |
 | P3 | 疲劳与心境的小幅耦合 | 保留昼夜节律主基线，单独评估负面心情导致难入睡、兴奋/聊天愉快/玩嗨短时压住疲劳的有限偏移；必须有幅度上限、短时衰减、睡眠债回补和防止夜间无限续航。排在 +232 真机包之后，优先在北京时间 2026-09-21 下午至晚上、或后续相同自然时段开专项，便于观察从白天到夜间的真实曲线；不在 +232 顺手改公式。 |
 
 #### B. Phase 3C 与 Phase 4 的准确含义和评估门
@@ -279,7 +279,7 @@ Actions 与交付证据：
 
 ### 6.6 v0.41.89+233 Cedar 事件时序真实性、愿望安全主题与缓存命中（2026-09-20）
 
-状态：`IMPLEMENTATION STARTED / CI PENDING / TRUE DEVICE PENDING`。
+状态：`IMPLEMENTED LOCALLY / LOCAL STATIC VALIDATION PASSED / CI PENDING / TRUE DEVICE PENDING`。
 
 开工证据与边界：
 
@@ -291,6 +291,16 @@ Actions 与交付证据：
 6. 缓存优化排在上述真实性修复之后。先补不含 Prompt 正文的段落类别、顺序、长度与哈希观测，再只调整稳定前缀、动态尾部和确定性序列化；Gemini `final_reply` 不纳入，禁止删记忆、冻结实时状态、弱化工具真值或重新合并已隔离的 Agent/Cedar 循环。
 
 实施顺序与提交门：Cedar 时序真实性、愿望安全主题、DeepSeek 缓存分别独立提交并运行专项回归；最后才更新版本、总账与完整 validator。Actions 全绿只升级为 `CI PASSED / APK READY`，Cedar 历史时态、愿望显示与缓存行为仍需真机分别确认。
+
+本地实现与验证：
+
+- Cedar 事件身份已从可刷新的 `updated_at` 中剥离：优先从 `mcp/cedar_game:<game>:play|invite-<微秒时间戳>` 解析不可变发生时间，只在旧来源无法解析时退回 `born_at`。不同 Cedar 事件即使 topic 相同也不再 consolidation；已有 `action_count / last_acted_at` 的事件不可再次成为主动分享候选。主动分享只接受 48 小时内事件；“刚才/刚刚/刚在”等即时锚只接受 60 分钟内事件，维护、合并和候选选择均不能续期。旧事仍可在正常聊天中按“之前/上次”等历史方式回忆。
+- 愿望展示升级为 presentation v3，并只投影受约束的 `safe_subject_key`。钓鱼、旅行、下矿、对弈、花园猫、韭菜、共同花园、纪念日以及少量 AI 自主性/身份/交流/爱好主题有具体公开文案；活动别名统一到同一 subject。未知 curiosity 主题不再生成新的公开愿望，旧愿望若已失去安全主题则诚实显示“旧记录没有保留具体主题”，不会读取 Thought 私密正文或编造目标；Thought 本身仍保留。
+- DeepSeek 统计已把原先混在 `unclassified` 的日记、随笔、购物车、记忆整合、人格证据复核、摘要、翻译、亲密路由、沉浸房间与自我反思拆成独立 lane；Cedar 选游戏也从后台动作规划中拆为 `cedar_game_choice`。每次 provider usage 同步记录消息段的顺序、角色、字符数、12 位 SHA-256 与工具 schema 数量/长度/哈希，不记录 Prompt/响应正文、工具字段值或凭据；诊断只带最近 24 次 shape，便于下一轮按真实前缀变化 A/B。
+- 本批缓存改动只对工具 schema 的 Map key 做递归确定性排序，字段、数组顺序、工具选择、消息内容与消息顺序保持不变；没有为了命中率重排系统指令、删记忆、冻结实时上下文或合并循环。两个语义完全相同但构造 key 顺序不同的 schema 已有固定回归证明会发出同一规范序列并得到同一 body-free hash。
+- 三项 +233 专项门、+232/+228 回归门、115 项 validator manifest、Workflow YAML、Python 编译与 `git diff --check` 已通过；逐项运行 115 个源码门时 112 个通过，余下 3 个只因仓库按治理规则不携带 CI 才恢复的 417 文件桌宠源码包与 LingChat 特效包，以及本机没有 `kotlinc`。本机也没有 Flutter/Dart SDK，新增 Dart 回归、Flutter analyze/tests、Kotlin/JVM/Android tests、arm64 Release、签名与载荷检查仍必须由 Actions 判定；在此之前保持 `CI PENDING / TRUE DEVICE PENDING`。
+
+真机验收边界：自然观察旧 Cedar 事件只以历史时态出现且同一 Outcome 不重复主动分享；愿望只显示安全具体主题或诚实旧记录说明；积累足够新 usage 后导出同刻诊断，对比各 lane 的 `recentPromptShapes` 与 provider cache hit/miss。缓存命中率允许受实时上下文影响波动，不能只凭一次样本判失败或继续扩大改动。
 
 ## 7. 历史验证兼容摘要
 
