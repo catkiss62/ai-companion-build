@@ -40,8 +40,9 @@
 | +228 远端 | head `29e87d016c8bd81f52f89f95191bd1a1a01a5b57`；tree `c4a112a56d8b634cf3a1a66636979a0833538b7d`；Actions `35440359036`；Artifact `10583263879`；APK SHA-256 `159e283173e49da2924d25b37ba7647893cdafdcc31b63f0e31b7c64e086849b` |
 | 仓库维护基线 | `maintenance/repository-governance-20260919`；远端文档 head `123e272196e8ae93f3518157917d76f6af4f1784`；完整构建 head `fa99f32012fa1a0716b746d36b958a8e777ef9b8`；Actions `35446649873` 全绿；文档-only run `35447342921` 正确跳过 APK |
 | 当前功能分支 | `agent/v04189-cedar-temporal-wishlist-cache`，从 +232 远端文档 head `189f8b1` 分出；候选版本 `v0.41.89+233` |
-| 当前任务状态 | `IMPLEMENTED LOCALLY / LOCAL STATIC VALIDATION PASSED / CI PENDING / TRUE DEVICE PENDING`；+232 已有 2 项真机通过、1 项持续观察，见 6.5 |
+| 当前任务状态 | `CI PASSED / APK READY / TRUE DEVICE PENDING`；+232 已有 2 项真机通过、1 项持续观察，见 6.5 |
 | +233 当前任务 | 先修 Cedar Outcome Thought 的事件身份、一次分享与时间锚定；再做愿望单安全主题投影；最后只做语义等价的 DeepSeek 缓存观测/低风险优化。三部分独立提交与验证门，不改人格、疲劳、Cedar 玩法/循环所有权或 Gemini 按次回复链 |
+| +233 远端 | 构建 head `2892e67d91652b3d8cdec6a989c8467ed0193764`；tree `36747406e22a5accd35f879d7284a0d3370e5a7c`；Actions `35475970152` 全绿；Artifact `10593264636`；APK SHA-256 `ffe58c0dc10f145ec4ce91489478b3b9327304aab8aa1b39a02f58b13229f6e3` |
 | +232 目标 | 游戏厅“最近进展”窄面板复用“游戏活动”同款 Card 颜色；愿望单按安全主题表达并合并同主题活动愿望；登记 Cortico 低风险参考、唯一循环所有权与后续诊断护栏；不改 Agent 循环、疲劳、缓存、TTS、schema、世界书或人格 |
 | +232 远端 | 构建 head `3783aa7ccae0d547d4a0a1c18d4f388c398be574`；tree `54da8912e76ce5d59ec142387f1708a972196640`；Actions `35469452065` 全绿；Artifact `10592781832`；APK SHA-256 `ccb0352275d197592b1fd5b9a1ca479f89ec21101f472b234e85f8f7d5968622` |
 | +231 远端 | 构建 head `75d9e0a311d5b322f53a742b9016aac16d44c9d9`；tree `2b337e3b4d23a1c4bdc097ee999fc569ddafb7fe`；Actions `35464168272` 全绿；Artifact `10591085711`；APK SHA-256 `1b10c1f49f0d192913c2f15e9f46345160cc2c0ee22acf751eb6755a70a3e565` |
@@ -184,7 +185,7 @@ Actions 与交付证据：
 | P2 | 记忆/人设/规则修改提案 | `memory.propose_change / personality.propose_change / rules.propose_change` 当前均不可执行。以后只先做可审查 diff 提案；写入、删除或其他可破坏操作必须增加确认、版本与回滚，当前只读 Agent 不增加多余确认。 |
 | P3 | 视频理解 | `video_understanding.inspect` 仍为占位。以后独立评估短片抽帧、预算、临时文件隐私、取消和结果持久化；不冒充当前已能看视频。 |
 | P3 | Live2D 反应接入 | 模型、动作和素材已在独立 Live2D 仓库完成；伴侣侧以后专门设计“LLM 语义反应 + 本地低延迟关键词/事件反射 + 动作仲裁/冷却/打断”，避免只等完整 LLM 回复才动，也不得让关键词层直接改写人格或对话。完成基础 P1 后再立专项版本。 |
-| P3 | DeepSeek 缓存命中优化 | `v0.41.89+233 IMPLEMENTED LOCALLY / CI PENDING`：已补齐细分 `usage_lane`、body-free 段落顺序/长度/哈希观测，并对工具 schema 做语义等价的确定性 key 排序；没有重排提示词、删记忆或冻结实时状态。后续只在真机积累足够样本后按 lane 对比 `recentPromptShapes` 与 hit/miss，再决定是否存在可证明、低风险的第二步 A/B；Gemini `final_reply` 仍不纳入。 |
+| P3 | DeepSeek 缓存命中优化 | `v0.41.89+233 CI PASSED / APK READY / TRUE DEVICE PENDING`：已补齐细分 `usage_lane`、body-free 段落顺序/长度/哈希观测，并对工具 schema 做语义等价的确定性 key 排序；没有重排提示词、删记忆或冻结实时状态。后续只在真机积累足够样本后按 lane 对比 `recentPromptShapes` 与 hit/miss，再决定是否存在可证明、低风险的第二步 A/B；Gemini `final_reply` 仍不纳入。 |
 | P3 | 疲劳与心境的小幅耦合 | 保留昼夜节律主基线，单独评估负面心情导致难入睡、兴奋/聊天愉快/玩嗨短时压住疲劳的有限偏移；必须有幅度上限、短时衰减、睡眠债回补和防止夜间无限续航。排在 +232 真机包之后，优先在北京时间 2026-09-21 下午至晚上、或后续相同自然时段开专项，便于观察从白天到夜间的真实曲线；不在 +232 顺手改公式。 |
 
 #### B. Phase 3C 与 Phase 4 的准确含义和评估门
@@ -279,7 +280,7 @@ Actions 与交付证据：
 
 ### 6.6 v0.41.89+233 Cedar 事件时序真实性、愿望安全主题与缓存命中（2026-09-20）
 
-状态：`IMPLEMENTED LOCALLY / LOCAL STATIC VALIDATION PASSED / CI PENDING / TRUE DEVICE PENDING`。
+状态：`CI PASSED / APK READY / TRUE DEVICE PENDING`。
 
 开工证据与边界：
 
@@ -301,6 +302,14 @@ Actions 与交付证据：
 - 三项 +233 专项门、+232/+228 回归门、115 项 validator manifest、Workflow YAML、Python 编译与 `git diff --check` 已通过；逐项运行 115 个源码门时 112 个通过，余下 3 个只因仓库按治理规则不携带 CI 才恢复的 417 文件桌宠源码包与 LingChat 特效包，以及本机没有 `kotlinc`。本机也没有 Flutter/Dart SDK，新增 Dart 回归、Flutter analyze/tests、Kotlin/JVM/Android tests、arm64 Release、签名与载荷检查仍必须由 Actions 判定；在此之前保持 `CI PENDING / TRUE DEVICE PENDING`。
 
 真机验收边界：自然观察旧 Cedar 事件只以历史时态出现且同一 Outcome 不重复主动分享；愿望只显示安全具体主题或诚实旧记录说明；积累足够新 usage 后导出同刻诊断，对比各 lane 的 `recentPromptShapes` 与 provider cache hit/miss。缓存命中率允许受实时上下文影响波动，不能只凭一次样本判失败或继续扩大改动。
+
+Actions 与交付证据：
+
+- 远端四个功能/版本提交经 Git data 接口按本地顺序建立，最终内容树与本地候选逐字节一致；随后两个测试迁移提交修正 CI 暴露的回调类型和旧版本/未知主题样本。权威构建 head `2892e67d91652b3d8cdec6a989c8467ed0193764`，tree `36747406e22a5accd35f879d7284a0d3370e5a7c`；`main` 未修改。
+- 首轮 Actions `35475149658` 在 Flutter analyze 精确发现新增测试把同步 `usage.add` 传给异步 usage callback；修复后第二轮 `35475536151` 的 analyze 已通过，869 项 Flutter 测试中 867 项通过，剩余 2 项只是系统自读仍期待 +232、普通基线愿望仍使用已被安全策略拒绝的未知主题 fixture。两项测试迁移没有放宽生产策略。
+- Actions `35475970152` 全绿：115 个源码/历史门、Kotlin 桌宠/悬浮层测试、Flutter analyze、全部 869 项 Flutter tests、arm64 Release、稳定签名、Genie/桌宠/LingChat/塔罗载荷、Artifact 与 Draft 上传全部成功。
+- Artifact `10593264636`，名称 `AI-Companion-v0.41.89-233-Cedar-Temporal-Wishlist-Cache-APK`，大小 `538,070,382` bytes，ZIP digest `5055b7b8a30df4009b45fbda7f6f6fe8a259a3baf09d363afed25a8b70f61821`。
+- Draft Release `392248211` 为未发布地址 `https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-a51ec6f40ce0543f3558`；APK asset `575682174`，大小 `544,947,802` bytes，SHA-256 `ffe58c0dc10f145ec4ce91489478b3b9327304aab8aa1b39a02f58b13229f6e3`。稳定测试签名仍为 `30:5E:B3:D8:09:83:B9:63:C6:48:18:DD:F1:AD:56:1F:27:9D:E6:D4:7B:3E:D2:C7:81:AD:A4:48:C7:C2:51:48`。
 
 ## 7. 历史验证兼容摘要
 
