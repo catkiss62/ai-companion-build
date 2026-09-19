@@ -940,6 +940,11 @@ jobs:
           # validate_v04180_cedar_agent_loop.py validate_v04181_cedar_background_agent_tools.py
           # validate_v04182_cedar_state_machine_e2e.py validate_v04183_cedar_native_agent_loop.py
           # validate_v04184_agent_loop_autonomy_closure.py
+          # Exact historical command tokens retained for three gates that
+          # predate the manifest runner and assert their old literal command.
+          # python3 tools/validate_v04150_agent_v2_bounded_loop.py
+          # python3 tools/validate_v0401_album_identity_closure.py
+          # python3 tools/validate_v0405_album_image_binding.py
           python3 tools/run_validation_suite.py
 
       - name: Resolve Flutter packages
