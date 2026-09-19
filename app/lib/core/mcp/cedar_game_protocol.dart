@@ -342,7 +342,10 @@ class CedarExecutableCallPolicy {
     }
     for (final line in source.split('\n')) {
       if (!RegExp(
-        '(^|[^A-Za-z0-9_.:-])$escaped([^A-Za-z0-9_.:-]|\$)',
+        // A guide may qualify an action as `game.action` (for example
+        // `duel.new`). The dot is a valid left boundary for the action name;
+        // letters, digits and protocol punctuation are not.
+        '(^|[^A-Za-z0-9_:-])$escaped([^A-Za-z0-9_.:-]|\$)',
         caseSensitive: false,
       ).hasMatch(line)) {
         continue;

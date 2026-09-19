@@ -140,6 +140,15 @@ require(
     "a restored unique room list hydrates before claiming user turn",
 )
 require(
+    "test/agent_self_reader_v0416_test.dart",
+    "build=v0.41.84+228 schema=61",
+)
+require(
+    "test/cedar_background_agent_tools_v04181_test.dart",
+    "explicit guide-required fields block an incomplete mutation",
+    "contains('game_type')",
+)
+require(
     "AI_Companion_当前总账.md",
     "v0.41.84+228",
     "agent/v04184-agent-loop-autonomy-closure",
