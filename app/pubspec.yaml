@@ -88,6 +88,7 @@ publish_to: 'none'
 # Historical validator token: version: 0.41.85+229
 # Historical validator token: version: 0.41.86+230
 # Historical validator token: version: 0.41.87+231
+# v0.41.88+232 build candidate: wishlist topic identity and Cedar Card parity.
 version: 0.41.88+232
 
 environment:
