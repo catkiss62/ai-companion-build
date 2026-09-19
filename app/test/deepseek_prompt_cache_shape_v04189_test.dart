@@ -23,7 +23,9 @@ void main() {
           headers: const {'content-type': 'text/event-stream'},
         );
       }),
-      onUsage: usage.add,
+      onUsage: (event) async {
+        usage.add(event);
+      },
     );
 
     const messages = <Map<String, Object?>>[
