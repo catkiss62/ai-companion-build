@@ -4,7 +4,7 @@
 
 ## 1. 阅读顺序
 
-1. 完整读取根目录小型 `AI_Companion_当前总账.md`，取得当前任务包与后续导航；
+1. 读取根目录 `AI_Companion_当前总账.md` 的接班协议、永久边界、当前基线、当前任务和后续导航；已完成旧基线只在相关任务中定点读取；
 2. 本文档；
 3. 与当前任务直接相关的专项设计；
 4. 实际源代码、测试/validator、CI、最新脱敏诊断和实机结果；
@@ -80,6 +80,7 @@
 ### UI 与仓库入口
 
 - `UI_INFORMATION_ARCHITECTURE_v1.md`：五域迁移；已吸收性格底色 UI 的唯一数据源约束。
+- `REPOSITORY_MAINTENANCE.md`：分支、总账滚动、统一 validator 清单、CI/资源与旧 Actions 的低风险维护边界。
 - `DOCUMENTATION_MAP.md`
 
 ### 本地 TTS
