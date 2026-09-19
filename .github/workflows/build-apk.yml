@@ -386,7 +386,8 @@
 # Historical v0.41.61 workflow: Shuai API Gemini plus immersive-room multilingual projection and thought summaries.
 # Historical v0.41.63 workflow: immersive streaming TTS and settings hardening candidate.
 # Exact source tree is recorded in the ledger after the implementation commit.
-name: Build AI Companion v0.41.86+230 APK (Autonomy + TTS Diagnostics)
+# Historical validator tokens: AI-Companion-v0.41.86-230-Autonomy-TTS-Diagnostics-APK | v0.41.86-autonomy-tts-diagnostics-test
+name: Build AI Companion v0.41.87+231 APK (Help + Cedar Activity UI)
 
 on:
   push:
@@ -425,6 +426,7 @@ on:
       - agent/v04184-agent-loop-autonomy-closure
       - agent/v04185-cedar-media-bridge
       - agent/v04186-autonomy-tts-diagnostics
+      - agent/v04187-help-cedar-activity-ui
       - maintenance/repository-governance-20260919
   workflow_dispatch:
   pull_request:
@@ -814,7 +816,7 @@ jobs:
         run: |
           set -euo pipefail
           test -f app/pubspec.yaml
-          grep -Fqx 'version: 0.41.86+230' app/pubspec.yaml
+          grep -Fqx 'version: 0.41.87+231' app/pubspec.yaml
           grep -Fqx '  static const int schemaVersion = 61;' app/lib/core/database/app_database.dart
           test -d app/lib
           test -d app/android
@@ -828,7 +830,7 @@ jobs:
           test -f app/android/app/src/main/jniLibs/arm64-v8a/libc++_shared.so
           test ! -d app/android/app/src/main/assets/tts_models
           test ! -d app/android/app/src/main/assets/legacy_tts
-          echo 'Building v0.41.86+230 autonomy and TTS diagnostics candidate.'
+          echo 'Building v0.41.87+231 capability help and Cedar activity UI candidate.'
 
       - name: Restore exact 417-file desktop-pet source pack
         working-directory: app
@@ -1273,26 +1275,26 @@ jobs:
           APK='app/build/app/outputs/flutter-apk/app-release.apk'
           sha256sum "$APK" | tee app/app-release.apk.sha256
 
-      - name: Upload v0.41.86+230 APK as workflow artifact
+      - name: Upload v0.41.87+231 APK as workflow artifact
         uses: actions/upload-artifact@v4
         with:
-          name: AI-Companion-v0.41.86-230-Autonomy-TTS-Diagnostics-APK
+          name: AI-Companion-v0.41.87-231-Help-Cedar-Activity-UI-APK
           path: |
             app/build/app/outputs/flutter-apk/app-release.apk
             app/app-release.apk.sha256
           if-no-files-found: error
           retention-days: 14
 
-      - name: Upload v0.41.86+230 APK to draft release
+      - name: Upload v0.41.87+231 APK to draft release
         shell: bash
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
-          TAG='v0.41.86-autonomy-tts-diagnostics-test'
-          APK_NAME='AI-Companion-v0.41.86-230-Autonomy-TTS-Diagnostics-APK.apk'
+          TAG='v0.41.87-help-cedar-activity-ui-test'
+          APK_NAME='AI-Companion-v0.41.87-231-Help-Cedar-Activity-UI-APK.apk'
           SHA_NAME="${APK_NAME}.sha256"
-          CI_NAME='AI-Companion-v0.41.86-230-Autonomy-TTS-Diagnostics-CI-Monitor.txt'
+          CI_NAME='AI-Companion-v0.41.87-231-Help-Cedar-Activity-UI-CI-Monitor.txt'
           cp app/build/app/outputs/flutter-apk/app-release.apk "app/${APK_NAME}"
           sed "s#app/build/app/outputs/flutter-apk/app-release.apk#${APK_NAME}#" \
             app/app-release.apk.sha256 > "app/${SHA_NAME}"
@@ -1309,13 +1311,13 @@ jobs:
               --repo "${GITHUB_REPOSITORY}" \
               --target "${GITHUB_SHA}" \
               --draft \
-              --title 'AI Companion v0.41.86+230 autonomy and TTS diagnostics candidate' \
+              --title 'AI Companion v0.41.87+231 help and Cedar activity UI candidate' \
               --notes 'Unpublished Draft schema-61 candidate. Happy now selects the cute Jiuhu profile. Plaintext-free TTS evidence covers all four reference cases. Solo Cedar sessions stop at a three-state-change or 25-minute episode checkpoint and re-enter the shared autonomy selector; explicit server anti-addiction evidence controls optional self-reset, and successful rest resumes at normal viewing pace. Snapshot protocol 6 remains.'
           else
             gh release edit "${TAG}" \
               --repo "${GITHUB_REPOSITORY}" \
               --target "${GITHUB_SHA}" \
-              --title 'AI Companion v0.41.86+230 autonomy and TTS diagnostics candidate' \
+              --title 'AI Companion v0.41.87+231 help and Cedar activity UI candidate' \
               --notes 'Unpublished Draft schema-61 candidate. Happy now selects the cute Jiuhu profile. Plaintext-free TTS evidence covers all four reference cases. Solo Cedar sessions stop at a three-state-change or 25-minute episode checkpoint and re-enter the shared autonomy selector; explicit server anti-addiction evidence controls optional self-reset, and successful rest resumes at normal viewing pace. Snapshot protocol 6 remains.'
           fi
           RELEASE_URL="$(gh release view "${TAG}" --repo "${GITHUB_REPOSITORY}" --json url --jq '.url')"
@@ -1368,8 +1370,8 @@ jobs:
           BUILD_RESULT: ${{ needs.build-apk.result }}
         run: |
           set -uo pipefail
-          TAG='v0.41.86-autonomy-tts-diagnostics-test'
-          CI_NAME='AI-Companion-v0.41.86-230-Autonomy-TTS-Diagnostics-CI-Monitor.txt'
+          TAG='v0.41.87-help-cedar-activity-ui-test'
+          CI_NAME='AI-Companion-v0.41.87-231-Help-Cedar-Activity-UI-CI-Monitor.txt'
           REPORT="${RUNNER_TEMP}/${CI_NAME}"
           JOBS_JSON="${RUNNER_TEMP}/jobs.json"
           {
@@ -1410,8 +1412,8 @@ jobs:
               --repo "${GITHUB_REPOSITORY}" \
               --target "${GITHUB_SHA}" \
               --draft \
-              --title 'AI Companion v0.41.86+230 autonomy and TTS diagnostics candidate' \
-              --notes 'Draft failure diagnostics for the schema-61 autonomy and TTS diagnostics candidate. It is not a published release; private packs, credentials, user images, captions, diagnostics, backups and conversation content are not included in CI assets.'
+              --title 'AI Companion v0.41.87+231 help and Cedar activity UI candidate' \
+              --notes 'Draft failure diagnostics for the schema-61 help and Cedar activity UI candidate. It is not a published release; private packs, credentials, user images, captions, diagnostics, backups and conversation content are not included in CI assets.'
           fi
           RELEASE_URL="$(gh release view "${TAG}" --repo "${GITHUB_REPOSITORY}" --json url --jq '.url')"
           echo "release_url=${RELEASE_URL}" >> "${REPORT}"

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import 'capability_help_page.dart';
 import 'settings_category_pages.dart';
 import 'cedar_toy_settings_page.dart';
 import 'sticker_settings_page.dart';
@@ -10,6 +11,12 @@ class SettingsPage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final domains = <_SettingsDomain>[
+      _SettingsDomain(
+        icon: Icons.help_outline_rounded,
+        title: '帮助与真实能力',
+        subtitle: '系统检查、Agent 工具、停止、备份、权限边界与故障排查',
+        page: const CapabilityHelpPage(),
+      ),
       _SettingsDomain(
         icon: Icons.hub_outlined,
         title: '模型与联网',

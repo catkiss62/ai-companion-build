@@ -109,6 +109,71 @@ class _CedarToyActivityWindowState extends State<CedarToyActivityWindow> {
     await _refresh();
   }
 
+  Future<void> _showEventDetails(CedarGameEvent event) => showDialog<void>(
+        context: context,
+        builder: (dialogContext) => AlertDialog(
+          title: const Text('活动记录详情'),
+          content: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 440),
+            child: SingleChildScrollView(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    _formatEventTime(event.createdAt),
+                    style: Theme.of(dialogContext).textTheme.bodySmall,
+                  ),
+                  if (event.action.isNotEmpty) ...[
+                    const SizedBox(height: 10),
+                    Text(
+                      '动作',
+                      style: Theme.of(dialogContext).textTheme.labelLarge,
+                    ),
+                    const SizedBox(height: 3),
+                    SelectableText(event.action),
+                  ],
+                  const SizedBox(height: 12),
+                  Text(
+                    '完整内容',
+                    style: Theme.of(dialogContext).textTheme.labelLarge,
+                  ),
+                  const SizedBox(height: 3),
+                  SelectableText(event.summary),
+                  if (event.imageReference.isNotEmpty ||
+                      event.imageData.isNotEmpty) ...[
+                    const SizedBox(height: 12),
+                    _activityImage(event),
+                  ],
+                  if (event.viewerUrl.isNotEmpty) ...[
+                    const SizedBox(height: 12),
+                    OutlinedButton.icon(
+                      onPressed: () => AndroidBridge.instance
+                          .openExternalHttpsUrl(event.viewerUrl),
+                      icon: const Icon(Icons.open_in_browser_rounded),
+                      label: const Text('打开这条记录的查看页'),
+                    ),
+                  ],
+                ],
+              ),
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(dialogContext),
+              child: const Text('关闭'),
+            ),
+          ],
+        ),
+      );
+
+  String _formatEventTime(DateTime value) {
+    final local = value.toLocal();
+    String two(int number) => number.toString().padLeft(2, '0');
+    return '${local.year}-${two(local.month)}-${two(local.day)} '
+        '${two(local.hour)}:${two(local.minute)}:${two(local.second)}';
+  }
+
   void _move(DragUpdateDetails details, Size area) {
     final height = _minimized ? 58.0 : _height;
     setState(() {
@@ -387,9 +452,28 @@ class _CedarToyActivityWindowState extends State<CedarToyActivityWindow> {
           const SizedBox(height: 12),
           Text('最近进展', style: Theme.of(context).textTheme.labelLarge),
           const SizedBox(height: 5),
-          SelectableText(
-            session.lastOutcome,
-            maxLines: 12,
+          Align(
+            alignment: Alignment.center,
+            child: FractionallySizedBox(
+              widthFactor: 0.84,
+              child: DecoratedBox(
+                key: const ValueKey('cedar_recent_progress_narrow_card'),
+                decoration: BoxDecoration(
+                  color: Theme.of(context).colorScheme.surfaceContainerHighest,
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(
+                    color: Theme.of(context).colorScheme.outlineVariant,
+                  ),
+                ),
+                child: Padding(
+                  padding: const EdgeInsets.all(10),
+                  child: SelectableText(
+                    session.lastOutcome,
+                    maxLines: 12,
+                  ),
+                ),
+              ),
+            ),
           ),
         ],
         if (session.events.isNotEmpty &&
@@ -449,8 +533,14 @@ class _CedarToyActivityWindowState extends State<CedarToyActivityWindow> {
                     : Icons.bolt_rounded,
                 size: 19,
               ),
-              title: Text(event.summary, maxLines: 3),
+              title: Text(
+                event.summary,
+                maxLines: 3,
+                overflow: TextOverflow.ellipsis,
+              ),
               subtitle: event.action.isEmpty ? null : Text(event.action),
+              trailing: const Icon(Icons.chevron_right_rounded, size: 19),
+              onTap: () => _showEventDetails(event),
             ),
         ],
         if (state?.notices.isNotEmpty == true) ...[

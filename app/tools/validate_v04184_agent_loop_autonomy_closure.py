@@ -21,15 +21,30 @@ def require(path: str, *tokens: str) -> None:
 
 assert any(
     version in read("pubspec.yaml")
-    for version in ("version: 0.41.84+228", "version: 0.41.85+229", "version: 0.41.86+230")
+    for version in (
+        "version: 0.41.84+228",
+        "version: 0.41.85+229",
+        "version: 0.41.86+230",
+        "version: 0.41.87+231",
+    )
 )
 assert any(
     version in read("lib/core/agent/agent_self_reader.dart")
-    for version in ("v0.41.84+228", "v0.41.85+229", "v0.41.86+230")
+    for version in (
+        "v0.41.84+228",
+        "v0.41.85+229",
+        "v0.41.86+230",
+        "v0.41.87+231",
+    )
 )
 assert any(
     version in read("lib/core/mcp/mcp_http_client.dart")
-    for version in ("'version': '0.41.84'", "'version': '0.41.85'", "'version': '0.41.86'")
+    for version in (
+        "'version': '0.41.84'",
+        "'version': '0.41.85'",
+        "'version': '0.41.86'",
+        "'version': '0.41.87'",
+    )
 )
 require(
     "lib/core/mcp/cedar_agent_loop_policy.dart",
@@ -159,6 +174,7 @@ assert any(
         "build=v0.41.84+228 schema=61",
         "build=v0.41.85+229 schema=61",
         "build=v0.41.86+230 schema=61",
+        "build=v0.41.87+231 schema=61",
     )
 )
 require(

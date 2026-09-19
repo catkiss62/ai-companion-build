@@ -36,8 +36,9 @@
 | 功能状态 | `CI PASSED / APK READY / TRUE DEVICE PENDING` |
 | +228 远端 | head `29e87d016c8bd81f52f89f95191bd1a1a01a5b57`；tree `c4a112a56d8b634cf3a1a66636979a0833538b7d`；Actions `35440359036`；Artifact `10583263879`；APK SHA-256 `159e283173e49da2924d25b37ba7647893cdafdcc31b63f0e31b7c64e086849b` |
 | 仓库维护基线 | `maintenance/repository-governance-20260919`；远端文档 head `123e272196e8ae93f3518157917d76f6af4f1784`；完整构建 head `fa99f32012fa1a0716b746d36b958a8e777ef9b8`；Actions `35446649873` 全绿；文档-only run `35447342921` 正确跳过 APK |
-| 当前功能分支 | `agent/v04186-autonomy-tts-diagnostics`，从 +229 总账 head `3245996` 分出；候选版本 `v0.41.86+230` |
-| 当前任务状态 | `CI PASSED / APK READY / TRUE DEVICE PENDING`；+228/+229 的既有状态不因新分支自动升级 |
+| 当前功能分支 | `agent/v04187-help-cedar-activity-ui`，从 +230 文档收口 head `15c104a` 分出；候选版本 `v0.41.87+231` |
+| 当前任务状态 | `IMPLEMENTED LOCALLY / CI PENDING / TRUE DEVICE PENDING`；+228～+230 的既有状态不因新分支自动升级 |
+| +231 目标 | 设置内真实能力帮助页；游戏厅“最近进展”窄触控区；活动记录完整详情；不改 Agent 权限、Cedar 玩法、TTS 运行时或 schema |
 | +230 远端 | 构建 head `6c53a40b5d7413942c12ca84001bb66205c160d1`；tree `9c3674e87f37798964e293b1ffdeaedf4e582c74`；Actions `35458277355`（attempt 2 全绿）；Artifact `10589621373`；APK SHA-256 `de27ec0c0146ef3a879f0bb9d8ae2c06dbfdc3225d8f6694fe8e01c7c5ab8d4a` |
 | +229 远端 | 构建 head `0f4ffc6c2b08a310a5f04919a045c98b2e8e63e3`；tree `9e0913202787feca13462c07fdd0941f10d0d4b9`；Actions `35450357850`；Artifact `10587305305`；APK SHA-256 `acbd5c81be69c5c27ae2822ea112fb2b0639a00636b61af7b0f642c02fbcddc6` |
 | `main` | 仍为 v0.38.5 旧基线；不得作为 v0.41.x 起点，本批不合并 |
@@ -127,6 +128,8 @@
 
 状态：`CI PASSED / APK READY / TRUE DEVICE PENDING`。
 
+历史实现分支：`agent/v04186-autonomy-tts-diagnostics`。
+
 本批只实施用户已经确认的三组变更：
 
 1. TTS 自动音色只把 `happy / 高兴` 从 `lively / 活泼` 改为 `cute / 可爱`；其他情绪、固定音色、情绪音效和声学模型不动。
@@ -167,17 +170,19 @@ Actions 与交付证据：
 
 | 优先级 | 任务 | 当前准确范围 |
 |---|---|---|
-| P1 | 设置“帮助”与真实能力清单 | 以当前 `AgentToolRegistry`、System Facts、设置项和实际执行器为真源，整理 `【检查系统】`、联网/网页阅读/图片、查手机、MCP 游戏厅、Stop、备份恢复、TTS、权限隐私、故障排查与明确限制。帮助页只解释真实能力；`executable=false` 的视频、提醒、修改提案和通用 MCP 不得写成已可用。 |
-| P1 | 本地 Genie TTS 推理速度实验 | 当前生产基线是 CPU 8 线程，旧真机已证明 XNNPACK 会出现异常短音频、NNAPI 无收益。先用脱敏阶段耗时拆出前端/RoBERTa、语义 Decoder、声码器、WAV 与冷/热启动瓶颈，再独立比较 4/6/8 线程、Android `PerformanceHintManager`/线程优先级、可撤销的大核调度提示、模型/session/张量缓存和分段预生成。普通 App 不承诺需要 root 的硬件超频；任何快速档必须有温度、功耗、峰值内存、音频完整性、音质与自动回退门，不能直接恢复已否证的 XNNPACK/NNAPI 默认路径。 |
+| P1 | 设置“帮助”与真实能力清单 | `v0.41.87+231 IMPLEMENTED LOCALLY`：页面直接消费当前 `AgentToolRegistry`，并整理 `【检查系统】`、联网/网页阅读/图片、查手机、Cedar、Stop、备份恢复、TTS、权限隐私、故障排查与明确限制；等待 CI 与真机 UI 验收。 |
+| P1 | 本地 Genie TTS 推理速度实验 | 当前生产基线是 CPU 8 线程，旧真机已证明 XNNPACK 会出现异常短音频、NNAPI 无收益。先在独立 `Genie-TTS-Android` 测试工程用同设备/同模型拆出前端、语义 Decoder、声码器、WAV 与冷/热启动瓶颈，并比较 4/6/8 线程、`PerformanceHintManager`/线程优先级、大核调度提示、session/张量缓存和分段预生成；只有证据稳定的引擎级方案再移植到伴侣项目做一次集成 A/B。最终必须是默认关闭的“快速推理”开关，关闭即回到当前路径，并具备温度、功耗、峰值内存、音频完整性、音质与自动回退门。普通 App 不承诺 root 级硬件超频，也不直接恢复已否证的 XNNPACK/NNAPI。 |
 | P1 | 全工具调用动作展示 | 把目前 Cedar 已有的活动可见性扩展为统一、脱敏的工具运行状态：搜索、读网页、读系统/记忆/查手机、图片保存/发送等显示“正在做什么/成功/失败/已停止”，不展示 Prompt、密钥、私密参数、房间凭据或内部推理；不改变工具权限与 Outcome 真值。 |
 | P2 | 通用 MCP Registry 与未来工作区 | Cedar 专用 MCP 已完成，但通用 `mcp.invoke` 仍为不可执行占位。未来按只读优先分批实现 Server 注册、能力目录、权限、审计、超时、取消、凭据隔离和可卸载；需要处理工作任务时再设计独立合理工作区。OAuth、社区工具与 stdio/Harness 不与陪伴数据库直接混用。 |
 | P2 | 真实提醒 | `reminder.schedule` 当前仍为不可执行占位。若开工，必须落到 Android 真实调度、可取消/去重/恢复并有真实 Outcome，不能只靠聊天承诺“到时提醒”。 |
 | P2 | 记忆/人设/规则修改提案 | `memory.propose_change / personality.propose_change / rules.propose_change` 当前均不可执行。以后只先做可审查 diff 提案；写入、删除或其他可破坏操作必须增加确认、版本与回滚，当前只读 Agent 不增加多余确认。 |
 | P3 | 视频理解 | `video_understanding.inspect` 仍为占位。以后独立评估短片抽帧、预算、临时文件隐私、取消和结果持久化；不冒充当前已能看视频。 |
+| P3 | Live2D 反应接入 | 模型、动作和素材已在独立 Live2D 仓库完成；伴侣侧以后专门设计“LLM 语义反应 + 本地低延迟关键词/事件反射 + 动作仲裁/冷却/打断”，避免只等完整 LLM 回复才动，也不得让关键词层直接改写人格或对话。完成基础 P1 后再立专项版本。 |
+| P3 | 疲劳与心境的小幅耦合 | 保留昼夜节律主基线，单独评估负面心情导致难入睡、兴奋/聊天愉快/玩嗨短时压住疲劳的有限偏移；必须有幅度上限、短时衰减、睡眠债回补和防止夜间无限续航，不在 +231 顺手改公式。 |
 
 #### B. Phase 3C 与 Phase 4 的准确含义和评估门
 
-- **Phase 3C** 不是重新收集兴趣；3A 已负责跨日期真实证据，3B 已证明主动来源主链。3C 原方案是让 `established` 且仍新鲜的 AI 自身兴趣，以 `exploit / adjacent / wildcard` 有界影响自主联网选题、主动话题和少量表达习惯。+210 曾实现，但 +211 已撤回 public-web/主动消息消费注入，当前为 `SUPERSEDED / PENDING REDESIGN`。重开前要先判断它是否真的增加“长期爱好连续性”，同时不造成旧兴趣复读、自我消费自我强化、挤掉新话题/联网分享/游戏与过低缓存命中；如果现有 Thought、Share Seed 和模型自然偏向已经足够，可以永久不恢复 3C。
+- **Phase 3C** 已由用户确认属于持续优化方向中的旧阶段编号，关闭独立待办。3A/3B、Thought、Share Seed、统一自主竞争及后续兴趣/分享调整已经承接它真正关心的“长期偏向会影响自主选择”；+210 的具体消费注入又已在 +211 撤回。因此以后不再以“重做 Phase 3C”排期，只在出现新的、可复现的兴趣连续性问题时按当前架构处理。
 - **Phase 4** 是人格成长路线的可选末段，不是基础能力缺口：只在高影响歧义、连续反证或用户主动谈及时低频澄清一次；MBTI、契合度、AI 自拟小测试等只作为娱乐与低权重 `test_result / self_report / inference`，不得一次测试直接改写人格事实。开工前要先判断 Cedar 游戏、普通主动聊天和现有学习证据是否已经覆盖娱乐互动需求，以及澄清是否会让她变成问卷机器人。Phase 3C 没有必要恢复时，Phase 4 也可以作为独立可选功能评估，不再机械等待旧阶段编号。
 - **情绪引擎扩建**不再是基础待办：最小 `Appraisal → Emotion Episode` 已在 v0.37.5 实现。只有自然证据持续证明缺少混合情绪、恢复轨迹或多事件调度，并且固定回放有量化收益时，才按 `EMOTION_ENGINE_EXPANSION_EVAL_v1.md` 增加一个模块；否则保持现状。
 
@@ -198,17 +203,30 @@ Actions 与交付证据：
 | 状态 | 项目 | 决定 |
 |---|---|---|
 | `REMOVED FROM BACKLOG` | MiniMax 在线语音 | 用户确认当前本地小酒狐 Genie TTS 效果更好，MiniMax API、在线/本地双引擎选择、在线音色筛选与 emotion 映射全部从后续任务删除。冻结归档中的 MiniMax 只保留历史证据，不得再次自动排期。 |
-| `FROZEN` | 角色扮演持续性 | 主人格优先；以后用户单独重开时才用多轮样本处理角色切换和注意力。 |
 | `FROZEN` | 当前屏幕像素观察与自主截图 | 现有 `screen_observation.inspect` 曾在视觉 Provider 前失败；先补系统截图 capability/阶段诊断才可重开。自主截图仍未实现，不因知道 App 名称而声称看见屏幕。 |
-| `FROZEN` | HyperOS 文件选择器/系统导航键/悬浮间歇卡死 | 项目末尾原生专项；先取得输入挑战、动画心跳、window generation 与 enter/exit 时间线，不再叠加 retry/delay。 |
+| `FROZEN` | HyperOS 文件选择器/系统导航键/悬浮间歇卡死 | 指三类旧真机原生问题：系统文件选择器偶发输入/返回挑战、系统导航键后悬浮层恢复异常、部分 App 切换时桌宠/悬浮层间歇消失或卡死。当前没有持续复现，项目末尾如重开，先取得输入挑战、动画心跳、window generation 与 enter/exit 时间线，不再叠加 retry/delay。 |
 | `OPTIONAL` | 主动消息直接带表情、GitHub 灵感库、X/Telegram Provider | 都是新增能力，不是当前概率回归。只有用户再次选择才设计；普通回复表情、通用公开网页和现有媒体链继续保持。 |
-| `OPTIONAL` | 手机主存储/平板伴随端、完整换肤、产品化发布 | 独立大型路线，不进入当前陪伴核心维护；`main` 里程碑晋升与正式 Release 仍需用户明确授权。 |
+| `OPTIONAL` | 手机主存储/平板伴随端、完整换肤、产品化发布 | 独立大型路线，不进入当前陪伴核心维护。平板伴随端先依赖未来视频理解/“陪玩或陪看”能力的正式定义，当前不预判具体方案；`main` 里程碑晋升与正式 Release 仍需用户明确授权。 |
 | `MAINTENANCE` | 当前契约文档合并 | 可逐步把人格、Somatic、Inner Drive 重叠文档合并为当前契约；不改变 App、不阻塞功能开发。 |
 
 #### E. 已完成、不得从旧总账重复开工
 
 - Phase 0+1 审查、Phase 2A/2B、Phase 3A、Phase 3B 核心链；Memory 2D 主链、Dynamic Moe D2/D3、最小 Emotion Episode、查手机七日心情/购物车/侧栏、公开网页完整阅读与分享、Agent 自身系统读取、Agent v2、表情和双向图片、Cedar MCP/双弈/终局/连续循环、+228 Agent 循环与自主性收口、+229 远程媒体桥、+230 episode/防沉迷和 TTS 诊断均已有实现或明确状态。
+- 角色扮演持续性由用户确认已解决：根因是旧输出模型理解能力与文本表现，切换 Gemini 为文本输出口后不再复现；从冻结任务删除，除非出现新的可复现证据不得重开。
 - `PENDING / PLANNED` 只出现在冻结归档的历史段落时，不足以证明今天仍是任务；必须先与本节和当前源码核对。
+
+### 6.4 v0.41.87+231 帮助页与游戏厅活动窗（2026-09-20）
+
+状态：`IMPLEMENTED LOCALLY / CI PENDING / TRUE DEVICE PENDING`。
+
+本批范围：
+
+1. “全部设置”新增“帮助与真实能力”。普通聊天与自主工具清单直接读取运行时 `AgentToolRegistry` 的 `executable/userTurnAvailable/autonomousAvailable`，避免静态帮助把占位能力写成已可用；同时说明 `【检查系统】`、Stop/刷新、网页/图片/查手机、Cedar、本地 TTS、备份、权限隐私、故障取证和当前明确限制。
+2. Cedar 活动窗“最近进展”改为居中 84% 宽度的窄卡片，左右保留外层滚动命中空间；文本仍可选择，最多 12 行的现有边界保持。
+3. 活动记录继续显示三行摘要，但增加点击详情；详情可滚动查看完整 summary、动作、时间、图片和该事件 viewer URL，不执行游戏动作、不修改 session。
+4. 不改变 Agent 权限/自然语言路由、Cedar 指南/循环/防沉迷/概率、数据库 schema、TTS 运行时、世界书、人格或 `main`。
+
+本轮追加设计记录：Phase 4 继续作为可选人格澄清/娱乐测试，不因 AI 偶尔自然提问而强制开工；需要另查自然问题的用户资料写入证据链。TTS 快速模式先在独立 TTS 工程做引擎基准，再将证实有效的方案以默认关闭开关移植；Live2D 反应接入与疲劳—心境小幅耦合均登记为独立后续任务，不与 +231 混改。
 
 ## 7. 历史验证兼容摘要
 
