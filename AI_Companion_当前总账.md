@@ -37,8 +37,9 @@
 | +228 远端 | head `29e87d016c8bd81f52f89f95191bd1a1a01a5b57`；tree `c4a112a56d8b634cf3a1a66636979a0833538b7d`；Actions `35440359036`；Artifact `10583263879`；APK SHA-256 `159e283173e49da2924d25b37ba7647893cdafdcc31b63f0e31b7c64e086849b` |
 | 仓库维护基线 | `maintenance/repository-governance-20260919`；远端文档 head `123e272196e8ae93f3518157917d76f6af4f1784`；完整构建 head `fa99f32012fa1a0716b746d36b958a8e777ef9b8`；Actions `35446649873` 全绿；文档-only run `35447342921` 正确跳过 APK |
 | 当前功能分支 | `agent/v04187-help-cedar-activity-ui`，从 +230 文档收口 head `15c104a` 分出；候选版本 `v0.41.87+231` |
-| 当前任务状态 | `IMPLEMENTED LOCALLY / CI PENDING / TRUE DEVICE PENDING`；+228～+230 的既有状态不因新分支自动升级 |
+| 当前任务状态 | `CI PASSED / APK READY / TRUE DEVICE PENDING`；+228～+230 的既有状态不因新分支自动升级 |
 | +231 目标 | 设置内真实能力帮助页；游戏厅“最近进展”窄触控区；活动记录完整详情；不改 Agent 权限、Cedar 玩法、TTS 运行时或 schema |
+| +231 远端 | 构建 head `75d9e0a311d5b322f53a742b9016aac16d44c9d9`；tree `2b337e3b4d23a1c4bdc097ee999fc569ddafb7fe`；Actions `35464168272` 全绿；Artifact `10591085711`；APK SHA-256 `1b10c1f49f0d192913c2f15e9f46345160cc2c0ee22acf751eb6755a70a3e565` |
 | +230 远端 | 构建 head `6c53a40b5d7413942c12ca84001bb66205c160d1`；tree `9c3674e87f37798964e293b1ffdeaedf4e582c74`；Actions `35458277355`（attempt 2 全绿）；Artifact `10589621373`；APK SHA-256 `de27ec0c0146ef3a879f0bb9d8ae2c06dbfdc3225d8f6694fe8e01c7c5ab8d4a` |
 | +229 远端 | 构建 head `0f4ffc6c2b08a310a5f04919a045c98b2e8e63e3`；tree `9e0913202787feca13462c07fdd0941f10d0d4b9`；Actions `35450357850`；Artifact `10587305305`；APK SHA-256 `acbd5c81be69c5c27ae2822ea112fb2b0639a00636b61af7b0f642c02fbcddc6` |
 | `main` | 仍为 v0.38.5 旧基线；不得作为 v0.41.x 起点，本批不合并 |
@@ -217,7 +218,7 @@ Actions 与交付证据：
 
 ### 6.4 v0.41.87+231 帮助页与游戏厅活动窗（2026-09-20）
 
-状态：`IMPLEMENTED LOCALLY / CI PENDING / TRUE DEVICE PENDING`。
+状态：`CI PASSED / APK READY / TRUE DEVICE PENDING`。
 
 本批范围：
 
@@ -227,6 +228,13 @@ Actions 与交付证据：
 4. 不改变 Agent 权限/自然语言路由、Cedar 指南/循环/防沉迷/概率、数据库 schema、TTS 运行时、世界书、人格或 `main`。
 
 本轮追加设计记录：Phase 4 继续作为可选人格澄清/娱乐测试，不因 AI 偶尔自然提问而强制开工；需要另查自然问题的用户资料写入证据链。TTS 快速模式先在独立 TTS 工程做引擎基准，再将证实有效的方案以默认关闭开关移植；Live2D 反应接入与疲劳—心境小幅耦合均登记为独立后续任务，不与 +231 混改。
+
+Actions 与交付证据：
+
+- 远端功能提交 `75d9e0a311d5b322f53a742b9016aac16d44c9d9`，tree `2b337e3b4d23a1c4bdc097ee999fc569ddafb7fe`；`main` 未修改。
+- Actions `35464168272` 全绿：111 个源码/历史回归门、Kotlin 桌宠/悬浮层测试、Flutter analyze、全部 Flutter tests、arm64 Release、稳定签名、Genie/桌宠/LingChat/塔罗载荷、Artifact 与 Draft 上传均成功。
+- Artifact `10591085711`，名称 `AI-Companion-v0.41.87-231-Help-Cedar-Activity-UI-APK`，大小 `538,056,010` bytes，ZIP digest `f64bbe778527f0a6ca3851394f6e398b2322f1cdba53af56d7ffc1050a3e012b`；APK `544,935,646` bytes，SHA-256 `1b10c1f49f0d192913c2f15e9f46345160cc2c0ee22acf751eb6755a70a3e565`。
+- Draft Release 为未发布地址 `https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-83ba209cc91853c32913`；仍是测试 APK，不是正式 Release。真机只需验收帮助页入口/内容、最近进展左右滑动命中区和活动记录详情。
 
 ## 7. 历史验证兼容摘要
 
