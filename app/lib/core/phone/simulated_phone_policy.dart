@@ -22,6 +22,7 @@ class SimulatedPhonePolicy {
   static const int noteSlotMinutes =
       (noteDayEndMinute - noteDayStartMinute) ~/ noteDailyLimit;
   static const Duration wishAdditionCooldown = Duration(hours: 6);
+  static const int wishPresentationVersion = 2;
 
   static bool updatesAllowed({
     required bool phoneEnabled,
@@ -148,16 +149,90 @@ class SimulatedPhonePolicy {
         hasObject;
   }
 
-  static String wishText(String driveKey) => switch (driveKey) {
-        'attachment' => '想和你留下一件以后还会记得的小事',
-        'curiosity' => '想认真找点没见过的新鲜东西看看',
-        'reflection' => '想把最近一直绕在心里的事慢慢理清楚',
-        'duty' => '想把一直挂着的那件事好好做完',
-        'social' => '想攒一个真的有趣、值得聊的话题',
-        'libido' => '想留一点只属于我们两个人的亲密时间',
-        'stress' => '想给脑袋和心情都留一点喘气的空隙',
-        'fatigue' => '想找个舒服的时间好好休息一次',
-        _ => '想把心里那件还没落地的事完成',
-      };
+  /// Stable identity for one concrete wish subject.
+  ///
+  /// Thought ids describe individual lifecycle records, so several records can
+  /// still mean "keep fishing". Wishes deduplicate on this privacy-safe topic
+  /// identity instead. The private Thought body is deliberately never used.
+  static String wishSemanticKey(CompanionThought thought) {
+    final drive = thought.driveKey.trim().toLowerCase();
+    final topic = canonicalWishTopic(thought.topicKey);
+    if (topic.isNotEmpty) return '$drive|$topic';
+    return '$drive|fixation:${stableIndex(thought.id, 1 << 20)}';
+  }
 
+  static String canonicalWishTopic(String rawTopic) {
+    var topic = rawTopic.trim().toLowerCase().replaceAll(RegExp(r'\s+'), '_');
+    if (topic.isEmpty) return '';
+    if (topic.startsWith('cedar_game:')) {
+      topic = 'activity:${topic.substring('cedar_game:'.length)}';
+    } else if (topic.startsWith('shared.activity.')) {
+      topic = 'activity:${topic.substring('shared.activity.'.length)}';
+    }
+    if (topic.startsWith('activity:') && topic.endsWith('_cedar')) {
+      topic = topic.substring(0, topic.length - '_cedar'.length);
+    }
+    return topic;
+  }
+
+  static String wishTextForThought(CompanionThought thought) => wishText(
+        thought.driveKey,
+        topicKey: thought.topicKey,
+        source: thought.source,
+        stableKey: wishSemanticKey(thought),
+      );
+
+  /// Builds a presentation-safe wish from categorical metadata only.
+  /// Never pass a Thought body here: the simulated phone is a projection, not
+  /// a second route for exposing private reasoning.
+  static String wishText(
+    String driveKey, {
+    String topicKey = '',
+    String source = '',
+    String stableKey = '',
+  }) {
+    final topic = canonicalWishTopic(topicKey);
+    if (topic == 'activity:fishing') {
+      return '想把最近那趟钓鱼继续认真玩下去';
+    }
+    if (topic == 'activity:travel') {
+      return '想把最近那趟旅行继续走下去，看看后面会遇到什么';
+    }
+    if (topic == 'activity:mining' || topic == 'activity:mine') {
+      return '想继续探索最近那趟下矿，看看还能发现什么';
+    }
+    if (topic.startsWith('activity:duel')) {
+      return '想把最近那场对局认真走完';
+    }
+    if (topic.startsWith('activity:')) {
+      return '想把最近在玩的那段游戏继续探索下去';
+    }
+    if (topic.startsWith('public-web:') ||
+        topic.startsWith('public_web:') ||
+        source.trim().toLowerCase().startsWith('public_web_candidate:')) {
+      return '想沿着最近发现的那条线索再认真看看';
+    }
+    if (topic.startsWith('presence:')) {
+      return '想更认真留意最近生活里的变化';
+    }
+    if (driveKey == 'curiosity' && stableKey.isNotEmpty) {
+      const fallbacks = <String>[
+        '想把最近好奇的那个方向再探索深一点',
+        '想顺着最近冒出来的兴趣继续看看',
+        '想认真弄明白最近惦记的那个问题',
+      ];
+      return fallbacks[stableIndex(stableKey, fallbacks.length)];
+    }
+    return switch (driveKey) {
+      'attachment' => '想和你留下一件以后还会记得的小事',
+      'curiosity' => '想认真找点没见过的新鲜东西看看',
+      'reflection' => '想把最近一直绕在心里的事慢慢理清楚',
+      'duty' => '想把一直挂着的那件事好好做完',
+      'social' => '想攒一个真的有趣、值得聊的话题',
+      'libido' => '想留一点只属于我们两个人的亲密时间',
+      'stress' => '想给脑袋和心情都留一点喘气的空隙',
+      'fatigue' => '想找个舒服的时间好好休息一次',
+      _ => '想把心里那件还没落地的事完成',
+    };
+  }
 }

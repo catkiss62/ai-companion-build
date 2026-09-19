@@ -20,6 +20,9 @@
 - **主体性优先**：事实与安全 Gate 约束虚假完成、越权、凭据泄漏和不可逆损坏，但不把她训练成处处等待批准的被动工具。
 - **模型/API 双通道**：内部判断、维护、工具规划与 Outcome 核验走 DeepSeek；双模型模式只在收齐整轮上下文和真实工具结果后调用一次 Gemini 形成可见回复。MCP 网络请求不是模型调用。
 - **真实工具事实**：只有成功的真实 Outcome 能支持“已进入、已落子、已发送、已保存、已完成”。失败、blocked、no_result、超时或零调用不能由对白补写。
+- **唯一循环所有权（未来功能开工前必查）**：每个会连续推进的能力必须只有一个 continuation owner，并在设计时写清 `execution_id`、唯一触发源、一次唤醒最多规划轮数/工具调用数/真实 mutation 数、终止条件、Stop、崩溃/主后台切换后的恢复规则。用户回合、后台 cadence、工具 Outcome、UI 轮询和平台 callback 可以提供事件，但不得各自继续同一 execution；`next_call / continuation / resume_after` 是权威事实，不是再启动一条循环的许可。Cedar 曾经让前台 Agent 循环、后台游戏循环和 Outcome 续接同时推进，造成重复调用、Token 暴涨、终局丢失与 Stop 不彻底；此事故模式是永久踩雷样本。
+- **循环能力首版诊断（随功能一起交付）**：任何新的 MCP、工作区、视频、提醒、Live2D 长任务或其他可续接能力，第一版就必须以脱敏方式记录 `feature / execution_id / trigger_source / continuation_owner / phase / planning_rounds / tool_calls / committed_mutations / continuation_requested / terminal / preempt / late_write / usage_lane`。诊断不得保存 Prompt、Thought 私密正文、密钥、房间凭据或用户文件内容；没有这组证据，不允许靠继续加 retry/delay 猜修循环。
+- **Cortico 低风险参考（未来功能设计索引）**：参考项目为 `https://github.com/Pal-AI-Lab/Cortico`。只吸收两个边界思想：一是外部环境通过“可观察事实 + 可执行工具”接入，World/事件事实不直接等于聊天、记忆或成功声明；二是把 `preempt / flush / debounce / piggyback` 当作按功能选择的投递语义词汇。当前项目不移植 Cortico 的中央 Event Stream、World 容器、完整队列/状态机或记忆连续性取舍，不推倒现有自主逻辑。新增能力逐项建立小型隔离适配层即可：输入只形成验证过的观察，执行只经现有 Agent/Outcome 真值链，是否进入对话、短期桥或长期记忆仍由本项目现有策略决定。
 - **Cedar 信任优先**：实时 catalog、玩家指南、合法动作、`next_actor / next_call / revision / legal_actions / resume_after`、防沉迷和终局以服务端为权威；APK 不以本地猜测覆盖。
 - **Cedar 盲玩隔离**：运行时只使用 Cedar 玩家接口、当前聊天、正常存档与玩家可见 Outcome；`playerSafeGuide` 不得泄露仓库、源码、隐藏状态、题库答案、攻略、剧透或外部网页。游玩链不暴露 `public_web.search`。
 - **自然语义 Agent**：允许“陪我下五子棋”等自然表达触发模型自主发现；普通“看看”不是联网授权。Cedar 的账号级 `allow_self_reset` 服从网站设置。用户已决定暂不增加 Agent 确认弹窗，直到未来加入修改/破坏性能力再设计确认。
@@ -36,14 +39,15 @@
 | 功能状态 | `CI PASSED / APK READY / TRUE DEVICE PENDING` |
 | +228 远端 | head `29e87d016c8bd81f52f89f95191bd1a1a01a5b57`；tree `c4a112a56d8b634cf3a1a66636979a0833538b7d`；Actions `35440359036`；Artifact `10583263879`；APK SHA-256 `159e283173e49da2924d25b37ba7647893cdafdcc31b63f0e31b7c64e086849b` |
 | 仓库维护基线 | `maintenance/repository-governance-20260919`；远端文档 head `123e272196e8ae93f3518157917d76f6af4f1784`；完整构建 head `fa99f32012fa1a0716b746d36b958a8e777ef9b8`；Actions `35446649873` 全绿；文档-only run `35447342921` 正确跳过 APK |
-| 当前功能分支 | `agent/v04187-help-cedar-activity-ui`，从 +230 文档收口 head `15c104a` 分出；候选版本 `v0.41.87+231` |
-| 当前任务状态 | `IMPLEMENTED LOCALLY / CI PENDING / TRUE DEVICE PENDING`；+228～+230 的既有状态不因新分支自动升级 |
-| +231 目标 | 设置内真实能力帮助页；游戏厅“最近进展”窄触控区；活动记录完整详情；不改 Agent 权限、Cedar 玩法、TTS 运行时或 schema |
+| 当前功能分支 | `agent/v04188-wishlist-cedar-card-guardrails`，从 +231 文档收口 head `664ba8e` 分出；候选版本 `v0.41.88+232` |
+| 当前任务状态 | `IMPLEMENTED LOCALLY / LOCAL STATIC VALIDATION PASSED / CI PENDING / TRUE DEVICE PENDING`；+228～+231 的既有状态不因新分支自动升级 |
+| +232 目标 | 游戏厅“最近进展”窄面板复用“游戏活动”同款 Card 颜色；愿望单按安全主题表达并合并同主题活动愿望；登记 Cortico 低风险参考、唯一循环所有权与后续诊断护栏；不改 Agent 循环、疲劳、缓存、TTS、schema、世界书或人格 |
+| +231 远端 | 构建 head `75d9e0a311d5b322f53a742b9016aac16d44c9d9`；tree `2b337e3b4d23a1c4bdc097ee999fc569ddafb7fe`；Actions `35464168272` 全绿；Artifact `10591085711`；APK SHA-256 `1b10c1f49f0d192913c2f15e9f46345160cc2c0ee22acf751eb6755a70a3e565` |
 | +230 远端 | 构建 head `6c53a40b5d7413942c12ca84001bb66205c160d1`；tree `9c3674e87f37798964e293b1ffdeaedf4e582c74`；Actions `35458277355`（attempt 2 全绿）；Artifact `10589621373`；APK SHA-256 `de27ec0c0146ef3a879f0bb9d8ae2c06dbfdc3225d8f6694fe8e01c7c5ab8d4a` |
 | +229 远端 | 构建 head `0f4ffc6c2b08a310a5f04919a045c98b2e8e63e3`；tree `9e0913202787feca13462c07fdd0941f10d0d4b9`；Actions `35450357850`；Artifact `10587305305`；APK SHA-256 `acbd5c81be69c5c27ae2822ea112fb2b0639a00636b61af7b0f642c02fbcddc6` |
 | `main` | 仍为 v0.38.5 旧基线；不得作为 v0.41.x 起点，本批不合并 |
 
-历史兼容索引：`v0.41.82+226` / `agent/v04182-cedar-state-machine-e2e`；`v0.41.83+227` / `agent/v04183-cedar-native-agent-loop`；`v0.41.81+225`；`模型自主发现`；`陪我下五子棋`；`全工具调用动作展示`仍是后续独立任务。
+历史兼容与未来扩展索引：`v0.41.82+226` / `agent/v04182-cedar-state-machine-e2e`；`v0.41.83+227` / `agent/v04183-cedar-native-agent-loop`；`v0.41.81+225`；`模型自主发现`；`陪我下五子棋`；`全工具调用动作展示`仍是后续独立任务。任何新 MCP、工作区、视频理解、Live2D、提醒或长任务先查本文件的 **“唯一循环所有权”**、**“Cortico 低风险参考”** 与 **“循环能力首版诊断”**，不得再复制 Cedar 曾出现的多套循环。
 
 <!-- END QUICK HANDOFF INDEX -->
 
@@ -170,7 +174,7 @@ Actions 与交付证据：
 
 | 优先级 | 任务 | 当前准确范围 |
 |---|---|---|
-| P1 | 设置“帮助”与真实能力清单 | `v0.41.87+231 IMPLEMENTED LOCALLY`：页面直接消费当前 `AgentToolRegistry`，并整理 `【检查系统】`、联网/网页阅读/图片、查手机、Cedar、Stop、备份恢复、TTS、权限隐私、故障排查与明确限制；等待 CI 与真机 UI 验收。 |
+| P1 | 设置“帮助”与真实能力清单 | `v0.41.87+231 TRUE DEVICE PASSED`：页面直接消费当前 `AgentToolRegistry`，并整理 `【检查系统】`、联网/网页阅读/图片、查手机、Cedar、Stop、备份恢复、TTS、权限隐私、故障排查与明确限制。用户确认入口与内容正常，且 UI 干净美观；其分节层级、图标、留白、克制的卡片色和可折叠说明作为未来全局 UI 美化的参考方向。 |
 | P1 | 本地 Genie TTS 推理速度实验 | 当前生产基线是 CPU 8 线程，旧真机已证明 XNNPACK 会出现异常短音频、NNAPI 无收益。先在独立 `Genie-TTS-Android` 测试工程用同设备/同模型拆出前端、语义 Decoder、声码器、WAV 与冷/热启动瓶颈，并比较 4/6/8 线程、`PerformanceHintManager`/线程优先级、大核调度提示、session/张量缓存和分段预生成；只有证据稳定的引擎级方案再移植到伴侣项目做一次集成 A/B。最终必须是默认关闭的“快速推理”开关，关闭即回到当前路径，并具备温度、功耗、峰值内存、音频完整性、音质与自动回退门。普通 App 不承诺 root 级硬件超频，也不直接恢复已否证的 XNNPACK/NNAPI。 |
 | P1 | 全工具调用动作展示 | 把目前 Cedar 已有的活动可见性扩展为统一、脱敏的工具运行状态：搜索、读网页、读系统/记忆/查手机、图片保存/发送等显示“正在做什么/成功/失败/已停止”，不展示 Prompt、密钥、私密参数、房间凭据或内部推理；不改变工具权限与 Outcome 真值。 |
 | P2 | 通用 MCP Registry 与未来工作区 | Cedar 专用 MCP 已完成，但通用 `mcp.invoke` 仍为不可执行占位。未来按只读优先分批实现 Server 注册、能力目录、权限、审计、超时、取消、凭据隔离和可卸载；需要处理工作任务时再设计独立合理工作区。OAuth、社区工具与 stdio/Harness 不与陪伴数据库直接混用。 |
@@ -178,7 +182,8 @@ Actions 与交付证据：
 | P2 | 记忆/人设/规则修改提案 | `memory.propose_change / personality.propose_change / rules.propose_change` 当前均不可执行。以后只先做可审查 diff 提案；写入、删除或其他可破坏操作必须增加确认、版本与回滚，当前只读 Agent 不增加多余确认。 |
 | P3 | 视频理解 | `video_understanding.inspect` 仍为占位。以后独立评估短片抽帧、预算、临时文件隐私、取消和结果持久化；不冒充当前已能看视频。 |
 | P3 | Live2D 反应接入 | 模型、动作和素材已在独立 Live2D 仓库完成；伴侣侧以后专门设计“LLM 语义反应 + 本地低延迟关键词/事件反射 + 动作仲裁/冷却/打断”，避免只等完整 LLM 回复才动，也不得让关键词层直接改写人格或对话。完成基础 P1 后再立专项版本。 |
-| P3 | 疲劳与心境的小幅耦合 | 保留昼夜节律主基线，单独评估负面心情导致难入睡、兴奋/聊天愉快/玩嗨短时压住疲劳的有限偏移；必须有幅度上限、短时衰减、睡眠债回补和防止夜间无限续航，不在 +231 顺手改公式。 |
+| P3 | DeepSeek 缓存命中优化 | 排在当前 UI/愿望单真机包与疲劳专项之后；Gemini 按次收费，不纳入本任务。先按 `usage_lane` 测量稳定前缀、动态边界、工具 schema 顺序和重复上下文体积，再做不改变语义的稳定排序/分层拼装与 A/B；接受高动态陪伴项目不可能获得静态客服式命中率，禁止为缓存率推倒项目、删记忆事实、冻结实时状态或把多个循环重新合并。 |
+| P3 | 疲劳与心境的小幅耦合 | 保留昼夜节律主基线，单独评估负面心情导致难入睡、兴奋/聊天愉快/玩嗨短时压住疲劳的有限偏移；必须有幅度上限、短时衰减、睡眠债回补和防止夜间无限续航。排在 +232 真机包之后，优先在北京时间 2026-09-21 下午至晚上、或后续相同自然时段开专项，便于观察从白天到夜间的真实曲线；不在 +232 顺手改公式。 |
 
 #### B. Phase 3C 与 Phase 4 的准确含义和评估门
 
@@ -217,7 +222,9 @@ Actions 与交付证据：
 
 ### 6.4 v0.41.87+231 帮助页与游戏厅活动窗（2026-09-20）
 
-状态：`IMPLEMENTED LOCALLY / CI PENDING / TRUE DEVICE PENDING`。
+状态：`CI PASSED / APK READY / TRUE DEVICE PENDING`。
+
+历史实现分支：`agent/v04187-help-cedar-activity-ui`。
 
 本批范围：
 
@@ -227,6 +234,31 @@ Actions 与交付证据：
 4. 不改变 Agent 权限/自然语言路由、Cedar 指南/循环/防沉迷/概率、数据库 schema、TTS 运行时、世界书、人格或 `main`。
 
 本轮追加设计记录：Phase 4 继续作为可选人格澄清/娱乐测试，不因 AI 偶尔自然提问而强制开工；需要另查自然问题的用户资料写入证据链。TTS 快速模式先在独立 TTS 工程做引擎基准，再将证实有效的方案以默认关闭开关移植；Live2D 反应接入与疲劳—心境小幅耦合均登记为独立后续任务，不与 +231 混改。
+
+Actions 与交付证据：
+
+- 远端功能提交 `75d9e0a311d5b322f53a742b9016aac16d44c9d9`，tree `2b337e3b4d23a1c4bdc097ee999fc569ddafb7fe`；`main` 未修改。
+- Actions `35464168272` 全绿：111 个源码/历史回归门、Kotlin 桌宠/悬浮层测试、Flutter analyze、全部 Flutter tests、arm64 Release、稳定签名、Genie/桌宠/LingChat/塔罗载荷、Artifact 与 Draft 上传均成功。
+- Artifact `10591085711`，名称 `AI-Companion-v0.41.87-231-Help-Cedar-Activity-UI-APK`，大小 `538,056,010` bytes，ZIP digest `f64bbe778527f0a6ca3851394f6e398b2322f1cdba53af56d7ffc1050a3e012b`；APK `544,935,646` bytes，SHA-256 `1b10c1f49f0d192913c2f15e9f46345160cc2c0ee22acf751eb6755a70a3e565`。
+- Draft Release 为未发布地址 `https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-83ba209cc91853c32913`；仍是测试 APK，不是正式 Release。真机只需验收帮助页入口/内容、最近进展左右滑动命中区和活动记录详情。
+
+真机回填：用户确认本批功能正常；帮助页入口和内容没有问题，排版被确认为干净美观。最近进展窄面板的左右拖动范围与活动记录详情均通过，唯一追加意见是窄面板颜色应与上方“游戏活动”Card 完全相同，该视觉收口进入 +232。
+
+### 6.5 v0.41.88+232 愿望单主题身份、Cedar 同色卡片与扩展护栏（2026-09-20）
+
+状态：`IMPLEMENTED LOCALLY / LOCAL STATIC VALIDATION PASSED / CI PENDING / TRUE DEVICE PENDING`。
+
+本批范围与证据：
+
+1. Cedar 活动窗保留“最近进展”居中 84% 宽度与左右外层拖动命中区，但面板从单独猜测的 `surfaceContainerHighest + border` 改为和“游戏活动”完全相同的 Material `Card`；不改文字、12 行边界、活动状态或游戏执行。
+2. 愿望单固定句的根因已经定位：旧实现仅按 `drive_key` 返回一句固定正文，且活动愿望只按 `source_thought_id` 去重；同一钓鱼主题产生多个生命周期 Thought 时，会被当成多个不同愿望并重复显示“想认真找点没见过的新鲜东西看看”。
+3. +232 以 `drive + canonical safe topic` 作为活动愿望身份，统一 `cedar_game:fishing` 与 `shared.activity.fishing` 等明确同主题别名；同主题的新 Thought 会接续并重绑定原愿望，不增加第二条。正文只从 drive、topic key 与 provenance 分类生成，明确禁止读取或呈现 Thought 私密正文。已完成历史只迁移展示版本，不伪造完成、不强制增加愿望数量；原有 6 小时新增冷却、每日预算、强度/复现/基线与满足条件保持。
+4. 将 Cortico 参考地址与“观察事实/执行工具隔离、按功能选择投递语义”写入永久边界；同时将 Cedar 多循环事故提炼为“唯一循环所有权”和首版诊断要求。只增文档护栏，不引入中央 Event Bus、World 容器、完整队列/状态机，也不修改现有 Agent/Cedar 循环。
+5. 明确不改：数据库 schema、世界书/用户已修改的性格光谱、人格、Desire/Thought 生成与满足逻辑、Agent 权限/自然语言路由、Cedar 玩法/防沉迷/竞争、TTS、疲劳公式、DeepSeek 缓存实现、`main` 或正式 Release。
+
+真机验收只看三点：进展窄卡颜色是否与“游戏活动”一致；旧固定愿望在一次正常“查手机”刷新后是否迁移；同一钓鱼/旅行主题反复形成 Thought 时活动愿望是否只保留一条且正文能说明主题。不得为了造样本修改真实欲望或游戏偏好。
+
+本地验证：+232 专项门、Workflow YAML、Python 编译与 `git diff --check` 通过；逐项运行 112 个源码/历史门，109 个通过。其余 3 个与本批代码无关：仓库按治理规则不携带 CI 才恢复的 417 文件桌宠源码包与 LingChat 特效包，本机也没有 `kotlinc`；Actions 会在恢复资源和安装工具后执行完整 Flutter analyze、Flutter tests、Kotlin 测试与 arm64 Release 构建。
 
 ## 7. 历史验证兼容摘要
 

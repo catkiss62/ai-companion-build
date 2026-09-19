@@ -26,6 +26,7 @@ assert any(
         "version: 0.41.85+229",
         "version: 0.41.86+230",
         "version: 0.41.87+231",
+        "version: 0.41.88+232",
     )
 )
 assert any(
@@ -35,6 +36,7 @@ assert any(
         "v0.41.85+229",
         "v0.41.86+230",
         "v0.41.87+231",
+        "v0.41.88+232",
     )
 )
 assert any(
@@ -44,6 +46,7 @@ assert any(
         "'version': '0.41.85'",
         "'version': '0.41.86'",
         "'version': '0.41.87'",
+        "'version': '0.41.88'",
     )
 )
 require(
@@ -175,6 +178,7 @@ assert any(
         "build=v0.41.85+229 schema=61",
         "build=v0.41.86+230 schema=61",
         "build=v0.41.87+231 schema=61",
+        "build=v0.41.88+232 schema=61",
     )
 )
 require(

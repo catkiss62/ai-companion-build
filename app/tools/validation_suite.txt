@@ -113,3 +113,4 @@ tools/validate_v04184_agent_loop_autonomy_closure.py
 tools/validate_v04185_cedar_outcome_media.py
 tools/validate_v04186_autonomy_tts_diagnostics.py
 tools/validate_v04187_help_cedar_activity_ui.py
+tools/validate_v04188_wishlist_cedar_card_guardrails.py

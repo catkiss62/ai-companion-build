@@ -46,6 +46,7 @@ class SimulatedPhoneEntry {
     String? state,
     String? title,
     String? body,
+    Map<String, Object?>? metadata,
   }) =>
       SimulatedPhoneEntry(
         id: id,
@@ -56,7 +57,7 @@ class SimulatedPhoneEntry {
         createdAt: createdAt,
         provenance: provenance,
         state: state ?? this.state,
-        metadata: metadata,
+        metadata: metadata ?? this.metadata,
       );
 
   Map<String, Object?> toJson() => {
@@ -588,33 +589,135 @@ class SimulatedPhoneRepository {
     var active = await _readList(_wishesKey);
     var completed = await _readList(_completedWishesKey);
     var changed = false;
+    var releasedActiveSlot = false;
+
+    final desire = await db.loadDesire();
+    final currentThoughts = await db.currentThoughtsForPresentation(limit: 40);
+    final currentById = <String, CompanionThought>{
+      for (final thought in currentThoughts) thought.id: thought,
+    };
+    final eligibleBySemanticKey = <String, CompanionThought>{};
+    for (final thought in currentThoughts) {
+      if (!SimulatedPhonePolicy.wishEligible(
+        thought: thought,
+        desire: desire,
+      )) {
+        continue;
+      }
+      eligibleBySemanticKey.putIfAbsent(
+        SimulatedPhonePolicy.wishSemanticKey(thought),
+        () => thought,
+      );
+    }
+
+    // One-time presentation migration for existing history. It changes only
+    // the public projection; private Thought text is never read or copied.
+    completed = completed.map((wish) {
+      final version = (wish.metadata['presentation_version'] as num?)?.toInt();
+      if (version == SimulatedPhonePolicy.wishPresentationVersion) return wish;
+      final drive = wish.metadata['drive_key'] as String? ?? '';
+      final sourceId = wish.metadata['source_thought_id'] as String? ?? wish.id;
+      changed = true;
+      return wish.copyWith(
+        body: SimulatedPhonePolicy.wishText(
+          drive,
+          stableKey: '$drive|legacy:$sourceId',
+        ),
+        metadata: {
+          ...wish.metadata,
+          'presentation_version': SimulatedPhonePolicy.wishPresentationVersion,
+        },
+      );
+    }).toList(growable: false);
 
     final retained = <SimulatedPhoneEntry>[];
+    final retainedSemanticKeys = <String>{};
     for (final wish in active) {
       final thoughtId = wish.metadata['source_thought_id'] as String? ?? '';
-      final thought = thoughtId.isEmpty ? null : await db.thoughtById(thoughtId);
+      final thought = thoughtId.isEmpty
+          ? null
+          : currentById[thoughtId] ?? await db.thoughtById(thoughtId);
       if (thought == null) {
         changed = true;
+        releasedActiveSlot = true;
+        continue;
+      }
+      final semanticKey = SimulatedPhonePolicy.wishSemanticKey(thought);
+      final replacement = eligibleBySemanticKey[semanticKey];
+      if (replacement != null) {
+        if (!retainedSemanticKeys.add(semanticKey)) {
+          changed = true;
+          releasedActiveSlot = true;
+          continue;
+        }
+        final migrated = wish.copyWith(
+          body: SimulatedPhonePolicy.wishTextForThought(replacement),
+          metadata: {
+            ...wish.metadata,
+            'source_thought_id': replacement.id,
+            'source_topic_key': replacement.topicKey,
+            'drive_key': replacement.driveKey,
+            'semantic_key': semanticKey,
+            'presentation_version':
+                SimulatedPhonePolicy.wishPresentationVersion,
+          },
+        );
+        if (migrated.body != wish.body ||
+            migrated.metadata.toString() != wish.metadata.toString()) {
+          changed = true;
+        }
+        retained.add(migrated);
         continue;
       }
       if (thought.lastSatisfiedAt != null) {
         completed = [
-          wish.copyWith(state: 'completed'),
+          wish.copyWith(
+            state: 'completed',
+            body: SimulatedPhonePolicy.wishTextForThought(thought),
+            metadata: {
+              ...wish.metadata,
+              'source_topic_key': thought.topicKey,
+              'semantic_key': semanticKey,
+              'presentation_version':
+                  SimulatedPhonePolicy.wishPresentationVersion,
+            },
+          ),
           ...completed.where((entry) => entry.id != wish.id),
         ];
         changed = true;
+        releasedActiveSlot = true;
         continue;
       }
       if (!thought.canDriveIntent) {
         changed = true;
+        releasedActiveSlot = true;
         continue;
       }
-      retained.add(wish);
+      if (!retainedSemanticKeys.add(semanticKey)) {
+        changed = true;
+        releasedActiveSlot = true;
+        continue;
+      }
+      final migrated = wish.copyWith(
+        body: SimulatedPhonePolicy.wishTextForThought(thought),
+        metadata: {
+          ...wish.metadata,
+          'source_topic_key': thought.topicKey,
+          'drive_key': thought.driveKey,
+          'semantic_key': semanticKey,
+          'presentation_version': SimulatedPhonePolicy.wishPresentationVersion,
+        },
+      );
+      if (migrated.body != wish.body ||
+          migrated.metadata.toString() != wish.metadata.toString()) {
+        changed = true;
+      }
+      retained.add(migrated);
     }
     active = retained;
 
     var budget = await _wishBudget(day);
-    if (changed && budget < 3) budget += 1;
+    if (releasedActiveSlot && budget < 3) budget += 1;
     final lastAddedMillis = int.tryParse(
       await db.getSetting(_wishLastAddedAtKey) ?? '',
     );
@@ -627,17 +730,13 @@ class SimulatedPhoneRepository {
           now: now,
           lastAddedAt: lastAddedAt,
         )) {
-      final desire = await db.loadDesire();
-      final thoughts = await db.currentThoughtsForPresentation(limit: 40);
-      for (final thought in thoughts) {
-        if (!SimulatedPhonePolicy.wishEligible(
-          thought: thought,
-          desire: desire,
-        )) {
-          continue;
-        }
+      for (final entry in eligibleBySemanticKey.entries) {
+        final semanticKey = entry.key;
+        final thought = entry.value;
         if (active.any(
-          (entry) => entry.metadata['source_thought_id'] == thought.id,
+          (wish) =>
+              wish.metadata['semantic_key'] == semanticKey ||
+              wish.metadata['source_thought_id'] == thought.id,
         )) {
           continue;
         }
@@ -646,13 +745,17 @@ class SimulatedPhoneRepository {
             id: 'wish:${thought.id}',
             kind: 'wish',
             title: '想做的事',
-            body: SimulatedPhonePolicy.wishText(thought.driveKey),
+            body: SimulatedPhonePolicy.wishTextForThought(thought),
             localDay: day,
             createdAt: now,
             provenance: 'desire_thought_projection',
             metadata: {
               'source_thought_id': thought.id,
+              'source_topic_key': thought.topicKey,
               'drive_key': thought.driveKey,
+              'semantic_key': semanticKey,
+              'presentation_version':
+                  SimulatedPhonePolicy.wishPresentationVersion,
             },
           ),
           ...active,

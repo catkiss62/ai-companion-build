@@ -456,15 +456,9 @@ class _CedarToyActivityWindowState extends State<CedarToyActivityWindow> {
             alignment: Alignment.center,
             child: FractionallySizedBox(
               widthFactor: 0.84,
-              child: DecoratedBox(
+              child: Card(
                 key: const ValueKey('cedar_recent_progress_narrow_card'),
-                decoration: BoxDecoration(
-                  color: Theme.of(context).colorScheme.surfaceContainerHighest,
-                  borderRadius: BorderRadius.circular(10),
-                  border: Border.all(
-                    color: Theme.of(context).colorScheme.outlineVariant,
-                  ),
-                ),
+                margin: EdgeInsets.zero,
                 child: Padding(
                   padding: const EdgeInsets.all(10),
                   child: SelectableText(

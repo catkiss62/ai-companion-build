@@ -196,6 +196,73 @@ void main() {
     }
   });
 
+  test('wish identity merges recurring thoughts about the same safe topic', () {
+    final now = DateTime(2026, 9, 20, 12);
+    CompanionThought thought(String id, String topicKey) => CompanionThought(
+          id: id,
+          text: 'private $id body',
+          driveKey: DriveKey.curiosity.name,
+          kind: 'thread',
+          strength: 0.7,
+          bornAt: now,
+          updatedAt: now,
+          fedCount: 2,
+          topicKey: topicKey,
+        );
+
+    final first = thought('fishing-1', 'cedar_game:fishing');
+    final recurring = thought('fishing-2', 'shared.activity.fishing');
+    final travel = thought('travel-1', 'shared.activity.travel_cedar');
+
+    expect(
+      SimulatedPhonePolicy.wishSemanticKey(first),
+      SimulatedPhonePolicy.wishSemanticKey(recurring),
+    );
+    expect(
+      SimulatedPhonePolicy.wishSemanticKey(first),
+      isNot(SimulatedPhonePolicy.wishSemanticKey(travel)),
+    );
+  });
+
+  test('wish copy is topic-aware without exposing private thought text', () {
+    final now = DateTime(2026, 9, 20, 12);
+    final fishing = CompanionThought(
+      id: 'fishing-private',
+      text: 'PRIVATE FISHING REASONING',
+      driveKey: DriveKey.curiosity.name,
+      kind: 'thread',
+      strength: 0.7,
+      bornAt: now,
+      updatedAt: now,
+      fedCount: 2,
+      source: 'cedar_game_activity',
+      topicKey: 'cedar_game:fishing',
+    );
+    final publicWeb = CompanionThought(
+      id: 'web-private',
+      text: 'PRIVATE WEB REASONING',
+      driveKey: DriveKey.curiosity.name,
+      kind: 'thread',
+      strength: 0.7,
+      bornAt: now,
+      updatedAt: now,
+      fedCount: 2,
+      source: 'public_web_candidate:secret',
+      topicKey: 'public-web:whale-art',
+    );
+
+    final fishingText = SimulatedPhonePolicy.wishTextForThought(fishing);
+    final webText = SimulatedPhonePolicy.wishTextForThought(publicWeb);
+    expect(fishingText, contains('钓鱼'));
+    expect(webText, contains('线索'));
+    expect(fishingText, isNot(contains('PRIVATE')));
+    expect(webText, isNot(contains('PRIVATE')));
+    expect(
+      fishingText,
+      isNot('想认真找点没见过的新鲜东西看看'),
+    );
+  });
+
   test('notes use six daytime slots and never update in deep night', () {
     expect(SimulatedPhonePolicy.noteSlotIndex(DateTime(2026, 9, 11, 8, 59)), isNull);
     expect(SimulatedPhonePolicy.noteSlotIndex(DateTime(2026, 9, 11, 9)), 0);

@@ -87,7 +87,8 @@ publish_to: 'none'
 # Historical validator token: version: 0.41.83+227
 # Historical validator token: version: 0.41.85+229
 # Historical validator token: version: 0.41.86+230
-version: 0.41.87+231
+# Historical validator token: version: 0.41.87+231
+version: 0.41.88+232
 
 environment:
   sdk: '>=3.12.0 <4.0.0'
