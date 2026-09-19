@@ -66,7 +66,9 @@ void main() {
     expect(result.reason, 'rest_closure_expired');
   });
 
-  test('a later real user turn starts the sliding ten minute quiet window', () {
+  test(
+      'a later real user turn clears the closed rest scene and starts the sliding ten minute quiet window',
+      () {
     final result = ProactiveSceneContinuityPolicy.evaluate(
       now: now,
       recent: [
