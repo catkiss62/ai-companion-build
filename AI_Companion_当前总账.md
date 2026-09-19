@@ -34,7 +34,8 @@
 <!-- Historical validator token: agent/v04183-cedar-native-agent-loop -->
 <!-- Historical validator token: agent/v04182-cedar-state-machine-e2e -->
 | 当前目标版本 | `v0.41.84+228 / schema 61 / Snapshot protocol 6` |
-| 当前状态 | `IMPLEMENTED LOCALLY / LOCAL STATIC VALIDATION PASSED / CI PENDING / TRUE DEVICE PENDING` |
+| 当前状态 | `CI PASSED / APK READY / TRUE DEVICE PENDING` |
+<!-- Historical validator token: IMPLEMENTED LOCALLY -->
 | 当前真机安装态 | 用户因 +227 Agent 循环带来的异常高 Token 消耗已回退到 `v0.41.81+225`；仓库权威开发基线仍是 +227 tree，下一批必须从 +227 修正，不能把回退安装态误写成源码回退 |
 | 当前真机失败基线 | `v0.41.83+227`；真机已经证明能建房并连续自动接招多步，但后台一次原生 `play` 只给出动作名、遗漏必需业务参数，服务端拒绝后恢复查询同样缺参数并停住。随后前台提醒可继续落子；最终 Cedar 终局真值已写入 APK，却没有交给普通聊天或主动联系，导致她不知道胜负。另确认自主联网发现虽被 Desire 选中，却被能力注册表在搜索前拒绝；自主联系会在短间隔场景中直接开启无历史新话题；Usage/Accessibility 推断保留了熄屏事实，却仍会让熄屏前活动跨会话主导“持续使用”判断；情绪短音效在隐藏情绪标签到达时即播放、早于可见正文。普通回复中的自主表情已经真机命中，暂不存在调低概率的确证 |
 | `main` | 仍是 v0.38.5 旧基线；不得作为 v0.41.x 后续开发起点，本批不合并 |
@@ -45,13 +46,14 @@
 | +223 构建提交 | 远端功能提交 `2217a5021b9175cd612fadd45fa9b68a58b9ea24`；实现总账提交 `54ea75e50501fd27281cc4d985e76dabd8aca7d9`；构建触发 head `c90b60d5d456e5d30512a088592cf94f2ce4478f`；构建 tree `342d431730d6d3f0568b4e2525d8ab9b0e36a7c5` |
 | +226 构建提交 | 权威状态机功能提交 `d1b3c0dcb45ac9aad1c808452bb3c8ce4c8ce4e5`；构建准备提交 `c37f02d6a2a06678ffc83cd493e296aadd2be22d`；最终构建 head `7fe5930f7776d6e2c69659b7ac3644b7255a65a1`；最终 tree `4fafd7c4fbf94b84b9d446d1a6565455fc654cb8` |
 | +227 构建提交 | 远端构建 head `50f98dc95f1bbb24ae65b9e3e4c4320db142423e`；tree `d16e5db8684e917c9dcbabe34d6e55f0979b0614`；本地等价 tree 相同 |
-| 当前构建产物 | +228 尚未构建；上一份 +227 为 Actions run `34986707242`、Artifact `10403779518`、APK SHA-256 `be380911b7f5deb2e8b50a4e8d4f9363f94c0e7399fb75a4ca227c22922fa028`，仅作为失败基线，不得交付为本批修复包 |
+| +228 构建提交 | 远端最终功能 head `29e87d016c8bd81f52f89f95191bd1a1a01a5b57`；tree `c4a112a56d8b634cf3a1a66636979a0833538b7d`；本地等价 tree 相同 |
+| 当前构建产物 | +228 Actions run `35440359036`；Artifact `10583263879`（`AI-Companion-v0.41.84-228-Agent-Loop-Autonomy-Closure-APK`）；Artifact ZIP digest `a02fd92c97fc5fb5cd0c526f4f554e6abe0e09f8d5bd79aa7d756114283a70e2`；APK SHA-256 `159e283173e49da2924d25b37ba7647893cdafdcc31b63f0e31b7c64e086849b`；Draft `untagged-22d6d6ea7575f2b89297` |
 
 既有能力保护索引：Desire / Thought / Intent / Gate、Somatic 双通道、玩游 Key、普通聊天、沉浸房间、查手机、造梗来源、D6、Phase 2B、App 内 Agent 能力桥、Memory 2D、`fact_state / attention_state / recall_policy`、`spontaneous_salience`、`reminiscence/identity`、Skills、MCP、`【检查系统】`、中断灰显、Token 命中/缓存优化、Phase 3、Harness、`screen_observation.inspect`、Genie-TTS 四音色、schema 61 与 Snapshot protocol 6 均不得回归。
 
 ## 4. 当前任务：v0.41.84+228 Agent 循环与自主性闭环
 
-### +228 已在本地实现、等待 CI 的内容
+### +228 已实现且 CI 全绿、等待真机验收的内容
 
 - **重大 Token/循环回归已按通用运行时修复**：普通用户回合仍可完成 `list → guide → state` 等发现，但第一次成功的非只读 `cedar_toy.play` 写动作后立即收口，不再在一次聊天里连续下完整局；后台删除十轮 `_runCompanionTurnLoop`，一次调度只做一次模型规划和一个真实推进动作。远端长轮询刚返回 `next_actor=companion` 时同一 execution 仍及时回一步，不退回“用户说一句才动一下”。普通聊天不再因为 `guideReady / next_call / participationActive` 自动注入整套游戏工具与指南，修复游戏劫持每条对话和缓存命中低的第二个根因。紧急上限回到 6 轮/10 调用，但它只覆盖发现与一次提交，不是目标循环数。
 - **单人游戏不再机械上瘾**：已承诺真人共玩、待处理房间消息和真实房间回合属于实时承诺；其他单人续步重新进入现有疲劳/昼夜 Gate，并按最近 6 小时真实 outcome 数加入可衰减饱和惩罚。仍允许强兴趣连续玩，禁止硬每日配额或直接降低钓鱼概率。当前 catalog 选择器没有各游戏固定概率，因此本批不伪造概率调参。
@@ -64,8 +66,8 @@
 
 ### +228 验收重点
 
-- 本地已通过 `git diff --check`、Workflow YAML/Python 语法、当前总账门、+228 专项及当前 Workflow 可在本机运行的全部历史 source gate；其余 Android/私有载荷/Flutter 编译测试必须由 Actions 恢复后执行。
-- CI 前必须通过新 +228 专项、全部历史 source gate、Flutter analyze/tests 与 arm64 Release；本机没有 Dart/Flutter，不能把 Python 静态门冒充编译通过。
+- 本地已通过 `git diff --check`、Workflow YAML/Python 语法、当前总账门、+228 专项及全部历史 source gate；Actions run `35440359036` 进一步通过 108 项源码/历史门、Kotlin/JVM 与 Android 测试、Flutter Analyze、`841/841` Flutter tests、arm64 Release、固定签名、Genie/桌宠/LingChat/塔罗载荷检查、checksum、Artifact 与 Draft。
+- 严格状态只能写作 `CI PASSED / APK READY / TRUE DEVICE PENDING`：自动化已证明源码、编译、测试、签名和打包闭环，但尚不能冒充双弈、后台节奏、Token 倍数、Stop、主动联网/相册、熄屏判断和音效时机的真机证据。
 - 真机重点看诊断 `modelUsage.byLane`：一次普通聊天不得因活跃游戏连续出现多次 Cedar mutation；后台每 cadence 最多一个规划步骤；共享真人回合仍可及时回应。缓存率仍会受每步真实 Outcome 改变影响，但总调用倍数必须先消失。
 - 双弈验证唯一房间恢复、缺 `move` 业务对象不会出站、终局无需用户解释也能进入紧邻回复且只交付一次；同时验证普通“看看氧气瓶”不联网、明确网页查询仍读取来源、Stop 无需杀后台、自主网页/相册重新产生成功记录、熄屏一小时后刚亮屏不会被说成连续玩了一晚。
 
