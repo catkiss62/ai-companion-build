@@ -6,6 +6,7 @@ The complete Flutter/Android project lives in `app/` and is the repository's sin
 
 - Current evergreen ledger: [AI_Companion_当前总账.md](AI_Companion_当前总账.md). Read the top handoff entry first; search the preserved history only for the module being changed.
 - Documentation map: [app/docs/DOCUMENTATION_MAP.md](app/docs/DOCUMENTATION_MAP.md)
+- Repository maintenance: [app/docs/REPOSITORY_MAINTENANCE.md](app/docs/REPOSITORY_MAINTENANCE.md)
 - Build: run `.github/workflows/build-apk.yml` or follow [app/docs/BUILDING.md](app/docs/BUILDING.md).
 - Clean Freeze: see [app/docs/CLEAN_FREEZE_v0.31.5.md](app/docs/CLEAN_FREEZE_v0.31.5.md).
 
