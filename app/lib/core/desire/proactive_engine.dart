@@ -543,6 +543,37 @@ class ProactiveEngine {
           reasonSource: 'mcp/cedar_game:desire',
         ));
       }
+      var strongestGameThought = 0.0;
+      for (final thought in thoughts) {
+        if (thought.source.startsWith('mcp/cedar_game:')) {
+          strongestGameThought = max(strongestGameThought, thought.strength);
+        }
+      }
+      final resumeBaseScore = (max(
+                snapshot.drives[DriveKey.curiosity] ?? 0.0,
+                (snapshot.drives[DriveKey.reflection] ?? 0.0) * 0.82,
+              ) +
+              0.18 +
+              strongestGameThought.clamp(0.0, 1.0) * 0.30 -
+              DesireCorePolicy.fatigueActionPenalty(fatigue))
+          .clamp(0.0, 0.92)
+          .toDouble();
+      final resumeOptions = await cedarToyAutonomy.resumeOptions(
+        now: evaluationStartedAt,
+        baseScore: resumeBaseScore,
+      );
+      for (final option in resumeOptions) {
+        unifiedCandidates.add(DesireIntent(
+          drive: DriveKey.curiosity,
+          score: option.score,
+          reason: option.action == 'self_reset_and_resume'
+              ? '防沉迷允许自行重置，但只有重新竞争后仍真正想继续才重置一次'
+              : '短暂离开后，重新决定是否继续当前同一局游戏',
+          wantAction: option.action,
+          reasonSource:
+              'mcp/cedar_game:${option.gameId}:episode:${option.reason}',
+        ));
+      }
       final recentFeedback = (await db.recentProactiveFeedback(limit: 8))
           .where(
             (item) =>
@@ -785,14 +816,28 @@ class ProactiveEngine {
           reason: '本轮保留了当前意图并主动暂缓：$reasonTag',
         );
       }
-      if (intent.wantAction == 'play_game') {
+      if (const <String>{
+        'play_game',
+        'resume_game',
+        'self_reset_and_resume',
+      }.contains(intent.wantAction)) {
         try {
-          final progress = await cedarToyAutonomy.progress(
-            now: evaluationStartedAt,
-          );
+          final progress = intent.wantAction == 'play_game'
+              ? await cedarToyAutonomy.progress(now: evaluationStartedAt)
+              : await cedarToyAutonomy.resumeCheckpoint(
+                  now: evaluationStartedAt,
+                  selfReset: intent.wantAction == 'self_reset_and_resume',
+                );
           await db.finishAutonomousBehavior(
             autonomousBehaviorEventId,
-            status: progress.state.endsWith('failed') ? 'failed' : 'completed',
+            status: progress.state.endsWith('failed') ||
+                    progress.state == 'execution_failed'
+                ? 'failed'
+                : progress.state.contains('not_authorized') ||
+                        progress.state.contains('missing') ||
+                        progress.state == 'anti_addiction_locked'
+                    ? 'blocked'
+                    : 'completed',
             reasonTag: progress.state,
           );
           return ProactiveDecision(

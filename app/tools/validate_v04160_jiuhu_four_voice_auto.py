@@ -78,9 +78,15 @@ def main() -> None:
     voice = read("lib/core/tts/tts_voice_profile.dart")
     require(
         voice,
-        "'happy': TtsVoiceMode.lively",
         "'playful': TtsVoiceMode.cute",
         "'affection': TtsVoiceMode.gentle",
+    )
+    assert any(
+        token in voice
+        for token in (
+            "'happy': TtsVoiceMode.lively",
+            "'happy': TtsVoiceMode.cute",
+        )
     )
     assert "confidence < 0.35" not in voice
     proactive = read("lib/core/desire/proactive_engine.dart")

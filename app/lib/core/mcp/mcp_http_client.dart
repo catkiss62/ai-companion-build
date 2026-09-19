@@ -110,7 +110,7 @@ class McpHttpClient {
           'name': 'ai-companion',
           // Historical validator token: 'version': '0.41.82'
           // Historical validator compatibility token: 'version': '0.41.83'
-          'version': '0.41.85',
+          'version': '0.41.86',
         },
       },
       cancellationToken,

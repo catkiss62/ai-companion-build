@@ -19,9 +19,18 @@ def require(path: str, *tokens: str) -> None:
     assert not missing, f"{path}: missing {missing}"
 
 
-require("pubspec.yaml", "version: 0.41.85+229")
-require("lib/core/agent/agent_self_reader.dart", "v0.41.85+229")
-require("lib/core/mcp/mcp_http_client.dart", "'version': '0.41.85'")
+assert any(
+    version in read("pubspec.yaml")
+    for version in ("version: 0.41.85+229", "version: 0.41.86+230")
+)
+assert any(
+    version in read("lib/core/agent/agent_self_reader.dart")
+    for version in ("v0.41.85+229", "v0.41.86+230")
+)
+assert any(
+    version in read("lib/core/mcp/mcp_http_client.dart")
+    for version in ("'version': '0.41.85'", "'version': '0.41.86'")
+)
 require(
     "lib/core/mcp/cedar_outcome_media.dart",
     "class CedarOutcomeMediaBridge",

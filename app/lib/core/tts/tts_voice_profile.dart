@@ -36,7 +36,7 @@ class TtsVoiceProfilePolicy {
     'shy': TtsVoiceMode.gentle,
     'embarrassed': TtsVoiceMode.gentle,
     'affection': TtsVoiceMode.gentle,
-    'happy': TtsVoiceMode.lively,
+    'happy': TtsVoiceMode.cute,
     'excited': TtsVoiceMode.lively,
     'surprised': TtsVoiceMode.lively,
     'playful': TtsVoiceMode.cute,

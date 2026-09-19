@@ -1502,13 +1502,18 @@ class CedarToyActivityStore {
       action: action,
       notable: outcome.isError,
     );
+    final successfulGap = action == 'rest'
+        ? (await currentViewingPace(now: now)).soloStepGap
+        : const Duration(seconds: 1);
     final next = existing.copyWith(
+      lastAction: action,
+      lastOutcome: _bounded(text, maxGuidePromptChars),
       updatedAt: now,
       events: _append(existing.events, event),
       nextActionAt: existing.needsContinuation
           ? now.add(outcome.isError
               ? const Duration(minutes: 2)
-              : const Duration(seconds: 1))
+              : successfulGap)
           : existing.nextActionAt,
     );
     final saved = await _saveState(state.copyWith(

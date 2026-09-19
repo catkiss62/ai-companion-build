@@ -187,7 +187,13 @@ class RecoveryOrchestrator {
         now: now,
         wakeReason: wakeReason,
       );
-      final heartbeatDue = scheduledHeartbeatDue || reactiveHeartbeatDue;
+      final episodeCheckpointDue = const <String>{
+        'episode_checkpoint',
+        'anti_addiction_checkpoint',
+      }.contains(cedarContinuationState);
+      final heartbeatDue = scheduledHeartbeatDue ||
+          reactiveHeartbeatDue ||
+          episodeCheckpointDue;
       final perceptionMinInterval = reactiveHeartbeatDue
           ? BackgroundPresencePolicy.reactivePerceptionMinInterval
           : const Duration(minutes: 4);

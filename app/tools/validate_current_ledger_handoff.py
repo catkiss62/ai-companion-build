@@ -124,6 +124,7 @@ def main() -> None:
             "TRUE DEVICE EVIDENCE CONFIRMED / IMPLEMENTATION IN PROGRESS / CI PENDING / TRUE DEVICE PENDING"
             in ledger
         )
+        or "IMPLEMENTATION IN PROGRESS / CI PENDING / APK PENDING / TRUE DEVICE PENDING" in ledger
         or "CI PASSED / APK READY / TRUE DEVICE PENDING" in ledger,
         "current ledger has neither a valid pre-CI nor post-CI status",
     )
@@ -144,7 +145,7 @@ def main() -> None:
 
     require(
         re.search(
-            r"^version:\s*0\.41\.85\+229\s*$",
+            r"^version:\s*0\.41\.86\+230\s*$",
             PUBSPEC.read_text(encoding="utf-8"),
             re.MULTILINE,
         )

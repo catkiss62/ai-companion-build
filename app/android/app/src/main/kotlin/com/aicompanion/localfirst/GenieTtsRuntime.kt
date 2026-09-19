@@ -127,24 +127,39 @@ class GenieTtsRuntime(private val context: Context) : AutoCloseable {
         val referenceId = VOICE_CASES[voice] ?: VOICE_CASES.getValue("daily")
         val voiceCase = manifest.cases.firstOrNull { it.id == referenceId }
             ?: error("Genie 音色资源缺失：$referenceId")
-        onStage("prepare_frontend_$language", emptyMap())
+        val frontendText = when (language) {
+            "zh" -> GenieFrontendAdapter.normalizeChineseText(text)
+            else -> text
+        }
+        val requestIdentity = mapOf<String, Any>(
+            "voice" to voice,
+            "referenceCaseId" to referenceId,
+            "inputCharacterClasses" to TtsDiagnosticEvidence.characterClasses(text),
+            "normalizedCharacterClasses" to TtsDiagnosticEvidence.characterClasses(frontendText),
+        )
+        onStage("prepare_frontend_$language", requestIdentity)
         val prepared = when (language) {
             "zh" -> checkNotNull(chinese).prepare(
                 preparedRoot,
-                GenieFrontendAdapter.normalizeChineseText(text),
+                frontendText,
             ) {}
-            "en" -> checkNotNull(english).prepare(text, manifest.frontend.bertDim) {}
-            "ja" -> checkNotNull(japanese).prepare(text, manifest.frontend.bertDim) {}
+            "en" -> checkNotNull(english).prepare(frontendText, manifest.frontend.bertDim) {}
+            "ja" -> checkNotNull(japanese).prepare(frontendText, manifest.frontend.bertDim) {}
             else -> error("不支持的 TTS 语言：$language")
         }
+        val diagnosticIdentity = requestIdentity + mapOf<String, Any>(
+            "normalizedCharacterClasses" to
+                TtsDiagnosticEvidence.characterClasses(prepared.normalizedText),
+        )
         onStage(
             "frontend_ready_$language",
-            mapOf(
+            mapOf<String, Any>(
                 "phoneCount" to prepared.sequence.size,
                 "phoneMin" to (prepared.sequence.minOrNull() ?: 0L),
                 "phoneMax" to (prepared.sequence.maxOrNull() ?: 0L),
                 "phoneHash" to sha256Longs(prepared.sequence),
-            ),
+                "validPhoneCount" to prepared.sequence.count { it > 0L },
+            ) + diagnosticIdentity,
         )
         check(!shouldCancel()) { "TTS generation cancelled" }
         if (!modelsReady) {
@@ -168,13 +183,29 @@ class GenieTtsRuntime(private val context: Context) : AutoCloseable {
         modelLoad = ModelLoadInfo(false, 0L)
         onStage(
             "infer_ready_$language",
-            mapOf(
+            mapOf<String, Any>(
                 "semanticCount" to result.semanticTokens,
                 "semanticHash" to result.semanticHash,
-            ),
+                "decoderIterations" to result.decoderIterations,
+                "immediateStop" to (result.decoderIterations <= 1),
+            ) + diagnosticIdentity,
         )
         onStage("wav_encode", emptyMap())
-        return pcm16Wav(result.audio, manifest.sampleRate, voiceCase.playbackGainDb)
+        val wav = pcm16Wav(result.audio, manifest.sampleRate, voiceCase.playbackGainDb)
+        val durationMs = TtsDiagnosticEvidence.wavDurationMs(wav)
+        onStage(
+            "wav_ready_evidence",
+            mapOf<String, Any>(
+                "pcmDurationMs" to durationMs,
+                "pcmHash" to TtsDiagnosticEvidence.pcmPayloadHash(wav),
+                "referenceEchoSuspected" to TtsDiagnosticEvidence.referenceEchoSuspected(
+                    decoderIterations = result.decoderIterations,
+                    semanticCount = result.semanticTokens,
+                    pcmDurationMs = durationMs,
+                ),
+            ) + diagnosticIdentity,
+        )
+        return wav
     }
 
     private fun sha256Longs(values: LongArray): String {

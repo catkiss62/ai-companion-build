@@ -111,3 +111,4 @@ tools/validate_v04182_cedar_state_machine_e2e.py
 tools/validate_v04183_cedar_native_agent_loop.py
 tools/validate_v04184_agent_loop_autonomy_closure.py
 tools/validate_v04185_cedar_outcome_media.py
+tools/validate_v04186_autonomy_tts_diagnostics.py

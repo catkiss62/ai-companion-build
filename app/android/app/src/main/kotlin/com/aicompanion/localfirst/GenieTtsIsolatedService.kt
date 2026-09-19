@@ -37,6 +37,16 @@ class GenieTtsIsolatedService : Service() {
     private var phoneHash = ""
     private var semanticCount = 0
     private var semanticHash = ""
+    private var activeVoice = ""
+    private var referenceCaseId = ""
+    private var inputCharacterClasses = ""
+    private var normalizedCharacterClasses = ""
+    private var validPhoneCount = 0
+    private var decoderIterations = 0
+    private var immediateStop = false
+    private var pcmDurationMs = 0L
+    private var pcmHash = ""
+    private var referenceEchoSuspected = false
 
     override fun onCreate() {
         super.onCreate()
@@ -90,6 +100,16 @@ class GenieTtsIsolatedService : Service() {
             phoneHash = ""
             semanticCount = 0
             semanticHash = ""
+            activeVoice = normalizeVoice(voice)
+            referenceCaseId = ""
+            inputCharacterClasses = TtsDiagnosticEvidence.characterClasses(text)
+            normalizedCharacterClasses = ""
+            validPhoneCount = 0
+            decoderIterations = 0
+            immediateStop = false
+            pcmDurationMs = 0L
+            pcmHash = ""
+            referenceEchoSuspected = false
             val requestGeneration = generation.get()
             try {
                 val next = normalizeLanguage(language)
@@ -99,7 +119,7 @@ class GenieTtsIsolatedService : Service() {
                 val wav = runtime.generate(
                     text = text,
                     language = next,
-                    voice = normalizeVoice(voice),
+                    voice = activeVoice,
                     shouldCancel = { requestGeneration != generation.get() },
                     onStage = { nextStage, metadata ->
                         phoneCount = (metadata["phoneCount"] as? Number)?.toInt()
@@ -114,6 +134,24 @@ class GenieTtsIsolatedService : Service() {
                                 ?: semanticCount
                         semanticHash =
                             metadata["semanticHash"]?.toString() ?: semanticHash
+                        activeVoice = metadata["voice"]?.toString() ?: activeVoice
+                        referenceCaseId = metadata["referenceCaseId"]?.toString()
+                            ?: referenceCaseId
+                        inputCharacterClasses = metadata["inputCharacterClasses"]?.toString()
+                            ?: inputCharacterClasses
+                        normalizedCharacterClasses = metadata["normalizedCharacterClasses"]?.toString()
+                            ?: normalizedCharacterClasses
+                        validPhoneCount = (metadata["validPhoneCount"] as? Number)?.toInt()
+                            ?: validPhoneCount
+                        decoderIterations = (metadata["decoderIterations"] as? Number)?.toInt()
+                            ?: decoderIterations
+                        immediateStop = metadata["immediateStop"] as? Boolean
+                            ?: immediateStop
+                        pcmDurationMs = (metadata["pcmDurationMs"] as? Number)?.toLong()
+                            ?: pcmDurationMs
+                        pcmHash = metadata["pcmHash"]?.toString() ?: pcmHash
+                        referenceEchoSuspected = metadata["referenceEchoSuspected"] as? Boolean
+                            ?: referenceEchoSuspected
                         markStage(
                             nextStage,
                             durable = nextStage.startsWith("prepare_frontend_") ||
@@ -218,6 +256,16 @@ class GenieTtsIsolatedService : Service() {
             phoneHash = phoneHash,
             semanticCount = semanticCount,
             semanticHash = semanticHash,
+            voice = activeVoice,
+            referenceCaseId = referenceCaseId,
+            inputCharacterClasses = inputCharacterClasses,
+            normalizedCharacterClasses = normalizedCharacterClasses,
+            validPhoneCount = validPhoneCount,
+            decoderIterations = decoderIterations,
+            immediateStop = immediateStop,
+            pcmDurationMs = pcmDurationMs,
+            pcmHash = pcmHash,
+            referenceEchoSuspected = referenceEchoSuspected,
         )
     }
 

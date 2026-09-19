@@ -20,6 +20,7 @@ import 'cedar_agent_loop_policy.dart';
 import 'cedar_toy_arcade_skill.dart';
 import 'cedar_toy_client.dart';
 import 'cedar_game_protocol.dart';
+import 'cedar_solo_episode_policy.dart';
 import 'mcp_protocol.dart';
 import 'mcp_http_client.dart';
 import 'mcp_turn_state_resolver.dart';
@@ -34,6 +35,20 @@ class CedarAutonomyProgress {
   const CedarAutonomyProgress(this.state, {this.notable = false});
   final String state;
   final bool notable;
+}
+
+class CedarResumeOption {
+  const CedarResumeOption({
+    required this.action,
+    required this.gameId,
+    required this.score,
+    required this.reason,
+  });
+
+  final String action;
+  final String gameId;
+  final double score;
+  final String reason;
 }
 
 class CedarJsonDecisionRetryPolicy {
@@ -562,6 +577,7 @@ class CedarToyAutonomyEngine {
   static const enabledKey = 'cedar_toy_autonomy_enabled';
   static const shareEnabledKey = 'cedar_toy_game_share_enabled';
   static const lastProgressKey = 'cedar_toy_last_autonomous_progress_at';
+  static const soloEpisodeKey = 'cedar_toy_solo_episode_v1';
   static const minProgressGap = Duration(minutes: 20);
 
   final AppDatabase db;
@@ -708,6 +724,190 @@ class CedarToyAutonomyEngine {
     return decision;
   }
 
+  bool _isRealtimeCommitment(CedarGameSession session) =>
+      (session.mode.supportsSharedParticipation &&
+          session.invitationApproved) ||
+      session.hasPendingRoomMessage ||
+      session.ownRoomAliases.isNotEmpty;
+
+  Future<CedarSoloEpisodeState?> _loadSoloEpisode() async {
+    final raw = await db.getSetting(soloEpisodeKey) ?? '';
+    if (raw.trim().isEmpty) return null;
+    try {
+      final decoded = jsonDecode(raw);
+      if (decoded is! Map) return null;
+      final state = CedarSoloEpisodeState.fromJson(decoded);
+      return state.gameId.trim().isEmpty ? null : state;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  Future<void> _saveSoloEpisode(CedarSoloEpisodeState state) =>
+      db.setSetting(soloEpisodeKey, jsonEncode(state.toJson()));
+
+  Future<void> _clearSoloEpisode() => db.setSetting(soloEpisodeKey, '');
+
+  Future<CedarSoloEpisodeState> _currentSoloEpisode({
+    required CedarGameSession session,
+    required DateTime now,
+  }) async =>
+      CedarSoloEpisodePolicy.ensureCurrent(
+        current: await _loadSoloEpisode(),
+        gameId: session.gameId,
+        now: now,
+      );
+
+  Future<void> _recordSoloEpisodeOutcome({
+    required DateTime now,
+    required CedarGameSession session,
+    required String action,
+    required McpToolOutcome outcome,
+  }) async {
+    if (_isRealtimeCommitment(session)) return;
+    if (!session.phase.continuable) {
+      await _clearSoloEpisode();
+      return;
+    }
+    final current = await _currentSoloEpisode(session: session, now: now);
+    final signal = CedarAntiAddictionParser.inspect(outcome, now: now);
+    final next = CedarSoloEpisodePolicy.recordOutcome(
+      state: current,
+      now: now,
+      action: action,
+      succeeded: !outcome.isError,
+      antiAddiction: signal,
+    );
+    await _saveSoloEpisode(next);
+    await db.setSetting(
+      'cedar_toy_last_anti_addiction_v1',
+      jsonEncode(<String, Object?>{
+        'level': signal.level.name,
+        'source': signal.source,
+        'allowSelfReset': signal.allowSelfReset,
+        'resumeAt': signal.resumeAt?.millisecondsSinceEpoch ?? 0,
+        'checkpointPending': next.checkpointPending,
+        'at': now.millisecondsSinceEpoch,
+      }),
+    );
+  }
+
+  Future<List<CedarResumeOption>> resumeOptions({
+    required DateTime now,
+    required double baseScore,
+  }) async {
+    if ((await db.getSetting('cedar_toy_enabled')) == '0' ||
+        (await db.getSetting(enabledKey)) == '0') return const [];
+    if ((await _readToken()).isEmpty) return const [];
+    final session = await CedarToyActivityStore(db).load();
+    if (session == null ||
+        !session.needsContinuation ||
+        _isRealtimeCommitment(session)) return const [];
+    final state = CedarSoloEpisodePolicy.checkpointIfDue(
+      await _currentSoloEpisode(session: session, now: now),
+      now,
+    );
+    if (!state.checkpointPending) return const [];
+    await _saveSoloEpisode(state);
+    final safeBase = baseScore.clamp(0.0, 0.92).toDouble();
+    final options = <CedarResumeOption>[];
+    if (!state.lockedAt(now)) {
+      options.add(CedarResumeOption(
+        action: 'resume_game',
+        gameId: session.gameId,
+        score: (safeBase -
+                (state.antiAddictionLevel ==
+                        CedarAntiAddictionLevel.reminder
+                    ? 0.08
+                    : 0.0))
+            .clamp(0.0, 0.92)
+            .toDouble(),
+        reason: state.checkpointReason,
+      ));
+    }
+    if (state.antiAddictionPresent && state.allowSelfReset) {
+      options.add(CedarResumeOption(
+        action: 'self_reset_and_resume',
+        gameId: session.gameId,
+        score: (safeBase - 0.22).clamp(0.0, 0.70).toDouble(),
+        reason: '${state.checkpointReason}:allow_self_reset',
+      ));
+    }
+    return options;
+  }
+
+  Future<CedarAutonomyProgress> resumeCheckpoint({
+    required DateTime now,
+    required bool selfReset,
+  }) async {
+    final store = CedarToyActivityStore(db);
+    final session = await store.load();
+    if (session == null || !session.needsContinuation) {
+      return const CedarAutonomyProgress('resume_session_missing');
+    }
+    final episode = CedarSoloEpisodePolicy.checkpointIfDue(
+      await _currentSoloEpisode(session: session, now: now),
+      now,
+    );
+    if (!episode.checkpointPending) {
+      return const CedarAutonomyProgress('resume_checkpoint_missing');
+    }
+    if (selfReset) {
+      if (!episode.antiAddictionPresent || !episode.allowSelfReset) {
+        return const CedarAutonomyProgress('self_reset_not_authorized');
+      }
+      final token = await _readToken();
+      if (token.isEmpty) return const CedarAutonomyProgress('missing_config');
+      return _runExecution(
+        store: store,
+        gameId: session.gameId,
+        action: 'rest',
+        body: (scope) async {
+          final outcome = await _client(token).play(
+            session.gameId,
+            'rest',
+            const <String, Object?>{},
+            cancellationToken: scope.cancellation,
+          );
+          scope.throwIfPreempted();
+          await store.recordPlatformAction(
+            gameId: session.gameId,
+            action: 'rest',
+            outcome: outcome,
+            executionId: scope.executionId,
+            keepExecution: true,
+          );
+          if (outcome.isError) {
+            await store.deferContinuation(
+              gameId: session.gameId,
+              delay: const Duration(minutes: 2),
+              executionId: scope.executionId,
+            );
+            return const CedarAutonomyProgress('self_reset_failed');
+          }
+          await _saveSoloEpisode(
+            CedarSoloEpisodePolicy.resetForResume(episode, now),
+          );
+          return const CedarAutonomyProgress('self_reset_succeeded');
+        },
+      );
+    }
+    if (episode.lockedAt(now)) {
+      return const CedarAutonomyProgress('anti_addiction_locked');
+    }
+    await _saveSoloEpisode(CedarSoloEpisodePolicy.resetForResume(episode, now));
+    await store.deferContinuation(gameId: session.gameId, delay: Duration.zero);
+    final progress = await continueDue(now: now, episodeAuthorized: true);
+    if (progress.state != 'played_one_step') {
+      await _saveSoloEpisode(episode);
+      await store.deferContinuation(
+        gameId: session.gameId,
+        delay: const Duration(minutes: 8),
+      );
+    }
+    return progress;
+  }
+
   Future<CedarAutonomyAvailability> availability({required DateTime now}) async {
     if ((await db.getSetting('cedar_toy_enabled')) == '0' ||
         (await db.getSetting(enabledKey)) == '0') {
@@ -759,7 +959,10 @@ class CedarToyAutonomyEngine {
     return CedarToyActivityStore(db).nextContinuationDelay(now);
   }
 
-  Future<CedarAutonomyProgress> continueDue({required DateTime now}) async {
+  Future<CedarAutonomyProgress> continueDue({
+    required DateTime now,
+    bool episodeAuthorized = false,
+  }) async {
     final delay = await continuationDelay(now: now);
     if (delay == null) return const CedarAutonomyProgress('no_continuation');
     if (delay > Duration.zero) return const CedarAutonomyProgress('not_due');
@@ -810,12 +1013,44 @@ class CedarToyAutonomyEngine {
     // fresh Desire roll after the other player acts. A solo continuation is
     // optional autonomy and competes with fatigue/rest before exactly one
     // model-planned step is allowed.
-    final realtimeCommitment =
-        (session.mode.supportsSharedParticipation &&
-            session.invitationApproved) ||
-        session.hasPendingRoomMessage ||
-        session.ownRoomAliases.isNotEmpty;
+    final realtimeCommitment = _isRealtimeCommitment(session);
     if (!realtimeCommitment) {
+      final episode = CedarSoloEpisodePolicy.checkpointIfDue(
+        await _currentSoloEpisode(session: session, now: now),
+        now,
+      );
+      await _saveSoloEpisode(episode);
+      if (!episodeAuthorized && episode.checkpointPending) {
+        final delay = episode.lockedAt(now) &&
+                episode.antiAddictionResumeAt != null
+            ? episode.antiAddictionResumeAt!.difference(now)
+            : const Duration(minutes: 8);
+        await store.deferContinuation(
+          gameId: session.gameId,
+          delay: delay.isNegative ? Duration.zero : delay,
+        );
+        await db.setSetting(
+          'cedar_toy_last_episode_checkpoint_v1',
+          jsonEncode(<String, Object?>{
+            'gameId': session.gameId,
+            'reason': episode.checkpointReason,
+            'stateChangeCount': episode.stateChangeCount,
+            'startedAt': episode.startedAt.millisecondsSinceEpoch,
+            'antiAddictionLevel': episode.antiAddictionLevel.name,
+            'allowSelfReset': episode.allowSelfReset,
+            'resumeAt':
+                episode.antiAddictionResumeAt?.millisecondsSinceEpoch ?? 0,
+            'at': now.millisecondsSinceEpoch,
+          }),
+        );
+        return CedarAutonomyProgress(
+          episode.lockedAt(now)
+              ? 'anti_addiction_checkpoint'
+              : 'episode_checkpoint',
+        );
+      }
+    }
+    if (!realtimeCommitment && !episodeAuthorized) {
       final gate = await _optionalContinuationGate(
         now: now,
         session: session,
@@ -1178,6 +1413,20 @@ ${store.promptContext(session, state: state, playProtocol: playProtocol)}''',
         : session.mode;
     final action = _identifier(decision.action);
     final platformAction = CedarPlatformActionPolicy.isPlatformAction(action);
+    if (action == 'rest') {
+      final episode = await _loadSoloEpisode();
+      if (episode == null ||
+          !episode.antiAddictionPresent ||
+          !episode.allowSelfReset ||
+          !episode.checkpointPending) {
+        await store.deferContinuation(
+          gameId: session.gameId,
+          delay: const Duration(minutes: 2),
+          executionId: scope.executionId,
+        );
+        return const CedarAutonomyProgress('self_reset_not_authorized');
+      }
+    }
     // Once Cedar has issued a continuation or created server-side room state,
     // that server state is the authority. A later local classifier may not
     // revoke an already-running session and strand its next_call.
@@ -1371,7 +1620,7 @@ ${store.promptContext(session, state: state, playProtocol: playProtocol)}''',
                   outcome: stateOutcome,
                   cancellationToken: scope.cancellation,
                 );
-          await store.recordPlay(
+          final hydratedSession = await store.recordPlay(
             gameId: session.gameId,
             action: 'state',
             outcome: stateOutcome,
@@ -1383,6 +1632,12 @@ ${store.promptContext(session, state: state, playProtocol: playProtocol)}''',
             resumeAfterSeconds: stateVerification.resumeAfterSeconds,
             executionId: scope.executionId,
             keepExecution: true,
+          );
+          await _recordSoloEpisodeOutcome(
+            now: now,
+            session: hydratedSession,
+            action: 'state',
+            outcome: stateOutcome,
           );
           return CedarAutonomyProgress(
             stateOutcome.isError
@@ -1426,6 +1681,12 @@ ${store.promptContext(session, state: state, playProtocol: playProtocol)}''',
             executionId: scope.executionId,
             keepExecution: true,
           );
+    await _recordSoloEpisodeOutcome(
+      now: now,
+      session: updated,
+      action: action,
+      outcome: outcome,
+    );
     if (!outcome.isError &&
         shareLevel != 'quiet' &&
         (await db.getSetting(shareEnabledKey)) != '0') {

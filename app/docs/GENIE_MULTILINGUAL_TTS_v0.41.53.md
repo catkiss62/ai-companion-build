@@ -31,8 +31,8 @@
 
 - daily：normal、serious、confident、angry、disgust、confused；
 - gentle：calm、worried、crying、afraid、nervous、shy、embarrassed、affection；
-- lively：happy、excited、surprised；
-- cute：playful、helpless、flustered。
+- lively：excited、surprised；
+- cute：happy、playful、helpless、flustered。
 
 低可信 fallback 回到 daily。不恢复 19emo ONNX，不增加第二情绪分类器。
 

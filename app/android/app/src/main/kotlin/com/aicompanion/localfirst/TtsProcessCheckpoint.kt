@@ -25,6 +25,16 @@ object TtsProcessCheckpoint {
         phoneHash: String = "",
         semanticCount: Int = 0,
         semanticHash: String = "",
+        voice: String = "",
+        referenceCaseId: String = "",
+        inputCharacterClasses: String = "",
+        normalizedCharacterClasses: String = "",
+        validPhoneCount: Int = 0,
+        decoderIterations: Int = 0,
+        immediateStop: Boolean = false,
+        pcmDurationMs: Long = 0,
+        pcmHash: String = "",
+        referenceEchoSuspected: Boolean = false,
     ) {
         runCatching {
             val payload = JSONObject()
@@ -41,6 +51,16 @@ object TtsProcessCheckpoint {
                 .put("phoneHash", DiagnosticRedaction.safeToken(phoneHash, 96))
                 .put("semanticCount", semanticCount.coerceAtLeast(0))
                 .put("semanticHash", DiagnosticRedaction.safeToken(semanticHash, 96))
+                .put("voice", DiagnosticRedaction.safeToken(voice, 16))
+                .put("referenceCaseId", DiagnosticRedaction.safeToken(referenceCaseId, 64))
+                .put("inputCharacterClasses", DiagnosticRedaction.safeToken(inputCharacterClasses, 240))
+                .put("normalizedCharacterClasses", DiagnosticRedaction.safeToken(normalizedCharacterClasses, 240))
+                .put("validPhoneCount", validPhoneCount.coerceAtLeast(0))
+                .put("decoderIterations", decoderIterations.coerceAtLeast(0))
+                .put("immediateStop", immediateStop)
+                .put("pcmDurationMs", pcmDurationMs.coerceAtLeast(0))
+                .put("pcmHash", DiagnosticRedaction.safeToken(pcmHash, 96))
+                .put("referenceEchoSuspected", referenceEchoSuspected)
                 .put("pssKb", Debug.getPss())
                 .put("rssKb", currentRssKb())
                 .put("threads", currentThreadCount())
@@ -76,6 +96,16 @@ object TtsProcessCheckpoint {
             "phoneHash" to value.optString("phoneHash", ""),
             "semanticCount" to value.optInt("semanticCount", 0),
             "semanticHash" to value.optString("semanticHash", ""),
+            "voice" to value.optString("voice", ""),
+            "referenceCaseId" to value.optString("referenceCaseId", ""),
+            "inputCharacterClasses" to value.optString("inputCharacterClasses", ""),
+            "normalizedCharacterClasses" to value.optString("normalizedCharacterClasses", ""),
+            "validPhoneCount" to value.optInt("validPhoneCount", 0),
+            "decoderIterations" to value.optInt("decoderIterations", 0),
+            "immediateStop" to value.optBoolean("immediateStop", false),
+            "pcmDurationMs" to value.optLong("pcmDurationMs", 0L),
+            "pcmHash" to value.optString("pcmHash", ""),
+            "referenceEchoSuspected" to value.optBoolean("referenceEchoSuspected", false),
             "pssKb" to value.optInt("pssKb", 0),
             "rssKb" to value.optInt("rssKb", 0),
             "threads" to value.optInt("threads", 0),

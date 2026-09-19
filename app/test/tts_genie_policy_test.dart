@@ -14,8 +14,8 @@ void main() {
         'calm', 'worried', 'crying', 'afraid', 'nervous', 'shy',
         'embarrassed', 'affection',
       },
-      TtsVoiceMode.lively: {'happy', 'excited', 'surprised'},
-      TtsVoiceMode.cute: {'playful', 'helpless', 'flustered'},
+      TtsVoiceMode.lively: {'excited', 'surprised'},
+      TtsVoiceMode.cute: {'happy', 'playful', 'helpless', 'flustered'},
     };
     for (final entry in expected.entries) {
       for (final key in entry.value) {
@@ -35,7 +35,7 @@ void main() {
         emotionKey: 'happy',
         confidence: 0.2,
       ),
-      TtsVoiceMode.lively,
+      TtsVoiceMode.cute,
     );
   });
 

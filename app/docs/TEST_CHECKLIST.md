@@ -1,3 +1,27 @@
+# v0.41.86+230 单人活动重仲裁与 TTS 诊断真机验收增量
+
+> 本节只验收 +230；+228/+229 未完成的真机项继续保留，不因版本递增视为通过。
+
+## A. 高兴音色与参考音频取证
+
+1. 自动音色下生成一条明确 `happy / 高兴` 回复，预期使用 `cute / 可爱 / jiuhu_devotion`；`excited / 兴奋` 与 `surprised / 惊讶` 仍使用 `lively / 活泼 / jiuhu_idle50`。固定音色不受影响。
+2. 若再次听到疑似参考录音，立即导出同一时刻诊断。TTS `generation_ready` 与 `lastProcessCheckpoint` 应包含 language、voice、referenceCaseId、输入/规范化字符类别计数、validPhoneCount、decoderIterations、immediateStop、semanticCount/hash、pcmDurationMs/hash 和 `referenceEchoSuspected`，但不含正文或参考文件路径。
+3. 四个自动/固定音色各播一次，确认 referenceCaseId 分别可落到 `jiuhu_bento_tools / jiuhu_dream_days / jiuhu_idle50 / jiuhu_devotion`。本版只取证，不因 `referenceEchoSuspected=true` 自动静音或篡改输出。
+
+## B. 单人 episode checkpoint 与统一竞争
+
+1. 让她独自运行同一局会改变远端状态的游戏。前三个成功 mutation 之间仍按原休闲/观看节奏连续；第三个之后下一次续步必须先形成 `episode_checkpoint`，不能直接第四步。
+2. checkpoint 时应把 `resume_game` 与联网发现/分享、普通主动联系、休息和沉默放入同一现有选择器。其他行为胜出时远端存档不丢、游戏不换局；之后可恢复同一局。没有第三个 mutation 时，持续 25 分钟也应形成 checkpoint。
+3. 只读 state/status/rooms、失败 Outcome、平台 announcements/rest、leave/resign 不计入三步。实时共玩轮到 companion 时仍立即履约，不等待单人 checkpoint。
+
+## C. Cedar 防沉迷
+
+1. 普通游戏内“门已锁/区域冷却”不得触发防沉迷。只有服务端结构化 anti-addiction 字段或明确包含“防沉迷”的提醒/锁定文本才形成强制 checkpoint。
+2. 提醒后普通恢复可参与竞争但带成本；锁定且恢复时间未到时不得出现普通 `resume_game`。诊断只记录 level/source/permission/recovery time，不记录 Outcome 正文。
+3. 网站关闭 `allow_self_reset` 时，APK 绝不能调用 `rest`。网站打开且服务端真实返回允许时，`self_reset_and_resume` 仍须赢得统一竞争才调用一次；成功后下一步按休闲 2 分钟或当前观看节奏，绝不能 1 秒续跑。
+
+---
+
 # v0.41.85+229 Cedar 结构化远程媒体桥真机验收增量
 
 > 本节只验收 +229。+228 的 Agent 循环、Token、联网、自主性、手机时间线、刷新和音效项目继续保留在下方，不因版本递增视为通过。
