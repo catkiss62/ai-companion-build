@@ -234,6 +234,17 @@
 - 当前设置中情绪短音效已开启、音量 `15%`。`DurableGenerationRunner` 在流式内容刚解析到隐藏情绪标签时立即调用 `onEmotionCue`；`ChatController.startEmotionCue` 随即播放。情绪标签通常先于可展示正文，Gemini/双通道较慢时，音效会明显早于气泡文字。
 - 下一批应把“识别情绪”和“播放提示”分开：标签到达时只锁存 emotion key；当去除标签后的第一段可见正文真正追加到 UI（或完整回复第一次显示）时原子触发一次。无可见正文、取消、重试、工具中间轮不得播放；自动 TTS 继续复用同一个 cue future，避免叠音或二次播放。需要覆盖标签跨 chunk、首个 chunk 只有标签、慢正文、取消/恢复和主动消息。
 
+### P1：Cedar 旅行/下矿远程图片没有进入聊天附件
+
+- 2026-09-19 最新旅行存档证明 MCP 文本 Outcome 含多个真实 `photo_url`（景点、食物、特产的 Wikimedia JPG），但事件均为 `content_kinds=[text]`，`image_data / viewer_url` 为空，最终 assistant 消息也没有 `assistant_mcp_image` 附件。诊断显示 `cedar_toy.play` 成功且没有 Cedar 执行错误，因此不是模型忘记、网络漏包或游戏失败。
+- 根因是 `AgentToolRunner._cedarImageAttachments` 只消费 MCP 标准 `type=image` Base64 block；`CedarToyActivityStore.recordPlay` 也只保存 `outcome.images`。文本 JSON 内的 `photo_url` 只作为文字进入活动窗，不会下载、校验、固化或交给聊天。
+- 下一批为旅行和下矿共同增加“明确媒体字段 → 安全下载 → 同一不可变字节 → MessageAttachment → Outcome/历史”的桥接。只解析协议明确的媒体字段和 HTTPS，复用有大小/MIME/重定向保护的下载器，限制每步数量；不得把任意 URL 当图片、不得为此触发 `public_web.search`，下载失败时保留真实文本且不得声称已经发图。
+
+### 2026-09-19 仓库低风险维护切片
+
+- 从 +228 权威源码切出 `maintenance/repository-governance-20260919`；只调整仓库维护入口，不改 App 运行逻辑、版本、schema、资源、历史、`main` 或既有 108 个 validator 的内容与顺序。
+- 工作流逐行 validator 调用收口为 `app/tools/validation_suite.txt` 与 `run_validation_suite.py`；维护合同见 `app/docs/REPOSITORY_MAINTENANCE.md`。100,000-byte 限制只约束当前入口，历史继续按阶段只读归档并由索引定点读取，不要求每轮同时读取两份总账。
+
 ### 下一批执行顺序与禁止路线
 
 1. **阶段 A · 可观测性与停止合同**：先接收并按 lane 记录 DeepSeek usage/cache 数据，建立每 execution 的调用/Token 预算；把 cancellation token 贯穿网页 search/extract/压缩/appraiser 并封住取消后的迟到写入。没有这些证据，不进入下一轮真机猜测。
