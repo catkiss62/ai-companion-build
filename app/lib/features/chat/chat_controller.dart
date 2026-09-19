@@ -16,9 +16,10 @@ import '../../core/ai/model_profile.dart';
 import '../../core/ai/nsfw_context_router.dart';
 import '../../core/ai/qwen_vision_client.dart';
 import '../../core/database/app_database.dart';
-import '../../core/diagnostics/visible_reasoning_language_telemetry.dart';
 import '../../core/diagnostics/attachment_pipeline_telemetry.dart';
+import '../../core/diagnostics/model_usage_telemetry.dart';
 import '../../core/diagnostics/provider_health.dart';
+import '../../core/diagnostics/visible_reasoning_language_telemetry.dart';
 import '../../core/desire/desire_core_policy.dart';
 import '../../core/desire/desire_engine.dart';
 import '../../core/desire/proactive_rhythm_engine.dart';
@@ -69,6 +70,10 @@ class ChatController extends ChangeNotifier {
             DeepSeekClient(
               abortWhen: () async =>
                   !await (db ?? AppDatabase.instance).brainWorkAllowed(),
+              onUsage: (event) => ModelUsageTelemetry.record(
+                db ?? AppDatabase.instance,
+                event,
+              ),
             ),
         visionClient = visionClient ?? QwenVisionClient(),
         secureConfig = secureConfig ?? SecureConfig.instance,
@@ -1262,6 +1267,10 @@ class ChatController extends ChangeNotifier {
       messages = [...messages, projectedAssistant];
       await _incrementOverlayUnread();
       _petGenerationActive = false;
+      // The cue belongs to the visible reply, not to an early hidden
+      // <emotion> envelope. Start it in the same UI commit that exposes the
+      // body so slow final providers cannot play a sound seconds too early.
+      startEmotionCue(projectedAssistant.emotionKey);
       _safeNotify();
 
       // A selected foreign language causes one thinking-off projection of the

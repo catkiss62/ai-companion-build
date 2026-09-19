@@ -4,6 +4,7 @@ import 'dart:convert';
 import 'package:crypto/crypto.dart';
 import 'package:http/http.dart' as http;
 
+import '../ai/generation_cancellation.dart';
 import '../models/public_web_candidate.dart';
 
 abstract class PublicWebProvider {
@@ -15,6 +16,7 @@ abstract class PublicWebProvider {
     required String intentAction,
     required String interestKey,
     required DateTime now,
+    GenerationCancellationToken? cancellationToken,
   });
 }
 
@@ -34,6 +36,7 @@ class WikimediaPublicWebProvider implements PublicWebProvider {
     required String intentAction,
     required String interestKey,
     required DateTime now,
+    GenerationCancellationToken? cancellationToken,
   }) async {
     final normalized = query.trim();
     if (normalized.isEmpty || normalized.length > 40) {
@@ -49,13 +52,19 @@ class WikimediaPublicWebProvider implements PublicWebProvider {
       <String, String>{'q': normalized, 'limit': '5'},
     );
     try {
-      final response = await _client.get(
-        uri,
-        headers: const <String, String>{
-          'Accept': 'application/json',
-          'User-Agent': 'AICompanion/0.34.8 (private Android companion)',
-        },
-      ).timeout(const Duration(seconds: 12));
+      final response = await cancelWithToken(
+        _client
+            .get(
+              uri,
+              headers: const <String, String>{
+                'Accept': 'application/json',
+                'User-Agent': 'AICompanion/0.34.8 (private Android companion)',
+              },
+            )
+            .timeout(const Duration(seconds: 12)),
+        cancellationToken,
+      );
+      cancellationToken?.throwIfCancelled();
       if (response.statusCode != 200) {
         return PublicWebProviderResult(
           candidates: const [],
@@ -79,6 +88,8 @@ class WikimediaPublicWebProvider implements PublicWebProvider {
         provider: providerKey,
         failureReason: 'timeout',
       );
+    } on GenerationCancelledByUserException {
+      rethrow;
     } catch (_) {
       return PublicWebProviderResult(
         candidates: const [],

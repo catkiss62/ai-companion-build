@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 class CedarCatalogEntry {
   const CedarCatalogEntry({
     required this.id,
@@ -128,6 +130,245 @@ class CedarActionTransportPolicy {
     }
     return normalized;
   }
+}
+
+/// Turns a model decision into the smallest executable call by carrying
+/// forward only transport identity already returned by Cedar. Business
+/// choices such as a move, target or purchase are never invented locally.
+class CedarExecutableCallPolicy {
+  const CedarExecutableCallPolicy._();
+
+  static const _transportKeys = <String>{
+    'room_id',
+    'session_id',
+    'match_id',
+    'revision',
+  };
+
+  static Map<String, Object?> hydrateTransportParams({
+    required Map<String, Object?> planned,
+    required String continuationParamsJson,
+    required String lastOutcome,
+  }) {
+    final result = Map<String, Object?>.from(planned);
+    for (final raw in <String>[continuationParamsJson, lastOutcome]) {
+      final source = _decodeObject(raw);
+      if (source == null) continue;
+      final flattened = <String, List<Object?>>{};
+      _collectKnownTransportValues(source, flattened);
+      for (final key in _transportKeys) {
+        final values = flattened[key] ?? const <Object?>[];
+        if (_isMissing(result[key]) && values.length == 1) {
+          result[key] = values.single;
+        }
+      }
+    }
+    return result;
+  }
+
+  /// Reads only explicit action-scoped `required` declarations. Ambiguous
+  /// prose is ignored so the APK cannot become a second, stricter game server.
+  static Set<String> missingExplicitRequiredFields({
+    required String action,
+    required Map<String, Object?> params,
+    required String guide,
+    required String playProtocol,
+  }) {
+    final required = <String>{};
+    for (final source in <String>[playProtocol, guide]) {
+      final decoded = _decodeObject(source);
+      if (decoded != null) {
+        _collectActionRequired(decoded, action, required, actionScoped: false);
+      }
+      required.addAll(_requiredFromExplicitText(source, action));
+    }
+    return required.where((key) => _isMissing(params[key])).toSet();
+  }
+
+  /// Returns a transport identity only when Cedar exposed exactly one value.
+  /// This is safe for deterministic read hydration (for example rooms ->
+  /// state), but deliberately refuses to choose between multiple rooms.
+  static String uniqueTransportValue({
+    required String key,
+    required Object? structuredContent,
+    required String text,
+  }) {
+    final values = <String>{};
+    void collect(Object? node) {
+      if (node is Map) {
+        for (final entry in node.entries) {
+          if (entry.key.toString() == key) {
+            final value = entry.value?.toString().trim() ?? '';
+            if (value.isNotEmpty) values.add(value);
+          }
+          collect(entry.value);
+        }
+      } else if (node is List) {
+        for (final item in node) {
+          collect(item);
+        }
+      }
+    }
+
+    collect(structuredContent);
+    collect(_decodeObject(text));
+    if (values.isEmpty) {
+      final escaped = RegExp.escape(key);
+      final pattern = RegExp(
+        '["\']$escaped["\']\\s*:\\s*["\']([^"\']{1,160})["\']',
+      );
+      for (final match in pattern.allMatches(text)) {
+        final value = match.group(1)?.trim() ?? '';
+        if (value.isNotEmpty) values.add(value);
+      }
+    }
+    return values.length == 1 ? values.single : '';
+  }
+
+  static Map<String, Object?>? _decodeObject(String raw) {
+    final clean = raw.trim();
+    if (clean.isEmpty) return null;
+    try {
+      final decoded = jsonDecode(clean);
+      if (decoded is Map) {
+        return decoded.map((key, value) => MapEntry(key.toString(), value));
+      }
+    } catch (_) {
+      final start = clean.indexOf('{');
+      final end = clean.lastIndexOf('}');
+      if (start >= 0 && end > start) {
+        try {
+          final decoded = jsonDecode(clean.substring(start, end + 1));
+          if (decoded is Map) {
+            return decoded.map((key, value) => MapEntry(key.toString(), value));
+          }
+        } catch (_) {}
+      }
+    }
+    return null;
+  }
+
+  static void _collectKnownTransportValues(
+    Object? node,
+    Map<String, List<Object?>> output,
+  ) {
+    if (node is Map) {
+      for (final entry in node.entries) {
+        final key = entry.key.toString();
+        if (_transportKeys.contains(key) && !_isMissing(entry.value)) {
+          final values = output.putIfAbsent(key, () => <Object?>[]);
+          final fingerprint = entry.value.toString();
+          if (!values.any((value) => value.toString() == fingerprint)) {
+            values.add(entry.value);
+          }
+        }
+        _collectKnownTransportValues(entry.value, output);
+      }
+    } else if (node is List) {
+      for (final item in node) {
+        _collectKnownTransportValues(item, output);
+      }
+    } else if (node is String && node.trim().startsWith('{')) {
+      final decoded = _decodeObject(node);
+      if (decoded != null) _collectKnownTransportValues(decoded, output);
+    }
+  }
+
+  static void _collectActionRequired(
+    Object? node,
+    String action,
+    Set<String> output, {
+    required bool actionScoped,
+  }) {
+    if (node is List) {
+      for (final item in node) {
+        _collectActionRequired(item, action, output, actionScoped: actionScoped);
+      }
+      return;
+    }
+    if (node is! Map) return;
+    final map = node.map((key, value) => MapEntry(key.toString(), value));
+    var scoped = actionScoped || map['action']?.toString() == action;
+    final properties = map['properties'];
+    if (properties is Map) {
+      final actionSchema = properties['action'];
+      if (actionSchema is Map) {
+        final constant = actionSchema['const']?.toString();
+        final values = actionSchema['enum'];
+        if (constant == action ||
+            (values is List && values.map((e) => e.toString()).contains(action))) {
+          scoped = true;
+        }
+      }
+      if (scoped && properties['params'] is Map) {
+        final required = (properties['params'] as Map)['required'];
+        if (required is List) {
+          output.addAll(required.map((item) => item.toString()));
+        }
+      }
+    }
+    if (map[action] case final actionNode?) {
+      _collectActionRequired(actionNode, action, output, actionScoped: true);
+    }
+    for (final entry in map.entries) {
+      if (entry.key != action) {
+        _collectActionRequired(entry.value, action, output, actionScoped: scoped);
+      }
+    }
+  }
+
+  static Set<String> _requiredFromExplicitText(String source, String action) {
+    if (source.trim().isEmpty) return const <String>{};
+    final escaped = RegExp.escape(action);
+    final result = <String>{};
+    final patterns = <RegExp>[
+      RegExp(
+        '$escaped[^\\n]{0,240}(?:required|必填)[：: ]+([A-Za-z0-9_,./\\s-]{1,160})',
+        caseSensitive: false,
+      ),
+      RegExp(
+        '$escaped[^\\n]{0,120}params[^\\n]{0,80}(?:required|必填)[：: ]*([A-Za-z0-9_,./\\s-]{1,160})',
+        caseSensitive: false,
+      ),
+    ];
+    for (final pattern in patterns) {
+      for (final match in pattern.allMatches(source)) {
+        result.addAll(RegExp(r'[A-Za-z_][A-Za-z0-9_]{1,63}')
+            .allMatches(match.group(1) ?? '')
+            .map((item) => item.group(0)!)
+            .where((item) => !const <String>{'and', 'or', 'true', 'false'}
+                .contains(item.toLowerCase())));
+      }
+    }
+    for (final line in source.split('\n')) {
+      if (!RegExp(
+        '(^|[^A-Za-z0-9_.:-])$escaped([^A-Za-z0-9_.:-]|\$)',
+        caseSensitive: false,
+      ).hasMatch(line)) {
+        continue;
+      }
+      result.addAll(
+        RegExp(
+          r'([A-Za-z_][A-Za-z0-9_]{1,63})\s*(?:为|是)?\s*(?:必填|required)',
+          caseSensitive: false,
+        )
+            .allMatches(line)
+            .map((item) => item.group(1)!)
+            .where((item) => !const <String>{
+                  'action',
+                  'params',
+                  'required',
+                }.contains(item.toLowerCase())),
+      );
+    }
+    return result;
+  }
+
+  static bool _isMissing(Object? value) =>
+      value == null ||
+      (value is String && value.trim().isEmpty) ||
+      (value is Map && value.isEmpty) ||
+      (value is List && value.isEmpty);
 }
 
 /// Merely displaying the APK chat page is not active foreground work. A real

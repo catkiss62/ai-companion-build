@@ -1,7 +1,9 @@
+import 'dart:async';
 import 'dart:convert';
 
 import 'package:ai_companion_localfirst/core/autonomy/layered_public_web_provider.dart';
 import 'package:ai_companion_localfirst/core/autonomy/wikimedia_public_web_provider.dart';
+import 'package:ai_companion_localfirst/core/ai/generation_cancellation.dart';
 import 'package:ai_companion_localfirst/core/models/public_web_candidate.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
@@ -285,6 +287,32 @@ https://example.com/b
     expect(result.candidates.single.keyPoints, <String>['要点一']);
     expect(result.candidates.single.searchQuery, '近期海洋研究');
   });
+
+  test('Stop cancels an in-flight public-web request immediately', () async {
+    final entered = Completer<void>();
+    final blocked = Completer<http.Response>();
+    final client = MockClient((request) {
+      if (!entered.isCompleted) entered.complete();
+      return blocked.future;
+    });
+    final token = GenerationCancellationToken();
+    final pending = LayeredPublicWebProvider(client: client).discover(
+      query: '正在阻塞的公开搜索',
+      driveKey: 'curiosity',
+      intentAction: 'answer_user_with_tool',
+      interestKey: 'user_turn',
+      now: now,
+      cancellationToken: token,
+    );
+
+    await entered.future;
+    token.cancel();
+
+    await expectLater(
+      pending,
+      throwsA(isA<GenerationCancelledByUserException>()),
+    );
+  });
 }
 
 class _StaticImageFallback implements PublicWebProvider {
@@ -302,6 +330,7 @@ class _StaticImageFallback implements PublicWebProvider {
     required String intentAction,
     required String interestKey,
     required DateTime now,
+    GenerationCancellationToken? cancellationToken,
   }) async =>
       PublicWebProviderResult(
         provider: providerKey,

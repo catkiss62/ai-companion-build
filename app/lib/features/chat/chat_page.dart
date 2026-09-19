@@ -1071,7 +1071,12 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
           ),
         ) ??
         false;
-    if (approved) await controller.regenerateIncompleteReply();
+    if (approved) {
+      _followLatest = true;
+      _anchorTimelineTail();
+      await controller.regenerateIncompleteReply();
+      _anchorTimelineTail();
+    }
   }
 
   Future<void> _confirmRegenerateLatestReply(ChatMessage message) async {
@@ -1093,7 +1098,12 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
           ),
         ) ??
         false;
-    if (approved) await controller.regenerateLatestReply(message);
+    if (approved) {
+      _followLatest = true;
+      _anchorTimelineTail();
+      await controller.regenerateLatestReply(message);
+      _anchorTimelineTail();
+    }
   }
 
   Future<void> _confirmAcceptIncompleteReply() async {

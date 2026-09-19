@@ -30,6 +30,9 @@ class PublicWebCandidateDraft {
     this.selfRelevanceScore = 0,
     this.motiveKind = '',
     this.whyCared = '',
+    this.keyPoints = const <String>[],
+    this.uncertainties = const <String>[],
+    this.readAt,
     this.subjectiveSeedHash = '',
     this.appraisalReason = '',
     this.contentSha256 = '',
@@ -149,6 +152,9 @@ class PublicWebContextItem {
     required this.safetyState,
     this.motiveKind = '',
     this.whyCared = '',
+    this.keyPoints = const <String>[],
+    this.uncertainties = const <String>[],
+    this.readAt,
   });
 
   final String id;
@@ -161,6 +167,9 @@ class PublicWebContextItem {
   final String safetyState;
   final String motiveKind;
   final String whyCared;
+  final List<String> keyPoints;
+  final List<String> uncertainties;
+  final DateTime? readAt;
 }
 
 class PublicWebProviderResult {

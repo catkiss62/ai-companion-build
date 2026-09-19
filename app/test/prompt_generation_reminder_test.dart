@@ -16,6 +16,7 @@ void main() {
     expect(reminder, contains('<emotion>标签</emotion>'));
     expect(reminder, contains('没有清晰情绪色彩时用“正常”'));
     expect(reminder, contains('“平静”只用于明确安静'));
+    expect(reminder, contains('普通活泼、游戏操作和轻松聊天不自动算调皮'));
     expect(reminder, isNot(contains('普通聊天只写真正说出口的话')));
     expect(reminder, isNot(contains('不要机械复述、逐点覆盖、总结升华')));
     expect(reminder, isNot(contains('顿了顿，又小小声补了一句。')));

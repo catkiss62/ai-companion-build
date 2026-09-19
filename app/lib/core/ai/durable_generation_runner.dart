@@ -325,7 +325,7 @@ class DurableGenerationRunner {
       var agentLoopBudgetExhausted = false;
       var agentLoopInvalidPlan = false;
       var cedarNoCallRetryUsed = false;
-      var announcedEmotionKey = '';
+      var visibleEmotionCueSent = false;
       var streamedToolPreamble = '';
       var upstreamReasoningDeltaSeen = false;
       var reasoningDeltaForwardedToSurface = false;
@@ -421,6 +421,14 @@ class DurableGenerationRunner {
           (cedarExplicitRequest || cedarSessionActive) &&
           cedarConfigured;
       final cedarPromptSession = cedarSession;
+      final cedarTerminalGameId =
+          cedarPromptSession?.hasPendingTerminalDelivery == true
+              ? cedarPromptSession!.gameId
+              : '';
+      final cedarTerminalKey =
+          cedarPromptSession?.hasPendingTerminalDelivery == true
+              ? cedarPromptSession!.pendingTerminalKey
+              : '';
       final promptBuild = await PromptBuilder(db).buildChatPrompt(
         latestUserText: user.content,
         recent: recent,
@@ -472,6 +480,7 @@ class DurableGenerationRunner {
         bool emitDeltas = true,
         bool publishReasoning = true,
         List<Map<String, Object?>> tools = const <Map<String, Object?>>[],
+        String usageLane = 'user_chat',
       }) async {
         var reasoning = '';
         var content = '';
@@ -491,6 +500,8 @@ class DurableGenerationRunner {
           thinking: job.thinking,
           tools: tools,
           cancellationToken: effectiveCancellation,
+          usageLane: usageLane,
+          usageExecutionId: job.id,
         )) {
           effectiveCancellation.throwIfCancelled();
           if (!await db.brainWorkAllowed()) {
@@ -536,15 +547,6 @@ class DurableGenerationRunner {
           }
           if (delta.content.isNotEmpty) {
             content += delta.content;
-            if (announcedEmotionKey.isEmpty) {
-              final partialEnvelope = EmotionEnvelope.parse(content);
-              final emotionKey =
-                  EmotionCatalog.keyForLabel(partialEnvelope.rawTag);
-              if (partialEnvelope.found && emotionKey.isNotEmpty) {
-                announcedEmotionKey = emotionKey;
-                onEmotionCue?.call(emotionKey);
-              }
-            }
             if (!publishedAnswering) {
               publishedAnswering = true;
               unawaited(_publishToolRuntime(
@@ -572,6 +574,15 @@ class DurableGenerationRunner {
                 ? visibleContent.substring(emittedVisibleContent.length)
                 : visibleContent;
             emittedVisibleContent = visibleContent;
+            if (!visibleEmotionCueSent && visibleDelta.isNotEmpty) {
+              final partialEnvelope = EmotionEnvelope.parse(content);
+              final visibleEmotionKey =
+                  EmotionCatalog.keyForLabel(partialEnvelope.rawTag);
+              if (visibleEmotionKey.isNotEmpty) {
+                visibleEmotionCueSent = true;
+                onEmotionCue?.call(visibleEmotionKey);
+              }
+            }
             // Publish provider reasoning as it arrives so both chat surfaces
             // can expand the reasoning panel immediately. Prompt language
             // guidance still prefers Chinese without rewriting model thought.
@@ -666,6 +677,7 @@ class DurableGenerationRunner {
             emitDeltas: false,
             publishReasoning: !finalProvider.isGeminiRelay,
             tools: tools,
+            usageLane: 'agent_tool_planning',
           );
 
       Future<({
@@ -682,6 +694,7 @@ class DurableGenerationRunner {
             requestApiKey: apiKey,
             requestEndpoint: endpoint,
             emitDeltas: false,
+            usageLane: 'final_reply',
           );
           if (result.content.isNotEmpty &&
               (FinalReplyFailurePolicy.isIncompleteFinishReason(
@@ -734,6 +747,7 @@ class DurableGenerationRunner {
                 // Do not leak reasoning from a failed paid attempt. Publish the
                 // single accepted summary only after the response is complete.
                 publishReasoning: false,
+                usageLane: 'final_reply',
               );
               if (result.content.isEmpty) {
                 throw const EmptyFinalReplyException();
@@ -1512,6 +1526,17 @@ $finalGenerationReminder
           // Usage history is only a repetition guard. The reply is already
           // durably committed and must not be reported as failed if this
           // optional local setting cannot be updated.
+        }
+      }
+      if (cedarTerminalGameId.isNotEmpty && cedarTerminalKey.isNotEmpty) {
+        try {
+          await cedarActivityStore.markTerminalDelivered(
+            gameId: cedarTerminalGameId,
+            terminalKey: cedarTerminalKey,
+          );
+        } catch (_) {
+          // The visible reply is already durable. A failed acknowledgement
+          // stays pending and is safely retried on the next turn.
         }
       }
       for (final usageKey in preparedAgentMediaUsageKeys.toSet()) {

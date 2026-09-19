@@ -58,16 +58,38 @@ class DeepSeekDelta {
   final List<DeepSeekToolCallDelta> toolCallDeltas;
 }
 
+class DeepSeekUsageEvent {
+  const DeepSeekUsageEvent({
+    required this.lane,
+    required this.executionId,
+    required this.inputTokens,
+    required this.outputTokens,
+    required this.cacheHitTokens,
+    required this.cacheMissTokens,
+    required this.streaming,
+  });
+
+  final String lane;
+  final String executionId;
+  final int inputTokens;
+  final int outputTokens;
+  final int cacheHitTokens;
+  final int cacheMissTokens;
+  final bool streaming;
+}
+
 class DeepSeekClient {
   DeepSeekClient({
     http.Client? client,
     http.Client Function()? streamClientFactory,
     http.Client Function()? jsonClientFactory,
     Future<bool> Function()? abortWhen,
+    Future<void> Function(DeepSeekUsageEvent event)? onUsage,
   })  : _client = client ?? http.Client(),
         _streamClientFactory = streamClientFactory ?? http.Client.new,
         _jsonClientFactory = jsonClientFactory ?? http.Client.new,
-        _abortWhen = abortWhen;
+        _abortWhen = abortWhen,
+        _onUsage = onUsage;
 
   static const String defaultEndpoint = 'https://api.deepseek.com/chat/completions';
 
@@ -75,6 +97,7 @@ class DeepSeekClient {
   final http.Client Function() _streamClientFactory;
   final http.Client Function() _jsonClientFactory;
   final Future<bool> Function()? _abortWhen;
+  final Future<void> Function(DeepSeekUsageEvent event)? _onUsage;
   final Set<http.Client> _streamClients = <http.Client>{};
 
   Stream<DeepSeekDelta> streamChat({
@@ -89,6 +112,8 @@ class DeepSeekClient {
     String? toolChoice,
     GenerationCancellationToken? cancellationToken,
     Duration requestTimeout = const Duration(seconds: 120),
+    String usageLane = 'unclassified',
+    String usageExecutionId = '',
   }) async* {
     final provider = ChatApiProvider.fromEndpoint(endpoint);
     final request = http.Request('POST', Uri.parse(endpoint))
@@ -108,6 +133,12 @@ class DeepSeekClient {
         if (tools.isNotEmpty) 'tools': tools,
         if (tools.isNotEmpty) 'tool_choice': toolChoice ?? 'auto',
         'stream': true,
+        // DeepSeek documents this OpenAI-compatible accounting option. The
+        // third-party Gemini relay is kept byte-for-byte compatible with its
+        // established request shape; if it volunteers usage we still record
+        // it, but diagnostics must never make the final reply fail.
+        if (!provider.isGeminiRelay)
+          'stream_options': const <String, Object?>{'include_usage': true},
       });
 
     // One client per stream lets a user cancellation close only this model
@@ -172,6 +203,19 @@ class DeepSeekClient {
           break;
         }
         final json = jsonDecode(payload) as Map<String, dynamic>;
+        final usage = _usageEvent(
+          json['usage'],
+          lane: usageLane,
+          executionId: usageExecutionId,
+          streaming: true,
+        );
+        if (usage != null) {
+          try {
+            await _onUsage?.call(usage);
+          } catch (_) {
+            // Accounting is diagnostic-only and must never fail a reply.
+          }
+        }
         final choices = json['choices'] as List?;
         if (choices == null || choices.isEmpty) continue;
         final first = choices.first as Map<String, dynamic>;
@@ -232,6 +276,8 @@ class DeepSeekClient {
     int maxTokens = 1400,
     GenerationCancellationToken? cancellationToken,
     Duration requestTimeout = const Duration(seconds: 120),
+    String usageLane = 'unclassified',
+    String usageExecutionId = '',
   }) async {
     final provider = ChatApiProvider.fromEndpoint(endpoint);
     final abortWhen = _abortWhen;
@@ -308,6 +354,19 @@ class DeepSeekClient {
         throw const MalformedJsonCompletionException();
       }
       final choices = root['choices'];
+      final usage = _usageEvent(
+        root['usage'],
+        lane: usageLane,
+        executionId: usageExecutionId,
+        streaming: false,
+      );
+      if (usage != null) {
+        try {
+          await _onUsage?.call(usage);
+        } catch (_) {
+          // Accounting is diagnostic-only and must never fail a reply.
+        }
+      }
       if (choices is! List || choices.isEmpty) {
         throw const MalformedJsonCompletionException();
       }
@@ -357,6 +416,30 @@ class DeepSeekClient {
       // Return raw body below.
     }
     return body.length > 500 ? body.substring(0, 500) : body;
+  }
+
+  static DeepSeekUsageEvent? _usageEvent(
+    Object? raw, {
+    required String lane,
+    required String executionId,
+    required bool streaming,
+  }) {
+    if (raw is! Map) return null;
+    int value(String key) => (raw[key] as num?)?.toInt() ?? 0;
+    final prompt = value('prompt_tokens');
+    final completion = value('completion_tokens');
+    final hit = value('prompt_cache_hit_tokens');
+    final miss = value('prompt_cache_miss_tokens');
+    if (prompt == 0 && completion == 0 && hit == 0 && miss == 0) return null;
+    return DeepSeekUsageEvent(
+      lane: lane.trim().isEmpty ? 'unclassified' : lane.trim(),
+      executionId: executionId.trim(),
+      inputTokens: prompt,
+      outputTokens: completion,
+      cacheHitTokens: hit,
+      cacheMissTokens: miss,
+      streaming: streaming,
+    );
   }
 
   void close() {

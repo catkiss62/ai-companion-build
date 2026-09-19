@@ -110,17 +110,27 @@ class CompanionAlbumDiscoveryEngine {
     }
 
     final day = SimulatedPhonePolicy.localDay(instant);
-    if ((await db.getSetting('companion_album_fisharchive_attempt_day')) ==
-        day) {
+    final attemptDay =
+        await db.getSetting('companion_album_fisharchive_attempt_day');
+    final attempts = attemptDay == day
+        ? int.tryParse(
+                await db.getSetting('companion_album_fisharchive_attempt_count') ??
+                    '') ??
+            0
+        : 0;
+    if (attempts >= 3) {
       return 'no_due_source';
     }
-    await db.setSetting('companion_album_fisharchive_attempt_day', day);
+    await db.setSettingsAtomically(<String, String>{
+      'companion_album_fisharchive_attempt_day': day,
+      'companion_album_fisharchive_attempt_count': '${attempts + 1}',
+    });
     final fish = await _fishArchiveCandidate(day);
     if (fish == null) return 'fisharchive_no_result';
     return _process(
       sourceKind: 'fisharchive',
       sourceId: fish.id,
-      sourceUrl: fish.previewUrl,
+      sourceUrl: fish.imageUrl,
       sourceDomain: 'fisharchive.pages.dev',
       title: fish.title,
       visionContext: _boundedVisionContext(title: fish.title),
@@ -410,15 +420,22 @@ class CompanionAlbumDiscoveryEngine {
       for (var offset = 0; offset < decoded.length && offset < 24; offset++) {
         final raw = decoded[(start + offset) % decoded.length];
         if (raw is! Map) continue;
-        final preview = raw['preview']?.toString() ?? '';
-        if (preview.isEmpty) continue;
-        final url = Uri.parse(_fishManifest).resolve(preview).toString();
+        // The historical CDN preview route has repeatedly returned bytes that
+        // are not the advertised WebP on real devices. Use a manifest-declared
+        // original with a conservative decoder format instead; public-web
+        // images remain the preferred source and this is only the fallback.
+        final original = raw['original']?.toString().trim() ?? '';
+        if (!RegExp(r'\.(?:png|jpe?g)$', caseSensitive: false)
+            .hasMatch(original)) {
+          continue;
+        }
+        final url = Uri.parse(_fishManifest).resolve(original).toString();
         final id = sha256.convert(utf8.encode(url)).toString();
         if (await db.companionAlbumSourceHandled('fisharchive', id)) continue;
         final filename = raw['filename']?.toString().trim() ?? '';
         return _FishCandidate(
           id: id,
-          previewUrl: url,
+          imageUrl: url,
           title: filename.isEmpty ? '鲸鱼娘同人图片' : filename,
         );
       }
@@ -438,11 +455,11 @@ class CompanionAlbumDiscoveryEngine {
 class _FishCandidate {
   const _FishCandidate({
     required this.id,
-    required this.previewUrl,
+    required this.imageUrl,
     required this.title,
   });
 
   final String id;
-  final String previewUrl;
+  final String imageUrl;
   final String title;
 }

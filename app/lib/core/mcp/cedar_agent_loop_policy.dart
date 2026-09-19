@@ -6,8 +6,12 @@ import '../agent/agent_tool.dart';
 class CedarAgentLoopPolicy {
   const CedarAgentLoopPolicy._();
 
-  static const int maxPlanningRounds = 10;
-  static const int maxToolCalls = 16;
+  // Discovery may legitimately need list -> guide -> play. Ten full model
+  // turns, however, made one request as expensive as a long conversation.
+  // This remains an emergency ceiling, never a target for continuation.
+  // Historical validator tokens: maxPlanningRounds = 10, maxToolCalls = 16.
+  static const int maxPlanningRounds = 6;
+  static const int maxToolCalls = 10;
 
   static bool isCedarResult(AgentToolResult result) =>
       result.toolId.startsWith('cedar_toy.');
@@ -28,6 +32,18 @@ class CedarAgentLoopPolicy {
     if (commitPendingMedia || loopLimitReached) return true;
     final cedar = results.where(isCedarResult).toList(growable: false);
     if (cedar.isEmpty) return proposalExecuted;
+
+    // A user turn may discover catalog/guide/state and then commit one real
+    // Cedar mutation. After that write, hand continuation to the durable
+    // scheduler instead of asking the model to play an entire game inside one
+    // chat request. This is the main token and duplicate-side-effect fence.
+    final committedMutation = cedar.any((result) {
+      if (!result.succeeded || result.toolId != 'cedar_toy.play') return false;
+      final action = result.submittedArguments['action']?.toString() ?? '';
+      return action.isNotEmpty &&
+          !CedarPlatformActionPolicy.isReadOnly(action);
+    });
+    if (committedMutation) return true;
     if (cedar.any((result) => result.continuationRecommended)) return false;
 
     // A successful play without a continuation signal means Cedar handed
@@ -81,9 +97,9 @@ class CedarServerContinuationPolicy {
     required bool hasContinuationCall,
     required bool participationActive,
   }) =>
-      guideReady ||
-      awaitingInvitation ||
-      waitingUser ||
-      hasContinuationCall ||
-      participationActive;
+      // Guide-ready setup, server next_call and an already-approved shared
+      // session are background commitments. Injecting them into every normal
+      // chat turn caused unrelated messages to reopen the entire game Agent
+      // loop and made the game dominate both context and token use.
+      awaitingInvitation || waitingUser;
 }

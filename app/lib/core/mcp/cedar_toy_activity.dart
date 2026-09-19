@@ -170,6 +170,8 @@ class CedarGameSession {
     this.seenRoomMessageKeys = const <String>[],
     this.ownRoomAliases = const <String>[],
     this.adviceNotes = const <String>[],
+    this.pendingTerminalKey = '',
+    this.pendingTerminalSummary = '',
   });
 
   final String id;
@@ -195,6 +197,8 @@ class CedarGameSession {
   final List<String> seenRoomMessageKeys;
   final List<String> ownRoomAliases;
   final List<String> adviceNotes;
+  final String pendingTerminalKey;
+  final String pendingTerminalSummary;
 
   bool get continuable => phase.continuable && guideComplete;
   bool get companionCanContinue =>
@@ -207,6 +211,9 @@ class CedarGameSession {
           (nextActor == 'wait' && nextActionAt != null));
   bool get hasContinuationCall => continuationAction.trim().isNotEmpty;
   bool get hasPendingRoomMessage => pendingRoomMessage.trim().isNotEmpty;
+  bool get hasPendingTerminalDelivery =>
+      pendingTerminalKey.trim().isNotEmpty &&
+      pendingTerminalSummary.trim().isNotEmpty;
   /// Cedar can legitimately ask the client to wait, but a wait without an
   /// exact follow-up call or a wake-up time has no executable route. Keeping
   /// such a session active forever blocks both this game and every other game.
@@ -253,6 +260,9 @@ class CedarGameSession {
     List<String>? seenRoomMessageKeys,
     List<String>? ownRoomAliases,
     List<String>? adviceNotes,
+    String? pendingTerminalKey,
+    String? pendingTerminalSummary,
+    bool clearPendingTerminal = false,
   }) =>
       CedarGameSession(
         id: id,
@@ -287,6 +297,12 @@ class CedarGameSession {
             seenRoomMessageKeys ?? this.seenRoomMessageKeys,
         ownRoomAliases: ownRoomAliases ?? this.ownRoomAliases,
         adviceNotes: adviceNotes ?? this.adviceNotes,
+        pendingTerminalKey: clearPendingTerminal
+            ? ''
+            : pendingTerminalKey ?? this.pendingTerminalKey,
+        pendingTerminalSummary: clearPendingTerminal
+            ? ''
+            : pendingTerminalSummary ?? this.pendingTerminalSummary,
       );
 
   Map<String, Object?> toJson() => <String, Object?>{
@@ -312,6 +328,8 @@ class CedarGameSession {
         'seen_room_message_keys': seenRoomMessageKeys,
         'own_room_aliases': ownRoomAliases,
         'advice_notes': adviceNotes,
+        'pending_terminal_key': pendingTerminalKey,
+        'pending_terminal_summary': pendingTerminalSummary,
         'events': events.map((item) => item.toJson()).toList(growable: false),
       };
 
@@ -356,6 +374,9 @@ class CedarGameSession {
               .take(CedarGameAdvicePolicy.maxNotes)
               .toList(growable: false) ??
           const <String>[],
+      pendingTerminalKey: json['pending_terminal_key']?.toString() ?? '',
+      pendingTerminalSummary:
+          json['pending_terminal_summary']?.toString() ?? '',
       events: (json['events'] as List?)
               ?.whereType<Map>()
               .map((item) => CedarGameEvent.fromJson(item))
@@ -505,7 +526,9 @@ class CedarToyActivityState {
   CedarGameSession? get activeSession => sessions[activeGameId];
   bool get hasUserTurnContinuation {
     final session = activeSession;
-    if (session == null || !session.continuable) return false;
+    if (session == null) return false;
+    if (session.hasPendingTerminalDelivery) return true;
+    if (!session.continuable) return false;
     return CedarServerContinuationPolicy.needsUserTurnTools(
       guideReady: session.phase == CedarActivityPhase.guideReady,
       awaitingInvitation:
@@ -700,6 +723,29 @@ class CedarToyActivityStore {
     final queue = await pendingDirectShares();
     queue.removeWhere((item) => item == thoughtId);
     await db.setSetting(pendingDirectSharesSettingKey, jsonEncode(queue));
+  }
+
+  /// Clears a terminal handoff only after the corresponding visible reply was
+  /// durably committed. The key fence makes retries and process recovery
+  /// idempotent without losing a newer terminal event.
+  Future<bool> markTerminalDelivered({
+    required String gameId,
+    required String terminalKey,
+  }) async {
+    final key = terminalKey.trim();
+    if (gameId.trim().isEmpty || key.isEmpty) return false;
+    final state = await loadState();
+    final session = state.sessions[gameId];
+    if (session == null || session.pendingTerminalKey != key) return false;
+    final now = DateTime.now();
+    return _saveState(state.copyWith(
+      sessions: Map<String, CedarGameSession>.from(state.sessions)
+        ..[gameId] = session.copyWith(
+          clearPendingTerminal: true,
+          updatedAt: now,
+        ),
+      updatedAt: now,
+    ));
   }
 
   Future<CedarToyActivityState> loadState() async {
@@ -1289,6 +1335,12 @@ class CedarToyActivityStore {
             effectiveInvitationApproved
         ? realtimeContinuationGap
         : viewingPace.soloStepGap;
+    final terminalSummary = !outcome.isError && normalizedActor == 'finished'
+        ? _bounded(
+            'game=${existing.displayName}; status=finished; outcome=${fullText.isEmpty ? 'Cedar 已确认本局结束。' : fullText}',
+            maxEventSummaryChars,
+          )
+        : '';
     final next = existing.copyWith(
       mode: mode,
       // An explicit MCP error means this action did not succeed; it is a
@@ -1331,6 +1383,9 @@ class CedarToyActivityStore {
           : roomBatch.ownAliases.skip(roomBatch.ownAliases.length - 24).toList(
                 growable: false,
               ),
+      pendingTerminalKey:
+          terminalSummary.isEmpty ? null : 'terminal:${event.id}',
+      pendingTerminalSummary: terminalSummary.isEmpty ? null : terminalSummary,
       events: _append(existing.events, event),
     );
     // Enforce the invariant at the write boundary as well as when recovering
@@ -1648,6 +1703,16 @@ class CedarToyActivityStore {
       latestPlatformEvent = '${event.action}:${event.summary}';
       break;
     }
+    final recentEpisode = session.events
+        .where((event) => const <String>{'outcome', 'failure'}.contains(event.kind))
+        .toList(growable: false)
+        .reversed
+        .take(4)
+        .toList(growable: false)
+        .reversed
+        .map((event) =>
+            '${event.action.isEmpty ? 'event' : event.action}:${_bounded(event.summary, 420)}')
+        .join(' | ');
     return '''
 【CEDAR_ACTIVITY_SESSION · REAL LOCAL STATE】
 game=${session.gameId}
@@ -1658,6 +1723,9 @@ invitation_approved=${session.invitationApproved}
 continuation_action=${session.continuationAction}
 continuation_params=${session.continuationParamsJson}
 pending_room_message=${session.pendingRoomMessage}
+terminal_delivery_pending=${session.hasPendingTerminalDelivery}
+terminal_summary=${session.pendingTerminalSummary}
+recent_game_episode=$recentEpisode
 recent_user_game_advice=${session.adviceNotes.join(' | ')}
 latest_platform_event=$latestPlatformEvent
 last_action=${session.lastAction}
@@ -1701,6 +1769,8 @@ ${CedarPlayerProtocolContract.actionSignaturesFor(session.gameId)}
         'continuationIsLongPoll':
             active != null && active.continuationWaitScope.trim().isNotEmpty,
         'pendingRoomMessage': active?.hasPendingRoomMessage ?? false,
+        'pendingTerminalDelivery':
+            active?.hasPendingTerminalDelivery ?? false,
         'seenRoomMessageCount': active?.seenRoomMessageKeys.length ?? 0,
         'ownAliasCount': active?.ownRoomAliases.length ?? 0,
         'roomMessageBodiesIncluded': false,
@@ -1721,6 +1791,39 @@ ${CedarPlayerProtocolContract.actionSignaturesFor(session.gameId)}
     for (final entry in state.sessions.entries) {
       final session = entry.value;
       final actor = McpTurnStateResolver.resolve(session.lastOutcome);
+      if (session.mode.supportsSharedParticipation &&
+          session.invitationApproved &&
+          session.continuable &&
+          session.phase != CedarActivityPhase.paused &&
+          session.lastAction == 'rooms' &&
+          !session.hasContinuationCall) {
+        final roomId = CedarExecutableCallPolicy.uniqueTransportValue(
+          key: 'room_id',
+          structuredContent: null,
+          text: session.lastOutcome,
+        );
+        if (roomId.isNotEmpty) {
+          // A restored room listing is not proof that it is still the human's
+          // turn. Hydrate the sole room through a read-only state call before
+          // showing or acting on a stale local actor label.
+          changed = true;
+          sessions[entry.key] = session.copyWith(
+            phase: CedarActivityPhase.waitingRemote,
+            nextActor: 'wait',
+            waitingReason: '正在同步 Cedar 真实房间状态',
+            continuationAction: 'state',
+            continuationParamsJson: jsonEncode(<String, Object?>{
+              'room_id': roomId,
+              'full_state': true,
+              'wait': false,
+            }),
+            continuationWaitScope: 'restore_room_state_once',
+            nextActionAt: now,
+            updatedAt: now,
+          );
+          continue;
+        }
+      }
       if (session.mode == CedarParticipationMode.solo &&
           session.continuable &&
           session.phase != CedarActivityPhase.paused &&

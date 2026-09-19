@@ -134,6 +134,88 @@ void main() {
 
     tearDown(() => db.closeForTesting());
 
+    test('terminal outcome remains pending until the visible reply commits',
+        () async {
+      final store = CedarToyActivityStore(db);
+      await store.recordGuide(
+        gameId: 'duel',
+        gameTitle: '双弈',
+        guide: 'actions: new rooms state move',
+      );
+      final finished = await store.recordPlay(
+        gameId: 'duel',
+        action: 'move',
+        outcome: _outcome(<String, Object?>{
+          'ok': true,
+          'status': 'finished',
+          'winner': 'ai-1',
+        }),
+        mode: CedarParticipationMode.multiplayer,
+        nextActor: 'finished',
+        shareLevel: 'required',
+        invitationApproved: true,
+      );
+
+      expect(finished.phase, CedarActivityPhase.completed);
+      expect(finished.hasPendingTerminalDelivery, isTrue);
+      expect((await store.loadState()).hasUserTurnContinuation, isTrue);
+      expect(
+        await store.markTerminalDelivered(
+          gameId: 'duel',
+          terminalKey: 'wrong-key',
+        ),
+        isFalse,
+      );
+      expect(
+        await store.markTerminalDelivered(
+          gameId: 'duel',
+          terminalKey: finished.pendingTerminalKey,
+        ),
+        isTrue,
+      );
+      expect((await store.load())!.hasPendingTerminalDelivery, isFalse);
+    });
+
+    test('a restored unique room list hydrates before claiming user turn',
+        () async {
+      final store = CedarToyActivityStore(db);
+      final now = DateTime.now();
+      final stale = CedarGameSession(
+        id: 'duel-restored',
+        gameId: 'duel',
+        gameTitle: '双弈',
+        guide: 'actions: rooms state move',
+        guideComplete: true,
+        mode: CedarParticipationMode.multiplayer,
+        phase: CedarActivityPhase.waitingUser,
+        lastAction: 'rooms',
+        lastOutcome: jsonEncode(<String, Object?>{
+          'rooms': <Object?>[
+            <String, Object?>{'room_id': 'ONLYROOM'},
+          ],
+        }),
+        nextActor: 'user',
+        invitationApproved: true,
+        updatedAt: now.subtract(const Duration(hours: 2)),
+      );
+      await db.setSetting(
+        CedarToyActivityStore.stateSettingKey,
+        jsonEncode(CedarToyActivityState(
+          activeGameId: 'duel',
+          sessions: <String, CedarGameSession>{'duel': stale},
+          updatedAt: now,
+        ).toJson()),
+      );
+
+      final hydrated = (await store.loadState()).activeSession!;
+
+      expect(hydrated.nextActor, 'wait');
+      expect(hydrated.phase, CedarActivityPhase.waitingRemote);
+      expect(hydrated.continuationAction, 'state');
+      expect(hydrated.continuationParamsJson, contains('ONLYROOM'));
+      expect(hydrated.waitingReason, contains('同步'));
+    });
+
     test('new -> own turn -> move -> wait -> remote move -> own move',
         () async {
       final store = CedarToyActivityStore(db);

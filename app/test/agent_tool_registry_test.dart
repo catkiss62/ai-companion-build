@@ -71,11 +71,13 @@ void main() {
     expect(AgentToolRegistry.videoUnderstanding.executable, isFalse);
   });
 
-  test('autonomous web uses the same registry definition', () {
-    expect(
-      AgentToolRegistry.definitionForAutonomous(AutonomousToolKind.publicWeb),
-      same(AgentToolRegistry.publicWebSearch),
-    );
+  test('autonomous web has a scheduler-only registered capability', () {
+    final publicWeb =
+        AgentToolRegistry.definitionForAutonomous(AutonomousToolKind.publicWeb);
+    expect(publicWeb, same(AgentToolRegistry.publicWebDiscovery));
+    expect(publicWeb.executable, isTrue);
+    expect(publicWeb.userTurnAvailable, isFalse);
+    expect(publicWeb.autonomousAvailable, isTrue);
     final screen = AgentToolRegistry.definitionForAutonomous(
       AutonomousToolKind.screenObservation,
     );

@@ -1,3 +1,4 @@
+import '../ai/deepseek_client.dart';
 import '../database/app_database.dart';
 import '../diagnostics/provider_health.dart';
 import '../desire/desire_engine.dart';
@@ -40,12 +41,14 @@ class PublicWebShareCoordinator {
     required this.desire,
     SecureConfig? secureConfig,
     this.refreshBeforeShare = false,
+    this.ai,
   }) : secureConfig = secureConfig ?? SecureConfig.instance;
 
   final AppDatabase db;
   final DesireEngine desire;
   final SecureConfig secureConfig;
   final bool refreshBeforeShare;
+  final DeepSeekClient? ai;
 
   Future<PublicWebShareStageResult> stageNextCandidate({
     DateTime? now,
@@ -193,6 +196,7 @@ class PublicWebShareCoordinator {
     final appraiser = DeepSeekPublicWebAppraiser(
       apiKey: await secureConfig.readApiKey() ?? '',
       endpoint: await secureConfig.readEndpoint(),
+      client: ai,
     );
     final appraisalStarted = DateTime.now();
     final appraised = await appraiser.appraise(

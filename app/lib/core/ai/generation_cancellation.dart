@@ -19,6 +19,23 @@ class GenerationCancellationToken {
   }
 }
 
+/// Lets a multi-stage provider stop awaiting an in-flight operation even when
+/// the underlying SDK does not expose an abort handle. Callers must still
+/// fence all durable writes after this returns by checking the same token.
+Future<T> cancelWithToken<T>(
+  Future<T> operation,
+  GenerationCancellationToken? token,
+) {
+  if (token == null) return operation;
+  token.throwIfCancelled();
+  return Future<T>.any(<Future<T>>[
+    operation,
+    token.whenCancelled.then<T>((_) {
+      throw const GenerationCancelledByUserException();
+    }),
+  ]);
+}
+
 class GenerationCancelledByUserException implements Exception {
   const GenerationCancelledByUserException();
 

@@ -162,7 +162,27 @@ class PerceptionEngine {
 
     final activityKey = interpretation.dominantActivityKey;
     final activityLabel = interpretation.dominantActivityLabel;
-    if (interpretation.dominantActivityMinutes >= 35) {
+    if (!screenInteractive) {
+      // A hard screen-off boundary invalidates "currently using" narratives.
+      // Keep the bounded Awareness history, but retire active curiosity
+      // Thoughts that would otherwise bridge the dark-screen interval.
+      final active = await db.activeThoughts(limit: 80);
+      for (final thought in active.where((item) =>
+          item.source == 'perception/awareness' &&
+          item.topicKey.startsWith('usage:'))) {
+        await db.updateThoughtLifecycle(
+          thought.id,
+          lifecycleState: 'dormant',
+          kind: 'flit',
+          strength: min(0.08, thought.strength),
+          residualStrength: min(0.10, thought.residualStrength),
+          clearOutboundMessage: true,
+          clearSnooze: true,
+          expectedUpdatedAt: thought.updatedAt,
+        );
+      }
+    }
+    if (screenInteractive && interpretation.dominantActivityMinutes >= 35) {
       final lastLongMillis = int.tryParse(
         await db.getSetting('last_long_usage_thought_at') ?? '',
       );

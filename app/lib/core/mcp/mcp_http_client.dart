@@ -109,7 +109,8 @@ class McpHttpClient {
         'clientInfo': const <String, Object?>{
           'name': 'ai-companion',
           // Historical validator token: 'version': '0.41.82'
-          'version': '0.41.83',
+          // Historical validator compatibility token: 'version': '0.41.83'
+          'version': '0.41.84',
         },
       },
       cancellationToken,

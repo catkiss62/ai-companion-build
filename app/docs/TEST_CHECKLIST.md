@@ -1,3 +1,16 @@
+# v0.41.84+228 Agent 循环与自主性闭环真机验收增量
+
+- Token/调用：保持一局单人游戏活跃后连续进行三次普通非游戏聊天；每条聊天最多一次前台 Cedar mutation，且普通聊天不应仅因 session active 注入整套游戏指南。后台每个 cadence 最多一次规划/一次推进；诊断 `modelUsage.byLane` 能分别看到 final reply、Agent planning、Cedar background/outcome 与 web lanes，不含正文或密钥。
+- 实时共玩：网页端落子并返回权威 `next_actor=companion` 后，小机同一 execution 及时回恰好一步；不得受单人疲劳 Gate 拖延，也不得在同一 tick 连续替双方下棋。
+- 参数与恢复：让模型第一次给出合法 action 但缺业务对象，确认网络写入前被阻止并只重规划一次；唯一 `rooms` 结果自动 `state(full_state=true,wait=false)`，多个房间绝不本地猜选。导入旧 `duel · 轮到你 · last_action=rooms` 状态时先显示/记录同步，权威 state 返回后才恢复 actor。
+- 终局：Cedar 返回 winner/result/finished 后，即使 session 已 completed，紧邻普通聊天仍知道胜负；可见消息成功持久化后 pending terminal 清除。杀进程后恢复可补发一次，但普通回复和主动消息不得重复交付同一个 terminal key。
+- 自主节奏：单人游戏可继续，但深夜、疲劳高或近 6 小时动作饱和时会让休息/联网/其他念头重新赢得机会；已承诺真人共玩不参加该竞争。不得靠降低钓鱼固定概率验收，因为当前没有固定逐游戏概率表。
+- 联网：`看看有什么好东西`、钓鱼语境的`看看氧气瓶`不触发公网；`上网看看氧气瓶资料`、明确 URL、今天的天气仍可搜索。网页搜索需读到来源 key points/uncertainties/read_at；点击 Stop 后很快取消，无需杀后台，迟到结果不写消息或候选。
+- 自主发现/相册：自主 public-web 不再出现 registry denied；候选经真实 search/read/appraisal 入库并可自然分享。相册 public-web 优先，FishArchive 备用只用 PNG/JPEG original，一个坏图不烧掉全天，最多三次有界尝试。
+- 主动联系：最后一条真实普通消息后不足 10 分钟不出站、不消耗候选/Thought/次数；第 8 分钟再次聊天后继续顺延到新的 10 分钟。窗口结束后新话题仍是新话题，不改写成棋局 followup。
+- 手机时间线：熄屏一小时后刚亮屏操作两分钟，只能判断刚拿起/本次亮屏两分钟；不能说连续使用一晚上。持续亮屏 40 分钟仍允许判断用了一阵，熄屏前活动可作为短时历史但必须明确“之前”。
+- 表达/UI：慢 Gemini 下情绪音效与可见正文提交同步，隐藏 `<emotion>` 先到时不提前播放；普通活泼/游戏操作不默认选“调皮”。确认刷新回复后保持锚定聊天底部。规则 05 新句与最新用户版“性格光谱”存在，后续用户编辑不被迁移覆盖。
+
 # v0.41.83+227 Cedar 原生 Agent 续接闭环真机验收增量
 
 1. 覆盖安装且不清数据，复用诊断中已有的双弈房间。诊断为 `active/multiplayer/nextActor=companion/lastAction=state` 时，不在 APK 再说“动一下”；后台必须使用与前台相同的原生工具调用解析链直接选择并提交合法 `move`。

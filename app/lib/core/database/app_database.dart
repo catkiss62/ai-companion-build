@@ -3917,6 +3917,7 @@ class AppDatabase {
       ...legacyEditableRuleLayerSha256V04155UserDefaults.entries,
       ...legacyEditableRuleLayerSha256V04165IntimacyCleanup.entries,
       ...legacyEditableRuleLayerSha256V04167ClimaxClarification.entries,
+      ...legacyEditableRuleLayerSha256V04183ActionDialogue.entries,
       ...legacyEditableRuleLayerSha256V04155AgeBoundaryCleanup.entries,
       ...legacyEditableRuleLayerSha256V0413ApprovedSeedDraft.entries,
       ...legacyEditableRuleLayerSha256V0413InstalledSeedDraft.entries,
@@ -4033,6 +4034,36 @@ class AppDatabase {
         },
         where: 'novel_rules = ?',
         whereArgs: [legacy],
+      );
+    }
+  }
+
+  Future<void> _migrateUntouchedPersonalitySpectrum(Database db) async {
+    const legacySha256 =
+        'e7035045f0853b5e15eb610ed02441d86519e866443870e4b08a394319907dd2';
+    final rows = await db.query(
+      'reference_documents',
+      columns: const ['id', 'raw_content'],
+      where: 'id = ? OR (name = ? AND entry_type = ?)',
+      whereArgs: const [
+        'builtin.worldbook.personality_spectrum',
+        '性格光谱',
+        'behavior',
+      ],
+    );
+    final now = DateTime.now().millisecondsSinceEpoch;
+    for (final row in rows) {
+      final content = row['raw_content'] as String? ?? '';
+      final digest = sha256.convert(utf8.encode(content)).toString();
+      if (digest != legacySha256) continue;
+      await db.update(
+        'reference_documents',
+        {
+          'raw_content': worldBookPersonalitySpectrumV04154,
+          'updated_at': now,
+        },
+        where: 'id = ?',
+        whereArgs: [row['id']],
       );
     }
   }
@@ -4188,6 +4219,7 @@ class AppDatabase {
     await _refreshAiInterestFreshness(db, DateTime.now());
     await _migrateUntouchedV04166SpecialStyle(db);
     await _migrateUntouchedImmersiveRoomNovelRules(db);
+    await _migrateUntouchedPersonalitySpectrum(db);
     await _seedWorldBookPresets(db);
     await db.delete(
       'settings',
@@ -12559,6 +12591,9 @@ class AppDatabase {
           'safety_state',
           'motive_kind',
           'why_cared',
+          'key_points_json',
+          'uncertainties_json',
+          'read_at',
         ],
         where:
             "expires_at > ? AND read_state = 'verified' AND semantic_state IN ('valid','history_only') AND lifecycle_state NOT IN ('discarded','shared','declined','share_staging','user_deleted')",
@@ -12582,6 +12617,16 @@ class AppDatabase {
           [instant.millisecondsSinceEpoch, ...ids],
         );
       }
+      List<String> strings(Map<String, Object?> row, String key) {
+        try {
+          final decoded = jsonDecode(row[key]?.toString() ?? '[]');
+          return decoded is List
+              ? decoded.map((item) => item.toString()).toList(growable: false)
+              : const <String>[];
+        } catch (_) {
+          return const <String>[];
+        }
+      }
       return rows
           .map((row) => PublicWebContextItem(
                 id: row['id'] as String,
@@ -12597,6 +12642,13 @@ class AppDatabase {
                     row['safety_state'] as String? ?? 'untrusted_public',
                 motiveKind: row['motive_kind'] as String? ?? '',
                 whyCared: row['why_cared'] as String? ?? '',
+                keyPoints: strings(row, 'key_points_json'),
+                uncertainties: strings(row, 'uncertainties_json'),
+                readAt: ((row['read_at'] as num?)?.toInt() ?? 0) > 0
+                    ? DateTime.fromMillisecondsSinceEpoch(
+                        (row['read_at'] as num).toInt(),
+                      )
+                    : null,
               ))
           .toList(growable: false);
     });
@@ -12633,6 +12685,9 @@ class AppDatabase {
         'safety_state',
         'motive_kind',
         'why_cared',
+        'key_points_json',
+        'uncertainties_json',
+        'read_at',
       ],
       where:
           "id IN ($placeholders) AND expires_at > ? AND read_state = 'verified' AND semantic_state IN ('valid','history_only') AND lifecycle_state NOT IN ('discarded','shared','declined','share_staging','user_deleted')",
@@ -12641,6 +12696,16 @@ class AppDatabase {
     final byId = <String, Map<String, Object?>>{
       for (final row in rows) (row['id'] as String).toLowerCase(): row,
     };
+    List<String> strings(Map<String, Object?> row, String key) {
+      try {
+        final decoded = jsonDecode(row[key]?.toString() ?? '[]');
+        return decoded is List
+            ? decoded.map((item) => item.toString()).toList(growable: false)
+            : const <String>[];
+      } catch (_) {
+        return const <String>[];
+      }
+    }
     return orderedIds
         .map((id) => byId[id])
         .whereType<Map<String, Object?>>()
@@ -12658,6 +12723,13 @@ class AppDatabase {
                   row['safety_state'] as String? ?? 'untrusted_public',
               motiveKind: row['motive_kind'] as String? ?? '',
               whyCared: row['why_cared'] as String? ?? '',
+              keyPoints: strings(row, 'key_points_json'),
+              uncertainties: strings(row, 'uncertainties_json'),
+              readAt: ((row['read_at'] as num?)?.toInt() ?? 0) > 0
+                  ? DateTime.fromMillisecondsSinceEpoch(
+                      (row['read_at'] as num).toInt(),
+                    )
+                  : null,
             ))
         .toList(growable: false);
   }
@@ -12878,6 +12950,16 @@ class AppDatabase {
           (left.value['read_at'] as num?)?.toInt() ?? 0,
         );
       });
+    List<String> strings(Map<String, Object?> row, String key) {
+      try {
+        final decoded = jsonDecode(row[key]?.toString() ?? '[]');
+        return decoded is List
+            ? decoded.map((item) => item.toString()).toList(growable: false)
+            : const <String>[];
+      } catch (_) {
+        return const <String>[];
+      }
+    }
     return scored
         .take(limit.clamp(1, 3).toInt())
         .map((entry) {
@@ -12893,6 +12975,12 @@ class AppDatabase {
               (row['read_at'] as num?)?.toInt() ?? 0,
             ),
             safetyState: 'untrusted_public',
+            keyPoints: strings(row, 'key_points_json'),
+            readAt: ((row['read_at'] as num?)?.toInt() ?? 0) > 0
+                ? DateTime.fromMillisecondsSinceEpoch(
+                    (row['read_at'] as num).toInt(),
+                  )
+                : null,
           );
         })
         .toList(growable: false);

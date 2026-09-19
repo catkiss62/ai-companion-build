@@ -1,6 +1,7 @@
 import 'dart:convert';
 
 import '../ai/deepseek_client.dart';
+import '../ai/generation_cancellation.dart';
 import '../ai/model_profile.dart';
 import '../desire/desire_engine.dart';
 import '../models/desire_state.dart';
@@ -15,6 +16,7 @@ abstract class PublicWebCandidateAppraiser {
     required DesireIntent sourceIntent,
     required double socialExcess,
     SubjectiveSearchSeed? subjectiveSeed,
+    GenerationCancellationToken? cancellationToken,
   });
 }
 
@@ -36,6 +38,7 @@ class DeepSeekPublicWebAppraiser implements PublicWebCandidateAppraiser {
     required DesireIntent sourceIntent,
     required double socialExcess,
     SubjectiveSearchSeed? subjectiveSeed,
+    GenerationCancellationToken? cancellationToken,
   }) async {
     final verified = candidates.where((item) => item.isVerifiedRead).toList();
     if (verified.isEmpty) {
@@ -59,6 +62,8 @@ class DeepSeekPublicWebAppraiser implements PublicWebCandidateAppraiser {
         model: DeepSeekModelProfile.flash,
         thinking: false,
         maxTokens: 1400,
+        cancellationToken: cancellationToken,
+        usageLane: 'web_appraisal',
         messages: <Map<String, Object?>>[
           <String, Object?>{
             'role': 'system',
@@ -201,6 +206,8 @@ why_cared 用她自己的第一人称写一句具体原因，例如“这个细�
                 appraisalReason: '未完成网页读取',
               ))
           .toList(growable: false);
+    } on GenerationCancelledByUserException {
+      rethrow;
     } catch (_) {
       return _conservative(candidates, 'deepseek_failure');
     }

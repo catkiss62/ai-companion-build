@@ -206,17 +206,24 @@ class AgentToolPlanner {
       r'(打开|看看|查一下|读一下).{0,12}https?://',
       caseSensitive: false,
     ).hasMatch(text);
+    final currentPublicFact = RegExp(
+      r'(今天|今日|现在|当前|最新|实时|刚刚).{0,16}'
+      r'(天气|气温|新闻|消息|价格|汇率|比分|赛程|航班|票价|股价)|'
+      r'(天气|气温|新闻|消息|价格|汇率|比分|赛程|航班|票价|股价).{0,16}'
+      r'(今天|今日|现在|当前|最新|实时|刚刚)',
+      caseSensitive: false,
+    ).hasMatch(text);
     final explicitWeb = explicitUrl ||
         (webCommand &&
-            (hasWebMarker ||
-                (!explicitRules &&
-                    !explicitMemory &&
-                    !explicitAlbum &&
-                    !explicitScreen &&
-                    !explicitDevice &&
-                    !explicitSystemSelf &&
-                    !explicitPhone &&
-                    !explicitAttachmentSave)));
+            (hasWebMarker || currentPublicFact) &&
+            !explicitRules &&
+            !explicitMemory &&
+            !explicitAlbum &&
+            !explicitScreen &&
+            !explicitDevice &&
+            !explicitSystemSelf &&
+            !explicitPhone &&
+            !explicitAttachmentSave);
 
     if (!cedarBlindPlay && explicitWeb && !explicitWebImageSave) {
       add(

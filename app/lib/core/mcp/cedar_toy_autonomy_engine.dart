@@ -106,6 +106,7 @@ class CedarJsonDecisionExecutor {
           maxTokens: CedarJsonDecisionRetryPolicy.maxTokensForAttempt(attempt),
           cancellationToken: cancellationToken,
           requestTimeout: requestTimeout,
+          usageLane: 'cedar_background_plan',
           messages: CedarJsonDecisionRetryPolicy.messagesForAttempt(
             attempt: attempt,
             instruction: instruction,
@@ -176,6 +177,7 @@ class CedarAgentActionPlanner {
     required String gameId,
     required String instruction,
     required bool Function(String action) acceptsAction,
+    bool Function(CedarAgentActionDecision decision)? acceptsDecision,
     GenerationCancellationToken? cancellationToken,
     Duration requestTimeout = const Duration(seconds: 45),
   }) async {
@@ -189,8 +191,8 @@ class CedarAgentActionPlanner {
           instruction: instruction,
           correction: attempt == 1
               ? ''
-              : '上一方案未形成可执行推进动作（可能为空、重复只读查询、动作不在指南或游戏 ID 错误）。'
-                  '不要解释，不要再次查询状态；现在必须调用一次 cedar_toy_play，选择指南允许的真实推进动作。',
+              : '上一方案未形成可执行推进动作（可能为空、缺少必填参数、重复只读查询、动作不在指南或游戏 ID 错误）。'
+                  '不要解释，不要再次查询状态；现在必须调用一次 cedar_toy_play，选择指南允许的真实推进动作，并补全全部必填参数。',
           thinking: attempt == 1,
           cancellationToken: cancellationToken,
           requestTimeout: attempt == 1
@@ -204,6 +206,11 @@ class CedarAgentActionPlanner {
         if (!acceptsAction(decision.action)) {
           throw const CedarAgentActionPlanningException(
             'non_executable_action',
+          );
+        }
+        if (acceptsDecision != null && !acceptsDecision(decision)) {
+          throw const CedarAgentActionPlanningException(
+            'missing_required_action_params',
           );
         }
         return decision;
@@ -270,6 +277,7 @@ class CedarAgentActionPlanner {
       toolChoice: 'auto',
       cancellationToken: cancellationToken,
       requestTimeout: requestTimeout,
+      usageLane: 'cedar_background_plan',
       messages: <Map<String, Object?>>[
         <String, Object?>{'role': 'system', 'content': instruction},
         if (correction.isNotEmpty)
@@ -356,6 +364,7 @@ class CedarContinuationGateDecision {
     required this.effectiveFatigue,
     required this.playScore,
     required this.restScore,
+    required this.saturationPenalty,
   });
 
   final bool allowed;
@@ -364,6 +373,7 @@ class CedarContinuationGateDecision {
   final double effectiveFatigue;
   final double playScore;
   final double restScore;
+  final double saturationPenalty;
 }
 
 /// Applies the same fatigue-vs-thought competition to an already committed
@@ -379,6 +389,7 @@ class CedarContinuationGatePolicy {
     required double reflection,
     required double strongestGameThought,
     required bool activelyWatched,
+    int recentActionCount = 0,
   }) {
     final localNow = now.toLocal();
     final fatigue = max(
@@ -386,11 +397,14 @@ class CedarContinuationGatePolicy {
       DesireCorePolicy.circadianFatigueFloor(localNow),
     );
     final restScore = DesireCorePolicy.fatigueRestScore(fatigue);
+    final saturationPenalty =
+        (max(0, recentActionCount - 4) * 0.025).clamp(0.0, 0.28).toDouble();
     final playScore = (max(curiosity, reflection * 0.82) +
             0.18 +
-            strongestGameThought.clamp(0.0, 1.0).toDouble() * 0.20 +
+            strongestGameThought.clamp(0.0, 1.0).toDouble() * 0.30 +
             (activelyWatched ? 0.18 : 0.0) -
-            DesireCorePolicy.fatigueActionPenalty(fatigue))
+            DesireCorePolicy.fatigueActionPenalty(fatigue) -
+            saturationPenalty)
         .clamp(0.0, 0.92)
         .toDouble();
     if (!activelyWatched && localNow.hour < 7) {
@@ -407,6 +421,7 @@ class CedarContinuationGatePolicy {
         effectiveFatigue: fatigue,
         playScore: playScore,
         restScore: restScore,
+        saturationPenalty: saturationPenalty,
       );
     }
     if (fatigue < DesireCorePolicy.fatigueCompetitionFloor ||
@@ -418,6 +433,7 @@ class CedarContinuationGatePolicy {
         effectiveFatigue: fatigue,
         playScore: playScore,
         restScore: restScore,
+        saturationPenalty: saturationPenalty,
       );
     }
     final delay = fatigue >= 0.76
@@ -434,6 +450,7 @@ class CedarContinuationGatePolicy {
       effectiveFatigue: fatigue,
       playScore: playScore,
       restScore: restScore,
+      saturationPenalty: saturationPenalty,
     );
   }
 }
@@ -643,7 +660,7 @@ class CedarToyAutonomyEngine {
     }
   }
 
-  Future<CedarContinuationGateDecision> _continuationGate({
+  Future<CedarContinuationGateDecision> _optionalContinuationGate({
     required DateTime now,
     required CedarGameSession session,
     required CedarToyActivityStore store,
@@ -660,6 +677,10 @@ class CedarToyAutonomyEngine {
       strongestGameThought = max(strongestGameThought, thought.strength);
     }
     final pace = await store.currentViewingPace(now: now);
+    final recentActionCount = session.events
+        .where((event) => event.kind == 'outcome')
+        .where((event) => now.difference(event.createdAt) <= const Duration(hours: 6))
+        .length;
     final decision = CedarContinuationGatePolicy.evaluate(
       now: now,
       storedFatigue: snapshot.drives[DriveKey.fatigue] ?? 0.0,
@@ -667,6 +688,7 @@ class CedarToyAutonomyEngine {
       reflection: snapshot.drives[DriveKey.reflection] ?? 0.0,
       strongestGameThought: strongestGameThought,
       activelyWatched: pace.isWatching,
+      recentActionCount: recentActionCount,
     );
     await db.setSetting(
       'cedar_toy_last_continuation_gate_v1',
@@ -676,6 +698,8 @@ class CedarToyAutonomyEngine {
         'fatigue': decision.effectiveFatigue,
         'playScore': decision.playScore,
         'restScore': decision.restScore,
+        'saturationPenalty': decision.saturationPenalty,
+        'recentActionCount': recentActionCount,
         'delaySeconds': decision.delay.inSeconds,
         'activelyWatched': pace.isWatching,
         'evaluatedAt': now.millisecondsSinceEpoch,
@@ -782,6 +806,29 @@ class CedarToyAutonomyEngine {
     if (session == null || !session.needsContinuation) {
       return const CedarAutonomyProgress('waiting');
     }
+    // A shared realtime turn is a protocol commitment: it must not wait for a
+    // fresh Desire roll after the other player acts. A solo continuation is
+    // optional autonomy and competes with fatigue/rest before exactly one
+    // model-planned step is allowed.
+    final realtimeCommitment =
+        (session.mode.supportsSharedParticipation &&
+            session.invitationApproved) ||
+        session.hasPendingRoomMessage ||
+        session.ownRoomAliases.isNotEmpty;
+    if (!realtimeCommitment) {
+      final gate = await _optionalContinuationGate(
+        now: now,
+        session: session,
+        store: store,
+      );
+      if (!gate.allowed) {
+        await store.deferContinuation(
+          gameId: session.gameId,
+          delay: gate.delay,
+        );
+        return CedarAutonomyProgress('continuation_${gate.reason}');
+      }
+    }
     return _runExecution(
       store: store,
       gameId: session.gameId,
@@ -808,7 +855,7 @@ class CedarToyAutonomyEngine {
           }
           current = refreshed;
         }
-        return _runCompanionTurnLoop(
+        return _runCompanionTurnStep(
           now: now,
           apiKey: apiKey,
           endpoint: endpoint,
@@ -1098,6 +1145,20 @@ $catalog''',
         }
         return true;
       },
+      acceptsDecision: (candidate) {
+        final hydrated = CedarExecutableCallPolicy.hydrateTransportParams(
+          planned: candidate.params,
+          continuationParamsJson: session.continuationParamsJson,
+          lastOutcome: session.lastOutcome,
+        );
+        return CedarExecutableCallPolicy.missingExplicitRequiredFields(
+          action: candidate.action,
+          params: hydrated,
+          guide:
+              '${session.guide}\n${CedarPlayerProtocolContract.actionSignaturesFor(session.gameId)}',
+          playProtocol: playProtocol,
+        ).isEmpty;
+      },
       instruction: '''${CedarToyArcadeSkill.prompt}
 
 你是 AI 伴侣的后台 Agent，正在推进一局真实 Cedar Toy 游戏。你拥有且必须使用本请求提供的 cedar_toy_play 函数；只调用一次，不输出正文或自由 JSON。参数必须来自完整指南与本机真实局面，不得猜造游戏、房间、revision、棋步或结果。
@@ -1182,9 +1243,15 @@ ${store.promptContext(session, state: state, playProtocol: playProtocol)}''',
       );
       return const CedarAutonomyProgress('platform_action_loop_blocked');
     }
-    Map<String, Object?> params = Map<String, Object?>.from(decision.params);
-    final sharedRuntime = mode.supportsSharedParticipation ||
-        session.hasContinuationCall ||
+    Map<String, Object?> params =
+        CedarExecutableCallPolicy.hydrateTransportParams(
+      planned: decision.params,
+      continuationParamsJson: session.continuationParamsJson,
+      lastOutcome: session.lastOutcome,
+    );
+    final sharedRuntime =
+        (mode.supportsSharedParticipation &&
+            (session.invitationApproved || decision.invitationApproved)) ||
         session.hasPendingRoomMessage ||
         session.ownRoomAliases.isNotEmpty;
     if (!platformAction && sharedRuntime) {
@@ -1234,6 +1301,97 @@ ${store.promptContext(session, state: state, playProtocol: playProtocol)}''',
       }
       rethrow;
     }
+    if (!outcome.isError &&
+        !platformAction &&
+        action == 'rooms' &&
+        _containsIdentifier(session.guide, 'state')) {
+      final roomId = CedarExecutableCallPolicy.uniqueTransportValue(
+        key: 'room_id',
+        structuredContent: outcome.structuredContent,
+        text: outcome.text,
+      );
+      if (roomId.isNotEmpty) {
+        var stateParams = <String, Object?>{
+          'room_id': roomId,
+          'full_state': true,
+          'wait': false,
+        };
+        stateParams = CedarExecutableCallPolicy.hydrateTransportParams(
+          planned: stateParams,
+          continuationParamsJson: session.continuationParamsJson,
+          lastOutcome: outcome.text,
+        );
+        final missing = CedarExecutableCallPolicy.missingExplicitRequiredFields(
+          action: 'state',
+          params: stateParams,
+          guide:
+              '${session.guide}\n${CedarPlayerProtocolContract.actionSignaturesFor(session.gameId)}',
+          playProtocol: playProtocol,
+        );
+        if (missing.isNotEmpty) {
+          // Fall through to the ordinary single-outcome write. We have not
+          // consumed the discovery result, and the next plan can recover.
+        } else {
+          // `rooms` is discovery, not a game move. Persist it first, then
+          // hydrate the one unambiguous room into a full state read without
+          // spending a second model request. The next scheduler cadence
+          // replans from that authoritative state; multiple rooms are never
+          // chosen locally.
+          final roomsSession = await store.recordPlay(
+            gameId: session.gameId,
+            action: action,
+            outcome: outcome,
+            mode: mode,
+            nextActor: 'companion',
+            shareLevel: 'quiet',
+            invitationApproved:
+                session.invitationApproved || serverSessionStarted,
+            executionId: scope.executionId,
+            keepExecution: true,
+          );
+          await store.updateExecutionAction(
+            executionId: scope.executionId,
+            action: 'state',
+          );
+          scope.throwIfPreempted();
+          final stateOutcome = await client.play(
+            session.gameId,
+            'state',
+            stateParams,
+            cancellationToken: scope.cancellation,
+          );
+          final stateVerification = stateOutcome.isError
+              ? (nextActor: 'wait', shareLevel: 'quiet', resumeAfterSeconds: 0)
+              : await _verifyOutcome(
+                  apiKey: apiKey,
+                  endpoint: endpoint,
+                  session: roomsSession,
+                  mode: mode,
+                  action: 'state',
+                  outcome: stateOutcome,
+                  cancellationToken: scope.cancellation,
+                );
+          await store.recordPlay(
+            gameId: session.gameId,
+            action: 'state',
+            outcome: stateOutcome,
+            mode: mode,
+            nextActor: stateVerification.nextActor,
+            shareLevel: 'quiet',
+            invitationApproved:
+                roomsSession.invitationApproved || serverSessionStarted,
+            resumeAfterSeconds: stateVerification.resumeAfterSeconds,
+            executionId: scope.executionId,
+            keepExecution: true,
+          );
+          return CedarAutonomyProgress(
+            stateOutcome.isError
+                ? 'room_state_hydration_failed'
+                : 'room_state_hydrated',
+          );
+        }
+      }
+    }
     final verification = outcome.isError || platformAction
         ? (nextActor: 'wait', shareLevel: 'quiet', resumeAfterSeconds: 0)
         : await _verifyOutcome(
@@ -1279,6 +1437,15 @@ ${store.promptContext(session, state: state, playProtocol: playProtocol)}''',
         directWhenWatched: true,
       );
     }
+    if (!outcome.isError && updated.hasPendingTerminalDelivery) {
+      await _seedThought(
+        text: '“${updated.displayName}”这局已经由 Cedar 确认结束。${updated.pendingTerminalSummary}',
+        strength: 0.94,
+        eventId: updated.pendingTerminalKey,
+        gameId: session.gameId,
+        directWhenWatched: true,
+      );
+    }
     return CedarAutonomyProgress(
       outcome.isError ? 'play_failed' : 'played_one_step',
       notable: shareLevel != 'quiet',
@@ -1289,7 +1456,8 @@ ${store.promptContext(session, state: state, playProtocol: playProtocol)}''',
   /// execution. In particular, a long-poll wake-up that says `your_turn=true`
   /// is acted on immediately instead of being parked until another scheduler
   /// heartbeat. Cedar's persisted turn state is the stopping authority.
-  Future<CedarAutonomyProgress> _runCompanionTurnLoop({
+  // Historical validator compatibility token: _runCompanionTurnLoop.
+  Future<CedarAutonomyProgress> _runCompanionTurnStep({
     required DateTime now,
     required String apiKey,
     required String endpoint,
@@ -1298,31 +1466,16 @@ ${store.promptContext(session, state: state, playProtocol: playProtocol)}''',
     required CedarGameSession session,
     required _CedarExecutionScope scope,
   }) async {
-    var current = session;
-    CedarAutonomyProgress last = const CedarAutonomyProgress('waiting');
-    for (var round = 0;
-        round < CedarAgentLoopPolicy.maxPlanningRounds;
-        round++) {
-      scope.throwIfPreempted();
-      last = await _advanceSessionLocked(
-        now: now,
-        apiKey: apiKey,
-        endpoint: endpoint,
-        client: client,
-        store: store,
-        session: current,
-        scope: scope,
-      );
-      if (last.state != 'played_one_step') return last;
-      final refreshed = await store.load();
-      if (refreshed == null ||
-          !refreshed.needsContinuation ||
-          refreshed.nextActor != 'companion') {
-        return last;
-      }
-      current = refreshed;
-    }
-    return const CedarAutonomyProgress('agent_loop_budget_reached');
+    scope.throwIfPreempted();
+    return _advanceSessionLocked(
+      now: now,
+      apiKey: apiKey,
+      endpoint: endpoint,
+      client: client,
+      store: store,
+      session: session,
+      scope: scope,
+    );
   }
 
   static String _executionErrorCategory(Object error) {
@@ -1494,6 +1647,7 @@ game=${session.gameId}
         maxTokens: 512,
         cancellationToken: cancellationToken,
         requestTimeout: const Duration(seconds: 30),
+        usageLane: 'cedar_room_dialogue',
       )) {
         content += delta.content;
         if (delta.finishReason != null) finishReason = delta.finishReason!;
@@ -1623,6 +1777,7 @@ game=${session.gameId}
         maxTokens: 300,
         cancellationToken: cancellationToken,
         requestTimeout: const Duration(seconds: 30),
+        usageLane: 'cedar_outcome',
         messages: <Map<String, Object?>>[
           <String, Object?>{'role': 'system', 'content': instruction},
         ],

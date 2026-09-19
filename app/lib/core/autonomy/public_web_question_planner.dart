@@ -52,6 +52,7 @@ class DeepSeekPublicWebQuestionPlanner implements PublicWebQuestionPlanner {
         model: DeepSeekModelProfile.flash,
         thinking: false,
         maxTokens: 180,
+        usageLane: 'web_question_plan',
         messages: <Map<String, Object?>>[
           <String, Object?>{
             'role': 'system',

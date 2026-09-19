@@ -43,7 +43,7 @@ void main() {
 
     expect(decoded.sessions.keys, containsAll(<String>['fishing', 'duel']));
     expect(decoded.activeSession?.gameId, 'duel');
-    expect(decoded.hasUserTurnContinuation, isTrue);
+    expect(decoded.hasUserTurnContinuation, isFalse);
   });
 
   test('real fishing reminder is parsed as a generic cross-game reference', () {

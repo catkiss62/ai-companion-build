@@ -65,7 +65,16 @@ class PerceptionInterpreter {
     required DevicePerceptionState deviceState,
     required DateTime now,
   }) {
-    final facts = _summarizeUsage(usage, now);
+    final screenSession = _screenSessionWindow(
+      deviceStateEvents: deviceStateEvents,
+      screenInteractive: deviceState.screenInteractive,
+      now: now,
+    );
+    final sessionUsage = usage
+        .where((event) => !event.timestamp.isBefore(screenSession.start))
+        .where((event) => !event.timestamp.isAfter(screenSession.end))
+        .toList(growable: false);
+    final facts = _summarizeUsage(sessionUsage, screenSession.end);
     final signalFacts = _summarizeSignals(recentSignals);
     final observations = <AwarenessObservationDraft>[];
     final managed = <String>{...deviceManagedKeys};
@@ -74,7 +83,12 @@ class PerceptionInterpreter {
         deviceState.usageAccess || deviceState.accessibilityConnected;
     if (hasAppContext) {
       managed.addAll(usageManagedKeys);
-      _addUsageObservations(observations, facts, now);
+      _addUsageObservations(
+        observations,
+        facts,
+        now,
+        screenInteractive: deviceState.screenInteractive,
+      );
     }
     if (deviceState.notificationListenerConnected) {
       managed.addAll(notificationManagedKeys);
@@ -117,12 +131,16 @@ class PerceptionInterpreter {
       busyScore: busyScore,
       notificationCount: signalFacts.notificationCount,
       accessibilityEventCount: signalFacts.accessibilityEventCount,
-      currentActivityKey: facts.currentCategory,
-      currentActivityLabel: facts.currentCategory == null
+      currentActivityKey:
+          deviceState.screenInteractive ? facts.currentCategory : null,
+      currentActivityLabel: !deviceState.screenInteractive ||
+              facts.currentCategory == null
           ? null
           : _activityLabel(facts.currentCategory!),
-      currentAppLabel: facts.currentAppLabel,
-      currentAppSource: facts.currentSource,
+      currentAppLabel:
+          deviceState.screenInteractive ? facts.currentAppLabel : null,
+      currentAppSource:
+          deviceState.screenInteractive ? facts.currentSource : null,
       dominantActivityKey: facts.dominantCategory,
       dominantActivityLabel: facts.dominantCategory == null
           ? null
@@ -135,10 +153,11 @@ class PerceptionInterpreter {
   void _addUsageObservations(
     List<AwarenessObservationDraft> out,
     _UsageFacts facts,
-    DateTime now,
-  ) {
+    DateTime now, {
+    required bool screenInteractive,
+  }) {
     final currentApp = facts.currentAppLabel?.trim();
-    if (currentApp != null && currentApp.isNotEmpty) {
+    if (screenInteractive && currentApp != null && currentApp.isNotEmpty) {
       out.add(
         AwarenessObservationDraft(
           kind: 'current_app',
@@ -158,7 +177,7 @@ class PerceptionInterpreter {
     }
 
     final current = facts.currentCategory;
-    if (current != null && current != 'unknown') {
+    if (screenInteractive && current != null && current != 'unknown') {
       out.add(
         AwarenessObservationDraft(
           kind: 'current_activity',
@@ -185,11 +204,17 @@ class PerceptionInterpreter {
       out.add(
         AwarenessObservationDraft(
           kind: 'recent_activity',
-          summary: '最近一段时间$phrase。',
-          confidence: confidence,
+          summary: screenInteractive
+              ? '本次亮屏期间$phrase。'
+              : '这次熄屏之前的一段时间$phrase；之后的熄屏不能算作继续使用。',
+          confidence: screenInteractive ? confidence : min(confidence, 0.58),
           windowStart: now.subtract(const Duration(minutes: 90)),
           windowEnd: now,
-          expiresAt: now.add(const Duration(minutes: 75)),
+          expiresAt: now.add(
+            screenInteractive
+                ? const Duration(minutes: 75)
+                : const Duration(minutes: 20),
+          ),
           dedupeKey: 'recent_activity',
           sourceFingerprint:
               'recent:$dominant:${_bucket(facts.dominantMinutes, 10)}:${_bucket((facts.dominantShare * 100).round(), 10)}',
@@ -197,12 +222,13 @@ class PerceptionInterpreter {
             'activity': dominant,
             'minutes': facts.dominantMinutes,
             'share': facts.dominantShare,
+            'screen_session': screenInteractive ? 'current' : 'before_off',
           },
         ),
       );
     }
 
-    if (facts.switchesLast30Minutes >= 9) {
+    if (screenInteractive && facts.switchesLast30Minutes >= 9) {
       final confidence = (0.58 + (facts.switchesLast30Minutes - 9) * 0.025)
           .clamp(0.58, 0.82)
           .toDouble();
@@ -286,6 +312,42 @@ class PerceptionInterpreter {
         },
       ),
     );
+  }
+
+  _ScreenSessionWindow _screenSessionWindow({
+    required List<Map<String, Object?>> deviceStateEvents,
+    required bool screenInteractive,
+    required DateTime now,
+  }) {
+    DateTime? latestOn;
+    DateTime? latestOff;
+    for (final row in deviceStateEvents) {
+      final type = row['event_type']?.toString() ?? '';
+      final millis = (row['occurred_at'] as num?)?.toInt();
+      if (millis == null || millis <= 0) continue;
+      final at = DateTime.fromMillisecondsSinceEpoch(millis);
+      if (type == 'screen_on' || type == 'user_present') {
+        if (latestOn == null || at.isAfter(latestOn)) latestOn = at;
+      } else if (type == 'screen_off') {
+        if (latestOff == null || at.isAfter(latestOff)) latestOff = at;
+      }
+    }
+    final end = screenInteractive &&
+            (latestOff == null || latestOff.isBefore(now))
+        ? now
+        : latestOff ?? now;
+    DateTime start;
+    if (latestOn != null && !latestOn.isAfter(end)) {
+      start = latestOn;
+    } else {
+      start = end.subtract(const Duration(minutes: 90));
+    }
+    if (latestOff != null && screenInteractive && latestOff.isAfter(start)) {
+      // Missing screen_on/user_present events must not let UsageStats bridge a
+      // known hard screen-off boundary.
+      start = latestOff;
+    }
+    return _ScreenSessionWindow(start: start, end: end);
   }
 
   _UsageFacts _summarizeUsage(List<UsageEventInfo> events, DateTime now) {
@@ -478,6 +540,13 @@ class _UsageFacts {
   final String? dominantCategory;
   final int dominantMinutes;
   final double dominantShare;
+}
+
+class _ScreenSessionWindow {
+  const _ScreenSessionWindow({required this.start, required this.end});
+
+  final DateTime start;
+  final DateTime end;
 }
 
 class _SignalFacts {

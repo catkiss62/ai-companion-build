@@ -46,7 +46,7 @@ void main() {
         );
     expect(
       stateFor(CedarParticipationMode.coPlay).hasUserTurnContinuation,
-      isTrue,
+      isFalse,
     );
     expect(
       stateFor(CedarParticipationMode.hybrid).hasUserTurnContinuation,
@@ -55,7 +55,7 @@ void main() {
     expect(
       stateFor(CedarParticipationMode.hybrid, approved: true)
           .hasUserTurnContinuation,
-      isTrue,
+      isFalse,
     );
   });
 
@@ -472,7 +472,7 @@ void main() {
     expect(restored.sessions['duel']?.continuable, isTrue);
   });
 
-  test('a selected guide keeps the cross-turn game goal alive', () {
+  test('a selected guide stays background-owned until user input is needed', () {
     final state = CedarToyActivityState(
       activeGameId: 'duel',
       sessions: <String, CedarGameSession>{
@@ -490,6 +490,6 @@ void main() {
       updatedAt: DateTime.fromMillisecondsSinceEpoch(1),
     );
 
-    expect(state.hasUserTurnContinuation, isTrue);
+    expect(state.hasUserTurnContinuation, isFalse);
   });
 }

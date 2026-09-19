@@ -38,7 +38,7 @@ tests = "\n".join(
 )
 workflow = (REPO / ".github/workflows/build-apk.yml").read_text(encoding="utf-8")
 
-assert re.search(r"^version:\s*0\.41\.(?:49\+188|50\+189|51\+190|52\+191|53\+192|54\+193|55\+(?:195|196|197|198|199)|56\+200|57\+201|58\+202|59\+203|60\+204|61\+205|62\+206|63\+207|64\+208|65\+209|66\+210|67\+211|68\+212|69\+213|70\+214|71\+215|72\+216|73\+217|74\+218|75\+219|76\+220|77\+221|78\+222|79\+223|80\+224|81\+225|82\+226|83\+227)$", pubspec, re.M)
+assert re.search(r"^version:\s*0\.41\.(?:49\+188|50\+189|51\+190|52\+191|53\+192|54\+193|55\+(?:195|196|197|198|199)|56\+200|57\+201|58\+202|59\+203|60\+204|61\+205|62\+206|63\+207|64\+208|65\+209|66\+210|67\+211|68\+212|69\+213|70\+214|71\+215|72\+216|73\+217|74\+218|75\+219|76\+220|77\+221|78\+222|79\+223|80\+224|81\+225|82\+226|83\+227|84\+228)$", pubspec, re.M)
 assert re.search(r"static const int schemaVersion = (?:56|57|58|59|60|61);", database)
 assert "buildLabel = 'v0.41.49+188'" in self_reader
 assert "agent/v04149-subjective-search-humor-restoration" in workflow
@@ -129,8 +129,9 @@ else:
     assert "own state raises opportunity" in tests
 assert "const humor = DialogueHumorDevice.none" not in expression
 assert "不分配笑点类型" not in expression
+# The user-authored personality world book may intentionally use Markdown for
+# structure. The generated humor card and built-in rule layer remain plain.
 for prompt_source in (
-    presets,
     expression,
     read("lib/core/rules/rule_layer_content_v0400.dart"),
 ):

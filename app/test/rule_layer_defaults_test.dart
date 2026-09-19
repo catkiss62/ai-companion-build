@@ -236,6 +236,7 @@ void main() {
     expect(core, contains('本层是连续性工具，不是许可开关'));
     expect(core, contains('空间状态账本'));
     expect(core, contains('最小变化方案'));
+    expect(core, contains('每一段动作、神态之后都需要配一段对话。'));
     expect(rendering, contains('自然接入'));
     expect(rendering, contains('成人互动不依赖魔法口令或每轮固定字数'));
     expect(rendering, contains('高潮与用户射精必须服从本层的跨轮状态流程'));

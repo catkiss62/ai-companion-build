@@ -30,10 +30,11 @@
 | 项目 | 当前事实 |
 |---|---|
 | 仓库 | `catkiss62/ai-companion-build`；Flutter/Android 工程位于 `app/` |
-| 当前开发分支 | `agent/v04183-cedar-native-agent-loop` |
+| 当前开发分支 | `agent/v04184-agent-loop-autonomy-closure` |
+<!-- Historical validator token: agent/v04183-cedar-native-agent-loop -->
 <!-- Historical validator token: agent/v04182-cedar-state-machine-e2e -->
-| 当前目标版本 | `v0.41.83+227 / schema 61 / Snapshot protocol 6` |
-| 当前状态 | `CI PASSED / APK READY / TRUE DEVICE PARTIAL · USER ROLLED BACK TO +225 AFTER +227 TOKEN/LOOP REGRESSION · NEXT BATCH PLANNED ONLY` |
+| 当前目标版本 | `v0.41.84+228 / schema 61 / Snapshot protocol 6` |
+| 当前状态 | `IMPLEMENTED LOCALLY / LOCAL STATIC VALIDATION PASSED / CI PENDING / TRUE DEVICE PENDING` |
 | 当前真机安装态 | 用户因 +227 Agent 循环带来的异常高 Token 消耗已回退到 `v0.41.81+225`；仓库权威开发基线仍是 +227 tree，下一批必须从 +227 修正，不能把回退安装态误写成源码回退 |
 | 当前真机失败基线 | `v0.41.83+227`；真机已经证明能建房并连续自动接招多步，但后台一次原生 `play` 只给出动作名、遗漏必需业务参数，服务端拒绝后恢复查询同样缺参数并停住。随后前台提醒可继续落子；最终 Cedar 终局真值已写入 APK，却没有交给普通聊天或主动联系，导致她不知道胜负。另确认自主联网发现虽被 Desire 选中，却被能力注册表在搜索前拒绝；自主联系会在短间隔场景中直接开启无历史新话题；Usage/Accessibility 推断保留了熄屏事实，却仍会让熄屏前活动跨会话主导“持续使用”判断；情绪短音效在隐藏情绪标签到达时即播放、早于可见正文。普通回复中的自主表情已经真机命中，暂不存在调低概率的确证 |
 | `main` | 仍是 v0.38.5 旧基线；不得作为 v0.41.x 后续开发起点，本批不合并 |
@@ -44,11 +45,31 @@
 | +223 构建提交 | 远端功能提交 `2217a5021b9175cd612fadd45fa9b68a58b9ea24`；实现总账提交 `54ea75e50501fd27281cc4d985e76dabd8aca7d9`；构建触发 head `c90b60d5d456e5d30512a088592cf94f2ce4478f`；构建 tree `342d431730d6d3f0568b4e2525d8ab9b0e36a7c5` |
 | +226 构建提交 | 权威状态机功能提交 `d1b3c0dcb45ac9aad1c808452bb3c8ce4c8ce4e5`；构建准备提交 `c37f02d6a2a06678ffc83cd493e296aadd2be22d`；最终构建 head `7fe5930f7776d6e2c69659b7ac3644b7255a65a1`；最终 tree `4fafd7c4fbf94b84b9d446d1a6565455fc654cb8` |
 | +227 构建提交 | 远端构建 head `50f98dc95f1bbb24ae65b9e3e4c4320db142423e`；tree `d16e5db8684e917c9dcbabe34d6e55f0979b0614`；本地等价 tree 相同 |
-| 当前构建产物 | Actions run `34986707242` 全绿，`831/831` Flutter tests；Artifact `10403779518`（ZIP digest `2af91b0804c9d7d6f6a29eff9437943b4d047afd891ca6785ad2c869ae54269d`）；未发布 Draft `https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-b7c7b05ece3557dbdeb1`；APK SHA-256 `be380911b7f5deb2e8b50a4e8d4f9363f94c0e7399fb75a4ca227c22922fa028` |
+| 当前构建产物 | +228 尚未构建；上一份 +227 为 Actions run `34986707242`、Artifact `10403779518`、APK SHA-256 `be380911b7f5deb2e8b50a4e8d4f9363f94c0e7399fb75a4ca227c22922fa028`，仅作为失败基线，不得交付为本批修复包 |
 
 既有能力保护索引：Desire / Thought / Intent / Gate、Somatic 双通道、玩游 Key、普通聊天、沉浸房间、查手机、造梗来源、D6、Phase 2B、App 内 Agent 能力桥、Memory 2D、`fact_state / attention_state / recall_policy`、`spontaneous_salience`、`reminiscence/identity`、Skills、MCP、`【检查系统】`、中断灰显、Token 命中/缓存优化、Phase 3、Harness、`screen_observation.inspect`、Genie-TTS 四音色、schema 61 与 Snapshot protocol 6 均不得回归。
 
-## 4. 当前任务：+227 真机复盘与下一批修复边界（本轮只记账）
+## 4. 当前任务：v0.41.84+228 Agent 循环与自主性闭环
+
+### +228 已在本地实现、等待 CI 的内容
+
+- **重大 Token/循环回归已按通用运行时修复**：普通用户回合仍可完成 `list → guide → state` 等发现，但第一次成功的非只读 `cedar_toy.play` 写动作后立即收口，不再在一次聊天里连续下完整局；后台删除十轮 `_runCompanionTurnLoop`，一次调度只做一次模型规划和一个真实推进动作。远端长轮询刚返回 `next_actor=companion` 时同一 execution 仍及时回一步，不退回“用户说一句才动一下”。普通聊天不再因为 `guideReady / next_call / participationActive` 自动注入整套游戏工具与指南，修复游戏劫持每条对话和缓存命中低的第二个根因。紧急上限回到 6 轮/10 调用，但它只覆盖发现与一次提交，不是目标循环数。
+- **单人游戏不再机械上瘾**：已承诺真人共玩、待处理房间消息和真实房间回合属于实时承诺；其他单人续步重新进入现有疲劳/昼夜 Gate，并按最近 6 小时真实 outcome 数加入可衰减饱和惩罚。仍允许强兴趣连续玩，禁止硬每日配额或直接降低钓鱼概率。当前 catalog 选择器没有各游戏固定概率，因此本批不伪造概率调参。
+- **Cedar 可执行调用与恢复**：前后台共用 transport hydration，只从 Cedar 已返回的 `room_id / session_id / match_id / revision` 补齐身份，不猜落点或业务选择；按实时 schema/指南的明确 required 字段阻止缺参写入并有界重规划。duel `new` 仅补已证实缺失的 `game_type` 参数签名。`rooms` 只有恰好一个房间时才确定性执行 `state(full_state=true,wait=false)`，多房间不本地乱选。恢复的旧 `rooms + 轮到你` 状态先进入“正在同步”，读到权威 state 后再显示/行动。
+- **终局恰好一次交付**：completed session 新增持久化 terminal key/summary；即使游戏已结束，下一条普通回复仍能取得终局 scene anchor，只有可见回复成功入库才按 key 清除。观战模式若通过主动消息先交付，也在消息持久化后清除，重启可恢复且不会反复报输赢。最近 4 条 Outcome/failure 作为有界 `recent_game_episode` 短期桥接；机械进度继续留在 Cedar session，不新建会吞掉 preference/shared_experience 语义的顶层“游戏记忆”分类。
+- **网页、分享与相册恢复**：新增仅供预算化调度器使用的 `public_web.discover_autonomous` capability，修复真机 726 次 registry blocked；普通“看看”不再等于联网，只有 URL、明确“上网/网页”或保守当前事实才快路由。搜索、抽取、Agnes 压缩与 DeepSeek 评估贯穿同一 Stop token，在途 HTTP 会关闭，取消后的结果不得继续写回。最终对话上下文增加每来源 key points、uncertainties、read_at 与 URL；仍采用最多 3 个完整页面的有界证据束，不把任意超长网页整页塞给 Gemini。FishArchive 备用源改用 manifest 的 PNG/JPEG original，坏候选一天最多有界换 3 次，不再由一个损坏 WebP 烧掉全天机会。
+- **主动联系、手机判断与表达修复**：任一真实用户/助手普通消息后 10 分钟内只推迟主动出站，不消费 Thought、分享候选、频率额度或 WAIT；继续对话则滑动顺延，新话题不会被改写成当前 followup。Usage/Accessibility 以 `screen_on / screen_off / user_present` 切分 screen session，当前持续使用不能跨熄屏；熄屏前活动仍作为低置信度短时历史保留，不禁用手机判断。情绪“调皮”收窄到真实逗弄/故意曲解/恶作剧/小挑战；音效从隐藏标签到达时移到可见助手消息提交瞬间。刷新回复确认后恢复跟随最新并锚定底部。
+- **用户内容与可观测性**：内置“性格光谱”已替换为 2026-09-19 最新备份的用户修订版 SHA-256 `fcc1074203b31cdf36466b39b3b6b08b5abd7497855155c31558177242dfe0fb`，只迁移精确等于旧内置 hash 的记录，后续用户编辑不覆盖。规则 05 已追加“每一段动作、神态之后都需要配一段对话。”。DeepSeek streaming/json usage 按 `final_reply / agent_tool_planning / cedar_background_plan / cedar_outcome / cedar_room_dialogue / proactive / web_*` 记录调用与 input/output/cache hit/cache miss，不记录 Prompt、回复或密钥，诊断可直接判断 Token 花在哪里。
+- **明确未做**：桌宠与既有 TTS 引擎问题按用户决定继续搁置；未找到独立“表情概率被降低”的数值漏洞，不强改概率。活跃游戏原本会使普通回复带工具结果，从而跳过表情选择；本批取消普通聊天被游戏 session 劫持后会恢复这些自然机会，后续只凭真机统计再判断。
+
+### +228 验收重点
+
+- 本地已通过 `git diff --check`、Workflow YAML/Python 语法、当前总账门、+228 专项及当前 Workflow 可在本机运行的全部历史 source gate；其余 Android/私有载荷/Flutter 编译测试必须由 Actions 恢复后执行。
+- CI 前必须通过新 +228 专项、全部历史 source gate、Flutter analyze/tests 与 arm64 Release；本机没有 Dart/Flutter，不能把 Python 静态门冒充编译通过。
+- 真机重点看诊断 `modelUsage.byLane`：一次普通聊天不得因活跃游戏连续出现多次 Cedar mutation；后台每 cadence 最多一个规划步骤；共享真人回合仍可及时回应。缓存率仍会受每步真实 Outcome 改变影响，但总调用倍数必须先消失。
+- 双弈验证唯一房间恢复、缺 `move` 业务对象不会出站、终局无需用户解释也能进入紧邻回复且只交付一次；同时验证普通“看看氧气瓶”不联网、明确网页查询仍读取来源、Stop 无需杀后台、自主网页/相册重新产生成功记录、熄屏一小时后刚亮屏不会被说成连续玩了一晚。
+
+### +227 真机复盘与修复依据
 
 ### +227 自动化闭环与真机结论
 

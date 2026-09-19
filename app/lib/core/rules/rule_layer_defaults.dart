@@ -331,6 +331,14 @@ const legacyEditableRuleLayerSha256V04167ClimaxClarification = <String, String>{
       '1685e3bc0567762e55d5c6bd07b39767b64af2d5f0af6d57477cb1c9a7d54c33',
 };
 
+/// Exact +227 intimacy core before the user's one-line action/dialogue rule.
+/// Hash-only migration updates the untouched bundled copy and preserves every
+/// manually edited version.
+const legacyEditableRuleLayerSha256V04183ActionDialogue = <String, String>{
+  '04_intimacy_core':
+      '547afce48773ffe8c159befeb8ecad17ecc4840d29fa25ddc482f9438ffc6d8c',
+};
+
 /// Exact v0.40.0 special-style bodies before the v0.41.55 age-boundary
 /// cleanup. Hash-only matching updates untouched bundled copies while
 /// preserving every user edit.

@@ -190,6 +190,7 @@ class ProactiveEngine {
         desire: desireEngine,
         android: android,
         secureConfig: secureConfig,
+        ai: ai,
       );
   late final PublicWebShareCoordinator publicWebSharing =
       PublicWebShareCoordinator(
@@ -197,6 +198,7 @@ class ProactiveEngine {
         desire: desireEngine,
         secureConfig: secureConfig,
         refreshBeforeShare: true,
+        ai: ai,
       );
   late final CedarToyAutonomyEngine cedarToyAutonomy =
       CedarToyAutonomyEngine(db: db, ai: ai, secureConfig: secureConfig);
@@ -394,6 +396,15 @@ class ProactiveEngine {
         }),
       );
       if (!forceForDebug && sceneContinuity.hold) {
+        if (sceneContinuity.reason == 'recent_active_conversation') {
+          // This is a sliding delivery delay, not a rejected candidate. Do
+          // not select or consume a Thought/share, spend a proactive quota,
+          // or record a synthetic WAIT while the user is still talking.
+          return const ProactiveDecision(
+            sent: false,
+            reason: '最近对话仍在 10 分钟连续场景内，保留新话题等待安静窗口',
+          );
+        }
         await db.addProactiveHistory(
           triggerReason: 'scene_continuity:${sceneContinuity.reason}',
           decision: 'scene_rest_hold',
@@ -1275,6 +1286,8 @@ ${startsFreshTopic ? '本类型属于新话题通道：ANSWERED CHAT HISTORY 已
         endpoint: endpoint,
         thinking: true,
         maxTokens: 700,
+        usageLane: 'proactive',
+        usageExecutionId: heartbeatKey,
       )) {
         if (DateTime.now().difference(lastProactiveLeaseRefresh) >=
             const Duration(minutes: 1)) {
@@ -1768,6 +1781,22 @@ ${PromptBuilder.visibleChineseGenerationReminder(proactive: true)}
     );
     if (intentThought != null) {
       await thoughtLifecycle.markActed(thought: intentThought, messageId: message.id);
+      final prefix = 'mcp/cedar_game:';
+      if (intentThought.source.startsWith(prefix)) {
+        final store = CedarToyActivityStore(db);
+        final cedarState = await store.loadState();
+        for (final session in cedarState.sessions.values) {
+          if (session.hasPendingTerminalDelivery &&
+              intentThought.source ==
+                  '$prefix${session.gameId}:${session.pendingTerminalKey}') {
+            await store.markTerminalDelivered(
+              gameId: session.gameId,
+              terminalKey: session.pendingTerminalKey,
+            );
+            break;
+          }
+        }
+      }
     }
     final now = DateTime.now();
     if (linkedThread != null &&

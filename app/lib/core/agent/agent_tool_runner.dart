@@ -652,6 +652,31 @@ class AgentToolRunner {
         continuationRecommended: true,
       );
     }
+    params = CedarExecutableCallPolicy.hydrateTransportParams(
+      planned: params,
+      continuationParamsJson: persisted?.continuationParamsJson ?? '',
+      lastOutcome: persisted?.lastOutcome ?? '',
+    );
+    final missingRequired =
+        CedarExecutableCallPolicy.missingExplicitRequiredFields(
+      action: action,
+      params: params,
+      guide:
+          '$guide\n${CedarPlayerProtocolContract.actionSignaturesFor(game)}',
+      playProtocol: await activityStore.loadPlayProtocol(),
+    );
+    if (missingRequired.isNotEmpty) {
+      final fields = missingRequired.toList()..sort();
+      return AgentToolResult(
+        toolId: AgentToolRegistry.cedarToyPlay.id,
+        status: AgentToolStatus.blocked,
+        displayText: '游戏动作缺少必填参数',
+        promptData:
+            'Cedar 尚未收到 $action；缺少字段：${fields.join(', ')}。请结合最新完整状态重新规划一次，不得重复只读查询或声称已经执行。',
+        errorCode: 'cedar_missing_required_action_params',
+        continuationRecommended: true,
+      );
+    }
     params = CedarActionTransportPolicy.immediateResponseParams(
       gameId: game,
       params: params,
@@ -823,6 +848,7 @@ class AgentToolRunner {
         maxTokens: 420,
         cancellationToken: cancellationToken,
         requestTimeout: const Duration(seconds: 20),
+        usageLane: 'cedar_outcome',
         messages: <Map<String, Object?>>[
           <String, Object?>{
             'role': 'system',
@@ -1084,6 +1110,7 @@ ${CedarToyClient.redactSecrets(outcome.text)}''',
       intentAction: 'user_requested_image_send',
       interestKey: 'user_turn_image',
       now: startedAt,
+      cancellationToken: cancellationToken,
     );
     await db.recordProviderHealthEvent(ProviderHealth.webSearchEvent(
       result: web,
@@ -1538,6 +1565,7 @@ source=${_oneLine(item.source, 300)}
       intentAction: 'user_requested_image_save',
       interestKey: 'user_turn_image',
       now: startedAt,
+      cancellationToken: cancellationToken,
     );
     await db.recordProviderHealthEvent(ProviderHealth.webSearchEvent(
       result: web,
@@ -1697,6 +1725,7 @@ Qwen 只读取去元数据后的有界缩略图；本地相册另外保留实际
       intentAction: 'answer_user_with_tool',
       interestKey: 'user_turn',
       now: DateTime.now(),
+      cancellationToken: cancellationToken,
     );
     final providerElapsed = DateTime.now().difference(providerStarted);
     await db.recordProviderHealthEvent(ProviderHealth.webSearchEvent(
@@ -1729,6 +1758,7 @@ Qwen 只读取去元数据后的有界缩略图；本地相册另外保留实际
     final appraised = await DeepSeekPublicWebAppraiser(
       apiKey: await secureConfig.readApiKey() ?? '',
       endpoint: await secureConfig.readEndpoint(),
+      client: _ai,
     ).appraise(
       query: normalized,
       candidates: result.candidates,
@@ -1740,6 +1770,7 @@ Qwen 只读取去元数据后的有界缩略图；本地相册另外保留实际
         reasonSource: 'user_turn_tool',
       ),
       socialExcess: 0,
+      cancellationToken: cancellationToken,
     );
     cancellationToken?.throwIfCancelled();
     final candidates = appraised

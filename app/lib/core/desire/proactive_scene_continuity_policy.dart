@@ -22,6 +22,7 @@ class ProactiveSceneContinuityPolicy {
   const ProactiveSceneContinuityPolicy._();
 
   static const restClosureHold = Duration(minutes: 90);
+  static const activeConversationHold = Duration(minutes: 10);
 
   static final RegExp _restClosure = RegExp(
     r'(晚安|明天见|我(?:先|要|去)?睡(?:了|觉)?|去睡吧|先睡(?:了|吧)?|早点睡|休息吧|先休息)',
@@ -34,6 +35,17 @@ class ProactiveSceneContinuityPolicy {
     final ordinary = recent
         .where((message) => !message.isProactive)
         .toList(growable: false);
+    if (ordinary.isNotEmpty) {
+      final latest = ordinary.last;
+      final age = now.difference(latest.createdAt);
+      if (!age.isNegative && age < activeConversationHold) {
+        return ProactiveSceneContinuityDecision(
+          hold: true,
+          reason: 'recent_active_conversation',
+          closedAt: latest.createdAt,
+        );
+      }
+    }
     if (ordinary.length < 2) {
       return const ProactiveSceneContinuityDecision(
         hold: false,

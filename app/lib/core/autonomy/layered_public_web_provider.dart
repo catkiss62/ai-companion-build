@@ -5,6 +5,7 @@ import 'dart:io';
 import 'package:crypto/crypto.dart';
 import 'package:http/http.dart' as http;
 
+import '../ai/generation_cancellation.dart';
 import '../models/public_web_candidate.dart';
 import 'wikimedia_public_web_provider.dart';
 
@@ -41,6 +42,34 @@ class LayeredPublicWebProvider implements PublicWebProvider {
 
   @override
   Future<PublicWebProviderResult> discover({
+    required String query,
+    required String driveKey,
+    required String intentAction,
+    required String interestKey,
+    required DateTime now,
+    GenerationCancellationToken? cancellationToken,
+  }) {
+    if (cancellationToken != null) {
+      unawaited(cancellationToken.whenCancelled.then<void>((_) {
+        // http.Client.close aborts Tavily search/extract and Agnes requests
+        // that are currently holding the user turn. This provider instance is
+        // single-use at every call site, so it is never reused after Stop.
+        _client.close();
+      }));
+    }
+    return cancelWithToken(
+        _discoverUncancelled(
+          query: query,
+          driveKey: driveKey,
+          intentAction: intentAction,
+          interestKey: interestKey,
+          now: now,
+        ),
+        cancellationToken,
+      );
+  }
+
+  Future<PublicWebProviderResult> _discoverUncancelled({
     required String query,
     required String driveKey,
     required String intentAction,
@@ -296,6 +325,27 @@ class LayeredPublicWebProvider implements PublicWebProvider {
       intentAction == 'user_requested_image_save';
 
   Future<PublicWebCandidateDraft> rereadCandidate({
+    required PublicWebCandidateDraft candidate,
+    required String query,
+    required DateTime now,
+    GenerationCancellationToken? cancellationToken,
+  }) {
+    if (cancellationToken != null) {
+      unawaited(cancellationToken.whenCancelled.then<void>((_) {
+        _client.close();
+      }));
+    }
+    return cancelWithToken(
+        _rereadCandidateUncancelled(
+          candidate: candidate,
+          query: query,
+          now: now,
+        ),
+        cancellationToken,
+      );
+  }
+
+  Future<PublicWebCandidateDraft> _rereadCandidateUncancelled({
     required PublicWebCandidateDraft candidate,
     required String query,
     required DateTime now,

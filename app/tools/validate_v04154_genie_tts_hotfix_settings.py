@@ -63,7 +63,7 @@ assert sha256(dart_block(presets, "worldBookNaturalDialogueV04154").encode()).he
     "3b9c9426fd05e087578bb2adb63edc32ae2ab23b88e44b8eeaa339a4f57475ea"
 )
 assert sha256(dart_block(presets, "worldBookPersonalitySpectrumV04154").encode()).hexdigest() == (
-    "e7035045f0853b5e15eb610ed02441d86519e866443870e4b08a394319907dd2"
+    "fcc1074203b31cdf36466b39b3b6b08b5abd7497855155c31558177242dfe0fb"
 )
 for name in ("角色表达自然化", "日常对话规则", "性格光谱", "造梗能力"):
     assert f"name: '{name}'" in presets

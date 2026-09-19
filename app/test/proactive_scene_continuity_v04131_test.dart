@@ -66,7 +66,7 @@ void main() {
     expect(result.reason, 'rest_closure_expired');
   });
 
-  test('a later real user turn clears the closed rest scene', () {
+  test('a later real user turn starts the sliding ten minute quiet window', () {
     final result = ProactiveSceneContinuityPolicy.evaluate(
       now: now,
       recent: [
@@ -91,7 +91,30 @@ void main() {
       ],
     );
 
+    expect(result.hold, isTrue);
+    expect(result.reason, 'recent_active_conversation');
+  });
+
+  test('ordinary conversation releases after ten quiet minutes', () {
+    final result = ProactiveSceneContinuityPolicy.evaluate(
+      now: now,
+      recent: [
+        message(
+          id: 'u1',
+          role: 'user',
+          content: '刚才那局挺有意思。',
+          at: now.subtract(const Duration(minutes: 12)),
+        ),
+        message(
+          id: 'a1',
+          role: 'assistant',
+          content: '「下次还要赢回来。」',
+          at: now.subtract(const Duration(minutes: 11)),
+        ),
+      ],
+    );
+
     expect(result.hold, isFalse);
-    expect(result.reason, 'latest_scene_not_user_assistant_pair');
+    expect(result.reason, 'latest_pair_not_mutual_rest_closure');
   });
 }

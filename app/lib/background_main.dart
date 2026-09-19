@@ -9,6 +9,7 @@ import 'core/ai/memory_extractor.dart';
 import 'core/database/app_database.dart';
 import 'core/desire/desire_engine.dart';
 import 'core/desire/proactive_engine.dart';
+import 'core/diagnostics/model_usage_telemetry.dart';
 import 'core/diagnostics/runtime_error_category.dart';
 import 'core/maintenance/recovery_orchestrator.dart';
 import 'core/platform/android_bridge.dart';
@@ -25,6 +26,7 @@ Future<void> companionBackgroundMain() async {
   // lease for minutes while backup/restore waits only 90 seconds.
   final client = DeepSeekClient(
     abortWhen: () async => !await db.brainWorkAllowed(),
+    onUsage: (event) => ModelUsageTelemetry.record(db, event),
   );
   final proactive = ProactiveEngine(
     db: db,

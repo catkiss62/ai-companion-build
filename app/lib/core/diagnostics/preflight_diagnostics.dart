@@ -482,6 +482,10 @@ class PreflightDiagnosticsService {
       cedarRealtime['continuationParamsIncluded'] = false;
       cedarRealtime['roomIdentityIncluded'] = false;
 
+      report['modelUsage'] = _modelUsageSummary(
+        await db.getSetting('deepseek_usage_telemetry_v1') ?? '',
+      );
+
       report['database'] = {
         'schemaVersion': AppDatabase.schemaVersion,
         'deviceFp': _fingerprint(identity.deviceId),
@@ -1772,6 +1776,44 @@ class PreflightDiagnosticsService {
   String _fingerprint(String raw) {
     if (raw.trim().isEmpty) return '';
     return sha256.convert(utf8.encode(raw)).toString().substring(0, 12);
+  }
+
+  Map<String, Object?> _modelUsageSummary(String raw) {
+    final byLane = <String, Map<String, int>>{};
+    var eventCount = 0;
+    try {
+      final decoded = jsonDecode(raw);
+      if (decoded is List) {
+        for (final item in decoded.whereType<Map>()) {
+          eventCount += 1;
+          final lane = item['lane']?.toString().trim() ?? '';
+          final key = lane.isEmpty ? 'unclassified' : lane;
+          final totals = byLane.putIfAbsent(key, () => <String, int>{
+                'calls': 0,
+                'inputTokens': 0,
+                'outputTokens': 0,
+                'cacheHitTokens': 0,
+                'cacheMissTokens': 0,
+              });
+          totals['calls'] = totals['calls']! + 1;
+          totals['inputTokens'] = totals['inputTokens']! +
+              ((item['input_tokens'] as num?)?.toInt() ?? 0);
+          totals['outputTokens'] = totals['outputTokens']! +
+              ((item['output_tokens'] as num?)?.toInt() ?? 0);
+          totals['cacheHitTokens'] = totals['cacheHitTokens']! +
+              ((item['cache_hit_tokens'] as num?)?.toInt() ?? 0);
+          totals['cacheMissTokens'] = totals['cacheMissTokens']! +
+              ((item['cache_miss_tokens'] as num?)?.toInt() ?? 0);
+        }
+      }
+    } catch (_) {}
+    return <String, Object?>{
+      'eventCount': eventCount,
+      'byLane': byLane,
+      'promptBodiesIncluded': false,
+      'responseBodiesIncluded': false,
+      'credentialsIncluded': false,
+    };
   }
 
   Map<String, Object?> _safeJsonObject(String raw) {

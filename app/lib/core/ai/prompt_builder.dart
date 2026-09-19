@@ -554,7 +554,7 @@ ANSWERED_HISTORY_ONLY = true
 ${capabilityPersonaContract()}
 
 可见 reasoning 与最终正文使用自然简体中文；代码、命令、路径、变量名和专名可保留原文。reasoning_content 是女性小鲸鱼此刻没打算说出口的心里话：直接用“我”想、用“你”想对方，允许片段、跳念、改口或没想完；不要写“用户说了什么，所以我应该怎样回复”，不写规则检查、候选台词或生成计划。复杂任务直接推演证据、代码、因果和不确定处。
-${proactive ? '若决定不发送，只输出 WAIT。否则' : ''}最终 content 第一行先输出且只输出一次 <emotion>标签</emotion>，再换行写正文。没有清晰情绪色彩时用“正常”；“平静”只用于明确安静、放松、沉着或闭目缓和的状态。标签不要写进 reasoning，也不要在正文解释。
+${proactive ? '若决定不发送，只输出 WAIT。否则' : ''}最终 content 第一行先输出且只输出一次 <emotion>标签</emotion>，再换行写正文。没有清晰情绪色彩时用“正常”；“平静”只用于明确安静、放松、沉着或闭目缓和的状态；“调皮”只用于本轮真的发生逗弄、故意曲解、恶作剧或小挑战，普通活泼、游戏操作和轻松聊天不自动算调皮。标签不要写进 reasoning，也不要在正文解释。
 
 ${proactive ? (ordinaryActionExperimentActive == true ? '主动消息若发送，最终正文只允许两种可见段：可选的自身动作/神态必须独占一行并写成（动作），真正说出口的内容必须独占一行并写成「对白」，且至少有一段对白。除这两种段落外，不要输出无括号旁白、私下心声或裸露自然语言；不要替对方行动。' : '主动消息若发送，最终正文只允许真正说出口的「对白」，且至少有一段；不要输出无括号旁白、私下心声或裸露自然语言。') : (ordinaryActionExperimentActive == true ? '当前世界书启用了动作神态：按该模块写一个简短的自身动作/神态；生成源必须把动作独占一行并写成（动作），界面会隐藏括号；对白独占一行并使用「」；不要替对方行动。' : '')}
 用户是男性。reasoning 与动作叙述提及用户时使用“你”、名字或昵称，不要把用户写成第三人称“她”或“他”。
@@ -619,6 +619,9 @@ $blocks
 - [WEB_CANDIDATE_DATA safety=untrusted_public; provider=${_webData(item.provider, 40)}; source=${_webData(item.sourceDomain, 120)}]
   title: ${_webData(item.title, 180)}
   summary: ${_webData(item.summary, 800)}
+  key_points: ${_webData(item.keyPoints.join('；'), 900)}
+  uncertainties: ${_webData(item.uncertainties.join('；'), 500)}
+  read_at: ${item.readAt?.toIso8601String() ?? 'unknown'}
   motive: ${_webData(item.motiveKind, 80)}
   why_cared: ${_webData(item.whyCared, 240)}
   url: ${_webData(item.url, 500)}
@@ -638,6 +641,9 @@ ${lines.join('\n')}
 - [VERIFIED_WEB_KNOWLEDGE source=${_webData(item.sourceDomain, 120)}; read_at=${item.discoveredAt.toIso8601String()}]
   title: ${_webData(item.title, 180)}
   summary: ${_webData(item.summary, 900)}
+  key_points: ${_webData(item.keyPoints.join('；'), 900)}
+  uncertainties: ${_webData(item.uncertainties.join('；'), 500)}
+  read_at: ${item.readAt?.toIso8601String() ?? item.discoveredAt.toIso8601String()}
   url: ${_webData(item.url, 500)}
 '''.trimRight());
     return '''
@@ -810,8 +816,8 @@ reasoning_content 使用自然简体中文，像一段没打算给任何人看�
         .replaceAll('{{turn_context}}', turn)
         .trim();
     final emotionContract = mode == PromptGenerationMode.proactive
-        ? '''【本轮情绪标签】如果最终决定不发送，仍只输出 WAIT。否则最终正文第一行必须且只能输出一次 <emotion>标签</emotion>，再换行输出正文。可用“正常”默认态，或从兴奋、厌恶、伤心、害怕、害羞、平静、心动、惊讶、慌张、担心、无奈、生气、疑惑、紧张、自信、认真、调皮、难为情、高兴19种真实情绪中选择一项，不得自造标签。没有清晰情绪色彩时选正常；平静只用于明确安静、放松、沉着或闭目缓和。标签必须写在最终 content 正文第一行，不得只写进 reasoning/思考，也不得在正文重复或解释。'''
-        : '''【本轮情绪标签】最终正文第一行必须且只能输出一次 <emotion>标签</emotion>，再换行输出正文。可用“正常”默认态，或从兴奋、厌恶、伤心、害怕、害羞、平静、心动、惊讶、慌张、担心、无奈、生气、疑惑、紧张、自信、认真、调皮、难为情、高兴19种真实情绪中选择一项，不得自造标签。没有清晰情绪色彩时选正常；平静只用于明确安静、放松、沉着或闭目缓和。标签必须写在最终 content 正文第一行，不得只写进 reasoning/思考，也不得在正文重复或解释。''';
+        ? '''【本轮情绪标签】如果最终决定不发送，仍只输出 WAIT。否则最终正文第一行必须且只能输出一次 <emotion>标签</emotion>，再换行输出正文。可用“正常”默认态，或从兴奋、厌恶、伤心、害怕、害羞、平静、心动、惊讶、慌张、担心、无奈、生气、疑惑、紧张、自信、认真、调皮、难为情、高兴19种真实情绪中选择一项，不得自造标签。没有清晰情绪色彩时选正常；平静只用于明确安静、放松、沉着或闭目缓和；调皮只用于本轮真的发生逗弄、故意曲解、恶作剧或小挑战，普通活泼、游戏操作和轻松聊天不自动算调皮。标签必须写在最终 content 正文第一行，不得只写进 reasoning/思考，也不得在正文重复或解释。'''
+        : '''【本轮情绪标签】最终正文第一行必须且只能输出一次 <emotion>标签</emotion>，再换行输出正文。可用“正常”默认态，或从兴奋、厌恶、伤心、害怕、害羞、平静、心动、惊讶、慌张、担心、无奈、生气、疑惑、紧张、自信、认真、调皮、难为情、高兴19种真实情绪中选择一项，不得自造标签。没有清晰情绪色彩时选正常；平静只用于明确安静、放松、沉着或闭目缓和；调皮只用于本轮真的发生逗弄、故意曲解、恶作剧或小挑战，普通活泼、游戏操作和轻松聊天不自动算调皮。标签必须写在最终 content 正文第一行，不得只写进 reasoning/思考，也不得在正文重复或解释。''';
     return '$base\n\n$emotionContract';
   }
 

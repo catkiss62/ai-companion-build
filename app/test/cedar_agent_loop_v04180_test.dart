@@ -10,6 +10,7 @@ AgentToolResult _cedarResult(
   String toolId, {
   bool continuation = false,
   AgentToolStatus status = AgentToolStatus.succeeded,
+  String machineAction = '',
 }) =>
     AgentToolResult(
       toolId: toolId,
@@ -17,6 +18,9 @@ AgentToolResult _cedarResult(
       displayText: toolId,
       promptData: toolId,
       continuationRecommended: continuation,
+      submittedArguments: machineAction.isEmpty
+          ? const <String, Object?>{}
+          : <String, Object?>{'action': machineAction},
     );
 
 void main() {
@@ -62,6 +66,39 @@ void main() {
             'cedar_toy.play',
             continuation: true,
             status: AgentToolStatus.blocked,
+          ),
+        ],
+        proposalExecuted: false,
+        commitPendingMedia: false,
+        loopLimitReached: false,
+      ),
+      isFalse,
+    );
+  });
+
+  test('one committed mutation hands continuation to the background clock', () {
+    expect(
+      CedarAgentLoopPolicy.shouldFinalizeRound(
+        results: <AgentToolResult>[
+          _cedarResult(
+            'cedar_toy.play',
+            continuation: true,
+            machineAction: 'move',
+          ),
+        ],
+        proposalExecuted: false,
+        commitPendingMedia: false,
+        loopLimitReached: false,
+      ),
+      isTrue,
+    );
+    expect(
+      CedarAgentLoopPolicy.shouldFinalizeRound(
+        results: <AgentToolResult>[
+          _cedarResult(
+            'cedar_toy.play',
+            continuation: true,
+            machineAction: 'state',
           ),
         ],
         proposalExecuted: false,
@@ -133,7 +170,7 @@ void main() {
         hasContinuationCall: true,
         participationActive: false,
       ),
-      isTrue,
+      isFalse,
     );
   });
 

@@ -1,5 +1,6 @@
 import 'package:uuid/uuid.dart';
 
+import '../ai/deepseek_client.dart';
 import '../database/app_database.dart';
 import '../diagnostics/provider_health.dart';
 import '../desire/desire_engine.dart';
@@ -49,6 +50,7 @@ class PublicWebDiscoveryEngine {
     PublicWebProvider? provider,
     PublicWebCandidateAppraiser? appraiser,
     PublicWebQuestionPlanner? questionPlanner,
+    this.ai,
   })  : secureConfig = secureConfig ?? SecureConfig.instance,
         _providerOverride = provider,
         _appraiserOverride = appraiser,
@@ -61,6 +63,7 @@ class PublicWebDiscoveryEngine {
   final PublicWebProvider? _providerOverride;
   final PublicWebCandidateAppraiser? _appraiserOverride;
   final PublicWebQuestionPlanner? _questionPlannerOverride;
+  final DeepSeekClient? ai;
   final Uuid _uuid = Uuid();
 
   late final AutonomousActionCoordinator coordinator =
@@ -222,6 +225,7 @@ class PublicWebDiscoveryEngine {
         DeepSeekPublicWebQuestionPlanner(
           apiKey: await secureConfig.readApiKey() ?? '',
           endpoint: await secureConfig.readEndpoint(),
+          client: ai,
         );
     final questionPlan = await planner.plan(
       topic: topic,
@@ -302,6 +306,7 @@ class PublicWebDiscoveryEngine {
         DeepSeekPublicWebAppraiser(
           apiKey: await secureConfig.readApiKey() ?? '',
           endpoint: await secureConfig.readEndpoint(),
+          client: ai,
         );
     final appraisalStarted = DateTime.now();
     final seededCandidates = result.candidates

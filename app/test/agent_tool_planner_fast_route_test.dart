@@ -56,6 +56,19 @@ void main() {
     expect(plan.calls.single.arguments['query'], contains('REDMI K80 Ultra'));
   });
 
+  test('plain observation verbs do not grant public web access', () {
+    expect(AgentToolPlanner.routeLocally('看看有什么好东西'), isNull);
+    expect(AgentToolPlanner.routeLocally('看看氧气瓶'), isNull);
+
+    final explicit = AgentToolPlanner.routeLocally('上网看看氧气瓶资料');
+    expect(explicit, isNotNull);
+    expect(explicit!.calls.single.toolId, AgentToolRegistry.publicWebSearch.id);
+
+    final weather = AgentToolPlanner.routeLocally('看看今天的天气');
+    expect(weather, isNotNull);
+    expect(weather!.calls.single.toolId, AgentToolRegistry.publicWebSearch.id);
+  });
+
   test('explicit web image save uses one bounded workflow tool', () {
     final plan = AgentToolPlanner.routeLocally('帮我上网找一张唯美黄昏风景图并保存到相册');
     expect(plan, isNotNull);

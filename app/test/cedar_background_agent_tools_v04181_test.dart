@@ -4,6 +4,7 @@ import 'package:ai_companion_localfirst/core/ai/deepseek_client.dart';
 import 'package:ai_companion_localfirst/core/agent/agent_tool.dart';
 import 'package:ai_companion_localfirst/core/agent/agent_tool_planner.dart';
 import 'package:ai_companion_localfirst/core/agent/agent_tool_runner.dart';
+import 'package:ai_companion_localfirst/core/mcp/cedar_game_protocol.dart';
 import 'package:ai_companion_localfirst/core/mcp/cedar_toy_activity.dart';
 import 'package:ai_companion_localfirst/core/mcp/cedar_toy_autonomy_engine.dart';
 import 'package:ai_companion_localfirst/core/database/app_database.dart';
@@ -58,6 +59,66 @@ Map<String, Object?> _decision({
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
   sqfliteFfiInit();
+
+  test('transport hydration never invents choices or an ambiguous room', () {
+    final hydrated = CedarExecutableCallPolicy.hydrateTransportParams(
+      planned: const <String, Object?>{
+        'move': <String, Object?>{'row': 7, 'col': 7},
+      },
+      continuationParamsJson:
+          '{"room_id":"ROOM","revision":9,"legal_moves":["ignored"]}',
+      lastOutcome: '',
+    );
+    expect(hydrated['room_id'], 'ROOM');
+    expect(hydrated['revision'], 9);
+    expect(hydrated, isNot(contains('game_type')));
+
+    final ambiguousHydration =
+        CedarExecutableCallPolicy.hydrateTransportParams(
+      planned: const <String, Object?>{},
+      continuationParamsJson: '',
+      lastOutcome:
+          '{"rooms":[{"room_id":"ONE"},{"room_id":"TWO"}]}',
+    );
+    expect(
+      ambiguousHydration,
+      isNot(contains('room_id')),
+      reason: 'transport hydration must not silently pick one room',
+    );
+
+    expect(
+      CedarExecutableCallPolicy.uniqueTransportValue(
+        key: 'room_id',
+        structuredContent: const <String, Object?>{'room_id': 'ONLY'},
+        text: '',
+      ),
+      'ONLY',
+    );
+    expect(
+      CedarExecutableCallPolicy.uniqueTransportValue(
+        key: 'room_id',
+        structuredContent: const <String, Object?>{
+          'rooms': <Object?>[
+            <String, Object?>{'room_id': 'ONE'},
+            <String, Object?>{'room_id': 'TWO'},
+          ],
+        },
+        text: '',
+      ),
+      isEmpty,
+      reason: 'the APK must not choose between multiple rooms',
+    );
+  });
+
+  test('explicit guide-required fields block an incomplete mutation', () {
+    final missing = CedarExecutableCallPolicy.missingExplicitRequiredFields(
+      action: 'new',
+      params: const <String, Object?>{},
+      guide: CedarPlayerProtocolContract.actionSignaturesFor('duel'),
+      playProtocol: '',
+    );
+    expect(missing, contains('game_type'));
+  });
 
   test('background action accepts a native play call with empty model body',
       () async {

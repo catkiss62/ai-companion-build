@@ -97,6 +97,94 @@ void main() {
     expect(result.currentActivityKey, isNull);
   });
 
+  test('a new screen session cannot inherit an hour of old phone usage', () {
+    final result = interpreter.interpret(
+      usage: <UsageEventInfo>[
+        UsageEventInfo(
+          packageName: 'game.old',
+          timestamp: now.subtract(const Duration(minutes: 75)),
+          eventType: 'foreground',
+          appCategory: 'game',
+          appLabel: '旧游戏',
+        ),
+        UsageEventInfo(
+          packageName: 'chat.new',
+          timestamp: now.subtract(const Duration(minutes: 2)),
+          eventType: 'foreground',
+          appCategory: 'social',
+          appLabel: '聊天',
+        ),
+      ],
+      recentSignals: const [],
+      deviceStateEvents: <Map<String, Object?>>[
+        <String, Object?>{
+          'event_type': 'screen_off',
+          'occurred_at': now
+              .subtract(const Duration(minutes: 65))
+              .millisecondsSinceEpoch,
+        },
+        <String, Object?>{
+          'event_type': 'screen_on',
+          'occurred_at': now
+              .subtract(const Duration(minutes: 3))
+              .millisecondsSinceEpoch,
+        },
+      ],
+      deviceState: const DevicePerceptionState(
+        usageAccess: true,
+        screenInteractive: true,
+        deviceLocked: false,
+        notificationListenerConnected: false,
+        accessibilityConnected: false,
+      ),
+      now: now,
+    );
+
+    expect(result.currentAppLabel, '聊天');
+    expect(result.dominantActivityKey, 'social');
+    expect(result.dominantActivityMinutes, lessThan(5));
+    expect(
+      result.observations.any((item) => item.kind == 'recent_activity'),
+      isFalse,
+    );
+  });
+
+  test('screen-off history is labeled as before-off instead of current use', () {
+    final offAt = now.subtract(const Duration(minutes: 40));
+    final result = interpreter.interpret(
+      usage: <UsageEventInfo>[
+        UsageEventInfo(
+          packageName: 'game.before.off',
+          timestamp: offAt.subtract(const Duration(minutes: 35)),
+          eventType: 'foreground',
+          appCategory: 'game',
+          appLabel: '游戏',
+        ),
+      ],
+      recentSignals: const [],
+      deviceStateEvents: <Map<String, Object?>>[
+        <String, Object?>{
+          'event_type': 'screen_off',
+          'occurred_at': offAt.millisecondsSinceEpoch,
+        },
+      ],
+      deviceState: const DevicePerceptionState(
+        usageAccess: true,
+        screenInteractive: false,
+        deviceLocked: true,
+        notificationListenerConnected: false,
+        accessibilityConnected: false,
+      ),
+      now: now,
+    );
+
+    final recent = result.observations
+        .singleWhere((item) => item.kind == 'recent_activity');
+    expect(recent.summary, contains('熄屏之前'));
+    expect(recent.summary, contains('不能算作继续使用'));
+    expect(result.currentAppLabel, isNull);
+  });
+
   test('raw notification and accessibility text never appears in observations', () {
     final signals = List<Map<String, Object?>>.generate(8, (index) => {
           'source': index < 5 ? 'notification' : 'accessibility',
