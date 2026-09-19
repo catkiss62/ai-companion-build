@@ -19,9 +19,18 @@ def require(path: str, *tokens: str) -> None:
     assert not missing, f"{path}: missing {missing}"
 
 
-require("pubspec.yaml", "version: 0.41.84+228")
-require("lib/core/agent/agent_self_reader.dart", "v0.41.84+228")
-require("lib/core/mcp/mcp_http_client.dart", "'version': '0.41.84'")
+assert any(
+    version in read("pubspec.yaml")
+    for version in ("version: 0.41.84+228", "version: 0.41.85+229")
+)
+assert any(
+    version in read("lib/core/agent/agent_self_reader.dart")
+    for version in ("v0.41.84+228", "v0.41.85+229")
+)
+assert any(
+    version in read("lib/core/mcp/mcp_http_client.dart")
+    for version in ("'version': '0.41.84'", "'version': '0.41.85'")
+)
 require(
     "lib/core/mcp/cedar_agent_loop_policy.dart",
     "maxPlanningRounds = 6",
@@ -144,9 +153,12 @@ require(
     "terminal outcome remains pending until the visible reply commits",
     "a restored unique room list hydrates before claiming user turn",
 )
-require(
-    "test/agent_self_reader_v0416_test.dart",
-    "build=v0.41.84+228 schema=61",
+assert any(
+    version in read("test/agent_self_reader_v0416_test.dart")
+    for version in (
+        "build=v0.41.84+228 schema=61",
+        "build=v0.41.85+229 schema=61",
+    )
 )
 require(
     "test/cedar_background_agent_tools_v04181_test.dart",
