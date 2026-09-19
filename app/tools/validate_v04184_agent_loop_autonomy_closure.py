@@ -117,6 +117,11 @@ require(
     "极端阈值层",
 )
 require(
+    "test/world_book_model_test.dart",
+    "核心架构：底色与分层机制",
+    "去工具化与自主性",
+)
+require(
     "lib/core/database/app_database.dart",
     "_migrateUntouchedPersonalitySpectrum",
     "e7035045f0853b5e15eb610ed02441d86519e866443870e4b08a394319907dd2",

@@ -71,7 +71,11 @@ void main() {
     expect(inference.content, startsWith('【推演思维引擎】'));
     expect(
       byId['builtin.worldbook.personality_spectrum']!.content,
-      contains('性格光谱一句话印象'),
+      contains('核心架构：底色与分层机制'),
+    );
+    expect(
+      byId['builtin.worldbook.personality_spectrum']!.content,
+      contains('去工具化与自主性'),
     );
     expect(byId['builtin.worldbook.personality_spectrum']!.priority, 850);
     expect(
