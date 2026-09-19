@@ -104,6 +104,7 @@ class CedarJsonDecisionExecutor {
     required String apiKey,
     required String endpoint,
     required String instruction,
+    String usageLane = 'cedar_background_plan',
     GenerationCancellationToken? cancellationToken,
     Duration requestTimeout = const Duration(seconds: 30),
   }) async {
@@ -121,7 +122,7 @@ class CedarJsonDecisionExecutor {
           maxTokens: CedarJsonDecisionRetryPolicy.maxTokensForAttempt(attempt),
           cancellationToken: cancellationToken,
           requestTimeout: requestTimeout,
-          usageLane: 'cedar_background_plan',
+          usageLane: usageLane,
           messages: CedarJsonDecisionRetryPolicy.messagesForAttempt(
             attempt: attempt,
             instruction: instruction,
@@ -2005,6 +2006,7 @@ game=${session.gameId}
       apiKey: apiKey,
       endpoint: endpoint,
       instruction: instruction,
+      usageLane: 'cedar_game_choice',
       cancellationToken: cancellationToken,
     );
   }

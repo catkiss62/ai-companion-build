@@ -515,6 +515,7 @@ class ImmersiveRoomController extends ChangeNotifier {
       thinking: true,
       maxTokens: 6000,
       cancellationToken: cancellation,
+      usageLane: 'immersive_reply',
     )) {
       cancellation.throwIfCancelled();
       if (delta.reasoning.isNotEmpty) {
@@ -1155,6 +1156,7 @@ class ImmersiveRoomController extends ChangeNotifier {
         endpoint: await secureConfig.readEndpoint(),
         thinking: false,
         maxTokens: 2200,
+        usageLane: 'immersive_archive',
         messages: [
           {
             'role': 'system',
@@ -1227,6 +1229,7 @@ $transcript''',
         endpoint: endpoint,
         thinking: false,
         maxTokens: 1600,
+        usageLane: 'immersive_summary',
         messages: [
           {
             'role': 'system',

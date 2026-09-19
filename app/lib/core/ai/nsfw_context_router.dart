@@ -87,6 +87,7 @@ class NsfwContextRouter {
         thinking: false,
         maxTokens: 120,
         cancellationToken: cancellationToken,
+        usageLane: 'chat_intimacy_route',
         messages: <Map<String, Object?>>[
           const {
             'role': 'system',

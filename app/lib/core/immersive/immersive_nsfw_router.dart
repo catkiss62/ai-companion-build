@@ -118,6 +118,7 @@ class ImmersiveNsfwRouter {
         thinking: false,
         maxTokens: 120,
         cancellationToken: cancellationToken,
+        usageLane: 'immersive_route',
         messages: <Map<String, Object?>>[
           const {
             'role': 'system',

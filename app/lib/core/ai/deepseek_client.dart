@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
 
+import 'package:crypto/crypto.dart';
 import 'package:http/http.dart' as http;
 
 import 'chat_api_provider.dart';
@@ -67,6 +68,7 @@ class DeepSeekUsageEvent {
     required this.cacheHitTokens,
     required this.cacheMissTokens,
     required this.streaming,
+    required this.promptShape,
   });
 
   final String lane;
@@ -76,6 +78,39 @@ class DeepSeekUsageEvent {
   final int cacheHitTokens;
   final int cacheMissTokens;
   final bool streaming;
+  final DeepSeekPromptShape promptShape;
+}
+
+/// Body-free prompt layout telemetry. Hashes make repeated stable segments
+/// comparable without persisting prompt text, model output or tool fields.
+class DeepSeekPromptShape {
+  const DeepSeekPromptShape({
+    required this.messages,
+    required this.toolCount,
+    required this.toolCharacters,
+    required this.toolHash,
+  });
+
+  static const int version = 1;
+
+  final List<DeepSeekPromptSegmentShape> messages;
+  final int toolCount;
+  final int toolCharacters;
+  final String toolHash;
+}
+
+class DeepSeekPromptSegmentShape {
+  const DeepSeekPromptSegmentShape({
+    required this.index,
+    required this.role,
+    required this.characters,
+    required this.hash,
+  });
+
+  final int index;
+  final String role;
+  final int characters;
+  final String hash;
 }
 
 class DeepSeekClient {
@@ -116,6 +151,8 @@ class DeepSeekClient {
     String usageExecutionId = '',
   }) async* {
     final provider = ChatApiProvider.fromEndpoint(endpoint);
+    final canonicalTools = _canonicalTools(tools);
+    final promptShape = _promptShape(messages, canonicalTools);
     final request = http.Request('POST', Uri.parse(endpoint))
       ..headers.addAll({
         'Content-Type': 'application/json',
@@ -130,8 +167,8 @@ class DeepSeekClient {
           effort: effort,
         ),
         if (maxTokens != null) 'max_tokens': maxTokens,
-        if (tools.isNotEmpty) 'tools': tools,
-        if (tools.isNotEmpty) 'tool_choice': toolChoice ?? 'auto',
+        if (canonicalTools.isNotEmpty) 'tools': canonicalTools,
+        if (canonicalTools.isNotEmpty) 'tool_choice': toolChoice ?? 'auto',
         'stream': true,
         // DeepSeek documents this OpenAI-compatible accounting option. The
         // third-party Gemini relay is kept byte-for-byte compatible with its
@@ -208,6 +245,7 @@ class DeepSeekClient {
           lane: usageLane,
           executionId: usageExecutionId,
           streaming: true,
+          promptShape: promptShape,
         );
         if (usage != null) {
           try {
@@ -280,6 +318,10 @@ class DeepSeekClient {
     String usageExecutionId = '',
   }) async {
     final provider = ChatApiProvider.fromEndpoint(endpoint);
+    final promptShape = _promptShape(
+      messages,
+      const <Map<String, Object?>>[],
+    );
     final abortWhen = _abortWhen;
     final ownsClient = cancellationToken != null || abortWhen != null;
     final requestClient = ownsClient ? _jsonClientFactory() : _client;
@@ -359,6 +401,7 @@ class DeepSeekClient {
         lane: usageLane,
         executionId: usageExecutionId,
         streaming: false,
+        promptShape: promptShape,
       );
       if (usage != null) {
         try {
@@ -423,6 +466,7 @@ class DeepSeekClient {
     required String lane,
     required String executionId,
     required bool streaming,
+    required DeepSeekPromptShape promptShape,
   }) {
     if (raw is! Map) return null;
     int value(String key) => (raw[key] as num?)?.toInt() ?? 0;
@@ -439,8 +483,64 @@ class DeepSeekClient {
       cacheHitTokens: hit,
       cacheMissTokens: miss,
       streaming: streaming,
+      promptShape: promptShape,
     );
   }
+
+  static List<Map<String, Object?>> _canonicalTools(
+    List<Map<String, Object?>> tools,
+  ) =>
+      tools
+          .map((tool) => _canonicalValue(tool) as Map<String, Object?>)
+          .toList(growable: false);
+
+  static DeepSeekPromptShape _promptShape(
+    List<Map<String, Object?>> messages,
+    List<Map<String, Object?>> tools,
+  ) {
+    final segments = <DeepSeekPromptSegmentShape>[];
+    for (var index = 0; index < messages.length; index++) {
+      final message = messages[index];
+      final encoded = _shapeValue(message['content']);
+      segments.add(DeepSeekPromptSegmentShape(
+        index: index,
+        role: message['role']?.toString().trim() ?? '',
+        characters: encoded.runes.length,
+        hash: _shortHash(encoded),
+      ));
+    }
+    final encodedTools = tools.isEmpty ? '' : jsonEncode(tools);
+    return DeepSeekPromptShape(
+      messages: List.unmodifiable(segments),
+      toolCount: tools.length,
+      toolCharacters: encodedTools.runes.length,
+      toolHash: encodedTools.isEmpty ? '' : _shortHash(encodedTools),
+    );
+  }
+
+  static String _shapeValue(Object? value) => value is String
+      ? value
+      : jsonEncode(_canonicalValue(value));
+
+  static Object? _canonicalValue(Object? value) {
+    if (value is Map) {
+      final entries = value.entries
+          .map((entry) => MapEntry(entry.key.toString(), entry.value))
+          .toList()
+        ..sort((a, b) => a.key.compareTo(b.key));
+      return <String, Object?>{
+        for (final entry in entries)
+          entry.key: _canonicalValue(entry.value),
+      };
+    }
+    if (value is List) {
+      return value.map(_canonicalValue).toList(growable: false);
+    }
+    return value;
+  }
+
+  static String _shortHash(String value) =>
+      sha256.convert(utf8.encode(value)).toString().substring(0, 12);
 
   void close() {
     for (final streamClient in _streamClients.toList(growable: false)) {

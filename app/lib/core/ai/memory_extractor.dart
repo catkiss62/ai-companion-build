@@ -339,6 +339,7 @@ ${previousAssistant.content}
           endpoint: endpoint,
           thinking: false,
           maxTokens: 1700,
+          usageLane: 'memory_extraction',
           messages: [
           {
             'role': 'system',
@@ -770,6 +771,7 @@ AI：${assistant.content}
         endpoint: endpoint,
         thinking: false,
         maxTokens: 320,
+        usageLane: 'personality_evidence_review',
         messages: [
           {
             'role': 'system',
@@ -1586,6 +1588,7 @@ AI 主动消息：${outbound?.content ?? '(消息正文不可用)'}
         endpoint: endpoint,
         thinking: false,
         maxTokens: 1100,
+        usageLane: 'conversation_summary',
         messages: [
           {
             'role': 'system',

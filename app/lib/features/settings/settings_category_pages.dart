@@ -250,6 +250,7 @@ class _ModelNetworkSettingsPageState
               },
             ],
             maxTokens: 512,
+            usageLane: 'provider_connection_test',
           )
           .timeout(const Duration(seconds: 30));
       await for (final delta in stream) {

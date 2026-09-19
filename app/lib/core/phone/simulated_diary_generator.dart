@@ -146,6 +146,7 @@ class DeepSeekSimulatedDiaryGenerator implements SimulatedDiaryGenerator {
         model: DeepSeekModelProfile.flash,
         thinking: false,
         maxTokens: 1100,
+        usageLane: 'simulated_diary',
         messages: [
           const {
             'role': 'system',

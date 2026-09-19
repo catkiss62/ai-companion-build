@@ -142,6 +142,7 @@ class DeepSeekReasoningTranslationGateway
       thinking: false,
       effort: ReasoningEffort.high,
       maxTokens: maxTokens,
+      usageLane: 'reasoning_translation',
       messages: <Map<String, Object?>>[
         const {
           'role': 'system',

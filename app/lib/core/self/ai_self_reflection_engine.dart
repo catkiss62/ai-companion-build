@@ -97,6 +97,7 @@ class AiSelfReflectionEngine {
         endpoint: endpoint,
         thinking: false,
         maxTokens: 900,
+        usageLane: 'self_reflection',
         messages: [
           {
             'role': 'system',

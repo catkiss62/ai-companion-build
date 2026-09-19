@@ -55,6 +55,7 @@ class DeepSeekSimulatedCartGenerator implements SimulatedCartGenerator {
         model: DeepSeekModelProfile.flash,
         thinking: false,
         maxTokens: 1000,
+        usageLane: 'simulated_cart',
         messages: [
           const {
             'role': 'system',

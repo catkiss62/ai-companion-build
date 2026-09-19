@@ -78,6 +78,7 @@ class DeepSeekMessageLanguageVariantGateway
                       3)
                   .clamp(500, 5000)
                   .toInt(),
+          usageLane: 'message_translation',
           messages: <Map<String, Object?>>[
             {
               'role': 'system',

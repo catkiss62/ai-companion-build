@@ -29,6 +29,22 @@ class ModelUsageTelemetry {
       'cache_hit_tokens': event.cacheHitTokens,
       'cache_miss_tokens': event.cacheMissTokens,
       'streaming': event.streaming,
+      'prompt_shape': <String, Object?>{
+        'version': DeepSeekPromptShape.version,
+        'messages': event.promptShape.messages
+            .map((segment) => <String, Object?>{
+                  'index': segment.index,
+                  'role': segment.role,
+                  'characters': segment.characters,
+                  'hash': segment.hash,
+                })
+            .toList(growable: false),
+        'tools': <String, Object?>{
+          'count': event.promptShape.toolCount,
+          'characters': event.promptShape.toolCharacters,
+          'hash': event.promptShape.toolHash,
+        },
+      },
       'at': DateTime.now().millisecondsSinceEpoch,
     });
     final bounded = events.length <= maxEvents

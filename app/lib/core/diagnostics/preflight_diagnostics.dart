@@ -171,6 +171,8 @@ class PreflightDiagnosticsService {
         'cedarRoomMessageBodiesIncluded': false,
         'cedarContinuationParamsIncluded': false,
         'cedarRoomIdentityIncluded': false,
+        'modelPromptBodiesIncluded': false,
+        'modelPromptSegmentHashesIncluded': true,
       },
     };
     var attachmentPipeline = <String, Object?>{};
@@ -1780,6 +1782,7 @@ class PreflightDiagnosticsService {
 
   Map<String, Object?> _modelUsageSummary(String raw) {
     final byLane = <String, Map<String, int>>{};
+    final recentPromptShapes = <Map<String, Object?>>[];
     var eventCount = 0;
     try {
       final decoded = jsonDecode(raw);
@@ -1804,13 +1807,25 @@ class PreflightDiagnosticsService {
               ((item['cache_hit_tokens'] as num?)?.toInt() ?? 0);
           totals['cacheMissTokens'] = totals['cacheMissTokens']! +
               ((item['cache_miss_tokens'] as num?)?.toInt() ?? 0);
+          final shape = item['prompt_shape'];
+          if (shape is Map) {
+            recentPromptShapes.add(<String, Object?>{
+              'lane': key,
+              'at': (item['at'] as num?)?.toInt() ?? 0,
+              'shape': _normalizeMap(shape),
+            });
+          }
         }
       }
     } catch (_) {}
     return <String, Object?>{
       'eventCount': eventCount,
       'byLane': byLane,
+      'recentPromptShapes': recentPromptShapes.length <= 24
+          ? recentPromptShapes
+          : recentPromptShapes.sublist(recentPromptShapes.length - 24),
       'promptBodiesIncluded': false,
+      'promptSegmentHashesIncluded': true,
       'responseBodiesIncluded': false,
       'credentialsIncluded': false,
     };

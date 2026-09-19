@@ -99,6 +99,7 @@ class DeepSeekSimulatedNoteGenerator implements SimulatedNoteGenerator {
         model: DeepSeekModelProfile.flash,
         thinking: false,
         maxTokens: 360,
+        usageLane: 'simulated_note',
         messages: [
           const {
             'role': 'system',
