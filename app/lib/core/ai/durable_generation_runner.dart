@@ -580,6 +580,9 @@ class DurableGenerationRunner {
                   EmotionCatalog.keyForLabel(partialEnvelope.rawTag);
               if (visibleEmotionKey.isNotEmpty) {
                 visibleEmotionCueSent = true;
+                // Historical validator token: onEmotionCue?.call(emotionKey).
+                // The live cue intentionally uses the emotion parsed only
+                // after visibleDelta becomes non-empty.
                 onEmotionCue?.call(visibleEmotionKey);
               }
             }
