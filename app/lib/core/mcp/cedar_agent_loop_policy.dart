@@ -1,4 +1,5 @@
 import '../agent/agent_tool.dart';
+import 'cedar_game_protocol.dart';
 
 /// One stopping contract for Cedar calls made from an ordinary user turn.
 /// The model remains the planner; this policy only keeps its tool channel open

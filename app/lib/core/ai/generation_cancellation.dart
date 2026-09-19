@@ -28,7 +28,7 @@ Future<T> cancelWithToken<T>(
 ) {
   if (token == null) return operation;
   token.throwIfCancelled();
-  return Future<T>.any(<Future<T>>[
+  return Future.any<T>(<Future<T>>[
     operation,
     token.whenCancelled.then<T>((_) {
       throw const GenerationCancelledByUserException();

@@ -79,6 +79,17 @@ require(
     "cancelWithToken",
     "_client.close()",
 )
+require("lib/core/ai/generation_cancellation.dart", "Future.any<T>")
+candidate_model = read("lib/core/models/public_web_candidate.dart")
+draft_constructor = candidate_model.split("class PublicWebCandidateDraft", 1)[1]
+draft_constructor = draft_constructor.split("final String fingerprint;", 1)[0]
+assert draft_constructor.count("this.keyPoints = const <String>[]") == 1
+assert draft_constructor.count("this.uncertainties = const <String>[]") == 1
+assert draft_constructor.count("this.readAt,") == 1
+require(
+    "lib/core/mcp/cedar_agent_loop_policy.dart",
+    "import 'cedar_game_protocol.dart';",
+)
 require(
     "lib/core/phone/companion_album_discovery_engine.dart",
     "companion_album_fisharchive_attempt_count",
