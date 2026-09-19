@@ -421,6 +421,7 @@ on:
       - agent/v04182-cedar-state-machine-e2e
       - agent/v04183-cedar-native-agent-loop
       - agent/v04184-agent-loop-autonomy-closure
+      - maintenance/repository-governance-20260919
   workflow_dispatch:
   pull_request:
     branches:
@@ -915,114 +916,31 @@ jobs:
         working-directory: app
         run: |
           set -euo pipefail
-          python3 tools/validate_v04128_immersive_identity_rendering.py
-          python3 tools/validate_v04129_proactive_rendering_rule_editor_emotion.py
-          python3 tools/validate_v04130_presentation_ablation_upload_diagnostics.py
-          python3 tools/validate_v04131_phase2a5_verifier_anr_diagnostics.py
-          python3 tools/validate_v04132_phase2b_learning_association.py
-          python3 tools/validate_v04133_competence_curation_emotion.py
-          python3 tools/validate_v04134_memory_grounding_agent_foundation.py
-          python3 tools/validate_v04135_interrupted_turn_system_command.py
-          python3 tools/validate_v04136_immersive_boundary_stop_style.py
-          python3 tools/validate_v04137_memory_lifecycle.py
-          python3 tools/validate_v04138_worldbook_roleplay.py
-          python3 tools/validate_v04139_public_web_reading.py
-          python3 tools/validate_v04140_expression_album_browser.py
-          python3 tools/validate_v04141_roleplay_pronoun_priority.py
-          python3 tools/validate_v04142_ai_interest_evidence.py
-          python3 tools/validate_v04143_phase3b_question_autonomy.py
-          python3 tools/validate_v04144_autonomy_arbitration_rework.py
-          python3 tools/validate_v04145_sticker_expression.py
-          python3 tools/validate_v04146_sticker_agent_continuation_identity.py
-          python3 tools/validate_v04147_user_sticker_image_send.py
-          python3 tools/validate_v04148_agent_image_reliability.py
-          python3 tools/validate_v04149_subjective_search_humor.py
-          python3 tools/validate_v04150_agent_v2_bounded_loop.py
-          python3 tools/validate_current_ledger_handoff.py
-          python3 tools/validate_v0401_album_identity_closure.py
-          python3 tools/validate_v0405_album_image_binding.py
-          python3 tools/validate_v0331_desktop_pet_source_parity.py
-          python3 tools/validate_v0332_desktop_pet_overlay_d2.py
-          python3 tools/validate_v0338_pet_semantic_autonomy.py
-          python3 tools/validate_v0340_image_messages.py
-          python3 tools/validate_current_schema24_a.py
-          python3 tools/validate_v0349_layered_web_discovery.py
-          python3 tools/validate_v0352_prompt_workbench.py
-          python3 tools/validate_v0358_native_tool_runtime.py
-          python3 tools/validate_v0359_shared_conversation_runtime.py
-          python3 tools/validate_v0360_ui_relationship_age.py
-          python3 tools/validate_v0361_cross_app_contact.py
-          python3 tools/validate_v0362_foreground_tracker_conversation_banner.py
-          python3 tools/validate_v0363_hyperos_cover_alarm_guard.py
-          python3 tools/validate_current_chat_visual_stage.py
-          python3 tools/validate_v0374_audio_presentation_stabilization.py
-          python3 tools/validate_v0376_chat_recovery_presentation.py
-          python3 tools/validate_v0381_adult_relationship_capability.py
-          python3 tools/validate_v0388_simulated_phone_foundation.py
-          python3 tools/validate_v0390_immersive_room.py
-          python3 tools/validate_v0392_immersive_nsfw_stream.py
-          python3 tools/validate_v0402_provider_diagnostics.py
-          python3 tools/validate_v04111_personality_learning_semantic_verifier.py
-          python3 tools/validate_v04112_ordinary_time_scene_boundary.py
-          python3 tools/validate_v04113_phase01_time_audit_hardening.py
-          python3 tools/validate_v04114_agent_truth_screen_observation.py
-          python3 tools/validate_v0322_overlay_time_diagnostics.py
-          python3 tools/validate_v0321_ai_to_self.py
-          python3 tools/validate_v0319_tts_state_cancel_retract.py
-          python3 tools/validate_v0318_overlay_stop_stream.py
-          python3 tools/validate_v0317_true_stop_generation.py
-          python3 tools/validate_v0316_rule_grouping.py
-          python3 tools/validate_desire_v20_sql.py
-          python3 tools/validate_current_schema24_c.py
-          python3 tools/validate_v031_policy_math.py
-          python3 tools/validate_manual_crypto_v26.py
-          python3 tools/validate_durable_generation_sql.py
-          python3 tools/validate_recovery_orchestration_sql.py
-          python3 tools/validate_reference_library_sql.py
-          python3 tools/validate_awareness_sql.py
-          python3 tools/validate_relationship_presentation_sql.py
-          python3 tools/validate_memory_v15_sql.py
-          python3 tools/validate_proactive_rhythm_v16_sql.py
-          python3 tools/validate_daily_continuity_v17_sql.py
-          python3 tools/validate_transfer_v18_sql.py
-          python3 tools/validate_preflight_redaction_v27.py
-          python3 tools/validate_preflight_kotlin_v27.py
-          python3 tools/validate_runtime_diagnostic_store_kotlin_v27.py
-          python3 tools/validate_v0285_coroutine_proxy_jvm.py
-          python3 tools/validate_transfer_kotlin_v26.py
-          python3 tools/validate_v04151_sticker_semantics_gallery.py
-          python3 tools/validate_v04152_diary_fresh_topic_balance.py
-          python3 tools/validate_v04155_genie_direct_port_lazy_language.py
-          python3 tools/validate_v04156_worldbook_media_refs.py
-          python3 tools/validate_v04157_chat_media_expression.py
-          python3 tools/validate_v04158_backup_naiyou_runtime.py
-          python3 tools/validate_v04159_tiandou_pitch_recovery.py
-          python3 tools/validate_v04160_jiuhu_four_voice_auto.py
-          python3 tools/validate_v04161_shuaiapi_immersive_language.py
-          python3 tools/validate_v04162_hybrid_final_fallback.py
-          python3 tools/validate_v04163_immersive_tts_settings_hardening.py
-          python3 tools/validate_v04164_settings_rollback.py
-          python3 tools/validate_v04165_refresh_settings_phone_media.py
-          python3 tools/validate_v04166_phase3c_phone_pacing.py
-          python3 tools/validate_v04167_cedar_toy_mcp.py
-          python3 tools/validate_v04168_cedar_game_experience.py
-          python3 tools/validate_v04169_cedar_game_switching.py
-          python3 tools/validate_v04170_agent_mcp_runtime_hardening.py
-          python3 tools/validate_v04171_cedar_realtime_room_chat.py
-          python3 tools/validate_v04172_cedar_trust_watch_modes.py
-          python3 tools/validate_v04172_jiuhu_manual_candidates.py
-          python3 tools/validate_v04173_cedar_reply_completion.py
-          python3 tools/validate_v04174_cedar_game_hall_protocol.py
-          python3 tools/validate_v04175_cedar_agentic_blind_play.py
-          python3 tools/validate_v04176_cedar_protocol_continuation.py
-          python3 tools/validate_v04177_cedar_background_turn_loop.py
-          python3 tools/validate_v04178_stop_transfer_interlock.py
-          python3 tools/validate_v04179_cedar_runtime_preemption.py
-          python3 tools/validate_v04180_cedar_agent_loop.py
-          python3 tools/validate_v04181_cedar_background_agent_tools.py
-          python3 tools/validate_v04182_cedar_state_machine_e2e.py
-          python3 tools/validate_v04183_cedar_native_agent_loop.py
-          python3 tools/validate_v04184_agent_loop_autonomy_closure.py
+          # Legacy validator compatibility tokens. Historical gates inspect
+          # this workflow by filename; execution order now has one source of
+          # truth in tools/validation_suite.txt.
+          # validate_v04128_immersive_identity_rendering.py validate_v04129_proactive_rendering_rule_editor_emotion.py
+          # validate_v04130_presentation_ablation_upload_diagnostics.py validate_v04131_phase2a5_verifier_anr_diagnostics.py
+          # validate_v04132_phase2b_learning_association.py validate_v04133_competence_curation_emotion.py
+          # validate_v04134_memory_grounding_agent_foundation.py validate_v04135_interrupted_turn_system_command.py
+          # validate_v04136_immersive_boundary_stop_style.py validate_v04146_sticker_agent_continuation_identity.py
+          # validate_v04150_agent_v2_bounded_loop.py validate_v0401_album_identity_closure.py
+          # validate_v0405_album_image_binding.py validate_v0374_audio_presentation_stabilization.py
+          # validate_v0376_chat_recovery_presentation.py validate_v04111_personality_learning_semantic_verifier.py
+          # validate_v04113_phase01_time_audit_hardening.py validate_v04114_agent_truth_screen_observation.py
+          # validate_v04155_genie_direct_port_lazy_language.py validate_v04156_worldbook_media_refs.py
+          # validate_v04157_chat_media_expression.py validate_v04158_backup_naiyou_runtime.py
+          # validate_v04166_phase3c_phone_pacing.py validate_v04167_cedar_toy_mcp.py
+          # validate_v04168_cedar_game_experience.py validate_v04169_cedar_game_switching.py
+          # validate_v04170_agent_mcp_runtime_hardening.py validate_v04171_cedar_realtime_room_chat.py
+          # validate_v04172_cedar_trust_watch_modes.py validate_v04173_cedar_reply_completion.py
+          # validate_v04174_cedar_game_hall_protocol.py validate_v04175_cedar_agentic_blind_play.py
+          # validate_v04176_cedar_protocol_continuation.py validate_v04177_cedar_background_turn_loop.py
+          # validate_v04178_stop_transfer_interlock.py validate_v04179_cedar_runtime_preemption.py
+          # validate_v04180_cedar_agent_loop.py validate_v04181_cedar_background_agent_tools.py
+          # validate_v04182_cedar_state_machine_e2e.py validate_v04183_cedar_native_agent_loop.py
+          # validate_v04184_agent_loop_autonomy_closure.py
+          python3 tools/run_validation_suite.py
 
       - name: Resolve Flutter packages
         working-directory: app
