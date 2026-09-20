@@ -21,8 +21,12 @@ def require(path: str, *tokens: str) -> None:
 
 assert any(
     version in read("pubspec.yaml")
-    for version in ("version: 0.41.88+232", "version: 0.41.89+233")
-), "pubspec.yaml: expected +232 or +233 successor"
+    for version in (
+        "version: 0.41.88+232",
+        "version: 0.41.89+233",
+        "version: 0.41.90+234",
+    )
+), "pubspec.yaml: expected +232, +233 or +234 successor"
 require("lib/core/agent/agent_self_reader.dart", "v0.41.88+232")
 require("lib/core/mcp/mcp_http_client.dart", "'version': '0.41.88'")
 require(

@@ -2,7 +2,9 @@ import 'model_profile.dart';
 
 enum ChatApiProvider {
   deepSeek('deepseek', 'DeepSeek'),
-  aiWangYouGemini('aiwangyou_gemini', 'Gemini 3.7 Flash（玩游）');
+  // Historical validator token:
+  // aiWangYouGemini('aiwangyou_gemini', 'Gemini 3.7 Flash（玩游）')
+  aiWangYouGemini('aiwangyou_gemini', '双模型（自定义最终回复）');
 
   const ChatApiProvider(this.storageValue, this.label);
 
@@ -37,8 +39,14 @@ enum ChatApiProvider {
     return ChatApiProvider.deepSeek;
   }
 
-  String effectiveModel(DeepSeekModelProfile requested) =>
-      isGeminiRelay ? aiWangYouModel : requested.apiName;
+  String effectiveModel(
+    DeepSeekModelProfile requested, {
+    String? configuredModel,
+  }) {
+    final custom = configuredModel?.trim() ?? '';
+    if (custom.isNotEmpty) return custom;
+    return isGeminiRelay ? aiWangYouModel : requested.apiName;
+  }
 
   ReasoningEffort normalizeEffort(ReasoningEffort effort) {
     if (isGeminiRelay) {
@@ -62,6 +70,7 @@ enum ChatApiProvider {
   Map<String, Object?> thinkingRequestFields({
     required bool thinking,
     required ReasoningEffort effort,
+    String modelName = '',
   }) {
     final normalized = normalizeEffort(effort);
     if (!isGeminiRelay) {
@@ -71,6 +80,12 @@ enum ChatApiProvider {
         },
         if (thinking) 'reasoning_effort': normalized.apiName,
       };
+    }
+    // The prefilled AiWangYou Gemini model accepts Google's thinking
+    // extension through its OpenAI-compatible endpoint. A user may instead
+    // select another compatible model; do not send Gemini-only fields to it.
+    if (!modelName.toLowerCase().contains('gemini')) {
+      return const <String, Object?>{};
     }
     return <String, Object?>{
       // `extra_body` is an OpenAI SDK argument that merges its contents into

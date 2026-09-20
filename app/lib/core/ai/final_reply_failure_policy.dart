@@ -13,7 +13,7 @@ class EmptyFinalReplyException
   const EmptyFinalReplyException();
 
   @override
-  String toString() => 'Gemini 没有返回正文';
+  String toString() => '第二通道没有返回正文';
 }
 
 class GenerationStreamIncompleteException
@@ -30,7 +30,7 @@ class GenerationStreamIncompleteException
   String toString() => '聊天模型的流式连接在收到完成标记前结束';
 }
 
-/// Cost-aware policy for the fixed-price Gemini final-reply lane.
+/// Cost-aware policy for the optional second final-reply lane.
 ///
 /// An attempt means one HTTP request. Only failures that a second request can
 /// plausibly repair consume the user's one allowed retry. Configuration and
@@ -99,7 +99,7 @@ class FinalReplyFailurePolicy {
     }
     if (error is FormatException &&
         error.message.toString().contains('missing_gemini_final_reply_key')) {
-      return '未填写 Gemini Key';
+      return '未填写第二通道 Key';
     }
     if (error is EmptyFinalReplyException) return '没有返回正文';
     return '返回格式异常';

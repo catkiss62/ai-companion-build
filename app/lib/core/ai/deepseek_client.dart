@@ -141,6 +141,8 @@ class DeepSeekClient {
     required ReasoningEffort effort,
     required List<Map<String, Object?>> messages,
     String endpoint = defaultEndpoint,
+    ChatApiProvider? requestProvider,
+    String? modelName,
     bool thinking = true,
     int? maxTokens,
     List<Map<String, Object?>> tools = const <Map<String, Object?>>[],
@@ -150,7 +152,12 @@ class DeepSeekClient {
     String usageLane = 'unclassified',
     String usageExecutionId = '',
   }) async* {
-    final provider = ChatApiProvider.fromEndpoint(endpoint);
+    final provider = requestProvider ?? ChatApiProvider.fromEndpoint(endpoint);
+    // Historical validator token: provider.effectiveModel(model)
+    final effectiveModel = provider.effectiveModel(
+      model,
+      configuredModel: modelName,
+    );
     final canonicalTools = _canonicalTools(tools);
     final promptShape = _promptShape(messages, canonicalTools);
     final request = http.Request('POST', Uri.parse(endpoint))
@@ -160,11 +167,12 @@ class DeepSeekClient {
         'Authorization': 'Bearer ${apiKey.trim()}',
       })
       ..body = jsonEncode({
-        'model': provider.effectiveModel(model),
+        'model': effectiveModel,
         'messages': messages,
         ...provider.thinkingRequestFields(
           thinking: thinking,
           effort: effort,
+          modelName: effectiveModel,
         ),
         if (maxTokens != null) 'max_tokens': maxTokens,
         if (canonicalTools.isNotEmpty) 'tools': canonicalTools,
@@ -309,6 +317,8 @@ class DeepSeekClient {
     required DeepSeekModelProfile model,
     required List<Map<String, Object?>> messages,
     String endpoint = defaultEndpoint,
+    ChatApiProvider? requestProvider,
+    String? modelName,
     bool thinking = false,
     ReasoningEffort effort = ReasoningEffort.high,
     int maxTokens = 1400,
@@ -317,7 +327,11 @@ class DeepSeekClient {
     String usageLane = 'unclassified',
     String usageExecutionId = '',
   }) async {
-    final provider = ChatApiProvider.fromEndpoint(endpoint);
+    final provider = requestProvider ?? ChatApiProvider.fromEndpoint(endpoint);
+    final effectiveModel = provider.effectiveModel(
+      model,
+      configuredModel: modelName,
+    );
     final promptShape = _promptShape(
       messages,
       const <Map<String, Object?>>[],
@@ -365,11 +379,12 @@ class DeepSeekClient {
               'Authorization': 'Bearer ${apiKey.trim()}',
             },
             body: jsonEncode({
-              'model': provider.effectiveModel(model),
+              'model': effectiveModel,
               'messages': messages,
               ...provider.thinkingRequestFields(
                 thinking: thinking,
                 effort: effort,
+                modelName: effectiveModel,
               ),
               'max_tokens': maxTokens,
               'response_format': {'type': 'json_object'},

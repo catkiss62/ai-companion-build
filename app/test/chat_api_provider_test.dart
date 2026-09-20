@@ -8,7 +8,7 @@ import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 
 void main() {
-  test('provider selection keeps exact fixed Gemini relay contract', () {
+  test('provider selection keeps the previous relay values as defaults', () {
     expect(
       ChatApiProvider.fromEndpoint(ChatApiProvider.aiWangYouEndpoint),
       ChatApiProvider.aiWangYouGemini,
@@ -18,6 +18,13 @@ void main() {
         DeepSeekModelProfile.flash,
       ),
       '[特价]gemini-3.7-flash-0.5',
+    );
+    expect(
+      ChatApiProvider.aiWangYouGemini.effectiveModel(
+        DeepSeekModelProfile.flash,
+        configuredModel: ' provider/another-model ',
+      ),
+      'provider/another-model',
     );
     expect(
       ChatApiProvider.aiWangYouGemini.reasoningEfforts,
@@ -45,6 +52,43 @@ void main() {
       ),
       ChatApiProvider.deepSeek,
     );
+  });
+
+  test('custom second lane sends the entered endpoint and model unchanged',
+      () async {
+    Map<String, dynamic>? body;
+    Uri? requestUri;
+    final client = DeepSeekClient(
+      streamClientFactory: () => MockClient((request) async {
+        requestUri = request.url;
+        body = jsonDecode(request.body) as Map<String, dynamic>;
+        return http.Response(
+          'data: {"choices":[{"delta":{"content":"ok"},"finish_reason":"stop"}]}\n\n'
+          'data: [DONE]\n\n',
+          200,
+          headers: const {'content-type': 'text/event-stream'},
+        );
+      }),
+    );
+
+    await for (final _ in client.streamChat(
+      apiKey: 'second-lane-secret',
+      endpoint: 'https://relay.example/v1/chat/completions',
+      requestProvider: ChatApiProvider.aiWangYouGemini,
+      modelName: 'provider/another-model',
+      model: DeepSeekModelProfile.flash,
+      effort: ReasoningEffort.medium,
+      messages: const [
+        {'role': 'user', 'content': 'hello'},
+      ],
+    )) {}
+
+    expect(requestUri.toString(), 'https://relay.example/v1/chat/completions');
+    expect(body?['model'], 'provider/another-model');
+    expect(body?.containsKey('google'), isFalse);
+    expect(body?.containsKey('thinking'), isFalse);
+    expect(body?.containsKey('reasoning_effort'), isFalse);
+    client.close();
   });
 
   test('Gemini relay streams official thought summaries without DeepSeek fields',

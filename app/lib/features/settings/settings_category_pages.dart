@@ -32,6 +32,8 @@ class _ModelNetworkSettingsPageState
   final _deepSeekEndpoint = TextEditingController();
   final _customDeepSeekModel = TextEditingController();
   final _aiWangYouApiKey = TextEditingController();
+  final _aiWangYouEndpoint = TextEditingController();
+  final _aiWangYouModel = TextEditingController();
   final _visionKey = TextEditingController();
   final _visionEndpoint = TextEditingController();
   final _visionModel = TextEditingController();
@@ -68,6 +70,8 @@ class _ModelNetworkSettingsPageState
     _deepSeekKey.text = await _secure.readDeepSeekApiKey() ?? '';
     _deepSeekEndpoint.text = await _secure.readDeepSeekEndpoint();
     _aiWangYouApiKey.text = await _secure.readAiWangYouApiKey() ?? '';
+    _aiWangYouEndpoint.text = await _secure.readAiWangYouEndpoint();
+    _aiWangYouModel.text = await _secure.readAiWangYouModel();
     _visionKey.text = await _secure.readVisionApiKey() ?? '';
     _visionEndpoint.text = await _secure.readVisionEndpoint();
     _visionModel.text = await _secure.readVisionModel();
@@ -132,18 +136,32 @@ class _ModelNetworkSettingsPageState
     }
     if (_chatProvider.isGeminiRelay &&
         _aiWangYouApiKey.text.trim().isEmpty) {
-      setState(() => _status = '选择 Gemini 最终回复时，请填写玩游 API Key。');
+      setState(() => _status = '选择双模型最终回复时，请填写第二通道 API Key。');
+      return;
+    }
+    if (_chatProvider.isGeminiRelay &&
+        !_validHttpEndpoint(_aiWangYouEndpoint.text)) {
+      setState(() => _status = '第二通道地址不是有效的 http(s) URL。');
+      return;
+    }
+    if (_chatProvider.isGeminiRelay &&
+        _aiWangYouModel.text.trim().isEmpty) {
+      setState(() => _status = '请输入第二通道的最终回复模型 ID。');
       return;
     }
     try {
       await _secure.writeEndpoint(_deepSeekEndpoint.text);
       await _secure.writeApiKey(_deepSeekKey.text);
       await _secure.writeAiWangYouApiKey(_aiWangYouApiKey.text);
+      if (_chatProvider.isGeminiRelay) {
+        await _secure.writeAiWangYouEndpoint(_aiWangYouEndpoint.text);
+        await _secure.writeAiWangYouModel(_aiWangYouModel.text);
+      }
       await _db.setSetting('deepseek_model', effectiveModel.apiName);
       final normalizedEffort = _chatProvider.normalizeEffort(_effort);
-      // Generation jobs always persist the internal DeepSeek model. The final
-      // provider derives its fixed Gemini alias from its endpoint at request
-      // time, so recovery and fallback never mistake that alias for DeepSeek.
+      // Generation jobs always persist the internal DeepSeek model. The
+      // independently configured final-reply model stays device-local so
+      // recovery and fallback never mistake it for the internal model.
       await _db.setSetting('model', effectiveModel.apiName);
       await _db.setSetting('reasoning_effort', normalizedEffort.apiName);
       await _secure.writeChatProvider(_chatProvider);
@@ -156,7 +174,7 @@ class _ModelNetworkSettingsPageState
         setState(() {
           _effort = normalizedEffort;
           _status = _chatProvider.isGeminiRelay
-              ? '双通道配置已保存：DeepSeek 负责内部工作，Gemini 负责最终回复。'
+              ? '双模型配置已保存：DeepSeek 负责内部工作，第二通道负责最终回复。'
               : 'DeepSeek 单通道配置已保存。';
         });
       }
@@ -213,14 +231,18 @@ class _ModelNetworkSettingsPageState
     final apiKey =
         (isGeminiRelay ? _aiWangYouApiKey : _deepSeekKey).text.trim();
     final endpoint = isGeminiRelay
-        ? ChatApiProvider.aiWangYouEndpoint
+        ? _aiWangYouEndpoint.text.trim()
         : _deepSeekEndpoint.text.trim();
     if (apiKey.isEmpty || !_validHttpEndpoint(endpoint)) {
       setState(() => _status = '请先填写当前提供商的有效 API Key 与地址。');
       return;
     }
+    if (isGeminiRelay && _aiWangYouModel.text.trim().isEmpty) {
+      setState(() => _status = '请输入第二通道的最终回复模型 ID。');
+      return;
+    }
     final effectiveModel = isGeminiRelay
-        ? DeepSeekModelProfile.fromApiName(ChatApiProvider.aiWangYouModel)
+        ? DeepSeekModelProfile.fromApiName(_aiWangYouModel.text)
         : _effectiveDeepSeekModel();
     if (effectiveModel == null) {
       setState(() => _status = '请输入自定义 DeepSeek 模型 ID。');
@@ -229,7 +251,7 @@ class _ModelNetworkSettingsPageState
     setState(() {
       _testingChat = true;
       _status = isGeminiRelay
-          ? '正在测试 Gemini 正文与思考摘要；不会写入聊天或记忆…'
+          ? '正在测试第二通道的最终回复；不会写入聊天或记忆…'
           : '正在测试 DeepSeek；不会写入聊天或记忆…';
     });
     final client = DeepSeekClient();
@@ -240,6 +262,8 @@ class _ModelNetworkSettingsPageState
           .streamChat(
             apiKey: apiKey,
             endpoint: endpoint,
+            requestProvider: _chatProvider,
+            modelName: isGeminiRelay ? _aiWangYouModel.text.trim() : null,
             model: effectiveModel,
             effort: _effort,
             thinking: true,
@@ -262,10 +286,11 @@ class _ModelNetworkSettingsPageState
           if (!sawContent) {
             _status = 'API 已连接，但没有收到有效正文。';
           } else if (isGeminiRelay && !sawReasoning) {
-            _status = 'Gemini 正文连接通过，但本次没有返回可显示的思考摘要；请检查该模型别名/渠道是否透传 thoughts。';
+            _status = '第二通道正文连接通过，但本次没有返回可显示的思考摘要；该模型或渠道可能不透传 thoughts。';
           } else {
+            // Historical validator token: Gemini 正文与思考摘要均连接通过
             _status = isGeminiRelay
-                ? 'Gemini 正文与思考摘要均连接通过；测试使用了少量 API 额度。'
+                ? '第二通道正文与思考摘要均连接通过；测试使用了少量 API 额度。'
                 : 'DeepSeek 连接通过；测试使用了少量 API 额度。';
           }
         });
@@ -316,6 +341,8 @@ class _ModelNetworkSettingsPageState
     _deepSeekEndpoint.dispose();
     _customDeepSeekModel.dispose();
     _aiWangYouApiKey.dispose();
+    _aiWangYouEndpoint.dispose();
+    _aiWangYouModel.dispose();
     _visionKey.dispose();
     _visionEndpoint.dispose();
     _visionModel.dispose();
@@ -337,7 +364,7 @@ class _ModelNetworkSettingsPageState
                 children: [
                   _SettingsSectionCard(
                     title: '聊天模型',
-                    subtitle: 'DeepSeek 是必填的内部工作通道；可额外启用玩游 Gemini，只负责用户可见的最终回复。',
+                    subtitle: 'DeepSeek 是必填的内部工作通道；也可启用独立的第二通道，只负责用户可见的最终回复。',
                     children: [
                       DropdownButtonFormField<ChatApiProvider>(
                         value: _chatProvider,
@@ -421,29 +448,30 @@ class _ModelNetworkSettingsPageState
                         const SizedBox(height: 12),
                         _SecretField(
                           controller: _aiWangYouApiKey,
-                          label: '玩游 Gemini API Key（最终回复）',
+                          label: '第二通道 API Key（最终回复）',
                           revealed: _revealAiWangYou,
                           onToggle: () => setState(
                             () => _revealAiWangYou = !_revealAiWangYou,
                           ),
                         ),
                         const SizedBox(height: 12),
-                        TextFormField(
-                          initialValue: ChatApiProvider.aiWangYouEndpoint,
-                          readOnly: true,
+                        TextField(
+                          controller: _aiWangYouEndpoint,
+                          keyboardType: TextInputType.url,
                           decoration: const InputDecoration(
-                            labelText: 'Chat Completions API 地址',
-                            helperText: '固定地址，不会发送 DeepSeek Key。',
+                            labelText: '第二通道 Chat Completions 地址',
+                            helperText: '预填原玩游地址；只发送第二通道 Key。',
                             border: OutlineInputBorder(),
                           ),
                         ),
                         const SizedBox(height: 12),
-                        TextFormField(
-                          initialValue: ChatApiProvider.aiWangYouModel,
-                          readOnly: true,
+                        TextField(
+                          controller: _aiWangYouModel,
+                          autocorrect: false,
+                          enableSuggestions: false,
                           decoration: const InputDecoration(
-                            labelText: '固定模型',
-                            helperText: '只用于用户触发的最终可见正文。',
+                            labelText: '第二通道模型 ID',
+                            helperText: '预填原 Gemini 模型；可改为该兼容接口支持的其他模型。',
                             border: OutlineInputBorder(),
                           ),
                         ),

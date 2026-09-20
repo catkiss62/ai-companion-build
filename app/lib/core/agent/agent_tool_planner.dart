@@ -523,7 +523,7 @@ class AgentToolPlanner {
       };
       properties['params_json'] = const <String, Object?>{
         'type': 'string',
-        'description': '指南要求的参数 JSON object；无参数时填写 {}。',
+        'description': '指南要求的参数 JSON object；无参数时填写 {}。若指南声明每游戏 5 槽，slot=1..5 必须放在此 object 内；confirm:true 表示破坏性覆盖，只有用户明确同意覆盖已有槽后才可使用，后台永不使用。',
       };
       properties['participation_mode'] = const <String, Object?>{
         'type': 'string',

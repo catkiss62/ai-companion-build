@@ -37,6 +37,7 @@ import '../somatic/somatic_engine.dart';
 import '../stickers/sticker_expression_service.dart';
 import '../storage/secure_config.dart';
 import '../platform/android_bridge.dart';
+import 'chat_api_provider.dart';
 import 'deepseek_client.dart';
 import 'dialogue_expression_plan.dart';
 import 'final_reply_failure_policy.dart';
@@ -156,6 +157,7 @@ class DurableGenerationRunner {
         (await secureConfig.readFinalReplyApiKey())?.trim() ?? '';
     final configuredFinalEndpoint =
         await secureConfig.readFinalReplyEndpoint();
+    final configuredFinalModel = await secureConfig.readFinalReplyModel();
     if (cancellationToken?.isCancelled ?? false) {
       await db.cancelGenerationJobByUser(requested.id);
       return const GenerationRunResult(status: 'cancelled_by_user');
@@ -481,6 +483,8 @@ class DurableGenerationRunner {
         bool publishReasoning = true,
         List<Map<String, Object?>> tools = const <Map<String, Object?>>[],
         String usageLane = 'user_chat',
+        ChatApiProvider? requestProvider,
+        String? requestModelName,
       }) async {
         var reasoning = '';
         var content = '';
@@ -497,6 +501,8 @@ class DurableGenerationRunner {
           effort: ReasoningEffort.fromApiName(job.reasoningEffort),
           messages: messages,
           endpoint: requestEndpoint,
+          requestProvider: requestProvider,
+          modelName: requestModelName,
           thinking: job.thinking,
           tools: tools,
           cancellationToken: effectiveCancellation,
@@ -746,6 +752,8 @@ class DurableGenerationRunner {
                 messages,
                 requestApiKey: configuredFinalApiKey,
                 requestEndpoint: configuredFinalEndpoint,
+                requestProvider: finalProvider,
+                requestModelName: configuredFinalModel,
                 emitDeltas: false,
                 // Do not leak reasoning from a failed paid attempt. Publish the
                 // single accepted summary only after the response is complete.
@@ -805,7 +813,7 @@ class DurableGenerationRunner {
           lastError = const FormatException('missing_gemini_final_reply_key');
         }
         providerNotice =
-            'Gemini 调用失败（${FinalReplyFailurePolicy.userCategory(lastError!)}），本轮已由 DeepSeek 兜底。';
+            '第二通道调用失败（${FinalReplyFailurePolicy.userCategory(lastError!)}），本轮已由 DeepSeek 兜底。';
         return generateCheckedDeepSeek(messages);
       }
 

@@ -10,6 +10,8 @@ class SecureConfig {
   static const _endpointName = 'deepseek_chat_endpoint';
   static const _chatProviderName = 'chat_api_provider';
   static const _aiWangYouApiKeyName = 'aiwangyou_gemini_api_key';
+  static const _aiWangYouEndpointName = 'aiwangyou_final_reply_endpoint';
+  static const _aiWangYouModelName = 'aiwangyou_final_reply_model';
   static const defaultEndpoint = 'https://api.deepseek.com/chat/completions';
   static const _visionApiKeyName = 'qwen_vision_api_key';
   static const _visionEndpointName = 'qwen_vision_endpoint';
@@ -72,8 +74,42 @@ class SecureConfig {
 
   Future<String> readFinalReplyEndpoint() async =>
       (await readChatProvider()).isGeminiRelay
-          ? ChatApiProvider.aiWangYouEndpoint
+          ? readAiWangYouEndpoint()
           : readDeepSeekEndpoint();
+
+  Future<String> readFinalReplyModel() async {
+    if ((await readChatProvider()).isGeminiRelay) {
+      return readAiWangYouModel();
+    }
+    return '';
+  }
+
+  Future<String> readAiWangYouEndpoint() async {
+    final value =
+        (await _storage.read(key: _aiWangYouEndpointName))?.trim();
+    return value == null || value.isEmpty
+        ? ChatApiProvider.aiWangYouEndpoint
+        : value;
+  }
+
+  Future<void> writeAiWangYouEndpoint(String value) =>
+      _writeUrl(_aiWangYouEndpointName, value);
+
+  Future<String> readAiWangYouModel() async {
+    final value = (await _storage.read(key: _aiWangYouModelName))?.trim();
+    return value == null || value.isEmpty
+        ? ChatApiProvider.aiWangYouModel
+        : value;
+  }
+
+  Future<void> writeAiWangYouModel(String value) async {
+    final trimmed = value.trim();
+    if (trimmed.isEmpty) {
+      await _storage.delete(key: _aiWangYouModelName);
+    } else {
+      await _storage.write(key: _aiWangYouModelName, value: trimmed);
+    }
+  }
 
   Future<String> readDeepSeekEndpoint() async {
     final value = (await _storage.read(key: _endpointName))?.trim();

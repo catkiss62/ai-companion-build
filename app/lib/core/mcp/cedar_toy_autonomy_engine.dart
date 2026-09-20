@@ -1387,6 +1387,14 @@ $catalog''',
           continuationParamsJson: session.continuationParamsJson,
           lastOutcome: session.lastOutcome,
         );
+        if (CedarSaveSlotPolicy.blocksAutonomousAction(
+          guide: session.guide,
+          lastOutcome: session.lastOutcome,
+          action: candidate.action,
+          params: hydrated,
+        )) {
+          return false;
+        }
         return CedarExecutableCallPolicy.missingExplicitRequiredFields(
           action: candidate.action,
           params: hydrated,
@@ -1499,6 +1507,19 @@ ${store.promptContext(session, state: state, playProtocol: playProtocol)}''',
       continuationParamsJson: session.continuationParamsJson,
       lastOutcome: session.lastOutcome,
     );
+    if (CedarSaveSlotPolicy.blocksAutonomousAction(
+      guide: session.guide,
+      lastOutcome: session.lastOutcome,
+      action: action,
+      params: params,
+    )) {
+      await store.deferContinuation(
+        gameId: session.gameId,
+        delay: const Duration(minutes: 2),
+        executionId: scope.executionId,
+      );
+      return const CedarAutonomyProgress('save_overwrite_blocked');
+    }
     final sharedRuntime =
         (mode.supportsSharedParticipation &&
             (session.invitationApproved || decision.invitationApproved)) ||

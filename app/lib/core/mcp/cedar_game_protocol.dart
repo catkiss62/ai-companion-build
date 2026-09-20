@@ -111,6 +111,75 @@ class CedarPlatformActionPolicy {
       }.contains(action);
 }
 
+/// Cedar save slots are a player-visible protocol shared by the long-running
+/// games that advertise it in their live guide. The guide remains the source
+/// of truth: room/session games without the five-slot clause are untouched.
+class CedarSaveSlotPolicy {
+  const CedarSaveSlotPolicy._();
+
+  static bool supportsFiveSlots(String guide) => RegExp(
+        r'(?:每游戏\s*5\s*槽|slot\s*=\s*1\s*[-~～至到]\s*5|slot=1-5)',
+        caseSensitive: false,
+      ).hasMatch(guide);
+
+  static bool isOverwriteConfirmation({
+    required String guide,
+    required Map<String, Object?> params,
+  }) =>
+      supportsFiveSlots(guide) && params['confirm'] == true;
+
+  static bool outcomeIndicatesExistingSave(String outcome) {
+    final text = outcome.trim().toLowerCase();
+    if (text.isEmpty) return false;
+    return text.contains('confirm: true') ||
+        text.contains('confirm=true') ||
+        text.contains('already exists') ||
+        text.contains('overwrite') ||
+        (text.contains('已有') &&
+            RegExp(r'(存档|池塘|世界|花园|旅程|游戏)').hasMatch(text)) ||
+        (text.contains('覆盖') &&
+            RegExp(r'(无法恢复|原存档|重新调用|确认)').hasMatch(text));
+  }
+
+  static bool isNewOrResetAction(String action) => RegExp(
+        r'(?:^|[_.:-])(new|create|start|reset|import)$',
+        caseSensitive: false,
+      ).hasMatch(action.trim());
+
+  static bool blocksAutonomousAction({
+    required String guide,
+    required String lastOutcome,
+    required String action,
+    required Map<String, Object?> params,
+  }) {
+    if (!supportsFiveSlots(guide)) return false;
+    if (params['confirm'] == true) return true;
+    return outcomeIndicatesExistingSave(lastOutcome) &&
+        isNewOrResetAction(action);
+  }
+
+  static bool userExplicitlyApprovesOverwrite(String text) {
+    final clean = text.trim();
+    if (!RegExp(r'(覆盖|重开|重置|清空|删档)').hasMatch(clean)) return false;
+    if (RegExp(
+      r'(不要|别|不能|不许|不想|不需|不确认|先不|拒绝|为什么|为何|怎么|怎样|什么|是否|是不是|会不会|吗|？)',
+    ).hasMatch(clean)) {
+      return false;
+    }
+    return true;
+  }
+
+  static String promptGuidance(String guide, String lastOutcome) {
+    if (!supportsFiveSlots(guide)) return '';
+    final existing = outcomeIndicatesExistingSave(lastOutcome)
+        ? '最新结果已经提示该槽有存档：不要再次调用 new/create/start/reset；先按指南观察或继续。'
+        : '';
+    return '''【Cedar 五槽存档边界】
+此游戏明确支持 slot=1..5，缺省为 slot 1；每个 game 的五个槽彼此独立，不同 game 的同号槽也互不覆盖。已有存档默认继续。turn 0/尚未推进的初始存档可能由 Cedar 官方人类前端或服务自动建立，应视为可继续的有效存档，不能据此声称与另一游戏串档。
+她确实想开新周目/新世界时，可以自主选择已知空槽并在 params_json 明确传 slot，不必为每次使用空槽询问用户；不知道某槽是否为空时不得猜成空槽。任何已有槽的覆盖、导入覆盖或 confirm:true 都是破坏性操作，后台绝不自主执行，用户回合也必须先得到用户对覆盖的明确同意。$existing''';
+  }
+}
+
 /// Keeps a Cedar action and a server-side long poll as two different durable
 /// operations. CedarDuet may commit `new`/`move` before waiting for the other
 /// player; the generic MCP transport times out sooner than that wait window,

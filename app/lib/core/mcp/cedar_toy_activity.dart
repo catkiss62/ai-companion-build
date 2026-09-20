@@ -1807,6 +1807,7 @@ execution=${execution == null ? '' : '${execution.gameId}:${execution.action}'}
 ${session.guide}
 ${playProtocol.trim().isEmpty ? '' : '【Cedar 实时玩家操作 schema】\n${playProtocol.trim()}'}
 ${CedarPlayerProtocolContract.actionSignaturesFor(session.gameId)}
+${CedarSaveSlotPolicy.promptGuidance(session.guide, session.lastOutcome)}
 【END CEDAR_ACTIVITY_SESSION】
 '''.trim();
   }

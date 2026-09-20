@@ -310,6 +310,7 @@ class AgentToolRunner {
         toolChainScopeId,
         call.arguments,
         cancellationToken,
+        origin: origin,
         assistantMessageId: assistantMessageId,
         latestUserText: latestUserText,
       );
@@ -556,6 +557,7 @@ class AgentToolRunner {
     String scope,
     Map<String, String> arguments,
     GenerationCancellationToken? cancellationToken, {
+    required AgentToolOrigin origin,
     required String assistantMessageId,
     required String latestUserText,
   }) async {
@@ -661,6 +663,22 @@ class AgentToolRunner {
       continuationParamsJson: persisted?.continuationParamsJson ?? '',
       lastOutcome: persisted?.lastOutcome ?? '',
     );
+    if (CedarSaveSlotPolicy.isOverwriteConfirmation(
+          guide: guide,
+          params: params,
+        ) &&
+        (origin == AgentToolOrigin.autonomous ||
+            !CedarSaveSlotPolicy.userExplicitlyApprovesOverwrite(
+              latestUserText,
+            ))) {
+      return const AgentToolResult(
+        toolId: 'cedar_toy.play',
+        status: AgentToolStatus.blocked,
+        displayText: '覆盖已有游戏存档前需要你的明确同意',
+        promptData: 'Cedar 尚未执行覆盖。请自然说明将覆盖的是当前 game 的指定 slot，并询问用户是否确认；不要声称其他 game 的同号槽也会被覆盖。',
+        errorCode: 'cedar_save_overwrite_confirmation_required',
+      );
+    }
     final missingRequired =
         CedarExecutableCallPolicy.missingExplicitRequiredFields(
       action: action,

@@ -215,6 +215,7 @@ class ImmersiveRoomController extends ChangeNotifier {
       final finalApiKey =
           (await secureConfig.readFinalReplyApiKey())?.trim() ?? '';
       final finalEndpoint = await secureConfig.readFinalReplyEndpoint();
+      final finalModelName = await secureConfig.readFinalReplyModel();
       final routedRoom =
           (await repository.inheritActiveSpecialStyleIfNeeded(roomId))!;
       room = routedRoom;
@@ -255,6 +256,7 @@ class ImmersiveRoomController extends ChangeNotifier {
         finalProvider: finalProvider,
         finalApiKey: finalApiKey,
         finalEndpoint: finalEndpoint,
+        finalModelName: finalModelName,
         model: profile,
         effort: effort,
         request: request,
@@ -364,7 +366,7 @@ class ImmersiveRoomController extends ChangeNotifier {
         content: incomplete.content,
         reasoning: incomplete.reasoning,
       );
-      notice = 'Gemini 回复已截断。当前文字尚未进入房间上下文或摘要，请选择“重新生成”或“保留这段回复”。';
+      notice = '第二通道回复已截断。当前文字尚未进入房间上下文或摘要，请选择“重新生成”或“保留这段回复”。';
       error = null;
     } on GenerationCancelledByUserException {
       await _abortStreamingSpeech();
@@ -409,6 +411,7 @@ class ImmersiveRoomController extends ChangeNotifier {
     required ChatApiProvider finalProvider,
     required String finalApiKey,
     required String finalEndpoint,
+    required String finalModelName,
     required DeepSeekModelProfile model,
     required ReasoningEffort effort,
     required List<Map<String, Object?>> request,
@@ -438,6 +441,8 @@ class ImmersiveRoomController extends ChangeNotifier {
           final finishReason = await _streamRequest(
             apiKey: finalApiKey,
             endpoint: finalEndpoint,
+            requestProvider: finalProvider,
+            modelName: finalModelName,
             model: model,
             effort: effort,
             request: request,
@@ -478,7 +483,7 @@ class ImmersiveRoomController extends ChangeNotifier {
     streamingContent = '';
     _allStreamingReasoning = '';
     notice =
-        'Gemini 调用失败（${FinalReplyFailurePolicy.userCategory(lastError!)}），本轮已由 DeepSeek 兜底。';
+        '第二通道调用失败（${FinalReplyFailurePolicy.userCategory(lastError!)}），本轮已由 DeepSeek 兜底。';
     await db.setSetting(_fallbackNoticeSettingKey, notice!);
     _lastFinalReplyUsedFallback = true;
     _safeNotify();
@@ -497,6 +502,8 @@ class ImmersiveRoomController extends ChangeNotifier {
   Future<String> _streamRequest({
     required String apiKey,
     required String endpoint,
+    ChatApiProvider? requestProvider,
+    String? modelName,
     required DeepSeekModelProfile model,
     required ReasoningEffort effort,
     required List<Map<String, Object?>> request,
@@ -512,6 +519,8 @@ class ImmersiveRoomController extends ChangeNotifier {
       effort: effort,
       messages: request,
       endpoint: endpoint,
+      requestProvider: requestProvider,
+      modelName: modelName,
       thinking: true,
       maxTokens: 6000,
       cancellationToken: cancellation,
@@ -719,6 +728,7 @@ class ImmersiveRoomController extends ChangeNotifier {
       final finalApiKey =
           (await secureConfig.readFinalReplyApiKey())?.trim() ?? '';
       final finalEndpoint = await secureConfig.readFinalReplyEndpoint();
+      final finalModelName = await secureConfig.readFinalReplyModel();
       final routedRoom =
           (await repository.inheritActiveSpecialStyleIfNeeded(roomId))!;
       room = routedRoom;
@@ -760,6 +770,7 @@ class ImmersiveRoomController extends ChangeNotifier {
         finalProvider: finalProvider,
         finalApiKey: finalApiKey,
         finalEndpoint: finalEndpoint,
+        finalModelName: finalModelName,
         model: profile,
         effort: effort,
         request: request,
@@ -804,7 +815,7 @@ class ImmersiveRoomController extends ChangeNotifier {
         content: incomplete.content,
         reasoning: incomplete.reasoning,
       );
-      notice = 'Gemini 回复已截断。当前文字尚未进入房间上下文或摘要，请选择“重新生成”或“保留这段回复”。';
+      notice = '第二通道回复已截断。当前文字尚未进入房间上下文或摘要，请选择“重新生成”或“保留这段回复”。';
     } catch (exception) {
       await _abortStreamingSpeech();
       if (streamingContent.trim().isNotEmpty) {
