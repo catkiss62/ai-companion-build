@@ -178,6 +178,7 @@ class AgentToolRunner {
         final result = await _execute(
           call,
           cancellationToken,
+          origin: origin,
           userMessageId: userMessageId,
           assistantMessageId: assistantMessageId,
           latestUserText: latestUserText,
@@ -257,6 +258,7 @@ class AgentToolRunner {
   Future<AgentToolResult> _execute(
     AgentToolCall call,
     GenerationCancellationToken? cancellationToken, {
+    required AgentToolOrigin origin,
     String userMessageId = '',
     String userTurnEventId = '',
     String toolChainScopeId = '',
