@@ -1,0 +1,7 @@
+status=success
+run_id=35501928714
+run_url=https://github.com/catkiss62/ai-companion-build/actions/runs/35501928714
+head_sha=8ecbcbcaab339fc4ecd0b9c616db2ceacdc83d16
+signer_sha256=30:5E:B3:D8:09:83:B9:63:C6:48:18:DD:F1:AD:56:1F:27:9D:E6:D4:7B:3E:D2:C7:81:AD:A4:48:C7:C2:51:48
+1489ba5a886d3323f1b68ca913a8f5d166f68133d7786974c04c514abf10e628  AI-Companion-v0.41.91-235-Fatigue-Affect-Sleep-Debt-APK.apk
+release_url=https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-6bfa04031f233b81dfa6
