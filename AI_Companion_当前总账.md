@@ -40,7 +40,7 @@
 | +228 远端 | head `29e87d016c8bd81f52f89f95191bd1a1a01a5b57`；tree `c4a112a56d8b634cf3a1a66636979a0833538b7d`；Actions `35440359036`；Artifact `10583263879`；APK SHA-256 `159e283173e49da2924d25b37ba7647893cdafdcc31b63f0e31b7c64e086849b` |
 | 仓库维护基线 | `maintenance/repository-governance-20260919`；远端文档 head `123e272196e8ae93f3518157917d76f6af4f1784`；完整构建 head `fa99f32012fa1a0716b746d36b958a8e777ef9b8`；Actions `35446649873` 全绿；文档-only run `35447342921` 正确跳过 APK |
 | 当前功能分支 | `agent/v04198-sen-texture-direct-port`，承接本地 +241；候选版本 `v0.41.98+242` |
-| 当前任务状态 | `IMPLEMENTED LOCALLY / LOCAL STATIC VALIDATION PASSED / CI PENDING / TRUE DEVICE PENDING`；+241 两处固定人格兜底与Gemini最终回复每轮最多一次已本地收口；+242 已回退 +240 Hybrid Composition，并补齐 Sen 稳定构建遗漏的无 mipmap Framework 补丁，见 6.15 |
+| 当前任务状态 | `CI PASSED / APK READY / TRUE DEVICE PENDING`；+241 两处固定人格兜底与Gemini最终回复每轮最多一次已收口；+242 已回退 +240 Hybrid Composition，并补齐 Sen 稳定构建遗漏的无 mipmap Framework 补丁，见 6.15 |
 | +242 当前任务 | 不允许任何本地固定台词以她的身份替代模型回复；用户轮不能被校验器吞成空回复，主动轮可不发送；Sen `main@336b93a` 只读，AI 内的 16 个 Sen 主运行时文件逐字节一致，唯一 Framework 差异只能是 Sen 原始 `cubism-java-no-mipmap.patch` |
 | +240 真机结论 | `PlatformViewLink + AndroidViewSurface + initExpensiveAndroidView` 没有修复黑色剪影，反而使整个 Flutter 合成画面变黑；该方向已在 +242 回退。复核 Sen 构建流程后确认 +239 黑色剪影根因是移植时漏掉 `cubism-java-no-mipmap.patch` |
 | +240 失败路线 | 仅保留历史证据；当前生产舞台不得出现 `PlatformViewLink`、`AndroidViewSurface`、`initExpensiveAndroidView` 或 `forced_hybrid_composition` |
@@ -548,7 +548,7 @@ Actions 与交付证据：
 
 ### 6.14 v0.41.97+241 自然回复保活与固定兜底移除（2026-09-21）
 
-状态：`IMPLEMENTED LOCALLY / LOCAL STATIC VALIDATION PASSED / CI PENDING / TRUE DEVICE PENDING`。
+状态：`CI PASSED / APK READY / TRUE DEVICE PENDING`。
 
 实现分支：`agent/v04197-no-canned-fallbacks`。
 
@@ -592,6 +592,8 @@ Actions 与交付证据：
 - 固定回复收口保持：普通聊天与主动联系的本地人格固定句均已删除；Gemini最终呈现每轮至多一次，必要修正走DeepSeek；修正不可用时保留真实模型输出，用户轮不为空，主动轮可不发送。
 
 本地验证：124个validator逐项运行，121个通过；仅桌宠417文件、LingChat effects与`kotlinc`三个既有门因精简工作区缺少CI恢复资源/工具而失败，失败集合与前版一致。+242直接移植门、+241回复保活、+240失败路线回退、+239 shader资源、+238迁移、+237游戏真实性、总账门和`git diff --check`均通过。完整Flutter analyze/tests、Android/Kotlin tests、arm64 Release、稳定签名及APK载荷检查交由Actions。
+
+远端与交付证据：功能 head `84d6a2c869d1c3ca8d802080b0e2826296448df4`、tree `ca8cc6dfa382175123aa33a105ff95b8e935573f`，与本地功能树逐字节一致；`main`未修改。Actions `35532252873`一次全绿，124/124源码门、Kotlin/Android、Flutter analyze/tests、arm64 Release、稳定签名、Genie/桌宠/LingChat/塔罗载荷、Artifact与Draft上传均成功。Artifact `10611821532`，大小`538,351,786` bytes，ZIP digest `888fd377c39098b0a6cb277426586022a675f712e07f3885048fdc8ac896a988`；APK SHA-256 `096d95bfbae99c4dadabfcece89389c824e858bbfa1341430e869686b443f776`。Draft Release为未发布地址`https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-37e74d5b24cf0d2decf5`。当前只等待同一台真机验证，不得提前标记`TRUE DEVICE PASSED`。
 
 保护边界：
 
