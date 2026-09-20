@@ -40,8 +40,9 @@
 | +228 远端 | head `29e87d016c8bd81f52f89f95191bd1a1a01a5b57`；tree `c4a112a56d8b634cf3a1a66636979a0833538b7d`；Actions `35440359036`；Artifact `10583263879`；APK SHA-256 `159e283173e49da2924d25b37ba7647893cdafdcc31b63f0e31b7c64e086849b` |
 | 仓库维护基线 | `maintenance/repository-governance-20260919`；远端文档 head `123e272196e8ae93f3518157917d76f6af4f1784`；完整构建 head `fa99f32012fa1a0716b746d36b958a8e777ef9b8`；Actions `35446649873` 全绿；文档-only run `35447342921` 正确跳过 APK |
 | 当前功能分支 | `agent/v04195-sen-shader-assets`，从 +238 内容树分出；候选版本 `v0.41.95+239` |
-| 当前任务状态 | `IMPLEMENTED LOCALLY / LOCAL STATIC VALIDATION PASSED / CI PENDING / TRUE DEVICE PENDING`；首次真机导入已证明 +238 漏打包 Cubism `standardES` shader assets，热修补齐并增加成品 APK 门，见 6.12 |
+| 当前任务状态 | `CI PASSED / APK READY / TRUE DEVICE PENDING`；首次真机导入已证明 +238 漏打包 Cubism `standardES` shader assets，+239 已补齐且最终 APK 逐字节验证通过，等待覆盖安装验收，见 6.12 |
 | +239 当前任务 | 原样补齐锁定 Framework 的 36 个 `standardES` shader assets；源码校验文件数/路径/聚合哈希，Release 直接逐字节检查 APK 内资源；不改用户模型、动作、情绪、人格、欲望、记忆、Cedar 或模型调用链 |
+| +239 远端 | 构建 head `6223c66a09850f950b9646990459133ea8661d32`；tree `f9dd8e3ea303e92bf0862bce03a2384b542fb109`；Actions `35523577868` 全绿；Artifact `10608368899`；APK SHA-256 `897e5163b31fd8950f1e6c97c03f3e20d4d82c7d804aed1a9cf5c6172bee7287` |
 | +238 当前任务 | 原样保留 Sen 已真机验证的 21 情绪、自主待机、视线跟随、摸头彩蛋、物理、三套衣服+脱与眼镜；与静态立绘互斥，接入现有情绪效果/音效、用户消息倾听反应和 TTS 波形口型；不改悬浮鲸鱼、人格/欲望真值或模型调用次数 |
 | +238 远端 | 构建 head `eba2c185507743f1a50f5758e722f1d8a57b0bbd`；tree `7c0cb89a0de3a03f8d0862c570bffe3615d9fb77`；Actions `35521027339` 全绿；Artifact `10608496160`；APK SHA-256 `1b2376eb57fd8250fb5d8370ef7a1a03fb28e30e0176da059fdc71576e60d67c` |
 | +237 当前任务 | 将未完成游戏事项、旧 ASSISTANT 场景与真实 Cedar 游玩状态分开：没有当前成功 Outcome 时只能说“还没玩/想去玩/之前玩过”，不得虚构正在钓、等待咬钩或图鉴刚才没涨；兼容纠正 +236 前已持久化为 attachment 的游戏 thread Thought |
@@ -484,7 +485,7 @@ Actions 与交付证据：
 
 ### 6.12 v0.41.95+239 Sen Cubism shader assets 热修（2026-09-21）
 
-状态：`IMPLEMENTED LOCALLY / LOCAL STATIC VALIDATION PASSED / CI PENDING / TRUE DEVICE PENDING`。
+状态：`CI PASSED / APK READY / TRUE DEVICE PENDING`。
 
 实现分支：`agent/v04195-sen-shader-assets`。
 
@@ -502,6 +503,14 @@ Actions 与交付证据：
 本地验证：121 个 validator 已逐项运行，118 个通过；仅 3 个既有门因精简工作区缺少 CI 才恢复的 417 文件桌宠源码、LingChat effects 与 `kotlinc` 而失败。+238/+239 专项门、当前总账门、manifest check-only、Workflow YAML、Python 编译与 `git diff --check` 均通过。完整 Flutter analyze/tests、Kotlin/JVM/Android tests、arm64 Release、稳定签名和最终 APK shader 逐字节检查交由 Actions；只有全绿后才写 `CI PASSED / APK READY`。
 
 真机验收：覆盖安装且不清数据，优先直接复用 app-private 中已导入的模型；若旧页面仍保留失败态，切回静态立绘再切回 Sen，或重新选择同一 ZIP。首先确认不再出现 `VertShaderSrcCopy.vert` 缺失且模型实际显示，再验待机、视线和摸头；之后继续 +238 完整清单。未经真机不得写 `TRUE DEVICE PASSED`。
+
+Actions 与交付证据：
+
+- 首轮 Actions `35523026248` 已通过 121/121 源码门、Kotlin 与 Flutter analyze，在 901 项 Flutter tests 中以 900/901 精确拦住 `agent_self_reader_v0416_test.dart` 仍写死 +238 的版本断言。只迁移该断言并将它加入 +239 专项门，没有改运行逻辑、shader 或放宽业务测试。
+- 修正后的远端构建 head `6223c66a09850f950b9646990459133ea8661d32`、tree `f9dd8e3ea303e92bf0862bce03a2384b542fb109` 与本地候选内容树完全一致；`main` 未修改。
+- Actions `35523577868` 全绿：121/121 源代码与历史门、Android/Kotlin 桌宠及悬浮层测试、Flutter analyze、901/901 Flutter tests、arm64 Release、稳定签名、Genie/桌宠/LingChat/塔罗载荷、36/36 Cubism shader 成品逐字节检查、Artifact 与 Draft 上传均成功。
+- Artifact `10608368899`，名称 `AI-Companion-v0.41.95-239-Sen-Cubism-Shader-Hotfix-APK`，大小 `538,349,584` bytes，ZIP digest `ad9aa83acc07342cb576e83e06983e1a05e9c5b3e12d9383de687ad68338cdb3`。
+- Draft Release `392499233` 为未发布地址 `https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-95c39cedd2fb3590b615`；APK asset `577186710`，大小 `545,238,814` bytes，SHA-256 `897e5163b31fd8950f1e6c97c03f3e20d4d82c7d804aed1a9cf5c6172bee7287`。当前只能升级为 `CI PASSED / APK READY / TRUE DEVICE PENDING`。
 
 ## 7. 历史验证兼容摘要
 
