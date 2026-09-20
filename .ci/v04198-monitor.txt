@@ -1,0 +1,7 @@
+status=success
+run_id=35532252873
+run_url=https://github.com/catkiss62/ai-companion-build/actions/runs/35532252873
+head_sha=84d6a2c869d1c3ca8d802080b0e2826296448df4
+signer_sha256=30:5E:B3:D8:09:83:B9:63:C6:48:18:DD:F1:AD:56:1F:27:9D:E6:D4:7B:3E:D2:C7:81:AD:A4:48:C7:C2:51:48
+096d95bfbae99c4dadabfcece89389c824e858bbfa1341430e869686b443f776  AI-Companion-v0.41.98-242-Sen-Direct-Port-APK.apk
+release_url=https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-37e74d5b24cf0d2decf5
