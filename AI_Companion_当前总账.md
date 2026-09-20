@@ -18,7 +18,7 @@
 ## 2. 永久产品与工程边界
 
 - **主体性优先**：事实与安全 Gate 约束虚假完成、越权、凭据泄漏和不可逆损坏，但不把她训练成处处等待批准的被动工具。
-- **模型/API 双通道**：内部判断、维护、工具规划与 Outcome 核验走 DeepSeek；双模型模式只在收齐整轮上下文和真实工具结果后调用一次 Gemini 形成可见回复。MCP 网络请求不是模型调用。
+- **模型/API 双通道**：内部判断、维护、工具规划与 Outcome 核验走 DeepSeek；双模型模式只在收齐整轮上下文和真实工具结果后调用一次独立的 OpenAI-compatible 第二通道形成可见回复。第二通道地址和模型可由用户配置，默认仍是原玩游 Gemini 地址与模型；非 Gemini 模型不得收到 Gemini 专属 `google.thinking_config`。MCP 网络请求不是模型调用。
 - **真实工具事实**：只有成功的真实 Outcome 能支持“已进入、已落子、已发送、已保存、已完成”。失败、blocked、no_result、超时或零调用不能由对白补写。
 - **唯一循环所有权（未来功能开工前必查）**：每个会连续推进的能力必须只有一个 continuation owner，并在设计时写清 `execution_id`、唯一触发源、一次唤醒最多规划轮数/工具调用数/真实 mutation 数、终止条件、Stop、崩溃/主后台切换后的恢复规则。用户回合、后台 cadence、工具 Outcome、UI 轮询和平台 callback 可以提供事件，但不得各自继续同一 execution；`next_call / continuation / resume_after` 是权威事实，不是再启动一条循环的许可。Cedar 曾经让前台 Agent 循环、后台游戏循环和 Outcome 续接同时推进，造成重复调用、Token 暴涨、终局丢失与 Stop 不彻底；此事故模式是永久踩雷样本。
 - **循环能力首版诊断（随功能一起交付）**：任何新的 MCP、工作区、视频、提醒、Live2D 长任务或其他可续接能力，第一版就必须以脱敏方式记录 `feature / execution_id / trigger_source / continuation_owner / phase / planning_rounds / tool_calls / committed_mutations / continuation_requested / terminal / preempt / late_write / usage_lane`。诊断不得保存 Prompt、Thought 私密正文、密钥、房间凭据或用户文件内容；没有这组证据，不允许靠继续加 retry/delay 猜修循环。
@@ -39,8 +39,10 @@
 | 功能状态 | `CI PASSED / APK READY / TRUE DEVICE PENDING` |
 | +228 远端 | head `29e87d016c8bd81f52f89f95191bd1a1a01a5b57`；tree `c4a112a56d8b634cf3a1a66636979a0833538b7d`；Actions `35440359036`；Artifact `10583263879`；APK SHA-256 `159e283173e49da2924d25b37ba7647893cdafdcc31b63f0e31b7c64e086849b` |
 | 仓库维护基线 | `maintenance/repository-governance-20260919`；远端文档 head `123e272196e8ae93f3518157917d76f6af4f1784`；完整构建 head `fa99f32012fa1a0716b746d36b958a8e777ef9b8`；Actions `35446649873` 全绿；文档-only run `35447342921` 正确跳过 APK |
-| 当前功能分支 | `agent/v04189-cedar-temporal-wishlist-cache`，从 +232 远端文档 head `189f8b1` 分出；候选版本 `v0.41.89+233` |
-| 当前任务状态 | `CI PASSED / APK READY / TRUE DEVICE PENDING`；+232 已有 2 项真机通过、1 项持续观察，见 6.5 |
+| 当前功能分支 | `agent/v04190-cedar-save-slots-custom-final-model`，从 +233 本地文档 head `1f69c27` 分出；候选版本 `v0.41.90+234` |
+| 当前任务状态 | `IMPLEMENTED LOCALLY / LOCAL STATIC VALIDATION PASSED / CI PENDING / TRUE DEVICE PENDING`；+232 已有 2 项真机通过、1 项持续观察，见 6.5 |
+| +234 当前任务 | Cedar 五槽事实、已有/turn 0 存档续玩、已知空槽自主开档与破坏性覆盖确认边界；将固定玩游 Gemini 选项改为“`双模型（自定义最终回复）`”，地址/模型可编辑并以旧值预填；不改 schema、人格、疲劳、TTS 或内部 DeepSeek 通道 |
+| +234 远端 | `CI PENDING / APK PENDING`；构建、Artifact、Draft APK 与 SHA-256 待 Actions 回填 |
 | +233 当前任务 | 先修 Cedar Outcome Thought 的事件身份、一次分享与时间锚定；再做愿望单安全主题投影；最后只做语义等价的 DeepSeek 缓存观测/低风险优化。三部分独立提交与验证门，不改人格、疲劳、Cedar 玩法/循环所有权或 Gemini 按次回复链 |
 | +233 远端 | 构建 head `2892e67d91652b3d8cdec6a989c8467ed0193764`；tree `36747406e22a5accd35f879d7284a0d3370e5a7c`；Actions `35475970152` 全绿；Artifact `10593264636`；APK SHA-256 `ffe58c0dc10f145ec4ce91489478b3b9327304aab8aa1b39a02f58b13229f6e3` |
 | +232 目标 | 游戏厅“最近进展”窄面板复用“游戏活动”同款 Card 颜色；愿望单按安全主题表达并合并同主题活动愿望；登记 Cortico 低风险参考、唯一循环所有权与后续诊断护栏；不改 Agent 循环、疲劳、缓存、TTS、schema、世界书或人格 |
@@ -310,6 +312,31 @@ Actions 与交付证据：
 - Actions `35475970152` 全绿：115 个源码/历史门、Kotlin 桌宠/悬浮层测试、Flutter analyze、全部 869 项 Flutter tests、arm64 Release、稳定签名、Genie/桌宠/LingChat/塔罗载荷、Artifact 与 Draft 上传全部成功。
 - Artifact `10593264636`，名称 `AI-Companion-v0.41.89-233-Cedar-Temporal-Wishlist-Cache-APK`，大小 `538,070,382` bytes，ZIP digest `5055b7b8a30df4009b45fbda7f6f6fe8a259a3baf09d363afed25a8b70f61821`。
 - Draft Release `392248211` 为未发布地址 `https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-a51ec6f40ce0543f3558`；APK asset `575682174`，大小 `544,947,802` bytes，SHA-256 `ffe58c0dc10f145ec4ce91489478b3b9327304aab8aa1b39a02f58b13229f6e3`。稳定测试签名仍为 `30:5E:B3:D8:09:83:B9:63:C6:48:18:DD:F1:AD:56:1F:27:9D:E6:D4:7B:3E:D2:C7:81:AD:A4:48:C7:C2:51:48`。
+
+### 6.7 v0.41.90+234 Cedar 五槽自主性与可配置最终回复通道（2026-09-20）
+
+状态：`IMPLEMENTED LOCALLY / LOCAL STATIC VALIDATION PASSED / CI PENDING / TRUE DEVICE PENDING`。
+
+实现分支：`agent/v04190-cedar-save-slots-custom-final-model`。
+
+根因与产品决定：
+
+1. 最新同刻备份证明钓鱼 slot 1 与瓶中生态 slot 1 各自保存不同状态，Cedar 指南也明确写明“每游戏 5 槽，slot=1-5，缺省 1”；此前“覆盖鱼塘”并不是两个 game 共用同一存档，而是瓶中生态的 `eco_new` 命中了瓶中生态自己已有的 turn 0 slot 1。该初始档可能由官方人类前端/服务在只查看时建立；后续 `eco_observe` 与 `eco_act` 已证明它可直接继续。
+2. APK 原先只把五槽说明埋在长指南正文，`cedar_toy.play` 的本地参数说明没有明确告知 Agent；后台也没有“空槽可自主使用、已有槽不可自主覆盖”的确定性边界。因此模型可能重复 `new`，却不能可靠表达槽位自主性。
+3. 用户决定保持主体性：已有长期档默认继续；她确实想开新周目/新世界时可自主使用已知空槽，不必每次申请；只有覆盖已有槽、导入覆盖或 `confirm:true` 才必须取得用户明确同意。未知槽不能猜为空，room/session 类无五槽声明的游戏不受此规则影响。
+4. 原“Gemini 3.7 Flash（玩游）”设置的地址与模型不仅在界面只读，运行时还会按固定网址把模型强制改回固定别名。只把控件变成输入框会形成假配置，必须让存储、普通聊天、沉浸房间、重试与连接测试都真正传递用户输入。
+
+本地实现：
+
+- 新增 `CedarSaveSlotPolicy`，只在实时指南明确声明五槽时生效：识别已有存档/覆盖提示，阻止后台 `confirm:true` 和冲突后的重复 new/create/start/reset/import；用户回合若没有明确的覆盖同意也会在调用远端前阻断。Agent Prompt 同时解释 game 间同号槽相互独立、turn 0 初始档可能由官方前端/服务建立、已有档优先观察/继续、已知空槽可自主开档。
+- `cedar_toy.play` 的 `params_json` 说明补入 `slot=1..5` 与 `confirm:true` 边界；后台规划验收与执行前各有一层保护，避免模型重试或未来调用路径绕过。没有建立本地第二套存档服务器，也没有硬编码钓鱼/瓶中生态 game ID。
+- 最终回复选项显示为“`双模型（自定义最终回复）`”。第二通道地址、模型 ID 改为可编辑输入框，默认读取旧玩游地址 `https://wy.aiwangyou.cc/v1/chat/completions` 和旧模型 `[特价]gemini-3.7-flash-0.5`；原 API Key 槽保持不变，升级不丢旧 Key。DeepSeek 仍是必填内部通道。
+- `DeepSeekClient` 新增显式 provider/model override：自定义网址不再因为 host 变化被误判回 DeepSeek；用户输入的模型名原样进入请求。模型名含 Gemini 时保留原 `google.thinking_config`，其他 OpenAI-compatible 模型不发送 Gemini/DeepSeek 专属 thinking 字段。连接测试、普通聊天最终回复、沉浸房间首次生成和重试均使用同一配置。
+- 新增 `cedar_save_slot_autonomy_v04190_test.dart` 与自定义第二通道请求回归，并登记 `validate_v04190_cedar_save_slots_custom_final_model.py`。版本提升为 `v0.41.90+234`，schema 保持 61。
+
+本地验证：新增专项源码门、相关历史门、Workflow YAML 解析、Python 编译与 `git diff --check` 通过。完整 validator manifest 在仓库精简态运行到桌宠源码包门前均通过，随后按预期因 CI 才恢复的 417 文件桌宠源码包缺失而停止；本机没有 Flutter/Dart SDK，Flutter analyze/tests、Kotlin/JVM/Android tests、arm64 Release、签名与载荷检查必须由 GitHub Actions 判定。因此当前不得写 `CI PASSED / APK READY`。
+
+真机验收：进入已有瓶中生态 turn 0 档时应观察/继续，不再把它说成钓鱼串档；已知空槽可由她自主选择，新建已有槽时必须询问且未确认前不发送 `confirm:true`。模型设置应显示旧值预填，可修改地址和模型并通过连接测试；普通聊天与沉浸房间都应使用新模型，第二通道失败仍由内部 DeepSeek 兜底。兼容性边界是 OpenAI Chat Completions 风格接口，不保证任意非兼容协议仅靠改名字即可使用。
 
 ## 7. 历史验证兼容摘要
 
