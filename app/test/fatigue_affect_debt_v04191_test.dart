@@ -86,7 +86,7 @@ void main() {
     );
     expect(
       DesireCorePolicy.fatigueRestReason(affect),
-      contains('又累'),
+      contains('身体已经累了'),
     );
   });
 
