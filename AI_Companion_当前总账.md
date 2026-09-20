@@ -40,8 +40,9 @@
 | +228 远端 | head `29e87d016c8bd81f52f89f95191bd1a1a01a5b57`；tree `c4a112a56d8b634cf3a1a66636979a0833538b7d`；Actions `35440359036`；Artifact `10583263879`；APK SHA-256 `159e283173e49da2924d25b37ba7647893cdafdcc31b63f0e31b7c64e086849b` |
 | 仓库维护基线 | `maintenance/repository-governance-20260919`；远端文档 head `123e272196e8ae93f3518157917d76f6af4f1784`；完整构建 head `fa99f32012fa1a0716b746d36b958a8e777ef9b8`；Actions `35446649873` 全绿；文档-only run `35447342921` 正确跳过 APK |
 | 当前功能分支 | `agent/v04191-fatigue-affect-debt`，从 +234 本地文档 head `97a1788` 分出；候选版本 `v0.41.91+235` |
-| 当前任务状态 | `IMPLEMENTED LOCALLY / LOCAL STATIC VALIDATION PASSED / CI PENDING / TRUE DEVICE PENDING`；现有昼夜疲劳基线已取得自然真机正向证据，见 6.8 |
+| 当前任务状态 | `CI PASSED / APK READY / TRUE DEVICE PENDING`；现有昼夜疲劳基线已取得自然真机正向证据，+235 新增调制仍待自然真机观察，见 6.8 |
 | +235 当前任务 | 保留现有昼夜身体疲劳与连续 `rest_need`，新增有界、短时的正向激活与负面难安静调制；自主主动消息和 Cedar 真实推进在高疲劳时积累睡眠债，经过真实安静窗才回补；用户主动聊天始终正常回应，不新增循环、不改 schema、人格、世界书、最终回复通道或 TTS |
+| +235 远端 | 构建 head `8ecbcbcaab339fc4ecd0b9c616db2ceacdc83d16`；tree `ee125bd9967b277975decec70b551ba1c7e7918b`；Actions `35501928714` 全绿；Artifact `10602523875`；APK SHA-256 `1489ba5a886d3323f1b68ca913a8f5d166f68133d7786974c04c514abf10e628` |
 | +234 当前任务 | Cedar 五槽事实、已有/turn 0 存档续玩、已知空槽自主开档与破坏性覆盖确认边界；将固定玩游 Gemini 选项改为“`双模型（自定义最终回复）`”，地址/模型可编辑并以旧值预填；不改 schema、人格、疲劳、TTS 或内部 DeepSeek 通道 |
 | +234 远端 | 构建 head `16589fc8a88574f5a77f0731f8972e65fe990538`；tree `60060c335ba1b064c950ea97a5274bd5fa06f7b5`；Actions `35498575549` 全绿；Artifact `10601008319`；APK SHA-256 `38aadaa9ffb1f2ac3ddac85fffc9311f4c9c75950692130b7c29eee3fa9210f3` |
 | +233 当前任务 | 先修 Cedar Outcome Thought 的事件身份、一次分享与时间锚定；再做愿望单安全主题投影；最后只做语义等价的 DeepSeek 缓存观测/低风险优化。三部分独立提交与验证门，不改人格、疲劳、Cedar 玩法/循环所有权或 Gemini 按次回复链 |
@@ -348,7 +349,7 @@ Actions 与交付证据：
 
 ### 6.8 v0.41.91+235 疲劳—心境小幅耦合与睡眠债（2026-09-20）
 
-状态：`IMPLEMENTED LOCALLY / LOCAL STATIC VALIDATION PASSED / CI PENDING / TRUE DEVICE PENDING`。
+状态：`CI PASSED / APK READY / TRUE DEVICE PENDING`。
 
 实现分支：`agent/v04191-fatigue-affect-debt`。
 
@@ -368,9 +369,16 @@ Actions 与交付证据：
 - 情绪 Prompt 只注入结构化的“暂时激活 / 又累又难静 / 睡眠债恢复”表达边界；不暴露消息正文，不让模型声称心情已经消除身体困意。诊断新增 `affectMode / positiveActivation / negativeRestlessness / sleepDebt / 两类评分修正 / 最近自主消耗`，不包含 Thought 或消息正文。
 - 新增 `fatigue_affect_debt_v04191_test.dart`，覆盖正向激活、负面难安静、睡眠债压过连续兴奋、90 分钟真实安静窗、白天回补压力、Cedar 共用仲裁与凌晨无人观看硬边界。
 
-本地验证：新增 +235 专项门、当前总账门、相关历史门、Workflow YAML 解析与 `git diff --check` 均通过；逐项执行 117 个 validator，114 个通过。其余 3 个是仓库精简环境的既有缺项：CI 才恢复的 417 文件桌宠源码包、LingChat 特效资源包，以及本机未安装 `kotlinc`；不属于本次疲劳逻辑失败。当前环境也没有 Flutter/Dart SDK，完整 analyze、Flutter tests、Kotlin/JVM/Android tests、arm64 Release、签名与载荷检查必须由 GitHub Actions 判定，因此状态仍为 `CI PENDING / APK NOT READY`。
+本地验证：新增 +235 专项门、当前总账门、相关历史门、Workflow YAML 解析与 `git diff --check` 均通过；逐项执行 117 个 validator，114 个通过。其余 3 个是仓库精简环境的既有缺项：CI 才恢复的 417 文件桌宠源码包、LingChat 特效资源包，以及本机未安装 `kotlinc`；不属于本次疲劳逻辑失败。当前环境也没有 Flutter/Dart SDK，因此当时保持 `CI PENDING / APK NOT READY`，完整结果现已由下方 GitHub Actions 补齐。
 
-真机验收边界：北京时间下午到夜间自然使用即可，不诱发争吵或强行熬夜。重点核对：白天低债不改变正常主动性；聊天愉快时夜间可自然多撑一小会儿但不会声称恢复体力；负面心情表现为累且难静而非亢奋；高疲劳主动一次后下一次更难发生；停止互动并安静后第二天债逐步下降；用户主动发消息始终正常回复；无人观看 Cedar 凌晨不连续推进。Actions 全绿前不得写 `CI PASSED / APK READY`，自然观察前不得写 `TRUE DEVICE PASSED`。
+Actions 与交付证据：
+
+- 首轮 Actions `35501454096` 已通过 117 个源代码门、Kotlin 与 Flutter analyze，在全量 Flutter tests 中准确拦住两条测试契约不同步：新用例寻找字面“又累”而真实策略文案为“身体已经累了”，旧系统自读用例仍写死 +234 构建号。只修正这两条精确断言并保留 +234 历史 token，没有改策略、跳过测试或放宽 Gate。
+- 修正后的 Actions `35501928714` 全绿：117/117 源代码与历史门、Android/Kotlin 桌宠及悬浮层测试、Flutter analyze、881 项 Flutter tests、arm64 Release、稳定签名、Genie/桌宠/LingChat/塔罗载荷、Artifact 与 Draft 上传均成功。构建 head `8ecbcbcaab339fc4ecd0b9c616db2ceacdc83d16`，tree `ee125bd9967b277975decec70b551ba1c7e7918b`；`main` 未修改。
+- Artifact `10602523875`，名称 `AI-Companion-v0.41.91-235-Fatigue-Affect-Sleep-Debt-APK`，大小 `538,076,602` bytes，ZIP digest `5221f74cd5368748aae3af177b24041c5ddbbcd1189c2e93c089f348ea41dad4`。
+- Draft Release `392375712` 为未发布地址 `https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-6bfa04031f233b81dfa6`；APK asset `576530601`，大小 `544,955,098` bytes，SHA-256 `1489ba5a886d3323f1b68ca913a8f5d166f68133d7786974c04c514abf10e628`。稳定测试签名仍为 `30:5E:B3:D8:09:83:B9:63:C6:48:18:DD:F1:AD:56:1F:27:9D:E6:D4:7B:3E:D2:C7:81:AD:A4:48:C7:C2:51:48`。
+
+真机验收边界：北京时间下午到夜间自然使用即可，不诱发争吵或强行熬夜。重点核对：白天低债不改变正常主动性；聊天愉快时夜间可自然多撑一小会儿但不会声称恢复体力；负面心情表现为累且难静而非亢奋；高疲劳主动一次后下一次更难发生；停止互动并安静后第二天债逐步下降；用户主动发消息始终正常回复；无人观看 Cedar 凌晨不连续推进。当前保持 `TRUE DEVICE PENDING`，自然观察前不得写 `TRUE DEVICE PASSED`。
 
 ## 7. 历史验证兼容摘要
 
