@@ -4,6 +4,7 @@ import '../ai/deepseek_client.dart';
 import '../database/app_database.dart';
 import '../diagnostics/provider_health.dart';
 import '../desire/desire_engine.dart';
+import '../desire/fatigue_affect_controller.dart';
 import '../models/autonomous_action.dart';
 import '../models/desire_state.dart';
 import '../models/public_web_candidate.dart';
@@ -120,11 +121,14 @@ class PublicWebDiscoveryEngine {
       return const PublicWebDiscoveryDecision(state: 'disabled');
     }
     final thoughts = await db.activeThoughts(limit: 24);
+    final fatigueAffect =
+        await FatigueAffectController(db).snapshot(now: instant);
     final intents = desire.previewCandidates(
       snapshot,
       thoughts,
       now: instant,
       intimacyAllowed: false,
+      fatigueAffect: fatigueAffect,
     );
     DesireIntent? sourceIntent = sourceIntentOverride;
     if (sourceIntent == null) {

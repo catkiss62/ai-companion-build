@@ -89,8 +89,9 @@ publish_to: 'none'
 # Historical validator token: version: 0.41.86+230
 # Historical validator token: version: 0.41.87+231
 # Historical validator token: version: 0.41.89+233
-# v0.41.90+234 build candidate: Cedar save-slot autonomy and custom final-reply lane.
-version: 0.41.90+234
+# Historical validator token: version: 0.41.90+234
+# v0.41.91+235 build candidate: bounded fatigue-affect coupling and sleep debt.
+version: 0.41.91+235
 
 environment:
   sdk: '>=3.12.0 <4.0.0'

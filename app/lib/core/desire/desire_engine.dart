@@ -6,6 +6,8 @@ import '../database/app_database.dart';
 import '../models/desire_state.dart';
 import '../models/thought.dart';
 import 'desire_core_policy.dart';
+import 'fatigue_affect_controller.dart';
+import 'fatigue_affect_policy.dart';
 import 'thought_feed_policy.dart';
 import 'thought_similarity.dart';
 
@@ -40,6 +42,8 @@ class DesireEngine {
     DateTime? now,
   }) async {
     final instant = now ?? DateTime.now();
+    final fatigueAffect =
+        await FatigueAffectController(db).snapshot(now: instant);
     if ((await db.getSetting('thought_lifecycle_enabled')) == '0') {
       await _tickThoughts(instant);
     }
@@ -68,6 +72,7 @@ class DesireEngine {
         thoughts,
         instant,
         intimacyAllowed: true,
+        fatigueAffect: fatigueAffect,
       );
       return snapshot.copyWith(
         drives: drives,
@@ -332,6 +337,7 @@ class DesireEngine {
     List<CompanionThought> thoughts, {
     DateTime? now,
     bool intimacyAllowed = true,
+    FatigueAffectSnapshot fatigueAffect = FatigueAffectSnapshot.neutral,
   }) {
     return _pickIntent(
       snapshot,
@@ -340,6 +346,7 @@ class DesireEngine {
       thoughts,
       now ?? DateTime.now(),
       intimacyAllowed: intimacyAllowed,
+      fatigueAffect: fatigueAffect,
     );
   }
 
@@ -349,6 +356,7 @@ class DesireEngine {
     DateTime? now,
     bool intimacyAllowed = true,
     bool includeThoughtAlternatives = false,
+    FatigueAffectSnapshot fatigueAffect = FatigueAffectSnapshot.neutral,
   }) {
     final candidates = DesireCorePolicy.candidates(
       drives: snapshot.drives,
@@ -359,6 +367,7 @@ class DesireEngine {
       lastWildcardAt: snapshot.lastWildcardAt,
       intimacyAllowed: intimacyAllowed,
       includeThoughtAlternatives: includeThoughtAlternatives,
+      fatigueAffect: fatigueAffect,
     );
     return candidates.map(_fromCandidate).toList();
   }
@@ -370,6 +379,7 @@ class DesireEngine {
     List<CompanionThought> thoughts,
     DateTime now, {
     required bool intimacyAllowed,
+    FatigueAffectSnapshot fatigueAffect = FatigueAffectSnapshot.neutral,
   }) {
     final candidates = DesireCorePolicy.candidates(
       drives: drives,
@@ -379,6 +389,7 @@ class DesireEngine {
       baselines: snapshot.baselines,
       lastWildcardAt: snapshot.lastWildcardAt,
       intimacyAllowed: intimacyAllowed,
+      fatigueAffect: fatigueAffect,
     );
     return candidates.isEmpty ? null : _fromCandidate(candidates.first);
   }

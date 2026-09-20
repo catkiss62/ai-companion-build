@@ -118,3 +118,4 @@ tools/validate_v04189_cedar_event_temporal_truth.py
 tools/validate_v04189_wishlist_safe_subject.py
 tools/validate_v04189_prompt_cache_observability.py
 tools/validate_v04190_cedar_save_slots_custom_final_model.py
+tools/validate_v04191_fatigue_affect_debt.py

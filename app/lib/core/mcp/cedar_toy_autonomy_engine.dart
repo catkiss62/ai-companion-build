@@ -12,6 +12,8 @@ import '../agent/agent_tool.dart';
 import '../agent/agent_tool_text_envelope.dart';
 import '../database/app_database.dart';
 import '../desire/desire_core_policy.dart';
+import '../desire/fatigue_affect_controller.dart';
+import '../desire/fatigue_affect_policy.dart';
 import '../diagnostics/runtime_error_category.dart';
 import '../models/desire_state.dart';
 import '../storage/secure_config.dart';
@@ -406,20 +408,27 @@ class CedarContinuationGatePolicy {
     required double strongestGameThought,
     required bool activelyWatched,
     int recentActionCount = 0,
+    FatigueAffectSnapshot fatigueAffect = FatigueAffectSnapshot.neutral,
   }) {
     final localNow = now.toLocal();
     final fatigue = max(
       storedFatigue.clamp(0.0, 1.0).toDouble(),
       DesireCorePolicy.circadianFatigueFloor(localNow),
     );
-    final restScore = DesireCorePolicy.fatigueRestScore(fatigue);
+    final restScore = DesireCorePolicy.fatigueRestScore(
+      fatigue,
+      affect: fatigueAffect,
+    );
     final saturationPenalty =
         (max(0, recentActionCount - 4) * 0.025).clamp(0.0, 0.28).toDouble();
     final playScore = (max(curiosity, reflection * 0.82) +
             0.18 +
             strongestGameThought.clamp(0.0, 1.0).toDouble() * 0.30 +
             (activelyWatched ? 0.18 : 0.0) -
-            DesireCorePolicy.fatigueActionPenalty(fatigue) -
+            DesireCorePolicy.fatigueActionPenalty(
+              fatigue,
+              affect: fatigueAffect,
+            ) -
             saturationPenalty)
         .clamp(0.0, 0.92)
         .toDouble();
@@ -440,7 +449,10 @@ class CedarContinuationGatePolicy {
         saturationPenalty: saturationPenalty,
       );
     }
-    if (fatigue < DesireCorePolicy.fatigueCompetitionFloor ||
+    if (!DesireCorePolicy.fatigueRestEligible(
+          fatigue,
+          affect: fatigueAffect,
+        ) ||
         playScore > restScore + 0.04) {
       return CedarContinuationGateDecision(
         allowed: true,
@@ -452,11 +464,11 @@ class CedarContinuationGatePolicy {
         saturationPenalty: saturationPenalty,
       );
     }
-    final delay = fatigue >= 0.76
+    final delay = fatigue >= 0.76 || fatigueAffect.sleepDebt >= 0.15
         ? const Duration(minutes: 60)
-        : fatigue >= 0.66
+        : fatigue >= 0.66 || fatigueAffect.sleepDebt >= 0.10
             ? const Duration(minutes: 45)
-            : fatigue >= 0.56
+            : fatigue >= 0.56 || fatigueAffect.sleepDebt >= 0.05
                 ? const Duration(minutes: 20)
                 : const Duration(minutes: 8);
     return CedarContinuationGateDecision(
@@ -698,6 +710,13 @@ class CedarToyAutonomyEngine {
         .where((event) => event.kind == 'outcome')
         .where((event) => now.difference(event.createdAt) <= const Duration(hours: 6))
         .length;
+    final activityActivation = pace.isWatching
+        ? 0.72
+        : (recentActionCount * 0.12).clamp(0.0, 0.48).toDouble();
+    final fatigueAffect = await FatigueAffectController(db).snapshot(
+      now: now,
+      activityActivation: activityActivation,
+    );
     final decision = CedarContinuationGatePolicy.evaluate(
       now: now,
       storedFatigue: snapshot.drives[DriveKey.fatigue] ?? 0.0,
@@ -706,6 +725,7 @@ class CedarToyAutonomyEngine {
       strongestGameThought: strongestGameThought,
       activelyWatched: pace.isWatching,
       recentActionCount: recentActionCount,
+      fatigueAffect: fatigueAffect,
     );
     await db.setSetting(
       'cedar_toy_last_continuation_gate_v1',
@@ -719,6 +739,10 @@ class CedarToyAutonomyEngine {
         'recentActionCount': recentActionCount,
         'delaySeconds': decision.delay.inSeconds,
         'activelyWatched': pace.isWatching,
+        'affectMode': fatigueAffect.mode,
+        'positiveActivation': fatigueAffect.positiveActivation,
+        'negativeRestlessness': fatigueAffect.negativeRestlessness,
+        'sleepDebt': fatigueAffect.sleepDebt,
         'evaluatedAt': now.millisecondsSinceEpoch,
       }),
     );
@@ -1709,6 +1733,22 @@ ${store.promptContext(session, state: state, playProtocol: playProtocol)}''',
       action: action,
       outcome: outcome,
     );
+    if (!outcome.isError &&
+        !platformAction &&
+        !CedarPlatformActionPolicy.isReadOnly(action)) {
+      try {
+        final desire = await db.loadDesire();
+        await FatigueAffectController(db).recordAutonomousExertion(
+          bodyFatigue: desire.drives[DriveKey.fatigue] ?? 0.0,
+          source: 'cedar_game_step',
+          now: now,
+          weight: 0.45,
+        );
+      } catch (_) {
+        // The remote mutation and fenced local outcome are already committed;
+        // never retry a real game move only because debt bookkeeping failed.
+      }
+    }
     if (!outcome.isError &&
         shareLevel != 'quiet' &&
         (await db.getSetting(shareEnabledKey)) != '0') {

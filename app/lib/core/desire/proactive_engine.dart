@@ -53,6 +53,7 @@ import 'cedar_game_thought_policy.dart';
 import 'deferred_followup_engine.dart';
 import 'desire_core_policy.dart';
 import 'desire_engine.dart';
+import 'fatigue_affect_controller.dart';
 import 'proactive_dawn_gate_policy.dart';
 import 'proactive_presentation.dart';
 import 'proactive_rhythm_engine.dart';
@@ -448,12 +449,16 @@ class ProactiveEngine {
               readyWebCandidate.discoveredAt;
         }
       }
+      final fatigueAffect = await FatigueAffectController(db).snapshot(
+        now: evaluationStartedAt,
+      );
       final previewCandidates = desireEngine.previewCandidates(
         snapshot,
         thoughts,
         now: evaluationStartedAt,
         intimacyAllowed: true,
         includeThoughtAlternatives: true,
+        fatigueAffect: fatigueAffect,
       );
       final thoughtsById = <String, CompanionThought>{
         for (final thought in thoughts) thought.id: thought,
@@ -1897,6 +1902,16 @@ ${PromptBuilder.visibleChineseGenerationReminder(proactive: true)}
       now: DateTime.now(),
       outboundEffort: true,
     );
+    try {
+      await FatigueAffectController(db).recordAutonomousExertion(
+        bodyFatigue: fatigueBeforeSend,
+        source: isCedarGameShare ? 'cedar_game_share' : 'proactive_message',
+        now: message.createdAt,
+      );
+    } catch (_) {
+      // The message is already committed. A debt telemetry write must never
+      // reclassify a successfully delivered message as failed or resend it.
+    }
     if (fatigueBeforeSend >= DesireCorePolicy.fatigueCompetitionFloor &&
         fatigueCost > 0) {
       final overrideCount = int.tryParse(

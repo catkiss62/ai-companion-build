@@ -2,6 +2,7 @@ import 'dart:math';
 
 import '../models/desire_state.dart';
 import '../models/thought.dart';
+import 'fatigue_affect_policy.dart';
 
 class DesireCoreAdvanceResult {
   const DesireCoreAdvanceResult({
@@ -205,16 +206,17 @@ class DesireCorePolicy {
     bool intimacyAllowed = true,
     bool wildcardAllowed = true,
     bool includeThoughtAlternatives = false,
+    FatigueAffectSnapshot fatigueAffect = FatigueAffectSnapshot.neutral,
   }) {
     final fatigue = drives[DriveKey.fatigue] ?? 0.0;
     final result = <DesireCoreCandidate>[];
-    if (fatigue >= fatigueCompetitionFloor) {
+    if (fatigueRestEligible(fatigue, affect: fatigueAffect)) {
       result.add(
         DesireCoreCandidate(
           drive: DriveKey.fatigue,
-          score: fatigueRestScore(fatigue),
+          score: fatigueRestScore(fatigue, affect: fatigueAffect),
           action: 'rest',
-          reason: '困意正在变得具体，身体更想慢下来休息；但特别强的念头仍可能让我暂时撑一下。',
+          reason: fatigueRestReason(fatigueAffect),
           reasonSource: 'drive_state',
         ),
       );
@@ -253,7 +255,8 @@ class DesireCorePolicy {
       final nonlinear = 1 - sqrt(max(0.0, 1 - combined));
       final rawScore =
           (nonlinear + base * 0.62).clamp(0.0, 1.0).toDouble();
-      final score = (rawScore - fatigueActionPenalty(fatigue))
+      final score =
+          (rawScore - fatigueActionPenalty(fatigue, affect: fatigueAffect))
           .clamp(0.0, 1.0)
           .toDouble();
       final strongest = related.isEmpty ? null : related.first;
@@ -281,8 +284,8 @@ class DesireCorePolicy {
               (alternativeNonlinear + base * 0.62)
                   .clamp(0.0, 1.0)
                   .toDouble();
-          final alternativeScore =
-              (alternativeRawScore - fatigueActionPenalty(fatigue))
+          final alternativeScore = (alternativeRawScore -
+                  fatigueActionPenalty(fatigue, affect: fatigueAffect))
                   .clamp(0.0, 1.0)
                   .toDouble();
           result.add(
@@ -455,18 +458,48 @@ class DesireCorePolicy {
     return points.last.$2;
   }
 
-  static double fatigueRestScore(double fatigue) {
-    if (fatigue < fatigueCompetitionFloor) return 0.0;
-    return (0.54 + (fatigue - 0.45) * 0.66)
-        .clamp(0.54, 0.86)
+  static double fatigueRestScore(
+    double fatigue, {
+    FatigueAffectSnapshot affect = FatigueAffectSnapshot.neutral,
+  }) {
+    if (!fatigueRestEligible(fatigue, affect: affect)) return 0.0;
+    final scoredFatigue = max(fatigue, 0.45);
+    return (0.54 +
+            (scoredFatigue - 0.45) * 0.66 +
+            affect.restScoreAdjustment)
+        .clamp(0.48, 0.94)
         .toDouble();
   }
 
+  static bool fatigueRestEligible(
+    double fatigue, {
+    FatigueAffectSnapshot affect = FatigueAffectSnapshot.neutral,
+  }) =>
+      fatigue >= fatigueCompetitionFloor || affect.sleepDebt >= 0.04;
+
+  static String fatigueRestReason(FatigueAffectSnapshot affect) =>
+      switch (affect.mode) {
+        'tired_but_restless' =>
+          '身体已经累了，心里却还没有安静下来；更适合停下外向动作，慢慢缓下来，而不是把烦躁当成精力。',
+        'temporarily_activated' =>
+          '困意仍然真实，只是亲近、兴奋或正在投入的事暂时把它压住了一小截；继续撑着会留下后续代价。',
+        'sleep_debt' =>
+          '前面熬着继续的代价已经积起来，身体现在更需要真正停下来恢复。',
+        'debt_recovery' =>
+          '困意和之前累积的消耗还没有完全恢复，身体更想慢下来休息。',
+        _ => '困意正在变得具体，身体更想慢下来休息；但特别强的念头仍可能让我暂时撑一下。',
+      };
+
   /// Sleepiness makes outward action harder without muting it. A sufficiently
   /// strong Drive + Thought score can still beat the competing rest candidate.
-  static double fatigueActionPenalty(double fatigue) {
-    if (fatigue <= 0.45) return 0.0;
-    return ((fatigue - 0.45) * 0.30).clamp(0.0, 0.18).toDouble();
+  static double fatigueActionPenalty(
+    double fatigue, {
+    FatigueAffectSnapshot affect = FatigueAffectSnapshot.neutral,
+  }) {
+    final base = fatigue <= 0.45 ? 0.0 : (fatigue - 0.45) * 0.30;
+    return (base + affect.actionPenaltyAdjustment)
+        .clamp(0.0, 0.26)
+        .toDouble();
   }
 
   /// Only self-initiated outbound action pays this extra body cost. Merely

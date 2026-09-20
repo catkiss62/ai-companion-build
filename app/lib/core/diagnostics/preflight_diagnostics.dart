@@ -14,6 +14,7 @@ import 'dialogue_expression_telemetry.dart';
 import 'provider_health.dart';
 import 'visible_reasoning_language_telemetry.dart';
 import '../desire/desire_core_policy.dart';
+import '../desire/fatigue_affect_controller.dart';
 import '../grounding/grounding_engine.dart';
 import '../integration/moe_expression_prompt_adapter.dart';
 import '../moe/application/moe_dynamics_policy.dart';
@@ -265,6 +266,10 @@ class PreflightDiagnosticsService {
       final failedGeneration = await db.failedGenerationNeedingAttention();
       final grounding = await GroundingEngine(db).capture(now: now);
       final desireSnapshot = await db.loadDesire();
+      final fatigueAffect = await FatigueAffectController(db).snapshot(
+        now: now,
+        persistRecovery: false,
+      );
       final desireThoughts = await db.activeThoughtMetadata(limit: 40);
       const adultRelationshipDriveEnabled = true;
       final desireCandidates = DesireCorePolicy.candidates(
@@ -275,6 +280,7 @@ class PreflightDiagnosticsService {
         baselines: desireSnapshot.baselines,
         lastWildcardAt: desireSnapshot.lastWildcardAt,
         intimacyAllowed: adultRelationshipDriveEnabled,
+        fatigueAffect: fatigueAffect,
       );
       final currentFatigue =
           desireSnapshot.drives[DriveKey.fatigue] ?? 0.0;
@@ -793,7 +799,7 @@ class PreflightDiagnosticsService {
           },
           'fatigueGateActive':
               currentFatigue >= DesireCorePolicy.fatigueRestGate,
-          'fatiguePolicyMode': 'circadian_competition_v0406',
+          'fatiguePolicyMode': 'circadian_affect_debt_v04191',
           'circadianFatigue': {
             'localHour': now.hour,
             'floor': double.parse(
@@ -813,9 +819,33 @@ class PreflightDiagnosticsService {
                     strongestNonRestCandidate.score.toStringAsFixed(4),
                   ),
             'outboundActionPenalty': double.parse(
-              DesireCorePolicy.fatigueActionPenalty(currentFatigue)
+              DesireCorePolicy.fatigueActionPenalty(
+                currentFatigue,
+                affect: fatigueAffect,
+              )
                   .toStringAsFixed(4),
             ),
+            'affectMode': fatigueAffect.mode,
+            'positiveActivation': double.parse(
+              fatigueAffect.positiveActivation.toStringAsFixed(4),
+            ),
+            'negativeRestlessness': double.parse(
+              fatigueAffect.negativeRestlessness.toStringAsFixed(4),
+            ),
+            'sleepDebt': double.parse(
+              fatigueAffect.sleepDebt.toStringAsFixed(4),
+            ),
+            'restScoreAdjustment': double.parse(
+              fatigueAffect.restScoreAdjustment.toStringAsFixed(4),
+            ),
+            'actionPenaltyAdjustment': double.parse(
+              fatigueAffect.actionPenaltyAdjustment.toStringAsFixed(4),
+            ),
+            'debtUpdatedAt':
+                fatigueAffect.updatedAt?.millisecondsSinceEpoch ?? 0,
+            'lastExertionAt':
+                fatigueAffect.lastExertionAt?.millisecondsSinceEpoch ?? 0,
+            'lastExertionSource': fatigueAffect.lastExertionSource,
             'strongDesireOverrideActive': strongDesireOverrideActive,
             'hardVetoEnabled': false,
             'outboundFatigueCostEnabled': true,
