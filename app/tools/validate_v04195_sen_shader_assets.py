@@ -31,6 +31,10 @@ require("pubspec.yaml", "version: 0.41.95+239")
 require("lib/core/agent/agent_self_reader.dart", "v0.41.95+239")
 require("lib/core/mcp/mcp_http_client.dart", "'version': '0.41.95'")
 require(
+    "test/agent_self_reader_v0416_test.dart",
+    "build=v0.41.95+239 schema=61",
+)
+require(
     ".github/workflows/build-apk.yml",
     "agent/v04195-sen-shader-assets",
     "AI-Companion-v0.41.95-239-Sen-Cubism-Shader-Hotfix-APK",
