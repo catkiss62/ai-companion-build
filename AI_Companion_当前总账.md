@@ -40,8 +40,9 @@
 | +228 远端 | head `29e87d016c8bd81f52f89f95191bd1a1a01a5b57`；tree `c4a112a56d8b634cf3a1a66636979a0833538b7d`；Actions `35440359036`；Artifact `10583263879`；APK SHA-256 `159e283173e49da2924d25b37ba7647893cdafdcc31b63f0e31b7c64e086849b` |
 | 仓库维护基线 | `maintenance/repository-governance-20260919`；远端文档 head `123e272196e8ae93f3518157917d76f6af4f1784`；完整构建 head `fa99f32012fa1a0716b746d36b958a8e777ef9b8`；Actions `35446649873` 全绿；文档-only run `35447342921` 正确跳过 APK |
 | 当前功能分支 | `agent/v04193-game-reality-grounding`，从 +236 本地文档 head `1827524` 分出；候选版本 `v0.41.93+237` |
-| 当前任务状态 | `IMPLEMENTED LOCALLY / LOCAL STATIC VALIDATION PASSED / CI PENDING / TRUE DEVICE PENDING`；修复未实际游玩的钓鱼事项被写成“挂着鱼漂等待/漂没动”，+235 疲劳与 +236 欲望竞争继续自然观察，见 6.10 |
+| 当前任务状态 | `CI PASSED / APK READY / TRUE DEVICE PENDING`；修复未实际游玩的钓鱼事项被写成“挂着鱼漂等待/漂没动”，+235 疲劳与 +236 欲望竞争继续自然观察，见 6.10 |
 | +237 当前任务 | 将未完成游戏事项、旧 ASSISTANT 场景与真实 Cedar 游玩状态分开：没有当前成功 Outcome 时只能说“还没玩/想去玩/之前玩过”，不得虚构正在钓、等待咬钩或图鉴刚才没涨；兼容纠正 +236 前已持久化为 attachment 的游戏 thread Thought |
+| +237 远端 | 构建 head `9c42d355bdecc6a76bc72f917f029e28a7a0f3f6`；tree `81012c4f88721f86606a5f4d6a345982141a4795`；Actions `35509219271` 全绿；Artifact `10603914541`；APK SHA-256 `0b93bd8adc577662905d897694d3bb618e9d2d8acd6832bd98149be6da79e194` |
 | +236 当前任务 | 吸收欲望系统 2.0 的可验证因果账本与竞争诊断，不引入女性向保护欲或第二套欲望真值；把游戏“上瘾”改为可被心境、新兴趣与饱和打断、冷却后可重新点燃的短时投入；过滤 `not_due` 空候选、统一游戏语义域并区分游玩与分享 |
 | +236 远端 | 构建 head `8ab3beb8997cb146a8499d00acfdf726e2121a2f`；tree `910c3950d354734adca82c58b5db8559fbbcb861`；Actions `35506384676` 全绿；Artifact `10604605761`；APK SHA-256 `b2aad7f827c64e82e58cd88d71db6690c721941d684abe40c80eee537d52bf22` |
 | +235 当前任务 | 保留现有昼夜身体疲劳与连续 `rest_need`，新增有界、短时的正向激活与负面难安静调制；自主主动消息和 Cedar 真实推进在高疲劳时积累睡眠债，经过真实安静窗才回补；用户主动聊天始终正常回应，不新增循环、不改 schema、人格、世界书、最终回复通道或 TTS |
@@ -421,7 +422,7 @@ Actions 与交付证据：
 
 ### 6.10 v0.41.93+237 游戏进行时事实接地（2026-09-20）
 
-状态：`IMPLEMENTED LOCALLY / LOCAL STATIC VALIDATION PASSED / CI PENDING / TRUE DEVICE PENDING`。
+状态：`CI PASSED / APK READY / TRUE DEVICE PENDING`。
 
 实现分支：`agent/v04193-game-reality-grounding`。
 
@@ -439,7 +440,9 @@ Actions 与交付证据：
 - 心跳会把来源为 `self_drive/thread` 且语义域明确属于游戏的旧 attachment 派生 Thought 原位纠正为 curiosity，只改派生 drive 标签，不动聊天、thread 正文或 Cedar 状态；`ProactiveSelectionPolicy.normalizeLegacyGameThreadIntent` 仍在竞争边界兜底，使修复写入失败或刚导入的旧数据也即时按 curiosity/check-in 处理，无需删用户数据、改 schema 或等待数日衰减。新 Thought 继续使用 +236 的 `SelfReviewDrivePolicy`。
 - 不改 Cedar 协议、远端存档、游戏节奏、动态投入、疲劳、人格、世界书、TTS、双模型通道、schema 61 或 Snapshot protocol 6。
 
-本地验证：新增 `game_reality_grounding_v04193_test.dart` 与 +237 源码门，覆盖本次真机原句、“挂着鱼漂等待”、诚实没玩/未来意图/历史锚、真实 Outcome 放行、旧 attachment game Thought 在选择时纠正为 curiosity。119 个 validator 已逐项运行，116 个通过；其余 3 个仍只是本地精简态缺少 CI 恢复的 417 文件桌宠源码、LingChat effects 与 `kotlinc`。当前环境无 Flutter/Dart SDK；Python 编译、专项门、Workflow YAML、历史版本兼容门与 `git diff --check` 均通过，完整 analyze/tests/arm64 Release 由 Actions 判定。当前不得写 `CI PASSED` 或 `TRUE DEVICE PASSED`。
+本地验证：新增 `game_reality_grounding_v04193_test.dart` 与 +237 源码门，覆盖本次真机原句、“挂着鱼漂等待”、诚实没玩/未来意图/历史锚、真实 Outcome 放行、旧 attachment game Thought 在选择时纠正为 curiosity。119 个 validator 已逐项运行，116 个通过；其余 3 个仍只是本地精简态缺少 CI 恢复的 417 文件桌宠源码、LingChat effects 与 `kotlinc`。当前环境无 Flutter/Dart SDK；Python 编译、专项门、Workflow YAML、历史版本兼容门与 `git diff --check` 均通过。
+
+CI 与 APK 证据：首轮 Actions `35508754867` 正确拦截了“盯鱼漂”短句未覆盖及历史自读测试仍断言 +236 的两个失败；补齐后，权威 Actions `35509219271` 全绿，119/119 源码与历史门、Kotlin 桌宠/悬浮层测试、Flutter analyze、896 个 Flutter tests、arm64 Release、稳定签名、Genie/桌宠/LingChat/塔罗载荷、Artifact 与 Draft 上传全部成功。Artifact `10603914541` 名称 `AI-Companion-v0.41.93-237-Game-Reality-Grounding-APK`，大小 `538,089,785` bytes，ZIP digest `eba03ec8973d21d0c8b1b423043610b5f53f3c98a718fe16397190114b8e32b8`。Draft Release `392416062` 为未发布地址 `https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-21a037930fc2c8b93eea`；APK asset `576749017`，大小 `544,970,014` bytes，SHA-256 `0b93bd8adc577662905d897694d3bb618e9d2d8acd6832bd98149be6da79e194`。当前只能升级为 `CI PASSED / APK READY / TRUE DEVICE PENDING`。
 
 真机验收：覆盖安装后保留原数据，不需要删除旧 Thought。让钓鱼未完成事项自然再次竞争；没有真实 play 时只能说还没玩、又想起或想去玩，不能再出现鱼漂持续挂着、漂没动、刚补饵或图鉴刚才没涨。真实执行钓鱼后可以按 Outcome 分享；数小时后的旧结果必须用“之前/上次”等时间锚。诊断同时确认该旧 thread 的出站满足落在 curiosity/check-in，不再继续记为 attachment/reach_out。
 
