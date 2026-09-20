@@ -40,7 +40,7 @@
 | +228 远端 | head `29e87d016c8bd81f52f89f95191bd1a1a01a5b57`；tree `c4a112a56d8b634cf3a1a66636979a0833538b7d`；Actions `35440359036`；Artifact `10583263879`；APK SHA-256 `159e283173e49da2924d25b37ba7647893cdafdcc31b63f0e31b7c64e086849b` |
 | 仓库维护基线 | `maintenance/repository-governance-20260919`；远端文档 head `123e272196e8ae93f3518157917d76f6af4f1784`；完整构建 head `fa99f32012fa1a0716b746d36b958a8e777ef9b8`；Actions `35446649873` 全绿；文档-only run `35447342921` 正确跳过 APK |
 | 当前功能分支 | `agent/v04199-sen-product-integration`，承接已验证 +242；候选版本 `v0.41.99+243` |
-| 当前任务状态 | `IMPLEMENTED LOCALLY / LOCAL STATIC VALIDATION PASSED / CI PENDING / TRUE DEVICE PENDING`；+243 已把 Sen 测试壳能力收口为 AI 伴侣产品界面，见 6.16 |
+| 当前任务状态 | `CI PASSED / APK READY / TRUE DEVICE PENDING`；+243 已把 Sen 测试壳能力收口为 AI 伴侣产品界面，见 6.16 |
 | +243 当前任务 | 启动只加载服装而不批量启用全部原生预设；只显示三套服装、脱与眼镜；20 种聊天情绪接入，脱/NSFW 使用 `romantic_shy`；原生待机、摸头/彩蛋和当前 PCM TTS 口型保留；人物与特效共用位置/缩放；Flutter 全局触点驱动视线；输入法只挪动聊天面板，不改变 Live2D 原生表面尺寸 |
 | +242 当前任务 | 不允许任何本地固定台词以她的身份替代模型回复；用户轮不能被校验器吞成空回复，主动轮可不发送；Sen `main@336b93a` 只读，AI 内的 16 个 Sen 主运行时文件逐字节一致，唯一 Framework 差异只能是 Sen 原始 `cubism-java-no-mipmap.patch` |
 | +240 真机结论 | `PlatformViewLink + AndroidViewSurface + initExpensiveAndroidView` 没有修复黑色剪影，反而使整个 Flutter 合成画面变黑；该方向已在 +242 回退。复核 Sen 构建流程后确认 +239 黑色剪影根因是移植时漏掉 `cubism-java-no-mipmap.patch` |
@@ -574,7 +574,7 @@ Actions 与交付证据：
 
 ### 6.15 v0.41.98+242 Sen 完整移植与固定兜底收口（2026-09-21）
 
-状态：`IMPLEMENTED LOCALLY / LOCAL STATIC VALIDATION PASSED / CI PENDING / TRUE DEVICE PENDING`。
+状态：`CI PASSED / APK READY / TRUE DEVICE PENDING`。
 
 实现分支：`agent/v04198-sen-texture-direct-port`。
 
@@ -618,6 +618,8 @@ Actions 与交付证据：
 6. 自主待机、摸头和 10% 困惑彩蛋保留；现有 `WavAudioPlayer` 继续以实际 PCM RMS 驱动口型，不迁入 Sen 系统 TTS 测试。
 
 验证：125 个 validator 中 122 个通过；仅 417 文件桌宠源码、LingChat effects 与 `kotlinc` 三个既有门因精简工作区缺少 CI 恢复资源/工具而失败。+243/+242/+241 专项门、+240 回退门、总账门、Workflow YAML、Python 编译和 `git diff --check` 通过；完整 Flutter/Kotlin/Release 交由 Actions。Sen 仓库保持独立且未修改。真机覆盖服装/眼镜、20 情绪、NSFW/脱羞涩、位置缩放、特效/摸头跟随、待机、TTS 口型、全页视线和输入法不变形。
+
+远端与交付证据：功能树经 GitHub Contents API 写入后与本地候选 tree `679452c4feef0af657b41aeb9aa3b8466b141f07` 一致；用于触发 Actions 的无运行时改动 head 为 `6a93c2a5067ea9b9b1c42789fc2cc961b397404f`，`main` 未修改。Actions `35539446162` 全绿：125/125 源码门、Kotlin/Android、Flutter analyze/tests、arm64 Release、稳定签名、Genie/桌宠/LingChat/塔罗/Cubism 载荷、Artifact 与 Draft 上传均成功。Artifact `10613803835`，大小 `538,358,387` bytes；APK SHA-256 `3cca55f7a48aea699558b2bf5d3f29025205244640d83a6006a79b4bc78cde1f`。Draft Release 为未发布地址 `https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-31bd7a4c04576a53e034`。当前只等待真机验收，不得提前标记 `TRUE DEVICE PASSED`。
 
 ## 7. 历史验证兼容摘要
 
