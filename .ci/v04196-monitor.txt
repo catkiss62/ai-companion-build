@@ -1,0 +1,7 @@
+status=success
+run_id=35526854350
+run_url=https://github.com/catkiss62/ai-companion-build/actions/runs/35526854350
+head_sha=bdae0d3897efe49c251c6d4a2ecfb4a035afa188
+signer_sha256=30:5E:B3:D8:09:83:B9:63:C6:48:18:DD:F1:AD:56:1F:27:9D:E6:D4:7B:3E:D2:C7:81:AD:A4:48:C7:C2:51:48
+bfad10070630724920cb68815d174e8d230740cfa8489761abf9495e12baeea3  AI-Companion-v0.41.96-240-Sen-Hybrid-Composition-Hotfix-APK.apk
+release_url=https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-a5d654d0c78859a6de71
