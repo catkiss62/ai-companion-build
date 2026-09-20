@@ -39,8 +39,9 @@
 | 功能状态 | `CI PASSED / APK READY / TRUE DEVICE PENDING` |
 | +228 远端 | head `29e87d016c8bd81f52f89f95191bd1a1a01a5b57`；tree `c4a112a56d8b634cf3a1a66636979a0833538b7d`；Actions `35440359036`；Artifact `10583263879`；APK SHA-256 `159e283173e49da2924d25b37ba7647893cdafdcc31b63f0e31b7c64e086849b` |
 | 仓库维护基线 | `maintenance/repository-governance-20260919`；远端文档 head `123e272196e8ae93f3518157917d76f6af4f1784`；完整构建 head `fa99f32012fa1a0716b746d36b958a8e777ef9b8`；Actions `35446649873` 全绿；文档-only run `35447342921` 正确跳过 APK |
-| 当前功能分支 | `agent/v04191-fatigue-affect-debt`，从 +234 本地文档 head `97a1788` 分出；候选版本 `v0.41.91+235` |
-| 当前任务状态 | `CI PASSED / APK READY / TRUE DEVICE PENDING`；现有昼夜疲劳基线已取得自然真机正向证据，+235 新增调制仍待自然真机观察，见 6.8 |
+| 当前功能分支 | `agent/v04192-desire-game-interest`，从 +235 文档 head `e375393` 分出；候选版本 `v0.41.92+236` |
+| 当前任务状态 | `IMPLEMENTED LOCALLY / LOCAL STATIC VALIDATION PASSED / CI PENDING / TRUE DEVICE PENDING`；+235 疲劳调制继续自然观察，本批不改疲劳核心，见 6.9 |
+| +236 当前任务 | 吸收欲望系统 2.0 的可验证因果账本与竞争诊断，不引入女性向保护欲或第二套欲望真值；把游戏“上瘾”改为可被心境、新兴趣与饱和打断、冷却后可重新点燃的短时投入；过滤 `not_due` 空候选、统一游戏语义域并区分游玩与分享 |
 | +235 当前任务 | 保留现有昼夜身体疲劳与连续 `rest_need`，新增有界、短时的正向激活与负面难安静调制；自主主动消息和 Cedar 真实推进在高疲劳时积累睡眠债，经过真实安静窗才回补；用户主动聊天始终正常回应，不新增循环、不改 schema、人格、世界书、最终回复通道或 TTS |
 | +235 远端 | 构建 head `8ecbcbcaab339fc4ecd0b9c616db2ceacdc83d16`；tree `ee125bd9967b277975decec70b551ba1c7e7918b`；Actions `35501928714` 全绿；Artifact `10602523875`；APK SHA-256 `1489ba5a886d3323f1b68ca913a8f5d166f68133d7786974c04c514abf10e628` |
 | +234 当前任务 | Cedar 五槽事实、已有/turn 0 存档续玩、已知空槽自主开档与破坏性覆盖确认边界；将固定玩游 Gemini 选项改为“`双模型（自定义最终回复）`”，地址/模型可编辑并以旧值预填；不改 schema、人格、疲劳、TTS 或内部 DeepSeek 通道 |
@@ -379,6 +380,35 @@ Actions 与交付证据：
 - Draft Release `392375712` 为未发布地址 `https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-6bfa04031f233b81dfa6`；APK asset `576530601`，大小 `544,955,098` bytes，SHA-256 `1489ba5a886d3323f1b68ca913a8f5d166f68133d7786974c04c514abf10e628`。稳定测试签名仍为 `30:5E:B3:D8:09:83:B9:63:C6:48:18:DD:F1:AD:56:1F:27:9D:E6:D4:7B:3E:D2:C7:81:AD:A4:48:C7:C2:51:48`。
 
 真机验收边界：北京时间下午到夜间自然使用即可，不诱发争吵或强行熬夜。重点核对：白天低债不改变正常主动性；聊天愉快时夜间可自然多撑一小会儿但不会声称恢复体力；负面心情表现为累且难静而非亢奋；高疲劳主动一次后下一次更难发生；停止互动并安静后第二天债逐步下降；用户主动发消息始终正常回复；无人观看 Cedar 凌晨不连续推进。当前保持 `TRUE DEVICE PENDING`，自然观察前不得写 `TRUE DEVICE PASSED`。
+
+### 6.9 v0.41.92+236 欲望因果账本与动态游戏投入（2026-09-20）
+
+状态：`IMPLEMENTED LOCALLY / LOCAL STATIC VALIDATION PASSED / CI PENDING / TRUE DEVICE PENDING`。
+
+实现分支：`agent/v04192-desire-game-interest`。
+
+开工证据与产品边界：
+
+1. 最新同刻诊断 `v0.41.90+234` 与 schema 61 备份证明，最近约 79 分钟 26 个自主行为事件中 18 个是 `play_game|mcp|not_due`。根因不是“她太爱游戏”本身，而是 checkpoint 恢复候选在 continuation 尚未到期时仍参加竞争；它以最高约 `0.92` 胜出后才返回 `not_due`，占掉本次 heartbeat，其他真实候选没有再选择机会。
+2. 游戏分享同时从 Cedar MCP Outcome、`self_drive/thread` 未完成事项与用户历史进入。钓鱼 thread 已累计 `fedCount=74 / actionCount=21`；现有 self-drive 把所有低于 `0.72` 的未完成 thread 一律归为 attachment，使游戏内容不当地借用依恋欲望。游戏 Outcome 分享强度最高 `0.94`，普通自我回顾通常仅 `0.18–0.46`，跨来源同主题没有统一语义域，导致“游戏总赢”既有真实投入也有结构性重复放大。
+3. 本批允许阶段性玩游戏上瘾，但不新增永久“贪玩” Drive 或固定游戏人格。游戏投入只能由真实 Cedar 推进、近期显著事件、当前心境、疲劳与时间衰减派生，经历 `spark / flow / saturated / cooling / available`；心情不好、新兴趣、重复安静结果与饱和可以打断，冷却后允许重新点燃。
+4. “想玩”与“想分享”必须分开：普通成功步骤只维持短时活动惯性，显著/有趣/终局/邀请或与用户相关的事件才形成强分享。Cedar、self-drive 与用户历史中的同一游戏主题统一进入同一有界语义冷却域，真实分享后压低同主题兄弟候选，不删除 Thought 或远端存档。
+5. 吸收作者欲望系统 2.0 的部分限于：记录每个 drive/action lane 的最近真实满足、次数与来源；增加零使用/单一路径支配/无效胜出诊断；给长期未获机会但本身合格的动作一个很小的有界公平加成。不引入女性向保护欲、成功后永久抬高 baseline、固定 15% 随机探索或第二套欲望真值。
+6. +235 疲劳核心、睡眠债、Emotion Episode、Thought 生命周期、Cedar 唯一 continuation owner、服务端防沉迷与存档槽边界保持不变；本批不改人格、世界书、TTS、双模型最终回复、schema 或 `main`。
+
+计划验证：新增纯策略与集成回归，覆盖 continuation 未到期不入场、游戏阶段的投入/饱和/冷却/重燃、负面心境可打断、游戏 thread 归 curiosity、跨来源语义域、游玩与分享分 lane、真实满足账本兼容解析、无效胜出与支配诊断。随后运行全部 validator、Flutter analyze/tests、Kotlin/JVM/Android tests、arm64 Release、签名与载荷检查；只有 Actions 全绿后才写 `CI PASSED / APK READY`。
+
+本地实现与验证：
+
+- 新增纯 `GameEngagementPolicy`，只从当前 session 中成功且非只读的 Cedar Outcome 时间、显著事件和既有 fatigue-affect 快照派生 `spark / flow / saturated / cooling / available`。近期真实进展和显著事件形成短时 momentum；六小时内重复普通推进产生有界 saturation；90 分钟后进入 cooling，八小时后旧饱和清零并允许重燃；负面难安静最多形成 `-0.12` 的游戏调整，正向激活最多 `+0.04`。它没有持久人格值、随机源、模型调用、定时器或第二循环。
+- `resumeOptions` 现在先读取权威 continuation delay；只有 `<= 0` 才能进入统一竞争。运行时竞态产生的 `not_due / no_continuation / waiting / action_in_progress / continuation_*` 统一记为 `wait` 而非虚假 completed。继续游戏基础常数和 Thought 权重已收窄，并叠加动态投入，因此真实上瘾可以持续，但饱和、心境、新兴趣与疲劳都能让其他候选胜出。
+- `game_share` 成为独立 autonomous behavior，和 `play_game` 分开计数并有 90 分钟全局分享冷却；六小时同主题冷却覆盖 `game_share / proactive_message / public_web_share`。`cedar_game:<id>`、`shared.activity.<id>` 与 Cedar source 被规范为同一 `game:<id>` 语义域；发送后的 feedback 和行为 topic hash 均使用该域，跨来源不能靠换壳绕过。
+- 新增 `SelfReviewDrivePolicy`：普通游戏/钓鱼/图鉴等未完成活动归 curiosity，不再借 attachment 压力；真正高重要度事项仍归 duty，其他关系 follow-up 保持 attachment。现有 completed source fingerprint 去重不变。
+- 新增 settings-backed `DesireSatisfactionLedger`，按 drive 与 action lane 记录最近一次真实满足、次数和粗粒度来源；用户回复、成功主动消息与 Cedar 真实非只读 mutation 都能写入。它只给原始分数至少 `0.48`、超过 12/24/72 小时未获满足的合格 lane 最多 `0.02/0.04/0.06` 公平加成，不改 Drive、baseline 或事实 Gate。诊断显示 `zeroUseCoreLanes`，不带 Thought/消息正文、来源 ID 或凭据。
+- autonomous behavior 诊断新增 24 小时 `nonproductiveWinnerCount` 和 `dominanceAlerts`：至少 8 次事件且单一 behavior/source 占比达到 60% 才提示，wait/blocked/failed 累计至少 4 次提示无效胜出；只做因果观察，不自动改人格。
+- 新增 `desire_game_interest_v04192_test.dart` 与 +236 专项门，固定覆盖五阶段变化、负面心境打断、not-due 不入场、游戏 thread 归 curiosity、跨来源语义域、游玩/分享分 lane、满足账本 round-trip 与公平上限。118 个 validator 已逐项运行，115 个通过；其余 3 个仅因本地精简态缺少 CI 才恢复的 417 文件桌宠源码、LingChat effects 与 `kotlinc`。Workflow YAML、Python 编译、当前总账门、+235/+236 专项门和 `git diff --check` 均通过。本机没有 Flutter/Dart SDK，完整 analyze/tests/Android Release 仍由 Actions 判定。
+
+真机验收边界：覆盖安装后自然观察即可，不需要刻意诱发坏心情。重点看诊断不再连续出现 `play_game|mcp|not_due`；同一游戏可短时沉浸但会因重复普通进展饱和，数小时后又可重燃；一次真实游戏分享后跨来源同主题不刷屏；游戏 thread 不再持续抬 attachment；+235 的疲劳、睡眠债和凌晨无人观看硬休息保持原样。当前不得写 `TRUE DEVICE PASSED`。
 
 ## 7. 历史验证兼容摘要
 
