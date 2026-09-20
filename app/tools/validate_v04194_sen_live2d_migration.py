@@ -45,6 +45,20 @@ assert digest("android/app/src/main/java/com/live2d/sdk/cubism/framework/model/C
 assert digest("android/app/libs/Live2DCubismCore.aar") == (
     "3f05da57ab855e803000e6353888dd561c47758598c6c0200dcd0109312705f8"
 )
+shaders = path(
+    "android/app/src/main/assets/com/live2d/sdk/cubism/framework/shaders/standardES"
+)
+shader_files = sorted(item for item in shaders.iterdir() if item.is_file())
+assert len(shader_files) == 36, "Cubism standardES shader asset set drifted"
+shader_tree_digest = sha256(
+    "".join(
+        f"{item.name}:{sha256(item.read_bytes()).hexdigest()}\n"
+        for item in shader_files
+    ).encode("utf-8")
+).hexdigest()
+assert shader_tree_digest == (
+    "2130c2079aaade0352f3abb2fde51f864a32b01466ea47ee3a9f8fe859b69250"
+)
 assert digest(
     "android/app/src/main/java/com/catkiss/senlive2dcompanion/SenPerformanceEngine.java"
 ) == "492b6c12170b681e14ada78b0046dabd9644ed809001a0384676e4a430863218"

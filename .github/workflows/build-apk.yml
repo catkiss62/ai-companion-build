@@ -394,7 +394,8 @@
 # Historical +235 validator tokens: agent/v04191-fatigue-affect-debt | AI-Companion-v0.41.91-235-Fatigue-Affect-Sleep-Debt-APK | v0.41.91-fatigue-affect-sleep-debt-test | .ci/v04191-monitor.txt
 # Historical +236 validator tokens: agent/v04192-desire-game-interest | AI-Companion-v0.41.92-236-Desire-Game-Interest-APK | v0.41.92-desire-game-interest-test
 # Historical +237 validator tokens: agent/v04193-game-reality-grounding | AI-Companion-v0.41.93-237-Game-Reality-Grounding-APK | v0.41.93-game-reality-grounding-test
-name: Build AI Companion v0.41.94+238 APK (Sen Live2D Migration)
+# Historical +238 validator tokens: agent/v04194-sen-live2d-migration | AI-Companion-v0.41.94-238-Sen-Live2D-Migration-APK | v0.41.94-sen-live2d-migration-test
+name: Build AI Companion v0.41.95+239 APK (Sen Cubism Shader Hotfix)
 
 on:
   push:
@@ -441,6 +442,7 @@ on:
       - agent/v04192-desire-game-interest
       - agent/v04193-game-reality-grounding
       - agent/v04194-sen-live2d-migration
+      - agent/v04195-sen-shader-assets
       - maintenance/repository-governance-20260919
   workflow_dispatch:
   pull_request:
@@ -830,7 +832,7 @@ jobs:
         run: |
           set -euo pipefail
           test -f app/pubspec.yaml
-          grep -Fqx 'version: 0.41.94+238' app/pubspec.yaml
+          grep -Fqx 'version: 0.41.95+239' app/pubspec.yaml
           grep -Fqx '  static const int schemaVersion = 61;' app/lib/core/database/app_database.dart
           test -d app/lib
           test -d app/android
@@ -844,7 +846,7 @@ jobs:
           test -f app/android/app/src/main/jniLibs/arm64-v8a/libc++_shared.so
           test ! -d app/android/app/src/main/assets/tts_models
           test ! -d app/android/app/src/main/assets/legacy_tts
-          echo 'Building v0.41.94+238 Sen Live2D migration candidate.'
+          echo 'Building v0.41.95+239 Sen Live2D Cubism shader-assets hotfix candidate.'
 
       - name: Restore exact 417-file desktop-pet source pack
         working-directory: app
@@ -1089,6 +1091,33 @@ jobs:
                   print('ERROR: companion ONNX Runtime differs from verified Genie APK', file=sys.stderr)
                   sys.exit(1)
               print('ONNX Runtime native library is byte-identical to verified Genie APK.')
+              shader_source_dir = pathlib.Path(
+                  'app/android/app/src/main/assets/com/live2d/sdk/cubism/framework/shaders/standardES'
+              )
+              shader_sources = sorted(path for path in shader_source_dir.iterdir() if path.is_file())
+              if len(shader_sources) != 36:
+                  print(
+                      f'ERROR: source tree contains {len(shader_sources)} Cubism standardES shaders, expected 36',
+                      file=sys.stderr,
+                  )
+                  sys.exit(1)
+              shader_prefix = 'assets/com/live2d/sdk/cubism/framework/shaders/standardES/'
+              packaged_shaders = sorted(
+                  name for name in z.namelist()
+                  if name.startswith(shader_prefix) and not name.endswith('/')
+              )
+              expected_shader_paths = [shader_prefix + path.name for path in shader_sources]
+              if packaged_shaders != expected_shader_paths:
+                  print(
+                      f'ERROR: APK Cubism shader set mismatch: {packaged_shaders}',
+                      file=sys.stderr,
+                  )
+                  sys.exit(1)
+              for source_path, packaged_path in zip(shader_sources, expected_shader_paths):
+                  if z.read(packaged_path) != source_path.read_bytes():
+                      print(f'ERROR: APK Cubism shader bytes changed: {packaged_path}', file=sys.stderr)
+                      sys.exit(1)
+              print('All 36 hash-exact Cubism standardES shader assets are present in the APK.')
               if 'assets/frontend/english/cmudict.rep' not in z.namelist():
                   print('ERROR: production CMUdict frontend asset is missing', file=sys.stderr)
                   sys.exit(1)
@@ -1289,26 +1318,26 @@ jobs:
           APK='app/build/app/outputs/flutter-apk/app-release.apk'
           sha256sum "$APK" | tee app/app-release.apk.sha256
 
-      - name: Upload v0.41.94+238 APK as workflow artifact
+      - name: Upload v0.41.95+239 APK as workflow artifact
         uses: actions/upload-artifact@v4
         with:
-          name: AI-Companion-v0.41.94-238-Sen-Live2D-Migration-APK
+          name: AI-Companion-v0.41.95-239-Sen-Cubism-Shader-Hotfix-APK
           path: |
             app/build/app/outputs/flutter-apk/app-release.apk
             app/app-release.apk.sha256
           if-no-files-found: error
           retention-days: 14
 
-      - name: Upload v0.41.94+238 APK to draft release
+      - name: Upload v0.41.95+239 APK to draft release
         shell: bash
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
-          TAG='v0.41.94-sen-live2d-migration-test'
-          APK_NAME='AI-Companion-v0.41.94-238-Sen-Live2D-Migration-APK.apk'
+          TAG='v0.41.95-sen-cubism-shader-hotfix-test'
+          APK_NAME='AI-Companion-v0.41.95-239-Sen-Cubism-Shader-Hotfix-APK.apk'
           SHA_NAME="${APK_NAME}.sha256"
-          CI_NAME='AI-Companion-v0.41.94-238-Sen-Live2D-Migration-CI-Monitor.txt'
+          CI_NAME='AI-Companion-v0.41.95-239-Sen-Cubism-Shader-Hotfix-CI-Monitor.txt'
           cp app/build/app/outputs/flutter-apk/app-release.apk "app/${APK_NAME}"
           sed "s#app/build/app/outputs/flutter-apk/app-release.apk#${APK_NAME}#" \
             app/app-release.apk.sha256 > "app/${SHA_NAME}"
@@ -1325,14 +1354,14 @@ jobs:
               --repo "${GITHUB_REPOSITORY}" \
               --target "${GITHUB_SHA}" \
               --draft \
-              --title 'AI Companion v0.41.94+238 Sen Live2D migration candidate' \
-              --notes 'Unpublished Draft schema-61 candidate. Fixes not-due Cedar resume candidates consuming proactive heartbeats; derives short-lived game engagement from real outcomes, affect, saturation and cooldown; separates play from game sharing; canonicalizes cross-source game topics; and adds a redacted true-satisfaction ledger plus dominance diagnostics. Existing fatigue, personality, world-book, final-model and TTS behavior remain unchanged.'
+              --title 'AI Companion v0.41.95+239 Sen Cubism shader hotfix candidate' \
+              --notes 'Unpublished Draft schema-61 candidate. Restores all 36 hash-exact standardES shader assets required by the directly migrated Cubism Java Framework, and verifies their presence and byte identity inside the release APK. The Sen model remains user-imported; chat, personality, desire, memory, Cedar, final-model and TTS semantics are unchanged.'
           else
             gh release edit "${TAG}" \
               --repo "${GITHUB_REPOSITORY}" \
               --target "${GITHUB_SHA}" \
-              --title 'AI Companion v0.41.94+238 Sen Live2D migration candidate' \
-              --notes 'Unpublished Draft schema-61 candidate. Fixes not-due Cedar resume candidates consuming proactive heartbeats; derives short-lived game engagement from real outcomes, affect, saturation and cooldown; separates play from game sharing; canonicalizes cross-source game topics; and adds a redacted true-satisfaction ledger plus dominance diagnostics. Existing fatigue, personality, world-book, final-model and TTS behavior remain unchanged.'
+              --title 'AI Companion v0.41.95+239 Sen Cubism shader hotfix candidate' \
+              --notes 'Unpublished Draft schema-61 candidate. Restores all 36 hash-exact standardES shader assets required by the directly migrated Cubism Java Framework, and verifies their presence and byte identity inside the release APK. The Sen model remains user-imported; chat, personality, desire, memory, Cedar, final-model and TTS semantics are unchanged.'
           fi
           RELEASE_URL="$(gh release view "${TAG}" --repo "${GITHUB_REPOSITORY}" --json url --jq '.url')"
           echo "release_url=${RELEASE_URL}" >> "app/${CI_NAME}"
@@ -1352,18 +1381,18 @@ jobs:
           done
           test "${upload_ok}" = '1'
           MONITOR_BRANCH='ci-monitor-v0345'
-          MONITOR_PATH='.ci/v04192-monitor.txt'
+          MONITOR_PATH='.ci/v04195-monitor.txt'
           MONITOR_CONTENT="$(base64 -w0 "app/${CI_NAME}")"
           MONITOR_SHA="$(gh api "/repos/${GITHUB_REPOSITORY}/contents/${MONITOR_PATH}?ref=${MONITOR_BRANCH}" --jq '.sha' 2>/dev/null || true)"
           if test -n "${MONITOR_SHA}"; then
             gh api --method PUT "/repos/${GITHUB_REPOSITORY}/contents/${MONITOR_PATH}" \
-              -f message='Update v0.41.94 CI success monitor' \
+              -f message='Update v0.41.95 CI success monitor' \
               -f content="${MONITOR_CONTENT}" \
               -f branch="${MONITOR_BRANCH}" \
               -f sha="${MONITOR_SHA}" >/dev/null
           else
             gh api --method PUT "/repos/${GITHUB_REPOSITORY}/contents/${MONITOR_PATH}" \
-              -f message='Create v0.41.94 CI success monitor' \
+              -f message='Create v0.41.95 CI success monitor' \
               -f content="${MONITOR_CONTENT}" \
               -f branch="${MONITOR_BRANCH}" >/dev/null
           fi
@@ -1384,8 +1413,8 @@ jobs:
           BUILD_RESULT: ${{ needs.build-apk.result }}
         run: |
           set -uo pipefail
-          TAG='v0.41.94-sen-live2d-migration-test'
-          CI_NAME='AI-Companion-v0.41.94-238-Sen-Live2D-Migration-CI-Monitor.txt'
+          TAG='v0.41.95-sen-cubism-shader-hotfix-test'
+          CI_NAME='AI-Companion-v0.41.95-239-Sen-Cubism-Shader-Hotfix-CI-Monitor.txt'
           REPORT="${RUNNER_TEMP}/${CI_NAME}"
           JOBS_JSON="${RUNNER_TEMP}/jobs.json"
           {
@@ -1426,8 +1455,8 @@ jobs:
               --repo "${GITHUB_REPOSITORY}" \
               --target "${GITHUB_SHA}" \
               --draft \
-              --title 'AI Companion v0.41.94+238 Sen Live2D migration candidate' \
-              --notes 'Draft failure diagnostics for the schema-61 desire-ledger and dynamic-game-interest candidate. It is not a published release; private packs, credentials, user images, captions, diagnostics, backups and conversation content are not included in CI assets.'
+              --title 'AI Companion v0.41.95+239 Sen Cubism shader hotfix candidate' \
+              --notes 'Draft failure diagnostics for the schema-61 Sen Cubism shader-assets hotfix. It is not a published release; user-imported models, private packs, credentials, user images, captions, diagnostics, backups and conversation content are not included in CI assets.'
           fi
           RELEASE_URL="$(gh release view "${TAG}" --repo "${GITHUB_REPOSITORY}" --json url --jq '.url')"
           echo "release_url=${RELEASE_URL}" >> "${REPORT}"
@@ -1436,18 +1465,18 @@ jobs:
             --clobber \
             --repo "${GITHUB_REPOSITORY}"
           MONITOR_BRANCH='ci-monitor-v0345'
-          MONITOR_PATH='.ci/v04192-monitor.txt'
+          MONITOR_PATH='.ci/v04195-monitor.txt'
           MONITOR_CONTENT="$(base64 -w0 "${REPORT}")"
           MONITOR_SHA="$(gh api "/repos/${GITHUB_REPOSITORY}/contents/${MONITOR_PATH}?ref=${MONITOR_BRANCH}" --jq '.sha' 2>/dev/null || true)"
           if test -n "${MONITOR_SHA}"; then
             gh api --method PUT "/repos/${GITHUB_REPOSITORY}/contents/${MONITOR_PATH}" \
-              -f message='Update v0.41.94 CI failure monitor' \
+              -f message='Update v0.41.95 CI failure monitor' \
               -f content="${MONITOR_CONTENT}" \
               -f branch="${MONITOR_BRANCH}" \
               -f sha="${MONITOR_SHA}" >/dev/null
           else
             gh api --method PUT "/repos/${GITHUB_REPOSITORY}/contents/${MONITOR_PATH}" \
-              -f message='Create v0.41.94 CI failure monitor' \
+              -f message='Create v0.41.95 CI failure monitor' \
               -f content="${MONITOR_CONTENT}" \
               -f branch="${MONITOR_BRANCH}" >/dev/null
           fi

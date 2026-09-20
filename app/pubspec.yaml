@@ -91,8 +91,9 @@ publish_to: 'none'
 # Historical validator token: version: 0.41.89+233
 # Historical validator token: version: 0.41.90+234
 # Historical validator token: version: 0.41.91+235
-# v0.41.94+238 build candidate: Sen Live2D companion migration.
-version: 0.41.94+238
+# Historical validator token: version: 0.41.94+238
+# v0.41.95+239 build candidate: Sen Live2D Cubism shader-assets hotfix.
+version: 0.41.95+239
 
 environment:
   sdk: '>=3.12.0 <4.0.0'

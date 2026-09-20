@@ -4,6 +4,7 @@
 
 - Sen 来源：用户自有仓库 `catkiss62/Sen-Live2D-Companion-Android`，提交 `336b93af1d96e1dd85799faf3df966600c1224a7`。
 - Cubism Java Framework：该仓库锁定的官方子模块提交 `c2d420012d004b8e61d4c589bd5c34513122f0ea`；Framework 源码与 Sen 已验证补丁按原目录直接编译进同一 Android app。
+- v0.41.95 真机热修补齐该 Framework Android 模块的全部 36 个 `standardES` shader assets；源码门锁定其字节，Release 门再次检查成品 APK 内的完整路径与逐字节一致性。详见 `SEN_LIVE2D_SHADER_HOTFIX_v0.41.95.md`。
 - Cubism Core AAR SHA-256：`3f05da57ab855e803000e6353888dd561c47758598c6c0200dcd0109312705f8`。许可与可再分发清单位于 `docs/licenses/live2d/`。
 - 公开仓库不含 Sen 模型。模型 ZIP 只能由用户通过系统文件选择器导入 app-private 目录。
 

@@ -94,7 +94,8 @@ class AgentSelfReader {
   // Historical validator token: v0.41.90+234
   // Historical validator token: buildLabel = 'v0.41.91+235'
   // Historical validator compatibility token: v0.41.93+237
-  static const buildLabel = 'v0.41.94+238';
+  // Historical validator token: buildLabel = 'v0.41.94+238'
+  static const buildLabel = 'v0.41.95+239';
 
   static const systemFacts = <AgentSystemFact>[
     AgentSystemFact(

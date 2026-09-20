@@ -39,8 +39,9 @@
 | 功能状态 | `CI PASSED / APK READY / TRUE DEVICE PENDING` |
 | +228 远端 | head `29e87d016c8bd81f52f89f95191bd1a1a01a5b57`；tree `c4a112a56d8b634cf3a1a66636979a0833538b7d`；Actions `35440359036`；Artifact `10583263879`；APK SHA-256 `159e283173e49da2924d25b37ba7647893cdafdcc31b63f0e31b7c64e086849b` |
 | 仓库维护基线 | `maintenance/repository-governance-20260919`；远端文档 head `123e272196e8ae93f3518157917d76f6af4f1784`；完整构建 head `fa99f32012fa1a0716b746d36b958a8e777ef9b8`；Actions `35446649873` 全绿；文档-only run `35447342921` 正确跳过 APK |
-| 当前功能分支 | `agent/v04194-sen-live2d-migration`，从 +237 head `808c264` 分出；候选版本 `v0.41.94+238` |
-| 当前任务状态 | `CI PASSED / APK READY / TRUE DEVICE PENDING`；用户自有 Sen 原生 Live2D 首阶段移植已完成并通过完整 Actions，等待覆盖安装与真机交互验收，见 6.11 |
+| 当前功能分支 | `agent/v04195-sen-shader-assets`，从 +238 内容树分出；候选版本 `v0.41.95+239` |
+| 当前任务状态 | `IMPLEMENTED LOCALLY / LOCAL STATIC VALIDATION PASSED / CI PENDING / TRUE DEVICE PENDING`；首次真机导入已证明 +238 漏打包 Cubism `standardES` shader assets，热修补齐并增加成品 APK 门，见 6.12 |
+| +239 当前任务 | 原样补齐锁定 Framework 的 36 个 `standardES` shader assets；源码校验文件数/路径/聚合哈希，Release 直接逐字节检查 APK 内资源；不改用户模型、动作、情绪、人格、欲望、记忆、Cedar 或模型调用链 |
 | +238 当前任务 | 原样保留 Sen 已真机验证的 21 情绪、自主待机、视线跟随、摸头彩蛋、物理、三套衣服+脱与眼镜；与静态立绘互斥，接入现有情绪效果/音效、用户消息倾听反应和 TTS 波形口型；不改悬浮鲸鱼、人格/欲望真值或模型调用次数 |
 | +238 远端 | 构建 head `eba2c185507743f1a50f5758e722f1d8a57b0bbd`；tree `7c0cb89a0de3a03f8d0862c570bffe3615d9fb77`；Actions `35521027339` 全绿；Artifact `10608496160`；APK SHA-256 `1b2376eb57fd8250fb5d8370ef7a1a03fb28e30e0176da059fdc71576e60d67c` |
 | +237 当前任务 | 将未完成游戏事项、旧 ASSISTANT 场景与真实 Cedar 游玩状态分开：没有当前成功 Outcome 时只能说“还没玩/想去玩/之前玩过”，不得虚构正在钓、等待咬钩或图鉴刚才没涨；兼容纠正 +236 前已持久化为 attachment 的游戏 thread Thought |
@@ -480,6 +481,27 @@ Actions 与交付证据：
 - Draft Release `392488698` 为未发布地址 `https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-fae51abbecaf213a871f`；APK asset `577108762`，大小 `545,211,875` bytes，SHA-256 `1b2376eb57fd8250fb5d8370ef7a1a03fb28e30e0176da059fdc71576e60d67c`。当前只能升级为 `CI PASSED / APK READY / TRUE DEVICE PENDING`。
 
 真机验收：覆盖安装且不清数据，在左侧栏切换到 Sen Live2D，首次用系统文件选择器导入 Sen 模型 ZIP；确认导入成功后重启仍可加载，错误/超限/Zip Slip 包不替换旧模型。依次核对静态立绘与 Live2D 严格互斥、自主待机、视线跟随、摸头与 10% 困惑彩蛋、四种外观和眼镜、20 个正式情绪动作及跟头特效、用户消息后的倾听点头、TTS 播放时口型与 Stop 后闭嘴、前后台切换不黑屏不重复占有渲染器；系统悬浮鲸鱼应保持原样。真机完成前不得写 `TRUE DEVICE PASSED`。
+
+### 6.12 v0.41.95+239 Sen Cubism shader assets 热修（2026-09-21）
+
+状态：`IMPLEMENTED LOCALLY / LOCAL STATIC VALIDATION PASSED / CI PENDING / TRUE DEVICE PENDING`。
+
+实现分支：`agent/v04195-sen-shader-assets`。
+
+真机证据与根因：
+
+1. +238 覆盖安装后，用户选择 Sen 模型 ZIP，界面明确报错“无法读取 Cubism 文件：`com/live2d/sdk/cubism/framework/shaders/standardES/VertShaderSrcCopy.vert`”。这证明 ZIP 已进入原生 renderer 初始化，失败对象是宿主 APK 的 Cubism 运行资源，不是用户模型结构。
+2. 源码核对确认 +238 复制了 Cubism Core AAR、105 个 Framework Java 文件和 Sen 运行代码，但遗漏了 Framework Android 模块单独位于 `src/main/assets` 的完整 36 个 `standardES` shader 文件。Java 的 `CubismShaderAndroid.SHADER_BASE_PATH` 固定读取该路径；编译器不会检查运行时 assets 是否存在，所以 Actions 编译全绿仍可能在首次真机创建 OpenGL shader 时失败。
+
+本地实现：
+
+- 从 +238 已锁定的 Cubism Java Framework 提交 `c2d420012d004b8e61d4c589bd5c34513122f0ea` 原样补齐 36 个 shader，保留 `com/live2d/sdk/cubism/framework/shaders/standardES/` 相对层级。按文件 SHA-256 聚合摘要为 `2130c2079aaade0352f3abb2fde51f864a32b01466ea47ee3a9f8fe859b69250`；截图中缺失的 `VertShaderSrcCopy.vert` SHA-256 为 `d56e015be2348f1fd42cf7ccaef7bb869c5cd2095759d1ffc806dddca4339a74`。
+- +238 来源门补入 shader 完整性，新增 +239 专项门锁定版本、上游字节、运行时查找路径与发布工作流。Release APK 校验不只看源码，而是打开最终 APK，要求 36 个路径完整并逐字节等于源资源。
+- 版本提升为 `v0.41.95+239`，schema 仍为 61；模型 ZIP、安全导入与回滚、动作/情绪/外观、TTS 口型、聊天、人格、欲望、记忆、Cedar 和双模型调用结构均未改变。
+
+本地验证：121 个 validator 已逐项运行，118 个通过；仅 3 个既有门因精简工作区缺少 CI 才恢复的 417 文件桌宠源码、LingChat effects 与 `kotlinc` 而失败。+238/+239 专项门、当前总账门、manifest check-only、Workflow YAML、Python 编译与 `git diff --check` 均通过。完整 Flutter analyze/tests、Kotlin/JVM/Android tests、arm64 Release、稳定签名和最终 APK shader 逐字节检查交由 Actions；只有全绿后才写 `CI PASSED / APK READY`。
+
+真机验收：覆盖安装且不清数据，优先直接复用 app-private 中已导入的模型；若旧页面仍保留失败态，切回静态立绘再切回 Sen，或重新选择同一 ZIP。首先确认不再出现 `VertShaderSrcCopy.vert` 缺失且模型实际显示，再验待机、视线和摸头；之后继续 +238 完整清单。未经真机不得写 `TRUE DEVICE PASSED`。
 
 ## 7. 历史验证兼容摘要
 
