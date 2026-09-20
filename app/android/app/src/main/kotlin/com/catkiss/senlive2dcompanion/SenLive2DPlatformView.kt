@@ -56,6 +56,8 @@ internal class SenLive2DPlatformView(
     private var headPatStartedAt = 0L
     private val modelPoint = FloatArray(2)
     private val executionId = UUID.randomUUID().toString()
+    private val compositionMode = creationArgs?.get("compositionMode")?.toString()
+        .orEmpty().ifBlank { "unspecified" }
 
     init {
         channel.setMethodCallHandler(this)
@@ -278,6 +280,8 @@ internal class SenLive2DPlatformView(
                 "preempt" to false,
                 "late_write" to false,
                 "usage_lane" to "local_presentation",
+                "composition_mode" to compositionMode,
+                "native_surface_view" to true,
             ),
         )
     }

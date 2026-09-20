@@ -1,5 +1,7 @@
 import 'dart:async';
 
+import 'package:flutter/foundation.dart';
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
@@ -289,6 +291,45 @@ class SenLive2DStageState extends State<SenLive2DStage> {
     }
   }
 
+  Widget _buildNativeStage() {
+    const viewType = 'ai_companion/sen_live2d_view';
+    final creationParams = <String, Object?>{
+      'emotion': _senEmotion,
+      'outfit': widget.outfit,
+      'glasses': widget.glasses,
+      'compositionMode': 'forced_hybrid_composition',
+    };
+
+    // Sen owns a real GLSurfaceView. The standard
+    // AndroidView( constructor uses texture-layer composition, which can keep
+    // mesh alpha while losing sampled colour on some SurfaceView/Impeller/device
+    // combinations. Keep the native hierarchy used by the verified Sen app.
+    return PlatformViewLink(
+      viewType: viewType,
+      surfaceFactory: (context, controller) => AndroidViewSurface(
+        controller: controller as AndroidViewController,
+        gestureRecognizers:
+            const <Factory<OneSequenceGestureRecognizer>>{},
+        hitTestBehavior: PlatformViewHitTestBehavior.opaque,
+      ),
+      onCreatePlatformView: (params) {
+        final controller = PlatformViewsService.initExpensiveAndroidView(
+          id: params.id,
+          viewType: viewType,
+          layoutDirection: TextDirection.ltr,
+          creationParams: creationParams,
+          creationParamsCodec: const StandardMessageCodec(),
+          onFocus: () => params.onFocusChanged(true),
+        );
+        controller
+          ..addOnPlatformViewCreatedListener(params.onPlatformViewCreated)
+          ..addOnPlatformViewCreatedListener(_onPlatformViewCreated)
+          ..create();
+        return controller;
+      },
+    );
+  }
+
   @override
   void dispose() {
     _effectTimer?.cancel();
@@ -306,16 +347,7 @@ class SenLive2DStageState extends State<SenLive2DStage> {
           child: Stack(
             fit: StackFit.expand,
             children: [
-              AndroidView(
-                viewType: 'ai_companion/sen_live2d_view',
-                creationParams: <String, Object?>{
-                  'emotion': _senEmotion,
-                  'outfit': widget.outfit,
-                  'glasses': widget.glasses,
-                },
-                creationParamsCodec: const StandardMessageCodec(),
-                onPlatformViewCreated: _onPlatformViewCreated,
-              ),
+              _buildNativeStage(),
               if (widget.emotion.effectAsset != null)
                 Positioned(
                   left: constraints.maxWidth * _headAnchor.dx - extent / 2,
