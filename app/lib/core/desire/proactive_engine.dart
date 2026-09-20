@@ -271,6 +271,12 @@ class ProactiveEngine {
     bool forceForDebug = false,
     Duration perceptionMinInterval = const Duration(minutes: 4),
   }) async {
+    try {
+      await db.repairLegacySelfDriveGameThoughtDrives();
+    } catch (_) {
+      // The in-memory selection boundary keeps the same correction as a
+      // fallback. A derived-data repair must never suppress the heartbeat.
+    }
     await relationshipAssimilator.assimilatePending();
     await memoryMaintenance.maybeRun();
     await phase2bConsolidation.maybeRun();
@@ -1341,6 +1347,12 @@ MCP Outcome 是她自己刚完成的真实游戏操作结果，可以用第一�
         : '''
 这是一个带不可变发生时间的 Cedar 真实 Outcome。Thought 正文里的“刚”只代表事件生成当时，不能覆盖 SELECTED_THOUGHT_DATA 的 cedar_event_age_minutes。
 只有 cedar_event_is_recent=true 才能说“刚才/刚刚/刚在”；否则仍可分享真实内容，但必须明确说成“之前/上次/前面玩的时候”，不得暗示当前游戏正在运行。''';
+    final pendingGameThreadContract = linkedThread == null ||
+            !ProactiveSelectionPolicy.isGameTopic(linkedThread.topicKey) ||
+            isCedarGameShare
+        ? ''
+        : '''
+这是一个未完成的游戏事项，只证明我还惦记或曾经计划继续，不是本轮真实游玩结果。当前没有该游戏的 Cedar Outcome：不得把它写成正在游玩、挂着鱼漂等待、漂没动、图鉴刚才没涨或已经补完物资。若要提它，只能诚实说还没有实际去玩、现在又想起了，或表达下一步想怎么玩。''';
     context.add({
       'role': 'system',
       'content': '''
@@ -1359,6 +1371,7 @@ $webShareContract
 $sourceAgnosticShareContract
 $watchedCedarShareContract
 $cedarTemporalContract
+$pendingGameThreadContract
 $selectedThoughtData
 ${selection != null && selection.rawRepetitionPenalty > 0 ? '近期同类主动主题已连续出现 ${selection.rawRepeatDepth} 次，本轮已经在本地选择阶段降权；若当前最终意图不是该主题，不要擅自绕回重复的亲密联系。' : ''}
 过去主动消息样本：${rhythmProfile.sampleCount}；当前主题历史样本：${rhythmProfile.topicSampleCount}；同类主动意图样本：${rhythmProfile.intentSampleCount}。当前粗粒度时间段=${rhythmProfile.currentHourBucket}，活动情境=${rhythmProfile.currentActivityContext}。这些只作为轻量节奏参考，不要向用户提及统计。
@@ -1635,6 +1648,7 @@ CURRENT_USER_TURN = NONE。最后一条真实用户消息已经回答完毕，�
 推理和正文都不能虚构用户刚刚说了、回复了或发来了任何内容。
 如果来源是长期记忆，想起发生在现在不等于旧事件发生在刚才；必须服从 MEMORY/THOUGHT_GROUNDING 的最后证据时间，旧的“正在/继续”只能写成当时最后已知状态，当前未知。
 主动候选没有新的用户轮工具结果。不得声称自己刚刚读取过成长/系统、看过当前屏幕、调用过 MCP、保存/修改过数据或设置过提醒，也不得编造“一下午/半天/几小时”的操作历史；真实公开网页发现只能按本轮 Grounding 提供的 Outcome 表达。
+未完成的游戏事项和旧聊天场景不等于游戏正在运行。没有当前 Cedar Outcome 时，不得声称正在钓鱼、挂着鱼漂、漂没动、图鉴刚才没涨；应明确说尚未实际去玩，或只表达想去玩的念头。
 只修正事实前提，不为了整齐、礼貌或所谓正确文风改写她的口气；没有值得说的就输出 WAIT。
 ${PromptBuilder.visibleChineseGenerationReminder(proactive: true)}
 '''.trim(),
@@ -1751,23 +1765,30 @@ ${PromptBuilder.visibleChineseGenerationReminder(proactive: true)}
       return blockGrounding(memoryTemporalGuard.reason);
     }
     if (!operationGuard.allowed) {
-      final salvaged = OperationalClaimGroundingGuard.removeUnsupportedSentences(
-        text: candidate.content,
-        publicWebOutcomeAvailable: webShareCandidateId != null,
-        cedarOutcomeAvailable: isCedarGameShare,
-        cedarOutcomeAt: cedarOutcomeAt,
-        now: evaluationStartedAt,
-      );
-      if (salvaged.isEmpty &&
-          operationGuard.reason == 'stale_cedar_event_presented_as_recent') {
-        await noteGeneration('guard_blocked', reasonTag: 'grounding_guard');
-        return blockGrounding(operationGuard.reason);
+      if (operationGuard.reason == 'ungrounded_cedar_live_state') {
+        candidate = candidate.copyWith(
+          content: '「我其实还没有去玩，只是又想起这件事了。」',
+        );
+      } else {
+        final salvaged =
+            OperationalClaimGroundingGuard.removeUnsupportedSentences(
+          text: candidate.content,
+          publicWebOutcomeAvailable: webShareCandidateId != null,
+          cedarOutcomeAvailable: isCedarGameShare,
+          cedarOutcomeAt: cedarOutcomeAt,
+          now: evaluationStartedAt,
+        );
+        if (salvaged.isEmpty &&
+            operationGuard.reason == 'stale_cedar_event_presented_as_recent') {
+          await noteGeneration('guard_blocked', reasonTag: 'grounding_guard');
+          return blockGrounding(operationGuard.reason);
+        }
+        candidate = candidate.copyWith(
+          content: salvaged.isNotEmpty
+              ? salvaged
+              : '「刚才那件事我其实还没做，先不拿它当开场了。」',
+        );
       }
-      candidate = candidate.copyWith(
-        content: salvaged.isNotEmpty
-            ? salvaged
-            : '「刚才那件事我其实还没做，先不拿它当开场了。」',
-      );
     }
 
     final text = candidate.content;

@@ -1338,6 +1338,7 @@ $finalGenerationReminder
 【事实声明修正 · ONE RETRY】
 上一份正文包含没有真实工具结果支持的可核验操作声明：${operationGuard.reason}。
 所有“看过/查过/读取过系统、看见屏幕、调用/保存/修改/设置完成”的可核验操作报告，只能来自本轮匹配的真实成功工具结果。失败、无结果或阻止必须照实说；一次读取绝不能扩写成“一下午/半天/几小时”。没有结果时说尚未执行，或改为“我在想这件事”等真实主观体验。
+旧对话里的游戏场景和未完成事项不证明游戏仍在运行。没有本轮 Cedar 成功结果时，不得声称正在钓鱼、挂着鱼漂、漂没动或图鉴刚才没涨；应说还没有实际去玩，或只表达想玩的念头。
 真实上下文、Memory、Thought 或 Self Experience 可以说成“想起/又琢磨过某件具体的事”，但不能包装成并未发生的“翻了聊天记录/从头到尾看了一遍”。
 只修正事实，不修改语气、称呼、问题、动作、性格或自然停顿。
 $finalGenerationReminder
@@ -1354,6 +1355,27 @@ $finalGenerationReminder
           );
           if (!operationGuard.allowed) {
             ablationTransformation = 'operation_retry_salvage';
+            if (operationGuard.reason == 'ungrounded_cedar_live_state') {
+              finalContent = '「我其实还没有去玩，只是又想起这件事了。」';
+            } else {
+              final salvaged =
+                  OperationalClaimGroundingGuard.removeUnsupportedSentences(
+                text: finalContent,
+                currentToolResults: agentToolResults,
+              );
+              finalContent = salvaged.isNotEmpty
+                  ? salvaged
+                  : '「那件事我还没有真的执行，刚才说岔了。」';
+            }
+          }
+        } else {
+          // A fixed-price final lane must not silently make a second paid
+          // request for local factual cleanup. Remove only the unsupported
+          // sentences and keep the accepted Gemini voice intact.
+          ablationTransformation = 'operation_local_salvage';
+          if (operationGuard.reason == 'ungrounded_cedar_live_state') {
+            finalContent = '「我其实还没有去玩，只是又想起这件事了。」';
+          } else {
             final salvaged =
                 OperationalClaimGroundingGuard.removeUnsupportedSentences(
               text: finalContent,
@@ -1363,19 +1385,6 @@ $finalGenerationReminder
                 ? salvaged
                 : '「那件事我还没有真的执行，刚才说岔了。」';
           }
-        } else {
-          // A fixed-price final lane must not silently make a second paid
-          // request for local factual cleanup. Remove only the unsupported
-          // sentences and keep the accepted Gemini voice intact.
-          ablationTransformation = 'operation_local_salvage';
-          final salvaged =
-              OperationalClaimGroundingGuard.removeUnsupportedSentences(
-            text: finalContent,
-            currentToolResults: agentToolResults,
-          );
-          finalContent = salvaged.isNotEmpty
-              ? salvaged
-              : '「那件事我还没有真的执行，刚才说岔了。」';
         }
         expressionVerification = ConversationOutcomeVerifier.verify(
           finalText: finalContent,

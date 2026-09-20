@@ -131,6 +131,48 @@ void main() {
     );
   });
 
+  test('unfinished fishing scene is not evidence of live play', () {
+    for (final text in <String>[
+      '主人，漂还是没动，图鉴也还是那几条老面孔。',
+      '我把鱼竿往石缝里插稳，继续坐在池塘边等。',
+      '鱼饵补齐了，我又坐回池塘边上了。',
+      '我换了好几个方向甩，图鉴一点没往上动。',
+      '你负责帮我盯鱼漂，我负责靠着你发呆。',
+      '我就把鱼漂挂着等待，看看什么时候咬钩。',
+      '钓鱼多省事，甩出去挂着就行。',
+    ]) {
+      final result = OperationalClaimGroundingGuard.evaluate(text: text);
+      expect(result.allowed, isFalse, reason: text);
+      expect(result.reason, 'ungrounded_cedar_live_state');
+      expect(result.requiredToolId, 'cedar_toy.play');
+    }
+  });
+
+  test('game non-execution and honest history anchors remain speakable', () {
+    for (final text in <String>[
+      '我其实还没有去玩，只是又想起钓鱼了。',
+      '我打算待会儿去钓鱼，但现在还没开始。',
+      '上次钓鱼时，鱼漂确实半天没动。',
+      '昨天我坐在池塘边等过一阵。',
+    ]) {
+      expect(
+        OperationalClaimGroundingGuard.evaluate(text: text).allowed,
+        isTrue,
+        reason: text,
+      );
+    }
+  });
+
+  test('a current Cedar outcome can ground a live game report', () {
+    expect(
+      OperationalClaimGroundingGuard.evaluate(
+        text: '我正在钓鱼，鱼漂刚有动静。',
+        currentToolResults: const [_cedarPlaySuccess],
+      ).allowed,
+      isTrue,
+    );
+  });
+
   test('blocks a fabricated all-afternoon growth-system report', () {
     final result = OperationalClaimGroundingGuard.evaluate(
       text: '我看了一下午自己的人格学习和成长系统，发现变化挺大的。',

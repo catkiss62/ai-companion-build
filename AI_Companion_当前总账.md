@@ -39,8 +39,9 @@
 | 功能状态 | `CI PASSED / APK READY / TRUE DEVICE PENDING` |
 | +228 远端 | head `29e87d016c8bd81f52f89f95191bd1a1a01a5b57`；tree `c4a112a56d8b634cf3a1a66636979a0833538b7d`；Actions `35440359036`；Artifact `10583263879`；APK SHA-256 `159e283173e49da2924d25b37ba7647893cdafdcc31b63f0e31b7c64e086849b` |
 | 仓库维护基线 | `maintenance/repository-governance-20260919`；远端文档 head `123e272196e8ae93f3518157917d76f6af4f1784`；完整构建 head `fa99f32012fa1a0716b746d36b958a8e777ef9b8`；Actions `35446649873` 全绿；文档-only run `35447342921` 正确跳过 APK |
-| 当前功能分支 | `agent/v04192-desire-game-interest`，从 +235 文档 head `e375393` 分出；候选版本 `v0.41.92+236` |
-| 当前任务状态 | `CI PASSED / APK READY / TRUE DEVICE PENDING`；+235 疲劳调制继续自然观察，本批不改疲劳核心，见 6.9 |
+| 当前功能分支 | `agent/v04193-game-reality-grounding`，从 +236 本地文档 head `1827524` 分出；候选版本 `v0.41.93+237` |
+| 当前任务状态 | `IMPLEMENTED LOCALLY / LOCAL STATIC VALIDATION PASSED / CI PENDING / TRUE DEVICE PENDING`；修复未实际游玩的钓鱼事项被写成“挂着鱼漂等待/漂没动”，+235 疲劳与 +236 欲望竞争继续自然观察，见 6.10 |
+| +237 当前任务 | 将未完成游戏事项、旧 ASSISTANT 场景与真实 Cedar 游玩状态分开：没有当前成功 Outcome 时只能说“还没玩/想去玩/之前玩过”，不得虚构正在钓、等待咬钩或图鉴刚才没涨；兼容纠正 +236 前已持久化为 attachment 的游戏 thread Thought |
 | +236 当前任务 | 吸收欲望系统 2.0 的可验证因果账本与竞争诊断，不引入女性向保护欲或第二套欲望真值；把游戏“上瘾”改为可被心境、新兴趣与饱和打断、冷却后可重新点燃的短时投入；过滤 `not_due` 空候选、统一游戏语义域并区分游玩与分享 |
 | +236 远端 | 构建 head `8ab3beb8997cb146a8499d00acfdf726e2121a2f`；tree `910c3950d354734adca82c58b5db8559fbbcb861`；Actions `35506384676` 全绿；Artifact `10604605761`；APK SHA-256 `b2aad7f827c64e82e58cd88d71db6690c721941d684abe40c80eee537d52bf22` |
 | +235 当前任务 | 保留现有昼夜身体疲劳与连续 `rest_need`，新增有界、短时的正向激活与负面难安静调制；自主主动消息和 Cedar 真实推进在高疲劳时积累睡眠债，经过真实安静窗才回补；用户主动聊天始终正常回应，不新增循环、不改 schema、人格、世界书、最终回复通道或 TTS |
@@ -417,6 +418,30 @@ Actions 与交付证据：
 - 权威 Actions `35506384676` 全绿：118/118 源代码与历史门、Kotlin 桌宠/悬浮层测试、Flutter analyze、全部 Flutter tests、arm64 Release、稳定签名、Genie/桌宠/LingChat/塔罗载荷、Artifact 与 Draft 上传全部成功。
 - Artifact `10604605761`，名称 `AI-Companion-v0.41.92-236-Desire-Game-Interest-APK`，大小 `538,087,109` bytes，ZIP digest `62771580ed5e535dbe7b6558d6a91225958aa3d7ee54badcdda22f7abad75178`。
 - Draft Release `392401159` 为未发布地址 `https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-74af3e2b6759dcece079`；APK asset `576670347`，大小 `544,966,610` bytes，SHA-256 `b2aad7f827c64e82e58cd88d71db6690c721941d684abe40c80eee537d52bf22`。当前只能升级为 `CI PASSED / APK READY / TRUE DEVICE PENDING`。
+
+### 6.10 v0.41.93+237 游戏进行时事实接地（2026-09-20）
+
+状态：`IMPLEMENTED LOCALLY / LOCAL STATIC VALIDATION PASSED / CI PENDING / TRUE DEVICE PENDING`。
+
+实现分支：`agent/v04193-game-reality-grounding`。
+
+同刻真机证据与根因：
+
+1. 用户提供的 +236 备份与 19:21 脱敏诊断完整复现了问题。19:20 的主动 follow-up 写成“漂还是没动，图鉴也还是那几条老面孔”；但诊断的当前 Cedar `lastAction=eco_observe`、`continuationPending=false`、`lastContinuationState=not_due`，活动前台是 `eco` 而不是 `fishing`。备份中 fishing session 最后真实 Outcome 停在 2026-09-19 23:34，本条虚构进行时晚了约 19 小时 45 分。
+2. 直接触发源是 `shared.activity.fishing` 未完成事项。它只记录“补满鱼饵后继续钓池塘”的计划，却被 self-drive Thought 累计到 `fedCount=75 / actionCount=22`；+236 新策略只保证新回顾归 curiosity，没有迁移已经持久化的旧 attachment Thought，所以旧项仍能以 `attachment:...` 胜出并生成 follow-up。
+3. 现有 Operational guard 能挡“刚玩了一局/钓了几竿”等明确完成声明，却没有覆盖“鱼漂挂着、漂没动、坐回池塘、图鉴没涨”这类被包装成场景描写的可核验进行时；旧 ASSISTANT_HISTORY 又连续强化了同一虚构场景，普通回复随后顺势承认“甩出去挂着就行”。因此根因不是官方钓鱼游戏真的存在长轮询，而是项目把未完成意图当作运行态。
+
+实现边界：
+
+- `OperationalClaimGroundingGuard` 新增 Cedar live-state 判定。没有本轮成功 `cedar_toy.play` 或一小时内真实 Cedar Outcome 时，拦截正在玩、坐在池塘/矿洞、挂着或盯着鱼漂、漂没动、鱼饵刚补齐、图鉴刚才没涨等声明。钓鱼 `cast` 按一次调用一次结算理解，不制造后台鱼漂。
+- “还没有实际去玩/准备下次玩”与“之前/上次/昨天玩时”明确放行；真实当前 Cedar Outcome 仍可自然第一人称分享。该边界约束事实，不禁止游戏兴趣、历史回忆或角色语气。
+- 普通聊天 Reality Grounding 与 proactive 的游戏-thread 专项合同都明确：unfinished thread、Thought 和旧 assistant 场景只证明“惦记/计划”，不证明执行。首次候选仍失真时做一次事实纠正；再失败则沿用确定性删除/诚实未执行回退，不把虚假进行时写入聊天。
+- 心跳会把来源为 `self_drive/thread` 且语义域明确属于游戏的旧 attachment 派生 Thought 原位纠正为 curiosity，只改派生 drive 标签，不动聊天、thread 正文或 Cedar 状态；`ProactiveSelectionPolicy.normalizeLegacyGameThreadIntent` 仍在竞争边界兜底，使修复写入失败或刚导入的旧数据也即时按 curiosity/check-in 处理，无需删用户数据、改 schema 或等待数日衰减。新 Thought 继续使用 +236 的 `SelfReviewDrivePolicy`。
+- 不改 Cedar 协议、远端存档、游戏节奏、动态投入、疲劳、人格、世界书、TTS、双模型通道、schema 61 或 Snapshot protocol 6。
+
+本地验证：新增 `game_reality_grounding_v04193_test.dart` 与 +237 源码门，覆盖本次真机原句、“挂着鱼漂等待”、诚实没玩/未来意图/历史锚、真实 Outcome 放行、旧 attachment game Thought 在选择时纠正为 curiosity。119 个 validator 已逐项运行，116 个通过；其余 3 个仍只是本地精简态缺少 CI 恢复的 417 文件桌宠源码、LingChat effects 与 `kotlinc`。当前环境无 Flutter/Dart SDK；Python 编译、专项门、Workflow YAML、历史版本兼容门与 `git diff --check` 均通过，完整 analyze/tests/arm64 Release 由 Actions 判定。当前不得写 `CI PASSED` 或 `TRUE DEVICE PASSED`。
+
+真机验收：覆盖安装后保留原数据，不需要删除旧 Thought。让钓鱼未完成事项自然再次竞争；没有真实 play 时只能说还没玩、又想起或想去玩，不能再出现鱼漂持续挂着、漂没动、刚补饵或图鉴刚才没涨。真实执行钓鱼后可以按 Outcome 分享；数小时后的旧结果必须用“之前/上次”等时间锚。诊断同时确认该旧 thread 的出站满足落在 curiosity/check-in，不再继续记为 attachment/reach_out。
 
 ## 7. 历史验证兼容摘要
 

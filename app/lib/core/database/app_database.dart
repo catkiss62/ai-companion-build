@@ -10267,6 +10267,25 @@ class AppDatabase {
     );
   }
 
+  /// Repairs derived pre-+236 game-thread Thoughts that were classified as
+  /// attachment before leisure threads moved to curiosity. Chat, unfinished
+  /// thread text and Cedar state are untouched; this only corrects the derived
+  /// drive label used for future competition.
+  Future<int> repairLegacySelfDriveGameThoughtDrives() async {
+    final db = await database;
+    return db.update(
+      'thoughts',
+      {
+        'drive_key': DriveKey.curiosity.name,
+        'updated_at': DateTime.now().millisecondsSinceEpoch,
+      },
+      where: "source = 'self_drive/thread' AND drive_key = 'attachment' AND "
+          "(topic_key LIKE 'cedar_game:%' OR "
+          "topic_key LIKE 'shared.activity.%' OR "
+          "topic_key IN ('fishing','钓鱼','鱼塘','bottle_ecosystem','瓶中生态','生态瓶'))",
+    );
+  }
+
   Future<void> deleteThought(String id) async {
     final db = await database;
     await db.transaction((txn) async {

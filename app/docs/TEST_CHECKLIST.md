@@ -263,3 +263,12 @@
 6. 查看自我经验与欲望诊断：普通游戏未完成事项归 `curiosity`，不再持续抬高 attachment；`satisfactionLedger` 只含 drive/action lane、次数、时间和来源标签，不含 Thought、消息、游戏 Outcome 正文或凭据。
 7. 导出同刻诊断，检查 `autonomousBehaviors.nonproductiveWinnerCount` 与 `dominanceAlerts`。若某一行为/来源在至少 8 次事件中超过 60%，应留下支配提醒；提醒只用于诊断，不自动重写人格或 baseline。
 8. 回归 +235：昼夜疲劳、正向激活、负面难安静和睡眠债语义保持；无人观看的凌晨 Cedar 仍硬休息，真人观战仍按用户节奏。回归存档槽覆盖确认、双模型自定义地址/模型、TTS、桌宠、相册和普通主动联系。
+
+## v0.41.93+237 游戏进行时事实接地真机验收增量
+
+1. 从 `v0.41.92+236` 覆盖安装，不清数据；确认版本 `v0.41.93+237`、schema 61、Snapshot protocol 6，原聊天、旧 fishing Thought、Cedar 多游戏 session、五槽存档、欲望满足账本与疲劳睡眠债均保留。
+2. 保留“以后补满鱼饵继续钓”之类未完成事项，但不要让她真实调用钓鱼。自然等待该事项进入主动竞争；允许说“还没去玩/又想起来/想去玩”，不得说正在钓、坐回池塘、挂着鱼漂、漂没动、刚补完饵或图鉴刚才没涨。
+3. 在普通聊天里顺着旧场景问“又回去钓鱼了？”但不要授权或触发真实 Cedar play。她应按事实否认尚未执行或表达意图，不得仅凭自己的上一条 ASSISTANT_HISTORY 继续演成正在钓。
+4. 让她真实执行一次 fishing 动作；成功 Outcome 后允许按实际鱼获/状态分享，但不得补写 Outcome 没有的等待过程。超过一小时后再次提到该结果，应使用“之前/上次/昨天”等诚实时间锚，不说“刚才”。
+5. 导出脱敏诊断，确认旧 `self_drive/thread + shared.activity.fishing` 派生 Thought 已原位纠正为 curiosity，本轮选择与满足按 curiosity/check-in 处理；不得为了迁移删除 Thought、聊天、unfinished thread 或远端存档。若纠正写入暂时失败，竞争边界兜底也不得再让它按 attachment/reach-out 胜出。
+6. 回归 +236：真实短时游戏投入、饱和/冷却/重燃、`game_share` 与 `play_game` 分 lane、`not_due` 不入竞争继续有效；回归 +235 疲劳、双模型最终回复、TTS、桌宠、相册和普通主动联系。

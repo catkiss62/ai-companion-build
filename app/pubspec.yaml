@@ -91,8 +91,8 @@ publish_to: 'none'
 # Historical validator token: version: 0.41.89+233
 # Historical validator token: version: 0.41.90+234
 # Historical validator token: version: 0.41.91+235
-# v0.41.92+236 build candidate: causal desire ledger and dynamic game interest.
-version: 0.41.92+236
+# v0.41.93+237 build candidate: Cedar game-state reality grounding.
+version: 0.41.93+237
 
 environment:
   sdk: '>=3.12.0 <4.0.0'

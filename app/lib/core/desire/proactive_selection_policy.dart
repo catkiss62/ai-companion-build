@@ -160,15 +160,22 @@ class ProactiveSelectionPolicy {
         final thought = candidate.thoughtId == null
             ? null
             : thoughtsById[candidate.thoughtId!];
+        final effectiveCandidate = normalizeLegacyGameThreadIntent(
+          candidate,
+          thought: thought,
+        );
         final sourceType = sourceTypeFor(
           thought: thought,
-          reasonSource: candidate.reasonSource,
+          reasonSource: effectiveCandidate.reasonSource,
         );
         final intentKind = ProactivePresentationPolicy.classify(
-          intent: candidate,
+          intent: effectiveCandidate,
           sourceType: sourceType,
         ).key;
-        final behaviorKind = behaviorKindFor(candidate, sourceType: sourceType);
+        final behaviorKind = behaviorKindFor(
+          effectiveCandidate,
+          sourceType: sourceType,
+        );
         final repeatDepth = _repeatDepth(recent, intentKind);
         final sourceRepeatDepth = _repeatDepth(recentSources, sourceType);
         final topicKey = canonicalTopic(
@@ -183,7 +190,7 @@ class ProactiveSelectionPolicy {
             : _repeatDepth(recentTopics, recentTopics.first);
         final cooldownPenalty = repetition
             ? _behaviorCooldownPenalty(
-                candidate: candidate,
+                candidate: effectiveCandidate,
                 thought: thought,
                 behaviorKind: behaviorKind,
                 sourceType: sourceType,
@@ -219,7 +226,7 @@ class ProactiveSelectionPolicy {
             : 0.0;
         final rawWaitingData = waiting
             ? _waitingBoost(
-                candidate: candidate,
+                candidate: effectiveCandidate,
                 thought: thought,
                 now: now,
                 readySince: candidate.thoughtId == null
@@ -248,7 +255,7 @@ class ProactiveSelectionPolicy {
             ? 0.04
             : 0.0;
         final freshCandidate = _isFreshCandidate(
-          candidate,
+          effectiveCandidate,
           sourceType: sourceType,
         );
         final freshnessBalanceBoost = repetition &&
@@ -267,11 +274,11 @@ class ProactiveSelectionPolicy {
             : 0.0;
         final actionLane = satisfactionLaneFor(
           behaviorKind: behaviorKind,
-          action: candidate.wantAction,
+          action: effectiveCandidate.wantAction,
         );
         final opportunityBoost = repetition
             ? _opportunityBoost(
-                candidate: candidate,
+                candidate: effectiveCandidate,
                 lane: actionLane,
                 lastSatisfiedAt: lastSatisfiedAtByLane[actionLane],
                 ledgerStartedAt: satisfactionLedgerStartedAt,
@@ -306,12 +313,12 @@ class ProactiveSelectionPolicy {
           _ScoredIntent(
             original: candidate,
             adjusted: DesireIntent(
-              drive: candidate.drive,
+              drive: effectiveCandidate.drive,
               score: adjustedScore,
-              reason: candidate.reason,
-              wantAction: candidate.wantAction,
-              thoughtId: candidate.thoughtId,
-              reasonSource: candidate.reasonSource,
+              reason: effectiveCandidate.reason,
+              wantAction: effectiveCandidate.wantAction,
+              thoughtId: effectiveCandidate.thoughtId,
+              reasonSource: effectiveCandidate.reasonSource,
             ),
             sourceType: sourceType,
             intentKind: intentKind,
@@ -438,6 +445,32 @@ class ProactiveSelectionPolicy {
     }
     return 'proactive_message';
   }
+
+  /// +236 changed newly reviewed leisure threads from attachment to
+  /// curiosity. Existing installs can still carry a strong pre-upgrade
+  /// `self_drive/thread` Thought, so normalize it at the competition boundary
+  /// instead of waiting days for lifecycle decay.
+  static DesireIntent normalizeLegacyGameThreadIntent(
+    DesireIntent intent, {
+    CompanionThought? thought,
+  }) {
+    final legacyGameThread = thought?.source == 'self_drive/thread' &&
+        isGameTopic(thought?.topicKey ?? '') &&
+        intent.drive == DriveKey.attachment;
+    if (!legacyGameThread) return intent;
+    return DesireIntent(
+      drive: DriveKey.curiosity,
+      score: intent.score,
+      reason: intent.reason,
+      wantAction:
+          intent.wantAction == 'reach_out' ? 'check_in' : intent.wantAction,
+      thoughtId: intent.thoughtId,
+      reasonSource: intent.reasonSource,
+    );
+  }
+
+  static bool isGameTopic(String topicKey) =>
+      canonicalTopic(topicKey).startsWith('game:');
 
   static double _behaviorCooldownPenalty({
     required DesireIntent candidate,

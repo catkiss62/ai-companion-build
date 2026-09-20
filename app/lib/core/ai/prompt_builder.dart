@@ -962,6 +962,7 @@ $ordinarySceneContract
 - MEMORY：长期记忆证据，不等于用户“刚才”说过。
 - SELF_EXPERIENCE / THOUGHT：我自己的经历和念头，不是用户发言。
 - INFERENCE：只能作为猜测，不得改写为事实。
+- 未完成事项、Thought 和旧 ASSISTANT_HISTORY 只证明“还惦记/曾计划”，不证明游戏动作真的执行或仍在后台持续。钓鱼抛竿等 Cedar 动作是一次调用一次结算；没有本轮真实成功 Outcome 时，不得写成正在钓、挂着鱼漂、漂没动、图鉴刚才没涨。需要提及时应说尚未实际去玩、想去玩，或按真实历史时间说“之前/上次”。
 '''.trim();
   }
 

@@ -95,6 +95,29 @@ class OperationalClaimGroundingGuard {
   static final RegExp _cedarImmediateTimeAnchor = RegExp(
     r'(刚刚|刚才|方才|才刚|刚在)',
   );
+  static final RegExp _cedarLiveStateClaim = RegExp(
+    r'((正在|还在|一直在|现在在|这会儿在|继续在).{0,12}'
+    r'(钓鱼|池塘|钓点|游戏|下矿|矿洞|花园|旅行|对弈))|'
+    r'((又)?(坐回|回到|蹲在|坐在|趴在|待在).{0,10}'
+    r'(池塘边|水边|钓点|矿洞|花园))|'
+    r'((鱼漂|浮标|漂).{0,18}(没动|不动|没动静|沉了|有动静|等待))|'
+    r'((盯着|看着|守着|挂着|等着|等待).{0,10}(鱼漂|浮标))|'
+    r'((钓鱼|甩出去).{0,16}(挂着|等鱼|等咬钩))|'
+    r'((鱼竿).{0,20}(插稳|架着|挂着|甩|抛))|'
+    r'((饵盒|鱼饵).{0,14}(拖到|补齐|补满))|'
+    r'(图鉴.{0,14}(没动|没往上|还是那几条|点一点))|'
+    r'((换了|换着).{0,8}方向.{0,8}(甩|抛))',
+  );
+  static final RegExp _cedarHistoricalAnchor = RegExp(
+    r'(之前|上次|以前|那次|当时|前面玩的时候|昨天|昨晚|前天)',
+  );
+  static final RegExp _cedarNonExecutionFraming = RegExp(
+    r'((还|其实|实际|根本)?没(有)?(真的|实际)?(去|开始|执行|操作)'
+    r'.{0,6}(玩|钓鱼|下矿|进游戏))|'
+    r'((尚未|并未|不曾).{0,8}(开始|执行|操作|玩|钓鱼|下矿))|'
+    r'((想|打算|准备|计划|等会儿|待会儿|下次|以后).{0,12}'
+    r'(玩|钓鱼|下矿|进游戏))',
+  );
   static final RegExp _selfMoveCoordinateClaim = RegExp(
     r'(?:我|这手|刚才|刚刚|已经|直接|那就)[^。！？!?\n]{0,20}'
     r'(?:下|落|走)[^。！？!?\n]{0,10}[\(（]\s*(\d{1,3})\s*[,，]\s*(\d{1,3})\s*[\)）]',
@@ -165,6 +188,25 @@ class OperationalClaimGroundingGuard {
             !(now ?? DateTime.now()).isBefore(cedarOutcomeAt) &&
             (now ?? DateTime.now()).difference(cedarOutcomeAt) <=
                 const Duration(hours: 1));
+    // Keep comma-linked time anchors with their game claim. The broader
+    // operational splitter intentionally cuts on commas, but “上次钓鱼时，鱼漂
+    // 没动” must remain one historical clause rather than turning the second
+    // half into a false current-state violation.
+    for (final clause in _gameStateClauses(text)) {
+      // A remembered game plan or a role-play scene is not evidence that a
+      // Cedar action is still running. Fishing `cast` resolves atomically;
+      // there is no background float whose silence can be reported later.
+      if (_cedarLiveStateClaim.hasMatch(clause) &&
+          !_cedarHistoricalAnchor.hasMatch(clause) &&
+          !_cedarNonExecutionFraming.hasMatch(clause) &&
+          !cedarEvidenceIsRecent) {
+        return const OperationalClaimGroundingResult(
+          allowed: false,
+          reason: 'ungrounded_cedar_live_state',
+          requiredToolId: 'cedar_toy.play',
+        );
+      }
+    }
     final sentences = _sentences(text);
     for (final sentence in sentences) {
       if (_metaOrNegated.hasMatch(sentence)) continue;
@@ -312,6 +354,13 @@ class OperationalClaimGroundingGuard {
   static List<String> _sentences(String value) => value
       .replaceAll(RegExp(r'<emotion>.*?</emotion>', caseSensitive: false), ' ')
       .split(RegExp(r'(?<=[。！？!?；;，,\n])'))
+      .map((part) => part.replaceAll(RegExp(r'\s+'), ' ').trim())
+      .where((part) => part.isNotEmpty)
+      .toList(growable: false);
+
+  static List<String> _gameStateClauses(String value) => value
+      .replaceAll(RegExp(r'<emotion>.*?</emotion>', caseSensitive: false), ' ')
+      .split(RegExp(r'(?<=[。！？!?；;\n])'))
       .map((part) => part.replaceAll(RegExp(r'\s+'), ' ').trim())
       .where((part) => part.isNotEmpty)
       .toList(growable: false);
