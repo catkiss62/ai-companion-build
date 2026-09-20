@@ -47,13 +47,20 @@ object RuntimeDiagnosticStore {
                     "generation", "sourceGeneration", "targetActivationGeneration",
                     "payloadBytes", "totalBytes", "sdk", "count", "inputChars",
                     "pssKb", "rssKb", "threads", "segmentIndex", "wavBytes",
-                    "phoneCount", "phoneMin", "phoneMax", "semanticCount" ->
+                    "phoneCount", "phoneMin", "phoneMax", "semanticCount",
+                    "planning_rounds", "tool_calls", "committed_mutations" ->
                         if (value is Number) safeMetadata.put(key, value)
-                    "modelsReady" -> if (value is Boolean) safeMetadata.put(key, value)
+                    "modelsReady", "continuation_requested", "terminal", "preempt",
+                    "late_write" -> if (value is Boolean) safeMetadata.put(key, value)
                     "direction", "operation", "transport", "state", "language" ->
                         safeMetadata.put(key, DiagnosticRedaction.safeToken(value?.toString().orEmpty(), 48))
                     "stage", "loaderPolicy", "failureType", "failureTarget" ->
                         safeMetadata.put(key, DiagnosticRedaction.safeToken(value?.toString().orEmpty(), 160))
+                    "feature", "execution_id", "trigger_source", "continuation_owner",
+                    "usage_lane" -> safeMetadata.put(
+                        key,
+                        DiagnosticRedaction.safeToken(value?.toString().orEmpty(), 80),
+                    )
                     "voice", "textSha256", "phoneHash", "semanticHash" ->
                         safeMetadata.put(key, DiagnosticRedaction.safeToken(value?.toString().orEmpty(), 96))
                     "endpointId", "snapshotId", "lineageId", "sourceDeviceId", "targetDeviceId", "stateSha256" -> {

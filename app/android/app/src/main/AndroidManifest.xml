@@ -35,6 +35,7 @@
         android:icon="@drawable/companion_launcher_icon"
         android:allowBackup="false"
         android:extractNativeLibs="true"
+        android:largeHeap="true"
         android:usesCleartextTraffic="false">
 
         <activity

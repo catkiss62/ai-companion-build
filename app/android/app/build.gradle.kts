@@ -110,6 +110,7 @@ flutter {
 }
 
 dependencies {
+    implementation(files("libs/Live2DCubismCore.aar"))
     implementation("com.google.android.gms:play-services-nearby:19.3.0")
     implementation("com.microsoft.onnxruntime:onnxruntime-android:1.22.0")
     testImplementation("junit:junit:4.13.2")

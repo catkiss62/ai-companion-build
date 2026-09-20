@@ -8,12 +8,14 @@ class MainActivity : FlutterActivity() {
     private var bridge: SystemBridge? = null
     private var ttsBridge: NativeTtsBridge? = null
     private var emotionSoundBridge: EmotionSoundBridge? = null
+    private var senLive2DBridge: SenLive2DBridge? = null
 
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
         bridge = SystemBridge(this, flutterEngine)
         ttsBridge = NativeTtsBridge(this, flutterEngine)
         emotionSoundBridge = EmotionSoundBridge(this, flutterEngine)
+        senLive2DBridge = SenLive2DBridge(this, flutterEngine)
     }
 
     override fun onStart() {
@@ -23,6 +25,7 @@ class MainActivity : FlutterActivity() {
 
     override fun onResume() {
         super.onResume()
+        senLive2DBridge?.onResume()
         // Returning from overlay/accessibility/notification settings is a
         // user-visible moment, so it is safe to reconcile an explicitly
         // enabled foreground companion service here. If the true floating
@@ -45,6 +48,7 @@ class MainActivity : FlutterActivity() {
     }
 
     override fun onStop() {
+        senLive2DBridge?.onPause()
         CompanionRuntimeState.activityStopped()
         super.onStop()
     }
@@ -57,6 +61,8 @@ class MainActivity : FlutterActivity() {
         ttsBridge = null
         emotionSoundBridge?.dispose()
         emotionSoundBridge = null
+        senLive2DBridge?.dispose()
+        senLive2DBridge = null
         super.cleanUpFlutterEngine(flutterEngine)
     }
 
@@ -71,6 +77,7 @@ class MainActivity : FlutterActivity() {
 
     override fun onActivityResult(requestCode: Int, resultCode: Int, data: android.content.Intent?) {
         super.onActivityResult(requestCode, resultCode, data)
+        if (senLive2DBridge?.onActivityResult(requestCode, resultCode, data) == true) return
         bridge?.onActivityResult(requestCode, resultCode, data)
     }
 

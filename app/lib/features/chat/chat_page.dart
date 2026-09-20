@@ -3,6 +3,7 @@ import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart' show ScrollDirection;
+import 'package:flutter/services.dart' show PlatformException;
 import 'package:image_picker/image_picker.dart';
 
 import '../../core/ai/message_language_variant_service.dart';
@@ -30,6 +31,7 @@ import '../../core/tts/tts_text_processor.dart';
 import '../../widgets/reasoning_panel.dart';
 import '../../widgets/action_tint_text.dart';
 import '../../widgets/chat_portrait_stage.dart';
+import '../../widgets/sen_live2d_stage.dart';
 import 'chat_controller.dart';
 import 'chat_timestamp_formatter.dart';
 import '../reference/reference_library_page.dart';
@@ -76,6 +78,12 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
   double _panelOpacity = 0.75;
   double _panelFraction = 0.62;
   ChatPortraitSet _portraitSet = ChatPortraitSet.largeWhale;
+  bool _senLive2DEnabled = false;
+  String _senOutfit = 'maid';
+  bool _senGlasses = false;
+  SenLive2DStatus? _senStatus;
+  final GlobalKey<SenLive2DStageState> _senStageKey =
+      GlobalKey<SenLive2DStageState>();
   double _portraitScale = ChatPortraitTransform.defaults.scale;
   Offset _portraitOffset = ChatPortraitTransform.defaults.offset;
   int _typewriterMs = 48;
@@ -221,6 +229,9 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
         )) {
       unawaited(_markLatestAssistantPresented());
     }
+    if (discoveredUser && _senLive2DEnabled) {
+      _senStageKey.currentState?.listen();
+    }
     if (controller.streamingContent.trim().isNotEmpty) {
       // Streaming may preview a portrait, but the header label only changes
       // after the final DeepSeek 19-label envelope has been persisted.
@@ -341,6 +352,19 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
     _portraitSet = chatPortraitSetFromKey(
       await db.getSetting('chat_portrait_set'),
     );
+    _senLive2DEnabled =
+        (await db.getSetting('chat_portrait_mode')) == 'sen_live2d';
+    _senOutfit = await db.getSetting('sen_live2d_outfit') ?? 'maid';
+    if (!const {'maid', 'white_shirt', 'bunny', 'undressed'}
+        .contains(_senOutfit)) {
+      _senOutfit = 'maid';
+    }
+    _senGlasses = (await db.getSetting('sen_live2d_glasses')) == '1';
+    try {
+      _senStatus = await SenLive2DService.status();
+    } catch (_) {
+      _senStatus = null;
+    }
     await _loadPortraitTransform(_portraitSet);
     _typewriterMs = (int.tryParse(
               await db.getSetting('chat_typewriter_ms') ?? '',
@@ -407,6 +431,47 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
   Future<void> _setVisualSetting(String key, String value) async {
     await AppDatabase.instance.setSetting(key, value);
     if (mounted) setState(() {});
+  }
+
+  Future<void> _setSenLive2DEnabled(bool enabled) async {
+    if (_senLive2DEnabled == enabled) return;
+    if (mounted) setState(() => _senLive2DEnabled = enabled);
+    await AppDatabase.instance.setSetting(
+      'chat_portrait_mode',
+      enabled ? 'sen_live2d' : 'static',
+    );
+  }
+
+  Future<void> _setSenOutfit(String outfit) async {
+    if (_senOutfit == outfit) return;
+    if (mounted) setState(() => _senOutfit = outfit);
+    await AppDatabase.instance.setSetting('sen_live2d_outfit', outfit);
+  }
+
+  Future<void> _setSenGlasses(bool enabled) async {
+    if (mounted) setState(() => _senGlasses = enabled);
+    await AppDatabase.instance.setSetting(
+      'sen_live2d_glasses',
+      enabled ? '1' : '0',
+    );
+  }
+
+  Future<void> _importSenModel() async {
+    try {
+      final status = await SenLive2DService.pickModelZip();
+      if (status == null || !mounted) return;
+      setState(() => _senStatus = status);
+      await _senStageKey.currentState?.reloadModel();
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(status.detail)),
+      );
+    } on PlatformException catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(error.message ?? 'Sen 模型导入失败')),
+      );
+    }
   }
 
   Future<void> _openPortraitTransformEditor() async {
@@ -1294,17 +1359,25 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
                       alignment: Alignment.center,
                     ),
                     Positioned.fill(
-                      child: IgnorePointer(
-                        child: ChatPortraitStage(
-                          emotion: _currentEmotion,
-                          portraitSet: _portraitSet,
-                          transform: ChatPortraitTransform(
-                            scale: _portraitScale,
-                            offset: _portraitOffset,
-                          ),
-                          animationToken: latestAssistantId,
-                        ),
-                      ),
+                      child: _senLive2DEnabled
+                          ? SenLive2DStage(
+                              key: _senStageKey,
+                              emotion: _currentEmotion,
+                              outfit: _senOutfit,
+                              glasses: _senGlasses,
+                              animationToken: latestAssistantId,
+                            )
+                          : IgnorePointer(
+                              child: ChatPortraitStage(
+                                emotion: _currentEmotion,
+                                portraitSet: _portraitSet,
+                                transform: ChatPortraitTransform(
+                                  scale: _portraitScale,
+                                  offset: _portraitOffset,
+                                ),
+                                animationToken: latestAssistantId,
+                              ),
+                            ),
                     ),
                   ],
                   Positioned(
@@ -1667,6 +1740,31 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
                         },
                       ),
                       if (_visualStageEnabled)
+                        DropdownButtonFormField<bool>(
+                          value: _senLive2DEnabled,
+                          decoration: const InputDecoration(
+                            labelText: '舞台角色',
+                            border: OutlineInputBorder(),
+                          ),
+                          items: const [
+                            DropdownMenuItem(
+                              value: false,
+                              child: Text('静态立绘'),
+                            ),
+                            DropdownMenuItem(
+                              value: true,
+                              child: Text('Sen Live2D'),
+                            ),
+                          ],
+                          onChanged: (value) async {
+                            if (value == null) return;
+                            await _setSenLive2DEnabled(value);
+                            setPanelState(() {});
+                          },
+                        ),
+                      if (_visualStageEnabled)
+                        const SizedBox(height: 10),
+                      if (_visualStageEnabled && !_senLive2DEnabled)
                         DropdownButtonFormField<ChatPortraitSet>(
                           value: _portraitSet,
                           decoration: const InputDecoration(
@@ -1687,9 +1785,9 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
                             setPanelState(() {});
                           },
                         ),
-                      if (_visualStageEnabled)
+                      if (_visualStageEnabled && !_senLive2DEnabled)
                         const SizedBox(height: 10),
-                      if (_visualStageEnabled)
+                      if (_visualStageEnabled && !_senLive2DEnabled)
                         ListTile(
                           contentPadding: EdgeInsets.zero,
                           leading: const Icon(Icons.zoom_out_map_rounded),
@@ -1703,6 +1801,65 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
                             await _openPortraitTransformEditor();
                           },
                         ),
+                      if (_visualStageEnabled && _senLive2DEnabled) ...[
+                        Align(
+                          alignment: Alignment.centerLeft,
+                          child: Text(
+                            'Sen 外观',
+                            style: Theme.of(dialogContext).textTheme.titleSmall,
+                          ),
+                        ),
+                        const SizedBox(height: 6),
+                        Wrap(
+                          spacing: 7,
+                          runSpacing: 7,
+                          children: const {
+                            'maid': '女仆装',
+                            'white_shirt': '白衬衫',
+                            'bunny': '兔女郎',
+                            'undressed': '脱',
+                          }.entries.map((entry) {
+                            return ChoiceChip(
+                              label: Text(entry.value),
+                              selected: _senOutfit == entry.key,
+                              onSelected: (_) async {
+                                await _setSenOutfit(entry.key);
+                                setPanelState(() {});
+                              },
+                            );
+                          }).toList(growable: false),
+                        ),
+                        SwitchListTile(
+                          contentPadding: EdgeInsets.zero,
+                          title: const Text('眼镜'),
+                          subtitle: const Text('不改变当前衣装与情绪动作。'),
+                          value: _senGlasses,
+                          onChanged: (value) async {
+                            await _setSenGlasses(value);
+                            setPanelState(() {});
+                          },
+                        ),
+                        ListTile(
+                          contentPadding: EdgeInsets.zero,
+                          leading: const Icon(Icons.folder_zip_rounded),
+                          title: Text(
+                            _senStatus?.available == true
+                                ? '重新导入 Sen 模型 ZIP'
+                                : '导入 Sen 模型 ZIP',
+                          ),
+                          subtitle: Text(
+                            _senStatus?.detail ??
+                                '模型只保存到本机 App 私有目录，不进入备份或公开仓库。',
+                            maxLines: 3,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                          trailing: const Icon(Icons.chevron_right_rounded),
+                          onTap: () async {
+                            await _importSenModel();
+                            if (dialogContext.mounted) setPanelState(() {});
+                          },
+                        ),
+                      ],
                       DropdownButtonFormField<ProactiveNotificationSound>(
                         value: _notificationSound,
                         decoration: const InputDecoration(
@@ -2074,6 +2231,10 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
                       Navigator.pop(dialogContext);
                       setState(() => _showCedarActivityWindow = true);
                     },
+                  ),
+                  const SizedBox(height: 8),
+                  SenLive2DQuickControls(
+                    onChanged: _loadVisualSettings,
                   ),
                   const Divider(height: 26),
                   _QuickPanelTile(

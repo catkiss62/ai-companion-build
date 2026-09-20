@@ -39,8 +39,9 @@
 | 功能状态 | `CI PASSED / APK READY / TRUE DEVICE PENDING` |
 | +228 远端 | head `29e87d016c8bd81f52f89f95191bd1a1a01a5b57`；tree `c4a112a56d8b634cf3a1a66636979a0833538b7d`；Actions `35440359036`；Artifact `10583263879`；APK SHA-256 `159e283173e49da2924d25b37ba7647893cdafdcc31b63f0e31b7c64e086849b` |
 | 仓库维护基线 | `maintenance/repository-governance-20260919`；远端文档 head `123e272196e8ae93f3518157917d76f6af4f1784`；完整构建 head `fa99f32012fa1a0716b746d36b958a8e777ef9b8`；Actions `35446649873` 全绿；文档-only run `35447342921` 正确跳过 APK |
-| 当前功能分支 | `agent/v04193-game-reality-grounding`，从 +236 本地文档 head `1827524` 分出；候选版本 `v0.41.93+237` |
-| 当前任务状态 | `CI PASSED / APK READY / TRUE DEVICE PENDING`；修复未实际游玩的钓鱼事项被写成“挂着鱼漂等待/漂没动”，+235 疲劳与 +236 欲望竞争继续自然观察，见 6.10 |
+| 当前功能分支 | `agent/v04194-sen-live2d-migration`，从 +237 head `808c264` 分出；候选版本 `v0.41.94+238` |
+| 当前任务状态 | `IMPLEMENTED LOCALLY / LOCAL STATIC VALIDATION PASSED / CI PENDING / TRUE DEVICE PENDING`；用户自有 Sen 原生 Live2D 首阶段移植已完成，等待 Actions 真编译与 APK，见 6.11 |
+| +238 当前任务 | 原样保留 Sen 已真机验证的 21 情绪、自主待机、视线跟随、摸头彩蛋、物理、三套衣服+脱与眼镜；与静态立绘互斥，接入现有情绪效果/音效、用户消息倾听反应和 TTS 波形口型；不改悬浮鲸鱼、人格/欲望真值或模型调用次数 |
 | +237 当前任务 | 将未完成游戏事项、旧 ASSISTANT 场景与真实 Cedar 游玩状态分开：没有当前成功 Outcome 时只能说“还没玩/想去玩/之前玩过”，不得虚构正在钓、等待咬钩或图鉴刚才没涨；兼容纠正 +236 前已持久化为 attachment 的游戏 thread Thought |
 | +237 远端 | 构建 head `0caa9382a472b53f574302064b387b527efae6df`；tree `70cf7225714f0514a7ee385f01cf1e3a499b4acf`；Actions `35509919804` 全绿；Artifact `10605181041`；APK SHA-256 `294b341ddc8354389717566aa83a7ed10bba6891f107f7df34f3bfd76c653cc2` |
 | +236 当前任务 | 吸收欲望系统 2.0 的可验证因果账本与竞争诊断，不引入女性向保护欲或第二套欲望真值；把游戏“上瘾”改为可被心境、新兴趣与饱和打断、冷却后可重新点燃的短时投入；过滤 `not_due` 空候选、统一游戏语义域并区分游玩与分享 |
@@ -445,6 +446,30 @@ Actions 与交付证据：
 CI 与 APK 证据：首轮 Actions `35508754867` 正确拦截了“盯鱼漂”短句未覆盖及历史自读测试仍断言 +236 的两个失败；补齐后再收紧跨游戏证据边界，最终权威 Actions `35509919804` 全绿，119/119 源码与历史门、Kotlin 桌宠/悬浮层测试、Flutter analyze、898 个 Flutter tests、arm64 Release、稳定签名、Genie/桌宠/LingChat/塔罗载荷、Artifact 与 Draft 上传全部成功。Artifact `10605181041` 名称 `AI-Companion-v0.41.93-237-Game-Reality-Grounding-APK`，大小 `538,089,843` bytes，ZIP digest `5aede1c3eac7f269ebac661322983c976d6d68ceee0e6e2711eaacf73bb1cd6e`。Draft Release `392416062` 为未发布地址 `https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-556fbc6ba9ca27a924ee`；APK asset `576771035`，大小 `544,970,010` bytes，SHA-256 `294b341ddc8354389717566aa83a7ed10bba6891f107f7df34f3bfd76c653cc2`。当前只能升级为 `CI PASSED / APK READY / TRUE DEVICE PENDING`。
 
 真机验收：覆盖安装后保留原数据，不需要删除旧 Thought。让钓鱼未完成事项自然再次竞争；没有真实 play 时只能说还没玩、又想起或想去玩，不能再出现鱼漂持续挂着、漂没动、刚补饵或图鉴刚才没涨。真实执行钓鱼后可以按 Outcome 分享；数小时后的旧结果必须用“之前/上次”等时间锚。诊断同时确认该旧 thread 的出站满足落在 curiosity/check-in，不再继续记为 attachment/reach_out。
+
+### 6.11 v0.41.94+238 Sen Live2D 首阶段完整移植（2026-09-21）
+
+状态：`IMPLEMENTED LOCALLY / LOCAL STATIC VALIDATION PASSED / CI PENDING / TRUE DEVICE PENDING`。
+
+实现分支：`agent/v04194-sen-live2d-migration`，基于 +237 已完成 head `808c264`。Sen 来源锁定为用户自有仓库 `catkiss62/Sen-Live2D-Companion-Android` 的 `336b93af1d96e1dd85799faf3df966600c1224a7`，Cubism Java Framework 子模块锁定 `c2d420012d004b8e61d4c589bd5c34513122f0ea`。
+
+开工边界：
+
+1. 这是 Sen 源码移植，不是按观感重写动作。保留 Sen 已真机验证的 `SenPerformanceEngine`、`SenLive2DModel`、渲染、衣着、物理、21 情绪和摸头 10% 困惑彩蛋参数；新代码只负责安全导入、Flutter PlatformView、生命周期、状态互斥和现有聊天/TTS 桥接。
+2. 首阶段直接开启 Sen 自主待机、视线跟随、摸头/摸头彩蛋，左侧快捷设置提供女仆、白衬衫、兔女郎、脱四个外观按钮与眼镜开关。Live2D 与静态立绘互斥：选择 Sen 时不实例化静态立绘，选择静态立绘时释放 Sen 渲染资源。系统悬浮宠仍保持 PNG/鲸鱼，本批不启动第二 Cubism 实例。
+3. AI Companion 现有 `normal + 19` 正式情绪映射到 Sen 动作；`romantic_shy` 仅作为明确亲密/NSFW/“脱”的视觉演出，不新建情绪、记忆或欲望真值。原情绪特效与情绪音效保留；Live2D 特效锚定必须来自当前头部位置，不再固定于静态立绘坐标。
+4. 用户消息发送后先本地进入短暂倾听/注意反应，既有 DeepSeek/回复情绪包给出权威语义情绪，不复制 SoulLink 的正则人格判定，不增加第二模型调用。本地 Genie TTS 按 AudioTrack 实际播放头位取 PCM RMS 驱动口型，不用写入进度冒充声音进度。
+5. Sen 模型仍不进入公开 Git；用户通过系统文件选择器导入 ZIP 到 app-private 目录。导入必须保留 Zip Slip、容量/条目上限并采用 staging 后原子换代，失败不删现有可用模型。
+
+计划验证：新增专项 validator 覆盖上述源码锁定、21 情绪、外观、互斥、导入安全、唯一 PlatformView 所有权和波形口型；运行 validator suite、Flutter analyze/tests、Android 编译与 arm64 Release。未经 Actions 全绿不写 `CI PASSED / APK READY`，未经真机不写 `TRUE DEVICE PASSED`。
+
+本地实现与验证：
+
+- 已直接纳入 105 个锁定 Cubism Framework Java 源文件、可再分发 Core AAR、Sen 已验证渲染/模型/动作/物理/外观源码与许可证。`SenPerformanceEngine.java` 与上游 SHA-256 同为 `492b6c12170b681e14ada78b0046dabd9644ed809001a0384676e4a430863218`，`SenOutfitPresets.java` 同为 `acdcb49cb91bb6d798086f31cec142db5cd5f44ec959f60717716ab1a09cc25a`；宿主扩展只添加确定性眼镜接口与动态头部锚点，未改 21 情绪/动作参数。
+- `SenLive2DPlatformView` 与 Runtime 建立唯一聊天舞台所有者，Activity 对称转发 resume/pause，Flutter 条件渲染保证 Sen 与静态 `ChatPortraitStage` 不共存。Material 3 左侧栏已直接加入 Live2D 开关、四外观、眼镜与 ZIP 导入；旧快捷面板也保持同值入口。
+- 模型导入使用系统 `ACTION_OPEN_DOCUMENT`，保留 8,000 entry/1.5GB/Zip Slip 门，在 staging 注册 expression 后换入 current；旧模型作为 backup 保留到新 renderer `onReady`，失败自动回滚并重载，进程中断也保留 pending 决议。模型和路径不入 Git/诊断。
+- 现有 20 情绪包用纯映射进入 Sen，“脱”只投影 `romantic_shy` 视觉层；用户消息提交后本地播放 `small_nod`，不读正文也不增加 API。特效坐标每 66ms 取已校准的动态呆毛根网格点；TTS 每 33ms 按 AudioTrack 实际 playback head 取 256-frame PCM RMS，stop/cancel/release 强制闭嘴。
+- 新增 `SEN_LIVE2D_INTEGRATION_v0.41.94.md`、纯映射 Flutter tests 与 +238 validator，总 validator 数为 120。本地逐项 117/120 通过；仅 3 个旧门因精简工作区缺 CI 才恢复的 417 个桌宠文件、LingChat effects 与 `kotlinc` 而失败。专项门、manifest check-only、Python 编译和 `git diff --check` 均通过；当前机无 Flutter/Dart/Android SDK，完整 analyze/tests/Release 交 Actions 判定。
 
 ## 7. 历史验证兼容摘要
 

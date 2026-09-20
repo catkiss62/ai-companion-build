@@ -121,3 +121,4 @@ tools/validate_v04190_cedar_save_slots_custom_final_model.py
 tools/validate_v04191_fatigue_affect_debt.py
 tools/validate_v04192_desire_game_interest.py
 tools/validate_v04193_game_reality_grounding.py
+tools/validate_v04194_sen_live2d_migration.py

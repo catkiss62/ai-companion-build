@@ -19,8 +19,8 @@ def require(path: str, *tokens: str) -> None:
     assert not missing, f"{path}: missing {missing}"
 
 
-require("pubspec.yaml", "version: 0.41.93+237")
-require("lib/core/agent/agent_self_reader.dart", "v0.41.93+237")
+require("pubspec.yaml", "version: 0.41.94+238")
+require("lib/core/agent/agent_self_reader.dart", "v0.41.94+238")
 require("lib/core/mcp/mcp_http_client.dart", "'version': '0.41.93'")
 require(
     "lib/core/desire/game_engagement_policy.dart",

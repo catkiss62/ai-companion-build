@@ -83,6 +83,7 @@
 
 ### UI 与仓库入口
 
+- `SEN_LIVE2D_INTEGRATION_v0.41.94.md`：Sen 源码/版本锁定、单一 Cubism 所有权、安全模型导入、21 情绪、触摸、动态头部特效锚点与 AudioTrack 口型合同。
 - `UI_INFORMATION_ARCHITECTURE_v1.md`：五域迁移；已吸收性格底色 UI 的唯一数据源约束。
 - `REPOSITORY_MAINTENANCE.md`：分支、总账滚动、统一 validator 清单、CI/资源与旧 Actions 的低风险维护边界。
 - `DOCUMENTATION_MAP.md`

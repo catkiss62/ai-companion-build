@@ -20,7 +20,7 @@ void main() {
     // Historical validator token: build=v0.41.88+232 schema=61
     // Historical validator token: build=v0.41.89+233 schema=61
     // Historical validator token: build=v0.41.90+234 schema=61
-    expect(result.promptData, contains('build=v0.41.93+237 schema=61'));
+    expect(result.promptData, contains('build=v0.41.94+238 schema=61'));
     expect(result.promptData, contains('id=cedar_toy_mcp_v04167'));
     expect(result.promptData, contains('本轮真实执行的本地只读接口'));
     expect(result.promptData, contains('id=system_self.read status=executable'));
