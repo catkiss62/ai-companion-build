@@ -434,7 +434,7 @@ Actions 与交付证据：
 
 实现边界：
 
-- `OperationalClaimGroundingGuard` 新增 Cedar live-state 判定。没有本轮成功 `cedar_toy.play` 或一小时内真实 Cedar Outcome 时，拦截正在玩、坐在池塘/矿洞、挂着或盯着鱼漂、漂没动、鱼饵刚补齐、图鉴刚才没涨等声明。钓鱼 `cast` 按一次调用一次结算理解，不制造后台鱼漂。
+- `OperationalClaimGroundingGuard` 新增 Cedar live-state 判定。没有本轮成功 `cedar_toy.play` 时，拦截正在玩、坐在池塘/矿洞、挂着或盯着鱼漂、漂没动、鱼饵刚补齐、图鉴刚才没涨等声明；一小时内的持久化 Outcome 仍可支撑“刚玩过”的结果分享，但不能授权另一个游戏的当前进行时。钓鱼 `cast` 按一次调用一次结算理解，不制造后台鱼漂。
 - “还没有实际去玩/准备下次玩”与“之前/上次/昨天玩时”明确放行；真实当前 Cedar Outcome 仍可自然第一人称分享。该边界约束事实，不禁止游戏兴趣、历史回忆或角色语气。
 - 普通聊天 Reality Grounding 与 proactive 的游戏-thread 专项合同都明确：unfinished thread、Thought 和旧 assistant 场景只证明“惦记/计划”，不证明执行。首次候选仍失真时做一次事实纠正；再失败则沿用确定性删除/诚实未执行回退，不把虚假进行时写入聊天。
 - 心跳会把来源为 `self_drive/thread` 且语义域明确属于游戏的旧 attachment 派生 Thought 原位纠正为 curiosity，只改派生 drive 标签，不动聊天、thread 正文或 Cedar 状态；`ProactiveSelectionPolicy.normalizeLegacyGameThreadIntent` 仍在竞争边界兜底，使修复写入失败或刚导入的旧数据也即时按 curiosity/check-in 处理，无需删用户数据、改 schema 或等待数日衰减。新 Thought 继续使用 +236 的 `SelfReviewDrivePolicy`。

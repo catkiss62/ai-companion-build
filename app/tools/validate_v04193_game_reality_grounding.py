@@ -65,6 +65,7 @@ require(
     "fishing ambience cannot masquerade as a running Cedar action",
     "not played, future intent and historical time remain honest",
     "a current successful Cedar outcome grounds current play",
+    "a recent stored outcome cannot license a different live scene",
     "pre-upgrade attachment game thought is curiosity at selection",
 )
 require(

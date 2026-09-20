@@ -54,6 +54,18 @@ void main() {
     );
   });
 
+  test('a recent stored outcome cannot license a different live scene', () {
+    final result = OperationalClaimGroundingGuard.evaluate(
+      text: '我正在钓鱼，正盯着鱼漂等它动。',
+      cedarOutcomeAvailable: true,
+      cedarOutcomeAt: now.subtract(const Duration(minutes: 5)),
+      now: now,
+    );
+
+    expect(result.allowed, isFalse);
+    expect(result.reason, 'ungrounded_cedar_live_state');
+  });
+
   test('pre-upgrade attachment game thought is curiosity at selection', () {
     final thought = CompanionThought(
       id: 'legacy-fishing-thread',

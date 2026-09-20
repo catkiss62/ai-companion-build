@@ -173,6 +173,19 @@ void main() {
     );
   });
 
+  test('a recent stored Cedar outcome cannot ground a live scene', () {
+    final now = DateTime(2026, 9, 20, 6);
+    final result = OperationalClaimGroundingGuard.evaluate(
+      text: '我正在钓鱼，正盯着鱼漂等它动。',
+      cedarOutcomeAvailable: true,
+      cedarOutcomeAt: now.subtract(const Duration(minutes: 5)),
+      now: now,
+    );
+
+    expect(result.allowed, isFalse);
+    expect(result.reason, 'ungrounded_cedar_live_state');
+  });
+
   test('blocks a fabricated all-afternoon growth-system report', () {
     final result = OperationalClaimGroundingGuard.evaluate(
       text: '我看了一下午自己的人格学习和成长系统，发现变化挺大的。',

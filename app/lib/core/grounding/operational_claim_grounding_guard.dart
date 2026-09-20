@@ -199,7 +199,7 @@ class OperationalClaimGroundingGuard {
       if (_cedarLiveStateClaim.hasMatch(clause) &&
           !_cedarHistoricalAnchor.hasMatch(clause) &&
           !_cedarNonExecutionFraming.hasMatch(clause) &&
-          !cedarEvidenceIsRecent) {
+          !hasCurrentCedarOutcome) {
         return const OperationalClaimGroundingResult(
           allowed: false,
           reason: 'ungrounded_cedar_live_state',
