@@ -40,8 +40,9 @@
 | +228 远端 | head `29e87d016c8bd81f52f89f95191bd1a1a01a5b57`；tree `c4a112a56d8b634cf3a1a66636979a0833538b7d`；Actions `35440359036`；Artifact `10583263879`；APK SHA-256 `159e283173e49da2924d25b37ba7647893cdafdcc31b63f0e31b7c64e086849b` |
 | 仓库维护基线 | `maintenance/repository-governance-20260919`；远端文档 head `123e272196e8ae93f3518157917d76f6af4f1784`；完整构建 head `fa99f32012fa1a0716b746d36b958a8e777ef9b8`；Actions `35446649873` 全绿；文档-only run `35447342921` 正确跳过 APK |
 | 当前功能分支 | `agent/v04196-sen-hybrid-composition`，从 +239 内容树分出；候选版本 `v0.41.96+240` |
-| 当前任务状态 | `IMPLEMENTED LOCALLY / LOCAL STATIC VALIDATION PASSED / CI PENDING / TRUE DEVICE PENDING`；+239 真机已进入 `model_load/ready` 但模型呈黑色剪影，+240 已将 Sen `GLSurfaceView` 从标准 `AndroidView` 纹理层改为强制原生 Hybrid Composition，见 6.13 |
+| 当前任务状态 | `CI PASSED / APK READY / TRUE DEVICE PENDING`；+239 真机已进入 `model_load/ready` 但模型呈黑色剪影，+240 已将 Sen `GLSurfaceView` 从标准 `AndroidView` 纹理层改为强制原生 Hybrid Composition，完整构建与成品校验全绿，等待真机确认颜色恢复，见 6.13 |
 | +240 当前任务 | 用 `PlatformViewLink + AndroidViewSurface + initExpensiveAndroidView` 强制原生 Hybrid Composition，恢复 SurfaceView/Cubism 纹理颜色；诊断记录合成模式；不改 Sen 动作/物理、用户模型、人格、欲望、记忆、Cedar 或 TTS |
+| +240 远端 | 构建 head `bdae0d3897efe49c251c6d4a2ecfb4a035afa188`；tree `4ef513abf3cbcd20db61357ee5bf4172868474ac`；Actions `35526854350` 全绿；Artifact `10609559197`；APK SHA-256 `bfad10070630724920cb68815d174e8d230740cfa8489761abf9495e12baeea3` |
 | +239 真机结论 | shader 缺失已修复：同一模型在 +239 进入 `created → model_load/ready`，未再出现 shader renderer error；但标准 `AndroidView` 合成后显示为黑色剪影，因此整体 Live2D 呈现继续由 +240 验收 |
 | +239 远端 | 构建 head `6223c66a09850f950b9646990459133ea8661d32`；tree `f9dd8e3ea303e92bf0862bce03a2384b542fb109`；Actions `35523577868` 全绿；Artifact `10608368899`；APK SHA-256 `897e5163b31fd8950f1e6c97c03f3e20d4d82c7d804aed1a9cf5c6172bee7287` |
 | +238 当前任务 | 原样保留 Sen 已真机验证的 21 情绪、自主待机、视线跟随、摸头彩蛋、物理、三套衣服+脱与眼镜；与静态立绘互斥，接入现有情绪效果/音效、用户消息倾听反应和 TTS 波形口型；不改悬浮鲸鱼、人格/欲望真值或模型调用次数 |
@@ -515,7 +516,7 @@ Actions 与交付证据：
 
 ### 6.13 v0.41.96+240 Sen 原生 Hybrid Composition 热修（2026-09-21）
 
-状态：`IMPLEMENTED LOCALLY / LOCAL STATIC VALIDATION PASSED / CI PENDING / TRUE DEVICE PENDING`。
+状态：`CI PASSED / APK READY / TRUE DEVICE PENDING`。
 
 实现分支：`agent/v04196-sen-hybrid-composition`。
 
@@ -534,6 +535,14 @@ Actions 与交付证据：
 计划验证：新增 +240 专项门并将历史版本范围前移；运行完整 validator、Flutter analyze/tests、Android/Kotlin tests、arm64 Release、稳定签名和 APK 载荷检查。真机覆盖安装不清数据，确认模型颜色、透明背景、Flutter 前景覆盖和触摸/待机后，才允许写 `TRUE DEVICE PASSED`。
 
 本地验证：122 个 validator 已逐项运行，119 个通过；仅 3 个既有门因精简工作区缺少 CI 才恢复的 417 文件桌宠源码、LingChat effects 与 `kotlinc` 而失败。+238/+239/+240 专项门、当前总账门、manifest check-only、Workflow YAML、Python 编译与 `git diff --check` 均通过；本机无 Flutter/Dart/Android SDK，完整编译与运行测试交由 Actions。
+
+Actions 与交付证据：
+
+- 初始本地状态曾为 `IMPLEMENTED LOCALLY / LOCAL STATIC VALIDATION PASSED / CI PENDING / TRUE DEVICE PENDING`。首轮 Actions `35526483779` 在 Android/Kotlin 步骤执行 Flutter Debug 编译时，准确发现 `PlatformViewHitTestBehavior` 缺少显式 `flutter/rendering.dart` 导入；只补该导入，未更改合成方案或运行行为。
+- 修正后的远端构建 head `bdae0d3897efe49c251c6d4a2ecfb4a035afa188`、tree `4ef513abf3cbcd20db61357ee5bf4172868474ac` 与本地候选内容树一致；`main` 未修改。
+- Actions `35526854350` 全绿：122/122 源代码与历史门、Android/Kotlin 桌宠及悬浮层测试、Flutter analyze、901/901 Flutter tests、arm64 Release、稳定签名、Genie/桌宠/LingChat/塔罗载荷、36/36 Cubism shader 成品逐字节检查、Artifact 与 Draft 上传均成功。
+- Artifact `10609559197`，名称 `AI-Companion-v0.41.96-240-Sen-Hybrid-Composition-Hotfix-APK`，大小 `538,348,212` bytes，ZIP digest `da89504183c8f1b2c1159b8f90fb8fc66de034dc9142ef9cb9b4fe960dd91d1b`。
+- Draft Release `392517677` 为未发布地址 `https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-a5d654d0c78859a6de71`；APK asset `577282616`，大小 `545,236,534` bytes，SHA-256 `bfad10070630724920cb68815d174e8d230740cfa8489761abf9495e12baeea3`。当前只能升级为 `CI PASSED / APK READY / TRUE DEVICE PENDING`，黑色剪影是否消失仍必须由同一台 Android 15 真机确认。
 
 ## 7. 历史验证兼容摘要
 

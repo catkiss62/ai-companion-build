@@ -22,6 +22,10 @@ Hybrid Composition 的代价是平台视图合成开销可能高于纹理层，�
 
 参考：Flutter 官方 [Android Platform Views](https://docs.flutter.dev/platform-integration/android/platform-views) 与 [`initExpensiveAndroidView`](https://api.flutter.dev/flutter/services/PlatformViewsService/initExpensiveAndroidView.html)。
 
+## 构建结果
+
+修正一个缺少显式 `flutter/rendering.dart` 导入的编译问题后，Actions `35526854350` 全绿：122/122 源码门、Android/Kotlin 测试、Flutter analyze、901/901 Flutter tests、arm64 Release、签名和成品资源检查全部通过。候选 APK SHA-256 为 `bfad10070630724920cb68815d174e8d230740cfa8489761abf9495e12baeea3`；CI 只证明构建与既有回归成立，不替代同一设备的显示验收。
+
 ## 真机验收
 
 覆盖安装且不清数据；当前 app-private Sen 模型无需重新导入。切回静态立绘再切到 Sen 后确认：
