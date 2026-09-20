@@ -14,6 +14,7 @@ import 'dialogue_expression_telemetry.dart';
 import 'provider_health.dart';
 import 'visible_reasoning_language_telemetry.dart';
 import '../desire/desire_core_policy.dart';
+import '../desire/desire_satisfaction_ledger.dart';
 import '../desire/fatigue_affect_controller.dart';
 import '../grounding/grounding_engine.dart';
 import '../integration/moe_expression_prompt_adapter.dart';
@@ -241,6 +242,8 @@ class PreflightDiagnosticsService {
       final selfExperience =
           await db.selfExperienceDiagnosticStats(now: now);
       final desireEvents = await db.desireEventDiagnosticStats(now: now);
+      final satisfactionLedger =
+          await DesireSatisfactionLedgerController(db).load(now: now);
       final moeRepository = SqliteMoeRepository(() => db.database);
       final moeState = await moeRepository.loadState();
       final moePlan = const MoeDynamicsPolicy().expressionPlan(moeState);
@@ -782,6 +785,7 @@ class PreflightDiagnosticsService {
               : double.parse(desireSnapshot.lastIntentScore!.toStringAsFixed(4)),
           'lastSatisfiedAction': desireSnapshot.lastSatisfiedAction ?? '',
           'lastSatisfiedAt': desireSnapshot.lastSatisfiedAt?.millisecondsSinceEpoch ?? 0,
+          'satisfactionLedger': satisfactionLedger.diagnostic(now),
           'screenOffContactWindow': {
             'policy': 'one_pulse_per_screen_off_session_v1',
             'minimumOffMinutes': 90,

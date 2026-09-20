@@ -6,6 +6,7 @@ import '../database/app_database.dart';
 import '../models/desire_state.dart';
 import '../models/thought.dart';
 import 'desire_core_policy.dart';
+import 'desire_satisfaction_ledger.dart';
 import 'fatigue_affect_controller.dart';
 import 'fatigue_affect_policy.dart';
 import 'thought_feed_policy.dart';
@@ -189,6 +190,17 @@ class DesireEngine {
       snapshot: next,
       now: now,
     );
+    try {
+      await DesireSatisfactionLedgerController(db).record(
+        drive: drive,
+        action: 'user_reply',
+        source: 'user_reply',
+        now: now,
+      );
+    } catch (_) {
+      // The real reply already settled the drive. Observability must not turn
+      // that success into a retry or failure.
+    }
   }
 
   Future<double> satisfyIntent(
@@ -238,6 +250,16 @@ class DesireEngine {
       snapshot: next,
       now: instant,
     );
+    try {
+      await DesireSatisfactionLedgerController(db).record(
+        drive: intent.drive,
+        action: intent.wantAction,
+        source: intent.reasonSource,
+        now: instant,
+      );
+    } catch (_) {
+      // Satisfaction is authoritative; the causal ledger is best-effort.
+    }
     return fatigueCost;
   }
 

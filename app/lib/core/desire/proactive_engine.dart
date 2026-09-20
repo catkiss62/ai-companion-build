@@ -52,6 +52,7 @@ import '../presentation/chat_visuals.dart';
 import 'cedar_game_thought_policy.dart';
 import 'deferred_followup_engine.dart';
 import 'desire_core_policy.dart';
+import 'desire_satisfaction_ledger.dart';
 import 'desire_engine.dart';
 import 'fatigue_affect_controller.dart';
 import 'proactive_dawn_gate_policy.dart';
@@ -555,12 +556,17 @@ class ProactiveEngine {
           strongestGameThought = max(strongestGameThought, thought.strength);
         }
       }
+      final gameEngagement = await cedarToyAutonomy.engagementSnapshot(
+        now: evaluationStartedAt,
+        affect: fatigueAffect,
+      );
       final resumeBaseScore = (max(
                 snapshot.drives[DriveKey.curiosity] ?? 0.0,
                 (snapshot.drives[DriveKey.reflection] ?? 0.0) * 0.82,
               ) +
-              0.18 +
-              strongestGameThought.clamp(0.0, 1.0) * 0.30 -
+              0.08 +
+              strongestGameThought.clamp(0.0, 1.0) * 0.22 +
+              gameEngagement.scoreAdjustment -
               DesireCorePolicy.fatigueActionPenalty(fatigue))
           .clamp(0.0, 0.92)
           .toDouble();
@@ -604,6 +610,11 @@ class ProactiveEngine {
       final recentBehaviors = await db.recentAutonomousBehaviors(
         now: evaluationStartedAt,
       );
+      final satisfactionLedger =
+          await DesireSatisfactionLedgerController(db).load(
+        now: evaluationStartedAt,
+        persistIfMissing: true,
+      );
       var selection = ProactiveSelectionPolicy.select(
         candidates: unifiedCandidates,
         thoughtsById: thoughtsById,
@@ -613,6 +624,11 @@ class ProactiveEngine {
         now: evaluationStartedAt,
         readySinceByThoughtId: readySinceByThoughtId,
         recentBehaviors: recentBehaviors,
+        lastSatisfiedAtByLane: <String, DateTime>{
+          for (final entry in satisfactionLedger.actions.entries)
+            entry.key: entry.value.lastAt,
+        },
+        satisfactionLedgerStartedAt: satisfactionLedger.startedAt,
         samplingUnit: selectionUnit,
       );
       var intent = selection?.intent;
@@ -645,6 +661,11 @@ class ProactiveEngine {
             recentSourceTypes: const [],
             now: evaluationStartedAt,
             readySinceByThoughtId: readySinceByThoughtId,
+            lastSatisfiedAtByLane: <String, DateTime>{
+              for (final entry in satisfactionLedger.actions.entries)
+                entry.key: entry.value.lastAt,
+            },
+            satisfactionLedgerStartedAt: satisfactionLedger.startedAt,
             samplingUnit: selectionUnit,
           );
         }
@@ -676,6 +697,13 @@ class ProactiveEngine {
             ),
             'oldContextPenalty': double.parse(
               selection.oldContextPenalty.toStringAsFixed(4),
+            ),
+            'opportunityBoost': double.parse(
+              selection.opportunityBoost.toStringAsFixed(4),
+            ),
+            'gameEngagementPhase': gameEngagement.phase.name,
+            'gameEngagementAdjustment': double.parse(
+              gameEngagement.scoreAdjustment.toStringAsFixed(4),
             ),
             'at': evaluationStartedAt.millisecondsSinceEpoch,
           }),
@@ -789,7 +817,10 @@ class ProactiveEngine {
           ProactiveSelectionPolicy.behaviorKindFor(intent);
       final behaviorTopicKey = intent.wantAction == 'discover_interest'
           ? 'public_web_discovery:${intent.drive.name}'
-          : selectedThought?.topicKey ?? intent.reasonSource;
+          : ProactiveSelectionPolicy.canonicalTopic(
+              selectedThought?.topicKey ?? '',
+              reasonSource: intent.reasonSource,
+            );
       final autonomousBehaviorEventId = await db.claimAutonomousBehavior(
         heartbeatKey: heartbeatKey,
         behaviorKind: behaviorKind,
@@ -834,9 +865,19 @@ class ProactiveEngine {
                   now: evaluationStartedAt,
                   selfReset: intent.wantAction == 'self_reset_and_resume',
                 );
+          final progressIsWait = const <String>{
+                'not_due',
+                'no_continuation',
+                'waiting',
+                'action_in_progress',
+                'resume_checkpoint_missing',
+              }.contains(progress.state) ||
+              progress.state.startsWith('continuation_');
           await db.finishAutonomousBehavior(
             autonomousBehaviorEventId,
-            status: progress.state.endsWith('failed') ||
+            status: progressIsWait
+                ? 'wait'
+                : progress.state.endsWith('failed') ||
                     progress.state == 'execution_failed'
                 ? 'failed'
                 : progress.state.contains('not_authorized') ||
@@ -1889,7 +1930,10 @@ ${PromptBuilder.visibleChineseGenerationReminder(proactive: true)}
     await rhythm.registerSent(
       message: message,
       thoughtId: intent.thoughtId,
-      topicKey: intentThought?.topicKey ?? '',
+      topicKey: ProactiveSelectionPolicy.canonicalTopic(
+        intentThought?.topicKey ?? '',
+        reasonSource: intent.reasonSource,
+      ),
       threadId: linkedThread?.id,
       context: rhythmContext,
     );

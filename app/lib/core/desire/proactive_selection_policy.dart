@@ -38,6 +38,7 @@ class ProactiveSelectionResult {
     required this.freshnessShortfall,
     required this.freshnessBalanceBoost,
     required this.oldContextPenalty,
+    required this.opportunityBoost,
   });
 
   final DesireIntent intent;
@@ -69,6 +70,7 @@ class ProactiveSelectionResult {
   final int freshnessShortfall;
   final double freshnessBalanceBoost;
   final double oldContextPenalty;
+  final double opportunityBoost;
 }
 
 class _ScoredIntent {
@@ -87,6 +89,7 @@ class _ScoredIntent {
     required this.cooldownPenalty,
     required this.freshnessBalanceBoost,
     required this.oldContextPenalty,
+    required this.opportunityBoost,
   });
 
   final DesireIntent original;
@@ -103,6 +106,7 @@ class _ScoredIntent {
   final double cooldownPenalty;
   final double freshnessBalanceBoost;
   final double oldContextPenalty;
+  final double opportunityBoost;
 }
 
 /// Re-ranks real Desire/Thought candidates without creating a second motive
@@ -121,6 +125,8 @@ class ProactiveSelectionPolicy {
     required DateTime now,
     Map<String, DateTime> readySinceByThoughtId = const {},
     List<Map<String, Object?>> recentBehaviors = const [],
+    Map<String, DateTime> lastSatisfiedAtByLane = const {},
+    DateTime? satisfactionLedgerStartedAt,
     double samplingUnit = 0.0,
   }) {
     if (candidates.isEmpty) return null;
@@ -135,7 +141,7 @@ class ProactiveSelectionPolicy {
         .take(8)
         .toList(growable: false);
     final recentTopics = recentTopicKeys
-        .map((value) => value.trim())
+        .map((value) => canonicalTopic(value))
         .where((value) => value.isNotEmpty)
         .take(8)
         .toList(growable: false);
@@ -165,7 +171,10 @@ class ProactiveSelectionPolicy {
         final behaviorKind = behaviorKindFor(candidate, sourceType: sourceType);
         final repeatDepth = _repeatDepth(recent, intentKind);
         final sourceRepeatDepth = _repeatDepth(recentSources, sourceType);
-        final topicKey = thought?.topicKey.trim() ?? '';
+        final topicKey = canonicalTopic(
+          thought?.topicKey ?? '',
+          reasonSource: candidate.reasonSource,
+        );
         final topicRepeatDepth = topicKey.isEmpty
             ? 0
             : _repeatDepth(recentTopics, topicKey);
@@ -256,6 +265,19 @@ class ProactiveSelectionPolicy {
                 .clamp(0.0, 0.12)
                 .toDouble()
             : 0.0;
+        final actionLane = satisfactionLaneFor(
+          behaviorKind: behaviorKind,
+          action: candidate.wantAction,
+        );
+        final opportunityBoost = repetition
+            ? _opportunityBoost(
+                candidate: candidate,
+                lane: actionLane,
+                lastSatisfiedAt: lastSatisfiedAtByLane[actionLane],
+                ledgerStartedAt: satisfactionLedgerStartedAt,
+                now: now,
+              )
+            : 0.0;
         final adjustedScore = (candidate.score -
                 repetitionPenalty +
                 -sourceRepetitionPenalty +
@@ -263,7 +285,8 @@ class ProactiveSelectionPolicy {
                 -oldContextPenalty +
                 waitingData.value +
                 diversityBoost +
-                freshnessBalanceBoost)
+                freshnessBalanceBoost +
+                opportunityBoost)
             .clamp(0.0, 1.0)
             .toDouble();
         final bucket = (repetitionPenalty > 0 ||
@@ -302,6 +325,7 @@ class ProactiveSelectionPolicy {
             cooldownPenalty: cooldownPenalty,
             freshnessBalanceBoost: freshnessBalanceBoost,
             oldContextPenalty: oldContextPenalty,
+            opportunityBoost: opportunityBoost,
           ),
         );
       }
@@ -380,6 +404,7 @@ class ProactiveSelectionPolicy {
       freshnessShortfall: visibleFreshShortfall,
       freshnessBalanceBoost: selected.freshnessBalanceBoost,
       oldContextPenalty: selected.oldContextPenalty,
+      opportunityBoost: selected.opportunityBoost,
     );
   }
 
@@ -396,6 +421,12 @@ class ProactiveSelectionPolicy {
     if (intent.wantAction == 'prepare_public_web_share' ||
         sourceType == 'public_web') {
       return 'public_web_share';
+    }
+    if (sourceType == 'mcp' &&
+        (intent.wantAction == 'share_thought' ||
+            intent.wantAction == 'wildcard_share') &&
+        intent.reasonSource.toLowerCase().startsWith('mcp/cedar_game:')) {
+      return 'game_share';
     }
     if (const <String>{
       'play_game',
@@ -418,7 +449,10 @@ class ProactiveSelectionPolicy {
     required DateTime now,
   }) {
     if (behaviorKind == 'rest' || behaviorKind == 'wait') return 0;
-    final topicKey = (thought?.topicKey ?? '').trim().toLowerCase();
+    final topicKey = canonicalTopic(
+      thought?.topicKey ?? '',
+      reasonSource: candidate.reasonSource,
+    );
     final topicHash = topicKey.isEmpty
         ? ''
         : sha256.convert(utf8.encode(topicKey)).toString();
@@ -449,6 +483,11 @@ class ProactiveSelectionPolicy {
           age < const Duration(hours: 3)) {
         return 1.0;
       }
+      if (previousBehavior == 'game_share' &&
+          behaviorKind == previousBehavior &&
+          age < const Duration(minutes: 90)) {
+        return 1.0;
+      }
       if (topicHash.isNotEmpty &&
           event['topic_hash'] == topicHash &&
           _sharesTopicCooldown(previousBehavior, behaviorKind) &&
@@ -471,6 +510,7 @@ class ProactiveSelectionPolicy {
     const userVisible = <String>{
       'proactive_message',
       'public_web_share',
+      'game_share',
     };
     if (previous == 'public_web_discovery' ||
         current == 'public_web_discovery') {
@@ -559,6 +599,73 @@ class ProactiveSelectionPolicy {
       count++;
     }
     return count;
+  }
+
+  static String satisfactionLaneFor({
+    required String behaviorKind,
+    required String action,
+  }) {
+    if (behaviorKind == 'proactive_message') return action;
+    return behaviorKind;
+  }
+
+  static String canonicalTopic(
+    String topicKey, {
+    String reasonSource = '',
+  }) {
+    final topic = topicKey.trim().toLowerCase();
+    final source = reasonSource.trim().toLowerCase();
+    String normalizeGame(String raw) {
+      final value = raw
+          .split(':')
+          .first
+          .trim()
+          .replaceAll(RegExp(r'[^a-z0-9_\-\u4e00-\u9fff]+'), '_');
+      const aliases = <String, String>{
+        '钓鱼': 'fishing',
+        '鱼塘': 'fishing',
+        '瓶中生态': 'bottle_ecosystem',
+        '生态瓶': 'bottle_ecosystem',
+      };
+      return aliases[value] ?? value;
+    }
+
+    if (source.startsWith('mcp/cedar_game:')) {
+      final game = normalizeGame(source.substring('mcp/cedar_game:'.length));
+      if (game.isNotEmpty && game != 'desire') return 'game:$game';
+    }
+    if (topic.startsWith('cedar_game:')) {
+      final game = normalizeGame(topic.substring('cedar_game:'.length));
+      if (game.isNotEmpty) return 'game:$game';
+    }
+    if (topic.startsWith('shared.activity.')) {
+      final game = normalizeGame(topic.substring('shared.activity.'.length));
+      if (game.isNotEmpty) return 'game:$game';
+    }
+    if (const <String>{'钓鱼', '鱼塘', 'fishing'}.contains(topic)) {
+      return 'game:fishing';
+    }
+    if (const <String>{'瓶中生态', '生态瓶', 'bottle_ecosystem'}.contains(topic)) {
+      return 'game:bottle_ecosystem';
+    }
+    return topic;
+  }
+
+  static double _opportunityBoost({
+    required DesireIntent candidate,
+    required String lane,
+    required DateTime? lastSatisfiedAt,
+    required DateTime? ledgerStartedAt,
+    required DateTime now,
+  }) {
+    if (candidate.score < 0.48 || lane == 'rest' || lane == 'wait') return 0;
+    final anchor = lastSatisfiedAt ?? ledgerStartedAt;
+    if (anchor == null || anchor.isAfter(now)) return 0;
+    final age = now.difference(anchor);
+    if (age >= const Duration(hours: 72)) return 0.06;
+    if (age >= const Duration(hours: 24)) return 0.04;
+    if (age >= const Duration(hours: 12)) return 0.02;
+    return 0;
   }
 
   static ({double value, String bucket}) _waitingBoost({

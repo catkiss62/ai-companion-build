@@ -253,3 +253,13 @@
 - 导出脱敏诊断：正常情况下 `cedarRealtime.jsonRetryLastCategory` 不应新增；若首次 JSON 正文为空而恢复成功，可见 `empty_model_content` 且只增加一次 retry，不能出现连续相同空请求。
 - 回归主聊天路径：让她创建/加入一局并完成一手，确认真实 action 在后续 Agent 规划中仍是 `new/join/state/move`，中文界面可以继续显示“游玩”。
 - 回归稳定错误：错误 Key/401 不应重复请求；恢复正确 Key 后后台续跑仍能继续。盲玩隔离、防沉迷 `rest`、暂离恢复、普通聊天/Gemini 最终回复通道均保持原合同。
+## v0.41.92+236 欲望因果账本与动态游戏投入真机验收增量
+
+1. 从 `v0.41.91+235` 覆盖安装，不清数据；确认版本 `v0.41.92+236`、schema 61、Snapshot protocol 6，聊天、Memory、Thought、Desire、Cedar 多游戏 session、五槽存档、双模型设置与 +235 睡眠债均保留。
+2. 保留一个已到 episode checkpoint、但 Cedar `next_call/resume_after` 尚未到期的单人游戏，连续观察几个自主心跳。诊断中不应再出现连续 `play_game|mcp|not_due`；该游戏在到期前不得占掉竞争，网页发现、普通念头、休息或沉默都应仍有机会。
+3. 连续玩同一单人游戏：刚出现真实新进展或显著结果时允许明显投入；短时间积累多步普通结果后，应逐渐出现饱和并能被别的兴趣打断；离开数小时后再次出现真实契机时可以重新想玩，不能永久厌倦，也不能一辈子固定上瘾。
+4. 在已有真实 hurt/disagreement/unmet-bid 心境时自然观察游戏候选，应更容易暂缓或转向；connection/reunion 只允许很小的短时投入加成。不得为了测试诱发争吵，不得把负面心情说成恢复精力，用户主动聊天始终正常回应。
+5. 让钓鱼等同一主题分别经 Cedar Outcome 和未完成事项进入，再分享一次。随后六小时内同主题兄弟候选不应换来源重复刷屏；诊断应把分享记为 `game_share`、真实推进记为 `play_game`，两者不得混成一个行为。
+6. 查看自我经验与欲望诊断：普通游戏未完成事项归 `curiosity`，不再持续抬高 attachment；`satisfactionLedger` 只含 drive/action lane、次数、时间和来源标签，不含 Thought、消息、游戏 Outcome 正文或凭据。
+7. 导出同刻诊断，检查 `autonomousBehaviors.nonproductiveWinnerCount` 与 `dominanceAlerts`。若某一行为/来源在至少 8 次事件中超过 60%，应留下支配提醒；提醒只用于诊断，不自动重写人格或 baseline。
+8. 回归 +235：昼夜疲劳、正向激活、负面难安静和睡眠债语义保持；无人观看的凌晨 Cedar 仍硬休息，真人观战仍按用户节奏。回归存档槽覆盖确认、双模型自定义地址/模型、TTS、桌宠、相册和普通主动联系。

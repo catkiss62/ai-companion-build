@@ -65,8 +65,10 @@ for token in (
 ):
     assert token in prompt + engine + selection, token
 assert "shareScore >= 0.74 && subjectiveValue >= 0.58" in appraisal
-assert "('proactive_message','public_web_share')" in read(
-    "lib/core/database/app_database.dart"
+database = read("lib/core/database/app_database.dart")
+assert (
+    "('proactive_message','public_web_share')" in database
+    or "('proactive_message','public_web_share','game_share')" in database
 )
 
 chat = read("lib/features/chat/chat_page.dart")

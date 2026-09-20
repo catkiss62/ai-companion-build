@@ -29,6 +29,27 @@ abstract final class SelfReviewSourceFingerprint {
       sha256.convert(utf8.encode('$id|$factVersion|$content')).toString();
 }
 
+abstract final class SelfReviewDrivePolicy {
+  static DriveKey forThread({
+    required String topicKey,
+    required String title,
+    required String detail,
+    required double importance,
+  }) {
+    if (importance >= 0.72) return DriveKey.duty;
+    final topic = topicKey.trim().toLowerCase();
+    final text = '$title $detail'.toLowerCase();
+    final gameTopic = topic.startsWith('cedar_game:') ||
+        topic.startsWith('shared.activity.') ||
+        RegExp(r'游戏|钓鱼|鱼塘|瓶中生态|生态瓶|棋局|五子棋|图鉴|关卡')
+            .hasMatch(text);
+    // An unfinished leisure activity is curiosity, not proof of relationship
+    // need. This prevents a game thread from borrowing attachment pressure.
+    if (gameTopic) return DriveKey.curiosity;
+    return DriveKey.attachment;
+  }
+}
+
 /// Generates low-cost local self-initiated thoughts without calling an LLM.
 /// The wording is intentionally simple data; natural language generation only
 /// happens later if a thought actually reaches an outbound/chat context.
@@ -132,9 +153,12 @@ class SelfDriveEngine {
         sourceRef: thread.id,
         sourceHash: hash,
         topicKey: thread.topicKey,
-        driveKey: thread.importance >= 0.72
-            ? DriveKey.duty.name
-            : DriveKey.attachment.name,
+        driveKey: SelfReviewDrivePolicy.forThread(
+          topicKey: thread.topicKey,
+          title: thread.title,
+          detail: thread.detail,
+          importance: thread.importance,
+        ).name,
         importance: thread.importance,
         now: now,
       );

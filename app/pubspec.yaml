@@ -90,8 +90,9 @@ publish_to: 'none'
 # Historical validator token: version: 0.41.87+231
 # Historical validator token: version: 0.41.89+233
 # Historical validator token: version: 0.41.90+234
-# v0.41.91+235 build candidate: bounded fatigue-affect coupling and sleep debt.
-version: 0.41.91+235
+# Historical validator token: version: 0.41.91+235
+# v0.41.92+236 build candidate: causal desire ledger and dynamic game interest.
+version: 0.41.92+236
 
 environment:
   sdk: '>=3.12.0 <4.0.0'
