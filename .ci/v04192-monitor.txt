@@ -1,7 +1,7 @@
 status=success
-run_id=35506384676
-run_url=https://github.com/catkiss62/ai-companion-build/actions/runs/35506384676
-head_sha=8ab3beb8997cb146a8499d00acfdf726e2121a2f
+run_id=35509219271
+run_url=https://github.com/catkiss62/ai-companion-build/actions/runs/35509219271
+head_sha=9c42d355bdecc6a76bc72f917f029e28a7a0f3f6
 signer_sha256=30:5E:B3:D8:09:83:B9:63:C6:48:18:DD:F1:AD:56:1F:27:9D:E6:D4:7B:3E:D2:C7:81:AD:A4:48:C7:C2:51:48
-b2aad7f827c64e82e58cd88d71db6690c721941d684abe40c80eee537d52bf22  AI-Companion-v0.41.92-236-Desire-Game-Interest-APK.apk
-release_url=https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-74af3e2b6759dcece079
+0b93bd8adc577662905d897694d3bb618e9d2d8acd6832bd98149be6da79e194  AI-Companion-v0.41.93-237-Game-Reality-Grounding-APK.apk
+release_url=https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-21a037930fc2c8b93eea
