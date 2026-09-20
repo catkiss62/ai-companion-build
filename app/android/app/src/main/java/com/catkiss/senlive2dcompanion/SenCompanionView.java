@@ -31,7 +31,6 @@ public final class SenCompanionView extends GLSurfaceView implements SenCompanio
         void onStatus(String status);
         void onReady(String detail);
         void onError(Throwable error);
-        default void onHeadAnchor(float normalizedX, float normalizedY) { }
     }
 
     public static final String DEFAULT_PROFILE_ASSET = "sen-default-profile-v1.json";
@@ -67,10 +66,6 @@ public final class SenCompanionView extends GLSurfaceView implements SenCompanio
 
             @Override public void onError(Throwable error) {
                 listener.onError(error);
-            }
-
-            @Override public void onHeadAnchor(float normalizedX, float normalizedY) {
-                listener.onHeadAnchor(normalizedX, normalizedY);
             }
         });
         setRenderer(renderer);
@@ -178,7 +173,7 @@ public final class SenCompanionView extends GLSurfaceView implements SenCompanio
         listener = NO_OP_LISTENER;
     }
 
-    public void setTouchFollowEnabled(boolean enabled) {
+    void setTouchFollowEnabled(boolean enabled) {
         queueRenderer(() -> renderer.setTouchFollowEnabled(enabled));
     }
 
@@ -186,20 +181,16 @@ public final class SenCompanionView extends GLSurfaceView implements SenCompanio
         queueRenderer(renderer::triggerEarTwitch);
     }
 
-    public void triggerHeadPat(boolean confused) {
+    void triggerHeadPat(boolean confused) {
         queueRenderer(() -> renderer.triggerHeadPat(confused));
     }
 
-    public void releaseHeadPat() {
+    void releaseHeadPat() {
         queueRenderer(renderer::releaseHeadPat);
     }
 
-    public void applyExpression(String name) {
+    void applyExpression(String name) {
         queueRenderer(() -> renderer.applyExpression(name));
-    }
-
-    public void setGlassesEnabled(boolean enabled) {
-        queueRenderer(() -> renderer.setGlassesEnabled(enabled));
     }
 
     void resetNativePresets() {

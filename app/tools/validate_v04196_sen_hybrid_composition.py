@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Regression gate for v0.41.96 Sen GLSurfaceView composition hotfix."""
+"""Preserve v0.41.96 failure evidence and require its v0.41.98 rollback."""
 
 import re
 from pathlib import Path
@@ -29,23 +29,17 @@ require("lib/core/mcp/mcp_http_client.dart", "'version': '0.41.96'")
 require("test/agent_self_reader_v0416_test.dart", "build=v0.41.96+240 schema=61")
 
 stage = text("lib/widgets/sen_live2d_stage.dart")
-for token in (
+assert re.search(r"^\s*return AndroidView\(", stage, re.MULTILINE), (
+    "Sen stage must use the post-+240 standard AndroidView route"
+)
+for forbidden in (
     "PlatformViewLink(",
     "AndroidViewSurface(",
     "PlatformViewsService.initExpensiveAndroidView(",
-    "addOnPlatformViewCreatedListener(_onPlatformViewCreated)",
-    "'compositionMode': 'forced_hybrid_composition'",
+    "forced_hybrid_composition",
 ):
-    assert token in stage, f"Sen stage lost forced HC token: {token}"
-assert re.search(r"^\s*AndroidView\(", stage, re.MULTILINE) is None, (
-    "Sen GLSurfaceView regressed to standard texture-layer AndroidView"
-)
+    assert forbidden not in stage, f"failed +240 route returned: {forbidden}"
 
-require(
-    "android/app/src/main/kotlin/com/catkiss/senlive2dcompanion/SenLive2DPlatformView.kt",
-    '"composition_mode" to compositionMode',
-    '"native_surface_view" to true',
-)
 require(
     ".github/workflows/build-apk.yml",
     "agent/v04196-sen-hybrid-composition",
@@ -56,8 +50,8 @@ require(
 require(
     "docs/SEN_LIVE2D_HYBRID_COMPOSITION_HOTFIX_v0.41.96.md",
     "initExpensiveAndroidView",
-    "forced_hybrid_composition",
-    "TRUE DEVICE PASSED",
+    "TRUE DEVICE FAILED",
+    "ROLLED BACK IN v0.41.98+242",
 )
 require(
     "AI_Companion_当前总账.md",
@@ -66,4 +60,4 @@ require(
 )
 require("tools/validation_suite.txt", "validate_v04196_sen_hybrid_composition.py")
 
-print("v0.41.96 Sen forced Hybrid Composition validation passed")
+print("v0.41.96 Sen Hybrid Composition failure/rollback validation passed")

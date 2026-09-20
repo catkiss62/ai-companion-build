@@ -234,22 +234,6 @@ final class SenLive2DModel extends CubismUserModel {
     float getReferenceDrawableTop() { return referenceDrawableTop; }
     float getReferenceDrawableBottom() { return referenceDrawableBottom; }
 
-    /** Current authored head root after tracking, actions and physics have updated the mesh. */
-    float[] getDynamicHeadAnchor() {
-        if (ahogeRootAnchor != null) {
-            float[] point = ahogeRootAnchor.currentPoint(model);
-            if (point != null) return point;
-        }
-        return new float[]{
-                (referenceDrawableLeft + referenceDrawableRight) * .5f,
-                referenceDrawableTop - (referenceDrawableTop - referenceDrawableBottom) * .12f
-        };
-    }
-
-    void setGlassesEnabled(boolean enabled) {
-        glassesEnabled = enabled;
-    }
-
     void setExpression(String name) {
         if ("glasses".equals(normalizeExpressionName(name))) {
             glassesEnabled = !glassesEnabled;

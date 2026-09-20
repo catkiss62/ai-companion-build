@@ -22,6 +22,7 @@ import '../grounding/grounding_engine.dart';
 import '../grounding/proactive_grounding_guard.dart';
 import '../grounding/service_template_guard.dart';
 import '../grounding/operational_claim_grounding_guard.dart';
+import '../grounding/recent_reply_repetition_guard.dart';
 import '../grounding/user_perspective_guard.dart';
 import '../models/chat_message.dart';
 import '../models/chat_segment.dart';
@@ -1600,6 +1601,10 @@ ${startsFreshTopic ? '本类型属于新话题通道：ANSWERED CHAT HISTORY 已
       cedarOutcomeAt: cedarOutcomeAt,
       now: evaluationStartedAt,
     );
+    var repetitionGuard = RecentReplyRepetitionGuard.evaluate(
+      text: candidate.content,
+      recentAssistantTexts: recentAssistantTexts,
+    );
     var memoryTemporalGuard = ProactiveMemoryTemporalGuard.evaluate(
       text: '${candidate.reasoning}\n${candidate.content}',
       sourceIsMemory: intentThought?.provenance == ThoughtProvenance.memory,
@@ -1627,14 +1632,17 @@ ${startsFreshTopic ? '本类型属于新话题通道：ANSWERED CHAT HISTORY 已
     if (!textGuard.allowed ||
         !reasoningGuard.allowed ||
         !memoryTemporalGuard.allowed ||
-        !operationGuard.allowed) {
+        !operationGuard.allowed ||
+        !repetitionGuard.allowed) {
       final retryReason = !reasoningGuard.allowed
           ? reasoningGuard.reason
           : !textGuard.allowed
               ? textGuard.reason
               : !memoryTemporalGuard.allowed
                   ? memoryTemporalGuard.reason
-                  : operationGuard.reason;
+                  : !operationGuard.allowed
+                      ? operationGuard.reason
+                      : repetitionGuard.reason;
       await noteGroundingRetry(retryReason);
       final retryContext = <Map<String, Object?>>[
         ...context,
@@ -1744,6 +1752,10 @@ ${PromptBuilder.visibleChineseGenerationReminder(proactive: true)}
         cedarOutcomeAt: cedarOutcomeAt,
         now: evaluationStartedAt,
       );
+      repetitionGuard = RecentReplyRepetitionGuard.evaluate(
+        text: candidate.content,
+        recentAssistantTexts: recentAssistantTexts,
+      );
       memoryTemporalGuard = ProactiveMemoryTemporalGuard.evaluate(
         text: '${candidate.reasoning}\n${candidate.content}',
         sourceIsMemory: intentThought?.provenance == ThoughtProvenance.memory,
@@ -1765,30 +1777,29 @@ ${PromptBuilder.visibleChineseGenerationReminder(proactive: true)}
       return blockGrounding(memoryTemporalGuard.reason);
     }
     if (!operationGuard.allowed) {
-      if (operationGuard.reason == 'ungrounded_cedar_live_state') {
-        candidate = candidate.copyWith(
-          content: '「我其实还没有去玩，只是又想起这件事了。」',
-        );
-      } else {
-        final salvaged =
-            OperationalClaimGroundingGuard.removeUnsupportedSentences(
-          text: candidate.content,
-          publicWebOutcomeAvailable: webShareCandidateId != null,
-          cedarOutcomeAvailable: isCedarGameShare,
-          cedarOutcomeAt: cedarOutcomeAt,
-          now: evaluationStartedAt,
-        );
-        if (salvaged.isEmpty &&
-            operationGuard.reason == 'stale_cedar_event_presented_as_recent') {
-          await noteGeneration('guard_blocked', reasonTag: 'grounding_guard');
-          return blockGrounding(operationGuard.reason);
-        }
-        candidate = candidate.copyWith(
-          content: salvaged.isNotEmpty
-              ? salvaged
-              : '「刚才那件事我其实还没做，先不拿它当开场了。」',
-        );
+      // Historical validator token: stale_cedar_event_presented_as_recent.
+      // Every unsupported Cedar reason now shares the same sentence salvage;
+      // an empty proactive result is blocked rather than replaced by dialogue.
+      final salvaged = OperationalClaimGroundingGuard.removeUnsupportedSentences(
+        text: candidate.content,
+        publicWebOutcomeAvailable: webShareCandidateId != null,
+        cedarOutcomeAvailable: isCedarGameShare,
+        cedarOutcomeAt: cedarOutcomeAt,
+        now: evaluationStartedAt,
+      );
+      if (salvaged.isEmpty) {
+        await noteGeneration('guard_blocked', reasonTag: 'grounding_guard');
+        return blockGrounding(operationGuard.reason);
       }
+      candidate = candidate.copyWith(content: salvaged);
+      repetitionGuard = RecentReplyRepetitionGuard.evaluate(
+        text: candidate.content,
+        recentAssistantTexts: recentAssistantTexts,
+      );
+    }
+    if (!repetitionGuard.allowed) {
+      await noteGeneration('guard_blocked', reasonTag: 'exact_recent_reply');
+      return blockGrounding(repetitionGuard.reason);
     }
 
     final text = candidate.content;

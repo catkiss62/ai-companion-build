@@ -1,4 +1,9 @@
-# Sen Live2D 原生 Hybrid Composition 热修（v0.41.96）
+# Sen Live2D 原生 Hybrid Composition 失败路线（v0.41.96）
+
+> 当前状态：`TRUE DEVICE FAILED / ROLLED BACK IN v0.41.98+242`。该方案使整个 Flutter
+> 合成画面变黑，现仅作为失败证据保留，不得恢复到生产舞台。后续审计确认 +239 黑色剪影的
+> 根因是完整移植时漏掉 Sen 构建必需的 `cubism-java-no-mipmap.patch`，并非必须强制 Hybrid
+> Composition。
 
 ## 真机证据
 
@@ -21,6 +26,10 @@ Sen 原项目把 `GLSurfaceView` 直接放在 Android 原生视图层。首次�
 Hybrid Composition 的代价是平台视图合成开销可能高于纹理层，但本项目的 Live2D 是单一、固定位置的聊天舞台；Android 15 真机优先保证 `GLSurfaceView` 原生显示正确。聊天、人格、欲望、记忆、Cedar、TTS、模型 ZIP 与 schema 61 均不改变。
 
 参考：Flutter 官方 [Android Platform Views](https://docs.flutter.dev/platform-integration/android/platform-views) 与 [`initExpensiveAndroidView`](https://api.flutter.dev/flutter/services/PlatformViewsService/initExpensiveAndroidView.html)。
+
+## 构建结果
+
+修正一个缺少显式 `flutter/rendering.dart` 导入的编译问题后，Actions `35526854350` 全绿：122/122 源码门、Android/Kotlin 测试、Flutter analyze、901/901 Flutter tests、arm64 Release、签名和成品资源检查全部通过。候选 APK SHA-256 为 `bfad10070630724920cb68815d174e8d230740cfa8489761abf9495e12baeea3`；CI 只证明构建与既有回归成立，不替代同一设备的显示验收。
 
 ## 真机验收
 

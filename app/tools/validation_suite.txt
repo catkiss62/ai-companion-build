@@ -124,3 +124,5 @@ tools/validate_v04193_game_reality_grounding.py
 tools/validate_v04194_sen_live2d_migration.py
 tools/validate_v04195_sen_shader_assets.py
 tools/validate_v04196_sen_hybrid_composition.py
+tools/validate_v04197_natural_reply_liveness.py
+tools/validate_v04198_sen_direct_port.py

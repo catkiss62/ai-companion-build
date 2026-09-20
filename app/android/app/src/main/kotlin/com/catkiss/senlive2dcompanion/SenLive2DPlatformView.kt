@@ -46,6 +46,8 @@ internal class SenLive2DPlatformView(
     private var disposed = false
     private var outfit = creationArgs?.get("outfit")?.toString().orEmpty().ifBlank { SenOutfitCatalog.MAID }
     private var glasses = creationArgs?.get("glasses") == true
+    private var appliedGlasses = false
+    private var modelReady = false
     private var emotion = creationArgs?.get("emotion")?.toString().orEmpty().ifBlank { "normal" }
     private var pointerId = -1
     private var headPatCandidate = false
@@ -56,8 +58,6 @@ internal class SenLive2DPlatformView(
     private var headPatStartedAt = 0L
     private val modelPoint = FloatArray(2)
     private val executionId = UUID.randomUUID().toString()
-    private val compositionMode = creationArgs?.get("compositionMode")?.toString()
-        .orEmpty().ifBlank { "unspecified" }
 
     init {
         channel.setMethodCallHandler(this)
@@ -107,7 +107,7 @@ internal class SenLive2DPlatformView(
             }
             "setGlasses" -> {
                 glasses = call.argument<Boolean>("enabled") == true
-                companion.setGlassesEnabled(glasses)
+                applyGlassesTarget()
                 result.success(null)
             }
             "setAutoIdle" -> {
@@ -152,9 +152,16 @@ internal class SenLive2DPlatformView(
             emit("onModelMissing", mapOf("detail" to info.detail))
             return
         }
+        modelReady = false
+        appliedGlasses = false
         companion.loadModel(info.modelFile, info.expressions, true, outfit)
-        companion.setGlassesEnabled(glasses)
         companion.setEmotion(emotion)
+    }
+
+    private fun applyGlassesTarget() {
+        if (!modelReady || appliedGlasses == glasses) return
+        companion.applyExpression("glasses")
+        appliedGlasses = glasses
     }
 
     private fun handleStageInteraction(view: View, event: MotionEvent): Boolean {
@@ -233,7 +240,8 @@ internal class SenLive2DPlatformView(
         main.post {
             if (!disposed) {
                 repository.confirmPendingImport()
-                companion.setGlassesEnabled(glasses)
+                modelReady = true
+                applyGlassesTarget()
                 companion.setEmotion(emotion)
             }
         }
@@ -242,17 +250,13 @@ internal class SenLive2DPlatformView(
     }
 
     override fun onError(error: Throwable) {
+        modelReady = false
         emit("onError", mapOf("message" to (error.message ?: error.javaClass.simpleName)))
         diagnostic("error", trigger = "renderer")
         main.post {
             if (!disposed && repository.rollbackPendingImport()) loadCurrentModel()
         }
     }
-
-    override fun onHeadAnchor(normalizedX: Float, normalizedY: Float) = emit(
-        "onHeadAnchor",
-        mapOf("x" to normalizedX.toDouble(), "y" to normalizedY.toDouble()),
-    )
 
     private fun emit(method: String, arguments: Any?) {
         if (!disposed) main.post { if (!disposed) channel.invokeMethod(method, arguments) }
@@ -280,8 +284,6 @@ internal class SenLive2DPlatformView(
                 "preempt" to false,
                 "late_write" to false,
                 "usage_lane" to "local_presentation",
-                "composition_mode" to compositionMode,
-                "native_surface_view" to true,
             ),
         )
     }

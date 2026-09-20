@@ -147,6 +147,8 @@ class ConversationInitiativeAblationTelemetry {
     'none',
     'operation_retry',
     'operation_retry_salvage',
+    'grounded_reply_retry',
+    'grounded_reply_retry_degraded_pass',
   };
   static const _attributions = <String>{
     'matched',

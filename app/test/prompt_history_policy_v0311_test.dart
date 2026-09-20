@@ -62,4 +62,31 @@ void main() {
     expect(content, contains('2026-08-12 22:00'));
     expect(content, contains('你好'));
   });
+
+  test('legacy canned assistant lines stay stored but leave model history', () {
+    final recent = [
+      message(
+        id: 'u1',
+        role: 'user',
+        content: '想起什么事？',
+        at: DateTime(2026, 9, 21, 1, 0),
+      ),
+      message(
+        id: 'a1',
+        role: 'assistant',
+        content: '「我其实还没有去玩，只是又想起这件事了。」',
+        at: DateTime(2026, 9, 21, 1, 1),
+      ),
+    ];
+
+    final userHistory = PromptHistoryPolicy.userTurnHistory(recent);
+    expect(userHistory, hasLength(1));
+    expect(userHistory.single['content'], '想起什么事？');
+
+    final proactive =
+        PromptHistoryPolicy.proactiveHistoryTranscript(recent)['content']
+            as String;
+    expect(proactive, contains('想起什么事？'));
+    expect(proactive, isNot(contains('我其实还没有去玩')));
+  });
 }

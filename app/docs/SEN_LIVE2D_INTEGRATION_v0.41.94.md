@@ -5,7 +5,7 @@
 - Sen 来源：用户自有仓库 `catkiss62/Sen-Live2D-Companion-Android`，提交 `336b93af1d96e1dd85799faf3df966600c1224a7`。
 - Cubism Java Framework：该仓库锁定的官方子模块提交 `c2d420012d004b8e61d4c589bd5c34513122f0ea`；Framework 源码与 Sen 已验证补丁按原目录直接编译进同一 Android app。
 - v0.41.95 真机热修补齐该 Framework Android 模块的全部 36 个 `standardES` shader assets；源码门锁定其字节，Release 门再次检查成品 APK 内的完整路径与逐字节一致性。详见 `SEN_LIVE2D_SHADER_HOTFIX_v0.41.95.md`。
-- v0.41.96 在 renderer 已 ready 但真机仍呈黑色剪影后，将 Sen `GLSurfaceView` 从 Flutter 标准 `AndroidView` 纹理层改为强制原生 Hybrid Composition；不改 Sen 动作/渲染代码。详见 `SEN_LIVE2D_HYBRID_COMPOSITION_HOTFIX_v0.41.96.md`。
+- v0.41.96 曾把黑色剪影误判为合成问题并强制 Hybrid Composition，真机导致整个 Flutter 画面变黑；该路径已在 v0.41.98 回退。真实根因是漏迁 Sen 构建必需的 `cubism-java-no-mipmap.patch`，详见 `SEN_LIVE2D_DIRECT_PORT_v0.41.98.md`。
 - Cubism Core AAR SHA-256：`3f05da57ab855e803000e6353888dd561c47758598c6c0200dcd0109312705f8`。许可与可再分发清单位于 `docs/licenses/live2d/`。
 - 公开仓库不含 Sen 模型。模型 ZIP 只能由用户通过系统文件选择器导入 app-private 目录。
 
@@ -34,7 +34,7 @@
 
 现有 `normal + 19` 映射到 Sen 21 情绪：同名直接使用，`nervous → tense`、`crying → sad`、`embarrassed → ashamed`。`romantic_shy` 只在明确选择“脱”的外观时作为视觉演出，不写入消息 emotion、记忆、人格或欲望。
 
-现有 LingChat 情绪短音效继续由原链路一次触发；特效图仍由现有 `ChatEmotionVisual` 选择。Live2D 特效位置每 66ms 从 Sen 已校准的 `ArtMesh151` 动态呆毛根重心点读取，经过当帧 MVP 投影到 Flutter 舞台；锚点不可用时才回退到模型头部上方，不使用静态立绘的固定坐标。
+现有 LingChat 情绪短音效继续由原链路一次触发；特效图仍由现有 `ChatEmotionVisual` 选择。为了让 Sen 的 16 个主运行时文件保持与已验收仓库逐字节一致，特效图由 Flutter 使用固定舞台锚点，不再向 Sen Renderer/Model 增加动态头部锚点扩展。
 
 ## TTS 口型
 

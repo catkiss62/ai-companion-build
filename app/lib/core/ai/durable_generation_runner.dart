@@ -21,6 +21,7 @@ import '../emotion/emotion_contract.dart';
 import '../grounding/service_template_guard.dart';
 import '../grounding/information_seeking_question_guard.dart';
 import '../grounding/operational_claim_grounding_guard.dart';
+import '../grounding/recent_reply_repetition_guard.dart';
 import '../grounding/user_perspective_guard.dart';
 import '../integration/moe_shadow_coordinator.dart';
 import '../models/chat_language_variant.dart';
@@ -1294,6 +1295,15 @@ $finalGenerationReminder
         text: finalContent,
         currentToolResults: agentToolResults,
       );
+      var repetitionGuard = RecentReplyRepetitionGuard.evaluate(
+        text: finalContent,
+        recentAssistantTexts: recentAssistantTexts,
+      );
+      final initialGenerated = generated;
+      final initialEnvelope = envelope;
+      final initialFinalContent = finalContent;
+      final initialOperationGuard = operationGuard;
+      final initialRepetitionGuard = repetitionGuard;
       final questionGuard = InformationSeekingQuestionGuard.evaluate(
         text: finalContent,
         askAuthorized: conversationPlan.askAuthorized,
@@ -1325,27 +1335,39 @@ $finalGenerationReminder
         );
       }
 
-      if (!operationGuard.allowed) {
-        if (!finalProvider.isGeminiRelay) {
-          // Preserve the established DeepSeek-only behavior: one model retry
-          // gets a chance to repair a false operational claim.
-          ablationTransformation = 'operation_retry';
-          final correctionMessages = <Map<String, Object?>>[
-            ...finalRequestMessages,
-            {
-              'role': 'system',
-              'content': '''
-【事实声明修正 · ONE RETRY】
-上一份正文包含没有真实工具结果支持的可核验操作声明：${operationGuard.reason}。
+      if (!operationGuard.allowed || !repetitionGuard.allowed) {
+        // One model retry preserves the current user's actual conversation
+        // turn. A canned local replacement can be truthful yet erase the
+        // answer, then poison subsequent context through exact repetition.
+        final correctionReason = !operationGuard.allowed
+            ? operationGuard.reason
+            : repetitionGuard.reason;
+        ablationTransformation = 'grounded_reply_retry';
+        final correctionMessages = <Map<String, Object?>>[
+          ...finalRequestMessages,
+          {
+            'role': 'system',
+            'content': '''
+【事实与重复修正 · ONE RETRY】
+上一份正文不能提交，原因：$correctionReason。
+当前用户消息仍是前文最后一条真实 role=user 消息。
+必须重新回答当前用户消息，不能改成与问题无关的事实声明，也不能原样重复最近已经发送过的回复。
 所有“看过/查过/读取过系统、看见屏幕、调用/保存/修改/设置完成”的可核验操作报告，只能来自本轮匹配的真实成功工具结果。失败、无结果或阻止必须照实说；一次读取绝不能扩写成“一下午/半天/几小时”。没有结果时说尚未执行，或改为“我在想这件事”等真实主观体验。
 旧对话里的游戏场景和未完成事项不证明游戏仍在运行。没有本轮 Cedar 成功结果时，不得声称正在钓鱼、挂着鱼漂、漂没动或图鉴刚才没涨；应说还没有实际去玩，或只表达想玩的念头。
 真实上下文、Memory、Thought 或 Self Experience 可以说成“想起/又琢磨过某件具体的事”，但不能包装成并未发生的“翻了聊天记录/从头到尾看了一遍”。
 只修正事实，不修改语气、称呼、问题、动作、性格或自然停顿。
 $finalGenerationReminder
 '''.trim(),
-            },
-          ];
-          generated = await generateFinal(correctionMessages);
+          },
+        ];
+        try {
+          // A configured second channel is charged per request and is allowed
+          // exactly once for the visible reply. If that one result needs a
+          // factual/repetition repair, DeepSeek owns the single repair pass;
+          // never call the paid final provider a second time.
+          generated = finalProvider.isGeminiRelay
+              ? await generateCheckedDeepSeek(correctionMessages)
+              : await generateFinal(correctionMessages);
           effectiveCancellation.throwIfCancelled();
           envelope = EmotionEnvelope.parse(generated.content);
           finalContent = visibleBody(envelope);
@@ -1353,38 +1375,51 @@ $finalGenerationReminder
             text: finalContent,
             currentToolResults: agentToolResults,
           );
-          if (!operationGuard.allowed) {
-            ablationTransformation = 'operation_retry_salvage';
-            if (operationGuard.reason == 'ungrounded_cedar_live_state') {
-              finalContent = '「我其实还没有去玩，只是又想起这件事了。」';
-            } else {
-              final salvaged =
-                  OperationalClaimGroundingGuard.removeUnsupportedSentences(
-                text: finalContent,
-                currentToolResults: agentToolResults,
-              );
-              finalContent = salvaged.isNotEmpty
-                  ? salvaged
-                  : '「那件事我还没有真的执行，刚才说岔了。」';
-            }
+          repetitionGuard = RecentReplyRepetitionGuard.evaluate(
+            text: finalContent,
+            recentAssistantTexts: recentAssistantTexts,
+          );
+          final candidateSource = UserReplyLivenessPolicy.choose(
+            initialText: initialFinalContent,
+            correctedText: finalContent,
+            initialRepeated: !initialRepetitionGuard.allowed,
+            correctedRepeated: !repetitionGuard.allowed,
+          );
+          if (candidateSource == UserReplyCandidateSource.initial) {
+            generated = initialGenerated;
+            envelope = initialEnvelope;
+            finalContent = initialFinalContent;
+            operationGuard = initialOperationGuard;
+            repetitionGuard = initialRepetitionGuard;
+          } else if (finalProvider.isGeminiRelay) {
+            providerNotice = '第二通道回复未通过事实或重复校验，本轮已由 DeepSeek 自然重答。';
           }
-        } else {
-          // A fixed-price final lane must not silently make a second paid
-          // request for local factual cleanup. Remove only the unsupported
-          // sentences and keep the accepted Gemini voice intact.
-          ablationTransformation = 'operation_local_salvage';
-          if (operationGuard.reason == 'ungrounded_cedar_live_state') {
-            finalContent = '「我其实还没有去玩，只是又想起这件事了。」';
-          } else {
-            final salvaged =
-                OperationalClaimGroundingGuard.removeUnsupportedSentences(
-              text: finalContent,
-              currentToolResults: agentToolResults,
-            );
-            finalContent = salvaged.isNotEmpty
-                ? salvaged
-                : '「那件事我还没有真的执行，刚才说岔了。」';
+        } catch (error) {
+          if (error is GenerationCancelledByUserException ||
+              error is GenerationSuspendedByRuntimeGateException ||
+              error is GenerationSuspendedException) {
+            rethrow;
           }
+          // A failed optional repair must not erase a completed model answer.
+          // Keep the original natural speech and expose only an ordinary UI
+          // notice; do not insert local persona dialogue into chat/history/TTS.
+          generated = initialGenerated;
+          envelope = initialEnvelope;
+          finalContent = initialFinalContent;
+          operationGuard = initialOperationGuard;
+          repetitionGuard = initialRepetitionGuard;
+          ablationTransformation = 'grounded_reply_retry_unavailable_pass';
+          providerNotice = finalProvider.isGeminiRelay
+              ? '第二通道回复需要修正，但 DeepSeek 自然重答失败；本轮已保留原模型回复。'
+              : '回复自然重答失败；本轮已保留原模型回复。';
+        }
+        if (!operationGuard.allowed || !repetitionGuard.allowed) {
+          // User turns are reply-live: validation may request one natural
+          // rewrite, but it must never replace her voice with a canned line or
+          // silently turn a real user message into no response. If neither
+          // model candidate is perfect, prefer a non-repeated natural answer
+          // and record the degraded pass for diagnostics.
+          ablationTransformation = 'grounded_reply_retry_degraded_pass';
         }
         expressionVerification = ConversationOutcomeVerifier.verify(
           finalText: finalContent,
@@ -1393,9 +1428,14 @@ $finalGenerationReminder
         );
       }
       if (finalContent.trim().isEmpty) {
-        throw const FormatException('模型修正后正文为空');
+        // Defensive reply-liveness fence: the original model answer was
+        // already non-empty before correction, so never turn this user turn
+        // into silence if a provider returns an empty corrected body.
+        ablationTransformation = 'grounded_reply_retry_degraded_pass';
+        generated = initialGenerated;
+        envelope = initialEnvelope;
+        finalContent = initialFinalContent;
       }
-
       final companionEmotion = await emotionClassifier.resolve(
         rawTag: envelope.rawTag,
         visibleText: finalContent,

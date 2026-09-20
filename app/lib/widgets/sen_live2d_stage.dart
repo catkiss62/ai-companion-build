@@ -1,9 +1,6 @@
 import 'dart:async';
 
-import 'package:flutter/foundation.dart';
-import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
 
 import '../core/presentation/chat_visuals.dart';
@@ -204,7 +201,7 @@ class SenLive2DStage extends StatefulWidget {
 
 class SenLive2DStageState extends State<SenLive2DStage> {
   MethodChannel? _channel;
-  Offset _headAnchor = const Offset(.60, .09);
+  static const _effectAnchor = Offset(.60, .09);
   Timer? _effectTimer;
   bool _effectVisible = false;
   String _status = '正在启动 Sen Live2D…';
@@ -251,13 +248,6 @@ class SenLive2DStageState extends State<SenLive2DStage> {
       if (!mounted) return;
       final args = (call.arguments as Map?)?.cast<Object?, Object?>() ?? const {};
       switch (call.method) {
-        case 'onHeadAnchor':
-          final x = (args['x'] as num?)?.toDouble();
-          final y = (args['y'] as num?)?.toDouble();
-          if (x != null && y != null) {
-            setState(() => _headAnchor = Offset(x, y));
-          }
-          break;
         case 'onReady':
           setState(() {
             _status = args['detail']?.toString() ?? 'Sen Live2D 已就绪';
@@ -293,41 +283,15 @@ class SenLive2DStageState extends State<SenLive2DStage> {
   }
 
   Widget _buildNativeStage() {
-    const viewType = 'ai_companion/sen_live2d_view';
-    final creationParams = <String, Object?>{
-      'emotion': _senEmotion,
-      'outfit': widget.outfit,
-      'glasses': widget.glasses,
-      'compositionMode': 'forced_hybrid_composition',
-    };
-
-    // Sen owns a real GLSurfaceView. The standard
-    // AndroidView( constructor uses texture-layer composition, which can keep
-    // mesh alpha while losing sampled colour on some SurfaceView/Impeller/device
-    // combinations. Keep the native hierarchy used by the verified Sen app.
-    return PlatformViewLink(
-      viewType: viewType,
-      surfaceFactory: (context, controller) => AndroidViewSurface(
-        controller: controller as AndroidViewController,
-        gestureRecognizers:
-            const <Factory<OneSequenceGestureRecognizer>>{},
-        hitTestBehavior: PlatformViewHitTestBehavior.opaque,
-      ),
-      onCreatePlatformView: (params) {
-        final controller = PlatformViewsService.initExpensiveAndroidView(
-          id: params.id,
-          viewType: viewType,
-          layoutDirection: TextDirection.ltr,
-          creationParams: creationParams,
-          creationParamsCodec: const StandardMessageCodec(),
-          onFocus: () => params.onFocusChanged(true),
-        );
-        controller
-          ..addOnPlatformViewCreatedListener(params.onPlatformViewCreated)
-          ..addOnPlatformViewCreatedListener(_onPlatformViewCreated)
-          ..create();
-        return controller;
+    return AndroidView(
+      viewType: 'ai_companion/sen_live2d_view',
+      creationParams: <String, Object?>{
+        'emotion': _senEmotion,
+        'outfit': widget.outfit,
+        'glasses': widget.glasses,
       },
+      creationParamsCodec: const StandardMessageCodec(),
+      onPlatformViewCreated: _onPlatformViewCreated,
     );
   }
 
@@ -351,8 +315,8 @@ class SenLive2DStageState extends State<SenLive2DStage> {
               _buildNativeStage(),
               if (widget.emotion.effectAsset != null)
                 Positioned(
-                  left: constraints.maxWidth * _headAnchor.dx - extent / 2,
-                  top: constraints.maxHeight * _headAnchor.dy - extent * .20,
+                  left: constraints.maxWidth * _effectAnchor.dx - extent / 2,
+                  top: constraints.maxHeight * _effectAnchor.dy - extent * .20,
                   width: extent,
                   height: extent,
                   child: IgnorePointer(

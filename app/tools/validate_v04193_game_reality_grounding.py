@@ -37,15 +37,16 @@ require(
 )
 require(
     "lib/core/ai/durable_generation_runner.dart",
-    "ungrounded_cedar_live_state",
-    "我其实还没有去玩，只是又想起这件事了",
+    "UserReplyLivenessPolicy.choose",
+    "grounded_reply_retry_degraded_pass",
 )
 require(
     "lib/core/desire/proactive_engine.dart",
     "pendingGameThreadContract",
     "当前没有该游戏的 Cedar Outcome",
     "尚未实际去玩",
-    "我其实还没有去玩，只是又想起这件事了",
+    "removeUnsupportedSentences",
+    "return blockGrounding(operationGuard.reason)",
 )
 require(
     "lib/core/desire/proactive_selection_policy.dart",

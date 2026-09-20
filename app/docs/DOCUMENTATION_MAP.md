@@ -85,7 +85,8 @@
 
 - `SEN_LIVE2D_INTEGRATION_v0.41.94.md`：Sen 源码/版本锁定、单一 Cubism 所有权、安全模型导入、21 情绪、触摸、动态头部特效锚点与 AudioTrack 口型合同。
 - `SEN_LIVE2D_SHADER_HOTFIX_v0.41.95.md`：首次真机导入暴露的 Cubism `standardES` shader assets 漏打包根因、36 文件哈希锁定与成品 APK 逐字节校验。
-- `SEN_LIVE2D_HYBRID_COMPOSITION_HOTFIX_v0.41.96.md`：renderer 已 ready 但模型呈黑色剪影的真机证据，以及将 Sen `GLSurfaceView` 从标准 `AndroidView` 纹理层切换为强制原生 Hybrid Composition 的显示修复。
+- `SEN_LIVE2D_HYBRID_COMPOSITION_HOTFIX_v0.41.96.md`：保留 +240 强制 Hybrid Composition 的历史尝试与失败证据；该路径已由 +242 回退，不是当前实现。
+- `SEN_LIVE2D_DIRECT_PORT_v0.41.98.md`：记录 +240 Hybrid Composition 回退、Sen v0.5.23 主运行时字节级同步，以及遗漏 `cubism-java-no-mipmap.patch` 导致黑色剪影的真实根因与回归门。
 - `UI_INFORMATION_ARCHITECTURE_v1.md`：五域迁移；已吸收性格底色 UI 的唯一数据源约束。
 - `REPOSITORY_MAINTENANCE.md`：分支、总账滚动、统一 validator 清单、CI/资源与旧 Actions 的低风险维护边界。
 - `DOCUMENTATION_MAP.md`

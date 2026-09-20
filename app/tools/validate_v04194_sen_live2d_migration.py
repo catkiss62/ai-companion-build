@@ -86,14 +86,15 @@ require(
 )
 require(
     "android/app/src/main/java/com/catkiss/senlive2dcompanion/SenRenderer.java",
-    "dispatchHeadAnchor(now)",
-    "model.getDynamicHeadAnchor()",
-    "66_000_000L",
+    "screenToModelNormalized",
+    "setTouchTarget",
+    "releaseHeadPat",
 )
 require(
     "android/app/src/main/java/com/catkiss/senlive2dcompanion/SenLive2DModel.java",
-    "ahogeRootAnchor.currentPoint(model)",
-    "void setGlassesEnabled(boolean enabled)",
+    "ahogeRootAnchor",
+    "glassesEnabled",
+    "setExpression(String name)",
 )
 require(
     "android/app/src/main/kotlin/com/aicompanion/localfirst/WavAudioPlayer.kt",
@@ -119,7 +120,6 @@ require(
 require(
     "lib/widgets/sen_live2d_stage.dart",
     "AndroidView(",
-    "onHeadAnchor",
     "widget.emotion.effectAsset",
     "女仆装",
     "白衬衫",

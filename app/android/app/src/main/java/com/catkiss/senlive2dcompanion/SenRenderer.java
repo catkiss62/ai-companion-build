@@ -22,7 +22,6 @@ final class SenRenderer implements GLSurfaceView.Renderer {
         void onStatus(String status);
         void onReady(String detail);
         void onError(Throwable error);
-        void onHeadAnchor(float normalizedX, float normalizedY);
     }
 
     private static final String TAG = "SenNativeCubism";
@@ -52,7 +51,6 @@ final class SenRenderer implements GLSurfaceView.Renderer {
     private volatile float modelBoundsTop;
     private volatile float modelBoundsBottom;
     private volatile boolean modelBoundsValid;
-    private long lastHeadAnchorDispatchNanos;
 
     SenRenderer(Context context, Listener listener) {
         this.context = context.getApplicationContext();
@@ -148,10 +146,6 @@ final class SenRenderer implements GLSurfaceView.Renderer {
         if (model != null) model.selectOutfit(preset);
     }
 
-    void setGlassesEnabled(boolean enabled) {
-        if (model != null) model.setGlassesEnabled(enabled);
-    }
-
     @Override
     public void onSurfaceCreated(GL10 unused, EGLConfig config) {
         if (released) return;
@@ -228,26 +222,11 @@ final class SenRenderer implements GLSurfaceView.Renderer {
             projection.scaleRelative(stageScale, stageScale);
             projection.translateRelative(stageTranslateX, stageTranslateY);
             updateInteractionBounds();
-            dispatchHeadAnchor(now);
             model.draw(projection);
         } catch (Throwable error) {
             listener.onError(error);
             releaseCurrentModel();
         }
-    }
-
-    private void dispatchHeadAnchor(long nowNanos) {
-        if (nowNanos - lastHeadAnchorDispatchNanos < 66_000_000L) return;
-        float[] point = model.getDynamicHeadAnchor();
-        if (point == null) return;
-        float clipX = interactionMvp.transformX(point[0]);
-        float clipY = interactionMvp.transformY(point[1]);
-        float x = (clipX + 1.0f) * 0.5f;
-        float y = (1.0f - clipY) * 0.5f;
-        if (!Float.isFinite(x) || !Float.isFinite(y)) return;
-        lastHeadAnchorDispatchNanos = nowNanos;
-        listener.onHeadAnchor(Math.max(0.0f, Math.min(1.0f, x)),
-                Math.max(0.0f, Math.min(1.0f, y)));
     }
 
     private void updateInteractionBounds() {
