@@ -1,7 +1,7 @@
 status=success
-run_id=35509919804
-run_url=https://github.com/catkiss62/ai-companion-build/actions/runs/35509919804
-head_sha=0caa9382a472b53f574302064b387b527efae6df
+run_id=35521027339
+run_url=https://github.com/catkiss62/ai-companion-build/actions/runs/35521027339
+head_sha=eba2c185507743f1a50f5758e722f1d8a57b0bbd
 signer_sha256=30:5E:B3:D8:09:83:B9:63:C6:48:18:DD:F1:AD:56:1F:27:9D:E6:D4:7B:3E:D2:C7:81:AD:A4:48:C7:C2:51:48
-294b341ddc8354389717566aa83a7ed10bba6891f107f7df34f3bfd76c653cc2  AI-Companion-v0.41.93-237-Game-Reality-Grounding-APK.apk
-release_url=https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-556fbc6ba9ca27a924ee
+1b2376eb57fd8250fb5d8370ef7a1a03fb28e30e0176da059fdc71576e60d67c  AI-Companion-v0.41.94-238-Sen-Live2D-Migration-APK.apk
+release_url=https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-fae51abbecaf213a871f
