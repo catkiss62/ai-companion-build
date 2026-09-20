@@ -40,9 +40,9 @@
 | +228 远端 | head `29e87d016c8bd81f52f89f95191bd1a1a01a5b57`；tree `c4a112a56d8b634cf3a1a66636979a0833538b7d`；Actions `35440359036`；Artifact `10583263879`；APK SHA-256 `159e283173e49da2924d25b37ba7647893cdafdcc31b63f0e31b7c64e086849b` |
 | 仓库维护基线 | `maintenance/repository-governance-20260919`；远端文档 head `123e272196e8ae93f3518157917d76f6af4f1784`；完整构建 head `fa99f32012fa1a0716b746d36b958a8e777ef9b8`；Actions `35446649873` 全绿；文档-only run `35447342921` 正确跳过 APK |
 | 当前功能分支 | `agent/v04190-cedar-save-slots-custom-final-model`，从 +233 本地文档 head `1f69c27` 分出；候选版本 `v0.41.90+234` |
-| 当前任务状态 | `IMPLEMENTED LOCALLY / LOCAL STATIC VALIDATION PASSED / CI PENDING / TRUE DEVICE PENDING`；+232 已有 2 项真机通过、1 项持续观察，见 6.5 |
+| 当前任务状态 | `CI PASSED / APK READY / TRUE DEVICE PENDING`；+232 已有 2 项真机通过、1 项持续观察，见 6.5 |
 | +234 当前任务 | Cedar 五槽事实、已有/turn 0 存档续玩、已知空槽自主开档与破坏性覆盖确认边界；将固定玩游 Gemini 选项改为“`双模型（自定义最终回复）`”，地址/模型可编辑并以旧值预填；不改 schema、人格、疲劳、TTS 或内部 DeepSeek 通道 |
-| +234 远端 | `CI PENDING / APK PENDING`；构建、Artifact、Draft APK 与 SHA-256 待 Actions 回填 |
+| +234 远端 | 构建 head `16589fc8a88574f5a77f0731f8972e65fe990538`；tree `60060c335ba1b064c950ea97a5274bd5fa06f7b5`；Actions `35498575549` 全绿；Artifact `10601008319`；APK SHA-256 `38aadaa9ffb1f2ac3ddac85fffc9311f4c9c75950692130b7c29eee3fa9210f3` |
 | +233 当前任务 | 先修 Cedar Outcome Thought 的事件身份、一次分享与时间锚定；再做愿望单安全主题投影；最后只做语义等价的 DeepSeek 缓存观测/低风险优化。三部分独立提交与验证门，不改人格、疲劳、Cedar 玩法/循环所有权或 Gemini 按次回复链 |
 | +233 远端 | 构建 head `2892e67d91652b3d8cdec6a989c8467ed0193764`；tree `36747406e22a5accd35f879d7284a0d3370e5a7c`；Actions `35475970152` 全绿；Artifact `10593264636`；APK SHA-256 `ffe58c0dc10f145ec4ce91489478b3b9327304aab8aa1b39a02f58b13229f6e3` |
 | +232 目标 | 游戏厅“最近进展”窄面板复用“游戏活动”同款 Card 颜色；愿望单按安全主题表达并合并同主题活动愿望；登记 Cortico 低风险参考、唯一循环所有权与后续诊断护栏；不改 Agent 循环、疲劳、缓存、TTS、schema、世界书或人格 |
@@ -315,7 +315,7 @@ Actions 与交付证据：
 
 ### 6.7 v0.41.90+234 Cedar 五槽自主性与可配置最终回复通道（2026-09-20）
 
-状态：`IMPLEMENTED LOCALLY / LOCAL STATIC VALIDATION PASSED / CI PENDING / TRUE DEVICE PENDING`。
+状态：`CI PASSED / APK READY / TRUE DEVICE PENDING`。
 
 实现分支：`agent/v04190-cedar-save-slots-custom-final-model`。
 
@@ -337,6 +337,13 @@ Actions 与交付证据：
 本地验证：新增专项源码门、相关历史门、Workflow YAML 解析、Python 编译与 `git diff --check` 通过。完整 validator manifest 在仓库精简态运行到桌宠源码包门前均通过，随后按预期因 CI 才恢复的 417 文件桌宠源码包缺失而停止；本机没有 Flutter/Dart SDK，Flutter analyze/tests、Kotlin/JVM/Android tests、arm64 Release、签名与载荷检查必须由 GitHub Actions 判定。因此当前不得写 `CI PASSED / APK READY`。
 
 真机验收：进入已有瓶中生态 turn 0 档时应观察/继续，不再把它说成钓鱼串档；已知空槽可由她自主选择，新建已有槽时必须询问且未确认前不发送 `confirm:true`。模型设置应显示旧值预填，可修改地址和模型并通过连接测试；普通聊天与沉浸房间都应使用新模型，第二通道失败仍由内部 DeepSeek 兜底。兼容性边界是 OpenAI Chat Completions 风格接口，不保证任意非兼容协议仅靠改名字即可使用。
+
+Actions 与交付证据：
+
+- 首轮 run `35498239554` 在 Android/Kotlin 测试触发 Flutter Debug 编译时准确发现 `_execute` 未接收新增 `origin` 参数；修复只补齐 `runPlan → _execute → _cedarPlay` 的既有来源传递，没有放宽覆盖授权。修正后的远端 head `16589fc8a88574f5a77f0731f8972e65fe990538`、tree `60060c335ba1b064c950ea97a5274bd5fa06f7b5` 与本地候选逐字节一致，`main` 未修改。
+- 权威 Actions `35498575549` 全绿：116 个源码/历史门、Android/Kotlin 桌宠与悬浮层测试、Flutter analyze、874 项 Flutter tests、arm64 Release、稳定签名、Genie/桌宠/LingChat/塔罗载荷、Artifact 与 Draft 上传均成功。
+- Artifact `10601008319`，名称 `AI-Companion-v0.41.90-234-Cedar-Save-Slots-Custom-Final-Model-APK`，大小 `538,070,111` bytes，ZIP digest `980612367c76ef21a6dd4c06ba72057d296084fc8289bbd6e7a322fcf49cb901`。
+- Draft Release `392355306` 为未发布地址 `https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-dde0b23c877ee349a101`；APK asset `576421689`，大小 `544,947,946` bytes，SHA-256 `38aadaa9ffb1f2ac3ddac85fffc9311f4c9c75950692130b7c29eee3fa9210f3`。稳定测试签名仍为 `30:5E:B3:D8:09:83:B9:63:C6:48:18:DD:F1:AD:56:1F:27:9D:E6:D4:7B:3E:D2:C7:81:AD:A4:48:C7:C2:51:48`。
 
 ## 7. 历史验证兼容摘要
 
