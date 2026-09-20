@@ -32,6 +32,15 @@ void main() {
     });
   });
 
+  test('NSFW presentation uses visual-only romantic shy in every outfit', () {
+    for (final outfit in senLive2DOutfitKeys.where((it) => it != 'undressed')) {
+      expect(
+        senLive2DEmotionFor('happy', outfit: outfit, nsfwActive: true),
+        'romantic_shy',
+      );
+    }
+  });
+
   test('unknown presentation values fall back without inventing truth', () {
     expect(senLive2DEmotionFor('unknown', outfit: 'maid'), 'normal');
   });

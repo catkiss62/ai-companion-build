@@ -29,10 +29,15 @@ const senLive2DOutfitKeys = <String>{
   'undressed',
 };
 
-/// Maps the existing AI Companion presentation envelope to Sen's stable IDs.
-/// `romantic_shy` remains a visual-only state for the explicit undressed view.
-String senLive2DEmotionFor(String chatEmotionKey, {required String outfit}) {
-  if (outfit == 'undressed') return 'romantic_shy';
+/// Maps AI Companion's 19 semantic emotions plus the presentation-only normal
+/// state to Sen's matching 20 stable IDs. `romantic_shy` is the single extra
+/// Sen state and is reserved for the explicit undressed or NSFW presentation.
+String senLive2DEmotionFor(
+  String chatEmotionKey, {
+  required String outfit,
+  bool nsfwActive = false,
+}) {
+  if (outfit == 'undressed' || nsfwActive) return 'romantic_shy';
   final mapped = switch (chatEmotionKey.trim().toLowerCase()) {
     'nervous' => 'tense',
     'crying' => 'sad',

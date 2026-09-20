@@ -95,8 +95,9 @@ publish_to: 'none'
 # Historical validator token: version: 0.41.95+239
 # Historical validator token: version: 0.41.96+240
 # Historical validator token: version: 0.41.97+241
-# v0.41.98+242 build candidate: Sen direct port and natural reply liveness.
-version: 0.41.98+242
+# Historical validator token: version: 0.41.98+242
+# v0.41.99+243 build candidate: Sen product integration and interaction closure.
+version: 0.41.99+243
 
 environment:
   sdk: '>=3.12.0 <4.0.0'

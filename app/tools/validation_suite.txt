@@ -126,3 +126,4 @@ tools/validate_v04195_sen_shader_assets.py
 tools/validate_v04196_sen_hybrid_composition.py
 tools/validate_v04197_natural_reply_liveness.py
 tools/validate_v04198_sen_direct_port.py
+tools/validate_v04199_sen_product_integration.py

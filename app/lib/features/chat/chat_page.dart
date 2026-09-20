@@ -1,6 +1,8 @@
 import 'dart:async';
 import 'dart:io';
+import 'dart:math' as math;
 
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart' show ScrollDirection;
 import 'package:flutter/services.dart' show PlatformException;
@@ -81,6 +83,9 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
   bool _senLive2DEnabled = false;
   String _senOutfit = 'maid';
   bool _senGlasses = false;
+  double _senScale = 1.0;
+  Offset _senOffset = Offset.zero;
+  bool _senAdjustmentEnabled = false;
   SenLive2DStatus? _senStatus;
   final GlobalKey<SenLive2DStageState> _senStageKey =
       GlobalKey<SenLive2DStageState>();
@@ -116,6 +121,9 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
     // explicitly opens the window again.
     unawaited(CedarToyActivityStore(AppDatabase.instance).endViewing());
     WidgetsBinding.instance.addObserver(this);
+    GestureBinding.instance.pointerRouter.addGlobalRoute(
+      _handleGlobalPointerEvent,
+    );
     controller.addListener(_onChanged);
     _initializeController();
   }
@@ -199,6 +207,29 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
       if (!controller.analyzingImage) {
         unawaited(controller.syncExternalMessages());
       }
+    } else if (oldWidget.active && !widget.active) {
+      _senStageKey.currentState?.lookAtGlobal(Offset.zero, active: false);
+    }
+  }
+
+  void _handleGlobalPointerEvent(PointerEvent event) {
+    if (!mounted ||
+        !_appResumed ||
+        !widget.active ||
+        !_senLive2DEnabled ||
+        _senAdjustmentEnabled) {
+      return;
+    }
+    if (event is PointerDownEvent || event is PointerMoveEvent) {
+      _senStageKey.currentState?.lookAtGlobal(
+        event.position,
+        active: true,
+      );
+    } else if (event is PointerUpEvent || event is PointerCancelEvent) {
+      _senStageKey.currentState?.lookAtGlobal(
+        event.position,
+        active: false,
+      );
     }
   }
 
@@ -360,6 +391,20 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
       _senOutfit = 'maid';
     }
     _senGlasses = (await db.getSetting('sen_live2d_glasses')) == '1';
+    _senScale = (double.tryParse(
+              await db.getSetting('sen_live2d_scale') ?? '',
+            ) ??
+            1.0)
+        .clamp(0.35, 6.0)
+        .toDouble();
+    _senOffset = Offset(
+      (double.tryParse(await db.getSetting('sen_live2d_offset_x') ?? '') ?? 0)
+          .clamp(-1.5, 1.5)
+          .toDouble(),
+      (double.tryParse(await db.getSetting('sen_live2d_offset_y') ?? '') ?? 0)
+          .clamp(-1.5, 1.5)
+          .toDouble(),
+    );
     try {
       _senStatus = await SenLive2DService.status();
     } catch (_) {
@@ -454,6 +499,32 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
       'sen_live2d_glasses',
       enabled ? '1' : '0',
     );
+  }
+
+  Future<void> _finishSenAdjustment() async {
+    if (mounted) setState(() => _senAdjustmentEnabled = false);
+    await Future.wait([
+      AppDatabase.instance.setSetting(
+        'sen_live2d_scale',
+        _senScale.toStringAsFixed(4),
+      ),
+      AppDatabase.instance.setSetting(
+        'sen_live2d_offset_x',
+        _senOffset.dx.toStringAsFixed(4),
+      ),
+      AppDatabase.instance.setSetting(
+        'sen_live2d_offset_y',
+        _senOffset.dy.toStringAsFixed(4),
+      ),
+    ]);
+  }
+
+  void _resetSenTransform() {
+    if (!mounted) return;
+    setState(() {
+      _senScale = 1.0;
+      _senOffset = Offset.zero;
+    });
   }
 
   Future<void> _importSenModel() async {
@@ -570,6 +641,9 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     _appResumed = state == AppLifecycleState.resumed;
+    if (!_appResumed) {
+      _senStageKey.currentState?.lookAtGlobal(Offset.zero, active: false);
+    }
     if (_appResumed &&
         widget.active &&
         !controller.analyzingImage) {
@@ -581,6 +655,9 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
+    GestureBinding.instance.pointerRouter.removeGlobalRoute(
+      _handleGlobalPointerEvent,
+    );
     _externalSyncTimer?.cancel();
     _composerToolsOverlay?.remove();
     _composerToolsOverlay = null;
@@ -1347,6 +1424,14 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
             builder: (context, constraints) {
               final fraction = _visualStageEnabled ? _panelFraction : 1.0;
               final panelHeight = constraints.maxHeight * fraction;
+              final keyboardInset = MediaQuery.viewInsetsOf(context).bottom;
+              final panelAvailable = math.max(
+                0.0,
+                constraints.maxHeight - keyboardInset,
+              );
+              final visiblePanelHeight = keyboardInset > 0
+                  ? math.min(panelHeight, panelAvailable)
+                  : panelHeight;
               return Stack(
                 fit: StackFit.expand,
                 children: [
@@ -1365,6 +1450,20 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
                               emotion: _currentEmotion,
                               outfit: _senOutfit,
                               glasses: _senGlasses,
+                              nsfwActive: controller.nsfwActive,
+                              transform: ChatPortraitTransform(
+                                scale: _senScale,
+                                offset: _senOffset,
+                              ),
+                              adjustmentEnabled: _senAdjustmentEnabled,
+                              onTransformChanged: (transform) {
+                                setState(() {
+                                  _senScale = transform.scale;
+                                  _senOffset = transform.offset;
+                                });
+                              },
+                              onAdjustmentDone: _finishSenAdjustment,
+                              onTransformReset: _resetSenTransform,
                               animationToken: latestAssistantId,
                             )
                           : IgnorePointer(
@@ -1383,8 +1482,8 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
                   Positioned(
                     left: 0,
                     right: 0,
-                    bottom: 0,
-                    height: panelHeight,
+                    bottom: keyboardInset,
+                    height: visiblePanelHeight,
                     child: DecoratedBox(
                       decoration: BoxDecoration(
                         color: Theme.of(context)
@@ -1483,7 +1582,7 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
                     Positioned(
                       left: 0,
                       right: 0,
-                      bottom: panelHeight - 13,
+                      bottom: keyboardInset + visiblePanelHeight - 13,
                       child: Center(
                         child: GestureDetector(
                           behavior: HitTestBehavior.opaque,
@@ -1837,6 +1936,19 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
                           onChanged: (value) async {
                             await _setSenGlasses(value);
                             setPanelState(() {});
+                          },
+                        ),
+                        ListTile(
+                          contentPadding: EdgeInsets.zero,
+                          leading: const Icon(Icons.zoom_out_map_rounded),
+                          title: const Text('调整 Live2D 位置与大小'),
+                          subtitle: Text(
+                            '当前 ${(_senScale * 100).round()}% · 单指移动，双指缩放',
+                          ),
+                          trailing: const Icon(Icons.chevron_right_rounded),
+                          onTap: () {
+                            Navigator.pop(dialogContext);
+                            setState(() => _senAdjustmentEnabled = true);
                           },
                         ),
                         ListTile(
@@ -2235,6 +2347,10 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
                   const SizedBox(height: 8),
                   SenLive2DQuickControls(
                     onChanged: _loadVisualSettings,
+                    onAdjust: () {
+                      Navigator.pop(dialogContext);
+                      setState(() => _senAdjustmentEnabled = true);
+                    },
                   ),
                   const Divider(height: 26),
                   _QuickPanelTile(

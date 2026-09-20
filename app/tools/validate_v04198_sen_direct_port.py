@@ -27,10 +27,14 @@ def require(name: str, *tokens: str) -> None:
     assert not missing, f"{name}: missing {missing}"
 
 
-require("pubspec.yaml", "version: 0.41.98+242")
-require("lib/core/agent/agent_self_reader.dart", "v0.41.98+242")
-require("lib/core/mcp/mcp_http_client.dart", "'version': '0.41.98'")
-require("test/agent_self_reader_v0416_test.dart", "build=v0.41.98+242 schema=61")
+require("pubspec.yaml", "version: 0.41.98+242", "version: 0.41.99+243")
+require("lib/core/agent/agent_self_reader.dart", "v0.41.98+242", "v0.41.99+243")
+require("lib/core/mcp/mcp_http_client.dart", "'version': '0.41.98'", "'version': '0.41.99'")
+require(
+    "test/agent_self_reader_v0416_test.dart",
+    "build=v0.41.98+242 schema=61",
+    "build=v0.41.99+243 schema=61",
+)
 
 sen_dir = path("android/app/src/main/java/com/catkiss/senlive2dcompanion")
 sen_files = sorted(sen_dir.glob("*.java"))

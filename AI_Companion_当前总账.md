@@ -39,8 +39,9 @@
 | 功能状态 | `CI PASSED / APK READY / TRUE DEVICE PENDING` |
 | +228 远端 | head `29e87d016c8bd81f52f89f95191bd1a1a01a5b57`；tree `c4a112a56d8b634cf3a1a66636979a0833538b7d`；Actions `35440359036`；Artifact `10583263879`；APK SHA-256 `159e283173e49da2924d25b37ba7647893cdafdcc31b63f0e31b7c64e086849b` |
 | 仓库维护基线 | `maintenance/repository-governance-20260919`；远端文档 head `123e272196e8ae93f3518157917d76f6af4f1784`；完整构建 head `fa99f32012fa1a0716b746d36b958a8e777ef9b8`；Actions `35446649873` 全绿；文档-only run `35447342921` 正确跳过 APK |
-| 当前功能分支 | `agent/v04198-sen-texture-direct-port`，承接本地 +241；候选版本 `v0.41.98+242` |
-| 当前任务状态 | `CI PASSED / APK READY / TRUE DEVICE PENDING`；+241 两处固定人格兜底与Gemini最终回复每轮最多一次已收口；+242 已回退 +240 Hybrid Composition，并补齐 Sen 稳定构建遗漏的无 mipmap Framework 补丁，见 6.15 |
+| 当前功能分支 | `agent/v04199-sen-product-integration`，承接已验证 +242；候选版本 `v0.41.99+243` |
+| 当前任务状态 | `IMPLEMENTED LOCALLY / LOCAL STATIC VALIDATION PASSED / CI PENDING / TRUE DEVICE PENDING`；+243 已把 Sen 测试壳能力收口为 AI 伴侣产品界面，见 6.16 |
+| +243 当前任务 | 启动只加载服装而不批量启用全部原生预设；只显示三套服装、脱与眼镜；20 种聊天情绪接入，脱/NSFW 使用 `romantic_shy`；原生待机、摸头/彩蛋和当前 PCM TTS 口型保留；人物与特效共用位置/缩放；Flutter 全局触点驱动视线；输入法只挪动聊天面板，不改变 Live2D 原生表面尺寸 |
 | +242 当前任务 | 不允许任何本地固定台词以她的身份替代模型回复；用户轮不能被校验器吞成空回复，主动轮可不发送；Sen `main@336b93a` 只读，AI 内的 16 个 Sen 主运行时文件逐字节一致，唯一 Framework 差异只能是 Sen 原始 `cubism-java-no-mipmap.patch` |
 | +240 真机结论 | `PlatformViewLink + AndroidViewSurface + initExpensiveAndroidView` 没有修复黑色剪影，反而使整个 Flutter 合成画面变黑；该方向已在 +242 回退。复核 Sen 构建流程后确认 +239 黑色剪影根因是移植时漏掉 `cubism-java-no-mipmap.patch` |
 | +240 失败路线 | 仅保留历史证据；当前生产舞台不得出现 `PlatformViewLink`、`AndroidViewSurface`、`initExpensiveAndroidView` 或 `forced_hybrid_composition` |
@@ -600,6 +601,23 @@ Actions 与交付证据：
 - 不修改 Sen 仓库、581项外观、21情绪/动作、四套服装、原生物理、呆毛、兔耳、尾巴、摸头和TTS 90%口型；模型继续只从用户本机ZIP导入。
 - 不修改 Cedar 循环、人格、欲望、记忆、TTS声学模型、悬浮桌宠、`main`或正式Release。
 - CI/APK通过后仍是 `TRUE DEVICE PENDING`；真机必须确认彩色纹理、透明背景、聊天层级、触摸/摸头、待机、服装/眼镜、TTS口型以及反复进入/退出。
+
+### 6.16 v0.41.99+243 Sen 正式产品接入收口（2026-09-21）
+
+状态：`IMPLEMENTED LOCALLY / LOCAL STATIC VALIDATION PASSED / CI PENDING / TRUE DEVICE PENDING`。
+
+实现分支：`agent/v04199-sen-product-integration`。
+
+根因与实现：
+
+1. AI 薄桥错误调用带 `startupExpressions` 的重载，把 ZIP 中全部表达、预设和道具在启动时启用；现改为 Sen 稳定工程同款 `loadModel(info.modelFile, true, outfit)`。产品只公开女仆、白衬衫、兔女郎、脱与眼镜。
+2. 原生程序动作作为一次性表现保留在隐藏桥接层；原生预设/道具作为装扮式持续状态保留且不展示。未来接入必须同时定义开始与结束/取消时机，例如“载入中”在思考开始启用，在成功、失败、取消或结束时关闭。
+3. 19 个非中性聊天情绪加 `normal` 共 20 种接到 Sen；脱或 NSFW 使用额外 `romantic_shy`。既有 Flutter 情绪动画和音效不变。
+4. 位置/大小使用单指移动和双指缩放，人物通过 Sen 原生 `setStageTransform` 变换，外部特效共享同一 scale/offset；摸头仍走 `screenToModelNormalized`，所以跟随人物。标准 `AndroidView` 与无 mipmap 补丁保持。
+5. `ChatPage` 的 Flutter 全局触点驱动既有视线接口，覆盖聊天框、按钮和其他 Flutter 页面；输入法属于独立系统窗口，无法可靠读取键盘触点，不伪造。根 Scaffold 不自动压缩舞台，只按 `viewInsets` 移动聊天面板，避免人物变形。
+6. 自主待机、摸头和 10% 困惑彩蛋保留；现有 `WavAudioPlayer` 继续以实际 PCM RMS 驱动口型，不迁入 Sen 系统 TTS 测试。
+
+验证：125 个 validator 中 122 个通过；仅 417 文件桌宠源码、LingChat effects 与 `kotlinc` 三个既有门因精简工作区缺少 CI 恢复资源/工具而失败。+243/+242/+241 专项门、+240 回退门、总账门、Workflow YAML、Python 编译和 `git diff --check` 通过；完整 Flutter/Kotlin/Release 交由 Actions。Sen 仓库保持独立且未修改。真机覆盖服装/眼镜、20 情绪、NSFW/脱羞涩、位置缩放、特效/摸头跟随、待机、TTS 口型、全页视线和输入法不变形。
 
 ## 7. 历史验证兼容摘要
 

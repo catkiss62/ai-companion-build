@@ -6,6 +6,7 @@ import 'package:flutter/services.dart';
 import '../core/presentation/chat_visuals.dart';
 import '../core/presentation/sen_live2d_presentation.dart';
 import '../core/database/app_database.dart';
+import 'chat_portrait_stage.dart';
 
 class SenLive2DService {
   SenLive2DService._();
@@ -45,9 +46,14 @@ class SenLive2DStatus {
 }
 
 class SenLive2DQuickControls extends StatefulWidget {
-  const SenLive2DQuickControls({super.key, this.onChanged});
+  const SenLive2DQuickControls({
+    super.key,
+    this.onChanged,
+    this.onAdjust,
+  });
 
   final Future<void> Function()? onChanged;
+  final VoidCallback? onAdjust;
 
   @override
   State<SenLive2DQuickControls> createState() =>
@@ -159,6 +165,15 @@ class _SenLive2DQuickControlsState extends State<SenLive2DQuickControls> {
                   await _changed();
                 },
               ),
+              if (widget.onAdjust != null)
+                ListTile(
+                  contentPadding: EdgeInsets.zero,
+                  leading: const Icon(Icons.zoom_out_map_rounded),
+                  title: const Text('调整位置与大小'),
+                  subtitle: const Text('进入舞台后单指移动、双指缩放'),
+                  trailing: const Icon(Icons.chevron_right_rounded),
+                  onTap: widget.onAdjust,
+                ),
               ListTile(
                 contentPadding: EdgeInsets.zero,
                 leading: const Icon(Icons.folder_zip_rounded),
@@ -185,6 +200,12 @@ class SenLive2DStage extends StatefulWidget {
     required this.emotion,
     required this.outfit,
     required this.glasses,
+    required this.nsfwActive,
+    required this.transform,
+    this.adjustmentEnabled = false,
+    this.onTransformChanged,
+    this.onAdjustmentDone,
+    this.onTransformReset,
     this.animationToken,
     this.showEffect = true,
   });
@@ -192,6 +213,12 @@ class SenLive2DStage extends StatefulWidget {
   final ChatEmotionVisual emotion;
   final String outfit;
   final bool glasses;
+  final bool nsfwActive;
+  final ChatPortraitTransform transform;
+  final bool adjustmentEnabled;
+  final ValueChanged<ChatPortraitTransform>? onTransformChanged;
+  final VoidCallback? onAdjustmentDone;
+  final VoidCallback? onTransformReset;
   final Object? animationToken;
   final bool showEffect;
 
@@ -206,10 +233,14 @@ class SenLive2DStageState extends State<SenLive2DStage> {
   bool _effectVisible = false;
   String _status = '正在启动 Sen Live2D…';
   bool _modelMissing = false;
+  double _gestureStartScale = 1;
+  Offset _gestureStartOffset = Offset.zero;
+  Offset _gestureStartFocal = Offset.zero;
 
   String get _senEmotion => senLive2DEmotionFor(
         widget.emotion.key,
         outfit: widget.outfit,
+        nsfwActive: widget.nsfwActive,
       );
 
   @override
@@ -217,6 +248,7 @@ class SenLive2DStageState extends State<SenLive2DStage> {
     super.didUpdateWidget(oldWidget);
     if (widget.emotion.key != oldWidget.emotion.key ||
         widget.outfit != oldWidget.outfit ||
+        widget.nsfwActive != oldWidget.nsfwActive ||
         widget.animationToken != oldWidget.animationToken) {
       unawaited(_invoke('setEmotion', {'emotion': _senEmotion}));
       _showEffect();
@@ -227,9 +259,38 @@ class SenLive2DStageState extends State<SenLive2DStage> {
     if (widget.glasses != oldWidget.glasses) {
       unawaited(_invoke('setGlasses', {'enabled': widget.glasses}));
     }
+    if (widget.transform.scale != oldWidget.transform.scale ||
+        widget.transform.offset != oldWidget.transform.offset) {
+      unawaited(_invoke('setStageTransform', {
+        'scale': widget.transform.scale,
+        'offsetX': widget.transform.offset.dx,
+        'offsetY': widget.transform.offset.dy,
+      }));
+    }
   }
 
   void listen() => unawaited(_invoke('listen'));
+
+  /// Routes any Flutter-visible App touch to Sen's existing look target. System
+  /// keyboard touches live in a separate Android window and never reach this
+  /// Flutter pointer route, so they are deliberately not guessed.
+  void lookAtGlobal(Offset globalPosition, {required bool active}) {
+    if (widget.adjustmentEnabled) return;
+    final renderObject = context.findRenderObject();
+    if (renderObject is! RenderBox || !renderObject.hasSize) return;
+    if (!active) {
+      unawaited(_invoke('setLookTarget', const {'active': false}));
+      return;
+    }
+    final local = renderObject.globalToLocal(globalPosition);
+    final x = (local.dx / renderObject.size.width).clamp(0.0, 1.0);
+    final y = (local.dy / renderObject.size.height).clamp(0.0, 1.0);
+    unawaited(_invoke('setLookTarget', {
+      'active': true,
+      'x': x * 2 - 1,
+      'y': 1 - y * 2,
+    }));
+  }
 
   Future<void> reloadModel() => _invoke('reloadModel');
 
@@ -289,6 +350,9 @@ class SenLive2DStageState extends State<SenLive2DStage> {
         'emotion': _senEmotion,
         'outfit': widget.outfit,
         'glasses': widget.glasses,
+        'scale': widget.transform.scale,
+        'offsetX': widget.transform.offset.dx,
+        'offsetY': widget.transform.offset.dy,
       },
       creationParamsCodec: const StandardMessageCodec(),
       onPlatformViewCreated: _onPlatformViewCreated,
@@ -308,6 +372,16 @@ class SenLive2DStageState extends State<SenLive2DStage> {
     return LayoutBuilder(
       builder: (context, constraints) {
         final extent = constraints.maxWidth * .5;
+        final effectScale = widget.transform.scale;
+        final effectExtent = extent * effectScale;
+        final effectX = (0.5 +
+                (_effectAnchor.dx - 0.5) * effectScale +
+                widget.transform.offset.dx) *
+            constraints.maxWidth;
+        final effectY = (0.5 +
+                (_effectAnchor.dy - 0.5) * effectScale +
+                widget.transform.offset.dy) *
+            constraints.maxHeight;
         return ClipRect(
           child: Stack(
             fit: StackFit.expand,
@@ -315,10 +389,10 @@ class SenLive2DStageState extends State<SenLive2DStage> {
               _buildNativeStage(),
               if (widget.emotion.effectAsset != null)
                 Positioned(
-                  left: constraints.maxWidth * _effectAnchor.dx - extent / 2,
-                  top: constraints.maxHeight * _effectAnchor.dy - extent * .20,
-                  width: extent,
-                  height: extent,
+                  left: effectX - effectExtent / 2,
+                  top: effectY - effectExtent * .20,
+                  width: effectExtent,
+                  height: effectExtent,
                   child: IgnorePointer(
                     child: AnimatedOpacity(
                       opacity: _effectVisible ? 1 : 0,
@@ -329,6 +403,37 @@ class SenLive2DStageState extends State<SenLive2DStage> {
                         gaplessPlayback: true,
                       ),
                     ),
+                  ),
+                ),
+              if (widget.adjustmentEnabled)
+                Positioned.fill(
+                  child: GestureDetector(
+                    behavior: HitTestBehavior.opaque,
+                    onScaleStart: (details) {
+                      _gestureStartScale = widget.transform.scale;
+                      _gestureStartOffset = widget.transform.offset;
+                      _gestureStartFocal = details.localFocalPoint;
+                    },
+                    onScaleUpdate: (details) {
+                      final delta = details.localFocalPoint - _gestureStartFocal;
+                      widget.onTransformChanged?.call(
+                        ChatPortraitTransform(
+                          scale: (_gestureStartScale * details.scale)
+                              .clamp(0.35, 6.0)
+                              .toDouble(),
+                          offset: Offset(
+                            (_gestureStartOffset.dx +
+                                    delta.dx / constraints.maxWidth)
+                                .clamp(-1.5, 1.5)
+                                .toDouble(),
+                            (_gestureStartOffset.dy +
+                                    delta.dy / constraints.maxHeight)
+                                .clamp(-1.5, 1.5)
+                                .toDouble(),
+                          ),
+                        ),
+                      );
+                    },
                   ),
                 ),
               if (_modelMissing)
@@ -346,6 +451,42 @@ class SenLive2DStageState extends State<SenLive2DStage> {
                           _status,
                           textAlign: TextAlign.center,
                           style: const TextStyle(color: Colors.white),
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              if (widget.adjustmentEnabled)
+                Positioned(
+                  left: 12,
+                  right: 12,
+                  top: 12,
+                  child: SafeArea(
+                    bottom: false,
+                    child: DecoratedBox(
+                      decoration: const BoxDecoration(
+                        color: Color(0xB3000000),
+                        borderRadius: BorderRadius.all(Radius.circular(12)),
+                      ),
+                      child: Padding(
+                        padding: const EdgeInsets.fromLTRB(12, 6, 6, 6),
+                        child: Row(
+                          children: [
+                            Expanded(
+                              child: Text(
+                                '单指移动 · 双指缩放 · ${(widget.transform.scale * 100).round()}%',
+                                style: const TextStyle(color: Colors.white),
+                              ),
+                            ),
+                            TextButton(
+                              onPressed: widget.onTransformReset,
+                              child: const Text('还原'),
+                            ),
+                            FilledButton.tonal(
+                              onPressed: widget.onAdjustmentDone,
+                              child: const Text('完成'),
+                            ),
+                          ],
                         ),
                       ),
                     ),

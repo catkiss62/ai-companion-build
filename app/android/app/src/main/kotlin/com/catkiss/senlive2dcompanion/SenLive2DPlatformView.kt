@@ -49,6 +49,9 @@ internal class SenLive2DPlatformView(
     private var appliedGlasses = false
     private var modelReady = false
     private var emotion = creationArgs?.get("emotion")?.toString().orEmpty().ifBlank { "normal" }
+    private var stageScale = (creationArgs?.get("scale") as? Number)?.toFloat()?.coerceIn(.35f, 6f) ?: 1f
+    private var stageOffsetX = (creationArgs?.get("offsetX") as? Number)?.toFloat()?.coerceIn(-1.5f, 1.5f) ?: 0f
+    private var stageOffsetY = (creationArgs?.get("offsetY") as? Number)?.toFloat()?.coerceIn(-1.5f, 1.5f) ?: 0f
     private var pointerId = -1
     private var headPatCandidate = false
     private var headPatTriggered = false
@@ -63,6 +66,7 @@ internal class SenLive2DPlatformView(
         channel.setMethodCallHandler(this)
         companion.setListener(this)
         companion.setTouchFollowEnabled(true)
+        applyStageTransform()
         companion.setOnTouchListener(::handleStageInteraction)
         root.addView(companion, FrameLayout.LayoutParams(-1, -1))
         SenLive2DRuntime.attach(this)
@@ -97,7 +101,32 @@ internal class SenLive2DPlatformView(
                 result.success(null)
             }
             "playAction" -> {
+                // Program actions are one-shot performances. They finish on their authored
+                // timeline and must never be treated as persistent appearance state.
                 companion.playAction(call.argument<String>("action").orEmpty())
+                result.success(null)
+            }
+            "toggleNativePreset" -> {
+                // ZIP expressions/props are dressing-style state: one call enables them and a
+                // later call toggles them off. Future dialogue bindings must define both the
+                // start and cancellation moment (for example Loading while thinking, then
+                // toggle Loading off when thinking ends). No current product UI calls this.
+                companion.applyExpression(call.argument<String>("preset").orEmpty())
+                result.success(null)
+            }
+            "resetNativePresets" -> {
+                companion.resetNativePresets()
+                appliedGlasses = false
+                applyGlassesTarget()
+                result.success(null)
+            }
+            "playNativeMotion" -> {
+                // Authored native motions are also one-shot performances.
+                companion.playNativeMotion(call.argument<String>("motion").orEmpty())
+                result.success(null)
+            }
+            "stopNativeMotion" -> {
+                companion.stopNativeMotion()
                 result.success(null)
             }
             "setOutfit" -> {
@@ -116,6 +145,25 @@ internal class SenLive2DPlatformView(
             }
             "setSpeechAmplitude" -> {
                 companion.setSpeechAmplitude((call.argument<Number>("amplitude")?.toFloat() ?: 0f))
+                result.success(null)
+            }
+            "setLookTarget" -> {
+                val active = call.argument<Boolean>("active") == true
+                companion.setLookTarget(
+                    active,
+                    (call.argument<Number>("x")?.toFloat() ?: 0f).coerceIn(-1f, 1f),
+                    (call.argument<Number>("y")?.toFloat() ?: 0f).coerceIn(-1f, 1f),
+                )
+                result.success(null)
+            }
+            "setStageTransform" -> {
+                stageScale = (call.argument<Number>("scale")?.toFloat() ?: 1f)
+                    .coerceIn(.35f, 6f)
+                stageOffsetX = (call.argument<Number>("offsetX")?.toFloat() ?: 0f)
+                    .coerceIn(-1.5f, 1.5f)
+                stageOffsetY = (call.argument<Number>("offsetY")?.toFloat() ?: 0f)
+                    .coerceIn(-1.5f, 1.5f)
+                applyStageTransform()
                 result.success(null)
             }
             "listen" -> {
@@ -154,8 +202,17 @@ internal class SenLive2DPlatformView(
         }
         modelReady = false
         appliedGlasses = false
-        companion.loadModel(info.modelFile, info.expressions, true, outfit)
+        // Sen's accepted startup loads the baseline/outfit only. ZIP presets and props are
+        // registered by the model3 file but remain off until an explicit future performance
+        // binding toggles one. Passing info.expressions here would enable every prop at once.
+        companion.loadModel(info.modelFile, true, outfit)
         companion.setEmotion(emotion)
+    }
+
+    private fun applyStageTransform() {
+        // Flutter stores offsets as a fraction of width/height with positive Y down.
+        // Sen uses OpenGL -1..1 translation with positive Y up.
+        companion.setStageTransform(stageScale, stageOffsetX * 2f, -stageOffsetY * 2f)
     }
 
     private fun applyGlassesTarget() {
