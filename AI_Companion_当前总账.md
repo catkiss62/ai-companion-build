@@ -40,8 +40,9 @@
 | +228 远端 | head `29e87d016c8bd81f52f89f95191bd1a1a01a5b57`；tree `c4a112a56d8b634cf3a1a66636979a0833538b7d`；Actions `35440359036`；Artifact `10583263879`；APK SHA-256 `159e283173e49da2924d25b37ba7647893cdafdcc31b63f0e31b7c64e086849b` |
 | 仓库维护基线 | `maintenance/repository-governance-20260919`；远端文档 head `123e272196e8ae93f3518157917d76f6af4f1784`；完整构建 head `fa99f32012fa1a0716b746d36b958a8e777ef9b8`；Actions `35446649873` 全绿；文档-only run `35447342921` 正确跳过 APK |
 | 当前功能分支 | `agent/v04192-desire-game-interest`，从 +235 文档 head `e375393` 分出；候选版本 `v0.41.92+236` |
-| 当前任务状态 | `IMPLEMENTED LOCALLY / LOCAL STATIC VALIDATION PASSED / CI PENDING / TRUE DEVICE PENDING`；+235 疲劳调制继续自然观察，本批不改疲劳核心，见 6.9 |
+| 当前任务状态 | `CI PASSED / APK READY / TRUE DEVICE PENDING`；+235 疲劳调制继续自然观察，本批不改疲劳核心，见 6.9 |
 | +236 当前任务 | 吸收欲望系统 2.0 的可验证因果账本与竞争诊断，不引入女性向保护欲或第二套欲望真值；把游戏“上瘾”改为可被心境、新兴趣与饱和打断、冷却后可重新点燃的短时投入；过滤 `not_due` 空候选、统一游戏语义域并区分游玩与分享 |
+| +236 远端 | 构建 head `8ab3beb8997cb146a8499d00acfdf726e2121a2f`；tree `910c3950d354734adca82c58b5db8559fbbcb861`；Actions `35506384676` 全绿；Artifact `10604605761`；APK SHA-256 `b2aad7f827c64e82e58cd88d71db6690c721941d684abe40c80eee537d52bf22` |
 | +235 当前任务 | 保留现有昼夜身体疲劳与连续 `rest_need`，新增有界、短时的正向激活与负面难安静调制；自主主动消息和 Cedar 真实推进在高疲劳时积累睡眠债，经过真实安静窗才回补；用户主动聊天始终正常回应，不新增循环、不改 schema、人格、世界书、最终回复通道或 TTS |
 | +235 远端 | 构建 head `8ecbcbcaab339fc4ecd0b9c616db2ceacdc83d16`；tree `ee125bd9967b277975decec70b551ba1c7e7918b`；Actions `35501928714` 全绿；Artifact `10602523875`；APK SHA-256 `1489ba5a886d3323f1b68ca913a8f5d166f68133d7786974c04c514abf10e628` |
 | +234 当前任务 | Cedar 五槽事实、已有/turn 0 存档续玩、已知空槽自主开档与破坏性覆盖确认边界；将固定玩游 Gemini 选项改为“`双模型（自定义最终回复）`”，地址/模型可编辑并以旧值预填；不改 schema、人格、疲劳、TTS 或内部 DeepSeek 通道 |
@@ -383,7 +384,7 @@ Actions 与交付证据：
 
 ### 6.9 v0.41.92+236 欲望因果账本与动态游戏投入（2026-09-20）
 
-状态：`IMPLEMENTED LOCALLY / LOCAL STATIC VALIDATION PASSED / CI PENDING / TRUE DEVICE PENDING`。
+状态：`CI PASSED / APK READY / TRUE DEVICE PENDING`。
 
 实现分支：`agent/v04192-desire-game-interest`。
 
@@ -409,6 +410,13 @@ Actions 与交付证据：
 - 新增 `desire_game_interest_v04192_test.dart` 与 +236 专项门，固定覆盖五阶段变化、负面心境打断、not-due 不入场、游戏 thread 归 curiosity、跨来源语义域、游玩/分享分 lane、满足账本 round-trip 与公平上限。118 个 validator 已逐项运行，115 个通过；其余 3 个仅因本地精简态缺少 CI 才恢复的 417 文件桌宠源码、LingChat effects 与 `kotlinc`。Workflow YAML、Python 编译、当前总账门、+235/+236 专项门和 `git diff --check` 均通过。本机没有 Flutter/Dart SDK，完整 analyze/tests/Android Release 仍由 Actions 判定。
 
 真机验收边界：覆盖安装后自然观察即可，不需要刻意诱发坏心情。重点看诊断不再连续出现 `play_game|mcp|not_due`；同一游戏可短时沉浸但会因重复普通进展饱和，数小时后又可重燃；一次真实游戏分享后跨来源同主题不刷屏；游戏 thread 不再持续抬 attachment；+235 的疲劳、睡眠债和凌晨无人观看硬休息保持原样。当前不得写 `TRUE DEVICE PASSED`。
+
+Actions 与交付证据：
+
+- GitHub App 的 Git data 推送先建立源码提交，再修正一次超大文件/中文路径上传并快进同一分支；中间不完整提交触发的 run `35506336632` 不是候选。最终远端 head `8ab3beb8997cb146a8499d00acfdf726e2121a2f` 的 tree 为 `910c3950d354734adca82c58b5db8559fbbcb861`，与本地候选 tree 逐文件一致；`main` 未修改。
+- 权威 Actions `35506384676` 全绿：118/118 源代码与历史门、Kotlin 桌宠/悬浮层测试、Flutter analyze、全部 Flutter tests、arm64 Release、稳定签名、Genie/桌宠/LingChat/塔罗载荷、Artifact 与 Draft 上传全部成功。
+- Artifact `10604605761`，名称 `AI-Companion-v0.41.92-236-Desire-Game-Interest-APK`，大小 `538,087,109` bytes，ZIP digest `62771580ed5e535dbe7b6558d6a91225958aa3d7ee54badcdda22f7abad75178`。
+- Draft Release `392401159` 为未发布地址 `https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-74af3e2b6759dcece079`；APK asset `576670347`，大小 `544,966,610` bytes，SHA-256 `b2aad7f827c64e82e58cd88d71db6690c721941d684abe40c80eee537d52bf22`。当前只能升级为 `CI PASSED / APK READY / TRUE DEVICE PENDING`。
 
 ## 7. 历史验证兼容摘要
 
