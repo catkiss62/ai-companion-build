@@ -82,6 +82,18 @@ def main() -> None:
         "tools/validate_v04200_live2d_clean_rollback.py" in suite,
         "rollback validator is not registered",
     )
+    for validator in (
+        "tools/validate_v04143_phase3b_question_autonomy.py",
+        "tools/validate_v04145_sticker_expression.py",
+        "tools/validate_v04147_user_sticker_image_send.py",
+        "tools/validate_v04148_agent_image_reliability.py",
+        "tools/validate_v04149_subjective_search_humor.py",
+        "tools/validate_v04150_agent_v2_bounded_loop.py",
+    ):
+        require(
+            "0\\.42\\.0\\+244" in read(validator),
+            f"current version missing from {validator}",
+        )
 
     print("v0.42.0 Live2D clean rollback and local-model cleanup contract passed")
 

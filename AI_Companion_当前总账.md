@@ -638,7 +638,7 @@ Actions 与交付证据：
 
 保护边界：不修改独立 Sen 仓库；不修改人格、欲望、记忆、Cedar、TTS 声学模型、悬浮桌宠、schema 61、Snapshot protocol 6、`main` 或正式 Release。
 
-本地验证：+244 专项门、+241 自然回复保活门、当前总账门、Workflow YAML 解析、Python 编译与 `git diff --check` 通过；并逐文件确认五个自然回复核心文件与 +242 head `84d6a2c` 完全一致，五个共享 Android/UI 文件与 +237 head `0caa938` 完全一致。当前精简环境没有 Flutter/Dart/Android SDK，完整 validator、Flutter analyze/tests、Android/Kotlin tests、arm64 Release、签名与 APK 载荷检查交由 Actions。Actions 全绿后才写 `CI PASSED / APK READY`；真机仍需覆盖安装验证旧模型占用可见且能清除、重启后不恢复、静态立绘/聊天/TTS/输入法无回归。
+本地验证：+244 专项门、+241 自然回复保活门、当前总账门、Workflow YAML 解析、Python 编译与 `git diff --check` 通过；并逐文件确认五个自然回复核心文件与 +242 head `84d6a2c` 完全一致，五个共享 Android/UI 文件与 +237 head `0caa938` 完全一致。首轮 Actions `35641760278` 在第 16/121 个旧门 `validate_v04143_phase3b_question_autonomy.py` 停止，根因只是六个历史 validator 的当前版本正则止于 `0.41.99+243`；已统一追加 `0.42.0+244`，不改变任何运行时。当前精简环境没有 Flutter/Dart/Android SDK，完整 validator、Flutter analyze/tests、Android/Kotlin tests、arm64 Release、签名与 APK 载荷检查交由 Actions。Actions 全绿后才写 `CI PASSED / APK READY`；真机仍需覆盖安装验证旧模型占用可见且能清除、重启后不恢复、静态立绘/聊天/TTS/输入法无回归。
 
 ## 7. 历史验证兼容摘要
 
