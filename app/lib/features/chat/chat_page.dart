@@ -1,11 +1,8 @@
 import 'dart:async';
 import 'dart:io';
-import 'dart:math' as math;
 
-import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart' show ScrollDirection;
-import 'package:flutter/services.dart' show PlatformException;
 import 'package:image_picker/image_picker.dart';
 
 import '../../core/ai/message_language_variant_service.dart';
@@ -19,6 +16,7 @@ import '../../core/models/message_attachment.dart';
 import '../../core/models/reference_document.dart';
 import '../../core/mcp/cedar_toy_activity.dart';
 import '../../core/platform/android_bridge.dart';
+import '../../core/platform/live2d_model_storage.dart';
 import '../../core/storage/message_attachment_storage.dart';
 import '../../core/stickers/sticker_pack.dart';
 import '../../core/stickers/sticker_pack_storage.dart';
@@ -33,7 +31,6 @@ import '../../core/tts/tts_text_processor.dart';
 import '../../widgets/reasoning_panel.dart';
 import '../../widgets/action_tint_text.dart';
 import '../../widgets/chat_portrait_stage.dart';
-import '../../widgets/sen_live2d_stage.dart';
 import 'chat_controller.dart';
 import 'chat_timestamp_formatter.dart';
 import '../reference/reference_library_page.dart';
@@ -80,15 +77,6 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
   double _panelOpacity = 0.75;
   double _panelFraction = 0.62;
   ChatPortraitSet _portraitSet = ChatPortraitSet.largeWhale;
-  bool _senLive2DEnabled = false;
-  String _senOutfit = 'maid';
-  bool _senGlasses = false;
-  double _senScale = 1.0;
-  Offset _senOffset = Offset.zero;
-  bool _senAdjustmentEnabled = false;
-  SenLive2DStatus? _senStatus;
-  final GlobalKey<SenLive2DStageState> _senStageKey =
-      GlobalKey<SenLive2DStageState>();
   double _portraitScale = ChatPortraitTransform.defaults.scale;
   Offset _portraitOffset = ChatPortraitTransform.defaults.offset;
   int _typewriterMs = 48;
@@ -121,9 +109,6 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
     // explicitly opens the window again.
     unawaited(CedarToyActivityStore(AppDatabase.instance).endViewing());
     WidgetsBinding.instance.addObserver(this);
-    GestureBinding.instance.pointerRouter.addGlobalRoute(
-      _handleGlobalPointerEvent,
-    );
     controller.addListener(_onChanged);
     _initializeController();
   }
@@ -207,29 +192,6 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
       if (!controller.analyzingImage) {
         unawaited(controller.syncExternalMessages());
       }
-    } else if (oldWidget.active && !widget.active) {
-      _senStageKey.currentState?.lookAtGlobal(Offset.zero, active: false);
-    }
-  }
-
-  void _handleGlobalPointerEvent(PointerEvent event) {
-    if (!mounted ||
-        !_appResumed ||
-        !widget.active ||
-        !_senLive2DEnabled ||
-        _senAdjustmentEnabled) {
-      return;
-    }
-    if (event is PointerDownEvent || event is PointerMoveEvent) {
-      _senStageKey.currentState?.lookAtGlobal(
-        event.position,
-        active: true,
-      );
-    } else if (event is PointerUpEvent || event is PointerCancelEvent) {
-      _senStageKey.currentState?.lookAtGlobal(
-        event.position,
-        active: false,
-      );
     }
   }
 
@@ -259,9 +221,6 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
           typewriterEnabled: _typewriterEnabled,
         )) {
       unawaited(_markLatestAssistantPresented());
-    }
-    if (discoveredUser && _senLive2DEnabled) {
-      _senStageKey.currentState?.listen();
     }
     if (controller.streamingContent.trim().isNotEmpty) {
       // Streaming may preview a portrait, but the header label only changes
@@ -383,33 +342,6 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
     _portraitSet = chatPortraitSetFromKey(
       await db.getSetting('chat_portrait_set'),
     );
-    _senLive2DEnabled =
-        (await db.getSetting('chat_portrait_mode')) == 'sen_live2d';
-    _senOutfit = await db.getSetting('sen_live2d_outfit') ?? 'maid';
-    if (!const {'maid', 'white_shirt', 'bunny', 'undressed'}
-        .contains(_senOutfit)) {
-      _senOutfit = 'maid';
-    }
-    _senGlasses = (await db.getSetting('sen_live2d_glasses')) == '1';
-    _senScale = (double.tryParse(
-              await db.getSetting('sen_live2d_scale') ?? '',
-            ) ??
-            1.0)
-        .clamp(0.35, 6.0)
-        .toDouble();
-    _senOffset = Offset(
-      (double.tryParse(await db.getSetting('sen_live2d_offset_x') ?? '') ?? 0)
-          .clamp(-1.5, 1.5)
-          .toDouble(),
-      (double.tryParse(await db.getSetting('sen_live2d_offset_y') ?? '') ?? 0)
-          .clamp(-1.5, 1.5)
-          .toDouble(),
-    );
-    try {
-      _senStatus = await SenLive2DService.status();
-    } catch (_) {
-      _senStatus = null;
-    }
     await _loadPortraitTransform(_portraitSet);
     _typewriterMs = (int.tryParse(
               await db.getSetting('chat_typewriter_ms') ?? '',
@@ -476,73 +408,6 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
   Future<void> _setVisualSetting(String key, String value) async {
     await AppDatabase.instance.setSetting(key, value);
     if (mounted) setState(() {});
-  }
-
-  Future<void> _setSenLive2DEnabled(bool enabled) async {
-    if (_senLive2DEnabled == enabled) return;
-    if (mounted) setState(() => _senLive2DEnabled = enabled);
-    await AppDatabase.instance.setSetting(
-      'chat_portrait_mode',
-      enabled ? 'sen_live2d' : 'static',
-    );
-  }
-
-  Future<void> _setSenOutfit(String outfit) async {
-    if (_senOutfit == outfit) return;
-    if (mounted) setState(() => _senOutfit = outfit);
-    await AppDatabase.instance.setSetting('sen_live2d_outfit', outfit);
-  }
-
-  Future<void> _setSenGlasses(bool enabled) async {
-    if (mounted) setState(() => _senGlasses = enabled);
-    await AppDatabase.instance.setSetting(
-      'sen_live2d_glasses',
-      enabled ? '1' : '0',
-    );
-  }
-
-  Future<void> _finishSenAdjustment() async {
-    if (mounted) setState(() => _senAdjustmentEnabled = false);
-    await Future.wait([
-      AppDatabase.instance.setSetting(
-        'sen_live2d_scale',
-        _senScale.toStringAsFixed(4),
-      ),
-      AppDatabase.instance.setSetting(
-        'sen_live2d_offset_x',
-        _senOffset.dx.toStringAsFixed(4),
-      ),
-      AppDatabase.instance.setSetting(
-        'sen_live2d_offset_y',
-        _senOffset.dy.toStringAsFixed(4),
-      ),
-    ]);
-  }
-
-  void _resetSenTransform() {
-    if (!mounted) return;
-    setState(() {
-      _senScale = 1.0;
-      _senOffset = Offset.zero;
-    });
-  }
-
-  Future<void> _importSenModel() async {
-    try {
-      final status = await SenLive2DService.pickModelZip();
-      if (status == null || !mounted) return;
-      setState(() => _senStatus = status);
-      await _senStageKey.currentState?.reloadModel();
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(status.detail)),
-      );
-    } on PlatformException catch (error) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(error.message ?? 'Sen 模型导入失败')),
-      );
-    }
   }
 
   Future<void> _openPortraitTransformEditor() async {
@@ -641,9 +506,6 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     _appResumed = state == AppLifecycleState.resumed;
-    if (!_appResumed) {
-      _senStageKey.currentState?.lookAtGlobal(Offset.zero, active: false);
-    }
     if (_appResumed &&
         widget.active &&
         !controller.analyzingImage) {
@@ -655,9 +517,6 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
-    GestureBinding.instance.pointerRouter.removeGlobalRoute(
-      _handleGlobalPointerEvent,
-    );
     _externalSyncTimer?.cancel();
     _composerToolsOverlay?.remove();
     _composerToolsOverlay = null;
@@ -1424,14 +1283,6 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
             builder: (context, constraints) {
               final fraction = _visualStageEnabled ? _panelFraction : 1.0;
               final panelHeight = constraints.maxHeight * fraction;
-              final keyboardInset = MediaQuery.viewInsetsOf(context).bottom;
-              final panelAvailable = math.max(
-                0.0,
-                constraints.maxHeight - keyboardInset,
-              );
-              final visiblePanelHeight = keyboardInset > 0
-                  ? math.min(panelHeight, panelAvailable)
-                  : panelHeight;
               return Stack(
                 fit: StackFit.expand,
                 children: [
@@ -1444,46 +1295,24 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
                       alignment: Alignment.center,
                     ),
                     Positioned.fill(
-                      child: _senLive2DEnabled
-                          ? SenLive2DStage(
-                              key: _senStageKey,
-                              emotion: _currentEmotion,
-                              outfit: _senOutfit,
-                              glasses: _senGlasses,
-                              nsfwActive: controller.nsfwActive,
-                              transform: ChatPortraitTransform(
-                                scale: _senScale,
-                                offset: _senOffset,
-                              ),
-                              adjustmentEnabled: _senAdjustmentEnabled,
-                              onTransformChanged: (transform) {
-                                setState(() {
-                                  _senScale = transform.scale;
-                                  _senOffset = transform.offset;
-                                });
-                              },
-                              onAdjustmentDone: _finishSenAdjustment,
-                              onTransformReset: _resetSenTransform,
-                              animationToken: latestAssistantId,
-                            )
-                          : IgnorePointer(
-                              child: ChatPortraitStage(
-                                emotion: _currentEmotion,
-                                portraitSet: _portraitSet,
-                                transform: ChatPortraitTransform(
-                                  scale: _portraitScale,
-                                  offset: _portraitOffset,
-                                ),
-                                animationToken: latestAssistantId,
-                              ),
-                            ),
+                      child: IgnorePointer(
+                        child: ChatPortraitStage(
+                          emotion: _currentEmotion,
+                          portraitSet: _portraitSet,
+                          transform: ChatPortraitTransform(
+                            scale: _portraitScale,
+                            offset: _portraitOffset,
+                          ),
+                          animationToken: latestAssistantId,
+                        ),
+                      ),
                     ),
                   ],
                   Positioned(
                     left: 0,
                     right: 0,
-                    bottom: keyboardInset,
-                    height: visiblePanelHeight,
+                    bottom: 0,
+                    height: panelHeight,
                     child: DecoratedBox(
                       decoration: BoxDecoration(
                         color: Theme.of(context)
@@ -1582,7 +1411,7 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
                     Positioned(
                       left: 0,
                       right: 0,
-                      bottom: keyboardInset + visiblePanelHeight - 13,
+                      bottom: panelHeight - 13,
                       child: Center(
                         child: GestureDetector(
                           behavior: HitTestBehavior.opaque,
@@ -1839,31 +1668,6 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
                         },
                       ),
                       if (_visualStageEnabled)
-                        DropdownButtonFormField<bool>(
-                          value: _senLive2DEnabled,
-                          decoration: const InputDecoration(
-                            labelText: '舞台角色',
-                            border: OutlineInputBorder(),
-                          ),
-                          items: const [
-                            DropdownMenuItem(
-                              value: false,
-                              child: Text('静态立绘'),
-                            ),
-                            DropdownMenuItem(
-                              value: true,
-                              child: Text('Sen Live2D'),
-                            ),
-                          ],
-                          onChanged: (value) async {
-                            if (value == null) return;
-                            await _setSenLive2DEnabled(value);
-                            setPanelState(() {});
-                          },
-                        ),
-                      if (_visualStageEnabled)
-                        const SizedBox(height: 10),
-                      if (_visualStageEnabled && !_senLive2DEnabled)
                         DropdownButtonFormField<ChatPortraitSet>(
                           value: _portraitSet,
                           decoration: const InputDecoration(
@@ -1884,9 +1688,9 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
                             setPanelState(() {});
                           },
                         ),
-                      if (_visualStageEnabled && !_senLive2DEnabled)
+                      if (_visualStageEnabled)
                         const SizedBox(height: 10),
-                      if (_visualStageEnabled && !_senLive2DEnabled)
+                      if (_visualStageEnabled)
                         ListTile(
                           contentPadding: EdgeInsets.zero,
                           leading: const Icon(Icons.zoom_out_map_rounded),
@@ -1900,78 +1704,18 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
                             await _openPortraitTransformEditor();
                           },
                         ),
-                      if (_visualStageEnabled && _senLive2DEnabled) ...[
-                        Align(
-                          alignment: Alignment.centerLeft,
-                          child: Text(
-                            'Sen 外观',
-                            style: Theme.of(dialogContext).textTheme.titleSmall,
-                          ),
+                      ListTile(
+                        contentPadding: EdgeInsets.zero,
+                        leading: const Icon(Icons.delete_sweep_outlined),
+                        title: const Text('清除 Live2D 模型包'),
+                        subtitle: const Text(
+                          '删除旧 Live2D 接入留在本机 App 私有目录中的模型文件。',
                         ),
-                        const SizedBox(height: 6),
-                        Wrap(
-                          spacing: 7,
-                          runSpacing: 7,
-                          children: const {
-                            'maid': '女仆装',
-                            'white_shirt': '白衬衫',
-                            'bunny': '兔女郎',
-                            'undressed': '脱',
-                          }.entries.map((entry) {
-                            return ChoiceChip(
-                              label: Text(entry.value),
-                              selected: _senOutfit == entry.key,
-                              onSelected: (_) async {
-                                await _setSenOutfit(entry.key);
-                                setPanelState(() {});
-                              },
-                            );
-                          }).toList(growable: false),
-                        ),
-                        SwitchListTile(
-                          contentPadding: EdgeInsets.zero,
-                          title: const Text('眼镜'),
-                          subtitle: const Text('不改变当前衣装与情绪动作。'),
-                          value: _senGlasses,
-                          onChanged: (value) async {
-                            await _setSenGlasses(value);
-                            setPanelState(() {});
-                          },
-                        ),
-                        ListTile(
-                          contentPadding: EdgeInsets.zero,
-                          leading: const Icon(Icons.zoom_out_map_rounded),
-                          title: const Text('调整 Live2D 位置与大小'),
-                          subtitle: Text(
-                            '当前 ${(_senScale * 100).round()}% · 单指移动，双指缩放',
-                          ),
-                          trailing: const Icon(Icons.chevron_right_rounded),
-                          onTap: () {
-                            Navigator.pop(dialogContext);
-                            setState(() => _senAdjustmentEnabled = true);
-                          },
-                        ),
-                        ListTile(
-                          contentPadding: EdgeInsets.zero,
-                          leading: const Icon(Icons.folder_zip_rounded),
-                          title: Text(
-                            _senStatus?.available == true
-                                ? '重新导入 Sen 模型 ZIP'
-                                : '导入 Sen 模型 ZIP',
-                          ),
-                          subtitle: Text(
-                            _senStatus?.detail ??
-                                '模型只保存到本机 App 私有目录，不进入备份或公开仓库。',
-                            maxLines: 3,
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                          trailing: const Icon(Icons.chevron_right_rounded),
-                          onTap: () async {
-                            await _importSenModel();
-                            if (dialogContext.mounted) setPanelState(() {});
-                          },
-                        ),
-                      ],
+                        onTap: () async {
+                          Navigator.pop(dialogContext);
+                          await _clearImportedLive2DModel();
+                        },
+                      ),
                       DropdownButtonFormField<ProactiveNotificationSound>(
                         value: _notificationSound,
                         decoration: const InputDecoration(
@@ -2249,6 +1993,62 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
     );
   }
 
+  Future<void> _clearImportedLive2DModel() async {
+    try {
+      final status = await Live2DModelStorage.status();
+      if (!mounted) return;
+      if (!status.hasData) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('本机没有已导入的 Live2D 模型包')),
+        );
+        return;
+      }
+      final size = _formatStorageBytes(status.bytes);
+      final confirmed = await showDialog<bool>(
+        context: context,
+        builder: (dialogContext) => AlertDialog(
+          title: const Text('清除 Live2D 模型包？'),
+          content: Text(
+            '将删除旧 Live2D 接入保存在本机 App 私有目录中的全部模型文件（约 $size）。'
+            '该操作不可恢复，但不会影响静态立绘、聊天记录或其他角色资源。',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(dialogContext, false),
+              child: const Text('取消'),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.pop(dialogContext, true),
+              child: const Text('确认清除'),
+            ),
+          ],
+        ),
+      );
+      if (confirmed != true) return;
+      final deletedBytes = await Live2DModelStorage.clearImportedModels();
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('已清除 Live2D 模型包（${_formatStorageBytes(deletedBytes)}）'),
+        ),
+      );
+    } catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('清除 Live2D 模型包失败：$error')),
+      );
+    }
+  }
+
+  String _formatStorageBytes(int bytes) {
+    if (bytes < 1024) return '$bytes B';
+    final kib = bytes / 1024;
+    if (kib < 1024) return '${kib.toStringAsFixed(1)} KiB';
+    final mib = kib / 1024;
+    if (mib < 1024) return '${mib.toStringAsFixed(1)} MiB';
+    return '${(mib / 1024).toStringAsFixed(2)} GiB';
+  }
+
   Future<void> _openQuickPanelV2() async {
     await _loadVisualSettings();
     if (!mounted) return;
@@ -2344,14 +2144,6 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
                       setState(() => _showCedarActivityWindow = true);
                     },
                   ),
-                  const SizedBox(height: 8),
-                  SenLive2DQuickControls(
-                    onChanged: _loadVisualSettings,
-                    onAdjust: () {
-                      Navigator.pop(dialogContext);
-                      setState(() => _senAdjustmentEnabled = true);
-                    },
-                  ),
                   const Divider(height: 26),
                   _QuickPanelTile(
                     icon: Icons.monitor_heart_outlined,
@@ -2408,6 +2200,15 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
                         ),
                       );
                       await _loadVisualSettings();
+                    },
+                  ),
+                  _QuickPanelTile(
+                    icon: Icons.delete_sweep_outlined,
+                    title: '清除 Live2D 模型包',
+                    subtitle: '删除旧接入留在本机的模型文件；不影响静态立绘。',
+                    onTap: () async {
+                      Navigator.pop(dialogContext);
+                      await _clearImportedLive2DModel();
                     },
                   ),
                   _QuickPanelTile(

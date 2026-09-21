@@ -39,8 +39,9 @@
 | 功能状态 | `CI PASSED / APK READY / TRUE DEVICE PENDING` |
 | +228 远端 | head `29e87d016c8bd81f52f89f95191bd1a1a01a5b57`；tree `c4a112a56d8b634cf3a1a66636979a0833538b7d`；Actions `35440359036`；Artifact `10583263879`；APK SHA-256 `159e283173e49da2924d25b37ba7647893cdafdcc31b63f0e31b7c64e086849b` |
 | 仓库维护基线 | `maintenance/repository-governance-20260919`；远端文档 head `123e272196e8ae93f3518157917d76f6af4f1784`；完整构建 head `fa99f32012fa1a0716b746d36b958a8e777ef9b8`；Actions `35446649873` 全绿；文档-only run `35447342921` 正确跳过 APK |
-| 当前功能分支 | `agent/v04199-sen-product-integration`，承接已验证 +242；候选版本 `v0.41.99+243` |
-| 当前任务状态 | `CI PASSED / APK READY / TRUE DEVICE PENDING`；+243 已把 Sen 测试壳能力收口为 AI 伴侣产品界面，见 6.16 |
+| 当前功能分支 | `agent/v04200-live2d-clean-rollback`，从 +243 精确回退当前 Sen Live2D；候选版本 `v0.42.0+244` |
+| 当前任务状态 | `IMPLEMENTED LOCALLY / LOCAL STATIC VALIDATION PASSED / CI PENDING / TRUE DEVICE PENDING`；+244 删除当前 Sen/Cubism 运行栈与产品接线，只保留独立的旧模型清理入口，见 6.17 |
+| +244 当前任务 | 以 +237 的共享文件为机械基线回退 Live2D，同时保留 +241/+242 自然回复修复；删除 Sen 服装、预设、动作、情绪、PlatformView、Cubism AAR/Framework/shader 与 TTS/视线/摸头接线；聊天快捷面板永久提供带确认的旧模型包清理按钮，只能删除 App 私有 `filesDir/sen-live2d` |
 | +243 当前任务 | 启动只加载服装而不批量启用全部原生预设；只显示三套服装、脱与眼镜；20 种聊天情绪接入，脱/NSFW 使用 `romantic_shy`；原生待机、摸头/彩蛋和当前 PCM TTS 口型保留；人物与特效共用位置/缩放；Flutter 全局触点驱动视线；输入法只挪动聊天面板，不改变 Live2D 原生表面尺寸 |
 | +242 当前任务 | 不允许任何本地固定台词以她的身份替代模型回复；用户轮不能被校验器吞成空回复，主动轮可不发送；Sen `main@336b93a` 只读，AI 内的 16 个 Sen 主运行时文件逐字节一致，唯一 Framework 差异只能是 Sen 原始 `cubism-java-no-mipmap.patch` |
 | +240 真机结论 | `PlatformViewLink + AndroidViewSurface + initExpensiveAndroidView` 没有修复黑色剪影，反而使整个 Flutter 合成画面变黑；该方向已在 +242 回退。复核 Sen 构建流程后确认 +239 黑色剪影根因是移植时漏掉 `cubism-java-no-mipmap.patch` |
@@ -620,6 +621,24 @@ Actions 与交付证据：
 验证：125 个 validator 中 122 个通过；仅 417 文件桌宠源码、LingChat effects 与 `kotlinc` 三个既有门因精简工作区缺少 CI 恢复资源/工具而失败。+243/+242/+241 专项门、+240 回退门、总账门、Workflow YAML、Python 编译和 `git diff --check` 通过；完整 Flutter/Kotlin/Release 交由 Actions。Sen 仓库保持独立且未修改。真机覆盖服装/眼镜、20 情绪、NSFW/脱羞涩、位置缩放、特效/摸头跟随、待机、TTS 口型、全页视线和输入法不变形。
 
 远端与交付证据：功能树经 GitHub Contents API 写入后与本地候选 tree `679452c4feef0af657b41aeb9aa3b8466b141f07` 一致；用于触发 Actions 的无运行时改动 head 为 `6a93c2a5067ea9b9b1c42789fc2cc961b397404f`，`main` 未修改。Actions `35539446162` 全绿：125/125 源码门、Kotlin/Android、Flutter analyze/tests、arm64 Release、稳定签名、Genie/桌宠/LingChat/塔罗/Cubism 载荷、Artifact 与 Draft 上传均成功。Artifact `10613803835`，大小 `538,358,387` bytes；APK SHA-256 `3cca55f7a48aea699558b2bf5d3f29025205244640d83a6006a79b4bc78cde1f`。Draft Release 为未发布地址 `https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-31bd7a4c04576a53e034`。当前只等待真机验收，不得提前标记 `TRUE DEVICE PASSED`。
+
+### 6.17 v0.42.0+244 Live2D 干净回退与旧模型清理（2026-09-21）
+
+状态：`IMPLEMENTED LOCALLY / LOCAL STATIC VALIDATION PASSED / CI PENDING / TRUE DEVICE PENDING`。
+
+实现分支：`agent/v04200-live2d-clean-rollback`。
+
+用户决定与实现边界：
+
+1. 当前 Sen Live2D 将由新模型重新替换，准确回退优先于保留旧接口或界面骨架。三套服装、脱、眼镜、20+1 情绪、原生预设/程序动作、自主待机、视线、摸头、TTS 口型与位置缩放均不作为半成品保留。
+2. 以 +237 的共享 UI/Android 文件为机械回退基线，完整删除 Cubism Core AAR、105 个 Framework Java 文件、36 个 shader、Sen 16 个主运行时文件、profile、补丁、PlatformView、Flutter stage/presentation、专项测试与旧生产 validator。`app.dart` 的 IME 特判、`WavAudioPlayer` 的 Sen RMS 接线、MainActivity 的 Sen 生命周期、Manifest/Gradle 依赖一并恢复到接入前状态。
+3. +241/+242 的自然回复修复不属于 Live2D：`durable_generation_runner`、`proactive_engine`、`prompt_history_policy`、`recent_reply_repetition_guard` 及其测试/validator 原样保留，禁止固定人格兜底与用户轮空回复的合同不得回退。
+4. 旧 APK 已把模型解压到 `filesDir/sen-live2d/{current,staging,backup}`，覆盖安装不会自动删除。新增独立 `Live2DModelStorageBridge`，只接受 `status` 与 `clearImportedModels`；清理前验证 canonical 目标必须是 `filesDir` 的直接子目录 `sen-live2d`，删除后只清空 `sen_live2d` SharedPreferences。聊天两套快捷面板均永久显示“清除 Live2D 模型包”，实际有数据时必须二次确认；静态立绘、聊天、附件、备份与桌宠目录不受影响。
+5. 新 Live2D 后续按新模型重新设计，不复活旧 Sen 动作/预设目录。清理桥可以继续独立保留，也可以由未来新 Live2D 设置页复用。
+
+保护边界：不修改独立 Sen 仓库；不修改人格、欲望、记忆、Cedar、TTS 声学模型、悬浮桌宠、schema 61、Snapshot protocol 6、`main` 或正式 Release。
+
+本地验证：+244 专项门、+241 自然回复保活门、当前总账门、Workflow YAML 解析、Python 编译与 `git diff --check` 通过；并逐文件确认五个自然回复核心文件与 +242 head `84d6a2c` 完全一致，五个共享 Android/UI 文件与 +237 head `0caa938` 完全一致。当前精简环境没有 Flutter/Dart/Android SDK，完整 validator、Flutter analyze/tests、Android/Kotlin tests、arm64 Release、签名与 APK 载荷检查交由 Actions。Actions 全绿后才写 `CI PASSED / APK READY`；真机仍需覆盖安装验证旧模型占用可见且能清除、重启后不恢复、静态立绘/聊天/TTS/输入法无回归。
 
 ## 7. 历史验证兼容摘要
 

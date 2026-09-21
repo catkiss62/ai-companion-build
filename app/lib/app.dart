@@ -149,10 +149,6 @@ class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      // Keep the native Live2D surface at a stable size while the IME opens.
-      // ChatPage moves only its dialogue panel above viewInsets, so Cubism does
-      // not refit the model against a suddenly shorter OpenGL viewport.
-      resizeToAvoidBottomInset: false,
       body: SafeArea(
         bottom: false,
         child: IndexedStack(

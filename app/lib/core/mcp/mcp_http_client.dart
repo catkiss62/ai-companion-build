@@ -121,7 +121,7 @@ class McpHttpClient {
           // Historical validator token: 'version': '0.41.95'
           // Historical validator token: 'version': '0.41.96'
           // Historical validator token: 'version': '0.41.98'
-          'version': '0.41.99',
+          'version': '0.42.0',
         },
       },
       cancellationToken,

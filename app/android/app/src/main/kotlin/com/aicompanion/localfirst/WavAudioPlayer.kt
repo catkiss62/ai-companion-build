@@ -13,8 +13,6 @@ import kotlin.math.max
 import kotlin.math.min
 import kotlin.math.log10
 import kotlin.math.roundToInt
-import kotlin.math.sqrt
-import com.catkiss.senlive2dcompanion.SenLive2DRuntime
 
 /** One utterance = one AudioTrack, matching the verified Genie v0.6.4 player. */
 class WavAudioPlayer {
@@ -124,9 +122,6 @@ class WavAudioPlayer {
         @Volatile private var currentSpeed = initialSpeed
         @Volatile private var currentPitch = initialPitch
         private var firstEnqueued = false
-        private val envelopeLock = Any()
-        private val envelopes = mutableListOf<PcmEnvelope>()
-        @Volatile private var envelopeMonitor: Thread? = null
 
         fun start() = thread.start()
 
@@ -228,7 +223,6 @@ class WavAudioPlayer {
                                 if (!cancelled) applyPlaybackParams(writer)
                             }
                             val bytesPerFrame = wav.bytesPerFrame
-                            captureEnvelope(command.bytes, wav, framesWritten)
                             var offset = wav.dataOffset
                             if (!playbackStarted) {
                                 // Exact v0.6.4 policy: write up to one second of
@@ -247,7 +241,6 @@ class WavAudioPlayer {
                                 if (cancelled) break
                                 writer.play()
                                 playbackStarted = true
-                                startEnvelopeMonitor()
                                 onStarted()
                                 started.countDown()
                             }
@@ -271,80 +264,12 @@ class WavAudioPlayer {
                 failure = error
                 started.countDown()
             } finally {
-                SenLive2DRuntime.setSpeechAmplitude(0f)
-                envelopeMonitor?.interrupt()
-                envelopeMonitor = null
                 runCatching { enhancer?.release() }
                 enhancer = null
                 runCatching { localTrack?.release() }
                 track = null
                 completed.countDown()
             }
-        }
-
-        private fun startEnvelopeMonitor() {
-            if (envelopeMonitor != null) return
-            envelopeMonitor = Thread({
-                var smoothed = 0f
-                while (!cancelled && playbackStarted) {
-                    val activeTrack = track ?: break
-                    val frame = playbackHeadFrames(activeTrack)
-                    val target = envelopeAt(frame)
-                    smoothed = smoothed * .58f + target * .42f
-                    SenLive2DRuntime.setSpeechAmplitude(smoothed)
-                    try {
-                        Thread.sleep(33L)
-                    } catch (_: InterruptedException) {
-                        break
-                    }
-                }
-                SenLive2DRuntime.setSpeechAmplitude(0f)
-            }, "Sen-Live2D-lip-envelope").apply {
-                isDaemon = true
-                start()
-            }
-        }
-
-        private fun captureEnvelope(bytes: ByteArray, wav: WavInfo, startFrame: Long) {
-            val frameCount = wav.dataSize / wav.bytesPerFrame
-            if (frameCount <= 0) return
-            val binCount = (frameCount + ENVELOPE_BIN_FRAMES - 1) / ENVELOPE_BIN_FRAMES
-            val values = FloatArray(binCount)
-            for (bin in 0 until binCount) {
-                val first = bin * ENVELOPE_BIN_FRAMES
-                val last = min(frameCount, first + ENVELOPE_BIN_FRAMES)
-                var sumSquares = 0.0
-                var samples = 0
-                for (frame in first until last) {
-                    for (channel in 0 until wav.channels) {
-                        val offset = wav.dataOffset + frame * wav.bytesPerFrame +
-                            channel * (wav.bitsPerSample / 8)
-                        val normalized = if (wav.bitsPerSample == 16) {
-                            val sample = (bytes[offset].toInt() and 0xff) or
-                                (bytes[offset + 1].toInt() shl 8)
-                            sample.toShort().toDouble() / 32768.0
-                        } else {
-                            ((bytes[offset].toInt() and 0xff) - 128).toDouble() / 128.0
-                        }
-                        sumSquares += normalized * normalized
-                        samples++
-                    }
-                }
-                val rms = if (samples == 0) 0.0 else sqrt(sumSquares / samples)
-                values[bin] = (rms * 3.2).coerceIn(0.0, 1.0).toFloat()
-            }
-            synchronized(envelopeLock) {
-                envelopes += PcmEnvelope(startFrame, frameCount, values)
-                while (envelopes.size > 48) envelopes.removeAt(0)
-            }
-        }
-
-        private fun envelopeAt(frame: Long): Float = synchronized(envelopeLock) {
-            val envelope = envelopes.firstOrNull {
-                frame >= it.startFrame && frame < it.startFrame + it.frameCount
-            } ?: return@synchronized 0f
-            val relative = (frame - envelope.startFrame).toInt()
-            envelope.values[(relative / ENVELOPE_BIN_FRAMES).coerceIn(0, envelope.values.lastIndex)]
         }
 
         private fun createTrack(wav: WavInfo): AudioTrack {
@@ -492,15 +417,5 @@ class WavAudioPlayer {
                 channels == other.channels &&
                 sampleRate == other.sampleRate &&
                 bitsPerSample == other.bitsPerSample
-    }
-
-    private data class PcmEnvelope(
-        val startFrame: Long,
-        val frameCount: Int,
-        val values: FloatArray,
-    )
-
-    companion object {
-        private const val ENVELOPE_BIN_FRAMES = 256
     }
 }

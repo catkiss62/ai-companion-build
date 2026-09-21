@@ -96,8 +96,8 @@ publish_to: 'none'
 # Historical validator token: version: 0.41.96+240
 # Historical validator token: version: 0.41.97+241
 # Historical validator token: version: 0.41.98+242
-# v0.41.99+243 build candidate: Sen product integration and interaction closure.
-version: 0.41.99+243
+# v0.42.0+244 build candidate: clean Live2D rollback with retained local-model cleanup.
+version: 0.42.0+244
 
 environment:
   sdk: '>=3.12.0 <4.0.0'
