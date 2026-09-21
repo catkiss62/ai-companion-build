@@ -40,7 +40,8 @@
 | +228 远端 | head `29e87d016c8bd81f52f89f95191bd1a1a01a5b57`；tree `c4a112a56d8b634cf3a1a66636979a0833538b7d`；Actions `35440359036`；Artifact `10583263879`；APK SHA-256 `159e283173e49da2924d25b37ba7647893cdafdcc31b63f0e31b7c64e086849b` |
 | 仓库维护基线 | `maintenance/repository-governance-20260919`；远端文档 head `123e272196e8ae93f3518157917d76f6af4f1784`；完整构建 head `fa99f32012fa1a0716b746d36b958a8e777ef9b8`；Actions `35446649873` 全绿；文档-only run `35447342921` 正确跳过 APK |
 | 当前功能分支 | `agent/v04200-live2d-clean-rollback`，从 +243 精确回退当前 Sen Live2D；候选版本 `v0.42.0+244` |
-| 当前任务状态 | `IMPLEMENTED LOCALLY / LOCAL STATIC VALIDATION PASSED / CI PENDING / TRUE DEVICE PENDING`；+244 删除当前 Sen/Cubism 运行栈与产品接线，只保留独立的旧模型清理入口，见 6.17 |
+| 当前任务状态 | `CI PASSED / APK READY / TRUE DEVICE PENDING`；+244 删除当前 Sen/Cubism 运行栈与产品接线，只保留独立的旧模型清理入口，见 6.17 |
+| +244 远端 | head `c16955ad0a8eeb3945d95c8b42372859d6ab09b8`；Actions `35642646319` 全绿；Artifact `10659441135`；APK SHA-256 `e58122e12f1cc412ff29eccbf0575bb0ae73ba6b524419ea774ad2f5a3dc5684`；未发布 Draft Release `393217151` |
 | +244 当前任务 | 以 +237 的共享文件为机械基线回退 Live2D，同时保留 +241/+242 自然回复修复；删除 Sen 服装、预设、动作、情绪、PlatformView、Cubism AAR/Framework/shader 与 TTS/视线/摸头接线；聊天快捷面板永久提供带确认的旧模型包清理按钮，只能删除 App 私有 `filesDir/sen-live2d` |
 | +243 当前任务 | 启动只加载服装而不批量启用全部原生预设；只显示三套服装、脱与眼镜；20 种聊天情绪接入，脱/NSFW 使用 `romantic_shy`；原生待机、摸头/彩蛋和当前 PCM TTS 口型保留；人物与特效共用位置/缩放；Flutter 全局触点驱动视线；输入法只挪动聊天面板，不改变 Live2D 原生表面尺寸 |
 | +242 当前任务 | 不允许任何本地固定台词以她的身份替代模型回复；用户轮不能被校验器吞成空回复，主动轮可不发送；Sen `main@336b93a` 只读，AI 内的 16 个 Sen 主运行时文件逐字节一致，唯一 Framework 差异只能是 Sen 原始 `cubism-java-no-mipmap.patch` |
@@ -624,7 +625,7 @@ Actions 与交付证据：
 
 ### 6.17 v0.42.0+244 Live2D 干净回退与旧模型清理（2026-09-21）
 
-状态：`IMPLEMENTED LOCALLY / LOCAL STATIC VALIDATION PASSED / CI PENDING / TRUE DEVICE PENDING`。
+状态：`CI PASSED / APK READY / TRUE DEVICE PENDING`。
 
 实现分支：`agent/v04200-live2d-clean-rollback`。
 
@@ -638,7 +639,7 @@ Actions 与交付证据：
 
 保护边界：不修改独立 Sen 仓库；不修改人格、欲望、记忆、Cedar、TTS 声学模型、悬浮桌宠、schema 61、Snapshot protocol 6、`main` 或正式 Release。
 
-本地验证：+244 专项门、+241 自然回复保活门、当前总账门、Workflow YAML 解析、Python 编译与 `git diff --check` 通过；并逐文件确认五个自然回复核心文件与 +242 head `84d6a2c` 完全一致，五个共享 Android/UI 文件与 +237 head `0caa938` 完全一致。首轮 Actions `35641760278` 在第 16/121 个旧门 `validate_v04143_phase3b_question_autonomy.py` 停止，根因只是六个历史 validator 的当前版本正则止于 `0.41.99+243`；已统一追加 `0.42.0+244`，不改变任何运行时。当前精简环境没有 Flutter/Dart/Android SDK，完整 validator、Flutter analyze/tests、Android/Kotlin tests、arm64 Release、签名与 APK 载荷检查交由 Actions。Actions 全绿后才写 `CI PASSED / APK READY`；真机仍需覆盖安装验证旧模型占用可见且能清除、重启后不恢复、静态立绘/聊天/TTS/输入法无回归。
+本地验证：+244 专项门、+241 自然回复保活门、当前总账门、Workflow YAML 解析、Python 编译与 `git diff --check` 通过；并逐文件确认五个自然回复核心文件与 +242 head `84d6a2c` 完全一致，五个共享 Android/UI 文件与 +237 head `0caa938` 完全一致。首轮 Actions `35641760278` 在第 16/121 个旧门 `validate_v04143_phase3b_question_autonomy.py` 停止，根因只是六个历史 validator 的当前版本正则止于 `0.41.99+243`；已统一追加 `0.42.0+244`，不改变任何运行时。第二轮 Actions `35642646319` 全绿：完整源码/历史回归门、Flutter packages/analyze/tests、Android/Kotlin tests、release APK 编译、稳定签名、既有资源完整性与 APK 内无 Live2D/Cubism 残留检查均通过。Workflow Artifact `10659441135`，未发布 Draft Release `393217151`，APK SHA-256 `e58122e12f1cc412ff29eccbf0575bb0ae73ba6b524419ea774ad2f5a3dc5684`。真机仍需覆盖安装验证旧模型占用可见且能清除、重启后不恢复、静态立绘/聊天/TTS/输入法无回归。
 
 ## 7. 历史验证兼容摘要
 
