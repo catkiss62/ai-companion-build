@@ -18,6 +18,12 @@ An update cannot remove files that an older APK already extracted into Android a
 
 The imported ZIP itself was never retained; older builds extracted its model contents into this root. The cleanup button removes those extracted model files.
 
+## Validation status
+
+GitHub Actions run `35642646319` passed the complete source/regression suite, Flutter analyze and tests, Android/Kotlin tests, release APK build, signing verification, existing payload checks, and the APK-name scan that rejects residual Live2D/Cubism files. Artifact `10659441135` and unpublished draft release `393217151` contain the candidate APK. Its SHA-256 is `e58122e12f1cc412ff29eccbf0575bb0ae73ba6b524419ea774ad2f5a3dc5684`.
+
+True-device verification is still required for upgrade-time storage detection/deletion, persistence after restart, and regression coverage of the static portrait, chat, TTS, and IME behavior.
+
 ## Future Live2D re-entry
 
 A replacement model starts as a new integration. Do not revive the removed Sen-specific renderer or infer model actions from the old preset catalog. The cleanup bridge may remain unchanged, or the future Live2D settings page may call the same channel after its own storage migration is explicitly designed.
