@@ -40,9 +40,10 @@
 | +228 远端 | head `29e87d016c8bd81f52f89f95191bd1a1a01a5b57`；tree `c4a112a56d8b634cf3a1a66636979a0833538b7d`；Actions `35440359036`；Artifact `10583263879`；APK SHA-256 `159e283173e49da2924d25b37ba7647893cdafdcc31b63f0e31b7c64e086849b` |
 | 仓库维护基线 | `maintenance/repository-governance-20260919`；远端文档 head `123e272196e8ae93f3518157917d76f6af4f1784`；完整构建 head `fa99f32012fa1a0716b746d36b958a8e777ef9b8`；Actions `35446649873` 全绿；文档-only run `35447342921` 正确跳过 APK |
 | 当前功能分支 | `agent/v04201-autonomy-media-hardening`，基于 +244；候选版本 `v0.42.1+245` |
-| 当前任务状态 | `LOCAL STATIC VALIDATION PASSED / CI PENDING / TRUE DEVICE PENDING`；清晨主动联系、Cedar 真实游玩闭环、视觉鉴权与 TTS 参考音频回声防护，见 6.18 |
+| 当前任务状态 | `CI PASSED / APK READY / TRUE DEVICE PENDING`；清晨主动联系、Cedar 真实游玩闭环、视觉鉴权与 TTS 参考音频回声防护，见 6.18 |
 | +245 当前任务 | 21:00～次日 09:00 所有主动来源共享最多一次成功投递；“我会玩游戏”不再误授权 Cedar，前台真实游玩与后台共用局次/疲劳/满足账本；千问视觉新增真实连接测试与鉴权分类；TTS 只保留参考音频不可逆声学签名，高置信回声直接拒绝播放且没有固定音频/台词兜底 |
 | +245 保护边界 | 不修改独立 Sen 仓库或已回退 Live2D；不增加对话模型调用；表情包继续使用本地索引语义进入当前 user prompt；schema 61 / Snapshot protocol 6 不变；不合并 `main`，不发布正式 Release |
+| +245 远端 | head `09a50bdf14cfc1f5850c4c055fcbeade1b9dedb2`；tree `0985f0961691bdce7e6d521d59a12137ea5a82ad`；Actions `35809712355` 全绿；Artifact `10729507323`；APK SHA-256 `4c6f92b38bb3affa12aa52ae18d2d36276400d706b3a570e154d75e453d08059`；未发布 Draft Release `394245028` |
 | +244 远端 | head `c16955ad0a8eeb3945d95c8b42372859d6ab09b8`；Actions `35642646319` 全绿；Artifact `10659441135`；APK SHA-256 `e58122e12f1cc412ff29eccbf0575bb0ae73ba6b524419ea774ad2f5a3dc5684`；未发布 Draft Release `393217151` |
 | +244 当前任务 | 以 +237 的共享文件为机械基线回退 Live2D，同时保留 +241/+242 自然回复修复；删除 Sen 服装、预设、动作、情绪、PlatformView、Cubism AAR/Framework/shader 与 TTS/视线/摸头接线；聊天快捷面板永久提供带确认的旧模型包清理按钮，只能删除 App 私有 `filesDir/sen-live2d` |
 | +243 当前任务 | 启动只加载服装而不批量启用全部原生预设；只显示三套服装、脱与眼镜；20 种聊天情绪接入，脱/NSFW 使用 `romantic_shy`；原生待机、摸头/彩蛋和当前 PCM TTS 口型保留；人物与特效共用位置/缩放；Flutter 全局触点驱动视线；输入法只挪动聊天面板，不改变 Live2D 原生表面尺寸 |
@@ -645,7 +646,7 @@ Actions 与交付证据：
 
 ### 6.18 v0.42.1+245 自主节律、媒体诊断与 TTS 回声防护（2026-09-23）
 
-状态：`LOCAL STATIC VALIDATION PASSED / CI PENDING / TRUE DEVICE PENDING`。
+状态：`CI PASSED / APK READY / TRUE DEVICE PENDING`。
 
 实现分支：`agent/v04201-autonomy-media-hardening`。
 
@@ -659,7 +660,7 @@ Actions 与交付证据：
 实现：
 
 - 新增跨来源的夜间联系硬上限：21:00 至次日 09:00 只允许一条成功主动投递；只统计 `decision=sent`，失败、等待、blocked 不占额度，09:00 自动结束窗口。原 dawn 连续分数调制继续保留。
-- 新增 `CedarPlayOutcomeBookkeeper`，前台 Agent 与后台自主推进共享同一套 solo episode、反沉迷、疲劳支出和 `play_game` 满足账本。用户明确触发的真实 solo mutation 开始新 episode，不继承旧 checkpoint；共玩/多人仍只在有双方许可时推进。
+- 新增 `CedarPlayOutcomeBookkeeper`，前台 Agent 与后台自主推进共享同一套 solo episode、反沉迷、疲劳支出和 `play_game` 满足账本。用户明确触发的真实 solo mutation 可从已到期的旧 checkpoint 开始新 episode；同一前台回合后续动作继续累计，不会每步重置；共玩/多人仍只在有双方许可时推进。
 - Cedar 语义边界区分“用户描述自己准备玩”与“让她玩/一起玩”。前者不暴露 Cedar 写工具，即使模型试图选工具也过不了本地 allowlist；后者保持自然入口。
 - 千问视觉设置增加使用内置测试像素的真实连接测试，覆盖地址、Key、模型与 JSON 响应；401/403、缺 Key、限流、超时、网络和无效响应以系统 UI 明确分类，不把固定句写成伴侣回复。用户图片保留后可重试；表情包不增加视觉调用，并新增当前 user turn 的 prompt 回归测试。
 - CI 在删除四份参考 WAV 前提取 64 段归一化能量包络与过零率，APK 只保留不可逆小型签名和参考文本 SHA-256。推理音频与对应签名在时长、包络和过零率上同时高度相似且输入并非参考原句时，生成段直接失败并禁止进入播放器；不播放参考文件、系统 TTS、固定音频或固定台词。补齐 reference case、字符类别、有效 phone、decoder 次数、PCM 时长/hash 与回声判据的脱敏诊断白名单。
@@ -667,6 +668,8 @@ Actions 与交付证据：
 验证计划：运行 +245 专项门、全部历史 validator（CI 恢复资源/Kotlin 编译器相关既有例外单列）、Flutter analyze/tests、Android/Kotlin tests、arm64 Release、参考 WAV 缺席与签名存在检查。Actions 只构筑独立分支测试 APK 与未发布 Draft，不合并 `main`、不发布正式 Release。真机需覆盖验证：夜间第二条主动消息被挡、用户第一人称游戏描述不触发、明确让她独玩后可自主续步、视觉设置准确报告当前 Key、图片识别恢复、表情包理解正常，以及任意句子不再播放参考台词。
 
 本地验证：Workflow YAML 解析、变更后 Python validator 编译、+245 专项门、+244 Live2D 回退保护门、+241 自然回复保活门、+235 疲劳负债门、当前总账门与 `git diff --check` 通过。全量历史静态门实际通过 118 项；另 4 项只因本地 sparse 工作树缺少 CI 恢复的大肥鱼参考图、417 件桌宠源包、LingChat 资源，以及本机无 `kotlinc` 而未执行，不是源码断言失败。本机同时无 Flutter/Dart SDK；完整 analyze/test/Kotlin/release APK 交由 Actions 实编译。
+
+Actions 与交付证据：正确源码树 `0985f0961691bdce7e6d521d59a12137ea5a82ad` 在 run `35809712355` 全绿，已通过总账协调、变更范围判定、全部源码/历史回归门、Flutter analyze/tests、Kotlin tests、arm64 Release APK 构筑、签名验证、四音色回声签名覆盖与 APK 内参考 WAV 缺席检查。Workflow Artifact `10729507323`，未发布 Draft Release `394245028`，APK SHA-256 `4c6f92b38bb3affa12aa52ae18d2d36276400d706b3a570e154d75e453d08059`。没有合并 `main`，没有发布正式 Release。
 
 ## 7. 历史验证兼容摘要
 
