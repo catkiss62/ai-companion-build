@@ -40,9 +40,10 @@
 | +228 远端 | head `29e87d016c8bd81f52f89f95191bd1a1a01a5b57`；tree `c4a112a56d8b634cf3a1a66636979a0833538b7d`；Actions `35440359036`；Artifact `10583263879`；APK SHA-256 `159e283173e49da2924d25b37ba7647893cdafdcc31b63f0e31b7c64e086849b` |
 | 仓库维护基线 | `maintenance/repository-governance-20260919`；远端文档 head `123e272196e8ae93f3518157917d76f6af4f1784`；完整构建 head `fa99f32012fa1a0716b746d36b958a8e777ef9b8`；Actions `35446649873` 全绿；文档-only run `35447342921` 正确跳过 APK |
 | 当前功能分支 | `agent/v04201-autonomy-media-hardening`，基于 +245；候选版本 `v0.42.2+246` |
-| 当前任务状态 | `IMPLEMENTED LOCALLY / LOCAL STATIC VALIDATION PASSED / CI PENDING / TRUE DEVICE PENDING`；修复图片删除事务、视觉额度误分类与备份冻结误报换设备，见 6.19 |
+| 当前任务状态 | `CI PASSED / APK READY / TRUE DEVICE PENDING`；修复图片删除事务、视觉额度误分类与备份冻结误报换设备，见 6.19 |
 | +246 当前任务 | 识别中的图片允许立即删除，迟到的千问结果不得复活消息或报错；`403 Free quota exhausted` 明确归类为额度耗尽；`please` 不再误命中 `lease`；普通备份冻结不再显示“她正在换设备”。表情包仍使用本地 `sticker_index`，不新增视觉调用或固定回复兜底 |
 | +246 保护边界 | 不修改 Sen/Live2D、人格、欲望、Cedar、TTS、schema 61 或 Snapshot protocol 6；不合并 `main`，不发布正式 Release |
+| +246 远端 | 功能 head `167a504f4974ef11566b8ac974ab9e7281f00fc0`；tree `2f8c733bb1c80f078bb5b71f88e7b2a3287e8448`；Actions `35843632708` 全绿；Artifact `10742996195`；APK SHA-256 `d4c609c0836427155b9f73a6cf629c45f6cff4d88f801be5b4def828839546c2`；未发布 Draft Release `untagged-d99196e0bf0a288629ac` |
 | +245 当前任务 | 21:00～次日 09:00 所有主动来源共享最多一次成功投递；“我会玩游戏”不再误授权 Cedar，前台真实游玩与后台共用局次/疲劳/满足账本；千问视觉新增真实连接测试与鉴权分类；TTS 只保留参考音频不可逆声学签名，高置信回声直接拒绝播放且没有固定音频/台词兜底 |
 | +245 保护边界 | 不修改独立 Sen 仓库或已回退 Live2D；不增加对话模型调用；表情包继续使用本地索引语义进入当前 user prompt；schema 61 / Snapshot protocol 6 不变；不合并 `main`，不发布正式 Release |
 | +245 远端 | head `09a50bdf14cfc1f5850c4c055fcbeade1b9dedb2`；tree `0985f0961691bdce7e6d521d59a12137ea5a82ad`；Actions `35809712355` 全绿；Artifact `10729507323`；APK SHA-256 `4c6f92b38bb3affa12aa52ae18d2d36276400d706b3a570e154d75e453d08059`；未发布 Draft Release `394245028` |
@@ -611,7 +612,7 @@ Actions 与交付证据：
 
 ### 6.16 v0.41.99+243 Sen 正式产品接入收口（2026-09-21）
 
-状态：`IMPLEMENTED LOCALLY / LOCAL STATIC VALIDATION PASSED / CI PENDING / TRUE DEVICE PENDING`。
+状态：`CI PASSED / APK READY / TRUE DEVICE PENDING`。
 
 实现分支：`agent/v04199-sen-product-integration`。
 
@@ -697,6 +698,8 @@ Actions 与交付证据：正确源码树 `0985f0961691bdce7e6d521d59a12137ea5a8
 验证计划：先运行全量静态门与 `git diff --check`；Flutter/Dart SDK 不在本地镜像时，由授权的 GitHub Actions 执行 Flutter analyze/tests、Kotlin tests、arm64 Release APK、稳定签名与现有资源门。真机需分别验证：识别中删除立即消失且不返魂、额度耗尽显示准确、补足额度后图片可正常进入回复、表情包不调用视觉且正常回复、备份期间不再显示换设备。自动化通过不等于真机通过。
 
 本地验证：Workflow YAML、Python 编译、+246 专项门、+245 自主媒体门、+244 Live2D 回退保护门、+241 自然回复保活门、当前总账门和 `git diff --check` 通过。全量 123 项静态门中实际通过 120 项；其余三项只因稀疏工作树缺少 CI 恢复的 417 件桌宠源包、LingChat 特效目录及本机没有 `kotlinc`，不是源码断言失败。本机没有 Flutter/Dart SDK，完整 analyze/tests 与 APK 编译交由 Actions。
+
+Actions 与交付证据：首轮 run `35842639649` 已通过源码/历史门、Kotlin 与 Flutter analyze，Flutter 913 项中 912 项通过；唯一失败只是旧测试仍断言 `build=v0.42.1+245`，生产输出已正确为 `v0.42.2+246`。窄修测试后，功能 head `167a504f4974ef11566b8ac974ab9e7281f00fc0` / tree `2f8c733bb1c80f078bb5b71f88e7b2a3287e8448` 在第二轮 run `35843632708` 全绿：123 项静态门、Kotlin tests、Flutter analyze、913 项 Flutter tests、arm64 Release、稳定签名和完整 TTS/桌宠/LingChat/塔罗资源门全部通过。Artifact `10742996195`，APK SHA-256 `d4c609c0836427155b9f73a6cf629c45f6cff4d88f801be5b4def828839546c2`，未发布 Draft Release `untagged-d99196e0bf0a288629ac`。没有合并 `main`，没有发布正式 Release；真机仍待验收。
 
 ## 7. 历史验证兼容摘要
 
