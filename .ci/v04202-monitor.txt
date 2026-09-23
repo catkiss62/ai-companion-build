@@ -1,0 +1,7 @@
+status=success
+run_id=35843632708
+run_url=https://github.com/catkiss62/ai-companion-build/actions/runs/35843632708
+head_sha=167a504f4974ef11566b8ac974ab9e7281f00fc0
+signer_sha256=30:5E:B3:D8:09:83:B9:63:C6:48:18:DD:F1:AD:56:1F:27:9D:E6:D4:7B:3E:D2:C7:81:AD:A4:48:C7:C2:51:48
+d4c609c0836427155b9f73a6cf629c45f6cff4d88f801be5b4def828839546c2  AI-Companion-v0.42.2-246-Media-Transaction-Recovery-APK.apk
+release_url=https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-d99196e0bf0a288629ac
