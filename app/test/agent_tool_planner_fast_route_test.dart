@@ -24,6 +24,34 @@ void main() {
     );
   });
 
+  test('first-person game plans do not authorize companion game tools', () {
+    for (final text in const <String>[
+      '我会拿来先睡个觉然后刷刷视频玩玩游戏',
+      '我打算晚上玩一下游戏',
+      '我有空会去钓鱼',
+    ]) {
+      expect(
+        AgentToolPlanner.nativeToolDefinitionsFor(text),
+        isEmpty,
+        reason: text,
+      );
+    }
+  });
+
+  test('direct and shared game requests still expose Cedar tools', () {
+    for (final text in const <String>[
+      '我想和你一起玩游戏',
+      '你去钓鱼玩吧',
+      '去游戏厅玩一下呗',
+      '去钓呗',
+    ]) {
+      final names = AgentToolPlanner.nativeToolDefinitionsFor(text)
+          .map((item) => (item['function'] as Map)['name'])
+          .toSet();
+      expect(names, contains('cedar_toy_play'), reason: text);
+    }
+  });
+
   test('route-aware native schemas expose only relevant capability groups', () {
     final webNames = AgentToolPlanner.nativeToolDefinitionsFor('今天有什么最新新闻')
         .map((item) => (item['function'] as Map)['name'])

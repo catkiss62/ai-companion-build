@@ -1,8 +1,44 @@
 import 'package:ai_companion_localfirst/core/mcp/cedar_solo_episode_policy.dart';
+import 'package:ai_companion_localfirst/core/mcp/cedar_play_outcome_bookkeeper.dart';
 import 'package:ai_companion_localfirst/core/mcp/mcp_protocol.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
+  test('foreground resume resets only an already-due solo checkpoint', () {
+    final now = DateTime(2026, 9, 23, 12);
+    final active = CedarSoloEpisodeState(
+      gameId: 'fishing',
+      startedAt: now.subtract(const Duration(minutes: 5)),
+      stateChangeCount: 1,
+    );
+    final due = CedarSoloEpisodeState(
+      gameId: 'fishing',
+      startedAt: now.subtract(const Duration(minutes: 30)),
+      stateChangeCount: 3,
+      checkpointPending: true,
+      checkpointReason: 'state_change_limit',
+    );
+
+    expect(
+      CedarPlayOutcomeBookkeeper.episodeForOutcome(
+        stored: active,
+        now: now,
+        isStateChange: true,
+        origin: CedarPlayBookkeepingOrigin.userTurn,
+      ),
+      same(active),
+    );
+    final resumed = CedarPlayOutcomeBookkeeper.episodeForOutcome(
+      stored: due,
+      now: now,
+      isStateChange: true,
+      origin: CedarPlayBookkeepingOrigin.userTurn,
+    );
+    expect(resumed.startedAt, now);
+    expect(resumed.stateChangeCount, 0);
+    expect(resumed.checkpointPending, isFalse);
+  });
+
   final now = DateTime(2026, 9, 20, 1);
 
   McpToolOutcome outcome({

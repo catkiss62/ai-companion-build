@@ -57,6 +57,7 @@ import 'desire_satisfaction_ledger.dart';
 import 'desire_engine.dart';
 import 'fatigue_affect_controller.dart';
 import 'proactive_dawn_gate_policy.dart';
+import 'proactive_history_queries.dart';
 import 'proactive_presentation.dart';
 import 'proactive_rhythm_engine.dart';
 import 'proactive_scene_continuity_policy.dart';
@@ -1066,6 +1067,27 @@ class ProactiveEngine {
         sent: false,
         reason: '仍有真实用户轮次尚未完成回复，主动联系让位给用户对话',
       );
+    }
+
+    final nightWindowStart =
+        ProactiveNightContactCapPolicy.windowStart(evaluationStartedAt);
+    if (!forceForDebug && nightWindowStart != null) {
+      final deliveredInWindow =
+          await db.deliveredProactiveCountAfter(nightWindowStart);
+      if (ProactiveNightContactCapPolicy.blocks(
+        now: evaluationStartedAt,
+        deliveredSinceWindowStart: deliveredInWindow,
+      )) {
+        await db.addProactiveHistory(
+          triggerReason: '${intent.drive.name}:${intent.reason}',
+          decision: 'night_contact_ceiling',
+        );
+        await noteGeneration('gate_blocked', reasonTag: 'night_contact_ceiling');
+        return const ProactiveDecision(
+          sent: false,
+          reason: '深夜至早上九点的主动联系额度已经使用',
+        );
+      }
     }
 
     final apiKey = await secureConfig.readApiKey();

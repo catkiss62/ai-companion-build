@@ -123,3 +123,4 @@ tools/validate_v04192_desire_game_interest.py
 tools/validate_v04193_game_reality_grounding.py
 tools/validate_v04197_natural_reply_liveness.py
 tools/validate_v04200_live2d_clean_rollback.py
+tools/validate_v04201_autonomy_media_hardening.py

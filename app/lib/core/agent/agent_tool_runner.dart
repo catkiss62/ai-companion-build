@@ -17,6 +17,7 @@ import '../mcp/cedar_toy_client.dart';
 import '../mcp/cedar_toy_activity.dart';
 import '../mcp/cedar_agent_loop_policy.dart';
 import '../mcp/cedar_game_protocol.dart';
+import '../mcp/cedar_play_outcome_bookkeeper.dart';
 import '../mcp/cedar_outcome_media.dart';
 import '../mcp/mcp_http_client.dart';
 import '../mcp/mcp_protocol.dart';
@@ -801,6 +802,15 @@ class AgentToolRunner {
           keepExecution: true,
         );
         recordedEventId = recorded.events.isEmpty ? '' : recorded.events.last.id;
+        await CedarPlayOutcomeBookkeeper(db).record(
+          now: DateTime.now(),
+          session: recorded,
+          action: action,
+          outcome: outcome,
+          origin: origin == AgentToolOrigin.autonomous
+              ? CedarPlayBookkeepingOrigin.autonomous
+              : CedarPlayBookkeepingOrigin.userTurn,
+        );
       }
       try {
         await android.wakeBackgroundBrain(reason: 'cedar_session_updated');

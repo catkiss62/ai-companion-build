@@ -35,6 +35,8 @@ object TtsProcessCheckpoint {
         pcmDurationMs: Long = 0,
         pcmHash: String = "",
         referenceEchoSuspected: Boolean = false,
+        referenceEchoReason: String = "",
+        referenceEchoScore: Double = 0.0,
     ) {
         runCatching {
             val payload = JSONObject()
@@ -61,6 +63,8 @@ object TtsProcessCheckpoint {
                 .put("pcmDurationMs", pcmDurationMs.coerceAtLeast(0))
                 .put("pcmHash", DiagnosticRedaction.safeToken(pcmHash, 96))
                 .put("referenceEchoSuspected", referenceEchoSuspected)
+                .put("referenceEchoReason", DiagnosticRedaction.safeToken(referenceEchoReason, 64))
+                .put("referenceEchoScore", referenceEchoScore.coerceIn(-1.0, 1.0))
                 .put("pssKb", Debug.getPss())
                 .put("rssKb", currentRssKb())
                 .put("threads", currentThreadCount())
@@ -106,6 +110,8 @@ object TtsProcessCheckpoint {
             "pcmDurationMs" to value.optLong("pcmDurationMs", 0L),
             "pcmHash" to value.optString("pcmHash", ""),
             "referenceEchoSuspected" to value.optBoolean("referenceEchoSuspected", false),
+            "referenceEchoReason" to value.optString("referenceEchoReason", ""),
+            "referenceEchoScore" to value.optDouble("referenceEchoScore", 0.0),
             "pssKb" to value.optInt("pssKb", 0),
             "rssKb" to value.optInt("rssKb", 0),
             "threads" to value.optInt("threads", 0),

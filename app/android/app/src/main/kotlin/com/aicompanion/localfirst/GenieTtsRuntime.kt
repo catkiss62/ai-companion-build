@@ -21,6 +21,7 @@ import kotlin.math.roundToInt
 /** Production adapter around the verified Genie core with the Jiuhu V2Pro voice. */
 class GenieTtsRuntime(private val context: Context) : AutoCloseable {
     private val engine = GenieBenchmarkEngine(context)
+    private val referenceEchoGuard = ReferenceAudioEchoGuard(context)
     private var root: File? = null
     private var modelLoad = ModelLoadInfo(false, 0L)
     private var modelsReady = false
@@ -193,18 +194,31 @@ class GenieTtsRuntime(private val context: Context) : AutoCloseable {
         onStage("wav_encode", emptyMap())
         val wav = pcm16Wav(result.audio, manifest.sampleRate, voiceCase.playbackGainDb)
         val durationMs = TtsDiagnosticEvidence.wavDurationMs(wav)
+        val acousticEcho = referenceEchoGuard.assess(
+            referenceCaseId = referenceId,
+            normalizedText = prepared.normalizedText,
+            audio = result.audio,
+            sampleRate = manifest.sampleRate,
+        )
+        val referenceEchoSuspected = acousticEcho.suspected ||
+            TtsDiagnosticEvidence.referenceEchoSuspected(
+                decoderIterations = result.decoderIterations,
+                semanticCount = result.semanticTokens,
+                pcmDurationMs = durationMs,
+            )
         onStage(
             "wav_ready_evidence",
             mapOf<String, Any>(
                 "pcmDurationMs" to durationMs,
                 "pcmHash" to TtsDiagnosticEvidence.pcmPayloadHash(wav),
-                "referenceEchoSuspected" to TtsDiagnosticEvidence.referenceEchoSuspected(
-                    decoderIterations = result.decoderIterations,
-                    semanticCount = result.semanticTokens,
-                    pcmDurationMs = durationMs,
-                ),
+                "referenceEchoSuspected" to referenceEchoSuspected,
+                "referenceEchoReason" to acousticEcho.reason,
+                "referenceEchoScore" to acousticEcho.similarity,
             ) + diagnosticIdentity,
         )
+        check(!referenceEchoSuspected) {
+            "TTS generation rejected: reference audio echo"
+        }
         return wav
     }
 

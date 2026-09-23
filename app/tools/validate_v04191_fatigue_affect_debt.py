@@ -61,9 +61,14 @@ require(
     "lib/core/mcp/cedar_toy_autonomy_engine.dart",
     "FatigueAffectSnapshot fatigueAffect",
     "activityActivation",
-    "source: 'cedar_game_step'",
-    "!CedarPlatformActionPolicy.isReadOnly(action)",
     "reason: 'night_sleep'",
+)
+require(
+    "lib/core/mcp/cedar_play_outcome_bookkeeper.dart",
+    "source: origin == CedarPlayBookkeepingOrigin.userTurn",
+    ": 'cedar_game_step'",
+    "CedarSoloEpisodePolicy.isStateChangingAction(action)",
+    "recordAutonomousExertion",
 )
 require(
     "lib/core/emotion/emotion_episode_engine.dart",

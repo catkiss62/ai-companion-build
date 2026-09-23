@@ -2,7 +2,7 @@ import 'package:ai_companion_localfirst/core/desire/proactive_dawn_gate_policy.d
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
-  test('screen-off dawn removes long-idle acceleration without a count cap', () {
+  test('screen-off dawn removes long-idle acceleration', () {
     final adjusted = ProactiveDawnGatePolicy.adjust(
       now: DateTime(2026, 9, 3, 7, 20),
       activityContext: 'screen_off',
@@ -13,6 +13,38 @@ void main() {
     expect(adjusted.idleBoost, ProactiveDawnGatePolicy.maxIdleBoost);
     expect(adjusted.thresholdPenalty, greaterThan(0));
     expect(adjusted.suppressLongIdleRelief, isTrue);
+  });
+
+  test('late-night through nine uses one cross-source delivery ceiling', () {
+    final beforeMidnight = DateTime(2026, 9, 3, 23, 10);
+    final dawn = DateTime(2026, 9, 4, 8, 59);
+
+    expect(
+      ProactiveNightContactCapPolicy.windowStart(beforeMidnight),
+      DateTime(2026, 9, 3, 21),
+    );
+    expect(
+      ProactiveNightContactCapPolicy.windowStart(dawn),
+      DateTime(2026, 9, 3, 21),
+    );
+    expect(
+      ProactiveNightContactCapPolicy.blocks(
+        now: dawn,
+        deliveredSinceWindowStart: 0,
+      ),
+      isFalse,
+    );
+    expect(
+      ProactiveNightContactCapPolicy.blocks(
+        now: dawn,
+        deliveredSinceWindowStart: 1,
+      ),
+      isTrue,
+    );
+    expect(
+      ProactiveNightContactCapPolicy.windowStart(DateTime(2026, 9, 4, 9)),
+      isNull,
+    );
   });
 
   test('dawn boundaries and screen-on contexts keep the ordinary gate', () {

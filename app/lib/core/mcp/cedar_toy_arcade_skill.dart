@@ -34,12 +34,31 @@ class CedarToyArcadeSkill {
 
   // Historical contract label: Cedar Toy 游戏厅 · 行为 Skill
 
-  static bool isRelevant(String text) =>
-      requestsNaturalPlay(text) ||
-      RegExp(
-        r'(cedar\s*toy|游戏厅|小游戏|一起玩|玩(?:个|一下|一会儿)?游戏|防沉迷|重置(?:游戏)?(?:次数|轮次|限制))',
-        caseSensitive: false,
-      ).hasMatch(text);
+  static bool isRelevant(String text) {
+    if (describesUserOnlyPlay(text)) return false;
+    return requestsNaturalPlay(text) ||
+        requestsCompanionSoloPlay(text) ||
+        RegExp(
+          r'(cedar\s*toy|游戏厅|小游戏|一起玩|玩(?:个|一下|一会儿)?游戏|防沉迷|重置(?:游戏)?(?:次数|轮次|限制))',
+          caseSensitive: false,
+        ).hasMatch(text);
+  }
+
+  /// A first-person plan is conversation context, not authority for the
+  /// companion to mutate a remote game. Explicitly including/commanding the
+  /// companion wins, so “我想和你一起玩” remains a real request.
+  static bool describesUserOnlyPlay(String text) {
+    final clean = text.replaceAll(RegExp(r'\s+'), ' ').trim();
+    if (clean.isEmpty || requestsNaturalPlay(clean)) return false;
+    final firstPersonPlan = RegExp(
+      r'(我(?:会|要|想|准备|打算|可以|可能|先|就|拿来|用来|平时|平常|有空|没事时)).{0,28}'
+      r'(玩(?:玩|一下|一会儿)?游戏|打游戏|下棋|钓鱼|刷游戏)|'
+      r'(我).{0,16}(然后|再|就).{0,16}(玩(?:玩|一下)?游戏|打游戏|下棋|钓鱼)',
+      caseSensitive: false,
+    ).hasMatch(clean);
+    final companionDirected = requestsCompanionSoloPlay(clean);
+    return firstPersonPlan && !companionDirected;
+  }
 
   static bool requestsNaturalPlay(String text) => RegExp(
         r'(陪我|跟我|和我|我们|咱们|一起).{0,12}(玩|下棋|打牌|对局|五子棋|围棋|象棋|双弈)|'
@@ -48,19 +67,28 @@ class CedarToyArcadeSkill {
         caseSensitive: false,
       ).hasMatch(text);
 
+  static bool requestsCompanionSoloPlay(String text) => RegExp(
+        r'(你|让你|叫你|给你|小机|宝贝|老婆).{0,16}(玩|下棋|钓(?:鱼)?|去游戏厅)|'
+        r'(?:^|[，。！？]\s*)(去|快去|自己去|你先).{0,10}(玩|下棋|钓(?:鱼)?|游戏厅).{0,6}(吧|呗|呀|啊)?$',
+        caseSensitive: false,
+      ).hasMatch(text);
+
   /// This is a safety boundary, not a game router. It only prevents a play
   /// request from being satisfied through web/source/strategy research; the
   /// model still decides whether and how to use Cedar from its live catalog.
-  static bool requestsBlindPlay(String text) => RegExp(
-        r'(陪.{0,8}(玩|下棋|打牌)|一起.{0,8}(玩|下棋|打牌)|'
-        r'(玩|开).{0,8}(一把|一局|游戏)|下.{0,8}(棋|五子棋|围棋|象棋)|'
-        r'(五子棋|围棋|象棋|棋牌|纸牌|卡牌).{0,10}(玩|下|来|陪)|'
-        r'(进入|开始|继续|加入).{0,10}(游戏|对局|房间)|'
-        r'(游戏|双弈|五子棋|围棋|象棋|棋牌|文字推理).{0,14}(攻略|答案|谜底|剧透|源码|github|仓库)|'
-        r'(攻略|答案|谜底|剧透|源码|github|仓库).{0,14}(游戏|双弈|五子棋|围棋|象棋|棋牌|文字推理)|'
-        r'play.{0,16}(game|chess|cards?)|game.{0,16}(play|with me))',
-        caseSensitive: false,
-      ).hasMatch(text);
+  static bool requestsBlindPlay(String text) {
+    if (describesUserOnlyPlay(text)) return false;
+    return RegExp(
+      r'(陪.{0,8}(玩|下棋|打牌)|一起.{0,8}(玩|下棋|打牌)|'
+      r'(玩|开).{0,8}(一把|一局|游戏)|下.{0,8}(棋|五子棋|围棋|象棋)|'
+      r'(五子棋|围棋|象棋|棋牌|纸牌|卡牌).{0,10}(玩|下|来|陪)|'
+      r'(进入|开始|继续|加入).{0,10}(游戏|对局|房间)|'
+      r'(游戏|双弈|五子棋|围棋|象棋|棋牌|文字推理).{0,14}(攻略|答案|谜底|剧透|源码|github|仓库)|'
+      r'(攻略|答案|谜底|剧透|源码|github|仓库).{0,14}(游戏|双弈|五子棋|围棋|象棋|棋牌|文字推理)|'
+      r'play.{0,16}(game|chess|cards?)|game.{0,16}(play|with me))',
+      caseSensitive: false,
+    ).hasMatch(text);
+  }
 
   static bool requestsExternalGameKnowledge(String text) => RegExp(
         r'(攻略|通关|答案|谜底|剧透|源码|源代码|github|gitlab|gitee|仓库|'

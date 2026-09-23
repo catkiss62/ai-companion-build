@@ -3,6 +3,7 @@ import 'dart:io';
 import 'dart:typed_data';
 
 import 'package:ai_companion_localfirst/core/ai/qwen_vision_client.dart';
+import 'package:ai_companion_localfirst/core/diagnostics/vision_failure_presentation.dart';
 import 'package:ai_companion_localfirst/core/models/chat_message.dart';
 import 'package:ai_companion_localfirst/core/models/message_attachment.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -31,6 +32,16 @@ MessageAttachment attachment({
 }
 
 void main() {
+  test('authorization failures are presented as configuration failures', () {
+    final message = VisionFailurePresentation.message(
+      const QwenVisionException(401, 'unauthorized'),
+    );
+
+    expect(message, contains('401/403'));
+    expect(message, contains('Key'));
+    expect(message, isNot(contains('QwenVisionException')));
+  });
+
   test('completed visual observation becomes prompt context', () {
     final message = ChatMessage(
       id: 'message-1',

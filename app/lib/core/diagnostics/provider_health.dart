@@ -56,6 +56,7 @@ class ProviderHealth {
     'album_discovery',
     'user_image_album',
     'screen_observation',
+    'settings_test',
   };
   static const providers = <String>{
     'none',

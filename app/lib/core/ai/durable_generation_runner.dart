@@ -354,7 +354,9 @@ class DurableGenerationRunner {
         cedarState = await cedarActivityStore.loadState();
         cedarSession = cedarState.activeSession;
       }
-      final immediateCedarEntry =
+      final userOnlyGameStatement =
+          CedarToyArcadeSkill.describesUserOnlyPlay(user.content);
+      final immediateCedarEntry = !userOnlyGameStatement &&
           CedarToyActivityStore.requestsImmediateGameEntry(user.content);
       final cedarConfigured =
           (await db.getSetting('cedar_toy_enabled')) != '0' &&
@@ -411,11 +413,12 @@ class DurableGenerationRunner {
       // prompt's world-book context.
       generationSpecialStyleTrialId = '';
       generationSpecialStyleKey = '';
-      final cedarExplicitRequest = CedarToyArcadeSkill.isRelevant(user.content) ||
-          CedarToyActivityStore.catalogMentionsGame(
-            user.content,
-            cedarCatalog,
-          );
+      final cedarExplicitRequest = !userOnlyGameStatement &&
+          (CedarToyArcadeSkill.isRelevant(user.content) ||
+              CedarToyActivityStore.catalogMentionsGame(
+                user.content,
+                cedarCatalog,
+              ));
       // A solo game continues on its own lightweight background clock. Only a
       // co-play/user-waiting session may keep Cedar tools in an ordinary user
       // turn, otherwise unrelated chat would accidentally advance the game.

@@ -71,8 +71,8 @@ def main() -> None:
     require("清除 Live2D 模型包" in chat_page, "persistent cleanup control missing")
     require("确认清除" in chat_page, "destructive cleanup confirmation missing")
 
-    require("version: 0.42.0+244" in read("pubspec.yaml"), "build version mismatch")
-    require("v0.42.0+244" in workflow, "workflow version mismatch")
+    require("version: 0.42.1+245" in read("pubspec.yaml"), "build version mismatch")
+    require("v0.42.1+245" in workflow, "workflow version mismatch")
     require("forbidden_live2d" in workflow, "APK Live2D absence gate missing")
     require(
         "tools/validate_v04197_natural_reply_liveness.py" in suite,
@@ -91,11 +91,11 @@ def main() -> None:
         "tools/validate_v04150_agent_v2_bounded_loop.py",
     ):
         require(
-            "0\\.42\\.0\\+244" in read(validator),
+            "0\\.42\\.1\\+245" in read(validator),
             f"current version missing from {validator}",
         )
 
-    print("v0.42.0 Live2D clean rollback and local-model cleanup contract passed")
+    print("v0.42.0 Live2D clean rollback remains preserved in the current build")
 
 
 if __name__ == "__main__":

@@ -46,3 +46,30 @@ class ProactiveDawnGatePolicy {
     );
   }
 }
+
+/// One shared contact ceiling for the whole late-night-to-morning window.
+/// It counts successful proactive deliveries from every source lane; game and
+/// web shares cannot each consume a separate quota.
+class ProactiveNightContactCapPolicy {
+  const ProactiveNightContactCapPolicy._();
+
+  static const startHour = 21;
+  static const endHour = 9;
+  static const maxDelivered = 1;
+
+  static DateTime? windowStart(DateTime now) {
+    if (now.hour >= endHour && now.hour < startHour) return null;
+    final date = now.hour >= startHour
+        ? now
+        : now.subtract(const Duration(days: 1));
+    return now.isUtc
+        ? DateTime.utc(date.year, date.month, date.day, startHour)
+        : DateTime(date.year, date.month, date.day, startHour);
+  }
+
+  static bool blocks({
+    required DateTime now,
+    required int deliveredSinceWindowStart,
+  }) =>
+      windowStart(now) != null && deliveredSinceWindowStart >= maxDelivered;
+}

@@ -1,6 +1,6 @@
 # AI Companion · 当前总账
 
-更新时间：2026-09-20（Asia/Tokyo）
+更新时间：2026-09-23（Asia/Tokyo）
 
 > 本文件是唯一的当前接班入口，继续采用“总账 v2”。顶部是快速接班索引；标记后的正式记录按版本持续追加，不设总容量上限。
 >
@@ -39,8 +39,10 @@
 | 功能状态 | `CI PASSED / APK READY / TRUE DEVICE PENDING` |
 | +228 远端 | head `29e87d016c8bd81f52f89f95191bd1a1a01a5b57`；tree `c4a112a56d8b634cf3a1a66636979a0833538b7d`；Actions `35440359036`；Artifact `10583263879`；APK SHA-256 `159e283173e49da2924d25b37ba7647893cdafdcc31b63f0e31b7c64e086849b` |
 | 仓库维护基线 | `maintenance/repository-governance-20260919`；远端文档 head `123e272196e8ae93f3518157917d76f6af4f1784`；完整构建 head `fa99f32012fa1a0716b746d36b958a8e777ef9b8`；Actions `35446649873` 全绿；文档-only run `35447342921` 正确跳过 APK |
-| 当前功能分支 | `agent/v04200-live2d-clean-rollback`，从 +243 精确回退当前 Sen Live2D；候选版本 `v0.42.0+244` |
-| 当前任务状态 | `CI PASSED / APK READY / TRUE DEVICE PENDING`；+244 删除当前 Sen/Cubism 运行栈与产品接线，只保留独立的旧模型清理入口，见 6.17 |
+| 当前功能分支 | `agent/v04201-autonomy-media-hardening`，基于 +244；候选版本 `v0.42.1+245` |
+| 当前任务状态 | `LOCAL STATIC VALIDATION PASSED / CI PENDING / TRUE DEVICE PENDING`；清晨主动联系、Cedar 真实游玩闭环、视觉鉴权与 TTS 参考音频回声防护，见 6.18 |
+| +245 当前任务 | 21:00～次日 09:00 所有主动来源共享最多一次成功投递；“我会玩游戏”不再误授权 Cedar，前台真实游玩与后台共用局次/疲劳/满足账本；千问视觉新增真实连接测试与鉴权分类；TTS 只保留参考音频不可逆声学签名，高置信回声直接拒绝播放且没有固定音频/台词兜底 |
+| +245 保护边界 | 不修改独立 Sen 仓库或已回退 Live2D；不增加对话模型调用；表情包继续使用本地索引语义进入当前 user prompt；schema 61 / Snapshot protocol 6 不变；不合并 `main`，不发布正式 Release |
 | +244 远端 | head `c16955ad0a8eeb3945d95c8b42372859d6ab09b8`；Actions `35642646319` 全绿；Artifact `10659441135`；APK SHA-256 `e58122e12f1cc412ff29eccbf0575bb0ae73ba6b524419ea774ad2f5a3dc5684`；未发布 Draft Release `393217151` |
 | +244 当前任务 | 以 +237 的共享文件为机械基线回退 Live2D，同时保留 +241/+242 自然回复修复；删除 Sen 服装、预设、动作、情绪、PlatformView、Cubism AAR/Framework/shader 与 TTS/视线/摸头接线；聊天快捷面板永久提供带确认的旧模型包清理按钮，只能删除 App 私有 `filesDir/sen-live2d` |
 | +243 当前任务 | 启动只加载服装而不批量启用全部原生预设；只显示三套服装、脱与眼镜；20 种聊天情绪接入，脱/NSFW 使用 `romantic_shy`；原生待机、摸头/彩蛋和当前 PCM TTS 口型保留；人物与特效共用位置/缩放；Flutter 全局触点驱动视线；输入法只挪动聊天面板，不改变 Live2D 原生表面尺寸 |
@@ -640,6 +642,31 @@ Actions 与交付证据：
 保护边界：不修改独立 Sen 仓库；不修改人格、欲望、记忆、Cedar、TTS 声学模型、悬浮桌宠、schema 61、Snapshot protocol 6、`main` 或正式 Release。
 
 本地验证：+244 专项门、+241 自然回复保活门、当前总账门、Workflow YAML 解析、Python 编译与 `git diff --check` 通过；并逐文件确认五个自然回复核心文件与 +242 head `84d6a2c` 完全一致，五个共享 Android/UI 文件与 +237 head `0caa938` 完全一致。首轮 Actions `35641760278` 在第 16/121 个旧门 `validate_v04143_phase3b_question_autonomy.py` 停止，根因只是六个历史 validator 的当前版本正则止于 `0.41.99+243`；已统一追加 `0.42.0+244`，不改变任何运行时。第二轮 Actions `35642646319` 全绿：完整源码/历史回归门、Flutter packages/analyze/tests、Android/Kotlin tests、release APK 编译、稳定签名、既有资源完整性与 APK 内无 Live2D/Cubism 残留检查均通过。Workflow Artifact `10659441135`，未发布 Draft Release `393217151`，APK SHA-256 `e58122e12f1cc412ff29eccbf0575bb0ae73ba6b524419ea774ad2f5a3dc5684`。真机仍需覆盖安装验证旧模型占用可见且能清除、重启后不恢复、静态立绘/聊天/TTS/输入法无回归。
+
+### 6.18 v0.42.1+245 自主节律、媒体诊断与 TTS 回声防护（2026-09-23）
+
+状态：`LOCAL STATIC VALIDATION PASSED / CI PENDING / TRUE DEVICE PENDING`。
+
+实现分支：`agent/v04201-autonomy-media-hardening`。
+
+真机证据与根因：
+
+1. 疲劳本身在 07:49 已从 `rest_need` 恢复，但同一夜间窗口 07:49、08:29 又连续投递；旧 `ProactiveDawnGatePolicy` 只有分数惩罚，没有硬次数上限，且网页/游戏分享可走分开的频率统计。
+2. 近期 Cedar 真实成功均来自用户回合；前台 `AgentToolRunner` 只写活动 session，没有像后台引擎一样写 `play_game` 满足账本、疲劳支出和 solo episode。与此同时“我会拿来……玩玩游戏”因宽泛正则被标成 `explicit_request` 并实际调用 Cedar。
+3. 备份中的视觉提供商近期错误为 401/403 authorization。普通用户图片依赖千问视觉，因此会失败；App 原生表情包不走视觉 API，已通过 `sticker_index → ChatMessage.promptContent → PromptHistoryPolicy.userTurnHistory` 证明当前语义会进入最终用户轮。
+4. 用户明确听到末句变成 `jiuhu_bento_tools.wav`。生产 APK 已删除参考 WAV，且生产播放器只接收推理生成字节，因此不是代码直接播放文件，而是声学条件泄漏/参考回声。旧诊断虽然计算 `referenceEchoSuspected`，导出白名单却丢掉关键字段，且只识别单 token 退化。
+
+实现：
+
+- 新增跨来源的夜间联系硬上限：21:00 至次日 09:00 只允许一条成功主动投递；只统计 `decision=sent`，失败、等待、blocked 不占额度，09:00 自动结束窗口。原 dawn 连续分数调制继续保留。
+- 新增 `CedarPlayOutcomeBookkeeper`，前台 Agent 与后台自主推进共享同一套 solo episode、反沉迷、疲劳支出和 `play_game` 满足账本。用户明确触发的真实 solo mutation 开始新 episode，不继承旧 checkpoint；共玩/多人仍只在有双方许可时推进。
+- Cedar 语义边界区分“用户描述自己准备玩”与“让她玩/一起玩”。前者不暴露 Cedar 写工具，即使模型试图选工具也过不了本地 allowlist；后者保持自然入口。
+- 千问视觉设置增加使用内置测试像素的真实连接测试，覆盖地址、Key、模型与 JSON 响应；401/403、缺 Key、限流、超时、网络和无效响应以系统 UI 明确分类，不把固定句写成伴侣回复。用户图片保留后可重试；表情包不增加视觉调用，并新增当前 user turn 的 prompt 回归测试。
+- CI 在删除四份参考 WAV 前提取 64 段归一化能量包络与过零率，APK 只保留不可逆小型签名和参考文本 SHA-256。推理音频与对应签名在时长、包络和过零率上同时高度相似且输入并非参考原句时，生成段直接失败并禁止进入播放器；不播放参考文件、系统 TTS、固定音频或固定台词。补齐 reference case、字符类别、有效 phone、decoder 次数、PCM 时长/hash 与回声判据的脱敏诊断白名单。
+
+验证计划：运行 +245 专项门、全部历史 validator（CI 恢复资源/Kotlin 编译器相关既有例外单列）、Flutter analyze/tests、Android/Kotlin tests、arm64 Release、参考 WAV 缺席与签名存在检查。Actions 只构筑独立分支测试 APK 与未发布 Draft，不合并 `main`、不发布正式 Release。真机需覆盖验证：夜间第二条主动消息被挡、用户第一人称游戏描述不触发、明确让她独玩后可自主续步、视觉设置准确报告当前 Key、图片识别恢复、表情包理解正常，以及任意句子不再播放参考台词。
+
+本地验证：Workflow YAML 解析、变更后 Python validator 编译、+245 专项门、+244 Live2D 回退保护门、+241 自然回复保活门、+235 疲劳负债门、当前总账门与 `git diff --check` 通过。全量历史静态门实际通过 118 项；另 4 项只因本地 sparse 工作树缺少 CI 恢复的大肥鱼参考图、417 件桌宠源包、LingChat 资源，以及本机无 `kotlinc` 而未执行，不是源码断言失败。本机同时无 Flutter/Dart SDK；完整 analyze/test/Kotlin/release APK 交由 Actions 实编译。
 
 ## 7. 历史验证兼容摘要
 

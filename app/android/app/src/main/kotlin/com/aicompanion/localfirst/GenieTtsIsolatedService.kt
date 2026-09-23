@@ -47,6 +47,8 @@ class GenieTtsIsolatedService : Service() {
     private var pcmDurationMs = 0L
     private var pcmHash = ""
     private var referenceEchoSuspected = false
+    private var referenceEchoReason = ""
+    private var referenceEchoScore = 0.0
 
     override fun onCreate() {
         super.onCreate()
@@ -110,6 +112,8 @@ class GenieTtsIsolatedService : Service() {
             pcmDurationMs = 0L
             pcmHash = ""
             referenceEchoSuspected = false
+            referenceEchoReason = ""
+            referenceEchoScore = 0.0
             val requestGeneration = generation.get()
             try {
                 val next = normalizeLanguage(language)
@@ -152,6 +156,10 @@ class GenieTtsIsolatedService : Service() {
                         pcmHash = metadata["pcmHash"]?.toString() ?: pcmHash
                         referenceEchoSuspected = metadata["referenceEchoSuspected"] as? Boolean
                             ?: referenceEchoSuspected
+                        referenceEchoReason = metadata["referenceEchoReason"]?.toString()
+                            ?: referenceEchoReason
+                        referenceEchoScore = (metadata["referenceEchoScore"] as? Number)?.toDouble()
+                            ?: referenceEchoScore
                         markStage(
                             nextStage,
                             durable = nextStage.startsWith("prepare_frontend_") ||
@@ -266,6 +274,8 @@ class GenieTtsIsolatedService : Service() {
             pcmDurationMs = pcmDurationMs,
             pcmHash = pcmHash,
             referenceEchoSuspected = referenceEchoSuspected,
+            referenceEchoReason = referenceEchoReason,
+            referenceEchoScore = referenceEchoScore,
         )
     }
 

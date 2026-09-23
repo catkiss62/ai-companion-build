@@ -114,6 +114,8 @@ class NativeTtsEngine private constructor(context: Context) {
                     "pcmDurationMs" to checkpoint["pcmDurationMs"],
                     "pcmHash" to checkpoint["pcmHash"],
                     "referenceEchoSuspected" to checkpoint["referenceEchoSuspected"],
+                    "referenceEchoReason" to checkpoint["referenceEchoReason"],
+                    "referenceEchoScore" to checkpoint["referenceEchoScore"],
                 ),
                 durable = true,
             )
@@ -156,6 +158,8 @@ class NativeTtsEngine private constructor(context: Context) {
                         "pcmDurationMs" to checkpoint["pcmDurationMs"],
                         "pcmHash" to checkpoint["pcmHash"],
                         "referenceEchoSuspected" to checkpoint["referenceEchoSuspected"],
+                        "referenceEchoReason" to checkpoint["referenceEchoReason"],
+                        "referenceEchoScore" to checkpoint["referenceEchoScore"],
                     ),
                 )
             }

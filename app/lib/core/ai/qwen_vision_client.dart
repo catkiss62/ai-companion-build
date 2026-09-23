@@ -48,6 +48,25 @@ class QwenVisionClient {
   static const String defaultModel = 'qwen3-vl-plus';
   final http.Client _client;
 
+  /// Tests the exact vision request path with a tiny built-in neutral image.
+  /// No chat, attachment, memory or user pixel is sent by this probe.
+  Future<QwenVisionObservation> testConfiguration({
+    required String apiKey,
+    required String endpoint,
+    required String model,
+  }) =>
+      observeBytes(
+        apiKey: apiKey,
+        endpoint: endpoint,
+        model: model,
+        imageBytes: base64Decode(
+          'iVBORw0KGgoAAAANSUhEUgAAACAAAAAgCAIAAAD8GO2jAAAAK0lEQVR42u3NQQEA'
+          'QAQAMC6hYNJJdCX4bQWW1ROXXhwTCAQCgUAgEAgEWz7rPQHu8hmbmAAAAABJRU5E'
+          'rkJggg==',
+        ),
+        caption: '连接测试：只需客观描述这张内置蓝色测试图。',
+      );
+
   Future<QwenVisionObservation> observe({
     required String apiKey,
     required String endpoint,

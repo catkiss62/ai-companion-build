@@ -1,6 +1,7 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:ai_companion_localfirst/core/grounding/prompt_history_policy.dart';
 import 'package:ai_companion_localfirst/core/models/chat_message.dart';
+import 'package:ai_companion_localfirst/core/models/message_attachment.dart';
 
 ChatMessage message({
   required String id,
@@ -88,5 +89,37 @@ void main() {
             as String;
     expect(proactive, contains('想起什么事？'));
     expect(proactive, isNot(contains('我其实还没有去玩')));
+  });
+
+  test('current user sticker meaning reaches the final user-turn history', () {
+    final sticker = ChatMessage(
+      id: 'u-sticker',
+      role: 'user',
+      content: '',
+      createdAt: DateTime(2026, 9, 23),
+      attachments: <MessageAttachment>[
+        MessageAttachment(
+          id: 'sticker-1',
+          messageId: 'u-sticker',
+          kind: MessageAttachment.imageKind,
+          originalPath: 'originals/sticker.gif',
+          thumbnailPath: 'thumbnails/sticker.png',
+          mimeType: 'image/gif',
+          byteSize: 10,
+          width: 10,
+          height: 10,
+          source: 'user_sticker:personal',
+          createdAt: DateTime(2026, 9, 23),
+          visionStatus: MessageAttachment.visionCompletedStatus,
+          visionSummary: '捂着脸害羞地偷看',
+          visionModel: 'sticker_index',
+        ),
+      ],
+    );
+
+    final history = PromptHistoryPolicy.userTurnHistory(<ChatMessage>[sticker]);
+    expect(history.single['role'], 'user');
+    expect(history.single['content'], contains('用户发送了一张表情包'));
+    expect(history.single['content'], contains('捂着脸害羞地偷看'));
   });
 }

@@ -24,6 +24,7 @@ import 'cedar_agent_loop_policy.dart';
 import 'cedar_toy_arcade_skill.dart';
 import 'cedar_toy_client.dart';
 import 'cedar_game_protocol.dart';
+import 'cedar_play_outcome_bookkeeper.dart';
 import 'cedar_solo_episode_policy.dart';
 import 'mcp_protocol.dart';
 import 'mcp_http_client.dart';
@@ -603,7 +604,7 @@ class CedarToyAutonomyEngine {
   static const enabledKey = 'cedar_toy_autonomy_enabled';
   static const shareEnabledKey = 'cedar_toy_game_share_enabled';
   static const lastProgressKey = 'cedar_toy_last_autonomous_progress_at';
-  static const soloEpisodeKey = 'cedar_toy_solo_episode_v1';
+  static const soloEpisodeKey = CedarPlayOutcomeBookkeeper.soloEpisodeKey;
   static const minProgressGap = Duration(minutes: 20);
 
   final AppDatabase db;
@@ -789,30 +790,21 @@ class CedarToyAutonomyEngine {
       session.ownRoomAliases.isNotEmpty;
 
   Future<CedarSoloEpisodeState?> _loadSoloEpisode() async {
-    final raw = await db.getSetting(soloEpisodeKey) ?? '';
-    if (raw.trim().isEmpty) return null;
-    try {
-      final decoded = jsonDecode(raw);
-      if (decoded is! Map) return null;
-      final state = CedarSoloEpisodeState.fromJson(decoded);
-      return state.gameId.trim().isEmpty ? null : state;
-    } catch (_) {
-      return null;
-    }
+    return CedarPlayOutcomeBookkeeper(db).loadSoloEpisode();
   }
 
   Future<void> _saveSoloEpisode(CedarSoloEpisodeState state) =>
-      db.setSetting(soloEpisodeKey, jsonEncode(state.toJson()));
+      CedarPlayOutcomeBookkeeper(db).saveSoloEpisode(state);
 
-  Future<void> _clearSoloEpisode() => db.setSetting(soloEpisodeKey, '');
+  Future<void> _clearSoloEpisode() =>
+      CedarPlayOutcomeBookkeeper(db).clearSoloEpisode();
 
   Future<CedarSoloEpisodeState> _currentSoloEpisode({
     required CedarGameSession session,
     required DateTime now,
   }) async =>
-      CedarSoloEpisodePolicy.ensureCurrent(
-        current: await _loadSoloEpisode(),
-        gameId: session.gameId,
+      CedarPlayOutcomeBookkeeper(db).currentSoloEpisode(
+        session: session,
         now: now,
       );
 
@@ -822,31 +814,12 @@ class CedarToyAutonomyEngine {
     required String action,
     required McpToolOutcome outcome,
   }) async {
-    if (_isRealtimeCommitment(session)) return;
-    if (!session.phase.continuable) {
-      await _clearSoloEpisode();
-      return;
-    }
-    final current = await _currentSoloEpisode(session: session, now: now);
-    final signal = CedarAntiAddictionParser.inspect(outcome, now: now);
-    final next = CedarSoloEpisodePolicy.recordOutcome(
-      state: current,
+    await CedarPlayOutcomeBookkeeper(db).record(
       now: now,
+      session: session,
       action: action,
-      succeeded: !outcome.isError,
-      antiAddiction: signal,
-    );
-    await _saveSoloEpisode(next);
-    await db.setSetting(
-      'cedar_toy_last_anti_addiction_v1',
-      jsonEncode(<String, Object?>{
-        'level': signal.level.name,
-        'source': signal.source,
-        'allowSelfReset': signal.allowSelfReset,
-        'resumeAt': signal.resumeAt?.millisecondsSinceEpoch ?? 0,
-        'checkpointPending': next.checkpointPending,
-        'at': now.millisecondsSinceEpoch,
-      }),
+      outcome: outcome,
+      origin: CedarPlayBookkeepingOrigin.autonomous,
     );
   }
 
@@ -1812,33 +1785,6 @@ ${store.promptContext(session, state: state, playProtocol: playProtocol)}''',
       action: action,
       outcome: outcome,
     );
-    if (!outcome.isError &&
-        !platformAction &&
-        !CedarPlatformActionPolicy.isReadOnly(action)) {
-      try {
-        final desire = await db.loadDesire();
-        await FatigueAffectController(db).recordAutonomousExertion(
-          bodyFatigue: desire.drives[DriveKey.fatigue] ?? 0.0,
-          source: 'cedar_game_step',
-          now: now,
-          weight: 0.45,
-        );
-      } catch (_) {
-        // The remote mutation and fenced local outcome are already committed;
-        // never retry a real game move only because debt bookkeeping failed.
-      }
-      try {
-        await DesireSatisfactionLedgerController(db).record(
-          drive: DriveKey.curiosity,
-          action: 'play_game',
-          source: 'mcp/cedar_game:${session.gameId}',
-          now: now,
-        );
-      } catch (_) {
-        // The remote mutation is already committed; causal telemetry is
-        // intentionally best-effort and must never retry a game action.
-      }
-    }
     if (!outcome.isError &&
         shareLevel != 'quiet' &&
         (await db.getSetting(shareEnabledKey)) != '0') {

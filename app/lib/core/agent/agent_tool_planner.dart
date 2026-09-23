@@ -850,10 +850,7 @@ class AgentToolPlanner {
         ..add(AgentToolRegistry.phoneSearch.id)
         ..add(AgentToolRegistry.phoneRead.id);
     }
-    if (RegExp(
-      r'(cedar\s*toy|游戏厅|小游戏|一起玩|玩(?:个|一下|一会儿)?游戏|防沉迷|重置(?:游戏)?(?:次数|轮次|限制))',
-      caseSensitive: false,
-    ).hasMatch(text)) {
+    if (CedarToyArcadeSkill.isRelevant(text)) {
       result
         ..add(AgentToolRegistry.cedarToyListGames.id)
         ..add(AgentToolRegistry.cedarToyGetGuide.id)

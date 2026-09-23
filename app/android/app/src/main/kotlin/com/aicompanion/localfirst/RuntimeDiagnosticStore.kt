@@ -47,15 +47,21 @@ object RuntimeDiagnosticStore {
                     "generation", "sourceGeneration", "targetActivationGeneration",
                     "payloadBytes", "totalBytes", "sdk", "count", "inputChars",
                     "pssKb", "rssKb", "threads", "segmentIndex", "wavBytes",
-                    "phoneCount", "phoneMin", "phoneMax", "semanticCount" ->
+                    "phoneCount", "phoneMin", "phoneMax", "semanticCount",
+                    "validPhoneCount", "decoderIterations", "pcmDurationMs" ->
                         if (value is Number) safeMetadata.put(key, value)
-                    "modelsReady" -> if (value is Boolean) safeMetadata.put(key, value)
+                    "modelsReady", "immediateStop", "referenceEchoSuspected" ->
+                        if (value is Boolean) safeMetadata.put(key, value)
                     "direction", "operation", "transport", "state", "language" ->
                         safeMetadata.put(key, DiagnosticRedaction.safeToken(value?.toString().orEmpty(), 48))
-                    "stage", "loaderPolicy", "failureType", "failureTarget" ->
+                    "stage", "loaderPolicy", "failureType", "failureTarget",
+                    "inputCharacterClasses", "normalizedCharacterClasses",
+                    "referenceEchoReason" ->
                         safeMetadata.put(key, DiagnosticRedaction.safeToken(value?.toString().orEmpty(), 160))
-                    "voice", "textSha256", "phoneHash", "semanticHash" ->
+                    "voice", "referenceCaseId", "textSha256", "phoneHash", "semanticHash", "pcmHash" ->
                         safeMetadata.put(key, DiagnosticRedaction.safeToken(value?.toString().orEmpty(), 96))
+                    "referenceEchoScore" ->
+                        if (value is Number) safeMetadata.put(key, value.toDouble().coerceIn(-1.0, 1.0))
                     "endpointId", "snapshotId", "lineageId", "sourceDeviceId", "targetDeviceId", "stateSha256" -> {
                         if (!value?.toString().isNullOrBlank()) safeMetadata.put("${key}Fp", DiagnosticRedaction.fingerprint(value.toString()))
                     }

@@ -5,9 +5,12 @@ import 'package:flutter/material.dart';
 import '../../core/ai/chat_api_provider.dart';
 import '../../core/ai/deepseek_client.dart';
 import '../../core/ai/model_profile.dart';
+import '../../core/ai/qwen_vision_client.dart';
 import '../../core/autonomy/layered_public_web_provider.dart';
 import '../../core/database/app_database.dart';
 import '../../core/diagnostics/conversation_initiative_telemetry.dart';
+import '../../core/diagnostics/provider_health.dart';
+import '../../core/diagnostics/vision_failure_presentation.dart';
 import '../../core/platform/android_bridge.dart';
 import '../../core/presentation/chat_visuals.dart';
 import '../../core/storage/secure_config.dart';
@@ -50,6 +53,7 @@ class _ModelNetworkSettingsPageState
   bool _agnesCompaction = true;
   bool _loading = true;
   bool _testingChat = false;
+  bool _testingVision = false;
   bool _testingAgnes = false;
   bool _revealDeepSeek = false;
   bool _revealAiWangYou = false;
@@ -195,6 +199,65 @@ class _ModelNetworkSettingsPageState
       if (mounted) setState(() => _status = '千问视觉配置已保存。');
     } catch (error) {
       if (mounted) setState(() => _status = '千问视觉保存失败：$error');
+    }
+  }
+
+  Future<void> _testVision() async {
+    final apiKey = _visionKey.text.trim();
+    final endpoint = _visionEndpoint.text.trim();
+    final model = _visionModel.text.trim();
+    if (apiKey.isEmpty || !_validHttpEndpoint(endpoint) || model.isEmpty) {
+      setState(() => _status = '请先填写有效的千问视觉 Key、地址和模型。');
+      return;
+    }
+    setState(() {
+      _testingVision = true;
+      _status = '正在用内置测试像素检查千问视觉；不会读取聊天图片…';
+    });
+    final started = DateTime.now();
+    final client = QwenVisionClient();
+    try {
+      await client.testConfiguration(
+        apiKey: apiKey,
+        endpoint: endpoint,
+        model: model,
+      );
+      await _db.recordProviderHealthEvent(ProviderHealthEvent(
+        lane: 'vision',
+        context: 'settings_test',
+        primaryProvider: 'qwen_vision',
+        primaryOutcome: 'success',
+        finalProvider: 'qwen_vision',
+        finalOutcome: 'success',
+        resultCount: 1,
+        latencyBucket: ProviderHealth.latencyBucket(
+          DateTime.now().difference(started),
+        ),
+      ));
+      if (mounted) {
+        setState(
+          () => _status =
+              '千问视觉连接、鉴权、模型与 JSON 结果均通过；测试使用了少量 API 额度。',
+        );
+      }
+    } catch (error) {
+      await _db.recordProviderHealthEvent(ProviderHealthEvent(
+        lane: 'vision',
+        context: 'settings_test',
+        primaryProvider: 'qwen_vision',
+        primaryOutcome: 'failed',
+        primaryErrorCategory: ProviderHealth.errorCategory(error),
+        finalOutcome: 'failed',
+        latencyBucket: ProviderHealth.latencyBucket(
+          DateTime.now().difference(started),
+        ),
+      ));
+      if (mounted) {
+        setState(() => _status = VisionFailurePresentation.message(error));
+      }
+    } finally {
+      client.close();
+      if (mounted) setState(() => _testingVision = false);
     }
   }
 
@@ -533,10 +596,11 @@ class _ModelNetworkSettingsPageState
                       const SizedBox(height: 12),
                       Align(
                         alignment: Alignment.centerRight,
-                        child: FilledButton.icon(
-                          onPressed: _saveVision,
-                          icon: const Icon(Icons.save_outlined),
-                          label: const Text('保存视觉配置'),
+                        child: _SaveTestButtons(
+                          onSave: _saveVision,
+                          onTest: _testingVision ? null : _testVision,
+                          testing: _testingVision,
+                          testLabel: '视觉连接测试',
                         ),
                       ),
                     ],

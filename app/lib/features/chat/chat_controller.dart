@@ -19,6 +19,7 @@ import '../../core/database/app_database.dart';
 import '../../core/diagnostics/attachment_pipeline_telemetry.dart';
 import '../../core/diagnostics/model_usage_telemetry.dart';
 import '../../core/diagnostics/provider_health.dart';
+import '../../core/diagnostics/vision_failure_presentation.dart';
 import '../../core/diagnostics/visible_reasoning_language_telemetry.dart';
 import '../../core/desire/desire_core_policy.dart';
 import '../../core/desire/desire_engine.dart';
@@ -811,7 +812,7 @@ class ChatController extends ChangeNotifier {
         await db.failAttachmentVision(attachment.id, exception.toString());
       }
       messages = await db.recentMessages(limit: 160);
-      error = '图片识别失败：$exception';
+      error = VisionFailurePresentation.message(exception);
     } finally {
       analyzingImage = false;
       await db.releaseLocalLease('image_vision_lease');
