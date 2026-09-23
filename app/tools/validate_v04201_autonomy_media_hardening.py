@@ -33,7 +33,10 @@ def main() -> None:
     require(
         any(
             version in read("pubspec.yaml")
-            for version in ("version: 0.42.2+246", "version: 0.42.3+247", "version: 0.42.4+248")
+            for version in (
+                "version: 0.42.2+246", "version: 0.42.3+247",
+                "version: 0.42.4+248", "version: 0.42.5+249",
+            )
         ),
         "version mismatch",
     )

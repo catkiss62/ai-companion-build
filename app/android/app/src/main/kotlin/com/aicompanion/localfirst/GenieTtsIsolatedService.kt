@@ -49,6 +49,18 @@ class GenieTtsIsolatedService : Service() {
     private var referenceEchoSuspected = false
     private var referenceEchoReason = ""
     private var referenceEchoScore = 0.0
+    private var frontendMs = 0L
+    private var modelLoadedThisRun = false
+    private var modelLoadMs = 0L
+    private var fixtureLoadMs = 0L
+    private var encoderMs = 0L
+    private var firstDecoderMs = 0L
+    private var autoregressiveMs = 0L
+    private var vocoderMs = 0L
+    private var totalInferenceMs = 0L
+    private var endToEndMs = 0L
+    private var audioSeconds = 0.0
+    private var coreRtf = 0.0
 
     override fun onCreate() {
         super.onCreate()
@@ -124,6 +136,18 @@ class GenieTtsIsolatedService : Service() {
             referenceEchoSuspected = false
             referenceEchoReason = ""
             referenceEchoScore = 0.0
+            frontendMs = 0L
+            modelLoadedThisRun = false
+            modelLoadMs = 0L
+            fixtureLoadMs = 0L
+            encoderMs = 0L
+            firstDecoderMs = 0L
+            autoregressiveMs = 0L
+            vocoderMs = 0L
+            totalInferenceMs = 0L
+            endToEndMs = 0L
+            audioSeconds = 0.0
+            coreRtf = 0.0
             val requestGeneration = generation.get()
             try {
                 val next = normalizeLanguage(language)
@@ -170,6 +194,23 @@ class GenieTtsIsolatedService : Service() {
                             ?: referenceEchoReason
                         referenceEchoScore = (metadata["referenceEchoScore"] as? Number)?.toDouble()
                             ?: referenceEchoScore
+                        frontendMs = (metadata["frontendMs"] as? Number)?.toLong() ?: frontendMs
+                        modelLoadedThisRun = metadata["modelLoadedThisRun"] as? Boolean
+                            ?: modelLoadedThisRun
+                        modelLoadMs = (metadata["modelLoadMs"] as? Number)?.toLong() ?: modelLoadMs
+                        fixtureLoadMs = (metadata["fixtureLoadMs"] as? Number)?.toLong() ?: fixtureLoadMs
+                        encoderMs = (metadata["encoderMs"] as? Number)?.toLong() ?: encoderMs
+                        firstDecoderMs = (metadata["firstDecoderMs"] as? Number)?.toLong()
+                            ?: firstDecoderMs
+                        autoregressiveMs = (metadata["autoregressiveMs"] as? Number)?.toLong()
+                            ?: autoregressiveMs
+                        vocoderMs = (metadata["vocoderMs"] as? Number)?.toLong() ?: vocoderMs
+                        totalInferenceMs = (metadata["totalInferenceMs"] as? Number)?.toLong()
+                            ?: totalInferenceMs
+                        endToEndMs = (metadata["endToEndMs"] as? Number)?.toLong() ?: endToEndMs
+                        audioSeconds = (metadata["audioSeconds"] as? Number)?.toDouble()
+                            ?: audioSeconds
+                        coreRtf = (metadata["coreRtf"] as? Number)?.toDouble() ?: coreRtf
                         markStage(
                             nextStage,
                             durable = nextStage.startsWith("prepare_frontend_") ||
@@ -289,6 +330,18 @@ class GenieTtsIsolatedService : Service() {
             referenceEchoSuspected = referenceEchoSuspected,
             referenceEchoReason = referenceEchoReason,
             referenceEchoScore = referenceEchoScore,
+            frontendMs = frontendMs,
+            modelLoadedThisRun = modelLoadedThisRun,
+            modelLoadMs = modelLoadMs,
+            fixtureLoadMs = fixtureLoadMs,
+            encoderMs = encoderMs,
+            firstDecoderMs = firstDecoderMs,
+            autoregressiveMs = autoregressiveMs,
+            vocoderMs = vocoderMs,
+            totalInferenceMs = totalInferenceMs,
+            endToEndMs = endToEndMs,
+            audioSeconds = audioSeconds,
+            coreRtf = coreRtf,
         )
     }
 

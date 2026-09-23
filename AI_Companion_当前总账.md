@@ -28,7 +28,7 @@
 - **自然语义 Agent**：允许“陪我下五子棋”等自然表达触发模型自主发现；普通“看看”不是联网授权。Cedar 的账号级 `allow_self_reset` 服从网站设置。用户已决定暂不增加 Agent 确认弹窗，直到未来加入修改/破坏性能力再设计确认。
 - **媒体 Agent**：她能发送的媒体必须同时具备自读能力、可执行工具、真实附件 Outcome、来源 provenance 与发送后第一人称历史；只在 UI 或 Prompt 声称不算完成。
 - **隐私与发布**：Token、绑定码、私密房间正文、用户附件、诊断、备份、模型权重和参考音频不得进入公开 Git/Prompt/公开诊断。用户持续授权推送明确开发分支并运行常规 Actions/Draft APK；不含合并 `main`、正式 Release、删除分支/用户数据、改变仓库权限。
-- **冻结范围**：桌宠当前无确证问题；Live2D 等待新模型测试，不在当前批次恢复。+248 的 TTS 修改只允许移植已由独立仓库验证的自动核亲和档与开关，不改声学模型、分段、播放队列或失败实验。普通回复表情包已真机重新出现，未发现概率数值漏洞时不强改。
+- **冻结范围**：桌宠当前无确证问题；Live2D 等待新模型测试，不在当前批次恢复。+249 只修 Decoder 零新语义时错误复用参考 prompt 的根因并增加最后两次 TTS 会话诊断；不改声学模型、固定分段、首段预填充、连续 AudioTrack 或失败实验。普通回复表情包已真机重新出现，未发现概率数值漏洞时不强改。
 
 ## 3. 当前基线
 
@@ -39,8 +39,11 @@
 | 功能状态 | `CI PASSED / APK READY / TRUE DEVICE PENDING` |
 | +228 远端 | head `29e87d016c8bd81f52f89f95191bd1a1a01a5b57`；tree `c4a112a56d8b634cf3a1a66636979a0833538b7d`；Actions `35440359036`；Artifact `10583263879`；APK SHA-256 `159e283173e49da2924d25b37ba7647893cdafdcc31b63f0e31b7c64e086849b` |
 | 仓库维护基线 | `maintenance/repository-governance-20260919`；远端文档 head `123e272196e8ae93f3518157917d76f6af4f1784`；完整构建 head `fa99f32012fa1a0716b746d36b958a8e777ef9b8`；Actions `35446649873` 全绿；文档-only run `35447342921` 正确跳过 APK |
-| 当前功能分支 | `agent/v04204-tts-affinity-tool-activity`，基于 +247；候选版本 `v0.42.4+248` |
-| 当前任务状态 | `IMPLEMENTED LOCALLY / LOCAL STATIC VALIDATION PASSED / CI PENDING / TRUE DEVICE PENDING`；移植 Genie v0.8.4 最终自动核亲和配置并加入全工具活动展开/持久展示，见 6.21 |
+| 当前功能分支 | `agent/v04205-tts-semantic-guard-session-metrics`，基于 +248 等价源码树；候选版本 `v0.42.5+249` |
+| 当前任务状态 | `IMPLEMENTED LOCALLY / LOCAL STATIC VALIDATION PASSED / CI PENDING / TRUE DEVICE PENDING`；根修 Decoder 首轮停止的参考语义泄漏，并在诊断保留最后两次完整 TTS 会话及同回复双档对比，见 6.22 |
+| +249 当前任务 | `loopIndex=0` 时明确判定“零个新语义 token”，在 VITS 前拒绝本段；最后两次会话记录生成时 profile、冷/热状态、各阶段耗时、RTF、播放首帧、队列余量、迟到段、失败/停止与脱敏文本哈希 |
+| +249 保护边界 | 不播放参考 prompt、不添加固定语音/固定台词/System TTS 兜底；失败段独立跳过，其他段继续；仅同一文本、音色、语言且分别为 `legacy_fixed_8` / `auto_affinity_v084` 才计算性能对比；schema 61 / Snapshot protocol 6 不变 |
+| +248 远端 | 远端 head `33647c7bff15084d6fd3cbc7b817e9b0b216f75c`，tree `80f49d8e93bcfe2a03737a6b8610fbd94d10c255`；Actions `35878106718` 全绿；APK SHA-256 `04a588d2d4628ccaacd1b0b9aaf3759430b46ba33ad69715cb388098c178f0be`；未发布 Draft Release `untagged-2b371d8cd86b365121b0` |
 | +248 当前任务 | TTS 默认关闭的“自动核亲和加速”开关；四个声学会话与 Chinese RoBERTa 同用 `AUTO_AFFINITY`。生成中展开全部工具活动，完成后以脱敏卡片绑定回复，中止后绑定中断标记 |
 | +248 保护边界 | 保留现有分段首段预填充、串行生成与连续 AudioTrack；不移植测试档、动态分块、FTZ/DAZ、输入映射复用或 memory-pattern 实验；工具卡不保存/展示参数、搜索词、URL、结果正文、Prompt 或隐藏推理；schema 61 / Snapshot protocol 6 不变 |
 | +247 当前任务 | `nativeToolDefinitionsFor` 在路由结果的可变边界先建立防御性 `Set` 副本；覆盖纯图片与原生表情包 `content=''`、`promptContent` 非空且 Cedar 已配置的回归，不改千问视觉、`sticker_index`、模型策略或最终回复内容 |
@@ -708,7 +711,7 @@ Actions 与交付证据：首轮 run `35842639649` 已通过源码/历史门、K
 
 ### 6.20 v0.42.3+247 纯媒体空文本回合路由崩溃修复（2026-09-23）
 
-状态：`IMPLEMENTED LOCALLY / LOCAL STATIC VALIDATION PASSED / CI PENDING / TRUE DEVICE PENDING`。
+状态：`CI PASSED / APK READY / TRUE DEVICE PENDING`。
 
 实现分支：`agent/v04203-media-empty-turn-hotfix`。
 
@@ -735,7 +738,7 @@ Actions 与交付证据：第二轮远端功能 head `8fabae5016a7d457b58a581a7a
 
 ### 6.21 v0.42.4+248 TTS 自动核亲和与全工具活动展示（2026-09-23）
 
-状态：`IMPLEMENTED LOCALLY / LOCAL STATIC VALIDATION PASSED / CI PENDING / TRUE DEVICE PENDING`。
+状态：`CI PASSED / APK READY / TRUE DEVICE PENDING`。
 
 实现分支：`agent/v04204-tts-affinity-tool-activity`。
 
@@ -755,7 +758,9 @@ Actions 与交付证据：第二轮远端功能 head `8fabae5016a7d457b58a581a7a
 - `AgentToolStatus` 新增 `stopped`；用户 Stop 时记录真实终态。聊天控制器保留本轮多项活动，历史通过生成任务 ID 投影，不做 schema 迁移；聊天页提供生成中展开面板和终态可展开卡片。
 - 新增 Kotlin 配置合同测试、Dart 状态/工具投影测试与 +248 静态门。完整 Kotlin/Flutter/Release 编译仍需 GitHub Actions；本地 Gradle wrapper 因当前执行环境无法访问 `services.gradle.org` 尚未完成编译，不能提前标为 CI 通过。
 
-本地验证：+248 专项门、+247 空媒体回归门、+244 Live2D 干净回退门、当前总账门、Workflow YAML、Python 编译与 `git diff --check` 通过。完整 `validation_suite.txt` 共 125 项，121 项通过；其余四项只因本地工作树没有由 CI 恢复的大肥鱼参考图、417 件桌宠源包、LingChat 资源及本机没有 `kotlinc`，不是源码断言失败。Gradle wrapper 尝试下载固定 Gradle 8.12 时被当前环境网络策略阻止，Flutter/Dart SDK 也不在本机，因此 Kotlin 编译、Flutter analyze/tests 与 Release APK 必须由 Actions 实编译；当前状态仍是 `CI PENDING`。
+本地验证：+248 专项门、+247 空媒体回归门、+244 Live2D 干净回退门、当前总账门、Workflow YAML、Python 编译与 `git diff --check` 通过。完整 `validation_suite.txt` 共 125 项，121 项通过；其余四项只因本地工作树没有由 CI 恢复的大肥鱼参考图、417 件桌宠源包、LingChat 资源及本机没有 `kotlinc`，不是源码断言失败。Gradle wrapper 尝试下载固定 Gradle 8.12 时被当前环境网络策略阻止，Flutter/Dart SDK 也不在本机，因此当时将 Kotlin 编译、Flutter analyze/tests 与 Release APK 交由 Actions 实编译，结果见下条。
+
+Actions 与交付证据：远端功能 head `33647c7bff15084d6fd3cbc7b817e9b0b216f75c` / tree `80f49d8e93bcfe2a03737a6b8610fbd94d10c255` 在 run `35878106718` 全绿；APK SHA-256 `04a588d2d4628ccaacd1b0b9aaf3759430b46ba33ad69715cb388098c178f0be`，未发布 Draft Release `untagged-2b371d8cd86b365121b0`。该构建证明自动核亲和与工具活动代码可编译、全套门通过，但不代表之后由 +247 备份确证的 Decoder 零语义参考泄漏已经修复；该共享旧逻辑进入 +249 根修。
 
 真机验收：先保持开关关闭做一条短句；开启后做一条短句真实播放与一段长文本连续播放，确认音色、Stop、分段衔接及 AudioTrack 队列正常，并在诊断中确认 `runtimeProfile=auto_affinity_v084`。随后各触发一次成功、无结果/失败和执行中 Stop 的工具调用，确认生成中逐项显示、回复后可展开、重启后仍存在，且卡片不出现参数、搜索词、URL 或结果正文。独立测试报告曾推算部分后续段可能短暂迟到，所以即便总 RTF 小于 1 也不得以此验收删除缓冲。
 
@@ -772,6 +777,37 @@ Actions 与交付证据：第二轮远端功能 head `8fabae5016a7d457b58a581a7a
 2. 本地实现应只有一个结构化轮盘 Outcome（选中的安全分类/tag、来源版本、随机事件 ID），由现有真实工具/Outcome 真值链消费；不把原项目 UI、Node 服务或任意脚本执行面整体搬进 APK。NSFW 内容继续服从当前成人场景入口、用户设置与沉浸边界。
 3. 产品入口推荐先做“房间外抽取 → 带结构化结果进入沉浸房间”，因为结果、重抽与进入边界最清楚；稳定后再复用同一 Outcome 增加房间内娱乐入口，不能维护两套随机结果。作者所说的“MCP 操作”只表示外部 AI 可通过其暴露的工具协议代替玩家点击；本项目既已选择本地移植，首版无需为此增加 MCP 服务器或第二套循环 owner。
 4. 后续仍需逐文件审计上游许可证、资源版权、tag 内容与移动端适配后才能实现；当前只冻结架构结论，不宣称已经完成移植。
+
+### 6.22 v0.42.5+249 TTS 零语义根修与最后两次会话诊断（2026-09-23）
+
+状态：`IMPLEMENTED LOCALLY / LOCAL STATIC VALIDATION PASSED / CI PENDING / TRUE DEVICE PENDING`。
+
+实现分支：`agent/v04205-tts-semantic-guard-session-metrics`。
+
+#### 真机证据与根因
+
+1. 用户提供的 +247 备份 `AI_Companion_Backup_2026-09-23T15-19-22.aibackup` 与同刻诊断显示，最后两轮不同回复都混入了参考录音；倒数第二轮为 `daily / jiuhu_bento_tools`，最后一轮为 `cute / jiuhu_devotion`，因此不是某一个参考文件或某一句回复的偶发问题。
+2. 倒数第二轮 14 段中的 2/5/6/7 段都出现 `decoderIterations=1`、`semanticCount=122`、固定 semantic hash `4eb0e366`、音频 4,880 ms；最后一轮 12 段中的 2/4 段出现 `decoderIterations=1`、`semanticCount=87`、固定 hash `cc653afb`、音频 3,480 ms。坏段 6 有 21 个字符、41 个有效 phone，排除“只因标点空段”的解释。另有一个独立 `NullPointerException` 失败，不与参考回声混为同一根因。
+3. `GenieBenchmarkEngine` 原逻辑在 stage Decoder 第一次调用就 stop 时令 `loopIndex=0`，随后却执行 `requested = yValues.size`，把整个 `y` 张量当作新生成语义。该张量含参考 prompt 前缀，因此 VITS 重建对应音色参考录音。正常事件满足 `decoderIterations = semanticCount + 1`；上述 1/122 与 1/87 正是相反证据。
+4. 旧二级门只拒绝 `decoderIterations<=1 && semanticCount<=1`，所以被错误报告成 122/87 的 prompt 前缀绕过；声学门又要求近乎同波形，而重新经过 VITS 的参考语义不必与原 WAV 逐采样相同，daily 相似度约 0.28～0.30、cute 又受时长门影响，故同样漏判。APK 没有直接播放参考 WAV 的生产调用，根因是参考语义重建，不是文件播放器。
+5. 同一抽取逻辑也存在于独立 Genie TTS 测试仓库最终提交 `a5a8425f221575eaca542ac9ae4bbf5e5b799153`，固定测试句没有触发首轮 stop；+247→+248 的生产差异只改 ORT 配置，不改语义抽取。因此这是两个项目共享的潜伏引擎 bug，不是 AUTO_AFFINITY 迁移造成的回归。
+
+#### 本批实现合同
+
+1. 新增纯函数 `GeneratedSemanticTokens.select`。`loopIndex=0` 明确抛出 `NoGeneratedSemanticTokensException`；`decoderResult` 无论成功/拒绝都关闭，且 VITS tensor 只可能由真实新生成的尾部 token 构造。没有固定音频、固定台词、系统 TTS 或参考语义兜底；该失败段返回空，既有 A2 队列继续播放其他成功段。
+2. `GenieTtsRuntime` 在拒绝时写入 `semanticCount=0 / immediateStop=true / referenceEchoReason=decoder_no_generated_semantics`；旧声学防线保留，并收紧为只要 `decoderIterations<=1` 却生成长音频就拒绝，不再信任可能已污染的 semanticCount。
+3. Scheduler 通过 `beginTtsSession / finishTtsSession` 显式标出一次完整朗读。原生端按 generation 聚合成功、失败、拒绝、无音频和 Stop；最后两次尝试单独持久化，清除 Native 历史时同步清除。诊断只保存字符数、SHA-256、语言/音色、profile、计数与耗时，不保存回复正文、Prompt、PCM/WAV、参考路径或音频。
+4. 每段记录生成时实际 `runtimeProfile` 与完整配置说明、冷/热模型状态、frontend/model load/fixture/encoder/首步 decoder/自回归/vocoder/总推理/端到端、semantic/decoder 数、音频时长、RTF、生成调用耗时、入队等待和实际播放倍速；会话聚合首段 ready、AudioTrack 开播、总 RTF、估算最小缓冲、迟到段、完成/部分/失败/停止状态。
+5. `NativePreflightProbe.ttsSessionDiagnostics` 导出最后两次完整快照。只有文本分段哈希相同、语言与音色工作负载相同，且两次分别为 `legacy_fixed_8` 与 `auto_affinity_v084` 时，才给出 AUTO_AFFINITY 总推理降幅；不同回复或不同音色明确标记不可比较。播放倍速与推理速度分开记录，自动核亲和不改变 AudioTrack 的 1.0x（温柔音色既有 1.2x 仍单独显示）。
+6. schema 61、Snapshot protocol 6、模型文件、四音色映射、文本分段、串行推理、首段一秒 PCM 预填充、连续 `AudioTrack.MODE_STREAM`、Stop fencing 与配置开关默认值均不变。
+
+#### 回归与验收
+
+- Kotlin 门覆盖四种可选音色形状的首轮 stop 均拒绝、正常尾部抽取不修改源数组、失败段诊断、同工作负载双档比较与不同回复禁止比较；Dart A2 测试同时锁定成功/无音频会话都必须完整关闭。
+- 真机依次对同一条回复在关闭加速与开启加速下手动播放一次，随后立即导出诊断；`sessions` 必须恰好保留这两次并显示 `comparison.comparable=true`。再用多段长文本验证迟到段、最小缓冲、Stop 与后续段继续播放。
+- 四音色各覆盖一次包含多段的回复，诊断中不得再出现 `decoderIterations=1` 同时 `semanticCount=122/87` 且产出长音频；遇到首轮 stop 应看到 `rejected_no_generated_semantics`，该段无声但其他成功段照常播放。
+- 本地最终验证：`git diff --check`、Python validator 编译、Workflow YAML、当前总账门、+249 专项门与 +248～+244/+203～+200 重点历史门通过。完整 `validation_suite.txt` 共 126 项，122 项通过；余下 4 项仅因本地工作树不含 CI 恢复的大肥鱼参考图、桌宠源包、LingChat NOTICE 及本机无 `kotlinc`，不是源码断言失败。
+- 本地环境无 Flutter/Dart SDK；Gradle wrapper 尝试运行 `testDebugUnitTest` 时，Gradle 8.12 下载被当前网络策略拦截，因此完整 Kotlin tests、Flutter analyze/tests 与 arm64 Release 需 Actions 后回填，不提前标为 CI 通过。
 
 ## 7. 历史验证兼容摘要
 

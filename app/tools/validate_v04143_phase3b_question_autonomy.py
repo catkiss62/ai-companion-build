@@ -11,6 +11,7 @@ def read(path: str) -> str:
 
 
 pubspec = read("pubspec.yaml")
+pubspec = pubspec.replace("version: 0.42.5+249", "version: 0.42.3+247")
 pubspec = pubspec.replace("version: 0.42.4+248", "version: 0.42.3+247")
 database = read("lib/core/database/app_database.dart")
 engine = read("lib/core/desire/proactive_engine.dart")

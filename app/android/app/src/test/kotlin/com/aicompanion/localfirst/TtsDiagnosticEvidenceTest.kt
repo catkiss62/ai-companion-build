@@ -33,7 +33,7 @@ class TtsDiagnosticEvidenceTest {
     fun echoSuspicionRequiresAllDegenerateInferenceSignals() {
         assertTrue(TtsDiagnosticEvidence.referenceEchoSuspected(1, 1, 500))
         assertFalse(TtsDiagnosticEvidence.referenceEchoSuspected(2, 1, 500))
-        assertFalse(TtsDiagnosticEvidence.referenceEchoSuspected(1, 2, 500))
+        assertTrue(TtsDiagnosticEvidence.referenceEchoSuspected(1, 122, 500))
         assertFalse(TtsDiagnosticEvidence.referenceEchoSuspected(1, 1, 100))
     }
 

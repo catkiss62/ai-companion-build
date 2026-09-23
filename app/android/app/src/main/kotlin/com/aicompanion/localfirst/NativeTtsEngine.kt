@@ -16,6 +16,10 @@ class NativeTtsEngine private constructor(context: Context) {
     @Volatile private var pitch = 1.0
     @Volatile private var volume = 1.0
     @Volatile private var speechGeneration = 0L
+    private val sessionLock = Any()
+    private var activeSession: TtsSessionPerformance? = null
+    private var activeSessionGeneration = -1L
+    private var activePlaybackCompleted = false
 
     fun status(): Map<String, Any> = try {
         client.status().toMutableMap().apply {
@@ -72,6 +76,38 @@ class NativeTtsEngine private constructor(context: Context) {
 
     fun generationToken(): Long = synchronized(this) { speechGeneration }
 
+    fun beginSession(manual: Boolean, generation: Long = generationToken()) {
+        if (generation != generationToken()) return
+        val profile = runCatching { client.status()["runtimeProfile"]?.toString().orEmpty() }
+            .getOrDefault("")
+        val nowEpochMs = System.currentTimeMillis()
+        val nowNs = System.nanoTime()
+        synchronized(sessionLock) {
+            if (generation != generationToken()) return
+            finalizeSessionLocked(stopped = true, completedAtEpochMs = nowEpochMs, completedAtNs = nowNs)
+            activeSession = TtsSessionPerformance(
+                generation = generation,
+                manual = manual,
+                requestedRuntimeProfile = profile,
+                startedAtEpochMs = nowEpochMs,
+                startedAtNs = nowNs,
+            )
+            activeSessionGeneration = generation
+            activePlaybackCompleted = false
+        }
+    }
+
+    fun finishSession(generation: Long = generationToken()) {
+        synchronized(sessionLock) {
+            if (generation != activeSessionGeneration) return
+            finalizeSessionLocked(
+                stopped = false,
+                completedAtEpochMs = System.currentTimeMillis(),
+                completedAtNs = System.nanoTime(),
+            )
+        }
+    }
+
     fun generate(
         text: String,
         language: String = activeLanguage,
@@ -80,6 +116,7 @@ class NativeTtsEngine private constructor(context: Context) {
         generation: Long = generationToken(),
     ): ByteArray? {
         if (text.isBlank() || generation != generationToken()) return null
+        val generationStartedNs = System.nanoTime()
         val nextLanguage = normalizeLanguage(language)
         activeLanguage = nextLanguage
         val normalizedVoice = normalizeVoice(voice)
@@ -93,6 +130,17 @@ class NativeTtsEngine private constructor(context: Context) {
             )
         } catch (error: Throwable) {
             val checkpoint = TtsProcessCheckpoint.read(appContext)
+            recordSessionSegment(
+                generation = generation,
+                segmentIndex = segmentIndex,
+                inputChars = text.length,
+                textHash = textHash,
+                language = nextLanguage,
+                voice = normalizedVoice,
+                checkpoint = checkpoint,
+                generationCallMs = elapsedMs(generationStartedNs),
+                failureCode = error.javaClass.simpleName,
+            )
             RuntimeDiagnosticStore.record(
                 appContext,
                 category = "tts",
@@ -139,6 +187,16 @@ class NativeTtsEngine private constructor(context: Context) {
             output.readBytes().also {
                 check(it.size >= 44) { "Genie TTS returned invalid WAV data" }
                 val checkpoint = TtsProcessCheckpoint.read(appContext)
+                recordSessionSegment(
+                    generation = generation,
+                    segmentIndex = segmentIndex,
+                    inputChars = text.length,
+                    textHash = textHash,
+                    language = nextLanguage,
+                    voice = normalizedVoice,
+                    checkpoint = checkpoint,
+                    generationCallMs = elapsedMs(generationStartedNs),
+                )
                 RuntimeDiagnosticStore.record(
                     appContext,
                     category = "tts",
@@ -187,6 +245,11 @@ class NativeTtsEngine private constructor(context: Context) {
         player.setPitch(pitch.toFloat())
         player.setVolume(volume.toFloat())
         player.beginStream {
+            synchronized(sessionLock) {
+                if (generation == activeSessionGeneration) {
+                    activeSession?.recordPlaybackStarted(System.nanoTime())
+                }
+            }
             RuntimeDiagnosticStore.record(
                 appContext,
                 category = "tts",
@@ -200,12 +263,23 @@ class NativeTtsEngine private constructor(context: Context) {
     fun enqueueAudio(
         wav: ByteArray,
         speedMultiplier: Double = 1.0,
+        segmentIndex: Int = -1,
         generation: Long = generationToken(),
     ) {
         if (wav.isEmpty() || generation != generationToken()) return
+        val effectiveSpeed = (speed * speedMultiplier).coerceIn(0.5, 2.0)
+        synchronized(sessionLock) {
+            if (generation == activeSessionGeneration) {
+                activeSession?.recordEnqueued(
+                    segmentIndex = segmentIndex,
+                    playbackSpeed = effectiveSpeed,
+                    atNs = System.nanoTime(),
+                )
+            }
+        }
         player.enqueueStream(
             wav,
-            (speed * speedMultiplier).coerceIn(0.5, 2.0).toFloat(),
+            effectiveSpeed.toFloat(),
         )
     }
 
@@ -213,6 +287,9 @@ class NativeTtsEngine private constructor(context: Context) {
         if (generation != generationToken()) return
         val played = player.finishStream()
         if (!played || generation != generationToken()) return
+        synchronized(sessionLock) {
+            if (generation == activeSessionGeneration) activePlaybackCompleted = true
+        }
         RuntimeDiagnosticStore.record(
             appContext,
             category = "tts",
@@ -232,6 +309,13 @@ class NativeTtsEngine private constructor(context: Context) {
 
     fun stop() {
         synchronized(this) { speechGeneration += 1L }
+        synchronized(sessionLock) {
+            finalizeSessionLocked(
+                stopped = true,
+                completedAtEpochMs = System.currentTimeMillis(),
+                completedAtNs = System.nanoTime(),
+            )
+        }
         client.stop()
         player.stop()
     }
@@ -305,6 +389,54 @@ class NativeTtsEngine private constructor(context: Context) {
         .getInstance("SHA-256")
         .digest(value.toByteArray(Charsets.UTF_8))
         .joinToString("") { byte -> "%02x".format(byte) }
+
+    private fun recordSessionSegment(
+        generation: Long,
+        segmentIndex: Int,
+        inputChars: Int,
+        textHash: String,
+        language: String,
+        voice: String,
+        checkpoint: Map<String, Any>,
+        generationCallMs: Long,
+        failureCode: String = "",
+    ) {
+        synchronized(sessionLock) {
+            if (generation != activeSessionGeneration) return
+            activeSession?.recordSegment(
+                segmentIndex = segmentIndex,
+                inputChars = inputChars,
+                textSha256 = textHash,
+                language = language,
+                voice = voice,
+                checkpoint = checkpoint,
+                generationCallMs = generationCallMs,
+                failureCode = failureCode,
+                readyAtNs = System.nanoTime(),
+            )
+        }
+    }
+
+    private fun finalizeSessionLocked(
+        stopped: Boolean,
+        completedAtEpochMs: Long,
+        completedAtNs: Long,
+    ) {
+        val session = activeSession ?: return
+        val summary = session.finish(
+            stopped = stopped,
+            playbackCompleted = activePlaybackCompleted,
+            completedAtEpochMs = completedAtEpochMs,
+            completedAtNs = completedAtNs,
+        )
+        TtsSessionDiagnosticStore.append(appContext, summary)
+        activeSession = null
+        activeSessionGeneration = -1L
+        activePlaybackCompleted = false
+    }
+
+    private fun elapsedMs(startNs: Long): Long =
+        (System.nanoTime() - startNs).coerceAtLeast(0L) / 1_000_000L
 
     companion object {
         @Volatile private var instance: NativeTtsEngine? = null

@@ -312,23 +312,16 @@ class GenieBenchmarkEngine(private val context: Context) : AutoCloseable {
             val yInfo = yTensor.info as TensorInfo
             val yValues = LongArray(elementCount(yInfo.shape))
             yTensor.longBuffer.get(yValues)
-            if (yValues.isNotEmpty()) yValues[yValues.lastIndex] = 0L
-            val requested = if (loopIndex == 0) yValues.size else loopIndex
-            val semanticCount = min(max(1, requested), yValues.size)
-            val selectedSemantic = yValues.copyOfRange(yValues.size - semanticCount, yValues.size)
-            // Match Genie's Python inference: remove the first invalid/EOS token and anything
-            // after it before the VITS call. Usually the forced final zero means this is a no-op,
-            // but keeping the guard prevents an early invalid token from reaching the vocoder.
-            val firstInvalid = selectedSemantic.indexOfFirst { it >= 1024L }
-            val semantic = when {
-                firstInvalid > 0 -> selectedSemantic.copyOf(firstInvalid)
-                firstInvalid == 0 -> longArrayOf(0L)
-                else -> selectedSemantic
+            val semantic = try {
+                GeneratedSemanticTokens.select(yValues, loopIndex)
+            } catch (_: NoGeneratedSemanticTokensException) {
+                throw NoGeneratedSemanticTokensException(iterations)
+            } finally {
+                decoderResult.close()
             }
             val semanticTensor = OnnxTensor.createTensor(
                 env, java.nio.LongBuffer.wrap(semantic), longArrayOf(1, 1, semantic.size.toLong())
             )
-            decoderResult.close()
 
             checkCancelled(shouldCancel)
             val vocoderInputs = linkedMapOf<String, OnnxTensor>()

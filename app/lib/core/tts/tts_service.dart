@@ -265,17 +265,31 @@ class TtsService implements TtsQueueService {
   }
 
   @override
+  Future<void> beginSession({required bool manual}) async {
+    // Freeze the actual runtime profile only after a pending settings change
+    // has rebuilt the isolated sessions; otherwise the first snapshot after a
+    // toggle could be finalized by configureAutoAffinity before generation.
+    await _ensureRuntimeProfile();
+    await provider.beginSession(manual: manual);
+  }
+
+  @override
+  Future<void> finishSession() => provider.finishSession();
+
+  @override
   Future<void> beginPlayback() => provider.beginAudioStream();
 
   @override
   Future<void> enqueuePlayback(
     Uint8List wavBytes, {
     double speedMultiplier = 1.0,
+    int segmentIndex = -1,
   }) async {
     if (wavBytes.isEmpty) return;
     await provider.enqueueAudio(
       wavBytes,
       speedMultiplier: speedMultiplier,
+      segmentIndex: segmentIndex,
     );
   }
 

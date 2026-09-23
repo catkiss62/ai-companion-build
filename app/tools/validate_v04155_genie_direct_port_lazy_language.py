@@ -43,7 +43,10 @@ v04204_profile_files = {
     "ChineseFrontend.kt",
     "GenieBenchmarkEngine.kt",
 }
-v04204_active = "version: 0.42.4+248" in read("pubspec.yaml")
+v04204_active = any(
+    version in read("pubspec.yaml")
+    for version in ("version: 0.42.4+248", "version: 0.42.5+249")
+)
 for name, expected in core_hashes.items():
     if v04204_active and name in v04204_profile_files:
         # +248 deliberately ports the separately verified v0.8.4 ONNX session

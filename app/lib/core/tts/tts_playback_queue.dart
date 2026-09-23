@@ -105,6 +105,11 @@ class TtsPlaybackQueue {
     _manual = manual;
     segmenter.reset();
     segmenter.configure(english: language == ChatLanguage.english);
+    try {
+      await service.beginSession(manual: manual);
+    } catch (_) {
+      // Session diagnostics are best-effort and never block optional speech.
+    }
     _notify();
   }
 
@@ -164,6 +169,11 @@ class TtsPlaybackQueue {
     _manual = manual;
     segmenter.reset();
     segmenter.configure(english: language == ChatLanguage.english);
+    try {
+      await service.beginSession(manual: manual);
+    } catch (_) {
+      // Session diagnostics are best-effort and never block optional speech.
+    }
     _notify();
 
     // Full-message playback follows A2's processText order: speech-only text
@@ -425,6 +435,7 @@ class TtsPlaybackQueue {
           await service.enqueuePlayback(
             audio,
             speedMultiplier: voice == TtsVoiceMode.gentle ? 1.2 : 1.0,
+            segmentIndex: index,
           );
           if (!session.audiblePlaybackStarted) {
             session.audiblePlaybackStarted = true;
@@ -468,7 +479,18 @@ class TtsPlaybackQueue {
         session.rawPending.isEmpty &&
         session.generating == 0 &&
         session.nextToPlay >= session.total;
-    if (!done) return;
+    if (!done || session.finalizing) return;
+    session.finalizing = true;
+    unawaited(_finishSession(session));
+  }
+
+  Future<void> _finishSession(_A2Session session) async {
+    try {
+      await service.finishSession();
+    } catch (_) {
+      // Session diagnostics are best-effort and never block optional speech.
+    }
+    if (!_isActive(session) || session.idle.isCompleted) return;
     session.idle.complete();
     _current = '';
     _notify();
@@ -513,6 +535,7 @@ class _A2Session {
   bool audiblePlaybackStarted = false;
   int completedPlaybackCount = 0;
   bool closed = false;
+  bool finalizing = false;
   bool _leadInConsumed = false;
   Completer<void> _readyEntry = Completer<void>();
 

@@ -8,6 +8,7 @@ import com.catkiss62.geniettsbenchmark.EngineConfig
 import com.catkiss62.geniettsbenchmark.GenieBenchmarkEngine
 import com.catkiss62.geniettsbenchmark.ModelLoadInfo
 import com.catkiss62.geniettsbenchmark.NativeJapaneseFrontend
+import com.catkiss62.geniettsbenchmark.NoGeneratedSemanticTokensException
 import com.catkiss62.geniettsbenchmark.VerifiedRuntimeConfig
 import java.io.ByteArrayOutputStream
 import java.io.File
@@ -196,15 +197,33 @@ class GenieTtsRuntime(private val context: Context) : AutoCloseable {
             onStage("acoustic_models_ready", emptyMap())
         }
         onStage("infer_$language", emptyMap())
-        val result = engine.runPrepared(
-            preparedRoot,
-            voiceCase,
-            prepared,
-            modelLoad,
-            System.nanoTime(),
-            shouldCancel = shouldCancel,
-        )
-        modelLoad = ModelLoadInfo(false, 0L)
+        val result = try {
+            engine.runPrepared(
+                preparedRoot,
+                voiceCase,
+                prepared,
+                modelLoad,
+                System.nanoTime(),
+                shouldCancel = shouldCancel,
+            )
+        } catch (error: NoGeneratedSemanticTokensException) {
+            onStage(
+                "semantic_rejected_no_generated_tokens",
+                mapOf<String, Any>(
+                    "semanticCount" to 0,
+                    "semanticHash" to "",
+                    "decoderIterations" to error.decoderIterations,
+                    "immediateStop" to true,
+                    "referenceEchoSuspected" to true,
+                    "referenceEchoReason" to "decoder_no_generated_semantics",
+                ) + diagnosticIdentity,
+            )
+            throw error
+        } finally {
+            // The acoustic sessions remain loaded even when this one segment
+            // is rejected or cancelled; only the first attempt is truly cold.
+            modelLoad = ModelLoadInfo(false, 0L)
+        }
         onStage(
             "infer_ready_$language",
             mapOf<String, Any>(
@@ -212,6 +231,18 @@ class GenieTtsRuntime(private val context: Context) : AutoCloseable {
                 "semanticHash" to result.semanticHash,
                 "decoderIterations" to result.decoderIterations,
                 "immediateStop" to (result.decoderIterations <= 1),
+                "frontendMs" to result.frontendMs,
+                "modelLoadedThisRun" to result.modelLoadedThisRun,
+                "modelLoadMs" to result.modelLoadMs,
+                "fixtureLoadMs" to result.fixtureLoadMs,
+                "encoderMs" to result.encoderMs,
+                "firstDecoderMs" to result.firstDecoderMs,
+                "autoregressiveMs" to result.autoregressiveMs,
+                "vocoderMs" to result.vocoderMs,
+                "totalInferenceMs" to result.totalInferenceMs,
+                "endToEndMs" to result.endToEndMs,
+                "audioSeconds" to result.audioSeconds,
+                "coreRtf" to result.coreRtf,
             ) + diagnosticIdentity,
         )
         onStage("wav_encode", emptyMap())

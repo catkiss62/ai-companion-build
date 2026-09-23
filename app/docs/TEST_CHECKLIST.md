@@ -1,3 +1,28 @@
+# v0.42.5+249 TTS 零语义根修与双档会话诊断真机验收增量
+
+## 参考语义泄漏
+
+- 分别选择日常、温柔、活泼、可爱音色，各播放一条会拆成多个句段的回复；不得再听到任一参考语音。
+- 导出诊断并检查 `native.ttsSessionDiagnostics.sessions`：若某段 Decoder 首轮停止，该段应为 `rejected_no_generated_semantics`、`semanticCount=0`，且不得出现旧版的 `decoderIterations=1 / semanticCount=122` 或 `1 / 87` 长音频组合。
+- 首轮停止只允许该句段无声；同一条回复的其他成功段仍应按 FIFO 顺序播放。不得出现固定语音、固定台词或 Android System TTS 兜底。
+- 单独观察旧报告中出现过的 `NullPointerException`：它应作为普通失败段记录，不能误写成参考语义拒绝，也不能令后续新一轮朗读失效。
+
+## 最后两次完整会话与同回复比较
+
+1. 关闭“自动核亲和加速”，对同一条回复手动播放一次，等待播放完全结束。
+2. 开启“自动核亲和加速”，再次对同一条回复手动播放一次，等待播放完全结束；除切换开关外不要改变文本、音色或语言。
+3. 立即导出诊断。`native.ttsSessionDiagnostics.retainedSessions` 应为 `2`；前后两次分别冻结 `legacy_fixed_8` 与 `auto_affinity_v084`，每段应包含冷/热、frontend、encoder、首步 Decoder、自回归、vocoder、总推理、音频时长、RTF、播放倍速与入队等待。
+4. `comparison.comparable` 应为 `true`，并给出两档总推理、聚合 RTF 与 `autoAffinitySpeedupPercent`。AUTO_AFFINITY 只改变推理配置，普通音色的 AudioTrack 播放仍应显示 1.0x；温柔音色既有 1.2x 应单独显示。
+5. 再播放一条不同回复并导出；环形记录只保留最新两次，且因为回复不同，`comparison.comparable=false / reason=different_utterance`，不得计算伪加速比。
+
+## 长文本、缓冲与 Stop
+
+- 播放覆盖至少 6 个句段的长文本；核对 `firstSegmentReadyMs / firstPlaybackStartMs / minimumEstimatedBufferMs / lateSegmentCount / sessionElapsedMs` 均存在且数值合理。即使 aggregate RTF 小于 1，也不得删除一秒首段预填充、串行生成或连续 AudioTrack。
+- 在生成中 Stop 一次；最后一次会话应保存为 `stopped`，已经停止的迟到 segment 不得播放。随后重新播放短句，必须形成新的正常会话。
+- 清除 Native 诊断历史后重新导出，TTS 最后两次会话也应被清除；报告中不得包含回复正文、Prompt、PCM/WAV、参考音频路径或用户文件路径。
+
+---
+
 # v0.42.4+248 TTS 自动核亲和与工具活动真机验收增量
 
 ## TTS 自动核亲和

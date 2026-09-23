@@ -32,7 +32,12 @@ def main() -> None:
     workflow = read(".github/workflows/build-apk.yml")
     ledger = read("AI_Companion_当前总账.md")
 
-    require("version: 0.42.4+248" in read("pubspec.yaml"), "version mismatch")
+    require(
+        any(version in read("pubspec.yaml") for version in (
+            "version: 0.42.4+248", "version: 0.42.5+249",
+        )),
+        "version mismatch",
+    )
     require("static const int schemaVersion = 61;" in database, "schema changed")
     for token in (
         "object VerifiedRuntimeConfig",
@@ -100,7 +105,10 @@ def main() -> None:
         require(token in chat, f"tool activity UI missing: {token}")
     require("agent/v04204-tts-affinity-tool-activity" in workflow,
             "workflow branch trigger missing")
-    require("v0.42.4+248" in workflow, "workflow identity mismatch")
+    require(
+        any(version in workflow for version in ("v0.42.4+248", "v0.42.5+249")),
+        "workflow identity mismatch",
+    )
     for token in ("TTS 自动核亲和与全工具活动展示", "后续冻结分析：双人格", "后续冻结分析：命运之轮"):
         require(token in ledger, f"ledger analysis missing: {token}")
     require(

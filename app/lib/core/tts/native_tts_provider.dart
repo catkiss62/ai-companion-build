@@ -96,6 +96,14 @@ class NativeTtsProvider implements TtsProvider {
       });
 
   @override
+  Future<void> beginSession({required bool manual}) =>
+      _channel.invokeMethod<void>('beginTtsSession', {'manual': manual});
+
+  @override
+  Future<void> finishSession() =>
+      _channel.invokeMethod<void>('finishTtsSession');
+
+  @override
   Future<void> beginAudioStream() =>
       _channel.invokeMethod<void>('beginAudioStream');
 
@@ -103,10 +111,12 @@ class NativeTtsProvider implements TtsProvider {
   Future<void> enqueueAudio(
     Uint8List wavBytes, {
     double speedMultiplier = 1.0,
+    int segmentIndex = -1,
   }) =>
       _channel.invokeMethod<void>('enqueueAudio', {
         'audioData': wavBytes,
         'speedMultiplier': speedMultiplier,
+        'segmentIndex': segmentIndex,
       });
 
   @override
