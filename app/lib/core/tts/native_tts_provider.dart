@@ -47,6 +47,15 @@ class NativeTtsProvider implements TtsProvider {
   }
 
   @override
+  Future<TtsStatus> configureAutoAffinity(bool enabled) async {
+    final raw = await _channel.invokeMapMethod<Object?, Object?>(
+      'configureAutoAffinity',
+      {'enabled': enabled},
+    );
+    return TtsStatus.fromMap(raw ?? const {});
+  }
+
+  @override
   Future<TtsStatus> diagnose({
     ChatLanguage language = ChatLanguage.chinese,
   }) async {

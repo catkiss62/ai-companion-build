@@ -62,12 +62,36 @@ enum class BackendMode(val displayName: String) {
     NNAPI_VITS("NNAPI-FP16（仅 VITS）"),
 }
 
-data class EngineConfig(val backend: BackendMode, val threads: Int) {
+enum class GraphExecutionMode {
+    DEFAULT,
+    SEQUENTIAL,
+}
+
+data class EngineConfig(
+    val backend: BackendMode,
+    val threads: Int,
+    val interOpThreads: Int = 1,
+    val executionMode: GraphExecutionMode = GraphExecutionMode.DEFAULT,
+    val allowSpinning: Boolean? = null,
+    val profileId: String = "legacy_fixed_8",
+) {
     val label: String
         get() = when (backend) {
             BackendMode.NNAPI_VITS -> "${backend.displayName} + CPU ${threads}线程"
             else -> "${backend.displayName} ${threads}线程"
         }
+}
+
+/** Exact production profile verified by the standalone Genie v0.8.4 harness. */
+object VerifiedRuntimeConfig {
+    val AUTO_AFFINITY = EngineConfig(
+        backend = BackendMode.CPU,
+        threads = 0,
+        interOpThreads = 1,
+        executionMode = GraphExecutionMode.SEQUENTIAL,
+        allowSpinning = true,
+        profileId = "auto_affinity_v084",
+    )
 }
 
 data class ModelLoadInfo(val loadedThisRun: Boolean, val elapsedMs: Long)

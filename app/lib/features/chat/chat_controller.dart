@@ -156,6 +156,10 @@ class ChatController extends ChangeNotifier {
 
   List<ChatMessage> messages = [];
   List<GenerationInterruption> generationInterruptions = [];
+  Map<String, List<AgentToolOutcomeRecord>> toolOutcomesByAssistantMessage =
+      const <String, List<AgentToolOutcomeRecord>>{};
+  Map<String, List<AgentToolOutcomeRecord>> toolOutcomesByJob =
+      const <String, List<AgentToolOutcomeRecord>>{};
   bool loading = true;
   bool sending = false;
   bool externalGenerationActive = false;
@@ -166,6 +170,7 @@ class ChatController extends ChangeNotifier {
   String streamingReasoning = '';
   String streamingContent = '';
   AgentToolActivity? agentActivity;
+  List<AgentToolActivity> agentActivities = <AgentToolActivity>[];
   String? error;
   String? notice;
   ChatMessage? incompleteReplyDraft;
@@ -214,7 +219,42 @@ class ChatController extends ChangeNotifier {
 
   void _applyAgentToolActivity(AgentToolActivity activity) {
     agentActivity = activity;
+    final activeIndex = agentActivities.lastIndexWhere(
+      (item) => item.toolId == activity.toolId && item.active,
+    );
+    if (activeIndex >= 0) {
+      agentActivities = <AgentToolActivity>[
+        ...agentActivities.take(activeIndex),
+        activity,
+        ...agentActivities.skip(activeIndex + 1),
+      ];
+    } else {
+      agentActivities = <AgentToolActivity>[...agentActivities, activity];
+    }
     _safeNotify();
+  }
+
+  List<AgentToolOutcomeRecord> toolOutcomesForMessage(String messageId) =>
+      toolOutcomesByAssistantMessage[messageId] ??
+      const <AgentToolOutcomeRecord>[];
+
+  List<AgentToolOutcomeRecord> toolOutcomesForJob(String jobId) =>
+      toolOutcomesByJob[jobId] ?? const <AgentToolOutcomeRecord>[];
+
+  Future<void> _loadToolOutcomes() async {
+    final records = await db.recentAgentToolOutcomeRecords();
+    final byMessage = <String, List<AgentToolOutcomeRecord>>{};
+    final byJob = <String, List<AgentToolOutcomeRecord>>{};
+    for (final record in records) {
+      byMessage
+          .putIfAbsent(record.assistantMessageId, () => <AgentToolOutcomeRecord>[])
+          .add(record);
+      byJob
+          .putIfAbsent(record.jobId, () => <AgentToolOutcomeRecord>[])
+          .add(record);
+    }
+    toolOutcomesByAssistantMessage = byMessage;
+    toolOutcomesByJob = byJob;
   }
 
   TtsPlaybackPhase ttsPhaseForMessage(String messageId) {
@@ -293,6 +333,7 @@ class ChatController extends ChangeNotifier {
       messages = await db.recentMessages(limit: 120);
       generationInterruptions =
           await db.recentGenerationInterruptions(limit: 20);
+      await _loadToolOutcomes();
       final persistedNotice =
           (await db.getSetting(_persistentFallbackNoticeKey))?.trim() ?? '';
       if (persistedNotice.isNotEmpty) notice = persistedNotice;
@@ -364,6 +405,7 @@ class ChatController extends ChangeNotifier {
     messages = await db.recentMessages(limit: 120);
     generationInterruptions =
         await db.recentGenerationInterruptions(limit: 20);
+    await _loadToolOutcomes();
     await _restoreIncompleteReplyDraft();
     _safeNotify();
   }
@@ -445,6 +487,9 @@ class ChatController extends ChangeNotifier {
               status: AgentToolStatus.running,
               text: statusText,
             );
+      agentActivities = agentActivity == null
+          ? <AgentToolActivity>[]
+          : <AgentToolActivity>[agentActivity!];
     }
     final latest = await db.recentMessages(limit: 120);
     final interruptions = await db.recentGenerationInterruptions(limit: 20);
@@ -462,6 +507,7 @@ class ChatController extends ChangeNotifier {
     if (sameMessages && sameInterruptions && !runtimeChanged) return false;
     if (!sending) messages = latest;
     generationInterruptions = interruptions;
+    await _loadToolOutcomes();
     _safeNotify();
     return true;
   }
@@ -1097,6 +1143,7 @@ class ChatController extends ChangeNotifier {
     streamingReasoning = '';
     streamingContent = '';
     agentActivity = null;
+    agentActivities = <AgentToolActivity>[];
     final cancellation = GenerationCancellationToken();
     _activeGenerationCancellation = cancellation;
     _activeGenerationJobId = null;
@@ -1237,6 +1284,7 @@ class ChatController extends ChangeNotifier {
       streamingReasoning = '';
       streamingContent = '';
       agentActivity = null;
+      agentActivities = <AgentToolActivity>[];
       if (identical(_activeGenerationCancellation, cancellation)) {
         _activeGenerationCancellation = null;
         _activeGenerationJobId = null;
@@ -1323,6 +1371,7 @@ class ChatController extends ChangeNotifier {
       }
       var projectedAssistant = result.assistant!;
       messages = [...messages, projectedAssistant];
+      await _loadToolOutcomes();
       await _incrementOverlayUnread();
       _petGenerationActive = false;
       // The cue belongs to the visible reply, not to an early hidden
@@ -1388,12 +1437,14 @@ class ChatController extends ChangeNotifier {
       messages = await db.recentMessages(limit: 120);
       generationInterruptions =
           await db.recentGenerationInterruptions(limit: 20);
+      await _loadToolOutcomes();
       error = null;
     } else if (result.status == 'interrupted') {
       await _stopTurnAudio();
       messages = await db.recentMessages(limit: 120);
       generationInterruptions =
           await db.recentGenerationInterruptions(limit: 20);
+      await _loadToolOutcomes();
       error = null;
     } else if (result.retryScheduled) {
       await _stopTurnAudio();
@@ -1557,6 +1608,7 @@ class ChatController extends ChangeNotifier {
     streamingReasoning = '';
     streamingContent = '';
     agentActivity = null;
+    agentActivities = <AgentToolActivity>[];
     error = null;
     final cancellation = GenerationCancellationToken();
     _activeGenerationCancellation = cancellation;
@@ -1597,6 +1649,7 @@ class ChatController extends ChangeNotifier {
       streamingReasoning = '';
       streamingContent = '';
       agentActivity = null;
+      agentActivities = <AgentToolActivity>[];
       if (identical(_activeGenerationCancellation, cancellation)) {
         _activeGenerationCancellation = null;
         _activeGenerationJobId = null;
@@ -1630,6 +1683,7 @@ class ChatController extends ChangeNotifier {
         streamingReasoning = '';
         streamingContent = '';
         agentActivity = null;
+        agentActivities = <AgentToolActivity>[];
         error = null;
       }
     } catch (exception) {
@@ -1686,6 +1740,7 @@ class ChatController extends ChangeNotifier {
     streamingReasoning = '';
     streamingContent = '';
     agentActivity = null;
+    agentActivities = <AgentToolActivity>[];
     _safeNotify();
 
     await _stopTurnAudio();

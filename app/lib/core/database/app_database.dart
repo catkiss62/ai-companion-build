@@ -7,6 +7,7 @@ import 'package:sqflite/sqflite.dart';
 import 'package:uuid/uuid.dart';
 
 import '../emotion/emotion_contract.dart';
+import '../agent/agent_tool.dart';
 import '../diagnostics/provider_health.dart';
 import '../diagnostics/proactive_policy_telemetry.dart';
 import '../desire/desire_core_policy.dart';
@@ -243,6 +244,7 @@ class AppDatabase {
         'perception_enabled': '1',
         'ai_self_reflection_enabled': '1',
         'tts_enabled': '0',
+        'tts_auto_affinity_enabled': '0',
         'auto_tts': '0',
         'tts_streaming_enabled': '0',
         'proactive_tts_policy': 'silent',
@@ -1454,6 +1456,7 @@ class AppDatabase {
     await db.insert('settings', {'key': 'perception_enabled', 'value': '1'});
     await db.insert('settings', {'key': 'ai_self_reflection_enabled', 'value': '1'});
     await db.insert('settings', {'key': 'tts_enabled', 'value': '0'});
+    await db.insert('settings', {'key': 'tts_auto_affinity_enabled', 'value': '0'});
     await db.insert('settings', {'key': 'auto_tts', 'value': '0'});
     await db.insert('settings', {'key': 'tts_streaming_enabled', 'value': '0'});
     await db.insert('settings', {'key': 'proactive_tts_policy', 'value': 'silent'});
@@ -4236,6 +4239,7 @@ class AppDatabase {
       'personality_base_key': 'none',
       'personality_posture_key': 'none',
       'personality_learning_enabled': '1',
+      'tts_auto_affinity_enabled': '0',
       'tts_reading_scope': 'dialogue_only',
       'multilingual_replies_enabled': '0',
       'show_foreign_replies': '0',
@@ -13726,6 +13730,7 @@ class AppDatabase {
       'no_result',
       'failed',
       'blocked',
+      'stopped',
     };
     if (!terminalStatuses.contains(status)) {
       throw ArgumentError.value(status, 'status', 'terminal status required');
@@ -13737,6 +13742,7 @@ class AppDatabase {
       '',
       'blocked',
       'execution_failed',
+      'stopped',
     };
     String bounded(String value, int limit) {
       final normalized = value.replaceAll(RegExp(r'[\r\n\t]+'), ' ').trim();
@@ -13814,6 +13820,40 @@ class AppDatabase {
       orderBy: 'finished_at DESC',
       limit: limit.clamp(1, 20).toInt(),
     );
+  }
+
+  /// Projects bounded tool metadata onto its durable generation job. The
+  /// underlying table deliberately contains no arguments, queries, URLs,
+  /// result bodies, prompts or private reasoning.
+  Future<List<AgentToolOutcomeRecord>> recentAgentToolOutcomeRecords({
+    int limit = 200,
+  }) async {
+    final db = await database;
+    final rows = await db.rawQuery(
+      '''
+      SELECT o.id,
+             g.id AS job_id,
+             g.assistant_message_id,
+             o.tool_id,
+             o.status,
+             o.result_count,
+             o.started_at,
+             o.finished_at,
+             o.source_device_label
+      FROM agent_tool_outcomes o
+      JOIN generation_jobs g
+        ON substr(o.id, 1, length('user_turn:' || g.id || ':')) =
+           ('user_turn:' || g.id || ':')
+      ORDER BY o.started_at DESC
+      LIMIT ?
+      ''',
+      [limit.clamp(1, 200).toInt()],
+    );
+    return rows
+        .map(AgentToolOutcomeRecord.fromDb)
+        .toList(growable: false)
+        .reversed
+        .toList(growable: false);
   }
 
   Future<bool> agentToolOutcomeEventExists(String eventId) async {
@@ -19340,6 +19380,7 @@ class AppDatabase {
         'perception_enabled': '1',
         'ai_self_reflection_enabled': '1',
         'tts_enabled': '0',
+        'tts_auto_affinity_enabled': '0',
         'auto_tts': '0',
         'tts_streaming_enabled': '0',
         'proactive_tts_policy': 'silent',

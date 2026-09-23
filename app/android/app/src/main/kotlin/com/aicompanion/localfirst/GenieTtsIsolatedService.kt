@@ -81,6 +81,16 @@ class GenieTtsIsolatedService : Service() {
             }
         }
 
+        override fun configureAutoAffinityJson(enabled: Boolean): String = serialized {
+            guardedStatus {
+                generation.incrementAndGet()
+                markStage("configure_runtime", durable = true)
+                runtime.configureAutoAffinity(enabled)
+                initialized = runtime.isReady
+                markStage("runtime_configured", durable = true)
+            }
+        }
+
         override fun importChineseRobertaJson(path: String): String = serialized {
             guardedStatus {
                 runtime.importChineseRoberta(File(path))
@@ -246,6 +256,8 @@ class GenieTtsIsolatedService : Service() {
         .put("diagnosticStage", stage)
         .put("diagnosticCode", lastErrorType)
         .put("diagnosticTrace", JSONArray(listOf("private_process", "single_serial_owner", stage)))
+        .put("runtimeProfile", runtime.runtimeProfileId)
+        .put("autoAffinityEnabled", runtime.runtimeProfileId == "auto_affinity_v084")
         .put("detail", lastError.ifBlank { runtime.statusDetail() })
         .toString()
 
@@ -257,6 +269,7 @@ class GenieTtsIsolatedService : Service() {
             failure = failure,
             language = activeLanguage,
             modelsReady = runtime.acousticModelsReady,
+            runtimeProfile = runtime.runtimeProfileId,
             inputChars = activeInputChars,
             phoneCount = phoneCount,
             phoneMin = phoneMin,

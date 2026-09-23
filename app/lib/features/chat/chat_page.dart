@@ -7,6 +7,8 @@ import 'package:image_picker/image_picker.dart';
 
 import '../../core/ai/message_language_variant_service.dart';
 import '../../core/ai/reasoning_translation_service.dart';
+import '../../core/agent/agent_tool.dart';
+import '../../core/agent/agent_tool_registry.dart';
 import '../../core/models/chat_message.dart';
 import '../../core/models/chat_language_variant.dart';
 import '../../core/models/chat_segment.dart';
@@ -1161,6 +1163,9 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
                       _InterruptionMarker(
                         content: item.interruption!.userContent,
                         notice: item.interruption!.notice,
+                        toolOutcomes: controller.toolOutcomesForJob(
+                          item.interruption!.jobId,
+                        ),
                         onReedit: item.interruption!.hasDisplayOnlyUserContent
                             ? () {
                                 input.text = item.interruption!.userContent;
@@ -1175,6 +1180,9 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
                       _MessageBubble(
                         key: ValueKey(item.message!.id),
                         message: item.message!,
+                        toolOutcomes: controller.toolOutcomesForMessage(
+                          item.message!.id,
+                        ),
                         showForeignReplies: _showForeignReplies,
                         selectedLanguage: _selectedLanguage,
                         bubbleOpacity:
@@ -2853,11 +2861,13 @@ class _InterruptionMarker extends StatelessWidget {
   const _InterruptionMarker({
     required this.content,
     required this.notice,
+    required this.toolOutcomes,
     this.onReedit,
   });
 
   final String content;
   final String notice;
+  final List<AgentToolOutcomeRecord> toolOutcomes;
   final VoidCallback? onReedit;
 
   @override
@@ -2878,6 +2888,11 @@ class _InterruptionMarker extends StatelessWidget {
               ),
               child: SelectableText(content),
             ),
+          ),
+        if (toolOutcomes.isNotEmpty)
+          Padding(
+            padding: const EdgeInsets.only(left: 32, right: 32, bottom: 6),
+            child: _ToolActivityHistory(outcomes: toolOutcomes),
           ),
         Padding(
           padding: const EdgeInsets.only(bottom: 7),
@@ -2914,6 +2929,7 @@ class _MessageBubble extends StatelessWidget {
   const _MessageBubble({
     super.key,
     required this.message,
+    required this.toolOutcomes,
     required this.showForeignReplies,
     required this.selectedLanguage,
     required this.bubbleOpacity,
@@ -2933,6 +2949,7 @@ class _MessageBubble extends StatelessWidget {
     this.onRetryVision,
   });
   final ChatMessage message;
+  final List<AgentToolOutcomeRecord> toolOutcomes;
   final bool showForeignReplies;
   final ChatLanguage selectedLanguage;
   final double bubbleOpacity;
@@ -3047,6 +3064,8 @@ class _MessageBubble extends StatelessWidget {
                 translationScope: ReasoningTranslationScope.chat,
               ),
             ),
+          if (toolOutcomes.isNotEmpty)
+            _ToolActivityHistory(outcomes: toolOutcomes),
           _AssistantSegmentSequence(
             chunks: chunks,
             animate: animateSegments,
@@ -3137,9 +3156,93 @@ class _MessageBubble extends StatelessWidget {
               messageId: message.id,
               translationScope: ReasoningTranslationScope.chat,
             ),
-          ),
+            ),
+        if (toolOutcomes.isNotEmpty)
+          _ToolActivityHistory(outcomes: toolOutcomes),
         _AssistantTranscriptSurface(child: body),
       ],
+    );
+  }
+}
+
+class _ToolActivityHistory extends StatelessWidget {
+  const _ToolActivityHistory({required this.outcomes});
+
+  final List<AgentToolOutcomeRecord> outcomes;
+
+  String _statusLabel(AgentToolStatus status) => switch (status) {
+        AgentToolStatus.succeeded => '成功',
+        AgentToolStatus.noResult => '没有找到结果',
+        AgentToolStatus.failed => '失败',
+        AgentToolStatus.blocked => '未获准执行',
+        AgentToolStatus.stopped => '已停止',
+        AgentToolStatus.running => '进行中',
+        AgentToolStatus.requested => '等待执行',
+      };
+
+  IconData _statusIcon(AgentToolStatus status) => switch (status) {
+        AgentToolStatus.succeeded => Icons.check_circle_outline,
+        AgentToolStatus.noResult => Icons.search_off_outlined,
+        AgentToolStatus.failed => Icons.error_outline,
+        AgentToolStatus.blocked => Icons.lock_outline,
+        AgentToolStatus.stopped => Icons.stop_circle,
+        AgentToolStatus.running => Icons.autorenew,
+        AgentToolStatus.requested => Icons.schedule,
+      };
+
+  String _duration(Duration value) {
+    if (value.inMilliseconds < 1000) return '${value.inMilliseconds} ms';
+    return '${(value.inMilliseconds / 1000).toStringAsFixed(1)} 秒';
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final allSucceeded = outcomes.every(
+      (item) => item.status == AgentToolStatus.succeeded,
+    );
+    final anyStopped = outcomes.any(
+      (item) => item.status == AgentToolStatus.stopped,
+    );
+    final summary = allSucceeded
+        ? '全部成功'
+        : anyStopped
+            ? '包含已停止操作'
+            : '包含未完成操作';
+    final colors = Theme.of(context).colorScheme;
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(4, 3, 4, 6),
+      child: DecoratedBox(
+        decoration: BoxDecoration(
+          color: colors.surfaceContainerHighest.withValues(alpha: 0.72),
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: colors.outlineVariant),
+        ),
+        child: ExpansionTile(
+          dense: true,
+          visualDensity: VisualDensity.compact,
+          leading: const Icon(Icons.build_circle_outlined, size: 18),
+          title: Text('工具活动 · ${outcomes.length} 项'),
+          subtitle: Text(summary),
+          children: [
+            for (final outcome in outcomes)
+              ListTile(
+                dense: true,
+                visualDensity: VisualDensity.compact,
+                leading: Icon(_statusIcon(outcome.status), size: 18),
+                title: Text(
+                  AgentToolRegistry.byId(outcome.toolId)?.title ?? '本地工具',
+                ),
+                subtitle: Text(
+                  '${_statusLabel(outcome.status)}'
+                  '${outcome.resultCount > 0 ? ' · ${outcome.resultCount} 项结果' : ''}'
+                  ' · ${_duration(outcome.duration)}'
+                  ' · ${ChatTimestampFormatter.time(outcome.startedAt)}'
+                  '${outcome.sourceDeviceLabel.trim().isEmpty ? '' : ' · ${outcome.sourceDeviceLabel}'}',
+                ),
+              ),
+          ],
+        ),
+      ),
     );
   }
 }
@@ -3650,9 +3753,10 @@ class _StreamingBubble extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 if (controller.agentActivity != null)
-                  _AgentActivityLine(
-                    text: controller.agentActivity!.text,
-                    active: controller.agentActivity!.active,
+                  _LiveToolActivityPanel(
+                    activities: controller.agentActivities.isEmpty
+                        ? <AgentToolActivity>[controller.agentActivity!]
+                        : controller.agentActivities,
                   ),
                 if (content.isNotEmpty) ...[
                   for (var index = 0; index < blocks.length; index++) ...[
@@ -3685,6 +3789,38 @@ class _StreamingBubble extends StatelessWidget {
             ),
           ),
       ],
+    );
+  }
+}
+
+class _LiveToolActivityPanel extends StatelessWidget {
+  const _LiveToolActivityPanel({required this.activities});
+
+  final List<AgentToolActivity> activities;
+
+  @override
+  Widget build(BuildContext context) {
+    return Theme(
+      data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
+      child: ExpansionTile(
+        initiallyExpanded: true,
+        dense: true,
+        visualDensity: VisualDensity.compact,
+        tilePadding: EdgeInsets.zero,
+        childrenPadding: const EdgeInsets.only(left: 8),
+        leading: const Icon(Icons.build_outlined, size: 16, color: Colors.white),
+        title: Text(
+          '工具调用 · ${activities.length} 项',
+          style: const TextStyle(color: Colors.white, fontSize: 11),
+        ),
+        children: [
+          for (final activity in activities)
+            _AgentActivityLine(
+              text: activity.text,
+              active: activity.active,
+            ),
+        ],
+      ),
     );
   }
 }

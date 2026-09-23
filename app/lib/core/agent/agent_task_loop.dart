@@ -131,6 +131,9 @@ no_result、failed、blocked 不是成功；可以据此改用当前最小工具
         case AgentToolStatus.blocked:
           blocked++;
           break;
+        case AgentToolStatus.stopped:
+          failed++;
+          break;
         case AgentToolStatus.requested:
         case AgentToolStatus.running:
           failed++;

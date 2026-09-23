@@ -39,6 +39,8 @@ class IsolatedGenieTtsClient(private val context: Context) {
     fun verifyArtifacts(): Map<String, Any> = parse(call { it.verifyArtifactsJson() })
     fun initialize(language: String): Map<String, Any> = parse(call { it.initializeJson(language) })
     fun prepareLanguage(language: String): Map<String, Any> = parse(call { it.prepareLanguageJson(language) })
+    fun configureAutoAffinity(enabled: Boolean): Map<String, Any> =
+        parse(call { it.configureAutoAffinityJson(enabled) })
     fun importChineseRoberta(path: String): Map<String, Any> =
         parse(call { it.importChineseRobertaJson(path) })
 
@@ -100,6 +102,7 @@ class IsolatedGenieTtsClient(private val context: Context) {
                 "stage" to checkpoint["stage"],
                 "language" to checkpoint["language"],
                 "modelsReady" to checkpoint["modelsReady"],
+                "runtimeProfile" to checkpoint["runtimeProfile"],
                 "inputChars" to checkpoint["inputChars"],
                 "pssKb" to checkpoint["pssKb"],
                 "rssKb" to checkpoint["rssKb"],

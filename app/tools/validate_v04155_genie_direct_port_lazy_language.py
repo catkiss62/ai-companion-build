@@ -38,7 +38,19 @@ core_hashes = {
     "SystemAudioPolicy.kt": "e8a2b56f04447b835a17826c0be0afa4080a43c148f786e6e6d1a6ef987cfbe0",
 }
 core_root = ROOT / "android/app/src/main/kotlin/com/catkiss62/geniettsbenchmark"
+v04204_profile_files = {
+    "BenchmarkModels.kt",
+    "ChineseFrontend.kt",
+    "GenieBenchmarkEngine.kt",
+}
+v04204_active = "version: 0.42.4+248" in read("pubspec.yaml")
 for name, expected in core_hashes.items():
+    if v04204_active and name in v04204_profile_files:
+        # +248 deliberately ports the separately verified v0.8.4 ONNX session
+        # configuration into these three files. Its exact contract is locked
+        # by validate_v04204_tts_affinity_tool_activity.py; all untouched
+        # v0.6.4 frontend/runtime sources remain byte-exact here.
+        continue
     assert sha256((core_root / name).read_bytes()).hexdigest() == expected, name
 
 adapter = read(

@@ -74,12 +74,12 @@ def main() -> None:
     require(
         any(
             version in read("pubspec.yaml")
-            for version in ("version: 0.42.2+246", "version: 0.42.3+247")
+            for version in ("version: 0.42.2+246", "version: 0.42.3+247", "version: 0.42.4+248")
         ),
         "build version mismatch",
     )
     require(
-        any(version in workflow for version in ("v0.42.2+246", "v0.42.3+247")),
+        any(version in workflow for version in ("v0.42.2+246", "v0.42.3+247", "v0.42.4+248")),
         "workflow version mismatch",
     )
     require("forbidden_live2d" in workflow, "APK Live2D absence gate missing")

@@ -7,12 +7,16 @@ import ai.onnxruntime.TensorInfo
 import java.io.File
 import java.nio.FloatBuffer
 import java.nio.LongBuffer
-import kotlin.math.max
 
 class ChineseFrontend(private val engine: GenieBenchmarkEngine) : AutoCloseable {
     private val env = OrtEnvironment.getEnvironment()
     private var robertaSession: OrtSession? = null
     private var robertaPath: String? = null
+    private var engineConfig = EngineConfig(
+        backend = BackendMode.CPU,
+        threads = Runtime.getRuntime().availableProcessors().coerceAtLeast(1),
+        profileId = "legacy_roberta_runtime_cpu_count",
+    )
     private var vocab: Map<String, Long>? = null
     private var charPhones: Map<String, List<LongArray>>? = null
     private var phrasePhones: Map<String, List<LongArray>>? = null
@@ -22,6 +26,13 @@ class ChineseFrontend(private val engine: GenieBenchmarkEngine) : AutoCloseable 
     }
 
     fun clearPreparedCache() = synchronized(cache) { cache.clear() }
+
+    fun configure(config: EngineConfig) {
+        if (engineConfig == config) return
+        closeModel()
+        clearPreparedCache()
+        engineConfig = config
+    }
 
     fun closeModel() {
         robertaSession?.close()
@@ -347,10 +358,19 @@ class ChineseFrontend(private val engine: GenieBenchmarkEngine) : AutoCloseable 
         val modelPath = engine.frontendModelFile(root).absolutePath
         if (robertaSession == null || robertaPath != modelPath) {
             closeModel()
+            val config = engineConfig
             val options = OrtSession.SessionOptions().apply {
-                setInterOpNumThreads(1)
-                setIntraOpNumThreads(max(1, Runtime.getRuntime().availableProcessors()))
+                setInterOpNumThreads(config.interOpThreads)
+                setIntraOpNumThreads(config.threads)
+                if (config.executionMode == GraphExecutionMode.SEQUENTIAL) {
+                    setExecutionMode(OrtSession.SessionOptions.ExecutionMode.SEQUENTIAL)
+                }
                 setOptimizationLevel(OrtSession.SessionOptions.OptLevel.ALL_OPT)
+                config.allowSpinning?.let { enabled ->
+                    val value = if (enabled) "1" else "0"
+                    addConfigEntry("session.intra_op.allow_spinning", value)
+                    addConfigEntry("session.inter_op.allow_spinning", value)
+                }
             }
             robertaSession = try {
                 env.createSession(modelPath, options)

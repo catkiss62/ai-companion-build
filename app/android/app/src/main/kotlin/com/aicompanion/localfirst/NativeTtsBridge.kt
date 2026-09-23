@@ -51,6 +51,11 @@ class NativeTtsBridge(
                 "prepareLanguage" -> submit(generationWorker, result, "tts_frontend_failed") {
                     engine.prepareLanguage(call.argument<String>("language").orEmpty())
                 }
+                "configureAutoAffinity" -> submit(generationWorker, result, "tts_runtime_config_failed") {
+                    engine.configureAutoAffinity(
+                        call.argument<Boolean>("enabled") == true,
+                    )
+                }
                 "diagnose" -> submit(generationWorker, result, "tts_diagnose_failed") {
                     engine.diagnose(call.argument<String>("language").orEmpty())
                 }

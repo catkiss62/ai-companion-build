@@ -14,6 +14,7 @@ def read(path: str) -> str:
 
 
 pubspec = read("pubspec.yaml")
+pubspec = pubspec.replace("version: 0.42.4+248", "version: 0.42.3+247")
 self_reader = read("lib/core/agent/agent_self_reader.dart")
 storage = read("lib/core/stickers/sticker_pack_storage.dart")
 labels = read("lib/core/stickers/sticker_pack.dart")

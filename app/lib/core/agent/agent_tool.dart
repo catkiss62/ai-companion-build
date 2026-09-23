@@ -19,7 +19,15 @@ extension AgentToolOriginKey on AgentToolOrigin {
       };
 }
 
-enum AgentToolStatus { requested, running, succeeded, noResult, failed, blocked }
+enum AgentToolStatus {
+  requested,
+  running,
+  succeeded,
+  noResult,
+  failed,
+  blocked,
+  stopped,
+}
 
 extension AgentToolStatusKey on AgentToolStatus {
   String get key => switch (this) {
@@ -29,7 +37,61 @@ extension AgentToolStatusKey on AgentToolStatus {
         AgentToolStatus.noResult => 'no_result',
         AgentToolStatus.failed => 'failed',
         AgentToolStatus.blocked => 'blocked',
+        AgentToolStatus.stopped => 'stopped',
       };
+}
+
+AgentToolStatus agentToolStatusFromKey(String value) => switch (value) {
+      'succeeded' => AgentToolStatus.succeeded,
+      'no_result' => AgentToolStatus.noResult,
+      'failed' => AgentToolStatus.failed,
+      'blocked' => AgentToolStatus.blocked,
+      'stopped' => AgentToolStatus.stopped,
+      'running' => AgentToolStatus.running,
+      _ => AgentToolStatus.requested,
+    };
+
+class AgentToolOutcomeRecord {
+  const AgentToolOutcomeRecord({
+    required this.id,
+    required this.jobId,
+    required this.assistantMessageId,
+    required this.toolId,
+    required this.status,
+    required this.resultCount,
+    required this.startedAt,
+    required this.finishedAt,
+    required this.sourceDeviceLabel,
+  });
+
+  final String id;
+  final String jobId;
+  final String assistantMessageId;
+  final String toolId;
+  final AgentToolStatus status;
+  final int resultCount;
+  final DateTime startedAt;
+  final DateTime finishedAt;
+  final String sourceDeviceLabel;
+
+  Duration get duration => finishedAt.difference(startedAt);
+
+  factory AgentToolOutcomeRecord.fromDb(Map<String, Object?> row) =>
+      AgentToolOutcomeRecord(
+        id: row['id'] as String? ?? '',
+        jobId: row['job_id'] as String? ?? '',
+        assistantMessageId: row['assistant_message_id'] as String? ?? '',
+        toolId: row['tool_id'] as String? ?? '',
+        status: agentToolStatusFromKey(row['status'] as String? ?? ''),
+        resultCount: (row['result_count'] as num?)?.toInt() ?? 0,
+        startedAt: DateTime.fromMillisecondsSinceEpoch(
+          (row['started_at'] as num?)?.toInt() ?? 0,
+        ),
+        finishedAt: DateTime.fromMillisecondsSinceEpoch(
+          (row['finished_at'] as num?)?.toInt() ?? 0,
+        ),
+        sourceDeviceLabel: row['source_device_label'] as String? ?? '',
+      );
 }
 
 class AgentToolDefinition {

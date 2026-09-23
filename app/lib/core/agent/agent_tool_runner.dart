@@ -123,6 +123,11 @@ class AgentToolRunner {
           startedAt: startedAt,
           origin: origin,
         );
+        onActivity?.call(AgentToolActivity(
+          toolId: call.toolId,
+          status: result.status,
+          text: result.displayText,
+        ));
         continue;
       }
       if (call.toolId == AgentToolRegistry.screenObservation.id &&
@@ -162,6 +167,11 @@ class AgentToolRunner {
             errorCode: 'one_time_reservation_failed',
           );
           results.add(result);
+          onActivity?.call(AgentToolActivity(
+            toolId: call.toolId,
+            status: result.status,
+            text: result.displayText,
+          ));
           continue;
         }
       }
@@ -216,6 +226,32 @@ class AgentToolRunner {
           text: result.displayText,
         ));
       } on GenerationCancelledByUserException {
+        final result = AgentToolResult(
+          toolId: call.toolId,
+          status: AgentToolStatus.stopped,
+          displayText: '${definition.title}已停止',
+          promptData: '工具执行已由用户停止；不得声称已经获得结果。',
+          errorCode: 'stopped',
+        );
+        await _note(
+          toolId: call.toolId,
+          status: result.status,
+          errorCode: result.errorCode,
+          reasonTag: call.reasonTag,
+        );
+        await _recordTerminalOutcome(
+          call: call,
+          callIndex: callIndex,
+          eventScopeId: eventScopeId,
+          result: result,
+          startedAt: startedAt,
+          origin: origin,
+        );
+        onActivity?.call(AgentToolActivity(
+          toolId: call.toolId,
+          status: result.status,
+          text: result.displayText,
+        ));
         rethrow;
       } on GenerationSuspendedByRuntimeGateException {
         // Backup/restore has frozen the runtime. Let the durable generation
@@ -2245,7 +2281,9 @@ ${lines.join('\n')}
     if (status == AgentToolStatus.succeeded) {
       await db.setSetting('${prefix}_success_count', '${successCount + 1}');
     }
-    if (status == AgentToolStatus.failed || status == AgentToolStatus.blocked) {
+    if (status == AgentToolStatus.failed ||
+        status == AgentToolStatus.blocked ||
+        status == AgentToolStatus.stopped) {
       await db.setSetting('${prefix}_failure_count', '${failureCount + 1}');
     }
     await db.setSetting('${prefix}_last_tool', _bounded(toolId, 80));
@@ -2296,12 +2334,14 @@ ${lines.join('\n')}
           AgentToolStatus.noResult => 'no_useful_result',
           AgentToolStatus.failed => 'execution_failed',
           AgentToolStatus.blocked => 'blocked',
+          AgentToolStatus.stopped => 'stopped',
           _ => 'none',
         },
         resultCount: result.resultCount,
         errorCode: switch (result.status) {
           AgentToolStatus.failed => 'execution_failed',
           AgentToolStatus.blocked => 'blocked',
+          AgentToolStatus.stopped => '',
           _ => '',
         },
         startedAt: startedAt,

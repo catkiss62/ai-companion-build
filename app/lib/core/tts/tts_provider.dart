@@ -41,6 +41,8 @@ class TtsStatus {
     this.diagnosticStage = '',
     this.diagnosticTrace = const [],
     this.wavBytes = 0,
+    this.runtimeProfile = 'unknown',
+    this.autoAffinityEnabled = false,
   });
 
   final bool available;
@@ -54,6 +56,8 @@ class TtsStatus {
   final String diagnosticStage;
   final List<String> diagnosticTrace;
   final int wavBytes;
+  final String runtimeProfile;
+  final bool autoAffinityEnabled;
 
   bool get integrityVerified => integrity == 'verified';
   bool get integrityFailed => integrity == 'failed';
@@ -72,6 +76,8 @@ class TtsStatus {
             .whereType<String>()
             .toList(growable: false),
         wavBytes: (map['wavBytes'] as num?)?.toInt() ?? 0,
+        runtimeProfile: map['runtimeProfile'] as String? ?? 'unknown',
+        autoAffinityEnabled: map['autoAffinityEnabled'] == true,
       );
 }
 
@@ -82,6 +88,7 @@ abstract class TtsProvider {
     ChatLanguage language = ChatLanguage.chinese,
   });
   Future<TtsStatus> prepareLanguage(ChatLanguage language);
+  Future<TtsStatus> configureAutoAffinity(bool enabled);
   Future<TtsStatus> diagnose({
     ChatLanguage language = ChatLanguage.chinese,
   });

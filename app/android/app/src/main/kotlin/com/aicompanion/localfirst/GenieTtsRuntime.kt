@@ -8,6 +8,7 @@ import com.catkiss62.geniettsbenchmark.EngineConfig
 import com.catkiss62.geniettsbenchmark.GenieBenchmarkEngine
 import com.catkiss62.geniettsbenchmark.ModelLoadInfo
 import com.catkiss62.geniettsbenchmark.NativeJapaneseFrontend
+import com.catkiss62.geniettsbenchmark.VerifiedRuntimeConfig
 import java.io.ByteArrayOutputStream
 import java.io.File
 import java.nio.ByteBuffer
@@ -29,6 +30,26 @@ class GenieTtsRuntime(private val context: Context) : AutoCloseable {
     private var chinese: ChineseFrontend? = null
     private var english: EnglishFrontend? = null
     private var japanese: NativeJapaneseFrontend? = null
+    private var autoAffinityEnabled = false
+
+    val runtimeProfileId: String
+        get() = if (autoAffinityEnabled) {
+            VerifiedRuntimeConfig.AUTO_AFFINITY.profileId
+        } else {
+            LEGACY_ACOUSTIC_CONFIG.profileId
+        }
+
+    fun configureAutoAffinity(enabled: Boolean) {
+        if (autoAffinityEnabled == enabled) return
+        if (modelsReady) {
+            engine.unloadModels()
+            modelsReady = false
+            modelLoad = ModelLoadInfo(false, 0L)
+        }
+        autoAffinityEnabled = enabled
+        chinese?.configure(chineseConfig())
+        System.gc()
+    }
 
     val artifactsPresent: Boolean
         get() = runCatching {
@@ -96,7 +117,9 @@ class GenieTtsRuntime(private val context: Context) : AutoCloseable {
                 check(engine.hasFrontendModel(preparedRoot)) {
                     "请先导入与 Genie 小酒狐配套的 Chinese RoBERTa"
                 }
-                chinese = ChineseFrontend(engine)
+                chinese = ChineseFrontend(engine).also {
+                    it.configure(chineseConfig())
+                }
             }
             "en" -> english = EnglishFrontend(context)
             "ja" -> japanese = NativeJapaneseFrontend(context)
@@ -167,7 +190,7 @@ class GenieTtsRuntime(private val context: Context) : AutoCloseable {
             onStage("load_acoustic_models", emptyMap())
             modelLoad = engine.loadModels(
                 preparedRoot,
-                EngineConfig(BackendMode.CPU, TARGET_THREADS),
+                acousticConfig(),
             )
             modelsReady = true
             onStage("acoustic_models_ready", emptyMap())
@@ -272,6 +295,22 @@ class GenieTtsRuntime(private val context: Context) : AutoCloseable {
         System.gc()
     }
 
+    private fun acousticConfig(): EngineConfig = if (autoAffinityEnabled) {
+        VerifiedRuntimeConfig.AUTO_AFFINITY
+    } else {
+        LEGACY_ACOUSTIC_CONFIG
+    }
+
+    private fun chineseConfig(): EngineConfig = if (autoAffinityEnabled) {
+        VerifiedRuntimeConfig.AUTO_AFFINITY
+    } else {
+        EngineConfig(
+            backend = BackendMode.CPU,
+            threads = Runtime.getRuntime().availableProcessors().coerceAtLeast(1),
+            profileId = "legacy_roberta_runtime_cpu_count",
+        )
+    }
+
     override fun close() {
         releaseFrontend()
         engine.close()
@@ -279,7 +318,11 @@ class GenieTtsRuntime(private val context: Context) : AutoCloseable {
     }
 
     companion object {
-        private const val TARGET_THREADS = 8
+        private val LEGACY_ACOUSTIC_CONFIG = EngineConfig(
+            backend = BackendMode.CPU,
+            threads = 8,
+            profileId = "legacy_fixed_8",
+        )
         private val SUPPORTED_LANGUAGES = setOf("zh", "ja", "en")
         private val VOICE_CASES = mapOf(
             "daily" to "jiuhu_bento_tools",

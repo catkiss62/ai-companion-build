@@ -169,10 +169,20 @@ class GenieBenchmarkEngine(private val context: Context) : AutoCloseable {
 
     private fun createSession(model: File, config: EngineConfig, isVocoder: Boolean): OrtSession {
         val options = OrtSession.SessionOptions().apply {
-            setInterOpNumThreads(1)
+            setInterOpNumThreads(config.interOpThreads)
+            if (config.executionMode == GraphExecutionMode.SEQUENTIAL) {
+                setExecutionMode(OrtSession.SessionOptions.ExecutionMode.SEQUENTIAL)
+            }
             setOptimizationLevel(OrtSession.SessionOptions.OptLevel.ALL_OPT)
+            config.allowSpinning?.let { enabled ->
+                val value = if (enabled) "1" else "0"
+                addConfigEntry("session.intra_op.allow_spinning", value)
+                addConfigEntry("session.inter_op.allow_spinning", value)
+            }
             when (config.backend) {
-                BackendMode.CPU -> setIntraOpNumThreads(max(1, config.threads))
+                // Zero is intentional for AUTO_AFFINITY: it delegates the
+                // intra-op pool size and affinity to the verified ORT policy.
+                BackendMode.CPU -> setIntraOpNumThreads(config.threads)
                 BackendMode.XNNPACK -> {
                     // XNNPACK owns its worker pool. Keeping ORT's own pool at one thread avoids
                     // two thread pools competing for the same mobile CPU cores.

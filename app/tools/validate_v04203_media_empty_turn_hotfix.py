@@ -24,7 +24,13 @@ def main() -> None:
     workflow = read(".github/workflows/build-apk.yml")
     ledger = read("AI_Companion_当前总账.md")
 
-    require("version: 0.42.3+247" in read("pubspec.yaml"), "version mismatch")
+    require(
+        any(
+            version in read("pubspec.yaml")
+            for version in ("version: 0.42.3+247", "version: 0.42.4+248")
+        ),
+        "version mismatch",
+    )
     require(
         "final toolIds = <String>{..._routeToolIds(text)};" in planner,
         "tool route results are not defensively copied before Cedar mutation",

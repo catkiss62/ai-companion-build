@@ -52,7 +52,8 @@ object RuntimeDiagnosticStore {
                         if (value is Number) safeMetadata.put(key, value)
                     "modelsReady", "immediateStop", "referenceEchoSuspected" ->
                         if (value is Boolean) safeMetadata.put(key, value)
-                    "direction", "operation", "transport", "state", "language" ->
+                    "direction", "operation", "transport", "state", "language",
+                    "runtimeProfile" ->
                         safeMetadata.put(key, DiagnosticRedaction.safeToken(value?.toString().orEmpty(), 48))
                     "stage", "loaderPolicy", "failureType", "failureTarget",
                     "inputCharacterClasses", "normalizedCharacterClasses",

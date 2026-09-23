@@ -495,6 +495,7 @@ class _VoiceEmotionSettingsPageState
   final _tts = TtsService();
   final _replacementController = TextEditingController();
   bool _ttsEnabled = false;
+  bool _ttsAutoAffinity = false;
   bool _autoTts = false;
   bool _showForeignReplies = false;
   TtsVoiceMode _voiceMode = TtsVoiceMode.auto;
@@ -520,6 +521,8 @@ class _VoiceEmotionSettingsPageState
 
   Future<void> _load() async {
     _ttsEnabled = (await _db.getSetting('tts_enabled')) == '1';
+    _ttsAutoAffinity =
+        (await _db.getSetting('tts_auto_affinity_enabled')) == '1';
     _autoTts = (await _db.getSetting('auto_tts')) == '1';
     _showForeignReplies =
         (await _db.getSetting('show_foreign_replies')) == '1';
@@ -566,6 +569,29 @@ class _VoiceEmotionSettingsPageState
           _pitchSemitones,
         ),
       );
+
+  Future<void> _setTtsAutoAffinity(bool enabled) async {
+    if (_ttsBusy) return;
+    setState(() {
+      _ttsBusy = true;
+      _status = enabled ? '正在切换到自动核亲和…' : '正在恢复原推理配置…';
+    });
+    try {
+      final next = await _tts.setAutoAffinity(enabled);
+      if (!mounted) return;
+      setState(() {
+        _ttsAutoAffinity = next.autoAffinityEnabled;
+        _ttsStatus = next;
+        _status = enabled
+            ? '自动核亲和已开启；下次朗读会重建五个 ONNX 会话。'
+            : '自动核亲和已关闭；下次朗读会恢复原推理配置。';
+      });
+    } catch (error) {
+      if (mounted) setState(() => _status = 'TTS 推理配置切换失败：$error');
+    } finally {
+      if (mounted) setState(() => _ttsBusy = false);
+    }
+  }
 
   Future<void> _runTtsAction(
     String pending,
@@ -691,6 +717,16 @@ class _VoiceEmotionSettingsPageState
                       },
                     ),
                   if (_ttsEnabled) ...[
+                    const SizedBox(height: 8),
+                    SwitchListTile(
+                      contentPadding: EdgeInsets.zero,
+                      title: const Text('自动核亲和加速'),
+                      subtitle: const Text(
+                        '默认关闭；开启后使用已验证的 CPU 自动线程与亲和配置。切换会停止当前朗读并安全重建模型会话。',
+                      ),
+                      value: _ttsAutoAffinity,
+                      onChanged: _ttsBusy ? null : _setTtsAutoAffinity,
+                    ),
                     const SizedBox(height: 8),
                     DropdownButtonFormField<TtsVoiceMode>(
                       value: _voiceMode,
@@ -823,6 +859,7 @@ class _VoiceEmotionSettingsPageState
                       currentTtsStatus == null
                           ? '尚未读取本地 TTS 状态。'
                           : '${currentTtsStatus.engine} · ${currentTtsStatus.available ? '资源可用' : '资源未就绪'}\n${currentTtsStatus.detail}'
+                              '\n推理配置：${currentTtsStatus.runtimeProfile}'
                               '${_lastResolvedVoice.isEmpty ? '' : '\n最近音色：${_resolvedVoiceLabel(_lastResolvedVoice)}'}',
                       style: Theme.of(context).textTheme.bodySmall,
                     ),

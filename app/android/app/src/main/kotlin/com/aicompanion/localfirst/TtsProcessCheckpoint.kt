@@ -18,6 +18,7 @@ object TtsProcessCheckpoint {
         failure: String = "",
         language: String = "",
         modelsReady: Boolean = false,
+        runtimeProfile: String = "",
         inputChars: Int = 0,
         phoneCount: Int = 0,
         phoneMin: Long = 0,
@@ -46,6 +47,7 @@ object TtsProcessCheckpoint {
                 .put("processId", Process.myPid())
                 .put("language", DiagnosticRedaction.safeToken(language, 8))
                 .put("modelsReady", modelsReady)
+                .put("runtimeProfile", DiagnosticRedaction.safeToken(runtimeProfile, 48))
                 .put("inputChars", inputChars.coerceAtLeast(0))
                 .put("phoneCount", phoneCount.coerceAtLeast(0))
                 .put("phoneMin", phoneMin)
@@ -93,6 +95,7 @@ object TtsProcessCheckpoint {
             "processId" to value.optInt("processId", 0),
             "language" to value.optString("language", ""),
             "modelsReady" to value.optBoolean("modelsReady", false),
+            "runtimeProfile" to value.optString("runtimeProfile", ""),
             "inputChars" to value.optInt("inputChars", 0),
             "phoneCount" to value.optInt("phoneCount", 0),
             "phoneMin" to value.optLong("phoneMin", 0L),

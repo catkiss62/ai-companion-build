@@ -43,6 +43,13 @@ class NativeTtsEngine private constructor(context: Context) {
         }
     }
 
+    fun configureAutoAffinity(enabled: Boolean): Map<String, Any> {
+        val current = runCatching { client.status() }.getOrNull()
+        if (current?.get("autoAffinityEnabled") == enabled) return current
+        stop()
+        return client.configureAutoAffinity(enabled)
+    }
+
     fun importChineseRoberta(path: String): Map<String, Any> = client.importChineseRoberta(path)
 
     fun diagnose(language: String = "zh"): Map<String, Any> {
@@ -99,6 +106,7 @@ class NativeTtsEngine private constructor(context: Context) {
                     "inputChars" to text.length,
                     "textSha256" to textHash,
                     "stage" to checkpoint["stage"],
+                    "runtimeProfile" to checkpoint["runtimeProfile"],
                     "phoneCount" to checkpoint["phoneCount"],
                     "phoneMin" to checkpoint["phoneMin"],
                     "phoneMax" to checkpoint["phoneMax"],
@@ -143,6 +151,7 @@ class NativeTtsEngine private constructor(context: Context) {
                         "textSha256" to textHash,
                         "wavBytes" to it.size,
                         "stage" to checkpoint["stage"],
+                        "runtimeProfile" to checkpoint["runtimeProfile"],
                         "phoneCount" to checkpoint["phoneCount"],
                         "phoneMin" to checkpoint["phoneMin"],
                         "phoneMax" to checkpoint["phoneMax"],
@@ -256,6 +265,8 @@ class NativeTtsEngine private constructor(context: Context) {
         "goldenReference" to "918a26bf55d7e06dffd08277c6a4bcb703f5b17b",
         "diagnosticStage" to "child_process_unavailable",
         "diagnosticTrace" to listOf("private_process", "child_process_unavailable"),
+        "runtimeProfile" to "unknown",
+        "autoAffinityEnabled" to false,
         "detail" to (error.message ?: error.javaClass.simpleName),
         "processIsolation" to "private_process",
         "lastProcessCheckpoint" to TtsProcessCheckpoint.read(appContext),

@@ -22,6 +22,7 @@ class TtsService implements TtsQueueService {
   final AppDatabase db;
   final TtsProvider provider;
   final TtsTextProcessor processor;
+  bool? _appliedAutoAffinity;
 
   @override
   Future<TtsVoiceMode> resolveVoice(TtsEmotionCue? emotion) async {
@@ -44,13 +45,48 @@ class TtsService implements TtsQueueService {
     return resolved;
   }
 
-  Future<TtsStatus> status() => provider.status();
+  Future<void> _ensureRuntimeProfile() async {
+    final enabled = (await db.getSetting('tts_auto_affinity_enabled')) == '1';
+    if (_appliedAutoAffinity == enabled) return;
+    final status = await provider.configureAutoAffinity(enabled);
+    if (status.autoAffinityEnabled != enabled) {
+      throw StateError('TTS 推理配置没有切换到请求的模式');
+    }
+    _appliedAutoAffinity = enabled;
+  }
 
-  Future<TtsStatus> verifyArtifacts() => provider.verifyArtifacts();
+  Future<TtsStatus> status() async {
+    await _ensureRuntimeProfile();
+    var result = await provider.status();
+    final expected = (await db.getSetting('tts_auto_affinity_enabled')) == '1';
+    if (result.autoAffinityEnabled != expected) {
+      _appliedAutoAffinity = null;
+      await _ensureRuntimeProfile();
+      result = await provider.status();
+    }
+    return result;
+  }
+
+  Future<TtsStatus> setAutoAffinity(bool enabled) async {
+    await provider.stop();
+    final status = await provider.configureAutoAffinity(enabled);
+    if (status.autoAffinityEnabled != enabled) {
+      throw StateError('TTS 推理配置切换失败');
+    }
+    await db.setSetting('tts_auto_affinity_enabled', enabled ? '1' : '0');
+    _appliedAutoAffinity = enabled;
+    return status;
+  }
+
+  Future<TtsStatus> verifyArtifacts() async {
+    await _ensureRuntimeProfile();
+    return provider.verifyArtifacts();
+  }
 
   Future<TtsStatus> initialize({
     ChatLanguage language = ChatLanguage.chinese,
   }) async {
+    await _ensureRuntimeProfile();
     final result = await provider.initialize(language: language);
     if (result.initialized) await _applyPlaybackSettings();
     return result;
@@ -59,13 +95,16 @@ class TtsService implements TtsQueueService {
   Future<TtsStatus> diagnose({
     ChatLanguage language = ChatLanguage.chinese,
   }) async {
+    await _ensureRuntimeProfile();
     final result = await provider.diagnose(language: language);
     if (result.initialized) await _applyPlaybackSettings();
     return result;
   }
 
-  Future<TtsStatus> importChineseRoberta(String path) =>
-      provider.importChineseRoberta(path);
+  Future<TtsStatus> importChineseRoberta(String path) async {
+    await _ensureRuntimeProfile();
+    return provider.importChineseRoberta(path);
+  }
 
   Future<void> _applyPlaybackSettings() async {
     final speed = TtsPlaybackTuning.speedFromSetting(

@@ -28,7 +28,7 @@
 - **自然语义 Agent**：允许“陪我下五子棋”等自然表达触发模型自主发现；普通“看看”不是联网授权。Cedar 的账号级 `allow_self_reset` 服从网站设置。用户已决定暂不增加 Agent 确认弹窗，直到未来加入修改/破坏性能力再设计确认。
 - **媒体 Agent**：她能发送的媒体必须同时具备自读能力、可执行工具、真实附件 Outcome、来源 provenance 与发送后第一人称历史；只在 UI 或 Prompt 声称不算完成。
 - **隐私与发布**：Token、绑定码、私密房间正文、用户附件、诊断、备份、模型权重和参考音频不得进入公开 Git/Prompt/公开诊断。用户持续授权推送明确开发分支并运行常规 Actions/Draft APK；不含合并 `main`、正式 Release、删除分支/用户数据、改变仓库权限。
-- **冻结范围**：桌宠当前无确证问题；TTS 已留在旧归档，均不得在当前批次顺手修改。普通回复表情包已真机重新出现，未发现概率数值漏洞时不强改。
+- **冻结范围**：桌宠当前无确证问题；Live2D 等待新模型测试，不在当前批次恢复。+248 的 TTS 修改只允许移植已由独立仓库验证的自动核亲和档与开关，不改声学模型、分段、播放队列或失败实验。普通回复表情包已真机重新出现，未发现概率数值漏洞时不强改。
 
 ## 3. 当前基线
 
@@ -39,8 +39,10 @@
 | 功能状态 | `CI PASSED / APK READY / TRUE DEVICE PENDING` |
 | +228 远端 | head `29e87d016c8bd81f52f89f95191bd1a1a01a5b57`；tree `c4a112a56d8b634cf3a1a66636979a0833538b7d`；Actions `35440359036`；Artifact `10583263879`；APK SHA-256 `159e283173e49da2924d25b37ba7647893cdafdcc31b63f0e31b7c64e086849b` |
 | 仓库维护基线 | `maintenance/repository-governance-20260919`；远端文档 head `123e272196e8ae93f3518157917d76f6af4f1784`；完整构建 head `fa99f32012fa1a0716b746d36b958a8e777ef9b8`；Actions `35446649873` 全绿；文档-only run `35447342921` 正确跳过 APK |
-| 当前功能分支 | `agent/v04203-media-empty-turn-hotfix`，基于 +246；候选版本 `v0.42.3+247` |
-| 当前任务状态 | `CI PASSED / APK READY / TRUE DEVICE PENDING`；修复纯图片/原生表情包空文本回合进入 Cedar 工具路由时修改不可变集合，见 6.20 |
+| 当前功能分支 | `agent/v04204-tts-affinity-tool-activity`，基于 +247；候选版本 `v0.42.4+248` |
+| 当前任务状态 | `IMPLEMENTED LOCALLY / LOCAL STATIC VALIDATION PASSED / CI PENDING / TRUE DEVICE PENDING`；移植 Genie v0.8.4 最终自动核亲和配置并加入全工具活动展开/持久展示，见 6.21 |
+| +248 当前任务 | TTS 默认关闭的“自动核亲和加速”开关；四个声学会话与 Chinese RoBERTa 同用 `AUTO_AFFINITY`。生成中展开全部工具活动，完成后以脱敏卡片绑定回复，中止后绑定中断标记 |
+| +248 保护边界 | 保留现有分段首段预填充、串行生成与连续 AudioTrack；不移植测试档、动态分块、FTZ/DAZ、输入映射复用或 memory-pattern 实验；工具卡不保存/展示参数、搜索词、URL、结果正文、Prompt 或隐藏推理；schema 61 / Snapshot protocol 6 不变 |
 | +247 当前任务 | `nativeToolDefinitionsFor` 在路由结果的可变边界先建立防御性 `Set` 副本；覆盖纯图片与原生表情包 `content=''`、`promptContent` 非空且 Cedar 已配置的回归，不改千问视觉、`sticker_index`、模型策略或最终回复内容 |
 | +247 保护边界 | 只修共同崩溃点与回归门；不把表情包接入识图，不改变 Cedar 阶段选择、工具权限、schema 61、Snapshot protocol 6、人格、欲望、TTS 或 Live2D；不合并 `main`，不发布正式 Release |
 | +247 远端 | 功能 head `8fabae5016a7d457b58a581a7a2b609bc0ab69c8`；tree `fc7ca8d84dadabf33dc1f151895f52c42b62ce72`；Actions `35855141996` 全绿；Artifact `10747841131`；APK SHA-256 `6a5d04b79fba46139b16bb185f955fb87431e1b30c4f75f89a09788054b89bab`；未发布 Draft Release `untagged-376e1bf8ac7aac97af25` |
@@ -78,7 +80,7 @@
 | +229 远端 | 构建 head `0f4ffc6c2b08a310a5f04919a045c98b2e8e63e3`；tree `9e0913202787feca13462c07fdd0941f10d0d4b9`；Actions `35450357850`；Artifact `10587305305`；APK SHA-256 `acbd5c81be69c5c27ae2822ea112fb2b0639a00636b61af7b0f642c02fbcddc6` |
 | `main` | 仍为 v0.38.5 旧基线；不得作为 v0.41.x 起点，本批不合并 |
 
-历史兼容与未来扩展索引：`v0.41.82+226` / `agent/v04182-cedar-state-machine-e2e`；`v0.41.83+227` / `agent/v04183-cedar-native-agent-loop`；`v0.41.81+225`；`模型自主发现`；`陪我下五子棋`；`全工具调用动作展示`仍是后续独立任务。任何新 MCP、工作区、视频理解、Live2D、提醒或长任务先查本文件的 **“唯一循环所有权”**、**“Cortico 低风险参考”** 与 **“循环能力首版诊断”**，不得再复制 Cedar 曾出现的多套循环。
+历史兼容与未来扩展索引：`v0.41.82+226` / `agent/v04182-cedar-state-machine-e2e`；`v0.41.83+227` / `agent/v04183-cedar-native-agent-loop`；`v0.41.81+225`；`模型自主发现`；`陪我下五子棋`。全工具调用动作展示已进入 +248；双人格与命运之轮的冻结分析见 6.21，均不得在本批顺手实现。任何新 MCP、工作区、视频理解、Live2D、提醒或长任务先查本文件的 **“唯一循环所有权”**、**“Cortico 低风险参考”** 与 **“循环能力首版诊断”**，不得再复制 Cedar 曾出现的多套循环。
 
 <!-- END QUICK HANDOFF INDEX -->
 
@@ -730,6 +732,46 @@ Actions 与交付证据：首轮 run `35842639649` 已通过源码/历史门、K
 Actions 首轮 run `35854318795` 在第 16/124 项源码门前停止：生产修复与新增专项门未报错，失败仅因七个历史 validator 的版本正则最高只接受 `v0.42.2+246`。随后统一追加 `v0.42.3+247` 兼容项，不放宽任何功能断言；本地确认七处版本门、Python 编译、+247 专项门、验证清单结构与差异检查通过后进入第二轮完整构建。
 
 Actions 与交付证据：第二轮远端功能 head `8fabae5016a7d457b58a581a7a2b609bc0ab69c8` / tree `fc7ca8d84dadabf33dc1f151895f52c42b62ce72` 在 run `35855141996` 全绿：124 项源码/历史回归门、Kotlin tests、Flutter analyze、全部 Flutter tests、arm64 Release、稳定签名、Genie/桌宠/LingChat/塔罗资源门、Artifact 与未发布 Draft 上传均成功。Artifact `10747841131`，APK SHA-256 `6a5d04b79fba46139b16bb185f955fb87431e1b30c4f75f89a09788054b89bab`，未发布 Draft Release `untagged-376e1bf8ac7aac97af25`。没有合并 `main`，没有发布正式 Release；真实图片与原生表情包回复仍待真机验收。
+
+### 6.21 v0.42.4+248 TTS 自动核亲和与全工具活动展示（2026-09-23）
+
+状态：`IMPLEMENTED LOCALLY / LOCAL STATIC VALIDATION PASSED / CI PENDING / TRUE DEVICE PENDING`。
+
+实现分支：`agent/v04204-tts-affinity-tool-activity`。
+
+用户决定与本批范围：
+
+1. 本批只制作两项：从 `catkiss62/Genie-TTS-Android` 最终验证分支/提交 `agent/v084-native-vs-affinity-diagnostic@a5a8425f221575eaca542ac9ae4bbf5e5b799153` 正确移植 TTS 自动核亲和，并完成所有用户回合 Agent 工具的展开/持久活动展示。双人格与命运之轮只登记设计分析；新 Live2D 继续等待独立测试项目，不接入。
+2. TTS 开关默认关闭。关闭时保持伴侣原生产配置：四个声学会话固定 CPU 8 线程，Chinese RoBERTa 使用当前 CPU 数；开启时五个会话必须逐项同用 `VerifiedRuntimeConfig.AUTO_AFFINITY`：CPU EP、intra-op 原样 `0`、inter-op `1`、`SEQUENTIAL`、`ALL_OPT`、intra/inter spinning 均为 `1`，VITS 默认 memory pattern 不关闭。不得把 `0` 改成 `max(1, ...)`。
+3. 明确不移植独立测试仓库里的原生 8 线程对照档、比较/报告 UI、动态分块、FTZ/DAZ、Decoder 输入映射复用、memory-pattern 实验、XNNPACK/NNAPI 实验或 sustained-performance 实验。现有 Decoder 循环、固定一秒首段预填充、串行句段生成、连续单一 `AudioTrack.MODE_STREAM`、Stop fencing 与下一段预生成队列保持不变。
+4. 配置切换由主进程先 Stop；AIDL 配置调用在 `:genie_tts` 隔离进程既有 `Genie-TTS-worker` 上排队，等待当前不可强杀的 ONNX 调用自然返回后关闭四个声学会话及 Chinese RoBERTa，再按新档懒加载。迟到结果由既有 generation token 丢弃，不增加并发 session owner。
+5. 工具调用生成中使用默认展开列表，按真实回调显示“正在做什么/成功/没有结果/失败/未获准/已停止”；终态从已有 `agent_tool_outcomes` 与 `generation_jobs` 关联到助手消息或中断标记，折叠卡片可查看工具名、状态、结果数量、耗时、时间与来源设备。数据库仍只保留 90 天/最多 200 条有界元数据；参数、查询词、URL、网页正文、工具结果正文、Prompt、推理正文、密钥与房间凭据从未进入该接口。
+6. schema 保持 61，Snapshot protocol 保持 6。没有把工具活动写进 `messages`，因此不会进入 Prompt、记忆提取、总结、关系学习或她的第一人称自我叙事；可见思考与工具事实仍是两条独立展示链。
+
+已实现代码合同：
+
+- `BenchmarkModels.kt` 新增最小生产配置类型与唯一 `AUTO_AFFINITY`；`GenieBenchmarkEngine` 的单一 session factory 对四个声学模型应用精确设置；`ChineseFrontend.configure` 对 RoBERTa 应用同一配置；`GenieTtsRuntime` 负责默认档/加速档映射与安全卸载。
+- AIDL、隔离客户端、原生引擎、MethodChannel、Dart provider/service 与语音设置页已贯通；状态和脱敏 checkpoint 暴露 `runtimeProfile`，便于真机报告证明实际使用的档位。设置键为 `tts_auto_affinity_enabled`，默认 `0`。
+- `AgentToolStatus` 新增 `stopped`；用户 Stop 时记录真实终态。聊天控制器保留本轮多项活动，历史通过生成任务 ID 投影，不做 schema 迁移；聊天页提供生成中展开面板和终态可展开卡片。
+- 新增 Kotlin 配置合同测试、Dart 状态/工具投影测试与 +248 静态门。完整 Kotlin/Flutter/Release 编译仍需 GitHub Actions；本地 Gradle wrapper 因当前执行环境无法访问 `services.gradle.org` 尚未完成编译，不能提前标为 CI 通过。
+
+本地验证：+248 专项门、+247 空媒体回归门、+244 Live2D 干净回退门、当前总账门、Workflow YAML、Python 编译与 `git diff --check` 通过。完整 `validation_suite.txt` 共 125 项，121 项通过；其余四项只因本地工作树没有由 CI 恢复的大肥鱼参考图、417 件桌宠源包、LingChat 资源及本机没有 `kotlinc`，不是源码断言失败。Gradle wrapper 尝试下载固定 Gradle 8.12 时被当前环境网络策略阻止，Flutter/Dart SDK 也不在本机，因此 Kotlin 编译、Flutter analyze/tests 与 Release APK 必须由 Actions 实编译；当前状态仍是 `CI PENDING`。
+
+真机验收：先保持开关关闭做一条短句；开启后做一条短句真实播放与一段长文本连续播放，确认音色、Stop、分段衔接及 AudioTrack 队列正常，并在诊断中确认 `runtimeProfile=auto_affinity_v084`。随后各触发一次成功、无结果/失败和执行中 Stop 的工具调用，确认生成中逐项显示、回复后可展开、重启后仍存在，且卡片不出现参数、搜索词、URL 或结果正文。独立测试报告曾推算部分后续段可能短暂迟到，所以即便总 RTF 小于 1 也不得以此验收删除缓冲。
+
+#### 后续冻结分析：双人格
+
+1. 排序固定在 +248 真机收口之后再单独讨论，不在本批建立人格状态、气焰/害羞数值或立绘切换。用户指出当前人设或既有记忆可能已经偏激进；若直接让“雌小鬼”语气推动气焰值，会产生正反馈并快速顶满，因此后续第一步不是做触发动画，而是审计当前内置人设、用户编辑的人设、人格学习候选、长期记忆/总结与可能已有的激进表述，区分“基础语气偏强”与“状态变化”。
+2. 推荐首版采用用户可见的手动双人格切换，两个形态共享同一 AI/记忆主体，但使用独立、显式的当前形态状态；进入沉浸房间时把入口形态钉住，房间内不因普通一句话自行跳变。自动量表应等审计和手动版稳定后再设计，不能仅按毒舌关键词自增，也不能从模型回复反向无限喂高自己。
+3. 若后续使用气焰/害羞量表，必须定义可解释的外部事件输入、双向衰减、滞回阈值、每日/每回合上限、手动复位及存档迁移；不能把现有长期记忆整库改写成雌小鬼人格，也不能让形态状态污染事实记忆。旧存档初始值应为中性/未选择，而不是根据历史文本猜测。
+4. “嘭”烟雾只作为形态切换的可替换表现层：先用静态烟雾图 + 短缩放/渐隐验证遮挡和节奏，效果不好可无数据迁移地关闭。新小小鱼立绘仍以测试项目验收为前置，不复活已回退的 Sen Live2D 链。
+
+#### 后续冻结分析：命运之轮
+
+1. 用户已决定首版采用“直接本地移植 + 手动同步上游”，不做自托管网页、WebView 或通用 MCP 依赖。后续开工时先冻结上游 commit、许可证/署名、tag 数据格式与 RNG 行为；每次同步由人工比较并记录上游 commit、数据/逻辑差异与本项目适配，不自动拉取远端内容。
+2. 本地实现应只有一个结构化轮盘 Outcome（选中的安全分类/tag、来源版本、随机事件 ID），由现有真实工具/Outcome 真值链消费；不把原项目 UI、Node 服务或任意脚本执行面整体搬进 APK。NSFW 内容继续服从当前成人场景入口、用户设置与沉浸边界。
+3. 产品入口推荐先做“房间外抽取 → 带结构化结果进入沉浸房间”，因为结果、重抽与进入边界最清楚；稳定后再复用同一 Outcome 增加房间内娱乐入口，不能维护两套随机结果。作者所说的“MCP 操作”只表示外部 AI 可通过其暴露的工具协议代替玩家点击；本项目既已选择本地移植，首版无需为此增加 MCP 服务器或第二套循环 owner。
+4. 后续仍需逐文件审计上游许可证、资源版权、tag 内容与移动端适配后才能实现；当前只冻结架构结论，不宣称已经完成移植。
 
 ## 7. 历史验证兼容摘要
 
