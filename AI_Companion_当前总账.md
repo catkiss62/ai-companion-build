@@ -726,6 +726,8 @@ Actions 与交付证据：首轮 run `35842639649` 已通过源码/历史门、K
 
 本地验证：+247 专项门、验证清单结构（124 项）、Workflow YAML、Python validator 编译与 `git diff --check` 通过。本地稀疏工作树未检出部分 Android/诊断/欲望目录，且镜像没有 Flutter/Dart SDK，因此完整历史门、Flutter analyze/tests、Kotlin tests 与 Release APK 交由 Actions 实编译；这部分仍是 `CI PENDING`，不提前宣称通过。
 
+Actions 首轮 run `35854318795` 在第 16/124 项源码门前停止：生产修复与新增专项门未报错，失败仅因七个历史 validator 的版本正则最高只接受 `v0.42.2+246`。现已统一追加 `v0.42.3+247` 兼容项，不放宽任何功能断言；本地确认七处版本门、Python 编译、+247 专项门、验证清单结构与差异检查通过，等待第二轮完整构建。
+
 ## 7. 历史验证兼容摘要
 
 下列短语只为既有自动化门继续识别已完成阶段；权威细节在冻结归档，不代表当前任务重做：
