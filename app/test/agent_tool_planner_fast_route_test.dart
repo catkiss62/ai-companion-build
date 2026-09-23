@@ -1,6 +1,8 @@
 import 'package:ai_companion_localfirst/core/agent/agent_tool_planner.dart';
 import 'package:ai_companion_localfirst/core/ai/deepseek_client.dart';
 import 'package:ai_companion_localfirst/core/agent/agent_tool_registry.dart';
+import 'package:ai_companion_localfirst/core/models/chat_message.dart';
+import 'package:ai_companion_localfirst/core/models/message_attachment.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
@@ -22,6 +24,77 @@ void main() {
       isEmpty,
       reason: 'a topic mention must not turn into a phone-read task',
     );
+  });
+
+  test('media-only empty text safely accepts Cedar stage tool injection', () {
+    final createdAt = DateTime(2026, 9, 23);
+    final messages = <ChatMessage>[
+      ChatMessage(
+        id: 'image-only',
+        role: 'user',
+        content: '',
+        createdAt: createdAt,
+        attachments: <MessageAttachment>[
+          MessageAttachment(
+            id: 'image-attachment',
+            messageId: 'image-only',
+            kind: MessageAttachment.imageKind,
+            originalPath: 'originals/image.jpg',
+            thumbnailPath: 'thumbnails/image.png',
+            mimeType: 'image/jpeg',
+            byteSize: 10,
+            width: 10,
+            height: 10,
+            source: 'gallery',
+            createdAt: createdAt,
+            visionStatus: MessageAttachment.visionCompletedStatus,
+            visionSummary: '一只橘猫坐在窗边',
+            visionModel: 'qwen-vl',
+          ),
+        ],
+      ),
+      ChatMessage(
+        id: 'sticker-only',
+        role: 'user',
+        content: '',
+        createdAt: createdAt,
+        attachments: <MessageAttachment>[
+          MessageAttachment(
+            id: 'sticker-attachment',
+            messageId: 'sticker-only',
+            kind: MessageAttachment.imageKind,
+            originalPath: 'originals/sticker.gif',
+            thumbnailPath: 'thumbnails/sticker.png',
+            mimeType: 'image/gif',
+            byteSize: 10,
+            width: 10,
+            height: 10,
+            source: 'user_sticker:personal',
+            createdAt: createdAt,
+            visionStatus: MessageAttachment.visionCompletedStatus,
+            visionSummary: '捂着脸害羞地偷看',
+            visionModel: 'sticker_index',
+          ),
+        ],
+      ),
+    ];
+
+    for (final message in messages) {
+      expect(message.content, isEmpty);
+      expect(message.promptContent, isNotEmpty);
+      final definitions = AgentToolPlanner.nativeToolDefinitionsFor(
+        message.content,
+        cedarStageToolIds: const <String>{'cedar_toy.list_games'},
+      );
+      expect(definitions, hasLength(1), reason: message.id);
+      expect(
+        (definitions.single['function'] as Map)['name'],
+        'cedar_toy_list_games',
+        reason: message.id,
+      );
+    }
+
+    expect(AgentToolPlanner.nativeToolDefinitionsFor(''), isEmpty);
   });
 
   test('first-person game plans do not authorize companion game tools', () {

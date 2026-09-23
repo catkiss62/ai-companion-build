@@ -30,7 +30,13 @@ def main() -> None:
     tts_guard = read("android/app/src/main/kotlin/com/aicompanion/localfirst/ReferenceAudioEchoGuard.kt")
     diagnostics = read("android/app/src/main/kotlin/com/aicompanion/localfirst/RuntimeDiagnosticStore.kt")
 
-    require("version: 0.42.2+246" in read("pubspec.yaml"), "version mismatch")
+    require(
+        any(
+            version in read("pubspec.yaml")
+            for version in ("version: 0.42.2+246", "version: 0.42.3+247")
+        ),
+        "version mismatch",
+    )
     require("agent/v04201-autonomy-media-hardening" in workflow, "branch trigger missing")
     require("ProactiveNightContactCapPolicy" in dawn, "night contact cap missing")
     require("deliveredProactiveCountAfter" in proactive, "night cap is not wired before generation")

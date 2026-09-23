@@ -97,7 +97,8 @@ publish_to: 'none'
 # Historical validator token: version: 0.41.97+241
 # Historical validator token: version: 0.41.98+242
 # v0.42.0+244 build candidate: clean Live2D rollback with retained local-model cleanup.
-version: 0.42.2+246
+# Historical validator compatibility token: version: 0.42.2+246
+version: 0.42.3+247
 
 environment:
   sdk: '>=3.12.0 <4.0.0'

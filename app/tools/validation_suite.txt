@@ -125,3 +125,4 @@ tools/validate_v04197_natural_reply_liveness.py
 tools/validate_v04200_live2d_clean_rollback.py
 tools/validate_v04201_autonomy_media_hardening.py
 tools/validate_v04202_media_transaction_recovery.py
+tools/validate_v04203_media_empty_turn_hotfix.py

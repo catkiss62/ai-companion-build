@@ -25,7 +25,13 @@ def main() -> None:
     home = read("lib/features/home/companion_home_state.dart")
     relationship = read("lib/features/relationship/relationship_companion_state.dart")
 
-    require("version: 0.42.2+246" in read("pubspec.yaml"), "version mismatch")
+    require(
+        any(
+            version in read("pubspec.yaml")
+            for version in ("version: 0.42.2+246", "version: 0.42.3+247")
+        ),
+        "version mismatch",
+    )
     require("_discardedImageMessageIds" in controller, "late vision result fence missing")
     require("_analyzingImageMessageId != message.id" in controller, "active image delete gate missing")
     require("outcome: discarded ? 'cancelled' : 'failed'" in controller, "deleted vision still records failure")

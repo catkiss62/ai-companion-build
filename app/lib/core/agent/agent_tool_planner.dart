@@ -315,7 +315,10 @@ class AgentToolPlanner {
     Set<String>? cedarStageToolIds,
     bool cedarBlindPlay = false,
   }) {
-    final toolIds = _routeToolIds(text);
+    // Routing may legitimately return an immutable empty set (for example,
+    // media-only user turns have an empty text body). Cedar stage narrowing
+    // mutates this collection, so take ownership at the mutation boundary.
+    final toolIds = <String>{..._routeToolIds(text)};
     const cedarIds = <String>{
       'cedar_toy.list_games',
       'cedar_toy.get_guide',

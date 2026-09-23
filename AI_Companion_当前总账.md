@@ -39,8 +39,10 @@
 | 功能状态 | `CI PASSED / APK READY / TRUE DEVICE PENDING` |
 | +228 远端 | head `29e87d016c8bd81f52f89f95191bd1a1a01a5b57`；tree `c4a112a56d8b634cf3a1a66636979a0833538b7d`；Actions `35440359036`；Artifact `10583263879`；APK SHA-256 `159e283173e49da2924d25b37ba7647893cdafdcc31b63f0e31b7c64e086849b` |
 | 仓库维护基线 | `maintenance/repository-governance-20260919`；远端文档 head `123e272196e8ae93f3518157917d76f6af4f1784`；完整构建 head `fa99f32012fa1a0716b746d36b958a8e777ef9b8`；Actions `35446649873` 全绿；文档-only run `35447342921` 正确跳过 APK |
-| 当前功能分支 | `agent/v04201-autonomy-media-hardening`，基于 +245；候选版本 `v0.42.2+246` |
-| 当前任务状态 | `CI PASSED / APK READY / TRUE DEVICE PENDING`；修复图片删除事务、视觉额度误分类与备份冻结误报换设备，见 6.19 |
+| 当前功能分支 | `agent/v04203-media-empty-turn-hotfix`，基于 +246；候选版本 `v0.42.3+247` |
+| 当前任务状态 | `IMPLEMENTED LOCALLY / LOCAL STATIC VALIDATION PASSED / CI PENDING / TRUE DEVICE PENDING`；修复纯图片/原生表情包空文本回合进入 Cedar 工具路由时修改不可变集合，见 6.20 |
+| +247 当前任务 | `nativeToolDefinitionsFor` 在路由结果的可变边界先建立防御性 `Set` 副本；覆盖纯图片与原生表情包 `content=''`、`promptContent` 非空且 Cedar 已配置的回归，不改千问视觉、`sticker_index`、模型策略或最终回复内容 |
+| +247 保护边界 | 只修共同崩溃点与回归门；不把表情包接入识图，不改变 Cedar 阶段选择、工具权限、schema 61、Snapshot protocol 6、人格、欲望、TTS 或 Live2D；不合并 `main`，不发布正式 Release |
 | +246 当前任务 | 识别中的图片允许立即删除，迟到的千问结果不得复活消息或报错；`403 Free quota exhausted` 明确归类为额度耗尽；`please` 不再误命中 `lease`；普通备份冻结不再显示“她正在换设备”。表情包仍使用本地 `sticker_index`，不新增视觉调用或固定回复兜底 |
 | +246 保护边界 | 不修改 Sen/Live2D、人格、欲望、Cedar、TTS、schema 61 或 Snapshot protocol 6；不合并 `main`，不发布正式 Release |
 | +246 远端 | 功能 head `167a504f4974ef11566b8ac974ab9e7281f00fc0`；tree `2f8c733bb1c80f078bb5b71f88e7b2a3287e8448`；Actions `35843632708` 全绿；Artifact `10742996195`；APK SHA-256 `d4c609c0836427155b9f73a6cf629c45f6cff4d88f801be5b4def828839546c2`；未发布 Draft Release `untagged-d99196e0bf0a288629ac` |
@@ -700,6 +702,29 @@ Actions 与交付证据：正确源码树 `0985f0961691bdce7e6d521d59a12137ea5a8
 本地验证：Workflow YAML、Python 编译、+246 专项门、+245 自主媒体门、+244 Live2D 回退保护门、+241 自然回复保活门、当前总账门和 `git diff --check` 通过。全量 123 项静态门中实际通过 120 项；其余三项只因稀疏工作树缺少 CI 恢复的 417 件桌宠源包、LingChat 特效目录及本机没有 `kotlinc`，不是源码断言失败。本机没有 Flutter/Dart SDK，完整 analyze/tests 与 APK 编译交由 Actions。
 
 Actions 与交付证据：首轮 run `35842639649` 已通过源码/历史门、Kotlin 与 Flutter analyze，Flutter 913 项中 912 项通过；唯一失败只是旧测试仍断言 `build=v0.42.1+245`，生产输出已正确为 `v0.42.2+246`。窄修测试后，功能 head `167a504f4974ef11566b8ac974ab9e7281f00fc0` / tree `2f8c733bb1c80f078bb5b71f88e7b2a3287e8448` 在第二轮 run `35843632708` 全绿：123 项静态门、Kotlin tests、Flutter analyze、913 项 Flutter tests、arm64 Release、稳定签名和完整 TTS/桌宠/LingChat/塔罗资源门全部通过。Artifact `10742996195`，APK SHA-256 `d4c609c0836427155b9f73a6cf629c45f6cff4d88f801be5b4def828839546c2`，未发布 Draft Release `untagged-d99196e0bf0a288629ac`。没有合并 `main`，没有发布正式 Release；真机仍待验收。
+
+### 6.20 v0.42.3+247 纯媒体空文本回合路由崩溃修复（2026-09-23）
+
+状态：`IMPLEMENTED LOCALLY / LOCAL STATIC VALIDATION PASSED / CI PENDING / TRUE DEVICE PENDING`。
+
+实现分支：`agent/v04203-media-empty-turn-hotfix`。
+
+真机证据与根因：
+
+1. 最新纯图片已完成本地 prepare/commit，且补足额度后千问视觉成功返回；原生表情包历史附件也由本地 `sticker_index` 完成语义，不调用千问。两者都建立了 generation job，却只到 `chat_intimacy_route`，没有进入 `final_reply`。
+2. 同刻持久化恢复错误为 `Unsupported operation: Cannot change an unmodifiable set`。纯图片和纯表情包的 `ChatMessage.content` 都合法为空，真实语义位于 `promptContent`；`DurableGenerationRunner` 用空 `content` 请求工具定义，同时仍传入 Cedar 阶段工具集合。
+3. `AgentToolPlanner._routeToolIds('')` 返回 `const <String>{}`，`nativeToolDefinitionsFor` 随后对它执行 `removeAll/addAll`，因此在任何模型回复前同步抛错；后台恢复会重走同一路径并再次失败。用户 Stop 只是终止卡住的 job，不是根因。
+
+本批目标与保护边界：
+
+- 在 `nativeToolDefinitionsFor` 的可变边界建立路由集合的防御性副本，未来即使路由函数返回不可变集合也不能再崩溃；不改变空文本本身的工具识别语义。
+- 回归必须覆盖纯图片与原生表情包两类 `content='' / promptContent 非空` 消息，并证明 Cedar 阶段工具仍能安全注入；普通空文本且没有 Cedar 阶段时仍返回空工具列表。
+- 不修改千问、视觉重试、表情包索引、模型调用策略、Cedar 阶段选择、人物表达或固定回复；schema 61 与 Snapshot protocol 6 不变。
+- 完成后运行专项静态门、相关 Flutter tests、全量静态门与 CI 完整 analyze/tests/arm64 Release；只产出独立分支测试 APK 与未发布 Draft，不合并 `main`、不发布正式 Release。真机最终需分别发送一条无附言图片和一个原生表情包，确认都收到正常回复且诊断无新的 `last_generation_recovery_error`。
+
+实现：`nativeToolDefinitionsFor` 现在以 `<String>{..._routeToolIds(text)}` 在 Cedar `removeAll/addAll` 前取得可变集合所有权；没有 Cedar 阶段的普通空文本仍返回空 schema。新增同一测试中的纯图片与原生表情包 fixture，均断言 `content` 为空、`promptContent` 非空，并验证 Cedar gateway 安全注入且不抛异常。版本提升为 `v0.42.3+247`，新增专项静态门与独立分支 CI/Draft APK 身份；未修改视觉、`sticker_index`、模型策略或 Cedar 权限。
+
+本地验证：+247 专项门、验证清单结构（124 项）、Workflow YAML、Python validator 编译与 `git diff --check` 通过。本地稀疏工作树未检出部分 Android/诊断/欲望目录，且镜像没有 Flutter/Dart SDK，因此完整历史门、Flutter analyze/tests、Kotlin tests 与 Release APK 交由 Actions 实编译；这部分仍是 `CI PENDING`，不提前宣称通过。
 
 ## 7. 历史验证兼容摘要
 

@@ -1,4 +1,4 @@
-# v0.42.2 repairs media deletion, quota diagnosis and backup-freeze presentation.
+# v0.42.3 repairs media-only empty-text routing before final reply generation.
 # Historical validator tokens: agent/v04167-cedar-toy-mcp | Build AI Companion v0.41.67+211 APK | AI-Companion-v0.41.67-211-Cedar-Toy-MCP-APK
 # v0.41.69+213 fixes Cedar cross-game switching and committed activity continuation.
 # Historical validator token: AI-Companion-v0.41.69-213-Cedar-Game-Switching-APK
@@ -400,7 +400,7 @@
 # Historical +240 validator tokens: agent/v04196-sen-hybrid-composition | AI-Companion-v0.41.96-240-Sen-Hybrid-Composition-Hotfix-APK | v0.41.96-sen-hybrid-composition-hotfix-test
 # Historical +241 validator tokens: agent/v04197-no-canned-fallbacks | AI-Companion-v0.41.97-241-Natural-Reply-Liveness-APK | v0.41.97-natural-reply-liveness-test
 # Historical +242 validator tokens: agent/v04198-sen-texture-direct-port | AI-Companion-v0.41.98-242-Sen-Direct-Port-APK | v0.41.98-sen-direct-port-test | .ci/v04198-monitor.txt
-name: Build AI Companion v0.42.2+246 APK (Media Transaction Recovery)
+name: Build AI Companion v0.42.3+247 APK (Media Empty-Turn Hotfix)
 
 on:
   push:
@@ -454,6 +454,7 @@ on:
       - agent/v04199-sen-product-integration
       - agent/v04200-live2d-clean-rollback
       - agent/v04201-autonomy-media-hardening
+      - agent/v04203-media-empty-turn-hotfix
       - maintenance/repository-governance-20260919
   workflow_dispatch:
   pull_request:
@@ -890,7 +891,7 @@ jobs:
         run: |
           set -euo pipefail
           test -f app/pubspec.yaml
-          grep -Fqx 'version: 0.42.2+246' app/pubspec.yaml
+          grep -Fqx 'version: 0.42.3+247' app/pubspec.yaml
           grep -Fqx '  static const int schemaVersion = 61;' app/lib/core/database/app_database.dart
           test -d app/lib
           test -d app/android
@@ -904,7 +905,7 @@ jobs:
           test -f app/android/app/src/main/jniLibs/arm64-v8a/libc++_shared.so
           test ! -d app/android/app/src/main/assets/tts_models
           test ! -d app/android/app/src/main/assets/legacy_tts
-          echo 'Building v0.42.2+246 media transaction recovery candidate.'
+          echo 'Building v0.42.3+247 media-only empty-turn hotfix candidate.'
 
       - name: Restore exact 417-file desktop-pet source pack
         working-directory: app
@@ -1375,26 +1376,26 @@ jobs:
           APK='app/build/app/outputs/flutter-apk/app-release.apk'
           sha256sum "$APK" | tee app/app-release.apk.sha256
 
-      - name: Upload v0.42.2+246 APK as workflow artifact
+      - name: Upload v0.42.3+247 APK as workflow artifact
         uses: actions/upload-artifact@v4
         with:
-          name: AI-Companion-v0.42.2-246-Media-Transaction-Recovery-APK
+          name: AI-Companion-v0.42.3-247-Media-Empty-Turn-Hotfix-APK
           path: |
             app/build/app/outputs/flutter-apk/app-release.apk
             app/app-release.apk.sha256
           if-no-files-found: error
           retention-days: 14
 
-      - name: Upload v0.42.2+246 APK to draft release
+      - name: Upload v0.42.3+247 APK to draft release
         shell: bash
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
-          TAG='v0.42.2-media-transaction-recovery-test'
-          APK_NAME='AI-Companion-v0.42.2-246-Media-Transaction-Recovery-APK.apk'
+          TAG='v0.42.3-media-empty-turn-hotfix-test'
+          APK_NAME='AI-Companion-v0.42.3-247-Media-Empty-Turn-Hotfix-APK.apk'
           SHA_NAME="${APK_NAME}.sha256"
-          CI_NAME='AI-Companion-v0.42.2-246-Media-Transaction-Recovery-CI-Monitor.txt'
+          CI_NAME='AI-Companion-v0.42.3-247-Media-Empty-Turn-Hotfix-CI-Monitor.txt'
           cp app/build/app/outputs/flutter-apk/app-release.apk "app/${APK_NAME}"
           sed "s#app/build/app/outputs/flutter-apk/app-release.apk#${APK_NAME}#" \
             app/app-release.apk.sha256 > "app/${SHA_NAME}"
@@ -1411,14 +1412,14 @@ jobs:
               --repo "${GITHUB_REPOSITORY}" \
               --target "${GITHUB_SHA}" \
               --draft \
-              --title 'AI Companion v0.42.2+246 media transaction recovery candidate' \
-              --notes 'Unpublished Draft schema-61 candidate. Allows an in-flight image message to be deleted atomically, fences its late vision result, reports exhausted Qwen free quota accurately, keeps local sticker semantics, and distinguishes backup freezing from a real device transfer.'
+              --title 'AI Companion v0.42.3+247 media-only empty-turn hotfix candidate' \
+              --notes 'Unpublished Draft schema-61 candidate. Prevents image-only and native-sticker turns from crashing while Cedar stage tools are narrowed. Qwen vision, the local sticker index, model strategy and Cedar permissions are unchanged.'
           else
             gh release edit "${TAG}" \
               --repo "${GITHUB_REPOSITORY}" \
               --target "${GITHUB_SHA}" \
-              --title 'AI Companion v0.42.2+246 media transaction recovery candidate' \
-              --notes 'Unpublished Draft schema-61 candidate. Allows an in-flight image message to be deleted atomically, fences its late vision result, reports exhausted Qwen free quota accurately, keeps local sticker semantics, and distinguishes backup freezing from a real device transfer.'
+              --title 'AI Companion v0.42.3+247 media-only empty-turn hotfix candidate' \
+              --notes 'Unpublished Draft schema-61 candidate. Prevents image-only and native-sticker turns from crashing while Cedar stage tools are narrowed. Qwen vision, the local sticker index, model strategy and Cedar permissions are unchanged.'
           fi
           RELEASE_URL="$(gh release view "${TAG}" --repo "${GITHUB_REPOSITORY}" --json url --jq '.url')"
           echo "release_url=${RELEASE_URL}" >> "app/${CI_NAME}"
@@ -1438,18 +1439,18 @@ jobs:
           done
           test "${upload_ok}" = '1'
           MONITOR_BRANCH='ci-monitor-v0345'
-          MONITOR_PATH='.ci/v04202-monitor.txt'
+          MONITOR_PATH='.ci/v04203-monitor.txt'
           MONITOR_CONTENT="$(base64 -w0 "app/${CI_NAME}")"
           MONITOR_SHA="$(gh api "/repos/${GITHUB_REPOSITORY}/contents/${MONITOR_PATH}?ref=${MONITOR_BRANCH}" --jq '.sha' 2>/dev/null || true)"
           if test -n "${MONITOR_SHA}"; then
             gh api --method PUT "/repos/${GITHUB_REPOSITORY}/contents/${MONITOR_PATH}" \
-              -f message='Update v0.42.2 CI success monitor' \
+              -f message='Update v0.42.3 CI success monitor' \
               -f content="${MONITOR_CONTENT}" \
               -f branch="${MONITOR_BRANCH}" \
               -f sha="${MONITOR_SHA}" >/dev/null
           else
             gh api --method PUT "/repos/${GITHUB_REPOSITORY}/contents/${MONITOR_PATH}" \
-              -f message='Create v0.42.2 CI success monitor' \
+              -f message='Create v0.42.3 CI success monitor' \
               -f content="${MONITOR_CONTENT}" \
               -f branch="${MONITOR_BRANCH}" >/dev/null
           fi
@@ -1470,8 +1471,8 @@ jobs:
           BUILD_RESULT: ${{ needs.build-apk.result }}
         run: |
           set -uo pipefail
-          TAG='v0.42.2-media-transaction-recovery-test'
-          CI_NAME='AI-Companion-v0.42.2-246-Media-Transaction-Recovery-CI-Monitor.txt'
+          TAG='v0.42.3-media-empty-turn-hotfix-test'
+          CI_NAME='AI-Companion-v0.42.3-247-Media-Empty-Turn-Hotfix-CI-Monitor.txt'
           REPORT="${RUNNER_TEMP}/${CI_NAME}"
           JOBS_JSON="${RUNNER_TEMP}/jobs.json"
           {
@@ -1512,8 +1513,8 @@ jobs:
               --repo "${GITHUB_REPOSITORY}" \
               --target "${GITHUB_SHA}" \
               --draft \
-              --title 'AI Companion v0.42.2+246 media transaction recovery candidate' \
-              --notes 'Draft failure diagnostics for the schema-61 media transaction recovery candidate. It is not a published release; reference WAVs, user-imported models, private packs, credentials, user images, captions, diagnostics, backups and conversation content are not included in CI assets.'
+              --title 'AI Companion v0.42.3+247 media-only empty-turn hotfix candidate' \
+              --notes 'Draft failure diagnostics for the schema-61 media-only empty-turn hotfix candidate. It is not a published release; reference WAVs, user-imported models, private packs, credentials, user images, captions, diagnostics, backups and conversation content are not included in CI assets.'
           fi
           RELEASE_URL="$(gh release view "${TAG}" --repo "${GITHUB_REPOSITORY}" --json url --jq '.url')"
           echo "release_url=${RELEASE_URL}" >> "${REPORT}"
@@ -1522,18 +1523,18 @@ jobs:
             --clobber \
             --repo "${GITHUB_REPOSITORY}"
           MONITOR_BRANCH='ci-monitor-v0345'
-          MONITOR_PATH='.ci/v04202-monitor.txt'
+          MONITOR_PATH='.ci/v04203-monitor.txt'
           MONITOR_CONTENT="$(base64 -w0 "${REPORT}")"
           MONITOR_SHA="$(gh api "/repos/${GITHUB_REPOSITORY}/contents/${MONITOR_PATH}?ref=${MONITOR_BRANCH}" --jq '.sha' 2>/dev/null || true)"
           if test -n "${MONITOR_SHA}"; then
             gh api --method PUT "/repos/${GITHUB_REPOSITORY}/contents/${MONITOR_PATH}" \
-              -f message='Update v0.42.2 CI failure monitor' \
+              -f message='Update v0.42.3 CI failure monitor' \
               -f content="${MONITOR_CONTENT}" \
               -f branch="${MONITOR_BRANCH}" \
               -f sha="${MONITOR_SHA}" >/dev/null
           else
             gh api --method PUT "/repos/${GITHUB_REPOSITORY}/contents/${MONITOR_PATH}" \
-              -f message='Create v0.42.2 CI failure monitor' \
+              -f message='Create v0.42.3 CI failure monitor' \
               -f content="${MONITOR_CONTENT}" \
               -f branch="${MONITOR_BRANCH}" >/dev/null
           fi
