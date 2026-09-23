@@ -1,0 +1,945 @@
+status=failure
+build_result=failure
+run_id=35898976733
+run_url=https://github.com/catkiss62/ai-companion-build/actions/runs/35898976733
+head_sha=908864d04750d7bba8884b901eed406fb7bcae05
+
+=== failed or cancelled job logs ===
+
+--- job=build-apk conclusion=failure id=107309988835 ---
+﻿2026-09-23T17:55:59.7484127Z Current runner version: '2.337.0'
+2026-09-23T17:55:59.7511708Z ##[group]Runner Image Provisioner
+2026-09-23T17:55:59.7512700Z Hosted Compute Agent
+2026-09-23T17:55:59.7513391Z Version: 20260828.587
+2026-09-23T17:55:59.7514178Z Commit: abac92662cab4cc7352de4f9f9d2e2419aad9c29
+2026-09-23T17:55:59.7515181Z Build Date: 2026-08-28T16:44:25Z
+2026-09-23T17:55:59.7516123Z Worker ID: {37c4eaeb-b68a-4b89-8a1f-f13777315c0c}
+2026-09-23T17:55:59.7517126Z Azure Region: northcentralus
+2026-09-23T17:55:59.7517924Z ##[endgroup]
+2026-09-23T17:55:59.7519990Z ##[group]Operating System
+2026-09-23T17:55:59.7520952Z Ubuntu
+2026-09-23T17:55:59.7521778Z 24.04.5
+2026-09-23T17:55:59.7522576Z LTS
+2026-09-23T17:55:59.7523290Z ##[endgroup]
+2026-09-23T17:55:59.7524041Z ##[group]Runner Image
+2026-09-23T17:55:59.7524921Z Image: ubuntu-24.04
+2026-09-23T17:55:59.7525766Z Version: 20260907.300.1
+2026-09-23T17:55:59.7527709Z Included Software: https://github.com/actions/runner-images/blob/ubuntu24/20260907.300/images/ubuntu/Ubuntu2404-Readme.md
+2026-09-23T17:55:59.7529996Z Image Release: https://github.com/actions/runner-images/releases/tag/ubuntu24%2F20260907.300
+2026-09-23T17:55:59.7531418Z ##[endgroup]
+2026-09-23T17:55:59.7533136Z ##[group]GITHUB_TOKEN Permissions
+2026-09-23T17:55:59.7536269Z Actions: read
+2026-09-23T17:55:59.7537007Z Contents: write
+2026-09-23T17:55:59.7537761Z Metadata: read
+2026-09-23T17:55:59.7538508Z ##[endgroup]
+2026-09-23T17:55:59.7541661Z Secret source: Actions
+2026-09-23T17:55:59.7542926Z Cache mode: write
+2026-09-23T17:55:59.7544183Z Prepare workflow directory
+2026-09-23T17:55:59.7933775Z Prepare all required actions
+2026-09-23T17:55:59.8004863Z Getting action download info
+2026-09-23T17:56:00.0480925Z Download action repository 'actions/checkout@v4' (SHA:11d5960a326750d5838078e36cf38b85af677262)
+2026-09-23T17:56:00.1741644Z Download action repository 'actions/setup-java@v4' (SHA:cf277c60eb25467037889841efdb72551f06f6c3)
+2026-09-23T17:56:00.6840179Z Download action repository 'subosito/flutter-action@v2' (SHA:1a449444c387b1966244ae4d4f8c696479add0b2)
+2026-09-23T17:56:00.8894604Z Download action repository 'actions/upload-artifact@v4' (SHA:ea165f8d65b6e75b540449e92b4886f43607fa02)
+2026-09-23T17:56:01.1736446Z Getting action download info
+2026-09-23T17:56:01.2677876Z Download action repository 'actions/cache@v5' (SHA:caa296126883cff596d87d8935842f9db880ef25)
+2026-09-23T17:56:01.5018400Z Complete job name: build-apk
+2026-09-23T17:56:01.5793484Z ##[group]Run actions/checkout@v4
+2026-09-23T17:56:01.5794351Z with:
+2026-09-23T17:56:01.5794949Z   repository: catkiss62/ai-companion-build
+2026-09-23T17:56:01.5799285Z   token: ***
+2026-09-23T17:56:01.5800268Z   ssh-strict: true
+2026-09-23T17:56:01.5801030Z   ssh-user: git
+2026-09-23T17:56:01.5801583Z   persist-credentials: true
+2026-09-23T17:56:01.5802248Z   clean: true
+2026-09-23T17:56:01.5802835Z   sparse-checkout-cone-mode: true
+2026-09-23T17:56:01.5803473Z   fetch-depth: 1
+2026-09-23T17:56:01.5804047Z   fetch-tags: false
+2026-09-23T17:56:01.5804590Z   show-progress: true
+2026-09-23T17:56:01.5805182Z   lfs: false
+2026-09-23T17:56:01.5805732Z   submodules: false
+2026-09-23T17:56:01.5806323Z   set-safe-directory: true
+2026-09-23T17:56:01.5806952Z   allow-unsafe-pr-checkout: false
+2026-09-23T17:56:01.5807862Z ##[endgroup]
+2026-09-23T17:56:01.6877116Z Syncing repository: catkiss62/ai-companion-build
+2026-09-23T17:56:01.6880582Z ##[group]Getting Git version info
+2026-09-23T17:56:01.6882107Z Working directory is '/home/runner/work/ai-companion-build/ai-companion-build'
+2026-09-23T17:56:01.6884155Z [command]/usr/bin/git version
+2026-09-23T17:56:01.6907816Z git version 2.55.0
+2026-09-23T17:56:01.6927377Z ##[endgroup]
+2026-09-23T17:56:01.6942147Z Temporarily overriding HOME='/home/runner/work/_temp/a42ecbae-2d80-4b74-a314-d8c5039bb4b4' before making global git config changes
+2026-09-23T17:56:01.6944379Z Adding repository directory to the temporary git global config as a safe directory
+2026-09-23T17:56:01.6947809Z [command]/usr/bin/git config --global --add safe.directory /home/runner/work/ai-companion-build/ai-companion-build
+2026-09-23T17:56:01.7009217Z Deleting the contents of '/home/runner/work/ai-companion-build/ai-companion-build'
+2026-09-23T17:56:01.7014620Z ##[group]Initializing the repository
+2026-09-23T17:56:01.7018068Z [command]/usr/bin/git init /home/runner/work/ai-companion-build/ai-companion-build
+2026-09-23T17:56:01.7167034Z hint: Using 'master' as the name for the initial branch. This default branch name
+2026-09-23T17:56:01.7169137Z hint: will change to "main" in Git 3.0. To configure the initial branch name
+2026-09-23T17:56:01.7171124Z hint: to use in all of your new repositories, which will suppress this warning,
+2026-09-23T17:56:01.7172617Z hint: call:
+2026-09-23T17:56:01.7173559Z hint:
+2026-09-23T17:56:01.7174746Z hint: 	git config --global init.defaultBranch <name>
+2026-09-23T17:56:01.7175863Z hint:
+2026-09-23T17:56:01.7176930Z hint: Names commonly chosen instead of 'master' are 'main', 'trunk' and
+2026-09-23T17:56:01.7179534Z hint: 'development'. The just-created branch can be renamed via this command:
+2026-09-23T17:56:01.7181302Z hint:
+2026-09-23T17:56:01.7182508Z hint: 	git branch -m <name>
+2026-09-23T17:56:01.7183525Z hint:
+2026-09-23T17:56:01.7184679Z hint: Disable this message with "git config set advice.defaultBranchName false"
+2026-09-23T17:56:01.7186857Z Initialized empty Git repository in /home/runner/work/ai-companion-build/ai-companion-build/.git/
+2026-09-23T17:56:01.7190850Z [command]/usr/bin/git remote add origin https://github.com/catkiss62/ai-companion-build
+2026-09-23T17:56:01.7260466Z ##[endgroup]
+2026-09-23T17:56:01.7261557Z ##[group]Disabling automatic garbage collection
+2026-09-23T17:56:01.7265884Z [command]/usr/bin/git config --local gc.auto 0
+2026-09-23T17:56:01.7296979Z ##[endgroup]
+2026-09-23T17:56:01.7298010Z ##[group]Setting up auth
+2026-09-23T17:56:01.7306673Z [command]/usr/bin/git config --local --name-only --get-regexp core\.sshCommand
+2026-09-23T17:56:01.7340022Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'core\.sshCommand' && git config --local --unset-all 'core.sshCommand' || :"
+2026-09-23T17:56:01.7728610Z [command]/usr/bin/git config --local --name-only --get-regexp http\.https\:\/\/github\.com\/\.extraheader
+2026-09-23T17:56:01.7775459Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'http\.https\:\/\/github\.com\/\.extraheader' && git config --local --unset-all 'http.https://github.com/.extraheader' || :"
+2026-09-23T17:56:01.8011641Z [command]/usr/bin/git config --local --name-only --get-regexp ^includeIf\.gitdir:
+2026-09-23T17:56:01.8045210Z [command]/usr/bin/git submodule foreach --recursive git config --local --show-origin --name-only --get-regexp remote.origin.url
+2026-09-23T17:56:01.8245453Z [command]/usr/bin/git config --local http.https://github.com/.extraheader AUTHORIZATION: basic ***
+2026-09-23T17:56:01.8458446Z ##[endgroup]
+2026-09-23T17:56:01.8460227Z ##[group]Fetching the repository
+2026-09-23T17:56:01.8468758Z [command]/usr/bin/git -c protocol.version=2 fetch --no-tags --prune --no-recurse-submodules --depth=1 origin +908864d04750d7bba8884b901eed406fb7bcae05:refs/remotes/origin/agent/v04205-tts-semantic-guard-session-metrics
+2026-09-23T17:56:04.8615446Z From https://github.com/catkiss62/ai-companion-build
+2026-09-23T17:56:04.8617671Z  * [new ref]         908864d04750d7bba8884b901eed406fb7bcae05 -> origin/agent/v04205-tts-semantic-guard-session-metrics
+2026-09-23T17:56:04.8620684Z ##[endgroup]
+2026-09-23T17:56:04.8621462Z ##[group]Determining the checkout info
+2026-09-23T17:56:04.8622981Z ##[endgroup]
+2026-09-23T17:56:04.8630683Z [command]/usr/bin/git sparse-checkout disable
+2026-09-23T17:56:04.8679844Z [command]/usr/bin/git config --local --unset-all extensions.worktreeConfig
+2026-09-23T17:56:04.8708327Z ##[group]Checking out the ref
+2026-09-23T17:56:04.8713693Z [command]/usr/bin/git checkout --progress --force -B agent/v04205-tts-semantic-guard-session-metrics refs/remotes/origin/agent/v04205-tts-semantic-guard-session-metrics
+2026-09-23T17:56:05.0972996Z Switched to a new branch 'agent/v04205-tts-semantic-guard-session-metrics'
+2026-09-23T17:56:05.0977020Z branch 'agent/v04205-tts-semantic-guard-session-metrics' set up to track 'origin/agent/v04205-tts-semantic-guard-session-metrics'.
+2026-09-23T17:56:05.0994873Z ##[endgroup]
+2026-09-23T17:56:05.1036550Z [command]/usr/bin/git log -1 --format=%H
+2026-09-23T17:56:05.1060321Z 908864d04750d7bba8884b901eed406fb7bcae05
+2026-09-23T17:56:05.1278723Z ##[group]Run set -euo pipefail
+2026-09-23T17:56:05.1280493Z [36;1mset -euo pipefail[0m
+2026-09-23T17:56:05.1281072Z [36;1mGENIE_TAG='genie-tts-private-runtime-v0.7.6-jiuhu'[0m
+2026-09-23T17:56:05.1281728Z [36;1mGENIE_APK='Genie-TTS-Android-v0.7.6-Jiuhu-4-candidates-test.apk'[0m
+2026-09-23T17:56:05.1282477Z [36;1mGENIE_APK_SHA256='af90aeaf84afdb383bd71584a5512609666c9af38110ea192ebde6f2c84ceb43'[0m
+2026-09-23T17:56:05.1283204Z [36;1mFRONTEND_TAG='genie-tts-private-runtime-v0.6.4'[0m
+2026-09-23T17:56:05.1283777Z [36;1mFRONTEND_APK='Genie-TTS-v0.6.4-Verified.apk'[0m
+2026-09-23T17:56:05.1284388Z [36;1mFRONTEND_SHA='Genie-TTS-v0.6.4-Verified.apk.sha256'[0m
+2026-09-23T17:56:05.1284920Z [36;1mmkdir -p .genie-payload/unpacked[0m
+2026-09-23T17:56:05.1285494Z [36;1m# GitHub's release-by-tag endpoint returns 404 for an unpublished[0m
+2026-09-23T17:56:05.1286295Z [36;1m# draft, even though authenticated release-list calls can see it.[0m
+2026-09-23T17:56:05.1287031Z [36;1m# Resolve the private draft by tag_name, then download each asset by[0m
+2026-09-23T17:56:05.1287725Z [36;1m# its authenticated release-asset ID without publishing the model.[0m
+2026-09-23T17:56:05.1288288Z [36;1mGENIE_RELEASE_ID="$(gh api --paginate \[0m
+2026-09-23T17:56:05.1288904Z [36;1m  "/repos/${GITHUB_REPOSITORY}/releases?per_page=100" \[0m
+2026-09-23T17:56:05.1289730Z [36;1m  --jq ".[] | select(.draft and .tag_name == \"${GENIE_TAG}\") | .id" | head -1)"[0m
+2026-09-23T17:56:05.1290408Z [36;1mtest -n "${GENIE_RELEASE_ID}"[0m
+2026-09-23T17:56:05.1290855Z [36;1mGENIE_ASSET_ID="$(gh api \[0m
+2026-09-23T17:56:05.1291433Z [36;1m  "/repos/${GITHUB_REPOSITORY}/releases/${GENIE_RELEASE_ID}/assets?per_page=100" \[0m
+2026-09-23T17:56:05.1292130Z [36;1m  --jq ".[] | select(.name == \"${GENIE_APK}\") | .id")"[0m
+2026-09-23T17:56:05.1292624Z [36;1mtest -n "${GENIE_ASSET_ID}"[0m
+2026-09-23T17:56:05.1293067Z [36;1mgh api --method GET \[0m
+2026-09-23T17:56:05.1293583Z [36;1m  -H 'Accept: application/octet-stream' \[0m
+2026-09-23T17:56:05.1294174Z [36;1m  "/repos/${GITHUB_REPOSITORY}/releases/assets/${GENIE_ASSET_ID}" \[0m
+2026-09-23T17:56:05.1294821Z [36;1m  > ".genie-payload/${GENIE_APK}"[0m
+2026-09-23T17:56:05.1295409Z [36;1mecho "${GENIE_APK_SHA256}  .genie-payload/${GENIE_APK}" | sha256sum -c -[0m
+2026-09-23T17:56:05.1296115Z [36;1m# The v0.7.6 Jiuhu candidate APK intentionally carries only the[0m
+2026-09-23T17:56:05.1296770Z [36;1m# acoustic pack. Keep the already built-and-verified multilingual[0m
+2026-09-23T17:56:05.1297422Z [36;1m# OpenJTalk dictionary/JNI adapter as a separate pinned dependency;[0m
+2026-09-23T17:56:05.1298245Z [36;1m# never extract its retired Tiandou benchmark into this build.[0m
+2026-09-23T17:56:05.1298833Z [36;1mFRONTEND_RELEASE_ID="$(gh api --paginate \[0m
+2026-09-23T17:56:05.1299595Z [36;1m  "/repos/${GITHUB_REPOSITORY}/releases?per_page=100" \[0m
+2026-09-23T17:56:05.1300261Z [36;1m  --jq ".[] | select(.draft and .tag_name == \"${FRONTEND_TAG}\") | .id" | head -1)"[0m
+2026-09-23T17:56:05.1300826Z [36;1mtest -n "${FRONTEND_RELEASE_ID}"[0m
+2026-09-23T17:56:05.1301422Z [36;1mfor FRONTEND_ASSET in "${FRONTEND_APK}" "${FRONTEND_SHA}"; do[0m
+2026-09-23T17:56:05.1301968Z [36;1m  FRONTEND_ASSET_ID="$(gh api \[0m
+2026-09-23T17:56:05.1302640Z [36;1m    "/repos/${GITHUB_REPOSITORY}/releases/${FRONTEND_RELEASE_ID}/assets?per_page=100" \[0m
+2026-09-23T17:56:05.1303304Z [36;1m    --jq ".[] | select(.name == \"${FRONTEND_ASSET}\") | .id")"[0m
+2026-09-23T17:56:05.1303839Z [36;1m  test -n "${FRONTEND_ASSET_ID}"[0m
+2026-09-23T17:56:05.1304493Z [36;1m  gh api --method GET \[0m
+2026-09-23T17:56:05.1304970Z [36;1m    -H 'Accept: application/octet-stream' \[0m
+2026-09-23T17:56:05.1305609Z [36;1m    "/repos/${GITHUB_REPOSITORY}/releases/assets/${FRONTEND_ASSET_ID}" \[0m
+2026-09-23T17:56:05.1306272Z [36;1m    > ".genie-payload/${FRONTEND_ASSET}"[0m
+2026-09-23T17:56:05.1306742Z [36;1mdone[0m
+2026-09-23T17:56:05.1307387Z [36;1msed "s#  ${FRONTEND_APK}#  .genie-payload/${FRONTEND_APK}#" \[0m
+2026-09-23T17:56:05.1307982Z [36;1m  ".genie-payload/${FRONTEND_SHA}" | sha256sum -c -[0m
+2026-09-23T17:56:05.1308565Z [36;1munzip -q ".genie-payload/${GENIE_APK}" \[0m
+2026-09-23T17:56:05.1309075Z [36;1m  'assets/benchmark_jiuhu/*' \[0m
+2026-09-23T17:56:05.1309698Z [36;1m  'lib/arm64-v8a/libonnxruntime.so' \[0m
+2026-09-23T17:56:05.1310226Z [36;1m  -d .genie-payload/unpacked[0m
+2026-09-23T17:56:05.1310759Z [36;1m# Keep the pinned Jiuhu ORT only as the post-build byte-identity[0m
+2026-09-23T17:56:05.1311446Z [36;1m# reference. The app dependency still supplies the packaged library.[0m
+2026-09-23T17:56:05.1312065Z [36;1munzip -q ".genie-payload/${FRONTEND_APK}" \[0m
+2026-09-23T17:56:05.1312524Z [36;1m  'assets/openjtalk/*' \[0m
+2026-09-23T17:56:05.1313011Z [36;1m  'lib/arm64-v8a/libopenjtalk_native.so' \[0m
+2026-09-23T17:56:05.1313501Z [36;1m  'lib/arm64-v8a/libgenie_frontend.so' \[0m
+2026-09-23T17:56:05.1314035Z [36;1m  'lib/arm64-v8a/libc++_shared.so' \[0m
+2026-09-23T17:56:05.1314513Z [36;1m  -d .genie-payload/unpacked[0m
+2026-09-23T17:56:05.1314926Z [36;1mpython3 - <<'PY'[0m
+2026-09-23T17:56:05.1315416Z [36;1mimport hashlib, json, pathlib, math, struct, wave[0m
+2026-09-23T17:56:05.1316026Z [36;1m[0m
+2026-09-23T17:56:05.1316553Z [36;1mroot = pathlib.Path('.genie-payload/unpacked/assets/benchmark_jiuhu')[0m
+2026-09-23T17:56:05.1317151Z [36;1mpath = root / 'manifest.json'[0m
+2026-09-23T17:56:05.1317651Z [36;1mmanifest = json.loads(path.read_text(encoding='utf-8'))[0m
+2026-09-23T17:56:05.1318212Z [36;1mexpected_models = {[0m
+2026-09-23T17:56:05.1318912Z [36;1m    'models/t2s_encoder_fp32.bin': (11465732, '2729a0bc3bfa297b86dae07190f010653806a5f466ffe654a7cd9291445ee986'),[0m
+2026-09-23T17:56:05.1319976Z [36;1m    'models/t2s_encoder_fp32.onnx': (14568, 'f6eb1acd47c8e6d36b777886981a49122e8e070a5eb9888d458fb188dc139f75'),[0m
+2026-09-23T17:56:05.1320941Z [36;1m    'models/t2s_first_stage_decoder_fp32.onnx': (416803, '868f395999508905128c5325c5db4f4b37b2e70e04d6e2719fec64cbb60ee7f9'),[0m
+2026-09-23T17:56:05.1322058Z [36;1m    'models/t2s_shared_fp32.bin': (306827268, '07c40df473ddb08e259357ddf17173ffc3f82ce1a3e208cd1dd438f0dd01c445'),[0m
+2026-09-23T17:56:05.1323038Z [36;1m    'models/t2s_stage_decoder_fp32.onnx': (417625, '3f02881c517423deb610f86d5441bd9825937c5069f3887cacefa1e9dc403b0d'),[0m
+2026-09-23T17:56:05.1323948Z [36;1m    'models/vits_fp32.bin': (175582720, 'bfd6558dee03e06fafa2225d906f27e0f303395951d8cc4b8f2b26b3da2e99c2'),[0m
+2026-09-23T17:56:05.1324852Z [36;1m    'models/vits_fp32.onnx': (1654702, 'ce3495f0cd976270274d0f5c68377acb10e7347ca03e86346a42a0a99e769168'),[0m
+2026-09-23T17:56:05.1325473Z [36;1m}[0m
+2026-09-23T17:56:05.1325890Z [36;1massert manifest['models'] == {[0m
+2026-09-23T17:56:05.1326380Z [36;1m    'encoder': 'models/t2s_encoder_fp32.onnx',[0m
+2026-09-23T17:56:05.1326947Z [36;1m    'first_decoder': 'models/t2s_first_stage_decoder_fp32.onnx',[0m
+2026-09-23T17:56:05.1327573Z [36;1m    'stage_decoder': 'models/t2s_stage_decoder_fp32.onnx',[0m
+2026-09-23T17:56:05.1328093Z [36;1m    'vocoder': 'models/vits_fp32.onnx',[0m
+2026-09-23T17:56:05.1328572Z [36;1m}[0m
+2026-09-23T17:56:05.1328923Z [36;1m[0m
+2026-09-23T17:56:05.1329284Z [36;1mdef sha256(candidate):[0m
+2026-09-23T17:56:05.1329865Z [36;1m    digest = hashlib.sha256()[0m
+2026-09-23T17:56:05.1330328Z [36;1m    with candidate.open('rb') as source:[0m
+2026-09-23T17:56:05.1330852Z [36;1m        for chunk in iter(lambda: source.read(1024 * 1024), b''):[0m
+2026-09-23T17:56:05.1331437Z [36;1m            digest.update(chunk)[0m
+2026-09-23T17:56:05.1331977Z [36;1m    return digest.hexdigest()[0m
+2026-09-23T17:56:05.1332430Z [36;1m[0m
+2026-09-23T17:56:05.1332859Z [36;1msource_integrity = manifest.get('asset_integrity', {})[0m
+2026-09-23T17:56:05.1333418Z [36;1mfor relative, expected in expected_models.items():[0m
+2026-09-23T17:56:05.1333990Z [36;1m    candidate = root / relative[0m
+2026-09-23T17:56:05.1334567Z [36;1m    expected_bytes, expected_sha = expected[0m
+2026-09-23T17:56:05.1335133Z [36;1m    assert candidate.stat().st_size == expected_bytes, relative[0m
+2026-09-23T17:56:05.1335718Z [36;1m    assert sha256(candidate) == expected_sha, relative[0m
+2026-09-23T17:56:05.1336241Z [36;1m    declared = source_integrity.get(relative, {})[0m
+2026-09-23T17:56:05.1336865Z [36;1m    assert declared.get('bytes') == expected_bytes, relative[0m
+2026-09-23T17:56:05.1337476Z [36;1m    assert declared.get('sha256') == expected_sha, relative[0m
+2026-09-23T17:56:05.1338003Z [36;1mproduction_ids = {[0m
+2026-09-23T17:56:05.1338416Z [36;1m    'jiuhu_idle50',[0m
+2026-09-23T17:56:05.1338811Z [36;1m    'jiuhu_bento_tools',[0m
+2026-09-23T17:56:05.1339295Z [36;1m    'jiuhu_dream_days',[0m
+2026-09-23T17:56:05.1339862Z [36;1m    'jiuhu_devotion',[0m
+2026-09-23T17:56:05.1340274Z [36;1m}[0m
+2026-09-23T17:56:05.1340779Z [36;1mcases = [case for case in manifest['cases'] if case.get('id') in production_ids][0m
+2026-09-23T17:56:05.1341482Z [36;1massert {case['id'] for case in cases} == production_ids[0m
+2026-09-23T17:56:05.1342084Z [36;1massert [case['id'] for case in cases] == [[0m
+2026-09-23T17:56:05.1342566Z [36;1m    'jiuhu_idle50',[0m
+2026-09-23T17:56:05.1342985Z [36;1m    'jiuhu_bento_tools',[0m
+2026-09-23T17:56:05.1343400Z [36;1m    'jiuhu_dream_days',[0m
+2026-09-23T17:56:05.1343799Z [36;1m    'jiuhu_devotion',[0m
+2026-09-23T17:56:05.1344222Z [36;1m][0m
+2026-09-23T17:56:05.1344654Z [36;1mdef normalized(values):[0m
+2026-09-23T17:56:05.1345105Z [36;1m    mean = sum(values) / len(values)[0m
+2026-09-23T17:56:05.1345665Z [36;1m    variance = sum((value - mean) ** 2 for value in values) / len(values)[0m
+2026-09-23T17:56:05.1346233Z [36;1m    scale = max(math.sqrt(variance), 1e-9)[0m
+2026-09-23T17:56:05.1346808Z [36;1m    return [round((value - mean) / scale, 7) for value in values][0m
+2026-09-23T17:56:05.1347367Z [36;1m[0m
+2026-09-23T17:56:05.1347782Z [36;1mdef reference_features(candidate, bins=64):[0m
+2026-09-23T17:56:05.1348308Z [36;1m    with wave.open(str(candidate), 'rb') as source:[0m
+2026-09-23T17:56:05.1348793Z [36;1m        channels = source.getnchannels()[0m
+2026-09-23T17:56:05.1349325Z [36;1m        width = source.getsampwidth()[0m
+2026-09-23T17:56:05.1350039Z [36;1m        rate = source.getframerate()[0m
+2026-09-23T17:56:05.1350537Z [36;1m        frames = source.getnframes()[0m
+2026-09-23T17:56:05.1351001Z [36;1m        raw = source.readframes(frames)[0m
+2026-09-23T17:56:05.1351483Z [36;1m    assert width in (1, 2, 4), (candidate, width)[0m
+2026-09-23T17:56:05.1352026Z [36;1m    formats = {1: 'B', 2: 'h', 4: 'i'}[0m
+2026-09-23T17:56:05.1352513Z [36;1m    unit = struct.calcsize('<' + formats[width])[0m
+2026-09-23T17:56:05.1353125Z [36;1m    values = struct.unpack('<' + formats[width] * (len(raw) // unit), raw)[0m
+2026-09-23T17:56:05.1353689Z [36;1m    peak = float((1 << (width * 8 - 1)) - 1)[0m
+2026-09-23T17:56:05.1354155Z [36;1m    offset = 128.0 if width == 1 else 0.0[0m
+2026-09-23T17:56:05.1354662Z [36;1m    mono = [][0m
+2026-09-23T17:56:05.1355093Z [36;1m    for index in range(0, len(values), channels):[0m
+2026-09-23T17:56:05.1355850Z [36;1m        mono.append(sum((float(value) - offset) / peak for value in values[index:index + channels]) / channels)[0m
+2026-09-23T17:56:05.1356505Z [36;1m    envelope, crossing = [], [][0m
+2026-09-23T17:56:05.1356941Z [36;1m    for bin_index in range(bins):[0m
+2026-09-23T17:56:05.1357463Z [36;1m        start = len(mono) * bin_index // bins[0m
+2026-09-23T17:56:05.1358059Z [36;1m        end = min(len(mono), max(start + 1, len(mono) * (bin_index + 1) // bins))[0m
+2026-09-23T17:56:05.1358724Z [36;1m        chunk = mono[start:end][0m
+2026-09-23T17:56:05.1359252Z [36;1m        rms = math.sqrt(sum(value * value for value in chunk) / len(chunk))[0m
+2026-09-23T17:56:05.1360006Z [36;1m        changes = sum((chunk[i] >= 0) != (chunk[i - 1] >= 0) for i in range(1, len(chunk)))[0m
+2026-09-23T17:56:05.1360753Z [36;1m        envelope.append(math.log(1.0 + 1000.0 * rms))[0m
+2026-09-23T17:56:05.1361329Z [36;1m        crossing.append(changes / max(1, len(chunk) - 1))[0m
+2026-09-23T17:56:05.1361826Z [36;1m    return {[0m
+2026-09-23T17:56:05.1362237Z [36;1m        'duration_ms': frames * 1000 // rate,[0m
+2026-09-23T17:56:05.1362724Z [36;1m        'envelope': normalized(envelope),[0m
+2026-09-23T17:56:05.1363243Z [36;1m        'zero_crossing': normalized(crossing),[0m
+2026-09-23T17:56:05.1363976Z [36;1m    }[0m
+2026-09-23T17:56:05.1364341Z [36;1m[0m
+2026-09-23T17:56:05.1364721Z [36;1mecho_guard = {'version': 1, 'cases': {}}[0m
+2026-09-23T17:56:05.1365189Z [36;1mfor case in cases:[0m
+2026-09-23T17:56:05.1365693Z [36;1m    reference_audio = case.get('reference_audio')[0m
+2026-09-23T17:56:05.1366239Z [36;1m    reference_text = case.get('reference_text', '').strip()[0m
+2026-09-23T17:56:05.1366816Z [36;1m    assert reference_audio, case['id'][0m
+2026-09-23T17:56:05.1367337Z [36;1m    features = reference_features(root / reference_audio)[0m
+2026-09-23T17:56:05.1368021Z [36;1m    features['input_text_sha256'] = hashlib.sha256(reference_text.encode('utf-8')).hexdigest()[0m
+2026-09-23T17:56:05.1368687Z [36;1m    echo_guard['cases'][case['id']] = features[0m
+2026-09-23T17:56:05.1369204Z [36;1m    case.pop('reference_audio', None)[0m
+2026-09-23T17:56:05.1369808Z [36;1m    case.pop('feature_tensors', None)[0m
+2026-09-23T17:56:05.1370336Z [36;1mguard_path = root / 'reference_echo_guard.json'[0m
+2026-09-23T17:56:05.1371035Z [36;1mguard_path.write_text(json.dumps(echo_guard, ensure_ascii=False, separators=(',', ':')), encoding='utf-8')[0m
+2026-09-23T17:56:05.1371804Z [36;1mmanifest['reference_echo_guard'] = guard_path.name[0m
+2026-09-23T17:56:05.1372335Z [36;1mmanifest['cases'] = cases[0m
+2026-09-23T17:56:05.1372784Z [36;1mmanifest['presets'] = [][0m
+2026-09-23T17:56:05.1373235Z [36;1mmanifest['feature_modes'] = [][0m
+2026-09-23T17:56:05.1373640Z [36;1m[0m
+2026-09-23T17:56:05.1374045Z [36;1mdef strings(value):[0m
+2026-09-23T17:56:05.1374462Z [36;1m    if isinstance(value, str):[0m
+2026-09-23T17:56:05.1374943Z [36;1m        yield value[0m
+2026-09-23T17:56:05.1375381Z [36;1m    elif isinstance(value, dict):[0m
+2026-09-23T17:56:05.1375823Z [36;1m        for item in value.values():[0m
+2026-09-23T17:56:05.1376315Z [36;1m            yield from strings(item)[0m
+2026-09-23T17:56:05.1376771Z [36;1m    elif isinstance(value, list):[0m
+2026-09-23T17:56:05.1377269Z [36;1m        for item in value:[0m
+2026-09-23T17:56:05.1377728Z [36;1m            yield from strings(item)[0m
+2026-09-23T17:56:05.1378145Z [36;1m[0m
+2026-09-23T17:56:05.1378533Z [36;1mreferenced = set(strings({[0m
+2026-09-23T17:56:05.1379097Z [36;1m    key: value for key, value in manifest.items() if key != 'asset_files'[0m
+2026-09-23T17:56:05.1379792Z [36;1m}))[0m
+2026-09-23T17:56:05.1380301Z [36;1mexternal_roberta = manifest['frontend']['roberta'][0m
+2026-09-23T17:56:05.1380810Z [36;1mfor candidate in tuple(root.rglob('*')):[0m
+2026-09-23T17:56:05.1381377Z [36;1m    if not candidate.is_file() or candidate == path:[0m
+2026-09-23T17:56:05.1381862Z [36;1m        continue[0m
+2026-09-23T17:56:05.1382325Z [36;1m    relative = candidate.relative_to(root).as_posix()[0m
+2026-09-23T17:56:05.1382995Z [36;1m    # Keep only the seven exact model assets whose graph/data hashes[0m
+2026-09-23T17:56:05.1383632Z [36;1m    # were validated above. In particular, reject interrupted atomic[0m
+2026-09-23T17:56:05.1384273Z [36;1m    # write remnants such as models/.vits_fp32.bin.* rather than[0m
+2026-09-23T17:56:05.1384870Z [36;1m    # copying every file found under models/ into the production APK.[0m
+2026-09-23T17:56:05.1385505Z [36;1m    if ([0m
+2026-09-23T17:56:05.1385977Z [36;1m        relative == external_roberta[0m
+2026-09-23T17:56:05.1386599Z [36;1m        or (relative.startswith('models/') and relative not in expected_models)[0m
+2026-09-23T17:56:05.1387361Z [36;1m        or (not relative.startswith('models/') and relative not in referenced)[0m
+2026-09-23T17:56:05.1387967Z [36;1m    ):[0m
+2026-09-23T17:56:05.1388405Z [36;1m        candidate.unlink()[0m
+2026-09-23T17:56:05.1388837Z [36;1mfor directory in sorted([0m
+2026-09-23T17:56:05.1389544Z [36;1m    (candidate for candidate in root.rglob('*') if candidate.is_dir()),[0m
+2026-09-23T17:56:05.1390224Z [36;1m    key=lambda candidate: len(candidate.parts),[0m
+2026-09-23T17:56:05.1390729Z [36;1m    reverse=True,[0m
+2026-09-23T17:56:05.1391139Z [36;1m):[0m
+2026-09-23T17:56:05.1391494Z [36;1m    try:[0m
+2026-09-23T17:56:05.1391866Z [36;1m        directory.rmdir()[0m
+2026-09-23T17:56:05.1392334Z [36;1m    except OSError:[0m
+2026-09-23T17:56:05.1392808Z [36;1m        pass[0m
+2026-09-23T17:56:05.1393227Z [36;1mmanifest['asset_files'] = sorted([0m
+2026-09-23T17:56:05.1393719Z [36;1m    candidate.relative_to(root).as_posix()[0m
+2026-09-23T17:56:05.1394188Z [36;1m    for candidate in root.rglob('*')[0m
+2026-09-23T17:56:05.1394710Z [36;1m    if candidate.is_file() and candidate != path[0m
+2026-09-23T17:56:05.1395259Z [36;1m) + ['manifest.json'][0m
+2026-09-23T17:56:05.1395700Z [36;1mexpected_reference_inputs = {[0m
+2026-09-23T17:56:05.1396234Z [36;1m    'ref_seq', 'ref_bert', 'ssl_content', 'ref_audio', 'ge', 'ge_advanced'[0m
+2026-09-23T17:56:05.1396733Z [36;1m}[0m
+2026-09-23T17:56:05.1397132Z [36;1mfor case in cases:[0m
+2026-09-23T17:56:05.1397644Z [36;1m    actual_inputs = {item['name'] for item in case['tensors']}[0m
+2026-09-23T17:56:05.1398281Z [36;1m    assert actual_inputs == expected_reference_inputs, ([0m
+2026-09-23T17:56:05.1398894Z [36;1m        f"incomplete Jiuhu V2Pro prompt tensors: {case['id']} {actual_inputs}"[0m
+2026-09-23T17:56:05.1399542Z [36;1m    )[0m
+2026-09-23T17:56:05.1399961Z [36;1mactual_models = {[0m
+2026-09-23T17:56:05.1400422Z [36;1m    candidate.relative_to(root).as_posix()[0m
+2026-09-23T17:56:05.1400960Z [36;1m    for candidate in (root / 'models').iterdir()[0m
+2026-09-23T17:56:05.1401428Z [36;1m    if candidate.is_file()[0m
+2026-09-23T17:56:05.1401823Z [36;1m}[0m
+2026-09-23T17:56:05.1402294Z [36;1massert actual_models == set(expected_models), actual_models[0m
+2026-09-23T17:56:05.1402832Z [36;1mprompt_signatures = {}[0m
+2026-09-23T17:56:05.1403409Z [36;1mindependent_prompt_names = {'ssl_content', 'ref_audio', 'ge', 'ge_advanced'}[0m
+2026-09-23T17:56:05.1403952Z [36;1mfor case in cases:[0m
+2026-09-23T17:56:05.1404347Z [36;1m    signature = tuple([0m
+2026-09-23T17:56:05.1404801Z [36;1m        sha256(root / item['file'])[0m
+2026-09-23T17:56:05.1405273Z [36;1m        for item in case['tensors'][0m
+2026-09-23T17:56:05.1405813Z [36;1m        if item['name'] in independent_prompt_names[0m
+2026-09-23T17:56:05.1406322Z [36;1m    )[0m
+2026-09-23T17:56:05.1406781Z [36;1m    assert len(signature) == len(independent_prompt_names), case['id'][0m
+2026-09-23T17:56:05.1407370Z [36;1m    prompt_signatures[case['id']] = signature[0m
+2026-09-23T17:56:05.1407972Z [36;1massert len(set(prompt_signatures.values())) == len(cases), prompt_signatures[0m
+2026-09-23T17:56:05.1408548Z [36;1m[0m
+2026-09-23T17:56:05.1408909Z [36;1mmanifest['asset_integrity'] = {[0m
+2026-09-23T17:56:05.1409321Z [36;1m    relative: {[0m
+2026-09-23T17:56:05.1409907Z [36;1m        'bytes': (root / relative).stat().st_size,[0m
+2026-09-23T17:56:05.1410396Z [36;1m        'sha256': sha256(root / relative),[0m
+2026-09-23T17:56:05.1410817Z [36;1m    }[0m
+2026-09-23T17:56:05.1411252Z [36;1m    for relative in manifest['asset_files'][0m
+2026-09-23T17:56:05.1411693Z [36;1m    if relative != 'manifest.json'[0m
+2026-09-23T17:56:05.1412271Z [36;1m}[0m
+2026-09-23T17:56:05.1412633Z [36;1mpath.write_text([0m
+2026-09-23T17:56:05.1413105Z [36;1m    json.dumps(manifest, ensure_ascii=False, indent=2),[0m
+2026-09-23T17:56:05.1413654Z [36;1m    encoding='utf-8',[0m
+2026-09-23T17:56:05.1414025Z [36;1m)[0m
+2026-09-23T17:56:05.1414430Z [36;1massert not any([0m
+2026-09-23T17:56:05.1414856Z [36;1m    token in candidate.as_posix().lower()[0m
+2026-09-23T17:56:05.1415426Z [36;1m    for candidate in root.rglob('*')[0m
+2026-09-23T17:56:05.1415982Z [36;1m    for token in ('naiyou_', 'ref01', 'ref02', 'ref04', 'ref06', 'test_backup')[0m
+2026-09-23T17:56:05.1416538Z [36;1m)[0m
+2026-09-23T17:56:05.1417190Z [36;1mprint('Curated paired Jiuhu GPT/T2S + SoVITS/VITS runtime and four independent voices; discarded model temp remnants.')[0m
+2026-09-23T17:56:05.1417858Z [36;1mPY[0m
+2026-09-23T17:56:05.1418255Z [36;1mTTS_MAIN='app/android/app/src/main'[0m
+2026-09-23T17:56:05.1418789Z [36;1mmkdir -p "${TTS_MAIN}/assets" "${TTS_MAIN}/jniLibs/arm64-v8a"[0m
+2026-09-23T17:56:05.1419645Z [36;1mcp -a .genie-payload/unpacked/assets/benchmark_jiuhu "${TTS_MAIN}/assets/benchmark"[0m
+2026-09-23T17:56:05.1420391Z [36;1mcp -a .genie-payload/unpacked/assets/openjtalk "${TTS_MAIN}/assets/"[0m
+2026-09-23T17:56:05.1421029Z [36;1mcp .genie-payload/unpacked/lib/arm64-v8a/libopenjtalk_native.so \[0m
+2026-09-23T17:56:05.1421577Z [36;1m  "${TTS_MAIN}/jniLibs/arm64-v8a/"[0m
+2026-09-23T17:56:05.1422183Z [36;1mcp .genie-payload/unpacked/lib/arm64-v8a/libgenie_frontend.so \[0m
+2026-09-23T17:56:05.1422749Z [36;1m  "${TTS_MAIN}/jniLibs/arm64-v8a/"[0m
+2026-09-23T17:56:05.1423298Z [36;1mcp .genie-payload/unpacked/lib/arm64-v8a/libc++_shared.so \[0m
+2026-09-23T17:56:05.1423817Z [36;1m  "${TTS_MAIN}/jniLibs/arm64-v8a/"[0m
+2026-09-23T17:56:05.1424258Z [36;1mpython3 - <<'PY'[0m
+2026-09-23T17:56:05.1424673Z [36;1mimport hashlib, json, pathlib[0m
+2026-09-23T17:56:05.1425180Z [36;1mroot = pathlib.Path('app/android/app/src/main')[0m
+2026-09-23T17:56:05.1425745Z [36;1mfiles = [[0m
+2026-09-23T17:56:05.1426265Z [36;1m    path for base in (root / 'assets' / 'benchmark', root / 'assets' / 'openjtalk')[0m
+2026-09-23T17:56:05.1426892Z [36;1m    for path in base.rglob('*') if path.is_file()[0m
+2026-09-23T17:56:05.1427338Z [36;1m][0m
+2026-09-23T17:56:05.1427828Z [36;1mfiles.append(root / 'jniLibs/arm64-v8a/libopenjtalk_native.so')[0m
+2026-09-23T17:56:05.1428490Z [36;1mfiles.append(root / 'jniLibs/arm64-v8a/libgenie_frontend.so')[0m
+2026-09-23T17:56:05.1429086Z [36;1mfiles.append(root / 'jniLibs/arm64-v8a/libc++_shared.so')[0m
+2026-09-23T17:56:05.1429695Z [36;1mmanifest = {[0m
+2026-09-23T17:56:05.1430130Z [36;1m    str(path.relative_to(root)): {[0m
+2026-09-23T17:56:05.1430647Z [36;1m        'size': path.stat().st_size,[0m
+2026-09-23T17:56:05.1431196Z [36;1m        'sha256': hashlib.sha256(path.read_bytes()).hexdigest(),[0m
+2026-09-23T17:56:05.1431667Z [36;1m    }[0m
+2026-09-23T17:56:05.1432034Z [36;1m    for path in files[0m
+2026-09-23T17:56:05.1432465Z [36;1m}[0m
+2026-09-23T17:56:05.1432952Z [36;1mpathlib.Path('.genie-payload/extracted-manifest.json').write_text([0m
+2026-09-23T17:56:05.1433593Z [36;1m    json.dumps(manifest, sort_keys=True), encoding='utf-8'[0m
+2026-09-23T17:56:05.1434069Z [36;1m)[0m
+2026-09-23T17:56:05.1434548Z [36;1mprint(f'Restored {len(manifest)} curated Genie/OpenJTalk payload files.')[0m
+2026-09-23T17:56:05.1435103Z [36;1mPY[0m
+2026-09-23T17:56:05.1465298Z shell: /usr/bin/bash --noprofile --norc -e -o pipefail {0}
+2026-09-23T17:56:05.1465883Z env:
+2026-09-23T17:56:05.1469223Z   GH_TOKEN: ***
+2026-09-23T17:56:05.1469909Z ##[endgroup]
+2026-09-23T17:56:12.8719161Z .genie-payload/Genie-TTS-Android-v0.7.6-Jiuhu-4-candidates-test.apk: OK
+2026-09-23T17:56:18.7657614Z .genie-payload/Genie-TTS-v0.6.4-Verified.apk: OK
+2026-09-23T17:56:26.5250464Z Curated paired Jiuhu GPT/T2S + SoVITS/VITS runtime and four independent voices; discarded model temp remnants.
+2026-09-23T17:56:27.3236709Z Restored 49 curated Genie/OpenJTalk payload files.
+2026-09-23T17:56:27.3322757Z ##[group]Run set -euo pipefail
+2026-09-23T17:56:27.3323197Z [36;1mset -euo pipefail[0m
+2026-09-23T17:56:27.3323624Z [36;1mtest -f app/pubspec.yaml[0m
+2026-09-23T17:56:27.3324083Z [36;1mgrep -Fqx 'version: 0.42.5+249' app/pubspec.yaml[0m
+2026-09-23T17:56:27.3324687Z [36;1mgrep -Fqx '  static const int schemaVersion = 61;' app/lib/core/database/app_database.dart[0m
+2026-09-23T17:56:27.3325262Z [36;1mtest -d app/lib[0m
+2026-09-23T17:56:27.3325603Z [36;1mtest -d app/android[0m
+2026-09-23T17:56:27.3325988Z [36;1mtest -d app/test[0m
+2026-09-23T17:56:27.3326415Z [36;1mtest -d app/tools[0m
+2026-09-23T17:56:27.3326889Z [36;1mtest ! -f app/android/app/src/main/assets/emotion_model_19emo/model.onnx[0m
+2026-09-23T17:56:27.3327502Z [36;1mtest -f app/android/app/src/main/assets/benchmark/manifest.json[0m
+2026-09-23T17:56:27.3328255Z [36;1mtest -n "$(find app/android/app/src/main/assets/benchmark/models -maxdepth 1 -type f -name '*.onnx' -print -quit)"[0m
+2026-09-23T17:56:27.3329190Z [36;1mtest -f app/android/app/src/main/jniLibs/arm64-v8a/libopenjtalk_native.so[0m
+2026-09-23T17:56:27.3330103Z [36;1mtest -f app/android/app/src/main/jniLibs/arm64-v8a/libgenie_frontend.so[0m
+2026-09-23T17:56:27.3330731Z [36;1mtest -f app/android/app/src/main/jniLibs/arm64-v8a/libc++_shared.so[0m
+2026-09-23T17:56:27.3331294Z [36;1mtest ! -d app/android/app/src/main/assets/tts_models[0m
+2026-09-23T17:56:27.3331781Z [36;1mtest ! -d app/android/app/src/main/assets/legacy_tts[0m
+2026-09-23T17:56:27.3332382Z [36;1mecho 'Building v0.42.5+249 TTS semantic guard and session metrics candidate.'[0m
+2026-09-23T17:56:27.3358812Z shell: /usr/bin/bash --noprofile --norc -e -o pipefail {0}
+2026-09-23T17:56:27.3359298Z ##[endgroup]
+2026-09-23T17:56:27.3886821Z Building v0.42.5+249 TTS semantic guard and session metrics candidate.
+2026-09-23T17:56:27.3917968Z ##[group]Run python3 tools/restore_dafeiyu_asset_pack.py
+2026-09-23T17:56:27.3918483Z [36;1mpython3 tools/restore_dafeiyu_asset_pack.py[0m
+2026-09-23T17:56:27.3942771Z shell: /usr/bin/bash -e {0}
+2026-09-23T17:56:27.3943235Z ##[endgroup]
+2026-09-23T17:56:28.2354742Z Restored exact desktop-pet pack: 417 files, 111962623 bytes, tree caa4939627ee3a773566d4c793e355df5de98ad38698ddeb5b67519d03715582.
+2026-09-23T17:56:28.2454803Z ##[group]Run bash tools/fetch_lingchat_visual_assets.sh
+2026-09-23T17:56:28.2455324Z [36;1mbash tools/fetch_lingchat_visual_assets.sh[0m
+2026-09-23T17:56:28.2479917Z shell: /usr/bin/bash -e {0}
+2026-09-23T17:56:28.2480326Z ##[endgroup]
+2026-09-23T17:56:28.7575519Z 09ff689d1959fd8789aa9dccdd22c3f7d62fe4a7bbb52ce671c501e6551af75c  background/day.webp (reused)
+2026-09-23T17:56:28.9052087Z 0e91d1b708fc9eee554a653c10b16f317daa2589460ace54f9ca79762559c469  background/night.webp (reused)
+2026-09-23T17:56:29.0392796Z 68772d09789c9557509dad6ae64472fe0046b5cf35b91abffb5c3f03c2d0cb00  deepseek/avatar.webp (reused)
+2026-09-23T17:56:29.1894667Z daaf3734be59772fc21689827f3d7a6114bdeec2b9fffb78dd4247936c4ca54c  deepseek/normal.webp (reused)
+2026-09-23T17:56:29.3426360Z 18c175644877130ab4787ceed3c548feb9602a6dfae57c2c8cf854f9404df899  deepseek/calm.webp (reused)
+2026-09-23T17:56:29.4608978Z 40ef9602ba84f978cdcfb456e1880a772c6efd307ff14e8fee34eec6d11756bc  deepseek/happy.webp (reused)
+2026-09-23T17:56:29.6456399Z 81d8f7d903cc7c66d69e3fd8d98c90167a0334da5f82266fd5120e1c1c110c38  deepseek/excited.webp (reused)
+2026-09-23T17:56:29.7823932Z b48f0ebbeb80a97cb23fc04f2284228b299f3edc263a11c7d54513533f5f88c8  deepseek/playful.webp (reused)
+2026-09-23T17:56:29.9242830Z cade7bd2c3477949cb710237dcd06a7aa08a9bffe1f425015f3427c844d5a714  deepseek/confident.webp (reused)
+2026-09-23T17:56:30.0818768Z 55b701dde7a2e89eed13484e8a60843a133f09cdfd111054984025d45f7a92b6  deepseek/serious.webp (reused)
+2026-09-23T17:56:30.2112915Z b94abbe4504d9fcb91d451b52caa00a33343d24669221847cbd9faffbf861655  deepseek/confused.webp (reused)
+2026-09-23T17:56:30.3498090Z a5ca70ec1c52befaa29c672ee043e04685710fd68aa0ad65b2cda52abcc2192c  deepseek/helpless.webp (reused)
+2026-09-23T17:56:30.4940692Z b0a598803629346230526c7973adbb1045c1aab26ed9a4adf148495d610f518f  deepseek/worried.webp (reused)
+2026-09-23T17:56:30.6472344Z 44cdf843db10aae78382c5c0cf91e3cd0d0339c8e91613905c3c004aa88720d4  deepseek/surprised.webp (reused)
+2026-09-23T17:56:30.7945573Z 37e24993b8c1ec69ef9af8d7510bc3b4aac6394153a457dea6f8ff4068d62426  deepseek/flustered.webp (reused)
+2026-09-23T17:56:31.0164677Z 5fb28d50153dfe8fa1c7b77700adfd9718ac68426a656e5568a141905cdd31c9  deepseek/shy.webp (reused)
+2026-09-23T17:56:31.1715498Z 26676559f88ad090642a058bd3e1908563d721f9d52e7e50afb2a19197ed2e6d  deepseek/affection.webp (reused)
+2026-09-23T17:56:31.3004114Z 68efc1645f4d8e44e3d672ce0c4202204665ee06504bb65ab5d393745db554c6  deepseek/angry.webp (reused)
+2026-09-23T17:56:31.4411235Z 6dc2298f89da2d25e6feb4083920fefaf49696e3f0dddd764e1a452b64e2992d  deepseek/sad.webp (reused)
+2026-09-23T17:56:31.5829902Z 627a8122b4c3c5bf72d5d4a0d045c9480617ca725468668a6303037240411459  deepseek/disgust.webp (reused)
+2026-09-23T17:56:31.7319128Z 9d8c1412b0dbc183cb8fa86f7dcebce2462cb9e097126e8fc78aac78165cfe35  deepseek/afraid.webp (reused)
+2026-09-23T17:56:31.9619671Z 37e24993b8c1ec69ef9af8d7510bc3b4aac6394153a457dea6f8ff4068d62426  deepseek/tense.webp (reused)
+2026-09-23T17:56:32.0820160Z 025564c19730b427b949ca53efb411cf7dffc707febc45fb176669a3d43e3e62  deepseek/ashamed.webp (reused)
+2026-09-23T17:56:32.2478908Z 6216747962e017c04ba526b9327ccf0745d2cdb61727e275de956046191d4efa  audio/sad.wav (reused)
+2026-09-23T17:56:32.3740736Z 0918d0250935a86ca56f94dcb1ed6c8fc05fb79a142e77a72e881c8f361f2100  audio/sigh.wav (reused)
+2026-09-23T17:56:32.5430339Z 53d750da6ab227a3c51d8b35a816c79d90ce576810209ed474760203a481986c  audio/joy.wav (reused)
+2026-09-23T17:56:32.6769075Z 9c9d6aa4067f67126ded6aeba31abdcb184d6dfcd1dadfde4854afbf60e27c2c  audio/affection.wav (reused)
+2026-09-23T17:56:32.8274929Z 2369cbec1a2af3c0bfe47a673a3b02f3f553b1532216d5b218b8219f465eb3f6  audio/troubled.wav (reused)
+2026-09-23T17:56:32.9556868Z 0f4ea932304ef8b652f372327e5fd52cbf6ddbd06573b17904b304b87cfd20a3  audio/shy.wav (reused)
+2026-09-23T17:56:33.0842257Z 5230e98ceca267ed4897754310a79ceea7ae5489ae9a1f310f5f3cc93a94ff60  audio/noticed.wav (reused)
+2026-09-23T17:56:33.2097350Z fc23c45b9ed39d9f38a74be1801a38b7dcb6d0ef7116a0fdd3ea5ea69a1652bf  audio/awkward.wav (reused)
+2026-09-23T17:56:33.3588109Z 518b8d778f9fbc4846ea40c8963e782ea9d3e7fcf5e9bf831065d006f0e857a3  audio/thinking.wav (reused)
+2026-09-23T17:56:33.4882620Z 3e8e92133fc4b9308a021692f70e925dd7212854ab06c87fff25a1b19a5a3a70  audio/surprised.wav (reused)
+2026-09-23T17:56:33.6432872Z 5b405e7d8d2310890adfa9f43dbffb41f791f787d55a3ef72f407d44e06b4a05  audio/speechless.wav (reused)
+2026-09-23T17:56:33.7856668Z 179b281551d74fc9dd3764d76eb92ae41dc815781ada628fc16882846f6814ff  audio/angry.wav (reused)
+2026-09-23T17:56:33.9250139Z cabfa82d66ebfa7a0cfb2c4aaa116c829c0a4f36f6d39681149074324d834a87  audio/question.wav (reused)
+2026-09-23T17:56:34.0655883Z 20cbfa170f96dffefe0d6764efd0f88e81f297fccda300e091d13c85051debdc  audio/dialogue.wav (reused)
+2026-09-23T17:56:34.5958000Z c645e2061fcb73c619581a9490e127362b7f108bca462d761aa072a39d3e8cca  audio/achievement_common.wav
+2026-09-23T17:56:35.0845610Z 9a4becd5aa1f8f1ccef8400d194438c434ce390a3ffdf83c1eecdc13f83e1db3  audio/achievement_rare.wav
+2026-09-23T17:56:35.5907128Z 528f0adf829d4e86c27a5567d1de0c7e60c6117082b9aa5d71008e22fbb11cd7  audio/disgust.wav
+2026-09-23T17:56:36.1512418Z 83c0d4f48c3906d0a99eaf95c27baa1953a3e1c8e176e9a2030e4a3d1935483f  audio/pleasant.wav
+2026-09-23T17:56:36.6903861Z 49cebbe308f337c20b13f7c8be39a65d4133e171353eb5abbea38596aa525b59  audio/sweat.wav
+2026-09-23T17:56:37.2071010Z 465f70ac178925800982bde9891946535f230b2e008814852c618296ac894934  audio/chat.wav
+2026-09-23T17:56:37.8011864Z 1a0f218979febc952806005c663475a83426c8aeac72d0e9bc7d25ba14aeda76  audio/role_volume_test.wav
+2026-09-23T17:56:38.3063382Z 4451ad195177a15b28dd124634ee39b8d46d66312682276741a3a0f4622456e8  audio/transition.wav
+2026-09-23T17:56:38.8028756Z ae7d21d3933f05421d83ed1f1c43c7510d00611b79cd4eb3af16f6bb24239600  audio/shock.wav
+2026-09-23T17:56:39.6225841Z 50d8b6f737dce53690a74b9ef5209db98107230db817f23cc95fd1549d697502  effects/ai_thinking.webp
+2026-09-23T17:56:40.1771953Z 530fa1139cb6f3b404d911a3ac865521ec1d0fc6911211e9574f5b2450679512  effects/sigh.webp
+2026-09-23T17:56:40.9356365Z 51510de7869b04971683037c9d5c160d967c2001c84269539e60b8655c46e62a  effects/shy.webp
+2026-09-23T17:56:41.6420383Z 7fd82a579a3464b5fe699da0a985634f945b6c576de813f4433c9c53ea1000ca  effects/noticed.webp
+2026-09-23T17:56:42.5057291Z 1d49f8e22c1215a091ef2b6b77b444b536c5e8b64213d752b5243e727c99dfb1  effects/heart.webp
+2026-09-23T17:56:43.1623318Z 6ad4db5d1a54d64d52ca973cbe3d73b413f46943d99b7684f570b2ae840d6792  effects/surprised.webp
+2026-09-23T17:56:43.8626448Z ac504b9ba3af6052128331e13602b947759c45db928236041f1e78b65e8679b2  effects/flustered.webp
+2026-09-23T17:56:44.4725520Z 890696a67c4e71b888d0f1f0b4ab0aa280cc613e7c8df3f5d1a0da0131a4b657  effects/sweat.webp
+2026-09-23T17:56:44.9723431Z 78e4fdc8236bf739948678d1d36d88187c8295577d05a827f3aef0e2c1d2073d  effects/tears.webp
+2026-09-23T17:56:45.6797315Z 1f0a9ade1fecf3ddd73759824b357f49ea31c12c37ca66dedd9fe72ce8049a4c  effects/angry.webp
+2026-09-23T17:56:46.2393784Z c3ba07639516462f78f8d51b05d9a3fb78f42c2e6e9d658b94920b4805cfc235  effects/angry_alt.webp
+2026-09-23T17:56:46.9814252Z 672af36db82754aec819e516fae2f823687dd130582e5a0a9ed892d7fcbd6f76  effects/question.webp
+2026-09-23T17:56:47.6758516Z e4a6c91907a5adf489628151fa429cda91c75da1240d1c67f2c060088138b1ea  effects/nervous.webp
+2026-09-23T17:56:48.4087200Z 908f3e832591a37f750aebca77fe5f11df7b31e2497c2bce7b55d7e54b77544d  effects/dialogue.webp
+2026-09-23T17:56:49.3998498Z 9c9fb289cb0f5d0043669bc4fcf01df971e6b032eef32a49d4c274b067b42a9f  effects/embarrassed.webp
+2026-09-23T17:56:49.9814154Z 25ce7b06f43cd0e13af040d7cabb53884c58dcf8a51403a6f90e93d3985fb56f  effects/happy.webp
+2026-09-23T17:56:49.9857934Z ##[group]Run bash tools/fetch_tarot_assets.sh
+2026-09-23T17:56:49.9858625Z [36;1mbash tools/fetch_tarot_assets.sh[0m
+2026-09-23T17:56:49.9893758Z shell: /usr/bin/bash -e {0}
+2026-09-23T17:56:49.9894431Z ##[endgroup]
+2026-09-23T17:56:50.5853384Z Pinned 22-card Rider-Waite-Smith Major Arcana JPG pack restored.
+2026-09-23T17:56:50.5982079Z ##[group]Run actions/setup-java@v4
+2026-09-23T17:56:50.5982455Z with:
+2026-09-23T17:56:50.5982773Z   distribution: temurin
+2026-09-23T17:56:50.5983097Z   java-version: 17
+2026-09-23T17:56:50.5983386Z   java-package: jdk
+2026-09-23T17:56:50.5983786Z   check-latest: false
+2026-09-23T17:56:50.5984095Z   server-id: github
+2026-09-23T17:56:50.5984420Z   server-username: GITHUB_ACTOR
+2026-09-23T17:56:50.5984775Z   server-password: GITHUB_TOKEN
+2026-09-23T17:56:50.5985109Z   overwrite-settings: true
+2026-09-23T17:56:50.5985493Z   job-status: success
+2026-09-23T17:56:50.5988145Z   token: ***
+2026-09-23T17:56:50.5988456Z ##[endgroup]
+2026-09-23T17:56:50.7653670Z ##[warning]setup-java v4 is deprecated and will no longer receive updates. Please migrate to actions/setup-java@v5.
+2026-09-23T17:56:50.7660156Z ##[group]Installed distributions
+2026-09-23T17:56:50.7851656Z Resolved Java 17.0.20+1 from tool-cache
+2026-09-23T17:56:50.7861421Z (node:3368) [DEP0040] DeprecationWarning: The `punycode` module is deprecated. Please use a userland alternative instead.
+2026-09-23T17:56:50.7862172Z (Use `node --trace-deprecation ...` to show where the warning was created)
+2026-09-23T17:56:50.7862764Z Setting Java 17.0.20+1 as the default
+2026-09-23T17:56:50.7864781Z Creating toolchains.xml for JDK version 17 from temurin
+2026-09-23T17:56:50.7932010Z Writing to /home/runner/.m2/toolchains.xml
+2026-09-23T17:56:50.7932546Z 
+2026-09-23T17:56:50.7932843Z Java configuration:
+2026-09-23T17:56:50.7933269Z   Distribution: temurin
+2026-09-23T17:56:50.7933776Z   Version: 17.0.20+1
+2026-09-23T17:56:50.7934304Z   Path: /opt/hostedtoolcache/Java_Temurin-Hotspot_jdk/17.0.20-1/x64
+2026-09-23T17:56:50.7934673Z 
+2026-09-23T17:56:50.7935312Z ##[endgroup]
+2026-09-23T17:56:50.7958727Z Creating settings.xml with server-id: github
+2026-09-23T17:56:50.7983287Z Writing to /home/runner/.m2/settings.xml
+2026-09-23T17:56:50.8314675Z ##[group]Run subosito/flutter-action@v2
+2026-09-23T17:56:50.8315244Z with:
+2026-09-23T17:56:50.8315687Z   channel: stable
+2026-09-23T17:56:50.8316194Z   flutter-version: 3.44.9
+2026-09-23T17:56:50.8316667Z   architecture: X64
+2026-09-23T17:56:50.8317128Z   cache: false
+2026-09-23T17:56:50.8317483Z   pub-cache-path: default
+2026-09-23T17:56:50.8317974Z   dry-run: false
+2026-09-23T17:56:50.8318511Z   git-source: https://github.com/flutter/flutter.git
+2026-09-23T17:56:50.8318977Z env:
+2026-09-23T17:56:50.8319722Z   JAVA_HOME: /opt/hostedtoolcache/Java_Temurin-Hotspot_jdk/17.0.20-1/x64
+2026-09-23T17:56:50.8320549Z   JAVA_HOME_17_X64: /opt/hostedtoolcache/Java_Temurin-Hotspot_jdk/17.0.20-1/x64
+2026-09-23T17:56:50.8321075Z ##[endgroup]
+2026-09-23T17:56:50.8408109Z ##[start-action display=Make yq tool available on Windows runners;id=__subosito_flutter-action.__run]
+2026-09-23T17:56:50.8420106Z ##[end-action id=__subosito_flutter-action.__run;outcome=skipped;conclusion=skipped;duration_ms=0]
+2026-09-23T17:56:50.8422872Z ##[start-action display=Make setup script executable;id=__subosito_flutter-action.__run_2]
+2026-09-23T17:56:50.8448410Z ##[group]Run chmod +x "$GITHUB_ACTION_PATH/setup.sh"
+2026-09-23T17:56:50.8448916Z [36;1mchmod +x "$GITHUB_ACTION_PATH/setup.sh"[0m
+2026-09-23T17:56:50.8475501Z shell: /usr/bin/bash --noprofile --norc -e -o pipefail {0}
+2026-09-23T17:56:50.8475933Z env:
+2026-09-23T17:56:50.8476444Z   JAVA_HOME: /opt/hostedtoolcache/Java_Temurin-Hotspot_jdk/17.0.20-1/x64
+2026-09-23T17:56:50.8477017Z   JAVA_HOME_17_X64: /opt/hostedtoolcache/Java_Temurin-Hotspot_jdk/17.0.20-1/x64
+2026-09-23T17:56:50.8477566Z ##[endgroup]
+2026-09-23T17:56:50.8548499Z ##[end-action id=__subosito_flutter-action.__run_2;outcome=success;conclusion=success;duration_ms=12]
+2026-09-23T17:56:50.8551721Z ##[start-action display=Set action inputs;id=__subosito_flutter-action.flutter-action]
+2026-09-23T17:56:50.8586371Z ##[group]Run $GITHUB_ACTION_PATH/setup.sh -p \
+2026-09-23T17:56:50.8586935Z [36;1m$GITHUB_ACTION_PATH/setup.sh -p \[0m
+2026-09-23T17:56:50.8587299Z [36;1m  -n '3.44.9' \[0m
+2026-09-23T17:56:50.8587591Z [36;1m  -f '' \[0m
+2026-09-23T17:56:50.8587909Z [36;1m  -a 'X64' \[0m
+2026-09-23T17:56:50.8588201Z [36;1m  -k '' \[0m
+2026-09-23T17:56:50.8588552Z [36;1m  -c '' \[0m
+2026-09-23T17:56:50.8588831Z [36;1m  -l '' \[0m
+2026-09-23T17:56:50.8589101Z [36;1m  -d 'default' \[0m
+2026-09-23T17:56:50.8589742Z [36;1m  -g 'https://github.com/flutter/flutter.git' \[0m
+2026-09-23T17:56:50.8590173Z [36;1m  stable[0m
+2026-09-23T17:56:50.8611904Z shell: /usr/bin/bash --noprofile --norc -e -o pipefail {0}
+2026-09-23T17:56:50.8612415Z env:
+2026-09-23T17:56:50.8612876Z   JAVA_HOME: /opt/hostedtoolcache/Java_Temurin-Hotspot_jdk/17.0.20-1/x64
+2026-09-23T17:56:50.8613468Z   JAVA_HOME_17_X64: /opt/hostedtoolcache/Java_Temurin-Hotspot_jdk/17.0.20-1/x64
+2026-09-23T17:56:50.8613976Z ##[endgroup]
+2026-09-23T17:56:51.0212300Z ##[end-action id=__subosito_flutter-action.flutter-action;outcome=success;conclusion=success;duration_ms=165]
+2026-09-23T17:56:51.0217985Z ##[start-action display=Cache Flutter;id=__subosito_flutter-action.cache-flutter]
+2026-09-23T17:56:51.0224089Z ##[end-action id=__subosito_flutter-action.cache-flutter;outcome=skipped;conclusion=skipped;duration_ms=0]
+2026-09-23T17:56:51.0226559Z ##[start-action display=Cache pub dependencies;id=__subosito_flutter-action.cache-pub]
+2026-09-23T17:56:51.0235266Z ##[end-action id=__subosito_flutter-action.cache-pub;outcome=skipped;conclusion=skipped;duration_ms=0]
+2026-09-23T17:56:51.0237559Z ##[start-action display=Run setup script;id=__subosito_flutter-action.__run_3]
+2026-09-23T17:56:51.0272608Z ##[group]Run $GITHUB_ACTION_PATH/setup.sh \
+2026-09-23T17:56:51.0273107Z [36;1m$GITHUB_ACTION_PATH/setup.sh \[0m
+2026-09-23T17:56:51.0273482Z [36;1m  -n '3.44.9' \[0m
+2026-09-23T17:56:51.0273804Z [36;1m  -a 'x64' \[0m
+2026-09-23T17:56:51.0274240Z [36;1m  -c '/opt/hostedtoolcache/flutter/stable-3.44.9-x64' \[0m
+2026-09-23T17:56:51.0274984Z [36;1m  -d '/home/runner/.pub-cache' \[0m
+2026-09-23T17:56:51.0275386Z [36;1m  stable[0m
+2026-09-23T17:56:51.0298715Z shell: /usr/bin/bash --noprofile --norc -e -o pipefail {0}
+2026-09-23T17:56:51.0299154Z env:
+2026-09-23T17:56:51.0300064Z   JAVA_HOME: /opt/hostedtoolcache/Java_Temurin-Hotspot_jdk/17.0.20-1/x64
+2026-09-23T17:56:51.0300655Z   JAVA_HOME_17_X64: /opt/hostedtoolcache/Java_Temurin-Hotspot_jdk/17.0.20-1/x64
+2026-09-23T17:56:51.0301124Z ##[endgroup]
+2026-09-23T17:56:51.1706198Z   % Total    % Received % Xferd  Average Speed   Time    Time     Time  Current
+2026-09-23T17:56:51.1707023Z                                  Dload  Upload   Total   Spent    Left  Speed
+2026-09-23T17:56:51.1707648Z 
+2026-09-23T17:56:51.3944140Z   0     0    0     0    0     0      0      0 --:--:-- --:--:-- --:--:--     0
+2026-09-23T17:56:52.3944569Z   0 1475M    0 8648k    0     0  37.7M      0  0:00:39 --:--:--  0:00:39 37.7M
+2026-09-23T17:56:53.3947547Z   9 1475M    9  135M    0     0   110M      0  0:00:13  0:00:01  0:00:12  110M
+2026-09-23T17:56:54.3944186Z  17 1475M   17  253M    0     0   114M      0  0:00:12  0:00:02  0:00:10  114M
+2026-09-23T17:56:55.3958937Z  23 1475M   23  344M    0     0   106M      0  0:00:13  0:00:03  0:00:10  106M
+2026-09-23T17:56:56.3943763Z  28 1475M   28  423M    0     0   100M      0  0:00:14  0:00:04  0:00:10  100M
+2026-09-23T17:56:57.3943760Z  36 1475M   36  539M    0     0   103M      0  0:00:14  0:00:05  0:00:09  106M
+2026-09-23T17:56:58.3943274Z  41 1475M   41  613M    0     0  98.5M      0  0:00:14  0:00:06  0:00:08 95.6M
+2026-09-23T17:56:59.4083317Z  50 1475M   50  744M    0     0   103M      0  0:00:14  0:00:07  0:00:07 98.0M
+2026-09-23T17:57:00.3942608Z  59 1475M   59  878M    0     0   106M      0  0:00:13  0:00:08  0:00:05  106M
+2026-09-23T17:57:01.3943867Z  65 1475M   65  963M    0     0   104M      0  0:00:14  0:00:09  0:00:05  107M
+2026-09-23T17:57:02.3942229Z  72 1475M   72 1074M    0     0   105M      0  0:00:14  0:00:10  0:00:04  107M
+2026-09-23T17:57:03.3966354Z  82 1475M   82 1219M    0     0   108M      0  0:00:13  0:00:11  0:00:02  121M
+2026-09-23T17:57:04.3543489Z  91 1475M   91 1356M    0     0   110M      0  0:00:13  0:00:12  0:00:01  122M
+2026-09-23T17:57:04.3544361Z 100 1475M  100 1475M    0     0   111M      0  0:00:13  0:00:13 --:--:--  120M
+2026-09-23T17:58:01.7786414Z ##[end-action id=__subosito_flutter-action.__run_3;outcome=success;conclusion=success;duration_ms=70754]
+2026-09-23T17:58:01.7847233Z ##[group]Run set -euo pipefail
+2026-09-23T17:58:01.7847777Z [36;1mset -euo pipefail[0m
+2026-09-23T17:58:01.7848159Z [36;1mSIGNING_TAG='ai-companion-private-signing-v1'[0m
+2026-09-23T17:58:01.7848704Z [36;1mSIGNING_ASSET='AI-Companion-Private-Test-Signing-v1.p12'[0m
+2026-09-23T17:58:01.7849255Z [36;1mSIGNER_INFO='AI-Companion-Private-Test-Signing-v1.sha256.txt'[0m
+2026-09-23T17:58:01.7850022Z [36;1mSIGNING_DIR="${RUNNER_TEMP}/ai-companion-signing"[0m
+2026-09-23T17:58:01.7850548Z [36;1mKEYSTORE="${SIGNING_DIR}/${SIGNING_ASSET}"[0m
+2026-09-23T17:58:01.7850991Z [36;1mINFO_FILE="${SIGNING_DIR}/${SIGNER_INFO}"[0m
+2026-09-23T17:58:01.7851642Z [36;1mSTORE_PASSWORD="${AI_COMPANION_SIGNING_PASSWORD:?missing AI_COMPANION_SIGNING_PASSWORD repository secret}"[0m
+2026-09-23T17:58:01.7852252Z [36;1mKEY_ALIAS='ai-companion-private-test-v1'[0m
+2026-09-23T17:58:01.7852647Z [36;1mmkdir -p "${SIGNING_DIR}"[0m
+2026-09-23T17:58:01.7853044Z [36;1m[0m
+2026-09-23T17:58:01.7853607Z [36;1mif gh release view "${SIGNING_TAG}" --repo "${GITHUB_REPOSITORY}" >/dev/null 2>&1; then[0m
+2026-09-23T17:58:01.7854235Z [36;1m  gh release download "${SIGNING_TAG}" --repo "${GITHUB_REPOSITORY}" \[0m
+2026-09-23T17:58:01.7854760Z [36;1m    --pattern "${SIGNING_ASSET}" --dir "${SIGNING_DIR}"[0m
+2026-09-23T17:58:01.7855283Z [36;1m  gh release download "${SIGNING_TAG}" --repo "${GITHUB_REPOSITORY}" \[0m
+2026-09-23T17:58:01.7856072Z [36;1m    --pattern "${SIGNER_INFO}" --dir "${SIGNING_DIR}"[0m
+2026-09-23T17:58:01.7856543Z [36;1m  test -s "${KEYSTORE}"[0m
+2026-09-23T17:58:01.7857034Z [36;1m  test -s "${INFO_FILE}"[0m
+2026-09-23T17:58:01.7857373Z [36;1melse[0m
+2026-09-23T17:58:01.7857716Z [36;1m  keytool -genkeypair \[0m
+2026-09-23T17:58:01.7858064Z [36;1m    -storetype PKCS12 \[0m
+2026-09-23T17:58:01.7858492Z [36;1m    -keystore "${KEYSTORE}" \[0m
+2026-09-23T17:58:01.7858880Z [36;1m    -storepass "${STORE_PASSWORD}" \[0m
+2026-09-23T17:58:01.7859271Z [36;1m    -alias "${KEY_ALIAS}" \[0m
+2026-09-23T17:58:01.7859886Z [36;1m    -keypass "${STORE_PASSWORD}" \[0m
+2026-09-23T17:58:01.7860286Z [36;1m    -keyalg RSA \[0m
+2026-09-23T17:58:01.7860601Z [36;1m    -keysize 3072 \[0m
+2026-09-23T17:58:01.7860994Z [36;1m    -validity 10000 \[0m
+2026-09-23T17:58:01.7861432Z [36;1m    -dname 'CN=AI Companion Private Test,O=Local Development,C=JP'[0m
+2026-09-23T17:58:01.7861979Z [36;1m  SIGNER_SHA256="$(keytool -list -v -keystore "${KEYSTORE}" \[0m
+2026-09-23T17:58:01.7862505Z [36;1m    -storepass "${STORE_PASSWORD}" -alias "${KEY_ALIAS}" |[0m
+2026-09-23T17:58:01.7862972Z [36;1m    sed -n 's/^[[:space:]]*SHA256: //p' | head -1)"[0m
+2026-09-23T17:58:01.7863440Z [36;1m  test -n "${SIGNER_SHA256}"[0m
+2026-09-23T17:58:01.7863849Z [36;1m  printf 'sha256=%s\n' "${SIGNER_SHA256}" > "${INFO_FILE}"[0m
+2026-09-23T17:58:01.7864380Z [36;1m  gh release create "${SIGNING_TAG}" --repo "${GITHUB_REPOSITORY}" \[0m
+2026-09-23T17:58:01.7864879Z [36;1m    --target "${GITHUB_SHA}" --draft \[0m
+2026-09-23T17:58:01.7865397Z [36;1m    --title 'AI Companion private persistent test signing identity v1' \[0m
+2026-09-23T17:58:01.7866341Z [36;1m    --notes 'Private draft only. Deleting this signing asset breaks future APK update continuity. Anyone with repository read access must be treated as able to obtain this test signing identity.'[0m
+2026-09-23T17:58:01.7867264Z [36;1m  gh release upload "${SIGNING_TAG}" "${KEYSTORE}" "${INFO_FILE}" \[0m
+2026-09-23T17:58:01.7867741Z [36;1m    --repo "${GITHUB_REPOSITORY}"[0m
+2026-09-23T17:58:01.7868116Z [36;1mfi[0m
+2026-09-23T17:58:01.7868434Z [36;1m[0m
+2026-09-23T17:58:01.7868733Z [36;1mchmod 600 "${KEYSTORE}"[0m
+2026-09-23T17:58:01.7869153Z [36;1mSIGNER_SHA256="$(keytool -list -v -keystore "${KEYSTORE}" \[0m
+2026-09-23T17:58:01.7869958Z [36;1m  -storepass "${STORE_PASSWORD}" -alias "${KEY_ALIAS}" |[0m
+2026-09-23T17:58:01.7870444Z [36;1m  sed -n 's/^[[:space:]]*SHA256: //p' | head -1)"[0m
+2026-09-23T17:58:01.7870885Z [36;1mtest -n "${SIGNER_SHA256}"[0m
+2026-09-23T17:58:01.7871443Z [36;1mgrep -Fqx "sha256=${SIGNER_SHA256}" "${INFO_FILE}"[0m
+2026-09-23T17:58:01.7871940Z [36;1mecho "AI_COMPANION_KEYSTORE_PATH=${KEYSTORE}" >> "${GITHUB_ENV}"[0m
+2026-09-23T17:58:01.7872542Z [36;1mecho "AI_COMPANION_KEYSTORE_PASSWORD=${STORE_PASSWORD}" >> "${GITHUB_ENV}"[0m
+2026-09-23T17:58:01.7873097Z [36;1mecho "AI_COMPANION_KEY_ALIAS=${KEY_ALIAS}" >> "${GITHUB_ENV}"[0m
+2026-09-23T17:58:01.7873667Z [36;1mecho "AI_COMPANION_KEY_PASSWORD=${STORE_PASSWORD}" >> "${GITHUB_ENV}"[0m
+2026-09-23T17:58:01.7874229Z [36;1mecho "AI_COMPANION_SIGNER_SHA256=${SIGNER_SHA256}" >> "${GITHUB_ENV}"[0m
+2026-09-23T17:58:01.7874775Z [36;1mecho "Persistent private test signer ready: ${SIGNER_SHA256}"[0m
+2026-09-23T17:58:01.7901046Z shell: /usr/bin/bash --noprofile --norc -e -o pipefail {0}
+2026-09-23T17:58:01.7901555Z env:
+2026-09-23T17:58:01.7901967Z   JAVA_HOME: /opt/hostedtoolcache/Java_Temurin-Hotspot_jdk/17.0.20-1/x64
+2026-09-23T17:58:01.7902655Z   JAVA_HOME_17_X64: /opt/hostedtoolcache/Java_Temurin-Hotspot_jdk/17.0.20-1/x64
+2026-09-23T17:58:01.7903247Z   FLUTTER_ROOT: /opt/hostedtoolcache/flutter/stable-3.44.9-x64/flutter
+2026-09-23T17:58:01.7903750Z   PUB_CACHE: /home/runner/.pub-cache
+2026-09-23T17:58:01.7906718Z   GH_TOKEN: ***
+2026-09-23T17:58:01.7907173Z   AI_COMPANION_SIGNING_PASSWORD: ***
+2026-09-23T17:58:01.7907604Z ##[endgroup]
+2026-09-23T17:58:07.5693332Z Persistent private test signer ready: 30:5E:B3:D8:09:83:B9:63:C6:48:18:DD:F1:AD:56:1F:27:9D:E6:D4:7B:3E:D2:C7:81:AD:A4:48:C7:C2:51:48
+2026-09-23T17:58:07.5724962Z ##[group]Run set -euo pipefail
+2026-09-23T17:58:07.5725654Z [36;1mset -euo pipefail[0m
+2026-09-23T17:58:07.5726191Z [36;1m# Legacy validator compatibility tokens. Historical gates inspect[0m
+2026-09-23T17:58:07.5726764Z [36;1m# this workflow by filename; execution order now has one source of[0m
+2026-09-23T17:58:07.5727328Z [36;1m# truth in tools/validation_suite.txt.[0m
+2026-09-23T17:58:07.5727958Z [36;1m# validate_v04128_immersive_identity_rendering.py validate_v04129_proactive_rendering_rule_editor_emotion.py[0m
+2026-09-23T17:58:07.5728937Z [36;1m# validate_v04130_presentation_ablation_upload_diagnostics.py validate_v04131_phase2a5_verifier_anr_diagnostics.py[0m
+2026-09-23T17:58:07.5729966Z [36;1m# validate_v04132_phase2b_learning_association.py validate_v04133_competence_curation_emotion.py[0m
+2026-09-23T17:58:07.5730730Z [36;1m# validate_v04134_memory_grounding_agent_foundation.py validate_v04135_interrupted_turn_system_command.py[0m
+2026-09-23T17:58:07.5731662Z [36;1m# validate_v04136_immersive_boundary_stop_style.py validate_v04146_sticker_agent_continuation_identity.py[0m
+2026-09-23T17:58:07.5732393Z [36;1m# validate_v04150_agent_v2_bounded_loop.py validate_v0401_album_identity_closure.py[0m
+2026-09-23T17:58:07.5733120Z [36;1m# validate_v0405_album_image_binding.py validate_v0374_audio_presentation_stabilization.py[0m
+2026-09-23T17:58:07.5733859Z [36;1m# validate_v0376_chat_recovery_presentation.py validate_v04111_personality_learning_semantic_verifier.py[0m
+2026-09-23T17:58:07.5734655Z [36;1m# validate_v04113_phase01_time_audit_hardening.py validate_v04114_agent_truth_screen_observation.py[0m
+2026-09-23T17:58:07.5735385Z [36;1m# validate_v04155_genie_direct_port_lazy_language.py validate_v04156_worldbook_media_refs.py[0m
+2026-09-23T17:58:07.5736064Z [36;1m# validate_v04157_chat_media_expression.py validate_v04158_backup_naiyou_runtime.py[0m
+2026-09-23T17:58:07.5736745Z [36;1m# validate_v04166_phase3c_phone_pacing.py validate_v04167_cedar_toy_mcp.py[0m
+2026-09-23T17:58:07.5737362Z [36;1m# validate_v04168_cedar_game_experience.py validate_v04169_cedar_game_switching.py[0m
+2026-09-23T17:58:07.5738092Z [36;1m# validate_v04170_agent_mcp_runtime_hardening.py validate_v04171_cedar_realtime_room_chat.py[0m
+2026-09-23T17:58:07.5738985Z [36;1m# validate_v04172_cedar_trust_watch_modes.py validate_v04173_cedar_reply_completion.py[0m
+2026-09-23T17:58:07.5739944Z [36;1m# validate_v04174_cedar_game_hall_protocol.py validate_v04175_cedar_agentic_blind_play.py[0m
+2026-09-23T17:58:07.5740691Z [36;1m# validate_v04176_cedar_protocol_continuation.py validate_v04177_cedar_background_turn_loop.py[0m
+2026-09-23T17:58:07.5741420Z [36;1m# validate_v04178_stop_transfer_interlock.py validate_v04179_cedar_runtime_preemption.py[0m
+2026-09-23T17:58:07.5742086Z [36;1m# validate_v04180_cedar_agent_loop.py validate_v04181_cedar_background_agent_tools.py[0m
+2026-09-23T17:58:07.5742755Z [36;1m# validate_v04182_cedar_state_machine_e2e.py validate_v04183_cedar_native_agent_loop.py[0m
+2026-09-23T17:58:07.5743329Z [36;1m# validate_v04184_agent_loop_autonomy_closure.py[0m
+2026-09-23T17:58:07.5743911Z [36;1m# Exact historical command tokens retained for three gates that[0m
+2026-09-23T17:58:07.5744462Z [36;1m# predate the manifest runner and assert their old literal command.[0m
+2026-09-23T17:58:07.5744998Z [36;1m# python3 tools/validate_v04150_agent_v2_bounded_loop.py[0m
+2026-09-23T17:58:07.5745493Z [36;1m# python3 tools/validate_v0401_album_identity_closure.py[0m
+2026-09-23T17:58:07.5745977Z [36;1m# python3 tools/validate_v0405_album_image_binding.py[0m
+2026-09-23T17:58:07.5746493Z [36;1mpython3 tools/run_validation_suite.py[0m
+2026-09-23T17:58:07.5771558Z shell: /usr/bin/bash --noprofile --norc -e -o pipefail {0}
+2026-09-23T17:58:07.5771996Z env:
+2026-09-23T17:58:07.5772508Z   JAVA_HOME: /opt/hostedtoolcache/Java_Temurin-Hotspot_jdk/17.0.20-1/x64
+2026-09-23T17:58:07.5773100Z   JAVA_HOME_17_X64: /opt/hostedtoolcache/Java_Temurin-Hotspot_jdk/17.0.20-1/x64
+2026-09-23T17:58:07.5773883Z   FLUTTER_ROOT: /opt/hostedtoolcache/flutter/stable-3.44.9-x64/flutter
+2026-09-23T17:58:07.5774474Z   PUB_CACHE: /home/runner/.pub-cache
+2026-09-23T17:58:07.5775105Z   AI_COMPANION_KEYSTORE_PATH: /home/runner/work/_temp/ai-companion-signing/AI-Companion-Private-Test-Signing-v1.p12
+2026-09-23T17:58:07.5776034Z   AI_COMPANION_KEYSTORE_PASSWORD: ***
+2026-09-23T17:58:07.5776451Z   AI_COMPANION_KEY_ALIAS: ai-companion-private-test-v1
+2026-09-23T17:58:07.5776950Z   AI_COMPANION_KEY_PASSWORD: ***
+2026-09-23T17:58:07.5777495Z   AI_COMPANION_SIGNER_SHA256: 30:5E:B3:D8:09:83:B9:63:C6:48:18:DD:F1:AD:56:1F:27:9D:E6:D4:7B:3E:D2:C7:81:AD:A4:48:C7:C2:51:48
+2026-09-23T17:58:07.5778081Z ##[endgroup]
+2026-09-23T17:58:07.6158353Z [1/126] tools/validate_v04128_immersive_identity_rendering.py
+2026-09-23T17:58:07.6449305Z v0.41.28 immersive identity/rendering validation passed
+2026-09-23T17:58:07.6498278Z [2/126] tools/validate_v04129_proactive_rendering_rule_editor_emotion.py
+2026-09-23T17:58:07.6774720Z v0.41.29 proactive/rendering/editor/emotion validation passed
+2026-09-23T17:58:07.6820246Z [3/126] tools/validate_v04130_presentation_ablation_upload_diagnostics.py
+2026-09-23T17:58:07.7170502Z v0.41.30 presentation/ablation/upload diagnostics validation passed
+2026-09-23T17:58:07.7217625Z [4/126] tools/validate_v04131_phase2a5_verifier_anr_diagnostics.py
+2026-09-23T17:58:07.7552309Z v0.41.31 Phase 2A.5 verifier/ANR diagnostics validation passed
+2026-09-23T17:58:07.7599734Z [5/126] tools/validate_v04132_phase2b_learning_association.py
+2026-09-23T17:58:07.7960199Z v0.41.32 Phase 2B learning association validation passed
+2026-09-23T17:58:07.8006495Z [6/126] tools/validate_v04133_competence_curation_emotion.py
+2026-09-23T17:58:07.8358133Z v0.41.33 competence curation emotion validation passed
+2026-09-23T17:58:07.8408206Z [7/126] tools/validate_v04134_memory_grounding_agent_foundation.py
+2026-09-23T17:58:07.8935923Z v0.41.34 memory grounding and Agent foundation validation passed
+2026-09-23T17:58:07.8982237Z [8/126] tools/validate_v04135_interrupted_turn_system_command.py
+2026-09-23T17:58:07.9348911Z v0.41.35 interrupted turn and system command validation passed
+2026-09-23T17:58:07.9395374Z [9/126] tools/validate_v04136_immersive_boundary_stop_style.py
+2026-09-23T17:58:07.9736797Z v0.41.36 immersive boundary and stop style validation passed
+2026-09-23T17:58:07.9783239Z [10/126] tools/validate_v04137_memory_lifecycle.py
+2026-09-23T17:58:08.0048311Z v0.41.37 Memory 2D source contract validated
+2026-09-23T17:58:08.0091935Z [11/126] tools/validate_v04138_worldbook_roleplay.py
+2026-09-23T17:58:08.0356193Z v0.41.38 WorldBook 2D roleplay provenance source contract validated
+2026-09-23T17:58:08.0399264Z [12/126] tools/validate_v04139_public_web_reading.py
+2026-09-23T17:58:08.0680320Z v0.41.39 public-web reading and narrow-fix source contract validated
+2026-09-23T17:58:08.0724622Z [13/126] tools/validate_v04140_expression_album_browser.py
+2026-09-23T17:58:08.1015814Z v0.41.40 expression, album-original and browser source contract validated
+2026-09-23T17:58:08.1060060Z [14/126] tools/validate_v04141_roleplay_pronoun_priority.py
+2026-09-23T17:58:08.1317799Z v0.41.41 roleplay/pronoun/priority validation passed
+2026-09-23T17:58:08.1360582Z [15/126] tools/validate_v04142_ai_interest_evidence.py
+2026-09-23T17:58:08.1686546Z v0.41.42 Phase 3A AI-interest evidence validation passed
+2026-09-23T17:58:08.1733323Z [16/126] tools/validate_v04143_phase3b_question_autonomy.py
+2026-09-23T17:58:08.2032290Z v0.41.43 Phase 3B question-autonomy validation passed
+2026-09-23T17:58:08.2078236Z [17/126] tools/validate_v04144_autonomy_arbitration_rework.py
+2026-09-23T17:58:08.2342667Z v0.41.44 autonomy arbitration rework validation passed
+2026-09-23T17:58:08.2384990Z [18/126] tools/validate_v04145_sticker_expression.py
+2026-09-23T17:58:08.2666662Z v0.41.45 sticker expression validation passed
+2026-09-23T17:58:08.2711375Z [19/126] tools/validate_v04146_sticker_agent_continuation_identity.py
+2026-09-23T17:58:08.2991399Z v0.41.46 sticker Agent + continuation identity validation passed
+2026-09-23T17:58:08.3033023Z [20/126] tools/validate_v04147_user_sticker_image_send.py
+2026-09-23T17:58:08.3322345Z v0.41.47 user sticker + image send validation passed
+2026-09-23T17:58:08.3375359Z [21/126] tools/validate_v04148_agent_image_reliability.py
+2026-09-23T17:58:08.3668226Z v0.41.48 Agent image reliability validation passed
+2026-09-23T17:58:08.3709849Z [22/126] tools/validate_v04149_subjective_search_humor.py
+2026-09-23T17:58:08.4018178Z v0.41.49 subjective search + humor restoration validation passed
+2026-09-23T17:58:08.4063610Z [23/126] tools/validate_v04150_agent_v2_bounded_loop.py
+2026-09-23T17:58:08.4417867Z v0.41.50 Agent v2 bounded loop validation passed
+2026-09-23T17:58:08.4462694Z [24/126] tools/validate_current_ledger_handoff.py
+2026-09-23T17:58:08.4814097Z current ledger v2 handoff: OK
+2026-09-23T17:58:08.4815026Z current bytes: 143684
+2026-09-23T17:58:08.4815506Z quick index bytes: 19760
+2026-09-23T17:58:08.4815971Z frozen archive bytes: 1587679
+2026-09-23T17:58:08.4816761Z frozen archive sha256: 602c712f0fb06e70c054c2d54fe0e280f312923864040a3a177ee8e7da67ed70
+2026-09-23T17:58:08.4817515Z recent frozen archive bytes: 98372
+2026-09-23T17:58:08.4818269Z recent frozen archive sha256: 47d053d842a73e3ff8107dabe867bd503e8a7e77daaecc2afb1867068faa952c
+2026-09-23T17:58:08.4862847Z [25/126] tools/validate_v0401_album_identity_closure.py
+2026-09-23T17:58:08.5199291Z v0.40.1 album identity closure validation passed
+2026-09-23T17:58:08.5248306Z [26/126] tools/validate_v0405_album_image_binding.py
+2026-09-23T17:58:08.5526213Z v0.40.5 album image binding validation passed
+2026-09-23T17:58:08.5568752Z [27/126] tools/validate_v0331_desktop_pet_source_parity.py
+2026-09-23T17:58:08.7522935Z v0.33.1 desktop-pet source parity validated: 417 complete source files, 18 actions, 210 preserved runtime frames (201 manifest-referenced).
+2026-09-23T17:58:08.7573357Z [28/126] tools/validate_v0332_desktop_pet_overlay_d2.py
+2026-09-23T17:58:08.7812633Z v0.33.2 overlay pet D2 validated: one shared foreground service, pet/bubble exclusive modes, real three-size windows, single-tap body reactions, double-tap options, drag/fall/land physics.
+2026-09-23T17:58:08.7852767Z [29/126] tools/validate_v0338_pet_semantic_autonomy.py
+2026-09-23T17:58:08.8083473Z v0.33.8 compatibility validated: durable Desire/Thought projection remains read-only and TTS-safe.
+2026-09-23T17:58:08.8123902Z [30/126] tools/validate_v0340_image_messages.py
+2026-09-23T17:58:08.8394624Z v0.34.0 image-message and sleep-frame contracts verified
+2026-09-23T17:58:08.8438602Z [31/126] tools/validate_current_schema24_a.py
+2026-09-23T17:58:08.8708890Z v0.34.1 image vision source contract verified
+2026-09-23T17:58:08.8752612Z [32/126] tools/validate_v0349_layered_web_discovery.py
+2026-09-23T17:58:08.9027868Z v0.34.9 layered public-web discovery validation passed
+2026-09-23T17:58:08.9071868Z [33/126] tools/validate_v0352_prompt_workbench.py
+2026-09-23T17:58:08.9381007Z v0.35.2 prompt workbench static validation passed
+2026-09-23T17:58:08.9425999Z [34/126] tools/validate_v0358_native_tool_runtime.py
+2026-09-23T17:58:08.9664478Z v0.35.8 native tool calling and shared runtime validation passed
+2026-09-23T17:58:08.9705291Z [35/126] tools/validate_v0359_shared_conversation_runtime.py
+2026-09-23T17:58:08.9985204Z v0.35.9 shared conversation runtime validation passed
+2026-09-23T17:58:09.0027952Z [36/126] tools/validate_v0360_ui_relationship_age.py
+2026-09-23T17:58:09.0300717Z v0.36.0 UI domains, relationship age, action tint and overlay Stop validation passed
+2026-09-23T17:58:09.0342794Z [37/126] tools/validate_v0361_cross_app_contact.py
+2026-09-23T17:58:09.0616262Z v0.36.1 cross-App contact, popup sound and delayed probe validation passed
+2026-09-23T17:58:09.0658176Z [38/126] tools/validate_v0362_foreground_tracker_conversation_banner.py
+2026-09-23T17:58:09.0900249Z v0.36.2 foreground tracker, conversation banner and tint validation passed
+2026-09-23T17:58:09.0940961Z [39/126] tools/validate_v0363_hyperos_cover_alarm_guard.py
+2026-09-23T17:58:09.1166722Z v0.36.3 HyperOS cover and delayed-test cancellation guard validation passed
+2026-09-23T17:58:09.1206739Z [40/126] tools/validate_current_chat_visual_stage.py
+2026-09-23T17:58:09.2085672Z current App chat 19-expression visual parity validation passed
+2026-09-23T17:58:09.2136647Z [41/126] tools/validate_v0374_audio_presentation_stabilization.py
+2026-09-23T17:58:09.2417177Z v0.37.4 audio, presentation cursor and rendering validation passed
+2026-09-23T17:58:09.2459220Z [42/126] tools/validate_v0376_chat_recovery_presentation.py
+2026-09-23T17:58:09.2782784Z v0.37.6 chat recovery and presentation validation passed
+2026-09-23T17:58:09.2828342Z [43/126] tools/validate_v0381_adult_relationship_capability.py
+2026-09-23T17:58:09.3094102Z v0.38.1 adult relationship capability validation passed.
+2026-09-23T17:58:09.3135783Z [44/126] tools/validate_v0388_simulated_phone_foundation.py
+2026-09-23T17:58:09.3369627Z v0.38.8 simulated phone foundation validation passed
+2026-09-23T17:58:09.3410870Z [45/126] tools/validate_v0390_immersive_room.py
+2026-09-23T17:58:09.3702356Z v0.39.0 immersive room static contracts passed
+2026-09-23T17:58:09.3747824Z [46/126] tools/validate_v0392_immersive_nsfw_stream.py
+2026-09-23T17:58:09.4006132Z v0.39.2 immersive fullscreen/NSFW/stream contracts passed
+2026-09-23T17:58:09.4045090Z [47/126] tools/validate_v0402_provider_diagnostics.py
+2026-09-23T17:58:09.4351329Z v0.40.2 provider diagnostics validation passed
+2026-09-23T17:58:09.4398895Z [48/126] tools/validate_v04111_personality_learning_semantic_verifier.py
+2026-09-23T17:58:09.4670422Z v0.41.11 personality learning semantic verifier validation passed
+2026-09-23T17:58:09.4714123Z [49/126] tools/validate_v04112_ordinary_time_scene_boundary.py
+2026-09-23T17:58:09.5046521Z v0.41.12 ordinary time scene boundary validation passed
+2026-09-23T17:58:09.5091020Z [50/126] tools/validate_v04113_phase01_time_audit_hardening.py
+2026-09-23T17:58:09.5435306Z v0.41.13 Phase 0+1 time audit hardening validation passed
+2026-09-23T17:58:09.5481567Z [51/126] tools/validate_v04114_agent_truth_screen_observation.py
+2026-09-23T17:58:09.5861947Z v0.41.14 Agent truth and one-time screen validation passed
+2026-09-23T17:58:09.5908485Z [52/126] tools/validate_v0322_overlay_time_diagnostics.py
+2026-09-23T17:58:09.6176844Z v0.32.2 overlay time and diagnostic contracts validated.
+2026-09-23T17:58:09.6219255Z [53/126] tools/validate_v0321_ai_to_self.py
+2026-09-23T17:58:09.6486687Z v0.32.1 AI-to-self somatic contract validated.
+2026-09-23T17:58:09.6528719Z [54/126] tools/validate_v0319_tts_state_cancel_retract.py
+2026-09-23T17:58:09.6808341Z v0.31.9 TTS state and cancelled-turn withdrawal validation passed
+2026-09-23T17:58:09.6851024Z [55/126] tools/validate_v0318_overlay_stop_stream.py
+2026-09-23T17:58:09.7115202Z v0.31.8 overlay stop and live stream validation passed
+2026-09-23T17:58:09.7157351Z [56/126] tools/validate_v0317_true_stop_generation.py
+2026-09-23T17:58:09.7426578Z v0.31.7 true stop generation validation passed
+2026-09-23T17:58:09.7470121Z [57/126] tools/validate_v0316_rule_grouping.py
+2026-09-23T17:58:09.7697949Z v0.31.6 rule grouping validation passed
+2026-09-23T17:58:09.7737971Z [58/126] tools/validate_desire_v20_sql.py
+2026-09-23T17:58:09.7904263Z schema v20 message cleanup preserves visible history and removes retired state
+2026-09-23T17:58:09.7938877Z [59/126] tools/validate_current_schema24_c.py
+2026-09-23T17:58:09.8346833Z v0.31.3 HyperOS file-picker overlay recovery validation passed.
+2026-09-23T17:58:09.8389741Z [60/126] tools/validate_v031_policy_math.py
+2026-09-23T17:58:09.9156358Z v0.31 Desire policy numeric long-run validation passed.
+2026-09-23T17:58:09.9193226Z [61/126] tools/validate_manual_crypto_v26.py
+2026-09-23T17:58:18.6064972Z [OK] AES-256-GCM manual snapshot roundtrip / wrong-pass / truncation
+2026-09-23T17:58:18.6191385Z [62/126] tools/validate_durable_generation_sql.py
+2026-09-23T17:58:18.6415755Z v0.14 durable generation SQLite ownership/atomicity checks passed.
+2026-09-23T17:58:18.6453949Z [63/126] tools/validate_recovery_orchestration_sql.py
+2026-09-23T17:58:18.6640705Z [OK] failed generation attention only targets latest unanswered user turn
+2026-09-23T17:58:18.6641864Z [OK] manual generation retry respects Active Brain and transfer freeze
+2026-09-23T17:58:18.6642757Z [OK] manual generation retry cannot create a second blocking generation
+2026-09-23T17:58:18.6643450Z [OK] manual post-turn retry respects device ownership
+2026-09-23T17:58:18.6644184Z [OK] effective post-turn next-due selection is not tied to oldest created job
+2026-09-23T17:58:18.6645046Z v0.16 recovery orchestration SQLite simulation passed.
+2026-09-23T17:58:18.6677819Z [64/126] tools/validate_reference_library_sql.py
+2026-09-23T17:58:18.6847657Z [OK] disabled document stays excluded after rechunk
+2026-09-23T17:58:18.6848365Z [OK] editing preserves document created_at and updates full raw text
+2026-09-23T17:58:18.6849121Z [OK] rechunk does not mutate full raw text or silently re-enable retrieval
+2026-09-23T17:58:18.6850266Z [OK] document edit + chunk replacement rolls back atomically on failure
+2026-09-23T17:58:18.6850827Z [OK] re-enable keeps document and retrieval chunks in sync
+2026-09-23T17:58:18.6851411Z [OK] delete removes full document and all derived chunks together
+2026-09-23T17:58:18.6851888Z v0.19 Reference Library SQLite consistency checks passed.
+2026-09-23T17:58:18.6883755Z [65/126] tools/validate_awareness_sql.py
+2026-09-23T17:58:18.7105668Z v0.20 awareness SQLite migration/dedupe/expiry/Active-Brain checks passed.
+2026-09-23T17:58:18.7142333Z [66/126] tools/validate_relationship_presentation_sql.py
+2026-09-23T17:58:18.7303352Z [OK] companion-facing Thought SQL excludes residual/acted/dormant/snoozed before LIMIT
+2026-09-23T17:58:18.7304175Z v0.21 relationship presentation SQLite read-model checks passed.
+2026-09-23T17:58:18.7338547Z [67/126] tools/validate_memory_v15_sql.py
+2026-09-23T17:58:18.7544475Z [OK] v14 -> v15 memory semantic migration preserves rows and classifies shared experience
+2026-09-23T17:58:18.7545735Z [OK] current fact replacement preserves historical version and monotonic version number
+2026-09-23T17:58:18.7546594Z [OK] uncertain inference coexists without superseding current fact
+2026-09-23T17:58:18.7547356Z [OK] evidence uniqueness prevents retry from double-reinforcing a memory
+2026-09-23T17:58:18.7548265Z [OK] pinned current fact exposes a deterministic automatic-replacement block
+2026-09-23T17:58:18.7549163Z [OK] manual restore guard prevents two current facts with the same subject key
+2026-09-23T17:58:18.7550359Z [OK] manual edit preserves migrated pre-v15 content as evidence before replacement
+2026-09-23T17:58:18.7551353Z [OK] manual subject edit guard detects an existing active current fact
+2026-09-23T17:58:18.7552287Z [OK] repeated full-state import remains idempotent with memory evidence
+2026-09-23T17:58:18.7553026Z v0.22 long-term memory semantics SQLite checks passed.
+2026-09-23T17:58:18.7582177Z [68/126] tools/validate_proactive_rhythm_v16_sql.py
+2026-09-23T17:58:18.7776509Z [OK] v15 -> v16 proactive rhythm migration preserves legacy rows
+2026-09-23T17:58:18.7777363Z [OK] no-response is weak timing evidence, not topic rejection
+2026-09-23T17:58:18.7777888Z [OK] timing rejection and topic rejection adapt different dimensions
+2026-09-23T17:58:18.7778431Z [OK] short negative streak cannot cause a large personality swing
+2026-09-23T17:58:18.7779016Z [OK] repeated no-response remains bounded and does not become topic suppression
+2026-09-23T17:58:18.7779831Z [OK] anti-silence threshold recovery and 2h/24h spam ceilings stay bounded
+2026-09-23T17:58:18.7780425Z [OK] time-of-day and activity contexts learn independent comfort windows
+2026-09-23T17:58:18.7780910Z [OK] rhythm evidence decays with a 45-day half-life
+2026-09-23T17:58:18.7781440Z [OK] v16 phone/tablet state transfer preserves rhythm context and feedback signals
+2026-09-23T17:58:18.7782036Z v0.23 Proactive Rhythm Learning SQLite/simulation validation passed.
+2026-09-23T17:58:18.7813699Z [69/126] tools/validate_daily_continuity_v17_sql.py
+2026-09-23T17:58:18.8133679Z [OK] v16 -> v17 additive daily continuity table contract
+2026-09-23T17:58:18.8134440Z [OK] retry/exactly-once keeps one UNIQUE row per local day
+2026-09-23T17:58:18.8135390Z [OK] finalized yesterday is immutable across later retries
+2026-09-23T17:58:18.8136177Z [OK] standby/transfer lock blocks durable continuity writes inside transaction
+2026-09-23T17:58:18.8137076Z [OK] unresolved thread carry-forward avoids daily repetition but allows real updates
+2026-09-23T17:58:18.8137894Z [OK] quiet day is stored as neutral continuity, not relationship regression
+2026-09-23T17:58:18.8138603Z [OK] phone/tablet full-state transfer preserves daily continuity rows
+2026-09-23T17:58:18.8139651Z [OK] continuity retention remains bounded to the recent bridge window
+2026-09-23T17:58:18.8140482Z v0.24 Daily Continuity SQLite/simulation validation passed.
+2026-09-23T17:58:18.8192197Z [70/126] tools/validate_transfer_v18_sql.py
+2026-09-23T17:58:18.8453207Z [OK] v18 transfer generation / replay / rollback / fencing SQLite simulation
+2026-09-23T17:58:18.8496365Z [71/126] tools/validate_preflight_redaction_v27.py
+2026-09-23T17:58:23.7955397Z [OK] native diagnostic redaction is deterministic and bounded
+2026-09-23T17:58:23.8162730Z [72/126] tools/validate_preflight_kotlin_v27.py
+2026-09-23T17:58:27.8380079Z android/app/src/main/kotlin/com/aicompanion/localfirst/NativePreflightProbe.kt:82:40: error: unresolved reference 'TtsSessionDiagnosticStore'.
+2026-09-23T17:58:27.8380997Z             "ttsSessionDiagnostics" to TtsSessionDiagnosticStore.snapshot(context),
+2026-09-23T17:58:27.8381666Z                                        ^^^^^^^^^^^^^^^^^^^^^^^^^
+2026-09-23T17:58:27.8381949Z 
+2026-09-23T17:58:27.9820783Z Traceback (most recent call last):
+2026-09-23T17:58:27.9821944Z   File "/home/runner/work/ai-companion-build/ai-companion-build/app/tools/run_validation_suite.py", line 99, in <module>
+2026-09-23T17:58:27.9822680Z     main()
+2026-09-23T17:58:27.9823469Z   File "/home/runner/work/ai-companion-build/ai-companion-build/app/tools/run_validation_suite.py", line 94, in main
+2026-09-23T17:58:27.9824532Z     subprocess.run([sys.executable, str(relative)], cwd=APP, check=True)
+2026-09-23T17:58:27.9825299Z   File "/usr/lib/python3.12/subprocess.py", line 571, in run
+2026-09-23T17:58:27.9830268Z     raise CalledProcessError(retcode, process.args,
+2026-09-23T17:58:27.9831913Z subprocess.CalledProcessError: Command '['/usr/bin/python3', 'tools/validate_preflight_kotlin_v27.py']' returned non-zero exit status 1.
+2026-09-23T17:58:27.9992062Z ##[error]Process completed with exit code 1.
+2026-09-23T17:58:28.0189081Z Post job cleanup.
+2026-09-23T17:58:28.0464775Z Post job cleanup.
+2026-09-23T17:58:28.1801174Z (node:3934) [DEP0040] DeprecationWarning: The `punycode` module is deprecated. Please use a userland alternative instead.
+2026-09-23T17:58:28.1802194Z (Use `node --trace-deprecation ...` to show where the warning was created)
+2026-09-23T17:58:28.1992108Z Post job cleanup.
+2026-09-23T17:58:28.2985806Z [command]/usr/bin/git version
+2026-09-23T17:58:28.3023820Z git version 2.55.0
+2026-09-23T17:58:28.3056340Z Temporarily overriding HOME='/home/runner/work/_temp/afff2b4d-258b-4ce6-bb98-713de2e0861e' before making global git config changes
+2026-09-23T17:58:28.3057973Z Adding repository directory to the temporary git global config as a safe directory
+2026-09-23T17:58:28.3062233Z [command]/usr/bin/git config --global --add safe.directory /home/runner/work/ai-companion-build/ai-companion-build
+2026-09-23T17:58:28.3101475Z [command]/usr/bin/git config --local --name-only --get-regexp core\.sshCommand
+2026-09-23T17:58:28.3134099Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'core\.sshCommand' && git config --local --unset-all 'core.sshCommand' || :"
+2026-09-23T17:58:28.3347565Z [command]/usr/bin/git config --local --name-only --get-regexp http\.https\:\/\/github\.com\/\.extraheader
+2026-09-23T17:58:28.3376128Z http.https://github.com/.extraheader
+2026-09-23T17:58:28.3387434Z [command]/usr/bin/git config --local --unset-all http.https://github.com/.extraheader
+2026-09-23T17:58:28.3418143Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'http\.https\:\/\/github\.com\/\.extraheader' && git config --local --unset-all 'http.https://github.com/.extraheader' || :"
+2026-09-23T17:58:28.3632785Z [command]/usr/bin/git config --local --name-only --get-regexp ^includeIf\.gitdir:
+2026-09-23T17:58:28.3666064Z [command]/usr/bin/git submodule foreach --recursive git config --local --show-origin --name-only --get-regexp remote.origin.url
+2026-09-23T17:58:28.4021429Z Cleaning up orphan processes
+2026-09-23T17:58:28.4260439Z ##[warning]Node.js 20 is deprecated. The following actions target Node.js 20 but are being forced to run on Node.js 24: actions/checkout@v4, actions/setup-java@v4. For more information see: https://github.blog/changelog/2025-09-19-deprecation-of-node-20-on-github-actions-runners/
+release_url=https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-a8cdeab53fc074225713
