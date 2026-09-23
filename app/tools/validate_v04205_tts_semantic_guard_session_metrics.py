@@ -31,6 +31,7 @@ def main() -> None:
     selector_test = read("android/app/src/test/kotlin/com/catkiss62/geniettsbenchmark/GeneratedSemanticTokensTest.kt")
     session_test = read("android/app/src/test/kotlin/com/aicompanion/localfirst/TtsSessionPerformanceTest.kt")
     preflight_compile = read("tools/validate_preflight_kotlin_v27.py")
+    self_reader_test = read("test/agent_self_reader_v0416_test.dart")
     workflow = read(".github/workflows/build-apk.yml")
     ledger = read("AI_Companion_当前总账.md")
     checklist = read("docs/TEST_CHECKLIST.md")
@@ -89,6 +90,8 @@ def main() -> None:
             "exported preflight report omits the last-two snapshots")
     require("TtsSessionDiagnosticStore.kt" in preflight_compile,
             "legacy isolated preflight compilation does not stub the TTS session store")
+    require("build=v0.42.5+249 schema=61" in self_reader_test,
+            "Agent self-reader regression still expects the previous build identity")
 
     for token in (
         "first stage stop rejects every bundled voice prompt",
