@@ -40,9 +40,10 @@
 | +228 远端 | head `29e87d016c8bd81f52f89f95191bd1a1a01a5b57`；tree `c4a112a56d8b634cf3a1a66636979a0833538b7d`；Actions `35440359036`；Artifact `10583263879`；APK SHA-256 `159e283173e49da2924d25b37ba7647893cdafdcc31b63f0e31b7c64e086849b` |
 | 仓库维护基线 | `maintenance/repository-governance-20260919`；远端文档 head `123e272196e8ae93f3518157917d76f6af4f1784`；完整构建 head `fa99f32012fa1a0716b746d36b958a8e777ef9b8`；Actions `35446649873` 全绿；文档-only run `35447342921` 正确跳过 APK |
 | 当前功能分支 | `agent/v04205-tts-semantic-guard-session-metrics`，基于 +248 等价源码树；候选版本 `v0.42.5+249` |
-| 当前任务状态 | `IMPLEMENTED LOCALLY / LOCAL STATIC VALIDATION PASSED / CI PENDING / TRUE DEVICE PENDING`；根修 Decoder 首轮停止的参考语义泄漏，并在诊断保留最后两次完整 TTS 会话及同回复双档对比，见 6.22 |
+| 当前任务状态 | `CI PASSED / APK READY / TRUE DEVICE PENDING`；根修 Decoder 首轮停止的参考语义泄漏，并在诊断保留最后两次完整 TTS 会话及同回复双档对比，见 6.22 |
 | +249 当前任务 | `loopIndex=0` 时明确判定“零个新语义 token”，在 VITS 前拒绝本段；最后两次会话记录生成时 profile、冷/热状态、各阶段耗时、RTF、播放首帧、队列余量、迟到段、失败/停止与脱敏文本哈希 |
 | +249 保护边界 | 不播放参考 prompt、不添加固定语音/固定台词/System TTS 兜底；失败段独立跳过，其他段继续；仅同一文本、音色、语言且分别为 `legacy_fixed_8` / `auto_affinity_v084` 才计算性能对比；schema 61 / Snapshot protocol 6 不变 |
+| +249 远端 | head `fb7f77f85d882f99530ab829df9a82eaa604e559`；tree `28e4fbafb5adb2bfaa58aa9ab6e1b1256f0c4b99`；Actions `35900627244` 全绿；Artifact `10770090214`；APK SHA-256 `546dd718d447b0987bf47aaba08089fefb0badffbc076ba38e695fb3e05263c5`；未发布 Draft Release `untagged-3a02088d4968fd7ab603` |
 | +248 远端 | 远端 head `33647c7bff15084d6fd3cbc7b817e9b0b216f75c`，tree `80f49d8e93bcfe2a03737a6b8610fbd94d10c255`；Actions `35878106718` 全绿；APK SHA-256 `04a588d2d4628ccaacd1b0b9aaf3759430b46ba33ad69715cb388098c178f0be`；未发布 Draft Release `untagged-2b371d8cd86b365121b0` |
 | +248 当前任务 | TTS 默认关闭的“自动核亲和加速”开关；四个声学会话与 Chinese RoBERTa 同用 `AUTO_AFFINITY`。生成中展开全部工具活动，完成后以脱敏卡片绑定回复，中止后绑定中断标记 |
 | +248 保护边界 | 保留现有分段首段预填充、串行生成与连续 AudioTrack；不移植测试档、动态分块、FTZ/DAZ、输入映射复用或 memory-pattern 实验；工具卡不保存/展示参数、搜索词、URL、结果正文、Prompt 或隐藏推理；schema 61 / Snapshot protocol 6 不变 |
@@ -780,7 +781,7 @@ Actions 与交付证据：远端功能 head `33647c7bff15084d6fd3cbc7b817e9b0b21
 
 ### 6.22 v0.42.5+249 TTS 零语义根修与最后两次会话诊断（2026-09-23）
 
-状态：`IMPLEMENTED LOCALLY / LOCAL STATIC VALIDATION PASSED / CI PENDING / TRUE DEVICE PENDING`。
+状态：`CI PASSED / APK READY / TRUE DEVICE PENDING`。
 
 实现分支：`agent/v04205-tts-semantic-guard-session-metrics`。
 
@@ -807,7 +808,14 @@ Actions 与交付证据：远端功能 head `33647c7bff15084d6fd3cbc7b817e9b0b21
 - 真机依次对同一条回复在关闭加速与开启加速下手动播放一次，随后立即导出诊断；`sessions` 必须恰好保留这两次并显示 `comparison.comparable=true`。再用多段长文本验证迟到段、最小缓冲、Stop 与后续段继续播放。
 - 四音色各覆盖一次包含多段的回复，诊断中不得再出现 `decoderIterations=1` 同时 `semanticCount=122/87` 且产出长音频；遇到首轮 stop 应看到 `rejected_no_generated_semantics`，该段无声但其他成功段照常播放。
 - 本地最终验证：`git diff --check`、Python validator 编译、Workflow YAML、当前总账门、+249 专项门与 +248～+244/+203～+200 重点历史门通过。完整 `validation_suite.txt` 共 126 项，122 项通过；余下 4 项仅因本地工作树不含 CI 恢复的大肥鱼参考图、桌宠源包、LingChat NOTICE 及本机无 `kotlinc`，不是源码断言失败。
-- 本地环境无 Flutter/Dart SDK；Gradle wrapper 尝试运行 `testDebugUnitTest` 时，Gradle 8.12 下载被当前网络策略拦截，因此完整 Kotlin tests、Flutter analyze/tests 与 arm64 Release 需 Actions 后回填，不提前标为 CI 通过。
+- 本地环境无 Flutter/Dart SDK；Gradle wrapper 尝试运行 `testDebugUnitTest` 时，Gradle 8.12 下载被当前网络策略拦截。该本地限制已由下述 Actions 完整 Kotlin tests、Flutter analyze/tests 与 arm64 Release 实编译结果补齐。
+
+#### Actions 与交付证据
+
+- 首轮 run `35898976733` 在历史 `validate_preflight_kotlin_v27.py` 失败：该门只编译 `NativePreflightProbe.kt` 与临时桩，未声明新增 `TtsSessionDiagnosticStore`。已补齐只读桩并由 +249 专项门锁定，不改生产运行时。
+- 第二轮 run `35899547271` 已通过 126/126 源码门、Kotlin 编译/测试与 Flutter analyze；915 个 Flutter 测试中 914 个通过，唯一失败是 `agent_self_reader_v0416_test.dart` 仍断言上版 `v0.42.4+248`。已更新为 `v0.42.5+249` 并纳入 +249 门。
+- 最终远端 head `fb7f77f85d882f99530ab829df9a82eaa604e559` / tree `28e4fbafb5adb2bfaa58aa9ab6e1b1256f0c4b99` 在 run `35900627244` 全绿：126/126 源码/历史回归门、Android/Kotlin tests、Flutter analyze、915/915 Flutter tests、arm64 Release、稳定签名、Genie/桌宠/LingChat/塔罗载荷、Artifact 与未发布 Draft 上传均成功。
+- Artifact `10770090214`，名称 `AI-Companion-v0.42.5-249-TTS-Semantic-Guard-Session-Metrics-APK`，大小 `538,139,766` bytes，ZIP digest `0b1ca2a49a24047cbd7c659f66fa048f2a7d7f24f6394937a2a4859a177dbd51`。APK SHA-256 `546dd718d447b0987bf47aaba08089fefb0badffbc076ba38e695fb3e05263c5`，未发布 Draft Release `untagged-3a02088d4968fd7ab603`。没有合并 `main`，没有发布正式 Release；参考语音根修与同回复双档诊断仍待真机验收。
 
 ## 7. 历史验证兼容摘要
 
