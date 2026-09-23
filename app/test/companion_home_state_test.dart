@@ -1,4 +1,5 @@
 import 'package:ai_companion_localfirst/features/home/companion_home_state.dart';
+import 'package:ai_companion_localfirst/core/sync/transfer_freeze_presentation.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
@@ -31,5 +32,19 @@ void main() {
     final value = snapshot(active: true, transfer: true);
     expect(value.presenceTitle, contains('换到另一台设备'));
     expect(value.presenceDetail, contains('暂时停止'));
+  });
+
+  test('backup freeze is not presented as a device transfer', () {
+    final value = CompanionHomeSnapshot(
+      activeBrain: true,
+      transferLocked: true,
+      freezePurpose: TransferFreezePurpose.backupExport,
+      deviceId: 'device-test',
+      refreshedAt: DateTime(2026, 8, 11),
+    );
+
+    expect(value.presenceTitle, contains('保存本机备份'));
+    expect(value.presenceTitle, isNot(contains('另一台设备')));
+    expect(value.presenceDetail, contains('不是设备接管'));
   });
 }

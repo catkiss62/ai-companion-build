@@ -5,6 +5,7 @@ import '../../core/models/daily_continuity.dart';
 import '../../core/models/perception_snapshot.dart';
 import '../../core/models/unfinished_thread.dart';
 import '../../core/relationship/relationship_presentation.dart';
+import '../../core/sync/transfer_freeze_presentation.dart';
 
 class CompanionHomeSnapshot {
   const CompanionHomeSnapshot({
@@ -12,6 +13,7 @@ class CompanionHomeSnapshot {
     required this.transferLocked,
     required this.deviceId,
     required this.refreshedAt,
+    this.freezePurpose = TransferFreezePurpose.deviceTransfer,
     this.currentCare,
     this.recentContinuity,
     this.recentRelationshipMoment,
@@ -25,6 +27,7 @@ class CompanionHomeSnapshot {
   final bool transferLocked;
   final String deviceId;
   final DateTime refreshedAt;
+  final TransferFreezePurpose freezePurpose;
   final CompanionCareView? currentCare;
   final DailyContinuityRecord? recentContinuity;
   final RelationshipMomentView? recentRelationshipMoment;
@@ -36,14 +39,27 @@ class CompanionHomeSnapshot {
   bool get isStandby => !activeBrain && !transferLocked;
 
   String get presenceTitle {
-    if (transferLocked) return '她正在换到另一台设备';
+    if (transferLocked) {
+      return switch (freezePurpose) {
+        TransferFreezePurpose.backupExport => '正在保存本机备份',
+        TransferFreezePurpose.backupRestore => '正在恢复本机备份',
+        TransferFreezePurpose.deviceTransfer => '她正在换到另一台设备',
+      };
+    }
     if (activeBrain) return '她现在就在这台设备上';
     return '她正在另一台设备上陪着你';
   }
 
   String get presenceDetail {
     if (transferLocked) {
-      return '接管过程中会暂时停止新的聊天与长期状态更新，避免两台设备同时改变同一个她。';
+      return switch (freezePurpose) {
+        TransferFreezePurpose.backupExport =>
+          '备份生成期间会短暂冻结聊天与长期状态更新，完成后本机自动恢复；这不是设备接管。',
+        TransferFreezePurpose.backupRestore =>
+          '恢复期间会暂时冻结聊天与长期状态更新，避免读到一半新一半旧的数据。',
+        TransferFreezePurpose.deviceTransfer =>
+          '接管过程中会暂时停止新的聊天与长期状态更新，避免两台设备同时改变同一个她。',
+      };
     }
     if (activeBrain) {
       return '她的聊天、记忆、念头和主动联系都会从这台设备继续向前积累。';
@@ -61,6 +77,9 @@ class CompanionHomeRepository {
     await db.ensureReady();
     final activeBrain = (await db.getSetting('active_brain')) != '0';
     final transferLocked = (await db.getSetting('transfer_lock')) == '1';
+    final freezePurpose = TransferFreezePresentation.purposeFromOwner(
+      await db.getSetting('transfer_lock_owner'),
+    );
     final deviceId = await db.ensureDeviceId();
 
     final thoughts = await db.currentThoughtsForPresentation(limit: 24);
@@ -103,6 +122,7 @@ class CompanionHomeRepository {
     return CompanionHomeSnapshot(
       activeBrain: activeBrain,
       transferLocked: transferLocked,
+      freezePurpose: freezePurpose,
       deviceId: deviceId,
       currentCare: care,
       recentContinuity: recentContinuity,

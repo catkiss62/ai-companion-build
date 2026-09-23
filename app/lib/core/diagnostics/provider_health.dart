@@ -89,6 +89,7 @@ class ProviderHealth {
     'none',
     'missing_key',
     'authorization',
+    'quota_exhausted',
     'rate_limited',
     'timeout',
     'network',
@@ -151,6 +152,16 @@ class ProviderHealth {
         text.contains('未配置') ||
         text.contains('填写千问')) {
       return 'missing_key';
+    }
+    if (text.contains('quota exhausted') ||
+        text.contains('insufficient balance') ||
+        text.contains('free quota') ||
+        text.contains('free tier only') ||
+        text.contains('add funds') ||
+        text.contains('额度耗尽') ||
+        text.contains('额度已用完') ||
+        text.contains('余额不足')) {
+      return 'quota_exhausted';
     }
     if (text.contains('401') ||
         text.contains('403') ||

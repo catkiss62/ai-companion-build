@@ -48,6 +48,7 @@ import '../../core/storage/message_attachment_storage.dart';
 import '../../core/storage/companion_album_storage.dart';
 import '../../core/stickers/sticker_pack.dart';
 import '../../core/stickers/sticker_pack_storage.dart';
+import '../../core/sync/transfer_freeze_presentation.dart';
 import '../../core/tts/emotion_sound_service.dart';
 import '../../core/tts/tts_playback_queue.dart';
 import '../../core/tts/tts_policy.dart';
@@ -151,6 +152,7 @@ class ChatController extends ChangeNotifier {
   late final LongRunningMaintenanceEngine longMaintenance;
   final Uuid _uuid = Uuid();
   final Set<String> _preparingLanguageVariants = <String>{};
+  final Set<String> _discardedImageMessageIds = <String>{};
 
   List<ChatMessage> messages = [];
   List<GenerationInterruption> generationInterruptions = [];
@@ -181,6 +183,7 @@ class ChatController extends ChangeNotifier {
   String? _externalGenerationAssistantMessageId;
   String _lastPetConversationState = '';
   bool _petGenerationActive = false;
+  String? _analyzingImageMessageId;
 
   String? get activeGenerationAssistantMessageId =>
       _activeGenerationAssistantMessageId ??
@@ -496,6 +499,23 @@ class ChatController extends ChangeNotifier {
     _safeNotify();
   }
 
+  Future<String> _activeWriteFreezeMessage() async {
+    final purpose = TransferFreezePresentation.purposeFromOwner(
+      await db.getSetting('transfer_lock_owner'),
+    );
+    return TransferFreezePresentation.chatBlockedMessage(purpose);
+  }
+
+  void _resumeUnfinishedVisionWhenIdle() {
+    unawaited(Future<void>(() async {
+      if (_disposed || sending || analyzingImage) return;
+      final pendingMessageId = await db.unfinishedVisionMessageId();
+      if (pendingMessageId != null && !_disposed && !sending && !analyzingImage) {
+        await _analyzeImageMessage(pendingMessageId);
+      }
+    }));
+  }
+
   Future<PreparedImageAttachment> prepareImage({
     required String sourcePath,
     required String source,
@@ -527,7 +547,7 @@ class ChatController extends ChangeNotifier {
         throw StateError('请先到“AI 与陪伴设置”填写千问视觉 API Key。');
       }
       if ((await db.getSetting('transfer_lock')) == '1') {
-        throw StateError('她正在换到另一台设备，接管完成前先不能继续聊天。');
+        throw StateError(await _activeWriteFreezeMessage());
       }
       if ((await db.getSetting('active_brain')) == '0') {
         throw StateError('她现在在另一台设备上，请先把她接到这台设备。');
@@ -666,6 +686,7 @@ class ChatController extends ChangeNotifier {
     );
 
     analyzingImage = true;
+    _analyzingImageMessageId = messageId;
     error = null;
     _safeNotify();
     var marked = false;
@@ -717,6 +738,11 @@ class ChatController extends ChangeNotifier {
         albumPreferenceHint:
             albumEnabled ? await db.companionAlbumPreferenceHint() : '',
       );
+      // Deleting an image message is a local, immediate action. The provider
+      // request may already be on the wire and cannot always be cancelled, so
+      // fence its late result before it can recreate a reply or surface an
+      // error for a message the user has already removed.
+      if (_discardedImageMessageIds.contains(messageId)) return;
       await CompanionAlbumStorage().requireContentSha256(
         thumbnail,
         observation.inputContentSha256,
@@ -785,42 +811,51 @@ class ChatController extends ChangeNotifier {
         height: attachment.height,
       );
     } catch (exception) {
+      final discarded = _discardedImageMessageIds.contains(messageId);
       await AttachmentPipelineTelemetry.record(
         db,
         stage: 'vision',
-        outcome: 'failed',
+        outcome: discarded ? 'cancelled' : 'failed',
         source: visionTelemetrySource,
         duration: DateTime.now().difference(visionTelemetryStarted),
         byteSize: attachment.byteSize,
         width: attachment.width,
         height: attachment.height,
-        error: exception,
+        error: discarded ? null : exception,
       );
-      if (!visionRecorded) {
-        await db.recordProviderHealthEvent(ProviderHealthEvent(
-          lane: 'vision',
-          context: 'chat_image',
-          primaryProvider: 'qwen_vision',
-          primaryOutcome: marked ? 'failed' : 'not_called',
-          primaryErrorCategory: ProviderHealth.errorCategory(exception),
-          finalOutcome: 'failed',
-          latencyBucket:
-              ProviderHealth.latencyBucket(DateTime.now().difference(visionStarted)),
-        ));
+      if (!discarded) {
+        if (!visionRecorded) {
+          await db.recordProviderHealthEvent(ProviderHealthEvent(
+            lane: 'vision',
+            context: 'chat_image',
+            primaryProvider: 'qwen_vision',
+            primaryOutcome: marked ? 'failed' : 'not_called',
+            primaryErrorCategory: ProviderHealth.errorCategory(exception),
+            finalOutcome: 'failed',
+            latencyBucket: ProviderHealth.latencyBucket(
+              DateTime.now().difference(visionStarted),
+            ),
+          ));
+        }
+        if (marked && trustedGeneration == null) {
+          await db.failAttachmentVision(attachment.id, exception.toString());
+        }
+        messages = await db.recentMessages(limit: 160);
+        error = VisionFailurePresentation.message(exception);
       }
-      if (marked && trustedGeneration == null) {
-        await db.failAttachmentVision(attachment.id, exception.toString());
-      }
-      messages = await db.recentMessages(limit: 160);
-      error = VisionFailurePresentation.message(exception);
     } finally {
-      analyzingImage = false;
+      if (_analyzingImageMessageId == messageId) {
+        analyzingImage = false;
+        _analyzingImageMessageId = null;
+      }
       await db.releaseLocalLease('image_vision_lease');
       if (trustedGeneration == null && chatLeaseHeld) {
         await db.releaseLocalLease('chat_turn_lease');
         chatLeaseHeld = false;
       }
+      _discardedImageMessageIds.remove(messageId);
       _safeNotify();
+      _resumeUnfinishedVisionWhenIdle();
     }
     final generation = trustedGeneration;
     if (generation != null && chatLeaseHeld) {
@@ -943,18 +978,39 @@ class ChatController extends ChangeNotifier {
   }
 
   Future<bool> deleteAttachmentMessage(ChatMessage message) async {
-    if (!message.isUser || !message.hasAttachments || sending || savingImage || analyzingImage) {
+    if (!message.isUser ||
+        !message.hasAttachments ||
+        sending ||
+        savingImage ||
+        (analyzingImage && _analyzingImageMessageId != message.id)) {
       return false;
     }
+    final discardingActiveAnalysis =
+        analyzingImage && _analyzingImageMessageId == message.id;
+    if (discardingActiveAnalysis) {
+      _discardedImageMessageIds.add(message.id);
+    }
     final removed = await db.deleteAttachmentMessage(message.id);
-    if (removed.isEmpty) return false;
+    if (removed.isEmpty) {
+      if (discardingActiveAnalysis) {
+        _discardedImageMessageIds.remove(message.id);
+      }
+      return false;
+    }
+    if (discardingActiveAnalysis) {
+      // The remote request may still finish in the background, but it no
+      // longer owns any visible UI state and its late result is fenced above.
+      analyzingImage = false;
+      _analyzingImageMessageId = null;
+      error = null;
+    }
+    messages = messages.where((item) => item.id != message.id).toList();
+    _safeNotify();
     for (final attachment in removed) {
       try {
         await attachmentStorage.deleteAttachmentFiles(attachment);
       } catch (_) {}
     }
-    messages = messages.where((item) => item.id != message.id).toList();
-    _safeNotify();
     return true;
   }
 
@@ -989,7 +1045,7 @@ class ChatController extends ChangeNotifier {
 
     await _stopTurnAudio();
     if ((await db.getSetting('transfer_lock')) == '1') {
-      error = '她正在换到另一台设备，接管完成前先不能继续聊天。';
+      error = await _activeWriteFreezeMessage();
       _safeNotify();
       return false;
     }
@@ -1051,7 +1107,7 @@ class ChatController extends ChangeNotifier {
 
     try {
       if ((await db.getSetting('transfer_lock')) == '1') {
-        throw StateError('她已经开始换到另一台设备，这轮发送已取消。');
+        throw StateError(await _activeWriteFreezeMessage());
       }
       if ((await db.getSetting('active_brain')) == '0') {
         throw StateError('她已经切换到另一台设备，这轮发送已取消。');
@@ -1188,6 +1244,7 @@ class ChatController extends ChangeNotifier {
       }
       await db.releaseLocalLease('chat_turn_lease');
       _safeNotify();
+      _resumeUnfinishedVisionWhenIdle();
       if (durableTurnCreated && !cancellation.isCancelled) {
         unawaited(_scheduleGenerationRecovery());
       }

@@ -145,7 +145,7 @@ def main() -> None:
 
     require(
         re.search(
-            r"^version:\s*0\.42\.1\+245\s*$",
+            r"^version:\s*0\.42\.2\+246\s*$",
             PUBSPEC.read_text(encoding="utf-8"),
             re.MULTILINE,
         )

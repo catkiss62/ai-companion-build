@@ -3,6 +3,8 @@ import 'dart:io';
 import 'dart:typed_data';
 
 import 'package:ai_companion_localfirst/core/ai/qwen_vision_client.dart';
+import 'package:ai_companion_localfirst/core/diagnostics/attachment_pipeline_telemetry.dart';
+import 'package:ai_companion_localfirst/core/diagnostics/provider_health.dart';
 import 'package:ai_companion_localfirst/core/diagnostics/vision_failure_presentation.dart';
 import 'package:ai_companion_localfirst/core/models/chat_message.dart';
 import 'package:ai_companion_localfirst/core/models/message_attachment.dart';
@@ -40,6 +42,18 @@ void main() {
     expect(message, contains('401/403'));
     expect(message, contains('Key'));
     expect(message, isNot(contains('QwenVisionException')));
+  });
+
+  test('free-tier exhaustion is presented as quota rather than bad credentials', () {
+    const failure = QwenVisionException(
+      403,
+      'Free quota exhausted. Please add funds or disable the free tier only mode.',
+    );
+
+    expect(ProviderHealth.errorCategory(failure), 'quota_exhausted');
+    expect(VisionFailurePresentation.message(failure), contains('免费额度已经用完'));
+    expect(VisionFailurePresentation.message(failure), isNot(contains('Key')));
+    expect(AttachmentPipelineTelemetry.errorCategory(failure), 'api');
   });
 
   test('completed visual observation becomes prompt context', () {

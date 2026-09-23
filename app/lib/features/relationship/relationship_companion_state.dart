@@ -3,6 +3,7 @@ import '../../core/models/interaction_session.dart';
 import '../../core/models/daily_continuity.dart';
 import '../../core/models/unfinished_thread.dart';
 import '../../core/relationship/relationship_presentation.dart';
+import '../../core/sync/transfer_freeze_presentation.dart';
 
 class RelationshipCompanionSnapshot {
   const RelationshipCompanionSnapshot({
@@ -13,6 +14,7 @@ class RelationshipCompanionSnapshot {
     required this.sharedMoments,
     required this.unfinishedThreads,
     required this.refreshedAt,
+    this.freezePurpose = TransferFreezePurpose.deviceTransfer,
     this.activeSession,
   });
 
@@ -24,10 +26,18 @@ class RelationshipCompanionSnapshot {
   final List<UnfinishedThread> unfinishedThreads;
   final InteractionSession? activeSession;
   final DateTime refreshedAt;
+  final TransferFreezePurpose freezePurpose;
 
   String get continuityLine {
     if (transferLocked) {
-      return '她正在换到另一台设备。这里先保持上次同步到本机的关系状态，新的变化会等接管完成后再继续。';
+      return switch (freezePurpose) {
+        TransferFreezePurpose.backupExport =>
+          '正在保存本机备份，关系状态只会短暂冻结；保存完成后会在本机继续。',
+        TransferFreezePurpose.backupRestore =>
+          '正在恢复本机备份，关系状态会在恢复完成后重新载入。',
+        TransferFreezePurpose.deviceTransfer =>
+          '她正在换到另一台设备。这里先保持上次同步到本机的关系状态，新的变化会等接管完成后再继续。',
+      };
     }
     if (!activeBrain) {
       return '她现在在另一台设备上继续。这里保留的是上次同步到本机的关系状态，当前念头和临时场景可能不是最新。';
@@ -54,12 +64,16 @@ class RelationshipCompanionRepository {
     await db.ensureReady();
     final activeBrain = (await db.getSetting('active_brain')) != '0';
     final transferLocked = (await db.getSetting('transfer_lock')) == '1';
+    final freezePurpose = TransferFreezePresentation.purposeFromOwner(
+      await db.getSetting('transfer_lock_owner'),
+    );
     final thoughts = await db.currentThoughtsForPresentation(limit: 30);
     final events = await db.recentRelationshipEvents(limit: 80);
     final threads = await db.activeUnfinishedThreads(limit: 6);
     return RelationshipCompanionSnapshot(
       activeBrain: activeBrain,
       transferLocked: transferLocked,
+      freezePurpose: freezePurpose,
       currentCares: RelationshipPresentation.currentCares(thoughts, limit: 3),
       dailyContinuity: await db.latestDailyContinuity(limit: 5),
       sharedMoments: RelationshipPresentation.sharedMoments(events, limit: 24),

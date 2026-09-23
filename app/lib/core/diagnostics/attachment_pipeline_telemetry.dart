@@ -147,7 +147,12 @@ class AttachmentPipelineTelemetry {
     if (value.contains('permission') || value.contains('denied')) {
       return 'permission';
     }
-    if (value.contains('lease') || value.contains('占用')) return 'lease';
+    // Match lease as a word. A plain substring check also matches "please"
+    // in provider errors such as "please add funds", hiding the real API
+    // failure behind a bogus local-lease diagnosis.
+    if (RegExp(r'\blease\b').hasMatch(value) || value.contains('占用')) {
+      return 'lease';
+    }
     if (value.contains('api') ||
         value.contains('http') ||
         value.contains('provider')) {

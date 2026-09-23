@@ -30,7 +30,7 @@ def main() -> None:
     tts_guard = read("android/app/src/main/kotlin/com/aicompanion/localfirst/ReferenceAudioEchoGuard.kt")
     diagnostics = read("android/app/src/main/kotlin/com/aicompanion/localfirst/RuntimeDiagnosticStore.kt")
 
-    require("version: 0.42.1+245" in read("pubspec.yaml"), "version mismatch")
+    require("version: 0.42.2+246" in read("pubspec.yaml"), "version mismatch")
     require("agent/v04201-autonomy-media-hardening" in workflow, "branch trigger missing")
     require("ProactiveNightContactCapPolicy" in dawn, "night contact cap missing")
     require("deliveredProactiveCountAfter" in proactive, "night cap is not wired before generation")
@@ -50,7 +50,7 @@ def main() -> None:
     require("reference_features" in workflow, "CI does not derive compact echo signatures")
     require("manifest['reference_echo_guard']" in workflow, "echo signature is not retained in APK")
 
-    print("v0.42.1 autonomy, vision and TTS media hardening contract passed")
+    print("v0.42.1 autonomy, vision and TTS media hardening contract remains preserved")
 
 
 if __name__ == "__main__":

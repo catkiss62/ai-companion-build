@@ -39,8 +39,10 @@
 | 功能状态 | `CI PASSED / APK READY / TRUE DEVICE PENDING` |
 | +228 远端 | head `29e87d016c8bd81f52f89f95191bd1a1a01a5b57`；tree `c4a112a56d8b634cf3a1a66636979a0833538b7d`；Actions `35440359036`；Artifact `10583263879`；APK SHA-256 `159e283173e49da2924d25b37ba7647893cdafdcc31b63f0e31b7c64e086849b` |
 | 仓库维护基线 | `maintenance/repository-governance-20260919`；远端文档 head `123e272196e8ae93f3518157917d76f6af4f1784`；完整构建 head `fa99f32012fa1a0716b746d36b958a8e777ef9b8`；Actions `35446649873` 全绿；文档-only run `35447342921` 正确跳过 APK |
-| 当前功能分支 | `agent/v04201-autonomy-media-hardening`，基于 +244；候选版本 `v0.42.1+245` |
-| 当前任务状态 | `CI PASSED / APK READY / TRUE DEVICE PENDING`；清晨主动联系、Cedar 真实游玩闭环、视觉鉴权与 TTS 参考音频回声防护，见 6.18 |
+| 当前功能分支 | `agent/v04201-autonomy-media-hardening`，基于 +245；候选版本 `v0.42.2+246` |
+| 当前任务状态 | `IMPLEMENTED LOCALLY / LOCAL STATIC VALIDATION PASSED / CI PENDING / TRUE DEVICE PENDING`；修复图片删除事务、视觉额度误分类与备份冻结误报换设备，见 6.19 |
+| +246 当前任务 | 识别中的图片允许立即删除，迟到的千问结果不得复活消息或报错；`403 Free quota exhausted` 明确归类为额度耗尽；`please` 不再误命中 `lease`；普通备份冻结不再显示“她正在换设备”。表情包仍使用本地 `sticker_index`，不新增视觉调用或固定回复兜底 |
+| +246 保护边界 | 不修改 Sen/Live2D、人格、欲望、Cedar、TTS、schema 61 或 Snapshot protocol 6；不合并 `main`，不发布正式 Release |
 | +245 当前任务 | 21:00～次日 09:00 所有主动来源共享最多一次成功投递；“我会玩游戏”不再误授权 Cedar，前台真实游玩与后台共用局次/疲劳/满足账本；千问视觉新增真实连接测试与鉴权分类；TTS 只保留参考音频不可逆声学签名，高置信回声直接拒绝播放且没有固定音频/台词兜底 |
 | +245 保护边界 | 不修改独立 Sen 仓库或已回退 Live2D；不增加对话模型调用；表情包继续使用本地索引语义进入当前 user prompt；schema 61 / Snapshot protocol 6 不变；不合并 `main`，不发布正式 Release |
 | +245 远端 | head `09a50bdf14cfc1f5850c4c055fcbeade1b9dedb2`；tree `0985f0961691bdce7e6d521d59a12137ea5a82ad`；Actions `35809712355` 全绿；Artifact `10729507323`；APK SHA-256 `4c6f92b38bb3affa12aa52ae18d2d36276400d706b3a570e154d75e453d08059`；未发布 Draft Release `394245028` |
@@ -670,6 +672,31 @@ Actions 与交付证据：
 本地验证：Workflow YAML 解析、变更后 Python validator 编译、+245 专项门、+244 Live2D 回退保护门、+241 自然回复保活门、+235 疲劳负债门、当前总账门与 `git diff --check` 通过。全量历史静态门实际通过 118 项；另 4 项只因本地 sparse 工作树缺少 CI 恢复的大肥鱼参考图、417 件桌宠源包、LingChat 资源，以及本机无 `kotlinc` 而未执行，不是源码断言失败。本机同时无 Flutter/Dart SDK；完整 analyze/test/Kotlin/release APK 交由 Actions 实编译。
 
 Actions 与交付证据：正确源码树 `0985f0961691bdce7e6d521d59a12137ea5a82ad` 在 run `35809712355` 全绿，已通过总账协调、变更范围判定、全部源码/历史回归门、Flutter analyze/tests、Kotlin tests、arm64 Release APK 构筑、签名验证、四音色回声签名覆盖与 APK 内参考 WAV 缺席检查。Workflow Artifact `10729507323`，未发布 Draft Release `394245028`，APK SHA-256 `4c6f92b38bb3affa12aa52ae18d2d36276400d706b3a570e154d75e453d08059`。没有合并 `main`，没有发布正式 Release。
+
+### 6.19 v0.42.2+246 图片事务与备份冻结真值修复（2026-09-23）
+
+状态：`IMPLEMENTED LOCALLY / LOCAL STATIC VALIDATION PASSED / CI PENDING / TRUE DEVICE PENDING`。
+
+实现分支：`agent/v04201-autonomy-media-hardening`。
+
+真机证据与根因：
+
+1. 最新相册图片已经完成本地 prepare/commit，真正首错是千问视觉 `403 Free quota exhausted`；账号处于免费额度耗尽或“仅使用免费额度”限制，并非图片选择、保存或 Key 为空。
+2. 删除失败是确定的本地逻辑错误：`deleteAttachmentMessage` 在全局 `analyzingImage=true` 时直接返回 `false`，因此用户在八秒视觉请求尚未结束时必然看到“没有删除这条图片消息”。
+3. 诊断中的 `errorCategory=lease` 是分类器对 `please add funds` 的错误子串匹配；真实 provider health 与附件记录均为 403 quota/authorization，不存在聊天租约或设备所有权丢失。
+4. 备份导出使用 `transfer_lock` 暂停写入，但首页只看布尔锁并统一显示“她正在换到另一台设备”。备份完成后的导出状态证明 `active_brain=true`、`transfer_lock=false`、所有本机租约已释放，没有真实换机。
+5. 近期表情包已经由 `sticker_index` 成功建立 user turn 与 generation job，不调用千问；该轮在约 8.8 秒后被用户 Stop，数据库按既有语义撤回了未完成 user turn，因此外观上像“没有发送”。本轮不加入视觉或固定回复兜底。
+
+实现：
+
+- 图片分析记录当前 message id；删除该条时立即提交消息/附件/媒体引用删除并刷新 UI，不再被全局分析标志拒绝。无法取消的在途 HTTP 请求使用本地 discard fence，迟到的成功或失败均不得重建回复、覆盖错误栏或记成真实视觉失败；并在当前请求释放后继续处理可能排队的图片。
+- ProviderHealth 增加 `quota_exhausted`，在通用 401/403 鉴权前识别 `free quota / free tier only / add funds / 余额不足`；UI 明确提示充值或关闭“仅使用免费额度”，同时说明原图仍保留。附件遥测只按完整单词 `lease` 匹配，`please` 保持 API 错误。
+- 根据 `transfer_lock_owner` 中的 `backup_export / backup_restore` 目的区分写冻结：首页、关系页和聊天阻塞提示分别说明“保存/恢复本机备份”，只有真实接管继续显示换设备。
+- 版本提升为 `v0.42.2+246`，新增专项静态门及 quota、遥测、备份冻结展示单测；不修改 Sen/Live2D、人格、欲望、Cedar、TTS、schema 或备份协议。
+
+验证计划：先运行全量静态门与 `git diff --check`；Flutter/Dart SDK 不在本地镜像时，由授权的 GitHub Actions 执行 Flutter analyze/tests、Kotlin tests、arm64 Release APK、稳定签名与现有资源门。真机需分别验证：识别中删除立即消失且不返魂、额度耗尽显示准确、补足额度后图片可正常进入回复、表情包不调用视觉且正常回复、备份期间不再显示换设备。自动化通过不等于真机通过。
+
+本地验证：Workflow YAML、Python 编译、+246 专项门、+245 自主媒体门、+244 Live2D 回退保护门、+241 自然回复保活门、当前总账门和 `git diff --check` 通过。全量 123 项静态门中实际通过 120 项；其余三项只因稀疏工作树缺少 CI 恢复的 417 件桌宠源包、LingChat 特效目录及本机没有 `kotlinc`，不是源码断言失败。本机没有 Flutter/Dart SDK，完整 analyze/tests 与 APK 编译交由 Actions。
 
 ## 7. 历史验证兼容摘要
 
