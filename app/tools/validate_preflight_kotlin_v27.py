@@ -58,6 +58,10 @@ class GoogleApiAvailability private constructor() { companion object { fun getIn
 import android.content.Context
 object RuntimeDiagnosticStore { fun snapshot(c:Context,limit:Int=120):List<Map<String,Any?>> = emptyList() }
 ''',
+'com/aicompanion/localfirst/TtsSessionDiagnosticStore.kt': r'''package com.aicompanion.localfirst
+import android.content.Context
+object TtsSessionDiagnosticStore { fun snapshot(c:Context):Map<String,Any?> = emptyMap() }
+''',
 }
 def main()->int:
     compiler=shutil.which('kotlinc')

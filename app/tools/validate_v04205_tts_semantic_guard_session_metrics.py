@@ -30,6 +30,7 @@ def main() -> None:
     probe = read("android/app/src/main/kotlin/com/aicompanion/localfirst/NativePreflightProbe.kt")
     selector_test = read("android/app/src/test/kotlin/com/catkiss62/geniettsbenchmark/GeneratedSemanticTokensTest.kt")
     session_test = read("android/app/src/test/kotlin/com/aicompanion/localfirst/TtsSessionPerformanceTest.kt")
+    preflight_compile = read("tools/validate_preflight_kotlin_v27.py")
     workflow = read(".github/workflows/build-apk.yml")
     ledger = read("AI_Companion_当前总账.md")
     checklist = read("docs/TEST_CHECKLIST.md")
@@ -86,6 +87,8 @@ def main() -> None:
             "scheduler does not durably close a complete session")
     require('"ttsSessionDiagnostics" to TtsSessionDiagnosticStore.snapshot(context)' in probe,
             "exported preflight report omits the last-two snapshots")
+    require("TtsSessionDiagnosticStore.kt" in preflight_compile,
+            "legacy isolated preflight compilation does not stub the TTS session store")
 
     for token in (
         "first stage stop rejects every bundled voice prompt",
