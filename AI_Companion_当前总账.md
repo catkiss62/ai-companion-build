@@ -897,3 +897,4 @@ Actions 与交付证据：远端功能 head `33647c7bff15084d6fd3cbc7b817e9b0b21
 - 静态验证：`git diff --check`、Workflow YAML 与总账门通过；历史 125 个源门中 122 个通过。另三个分别需要 CI 恢复 417 个桌宠资源文件、LingChat 特效文件以及本机缺少的 `kotlinc`，不是本次业务断言失败。
 - 风险与验收：本地不能运行 Flutter/Gradle 或复现目标手机独立进程崩溃；需要 GitHub Actions 编译、Flutter/Kotlin 测试，并在原手机验证：旧存档导入显示 68；关闭/打开页面均不长时间卡住；导入 RoBERTa 后「试听发声」实际听见、自动朗读也能出声。不能把源代码回退视为已经证明问题解决。
 - CI 首轮 run `35986329658` 在 `Verify clean source baseline` 拦下旧版号 literal：Workflow 把构建标签改为 +255，却遗漏 `grep -Fqx 'version: 0.42.10+254'`。修正为 +255 后重新推送；首轮没有进入 Flutter/Kotlin 编译，不能算实编译失败。
+- CI 第二轮 run `35986562701` 已通过全部源门、Kotlin 测试、Flutter analyze，Flutter 927 项中 926 项通过；唯一失败是 `agent_self_reader_v0416_test.dart` 固定预期 `build=v0.42.10+254`，实际 +255 正确。已同步测试预期并重新推送；第二轮未进入 Release APK 打包。
