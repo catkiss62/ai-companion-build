@@ -249,7 +249,7 @@ class AgentSelfReader {
       if (form != null) {
         factLines.add('[FORM_STATE form=${form.qForm ? 'q' : 'normal'} '
             'heat=${form.heat} locked=${form.locked}] '
-            '同一个成年角色会随玩闹程度切换本体和小小鲸 Q 版；界面互动可改变气焰值。');
+            '同一个成年角色会随玩闹程度切换本体和小豆丁形态；界面互动可改变气焰值。');
       }
       factLines.add(
         '[SYSTEM_RUNTIME build=$buildLabel schema=${AppDatabase.schemaVersion} '

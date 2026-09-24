@@ -3939,6 +3939,7 @@ class AppDatabase {
       ...legacyEditableRuleLayerSha256V04167ClimaxClarification.entries,
       ...legacyEditableRuleLayerSha256V04183ActionDialogue.entries,
       ...legacyEditableRuleLayerSha256V04155AgeBoundaryCleanup.entries,
+      ...legacyEditableRuleLayerSha256V04206FormName.entries,
       ...legacyEditableRuleLayerSha256V0413ApprovedSeedDraft.entries,
       ...legacyEditableRuleLayerSha256V0413InstalledSeedDraft.entries,
       ...legacyEditableRuleLayerSha256V0413RejectedCoreEmphasis.entries,
@@ -4076,7 +4077,8 @@ class AppDatabase {
       final content = row['raw_content'] as String? ?? '';
       final digest = sha256.convert(utf8.encode(content)).toString();
       if (digest != legacySha256 &&
-          digest != 'fcc1074203b31cdf36466b39b3b6b08b5abd7497855155c31558177242dfe0fb') continue;
+          digest != 'fcc1074203b31cdf36466b39b3b6b08b5abd7497855155c31558177242dfe0fb' &&
+          digest != 'b71a5fa57fc953c9f387fbf6c01eebe2a46a4091f55d9116b5a14c70ede5d4ac') continue;
       await db.update(
         'reference_documents',
         {

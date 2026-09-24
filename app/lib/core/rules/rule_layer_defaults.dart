@@ -339,6 +339,12 @@ const legacyEditableRuleLayerSha256V04183ActionDialogue = <String, String>{
       '547afce48773ffe8c159befeb8ecad17ecc4840d29fa25ddc482f9438ffc6d8c',
 };
 
+/// Upgrade only the untouched first +250 form label; keep user edits intact.
+const legacyEditableRuleLayerSha256V04206FormName = <String, String>{
+  '04_intimacy_core':
+      'c64f271533c65122fa141f2aabbcd3ef738b58048b8598d68c739758cbebbd99',
+};
+
 /// Exact v0.40.0 special-style bodies before the v0.41.55 age-boundary
 /// cleanup. Hash-only matching updates untouched bundled copies while
 /// preserving every user edit.

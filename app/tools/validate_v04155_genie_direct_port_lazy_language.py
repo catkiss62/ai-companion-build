@@ -242,7 +242,7 @@ def triple_const(source: str, name: str) -> str:
 
 user_default_hashes = {
     "ruleContentV04155_04IntimacyCore":
-        "c64f271533c65122fa141f2aabbcd3ef738b58048b8598d68c739758cbebbd99",
+        "1bcba1c0ae0a3ef396f55ef50e0c3d6d624ee1921c3a62b19b7c3d9b677144d5",
     "ruleContentV04155_05IntimacyRendering":
         "b40ad570c5a5451f95db7da819375346e5448b0653cc6be6c50e7f701503e07d",
     "ruleContentV04155_06IntimacyReference":

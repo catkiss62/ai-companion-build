@@ -1343,6 +1343,7 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
                       right: 10,
                       child: PlayfulHeatGauge(
                         heat: _playfulForm.heat,
+                        qForm: _playfulForm.qForm,
                         locked: _playfulForm.locked,
                         onSelected: _onPlayfulFormAction,
                       ),

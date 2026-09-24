@@ -2,15 +2,16 @@ import 'package:flutter/material.dart';
 
 /// A glass stem ending in a heart bulb; white is empty, pink rises with heat.
 class PlayfulHeatGauge extends StatelessWidget {
-  const PlayfulHeatGauge({super.key, required this.heat, required this.onSelected, required this.locked});
+  const PlayfulHeatGauge({super.key, required this.heat, required this.qForm, required this.onSelected, required this.locked});
 
   final int heat;
+  final bool qForm;
   final bool locked;
   final ValueChanged<String> onSelected;
 
   @override
   Widget build(BuildContext context) => PopupMenuButton<String>(
-        tooltip: '气焰值与形态',
+        tooltip: '气焰值 · ${qForm ? '小豆丁形态' : '本体'}',
         onSelected: onSelected,
         itemBuilder: (_) => [
           const PopupMenuItem(value: 'kindle', child: Text('轻弹额头 · 气焰上涨')),
@@ -21,7 +22,7 @@ class PlayfulHeatGauge extends StatelessWidget {
           ),
         ],
         child: Semantics(
-          label: '气焰值 $heat，${locked ? '形态已锁定' : '自动变换'}',
+          label: '气焰值 $heat，当前${qForm ? '小豆丁形态' : '本体'}，${locked ? '形态已锁定' : '自动变换'}',
           child: SizedBox(
             width: 44,
             height: 98,

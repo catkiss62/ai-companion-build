@@ -22,7 +22,7 @@ def main():
     assert 'Clipboard' not in report and '"text" to text' not in engine
     assert 'fixtureHash' in report and "selected.id" in report
     assert "lastTurn == turn" in form and "eventTurn == turn" in form
-    assert "Q 版" in form and "用户锁定了当前形态" in form
+    assert "小豆丁形态" in form and "用户锁定了当前形态" in form
     print("v0.42.6 dual form and explicit TTS benchmark boundaries passed")
 
 
