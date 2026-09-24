@@ -1692,7 +1692,9 @@ class PreflightDiagnosticsService {
     }
 
     try {
-      TtsStatus status = await tts.status();
+      TtsStatus status = deep
+          ? await tts.status()
+          : await tts.status().timeout(const Duration(seconds: 3));
       if (deep) {
         status = await tts.verifyArtifacts();
         if (status.integrityVerified) status = await tts.initialize();

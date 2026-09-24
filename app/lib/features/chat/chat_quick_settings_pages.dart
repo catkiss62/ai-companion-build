@@ -558,12 +558,16 @@ class _VoiceEmotionSettingsPageState
             0.15)
         .clamp(0.0, 1.0)
         .toDouble();
+    if (!mounted) return;
+    setState(() => _loading = false);
+    // The isolated TTS process may be starting or generating speech. Let the
+    // controls appear before waiting for its optional status response.
     try {
-      _ttsStatus = await _tts.status();
+      final status = await _tts.status();
+      if (mounted) setState(() => _ttsStatus = status);
     } catch (_) {
-      _ttsStatus = null;
+      // The controls remain usable, including explicit initialization.
     }
-    if (mounted) setState(() => _loading = false);
   }
 
   Future<void> _applyPitch() => _tts.setPitch(
@@ -606,7 +610,11 @@ class _VoiceEmotionSettingsPageState
     });
     try {
       final result = await action();
-      _ttsStatus = await _tts.status();
+      try {
+        _ttsStatus = await _tts.status().timeout(const Duration(seconds: 3));
+      } catch (_) {
+        _ttsStatus = null;
+      }
       _ttsAutoAffinity = _ttsStatus?.autoAffinityEnabled ?? _ttsAutoAffinity;
       _lastResolvedVoice =
           await _db.getSetting('last_tts_resolved_voice') ?? '';
@@ -949,7 +957,7 @@ class _VoiceEmotionSettingsPageState
                             },
                           ),
                           icon: const Icon(Icons.speed_rounded),
-                          label: const Text('测试当前胜出档'),
+                          label: const Text('无声测速：当前档'),
                         ),
                         FilledButton.tonalIcon(
                           onPressed: _ttsBusy ? null : () => _runTtsAction(
@@ -962,7 +970,7 @@ class _VoiceEmotionSettingsPageState
                             },
                           ),
                           icon: const Icon(Icons.compare_arrows_rounded),
-                          label: const Text('测试本轮候选档'),
+                          label: const Text('无声测速：候选档'),
                         ),
                         FilledButton.tonalIcon(
                           onPressed: _ttsBusy ? null : () => _runTtsAction(
@@ -986,6 +994,10 @@ class _VoiceEmotionSettingsPageState
                           child: const Text('下轮改用较长回复'),
                         ),
                       ],
+                    ),
+                    const Padding(
+                      padding: EdgeInsets.only(top: 8),
+                      child: Text('想听声音请点“试听发声”；两项无声测速只比较同一条真实回复的生成耗时，均不会播放。'),
                     ),
                     if (_status != null) ...[
                       const SizedBox(height: 8),

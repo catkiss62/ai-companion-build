@@ -92,6 +92,7 @@ class PromptBuilder {
     GroundingSnapshot? groundingOverride,
     bool? nsfwActive,
     bool? nsfwReferenceActive,
+    PlayfulInteraction? playfulInteraction,
     List<AgentToolResult> agentToolResults = const [],
     String? specialStyleKeyOverride,
     ConversationInitiativePlan? conversationInitiativeOverride,
@@ -211,14 +212,15 @@ class PromptBuilder {
         'user:${instant.millisecondsSinceEpoch ~/ 60000}';
     final form = mode == PromptGenerationMode.userTurn
         ? await formStore.onTurn(
-            text: latestUserText,
+            interaction: playfulInteraction,
             turn: formTurn,
             now: instant,
           )
         : await formStore.load();
-    final seriousFormContext = RegExp(
+    final seriousFormContext = playfulInteraction == PlayfulInteraction.serious ||
+        (playfulInteraction == null && RegExp(
       r'(难过|害怕|焦虑|生病|不舒服|紧急|事故|认真说|别开玩笑|报错|怎么修|故障|诊断)',
-    ).hasMatch(latestUserText);
+    ).hasMatch(latestUserText));
     final playfulFormSection = form.promptForTurn(
       mode == PromptGenerationMode.userTurn ? formTurn : '',
       serious: seriousFormContext,

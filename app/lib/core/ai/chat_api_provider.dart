@@ -88,17 +88,16 @@ enum ChatApiProvider {
       return const <String, Object?>{};
     }
     return <String, Object?>{
-      // `extra_body` is an OpenAI SDK argument that merges its contents into
-      // the outgoing JSON. This client builds JSON directly, so the Google
-      // extension must be placed at the actual wire body's top level.
-      'google': <String, Object?>{
-        'thinking_config': <String, Object?>{
-          // Gemini 3 cannot fully disable thinking. Background JSON and
-          // classifier calls use low effort without exposing summaries;
-          // visible chat requests use the selected level and stream the
-          // provider's official thought summary as reasoning_content.
-          'thinking_level': thinking ? normalized.apiName : 'low',
-          'include_thoughts': thinking,
+      // Google's OpenAI-compatible REST example nests the Google extension
+      // under extra_body in the outgoing JSON, including for thinking.
+      'extra_body': <String, Object?>{
+        'google': <String, Object?>{
+          'thinking_config': <String, Object?>{
+            // Gemini 3 cannot fully disable thinking. Background JSON and
+            // classifier calls use low effort without exposing summaries.
+            'thinking_level': thinking ? normalized.apiName : 'low',
+            'include_thoughts': thinking,
+          },
         },
       },
     };

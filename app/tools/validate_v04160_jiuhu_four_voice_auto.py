@@ -141,7 +141,7 @@ def main() -> None:
     )
     gemini_fields = provider.split("'google': <String, Object?>{", 1)[1]
     assert "'reasoning_effort'" not in gemini_fields
-    assert "'extra_body':" not in provider
+    assert "'extra_body': <String, Object?>{" in provider
     require(
         secure,
         "chat_api_provider",

@@ -48,7 +48,7 @@ def main() -> None:
         "'google': <String, Object?>{",
         "'include_thoughts': thinking",
     )
-    assert "'extra_body':" not in provider
+    assert "'extra_body': <String, Object?>{" in provider
     require(
         secure,
         "aiwangyou_gemini_api_key",

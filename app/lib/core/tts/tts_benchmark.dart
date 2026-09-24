@@ -3,6 +3,7 @@ import 'package:crypto/crypto.dart';
 
 import '../database/app_database.dart';
 import '../models/chat_language_variant.dart';
+import '../models/chat_message.dart';
 import 'genie_fixed_text_segmenter.dart';
 import 'native_tts_provider.dart';
 import 'tts_provider.dart';
@@ -34,6 +35,7 @@ class TtsBenchmark {
     final entry = <String, dynamic>{
       'fixtureId': fixture['id'],
       'fixtureHash': fixture['hash'],
+      'fixtureScope': fixture['scope'],
       'timestamp': DateTime.now().toIso8601String(),
       ...raw.map((key, value) => MapEntry(key.toString(), value)),
     };
@@ -55,7 +57,9 @@ class TtsBenchmark {
     }
     return '${profile == 'auto' ? '自动核亲和档' : '混合档'}完成：'
         '${entry['complete'] == true ? '全部成功' : '部分失败'}，'
-        '无声生成 ${_wall(entry)} ms；两档完成后可复制对照报告。';
+        '无声生成 ${_wall(entry)} ms；'
+        '${fixture['scope'] == 'full_text_fallback' ? '最近回复没有对白，改用真实回复全文测试；' : ''}'
+        '两档完成后可复制对照报告。';
   }
 
   Future<void> chooseNewFixture() async {
@@ -74,6 +78,7 @@ class TtsBenchmark {
         : '不可比较';
     return '''AI Companion · TTS 专项无声对照
 同一 API 真实回复 / 同一预处理分段；只生成 PCM，不播放。
+测试范围：${last['fixtureScope'] == 'full_text_fallback' ? '当前朗读范围没有对白，改用真实回复全文比较' : '当前朗读范围'}。
 当前胜出档：${await champion()}；混合档相对自动核亲和耗时变化：$saving
 当前样本可比较：$comparable。更换样本后旧数据仅作历史参考。
 记录（最多 12 次；不含聊天原文）：
@@ -92,18 +97,46 @@ ${const JsonEncoder.withIndent('  ').convert(history)}''';
         .where((m) => m.isAssistant && m.content.trim().isNotEmpty)
         .toList(growable: false);
     if (messages.isEmpty) throw StateError('请先在聊天中生成一条真实回复。');
-    final selected = messages.reversed.firstWhere(
-      (m) => m.content.runes.length >= 90,
-      orElse: () => messages.last,
-    );
     final language = ChatLanguage.tryParse(await db.getSetting('tts_language')) ??
         ChatLanguage.chinese;
-    final visible = selected.contentFor(language);
-    if (visible.isEmpty) {
-      throw StateError('这条回复还没有所选语言的真实译文；请先在聊天中生成或切换回中文。');
+    final processor = const TtsTextProcessor();
+    final scope = TtsReadingScope.fromSetting(
+      await db.getSetting('tts_reading_scope'),
+    );
+    final replacements = processor.decodeReplacementJson(
+      await db.getSetting('tts_replacements_json'),
+    );
+    // A benchmark uses the *same* production speech preprocessing, but must
+    // not initialize the engine merely to choose a fixture. Long replies can
+    // contain only actions; skip them and find the newest speakable reply.
+    final newest = messages.reversed.toList(growable: false);
+    final candidates = [
+      ...newest.where((m) => m.content.runes.length >= 90),
+      ...newest.where((m) => m.content.runes.length < 90),
+    ];
+    Iterable<({ChatMessage message, List<TtsPreparedUnit> units})> options(
+        TtsReadingScope effectiveScope) => candidates.map((message) => (
+          message: message,
+          units: processor.processUnits(
+            message.contentFor(language),
+            language: language,
+            scope: effectiveScope,
+            replacements: replacements,
+          ),
+        )).where((item) => item.units.isNotEmpty);
+    var prepared = options(scope);
+    var effectiveScope = scope.key;
+    if (prepared.isEmpty && scope == TtsReadingScope.dialogueOnly) {
+      prepared = options(TtsReadingScope.fullText);
+      effectiveScope = 'full_text_fallback';
     }
+    if (prepared.isEmpty) {
+      throw StateError('最近的真实回复没有所选语种的可朗读内容；请先聊一轮或切换朗读语种。');
+    }
+    final fixtureSource = prepared.first;
+    final selected = fixtureSource.message;
+    final units = fixtureSource.units;
     final tts = TtsService(db: db);
-    final units = await tts.prepareUnits(visible, manual: true, language: language);
     final voice = await tts.resolveVoice(selected.emotionKey.isEmpty
         ? null
         : TtsEmotionCue(
@@ -128,6 +161,7 @@ ${const JsonEncoder.withIndent('  ').convert(history)}''';
     if (segments.isEmpty) throw StateError('当前回复经语音文字处理后没有可朗读片段。');
     final fixture = <String, dynamic>{
       'id': selected.id,
+      'scope': effectiveScope,
       'hash': sha256.convert(utf8.encode(jsonEncode(segments))).toString(),
       'segments': segments,
     };

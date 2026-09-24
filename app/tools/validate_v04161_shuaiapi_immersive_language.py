@@ -45,7 +45,7 @@ def main() -> None:
         "'thinking_config': <String, Object?>{",
         "'include_thoughts': thinking",
     )
-    assert "'extra_body':" not in provider
+    assert "'extra_body': <String, Object?>{" in provider
     require(
         secure,
         "readFinalReplyApiKey",
@@ -53,8 +53,8 @@ def main() -> None:
     )
     require(
         provider_test,
-        "body?.containsKey('extra_body'), isFalse",
-        "body?['google']",
+        "body?.containsKey('google'), isFalse",
+        "(body?['extra_body'] as Map?)?['google']",
         "body?.containsKey('thinking'), isFalse",
         "body?.containsKey('reasoning_effort'), isFalse",
         "先计算。",

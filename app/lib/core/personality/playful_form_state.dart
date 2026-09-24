@@ -2,6 +2,33 @@ import 'dart:convert';
 
 import '../database/app_database.dart';
 
+/// Only a real user turn can contribute a positive semantic interaction.
+/// A missing/invalid model field is neutral; it never guesses an increase.
+enum PlayfulInteraction {
+  serious,
+  ordinary,
+  light,
+  mutual,
+  strong;
+
+  static PlayfulInteraction? parse(Object? value) => switch (value) {
+        'serious' => serious,
+        'ordinary' => ordinary,
+        'light' => light,
+        'mutual' => mutual,
+        'strong' => strong,
+        _ => null,
+      };
+
+  int get bonus => switch (this) {
+        serious => -18,
+        ordinary => 0,
+        light => 16,
+        mutual => 20,
+        strong => 28,
+      };
+}
+
 /// One persisted source of truth for the visible portrait and model-facing form.
 /// A manual interaction changes the same value that ordinary dialogue later
 /// advances; it does not install a permanent prompt override.
@@ -52,17 +79,18 @@ class PlayfulFormState {
         'updatedAt': updatedAt,
       });
 
-  PlayfulFormState advance(String userText, String turn, DateTime now) {
+  PlayfulFormState advance(
+    PlayfulInteraction? interaction,
+    String turn,
+    DateTime now,
+  ) {
     if (turn.isEmpty || lastTurn == turn) return this;
     final elapsedHours = updatedAt == 0
         ? 0
         : ((now.millisecondsSinceEpoch - updatedAt) ~/ 3600000).clamp(0, 12);
-    final serious = RegExp(r'(难过|害怕|焦虑|生病|不舒服|紧急|事故|认真说|别开玩笑|报错|怎么修|故障|诊断)')
-        .hasMatch(userText);
-    final playful = !serious &&
-        RegExp(r'(逗你|嘿嘿|哈哈|捉弄|打赌|得意|不服|来呀|坏蛋|笨蛋)').hasMatch(userText);
+    final serious = interaction == PlayfulInteraction.serious;
     final nextHeat = (heat - 4 - elapsedHours * 3 +
-            (serious ? -18 : playful ? 13 : 0))
+            (interaction?.bonus ?? 0))
         .clamp(0, 100).toInt();
     final nextForm = locked
         ? qForm
@@ -76,8 +104,14 @@ class PlayfulFormState {
       qForm: nextForm,
       locked: locked,
       lastTurn: turn,
-      event: event,
-      eventTurn: event.isNotEmpty && eventTurn.isEmpty ? turn : eventTurn,
+      event: event.isNotEmpty && eventTurn.isEmpty && !serious &&
+              now.millisecondsSinceEpoch - updatedAt <= 10 * 60 * 1000
+          ? event
+          : '',
+      eventTurn: event.isNotEmpty && eventTurn.isEmpty && !serious &&
+              now.millisecondsSinceEpoch - updatedAt <= 10 * 60 * 1000
+          ? turn
+          : '',
       updatedAt: now.millisecondsSinceEpoch,
     );
   }
@@ -127,12 +161,12 @@ class PlayfulFormStore {
       PlayfulFormState.decode(await db.getSetting(PlayfulFormState.settingKey));
 
   Future<PlayfulFormState> onTurn({
-    required String text,
+    required PlayfulInteraction? interaction,
     required String turn,
     required DateTime now,
   }) async {
     final current = await load();
-    final next = current.advance(text, turn, now);
+    final next = current.advance(interaction, turn, now);
     if (next != current) await db.setSetting(PlayfulFormState.settingKey, next.encode());
     return next;
   }

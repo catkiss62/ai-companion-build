@@ -132,8 +132,8 @@ void main() {
     expect(body?['model'], ChatApiProvider.aiWangYouModel);
     expect(body?.containsKey('thinking'), isFalse);
     expect(body?.containsKey('reasoning_effort'), isFalse);
-    expect(body?.containsKey('extra_body'), isFalse);
-    expect(body?['google'], {
+    expect(body?.containsKey('google'), isFalse);
+    expect((body?['extra_body'] as Map?)?['google'], {
       'thinking_config': {
         'thinking_level': 'high',
         'include_thoughts': true,
@@ -172,8 +172,8 @@ void main() {
     expect(body?['model'], ChatApiProvider.aiWangYouModel);
     expect(body?.containsKey('thinking'), isFalse);
     expect(body?.containsKey('reasoning_effort'), isFalse);
-    expect(body?.containsKey('extra_body'), isFalse);
-    expect(body?['google'], {
+    expect(body?.containsKey('google'), isFalse);
+    expect((body?['extra_body'] as Map?)?['google'], {
       'thinking_config': {
         'thinking_level': 'low',
         'include_thoughts': false,

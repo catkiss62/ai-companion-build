@@ -3,6 +3,7 @@ import 'dart:convert';
 import '../database/app_database.dart';
 import '../models/chat_message.dart';
 import '../personality/personality_catalog.dart';
+import '../personality/playful_form_state.dart';
 import 'deepseek_client.dart';
 import 'generation_cancellation.dart';
 import 'model_profile.dart';
@@ -12,11 +13,13 @@ class NsfwRouteDecision {
     required this.active,
     required this.referenceActive,
     required this.source,
+    this.playfulInteraction,
   });
 
   final bool active;
   final bool referenceActive;
   final String source;
+  final PlayfulInteraction? playfulInteraction;
 }
 
 /// A small pre-generation model pass that decides which prompt layers the
@@ -45,20 +48,20 @@ class NsfwContextRouter {
         referenceActive:
             (await db.getSetting('nsfw_reference_active')) == '1',
         source: 'replay_${await db.getSetting('nsfw_route_source') ?? 'stored'}',
+        playfulInteraction: PlayfulInteraction.parse(
+          await db.getSetting('playful_form_router_signal_v1'),
+        ),
       );
     }
     final manual = await db.getSetting('nsfw_manual_override') ?? '';
-    if (manual == 'on' || manual == 'off') {
+    final manualRoute = manual == 'on' || manual == 'off';
+    if (manualRoute) {
       final decision = NsfwRouteDecision(
         active: manual == 'on',
         referenceActive: false,
         source: manual == 'on' ? 'manual_on' : 'manual_off',
       );
-      await _persist(
-        decision,
-        turnId: turnId,
-        consumeManualOverride: true,
-      );
+      await _persist(decision, turnId: turnId, consumeManualOverride: true);
       return decision;
     }
 
@@ -85,13 +88,13 @@ class NsfwContextRouter {
         model: DeepSeekModelProfile.flash,
         effort: ReasoningEffort.high,
         thinking: false,
-        maxTokens: 120,
+        maxTokens: 180,
         cancellationToken: cancellationToken,
         usageLane: 'chat_intimacy_route',
         messages: <Map<String, Object?>>[
           const {
             'role': 'system',
-            'content': '''You are a prompt-depth router for a private romance companion. Return JSON only: {"mode":"daily|nsfw|nsfw_reference"}.
+            'content': '''You are a prompt-depth router for a private romance companion. Return JSON only: {"mode":"daily|nsfw|nsfw_reference","interaction":"serious|ordinary|light|mutual|strong"}.
 
 All three modes remain intimacy-capable. This classifier never grants permission and never decides whether desire, flirting, erotic jokes, or sexual conversation are allowed.
 Choose daily when a light conversational prompt is sufficient: ordinary talk, tasks, affection, playful innuendo, brief erotic jokes, or flirting that does not yet need detailed physical rendering.
@@ -99,6 +102,19 @@ Choose nsfw when the latest turn or continuing context benefits from full explic
 Choose nsfw_reference when the same intimate interaction also needs detailed continuity knowledge: body positions, clothing/contact state, toys/devices, remote-intimacy constraints, scene transitions, or a longer explicit sequence.
 
 Never wait for a magic phrase, Session, toggle, consent ceremony, or prior route flag. Session stores scene continuity; route only selects descriptive depth. Libido, personality, and relationship history may strengthen a genuine suggestive reading but do not sexualize unrelated tasks. If SEDUCTRESS_BIAS is true, treat real innuendo and invitations as stronger evidence.''',
+            // The two fields are independent: intimacy is not automatically
+            // playful. Recent assistant messages provide context only; the
+            // user's current participation is the sole source of a boost.
+          },
+          const {
+            'role': 'system',
+            'content': '''Independently judge INTERACTION from the meaning of LATEST_USER_TEXT in RECENT_CONTEXT, never by keywords or emoji alone. Treat prior assistant speech only as context for the user's response; it cannot raise the score by itself.
+serious: the user needs care, clear practical help, or wants play to stop, even if they quote teasing words.
+ordinary: neutral discussion, routine affection, unrelated intimacy, or unclear intent.
+light: the user joins a small joke or gentle teasing.
+mutual: clear back-and-forth banter, a playful challenge, or a knowingly teasing retort, including natural wording without stock phrases.
+strong: especially vivid, reciprocal playful provocation; do not select it merely for insults, anger, or repetition.
+Do not treat a request for technical help, genuine distress, or conflict as banter. Return both fields in one JSON object.''',
           },
           {
             'role': 'user',
@@ -125,24 +141,29 @@ $latestUserText''',
       final result = (jsonDecode(raw.substring(objectStart, objectEnd + 1)) as Map)
           .cast<String, dynamic>();
       final mode = result['mode']?.toString().trim().toLowerCase() ?? '';
+      final interaction = PlayfulInteraction.parse(result['interaction']);
       final decision = switch (mode) {
-        'nsfw_reference' => const NsfwRouteDecision(
+        'nsfw_reference' => NsfwRouteDecision(
             active: true,
             referenceActive: true,
             source: 'auto_reference',
+            playfulInteraction: interaction,
           ),
-        'nsfw' => const NsfwRouteDecision(
+        'nsfw' => NsfwRouteDecision(
             active: true,
             referenceActive: false,
             source: 'auto_nsfw',
+            playfulInteraction: interaction,
           ),
-        _ => const NsfwRouteDecision(
+        _ => NsfwRouteDecision(
             active: false,
             referenceActive: false,
             source: 'auto_daily',
+            playfulInteraction: interaction,
           ),
       };
-      await _persist(decision, turnId: turnId);
+      await _persist(decision, turnId: turnId,
+          consumeManualOverride: manualRoute);
       return decision;
     } on GenerationCancelledByUserException {
       rethrow;
@@ -152,12 +173,15 @@ $latestUserText''',
       // Routing only selects prompt depth. A classifier failure falls back to
       // the light daily layer; relationship capability, libido and
       // natural flirting remain available in that layer.
-      const fallback = NsfwRouteDecision(
-        active: false,
+      final fallback = NsfwRouteDecision(
+        active: manualRoute && manual == 'on',
         referenceActive: false,
-        source: 'fallback_daily',
+        source: manualRoute
+            ? (manual == 'on' ? 'manual_on' : 'manual_off')
+            : 'fallback_daily',
       );
-      await _persist(fallback, turnId: turnId);
+      await _persist(fallback, turnId: turnId,
+          consumeManualOverride: manualRoute);
       return fallback;
     }
   }
@@ -173,6 +197,8 @@ $latestUserText''',
       decision.referenceActive ? '1' : '0',
     );
     await db.setSetting('nsfw_route_source', decision.source);
+    await db.setSetting('playful_form_router_signal_v1',
+        decision.playfulInteraction?.name ?? 'unknown');
     await db.setSetting('nsfw_route_turn_id', turnId);
     if (consumeManualOverride) {
       await db.setSetting('nsfw_manual_override', '');

@@ -13,7 +13,7 @@ def read(path: str) -> str:
     return (ROOT / path).read_text(encoding="utf-8")
 
 
-pubspec = read("pubspec.yaml").replace("version: 0.42.6+250", "version: 0.42.5+249")
+pubspec = read("pubspec.yaml").replace("version: 0.42.7+251", "version: 0.42.6+250").replace("version: 0.42.6+250", "version: 0.42.5+249")
 pubspec = pubspec.replace("version: 0.42.5+249", "version: 0.42.3+247")
 pubspec = pubspec.replace("version: 0.42.4+248", "version: 0.42.3+247")
 database = read("lib/core/database/app_database.dart")

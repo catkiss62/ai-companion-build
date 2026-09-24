@@ -442,6 +442,7 @@ class DurableGenerationRunner {
         thoughts: thoughts,
         nsfwActive: nsfwRoute.active,
         nsfwReferenceActive: nsfwRoute.referenceActive,
+        playfulInteraction: nsfwRoute.playfulInteraction,
         agentToolResults: agentToolResults,
         specialStyleKeyOverride: generationSpecialStyleKey,
         conversationInitiativeOverride: conversationPlan,
@@ -781,10 +782,6 @@ class DurableGenerationRunner {
                       ? 'incomplete_structure'
                       : result.finishReason,
                 );
-              }
-              if (result.reasoning.isNotEmpty) {
-                onDelta?.call(DeepSeekDelta(reasoning: result.reasoning));
-                reasoningDeltaForwardedToSurface = onDelta != null;
               }
               return result;
             } on FinalReplyIncompleteException {
@@ -1446,6 +1443,14 @@ $finalGenerationReminder
       );
 
       final visibleReasoning = preserveProviderReasoning(generated.reasoning);
+      // Gemini candidates may be rewritten after the first complete answer.
+      // Publish only the summary that belongs to the final accepted text;
+      // otherwise a transient panel disappears when the committed message has
+      // no provider summary. Never invent thoughts for an absent summary.
+      if (finalProvider.isGeminiRelay && visibleReasoning.isNotEmpty) {
+        onDelta?.call(DeepSeekDelta(reasoning: visibleReasoning));
+        reasoningDeltaForwardedToSurface = onDelta != null;
+      }
       unawaited(
         VisibleReasoningLanguageTelemetry.note(
           db,
@@ -1454,9 +1459,8 @@ $finalGenerationReminder
           forwardedToSurface: reasoningDeltaForwardedToSurface,
         ),
       );
-      // generate() already forwarded every provider reasoning delta in both
-      // buffered and visible-content modes. Do not re-emit the full reasoning
-      // here: that doubled the live panel height just before it collapsed.
+      // DeepSeek already forwarded its live deltas; Gemini only forwards the
+      // accepted candidate above, once, after optional repair.
 
       final baseAssistant = ChatMessage(
         id: job.assistantMessageId,

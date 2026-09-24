@@ -62,19 +62,10 @@ class TtsService implements TtsQueueService {
   }
 
   Future<TtsStatus> status() async {
-    await _ensureRuntimeProfile();
-    var result = await provider.status();
-    final expected = (await db.getSetting('tts_auto_affinity_enabled')) == '1';
-    final hybridExpected = expected &&
-        (await db.getSetting('tts_hybrid_vits_enabled')) == '1';
-    if (result.autoAffinityEnabled != expected ||
-        (hybridExpected && result.runtimeProfile != 'auto_decoder_fixed_vocoder_v1')) {
-      _appliedAutoAffinity = null;
-      _appliedHybrid = null;
-      await _ensureRuntimeProfile();
-      result = await provider.status();
-    }
-    return result;
+    // Reading status must not stop playback or rebuild native sessions.
+    // Runtime settings are applied by the explicit initialization/generation
+    // paths; a settings page and a quick preflight are read-only observers.
+    return provider.status();
   }
 
   Future<TtsStatus> setAutoAffinity(bool enabled) async {

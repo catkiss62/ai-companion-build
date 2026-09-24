@@ -40,7 +40,7 @@
 | +228 远端 | head `29e87d016c8bd81f52f89f95191bd1a1a01a5b57`；tree `c4a112a56d8b634cf3a1a66636979a0833538b7d`；Actions `35440359036`；Artifact `10583263879`；APK SHA-256 `159e283173e49da2924d25b37ba7647893cdafdcc31b63f0e31b7c64e086849b` |
 | 仓库维护基线 | `maintenance/repository-governance-20260919`；远端文档 head `123e272196e8ae93f3518157917d76f6af4f1784`；完整构建 head `fa99f32012fa1a0716b746d36b958a8e777ef9b8`；Actions `35446649873` 全绿；文档-only run `35447342921` 正确跳过 APK |
 | 当前功能分支 | `agent/v04206-tts-mood-dual-mode`，基于 +249 已验证源码；候选版本 `v0.42.6+250` |
-| 当前任务状态 | `IMPLEMENTED / CI PASSED / APK READY / TRUE DEVICE PENDING`；小豆丁形态定义最终版已由 Actions `35943607609` 构建，见 6.23 |
+| 当前任务状态 | `IMPLEMENTATION IN PROGRESS / CI PENDING / APK PENDING / TRUE DEVICE PENDING`；+250 真机确认小豆丁形态有明显反差且不过火；+251 正将气焰增长从关键词匹配改为语义判断，见 6.24 |
 | +250 当前任务 | 本体／小豆丁形态共用成年角色、记忆与能力；同一形态状态驱动角色提示与静态立绘，虚拟弹额头／安抚改变气焰值后继续自然衰减，心形液面与锁定入口；常驻世界书定点柔化并仅迁移未编辑原文；两档 TTS 共用冻结的真实回复与分段，无声生成并复制专项脱敏报告 |
 | +250 最终构建 | 功能 head `b5cd2d1070fb237bc72ab66b1867a75da9bbe6e8`；tree `4e0dbbd531aea408ab0face6d46a323f441c7eeb`；Actions `35943607609` 全绿；Artifact `10785922926`；APK SHA-256 `f148f2eb303017ad5f6f689628f230979c24ba16831fdc0181e58bc5e1d73a`；未发布 Draft Release `v0.42.6-dual-form-tts-comparison-test` |
 | +249 当前任务 | `loopIndex=0` 时明确判定“零个新语义 token”，在 VITS 前拒绝本段；最后两次会话记录生成时 profile、冷/热状态、各阶段耗时、RTF、播放首帧、队列余量、迟到段、失败/停止与脱敏文本哈希 |
@@ -828,6 +828,17 @@ Actions 与交付证据：远端功能 head `33647c7bff15084d6fd3cbc7b817e9b0b21
 - TTS：语音与情绪页显示当前胜出档和本轮候选档两个无声测试按钮、复制专项报告和样本更新文字入口。固定同一条已提交的真实 API 回复、语种、音色、前处理和分段，在隔离 Genie 子进程测自动核亲和与自动 Decoder＋8 线程 VITS；逐段只保存哈希及耗时，失败或不一致禁算胜者，比较足够明确时才持久化生产档。普通会话不再持续写入详尽成功片段性能历史，原生错误与崩溃线索保留。
 - 验证与后续：先完成源码门、Flutter analyze/tests 与 Kotlin/arm64 Release 构建；真机检查心形液面、按钮语义事件后跨轮持续、自动/锁定形态、三语入口共享会话配置，以及同样本双档无声对比是否有效。性能提升没有预设 50% 结论。
 - 最终构建证据：功能提交 `b5cd2d1070fb237bc72ab66b1867a75da9bbe6e8`，tree `4e0dbbd531aea408ab0face6d46a323f441c7eeb` 与本地源码一致。Actions `35943607609` 源码门 126 项、Kotlin 单元测试、Flutter analyze/test、arm64 Release APK、签名和包内资源核验全部通过；Artifact `10785922926`，APK SHA-256 `f148f2eb303017ad5f6f689628f230979c24ba16831fdc0181e58bc5e1d73a`，Draft `v0.42.6-dual-form-tts-comparison-test`。仅 CI 通过，双形态语气、立绘与 TTS 对照仍待用户真机验收。此前仅改名称的 run `35941949391` 虽全绿但定义不完整，已由本次构建取代。
+
+### 6.24 v0.42.7+251 气焰语义增长（2026-09-24）
+
+- 状态：`DESIGNED / IMPLEMENTATION IN PROGRESS / CI PENDING / TRUE DEVICE PENDING`。用户在 +250 真机确认：本体性格稳定、小豆丁表现明显且不过分；但自然逗弄没有关键词就不会涨气焰，现有每轮 `-4 + 命中词时 +13` 从零到 76 通常需九轮，和此前“互动推动”的说明不符。此前代码事实必须保留，不把关键词版写成已实现语义理解。
+- 目标：复用普通用户轮已有的 DeepSeek 亲密路由调用，一次返回亲密路由和本轮互动强度；只把实际用户参与的玩闹作为正向输入，不由她自己的上一句情绪或提示词自抬气焰。语义强度经过本地限幅，约五轮普通互相较劲可达自动变身阈值；手动按钮立即改变数值与形态，锁定仍只影响自动切换。正常聊天不新增模型调用；失败或字段缺失时不猜加分，保持回复链继续。崩溃/Stop/重新生成按 user turn ID 幂等，严肃语境抑制玩闹；按钮事件只在近期下一次相关回复有效。
+- 验证：覆盖无关键词的自然逗弄、关键词出现但语义认真、上下文互相较劲、隔时衰减、同轮重试/手动锁、按钮事件过期与严肃抑制；源码门、Kotlin、Flutter 与 arm64 Release 构建通过后交付 APK，真机验收单独记录。
+
+- 本轮合并 +251 真机反馈：语音与情绪页面在读取 TTS 状态前先展示设置，TTS `status()` 只读，不在打开页面/快速自检时隐式重配模型；快速自检对孤立进程读取设置 3 秒边界，深度自检仍执行完整校验。两个测速按钮明确标为无声对照；根据当前语种和朗读范围从最近的真实回复中选择可朗读样本；若没有对白，明确标记后改用真实回复全文，不再固定拿一条长但只有动作的回复，测速选样不先初始化声学模型。`试听发声` 才是实际有声按钮。用户脱敏报告中的 TTS 状态读取失败，以及历史原生生成 `NullPointerException` 分别记为待真机验证，不把当前样本报错当作后者已解决。
+- Gemini：对照 Google 官方 OpenAI 兼容 REST 请求示例，将 `google.thinking_config` 移入实际请求体的 `extra_body`；仅在最终候选经过可选修正后呈现对应模型返回的思考摘要，避免先显示被弃用候选的摘要而最终正文没有摘要时闪退。摘要缺失依旧为空，不造人工思考。非 Gemini 自定义模型不加专用字段；服务商转发是否支持新参数须以真机验收。
+- 判断型内部路由继续 `thinking:false`，只复用既有 DeepSeek 亲密路由返回的语义互动强度；五轮自然互相较劲的目标是本地上限映射，非模型随意决定 0～100 分。手动亲密开关继续旁路路由，无额外请求。
+- 状态：`IMPLEMENTED LOCALLY / LOCAL STATIC VALIDATION IN PROGRESS / CI PENDING / TRUE DEVICE PENDING`；版本 `v0.42.7+251`，独立 Draft 构建，需在 CI analyze/tests/Kotlin/arm64 Release 后更新证据。
 
 ## 7. 历史验证兼容摘要
 
