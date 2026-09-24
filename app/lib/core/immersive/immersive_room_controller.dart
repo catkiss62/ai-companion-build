@@ -425,10 +425,12 @@ class ImmersiveRoomController extends ChangeNotifier {
       error = null;
     } on GenerationCancelledByUserException {
       await _abortStreamingSpeech();
-      await repository.interruptUserMessageForDisplay(
-        roomId: roomId,
-        messageId: user.id,
-      );
+      if (!committed) {
+        await repository.interruptUserMessageForDisplay(
+          roomId: roomId,
+          messageId: user.id,
+        );
+      }
       messages = await repository.messagesForRoom(roomId);
       interruptions = await repository.interruptionsForRoom(roomId);
       error = null;
