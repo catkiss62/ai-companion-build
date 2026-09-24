@@ -1618,6 +1618,8 @@ class OverlayBubbleService : Service() {
                 reasoning = map["reasoning_content"] as? String ?: "",
                 reasoningTranslation = map["reasoning_translation"] as? String ?: "",
                 reasoningTranslationOffer = map["reasoning_translation_offer"] == true,
+                toolActivities = (map["tool_activities"] as? List<*>)
+                    ?.filterIsInstance<String>() ?: emptyList(),
                 createdAt = (map["created_at"] as? Number)?.toLong() ?: 0L,
                 proactive = when (val value = map["is_proactive"]) {
                     is Boolean -> value
@@ -2692,6 +2694,7 @@ class OverlayBubbleService : Service() {
         val reasoning: String,
         val reasoningTranslation: String = "",
         val reasoningTranslationOffer: Boolean = false,
+        val toolActivities: List<String> = emptyList(),
         val createdAt: Long,
         val proactive: Boolean,
         val proactiveIntent: String,
@@ -2709,6 +2712,7 @@ class OverlayBubbleService : Service() {
 
     private inner class NativeChatAdapter : BaseAdapter() {
         private val expandedReasoning = mutableSetOf<String>()
+        private val collapsedTools = mutableSetOf<String>()
         private val translatingReasoning = mutableSetOf<String>()
         private val reasoningTranslationErrors = mutableMapOf<String, String>()
 
@@ -2856,6 +2860,25 @@ class OverlayBubbleService : Service() {
                             })
                         }
                     }
+                }
+            }
+            if (message.role == "assistant" && message.toolActivities.isNotEmpty()) {
+                val toolsExpanded = !collapsedTools.contains(message.id)
+                bubble.addView(smallInlineAction(
+                    if (toolsExpanded) "▾  工具调用 · ${message.toolActivities.size} 项"
+                    else "▸  工具调用 · ${message.toolActivities.size} 项",
+                ) {
+                    if (!collapsedTools.add(message.id)) collapsedTools.remove(message.id)
+                    notifyDataSetChanged()
+                })
+                if (toolsExpanded) {
+                    bubble.addView(TextView(this@OverlayBubbleService).apply {
+                        text = message.toolActivities.joinToString("\n\n")
+                        textSize = 12f
+                        setTextColor(Color.rgb(194, 192, 199))
+                        setBackgroundColor(Color.argb(31, 104, 104, 112))
+                        setPadding(dp(8), dp(5), dp(8), dp(6))
+                    })
                 }
             }
             if (message.content.isNotEmpty() || message.id != STREAMING_MESSAGE_ID) {

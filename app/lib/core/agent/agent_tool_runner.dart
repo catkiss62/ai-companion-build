@@ -2317,14 +2317,15 @@ ${lines.join('\n')}
         deviceLabel = await android.deviceLabel();
       } catch (_) {}
       final stableScope = eventScopeId.trim();
+      final eventId = stableScope.isEmpty
+          ? ''
+          : _eventId(
+              eventScopeId: stableScope,
+              call: call,
+              callIndex: callIndex,
+            );
       await db.recordAgentToolOutcome(
-        eventId: stableScope.isEmpty
-            ? ''
-            : _eventId(
-                eventScopeId: stableScope,
-                call: call,
-                callIndex: callIndex,
-              ),
+        eventId: eventId,
         toolId: call.toolId,
         origin: origin.key,
         status: result.status.key,
@@ -2349,6 +2350,12 @@ ${lines.join('\n')}
         sourceDeviceId: deviceId,
         sourceDeviceLabel: deviceLabel,
       );
+      if (eventId.isNotEmpty) {
+        await db.recordAgentToolDisplay(
+          eventId: eventId,
+          displayText: result.displayText,
+        );
+      }
     } catch (_) {
       // Audit metadata must never turn a real read-only tool result into a
       // failed user answer. The next diagnostics report can expose a missing

@@ -77,6 +77,13 @@ class PlayfulFormState {
     this.locked = false,
     this.lastTurn = '',
     this.lastAssistantTurn = '',
+    this.pendingTurn = false,
+    this.beforeHeat = 0,
+    this.beforeQForm = false,
+    this.beforeUpdatedAt = 0,
+    this.beforeLastTurn = '',
+    this.beforeEvent = '',
+    this.beforeEventTurn = '',
     this.event = '',
     this.eventTurn = '',
     this.updatedAt = 0,
@@ -88,6 +95,14 @@ class PlayfulFormState {
   final bool locked;
   final String lastTurn;
   final String lastAssistantTurn;
+  /// Only the newest uncommitted user turn is reversible on Stop.
+  final bool pendingTurn;
+  final int beforeHeat;
+  final bool beforeQForm;
+  final int beforeUpdatedAt;
+  final String beforeLastTurn;
+  final String beforeEvent;
+  final String beforeEventTurn;
   final String event;
   final String eventTurn;
   final int updatedAt;
@@ -101,6 +116,13 @@ class PlayfulFormState {
         locked: data['locked'] == true,
         lastTurn: data['lastTurn']?.toString() ?? '',
         lastAssistantTurn: data['lastAssistantTurn']?.toString() ?? '',
+        pendingTurn: data['pendingTurn'] == true,
+        beforeHeat: ((data['beforeHeat'] as num?)?.toInt() ?? 0).clamp(0, 100).toInt(),
+        beforeQForm: data['beforeQForm'] == true,
+        beforeUpdatedAt: (data['beforeUpdatedAt'] as num?)?.toInt() ?? 0,
+        beforeLastTurn: data['beforeLastTurn']?.toString() ?? '',
+        beforeEvent: data['beforeEvent']?.toString() ?? '',
+        beforeEventTurn: data['beforeEventTurn']?.toString() ?? '',
         event: data['event']?.toString() ?? '',
         eventTurn: data['eventTurn']?.toString() ?? '',
         updatedAt: (data['updatedAt'] as num?)?.toInt() ?? 0,
@@ -116,6 +138,13 @@ class PlayfulFormState {
         'locked': locked,
         'lastTurn': lastTurn,
         'lastAssistantTurn': lastAssistantTurn,
+        'pendingTurn': pendingTurn,
+        'beforeHeat': beforeHeat,
+        'beforeQForm': beforeQForm,
+        'beforeUpdatedAt': beforeUpdatedAt,
+        'beforeLastTurn': beforeLastTurn,
+        'beforeEvent': beforeEvent,
+        'beforeEventTurn': beforeEventTurn,
         'event': event,
         'eventTurn': eventTurn,
         'updatedAt': updatedAt,
@@ -144,6 +173,13 @@ class PlayfulFormState {
       locked: locked,
       lastTurn: turn,
       lastAssistantTurn: lastAssistantTurn,
+      pendingTurn: true,
+      beforeHeat: heat,
+      beforeQForm: qForm,
+      beforeUpdatedAt: updatedAt,
+      beforeLastTurn: lastTurn,
+      beforeEvent: event,
+      beforeEventTurn: eventTurn,
       event: event.isNotEmpty && eventTurn.isEmpty && !serious &&
               now.millisecondsSinceEpoch - updatedAt <= 10 * 60 * 1000
           ? event
@@ -153,6 +189,23 @@ class PlayfulFormState {
           ? turn
           : '',
       updatedAt: now.millisecondsSinceEpoch,
+    );
+  }
+
+  /// Restore a stopped turn only while no manual action or later turn has
+  /// superseded its provisional heat. The caller performs this in the same
+  /// SQLite transaction that withdraws the user message.
+  PlayfulFormState rollbackTurn(String turn) {
+    if (!pendingTurn || turn.isEmpty || lastTurn != turn) return this;
+    return PlayfulFormState(
+      heat: beforeHeat,
+      qForm: beforeQForm,
+      locked: locked,
+      lastTurn: beforeLastTurn,
+      lastAssistantTurn: lastAssistantTurn,
+      event: beforeEvent,
+      eventTurn: beforeEventTurn,
+      updatedAt: beforeUpdatedAt,
     );
   }
 

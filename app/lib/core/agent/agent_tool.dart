@@ -62,6 +62,7 @@ class AgentToolOutcomeRecord {
     required this.startedAt,
     required this.finishedAt,
     required this.sourceDeviceLabel,
+    this.displayText = '',
   });
 
   final String id;
@@ -73,6 +74,8 @@ class AgentToolOutcomeRecord {
   final DateTime startedAt;
   final DateTime finishedAt;
   final String sourceDeviceLabel;
+  /// User-facing tool outcome, stored separately from diagnostic metadata.
+  final String displayText;
 
   Duration get duration => finishedAt.difference(startedAt);
 
@@ -91,6 +94,7 @@ class AgentToolOutcomeRecord {
           (row['finished_at'] as num?)?.toInt() ?? 0,
         ),
         sourceDeviceLabel: row['source_device_label'] as String? ?? '',
+        displayText: row['display_text'] as String? ?? '',
       );
 }
 

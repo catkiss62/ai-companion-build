@@ -1599,16 +1599,14 @@ $finalGenerationReminder
         return const GenerationRunResult(status: 'suspended');
       }
       agentAttachmentsCommitted = true;
-      if (selfActivity != null) {
-        try {
-          await PlayfulFormStore(db).onAssistantTurn(
-            activity: selfActivity,
-            assistantTurn: assistant.id,
-            now: assistant.createdAt,
-          );
-        } catch (_) {
-          // A committed answer survives an optional score storage failure.
-        }
+      try {
+        await PlayfulFormStore(db).onAssistantTurn(
+          activity: selfActivity ?? PlayfulSelfActivity.none,
+          assistantTurn: assistant.id,
+          now: assistant.createdAt,
+        );
+      } catch (_) {
+        // A committed answer survives an optional score storage failure.
       }
       for (var index = 0; index < agentToolResults.length; index++) {
         await agentToolRunner.recordCommittedMediaOutcome(

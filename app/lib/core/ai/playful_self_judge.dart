@@ -24,7 +24,7 @@ class PlayfulSelfJudge {
   static const options = <String, String>{
     'none': 'No independent playful challenge in the assistant reply. '
         'Routine warmth, shyness, empathy, or simply copying the user '
-        'are not playful contributions.',
+        'or intimacy alone are not playful contributions.',
     'playful': 'The assistant actually opens a small pointed joke or adds '
         'an original playful retort to the exchange.',
     'strong': 'The assistant clearly initiates or actively escalates '
@@ -58,7 +58,7 @@ class PlayfulSelfJudge {
           'generated. Use latest_user_text and recent_context to tell '
           'an original playful challenge from merely mirroring the user. '
           'Do not score an intention or prompt, and do not treat affection, '
-          'embarrassment or helpful answers as teasing.',
+          'embarrassment, intimate narration or helpful answers as teasing.',
       options: options,
       cancellationToken: cancellationToken,
       usageLane: 'chat_playful_self',
@@ -91,7 +91,7 @@ class PlayfulSelfJudge {
                 'LATEST_USER_TEXT and RECENT_CONTEXT. Return one JSON object '
                 'with exactly one field: {"self":"none|playful|strong|settle"}. '
                 'none: no original playful challenge, ordinary care, shyness, '
-                'mirroring or direct help. playful: her own pointed light joke '
+                'mirroring, intimacy or direct help. playful: her own pointed light joke '
                 'or original retort. strong: she initiates or escalates an '
                 'explicit reciprocal provocative challenge, not anger. '
                 'settle: she deliberately ends ongoing playful contest; '

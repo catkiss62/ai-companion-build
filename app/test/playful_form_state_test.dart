@@ -45,6 +45,26 @@ void main() {
     expect(state.advance(PlayfulInteraction.serious, '6', now).qForm, isTrue);
   });
 
+  test('Stop restores only the pending user turn and keeps later actions', () {
+    final now = DateTime.utc(2026, 9, 25);
+    final prior = const PlayfulFormState(heat: 54);
+    final pending = prior.advance(PlayfulInteraction.mutual, 'user-a', now);
+    expect(pending.heat, 82);
+    expect(pending.rollbackTurn('user-a').heat, 54);
+    expect(pending.rollbackTurn('user-a').lastTurn, '');
+    expect(pending.rollbackTurn('another-turn').heat, 82);
+    final second = pending.advance(PlayfulInteraction.ordinary, 'user-b', now);
+    expect(second.rollbackTurn('user-a').heat, second.heat);
+    expect(second.rollbackTurn('user-b').heat, 82);
+    final manual = pending.interact(kindle: false, now: now);
+    expect(manual.rollbackTurn('user-a').heat, 0);
+    final completed = pending.onAssistantTurn(
+      PlayfulSelfActivity.none, 'assistant-a', now,
+    );
+    expect(completed.rollbackTurn('user-a').heat, 82);
+    expect(PlayfulFormState.decode(pending.encode()).rollbackTurn('user-a').heat, 54);
+  });
+
   test('an expired button event does not appear in the next reply', () {
     final now = DateTime(2026, 9, 24, 12);
     final state = const PlayfulFormState().interact(kindle: true, now: now)

@@ -3,6 +3,7 @@ import '../database/app_database.dart';
 import '../memory/memory_brain.dart';
 import '../models/immersive_room.dart';
 import '../personality/personality_catalog.dart';
+import '../personality/playful_form_state.dart';
 import '../reference/reference_library.dart';
 import '../relationship/relationship_brain.dart';
 import '../rules/intimacy_prompt_sections.dart';
@@ -27,6 +28,9 @@ class ImmersivePromptBuilder {
     required String latestUserText,
     required bool nsfwActive,
     String nsfwTurnDirective = '',
+    PlayfulFormState? playfulForm,
+    String playfulTurnId = '',
+    bool playfulInitiativeOpportunity = false,
   }) async {
     final all = await db.listRuleLayers();
     final byKey = {for (final layer in all) layer.key: layer};
@@ -128,6 +132,16 @@ class ImmersivePromptBuilder {
         ..writeln(room.sceneLedger.trim());
     }
 
+    // The same persisted identity applies in both chat surfaces. Immersive
+    // narration keeps its own POV rules; only her appearance and reactions
+    // come from the shared form, never a separate room-local meter.
+    final form = playfulForm ?? await PlayfulFormStore(db).load();
+    final optionalInitiative = PlayfulInitiativePolicy.offer(
+      playfulTurnId,
+      opportunity: playfulInitiativeOpportunity,
+    )
+        ? '\n这轮如果你自己想逗对方，可以自然地开一个轻巧的玩笑；也可以不逗。'
+        : '';
     final messages = <Map<String, Object?>>[
       {'role': 'system', 'content': identity.trim()},
       {
@@ -136,6 +150,7 @@ class ImmersivePromptBuilder {
       },
       if (behaviorWorldBook.prompt.isNotEmpty)
         {'role': 'system', 'content': behaviorWorldBook.prompt},
+      {'role': 'system', 'content': '${form.promptForTurn(playfulTurnId)}$optionalInitiative'},
       {'role': 'system', 'content': context.toString().trim()},
       {
         'role': 'system',

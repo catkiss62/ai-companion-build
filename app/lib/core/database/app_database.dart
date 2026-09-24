@@ -13,6 +13,7 @@ import '../diagnostics/proactive_policy_telemetry.dart';
 import '../desire/desire_core_policy.dart';
 import '../desire/interaction_reciprocity_policy.dart';
 import '../models/chat_message.dart';
+import '../personality/playful_form_state.dart';
 import '../models/chat_language_variant.dart';
 import '../models/companion_album.dart';
 import '../platform/android_bridge.dart';
@@ -7113,6 +7114,32 @@ class AppDatabase {
     return cancelGenerationJobByUser(id);
   }
 
+  /// The heat state shares this transaction with the withdrawn user message.
+  /// A completed answer, a manual form action, or a newer turn cannot be
+  /// rolled back by an old Stop request.
+  Future<void> _rollbackPlayfulFormTurn(
+    Transaction txn,
+    String userMessageId,
+  ) async {
+    final rows = await txn.query(
+      'settings',
+      columns: const ['value'],
+      where: 'key = ?',
+      whereArgs: const [PlayfulFormState.settingKey],
+      limit: 1,
+    );
+    if (rows.isEmpty) return;
+    final current = PlayfulFormState.decode(rows.first['value'] as String?);
+    final restored = current.rollbackTurn(userMessageId);
+    if (identical(restored, current)) return;
+    await txn.update(
+      'settings',
+      {'value': restored.encode()},
+      where: 'key = ?',
+      whereArgs: const [PlayfulFormState.settingKey],
+    );
+  }
+
   /// Terminally fences one reply and withdraws its user turn when Stop wins.
   ///
   /// This is intentionally valid for pending, running, retry-wait,
@@ -7190,6 +7217,7 @@ class AppDatabase {
           where: 'user_message_id = ?',
           whereArgs: [userMessageId],
         );
+        await _rollbackPlayfulFormTurn(txn, userMessageId);
         await txn.delete(
           'messages',
           where: 'id = ? AND role = ?',
@@ -7251,6 +7279,7 @@ class AppDatabase {
           where: 'user_message_id = ?',
           whereArgs: [userMessageId],
         );
+        await _rollbackPlayfulFormTurn(txn, userMessageId);
         await txn.delete(
           'messages',
           where: 'id = ? AND role = ?',
@@ -7376,6 +7405,7 @@ class AppDatabase {
         where: 'turn_id = ?',
         whereArgs: [messageId],
       );
+      await _rollbackPlayfulFormTurn(txn, messageId);
       await txn.delete(
         'immersive_messages',
         where: 'id = ? AND room_id = ? AND role = ?',
@@ -13870,11 +13900,69 @@ class AppDatabase {
       ''',
       [limit.clamp(1, 200).toInt()],
     );
+    final stored = await db.query(
+      'settings',
+      columns: const ['value'],
+      where: 'key = ?',
+      whereArgs: const ['agent_tool_display_history_v1'],
+      limit: 1,
+    );
+    Map<String, dynamic> descriptions = const {};
+    try {
+      if (stored.isNotEmpty) {
+        descriptions = (jsonDecode(stored.first['value'] as String) as Map)
+            .cast<String, dynamic>();
+      }
+    } catch (_) {}
     return rows
-        .map(AgentToolOutcomeRecord.fromDb)
+        .map((row) => AgentToolOutcomeRecord.fromDb({
+              ...row,
+              'display_text': descriptions[row['id']] as String? ?? '',
+            }))
         .toList(growable: false)
         .reversed
         .toList(growable: false);
+  }
+
+  /// Only user-visible result text; never promptData, tool arguments, keys or
+  /// diagnostic payloads. The bounded map follows normal backup/restore.
+  Future<void> recordAgentToolDisplay({
+    required String eventId,
+    required String displayText,
+  }) async {
+    if (eventId.isEmpty || displayText.trim().isEmpty) return;
+    const key = 'agent_tool_display_history_v1';
+    final database = await this.database;
+    await database.transaction((txn) async {
+      final rows = await txn.query('settings',
+          columns: const ['value'], where: 'key = ?',
+          whereArgs: const [key], limit: 1);
+      final entries = <String, String>{};
+      if (rows.isNotEmpty) {
+        try {
+          final parsed = jsonDecode(rows.first['value'] as String);
+          if (parsed is Map) {
+            for (final entry in parsed.entries) {
+              if (entry.key is String && entry.value is String) {
+                entries[entry.key as String] = entry.value as String;
+              }
+            }
+          }
+        } catch (_) {}
+      }
+      entries.remove(eventId);
+      final clean = displayText.replaceAll(RegExp(r'[\x00-\x08\x0B\x0C\x0E-\x1F]'), '')
+          .trim();
+      if (clean.isEmpty) return;
+      entries[eventId] = clean.length <= 800 ? clean : '${clean.substring(0, 800)}…';
+      while (entries.length > 200) {
+        entries.remove(entries.keys.first);
+      }
+      await txn.rawInsert(
+        'INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)',
+        [key, jsonEncode(entries)],
+      );
+    });
   }
 
   Future<bool> agentToolOutcomeEventExists(String eventId) async {

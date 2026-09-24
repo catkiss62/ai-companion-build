@@ -13,11 +13,13 @@ void main() {
       'started_at': 1000,
       'finished_at': 2500,
       'source_device_label': 'Android device',
+      'display_text': '网页实际返回了三条结果',
     });
 
     expect(record.jobId, 'job-1');
     expect(record.assistantMessageId, 'assistant-1');
     expect(record.status, AgentToolStatus.stopped);
+    expect(record.displayText, '网页实际返回了三条结果');
     expect(record.duration, const Duration(milliseconds: 1500));
   });
 }

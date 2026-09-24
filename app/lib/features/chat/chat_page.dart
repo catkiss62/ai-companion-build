@@ -3261,11 +3261,12 @@ class _ToolActivityHistory extends StatelessWidget {
       padding: const EdgeInsets.fromLTRB(4, 3, 4, 6),
       child: DecoratedBox(
         decoration: BoxDecoration(
-          color: colors.surfaceContainerHighest.withValues(alpha: 0.72),
+          color: colors.surfaceContainerHighest.withValues(alpha: 0.16),
           borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: colors.outlineVariant),
+          border: Border.all(color: colors.outlineVariant.withValues(alpha: 0.35)),
         ),
         child: ExpansionTile(
+          initiallyExpanded: true,
           dense: true,
           visualDensity: VisualDensity.compact,
           leading: const Icon(Icons.build_circle_outlined, size: 18),
@@ -3280,12 +3281,22 @@ class _ToolActivityHistory extends StatelessWidget {
                 title: Text(
                   AgentToolRegistry.byId(outcome.toolId)?.title ?? '本地工具',
                 ),
-                subtitle: Text(
-                  '${_statusLabel(outcome.status)}'
-                  '${outcome.resultCount > 0 ? ' · ${outcome.resultCount} 项结果' : ''}'
-                  ' · ${_duration(outcome.duration)}'
-                  ' · ${ChatTimestampFormatter.time(outcome.startedAt)}'
-                  '${outcome.sourceDeviceLabel.trim().isEmpty ? '' : ' · ${outcome.sourceDeviceLabel}'}',
+                subtitle: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      '${_statusLabel(outcome.status)}'
+                      '${outcome.resultCount > 0 ? ' · ${outcome.resultCount} 项结果' : ''}'
+                      ' · ${_duration(outcome.duration)}'
+                      ' · ${ChatTimestampFormatter.time(outcome.startedAt)}'
+                      '${outcome.sourceDeviceLabel.trim().isEmpty ? '' : ' · ${outcome.sourceDeviceLabel}'}',
+                    ),
+                    if (outcome.displayText.isNotEmpty) ...[
+                      const SizedBox(height: 4),
+                      SelectableText(outcome.displayText,
+                          style: Theme.of(context).textTheme.bodySmall),
+                    ],
+                  ],
                 ),
               ),
           ],
@@ -3850,24 +3861,36 @@ class _LiveToolActivityPanel extends StatelessWidget {
   Widget build(BuildContext context) {
     return Theme(
       data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
-      child: ExpansionTile(
-        initiallyExpanded: true,
-        dense: true,
-        visualDensity: VisualDensity.compact,
-        tilePadding: EdgeInsets.zero,
-        childrenPadding: const EdgeInsets.only(left: 8),
-        leading: const Icon(Icons.build_outlined, size: 16, color: Colors.white),
-        title: Text(
-          '工具调用 · ${activities.length} 项',
-          style: const TextStyle(color: Colors.white, fontSize: 11),
+      child: DecoratedBox(
+        decoration: BoxDecoration(
+          color: Theme.of(context).colorScheme.surfaceContainerHighest
+              .withValues(alpha: 0.14),
+          borderRadius: BorderRadius.circular(10),
+          border: Border.all(
+            color: Theme.of(context).colorScheme.outlineVariant
+                .withValues(alpha: 0.28),
+          ),
         ),
-        children: [
-          for (final activity in activities)
-            _AgentActivityLine(
-              text: activity.text,
-              active: activity.active,
-            ),
-        ],
+        child: ExpansionTile(
+          initiallyExpanded: true,
+          dense: true,
+          visualDensity: VisualDensity.compact,
+          tilePadding: const EdgeInsets.symmetric(horizontal: 6),
+          childrenPadding: const EdgeInsets.only(left: 8),
+          leading:
+              const Icon(Icons.build_outlined, size: 16, color: Colors.white),
+          title: Text(
+            '工具调用 · ${activities.length} 项',
+            style: const TextStyle(color: Colors.white, fontSize: 11),
+          ),
+          children: [
+            for (final activity in activities)
+              _AgentActivityLine(
+                text: activity.text,
+                active: activity.active,
+              ),
+          ],
+        ),
       ),
     );
   }

@@ -39,8 +39,8 @@
 | 功能状态 | `CI PASSED / APK READY / TRUE DEVICE PENDING` |
 | +228 远端 | head `29e87d016c8bd81f52f89f95191bd1a1a01a5b57`；tree `c4a112a56d8b634cf3a1a66636979a0833538b7d`；Actions `35440359036`；Artifact `10583263879`；APK SHA-256 `159e283173e49da2924d25b37ba7647893cdafdcc31b63f0e31b7c64e086849b` |
 | 仓库维护基线 | `maintenance/repository-governance-20260919`；远端文档 head `123e272196e8ae93f3518157917d76f6af4f1784`；完整构建 head `fa99f32012fa1a0716b746d36b958a8e777ef9b8`；Actions `35446649873` 全绿；文档-only run `35447342921` 正确跳过 APK |
-| 当前功能分支 | `agent/v04212-form-pitch-zero`，基于真机已恢复的 +255 源码；候选版本 `v0.42.12+256` |
-| 当前任务状态 | `CI PASSED / APK READY / TRUE DEVICE PENDING`；用户真机确认 +255 回退后 TTS 正常、气焰表现正常；+256 同批完成双向 Jev 气焰、0/100 切换及形态音调，详情见末尾 +256 记录 |
+| 当前功能分支 | `agent/v04213-shared-form-tool-history`，继承 +256 全绿草稿；候选版本 `v0.42.13+257` |
+| 当前任务状态 | `IMPLEMENTATION IN PROGRESS / CI PENDING / APK PENDING / TRUE DEVICE PENDING`；+257 停止撤回气焰、沉浸房间与普通聊天共享形态、工具结果历史；TTS 双档对照仅记后续方案，不改运行链，详情见末尾 +257 |
 | +250 当前任务 | 本体／小豆丁形态共用成年角色、记忆与能力；同一形态状态驱动角色提示与静态立绘，虚拟弹额头／安抚改变气焰值后继续自然衰减，心形液面与锁定入口；常驻世界书定点柔化并仅迁移未编辑原文；两档 TTS 共用冻结的真实回复与分段，无声生成并复制专项脱敏报告 |
 | +250 最终构建 | 功能 head `b5cd2d1070fb237bc72ab66b1867a75da9bbe6e8`；tree `4e0dbbd531aea408ab0face6d46a323f441c7eeb`；Actions `35943607609` 全绿；Artifact `10785922926`；APK SHA-256 `f148f2eb303017ad5f6f689628f230979c24ba16831fdc0181e58bc5e1d73a`；未发布 Draft Release `v0.42.6-dual-form-tts-comparison-test` |
 | +249 当前任务 | `loopIndex=0` 时明确判定“零个新语义 token”，在 VITS 前拒绝本段；最后两次会话记录生成时 profile、冷/热状态、各阶段耗时、RTF、播放首帧、队列余量、迟到段、失败/停止与脱敏文本哈希 |
@@ -911,3 +911,13 @@ Actions 与交付证据：远端功能 head `33647c7bff15084d6fd3cbc7b817e9b0b21
 - 所有短判断的 Jev 缺 Key/未启用、答案缺失/不确定、网络失败、402、超时与格式异常，均由现有 DeepSeek Flash 不思考模式判断同一组问题或同一最终回复；取消直接停止兜底。两方都失败时用户输入不给正增量，自主端不追加分，回复本身照常提交。Jev 输出为离散选项，不把模型生成的任意数值直接写入存档。诊断沿用只记 lane、耗时、用量与失败类别、不存正文或选项的有界记录。OpenRouter 截图单次约 $0.000070～$0.000081，用户明确优先反馈及时、成本可忽略；新回复后判断会多一次网络等待，需要真机测端到端延时和回退比例，再决定是否合并请求。
 - 状态并发：气焰、形态、回合 ID 与手动交互统一在 SQLite 设置键里事务读改写，避免等待 Jev 时覆盖用户按键或相邻回合；原备份键 `playful_form_state_v1` 不变。音调沿用 +256 的每次播放前形态读取：小豆丁用设置选中的原值，本体降 1 半音（设置 0 则 0/−1）；仅使用既有音调调整链，不动子进程、绑定、ONNX、语音队列和无声测速。
 - 验证关注：单元测试覆盖正常趋稳、入形仅在 100、Q 形七轮自然归零、真正挑衅快速升温、认真求助仍是当前形态、回复定稿一次性加分、决定性抽样、Jev 成功及余额不足后的 DeepSeek 兜底；历史源码门因硬编码版号 +255 拦截须兼容 +256 后再跑 Flutter analyze/tests、Kotlin、签名与 arm64 APK。构建状态 `CI PASSED / APK READY / TRUE DEVICE PENDING`。功能提交 `f107a48578d761ac4722256a23bfee1adb343c2b`，tree `6d034edc1f7e73472c43bf5dd7bfee8ab3e2c312`；Actions run `36002099038`：125 项源码门、Kotlin 测试、Flutter analyze/tests、Release APK、签名及包内 Genie/桌宠/塔罗资源检查全绿；Artifact `10809520556`；未公开的 Draft Release `https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-c851c83a1c515da6746d`，APK SHA-256 `739c86422711e1eedabf15594543abaf300b3c39d77c9a3822ee3a8c9120a289`。真机重点验证两种形态连续聊天、主动玩闹、未填 Jev Key/余额不足、音调和发声；CI 结果不能代表真机已验收。
+
+
+## v0.42.13+257 · 双房间气焰与可回看的工具调用（2026-09-25，候选）
+
+- 用户提供的 +256 私密备份只有最新状态快照：2026-09-25 01:44（北京时间）气焰 49、小豆丁形态、未锁定，lastTurn/lastAssistantTurn 均已保存；诊断中 Jev chat_playful_self used 5、low_confidence_self 3；chat_intimacy_route used 13、low_confidence_interaction 10、历史合并旧 low_confidence_or_invalid 5。现有诊断没有逐轮分类结果／值变动，备份也没有逐轮气焰流水，**不可由此断言是哪句话让气焰上升或下降**。不向公开仓库提交私密备份或诊断原文。
+- 停止问题证实：普通聊天 PromptBuilder 在回复生成前写入用户本轮的气焰变动，用户按 Stop 会删除尚未提交的用户消息、留下仅供 UI 重编辑的中断展示；先前没有归还气焰。沉浸房间同样会撤回未完成用户消息。修复：状态记录本轮结算前热量/形态及上一回合；只有最新未提交回合且未被后续回合/手动形态操作取代时才允许还原；撤回普通或沉浸用户消息和还原气焰放在**同一 SQLite 事务**。已提交回复不能被较晚的 Stop 回滚；备份继续使用既有 `playful_form_state_v1` 键，兼容旧存档。
+- 两房间仍保持各自聊天正文、小说现场和事实边界；共享同一个 PlayfulFormStore。沉浸回合单独用一次 Jev Choice 批量选 interaction/initiative，Jev Key 未配、402、网络/格式/低置信度转 DeepSeek Flash 不思考判断；复用普通回合 −2/−15 自然降温、加分枚举、0/100 切换。沉浸 Prompt 加载相同形态提示和轻量自主开玩笑机会，小说视角规则不变；实际可见回复经 Jev→DeepSeek 判断其自身玩闹，最终回复成功提交后才加自主分。沉浸 UI 读取相同气焰、共享玻璃管与手动互动，并以相同 qForm 选静态立绘；TTS 每次播放继续从同一状态读形态，不复制音调设置。草稿重试不重复结算用户回合；用户确认截断回复时按 none 完结临时回合。
+- 工具历史：工具的 user-facing displayText 之前只通过运行时 callback 显示，`agent_tool_outcomes` 只保存调用次数／状态／时间，因此对话结束或悬浮窗刷新后丢失可读细节。现在用 200 条有界独立设置记录实际已展示的 displayText（每项至多 800 字），仍保留原有脱敏 Outcome 表；普通聊天从真结果读取并显示灰色高透明工具面板，悬浮窗也随消息加载并可展开查看。只写用户可见短文，不记录 promptData、工具参数、模型思考、密钥或诊断正文。沉浸房间没有 Agent 工具执行链，继续保留其工具权限边界；不能伪造不存在的工具调用，后续若单独授权为房间接入工具，必须先按总账唯一 continuation owner 设计调用/停止/存档。
+- TTS 双档性能对照后续单独做，不在本批动已经恢复的发声链。先保持 +255 的自动核亲和运行、单个「试听发声」、轻量状态与原子诊断；未来对照在同一用户真实回复／音色／语言／分段上明确手动启动，串行无声生成两个档位，分别冷启动并记录核、PSS/RTF、每片段计时、子进程绑定/死亡和缺段；只在同批、两档都有效时比较，不在模型未就绪或播放失败时给出胜出档。另存最近两轮**真实播放**（不同形态）速度，用户可直接区分听感与纯推理测速。前次双档测速改动后真机出现子进程连接超时、资源未就绪、原生空指针；+255 回退到此前音频运行链后用户确认可发声。诊断只能证明故障与新增测试链共时，**没有证明**是哪行代码引发原生异常；下次须沿独立最小探针和真机栈定位，不靠恢复已撤的双档按钮猜测。保护固定签名、资源校验、媒体音量流和存档键。
+- 预期验证：停止前后气焰、已提交后 Stop 不回滚、手动形态动作不被旧回合覆盖；跨普通／沉浸连续涨跌和 UI 立绘一致；无 Jev Key／402 的 DeepSeek 兜底；工具活动实文在普通和悬浮窗完结、重开后仍能展开；TTS 现有真人发声不回归。当前 `IMPLEMENTATION IN PROGRESS / CI PENDING / APK PENDING / TRUE DEVICE PENDING`，CI 与真机分别回填。

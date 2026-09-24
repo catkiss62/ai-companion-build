@@ -9,6 +9,8 @@ import '../ai/final_reply_failure_policy.dart';
 import '../ai/generation_cancellation.dart';
 import '../ai/message_language_variant_service.dart';
 import '../ai/model_profile.dart';
+import '../ai/playful_turn_judge.dart';
+import '../ai/playful_self_judge.dart';
 import '../database/app_database.dart';
 import '../emotion/emotion_classifier_service.dart';
 import '../emotion/emotion_contract.dart';
@@ -16,6 +18,7 @@ import '../models/chat_language_variant.dart';
 import '../models/chat_segment.dart';
 import '../models/generation_job.dart';
 import '../models/immersive_room.dart';
+import '../personality/playful_form_state.dart';
 import '../somatic/somatic_engine.dart';
 import '../storage/secure_config.dart';
 import '../tts/tts_playback_queue.dart';
@@ -236,12 +239,34 @@ class ImmersiveRoomController extends ChangeNotifier {
       room = await repository.roomById(roomId);
       nsfwRouting = false;
       _safeNotify();
+      final playfulDecision = await PlayfulTurnJudge(client).decide(
+        apiKey: apiKey,
+        endpoint: endpoint,
+        userText: text,
+        recentContext: historyBeforeTurn.reversed
+            .take(8)
+            .toList(growable: false)
+            .reversed
+            .map((message) =>
+                '${message.isUser ? 'USER' : 'ASSISTANT'}: ${message.content}')
+            .join('\n'),
+        cancellationToken: cancellation,
+      );
+      cancellation.throwIfCancelled();
+      final playfulForm = await PlayfulFormStore(db).onTurn(
+        interaction: playfulDecision.interaction,
+        turn: user.id,
+        now: user.createdAt,
+      );
       final request = await promptBuilder.build(
         room: room!,
         history: historyBeforeTurn,
         latestUserText: text,
         nsfwActive: route.active,
         nsfwTurnDirective: route.turnDirective,
+        playfulForm: playfulForm,
+        playfulTurnId: user.id,
+        playfulInitiativeOpportunity: playfulDecision.initiativeOpportunity,
       );
       final profile = DeepSeekModelProfile.fromApiName(
         await db.getSetting('model'),
@@ -306,6 +331,27 @@ class ImmersiveRoomController extends ChangeNotifier {
         throw const FormatException('模型没有返回可用的小说正文');
       }
       await _finishStreamingSpeech();
+      PlayfulSelfActivity? selfActivity;
+      try {
+        selfActivity = await PlayfulSelfJudge(client: client).classify(
+          apiKey: apiKey,
+          endpoint: endpoint,
+          userText: user.content,
+          assistantText: streamingContent,
+          recentContext: historyBeforeTurn.reversed
+              .take(4)
+              .toList(growable: false)
+              .reversed
+              .map((message) => message.content)
+              .join('\n'),
+          cancellationToken: cancellation,
+        );
+      } on GenerationCancelledByUserException {
+        rethrow;
+      } catch (_) {
+        // A classifier failure never replaces the companion's visible reply.
+      }
+      cancellation.throwIfCancelled();
       final assistant = await repository.addMessage(
         roomId: roomId,
         role: 'assistant',
@@ -313,6 +359,15 @@ class ImmersiveRoomController extends ChangeNotifier {
         reasoningContent: _allStreamingReasoning,
       );
       committed = true;
+      try {
+        await PlayfulFormStore(db).onAssistantTurn(
+          activity: selfActivity ?? PlayfulSelfActivity.none,
+          assistantTurn: assistant.id,
+          now: assistant.createdAt,
+        );
+      } catch (_) {
+        // The already committed room reply remains available.
+      }
       _streamingDraftVisible = false;
       messages = [...messages, assistant];
       room = await repository.roomById(roomId);
@@ -646,6 +701,13 @@ class ImmersiveRoomController extends ChangeNotifier {
         content: draft.content,
         reasoningContent: draft.reasoningContent,
       );
+      try {
+        await PlayfulFormStore(db).onAssistantTurn(
+          activity: PlayfulSelfActivity.none,
+          assistantTurn: assistant.id,
+          now: assistant.createdAt,
+        );
+      } catch (_) {}
       await _clearIncompleteReplyDraft();
       messages = await repository.messagesForRoom(roomId);
       room = await repository.roomById(roomId);
@@ -750,12 +812,33 @@ class ImmersiveRoomController extends ChangeNotifier {
       );
       room = await repository.roomById(roomId);
       nsfwRouting = false;
+      final playfulDecision = await PlayfulTurnJudge(client).decide(
+        apiKey: internalApiKey,
+        endpoint: internalEndpoint,
+        userText: user.content,
+        recentContext: historyBeforeTurn.reversed
+            .take(8)
+            .toList(growable: false)
+            .reversed
+            .map((message) => message.content)
+            .join('\n'),
+        cancellationToken: cancellation,
+      );
+      cancellation.throwIfCancelled();
+      final playfulForm = await PlayfulFormStore(db).onTurn(
+        interaction: playfulDecision.interaction,
+        turn: user.id,
+        now: user.createdAt,
+      );
       final request = await promptBuilder.build(
         room: room!,
         history: historyBeforeTurn,
         latestUserText: user.content,
         nsfwActive: route.active,
         nsfwTurnDirective: route.turnDirective,
+        playfulForm: playfulForm,
+        playfulTurnId: user.id,
+        playfulInitiativeOpportunity: playfulDecision.initiativeOpportunity,
       );
       final profile = DeepSeekModelProfile.fromApiName(
         await db.getSetting('model'),
@@ -795,12 +878,32 @@ class ImmersiveRoomController extends ChangeNotifier {
         throw const FormatException('模型没有返回可用的小说正文');
       }
       await _finishStreamingSpeech();
-      await repository.addMessage(
+      PlayfulSelfActivity? selfActivity;
+      try {
+        selfActivity = await PlayfulSelfJudge(client: client).classify(
+          apiKey: internalApiKey,
+          endpoint: internalEndpoint,
+          userText: user.content,
+          assistantText: streamingContent,
+          cancellationToken: cancellation,
+        );
+      } on GenerationCancelledByUserException {
+        rethrow;
+      } catch (_) {}
+      cancellation.throwIfCancelled();
+      final assistant = await repository.addMessage(
         roomId: roomId,
         role: 'assistant',
         content: streamingContent,
         reasoningContent: _allStreamingReasoning,
       );
+      try {
+        await PlayfulFormStore(db).onAssistantTurn(
+          activity: selfActivity ?? PlayfulSelfActivity.none,
+          assistantTurn: assistant.id,
+          now: assistant.createdAt,
+        );
+      } catch (_) {}
       messages = await repository.messagesForRoom(roomId);
       room = await repository.roomById(roomId);
       unawaited(_maybeRefreshRollingState(
@@ -816,6 +919,16 @@ class ImmersiveRoomController extends ChangeNotifier {
         reasoning: incomplete.reasoning,
       );
       notice = '第二通道回复已截断。当前文字尚未进入房间上下文或摘要，请选择“重新生成”或“保留这段回复”。';
+    } on GenerationCancelledByUserException {
+      await _abortStreamingSpeech();
+      await repository.interruptUserMessageForDisplay(
+        roomId: roomId,
+        messageId: user.id,
+      );
+      messages = await repository.messagesForRoom(roomId);
+      interruptions = await repository.interruptionsForRoom(roomId);
+      await _clearIncompleteReplyDraft();
+      error = null;
     } catch (exception) {
       await _abortStreamingSpeech();
       if (streamingContent.trim().isNotEmpty) {

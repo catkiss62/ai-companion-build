@@ -5,6 +5,7 @@ import 'package:flutter/services.dart';
 import '../../features/chat/chat_controller.dart';
 import '../ai/reasoning_translation_service.dart';
 import '../database/app_database.dart';
+import '../agent/agent_tool_registry.dart';
 import '../models/chat_language_variant.dart';
 import '../models/chat_message.dart';
 import '../presentation/generation_presentation_policy.dart';
@@ -329,6 +330,16 @@ class BackgroundChatCommandServer {
       scope: ReasoningTranslationScope.chat.key,
       messageSourceSha256: translationSources,
     );
+    final toolRecords = await db.recentAgentToolOutcomeRecords();
+    final toolsByAssistant = <String, List<String>>{};
+    for (final record in toolRecords) {
+      final title = AgentToolRegistry.byId(record.toolId)?.title ?? '本地工具';
+      final status = record.status.key;
+      toolsByAssistant.putIfAbsent(record.assistantMessageId, () => [])
+          .add(record.displayText.isEmpty
+              ? '$title · $status'
+              : '$title · $status\n${record.displayText}');
+    }
     final rows = <Map<String, Object?>>[];
     for (final message in messages) {
       final attachments = <Map<String, Object?>>[];
@@ -357,6 +368,7 @@ class BackgroundChatCommandServer {
         'reasoning_translation_offer':
             translationSources.containsKey(message.id),
         'reasoning_translation': translations[message.id] ?? '',
+        'tool_activities': toolsByAssistant[message.id] ?? const <String>[],
         'attachments': attachments,
       });
     }
