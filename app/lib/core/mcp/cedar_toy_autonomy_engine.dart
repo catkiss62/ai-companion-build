@@ -1786,6 +1786,7 @@ ${store.promptContext(session, state: state, playProtocol: playProtocol)}''',
       outcome: outcome,
     );
     if (!outcome.isError &&
+        !CedarPlatformActionPolicy.isResultSnapshot(action) &&
         shareLevel != 'quiet' &&
         (await db.getSetting(shareEnabledKey)) != '0') {
       await _seedThought(

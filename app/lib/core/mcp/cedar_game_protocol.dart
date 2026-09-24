@@ -88,6 +88,10 @@ class CedarPlatformActionPolicy {
         'announcements',
       }.contains(action);
 
+  /// Reading a completed result is a snapshot, not a new shareable outcome.
+  static bool isResultSnapshot(String action) =>
+      action == 'get_result' || action.endsWith('_get_result');
+
   /// Discovery reads normally need one more planning decision in the same
   /// user goal. Passive state/status/observe polls are deliberately excluded:
   /// their next timing and actor come from the service response instead.

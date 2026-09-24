@@ -2,6 +2,7 @@ import 'dart:convert';
 
 import '../ai/deepseek_client.dart';
 import '../ai/generation_cancellation.dart';
+import '../ai/jev_decision_gateway.dart';
 import '../ai/model_profile.dart';
 import '../models/immersive_room.dart';
 
@@ -107,6 +108,59 @@ class ImmersiveNsfwRouter {
               '${message.isUser ? 'REAL_USER_MESSAGE' : 'ASSISTANT_HISTORY'}: ${message.content.trim()}',
         )
         .join('\n');
+
+    // One state, two independent questions. Explicit state transitions above
+    // remain authoritative. A missing, failed or uncertain Jev answer falls
+    // through to the existing DeepSeek classifier below, without a guessed
+    // climax or a new dialogue call.
+    final jev = await JevDecisionGateway.instance.chooseMany(
+      state: <String, Object?>{
+        'current_route': room.nsfwActive ? 'nsfw' : 'daily',
+        'forced_mode': manual == 'on' ? 'nsfw' : 'none',
+        'recent_context': transcript.length > 2400
+            ? transcript.substring(transcript.length - 2400)
+            : transcript,
+        'latest_user_text': latestUserText,
+      },
+      questions: const <String, JevChoiceQuestion>{
+        'mode': JevChoiceQuestion(
+          'Does latest_user_text, in recent_context, need explicit physical '
+          'scene detail this turn? Keep an ongoing intimate scene active.',
+          <String, String>{
+            'daily': 'Ordinary story, conversation or light intimacy without '
+                'a need for explicit scene detail.',
+            'nsfw': 'An ongoing or newly explicit intimate scene requires '
+                'detailed body, action or clothing continuity.',
+          },
+        ),
+        'event': JevChoiceQuestion(
+          'What climax event is explicitly established by latest_user_text '
+          'and recent_context? A near statement is not a completed release. '
+          'Never infer a release from quotation, negation or hypothetical text.',
+          <String, String>{
+            'none': 'No confirmed transition to a climax event.',
+            'ai_release': 'The user allows the AI character to release first.',
+            'user_near': 'The user states they are nearing release, not done.',
+            'user_release': 'The user clearly states release is happening now '
+                'or has happened.',
+            'hold': 'The user asks to wait, hold or continue building tension '
+                'after an earlier near statement.',
+          },
+        ),
+      },
+      cancellationToken: cancellationToken,
+      usageLane: 'immersive_route',
+    );
+    if (jev != null) {
+      final active = manual == 'on' || jev['mode'] == 'nsfw';
+      return ImmersiveNsfwDecision(
+        active: active,
+        source: manual == 'on' ? 'manual_on_jev' : 'jev_${jev['mode']}',
+        climaxEvent: active
+            ? ImmersiveClimaxEvent.fromKey(jev['event'])
+            : ImmersiveClimaxEvent.none,
+      );
+    }
 
     try {
       final content = StringBuffer();

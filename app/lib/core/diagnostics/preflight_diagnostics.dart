@@ -493,6 +493,14 @@ class PreflightDiagnosticsService {
       cedarRealtime['continuationParamsIncluded'] = false;
       cedarRealtime['roomIdentityIncluded'] = false;
 
+      // Only redacted Jev cost, token counts and route status are exported.
+      try {
+        final jevUsage = jsonDecode(await db.getSetting('jev_short_usage_v1') ?? '[]');
+        report['jevShortUsage'] = jevUsage is List ? jevUsage : const <Object>[];
+      } catch (_) {
+        report['jevShortUsage'] = const <Object>[];
+      }
+
       report['modelUsage'] = _modelUsageSummary(
         await db.getSetting('deepseek_usage_telemetry_v1') ?? '',
       );

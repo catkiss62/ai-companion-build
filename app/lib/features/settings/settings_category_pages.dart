@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 
 import '../../core/ai/chat_api_provider.dart';
 import '../../core/ai/deepseek_client.dart';
+import '../../core/ai/jev_decision_gateway.dart';
 import '../../core/ai/model_profile.dart';
 import '../../core/ai/qwen_vision_client.dart';
 import '../../core/autonomy/layered_public_web_provider.dart';
@@ -45,6 +46,7 @@ class _ModelNetworkSettingsPageState
   final _agnesKey = TextEditingController();
   final _agnesEndpoint = TextEditingController();
   final _agnesModel = TextEditingController();
+  final _openRouterKey = TextEditingController();
 
   ChatApiProvider _chatProvider = ChatApiProvider.deepSeek;
   DeepSeekModelProfile _model = DeepSeekModelProfile.pro;
@@ -55,6 +57,9 @@ class _ModelNetworkSettingsPageState
   bool _testingChat = false;
   bool _testingVision = false;
   bool _testingAgnes = false;
+  bool _testingJev = false;
+  bool _jevEnabled = false;
+  bool _revealOpenRouter = false;
   bool _revealDeepSeek = false;
   bool _revealAiWangYou = false;
   bool _revealVision = false;
@@ -84,6 +89,8 @@ class _ModelNetworkSettingsPageState
     _agnesKey.text = await _secure.readAgnesApiKey() ?? '';
     _agnesEndpoint.text = await _secure.readAgnesEndpoint();
     _agnesModel.text = await _secure.readAgnesModel();
+    _openRouterKey.text = await _secure.readOpenRouterApiKey() ?? '';
+    _jevEnabled = await _secure.readJevEnabled();
     final activeModel = await _db.getSetting('model');
     final storedDeepSeekModel = await _db.getSetting('deepseek_model');
     final storedModel = DeepSeekModelProfile.fromApiName(
@@ -199,6 +206,50 @@ class _ModelNetworkSettingsPageState
       if (mounted) setState(() => _status = '千问视觉配置已保存。');
     } catch (error) {
       if (mounted) setState(() => _status = '千问视觉保存失败：$error');
+    }
+  }
+
+  Future<void> _saveJev() async {
+    try {
+      await _secure.writeOpenRouterApiKey(_openRouterKey.text);
+      await _secure.writeJevEnabled(_jevEnabled);
+      if (mounted) {
+        setState(() => _status = _jevEnabled
+            ? 'Jev 短判断已启用；未填 Key 或调用失败时使用原 DeepSeek 判断。'
+            : 'Jev 短判断已关闭，使用原 DeepSeek 判断。');
+      }
+    } catch (error) {
+      if (mounted) setState(() => _status = '保存 Jev 配置失败：$error');
+    }
+  }
+
+  Future<void> _testJev() async {
+    await _saveJev();
+    if (!_jevEnabled || _openRouterKey.text.trim().isEmpty) {
+      if (mounted) setState(() => _status = '先启用 Jev 并填写 OpenRouter API Key。');
+      return;
+    }
+    if (mounted) setState(() => _testingJev = true);
+    try {
+      final answer = await JevDecisionGateway.instance.choose(
+        state: const <String, Object?>{
+          'latest_user_text': '你好，今天怎么样？',
+        },
+        instruction: 'What is the immediate topic of latest_user_text?',
+        options: const <String, String>{
+          'greeting': 'A friendly greeting or small talk.',
+          'technical': 'A technical support request.',
+        },
+        confidenceFloor: 0,
+        usageLane: 'jev_connection_test',
+      );
+      if (mounted) setState(() => _status = answer == 'greeting'
+          ? 'OpenRouter Jev 连接通过；测试使用少量额度。'
+          : 'Jev 未返回有效测试判断：请检查 Key、余额及网络；正常对话会使用 DeepSeek 回退。');
+    } catch (error) {
+      if (mounted) setState(() => _status = 'Jev 测试失败：$error');
+    } finally {
+      if (mounted) setState(() => _testingJev = false);
     }
   }
 
@@ -414,6 +465,7 @@ class _ModelNetworkSettingsPageState
     _agnesKey.dispose();
     _agnesEndpoint.dispose();
     _agnesModel.dispose();
+    _openRouterKey.dispose();
     super.dispose();
   }
 
@@ -562,6 +614,36 @@ class _ModelNetworkSettingsPageState
                         onSave: _saveChatProvider,
                         onTest: _testingChat ? null : _testChatProvider,
                         testing: _testingChat,
+                      ),
+                    ],
+                  ),
+                  _SettingsSectionCard(
+                    title: 'Jev 短判断（OpenRouter）',
+                    subtitle: '启用后，将最近聊天片段发送给 OpenRouter 做普通聊天与沉浸房间短判断；缺少 Key、余额不足或结果不确定时由 DeepSeek 判断。最终回复模型不变。',
+                    children: [
+                      SwitchListTile(
+                        contentPadding: EdgeInsets.zero,
+                        title: const Text('启用 Jev 短判断'),
+                        value: _jevEnabled,
+                        onChanged: (value) => setState(() => _jevEnabled = value),
+                      ),
+                      _SecretField(
+                        controller: _openRouterKey,
+                        label: 'OpenRouter API Key',
+                        revealed: _revealOpenRouter,
+                        onToggle: () => setState(
+                          () => _revealOpenRouter = !_revealOpenRouter,
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                      Align(
+                        alignment: Alignment.centerRight,
+                        child: _SaveTestButtons(
+                          onSave: _saveJev,
+                          onTest: _testingJev ? null : _testJev,
+                          testing: _testingJev,
+                          testLabel: 'Jev 连接测试',
+                        ),
                       ),
                     ],
                   ),
