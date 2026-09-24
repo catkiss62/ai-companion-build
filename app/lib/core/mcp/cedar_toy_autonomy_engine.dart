@@ -1756,7 +1756,11 @@ ${store.promptContext(session, state: state, playProtocol: playProtocol)}''',
             outcome: outcome,
             cancellationToken: scope.cancellation,
           );
-    final shareLevel = verification.shareLevel;
+    // get_result repeats a stored outcome: keep it available for the game
+    // state, but do not promote it into recent-progress or share candidates.
+    final shareLevel = CedarPlatformActionPolicy.isResultSnapshot(action)
+        ? 'quiet'
+        : verification.shareLevel;
     final updated = platformAction
         ? await store.recordPlatformAction(
             gameId: session.gameId,
