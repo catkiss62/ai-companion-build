@@ -16,11 +16,13 @@ void main() {
     expect(next.promptForTurn('turn-2', serious: false), isNot(contains('轻弹额头')));
   });
 
-  test('serious turn softens form and lock is explicit', () {
+  test('serious turn softens reply while form waits for zero heat', () {
     final now = DateTime(2026, 9, 23, 12);
     final excited = const PlayfulFormState().interact(kindle: true, now: now);
     final serious = excited.advance(PlayfulInteraction.serious, 'sad', now);
-    expect(serious.qForm, isFalse);
+    expect(serious.heat, 64);
+    expect(serious.qForm, isTrue);
+    expect(serious.promptForTurn('sad', serious: true), contains('松弛自然'));
     final locked = excited.withLock(true).advance(PlayfulInteraction.serious, 'sad', now);
     expect(locked.qForm, isTrue);
     expect(locked.promptForTurn('sad', serious: true), contains('严肃话题'));
@@ -40,7 +42,7 @@ void main() {
     expect(state.heat, 80);
     expect(state.qForm, isTrue);
     expect(state.advance(PlayfulInteraction.strong, '5', now).heat, 80);
-    expect(state.advance(PlayfulInteraction.serious, '6', now).qForm, isFalse);
+    expect(state.advance(PlayfulInteraction.serious, '6', now).qForm, isTrue);
   });
 
   test('an expired button event does not appear in the next reply', () {

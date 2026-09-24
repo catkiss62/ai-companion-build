@@ -95,14 +95,14 @@ class PlayfulFormState {
     final nextHeat = (heat - 10 - elapsedHours * 3 +
             (interaction?.bonus ?? 0))
         .clamp(0, 100).toInt();
-    // Five neutral turns cool even a full 100-point meter below Q form.
+    // Entry needs sustained mutual play. Once transformed, stay in Q form
+    // until heat reaches zero; serious talk quiets the reply without
+    // prematurely changing the portrait or voice. Manual comfort is explicit.
     final nextForm = locked
         ? qForm
-        : serious
-            ? false
-            : qForm
-                ? nextHeat > 50
-                : nextHeat >= 76;
+        : qForm
+            ? nextHeat > 0
+            : nextHeat >= 76 && !serious;
     return PlayfulFormState(
       heat: nextHeat,
       qForm: nextForm,

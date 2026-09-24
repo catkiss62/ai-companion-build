@@ -568,11 +568,8 @@ class _VoiceEmotionSettingsPageState
     }
   }
 
-  Future<void> _applyPitch() => _tts.setPitch(
-        TtsPlaybackTuning.pitchRatioForSemitones(
-          _pitchSemitones,
-        ),
-      );
+  Future<void> _applyPitch() =>
+      _tts.applyPitchForCurrentForm(_pitchSemitones);
 
   Future<void> _setTtsAutoAffinity(bool enabled) async {
     if (_ttsBusy) return;
@@ -759,7 +756,7 @@ class _VoiceEmotionSettingsPageState
                     ),
                     const SizedBox(height: 8),
                     Text(
-                      '音调 ${_pitchSemitones >= 0 ? '+' : ''}${_pitchSemitones.toStringAsFixed(1)} 半音',
+                      '小豆丁音调 ${_pitchSemitones >= 0 ? '+' : ''}${_pitchSemitones.toStringAsFixed(1)} 半音 · 本体低 1 半音',
                     ),
                     Slider(
                       min: TtsPlaybackTuning.minPitchSemitones,

@@ -20,6 +20,12 @@ void main() {
     expect(TtsPlaybackTuning.pitchSemitonesFromSetting('-8'), -4.0);
     expect(TtsPlaybackTuning.pitchSemitonesFromSetting('8'), 4.0);
     expect(TtsPlaybackTuning.pitchRatioForSemitones(0.0), 1.0);
+    expect(TtsPlaybackTuning.pitchRatioForForm(0, qForm: true), 1.0);
+    expect(TtsPlaybackTuning.pitchRatioForForm(0, qForm: false),
+        closeTo(0.9438743, 0.000001));
+    // The UI bounds the saved value; the adult offset can reach -5.
+    expect(TtsPlaybackTuning.pitchRatioForForm(-4, qForm: false),
+        closeTo(0.7491535, 0.000001));
     expect(
       TtsPlaybackTuning.pitchRatioForSemitones(-2.0),
       closeTo(0.8908987, 0.000001),

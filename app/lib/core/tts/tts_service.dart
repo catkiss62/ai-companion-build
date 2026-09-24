@@ -2,6 +2,7 @@ import 'dart:typed_data';
 
 import '../database/app_database.dart';
 import '../models/chat_language_variant.dart';
+import '../personality/playful_form_state.dart';
 import 'native_tts_provider.dart';
 import 'tts_playback_queue.dart';
 import 'tts_playback_tuning.dart';
@@ -115,12 +116,26 @@ class TtsService implements TtsQueueService {
     final pitchSemitones = TtsPlaybackTuning.pitchSemitonesFromSetting(
       await db.getSetting('tts_pitch_semitones'),
     );
-    final pitch = TtsPlaybackTuning.pitchRatioForSemitones(
-      pitchSemitones,
-    );
+    final pitch = await _pitchRatioForCurrentForm(pitchSemitones);
     await provider.setSpeed(speed);
     await provider.setPitch(pitch);
     await provider.setVolume(volume);
+  }
+
+  /// Both preview and ordinary chat enter through the same playback settings.
+  /// This only changes AudioTrack pitch; it never starts or reconfigures ONNX.
+  Future<void> applyPitchForCurrentForm(double selectedSemitones) async {
+    await provider.setPitch(
+      await _pitchRatioForCurrentForm(selectedSemitones),
+    );
+  }
+
+  Future<double> _pitchRatioForCurrentForm(double selectedSemitones) async {
+    final form = await PlayfulFormStore(db).load();
+    return TtsPlaybackTuning.pitchRatioForForm(
+      selectedSemitones,
+      qForm: form.qForm,
+    );
   }
 
   @override

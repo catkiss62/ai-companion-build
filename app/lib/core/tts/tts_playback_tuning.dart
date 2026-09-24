@@ -27,4 +27,12 @@ class TtsPlaybackTuning {
 
   static double pitchRatioForSemitones(double semitones) =>
       math.pow(2.0, semitones / 12.0).toDouble();
+
+  /// The saved slider is the Q-form pitch. The adult form is one semitone
+  /// lower, including when the slider is at its minimum (-4 -> -5).
+  static double pitchRatioForForm(
+    double selectedSemitones, {
+    required bool qForm,
+  }) =>
+      pitchRatioForSemitones(selectedSemitones - (qForm ? 0.0 : 1.0));
 }

@@ -39,8 +39,8 @@
 | 功能状态 | `CI PASSED / APK READY / TRUE DEVICE PENDING` |
 | +228 远端 | head `29e87d016c8bd81f52f89f95191bd1a1a01a5b57`；tree `c4a112a56d8b634cf3a1a66636979a0833538b7d`；Actions `35440359036`；Artifact `10583263879`；APK SHA-256 `159e283173e49da2924d25b37ba7647893cdafdcc31b63f0e31b7c64e086849b` |
 | 仓库维护基线 | `maintenance/repository-governance-20260919`；远端文档 head `123e272196e8ae93f3518157917d76f6af4f1784`；完整构建 head `fa99f32012fa1a0716b746d36b958a8e777ef9b8`；Actions `35446649873` 全绿；文档-only run `35447342921` 正确跳过 APK |
-| 当前功能分支 | `agent/v04211-tts-affinity-rollback`，基于 +254 源码；候选版本 `v0.42.11+255` |
-| 当前任务状态 | `CI PASSED / APK READY / TRUE DEVICE PENDING`；+255 源码与 Flutter/Kotlin 全部通过，已构建私有草稿 APK；TTS 发声和气焰导入仍需用户原手机验证，详情见末尾 +255 正式记录 |
+| 当前功能分支 | `agent/v04212-form-pitch-zero`，基于真机已恢复的 +255 源码；候选版本 `v0.42.12+256` |
+| 当前任务状态 | `IMPLEMENTATION IN PROGRESS / CI PENDING / APK PENDING / TRUE DEVICE PENDING`；用户真机确认 +255 回退后 TTS 正常、气焰表现正常；+256 只调整归零退出与形态音调，详情见末尾 +256 记录 |
 | +250 当前任务 | 本体／小豆丁形态共用成年角色、记忆与能力；同一形态状态驱动角色提示与静态立绘，虚拟弹额头／安抚改变气焰值后继续自然衰减，心形液面与锁定入口；常驻世界书定点柔化并仅迁移未编辑原文；两档 TTS 共用冻结的真实回复与分段，无声生成并复制专项脱敏报告 |
 | +250 最终构建 | 功能 head `b5cd2d1070fb237bc72ab66b1867a75da9bbe6e8`；tree `4e0dbbd531aea408ab0face6d46a323f441c7eeb`；Actions `35943607609` 全绿；Artifact `10785922926`；APK SHA-256 `f148f2eb303017ad5f6f689628f230979c24ba16831fdc0181e58bc5e1d73a`；未发布 Draft Release `v0.42.6-dual-form-tts-comparison-test` |
 | +249 当前任务 | `loopIndex=0` 时明确判定“零个新语义 token”，在 VITS 前拒绝本段；最后两次会话记录生成时 profile、冷/热状态、各阶段耗时、RTF、播放首帧、队列余量、迟到段、失败/停止与脱敏文本哈希 |
@@ -91,6 +91,8 @@
 +252 工作分支 agent/v04208-jev-game-result，候选 v0.42.8+252：OpenRouter Jev 两处短判断与 DeepSeek 兜底；保留 +251 气焰语义判断、TTS 和 Gemini 修复；Cedar get_result 不再凭旧结果生成新分享。余额面板延后；详情见 6.25。状态 IMPLEMENTED / CI PASSED / APK READY / TRUE DEVICE PENDING。\n\n+253 工作分支 agent/v04209-tts-preflight-heat，候选 v0.42.9+253：快速自检只读取 APK 安装资源；TTS 子进程超时重置绑定并一键顺序无声对照；气焰 0～100 每轮 -10、满值五轮冷却退出，害羞本身不加分。前批 Jev/DeepSeek 兜底不变；详见 6.26。状态 IMPLEMENTED / CI PASSED / APK READY / TRUE DEVICE PENDING。
 
 +254 工作分支 agent/v04210-audio-heat，候选 v0.42.10+254：情绪音效改用媒体音量通道，硬件音量键控制媒体；轻微玩笑净降 6 点，互相挑衅需明确升级；Jev 回退诊断按题区分不确定与格式错误。紧急存档事件：+252 06:40 诊断仍有 422 条记忆、1 条会话、旧设备/谱系指纹，+253 08:44 诊断变为 0 条记忆、0 条会话、状态代数 0、新指纹，证明启动了新数据库；本份报告不含闪退栈，不能归因于 TTS 或声称旧库可恢复。06:39 外部 .aibackup 是已知恢复候选，恢复前保留原件且禁止卸载/清数据。状态 IMPLEMENTED LOCALLY / CI PENDING / TRUE DEVICE PENDING；详见 6.27。
+
++256 工作分支 `agent/v04212-form-pitch-zero`，候选 `v0.42.12+256`：气焰只在 0 自动退出小豆丁，严肃话题仍认真回应；设置音调是小豆丁基准，本体低 1 半音。沿用 +255 已真机恢复的单一试听和发声链，保留锁定与手动安抚。状态 IMPLEMENTATION IN PROGRESS / CI PENDING / APK PENDING / TRUE DEVICE PENDING；详见末尾 +256。
 
 <!-- END QUICK HANDOFF INDEX -->
 
@@ -899,3 +901,12 @@ Actions 与交付证据：远端功能 head `33647c7bff15084d6fd3cbc7b817e9b0b21
 - CI 首轮 run `35986329658` 在 `Verify clean source baseline` 拦下旧版号 literal：Workflow 把构建标签改为 +255，却遗漏 `grep -Fqx 'version: 0.42.10+254'`。修正为 +255 后重新推送；首轮没有进入 Flutter/Kotlin 编译，不能算实编译失败。
 - CI 第二轮 run `35986562701` 已通过全部源门、Kotlin 测试、Flutter analyze，Flutter 927 项中 926 项通过；唯一失败是 `agent_self_reader_v0416_test.dart` 固定预期 `build=v0.42.10+254`，实际 +255 正确。已同步测试预期并重新推送；第二轮未进入 Release APK 打包。
 - CI 第三轮 run `35987574373` 成功：125 个源码门、Kotlin 测试、Flutter analyze、Flutter 全量测试、Release APK 编译、固定签名与 APK 模型/桌宠/塔罗资源校验均通过。功能源码 head `4c2101f529fbaf4f6fe7b2289aaea48153e65b34`，tree `fe8a3f0e081a66b77681eaf527340e6f664a117b`；Artifact `10803376064`；私有草稿 Release `https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-943842dd3eb416b00021`；APK SHA-256 `170be5edc6a2ee55a2431fc289a14b6acc4551ef74bacec19ee7e1f4e4692487`。`TRUE DEVICE PENDING`：本次完成构建不能证明用户手机独立 TTS 进程已恢复播放。
+
+
+## v0.42.12+256 · 气焰归零退出与双形态音调（候选）
+
+- +255 真机反馈：回退后语音播放恢复正常，气焰效果也正常。用户要求小豆丁自动退出阈值改为气焰 0；设置中选的 TTS 音调作为小豆丁原值，本体播放低 1 半音，例如设置 0 则分别为 0 与 -1。现有「试听发声」足以检查真实声学和播放，暂不重启双档无声测试。
+- 实现边界：进入小豆丁仍需气焰至少 76；普通降温、轻微玩笑及严肃求助在气焰非 0 时不提前自动退形，严肃回复仍由现有 serious prompt 收住语气。手动「温柔安抚」立即置 0 并退形；锁定形态继续优先于自动规则。形态与气焰仍使用同一存档键、同一 UI 立绘状态。
+- TTS 在每次实际朗读前从同一已存形态读取 qForm，复用现有音调 ratio 与 Android AudioTrack；设置滑块保存基准 -4～+4，本体可到 -5 半音且原生支持。滑块改变时直接按当前形态应用，试听、自动回复和其他通过 TtsService 的朗读共用设置；不改子进程绑定、模型初始化、语音队列或音频导出。
+- 回归与验证：Flutter 覆盖 100→10 仍保持小豆丁、10→0 退形、严肃不提前退形、轻度玩笑终能降到 0、0/-1 和 -4/-5 半音比值；Actions 应运行源码门、Flutter analyze/tests、Kotlin、arm64 APK、签名和 APK 资源检查。用户原机验证普通聊天与「试听发声」在两种形态下均可听见、音调相差一半音；CI 不能代替真机听感。
+- 当前状态：`IMPLEMENTATION IN PROGRESS / CI PENDING / APK PENDING / TRUE DEVICE PENDING`。前批用户已确认 +255 发声和气焰正常，新版语音音调差值尚未经过真机检验。
