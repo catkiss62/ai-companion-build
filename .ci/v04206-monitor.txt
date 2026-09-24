@@ -1,7 +1,7 @@
 status=success
-run_id=35940091628
-run_url=https://github.com/catkiss62/ai-companion-build/actions/runs/35940091628
-head_sha=f695003dfa3f201d11a156ce0a8b8cee84b8fa18
+run_id=35941949391
+run_url=https://github.com/catkiss62/ai-companion-build/actions/runs/35941949391
+head_sha=7a7f6e6521074fb6018055782f2cb428a3731746
 signer_sha256=30:5E:B3:D8:09:83:B9:63:C6:48:18:DD:F1:AD:56:1F:27:9D:E6:D4:7B:3E:D2:C7:81:AD:A4:48:C7:C2:51:48
-82141470e625f7cdce3e3de9bc6e105594a23b3177b2a927162a716d9c53ba63  AI-Companion-v0.42.6-250-Dual-Form-TTS-Comparison-APK.apk
-release_url=https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-8653176c1e2df448ac4a
+87359fa70b7c73abf551a4fc6dadf07d7deb7f5e64d3b5dc40d7d4e45e8aeb64  AI-Companion-v0.42.6-250-Dual-Form-TTS-Comparison-APK.apk
+release_url=https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-c813c5880eac159ce6eb
