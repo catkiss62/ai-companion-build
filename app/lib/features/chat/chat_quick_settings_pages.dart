@@ -951,26 +951,11 @@ class _VoiceEmotionSettingsPageState
                         ),
                         FilledButton.tonalIcon(
                           onPressed: _ttsBusy ? null : () => _runTtsAction(
-                            '正在无声生成当前胜出档…', () async {
-                              final benchmark = TtsBenchmark(_db);
-                              return benchmark.run(await benchmark.champion());
-                            },
-                          ),
-                          icon: const Icon(Icons.speed_rounded),
-                          label: const Text('无声测速：当前档'),
-                        ),
-                        FilledButton.tonalIcon(
-                          onPressed: _ttsBusy ? null : () => _runTtsAction(
-                            '正在无声生成本轮候选档…', () async {
-                              final benchmark = TtsBenchmark(_db);
-                              final champion = await benchmark.champion();
-                              return benchmark.run(
-                                champion == 'auto' ? 'hybrid' : 'auto',
-                              );
-                            },
+                            '正在依次无声测试两档，请稍候…',
+                            () => TtsBenchmark(_db).runComparison(),
                           ),
                           icon: const Icon(Icons.compare_arrows_rounded),
-                          label: const Text('无声测速：候选档'),
+                          label: const Text('一键对照两档'),
                         ),
                         FilledButton.tonalIcon(
                           onPressed: _ttsBusy ? null : () => _runTtsAction(
@@ -988,7 +973,7 @@ class _VoiceEmotionSettingsPageState
                           onPressed: _ttsBusy ? null : () => _runTtsAction(
                             '正在更新对照样本…', () async {
                               await TtsBenchmark(_db).chooseNewFixture();
-                              return '下次测试将选取最近较长的真实 API 回复；两档需重新运行。';
+                              return '下次测试将选取最近较长的真实 API 回复；下次点一次“一键对照两档”即可。';
                             },
                           ),
                           child: const Text('下轮改用较长回复'),
@@ -997,7 +982,7 @@ class _VoiceEmotionSettingsPageState
                     ),
                     const Padding(
                       padding: EdgeInsets.only(top: 8),
-                      child: Text('想听声音请点“试听发声”；两项无声测速只比较同一条真实回复的生成耗时，均不会播放。'),
+                      child: Text('想听声音请点“试听发声”；一键对照会依次无声生成两档并比较同一条真实回复，完成后可复制诊断；只有“试听发声”会播放。'),
                     ),
                     if (_status != null) ...[
                       const SizedBox(height: 8),

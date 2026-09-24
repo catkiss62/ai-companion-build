@@ -1,5 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:ai_companion_localfirst/core/rules/playful_form_state.dart';
+import 'package:ai_companion_localfirst/core/personality/playful_form_state.dart';
 
 void main() {
   test('full heat leaves Q form after five ordinary turns', () {

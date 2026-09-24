@@ -89,15 +89,17 @@ class PlayfulFormState {
         ? 0
         : ((now.millisecondsSinceEpoch - updatedAt) ~/ 3600000).clamp(0, 12);
     final serious = interaction == PlayfulInteraction.serious;
-    final nextHeat = (heat - 4 - elapsedHours * 3 +
+    // Cool on every real turn; only actual playful participation earns a bonus.
+    final nextHeat = (heat - 10 - elapsedHours * 3 +
             (interaction?.bonus ?? 0))
         .clamp(0, 100).toInt();
+    // Five neutral turns cool even a full 100-point meter below Q form.
     final nextForm = locked
         ? qForm
         : serious
             ? false
             : qForm
-                ? nextHeat > 38
+                ? nextHeat > 50
                 : nextHeat >= 76;
     return PlayfulFormState(
       heat: nextHeat,
