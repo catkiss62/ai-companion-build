@@ -88,7 +88,7 @@
 
 历史兼容与未来扩展索引：`v0.41.82+226` / `agent/v04182-cedar-state-machine-e2e`；`v0.41.83+227` / `agent/v04183-cedar-native-agent-loop`；`v0.41.81+225`；`模型自主发现`；`陪我下五子棋`。全工具调用动作展示已进入 +248；双人格与命运之轮的冻结分析见 6.21，均不得在本批顺手实现。任何新 MCP、工作区、视频理解、Live2D、提醒或长任务先查本文件的 **“唯一循环所有权”**、**“Cortico 低风险参考”** 与 **“循环能力首版诊断”**，不得再复制 Cedar 曾出现的多套循环。
 
-+252 工作分支 agent/v04208-jev-game-result，候选 v0.42.8+252：OpenRouter Jev 两处短判断与 DeepSeek 兜底；保留 +251 气焰语义判断、TTS 和 Gemini 修复；Cedar get_result 不再凭旧结果生成新分享。余额面板延后；详情见 6.25。状态 IMPLEMENTED LOCALLY / LOCAL STATIC VALIDATION PENDING / CI PENDING / TRUE DEVICE PENDING。\n\n<!-- END QUICK HANDOFF INDEX -->
++252 工作分支 agent/v04208-jev-game-result，候选 v0.42.8+252：OpenRouter Jev 两处短判断与 DeepSeek 兜底；保留 +251 气焰语义判断、TTS 和 Gemini 修复；Cedar get_result 不再凭旧结果生成新分享。余额面板延后；详情见 6.25。状态 IMPLEMENTED / CI PASSED / APK READY / TRUE DEVICE PENDING。\n\n<!-- END QUICK HANDOFF INDEX -->
 
 ## 正式记录（无容量上限）
 
@@ -849,6 +849,8 @@ Actions 与交付证据：远端功能 head `33647c7bff15084d6fd3cbc7b817e9b0b21
 - 单一 JevDecisionGateway 使用 OpenRouter Decisions typesafe/jev-1.13，每请求含状态与多条 choice；选择缺失、低 confidence、网络/鉴权/402/超时等返回 null，由原 DeepSeek Flash 不思考判断完整接管；取消不额外发兜底。只有费用/Token/耗时/失败类型的 120 条有界脱敏账本 jev_short_usage_v1，包括 OpenRouter 实际 usage.cost，不含问题或聊天正文。设置页面连接测试消耗少量额度；用户需验证真实误判与实际账单才扩大覆盖。省钱和准确率并非预设结论。
 - 用户诊断/备份证明：同一份自测结果被 sins_virtues_answer_batch 与稍后的 sins_virtues_get_result 各自种植分享念头。结果快照读取不再生成新的主动分享 Thought，真实完成新题仍可分享；历史已入库旧 Thought 不删除。
 - 余额面板另批处理：DeepSeek/OpenRouter/千问/Gemini 中转接口及凭据权限不同；此次只记录本功能产生的实际费用。验证顺序：126 个源码门、Flutter analyze/tests、Kotlin、arm64 Release、签名及 Draft，真机验证错 Key、402、停止、两路对照和旧测试结果不重复分享。CI 和真机结果必须分别回填。
+
+- CI 交付证据：功能 head e621f28a197c598d6e102bf96cfd7a8f37797307；Actions 35960427181 全绿，126 项源码门、Kotlin、Flutter analyze/tests、arm64 Release、签名和包内资源门通过；Artifact 10792241362，APK SHA-256 3cc079a5dee358aabaa023d637e204d1a2c60d6b7463dce54e685c0155393dde；未发布 Draft v0.42.8-jev-game-result-test（实际 draft URL 为 untagged-ac0745b42dc54420a449）。只证明 CI，不代表 OpenRouter 实时调用、余额不足回退或游戏厅真机自然表达已验收。
 
 ## 7. 历史验证兼容摘要
 
