@@ -124,6 +124,8 @@ class JevDecisionGateway {
         final category = switch (entry.key) {
           'mode' => 'mode',
           'interaction' => 'interaction',
+          'initiative' => 'initiative',
+          'route' when usageLane == 'chat_playful_self' => 'self',
           _ => 'other',
         };
         final answer = answers[entry.key];

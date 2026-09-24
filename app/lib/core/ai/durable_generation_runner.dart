@@ -30,6 +30,7 @@ import '../models/chat_segment.dart';
 import '../models/desire_state.dart';
 import '../models/generation_job.dart';
 import '../models/message_attachment.dart';
+import '../personality/playful_form_state.dart';
 import '../mcp/cedar_agent_loop_policy.dart';
 import '../mcp/cedar_toy_arcade_skill.dart';
 import '../mcp/cedar_toy_activity.dart';
@@ -46,6 +47,7 @@ import 'generation_cancellation.dart';
 import 'model_profile.dart';
 import 'nsfw_context_router.dart';
 import 'prompt_builder.dart';
+import 'playful_self_judge.dart';
 
 class GenerationRunResult {
   const GenerationRunResult({
@@ -443,6 +445,7 @@ class DurableGenerationRunner {
         nsfwActive: nsfwRoute.active,
         nsfwReferenceActive: nsfwRoute.referenceActive,
         playfulInteraction: nsfwRoute.playfulInteraction,
+        playfulInitiativeOpportunity: nsfwRoute.initiativeOpportunity,
         agentToolResults: agentToolResults,
         specialStyleKeyOverride: generationSpecialStyleKey,
         conversationInitiativeOverride: conversationPlan,
@@ -1539,8 +1542,32 @@ $finalGenerationReminder
             : baseAssistant.languageVariants,
         attachments: assistantAttachments,
       );
-      // Detection is pure; persistence happens only inside the winning
-      // durable commit transaction below.
+      // Decide from the final visible message, after repair/sticker selection.
+      // A missing or uncertain Jev result uses DeepSeek Flash without thought.
+      // The decision has no effect unless this generation wins the commit.
+      PlayfulSelfActivity? selfActivity;
+      try {
+        selfActivity = await PlayfulSelfJudge(client: client).classify(
+          apiKey: apiKey,
+          endpoint: endpoint,
+          userText: user.promptContent,
+          assistantText: assistant.content,
+          recentContext: previous.reversed
+              .take(4)
+              .toList(growable: false)
+              .reversed
+              .map((message) =>
+                  '${message.isUser ? 'USER' : 'ASSISTANT'}: ${message.content}')
+              .join('\n'),
+          cancellationToken: effectiveCancellation,
+        );
+      } on GenerationCancelledByUserException {
+        rethrow;
+      } catch (_) {
+        // Optional heat accounting must not invalidate a natural reply.
+      }
+      // Detection is pure; persistence happens only after the winning
+      // durable commit below.
       final assistantSomaticEvents = somaticEngine.assistantCommitEvents(
         turnId: assistant.id,
         text: assistant.content,
@@ -1572,6 +1599,17 @@ $finalGenerationReminder
         return const GenerationRunResult(status: 'suspended');
       }
       agentAttachmentsCommitted = true;
+      if (selfActivity != null) {
+        try {
+          await PlayfulFormStore(db).onAssistantTurn(
+            activity: selfActivity,
+            assistantTurn: assistant.id,
+            now: assistant.createdAt,
+          );
+        } catch (_) {
+          // A committed answer survives an optional score storage failure.
+        }
+      }
       for (var index = 0; index < agentToolResults.length; index++) {
         await agentToolRunner.recordCommittedMediaOutcome(
           eventScopeId: job.id,

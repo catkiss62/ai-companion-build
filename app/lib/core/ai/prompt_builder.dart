@@ -93,6 +93,7 @@ class PromptBuilder {
     bool? nsfwActive,
     bool? nsfwReferenceActive,
     PlayfulInteraction? playfulInteraction,
+    bool playfulInitiativeOpportunity = false,
     List<AgentToolResult> agentToolResults = const [],
     String? specialStyleKeyOverride,
     ConversationInitiativePlan? conversationInitiativeOverride,
@@ -217,14 +218,19 @@ class PromptBuilder {
             now: instant,
           )
         : await formStore.load();
-    final seriousFormContext = playfulInteraction == PlayfulInteraction.serious ||
-        (playfulInteraction == null && RegExp(
-      r'(难过|害怕|焦虑|生病|不舒服|紧急|事故|认真说|别开玩笑|报错|怎么修|故障|诊断)',
-    ).hasMatch(latestUserText));
+    // Jev only checks whether there is an opening. A stable per-turn draw
+    // offers a gentle option, and actual heat is judged from the final reply.
+    final offerInitiative = mode == PromptGenerationMode.userTurn &&
+        PlayfulInitiativePolicy.offer(
+          formTurn,
+          opportunity: playfulInitiativeOpportunity,
+        );
     final playfulFormSection = form.promptForTurn(
-      mode == PromptGenerationMode.userTurn ? formTurn : '',
-      serious: seriousFormContext,
-    );
+          mode == PromptGenerationMode.userTurn ? formTurn : '',
+        ) +
+        (offerInitiative
+            ? '\n这轮如果你自己想逗对方，可以先开一个轻巧的玩笑；也可以自然地不逗。'
+            : '');
     final dialogueExpressionPlan = DialogueExpressionPlan.select(
       latestUserText:
           mode == PromptGenerationMode.userTurn ? latestUserText : '',

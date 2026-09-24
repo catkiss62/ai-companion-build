@@ -15,12 +15,15 @@ class NsfwRouteDecision {
     required this.referenceActive,
     required this.source,
     this.playfulInteraction,
+    this.initiativeOpportunity = false,
   });
 
   final bool active;
   final bool referenceActive;
   final String source;
   final PlayfulInteraction? playfulInteraction;
+  /// Whether a gentle optional invitation to initiate play fits this turn.
+  final bool initiativeOpportunity;
 }
 
 /// A small pre-generation model pass that decides which prompt layers the
@@ -52,6 +55,8 @@ class NsfwContextRouter {
         playfulInteraction: PlayfulInteraction.parse(
           await db.getSetting('playful_form_router_signal_v1'),
         ),
+        initiativeOpportunity:
+            (await db.getSetting('playful_form_initiative_open_v1')) == '1',
       );
     }
     final manual = await db.getSetting('nsfw_manual_override') ?? '';
@@ -84,7 +89,7 @@ class NsfwContextRouter {
     // Two independent short decisions share one Jev call. Preserve the
     // semantic Q-form interaction signal added in +251 when Jev succeeds.
     // Manual routing above is authoritative; incomplete/uncertain answers
-    // return null and the original DeepSeek pass below owns both fields.
+    // return null and the original DeepSeek pass below owns every field.
     final jev = await JevDecisionGateway.instance.chooseMany(
       state: <String, Object?>{
         'current_route': currentActive ? 'nsfw' : 'daily',
@@ -127,6 +132,18 @@ class NsfwContextRouter {
                 'not merely anger, insults or repeated phrases.',
           },
         ),
+        'initiative': JevChoiceQuestion(
+          'Does latest_user_text leave room for the assistant to start one '
+          'light, original playful challenge of its own? Evaluate social '
+          'fit, not whether the user already teased. The answer offers a '
+          'possibility; it never directs her reply.',
+          <String, String>{
+            'open': 'A small self-started joke could fit naturally in the '
+                'current exchange, with no clear request to stop joking.',
+            'closed': 'The current message calls for a direct response or '
+                'there is no natural opening for a new playful challenge.',
+          },
+        ),
       },
       cancellationToken: cancellationToken,
       usageLane: 'chat_intimacy_route',
@@ -138,6 +155,7 @@ class NsfwContextRouter {
         referenceActive: jev['mode'] == 'nsfw_reference',
         source: 'jev_${jev['mode']}',
         playfulInteraction: PlayfulInteraction.parse(jev['interaction']),
+        initiativeOpportunity: jev['initiative'] == 'open',
       );
       await _persist(decision, turnId: turnId);
       return decision;
@@ -157,7 +175,7 @@ class NsfwContextRouter {
         messages: <Map<String, Object?>>[
           const {
             'role': 'system',
-            'content': '''You are a prompt-depth router for a private romance companion. Return JSON only: {"mode":"daily|nsfw|nsfw_reference","interaction":"serious|ordinary|light|mutual|strong"}.
+            'content': '''You are a prompt-depth router for a private romance companion. Return JSON only: {"mode":"daily|nsfw|nsfw_reference","interaction":"serious|ordinary|light|mutual|strong","initiative":"open|closed"}.
 
 All three modes remain intimacy-capable. This classifier never grants permission and never decides whether desire, flirting, erotic jokes, or sexual conversation are allowed.
 Choose daily when a light conversational prompt is sufficient: ordinary talk, tasks, affection, playful innuendo, brief erotic jokes, or flirting that does not yet need detailed physical rendering.
@@ -165,7 +183,7 @@ Choose nsfw when the latest turn or continuing context benefits from full explic
 Choose nsfw_reference when the same intimate interaction also needs detailed continuity knowledge: body positions, clothing/contact state, toys/devices, remote-intimacy constraints, scene transitions, or a longer explicit sequence.
 
 Never wait for a magic phrase, Session, toggle, consent ceremony, or prior route flag. Session stores scene continuity; route only selects descriptive depth. Libido, personality, and relationship history may strengthen a genuine suggestive reading but do not sexualize unrelated tasks. If SEDUCTRESS_BIAS is true, treat real innuendo and invitations as stronger evidence.''',
-            // The two fields are independent: intimacy is not automatically
+            // These fields are independent: intimacy is not automatically
             // playful. Recent assistant messages provide context only; the
             // user's current participation is the sole source of a boost.
           },
@@ -177,7 +195,8 @@ ordinary: neutral discussion, routine affection, embarrassment, blushing or shyn
 light: the user deliberately joins a small joke or gentle teasing; ordinary friendliness, affection or a shy reaction alone do not count. This level still cools the heat meter.
 mutual: the user knowingly escalates reciprocal teasing into a playful challenge aimed at the assistant. Routine back-and-forth, friendly jokes and shyness are not enough.
 strong: especially vivid, reciprocal playful provocation; do not select it merely for insults, anger, or repetition.
-Do not treat a request for technical help, genuine distress, or conflict as banter. Return both fields in one JSON object.''',
+Do not treat a request for technical help, genuine distress, or conflict as banter.
+Judge INITIATIVE independently: open means a small self-started playful challenge could fit naturally now; closed means this message needs a direct response or offers no natural opening. This field only permits a possible optional nudge and does not grant heat points. Return all three fields in one JSON object.''',
           },
           {
             'role': 'user',
@@ -205,24 +224,28 @@ $latestUserText''',
           .cast<String, dynamic>();
       final mode = result['mode']?.toString().trim().toLowerCase() ?? '';
       final interaction = PlayfulInteraction.parse(result['interaction']);
+      final initiativeOpportunity = result['initiative'] == 'open';
       final decision = switch (mode) {
         'nsfw_reference' => NsfwRouteDecision(
             active: true,
             referenceActive: true,
             source: 'auto_reference',
             playfulInteraction: interaction,
+            initiativeOpportunity: initiativeOpportunity,
           ),
         'nsfw' => NsfwRouteDecision(
             active: true,
             referenceActive: false,
             source: 'auto_nsfw',
             playfulInteraction: interaction,
+            initiativeOpportunity: initiativeOpportunity,
           ),
         _ => NsfwRouteDecision(
             active: false,
             referenceActive: false,
             source: 'auto_daily',
             playfulInteraction: interaction,
+            initiativeOpportunity: initiativeOpportunity,
           ),
       };
       await _persist(decision, turnId: turnId,
@@ -262,6 +285,8 @@ $latestUserText''',
     await db.setSetting('nsfw_route_source', decision.source);
     await db.setSetting('playful_form_router_signal_v1',
         decision.playfulInteraction?.name ?? 'unknown');
+    await db.setSetting('playful_form_initiative_open_v1',
+        decision.initiativeOpportunity ? '1' : '0');
     await db.setSetting('nsfw_route_turn_id', turnId);
     if (consumeManualOverride) {
       await db.setSetting('nsfw_manual_override', '');
