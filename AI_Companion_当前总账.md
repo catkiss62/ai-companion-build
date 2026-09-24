@@ -40,7 +40,7 @@
 | +228 远端 | head `29e87d016c8bd81f52f89f95191bd1a1a01a5b57`；tree `c4a112a56d8b634cf3a1a66636979a0833538b7d`；Actions `35440359036`；Artifact `10583263879`；APK SHA-256 `159e283173e49da2924d25b37ba7647893cdafdcc31b63f0e31b7c64e086849b` |
 | 仓库维护基线 | `maintenance/repository-governance-20260919`；远端文档 head `123e272196e8ae93f3518157917d76f6af4f1784`；完整构建 head `fa99f32012fa1a0716b746d36b958a8e777ef9b8`；Actions `35446649873` 全绿；文档-only run `35447342921` 正确跳过 APK |
 | 当前功能分支 | `agent/v04206-tts-mood-dual-mode`，基于 +249 已验证源码；候选版本 `v0.42.6+250` |
-| 当前任务状态 | `IMPLEMENTATION IN PROGRESS / CI PENDING / APK PENDING / TRUE DEVICE PENDING`；+250 真机确认小豆丁形态有明显反差且不过火；+251 正将气焰增长从关键词匹配改为语义判断，见 6.24 |
+| 当前任务状态 | `IMPLEMENTED / CI PASSED / APK READY / TRUE DEVICE PENDING`；+250 真机确认双形态；+251 已修正语义气焰、TTS 状态/无声测速与 Gemini 思考摘要，请在新包上分别实测朗读和两档测速，见 6.24 |
 | +250 当前任务 | 本体／小豆丁形态共用成年角色、记忆与能力；同一形态状态驱动角色提示与静态立绘，虚拟弹额头／安抚改变气焰值后继续自然衰减，心形液面与锁定入口；常驻世界书定点柔化并仅迁移未编辑原文；两档 TTS 共用冻结的真实回复与分段，无声生成并复制专项脱敏报告 |
 | +250 最终构建 | 功能 head `b5cd2d1070fb237bc72ab66b1867a75da9bbe6e8`；tree `4e0dbbd531aea408ab0face6d46a323f441c7eeb`；Actions `35943607609` 全绿；Artifact `10785922926`；APK SHA-256 `f148f2eb303017ad5f6f689628f230979c24ba16831fdc0181e58bc5e1d73a`；未发布 Draft Release `v0.42.6-dual-form-tts-comparison-test` |
 | +249 当前任务 | `loopIndex=0` 时明确判定“零个新语义 token”，在 VITS 前拒绝本段；最后两次会话记录生成时 profile、冷/热状态、各阶段耗时、RTF、播放首帧、队列余量、迟到段、失败/停止与脱敏文本哈希 |
@@ -838,7 +838,10 @@ Actions 与交付证据：远端功能 head `33647c7bff15084d6fd3cbc7b817e9b0b21
 - 本轮合并 +251 真机反馈：语音与情绪页面在读取 TTS 状态前先展示设置，TTS `status()` 只读，不在打开页面/快速自检时隐式重配模型；快速自检对孤立进程读取设置 3 秒边界，深度自检仍执行完整校验。两个测速按钮明确标为无声对照；根据当前语种和朗读范围从最近的真实回复中选择可朗读样本；若没有对白，明确标记后改用真实回复全文，不再固定拿一条长但只有动作的回复，测速选样不先初始化声学模型。`试听发声` 才是实际有声按钮。用户脱敏报告中的 TTS 状态读取失败，以及历史原生生成 `NullPointerException` 分别记为待真机验证，不把当前样本报错当作后者已解决。
 - Gemini：对照 Google 官方 OpenAI 兼容 REST 请求示例，将 `google.thinking_config` 移入实际请求体的 `extra_body`；仅在最终候选经过可选修正后呈现对应模型返回的思考摘要，避免先显示被弃用候选的摘要而最终正文没有摘要时闪退。摘要缺失依旧为空，不造人工思考。非 Gemini 自定义模型不加专用字段；服务商转发是否支持新参数须以真机验收。
 - 判断型内部路由继续 `thinking:false`，只复用既有 DeepSeek 亲密路由返回的语义互动强度；五轮自然互相较劲的目标是本地上限映射，非模型随意决定 0～100 分。手动亲密开关继续旁路路由，无额外请求。
-- 状态：`IMPLEMENTED LOCALLY / LOCAL STATIC VALIDATION IN PROGRESS / CI PENDING / TRUE DEVICE PENDING`；版本 `v0.42.7+251`，独立 Draft 构建，需在 CI analyze/tests/Kotlin/arm64 Release 后更新证据。
+- 状态：`IMPLEMENTED / CI PASSED / APK READY / TRUE DEVICE PENDING`；版本 `v0.42.7+251`，功能 head `13533d1f087850a6889ce34064697ae2629e9cbd`，tree `273be445c45007775272ca03533a35e4354ba571`。Actions `35952517475` 完整成功：126 项源码门、Kotlin、Flutter analyze/tests、arm64 Release、签名与包内资源门通过；Artifact `10789656940`，APK SHA-256 `a72f1a97d911495854af1b91336ab98892e512b46b7af8a97dbda92ab79b4a21`，未发布 Draft `untagged-8a0d0901c585b9b8f490`。CI 证明编译与自动门通过，不代表真机 TTS 原生空指针或第三方转发链路已修复。
+
+- Jev 评估（研究，本版未集成）：`jevtypesafeai.com` 自称独立平台，明确声明未获 TypeSafe AI 背书；官方为 `typesafe.ai`、`docs.typesafe.ai`，官方调用是 `POST https://api.typesafe.ai/v1/systemone`。Jev choice/score/noul 适合短而明确的多项判断；中文调侃与关系上下文仍须用同批脱敏人工标注样本比较准确率、延迟和费用。当前气焰复用已有 DeepSeek 路由，单独迁移会增加网络调用。未接第三方平台、未新建密钥或上传私密对话。出处：https://typesafe.ai/ ，https://docs.typesafe.ai/introduction ，https://jevtypesafeai.com/ 。
+- 余额汇总评估（研究，本版未集成）：DeepSeek 官方 `GET https://api.deepseek.com/user/balance` 可用对应官方密钥查询真实余额；玩游、Agnes、千问视觉、Tavily 与 TypeSafe Jev 的额度查询不能套用一个聊天接口，未证实其官方只读接口及当前 Key 权限者须标示控制台入口或明确为本机估算。未来“模型与联网”设置可分提供商手动刷新，显示来源与时间、失败独立呈现；Key 留在现有安全存储，只向自身核实的域名发送。出处：https://api-docs.deepseek.com/api/get-user-balance ，https://docs.typesafe.ai/api 。
 
 ## 7. 历史验证兼容摘要
 
