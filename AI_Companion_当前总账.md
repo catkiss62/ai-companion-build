@@ -847,10 +847,10 @@ Actions 与交付证据：远端功能 head `33647c7bff15084d6fd3cbc7b817e9b0b21
 
 - 从 +251 已构建远端源码创建独立分支；保留 +251 五轮气焰语义判断、TTS 与 Gemini 修正。Jev 默认关闭，独立加密 OpenRouter Key，只负责普通聊天的一次组合判断（亲密描写深度 + 气焰交互强度）及沉浸房间的一次组合判断（场景深度 + 明确事件）。手动开关与确定性事件优先，Jev 不生成对白或记忆，不改 Gemini 最终回复。其他 DeepSeek 短判断尚未迁移。
 - 单一 JevDecisionGateway 使用 OpenRouter Decisions typesafe/jev-1.13，每请求含状态与多条 choice；选择缺失、低 confidence、网络/鉴权/402/超时等返回 null，由原 DeepSeek Flash 不思考判断完整接管；取消不额外发兜底。只有费用/Token/耗时/失败类型的 120 条有界脱敏账本 jev_short_usage_v1，包括 OpenRouter 实际 usage.cost，不含问题或聊天正文。设置页面连接测试消耗少量额度；用户需验证真实误判与实际账单才扩大覆盖。省钱和准确率并非预设结论。
-- 用户诊断/备份证明：同一份自测结果被 sins_virtues_answer_batch 与稍后的 sins_virtues_get_result 各自种植分享念头。结果快照读取不再生成新的主动分享 Thought，真实完成新题仍可分享；历史已入库旧 Thought 不删除。
+- 用户诊断/备份证明：同一份自测结果被 sins_virtues_answer_batch 与稍后的 sins_virtues_get_result 各自种植分享念头。结果快照读取不再生成新的主动分享 Thought，同时以 quiet 标记活动记录而不成为新的近期主动话题；真实完成新题与独立终局通知仍可分享；历史已入库旧 Thought 不删除。
 - 余额面板另批处理：DeepSeek/OpenRouter/千问/Gemini 中转接口及凭据权限不同；此次只记录本功能产生的实际费用。验证顺序：126 个源码门、Flutter analyze/tests、Kotlin、arm64 Release、签名及 Draft，真机验证错 Key、402、停止、两路对照和旧测试结果不重复分享。CI 和真机结果必须分别回填。
 
-- CI 交付证据：功能 head e621f28a197c598d6e102bf96cfd7a8f37797307；Actions 35960427181 全绿，126 项源码门、Kotlin、Flutter analyze/tests、arm64 Release、签名和包内资源门通过；Artifact 10792241362，APK SHA-256 3cc079a5dee358aabaa023d637e204d1a2c60d6b7463dce54e685c0155393dde；未发布 Draft v0.42.8-jev-game-result-test（实际 draft URL 为 untagged-ac0745b42dc54420a449）。只证明 CI，不代表 OpenRouter 实时调用、余额不足回退或游戏厅真机自然表达已验收。
+- 最终 CI 交付证据：功能 head fa62d0c08aeb0597a874526c8015fecc4544c6f3；Actions 35961379029 全绿，源码门、Kotlin、Flutter analyze/tests、arm64 Release、签名和包内资源门通过；Artifact 10793156007，APK SHA-256 ee7fec22ff304d1c2e20f1da1cb32208f13a69ef4a798d4ab22826f87d725d52；未发布 Draft URL 为 untagged-247641dabd0b4c85691f。此前 e621f28 的 run 35960427181 虽全绿但尚未将读取旧结果的活动记录标为 quiet，已由本轮替代。只证明 CI，不代表 OpenRouter 实时调用、余额不足回退或游戏厅真机自然表达已验收。
 
 ## 7. 历史验证兼容摘要
 
