@@ -40,7 +40,7 @@
 | +228 远端 | head `29e87d016c8bd81f52f89f95191bd1a1a01a5b57`；tree `c4a112a56d8b634cf3a1a66636979a0833538b7d`；Actions `35440359036`；Artifact `10583263879`；APK SHA-256 `159e283173e49da2924d25b37ba7647893cdafdcc31b63f0e31b7c64e086849b` |
 | 仓库维护基线 | `maintenance/repository-governance-20260919`；远端文档 head `123e272196e8ae93f3518157917d76f6af4f1784`；完整构建 head `fa99f32012fa1a0716b746d36b958a8e777ef9b8`；Actions `35446649873` 全绿；文档-only run `35447342921` 正确跳过 APK |
 | 当前功能分支 | `agent/v04211-tts-affinity-rollback`，基于 +254 源码；候选版本 `v0.42.11+255` |
-| 当前任务状态 | `IMPLEMENTED LOCALLY / LOCAL STATIC VALIDATION PASSED / CI PENDING / TRUE DEVICE PENDING`；按 +254 真机诊断定点回退 TTS 运行链至 +248，保留快速状态；修复备份恢复后气焰显示和色相渐变，详情见末尾 +255 正式记录 |
+| 当前任务状态 | `CI PASSED / APK READY / TRUE DEVICE PENDING`；+255 源码与 Flutter/Kotlin 全部通过，已构建私有草稿 APK；TTS 发声和气焰导入仍需用户原手机验证，详情见末尾 +255 正式记录 |
 | +250 当前任务 | 本体／小豆丁形态共用成年角色、记忆与能力；同一形态状态驱动角色提示与静态立绘，虚拟弹额头／安抚改变气焰值后继续自然衰减，心形液面与锁定入口；常驻世界书定点柔化并仅迁移未编辑原文；两档 TTS 共用冻结的真实回复与分段，无声生成并复制专项脱敏报告 |
 | +250 最终构建 | 功能 head `b5cd2d1070fb237bc72ab66b1867a75da9bbe6e8`；tree `4e0dbbd531aea408ab0face6d46a323f441c7eeb`；Actions `35943607609` 全绿；Artifact `10785922926`；APK SHA-256 `f148f2eb303017ad5f6f689628f230979c24ba16831fdc0181e58bc5e1d73a`；未发布 Draft Release `v0.42.6-dual-form-tts-comparison-test` |
 | +249 当前任务 | `loopIndex=0` 时明确判定“零个新语义 token”，在 VITS 前拒绝本段；最后两次会话记录生成时 profile、冷/热状态、各阶段耗时、RTF、播放首帧、队列余量、迟到段、失败/停止与脱敏文本哈希 |
@@ -898,3 +898,4 @@ Actions 与交付证据：远端功能 head `33647c7bff15084d6fd3cbc7b817e9b0b21
 - 风险与验收：本地不能运行 Flutter/Gradle 或复现目标手机独立进程崩溃；需要 GitHub Actions 编译、Flutter/Kotlin 测试，并在原手机验证：旧存档导入显示 68；关闭/打开页面均不长时间卡住；导入 RoBERTa 后「试听发声」实际听见、自动朗读也能出声。不能把源代码回退视为已经证明问题解决。
 - CI 首轮 run `35986329658` 在 `Verify clean source baseline` 拦下旧版号 literal：Workflow 把构建标签改为 +255，却遗漏 `grep -Fqx 'version: 0.42.10+254'`。修正为 +255 后重新推送；首轮没有进入 Flutter/Kotlin 编译，不能算实编译失败。
 - CI 第二轮 run `35986562701` 已通过全部源门、Kotlin 测试、Flutter analyze，Flutter 927 项中 926 项通过；唯一失败是 `agent_self_reader_v0416_test.dart` 固定预期 `build=v0.42.10+254`，实际 +255 正确。已同步测试预期并重新推送；第二轮未进入 Release APK 打包。
+- CI 第三轮 run `35987574373` 成功：125 个源码门、Kotlin 测试、Flutter analyze、Flutter 全量测试、Release APK 编译、固定签名与 APK 模型/桌宠/塔罗资源校验均通过。功能源码 head `4c2101f529fbaf4f6fe7b2289aaea48153e65b34`，tree `fe8a3f0e081a66b77681eaf527340e6f664a117b`；Artifact `10803376064`；私有草稿 Release `https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-943842dd3eb416b00021`；APK SHA-256 `170be5edc6a2ee55a2431fc289a14b6acc4551ef74bacec19ee7e1f4e4692487`。`TRUE DEVICE PENDING`：本次完成构建不能证明用户手机独立 TTS 进程已恢复播放。
