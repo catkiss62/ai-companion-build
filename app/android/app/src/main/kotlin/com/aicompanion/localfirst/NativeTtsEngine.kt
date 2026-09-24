@@ -32,6 +32,23 @@ class NativeTtsEngine private constructor(context: Context) {
         failureStatus(error)
     }
 
+    /** Fast packaged-resource probe in the main process; never binds the child. */
+    fun localStatus(): Map<String, Any> {
+        val packaged = runCatching {
+            appContext.assets.open("benchmark/manifest.json").use { true }
+        }.getOrDefault(false)
+        return mapOf(
+            "available" to packaged,
+            "initialized" to false,
+            "engine" to "Genie-TTS v0.7.6 core · 小酒狐 · isolated ONNX Runtime",
+            "integrity" to "unchecked",
+            "diagnosticStage" to "packaged_asset_check",
+            "runtimeProfile" to "not_started",
+            "detail" to if (packaged) "本机资源存在，子进程未在快速自检中启动"
+                else "APK 中没有 Genie TTS 资源",
+        )
+    }
+
     fun verifyArtifacts(): Map<String, Any> = client.verifyArtifacts()
 
     fun initialize(language: String = "zh"): Map<String, Any> {
@@ -218,6 +235,7 @@ class NativeTtsEngine private constructor(context: Context) {
                     "inputChars" to text.length,
                     "textSha256" to textHash,
                     "stage" to checkpoint["stage"],
+                    "failureType" to checkpoint["failure"],
                     "runtimeProfile" to checkpoint["runtimeProfile"],
                     "phoneCount" to checkpoint["phoneCount"],
                     "phoneMin" to checkpoint["phoneMin"],

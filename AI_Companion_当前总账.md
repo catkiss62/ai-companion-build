@@ -88,7 +88,7 @@
 
 历史兼容与未来扩展索引：`v0.41.82+226` / `agent/v04182-cedar-state-machine-e2e`；`v0.41.83+227` / `agent/v04183-cedar-native-agent-loop`；`v0.41.81+225`；`模型自主发现`；`陪我下五子棋`。全工具调用动作展示已进入 +248；双人格与命运之轮的冻结分析见 6.21，均不得在本批顺手实现。任何新 MCP、工作区、视频理解、Live2D、提醒或长任务先查本文件的 **“唯一循环所有权”**、**“Cortico 低风险参考”** 与 **“循环能力首版诊断”**，不得再复制 Cedar 曾出现的多套循环。
 
-+252 工作分支 agent/v04208-jev-game-result，候选 v0.42.8+252：OpenRouter Jev 两处短判断与 DeepSeek 兜底；保留 +251 气焰语义判断、TTS 和 Gemini 修复；Cedar get_result 不再凭旧结果生成新分享。余额面板延后；详情见 6.25。状态 IMPLEMENTED / CI PASSED / APK READY / TRUE DEVICE PENDING。\n\n<!-- END QUICK HANDOFF INDEX -->
++252 工作分支 agent/v04208-jev-game-result，候选 v0.42.8+252：OpenRouter Jev 两处短判断与 DeepSeek 兜底；保留 +251 气焰语义判断、TTS 和 Gemini 修复；Cedar get_result 不再凭旧结果生成新分享。余额面板延后；详情见 6.25。状态 IMPLEMENTED / CI PASSED / APK READY / TRUE DEVICE PENDING。\n\n+253 工作分支 agent/v04209-tts-preflight-heat，候选 v0.42.9+253：快速自检只读取 APK 安装资源；TTS 子进程超时重置绑定并一键顺序无声对照；气焰 0～100 每轮 -10、满值五轮冷却退出，害羞本身不加分。前批 Jev/DeepSeek 兜底不变；详见 6.26。状态 IMPLEMENTED / CI PENDING / TRUE DEVICE PENDING。\n\n<!-- END QUICK HANDOFF INDEX -->
 
 ## 正式记录（无容量上限）
 
@@ -851,6 +851,14 @@ Actions 与交付证据：远端功能 head `33647c7bff15084d6fd3cbc7b817e9b0b21
 - 余额面板另批处理：DeepSeek/OpenRouter/千问/Gemini 中转接口及凭据权限不同；此次只记录本功能产生的实际费用。验证顺序：126 个源码门、Flutter analyze/tests、Kotlin、arm64 Release、签名及 Draft，真机验证错 Key、402、停止、两路对照和旧测试结果不重复分享。CI 和真机结果必须分别回填。
 
 - 最终 CI 交付证据：功能 head fa62d0c08aeb0597a874526c8015fecc4544c6f3；Actions 35961379029 全绿，源码门、Kotlin、Flutter analyze/tests、arm64 Release、签名和包内资源门通过；Artifact 10793156007，APK SHA-256 ee7fec22ff304d1c2e20f1da1cb32208f13a69ef4a798d4ab22826f87d725d52；未发布 Draft URL 为 untagged-247641dabd0b4c85691f。此前 e621f28 的 run 35960427181 虽全绿但尚未将读取旧结果的活动记录标为 quiet，已由本轮替代。只证明 CI，不代表 OpenRouter 实时调用、余额不足回退或游戏厅真机自然表达已验收。
+
+## 6.26 v0.42.9+253 TTS 自检与五轮语义气焰（2026-09-24）
+
+- 用户真机截图：TTS 资源未就绪、连接 Genie TTS 子进程超时，测速失败；自检页面与 TTS 页面同样等待状态。脱敏备份气焰已达 100。诊断中另有声学进程成功生成第一片段、第二片段原生 NullPointerException 与子进程退出，不能从这份日志证明空指针的具体代码位置或真机发声已经恢复。
+- 快速自检读取主进程 APK manifest 并标注只验证资源，不绑定声学子进程；深度自检仍执行黄金资源校验和初始化。TTS 连接超时/死亡重置旧绑定与等待锁，下一次显式试听或测试能重新绑定，超时写入无正文脱敏诊断。
+- 一键顺序无声测速两档，同一次固定回复、同一分段、同一批次才能比较与改变胜出档；失败独立记录代码并仍尝试另一档。试听发声是唯一有声按钮，复制专项报告保留。
+- 气焰值继续使用 0～100；每轮 -10（另计自然小时衰减），轻度/互相/强烈主动玩笑分别 +16/+20/+28，认真话题再 -18。仅害羞、脸红、尴尬而未回敬时给 ordinary；满值五轮普通对话降至 50 并退出小豆丁。Jev 与 DeepSeek 的两组分类提示一致。备份与 Jev 脱敏用量只证明当时高位及部分低置信度兜底，不记录选项文本，不能断言具体回合是哪一路判定。
+- 验证：源码门、Flutter analyze/tests、Android Kotlin、arm64 Release 和签名交给独立 CI；CI 与真机结论另行回填。声学空指针位置需要新包诊断或真机堆栈才能进一步收口，不用另一种音色/固定台词伪装成功。
 
 ## 7. 历史验证兼容摘要
 

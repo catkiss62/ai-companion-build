@@ -39,6 +39,8 @@ class NativeTtsBridge(
                 return@setMethodCallHandler
             }
             when (call.method) {
+                // Do not bind the heavy child for a quick preflight.
+                "localStatus" -> result.success(engine.localStatus())
                 "status" -> submit(generationWorker, result, "tts_status_failed") {
                     engine.status()
                 }

@@ -28,6 +28,10 @@ class NativeTtsProvider implements TtsProvider {
             ) ?? const {},
       );
 
+  Future<TtsStatus> localStatus() async => TtsStatus.fromMap(
+        await _channel.invokeMapMethod<Object?, Object?>('localStatus') ?? const {},
+      );
+
   @override
   Future<TtsStatus> status() async {
     final raw = await _channel.invokeMapMethod<Object?, Object?>('status');

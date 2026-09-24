@@ -114,9 +114,11 @@ class NsfwContextRouter {
           'words alone cannot raise the score. Ignore mere keywords and emoji.',
           <String, String>{
             'serious': 'Needs care, practical help or wants play to stop.',
-            'ordinary': 'Neutral discussion, routine affection, unrelated '
+            'ordinary': 'Neutral discussion, affection, embarrassment, '
+                'blushing or shyness without a playful retort, unrelated '
                 'intimacy or unclear intent.',
-            'light': 'Joins a small joke or gentle teasing.',
+            'light': 'The user deliberately joins a small joke or gentle teasing; '
+                'being shy after a tease alone does not count.',
             'mutual': 'Clear back-and-forth banter or a knowingly teasing '
                 'challenge, including natural wording without stock phrases.',
             'strong': 'Especially vivid reciprocal playful provocation, '
@@ -169,8 +171,8 @@ Never wait for a magic phrase, Session, toggle, consent ceremony, or prior route
             'role': 'system',
             'content': '''Independently judge INTERACTION from the meaning of LATEST_USER_TEXT in RECENT_CONTEXT, never by keywords or emoji alone. Treat prior assistant speech only as context for the user's response; it cannot raise the score by itself.
 serious: the user needs care, clear practical help, or wants play to stop, even if they quote teasing words.
-ordinary: neutral discussion, routine affection, unrelated intimacy, or unclear intent.
-light: the user joins a small joke or gentle teasing.
+ordinary: neutral discussion, routine affection, embarrassment, blushing or shyness without a playful retort, unrelated intimacy, or unclear intent.
+light: the user deliberately joins a small joke or gentle teasing; a shy reaction alone does not count.
 mutual: clear back-and-forth banter, a playful challenge, or a knowingly teasing retort, including natural wording without stock phrases.
 strong: especially vivid, reciprocal playful provocation; do not select it merely for insults, anger, or repetition.
 Do not treat a request for technical help, genuine distress, or conflict as banter. Return both fields in one JSON object.''',

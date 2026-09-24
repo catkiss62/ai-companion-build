@@ -1702,13 +1702,14 @@ class PreflightDiagnosticsService {
     try {
       TtsStatus status = deep
           ? await tts.status()
-          : await tts.status().timeout(const Duration(seconds: 3));
+          : await tts.localStatus().timeout(const Duration(seconds: 2));
       if (deep) {
         status = await tts.verifyArtifacts();
         if (status.integrityVerified) status = await tts.initialize();
       }
       report['tts'] = {
         'available': status.available,
+        'runtimeChecked': deep,
         'initialized': status.initialized,
         'engine': status.engine,
         'integrity': status.integrity,
@@ -1722,15 +1723,15 @@ class PreflightDiagnosticsService {
       final ok = status.available && (!deep || (status.integrityVerified && status.initialized));
       checks.add(PreflightCheck(
         id: 'tts',
-        title: deep ? 'TTS 黄金资源 + JNI/MNN' : 'TTS 本地核心',
+        title: deep ? 'TTS 黄金资源 + JNI/MNN' : 'TTS 安装资源',
         level: ok ? 'pass' : 'fail',
         summary: deep
             ? ok
                 ? '37 项黄金负载校验通过，JNI/MNN 初始化成功；本次未播放声音。'
                 : '黄金校验或 JNI/MNN 初始化未通过。'
             : status.available
-                ? 'TTS 核心资源存在；深度自检时再执行黄金校验与初始化。'
-                : 'TTS 核心资源不可用。',
+                ? 'TTS 安装资源存在；子进程与发声状态需在深度自检或试听时确认。'
+                : 'APK 中没有读取到 TTS 安装资源。',
       ));
     } catch (_) {
       report['tts'] = {'available': false, 'deepAttempted': deep};
