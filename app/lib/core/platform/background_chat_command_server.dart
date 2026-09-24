@@ -5,6 +5,7 @@ import 'package:flutter/services.dart';
 import '../../features/chat/chat_controller.dart';
 import '../ai/reasoning_translation_service.dart';
 import '../database/app_database.dart';
+import '../agent/agent_tool.dart';
 import '../agent/agent_tool_registry.dart';
 import '../models/chat_language_variant.dart';
 import '../models/chat_message.dart';
@@ -334,7 +335,15 @@ class BackgroundChatCommandServer {
     final toolsByAssistant = <String, List<String>>{};
     for (final record in toolRecords) {
       final title = AgentToolRegistry.byId(record.toolId)?.title ?? '本地工具';
-      final status = record.status.key;
+      final status = switch (record.status) {
+        AgentToolStatus.succeeded => '成功',
+        AgentToolStatus.noResult => '没有找到结果',
+        AgentToolStatus.failed => '失败',
+        AgentToolStatus.blocked => '未获准执行',
+        AgentToolStatus.stopped => '已停止',
+        AgentToolStatus.running => '进行中',
+        AgentToolStatus.requested => '等待执行',
+      };
       toolsByAssistant.putIfAbsent(record.assistantMessageId, () => [])
           .add(record.displayText.isEmpty
               ? '$title · $status'
