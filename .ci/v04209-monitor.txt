@@ -1,7 +1,7 @@
 status=success
-run_id=35974252470
-run_url=https://github.com/catkiss62/ai-companion-build/actions/runs/35974252470
-head_sha=5a8263efc925f32d80da6dc8af34aaf55cf97d71
+run_id=35980907315
+run_url=https://github.com/catkiss62/ai-companion-build/actions/runs/35980907315
+head_sha=e38b945d3f143b7fd8392f7b6352559f59af8565
 signer_sha256=30:5E:B3:D8:09:83:B9:63:C6:48:18:DD:F1:AD:56:1F:27:9D:E6:D4:7B:3E:D2:C7:81:AD:A4:48:C7:C2:51:48
-6f4a3c34f987f41c912e2427b8386ba6d70731e30ebf9537120a830db4cc3640  AI-Companion-v0.42.9-253-TTS-Preflight-Heat-APK.apk
-release_url=https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-7ba9838d3966a80f6d12
+837e309197451889918b9d02b9fa594276f7df8bc45d039898cc8dc5ce4f0a1e  AI-Companion-v0.42.10-254-Audio-Heat-APK.apk
+release_url=https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-ce4a0bd8e68f9694b3a4
