@@ -38,18 +38,6 @@ object TtsProcessCheckpoint {
         referenceEchoSuspected: Boolean = false,
         referenceEchoReason: String = "",
         referenceEchoScore: Double = 0.0,
-        frontendMs: Long = 0L,
-        modelLoadedThisRun: Boolean = false,
-        modelLoadMs: Long = 0L,
-        fixtureLoadMs: Long = 0L,
-        encoderMs: Long = 0L,
-        firstDecoderMs: Long = 0L,
-        autoregressiveMs: Long = 0L,
-        vocoderMs: Long = 0L,
-        totalInferenceMs: Long = 0L,
-        endToEndMs: Long = 0L,
-        audioSeconds: Double = 0.0,
-        coreRtf: Double = 0.0,
     ) {
         runCatching {
             val payload = JSONObject()
@@ -79,18 +67,6 @@ object TtsProcessCheckpoint {
                 .put("referenceEchoSuspected", referenceEchoSuspected)
                 .put("referenceEchoReason", DiagnosticRedaction.safeToken(referenceEchoReason, 64))
                 .put("referenceEchoScore", referenceEchoScore.coerceIn(-1.0, 1.0))
-                .put("frontendMs", frontendMs.coerceAtLeast(0L))
-                .put("modelLoadedThisRun", modelLoadedThisRun)
-                .put("modelLoadMs", modelLoadMs.coerceAtLeast(0L))
-                .put("fixtureLoadMs", fixtureLoadMs.coerceAtLeast(0L))
-                .put("encoderMs", encoderMs.coerceAtLeast(0L))
-                .put("firstDecoderMs", firstDecoderMs.coerceAtLeast(0L))
-                .put("autoregressiveMs", autoregressiveMs.coerceAtLeast(0L))
-                .put("vocoderMs", vocoderMs.coerceAtLeast(0L))
-                .put("totalInferenceMs", totalInferenceMs.coerceAtLeast(0L))
-                .put("endToEndMs", endToEndMs.coerceAtLeast(0L))
-                .put("audioSeconds", audioSeconds.coerceAtLeast(0.0))
-                .put("coreRtf", coreRtf.coerceAtLeast(0.0))
                 .put("pssKb", Debug.getPss())
                 .put("rssKb", currentRssKb())
                 .put("threads", currentThreadCount())
@@ -139,18 +115,6 @@ object TtsProcessCheckpoint {
             "referenceEchoSuspected" to value.optBoolean("referenceEchoSuspected", false),
             "referenceEchoReason" to value.optString("referenceEchoReason", ""),
             "referenceEchoScore" to value.optDouble("referenceEchoScore", 0.0),
-            "frontendMs" to value.optLong("frontendMs", 0L),
-            "modelLoadedThisRun" to value.optBoolean("modelLoadedThisRun", false),
-            "modelLoadMs" to value.optLong("modelLoadMs", 0L),
-            "fixtureLoadMs" to value.optLong("fixtureLoadMs", 0L),
-            "encoderMs" to value.optLong("encoderMs", 0L),
-            "firstDecoderMs" to value.optLong("firstDecoderMs", 0L),
-            "autoregressiveMs" to value.optLong("autoregressiveMs", 0L),
-            "vocoderMs" to value.optLong("vocoderMs", 0L),
-            "totalInferenceMs" to value.optLong("totalInferenceMs", 0L),
-            "endToEndMs" to value.optLong("endToEndMs", 0L),
-            "audioSeconds" to value.optDouble("audioSeconds", 0.0),
-            "coreRtf" to value.optDouble("coreRtf", 0.0),
             "pssKb" to value.optInt("pssKb", 0),
             "rssKb" to value.optInt("rssKb", 0),
             "threads" to value.optInt("threads", 0),

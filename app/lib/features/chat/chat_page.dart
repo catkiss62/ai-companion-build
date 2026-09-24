@@ -66,6 +66,8 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
   OverlayEntry? _composerToolsOverlay;
   _SelectedUserSticker? _selectedUserSticker;
   Timer? _externalSyncTimer;
+  int _externalSyncTicks = 0;
+  bool _refreshingPlayfulForm = false;
   bool _appResumed = true;
   bool _pickingImage = false;
   bool _visualStageEnabled = true;
@@ -134,6 +136,9 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
       if (_appResumed &&
           widget.active &&
           !controller.analyzingImage) {
+        // Transfer lives on a separate route, so the chat tab can remain
+        // mounted and active while a backup replaces its saved form.
+        if (++_externalSyncTicks % 5 == 0) unawaited(_refreshPlayfulForm());
         unawaited(controller.syncExternalMessages());
         if (!controller.generationActive) {
           unawaited(controller.acknowledgeOverlayUnread());
@@ -193,6 +198,9 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
   void didUpdateWidget(covariant ChatPage oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (!oldWidget.active && widget.active) {
+      // A backup can replace the persisted form while this tab stays mounted.
+      // Refresh it when the user returns, even if no new chat turn was added.
+      unawaited(_refreshPlayfulForm());
       _scrollToLatest();
       unawaited(controller.acknowledgeOverlayUnread());
       if (!controller.analyzingImage) {
@@ -285,10 +293,16 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
   }
 
   Future<void> _refreshPlayfulForm() async {
-    final state = await PlayfulFormStore(AppDatabase.instance).load();
-    if (mounted && (state.heat != _playfulForm.heat ||
-        state.qForm != _playfulForm.qForm || state.locked != _playfulForm.locked)) {
-      setState(() => _playfulForm = state);
+    if (_refreshingPlayfulForm) return;
+    _refreshingPlayfulForm = true;
+    try {
+      final state = await PlayfulFormStore(AppDatabase.instance).load();
+      if (mounted && (state.heat != _playfulForm.heat ||
+          state.qForm != _playfulForm.qForm || state.locked != _playfulForm.locked)) {
+        setState(() => _playfulForm = state);
+      }
+    } finally {
+      _refreshingPlayfulForm = false;
     }
   }
 
@@ -532,6 +546,7 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
     if (_appResumed &&
         widget.active &&
         !controller.analyzingImage) {
+      unawaited(_refreshPlayfulForm());
       unawaited(controller.acknowledgeOverlayUnread());
       unawaited(controller.syncExternalMessages());
     }

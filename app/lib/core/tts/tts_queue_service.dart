@@ -41,12 +41,6 @@ abstract interface class TtsQueueService {
     int segmentIndex = -1,
   });
 
-  /// Mark the exact scheduler utterance boundary for bounded diagnostics.
-  Future<void> beginSession({required bool manual});
-
-  /// Persist the completed/partial/empty session after all generation settles.
-  Future<void> finishSession();
-
   /// Open one native AudioTrack stream for the whole utterance. The native
   /// player performs Genie's one-second PCM prefill on the first WAV.
   Future<void> beginPlayback();
@@ -56,7 +50,6 @@ abstract interface class TtsQueueService {
   Future<void> enqueuePlayback(
     Uint8List wavBytes, {
     double speedMultiplier = 1.0,
-    int segmentIndex = -1,
   });
 
   /// Seal the stream and complete only after all queued PCM has drained.

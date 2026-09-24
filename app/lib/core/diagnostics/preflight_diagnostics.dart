@@ -84,6 +84,59 @@ class PreflightDiagnosticsService {
   final AndroidBridge android;
   final TtsService tts;
 
+  /// Show a small, truthful local snapshot before the full diagnostic's many
+  /// database queries finish. Only run() produces an exportable full report.
+  Future<PreflightSnapshot> quickOverview() async {
+    final now = DateTime.now();
+    final checks = <PreflightCheck>[];
+    final report = <String, Object?>{'quickOnly': true};
+    try {
+      final active = await (() async {
+        await db.ensureReady();
+        return db.getSetting('active_brain');
+      })().timeout(const Duration(seconds: 2));
+      checks.add(PreflightCheck(
+        id: 'active_brain', title: '本机主设备状态',
+        level: active == '0' ? 'warn' : 'pass',
+        summary: active == '0' ? '当前为待机设备。' : '本机状态已读取。',
+      ));
+    } catch (_) {
+      checks.add(const PreflightCheck(
+        id: 'database', title: '本机存档', level: 'warn',
+        summary: '读取时间较长，完整自检继续检查。',
+      ));
+    }
+    try {
+      final native = await android.preflightStatus()
+          .timeout(const Duration(seconds: 2));
+      report['native'] = {'app': native['app']};
+      checks.add(const PreflightCheck(
+        id: 'android_bridge', title: 'Android 原生桥', level: 'pass',
+        summary: '已读取本机状态，完整诊断继续进行。',
+      ));
+    } catch (_) {
+      checks.add(const PreflightCheck(
+        id: 'android_bridge', title: 'Android 原生桥', level: 'warn',
+        summary: '快速读取未完成，完整诊断继续进行。',
+      ));
+    }
+    try {
+      final status = await tts.localStatus().timeout(const Duration(seconds: 2));
+      checks.add(PreflightCheck(
+        id: 'tts_packaged', title: 'TTS 随包资源',
+        level: status.available ? 'pass' : 'warn',
+        summary: status.available ? 'APK 资源存在；语音进程尚未校验。' : '未读到 APK 资源。',
+      ));
+    } catch (_) {
+      checks.add(const PreflightCheck(
+        id: 'tts_packaged', title: 'TTS 随包资源', level: 'warn',
+        summary: '快速读取未完成。',
+      ));
+    }
+    report['checks'] = checks.map((check) => check.toJson()).toList();
+    return PreflightSnapshot(createdAt: now, deep: false, checks: checks, report: report);
+  }
+
   Future<PreflightSnapshot> run({bool deep = false}) async {
     final now = DateTime.now();
     final checks = <PreflightCheck>[];

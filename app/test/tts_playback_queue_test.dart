@@ -20,8 +20,6 @@ class _FakeQueueService implements TtsQueueService {
   final playbackSpeedMultipliers = <double>[];
   int playbackBeginCount = 0;
   int playbackFinishCount = 0;
-  int sessionBeginCount = 0;
-  int sessionFinishCount = 0;
   int stopCount = 0;
   Completer<void>? firstPlaybackGate;
   Completer<void>? firstGenerationGate;
@@ -97,16 +95,6 @@ class _FakeQueueService implements TtsQueueService {
   }
 
   @override
-  Future<void> beginSession({required bool manual}) async {
-    sessionBeginCount++;
-  }
-
-  @override
-  Future<void> finishSession() async {
-    sessionFinishCount++;
-  }
-
-  @override
   Future<void> beginPlayback() async {
     playbackBeginCount++;
   }
@@ -162,8 +150,6 @@ void main() {
     expect(fake.played, chunks.map((chunk) => 'wav:$chunk').toList());
     expect(fake.playbackBeginCount, 1);
     expect(fake.playbackFinishCount, 1);
-    expect(fake.sessionBeginCount, 1);
-    expect(fake.sessionFinishCount, 1);
     expect(queue.playedAny, isTrue);
   });
 
@@ -178,7 +164,6 @@ void main() {
 
     expect(fake.played, isEmpty);
     expect(queue.playedAny, isFalse);
-    expect(fake.sessionFinishCount, 1);
   });
 
   test('stop invalidates generated/queued audio that has not played', () async {

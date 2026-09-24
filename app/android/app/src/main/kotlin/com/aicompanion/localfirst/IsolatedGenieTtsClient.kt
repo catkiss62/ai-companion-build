@@ -43,13 +43,15 @@ class IsolatedGenieTtsClient(private val context: Context) {
     fun prepareLanguage(language: String): Map<String, Any> = parse(call { it.prepareLanguageJson(language) })
     fun configureAutoAffinity(enabled: Boolean): Map<String, Any> =
         parse(call { it.configureAutoAffinityJson(enabled) })
-    fun configureBenchmarkProfile(profile: String, diagnostic: Boolean = false): Map<String, Any> =
-        parse(call { it.configureBenchmarkProfileJson(profile, diagnostic) })
     fun importChineseRoberta(path: String): Map<String, Any> =
         parse(call { it.importChineseRobertaJson(path) })
 
-    fun generateToFile(text: String, language: String, voice: String, speed: Double): String =
-        call { it.generateToFile(text, language, voice, speed) }
+    fun generateToFile(text: String, language: String, voice: String, speed: Double): String {
+        // A dead binder may yield null from a platform String method. Convert
+        // that into a useful error instead of Kotlin's opaque null assertion.
+        val path: String? = call { it.generateToFile(text, language, voice, speed) }
+        return path ?: error("Genie TTS 子进程没有返回音频路径，请检查脱敏诊断报告")
+    }
 
     fun stop() {
         runCatching { remote?.stop() }

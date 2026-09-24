@@ -1,8 +1,14 @@
 import 'package:flutter/material.dart';
 
-/// A small floating heart above a glowing glass tube; pink rises with heat.
+/// A small floating heart above a glass tube; cold blue warms into pink.
 class PlayfulHeatGauge extends StatelessWidget {
-  const PlayfulHeatGauge({super.key, required this.heat, required this.qForm, required this.onSelected, required this.locked});
+  const PlayfulHeatGauge({
+    super.key,
+    required this.heat,
+    required this.qForm,
+    required this.onSelected,
+    required this.locked,
+  });
 
   final int heat;
   final bool qForm;
@@ -45,6 +51,15 @@ class _HeartGlassPainter extends CustomPainter {
 
   @override
   void paint(Canvas canvas, Size size) {
+    // Hue 0 is 110 degrees colder than the original pink; 100 is the
+    // original palette. Recolor the glass and heart too, so empty is visible.
+    Color heatColor(Color pink) {
+      final hsl = HSLColor.fromColor(pink);
+      final shiftedHue =
+          (hsl.hue - 110 * (1 - amount.clamp(0.0, 1.0)) + 360) % 360;
+      return hsl.withHue(shiftedHue).toColor();
+    }
+
     // Paint in reference coordinates so the silhouette stays proportional if
     // the chat overlay later changes size. The tube has no artificial minimum
     // fill: an empty meter looks empty, and full height always means 100.
@@ -60,22 +75,25 @@ class _HeartGlassPainter extends CustomPainter {
     canvas.drawPath(
       heart,
       Paint()
-        ..color = const Color(0xDDF9A4E1)
+        ..color = heatColor(const Color(0xDDF9A4E1))
         ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 5),
     );
     canvas.drawPath(
       heart,
       Paint()
-        ..shader = const LinearGradient(
+        ..shader = LinearGradient(
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
-          colors: [Color(0xFFE7A2D6), Color(0xFFD77DC4)],
+          colors: [
+            heatColor(const Color(0xFFE7A2D6)),
+            heatColor(const Color(0xFFD77DC4)),
+          ],
         ).createShader(const Rect.fromLTWH(10, 5, 24, 23)),
     );
     canvas.drawPath(
       heart,
       Paint()
-        ..color = const Color(0xFFFDE0F4)
+        ..color = heatColor(const Color(0xFFFDE0F4))
         ..style = PaintingStyle.stroke
         ..strokeWidth = 1.2,
     );
@@ -102,7 +120,7 @@ class _HeartGlassPainter extends CustomPainter {
     canvas.drawRRect(
       glass,
       Paint()
-        ..color = const Color(0xCCF099DE)
+        ..color = heatColor(const Color(0xCCF099DE))
         ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 4),
     );
     canvas.drawRRect(
@@ -121,20 +139,24 @@ class _HeartGlassPainter extends CustomPainter {
       canvas.drawRect(
         Rect.fromLTRB(14, surface, 30, 120),
         Paint()
-          ..shader = const LinearGradient(
-            colors: [Color(0xFFF7B0E4), Color(0xFFFFD1F2), Color(0xFFF59DD9)],
+          ..shader = LinearGradient(
+            colors: [
+              heatColor(const Color(0xFFF7B0E4)),
+              heatColor(const Color(0xFFFFD1F2)),
+              heatColor(const Color(0xFFF59DD9)),
+            ],
           ).createShader(Rect.fromLTRB(14, surface, 30, 120)),
       );
       canvas.drawOval(
         Rect.fromLTWH(14, surface - 1.5, 16, 3),
-        Paint()..color = const Color(0xFFFFE0F5),
+        Paint()..color = heatColor(const Color(0xFFFFE0F5)),
       );
       canvas.restore();
     }
     canvas.drawRRect(
       glass,
       Paint()
-        ..color = const Color(0xFFFFC5ED)
+        ..color = heatColor(const Color(0xFFFFC5ED))
         ..style = PaintingStyle.stroke
         ..strokeWidth = 1.6,
     );

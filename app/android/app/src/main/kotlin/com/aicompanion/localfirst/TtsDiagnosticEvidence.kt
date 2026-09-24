@@ -68,7 +68,7 @@ object TtsDiagnosticEvidence {
         decoderIterations: Int,
         semanticCount: Int,
         pcmDurationMs: Long,
-    ): Boolean = decoderIterations <= 1 && pcmDurationMs >= 250L
+    ): Boolean = decoderIterations <= 1 && semanticCount <= 1 && pcmDurationMs >= 250L
 
     private fun wavDataRange(wav: ByteArray): IntRange? {
         if (wav.size < 44 || ascii(wav, 0) != "RIFF" || ascii(wav, 8) != "WAVE") return null

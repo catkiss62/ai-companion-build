@@ -49,19 +49,6 @@ class GenieTtsIsolatedService : Service() {
     private var referenceEchoSuspected = false
     private var referenceEchoReason = ""
     private var referenceEchoScore = 0.0
-    private var frontendMs = 0L
-    private var modelLoadedThisRun = false
-    private var modelLoadMs = 0L
-    private var fixtureLoadMs = 0L
-    private var encoderMs = 0L
-    private var firstDecoderMs = 0L
-    private var autoregressiveMs = 0L
-    private var vocoderMs = 0L
-    private var totalInferenceMs = 0L
-    private var endToEndMs = 0L
-    private var audioSeconds = 0.0
-    private var coreRtf = 0.0
-    private var benchmarkActive = false
 
     override fun onCreate() {
         super.onCreate()
@@ -97,21 +84,10 @@ class GenieTtsIsolatedService : Service() {
         override fun configureAutoAffinityJson(enabled: Boolean): String = serialized {
             guardedStatus {
                 generation.incrementAndGet()
-                benchmarkActive = false
                 markStage("configure_runtime", durable = true)
                 runtime.configureAutoAffinity(enabled)
                 initialized = runtime.isReady
                 markStage("runtime_configured", durable = true)
-            }
-        }
-
-        override fun configureBenchmarkProfileJson(profile: String, diagnostic: Boolean): String = serialized {
-            guardedStatus {
-                generation.incrementAndGet()
-                benchmarkActive = diagnostic
-                runtime.configureBenchmarkProfile(profile)
-                initialized = runtime.isReady
-                markStage("benchmark_profile_configured")
             }
         }
 
@@ -148,18 +124,6 @@ class GenieTtsIsolatedService : Service() {
             referenceEchoSuspected = false
             referenceEchoReason = ""
             referenceEchoScore = 0.0
-            frontendMs = 0L
-            modelLoadedThisRun = false
-            modelLoadMs = 0L
-            fixtureLoadMs = 0L
-            encoderMs = 0L
-            firstDecoderMs = 0L
-            autoregressiveMs = 0L
-            vocoderMs = 0L
-            totalInferenceMs = 0L
-            endToEndMs = 0L
-            audioSeconds = 0.0
-            coreRtf = 0.0
             val requestGeneration = generation.get()
             try {
                 val next = normalizeLanguage(language)
@@ -206,25 +170,6 @@ class GenieTtsIsolatedService : Service() {
                             ?: referenceEchoReason
                         referenceEchoScore = (metadata["referenceEchoScore"] as? Number)?.toDouble()
                             ?: referenceEchoScore
-                        if (benchmarkActive) {
-                            frontendMs = (metadata["frontendMs"] as? Number)?.toLong() ?: frontendMs
-                            modelLoadedThisRun = metadata["modelLoadedThisRun"] as? Boolean
-                                ?: modelLoadedThisRun
-                            modelLoadMs = (metadata["modelLoadMs"] as? Number)?.toLong() ?: modelLoadMs
-                            fixtureLoadMs = (metadata["fixtureLoadMs"] as? Number)?.toLong() ?: fixtureLoadMs
-                            encoderMs = (metadata["encoderMs"] as? Number)?.toLong() ?: encoderMs
-                            firstDecoderMs = (metadata["firstDecoderMs"] as? Number)?.toLong()
-                                ?: firstDecoderMs
-                            autoregressiveMs = (metadata["autoregressiveMs"] as? Number)?.toLong()
-                                ?: autoregressiveMs
-                            vocoderMs = (metadata["vocoderMs"] as? Number)?.toLong() ?: vocoderMs
-                            totalInferenceMs = (metadata["totalInferenceMs"] as? Number)?.toLong()
-                                ?: totalInferenceMs
-                            endToEndMs = (metadata["endToEndMs"] as? Number)?.toLong() ?: endToEndMs
-                            audioSeconds = (metadata["audioSeconds"] as? Number)?.toDouble()
-                                ?: audioSeconds
-                            coreRtf = (metadata["coreRtf"] as? Number)?.toDouble() ?: coreRtf
-                        }
                         markStage(
                             nextStage,
                             durable = nextStage.startsWith("prepare_frontend_") ||
@@ -247,19 +192,7 @@ class GenieTtsIsolatedService : Service() {
             } catch (error: Throwable) {
                 lastError = error.message ?: error.javaClass.simpleName
                 lastErrorType = error.javaClass.simpleName
-                // Only an engine class/method token crosses into redacted diagnostics.
-                // This distinguishes a frontend failure from the observed second
-                // segment NullPointerException without exporting a stack trace.
-                val site = error.stackTrace.firstOrNull {
-                    it.className.startsWith("com.catkiss62.geniettsbenchmark") ||
-                        it.className.startsWith("com.aicompanion.localfirst")
-                }?.let { "${it.className.substringAfterLast('.')}_${it.methodName}" }
-                    ?: "unknown"
-                markStage(
-                    "generate_failed",
-                    "${error.javaClass.simpleName}_${site.take(64)}",
-                    durable = true,
-                )
+                markStage("generate_failed", error.javaClass.simpleName, durable = true)
                 throw error
             }
         }
@@ -324,8 +257,7 @@ class GenieTtsIsolatedService : Service() {
         .put("diagnosticCode", lastErrorType)
         .put("diagnosticTrace", JSONArray(listOf("private_process", "single_serial_owner", stage)))
         .put("runtimeProfile", runtime.runtimeProfileId)
-        .put("autoAffinityEnabled", runtime.runtimeProfileId == "auto_affinity_v084" ||
-            runtime.runtimeProfileId == "auto_decoder_fixed_vocoder_v1")
+        .put("autoAffinityEnabled", runtime.runtimeProfileId == "auto_affinity_v084")
         .put("detail", lastError.ifBlank { runtime.statusDetail() })
         .toString()
 
@@ -357,18 +289,6 @@ class GenieTtsIsolatedService : Service() {
             referenceEchoSuspected = referenceEchoSuspected,
             referenceEchoReason = referenceEchoReason,
             referenceEchoScore = referenceEchoScore,
-            frontendMs = if (benchmarkActive) frontendMs else 0L,
-            modelLoadedThisRun = modelLoadedThisRun,
-            modelLoadMs = if (benchmarkActive) modelLoadMs else 0L,
-            fixtureLoadMs = if (benchmarkActive) fixtureLoadMs else 0L,
-            encoderMs = if (benchmarkActive) encoderMs else 0L,
-            firstDecoderMs = if (benchmarkActive) firstDecoderMs else 0L,
-            autoregressiveMs = if (benchmarkActive) autoregressiveMs else 0L,
-            vocoderMs = if (benchmarkActive) vocoderMs else 0L,
-            totalInferenceMs = if (benchmarkActive) totalInferenceMs else 0L,
-            endToEndMs = if (benchmarkActive) endToEndMs else 0L,
-            audioSeconds = if (benchmarkActive) audioSeconds else 0.0,
-            coreRtf = if (benchmarkActive) coreRtf else 0.0,
         )
     }
 

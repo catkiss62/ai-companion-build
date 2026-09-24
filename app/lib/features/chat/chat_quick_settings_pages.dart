@@ -1,5 +1,4 @@
 import 'dart:io';
-import 'package:flutter/services.dart';
 
 import 'package:flutter/material.dart';
 
@@ -19,7 +18,6 @@ import '../../core/tts/tts_provider.dart';
 import '../../core/tts/tts_service.dart';
 import '../../core/tts/tts_text_processor.dart';
 import '../../core/tts/tts_voice_profile.dart';
-import '../../core/tts/tts_benchmark.dart';
 import '../../widgets/action_tint_text.dart';
 
 class CompanionStateOverviewPage extends StatefulWidget {
@@ -560,10 +558,10 @@ class _VoiceEmotionSettingsPageState
         .toDouble();
     if (!mounted) return;
     setState(() => _loading = false);
-    // The isolated TTS process may be starting or generating speech. Let the
-    // controls appear before waiting for its optional status response.
+    // Quick page entry only checks packaged resources. The isolated ONNX
+    // service is started solely by explicit actions or actual speech.
     try {
-      final status = await _tts.status();
+      final status = await _tts.localStatus().timeout(const Duration(seconds: 2));
       if (mounted) setState(() => _ttsStatus = status);
     } catch (_) {
       // The controls remain usable, including explicit initialization.
@@ -610,11 +608,8 @@ class _VoiceEmotionSettingsPageState
     });
     try {
       final result = await action();
-      try {
-        _ttsStatus = await _tts.status().timeout(const Duration(seconds: 3));
-      } catch (_) {
-        _ttsStatus = null;
-      }
+      // The action itself supplies the result. A second status call queues
+      // behind the native worker and can make a successful import seem hung.
       _ttsAutoAffinity = _ttsStatus?.autoAffinityEnabled ?? _ttsAutoAffinity;
       _lastResolvedVoice =
           await _db.getSetting('last_tts_resolved_voice') ?? '';
@@ -649,7 +644,9 @@ class _VoiceEmotionSettingsPageState
     if (path == null || path.isEmpty) return '已取消导入。';
     final cached = File(path);
     try {
+      if (mounted) setState(() => _status = '文件已选好，正在导入并校验中文 RoBERTa…');
       final next = await _tts.importChineseRoberta(path);
+      if (mounted) setState(() => _ttsStatus = next);
       return next.detail.isEmpty
           ? 'Chinese RoBERTa 已校验并导入。'
           : 'Chinese RoBERTa 已导入：${next.detail}';
@@ -869,7 +866,7 @@ class _VoiceEmotionSettingsPageState
                     Text(
                       currentTtsStatus == null
                           ? '尚未读取本地 TTS 状态。'
-                          : '${currentTtsStatus.engine} · ${currentTtsStatus.available ? '资源可用' : '资源未就绪'}\n${currentTtsStatus.detail}'
+                          : '${currentTtsStatus.engine} · ${currentTtsStatus.integrityVerified ? '资源校验通过' : currentTtsStatus.available ? 'APK 资源存在（尚未校验）' : '资源未就绪'}\n${currentTtsStatus.detail}'
                               '\n推理配置：${currentTtsStatus.runtimeProfile}'
                               '${_lastResolvedVoice.isEmpty ? '' : '\n最近音色：${_resolvedVoiceLabel(_lastResolvedVoice)}'}',
                       style: Theme.of(context).textTheme.bodySmall,
@@ -883,7 +880,7 @@ class _VoiceEmotionSettingsPageState
                           onPressed: _ttsBusy
                               ? null
                               : () => _runTtsAction(
-                                    '正在校验并导入 Chinese RoBERTa…',
+                                    '正在选择并复制 Chinese RoBERTa 文件…',
                                     _importChineseRoberta,
                                   ),
                           icon: const Icon(Icons.file_open_outlined),
@@ -896,6 +893,7 @@ class _VoiceEmotionSettingsPageState
                                     '正在校验本地 TTS 资源…',
                                     () async {
                                       final next = await _tts.verifyArtifacts();
+                                      if (mounted) setState(() => _ttsStatus = next);
                                       return next.integrityVerified
                                           ? 'TTS 资源校验通过（${next.artifactCount} 项）。'
                                           : 'TTS 资源校验失败：${next.detail}';
@@ -911,6 +909,7 @@ class _VoiceEmotionSettingsPageState
                                     '正在初始化本地 TTS；首次可能复制模型…',
                                     () async {
                                       final next = await _tts.initialize();
+                                      if (mounted) setState(() => _ttsStatus = next);
                                       return next.initialized
                                           ? '本地 TTS 初始化完成。'
                                           : 'TTS 初始化失败：${next.detail}';
@@ -949,40 +948,11 @@ class _VoiceEmotionSettingsPageState
                           icon: const Icon(Icons.volume_up_outlined),
                           label: const Text('试听发声'),
                         ),
-                        FilledButton.tonalIcon(
-                          onPressed: _ttsBusy ? null : () => _runTtsAction(
-                            '正在依次无声测试两档，请稍候…',
-                            () => TtsBenchmark(_db).runComparison(),
-                          ),
-                          icon: const Icon(Icons.compare_arrows_rounded),
-                          label: const Text('一键对照两档'),
-                        ),
-                        FilledButton.tonalIcon(
-                          onPressed: _ttsBusy ? null : () => _runTtsAction(
-                            '正在整理 TTS 对照报告…', () async {
-                              await Clipboard.setData(ClipboardData(
-                                text: await TtsBenchmark(_db).report(),
-                              ));
-                              return 'TTS 专项诊断报告已复制。';
-                            },
-                          ),
-                          icon: const Icon(Icons.copy_rounded),
-                          label: const Text('复制 TTS 诊断报告'),
-                        ),
-                        TextButton(
-                          onPressed: _ttsBusy ? null : () => _runTtsAction(
-                            '正在更新对照样本…', () async {
-                              await TtsBenchmark(_db).chooseNewFixture();
-                              return '下次测试将选取最近较长的真实 API 回复；下次点一次“一键对照两档”即可。';
-                            },
-                          ),
-                          child: const Text('下轮改用较长回复'),
-                        ),
                       ],
                     ),
                     const Padding(
                       padding: EdgeInsets.only(top: 8),
-                      child: Text('想听声音请点“试听发声”；一键对照会依次无声生成两档并比较同一条真实回复，完成后可复制诊断；只有“试听发声”会播放。'),
+                      child: Text('点“试听发声”即可测试生成和播放；校验资源不会播放。'),
                     ),
                     if (_status != null) ...[
                       const SizedBox(height: 8),

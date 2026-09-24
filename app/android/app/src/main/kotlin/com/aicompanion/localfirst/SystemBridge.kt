@@ -100,7 +100,6 @@ class SystemBridge(
                 )
                 "clearRuntimeDiagnostics" -> {
                     RuntimeDiagnosticStore.clear(activity)
-                    TtsSessionDiagnosticStore.clear(activity)
                     result.success(null)
                 }
                 "recordTtsClientFailure" -> {

@@ -23,7 +23,11 @@ class TtsService implements TtsQueueService {
   final TtsProvider provider;
   final TtsTextProcessor processor;
   bool? _appliedAutoAffinity;
-  bool? _appliedHybrid;
+
+  /// Read-only settings and quick preflight must not bind the ONNX process.
+  Future<TtsStatus> localStatus() => provider is NativeTtsProvider
+      ? (provider as NativeTtsProvider).localStatus()
+      : provider.status();
 
   @override
   Future<TtsVoiceMode> resolveVoice(TtsEmotionCue? emotion) async {
@@ -48,28 +52,17 @@ class TtsService implements TtsQueueService {
 
   Future<void> _ensureRuntimeProfile() async {
     final enabled = (await db.getSetting('tts_auto_affinity_enabled')) == '1';
-    final hybrid = enabled &&
-        (await db.getSetting('tts_hybrid_vits_enabled')) == '1';
-    if (_appliedAutoAffinity == enabled && _appliedHybrid == hybrid) return;
-    final status = hybrid && provider is NativeTtsProvider
-        ? await (provider as NativeTtsProvider).configureHybridVocoder()
-        : await provider.configureAutoAffinity(enabled);
+    if (_appliedAutoAffinity == enabled) return;
+    final status = await provider.configureAutoAffinity(enabled);
     if (status.autoAffinityEnabled != enabled) {
       throw StateError('TTS 推理配置没有切换到请求的模式');
     }
     _appliedAutoAffinity = enabled;
-    _appliedHybrid = hybrid;
   }
 
-  /// Packaged resources only; explicit deep checks and playback check runtime readiness.
-  Future<TtsStatus> localStatus() => provider is NativeTtsProvider
-      ? (provider as NativeTtsProvider).localStatus()
-      : provider.status();
-
   Future<TtsStatus> status() async {
-    // Reading status must not stop playback or rebuild native sessions.
-    // Runtime settings are applied by the explicit initialization/generation
-    // paths; a settings page and a quick preflight are read-only observers.
+    // Status is observational. Apply the saved profile only on an explicit
+    // initialization or a real generation, never while entering a settings page.
     return provider.status();
   }
 
@@ -80,14 +73,12 @@ class TtsService implements TtsQueueService {
       throw StateError('TTS 推理配置切换失败');
     }
     await db.setSetting('tts_auto_affinity_enabled', enabled ? '1' : '0');
-    if (!enabled) await db.setSetting('tts_hybrid_vits_enabled', '0');
     _appliedAutoAffinity = enabled;
-    _appliedHybrid = false;
     return status;
   }
 
   Future<TtsStatus> verifyArtifacts() async {
-    await _ensureRuntimeProfile();
+    // Integrity verification is independent of CPU affinity.
     return provider.verifyArtifacts();
   }
 
@@ -110,7 +101,7 @@ class TtsService implements TtsQueueService {
   }
 
   Future<TtsStatus> importChineseRoberta(String path) async {
-    await _ensureRuntimeProfile();
+    // Import can run even when the playback profile cannot be configured.
     return provider.importChineseRoberta(path);
   }
 
@@ -273,31 +264,17 @@ class TtsService implements TtsQueueService {
   }
 
   @override
-  Future<void> beginSession({required bool manual}) async {
-    // Freeze the actual runtime profile only after a pending settings change
-    // has rebuilt the isolated sessions; otherwise the first snapshot after a
-    // toggle could be finalized by configureAutoAffinity before generation.
-    await _ensureRuntimeProfile();
-    await provider.beginSession(manual: manual);
-  }
-
-  @override
-  Future<void> finishSession() => provider.finishSession();
-
-  @override
   Future<void> beginPlayback() => provider.beginAudioStream();
 
   @override
   Future<void> enqueuePlayback(
     Uint8List wavBytes, {
     double speedMultiplier = 1.0,
-    int segmentIndex = -1,
   }) async {
     if (wavBytes.isEmpty) return;
     await provider.enqueueAudio(
       wavBytes,
       speedMultiplier: speedMultiplier,
-      segmentIndex: segmentIndex,
     );
   }
 

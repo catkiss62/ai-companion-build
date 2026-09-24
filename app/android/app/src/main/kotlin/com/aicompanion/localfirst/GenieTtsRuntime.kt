@@ -8,7 +8,6 @@ import com.catkiss62.geniettsbenchmark.EngineConfig
 import com.catkiss62.geniettsbenchmark.GenieBenchmarkEngine
 import com.catkiss62.geniettsbenchmark.ModelLoadInfo
 import com.catkiss62.geniettsbenchmark.NativeJapaneseFrontend
-import com.catkiss62.geniettsbenchmark.NoGeneratedSemanticTokensException
 import com.catkiss62.geniettsbenchmark.VerifiedRuntimeConfig
 import java.io.ByteArrayOutputStream
 import java.io.File
@@ -32,39 +31,22 @@ class GenieTtsRuntime(private val context: Context) : AutoCloseable {
     private var english: EnglishFrontend? = null
     private var japanese: NativeJapaneseFrontend? = null
     private var autoAffinityEnabled = false
-    private var hybridVocoder = false
 
     val runtimeProfileId: String
-        get() = if (autoAffinityEnabled && hybridVocoder) {
-            "auto_decoder_fixed_vocoder_v1"
-        } else if (autoAffinityEnabled) {
+        get() = if (autoAffinityEnabled) {
             VerifiedRuntimeConfig.AUTO_AFFINITY.profileId
         } else {
             LEGACY_ACOUSTIC_CONFIG.profileId
         }
 
     fun configureAutoAffinity(enabled: Boolean) {
-        if (autoAffinityEnabled == enabled && !hybridVocoder) return
+        if (autoAffinityEnabled == enabled) return
         if (modelsReady) {
             engine.unloadModels()
             modelsReady = false
             modelLoad = ModelLoadInfo(false, 0L)
         }
         autoAffinityEnabled = enabled
-        hybridVocoder = false
-        chinese?.configure(chineseConfig())
-        System.gc()
-    }
-
-    fun configureBenchmarkProfile(profile: String) {
-        require(profile == "auto" || profile == "hybrid") { "未知 TTS 对照档：$profile" }
-        if (modelsReady) {
-            engine.unloadModels()
-            modelsReady = false
-            modelLoad = ModelLoadInfo(false, 0L)
-        }
-        autoAffinityEnabled = true
-        hybridVocoder = profile == "hybrid"
         chinese?.configure(chineseConfig())
         System.gc()
     }
@@ -214,33 +196,15 @@ class GenieTtsRuntime(private val context: Context) : AutoCloseable {
             onStage("acoustic_models_ready", emptyMap())
         }
         onStage("infer_$language", emptyMap())
-        val result = try {
-            engine.runPrepared(
-                preparedRoot,
-                voiceCase,
-                prepared,
-                modelLoad,
-                System.nanoTime(),
-                shouldCancel = shouldCancel,
-            )
-        } catch (error: NoGeneratedSemanticTokensException) {
-            onStage(
-                "semantic_rejected_no_generated_tokens",
-                mapOf<String, Any>(
-                    "semanticCount" to 0,
-                    "semanticHash" to "",
-                    "decoderIterations" to error.decoderIterations,
-                    "immediateStop" to true,
-                    "referenceEchoSuspected" to true,
-                    "referenceEchoReason" to "decoder_no_generated_semantics",
-                ) + diagnosticIdentity,
-            )
-            throw error
-        } finally {
-            // The acoustic sessions remain loaded even when this one segment
-            // is rejected or cancelled; only the first attempt is truly cold.
-            modelLoad = ModelLoadInfo(false, 0L)
-        }
+        val result = engine.runPrepared(
+            preparedRoot,
+            voiceCase,
+            prepared,
+            modelLoad,
+            System.nanoTime(),
+            shouldCancel = shouldCancel,
+        )
+        modelLoad = ModelLoadInfo(false, 0L)
         onStage(
             "infer_ready_$language",
             mapOf<String, Any>(
@@ -248,18 +212,6 @@ class GenieTtsRuntime(private val context: Context) : AutoCloseable {
                 "semanticHash" to result.semanticHash,
                 "decoderIterations" to result.decoderIterations,
                 "immediateStop" to (result.decoderIterations <= 1),
-                "frontendMs" to result.frontendMs,
-                "modelLoadedThisRun" to result.modelLoadedThisRun,
-                "modelLoadMs" to result.modelLoadMs,
-                "fixtureLoadMs" to result.fixtureLoadMs,
-                "encoderMs" to result.encoderMs,
-                "firstDecoderMs" to result.firstDecoderMs,
-                "autoregressiveMs" to result.autoregressiveMs,
-                "vocoderMs" to result.vocoderMs,
-                "totalInferenceMs" to result.totalInferenceMs,
-                "endToEndMs" to result.endToEndMs,
-                "audioSeconds" to result.audioSeconds,
-                "coreRtf" to result.coreRtf,
             ) + diagnosticIdentity,
         )
         onStage("wav_encode", emptyMap())
@@ -344,10 +296,7 @@ class GenieTtsRuntime(private val context: Context) : AutoCloseable {
     }
 
     private fun acousticConfig(): EngineConfig = if (autoAffinityEnabled) {
-        if (hybridVocoder) VerifiedRuntimeConfig.AUTO_AFFINITY.copy(
-            profileId = "auto_decoder_fixed_vocoder_v1",
-            vocoderThreads = 8,
-        ) else VerifiedRuntimeConfig.AUTO_AFFINITY
+        VerifiedRuntimeConfig.AUTO_AFFINITY
     } else {
         LEGACY_ACOUSTIC_CONFIG
     }

@@ -39,8 +39,8 @@
 | 功能状态 | `CI PASSED / APK READY / TRUE DEVICE PENDING` |
 | +228 远端 | head `29e87d016c8bd81f52f89f95191bd1a1a01a5b57`；tree `c4a112a56d8b634cf3a1a66636979a0833538b7d`；Actions `35440359036`；Artifact `10583263879`；APK SHA-256 `159e283173e49da2924d25b37ba7647893cdafdcc31b63f0e31b7c64e086849b` |
 | 仓库维护基线 | `maintenance/repository-governance-20260919`；远端文档 head `123e272196e8ae93f3518157917d76f6af4f1784`；完整构建 head `fa99f32012fa1a0716b746d36b958a8e777ef9b8`；Actions `35446649873` 全绿；文档-only run `35447342921` 正确跳过 APK |
-| 当前功能分支 | `agent/v04206-tts-mood-dual-mode`，基于 +249 已验证源码；候选版本 `v0.42.6+250` |
-| 当前任务状态 | `IMPLEMENTED / CI PASSED / APK READY / TRUE DEVICE PENDING`；+250 真机确认双形态；+251 已修正语义气焰、TTS 状态/无声测速与 Gemini 思考摘要，请在新包上分别实测朗读和两档测速，见 6.24 |
+| 当前功能分支 | `agent/v04211-tts-affinity-rollback`，基于 +254 源码；候选版本 `v0.42.11+255` |
+| 当前任务状态 | `IMPLEMENTED LOCALLY / LOCAL STATIC VALIDATION PASSED / CI PENDING / TRUE DEVICE PENDING`；按 +254 真机诊断定点回退 TTS 运行链至 +248，保留快速状态；修复备份恢复后气焰显示和色相渐变，详情见末尾 +255 正式记录 |
 | +250 当前任务 | 本体／小豆丁形态共用成年角色、记忆与能力；同一形态状态驱动角色提示与静态立绘，虚拟弹额头／安抚改变气焰值后继续自然衰减，心形液面与锁定入口；常驻世界书定点柔化并仅迁移未编辑原文；两档 TTS 共用冻结的真实回复与分段，无声生成并复制专项脱敏报告 |
 | +250 最终构建 | 功能 head `b5cd2d1070fb237bc72ab66b1867a75da9bbe6e8`；tree `4e0dbbd531aea408ab0face6d46a323f441c7eeb`；Actions `35943607609` 全绿；Artifact `10785922926`；APK SHA-256 `f148f2eb303017ad5f6f689628f230979c24ba16831fdc0181e58bc5e1d73a`；未发布 Draft Release `v0.42.6-dual-form-tts-comparison-test` |
 | +249 当前任务 | `loopIndex=0` 时明确判定“零个新语义 token”，在 VITS 前拒绝本段；最后两次会话记录生成时 profile、冷/热状态、各阶段耗时、RTF、播放首帧、队列余量、迟到段、失败/停止与脱敏文本哈希 |
@@ -887,3 +887,12 @@ Actions 与交付证据：远端功能 head `33647c7bff15084d6fd3cbc7b817e9b0b21
 - `Cedar 玩家协议与后台连续行动收口`、`Unexpected end of input`、`Cedar Agent 完整续接链`、`jsonRetryCount=58`、`CedarAgentActionPlanner`。
 - `Cedar 后台换手闭环`、`根因已由同一时刻备份、诊断与源码三方证明`；`停止与备份互锁`、`transfer_lock_owner`；`Cedar 运行时抢占、开关与夜间节律`。
 - 历史状态兼容：`IMPLEMENTED LOCALLY / LOCAL STATIC VALIDATION PASSED / CI PENDING / TRUE DEVICE PENDING`、`CI PENDING / TRUE DEVICE PENDING`。
+
+## v0.42.11+255 · TTS 运行链定点回退与气焰备份刷新（候选；真机未验收）
+
+- 用户提供的 +254 脱敏诊断出现大量 `tts child_connection_timeout / bind_timeout`，一次已记录的 TTS 子进程异常；用户提供的备份内 TTS 与自动朗读均开启，最近错误为 `tts_generate_failed / call(...) must not be null`。这些证据不能单独确定子进程死亡的源代码位置，因此本批按用户要求将音频运行、双档测试与会话计时链退回到 +248 自动核亲和基线。保留后续已修复的 Android 媒体音量控制、Jev/聊天逻辑与气焰降温，不回退全应用数据结构。保留子进程连接超时后的清理和主进程轻量 `localStatus`；拒绝 Binder 空音频路径时提供明确错误。
+- 语音页进入只读随包资源状态，不排队启动语音子进程。导入/校验/初始化操作直接展示实际操作返回结果，不再额外排一个 3 秒的状态请求。语音页只留一个真正生成并播放的「试听发声」，移除未验证的双档无声对照按钮与相关实验链。中文 RoBERTa 选择和导入期间显示阶段信息；若子进程本身仍无法启动，真机日志会直接反映超时。
+- 真机前自检进入先读取轻量本机概况并显示，原完整诊断继续完成后替换概况；概况禁止导出为完整报告。快速状态不初始化 Genie/ONNX。完整与深度诊断入口保持不变。
+- 用户 09:58 备份有 `playful_form_state_v1`，记录气焰 68；数据库恢复不排除该键。聊天页此前仅初始化或收到新轮消息时读取，因此导入后旧界面仍显示原数值。现在切回聊天、应用恢复时重读，并在聊天保持挂载期间每 2 秒核对一次；气焰数值依然是存档里的真实值。玻璃管、顶端爱心和填充随数值从原粉色 `−110°` 色相渐变至原粉色。
+- 静态验证：`git diff --check`、Workflow YAML 与总账门通过；历史 125 个源门中 122 个通过。另三个分别需要 CI 恢复 417 个桌宠资源文件、LingChat 特效文件以及本机缺少的 `kotlinc`，不是本次业务断言失败。
+- 风险与验收：本地不能运行 Flutter/Gradle 或复现目标手机独立进程崩溃；需要 GitHub Actions 编译、Flutter/Kotlin 测试，并在原手机验证：旧存档导入显示 68；关闭/打开页面均不长时间卡住；导入 RoBERTa 后「试听发声」实际听见、自动朗读也能出声。不能把源代码回退视为已经证明问题解决。

@@ -39,7 +39,6 @@ class NativeTtsBridge(
                 return@setMethodCallHandler
             }
             when (call.method) {
-                // Do not bind the heavy child for a quick preflight.
                 "localStatus" -> result.success(engine.localStatus())
                 "status" -> submit(generationWorker, result, "tts_status_failed") {
                     engine.status()
@@ -58,18 +57,8 @@ class NativeTtsBridge(
                         call.argument<Boolean>("enabled") == true,
                     )
                 }
-                "configureHybridVocoder" -> submit(generationWorker, result, "tts_runtime_config_failed") {
-                    engine.configureHybridVocoder()
-                }
                 "diagnose" -> submit(generationWorker, result, "tts_diagnose_failed") {
                     engine.diagnose(call.argument<String>("language").orEmpty())
-                }
-                "benchmark" -> {
-                    val profile = call.argument<String>("profile").orEmpty()
-                    val segments = (call.argument<List<Map<String, String>>>("segments") ?: emptyList())
-                    submit(generationWorker, result, "tts_benchmark_failed") {
-                        engine.benchmark(profile, segments)
-                    }
                 }
                 "importChineseRoberta" -> submit(generationWorker, result, "tts_import_failed") {
                     engine.importChineseRoberta(call.argument<String>("path").orEmpty())
@@ -84,21 +73,6 @@ class NativeTtsBridge(
                         engine.generate(text, language, voice, segmentIndex, generation)
                     }
                 }
-                "beginTtsSession" -> {
-                    val generation = engine.generationToken()
-                    val manual = call.argument<Boolean>("manual") == true
-                    submit(generationWorker, result, "tts_session_begin_failed") {
-                        engine.beginSession(manual, generation)
-                        null
-                    }
-                }
-                "finishTtsSession" -> {
-                    val generation = engine.generationToken()
-                    submit(generationWorker, result, "tts_session_finish_failed") {
-                        engine.finishSession(generation)
-                        null
-                    }
-                }
                 "beginAudioStream" -> {
                     val generation = engine.generationToken()
                     submit(playbackWorker, result, "tts_playback_begin_failed") {
@@ -110,10 +84,9 @@ class NativeTtsBridge(
                     val audio = call.argument<ByteArray>("audioData") ?: byteArrayOf()
                     val speedMultiplier =
                         call.argument<Double>("speedMultiplier") ?: 1.0
-                    val segmentIndex = call.argument<Int>("segmentIndex") ?: -1
                     val generation = engine.generationToken()
                     submit(playbackWorker, result, "tts_playback_enqueue_failed") {
-                        engine.enqueueAudio(audio, speedMultiplier, segmentIndex, generation)
+                        engine.enqueueAudio(audio, speedMultiplier, generation)
                         null
                     }
                 }

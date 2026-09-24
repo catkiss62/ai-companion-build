@@ -105,13 +105,10 @@ abstract class TtsProvider {
     TtsVoiceMode voice = TtsVoiceMode.daily,
     int segmentIndex = -1,
   });
-  Future<void> beginSession({required bool manual});
-  Future<void> finishSession();
   Future<void> beginAudioStream();
   Future<void> enqueueAudio(
     Uint8List wavBytes, {
     double speedMultiplier = 1.0,
-    int segmentIndex = -1,
   });
   Future<void> finishAudioStream();
 

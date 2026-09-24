@@ -14,20 +14,7 @@ class NativeTtsProvider implements TtsProvider {
 
   static const MethodChannel _channel = MethodChannel('ai_companion/tts');
 
-  Future<Map<Object?, Object?>> benchmark(
-    String profile,
-    List<Map<String, String>> segments,
-  ) async => await _channel.invokeMapMethod<Object?, Object?>(
-        'benchmark',
-        {'profile': profile, 'segments': segments},
-      ) ?? const {};
-
-  Future<TtsStatus> configureHybridVocoder() async => TtsStatus.fromMap(
-        await _channel.invokeMapMethod<Object?, Object?>(
-              'configureHybridVocoder',
-            ) ?? const {},
-      );
-
+  /// A cheap packaged-resource probe that never starts the isolated engine.
   Future<TtsStatus> localStatus() async => TtsStatus.fromMap(
         await _channel.invokeMapMethod<Object?, Object?>('localStatus') ?? const {},
       );
@@ -114,14 +101,6 @@ class NativeTtsProvider implements TtsProvider {
       });
 
   @override
-  Future<void> beginSession({required bool manual}) =>
-      _channel.invokeMethod<void>('beginTtsSession', {'manual': manual});
-
-  @override
-  Future<void> finishSession() =>
-      _channel.invokeMethod<void>('finishTtsSession');
-
-  @override
   Future<void> beginAudioStream() =>
       _channel.invokeMethod<void>('beginAudioStream');
 
@@ -129,12 +108,10 @@ class NativeTtsProvider implements TtsProvider {
   Future<void> enqueueAudio(
     Uint8List wavBytes, {
     double speedMultiplier = 1.0,
-    int segmentIndex = -1,
   }) =>
       _channel.invokeMethod<void>('enqueueAudio', {
         'audioData': wavBytes,
         'speedMultiplier': speedMultiplier,
-        'segmentIndex': segmentIndex,
       });
 
   @override

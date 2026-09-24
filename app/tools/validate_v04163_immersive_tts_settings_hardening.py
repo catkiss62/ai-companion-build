@@ -89,12 +89,14 @@ def main() -> None:
     )
     require(
         engine,
-        'fun benchmark(',
         '"textSha256" to textHash',
         '"segmentIndex" to segmentIndex',
         '"phoneHash" to checkpoint["phoneHash"]',
         '"semanticHash" to checkpoint["semanticHash"]',
     )
+    # +255 intentionally restores the +248 production runtime. The later
+    # benchmark was removed; the quick packaged-resource probe stays read-only.
+    assert 'fun localStatus()' in engine and 'fun benchmark(' not in engine
     require(checkpoint, '"phoneCount"', '"semanticCount"', '"phoneHash"')
     require(diagnostics, '"textSha256"', '"segmentIndex"', '"semanticHash"')
     assert '"text" to text' not in engine

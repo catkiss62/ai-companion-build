@@ -4,7 +4,6 @@ import android.content.Context
 import com.catkiss62.geniettsbenchmark.SystemAudioPolicy
 import java.io.File
 import java.security.MessageDigest
-import android.os.PowerManager
 
 /** Process-scoped bridge to the isolated Genie/Jiuhu runtime plus main-process playback. */
 class NativeTtsEngine private constructor(context: Context) {
@@ -17,10 +16,6 @@ class NativeTtsEngine private constructor(context: Context) {
     @Volatile private var pitch = 1.0
     @Volatile private var volume = 1.0
     @Volatile private var speechGeneration = 0L
-    private val sessionLock = Any()
-    private var activeSession: TtsSessionPerformance? = null
-    private var activeSessionGeneration = -1L
-    private var activePlaybackCompleted = false
 
     fun status(): Map<String, Any> = try {
         client.status().toMutableMap().apply {
@@ -32,7 +27,7 @@ class NativeTtsEngine private constructor(context: Context) {
         failureStatus(error)
     }
 
-    /** Fast packaged-resource probe in the main process; never binds the child. */
+    /** Main-process packaged-resource probe. No child bind or model preparation. */
     fun localStatus(): Map<String, Any> {
         val packaged = runCatching {
             appContext.assets.open("benchmark/manifest.json").use { true }
@@ -44,7 +39,7 @@ class NativeTtsEngine private constructor(context: Context) {
             "integrity" to "unchecked",
             "diagnosticStage" to "packaged_asset_check",
             "runtimeProfile" to "not_started",
-            "detail" to if (packaged) "本机资源存在，子进程未在快速自检中启动"
+            "detail" to if (packaged) "APK 资源已找到；语音进程尚未校验"
                 else "APK 中没有 Genie TTS 资源",
         )
     }
@@ -67,88 +62,9 @@ class NativeTtsEngine private constructor(context: Context) {
 
     fun configureAutoAffinity(enabled: Boolean): Map<String, Any> {
         val current = runCatching { client.status() }.getOrNull()
-        if (current != null && current["autoAffinityEnabled"] == enabled &&
-            current["runtimeProfile"] != "auto_decoder_fixed_vocoder_v1") return current
+        if (current?.get("autoAffinityEnabled") == enabled) return current
         stop()
         return client.configureAutoAffinity(enabled)
-    }
-
-    fun configureHybridVocoder(): Map<String, Any> {
-        val current = runCatching { client.status() }.getOrNull()
-        if (current?.get("runtimeProfile") == "auto_decoder_fixed_vocoder_v1") return current
-        stop()
-        return client.configureBenchmarkProfile("hybrid")
-    }
-
-    /** Explicit, silent benchmark. The production playback path stays untouched. */
-    fun benchmark(profile: String, segments: List<Map<String, String>>): Map<String, Any> {
-        require(profile == "auto" || profile == "hybrid") { "未知 TTS 对照档" }
-        require(segments.isNotEmpty() && segments.size <= 32) { "测试片段数无效" }
-        val oldStatus = client.status()
-        val oldAffinity = oldStatus["autoAffinityEnabled"] == true
-        val oldHybrid = oldStatus["runtimeProfile"] == "auto_decoder_fixed_vocoder_v1"
-        stop()
-        val items = mutableListOf<Map<String, Any?>>()
-        val started = System.nanoTime()
-        val thermal = (appContext.getSystemService(Context.POWER_SERVICE) as? PowerManager)
-            ?.currentThermalStatus ?: -1
-        try {
-            val configured = client.configureBenchmarkProfile(profile, diagnostic = true)
-            val expectedProfile = if (profile == "hybrid")
-                "auto_decoder_fixed_vocoder_v1" else "auto_affinity_v084"
-            check(configured["runtimeProfile"] == expectedProfile) {
-                "TTS 测试配置没有生效：$profile"
-            }
-            for ((index, segment) in segments.withIndex()) {
-                val text = segment["text"].orEmpty()
-                require(text.isNotBlank() && text.length <= 500) { "测试片段为空或过长" }
-                val language = normalizeLanguage(segment["language"].orEmpty())
-                val voice = normalizeVoice(segment["voice"].orEmpty())
-                val segmentStarted = System.nanoTime()
-                var failure = ""
-                var bytes = 0L
-                try {
-                    val path = client.generateToFile(text, language, voice, speed)
-                    val file = File(path)
-                    bytes = file.length()
-                    check(bytes >= 44) { "WAV 数据无效" }
-                    file.delete()
-                } catch (error: Throwable) {
-                    failure = error.javaClass.simpleName
-                }
-                val checkpoint = TtsProcessCheckpoint.read(appContext)
-                items += mapOf(
-                    "index" to index,
-                    "characters" to text.length,
-                    "sha256" to sha256(text.trim()),
-                    "language" to language,
-                    "voice" to voice,
-                    "durationMs" to ((System.nanoTime() - segmentStarted) / 1_000_000L),
-                    "wavBytes" to bytes,
-                    "failure" to failure,
-                    "frontendMs" to checkpoint["frontendMs"],
-                    "modelLoadMs" to checkpoint["modelLoadMs"],
-                    "encoderMs" to checkpoint["encoderMs"],
-                    "firstDecoderMs" to checkpoint["firstDecoderMs"],
-                    "autoregressiveMs" to checkpoint["autoregressiveMs"],
-                    "vocoderMs" to checkpoint["vocoderMs"],
-                    "totalInferenceMs" to checkpoint["totalInferenceMs"],
-                    "audioSeconds" to checkpoint["audioSeconds"],
-                )
-            }
-            return mapOf(
-                "profile" to profile,
-                "thermalBefore" to thermal,
-                "thermalAfter" to ((appContext.getSystemService(Context.POWER_SERVICE) as? PowerManager)
-                    ?.currentThermalStatus ?: -1),
-                "elapsedMs" to ((System.nanoTime() - started) / 1_000_000L),
-                "segments" to items,
-                "complete" to items.all { (it["failure"] as String).isEmpty() },
-            )
-        } finally {
-            if (oldHybrid) client.configureBenchmarkProfile("hybrid")
-            else client.configureAutoAffinity(oldAffinity)
-        }
     }
 
     fun importChineseRoberta(path: String): Map<String, Any> = client.importChineseRoberta(path)
@@ -173,22 +89,6 @@ class NativeTtsEngine private constructor(context: Context) {
 
     fun generationToken(): Long = synchronized(this) { speechGeneration }
 
-    fun beginSession(manual: Boolean, generation: Long = generationToken()) {
-        if (generation != generationToken()) return
-        // Detailed stage timing is collected only by the explicit silent test.
-    }
-
-    fun finishSession(generation: Long = generationToken()) {
-        synchronized(sessionLock) {
-            if (generation != activeSessionGeneration) return
-            finalizeSessionLocked(
-                stopped = false,
-                completedAtEpochMs = System.currentTimeMillis(),
-                completedAtNs = System.nanoTime(),
-            )
-        }
-    }
-
     fun generate(
         text: String,
         language: String = activeLanguage,
@@ -197,7 +97,6 @@ class NativeTtsEngine private constructor(context: Context) {
         generation: Long = generationToken(),
     ): ByteArray? {
         if (text.isBlank() || generation != generationToken()) return null
-        val generationStartedNs = System.nanoTime()
         val nextLanguage = normalizeLanguage(language)
         activeLanguage = nextLanguage
         val normalizedVoice = normalizeVoice(voice)
@@ -211,17 +110,6 @@ class NativeTtsEngine private constructor(context: Context) {
             )
         } catch (error: Throwable) {
             val checkpoint = TtsProcessCheckpoint.read(appContext)
-            recordSessionSegment(
-                generation = generation,
-                segmentIndex = segmentIndex,
-                inputChars = text.length,
-                textHash = textHash,
-                language = nextLanguage,
-                voice = normalizedVoice,
-                checkpoint = checkpoint,
-                generationCallMs = elapsedMs(generationStartedNs),
-                failureCode = error.javaClass.simpleName,
-            )
             RuntimeDiagnosticStore.record(
                 appContext,
                 category = "tts",
@@ -235,7 +123,6 @@ class NativeTtsEngine private constructor(context: Context) {
                     "inputChars" to text.length,
                     "textSha256" to textHash,
                     "stage" to checkpoint["stage"],
-                    "failureType" to checkpoint["failure"],
                     "runtimeProfile" to checkpoint["runtimeProfile"],
                     "phoneCount" to checkpoint["phoneCount"],
                     "phoneMin" to checkpoint["phoneMin"],
@@ -268,6 +155,39 @@ class NativeTtsEngine private constructor(context: Context) {
             check(output.isFile) { "Genie TTS 子进程未返回音频文件" }
             output.readBytes().also {
                 check(it.size >= 44) { "Genie TTS returned invalid WAV data" }
+                val checkpoint = TtsProcessCheckpoint.read(appContext)
+                RuntimeDiagnosticStore.record(
+                    appContext,
+                    category = "tts",
+                    phase = "generation_ready",
+                    metadata = mapOf(
+                        "language" to nextLanguage,
+                        "voice" to normalizedVoice,
+                        "segmentIndex" to segmentIndex,
+                        "inputChars" to text.length,
+                        "textSha256" to textHash,
+                        "wavBytes" to it.size,
+                        "stage" to checkpoint["stage"],
+                        "runtimeProfile" to checkpoint["runtimeProfile"],
+                        "phoneCount" to checkpoint["phoneCount"],
+                        "phoneMin" to checkpoint["phoneMin"],
+                        "phoneMax" to checkpoint["phoneMax"],
+                        "phoneHash" to checkpoint["phoneHash"],
+                        "semanticCount" to checkpoint["semanticCount"],
+                        "semanticHash" to checkpoint["semanticHash"],
+                        "referenceCaseId" to checkpoint["referenceCaseId"],
+                        "inputCharacterClasses" to checkpoint["inputCharacterClasses"],
+                        "normalizedCharacterClasses" to checkpoint["normalizedCharacterClasses"],
+                        "validPhoneCount" to checkpoint["validPhoneCount"],
+                        "decoderIterations" to checkpoint["decoderIterations"],
+                        "immediateStop" to checkpoint["immediateStop"],
+                        "pcmDurationMs" to checkpoint["pcmDurationMs"],
+                        "pcmHash" to checkpoint["pcmHash"],
+                        "referenceEchoSuspected" to checkpoint["referenceEchoSuspected"],
+                        "referenceEchoReason" to checkpoint["referenceEchoReason"],
+                        "referenceEchoScore" to checkpoint["referenceEchoScore"],
+                    ),
+                )
             }
         } finally {
             output.delete()
@@ -284,11 +204,6 @@ class NativeTtsEngine private constructor(context: Context) {
         player.setPitch(pitch.toFloat())
         player.setVolume(volume.toFloat())
         player.beginStream {
-            synchronized(sessionLock) {
-                if (generation == activeSessionGeneration) {
-                    activeSession?.recordPlaybackStarted(System.nanoTime())
-                }
-            }
             RuntimeDiagnosticStore.record(
                 appContext,
                 category = "tts",
@@ -302,23 +217,12 @@ class NativeTtsEngine private constructor(context: Context) {
     fun enqueueAudio(
         wav: ByteArray,
         speedMultiplier: Double = 1.0,
-        segmentIndex: Int = -1,
         generation: Long = generationToken(),
     ) {
         if (wav.isEmpty() || generation != generationToken()) return
-        val effectiveSpeed = (speed * speedMultiplier).coerceIn(0.5, 2.0)
-        synchronized(sessionLock) {
-            if (generation == activeSessionGeneration) {
-                activeSession?.recordEnqueued(
-                    segmentIndex = segmentIndex,
-                    playbackSpeed = effectiveSpeed,
-                    atNs = System.nanoTime(),
-                )
-            }
-        }
         player.enqueueStream(
             wav,
-            effectiveSpeed.toFloat(),
+            (speed * speedMultiplier).coerceIn(0.5, 2.0).toFloat(),
         )
     }
 
@@ -326,9 +230,6 @@ class NativeTtsEngine private constructor(context: Context) {
         if (generation != generationToken()) return
         val played = player.finishStream()
         if (!played || generation != generationToken()) return
-        synchronized(sessionLock) {
-            if (generation == activeSessionGeneration) activePlaybackCompleted = true
-        }
         RuntimeDiagnosticStore.record(
             appContext,
             category = "tts",
@@ -348,13 +249,6 @@ class NativeTtsEngine private constructor(context: Context) {
 
     fun stop() {
         synchronized(this) { speechGeneration += 1L }
-        synchronized(sessionLock) {
-            finalizeSessionLocked(
-                stopped = true,
-                completedAtEpochMs = System.currentTimeMillis(),
-                completedAtNs = System.nanoTime(),
-            )
-        }
         client.stop()
         player.stop()
     }
@@ -428,54 +322,6 @@ class NativeTtsEngine private constructor(context: Context) {
         .getInstance("SHA-256")
         .digest(value.toByteArray(Charsets.UTF_8))
         .joinToString("") { byte -> "%02x".format(byte) }
-
-    private fun recordSessionSegment(
-        generation: Long,
-        segmentIndex: Int,
-        inputChars: Int,
-        textHash: String,
-        language: String,
-        voice: String,
-        checkpoint: Map<String, Any>,
-        generationCallMs: Long,
-        failureCode: String = "",
-    ) {
-        synchronized(sessionLock) {
-            if (generation != activeSessionGeneration) return
-            activeSession?.recordSegment(
-                segmentIndex = segmentIndex,
-                inputChars = inputChars,
-                textSha256 = textHash,
-                language = language,
-                voice = voice,
-                checkpoint = checkpoint,
-                generationCallMs = generationCallMs,
-                failureCode = failureCode,
-                readyAtNs = System.nanoTime(),
-            )
-        }
-    }
-
-    private fun finalizeSessionLocked(
-        stopped: Boolean,
-        completedAtEpochMs: Long,
-        completedAtNs: Long,
-    ) {
-        val session = activeSession ?: return
-        val summary = session.finish(
-            stopped = stopped,
-            playbackCompleted = activePlaybackCompleted,
-            completedAtEpochMs = completedAtEpochMs,
-            completedAtNs = completedAtNs,
-        )
-        TtsSessionDiagnosticStore.append(appContext, summary)
-        activeSession = null
-        activeSessionGeneration = -1L
-        activePlaybackCompleted = false
-    }
-
-    private fun elapsedMs(startNs: Long): Long =
-        (System.nanoTime() - startNs).coerceAtLeast(0L) / 1_000_000L
 
     companion object {
         @Volatile private var instance: NativeTtsEngine? = null

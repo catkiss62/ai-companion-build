@@ -13,12 +13,26 @@ class _PreflightDiagnosticsPageState extends State<PreflightDiagnosticsPage> {
   final service = PreflightDiagnosticsService();
   PreflightSnapshot? snapshot;
   bool busy = false;
-  String note = '';
+  String note = '正在读取本机概况…';
 
   @override
   void initState() {
     super.initState();
-    _run();
+    _loadQuickThenFull();
+  }
+
+  Future<void> _loadQuickThenFull() async {
+    try {
+      final quick = await service.quickOverview();
+      if (!mounted) return;
+      setState(() {
+        snapshot = quick;
+        note = '已读到本机概况，正在继续收集完整诊断。';
+      });
+    } catch (_) {
+      // The full report still runs if the preview cannot be collected.
+    }
+    if (mounted) await _run();
   }
 
   Future<void> _run({bool deep = false}) async {
@@ -48,7 +62,7 @@ class _PreflightDiagnosticsPageState extends State<PreflightDiagnosticsPage> {
 
   Future<void> _export() async {
     final current = snapshot;
-    if (current == null || busy) return;
+    if (current == null || busy || current.report['quickOnly'] == true) return;
     setState(() {
       busy = true;
       note = '正在生成脱敏诊断报告…';
@@ -141,7 +155,7 @@ class _PreflightDiagnosticsPageState extends State<PreflightDiagnosticsPage> {
                   SizedBox(
                     width: double.infinity,
                     child: FilledButton.tonalIcon(
-                      onPressed: busy ? null : _export,
+                      onPressed: busy || current.report['quickOnly'] == true ? null : _export,
                       icon: const Icon(Icons.save_alt_rounded),
                       label: const Text('保存脱敏诊断报告'),
                     ),
@@ -186,7 +200,9 @@ class _SummaryCard extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    ok ? '没有发现源码层可判定的阻断项' : '存在需要先处理的阻断项',
+                    snapshot.report['quickOnly'] == true
+                        ? '本机概况已读取，完整自检进行中'
+                        : ok ? '没有发现源码层可判定的阻断项' : '存在需要先处理的阻断项',
                     style: Theme.of(context).textTheme.titleMedium,
                   ),
                   const SizedBox(height: 3),
