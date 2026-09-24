@@ -1,0 +1,7 @@
+status=success
+run_id=35960427181
+run_url=https://github.com/catkiss62/ai-companion-build/actions/runs/35960427181
+head_sha=e621f28a197c598d6e102bf96cfd7a8f37797307
+signer_sha256=30:5E:B3:D8:09:83:B9:63:C6:48:18:DD:F1:AD:56:1F:27:9D:E6:D4:7B:3E:D2:C7:81:AD:A4:48:C7:C2:51:48
+3cc079a5dee358aabaa023d637e204d1a2c60d6b7463dce54e685c0155393dde  AI-Companion-v0.42.8-252-Jev-Game-Result-APK.apk
+release_url=https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-ac0745b42dc54420a449
