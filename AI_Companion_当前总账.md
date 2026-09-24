@@ -88,7 +88,7 @@
 
 历史兼容与未来扩展索引：`v0.41.82+226` / `agent/v04182-cedar-state-machine-e2e`；`v0.41.83+227` / `agent/v04183-cedar-native-agent-loop`；`v0.41.81+225`；`模型自主发现`；`陪我下五子棋`。全工具调用动作展示已进入 +248；双人格与命运之轮的冻结分析见 6.21，均不得在本批顺手实现。任何新 MCP、工作区、视频理解、Live2D、提醒或长任务先查本文件的 **“唯一循环所有权”**、**“Cortico 低风险参考”** 与 **“循环能力首版诊断”**，不得再复制 Cedar 曾出现的多套循环。
 
-+252 工作分支 agent/v04208-jev-game-result，候选 v0.42.8+252：OpenRouter Jev 两处短判断与 DeepSeek 兜底；保留 +251 气焰语义判断、TTS 和 Gemini 修复；Cedar get_result 不再凭旧结果生成新分享。余额面板延后；详情见 6.25。状态 IMPLEMENTED / CI PASSED / APK READY / TRUE DEVICE PENDING。\n\n+253 工作分支 agent/v04209-tts-preflight-heat，候选 v0.42.9+253：快速自检只读取 APK 安装资源；TTS 子进程超时重置绑定并一键顺序无声对照；气焰 0～100 每轮 -10、满值五轮冷却退出，害羞本身不加分。前批 Jev/DeepSeek 兜底不变；详见 6.26。状态 IMPLEMENTED / CI PENDING / TRUE DEVICE PENDING。
++252 工作分支 agent/v04208-jev-game-result，候选 v0.42.8+252：OpenRouter Jev 两处短判断与 DeepSeek 兜底；保留 +251 气焰语义判断、TTS 和 Gemini 修复；Cedar get_result 不再凭旧结果生成新分享。余额面板延后；详情见 6.25。状态 IMPLEMENTED / CI PASSED / APK READY / TRUE DEVICE PENDING。\n\n+253 工作分支 agent/v04209-tts-preflight-heat，候选 v0.42.9+253：快速自检只读取 APK 安装资源；TTS 子进程超时重置绑定并一键顺序无声对照；气焰 0～100 每轮 -10、满值五轮冷却退出，害羞本身不加分。前批 Jev/DeepSeek 兜底不变；详见 6.26。状态 IMPLEMENTED / CI PASSED / APK READY / TRUE DEVICE PENDING。
 
 <!-- END QUICK HANDOFF INDEX -->
 
@@ -861,6 +861,8 @@ Actions 与交付证据：远端功能 head `33647c7bff15084d6fd3cbc7b817e9b0b21
 - 一键顺序无声测速两档，同一次固定回复、同一分段、同一批次才能比较与改变胜出档；失败独立记录代码并仍尝试另一档。试听发声是唯一有声按钮，复制专项报告保留。
 - 气焰值继续使用 0～100；每轮 -10（另计自然小时衰减），轻度/互相/强烈主动玩笑分别 +16/+26/+28，认真话题再 -18。仅害羞、脸红、尴尬而未回敬时给 ordinary；满值五轮普通对话降至 50 并退出小豆丁。Jev 与 DeepSeek 的两组分类提示一致。备份与 Jev 脱敏用量只证明当时高位及部分低置信度兜底，不记录选项文本，不能断言具体回合是哪一路判定。
 - 验证：源码门、Flutter analyze/tests、Android Kotlin、arm64 Release 和签名交给独立 CI；CI 与真机结论另行回填。声学空指针位置需要新包诊断或真机堆栈才能进一步收口，不用另一种音色/固定台词伪装成功。
+
+- CI 交付：功能 head `5a8263efc925f32d80da6dc8af34aaf55cf97d71`；Actions `35974252470` 全绿，126 项源码门、Android Kotlin、Flutter analyze/tests、arm64 Release、签名及 APK Genie/素材校验通过；Artifact `10797768347`；APK SHA-256 `6f4a3c34f987f41c912e2427b8386ba6d70731e30ebf9537120a830db4cc3640`；未发布 Draft `https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-7ba9838d3966a80f6d12`。该证据不等于真机发声、旧子进程空指针或语义体感已验收。
 
 ## 7. 历史验证兼容摘要
 
