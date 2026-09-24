@@ -76,7 +76,7 @@ class NativeTtsEngine private constructor(context: Context) {
         val thermal = (appContext.getSystemService(Context.POWER_SERVICE) as? PowerManager)
             ?.currentThermalStatus ?: -1
         try {
-            val configured = client.configureBenchmarkProfile(profile)
+            val configured = client.configureBenchmarkProfile(profile, diagnostic = true)
             val expectedProfile = if (profile == "hybrid")
                 "auto_decoder_fixed_vocoder_v1" else "auto_affinity_v084"
             check(configured["runtimeProfile"] == expectedProfile) {

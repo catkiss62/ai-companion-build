@@ -939,7 +939,7 @@ class _VoiceEmotionSettingsPageState
                                     },
                                   ),
                           icon: const Icon(Icons.volume_up_outlined),
-                          label: const Text('测试朗读'),
+                          label: const Text('试听发声'),
                         ),
                         FilledButton.tonalIcon(
                           onPressed: _ttsBusy ? null : () => _runTtsAction(
@@ -980,10 +980,10 @@ class _VoiceEmotionSettingsPageState
                           onPressed: _ttsBusy ? null : () => _runTtsAction(
                             '正在更新对照样本…', () async {
                               await TtsBenchmark(_db).chooseNewFixture();
-                              return '下次测试将选取最近的真实 API 回复；两档需重新运行。';
+                              return '下次测试将选取最近较长的真实 API 回复；两档需重新运行。';
                             },
                           ),
-                          child: const Text('下轮改用最新回复'),
+                          child: const Text('下轮改用较长回复'),
                         ),
                       ],
                     ),

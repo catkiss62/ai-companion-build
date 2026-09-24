@@ -5,6 +5,7 @@ import '../database/app_database.dart';
 import '../models/chat_language_variant.dart';
 import 'genie_fixed_text_segmenter.dart';
 import 'native_tts_provider.dart';
+import 'tts_provider.dart';
 import 'tts_service.dart';
 import 'tts_text_processor.dart';
 import 'tts_voice_profile.dart';
@@ -97,16 +98,20 @@ ${const JsonEncoder.withIndent('  ').convert(history)}''';
     );
     final language = ChatLanguage.tryParse(await db.getSetting('tts_language')) ??
         ChatLanguage.chinese;
-    final variant = selected.languageVariants[language];
-    final visible = language == ChatLanguage.chinese
-        ? selected.content
-        : variant?.segments.map((s) => s.text).join('') ?? '';
+    final visible = selected.contentFor(language);
     if (visible.isEmpty) {
       throw StateError('这条回复还没有所选语言的真实译文；请先在聊天中生成或切换回中文。');
     }
     final tts = TtsService(db: db);
     final units = await tts.prepareUnits(visible, manual: true, language: language);
-    final voice = await tts.resolveVoice(null);
+    final voice = await tts.resolveVoice(selected.emotionKey.isEmpty
+        ? null
+        : TtsEmotionCue(
+            key: selected.emotionKey,
+            label: selected.emotionLabel,
+            confidence: selected.emotionConfidence,
+            source: selected.emotionSource,
+          ));
     final segments = <Map<String, String>>[];
     for (final unit in units) {
       for (final chunk in GenieFixedTextSegmenter.splitFirstImmediate(unit.text, language)) {

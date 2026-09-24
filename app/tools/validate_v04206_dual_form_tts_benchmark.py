@@ -16,7 +16,7 @@ def main():
     report = content("lib/core/tts/tts_benchmark.dart")
     form = content("lib/core/personality/playful_form_state.dart")
     assert 'vocoderThreads = 8' in runtime
-    assert 'client.configureBenchmarkProfile(profile)' in engine
+    assert 'client.configureBenchmarkProfile(profile, diagnostic = true)' in engine
     assert 'client.configureAutoAffinity(oldAffinity)' in engine
     assert '"ttsSessionDiagnostics" to TtsSessionDiagnosticStore.snapshot(context)' not in preflight
     assert 'Clipboard' not in report and '"text" to text' not in engine

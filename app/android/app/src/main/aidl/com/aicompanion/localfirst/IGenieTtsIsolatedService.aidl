@@ -6,7 +6,7 @@ interface IGenieTtsIsolatedService {
     String initializeJson(String language);
     String prepareLanguageJson(String language);
     String configureAutoAffinityJson(boolean enabled);
-    String configureBenchmarkProfileJson(String profile);
+    String configureBenchmarkProfileJson(String profile, boolean diagnostic);
     String importChineseRobertaJson(String path);
     String generateToFile(String text, String language, String voice, double speed);
     void stop();

@@ -41,8 +41,8 @@ class IsolatedGenieTtsClient(private val context: Context) {
     fun prepareLanguage(language: String): Map<String, Any> = parse(call { it.prepareLanguageJson(language) })
     fun configureAutoAffinity(enabled: Boolean): Map<String, Any> =
         parse(call { it.configureAutoAffinityJson(enabled) })
-    fun configureBenchmarkProfile(profile: String): Map<String, Any> =
-        parse(call { it.configureBenchmarkProfileJson(profile) })
+    fun configureBenchmarkProfile(profile: String, diagnostic: Boolean = false): Map<String, Any> =
+        parse(call { it.configureBenchmarkProfileJson(profile, diagnostic) })
     fun importChineseRoberta(path: String): Map<String, Any> =
         parse(call { it.importChineseRobertaJson(path) })
 

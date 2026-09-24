@@ -61,6 +61,7 @@ class GenieTtsIsolatedService : Service() {
     private var endToEndMs = 0L
     private var audioSeconds = 0.0
     private var coreRtf = 0.0
+    private var benchmarkActive = false
 
     override fun onCreate() {
         super.onCreate()
@@ -96,6 +97,7 @@ class GenieTtsIsolatedService : Service() {
         override fun configureAutoAffinityJson(enabled: Boolean): String = serialized {
             guardedStatus {
                 generation.incrementAndGet()
+                benchmarkActive = false
                 markStage("configure_runtime", durable = true)
                 runtime.configureAutoAffinity(enabled)
                 initialized = runtime.isReady
@@ -103,9 +105,10 @@ class GenieTtsIsolatedService : Service() {
             }
         }
 
-        override fun configureBenchmarkProfileJson(profile: String): String = serialized {
+        override fun configureBenchmarkProfileJson(profile: String, diagnostic: Boolean): String = serialized {
             guardedStatus {
                 generation.incrementAndGet()
+                benchmarkActive = diagnostic
                 runtime.configureBenchmarkProfile(profile)
                 initialized = runtime.isReady
                 markStage("benchmark_profile_configured")
@@ -203,23 +206,25 @@ class GenieTtsIsolatedService : Service() {
                             ?: referenceEchoReason
                         referenceEchoScore = (metadata["referenceEchoScore"] as? Number)?.toDouble()
                             ?: referenceEchoScore
-                        frontendMs = (metadata["frontendMs"] as? Number)?.toLong() ?: frontendMs
-                        modelLoadedThisRun = metadata["modelLoadedThisRun"] as? Boolean
-                            ?: modelLoadedThisRun
-                        modelLoadMs = (metadata["modelLoadMs"] as? Number)?.toLong() ?: modelLoadMs
-                        fixtureLoadMs = (metadata["fixtureLoadMs"] as? Number)?.toLong() ?: fixtureLoadMs
-                        encoderMs = (metadata["encoderMs"] as? Number)?.toLong() ?: encoderMs
-                        firstDecoderMs = (metadata["firstDecoderMs"] as? Number)?.toLong()
-                            ?: firstDecoderMs
-                        autoregressiveMs = (metadata["autoregressiveMs"] as? Number)?.toLong()
-                            ?: autoregressiveMs
-                        vocoderMs = (metadata["vocoderMs"] as? Number)?.toLong() ?: vocoderMs
-                        totalInferenceMs = (metadata["totalInferenceMs"] as? Number)?.toLong()
-                            ?: totalInferenceMs
-                        endToEndMs = (metadata["endToEndMs"] as? Number)?.toLong() ?: endToEndMs
-                        audioSeconds = (metadata["audioSeconds"] as? Number)?.toDouble()
-                            ?: audioSeconds
-                        coreRtf = (metadata["coreRtf"] as? Number)?.toDouble() ?: coreRtf
+                        if (benchmarkActive) {
+                            frontendMs = (metadata["frontendMs"] as? Number)?.toLong() ?: frontendMs
+                            modelLoadedThisRun = metadata["modelLoadedThisRun"] as? Boolean
+                                ?: modelLoadedThisRun
+                            modelLoadMs = (metadata["modelLoadMs"] as? Number)?.toLong() ?: modelLoadMs
+                            fixtureLoadMs = (metadata["fixtureLoadMs"] as? Number)?.toLong() ?: fixtureLoadMs
+                            encoderMs = (metadata["encoderMs"] as? Number)?.toLong() ?: encoderMs
+                            firstDecoderMs = (metadata["firstDecoderMs"] as? Number)?.toLong()
+                                ?: firstDecoderMs
+                            autoregressiveMs = (metadata["autoregressiveMs"] as? Number)?.toLong()
+                                ?: autoregressiveMs
+                            vocoderMs = (metadata["vocoderMs"] as? Number)?.toLong() ?: vocoderMs
+                            totalInferenceMs = (metadata["totalInferenceMs"] as? Number)?.toLong()
+                                ?: totalInferenceMs
+                            endToEndMs = (metadata["endToEndMs"] as? Number)?.toLong() ?: endToEndMs
+                            audioSeconds = (metadata["audioSeconds"] as? Number)?.toDouble()
+                                ?: audioSeconds
+                            coreRtf = (metadata["coreRtf"] as? Number)?.toDouble() ?: coreRtf
+                        }
                         markStage(
                             nextStage,
                             durable = nextStage.startsWith("prepare_frontend_") ||
@@ -340,18 +345,18 @@ class GenieTtsIsolatedService : Service() {
             referenceEchoSuspected = referenceEchoSuspected,
             referenceEchoReason = referenceEchoReason,
             referenceEchoScore = referenceEchoScore,
-            frontendMs = frontendMs,
+            frontendMs = if (benchmarkActive) frontendMs else 0L,
             modelLoadedThisRun = modelLoadedThisRun,
-            modelLoadMs = modelLoadMs,
-            fixtureLoadMs = fixtureLoadMs,
-            encoderMs = encoderMs,
-            firstDecoderMs = firstDecoderMs,
-            autoregressiveMs = autoregressiveMs,
-            vocoderMs = vocoderMs,
-            totalInferenceMs = totalInferenceMs,
-            endToEndMs = endToEndMs,
-            audioSeconds = audioSeconds,
-            coreRtf = coreRtf,
+            modelLoadMs = if (benchmarkActive) modelLoadMs else 0L,
+            fixtureLoadMs = if (benchmarkActive) fixtureLoadMs else 0L,
+            encoderMs = if (benchmarkActive) encoderMs else 0L,
+            firstDecoderMs = if (benchmarkActive) firstDecoderMs else 0L,
+            autoregressiveMs = if (benchmarkActive) autoregressiveMs else 0L,
+            vocoderMs = if (benchmarkActive) vocoderMs else 0L,
+            totalInferenceMs = if (benchmarkActive) totalInferenceMs else 0L,
+            endToEndMs = if (benchmarkActive) endToEndMs else 0L,
+            audioSeconds = if (benchmarkActive) audioSeconds else 0.0,
+            coreRtf = if (benchmarkActive) coreRtf else 0.0,
         )
     }
 
