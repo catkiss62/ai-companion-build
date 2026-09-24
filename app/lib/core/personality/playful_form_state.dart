@@ -23,7 +23,9 @@ enum PlayfulInteraction {
   int get bonus => switch (this) {
         serious => -18,
         ordinary => 0,
-        light => 16,
+        // A small joke is common in ordinary chat. It slows cooling but
+        // cannot build heat on its own: -10 per turn + 4 = -6.
+        light => 4,
         mutual => 26,
         strong => 28,
       };

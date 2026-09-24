@@ -13,7 +13,7 @@ def read(path: str) -> str:
     return (ROOT / path).read_text(encoding="utf-8")
 
 
-pubspec = read("pubspec.yaml").replace("version: 0.42.9+253", "version: 0.42.8+252").replace("version: 0.42.8+252", "version: 0.42.7+251").replace("version: 0.42.7+251", "version: 0.42.6+250").replace("version: 0.42.6+250", "version: 0.42.5+249")
+pubspec = read("pubspec.yaml").replace("version: 0.42.10+254", "version: 0.42.9+253").replace("version: 0.42.9+253", "version: 0.42.8+252").replace("version: 0.42.8+252", "version: 0.42.7+251").replace("version: 0.42.7+251", "version: 0.42.6+250").replace("version: 0.42.6+250", "version: 0.42.5+249")
 pubspec = pubspec.replace("version: 0.42.5+249", "version: 0.42.3+247")
 pubspec = pubspec.replace("version: 0.42.4+248", "version: 0.42.3+247")
 self_reader = read("lib/core/agent/agent_self_reader.dart")

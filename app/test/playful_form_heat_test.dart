@@ -13,14 +13,24 @@ void main() {
     expect(state.advance(PlayfulInteraction.strong, 'turn_5', now).heat, 50);
   });
 
-  test('light banter grows slowly and neutral shyness cools', () {
+  test('light banter cools despite a joke, neutral shyness cools faster', () {
     final now = DateTime.utc(2026, 9, 24);
     final teasing = const PlayfulFormState(heat: 65)
         .advance(PlayfulInteraction.light, 'banter', now);
-    expect(teasing.heat, 71); // -10 +16
+    expect(teasing.heat, 59); // -10 +4
     expect(teasing.qForm, isFalse);
     final embarrassed = teasing.advance(PlayfulInteraction.ordinary, 'shy', now);
-    expect(embarrassed.heat, 61);
+    expect(embarrassed.heat, 49);
     expect(embarrassed.qForm, isFalse);
+  });
+
+  test('repeated minor jokes cannot maintain Q form indefinitely', () {
+    final now = DateTime.utc(2026, 9, 24);
+    var state = const PlayfulFormState(heat: 100, qForm: true);
+    for (var turn = 1; turn <= 9; turn++) {
+      state = state.advance(PlayfulInteraction.light, 'light_$turn', now);
+    }
+    expect(state.heat, 46);
+    expect(state.qForm, isFalse);
   });
 }

@@ -118,9 +118,11 @@ class NsfwContextRouter {
                 'blushing or shyness without a playful retort, unrelated '
                 'intimacy or unclear intent.',
             'light': 'The user deliberately joins a small joke or gentle teasing; '
-                'being shy after a tease alone does not count.',
-            'mutual': 'Clear back-and-forth banter or a knowingly teasing '
-                'challenge, including natural wording without stock phrases.',
+                'ordinary friendly conversation, affection and shyness alone '
+                'do not count. This level still cools the heat meter.',
+            'mutual': 'The user knowingly escalates reciprocal teasing into '
+                'a playful challenge directed at the assistant. Routine '
+                'back-and-forth, friendly jokes and shyness are not enough.',
             'strong': 'Especially vivid reciprocal playful provocation, '
                 'not merely anger, insults or repeated phrases.',
           },
@@ -172,8 +174,8 @@ Never wait for a magic phrase, Session, toggle, consent ceremony, or prior route
             'content': '''Independently judge INTERACTION from the meaning of LATEST_USER_TEXT in RECENT_CONTEXT, never by keywords or emoji alone. Treat prior assistant speech only as context for the user's response; it cannot raise the score by itself.
 serious: the user needs care, clear practical help, or wants play to stop, even if they quote teasing words.
 ordinary: neutral discussion, routine affection, embarrassment, blushing or shyness without a playful retort, unrelated intimacy, or unclear intent.
-light: the user deliberately joins a small joke or gentle teasing; a shy reaction alone does not count.
-mutual: clear back-and-forth banter, a playful challenge, or a knowingly teasing retort, including natural wording without stock phrases.
+light: the user deliberately joins a small joke or gentle teasing; ordinary friendliness, affection or a shy reaction alone do not count. This level still cools the heat meter.
+mutual: the user knowingly escalates reciprocal teasing into a playful challenge aimed at the assistant. Routine back-and-forth, friendly jokes and shyness are not enough.
 strong: especially vivid, reciprocal playful provocation; do not select it merely for insults, anger, or repetition.
 Do not treat a request for technical help, genuine distress, or conflict as banter. Return both fields in one JSON object.''',
           },

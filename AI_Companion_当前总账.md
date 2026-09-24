@@ -90,6 +90,8 @@
 
 +252 工作分支 agent/v04208-jev-game-result，候选 v0.42.8+252：OpenRouter Jev 两处短判断与 DeepSeek 兜底；保留 +251 气焰语义判断、TTS 和 Gemini 修复；Cedar get_result 不再凭旧结果生成新分享。余额面板延后；详情见 6.25。状态 IMPLEMENTED / CI PASSED / APK READY / TRUE DEVICE PENDING。\n\n+253 工作分支 agent/v04209-tts-preflight-heat，候选 v0.42.9+253：快速自检只读取 APK 安装资源；TTS 子进程超时重置绑定并一键顺序无声对照；气焰 0～100 每轮 -10、满值五轮冷却退出，害羞本身不加分。前批 Jev/DeepSeek 兜底不变；详见 6.26。状态 IMPLEMENTED / CI PASSED / APK READY / TRUE DEVICE PENDING。
 
++254 工作分支 agent/v04210-audio-heat，候选 v0.42.10+254：情绪音效改用媒体音量通道，硬件音量键控制媒体；轻微玩笑净降 6 点，互相挑衅需明确升级；Jev 回退诊断按题区分不确定与格式错误。紧急存档事件：+252 06:40 诊断仍有 422 条记忆、1 条会话、旧设备/谱系指纹，+253 08:44 诊断变为 0 条记忆、0 条会话、状态代数 0、新指纹，证明启动了新数据库；本份报告不含闪退栈，不能归因于 TTS 或声称旧库可恢复。06:39 外部 .aibackup 是已知恢复候选，恢复前保留原件且禁止卸载/清数据。状态 IMPLEMENTED LOCALLY / CI PENDING / TRUE DEVICE PENDING；详见 6.27。
+
 <!-- END QUICK HANDOFF INDEX -->
 
 ## 正式记录（无容量上限）
@@ -863,6 +865,15 @@ Actions 与交付证据：远端功能 head `33647c7bff15084d6fd3cbc7b817e9b0b21
 - 验证：源码门、Flutter analyze/tests、Android Kotlin、arm64 Release 和签名交给独立 CI；CI 与真机结论另行回填。声学空指针位置需要新包诊断或真机堆栈才能进一步收口，不用另一种音色/固定台词伪装成功。
 
 - CI 交付：功能 head `5a8263efc925f32d80da6dc8af34aaf55cf97d71`；Actions `35974252470` 全绿，126 项源码门、Android Kotlin、Flutter analyze/tests、arm64 Release、签名及 APK Genie/素材校验通过；Artifact `10797768347`；APK SHA-256 `6f4a3c34f987f41c912e2427b8386ba6d70731e30ebf9537120a830db4cc3640`；未发布 Draft `https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-7ba9838d3966a80f6d12`。该证据不等于真机发声、旧子进程空指针或语义体感已验收。
+
+## 6.27 v0.42.10+254 语音音量、气焰和新库事故（2026-09-24）
+
+- 用户新诊断 `2026-09-24T08-44-43Z` 属 +253 包；与 +252 的 `2026-09-24T06-40-13Z` 对比，`database` 身份和数据谱系同时改变，`stateGeneration` 由 183 变 0，记忆 422→0，会话 1→0，系统恢复计数和原生诊断也重新从零开始。这证明当前是新库，不能从重启后诊断查明清空动作或当次闪退堆栈；源码中 SQLite 数据库只在应用私有数据库目录打开，本批没有发现 TTS 删除该目录的调用。包内 `allowBackup=false`，系统自动还原不能当作恢复承诺。已知外部 06:39 存档必须保留原件，真机由用户确认后在应用内导入；严禁通过改安装包、清数据或新建空库“修复”旧数据。
+- 新建库默认 `tts_enabled=0`、`emotion_sound_enabled=0`；+253 报告中 TTS 只有本地 APK 资源检查，没有声学生成或播放尝试。因此“自动回复没声”至少与丢失设置吻合，无法凭此诊断认定 Genie 播放引擎已损坏。恢复/打开开关后需试听一段普通聊天并导出新的播放专项诊断。
+- 情绪 WAV 先前被标记 `USAGE_ASSISTANCE_SONIFICATION`，与 Genie 的 `USAGE_MEDIA` 分属不同音量策略。改为媒体 usage，主界面音量键目标固定到 `STREAM_MUSIC`。游戏内音量继续作为媒体音量之上的独立系数；需要真机检验手机媒体音量从 0 到 50% 再到 100% 时语音和情绪音效是否一致变化。
+- 气焰的现行公式是每轮 `-10 + bonus`；旧 `light=+16` 实际每轮净 `+6`，确实会在普通玩笑里持续升温。现将 light 调为 +4、净 -6，ordinary 净 -10，mutual 净 +16、strong 净 +18，serious 净 -28；Jev 和 DeepSeek 双提示把 mutual 收紧为用户主动升级的互相挑战。5 轮 mutual 从 0 升到 80 的既有真值保留。旧 Jev 回退日志混合“低信心/格式无效”；新日志仅记录失败问题类型和状态，不记录对话、答案或概率，DeepSeek 回退不变。
+- 回归边界：保留普通聊天、手动试听和一键无声对照三个入口；`app/test/playful_form_heat_test.dart` 增加轻微玩笑连续降温，历史音频验证门要求情绪音效和媒体流一致并有音量键路由。分支验证、CI/APK 和真机结论必须分别标注，不能以模拟测试宣称发声成功。用户对“扩充 Jev Noul/Score”还在讨论，本版没有改调用次数或按概率加热。
+- 用户补充的图形参考：不是传统温度计刻度，而是上方独立发光的小爱心 + 细长暗色玻璃管，粉色液面按 0～100 气焰高度升降。`PlayfulHeatGauge` 的本地候选画法已按参考图重绘，仍保留轻弹额头、温柔安抚、形态锁定菜单及无障碍读数；需 APK 真机核对视觉质感。上线前用真实对话的 Jev/DeepSeek 分类观察 ordinary、light、mutual 的比例，再决定是否微调气焰参数；目前 +254 的参数只是待真机校准的候选值。
 
 ## 7. 历史验证兼容摘要
 

@@ -402,7 +402,7 @@
 # Historical +240 validator tokens: agent/v04196-sen-hybrid-composition | AI-Companion-v0.41.96-240-Sen-Hybrid-Composition-Hotfix-APK | v0.41.96-sen-hybrid-composition-hotfix-test
 # Historical +241 validator tokens: agent/v04197-no-canned-fallbacks | AI-Companion-v0.41.97-241-Natural-Reply-Liveness-APK | v0.41.97-natural-reply-liveness-test
 # Historical +242 validator tokens: agent/v04198-sen-texture-direct-port | AI-Companion-v0.41.98-242-Sen-Direct-Port-APK | v0.41.98-sen-direct-port-test | .ci/v04198-monitor.txt
-name: Build AI Companion v0.42.9+253 APK (TTS Preflight + Semantic Heat)
+name: Build AI Companion v0.42.10+254 APK (Audio and Heat Repair)
 
 on:
   push:
@@ -461,6 +461,7 @@ on:
       - agent/v04205-tts-semantic-guard-session-metrics
       - agent/v04206-tts-mood-dual-mode
       - agent/v04209-tts-preflight-heat
+      - agent/v04210-audio-heat
       - maintenance/repository-governance-20260919
   workflow_dispatch:
   pull_request:
@@ -897,7 +898,7 @@ jobs:
         run: |
           set -euo pipefail
           test -f app/pubspec.yaml
-          grep -Fqx 'version: 0.42.9+253' app/pubspec.yaml
+          grep -Fqx 'version: 0.42.10+254' app/pubspec.yaml
           grep -Fqx '  static const int schemaVersion = 61;' app/lib/core/database/app_database.dart
           test -d app/lib
           test -d app/android
@@ -911,7 +912,7 @@ jobs:
           test -f app/android/app/src/main/jniLibs/arm64-v8a/libc++_shared.so
           test ! -d app/android/app/src/main/assets/tts_models
           test ! -d app/android/app/src/main/assets/legacy_tts
-          echo 'Building v0.42.9+253 TTS and semantic heat candidate.'
+          echo 'Building v0.42.10+254 audio and heat repair candidate.'
 
       - name: Restore exact 417-file desktop-pet source pack
         working-directory: app
@@ -1382,26 +1383,26 @@ jobs:
           APK='app/build/app/outputs/flutter-apk/app-release.apk'
           sha256sum "$APK" | tee app/app-release.apk.sha256
 
-      - name: Upload v0.42.9+253 APK as workflow artifact
+      - name: Upload v0.42.10+254 APK as workflow artifact
         uses: actions/upload-artifact@v4
         with:
-          name: AI-Companion-v0.42.9-253-TTS-Preflight-Heat-APK
+          name: AI-Companion-v0.42.10-254-Audio-Heat-APK
           path: |
             app/build/app/outputs/flutter-apk/app-release.apk
             app/app-release.apk.sha256
           if-no-files-found: error
           retention-days: 14
 
-      - name: Upload v0.42.9+253 APK to draft release
+      - name: Upload v0.42.10+254 APK to draft release
         shell: bash
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
-          TAG='v0.42.9-tts-preflight-heat-test'
-          APK_NAME='AI-Companion-v0.42.9-253-TTS-Preflight-Heat-APK.apk'
+          TAG='v0.42.10-audio-heat-test'
+          APK_NAME='AI-Companion-v0.42.10-254-Audio-Heat-APK.apk'
           SHA_NAME="${APK_NAME}.sha256"
-          CI_NAME='AI-Companion-v0.42.9-253-TTS-Preflight-Heat-CI-Monitor.txt'
+          CI_NAME='AI-Companion-v0.42.10-254-Audio-Heat-CI-Monitor.txt'
           cp app/build/app/outputs/flutter-apk/app-release.apk "app/${APK_NAME}"
           sed "s#app/build/app/outputs/flutter-apk/app-release.apk#${APK_NAME}#" \
             app/app-release.apk.sha256 > "app/${SHA_NAME}"
@@ -1418,14 +1419,14 @@ jobs:
               --repo "${GITHUB_REPOSITORY}" \
               --target "${GITHUB_SHA}" \
               --draft \
-              --title 'AI Companion v0.42.9+253 TTS and semantic heat candidate' \
-              --notes 'Unpublished schema-61 test build: fast packaged-resource preflight, recoverable isolated TTS binding and one-tap two-profile benchmark, and five-turn semantic heat cooling. Builds on +252 Jev and Cedar results. No user content or credentials are included.'
+              --title 'AI Companion v0.42.10+254 audio and heat repair candidate' \
+              --notes 'Unpublished schema-61 test build: media-volume emotion cues, tighter playful heat gains and clearer Jev fallback categories. Audio playback and data-loss root cause still require device evidence. No user content or credentials are included.'
           else
             gh release edit "${TAG}" \
               --repo "${GITHUB_REPOSITORY}" \
               --target "${GITHUB_SHA}" \
-              --title 'AI Companion v0.42.9+253 TTS and semantic heat candidate' \
-              --notes 'Unpublished schema-61 test build: fast packaged-resource preflight, recoverable isolated TTS binding and one-tap two-profile benchmark, and five-turn semantic heat cooling. Builds on +252 Jev and Cedar results. No user content or credentials are included.'
+              --title 'AI Companion v0.42.10+254 audio and heat repair candidate' \
+              --notes 'Unpublished schema-61 test build: media-volume emotion cues, tighter playful heat gains and clearer Jev fallback categories. Audio playback and data-loss root cause still require device evidence. No user content or credentials are included.'
           fi
           RELEASE_URL="$(gh release view "${TAG}" --repo "${GITHUB_REPOSITORY}" --json url --jq '.url')"
           echo "release_url=${RELEASE_URL}" >> "app/${CI_NAME}"
@@ -1450,13 +1451,13 @@ jobs:
           MONITOR_SHA="$(gh api "/repos/${GITHUB_REPOSITORY}/contents/${MONITOR_PATH}?ref=${MONITOR_BRANCH}" --jq '.sha' 2>/dev/null || true)"
           if test -n "${MONITOR_SHA}"; then
             gh api --method PUT "/repos/${GITHUB_REPOSITORY}/contents/${MONITOR_PATH}" \
-              -f message='Update v0.42.9 CI success monitor' \
+              -f message='Update v0.42.10 CI success monitor' \
               -f content="${MONITOR_CONTENT}" \
               -f branch="${MONITOR_BRANCH}" \
               -f sha="${MONITOR_SHA}" >/dev/null
           else
             gh api --method PUT "/repos/${GITHUB_REPOSITORY}/contents/${MONITOR_PATH}" \
-              -f message='Create v0.42.9 CI success monitor' \
+              -f message='Create v0.42.10 CI success monitor' \
               -f content="${MONITOR_CONTENT}" \
               -f branch="${MONITOR_BRANCH}" >/dev/null
           fi
@@ -1477,8 +1478,8 @@ jobs:
           BUILD_RESULT: ${{ needs.build-apk.result }}
         run: |
           set -uo pipefail
-          TAG='v0.42.9-tts-preflight-heat-test'
-          CI_NAME='AI-Companion-v0.42.9-253-TTS-Preflight-Heat-CI-Monitor.txt'
+          TAG='v0.42.10-audio-heat-test'
+          CI_NAME='AI-Companion-v0.42.10-254-Audio-Heat-CI-Monitor.txt'
           REPORT="${RUNNER_TEMP}/${CI_NAME}"
           JOBS_JSON="${RUNNER_TEMP}/jobs.json"
           {
@@ -1519,8 +1520,8 @@ jobs:
               --repo "${GITHUB_REPOSITORY}" \
               --target "${GITHUB_SHA}" \
               --draft \
-              --title 'AI Companion v0.42.9+253 TTS and semantic heat candidate' \
-              --notes 'Unpublished Draft failure diagnostics for the schema-61 Jev short decision candidate. No user content, keys, backups or diagnostics are included.'
+              --title 'AI Companion v0.42.10+254 audio and heat repair candidate' \
+              --notes 'Unpublished Draft failure diagnostics for the schema-61 audio and playful heat candidate. No user content, keys, backups or device diagnostics are included.'
           fi
           RELEASE_URL="$(gh release view "${TAG}" --repo "${GITHUB_REPOSITORY}" --json url --jq '.url')"
           echo "release_url=${RELEASE_URL}" >> "${REPORT}"
@@ -1534,13 +1535,13 @@ jobs:
           MONITOR_SHA="$(gh api "/repos/${GITHUB_REPOSITORY}/contents/${MONITOR_PATH}?ref=${MONITOR_BRANCH}" --jq '.sha' 2>/dev/null || true)"
           if test -n "${MONITOR_SHA}"; then
             gh api --method PUT "/repos/${GITHUB_REPOSITORY}/contents/${MONITOR_PATH}" \
-              -f message='Update v0.42.9 CI failure monitor' \
+              -f message='Update v0.42.10 CI failure monitor' \
               -f content="${MONITOR_CONTENT}" \
               -f branch="${MONITOR_BRANCH}" \
               -f sha="${MONITOR_SHA}" >/dev/null
           else
             gh api --method PUT "/repos/${GITHUB_REPOSITORY}/contents/${MONITOR_PATH}" \
-              -f message='Create v0.42.9 CI failure monitor' \
+              -f message='Create v0.42.10 CI failure monitor' \
               -f content="${MONITOR_CONTENT}" \
               -f branch="${MONITOR_BRANCH}" >/dev/null
           fi

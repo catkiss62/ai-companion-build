@@ -26,7 +26,7 @@ bridge = read(
 )
 for token in (
     "MediaPlayer",
-    "USAGE_ASSISTANCE_SONIFICATION",
+    "USAGE_MEDIA",
     "setOnCompletionListener",
     "result.success(null)",
     "emotion-sound-io",
@@ -36,6 +36,7 @@ for token in (
 main = read("android/app/src/main/kotlin/com/aicompanion/localfirst/MainActivity.kt")
 assert "EmotionSoundBridge(this, flutterEngine)" in main
 assert "emotionSoundBridge?.dispose()" in main
+assert "volumeControlStream = AudioManager.STREAM_MUSIC" in main
 
 queue = read("lib/core/tts/tts_playback_queue.dart")
 assert queue.count("Future<void>? leadIn") >= 3

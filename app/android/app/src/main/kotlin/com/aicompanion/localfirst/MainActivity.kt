@@ -1,6 +1,7 @@
 package com.aicompanion.localfirst
 
 import android.content.Intent
+import android.media.AudioManager
 import io.flutter.embedding.android.FlutterActivity
 import io.flutter.embedding.engine.FlutterEngine
 
@@ -9,6 +10,13 @@ class MainActivity : FlutterActivity() {
     private var ttsBridge: NativeTtsBridge? = null
     private var emotionSoundBridge: EmotionSoundBridge? = null
     private var live2DModelStorageBridge: Live2DModelStorageBridge? = null
+
+    override fun onCreate(savedInstanceState: android.os.Bundle?) {
+        super.onCreate(savedInstanceState)
+        // Volume buttons should adjust the stream used by both voice and cues,
+        // including the interval before a new AudioTrack starts playing.
+        volumeControlStream = AudioManager.STREAM_MUSIC
+    }
 
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)

@@ -118,9 +118,17 @@ class JevDecisionGateway {
       }
       final results = <String, String>{};
       for (final entry in questions.entries) {
+        // Preserve the failing question/category without recording the user's
+        // text, answer or raw probability. The previous combined status could
+        // not distinguish a genuinely uncertain Jev decision from bad JSON.
+        final category = switch (entry.key) {
+          'mode' => 'mode',
+          'interaction' => 'interaction',
+          _ => 'other',
+        };
         final answer = answers[entry.key];
         if (answer is! Map || answer['type'] != 'choice') {
-          await _record(usageLane, 'invalid_answers', started,
+          await _record(usageLane, 'invalid_answer_$category', started,
               usage: decoded['usage']);
           return null;
         }
@@ -128,12 +136,16 @@ class JevDecisionGateway {
         final confidence = answer['confidence'];
         final probabilities = answer['probabilities'];
         if (selected is! String || !entry.value.options.containsKey(selected) ||
-            confidence is! num || !confidence.isFinite ||
-            confidence < confidenceFloor || confidence > 1 ||
+            confidence is! num || !confidence.isFinite || confidence > 1 ||
             probabilities is! Map || probabilities[selected] is! num ||
             (probabilities[selected] as num) < 0 ||
             (probabilities[selected] as num) > 1) {
-          await _record(usageLane, 'low_confidence_or_invalid', started,
+          await _record(usageLane, 'invalid_answer_$category', started,
+              usage: decoded['usage']);
+          return null;
+        }
+        if (confidence < confidenceFloor) {
+          await _record(usageLane, 'low_confidence_$category', started,
               usage: decoded['usage']);
           return null;
         }

@@ -101,7 +101,9 @@ class EmotionSoundBridge(
         player = next
         next.setAudioAttributes(
             AudioAttributes.Builder()
-                .setUsage(AudioAttributes.USAGE_ASSISTANCE_SONIFICATION)
+                // Expression cues accompany spoken replies: share the media
+                // stream with Genie TTS so the phone's media volume controls both.
+                .setUsage(AudioAttributes.USAGE_MEDIA)
                 .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
                 .build(),
         )

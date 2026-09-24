@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-/// A glass stem ending in a heart bulb; white is empty, pink rises with heat.
+/// A small floating heart above a glowing glass tube; pink rises with heat.
 class PlayfulHeatGauge extends StatelessWidget {
   const PlayfulHeatGauge({super.key, required this.heat, required this.qForm, required this.onSelected, required this.locked});
 
@@ -25,13 +25,13 @@ class PlayfulHeatGauge extends StatelessWidget {
           label: '气焰值 $heat，当前${qForm ? '小豆丁形态' : '本体'}，${locked ? '形态已锁定' : '自动变换'}',
           child: SizedBox(
             width: 44,
-            height: 98,
+            height: 124,
             child: TweenAnimationBuilder<double>(
               tween: Tween<double>(end: heat / 100),
               duration: const Duration(milliseconds: 650),
               curve: Curves.easeInOut,
               builder: (_, amount, __) => CustomPaint(
-                painter: _HeartFlaskPainter(amount),
+                painter: _HeartGlassPainter(amount),
               ),
             ),
           ),
@@ -39,56 +39,117 @@ class PlayfulHeatGauge extends StatelessWidget {
       );
 }
 
-class _HeartFlaskPainter extends CustomPainter {
-  _HeartFlaskPainter(this.amount);
+class _HeartGlassPainter extends CustomPainter {
+  _HeartGlassPainter(this.amount);
   final double amount;
 
   @override
   void paint(Canvas canvas, Size size) {
-    final center = size.width / 2;
-    final path = Path()
-      ..moveTo(center - 6, 7)
-      ..lineTo(center + 6, 7)
-      ..lineTo(center + 6, 59)
-      ..cubicTo(center + 18, 47, center + 20, 71, center + 10, 85)
-      ..quadraticBezierTo(center, 94, center, 94)
-      ..quadraticBezierTo(center - 10, 85, center - 10, 85)
-      ..cubicTo(center - 20, 71, center - 18, 47, center - 6, 59)
-      ..close();
-    canvas.drawPath(path, Paint()..color = const Color(0xF7FFFFFF));
+    // Paint in reference coordinates so the silhouette stays proportional if
+    // the chat overlay later changes size. The tube has no artificial minimum
+    // fill: an empty meter looks empty, and full height always means 100.
     canvas.save();
-    canvas.clipPath(path);
-    canvas.drawRect(
-      Rect.fromLTWH(0, 94 - 87 * amount.clamp(0, 1), size.width, 94),
-      Paint()..color = const Color(0xFFF776B7),
-    );
-    canvas.restore();
+    canvas.scale(size.width / 44, size.height / 124);
+    final heart = Path()
+      ..moveTo(22, 11)
+      ..cubicTo(17, 3, 10, 6, 10, 13)
+      ..cubicTo(10, 19, 17, 24, 22, 27)
+      ..cubicTo(27, 24, 34, 19, 34, 13)
+      ..cubicTo(34, 6, 27, 3, 22, 11)
+      ..close();
     canvas.drawPath(
-      path,
+      heart,
       Paint()
-        ..color = const Color(0xFFDB4E98)
-        ..style = PaintingStyle.stroke
-        ..strokeWidth = 2,
+        ..color = const Color(0xDDF9A4E1)
+        ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 5),
     );
-    canvas.drawLine(
-      Offset(center - 9, 6),
-      Offset(center + 9, 6),
+    canvas.drawPath(
+      heart,
       Paint()
-        ..color = const Color(0xFFDB4E98)
-        ..strokeWidth = 3
+        ..shader = const LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [Color(0xFFE7A2D6), Color(0xFFD77DC4)],
+        ).createShader(const Rect.fromLTWH(10, 5, 24, 23)),
+    );
+    canvas.drawPath(
+      heart,
+      Paint()
+        ..color = const Color(0xFFFDE0F4)
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 1.2,
+    );
+    canvas.drawArc(
+      const Rect.fromLTWH(12.5, 8, 9, 8),
+      3.45,
+      1.3,
+      false,
+      Paint()
+        ..color = const Color(0xDFFFFFFF)
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 1.1
         ..strokeCap = StrokeCap.round,
     );
+
+    final glass = RRect.fromRectAndRadius(
+      const Rect.fromLTWH(12, 32, 20, 88),
+      const Radius.circular(10),
+    );
+    final inside = RRect.fromRectAndRadius(
+      const Rect.fromLTWH(14, 34, 16, 84),
+      const Radius.circular(8),
+    );
+    canvas.drawRRect(
+      glass,
+      Paint()
+        ..color = const Color(0xCCF099DE)
+        ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 4),
+    );
+    canvas.drawRRect(
+      glass,
+      Paint()
+        ..shader = const LinearGradient(
+          colors: [Color(0xD3443548), Color(0xE8241D2A), Color(0xD348394C)],
+        ).createShader(const Rect.fromLTWH(12, 32, 20, 88)),
+    );
+
+    final fill = amount.clamp(0.0, 1.0);
+    if (fill > 0) {
+      final surface = inside.outerRect.bottom - inside.outerRect.height * fill;
+      canvas.save();
+      canvas.clipRRect(inside);
+      canvas.drawRect(
+        Rect.fromLTRB(14, surface, 30, 120),
+        Paint()
+          ..shader = const LinearGradient(
+            colors: [Color(0xFFF7B0E4), Color(0xFFFFD1F2), Color(0xFFF59DD9)],
+          ).createShader(Rect.fromLTRB(14, surface, 30, 120)),
+      );
+      canvas.drawOval(
+        Rect.fromLTWH(14, surface - 1.5, 16, 3),
+        Paint()..color = const Color(0xFFFFE0F5),
+      );
+      canvas.restore();
+    }
+    canvas.drawRRect(
+      glass,
+      Paint()
+        ..color = const Color(0xFFFFC5ED)
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 1.6,
+    );
     canvas.drawLine(
-      Offset(center - 2, 18),
-      Offset(center - 2, 43),
+      const Offset(15.5, 40),
+      const Offset(15.5, 109),
       Paint()
         ..color = const Color(0x99FFFFFF)
-        ..strokeWidth = 2
+        ..strokeWidth = 1.5
         ..strokeCap = StrokeCap.round,
     );
+    canvas.restore();
   }
 
   @override
-  bool shouldRepaint(covariant _HeartFlaskPainter oldDelegate) =>
+  bool shouldRepaint(covariant _HeartGlassPainter oldDelegate) =>
       oldDelegate.amount != amount;
 }
