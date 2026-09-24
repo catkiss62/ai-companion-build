@@ -6,6 +6,7 @@ import '../personality/personality_catalog.dart';
 import '../personality/playful_form_state.dart';
 import 'deepseek_client.dart';
 import 'generation_cancellation.dart';
+import 'jev_decision_gateway.dart';
 import 'model_profile.dart';
 
 class NsfwRouteDecision {
@@ -79,6 +80,64 @@ class NsfwContextRouter {
         .map((message) =>
             '${message.isUser ? 'REAL_USER_MESSAGE' : 'ASSISTANT_HISTORY'}: ${message.content.trim()}')
         .join('\n');
+
+    // Two independent short decisions share one Jev call. Preserve the
+    // semantic Q-form interaction signal added in +251 when Jev succeeds.
+    // Manual routing above is authoritative; incomplete/uncertain answers
+    // return null and the original DeepSeek pass below owns both fields.
+    final jev = await JevDecisionGateway.instance.chooseMany(
+      state: <String, Object?>{
+        'current_route': currentActive ? 'nsfw' : 'daily',
+        'seductress_bias': seductressBias,
+        'recent_context': transcript.length > 2400
+            ? transcript.substring(transcript.length - 2400)
+            : transcript,
+        'latest_user_text': latestUserText,
+      },
+      questions: const <String, JevChoiceQuestion>{
+        'mode': JevChoiceQuestion(
+          'Which descriptive prompt depth fits latest_user_text in '
+          'recent_context? Keep an ongoing explicit scene active when the '
+          'latest turn is short; affection and flirting are possible in all modes.',
+          <String, String>{
+            'daily': 'Ordinary talk, help, affection, innuendo or brief erotic '
+                'jokes without detailed physical scene rendering.',
+            'nsfw': 'An ongoing or newly explicit intimate scene needs detailed '
+                'body or action description without complex continuity.',
+            'nsfw_reference': 'The explicit scene also needs detailed continuity '
+                'of positions, clothing, contact or devices.',
+          },
+        ),
+        'interaction': JevChoiceQuestion(
+          'Independently judge the user participation in latest_user_text, '
+          'using recent_context only to understand the reply. Previous assistant '
+          'words alone cannot raise the score. Ignore mere keywords and emoji.',
+          <String, String>{
+            'serious': 'Needs care, practical help or wants play to stop.',
+            'ordinary': 'Neutral discussion, routine affection, unrelated '
+                'intimacy or unclear intent.',
+            'light': 'Joins a small joke or gentle teasing.',
+            'mutual': 'Clear back-and-forth banter or a knowingly teasing '
+                'challenge, including natural wording without stock phrases.',
+            'strong': 'Especially vivid reciprocal playful provocation, '
+                'not merely anger, insults or repeated phrases.',
+          },
+        ),
+      },
+      cancellationToken: cancellationToken,
+      usageLane: 'chat_intimacy_route',
+    );
+    if (jev != null) {
+      cancellationToken?.throwIfCancelled();
+      final decision = NsfwRouteDecision(
+        active: jev['mode'] != 'daily',
+        referenceActive: jev['mode'] == 'nsfw_reference',
+        source: 'jev_${jev['mode']}',
+        playfulInteraction: PlayfulInteraction.parse(jev['interaction']),
+      );
+      await _persist(decision, turnId: turnId);
+      return decision;
+    }
 
     try {
       final content = StringBuffer();

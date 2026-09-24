@@ -1,6 +1,6 @@
 # AI Companion · 当前总账
 
-更新时间：2026-09-23（Asia/Tokyo）
+更新时间：2026-09-24（UTC）
 
 > 本文件是唯一的当前接班入口，继续采用“总账 v2”。顶部是快速接班索引；标记后的正式记录按版本持续追加，不设总容量上限。
 >
@@ -88,7 +88,7 @@
 
 历史兼容与未来扩展索引：`v0.41.82+226` / `agent/v04182-cedar-state-machine-e2e`；`v0.41.83+227` / `agent/v04183-cedar-native-agent-loop`；`v0.41.81+225`；`模型自主发现`；`陪我下五子棋`。全工具调用动作展示已进入 +248；双人格与命运之轮的冻结分析见 6.21，均不得在本批顺手实现。任何新 MCP、工作区、视频理解、Live2D、提醒或长任务先查本文件的 **“唯一循环所有权”**、**“Cortico 低风险参考”** 与 **“循环能力首版诊断”**，不得再复制 Cedar 曾出现的多套循环。
 
-<!-- END QUICK HANDOFF INDEX -->
++252 工作分支 agent/v04208-jev-game-result，候选 v0.42.8+252：OpenRouter Jev 两处短判断与 DeepSeek 兜底；保留 +251 气焰语义判断、TTS 和 Gemini 修复；Cedar get_result 不再凭旧结果生成新分享。余额面板延后；详情见 6.25。状态 IMPLEMENTED / CI PASSED / APK READY / TRUE DEVICE PENDING。\n\n<!-- END QUICK HANDOFF INDEX -->
 
 ## 正式记录（无容量上限）
 
@@ -842,6 +842,15 @@ Actions 与交付证据：远端功能 head `33647c7bff15084d6fd3cbc7b817e9b0b21
 
 - Jev 评估（研究，本版未集成）：`jevtypesafeai.com` 自称独立平台，明确声明未获 TypeSafe AI 背书；官方为 `typesafe.ai`、`docs.typesafe.ai`，官方调用是 `POST https://api.typesafe.ai/v1/systemone`。Jev choice/score/noul 适合短而明确的多项判断；中文调侃与关系上下文仍须用同批脱敏人工标注样本比较准确率、延迟和费用。当前气焰复用已有 DeepSeek 路由，单独迁移会增加网络调用。未接第三方平台、未新建密钥或上传私密对话。出处：https://typesafe.ai/ ，https://docs.typesafe.ai/introduction ，https://jevtypesafeai.com/ 。
 - 余额汇总评估（研究，本版未集成）：DeepSeek 官方 `GET https://api.deepseek.com/user/balance` 可用对应官方密钥查询真实余额；玩游、Agnes、千问视觉、Tavily 与 TypeSafe Jev 的额度查询不能套用一个聊天接口，未证实其官方只读接口及当前 Key 权限者须标示控制台入口或明确为本机估算。未来“模型与联网”设置可分提供商手动刷新，显示来源与时间、失败独立呈现；Key 留在现有安全存储，只向自身核实的域名发送。出处：https://api-docs.deepseek.com/api/get-user-balance ，https://docs.typesafe.ai/api 。
+
+### 6.25 v0.42.8+252 Jev 短判断试点与游戏结果复读（2026-09-24）
+
+- 从 +251 已构建远端源码创建独立分支；保留 +251 五轮气焰语义判断、TTS 与 Gemini 修正。Jev 默认关闭，独立加密 OpenRouter Key，只负责普通聊天的一次组合判断（亲密描写深度 + 气焰交互强度）及沉浸房间的一次组合判断（场景深度 + 明确事件）。手动开关与确定性事件优先，Jev 不生成对白或记忆，不改 Gemini 最终回复。其他 DeepSeek 短判断尚未迁移。
+- 单一 JevDecisionGateway 使用 OpenRouter Decisions typesafe/jev-1.13，每请求含状态与多条 choice；选择缺失、低 confidence、网络/鉴权/402/超时等返回 null，由原 DeepSeek Flash 不思考判断完整接管；取消不额外发兜底。只有费用/Token/耗时/失败类型的 120 条有界脱敏账本 jev_short_usage_v1，包括 OpenRouter 实际 usage.cost，不含问题或聊天正文。设置页面连接测试消耗少量额度；用户需验证真实误判与实际账单才扩大覆盖。省钱和准确率并非预设结论。
+- 用户诊断/备份证明：同一份自测结果被 sins_virtues_answer_batch 与稍后的 sins_virtues_get_result 各自种植分享念头。结果快照读取不再生成新的主动分享 Thought，同时以 quiet 标记活动记录而不成为新的近期主动话题；真实完成新题与独立终局通知仍可分享；历史已入库旧 Thought 不删除。
+- 余额面板另批处理：DeepSeek/OpenRouter/千问/Gemini 中转接口及凭据权限不同；此次只记录本功能产生的实际费用。验证顺序：126 个源码门、Flutter analyze/tests、Kotlin、arm64 Release、签名及 Draft，真机验证错 Key、402、停止、两路对照和旧测试结果不重复分享。CI 和真机结果必须分别回填。
+
+- 最终 CI 交付证据：功能 head fa62d0c08aeb0597a874526c8015fecc4544c6f3；Actions 35961379029 全绿，源码门、Kotlin、Flutter analyze/tests、arm64 Release、签名和包内资源门通过；Artifact 10793156007，APK SHA-256 ee7fec22ff304d1c2e20f1da1cb32208f13a69ef4a798d4ab22826f87d725d52；未发布 Draft URL 为 untagged-247641dabd0b4c85691f。此前 e621f28 的 run 35960427181 虽全绿但尚未将读取旧结果的活动记录标为 quiet，已由本轮替代。只证明 CI，不代表 OpenRouter 实时调用、余额不足回退或游戏厅真机自然表达已验收。
 
 ## 7. 历史验证兼容摘要
 

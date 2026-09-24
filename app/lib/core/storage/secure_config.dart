@@ -24,6 +24,8 @@ class SecureConfig {
   static const _agnesEndpointName = 'agnes_chat_endpoint';
   static const _agnesModelName = 'agnes_model';
   static const _cedarToyTokenName = 'cedar_toy_token';
+  static const _openRouterApiKeyName = 'openrouter_jev_api_key';
+  static const _jevEnabledName = 'openrouter_jev_short_judgments_enabled';
   static const defaultAgnesEndpoint =
       'https://apihub.agnes-ai.com/v1/chat/completions';
   static const defaultAgnesModel = 'agnes-2.5-flash';
@@ -43,8 +45,8 @@ class SecureConfig {
         value: provider.storageValue,
       );
 
-  /// Internal model lane. Every existing maintenance, routing, Agent,
-  /// translation and proactive caller intentionally stays on DeepSeek.
+  /// Internal model lane. Jev may pre-classify the two opt-in short routes;
+  /// all long judgments, maintenance, Agent and fallback remain DeepSeek.
   Future<String?> readApiKey() => readDeepSeekApiKey();
 
   Future<String?> readDeepSeekApiKey() => _storage.read(key: _apiKeyName);
@@ -181,6 +183,21 @@ class SecureConfig {
 
   Future<void> clearCedarToyToken() =>
       _storage.delete(key: _cedarToyTokenName);
+
+  /// Short judgment lane only; never reuse the Gemini final-reply key.
+  Future<String?> readOpenRouterApiKey() =>
+      _storage.read(key: _openRouterApiKeyName);
+
+  Future<void> writeOpenRouterApiKey(String value) =>
+      _writeOptionalSecret(_openRouterApiKeyName, value);
+
+  Future<bool> readJevEnabled() async =>
+      (await _storage.read(key: _jevEnabledName)) == '1';
+
+  Future<void> writeJevEnabled(bool enabled) => _storage.write(
+        key: _jevEnabledName,
+        value: enabled ? '1' : '0',
+      );
 
   Future<String> readAgnesEndpoint() async {
     final value = (await _storage.read(key: _agnesEndpointName))?.trim();
