@@ -24,7 +24,7 @@ enum PlayfulInteraction {
         serious => -18,
         ordinary => 0,
         light => 16,
-        mutual => 20,
+        mutual => 26,
         strong => 28,
       };
 }
