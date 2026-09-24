@@ -1,0 +1,7 @@
+status=success
+run_id=35952517475
+run_url=https://github.com/catkiss62/ai-companion-build/actions/runs/35952517475
+head_sha=13533d1f087850a6889ce34064697ae2629e9cbd
+signer_sha256=30:5E:B3:D8:09:83:B9:63:C6:48:18:DD:F1:AD:56:1F:27:9D:E6:D4:7B:3E:D2:C7:81:AD:A4:48:C7:C2:51:48
+a72f1a97d911495854af1b91336ab98892e512b46b7af8a97dbda92ab79b4a21  AI-Companion-v0.42.7-251-Semantic-Form-TTS-Gemini-APK.apk
+release_url=https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-8a0d0901c585b9b8f490
