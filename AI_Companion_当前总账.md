@@ -40,8 +40,9 @@
 | +228 远端 | head `29e87d016c8bd81f52f89f95191bd1a1a01a5b57`；tree `c4a112a56d8b634cf3a1a66636979a0833538b7d`；Actions `35440359036`；Artifact `10583263879`；APK SHA-256 `159e283173e49da2924d25b37ba7647893cdafdcc31b63f0e31b7c64e086849b` |
 | 仓库维护基线 | `maintenance/repository-governance-20260919`；远端文档 head `123e272196e8ae93f3518157917d76f6af4f1784`；完整构建 head `fa99f32012fa1a0716b746d36b958a8e777ef9b8`；Actions `35446649873` 全绿；文档-only run `35447342921` 正确跳过 APK |
 | 当前功能分支 | `agent/v04206-tts-mood-dual-mode`，基于 +249 已验证源码；候选版本 `v0.42.6+250` |
-| 当前任务状态 | `IMPLEMENTED / CI PENDING / APK PENDING / TRUE DEVICE PENDING`；第一次构建已全绿，但形态名称和定义追加修订后必须以新提交重建；见 6.23 |
+| 当前任务状态 | `IMPLEMENTED / CI PASSED / APK READY / TRUE DEVICE PENDING`；小豆丁形态定义最终版已由 Actions `35943607609` 构建，见 6.23 |
 | +250 当前任务 | 本体／小豆丁形态共用成年角色、记忆与能力；同一形态状态驱动角色提示与静态立绘，虚拟弹额头／安抚改变气焰值后继续自然衰减，心形液面与锁定入口；常驻世界书定点柔化并仅迁移未编辑原文；两档 TTS 共用冻结的真实回复与分段，无声生成并复制专项脱敏报告 |
+| +250 最终构建 | 功能 head `b5cd2d1070fb237bc72ab66b1867a75da9bbe6e8`；tree `4e0dbbd531aea408ab0face6d46a323f441c7eeb`；Actions `35943607609` 全绿；Artifact `10785922926`；APK SHA-256 `f148f2eb303017ad5f6f689628f230979c24ba16831fdc0181e58bc5e1d73a`；未发布 Draft Release `v0.42.6-dual-form-tts-comparison-test` |
 | +249 当前任务 | `loopIndex=0` 时明确判定“零个新语义 token”，在 VITS 前拒绝本段；最后两次会话记录生成时 profile、冷/热状态、各阶段耗时、RTF、播放首帧、队列余量、迟到段、失败/停止与脱敏文本哈希 |
 | +249 保护边界 | 不播放参考 prompt、不添加固定语音/固定台词/System TTS 兜底；失败段独立跳过，其他段继续；仅同一文本、音色、语言且分别为 `legacy_fixed_8` / `auto_affinity_v084` 才计算性能对比；schema 61 / Snapshot protocol 6 不变 |
 | +249 远端 | head `fb7f77f85d882f99530ab829df9a82eaa604e559`；tree `28e4fbafb5adb2bfaa58aa9ab6e1b1256f0c4b99`；Actions `35900627244` 全绿；Artifact `10770090214`；APK SHA-256 `546dd718d447b0987bf47aaba08089fefb0badffbc076ba38e695fb3e05263c5`；未发布 Draft Release `untagged-3a02088d4968fd7ab603` |
@@ -820,12 +821,13 @@ Actions 与交付证据：远端功能 head `33647c7bff15084d6fd3cbc7b817e9b0b21
 
 ### 6.23 v0.42.6+250 双形态与手动 TTS 无声对照（2026-09-23）
 
-- 状态：`IMPLEMENTATION IN PROGRESS / CI PENDING / APK PENDING / TRUE DEVICE PENDING`。分支 `agent/v04206-tts-mood-dual-mode`，从 +249 远端已交付源码单独建立；本节不包含用户备份、诊断或聊天明文。
+- 状态：`IMPLEMENTED / CI PASSED / APK READY / TRUE DEVICE PENDING`。分支 `agent/v04206-tts-mood-dual-mode`，从 +249 远端已交付源码单独建立；本节不包含用户备份、诊断或聊天明文。
 - 双形态：本体／小豆丁形态是同一成年角色，记忆与能力不变；持久化气焰、形态与锁定；每个真实用户轮按消息 ID 仅推进一次，严肃语境退出自动小豆丁形态；点击心形量表可触发一次虚拟轻弹额头/安抚并升/降气焰，事件只注入紧接着的回复。锁定保持立绘形态，但严肃语境降低表达锋芒；界面气焰提示、形态自知与显式 Agent 检查系统读数统一显示“小豆丁形态”。
 - 性格：未编辑的常驻性格光谱与成人核心身份文案做精确指纹迁移，保留用户自行编辑条目；激烈耍性子只由当前真实小豆丁形态状态承载，不把属性名常驻注入每轮。旧版 +250 未编辑默认文案按精确内容哈希升级为“小豆丁形态”，用户自行编辑的内容保持原样。
 - 用户补充后的形态定义：身体外观缩成 Q 版小豆丁，情绪控制与表达暂时孩子气，更任性、冲动、耍赖和暴躁；得意时逞强挑衅，被看穿或轻巧反击时嘴硬、害羞、慌乱破防。角色仍是同一个成年人，记忆与判断能力不变；严肃话题仍可收住。已同步当前形态提示、常驻世界书、Agent 自读；添加 +250 旧默认正文的精确 SHA-256 `06b01d4e…87f3e` 到迁移白名单，自定义条目不覆盖。此前 Actions 成功的 APK 和正在编译的名称修订版均不作为本轮最终交付，需以本版定义重新构建。
 - TTS：语音与情绪页显示当前胜出档和本轮候选档两个无声测试按钮、复制专项报告和样本更新文字入口。固定同一条已提交的真实 API 回复、语种、音色、前处理和分段，在隔离 Genie 子进程测自动核亲和与自动 Decoder＋8 线程 VITS；逐段只保存哈希及耗时，失败或不一致禁算胜者，比较足够明确时才持久化生产档。普通会话不再持续写入详尽成功片段性能历史，原生错误与崩溃线索保留。
 - 验证与后续：先完成源码门、Flutter analyze/tests 与 Kotlin/arm64 Release 构建；真机检查心形液面、按钮语义事件后跨轮持续、自动/锁定形态、三语入口共享会话配置，以及同样本双档无声对比是否有效。性能提升没有预设 50% 结论。
+- 最终构建证据：功能提交 `b5cd2d1070fb237bc72ab66b1867a75da9bbe6e8`，tree `4e0dbbd531aea408ab0face6d46a323f441c7eeb` 与本地源码一致。Actions `35943607609` 源码门 126 项、Kotlin 单元测试、Flutter analyze/test、arm64 Release APK、签名和包内资源核验全部通过；Artifact `10785922926`，APK SHA-256 `f148f2eb303017ad5f6f689628f230979c24ba16831fdc0181e58bc5e1d73a`，Draft `v0.42.6-dual-form-tts-comparison-test`。仅 CI 通过，双形态语气、立绘与 TTS 对照仍待用户真机验收。此前仅改名称的 run `35941949391` 虽全绿但定义不完整，已由本次构建取代。
 
 ## 7. 历史验证兼容摘要
 
