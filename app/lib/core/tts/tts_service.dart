@@ -61,6 +61,11 @@ class TtsService implements TtsQueueService {
     _appliedHybrid = hybrid;
   }
 
+  /// Packaged resources only; explicit deep checks and playback check runtime readiness.
+  Future<TtsStatus> localStatus() => provider is NativeTtsProvider
+      ? (provider as NativeTtsProvider).localStatus()
+      : provider.status();
+
   Future<TtsStatus> status() async {
     // Reading status must not stop playback or rebuild native sessions.
     // Runtime settings are applied by the explicit initialization/generation

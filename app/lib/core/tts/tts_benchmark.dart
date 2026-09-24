@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'package:crypto/crypto.dart';
+import 'package:flutter/services.dart';
 
 import '../database/app_database.dart';
 import '../models/chat_language_variant.dart';
@@ -24,8 +25,70 @@ class TtsBenchmark {
   Future<String> champion() async =>
       (await db.getSetting(championKey)) == 'hybrid' ? 'hybrid' : 'auto';
 
-  Future<String> run(String profile) async {
+  /// One tap tests both profiles against a single frozen real reply. Results
+  /// from earlier taps never elect a winner for this comparison.
+  Future<String> runComparison() async {
     final fixture = await _fixture();
+    final initial = await champion();
+    final batchId = DateTime.now().microsecondsSinceEpoch.toString();
+    final profiles = <String>[initial, initial == 'auto' ? 'hybrid' : 'auto'];
+    final results = <String, Map<String, dynamic>>{};
+    final failures = <String>[];
+    for (final profile in profiles) {
+      try {
+        final entry = await _measure(profile, fixture, batchId);
+        results[profile] = entry;
+        if (entry['complete'] != true) failures.add('$profile：部分片段失败');
+      } catch (error) {
+        // Keep a redacted failed entry so the copied report still explains
+        // why this batch could not be compared. Always try the other profile.
+        final code = error is PlatformException ? error.code : error.runtimeType.toString();
+        failures.add('$profile：$code');
+        await _append(<String, dynamic>{
+          'fixtureId': fixture['id'],
+          'fixtureHash': fixture['hash'],
+          'fixtureScope': fixture['scope'],
+          'timestamp': DateTime.now().toIso8601String(),
+          'batchId': batchId,
+          'profile': profile,
+          'complete': false,
+          'segments': const [],
+          'failureCode': code,
+        });
+      }
+    }
+    final auto = results['auto'];
+    final hybrid = results['hybrid'];
+    final comparable = auto != null && hybrid != null &&
+        _comparable(auto, hybrid);
+    var conclusion = '结果不可比较，请复制 TTS 诊断报告查看失败环节。';
+    if (comparable && auto != null && hybrid != null) {
+      final a = _wall(auto);
+      final b = _wall(hybrid);
+      if (a > 0 && b > 0) {
+        final difference = (a - b).abs() / a;
+        if (difference > .05) {
+          final winner = b < a ? 'hybrid' : 'auto';
+          await db.setSetting(championKey, winner);
+          await db.setSetting('tts_auto_affinity_enabled', '1');
+          await db.setSetting('tts_hybrid_vits_enabled',
+              winner == 'hybrid' ? '1' : '0');
+          conclusion = '已选较快的${winner == 'auto' ? '自动核亲和档' : '混合档'}。';
+        } else {
+          conclusion = '耗时差小于 5%，保留当前档。';
+        }
+      }
+    }
+    return '同一回复的两档无声测试完成：'
+        '自动核亲和档 ${auto == null ? '失败' : '${_wall(auto)} ms'}，'
+        '混合档 ${hybrid == null ? '失败' : '${_wall(hybrid)} ms'}。'
+        '${failures.isEmpty ? '' : '异常：${failures.join('；')}。'}'
+        '$conclusion';
+  }
+
+  Future<Map<String, dynamic>> _measure(
+    String profile, Map<String, dynamic> fixture, String batchId,
+  ) async {
     final raw = await NativeTtsProvider.instance.benchmark(
       profile,
       (fixture['segments'] as List)
@@ -37,29 +100,18 @@ class TtsBenchmark {
       'fixtureHash': fixture['hash'],
       'fixtureScope': fixture['scope'],
       'timestamp': DateTime.now().toIso8601String(),
+      'batchId': batchId,
       ...raw.map((key, value) => MapEntry(key.toString(), value)),
     };
+    await _append(entry);
+    return entry;
+  }
+
+  Future<void> _append(Map<String, dynamic> entry) async {
     final history = await _history();
     history.add(entry);
     if (history.length > 12) history.removeRange(0, history.length - 12);
     await db.setSetting(historyKey, jsonEncode(history));
-    final auto = _latest(history, 'auto', fixture['hash']);
-    final hybrid = _latest(history, 'hybrid', fixture['hash']);
-    if (auto != null && hybrid != null && _comparable(auto, hybrid)) {
-      final a = _wall(auto);
-      final b = _wall(hybrid);
-      if (a > 0 && b > 0 && (a - b).abs() / a > .05) {
-        final winner = b < a ? 'hybrid' : 'auto';
-        await db.setSetting(championKey, winner);
-        await db.setSetting('tts_auto_affinity_enabled', '1');
-        await db.setSetting('tts_hybrid_vits_enabled', winner == 'hybrid' ? '1' : '0');
-      }
-    }
-    return '${profile == 'auto' ? '自动核亲和档' : '混合档'}完成：'
-        '${entry['complete'] == true ? '全部成功' : '部分失败'}，'
-        '无声生成 ${_wall(entry)} ms；'
-        '${fixture['scope'] == 'full_text_fallback' ? '最近回复没有对白，改用真实回复全文测试；' : ''}'
-        '两档完成后可复制对照报告。';
   }
 
   Future<void> chooseNewFixture() async {
@@ -70,8 +122,9 @@ class TtsBenchmark {
     final history = await _history();
     if (history.isEmpty) return '尚无 TTS 无声对照记录。';
     final last = history.last;
-    final auto = _latest(history, 'auto', last['fixtureHash']);
-    final hybrid = _latest(history, 'hybrid', last['fixtureHash']);
+    final batchId = last['batchId'];
+    final auto = _latest(history, 'auto', last['fixtureHash'], batchId: batchId);
+    final hybrid = _latest(history, 'hybrid', last['fixtureHash'], batchId: batchId);
     final comparable = auto != null && hybrid != null && _comparable(auto, hybrid);
     final saving = comparable && auto != null && hybrid != null && _wall(auto) > 0
         ? '${((_wall(auto) - _wall(hybrid)) / _wall(auto) * 100).toStringAsFixed(1)}%'
@@ -180,9 +233,10 @@ ${const JsonEncoder.withIndent('  ').convert(history)}''';
   }
 
   Map<String, dynamic>? _latest(List<Map<String, dynamic>> history,
-      String profile, Object? hash) {
+      String profile, Object? hash, {Object? batchId}) {
     for (final item in history.reversed) {
-      if (item['profile'] == profile && item['fixtureHash'] == hash) return item;
+      if (item['profile'] == profile && item['fixtureHash'] == hash &&
+          item['batchId'] == batchId) return item;
     }
     return null;
   }

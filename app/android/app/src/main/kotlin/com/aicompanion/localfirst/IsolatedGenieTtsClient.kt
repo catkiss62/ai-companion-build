@@ -17,10 +17,12 @@ class IsolatedGenieTtsClient(private val context: Context) {
     @Volatile private var remote: IGenieTtsIsolatedService? = null
     @Volatile private var connectionLatch = CountDownLatch(1)
     @Volatile private var binding = false
+    @Volatile private var bound = false
 
     private val connection = object : ServiceConnection {
         override fun onServiceConnected(name: ComponentName?, service: IBinder?) {
             synchronized(connectionLock) {
+                if (!bound) return
                 remote = IGenieTtsIsolatedService.Stub.asInterface(service)
                 binding = false
                 connectionLatch.countDown()
@@ -78,20 +80,41 @@ class IsolatedGenieTtsClient(private val context: Context) {
                 val intent = Intent(context, GenieTtsIsolatedService::class.java)
                 if (!context.bindService(intent, connection, Context.BIND_AUTO_CREATE)) {
                     binding = false
+                    connectionLatch.countDown()
                     error("无法启动 Genie TTS 子进程")
                 }
+                bound = true
             }
             latch = connectionLatch
         }
-        check(latch.await(10, TimeUnit.SECONDS)) { "连接 Genie TTS 子进程超时" }
+        if (!latch.await(10, TimeUnit.SECONDS)) {
+            // A timed-out bind otherwise leaves binding=true indefinitely.
+            synchronized(connectionLock) {
+                if (connectionLatch === latch && remote == null) detachLocked()
+            }
+            RuntimeDiagnosticStore.record(
+                context, category = "tts", phase = "child_connection_timeout",
+                severity = "error", code = "bind_timeout", durable = true,
+            )
+            error("连接 Genie TTS 子进程超时；连接已重置，请重试")
+        }
         return remote ?: error("Genie TTS 子进程连接失败")
+    }
+
+    /** Reset a dead binding before the next request; called with connectionLock. */
+    private fun detachLocked() {
+        remote = null
+        binding = false
+        connectionLatch.countDown()
+        if (bound) {
+            bound = false
+            runCatching { context.unbindService(connection) }
+        }
     }
 
     private fun handleDeath(reason: String) {
         synchronized(connectionLock) {
-            remote = null
-            binding = false
-            connectionLatch.countDown()
+            detachLocked()
         }
         val checkpoint = TtsProcessCheckpoint.read(context)
         RuntimeDiagnosticStore.record(

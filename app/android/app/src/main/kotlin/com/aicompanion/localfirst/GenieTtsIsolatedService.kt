@@ -247,7 +247,19 @@ class GenieTtsIsolatedService : Service() {
             } catch (error: Throwable) {
                 lastError = error.message ?: error.javaClass.simpleName
                 lastErrorType = error.javaClass.simpleName
-                markStage("generate_failed", error.javaClass.simpleName, durable = true)
+                // Only an engine class/method token crosses into redacted diagnostics.
+                // This distinguishes a frontend failure from the observed second
+                // segment NullPointerException without exporting a stack trace.
+                val site = error.stackTrace.firstOrNull {
+                    it.className.startsWith("com.catkiss62.geniettsbenchmark") ||
+                        it.className.startsWith("com.aicompanion.localfirst")
+                }?.let { "${it.className.substringAfterLast('.')}_${it.methodName}" }
+                    ?: "unknown"
+                markStage(
+                    "generate_failed",
+                    "${error.javaClass.simpleName}_${site.take(64)}",
+                    durable = true,
+                )
                 throw error
             }
         }
