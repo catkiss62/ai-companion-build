@@ -4078,7 +4078,8 @@ class AppDatabase {
       final digest = sha256.convert(utf8.encode(content)).toString();
       if (digest != legacySha256 &&
           digest != 'fcc1074203b31cdf36466b39b3b6b08b5abd7497855155c31558177242dfe0fb' &&
-          digest != 'b71a5fa57fc953c9f387fbf6c01eebe2a46a4091f55d9116b5a14c70ede5d4ac') continue;
+          digest != 'b71a5fa57fc953c9f387fbf6c01eebe2a46a4091f55d9116b5a14c70ede5d4ac' &&
+          digest != '06b01d4ed2663c17bfe441af16728d8cdf47729224cf8602012198fe87d87f3e') continue;
       await db.update(
         'reference_documents',
         {
