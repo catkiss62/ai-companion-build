@@ -20,7 +20,7 @@ def require(path: str, *tokens: str) -> None:
 
 
 require("pubspec.yaml", "version: 0.41.97+241", "version: 0.41.98+242", "version: 0.42.2+246", "version: 0.42.3+247", "version: 0.42.4+248", "version: 0.42.5+249")
-require("lib/core/agent/agent_self_reader.dart", "v0.41.98+242", "v0.41.99+243", "v0.42.2+246", "v0.42.3+247", "v0.42.4+248", "v0.42.5+249")
+require("lib/core/agent/agent_self_reader.dart", "v0.41.98+242", "v0.41.99+243", "v0.42.2+246", "v0.42.3+247", "v0.42.4+248", "v0.42.5+249", "v0.42.6+250")
 require(
     "lib/core/grounding/recent_reply_repetition_guard.dart",
     "exact_recent_reply",

@@ -74,6 +74,7 @@ data class EngineConfig(
     val executionMode: GraphExecutionMode = GraphExecutionMode.DEFAULT,
     val allowSpinning: Boolean? = null,
     val profileId: String = "legacy_fixed_8",
+    val vocoderThreads: Int? = null,
 ) {
     val label: String
         get() = when (backend) {

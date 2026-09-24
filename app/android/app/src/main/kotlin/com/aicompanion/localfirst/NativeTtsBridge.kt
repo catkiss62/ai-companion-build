@@ -56,8 +56,18 @@ class NativeTtsBridge(
                         call.argument<Boolean>("enabled") == true,
                     )
                 }
+                "configureHybridVocoder" -> submit(generationWorker, result, "tts_runtime_config_failed") {
+                    engine.configureHybridVocoder()
+                }
                 "diagnose" -> submit(generationWorker, result, "tts_diagnose_failed") {
                     engine.diagnose(call.argument<String>("language").orEmpty())
+                }
+                "benchmark" -> {
+                    val profile = call.argument<String>("profile").orEmpty()
+                    val segments = (call.argument<List<Map<String, String>>>("segments") ?: emptyList())
+                    submit(generationWorker, result, "tts_benchmark_failed") {
+                        engine.benchmark(profile, segments)
+                    }
                 }
                 "importChineseRoberta" -> submit(generationWorker, result, "tts_import_failed") {
                     engine.importChineseRoberta(call.argument<String>("path").orEmpty())

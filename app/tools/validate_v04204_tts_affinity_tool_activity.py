@@ -34,7 +34,7 @@ def main() -> None:
 
     require(
         any(version in read("pubspec.yaml") for version in (
-            "version: 0.42.4+248", "version: 0.42.5+249",
+            "version: 0.42.4+248", "version: 0.42.5+249", "version: 0.42.6+250",
         )),
         "version mismatch",
     )
@@ -106,7 +106,7 @@ def main() -> None:
     require("agent/v04204-tts-affinity-tool-activity" in workflow,
             "workflow branch trigger missing")
     require(
-        any(version in workflow for version in ("v0.42.4+248", "v0.42.5+249")),
+        any(version in workflow for version in ("v0.42.4+248", "v0.42.5+249", "v0.42.6+250")),
         "workflow identity mismatch",
     )
     for token in ("TTS 自动核亲和与全工具活动展示", "后续冻结分析：双人格", "后续冻结分析：命运之轮"):

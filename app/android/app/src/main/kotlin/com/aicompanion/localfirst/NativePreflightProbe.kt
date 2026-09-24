@@ -79,7 +79,6 @@ object NativePreflightProbe {
                 "outputDevices" to outputs,
             ),
             "runtimeDiagnosticCount" to RuntimeDiagnosticStore.snapshot(context, 160).size,
-            "ttsSessionDiagnostics" to TtsSessionDiagnosticStore.snapshot(context),
         )
     }
 

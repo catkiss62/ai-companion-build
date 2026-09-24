@@ -35,7 +35,7 @@ def main() -> None:
             version in read("pubspec.yaml")
             for version in (
                 "version: 0.42.2+246", "version: 0.42.3+247",
-                "version: 0.42.4+248", "version: 0.42.5+249",
+                "version: 0.42.4+248", "version: 0.42.5+249", "version: 0.42.6+250",
             )
         ),
         "version mismatch",

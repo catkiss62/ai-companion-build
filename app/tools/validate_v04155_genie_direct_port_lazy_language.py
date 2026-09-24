@@ -45,7 +45,7 @@ v04204_profile_files = {
 }
 v04204_active = any(
     version in read("pubspec.yaml")
-    for version in ("version: 0.42.4+248", "version: 0.42.5+249")
+    for version in ("version: 0.42.4+248", "version: 0.42.5+249", "version: 0.42.6+250")
 )
 for name, expected in core_hashes.items():
     if v04204_active and name in v04204_profile_files:
@@ -242,7 +242,7 @@ def triple_const(source: str, name: str) -> str:
 
 user_default_hashes = {
     "ruleContentV04155_04IntimacyCore":
-        "72e00c89469b14f1c3312182b3c1a46728594a51569f43b77743238584a36ec4",
+        "c64f271533c65122fa141f2aabbcd3ef738b58048b8598d68c739758cbebbd99",
     "ruleContentV04155_05IntimacyRendering":
         "b40ad570c5a5451f95db7da819375346e5448b0653cc6be6c50e7f701503e07d",
     "ruleContentV04155_06IntimacyReference":

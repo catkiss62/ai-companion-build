@@ -1,5 +1,6 @@
 import '../database/app_database.dart';
 import '../platform/android_bridge.dart';
+import '../personality/playful_form_state.dart';
 import 'agent_tool.dart';
 import 'agent_tool_registry.dart';
 
@@ -102,7 +103,8 @@ class AgentSelfReader {
   // Historical validator token: v0.42.2+246
   // Historical validator token: v0.42.3+247
   // Historical validator token: v0.42.4+248
-  static const buildLabel = 'v0.42.5+249';
+  // Historical validator token: v0.42.5+249
+  static const buildLabel = 'v0.42.6+250';
 
   static const systemFacts = <AgentSystemFact>[
     AgentSystemFact(
@@ -215,6 +217,9 @@ class AgentSelfReader {
             scope == AgentSelfReadScope.all
         ? await db.personalityLearningDiagnosticStats()
         : const <String, Object?>{};
+    final form = (scope == AgentSelfReadScope.facts || scope == AgentSelfReadScope.all)
+        ? await PlayfulFormStore(db).load()
+        : null;
     return composePromptData(
       scope: scope,
       activeBrain: activeBrain,
@@ -223,6 +228,7 @@ class AgentSelfReader {
       userRows: userRows,
       autonomousRows: autonomousRows,
       growthStats: growthStats,
+      form: form,
     );
   }
 
@@ -236,9 +242,15 @@ class AgentSelfReader {
     List<Map<String, Object?>> userRows = const <Map<String, Object?>>[],
     List<Map<String, Object?>> autonomousRows = const <Map<String, Object?>>[],
     Map<String, Object?> growthStats = const <String, Object?>{},
+    PlayfulFormState? form,
   }) {
     final factLines = <String>[];
     if (scope == AgentSelfReadScope.facts || scope == AgentSelfReadScope.all) {
+      if (form != null) {
+        factLines.add('[FORM_STATE form=${form.qForm ? 'q' : 'normal'} '
+            'heat=${form.heat} locked=${form.locked}] '
+            '同一个成年角色会随玩闹程度切换本体和小小鲸 Q 版；界面互动可改变气焰值。');
+      }
       factLines.add(
         '[SYSTEM_RUNTIME build=$buildLabel schema=${AppDatabase.schemaVersion} '
         'brain=${activeBrain ? 'active' : 'standby'} device=${_field(currentDeviceLabel, 80)}]',

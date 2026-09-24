@@ -19,6 +19,7 @@ import '../../core/models/reference_document.dart';
 import '../../core/mcp/cedar_toy_activity.dart';
 import '../../core/platform/android_bridge.dart';
 import '../../core/platform/live2d_model_storage.dart';
+import '../../core/personality/playful_form_state.dart';
 import '../../core/storage/message_attachment_storage.dart';
 import '../../core/stickers/sticker_pack.dart';
 import '../../core/stickers/sticker_pack_storage.dart';
@@ -33,6 +34,7 @@ import '../../core/tts/tts_text_processor.dart';
 import '../../widgets/reasoning_panel.dart';
 import '../../widgets/action_tint_text.dart';
 import '../../widgets/chat_portrait_stage.dart';
+import '../../widgets/playful_heat_gauge.dart';
 import 'chat_controller.dart';
 import 'chat_timestamp_formatter.dart';
 import '../reference/reference_library_page.dart';
@@ -79,6 +81,7 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
   double _panelOpacity = 0.75;
   double _panelFraction = 0.62;
   ChatPortraitSet _portraitSet = ChatPortraitSet.largeWhale;
+  PlayfulFormState _playfulForm = const PlayfulFormState();
   double _portraitScale = ChatPortraitTransform.defaults.scale;
   Offset _portraitOffset = ChatPortraitTransform.defaults.offset;
   int _typewriterMs = 48;
@@ -119,6 +122,7 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
   Future<void> _initializeController() async {
     await controller.initialize();
     await _loadVisualSettings();
+    _playfulForm = await PlayfulFormStore(AppDatabase.instance).load();
     await _restorePresentationCursor();
     if (!mounted) return;
     _initializingMessages = false;
@@ -246,6 +250,7 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
       }
     }
     setState(() {});
+    if (discoveredUser || generationEnded) unawaited(_refreshPlayfulForm());
     if (GenerationPresentationPolicy.shouldFollowChatNotification(
       followLatest: _followLatest,
       generationActive: controller.generationActive,
@@ -277,6 +282,22 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
     if (_appResumed && widget.active && !controller.generationActive) {
       unawaited(controller.acknowledgeOverlayUnread());
     }
+  }
+
+  Future<void> _refreshPlayfulForm() async {
+    final state = await PlayfulFormStore(AppDatabase.instance).load();
+    if (mounted && (state.heat != _playfulForm.heat ||
+        state.qForm != _playfulForm.qForm || state.locked != _playfulForm.locked)) {
+      setState(() => _playfulForm = state);
+    }
+  }
+
+  Future<void> _onPlayfulFormAction(String action) async {
+    final store = PlayfulFormStore(AppDatabase.instance);
+    final next = action == 'lock'
+        ? await store.lock(!_playfulForm.locked)
+        : await store.interact(action == 'kindle');
+    if (mounted) setState(() => _playfulForm = next);
   }
 
   bool _onUserScroll(UserScrollNotification notification) {
@@ -1306,13 +1327,24 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
                       child: IgnorePointer(
                         child: ChatPortraitStage(
                           emotion: _currentEmotion,
-                          portraitSet: _portraitSet,
+                          portraitSet: _playfulForm.qForm
+                              ? ChatPortraitSet.smallWhale
+                              : _portraitSet,
                           transform: ChatPortraitTransform(
                             scale: _portraitScale,
                             offset: _portraitOffset,
                           ),
                           animationToken: latestAssistantId,
                         ),
+                      ),
+                    ),
+                    Positioned(
+                      top: 10,
+                      right: 10,
+                      child: PlayfulHeatGauge(
+                        heat: _playfulForm.heat,
+                        locked: _playfulForm.locked,
+                        onSelected: _onPlayfulFormAction,
                       ),
                     ),
                   ],

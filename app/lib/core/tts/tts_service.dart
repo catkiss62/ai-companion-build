@@ -23,6 +23,7 @@ class TtsService implements TtsQueueService {
   final TtsProvider provider;
   final TtsTextProcessor processor;
   bool? _appliedAutoAffinity;
+  bool? _appliedHybrid;
 
   @override
   Future<TtsVoiceMode> resolveVoice(TtsEmotionCue? emotion) async {
@@ -47,20 +48,29 @@ class TtsService implements TtsQueueService {
 
   Future<void> _ensureRuntimeProfile() async {
     final enabled = (await db.getSetting('tts_auto_affinity_enabled')) == '1';
-    if (_appliedAutoAffinity == enabled) return;
-    final status = await provider.configureAutoAffinity(enabled);
+    final hybrid = enabled &&
+        (await db.getSetting('tts_hybrid_vits_enabled')) == '1';
+    if (_appliedAutoAffinity == enabled && _appliedHybrid == hybrid) return;
+    final status = hybrid && provider is NativeTtsProvider
+        ? await (provider as NativeTtsProvider).configureHybridVocoder()
+        : await provider.configureAutoAffinity(enabled);
     if (status.autoAffinityEnabled != enabled) {
       throw StateError('TTS 推理配置没有切换到请求的模式');
     }
     _appliedAutoAffinity = enabled;
+    _appliedHybrid = hybrid;
   }
 
   Future<TtsStatus> status() async {
     await _ensureRuntimeProfile();
     var result = await provider.status();
     final expected = (await db.getSetting('tts_auto_affinity_enabled')) == '1';
-    if (result.autoAffinityEnabled != expected) {
+    final hybridExpected = expected &&
+        (await db.getSetting('tts_hybrid_vits_enabled')) == '1';
+    if (result.autoAffinityEnabled != expected ||
+        (hybridExpected && result.runtimeProfile != 'auto_decoder_fixed_vocoder_v1')) {
       _appliedAutoAffinity = null;
+      _appliedHybrid = null;
       await _ensureRuntimeProfile();
       result = await provider.status();
     }
@@ -74,7 +84,9 @@ class TtsService implements TtsQueueService {
       throw StateError('TTS 推理配置切换失败');
     }
     await db.setSetting('tts_auto_affinity_enabled', enabled ? '1' : '0');
+    if (!enabled) await db.setSetting('tts_hybrid_vits_enabled', '0');
     _appliedAutoAffinity = enabled;
+    _appliedHybrid = false;
     return status;
   }
 

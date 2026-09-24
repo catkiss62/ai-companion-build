@@ -32,22 +32,39 @@ class GenieTtsRuntime(private val context: Context) : AutoCloseable {
     private var english: EnglishFrontend? = null
     private var japanese: NativeJapaneseFrontend? = null
     private var autoAffinityEnabled = false
+    private var hybridVocoder = false
 
     val runtimeProfileId: String
-        get() = if (autoAffinityEnabled) {
+        get() = if (autoAffinityEnabled && hybridVocoder) {
+            "auto_decoder_fixed_vocoder_v1"
+        } else if (autoAffinityEnabled) {
             VerifiedRuntimeConfig.AUTO_AFFINITY.profileId
         } else {
             LEGACY_ACOUSTIC_CONFIG.profileId
         }
 
     fun configureAutoAffinity(enabled: Boolean) {
-        if (autoAffinityEnabled == enabled) return
+        if (autoAffinityEnabled == enabled && !hybridVocoder) return
         if (modelsReady) {
             engine.unloadModels()
             modelsReady = false
             modelLoad = ModelLoadInfo(false, 0L)
         }
         autoAffinityEnabled = enabled
+        hybridVocoder = false
+        chinese?.configure(chineseConfig())
+        System.gc()
+    }
+
+    fun configureBenchmarkProfile(profile: String) {
+        require(profile == "auto" || profile == "hybrid") { "未知 TTS 对照档：$profile" }
+        if (modelsReady) {
+            engine.unloadModels()
+            modelsReady = false
+            modelLoad = ModelLoadInfo(false, 0L)
+        }
+        autoAffinityEnabled = true
+        hybridVocoder = profile == "hybrid"
         chinese?.configure(chineseConfig())
         System.gc()
     }
@@ -327,7 +344,10 @@ class GenieTtsRuntime(private val context: Context) : AutoCloseable {
     }
 
     private fun acousticConfig(): EngineConfig = if (autoAffinityEnabled) {
-        VerifiedRuntimeConfig.AUTO_AFFINITY
+        if (hybridVocoder) VerifiedRuntimeConfig.AUTO_AFFINITY.copy(
+            profileId = "auto_decoder_fixed_vocoder_v1",
+            vocoderThreads = 8,
+        ) else VerifiedRuntimeConfig.AUTO_AFFINITY
     } else {
         LEGACY_ACOUSTIC_CONFIG
     }

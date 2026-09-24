@@ -127,4 +127,4 @@ tools/validate_v04201_autonomy_media_hardening.py
 tools/validate_v04202_media_transaction_recovery.py
 tools/validate_v04203_media_empty_turn_hotfix.py
 tools/validate_v04204_tts_affinity_tool_activity.py
-tools/validate_v04205_tts_semantic_guard_session_metrics.py
+tools/validate_v04206_dual_form_tts_benchmark.py

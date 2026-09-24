@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'package:flutter/services.dart';
 
 import 'package:flutter/material.dart';
 
@@ -18,6 +19,7 @@ import '../../core/tts/tts_provider.dart';
 import '../../core/tts/tts_service.dart';
 import '../../core/tts/tts_text_processor.dart';
 import '../../core/tts/tts_voice_profile.dart';
+import '../../core/tts/tts_benchmark.dart';
 import '../../widgets/action_tint_text.dart';
 
 class CompanionStateOverviewPage extends StatefulWidget {
@@ -605,6 +607,7 @@ class _VoiceEmotionSettingsPageState
     try {
       final result = await action();
       _ttsStatus = await _tts.status();
+      _ttsAutoAffinity = _ttsStatus?.autoAffinityEnabled ?? _ttsAutoAffinity;
       _lastResolvedVoice =
           await _db.getSetting('last_tts_resolved_voice') ?? '';
       if (mounted) setState(() => _status = result);
@@ -937,6 +940,50 @@ class _VoiceEmotionSettingsPageState
                                   ),
                           icon: const Icon(Icons.volume_up_outlined),
                           label: const Text('测试朗读'),
+                        ),
+                        FilledButton.tonalIcon(
+                          onPressed: _ttsBusy ? null : () => _runTtsAction(
+                            '正在无声生成当前胜出档…', () async {
+                              final benchmark = TtsBenchmark(_db);
+                              return benchmark.run(await benchmark.champion());
+                            },
+                          ),
+                          icon: const Icon(Icons.speed_rounded),
+                          label: const Text('测试当前胜出档'),
+                        ),
+                        FilledButton.tonalIcon(
+                          onPressed: _ttsBusy ? null : () => _runTtsAction(
+                            '正在无声生成本轮候选档…', () async {
+                              final benchmark = TtsBenchmark(_db);
+                              final champion = await benchmark.champion();
+                              return benchmark.run(
+                                champion == 'auto' ? 'hybrid' : 'auto',
+                              );
+                            },
+                          ),
+                          icon: const Icon(Icons.compare_arrows_rounded),
+                          label: const Text('测试本轮候选档'),
+                        ),
+                        FilledButton.tonalIcon(
+                          onPressed: _ttsBusy ? null : () => _runTtsAction(
+                            '正在整理 TTS 对照报告…', () async {
+                              await Clipboard.setData(ClipboardData(
+                                text: await TtsBenchmark(_db).report(),
+                              ));
+                              return 'TTS 专项诊断报告已复制。';
+                            },
+                          ),
+                          icon: const Icon(Icons.copy_rounded),
+                          label: const Text('复制 TTS 诊断报告'),
+                        ),
+                        TextButton(
+                          onPressed: _ttsBusy ? null : () => _runTtsAction(
+                            '正在更新对照样本…', () async {
+                              await TtsBenchmark(_db).chooseNewFixture();
+                              return '下次测试将选取最近的真实 API 回复；两档需重新运行。';
+                            },
+                          ),
+                          child: const Text('下轮改用最新回复'),
                         ),
                       ],
                     ),

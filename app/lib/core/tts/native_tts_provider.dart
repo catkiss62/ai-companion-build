@@ -14,6 +14,20 @@ class NativeTtsProvider implements TtsProvider {
 
   static const MethodChannel _channel = MethodChannel('ai_companion/tts');
 
+  Future<Map<Object?, Object?>> benchmark(
+    String profile,
+    List<Map<String, String>> segments,
+  ) async => await _channel.invokeMapMethod<Object?, Object?>(
+        'benchmark',
+        {'profile': profile, 'segments': segments},
+      ) ?? const {};
+
+  Future<TtsStatus> configureHybridVocoder() async => TtsStatus.fromMap(
+        await _channel.invokeMapMethod<Object?, Object?>(
+              'configureHybridVocoder',
+            ) ?? const {},
+      );
+
   @override
   Future<TtsStatus> status() async {
     final raw = await _channel.invokeMapMethod<Object?, Object?>('status');

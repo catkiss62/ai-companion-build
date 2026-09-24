@@ -158,7 +158,8 @@ class GenieBenchmarkEngine(private val context: Context) : AutoCloseable {
             encoder = createSession(File(root, info.models.getValue("encoder")), config, false)
             firstDecoder = createSession(File(root, info.models.getValue("first_decoder")), config, false)
             stageDecoder = createSession(File(root, info.models.getValue("stage_decoder")), config, false)
-            vocoder = createSession(File(root, info.models.getValue("vocoder")), config, true)
+            val vocoderConfig = config.vocoderThreads?.let { config.copy(threads = it) } ?: config
+            vocoder = createSession(File(root, info.models.getValue("vocoder")), vocoderConfig, true)
             currentConfig = config
         } catch (error: Throwable) {
             unloadModels()

@@ -25,6 +25,7 @@ import '../models/reference_item.dart';
 import '../models/thought.dart';
 import '../models/world_book_turn_context.dart';
 import '../perception/current_device_context_refresher.dart';
+import '../personality/playful_form_state.dart';
 import '../platform/android_bridge.dart';
 import '../relationship/relationship_age.dart';
 import '../relationship/relationship_brain.dart';
@@ -205,6 +206,23 @@ class PromptBuilder {
                   'user:${instant.millisecondsSinceEpoch ~/ 60000}')
               : 'proactive:${instant.millisecondsSinceEpoch ~/ 60000}',
         );
+    final formStore = PlayfulFormStore(db);
+    final formTurn = grounding.lastUserMessageId ??
+        'user:${instant.millisecondsSinceEpoch ~/ 60000}';
+    final form = mode == PromptGenerationMode.userTurn
+        ? await formStore.onTurn(
+            text: latestUserText,
+            turn: formTurn,
+            now: instant,
+          )
+        : await formStore.load();
+    final seriousFormContext = RegExp(
+      r'(难过|害怕|焦虑|生病|不舒服|紧急|事故|认真说|别开玩笑|报错|怎么修|故障|诊断)',
+    ).hasMatch(latestUserText);
+    final playfulFormSection = form.promptForTurn(
+      mode == PromptGenerationMode.userTurn ? formTurn : '',
+      serious: seriousFormContext,
+    );
     final dialogueExpressionPlan = DialogueExpressionPlan.select(
       latestUserText:
           mode == PromptGenerationMode.userTurn ? latestUserText : '',
@@ -349,6 +367,7 @@ $roleplayContinuity''',
         const {'role': 'system', 'content': roleplayExecutionAnchor},
       if (moeExpressionSection.isNotEmpty)
         {'role': 'system', 'content': moeExpressionSection},
+      {'role': 'system', 'content': playfulFormSection},
       {
         'role': 'system',
         'content': _visibleInnerVoiceContract(

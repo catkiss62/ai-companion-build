@@ -3829,6 +3829,23 @@ class AppDatabase {
       // application-overwritten. Manual edits survive every seed pass; a
       // user can explicitly restore the current bundled default from the UI.
     }
+    // The older bundled wording named the intense form even when it was not
+    // active. Update only that byte-identical default, never user edits.
+    final intimacyRows = await db.query(
+      'rule_layers',
+      columns: const ['content'],
+      where: 'key = ?',
+      whereArgs: const ['04_intimacy_core'],
+      limit: 1,
+    );
+    if (intimacyRows.isNotEmpty &&
+        sha256.convert(utf8.encode(intimacyRows.first['content'] as String)).toString() ==
+            '72e00c89469b14f1c3312182b3c1a46728594a51569f43b77743238584a36ec4') {
+      await db.update('rule_layers', {
+        'content': defaultRuleLayers.firstWhere((layer) => layer.key == '04_intimacy_core').content,
+        'updated_at': now,
+      }, where: 'key = ?', whereArgs: const ['04_intimacy_core']);
+    }
     // Stable layer titles are code-owned and are included in the system
     // prompt. Remove the old age-category label even when the body was edited.
     await db.update(
@@ -4058,7 +4075,8 @@ class AppDatabase {
     for (final row in rows) {
       final content = row['raw_content'] as String? ?? '';
       final digest = sha256.convert(utf8.encode(content)).toString();
-      if (digest != legacySha256) continue;
+      if (digest != legacySha256 &&
+          digest != 'fcc1074203b31cdf36466b39b3b6b08b5abd7497855155c31558177242dfe0fb') continue;
       await db.update(
         'reference_documents',
         {

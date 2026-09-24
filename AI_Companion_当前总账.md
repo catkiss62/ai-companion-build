@@ -28,7 +28,7 @@
 - **自然语义 Agent**：允许“陪我下五子棋”等自然表达触发模型自主发现；普通“看看”不是联网授权。Cedar 的账号级 `allow_self_reset` 服从网站设置。用户已决定暂不增加 Agent 确认弹窗，直到未来加入修改/破坏性能力再设计确认。
 - **媒体 Agent**：她能发送的媒体必须同时具备自读能力、可执行工具、真实附件 Outcome、来源 provenance 与发送后第一人称历史；只在 UI 或 Prompt 声称不算完成。
 - **隐私与发布**：Token、绑定码、私密房间正文、用户附件、诊断、备份、模型权重和参考音频不得进入公开 Git/Prompt/公开诊断。用户持续授权推送明确开发分支并运行常规 Actions/Draft APK；不含合并 `main`、正式 Release、删除分支/用户数据、改变仓库权限。
-- **冻结范围**：桌宠当前无确证问题；Live2D 等待新模型测试，不在当前批次恢复。+249 只修 Decoder 零新语义时错误复用参考 prompt 的根因并增加最后两次 TTS 会话诊断；不改声学模型、固定分段、首段预填充、连续 AudioTrack 或失败实验。普通回复表情包已真机重新出现，未发现概率数值漏洞时不强改。
+- **冻结范围**：桌宠当前无确证问题；Live2D 等待新模型测试，不在当前批次恢复。+249 的 Decoder 零新语义防护继续保留；+250 将日常持续会话计时移为手动 TTS 专项对照，并实现双形态气焰值。普通回复表情包已真机重新出现，未发现概率数值漏洞时不强改。
 
 ## 3. 当前基线
 
@@ -39,8 +39,9 @@
 | 功能状态 | `CI PASSED / APK READY / TRUE DEVICE PENDING` |
 | +228 远端 | head `29e87d016c8bd81f52f89f95191bd1a1a01a5b57`；tree `c4a112a56d8b634cf3a1a66636979a0833538b7d`；Actions `35440359036`；Artifact `10583263879`；APK SHA-256 `159e283173e49da2924d25b37ba7647893cdafdcc31b63f0e31b7c64e086849b` |
 | 仓库维护基线 | `maintenance/repository-governance-20260919`；远端文档 head `123e272196e8ae93f3518157917d76f6af4f1784`；完整构建 head `fa99f32012fa1a0716b746d36b958a8e777ef9b8`；Actions `35446649873` 全绿；文档-only run `35447342921` 正确跳过 APK |
-| 当前功能分支 | `agent/v04205-tts-semantic-guard-session-metrics`，基于 +248 等价源码树；候选版本 `v0.42.5+249` |
-| 当前任务状态 | `CI PASSED / APK READY / TRUE DEVICE PENDING`；根修 Decoder 首轮停止的参考语义泄漏，并在诊断保留最后两次完整 TTS 会话及同回复双档对比，见 6.22 |
+| 当前功能分支 | `agent/v04206-tts-mood-dual-mode`，基于 +249 已验证源码；候选版本 `v0.42.6+250` |
+| 当前任务状态 | `IMPLEMENTATION IN PROGRESS / CI PENDING / APK PENDING / TRUE DEVICE PENDING`；双形态语义互动与手动 TTS 无声对照，见 6.23 |
+| +250 当前任务 | 同一形态状态驱动角色提示与静态立绘，虚拟弹额头／安抚改变气焰值后继续自然衰减，心形液面与锁定入口；常驻世界书定点柔化并仅迁移未编辑原文；两档 TTS 共用冻结的真实回复与分段，无声生成并复制专项脱敏报告 |
 | +249 当前任务 | `loopIndex=0` 时明确判定“零个新语义 token”，在 VITS 前拒绝本段；最后两次会话记录生成时 profile、冷/热状态、各阶段耗时、RTF、播放首帧、队列余量、迟到段、失败/停止与脱敏文本哈希 |
 | +249 保护边界 | 不播放参考 prompt、不添加固定语音/固定台词/System TTS 兜底；失败段独立跳过，其他段继续；仅同一文本、音色、语言且分别为 `legacy_fixed_8` / `auto_affinity_v084` 才计算性能对比；schema 61 / Snapshot protocol 6 不变 |
 | +249 远端 | head `fb7f77f85d882f99530ab829df9a82eaa604e559`；tree `28e4fbafb5adb2bfaa58aa9ab6e1b1256f0c4b99`；Actions `35900627244` 全绿；Artifact `10770090214`；APK SHA-256 `546dd718d447b0987bf47aaba08089fefb0badffbc076ba38e695fb3e05263c5`；未发布 Draft Release `untagged-3a02088d4968fd7ab603` |
@@ -816,6 +817,14 @@ Actions 与交付证据：远端功能 head `33647c7bff15084d6fd3cbc7b817e9b0b21
 - 第二轮 run `35899547271` 已通过 126/126 源码门、Kotlin 编译/测试与 Flutter analyze；915 个 Flutter 测试中 914 个通过，唯一失败是 `agent_self_reader_v0416_test.dart` 仍断言上版 `v0.42.4+248`。已更新为 `v0.42.5+249` 并纳入 +249 门。
 - 最终远端 head `fb7f77f85d882f99530ab829df9a82eaa604e559` / tree `28e4fbafb5adb2bfaa58aa9ab6e1b1256f0c4b99` 在 run `35900627244` 全绿：126/126 源码/历史回归门、Android/Kotlin tests、Flutter analyze、915/915 Flutter tests、arm64 Release、稳定签名、Genie/桌宠/LingChat/塔罗载荷、Artifact 与未发布 Draft 上传均成功。
 - Artifact `10770090214`，名称 `AI-Companion-v0.42.5-249-TTS-Semantic-Guard-Session-Metrics-APK`，大小 `538,139,766` bytes，ZIP digest `0b1ca2a49a24047cbd7c659f66fa048f2a7d7f24f6394937a2a4859a177dbd51`。APK SHA-256 `546dd718d447b0987bf47aaba08089fefb0badffbc076ba38e695fb3e05263c5`，未发布 Draft Release `untagged-3a02088d4968fd7ab603`。没有合并 `main`，没有发布正式 Release；参考语音根修与同回复双档诊断仍待真机验收。
+
+### 6.23 v0.42.6+250 双形态与手动 TTS 无声对照（2026-09-23）
+
+- 状态：`IMPLEMENTATION IN PROGRESS / CI PENDING / APK PENDING / TRUE DEVICE PENDING`。分支 `agent/v04206-tts-mood-dual-mode`，从 +249 远端已交付源码单独建立；本节不包含用户备份、诊断或聊天明文。
+- 双形态：持久化气焰、形态与锁定；每个真实用户轮按消息 ID 仅推进一次，严肃语境退出自动 Q 版；点击心形量表可触发一次虚拟轻弹额头/安抚并升/降气焰，事件只注入紧接着的回复。锁定保持立绘形态，但严肃语境降低表达锋芒；形态自知与显式 Agent 检查系统读数各有入口。
+- 性格：未编辑的常驻性格光谱与成人核心身份文案做精确指纹迁移，保留用户自行编辑条目；激烈耍性子只由当前真实 Q 版状态承载，不把属性名常驻注入每轮。
+- TTS：语音与情绪页显示当前胜出档和本轮候选档两个无声测试按钮、复制专项报告和样本更新文字入口。固定同一条已提交的真实 API 回复、语种、音色、前处理和分段，在隔离 Genie 子进程测自动核亲和与自动 Decoder＋8 线程 VITS；逐段只保存哈希及耗时，失败或不一致禁算胜者，比较足够明确时才持久化生产档。普通会话不再持续写入详尽成功片段性能历史，原生错误与崩溃线索保留。
+- 验证与后续：先完成源码门、Flutter analyze/tests 与 Kotlin/arm64 Release 构建；真机检查心形液面、按钮语义事件后跨轮持续、自动/锁定形态、三语入口共享会话配置，以及同样本双档无声对比是否有效。性能提升没有预设 50% 结论。
 
 ## 7. 历史验证兼容摘要
 

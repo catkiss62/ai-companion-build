@@ -89,7 +89,7 @@ def main() -> None:
     )
     require(
         engine,
-        'phase = "generation_ready"',
+        'fun benchmark(',
         '"textSha256" to textHash',
         '"segmentIndex" to segmentIndex',
         '"phoneHash" to checkpoint["phoneHash"]',

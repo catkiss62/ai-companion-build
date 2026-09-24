@@ -103,6 +103,15 @@ class GenieTtsIsolatedService : Service() {
             }
         }
 
+        override fun configureBenchmarkProfileJson(profile: String): String = serialized {
+            guardedStatus {
+                generation.incrementAndGet()
+                runtime.configureBenchmarkProfile(profile)
+                initialized = runtime.isReady
+                markStage("benchmark_profile_configured")
+            }
+        }
+
         override fun importChineseRobertaJson(path: String): String = serialized {
             guardedStatus {
                 runtime.importChineseRoberta(File(path))
@@ -298,7 +307,8 @@ class GenieTtsIsolatedService : Service() {
         .put("diagnosticCode", lastErrorType)
         .put("diagnosticTrace", JSONArray(listOf("private_process", "single_serial_owner", stage)))
         .put("runtimeProfile", runtime.runtimeProfileId)
-        .put("autoAffinityEnabled", runtime.runtimeProfileId == "auto_affinity_v084")
+        .put("autoAffinityEnabled", runtime.runtimeProfileId == "auto_affinity_v084" ||
+            runtime.runtimeProfileId == "auto_decoder_fixed_vocoder_v1")
         .put("detail", lastError.ifBlank { runtime.statusDetail() })
         .toString()
 
