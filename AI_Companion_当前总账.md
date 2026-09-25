@@ -41,7 +41,7 @@
 | +228 远端 | head `29e87d016c8bd81f52f89f95191bd1a1a01a5b57`；tree `c4a112a56d8b634cf3a1a66636979a0833538b7d`；Actions `35440359036`；Artifact `10583263879`；APK SHA-256 `159e283173e49da2924d25b37ba7647893cdafdcc31b63f0e31b7c64e086849b` |
 | 仓库维护基线 | `maintenance/repository-governance-20260919`；远端文档 head `123e272196e8ae93f3518157917d76f6af4f1784`；完整构建 head `fa99f32012fa1a0716b746d36b958a8e777ef9b8`；Actions `35446649873` 全绿；文档-only run `35447342921` 正确跳过 APK |
 | 当前功能分支 | `agent/v04217-breakthrough-wheel-smooth`，基于 +260 全绿 APK；候选版本 `v0.42.17+261` |
-| 当前任务状态 | `IMPLEMENTED LOCALLY / CI PENDING / APK PENDING / TRUE DEVICE PENDING`；+261 满气焰一轮触发窗口、轮盘边缘/声音/灯光微调，详情见末尾；+260 Actions `36118441665` 全绿 |
+| 当前任务状态 | `CI PASSED / APK READY / TRUE DEVICE PENDING`；+261 满气焰一轮触发窗口、轮盘边缘/声音/灯光微调，Actions `36138316955` 全绿；详情见末尾 |
 | +250 当前任务 | 本体／小豆丁形态共用成年角色、记忆与能力；同一形态状态驱动角色提示与静态立绘，虚拟弹额头／安抚改变气焰值后继续自然衰减，心形液面与锁定入口；常驻世界书定点柔化并仅迁移未编辑原文；两档 TTS 共用冻结的真实回复与分段，无声生成并复制专项脱敏报告 |
 | +250 最终构建 | 功能 head `b5cd2d1070fb237bc72ab66b1867a75da9bbe6e8`；tree `4e0dbbd531aea408ab0face6d46a323f441c7eeb`；Actions `35943607609` 全绿；Artifact `10785922926`；APK SHA-256 `f148f2eb303017ad5f6f689628f230979c24ba16831fdc0181e58bc5e1d73a`；未发布 Draft Release `v0.42.6-dual-form-tts-comparison-test` |
 | +249 当前任务 | `loopIndex=0` 时明确判定“零个新语义 token”，在 VITS 前拒绝本段；最后两次会话记录生成时 profile、冷/热状态、各阶段耗时、RTF、播放首帧、队列余量、迟到段、失败/停止与脱敏文本哈希 |
@@ -958,4 +958,5 @@ Actions 与交付证据：远端功能 head `33647c7bff15084d6fd3cbc7b817e9b0b21
 
 - 双形态：本体自然达到 100 时只蓄势，下一次真实用户消息是一次触发判断机会。Jev 阅读最近 3～5 轮和本轮消息，按最新互动是否让她明显绷不住选“触发／等待”；Jev 不可用、不确定或失败时 DeepSeek Flash 同题兜底，两者均失败不消耗机会。触发时先更新共享状态和角色提示，再生成回复；若否，这轮保持满值，其后正常衰减。严肃求助不能作为触发。弹额头仍直接变身，安抚、锁定与手动按钮不变；小豆丁只有 0 自动还原。普通聊天与沉浸共用状态，Stop 回滚蓄势与形态。
 - 视觉：真实切换到小豆丁时立绘跳两下，不加烟雾。命运之轮 WebView 关闭 Android 边缘拉伸和可见滚动条，仍可正常上下滚动；网页默认声音开启，在首次手势音效时创建 Web Audio；跨卷轴重复 tick 限速，跑马灯仅更新实际变动的灯泡，保留原机台外观与逐轮振动。帧率改善需同机对照网页和 APK 验证。
-- 验证：状态和 Jev/DeepSeek 兜底专项测试、JS 语法、总账门、Flutter Analyze/Test 与 Android Release 走 Actions；真机观察普通／沉浸跨房间、Stop、锁定、双跳、声音、拖动边缘及帧数。状态 `IMPLEMENTED LOCALLY / CI PENDING / APK PENDING / TRUE DEVICE PENDING`。
+- 验证：状态和 Jev/DeepSeek 兜底专项测试、JS 语法、总账门、Flutter Analyze/Test 与 Android Release 已由 Actions `36138316955` 全绿确认；真机观察普通／沉浸跨房间、Stop、锁定、双跳、声音、拖动边缘及帧数。状态 `CI PASSED / APK READY / TRUE DEVICE PENDING`。
+- 构建交付：GitHub 构建提交 `3a9fd3091970ba132e9261575f212f709ee32613`，内容树 `66eb5939a2cc3bd013b508ebc24998587dd71bf6` 与本地提交 `d85d2f5` 完全一致；Artifact `10866132151`（14 天），Draft Release `396618220`，APK asset `588394207`，大小 `546205928` bytes，SHA-256 `2d5ccfc8d3508c093b11c60759cf12c9e46e07e128b1ccbf7ef23c997e21c4a7`。草稿页 `https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-d10092c51d058bdfdfb3`；未发布正式 Release。
