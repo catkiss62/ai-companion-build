@@ -1,6 +1,6 @@
 # AI Companion · 当前总账
 
-更新时间：2026-09-25（UTC；+263 CI 与 APK 完成）
+更新时间：2026-09-25（UTC；+264 原生轮盘默认化实现中）
 
 > 本文件是唯一的当前接班入口，继续采用“总账 v2”。顶部是快速接班索引；标记后的正式记录按版本持续追加，不设总容量上限。
 >
@@ -40,8 +40,8 @@
 | 功能状态 | `CI PASSED / APK READY / TRUE DEVICE PENDING` |
 | +228 远端 | head `29e87d016c8bd81f52f89f95191bd1a1a01a5b57`；tree `c4a112a56d8b634cf3a1a66636979a0833538b7d`；Actions `35440359036`；Artifact `10583263879`；APK SHA-256 `159e283173e49da2924d25b37ba7647893cdafdcc31b63f0e31b7c64e086849b` |
 | 仓库维护基线 | `maintenance/repository-governance-20260919`；远端文档 head `123e272196e8ae93f3518157917d76f6af4f1784`；完整构建 head `fa99f32012fa1a0716b746d36b958a8e777ef9b8`；Actions `35446649873` 全绿；文档-only run `35447342921` 正确跳过 APK |
-| 当前功能分支 | `agent/v04219-native-wheel-compare`，基于 +262 全绿 APK；候选版本 `v0.42.19+263` |
-| 当前任务状态 | `+263 IMPLEMENTED / CI PASSED / APK READY / TRUE DEVICE PENDING`；同一 HTML 在 Flutter WebView 与独立 Android WebView 中可切换对照卷轴/输入法，结果仍经原校验入房；Actions `36181810605` 全绿，详见末尾 +263 |
+| 当前功能分支 | `agent/v04220-native-wheel-default`，基于 +263 全绿 APK；候选版本 `v0.42.20+264` |
+| 当前任务状态 | `+264 IMPLEMENTATION IN PROGRESS / CI PENDING / APK PENDING / TRUE DEVICE PENDING`；原生 WebView 真机更顺且键盘恢复正常，改为唯一轮盘入口，移除旧 Flutter 对照和顶部栏，历史默认展开；详情见末尾 +264 |
 | +250 当前任务 | 本体／小豆丁形态共用成年角色、记忆与能力；同一形态状态驱动角色提示与静态立绘，虚拟弹额头／安抚改变气焰值后继续自然衰减，心形液面与锁定入口；常驻世界书定点柔化并仅迁移未编辑原文；两档 TTS 共用冻结的真实回复与分段，无声生成并复制专项脱敏报告 |
 | +250 最终构建 | 功能 head `b5cd2d1070fb237bc72ab66b1867a75da9bbe6e8`；tree `4e0dbbd531aea408ab0face6d46a323f441c7eeb`；Actions `35943607609` 全绿；Artifact `10785922926`；APK SHA-256 `f148f2eb303017ad5f6f689628f230979c24ba16831fdc0181e58bc5e1d73a`；未发布 Draft Release `v0.42.6-dual-form-tts-comparison-test` |
 | +249 当前任务 | `loopIndex=0` 时明确判定“零个新语义 token”，在 VITS 前拒绝本段；最后两次会话记录生成时 profile、冷/热状态、各阶段耗时、RTF、播放首帧、队列余量、迟到段、失败/停止与脱敏文本哈希 |
@@ -980,3 +980,9 @@ Actions 与交付证据：远端功能 head `33647c7bff15084d6fd3cbc7b817e9b0b21
 - 实现：轮盘 AppBar 增加“原生对照”，开启独立 Android Activity 的 WebView；原生顶部返回可回到当前 Flutter 版，确认抽签后经专用 MethodChannel 返回原 Dart `FateWheelResult.fromBridgeMessage` 校验再建房。两条路径使用相同 `file:///android_asset/flutter_assets/assets/fate_wheel/index.html`；原生禁用越界反馈/滚动条并保持 `adjustResize`，只许可本地页面导航，外部署名用系统浏览器。以隔离对照为主，不凭代码声称流畅度已提升。
 - 验证计划：本地源码范围、JS 和总账门；完整 CI 的 Kotlin/Flutter 分析、测试、APK 签名与资源校验；真机分别测旧入口和原生对照的转轮顺滑、输入法完整展开耗时、搜索/自定义标签、静音、单列重抽、确认入房与返回。若原生显著更顺，再讨论设为默认；若两者都慢，检查 WebView Provider 和页面本身。
 - 构建结果：本地提交 `50b860c`，远端同一 tree `45e40af287ba1554c5004bcfd0d51c7859f6e526` 的提交 `9cff7c2845a1c04379dd8adfc48e07a1c2512c2b`；完整 Actions `36181810605` 的 125 项源码检查、Kotlin 测试、Flutter analyze/test、Release APK、签名与资源校验全部通过，Draft Release 上传成功。Artifact `10884699335`；APK SHA-256 `8976dd8be4443325f4148c230686ba5d4ea05a273794062ff8bef70f179780b2`；Release `https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-405b62659a85f46c2693`。本地 125 项前 26 项通过，第 27 项因稀疏检出缺少既有 417 件桌宠资源停止，CI 在恢复完整资源后全部通过。状态 `IMPLEMENTED / CI PASSED / APK READY / TRUE DEVICE PENDING`；仍需真机确认原生页面实际性能与键盘动画、确认入房及返回。
+
+## v0.42.20+264 · 原生轮盘默认化与历史记录展开（2026-09-26）
+
+- 真机依据：用户安装 +263 后确认原生对照明显更顺，输入法展开恢复正常；指定将原生路径设为默认、删除旧 Flutter WebView 对照和顶部返回/对照栏（手机返回键退出），历史记录默认展开。+263 的源码/CI/APK 通过；其原生转轮与键盘性能标记 `TRUE DEVICE PASSED`，确认建房/全部边缘操作仍待本批复验。
+- 范围与保护：沉浸大厅入口直接开启独立 Android WebView；同一打包 HTML、标签、音效、单列重抽、JS 确认协议及 Dart 结果校验不变；取消返回只返回大厅且不建房。删除旧 `FateWheelPage`、其 Flutter 插件依赖与对照顶部栏；不修改全局 IME 模式、其他 WebView（若有）、人物/模型/TTS/游戏。网页历史记录初始面板与箭头为展开状态，仍可手动折叠/清空。
+- 验证：核对唯一入口/无旧 WebView 引用、HTML 历史展开标记与校验桥；CI 源码、Kotlin、Flutter、APK 签名与资源核验；真机检查全屏顶部、安全区、返回键、历史记录、确认建房与原生性能。

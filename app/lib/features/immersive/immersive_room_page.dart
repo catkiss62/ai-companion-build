@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart' show ScrollDirection;
+import 'package:flutter/services.dart';
 
 import '../../core/ai/message_language_variant_service.dart';
 import '../../core/fate_wheel/fate_wheel_catalog.dart';
@@ -27,7 +28,6 @@ import '../../widgets/playful_heat_gauge.dart';
 import '../../widgets/reasoning_panel.dart';
 import '../../widgets/companion_bottom_navigation.dart';
 import '../chat/chat_timestamp_formatter.dart';
-import '../fate_wheel/fate_wheel_page.dart';
 
 const immersiveRailPink = Color(0xFFF472B6);
 
@@ -42,6 +42,7 @@ class ImmersiveRoomLobbyPage extends StatefulWidget {
 }
 
 class _ImmersiveRoomLobbyPageState extends State<ImmersiveRoomLobbyPage> {
+  static const _fateWheelChannel = MethodChannel('ai_companion/fate_wheel_native');
   late final ImmersiveRoomRepository repository =
       ImmersiveRoomRepository(AppDatabase.instance);
   List<ImmersiveRoom> rooms = const [];
@@ -138,12 +139,22 @@ class _ImmersiveRoomLobbyPageState extends State<ImmersiveRoomLobbyPage> {
   }
 
   Future<void> _openFateWheel() async {
-    final result = await Navigator.of(context).push<FateWheelResult>(
-      MaterialPageRoute(builder: (_) => const FateWheelPage()),
-    );
-    if (result == null || !mounted) return;
+    String? message;
+    try {
+      message = await _fateWheelChannel.invokeMethod<String>('open');
+    } on PlatformException {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('命运之轮暂时无法打开。')),
+        );
+      }
+      return;
+    }
+    if (message == null || !mounted) return;
     final dimensions = await FateWheelCatalog.load();
     if (!mounted) return;
+    final result = FateWheelResult.fromBridgeMessage(message, dimensions);
+    if (result == null) return;
     await _createRoom(fateWheelEntry: result.toEntryContext(dimensions));
   }
 

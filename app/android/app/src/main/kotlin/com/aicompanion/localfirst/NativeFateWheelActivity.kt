@@ -4,17 +4,15 @@ import android.app.Activity
 import android.content.Intent
 import android.graphics.Color
 import android.os.Bundle
-import android.view.Gravity
 import android.view.View
+import android.view.ViewGroup
 import android.webkit.JavascriptInterface
 import android.webkit.WebChromeClient
 import android.webkit.WebResourceRequest
 import android.webkit.WebView
 import android.webkit.WebViewClient
-import android.widget.LinearLayout
-import android.widget.TextView
 
-/** Direct Android WebView comparison for the exact HTML used by FateWheelPage. */
+/** Displays the bundled wheel directly in Android WebView. */
 class NativeFateWheelActivity : Activity() {
     private lateinit var wheel: WebView
 
@@ -22,20 +20,6 @@ class NativeFateWheelActivity : Activity() {
         super.onCreate(savedInstanceState)
         window.statusBarColor = BACKGROUND
         window.navigationBarColor = BACKGROUND
-
-        val layout = LinearLayout(this).apply {
-            orientation = LinearLayout.VERTICAL
-            setBackgroundColor(BACKGROUND)
-        }
-        val header = TextView(this).apply {
-            text = "‹  返回当前版       命运之轮 · 原生对照"
-            textSize = 16f
-            setTextColor(Color.rgb(231, 196, 99))
-            gravity = Gravity.CENTER_VERTICAL
-            setPadding(dp(16), 0, dp(8), 0)
-            setOnClickListener { finish() }
-        }
-        layout.addView(header, LinearLayout.LayoutParams(-1, dp(45)))
 
         wheel = WebView(this).apply {
             setBackgroundColor(BACKGROUND)
@@ -61,8 +45,7 @@ class NativeFateWheelActivity : Activity() {
             }
             addJavascriptInterface(ResultBridge(), "FateWheelBridge")
         }
-        layout.addView(wheel, LinearLayout.LayoutParams(-1, 0, 1f))
-        setContentView(layout)
+        setContentView(wheel)
         wheel.loadUrl(TRUSTED_URL)
     }
 
@@ -81,13 +64,11 @@ class NativeFateWheelActivity : Activity() {
     override fun onDestroy() {
         if (::wheel.isInitialized) {
             wheel.removeJavascriptInterface("FateWheelBridge")
-            (wheel.parent as? LinearLayout)?.removeView(wheel)
+            (wheel.parent as? ViewGroup)?.removeView(wheel)
             wheel.destroy()
         }
         super.onDestroy()
     }
-
-    private fun dp(value: Int): Int = (value * resources.displayMetrics.density + 0.5f).toInt()
 
     companion object {
         const val EXTRA_RESULT = "ai_companion_fate_wheel_result"
