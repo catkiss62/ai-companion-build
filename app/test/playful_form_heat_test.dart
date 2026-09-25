@@ -24,7 +24,7 @@ void main() {
     expect(q.qForm, isFalse);
   });
 
-  test('natural full meter arms one following exchange before Q can start',
+  test('full meter holds once, then judges while renewed play keeps it full',
       () {
     var state = const PlayfulFormState();
     for (var turn = 1; turn <= 3; turn++) {
@@ -39,8 +39,14 @@ void main() {
     final waited = state.advance(PlayfulInteraction.ordinary, 'wait', now,
         breakthrough: false);
     expect(waited.heat, 100);
-    expect(waited.breakthroughDue, isFalse);
+    expect(waited.breakthroughDue, isTrue);
     expect(waited.advance(PlayfulInteraction.ordinary, 'later', now).heat, 98);
+    final stillPlaying = waited.advance(PlayfulInteraction.mutual, 'tease', now,
+        breakthrough: false);
+    expect(stillPlaying.heat, 100);
+    expect(stillPlaying.breakthroughDue, isTrue);
+    expect(stillPlaying.advance(PlayfulInteraction.strong, 'tip', now,
+        breakthrough: true).qForm, isTrue);
     final tipped = state.advance(PlayfulInteraction.ordinary, 'tipped', now,
         breakthrough: true);
     expect(tipped.qForm, isTrue);
@@ -104,6 +110,14 @@ void main() {
     expect(tipped.qForm, isTrue);
     expect(PlayfulFormState.decode(tipped.encode()).qForm, isTrue);
     expect(full.interact(kindle: true, now: now).qForm, isTrue);
+  });
+
+  test('an existing save at full heat can judge again after a failed result', () {
+    final restored = PlayfulFormState.decode('{"heat":100,"qForm":false,'
+        '"breakthroughReady":false}');
+    expect(restored.breakthroughDue, isTrue);
+    expect(restored.advance(PlayfulInteraction.mutual, 'replay', now,
+        breakthrough: true).qForm, isTrue);
   });
 
   test('offered initiative is stable and does not change heat by itself', () {

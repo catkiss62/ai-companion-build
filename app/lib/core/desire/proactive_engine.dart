@@ -6,6 +6,7 @@ import 'package:uuid/uuid.dart';
 
 import '../ai/deepseek_client.dart';
 import '../ai/final_reply_failure_policy.dart';
+import '../ai/generation_cancellation.dart';
 import '../ai/model_profile.dart';
 import '../ai/prompt_builder.dart';
 import '../autonomy/public_web_discovery_engine.dart';
@@ -122,13 +123,10 @@ class _ProactiveGenerationCandidate {
       );
 }
 
-String _visibleChineseProactiveReasoning(String raw) {
-  final text = raw.trim();
-  if (text.isEmpty) return '';
-  final cjk = RegExp(r'[\u3400-\u9fff]').allMatches(text).length;
-  final latinWords = RegExp(r'[A-Za-z]{2,}').allMatches(text).length;
-  if (latinWords >= 6 && (cjk == 0 || latinWords * 2 > cjk)) return '';
-  return text;
+String _visibleProactiveReasoning(String raw) {
+  // Preserve the provider's actual thought summary so the existing chat
+  // translation action can translate an English Gemini summary on demand.
+  return raw.trim();
 }
 
 class ProactiveEngine {
@@ -1412,6 +1410,12 @@ ${startsFreshTopic ? '本类型属于新话题通道：ANSWERED CHAT HISTORY 已
     });
 
     final model = DeepSeekModelProfile.flash;
+    final finalProvider = await secureConfig.readChatProvider();
+    final finalApiKey = (await secureConfig.readFinalReplyApiKey())?.trim() ?? '';
+    final finalEndpoint = await secureConfig.readFinalReplyEndpoint();
+    final finalModelName = await secureConfig.readFinalReplyModel();
+    var geminiAttempted = false;
+    var visibleModelName = model.apiName;
     final lastGroundedUser = proactiveGrounding.lastUserMessageId == null
         ? null
         : await db.messageById(proactiveGrounding.lastUserMessageId!);
@@ -1421,43 +1425,79 @@ ${startsFreshTopic ? '本类型属于新话题通道：ANSWERED CHAT HISTORY 已
     Future<_ProactiveGenerationCandidate?> generateCandidate(
       List<Map<String, Object?>> promptMessages,
     ) async {
-      final reasoning = StringBuffer();
-      final content = StringBuffer();
-      var finishReason = '';
-      var sawTerminalSignal = false;
-      await for (final delta in ai.streamChat(
-        apiKey: apiKey,
-        model: model,
-        effort: ReasoningEffort.high,
-        messages: promptMessages,
-        endpoint: endpoint,
-        thinking: true,
-        maxTokens: 700,
-        usageLane: 'proactive',
-        usageExecutionId: heartbeatKey,
-      )) {
-        if (DateTime.now().difference(lastProactiveLeaseRefresh) >=
-            const Duration(minutes: 1)) {
-          final renewed = await db.renewLocalLease(
-            'proactive_lease_until',
-            holdFor: const Duration(minutes: 5),
-          );
-          if (!renewed) return null;
-          lastProactiveLeaseRefresh = DateTime.now();
+      // All source, grounding and style context is already in promptMessages.
+      // Gemini receives one complete final-expression request. Optional
+      // corrections and a failed second channel use the internal DeepSeek lane.
+      Future<_ProactiveGenerationCandidate?> request({required bool gemini}) async {
+        final reasoning = StringBuffer();
+        final content = StringBuffer();
+        var finishReason = '';
+        var sawTerminalSignal = false;
+        await for (final delta in ai.streamChat(
+          apiKey: gemini ? finalApiKey : apiKey,
+          model: model,
+          effort: ReasoningEffort.high,
+          messages: promptMessages,
+          endpoint: gemini ? finalEndpoint : endpoint,
+          requestProvider: gemini ? finalProvider : null,
+          modelName: gemini ? finalModelName : null,
+          thinking: true,
+          maxTokens: gemini ? 1800 : 700,
+          usageLane: gemini ? 'proactive_final_reply' : 'proactive',
+          usageExecutionId: heartbeatKey,
+        )) {
+          if (DateTime.now().difference(lastProactiveLeaseRefresh) >=
+              const Duration(minutes: 1)) {
+            final renewed = await db.renewLocalLease(
+              'proactive_lease_until',
+              holdFor: const Duration(minutes: 5),
+            );
+            if (!renewed) return null;
+            lastProactiveLeaseRefresh = DateTime.now();
+          }
+          reasoning.write(delta.reasoning);
+          content.write(delta.content);
+          if (delta.done || delta.finishReason != null) sawTerminalSignal = true;
+          if (delta.finishReason != null) finishReason = delta.finishReason!;
         }
-        reasoning.write(delta.reasoning);
-        content.write(delta.content);
-        if (delta.done || delta.finishReason != null) {
-          sawTerminalSignal = true;
-        }
-        if (delta.finishReason != null) finishReason = delta.finishReason!;
+        return _ProactiveGenerationCandidate(
+          reasoning: reasoning.toString().trim(),
+          content: content.toString().trim(),
+          finishReason: finishReason,
+          sawTerminalSignal: sawTerminalSignal,
+        );
       }
-      return _ProactiveGenerationCandidate(
-        reasoning: reasoning.toString().trim(),
-        content: content.toString().trim(),
-        finishReason: finishReason,
-        sawTerminalSignal: sawTerminalSignal,
-      );
+
+      if (finalProvider.isGeminiRelay && !geminiAttempted) {
+        geminiAttempted = true; // Including failures: never bill a second request.
+        try {
+          if (finalApiKey.isEmpty) {
+            throw const FormatException('missing_gemini_final_reply_key');
+          }
+          final result = await request(gemini: true);
+          if (result == null) return null;
+          if (!result.sawTerminalSignal ||
+              FinalReplyFailurePolicy.isIncompleteFinishReason(result.finishReason) ||
+              FinalReplyFailurePolicy.hasStrongIncompleteStructure(result.content)) {
+            throw const GenerationStreamIncompleteException();
+          }
+          if (result.content.isEmpty) throw const EmptyFinalReplyException();
+          visibleModelName = finalModelName.isEmpty
+              ? finalProvider.effectiveModel(model)
+              : finalModelName;
+          await db.setSetting('proactive_last_final_provider_notice', '');
+          return result;
+        } on GenerationSuspendedByRuntimeGateException {
+          rethrow;
+        } on GenerationCancelledByUserException {
+          rethrow;
+        } catch (error) {
+          await db.setSetting('proactive_last_final_provider_notice',
+              '主动消息第二通道失败（${FinalReplyFailurePolicy.userCategory(error)}），本轮由 DeepSeek 兜底。');
+        }
+      }
+      visibleModelName = model.apiName;
+      return request(gemini: false);
     }
 
     Future<void> noteGroundingRetry(String reason) async {
@@ -1711,6 +1751,10 @@ ${PromptBuilder.visibleChineseGenerationReminder(proactive: true)}
       }
       emotionEnvelope = EmotionEnvelope.parse(retried.content);
       candidate = retried.copyWith(content: emotionEnvelope.visibleText);
+      if (finalProvider.isGeminiRelay) {
+        await db.setSetting('proactive_last_final_provider_notice',
+            '第二通道主动消息未通过事实校验，本轮已由 DeepSeek 自然重答。');
+      }
       if (isWait(candidate)) {
         if (webShareCandidateId != null) {
           await publicWebSharing.markDeclined(webShareCandidateId);
@@ -1860,7 +1904,7 @@ ${PromptBuilder.visibleChineseGenerationReminder(proactive: true)}
     // final eligibility check is repeated atomically with the message INSERT
     // below, so a user chat lease cannot slip into the check/commit gap.
     final visibleReasoning =
-        _visibleChineseProactiveReasoning(candidate.reasoning);
+        _visibleProactiveReasoning(candidate.reasoning);
     unawaited(
       VisibleReasoningLanguageTelemetry.note(db, visibleReasoning),
     );
@@ -1899,7 +1943,7 @@ ${PromptBuilder.visibleChineseGenerationReminder(proactive: true)}
       role: 'assistant',
       content: text,
       reasoningContent: visibleReasoning,
-      model: model.apiName,
+      model: visibleModelName,
       createdAt: DateTime.now(),
       isProactive: true,
       attachments: proactiveAttachments,

@@ -99,10 +99,11 @@ class PlayfulFormState {
   final String lastAssistantTurn;
   /// Only the newest uncommitted user turn is reversible on Stop.
   final bool pendingTurn;
-  /// A natural full meter grants exactly one following user turn to break through.
+  /// The first full-meter turn gets one guaranteed hold. While later turns
+  /// actually keep the meter at 100, they remain eligible for breakthrough.
   final bool breakthroughReady;
   final bool beforeBreakthroughReady;
-  bool get breakthroughDue => heat == 100 && !qForm && !locked && breakthroughReady;
+  bool get breakthroughDue => heat == 100 && !qForm && !locked;
   final int beforeHeat;
   final bool beforeQForm;
   final int beforeUpdatedAt;
@@ -175,8 +176,9 @@ class PlayfulFormState {
     // naturally unless one of them actually continues the playful exchange.
     final naturalCooling = qForm ? 15 : 2;
     final due = breakthroughDue;
-    final nextHeat = (due && interaction != PlayfulInteraction.serious
-            ? 100 // Hold the meter for this single opportunity.
+    final nextHeat = (due && breakthroughReady &&
+                interaction != PlayfulInteraction.serious
+            ? 100 // Preserve the first full-meter exchange at least once.
             : heat - naturalCooling - elapsedHours * 3 + (interaction?.bonus ?? 0))
         .clamp(0, 100).toInt();
     final nextForm = _formAt(nextHeat) ||
@@ -189,7 +191,8 @@ class PlayfulFormState {
       lastAssistantTurn: lastAssistantTurn,
       pendingTurn: true,
       breakthroughReady: !nextForm && !locked &&
-          (due ? breakthrough == null : heat < 100 && nextHeat == 100),
+          (due && breakthroughReady && breakthrough == null ||
+              heat < 100 && nextHeat == 100),
       beforeBreakthroughReady: breakthroughReady,
       beforeHeat: heat,
       beforeQForm: qForm,

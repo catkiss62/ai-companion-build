@@ -1,6 +1,6 @@
 # AI Companion · 当前总账
 
-更新时间：2026-09-25（UTC）
+更新时间：2026-09-25（UTC；+262 本地实现）
 
 > 本文件是唯一的当前接班入口，继续采用“总账 v2”。顶部是快速接班索引；标记后的正式记录按版本持续追加，不设总容量上限。
 >
@@ -40,8 +40,8 @@
 | 功能状态 | `CI PASSED / APK READY / TRUE DEVICE PENDING` |
 | +228 远端 | head `29e87d016c8bd81f52f89f95191bd1a1a01a5b57`；tree `c4a112a56d8b634cf3a1a66636979a0833538b7d`；Actions `35440359036`；Artifact `10583263879`；APK SHA-256 `159e283173e49da2924d25b37ba7647893cdafdcc31b63f0e31b7c64e086849b` |
 | 仓库维护基线 | `maintenance/repository-governance-20260919`；远端文档 head `123e272196e8ae93f3518157917d76f6af4f1784`；完整构建 head `fa99f32012fa1a0716b746d36b958a8e777ef9b8`；Actions `35446649873` 全绿；文档-only run `35447342921` 正确跳过 APK |
-| 当前功能分支 | `agent/v04217-breakthrough-wheel-smooth`，基于 +260 全绿 APK；候选版本 `v0.42.17+261` |
-| 当前任务状态 | `CI PASSED / APK READY / TRUE DEVICE PENDING`；+261 满气焰一轮触发窗口、轮盘边缘/声音/灯光微调，Actions `36138316955` 全绿；详情见末尾 |
+| 当前功能分支 | `agent/v04217-breakthrough-wheel-smooth`，基于 +261 全绿 APK；候选版本 `v0.42.18+262` |
+| 当前任务状态 | `+262 IMPLEMENTED LOCALLY / CI PENDING / APK PENDING / TRUE DEVICE PENDING`；主动聊天双模型单次 Gemini 正文及 DeepSeek 兜底、满气焰持续判断、轮盘五格虚拟卷轴；详情见末尾 +262。+261 Actions `36138316955` 全绿 |
 | +250 当前任务 | 本体／小豆丁形态共用成年角色、记忆与能力；同一形态状态驱动角色提示与静态立绘，虚拟弹额头／安抚改变气焰值后继续自然衰减，心形液面与锁定入口；常驻世界书定点柔化并仅迁移未编辑原文；两档 TTS 共用冻结的真实回复与分段，无声生成并复制专项脱敏报告 |
 | +250 最终构建 | 功能 head `b5cd2d1070fb237bc72ab66b1867a75da9bbe6e8`；tree `4e0dbbd531aea408ab0face6d46a323f441c7eeb`；Actions `35943607609` 全绿；Artifact `10785922926`；APK SHA-256 `f148f2eb303017ad5f6f689628f230979c24ba16831fdc0181e58bc5e1d73a`；未发布 Draft Release `v0.42.6-dual-form-tts-comparison-test` |
 | +249 当前任务 | `loopIndex=0` 时明确判定“零个新语义 token”，在 VITS 前拒绝本段；最后两次会话记录生成时 profile、冷/热状态、各阶段耗时、RTF、播放首帧、队列余量、迟到段、失败/停止与脱敏文本哈希 |
@@ -960,3 +960,11 @@ Actions 与交付证据：远端功能 head `33647c7bff15084d6fd3cbc7b817e9b0b21
 - 视觉：真实切换到小豆丁时立绘跳两下，不加烟雾。命运之轮 WebView 关闭 Android 边缘拉伸和可见滚动条，仍可正常上下滚动；网页默认声音开启，在首次手势音效时创建 Web Audio；跨卷轴重复 tick 限速，跑马灯仅更新实际变动的灯泡，保留原机台外观与逐轮振动。帧率改善需同机对照网页和 APK 验证。
 - 验证：状态和 Jev/DeepSeek 兜底专项测试、JS 语法、总账门、Flutter Analyze/Test 与 Android Release 已由 Actions `36138316955` 全绿确认；真机观察普通／沉浸跨房间、Stop、锁定、双跳、声音、拖动边缘及帧数。状态 `CI PASSED / APK READY / TRUE DEVICE PENDING`。
 - 构建交付：GitHub 构建提交 `3a9fd3091970ba132e9261575f212f709ee32613`，内容树 `66eb5939a2cc3bd013b508ebc24998587dd71bf6` 与本地提交 `d85d2f5` 完全一致；Artifact `10866132151`（14 天），Draft Release `396618220`，APK asset `588394207`，大小 `546205928` bytes，SHA-256 `2d5ccfc8d3508c093b11c60759cf12c9e46e07e128b1ccbf7ef23c997e21c4a7`。草稿页 `https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-d10092c51d058bdfdfb3`；未发布正式 Release。
+
+## v0.42.18+262 · 主动聊天最终通道、满气焰持续判断、轮盘虚拟卷轴（2026-09-26）
+
+- 用户澄清：自然升到 100 的当轮不判断；至少短暂保持一轮 100。此后只要本体仍在 100，每条真实用户消息都可让 Jev 判断突破，Jev 不确定或失败时 DeepSeek 兜底；判断“等待”不直接扣到 85。持续互相玩闹把数值维持 100，就应继续判断；一旦普通交流实际降到 100 以下才停止。旧存档若在 100、非小豆丁且 `breakthroughReady=false`，下轮也要恢复判断。突破语义提示暂不放宽，先真机观察。
+- 2026-09-26 01:39 用户备份与脱敏诊断证据：最后状态 `heat=100/qForm=false/breakthroughReady=false`；此前约 01:31“晚安”一轮有唯一一次 Jev `playful_breakthrough` 用量，此后数轮打趣没有再次调用，因旧代码把第一次等待当成永久用尽机会。当前数据库状态不外传、私密正文不进公开诊断。
+- 主动聊天：仅此回复路径在双模型设置下将现有内在状态、已选来源、真实 Outcome、时间和语境合并后一次交 Gemini 写可见正文；DeepSeek/Jev 仍负责已有内部短判断、维护与工具。Gemini 缺 Key、网络/格式错误或中途截断时用 DeepSeek Flash 自然生成；事实校验需重答时只由 DeepSeek 纠正，不第二次向按次计费的通道请求。保存最终实际生成模型和其真实 reasoning，英语摘要不再丢弃，沿普通聊天的思考链翻译入口按需翻译；没有独立 DeepSeek 规划回合时不伪造规划思考链。单 DeepSeek 设置保持原流。
+- 轮盘：真机反馈 APK 明显掉帧、手机浏览器原版较顺畅；本地代码的每卷轴按标签集复制至少八份，七卷轴合计产生很长的运动 DOM/合成层，同时 SVG 灯带逐帧动画滤镜、机台灯频繁切换发光阴影。改为每卷轴固定五个可见/预备 cell，按跨行更新文字，仅对短 strip 做 transform；停止中心仍与抽签结果对应，保留文字/灯箱、拉杆、单列重抽、默认音效和每列停靠振动。移除卷轴运动 blur 与灯带逐帧滤镜脉动，把跑马灯运动更新从 55ms 降为 95ms。此为源码判断，不声称已证明特定 Android WebView 的 GPU 瓶颈或真机帧率收益。
+- 验证：`git diff --check` 和打包 JS 语法通过；Node 卷轴运动探针按 1、2、7、50、90 个标签核对五格 DOM 数量和停止中心选中值。仓库 125 项验证在稀疏检出下第 27 项因未检出 417 件桌宠旧素材停止，前 26 项通过；本机无 Flutter SDK，Flutter analyze/test 和 release APK 待完整 CI。schema 61、备份协议、普通/悬浮/沉浸正文、Cedar 游戏房间、TTS、Live2D 不变。状态 `IMPLEMENTED LOCALLY / CI PENDING / APK PENDING / TRUE DEVICE PENDING`。

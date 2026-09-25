@@ -66,10 +66,9 @@ body::after{ content:""; position:fixed; inset:0; pointer-events:none; z-index:2
 .title-sign .frameline{ fill:#0c0a06; stroke:var(--frame-dark); stroke-width:2.5; transition:fill .9s; }
 body.gore .title-sign .frameline{ fill:#150505; }
 .title-sign .bulbline{ fill:none; stroke:var(--bulb); stroke-width:5.5; stroke-linecap:round; stroke-dasharray:1.5 12.5;
-  filter:drop-shadow(0 0 3px var(--bulb-glow)); animation:bulbrun 7s linear infinite, bulbpulse 1.6s ease-in-out infinite; }
-body.busy .title-sign .bulbline{ animation:bulbrun 1.2s linear infinite, bulbpulse .45s ease-in-out infinite; }
+  filter:drop-shadow(0 0 3px var(--bulb-glow)); animation:bulbrun 7s linear infinite; }
+body.busy .title-sign .bulbline{ animation-duration:1.2s; }
 @keyframes bulbrun{ to{ stroke-dashoffset:-28; } }
-@keyframes bulbpulse{ 50%{ filter:drop-shadow(0 0 7px var(--bulb-glow)) brightness(1.22); } }
 .title{ position:absolute; inset:0; display:flex; flex-direction:column; align-items:center; justify-content:center; padding-top:7px;
   margin:0; font-family:var(--f-title); font-weight:400;
   font-size:23px; letter-spacing:1px; line-height:.96; white-space:nowrap; text-align:center;
@@ -109,7 +108,7 @@ body.gore .bulb.lit{ box-shadow:0 0 8px 1px var(--bulb-glow), 0 0 16px 3px rgba(
 /* ---- reel bank ---- */
 .bank{ position:relative; z-index:2; display:flex; gap:5px; justify-content:center; padding:6px 4px; }
 .reel{ position:relative; flex:1 1 0; min-width:0; display:flex; flex-direction:column; align-items:stretch; gap:6px; cursor:pointer; }
-.window{ position:relative; height:174px; border-radius:8px; overflow:hidden;
+.window{ position:relative; height:174px; border-radius:8px; overflow:hidden; contain:paint;
   background:linear-gradient(180deg,#070504,#100b07 50%,#070504);
   border:1px solid rgba(201,161,74,.22); box-shadow:inset 0 2px 10px rgba(0,0,0,.9);
   transition:border-color .35s, box-shadow .35s, filter .35s; }
@@ -129,7 +128,6 @@ body.gore .reel.active .window{ box-shadow:inset 0 2px 10px rgba(0,0,0,.9), 0 0 
   border-top:1px solid var(--payline); border-bottom:1px solid var(--payline); box-shadow:inset 0 0 16px rgba(0,0,0,.5);
   background:linear-gradient(180deg, rgba(248,234,176,.05), transparent 50%, rgba(248,234,176,.05)); opacity:0; transition:opacity .35s; }
 .reel.active .window::after{ opacity:.9; }
-.reel.spinning .strip{ filter:blur(.6px); }
 .reel.settled .cell.paycell{ color:var(--payline); text-shadow:0 0 10px var(--accent); }
 
 .reel-foot{ display:flex; flex-direction:column; align-items:center; gap:1px; padding:2px 0; border-radius:6px; min-height:34px; justify-content:center; }
@@ -502,11 +500,7 @@ body.gore .omi-again{ color:#ffd8d4; }
 <script>
 (function () {
   "use strict";
-  const ROW_H = 58, VISIBLE_CENTER = 1, MIN_COPIES = 8;
-
-  function calcCopies(tagCount) {
-    return Math.max(MIN_COPIES, Math.ceil(720 / tagCount));
-  }
+  const ROW_H = 58, VISIBLE_CENTER = 1, VIRTUAL_ROWS = 5;
 
   /* ---------------- audio ---------------- */
   const Audio = (function () {
@@ -540,9 +534,7 @@ body.gore .omi-again{ color:#ffd8d4; }
       this.active = !dim.gore;
       this.locked = !!dim.gore;
       this.result = null; this.spinning = false;
-      this.copies = calcCopies(this.tags.length);
-      this.baseCopy = Math.floor(this.copies / 2);
-      this.d = this.baseCopy * this.tags.length * ROW_H; this.raf = null;
+      this.d = 0; this.lastRow = null; this.raf = null;
       this.build();
     }
     build() {
@@ -560,12 +552,25 @@ body.gore .omi-again{ color:#ffd8d4; }
       this.renderStrip(); this.render(); this.attach(); this.refresh();
     }
     renderStrip() {
-      const n = this.tags.length; let html = "";
-      for (let c = 0; c < this.copies; c++)
-        for (let i = 0; i < n; i++) html += '<div class="cell" data-i="' + i + '">' + this.tags[i].zh + "</div>";
-      this.strip.innerHTML = html;
+      // Only the three visible labels and two spare rows need DOM nodes.
+      // Moving an entire repeated tag catalog creates very tall GPU layers.
+      this.strip.replaceChildren(...Array.from({ length: VIRTUAL_ROWS }, () => {
+        const cell = document.createElement("div"); cell.className = "cell"; return cell;
+      }));
+      this.lastRow = null;
+      this.render();
     }
-    render() { this.strip.style.transform = "translateY(" + (-this.d) + "px)"; }
+    render() {
+      const row = Math.floor(this.d / ROW_H);
+      if (row !== this.lastRow) {
+        for (let i = 0; i < VIRTUAL_ROWS; i++) {
+          const index = ((row + i) % this.tags.length + this.tags.length) % this.tags.length;
+          this.strip.children[i].textContent = this.tags[index].zh;
+        }
+        this.lastRow = row;
+      }
+      this.strip.style.transform = "translate3d(0," + (-(this.d - row * ROW_H)) + "px,0)";
+    }
     refresh() {
       const el = this.el;
       el.classList.toggle("active", this.active && !this.locked);
@@ -575,8 +580,7 @@ body.gore .omi-again{ color:#ffd8d4; }
     markPaycell() {
       this.strip.querySelectorAll(".cell.paycell").forEach(c => c.classList.remove("paycell"));
       if (this.result == null) return;
-      const g = Math.round(this.d / ROW_H) + VISIBLE_CENTER, cells = this.strip.children;
-      if (cells[g]) cells[g].classList.add("paycell");
+      this.strip.children[VISIBLE_CENTER].classList.add("paycell");
       this.el.classList.add("settled");
     }
     setActive(v) { if (this.locked) return; this.active = v; this.el.classList.remove("settled"); this.refresh(); }
@@ -584,8 +588,7 @@ body.gore .omi-again{ color:#ffd8d4; }
       if (!this.active || this.locked || this.spinning) { onStop && onStop(); return; }
       if (this.raf) { cancelAnimationFrame(this.raf); this.raf = null; }
       const total = this.tags.length * ROW_H;
-      const stripMax = (this.copies - 2) * total;
-      this.d = this.baseCopy * total + ((this.d % total) + total) % total;
+      this.d = ((this.d % total) + total) % total;
       this.render();
       this.spinning = true; this.el.classList.add("spinning"); this.el.classList.remove("settled"); this.result = null;
       const SPEED = 2200; let last = performance.now();
@@ -613,8 +616,6 @@ body.gore .omi-again{ color:#ffd8d4; }
         const curCopy = Math.floor(this.d / total);
         let dest = (curCopy + 3) * total + (target - VISIBLE_CENTER) * ROW_H;
         while (dest < this.d + total) dest += total;
-        if (dest > stripMax) dest -= Math.floor((dest - stripMax) / total + 1) * total;
-        if (dest < this.d) dest = this.baseCopy * total + target * ROW_H;
         from = this.d; to = dest; dur = 620; t0 = performance.now(); stopping = true;
       }, delay);
     }
@@ -686,7 +687,7 @@ body.gore .omi-again{ color:#ffd8d4; }
       this._mq = setInterval(() => {
         this.lightBulbs(p, 3);
         p = (p + 2) % this.perim;
-      }, 55);
+      }, 95);
     },
     lightBulbs(p, step) {
       const active = new Set();
@@ -794,9 +795,7 @@ body.gore .omi-again{ color:#ffd8d4; }
         if (!_c[id]) _c[id] = [];
         _c[id].push(newTag);
         localStorage.setItem('ero-slot-custom-tags', JSON.stringify(_c));
-        reel.copies = calcCopies(reel.tags.length);
-        reel.baseCopy = Math.floor(reel.copies / 2);
-        reel.renderStrip(); reel.render();
+        reel.renderStrip();
         if (!reel.active && !reel.locked) reel.setActive(true);
         document.getElementById("atZh").value = ""; document.getElementById("atEn").value = ""; document.getElementById("atJa").value = "";
         buzz(12); Audio.clunk();
@@ -861,11 +860,9 @@ body.gore .omi-again{ color:#ffd8d4; }
       if (!confirm("删除「" + tag.zh + "」？\nDelete \"" + (tag.en || tag.zh) + "\"?")) return;
       reel.tags.splice(idx, 1);
       if (!reel.tags.length) { this.flashHint("至少保留一个 tag"); reel.tags.splice(idx, 0, tag); return; }
-      reel.copies = calcCopies(reel.tags.length);
-      reel.baseCopy = Math.floor(reel.copies / 2);
-      reel.d = reel.baseCopy * reel.tags.length * ROW_H;
+      reel.d = 0;
       reel.result = null;
-      reel.renderStrip(); reel.render();
+      reel.renderStrip();
       buzz(8); Audio.tick();
       this.flashHint("已删除 " + tag.zh);
     },
