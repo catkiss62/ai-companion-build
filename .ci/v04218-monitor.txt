@@ -1,0 +1,7 @@
+status=success
+run_id=36173105843
+run_url=https://github.com/catkiss62/ai-companion-build/actions/runs/36173105843
+head_sha=3aa281d25bbc50ba174c2b145d5e08b6423127a2
+signer_sha256=30:5E:B3:D8:09:83:B9:63:C6:48:18:DD:F1:AD:56:1F:27:9D:E6:D4:7B:3E:D2:C7:81:AD:A4:48:C7:C2:51:48
+7d869d4d678cd82d9dddeb3f1624658c9633a48fbe5e91aeab4f532a384cc083  AI-Companion-v0.42.18-262-Proactive-Gemini-Wheel-Smooth-APK.apk
+release_url=https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-454347b060d2df3185c9
