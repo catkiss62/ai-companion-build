@@ -404,7 +404,7 @@
 # Historical +240 validator tokens: agent/v04196-sen-hybrid-composition | AI-Companion-v0.41.96-240-Sen-Hybrid-Composition-Hotfix-APK | v0.41.96-sen-hybrid-composition-hotfix-test
 # Historical +241 validator tokens: agent/v04197-no-canned-fallbacks | AI-Companion-v0.41.97-241-Natural-Reply-Liveness-APK | v0.41.97-natural-reply-liveness-test
 # Historical +242 validator tokens: agent/v04198-sen-texture-direct-port | AI-Companion-v0.41.98-242-Sen-Direct-Port-APK | v0.41.98-sen-direct-port-test | .ci/v04198-monitor.txt
-name: Build AI Companion v0.42.17+261 APK (Breakthrough and Wheel Smoothness)
+name: Build AI Companion v0.42.18+262 APK (Proactive Gemini and Wheel Smoothness)
 
 on:
   push:
@@ -921,7 +921,7 @@ jobs:
           test -f app/android/app/src/main/jniLibs/arm64-v8a/libc++_shared.so
           test ! -d app/android/app/src/main/assets/tts_models
           test ! -d app/android/app/src/main/assets/legacy_tts
-          echo 'Building v0.42.17+261 breakthrough and wheel smoothness candidate.'
+          echo 'Building v0.42.18+262 proactive Gemini and wheel smoothness candidate.'
 
       - name: Restore exact 417-file desktop-pet source pack
         working-directory: app
@@ -1392,26 +1392,26 @@ jobs:
           APK='app/build/app/outputs/flutter-apk/app-release.apk'
           sha256sum "$APK" | tee app/app-release.apk.sha256
 
-      - name: Upload v0.42.17+261 APK as workflow artifact
+      - name: Upload v0.42.18+262 APK as workflow artifact
         uses: actions/upload-artifact@v4
         with:
-          name: AI-Companion-v0.42.17-261-Breakthrough-Wheel-Smooth-APK
+          name: AI-Companion-v0.42.18-262-Proactive-Gemini-Wheel-Smooth-APK
           path: |
             app/build/app/outputs/flutter-apk/app-release.apk
             app/app-release.apk.sha256
           if-no-files-found: error
           retention-days: 14
 
-      - name: Upload v0.42.17+261 APK to draft release
+      - name: Upload v0.42.18+262 APK to draft release
         shell: bash
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
-          TAG='v0.42.17-breakthrough-wheel-smooth-test'
-          APK_NAME='AI-Companion-v0.42.17-261-Breakthrough-Wheel-Smooth-APK.apk'
+          TAG='v0.42.18-proactive-gemini-wheel-smooth-test'
+          APK_NAME='AI-Companion-v0.42.18-262-Proactive-Gemini-Wheel-Smooth-APK.apk'
           SHA_NAME="${APK_NAME}.sha256"
-          CI_NAME='AI-Companion-v0.42.17-261-Breakthrough-Wheel-Smooth-CI-Monitor.txt'
+          CI_NAME='AI-Companion-v0.42.18-262-Proactive-Gemini-Wheel-Smooth-CI-Monitor.txt'
           cp app/build/app/outputs/flutter-apk/app-release.apk "app/${APK_NAME}"
           sed "s#app/build/app/outputs/flutter-apk/app-release.apk#${APK_NAME}#" \
             app/app-release.apk.sha256 > "app/${SHA_NAME}"
@@ -1428,14 +1428,14 @@ jobs:
               --repo "${GITHUB_REPOSITORY}" \
               --target "${GITHUB_SHA}" \
               --draft \
-              --title 'AI Companion v0.42.17+261 breakthrough and wheel smoothness candidate' \
-              --notes 'Unpublished schema-61 test build: raw provider planning without numbered labels, selective translation of English final reasoning, immersive room navigation label, and offline wheel reel haptics. No user content or credentials are included.'
+              --title 'AI Companion v0.42.18+262 proactive Gemini and wheel smoothness candidate' \
+              --notes 'Unpublished schema-61 test build: proactive Gemini final reply with DeepSeek fallback, continued full-heat breakthrough checks, and virtualized offline wheel reels. No user content or credentials are included.'
           else
             gh release edit "${TAG}" \
               --repo "${GITHUB_REPOSITORY}" \
               --target "${GITHUB_SHA}" \
-              --title 'AI Companion v0.42.17+261 breakthrough and wheel smoothness candidate' \
-              --notes 'Unpublished schema-61 test build: raw provider planning without numbered labels, selective translation of English final reasoning, immersive room navigation label, and offline wheel reel haptics. No user content or credentials are included.'
+              --title 'AI Companion v0.42.18+262 proactive Gemini and wheel smoothness candidate' \
+              --notes 'Unpublished schema-61 test build: proactive Gemini final reply with DeepSeek fallback, continued full-heat breakthrough checks, and virtualized offline wheel reels. No user content or credentials are included.'
           fi
           RELEASE_URL="$(gh release view "${TAG}" --repo "${GITHUB_REPOSITORY}" --json url --jq '.url')"
           echo "release_url=${RELEASE_URL}" >> "app/${CI_NAME}"
@@ -1455,18 +1455,18 @@ jobs:
           done
           test "${upload_ok}" = '1'
           MONITOR_BRANCH='ci-monitor-v0345'
-          MONITOR_PATH='.ci/v04217-monitor.txt'
+          MONITOR_PATH='.ci/v04218-monitor.txt'
           MONITOR_CONTENT="$(base64 -w0 "app/${CI_NAME}")"
           MONITOR_SHA="$(gh api "/repos/${GITHUB_REPOSITORY}/contents/${MONITOR_PATH}?ref=${MONITOR_BRANCH}" --jq '.sha' 2>/dev/null || true)"
           if test -n "${MONITOR_SHA}"; then
             gh api --method PUT "/repos/${GITHUB_REPOSITORY}/contents/${MONITOR_PATH}" \
-              -f message='Update v0.42.17 CI success monitor' \
+              -f message='Update v0.42.18 CI success monitor' \
               -f content="${MONITOR_CONTENT}" \
               -f branch="${MONITOR_BRANCH}" \
               -f sha="${MONITOR_SHA}" >/dev/null
           else
             gh api --method PUT "/repos/${GITHUB_REPOSITORY}/contents/${MONITOR_PATH}" \
-              -f message='Create v0.42.17 CI success monitor' \
+              -f message='Create v0.42.18 CI success monitor' \
               -f content="${MONITOR_CONTENT}" \
               -f branch="${MONITOR_BRANCH}" >/dev/null
           fi
@@ -1487,8 +1487,8 @@ jobs:
           BUILD_RESULT: ${{ needs.build-apk.result }}
         run: |
           set -uo pipefail
-          TAG='v0.42.17-breakthrough-wheel-smooth-test'
-          CI_NAME='AI-Companion-v0.42.17-261-Breakthrough-Wheel-Smooth-CI-Monitor.txt'
+          TAG='v0.42.18-proactive-gemini-wheel-smooth-test'
+          CI_NAME='AI-Companion-v0.42.18-262-Proactive-Gemini-Wheel-Smooth-CI-Monitor.txt'
           REPORT="${RUNNER_TEMP}/${CI_NAME}"
           JOBS_JSON="${RUNNER_TEMP}/jobs.json"
           {
@@ -1529,7 +1529,7 @@ jobs:
               --repo "${GITHUB_REPOSITORY}" \
               --target "${GITHUB_SHA}" \
               --draft \
-              --title 'AI Companion v0.42.17+261 breakthrough and wheel smoothness candidate' \
+              --title 'AI Companion v0.42.18+262 proactive Gemini and wheel smoothness candidate' \
               --notes 'Unpublished Draft failure diagnostics for the schema-61 breakthrough and wheel smoothness candidate. No user content, keys, backups or device diagnostics are included.'
           fi
           RELEASE_URL="$(gh release view "${TAG}" --repo "${GITHUB_REPOSITORY}" --json url --jq '.url')"
@@ -1539,18 +1539,18 @@ jobs:
             --clobber \
             --repo "${GITHUB_REPOSITORY}"
           MONITOR_BRANCH='ci-monitor-v0345'
-          MONITOR_PATH='.ci/v04217-monitor.txt'
+          MONITOR_PATH='.ci/v04218-monitor.txt'
           MONITOR_CONTENT="$(base64 -w0 "${REPORT}")"
           MONITOR_SHA="$(gh api "/repos/${GITHUB_REPOSITORY}/contents/${MONITOR_PATH}?ref=${MONITOR_BRANCH}" --jq '.sha' 2>/dev/null || true)"
           if test -n "${MONITOR_SHA}"; then
             gh api --method PUT "/repos/${GITHUB_REPOSITORY}/contents/${MONITOR_PATH}" \
-              -f message='Update v0.42.16 CI failure monitor' \
+              -f message='Update v0.42.18 CI failure monitor' \
               -f content="${MONITOR_CONTENT}" \
               -f branch="${MONITOR_BRANCH}" \
               -f sha="${MONITOR_SHA}" >/dev/null
           else
             gh api --method PUT "/repos/${GITHUB_REPOSITORY}/contents/${MONITOR_PATH}" \
-              -f message='Create v0.42.16 CI failure monitor' \
+              -f message='Create v0.42.18 CI failure monitor' \
               -f content="${MONITOR_CONTENT}" \
               -f branch="${MONITOR_BRANCH}" >/dev/null
           fi
