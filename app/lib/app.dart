@@ -15,6 +15,7 @@ import 'features/system/system_page.dart';
 import 'features/system/preflight_diagnostics_page.dart';
 import 'features/system/real_device_checkpoint_page.dart';
 import 'features/transfer/transfer_page.dart';
+import 'widgets/companion_bottom_navigation.dart';
 
 class AiCompanionApp extends StatelessWidget {
   const AiCompanionApp({super.key});
@@ -155,30 +156,18 @@ class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
           index: index,
           children: [
             CompanionHomePage(onOpenChat: _openChat),
-            ChatPage(active: index == 1, onOpenMore: _openMore),
+            ChatPage(
+              active: index == 1,
+              onOpenMore: _openMore,
+              onSelectMainTab: (value) => setState(() => index = value),
+            ),
             const CompanionMorePage(),
           ],
         ),
       ),
-      bottomNavigationBar: NavigationBar(
+      bottomNavigationBar: CompanionBottomNavigation(
         selectedIndex: index,
         onDestinationSelected: (value) => setState(() => index = value),
-        destinations: const [
-          NavigationDestination(
-            icon: Icon(Icons.favorite_outline_rounded),
-            selectedIcon: Icon(Icons.favorite_rounded),
-            label: '她',
-          ),
-          NavigationDestination(
-            icon: Icon(Icons.chat_bubble_outline_rounded),
-            selectedIcon: Icon(Icons.chat_bubble_rounded),
-            label: '聊天',
-          ),
-          NavigationDestination(
-            icon: Icon(Icons.more_horiz_rounded),
-            label: '更多',
-          ),
-        ],
       ),
     );
   }

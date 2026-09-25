@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'dart:math';
 
 import 'package:flutter_test/flutter_test.dart';
@@ -29,5 +30,27 @@ void main() {
     expect(context, isNot(contains('"dimension":"gore"')));
     expect(FateWheelResult.preview(context),
         ['${scenario.label} · ${selected.zh.isNotEmpty ? selected.zh : selected.en}']);
+  });
+
+  test('local page bridge accepts only bounded known dimensions and armed gore',
+      () async {
+    final dimensions = await FateWheelCatalog.load();
+    final chosen = dimensions.first.tags.first;
+    String payload({String id = 'position', bool armed = false}) => jsonEncode({
+          'source': 'ruota-local-v1',
+          'armed': armed,
+          'selected': [
+            {'dimension': id, 'zh': chosen.zh, 'en': chosen.en, 'ja': chosen.ja}
+          ],
+        });
+    expect(FateWheelResult.fromBridgeMessage(payload(), dimensions)?.entries,
+        contains('position'));
+    expect(FateWheelResult.fromBridgeMessage(payload(id: 'unknown'), dimensions),
+        isNull);
+    expect(FateWheelResult.fromBridgeMessage(payload(id: 'gore'), dimensions),
+        isNull);
+    expect(FateWheelResult.fromBridgeMessage(
+        payload(id: 'gore', armed: true), dimensions), isNotNull);
+    expect(FateWheelResult.fromBridgeMessage('not-json', dimensions), isNull);
   });
 }

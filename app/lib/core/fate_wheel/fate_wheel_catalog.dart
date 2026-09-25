@@ -62,6 +62,55 @@ class FateWheelResult {
   static FateWheelTag draw(FateWheelDimension dimension, Random random) =>
       dimension.tags[random.nextInt(dimension.tags.length)];
 
+  /// The page sends only the seven visible reel results after its explicit
+  /// confirmation button is pressed. Custom tags are user-authored in the
+  /// original page, so validate their shape rather than restricting to DIMS.
+  static FateWheelResult? fromBridgeMessage(
+    String message,
+    List<FateWheelDimension> catalog,
+  ) {
+    if (message.length > 4096) return null;
+    try {
+      final payload = jsonDecode(message);
+      if (payload is! Map<String, dynamic> ||
+          payload['source'] != 'ruota-local-v1') {
+        return null;
+      }
+      final raw = payload['selected'];
+      if (raw is! List || raw.isEmpty || raw.length > catalog.length) {
+        return null;
+      }
+      final dimensions = {for (final item in catalog) item.id: item};
+      final selected = <String, FateWheelTag>{};
+      for (final item in raw) {
+        if (item is! Map<String, dynamic>) return null;
+        final id = item['dimension'];
+        final zh = item['zh'];
+        final en = item['en'];
+        final ja = item['ja'];
+        if (id is! String || !dimensions.containsKey(id) ||
+            selected.containsKey(id) ||
+            zh is! String || en is! String || ja is! String ||
+            zh.length > 8 || en.length > 28 || ja.length > 12 ||
+            (zh.trim().isEmpty && en.trim().isEmpty) ||
+            zh.contains(RegExp(r'[\x00-\x1f]')) ||
+            en.contains(RegExp(r'[\x00-\x1f]')) ||
+            ja.contains(RegExp(r'[\x00-\x1f]'))) {
+          return null;
+        }
+        if (dimensions[id]!.gore && payload['armed'] != true) return null;
+        selected[id] = FateWheelTag(
+          zh: zh.trim(),
+          en: en.trim(),
+          ja: ja.trim(),
+        );
+      }
+      return FateWheelResult(selected);
+    } on FormatException {
+      return null;
+    }
+  }
+
   static List<String> preview(String entryContext) {
     final lines = entryContext.split('\n');
     final marker = lines.indexOf('【命运之轮·本房间已确认的虚拟抽签】');

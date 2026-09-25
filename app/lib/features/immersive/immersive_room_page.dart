@@ -9,6 +9,7 @@ import '../../core/ai/reasoning_translation_service.dart';
 import '../../core/database/app_database.dart';
 import '../../core/immersive/immersive_room_controller.dart';
 import '../../core/immersive/immersive_room_repository.dart';
+import '../../core/immersive/immersive_scene_advance.dart';
 import '../../core/models/chat_language_variant.dart';
 import '../../core/models/chat_segment.dart';
 import '../../core/models/immersive_room.dart';
@@ -24,13 +25,16 @@ import '../../widgets/active_trial_capsule.dart';
 import '../../widgets/chat_portrait_stage.dart';
 import '../../widgets/playful_heat_gauge.dart';
 import '../../widgets/reasoning_panel.dart';
+import '../../widgets/companion_bottom_navigation.dart';
 import '../chat/chat_timestamp_formatter.dart';
 import '../fate_wheel/fate_wheel_page.dart';
 
 const immersiveRailPink = Color(0xFFF472B6);
 
 class ImmersiveRoomLobbyPage extends StatefulWidget {
-  const ImmersiveRoomLobbyPage({super.key});
+  const ImmersiveRoomLobbyPage({super.key, this.onSelectMainTab});
+
+  final ValueChanged<int>? onSelectMainTab;
 
   @override
   State<ImmersiveRoomLobbyPage> createState() =>
@@ -146,7 +150,10 @@ class _ImmersiveRoomLobbyPageState extends State<ImmersiveRoomLobbyPage> {
   Future<void> _openRoom(ImmersiveRoom room) async {
     await Navigator.of(context).push(
       MaterialPageRoute(
-        builder: (_) => ImmersiveRoomPage(roomId: room.id),
+        builder: (_) => ImmersiveRoomPage(
+          roomId: room.id,
+          onSelectMainTab: widget.onSelectMainTab,
+        ),
       ),
     );
     if (mounted) await _load();
@@ -218,6 +225,13 @@ class _ImmersiveRoomLobbyPageState extends State<ImmersiveRoomLobbyPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(title: const Text('沉浸房间')),
+      bottomNavigationBar: CompanionBottomNavigation(
+        selectedIndex: 1,
+        onDestinationSelected: (value) {
+          Navigator.of(context).popUntil((route) => route.isFirst);
+          widget.onSelectMainTab?.call(value);
+        },
+      ),
       floatingActionButton: FloatingActionButton.extended(
         onPressed: loading ? null : _createRoom,
         icon: const Icon(Icons.add_rounded),
@@ -332,9 +346,11 @@ class _ImmersiveRoomLobbyPageState extends State<ImmersiveRoomLobbyPage> {
 }
 
 class ImmersiveRoomPage extends StatefulWidget {
-  const ImmersiveRoomPage({super.key, required this.roomId});
+  const ImmersiveRoomPage({super.key, required this.roomId,
+      this.onSelectMainTab});
 
   final String roomId;
+  final ValueChanged<int>? onSelectMainTab;
 
   @override
   State<ImmersiveRoomPage> createState() => _ImmersiveRoomPageState();
@@ -359,6 +375,7 @@ class _ImmersiveRoomPageState extends State<ImmersiveRoomPage> {
   Offset _portraitOffset = ChatPortraitTransform.defaults.offset;
   String _backgroundMode = 'auto';
   bool _followLatest = true;
+  bool _advancing = false;
   bool _programmaticScroll = false;
   bool _scrollFrameScheduled = false;
   bool _showForeignReplies = false;
@@ -566,6 +583,23 @@ class _ImmersiveRoomPageState extends State<ImmersiveRoomPage> {
     }
     if (controller.room?.isEnded != true) await controller.pause();
     return true;
+  }
+
+  Future<void> _selectMainTab(int value) async {
+    if (!await _leave() || !mounted) return;
+    Navigator.of(context).popUntil((route) => route.isFirst);
+    widget.onSelectMainTab?.call(value);
+  }
+
+  Future<void> _advance() async {
+    if (_advancing) return;
+    _followLatest = true;
+    setState(() => _advancing = true);
+    try {
+      await controller.advanceScene();
+    } finally {
+      if (mounted) setState(() => _advancing = false);
+    }
   }
 
   Future<void> _send() async {
@@ -1068,6 +1102,10 @@ class _ImmersiveRoomPageState extends State<ImmersiveRoomPage> {
       child: WillPopScope(
         onWillPop: _leave,
         child: Scaffold(
+        bottomNavigationBar: CompanionBottomNavigation(
+          selectedIndex: 1,
+          onDestinationSelected: (value) => unawaited(_selectMainTab(value)),
+        ),
         appBar: AppBar(
           title: Text(
             room?.title ?? '沉浸房间',
@@ -1298,6 +1336,25 @@ class _ImmersiveRoomPageState extends State<ImmersiveRoomPage> {
           child: Row(
             crossAxisAlignment: CrossAxisAlignment.end,
             children: [
+              Padding(
+                padding: const EdgeInsets.only(right: 7, bottom: 2),
+                child: Tooltip(
+                  message: '按当前房间上下文自然推进一步，不替你说话或行动',
+                  child: OutlinedButton(
+                    onPressed: _advancing || controller.loading || controller.sending ||
+                            controller.ending || controller.room?.isEnded != false ||
+                            controller.incompleteReplyDraft != null
+                        ? null
+                        : _advance,
+                    style: OutlinedButton.styleFrom(
+                      minimumSize: const Size(54, 46),
+                      padding: const EdgeInsets.symmetric(horizontal: 8),
+                      visualDensity: VisualDensity.compact,
+                    ),
+                    child: const Text('推进'),
+                  ),
+                ),
+              ),
               Expanded(
                 child: TextField(
                   controller: input,
@@ -1341,7 +1398,18 @@ class _ImmersiveInterruptedTurn extends StatelessWidget {
   final VoidCallback onReedit;
 
   @override
-  Widget build(BuildContext context) => Column(
+  Widget build(BuildContext context) {
+    if (ImmersiveSceneAdvance.isMarker(content)) {
+      return Center(
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 9),
+          child: Text('已停止推进',
+              style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                  color: Theme.of(context).colorScheme.onSurfaceVariant)),
+        ),
+      );
+    }
+    return Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           Align(
@@ -1383,6 +1451,7 @@ class _ImmersiveInterruptedTurn extends StatelessWidget {
           ),
         ],
       );
+  }
 }
 
 class _ImmersiveLanguageButton extends StatelessWidget {
@@ -1474,6 +1543,16 @@ class _ImmersiveMessageView extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     if (message.isUser) {
+      if (ImmersiveSceneAdvance.isMarker(message.content)) {
+        return Center(
+          child: Padding(
+            padding: const EdgeInsets.symmetric(vertical: 9),
+            child: Text('推进剧情 · ${ChatTimestampFormatter.time(message.createdAt)}',
+                style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                    color: Theme.of(context).colorScheme.onSurfaceVariant)),
+          ),
+        );
+      }
       return _ImmersiveUserBubbleSurface(
         color: Theme.of(context).colorScheme.primaryContainer,
         opacity: bubbleOpacity,

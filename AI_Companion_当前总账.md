@@ -39,8 +39,8 @@
 | 功能状态 | `CI PASSED / APK READY / TRUE DEVICE PENDING` |
 | +228 远端 | head `29e87d016c8bd81f52f89f95191bd1a1a01a5b57`；tree `c4a112a56d8b634cf3a1a66636979a0833538b7d`；Actions `35440359036`；Artifact `10583263879`；APK SHA-256 `159e283173e49da2924d25b37ba7647893cdafdcc31b63f0e31b7c64e086849b` |
 | 仓库维护基线 | `maintenance/repository-governance-20260919`；远端文档 head `123e272196e8ae93f3518157917d76f6af4f1784`；完整构建 head `fa99f32012fa1a0716b746d36b958a8e777ef9b8`；Actions `35446649873` 全绿；文档-only run `35447342921` 正确跳过 APK |
-| 当前功能分支 | `agent/v04214-visible-process-fate-wheel`，基于 +257 全绿 APK；候选版本 `v0.42.14+258` |
-| 当前任务状态 | `IMPLEMENTED / CI PASSED / APK READY / TRUE DEVICE PENDING`；+258 真实规划 THINKING 可在普通聊天与悬浮窗保存回看，七轮命运之轮确认后进入独立沉浸房间。Actions `36094383066` 全绿，APK 在未发布 Draft；视觉与实际交互待真机验收。详情见末尾 +258；+257 真机仍待验收 |
+| 当前功能分支 | `agent/v04215-wheel-original-webview`，基于 +258 全绿 APK；候选版本 `v0.42.15+259` |
+| 当前任务状态 | `IMPLEMENTED LOCALLY / LOCAL STATIC VALIDATION PENDING / CI PENDING / TRUE DEVICE PENDING`；+258 真实规划 THINKING 可保存回看，但用户提供网页截图确认本地 Flutter 仿制轮盘与原页面差距过大；+259 改用原版页面离线运行并桥接沉浸房间，且补齐沉浸房间底部导航与自然推进按钮，详情见末尾；+258 的 Actions `36094383066` 和 APK 仅是旧视觉基线 |
 | +250 当前任务 | 本体／小豆丁形态共用成年角色、记忆与能力；同一形态状态驱动角色提示与静态立绘，虚拟弹额头／安抚改变气焰值后继续自然衰减，心形液面与锁定入口；常驻世界书定点柔化并仅迁移未编辑原文；两档 TTS 共用冻结的真实回复与分段，无声生成并复制专项脱敏报告 |
 | +250 最终构建 | 功能 head `b5cd2d1070fb237bc72ab66b1867a75da9bbe6e8`；tree `4e0dbbd531aea408ab0face6d46a323f441c7eeb`；Actions `35943607609` 全绿；Artifact `10785922926`；APK SHA-256 `f148f2eb303017ad5f6f689628f230979c24ba16831fdc0181e58bc5e1d73a`；未发布 Draft Release `v0.42.6-dual-form-tts-comparison-test` |
 | +249 当前任务 | `loopIndex=0` 时明确判定“零个新语义 token”，在 VITS 前拒绝本段；最后两次会话记录生成时 profile、冷/热状态、各阶段耗时、RTF、播放首帧、队列余量、迟到段、失败/停止与脱敏文本哈希 |
@@ -933,3 +933,11 @@ Actions 与交付证据：远端功能 head `33647c7bff15084d6fd3cbc7b817e9b0b21
 - 轮盘（本地，未完成 CI）：复制上游 `src/tags.json` 502 条、LICENSE/NOTICE；纯 Flutter 灯箱、暗金机身、七轮停靠、拉杆、单轮重抽和 GORE 解锁确认；只有确认抽签再填写房间表单后才创建房间。JSON 中保存源 revision 和选中维度/标签于房间 `entry_context`，房间顶部可回看；系统背景将其解释成幻想装置的创作素材，允许超现实搭配，不伪造用户行动或同意。不新增模型调用、独立循环或 schema。原创字体和网页音频未移植，待真机对照视觉精度。
 - 本地验证：`git diff --check`、JSON 内容计数（7 维 / 502 标签 / 单一 GORE 锁）通过；125 项校验清单结构通过，前 24 项通过后因稀疏检出缺少仓库原有 `dafeiyu_reference.webp` 而停止，不是功能失败。Flutter SDK 不在本地，需完整检出的 CI 执行 analyze、test、release APK。`CI PENDING / APK PENDING / TRUE DEVICE PENDING`。
 - 远端验证（2026-09-25）：功能 tree `6efaa1d699cc73f92b9108f1e220e990db2f17e8`，GitHub head `001c3cf43883032b47ce0224259777c15ce45c27`；Actions `36094383066` 全绿，125 项源码校验、Kotlin 测试、Flutter analyze/test、release APK、固定签名/资源核验全部通过。Artifact `10846946684`（14 天），APK SHA-256 `3fab6379553866a1bc3a4b61a5fde1b0a6dbcd1cfe450d8eb149e0e63d720efa`；signer `30:5E:B3:D8:09:83:B9:63:C6:48:18:DD:F1:AD:56:1F:27:9D:E6:D4:7B:3E:D2:C7:81:AD:A4:48:C7:C2:51:48`。未发布 Draft `https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-478e1a10f9514d22b372`。状态 `IMPLEMENTED / CI PASSED / APK READY / TRUE DEVICE PENDING`；真实设备尚未校验轮盘像素/手感、普通聊天与悬浮窗跨回合过程显示以及房间续写。
+
+## v0.42.15+259 · 原版命运之轮视觉回归（2026-09-25，开工登记）
+
+- 用户截图证据：网页为完整黑金主题、Rye 装饰字发光招牌、七轮三行窗口同屏、四边动态跑马灯、独立 GORE 翻盖、圆形 SPIN/竖向拉杆、自定义标签和搜索。+258 的 Flutter 仿制版用了紫色横向滚动单行标签轮、扁平滤镜片和小拉杆，关键比例与动效均不一致。先前回答“能够按原样画出”未兑现，用户质疑后明确选择直接复用原页面外观代码。
+- 本轮目标：本地离线嵌入原版冻结提交 `8d62036de5c3e0cdb18ac082c77a7051b55ce43a` 的 HTML/CSS/JS；只加入可见的“确认结果并创建沉浸房间”入口和安全数据桥。保留原有灯框、卷轴、停靠动效、拉杆、GORE 翻盖、Add Tag、Search、History，并让页面字体可离线使用。轮盘仍不运行 Agent/模型或外部服务器，房间只读取用户确认的有限字段；从 +258 沿用结构化房间设定，不动聊天 THINKING、TTS、Cedar 或 schema 61。
+- 验证：原网页代码与打包页面的差异应仅限字体链接与 App 结果桥；检验桥消息格式、维度/标签匹配、确认前不创建房间、WebView 外部导航隔离及持久化。Flutter analyze/tests、125 项验证、APK 签名和上机视觉/动效仍各自区分。当前 `CI PENDING / APK PENDING / TRUE DEVICE PENDING`。
+- 用户同轮补充：沉浸房间页面底部必须和普通聊天一样展示“她／聊天／更多”三个导航按钮，并让这些按钮能真正回主界面相应标签；输入框左侧增加“推进”按钮，单击只令现有剧情自然推进一个节拍，不生成固定台词、不记录为用户扮演的动作或许可。实现需使用已有沉浸房间请求、Stop 与独立现场账，不开第二续写循环；按钮引发的控制事件需在时间线与模型提示中与用户原话区分，不能更新用户身体互动的气焰值。
+- 本地实现：打包 `index.html` 原始机台和 3 款 OFL 字体，WebView 只加载本地页面并将确认后的选中标签通过受限桥传回 Flutter；允许原作者署名链接由 Android 浏览器打开。普通聊天与房间大厅、房间内共用相同底部 NavigationBar，离开活动房间按原有流程暂停。推进作为保存在时间线的房间控制事件送入现有生成链，跳过用户肢体捕获、用户轮人格判断和用户自主行为推断，停止的控制事件不显示为用户消息；下一轮模型历史明确标注该操作不代表用户发言或同意。等待远端 Flutter analyze/test、完整 CI 与 APK。

@@ -403,7 +403,7 @@
 # Historical +240 validator tokens: agent/v04196-sen-hybrid-composition | AI-Companion-v0.41.96-240-Sen-Hybrid-Composition-Hotfix-APK | v0.41.96-sen-hybrid-composition-hotfix-test
 # Historical +241 validator tokens: agent/v04197-no-canned-fallbacks | AI-Companion-v0.41.97-241-Natural-Reply-Liveness-APK | v0.41.97-natural-reply-liveness-test
 # Historical +242 validator tokens: agent/v04198-sen-texture-direct-port | AI-Companion-v0.41.98-242-Sen-Direct-Port-APK | v0.41.98-sen-direct-port-test | .ci/v04198-monitor.txt
-name: Build AI Companion v0.42.14+258 APK (Visible Process and Fate Wheel)
+name: Build AI Companion v0.42.15+259 APK (Original Wheel and Immersive Controls)
 
 on:
   push:
@@ -466,6 +466,7 @@ on:
       - agent/v04211-tts-affinity-rollback
       - agent/v04212-form-pitch-zero
       - agent/v04213-shared-form-tool-history
+      - agent/v04215-wheel-original-webview
       - agent/v04214-visible-process-fate-wheel
       - maintenance/repository-governance-20260919
   workflow_dispatch:
@@ -917,7 +918,7 @@ jobs:
           test -f app/android/app/src/main/jniLibs/arm64-v8a/libc++_shared.so
           test ! -d app/android/app/src/main/assets/tts_models
           test ! -d app/android/app/src/main/assets/legacy_tts
-          echo 'Building v0.42.14+258 visible process and fate wheel candidate.'
+          echo 'Building v0.42.15+259 original wheel and immersive controls candidate.'
 
       - name: Restore exact 417-file desktop-pet source pack
         working-directory: app
@@ -1388,26 +1389,26 @@ jobs:
           APK='app/build/app/outputs/flutter-apk/app-release.apk'
           sha256sum "$APK" | tee app/app-release.apk.sha256
 
-      - name: Upload v0.42.14+258 APK as workflow artifact
+      - name: Upload v0.42.15+259 APK as workflow artifact
         uses: actions/upload-artifact@v4
         with:
-          name: AI-Companion-v0.42.14-258-Visible-Process-Fate-Wheel-APK
+          name: AI-Companion-v0.42.15-259-Original-Wheel-Immersive-APK
           path: |
             app/build/app/outputs/flutter-apk/app-release.apk
             app/app-release.apk.sha256
           if-no-files-found: error
           retention-days: 14
 
-      - name: Upload v0.42.14+258 APK to draft release
+      - name: Upload v0.42.15+259 APK to draft release
         shell: bash
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
-          TAG='v0.42.14-visible-process-fate-wheel-test'
-          APK_NAME='AI-Companion-v0.42.14-258-Visible-Process-Fate-Wheel-APK.apk'
+          TAG='v0.42.15-original-wheel-immersive-test'
+          APK_NAME='AI-Companion-v0.42.15-259-Original-Wheel-Immersive-APK.apk'
           SHA_NAME="${APK_NAME}.sha256"
-          CI_NAME='AI-Companion-v0.42.14-258-Visible-Process-Fate-Wheel-CI-Monitor.txt'
+          CI_NAME='AI-Companion-v0.42.15-259-Original-Wheel-Immersive-CI-Monitor.txt'
           cp app/build/app/outputs/flutter-apk/app-release.apk "app/${APK_NAME}"
           sed "s#app/build/app/outputs/flutter-apk/app-release.apk#${APK_NAME}#" \
             app/app-release.apk.sha256 > "app/${SHA_NAME}"
@@ -1424,13 +1425,13 @@ jobs:
               --repo "${GITHUB_REPOSITORY}" \
               --target "${GITHUB_SHA}" \
               --draft \
-              --title 'AI Companion v0.42.14+258 visible process and fate wheel candidate' \
+              --title 'AI Companion v0.42.15+259 original wheel and immersive controls candidate' \
               --notes 'Unpublished schema-61 test build: replayable provider-visible planning in chat and overlay, plus offline Fate Wheel with seven reels and user-confirmed fantasy room setting. No user content or credentials are included.'
           else
             gh release edit "${TAG}" \
               --repo "${GITHUB_REPOSITORY}" \
               --target "${GITHUB_SHA}" \
-              --title 'AI Companion v0.42.14+258 visible process and fate wheel candidate' \
+              --title 'AI Companion v0.42.15+259 original wheel and immersive controls candidate' \
               --notes 'Unpublished schema-61 test build: replayable provider-visible planning in chat and overlay, plus offline Fate Wheel with seven reels and user-confirmed fantasy room setting. No user content or credentials are included.'
           fi
           RELEASE_URL="$(gh release view "${TAG}" --repo "${GITHUB_REPOSITORY}" --json url --jq '.url')"
@@ -1451,18 +1452,18 @@ jobs:
           done
           test "${upload_ok}" = '1'
           MONITOR_BRANCH='ci-monitor-v0345'
-          MONITOR_PATH='.ci/v04214-monitor.txt'
+          MONITOR_PATH='.ci/v04215-monitor.txt'
           MONITOR_CONTENT="$(base64 -w0 "app/${CI_NAME}")"
           MONITOR_SHA="$(gh api "/repos/${GITHUB_REPOSITORY}/contents/${MONITOR_PATH}?ref=${MONITOR_BRANCH}" --jq '.sha' 2>/dev/null || true)"
           if test -n "${MONITOR_SHA}"; then
             gh api --method PUT "/repos/${GITHUB_REPOSITORY}/contents/${MONITOR_PATH}" \
-              -f message='Update v0.42.14 CI success monitor' \
+              -f message='Update v0.42.15 CI success monitor' \
               -f content="${MONITOR_CONTENT}" \
               -f branch="${MONITOR_BRANCH}" \
               -f sha="${MONITOR_SHA}" >/dev/null
           else
             gh api --method PUT "/repos/${GITHUB_REPOSITORY}/contents/${MONITOR_PATH}" \
-              -f message='Create v0.42.14 CI success monitor' \
+              -f message='Create v0.42.15 CI success monitor' \
               -f content="${MONITOR_CONTENT}" \
               -f branch="${MONITOR_BRANCH}" >/dev/null
           fi
@@ -1483,8 +1484,8 @@ jobs:
           BUILD_RESULT: ${{ needs.build-apk.result }}
         run: |
           set -uo pipefail
-          TAG='v0.42.14-visible-process-fate-wheel-test'
-          CI_NAME='AI-Companion-v0.42.14-258-Visible-Process-Fate-Wheel-CI-Monitor.txt'
+          TAG='v0.42.15-original-wheel-immersive-test'
+          CI_NAME='AI-Companion-v0.42.15-259-Original-Wheel-Immersive-CI-Monitor.txt'
           REPORT="${RUNNER_TEMP}/${CI_NAME}"
           JOBS_JSON="${RUNNER_TEMP}/jobs.json"
           {
@@ -1525,8 +1526,8 @@ jobs:
               --repo "${GITHUB_REPOSITORY}" \
               --target "${GITHUB_SHA}" \
               --draft \
-              --title 'AI Companion v0.42.14+258 visible process and fate wheel candidate' \
-              --notes 'Unpublished Draft failure diagnostics for the schema-61 visible process and fate wheel candidate. No user content, keys, backups or device diagnostics are included.'
+              --title 'AI Companion v0.42.15+259 original wheel and immersive controls candidate' \
+              --notes 'Unpublished Draft failure diagnostics for the schema-61 original wheel and immersive controls candidate. No user content, keys, backups or device diagnostics are included.'
           fi
           RELEASE_URL="$(gh release view "${TAG}" --repo "${GITHUB_REPOSITORY}" --json url --jq '.url')"
           echo "release_url=${RELEASE_URL}" >> "${REPORT}"
@@ -1535,18 +1536,18 @@ jobs:
             --clobber \
             --repo "${GITHUB_REPOSITORY}"
           MONITOR_BRANCH='ci-monitor-v0345'
-          MONITOR_PATH='.ci/v04214-monitor.txt'
+          MONITOR_PATH='.ci/v04215-monitor.txt'
           MONITOR_CONTENT="$(base64 -w0 "${REPORT}")"
           MONITOR_SHA="$(gh api "/repos/${GITHUB_REPOSITORY}/contents/${MONITOR_PATH}?ref=${MONITOR_BRANCH}" --jq '.sha' 2>/dev/null || true)"
           if test -n "${MONITOR_SHA}"; then
             gh api --method PUT "/repos/${GITHUB_REPOSITORY}/contents/${MONITOR_PATH}" \
-              -f message='Update v0.42.14 CI failure monitor' \
+              -f message='Update v0.42.15 CI failure monitor' \
               -f content="${MONITOR_CONTENT}" \
               -f branch="${MONITOR_BRANCH}" \
               -f sha="${MONITOR_SHA}" >/dev/null
           else
             gh api --method PUT "/repos/${GITHUB_REPOSITORY}/contents/${MONITOR_PATH}" \
-              -f message='Create v0.42.14 CI failure monitor' \
+              -f message='Create v0.42.15 CI failure monitor' \
               -f content="${MONITOR_CONTENT}" \
               -f branch="${MONITOR_BRANCH}" >/dev/null
           fi

@@ -44,10 +44,12 @@ import 'chat_quick_settings_pages.dart';
 import 'cedar_toy_activity_window.dart';
 
 class ChatPage extends StatefulWidget {
-  const ChatPage({super.key, this.active = false, this.onOpenMore});
+  const ChatPage({super.key, this.active = false, this.onOpenMore,
+      this.onSelectMainTab});
 
   final bool active;
   final VoidCallback? onOpenMore;
+  final ValueChanged<int>? onSelectMainTab;
 
   @override
   State<ChatPage> createState() => _ChatPageState();
@@ -1661,7 +1663,9 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
                           Navigator.pop(dialogContext);
                           await Navigator.of(pageContext).push(
                             MaterialPageRoute(
-                              builder: (_) => const ImmersiveRoomLobbyPage(),
+                              builder: (_) => ImmersiveRoomLobbyPage(
+                                onSelectMainTab: widget.onSelectMainTab,
+                              ),
                             ),
                           );
                         },
@@ -2186,7 +2190,9 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
                       Navigator.pop(dialogContext);
                       await Navigator.of(pageContext).push(
                         MaterialPageRoute(
-                          builder: (_) => const ImmersiveRoomLobbyPage(),
+                          builder: (_) => ImmersiveRoomLobbyPage(
+                            onSelectMainTab: widget.onSelectMainTab,
+                          ),
                         ),
                       );
                     },

@@ -8,6 +8,7 @@ import '../reference/reference_library.dart';
 import '../relationship/relationship_brain.dart';
 import '../rules/intimacy_prompt_sections.dart';
 import '../somatic/somatic_engine.dart';
+import 'immersive_scene_advance.dart';
 
 class ImmersivePromptBuilder {
   ImmersivePromptBuilder(this.db)
@@ -197,7 +198,9 @@ reasoning_content 直接写AI角色第一人称的即时内心，落在当前感
         .map(
           (message) => <String, Object?>{
             'role': message.role,
-            'content': message.content,
+            'content': ImmersiveSceneAdvance.isMarker(message.content)
+                ? ImmersiveSceneAdvance.instruction
+                : message.content,
           },
         )
         .toList(growable: false);

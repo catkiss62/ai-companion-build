@@ -29,6 +29,7 @@ import 'immersive_message_language_variant_service.dart';
 import 'immersive_nsfw_router.dart';
 import 'immersive_prompt_builder.dart';
 import 'immersive_room_repository.dart';
+import 'immersive_scene_advance.dart';
 
 class ImmersiveRoomController extends ChangeNotifier {
   ImmersiveRoomController({
@@ -151,7 +152,14 @@ class ImmersiveRoomController extends ChangeNotifier {
     _safeNotify();
   }
 
-  Future<void> send(String rawText) async {
+  Future<void> send(String rawText) => _send(rawText);
+
+  Future<void> advanceScene() => _send(
+        ImmersiveSceneAdvance.marker,
+        sceneAdvance: true,
+      );
+
+  Future<void> _send(String rawText, {bool sceneAdvance = false}) async {
     final text = rawText.trim();
     final currentRoom = room;
     if (text.isEmpty || sending || currentRoom == null || currentRoom.isEnded) {
@@ -194,11 +202,13 @@ class ImmersiveRoomController extends ChangeNotifier {
     // Immersive turns share the same internal body channel as ordinary chat.
     // The room remains fictional, but a user-authored touch must not vanish
     // merely because this surface uses a different generation controller.
-    await somaticEngine.captureUserTurn(
-      turnId: user.id,
-      text: text,
-      now: user.createdAt,
-    );
+    if (!sceneAdvance) {
+      await somaticEngine.captureUserTurn(
+        turnId: user.id,
+        text: text,
+        now: user.createdAt,
+      );
+    }
     messages = [...messages, user];
     sending = true;
     nsfwRouting = true;
@@ -226,7 +236,7 @@ class ImmersiveRoomController extends ChangeNotifier {
         apiKey: apiKey,
         endpoint: endpoint,
         room: routedRoom,
-        latestUserText: text,
+        latestUserText: sceneAdvance ? ImmersiveSceneAdvance.instruction : text,
         recent: historyBeforeTurn,
         cancellationToken: cancellation,
       );
@@ -239,34 +249,39 @@ class ImmersiveRoomController extends ChangeNotifier {
       room = await repository.roomById(roomId);
       nsfwRouting = false;
       _safeNotify();
-      final playfulDecision = await PlayfulTurnJudge(client).decide(
-        apiKey: apiKey,
-        endpoint: endpoint,
-        userText: text,
-        recentContext: historyBeforeTurn.reversed
-            .take(8)
-            .toList(growable: false)
-            .reversed
-            .map((message) =>
-                '${message.isUser ? 'USER' : 'ASSISTANT'}: ${message.content}')
-            .join('\n'),
-        cancellationToken: cancellation,
-      );
+      final playfulDecision = sceneAdvance
+          ? null
+          : await PlayfulTurnJudge(client).decide(
+              apiKey: apiKey,
+              endpoint: endpoint,
+              userText: text,
+              recentContext: historyBeforeTurn.reversed
+                  .take(8)
+                  .toList(growable: false)
+                  .reversed
+                  .map((message) =>
+                      '${message.isUser ? 'USER' : 'ASSISTANT'}: ${message.content}')
+                  .join('\n'),
+              cancellationToken: cancellation,
+            );
       cancellation.throwIfCancelled();
-      final playfulForm = await PlayfulFormStore(db).onTurn(
-        interaction: playfulDecision.interaction,
-        turn: user.id,
-        now: user.createdAt,
-      );
+      final playfulForm = sceneAdvance
+          ? await PlayfulFormStore(db).load()
+          : await PlayfulFormStore(db).onTurn(
+              interaction: playfulDecision!.interaction,
+              turn: user.id,
+              now: user.createdAt,
+            );
       final request = await promptBuilder.build(
         room: room!,
         history: historyBeforeTurn,
-        latestUserText: text,
+        latestUserText: sceneAdvance ? ImmersiveSceneAdvance.instruction : text,
         nsfwActive: route.active,
         nsfwTurnDirective: route.turnDirective,
         playfulForm: playfulForm,
         playfulTurnId: user.id,
-        playfulInitiativeOpportunity: playfulDecision.initiativeOpportunity,
+        playfulInitiativeOpportunity:
+            playfulDecision?.initiativeOpportunity ?? false,
       );
       final profile = DeepSeekModelProfile.fromApiName(
         await db.getSetting('model'),
@@ -333,19 +348,21 @@ class ImmersiveRoomController extends ChangeNotifier {
       await _finishStreamingSpeech();
       PlayfulSelfActivity? selfActivity;
       try {
-        selfActivity = await PlayfulSelfJudge(client: client).classify(
-          apiKey: apiKey,
-          endpoint: endpoint,
-          userText: user.content,
-          assistantText: streamingContent,
-          recentContext: historyBeforeTurn.reversed
-              .take(4)
-              .toList(growable: false)
-              .reversed
-              .map((message) => message.content)
-              .join('\n'),
-          cancellationToken: cancellation,
-        );
+        if (!sceneAdvance) {
+          selfActivity = await PlayfulSelfJudge(client: client).classify(
+            apiKey: apiKey,
+            endpoint: endpoint,
+            userText: user.content,
+            assistantText: streamingContent,
+            recentContext: historyBeforeTurn.reversed
+                .take(4)
+                .toList(growable: false)
+                .reversed
+                .map((message) => message.content)
+                .join('\n'),
+            cancellationToken: cancellation,
+          );
+        }
       } on GenerationCancelledByUserException {
         rethrow;
       } catch (_) {
