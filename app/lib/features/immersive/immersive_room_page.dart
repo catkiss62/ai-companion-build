@@ -1210,6 +1210,7 @@ class _ImmersiveRoomPageState extends State<ImmersiveRoomPage> {
                               emotion: ChatVisualResolver.resolveEmotionKey(
                                 'affection',
                               ),
+                              qForm: _playfulForm.qForm,
                               portraitSet: _playfulForm.qForm
                                   ? ChatPortraitSet.smallWhale
                                   : _portraitSet,
@@ -1218,7 +1219,7 @@ class _ImmersiveRoomPageState extends State<ImmersiveRoomPage> {
                                 offset: _portraitOffset,
                               ),
                               showEffect: false,
-                              animate: false,
+                              animate: _playfulForm.qForm,
                             ),
                           ),
                         ),

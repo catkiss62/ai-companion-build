@@ -31,6 +31,7 @@ class ChatPortraitStage extends StatefulWidget {
     super.key,
     required this.emotion,
     this.portraitSet = ChatPortraitSet.largeWhale,
+    this.qForm = false,
     required this.transform,
     this.animationToken,
     this.showEffect = true,
@@ -39,6 +40,7 @@ class ChatPortraitStage extends StatefulWidget {
 
   final ChatEmotionVisual emotion;
   final ChatPortraitSet portraitSet;
+  final bool qForm;
   final ChatPortraitTransform transform;
   final Object? animationToken;
   final bool showEffect;
@@ -103,8 +105,9 @@ class _ChatPortraitStageState extends State<ChatPortraitStage>
     }
     if (widget.emotion.key != oldWidget.emotion.key ||
         widget.animationToken != oldWidget.animationToken ||
-        widget.animate != oldWidget.animate) {
-      _playEmotion();
+        widget.animate != oldWidget.animate ||
+        widget.qForm != oldWidget.qForm) {
+      _playEmotion(formChange: !oldWidget.qForm && widget.qForm);
     }
   }
 
@@ -116,11 +119,13 @@ class _ChatPortraitStageState extends State<ChatPortraitStage>
         ChatPortraitAnimation.naughtyBounce => const Duration(milliseconds: 300),
         ChatPortraitAnimation.embarrassedShake =>
           const Duration(milliseconds: 300),
+        ChatPortraitAnimation.smallFormBounce =>
+          const Duration(milliseconds: 700),
         ChatPortraitAnimation.breathing => const Duration(seconds: 4),
         ChatPortraitAnimation.none => const Duration(milliseconds: 1),
       };
 
-  Future<void> _playEmotion() async {
+  Future<void> _playEmotion({bool formChange = false}) async {
     final generation = ++_playGeneration;
     _effectTimer?.cancel();
     if (mounted) {
@@ -145,7 +150,9 @@ class _ChatPortraitStageState extends State<ChatPortraitStage>
       return;
     }
 
-    final requested = widget.emotion.animation;
+    final requested = formChange
+        ? ChatPortraitAnimation.smallFormBounce
+        : widget.emotion.animation;
     if (requested == ChatPortraitAnimation.none ||
         requested == ChatPortraitAnimation.breathing) {
       _activeAnimation = ChatPortraitAnimation.breathing;
@@ -168,6 +175,10 @@ class _ChatPortraitStageState extends State<ChatPortraitStage>
 
   ({double x, double y, double scale}) _motion(double t) {
     switch (_activeAnimation) {
+      case ChatPortraitAnimation.smallFormBounce:
+        // Two quick leaps with a slightly softer second landing.
+        return (x: 0, y: _piecewise(t, const [0, -18, 0, -11, 0]),
+            scale: _piecewise(t, const [1, 1.04, 0.98, 1.02, 1]));
       case ChatPortraitAnimation.happyBounce:
         return (x: 0, y: -10 * math.sin(2 * math.pi * t).abs(), scale: 1);
       case ChatPortraitAnimation.angryJump:
@@ -211,6 +222,7 @@ class _ChatPortraitStageState extends State<ChatPortraitStage>
         ChatPortraitAnimation.seriousThink ||
         ChatPortraitAnimation.heartBeat ||
         ChatPortraitAnimation.naughtyBounce ||
+        ChatPortraitAnimation.smallFormBounce ||
         ChatPortraitAnimation.embarrassedShake =>
           const Cubic(0.175, 0.885, 0.32, 1.275),
         ChatPortraitAnimation.breathing => Curves.easeInOut,

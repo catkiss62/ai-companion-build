@@ -36,7 +36,8 @@ body.gore{
 }
 
 *{ box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
-html,body{ margin:0; padding:0; }
+html,body{ margin:0; padding:0; overscroll-behavior:none; scrollbar-width:none; }
+html::-webkit-scrollbar,body::-webkit-scrollbar{ display:none; }
 body{
   font-family:var(--f-cn); color:var(--ink);
   background:
@@ -509,7 +510,7 @@ body.gore .omi-again{ color:#ffd8d4; }
 
   /* ---------------- audio ---------------- */
   const Audio = (function () {
-    let ctx = null, on = false;
+    let ctx = null, on = true, lastTick = 0;
     function ac() { if (!ctx) ctx = new (window.AudioContext || window.webkitAudioContext)(); if (ctx.state === "suspended") ctx.resume(); return ctx; }
     function blip(freq, dur, type, gain, slideTo) {
       if (!on) return;
@@ -522,7 +523,7 @@ body.gore .omi-again{ color:#ffd8d4; }
       o.connect(g); g.connect(c.destination); o.start(); o.stop(c.currentTime + dur + 0.02);
     }
     return {
-      tick() { blip(180 + Math.random() * 60, 0.03, "square", 0.025); },
+      tick() { const now = performance.now(); if (now - lastTick < 55) return; lastTick = now; blip(180 + Math.random() * 60, 0.03, "square", 0.025); },
       clunk() { blip(140, 0.12, "triangle", 0.09, 70); },
       ding() { blip(880, 0.5, "sine", 0.08); setTimeout(() => blip(1320, 0.6, "sine", 0.05), 60); },
       arm() { blip(90, 0.3, "sawtooth", 0.08, 200); },
@@ -659,6 +660,7 @@ body.gore .omi-again{ color:#ffd8d4; }
       const bank = document.getElementById("bank");
       this.dims.forEach((d) => { const r = new Reel(d); this.reels.push(r); bank.appendChild(r.el); });
       this.buildMarquee(); this.wireControls(); this.wireSearch(); this.wireHistory(); this.idleMarquee();
+      document.getElementById("mute").classList.add("sound");
     },
     activeReels() { return this.reels.filter(r => r.active && !r.locked); },
     activeCount() { return this.activeReels().length; },
@@ -675,18 +677,24 @@ body.gore .omi-again{ color:#ffd8d4; }
     idleMarquee() {
       let p = 0; clearInterval(this._mq);
       this._mq = setInterval(() => {
-        this.bulbs.forEach(b => b.classList.remove("lit"));
-        for (let k = 0; k < this.perim; k += 4) { const b = this.bulbs[(p + k) % this.perim]; if (b) b.classList.add("lit"); }
+        this.lightBulbs(p, 4);
         p = (p + 1) % this.perim;
       }, 320);
     },
     runMarquee() {
       let p = 0; clearInterval(this._mq);
       this._mq = setInterval(() => {
-        this.bulbs.forEach(b => b.classList.remove("lit"));
-        for (let k = 0; k < this.perim; k += 3) { const b = this.bulbs[(p + k) % this.perim]; if (b) b.classList.add("lit"); }
+        this.lightBulbs(p, 3);
         p = (p + 2) % this.perim;
       }, 55);
+    },
+    lightBulbs(p, step) {
+      const active = new Set();
+      for (let k = 0; k < this.perim; k += step) active.add((p + k) % this.perim);
+      this.bulbs.forEach((bulb, i) => {
+        const lit = active.has(i);
+        if (bulb.classList.contains("lit") !== lit) bulb.classList.toggle("lit", lit);
+      });
     },
     celebrateMarquee() {
       clearInterval(this._mq); let f = 0;

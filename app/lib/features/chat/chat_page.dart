@@ -1344,6 +1344,7 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
                       child: IgnorePointer(
                         child: ChatPortraitStage(
                           emotion: _currentEmotion,
+                          qForm: _playfulForm.qForm,
                           portraitSet: _playfulForm.qForm
                               ? ChatPortraitSet.smallWhale
                               : _portraitSet,

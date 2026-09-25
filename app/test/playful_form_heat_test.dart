@@ -24,7 +24,7 @@ void main() {
     expect(q.qForm, isFalse);
   });
 
-  test('only a full meter enters Q; actual provocation raises heat quickly',
+  test('natural full meter arms one following exchange before Q can start',
       () {
     var state = const PlayfulFormState();
     for (var turn = 1; turn <= 3; turn++) {
@@ -34,7 +34,19 @@ void main() {
     }
     state = state.advance(PlayfulInteraction.mutual, 'mutual_4', now);
     expect(state.heat, 100);
-    expect(state.qForm, isTrue);
+    expect(state.qForm, isFalse);
+    expect(state.breakthroughDue, isTrue);
+    final waited = state.advance(PlayfulInteraction.ordinary, 'wait', now,
+        breakthrough: false);
+    expect(waited.heat, 100);
+    expect(waited.breakthroughDue, isFalse);
+    expect(waited.advance(PlayfulInteraction.ordinary, 'later', now).heat, 98);
+    final tipped = state.advance(PlayfulInteraction.ordinary, 'tipped', now,
+        breakthrough: true);
+    expect(tipped.qForm, isTrue);
+    expect(tipped.heat, 100);
+    expect(state.advance(PlayfulInteraction.serious, 'help', now,
+        breakthrough: true).qForm, isFalse);
 
     final mild = const PlayfulFormState(heat: 84)
         .advance(PlayfulInteraction.light, 'light', now);
@@ -62,9 +74,11 @@ void main() {
     state = state.onAssistantTurn(
         PlayfulSelfActivity.strong, 'assistant-1', now);
     expect(state.heat, 100);
-    expect(state.qForm, isTrue);
+    expect(state.qForm, isFalse);
+    expect(state.breakthroughDue, isTrue);
     final restored = PlayfulFormState.decode(state.encode());
     expect(restored.lastAssistantTurn, 'assistant-1');
+    expect(restored.breakthroughDue, isTrue);
     expect(
       restored.onAssistantTurn(
           PlayfulSelfActivity.strong, 'assistant-1', now).heat,
@@ -75,6 +89,21 @@ void main() {
           PlayfulSelfActivity.settle, 'assistant-2', now).heat,
       92,
     );
+  });
+
+  test('Stop restores the one-turn chance and a failed judgment does not spend it', () {
+    final full = const PlayfulFormState(heat: 82)
+        .onAssistantTurn(PlayfulSelfActivity.strong, 'assistant-full', now);
+    expect(full.breakthroughDue, isTrue);
+    final unavailable = full.advance(PlayfulInteraction.ordinary, 'missing', now);
+    expect(unavailable.breakthroughDue, isTrue);
+    final stopped = unavailable.rollbackTurn('missing');
+    expect(stopped.breakthroughDue, isTrue);
+    final tipped = stopped.advance(PlayfulInteraction.mutual, 'retry', now,
+        breakthrough: true);
+    expect(tipped.qForm, isTrue);
+    expect(PlayfulFormState.decode(tipped.encode()).qForm, isTrue);
+    expect(full.interact(kindle: true, now: now).qForm, isTrue);
   });
 
   test('offered initiative is stable and does not change heat by itself', () {

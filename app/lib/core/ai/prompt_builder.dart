@@ -93,6 +93,7 @@ class PromptBuilder {
     bool? nsfwActive,
     bool? nsfwReferenceActive,
     PlayfulInteraction? playfulInteraction,
+    bool? playfulBreakthrough,
     bool playfulInitiativeOpportunity = false,
     List<AgentToolResult> agentToolResults = const [],
     String? specialStyleKeyOverride,
@@ -214,6 +215,7 @@ class PromptBuilder {
     final form = mode == PromptGenerationMode.userTurn
         ? await formStore.onTurn(
             interaction: playfulInteraction,
+            breakthrough: playfulBreakthrough,
             turn: formTurn,
             now: instant,
           )

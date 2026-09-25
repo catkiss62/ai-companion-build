@@ -10,6 +10,7 @@ enum ChatPortraitAnimation {
   heartBeat,
   naughtyBounce,
   embarrassedShake,
+  smallFormBounce,
 }
 
 /// Presentation-only portrait choice. These labels and keys must never be

@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:webview_flutter/webview_flutter.dart';
+import 'package:webview_flutter_android/webview_flutter_android.dart';
 
 import '../../core/fate_wheel/fate_wheel_catalog.dart';
 import '../../core/platform/android_bridge.dart';
@@ -33,6 +34,12 @@ class _FateWheelPageState extends State<FateWheelPage> {
       final catalog = await FateWheelCatalog.load();
       await _webView.setJavaScriptMode(JavaScriptMode.unrestricted);
       await _webView.setBackgroundColor(const Color(0xFF070504));
+      final platform = _webView.platform;
+      if (platform is AndroidWebViewController) {
+        await platform.setOverScrollMode(WebViewOverScrollMode.never);
+        await platform.setVerticalScrollBarEnabled(false);
+        await platform.setHorizontalScrollBarEnabled(false);
+      }
       await _webView.setNavigationDelegate(NavigationDelegate(
         onNavigationRequest: (request) {
           final url = request.url;

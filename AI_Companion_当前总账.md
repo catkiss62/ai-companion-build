@@ -40,8 +40,8 @@
 | 功能状态 | `CI PASSED / APK READY / TRUE DEVICE PENDING` |
 | +228 远端 | head `29e87d016c8bd81f52f89f95191bd1a1a01a5b57`；tree `c4a112a56d8b634cf3a1a66636979a0833538b7d`；Actions `35440359036`；Artifact `10583263879`；APK SHA-256 `159e283173e49da2924d25b37ba7647893cdafdcc31b63f0e31b7c64e086849b` |
 | 仓库维护基线 | `maintenance/repository-governance-20260919`；远端文档 head `123e272196e8ae93f3518157917d76f6af4f1784`；完整构建 head `fa99f32012fa1a0716b746d36b958a8e777ef9b8`；Actions `35446649873` 全绿；文档-only run `35447342921` 正确跳过 APK |
-| 当前功能分支 | `agent/v04216-reasoning-translation-wheel-haptics`，基于 +259 全绿 APK；候选版本 `v0.42.16+260` |
-| 当前任务状态 | `CI PASSED / APK READY / TRUE DEVICE PENDING`；+260 房间底栏、真实思考展示、分段翻译、Cedar 闲聊调用门与原版轮盘逐轮振动，Actions `36118441665` 全绿，详情见末尾 |
+| 当前功能分支 | `agent/v04217-breakthrough-wheel-smooth`，基于 +260 全绿 APK；候选版本 `v0.42.17+261` |
+| 当前任务状态 | `IMPLEMENTED LOCALLY / CI PENDING / APK PENDING / TRUE DEVICE PENDING`；+261 满气焰一轮触发窗口、轮盘边缘/声音/灯光微调，详情见末尾；+260 Actions `36118441665` 全绿 |
 | +250 当前任务 | 本体／小豆丁形态共用成年角色、记忆与能力；同一形态状态驱动角色提示与静态立绘，虚拟弹额头／安抚改变气焰值后继续自然衰减，心形液面与锁定入口；常驻世界书定点柔化并仅迁移未编辑原文；两档 TTS 共用冻结的真实回复与分段，无声生成并复制专项脱敏报告 |
 | +250 最终构建 | 功能 head `b5cd2d1070fb237bc72ab66b1867a75da9bbe6e8`；tree `4e0dbbd531aea408ab0face6d46a323f441c7eeb`；Actions `35943607609` 全绿；Artifact `10785922926`；APK SHA-256 `f148f2eb303017ad5f6f689628f230979c24ba16831fdc0181e58bc5e1d73a`；未发布 Draft Release `v0.42.6-dual-form-tts-comparison-test` |
 | +249 当前任务 | `loopIndex=0` 时明确判定“零个新语义 token”，在 VITS 前拒绝本段；最后两次会话记录生成时 profile、冷/热状态、各阶段耗时、RTF、播放首帧、队列余量、迟到段、失败/停止与脱敏文本哈希 |
@@ -953,3 +953,9 @@ Actions 与交付证据：远端功能 head `33647c7bff15084d6fd3cbc7b817e9b0b21
 - 本地实现：中间导航“房间”和门图标，选中中间项不离开房间；新消息与流式规划不再添加编号；翻译遵循用户两级判定并支持旧存档；仅游戏请求/待续共玩/实际 Cedar Outcome 暴露游戏厅工具，普通闲聊已配置 Cedar 时不触发 DeepSeek 规划；Android manifest 补齐 `VIBRATE` 供网页现有每轮停靠震动调用。新增独立翻译分支与 Cedar 空工具门回归测试。
 - 本地验证：总账交接校验、Agent v2、图像可靠性、主观搜索回归和 `git diff --check` 已通过；第一次 Actions `36117923678` 在旧 +219 静态契约校验第 99/125 项失败：它硬编码要求 `cedarStageToolIds()` 直接引用旧的常驻 gateway/engaged 字样，与本轮修复冲突；更新检查为实际 `toolIdsForUserTurn` 行为和回归测试后重跑。Flutter analyze/test 与 Android APK 交由完整远端 CI；原网页视觉、动画帧率、振动强度仍需真机。
 - 远端验证（2026-09-25）：功能 tree `3ad68dd178bd6d474bb534038ecf829bd2ef426b`，远端构建 head `156743912284dd896434857ce46f32e8cc6364f5`；Actions `36118441665` 全绿：125 项源码校验、Kotlin 测试、Flutter analyze/test、release APK、签名和资源核验均通过。Artifact `10856307246`（14 天）；APK SHA-256 `607a2d1c84546b0f2364e47f8db1e049f77c1ed8908778fdbc9f01ac5088fb8f`；签名指纹 `30:5E:B3:D8:09:83:B9:63:C6:48:18:DD:F1:AD:56:1F:27:9D:E6:D4:7B:3E:D2:C7:81:AD:A4:48:C7:C2:51:48`。未发布 Draft Release `https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-c92a839f0ea079a1b17c`。状态 `CI PASSED / APK READY / TRUE DEVICE PENDING`；手机仍需检查逐轮震动、动画流畅度、翻译分段和真实零工具回合的用量变化。
+
+## v0.42.17+261 · 满气焰触发与命运之轮细节（2026-09-25）
+
+- 双形态：本体自然达到 100 时只蓄势，下一次真实用户消息是一次触发判断机会。Jev 阅读最近 3～5 轮和本轮消息，按最新互动是否让她明显绷不住选“触发／等待”；Jev 不可用、不确定或失败时 DeepSeek Flash 同题兜底，两者均失败不消耗机会。触发时先更新共享状态和角色提示，再生成回复；若否，这轮保持满值，其后正常衰减。严肃求助不能作为触发。弹额头仍直接变身，安抚、锁定与手动按钮不变；小豆丁只有 0 自动还原。普通聊天与沉浸共用状态，Stop 回滚蓄势与形态。
+- 视觉：真实切换到小豆丁时立绘跳两下，不加烟雾。命运之轮 WebView 关闭 Android 边缘拉伸和可见滚动条，仍可正常上下滚动；网页默认声音开启，在首次手势音效时创建 Web Audio；跨卷轴重复 tick 限速，跑马灯仅更新实际变动的灯泡，保留原机台外观与逐轮振动。帧率改善需同机对照网页和 APK 验证。
+- 验证：状态和 Jev/DeepSeek 兜底专项测试、JS 语法、总账门、Flutter Analyze/Test 与 Android Release 走 Actions；真机观察普通／沉浸跨房间、Stop、锁定、双跳、声音、拖动边缘及帧数。状态 `IMPLEMENTED LOCALLY / CI PENDING / APK PENDING / TRUE DEVICE PENDING`。

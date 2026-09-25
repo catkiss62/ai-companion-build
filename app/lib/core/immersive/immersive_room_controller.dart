@@ -10,6 +10,7 @@ import '../ai/generation_cancellation.dart';
 import '../ai/message_language_variant_service.dart';
 import '../ai/model_profile.dart';
 import '../ai/playful_turn_judge.dart';
+import '../ai/playful_breakthrough_judge.dart';
 import '../ai/playful_self_judge.dart';
 import '../database/app_database.dart';
 import '../emotion/emotion_classifier_service.dart';
@@ -265,10 +266,26 @@ class ImmersiveRoomController extends ChangeNotifier {
               cancellationToken: cancellation,
             );
       cancellation.throwIfCancelled();
+      final priorForm = await PlayfulFormStore(db).load();
+      final breakthrough = !sceneAdvance && priorForm.breakthroughDue
+          ? await PlayfulBreakthroughJudge(client).decide(
+              apiKey: apiKey,
+              endpoint: endpoint,
+              userText: text,
+              recentContext: historyBeforeTurn.reversed
+                  .take(10).toList(growable: false).reversed
+                  .map((message) =>
+                      '${message.isUser ? 'USER' : 'ASSISTANT'}: ${message.content}')
+                  .join('\n'),
+              cancellationToken: cancellation,
+            )
+          : null;
+      cancellation.throwIfCancelled();
       final playfulForm = sceneAdvance
           ? await PlayfulFormStore(db).load()
           : await PlayfulFormStore(db).onTurn(
               interaction: playfulDecision!.interaction,
+              breakthrough: breakthrough,
               turn: user.id,
               now: user.createdAt,
             );
@@ -844,8 +861,24 @@ class ImmersiveRoomController extends ChangeNotifier {
         cancellationToken: cancellation,
       );
       cancellation.throwIfCancelled();
+      final priorForm = await PlayfulFormStore(db).load();
+      final breakthrough = priorForm.breakthroughDue
+          ? await PlayfulBreakthroughJudge(client).decide(
+              apiKey: internalApiKey,
+              endpoint: internalEndpoint,
+              userText: user.content,
+              recentContext: historyBeforeTurn.reversed
+                  .take(10).toList(growable: false).reversed
+                  .map((message) =>
+                      '${message.isUser ? 'USER' : 'ASSISTANT'}: ${message.content}')
+                  .join('\n'),
+              cancellationToken: cancellation,
+            )
+          : null;
+      cancellation.throwIfCancelled();
       final playfulForm = await PlayfulFormStore(db).onTurn(
         interaction: playfulDecision.interaction,
+        breakthrough: breakthrough,
         turn: user.id,
         now: user.createdAt,
       );

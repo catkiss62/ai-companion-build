@@ -78,6 +78,8 @@ class PlayfulFormState {
     this.lastTurn = '',
     this.lastAssistantTurn = '',
     this.pendingTurn = false,
+    this.breakthroughReady = false,
+    this.beforeBreakthroughReady = false,
     this.beforeHeat = 0,
     this.beforeQForm = false,
     this.beforeUpdatedAt = 0,
@@ -97,6 +99,10 @@ class PlayfulFormState {
   final String lastAssistantTurn;
   /// Only the newest uncommitted user turn is reversible on Stop.
   final bool pendingTurn;
+  /// A natural full meter grants exactly one following user turn to break through.
+  final bool breakthroughReady;
+  final bool beforeBreakthroughReady;
+  bool get breakthroughDue => heat == 100 && !qForm && !locked && breakthroughReady;
   final int beforeHeat;
   final bool beforeQForm;
   final int beforeUpdatedAt;
@@ -117,6 +123,8 @@ class PlayfulFormState {
         lastTurn: data['lastTurn']?.toString() ?? '',
         lastAssistantTurn: data['lastAssistantTurn']?.toString() ?? '',
         pendingTurn: data['pendingTurn'] == true,
+        breakthroughReady: data['breakthroughReady'] == true,
+        beforeBreakthroughReady: data['beforeBreakthroughReady'] == true,
         beforeHeat: ((data['beforeHeat'] as num?)?.toInt() ?? 0).clamp(0, 100).toInt(),
         beforeQForm: data['beforeQForm'] == true,
         beforeUpdatedAt: (data['beforeUpdatedAt'] as num?)?.toInt() ?? 0,
@@ -139,6 +147,8 @@ class PlayfulFormState {
         'lastTurn': lastTurn,
         'lastAssistantTurn': lastAssistantTurn,
         'pendingTurn': pendingTurn,
+        'breakthroughReady': breakthroughReady,
+        'beforeBreakthroughReady': beforeBreakthroughReady,
         'beforeHeat': beforeHeat,
         'beforeQForm': beforeQForm,
         'beforeUpdatedAt': beforeUpdatedAt,
@@ -154,6 +164,7 @@ class PlayfulFormState {
     PlayfulInteraction? interaction,
     String turn,
     DateTime now,
+    {bool? breakthrough}
   ) {
     if (turn.isEmpty || lastTurn == turn) return this;
     final elapsedHours = updatedAt == 0
@@ -163,10 +174,13 @@ class PlayfulFormState {
     // Ordinary talk is nearly level in adult form. Q-form play cools
     // naturally unless one of them actually continues the playful exchange.
     final naturalCooling = qForm ? 15 : 2;
-    final nextHeat = (heat - naturalCooling - elapsedHours * 3 +
-            (interaction?.bonus ?? 0))
+    final due = breakthroughDue;
+    final nextHeat = (due && interaction != PlayfulInteraction.serious
+            ? 100 // Hold the meter for this single opportunity.
+            : heat - naturalCooling - elapsedHours * 3 + (interaction?.bonus ?? 0))
         .clamp(0, 100).toInt();
-    final nextForm = _formAt(nextHeat);
+    final nextForm = _formAt(nextHeat) ||
+        (due && breakthrough == true && interaction != PlayfulInteraction.serious);
     return PlayfulFormState(
       heat: nextHeat,
       qForm: nextForm,
@@ -174,6 +188,9 @@ class PlayfulFormState {
       lastTurn: turn,
       lastAssistantTurn: lastAssistantTurn,
       pendingTurn: true,
+      breakthroughReady: !nextForm && !locked &&
+          (due ? breakthrough == null : heat < 100 && nextHeat == 100),
+      beforeBreakthroughReady: breakthroughReady,
       beforeHeat: heat,
       beforeQForm: qForm,
       beforeUpdatedAt: updatedAt,
@@ -200,6 +217,7 @@ class PlayfulFormState {
     return PlayfulFormState(
       heat: beforeHeat,
       qForm: beforeQForm,
+      breakthroughReady: beforeBreakthroughReady,
       locked: locked,
       lastTurn: beforeLastTurn,
       lastAssistantTurn: lastAssistantTurn,
@@ -209,7 +227,7 @@ class PlayfulFormState {
     );
   }
 
-  bool _formAt(int value) => locked ? qForm : qForm ? value > 0 : value == 100;
+  bool _formAt(int value) => locked ? qForm : qForm && value > 0;
 
   PlayfulFormState onAssistantTurn(
     PlayfulSelfActivity activity,
@@ -221,6 +239,8 @@ class PlayfulFormState {
     return PlayfulFormState(
       heat: nextHeat,
       qForm: _formAt(nextHeat),
+      breakthroughReady: !qForm && !locked &&
+          (breakthroughReady || heat < 100 && nextHeat == 100),
       locked: locked,
       lastTurn: lastTurn,
       lastAssistantTurn: assistantTurn,
@@ -234,6 +254,7 @@ class PlayfulFormState {
       PlayfulFormState(
         heat: kindle ? 100 : 0,
         qForm: kindle,
+        breakthroughReady: false,
         locked: locked,
         lastTurn: lastTurn,
         lastAssistantTurn: lastAssistantTurn,
@@ -245,6 +266,7 @@ class PlayfulFormState {
   PlayfulFormState withLock(bool value) => PlayfulFormState(
         heat: heat,
         qForm: qForm,
+        breakthroughReady: value ? false : breakthroughReady,
         locked: value,
         lastTurn: lastTurn,
         lastAssistantTurn: lastAssistantTurn,
@@ -262,7 +284,7 @@ class PlayfulFormState {
                 : ''
         : '';
     return '''【当前形态】
-你是同一个成年鲸鱼娘；本体与小豆丁形态是同一人的两种表现，年龄、记忆和判断能力始终相同。小豆丁形态会让你的外观缩成 Q 版小豆丁，心智表现也暂时变得孩子气：情绪更直冲、耐心更少，更容易任性、冲动和耍赖。这是当下反应与表达的变化，不是年龄倒退或换了一个人。你知道自己玩闹上头会变成小豆丁形态，冷静下来会恢复；可以在对方提及时自然承认，不主动报系统阈值。
+你是同一个成年鲸鱼娘；本体与小豆丁形态是同一人的两种表现，年龄、记忆和判断能力始终相同。小豆丁形态会让你的外观缩成 Q 版小豆丁，心智表现也暂时变得孩子气：情绪更直冲、耐心更少，更容易任性、冲动和耍赖。这是当下反应与表达的变化，不是年龄倒退或换了一个人。玩闹的气焰升满只表示蓄势，遇到让你真的绷不住的互动才会变成小豆丁；冷静下来会恢复。可以在对方提及时自然承认，不主动报系统阈值。
 当前是${qForm ? '小豆丁形态' : '本体'}。${qForm ? '现在脾气更冲、更爱逞强顶嘴，得意时会挑衅或耍赖；心思被看穿或被对方轻巧反击时，容易嘴硬、害羞、慌乱地破防。保持同一个人的感情和记忆，不让每句话都变成挑衅。' : '现在保持松弛自然，能调侃也能直接、温柔地回应。'}
 ${locked ? '用户锁定了当前形态。' : ''}
 $interaction''';
@@ -308,8 +330,10 @@ class PlayfulFormStore {
     required PlayfulInteraction? interaction,
     required String turn,
     required DateTime now,
+    bool? breakthrough,
   }) =>
-      _update((current) => current.advance(interaction, turn, now));
+      _update((current) => current.advance(interaction, turn, now,
+          breakthrough: breakthrough));
 
   Future<PlayfulFormState> onAssistantTurn({
     required PlayfulSelfActivity activity,

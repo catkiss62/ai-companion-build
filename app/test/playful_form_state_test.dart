@@ -31,7 +31,7 @@ void main() {
     expect(comforted.qForm, isFalse);
   });
 
-  test('four mutually playful turns reach full heat without keywords', () {
+  test('four mutually playful turns arm a later trigger without keywords', () {
     final now = DateTime(2026, 9, 24, 12);
     var state = const PlayfulFormState();
     for (var turn = 1; turn <= 3; turn++) {
@@ -40,9 +40,10 @@ void main() {
     }
     state = state.advance(PlayfulInteraction.mutual, '4', now);
     expect(state.heat, 100);
-    expect(state.qForm, isTrue);
+    expect(state.qForm, isFalse);
+    expect(state.breakthroughDue, isTrue);
     expect(state.advance(PlayfulInteraction.strong, '4', now).heat, 100);
-    expect(state.advance(PlayfulInteraction.serious, '6', now).qForm, isTrue);
+    expect(state.advance(PlayfulInteraction.serious, '6', now).qForm, isFalse);
   });
 
   test('Stop restores only the pending user turn and keeps later actions', () {

@@ -48,6 +48,7 @@ import 'model_profile.dart';
 import 'nsfw_context_router.dart';
 import 'prompt_builder.dart';
 import 'playful_self_judge.dart';
+import 'playful_breakthrough_judge.dart';
 import 'visible_reasoning_transcript.dart';
 
 class GenerationRunResult {
@@ -439,6 +440,23 @@ class DurableGenerationRunner {
           cedarPromptSession?.hasPendingTerminalDelivery == true
               ? cedarPromptSession!.pendingTerminalKey
               : '';
+      final formBeforeTurn = await PlayfulFormStore(db).load();
+      final breakthrough = formBeforeTurn.breakthroughDue
+          ? await PlayfulBreakthroughJudge(client).decide(
+              apiKey: apiKey,
+              endpoint: endpoint,
+              userText: user.content,
+              recentContext: previous.reversed
+                  .take(10)
+                  .toList(growable: false)
+                  .reversed
+                  .map((message) =>
+                      '${message.isUser ? 'USER' : 'ASSISTANT'}: ${message.content}')
+                  .join('\n'),
+              cancellationToken: effectiveCancellation,
+            )
+          : null;
+      effectiveCancellation.throwIfCancelled();
       final promptBuild = await PromptBuilder(db).buildChatPrompt(
         latestUserText: user.content,
         recent: recent,
@@ -447,6 +465,7 @@ class DurableGenerationRunner {
         nsfwActive: nsfwRoute.active,
         nsfwReferenceActive: nsfwRoute.referenceActive,
         playfulInteraction: nsfwRoute.playfulInteraction,
+        playfulBreakthrough: breakthrough,
         playfulInitiativeOpportunity: nsfwRoute.initiativeOpportunity,
         agentToolResults: agentToolResults,
         specialStyleKeyOverride: generationSpecialStyleKey,
