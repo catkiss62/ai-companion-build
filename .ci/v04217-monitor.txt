@@ -1,0 +1,7 @@
+status=success
+run_id=36138316955
+run_url=https://github.com/catkiss62/ai-companion-build/actions/runs/36138316955
+head_sha=3a9fd3091970ba132e9261575f212f709ee32613
+signer_sha256=30:5E:B3:D8:09:83:B9:63:C6:48:18:DD:F1:AD:56:1F:27:9D:E6:D4:7B:3E:D2:C7:81:AD:A4:48:C7:C2:51:48
+2d5ccfc8d3508c093b11c60759cf12c9e46e07e128b1ccbf7ef23c997e21c4a7  AI-Companion-v0.42.17-261-Breakthrough-Wheel-Smooth-APK.apk
+release_url=https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-d10092c51d058bdfdfb3
