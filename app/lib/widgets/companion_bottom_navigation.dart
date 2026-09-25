@@ -6,27 +6,33 @@ class CompanionBottomNavigation extends StatelessWidget {
     super.key,
     required this.selectedIndex,
     required this.onDestinationSelected,
+    this.immersive = false,
   });
 
   final int selectedIndex;
   final ValueChanged<int> onDestinationSelected;
+  final bool immersive;
 
   @override
   Widget build(BuildContext context) => NavigationBar(
         selectedIndex: selectedIndex,
         onDestinationSelected: onDestinationSelected,
-        destinations: const [
-          NavigationDestination(
+        destinations: [
+          const NavigationDestination(
             icon: Icon(Icons.favorite_outline_rounded),
             selectedIcon: Icon(Icons.favorite_rounded),
             label: '她',
           ),
           NavigationDestination(
-            icon: Icon(Icons.chat_bubble_outline_rounded),
-            selectedIcon: Icon(Icons.chat_bubble_rounded),
-            label: '聊天',
+            icon: Icon(immersive
+                ? Icons.meeting_room_outlined
+                : Icons.chat_bubble_outline_rounded),
+            selectedIcon: Icon(immersive
+                ? Icons.meeting_room_rounded
+                : Icons.chat_bubble_rounded),
+            label: immersive ? '房间' : '聊天',
           ),
-          NavigationDestination(
+          const NavigationDestination(
             icon: Icon(Icons.more_horiz_rounded),
             label: '更多',
           ),

@@ -14,6 +14,20 @@ class CedarToyArcadeSkill {
     'cedar_toy.play',
   };
 
+  /// An installed Cedar account is not a reason to ask DeepSeek to plan on
+  /// every ordinary chat turn. Explicit game intent and waiting co-play turns
+  /// still keep the gateway available.
+  static Set<String> toolIdsForUserTurn({
+    required bool configured,
+    required bool skillActive,
+    required bool hasCedarOutcome,
+  }) {
+    if (!configured || (!skillActive && !hasCedarOutcome)) {
+      return const <String>{};
+    }
+    return engagedToolIds;
+  }
+
   static bool shouldReconsiderNoCall({
     required bool cedarEngaged,
     required bool lastOutcomeRequestsContinuation,

@@ -27,6 +27,28 @@ void main() {
       );
       expect(ReasoningTranslationPolicy.shouldOffer(''), isFalse);
     });
+
+    test('tests final reasoning separately from Chinese planning', () {
+      const source = '我想先确认现场。DeepSeek API 暂时不需要工具。\n\n'
+          '【最终回复】\nI should respond to the person with warmth and make the answer '
+          'clear without repeating the tool planning text or inventing facts.';
+      expect(ReasoningTranslationPolicy.shouldOffer(source), isTrue);
+      expect(
+        ReasoningTranslationPolicy.translationSource(source),
+        startsWith('【最终回复】\nI should respond'),
+      );
+      expect(
+        ReasoningTranslationPolicy.translationSource(source),
+        isNot(contains('我想先确认现场')),
+      );
+    });
+
+    test('English planning translates the entire thought, including Chinese final', () {
+      const source = '【规划 1】\nI should verify that the tool output is genuine '
+          'before reaching any conclusion or telling the user it succeeded.\n\n'
+          '【最终回复】\n我已经确认了，这里只需要中文回应。';
+      expect(ReasoningTranslationPolicy.translationSource(source), source);
+    });
   });
 
   test('successful translation is cached by source hash', () async {
@@ -84,6 +106,33 @@ void main() {
 
     expect(gateway.calls, 2);
     expect(cache.saved, 2);
+  });
+
+  test('translator receives only English final reply and caches full record',
+      () async {
+    final cache = _MemoryCache();
+    final gateway = _FakeGateway('我会认真回答。');
+    final service = ReasoningTranslationService(
+      cache: cache,
+      gateway: gateway,
+      apiKeyLoader: () async => 'test-key',
+      endpointLoader: () async => 'https://example.test/chat/completions',
+    );
+    const reasoning = '我先看看该怎么说。\n\n【最终回复】\n'
+        'I should answer clearly in my own words and avoid mentioning the earlier planning.';
+    final result = await service.translate(
+      scope: ReasoningTranslationScope.chat,
+      messageId: 'mixed',
+      reasoning: reasoning,
+    );
+    expect(result.fromCache, isFalse);
+    expect(gateway.lastReasoning, startsWith('【最终回复】\n'));
+    expect(gateway.lastReasoning, isNot(contains('我先看看')));
+    expect(await service.cached(
+      scope: ReasoningTranslationScope.chat,
+      messageId: 'mixed',
+      reasoning: reasoning,
+    ), '我会认真回答。');
   });
 
   test('missing API key and gateway failure never write a fake cache', () async {
@@ -190,6 +239,7 @@ class _FakeGateway implements ReasoningTranslationGateway {
   final String output;
   final Object? error;
   int calls = 0;
+  String? lastReasoning;
 
   @override
   Future<String> translate({
@@ -198,6 +248,7 @@ class _FakeGateway implements ReasoningTranslationGateway {
     required String reasoning,
   }) async {
     calls++;
+    lastReasoning = reasoning;
     if (error != null) throw error!;
     return output;
   }

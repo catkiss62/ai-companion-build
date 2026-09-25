@@ -227,7 +227,9 @@ class _ImmersiveRoomLobbyPageState extends State<ImmersiveRoomLobbyPage> {
       appBar: AppBar(title: const Text('沉浸房间')),
       bottomNavigationBar: CompanionBottomNavigation(
         selectedIndex: 1,
+        immersive: true,
         onDestinationSelected: (value) {
+          if (value == 1) return;
           Navigator.of(context).popUntil((route) => route.isFirst);
           widget.onSelectMainTab?.call(value);
         },
@@ -586,6 +588,7 @@ class _ImmersiveRoomPageState extends State<ImmersiveRoomPage> {
   }
 
   Future<void> _selectMainTab(int value) async {
+    if (value == 1) return;
     if (!await _leave() || !mounted) return;
     Navigator.of(context).popUntil((route) => route.isFirst);
     widget.onSelectMainTab?.call(value);
@@ -1104,6 +1107,7 @@ class _ImmersiveRoomPageState extends State<ImmersiveRoomPage> {
         child: Scaffold(
         bottomNavigationBar: CompanionBottomNavigation(
           selectedIndex: 1,
+          immersive: true,
           onDestinationSelected: (value) => unawaited(_selectMainTab(value)),
         ),
         appBar: AppBar(

@@ -19,6 +19,7 @@
 
 - **主体性优先**：事实与安全 Gate 约束虚假完成、越权、凭据泄漏和不可逆损坏，但不把她训练成处处等待批准的被动工具。
 - **模型/API 双通道**：内部判断、维护、工具规划与 Outcome 核验走 DeepSeek；双模型模式只在收齐整轮上下文和真实工具结果后调用一次独立的 OpenAI-compatible 第二通道形成可见回复。第二通道地址和模型可由用户配置，默认仍是原玩游 Gemini 地址与模型；非 Gemini 模型不得收到 Gemini 专属 `google.thinking_config`。MCP 网络请求不是模型调用。
+- **Jev 决策层（修改模型路由前必看）**：已有 OpenRouter `typesafe/jev-1.13` 的可选短判断入口，默认关闭；普通聊天互动/主动玩笑与沉浸房间模式/事件各用一次批量 Choice 判断。发现封闭选项、短状态、可度量误判成本的语义判断时，要主动告诉用户 Jev 候选位置；确定性逻辑仍由代码处理，复杂计划、工具执行/真实结果核验和自然回复仍由 DeepSeek/最终通道负责。**Jev 的任何新增决策都必须保留真实 DeepSeek 兜底**：关闭、无 Key、低信心、无效结果、网络/额度/超时均回到原 DeepSeek 判断，取消不重复调用；不得静默猜结果或将 Jev 结果当工具已执行事实。先比较同一批样本的准确率、延迟、实际费用和增加的请求次数，再启用新路由。详见末尾 +260 Jev 专节及 +252 现有接入。
 - **真实工具事实**：只有成功的真实 Outcome 能支持“已进入、已落子、已发送、已保存、已完成”。失败、blocked、no_result、超时或零调用不能由对白补写。
 - **唯一循环所有权（未来功能开工前必查）**：每个会连续推进的能力必须只有一个 continuation owner，并在设计时写清 `execution_id`、唯一触发源、一次唤醒最多规划轮数/工具调用数/真实 mutation 数、终止条件、Stop、崩溃/主后台切换后的恢复规则。用户回合、后台 cadence、工具 Outcome、UI 轮询和平台 callback 可以提供事件，但不得各自继续同一 execution；`next_call / continuation / resume_after` 是权威事实，不是再启动一条循环的许可。Cedar 曾经让前台 Agent 循环、后台游戏循环和 Outcome 续接同时推进，造成重复调用、Token 暴涨、终局丢失与 Stop 不彻底；此事故模式是永久踩雷样本。
 - **循环能力首版诊断（随功能一起交付）**：任何新的 MCP、工作区、视频、提醒、Live2D 长任务或其他可续接能力，第一版就必须以脱敏方式记录 `feature / execution_id / trigger_source / continuation_owner / phase / planning_rounds / tool_calls / committed_mutations / continuation_requested / terminal / preempt / late_write / usage_lane`。诊断不得保存 Prompt、Thought 私密正文、密钥、房间凭据或用户文件内容；没有这组证据，不允许靠继续加 retry/delay 猜修循环。
@@ -39,8 +40,8 @@
 | 功能状态 | `CI PASSED / APK READY / TRUE DEVICE PENDING` |
 | +228 远端 | head `29e87d016c8bd81f52f89f95191bd1a1a01a5b57`；tree `c4a112a56d8b634cf3a1a66636979a0833538b7d`；Actions `35440359036`；Artifact `10583263879`；APK SHA-256 `159e283173e49da2924d25b37ba7647893cdafdcc31b63f0e31b7c64e086849b` |
 | 仓库维护基线 | `maintenance/repository-governance-20260919`；远端文档 head `123e272196e8ae93f3518157917d76f6af4f1784`；完整构建 head `fa99f32012fa1a0716b746d36b958a8e777ef9b8`；Actions `35446649873` 全绿；文档-only run `35447342921` 正确跳过 APK |
-| 当前功能分支 | `agent/v04215-wheel-original-webview`，基于 +258 全绿 APK；候选版本 `v0.42.15+259` |
-| 当前任务状态 | `CI PASSED / APK READY / TRUE DEVICE PENDING`；+259 原版页面离线轮盘、沉浸房间底部导航与自然推进已通过完整 CI，详情见末尾；+258 的 Actions `36094383066` 和 APK 仅是旧视觉基线 |
+| 当前功能分支 | `agent/v04216-reasoning-translation-wheel-haptics`，基于 +259 全绿 APK；候选版本 `v0.42.16+260` |
+| 当前任务状态 | `IMPLEMENTED LOCALLY / LOCAL STATIC VALIDATION PASSED / CI PENDING / TRUE DEVICE PENDING`；+260 房间底栏、真实思考展示、分段翻译、Cedar 闲聊调用门与原版轮盘逐轮振动，详情见末尾；+259 的 Actions `36105651518` 和 APK 是已验证基线 |
 | +250 当前任务 | 本体／小豆丁形态共用成年角色、记忆与能力；同一形态状态驱动角色提示与静态立绘，虚拟弹额头／安抚改变气焰值后继续自然衰减，心形液面与锁定入口；常驻世界书定点柔化并仅迁移未编辑原文；两档 TTS 共用冻结的真实回复与分段，无声生成并复制专项脱敏报告 |
 | +250 最终构建 | 功能 head `b5cd2d1070fb237bc72ab66b1867a75da9bbe6e8`；tree `4e0dbbd531aea408ab0face6d46a323f441c7eeb`；Actions `35943607609` 全绿；Artifact `10785922926`；APK SHA-256 `f148f2eb303017ad5f6f689628f230979c24ba16831fdc0181e58bc5e1d73a`；未发布 Draft Release `v0.42.6-dual-form-tts-comparison-test` |
 | +249 当前任务 | `loopIndex=0` 时明确判定“零个新语义 token”，在 VITS 前拒绝本段；最后两次会话记录生成时 profile、冷/热状态、各阶段耗时、RTF、播放首帧、队列余量、迟到段、失败/停止与脱敏文本哈希 |
@@ -942,3 +943,13 @@ Actions 与交付证据：远端功能 head `33647c7bff15084d6fd3cbc7b817e9b0b21
 - 用户同轮补充：沉浸房间页面底部必须和普通聊天一样展示“她／聊天／更多”三个导航按钮，并让这些按钮能真正回主界面相应标签；输入框左侧增加“推进”按钮，单击只令现有剧情自然推进一个节拍，不生成固定台词、不记录为用户扮演的动作或许可。实现需使用已有沉浸房间请求、Stop 与独立现场账，不开第二续写循环；按钮引发的控制事件需在时间线与模型提示中与用户原话区分，不能更新用户身体互动的气焰值。
 - 本地实现：打包 `index.html` 原始机台和 3 款 OFL 字体，WebView 只加载本地页面并将确认后的选中标签通过受限桥传回 Flutter；允许原作者署名链接由 Android 浏览器打开。普通聊天与房间大厅、房间内共用相同底部 NavigationBar，离开活动房间按原有流程暂停。推进作为保存在时间线的房间控制事件送入现有生成链，跳过用户肢体捕获、用户轮人格判断和用户自主行为推断，停止的控制事件不显示为用户消息；下一轮模型历史明确标注该操作不代表用户发言或同意。
 - 远端验证（2026-09-25）：功能 tree `18b856e14a573a844bc6a3f1afef1b655997b1f1`；GitHub 功能 head `d580ed694ef9ae75017e1c231d95eb59033d0fd1`；Actions `36105651518` 全绿：源码校验、Kotlin 测试、Flutter analyze/test、release APK、签名、既有资源核验均通过。Artifact `10851237002`（14 天）；APK SHA-256 `a2316fa38b323ec725323186d32df019e0cda914a0649c130cc835f9a4ce4fac`，签名指纹 `30:5E:B3:D8:09:83:B9:63:C6:48:18:DD:F1:AD:56:1F:27:9D:E6:D4:7B:3E:D2:C7:81:AD:A4:48:C7:C2:51:48`。未发布 Draft Release `https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-c2d726ee49c01198c248`。状态 `CI PASSED / APK READY / TRUE DEVICE PENDING`；手机端仍需确认原版轮盘的像素与动画、WebView 本地标签存储、导航跳转、推进生成质量。
+
+## v0.42.16+260 · 房间导航、思考分段翻译和轮盘振动（2026-09-25，开工登记）
+
+- 用户决定：沉浸房间底部中间显示“房间”且选中后不用重新导航，左右两端仍能去主界面；去掉人工添加的“【规划 N】”标题，仅展示 DeepSeek 实际返回的过程文本；翻译应分别判定规划和“【最终回复】”的英文比例，仅翻译英文占优的段落。确认在线轮盘已在每轮停靠调用 `navigator.vibrate(18)`，Android manifest 缺失 `VIBRATE` 权限。
+- 现有账本与代码证据：+258 之前就有“DeepSeek 工具规划，无工具后再由第二通道回复”，+258 只是把已有规划过程显示出来；只要 Cedar 已配置，旧 `cedarStageToolIds()` 对任何普通聊天均返回 `gatewayToolIds`，为零游玩需求的闲聊附加游戏厅工具，导致备份末轮零工具仍先调用 DeepSeek。修复此确定性门：仅本轮游玩意图、共玩待接续，或本轮确有 Cedar Outcome 时暴露游戏厅工具；其余按现有相关工具路由，不加额外 Jev 网络请求。
+- 实施与验证：在新功能分支补齐 Android 振动权限、导航选中行为及文案；只清除新消息上人工规划编号并兼容旧存档文本；规划英文占多时翻译完整思考链，否则最终回复英文占多时只翻译最终回复，保留原文与整个记录的缓存身份。保留原网页动画与逐轮 `buzz(18)`，不凭模拟器/CI 声称已证明真机手感或帧数；完整 CI 构建可供实机核对。schema 61 与备份协议不变；不合并 `main`、不发布正式 Release。
+- Jev 专节（2026-09-25 的源码与官方文档核对）：现有 `JevDecisionGateway` 在 OpenRouter Decisions API 发送最小 `state` 和多个独立 Choice，验证答案/信心后使用，否则调用原 DeepSeek Flash；`PlayfulTurnJudge`、`ImmersiveNsfwRouter` 已实装，不复用聊天完成接口。官方 Jev 是结构化决策而非生成文本，Choice／Score／Noul 可在同一请求中并列短问题；官方强调各问题聚焦一个判定，复杂权衡拆问、由代码组合。适合对话意图分类、闭集工具候选/场景路由、主动消息是否适时、情绪或房间事件评分（需验证本项目真值）；不适合继续剧情、生成答复、核验 Cedar 合法动作/真实 Outcome 或单纯读设置/计数。置信度是分布集中程度，不代表具体场景正确率；每项新增任务须有独立标注样本阈值、误判代价、脱敏用量、费用和延迟对照，且 **DeepSeek 为任何 Jev 失败/不确定的必经兜底**。本轮游戏厅误开启是明确布尔条件，直接在代码中修复；若后续希望让 Jev 负责模糊的“是否值得进入 DeepSeek 工具规划”，先在影子对照验证对自然游玩、联网和记忆请求的漏判，再在启用时落地 DeepSeek 兜底，不能用一个低信心的“闲聊”吞掉真实工具意图。官方出处：https://docs.typesafe.ai/introduction 、https://docs.typesafe.ai/api 、https://openrouter.ai/typesafe/jev-1.13/ ；本项目现有路线详情参看上文 §6.25。
+- 本地实现：中间导航“房间”和门图标，选中中间项不离开房间；新消息与流式规划不再添加编号；翻译遵循用户两级判定并支持旧存档；仅游戏请求/待续共玩/实际 Cedar Outcome 暴露游戏厅工具，普通闲聊已配置 Cedar 时不触发 DeepSeek 规划；Android manifest 补齐 `VIBRATE` 供网页现有每轮停靠震动调用。新增独立翻译分支与 Cedar 空工具门回归测试。
+- 本地验证：总账交接校验、Agent v2、图像可靠性、主观搜索回归和 `git diff --check` 已通过；本地无 Flutter SDK，Flutter analyze/test 与 Android APK 交由完整远端 CI；原网页视觉、动画帧率、振动强度仍需真机。
+- 当前状态：`IMPLEMENTED LOCALLY / LOCAL STATIC VALIDATION PASSED / CI PENDING / TRUE DEVICE PENDING`。

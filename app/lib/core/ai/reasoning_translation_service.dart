@@ -22,10 +22,31 @@ class ReasoningTranslationPolicy {
   static final RegExp _latinWord = RegExp(r'[A-Za-z]{2,}');
   static final RegExp _latinLetter = RegExp(r'[A-Za-z]');
 
-  /// Conservative by design: model/API names inside an otherwise Chinese
-  /// paragraph must not make a translation action appear.
-  static bool shouldOffer(String reasoning) {
-    final text = reasoning.trim();
+  /// Evaluate the provider's final reasoning independently from the planning
+  /// rounds, since a long Chinese plan can mask a shorter English final reply.
+  static bool shouldOffer(String reasoning) =>
+      translationSource(reasoning).isNotEmpty;
+
+  /// When planning is English-dominant, translate the entire thought as one
+  /// piece. Otherwise translate only an English-dominant final reply. Older
+  /// saved transcripts may contain 【规划 N】 markers; keep them intact.
+  static String translationSource(String reasoning) {
+    final source = reasoning.trim();
+    const finalMarker = '【最终回复】';
+    final finalStart = source.lastIndexOf(finalMarker);
+    if (finalStart < 0) {
+      return _isEnglishDominant(source) ? source : '';
+    }
+    final planning = source.substring(0, finalStart).trim();
+    final finalReply = source.substring(finalStart + finalMarker.length).trim();
+    if (_isEnglishDominant(planning)) return source;
+    return _isEnglishDominant(finalReply) ? '$finalMarker\n$finalReply' : '';
+  }
+
+  /// Conservative by design: model/API names inside otherwise Chinese prose
+  /// must not make a translation action appear.
+  static bool _isEnglishDominant(String text) {
+    text = text.trim();
     if (text.isEmpty) return false;
     final chineseCount = _chinese.allMatches(text).length;
     final latinWords = _latinWord.allMatches(text).length;
@@ -228,7 +249,8 @@ class ReasoningTranslationService {
     if (normalizedId.isEmpty || source.isEmpty) {
       throw const ReasoningTranslationException('这条思考没有可翻译的完整内容。');
     }
-    if (!ReasoningTranslationPolicy.shouldOffer(source)) {
+    final translationSource = ReasoningTranslationPolicy.translationSource(source);
+    if (translationSource.isEmpty) {
       throw const ReasoningTranslationException('这条思考不是英文居多，无需翻译。');
     }
     final sourceSha256 = ReasoningTranslationPolicy.sourceSha256(source);
@@ -238,7 +260,7 @@ class ReasoningTranslationService {
     final pending = _translateUncached(
       scope: scope,
       messageId: normalizedId,
-      reasoning: source,
+      reasoning: translationSource,
       sourceSha256: sourceSha256,
     );
     _inFlight[inFlightKey] = pending;

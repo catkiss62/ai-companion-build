@@ -113,6 +113,36 @@ void main() {
     );
   });
 
+  test('configured Cedar does not add a planning request to ordinary chat', () {
+    final ordinaryTools = AgentToolPlanner.nativeToolDefinitionsFor(
+      '今天有点累，抱抱我',
+      cedarStageToolIds: CedarToyArcadeSkill.toolIdsForUserTurn(
+        configured: true,
+        skillActive: false,
+        hasCedarOutcome: false,
+      ),
+    );
+    expect(ordinaryTools, isEmpty);
+
+    final gameTools = AgentToolPlanner.nativeToolDefinitionsFor(
+      '陪我下五子棋',
+      cedarStageToolIds: CedarToyArcadeSkill.toolIdsForUserTurn(
+        configured: true,
+        skillActive: true,
+        hasCedarOutcome: false,
+      ),
+    );
+    expect(gameTools, isNotEmpty);
+    expect(
+      CedarToyArcadeSkill.toolIdsForUserTurn(
+        configured: true,
+        skillActive: false,
+        hasCedarOutcome: true,
+      ),
+      contains('cedar_toy.play'),
+    );
+  });
+
   test('blind play excludes web research without hardcoding a game route', () {
     final definitions = AgentToolPlanner.nativeToolDefinitionsFor(
       '去 GitHub 查五子棋攻略再陪我下一局',

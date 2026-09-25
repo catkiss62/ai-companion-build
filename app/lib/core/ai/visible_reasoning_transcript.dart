@@ -16,9 +16,9 @@ class VisibleReasoningTranscript {
   String snapshot({String live = '', String liveLabel = '当前过程'}) {
     final sections = <String>[
       if (_recovered.isNotEmpty) _recovered,
-      for (var index = 0; index < _planning.length; index++)
-        '【规划 ${index + 1}】\n${_planning[index]}',
-      if (live.trim().isNotEmpty) '【$liveLabel】\n${live.trim()}',
+      ..._planning,
+      if (live.trim().isNotEmpty)
+        liveLabel.isEmpty ? live.trim() : '【$liveLabel】\n${live.trim()}',
     ];
     return sections.join('\n\n');
   }

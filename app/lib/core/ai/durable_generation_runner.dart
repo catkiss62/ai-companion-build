@@ -574,12 +574,6 @@ class DurableGenerationRunner {
           }
           toolCallAccumulator.addAll(delta.toolCallDeltas);
           if (!emitDeltas && publishReasoning && delta.reasoning.isNotEmpty) {
-            if (usageLane == 'agent_tool_planning' &&
-                reasoning == delta.reasoning) {
-              onDelta?.call(DeepSeekDelta(
-                reasoning: '【规划 ${visibleTranscript.planningCount + 1}】\n',
-              ));
-            }
             onDelta?.call(DeepSeekDelta(reasoning: delta.reasoning));
             if (onDelta != null) reasoningDeltaForwardedToSurface = true;
           }
@@ -632,7 +626,7 @@ class DurableGenerationRunner {
               partialReasoning: visibleTranscript.snapshot(
                 live: reasoning,
                 liveLabel: usageLane == 'agent_tool_planning'
-                    ? '规划 ${visibleTranscript.planningCount + 1}'
+                    ? ''
                     : '最终回复',
               ),
               partialContent: content,
@@ -850,13 +844,13 @@ class DurableGenerationRunner {
       }
 
       Set<String> cedarStageToolIds() {
-        if (!cedarConfigured) return const <String>{};
-        final engaged = cedarSkillActive || agentToolResults.any(
-          (result) => result.toolId.startsWith('cedar_toy.'),
+        return CedarToyArcadeSkill.toolIdsForUserTurn(
+          configured: cedarConfigured,
+          skillActive: cedarSkillActive,
+          hasCedarOutcome: agentToolResults.any(
+            (result) => result.toolId.startsWith('cedar_toy.'),
+          ),
         );
-        return engaged
-            ? CedarToyArcadeSkill.engagedToolIds
-            : CedarToyArcadeSkill.gatewayToolIds;
       }
 
       bool cedarLoopEngaged() => cedarSkillActive || agentToolResults.any(
