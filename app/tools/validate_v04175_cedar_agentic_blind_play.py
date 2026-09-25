@@ -22,8 +22,7 @@ def require(path: str, *tokens: str) -> None:
 require("pubspec.yaml", "version: 0.41.82+226")
 require(
     "lib/core/ai/durable_generation_runner.dart",
-    "CedarToyArcadeSkill.gatewayToolIds",
-    "CedarToyArcadeSkill.engagedToolIds",
+    "CedarToyArcadeSkill.toolIdsForUserTurn(",
     "cedarLoopEngaged()",
     "cedarBlindPlay()",
     "CedarToyArcadeSkill.maxPlanningRounds",
@@ -61,6 +60,7 @@ require(
     "static const maxToolCalls = 10",
     "static const gatewayToolIds",
     "static const engagedToolIds",
+    "if (!configured || (!skillActive && !hasCedarOutcome))",
     "static bool requestsBlindPlay",
     "static bool requestsExternalGameKnowledge",
     "不授权查看 GitHub/其他源码、后台隐藏状态、题库答案、人类攻略、通关提示或外部网页",
@@ -91,6 +91,7 @@ require(
 require(
     "test/cedar_game_hall_protocol_v04174_test.dart",
     "陪我下五子棋",
+    "configured Cedar does not add a planning request to ordinary chat",
     "blind play excludes web research",
     "player guide strips repository pointers and spoiler sections",
     "public_web_search",
