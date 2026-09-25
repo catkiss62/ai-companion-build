@@ -39,8 +39,12 @@ def main() -> None:
     )
     proactive = read("lib/core/desire/proactive_engine.dart")
     require(proactive, "secureConfig.readApiKey()", "secureConfig.readEndpoint()")
-    assert "readFinalReplyApiKey" not in proactive
-    assert "readFinalReplyEndpoint" not in proactive
+    # +262: the DeepSeek key remains mandatory for internal work and fallback;
+    # one Gemini request is permitted only when the final provider is selected.
+    require(proactive, "secureConfig.readFinalReplyApiKey()",
+            "secureConfig.readFinalReplyEndpoint()",
+            "finalProvider.isGeminiRelay && !geminiAttempted",
+            "geminiAttempted = true", "return request(gemini: false)")
 
     queue = read("lib/core/tts/tts_playback_queue.dart")
     processor = read("lib/core/tts/tts_text_processor.dart")
