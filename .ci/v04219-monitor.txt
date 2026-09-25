@@ -1,0 +1,7 @@
+status=success
+run_id=36181810605
+run_url=https://github.com/catkiss62/ai-companion-build/actions/runs/36181810605
+head_sha=9cff7c2845a1c04379dd8adfc48e07a1c2512c2b
+signer_sha256=30:5E:B3:D8:09:83:B9:63:C6:48:18:DD:F1:AD:56:1F:27:9D:E6:D4:7B:3E:D2:C7:81:AD:A4:48:C7:C2:51:48
+8976dd8be4443325f4148c230686ba5d4ea05a273794062ff8bef70f179780b2  AI-Companion-v0.42.19-263-Native-Wheel-Compare-APK.apk
+release_url=https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-405b62659a85f46c2693
