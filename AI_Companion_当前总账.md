@@ -1,6 +1,6 @@
 # AI Companion · 当前总账
 
-更新时间：2026-09-25（UTC；+262 CI 与 APK 完成）
+更新时间：2026-09-25（UTC；+263 原生轮盘对照实现中）
 
 > 本文件是唯一的当前接班入口，继续采用“总账 v2”。顶部是快速接班索引；标记后的正式记录按版本持续追加，不设总容量上限。
 >
@@ -40,8 +40,8 @@
 | 功能状态 | `CI PASSED / APK READY / TRUE DEVICE PENDING` |
 | +228 远端 | head `29e87d016c8bd81f52f89f95191bd1a1a01a5b57`；tree `c4a112a56d8b634cf3a1a66636979a0833538b7d`；Actions `35440359036`；Artifact `10583263879`；APK SHA-256 `159e283173e49da2924d25b37ba7647893cdafdcc31b63f0e31b7c64e086849b` |
 | 仓库维护基线 | `maintenance/repository-governance-20260919`；远端文档 head `123e272196e8ae93f3518157917d76f6af4f1784`；完整构建 head `fa99f32012fa1a0716b746d36b958a8e777ef9b8`；Actions `35446649873` 全绿；文档-only run `35447342921` 正确跳过 APK |
-| 当前功能分支 | `agent/v04217-breakthrough-wheel-smooth`，基于 +261 全绿 APK；候选版本 `v0.42.18+262` |
-| 当前任务状态 | `+262 IMPLEMENTED / CI PASSED / APK READY / TRUE DEVICE PENDING`；主动聊天双模型单次 Gemini 正文及 DeepSeek 兜底、满气焰持续判断、轮盘五格虚拟卷轴；Actions `36173105843` 全绿，详见末尾 +262 |
+| 当前功能分支 | `agent/v04219-native-wheel-compare`，基于 +262 全绿 APK；候选版本 `v0.42.19+263` |
+| 当前任务状态 | `+263 IMPLEMENTATION IN PROGRESS / CI PENDING / APK PENDING / TRUE DEVICE PENDING`；同一 HTML 在 Flutter WebView 与独立 Android WebView 中可切换对照卷轴/输入法，结果仍经原校验入房；+262 Actions `36173105843` 全绿，详见末尾 +263 |
 | +250 当前任务 | 本体／小豆丁形态共用成年角色、记忆与能力；同一形态状态驱动角色提示与静态立绘，虚拟弹额头／安抚改变气焰值后继续自然衰减，心形液面与锁定入口；常驻世界书定点柔化并仅迁移未编辑原文；两档 TTS 共用冻结的真实回复与分段，无声生成并复制专项脱敏报告 |
 | +250 最终构建 | 功能 head `b5cd2d1070fb237bc72ab66b1867a75da9bbe6e8`；tree `4e0dbbd531aea408ab0face6d46a323f441c7eeb`；Actions `35943607609` 全绿；Artifact `10785922926`；APK SHA-256 `f148f2eb303017ad5f6f689628f230979c24ba16831fdc0181e58bc5e1d73a`；未发布 Draft Release `v0.42.6-dual-form-tts-comparison-test` |
 | +249 当前任务 | `loopIndex=0` 时明确判定“零个新语义 token”，在 VITS 前拒绝本段；最后两次会话记录生成时 profile、冷/热状态、各阶段耗时、RTF、播放首帧、队列余量、迟到段、失败/停止与脱敏文本哈希 |
@@ -973,3 +973,9 @@ Actions 与交付证据：远端功能 head `33647c7bff15084d6fd3cbc7b817e9b0b21
 - +262 真机回报（2026-09-26）：七列卷轴优化明确生效，视觉无明显损失；自然变身测试未见问题。变身标记 `TRUE DEVICE PASSED`，卷轴视觉与性能改善已确认，但流畅度仍待进一步验证。页面下方点击搜索/自定义标签输入框时输入法弹出仍慢，尚无逐帧数据；本轮只读核查：Android Activity `adjustResize`、Flutter Scaffold 默认随键盘缩小 WebView，HTML 同时使用 `100vh`、固定背景/全屏暗角和常驻灯光，可能让键盘动画期间反复布局与绘制；搜索框空值 focus 不执行标签搜索。后续若值得优化，先分别测系统键盘启动与 WebView 视口变化，优先试焦点期间暂停跑马灯/灯带及减少固定背景重绘；不得直接全局关闭 `adjustResize` 以免下方输入框被键盘遮住。主动聊天 Gemini 正文与思考翻译仍待真机确认。
 - +262 后续真机澄清（2026-09-26）：用户观察到慢的是系统输入法从底部上滑的动画，轮盘页面在同一时刻帧数较高；不得把该现象直接判作网页掉帧或焦点搜索开销。打包轮盘 HTML 无 canvas/独立粒子系统；可见动态光效是 44 个边框灯泡、SVG 标题灯带和少量 CSS 发光/脉动。删除所谓“粒子”不构成明确优化点。下次若处理键盘，须分别测 IME 动画、WebView 平台视图合成与页面重排；优先做受控对照，不凭推断改全局输入法或删掉外观。
 - +262 再次真机澄清（2026-09-26）：同一网页在手机浏览器里卷轴与输入法动画都非常流畅；App 内卷轴虽明显提升、外观无损，仍远未达到流畅，输入法展开持续而明显变慢（展开途中可使用），属于性能 `PARTIAL / NEEDS INVESTIGATION`，不能把上面的“卷轴已优化”误记为完全真机验收。源码确认为原 HTML 经离线字体/结果桥和卷轴虚拟化改造后由 Flutter `WebViewWidget` 加载，Android 硬件加速开启，未设置页面帧率上限；插件默认 Texture Layer Hybrid Composition（WebView 渲染到纹理再交 Flutter 合成），与浏览器直接显示存在明确架构差异。键盘期间 `adjustResize` 和默认 Scaffold 缩放整个 WebView；持续变慢而不冻结说明需要记录真实 IME 动画时长与各层帧时，不能只凭视觉归为页面掉帧。后续先对照同一 APK 内原生 Android WebView / 当前 Flutter WebView，再在隔离测试包比较插件的 Hybrid Composition 与当前纹理模式；测量 JS rAF、WebView/Flutter 帧时、输入法开始到结束的时长。不要先删光效或切全局输入法模式。变身真机测试仍无问题；主动 Gemini 回复待测。
+
+## v0.42.19+263 · 同页原生 WebView 性能对照（2026-09-26）
+
+- 开工依据：用户同机对照发现浏览器原 HTML 卷轴及输入法均流畅，App 内经 +262 虚拟卷轴改善仍未流畅，IME 展开持续但显著变慢；允许试用另一种 HTML 承载方式。优先检验 Flutter 平台视图合成这一具体差异，不先删特效、关闭键盘调整或重写轮盘。保护边界：保留现有 Flutter WebView 作为基线；原生路径加载同一打包 HTML 与字体、沿用原 JS 确认协议及 Dart 的七维校验；返回现有模式不丢当前结果，未确认不建房；不改普通/沉浸聊天、模型、TTS、人物或备份。
+- 实现：轮盘 AppBar 增加“原生对照”，开启独立 Android Activity 的 WebView；原生顶部返回可回到当前 Flutter 版，确认抽签后经专用 MethodChannel 返回原 Dart `FateWheelResult.fromBridgeMessage` 校验再建房。两条路径使用相同 `file:///android_asset/flutter_assets/assets/fate_wheel/index.html`；原生禁用越界反馈/滚动条并保持 `adjustResize`，只许可本地页面导航，外部署名用系统浏览器。以隔离对照为主，不凭代码声称流畅度已提升。
+- 验证计划：本地源码范围、JS 和总账门；完整 CI 的 Kotlin/Flutter 分析、测试、APK 签名与资源校验；真机分别测旧入口和原生对照的转轮顺滑、输入法完整展开耗时、搜索/自定义标签、静音、单列重抽、确认入房与返回。若原生显著更顺，再讨论设为默认；若两者都慢，检查 WebView Provider 和页面本身。

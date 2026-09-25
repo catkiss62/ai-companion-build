@@ -4,12 +4,15 @@ import android.content.Intent
 import android.media.AudioManager
 import io.flutter.embedding.android.FlutterActivity
 import io.flutter.embedding.engine.FlutterEngine
+import io.flutter.plugin.common.MethodChannel
 
 class MainActivity : FlutterActivity() {
     private var bridge: SystemBridge? = null
     private var ttsBridge: NativeTtsBridge? = null
     private var emotionSoundBridge: EmotionSoundBridge? = null
     private var live2DModelStorageBridge: Live2DModelStorageBridge? = null
+    private var nativeFateWheelChannel: MethodChannel? = null
+    private var pendingFateWheelResult: MethodChannel.Result? = null
 
     override fun onCreate(savedInstanceState: android.os.Bundle?) {
         super.onCreate(savedInstanceState)
@@ -24,6 +27,29 @@ class MainActivity : FlutterActivity() {
         ttsBridge = NativeTtsBridge(this, flutterEngine)
         emotionSoundBridge = EmotionSoundBridge(this, flutterEngine)
         live2DModelStorageBridge = Live2DModelStorageBridge(this, flutterEngine)
+        nativeFateWheelChannel = MethodChannel(
+            flutterEngine.dartExecutor.binaryMessenger,
+            "ai_companion/fate_wheel_native",
+        ).also { channel ->
+            channel.setMethodCallHandler { call, result ->
+                if (call.method != "open") {
+                    result.notImplemented()
+                } else if (pendingFateWheelResult != null) {
+                    result.error("already_open", "Native wheel is already open", null)
+                } else {
+                    pendingFateWheelResult = result
+                    try {
+                        startActivityForResult(
+                            Intent(this, NativeFateWheelActivity::class.java),
+                            REQUEST_NATIVE_FATE_WHEEL,
+                        )
+                    } catch (error: Exception) {
+                        pendingFateWheelResult = null
+                        result.error("open_failed", error.javaClass.simpleName, null)
+                    }
+                }
+            }
+        }
     }
 
     override fun onStart() {
@@ -69,6 +95,10 @@ class MainActivity : FlutterActivity() {
         emotionSoundBridge = null
         live2DModelStorageBridge?.dispose()
         live2DModelStorageBridge = null
+        nativeFateWheelChannel?.setMethodCallHandler(null)
+        nativeFateWheelChannel = null
+        pendingFateWheelResult?.success(null)
+        pendingFateWheelResult = null
         super.cleanUpFlutterEngine(flutterEngine)
     }
 
@@ -83,10 +113,19 @@ class MainActivity : FlutterActivity() {
 
     override fun onActivityResult(requestCode: Int, resultCode: Int, data: android.content.Intent?) {
         super.onActivityResult(requestCode, resultCode, data)
+        if (requestCode == REQUEST_NATIVE_FATE_WHEEL) {
+            pendingFateWheelResult?.success(
+                if (resultCode == RESULT_OK) data?.getStringExtra(NativeFateWheelActivity.EXTRA_RESULT)
+                else null,
+            )
+            pendingFateWheelResult = null
+            return
+        }
         bridge?.onActivityResult(requestCode, resultCode, data)
     }
 
     companion object {
         const val EXTRA_OPEN_CHAT = "ai_companion_open_chat"
+        private const val REQUEST_NATIVE_FATE_WHEEL = 0xF217
     }
 }

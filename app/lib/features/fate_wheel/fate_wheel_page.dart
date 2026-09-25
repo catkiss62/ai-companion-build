@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:webview_flutter/webview_flutter.dart';
 import 'package:webview_flutter_android/webview_flutter_android.dart';
 
@@ -17,6 +18,7 @@ class FateWheelPage extends StatefulWidget {
 }
 
 class _FateWheelPageState extends State<FateWheelPage> {
+  static const _nativeChannel = MethodChannel('ai_companion/fate_wheel_native');
   late final WebViewController _webView;
   List<FateWheelDimension>? _catalog;
   bool _resultAccepted = false;
@@ -78,6 +80,18 @@ class _FateWheelPageState extends State<FateWheelPage> {
     Navigator.of(context).pop(result);
   }
 
+  Future<void> _openNativeComparison() async {
+    try {
+      final message = await _nativeChannel.invokeMethod<String>('open');
+      if (message != null) await _onConfirmedResult(message);
+    } on PlatformException {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('原生轮盘暂时无法打开。')),
+      );
+    }
+  }
+
   @override
   Widget build(BuildContext context) => Scaffold(
         backgroundColor: const Color(0xFF070504),
@@ -85,6 +99,12 @@ class _FateWheelPageState extends State<FateWheelPage> {
           backgroundColor: const Color(0xFF070504),
           foregroundColor: const Color(0xFFE7C463),
           title: const Text('命运之轮', style: TextStyle(fontSize: 16)),
+          actions: [
+            TextButton(
+              onPressed: _openNativeComparison,
+              child: const Text('原生对照', style: TextStyle(color: Color(0xFFE7C463))),
+            ),
+          ],
           toolbarHeight: 45,
         ),
         body: _loadingError == null
