@@ -1,0 +1,7 @@
+status=success
+run_id=36094383066
+run_url=https://github.com/catkiss62/ai-companion-build/actions/runs/36094383066
+head_sha=001c3cf43883032b47ce0224259777c15ce45c27
+signer_sha256=30:5E:B3:D8:09:83:B9:63:C6:48:18:DD:F1:AD:56:1F:27:9D:E6:D4:7B:3E:D2:C7:81:AD:A4:48:C7:C2:51:48
+3fab6379553866a1bc3a4b61a5fde1b0a6dbcd1cfe450d8eb149e0e63d720efa  AI-Companion-v0.42.14-258-Visible-Process-Fate-Wheel-APK.apk
+release_url=https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-478e1a10f9514d22b372
