@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart' show ScrollDirection;
 
 import '../../core/ai/message_language_variant_service.dart';
+import '../../core/fate_wheel/fate_wheel_catalog.dart';
 import '../../core/ai/reasoning_translation_service.dart';
 import '../../core/database/app_database.dart';
 import '../../core/immersive/immersive_room_controller.dart';
@@ -24,6 +25,7 @@ import '../../widgets/chat_portrait_stage.dart';
 import '../../widgets/playful_heat_gauge.dart';
 import '../../widgets/reasoning_panel.dart';
 import '../chat/chat_timestamp_formatter.dart';
+import '../fate_wheel/fate_wheel_page.dart';
 
 const immersiveRailPink = Color(0xFFF472B6);
 
@@ -56,7 +58,7 @@ class _ImmersiveRoomLobbyPageState extends State<ImmersiveRoomLobbyPage> {
     });
   }
 
-  Future<void> _createRoom() async {
+  Future<void> _createRoom({String fateWheelEntry = ''}) async {
     final title = TextEditingController(text: '新的沉浸房间');
     final scene = TextEditingController();
     var inherit = false;
@@ -121,6 +123,7 @@ class _ImmersiveRoomLobbyPageState extends State<ImmersiveRoomLobbyPage> {
         title: title.text,
         openingScene: scene.text,
         inheritCurrentChat: inherit,
+        fateWheelEntry: fateWheelEntry,
       );
       if (!mounted) return;
       await _openRoom(room);
@@ -128,6 +131,16 @@ class _ImmersiveRoomLobbyPageState extends State<ImmersiveRoomLobbyPage> {
       title.dispose();
       scene.dispose();
     }
+  }
+
+  Future<void> _openFateWheel() async {
+    final result = await Navigator.of(context).push<FateWheelResult>(
+      MaterialPageRoute(builder: (_) => const FateWheelPage()),
+    );
+    if (result == null || !mounted) return;
+    final dimensions = await FateWheelCatalog.load();
+    if (!mounted) return;
+    await _createRoom(fateWheelEntry: result.toEntryContext(dimensions));
   }
 
   Future<void> _openRoom(ImmersiveRoom room) async {
@@ -228,6 +241,17 @@ class _ImmersiveRoomLobbyPageState extends State<ImmersiveRoomLobbyPage> {
                             .bodyMedium
                             ?.copyWith(height: 1.5),
                       ),
+                    ),
+                  ),
+                  Card(
+                    color: const Color(0xFF332334),
+                    child: ListTile(
+                      leading: const Icon(Icons.casino_rounded, color: Color(0xFFE9BA70)),
+                      title: const Text('命运之轮',
+                          style: TextStyle(color: Color(0xFFFFE2B4))),
+                      subtitle: const Text('转动七轮幻想装置，确认结果后新开沉浸房间。'),
+                      trailing: const Icon(Icons.chevron_right_rounded),
+                      onTap: _openFateWheel,
                     ),
                   ),
                   const SizedBox(height: 10),
@@ -823,6 +847,26 @@ class _ImmersiveRoomPageState extends State<ImmersiveRoomPage> {
 
   Widget _conversationPanel(ImmersiveRoom? room) => Column(
         children: [
+          if (room != null && FateWheelResult.preview(room.entryContext).isNotEmpty)
+            Container(
+              width: double.infinity,
+              color: const Color(0xFF392635),
+              padding: const EdgeInsets.fromLTRB(12, 7, 12, 9),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text('✦ 命运之轮 · 已确认的虚构设定',
+                      style: TextStyle(color: Color(0xFFE9BA70), fontSize: 12)),
+                  const SizedBox(height: 4),
+                  Text(
+                    FateWheelResult.preview(room.entryContext).join('   /   '),
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(color: Color(0xFFFFE2B4), fontSize: 12),
+                  ),
+                ],
+              ),
+            ),
           if (controller.error != null)
             MaterialBanner(
               content: Text(

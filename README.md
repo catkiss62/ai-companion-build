@@ -1,5 +1,10 @@
 # AI Companion
 
+The in-app Fate Wheel adapts the original tag taxonomy and slot-machine
+interaction. Based on Ruota della Fortuna by Copper (29-Cu):
+https://github.com/29-Cu/Ruota-della-Fortuna . See
+`app/assets/fate_wheel/LICENSE` for the original license and attribution.
+
 The complete Flutter/Android project lives in `app/` and is the repository's single source of truth.
 
 ## Start here

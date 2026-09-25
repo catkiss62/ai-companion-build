@@ -39,6 +39,7 @@ class ImmersiveRoomRepository {
     required String title,
     required String openingScene,
     required bool inheritCurrentChat,
+    String fateWheelEntry = '',
   }) async {
     final database = await db.database;
     final now = DateTime.now().millisecondsSinceEpoch;
@@ -52,6 +53,7 @@ class ImmersiveRoomRepository {
     final entryParts = <String>[
       if (openingScene.trim().isNotEmpty) '【开场设定】\n${openingScene.trim()}',
       if (inherited.isNotEmpty) inherited,
+      if (fateWheelEntry.trim().isNotEmpty) fateWheelEntry.trim(),
     ];
     await database.transaction((txn) async {
       await txn.update(

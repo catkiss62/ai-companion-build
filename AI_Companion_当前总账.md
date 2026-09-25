@@ -1,6 +1,6 @@
 # AI Companion · 当前总账
 
-更新时间：2026-09-24（UTC）
+更新时间：2026-09-25（UTC）
 
 > 本文件是唯一的当前接班入口，继续采用“总账 v2”。顶部是快速接班索引；标记后的正式记录按版本持续追加，不设总容量上限。
 >
@@ -39,8 +39,8 @@
 | 功能状态 | `CI PASSED / APK READY / TRUE DEVICE PENDING` |
 | +228 远端 | head `29e87d016c8bd81f52f89f95191bd1a1a01a5b57`；tree `c4a112a56d8b634cf3a1a66636979a0833538b7d`；Actions `35440359036`；Artifact `10583263879`；APK SHA-256 `159e283173e49da2924d25b37ba7647893cdafdcc31b63f0e31b7c64e086849b` |
 | 仓库维护基线 | `maintenance/repository-governance-20260919`；远端文档 head `123e272196e8ae93f3518157917d76f6af4f1784`；完整构建 head `fa99f32012fa1a0716b746d36b958a8e777ef9b8`；Actions `35446649873` 全绿；文档-only run `35447342921` 正确跳过 APK |
-| 当前功能分支 | `agent/v04213-shared-form-tool-history`，继承 +256 全绿草稿；候选版本 `v0.42.13+257` |
-| 当前任务状态 | `CI PASSED / APK READY / TRUE DEVICE PENDING`；+257 停止撤回气焰、沉浸房间与普通聊天共享形态、工具结果历史；TTS 双档对照仅记后续方案，不改运行链，详情见末尾 +257 |
+| 当前功能分支 | `agent/v04214-visible-process-fate-wheel`，基于 +257 全绿 APK；候选版本 `v0.42.14+258` |
+| 当前任务状态 | `IMPLEMENTED / CI PENDING / APK PENDING / TRUE DEVICE PENDING`；+258 本地代码已接入真实规划 THINKING 的保存与回看、七轮命运之轮和已确认结果的房间设定。远端 Flutter/Android 构建待验证；详情见末尾 +258；+257 真机仍待验收 |
 | +250 当前任务 | 本体／小豆丁形态共用成年角色、记忆与能力；同一形态状态驱动角色提示与静态立绘，虚拟弹额头／安抚改变气焰值后继续自然衰减，心形液面与锁定入口；常驻世界书定点柔化并仅迁移未编辑原文；两档 TTS 共用冻结的真实回复与分段，无声生成并复制专项脱敏报告 |
 | +250 最终构建 | 功能 head `b5cd2d1070fb237bc72ab66b1867a75da9bbe6e8`；tree `4e0dbbd531aea408ab0face6d46a323f441c7eeb`；Actions `35943607609` 全绿；Artifact `10785922926`；APK SHA-256 `f148f2eb303017ad5f6f689628f230979c24ba16831fdc0181e58bc5e1d73a`；未发布 Draft Release `v0.42.6-dual-form-tts-comparison-test` |
 | +249 当前任务 | `loopIndex=0` 时明确判定“零个新语义 token”，在 VITS 前拒绝本段；最后两次会话记录生成时 profile、冷/热状态、各阶段耗时、RTF、播放首帧、队列余量、迟到段、失败/停止与脱敏文本哈希 |
@@ -921,3 +921,14 @@ Actions 与交付证据：远端功能 head `33647c7bff15084d6fd3cbc7b817e9b0b21
 - 工具历史：工具的 user-facing displayText 之前只通过运行时 callback 显示，`agent_tool_outcomes` 只保存调用次数／状态／时间，因此对话结束或悬浮窗刷新后丢失可读细节。现在用 200 条有界独立设置记录实际已展示的 displayText（每项至多 800 字），仍保留原有脱敏 Outcome 表；普通聊天从真结果读取并显示灰色高透明工具面板，悬浮窗也随消息加载并可展开查看。只写用户可见短文，不记录 promptData、工具参数、模型思考、密钥或诊断正文。沉浸房间没有 Agent 工具执行链，继续保留其工具权限边界；不能伪造不存在的工具调用，后续若单独授权为房间接入工具，必须先按总账唯一 continuation owner 设计调用/停止/存档。
 - TTS 双档性能对照后续单独做，不在本批动已经恢复的发声链。先保持 +255 的自动核亲和运行、单个「试听发声」、轻量状态与原子诊断；未来对照在同一用户真实回复／音色／语言／分段上明确手动启动，串行无声生成两个档位，分别冷启动并记录核、PSS/RTF、每片段计时、子进程绑定/死亡和缺段；只在同批、两档都有效时比较，不在模型未就绪或播放失败时给出胜出档。另存最近两轮**真实播放**（不同形态）速度，用户可直接区分听感与纯推理测速。前次双档测速改动后真机出现子进程连接超时、资源未就绪、原生空指针；+255 回退到此前音频运行链后用户确认可发声。诊断只能证明故障与新增测试链共时，**没有证明**是哪行代码引发原生异常；下次须沿独立最小探针和真机栈定位，不靠恢复已撤的双档按钮猜测。保护固定签名、资源校验、媒体音量流和存档键。
 - 预期验证：停止前后气焰、已提交后 Stop 不回滚、手动形态动作不被旧回合覆盖；跨普通／沉浸连续涨跌和 UI 立绘一致；无 Jev Key／402 的 DeepSeek 兜底；工具活动实文在普通和悬浮窗完结、重开后仍能展开；TTS 现有真人发声不回归。当前 `CI PASSED / APK READY / TRUE DEVICE PENDING`：Actions run `36041874888` 完整通过 125 项源码门、Kotlin 测试、Flutter analyze 与全量 tests、Release APK、固定签名、Genie/桌宠/塔罗资源核对；功能 head `84ec9af1dd4df93bb4b36b46d03d2fe794aadfe3`，tree `0226ce2225d28c9aead68855b4bcda69e31d46cc`；Artifact `10827521660`；未公开 Draft Release `https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-d0809bb1e451a9b07625`；APK SHA-256 `be0d5f7a40f8ae5c5dd610e4a80d62fec9c1d4bdf25e5130b5908eda7b8b47bf`。真机仍需逐项核对：停止前后热量、跨房间立绘与数值、Jev 失败后的 DeepSeek、工具实文完结与重开、现有 TTS 真人发声；CI 不视为真机验收。
+
+## v0.42.14+258 · 可回看的规划过程与本地命运之轮（2026-09-25，开工登记）
+
+- 证据：+257 已持久化工具的 user-facing displayText，但截图中的 `THINKING` 是 DeepSeek `reasoning_content` 的实时流，工具运行状态是另一条链。`generateInternal` 会向界面转发规划推理，最终消息却只保存最后一次 `generated.reasoning`；跨规划回合的真实可见推理在提交后丢失。普通聊天已有 ReasoningPanel，悬浮窗有独立渲染。双模型模式会抑制内部规划推理的实时转发。用户明确要求两边可看到并在完成后回看实际呈现的内容，不以“工具活动”短文代替。
+- 上游冻结：`https://github.com/29-Cu/Ruota-della-Fortuna`，commit `8d62036de5c3e0cdb18ac082c77a7051b55ce43a`，MIT；独立页面 `index.html` 内嵌 DIMS 与 `src/tags.json` 内容一致，7 维共 502 标签（其中 GORE 62，初始锁定）；独立 `Math.random()` 等概率选中每个启用维度并支持单列重抽。CSS/SVG/Web Audio 实现暗金机器、灯框、卷轴、拉杆与结果卡。用户要求保留这些视觉与动效，以本地 Flutter 重建而非 WebView/服务端/MCP。
+- 产品合同：抽取是完全虚拟的幻想装置。用户在轮盘界面确认最终结果后才绑定新沉浸房间；结构化结果与上游版本持久化，给模型的房间提示只列选中标签与虚构规则，允许超现实混搭、分幕展现，不要求现实物理一致，也不把未输入的用户动作、台词、同意或态度写成事实。房间之外的记忆、AI Self 与自主 Agent 不因结果改变；后续房内重抽沿同一 Outcome 扩展，首版不另建循环。
+- 保护边界：不增加模型调用或改变 DeepSeek 内部/Gemini 最终回复计费链；存储给用户实际可见的推理，但不得泄露私密 Prompt/密钥或将过程注入模型历史/公开诊断；失败与 Stop 不伪造成完成结果；不改 TTS、Cedar 游戏规则、形态温度、Live2D、`main`、正式 Release 或用户旧房间。保留上游 MIT 声明并审核字体许可。
+- 验证门：单/双模型的规划流、工具 Outcome、最终回复三段显示与重开后回看；Stop、崩溃恢复、重复轮次不乱序；轮盘多维启停、均匀取样与单列重抽、默认 GORE 锁、确认前无房间注入、确认后房间隔离、进退场、备份恢复；Flutter analyze/tests、仓库 validator、Android release、固定签名与 APK 真机外观/动画验收。当前仅开工，`CI PENDING / APK PENDING / TRUE DEVICE PENDING`。
+- 实现（本地，未完成 CI）：`VisibleReasoningTranscript` 按完成的规划回合和最终回复收集真实 provider reasoning，内部 DeepSeek 规划在单/双模型中均实时展示并 checkpoint，提交后沿现有 `reasoning_content` 在普通聊天与悬浮窗回看。历史提示构造不重放 reasoning；工具 Outcome 仍使用独立的 +257 附件。Gemini 最终仅显示被接受的 reasoning。
+- 轮盘（本地，未完成 CI）：复制上游 `src/tags.json` 502 条、LICENSE/NOTICE；纯 Flutter 灯箱、暗金机身、七轮停靠、拉杆、单轮重抽和 GORE 解锁确认；只有确认抽签再填写房间表单后才创建房间。JSON 中保存源 revision 和选中维度/标签于房间 `entry_context`，房间顶部可回看；系统背景将其解释成幻想装置的创作素材，允许超现实搭配，不伪造用户行动或同意。不新增模型调用、独立循环或 schema。原创字体和网页音频未移植，待真机对照视觉精度。
+- 本地验证：`git diff --check`、JSON 内容计数（7 维 / 502 标签 / 单一 GORE 锁）通过；125 项校验清单结构通过，前 24 项通过后因稀疏检出缺少仓库原有 `dafeiyu_reference.webp` 而停止，不是功能失败。Flutter SDK 不在本地，需完整检出的 CI 执行 analyze、test、release APK。`CI PENDING / APK PENDING / TRUE DEVICE PENDING`。

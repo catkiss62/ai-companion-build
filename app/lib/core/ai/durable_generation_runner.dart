@@ -48,6 +48,7 @@ import 'model_profile.dart';
 import 'nsfw_context_router.dart';
 import 'prompt_builder.dart';
 import 'playful_self_judge.dart';
+import 'visible_reasoning_transcript.dart';
 
 class GenerationRunResult {
   const GenerationRunResult({
@@ -251,6 +252,7 @@ class DurableGenerationRunner {
     var generationSpecialStyleKey = '';
     final preparedAgentAttachments = <MessageAttachment>[];
     final preparedAgentMediaUsageKeys = <String>[];
+    final visibleTranscript = VisibleReasoningTranscript();
     var agentAttachmentsCommitted = false;
     String? providerNotice;
 
@@ -572,6 +574,12 @@ class DurableGenerationRunner {
           }
           toolCallAccumulator.addAll(delta.toolCallDeltas);
           if (!emitDeltas && publishReasoning && delta.reasoning.isNotEmpty) {
+            if (usageLane == 'agent_tool_planning' &&
+                reasoning == delta.reasoning) {
+              onDelta?.call(DeepSeekDelta(
+                reasoning: '【规划 ${visibleTranscript.planningCount + 1}】\n',
+              ));
+            }
             onDelta?.call(DeepSeekDelta(reasoning: delta.reasoning));
             if (onDelta != null) reasoningDeltaForwardedToSurface = true;
           }
@@ -621,7 +629,12 @@ class DurableGenerationRunner {
             final checkpointed = await db.checkpointGenerationJob(
               job.id,
               runToken: job.runToken,
-              partialReasoning: reasoning,
+              partialReasoning: visibleTranscript.snapshot(
+                live: reasoning,
+                liveLabel: usageLane == 'agent_tool_planning'
+                    ? '规划 ${visibleTranscript.planningCount + 1}'
+                    : '最终回复',
+              ),
               partialContent: content,
             );
             if (!checkpointed) {
@@ -686,16 +699,31 @@ class DurableGenerationRunner {
       })> generateInternal(
         List<Map<String, Object?>> messages, {
         List<Map<String, Object?>> tools = const <Map<String, Object?>>[],
-      }) =>
-          generate(
-            messages,
-            requestApiKey: apiKey,
-            requestEndpoint: endpoint,
-            emitDeltas: false,
-            publishReasoning: !finalProvider.isGeminiRelay,
-            tools: tools,
-            usageLane: 'agent_tool_planning',
+      }) async {
+        final result = await generate(
+          messages,
+          requestApiKey: apiKey,
+          requestEndpoint: endpoint,
+          emitDeltas: false,
+          publishReasoning: true,
+          tools: tools,
+          usageLane: 'agent_tool_planning',
+        );
+        if (result.reasoning.isNotEmpty) {
+          visibleTranscript.addPlanning(result.reasoning);
+          onDelta?.call(const DeepSeekDelta(reasoning: '\n\n'));
+          final checkpointed = await db.checkpointGenerationJob(
+            job.id,
+            runToken: job.runToken,
+            partialReasoning: visibleTranscript.snapshot(),
+            partialContent: '',
           );
+          if (!checkpointed) {
+            throw const GenerationSuspendedException('规划过程写入所有权已经过期');
+          }
+        }
+        return result;
+      }
 
       Future<({
         String reasoning,
@@ -1445,13 +1473,14 @@ $finalGenerationReminder
         envelopeStatus: envelope.status,
       );
 
-      final visibleReasoning = preserveProviderReasoning(generated.reasoning);
+      final finalReasoning = preserveProviderReasoning(generated.reasoning);
+      final visibleReasoning = visibleTranscript.committed(finalReasoning);
       // Gemini candidates may be rewritten after the first complete answer.
       // Publish only the summary that belongs to the final accepted text;
       // otherwise a transient panel disappears when the committed message has
       // no provider summary. Never invent thoughts for an absent summary.
-      if (finalProvider.isGeminiRelay && visibleReasoning.isNotEmpty) {
-        onDelta?.call(DeepSeekDelta(reasoning: visibleReasoning));
+      if (finalProvider.isGeminiRelay && finalReasoning.isNotEmpty) {
+        onDelta?.call(DeepSeekDelta(reasoning: '【最终回复】\n$finalReasoning'));
         reasoningDeltaForwardedToSurface = onDelta != null;
       }
       unawaited(
