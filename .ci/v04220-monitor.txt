@@ -1,0 +1,7 @@
+status=success
+run_id=36186064758
+run_url=https://github.com/catkiss62/ai-companion-build/actions/runs/36186064758
+head_sha=d6b46d0c5c8b07c66ab4dc801ad7f1eb3b4ce1cf
+signer_sha256=30:5E:B3:D8:09:83:B9:63:C6:48:18:DD:F1:AD:56:1F:27:9D:E6:D4:7B:3E:D2:C7:81:AD:A4:48:C7:C2:51:48
+3d9ed89b830798c6226796c3be227819f67a2f9e4de3df6534ca064f82f1fa71  AI-Companion-v0.42.20-264-Native-Wheel-Default-APK.apk
+release_url=https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-b0f4bd22f8a953143130
