@@ -92,7 +92,7 @@ class PetOverlayContractTest {
     }
 
     @Test
-    fun semanticAutonomyConsumesSleepAndThoughtWithoutCreatingState() {
+    fun semanticAutonomyConsumesSleepAndReflectionWithoutCreatingState() {
         val sleepy = PetAutonomySnapshot(
             enabled = true,
             dominantDrive = "fatigue",
@@ -121,7 +121,7 @@ class PetOverlayContractTest {
             semanticReady = true,
             mobilityEnabled = true,
         )
-        assertEquals("THINKING", thought?.actionId)
+        assertEquals("GLANCE", thought?.actionId)
     }
 
     @Test
