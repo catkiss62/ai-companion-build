@@ -1,6 +1,6 @@
 # AI Companion · 当前总账
 
-更新时间：2026-09-26（UTC；+269 桌宠全量动作与气焰值施工中）
+更新时间：2026-09-26（UTC；+269 桌宠全量动作与气焰值 CI 通过，APK 已备妥）
 
 > 本文件是唯一的当前接班入口，继续采用“总账 v2”。顶部是快速接班索引；标记后的正式记录按版本持续追加，不设总容量上限。
 >
@@ -41,8 +41,8 @@
 | +228 远端 | head `29e87d016c8bd81f52f89f95191bd1a1a01a5b57`；tree `c4a112a56d8b634cf3a1a66636979a0833538b7d`；Actions `35440359036`；Artifact `10583263879`；APK SHA-256 `159e283173e49da2924d25b37ba7647893cdafdcc31b63f0e31b7c64e086849b` |
 | 仓库维护基线 | `maintenance/repository-governance-20260919`；远端文档 head `123e272196e8ae93f3518157917d76f6af4f1784`；完整构建 head `fa99f32012fa1a0716b746d36b958a8e777ef9b8`；Actions `35446649873` 全绿；文档-only run `35447342921` 正确跳过 APK |
 | 当前功能分支 | `agent/v04224-pet-opaque-fullframes`，从 +267 总账 head `224e832` 分出；构建候选 `v0.42.24+268` |
-| +269 当前任务 | `agent/v04225-pet-full-clips-heat` 从已通过的 +268 head `27dc991` 分出。用户将原始 85,049,410 字节 ZIP 放入 Draft Release `397377805`，asset `591363139`，SHA-256 `ad94e2aa8829ddb5b8f0640e383b29bbccfbb5a77d9a957559e34cff17aea489`；本地实查排除 move/drag/balance 后为 96 段、23,013 帧。恢复全量动作、三段睡眠仅预览、五段点击、自主池且不稀释走路、正式桌面不透明、特效缩放与预览布局，并把用户与她的气焰贡献及固定泄气在回复后整轮结算。此前本地 `9f08e8f` 清理丢失，`630d808` 未推送；两者均不得写作远端完成。当前 `IMPLEMENTATION IN PROGRESS / CI PENDING / APK PENDING / TRUE DEVICE PENDING`。素材从固定 Draft asset 获取并校验，工具只输出摘要，避免逐帧上传与会话膨胀。|
-| 当前任务状态 | `+265 IMPLEMENTED / CI PASSED / APK READY`，用户 2026-09-26 上轮真机默认成功、发现问题再反馈。`+266 IMPLEMENTED / CI PASSED / APK READY / TRUE DEVICE FEEDBACK`：实验桌宠总体可用，但人物偏小且连续点击不重播。`+267 IMPLEMENTED / CI PASSED / APK READY / TRUE DEVICE FEEDBACK`：用户发现桌面新动画被半透明、抽帧后速度观感异常。`+268 IN PROGRESS`：不透明桌面播放、独立宽度与饱和度、24 fps 全帧与播放器时钟修复，见末尾 +268 |
+| +269 当前任务 | `agent/v04225-pet-full-clips-heat` 从 +268 head `27dc991` 分出，构建 head `b9f854e960bca401c861b769cda2576b79ef9d9c`。原始 ZIP 在 Draft Release `397377805`、asset `591363139`，SHA-256 `ad94e2aa8829ddb5b8f0640e383b29bbccfbb5a77d9a957559e34cff17aea489`。排除 move/drag/balance 后 96 段、23,013 帧；五段点击、三段睡眠仅预览、自主池不稀释走路、桌面不透明、特效随尺寸、预览布局及回复后整轮气焰结算已实现。Actions `36271743353` 全绿，APK 722,612,227 字节，SHA-256 `0830c3e6d36a9ac0d5b94628cf6fac9564e02d8d8d6d0b4ae784d7f8d2dd9453`，未发布 Draft Release `397385083`。状态 `IMPLEMENTED / CI PASSED / APK READY / TRUE DEVICE PENDING`；真机视觉、透传触摸与性能未验。素材由固定 Draft asset 获取并校验，不逐帧上传对话。|
+| 当前任务状态 | `+265～+267` 已有构建与真机反馈；`+268 IMPLEMENTED / CI PASSED / APK READY / TRUE DEVICE PENDING`：不透明桌面播放、独立宽度与饱和度、24 fps 全帧与播放器时钟；`+269 IMPLEMENTED / CI PASSED / APK READY / TRUE DEVICE PENDING`：96 段完整动作及整轮气焰结算，见末尾 +269。|
 | +267 远端 | 功能 head `07142df2f01f15b5e4770fb6d17b48150770f422`；tree `aa16c6405f87967191dcb5b99662c53302983c52`；Actions `36232295089` 全绿；Artifact `10903136887`；APK SHA-256 `956812613c1fb00123e2ab2e6a3f5f3ccc1d320743c7bd6b866c4e0365b09ab2`；未发布 Draft Release `397169363` |
 | +250 当前任务 | 本体／小豆丁形态共用成年角色、记忆与能力；同一形态状态驱动角色提示与静态立绘，虚拟弹额头／安抚改变气焰值后继续自然衰减，心形液面与锁定入口；常驻世界书定点柔化并仅迁移未编辑原文；两档 TTS 共用冻结的真实回复与分段，无声生成并复制专项脱敏报告 |
 | +250 最终构建 | 功能 head `b5cd2d1070fb237bc72ab66b1867a75da9bbe6e8`；tree `4e0dbbd531aea408ab0face6d46a323f441c7eeb`；Actions `35943607609` 全绿；Artifact `10785922926`；APK SHA-256 `f148f2eb303017ad5f6f689628f230979c24ba16831fdc0181e58bc5e1d73a`；未发布 Draft Release `v0.42.6-dual-form-tts-comparison-test` |
@@ -1044,3 +1044,11 @@ Actions 与交付证据：远端功能 head `33647c7bff15084d6fd3cbc7b817e9b0b21
 - 根因：+267 的新 WindowManager 显示层设置了 `alpha=0.79`，整段桌面播放的实际不透明度被降低；`PetSkinManifest.frameDuration` 对所有动作强制至少 70 ms/帧，完整 241 帧若不修此门，6.667 秒动作只能展示约前 95 帧。当前原片五段均为 24 fps，0～10 秒含末帧共 241 帧。
 - 实现计划与边界：桌面实验层 `alpha=1`，仅校准页叠层维持 52% 新站立透明度；新增相对宽度 50%～150% 和饱和度 50%～200%，与统一缩放/位置/gamma 同组保存、原素材 RGB 变换保持 alpha。五段各保留 241 个透明 WebP（224×224，点击 240×240），按长度前缀封装并分成顺序小包，不移除动作帧；时间进度按 `elapsedMs * 241 / 6667` 定位，原桌宠低帧动作保留原有时钟。逻辑窗口和触摸范围仍由旧桌宠决定，附加显示窗口按校准后实际绘制边界收紧并跟随移动。Android 12+ 对 `FLAG_NOT_TOUCHABLE` 且全不透明的悬浮层会限制其覆盖范围内对其他 App 的透传触摸；本测试版优先纠正用户指定的不透明画面，并缩小新窗口范围，真机需重点检查人物外缘覆盖到 App 按钮时的触摸行为。若需要同时保证边缘完全不透明和跨 App 透传，须改用可信悬浮窗权限/实现再单独评估，不伪称当前已解决。
 - 保护范围：三旧待机候选加站立、点击素材；不接其余动作、move/drag/balance，不改旧位移、贴边、点击热区、schema 61、Snapshot protocol 6 或已有签名。实验开关关闭仍走旧链。验证含五包每包 241 帧完整性、透明度/尺寸/总量、Kotlin 与 Flutter、release APK 内封包逐帧结构、签名及真机反馈。
+
+## v0.42.25+269 · 桌宠 96 段完整动作与整轮气焰结算（2026-09-26，CI 完成）
+
+- 来源与边界：用户上传的原始 `dsh-pet-indesktop-main.zip` 保存在未发布 Draft Release `397377805` 的 asset `591363139`，85,049,410 字节，SHA-256 `ad94e2aa8829ddb5b8f0640e383b29bbccfbb5a77d9a957559e34cff17aea489`。只取 `random`、`click`、`sleep`、预览用思考等 96 段，排除 `move/drag/balance`；五段点击进入点击轮换，三段睡眠仅供预览，原睡眠链不动。删除自主思考动作，保留会话思考表现；自主动作打乱轮换，保留走路候选权重及连续静止限制。实验关闭可退回旧桌宠链。
+- 实现：91 段新增 VP9 透明 WebM 连同五段既有实验片段构成 96 段、23,013 帧；GitHub Actions 从固定 Draft asset 下载、验 SHA，安装 ffmpeg 后转完整透明 WebP 并打包，按 1.5 倍时钟播放。运行时以有限 LRU 缓存帧包；点击有五段随机轮换；睡眠和思考预览不进入桌面自主动作。正式桌宠保持不透明，思考/说话装饰按尺寸贴合，预览页可滚动并按类别选片。校准新默认缩放 121%、宽度 93%、X=0、Y=-2dp、输入色阶 0/0.95/230、饱和度 110%；已有设备保存值不会被默认值覆盖。
+- 气焰：用户分类暂存；可见助手回复落地时合并双方贡献、固定每轮 -18 与严肃话题额外 -12，再一次 clamp 0～100 和切换形态；Stop 撤回尚未完成的用户回合。普通 15+0+3-18→0；相互挑逗 15+30+3-18→30。手动互动、锁定与既有数据结构保留。
+- 云端证据：功能分支 `agent/v04225-pet-full-clips-heat`，构建 head `b9f854e960bca401c861b769cda2576b79ef9d9c`、tree `74d27843c419da0e36e2de122fb092b0fa8129bf`；Actions `36271743353` 完成且结论 success。125 项源码回归、44 项 Kotlin 桌宠测试、Flutter analyze、Flutter tests、release APK、既有签名与包内素材校验通过；包内实核 96 段、23,013 帧、实验帧包 189,260,382 字节。Actions Artifact `10915967838`；APK `AI-Companion-v0.42.25-269-Full-Clips-Heat-APK.apk`，722,612,227 字节，SHA-256 `0830c3e6d36a9ac0d5b94628cf6fac9564e02d8d8d6d0b4ae784d7f8d2dd9453`。未发布测试 Draft Release `397385083`：`https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-f66fe79c212e315b1d35`。
+- 状态：`IMPLEMENTED / CI PASSED / APK READY / TRUE DEVICE PENDING`。真机需看人物大小、脚底对齐、五种点击重播、随机动作和走路频率、三段睡眠预览、预览页面滚动、桌面不透明、外缘覆盖其他 App 时的透传触摸，以及 189 MB 新帧包对安装体积和运行内存的影响。当前并无真机通过证据，未合并 main，未发布正式 Release。
