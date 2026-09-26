@@ -139,7 +139,7 @@ class CalendarReminderFollowup {
       await android.incrementOverlayUnread();
       try {
         await android.postCompanionNotification(
-          title: '她的日历提醒',
+          title: '她的代办提醒',
           body: text,
           messageId: messageId,
           intentKind: 'calendar_reminder',

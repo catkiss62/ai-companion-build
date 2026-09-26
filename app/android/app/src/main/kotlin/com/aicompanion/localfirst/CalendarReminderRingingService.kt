@@ -98,7 +98,7 @@ class CalendarReminderRingingService : Service() {
         }
         return builder.setSmallIcon(android.R.drawable.ic_lock_idle_alarm)
             .setContentTitle(title)
-            .setContentText("日历事项正在提醒 · 点击关闭")
+            .setContentText("代办事项正在提醒 · 点击关闭")
             .setCategory(Notification.CATEGORY_ALARM)
             .setOngoing(true)
             .setContentIntent(screenPending)
@@ -154,7 +154,7 @@ class CalendarReminderAlertActivity : Activity() {
             setTextColor(android.graphics.Color.WHITE)
         })
         column.addView(TextView(this).apply {
-            text = "日历提醒"
+            text = "代办提醒"
             textSize = 16f
             gravity = Gravity.CENTER
             setTextColor(android.graphics.Color.LTGRAY)

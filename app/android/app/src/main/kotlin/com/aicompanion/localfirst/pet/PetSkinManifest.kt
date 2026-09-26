@@ -268,6 +268,7 @@ data class PetSkinManifest(
                 enter = null,
                 exit = null,
             )
+            PetExperimentalClips.install(assets, actions)
             actions["STROLLING"] = PetActionSpec(
                 id = "STROLLING",
                 assetId = "idle_front",

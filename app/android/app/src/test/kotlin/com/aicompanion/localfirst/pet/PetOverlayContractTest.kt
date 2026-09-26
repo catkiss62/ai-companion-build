@@ -144,6 +144,19 @@ class PetOverlayContractTest {
     }
 
     @Test
+    fun experimentalIdleAddsOnlyThreeClipsAndKeepsMovementCandidates() {
+        val snapshot = PetAutonomySnapshot(enabled = false)
+        val baseline = PetAmbientActionPolicy.candidates(snapshot, mobilityEnabled = true)
+        val testing = PetAmbientActionPolicy.candidates(
+            snapshot, mobilityEnabled = true, experimentalClips = true,
+        )
+        assertEquals(8, testing.count { it == "STROLLING" })
+        assertEquals(PetExperimentalClips.IDLE, testing.filter { it in PetExperimentalClips.IDLE })
+        assertFalse(baseline.any { it in PetExperimentalClips.IDLE })
+        assertFalse(PetExperimentalClips.CLICK in testing)
+    }
+
+    @Test
     fun desireStateBiasesButDoesNotOwnAmbientChoices() {
         val duty = PetAmbientActionPolicy.candidates(
             PetAutonomySnapshot(

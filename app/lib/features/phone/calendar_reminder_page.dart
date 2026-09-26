@@ -47,7 +47,7 @@ class _CalendarReminderPageState extends State<CalendarReminderPage> {
       context: context,
       builder: (context) => StatefulBuilder(
         builder: (context, refresh) => AlertDialog(
-          title: Text(old == null ? '添加日历事项' : '编辑日历事项'),
+          title: Text(old == null ? '添加代办事项' : '编辑代办事项'),
           content: SingleChildScrollView(
             child: Column(mainAxisSize: MainAxisSize.min, children: [
               TextField(
@@ -126,7 +126,7 @@ class _CalendarReminderPageState extends State<CalendarReminderPage> {
     if (!mounted) return;
     setState(() => entries = next);
     if (!scheduled) ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('事项已保存，但系统响铃尚未安排成功；请稍后重新打开日历检查。')),
+      const SnackBar(content: Text('事项已保存，但系统响铃尚未安排成功；请稍后重新打开代办提醒检查。')),
     );
   }
 
@@ -138,7 +138,7 @@ class _CalendarReminderPageState extends State<CalendarReminderPage> {
 
   @override
   Widget build(BuildContext context) => Scaffold(
-    appBar: AppBar(title: const Text('日历提醒'), actions: [
+    appBar: AppBar(title: const Text('代办提醒'), actions: [
       IconButton(onPressed: () => _edit(), icon: const Icon(Icons.add), tooltip: '添加事项'),
     ]),
     body: loading ? const Center(child: CircularProgressIndicator()) :
@@ -155,7 +155,7 @@ class _CalendarReminderPageState extends State<CalendarReminderPage> {
         ListTile(
           leading: const Icon(Icons.notifications_active_outlined),
           title: const Text('响铃声音'),
-          subtitle: const Text('在系统中选择日历响铃提醒的声音'),
+          subtitle: const Text('在系统中选择代办响铃提醒的声音'),
           onTap: () => AndroidBridge.instance.openReminderSoundSettings(),
         ),
         const Padding(
@@ -163,7 +163,7 @@ class _CalendarReminderPageState extends State<CalendarReminderPage> {
           child: Text('以手机本地日期和时区为准。定时事项响铃最多 5 分钟，停止后她会针对事项主动提醒一次。'),
         ),
         Expanded(child: entries.isEmpty
-          ? const Center(child: Text('还没有日历事项，点击右上角添加。'))
+          ? const Center(child: Text('还没有代办事项，点击右上角添加。'))
           : ListView.builder(
               itemCount: entries.length,
               itemBuilder: (context, index) {

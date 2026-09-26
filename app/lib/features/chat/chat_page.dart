@@ -2230,7 +2230,7 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
                   ),
                   _QuickPanelTile(
                     icon: Icons.calendar_month_outlined,
-                    title: '日历提醒',
+                    title: '代办提醒',
                     subtitle: '记下日子，或设置到点响铃。',
                     onTap: () async {
                       Navigator.pop(dialogContext);

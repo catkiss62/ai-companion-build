@@ -25,6 +25,7 @@ import '../models/reference_item.dart';
 import '../models/thought.dart';
 import '../models/world_book_turn_context.dart';
 import '../perception/current_device_context_refresher.dart';
+import '../perception/festival_context.dart';
 import '../personality/playful_form_state.dart';
 import '../platform/android_bridge.dart';
 import '../relationship/relationship_age.dart';
@@ -370,6 +371,9 @@ class PromptBuilder {
 $roleplayContinuity''',
         },
       {'role': 'system', 'content': context.toString().trim()},
+      if (!worldBookContext.hasRoleplay && !freshTopicSourceOnly &&
+          FestivalContext.forPrompt(instant).isNotEmpty)
+        {'role': 'system', 'content': FestivalContext.forPrompt(instant)},
       if (agentToolResults.isNotEmpty)
         {'role': 'system', 'content': _agentToolResultSection(agentToolResults)},
       {'role': 'system', 'content': _operationalTruthContract()},

@@ -25,6 +25,17 @@ object PetEffects {
         val time = max(0f, elapsedSeconds)
         val breath = sin(time * 2.35f)
         return when (effect) {
+            "experimental_idle" -> PetEffectPose(shadowOpacity = 0.18f)
+            "experimental_jelly" -> {
+                val impulse = (exp((-time * 5f).toDouble()) * cos((time * 24f).toDouble())).toFloat()
+                PetEffectPose(
+                    scaleX = 1f + impulse * 0.075f,
+                    scaleY = 1f - impulse * 0.085f,
+                    offsetY = impulse * 2f,
+                    shadowScale = 1f + impulse * 0.05f,
+                    shadowOpacity = 0.20f,
+                )
+            }
             "breath" -> PetEffectPose(
                 scaleX = 1f - breath * 0.006f,
                 scaleY = 1f + breath * 0.012f,

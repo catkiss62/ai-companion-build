@@ -99,6 +99,7 @@ class PetOverlayWindow(
     private var autonomousMoveTargetY = 0
 
     private val longPress = Runnable {
+        if (experimentalClipsEnabled()) return@Runnable
         if (dragging || pressedRegion !in setOf("head", "face")) return@Runnable
         longPressHandled = true
         player?.play("HEAD_PAT", reason = "pet_overlay_head_hold", force = true)
@@ -490,7 +491,7 @@ class PetOverlayWindow(
                     pressedRegion = PetTouchRegions.classify(event.x, event.y, view.width, view.height)
                     samples.clear()
                     addSample(event.rawX, event.rawY)
-                    if (pressedRegion in setOf("head", "face")) {
+                    if (!experimentalClipsEnabled() && pressedRegion in setOf("head", "face")) {
                         handler.postDelayed(longPress, LONG_PRESS_MS)
                     }
                     true
@@ -591,6 +592,11 @@ class PetOverlayWindow(
 
     private fun reactToSingleTap(region: String) {
         val animation = player ?: return
+        if (experimentalClipsEnabled()) {
+            animation.play(PetExperimentalClips.CLICK, reason = "pet_clip_test_tap", force = true)
+            resumeFallIfPending(delayMs = 420L)
+            return
+        }
         if (region == "head") {
             animation.play("HEAD_PAT", reason = "pet_overlay_head_pat", force = true)
             resumeFallIfPending(delayMs = 420L)
@@ -642,6 +648,15 @@ class PetOverlayWindow(
             addView(optionButton("切换为悬浮球") {
                 closeOptions(resumeMotion = false)
                 onSwitchToBubble()
+            })
+            addView(optionButton(selectedLabel("实验动画", experimentalClipsEnabled())) {
+                prefs.edit().putBoolean(
+                    PetExperimentalClips.PREF_KEY,
+                    !experimentalClipsEnabled(),
+                ).apply()
+                ambientActionBag.clear()
+                cancelAutonomyPlayback(resetToIdle = true)
+                closeOptions(resumeMotion = true)
             })
             addView(sectionLabel("自主行动"))
             addView(LinearLayout(context).apply {
@@ -1041,6 +1056,7 @@ class PetOverlayWindow(
             val candidates = PetAmbientActionPolicy.candidates(
                 snapshot = autonomySnapshot,
                 mobilityEnabled = mobilityEnabled(),
+                experimentalClips = experimentalClipsEnabled(),
             )
             ambientActionBag.addAll(candidates.shuffled(ambientRandom))
         }
@@ -1071,6 +1087,9 @@ class PetOverlayWindow(
             ambientRandom.nextDouble(),
         )
     }
+
+    private fun experimentalClipsEnabled(): Boolean =
+        prefs.getBoolean(PetExperimentalClips.PREF_KEY, true)
 
     private fun scheduleNextBlink(now: Long) {
         nextBlinkAtMs = now + PetAmbientActionPolicy.nextBlinkDelayMs(
@@ -1494,6 +1513,7 @@ class PetOverlayWindow(
         private val AUTONOMY_ACTIONS = setOf(
             "BLINK", "GLANCE", "THINKING", "STROLLING", "WALKING", "SWEEPING",
             "HAPPY", "EATING", "YAWNING", "SLEEPING",
+            *PetExperimentalClips.IDLE.toTypedArray(),
         )
 
         fun normalizedSize(value: String?): String = PetOverlaySizing.normalized(value)

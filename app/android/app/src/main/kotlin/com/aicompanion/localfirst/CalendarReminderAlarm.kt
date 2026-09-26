@@ -243,7 +243,7 @@ object CalendarReminderAlarm {
     fun channel(context: Context): String {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             context.getSystemService(NotificationManager::class.java).createNotificationChannel(
-                NotificationChannel(CHANNEL, "日历响铃提醒", NotificationManager.IMPORTANCE_HIGH).apply {
+                NotificationChannel(CHANNEL, "代办响铃提醒", NotificationManager.IMPORTANCE_HIGH).apply {
                     description = "由你手写的定时事项到点响铃；声音和振动可在系统设置中调整"
                     setSound(null, null) // The ringing service controls the five-minute loop.
                     enableVibration(false)

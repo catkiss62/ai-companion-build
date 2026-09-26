@@ -91,9 +91,11 @@ object PetAmbientActionPolicy {
     fun candidates(
         snapshot: PetAutonomySnapshot,
         mobilityEnabled: Boolean,
+        experimentalClips: Boolean = false,
     ): List<String> = buildList {
         if (mobilityEnabled) repeat(8) { add("STROLLING") }
         addAll(stationaryBase)
+        if (experimentalClips) addAll(PetExperimentalClips.IDLE)
         if (!snapshot.enabled) return@buildList
         when (snapshot.dominantDrive) {
             "curiosity" -> if (mobilityEnabled) {
