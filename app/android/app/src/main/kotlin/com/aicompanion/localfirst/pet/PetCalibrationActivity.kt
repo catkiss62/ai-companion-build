@@ -8,6 +8,7 @@ import android.graphics.Path
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
+import android.os.SystemClock
 import android.view.Gravity
 import android.view.View
 import android.view.ViewGroup
@@ -33,12 +34,16 @@ class PetCalibrationActivity : Activity() {
     private var selected = PetExperimentalClips.STAND
     private var compare = true
     private var frameIndex = 0
+    private var previewStartedAtMs = 0L
 
     private val tick = object : Runnable {
         override fun run() {
+            val elapsed = (SystemClock.uptimeMillis() - previewStartedAtMs).coerceAtLeast(0L)
+            frameIndex = PetExperimentalClips.frameIndex(
+                elapsed % 6_667L, PetExperimentalClips.FRAME_COUNT, 6_667L,
+            )
             render()
-            frameIndex++
-            handler.postDelayed(this, if (selected == PetExperimentalClips.CLICK) 111L else 167L)
+            handler.postDelayed(this, 16L)
         }
     }
 
@@ -49,7 +54,7 @@ class PetCalibrationActivity : Activity() {
         calibration = PetExperimentalCalibration.load(prefs)
         manifest = PetSkinManifest.load(assets)
         cache = PetFrameCache(assets)
-        cache.setExperimentalGamma(calibration.gamma)
+        cache.setExperimentalColors(calibration.gamma, calibration.saturation)
 
         val root = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
@@ -80,11 +85,17 @@ class PetCalibrationActivity : Activity() {
             )[index]
             compare = index == 0
             frameIndex = 0
+            previewStartedAtMs = SystemClock.uptimeMillis()
             render()
         })
         root.addView(slider("新动画缩放", 200, ((calibration.scale - 0.5f) * 100).roundToInt(),
             { "${(0.5f + it / 100f).times(100).roundToInt()}%" }) {
             calibration = calibration.copy(scale = 0.5f + it / 100f)
+            update()
+        })
+        root.addView(slider("单独调整宽度", 100, ((calibration.widthScale - 0.5f) * 100).roundToInt(),
+            { "${50 + it}%" }) {
+            calibration = calibration.copy(widthScale = 0.5f + it / 100f)
             update()
         })
         root.addView(slider("水平位置", 160, calibration.xDp.roundToInt() + 80,
@@ -105,7 +116,13 @@ class PetCalibrationActivity : Activity() {
             { "γ %.2f".format(1.25f - it * 0.0075f) }) {
             calibration = calibration.copy(gamma = 1.25f - it * 0.0075f)
             curve.gamma = calibration.gamma
-            cache.setExperimentalGamma(calibration.gamma)
+            cache.setExperimentalColors(calibration.gamma, calibration.saturation)
+            update()
+        })
+        root.addView(slider("饱和度", 150, ((calibration.saturation - 0.5f) * 100).roundToInt(),
+            { "${50 + it}%" }) {
+            calibration = calibration.copy(saturation = 0.5f + it / 100f)
+            cache.setExperimentalColors(calibration.gamma, calibration.saturation)
             update()
         })
         root.addView(Button(this).apply {
@@ -161,7 +178,10 @@ class PetCalibrationActivity : Activity() {
 
     override fun onResume() {
         super.onResume()
-        if (::frame.isInitialized) handler.post(tick)
+        if (::frame.isInitialized) {
+            previewStartedAtMs = SystemClock.uptimeMillis()
+            handler.post(tick)
+        }
     }
 
     override fun onPause() {

@@ -150,7 +150,10 @@ class PetFrameView(context: Context) : View(context) {
         )
         canvas.rotate(pose.rotationDegrees)
         val horizontal = if (layer.mirrored) -1f else 1f
-        canvas.scale(horizontal * adjustedScale * pose.scaleX, adjustedScale * pose.scaleY)
+        canvas.scale(
+            horizontal * adjustedScale * pose.scaleX * (if (experimental) calibration.widthScale else 1f),
+            adjustedScale * pose.scaleY,
+        )
         canvas.translate(
             -bitmap.width * (if (layer.mirrored) 1f - layer.anchor.x else layer.anchor.x),
             -bitmap.height * layer.anchor.y,

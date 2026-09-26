@@ -270,7 +270,8 @@ class PetOverlayWindow(
         }
         clamp(layout)
         enforceDockedAxis(layout)
-        val visualPadding = maxOf(windowPx, dp(140))
+        val calibration = PetExperimentalCalibration.load(prefs)
+        val visualPadding = experimentalPadding(windowPx, calibration)
         val visualLayout = WindowManager.LayoutParams(
             windowPx + visualPadding * 2,
             windowPx + visualPadding * 2,
@@ -284,15 +285,14 @@ class PetOverlayWindow(
             gravity = Gravity.TOP or Gravity.START
             x = layout.x - visualPadding
             y = layout.y - visualPadding
-            // A non-touchable application overlay must remain below Android's
-            // obscuring-opacity threshold so apps behind its overflow can be tapped.
-            alpha = 0.79f
+            // The trial animation is opaque; the alignment preview alone uses 52%.
+            // Android may block touches behind this window outside the logical pet.
+            alpha = 1f
         }
         visual.setOverflowGeometry(windowPx, visualPadding)
-        val calibration = PetExperimentalCalibration.load(prefs)
         experimentalCalibration = calibration
         visual.setExperimentalCalibration(calibration)
-        frameCache.setExperimentalGamma(calibration.gamma)
+        frameCache.setExperimentalColors(calibration.gamma, calibration.saturation)
 
         val animation = PetAnimationPlayer(
             manifest = manifest,
@@ -1165,8 +1165,20 @@ class PetOverlayWindow(
         val latest = PetExperimentalCalibration.load(prefs)
         if (latest == experimentalCalibration) return
         experimentalCalibration = latest
-        frameCache.setExperimentalGamma(latest.gamma)
+        frameCache.setExperimentalColors(latest.gamma, latest.saturation)
         visual.setExperimentalCalibration(latest)
+        params?.let(::syncExperimentalVisual)
+    }
+
+    /** Bound the non-touchable drawing window to the calibrated artwork. */
+    private fun experimentalPadding(logicalPx: Int, value: PetExperimentalCalibration): Int {
+        val widthExtra = logicalPx * 0.90f * value.scale * value.widthScale * 1.075f / 2f -
+            logicalPx / 2f + dp(abs(value.xDp))
+        val topExtra = logicalPx * 0.88f * value.scale * 1.09f * 0.92f -
+            logicalPx * 0.94f + dp(abs(value.yDp))
+        val bottomExtra = logicalPx * 0.88f * value.scale * 1.09f * 0.08f -
+            logicalPx * 0.06f + dp(abs(value.yDp))
+        return maxOf(dp(8), widthExtra.roundToInt(), topExtra.roundToInt(), bottomExtra.roundToInt())
     }
 
     /** Keep the touch/physics window authoritative; only the visual surface expands. */
@@ -1178,7 +1190,7 @@ class PetOverlayWindow(
     private fun syncExperimentalVisual(logical: WindowManager.LayoutParams) {
         val visual = experimentalVisual ?: return
         val display = experimentalVisualParams ?: return
-        val padding = maxOf(logical.width, dp(140))
+        val padding = experimentalPadding(logical.width, experimentalCalibration)
         display.width = logical.width + padding * 2
         display.height = logical.height + padding * 2
         display.x = logical.x - padding

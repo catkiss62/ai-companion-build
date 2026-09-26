@@ -404,7 +404,7 @@
 # Historical +240 validator tokens: agent/v04196-sen-hybrid-composition | AI-Companion-v0.41.96-240-Sen-Hybrid-Composition-Hotfix-APK | v0.41.96-sen-hybrid-composition-hotfix-test
 # Historical +241 validator tokens: agent/v04197-no-canned-fallbacks | AI-Companion-v0.41.97-241-Natural-Reply-Liveness-APK | v0.41.97-natural-reply-liveness-test
 # Historical +242 validator tokens: agent/v04198-sen-texture-direct-port | AI-Companion-v0.41.98-242-Sen-Direct-Port-APK | v0.41.98-sen-direct-port-test | .ci/v04198-monitor.txt
-name: Build AI Companion v0.42.23+267 APK (Pet Calibration and Overflow Test)
+name: Build AI Companion v0.42.24+268 APK (Pet Calibration and Overflow Test)
 
 on:
   push:
@@ -471,7 +471,7 @@ on:
       - agent/v04216-reasoning-translation-wheel-haptics
       - agent/v04217-breakthrough-wheel-smooth
       - agent/v04219-native-wheel-compare
-      - agent/v04223-pet-calibration-overflow
+      - agent/v04224-pet-opaque-fullframes
       - agent/v04214-visible-process-fate-wheel
       - maintenance/repository-governance-20260919
   workflow_dispatch:
@@ -923,7 +923,7 @@ jobs:
           test -f app/android/app/src/main/jniLibs/arm64-v8a/libc++_shared.so
           test ! -d app/android/app/src/main/assets/tts_models
           test ! -d app/android/app/src/main/assets/legacy_tts
-          echo 'Building v0.42.23+267 pet calibration and overflow test candidate.'
+          echo 'Building v0.42.24+268 opaque full-frame pet test candidate.'
 
       - name: Restore exact 417-file desktop-pet source pack
         working-directory: app
@@ -1358,25 +1358,39 @@ jobs:
               print('Approved three-tier yawn art and appearance reference are present in the APK.')
 
               trial_root = 'assets/pets/dafeiyu/source/runtime_overrides/experimental/'
-              expected_trial = {'hum': 40, 'stretch': 40, 'cube': 40, 'stand': 40, 'click': 60}
+              expected_trial = {'hum': 241, 'stretch': 241, 'cube': 241, 'stand': 241, 'click': 241}
               trial_bytes = 0
               for folder, count in expected_trial.items():
-                  actual_names = sorted(name for name in z.namelist()
-                      if name.startswith(f'{trial_root}{folder}/') and name.endswith('.webp'))
-                  expected_names = [f'{trial_root}{folder}/{i:03d}.webp' for i in range(count)]
-                  if actual_names != expected_names:
-                      print(f'ERROR: experimental {folder} frames are missing or unexpected', file=sys.stderr)
+                  prefix = f'{trial_root}{folder}/packed/'
+                  parts = sorted(name for name in z.namelist()
+                      if name.startswith(prefix) and name.endswith('.bin'))
+                  if not parts or parts != [f'{prefix}{i:03d}.bin' for i in range(len(parts))]:
+                      print(f'ERROR: experimental {folder} frame pack is incomplete', file=sys.stderr)
                       sys.exit(1)
-                  for name in actual_names:
-                      data = z.read(name)
-                      if data[:4] != b'RIFF' or data[8:12] != b'WEBP':
-                          print(f'ERROR: invalid experimental frame {name}', file=sys.stderr)
+                  packed = b''.join(z.read(name) for name in parts)
+                  if not packed.startswith(b'PET241\0'):
+                      print(f'ERROR: experimental {folder} pack header is invalid', file=sys.stderr)
+                      sys.exit(1)
+                  offset = 7
+                  for index in range(count):
+                      if offset + 4 > len(packed):
+                          print(f'ERROR: experimental {folder} frame {index} is missing', file=sys.stderr)
                           sys.exit(1)
+                      length, = struct.unpack_from('>I', packed, offset)
+                      offset += 4
+                      data = packed[offset:offset + length]
+                      if data[:4] != b'RIFF' or data[8:12] != b'WEBP':
+                          print(f'ERROR: invalid experimental {folder} frame {index}', file=sys.stderr)
+                          sys.exit(1)
+                      offset += length
                       trial_bytes += len(data)
-              if trial_bytes > 2_500_000:
+                  if offset != len(packed):
+                      print(f'ERROR: extra experimental {folder} payload bytes', file=sys.stderr)
+                      sys.exit(1)
+              if trial_bytes > 12_000_000:
                   print(f'ERROR: compressed trial clips exceed budget: {trial_bytes}', file=sys.stderr)
                   sys.exit(1)
-              print(f'Experimental pet payload: 220 frames, {trial_bytes} bytes.')
+              print(f'Experimental pet payload: 1205 frames, {trial_bytes} bytes.')
           print('Pinned Genie TTS runtime payload and APK byte identity verified.')
           PY2
 
@@ -1415,26 +1429,26 @@ jobs:
           APK='app/build/app/outputs/flutter-apk/app-release.apk'
           sha256sum "$APK" | tee app/app-release.apk.sha256
 
-      - name: Upload v0.42.23+267 APK as workflow artifact
+      - name: Upload v0.42.24+268 APK as workflow artifact
         uses: actions/upload-artifact@v4
         with:
-          name: AI-Companion-v0.42.23-267-Pet-Calibration-Overflow-APK
+          name: AI-Companion-v0.42.24-268-Opaque-Fullframe-Pet-APK
           path: |
             app/build/app/outputs/flutter-apk/app-release.apk
             app/app-release.apk.sha256
           if-no-files-found: error
           retention-days: 14
 
-      - name: Upload v0.42.23+267 APK to draft release
+      - name: Upload v0.42.24+268 APK to draft release
         shell: bash
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
-          TAG='v0.42.23-pet-calibration-overflow-test'
-          APK_NAME='AI-Companion-v0.42.23-267-Pet-Calibration-Overflow-APK.apk'
+          TAG='v0.42.24-opaque-fullframe-pet-test'
+          APK_NAME='AI-Companion-v0.42.24-268-Opaque-Fullframe-Pet-APK.apk'
           SHA_NAME="${APK_NAME}.sha256"
-          CI_NAME='AI-Companion-v0.42.23-267-Pet-Calibration-Overflow-CI-Monitor.txt'
+          CI_NAME='AI-Companion-v0.42.24-268-Opaque-Fullframe-Pet-CI-Monitor.txt'
           cp app/build/app/outputs/flutter-apk/app-release.apk "app/${APK_NAME}"
           sed "s#app/build/app/outputs/flutter-apk/app-release.apk#${APK_NAME}#" \
             app/app-release.apk.sha256 > "app/${SHA_NAME}"
@@ -1451,14 +1465,14 @@ jobs:
               --repo "${GITHUB_REPOSITORY}" \
               --target "${GITHUB_SHA}" \
               --draft \
-              --title 'AI Companion v0.42.23+267 pet calibration and overflow test candidate' \
-              --notes 'Unpublished schema-61 test build: direct Android WebView wheel by default, no Flutter comparison screen, and history expanded on open. No user content or credentials are included.'
+              --title 'AI Companion v0.42.24+268 opaque full-frame pet test candidate' \
+              --notes 'Unpublished schema-61 desktop-pet test build: five complete 24 fps source sequences at 1.5x, full-opacity playback, alignment-only translucency, width and saturation controls. No user content or credentials are included.'
           else
             gh release edit "${TAG}" \
               --repo "${GITHUB_REPOSITORY}" \
               --target "${GITHUB_SHA}" \
-              --title 'AI Companion v0.42.23+267 pet calibration and overflow test candidate' \
-              --notes 'Unpublished schema-61 test build: direct Android WebView wheel by default, no Flutter comparison screen, and history expanded on open. No user content or credentials are included.'
+              --title 'AI Companion v0.42.24+268 opaque full-frame pet test candidate' \
+              --notes 'Unpublished schema-61 desktop-pet test build: five complete 24 fps source sequences at 1.5x, full-opacity playback, alignment-only translucency, width and saturation controls. No user content or credentials are included.'
           fi
           RELEASE_URL="$(gh release view "${TAG}" --repo "${GITHUB_REPOSITORY}" --json url --jq '.url')"
           echo "release_url=${RELEASE_URL}" >> "app/${CI_NAME}"
@@ -1478,18 +1492,18 @@ jobs:
           done
           test "${upload_ok}" = '1'
           MONITOR_BRANCH='ci-monitor-v0345'
-          MONITOR_PATH='.ci/v04223-monitor.txt'
+          MONITOR_PATH='.ci/v04224-monitor.txt'
           MONITOR_CONTENT="$(base64 -w0 "app/${CI_NAME}")"
           MONITOR_SHA="$(gh api "/repos/${GITHUB_REPOSITORY}/contents/${MONITOR_PATH}?ref=${MONITOR_BRANCH}" --jq '.sha' 2>/dev/null || true)"
           if test -n "${MONITOR_SHA}"; then
             gh api --method PUT "/repos/${GITHUB_REPOSITORY}/contents/${MONITOR_PATH}" \
-              -f message='Update v0.42.23 CI success monitor' \
+              -f message='Update v0.42.24 CI success monitor' \
               -f content="${MONITOR_CONTENT}" \
               -f branch="${MONITOR_BRANCH}" \
               -f sha="${MONITOR_SHA}" >/dev/null
           else
             gh api --method PUT "/repos/${GITHUB_REPOSITORY}/contents/${MONITOR_PATH}" \
-              -f message='Create v0.42.23 CI success monitor' \
+              -f message='Create v0.42.24 CI success monitor' \
               -f content="${MONITOR_CONTENT}" \
               -f branch="${MONITOR_BRANCH}" >/dev/null
           fi
@@ -1510,8 +1524,8 @@ jobs:
           BUILD_RESULT: ${{ needs.build-apk.result }}
         run: |
           set -uo pipefail
-          TAG='v0.42.23-pet-calibration-overflow-test'
-          CI_NAME='AI-Companion-v0.42.23-267-Pet-Calibration-Overflow-CI-Monitor.txt'
+          TAG='v0.42.24-opaque-fullframe-pet-test'
+          CI_NAME='AI-Companion-v0.42.24-268-Opaque-Fullframe-Pet-CI-Monitor.txt'
           REPORT="${RUNNER_TEMP}/${CI_NAME}"
           JOBS_JSON="${RUNNER_TEMP}/jobs.json"
           {
@@ -1552,7 +1566,7 @@ jobs:
               --repo "${GITHUB_REPOSITORY}" \
               --target "${GITHUB_SHA}" \
               --draft \
-              --title 'AI Companion v0.42.23+267 pet calibration and overflow test candidate' \
+              --title 'AI Companion v0.42.24+268 opaque full-frame pet test candidate' \
               --notes 'Unpublished Draft failure diagnostics for the schema-61 breakthrough and wheel smoothness candidate. No user content, keys, backups or device diagnostics are included.'
           fi
           RELEASE_URL="$(gh release view "${TAG}" --repo "${GITHUB_REPOSITORY}" --json url --jq '.url')"
@@ -1562,18 +1576,18 @@ jobs:
             --clobber \
             --repo "${GITHUB_REPOSITORY}"
           MONITOR_BRANCH='ci-monitor-v0345'
-          MONITOR_PATH='.ci/v04223-monitor.txt'
+          MONITOR_PATH='.ci/v04224-monitor.txt'
           MONITOR_CONTENT="$(base64 -w0 "${REPORT}")"
           MONITOR_SHA="$(gh api "/repos/${GITHUB_REPOSITORY}/contents/${MONITOR_PATH}?ref=${MONITOR_BRANCH}" --jq '.sha' 2>/dev/null || true)"
           if test -n "${MONITOR_SHA}"; then
             gh api --method PUT "/repos/${GITHUB_REPOSITORY}/contents/${MONITOR_PATH}" \
-              -f message='Update v0.42.23 CI failure monitor' \
+              -f message='Update v0.42.24 CI failure monitor' \
               -f content="${MONITOR_CONTENT}" \
               -f branch="${MONITOR_BRANCH}" \
               -f sha="${MONITOR_SHA}" >/dev/null
           else
             gh api --method PUT "/repos/${GITHUB_REPOSITORY}/contents/${MONITOR_PATH}" \
-              -f message='Create v0.42.23 CI failure monitor' \
+              -f message='Create v0.42.24 CI failure monitor' \
               -f content="${MONITOR_CONTENT}" \
               -f branch="${MONITOR_BRANCH}" >/dev/null
           fi

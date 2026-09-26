@@ -186,6 +186,9 @@ data class PetSkinManifest(
 
     private fun frameDuration(action: PetActionSpec, frameCount: Int): Long {
         if (frameCount <= 0) return 120L
+        if (PetExperimentalClips.isExperimental(action.id)) {
+            return maxOf(1L, (action.durationMs ?: 6_667L) / frameCount)
+        }
         action.durationMs?.let { return maxOf(70L, it / frameCount) }
         return if (action.id == "WALKING") 120L else 180L
     }
