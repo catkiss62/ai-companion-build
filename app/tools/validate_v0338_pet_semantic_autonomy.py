@@ -46,8 +46,9 @@ require(policy, [
     "data class PetAutonomySnapshot",
     "fun chooseSemantic(",
     'actionId = "YAWNING"',
-    'PetAutonomyDecision("THINKING"',
+    'PetAutonomyDecision("GLANCE"',
 ], "semantic visual consumer")
+assert 'PetAutonomyDecision("THINKING"' not in policy
 require(pet, [
     "setAutonomySnapshot",
     "setAutonomySuppressed",
