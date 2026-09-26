@@ -7,8 +7,11 @@ object PetExperimentalClips {
     const val PREF_KEY = "pet_shenshen_clip_test"
     const val CLICK = "EXPERIMENTAL_CLICK"
     const val STAND = "EXPERIMENTAL_STAND"
+    const val HUM = "EXPERIMENTAL_HUM"
+    const val STRETCH = "EXPERIMENTAL_STRETCH"
+    const val CUBE = "EXPERIMENTAL_CUBE"
     const val FRAME_COUNT = 241 // Legacy five packs retain the original format.
-    private val legacyIdle = listOf("EXPERIMENTAL_HUM", "EXPERIMENTAL_STRETCH", "EXPERIMENTAL_CUBE", STAND)
+    private val legacyIdle = listOf(HUM, STRETCH, CUBE, STAND)
 
     data class Entry(
         val id: String,

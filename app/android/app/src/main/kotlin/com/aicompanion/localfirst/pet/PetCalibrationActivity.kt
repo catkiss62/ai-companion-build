@@ -78,9 +78,9 @@ class PetCalibrationActivity : Activity() {
         root.addView(row(listOf("双层站立对齐", "哼歌", "伸懒腰", "魔方", "点击")) { index ->
             selected = listOf(
                 PetExperimentalClips.STAND,
-                PetExperimentalClips.IDLE[0],
-                PetExperimentalClips.IDLE[1],
-                PetExperimentalClips.IDLE[2],
+                PetExperimentalClips.HUM,
+                PetExperimentalClips.STRETCH,
+                PetExperimentalClips.CUBE,
                 PetExperimentalClips.CLICK,
             )[index]
             compare = index == 0
