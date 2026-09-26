@@ -21,7 +21,7 @@ object PetExperimentalClips {
             assets[assetId] = PetAssetSpec(
                 id = assetId,
                 framesBySize = mapOf(238 to (0 until 100).map { index ->
-                    "runtime_overrides/experimental/$folder/${index.toString().padLeft(3, '0')}.webp"
+                    "runtime_overrides/experimental/$folder/${index.toString().padStart(3, '0')}.webp"
                 }),
                 frameCount = 100,
             )
