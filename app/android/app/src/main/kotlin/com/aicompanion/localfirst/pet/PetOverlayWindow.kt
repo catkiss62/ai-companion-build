@@ -1173,11 +1173,11 @@ class PetOverlayWindow(
     /** Bound the non-touchable drawing window to the calibrated artwork. */
     private fun experimentalPadding(logicalPx: Int, value: PetExperimentalCalibration): Int {
         val widthExtra = logicalPx * 0.90f * value.scale * value.widthScale * 1.075f / 2f -
-            logicalPx / 2f + dp(abs(value.xDp))
+            logicalPx / 2f + dp(abs(value.xDp).roundToInt())
         val topExtra = logicalPx * 0.88f * value.scale * 1.09f * 0.92f -
-            logicalPx * 0.94f + dp(abs(value.yDp))
+            logicalPx * 0.94f + dp(abs(value.yDp).roundToInt())
         val bottomExtra = logicalPx * 0.88f * value.scale * 1.09f * 0.08f -
-            logicalPx * 0.06f + dp(abs(value.yDp))
+            logicalPx * 0.06f + dp(abs(value.yDp).roundToInt())
         return maxOf(dp(8), widthExtra.roundToInt(), topExtra.roundToInt(), bottomExtra.roundToInt())
     }
 

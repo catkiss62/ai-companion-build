@@ -217,10 +217,11 @@ class PetAnimationPlayer(
 
     private fun currentLayer(): PetRenderLayer {
         val count = clip.frames.size
-        var index = if (PetExperimentalClips.isExperimental(clip.actionId) && clip.durationMs != null) {
+        val duration = clip.durationMs
+        var index = if (PetExperimentalClips.isExperimental(clip.actionId) && duration != null) {
             // Preserve the source's full 24 fps sequence at 1.5×: integer
             // frame durations would accumulate drift over 241 source frames.
-            PetExperimentalClips.frameIndex(elapsedMs, count, clip.durationMs)
+            PetExperimentalClips.frameIndex(elapsedMs, count, duration)
         } else {
             (elapsedMs / maxOf(1L, clip.frameDurationMs)).toInt()
         }
