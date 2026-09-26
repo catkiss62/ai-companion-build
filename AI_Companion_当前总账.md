@@ -1,6 +1,6 @@
 # AI Companion · 当前总账
 
-更新时间：2026-09-26（UTC；+266 代办提醒、节日与桌宠实验动画构建中）
+更新时间：2026-09-26（UTC；+266 代办提醒、节日与桌宠实验动画 APK 已就绪）
 
 > 本文件是唯一的当前接班入口，继续采用“总账 v2”。顶部是快速接班索引；标记后的正式记录按版本持续追加，不设总容量上限。
 >
@@ -41,7 +41,7 @@
 | +228 远端 | head `29e87d016c8bd81f52f89f95191bd1a1a01a5b57`；tree `c4a112a56d8b634cf3a1a66636979a0833538b7d`；Actions `35440359036`；Artifact `10583263879`；APK SHA-256 `159e283173e49da2924d25b37ba7647893cdafdcc31b63f0e31b7c64e086849b` |
 | 仓库维护基线 | `maintenance/repository-governance-20260919`；远端文档 head `123e272196e8ae93f3518157917d76f6af4f1784`；完整构建 head `fa99f32012fa1a0716b746d36b958a8e777ef9b8`；Actions `35446649873` 全绿；文档-only run `35447342921` 正确跳过 APK |
 | 当前功能分支 | `agent/v04222-todo-holiday-weather`，从远端 +265 同树 head `6fc24b5` 分出；构建候选 `v0.42.22+266` |
-| 当前任务状态 | `+265 IMPLEMENTED / CI PASSED / APK READY`，用户 2026-09-26 上轮真机默认成功、发现问题再反馈。`+266 IMPLEMENTED LOCALLY / CI PENDING / APK PENDING`：代办提醒名称、中国节日认知、桌宠四段实验素材与开关；天气和 Cove 表情包评估见末尾 +266 |
+| 当前任务状态 | `+265 IMPLEMENTED / CI PASSED / APK READY`，用户 2026-09-26 上轮真机默认成功、发现问题再反馈。`+266 IMPLEMENTED / CI PASSED / APK READY / TRUE DEVICE PENDING`：代办提醒名称、中国节日认知、桌宠四段实验素材与开关；天气和 Cove 表情包评估见末尾 +266 |
 | +250 当前任务 | 本体／小豆丁形态共用成年角色、记忆与能力；同一形态状态驱动角色提示与静态立绘，虚拟弹额头／安抚改变气焰值后继续自然衰减，心形液面与锁定入口；常驻世界书定点柔化并仅迁移未编辑原文；两档 TTS 共用冻结的真实回复与分段，无声生成并复制专项脱敏报告 |
 | +250 最终构建 | 功能 head `b5cd2d1070fb237bc72ab66b1867a75da9bbe6e8`；tree `4e0dbbd531aea408ab0face6d46a323f441c7eeb`；Actions `35943607609` 全绿；Artifact `10785922926`；APK SHA-256 `f148f2eb303017ad5f6f689628f230979c24ba16831fdc0181e58bc5e1d73a`；未发布 Draft Release `v0.42.6-dual-form-tts-comparison-test` |
 | +249 当前任务 | `loopIndex=0` 时明确判定“零个新语义 token”，在 VITS 前拒绝本段；最后两次会话记录生成时 profile、冷/热状态、各阶段耗时、RTF、播放首帧、队列余量、迟到段、失败/停止与脱敏文本哈希 |
@@ -1020,3 +1020,4 @@ Actions 与交付证据：远端功能 head `33647c7bff15084d6fd3cbc7b817e9b0b21
 - 本地验证：FFmpeg 确认原片 VP9/alpha、每段 10 秒；所有 400 个生成帧可解码、300×300 且命名 000～099；Dart 农历包下载 SHA 与 `pubspec.lock` 一致，并核对 `Lunar.fromDate/getMonth/getDay/getJieQi` API；新增农历/圣诞事实和测试开关移动候选回归。`git diff --check` 已通过，Flutter/Android 编译仍待 Actions。Cove `vision.py` 的自动标注明确要求视觉模型与密钥、压缩图像会发送外部服务，因此不接入零 token 幻想；现有用户表情包 ZIP/index 与选择概率暂不改。
 - 天气决定建议：用户已有和风天气 API，优先直接接其 REST，而不绕第三方 MCP。实况/小时预报可覆盖全球；`/v7/minutely/5m` 仅中国地区，未来两小时每五分钟的雨量 mm。下次接入前需要用户的可用 API Host/授权方式和天气地点选择；Key 只存本机私密设置。降雨只按 provider 的 `updateTime/fxTime` 表述“预报”，不拿外部实况说成实际接触雨水。
 - 首轮 Actions `36219333507`：源码回归通过，Kotlin 编译在实验素材帧路径处报 `Unresolved reference 'padLeft'`；这是将 Dart 字符串方法误用于 Kotlin。已改为 Kotlin `padStart`，同版重跑完整构建，首轮 APK 未产生。
+- 修复后功能 head `fef1bb8fb1ab6b7530a16ada0ce744064c43dcdd`、tree `177ea7732e1044e46f4e502ecc8c70cce5d101b9`；Actions `36228578087` 全绿（125 源码门、Kotlin 桌宠/桥接测试、Flutter analyze/test、release APK、签名与素材包核验）。Artifact `10902126662`；APK SHA-256 `8ae68d4ac60cf78488b2de4b1b23d156eb8b443b5fda6175d741ff617f799ac2`，大小 552551239 bytes；未发布 Draft Release `397094347`（tag `v0.42.22-holiday-pet-clip-test`）。真机实验尚待用户观察，桌宠除移动动画外的三待机与点击反馈可在“实验动画”中关闭恢复旧链。天气未接凭据、地点及接口，不将设计写成已接入；Cove 零 token 自动视觉标注不成立，本轮未移植。
