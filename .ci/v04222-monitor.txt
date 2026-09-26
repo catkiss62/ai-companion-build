@@ -1,0 +1,7 @@
+status=success
+run_id=36228578087
+run_url=https://github.com/catkiss62/ai-companion-build/actions/runs/36228578087
+head_sha=fef1bb8fb1ab6b7530a16ada0ce744064c43dcdd
+signer_sha256=30:5E:B3:D8:09:83:B9:63:C6:48:18:DD:F1:AD:56:1F:27:9D:E6:D4:7B:3E:D2:C7:81:AD:A4:48:C7:C2:51:48
+8ae68d4ac60cf78488b2de4b1b23d156eb8b443b5fda6175d741ff617f799ac2  AI-Companion-v0.42.22-266-Holiday-Pet-Clip-Test-APK.apk
+release_url=https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-db2842b4760d26807cdf
