@@ -54,7 +54,7 @@ class PetCalibrationActivity : Activity() {
         calibration = PetExperimentalCalibration.load(prefs)
         manifest = PetSkinManifest.load(assets)
         cache = PetFrameCache(assets)
-        cache.setExperimentalColors(calibration.gamma, calibration.saturation)
+        updateColors()
 
         val root = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
@@ -108,21 +108,30 @@ class PetCalibrationActivity : Activity() {
             calibration = calibration.copy(yDp = (it - 80).toFloat())
             update()
         })
-        root.addView(label("提亮曲线 · 提高中间调，透明边缘和纯白/纯黑保持不变"))
-        curve = CurveGraph().apply { gamma = calibration.gamma }
+        root.addView(label("RGB 输入色阶 · PS 参考：0 / 0.86 / 230；输出：0 / 255"))
+        curve = CurveGraph().apply { levels = calibration }
         root.addView(curve, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, dp(110)))
+        root.addView(slider("黑场", 100, calibration.blackPoint, { "$it" }) {
+            calibration = calibration.copy(blackPoint = it)
+            updateColors()
+            update()
+        })
         root.addView(slider("中间调", 100,
             ((1.25f - calibration.gamma) / 0.0075f).roundToInt(),
-            { "γ %.2f".format(1.25f - it * 0.0075f) }) {
+            { "%.2f".format(1.25f - it * 0.0075f) }) {
             calibration = calibration.copy(gamma = 1.25f - it * 0.0075f)
-            curve.gamma = calibration.gamma
-            cache.setExperimentalColors(calibration.gamma, calibration.saturation)
+            updateColors()
+            update()
+        })
+        root.addView(slider("白场", 105, calibration.whitePoint - 150, { "${150 + it}" }) {
+            calibration = calibration.copy(whitePoint = 150 + it)
+            updateColors()
             update()
         })
         root.addView(slider("饱和度", 150, ((calibration.saturation - 0.5f) * 100).roundToInt(),
             { "${50 + it}%" }) {
             calibration = calibration.copy(saturation = 0.5f + it / 100f)
-            cache.setExperimentalColors(calibration.gamma, calibration.saturation)
+            updateColors()
             update()
         })
         root.addView(Button(this).apply {
@@ -135,6 +144,11 @@ class PetCalibrationActivity : Activity() {
         val scroll = ScrollView(this)
         scroll.addView(root)
         setContentView(scroll)
+    }
+
+    private fun updateColors() {
+        cache.setExperimentalColors(calibration.gamma, calibration.saturation, calibration.blackPoint, calibration.whitePoint)
+        if (::curve.isInitialized) curve.levels = calibration
     }
 
     private fun update() {
@@ -242,7 +256,7 @@ class PetCalibrationActivity : Activity() {
     private fun dp(value: Int): Int = (value * resources.displayMetrics.density).roundToInt()
 
     private inner class CurveGraph : View(this@PetCalibrationActivity) {
-        var gamma = 1f
+        var levels = PetExperimentalCalibration()
             set(value) { field = value; invalidate() }
         private val paint = Paint(Paint.ANTI_ALIAS_FLAG).apply { strokeWidth = dp(2).toFloat() }
         override fun onDraw(canvas: Canvas) {
@@ -256,7 +270,8 @@ class PetCalibrationActivity : Activity() {
             val path = Path()
             repeat(65) { point ->
                 val x = point / 64f
-                val y = x.toDouble().pow(gamma.toDouble()).toFloat()
+                val y = ((x * 255f - levels.blackPoint) / (levels.whitePoint - levels.blackPoint))
+                    .coerceIn(0f, 1f).toDouble().pow(1.0 / levels.gamma).toFloat()
                 if (point == 0) path.moveTo(left, bottom)
                 else path.lineTo(left + x * (right - left), bottom - y * (bottom - top))
             }

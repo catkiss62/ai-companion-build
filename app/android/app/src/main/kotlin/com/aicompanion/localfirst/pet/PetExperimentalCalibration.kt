@@ -11,7 +11,9 @@ data class PetExperimentalCalibration(
     val widthScale: Float = 1f,
     val xDp: Float = 0f,
     val yDp: Float = 0f,
-    val gamma: Float = 0.85f,
+    val gamma: Float = 0.86f,
+    val blackPoint: Int = 0,
+    val whitePoint: Int = 230,
     val saturation: Float = 1f,
 ) {
     fun bounded() = copy(
@@ -20,6 +22,8 @@ data class PetExperimentalCalibration(
         xDp = xDp.coerceIn(-80f, 80f),
         yDp = yDp.coerceIn(-80f, 80f),
         gamma = gamma.coerceIn(0.5f, 1.25f),
+        blackPoint = blackPoint.coerceIn(0, 100),
+        whitePoint = whitePoint.coerceIn(150, 255).coerceAtLeast(blackPoint + 1),
         saturation = saturation.coerceIn(0.5f, 2f),
     )
 
@@ -31,6 +35,8 @@ data class PetExperimentalCalibration(
             .putFloat(KEY_X, value.xDp)
             .putFloat(KEY_Y, value.yDp)
             .putFloat(KEY_GAMMA, value.gamma)
+            .putInt(KEY_BLACK, value.blackPoint)
+            .putInt(KEY_WHITE, value.whitePoint)
             .putFloat(KEY_SATURATION, value.saturation)
             .apply()
     }
@@ -41,6 +47,8 @@ data class PetExperimentalCalibration(
         private const val KEY_X = "pet_experimental_x_dp"
         private const val KEY_Y = "pet_experimental_y_dp"
         private const val KEY_GAMMA = "pet_experimental_gamma"
+        private const val KEY_BLACK = "pet_experimental_levels_black"
+        private const val KEY_WHITE = "pet_experimental_levels_white"
         private const val KEY_SATURATION = "pet_experimental_saturation"
 
         fun load(prefs: SharedPreferences) = PetExperimentalCalibration(
@@ -48,20 +56,25 @@ data class PetExperimentalCalibration(
             widthScale = prefs.getFloat(KEY_WIDTH_SCALE, 1f),
             xDp = prefs.getFloat(KEY_X, 0f),
             yDp = prefs.getFloat(KEY_Y, 0f),
-            gamma = prefs.getFloat(KEY_GAMMA, 0.85f),
+            gamma = if (prefs.contains(KEY_WHITE)) prefs.getFloat(KEY_GAMMA, 0.86f) else 0.86f,
+            blackPoint = prefs.getInt(KEY_BLACK, 0),
+            whitePoint = prefs.getInt(KEY_WHITE, 230),
             saturation = prefs.getFloat(KEY_SATURATION, 1f),
         ).bounded()
     }
 }
 
-/** Gamma below 1 lifts midtones; saturation adjusts chroma without changing alpha. */
+/** Photoshop RGB input levels (black / midtone / white), with unchanged output 0–255. */
 object PetExperimentalCurve {
-    fun apply(source: Bitmap, gamma: Float, saturation: Float): Bitmap {
-        if (gamma == 1f && saturation == 1f) return source
+    fun apply(source: Bitmap, gamma: Float, saturation: Float, blackPoint: Int, whitePoint: Int): Bitmap {
+        if (gamma == 1f && saturation == 1f && blackPoint == 0 && whitePoint == 255) return source
         val safe = gamma.coerceIn(0.5f, 1.25f)
         val chroma = saturation.coerceIn(0.5f, 2f)
+        val black = blackPoint.coerceIn(0, 100)
+        val white = whitePoint.coerceIn(150, 255).coerceAtLeast(black + 1)
         val lut = IntArray(256) { index ->
-            ((index / 255.0).pow(safe.toDouble()) * 255.0 + 0.5).toInt().coerceIn(0, 255)
+            (((index - black).toDouble() / (white - black)).coerceIn(0.0, 1.0)
+                .pow(1.0 / safe) * 255.0 + 0.5).toInt().coerceIn(0, 255)
         }
         val pixels = IntArray(source.width * source.height)
         source.getPixels(pixels, 0, source.width, 0, 0, source.width, source.height)

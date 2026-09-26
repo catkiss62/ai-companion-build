@@ -13,8 +13,10 @@ class PetFrameCache(
     private val root: String = PetSkinManifest.SOURCE_ROOT,
     maxBytes: Int = 24 * 1024 * 1024,
 ) {
-    private var experimentalGamma = 0.85f
+    private var experimentalGamma = 0.86f
     private var experimentalSaturation = 1f
+    private var experimentalBlack = 0
+    private var experimentalWhite = 230
     private val packedFrames = mutableMapOf<String, List<ByteArray>>()
     private val experimentalPath = Regex(
         """runtime_overrides/experimental/(hum|stretch|cube|stand|click)/(\d{3})\.webp""",
@@ -38,7 +40,7 @@ class PetFrameCache(
             BitmapFactory.decodeStream(stream)
         } ?: throw PetSkinFormatException("Cannot decode frame: $relativePath")
         val bitmap = if (experimental != null) {
-            PetExperimentalCurve.apply(decoded, experimentalGamma, experimentalSaturation).also {
+            PetExperimentalCurve.apply(decoded, experimentalGamma, experimentalSaturation, experimentalBlack, experimentalWhite).also {
                 if (it !== decoded) decoded.recycle()
             }
         } else decoded
@@ -72,12 +74,16 @@ class PetFrameCache(
         return frames
     }
 
-    fun setExperimentalColors(gamma: Float, saturation: Float) {
+    fun setExperimentalColors(gamma: Float, saturation: Float, blackPoint: Int, whitePoint: Int) {
         val boundedGamma = gamma.coerceIn(0.5f, 1.25f)
         val boundedSaturation = saturation.coerceIn(0.5f, 2f)
-        if (experimentalGamma == boundedGamma && experimentalSaturation == boundedSaturation) return
+        val black = blackPoint.coerceIn(0, 100)
+        val white = whitePoint.coerceIn(150, 255)
+        if (experimentalGamma == boundedGamma && experimentalSaturation == boundedSaturation && experimentalBlack == black && experimentalWhite == white) return
         experimentalGamma = boundedGamma
         experimentalSaturation = boundedSaturation
+        experimentalBlack = black
+        experimentalWhite = white
         cache.evictAll()
     }
 

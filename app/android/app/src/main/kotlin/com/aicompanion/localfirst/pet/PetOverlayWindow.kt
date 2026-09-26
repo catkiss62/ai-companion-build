@@ -292,7 +292,7 @@ class PetOverlayWindow(
         visual.setOverflowGeometry(windowPx, visualPadding)
         experimentalCalibration = calibration
         visual.setExperimentalCalibration(calibration)
-        frameCache.setExperimentalColors(calibration.gamma, calibration.saturation)
+        frameCache.setExperimentalColors(calibration.gamma, calibration.saturation, calibration.blackPoint, calibration.whitePoint)
 
         val animation = PetAnimationPlayer(
             manifest = manifest,
@@ -721,7 +721,7 @@ class PetOverlayWindow(
                 cancelAutonomyPlayback(resetToIdle = true)
                 closeOptions(resumeMotion = true)
             })
-            addView(optionButton("调整新动画 · 对齐与曲线") {
+            addView(optionButton("调整新动画 · 对齐与色阶") {
                 closeOptions(resumeMotion = true)
                 context.startActivity(
                     Intent(context, PetCalibrationActivity::class.java)
@@ -1165,7 +1165,7 @@ class PetOverlayWindow(
         val latest = PetExperimentalCalibration.load(prefs)
         if (latest == experimentalCalibration) return
         experimentalCalibration = latest
-        frameCache.setExperimentalColors(latest.gamma, latest.saturation)
+        frameCache.setExperimentalColors(latest.gamma, latest.saturation, latest.blackPoint, latest.whitePoint)
         visual.setExperimentalCalibration(latest)
         params?.let(::syncExperimentalVisual)
     }
