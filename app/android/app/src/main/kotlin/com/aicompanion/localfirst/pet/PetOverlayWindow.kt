@@ -1,7 +1,6 @@
 package com.aicompanion.localfirst.pet
 
 import android.content.Context
-import android.content.Intent
 import android.graphics.Color
 import android.graphics.PixelFormat
 import android.graphics.drawable.GradientDrawable
@@ -61,8 +60,6 @@ class PetOverlayWindow(
         private set
 
     private var frameView: PetFrameView? = null
-    private var experimentalVisual: PetFrameView? = null
-    private var experimentalVisualParams: WindowManager.LayoutParams? = null
     private var experimentalCalibration = PetExperimentalCalibration()
     private var player: PetAnimationPlayer? = null
     private var cache: PetFrameCache? = null
@@ -216,7 +213,6 @@ class PetOverlayWindow(
         val manifest = PetSkinManifest.load(context.assets)
         val frameCache = PetFrameCache(context.assets)
         val petView = PetFrameView(context)
-        val visual = PetFrameView(context).apply { visibility = View.INVISIBLE }
         val container = FrameLayout(context).apply {
             clipChildren = false
             clipToPadding = false
@@ -273,42 +269,19 @@ class PetOverlayWindow(
         clamp(layout)
         enforceDockedAxis(layout)
         val calibration = PetExperimentalCalibration.load(prefs)
-        val visualPadding = experimentalPadding(windowPx, calibration)
-        val visualLayout = WindowManager.LayoutParams(
-            windowPx + visualPadding * 2,
-            windowPx + visualPadding * 2,
-            overlayWindowType,
-            WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or
-                WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE or
-                WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL or
-                WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS,
-            PixelFormat.TRANSLUCENT,
-        ).apply {
-            gravity = Gravity.TOP or Gravity.START
-            x = layout.x - visualPadding
-            y = layout.y - visualPadding
-            // The trial animation is opaque; the alignment preview alone uses 52%.
-            // Android may block touches behind this window outside the logical pet.
-            alpha = 1f
-        }
-        visual.setOverflowGeometry(windowPx, visualPadding)
         experimentalCalibration = calibration
-        visual.setExperimentalCalibration(calibration)
+        petView.setExperimentalCalibration(calibration)
         frameCache.setExperimentalColors(calibration.gamma, calibration.saturation, calibration.blackPoint, calibration.whitePoint)
 
         val animation = PetAnimationPlayer(
             manifest = manifest,
             cache = frameCache,
             onSnapshot = { snapshot ->
-                refreshExperimentalCalibration(frameCache, visual)
-                val displayExperimental = experimentalClipsEnabled() &&
-                    PetExperimentalClips.isExperimental(snapshot.current.actionId)
-                petView.visibility = if (displayExperimental) View.INVISIBLE else View.VISIBLE
-                visual.visibility = if (displayExperimental && root?.visibility != View.GONE) {
-                    View.VISIBLE
-                } else View.INVISIBLE
-                if (displayExperimental) visual.showSnapshot(snapshot)
-                else petView.showSnapshot(snapshot)
+                refreshExperimentalCalibration(frameCache, petView)
+                // The extra non-touchable WindowManager layer made the same
+                // clip look translucent on device. Keep the old hit window and
+                // draw both modes on its opaque, established render path.
+                petView.showSnapshot(snapshot)
             },
             onActionChanged = { action, phase ->
                 if (action.id == "IDLE" && phase == PetAnimationPhase.BODY) {
@@ -322,13 +295,10 @@ class PetOverlayWindow(
 
         return runCatching {
             windowManager.addView(container, layout)
-            windowManager.addView(visual, visualLayout)
             root = container
             params = layout
             badge = unread
             frameView = petView
-            experimentalVisual = visual
-            experimentalVisualParams = visualLayout
             cache = frameCache
             player = animation
             animation.start()
@@ -343,14 +313,11 @@ class PetOverlayWindow(
         }.getOrElse {
             animation.stop()
             frameCache.clear()
-            if (visual.isAttachedToWindow) runCatching { windowManager.removeViewImmediate(visual) }
             if (container.isAttachedToWindow) runCatching { windowManager.removeViewImmediate(container) }
             root = null
             params = null
             badge = null
             frameView = null
-            experimentalVisual = null
-            experimentalVisualParams = null
             cache = null
             player = null
             false
@@ -359,10 +326,6 @@ class PetOverlayWindow(
 
     fun setVisible(visible: Boolean) {
         root?.visibility = if (visible) View.VISIBLE else View.GONE
-        experimentalVisual?.visibility = if (visible && experimentalClipsEnabled() &&
-            PetExperimentalClips.isExperimental(player?.currentActionId.orEmpty())) {
-            View.VISIBLE
-        } else View.INVISIBLE
         player?.setPaused(!visible)
         if (!visible) {
             // Screen-off/system hiding removes the autonomous movement tick. Reset
@@ -385,12 +348,8 @@ class PetOverlayWindow(
         val layout = params ?: return false
         if (!view.isAttachedToWindow) return false
         return runCatching {
-            val visual = experimentalVisual
-            val visualLayout = experimentalVisualParams
-            if (visual?.isAttachedToWindow == true) windowManager.removeViewImmediate(visual)
             windowManager.removeViewImmediate(view)
             windowManager.addView(view, layout)
-            if (visual != null && visualLayout != null) windowManager.addView(visual, visualLayout)
             true
         }.getOrElse { false }
     }
@@ -406,6 +365,9 @@ class PetOverlayWindow(
         noteUserActivity()
         if (normalized != PetConversationPolicy.IDLE) {
             cancelAutonomyPlayback(resetToIdle = true)
+            if (PetExperimentalClips.isExperimental(player?.currentActionId.orEmpty())) {
+                player?.resetToIdle("pet_conversation_preempts_new_clip")
+            }
         }
         reconcileConversationAction("conversation_$normalized")
     }
@@ -506,16 +468,11 @@ class PetOverlayWindow(
         closeOptions(resumeMotion = false)
         player?.stop()
         cache?.clear()
-        experimentalVisual?.let { visual ->
-            if (visual.isAttachedToWindow) runCatching { windowManager.removeViewImmediate(visual) }
-        }
         if (removeRoot) root?.let { runCatching { windowManager.removeViewImmediate(it) } }
         root = null
         params = null
         badge = null
         frameView = null
-        experimentalVisual = null
-        experimentalVisualParams = null
         player = null
         cache = null
     }
@@ -717,21 +674,15 @@ class PetOverlayWindow(
                 closeOptions(resumeMotion = false)
                 onSwitchToBubble()
             })
-            addView(optionButton(selectedLabel("实验动画", experimentalClipsEnabled())) {
+            addView(optionButton(selectedLabel("新版动画", experimentalClipsEnabled())) {
                 prefs.edit().putBoolean(
                     PetExperimentalClips.PREF_KEY,
                     !experimentalClipsEnabled(),
                 ).apply()
                 ambientActionBag.clear()
                 cancelAutonomyPlayback(resetToIdle = true)
+                player?.resetToIdle("pet_animation_mode_changed")
                 closeOptions(resumeMotion = true)
-            })
-            addView(optionButton("调整新动画 · 对齐与色阶") {
-                closeOptions(resumeMotion = true)
-                context.startActivity(
-                    Intent(context, PetCalibrationActivity::class.java)
-                        .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
-                )
             })
             addView(sectionLabel("自主行动"))
             addView(LinearLayout(context).apply {
@@ -1075,7 +1026,8 @@ class PetOverlayWindow(
             idleMs = idleMs,
             semanticReady = now - lastSemanticActionAtMs >= SEMANTIC_ACTION_COOLDOWN_MS,
             mobilityEnabled = mobilityEnabled(),
-        )
+        )?.takeIf { !experimentalClipsEnabled() ||
+            it.actionId == "YAWNING" || it.actionId == "STROLLING" }
         if (semanticDecision != null) {
             if (playAutonomyDecision(semanticDecision, now)) {
                 lastSemanticActionAtMs = now
@@ -1108,8 +1060,9 @@ class PetOverlayWindow(
         val animation = player ?: return false
         if (decision.actionId == "STROLLING") {
             if (startAutonomousMove(now)) return true
-            activeAutonomyAction = "GLANCE"
-            val accepted = animation.play("GLANCE", reason = "pet_autonomy_no_movement_room")
+            val fallback = if (experimentalClipsEnabled()) nextExperimentalAmbientClip() else "GLANCE"
+            activeAutonomyAction = fallback
+            val accepted = animation.play(fallback, reason = "pet_autonomy_no_movement_room")
             if (!accepted) activeAutonomyAction = null
             return accepted
         }
@@ -1160,14 +1113,14 @@ class PetOverlayWindow(
 
     private fun nextExperimentalAmbientBatch(): List<String> {
         if (!experimentalClipsEnabled()) return emptyList()
-        val batch = mutableListOf<String>()
-        repeat(4) {
-            if (experimentalAmbientDeck.isEmpty()) {
-                experimentalAmbientDeck.addAll(PetExperimentalClips.IDLE.shuffled(ambientRandom))
-            }
-            if (experimentalAmbientDeck.isNotEmpty()) batch.add(experimentalAmbientDeck.removeFirst())
+        return List(4) { nextExperimentalAmbientClip() }
+    }
+
+    private fun nextExperimentalAmbientClip(): String {
+        if (experimentalAmbientDeck.isEmpty()) {
+            experimentalAmbientDeck.addAll(PetExperimentalClips.IDLE.shuffled(ambientRandom))
         }
-        return batch
+        return experimentalAmbientDeck.removeFirst()
     }
 
     private fun scheduleNextAmbient(now: Long) {
@@ -1179,44 +1132,17 @@ class PetOverlayWindow(
     private fun experimentalClipsEnabled(): Boolean =
         prefs.getBoolean(PetExperimentalClips.PREF_KEY, true)
 
-    private fun refreshExperimentalCalibration(frameCache: PetFrameCache, visual: PetFrameView) {
+    private fun refreshExperimentalCalibration(frameCache: PetFrameCache, view: PetFrameView) {
         val latest = PetExperimentalCalibration.load(prefs)
         if (latest == experimentalCalibration) return
         experimentalCalibration = latest
         frameCache.setExperimentalColors(latest.gamma, latest.saturation, latest.blackPoint, latest.whitePoint)
-        visual.setExperimentalCalibration(latest)
-        params?.let(::syncExperimentalVisual)
+        view.setExperimentalCalibration(latest)
     }
 
-    /** Bound the non-touchable drawing window to the calibrated artwork. */
-    private fun experimentalPadding(logicalPx: Int, value: PetExperimentalCalibration): Int {
-        val widthExtra = logicalPx * 0.90f * value.scale * value.widthScale * 1.075f / 2f -
-            logicalPx / 2f + dp(abs(value.xDp).roundToInt())
-        val topExtra = logicalPx * 0.88f * value.scale * 1.09f * 0.92f -
-            logicalPx * 0.94f + dp(abs(value.yDp).roundToInt())
-        val bottomExtra = logicalPx * 0.88f * value.scale * 1.09f * 0.08f -
-            logicalPx * 0.06f + dp(abs(value.yDp).roundToInt())
-        return maxOf(dp(8), widthExtra.roundToInt(), topExtra.roundToInt(), bottomExtra.roundToInt())
-    }
-
-    /** Keep the touch/physics window authoritative; only the visual surface expands. */
+    /** The single established window remains the touch and drawing surface. */
     private fun updatePetWindowLayout(view: View, layout: WindowManager.LayoutParams) {
         runCatching { windowManager.updateViewLayout(view, layout) }
-        syncExperimentalVisual(layout)
-    }
-
-    private fun syncExperimentalVisual(logical: WindowManager.LayoutParams) {
-        val visual = experimentalVisual ?: return
-        val display = experimentalVisualParams ?: return
-        val padding = experimentalPadding(logical.width, experimentalCalibration)
-        display.width = logical.width + padding * 2
-        display.height = logical.height + padding * 2
-        display.x = logical.x - padding
-        display.y = logical.y - padding
-        visual.setOverflowGeometry(logical.width, padding)
-        if (visual.isAttachedToWindow) {
-            runCatching { windowManager.updateViewLayout(visual, display) }
-        }
     }
 
     private fun scheduleNextBlink(now: Long) {

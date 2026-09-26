@@ -59,7 +59,7 @@ class PetCalibrationActivity : Activity() {
         val root = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             gravity = Gravity.CENTER_HORIZONTAL
-            setPadding(dp(14), dp(12), dp(14), dp(24))
+            setPadding(dp(14), dp(12), dp(14), dp(12))
             setBackgroundColor(Color.rgb(27, 29, 38))
         }
         root.addView(label("旧站立在下层；新站立半透明叠在上层。对齐脚底和身体大小后，可切换预览其他三段与点击。"))
@@ -135,13 +135,17 @@ class PetCalibrationActivity : Activity() {
             update()
         })
         root.addView(Button(this).apply {
-            text = "保存到桌宠实验动画"
+            text = "保存到新版动画"
             setOnClickListener {
                 calibration.save(prefs)
                 Toast.makeText(this@PetCalibrationActivity, "已保存，悬浮桌宠将同步使用", Toast.LENGTH_SHORT).show()
             }
         })
-        val scroll = ScrollView(this)
+        val scroll = ScrollView(this).apply {
+            isFillViewport = true
+            clipToPadding = false
+        }
+        PetActivityInsets.apply(this, scroll, 0, 0, 0, 0)
         scroll.addView(root)
         setContentView(scroll)
     }

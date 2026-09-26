@@ -95,8 +95,13 @@ object PetAmbientActionPolicy {
         experimentalIds: List<String>? = null,
     ): List<String> = buildList {
         if (mobilityEnabled) repeat(8) { add("STROLLING") }
+        if (experimentalClips) {
+            // New mode keeps the original movement/blink/sleep/interaction
+            // mechanics, but its free-time performances come from new clips.
+            addAll(experimentalIds ?: PetExperimentalClips.IDLE)
+            return@buildList
+        }
         addAll(stationaryBase)
-        if (experimentalClips) addAll(experimentalIds ?: PetExperimentalClips.IDLE)
         if (!snapshot.enabled) return@buildList
         when (snapshot.dominantDrive) {
             "curiosity" -> if (mobilityEnabled) {

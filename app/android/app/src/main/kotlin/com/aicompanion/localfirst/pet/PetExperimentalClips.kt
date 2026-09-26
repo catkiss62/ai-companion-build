@@ -20,7 +20,7 @@ object PetExperimentalClips {
     )
 
     private var loaded: List<Entry> = emptyList()
-    val IDLE: List<String> get() = loaded.filter { it.category == "ambient" }.map { it.id }
+    val IDLE: List<String> get() = loaded.filter(::isAutonomousCandidate).map { it.id }
         .ifEmpty { legacyIdle }
     val CLICKS: List<String> get() = loaded.filter { it.category == "click" }.map { it.id }
         .ifEmpty { listOf(CLICK) }
@@ -29,6 +29,10 @@ object PetExperimentalClips {
     fun categoryFor(id: String): String? = loaded.firstOrNull { it.id == id }?.category
     fun frameCountFor(folder: String): Int? = loaded.firstOrNull { it.folder == folder }?.frames
     fun isExperimental(actionId: String): Boolean = actionId.startsWith("EXPERIMENTAL_")
+
+    fun isAutonomousCandidate(entry: Entry): Boolean =
+        entry.category == "ambient" || entry.category == "sleep" ||
+            (entry.category == "preview" && entry.name != "深度思考碎碎念")
 
     fun frameIndex(elapsedMs: Long, frameCount: Int, durationMs: Long): Int =
         (elapsedMs.coerceAtLeast(0L) * frameCount / durationMs.coerceAtLeast(1L))

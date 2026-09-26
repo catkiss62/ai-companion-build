@@ -144,7 +144,7 @@ class PetOverlayContractTest {
     }
 
     @Test
-    fun experimentalIdleAddsThreeActionsAndStandingWithoutChangingMovementCandidates() {
+    fun newAnimationModeKeepsMovementButReplacesOldAmbientPerformances() {
         val snapshot = PetAutonomySnapshot(enabled = false)
         val baseline = PetAmbientActionPolicy.candidates(snapshot, mobilityEnabled = true)
         val testing = PetAmbientActionPolicy.candidates(
@@ -152,10 +152,40 @@ class PetOverlayContractTest {
         )
         assertEquals(8, testing.count { it == "STROLLING" })
         assertEquals(PetExperimentalClips.IDLE, testing.filter { it in PetExperimentalClips.IDLE })
+        assertFalse("GLANCE" in testing)
+        assertFalse("HAPPY" in testing)
+        assertFalse("SWEEPING" in testing)
+        assertFalse("EATING" in testing)
         assertFalse(baseline.any { it in PetExperimentalClips.IDLE })
         assertFalse(PetExperimentalClips.CLICK in testing)
         assertEquals(4, PetExperimentalClips.IDLE.size)
         assertTrue(PetExperimentalClips.STAND in testing)
+        val duty = PetAmbientActionPolicy.candidates(
+            PetAutonomySnapshot(enabled = true, dominantDrive = "duty", driveLevel = 0.8),
+            mobilityEnabled = false,
+            experimentalClips = true,
+            experimentalIds = listOf("EXPERIMENTAL_FULL_049"),
+        )
+        assertEquals(listOf("EXPERIMENTAL_FULL_049"), duty)
+    }
+
+    @Test
+    fun sleepAndWorkingThoughtClipsCanIdleWithoutClippedDeepThought() {
+        fun entry(id: String, category: String, name: String) = PetExperimentalClips.Entry(
+            id, "full_test", name, category, 241, 6_667L,
+        )
+        assertTrue(PetExperimentalClips.isAutonomousCandidate(
+            entry("EXPERIMENTAL_FULL_014", "sleep", "原地小憩沉眠"),
+        ))
+        assertTrue(PetExperimentalClips.isAutonomousCandidate(
+            entry("EXPERIMENTAL_FULL_049", "preview", "工作状态-思考冒泡"),
+        ))
+        assertFalse(PetExperimentalClips.isAutonomousCandidate(
+            entry("EXPERIMENTAL_FULL_068", "preview", "深度思考碎碎念"),
+        ))
+        assertFalse(PetExperimentalClips.isAutonomousCandidate(
+            entry("EXPERIMENTAL_CLICK", "click", "点击回应"),
+        ))
     }
 
     @Test

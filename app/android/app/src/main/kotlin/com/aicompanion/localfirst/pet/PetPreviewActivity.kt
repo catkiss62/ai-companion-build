@@ -4,7 +4,6 @@ import android.app.Activity
 import android.content.Context
 import android.content.Intent
 import android.graphics.Color
-import android.os.Build
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
@@ -73,20 +72,20 @@ class PetPreviewActivity : Activity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        title = "桌宠原项目动作预览"
-        if (Build.VERSION.SDK_INT >= 30) {
-            window.setDecorFitsSystemWindows(true)
-        } else {
-            @Suppress("DEPRECATION")
-            window.decorView.systemUiVisibility = 0
-        }
+        title = "桌宠动作播放器预览"
         val root = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             gravity = Gravity.CENTER_HORIZONTAL
-            setPadding(dp(12), dp(10), dp(12), dp(10))
             setBackgroundColor(Color.rgb(24, 21, 28))
-            fitsSystemWindows = true
         }
+        PetActivityInsets.apply(this, root, dp(12), dp(10), dp(12), dp(10))
+        root.addView(Button(this).apply {
+            text = "调整新动画 · 对齐与色阶"
+            isAllCaps = false
+            setOnClickListener {
+                startActivity(Intent(this@PetPreviewActivity, PetCalibrationActivity::class.java))
+            }
+        }, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, dp(48)))
         val status = TextView(this).apply {
             text = "正在读取原项目动作清单…"
             textSize = 15f
@@ -224,8 +223,8 @@ class PetPreviewActivity : Activity() {
 
         listOf(
             "click" to "点击反应",
-            "sleep" to "睡眠素材（仅预览）",
-            "preview" to "工作与思考素材（仅预览）",
+            "sleep" to "睡眠素材（新版待机）",
+            "preview" to "工作与思考素材（部分入待机）",
             "ambient" to "自主待机",
             "legacy" to "原有动作",
         ).forEach { (category, heading) ->
