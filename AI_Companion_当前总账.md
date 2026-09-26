@@ -1,6 +1,6 @@
 # AI Companion · 当前总账
 
-更新时间：2026-09-26（UTC；+268 桌宠全帧与不透明播放施工中）
+更新时间：2026-09-26（UTC；+269 桌宠全量动作与气焰值施工中）
 
 > 本文件是唯一的当前接班入口，继续采用“总账 v2”。顶部是快速接班索引；标记后的正式记录按版本持续追加，不设总容量上限。
 >
@@ -41,6 +41,7 @@
 | +228 远端 | head `29e87d016c8bd81f52f89f95191bd1a1a01a5b57`；tree `c4a112a56d8b634cf3a1a66636979a0833538b7d`；Actions `35440359036`；Artifact `10583263879`；APK SHA-256 `159e283173e49da2924d25b37ba7647893cdafdcc31b63f0e31b7c64e086849b` |
 | 仓库维护基线 | `maintenance/repository-governance-20260919`；远端文档 head `123e272196e8ae93f3518157917d76f6af4f1784`；完整构建 head `fa99f32012fa1a0716b746d36b958a8e777ef9b8`；Actions `35446649873` 全绿；文档-only run `35447342921` 正确跳过 APK |
 | 当前功能分支 | `agent/v04224-pet-opaque-fullframes`，从 +267 总账 head `224e832` 分出；构建候选 `v0.42.24+268` |
+| +269 当前任务 | `agent/v04225-pet-full-clips-heat` 从已通过的 +268 head `27dc991` 分出。用户将原始 85,049,410 字节 ZIP 放入 Draft Release `397377805`，asset `591363139`，SHA-256 `ad94e2aa8829ddb5b8f0640e383b29bbccfbb5a77d9a957559e34cff17aea489`；本地实查排除 move/drag/balance 后为 96 段、23,013 帧。恢复全量动作、三段睡眠仅预览、五段点击、自主池且不稀释走路、正式桌面不透明、特效缩放与预览布局，并把用户与她的气焰贡献及固定泄气在回复后整轮结算。此前本地 `9f08e8f` 清理丢失，`630d808` 未推送；两者均不得写作远端完成。当前 `IMPLEMENTATION IN PROGRESS / CI PENDING / APK PENDING / TRUE DEVICE PENDING`。素材从固定 Draft asset 获取并校验，工具只输出摘要，避免逐帧上传与会话膨胀。|
 | 当前任务状态 | `+265 IMPLEMENTED / CI PASSED / APK READY`，用户 2026-09-26 上轮真机默认成功、发现问题再反馈。`+266 IMPLEMENTED / CI PASSED / APK READY / TRUE DEVICE FEEDBACK`：实验桌宠总体可用，但人物偏小且连续点击不重播。`+267 IMPLEMENTED / CI PASSED / APK READY / TRUE DEVICE FEEDBACK`：用户发现桌面新动画被半透明、抽帧后速度观感异常。`+268 IN PROGRESS`：不透明桌面播放、独立宽度与饱和度、24 fps 全帧与播放器时钟修复，见末尾 +268 |
 | +267 远端 | 功能 head `07142df2f01f15b5e4770fb6d17b48150770f422`；tree `aa16c6405f87967191dcb5b99662c53302983c52`；Actions `36232295089` 全绿；Artifact `10903136887`；APK SHA-256 `956812613c1fb00123e2ab2e6a3f5f3ccc1d320743c7bd6b866c4e0365b09ab2`；未发布 Draft Release `397169363` |
 | +250 当前任务 | 本体／小豆丁形态共用成年角色、记忆与能力；同一形态状态驱动角色提示与静态立绘，虚拟弹额头／安抚改变气焰值后继续自然衰减，心形液面与锁定入口；常驻世界书定点柔化并仅迁移未编辑原文；两档 TTS 共用冻结的真实回复与分段，无声生成并复制专项脱敏报告 |

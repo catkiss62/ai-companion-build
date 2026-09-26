@@ -90,6 +90,8 @@ class PetOverlayWindow(
     private var autonomySuppressed = false
     private val ambientRandom = Random.Default
     private val ambientActionBag = ArrayDeque<String>()
+    private val experimentalAmbientDeck = ArrayDeque<String>()
+    private val experimentalClickDeck = ArrayDeque<String>()
     private var lastUserActivityAtMs = SystemClock.uptimeMillis()
     private var nextAmbientActionAtMs = lastUserActivityAtMs
     private var nextBlinkAtMs = lastUserActivityAtMs
@@ -651,8 +653,11 @@ class PetOverlayWindow(
     private fun reactToSingleTap(region: String) {
         val animation = player ?: return
         if (experimentalClipsEnabled()) {
+            if (experimentalClickDeck.isEmpty()) {
+                experimentalClickDeck.addAll(PetExperimentalClips.CLICKS.shuffled(ambientRandom))
+            }
             animation.play(
-                PetExperimentalClips.CLICK,
+                experimentalClickDeck.removeFirst(),
                 reason = "pet_clip_test_tap",
                 force = true,
                 restartIfSame = true,
@@ -1127,6 +1132,7 @@ class PetOverlayWindow(
                 snapshot = autonomySnapshot,
                 mobilityEnabled = mobilityEnabled(),
                 experimentalClips = experimentalClipsEnabled(),
+                experimentalIds = nextExperimentalAmbientBatch(),
             )
             ambientActionBag.addAll(candidates.shuffled(ambientRandom))
         }
@@ -1150,6 +1156,18 @@ class PetOverlayWindow(
         }
         lastAmbientActionId = action
         return action
+    }
+
+    private fun nextExperimentalAmbientBatch(): List<String> {
+        if (!experimentalClipsEnabled()) return emptyList()
+        val batch = mutableListOf<String>()
+        repeat(4) {
+            if (experimentalAmbientDeck.isEmpty()) {
+                experimentalAmbientDeck.addAll(PetExperimentalClips.IDLE.shuffled(ambientRandom))
+            }
+            if (experimentalAmbientDeck.isNotEmpty()) batch.add(experimentalAmbientDeck.removeFirst())
+        }
+        return batch
     }
 
     private fun scheduleNextAmbient(now: Long) {
@@ -1345,7 +1363,9 @@ class PetOverlayWindow(
         autonomousMoveActionId = ""
         val ownsPlayback = activeAutonomyAction != null || player?.currentActionId == "SLEEPING"
         activeAutonomyAction = null
-        if (resetToIdle && ownsPlayback && player?.currentActionId in AUTONOMY_ACTIONS) {
+        if (resetToIdle && ownsPlayback &&
+            (player?.currentActionId in AUTONOMY_ACTIONS ||
+                PetExperimentalClips.isExperimental(player?.currentActionId.orEmpty()))) {
             player?.setDirection("down")
             player?.resetToIdle("pet_autonomy_interrupted")
         }

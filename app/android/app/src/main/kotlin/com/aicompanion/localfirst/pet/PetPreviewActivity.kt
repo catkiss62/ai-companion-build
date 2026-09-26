@@ -80,15 +80,12 @@ class PetPreviewActivity : Activity() {
             @Suppress("DEPRECATION")
             window.decorView.systemUiVisibility = 0
         }
-        val page = ScrollView(this).apply {
-            isFillViewport = false
-            setBackgroundColor(Color.rgb(24, 21, 28))
-        }
         val root = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             gravity = Gravity.CENTER_HORIZONTAL
             setPadding(dp(12), dp(10), dp(12), dp(10))
             setBackgroundColor(Color.rgb(24, 21, 28))
+            fitsSystemWindows = true
         }
         val status = TextView(this).apply {
             text = "正在读取原项目动作清单…"
@@ -120,7 +117,7 @@ class PetPreviewActivity : Activity() {
             petView,
             LinearLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT,
-                dp(320),
+                dp(220),
             ),
         )
 
@@ -153,20 +150,16 @@ class PetPreviewActivity : Activity() {
             )
             player = animationPlayer
             petView.setOnTouchListener { _, event -> handlePetTouch(event) }
-            root.addView(buildControls(manifest, animationPlayer))
+            root.addView(ScrollView(this).apply {
+                isFillViewport = false
+                addView(buildControls(manifest, animationPlayer))
+            }, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, 0, 1f))
             animationPlayer.start()
         } catch (error: Throwable) {
             status.text = "桌宠原始动作清单读取失败：${error.message ?: error.javaClass.simpleName}"
             status.setTextColor(Color.rgb(255, 150, 150))
         }
-        page.addView(
-            root,
-            ViewGroup.LayoutParams(
-                ViewGroup.LayoutParams.MATCH_PARENT,
-                ViewGroup.LayoutParams.WRAP_CONTENT,
-            ),
-        )
-        setContentView(page)
+        setContentView(root)
     }
 
     private fun buildControls(
@@ -229,42 +222,53 @@ class PetPreviewActivity : Activity() {
             }
         })
 
-        val grid = GridLayout(this@PetPreviewActivity).apply {
-            columnCount = 3
-            manifest.actions.keys.forEach { actionId ->
-                val label = labels[actionId]
-                addView(Button(this@PetPreviewActivity).apply {
-                    text = "${label?.name ?: actionId}\n$actionId"
-                    textSize = 10f
-                    isAllCaps = false
-                    setPadding(dp(3), dp(2), dp(3), dp(2))
-                    setOnClickListener {
-                        physics.cancel()
-                        handler.removeCallbacks(physicsTick)
-                        animationPlayer.play(
-                            actionId,
-                            reason = "panel_preview",
-                            force = true,
-                            immediate = true,
-                        )
-                        statusView?.contentDescription = label?.hint.orEmpty()
-                    }
-                    layoutParams = GridLayout.LayoutParams().apply {
-                        width = 0
-                        height = dp(54)
-                        columnSpec = GridLayout.spec(GridLayout.UNDEFINED, 1f)
-                        setMargins(dp(2), dp(2), dp(2), dp(2))
-                    }
-                })
+        listOf(
+            "click" to "点击反应",
+            "sleep" to "睡眠素材（仅预览）",
+            "preview" to "工作与思考素材（仅预览）",
+            "ambient" to "自主待机",
+            "legacy" to "原有动作",
+        ).forEach { (category, heading) ->
+            val ids = manifest.actions.keys.filter { id ->
+                (PetExperimentalClips.categoryFor(id) ?: "legacy") == category
             }
+            if (ids.isEmpty()) return@forEach
+            addView(TextView(this@PetPreviewActivity).apply {
+                text = "$heading · ${ids.size}"
+                textSize = 15f
+                setTextColor(Color.WHITE)
+                setPadding(dp(4), dp(12), 0, dp(4))
+            })
+            addView(GridLayout(this@PetPreviewActivity).apply {
+                columnCount = 2
+                ids.forEach { actionId ->
+                    val label = labels[actionId]
+                    addView(Button(this@PetPreviewActivity).apply {
+                        text = PetExperimentalClips.nameFor(actionId) ?: label?.name ?: actionId
+                        textSize = 12f
+                        isAllCaps = false
+                        setPadding(dp(3), dp(2), dp(3), dp(2))
+                        setOnClickListener {
+                            physics.cancel()
+                            handler.removeCallbacks(physicsTick)
+                            animationPlayer.play(
+                                actionId,
+                                reason = "panel_preview",
+                                force = true,
+                                immediate = true,
+                            )
+                            statusView?.contentDescription = label?.hint.orEmpty()
+                        }
+                        layoutParams = GridLayout.LayoutParams().apply {
+                            width = 0
+                            height = dp(52)
+                            columnSpec = GridLayout.spec(GridLayout.UNDEFINED, 1f)
+                            setMargins(dp(2), dp(2), dp(2), dp(2))
+                        }
+                    })
+                }
+            })
         }
-        addView(
-            grid,
-            LinearLayout.LayoutParams(
-                ViewGroup.LayoutParams.MATCH_PARENT,
-                ViewGroup.LayoutParams.WRAP_CONTENT,
-            ),
-        )
     }
 
     private fun compactButton(text: String, onClick: () -> Unit): Button = Button(this).apply {

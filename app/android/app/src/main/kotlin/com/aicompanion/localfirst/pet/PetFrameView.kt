@@ -199,6 +199,13 @@ class PetFrameView(context: Context) : View(context) {
         if (kind !in setOf("thought", "voice", "dizzy")) return
         val top = anchorY - layer.bitmap.height * layer.anchor.y * scale
         val right = anchorX + layer.bitmap.width * (1f - layer.anchor.x) * scale
+        // Anchor decorations to the rendered pet, not a fixed screen dp.
+        // Thought uses small as its reference; voice uses large.
+        val referenceDp = if (kind == "thought") 112f else 200f
+        val effectScale = (layer.bitmap.height * scale / dp(referenceDp * 0.88f))
+            .coerceIn(0.35f, 3f)
+        fun unit(value: Float): Float = dp(value) * effectScale
+        decorationPaint.strokeWidth = unit(1.6f)
         decorationPaint.color = Color.rgb(80, 177, 228)
         when (kind) {
             "thought" -> {
@@ -206,9 +213,9 @@ class PetFrameView(context: Context) : View(context) {
                 decorationPaint.alpha = 155
                 listOf(3f, 4.5f, 6f).forEachIndexed { index, radius ->
                     canvas.drawCircle(
-                        right - dp(23f) + index * dp(7f),
-                        top + dp(25f) - index * dp(9f),
-                        dp(radius),
+                        right - unit(23f) + index * unit(7f),
+                        top + unit(25f) - index * unit(9f),
+                        unit(radius),
                         decorationPaint,
                     )
                 }
@@ -218,10 +225,10 @@ class PetFrameView(context: Context) : View(context) {
                 decorationPaint.alpha = 190
                 repeat(2) { index ->
                     val rect = RectF(
-                        right - dp(20f) + index * dp(4f),
-                        top + dp(50f) - index * dp(3f),
-                        right - dp(10f) + index * dp(7f),
-                        top + dp(64f),
+                        right - unit(20f) + index * unit(4f),
+                        top + unit(50f) - index * unit(3f),
+                        right - unit(10f) + index * unit(7f),
+                        top + unit(64f),
                     )
                     canvas.drawArc(rect, -55f, 110f, false, decorationPaint)
                 }
@@ -239,6 +246,7 @@ class PetFrameView(context: Context) : View(context) {
             }
         }
         decorationPaint.alpha = 255
+        decorationPaint.strokeWidth = dp(1.6f)
         decorationPaint.style = Paint.Style.STROKE
     }
 

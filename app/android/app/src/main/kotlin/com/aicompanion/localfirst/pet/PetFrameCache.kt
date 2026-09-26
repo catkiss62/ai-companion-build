@@ -13,13 +13,17 @@ class PetFrameCache(
     private val root: String = PetSkinManifest.SOURCE_ROOT,
     maxBytes: Int = 24 * 1024 * 1024,
 ) {
-    private var experimentalGamma = 0.86f
-    private var experimentalSaturation = 1f
+    private var experimentalGamma = 0.95f
+    private var experimentalSaturation = 1.10f
     private var experimentalBlack = 0
     private var experimentalWhite = 230
-    private val packedFrames = mutableMapOf<String, List<ByteArray>>()
+    // A full set is roughly 190 MiB compressed. Keep only a few active clips.
+    private val packedFrames = object : LruCache<String, List<ByteArray>>(16 * 1024) {
+        override fun sizeOf(key: String, value: List<ByteArray>): Int =
+            (value.sumOf { it.size } / 1024).coerceAtLeast(1)
+    }
     private val experimentalPath = Regex(
-        """runtime_overrides/experimental/(hum|stretch|cube|stand|click)/(\d{3})\.webp""",
+        """runtime_overrides/experimental/([a-z0-9_]+)/(\d{3})\.webp""",
     )
     private val cache = object : LruCache<String, Bitmap>((maxBytes / 1024).coerceAtLeast(1024)) {
         override fun sizeOf(key: String, value: Bitmap): Int =
@@ -32,7 +36,9 @@ class PetFrameCache(
         val decoded = if (experimental != null) {
             val folder = experimental.groupValues[1]
             val index = experimental.groupValues[2].toInt()
-            val frames = packedFrames.getOrPut(folder) { loadPackedFrames(folder) }
+            val frames = packedFrames.get(folder) ?: loadPackedFrames(folder).also {
+                packedFrames.put(folder, it)
+            }
             val bytes = frames.getOrNull(index)
                 ?: throw PetSkinFormatException("Missing experimental frame: $relativePath")
             BitmapFactory.decodeByteArray(bytes, 0, bytes.size)
@@ -62,10 +68,17 @@ class PetFrameCache(
         val input = DataInputStream(ByteArrayInputStream(bytes.toByteArray()))
         val signature = ByteArray(7)
         input.readFully(signature)
-        if (!signature.contentEquals("PET241\u0000".toByteArray(Charsets.US_ASCII))) {
+        val legacy = signature.contentEquals("PET241\u0000".toByteArray(Charsets.US_ASCII))
+        val full = signature.contentEquals("PETCLIP".toByteArray(Charsets.US_ASCII))
+        if (!legacy && !full) {
             throw PetSkinFormatException("Invalid experimental pack: $folder")
         }
-        val frames = List(PetExperimentalClips.FRAME_COUNT) {
+        val frameCount = if (legacy) PetExperimentalClips.FRAME_COUNT else input.readInt()
+        if (frameCount != PetExperimentalClips.frameCountFor(folder) &&
+            !(legacy && frameCount == PetExperimentalClips.FRAME_COUNT)) {
+            throw PetSkinFormatException("Frame count changed: $folder")
+        }
+        val frames = List(frameCount) {
             val size = input.readInt()
             if (size !in 16..100_000) throw PetSkinFormatException("Invalid frame size: $folder")
             ByteArray(size).also { input.readFully(it) }
@@ -89,6 +102,6 @@ class PetFrameCache(
 
     fun clear() {
         cache.evictAll()
-        packedFrames.clear()
+        packedFrames.evictAll()
     }
 }

@@ -7,14 +7,14 @@ import kotlin.math.pow
 
 /** One shared visual transform for the trial clips; it never changes pet geometry. */
 data class PetExperimentalCalibration(
-    val scale: Float = 1.35f,
-    val widthScale: Float = 1f,
+    val scale: Float = 1.21f,
+    val widthScale: Float = 0.93f,
     val xDp: Float = 0f,
-    val yDp: Float = 0f,
-    val gamma: Float = 0.86f,
+    val yDp: Float = -2f,
+    val gamma: Float = 0.95f,
     val blackPoint: Int = 0,
     val whitePoint: Int = 230,
-    val saturation: Float = 1f,
+    val saturation: Float = 1.10f,
 ) {
     fun bounded() = copy(
         scale = scale.coerceIn(0.5f, 2.5f),
@@ -52,14 +52,14 @@ data class PetExperimentalCalibration(
         private const val KEY_SATURATION = "pet_experimental_saturation"
 
         fun load(prefs: SharedPreferences) = PetExperimentalCalibration(
-            scale = prefs.getFloat(KEY_SCALE, 1.35f),
-            widthScale = prefs.getFloat(KEY_WIDTH_SCALE, 1f),
+            scale = prefs.getFloat(KEY_SCALE, 1.21f),
+            widthScale = prefs.getFloat(KEY_WIDTH_SCALE, 0.93f),
             xDp = prefs.getFloat(KEY_X, 0f),
-            yDp = prefs.getFloat(KEY_Y, 0f),
-            gamma = if (prefs.contains(KEY_WHITE)) prefs.getFloat(KEY_GAMMA, 0.86f) else 0.86f,
+            yDp = prefs.getFloat(KEY_Y, -2f),
+            gamma = if (prefs.contains(KEY_WHITE)) prefs.getFloat(KEY_GAMMA, 0.95f) else 0.95f,
             blackPoint = prefs.getInt(KEY_BLACK, 0),
             whitePoint = prefs.getInt(KEY_WHITE, 230),
-            saturation = prefs.getFloat(KEY_SATURATION, 1f),
+            saturation = prefs.getFloat(KEY_SATURATION, 1.10f),
         ).bounded()
     }
 }

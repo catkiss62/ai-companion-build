@@ -204,10 +204,13 @@ data class PetSkinManifest(
             val json = assets.open(MANIFEST_PATH)
                 .bufferedReader(Charsets.UTF_8)
                 .use { JSONObject(it.readText()) }
-            return parse(json)
+            val catalog = assets.open("$SOURCE_ROOT/runtime_overrides/experimental/catalog.json")
+                .bufferedReader(Charsets.UTF_8)
+                .use { JSONObject(it.readText()) }
+            return parse(json, catalog)
         }
 
-        internal fun parse(json: JSONObject): PetSkinManifest {
+        internal fun parse(json: JSONObject, catalog: JSONObject? = null): PetSkinManifest {
             val formatVersion = json.optInt("format_version")
             if (formatVersion != 4) {
                 throw PetSkinFormatException("Unsupported upstream action manifest: $formatVersion")
@@ -234,7 +237,7 @@ data class PetSkinManifest(
             }
             val runtimeAssets = LinkedHashMap(assets)
             val runtimeActions = LinkedHashMap(actions)
-            installRuntimeActions(runtimeAssets, runtimeActions)
+            installRuntimeActions(runtimeAssets, runtimeActions, catalog)
             return PetSkinManifest(formatVersion, characterId, runtimeAssets, runtimeActions)
         }
 
@@ -246,6 +249,7 @@ data class PetSkinManifest(
         private fun installRuntimeActions(
             assets: MutableMap<String, PetAssetSpec>,
             actions: MutableMap<String, PetActionSpec>,
+            catalog: JSONObject?,
         ) {
             require(assets.containsKey("idle_front"))
             require(assets.containsKey("walk_side_stand"))
@@ -271,7 +275,7 @@ data class PetSkinManifest(
                 enter = null,
                 exit = null,
             )
-            PetExperimentalClips.install(assets, actions)
+            PetExperimentalClips.install(assets, actions, catalog)
             actions["STROLLING"] = PetActionSpec(
                 id = "STROLLING",
                 assetId = "idle_front",

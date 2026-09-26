@@ -92,10 +92,11 @@ object PetAmbientActionPolicy {
         snapshot: PetAutonomySnapshot,
         mobilityEnabled: Boolean,
         experimentalClips: Boolean = false,
+        experimentalIds: List<String>? = null,
     ): List<String> = buildList {
         if (mobilityEnabled) repeat(8) { add("STROLLING") }
         addAll(stationaryBase)
-        if (experimentalClips) addAll(PetExperimentalClips.IDLE)
+        if (experimentalClips) addAll(experimentalIds ?: PetExperimentalClips.IDLE)
         if (!snapshot.enabled) return@buildList
         when (snapshot.dominantDrive) {
             "curiosity" -> if (mobilityEnabled) {
@@ -149,9 +150,6 @@ object PetAutonomyPolicy {
                 queueSleepAfter = idleMs >= SLEEP_IDLE_MS,
             )
         }
-        if (snapshot.thoughtActive && snapshot.thoughtStrength >= 0.50) {
-            return PetAutonomyDecision("THINKING", semantic = true)
-        }
         if (snapshot.dominantDrive == "stress" && snapshot.driveLevel >= 0.48) {
             return PetAutonomyDecision("GLANCE", semantic = true)
         }
@@ -161,7 +159,7 @@ object PetAutonomyPolicy {
                     if (mobilityEnabled) "STROLLING" else "GLANCE",
                     semantic = true,
                 )
-                "reflection" -> PetAutonomyDecision("THINKING", semantic = true)
+                "reflection" -> PetAutonomyDecision("GLANCE", semantic = true)
                 "duty" -> PetAutonomyDecision("SWEEPING", semantic = true)
                 "attachment", "social", "libido" ->
                     PetAutonomyDecision("HAPPY", semantic = true)
@@ -174,7 +172,7 @@ object PetAutonomyPolicy {
                 if (mobilityEnabled) "STROLLING" else "GLANCE",
                 semantic = true,
             )
-            "reflective" -> PetAutonomyDecision("THINKING", semantic = true)
+            "reflective" -> PetAutonomyDecision("GLANCE", semantic = true)
             "tense" -> PetAutonomyDecision("GLANCE", semantic = true)
             else -> null
         }

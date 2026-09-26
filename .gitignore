@@ -15,3 +15,5 @@
 # Local Python validator bytecode is reproducible and must never enter source.
 __pycache__/
 *.py[cod]
+# Recreated from the pinned pet-source Draft asset during APK builds.
+app/android/app/src/main/assets/pets/dafeiyu/source/runtime_overrides/experimental/full_*/packed/*.bin

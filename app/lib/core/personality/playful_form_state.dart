@@ -22,9 +22,9 @@ enum PlayfulInteraction {
 
   int get bonus => switch (this) {
         serious || ordinary => 0,
-        light => 6,
+        light => 5,
         mutual => 30,
-        strong => 42,
+        strong => 34,
       };
 }
 
@@ -46,8 +46,8 @@ enum PlayfulSelfActivity {
 
   int get bonus => switch (this) {
         none => 0,
-        playful => 16,
-        strong => 24,
+        playful => 3,
+        strong => 5,
         settle => -8,
       };
 }
@@ -78,6 +78,9 @@ class PlayfulFormState {
     this.lastTurn = '',
     this.lastAssistantTurn = '',
     this.pendingTurn = false,
+    this.pendingInteraction = PlayfulInteraction.ordinary,
+    this.pendingBreakthrough = false,
+    this.pendingElapsedHours = 0,
     this.breakthroughReady = false,
     this.beforeBreakthroughReady = false,
     this.beforeHeat = 0,
@@ -99,6 +102,9 @@ class PlayfulFormState {
   final String lastAssistantTurn;
   /// Only the newest uncommitted user turn is reversible on Stop.
   final bool pendingTurn;
+  final PlayfulInteraction pendingInteraction;
+  final bool pendingBreakthrough;
+  final int pendingElapsedHours;
   /// The first full-meter turn gets one guaranteed hold. While later turns
   /// actually keep the meter at 100, they remain eligible for breakthrough.
   final bool breakthroughReady;
@@ -124,6 +130,11 @@ class PlayfulFormState {
         lastTurn: data['lastTurn']?.toString() ?? '',
         lastAssistantTurn: data['lastAssistantTurn']?.toString() ?? '',
         pendingTurn: data['pendingTurn'] == true,
+        pendingInteraction: PlayfulInteraction.parse(data['pendingInteraction']) ??
+            PlayfulInteraction.ordinary,
+        pendingBreakthrough: data['pendingBreakthrough'] == true,
+        pendingElapsedHours: ((data['pendingElapsedHours'] as num?)?.toInt() ?? 0)
+            .clamp(0, 12).toInt(),
         breakthroughReady: data['breakthroughReady'] == true,
         beforeBreakthroughReady: data['beforeBreakthroughReady'] == true,
         beforeHeat: ((data['beforeHeat'] as num?)?.toInt() ?? 0).clamp(0, 100).toInt(),
@@ -148,6 +159,9 @@ class PlayfulFormState {
         'lastTurn': lastTurn,
         'lastAssistantTurn': lastAssistantTurn,
         'pendingTurn': pendingTurn,
+        'pendingInteraction': pendingInteraction.name,
+        'pendingBreakthrough': pendingBreakthrough,
+        'pendingElapsedHours': pendingElapsedHours,
         'breakthroughReady': breakthroughReady,
         'beforeBreakthroughReady': beforeBreakthroughReady,
         'beforeHeat': beforeHeat,
@@ -172,27 +186,19 @@ class PlayfulFormState {
         ? 0
         : ((now.millisecondsSinceEpoch - updatedAt) ~/ 3600000).clamp(0, 12);
     final serious = interaction == PlayfulInteraction.serious;
-    // Ordinary talk is nearly level in adult form. Q-form play cools
-    // naturally unless one of them actually continues the playful exchange.
-    final naturalCooling = qForm ? 15 : 2;
-    final due = breakthroughDue;
-    final nextHeat = (due && breakthroughReady &&
-                interaction != PlayfulInteraction.serious
-            ? 100 // Preserve the first full-meter exchange at least once.
-            : heat - naturalCooling - elapsedHours * 3 + (interaction?.bonus ?? 0))
-        .clamp(0, 100).toInt();
-    final nextForm = _formAt(nextHeat) ||
-        (due && breakthrough == true && interaction != PlayfulInteraction.serious);
+    // Keep the user classification provisional. Applying a negative delta now
+    // can hit zero before the visible reply contributes its own real activity.
     return PlayfulFormState(
-      heat: nextHeat,
-      qForm: nextForm,
+      heat: heat,
+      qForm: qForm,
       locked: locked,
       lastTurn: turn,
       lastAssistantTurn: lastAssistantTurn,
       pendingTurn: true,
-      breakthroughReady: !nextForm && !locked &&
-          (due && breakthroughReady && breakthrough == null ||
-              heat < 100 && nextHeat == 100),
+      pendingInteraction: interaction ?? PlayfulInteraction.ordinary,
+      pendingBreakthrough: breakthrough == true,
+      pendingElapsedHours: elapsedHours,
+      breakthroughReady: breakthroughReady,
       beforeBreakthroughReady: breakthroughReady,
       beforeHeat: heat,
       beforeQForm: qForm,
@@ -230,20 +236,25 @@ class PlayfulFormState {
     );
   }
 
-  bool _formAt(int value) => locked ? qForm : qForm && value > 0;
-
   PlayfulFormState onAssistantTurn(
     PlayfulSelfActivity activity,
     String assistantTurn,
     DateTime now,
   ) {
     if (assistantTurn.isEmpty || lastAssistantTurn == assistantTurn) return this;
-    final nextHeat = (heat + activity.bonus).clamp(0, 100).toInt();
+    // One clamp and one form decision after both participants and the fixed
+    // per-turn cooling have contributed. A pending Stop rolls back all of it.
+    final nextHeat = (heat + (pendingTurn ? pendingInteraction.bonus - 18 -
+                (pendingInteraction == PlayfulInteraction.serious ? 12 : 0) -
+                pendingElapsedHours * 3 : 0) + activity.bonus)
+        .clamp(0, 100).toInt();
+    final nextForm = locked ? qForm : qForm
+        ? nextHeat > 0
+        : nextHeat == 100 && pendingTurn && pendingBreakthrough;
     return PlayfulFormState(
       heat: nextHeat,
-      qForm: _formAt(nextHeat),
-      breakthroughReady: !qForm && !locked &&
-          (breakthroughReady || heat < 100 && nextHeat == 100),
+      qForm: nextForm,
+      breakthroughReady: !nextForm && !locked && nextHeat == 100,
       locked: locked,
       lastTurn: lastTurn,
       lastAssistantTurn: assistantTurn,

@@ -404,7 +404,7 @@
 # Historical +240 validator tokens: agent/v04196-sen-hybrid-composition | AI-Companion-v0.41.96-240-Sen-Hybrid-Composition-Hotfix-APK | v0.41.96-sen-hybrid-composition-hotfix-test
 # Historical +241 validator tokens: agent/v04197-no-canned-fallbacks | AI-Companion-v0.41.97-241-Natural-Reply-Liveness-APK | v0.41.97-natural-reply-liveness-test
 # Historical +242 validator tokens: agent/v04198-sen-texture-direct-port | AI-Companion-v0.41.98-242-Sen-Direct-Port-APK | v0.41.98-sen-direct-port-test | .ci/v04198-monitor.txt
-name: Build AI Companion v0.42.24+268 APK (Pet Calibration and Overflow Test)
+name: Build AI Companion v0.42.25+269 APK (Full Pet Clips and Heat Test)
 
 on:
   push:
@@ -472,6 +472,7 @@ on:
       - agent/v04217-breakthrough-wheel-smooth
       - agent/v04219-native-wheel-compare
       - agent/v04224-pet-opaque-fullframes
+      - agent/v04225-pet-full-clips-heat
       - agent/v04214-visible-process-fate-wheel
       - maintenance/repository-governance-20260919
   workflow_dispatch:
@@ -909,7 +910,7 @@ jobs:
         run: |
           set -euo pipefail
           test -f app/pubspec.yaml
-          grep -Fqx 'version: 0.42.24+268' app/pubspec.yaml
+          grep -Fqx 'version: 0.42.25+269' app/pubspec.yaml
           grep -Fqx '  static const int schemaVersion = 61;' app/lib/core/database/app_database.dart
           test -d app/lib
           test -d app/android
@@ -923,7 +924,25 @@ jobs:
           test -f app/android/app/src/main/jniLibs/arm64-v8a/libc++_shared.so
           test ! -d app/android/app/src/main/assets/tts_models
           test ! -d app/android/app/src/main/assets/legacy_tts
-          echo 'Building v0.42.24+268 opaque full-frame pet test candidate.'
+          echo 'Building v0.42.25+269 full pet clips and heat test candidate.'
+
+      - name: Generate complete pet clips from pinned Draft Release asset
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          SOURCE="${RUNNER_TEMP}/pet-source-v04225.zip"
+          curl --fail --location --silent --show-error --retry 3 \
+            -H "Authorization: Bearer ${GH_TOKEN}" \
+            -H 'Accept: application/octet-stream' \
+            -H 'X-GitHub-Api-Version: 2022-11-28' \
+            "https://api.github.com/repos/${GITHUB_REPOSITORY}/releases/assets/591363139" \
+            --output "${SOURCE}"
+          echo 'ad94e2aa8829ddb5b8f0640e383b29bbccfbb5a77d9a957559e34cff17aea489  '"${SOURCE}" | sha256sum --check --status
+          command -v ffmpeg >/dev/null
+          python3 app/tools/prepare_full_pet_clips.py "${SOURCE}"
+          rm -f "${SOURCE}"
 
       - name: Restore exact 417-file desktop-pet source pack
         working-directory: app
@@ -1358,9 +1377,14 @@ jobs:
               print('Approved three-tier yawn art and appearance reference are present in the APK.')
 
               trial_root = 'assets/pets/dafeiyu/source/runtime_overrides/experimental/'
-              expected_trial = {'hum': 241, 'stretch': 241, 'cube': 241, 'stand': 241, 'click': 241}
+              pet_catalog = json.loads(z.read(trial_root + 'catalog.json'))
+              pet_clips = pet_catalog['clips']
+              if len(pet_clips) != 96 or sum(c['frames'] for c in pet_clips) != 23013:
+                  print('ERROR: incomplete pet catalog', file=sys.stderr)
+                  sys.exit(1)
               trial_bytes = 0
-              for folder, count in expected_trial.items():
+              for clip in pet_clips:
+                  folder, count = clip['folder'], clip['frames']
                   prefix = f'{trial_root}{folder}/packed/'
                   parts = sorted(name for name in z.namelist()
                       if name.startswith(prefix) and name.endswith('.bin'))
@@ -1368,10 +1392,17 @@ jobs:
                       print(f'ERROR: experimental {folder} frame pack is incomplete', file=sys.stderr)
                       sys.exit(1)
                   packed = b''.join(z.read(name) for name in parts)
-                  if not packed.startswith(b'PET241\0'):
+                  old = packed.startswith(b'PET241\0')
+                  if not old and not packed.startswith(b'PETCLIP'):
                       print(f'ERROR: experimental {folder} pack header is invalid', file=sys.stderr)
                       sys.exit(1)
                   offset = 7
+                  if not old:
+                      declared, = struct.unpack_from('>I', packed, offset)
+                      offset += 4
+                      if declared != count:
+                          print(f'ERROR: experimental {folder} frame count changed', file=sys.stderr)
+                          sys.exit(1)
                   for index in range(count):
                       if offset + 4 > len(packed):
                           print(f'ERROR: experimental {folder} frame {index} is missing', file=sys.stderr)
@@ -1387,10 +1418,10 @@ jobs:
                   if offset != len(packed):
                       print(f'ERROR: extra experimental {folder} payload bytes', file=sys.stderr)
                       sys.exit(1)
-              if trial_bytes > 12_000_000:
-                  print(f'ERROR: compressed trial clips exceed budget: {trial_bytes}', file=sys.stderr)
+              if trial_bytes > 250_000_000:
+                  print(f'ERROR: pet clips exceed budget: {trial_bytes}', file=sys.stderr)
                   sys.exit(1)
-              print(f'Experimental pet payload: 1205 frames, {trial_bytes} bytes.')
+              print(f'Experimental pet payload: 96 clips, 23013 frames, {trial_bytes} bytes.')
           print('Pinned Genie TTS runtime payload and APK byte identity verified.')
           PY2
 
@@ -1429,26 +1460,26 @@ jobs:
           APK='app/build/app/outputs/flutter-apk/app-release.apk'
           sha256sum "$APK" | tee app/app-release.apk.sha256
 
-      - name: Upload v0.42.24+268 APK as workflow artifact
+      - name: Upload v0.42.25+269 APK as workflow artifact
         uses: actions/upload-artifact@v4
         with:
-          name: AI-Companion-v0.42.24-268-Opaque-Fullframe-Pet-APK
+          name: AI-Companion-v0.42.25-269-Full-Clips-Heat-APK
           path: |
             app/build/app/outputs/flutter-apk/app-release.apk
             app/app-release.apk.sha256
           if-no-files-found: error
           retention-days: 14
 
-      - name: Upload v0.42.24+268 APK to draft release
+      - name: Upload v0.42.25+269 APK to draft release
         shell: bash
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
-          TAG='v0.42.24-opaque-fullframe-pet-test'
-          APK_NAME='AI-Companion-v0.42.24-268-Opaque-Fullframe-Pet-APK.apk'
+          TAG='v0.42.25-pet-full-clips-heat-test'
+          APK_NAME='AI-Companion-v0.42.25-269-Full-Clips-Heat-APK.apk'
           SHA_NAME="${APK_NAME}.sha256"
-          CI_NAME='AI-Companion-v0.42.24-268-Opaque-Fullframe-Pet-CI-Monitor.txt'
+          CI_NAME='AI-Companion-v0.42.25-269-Full-Clips-Heat-CI-Monitor.txt'
           cp app/build/app/outputs/flutter-apk/app-release.apk "app/${APK_NAME}"
           sed "s#app/build/app/outputs/flutter-apk/app-release.apk#${APK_NAME}#" \
             app/app-release.apk.sha256 > "app/${SHA_NAME}"
@@ -1465,14 +1496,14 @@ jobs:
               --repo "${GITHUB_REPOSITORY}" \
               --target "${GITHUB_SHA}" \
               --draft \
-              --title 'AI Companion v0.42.24+268 opaque full-frame pet test candidate' \
-              --notes 'Unpublished schema-61 desktop-pet test build: five complete 24 fps source sequences at 1.5x, full-opacity playback, alignment-only translucency, width and saturation controls. No user content or credentials are included.'
+              --title 'AI Companion v0.42.25+269 full pet clips and heat test candidate' \
+              --notes 'Unpublished schema-61 desktop-pet test build: 96 complete source sequences at 1.5x, full-opacity playback, alignment-only translucency, width and saturation controls. No user content or credentials are included.'
           else
             gh release edit "${TAG}" \
               --repo "${GITHUB_REPOSITORY}" \
               --target "${GITHUB_SHA}" \
-              --title 'AI Companion v0.42.24+268 opaque full-frame pet test candidate' \
-              --notes 'Unpublished schema-61 desktop-pet test build: five complete 24 fps source sequences at 1.5x, full-opacity playback, alignment-only translucency, width and saturation controls. No user content or credentials are included.'
+              --title 'AI Companion v0.42.25+269 full pet clips and heat test candidate' \
+              --notes 'Unpublished schema-61 desktop-pet test build: 96 complete source sequences at 1.5x, full-opacity playback, alignment-only translucency, width and saturation controls. No user content or credentials are included.'
           fi
           RELEASE_URL="$(gh release view "${TAG}" --repo "${GITHUB_REPOSITORY}" --json url --jq '.url')"
           echo "release_url=${RELEASE_URL}" >> "app/${CI_NAME}"
@@ -1492,18 +1523,18 @@ jobs:
           done
           test "${upload_ok}" = '1'
           MONITOR_BRANCH='ci-monitor-v0345'
-          MONITOR_PATH='.ci/v04224-monitor.txt'
+          MONITOR_PATH='.ci/v04225-monitor.txt'
           MONITOR_CONTENT="$(base64 -w0 "app/${CI_NAME}")"
           MONITOR_SHA="$(gh api "/repos/${GITHUB_REPOSITORY}/contents/${MONITOR_PATH}?ref=${MONITOR_BRANCH}" --jq '.sha' 2>/dev/null || true)"
           if test -n "${MONITOR_SHA}"; then
             gh api --method PUT "/repos/${GITHUB_REPOSITORY}/contents/${MONITOR_PATH}" \
-              -f message='Update v0.42.24 CI success monitor' \
+              -f message='Update v0.42.25 CI success monitor' \
               -f content="${MONITOR_CONTENT}" \
               -f branch="${MONITOR_BRANCH}" \
               -f sha="${MONITOR_SHA}" >/dev/null
           else
             gh api --method PUT "/repos/${GITHUB_REPOSITORY}/contents/${MONITOR_PATH}" \
-              -f message='Create v0.42.24 CI success monitor' \
+              -f message='Create v0.42.25 CI success monitor' \
               -f content="${MONITOR_CONTENT}" \
               -f branch="${MONITOR_BRANCH}" >/dev/null
           fi
@@ -1524,8 +1555,8 @@ jobs:
           BUILD_RESULT: ${{ needs.build-apk.result }}
         run: |
           set -uo pipefail
-          TAG='v0.42.24-opaque-fullframe-pet-test'
-          CI_NAME='AI-Companion-v0.42.24-268-Opaque-Fullframe-Pet-CI-Monitor.txt'
+          TAG='v0.42.25-pet-full-clips-heat-test'
+          CI_NAME='AI-Companion-v0.42.25-269-Full-Clips-Heat-CI-Monitor.txt'
           REPORT="${RUNNER_TEMP}/${CI_NAME}"
           JOBS_JSON="${RUNNER_TEMP}/jobs.json"
           {
@@ -1566,7 +1597,7 @@ jobs:
               --repo "${GITHUB_REPOSITORY}" \
               --target "${GITHUB_SHA}" \
               --draft \
-              --title 'AI Companion v0.42.24+268 opaque full-frame pet test candidate' \
+              --title 'AI Companion v0.42.25+269 full pet clips and heat test candidate' \
               --notes 'Unpublished Draft failure diagnostics for the schema-61 breakthrough and wheel smoothness candidate. No user content, keys, backups or device diagnostics are included.'
           fi
           RELEASE_URL="$(gh release view "${TAG}" --repo "${GITHUB_REPOSITORY}" --json url --jq '.url')"
@@ -1576,18 +1607,18 @@ jobs:
             --clobber \
             --repo "${GITHUB_REPOSITORY}"
           MONITOR_BRANCH='ci-monitor-v0345'
-          MONITOR_PATH='.ci/v04224-monitor.txt'
+          MONITOR_PATH='.ci/v04225-monitor.txt'
           MONITOR_CONTENT="$(base64 -w0 "${REPORT}")"
           MONITOR_SHA="$(gh api "/repos/${GITHUB_REPOSITORY}/contents/${MONITOR_PATH}?ref=${MONITOR_BRANCH}" --jq '.sha' 2>/dev/null || true)"
           if test -n "${MONITOR_SHA}"; then
             gh api --method PUT "/repos/${GITHUB_REPOSITORY}/contents/${MONITOR_PATH}" \
-              -f message='Update v0.42.24 CI failure monitor' \
+              -f message='Update v0.42.25 CI failure monitor' \
               -f content="${MONITOR_CONTENT}" \
               -f branch="${MONITOR_BRANCH}" \
               -f sha="${MONITOR_SHA}" >/dev/null
           else
             gh api --method PUT "/repos/${GITHUB_REPOSITORY}/contents/${MONITOR_PATH}" \
-              -f message='Create v0.42.24 CI failure monitor' \
+              -f message='Create v0.42.25 CI failure monitor' \
               -f content="${MONITOR_CONTENT}" \
               -f branch="${MONITOR_BRANCH}" >/dev/null
           fi
