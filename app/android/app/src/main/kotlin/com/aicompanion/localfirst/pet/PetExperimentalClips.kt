@@ -4,7 +4,10 @@ package com.aicompanion.localfirst.pet
 object PetExperimentalClips {
     const val PREF_KEY = "pet_shenshen_clip_test"
     const val CLICK = "EXPERIMENTAL_CLICK"
-    val IDLE = listOf("EXPERIMENTAL_HUM", "EXPERIMENTAL_STRETCH", "EXPERIMENTAL_CUBE")
+    const val STAND = "EXPERIMENTAL_STAND"
+    val IDLE = listOf("EXPERIMENTAL_HUM", "EXPERIMENTAL_STRETCH", "EXPERIMENTAL_CUBE", STAND)
+
+    fun isExperimental(actionId: String): Boolean = actionId == CLICK || actionId in IDLE
 
     fun install(
         assets: MutableMap<String, PetAssetSpec>,
@@ -14,22 +17,24 @@ object PetExperimentalClips {
             Triple(IDLE[0], "hum", "experimental_idle"),
             Triple(IDLE[1], "stretch", "experimental_idle"),
             Triple(IDLE[2], "cube", "experimental_idle"),
+            Triple(STAND, "stand", "experimental_idle"),
             Triple(CLICK, "click", "experimental_jelly"),
         )
         for ((id, folder, effect) in clips) {
             val assetId = "shenshen_$folder"
+            val frameCount = if (id == CLICK) 60 else 40
             assets[assetId] = PetAssetSpec(
                 id = assetId,
-                framesBySize = mapOf(238 to (0 until 100).map { index ->
+                framesBySize = mapOf(238 to (0 until frameCount).map { index ->
                     "runtime_overrides/experimental/$folder/${index.toString().padStart(3, '0')}.webp"
                 }),
-                frameCount = 100,
+                frameCount = frameCount,
             )
             actions[id] = PetActionSpec(
                 id = id,
                 assetId = assetId,
                 loop = false,
-                durationMs = 10_000L,
+                durationMs = 6_667L,
                 priority = if (id == CLICK) 80 else 15,
                 interruptible = true,
                 returnState = "IDLE",

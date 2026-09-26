@@ -34,8 +34,10 @@ class PetActionStateMachine(
         nowMs: Long,
         reason: String,
         force: Boolean = false,
+        restartIfSame: Boolean = false,
     ): PetStateChange? {
-        if (target == current) return null
+        if (target == current && !restartIfSame) return null
+        if (target == current && restartIfSame && !force) return null
         val candidate = specs[target] ?: return null
         val active = spec
         if (!force) {

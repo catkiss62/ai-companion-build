@@ -27,6 +27,10 @@ class PetFrameView(context: Context) : View(context) {
     private var translationX = 0f
     private var translationY = 0f
     private var previewWindowDp: Int? = null
+    private var logicalWindowPx: Int? = null
+    private var overflowPaddingPx = 0
+    private var calibration = PetExperimentalCalibration()
+    private var comparison: Pair<PetRenderLayer, PetRenderLayer>? = null
 
     fun showSnapshot(value: PetRenderSnapshot) {
         snapshot = value
@@ -46,8 +50,34 @@ class PetFrameView(context: Context) : View(context) {
         postInvalidateOnAnimation()
     }
 
+    fun setExperimentalCalibration(value: PetExperimentalCalibration) {
+        calibration = value.bounded()
+        postInvalidateOnAnimation()
+    }
+
+    /** The large drawing surface follows a separate, unchanged logical hit window. */
+    fun setOverflowGeometry(logicalPx: Int, paddingPx: Int) {
+        logicalWindowPx = logicalPx
+        overflowPaddingPx = paddingPx
+        postInvalidateOnAnimation()
+    }
+
+    fun setCalibrationComparison(old: PetRenderLayer?, stand: PetRenderLayer?) {
+        comparison = if (old != null && stand != null) old to stand else null
+        postInvalidateOnAnimation()
+    }
+
     override fun onDraw(canvas: Canvas) {
         super.onDraw(canvas)
+        comparison?.let { (old, stand) ->
+            val anchor = renderAnchor(old, displayScale(old))
+            drawLayer(canvas, old, anchor.first, anchor.second, displayScale(old), PetEffectPose(), 1f)
+            drawLayer(
+                canvas, stand, anchor.first, anchor.second,
+                displayScale(stand), PetEffectPose(), 0.52f,
+            )
+            return
+        }
         val value = snapshot ?: return
         val pose = PetEffects.poseFor(value.effect, value.elapsedSeconds)
         val scale = displayScale(value.current)
@@ -69,9 +99,11 @@ class PetFrameView(context: Context) : View(context) {
     }
 
     private fun displayScale(layer: PetRenderLayer): Float {
+        val availableWidth = logicalWindowPx?.toFloat() ?: width.toFloat()
+        val availableHeight = logicalWindowPx?.toFloat() ?: height.toFloat()
         val available = min(
-            width * 0.90f / layer.bitmap.width.toFloat(),
-            height * 0.88f / layer.bitmap.height.toFloat(),
+            availableWidth * 0.90f / layer.bitmap.width.toFloat(),
+            availableHeight * 0.88f / layer.bitmap.height.toFloat(),
         )
         val requested = previewWindowDp?.let { windowDp ->
             min(
@@ -83,13 +115,17 @@ class PetFrameView(context: Context) : View(context) {
     }
 
     private fun renderAnchor(layer: PetRenderLayer, scale: Float): Pair<Float, Float> {
-        val floorY = height * 0.94f
+        val originX = if (logicalWindowPx == null) width / 2f else
+            overflowPaddingPx + logicalWindowPx!! / 2f
+        val floorY = if (logicalWindowPx == null) height * 0.94f else
+            overflowPaddingPx + logicalWindowPx!! * 0.94f
         val anchorY = if (layer.anchor.kind in setOf("drag", "seat", "sleep")) {
-            height * 0.52f
+            if (logicalWindowPx == null) height * 0.52f else
+                overflowPaddingPx + logicalWindowPx!! * 0.52f
         } else {
             floorY
         }
-        return (width / 2f + translationX) to (anchorY + translationY)
+        return (originX + translationX) to (anchorY + translationY)
     }
 
     private fun drawLayer(
@@ -102,15 +138,19 @@ class PetFrameView(context: Context) : View(context) {
         opacity: Float,
     ) {
         val bitmap = layer.bitmap
+        val experimental = PetExperimentalClips.isExperimental(layer.actionId)
+        val adjustedScale = if (experimental) scale * calibration.scale else scale
         bitmapPaint.alpha = (opacity.coerceIn(0f, 1f) * 255f).toInt()
         canvas.save()
         canvas.translate(
-            anchorX + pose.offsetX * scale,
-            anchorY + pose.offsetY * scale,
+            anchorX + pose.offsetX * adjustedScale +
+                (if (experimental) dp(calibration.xDp) else 0f),
+            anchorY + pose.offsetY * adjustedScale +
+                (if (experimental) dp(calibration.yDp) else 0f),
         )
         canvas.rotate(pose.rotationDegrees)
         val horizontal = if (layer.mirrored) -1f else 1f
-        canvas.scale(horizontal * scale * pose.scaleX, scale * pose.scaleY)
+        canvas.scale(horizontal * adjustedScale * pose.scaleX, adjustedScale * pose.scaleY)
         canvas.translate(
             -bitmap.width * (if (layer.mirrored) 1f - layer.anchor.x else layer.anchor.x),
             -bitmap.height * layer.anchor.y,

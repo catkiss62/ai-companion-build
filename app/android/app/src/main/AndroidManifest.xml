@@ -89,6 +89,12 @@
             android:screenOrientation="portrait"
             android:theme="@style/NormalTheme" />
 
+        <activity
+            android:name=".pet.PetCalibrationActivity"
+            android:exported="false"
+            android:screenOrientation="portrait"
+            android:theme="@style/NormalTheme" />
+
         <service
             android:name=".OverlayBubbleService"
             android:exported="false"

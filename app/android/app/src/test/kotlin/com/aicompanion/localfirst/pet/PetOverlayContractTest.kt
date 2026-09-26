@@ -144,7 +144,7 @@ class PetOverlayContractTest {
     }
 
     @Test
-    fun experimentalIdleAddsOnlyThreeClipsAndKeepsMovementCandidates() {
+    fun experimentalIdleAddsThreeActionsAndStandingWithoutChangingMovementCandidates() {
         val snapshot = PetAutonomySnapshot(enabled = false)
         val baseline = PetAmbientActionPolicy.candidates(snapshot, mobilityEnabled = true)
         val testing = PetAmbientActionPolicy.candidates(
@@ -154,6 +154,21 @@ class PetOverlayContractTest {
         assertEquals(PetExperimentalClips.IDLE, testing.filter { it in PetExperimentalClips.IDLE })
         assertFalse(baseline.any { it in PetExperimentalClips.IDLE })
         assertFalse(PetExperimentalClips.CLICK in testing)
+        assertEquals(4, PetExperimentalClips.IDLE.size)
+        assertTrue(PetExperimentalClips.STAND in testing)
+    }
+
+    @Test
+    fun compressedTrialClipsKeepSharedCalibrationAndOnePointFiveSpeed() {
+        val assets = linkedMapOf<String, PetAssetSpec>()
+        val actions = linkedMapOf<String, PetActionSpec>()
+        PetExperimentalClips.install(assets, actions)
+        assertEquals(40, assets.getValue("shenshen_stand").frameCount)
+        assertEquals(40, assets.getValue("shenshen_hum").frameCount)
+        assertEquals(60, assets.getValue("shenshen_click").frameCount)
+        assertEquals(6_667L, actions.getValue(PetExperimentalClips.CLICK).durationMs)
+        assertTrue(PetExperimentalClips.isExperimental(PetExperimentalClips.STAND))
+        assertFalse(PetExperimentalClips.isExperimental("STROLLING"))
     }
 
     @Test

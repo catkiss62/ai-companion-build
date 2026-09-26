@@ -1,6 +1,7 @@
 package com.aicompanion.localfirst.pet
 
 import android.content.Context
+import android.content.Intent
 import android.graphics.Color
 import android.graphics.PixelFormat
 import android.graphics.drawable.GradientDrawable
@@ -60,6 +61,9 @@ class PetOverlayWindow(
         private set
 
     private var frameView: PetFrameView? = null
+    private var experimentalVisual: PetFrameView? = null
+    private var experimentalVisualParams: WindowManager.LayoutParams? = null
+    private var experimentalCalibration = PetExperimentalCalibration()
     private var player: PetAnimationPlayer? = null
     private var cache: PetFrameCache? = null
     private var optionsRoot: View? = null
@@ -128,7 +132,7 @@ class PetOverlayWindow(
             )
             layout.x = step.x.toInt()
             layout.y = step.y.toInt()
-            runCatching { windowManager.updateViewLayout(view, layout) }
+            updatePetWindowLayout(view, layout)
             if (step.settled) {
                 player?.play("LANDING", reason = "pet_overlay_landing", force = true, immediate = true)
                 if (step.hardLanding) player?.queueAfterCurrent("DIZZY")
@@ -195,7 +199,7 @@ class PetOverlayWindow(
             }
             layout.x = boundedX
             layout.y = boundedY
-            runCatching { windowManager.updateViewLayout(view, layout) }
+            updatePetWindowLayout(view, layout)
             if (layout.x == autonomousMoveTargetX && layout.y == autonomousMoveTargetY) {
                 finishAutonomousMove(resetToIdle = true)
             } else {
@@ -210,6 +214,7 @@ class PetOverlayWindow(
         val manifest = PetSkinManifest.load(context.assets)
         val frameCache = PetFrameCache(context.assets)
         val petView = PetFrameView(context)
+        val visual = PetFrameView(context).apply { visibility = View.INVISIBLE }
         val container = FrameLayout(context).apply {
             clipChildren = false
             clipToPadding = false
@@ -265,11 +270,44 @@ class PetOverlayWindow(
         }
         clamp(layout)
         enforceDockedAxis(layout)
+        val visualPadding = maxOf(windowPx, dp(140))
+        val visualLayout = WindowManager.LayoutParams(
+            windowPx + visualPadding * 2,
+            windowPx + visualPadding * 2,
+            overlayWindowType,
+            WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or
+                WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE or
+                WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL or
+                WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS,
+            PixelFormat.TRANSLUCENT,
+        ).apply {
+            gravity = Gravity.TOP or Gravity.START
+            x = layout.x - visualPadding
+            y = layout.y - visualPadding
+            // A non-touchable application overlay must remain below Android's
+            // obscuring-opacity threshold so apps behind its overflow can be tapped.
+            alpha = 0.79f
+        }
+        visual.setOverflowGeometry(windowPx, visualPadding)
+        val calibration = PetExperimentalCalibration.load(prefs)
+        experimentalCalibration = calibration
+        visual.setExperimentalCalibration(calibration)
+        frameCache.setExperimentalGamma(calibration.gamma)
 
         val animation = PetAnimationPlayer(
             manifest = manifest,
             cache = frameCache,
-            onSnapshot = petView::showSnapshot,
+            onSnapshot = { snapshot ->
+                refreshExperimentalCalibration(frameCache, visual)
+                val displayExperimental = experimentalClipsEnabled() &&
+                    PetExperimentalClips.isExperimental(snapshot.current.actionId)
+                petView.visibility = if (displayExperimental) View.INVISIBLE else View.VISIBLE
+                visual.visibility = if (displayExperimental && root?.visibility != View.GONE) {
+                    View.VISIBLE
+                } else View.INVISIBLE
+                if (displayExperimental) visual.showSnapshot(snapshot)
+                else petView.showSnapshot(snapshot)
+            },
             onActionChanged = { action, phase ->
                 if (action.id == "IDLE" && phase == PetAnimationPhase.BODY) {
                     activeAutonomyAction = null
@@ -282,10 +320,13 @@ class PetOverlayWindow(
 
         return runCatching {
             windowManager.addView(container, layout)
+            windowManager.addView(visual, visualLayout)
             root = container
             params = layout
             badge = unread
             frameView = petView
+            experimentalVisual = visual
+            experimentalVisualParams = visualLayout
             cache = frameCache
             player = animation
             animation.start()
@@ -300,10 +341,14 @@ class PetOverlayWindow(
         }.getOrElse {
             animation.stop()
             frameCache.clear()
+            if (visual.isAttachedToWindow) runCatching { windowManager.removeViewImmediate(visual) }
+            if (container.isAttachedToWindow) runCatching { windowManager.removeViewImmediate(container) }
             root = null
             params = null
             badge = null
             frameView = null
+            experimentalVisual = null
+            experimentalVisualParams = null
             cache = null
             player = null
             false
@@ -312,6 +357,10 @@ class PetOverlayWindow(
 
     fun setVisible(visible: Boolean) {
         root?.visibility = if (visible) View.VISIBLE else View.GONE
+        experimentalVisual?.visibility = if (visible && experimentalClipsEnabled() &&
+            PetExperimentalClips.isExperimental(player?.currentActionId.orEmpty())) {
+            View.VISIBLE
+        } else View.INVISIBLE
         player?.setPaused(!visible)
         if (!visible) {
             // Screen-off/system hiding removes the autonomous movement tick. Reset
@@ -334,8 +383,12 @@ class PetOverlayWindow(
         val layout = params ?: return false
         if (!view.isAttachedToWindow) return false
         return runCatching {
+            val visual = experimentalVisual
+            val visualLayout = experimentalVisualParams
+            if (visual?.isAttachedToWindow == true) windowManager.removeViewImmediate(visual)
             windowManager.removeViewImmediate(view)
             windowManager.addView(view, layout)
+            if (visual != null && visualLayout != null) windowManager.addView(visual, visualLayout)
             true
         }.getOrElse { false }
     }
@@ -405,7 +458,7 @@ class PetOverlayWindow(
                 unread.layoutParams = badgeLayout
             }
         }
-        runCatching { windowManager.updateViewLayout(view, layout) }
+        updatePetWindowLayout(view, layout)
         persistPosition()
         if (optionsRoot != null) repositionOptions()
     }
@@ -433,7 +486,7 @@ class PetOverlayWindow(
         }
         clamp(layout)
         lastMotionArea = next
-        runCatching { windowManager.updateViewLayout(view, layout) }
+        updatePetWindowLayout(view, layout)
         persistPosition()
         if (optionsRoot != null) repositionOptions()
     }
@@ -451,11 +504,16 @@ class PetOverlayWindow(
         closeOptions(resumeMotion = false)
         player?.stop()
         cache?.clear()
+        experimentalVisual?.let { visual ->
+            if (visual.isAttachedToWindow) runCatching { windowManager.removeViewImmediate(visual) }
+        }
         if (removeRoot) root?.let { runCatching { windowManager.removeViewImmediate(it) } }
         root = null
         params = null
         badge = null
         frameView = null
+        experimentalVisual = null
+        experimentalVisualParams = null
         player = null
         cache = null
     }
@@ -522,7 +580,7 @@ class PetOverlayWindow(
                         layout.y = startWindowY + dy.toInt()
                         clamp(layout)
                         if (abs(dx) > dp(10)) animation.setDirection(if (dx < 0f) "left" else "right")
-                        runCatching { windowManager.updateViewLayout(view, layout) }
+                        updatePetWindowLayout(view, layout)
                     }
                     true
                 }
@@ -554,7 +612,7 @@ class PetOverlayWindow(
                     doubleTapCandidate = false
                     samples.clear()
                     clamp(layout)
-                    runCatching { windowManager.updateViewLayout(view, layout) }
+                    updatePetWindowLayout(view, layout)
                     persistPosition()
                     animation.resetToIdle("pet_overlay_cancel")
                     resumeFallIfPending()
@@ -593,7 +651,12 @@ class PetOverlayWindow(
     private fun reactToSingleTap(region: String) {
         val animation = player ?: return
         if (experimentalClipsEnabled()) {
-            animation.play(PetExperimentalClips.CLICK, reason = "pet_clip_test_tap", force = true)
+            animation.play(
+                PetExperimentalClips.CLICK,
+                reason = "pet_clip_test_tap",
+                force = true,
+                restartIfSame = true,
+            )
             resumeFallIfPending(delayMs = 420L)
             return
         }
@@ -657,6 +720,13 @@ class PetOverlayWindow(
                 ambientActionBag.clear()
                 cancelAutonomyPlayback(resetToIdle = true)
                 closeOptions(resumeMotion = true)
+            })
+            addView(optionButton("调整新动画 · 对齐与曲线") {
+                closeOptions(resumeMotion = true)
+                context.startActivity(
+                    Intent(context, PetCalibrationActivity::class.java)
+                        .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
+                )
             })
             addView(sectionLabel("自主行动"))
             addView(LinearLayout(context).apply {
@@ -822,7 +892,7 @@ class PetOverlayWindow(
         }
         setDockedEdge(edge)
         clamp(layout)
-        runCatching { windowManager.updateViewLayout(view, layout) }
+        updatePetWindowLayout(view, layout)
         persistPosition()
         playLightLanding("pet_overlay_edge_dock")
     }
@@ -846,7 +916,7 @@ class PetOverlayWindow(
         val oldY = layout.y
         clamp(layout)
         enforceDockedAxis(layout)
-        runCatching { windowManager.updateViewLayout(view, layout) }
+        updatePetWindowLayout(view, layout)
         persistPosition()
         if (layout.x != oldX || layout.y != oldY) {
             playLightLanding("pet_overlay_mode_clamp")
@@ -1091,6 +1161,34 @@ class PetOverlayWindow(
     private fun experimentalClipsEnabled(): Boolean =
         prefs.getBoolean(PetExperimentalClips.PREF_KEY, true)
 
+    private fun refreshExperimentalCalibration(frameCache: PetFrameCache, visual: PetFrameView) {
+        val latest = PetExperimentalCalibration.load(prefs)
+        if (latest == experimentalCalibration) return
+        experimentalCalibration = latest
+        frameCache.setExperimentalGamma(latest.gamma)
+        visual.setExperimentalCalibration(latest)
+    }
+
+    /** Keep the touch/physics window authoritative; only the visual surface expands. */
+    private fun updatePetWindowLayout(view: View, layout: WindowManager.LayoutParams) {
+        runCatching { windowManager.updateViewLayout(view, layout) }
+        syncExperimentalVisual(layout)
+    }
+
+    private fun syncExperimentalVisual(logical: WindowManager.LayoutParams) {
+        val visual = experimentalVisual ?: return
+        val display = experimentalVisualParams ?: return
+        val padding = maxOf(logical.width, dp(140))
+        display.width = logical.width + padding * 2
+        display.height = logical.height + padding * 2
+        display.x = logical.x - padding
+        display.y = logical.y - padding
+        visual.setOverflowGeometry(logical.width, padding)
+        if (visual.isAttachedToWindow) {
+            runCatching { windowManager.updateViewLayout(visual, display) }
+        }
+    }
+
     private fun scheduleNextBlink(now: Long) {
         nextBlinkAtMs = now + PetAmbientActionPolicy.nextBlinkDelayMs(
             ambientRandom.nextDouble(),
@@ -1321,7 +1419,7 @@ class PetOverlayWindow(
         clamp(layout)
         enforceDockedAxis(layout)
         if (layout.x == oldX && layout.y == oldY) return false
-        runCatching { windowManager.updateViewLayout(view, layout) }
+        updatePetWindowLayout(view, layout)
         persistCurrentPosition()
         return true
     }

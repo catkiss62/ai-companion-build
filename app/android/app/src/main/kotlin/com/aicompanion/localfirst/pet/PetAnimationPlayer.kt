@@ -124,9 +124,10 @@ class PetAnimationPlayer(
         reason: String = "preview",
         force: Boolean = false,
         immediate: Boolean = false,
+        restartIfSame: Boolean = false,
     ): Boolean {
         val now = SystemClock.uptimeMillis()
-        val change = state.request(actionId, now, reason, force) ?: return false
+        val change = state.request(actionId, now, reason, force, restartIfSame) ?: return false
         switchToState(change.current, crossfade = true, immediate = immediate)
         onActionChanged(manifest.requireAction(change.current), phase)
         if (running && !paused) {

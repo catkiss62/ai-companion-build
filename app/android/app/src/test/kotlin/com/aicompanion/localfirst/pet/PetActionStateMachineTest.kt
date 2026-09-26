@@ -34,6 +34,7 @@ class PetActionStateMachineTest {
         action("WALKING", loop = true, durationMs = null, priority = 30),
         action("HAPPY", priority = 60),
         action("POKE_REACT", priority = 80, interruptible = false),
+        action("EXPERIMENTAL_CLICK", priority = 80),
         action("DRAGGING", loop = true, durationMs = null, priority = 100, interruptible = false),
         action("FALLING", loop = true, durationMs = null, priority = 90, interruptible = false),
         action("LANDING", durationMs = 620L, priority = 85, interruptible = false),
@@ -74,6 +75,19 @@ class PetActionStateMachineTest {
         assertNotNull(state.request("HAPPY", 2_000L, "preview"))
         assertNull(state.update(2_099L))
         assertEquals("IDLE", state.update(2_100L)?.current)
+    }
+
+    @Test
+    fun aSecondClickCanRestartTheSameTrialAnimation() {
+        val state = PetActionStateMachine(specs())
+        assertNotNull(state.request("EXPERIMENTAL_CLICK", 1_000L, "first", force = true))
+        assertNull(state.request("EXPERIMENTAL_CLICK", 1_020L, "ignored", force = true))
+        assertNotNull(state.request(
+            "EXPERIMENTAL_CLICK", 1_050L, "second", force = true, restartIfSame = true,
+        ))
+        assertEquals(1_050L, state.enteredAtMs)
+        assertNull(state.update(1_149L))
+        assertEquals("IDLE", state.update(1_150L)?.current)
     }
 
     @Test
