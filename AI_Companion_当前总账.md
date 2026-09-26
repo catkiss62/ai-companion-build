@@ -1,6 +1,6 @@
 # AI Companion · 当前总账
 
-更新时间：2026-09-26（UTC；+267 桌宠实验素材对齐与溢出显示施工中）
+更新时间：2026-09-26（UTC；+267 桌宠实验素材对齐与溢出显示 APK 已就绪）
 
 > 本文件是唯一的当前接班入口，继续采用“总账 v2”。顶部是快速接班索引；标记后的正式记录按版本持续追加，不设总容量上限。
 >
@@ -41,7 +41,8 @@
 | +228 远端 | head `29e87d016c8bd81f52f89f95191bd1a1a01a5b57`；tree `c4a112a56d8b634cf3a1a66636979a0833538b7d`；Actions `35440359036`；Artifact `10583263879`；APK SHA-256 `159e283173e49da2924d25b37ba7647893cdafdcc31b63f0e31b7c64e086849b` |
 | 仓库维护基线 | `maintenance/repository-governance-20260919`；远端文档 head `123e272196e8ae93f3518157917d76f6af4f1784`；完整构建 head `fa99f32012fa1a0716b746d36b958a8e777ef9b8`；Actions `35446649873` 全绿；文档-only run `35447342921` 正确跳过 APK |
 | 当前功能分支 | `agent/v04223-pet-calibration-overflow`，从 +266 总账 head `57dd50d` 分出；构建候选 `v0.42.23+267` |
-| 当前任务状态 | `+265 IMPLEMENTED / CI PASSED / APK READY`，用户 2026-09-26 上轮真机默认成功、发现问题再反馈。`+266 IMPLEMENTED / CI PASSED / APK READY / TRUE DEVICE FEEDBACK`：实验桌宠总体可用，但人物偏小且连续点击不重播。`+267 IN PROGRESS`：三段待机加一段站立、点击、人工对齐/曲线、1.5 倍速与独立溢出显示，见末尾 +267 |
+| 当前任务状态 | `+265 IMPLEMENTED / CI PASSED / APK READY`，用户 2026-09-26 上轮真机默认成功、发现问题再反馈。`+266 IMPLEMENTED / CI PASSED / APK READY / TRUE DEVICE FEEDBACK`：实验桌宠总体可用，但人物偏小且连续点击不重播。`+267 IMPLEMENTED / CI PASSED / APK READY / TRUE DEVICE FEEDBACK PENDING`：三段待机加一段站立、点击、人工对齐/曲线、1.5 倍速与独立溢出显示，见末尾 +267 |
+| +267 远端 | 功能 head `07142df2f01f15b5e4770fb6d17b48150770f422`；tree `aa16c6405f87967191dcb5b99662c53302983c52`；Actions `36232295089` 全绿；Artifact `10903136887`；APK SHA-256 `956812613c1fb00123e2ab2e6a3f5f3ccc1d320743c7bd6b866c4e0365b09ab2`；未发布 Draft Release `397169363` |
 | +250 当前任务 | 本体／小豆丁形态共用成年角色、记忆与能力；同一形态状态驱动角色提示与静态立绘，虚拟弹额头／安抚改变气焰值后继续自然衰减，心形液面与锁定入口；常驻世界书定点柔化并仅迁移未编辑原文；两档 TTS 共用冻结的真实回复与分段，无声生成并复制专项脱敏报告 |
 | +250 最终构建 | 功能 head `b5cd2d1070fb237bc72ab66b1867a75da9bbe6e8`；tree `4e0dbbd531aea408ab0face6d46a323f441c7eeb`；Actions `35943607609` 全绿；Artifact `10785922926`；APK SHA-256 `f148f2eb303017ad5f6f689628f230979c24ba16831fdc0181e58bc5e1d73a`；未发布 Draft Release `v0.42.6-dual-form-tts-comparison-test` |
 | +249 当前任务 | `loopIndex=0` 时明确判定“零个新语义 token”，在 VITS 前拒绝本段；最后两次会话记录生成时 profile、冷/热状态、各阶段耗时、RTF、播放首帧、队列余量、迟到段、失败/停止与脱敏文本哈希 |
@@ -1028,3 +1029,6 @@ Actions 与交付证据：远端功能 head `33647c7bff15084d6fd3cbc7b817e9b0b21
 - 实现目标：App 内双层半透明对齐原站立/新站立，人工调新组缩放、平移和提亮曲线；这组参数用于所有新动画，原桌宠不变。实验播放使用不接收触摸的附加显示层跟随原窗口，移动/贴边仍据原窗口。点击同一动作可重播并重触发果冻；三个待机与站立 224×224、4 fps，点击 240×240、6 fps；统一 1.5 倍速，保留实验开关和旧动作回退。
 - 依据与验证：原 640×360 透明 VP9 固定中心裁切；七段样本的 224×224/质量 65/4 fps 帧包约为 +266 300×300/质量 78/10 fps 的 24%，3 fps 约 18%；本轮先取 4 fps 以保留人形辨识，点击用 6 fps。独立显示层必须在 attach、drag、投掷、自动移动、resize、配置变化、bringToFront、隐藏与 release 各路径同步/移除，绝不以扩宽原 WindowManager.LayoutParams 冒充溢出。曲线应只改变新素材 RGB，不改透明度或打包第二套帧。
 - 保护边界：不加入其余 92 段动画、move/drag/balance；不改原移动帧、活动范围或触摸热区，不重构聊天/提醒/人格；schema 61、Snapshot protocol 6 和既有签名身份不变。本批先本地静态/素材核验再 Actions 全构建，完成后补 head/tree、CI/APK 和真机状态。
+- 实现：四段实验待机（原三段和新站立）各 40 帧 224×224、4 fps；点击 60 帧 240×240、6 fps，按 1.5 倍速度播放；220 帧共 1,999,720 bytes，保留透明度和 MIT 归属。App 内“调整新动画 · 对齐与曲线”页叠加旧 `IDLE` 和半透明新站立，提供旧尺寸三档预览、新组统一缩放、X/Y 平移及 gamma 中间调曲线；参数保存至原桌宠设置，实验开关关闭即返回旧动作。新素材在独立不可触摸、跟随旧逻辑窗的 WindowManager 层播放，可溢出旧宽高；拖动、贴边、投掷、尺寸、可见性仍由旧窗口决定。为 Android 12+ 的透传触摸限制，新增层窗口 `alpha=0.79`；点击同一实验动作可以重新起播并重触发果冻，双击菜单语义保留。
+- 验证：源视频 640×360 透明区域在 x=140～500 裁切内无截断；本地格式/帧数/体积与 `git diff --check` 通过。首轮 Actions `36232084731` 在第 24 个旧总账版本白名单停下；补 `+267` 后功能 head `07142df2f01f15b5e4770fb6d17b48150770f422`、tree `aa16c6405f87967191dcb5b99662c53302983c52`，Actions `36232295089` 的 125 项源码回归、Kotlin 桌宠测试、Flutter analyze/test、release APK、既有签名和包内 220 帧检查全部通过。Artifact `10903136887`（14 天）；APK SHA-256 `956812613c1fb00123e2ab2e6a3f5f3ccc1d320743c7bd6b866c4e0365b09ab2`，548,423,007 bytes；未发布 Draft Release `397169363`：`https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-b3268e928cac05b343d3`。状态 `IMPLEMENTED / CI PASSED / APK READY / TRUE DEVICE FEEDBACK PENDING`。
+- 后续观察：真机查看不同动画人物大小与脚底对齐、曲线亮度、超出旧范围的效果、贴边/拖动/熄屏时显示层清理，以及单击动画进行中再次单击的重播；若有问题按具体动画和场景反馈，继续保持实验可关闭。天气仍未接用户和风天气凭据与地点，本批无天气连接改动。
