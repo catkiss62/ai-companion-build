@@ -25,7 +25,14 @@ object PetActivityInsets {
                     right + bars.right, bottom + bars.bottom)
                 insets
             }
-            view.requestApplyInsets()
+            view.addOnAttachStateChangeListener(object : View.OnAttachStateChangeListener {
+                override fun onViewAttachedToWindow(target: View) {
+                    target.removeOnAttachStateChangeListener(this)
+                    target.requestApplyInsets()
+                }
+
+                override fun onViewDetachedFromWindow(target: View) = Unit
+            })
         } else {
             view.setPadding(left, top, right, bottom)
             view.fitsSystemWindows = true
