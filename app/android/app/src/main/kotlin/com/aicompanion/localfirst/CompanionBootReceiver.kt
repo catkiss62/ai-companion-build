@@ -9,12 +9,21 @@ import android.provider.Settings
 class CompanionBootReceiver : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent?) {
         val action = intent?.action ?: return
-        if (action != Intent.ACTION_BOOT_COMPLETED && action != Intent.ACTION_MY_PACKAGE_REPLACED) {
+        if (action != Intent.ACTION_BOOT_COMPLETED &&
+            action != Intent.ACTION_MY_PACKAGE_REPLACED &&
+            action != Intent.ACTION_TIMEZONE_CHANGED &&
+            action != Intent.ACTION_TIME_CHANGED) {
             return
         }
         // The diagnostic alarm is independent from the overlay preference and
         // survives an update/reboot through its persisted due time.
         runCatching { DelayedProactiveTestReceiver.restoreIfScheduled(context) }
+        if (action == Intent.ACTION_BOOT_COMPLETED ||
+            action == Intent.ACTION_MY_PACKAGE_REPLACED) {
+            runCatching { CalendarReminderAlarm.recoverInterruptedRing(context) }
+        }
+        runCatching { CalendarReminderAlarm.restore(context) }
+        if (action == Intent.ACTION_TIMEZONE_CHANGED || action == Intent.ACTION_TIME_CHANGED) return
         if (!CompanionRuntimeState.isOverlayUserEnabled(context)) return
         if (!Settings.canDrawOverlays(context)) {
             NativeEventStore.addDeviceEvent(

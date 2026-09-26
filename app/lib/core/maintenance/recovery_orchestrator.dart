@@ -9,6 +9,7 @@ import '../desire/proactive_engine.dart';
 import '../models/desire_state.dart';
 import '../presence/background_presence_policy.dart';
 import '../phone/simulated_phone_repository.dart';
+import '../phone/calendar_reminder_followup.dart';
 import '../phone/companion_album_discovery_engine.dart';
 
 class RecoveryCycleResult {
@@ -53,6 +54,7 @@ class RecoveryOrchestrator {
     bool allowProactive = true,
   }) async {
     await db.ensureReady();
+    await CalendarReminderFollowup(db).deliverOne();
     final phoneRepository = SimulatedPhoneRepository(db);
     await phoneRepository.maintainAlbum();
     await phoneRepository.refreshIfDue();

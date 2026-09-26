@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 
 import '../../core/database/app_database.dart';
@@ -18,6 +20,9 @@ class _MemoryPageState extends State<MemoryPage> {
   RelationshipAge? relationshipAge;
   String kind = 'all';
   String status = 'active';
+  final searchController = TextEditingController();
+  Timer? searchDelay;
+  int loadGeneration = 0;
 
   static const kinds = <String, String>{
     'all': '全部',
@@ -42,11 +47,23 @@ class _MemoryPageState extends State<MemoryPage> {
     _load();
   }
 
+  @override
+  void dispose() {
+    searchDelay?.cancel();
+    searchController.dispose();
+    super.dispose();
+  }
+
   Future<void> _load() async {
+    final generation = ++loadGeneration;
     if (mounted) setState(() => loading = true);
-    final loadedItems = await db.listMemories(kind: kind, status: status);
+    final loadedItems = await db.listMemories(
+      kind: kind,
+      status: status,
+      query: searchController.text,
+    );
     final loadedAge = await db.relationshipAge();
-    if (!mounted) return;
+    if (!mounted || generation != loadGeneration) return;
     setState(() {
       items = loadedItems;
       relationshipAge = loadedAge;
@@ -289,6 +306,33 @@ class _MemoryPageState extends State<MemoryPage> {
                     statusPicker,
                   ],
                 );
+              },
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(12, 4, 12, 4),
+            child: TextField(
+              controller: searchController,
+              decoration: InputDecoration(
+                hintText: '搜索记忆内容、标签或事实键',
+                prefixIcon: const Icon(Icons.search),
+                suffixIcon: searchController.text.isEmpty
+                    ? null
+                    : IconButton(
+                        tooltip: '清空搜索',
+                        onPressed: () {
+                          searchController.clear();
+                          _load();
+                        },
+                        icon: const Icon(Icons.close),
+                      ),
+                border: const OutlineInputBorder(),
+                isDense: true,
+              ),
+              onChanged: (_) {
+                searchDelay?.cancel();
+                setState(() {});
+                searchDelay = Timer(const Duration(milliseconds: 220), _load);
               },
             ),
           ),

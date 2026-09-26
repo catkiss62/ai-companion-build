@@ -781,12 +781,18 @@ List<PhoneAppItem> buildApps(
       title: '愿望单',
       emoji: '✨',
       colors: const [Color(0xFF261153), purple],
+      badge: snapshot?.wishesUnread,
+      onOpen: repository.markWishesRead,
+      onClosed: refreshAfterClose,
       page: WishPage(snapshot: snapshot),
     ),
     PhoneAppItem(
       title: '日记',
       emoji: '📔',
       colors: const [Color(0xFF0A3526), green],
+      badge: snapshot?.diaryUnread,
+      onOpen: repository.markDiaryRead,
+      onClosed: refreshAfterClose,
       page: DiaryPage(entries: snapshot?.diary ?? const []),
     ),
     PhoneAppItem(
@@ -2652,7 +2658,9 @@ class _TarotReadingState extends State<TarotReading>
           value.metadata['guidance'] as String? ?? ''),
       ('🌑', '需要留意', value.metadata['shadow'] as String? ?? ''),
       ('🐋', '她的解释',
-          value.metadata['closing'] as String? ?? value.body),
+          value.metadata['reflection_version'] == 1
+              ? (value.metadata['closing'] as String? ?? '')
+              : ''),
     ].where((section) => section.$3.trim().isNotEmpty).toList();
     final asset = 'assets/tarot/rws_major/ar' +
         index.toString().padLeft(2, '0') +

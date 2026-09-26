@@ -10032,6 +10032,7 @@ class AppDatabase {
   Future<List<MemoryItem>> listMemories({
     String? kind,
     String status = 'active',
+    String query = '',
     int limit = 300,
   }) async {
     final db = await database;
@@ -10040,6 +10041,16 @@ class AppDatabase {
     if (kind != null && kind.isNotEmpty && kind != 'all') {
       clauses.add('kind = ?');
       args.add(kind);
+    }
+    final term = query.trim();
+    if (term.isNotEmpty) {
+      final escaped = term
+          .replaceAll('\\', '\\\\')
+          .replaceAll('%', '\\%')
+          .replaceAll('_', '\\_');
+      clauses.add("(content LIKE ? ESCAPE '\\' OR tags LIKE ? ESCAPE '\\' "
+          "OR subject_key LIKE ? ESCAPE '\\')");
+      args.addAll(List<Object?>.filled(3, '%$escaped%'));
     }
     final rows = await db.query(
       'memory_items',

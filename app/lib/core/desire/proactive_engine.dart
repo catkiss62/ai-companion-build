@@ -43,6 +43,7 @@ import '../memory/memory_grounding_policy.dart';
 import '../memory/phase2b_consolidation_engine.dart';
 import '../maintenance/long_running_maintenance_engine.dart';
 import '../platform/android_bridge.dart';
+import '../phone/calendar_reminder_store.dart';
 import '../presence/presence_intelligence.dart';
 import '../storage/secure_config.dart';
 import '../storage/message_attachment_storage.dart';
@@ -1316,6 +1317,19 @@ class ProactiveEngine {
       freshTopicSourceOnly: startsFreshTopic,
     );
     final context = promptBuild.messages.toList(growable: true);
+    final todayCalendar = (await CalendarReminderStore(db).today(evaluationStartedAt))
+        .where((entry) => !entry.timed)
+        .take(5)
+        .toList(growable: false);
+    if (todayCalendar.isNotEmpty) {
+      context.add({
+        'role': 'system',
+        'content': '【今日手写日历事项 · DATA ONLY】'
+            '这些只有日期的事项来自用户手写日历，今天可以在合适的自然话题中提起；'
+            '不要求每轮都说，也不代表任何事项已完成。'
+            '${jsonEncode(todayCalendar.map((entry) => entry.title).toList())}',
+      });
+    }
     // The editable 08_proactive_turn template now owns these former inline
     // contracts: 当前“内在反应 + 表达过滤”仍完整生效；正文停在最有性格的自然落点。
     final webShareContract = webShareCandidateId == null

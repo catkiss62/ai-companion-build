@@ -17,6 +17,7 @@ import 'simulated_cart_generator.dart';
 import 'simulated_diary_generator.dart';
 import 'simulated_note_generator.dart';
 import 'simulated_phone_policy.dart';
+import 'simulated_phone_reflection_generator.dart';
 import 'tarot_catalog.dart';
 
 class SimulatedPhoneEntry {
@@ -105,6 +106,8 @@ class SimulatedPhoneSnapshot {
     required this.browserVisits,
     required this.albumUnread,
     required this.notesUnread,
+    required this.wishesUnread,
+    required this.diaryUnread,
   });
 
   final bool enabled;
@@ -120,6 +123,8 @@ class SimulatedPhoneSnapshot {
   final List<CompanionBrowserVisit> browserVisits;
   final int albumUnread;
   final int notesUnread;
+  final int wishesUnread;
+  final int diaryUnread;
 }
 
 /// A privacy boundary and local projection store for the simulated phone.
@@ -134,18 +139,22 @@ class SimulatedPhoneRepository {
     SimulatedCartGenerator? cartGenerator,
     SimulatedDiaryGenerator? diaryGenerator,
     SimulatedNoteGenerator? noteGenerator,
+    SimulatedPhoneReflectionGenerator? reflectionGenerator,
     int Function(int upperBound)? noteIndexPicker,
   })  : _cartGenerator =
             cartGenerator ?? DeepSeekSimulatedCartGenerator(),
         _diaryGenerator =
             diaryGenerator ?? DeepSeekSimulatedDiaryGenerator(),
         _noteGenerator = noteGenerator ?? DeepSeekSimulatedNoteGenerator(),
+        _reflectionGenerator =
+            reflectionGenerator ?? SimulatedPhoneReflectionGenerator(),
         _noteIndexPicker = noteIndexPicker ?? Random.secure().nextInt;
 
   final AppDatabase db;
   final SimulatedCartGenerator _cartGenerator;
   final SimulatedDiaryGenerator _diaryGenerator;
   final SimulatedNoteGenerator _noteGenerator;
+  final SimulatedPhoneReflectionGenerator _reflectionGenerator;
   final int Function(int upperBound) _noteIndexPicker;
 
   static const enabledKey = 'simulated_phone_enabled';
@@ -163,6 +172,10 @@ class SimulatedPhoneRepository {
   static const _wishLastAddedAtKey = 'simulated_phone_wish_last_added_at';
   static const _noteAttemptDayKey = 'simulated_phone_note_attempt_day';
   static const _noteAttemptSlotsKey = 'simulated_phone_note_attempt_slots';
+  static const _moodAttemptKey = 'simulated_phone_mood_reflection_attempt_at';
+  static const _tarotAttemptKey = 'simulated_phone_tarot_reflection_attempt_at';
+  static const _wishesSeenAtKey = 'simulated_phone_wishes_seen_at';
+  static const _diarySeenAtKey = 'simulated_phone_diary_seen_at';
 
   Future<bool> isEnabled() async => (await db.getSetting(enabledKey)) != '0';
 
@@ -209,6 +222,8 @@ class SimulatedPhoneRepository {
       notesUnread: notes
           .where((entry) => entry.createdAt.millisecondsSinceEpoch > notesSeenAt)
           .length,
+      wishesUnread: await _unreadWishes(),
+      diaryUnread: await _unreadSince(_diaryKey, _diarySeenAtKey),
     );
   }
 
@@ -243,6 +258,8 @@ class SimulatedPhoneRepository {
                     entry.createdAt.millisecondsSinceEpoch > notesSeenAt,
               )
               .length,
+      wishesUnread: await _unreadWishes(),
+      diaryUnread: await _unreadSince(_diaryKey, _diarySeenAtKey),
     );
   }
 
@@ -252,6 +269,36 @@ class SimulatedPhoneRepository {
       DateTime.now().millisecondsSinceEpoch.toString(),
     );
   }
+
+  Future<int> _unreadSince(String entriesKey, String seenKey) async {
+    final seen = int.tryParse(await db.getSetting(seenKey) ?? '') ?? 0;
+    if (seen <= 0) return 0;
+    return (await _readList(entriesKey))
+        .where((entry) => entry.createdAt.millisecondsSinceEpoch > seen)
+        .length;
+  }
+
+  Future<int> _unreadWishes() async {
+    final seen = int.tryParse(await db.getSetting(_wishesSeenAtKey) ?? '') ?? 0;
+    if (seen <= 0) return 0;
+    final active = await _readList(_wishesKey);
+    final completed = await _readList(_completedWishesKey);
+    return [...active, ...completed]
+        .where((entry) =>
+            ((entry.metadata['updated_at'] as num?)?.toInt() ??
+                entry.createdAt.millisecondsSinceEpoch) > seen)
+        .length;
+  }
+
+  Future<void> markWishesRead() => db.setSetting(
+        _wishesSeenAtKey,
+        DateTime.now().millisecondsSinceEpoch.toString(),
+      );
+
+  Future<void> markDiaryRead() => db.setSetting(
+        _diarySeenAtKey,
+        DateTime.now().millisecondsSinceEpoch.toString(),
+      );
 
   Future<void> markAlbumRead() => db.markCompanionAlbumRead();
 
@@ -474,23 +521,43 @@ class SimulatedPhoneRepository {
   Future<void> _refreshMood(DateTime now) async {
     final day = SimulatedPhonePolicy.localDay(now);
     final entries = await _readList(_moodKey);
-    if (entries.any((entry) => entry.localDay == day)) return;
     final desire = await db.loadDesire();
     final episodes = await db.activeEmotionEpisodes(now: now, limit: 1);
     final episode = episodes.isEmpty ? null : episodes.first;
     final strongest = _strongestDrive(desire);
     final metrics = SimulatedPhonePolicy.moodMetrics(desire);
-    final title = episode == null
-        ? _driveMoodTitle(strongest.key)
-        : _emotionTitle(episode.category);
-    final body = episode == null
-        ? _driveMoodBody(strongest.key, strongest.value)
-        : _emotionBody(episode);
+    final previous = entries.where((entry) => entry.localDay == day).firstOrNull;
+    final episodeId = episode?.id ?? '';
+    final change = previous != null &&
+        previous.metadata['source_episode_id'] != episodeId;
+    final revisions = (previous?.metadata['revisions'] as num?)?.toInt() ?? 0;
+    if (previous?.metadata['reflection_version'] == 1 &&
+        (!change || revisions >= 1)) return;
+    if (!await _reflectionRetryDue(_moodAttemptKey, now)) return;
+    await db.setSetting(_moodAttemptKey, now.millisecondsSinceEpoch.toString());
+    final continuity = await db.latestDailyContinuity(limit: 3);
+    final today = continuity.where((entry) => entry.localDay == day).firstOrNull;
+    final generated = await _reflectionGenerator.mood(
+      evidence: {
+        'day': day,
+        'strongest_drive': strongest.key.name,
+        'drive_strength': strongest.value.toStringAsFixed(2),
+        'metrics': metrics,
+        'emotion': episode?.category.name ?? '',
+        'emotion_intensity': episode?.intensity.toStringAsFixed(2) ?? '',
+        if (today != null) 'shared_moments':
+            today.sharedMoments.map((e) => e.summary).take(2).toList(),
+        if (today != null) 'open_cares':
+            today.cares.map((e) => e.text).take(2).toList(),
+      },
+      recentBodies: entries.map((entry) => entry.body).take(6).toList(),
+    );
+    if (generated == null) return;
     final next = SimulatedPhoneEntry(
       id: 'mood:$day',
       kind: 'mood',
-      title: title,
-      body: body,
+      title: generated.title,
+      body: generated.body,
       localDay: day,
       createdAt: now,
       provenance: episode == null
@@ -499,9 +566,22 @@ class SimulatedPhoneRepository {
       metadata: {
         ...metrics,
         'emoji': episode == null ? _driveMoodEmoji(strongest.key) : '💗',
+        'source_episode_id': episodeId,
+        'reflection_version': 1,
+        'revisions': previous == null ? 0 : revisions + 1,
       },
     );
-    await _writeList(_moodKey, [next, ...entries].take(120).toList());
+    await _writeList(_moodKey, [
+      next,
+      ...entries.where((entry) => entry.localDay != day),
+    ].take(120).toList());
+  }
+
+  Future<bool> _reflectionRetryDue(String key, DateTime now) async {
+    final last = int.tryParse(await db.getSetting(key) ?? '') ?? 0;
+    return last <= 0 ||
+        now.difference(DateTime.fromMillisecondsSinceEpoch(last)) >=
+            const Duration(hours: 3);
   }
 
   Future<void> _refreshNotes(DateTime now) async {
@@ -520,18 +600,28 @@ class SimulatedPhoneRepository {
     }
     final noteSlot = SimulatedPhonePolicy.noteSlotIndex(now)!;
     final continuity = await db.latestDailyContinuity(limit: 30);
-    final candidates = continuity.where((record) {
-      final alreadyUsed = entries.any(
-        (entry) => entry.metadata['source_continuity_id'] == record.id,
-      );
-      return record.isFinalized && !alreadyUsed && _noteItems(record).isNotEmpty;
-    }).toList(growable: false);
+    final candidates = <({DailyContinuityRecord record, int index, String item})>[];
+    for (final record in continuity.where((item) => item.isFinalized)) {
+      final sourceItems = _noteItems(record);
+      for (var index = 0; index < sourceItems.length; index++) {
+        final sourceKey = '${record.id}:$index';
+        if (entries.any((entry) =>
+            entry.metadata['source_item_key'] == sourceKey ||
+            (index == 0 &&
+                entry.metadata['source_item_key'] == null &&
+                entry.metadata['source_continuity_id'] == record.id))) {
+          continue;
+        }
+        candidates.add((record: record, index: index, item: sourceItems[index]));
+      }
+    }
     if (candidates.isEmpty) return;
     await _writeNoteAttemptSlots(day, <int>{...attemptedSlots, noteSlot});
-    final record = candidates[_noteIndexPicker(candidates.length)];
+    final selected = candidates[_noteIndexPicker(candidates.length)];
+    final record = selected.record;
     final material = SimulatedNoteMaterial(
       localDay: record.localDay,
-      items: _noteItems(record),
+      items: [selected.item],
     );
     final recentBodies = entries
         .map((entry) => entry.body.trim())
@@ -564,6 +654,7 @@ class SimulatedPhoneRepository {
       provenance: 'random_daily_continuity:${record.id}',
       metadata: {
         'source_continuity_id': record.id,
+        'source_item_key': '${record.id}:${selected.index}',
         'source_local_day': record.localDay,
         'generation_mode': 'deepseek_random',
         'day_slot': noteSlot,
@@ -629,6 +720,7 @@ class SimulatedPhoneRepository {
           ...wish.metadata,
           'safe_subject_key': SimulatedPhonePolicy.wishSubjectKey(sourceTopic),
           'presentation_version': SimulatedPhonePolicy.wishPresentationVersion,
+          'updated_at': now.millisecondsSinceEpoch,
         },
       );
     }).toList(growable: false);
@@ -653,8 +745,13 @@ class SimulatedPhoneRepository {
           releasedActiveSlot = true;
           continue;
         }
+        final body = SimulatedPhonePolicy.wishTextForThought(replacement);
+        final updated = body != wish.body ||
+            wish.metadata['source_thought_id'] != replacement.id ||
+            wish.metadata['presentation_version'] !=
+                SimulatedPhonePolicy.wishPresentationVersion;
         final migrated = wish.copyWith(
-          body: SimulatedPhonePolicy.wishTextForThought(replacement),
+          body: body,
           metadata: {
             ...wish.metadata,
             'source_thought_id': replacement.id,
@@ -665,6 +762,7 @@ class SimulatedPhoneRepository {
                 SimulatedPhonePolicy.wishSubjectKeyForThought(replacement),
             'presentation_version':
                 SimulatedPhonePolicy.wishPresentationVersion,
+            if (updated) 'updated_at': now.millisecondsSinceEpoch,
           },
         );
         if (migrated.body != wish.body ||
@@ -687,6 +785,7 @@ class SimulatedPhoneRepository {
                   SimulatedPhonePolicy.wishSubjectKeyForThought(thought),
               'presentation_version':
                   SimulatedPhonePolicy.wishPresentationVersion,
+              'updated_at': now.millisecondsSinceEpoch,
             },
           ),
           ...completed.where((entry) => entry.id != wish.id),
@@ -974,51 +1073,79 @@ class SimulatedPhoneRepository {
 
   Future<void> _refreshTarot(DateTime now) async {
     final day = SimulatedPhonePolicy.localDay(now);
-    final existing = await _readList(_tarotKey);
-    if (existing.length == 2 &&
+    var existing = await _readList(_tarotKey);
+    if (!(existing.length == 2 &&
         existing.every(
           (entry) =>
               entry.localDay == day &&
               entry.metadata['card_index'] is num &&
               entry.metadata['theme'] is String,
-        )) {
+        ))) {
+      final selfIndex = SimulatedPhonePolicy.stableIndex(
+        day, majorArcana.length, salt: 101,
+      );
+      var userIndex = SimulatedPhonePolicy.stableIndex(
+        day, majorArcana.length, salt: 307,
+      );
+      if (userIndex == selfIndex) {
+        userIndex = (userIndex + 1) % majorArcana.length;
+      }
+      final selfReversed =
+          SimulatedPhonePolicy.stableIndex(day, 2, salt: 509) == 1;
+      final userReversed =
+          SimulatedPhonePolicy.stableIndex(day, 2, salt: 701) == 1;
+      final entries = [
+        _buildTarotEntry(day: day, now: now, state: 'self',
+            cardIndex: selfIndex, reversed: selfReversed),
+        _buildTarotEntry(day: day, now: now, state: 'user',
+            cardIndex: userIndex, reversed: userReversed),
+      ];
+      existing = entries;
+      await _writeList(_tarotKey, entries);
+      await db.setSetting('simulated_phone_tarot_last_day', day);
+    }
+    // A card created by the previous build may still be today's card. Keep
+    // its draw, but remove the old fixed explanation immediately on upgrade.
+    if (existing.any((entry) => entry.metadata['reflection_version'] != 1 &&
+        entry.metadata.containsKey('closing'))) {
+      existing = existing.map((entry) {
+        if (entry.metadata['reflection_version'] == 1) return entry;
+        final card = majorArcana[(entry.metadata['card_index'] as num).toInt()];
+        final meaning = entry.metadata['reversed'] == true
+            ? card.reversed : card.upright;
+        final metadata = {...entry.metadata}..remove('closing');
+        metadata['context'] = meaning;
+        return entry.copyWith(body: meaning, metadata: metadata);
+      }).toList(growable: false);
+      await _writeList(_tarotKey, existing);
+    }
+    if (existing.every((entry) => entry.metadata['reflection_version'] == 1)) {
       return;
     }
-    final selfIndex = SimulatedPhonePolicy.stableIndex(
-      day,
-      majorArcana.length,
-      salt: 101,
-    );
-    var userIndex = SimulatedPhonePolicy.stableIndex(
-      day,
-      majorArcana.length,
-      salt: 307,
-    );
-    if (userIndex == selfIndex) {
-      userIndex = (userIndex + 1) % majorArcana.length;
+    if (!await _reflectionRetryDue(_tarotAttemptKey, now)) return;
+    await db.setSetting(_tarotAttemptKey, now.millisecondsSinceEpoch.toString());
+    final cards = <String, Object?>{};
+    for (final entry in existing) {
+      final index = (entry.metadata['card_index'] as num).toInt();
+      final card = majorArcana[index];
+      cards[entry.state] = {
+        'name': card.name,
+        'reversed': entry.metadata['reversed'] == true,
+        'meaning': entry.metadata['reversed'] == true
+            ? card.reversed : card.upright,
+        'theme': card.theme,
+        'guidance': card.guidance,
+        'shadow': card.shadow,
+      };
     }
-    final selfReversed =
-        SimulatedPhonePolicy.stableIndex(day, 2, salt: 509) == 1;
-    final userReversed =
-        SimulatedPhonePolicy.stableIndex(day, 2, salt: 701) == 1;
-    final entries = [
-      _buildTarotEntry(
-        day: day,
-        now: now,
-        state: 'self',
-        cardIndex: selfIndex,
-        reversed: selfReversed,
-      ),
-      _buildTarotEntry(
-        day: day,
-        now: now,
-        state: 'user',
-        cardIndex: userIndex,
-        reversed: userReversed,
-      ),
-    ];
-    await _writeList(_tarotKey, entries);
-    await db.setSetting('simulated_phone_tarot_last_day', day);
+    final comments = await _reflectionGenerator.tarot(cards: cards);
+    if (comments == null) return;
+    existing = existing.map((entry) => entry.copyWith(metadata: {
+      ...entry.metadata,
+      'closing': entry.state == 'self' ? comments.self : comments.user,
+      'reflection_version': 1,
+    })).toList(growable: false);
+    await _writeList(_tarotKey, existing);
   }
 
   SimulatedPhoneEntry _buildTarotEntry({
@@ -1030,15 +1157,7 @@ class SimulatedPhoneRepository {
   }) {
     final card = majorArcana[cardIndex];
     final orientation = reversed ? card.reversed : card.upright;
-    final isSelf = state == 'self';
-    final context = isSelf
-        ? orientation +
-            ' 放到我今天的状态里，它更像是在提醒我先承认自己真正偏向哪边，而不是急着表演一个标准答案。'
-        : orientation +
-            ' 放到你今天的状态里，它更适合当作一个观察角度：先看看哪些部分确实对应现实，再决定要不要采用。';
-    final closing = isSelf
-        ? '我会把这张牌当成今天的一面小镜子，不让它替我做决定。要是我真的照着它做，大概就是少装一点若无其事，把最想做的那一步先落下去。'
-        : '给你抽到这张，我不会拿它吓你，也不会说它已经预言了什么。你只要从里面挑出真正说得通的那一部分；剩下对不上的，就让它安静地留在牌面上。';
+    final context = orientation;
     return SimulatedPhoneEntry(
       id: 'tarot:$day:$state',
       kind: 'tarot',
@@ -1057,7 +1176,6 @@ class SimulatedPhoneRepository {
         'context': context,
         'guidance': card.guidance,
         'shadow': card.shadow,
-        'closing': closing,
         'asset_path': SimulatedPhonePolicy.tarotAssetPath(cardIndex),
       },
     );

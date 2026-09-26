@@ -77,6 +77,29 @@ class SystemBridge(
 
         methodChannel.setMethodCallHandler { call, result ->
             when (call.method) {
+                "syncCalendarReminders" -> {
+                    val raw = call.argument<List<Map<String, Any?>>>("entries") ?: emptyList()
+                    result.success(CalendarReminderAlarm.replaceAll(activity, raw))
+                }
+                "canScheduleExactReminders" ->
+                    result.success(CalendarReminderAlarm.canScheduleExact(activity))
+                "openExactReminderSettings" -> {
+                    CalendarReminderAlarm.openExactSettings(activity)
+                    result.success(null)
+                }
+                "openReminderSoundSettings" -> {
+                    CalendarReminderAlarm.openSoundSettings(activity)
+                    result.success(null)
+                }
+                "pendingStoppedReminders" ->
+                    result.success(CalendarReminderAlarm.pendingStops(activity))
+                "acknowledgeStoppedReminder" -> {
+                    CalendarReminderAlarm.acknowledgeStop(
+                        activity,
+                        call.argument<String>("occurrence").orEmpty(),
+                    )
+                    result.success(null)
+                }
                 "setImmersiveChatPageVisible" -> {
                     CompanionRuntimeState.setImmersiveChatPageVisible(
                         call.argument<Boolean>("visible") == true,

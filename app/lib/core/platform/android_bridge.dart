@@ -353,6 +353,31 @@ class AndroidBridge {
   Future<void> clearRuntimeDiagnostics() =>
       _channel.invokeMethod<void>('clearRuntimeDiagnostics');
 
+  Future<bool> syncCalendarReminders(List<Map<String, Object?>> entries) async =>
+      await _channel.invokeMethod<bool>('syncCalendarReminders', {
+        'entries': entries,
+      }) ?? false;
+
+  Future<bool> canScheduleExactReminders() async =>
+      await _channel.invokeMethod<bool>('canScheduleExactReminders') ?? false;
+
+  Future<void> openExactReminderSettings() =>
+      _channel.invokeMethod<void>('openExactReminderSettings');
+
+  Future<void> openReminderSoundSettings() =>
+      _channel.invokeMethod<void>('openReminderSoundSettings');
+
+  Future<List<Map<String, Object?>>> pendingStoppedReminders() async {
+    final raw = await _channel.invokeListMethod<Object?>('pendingStoppedReminders');
+    return raw?.whereType<Map>().map((item) =>
+        Map<String, Object?>.from(item)).toList() ?? const [];
+  }
+
+  Future<void> acknowledgeStoppedReminder(String occurrence) =>
+      _channel.invokeMethod<void>('acknowledgeStoppedReminder', {
+        'occurrence': occurrence,
+      });
+
   Future<void> recordTtsClientFailure({
     required String phase,
     required String language,

@@ -39,6 +39,8 @@ import 'chat_controller.dart';
 import 'chat_timestamp_formatter.dart';
 import '../reference/reference_library_page.dart';
 import '../phone/simulated_phone_page.dart';
+import '../phone/calendar_reminder_page.dart';
+import '../../core/phone/calendar_reminder_followup.dart';
 import '../immersive/immersive_room_page.dart';
 import 'chat_quick_settings_pages.dart';
 import 'cedar_toy_activity_window.dart';
@@ -125,6 +127,7 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
 
   Future<void> _initializeController() async {
     await controller.initialize();
+    unawaited(CalendarReminderFollowup(AppDatabase.instance).deliverOne());
     await _loadVisualSettings();
     _playfulForm = await PlayfulFormStore(AppDatabase.instance).load();
     await _restorePresentationCursor();
@@ -551,6 +554,10 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
       unawaited(_refreshPlayfulForm());
       unawaited(controller.acknowledgeOverlayUnread());
       unawaited(controller.syncExternalMessages());
+      unawaited(() async {
+        await CalendarReminderFollowup(AppDatabase.instance).deliverOne();
+        if (mounted) await controller.syncExternalMessages();
+      }());
     }
   }
 
@@ -2217,6 +2224,19 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
                       await Navigator.of(pageContext).push(
                         MaterialPageRoute(
                           builder: (_) => const CompanionStateOverviewPage(),
+                        ),
+                      );
+                    },
+                  ),
+                  _QuickPanelTile(
+                    icon: Icons.calendar_month_outlined,
+                    title: '日历提醒',
+                    subtitle: '记下日子，或设置到点响铃。',
+                    onTap: () async {
+                      Navigator.pop(dialogContext);
+                      await Navigator.of(pageContext).push(
+                        MaterialPageRoute(
+                          builder: (_) => const CalendarReminderPage(),
                         ),
                       );
                     },
