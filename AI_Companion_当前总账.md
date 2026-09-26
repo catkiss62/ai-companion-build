@@ -1,6 +1,6 @@
 # AI Companion · 当前总账
 
-更新时间：2026-09-26（UTC；+270 桌宠不透明与新版动作范围施工中）
+更新时间：2026-09-26（UTC；+270 桌宠新版动作候选已构建，待真机验证）
 
 > 本文件是唯一的当前接班入口，继续采用“总账 v2”。顶部是快速接班索引；标记后的正式记录按版本持续追加，不设总容量上限。
 >
@@ -42,7 +42,7 @@
 | 仓库维护基线 | `maintenance/repository-governance-20260919`；远端文档 head `123e272196e8ae93f3518157917d76f6af4f1784`；完整构建 head `fa99f32012fa1a0716b746d36b958a8e777ef9b8`；Actions `35446649873` 全绿；文档-only run `35447342921` 正确跳过 APK |
 | 当前功能分支 | `agent/v04224-pet-opaque-fullframes`，从 +267 总账 head `224e832` 分出；构建候选 `v0.42.24+268` |
 | +269 当前任务 | `agent/v04225-pet-full-clips-heat` 从 +268 head `27dc991` 分出，构建 head `b9f854e960bca401c861b769cda2576b79ef9d9c`。原始 ZIP 在 Draft Release `397377805`、asset `591363139`，SHA-256 `ad94e2aa8829ddb5b8f0640e383b29bbccfbb5a77d9a957559e34cff17aea489`。排除 move/drag/balance 后 96 段、23,013 帧；五段点击、三段睡眠仅预览、自主池不稀释走路、桌面不透明、特效随尺寸、预览布局及回复后整轮气焰结算已实现。Actions `36271743353` 全绿，APK 722,612,227 字节，SHA-256 `0830c3e6d36a9ac0d5b94628cf6fac9564e02d8d8d6d0b4ae784d7f8d2dd9453`，未发布 Draft Release `397385083`。状态 `IMPLEMENTED / CI PASSED / APK READY / TRUE DEVICE PENDING`；真机视觉、透传触摸与性能未验。素材由固定 Draft asset 获取并校验，不逐帧上传对话。|
-| +270 当前任务 | `agent/v04226-pet-opaque-ambient-preview` 从 +269 远端 `f57acba` 分出。用户真机发现同一段新动画在“实验动画”关闭后继续播放却立即变实，证据指向独立实验 WindowManager 绘制层。改为单窗口不透明播放，保留原触摸/基础动作；“新版动画”默认开，旧模式保持原逻辑，新模式移出旧的非基础待机、纳入三段睡眠与工作/思考短片待机（深度思考碎碎念若裁切不宜修则排除），聊天思考与说话仍用旧动作；校准入口移至播放器首位，两个 Activity 修复上下裁切。旧 APK Draft `<=+265` 由维护 Actions `36275881299` 删除 191 个，人工删除 3 个；保留两份无 APK 草稿及构建输入。状态 `IMPLEMENTATION IN PROGRESS / CI PENDING / APK PENDING / TRUE DEVICE PENDING`。|
+| +270 当前任务 | `agent/v04226-pet-opaque-ambient-preview` 从 +269 远端 `f57acba` 分出。用户真机发现同一段新动画在“实验动画”关闭后继续播放却立即变实，证据指向独立实验 WindowManager 绘制层。改为单窗口不透明播放，保留原触摸/基础动作；“新版动画”默认开，旧模式保持原逻辑，新模式移出旧的非基础待机、纳入三段睡眠与工作/思考短片待机（深度思考碎碎念若裁切不宜修则排除），聊天思考与说话仍用旧动作；校准入口移至播放器首位，两个 Activity 修复上下裁切。旧 APK Draft `<=+265` 由维护 Actions `36275881299` 删除 191 个，人工删除 3 个；保留两份无 APK 草稿及构建输入。构建 head `4b205aee8f8e27a50ee4a87f5f1060fbf1dc4b7d`；Actions `36276798640` 全绿，未发布 Draft `untagged-c838b8c01ac127dd5d71`，APK SHA-256 `8e8a0b3c2809bb53efa9bd9e53e3d058ec0126231a736213fe69d395623cb85b`。状态 `IMPLEMENTED / CI PASSED / APK READY / TRUE DEVICE PENDING`。|
 | 当前任务状态 | `+265～+267` 已有构建与真机反馈；`+268 IMPLEMENTED / CI PASSED / APK READY / TRUE DEVICE PENDING`：不透明桌面播放、独立宽度与饱和度、24 fps 全帧与播放器时钟；`+269 IMPLEMENTED / CI PASSED / APK READY / TRUE DEVICE PENDING`：96 段完整动作及整轮气焰结算，见末尾 +269。|
 | +267 远端 | 功能 head `07142df2f01f15b5e4770fb6d17b48150770f422`；tree `aa16c6405f87967191dcb5b99662c53302983c52`；Actions `36232295089` 全绿；Artifact `10903136887`；APK SHA-256 `956812613c1fb00123e2ab2e6a3f5f3ccc1d320743c7bd6b866c4e0365b09ab2`；未发布 Draft Release `397169363` |
 | +250 当前任务 | 本体／小豆丁形态共用成年角色、记忆与能力；同一形态状态驱动角色提示与静态立绘，虚拟弹额头／安抚改变气焰值后继续自然衰减，心形液面与锁定入口；常驻世界书定点柔化并仅迁移未编辑原文；两档 TTS 共用冻结的真实回复与分段，无声生成并复制专项脱敏报告 |
@@ -1056,9 +1056,13 @@ Actions 与交付证据：远端功能 head `33647c7bff15084d6fd3cbc7b817e9b0b21
 - 跨窗口素材维护：新增 91 段的原始 ZIP 只在受权限保护的 Draft Release `397377805`，Git 保存固定 asset ID、哈希、96 段目录和转换脚本，最终 APK 带有转换后的帧包。既有五段实验帧包在 Git；更早的桌宠本体 417 文件由仓库 `app/asset_packs/dafeiyu_private.parts/` 的分片及 `app/tools/restore_dafeiyu_asset_pack.py` 还原。新维护者只需读本节、清单和工作流，无需聊天上下文；要复现完整 APK，须能访问仓库及此草稿附件。删除或替换附件会使未来构建失败；草稿不是公开仓库代码的一部分，也不应把上游当前版本视为等价备份。
 
 
-## v0.42.26+270 · 桌宠显示层与新版待机范围（2026-09-26，开工登记）
+## v0.42.26+270 · 桌宠显示层与新版待机范围（2026-09-26，CI 完成）
 
 - 真机证据：用户在新片段持续播放时关闭“实验动画”，片段没有立即结束，却瞬时由半透明变不透明；现代码开时用额外 `FLAG_NOT_TOUCHABLE` WindowManager 画面，关时用原主窗口画同一帧。色阶保留源 alpha。优先收敛到主窗口播放，避免新窗口合成差异；检查校准后边界，深度思考碎碎念源裁切可直接不入待机。
 - 产品范围：改名“新版动画”且默认勾选；关闭使用旧版动作选择；打开只保留旧 IDLE/眨眼/散步/睡觉/拖放着陆晕眩/哈欠及对话思考、说话等基础动作。旧 GLANCE/HAPPY/SWEEPING/EATING 等自主表演不进新版待机；三段新睡觉与新版工作、思考短片加入随机待机，不能挤掉散步。正式对话仍由旧思考、说话动作负责。校准入口从悬浮菜单移到播放器预览首位；两页均适配系统栏和可滚动区域。
 - Draft 整理证据：用户明确确认永久删除版本不高于 +265 的 AI Companion 旧测试 APK 草稿。人工删除 +265/+264/+263 三份；维护分支 `maintenance/cleanup-old-apk-drafts-20260927` 的 Actions `36275819669` 先干跑、`36275881299` 后删除 191 份，仅匹配带 APK 且附件都是 APK/SHA/TXT 的旧候选；两份无 APK 候选保留。+266～+269、桌宠源 Draft `397377805`、签名 `ai-companion-private-signing-v1` 与 Genie `genie-tts-private-runtime-v0.7.6-jiuhu`/`v0.6.4` 等输入未删除。构建工作流仍从上述 Draft 下载并校验，接班索引 +269 与上一节已写明。
 - 验证门：Kotlin 动作选择/切换测试、源码门、Flutter 分析与测试、APK 内 96 段帧结构及签名；真机核对不透明/大小/边界/触摸、新旧切换、走路频率、睡眠/工作/思考待机和两页布局。
+
+- 实现与验证：主桌宠 View 接管全部动画绘制，移除额外 WindowManager 显示层；模式切换立即回待机，会话思考/说话抢占新片段；新版随机池仅保留原散步及新素材，三段新睡眠和“工作状态-思考冒泡”可随机待机，“深度思考碎碎念”因源内容裁切不使用。新版勾选默认开启，旧版随机逻辑未改。校准入口在播放器最上方，两个 Activity 消费状态栏、导航栏和刘海安全区；校准页按钮固定指向哼歌/伸懒腰/魔方动作 ID。
+- 云端证据：功能分支 `agent/v04226-pet-opaque-ambient-preview`，构建 head `4b205aee8f8e27a50ee4a87f5f1060fbf1dc4b7d`、tree `eb72b9f79f4e93bd210856cf7faadb88e5d7ca2a`；Actions `36276798640` 的 `build-apk` 全绿。素材 Draft 下载与 SHA、417 文件、125 项源码回归、Kotlin 桌宠测试、Flutter analyze/test、release APK、签名与包内帧均通过。APK `AI-Companion-v0.42.26-270-Pet-Opaque-Ambient-Preview-APK.apk`，SHA-256 `8e8a0b3c2809bb53efa9bd9e53e3d058ec0126231a736213fe69d395623cb85b`；未发布 Draft `https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-c838b8c01ac127dd5d71`。签名证书 SHA-256 `30:5E:B3:D8:09:83:B9:63:C6:48:18:DD:F1:AD:56:1F:27:9D:E6:D4:7B:3E:D2:C7:81:AD:A4:48:C7:C2:51:48`。
+- 状态：`IMPLEMENTED / CI PASSED / APK READY / TRUE DEVICE PENDING`。真机必须核对新版身体是否持续不透明、宽大特效是否截边、覆盖其他 App 时能否正常触摸、新旧即时切换、睡眠/工作待机与两页上下控件完整可见；构建成功不能替代上述视觉与交互验收。
