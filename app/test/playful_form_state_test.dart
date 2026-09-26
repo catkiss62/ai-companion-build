@@ -11,7 +11,8 @@ void main() {
     expect(first.qForm, isTrue);
     expect(first.promptForTurn('turn-1'), contains('虚拟互动'));
     expect(first.advance(PlayfulInteraction.strong, 'turn-1', now).heat, first.heat);
-    final next = first.advance(PlayfulInteraction.ordinary, 'turn-2', now);
+    final settled = first.onAssistantTurn(PlayfulSelfActivity.none, 'reply-1', now);
+    final next = settled.advance(PlayfulInteraction.ordinary, 'turn-2', now);
     expect(next.heat, lessThan(first.heat));
     expect(next.promptForTurn('turn-2'), isNot(contains('轻弹额头')));
   });
@@ -20,9 +21,10 @@ void main() {
     final now = DateTime(2026, 9, 23, 12);
     final excited = const PlayfulFormState().interact(kindle: true, now: now);
     final serious = excited.advance(PlayfulInteraction.serious, 'sad', now);
-    expect(serious.heat, 85);
+    expect(serious.heat, 100); // The user turn is provisional until its reply.
     expect(serious.qForm, isTrue);
     expect(serious.promptForTurn('sad'), contains('现在脾气更冲'));
+    expect(serious.onAssistantTurn(PlayfulSelfActivity.none, 'comfort', now).heat, 70);
     final locked = excited.withLock(true).advance(PlayfulInteraction.serious, 'sad', now);
     expect(locked.qForm, isTrue);
     expect(locked.promptForTurn('sad'), contains('用户锁定了当前形态'));
@@ -31,38 +33,40 @@ void main() {
     expect(comforted.qForm, isFalse);
   });
 
-  test('four mutually playful turns arm a later trigger without keywords', () {
+  test('repeated mutually playful turns arm a later trigger without keywords', () {
     final now = DateTime(2026, 9, 24, 12);
     var state = const PlayfulFormState();
-    for (var turn = 1; turn <= 3; turn++) {
-      state = state.advance(PlayfulInteraction.mutual, '$turn', now);
+    for (var turn = 1; turn <= 8; turn++) {
+      state = state.advance(PlayfulInteraction.mutual, '$turn', now)
+          .onAssistantTurn(PlayfulSelfActivity.none, 'reply-$turn', now);
       expect(state.qForm, isFalse);
     }
-    state = state.advance(PlayfulInteraction.mutual, '4', now);
+    state = state.advance(PlayfulInteraction.mutual, '9', now)
+        .onAssistantTurn(PlayfulSelfActivity.none, 'reply-9', now);
     expect(state.heat, 100);
     expect(state.qForm, isFalse);
     expect(state.breakthroughDue, isTrue);
-    expect(state.advance(PlayfulInteraction.strong, '4', now).heat, 100);
-    expect(state.advance(PlayfulInteraction.serious, '6', now).qForm, isFalse);
+    expect(state.advance(PlayfulInteraction.strong, '9', now).heat, 100);
+    expect(state.advance(PlayfulInteraction.serious, '10', now).qForm, isFalse);
   });
 
   test('Stop restores only the pending user turn and keeps later actions', () {
     final now = DateTime.utc(2026, 9, 25);
     final prior = const PlayfulFormState(heat: 54);
     final pending = prior.advance(PlayfulInteraction.mutual, 'user-a', now);
-    expect(pending.heat, 82);
+    expect(pending.heat, 54);
     expect(pending.rollbackTurn('user-a').heat, 54);
     expect(pending.rollbackTurn('user-a').lastTurn, '');
-    expect(pending.rollbackTurn('another-turn').heat, 82);
+    expect(pending.rollbackTurn('another-turn').heat, 54);
     final second = pending.advance(PlayfulInteraction.ordinary, 'user-b', now);
     expect(second.rollbackTurn('user-a').heat, second.heat);
-    expect(second.rollbackTurn('user-b').heat, 82);
+    expect(second.rollbackTurn('user-b').heat, 54);
     final manual = pending.interact(kindle: false, now: now);
     expect(manual.rollbackTurn('user-a').heat, 0);
     final completed = pending.onAssistantTurn(
       PlayfulSelfActivity.none, 'assistant-a', now,
     );
-    expect(completed.rollbackTurn('user-a').heat, 82);
+    expect(completed.rollbackTurn('user-a').heat, 66);
     expect(PlayfulFormState.decode(pending.encode()).rollbackTurn('user-a').heat, 54);
   });
 
