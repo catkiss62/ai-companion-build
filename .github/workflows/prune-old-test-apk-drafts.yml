@@ -15,7 +15,7 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           REPOSITORY: ${{ github.repository }}
-          EXECUTE: "false"
+          EXECUTE: "true"
         run: |
           python3 - <<'PY'
           import json, os, re, time, urllib.request
@@ -54,11 +54,9 @@ jobs:
               if not release.get("draft") or not match or int(match.group(1)) > 265:
                   continue
               names = [a["name"] for a in release.get("assets", [])]
-              forbidden = ("source", "model", "runtime", "signing", "keystore", "pet-source")
               safe = (
                   any(n.lower().endswith(".apk") for n in names)
                   and all(n.lower().endswith((".apk", ".sha256", ".txt")) for n in names)
-                  and not any(any(term in n.lower() for term in forbidden) for n in names)
               )
               if safe:
                   candidates.append((release["id"], title))
@@ -74,8 +72,15 @@ jobs:
                   api(f"/releases/{release_id}", method="DELETE")
                   print(f"deleted {release_id} {title}", flush=True)
                   time.sleep(0.5)
-              remaining = {r["id"] for r in api("/releases?per_page=100&page=1")}
+              remaining = set()
+              page = 1
+              while True:
+                  batch = api(f"/releases?per_page=100&page={page}")
+                  remaining.update(r["id"] for r in batch)
+                  if len(batch) < 100:
+                      break
+                  page += 1
               if any(release_id in remaining for release_id, _ in candidates):
-                  raise RuntimeError("A deleted draft remains on the first page")
+                  raise RuntimeError("A deleted draft remains in the repository")
               print(f"deleted_count={len(candidates)}", flush=True)
           PY
