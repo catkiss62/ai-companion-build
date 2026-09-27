@@ -89,4 +89,14 @@ void main() {
       'unsupported_table_contract',
     );
   });
+
+  test('a missing background platform method has a distinct redacted category', () {
+    expect(
+      classifyRuntimeError(
+        StateError('MissingPluginException(No implementation found for method '
+            'pendingStoppedReminders on channel ai_companion/system)'),
+      ),
+      'missing_platform_method',
+    );
+  });
 }

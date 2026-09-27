@@ -1,6 +1,6 @@
 # AI Companion · 当前总账
 
-更新时间：2026-09-26（UTC；+270 桌宠新版动作候选已构建，待真机验证）
+更新时间：2026-09-27（UTC；+271 自主聊天后台通道热修施工中）
 
 > 本文件是唯一的当前接班入口，继续采用“总账 v2”。顶部是快速接班索引；标记后的正式记录按版本持续追加，不设总容量上限。
 >
@@ -43,6 +43,7 @@
 | 当前功能分支 | `agent/v04224-pet-opaque-fullframes`，从 +267 总账 head `224e832` 分出；构建候选 `v0.42.24+268` |
 | +269 当前任务 | `agent/v04225-pet-full-clips-heat` 从 +268 head `27dc991` 分出，构建 head `b9f854e960bca401c861b769cda2576b79ef9d9c`。原始 ZIP 在 Draft Release `397377805`、asset `591363139`，SHA-256 `ad94e2aa8829ddb5b8f0640e383b29bbccfbb5a77d9a957559e34cff17aea489`。排除 move/drag/balance 后 96 段、23,013 帧；五段点击、三段睡眠仅预览、自主池不稀释走路、桌面不透明、特效随尺寸、预览布局及回复后整轮气焰结算已实现。Actions `36271743353` 全绿，APK 722,612,227 字节，SHA-256 `0830c3e6d36a9ac0d5b94628cf6fac9564e02d8d8d6d0b4ae784d7f8d2dd9453`，未发布 Draft Release `397385083`。状态 `IMPLEMENTED / CI PASSED / APK READY / TRUE DEVICE PENDING`；真机视觉、透传触摸与性能未验。素材由固定 Draft asset 获取并校验，不逐帧上传对话。|
 | +270 当前任务 | `agent/v04226-pet-opaque-ambient-preview` 从 +269 远端 `f57acba` 分出。用户真机发现同一段新动画在“实验动画”关闭后继续播放却立即变实，证据指向独立实验 WindowManager 绘制层。改为单窗口不透明播放，保留原触摸/基础动作；“新版动画”默认开，旧模式保持原逻辑，新模式移出旧的非基础待机、纳入三段睡眠与工作/思考短片待机（深度思考碎碎念若裁切不宜修则排除），聊天思考与说话仍用旧动作；校准入口移至播放器首位，两个 Activity 修复上下裁切。旧 APK Draft `<=+265` 由维护 Actions `36275881299` 删除 191 个，人工删除 3 个；保留两份无 APK 草稿及构建输入。构建 head `4b205aee8f8e27a50ee4a87f5f1060fbf1dc4b7d`；Actions `36276798640` 全绿，未发布 Draft `untagged-c838b8c01ac127dd5d71`，APK SHA-256 `8e8a0b3c2809bb53efa9bd9e53e3d058ec0126231a736213fe69d395623cb85b`。状态 `IMPLEMENTED / CI PASSED / APK READY / TRUE DEVICE PENDING`。|
+| +271 当前任务 | 用户报告 +269 昨晚到今午无自主聊天。旧版 2026-09-27 16:03（中国时间）存档/诊断：最后主动消息 09-26 11:14；过去 24 小时 `autonomousBehaviors=0`；Active Brain=true、无传输锁、无当前阻塞生成/租约，后台错误累计 677、最近错误 `MissingPluginException(pendingStoppedReminders)`。`RecoveryOrchestrator.runOnce` 在自主心跳前调用日历提醒读取，后台 `BackgroundSystemBridge` 缺少该方法，导致整轮退出。+271 补齐后台日历读取/确认，并让提醒独立失败只记错误分类、不拖停自主心跳。分支 `agent/v04227-proactive-background-bridge`，候选 `v0.42.27+271`；状态 `IMPLEMENTATION IN PROGRESS / CI PENDING / APK PENDING / TRUE DEVICE PENDING`。|
 | 当前任务状态 | `+265～+267` 已有构建与真机反馈；`+268 IMPLEMENTED / CI PASSED / APK READY / TRUE DEVICE PENDING`：不透明桌面播放、独立宽度与饱和度、24 fps 全帧与播放器时钟；`+269 IMPLEMENTED / CI PASSED / APK READY / TRUE DEVICE PENDING`：96 段完整动作及整轮气焰结算，见末尾 +269。|
 | +267 远端 | 功能 head `07142df2f01f15b5e4770fb6d17b48150770f422`；tree `aa16c6405f87967191dcb5b99662c53302983c52`；Actions `36232295089` 全绿；Artifact `10903136887`；APK SHA-256 `956812613c1fb00123e2ab2e6a3f5f3ccc1d320743c7bd6b866c4e0365b09ab2`；未发布 Draft Release `397169363` |
 | +250 当前任务 | 本体／小豆丁形态共用成年角色、记忆与能力；同一形态状态驱动角色提示与静态立绘，虚拟弹额头／安抚改变气焰值后继续自然衰减，心形液面与锁定入口；常驻世界书定点柔化并仅迁移未编辑原文；两档 TTS 共用冻结的真实回复与分段，无声生成并复制专项脱敏报告 |
@@ -1066,3 +1067,9 @@ Actions 与交付证据：远端功能 head `33647c7bff15084d6fd3cbc7b817e9b0b21
 - 实现与验证：主桌宠 View 接管全部动画绘制，移除额外 WindowManager 显示层；模式切换立即回待机，会话思考/说话抢占新片段；新版随机池仅保留原散步及新素材，三段新睡眠和“工作状态-思考冒泡”可随机待机，“深度思考碎碎念”因源内容裁切不使用。新版勾选默认开启，旧版随机逻辑未改。校准入口在播放器最上方，两个 Activity 消费状态栏、导航栏和刘海安全区；校准页按钮固定指向哼歌/伸懒腰/魔方动作 ID。
 - 云端证据：功能分支 `agent/v04226-pet-opaque-ambient-preview`，构建 head `4b205aee8f8e27a50ee4a87f5f1060fbf1dc4b7d`、tree `eb72b9f79f4e93bd210856cf7faadb88e5d7ca2a`；Actions `36276798640` 的 `build-apk` 全绿。素材 Draft 下载与 SHA、417 文件、125 项源码回归、Kotlin 桌宠测试、Flutter analyze/test、release APK、签名与包内帧均通过。APK `AI-Companion-v0.42.26-270-Pet-Opaque-Ambient-Preview-APK.apk`，SHA-256 `8e8a0b3c2809bb53efa9bd9e53e3d058ec0126231a736213fe69d395623cb85b`；未发布 Draft `https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-c838b8c01ac127dd5d71`。签名证书 SHA-256 `30:5E:B3:D8:09:83:B9:63:C6:48:18:DD:F1:AD:56:1F:27:9D:E6:D4:7B:3E:D2:C7:81:AD:A4:48:C7:C2:51:48`。
 - 状态：`IMPLEMENTED / CI PASSED / APK READY / TRUE DEVICE PENDING`。真机必须核对新版身体是否持续不透明、宽大特效是否截边、覆盖其他 App 时能否正常触摸、新旧即时切换、睡眠/工作待机与两页上下控件完整可见；构建成功不能替代上述视觉与交互验收。
+
+## v0.42.27+271 · 自主聊天后台提醒通道阻断热修（2026-09-27，开工登记）
+
+- 证据：用户上传的 +269 私测存档与 2026-09-27 16:04 中国时间脱敏诊断相互吻合。存档最后一次 `proactive_history.decision=sent` 在 09-26 11:14:33，09-26 23:28 用户回合后至 09-27 16:03 仍无主动发送；诊断 `autonomousBehaviors.eventCount24h=0`、`recovery_orchestrator_next_heartbeat_at=0`、`background_error_count=677`，最近错误 `MissingPluginException(No implementation found for method pendingStoppedReminders on channel ai_companion/system)` 发生于 09-27 16:02 左右。Active Brain 已开，transfer lock、当前阻塞生成、chat/proactive/orchestrator 租约均未占用，日间疲劳 0.3358 且 hard veto=false，频率档自然、24 小时用量 0；并非夜间限额、疲劳或频率策略自然静默。诊断里 `recovery.state=waiting_generation:running` 是早前留下的状态，不能据此断言当前生成任务卡死。
+- 根因：`RecoveryOrchestrator.runOnce` 在进入自主心跳前无隔离地调用 `CalendarReminderFollowup.deliverOne()`，后者从 `AndroidBridge.pendingStoppedReminders()` 调用 `ai_companion/system`。前台 `SystemBridge` 实现了此方法，独立后台 FlutterEngine 的 `BackgroundSystemBridge` 却未实现，于是每次后台循环在心跳前抛错，后台入口仅记录错误并十分钟后重试。正常聊天仍走前台，故用户回合正常不代表后台可运行。
+- 实现范围：后台桥接补 `pendingStoppedReminders` 和 `acknowledgeStoppedReminder`，复用前台同一 `CalendarReminderAlarm` 状态；提醒单独失败时记录脱敏分类/时刻并继续后续自主循环，转移冻结异常仍传播。保留 21:00～次日 09:00 一条成功投递上限、10 分钟对话静默窗、Cedar/联网竞争、模型通道、schema 61 和现有桌宠构建素材。构建 +271 测试 APK 后，以同样自然使用观察后台错误是否停止增长、心跳时间是否推进，以及日间是否产生真实主动行为；不把“立刻发一句”当唯一正确结果。

@@ -54,7 +54,22 @@ class RecoveryOrchestrator {
     bool allowProactive = true,
   }) async {
     await db.ensureReady();
-    await CalendarReminderFollowup(db).deliverOne();
+    try {
+      await CalendarReminderFollowup(db).deliverOne();
+    } on GenerationSuspendedByRuntimeGateException {
+      rethrow;
+    } catch (error) {
+      // Reminder delivery is an independent lane. A missing platform method
+      // or one failed reminder must not abort every Desire/Thought heartbeat.
+      await db.setSetting(
+        'calendar_reminder_followup_last_error_category',
+        classifyRuntimeError(error),
+      );
+      await db.setSetting(
+        'calendar_reminder_followup_last_error_at',
+        DateTime.now().millisecondsSinceEpoch.toString(),
+      );
+    }
     final phoneRepository = SimulatedPhoneRepository(db);
     await phoneRepository.maintainAlbum();
     await phoneRepository.refreshIfDue();

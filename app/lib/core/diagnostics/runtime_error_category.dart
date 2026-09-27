@@ -6,6 +6,9 @@ String classifyRuntimeError(Object error) {
   if (text.contains('malformed_json_completion_content')) {
     return 'malformed_model_json';
   }
+  if (text.contains('missingpluginexception')) {
+    return 'missing_platform_method';
+  }
   if (text.contains('unsupported maintenance table/column')) {
     return 'unsupported_table_contract';
   }

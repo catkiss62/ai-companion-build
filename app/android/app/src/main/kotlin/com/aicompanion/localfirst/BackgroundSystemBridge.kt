@@ -32,6 +32,15 @@ class BackgroundSystemBridge(
     init {
         channel.setMethodCallHandler { call, result ->
             when (call.method) {
+                "pendingStoppedReminders" ->
+                    result.success(CalendarReminderAlarm.pendingStops(context))
+                "acknowledgeStoppedReminder" -> {
+                    CalendarReminderAlarm.acknowledgeStop(
+                        context,
+                        call.argument<String>("occurrence").orEmpty(),
+                    )
+                    result.success(null)
+                }
                 "isImmersiveChatPageVisible" ->
                     result.success(CompanionRuntimeState.immersiveChatPageVisible)
                 "deviceLabel" -> result.success(deviceLabel())
