@@ -15,14 +15,10 @@ def require(condition: bool, message: str) -> None:
 
 
 def main() -> None:
+    # This historical gate now checks that the *old Sen product adapter* stays
+    # gone. The Caicai runtime intentionally reuses Cubism and Sen donor code.
     removed_paths = [
-        "android/app/libs/Live2DCubismCore.aar",
-        "android/app/src/main/assets/com/live2d",
-        "android/app/src/main/assets/sen-default-profile-v1.json",
-        "android/app/src/main/java/com/catkiss/senlive2dcompanion",
-        "android/app/src/main/java/com/live2d/sdk/cubism/framework",
         "android/app/src/main/kotlin/com/aicompanion/localfirst/SenLive2DBridge.kt",
-        "android/app/src/main/kotlin/com/catkiss/senlive2dcompanion",
         "android/patches/cubism-java-no-mipmap.patch",
         "lib/core/presentation/sen_live2d_presentation.dart",
         "lib/widgets/sen_live2d_stage.dart",
@@ -50,8 +46,7 @@ def main() -> None:
         encoding="utf-8"
     )
 
-    require("Live2DCubismCore" not in gradle, "Cubism Core dependency remains")
-    require("glEsVersion" not in manifest, "Live2D GLES manifest feature remains")
+    require("Live2DCubismCore" in gradle, "Caicai Cubism Core dependency missing")
     require("SenLive2D" not in main_activity, "Sen bridge remains in MainActivity")
     require("SenLive2D" not in wav_player, "Sen lip-sync hook remains in WavAudioPlayer")
     require("sen_live2d" not in chat_page, "Sen UI/settings remain in ChatPage")
@@ -87,7 +82,7 @@ def main() -> None:
         )),
         "workflow version mismatch",
     )
-    require("forbidden_live2d" in workflow, "APK Live2D absence gate missing")
+    require("required_live2d" in workflow, "APK Caicai payload gate missing")
     require(
         "tools/validate_v04197_natural_reply_liveness.py" in suite,
         "natural-reply validator was not preserved",
@@ -109,7 +104,7 @@ def main() -> None:
             f"current version missing from {validator}",
         )
 
-    print("v0.42.0 Live2D clean rollback remains preserved in the current build")
+    print("Legacy Sen adapter stays removed; new Caicai runtime is permitted")
 
 
 if __name__ == "__main__":

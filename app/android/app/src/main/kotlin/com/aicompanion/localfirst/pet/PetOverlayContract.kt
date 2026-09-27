@@ -104,6 +104,10 @@ object PetConversationPolicy {
     const val THINKING = "thinking"
     const val TALKING = "talking"
 
+    /** A lost foreground owner cannot leave the desktop pet speaking forever. */
+    fun appSpeechLeaseExpired(phase: String, lastUpdateMs: Long, nowMs: Long): Boolean =
+        phase == "playing" && lastUpdateMs > 0L && nowMs - lastUpdateMs > 8_000L
+
     fun cueFor(
         generationActive: Boolean,
         generationPhase: String?,

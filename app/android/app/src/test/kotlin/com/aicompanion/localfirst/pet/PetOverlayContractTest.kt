@@ -92,6 +92,9 @@ class PetOverlayContractTest {
         assertEquals("THINKING", PetConversationPolicy.actionFor("thinking"))
         assertEquals("TALKING", PetConversationPolicy.actionFor("talking"))
         assertEquals(null, PetConversationPolicy.actionFor("idle"))
+        assertFalse(PetConversationPolicy.appSpeechLeaseExpired("playing", 10_000, 18_000))
+        assertTrue(PetConversationPolicy.appSpeechLeaseExpired("playing", 10_000, 18_001))
+        assertFalse(PetConversationPolicy.appSpeechLeaseExpired("idle", 10_000, 30_000))
     }
 
     @Test

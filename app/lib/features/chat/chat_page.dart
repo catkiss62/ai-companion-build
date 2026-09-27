@@ -35,6 +35,7 @@ import '../../core/tts/tts_text_processor.dart';
 import '../../widgets/reasoning_panel.dart';
 import '../../widgets/action_tint_text.dart';
 import '../../widgets/chat_portrait_stage.dart';
+import '../../widgets/caicai_live2d_stage.dart';
 import '../../widgets/playful_heat_gauge.dart';
 import 'chat_controller.dart';
 import 'chat_timestamp_formatter.dart';
@@ -88,6 +89,7 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
   double _panelOpacity = 0.75;
   double _panelFraction = 0.62;
   ChatPortraitSet _portraitSet = ChatPortraitSet.largeWhale;
+  bool _caicaiEnabled = false;
   PlayfulFormState _playfulForm = const PlayfulFormState();
   double _portraitScale = ChatPortraitTransform.defaults.scale;
   Offset _portraitOffset = ChatPortraitTransform.defaults.offset;
@@ -385,6 +387,7 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
     _portraitSet = chatPortraitSetFromKey(
       await db.getSetting('chat_portrait_set'),
     );
+    _caicaiEnabled = (await db.getSetting('chat_portrait_mode')) == 'caicai_live2d';
     await _loadPortraitTransform(_portraitSet);
     _typewriterMs = (int.tryParse(
               await db.getSetting('chat_typewriter_ms') ?? '',
@@ -1349,7 +1352,9 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
                       alignment: Alignment.center,
                     ),
                     Positioned.fill(
-                      child: IgnorePointer(
+                      child: _caicaiEnabled && !_playfulForm.qForm
+                          ? const CaicaiLive2DStage()
+                          : IgnorePointer(
                         child: ChatPortraitStage(
                           emotion: _currentEmotion,
                           qForm: _playfulForm.qForm,
@@ -1745,6 +1750,35 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
                         },
                       ),
                       if (_visualStageEnabled)
+                        SwitchListTile(
+                          contentPadding: EdgeInsets.zero,
+                          title: const Text('菜菜 Live2D 自主待机'),
+                          subtitle: const Text('女仆主模型与三配件；小豆丁形态暂用原立绘。'),
+                          value: _caicaiEnabled,
+                          onChanged: (value) async {
+                            setState(() => _caicaiEnabled = value);
+                            setPanelState(() {});
+                            await update('chat_portrait_mode',
+                                value ? 'caicai_live2d' : 'static');
+                          },
+                        ),
+                      if (_visualStageEnabled)
+                        ListTile(
+                          contentPadding: EdgeInsets.zero,
+                          leading: const Icon(Icons.folder_zip_outlined),
+                          title: const Text('导入菜菜模型 ZIP'),
+                          subtitle: const Text('导入菜菜女仆三配件完整模型包。'),
+                          onTap: () async {
+                            try {
+                              await CaicaiLive2DService.pickModelZip();
+                            } catch (error) {
+                              if (mounted) ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(content: Text('导入失败：$error')),
+                              );
+                            }
+                          },
+                        ),
+                      if (_visualStageEnabled && !_caicaiEnabled)
                         DropdownButtonFormField<ChatPortraitSet>(
                           value: _portraitSet,
                           decoration: const InputDecoration(
@@ -1765,9 +1799,9 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
                             setPanelState(() {});
                           },
                         ),
-                      if (_visualStageEnabled)
+                      if (_visualStageEnabled && !_caicaiEnabled)
                         const SizedBox(height: 10),
-                      if (_visualStageEnabled)
+                      if (_visualStageEnabled && !_caicaiEnabled)
                         ListTile(
                           contentPadding: EdgeInsets.zero,
                           leading: const Icon(Icons.zoom_out_map_rounded),

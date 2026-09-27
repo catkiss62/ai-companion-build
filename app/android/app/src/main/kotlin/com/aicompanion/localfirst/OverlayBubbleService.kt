@@ -108,6 +108,7 @@ class OverlayBubbleService : Service() {
     private var appGenerationActive = false
     private var appGenerationPhase = "idle"
     private var appTtsPhase = "idle"
+    private var appTtsUpdatedAtMs = 0L
     private var petTtsDiscoveryUntilMs = 0L
     private var streamingAssistantMessageId = ""
     private var pendingShowAfterUnlock = false
@@ -326,6 +327,7 @@ class OverlayBubbleService : Service() {
                 return START_STICKY
             }
             ACTION_SET_PET_CONVERSATION -> {
+                val generationWasActive = appGenerationActive
                 appGenerationActive = intent.getBooleanExtra(EXTRA_GENERATION_ACTIVE, false)
                 appGenerationPhase = intent.getStringExtra(EXTRA_GENERATION_PHASE)
                     ?.takeIf { it in setOf("idle", "thinking", "answering", "cancelling") }
@@ -333,9 +335,11 @@ class OverlayBubbleService : Service() {
                 appTtsPhase = intent.getStringExtra(EXTRA_TTS_PHASE)
                     ?.takeIf { it in setOf("idle", "synthesizing", "playing") }
                     ?: "idle"
-                if (appGenerationActive && (chatExpanded || petOverlayWindow != null)) {
+                appTtsUpdatedAtMs = SystemClock.uptimeMillis()
+                if (appGenerationActive && !generationWasActive &&
+                    (chatExpanded || petOverlayWindow != null)) {
                     beginGenerationPolling()
-                } else if (!appGenerationActive && !chatSending) {
+                } else if (!appGenerationActive && generationWasActive && !chatSending) {
                     stopGenerationPolling()
                     removeStreamingMessage(notify = true)
                     if (chatExpanded) {
@@ -343,6 +347,7 @@ class OverlayBubbleService : Service() {
                     }
                 }
                 updatePetConversationCue()
+                if (appTtsPhase == "playing" && petOverlayWindow != null) beginTtsPolling()
                 return START_STICKY
             }
             ACTION_SHOW_CHAT -> {
@@ -1321,6 +1326,13 @@ class OverlayBubbleService : Service() {
 
     private fun pollTtsState(epoch: Int) {
         if (epoch != ttsPollEpoch || !shouldPollTts()) return
+        if (PetConversationPolicy.appSpeechLeaseExpired(
+                appTtsPhase, appTtsUpdatedAtMs, SystemClock.uptimeMillis())) {
+            // The foreground controller disappeared without its final idle event.
+            // Healthy long playback renews this lease every two seconds.
+            appTtsPhase = "idle"
+            updatePetConversationCue()
+        }
         val channel = backgroundCommands
         if (channel == null) {
             scheduleTtsPoll(epoch)
@@ -1366,6 +1378,7 @@ class OverlayBubbleService : Service() {
         (petOverlayWindow != null && (
             chatSending ||
                 overlayTtsPhase != "idle" ||
+                appTtsPhase == "playing" ||
                 SystemClock.uptimeMillis() < petTtsDiscoveryUntilMs
             ))
 

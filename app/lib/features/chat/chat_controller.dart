@@ -180,6 +180,7 @@ class ChatController extends ChangeNotifier {
   bool nsfwActive = false;
   bool nsfwRouting = false;
   TtsQueueState ttsState = TtsQueueState.idle;
+  Timer? _petSpeechHeartbeat;
   bool _disposed = false;
   int _recoveryScheduleEpoch = 0;
   GenerationCancellationToken? _activeGenerationCancellation;
@@ -278,6 +279,15 @@ class ChatController extends ChangeNotifier {
 
   void _safeNotify() {
     if (_disposed) return;
+    if (ttsState.phase == TtsPlaybackPhase.playing) {
+      _petSpeechHeartbeat ??= Timer.periodic(
+        const Duration(seconds: 2),
+        (_) => _publishPetConversationStateInternal(force: true),
+      );
+    } else {
+      _petSpeechHeartbeat?.cancel();
+      _petSpeechHeartbeat = null;
+    }
     _publishPetConversationState();
     notifyListeners();
   }
@@ -297,7 +307,9 @@ class ChatController extends ChangeNotifier {
     }
   }
 
-  void _publishPetConversationState() {
+  void _publishPetConversationState() => _publishPetConversationStateInternal();
+
+  void _publishPetConversationStateInternal({bool force = false}) {
     final generationPhase = !_petGenerationActive
         ? 'idle'
         : streamingContent.isNotEmpty
@@ -311,7 +323,7 @@ class ChatController extends ChangeNotifier {
       TtsPlaybackPhase.idle => 'idle',
     };
     final stateKey = '$_petGenerationActive|$generationPhase|$ttsPhase';
-    if (stateKey == _lastPetConversationState) return;
+    if (!force && stateKey == _lastPetConversationState) return;
     _lastPetConversationState = stateKey;
     unawaited(
       _ignorePetStateSync(
@@ -1919,6 +1931,8 @@ class ChatController extends ChangeNotifier {
   @override
   void dispose() {
     _disposed = true;
+    _petSpeechHeartbeat?.cancel();
+    _petSpeechHeartbeat = null;
     _recoveryScheduleEpoch++;
     // Closing/rebuilding a chat surface is lifecycle, not the user's Stop
     // action. Closing the provider client below will hand an unfinished

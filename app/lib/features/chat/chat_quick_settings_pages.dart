@@ -19,6 +19,7 @@ import '../../core/tts/tts_service.dart';
 import '../../core/tts/tts_text_processor.dart';
 import '../../core/tts/tts_voice_profile.dart';
 import '../../widgets/action_tint_text.dart';
+import '../../widgets/caicai_live2d_stage.dart';
 
 class CompanionStateOverviewPage extends StatefulWidget {
   const CompanionStateOverviewPage({super.key});
@@ -366,6 +367,8 @@ class ChatVisualSettingsPage extends StatefulWidget {
 class _ChatVisualSettingsPageState extends State<ChatVisualSettingsPage> {
   final _db = AppDatabase.instance;
   bool _enabled = true;
+  bool _caicai = false;
+  bool _caicaiAvailable = false;
   ChatPortraitSet _portrait = ChatPortraitSet.largeWhale;
   String _background = 'auto';
   double _opacity = 0.75;
@@ -379,6 +382,8 @@ class _ChatVisualSettingsPageState extends State<ChatVisualSettingsPage> {
 
   Future<void> _load() async {
     _enabled = (await _db.getSetting('chat_visual_stage_enabled')) != '0';
+    _caicai = (await _db.getSetting('chat_portrait_mode')) == 'caicai_live2d';
+    _caicaiAvailable = await CaicaiLive2DService.available;
     _portrait = chatPortraitSetFromKey(
       await _db.getSetting('chat_portrait_set'),
     );
@@ -414,7 +419,36 @@ class _ChatVisualSettingsPageState extends State<ChatVisualSettingsPage> {
                     },
                   ),
                   if (_enabled) ...[
-                    DropdownButtonFormField<ChatPortraitSet>(
+                    SwitchListTile(
+                      contentPadding: EdgeInsets.zero,
+                      title: const Text('菜菜 Live2D 自主待机'),
+                      subtitle: Text(_caicaiAvailable
+                          ? '菜菜女仆与耳鳍、呆毛、尾巴配件'
+                          : '请先导入菜菜女仆三配件模型 ZIP'),
+                      value: _caicai,
+                      onChanged: (value) async {
+                        setState(() => _caicai = value);
+                        await _db.setSetting('chat_portrait_mode',
+                            value ? 'caicai_live2d' : 'static');
+                      },
+                    ),
+                    ListTile(
+                      contentPadding: EdgeInsets.zero,
+                      leading: const Icon(Icons.folder_zip_outlined),
+                      title: Text(_caicaiAvailable ? '重新导入菜菜模型' : '导入菜菜模型 ZIP'),
+                      subtitle: const Text('仅保存到本机；需要菜菜实验室的双模型素材包。'),
+                      onTap: () async {
+                        try {
+                          final available = await CaicaiLive2DService.pickModelZip();
+                          if (mounted) setState(() => _caicaiAvailable = available);
+                        } catch (error) {
+                          if (mounted) ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(content: Text('导入失败：$error')),
+                          );
+                        }
+                      },
+                    ),
+                    if (!_caicai) DropdownButtonFormField<ChatPortraitSet>(
                       value: _portrait,
                       decoration: const InputDecoration(
                         labelText: '立绘套装',
@@ -432,8 +466,8 @@ class _ChatVisualSettingsPageState extends State<ChatVisualSettingsPage> {
                         await _db.setSetting('chat_portrait_set', value.key);
                       },
                     ),
-                    const SizedBox(height: 8),
-                    ListTile(
+                    if (!_caicai) const SizedBox(height: 8),
+                    if (!_caicai) ListTile(
                       contentPadding: EdgeInsets.zero,
                       leading: const Icon(Icons.zoom_out_map_rounded),
                       title: const Text('自定义立绘位置与大小'),

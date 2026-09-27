@@ -2,6 +2,7 @@
 #
 # Keep one repository-relative path per line. Order is intentional because
 # newer feature gates run first, followed by long-lived platform contracts.
+tools/validate_v04231_caicai_native_idle.py
 tools/validate_v04128_immersive_identity_rendering.py
 tools/validate_v04129_proactive_rendering_rule_editor_emotion.py
 tools/validate_v04130_presentation_ablation_upload_diagnostics.py

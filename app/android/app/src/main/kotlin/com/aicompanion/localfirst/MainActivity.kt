@@ -11,6 +11,7 @@ class MainActivity : FlutterActivity() {
     private var ttsBridge: NativeTtsBridge? = null
     private var emotionSoundBridge: EmotionSoundBridge? = null
     private var live2DModelStorageBridge: Live2DModelStorageBridge? = null
+    private var caicaiLive2DBridge: CaicaiLive2DBridge? = null
     private var nativeFateWheelChannel: MethodChannel? = null
     private var pendingFateWheelResult: MethodChannel.Result? = null
 
@@ -27,6 +28,7 @@ class MainActivity : FlutterActivity() {
         ttsBridge = NativeTtsBridge(this, flutterEngine)
         emotionSoundBridge = EmotionSoundBridge(this, flutterEngine)
         live2DModelStorageBridge = Live2DModelStorageBridge(this, flutterEngine)
+        caicaiLive2DBridge = CaicaiLive2DBridge(this, flutterEngine)
         nativeFateWheelChannel = MethodChannel(
             flutterEngine.dartExecutor.binaryMessenger,
             "ai_companion/fate_wheel_native",
@@ -59,6 +61,7 @@ class MainActivity : FlutterActivity() {
 
     override fun onResume() {
         super.onResume()
+        caicaiLive2DBridge?.onResume()
         // Returning from overlay/accessibility/notification settings is a
         // user-visible moment, so it is safe to reconcile an explicitly
         // enabled foreground companion service here. If the true floating
@@ -85,6 +88,11 @@ class MainActivity : FlutterActivity() {
         super.onStop()
     }
 
+    override fun onPause() {
+        caicaiLive2DBridge?.onPause()
+        super.onPause()
+    }
+
     override fun cleanUpFlutterEngine(flutterEngine: FlutterEngine) {
         CompanionRuntimeState.setImmersiveChatPageVisible(false)
         bridge?.dispose()
@@ -95,6 +103,8 @@ class MainActivity : FlutterActivity() {
         emotionSoundBridge = null
         live2DModelStorageBridge?.dispose()
         live2DModelStorageBridge = null
+        caicaiLive2DBridge?.dispose()
+        caicaiLive2DBridge = null
         nativeFateWheelChannel?.setMethodCallHandler(null)
         nativeFateWheelChannel = null
         pendingFateWheelResult?.success(null)
@@ -121,6 +131,7 @@ class MainActivity : FlutterActivity() {
             pendingFateWheelResult = null
             return
         }
+        if (caicaiLive2DBridge?.onActivityResult(requestCode, resultCode, data) == true) return
         bridge?.onActivityResult(requestCode, resultCode, data)
     }
 

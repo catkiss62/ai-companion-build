@@ -1,6 +1,6 @@
 # AI Companion · 当前总账
 
-更新时间：2026-09-27（UTC；+274 游戏检查点续玩、桌宠默认缩放与工具折叠待构建）
+更新时间：2026-09-27（UTC；+275 菜菜原生 Live2D 自主待机与桌宠说话状态修复待构建）
 
 > 本文件是唯一的当前接班入口，继续采用“总账 v2”。顶部是快速接班索引；标记后的正式记录按版本持续追加，不设总容量上限。
 >
@@ -29,7 +29,7 @@
 - **自然语义 Agent**：允许“陪我下五子棋”等自然表达触发模型自主发现；普通“看看”不是联网授权。Cedar 的账号级 `allow_self_reset` 服从网站设置。用户已决定暂不增加 Agent 确认弹窗，直到未来加入修改/破坏性能力再设计确认。
 - **媒体 Agent**：她能发送的媒体必须同时具备自读能力、可执行工具、真实附件 Outcome、来源 provenance 与发送后第一人称历史；只在 UI 或 Prompt 声称不算完成。
 - **隐私与发布**：Token、绑定码、私密房间正文、用户附件、诊断、备份、模型权重和参考音频不得进入公开 Git/Prompt/公开诊断。用户持续授权推送明确开发分支并运行常规 Actions/Draft APK；不含合并 `main`、正式 Release、删除分支/用户数据、改变仓库权限。
-- **冻结范围**：Live2D 等待新模型测试，不在当前批次恢复。+249 的 Decoder 零新语义防护继续保留；+250 将日常持续会话计时移为手动 TTS 专项对照，并实现双形态气焰值。普通回复表情包已真机重新出现，未发现概率数值漏洞时不强改。
+- **冻结范围**：旧 Sen 产品适配器继续冻结；+275 以菜菜测试项目的原生渲染实现单独接入 Live2D 自主待机，后续 Jev/语音/双形态需分批验证。+249 的 Decoder 零新语义防护继续保留；+250 将日常持续会话计时移为手动 TTS 专项对照，并实现双形态气焰值。普通回复表情包已真机重新出现，未发现概率数值漏洞时不强改。
 
 ## 3. 当前基线
 
@@ -44,7 +44,8 @@
 | +269 当前任务 | `agent/v04225-pet-full-clips-heat` 从 +268 head `27dc991` 分出，构建 head `b9f854e960bca401c861b769cda2576b79ef9d9c`。原始 ZIP 在 Draft Release `397377805`、asset `591363139`，SHA-256 `ad94e2aa8829ddb5b8f0640e383b29bbccfbb5a77d9a957559e34cff17aea489`。排除 move/drag/balance 后 96 段、23,013 帧；五段点击、三段睡眠仅预览、自主池不稀释走路、桌面不透明、特效随尺寸、预览布局及回复后整轮气焰结算已实现。Actions `36271743353` 全绿，APK 722,612,227 字节，SHA-256 `0830c3e6d36a9ac0d5b94628cf6fac9564e02d8d8d6d0b4ae784d7f8d2dd9453`，未发布 Draft Release `397385083`。状态 `IMPLEMENTED / CI PASSED / APK READY / TRUE DEVICE PENDING`；真机视觉、透传触摸与性能未验。素材由固定 Draft asset 获取并校验，不逐帧上传对话。|
 | +270 当前任务 | `agent/v04226-pet-opaque-ambient-preview` 从 +269 远端 `f57acba` 分出。用户真机发现同一段新动画在“实验动画”关闭后继续播放却立即变实，证据指向独立实验 WindowManager 绘制层。改为单窗口不透明播放，保留原触摸/基础动作；“新版动画”默认开，旧模式保持原逻辑，新模式移出旧的非基础待机、纳入三段睡眠与工作/思考短片待机（深度思考碎碎念若裁切不宜修则排除），聊天思考与说话仍用旧动作；校准入口移至播放器首位，两个 Activity 修复上下裁切。旧 APK Draft `<=+265` 由维护 Actions `36275881299` 删除 191 个，人工删除 3 个；保留两份无 APK 草稿及构建输入。构建 head `4b205aee8f8e27a50ee4a87f5f1060fbf1dc4b7d`；Actions `36276798640` 全绿，未发布 Draft `untagged-c838b8c01ac127dd5d71`，APK SHA-256 `8e8a0b3c2809bb53efa9bd9e53e3d058ec0126231a736213fe69d395623cb85b`。状态 `IMPLEMENTED / CI PASSED / APK READY / TRUE DEVICE PENDING`。|
 | +271 当前任务 | 用户报告 +269 昨晚到今午无自主聊天。旧版 2026-09-27 16:03（中国时间）存档/诊断：最后主动消息 09-26 11:14；过去 24 小时 `autonomousBehaviors=0`；Active Brain=true、无传输锁、无当前阻塞生成/租约，后台错误累计 677、最近错误 `MissingPluginException(pendingStoppedReminders)`。`RecoveryOrchestrator.runOnce` 在自主心跳前调用日历提醒读取，后台 `BackgroundSystemBridge` 缺少该方法，导致整轮退出。+271 补齐后台日历读取/确认，并让提醒独立失败只记错误分类、不拖停自主心跳。分支 `agent/v04227-proactive-background-bridge`，构建 head `5860cd54238e77ec65e6b911decee71020ae5316`；Actions `36305352339` 全绿，APK SHA-256 `a2236878e9234570ee6e90f6e288cb25b4f9186653b2b09ef54a147f3b49e879`，未发布 Draft `untagged-fb80911e6438a3a7d7d3`。状态 `IMPLEMENTED / CI PASSED / APK READY / TRUE DEVICE PENDING`。|
-| +274 当前任务 | `agent/v04230-game-resume-pet-collapse`：用户真机观察自主游戏断续；源码证实检查点到期先延期 8 分钟、再触发意愿竞争，使 `resume_game` 因时钟未到期被排除。改为先竞争、未选中再延期，保留每次一步、3 次变动/25 分钟检查点、投入度/疲劳竞争和防沉迷；新动画默认缩放 147%（旧 121% 仍作显示基准），工具活动正文出现后自动折叠。另根据 20:13 诊断修补 Cedar 动作清理失败时租约未释放，并澄清备份占用提示；街机厅首次错误随后正常游玩，无确证协议故障，不改玩法。素材管线不改。状态 `IMPLEMENTED LOCALLY / CI PENDING / APK PENDING / TRUE DEVICE PENDING`，详见末尾 +274。|
+| +274 当前任务 | `agent/v04230-game-resume-pet-collapse`：用户真机观察自主游戏断续；源码证实检查点到期先延期 8 分钟、再触发意愿竞争，使 `resume_game` 因时钟未到期被排除。改为先竞争、未选中再延期，保留每次一步、3 次变动/25 分钟检查点、投入度/疲劳竞争和防沉迷；新动画默认缩放 147%（旧 121% 仍作显示基准），工具活动正文出现后自动折叠。另根据 20:13 诊断修补 Cedar 动作清理失败时租约未释放，并澄清备份占用提示；街机厅首次错误随后正常游玩，无确证协议故障，不改玩法。素材管线不改。状态 `IMPLEMENTED / CI PASSED / APK READY / TRUE DEVICE PENDING`，详见末尾 +274。|
+| +275 当前任务 | `agent/v04231-caicai-native-idle-pet-speech`：以 `nanlingyin/soullink-emotion-sdk` 的参考方向和菜菜实验项目的实际原生渲染实现为基础，移植菜菜双模型 Cubism 渲染、EV faithful 自主待机及几何锚点，主形态聊天画面可选启用，模型 ZIP 本机导入；不启用 Jev/语音驱动和小豆丁 Live2D。另为桌宠说话状态增加前台心跳与 8 秒失联过期。状态 `IMPLEMENTED LOCALLY / CI PENDING / APK PENDING / TRUE DEVICE PENDING`，详见末尾 +275。|
 | 当前任务状态 | `+265～+267` 已有构建与真机反馈；`+268 IMPLEMENTED / CI PASSED / APK READY / TRUE DEVICE PENDING`：不透明桌面播放、独立宽度与饱和度、24 fps 全帧与播放器时钟；`+269 IMPLEMENTED / CI PASSED / APK READY / TRUE DEVICE PENDING`：96 段完整动作及整轮气焰结算，见末尾 +269。|
 | +267 远端 | 功能 head `07142df2f01f15b5e4770fb6d17b48150770f422`；tree `aa16c6405f87967191dcb5b99662c53302983c52`；Actions `36232295089` 全绿；Artifact `10903136887`；APK SHA-256 `956812613c1fb00123e2ab2e6a3f5f3ccc1d320743c7bd6b866c4e0365b09ab2`；未发布 Draft Release `397169363` |
 | +250 当前任务 | 本体／小豆丁形态共用成年角色、记忆与能力；同一形态状态驱动角色提示与静态立绘，虚拟弹额头／安抚改变气焰值后继续自然衰减，心形液面与锁定入口；常驻世界书定点柔化并仅迁移未编辑原文；两档 TTS 共用冻结的真实回复与分段，无声生成并复制专项脱敏报告 |
@@ -1106,4 +1107,13 @@ Actions 与交付证据：远端功能 head `33647c7bff15084d6fd3cbc7b817e9b0b21
 - 同批桌宠：仅更改实验动画无本机保存值时的缩放默认 `1.21→1.47`，显示 fit 的参考基准固定 `1.21`，避免新默认被 fit 公式抵消。用户已手动存过的设置不覆盖；宽动作与屏幕边缘实际视觉待真机验证。透明 WebM→逐帧 WebP 管线与品质参数不变。
 - 同批 UI：普通聊天里工具调用过程可展开，回复正文首次出现自动收起；已完成消息的工具活动初始折叠，点击仍可复查真实 Outcome，不修改工具执行、结果、可见思考或沉浸回复。测试新增真实数据库中的单人检查点时钟／竞争资格／未选中退避回归；CI 继续跑源码门、Flutter analyze/tests、Kotlin、带受保护资源的完整 APK 与签名检查。
 - 真机追加诊断：用户 20:13 截图显示保存备份因“另一项备份、恢复或设备接管”占用失败；脱敏报告 `transferLock=true`、无待处理接管快照，Cedar 动作租约在游戏执行状态结束后仍有约 91 秒；最近一次用户 `cedar_toy.play` 因 `cedar_action_in_progress` 阻止。源码发现前台工具和后台自治的 `finally` 都先 `finishExecution` 再释放租约，若前者抛错会跳过后者，最多残留原 5 分钟租约。两条路径改为嵌套 `finally` 保证尝试释放；备份占用说明按实际操作类型标明，等待写入超时不再误称“重新发送状态包”。该诊断不能证明截图中的首次锁定一定源于租约清理异常，也没有街机厅 MCP 错误正文；用户随后确认街机厅已正常游玩，因此不改远端动作协议，待新版真机复测。
-- 状态：`IMPLEMENTED LOCALLY / CI PENDING / APK PENDING / TRUE DEVICE PENDING`。本机无 Flutter/Dart SDK，CI 结果和真机验证须分别回填；绝不能以静态单测替代真实 Cedar 服务端游玩或桌宠视觉验收。
+- 云端交付：最终功能 head `17541e0d069bcf65e40b10e3d48549fb8a88be5f`，Actions `36319265641` 的 `build-apk` 全绿；源码回归、Kotlin、Flutter analyze/test、Release APK、包内资源与原签名校验通过。Artifact `10932156599`；APK SHA-256 `64654f6009da96677168f45b45b9aba261d6ac0c919e8cdf9c263eb2ee057ba0`；签名证书 SHA-256 `30:5E:B3:D8:09:83:B9:63:C6:48:18:DD:F1:AD:56:1F:27:9D:E6:D4:7B:3E:D2:C7:81:AD:A4:48:C7:C2:51:48`；测试 Draft `https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-188cba037acbc197f5ea`。状态 `IMPLEMENTED / CI PASSED / APK READY / TRUE DEVICE PENDING`。用户确认旧版一次错误后街机厅可正常游玩，稍后备份亦成功；新版仍需真机验证偶发连续游玩与分享竞争、147% 尺寸、工具正文折叠，以及游戏／备份并发时租约能及时释放。
+
+## v0.42.31+275 · 菜菜原生 Live2D 自主待机与桌宠说话状态（2026-09-27）
+
+- 用户决定分步接入，首批只做原生 Live2D 与自主待机，并特别要求保留菜菜实验项目已经验证的“接入方式”，不要自行重写渲染。参考仓库 `nanlingyin/soullink-emotion-sdk` 用于后续 Jev 决策方向；本批实际原生实现来自 `catkiss62/caicai-live2d` 提交 `fb04512f940d159ebe13bebc13d2eda5cb54fc9c`，其官方 Cubism Java Framework 子模块固定 `c2d420012d004b8e61d4c589bd5c34513122f0ea`。源码与二进制出处、许可见 `app/docs/third_party/caicai-live2d/`。
+- 移植原生 `SenCompanionView`／`SenRenderer`／Cubism Framework、Core AAR、默认 profile、参数语义与 EV clips/vocab。正式宿主只加 PlatformView、生命周期、文件选择和本机导入薄适配层，不带实验 Activity 与系统 TTS 测试壳；保留原来的双模型 `loadModels`、三配件组合、几何约束、前发锚点、EV faithful 动作模式及原生参数混合。沿用先前验证过的无 mipmap 纹理过滤修正，否则缺失 mipmap 的模型纹理会黑屏。完整运行时由源码与资源哈希门固定，不将模型权重加入公开仓或 APK。
+- 用户在聊天画面设置导入带 `accessory-lab.json` 的菜菜女仆／Sen 三配件 ZIP，保存到应用私有目录，并可选启用主形态 Live2D；小豆丁仍用旧立绘。导入有路径与容量边界、临时目录、旧版回退；真正渲染报错时尝试恢复旧包。舞台可拖动／缩放。没有模型时提示导入。语音嘴型、表情与动作 Jev 判断、手选装扮及双形态 Live2D 不在首批开放，后续须根据真机画面和真实参数逐项加入；不能把原生自发动作当作 LLM 已控制参数。耳鳍眨眼和尾巴效果仍需真机核对菜菜源实现。
+- 桌宠说话动作的静态机制：`TALKING` 单次动画 2.9 秒返回 `IDLE` 后，若上游会话 cue 仍是 `playing`，空闲重检会立即再播。前台 TTS 真正播放时每 2 秒续传状态；服务端 8 秒收不到心跳就让失联 `playing` 过期，同时真实结束仍即时发 `idle`。当前没有同一时刻的真机 TTS 诊断来证明旧版“卡住”唯一来源，修复针对可证实的无限重播条件。
+- 保护边界：不改 Cedar、自主游戏/分享竞争、DeepSeek/Jev 工具规划、气焰及 schema 61；+274 的 147% 默认值、工具正文折叠、备份租约修复仍保留。原模型 ZIP 需用户从自己的仓库持有并在设备上导入；不在聊天中索取私有模型。验证包括 126 项源码套件、Kotlin／Flutter、签名和 APK 内完整原生资源；真机还需验证渲染叠层、前发与三配件、待机动态、重复开关及长时说话后的桌宠回到空闲。
+- 实施状态：`IMPLEMENTED LOCALLY / CI PENDING / APK PENDING / TRUE DEVICE PENDING`。待写入最终功能 head、Actions run、Artifact、APK SHA-256、签名证书和 Draft 下载位置。
