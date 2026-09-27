@@ -1,0 +1,7 @@
+status=success
+run_id=36334400381
+run_url=https://github.com/catkiss62/ai-companion-build/actions/runs/36334400381
+head_sha=a6193533b85b19ecccebfca771c85fc5e5e63ec0
+signer_sha256=30:5E:B3:D8:09:83:B9:63:C6:48:18:DD:F1:AD:56:1F:27:9D:E6:D4:7B:3E:D2:C7:81:AD:A4:48:C7:C2:51:48
+4a4540dbd8b9196435c597d8558e2a09e7fc2be4267b7a8a892925dab63fe82c  AI-Companion-v0.42.32-276-Caicai-Import-Pet-Touch-APK.apk
+release_url=https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-ee25d52fcd975a9a0068
