@@ -1,6 +1,6 @@
 # AI Companion · 当前总账
 
-更新时间：2026-09-27（UTC；+278 常规 Actions 全绿；+279 宿主与桌宠触摸修复开工，真机与 Jev 准确性仍待验）
+更新时间：2026-09-27（UTC；+279 常规 Actions 全绿、测试 Draft APK 就绪；真机显示/触摸与 Jev 准确性仍待验）
 
 > 本文件是唯一的当前接班入口，继续采用“总账 v2”。顶部是快速接班索引；标记后的正式记录按版本持续追加，不设总容量上限。
 >
@@ -49,7 +49,7 @@
 | +276 当前任务 | `agent/v04232-caicai-import-pet-touch`，候选 `v0.42.32+276`：导入后未渲染导致 pending 拦重试；新版 16:9 桌宠窗口使可操作范围过大。保留菜菜原生渲染及宽动画；修复二次导入事务并收紧桌宠手势到旧方形。状态 `IMPLEMENTED / CI PASSED / APK READY / TRUE DEVICE PENDING`，详见末尾 +276。|
 | +277 当前任务／Jev 持续观察 | 用户真机反馈 +276 桌宠范围无变化、菜菜导入无反应、Live2D 令输入法卡顿；Jev 低 confidence 回退频繁且旧诊断无法审计。重新按 +222 旧方窗及菜菜实验室 `fb04512` 验证源码：恢复真实 152×152dp 中号窗口与旧坐标迁移；导入/渲染阶段及 IME 降载；Jev 用最高概率、近似平局不加气焰、小豆丁固定 -18（用户更正），导出完整 Jev/气焰账。`v0.42.33+277`，Actions `36342200023` 全绿、测试 Draft 已有；状态 `IMPLEMENTED / CI PASSED / APK READY / TRUE DEVICE FAILED（用户回归反馈，见 +278） / JEV ACCURACY PENDING`。每份后续诊断与存档都分析 Jev 准确度，直到真机明确成功。详见末尾 +277。|
 | +278 当前任务 | `v0.42.34+278` / 同 `agent/v04232-caicai-import-pet-touch`。+277 用户已报告动画缩小、导入未显示、空模型开关卡输入法，不能沿用 TRUE DEVICE PENDING 掩盖失败。恢复批准的宽动画尺寸，系统输入区域独立；无模型不创建原生视图，渲染失败保留导入包，Hybrid Composition/焦点隔离；Live2D 独立设置与确认删除；Jev 稀疏动作/原装预设/小豆丁/PCM 口型。构建 head `cf69e61`，Actions `36348468407` 全绿，961 项 Flutter 测试，Draft `397797809`。`IMPLEMENTED / CI PASSED / APK READY / TRUE DEVICE PENDING`。Jev 持续观察，最高概率/近似平局中性/-18 不改；详见末尾 +278 和专项文档。|
-| +279 当前任务 | 用户要求基于实际上传的定版 ZIP、菜菜实验室 `fb04512` 和完整伴侣宿主/桌宠触摸链核查后再修改。当前分支 `agent/v04232-caicai-import-pet-touch` 基线 HEAD `6869255`，Actions `36349661753` 全绿，仅证明旧 CI。最新 ZIP 的 SHA-256 是 `e0406d06…`，与先前同名包仅 `texture_16.png` 内容不同；本次不把私有素材提交公开仓。桌宠依原始站立图 alpha 区域触摸，保留宽动画和 147% 校准。开工 `IMPLEMENTED LOCALLY / LOCAL STATIC VALIDATION PASSED / CI PENDING / TRUE DEVICE PENDING`，详见末尾 +279。|
+| +279 当前任务 | 已核对实际定版 ZIP、菜菜实验室 `fb04512` 和伴侣宿主/桌宠完整链路。最新 ZIP SHA-256 `e0406d06…`，与先前同名包仅 `texture_16.png` 内容不同，私有素材未入公开仓。桌宠按原始站立图 alpha 区域触摸，保留宽动画和 147% 校准。功能构建提交 `3af8e394`，Actions `36352508874` 全绿、Draft APK 已就绪。状态 `IMPLEMENTED / CI PASSED / APK READY / TRUE DEVICE PENDING / JEV ACCURACY PENDING`；详见末尾 +279。|
 | 当前任务状态 | `+265～+267` 已有构建与真机反馈；`+268 IMPLEMENTED / CI PASSED / APK READY / TRUE DEVICE PENDING`：不透明桌面播放、独立宽度与饱和度、24 fps 全帧与播放器时钟；`+269 IMPLEMENTED / CI PASSED / APK READY / TRUE DEVICE PENDING`：96 段完整动作及整轮气焰结算，见末尾 +269。|
 | +267 远端 | 功能 head `07142df2f01f15b5e4770fb6d17b48150770f422`；tree `aa16c6405f87967191dcb5b99662c53302983c52`；Actions `36232295089` 全绿；Artifact `10903136887`；APK SHA-256 `956812613c1fb00123e2ab2e6a3f5f3ccc1d320743c7bd6b866c4e0365b09ab2`；未发布 Draft Release `397169363` |
 | +250 当前任务 | 本体／小豆丁形态共用成年角色、记忆与能力；同一形态状态驱动角色提示与静态立绘，虚拟弹额头／安抚改变气焰值后继续自然衰减，心形液面与锁定入口；常驻世界书定点柔化并仅迁移未编辑原文；两档 TTS 共用冻结的真实回复与分段，无声生成并复制专项脱敏报告 |
@@ -1185,3 +1185,10 @@ Actions 与交付证据：远端功能 head `33647c7bff15084d6fd3cbc7b817e9b0b21
 - 查明的失败路线：Sen donor `model3.json` 声明 26 个纹理槽，定版 ZIP 仅含 `06/16/19` 三张有效图；菜菜原生 `requiredTextureIndices()` 按三配件 drawable/遮罩只选择必要槽。不能照主模型把全部 26 张强制校验，否则会错误拒绝已在实验室使用的定版包。主模型七项引用和 Sen 六项运行必要引用均在最新 ZIP 内存在且非空。
 - 已实施：导入事务在切换当前包前校验真实引用；Sen 按原 selective loader 的 `06/16/19` 校验，保留其它槽缺省。原生宿主设置媒体 Surface 的层级，加载中保持 GL 连续帧，记录 `surface_created/changed/destroyed` 及尺寸，出错保留包；原生 Java 运动与双模型投影未改。桌宠以 `IDLE → idle_front` 第一帧 alpha≥32 的像素行合成系统输入 Region，本机手势用同一 Region，缩放重新生成；宽视觉窗口、资源、147% 校准均保持。内部 insets 接口对 ROM 的兼容仍必须看实际 `overlayPetTouchRegion=applied:…:alpha` 和底层点击。
 - 本地验证：新旧 ZIP 逐项 CRC 对比仅 `texture_16.png` 不同；按代码校验集合重放最新 ZIP 全部主模型七项/Sen 六项均通过；`git diff --check`、YAML 解析、+278 宿主门、菜菜资源来源门和总账门通过。完整 127 项套件本机前 28 项通过，在第 29 项因 417 份受保护桌宠原始帧未在公开仓而停下；本环境无 Android/Flutter 编译与用户手机，CI 编译/真机显示状态仍待验证。版本与常规 Actions 配置已准备为 `v0.42.35+279`。构建结果另行回填。
+
+### +279 构建与交付回填（2026-09-27 UTC）
+
+- 功能与宿主远端提交 `cbac8b81b77bf1a84adee11cb368fe98df967b49`；历史桌宠门禁同步修正 `3af8e3944a5b315c0af7645c3bc3f773e6d43cf0`，构建源码树 `b823f3ed…`。最初 Actions `36352030673` 在第 30 项旧门禁上失败：门禁仍断言方形触摸坐标表达式，与新的站立图 alpha Region 冲突；修正门禁要求后重新全套构建，未跳过功能实现或该门禁。
+- 最终常规 [Actions 36352508874](https://github.com/catkiss62/ai-companion-build/actions/runs/36352508874) **全绿**：127 项源码门禁、Android 原生编译及相关测试、Flutter analyze/测试、Release APK、稳定签名、Genie/完整桌宠和其它固定资源打包校验均通过。签名证书 SHA-256 `30:5E:B3:D8:09:83:B9:63:C6:48:18:DD:F1:AD:56:1F:27:9D:E6:D4:7B:3E:D2:C7:81:AD:A4:48:C7:C2:51:48`。
+- 未发布的 [测试 Draft](https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-51cf4439c183e4442fdc) 已完成上传；APK `AI-Companion-v0.42.35-279-Caicai-Host-Standing-Alpha-Touch-APK.apk`，SHA-256 `04b4b8f086dd10bc91080734097a655895dd88b5c998c4a0c5fdbcfea248eac7`。Actions Artifact `10943216129`，另有同名 `.sha256` 及 CI Monitor。监控记录 `.ci/v04235-monitor.txt` 写入 `ci-monitor-v0345`，状态 `success`，构建 HEAD 与签名、校验值均一致。
+- 状态 **IMPLEMENTED / CI PASSED / APK READY / TRUE DEVICE PENDING / JEV ACCURACY PENDING**。本环境未连接用户 Android 设备，不能从绿色 CI 推断菜菜在用户手机实际出画、口型/动作、键盘共存、桌宠 alpha 透传在目标 ROM 生效。真机重点：导入这份 SHA `e0406d06…` 的最新 ZIP；检查两模型与三配件显示、键盘开合、桌宠透明区域底层点击及站立轮廓点击/拖动。诊断 `overlayPetTouchRegion` 必须出现 `applied:…:alpha`，若为 `failed`/`pending` 则记录设备和日志以继续定位系统 insets 兼容。Jev 预测准确性需实样对照，继续按顶部观察协议。
