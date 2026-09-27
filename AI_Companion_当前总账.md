@@ -1,6 +1,6 @@
 # AI Companion · 当前总账
 
-更新时间：2026-09-27（UTC；+277 CI 与测试 Draft 已完成，真机和 Jev 语义仍待验）
+更新时间：2026-09-27（UTC；+277 用户真机反馈失败，+278 修复与常规构建验证进行中）
 
 > 本文件是唯一的当前接班入口，继续采用“总账 v2”。顶部是快速接班索引；标记后的正式记录按版本持续追加，不设总容量上限。
 >
@@ -48,6 +48,7 @@
 | +275 当前任务 | `agent/v04231-caicai-native-idle-pet-speech`：菜菜双模型原生渲染／自主待机与桌宠说话心跳。HEAD `968ca7c`，Actions `36329874552` 全绿，Artifact `10935547935`，Draft `397702273`；状态 `IMPLEMENTED / CI PASSED / APK READY / TRUE DEVICE FAILED（导入重试）`，详见末尾 +275。|
 | +276 当前任务 | `agent/v04232-caicai-import-pet-touch`，候选 `v0.42.32+276`：导入后未渲染导致 pending 拦重试；新版 16:9 桌宠窗口使可操作范围过大。保留菜菜原生渲染及宽动画；修复二次导入事务并收紧桌宠手势到旧方形。状态 `IMPLEMENTED / CI PASSED / APK READY / TRUE DEVICE PENDING`，详见末尾 +276。|
 | +277 当前任务／Jev 持续观察 | 用户真机反馈 +276 桌宠范围无变化、菜菜导入无反应、Live2D 令输入法卡顿；Jev 低 confidence 回退频繁且旧诊断无法审计。重新按 +222 旧方窗及菜菜实验室 `fb04512` 验证源码：恢复真实 152×152dp 中号窗口与旧坐标迁移；导入/渲染阶段及 IME 降载；Jev 用最高概率、近似平局不加气焰、小豆丁固定 -18（用户更正），导出完整 Jev/气焰账。`v0.42.33+277`，Actions `36342200023` 全绿、测试 Draft 已有；状态 `IMPLEMENTED / CI PASSED / APK READY / TRUE DEVICE PENDING / JEV ACCURACY PENDING`。每份后续诊断与存档都分析 Jev 准确度，直到真机明确成功。详见末尾 +277。|
+| +278 当前任务 | `v0.42.34+278` / 同 `agent/v04232-caicai-import-pet-touch`。+277 用户已报告动画缩小、导入未显示、空模型开关卡输入法，不能沿用 TRUE DEVICE PENDING 掩盖失败。恢复批准的宽动画尺寸，系统输入区域独立；无模型不创建原生视图，渲染失败保留导入包，Hybrid Composition/焦点隔离；Live2D 独立设置与确认删除；Jev 稀疏动作/原装预设/小豆丁/PCM 口型。`IMPLEMENTED / CI PENDING / TRUE DEVICE PENDING`。Jev 持续观察，最高概率/近似平局中性/-18 不改；详见末尾 +278 和专项文档。|
 | 当前任务状态 | `+265～+267` 已有构建与真机反馈；`+268 IMPLEMENTED / CI PASSED / APK READY / TRUE DEVICE PENDING`：不透明桌面播放、独立宽度与饱和度、24 fps 全帧与播放器时钟；`+269 IMPLEMENTED / CI PASSED / APK READY / TRUE DEVICE PENDING`：96 段完整动作及整轮气焰结算，见末尾 +269。|
 | +267 远端 | 功能 head `07142df2f01f15b5e4770fb6d17b48150770f422`；tree `aa16c6405f87967191dcb5b99662c53302983c52`；Actions `36232295089` 全绿；Artifact `10903136887`；APK SHA-256 `956812613c1fb00123e2ab2e6a3f5f3ccc1d320743c7bd6b866c4e0365b09ab2`；未发布 Draft Release `397169363` |
 | +250 当前任务 | 本体／小豆丁形态共用成年角色、记忆与能力；同一形态状态驱动角色提示与静态立绘，虚拟弹额头／安抚改变气焰值后继续自然衰减，心形液面与锁定入口；常驻世界书定点柔化并仅迁移未编辑原文；两档 TTS 共用冻结的真实回复与分段，无声生成并复制专项脱敏报告 |
@@ -1145,3 +1146,22 @@ Actions 与交付证据：远端功能 head `33647c7bff15084d6fd3cbc7b817e9b0b21
 - 首次更正后的 Actions `36340823563`：源码回归通过，但 Kotlin 步骤的 Flutter 预编译发现设置页 Jev 连接测试仍传已移除的 `confidenceFloor` 参数，故在编译阶段失败；按编译日志移除该参数，扫描全部源码无其他调用点。GL 按需绘制时再导入模型显式请求一帧，确保排队的模型加载能够消费。
 - 第二轮 Actions `36341488592`：源码、Kotlin、Flutter analyze 均过；Flutter tests 954 通过、3 失败。两项旧 Jev 用例只给被选项概率，新解析器误将其视为无效而转 DeepSeek；新近似平局用例的 mock 辅助函数错误地强制每批都有 `route` 问题。修复为接受有效稀疏概率、仅在至少两个概率已返回时判近似平局，并在诊断注明概率是否完整；测试 helper 改为验证问题集合存在，不预设单题。
 - 最终功能 head `6029aec55c6dcbaf9ca0ca35d499fbdaf8021a9f`，tree `60cf73cb5fd706ddd7632ca16984dbfab4da18b9`；Actions `36342200023`：全部源码门、Kotlin 测试、Flutter analyze、957 项 Flutter 测试、Release APK、完整资源与原签名校验全绿。Artifact `10939257571`；未发布测试 Draft `https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-99f8ed3dbab5914d561d`，APK 名 `AI-Companion-v0.42.33-277-Caicai-Render-Pet-Jev-Audit-APK.apk`，SHA-256 `aa4b74609c9a008a5e9e1cde3ab4d383ccdd2c5b8a40e9cdf429e6d7c0c60fa1`，签名证书 SHA-256 `30:5E:B3:D8:09:83:B9:63:C6:48:18:DD:F1:AD:56:1F:27:9D:E6:D4:7B:3E:D2:C7:81:AD:A4:48:C7:C2:51:48`。成功监控 `.ci/v04233-monitor.txt` 已核对。最终状态 `IMPLEMENTED / CI PASSED / APK READY / TRUE DEVICE PENDING / JEV ACCURACY PENDING`；真实 ZIP 渲染、三配件、输入法手感、桌宠透明侧区透传与 Jev 语义正确性尚未由设备证明。下次拿到诊断和备份必须逐轮评估，不因本次构建通过解除持续观察。
+
+
+## v0.42.34+278：停止尺寸倒退，修复 Live2D 宿主并接动作
+
+### 用户验收事实与边界
+
++277 的绿色 CI 不代表手机成功。用户确认新桌宠动画重新变小；导入提示成功但舞台仍要 ZIP；**没有模型也只要启用 Live2D 就卡输入法**。本轮用户重新授权实施/推送/常规 Actions，要求独立 Live2D 分类、侧栏入口替换、删除确认。保护批准的动画尺寸/素材/147% 校准，保护菜菜已经调好的配件与可动参数，保护 Jev 气焰最高概率/近似平局中性/每轮 -18。
+
+### 证据与实现
+
+完整来源、包哈希、宿主与原始算法边界见 `app/docs/LIVE2D_HOST_AND_PET_TOUCH_v0.42.34.md`。实际检查菜菜 fb04512、两份桌宠参考、SoulLink Jev 文档及用户定版素材包，未重新猜测配件运动算法。+277 方窗口导致宽动画适配缩小；onError 自动 rollback 可能删掉首次导入候选；旧 Flutter AndroidView 无模型也创建原生子树。这些均有代码路径证据，具体手机渲染错误尚无新版诊断确认。
+
+实现：宽绘制/窄系统输入区域分离、输入区域实测状态诊断；导入成功 revision 单次重建，渲染错误留包；空模型零 PlatformView；直接 Hybrid Composition/原生禁焦点/IME 暂停连续绘制；独立设置与二次确认；原装预设、形态、Jev 四帧动作、现有 AudioTrack 口型。原始 26 文件经剥离明确标记宿主增量后校验仍等于上游基线。
+
+### 验证状态
+
+已加入无模型/IME、删除确认、参数边界/一次 Jev 请求、原生计划退出与口型所有权测试。当前工作环境缺 Flutter/Kotlin 编译器及 CI 才恢复的受保护素材，不能声称本地编译通过。常规 Actions 将执行完整素材还原、源码门禁、JVM/Flutter 测试、分析、APK 与稳定签名。提交、Actions、Draft 及结果在实际完成后回填。
+
+**Jev 持续观察**：之后每份诊断/存档同时检查语义最高概率选择、近似平局处理、实际气焰结算与固定 -18，新增外观动作 lane 不替代气焰诊断。未经明确手机验证不得标 `TRUE DEVICE PASSED` 或 `JEV ACCURACY VERIFIED`。

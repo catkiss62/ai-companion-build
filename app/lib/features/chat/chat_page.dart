@@ -6,6 +6,7 @@ import 'package:flutter/rendering.dart' show ScrollDirection;
 import 'package:image_picker/image_picker.dart';
 
 import '../../core/ai/message_language_variant_service.dart';
+import '../../core/ai/caicai_chat_motion.dart';
 import '../../core/ai/deepseek_balance.dart';
 import '../../core/ai/reasoning_translation_service.dart';
 import '../../core/agent/agent_tool.dart';
@@ -19,7 +20,6 @@ import '../../core/models/message_attachment.dart';
 import '../../core/models/reference_document.dart';
 import '../../core/mcp/cedar_toy_activity.dart';
 import '../../core/platform/android_bridge.dart';
-import '../../core/platform/live2d_model_storage.dart';
 import '../../core/personality/playful_form_state.dart';
 import '../../core/storage/message_attachment_storage.dart';
 import '../../core/stickers/sticker_pack.dart';
@@ -38,6 +38,7 @@ import '../../widgets/chat_portrait_stage.dart';
 import '../../widgets/caicai_live2d_stage.dart';
 import '../../widgets/playful_heat_gauge.dart';
 import 'chat_controller.dart';
+import 'live2d_settings_page.dart';
 import 'chat_timestamp_formatter.dart';
 import '../reference/reference_library_page.dart';
 import '../phone/simulated_phone_page.dart';
@@ -90,7 +91,7 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
   double _panelFraction = 0.62;
   ChatPortraitSet _portraitSet = ChatPortraitSet.largeWhale;
   bool _caicaiEnabled = false;
-  bool _caicaiImporting = false;
+  final _caicaiMotion = CaicaiChatMotion();
   PlayfulFormState _playfulForm = const PlayfulFormState();
   double _portraitScale = ChatPortraitTransform.defaults.scale;
   Offset _portraitOffset = ChatPortraitTransform.defaults.offset;
@@ -207,6 +208,7 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
   @override
   void didUpdateWidget(covariant ChatPage oldWidget) {
     super.didUpdateWidget(oldWidget);
+    if (oldWidget.active && !widget.active) unawaited(_caicaiMotion.stop());
     if (!oldWidget.active && widget.active) {
       // A backup can replace the persisted form while this tab stays mounted.
       // Refresh it when the user returns, even if no new chat turn was added.
@@ -266,6 +268,13 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
         }
         break;
       }
+    }
+    if (discoveredUser) unawaited(_caicaiMotion.stop());
+    if (discoveredAssistant && _caicaiEnabled && _visualStageEnabled && widget.active) {
+      final reply = controller.messages.where((m) => m.isAssistant).last;
+      final users = controller.messages.where((m) => m.isUser);
+      unawaited(_caicaiMotion.present(id: reply.id, user: users.isEmpty ? '' : users.last.content,
+        reply: reply.content, emotion: _currentEmotion.key));
     }
     setState(() {});
     if (discoveredUser || generationEnded) unawaited(_refreshPlayfulForm());
@@ -390,6 +399,7 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
       await db.getSetting('chat_portrait_set'),
     );
     _caicaiEnabled = (await db.getSetting('chat_portrait_mode')) == 'caicai_live2d';
+    if (!_caicaiEnabled) unawaited(_caicaiMotion.stop());
     await _loadPortraitTransform(_portraitSet);
     _typewriterMs = (int.tryParse(
               await db.getSetting('chat_typewriter_ms') ?? '',
@@ -554,6 +564,7 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     _appResumed = state == AppLifecycleState.resumed;
+    if (!_appResumed) unawaited(_caicaiMotion.stop());
     if (_appResumed &&
         widget.active &&
         !controller.analyzingImage) {
@@ -575,6 +586,7 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
     _composerToolsOverlay = null;
     controller.removeListener(_onChanged);
     controller.dispose();
+    unawaited(_caicaiMotion.stop());
     input.dispose();
     inputFocus.removeListener(_onComposerFocusChanged);
     inputFocus.dispose();
@@ -583,7 +595,7 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
   }
 
   void _onComposerFocusChanged() {
-    if (_caicaiEnabled && _visualStageEnabled && !_playfulForm.qForm) {
+    if (_caicaiEnabled && _visualStageEnabled) {
       unawaited(CaicaiLive2DService.setEditorFocused(inputFocus.hasFocus));
     }
   }
@@ -1360,9 +1372,11 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
                       fit: BoxFit.cover,
                       alignment: Alignment.center,
                     ),
-                    Positioned.fill(
-                      child: _caicaiEnabled && !_playfulForm.qForm
-                          ? const CaicaiLive2DStage()
+                    Positioned(
+                      left: 0, right: 0, top: 0,
+                      height: constraints.maxHeight + (_caicaiEnabled ? MediaQuery.viewInsetsOf(context).bottom : 0),
+                      child: _caicaiEnabled
+                          ? CaicaiLive2DStage(qForm: _playfulForm.qForm, emotion: _currentEmotion.key)
                           : IgnorePointer(
                         child: ChatPortraitStage(
                           emotion: _currentEmotion,
@@ -1758,47 +1772,6 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
                           );
                         },
                       ),
-                      if (_visualStageEnabled)
-                        SwitchListTile(
-                          contentPadding: EdgeInsets.zero,
-                          title: const Text('菜菜 Live2D 自主待机'),
-                          subtitle: const Text('女仆主模型与三配件；小豆丁形态暂用原立绘。'),
-                          value: _caicaiEnabled,
-                          onChanged: (value) async {
-                            setState(() => _caicaiEnabled = value);
-                            setPanelState(() {});
-                            await update('chat_portrait_mode',
-                                value ? 'caicai_live2d' : 'static');
-                          },
-                        ),
-                      if (_visualStageEnabled)
-                        ListTile(
-                          contentPadding: EdgeInsets.zero,
-                          leading: _caicaiImporting
-                              ? const CircularProgressIndicator()
-                              : const Icon(Icons.folder_zip_outlined),
-                          title: const Text('导入菜菜模型 ZIP'),
-                          subtitle: Text(_caicaiImporting
-                              ? '正在解压与校验模型，请稍候…'
-                              : '导入菜菜女仆三配件完整模型包。'),
-                          onTap: _caicaiImporting ? null : () async {
-                            setPanelState(() => _caicaiImporting = true);
-                            try {
-                              final imported = await CaicaiLive2DService.pickModelZip();
-                              if (mounted && imported) {
-                                ScaffoldMessenger.of(context).showSnackBar(
-                                  const SnackBar(content: Text('模型包已校验保存，请返回聊天画面确认 Live2D 真正加载')),
-                                );
-                              }
-                            } catch (error) {
-                              if (mounted) ScaffoldMessenger.of(context).showSnackBar(
-                                SnackBar(content: Text('导入失败：$error')),
-                              );
-                            } finally {
-                              if (mounted) setState(() => _caicaiImporting = false);
-                            }
-                          },
-                        ),
                       if (_visualStageEnabled && !_caicaiEnabled)
                         DropdownButtonFormField<ChatPortraitSet>(
                           value: _portraitSet,
@@ -1839,13 +1812,13 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
                       ListTile(
                         contentPadding: EdgeInsets.zero,
                         leading: const Icon(Icons.delete_sweep_outlined),
-                        title: const Text('清除 Live2D 模型包'),
+                        title: const Text('Live2D 设置'),
                         subtitle: const Text(
-                          '删除旧 Live2D 接入留在本机 App 私有目录中的模型文件。',
+                          '模型导入、表情动作、Jev 与模型管理。',
                         ),
                         onTap: () async {
                           Navigator.pop(dialogContext);
-                          await _clearImportedLive2DModel();
+                          await _openLive2DSettings();
                         },
                       ),
                       DropdownButtonFormField<ProactiveNotificationSound>(
@@ -2125,60 +2098,9 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
     );
   }
 
-  Future<void> _clearImportedLive2DModel() async {
-    try {
-      final status = await Live2DModelStorage.status();
-      if (!mounted) return;
-      if (!status.hasData) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('本机没有已导入的 Live2D 模型包')),
-        );
-        return;
-      }
-      final size = _formatStorageBytes(status.bytes);
-      final confirmed = await showDialog<bool>(
-        context: context,
-        builder: (dialogContext) => AlertDialog(
-          title: const Text('清除 Live2D 模型包？'),
-          content: Text(
-            '将删除旧 Live2D 接入保存在本机 App 私有目录中的全部模型文件（约 $size）。'
-            '该操作不可恢复，但不会影响静态立绘、聊天记录或其他角色资源。',
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(dialogContext, false),
-              child: const Text('取消'),
-            ),
-            FilledButton(
-              onPressed: () => Navigator.pop(dialogContext, true),
-              child: const Text('确认清除'),
-            ),
-          ],
-        ),
-      );
-      if (confirmed != true) return;
-      final deletedBytes = await Live2DModelStorage.clearImportedModels();
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('已清除 Live2D 模型包（${_formatStorageBytes(deletedBytes)}）'),
-        ),
-      );
-    } catch (error) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('清除 Live2D 模型包失败：$error')),
-      );
-    }
-  }
-
-  String _formatStorageBytes(int bytes) {
-    if (bytes < 1024) return '$bytes B';
-    final kib = bytes / 1024;
-    if (kib < 1024) return '${kib.toStringAsFixed(1)} KiB';
-    final mib = kib / 1024;
-    if (mib < 1024) return '${mib.toStringAsFixed(1)} MiB';
-    return '${(mib / 1024).toStringAsFixed(2)} GiB';
+  Future<void> _openLive2DSettings() async {
+    await Navigator.of(context).push(MaterialPageRoute(builder: (_) => const Live2DSettingsPage()));
+    await _loadVisualSettings();
   }
 
   Future<void> _openQuickPanelV2() async {
@@ -2359,11 +2281,11 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
                   ),
                   _QuickPanelTile(
                     icon: Icons.delete_sweep_outlined,
-                    title: '清除 Live2D 模型包',
-                    subtitle: '删除旧接入留在本机的模型文件；不影响静态立绘。',
+                    title: 'Live2D 设置',
+                    subtitle: '模型导入、表情动作、Jev 与模型管理。',
                     onTap: () async {
                       Navigator.pop(dialogContext);
-                      await _clearImportedLive2DModel();
+                      await _openLive2DSettings();
                     },
                   ),
                   _QuickPanelTile(

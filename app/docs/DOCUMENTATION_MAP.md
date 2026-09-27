@@ -83,6 +83,8 @@
 
 ### UI 与仓库入口
 
+- `LIVE2D_HOST_AND_PET_TOUCH_v0.42.34.md`：当前菜菜宿主、独立设置/确认删除、Jev 动作、PCM 口型、宽绘制与窄系统触摸的证据和真机验收。
+
 - `UI_INFORMATION_ARCHITECTURE_v1.md`：五域迁移；已吸收性格底色 UI 的唯一数据源约束。
 - `LIVE2D_CLEAN_ROLLBACK_v0.42.0.md`：当前 Sen/Cubism 接入的完整回退边界，以及只清理旧 App 私有模型目录的持久按钮合同。
 - `REPOSITORY_MAINTENANCE.md`：分支、总账滚动、统一 validator 清单、CI/资源与旧 Actions 的低风险维护边界。

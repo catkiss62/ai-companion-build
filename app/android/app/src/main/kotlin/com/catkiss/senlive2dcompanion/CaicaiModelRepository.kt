@@ -90,6 +90,12 @@ class CaicaiModelRepository(context: Context) {
         }
     }
 
+    fun clearImportedModels() = synchronized(lock) {
+        remove(root)
+        if (!prefs.edit().clear().commit()) throw IOException("无法清除模型索引")
+        CaicaiDiagnostics.record(app, "models_deleted")
+    }
+
     fun confirmPendingImport() = synchronized(lock) {
         if (!prefs.getBoolean("pending", false)) return@synchronized
         remove(backup)

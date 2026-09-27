@@ -37,9 +37,25 @@ class CaicaiLive2DBridge(
                     "render" to CaicaiRuntime.state(),
                     "events" to CaicaiDiagnostics.events(activity),
                 ))
+                "control" -> {
+                    val args = call.arguments as? Map<*, *>
+                    CaicaiRuntime.control(args?.get("method")?.toString() ?: "", args?.get("arguments"), result)
+                }
                 "setEditorFocused" -> {
                     CaicaiRuntime.setKeyboardVisible(call.arguments == true)
                     result.success(null)
+                }
+                "clearImportedModels" -> {
+                    if (pending != null) return@setMethodCallHandler result.error("busy", "模型导入正在进行", null)
+                    CaicaiRuntime.releaseModel()
+                    worker.execute {
+                        try {
+                            repository.clearImportedModels()
+                            activity.runOnUiThread { if (!disposed) result.success(null) }
+                        } catch (error: Exception) {
+                            activity.runOnUiThread { if (!disposed) result.error("delete_failed", error.message, null) }
+                        }
+                    }
                 }
                 "pickModelZip" -> {
                     if (pending != null) return@setMethodCallHandler result.error("busy", "模型导入正在进行", null)
@@ -79,7 +95,9 @@ class CaicaiLive2DBridge(
                 val imported = repository.importZip(uri)
                 activity.runOnUiThread {
                     if (!disposed) {
-                        CaicaiRuntime.reloadModel()
+                        // Dart revision recreates the view once; old callbacks cannot
+                        // verify or overwrite the newly imported package.
+                        CaicaiRuntime.releaseModel()
                         pending = null
                         callback.success(mapOf("cancelled" to false, "available" to imported.available,
                             "pending" to repository.isPending()))

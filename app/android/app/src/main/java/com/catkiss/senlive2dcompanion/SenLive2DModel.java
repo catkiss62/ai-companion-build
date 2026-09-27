@@ -397,6 +397,67 @@ final class SenLive2DModel extends CubismUserModel {
         setupTextures(textures, listener);
     }
 
+    // BEGIN AI_COMPANION_HOST_EXTENSION
+    private final CaicaiParameterPlan parameterPlan = new CaicaiParameterPlan();
+    private final java.util.Set<String> planOwnedPresets = new java.util.HashSet<>();
+    private float planPresetSeconds;
+
+    String motionParameters() {
+        JSONObject result = new JSONObject();
+        if (model == null) return result.toString();
+        try {
+            for (int i = 0; i < model.getParameterCount(); i++) {
+                String id = model.getParameterId(i).getString();
+                if (!CaicaiParameterPlan.supports(id)) continue;
+                result.put(id, new JSONObject().put("min", model.getParameterMinimumValue(i))
+                    .put("max", model.getParameterMaximumValue(i)));
+            }
+        } catch (JSONException ignored) { }
+        return result.toString();
+    }
+
+    void startParameterPlan(String json, String face, String action) throws JSONException {
+        clearParameterPlan();
+        parameterPlan.start(json);
+        for (String name : new String[]{face, action}) {
+            if (name == null || name.isEmpty() || !maidPresetValues.containsKey(name) && !isWinkPreset(name)) continue;
+            // A manual preset owns its group until the user turns it off.
+            boolean occupied = false;
+            for (String active : activeExpressionNames) {
+                if (active.equals(name) || maidPresetsConflict(name, active)) { occupied = true; break; }
+            }
+            if (!occupied) { startMaidPreset(name); planOwnedPresets.add(name); }
+        }
+        planPresetSeconds = 4.5f;
+    }
+
+    void clearParameterPlan() {
+        parameterPlan.clear();
+        for (String name : new java.util.ArrayList<>(planOwnedPresets)) stopMaidPreset(name);
+        planOwnedPresets.clear();
+        planPresetSeconds = 0f;
+    }
+
+    private void applyParameterPlan(float delta) {
+        if (planPresetSeconds > 0) {
+            planPresetSeconds -= delta;
+            if (planPresetSeconds <= 0) {
+                for (String name : new java.util.ArrayList<>(planOwnedPresets)) stopMaidPreset(name);
+                planOwnedPresets.clear();
+            }
+        }
+        parameterPlan.apply(delta, new CaicaiParameterPlan.Target() {
+            public boolean accepts(String id) { return findParameterIndex(id) >= 0; }
+            public float current(String id) { return model.getParameterValue(findParameterIndex(id)); }
+            public void write(String id, float value) { setParameter(id, value); }
+        });
+    }
+
+    void setSmallForm(boolean small) {
+        if (activeExpressionNames.contains("变小") != small) setExpression("变小");
+    }
+
+    // END AI_COMPANION_HOST_EXTENSION
     void update(float deltaSeconds) {
         if (model == null) return;
         if (compositeRole == CompositeModelRole.SEN_ACCESSORY_DONOR) {
@@ -455,6 +516,7 @@ final class SenLive2DModel extends CubismUserModel {
         }
         updateScheduler.onLateUpdate(model, frameDelta);
         if (compositeRole == CompositeModelRole.MAID_PRIMARY) {
+            applyParameterPlan(frameDelta); // AI_COMPANION_HOST_PLAN_HOOK
             applyMaidPresetLayer(frameDelta);
         }
         // The authored angry pose crossfades from the previous face for half a second. During

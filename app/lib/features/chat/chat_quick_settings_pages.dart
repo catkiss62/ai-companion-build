@@ -19,7 +19,7 @@ import '../../core/tts/tts_service.dart';
 import '../../core/tts/tts_text_processor.dart';
 import '../../core/tts/tts_voice_profile.dart';
 import '../../widgets/action_tint_text.dart';
-import '../../widgets/caicai_live2d_stage.dart';
+import 'live2d_settings_page.dart';
 
 class CompanionStateOverviewPage extends StatefulWidget {
   const CompanionStateOverviewPage({super.key});
@@ -368,8 +368,6 @@ class _ChatVisualSettingsPageState extends State<ChatVisualSettingsPage> {
   final _db = AppDatabase.instance;
   bool _enabled = true;
   bool _caicai = false;
-  bool _caicaiAvailable = false;
-  bool _caicaiImporting = false;
   ChatPortraitSet _portrait = ChatPortraitSet.largeWhale;
   String _background = 'auto';
   double _opacity = 0.75;
@@ -384,7 +382,6 @@ class _ChatVisualSettingsPageState extends State<ChatVisualSettingsPage> {
   Future<void> _load() async {
     _enabled = (await _db.getSetting('chat_visual_stage_enabled')) != '0';
     _caicai = (await _db.getSetting('chat_portrait_mode')) == 'caicai_live2d';
-    _caicaiAvailable = await CaicaiLive2DService.available;
     _portrait = chatPortraitSetFromKey(
       await _db.getSetting('chat_portrait_set'),
     );
@@ -420,47 +417,12 @@ class _ChatVisualSettingsPageState extends State<ChatVisualSettingsPage> {
                     },
                   ),
                   if (_enabled) ...[
-                    SwitchListTile(
-                      contentPadding: EdgeInsets.zero,
-                      title: const Text('菜菜 Live2D 自主待机'),
-                      subtitle: Text(_caicaiAvailable
-                          ? '菜菜女仆与耳鳍、呆毛、尾巴配件'
-                          : '请先导入菜菜女仆三配件模型 ZIP'),
-                      value: _caicai,
-                      onChanged: (value) async {
-                        setState(() => _caicai = value);
-                        await _db.setSetting('chat_portrait_mode',
-                            value ? 'caicai_live2d' : 'static');
-                      },
-                    ),
-                    ListTile(
-                      contentPadding: EdgeInsets.zero,
-                      leading: _caicaiImporting
-                          ? const CircularProgressIndicator()
-                          : const Icon(Icons.folder_zip_outlined),
-                      title: Text(_caicaiAvailable ? '重新导入菜菜模型' : '导入菜菜模型 ZIP'),
-                      subtitle: Text(_caicaiImporting
-                          ? '正在解压与校验模型，请稍候…'
-                          : '仅保存到本机；导入后打开聊天画面验证渲染。'),
-                      onTap: _caicaiImporting ? null : () async {
-                        setState(() => _caicaiImporting = true);
-                        try {
-                          final available = await CaicaiLive2DService.pickModelZip();
-                          if (mounted) {
-                            if (available) setState(() => _caicaiAvailable = true);
-                            if (available) ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(content: Text('模型包已校验保存；请打开聊天画面确认 Live2D 真正加载。')),
-                            );
-                          }
-                        } catch (error) {
-                          if (mounted) ScaffoldMessenger.of(context).showSnackBar(
-                            SnackBar(content: Text('导入失败：$error')),
-                          );
-                        } finally {
-                          if (mounted) setState(() => _caicaiImporting = false);
-                        }
-                      },
-                    ),
+                    ListTile(title: const Text('Live2D 设置'),
+                      trailing: const Icon(Icons.chevron_right),
+                      onTap: () async {
+                        await Navigator.of(context).push(MaterialPageRoute(builder: (_) => const Live2DSettingsPage()));
+                        await _load();
+                      }),
                     if (!_caicai) DropdownButtonFormField<ChatPortraitSet>(
                       value: _portrait,
                       decoration: const InputDecoration(

@@ -106,6 +106,7 @@ object CompanionRuntimeState {
         private set
     @Volatile var overlayPositionSafe: Boolean = false
         private set
+    @Volatile var overlayPetTouchRegion: String = "not_attached"
     @Volatile var overlayChatWindowAttached: Boolean = false
         private set
     @Volatile var overlayLastTouchAt: Long = 0L
@@ -330,6 +331,7 @@ object CompanionRuntimeState {
             "overlayBubbleTouchable" to overlayBubbleTouchable,
             "overlayPositionSafe" to overlayPositionSafe,
             "overlayChatWindowAttached" to overlayChatWindowAttached,
+            "overlayPetTouchRegion" to overlayPetTouchRegion,
             "overlayLastTouchAt" to overlayLastTouchAt,
             "overlayLastTouchAction" to overlayLastTouchAction,
             "overlayLastSelfHealAt" to overlayLastSelfHealAt,

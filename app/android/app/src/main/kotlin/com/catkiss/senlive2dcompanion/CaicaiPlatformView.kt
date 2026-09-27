@@ -34,7 +34,11 @@ internal class CaicaiPlatformView(
     private val main = Handler(Looper.getMainLooper())
     private val repository = CaicaiModelRepository(context)
     private val app = context.applicationContext
-    private val root = FrameLayout(context).apply { setBackgroundColor(Color.TRANSPARENT) }
+    private val root = FrameLayout(context).apply {
+        setBackgroundColor(Color.TRANSPARENT)
+        descendantFocusability = android.view.ViewGroup.FOCUS_BLOCK_DESCENDANTS
+        isFocusable = false
+    }
     private val companion = SenCompanionView(context)
     private val channel = MethodChannel(messenger, "ai_companion/caicai_live2d/view/$viewId")
     private var disposed = false
@@ -43,15 +47,24 @@ internal class CaicaiPlatformView(
     @Volatile private var awaitingModelStart = false
     @Volatile private var modelStarted = false
     private var keyboardVisible = false
-    private var stageScale = 1f
-    private var stageX = 0f
-    private var stageY = 0f
+    private val viewPrefs = app.getSharedPreferences("caicai_stage", Context.MODE_PRIVATE)
+    private var stageAdjustment = false
+    private var smallForm = false
+    private var stageScale = viewPrefs.getFloat("scale", 1f)
+    private var stageX = viewPrefs.getFloat("x", 0f)
+    private var stageY = viewPrefs.getFloat("y", 0f)
     private var lastX = 0f
     private var lastY = 0f
     private val scaleDetector = ScaleGestureDetector(context,
         object : ScaleGestureDetector.SimpleOnScaleGestureListener() {
             override fun onScale(detector: ScaleGestureDetector): Boolean {
-                stageScale = (stageScale * detector.scaleFactor).coerceIn(.35f, 6f)
+                if (!stageAdjustment) return false
+                val previous = stageScale
+                stageScale = (previous * detector.scaleFactor).coerceIn(.35f, 6f)
+                val focusX = detector.focusX * 2f / companion.width.coerceAtLeast(1) - 1f
+                val focusY = 1f - detector.focusY * 2f / companion.height.coerceAtLeast(1)
+                stageX = focusX - (focusX - stageX) * stageScale / previous
+                stageY = focusY - (focusY - stageY) * stageScale / previous
                 applyStage()
                 return true
             }
@@ -59,6 +72,9 @@ internal class CaicaiPlatformView(
 
     init {
         channel.setMethodCallHandler(this)
+        companion.isFocusable = false
+        companion.isFocusableInTouchMode = false
+        companion.renderMode = GLSurfaceView.RENDERMODE_WHEN_DIRTY
         companion.setListener(this)
         // The standalone app's accepted front-hair connection and secondary motion.
         companion.setGeometryConstraintEnabled(true)
@@ -97,9 +113,28 @@ internal class CaicaiPlatformView(
                 stageScale = 1f; stageX = 0f; stageY = 0f
                 applyStage(); result.success(null)
             }
+            "setForm" -> { smallForm = call.arguments == true; companion.setSmallForm(smallForm); result.success(true) }
+            "setEmotion" -> { companion.setEmotion(call.arguments?.toString() ?: "normal"); result.success(true) }
+            "parameters" -> companion.motionParameters { json -> main.post { result.success(json) } }
+            "expression" -> { companion.clearParameterPlan(); companion.applyExpression(call.arguments?.toString() ?: ""); result.success(true) }
+            "static" -> { companion.setStaticMode(call.arguments == true); result.success(true) }
+            "earTwitch" -> { companion.triggerEarTwitch(); result.success(true) }
+            "headPat" -> { companion.triggerHeadPat(false); result.success(true) }
+            "adjustStage" -> { stageAdjustment = call.arguments == true; result.success(true) }
+            "resetPresets" -> { companion.clearParameterPlan(); companion.resetNativePresets(); companion.setSmallForm(smallForm); result.success(true) }
+            "stopMotion" -> { companion.clearParameterPlan(); result.success(true) }
+            "motionPlan" -> {
+                val args = call.arguments as? Map<*, *>
+                val plan = org.json.JSONArray(args?.get("frames") as? List<*> ?: emptyList<Any>()).toString()
+                companion.startParameterPlan(plan, args?.get("face")?.toString() ?: "", args?.get("action")?.toString() ?: "")
+                CaicaiDiagnostics.record(app, "motion_plan_applied", org.json.JSONObject(args ?: emptyMap<Any, Any>()).toString())
+                result.success(true)
+            }
             else -> result.notImplemented()
         }
     }
+
+    fun stopForDeletion() { dispose() }
 
     fun reloadModel() { if (!disposed) main.post(::loadCurrentModel) }
     fun hostResume() { if (!disposed) companion.onHostResume() }
@@ -108,7 +143,8 @@ internal class CaicaiPlatformView(
         if (!disposed && keyboardVisible != visible) {
             keyboardVisible = visible
             companion.renderMode = if (visible) GLSurfaceView.RENDERMODE_WHEN_DIRTY
-                else GLSurfaceView.RENDERMODE_CONTINUOUSLY
+                else if (renderStatus == "ready") GLSurfaceView.RENDERMODE_CONTINUOUSLY
+                else GLSurfaceView.RENDERMODE_WHEN_DIRTY
             if (visible) companion.requestRender()
             CaicaiDiagnostics.record(app, if (visible) "keyboard_open" else "keyboard_closed")
         }
@@ -141,10 +177,15 @@ internal class CaicaiPlatformView(
         )
         // The editor may have paused continuous GL; one frame still needs to
         // consume the newly queued model request before it can report ready.
+        applyStage()
         companion.requestRender()
     }
 
     private fun handleStageTouch(view: View, event: MotionEvent): Boolean {
+        if (!stageAdjustment) {
+            if (event.actionMasked == MotionEvent.ACTION_UP) companion.applyExpression("点击")
+            return true
+        }
         scaleDetector.onTouchEvent(event)
         when (event.actionMasked) {
             MotionEvent.ACTION_DOWN -> { lastX = event.x; lastY = event.y }
@@ -158,14 +199,24 @@ internal class CaicaiPlatformView(
                 }
                 lastX = event.x; lastY = event.y
             }
-            MotionEvent.ACTION_POINTER_UP, MotionEvent.ACTION_UP -> {
-                lastX = event.getX(0); lastY = event.getY(0)
+            MotionEvent.ACTION_POINTER_UP -> {
+                val remaining = if (event.actionIndex == 0) 1 else 0
+                if (remaining < event.pointerCount) { lastX = event.getX(remaining); lastY = event.getY(remaining) }
             }
+            MotionEvent.ACTION_UP -> { lastX = event.x; lastY = event.y }
         }
         return true
     }
 
-    private fun applyStage() = companion.setStageTransform(stageScale, stageX, stageY)
+    private fun applyStage() {
+        val limit = .9f + .5f * stageScale
+        stageX = stageX.coerceIn(-limit, limit); stageY = stageY.coerceIn(-limit, limit)
+        companion.setStageTransform(stageScale, stageX, stageY)
+        viewPrefs.edit().putFloat("scale", stageScale).putFloat("x", stageX).putFloat("y", stageY).apply()
+        companion.requestRender()
+    }
+
+    fun speechAmplitude(value: Float) { if (!disposed) companion.setSpeechAmplitude(value) }
 
     override fun onStatus(status: String) {
         if (awaitingModelStart && status.startsWith("原生渲染：准备加载菜菜女仆主模型")) {
@@ -188,15 +239,20 @@ internal class CaicaiPlatformView(
         renderDetail = detail
         CaicaiDiagnostics.record(app, "render_ready", detail)
         if (newlyLoaded) main.post { if (!disposed) repository.confirmPendingImport() }
+        main.post {
+            if (!disposed && !keyboardVisible) companion.renderMode = GLSurfaceView.RENDERMODE_CONTINUOUSLY
+        }
         send("onReady", mapOf("detail" to detail))
     }
     override fun onError(error: Throwable) {
         awaitingModelStart = false
         renderStatus = "error"
         renderDetail = error.message ?: error.javaClass.simpleName
-        CaicaiDiagnostics.record(app, "render_error", renderDetail)
+        CaicaiDiagnostics.record(app, "render_error", error.stackTraceToString())
         send("onError", mapOf("detail" to renderDetail))
-        main.post { if (!disposed && repository.rollbackPendingImport()) loadCurrentModel() }
+        // A GL/host failure is not proof that the imported ZIP is invalid.
+        // Retain the package and the actual error for retry and diagnostics.
+        main.post { if (!disposed) companion.renderMode = GLSurfaceView.RENDERMODE_WHEN_DIRTY }
     }
     override fun onMotionDiagnosticStep(label: String, index: Int, total: Int) = Unit
     override fun onMotionDiagnosticComplete(report: String) = Unit
@@ -216,7 +272,7 @@ internal class CaicaiPlatformView(
 
 /** A single native renderer owner for the chat stage. */
 object CaicaiRuntime {
-    private var active = WeakReference<CaicaiPlatformView>(null)
+    @Volatile private var active = WeakReference<CaicaiPlatformView>(null)
 
     @Synchronized internal fun attach(view: CaicaiPlatformView) {
         active.get()?.takeIf { it !== view }?.dispose()
@@ -225,6 +281,13 @@ object CaicaiRuntime {
     @Synchronized internal fun detach(view: CaicaiPlatformView) {
         if (active.get() === view) active.clear()
     }
+    fun hasActiveView(): Boolean = active.get() != null
+    fun speechAmplitude(value: Float) = active.get()?.speechAmplitude(value)
+    fun control(method: String, arguments: Any?, result: MethodChannel.Result) {
+        val view = active.get()
+        if (view == null) result.success(false) else view.onMethodCall(MethodCall(method, arguments), result)
+    }
+    fun releaseModel() = active.get()?.stopForDeletion()
     fun reloadModel() = active.get()?.reloadModel()
     fun onHostResume() = active.get()?.hostResume()
     fun onHostPause() = active.get()?.hostPause()

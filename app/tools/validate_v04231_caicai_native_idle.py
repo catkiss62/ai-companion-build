@@ -2,6 +2,7 @@
 """Pin the tested Caicai runtime and its non-model resources across app upgrades."""
 
 import hashlib
+import re
 from pathlib import Path
 
 
@@ -17,12 +18,19 @@ def require(condition: bool, detail: str) -> None:
 def tree_digest(relative: str, expected_count: int, expected_hash: str) -> None:
     root = ANDROID / relative
     files = sorted(path for path in root.rglob("*") if path.is_file()
-                   and path.name not in {"CubismShaderAndroid.java", "CubismRendererAndroid.java"})
+                   and path.name not in {"CubismShaderAndroid.java", "CubismRendererAndroid.java", "CaicaiParameterPlan.java"})
     digest = hashlib.sha256()
     for path in files:
         digest.update(str(path.relative_to(root)).encode())
         digest.update(b"\0")
-        digest.update(path.read_bytes())
+        data = path.read_bytes()
+        if path.name in {"SenCompanionView.java", "SenRenderer.java", "SenLive2DModel.java"}:
+            # Pin original renderer and accessory math; allow reviewed host additions.
+            text = data.decode()
+            text = re.sub(r"    // BEGIN AI_COMPANION_HOST_EXTENSION\n.*?    // END AI_COMPANION_HOST_EXTENSION\n", "", text, flags=re.S)
+            text = re.sub(r"^.*// AI_COMPANION_HOST_PLAN_HOOK\n", "", text, flags=re.M)
+            data = text.encode()
+        digest.update(data)
         digest.update(b"\0")
     require(len(files) == expected_count and digest.hexdigest() == expected_hash,
             f"Caicai source drift: {relative}")

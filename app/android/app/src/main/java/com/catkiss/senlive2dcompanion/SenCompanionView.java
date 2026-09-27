@@ -190,6 +190,17 @@ public final class SenCompanionView extends GLSurfaceView implements SenCompanio
                         evBodyFollowStrength), outfit));
     }
 
+    // BEGIN AI_COMPANION_HOST_EXTENSION
+    public void motionParameters(java.util.function.Consumer<String> callback) {
+        queueRenderer(() -> callback.accept(renderer.motionParameters()));
+    }
+    public void setSmallForm(boolean small) { queueRenderer(() -> renderer.setSmallForm(small)); }
+    public void startParameterPlan(String json, String face, String action) {
+        queueRenderer(() -> renderer.startParameterPlan(json, face, action));
+    }
+    public void clearParameterPlan() { queueRenderer(renderer::clearParameterPlan); }
+
+    // END AI_COMPANION_HOST_EXTENSION
     @Override
     public void setEmotion(String emotionId) {
         queueRenderer(() -> renderer.selectEmotion(emotionId));

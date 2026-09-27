@@ -10,10 +10,14 @@ caicai = (app / "android/app/src/main/kotlin/com/catkiss/senlive2dcompanion/Caic
 jev = (app / "lib/core/ai/jev_decision_gateway.dart").read_text()
 diagnostics = (app / "lib/core/diagnostics/preflight_diagnostics.dart").read_text()
 
-# The old +276 ACTION_DOWN guard did not shrink WindowManager's physical window.
-assert re.search(r"WindowManager\.LayoutParams\(\s*windowPx,\s*windowPx,", pet)
-assert "val nextWidth = nextHeight" in pet
-assert "KEY_SQUARE_WINDOW_POSITION_RESTORED" in pet
+# +277 square drawing was a visual regression. Preserve wide drawing and
+# publish the independent logical input region to WindowManager.
+assert re.search(r"WindowManager\.LayoutParams\(\s*visualWidthPx,\s*windowPx,", pet)
+assert "val nextWidth = dp(PetOverlaySizing.visualWidthDp(normalized))" in pet
+assert "KEY_VISUAL_WIDTH_RESTORED" in pet
+region = (app / "android/app/src/main/kotlin/com/aicompanion/localfirst/pet/PetTouchableRegion.kt").read_text()
+assert "touchableRegion" in region and "mode.invoke(data, 3)" in region
+assert "overlayPetTouchRegion" in region
 
 # The native view must wait for Dart's event listener before starting a load.
 init = caicai.split("    init {", 1)[1].split("    override fun getView", 1)[0]
@@ -26,4 +30,4 @@ assert "used_neutral_close_probability" in jev
 assert "report['jevShortUsage']" in diagnostics
 assert "report['playfulHeatTrace']" in diagnostics
 assert "report['caicaiLive2d']" in diagnostics
-print("+277 physical pet window, deferred Caicai load and Jev audit guard passed")
+print("+278 independent pet input region, deferred Caicai load and Jev audit guard passed")

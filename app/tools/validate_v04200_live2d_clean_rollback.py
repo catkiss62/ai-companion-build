@@ -63,8 +63,12 @@ def main() -> None:
     require("LEGACY_PREFERENCES" in cleanup_bridge, "legacy model index cleanup missing")
     require("clearImportedModels" in cleanup_bridge, "native cleanup method missing")
     require("ai_companion/live2d_model_storage" in cleanup_client, "Dart cleanup channel missing")
-    require("清除 Live2D 模型包" in chat_page, "persistent cleanup control missing")
-    require("确认清除" in chat_page, "destructive cleanup confirmation missing")
+    settings = read("lib/features/chat/live2d_settings_page.dart")
+    require("Live2D 设置" in chat_page and "Live2DSettingsPage" in chat_page, "persistent settings entry missing")
+    require("删除导入模型" in settings and "确认删除" in settings, "confirmed cleanup control missing")
+    require("confirmed != true" in settings, "deletion bypasses confirmation")
+    require("CaicaiLive2DService.clearImportedModels()" in settings, "Caicai cleanup missing")
+    require("Live2DModelStorage.clearImportedModels()" in settings, "legacy cleanup missing")
 
     require(
         any(

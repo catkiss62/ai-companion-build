@@ -1,6 +1,6 @@
 # Caicai native runtime attribution
 
-Runtime source is copied from `catkiss62/caicai-live2d` commit
+Runtime source is copied from `catkiss62/Caicai-Maid-Live2D-Accessory-Lab` commit
 `fb04512f940d159ebe13bebc13d2eda5cb54fc9c`. The app retains its tested
 renderer, composite model, and autonomous motion code. The standalone test
 Activity and system TTS test harness are excluded. This directory carries
@@ -27,3 +27,7 @@ The original `clips.json` and `vocab.json` are preserved byte-for-byte under
 of upstream `src/mixer.ts` and `src/clips.ts`; the Sen-adapted engine is kept as a separate
 implementation. Source provenance and the full upstream license are under
 `EV_AGPL_LICENSE.txt` here.
+
+## AI Companion host integration (+278)
+
+The 26 original runtime files remain checksum-pinned after stripping three explicitly marked host extension blocks and one update hook. The blocks expose parameter metadata, small form, and sparse motion plans; the original accessory, projection, preset and idle algorithms are unchanged. `CaicaiParameterPlan.java` is new host code. Jev planning follows the semantic-choice/keyframe integration described by `nanlingyin/soullink-emotion-sdk/docs/jev-conversation.md`; no SoulLink source code is copied.

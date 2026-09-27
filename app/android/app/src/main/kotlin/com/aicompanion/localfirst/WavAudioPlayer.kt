@@ -122,6 +122,7 @@ class WavAudioPlayer {
         @Volatile private var currentSpeed = initialSpeed
         @Volatile private var currentPitch = initialPitch
         private var firstEnqueued = false
+        private val lipSync = CaicaiPcmLipSync()
 
         fun start() = thread.start()
 
@@ -222,6 +223,8 @@ class WavAudioPlayer {
                                 currentSpeed = command.speed
                                 if (!cancelled) applyPlaybackParams(writer)
                             }
+                            lipSync.append(command.bytes, wav.dataOffset, wav.dataSize,
+                                wav.sampleRate, wav.channels, wav.bitsPerSample, wav.audioFormat, framesWritten)
                             val bytesPerFrame = wav.bytesPerFrame
                             var offset = wav.dataOffset
                             if (!playbackStarted) {
@@ -241,6 +244,7 @@ class WavAudioPlayer {
                                 if (cancelled) break
                                 writer.play()
                                 playbackStarted = true
+                                lipSync.start(writer)
                                 onStarted()
                                 started.countDown()
                             }
@@ -264,6 +268,7 @@ class WavAudioPlayer {
                 failure = error
                 started.countDown()
             } finally {
+                lipSync.stop()
                 runCatching { enhancer?.release() }
                 enhancer = null
                 runCatching { localTrack?.release() }

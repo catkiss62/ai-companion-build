@@ -479,6 +479,17 @@ final class SenRenderer implements GLSurfaceView.Renderer {
         if (model != null) model.resetNativePresets();
     }
 
+    // BEGIN AI_COMPANION_HOST_EXTENSION
+    String motionParameters() { return model == null ? "{}" : model.motionParameters(); }
+    void setSmallForm(boolean small) { if (model != null) model.setSmallForm(small); }
+    void startParameterPlan(String json, String face, String action) {
+        if (model == null) return;
+        try { model.startParameterPlan(json, face, action); }
+        catch (org.json.JSONException error) { listener.onStatus("动作计划格式错误：" + error.getMessage()); }
+    }
+    void clearParameterPlan() { if (model != null) model.clearParameterPlan(); }
+
+    // END AI_COMPANION_HOST_EXTENSION
     void selectEmotion(String name) {
         if (model != null) model.selectEmotion(name);
     }

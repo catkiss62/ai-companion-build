@@ -59,6 +59,7 @@ class PetOverlayWindow(
     var badge: TextView? = null
         private set
 
+    private var touchRegion: PetTouchableRegion? = null
     private var frameView: PetFrameView? = null
     private var experimentalCalibration = PetExperimentalCalibration()
     private var player: PetAnimationPlayer? = null
@@ -250,12 +251,12 @@ class PetOverlayWindow(
         val windowPx = dp(windowDp(size))
         val visualWidthPx = dp(PetOverlaySizing.visualWidthDp(size))
         val safe = menuSafeArea()
-        val defaultX = (safe.right - windowPx).coerceAtLeast(safe.left)
+        val defaultX = (safe.right - visualWidthPx).coerceAtLeast(safe.left)
         val defaultY = (safe.top + safe.height / 3).coerceAtMost(
             (safe.bottom - windowPx).coerceAtLeast(safe.top),
         )
         val layout = WindowManager.LayoutParams(
-            windowPx,
+            visualWidthPx,
             windowPx,
             overlayWindowType,
             WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or
@@ -266,9 +267,10 @@ class PetOverlayWindow(
             gravity = Gravity.TOP or Gravity.START
             val storedX = prefs.getInt(KEY_PET_X, defaultX)
             x = if (prefs.contains(KEY_PET_X) &&
-                prefs.getBoolean(KEY_WIDE_WINDOW_POSITION_MIGRATED, false) &&
-                !prefs.getBoolean(KEY_SQUARE_WINDOW_POSITION_RESTORED, false)) {
-                storedX + (visualWidthPx - windowPx) / 2
+                !prefs.getBoolean(KEY_VISUAL_WIDTH_RESTORED, false) &&
+                (prefs.getBoolean(KEY_SQUARE_WINDOW_POSITION_RESTORED, false) ||
+                 !prefs.getBoolean(KEY_WIDE_WINDOW_POSITION_MIGRATED, false))) {
+                storedX - (visualWidthPx - windowPx) / 2
             } else storedX
             y = prefs.getInt(KEY_PET_Y, defaultY)
         }
@@ -277,7 +279,7 @@ class PetOverlayWindow(
         (unread.layoutParams as FrameLayout.LayoutParams).let { badgeLayout ->
             badgeLayout.setMargins(
                 0, dp(PetOverlaySizing.badgeTopDp(size)),
-                dp(PetOverlaySizing.badgeEndDp(size)), 0,
+                (visualWidthPx - windowPx) / 2 + dp(PetOverlaySizing.badgeEndDp(size)), 0,
             )
             unread.layoutParams = badgeLayout
         }
@@ -309,6 +311,9 @@ class PetOverlayWindow(
         return runCatching {
             windowManager.addView(container, layout)
             root = container
+            touchRegion = PetTouchableRegion(container) {
+                dp(windowDp(normalizedSize(prefs.getString(KEY_PET_SIZE, PET_SIZE_MEDIUM))))
+            }.also { it.attach() }
             params = layout
             badge = unread
             frameView = petView
@@ -321,7 +326,7 @@ class PetOverlayWindow(
             handler.removeCallbacks(autonomyTick)
             handler.postDelayed(autonomyTick, AUTONOMY_TICK_MS)
             lastMotionArea = activeArea(layout)
-            prefs.edit().putBoolean(KEY_SQUARE_WINDOW_POSITION_RESTORED, true).apply()
+            prefs.edit().putBoolean(KEY_VISUAL_WIDTH_RESTORED, true).apply()
             persistPosition()
             true
         }.getOrElse {
@@ -418,7 +423,7 @@ class PetOverlayWindow(
         val oldCenterX = layout.x + layout.width / 2
         val oldBottom = layout.y + layout.height
         val nextHeight = dp(windowDp(normalized))
-        val nextWidth = nextHeight
+        val nextWidth = dp(PetOverlaySizing.visualWidthDp(normalized))
         layout.width = nextWidth
         layout.height = nextHeight
         layout.x = oldCenterX - nextWidth / 2
@@ -431,7 +436,7 @@ class PetOverlayWindow(
                 badgeLayout.setMargins(
                     0,
                     dp(PetOverlaySizing.badgeTopDp(normalized)),
-                    dp(PetOverlaySizing.badgeEndDp(normalized)),
+                    (nextWidth - nextHeight) / 2 + dp(PetOverlaySizing.badgeEndDp(normalized)),
                     0,
                 )
                 unread.layoutParams = badgeLayout
@@ -471,6 +476,8 @@ class PetOverlayWindow(
     }
 
     fun release(removeRoot: Boolean) {
+        touchRegion?.detach()
+        touchRegion = null
         handler.removeCallbacks(longPress)
         handler.removeCallbacks(physicsTick)
         handler.removeCallbacks(autonomyTick)
@@ -499,7 +506,7 @@ class PetOverlayWindow(
                 MotionEvent.ACTION_DOWN -> {
                     val hitWidth = dp(windowDp(normalizedSize(prefs.getString(KEY_PET_SIZE, PET_SIZE_MEDIUM))))
                     if (!PetTouchRegions.accepts(event.x, event.y, view.width, hitWidth)) {
-                        // Only the original square pet window can receive gestures.
+                        // Match the independent system touch region; preserve the wide render surface.
                         return@setOnTouchListener false
                     }
                     onTouchActivity("pet_down")
@@ -1163,6 +1170,8 @@ class PetOverlayWindow(
     }
 
     /** The single established window remains the touch and drawing surface. */
+    fun touchRegionStatus(): String = touchRegion?.status ?: "not_attached"
+
     private fun updatePetWindowLayout(view: View, layout: WindowManager.LayoutParams) {
         runCatching { windowManager.updateViewLayout(view, layout) }
     }
@@ -1562,6 +1571,7 @@ class PetOverlayWindow(
         private const val KEY_PET_X = "pet_x"
         private const val KEY_PET_Y = "pet_y"
         private const val KEY_WIDE_WINDOW_POSITION_MIGRATED = "pet_wide_window_position_migrated"
+        private const val KEY_VISUAL_WIDTH_RESTORED = "pet_visual_width_restored_v278"
         private const val KEY_SQUARE_WINDOW_POSITION_RESTORED = "pet_square_window_position_restored"
         private const val KEY_PET_MOTION_MODE = "pet_motion_mode"
         private const val KEY_PET_MOBILITY_MODE = "pet_mobility_mode"

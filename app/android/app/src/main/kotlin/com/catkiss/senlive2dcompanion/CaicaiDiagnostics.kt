@@ -17,7 +17,7 @@ object CaicaiDiagnostics {
             result.put(existing.get(i))
         }
         result.put(JSONObject().put("at", System.currentTimeMillis())
-            .put("stage", stage).put("detail", detail.take(500)))
+            .put("stage", stage).put("detail", detail.take(if (stage == "motion_plan_applied" || stage == "render_error") 12000 else 1000)))
         prefs.edit().putString(KEY, result.toString()).apply()
     }
 
