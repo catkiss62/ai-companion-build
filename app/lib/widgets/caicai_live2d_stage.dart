@@ -7,6 +7,13 @@ class CaicaiLive2DService {
 
   static const _channel = MethodChannel('ai_companion/caicai_live2d');
 
+  static Future<Map<String, Object?>> get diagnostics async =>
+      (await _channel.invokeMapMethod<String, Object?>('status')) ??
+      const <String, Object?>{};
+
+  static Future<void> setEditorFocused(bool focused) =>
+      _channel.invokeMethod<void>('setEditorFocused', focused);
+
   static Future<bool> get available async {
     final status = await _channel.invokeMapMethod<String, Object?>('status');
     return status?['available'] == true;
@@ -28,6 +35,18 @@ class CaicaiLive2DStage extends StatefulWidget {
 class _CaicaiLive2DStageState extends State<CaicaiLive2DStage> {
   MethodChannel? _channel;
   String? _status = '正在检查菜菜模型…';
+  bool? _keyboardVisible;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final visible = MediaQuery.viewInsetsOf(context).bottom > 0;
+    if (_keyboardVisible == visible) return;
+    _keyboardVisible = visible;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) _channel?.invokeMethod<void>('setKeyboardVisible', visible);
+    });
+  }
 
   void _created(int id) {
     final channel = MethodChannel('ai_companion/caicai_live2d/view/$id');
@@ -39,19 +58,32 @@ class _CaicaiLive2DStageState extends State<CaicaiLive2DStage> {
         case 'onReady':
           setState(() => _status = null);
           return;
+        case 'onStatus':
+          if (_status != null) {
+            setState(() => _status = args?['detail']?.toString() ?? '正在加载模型…');
+          }
+          return;
         case 'onModelMissing':
         case 'onError':
           setState(() => _status = args?['detail']?.toString() ?? 'Live2D 模型不可用');
           return;
       }
     });
-    CaicaiLive2DService.available.then((available) {
-      if (mounted && !available) {
-        setState(() => _status = '请先在画面设置导入菜菜女仆三配件模型 ZIP');
+    () async {
+      try {
+        final state = await channel.invokeMapMethod<String, Object?>('start');
+        if (!mounted || _channel != channel) return;
+        final render = state?['status'];
+        if (render == 'ready') {
+          setState(() => _status = null);
+        } else if (render == 'missing' || render == 'error') {
+          setState(() => _status = state?['detail']?.toString() ?? 'Live2D 模型不可用');
+        }
+        await channel.invokeMethod<void>('setKeyboardVisible', _keyboardVisible == true);
+      } catch (error) {
+        if (mounted) setState(() => _status = '模型检查失败：$error');
       }
-    }).catchError((Object error) {
-      if (mounted) setState(() => _status = '模型检查失败：$error');
-    });
+    }();
   }
 
   @override

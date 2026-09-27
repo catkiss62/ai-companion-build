@@ -8,7 +8,7 @@ import 'model_profile.dart';
 
 /// Judges the final visible reply candidate, never a proposed inclination.
 /// Jev owns the normal short decision; the existing DeepSeek Flash endpoint
-/// classifies the same visible text if Jev is absent, uncertain or unavailable.
+/// classifies the same visible text only if Jev is disabled or fails technically.
 class PlayfulSelfJudge {
   PlayfulSelfJudge({
     required this.client,

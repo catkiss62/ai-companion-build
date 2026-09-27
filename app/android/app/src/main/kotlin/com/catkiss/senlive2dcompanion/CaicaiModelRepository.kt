@@ -25,21 +25,22 @@ class CaicaiModelRepository(context: Context) {
         val available: Boolean get() = maid?.isFile == true && accessory?.isFile == true
     }
 
-    @Synchronized
-    fun currentModels(): Models {
+    fun isPending(): Boolean = synchronized(lock) { prefs.getBoolean("pending", false) }
+
+    fun currentModels(): Models = synchronized(lock) {
         val maid = safeChild(current, prefs.getString("maid", "").orEmpty())
         val accessory = safeChild(current, prefs.getString("accessory", "").orEmpty())
-        return if (maid?.isFile == true && accessory?.isFile == true) {
+        if (maid?.isFile == true && accessory?.isFile == true) {
             Models(maid, accessory, "菜菜女仆与三配件已导入")
         } else Models()
     }
 
-    @Synchronized
     fun importZip(uri: Uri): Models {
         if (!root.exists() && !root.mkdirs()) throw IOException("无法创建模型目录")
         remove(staging)
         if (!staging.mkdirs()) throw IOException("无法创建模型暂存目录")
         try {
+            CaicaiDiagnostics.record(app, "unpacking")
             unzip(uri)
             // Preserve the standalone app's accessory-lab.json contract and model paths.
             val manifest = staging.walkTopDown().firstOrNull {
@@ -52,48 +53,53 @@ class CaicaiModelRepository(context: Context) {
             if (maid?.isFile != true || accessory?.isFile != true) {
                 throw IOException("模型包缺少菜菜主模型或 Sen 配件模型")
             }
+            CaicaiDiagnostics.record(app, "manifest_validated")
             val maidPath = maid.relativeTo(staging).invariantSeparatorsPath
             val accessoryPath = accessory.relativeTo(staging).invariantSeparatorsPath
             // Settings can import before the stage exists, so the candidate may
             // remain pending indefinitely. Keep it until the replacement ZIP
             // has passed structural checks, then restore the last verified
             // package (if any) before starting the next transaction.
-            if (prefs.getBoolean("pending", false)) rollbackPendingImport()
-            remove(backup)
-            if (current.exists() && !current.renameTo(backup)) throw IOException("无法暂存旧模型")
-            if (!staging.renameTo(current)) {
-                if (backup.exists()) backup.renameTo(current)
-                throw IOException("无法启用新模型")
+            return synchronized(lock) {
+                if (prefs.getBoolean("pending", false)) rollbackPendingImport()
+                remove(backup)
+                if (current.exists() && !current.renameTo(backup)) throw IOException("无法暂存旧模型")
+                if (!staging.renameTo(current)) {
+                    if (backup.exists()) backup.renameTo(current)
+                    throw IOException("无法启用新模型")
+                }
+                val oldMaid = prefs.getString("maid", "").orEmpty()
+                val oldAccessory = prefs.getString("accessory", "").orEmpty()
+                if (!prefs.edit().putString("old_maid", oldMaid)
+                        .putString("old_accessory", oldAccessory)
+                        .putString("maid", maidPath).putString("accessory", accessoryPath)
+                        .putBoolean("pending", true).commit()) {
+                    remove(current)
+                    if (backup.exists()) backup.renameTo(current)
+                    throw IOException("无法保存模型索引")
+                }
+                CaicaiDiagnostics.record(app, "import_staged", "等待 Live2D 画面渲染确认")
+                currentModels()
             }
-            val oldMaid = prefs.getString("maid", "").orEmpty()
-            val oldAccessory = prefs.getString("accessory", "").orEmpty()
-            if (!prefs.edit().putString("old_maid", oldMaid)
-                    .putString("old_accessory", oldAccessory)
-                    .putString("maid", maidPath).putString("accessory", accessoryPath)
-                    .putBoolean("pending", true).commit()) {
-                remove(current)
-                if (backup.exists()) backup.renameTo(current)
-                throw IOException("无法保存模型索引")
-            }
-            return currentModels()
         } catch (error: Throwable) {
-            remove(staging)
-            if (!current.exists() && backup.exists()) backup.renameTo(current)
+            synchronized(lock) {
+                remove(staging)
+                if (!current.exists() && backup.exists()) backup.renameTo(current)
+            }
             throw error
         }
     }
 
-    @Synchronized
-    fun confirmPendingImport() {
-        if (!prefs.getBoolean("pending", false)) return
+    fun confirmPendingImport() = synchronized(lock) {
+        if (!prefs.getBoolean("pending", false)) return@synchronized
         remove(backup)
         prefs.edit().remove("old_maid").remove("old_accessory")
             .remove("pending").apply()
+        CaicaiDiagnostics.record(app, "render_verified")
     }
 
-    @Synchronized
-    fun rollbackPendingImport(): Boolean {
-        if (!prefs.getBoolean("pending", false)) return false
+    fun rollbackPendingImport(): Boolean = synchronized(lock) {
+        if (!prefs.getBoolean("pending", false)) return@synchronized false
         remove(current)
         val restored = backup.exists() && backup.renameTo(current)
         val edit = prefs.edit().remove("pending")
@@ -102,7 +108,8 @@ class CaicaiModelRepository(context: Context) {
                 .putString("accessory", prefs.getString("old_accessory", ""))
         } else edit.remove("maid").remove("accessory")
         edit.remove("old_maid").remove("old_accessory").commit()
-        return restored
+        CaicaiDiagnostics.record(app, "render_rollback", if (restored) "已恢复上一模型包" else "未找到已验证的旧模型包")
+        return@synchronized restored
     }
 
     private fun unzip(uri: Uri) {
@@ -152,4 +159,6 @@ class CaicaiModelRepository(context: Context) {
             if (!it.delete() && it.exists()) throw IOException("无法清理模型暂存文件")
         }
     }
+
+    companion object { private val lock = Any() }
 }

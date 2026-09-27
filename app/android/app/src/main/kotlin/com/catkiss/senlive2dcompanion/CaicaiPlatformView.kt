@@ -2,6 +2,7 @@ package com.catkiss.senlive2dcompanion
 
 import android.content.Context
 import android.graphics.Color
+import android.opengl.GLSurfaceView
 import android.os.Handler
 import android.os.Looper
 import android.view.MotionEvent
@@ -32,10 +33,16 @@ internal class CaicaiPlatformView(
 ) : PlatformView, MethodChannel.MethodCallHandler, SenCompanionView.Listener {
     private val main = Handler(Looper.getMainLooper())
     private val repository = CaicaiModelRepository(context)
+    private val app = context.applicationContext
     private val root = FrameLayout(context).apply { setBackgroundColor(Color.TRANSPARENT) }
     private val companion = SenCompanionView(context)
     private val channel = MethodChannel(messenger, "ai_companion/caicai_live2d/view/$viewId")
     private var disposed = false
+    @Volatile private var renderStatus = "created"
+    @Volatile private var renderDetail = "等待画面连接"
+    @Volatile private var awaitingModelStart = false
+    @Volatile private var modelStarted = false
+    private var keyboardVisible = false
     private var stageScale = 1f
     private var stageX = 0f
     private var stageY = 0f
@@ -60,7 +67,6 @@ internal class CaicaiPlatformView(
         companion.setOnTouchListener { view, event -> handleStageTouch(view, event) }
         root.addView(companion, FrameLayout.LayoutParams(-1, -1))
         CaicaiRuntime.attach(this)
-        loadCurrentModel()
         companion.onHostResume()
     }
 
@@ -80,7 +86,13 @@ internal class CaicaiPlatformView(
     override fun onMethodCall(call: MethodCall, result: MethodChannel.Result) {
         if (disposed) return result.error("caicai_view_disposed", "Live2D view released", null)
         when (call.method) {
+            "start" -> { loadCurrentModel(); result.success(state()) }
+            "getState" -> result.success(state())
             "reloadModel" -> { loadCurrentModel(); result.success(null) }
+            "setKeyboardVisible" -> {
+                setKeyboardVisible(call.arguments == true)
+                result.success(null)
+            }
             "resetStage" -> {
                 stageScale = 1f; stageX = 0f; stageY = 0f
                 applyStage(); result.success(null)
@@ -92,14 +104,33 @@ internal class CaicaiPlatformView(
     fun reloadModel() { if (!disposed) main.post(::loadCurrentModel) }
     fun hostResume() { if (!disposed) companion.onHostResume() }
     fun hostPause() { if (!disposed) companion.onHostPause() }
+    fun setKeyboardVisible(visible: Boolean) {
+        if (!disposed && keyboardVisible != visible) {
+            keyboardVisible = visible
+            companion.renderMode = if (visible) GLSurfaceView.RENDERMODE_WHEN_DIRTY
+                else GLSurfaceView.RENDERMODE_CONTINUOUSLY
+            if (visible) companion.requestRender()
+            CaicaiDiagnostics.record(app, if (visible) "keyboard_open" else "keyboard_closed")
+        }
+    }
+
+    fun state(): Map<String, String> = mapOf("status" to renderStatus, "detail" to renderDetail)
 
     private fun loadCurrentModel() {
         if (disposed) return
         val models = repository.currentModels()
         if (!models.available) {
+            renderStatus = "missing"
+            renderDetail = models.detail
+            CaicaiDiagnostics.record(app, "model_missing", models.detail)
             send("onModelMissing", mapOf("detail" to models.detail))
             return
         }
+        renderStatus = "loading"
+        renderDetail = "正在加载菜菜女仆与三配件"
+        awaitingModelStart = true
+        modelStarted = false
+        CaicaiDiagnostics.record(app, "render_loading")
         // Match MainActivity.loadModels() of the v0.1.42 lab. Do not pass all
         // ZIP expressions as startup expressions or change its motion engine.
         companion.loadModels(
@@ -133,13 +164,35 @@ internal class CaicaiPlatformView(
 
     private fun applyStage() = companion.setStageTransform(stageScale, stageX, stageY)
 
-    override fun onStatus(status: String) = send("onStatus", mapOf("detail" to status))
+    override fun onStatus(status: String) {
+        if (awaitingModelStart && status.startsWith("原生渲染：准备加载菜菜女仆主模型")) {
+            modelStarted = true
+        }
+        renderDetail = status
+        CaicaiDiagnostics.record(app, "render_status", status)
+        send("onStatus", mapOf("detail" to status))
+    }
     override fun onReady(detail: String) {
-        main.post { if (!disposed) repository.confirmPendingImport() }
+        // A surface recreation can report the old model as ready before the
+        // queued import load starts. That callback must not verify the ZIP.
+        if (awaitingModelStart && !modelStarted) {
+            CaicaiDiagnostics.record(app, "stale_surface_ready_ignored")
+            return
+        }
+        val newlyLoaded = awaitingModelStart && modelStarted
+        awaitingModelStart = false
+        renderStatus = "ready"
+        renderDetail = detail
+        CaicaiDiagnostics.record(app, "render_ready", detail)
+        if (newlyLoaded) main.post { if (!disposed) repository.confirmPendingImport() }
         send("onReady", mapOf("detail" to detail))
     }
     override fun onError(error: Throwable) {
-        send("onError", mapOf("detail" to (error.message ?: error.javaClass.simpleName)))
+        awaitingModelStart = false
+        renderStatus = "error"
+        renderDetail = error.message ?: error.javaClass.simpleName
+        CaicaiDiagnostics.record(app, "render_error", renderDetail)
+        send("onError", mapOf("detail" to renderDetail))
         main.post { if (!disposed && repository.rollbackPendingImport()) loadCurrentModel() }
     }
     override fun onMotionDiagnosticStep(label: String, index: Int, total: Int) = Unit
@@ -172,4 +225,7 @@ object CaicaiRuntime {
     fun reloadModel() = active.get()?.reloadModel()
     fun onHostResume() = active.get()?.hostResume()
     fun onHostPause() = active.get()?.hostPause()
+    fun setKeyboardVisible(visible: Boolean) = active.get()?.setKeyboardVisible(visible)
+    fun state(): Map<String, String> = active.get()?.state()
+        ?: mapOf("status" to "not_open", "detail" to "请打开聊天画面验证模型")
 }

@@ -88,7 +88,7 @@ class NsfwContextRouter {
 
     // Two independent short decisions share one Jev call. Preserve the
     // semantic Q-form interaction signal added in +251 when Jev succeeds.
-    // Manual routing above is authoritative; incomplete/uncertain answers
+    // Manual routing above is authoritative; unavailable/malformed answers
     // return null and the original DeepSeek pass below owns every field.
     final jev = await JevDecisionGateway.instance.chooseMany(
       state: <String, Object?>{

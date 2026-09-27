@@ -90,6 +90,7 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
   double _panelFraction = 0.62;
   ChatPortraitSet _portraitSet = ChatPortraitSet.largeWhale;
   bool _caicaiEnabled = false;
+  bool _caicaiImporting = false;
   PlayfulFormState _playfulForm = const PlayfulFormState();
   double _portraitScale = ChatPortraitTransform.defaults.scale;
   Offset _portraitOffset = ChatPortraitTransform.defaults.offset;
@@ -123,6 +124,7 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
     // explicitly opens the window again.
     unawaited(CedarToyActivityStore(AppDatabase.instance).endViewing());
     WidgetsBinding.instance.addObserver(this);
+    inputFocus.addListener(_onComposerFocusChanged);
     controller.addListener(_onChanged);
     _initializeController();
   }
@@ -574,9 +576,16 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
     controller.removeListener(_onChanged);
     controller.dispose();
     input.dispose();
+    inputFocus.removeListener(_onComposerFocusChanged);
     inputFocus.dispose();
     scroll.dispose();
     super.dispose();
+  }
+
+  void _onComposerFocusChanged() {
+    if (_caicaiEnabled && _visualStageEnabled && !_playfulForm.qForm) {
+      unawaited(CaicaiLive2DService.setEditorFocused(inputFocus.hasFocus));
+    }
   }
 
   Future<void> _openWorldBookLibrary() async {
@@ -1765,21 +1774,28 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
                       if (_visualStageEnabled)
                         ListTile(
                           contentPadding: EdgeInsets.zero,
-                          leading: const Icon(Icons.folder_zip_outlined),
+                          leading: _caicaiImporting
+                              ? const CircularProgressIndicator()
+                              : const Icon(Icons.folder_zip_outlined),
                           title: const Text('导入菜菜模型 ZIP'),
-                          subtitle: const Text('导入菜菜女仆三配件完整模型包。'),
-                          onTap: () async {
+                          subtitle: Text(_caicaiImporting
+                              ? '正在解压与校验模型，请稍候…'
+                              : '导入菜菜女仆三配件完整模型包。'),
+                          onTap: _caicaiImporting ? null : () async {
+                            setPanelState(() => _caicaiImporting = true);
                             try {
                               final imported = await CaicaiLive2DService.pickModelZip();
                               if (mounted && imported) {
                                 ScaffoldMessenger.of(context).showSnackBar(
-                                  const SnackBar(content: Text('模型包已保存，请返回聊天画面查看 Live2D 加载结果')),
+                                  const SnackBar(content: Text('模型包已校验保存，请返回聊天画面确认 Live2D 真正加载')),
                                 );
                               }
                             } catch (error) {
                               if (mounted) ScaffoldMessenger.of(context).showSnackBar(
                                 SnackBar(content: Text('导入失败：$error')),
                               );
+                            } finally {
+                              if (mounted) setState(() => _caicaiImporting = false);
                             }
                           },
                         ),

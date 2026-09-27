@@ -1605,7 +1605,7 @@ $finalGenerationReminder
         attachments: assistantAttachments,
       );
       // Decide from the final visible message, after repair/sticker selection.
-      // A missing or uncertain Jev result uses DeepSeek Flash without thought.
+      // Only an unavailable or malformed Jev result uses DeepSeek Flash.
       // The decision has no effect unless this generation wins the commit.
       PlayfulSelfActivity? selfActivity;
       try {

@@ -5,6 +5,7 @@ import 'dart:math';
 import 'package:crypto/crypto.dart';
 import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
+import 'package:flutter/services.dart';
 
 import '../database/app_database.dart';
 import 'conversation_initiative_telemetry.dart';
@@ -25,6 +26,7 @@ import '../models/thought.dart';
 import '../platform/android_bridge.dart';
 import '../tts/tts_service.dart';
 import '../tts/tts_provider.dart';
+import '../../widgets/caicai_live2d_stage.dart';
 
 class PreflightCheck {
   const PreflightCheck({
@@ -67,7 +69,8 @@ class PreflightSnapshot {
 
 /// Builds a local-only, redacted device-readiness report.
 ///
-/// Privacy invariant: this service never queries message bodies, Thought bodies, memories,
+/// Privacy invariant: except for the owner's explicitly requested Jev decision
+/// trace (latest user text and bounded recent context), this service never queries message bodies, Thought bodies, memories,
 /// RelationshipEvent content, Reference text, notification/accessibility raw
 /// text or API credentials. Device/lineage/snapshot identities are emitted only
 /// as short SHA-256 fingerprints.
@@ -147,6 +150,7 @@ class PreflightDiagnosticsService {
       'privacy': {
         'relationshipPlaintextIncluded': false,
         'messageBodiesIncluded': false,
+        'jevDecisionContextIncluded': true,
         'memoryBodiesIncluded': false,
         'memoryRetrievalQueriesIncluded': false,
         'visionImageBytesIncluded': false,
@@ -546,12 +550,28 @@ class PreflightDiagnosticsService {
       cedarRealtime['continuationParamsIncluded'] = false;
       cedarRealtime['roomIdentityIncluded'] = false;
 
-      // Only redacted Jev cost, token counts and route status are exported.
+      // The owner explicitly requested full Jev questions, input context,
+      // probabilities, chosen/applied answers and cost to audit accuracy.
       try {
         final jevUsage = jsonDecode(await db.getSetting('jev_short_usage_v1') ?? '[]');
         report['jevShortUsage'] = jevUsage is List ? jevUsage : const <Object>[];
       } catch (_) {
         report['jevShortUsage'] = const <Object>[];
+      }
+      try {
+        final trace = jsonDecode(await db.getSetting('playful_heat_trace_v1') ?? '[]');
+        report['playfulHeatTrace'] = trace is List ? trace : const <Object>[];
+      } catch (_) {
+        report['playfulHeatTrace'] = const <Object>[];
+      }
+
+      try {
+        report['caicaiLive2d'] = await CaicaiLive2DService.diagnostics
+            .timeout(const Duration(seconds: 3));
+      } on MissingPluginException {
+        report['caicaiLive2d'] = const {'status': 'not_on_android'};
+      } catch (error) {
+        report['caicaiLive2d'] = {'status': 'unavailable', 'detail': '$error'};
       }
 
       report['modelUsage'] = _modelUsageSummary(

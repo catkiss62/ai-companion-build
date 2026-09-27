@@ -3,6 +3,7 @@ package com.aicompanion.localfirst
 import android.app.Activity
 import android.content.Intent
 import com.catkiss.senlive2dcompanion.CaicaiModelRepository
+import com.catkiss.senlive2dcompanion.CaicaiDiagnostics
 import com.catkiss.senlive2dcompanion.CaicaiPlatformViewFactory
 import com.catkiss.senlive2dcompanion.CaicaiRuntime
 import io.flutter.embedding.engine.FlutterEngine
@@ -30,10 +31,20 @@ class CaicaiLive2DBridge(
         channel.setMethodCallHandler { call, result ->
             if (disposed) return@setMethodCallHandler result.error("disposed", "Live2D bridge detached", null)
             when (call.method) {
-                "status" -> result.success(mapOf("available" to repository.currentModels().available))
+                "status" -> result.success(mapOf(
+                    "available" to repository.currentModels().available,
+                    "pending" to repository.isPending(),
+                    "render" to CaicaiRuntime.state(),
+                    "events" to CaicaiDiagnostics.events(activity),
+                ))
+                "setEditorFocused" -> {
+                    CaicaiRuntime.setKeyboardVisible(call.arguments == true)
+                    result.success(null)
+                }
                 "pickModelZip" -> {
                     if (pending != null) return@setMethodCallHandler result.error("busy", "模型导入正在进行", null)
                     pending = result
+                    CaicaiDiagnostics.record(activity, "picker_opened")
                     val intent = Intent(Intent.ACTION_OPEN_DOCUMENT).apply {
                         addCategory(Intent.CATEGORY_OPENABLE)
                         type = "application/zip"
@@ -43,6 +54,7 @@ class CaicaiLive2DBridge(
                     try { activity.startActivityForResult(intent, REQUEST_IMPORT) }
                     catch (error: Exception) {
                         pending = null
+                        CaicaiDiagnostics.record(activity, "picker_failed", error.message ?: "无法打开文件选择器")
                         result.error("picker_failed", error.message, null)
                     }
                 }
@@ -54,24 +66,32 @@ class CaicaiLive2DBridge(
     fun onActivityResult(code: Int, resultCode: Int, data: Intent?): Boolean {
         if (code != REQUEST_IMPORT) return false
         val callback = pending ?: return true
-        pending = null
         val uri = data?.data
         if (resultCode != Activity.RESULT_OK || uri == null) {
+            pending = null
+            CaicaiDiagnostics.record(activity, "picker_cancelled")
             callback.success(mapOf("cancelled" to true))
             return true
         }
+        CaicaiDiagnostics.record(activity, "file_selected")
         worker.execute {
             try {
                 val imported = repository.importZip(uri)
                 activity.runOnUiThread {
                     if (!disposed) {
                         CaicaiRuntime.reloadModel()
-                        callback.success(mapOf("cancelled" to false, "available" to imported.available))
+                        pending = null
+                        callback.success(mapOf("cancelled" to false, "available" to imported.available,
+                            "pending" to repository.isPending()))
                     }
                 }
             } catch (error: Throwable) {
+                CaicaiDiagnostics.record(activity, "import_failed", error.message ?: error.javaClass.simpleName)
                 activity.runOnUiThread {
-                    if (!disposed) callback.error("import_failed", error.message ?: "模型导入失败", null)
+                    if (!disposed) {
+                        pending = null
+                        callback.error("import_failed", error.message ?: "模型导入失败", null)
+                    }
                 }
             }
         }

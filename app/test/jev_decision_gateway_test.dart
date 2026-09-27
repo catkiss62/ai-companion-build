@@ -42,7 +42,19 @@ void main() {
     expect(decision, <String, String>{'route': 'daily'});
   });
 
-  test('out of credits or uncertain answer leaves original route in charge',
+  test('largest probability wins when API choice disagrees', () async {
+    final decision = await gateway(200, <String, Object?>{
+      'answers': <String, Object?>{
+        'route': <String, Object?>{
+          'type': 'choice', 'choice': 'daily', 'confidence': 0.73,
+          'probabilities': <String, double>{'daily': 0.21, 'explicit': 0.79},
+        },
+      },
+    }).chooseMany(state: '例子', questions: const {'route': question});
+    expect(decision, <String, String>{'route': 'explicit'});
+  });
+
+  test('out of credits falls back but a valid low-confidence route is used',
       () async {
     final insufficient = await gateway(402, <String, String>{'error': 'balance'})
         .chooseMany(state: '你好', questions: const {'route': question});
@@ -57,7 +69,40 @@ void main() {
       },
     }).chooseMany(state: '你好', questions: const {'route': question});
     expect(insufficient, isNull);
-    expect(uncertain, isNull);
+    expect(uncertain, <String, String>{'route': 'daily'});
+  });
+
+  test('close playful options become neutral without discarding other answers',
+      () async {
+    final result = await gateway(200, <String, Object?>{
+      'answers': <String, Object?>{
+        'mode': <String, Object?>{
+          'type': 'choice', 'choice': 'daily', 'confidence': 0.95,
+          'probabilities': <String, double>{'daily': 0.95, 'nsfw': 0.05},
+        },
+        'interaction': <String, Object?>{
+          'type': 'choice', 'choice': 'mutual', 'confidence': 0.2,
+          'probabilities': <String, double>{
+            'mutual': 0.50, 'ordinary': 0.45, 'strong': 0.05,
+          },
+        },
+        'initiative': <String, Object?>{
+          'type': 'choice', 'choice': 'open', 'confidence': 0.2,
+          'probabilities': <String, double>{'open': 0.52, 'closed': 0.48},
+        },
+      },
+    }).chooseMany(state: 'test', usageLane: 'chat_intimacy_route', questions: const {
+      'mode': JevChoiceQuestion('route', {'daily': 'daily', 'nsfw': 'nsfw'}),
+      'interaction': JevChoiceQuestion('heat', {
+        'mutual': 'tease', 'ordinary': 'neutral', 'strong': 'strong',
+      }),
+      'initiative': JevChoiceQuestion('opening', {
+        'open': 'yes', 'closed': 'no',
+      }),
+    });
+    expect(result, <String, String>{
+      'mode': 'daily', 'interaction': 'ordinary', 'initiative': 'closed',
+    });
   });
 
   test('disabled or missing key makes no OpenRouter request', () async {

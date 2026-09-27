@@ -244,7 +244,10 @@ class PlayfulFormState {
     if (assistantTurn.isEmpty || lastAssistantTurn == assistantTurn) return this;
     // One clamp and one form decision after both participants and the fixed
     // per-turn cooling have contributed. A pending Stop rolls back all of it.
-    final nextHeat = (heat + (pendingTurn ? pendingInteraction.bonus - 18 -
+    // The Q form retains its established -15 per completed turn. A close Jev
+    // distribution supplies no bonus, but never skips this natural cooling.
+    final cooling = qForm ? 15 : 18;
+    final nextHeat = (heat + (pendingTurn ? pendingInteraction.bonus - cooling -
                 (pendingInteraction == PlayfulInteraction.serious ? 12 : 0) -
                 pendingElapsedHours * 3 : 0) + activity.bonus)
         .clamp(0, 100).toInt();
@@ -316,6 +319,7 @@ class PlayfulFormStore {
   /// Jev result must not overwrite a manual action or a newer user turn.
   Future<PlayfulFormState> _update(
     PlayfulFormState Function(PlayfulFormState) change,
+    {PlayfulSelfActivity? completedActivity}
   ) async {
     final database = await db.database;
     return database.transaction<PlayfulFormState>((txn) async {
@@ -335,6 +339,38 @@ class PlayfulFormStore {
           'INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)',
           [PlayfulFormState.settingKey, next.encode()],
         );
+        if (completedActivity != null) {
+          const traceKey = 'playful_heat_trace_v1';
+          final prior = await txn.query('settings', columns: const ['value'],
+              where: 'key = ?', whereArgs: const [traceKey], limit: 1);
+          List<dynamic> events;
+          try {
+            events = jsonDecode(prior.isEmpty ? '[]' : prior.first['value'] as String) as List;
+          } catch (_) {
+            events = [];
+          }
+          events.add({
+            'at': DateTime.now().millisecondsSinceEpoch,
+            'userTurn': current.lastTurn,
+            'assistantTurn': next.lastAssistantTurn,
+            'beforeHeat': current.heat,
+            'afterHeat': next.heat,
+            'beforeQForm': current.qForm,
+            'afterQForm': next.qForm,
+            'interaction': current.pendingInteraction.name,
+            'interactionBonus': current.pendingTurn ? current.pendingInteraction.bonus : 0,
+            'selfActivity': completedActivity.name,
+            'selfBonus': completedActivity.bonus,
+            'fixedCooling': current.pendingTurn ? (current.qForm ? 15 : 18) : 0,
+            'seriousCooling': current.pendingTurn &&
+                    current.pendingInteraction == PlayfulInteraction.serious ? 12 : 0,
+            'elapsedHours': current.pendingElapsedHours,
+            'breakthrough': current.pendingBreakthrough,
+          });
+          await txn.rawInsert('INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)',
+              [traceKey, jsonEncode(events.length > 120
+                  ? events.sublist(events.length - 120) : events)]);
+        }
       }
       return next;
     });
@@ -355,7 +391,8 @@ class PlayfulFormStore {
     required DateTime now,
   }) =>
       _update((current) =>
-          current.onAssistantTurn(activity, assistantTurn, now));
+          current.onAssistantTurn(activity, assistantTurn, now),
+          completedActivity: activity);
 
   Future<PlayfulFormState> interact(bool kindle) =>
       _update((current) =>

@@ -10,13 +10,13 @@ void main() {
     expect(ordinary.heat, 15); // Provisional until the reply is committed.
     final exited = ordinary.onAssistantTurn(
         PlayfulSelfActivity.playful, 'assistant-a', now);
-    expect(exited.heat, 0); // 15 + 0 + 3 - 18.
-    expect(exited.qForm, isFalse);
+    expect(exited.heat, 3); // Q cooling is 15; her real playful reply adds 3.
+    expect(exited.qForm, isTrue);
 
     final challenged = const PlayfulFormState(heat: 15, qForm: true)
         .advance(PlayfulInteraction.mutual, 'user-b', now)
         .onAssistantTurn(PlayfulSelfActivity.playful, 'assistant-b', now);
-    expect(challenged.heat, 30); // 15 + 30 + 3 - 18.
+    expect(challenged.heat, 33); // 15 + 30 + 3 - 15.
     expect(challenged.qForm, isTrue);
   });
 
@@ -25,18 +25,21 @@ void main() {
     for (var turn = 1; turn <= 5; turn++) {
       q = q.advance(PlayfulInteraction.ordinary, 'quiet_$turn', now)
           .onAssistantTurn(PlayfulSelfActivity.none, 'reply_$turn', now);
-      expect(q.heat, 100 - 18 * turn);
+      expect(q.heat, 100 - 15 * turn);
       expect(q.qForm, isTrue);
     }
     q = q.advance(PlayfulInteraction.ordinary, 'quiet_6', now)
         .onAssistantTurn(PlayfulSelfActivity.none, 'reply_6', now);
+    expect(q.heat, 10);
+    q = q.advance(PlayfulInteraction.ordinary, 'quiet_7', now)
+        .onAssistantTurn(PlayfulSelfActivity.none, 'reply_7', now);
     expect(q.heat, 0);
     expect(q.qForm, isFalse);
 
     final help = const PlayfulFormState(heat: 90, qForm: true)
         .advance(PlayfulInteraction.serious, 'help', now)
         .onAssistantTurn(PlayfulSelfActivity.none, 'help-reply', now);
-    expect(help.heat, 60); // -18 cooling plus -12 serious contribution.
+    expect(help.heat, 63); // -15 cooling plus -12 serious contribution.
     expect(help.qForm, isTrue);
   });
 

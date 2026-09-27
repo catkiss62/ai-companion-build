@@ -11,8 +11,8 @@ import 'generation_cancellation.dart';
 ///
 /// This is NOT a chat/completions model. A caller sends one small state and
 /// independent typed questions to /api/alpha/decisions. Null means that the
-/// caller must run its original DeepSeek classifier. Never turn a missing key,
-/// an HTTP failure, an incomplete answer or uncertainty into a guessed route.
+/// caller must run its original DeepSeek classifier: only transport or malformed
+/// responses are failures. A valid, uncertain answer remains a Jev decision.
 class JevDecisionGateway {
   const JevDecisionGateway({
     this.clientFactory = http.Client.new,
@@ -34,9 +34,6 @@ class JevDecisionGateway {
     required Map<String, String> options,
     GenerationCancellationToken? cancellationToken,
     String usageLane = 'jev_short_route',
-    // The starting floor is intentionally local to the routing use cases;
-    // adjust it only after comparing real turns with the DeepSeek baseline.
-    double confidenceFloor = 0.55,
   }) async {
     final results = await chooseMany(
       state: state,
@@ -44,7 +41,6 @@ class JevDecisionGateway {
         'route': JevChoiceQuestion(instruction, options),
       },
       cancellationToken: cancellationToken,
-      confidenceFloor: confidenceFloor,
       usageLane: usageLane,
     );
     return results?['route'];
@@ -54,7 +50,6 @@ class JevDecisionGateway {
     required Object state,
     required Map<String, JevChoiceQuestion> questions,
     GenerationCancellationToken? cancellationToken,
-    double confidenceFloor = 0.55,
     String usageLane = 'jev_short_route',
   }) async {
     cancellationToken?.throwIfCancelled();
@@ -62,6 +57,7 @@ class JevDecisionGateway {
     String key;
     try {
       if (!(await (enabledReader ?? SecureConfig.instance.readJevEnabled)())) {
+        await _record(usageLane, 'disabled', started);
         return null;
       }
       key = (await (keyReader ?? SecureConfig.instance.readOpenRouterApiKey)())
@@ -72,8 +68,16 @@ class JevDecisionGateway {
         return null;
       }
     } catch (_) {
+      await _record(usageLane, 'config_error', started);
       return null;
     }
+    final questionTrace = questions.map((key, question) => MapEntry(key,
+        <String, Object?>{'instruction': question.instruction,
+          'options': question.options}));
+    final requestTrace = <String, Object?>{
+      'state': state,
+      'questions': questionTrace,
+    };
     final client = clientFactory();
     try {
       final response = await cancelWithToken(
@@ -102,25 +106,26 @@ class JevDecisionGateway {
       );
       cancellationToken?.throwIfCancelled();
       if (response.statusCode != 200) {
-        await _record(usageLane, 'http_${response.statusCode}', started);
+        await _record(usageLane, 'http_${response.statusCode}', started,
+            request: requestTrace);
         return null;
       }
       final decoded = jsonDecode(utf8.decode(response.bodyBytes));
       if (decoded is! Map) {
-        await _record(usageLane, 'invalid_response', started);
+        await _record(usageLane, 'invalid_response', started,
+            request: requestTrace);
         return null;
       }
       final answers = decoded['answers'];
       if (answers is! Map) {
         await _record(usageLane, 'invalid_answers', started,
-            usage: decoded['usage']);
+            usage: decoded['usage'], request: requestTrace);
         return null;
       }
       final results = <String, String>{};
+      final answerTrace = <String, Object?>{};
+      var closeDecisions = false;
       for (final entry in questions.entries) {
-        // Preserve the failing question/category without recording the user's
-        // text, answer or raw probability. The previous combined status could
-        // not distinguish a genuinely uncertain Jev decision from bad JSON.
         final category = switch (entry.key) {
           'mode' => 'mode',
           'interaction' => 'interaction',
@@ -131,46 +136,83 @@ class JevDecisionGateway {
         final answer = answers[entry.key];
         if (answer is! Map || answer['type'] != 'choice') {
           await _record(usageLane, 'invalid_answer_$category', started,
-              usage: decoded['usage']);
+              usage: decoded['usage'], request: requestTrace,
+              answers: answerTrace);
           return null;
         }
         final selected = answer['choice'];
         final confidence = answer['confidence'];
         final probabilities = answer['probabilities'];
         if (selected is! String || !entry.value.options.containsKey(selected) ||
-            confidence is! num || !confidence.isFinite || confidence > 1 ||
+            confidence is! num || !confidence.isFinite || confidence < 0 ||
+            confidence > 1 ||
             probabilities is! Map || probabilities[selected] is! num ||
             (probabilities[selected] as num) < 0 ||
             (probabilities[selected] as num) > 1) {
           await _record(usageLane, 'invalid_answer_$category', started,
-              usage: decoded['usage']);
+              usage: decoded['usage'], request: requestTrace,
+              answers: answerTrace);
           return null;
         }
-        if (confidence < confidenceFloor) {
-          await _record(usageLane, 'low_confidence_$category', started,
-              usage: decoded['usage']);
-          return null;
+        final distribution = <String, double>{};
+        for (final option in entry.value.options.keys) {
+          final value = probabilities[option];
+          if (value is! num || !value.isFinite || value < 0 || value > 1) {
+            await _record(usageLane, 'invalid_answer_$category', started,
+                usage: decoded['usage'], request: requestTrace,
+                answers: answerTrace);
+            return null;
+          }
+          distribution[option] = value.toDouble();
         }
-        results[entry.key] = selected;
+        final ranked = distribution.entries.toList()
+          ..sort((a, b) => b.value.compareTo(a.value));
+        final close = ranked.length > 1 &&
+            ranked[0].value - ranked[1].value <= 0.10 + 1e-9;
+        final neutral = switch ((usageLane, entry.key)) {
+          ('chat_intimacy_route', 'interaction') ||
+          ('immersive_playful_route', 'interaction') => 'ordinary',
+          ('chat_intimacy_route', 'initiative') ||
+          ('immersive_playful_route', 'initiative') => 'closed',
+          ('chat_playful_self', 'route') => 'none',
+          ('playful_breakthrough', 'route') => 'wait',
+          _ => null,
+        };
+        final highest = ranked.first.key;
+        final applied = close && neutral != null ? neutral : highest;
+        closeDecisions = closeDecisions || close && neutral != null;
+        results[entry.key] = applied;
+        answerTrace[entry.key] = <String, Object?>{
+          'choice': selected,
+          'highest_probability_choice': highest,
+          'confidence': confidence,
+          'probabilities': distribution,
+          'close': close,
+          'applied': applied,
+        };
       }
-      await _record(usageLane, 'used', started, usage: decoded['usage']);
+      await _record(usageLane,
+          closeDecisions ? 'used_neutral_close_probability' : 'used', started,
+          usage: decoded['usage'], request: requestTrace, answers: answerTrace);
       return results;
     } on GenerationCancelledByUserException {
       rethrow;
     } catch (_) {
       // Includes invalid key, insufficient balance, timeout and bad JSON.
       // The original DeepSeek path owns the next decision and its error policy.
-      await _record(usageLane, 'network_or_decode_error', started);
+      await _record(usageLane, 'network_or_decode_error', started,
+          request: requestTrace);
       return null;
     } finally {
       client.close();
     }
   }
 
-  /// Diagnostics contain only billed cost, token counts and route status, never state,
-  /// answers, credentials, game data or user text.
+  /// Locally exported diagnostics preserve the actual questions, state and
+  /// answer distribution so the owner can audit semantic quality. Credentials
+  /// and HTTP headers are never part of this trace.
   Future<void> _record(String lane, String status, Stopwatch started,
-      {Object? usage}) async {
+      {Object? usage, Object? request, Object? answers}) async {
     try {
       final db = AppDatabase.instance;
       final raw = await db.getSetting('jev_short_usage_v1') ?? '';
@@ -190,6 +232,8 @@ class JevDecisionGateway {
         'cost_usd': (counts['cost'] as num?)?.toDouble() ?? 0,
         'elapsed_ms': started.elapsedMilliseconds,
         'at': DateTime.now().millisecondsSinceEpoch,
+        if (request != null) 'request': request,
+        if (answers != null) 'answers': answers,
       });
       await db.setSetting('jev_short_usage_v1', jsonEncode(
           events.length > 120 ? events.sublist(events.length - 120) : events));

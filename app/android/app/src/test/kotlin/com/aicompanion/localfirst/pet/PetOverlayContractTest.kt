@@ -16,13 +16,12 @@ class PetOverlayContractTest {
     }
 
     @Test
-    fun wideCanvasOnlyStartsGesturesInOldSquareWindow() {
-        assertFalse(PetTouchRegions.accepts(0f, 50f, 270, 152))
-        assertFalse(PetTouchRegions.accepts(58f, 50f, 270, 152))
-        assertTrue(PetTouchRegions.accepts(59f, 50f, 270, 152))
-        assertTrue(PetTouchRegions.accepts(210f, 151f, 270, 152))
-        assertFalse(PetTouchRegions.accepts(211f, 50f, 270, 152))
-        assertFalse(PetTouchRegions.accepts(130f, 152f, 270, 152))
+    fun squareWindowOnlyReceivesTouchInsideItsPhysicalBounds() {
+        assertTrue(PetTouchRegions.accepts(0f, 50f, 152, 152))
+        assertTrue(PetTouchRegions.accepts(151f, 151f, 152, 152))
+        assertFalse(PetTouchRegions.accepts(-1f, 50f, 152, 152))
+        assertFalse(PetTouchRegions.accepts(152f, 50f, 152, 152))
+        assertFalse(PetTouchRegions.accepts(50f, 152f, 152, 152))
     }
 
     @Test
@@ -30,6 +29,7 @@ class PetOverlayContractTest {
         assertEquals(112, PetOverlaySizing.windowDp(PetOverlaySizing.SMALL))
         assertEquals(152, PetOverlaySizing.windowDp(PetOverlaySizing.MEDIUM))
         assertEquals(200, PetOverlaySizing.windowDp(PetOverlaySizing.LARGE))
+        // Legacy 16:9 widths are retained only to migrate saved window x.
         assertEquals(199, PetOverlaySizing.visualWidthDp(PetOverlaySizing.SMALL))
         assertEquals(270, PetOverlaySizing.visualWidthDp(PetOverlaySizing.MEDIUM))
         assertEquals(356, PetOverlaySizing.visualWidthDp(PetOverlaySizing.LARGE))
