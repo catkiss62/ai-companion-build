@@ -253,6 +253,15 @@ public class CubismRendererAndroid extends CubismRenderer {
     }
 
     /**
+     * Limits the drawable color pass without disabling mask sources. A null value restores the
+     * model's authored visibility. This is intentionally a renderer-only filter: it never writes
+     * model parameters or part opacity and is therefore safe to switch between composite passes.
+     */
+    public void setDrawableVisibilityFilter(boolean[] enabled) {
+        drawableVisibilityFilter = enabled == null ? null : enabled.clone();
+    }
+
+    /**
      * Get textures list bound to OpenGL.
      *
      * @return textures list
@@ -668,6 +677,12 @@ public class CubismRendererAndroid extends CubismRenderer {
      * @param drawableIndex index of the drawing object to draw
      */
     protected void drawDrawable(int drawableIndex) {
+        if (drawableVisibilityFilter != null
+            && (drawableIndex < 0
+            || drawableIndex >= drawableVisibilityFilter.length
+            || !drawableVisibilityFilter[drawableIndex])) {
+            return;
+        }
         // Drawableが表示状態でなければ処理をパスする。
         if (!getModel().getDrawableDynamicFlagIsVisible(drawableIndex)) {
             return;
@@ -1131,6 +1146,8 @@ public class CubismRendererAndroid extends CubismRenderer {
     private boolean areTexturesChanged = true;
 
     private Map<Integer, Integer> cachedImmutableTextures;
+
+    private boolean[] drawableVisibilityFilter;
 
     /**
      * A array of drawing object indices arranged in drawing order.

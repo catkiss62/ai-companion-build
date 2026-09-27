@@ -17,7 +17,7 @@ def require(condition: bool, detail: str) -> None:
 def tree_digest(relative: str, expected_count: int, expected_hash: str) -> None:
     root = ANDROID / relative
     files = sorted(path for path in root.rglob("*") if path.is_file()
-                   and path.name != "CubismShaderAndroid.java")
+                   and path.name not in {"CubismShaderAndroid.java", "CubismRendererAndroid.java"})
     digest = hashlib.sha256()
     for path in files:
         digest.update(str(path.relative_to(root)).encode())
@@ -36,16 +36,20 @@ def file_digest(relative: str, expected_hash: str) -> None:
 
 def main() -> None:
     # Caicai lab fb04512f (framework submodule c2d4200). Test-only Activity
-    # and system-TTS harness are excluded. The Cubism shader has the same
-    # GL_LINEAR/no-mipmap fix used by this app's earlier validated integration.
+    # and system-TTS harness are excluded. The Cubism renderer's drawable
+    # filter and shader's no-mipmap filter are the lab's two required patches.
     tree_digest("src/main/java/com/catkiss/senlive2dcompanion", 26,
                 "13bef766d076b42a5f66bcfbcee0367a8107dff191d09fb18fb0aee99d27f176")
-    tree_digest("src/main/java/com/live2d/sdk/cubism/framework", 104,
-                "bf4bd88d07aa154d336a4a127282b57066c42be20142b2b3d1e2b0ba3ad2558f")
+    tree_digest("src/main/java/com/live2d/sdk/cubism/framework", 103,
+                "0b74f27d46c5e5988d798095e0139728bd2fd58386b854cbb41fcc138a3686ea")
     tree_digest("src/main/assets/com/live2d/sdk/cubism/framework", 36,
                 "a2aff051539ed8ec1fe556e87da1222c115787cee57510597a781c54be688386")
     for name, digest in {
         "libs/Live2DCubismCore.aar": "3f05da57ab855e803000e6353888dd561c47758598c6c0200dcd0109312705f8",
+        "src/main/java/com/live2d/sdk/cubism/framework/rendering/android/CubismRendererAndroid.java":
+            "1d6ceb0b28bcdc06a35462a1e87f6fb0cdafdc2b3e7fcd501fb3056fa7c84728",
+        "src/main/java/com/live2d/sdk/cubism/framework/rendering/android/CubismShaderAndroid.java":
+            "59458adb20f547d71c4847c54454aa7517d79b0e21fe22c029090c31130827b0",
         "src/main/assets/ev-vtuber-pack/clips.json": "bcbb302acddb02fb034df60ef3748304f79365a1f4b18d324165605cc0e66240",
         "src/main/assets/ev-vtuber-pack/vocab.json": "fff242375d0d5435c05f508f1e77b5b885041468f0825eefda2e11fa2c4321a6",
     }.items():

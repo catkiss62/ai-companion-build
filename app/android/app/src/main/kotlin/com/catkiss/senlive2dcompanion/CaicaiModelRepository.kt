@@ -49,8 +49,9 @@ class CaicaiModelRepository(context: Context) {
                 it.isFile && it.name.equals("accessory-lab.json", ignoreCase = true)
             } ?: throw IOException("模型包缺少 accessory-lab.json")
             val config = JSONObject(manifest.readText(Charsets.UTF_8))
-            val maid = safeChild(manifest.parentFile, config.getString("mainModel"))
-            val accessory = safeChild(manifest.parentFile, config.getString("accessoryModel"))
+            val manifestDir = manifest.parentFile ?: throw IOException("模型清单路径无效")
+            val maid = safeChild(manifestDir, config.getString("mainModel"))
+            val accessory = safeChild(manifestDir, config.getString("accessoryModel"))
             if (maid?.isFile != true || accessory?.isFile != true) {
                 throw IOException("模型包缺少菜菜主模型或 Sen 配件模型")
             }

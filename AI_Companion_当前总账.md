@@ -1116,4 +1116,5 @@ Actions 与交付证据：远端功能 head `33647c7bff15084d6fd3cbc7b817e9b0b21
 - 用户在聊天画面设置导入带 `accessory-lab.json` 的菜菜女仆／Sen 三配件 ZIP，保存到应用私有目录，并可选启用主形态 Live2D；小豆丁仍用旧立绘。导入有路径与容量边界、临时目录、旧版回退；真正渲染报错时尝试恢复旧包。舞台可拖动／缩放。没有模型时提示导入。语音嘴型、表情与动作 Jev 判断、手选装扮及双形态 Live2D 不在首批开放，后续须根据真机画面和真实参数逐项加入；不能把原生自发动作当作 LLM 已控制参数。耳鳍眨眼和尾巴效果仍需真机核对菜菜源实现。
 - 桌宠说话动作的静态机制：`TALKING` 单次动画 2.9 秒返回 `IDLE` 后，若上游会话 cue 仍是 `playing`，空闲重检会立即再播。前台 TTS 真正播放时每 2 秒续传状态；服务端 8 秒收不到心跳就让失联 `playing` 过期，同时真实结束仍即时发 `idle`。当前没有同一时刻的真机 TTS 诊断来证明旧版“卡住”唯一来源，修复针对可证实的无限重播条件。
 - 保护边界：不改 Cedar、自主游戏/分享竞争、DeepSeek/Jev 工具规划、气焰及 schema 61；+274 的 147% 默认值、工具正文折叠、备份租约修复仍保留。原模型 ZIP 需用户从自己的仓库持有并在设备上导入；不在聊天中索取私有模型。验证包括 126 项源码套件、Kotlin／Flutter、签名和 APK 内完整原生资源；真机还需验证渲染叠层、前发与三配件、待机动态、重复开关及长时说话后的桌宠回到空闲。
+- 首次 Actions `36328977449`：126 项源码门已通过，Android Kotlin 编译首次报错为实验项目在 CI 应用的 Cubism `drawable-filter` Framework 补丁尚未随移植带入。按实验项目原补丁精确补齐 `CubismRendererAndroid` 的三配件 drawable 筛选，源码门将该补丁与无 mipmap 补丁分别固定哈希，等待重新构建；不是模型纹理或真机驱动错误。
 - 实施状态：`IMPLEMENTED LOCALLY / CI PENDING / APK PENDING / TRUE DEVICE PENDING`。待写入最终功能 head、Actions run、Artifact、APK SHA-256、签名证书和 Draft 下载位置。
