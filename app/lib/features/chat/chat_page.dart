@@ -1770,7 +1770,12 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
                           subtitle: const Text('导入菜菜女仆三配件完整模型包。'),
                           onTap: () async {
                             try {
-                              await CaicaiLive2DService.pickModelZip();
+                              final imported = await CaicaiLive2DService.pickModelZip();
+                              if (mounted && imported) {
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  const SnackBar(content: Text('模型包已保存，请返回聊天画面查看 Live2D 加载结果')),
+                                );
+                              }
                             } catch (error) {
                               if (mounted) ScaffoldMessenger.of(context).showSnackBar(
                                 SnackBar(content: Text('导入失败：$error')),

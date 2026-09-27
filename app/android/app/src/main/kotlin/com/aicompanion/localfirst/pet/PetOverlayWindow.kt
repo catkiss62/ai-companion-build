@@ -496,6 +496,12 @@ class PetOverlayWindow(
             val layout = params ?: return@setOnTouchListener false
             when (event.actionMasked) {
                 MotionEvent.ACTION_DOWN -> {
+                    val hitWidth = dp(windowDp(normalizedSize(prefs.getString(KEY_PET_SIZE, PET_SIZE_MEDIUM))))
+                    if (!PetTouchRegions.accepts(event.x, event.y, view.width, hitWidth)) {
+                        // The 16:9 canvas keeps wide clips visible, but its
+                        // transparent side bands must not start a pet gesture.
+                        return@setOnTouchListener false
+                    }
                     onTouchActivity("pet_down")
                     noteUserActivity()
                     cancelAutonomyPlayback(resetToIdle = true)
@@ -519,7 +525,6 @@ class PetOverlayWindow(
                     startWindowY = layout.y
                     dragging = false
                     longPressHandled = false
-                    val hitWidth = dp(windowDp(normalizedSize(prefs.getString(KEY_PET_SIZE, PET_SIZE_MEDIUM))))
                     pressedRegion = PetTouchRegions.classify(
                         event.x - (view.width - hitWidth) / 2f, event.y, hitWidth, view.height,
                     )

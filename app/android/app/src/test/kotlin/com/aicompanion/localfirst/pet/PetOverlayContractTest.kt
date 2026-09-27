@@ -16,6 +16,16 @@ class PetOverlayContractTest {
     }
 
     @Test
+    fun wideCanvasOnlyStartsGesturesInOldSquareWindow() {
+        assertFalse(PetTouchRegions.accepts(0f, 50f, 270, 152))
+        assertFalse(PetTouchRegions.accepts(58f, 50f, 270, 152))
+        assertTrue(PetTouchRegions.accepts(59f, 50f, 270, 152))
+        assertTrue(PetTouchRegions.accepts(210f, 151f, 270, 152))
+        assertFalse(PetTouchRegions.accepts(211f, 50f, 270, 152))
+        assertFalse(PetTouchRegions.accepts(130f, 152f, 270, 152))
+    }
+
+    @Test
     fun displaySizeAndRasterTierRemainSeparate() {
         assertEquals(112, PetOverlaySizing.windowDp(PetOverlaySizing.SMALL))
         assertEquals(152, PetOverlaySizing.windowDp(PetOverlaySizing.MEDIUM))

@@ -37,9 +37,6 @@ class CaicaiModelRepository(context: Context) {
     @Synchronized
     fun importZip(uri: Uri): Models {
         if (!root.exists() && !root.mkdirs()) throw IOException("无法创建模型目录")
-        if (prefs.getBoolean("pending", false)) {
-            throw IOException("上一模型包尚未在 Live2D 画面完成验证，请先打开画面")
-        }
         remove(staging)
         if (!staging.mkdirs()) throw IOException("无法创建模型暂存目录")
         try {
@@ -57,6 +54,11 @@ class CaicaiModelRepository(context: Context) {
             }
             val maidPath = maid.relativeTo(staging).invariantSeparatorsPath
             val accessoryPath = accessory.relativeTo(staging).invariantSeparatorsPath
+            // Settings can import before the stage exists, so the candidate may
+            // remain pending indefinitely. Keep it until the replacement ZIP
+            // has passed structural checks, then restore the last verified
+            // package (if any) before starting the next transaction.
+            if (prefs.getBoolean("pending", false)) rollbackPendingImport()
             remove(backup)
             if (current.exists() && !current.renameTo(backup)) throw IOException("无法暂存旧模型")
             if (!staging.renameTo(current)) {

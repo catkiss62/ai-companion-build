@@ -2,6 +2,13 @@ package com.aicompanion.localfirst.pet
 
 /** Pure interaction geometry copied from ds-local-pet/pet/interaction.py. */
 object PetTouchRegions {
+    /** Old square pet window inside the wider 16:9 drawing surface. */
+    fun accepts(x: Float, y: Float, visualWidth: Int, oldWindowSize: Int): Boolean {
+        if (visualWidth <= 0 || oldWindowSize <= 0) return false
+        val left = (visualWidth - oldWindowSize) / 2f
+        return x >= left && x < left + oldWindowSize && y >= 0f && y < oldWindowSize
+    }
+
     fun classify(x: Float, y: Float, width: Int, height: Int): String {
         if (width <= 0 || height <= 0) return "body"
         val nx = x / width.toFloat()

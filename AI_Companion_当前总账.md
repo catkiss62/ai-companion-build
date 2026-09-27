@@ -1,6 +1,6 @@
 # AI Companion · 当前总账
 
-更新时间：2026-09-27（UTC；+275 菜菜原生 Live2D 自主待机与桌宠说话状态修复待构建）
+更新时间：2026-09-27（UTC；+276 菜菜导入与桌宠触摸范围修复进行中）
 
 > 本文件是唯一的当前接班入口，继续采用“总账 v2”。顶部是快速接班索引；标记后的正式记录按版本持续追加，不设总容量上限。
 >
@@ -45,7 +45,8 @@
 | +270 当前任务 | `agent/v04226-pet-opaque-ambient-preview` 从 +269 远端 `f57acba` 分出。用户真机发现同一段新动画在“实验动画”关闭后继续播放却立即变实，证据指向独立实验 WindowManager 绘制层。改为单窗口不透明播放，保留原触摸/基础动作；“新版动画”默认开，旧模式保持原逻辑，新模式移出旧的非基础待机、纳入三段睡眠与工作/思考短片待机（深度思考碎碎念若裁切不宜修则排除），聊天思考与说话仍用旧动作；校准入口移至播放器首位，两个 Activity 修复上下裁切。旧 APK Draft `<=+265` 由维护 Actions `36275881299` 删除 191 个，人工删除 3 个；保留两份无 APK 草稿及构建输入。构建 head `4b205aee8f8e27a50ee4a87f5f1060fbf1dc4b7d`；Actions `36276798640` 全绿，未发布 Draft `untagged-c838b8c01ac127dd5d71`，APK SHA-256 `8e8a0b3c2809bb53efa9bd9e53e3d058ec0126231a736213fe69d395623cb85b`。状态 `IMPLEMENTED / CI PASSED / APK READY / TRUE DEVICE PENDING`。|
 | +271 当前任务 | 用户报告 +269 昨晚到今午无自主聊天。旧版 2026-09-27 16:03（中国时间）存档/诊断：最后主动消息 09-26 11:14；过去 24 小时 `autonomousBehaviors=0`；Active Brain=true、无传输锁、无当前阻塞生成/租约，后台错误累计 677、最近错误 `MissingPluginException(pendingStoppedReminders)`。`RecoveryOrchestrator.runOnce` 在自主心跳前调用日历提醒读取，后台 `BackgroundSystemBridge` 缺少该方法，导致整轮退出。+271 补齐后台日历读取/确认，并让提醒独立失败只记错误分类、不拖停自主心跳。分支 `agent/v04227-proactive-background-bridge`，构建 head `5860cd54238e77ec65e6b911decee71020ae5316`；Actions `36305352339` 全绿，APK SHA-256 `a2236878e9234570ee6e90f6e288cb25b4f9186653b2b09ef54a147f3b49e879`，未发布 Draft `untagged-fb80911e6438a3a7d7d3`。状态 `IMPLEMENTED / CI PASSED / APK READY / TRUE DEVICE PENDING`。|
 | +274 当前任务 | `agent/v04230-game-resume-pet-collapse`：用户真机观察自主游戏断续；源码证实检查点到期先延期 8 分钟、再触发意愿竞争，使 `resume_game` 因时钟未到期被排除。改为先竞争、未选中再延期，保留每次一步、3 次变动/25 分钟检查点、投入度/疲劳竞争和防沉迷；新动画默认缩放 147%（旧 121% 仍作显示基准），工具活动正文出现后自动折叠。另根据 20:13 诊断修补 Cedar 动作清理失败时租约未释放，并澄清备份占用提示；街机厅首次错误随后正常游玩，无确证协议故障，不改玩法。素材管线不改。状态 `IMPLEMENTED / CI PASSED / APK READY / TRUE DEVICE PENDING`，详见末尾 +274。|
-| +275 当前任务 | `agent/v04231-caicai-native-idle-pet-speech`：以 `nanlingyin/soullink-emotion-sdk` 的参考方向和菜菜实验项目的实际原生渲染实现为基础，移植菜菜双模型 Cubism 渲染、EV faithful 自主待机及几何锚点，主形态聊天画面可选启用，模型 ZIP 本机导入；不启用 Jev/语音驱动和小豆丁 Live2D。另为桌宠说话状态增加前台心跳与 8 秒失联过期。状态 `IMPLEMENTED LOCALLY / CI PENDING / APK PENDING / TRUE DEVICE PENDING`，详见末尾 +275。|
+| +275 当前任务 | `agent/v04231-caicai-native-idle-pet-speech`：菜菜双模型原生渲染／自主待机与桌宠说话心跳。HEAD `968ca7c`，Actions `36329874552` 全绿，Artifact `10935547935`，Draft `397702273`；状态 `IMPLEMENTED / CI PASSED / APK READY / TRUE DEVICE FAILED（导入重试）`，详见末尾 +275。|
+| +276 当前任务 | `agent/v04232-caicai-import-pet-touch`，候选 `v0.42.32+276`：导入后未渲染导致 pending 拦重试；新版 16:9 桌宠窗口使可操作范围过大。保留菜菜原生渲染及宽动画；修复二次导入事务并收紧桌宠手势到旧方形。状态 `IMPLEMENTED LOCALLY / CI PENDING / APK PENDING / TRUE DEVICE PENDING`，详见末尾 +276。|
 | 当前任务状态 | `+265～+267` 已有构建与真机反馈；`+268 IMPLEMENTED / CI PASSED / APK READY / TRUE DEVICE PENDING`：不透明桌面播放、独立宽度与饱和度、24 fps 全帧与播放器时钟；`+269 IMPLEMENTED / CI PASSED / APK READY / TRUE DEVICE PENDING`：96 段完整动作及整轮气焰结算，见末尾 +269。|
 | +267 远端 | 功能 head `07142df2f01f15b5e4770fb6d17b48150770f422`；tree `aa16c6405f87967191dcb5b99662c53302983c52`；Actions `36232295089` 全绿；Artifact `10903136887`；APK SHA-256 `956812613c1fb00123e2ab2e6a3f5f3ccc1d320743c7bd6b866c4e0365b09ab2`；未发布 Draft Release `397169363` |
 | +250 当前任务 | 本体／小豆丁形态共用成年角色、记忆与能力；同一形态状态驱动角色提示与静态立绘，虚拟弹额头／安抚改变气焰值后继续自然衰减，心形液面与锁定入口；常驻世界书定点柔化并仅迁移未编辑原文；两档 TTS 共用冻结的真实回复与分段，无声生成并复制专项脱敏报告 |
@@ -1117,4 +1118,14 @@ Actions 与交付证据：远端功能 head `33647c7bff15084d6fd3cbc7b817e9b0b21
 - 桌宠说话动作的静态机制：`TALKING` 单次动画 2.9 秒返回 `IDLE` 后，若上游会话 cue 仍是 `playing`，空闲重检会立即再播。前台 TTS 真正播放时每 2 秒续传状态；服务端 8 秒收不到心跳就让失联 `playing` 过期，同时真实结束仍即时发 `idle`。当前没有同一时刻的真机 TTS 诊断来证明旧版“卡住”唯一来源，修复针对可证实的无限重播条件。
 - 保护边界：不改 Cedar、自主游戏/分享竞争、DeepSeek/Jev 工具规划、气焰及 schema 61；+274 的 147% 默认值、工具正文折叠、备份租约修复仍保留。原模型 ZIP 需用户从自己的仓库持有并在设备上导入；不在聊天中索取私有模型。验证包括 126 项源码套件、Kotlin／Flutter、签名和 APK 内完整原生资源；真机还需验证渲染叠层、前发与三配件、待机动态、重复开关及长时说话后的桌宠回到空闲。
 - 首次 Actions `36328977449`：126 项源码门已通过，Android Kotlin 编译首次报错为实验项目在 CI 应用的 Cubism `drawable-filter` Framework 补丁尚未随移植带入。按实验项目原补丁精确补齐 `CubismRendererAndroid` 的三配件 drawable 筛选，源码门将该补丁与无 mipmap 补丁分别固定哈希，等待重新构建；不是模型纹理或真机驱动错误。
-- 实施状态：`IMPLEMENTED LOCALLY / CI PENDING / APK PENDING / TRUE DEVICE PENDING`。待写入最终功能 head、Actions run、Artifact、APK SHA-256、签名证书和 Draft 下载位置。
+- 构建收尾：修复后 HEAD `968ca7cc8dad89cd345b6188472ba0e5517aa6eb`，Actions `36329874552` build-apk 全绿；Artifact `10935547935`，测试 Draft `397702273`（`untagged-a69fc367fb8a880a9ac7`），APK 726,018,970 字节。状态 `IMPLEMENTED / CI PASSED / APK READY`；SHA-256 与签名证书尚未在此账核实，不填猜测值。
+- 真机失败：2026-09-28 用户截图显示再次导入时报 `上一模型包尚未在 Live2D 画面完成验证，请先打开画面`。导入器的 `pending` 只在画面 renderer onReady 时清掉，而设置页允许画面未建立时导入并忽略成功返回；二次导入遂被错误拒绝。尚无真机画面证据，Live2D 渲染／三配件仍未通过。
+
+## v0.42.32+276 · 菜菜模型重试导入与桌宠触摸范围（2026-09-27）
+
+- 开工证据：+275 真机截图二次导入触发 `pending` 门；源码 `CaicaiModelRepository.importZip` 在解压前直接拒绝未在舞台完成验证的包，且设置页导入成功未给可见提示。菜菜原生渲染源码哈希未动，仅调整宿主导入事务。
+- 桌宠触摸证据：旧版 `PetOverlayWindow` 的系统窗口为 `windowDp × windowDp`；新版为 `visualWidthDp × windowDp`，中号从 152×152 dp 扩为 270×152 dp。虽然事件分类以旧方形坐标计算，`ACTION_DOWN` 在整个 270 dp 窗口触发自主中断、拖拽或点击。保留现有单窗口不透明宽幅渲染，先将宠物手势起点限制回旧方形；系统窗口两侧透明区域是否透传到其他 App，仍需真机判断，不把 `return false` 冒充系统透传。此前独立非触摸绘制层在真机导致半透明；Android 12+ 不可信遮挡策略也可能阻断底层点击，因此不在本批恢复双窗口。
+- 保护边界与验收：保留原生双模型及 EV 待机、+275 TTS 心跳、147% 显示和 Cedar/气焰/schema 61。验证同一模型 ZIP 首次／重复导入、无效 ZIP 不丢当前候选、渲染成功／失败回退、桌宠方形内点击拖拽与左右空白处不触发；真机尤其检查旁侧底层点击是否透传。
+- 实施：新 ZIP 完整解压并确认 `accessory-lab.json` 指向两份模型文件后，若上一包仍为 pending，先恢复已验证备份再开启新事务；无效 ZIP 在触动旧包前失败。设置页不再吞掉成功结果。`ACTION_DOWN` 在旧方形之外不再启动宠物手势、停止自主动作或拖动；新增方形边界 Kotlin 回归。
+- 本地验证：菜菜运行时哈希门与总账接班门通过，`git diff --check` 通过。完整 126 项源码门在本地到第 28 项因受保护的 417 个桌宠源素材未恢复而停下；该素材仅由 CI 固定 Draft 资源补齐。Kotlin/Flutter 编译、APK 签名与真机仍待 Actions/设备确认。
+- 状态：`IMPLEMENTED LOCALLY / CI PENDING / APK PENDING / TRUE DEVICE PENDING`。
