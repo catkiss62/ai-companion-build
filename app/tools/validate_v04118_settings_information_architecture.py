@@ -70,7 +70,7 @@ for page in (
 for token in (
     "保存本小节",
     "保存视觉配置",
-    "保存网页来源",
+    "测试整理效果",
     "Endpoint 验证",
     "proactive_adaptation_enabled",
     "perception_enabled",

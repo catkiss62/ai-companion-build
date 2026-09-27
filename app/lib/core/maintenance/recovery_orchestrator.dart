@@ -103,7 +103,19 @@ class RecoveryOrchestrator {
     final startedAt = DateTime.now();
     try {
       await _markStarted(startedAt, wakeReason);
-      final generationRecovered = await generationRecovery.recoverOne();
+      var generationRecovered = false;
+      try {
+        generationRecovered = await generationRecovery.recoverOne();
+      } on GenerationSuspendedByRuntimeGateException {
+        throw const _RecoveryOrchestratorOwnershipLost();
+      } catch (error) {
+        // A broken retry remains durable; its failure must not permanently
+        // starve the separate local heartbeat. The blocking-job check below
+        // still prevents a second visible reply while that turn is running.
+        await db.setSetting('generation_recovery_last_error_category', classifyRuntimeError(error));
+        await db.setSetting('generation_recovery_last_error_at',
+            DateTime.now().millisecondsSinceEpoch.toString());
+      }
       await _guardOrchestratorOwnership();
       try {
         await memoryExtractor.drainPending(
@@ -164,7 +176,14 @@ class RecoveryOrchestrator {
           );
         }
       }
-      var cedarDelay = await proactive.cedarContinuationDelay(now: DateTime.now());
+      Duration? cedarDelay;
+      try {
+        cedarDelay = await proactive.cedarContinuationDelay(now: DateTime.now());
+      } on GenerationSuspendedByRuntimeGateException {
+        throw const _RecoveryOrchestratorOwnershipLost();
+      } catch (error) {
+        await db.setSetting('cedar_toy_last_delay_error_category', classifyRuntimeError(error));
+      }
       if (cedarContinuationState == 'user_chat') {
         cedarDelay = const Duration(seconds: 5);
       } else if (cedarContinuationState == 'action_in_progress') {
@@ -289,8 +308,13 @@ class RecoveryOrchestrator {
         // The ordinary Desire heartbeat may just have chosen a new game and
         // fetched its guide. Re-read the lightweight clock so its first real
         // move does not wait for the next 7–24 minute personality heartbeat.
-        cedarDelay =
-            await proactive.cedarContinuationDelay(now: DateTime.now());
+        try {
+          cedarDelay = await proactive.cedarContinuationDelay(now: DateTime.now());
+        } on GenerationSuspendedByRuntimeGateException {
+          throw const _RecoveryOrchestratorOwnershipLost();
+        } catch (error) {
+          await db.setSetting('cedar_toy_last_delay_error_category', classifyRuntimeError(error));
+        }
       }
       final postTurnDelay = await _nextPostTurnDelay();
       late Duration nextDelay;

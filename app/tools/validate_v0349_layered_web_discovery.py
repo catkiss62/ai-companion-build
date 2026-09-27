@@ -49,7 +49,7 @@ assert "readAgnesApiKey" in secure
 assert "readTavilyApiKey" in secure
 assert "额外公开来源（可选，每行一个网址或域名）" in settings
 assert "不会把搜索限制在这些站点" in settings
-assert "测试 Agnes 整理效果" in settings
+assert "测试整理效果" in settings
 assert "global search remains present" in tests
 assert "reject local targets" in tests
 assert "Agnes compacts public snippets" in tests
