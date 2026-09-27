@@ -7,7 +7,7 @@ import kotlin.math.pow
 
 /** One shared visual transform for the trial clips; it never changes pet geometry. */
 data class PetExperimentalCalibration(
-    val scale: Float = 1.21f,
+    val scale: Float = 1.47f,
     val widthScale: Float = 0.93f,
     val xDp: Float = 0f,
     val yDp: Float = -2f,
@@ -52,7 +52,7 @@ data class PetExperimentalCalibration(
         private const val KEY_SATURATION = "pet_experimental_saturation"
 
         fun load(prefs: SharedPreferences) = PetExperimentalCalibration(
-            scale = prefs.getFloat(KEY_SCALE, 1.21f),
+            scale = prefs.getFloat(KEY_SCALE, 1.47f),
             widthScale = prefs.getFloat(KEY_WIDTH_SCALE, 0.93f),
             xDp = prefs.getFloat(KEY_X, 0f),
             yDp = prefs.getFloat(KEY_Y, -2f),

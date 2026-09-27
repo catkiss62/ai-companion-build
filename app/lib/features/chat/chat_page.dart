@@ -3310,7 +3310,7 @@ class _ToolActivityHistory extends StatelessWidget {
           border: Border.all(color: colors.outlineVariant.withValues(alpha: 0.35)),
         ),
         child: ExpansionTile(
-          initiallyExpanded: true,
+          initiallyExpanded: false,
           dense: true,
           visualDensity: VisualDensity.compact,
           leading: const Icon(Icons.build_circle_outlined, size: 18),
@@ -3860,6 +3860,7 @@ class _StreamingBubble extends StatelessWidget {
                     activities: controller.agentActivities.isEmpty
                         ? <AgentToolActivity>[controller.agentActivity!]
                         : controller.agentActivities,
+                    bodyVisible: content.isNotEmpty,
                   ),
                 if (content.isNotEmpty) ...[
                   for (var index = 0; index < blocks.length; index++) ...[
@@ -3897,9 +3898,13 @@ class _StreamingBubble extends StatelessWidget {
 }
 
 class _LiveToolActivityPanel extends StatelessWidget {
-  const _LiveToolActivityPanel({required this.activities});
+  const _LiveToolActivityPanel({
+    required this.activities,
+    required this.bodyVisible,
+  });
 
   final List<AgentToolActivity> activities;
+  final bool bodyVisible;
 
   @override
   Widget build(BuildContext context) {
@@ -3916,7 +3921,10 @@ class _LiveToolActivityPanel extends StatelessWidget {
           ),
         ),
         child: ExpansionTile(
-          initiallyExpanded: true,
+          // Keep the running log open; remount once when body text appears
+          // so the summary stays visible without pushing the reply away.
+          key: ValueKey(bodyVisible),
+          initiallyExpanded: !bodyVisible,
           dense: true,
           visualDensity: VisualDensity.compact,
           tilePadding: const EdgeInsets.symmetric(horizontal: 6),

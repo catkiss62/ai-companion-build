@@ -98,7 +98,8 @@ def main() -> None:
     for token in (
         "class _LiveToolActivityPanel",
         "class _ToolActivityHistory",
-        "initiallyExpanded: true",
+        "initiallyExpanded: !bodyVisible",
+        "initiallyExpanded: false",
         "工具活动",
         "已停止",
     ):

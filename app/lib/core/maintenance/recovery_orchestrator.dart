@@ -255,47 +255,55 @@ class RecoveryOrchestrator {
       var proactiveReason = '';
       Duration heartbeatDelay;
 
-      if (heartbeatDue) {
-        if (cedarDirectShareSent) {
-          heartbeatAdvanced = true;
-          final snapshot = await db.loadDesire();
-          heartbeatDelay = _nextHeartbeat(snapshot, _random);
-          await _storeNextHeartbeat(now.add(heartbeatDelay));
-          proactiveReason = 'cedar_watched_share_sent';
-        } else if (blocking != null || !allowProactive || cedarDidWork) {
-          final heartbeat = await proactive.maintainLocalStateOnly(
-            perceptionMinInterval: perceptionMinInterval,
-          );
-          if (heartbeat == null) {
-            heartbeatDelay = const Duration(seconds: 30);
-          } else {
-            heartbeatAdvanced = true;
-            heartbeatDelay = _nextHeartbeat(heartbeat.snapshot, _random);
-            await _storeNextHeartbeat(now.add(heartbeatDelay));
-            proactiveReason = blocking != null
-                ? 'local_heartbeat_while_generation_waits'
-                : cedarDidWork
-                    ? 'local_heartbeat_after_cedar_continuation'
-                    : 'proactive_disabled_for_cycle';
-          }
-        } else {
-          final decision = await proactive.evaluate(
-            perceptionMinInterval: perceptionMinInterval,
-          );
-          proactiveReason = decision.reason;
-          if (decision.reason == '主动心跳正在由另一引擎处理' ||
-              decision.reason == '用户正在与我聊天') {
-            heartbeatDelay = const Duration(seconds: 30);
-          } else {
+      try {
+        if (heartbeatDue) {
+          if (cedarDirectShareSent) {
             heartbeatAdvanced = true;
             final snapshot = await db.loadDesire();
             heartbeatDelay = _nextHeartbeat(snapshot, _random);
             await _storeNextHeartbeat(now.add(heartbeatDelay));
+            proactiveReason = 'cedar_watched_share_sent';
+          } else if (blocking != null || !allowProactive || cedarDidWork) {
+            final heartbeat = await proactive.maintainLocalStateOnly(
+              perceptionMinInterval: perceptionMinInterval,
+            );
+            if (heartbeat == null) {
+              heartbeatDelay = const Duration(seconds: 30);
+            } else {
+              heartbeatAdvanced = true;
+              heartbeatDelay = _nextHeartbeat(heartbeat.snapshot, _random);
+              await _storeNextHeartbeat(now.add(heartbeatDelay));
+              proactiveReason = blocking != null
+                  ? 'local_heartbeat_while_generation_waits'
+                  : cedarDidWork
+                      ? 'local_heartbeat_after_cedar_continuation'
+                      : 'proactive_disabled_for_cycle';
+            }
+          } else {
+            final decision = await proactive.evaluate(
+              perceptionMinInterval: perceptionMinInterval,
+            );
+            proactiveReason = decision.reason;
+            if (decision.reason == '主动心跳正在由另一引擎处理' ||
+                decision.reason == '用户正在与我聊天') {
+              heartbeatDelay = const Duration(seconds: 30);
+            } else {
+              heartbeatAdvanced = true;
+              final snapshot = await db.loadDesire();
+              heartbeatDelay = _nextHeartbeat(snapshot, _random);
+              await _storeNextHeartbeat(now.add(heartbeatDelay));
+            }
           }
+        } else {
+          heartbeatDelay = await _remainingHeartbeatDelay(now);
+          if (cedarDirectShareSent) proactiveReason = 'cedar_watched_share_sent';
         }
-      } else {
-        heartbeatDelay = await _remainingHeartbeatDelay(now);
-        if (cedarDirectShareSent) proactiveReason = 'cedar_watched_share_sent';
+      } finally {
+        if (episodeCheckpointDue) {
+          // Keep the clock due during this competition. Always defer an
+          // unchosen checkpoint, including when evaluation was interrupted.
+          await proactive.deferCedarCheckpointAfterCompetition(now: DateTime.now());
+        }
       }
 
       await _guardOrchestratorOwnership();

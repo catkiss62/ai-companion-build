@@ -108,7 +108,9 @@ class PetFrameView(context: Context) : View(context) {
         // Fit the default calibration, then let the size slider change the
         // actual drawn height. Fitting against the *current* size cancelled
         // every size adjustment and made the visual scale impossible to tune.
-        val referenceScale = if (experimental) PetExperimentalCalibration().scale else 1f
+        // Keep the fit reference fixed at the old 121% baseline. Using the
+        // new default here would cancel the requested 147% visual enlargement.
+        val referenceScale = if (experimental) 1.21f else 1f
         val horizontalCalibration = if (experimental) referenceScale * calibration.widthScale else 1f
         val verticalCalibration = referenceScale
         val available = min(

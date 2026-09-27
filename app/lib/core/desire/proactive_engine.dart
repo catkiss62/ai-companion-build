@@ -220,6 +220,9 @@ class ProactiveEngine {
   Future<Duration?> cedarContinuationDelay({required DateTime now}) =>
       cedarToyAutonomy.continuationDelay(now: now);
 
+  Future<void> deferCedarCheckpointAfterCompetition({required DateTime now}) =>
+      cedarToyAutonomy.deferCheckpointAfterCompetition(now: now);
+
   /// Fast/spectate mode promotes a Cedar Thought into the ordinary main-chat
   /// generation path immediately. It still honors Active Brain, user-turn,
   /// immersive-page and writer-lease boundaries.

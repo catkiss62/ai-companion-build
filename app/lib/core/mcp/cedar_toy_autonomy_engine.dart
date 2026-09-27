@@ -1036,6 +1036,32 @@ class CedarToyAutonomyEngine {
     return CedarToyActivityStore(db).nextContinuationDelay(now);
   }
 
+  /// The checkpoint gets one ordinary Desire competition while its clock is
+  /// due. Only after that competition should the next wake-up be scheduled;
+  /// moving the clock first makes resumeOptions() exclude the checkpoint.
+  Future<void> deferCheckpointAfterCompetition({required DateTime now}) async {
+    final store = CedarToyActivityStore(db);
+    final session = await store.load();
+    if (session == null ||
+        !session.needsContinuation ||
+        _isRealtimeCommitment(session) ||
+        (await continuationDelay(now: now) ?? const Duration(days: 1)) >
+            Duration.zero) return;
+    final episode = CedarSoloEpisodePolicy.checkpointIfDue(
+      await _currentSoloEpisode(session: session, now: now),
+      now,
+    );
+    if (!episode.checkpointPending) return;
+    final untilUnlock = episode.lockedAt(now) &&
+            episode.antiAddictionResumeAt != null
+        ? episode.antiAddictionResumeAt!.difference(now)
+        : const Duration(minutes: 8);
+    await store.deferContinuation(
+      gameId: session.gameId,
+      delay: untilUnlock.isNegative ? Duration.zero : untilUnlock,
+    );
+  }
+
   Future<CedarAutonomyProgress> continueDue({
     required DateTime now,
     bool episodeAuthorized = false,
@@ -1098,14 +1124,9 @@ class CedarToyAutonomyEngine {
       );
       await _saveSoloEpisode(episode);
       if (!episodeAuthorized && episode.checkpointPending) {
-        final delay = episode.lockedAt(now) &&
-                episode.antiAddictionResumeAt != null
-            ? episode.antiAddictionResumeAt!.difference(now)
-            : const Duration(minutes: 8);
-        await store.deferContinuation(
-          gameId: session.gameId,
-          delay: delay.isNegative ? Duration.zero : delay,
-        );
+        // Leave the due clock intact until this wake's Desire competition has
+        // considered resume_game. The orchestrator defers it afterwards when
+        // another behavior wins or no proactive work is allowed.
         await db.setSetting(
           'cedar_toy_last_episode_checkpoint_v1',
           jsonEncode(<String, Object?>{

@@ -3,6 +3,8 @@ import 'dart:convert';
 import 'package:ai_companion_localfirst/core/ai/deepseek_client.dart';
 import 'package:ai_companion_localfirst/core/database/app_database.dart';
 import 'package:ai_companion_localfirst/core/mcp/cedar_game_protocol.dart';
+import 'package:ai_companion_localfirst/core/mcp/cedar_play_outcome_bookkeeper.dart';
+import 'package:ai_companion_localfirst/core/mcp/cedar_solo_episode_policy.dart';
 import 'package:ai_companion_localfirst/core/mcp/cedar_toy_activity.dart';
 import 'package:ai_companion_localfirst/core/mcp/cedar_toy_autonomy_engine.dart';
 import 'package:ai_companion_localfirst/core/mcp/cedar_toy_client.dart';
@@ -133,6 +135,57 @@ void main() {
     });
 
     tearDown(() => db.closeForTesting());
+
+    test('solo checkpoint competes while due, then backs off if unchosen',
+        () async {
+      final store = CedarToyActivityStore(db);
+      await store.recordGuide(gameId: 'fishing', guide: 'actions: cast state');
+      await store.recordPlay(
+        gameId: 'fishing',
+        action: 'cast',
+        outcome: _outcome(<String, Object?>{'ok': true, 'fish': 'trout'}),
+        mode: CedarParticipationMode.solo,
+        nextActor: 'companion',
+        shareLevel: 'quiet',
+      );
+      await CedarPlayOutcomeBookkeeper(db).saveSoloEpisode(
+        CedarSoloEpisodeState(
+          gameId: 'fishing',
+          startedAt: DateTime.now().subtract(const Duration(minutes: 5)),
+          stateChangeCount: 3,
+          checkpointPending: true,
+          checkpointReason: 'state_change_limit',
+        ),
+      );
+      await store.deferContinuation(gameId: 'fishing', delay: Duration.zero);
+      final ai = DeepSeekClient();
+      final engine = CedarToyAutonomyEngine(
+        db: db,
+        ai: ai,
+        secureConfig: SecureConfig.instance,
+        tokenReader: () async => 'ctai_v1_test',
+        apiKeyReader: () async => 'test-key',
+      );
+      try {
+        final due = DateTime.now().add(const Duration(seconds: 1));
+        expect((await engine.continueDue(now: due)).state, 'episode_checkpoint');
+        expect(await engine.continuationDelay(now: due), Duration.zero);
+        expect(
+          (await engine.resumeOptions(now: due, baseScore: 0.7))
+              .map((option) => option.action),
+          contains('resume_game'),
+        );
+
+        await engine.deferCheckpointAfterCompetition(now: DateTime.now());
+        final later = await engine.continuationDelay(now: DateTime.now());
+        expect(later, isNotNull);
+        expect(later!, greaterThan(Duration.zero));
+        expect(await engine.resumeOptions(now: DateTime.now(), baseScore: 0.7),
+            isEmpty);
+      } finally {
+        ai.close();
+      }
+    });
 
     test('terminal outcome remains pending until the visible reply commits',
         () async {
