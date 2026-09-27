@@ -1,0 +1,7 @@
+status=success
+run_id=36305352339
+run_url=https://github.com/catkiss62/ai-companion-build/actions/runs/36305352339
+head_sha=5860cd54238e77ec65e6b911decee71020ae5316
+signer_sha256=30:5E:B3:D8:09:83:B9:63:C6:48:18:DD:F1:AD:56:1F:27:9D:E6:D4:7B:3E:D2:C7:81:AD:A4:48:C7:C2:51:48
+a2236878e9234570ee6e90f6e288cb25b4f9186653b2b09ef54a147f3b49e879  AI-Companion-v0.42.27-271-Proactive-Background-Bridge-APK.apk
+release_url=https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-fb80911e6438a3a7d7d3
