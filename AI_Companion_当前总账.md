@@ -1,6 +1,6 @@
 # AI Companion · 当前总账
 
-更新时间：2026-09-27（UTC；+277 用户真机反馈失败，+278 修复与常规构建验证进行中）
+更新时间：2026-09-27（UTC；+278 常规 Actions 全绿、测试 Draft 已上传；真机与 Jev 准确性仍待验）
 
 > 本文件是唯一的当前接班入口，继续采用“总账 v2”。顶部是快速接班索引；标记后的正式记录按版本持续追加，不设总容量上限。
 >
@@ -47,8 +47,8 @@
 | +274 当前任务 | `agent/v04230-game-resume-pet-collapse`：用户真机观察自主游戏断续；源码证实检查点到期先延期 8 分钟、再触发意愿竞争，使 `resume_game` 因时钟未到期被排除。改为先竞争、未选中再延期，保留每次一步、3 次变动/25 分钟检查点、投入度/疲劳竞争和防沉迷；新动画默认缩放 147%（旧 121% 仍作显示基准），工具活动正文出现后自动折叠。另根据 20:13 诊断修补 Cedar 动作清理失败时租约未释放，并澄清备份占用提示；街机厅首次错误随后正常游玩，无确证协议故障，不改玩法。素材管线不改。状态 `IMPLEMENTED / CI PASSED / APK READY / TRUE DEVICE PENDING`，详见末尾 +274。|
 | +275 当前任务 | `agent/v04231-caicai-native-idle-pet-speech`：菜菜双模型原生渲染／自主待机与桌宠说话心跳。HEAD `968ca7c`，Actions `36329874552` 全绿，Artifact `10935547935`，Draft `397702273`；状态 `IMPLEMENTED / CI PASSED / APK READY / TRUE DEVICE FAILED（导入重试）`，详见末尾 +275。|
 | +276 当前任务 | `agent/v04232-caicai-import-pet-touch`，候选 `v0.42.32+276`：导入后未渲染导致 pending 拦重试；新版 16:9 桌宠窗口使可操作范围过大。保留菜菜原生渲染及宽动画；修复二次导入事务并收紧桌宠手势到旧方形。状态 `IMPLEMENTED / CI PASSED / APK READY / TRUE DEVICE PENDING`，详见末尾 +276。|
-| +277 当前任务／Jev 持续观察 | 用户真机反馈 +276 桌宠范围无变化、菜菜导入无反应、Live2D 令输入法卡顿；Jev 低 confidence 回退频繁且旧诊断无法审计。重新按 +222 旧方窗及菜菜实验室 `fb04512` 验证源码：恢复真实 152×152dp 中号窗口与旧坐标迁移；导入/渲染阶段及 IME 降载；Jev 用最高概率、近似平局不加气焰、小豆丁固定 -18（用户更正），导出完整 Jev/气焰账。`v0.42.33+277`，Actions `36342200023` 全绿、测试 Draft 已有；状态 `IMPLEMENTED / CI PASSED / APK READY / TRUE DEVICE PENDING / JEV ACCURACY PENDING`。每份后续诊断与存档都分析 Jev 准确度，直到真机明确成功。详见末尾 +277。|
-| +278 当前任务 | `v0.42.34+278` / 同 `agent/v04232-caicai-import-pet-touch`。+277 用户已报告动画缩小、导入未显示、空模型开关卡输入法，不能沿用 TRUE DEVICE PENDING 掩盖失败。恢复批准的宽动画尺寸，系统输入区域独立；无模型不创建原生视图，渲染失败保留导入包，Hybrid Composition/焦点隔离；Live2D 独立设置与确认删除；Jev 稀疏动作/原装预设/小豆丁/PCM 口型。`IMPLEMENTED / CI PENDING / TRUE DEVICE PENDING`。Jev 持续观察，最高概率/近似平局中性/-18 不改；详见末尾 +278 和专项文档。|
+| +277 当前任务／Jev 持续观察 | 用户真机反馈 +276 桌宠范围无变化、菜菜导入无反应、Live2D 令输入法卡顿；Jev 低 confidence 回退频繁且旧诊断无法审计。重新按 +222 旧方窗及菜菜实验室 `fb04512` 验证源码：恢复真实 152×152dp 中号窗口与旧坐标迁移；导入/渲染阶段及 IME 降载；Jev 用最高概率、近似平局不加气焰、小豆丁固定 -18（用户更正），导出完整 Jev/气焰账。`v0.42.33+277`，Actions `36342200023` 全绿、测试 Draft 已有；状态 `IMPLEMENTED / CI PASSED / APK READY / TRUE DEVICE FAILED（用户回归反馈，见 +278） / JEV ACCURACY PENDING`。每份后续诊断与存档都分析 Jev 准确度，直到真机明确成功。详见末尾 +277。|
+| +278 当前任务 | `v0.42.34+278` / 同 `agent/v04232-caicai-import-pet-touch`。+277 用户已报告动画缩小、导入未显示、空模型开关卡输入法，不能沿用 TRUE DEVICE PENDING 掩盖失败。恢复批准的宽动画尺寸，系统输入区域独立；无模型不创建原生视图，渲染失败保留导入包，Hybrid Composition/焦点隔离；Live2D 独立设置与确认删除；Jev 稀疏动作/原装预设/小豆丁/PCM 口型。构建 head `cf69e61`，Actions `36348468407` 全绿，961 项 Flutter 测试，Draft `397797809`。`IMPLEMENTED / CI PASSED / APK READY / TRUE DEVICE PENDING`。Jev 持续观察，最高概率/近似平局中性/-18 不改；详见末尾 +278 和专项文档。|
 | 当前任务状态 | `+265～+267` 已有构建与真机反馈；`+268 IMPLEMENTED / CI PASSED / APK READY / TRUE DEVICE PENDING`：不透明桌面播放、独立宽度与饱和度、24 fps 全帧与播放器时钟；`+269 IMPLEMENTED / CI PASSED / APK READY / TRUE DEVICE PENDING`：96 段完整动作及整轮气焰结算，见末尾 +269。|
 | +267 远端 | 功能 head `07142df2f01f15b5e4770fb6d17b48150770f422`；tree `aa16c6405f87967191dcb5b99662c53302983c52`；Actions `36232295089` 全绿；Artifact `10903136887`；APK SHA-256 `956812613c1fb00123e2ab2e6a3f5f3ccc1d320743c7bd6b866c4e0365b09ab2`；未发布 Draft Release `397169363` |
 | +250 当前任务 | 本体／小豆丁形态共用成年角色、记忆与能力；同一形态状态驱动角色提示与静态立绘，虚拟弹额头／安抚改变气焰值后继续自然衰减，心形液面与锁定入口；常驻世界书定点柔化并仅迁移未编辑原文；两档 TTS 共用冻结的真实回复与分段，无声生成并复制专项脱敏报告 |
@@ -1165,3 +1165,12 @@ Actions 与交付证据：远端功能 head `33647c7bff15084d6fd3cbc7b817e9b0b21
 已加入无模型/IME、删除确认、参数边界/一次 Jev 请求、原生计划退出与口型所有权测试。当前工作环境缺 Flutter/Kotlin 编译器及 CI 才恢复的受保护素材，不能声称本地编译通过。常规 Actions 将执行完整素材还原、源码门禁、JVM/Flutter 测试、分析、APK 与稳定签名。提交、Actions、Draft 及结果在实际完成后回填。
 
 **Jev 持续观察**：之后每份诊断/存档同时检查语义最高概率选择、近似平局处理、实际气焰结算与固定 -18，新增外观动作 lane 不替代气焰诊断。未经明确手机验证不得标 `TRUE DEVICE PASSED` 或 `JEV ACCURACY VERIFIED`。
+
+### +278 构建与交付回填（2026-09-27 UTC）
+
+- 功能远端提交 `499584371fe073c92484434966b2611ade4aaf80`；后续版本门禁修正 `f872f682c43d32c1c8272c20d2fb7c0d9276fb89`；最终构建提交 `cf69e61ee44c39e9ee35f0f28de81412194c9f19`，源码树 `fb6c2fa6f9596ec70c873020c56109e7b589f905`。本地最终功能提交 `96e46ebb` 与远端树完全一致。
+- 首轮 Actions `36347437027` 因漏更新六个历史版本号允许列表失败；第二轮 `36347824045` 因新 Hybrid Composition 文件漏导入 `PlatformViewHitTestBehavior` 失败。均未生成 APK。补齐允许版本与导入，没有跳过功能断言或测试。
+- 最终常规 Actions [36348468407](https://github.com/catkiss62/ai-companion-build/actions/runs/36348468407) **全绿**：127 项源码门禁、Android 编译与选定原生单元测试（含新增参数计划）、Flutter analyze（沿用非致命 info/warning 策略）、**961 项 Flutter 测试通过**、Release、稳定签名、Genie/全部桌宠/LingChat 等打包资源验证。
+- 未发布 [测试 Draft](https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-6ed4643eeffc9f1affc5)：release `397797809`；APK asset `593748006`；文件 `AI-Companion-v0.42.34-278-Live2D-Settings-Pet-Touch-APK.apk`；726,041,646 bytes；SHA-256 `0c9669b808bd1edc002f375a6bb918d59a947de869c6d90bd5a5b061ebdb4f5e`。
+- Actions Artifact `10940644751`；APK 校验文件及 CI Monitor 同在 Draft。状态 **IMPLEMENTED / CI PASSED / APK READY / TRUE DEVICE PENDING / JEV ACCURACY PENDING**。
+- 真机尚未接入本工作环境。下一次验收先查空模型开关与键盘、定版 ZIP 后实际画面、动画大小、触摸空白透传；然后查原装预设/形态/语音口型。诊断中的 `overlayPetTouchRegion` 必须是实际 applied 矩形；内部 API 的 ROM 兼容失败不能称为已收紧。模型渲染错误保留完整堆栈且不得再次自动删除包。Jev/气焰继续按顶部持续观察协议分析。
