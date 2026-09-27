@@ -166,6 +166,7 @@ void main() {
         secureConfig: SecureConfig.instance,
         tokenReader: () async => 'ctai_v1_test',
         apiKeyReader: () async => 'test-key',
+        endpointReader: () async => DeepSeekClient.defaultEndpoint,
       );
       try {
         final due = DateTime.now().add(const Duration(seconds: 1));
