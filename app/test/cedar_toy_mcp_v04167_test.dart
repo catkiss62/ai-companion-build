@@ -112,6 +112,12 @@ void main() {
       activeSoloSession: true,
       gap: const Duration(hours: 1),
     ), isFalse);
+    expect(CedarToyArcadeSkill.requestsContextualContinuation(
+      userText: '去买呗',
+      previousAssistantText: '鲸鱼尾巴晃了晃，想买一件新外套。',
+      activeSoloSession: true,
+      gap: const Duration(seconds: 20),
+    ), isFalse);
   });
 
   test('immersive rendering keeps narration bracketless', () {
