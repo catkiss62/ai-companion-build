@@ -421,27 +421,25 @@ class DurableGenerationRunner {
       final precedingAssistant = previous.isNotEmpty && previous.last.isAssistant
           ? previous.last
           : null;
-      final contextualCedarRequest = precedingAssistant != null &&
-          CedarToyArcadeSkill.requestsContextualContinuation(
-            userText: user.content,
-            previousAssistantText: precedingAssistant.content,
+      final cedarContextAvailable = precedingAssistant != null &&
+          user.content.trim().isNotEmpty &&
+          CedarToyArcadeSkill.contextualToolsAvailable(
             activeSoloSession: cedarSession?.mode == CedarParticipationMode.solo &&
                 cedarSession?.continuable == true,
             gap: user.createdAt.difference(precedingAssistant.createdAt),
           );
       final cedarExplicitRequest = !userOnlyGameStatement &&
-          (contextualCedarRequest ||
-              CedarToyArcadeSkill.isRelevant(user.content) ||
+          (CedarToyArcadeSkill.isRelevant(user.content) ||
               CedarToyActivityStore.catalogMentionsGame(
                 user.content,
                 cedarCatalog,
               ));
-      // A solo game continues on its own lightweight background clock. Only a
-      // co-play/user-waiting session may keep Cedar tools in an ordinary user
-      // turn, otherwise unrelated chat would accidentally advance the game.
+      // Solo game progression still belongs to the background clock. A recent
+      // dialogue merely lets the model interpret a short user reply with Cedar
+      // tools available; it does not itself advance the session.
       final cedarSessionActive = cedarState.hasUserTurnContinuation;
       final cedarSkillActive =
-          (cedarExplicitRequest || cedarSessionActive) &&
+          (cedarExplicitRequest || cedarSessionActive || cedarContextAvailable) &&
           cedarConfigured;
       final cedarPromptSession = cedarSession;
       final cedarTerminalGameId =
@@ -496,12 +494,11 @@ class DurableGenerationRunner {
                   state: cedarState,
                   playProtocol: cedarPlayProtocol,
                 ),
-              if (contextualCedarRequest)
-                '用户本轮承接刚才的游戏话题，明确要求推进当前活动。应依玩家指南及真实状态调用工具；若必须等待或确实缺少参数，才说明原因，不要只用对白推迟。',
+              if (cedarContextAvailable && !cedarExplicitRequest)
+                '当前有单人游戏活动。结合上一句和用户最新回复，由你判断用户是否现在要你推进游戏。若是，就根据真实指南和状态调用 Cedar 工具；若是在闲聊、转移话题或延后，则不要调用。没有真实 Outcome 不得只用对白声称或推迟本应执行的动作。',
               if (explicitCedarGameId.isNotEmpty && immediateCedarEntry)
                 '用户本轮明确提到游戏厅或游玩。若指定的目标游戏不同于当前 game，必须先对目标 game 调用 get_guide；当前游戏的指南绝不授权另一个游戏。无在途原子动作时可立即切换，旧 session 仍保留可恢复；若正有原子动作执行中，应诚实说明当前动作和排队目标，不可假装已经进入。不得等待一个跨游戏无法通用定义的“整把打完”而无限拖延切换。',
               if (cedarExplicitRequest &&
-                  !contextualCedarRequest &&
                   !immediateCedarEntry)
                 '用户本轮提到了一个或多个目录游戏，但没有明确要求现在进入；这可以作为建议或未来探索方向，不得擅自把多个候选中的第一个当成立即命令，也不得声称已经切换或建档。',
               if (AgentParticipationConsentPolicy.describesExistingRoom(
@@ -1015,7 +1012,7 @@ $finalGenerationReminder
       if (toolsOpen &&
           generated.toolCalls.isEmpty &&
           CedarAgentLoopPolicy.shouldRetryInitialNoCall(
-            cedarRequested: cedarSkillActive,
+            cedarRequested: cedarExplicitRequest || cedarSessionActive,
             retryUsed: cedarNoCallRetryUsed,
             remainingCalls: allowedTaskCalls(),
           )) {

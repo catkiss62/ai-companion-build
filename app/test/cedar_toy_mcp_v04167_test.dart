@@ -67,21 +67,19 @@ void main() {
     expect(CedarToyArcadeSkill.isRelevant('我今天打游戏输了'), isFalse);
   });
 
-  test('short directives continue a recent solo game exchange', () {
-    const examples = <(String, String)>[
-      ('你那地图碎片还卡在最后一片吧？一起去海沟找大鱼。', '我有空哦，陪你去'),
-      ('等本大人把高级饵和氧气瓶算明白。', '好，走着'),
-      ('那些高级饵打折有刷新时段，积分要省着花。', '去买呗'),
-      ('之前钓鱼钩上来一个锈迹宝箱，我一直没舍得开。', '攒着干嘛呢，直接开呗'),
-      ('钓鱼捞上来一个藤壶密箱，看我一撬棍下去。', '来来来，看你能撬出什么好东西'),
-    ];
-    for (final (assistant, user) in examples) {
-      expect(CedarToyArcadeSkill.requestsContextualContinuation(
-        userText: user,
-        previousAssistantText: assistant,
-        activeSoloSession: true,
-        gap: const Duration(seconds: 20),
-      ), isTrue, reason: user);
+  test('recent solo dialogue exposes tools for semantic planning', () {
+    expect(CedarToyArcadeSkill.contextualToolsAvailable(
+      activeSoloSession: true,
+      gap: const Duration(seconds: 20),
+    ), isTrue);
+    for (final user in const [
+      '我有空哦，陪你去',
+      '好，走着',
+      '去买呗',
+      '攒着干嘛呢，直接开呗',
+      '来来来，看你能撬出什么好东西',
+      '好，抱抱',
+    ]) {
       final schemas = AgentToolPlanner.nativeToolDefinitionsFor(
         user,
         cedarStageToolIds: const {'cedar_toy.play'},
@@ -92,32 +90,28 @@ void main() {
         reason: user,
       );
     }
-    for (final user in const ['好，抱抱', '下次去买', '我有空会去钓鱼']) {
-      expect(CedarToyArcadeSkill.requestsContextualContinuation(
-        userText: user,
-        previousAssistantText: '鱼饵和氧气瓶都准备好了。',
-        activeSoloSession: true,
-        gap: const Duration(seconds: 20),
-      ), isFalse, reason: user);
-    }
-    expect(CedarToyArcadeSkill.requestsContextualContinuation(
-      userText: '去买呗',
-      previousAssistantText: '鱼饵打折了。',
+    expect(CedarToyArcadeSkill.contextualToolsAvailable(
       activeSoloSession: false,
       gap: const Duration(seconds: 20),
     ), isFalse);
-    expect(CedarToyArcadeSkill.requestsContextualContinuation(
-      userText: '去买呗',
-      previousAssistantText: '鱼饵打折了。',
+    expect(CedarToyArcadeSkill.contextualToolsAvailable(
       activeSoloSession: true,
       gap: const Duration(hours: 1),
     ), isFalse);
-    expect(CedarToyArcadeSkill.requestsContextualContinuation(
-      userText: '去买呗',
-      previousAssistantText: '鲸鱼尾巴晃了晃，想买一件新外套。',
-      activeSoloSession: true,
-      gap: const Duration(seconds: 20),
-    ), isFalse);
+    const selected = DeepSeekToolCall(
+      id: 'contextual-play',
+      name: 'cedar_toy_play',
+      arguments: '{"game":"fishing","action":"observe","params_json":"{}"}',
+    );
+    expect(AgentToolPlanner.fromNativeToolCalls(
+      const [selected],
+      latestUserText: '好，走着',
+      cedarSessionActive: true,
+    ).calls.single.toolId, AgentToolRegistry.cedarToyPlay.id);
+    expect(AgentToolPlanner.fromNativeToolCalls(
+      const [selected],
+      latestUserText: '好，走着',
+    ).isEmpty, isTrue);
   });
 
   test('immersive rendering keeps narration bracketless', () {

@@ -58,33 +58,15 @@ class CedarToyArcadeSkill {
         ).hasMatch(text);
   }
 
-  /// A solo session does not expose tools on every ordinary chat turn. A short
-  /// directive can still continue the immediately preceding game exchange.
-  /// This only opens the planner; the model and real Cedar guide choose actions.
-  static bool requestsContextualContinuation({
-    required String userText,
-    required String previousAssistantText,
+  /// Keep the existing solo session available to the model for a nearby reply.
+  /// The model judges meaning from the dialogue; text keywords do not decide
+  /// whether a short acknowledgement is a gameplay request.
+  static bool contextualToolsAvailable({
     required bool activeSoloSession,
     required Duration gap,
-  }) {
-    final text = userText.trim();
-    if (!activeSoloSession ||
-        gap.isNegative ||
-        gap > const Duration(minutes: 15) ||
-        text.isEmpty ||
-        text.runes.length > 40 ||
-        describesUserOnlyPlay(text) ||
-        RegExp(r'(以后|改天|下次|先别|不用|不要|停下|不去了)').hasMatch(text)) {
-      return false;
-    }
-    final gameContext = RegExp(
-      r'(游戏|钓鱼|鱼饵|鱼竿|鱼漂|渔具|大鱼|深海|海沟|氧气瓶|装备|积分|地图碎片|宝箱|密箱|下棋|五子棋|打牌|回合|关卡|存档|房间|副本)',
-    ).hasMatch(previousAssistantText);
-    final directive = RegExp(
-      r'(陪你去|陪你玩|一起去|一起玩|现在去|这就去|走着|出发|开玩|开局|继续玩|接着玩|去买|买呗|买吧|买装备|去钓|钓吧|开始吧|开吧|开呗|撬开|有空.{0,8}陪你|可以.{0,8}有空|来来来.{0,16}撬)',
-    ).hasMatch(text);
-    return gameContext && directive;
-  }
+  }) => activeSoloSession &&
+      !gap.isNegative &&
+      gap <= const Duration(minutes: 15);
 
   /// A first-person plan is conversation context, not authority for the
   /// companion to mutate a remote game. Explicitly including/commanding the
