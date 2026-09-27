@@ -157,6 +157,10 @@ class JevDecisionGateway {
         final distribution = <String, double>{};
         for (final option in entry.value.options.keys) {
           final value = probabilities[option];
+          // Some valid Jev responses report only the chosen probability.
+          // Preserve that sparse answer instead of buying a DeepSeek retry;
+          // a close-race rule needs at least two reported options.
+          if (value == null && !probabilities.containsKey(option)) continue;
           if (value is! num || !value.isFinite || value < 0 || value > 1) {
             await _record(usageLane, 'invalid_answer_$category', started,
                 usage: decoded['usage'], request: requestTrace,
@@ -187,6 +191,8 @@ class JevDecisionGateway {
           'highest_probability_choice': highest,
           'confidence': confidence,
           'probabilities': distribution,
+          'probabilities_complete':
+              distribution.length == entry.value.options.length,
           'close': close,
           'applied': applied,
         };

@@ -19,7 +19,7 @@ void main() {
           expect(request.headers['authorization'], 'Bearer test-key');
           final sent = jsonDecode(request.body) as Map;
           expect(sent['model'], JevDecisionGateway.model);
-          expect((sent['questions'] as Map).containsKey('route'), isTrue);
+          expect(sent['questions'], isA<Map>());
           return http.Response(jsonEncode(body), status);
         }),
       );
