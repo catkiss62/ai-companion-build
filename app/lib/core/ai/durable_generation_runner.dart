@@ -425,9 +425,8 @@ class DurableGenerationRunner {
           CedarToyArcadeSkill.requestsContextualContinuation(
             userText: user.content,
             previousAssistantText: precedingAssistant.content,
-            activeSoloSession: cedarSession != null &&
-                cedarSession.mode == CedarParticipationMode.solo &&
-                cedarSession.continuable,
+            activeSoloSession: cedarSession?.mode == CedarParticipationMode.solo &&
+                cedarSession?.continuable == true,
             gap: user.createdAt.difference(precedingAssistant.createdAt),
           );
       final cedarExplicitRequest = !userOnlyGameStatement &&
