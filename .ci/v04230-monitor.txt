@@ -1,7 +1,7 @@
 status=success
-run_id=36318101080
-run_url=https://github.com/catkiss62/ai-companion-build/actions/runs/36318101080
-head_sha=5ca18e2eabdc86360dfacfbb4ad1f64ac756c7fa
+run_id=36319265641
+run_url=https://github.com/catkiss62/ai-companion-build/actions/runs/36319265641
+head_sha=17541e0d069bcf65e40b10e3d48549fb8a88be5f
 signer_sha256=30:5E:B3:D8:09:83:B9:63:C6:48:18:DD:F1:AD:56:1F:27:9D:E6:D4:7B:3E:D2:C7:81:AD:A4:48:C7:C2:51:48
-e5a0d6e15ddcba114a44840b5b2cef0fec781acec294f0377e3bb00167874566  AI-Companion-v0.42.30-274-Game-Continuation-Pet-UI-APK.apk
-release_url=https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-21a3ec430b82442e2f0a
+64654f6009da96677168f45b45b9aba261d6ac0c919e8cdf9c263eb2ee057ba0  AI-Companion-v0.42.30-274-Game-Continuation-Pet-UI-APK.apk
+release_url=https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-188cba037acbc197f5ea
