@@ -24,7 +24,7 @@ void main() {
     expect(serious.heat, 100); // The user turn is provisional until its reply.
     expect(serious.qForm, isTrue);
     expect(serious.promptForTurn('sad'), contains('现在脾气更冲'));
-    expect(serious.onAssistantTurn(PlayfulSelfActivity.none, 'comfort', now).heat, 73);
+    expect(serious.onAssistantTurn(PlayfulSelfActivity.none, 'comfort', now).heat, 70);
     final locked = excited.withLock(true).advance(PlayfulInteraction.serious, 'sad', now);
     expect(locked.qForm, isTrue);
     expect(locked.promptForTurn('sad'), contains('用户锁定了当前形态'));

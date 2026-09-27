@@ -244,9 +244,9 @@ class PlayfulFormState {
     if (assistantTurn.isEmpty || lastAssistantTurn == assistantTurn) return this;
     // One clamp and one form decision after both participants and the fixed
     // per-turn cooling have contributed. A pending Stop rolls back all of it.
-    // The Q form retains its established -15 per completed turn. A close Jev
+    // Both forms cool by 18 per completed turn. A close Jev
     // distribution supplies no bonus, but never skips this natural cooling.
-    final cooling = qForm ? 15 : 18;
+    const cooling = 18;
     final nextHeat = (heat + (pendingTurn ? pendingInteraction.bonus - cooling -
                 (pendingInteraction == PlayfulInteraction.serious ? 12 : 0) -
                 pendingElapsedHours * 3 : 0) + activity.bonus)
@@ -361,7 +361,7 @@ class PlayfulFormStore {
             'interactionBonus': current.pendingTurn ? current.pendingInteraction.bonus : 0,
             'selfActivity': completedActivity.name,
             'selfBonus': completedActivity.bonus,
-            'fixedCooling': current.pendingTurn ? (current.qForm ? 15 : 18) : 0,
+            'fixedCooling': current.pendingTurn ? 18 : 0,
             'seriousCooling': current.pendingTurn &&
                     current.pendingInteraction == PlayfulInteraction.serious ? 12 : 0,
             'elapsedHours': current.pendingElapsedHours,
