@@ -68,6 +68,14 @@ void main() {
   });
 
   test('recent solo dialogue exposes tools for semantic planning', () {
+    expect(
+      CedarToyArcadeSkill.contextualPlanningRounds,
+      lessThan(CedarToyArcadeSkill.maxPlanningRounds),
+    );
+    expect(
+      CedarToyArcadeSkill.contextualToolCalls,
+      lessThan(CedarToyArcadeSkill.maxToolCalls),
+    );
     expect(CedarToyArcadeSkill.contextualToolsAvailable(
       activeSoloSession: true,
       gap: const Duration(seconds: 20),

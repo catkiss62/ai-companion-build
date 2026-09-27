@@ -7,6 +7,10 @@ class CedarToyArcadeSkill {
   // Historical validator contracts: static const maxToolCalls = 10;
   static const maxPlanningRounds = CedarAgentLoopPolicy.maxPlanningRounds;
   static const maxToolCalls = CedarAgentLoopPolicy.maxToolCalls;
+  // Context-only turns may need list -> guide -> play, but should never get
+  // the larger budget reserved for a direct request naming a game.
+  static const contextualPlanningRounds = 3;
+  static const contextualToolCalls = 3;
   static const gatewayToolIds = <String>{'cedar_toy.list_games'};
   static const engagedToolIds = <String>{
     'cedar_toy.list_games',

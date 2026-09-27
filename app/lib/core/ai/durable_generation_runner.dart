@@ -441,6 +441,9 @@ class DurableGenerationRunner {
       final cedarSkillActive =
           (cedarExplicitRequest || cedarSessionActive || cedarContextAvailable) &&
           cedarConfigured;
+      final cedarContextOnly = cedarContextAvailable &&
+          !cedarExplicitRequest &&
+          !cedarSessionActive;
       final cedarPromptSession = cedarSession;
       final cedarTerminalGameId =
           cedarPromptSession?.hasPendingTerminalDelivery == true
@@ -894,13 +897,17 @@ class DurableGenerationRunner {
             (result) => result.toolId.startsWith('cedar_toy.'),
           );
 
-      int planningRoundLimit() => cedarLoopEngaged()
-          ? CedarToyArcadeSkill.maxPlanningRounds
-          : AgentTaskLoopPolicy.maxPlanningRounds;
+      int planningRoundLimit() => cedarContextOnly
+          ? CedarToyArcadeSkill.contextualPlanningRounds
+          : cedarLoopEngaged()
+              ? CedarToyArcadeSkill.maxPlanningRounds
+              : AgentTaskLoopPolicy.maxPlanningRounds;
 
-      int toolCallLimit() => cedarLoopEngaged()
-          ? CedarToyArcadeSkill.maxToolCalls
-          : AgentTaskLoopPolicy.maxToolCalls;
+      int toolCallLimit() => cedarContextOnly
+          ? CedarToyArcadeSkill.contextualToolCalls
+          : cedarLoopEngaged()
+              ? CedarToyArcadeSkill.maxToolCalls
+              : AgentTaskLoopPolicy.maxToolCalls;
 
       int allowedTaskCalls() => AgentTaskLoopPolicy.allowedCalls(
             planningRounds: agentPlanningRounds,
