@@ -696,10 +696,13 @@ class CedarToyAutonomyEngine {
       return const CedarAutonomyProgress('execution_failed');
     } finally {
       scope?.close();
-      if (executionId.isNotEmpty) {
-        await store.finishExecution(executionId: executionId);
+      try {
+        if (executionId.isNotEmpty) {
+          await store.finishExecution(executionId: executionId);
+        }
+      } finally {
+        await db.releaseLocalLease('cedar_toy_action_lease_until');
       }
-      await db.releaseLocalLease('cedar_toy_action_lease_until');
     }
   }
 

@@ -891,10 +891,15 @@ class AgentToolRunner {
         }
       }
     } finally {
-      if (executionId.isNotEmpty) {
-        await activityStore.finishExecution(executionId: executionId);
+      try {
+        if (executionId.isNotEmpty) {
+          await activityStore.finishExecution(executionId: executionId);
+        }
+      } finally {
+        // A failed activity-state cleanup must not leave the five-minute
+        // action lease held and prevent another game or a safe backup.
+        await db.releaseLocalLease('cedar_toy_action_lease_until');
       }
-      await db.releaseLocalLease('cedar_toy_action_lease_until');
     }
     return _cedarResult(
       toolId: AgentToolRegistry.cedarToyPlay.id,

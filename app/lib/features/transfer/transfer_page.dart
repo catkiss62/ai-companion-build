@@ -411,7 +411,7 @@ class _TransferPageState extends State<TransferPage> {
     throw StateError(
       '当前仍有聊天、记忆或后台整理正在写入（阻塞项：'
       '${lastHeldKey.isEmpty ? 'unknown' : lastHeldKey}），'
-      '请等这一轮完成后重新发送状态包。',
+      '请等这一轮完成后重试。',
     );
   }
 

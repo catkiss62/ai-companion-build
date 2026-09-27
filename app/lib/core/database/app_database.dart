@@ -4777,7 +4777,12 @@ class AppDatabase {
               (settings['pending_import_snapshot_id'] ?? '').isNotEmpty;
       if (locked &&
           (owner.startsWith('$ownerEpoch:') || hasDurableTransfer)) {
-        throw StateError('另一项备份、恢复或设备接管仍在处理中。');
+        final operation = owner.contains(':backup_export:')
+            ? '保存备份'
+            : owner.contains(':backup_restore:')
+                ? '恢复备份'
+                : '设备接管';
+        throw StateError('另一项$operation仍在处理中，请等待当前任务完成后重试。');
       }
       for (final entry in <String, String>{
         'transfer_lock': '1',
