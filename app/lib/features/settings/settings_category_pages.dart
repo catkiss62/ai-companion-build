@@ -271,7 +271,6 @@ class _ModelNetworkSettingsPageState
           'greeting': 'A friendly greeting or small talk.',
           'technical': 'A technical support request.',
         },
-        confidenceFloor: 0,
         usageLane: 'jev_connection_test',
       );
       if (mounted) setState(() => _status = answer == 'greeting'

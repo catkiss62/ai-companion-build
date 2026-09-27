@@ -139,6 +139,9 @@ internal class CaicaiPlatformView(
             SenRenderOptions.DEFAULT_EV_BODY_FOLLOW_STRENGTH,
             CompositeOutfit.MAID_WITH_SEN_ACCESSORIES.id,
         )
+        // The editor may have paused continuous GL; one frame still needs to
+        // consume the newly queued model request before it can report ready.
+        companion.requestRender()
     }
 
     private fun handleStageTouch(view: View, event: MotionEvent): Boolean {
