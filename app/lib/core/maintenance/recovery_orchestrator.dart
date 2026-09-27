@@ -71,8 +71,18 @@ class RecoveryOrchestrator {
       );
     }
     final phoneRepository = SimulatedPhoneRepository(db);
-    await phoneRepository.maintainAlbum();
-    await phoneRepository.refreshIfDue();
+    try {
+      await phoneRepository.maintainAlbum();
+      await phoneRepository.refreshIfDue();
+    } on GenerationSuspendedByRuntimeGateException {
+      rethrow;
+    } catch (error) {
+      // Phone upkeep is optional; a persistent failure must not prevent the
+      // independent Desire/Thought heartbeat on every background wake.
+      await db.setSetting('phone_upkeep_last_error_category', classifyRuntimeError(error));
+      await db.setSetting('phone_upkeep_last_error_at',
+          DateTime.now().millisecondsSinceEpoch.toString());
+    }
     if (!await db.brainWorkAllowed()) {
       return const RecoveryCycleResult(
         state: 'inactive_brain',
@@ -95,10 +105,18 @@ class RecoveryOrchestrator {
       await _markStarted(startedAt, wakeReason);
       final generationRecovered = await generationRecovery.recoverOne();
       await _guardOrchestratorOwnership();
-      await memoryExtractor.drainPending(
-        retryIfBusy: false,
-        maxJobs: 2,
-      );
+      try {
+        await memoryExtractor.drainPending(
+          retryIfBusy: false,
+          maxJobs: 2,
+        );
+      } on GenerationSuspendedByRuntimeGateException {
+        throw const _RecoveryOrchestratorOwnershipLost();
+      } catch (error) {
+        await db.setSetting('memory_drain_last_error_category', classifyRuntimeError(error));
+        await db.setSetting('memory_drain_last_error_at',
+            DateTime.now().millisecondsSinceEpoch.toString());
+      }
       await _guardOrchestratorOwnership();
 
       if (await db.blockingGenerationJob() == null) {

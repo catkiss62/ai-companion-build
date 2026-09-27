@@ -1074,3 +1074,13 @@ Actions 与交付证据：远端功能 head `33647c7bff15084d6fd3cbc7b817e9b0b21
 - 根因：`RecoveryOrchestrator.runOnce` 在进入自主心跳前无隔离地调用 `CalendarReminderFollowup.deliverOne()`，后者从 `AndroidBridge.pendingStoppedReminders()` 调用 `ai_companion/system`。前台 `SystemBridge` 实现了此方法，独立后台 FlutterEngine 的 `BackgroundSystemBridge` 却未实现，于是每次后台循环在心跳前抛错，后台入口仅记录错误并十分钟后重试。正常聊天仍走前台，故用户回合正常不代表后台可运行。
 - 实现范围：后台桥接补 `pendingStoppedReminders` 和 `acknowledgeStoppedReminder`，复用前台同一 `CalendarReminderAlarm` 状态；提醒单独失败时记录脱敏分类/时刻并继续后续自主循环，转移冻结异常仍传播。保留 21:00～次日 09:00 一条成功投递上限、10 分钟对话静默窗、Cedar/联网竞争、模型通道、schema 61 和现有桌宠构建素材。构建 +271 测试 APK 后，以同样自然使用观察后台错误是否停止增长、心跳时间是否推进，以及日间是否产生真实主动行为；不把“立刻发一句”当唯一正确结果。
 - 云端验证：构建 head `5860cd54238e77ec65e6b911decee71020ae5316`、tree `273ca6ab88ef1eee7d0daa0bde657f9c4154ffc5`；Actions `36305352339` 全绿。素材草稿恢复、源码回归、Kotlin、Flutter analyze/test、release APK、原签名和包内素材校验通过。Artifact `10926944052`；APK `AI-Companion-v0.42.27-271-Proactive-Background-Bridge-APK.apk`，SHA-256 `a2236878e9234570ee6e90f6e288cb25b4f9186653b2b09ef54a147f3b49e879`；未发布测试 Draft `https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-fb80911e6438a3a7d7d3`。签名证书 SHA-256 仍为 `30:5E:B3:D8:09:83:B9:63:C6:48:18:DD:F1:AD:56:1F:27:9D:E6:D4:7B:3E:D2:C7:81:AD:A4:48:C7:C2:51:48`。状态 `IMPLEMENTED / CI PASSED / APK READY / TRUE DEVICE PENDING`。
+
+## v0.42.28+272 · 天气认知、桌宠裁剪、余额与自主链路复核（2026-09-27）
+
+- 用户授权本窗口后续推送/构建；本批仅显示 DeepSeek 官方账户余额。OpenRouter 的 Key 限额不等于账户总余额，千问百炼模型 Key 无法读取阿里云财务余额；`wy.aiwangyou.cc` 未找到可核验的公开余额接口，本批不猜测接口、不向中转站发送 Key 探测余额。
+- 天气由用户在“模型与联网”填写和风天气 HTTPS API Host、API Key 与城市，Key 存本机安全配置，不写入仓库或备份。按需每十分钟同步当前实况与可选日落，缓存四十分钟内的事实和观测更新时间；提示词只在非角色扮演且非纯新鲜话题模式附加简短事实，选择是否提起仍由模型决定，不生成额外主动任务。网络刷新异步且错误可省略，不能阻塞自主心跳或用户回复；没有提供凭据与城市前不声称连通。
+- 新桌宠继续沿用 +270 的单 WindowManager 绘制路径，绘制比例预先计入新版动作的二次缩放和宽度校准，以统一画面安全边缘减少左右裁剪。不修改原素材包、旧版逻辑或触摸区域；源片已裁掉的内容无法由此恢复，真机需核对宽大动作及人物观感。
+- 左栏两种布局均显示 DeepSeek 官方余额查询结果或清楚的失败状态；联网请求只到 `api.deepseek.com/user/balance`。设置页将各小节保存/测试反馈放回按钮下方、统一左对齐；Agnes 测试按钮“测试整理效果”，公开网页发现“保存本小节”并新增固定公开词联网测试，单次请求可能消耗 Tavily 额度。
+- 自主代码复核：+271 已补齐后台日历提醒桥并隔离提醒失败；本批额外隔离后台心跳前的模拟手机维护和记忆整理失败，保存脱敏错误分类/时间，转移冻结与租约保护继续生效。真机仍需观察心跳推进、错误计数和自主消息送达；代码审查和 CI 不等于一夜自然使用验证。
+- 维护依赖：完整 96 段桌宠帧在构建时从受保护 Draft Release asset `591363139` 下载源 ZIP 并校验 SHA-256 `ad94e2aa8829ddb5b8f0640e383b29bbccfbb5a77d9a957559e34cff17aea489`，再恢复仓库分片的旧桌宠包；CI 同时拉取受保护签名、Genie 等载荷。只检出 Git 工作树无法独立复现最终 APK；接班者须读取 `.github/workflows/build-apk.yml` 的恢复步骤，保留这些 Draft 输入。
+- 当前状态：本地实现与构建校验进行中。后续补充 Actions、APK、哈希和真机结论。

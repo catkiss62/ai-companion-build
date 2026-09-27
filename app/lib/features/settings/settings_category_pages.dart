@@ -1,6 +1,8 @@
 import 'dart:async';
+import 'dart:convert';
 
 import 'package:flutter/material.dart';
+import 'package:http/http.dart' as http;
 
 import '../../core/ai/chat_api_provider.dart';
 import '../../core/ai/deepseek_client.dart';
@@ -13,6 +15,7 @@ import '../../core/diagnostics/conversation_initiative_telemetry.dart';
 import '../../core/diagnostics/provider_health.dart';
 import '../../core/diagnostics/vision_failure_presentation.dart';
 import '../../core/platform/android_bridge.dart';
+import '../../core/perception/weather_context.dart';
 import '../../core/presentation/chat_visuals.dart';
 import '../../core/storage/secure_config.dart';
 import '../../widgets/chat_portrait_stage.dart';
@@ -47,6 +50,9 @@ class _ModelNetworkSettingsPageState
   final _agnesEndpoint = TextEditingController();
   final _agnesModel = TextEditingController();
   final _openRouterKey = TextEditingController();
+  final _weatherHost = TextEditingController();
+  final _weatherKey = TextEditingController();
+  final _weatherCity = TextEditingController();
 
   ChatApiProvider _chatProvider = ChatApiProvider.deepSeek;
   DeepSeekModelProfile _model = DeepSeekModelProfile.pro;
@@ -65,7 +71,28 @@ class _ModelNetworkSettingsPageState
   bool _revealVision = false;
   bool _revealTavily = false;
   bool _revealAgnes = false;
+  bool _revealWeather = false;
+  bool _weatherEnabled = false;
+  bool _testingWeb = false;
+  bool _testingWeather = false;
   String? _status;
+  String? _statusSection;
+
+  void _sectionAction(String section, Future<void> Function() action) {
+    setState(() {
+      _statusSection = section;
+      _status = null;
+    });
+    action();
+  }
+
+  Widget _sectionFeedback(String section) =>
+      _statusSection == section && _status != null
+          ? Padding(
+              padding: const EdgeInsets.only(top: 8),
+              child: Text(_status!, textAlign: TextAlign.left),
+            )
+          : const SizedBox.shrink();
 
   @override
   void initState() {
@@ -90,6 +117,10 @@ class _ModelNetworkSettingsPageState
     _agnesEndpoint.text = await _secure.readAgnesEndpoint();
     _agnesModel.text = await _secure.readAgnesModel();
     _openRouterKey.text = await _secure.readOpenRouterApiKey() ?? '';
+    _weatherHost.text = await _db.getSetting('weather_api_host') ?? '';
+    _weatherCity.text = await _db.getSetting('weather_city') ?? '';
+    _weatherKey.text = await _secure.readWeatherApiKey() ?? '';
+    _weatherEnabled = await _db.getSetting('weather_enabled') == '1';
     _jevEnabled = await _secure.readJevEnabled();
     final activeModel = await _db.getSetting('model');
     final storedDeepSeekModel = await _db.getSetting('deepseek_model');
@@ -325,6 +356,80 @@ class _ModelNetworkSettingsPageState
     }
   }
 
+  Future<void> _testPublicWeb() async {
+    setState(() {
+      _testingWeb = true;
+      _status = '正在测试公开网页搜索…';
+    });
+    final client = http.Client();
+    try {
+      final key = _tavilyKey.text.trim();
+      final response = await client.post(
+        Uri.https('api.tavily.com', '/search'),
+        headers: {
+          'Content-Type': 'application/json',
+          if (key.isEmpty) 'X-Tavily-Access-Mode': 'keyless'
+          else 'Authorization': 'Bearer $key',
+        },
+        body: jsonEncode({
+          'query': '和风天气 官方文档',
+          'topic': 'general',
+          'search_depth': 'basic',
+          'max_results': 2,
+          'include_answer': false,
+          'include_raw_content': false,
+          'include_images': false,
+        }),
+      ).timeout(const Duration(seconds: 16));
+      final result = jsonDecode(response.body);
+      final results = result is Map ? result['results'] : null;
+      if (mounted) setState(() => _status = response.statusCode == 200 && results is List
+          ? '联网测试通过，返回 ${results.length} 条公开结果；本次消耗一次搜索请求。'
+          : '联网测试失败：HTTP ${response.statusCode}。');
+    } catch (_) {
+      if (mounted) setState(() => _status = '联网测试失败：请检查网络或 Tavily Key。');
+    } finally {
+      client.close();
+      if (mounted) setState(() => _testingWeb = false);
+    }
+  }
+
+  Future<void> _saveWeather() async {
+    final host = Uri.tryParse(_weatherHost.text.trim());
+    if (_weatherEnabled && (host == null || host.scheme != 'https' ||
+        host.host.isEmpty || _weatherCity.text.trim().isEmpty ||
+        _weatherKey.text.trim().isEmpty)) {
+      setState(() => _status = '启用天气需填写 HTTPS API Host、Key 和城市。');
+      return;
+    }
+    try {
+      await _secure.writeWeatherApiKey(_weatherKey.text);
+      await _db.setSetting('weather_api_host', _weatherHost.text.trim());
+      await _db.setSetting('weather_city', _weatherCity.text.trim());
+      await _db.setSetting('weather_enabled', _weatherEnabled ? '1' : '0');
+      if (mounted) setState(() => _status = '天气设置已保存；实况每 10 分钟按需刷新。');
+    } catch (_) {
+      if (mounted) setState(() => _status = '天气设置保存失败。');
+    }
+  }
+
+  Future<void> _testWeather() async {
+    await _saveWeather();
+    if (!_weatherEnabled || _status != '天气设置已保存；实况每 10 分钟按需刷新。') return;
+    setState(() {
+      _testingWeather = true;
+      _status = '正在获取天气实况…';
+    });
+    try {
+      final result = await WeatherContext.refresh(_db, force: true);
+      if (mounted) setState(() => _status = result == null ? '请先启用天气。' : '天气同步成功：$result');
+    } catch (error) {
+      if (mounted) setState(() => _status = '天气同步失败：$error');
+    } finally {
+      if (mounted) setState(() => _testingWeather = false);
+    }
+  }
+
   Future<void> _saveAgnes() async {
     if (!_validHttpEndpoint(_agnesEndpoint.text)) {
       setState(() => _status = 'Agnes 地址不是有效的 http(s) URL。');
@@ -466,6 +571,9 @@ class _ModelNetworkSettingsPageState
     _agnesEndpoint.dispose();
     _agnesModel.dispose();
     _openRouterKey.dispose();
+    _weatherHost.dispose();
+    _weatherKey.dispose();
+    _weatherCity.dispose();
     super.dispose();
   }
 
@@ -611,10 +719,11 @@ class _ModelNetworkSettingsPageState
                       ),
                       const SizedBox(height: 12),
                       _SaveTestButtons(
-                        onSave: _saveChatProvider,
-                        onTest: _testingChat ? null : _testChatProvider,
+                        onSave: () => _sectionAction('chat', _saveChatProvider),
+                        onTest: _testingChat ? null : () => _sectionAction('chat', _testChatProvider),
                         testing: _testingChat,
                       ),
+                      _sectionFeedback('chat'),
                     ],
                   ),
                   _SettingsSectionCard(
@@ -637,14 +746,15 @@ class _ModelNetworkSettingsPageState
                       ),
                       const SizedBox(height: 12),
                       Align(
-                        alignment: Alignment.centerRight,
+                        alignment: Alignment.centerLeft,
                         child: _SaveTestButtons(
-                          onSave: _saveJev,
-                          onTest: _testingJev ? null : _testJev,
+                          onSave: () => _sectionAction('jev', _saveJev),
+                          onTest: _testingJev ? null : () => _sectionAction('jev', _testJev),
                           testing: _testingJev,
                           testLabel: 'Jev 连接测试',
                         ),
                       ),
+                      _sectionFeedback('jev'),
                     ],
                   ),
                   _SettingsSectionCard(
@@ -677,14 +787,15 @@ class _ModelNetworkSettingsPageState
                       ),
                       const SizedBox(height: 12),
                       Align(
-                        alignment: Alignment.centerRight,
+                        alignment: Alignment.centerLeft,
                         child: _SaveTestButtons(
-                          onSave: _saveVision,
-                          onTest: _testingVision ? null : _testVision,
+                          onSave: () => _sectionAction('vision', _saveVision),
+                          onTest: _testingVision ? null : () => _sectionAction('vision', _testVision),
                           testing: _testingVision,
                           testLabel: '视觉连接测试',
                         ),
                       ),
+                      _sectionFeedback('vision'),
                     ],
                   ),
                   _SettingsSectionCard(
@@ -722,14 +833,13 @@ class _ModelNetworkSettingsPageState
                         ),
                       ),
                       const SizedBox(height: 12),
-                      Align(
-                        alignment: Alignment.centerRight,
-                        child: FilledButton.icon(
-                          onPressed: _savePublicWeb,
-                          icon: const Icon(Icons.save_outlined),
-                          label: const Text('保存网页来源'),
-                        ),
+                      _SaveTestButtons(
+                        onSave: () => _sectionAction('web', _savePublicWeb),
+                        onTest: _testingWeb ? null : () => _sectionAction('web', _testPublicWeb),
+                        testing: _testingWeb,
+                        testLabel: '联网测试',
                       ),
+                      _sectionFeedback('web'),
                     ],
                   ),
                   _SettingsSectionCard(
@@ -774,18 +884,59 @@ class _ModelNetworkSettingsPageState
                       ),
                       const SizedBox(height: 12),
                       _SaveTestButtons(
-                        onSave: _saveAgnes,
-                        onTest: _testingAgnes ? null : _testAgnes,
+                        onSave: () => _sectionAction('agnes', _saveAgnes),
+                        onTest: _testingAgnes ? null : () => _sectionAction('agnes', _testAgnes),
                         testing: _testingAgnes,
-                        testLabel: '测试 Agnes 整理效果',
+                        testLabel: '测试整理效果',
                       ),
+                      _sectionFeedback('agnes'),
                     ],
                   ),
-                  if (_status != null)
-                    Padding(
-                      padding: const EdgeInsets.only(top: 4),
-                      child: Text(_status!, textAlign: TextAlign.center),
-                    ),
+                  _SettingsSectionCard(
+                    title: '天气认知',
+                    subtitle: '按城市读取和风天气实况；只作为可选现实背景，不额外触发主动聊天。',
+                    children: [
+                      SwitchListTile(
+                        contentPadding: EdgeInsets.zero,
+                        title: const Text('启用天气认知'),
+                        value: _weatherEnabled,
+                        onChanged: (value) => setState(() => _weatherEnabled = value),
+                      ),
+                      TextField(
+                        controller: _weatherHost,
+                        keyboardType: TextInputType.url,
+                        decoration: const InputDecoration(
+                          labelText: '和风天气 API Host',
+                          hintText: 'https://abcxyz.qweatherapi.com',
+                          border: OutlineInputBorder(),
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                      _SecretField(
+                        controller: _weatherKey,
+                        label: '和风天气 API Key',
+                        revealed: _revealWeather,
+                        onToggle: () => setState(() => _revealWeather = !_revealWeather),
+                      ),
+                      const SizedBox(height: 12),
+                      TextField(
+                        controller: _weatherCity,
+                        decoration: const InputDecoration(
+                          labelText: '天气城市',
+                          hintText: '例如：上海',
+                          border: OutlineInputBorder(),
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                      _SaveTestButtons(
+                        onSave: () => _sectionAction('weather', _saveWeather),
+                        onTest: _testingWeather ? null : () => _sectionAction('weather', _testWeather),
+                        testing: _testingWeather,
+                        testLabel: '立即同步天气',
+                      ),
+                      _sectionFeedback('weather'),
+                    ],
+                  ),
                 ],
               ),
       );
@@ -1507,7 +1658,7 @@ class _SaveTestButtons extends StatelessWidget {
   Widget build(BuildContext context) => Wrap(
         spacing: 8,
         runSpacing: 8,
-        alignment: WrapAlignment.end,
+        alignment: WrapAlignment.start,
         children: [
           OutlinedButton.icon(
             onPressed: onTest,

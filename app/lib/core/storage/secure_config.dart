@@ -26,6 +26,7 @@ class SecureConfig {
   static const _cedarToyTokenName = 'cedar_toy_token';
   static const _openRouterApiKeyName = 'openrouter_jev_api_key';
   static const _jevEnabledName = 'openrouter_jev_short_judgments_enabled';
+  static const _weatherApiKeyName = 'qweather_api_key';
   static const defaultAgnesEndpoint =
       'https://apihub.agnes-ai.com/v1/chat/completions';
   static const defaultAgnesModel = 'agnes-2.5-flash';
@@ -50,6 +51,11 @@ class SecureConfig {
   Future<String?> readApiKey() => readDeepSeekApiKey();
 
   Future<String?> readDeepSeekApiKey() => _storage.read(key: _apiKeyName);
+
+  Future<String?> readWeatherApiKey() => _storage.read(key: _weatherApiKeyName);
+
+  Future<void> writeWeatherApiKey(String value) =>
+      _writeOptionalSecret(_weatherApiKeyName, value);
 
   Future<String?> readAiWangYouApiKey() =>
       _storage.read(key: _aiWangYouApiKeyName);

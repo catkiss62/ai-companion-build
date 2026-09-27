@@ -6,6 +6,7 @@ import 'package:flutter/rendering.dart' show ScrollDirection;
 import 'package:image_picker/image_picker.dart';
 
 import '../../core/ai/message_language_variant_service.dart';
+import '../../core/ai/deepseek_balance.dart';
 import '../../core/ai/reasoning_translation_service.dart';
 import '../../core/agent/agent_tool.dart';
 import '../../core/agent/agent_tool_registry.dart';
@@ -1579,6 +1580,7 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
       return;
     }
     await _loadVisualSettings();
+    final balance = DeepSeekBalance.display();
     if (!mounted) return;
     final pageContext = context;
     await showGeneralDialog<void>(
@@ -1640,6 +1642,13 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
                         ],
                       ),
                       const SizedBox(height: 18),
+                      FutureBuilder<String>(
+                        future: balance,
+                        builder: (_, snapshot) => Text(
+                          snapshot.data ?? 'DeepSeek 余额：查询中…',
+                        ),
+                      ),
+                      const SizedBox(height: 8),
                       if (_relationshipAge != null) ...[
                         _RelationshipDaysCard(age: _relationshipAge!),
                         const SizedBox(height: 8),
@@ -2119,6 +2128,7 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
 
   Future<void> _openQuickPanelV2() async {
     await _loadVisualSettings();
+    final balance = DeepSeekBalance.display();
     if (!mounted) return;
     final pageContext = context;
     await showGeneralDialog<void>(
@@ -2173,6 +2183,13 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
                     ],
                   ),
                   const SizedBox(height: 14),
+                  FutureBuilder<String>(
+                    future: balance,
+                    builder: (_, snapshot) => Text(
+                      snapshot.data ?? 'DeepSeek 余额：查询中…',
+                    ),
+                  ),
+                  const SizedBox(height: 8),
                   if (_relationshipAge != null) ...[
                     _RelationshipDaysCard(age: _relationshipAge!),
                     const SizedBox(height: 8),

@@ -101,14 +101,20 @@ class PetFrameView(context: Context) : View(context) {
     private fun displayScale(layer: PetRenderLayer): Float {
         val availableWidth = logicalWindowPx?.toFloat() ?: width.toFloat()
         val availableHeight = logicalWindowPx?.toFloat() ?: height.toFloat()
+        // The trial clips have a second calibration transform in drawLayer.
+        // Fit the *transformed* frame to the same surface, so wide effects and
+        // text at the edges stay inside the opaque single-window render path.
+        val experimental = PetExperimentalClips.isExperimental(layer.actionId)
+        val horizontalCalibration = if (experimental) calibration.scale * calibration.widthScale else 1f
+        val verticalCalibration = if (experimental) calibration.scale else 1f
         val available = min(
-            availableWidth * 0.90f / layer.bitmap.width.toFloat(),
-            availableHeight * 0.88f / layer.bitmap.height.toFloat(),
+            availableWidth * 0.90f / (layer.bitmap.width.toFloat() * horizontalCalibration),
+            availableHeight * 0.88f / (layer.bitmap.height.toFloat() * verticalCalibration),
         )
         val requested = previewWindowDp?.let { windowDp ->
             min(
-                dp(windowDp.toFloat()) * 0.90f / layer.bitmap.width.toFloat(),
-                dp(windowDp.toFloat()) * 0.88f / layer.bitmap.height.toFloat(),
+                dp(windowDp.toFloat()) * 0.90f / (layer.bitmap.width.toFloat() * horizontalCalibration),
+                dp(windowDp.toFloat()) * 0.88f / (layer.bitmap.height.toFloat() * verticalCalibration),
             )
         } ?: available
         return min(available, requested).coerceAtLeast(0.1f)
