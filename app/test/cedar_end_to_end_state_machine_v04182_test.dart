@@ -147,6 +147,7 @@ void main() {
         mode: CedarParticipationMode.solo,
         nextActor: 'companion',
         shareLevel: 'quiet',
+        invitationApproved: false,
       );
       await CedarPlayOutcomeBookkeeper(db).saveSoloEpisode(
         CedarSoloEpisodeState(
