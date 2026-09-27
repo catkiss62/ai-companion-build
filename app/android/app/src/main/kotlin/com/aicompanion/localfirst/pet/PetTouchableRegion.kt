@@ -8,7 +8,7 @@ import java.lang.reflect.Proxy
 /** Keep the full animation buffer while publishing the smaller input region to
  * WindowManager. The internal-insets compatibility call is isolated here;
  * vendor/API failures are reported rather than changing visual scale. */
-internal class PetTouchableRegion(private val view: View, private val logicalSize: () -> Int) {
+internal class PetTouchableRegion(private val view: View, private val bounds: () -> Region) {
     private var listener: Any? = null
     private var listenerType: Class<*>? = null
     var status: String = "not_attached"
@@ -25,11 +25,12 @@ internal class PetTouchableRegion(private val view: View, private val logicalSiz
                     "onComputeInternalInsets" -> {
                         runCatching {
                             val data = args!![0]
-                            val size = logicalSize()
-                            val left = (view.width - size) / 2
-                            (regionField.get(data) as Region).set(left, 0, left + size, size)
+                            val region = bounds()
+                            (regionField.get(data) as Region).set(region)
                             mode.invoke(data, 3) // InternalInsetsInfo.TOUCHABLE_INSETS_REGION
-                            status = "applied:${view.width}x${view.height}:$left,0,${left + size},$size"
+                            val rect = region.bounds
+                            status = if (region.isEmpty) "pending_standing_bounds" else
+                                "applied:${view.width}x${view.height}:${rect.left},${rect.top},${rect.right},${rect.bottom}:alpha"
                         }.onFailure { status = "failed:${it.javaClass.simpleName}" }
                         null
                     }
@@ -56,4 +57,5 @@ internal class PetTouchableRegion(private val view: View, private val logicalSiz
         listener = null
         status = "not_attached"
     }
+    fun refresh() { if (listener != null) view.requestLayout() }
 }

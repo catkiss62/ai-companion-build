@@ -64,6 +64,7 @@ class PetOverlayWindow(
     private var experimentalCalibration = PetExperimentalCalibration()
     private var player: PetAnimationPlayer? = null
     private var cache: PetFrameCache? = null
+    private var skinManifest: PetSkinManifest? = null
     private var optionsRoot: View? = null
     private var optionsParams: WindowManager.LayoutParams? = null
 
@@ -214,6 +215,11 @@ class PetOverlayWindow(
         val manifest = PetSkinManifest.load(context.assets)
         val frameCache = PetFrameCache(context.assets)
         val petView = PetFrameView(context)
+        val standingClip = manifest.clipFor("IDLE", assetHeight(normalizedSize(prefs.getString(KEY_PET_SIZE, PET_SIZE_MEDIUM))), "down")
+        petView.setStandingReference(PetRenderLayer(
+            frameCache.get(standingClip.frames.first()), "IDLE", standingClip.assetId, 0,
+            standingClip.anchor, standingClip.phase, false,
+        ))
         val container = FrameLayout(context).apply {
             clipChildren = false
             clipToPadding = false
@@ -311,13 +317,13 @@ class PetOverlayWindow(
         return runCatching {
             windowManager.addView(container, layout)
             root = container
-            touchRegion = PetTouchableRegion(container) {
-                dp(windowDp(normalizedSize(prefs.getString(KEY_PET_SIZE, PET_SIZE_MEDIUM))))
-            }.also { it.attach() }
+            touchRegion = PetTouchableRegion(container) { petView.standingTouchRegion() }
+                .also { it.attach() }
             params = layout
             badge = unread
             frameView = petView
             cache = frameCache
+            skinManifest = manifest
             player = animation
             animation.start()
             val autonomyStartedAtMs = SystemClock.uptimeMillis()
@@ -431,6 +437,15 @@ class PetOverlayWindow(
         clamp(layout)
         enforceDockedAxis(layout)
         player?.setTargetHeight(assetHeight(normalized))
+        val standingClip = skinManifest?.clipFor("IDLE", assetHeight(normalized), "down")
+        val referenceCache = cache
+        if (standingClip != null && referenceCache != null) {
+            frameView?.setStandingReference(PetRenderLayer(
+                referenceCache.get(standingClip.frames.first()), "IDLE", standingClip.assetId, 0,
+                standingClip.anchor, standingClip.phase, false,
+            ))
+        }
+        touchRegion?.refresh()
         badge?.let { unread ->
             (unread.layoutParams as? FrameLayout.LayoutParams)?.let { badgeLayout ->
                 badgeLayout.setMargins(
@@ -497,6 +512,7 @@ class PetOverlayWindow(
         frameView = null
         player = null
         cache = null
+        skinManifest = null
     }
 
     private fun attachTouch(view: View, animation: PetAnimationPlayer) {
@@ -504,9 +520,10 @@ class PetOverlayWindow(
             val layout = params ?: return@setOnTouchListener false
             when (event.actionMasked) {
                 MotionEvent.ACTION_DOWN -> {
-                    val hitWidth = dp(windowDp(normalizedSize(prefs.getString(KEY_PET_SIZE, PET_SIZE_MEDIUM))))
-                    if (!PetTouchRegions.accepts(event.x, event.y, view.width, hitWidth)) {
-                        // Match the independent system touch region; preserve the wide render surface.
+                    val standing = frameView?.standingTouchRect() ?: return@setOnTouchListener false
+                    if (!standing.contains(event.x.toInt(), event.y.toInt()) ||
+                        frameView?.standingTouchRegion()?.contains(event.x.toInt(), event.y.toInt()) != true) {
+                        // The wide animation stays unchanged; only the original standing art is interactive.
                         return@setOnTouchListener false
                     }
                     onTouchActivity("pet_down")
@@ -533,7 +550,8 @@ class PetOverlayWindow(
                     dragging = false
                     longPressHandled = false
                     pressedRegion = PetTouchRegions.classify(
-                        event.x - (view.width - hitWidth) / 2f, event.y, hitWidth, view.height,
+                        event.x - standing.left, event.y - standing.top,
+                        standing.width(), standing.height(),
                     )
                     samples.clear()
                     addSample(event.rawX, event.rawY)

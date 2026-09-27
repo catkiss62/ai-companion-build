@@ -53,6 +53,11 @@ class CaicaiModelRepository(context: Context) {
             if (maid?.isFile != true || accessory?.isFile != true) {
                 throw IOException("模型包缺少菜菜主模型或 Sen 配件模型")
             }
+            // The lab loads these referenced files immediately. A ZIP with two
+            // model3 manifests but missing moc/texture/physics must not be
+            // reported as a successful import and replace the working package.
+            validateModelFiles(maid, accessoryDonor = false)
+            validateModelFiles(accessory, accessoryDonor = true)
             CaicaiDiagnostics.record(app, "manifest_validated")
             val maidPath = maid.relativeTo(staging).invariantSeparatorsPath
             val accessoryPath = accessory.relativeTo(staging).invariantSeparatorsPath
@@ -158,6 +163,41 @@ class CaicaiModelRepository(context: Context) {
             it.path.startsWith(parent.canonicalPath + File.separator)
         }
     }.getOrNull()
+
+    private fun validateModelFiles(modelFile: File, accessoryDonor: Boolean) {
+        val references = JSONObject(modelFile.readText(Charsets.UTF_8)).getJSONObject("FileReferences")
+        val modelRoot = modelFile.parentFile ?: throw IOException("模型清单路径无效")
+        fun requireFile(path: String) {
+            val file = safeChild(modelRoot, path)
+            if (file?.isFile != true || file.length() == 0L) {
+                throw IOException("模型包缺少引用文件：${modelFile.name} / $path")
+            }
+        }
+        requireFile(references.getString("Moc"))
+        val textures = references.getJSONArray("Textures")
+        if (accessoryDonor) {
+            // The Caicai donor model declares 26 slots, but its three-piece
+            // renderer selects only these three atlases. The approved ZIP
+            // intentionally omits dormant textures; the original loader also
+            // skips unselected slots in requiredTextureIndices().
+            for (index in intArrayOf(6, 16, 19)) {
+                if (index >= textures.length()) throw IOException("Sen 配件模型缺少所需贴图槽 $index")
+                requireFile(textures.getString(index))
+            }
+        } else for (i in 0 until textures.length()) requireFile(textures.getString(i))
+        for (optional in arrayOf("Physics", "Pose", "DisplayInfo", "UserData")) {
+            if (references.has(optional)) requireFile(references.getString(optional))
+        }
+        val expressions = references.optJSONArray("Expressions")
+        if (expressions != null) for (i in 0 until expressions.length()) {
+            requireFile(expressions.getJSONObject(i).getString("File"))
+        }
+        val motions = references.optJSONObject("Motions")
+        if (motions != null) for (name in motions.keys()) {
+            val group = motions.getJSONArray(name)
+            for (i in 0 until group.length()) requireFile(group.getJSONObject(i).getString("File"))
+        }
+    }
 
     private fun remove(file: File) {
         if (!file.exists()) return

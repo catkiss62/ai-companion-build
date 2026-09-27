@@ -3,6 +3,7 @@ package com.catkiss.senlive2dcompanion
 import android.content.Context
 import android.graphics.Color
 import android.opengl.GLSurfaceView
+import android.view.SurfaceHolder
 import android.os.Handler
 import android.os.Looper
 import android.view.MotionEvent
@@ -39,7 +40,11 @@ internal class CaicaiPlatformView(
         descendantFocusability = android.view.ViewGroup.FOCUS_BLOCK_DESCENDANTS
         isFocusable = false
     }
-    private val companion = SenCompanionView(context)
+    private val companion = SenCompanionView(context).apply {
+        // GLSurfaceView is a separate SurfaceView. Keep it above the activity's
+        // base surface, but behind Flutter's window UI and chat controls.
+        setZOrderMediaOverlay(true)
+    }
     private val channel = MethodChannel(messenger, "ai_companion/caicai_live2d/view/$viewId")
     private var disposed = false
     @Volatile private var renderStatus = "created"
@@ -76,6 +81,18 @@ internal class CaicaiPlatformView(
         companion.isFocusableInTouchMode = false
         companion.renderMode = GLSurfaceView.RENDERMODE_WHEN_DIRTY
         companion.setListener(this)
+        companion.holder.addCallback(object : SurfaceHolder.Callback {
+            override fun surfaceCreated(holder: SurfaceHolder) {
+                CaicaiDiagnostics.record(app, "surface_created")
+            }
+            override fun surfaceChanged(holder: SurfaceHolder, format: Int, width: Int, height: Int) {
+                CaicaiDiagnostics.record(app, "surface_changed", "${width}x$height")
+                if (renderStatus == "loading") companion.requestRender()
+            }
+            override fun surfaceDestroyed(holder: SurfaceHolder) {
+                CaicaiDiagnostics.record(app, "surface_destroyed")
+            }
+        })
         // The standalone app's accepted front-hair connection and secondary motion.
         companion.setGeometryConstraintEnabled(true)
         companion.setFrontHairPoint(FRONT_HAIR_POINT)
@@ -142,8 +159,9 @@ internal class CaicaiPlatformView(
     fun setKeyboardVisible(visible: Boolean) {
         if (!disposed && keyboardVisible != visible) {
             keyboardVisible = visible
-            companion.renderMode = if (visible) GLSurfaceView.RENDERMODE_WHEN_DIRTY
+            companion.renderMode = if (visible && renderStatus != "loading") GLSurfaceView.RENDERMODE_WHEN_DIRTY
                 else if (renderStatus == "ready") GLSurfaceView.RENDERMODE_CONTINUOUSLY
+                else if (renderStatus == "loading") GLSurfaceView.RENDERMODE_CONTINUOUSLY
                 else GLSurfaceView.RENDERMODE_WHEN_DIRTY
             if (visible) companion.requestRender()
             CaicaiDiagnostics.record(app, if (visible) "keyboard_open" else "keyboard_closed")
@@ -167,6 +185,9 @@ internal class CaicaiPlatformView(
         awaitingModelStart = true
         modelStarted = false
         CaicaiDiagnostics.record(app, "render_loading")
+        // A single requestRender may arrive before the hybrid view has a
+        // nonzero SurfaceView size. Keep drawing until the model completes.
+        companion.renderMode = GLSurfaceView.RENDERMODE_CONTINUOUSLY
         // Match MainActivity.loadModels() of the v0.1.42 lab. Do not pass all
         // ZIP expressions as startup expressions or change its motion engine.
         companion.loadModels(
