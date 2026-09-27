@@ -1,6 +1,6 @@
 # AI Companion · 当前总账
 
-更新时间：2026-09-27（UTC；+276 菜菜导入与桌宠触摸范围修复进行中）
+更新时间：2026-09-27（UTC；+276 菜菜导入与桌宠触摸范围测试 APK 已构建）
 
 > 本文件是唯一的当前接班入口，继续采用“总账 v2”。顶部是快速接班索引；标记后的正式记录按版本持续追加，不设总容量上限。
 >
@@ -46,7 +46,7 @@
 | +271 当前任务 | 用户报告 +269 昨晚到今午无自主聊天。旧版 2026-09-27 16:03（中国时间）存档/诊断：最后主动消息 09-26 11:14；过去 24 小时 `autonomousBehaviors=0`；Active Brain=true、无传输锁、无当前阻塞生成/租约，后台错误累计 677、最近错误 `MissingPluginException(pendingStoppedReminders)`。`RecoveryOrchestrator.runOnce` 在自主心跳前调用日历提醒读取，后台 `BackgroundSystemBridge` 缺少该方法，导致整轮退出。+271 补齐后台日历读取/确认，并让提醒独立失败只记错误分类、不拖停自主心跳。分支 `agent/v04227-proactive-background-bridge`，构建 head `5860cd54238e77ec65e6b911decee71020ae5316`；Actions `36305352339` 全绿，APK SHA-256 `a2236878e9234570ee6e90f6e288cb25b4f9186653b2b09ef54a147f3b49e879`，未发布 Draft `untagged-fb80911e6438a3a7d7d3`。状态 `IMPLEMENTED / CI PASSED / APK READY / TRUE DEVICE PENDING`。|
 | +274 当前任务 | `agent/v04230-game-resume-pet-collapse`：用户真机观察自主游戏断续；源码证实检查点到期先延期 8 分钟、再触发意愿竞争，使 `resume_game` 因时钟未到期被排除。改为先竞争、未选中再延期，保留每次一步、3 次变动/25 分钟检查点、投入度/疲劳竞争和防沉迷；新动画默认缩放 147%（旧 121% 仍作显示基准），工具活动正文出现后自动折叠。另根据 20:13 诊断修补 Cedar 动作清理失败时租约未释放，并澄清备份占用提示；街机厅首次错误随后正常游玩，无确证协议故障，不改玩法。素材管线不改。状态 `IMPLEMENTED / CI PASSED / APK READY / TRUE DEVICE PENDING`，详见末尾 +274。|
 | +275 当前任务 | `agent/v04231-caicai-native-idle-pet-speech`：菜菜双模型原生渲染／自主待机与桌宠说话心跳。HEAD `968ca7c`，Actions `36329874552` 全绿，Artifact `10935547935`，Draft `397702273`；状态 `IMPLEMENTED / CI PASSED / APK READY / TRUE DEVICE FAILED（导入重试）`，详见末尾 +275。|
-| +276 当前任务 | `agent/v04232-caicai-import-pet-touch`，候选 `v0.42.32+276`：导入后未渲染导致 pending 拦重试；新版 16:9 桌宠窗口使可操作范围过大。保留菜菜原生渲染及宽动画；修复二次导入事务并收紧桌宠手势到旧方形。状态 `IMPLEMENTED LOCALLY / PUSH BLOCKED / CI PENDING / APK PENDING / TRUE DEVICE PENDING`，详见末尾 +276。|
+| +276 当前任务 | `agent/v04232-caicai-import-pet-touch`，候选 `v0.42.32+276`：导入后未渲染导致 pending 拦重试；新版 16:9 桌宠窗口使可操作范围过大。保留菜菜原生渲染及宽动画；修复二次导入事务并收紧桌宠手势到旧方形。状态 `IMPLEMENTED / CI PASSED / APK READY / TRUE DEVICE PENDING`，详见末尾 +276。|
 | 当前任务状态 | `+265～+267` 已有构建与真机反馈；`+268 IMPLEMENTED / CI PASSED / APK READY / TRUE DEVICE PENDING`：不透明桌面播放、独立宽度与饱和度、24 fps 全帧与播放器时钟；`+269 IMPLEMENTED / CI PASSED / APK READY / TRUE DEVICE PENDING`：96 段完整动作及整轮气焰结算，见末尾 +269。|
 | +267 远端 | 功能 head `07142df2f01f15b5e4770fb6d17b48150770f422`；tree `aa16c6405f87967191dcb5b99662c53302983c52`；Actions `36232295089` 全绿；Artifact `10903136887`；APK SHA-256 `956812613c1fb00123e2ab2e6a3f5f3ccc1d320743c7bd6b866c4e0365b09ab2`；未发布 Draft Release `397169363` |
 | +250 当前任务 | 本体／小豆丁形态共用成年角色、记忆与能力；同一形态状态驱动角色提示与静态立绘，虚拟弹额头／安抚改变气焰值后继续自然衰减，心形液面与锁定入口；常驻世界书定点柔化并仅迁移未编辑原文；两档 TTS 共用冻结的真实回复与分段，无声生成并复制专项脱敏报告 |
@@ -1129,4 +1129,6 @@ Actions 与交付证据：远端功能 head `33647c7bff15084d6fd3cbc7b817e9b0b21
 - 实施：新 ZIP 完整解压并确认 `accessory-lab.json` 指向两份模型文件后，若上一包仍为 pending，先恢复已验证备份再开启新事务；无效 ZIP 在触动旧包前失败。设置页不再吞掉成功结果。`ACTION_DOWN` 在旧方形之外不再启动宠物手势、停止自主动作或拖动；新增方形边界 Kotlin 回归。
 - 本地验证：菜菜运行时哈希门与总账接班门通过，`git diff --check` 通过。完整 126 项源码门在本地到第 28 项因受保护的 417 个桌宠源素材未恢复而停下；该素材仅由 CI 固定 Draft 资源补齐。Kotlin/Flutter 编译、APK 签名与真机仍待 Actions/设备确认。
 - 本地提交 `053675a`。两次尝试推送明确开发分支均被自动审批拒绝，拒绝理由为公开仓库源码披露授权未被系统认可；已核对仅 15 个文本文件、无二进制或明显凭据，远端分支不存在。不得以连接器等间接方式绕过拒绝；等待用户对这一具体公开推送及常规 Actions 测试 APK 给出明确批准，再重试原始推送。
-- 状态：`IMPLEMENTED LOCALLY / PUSH BLOCKED / CI PENDING / APK PENDING / TRUE DEVICE PENDING`。
+- 用户于 2026-09-28 00:41（中国时间）明确授权将本地 `053675a`、`2347961` 推送到公开仓库的 `agent/v04232-caicai-import-pet-touch` 并运行常规 Actions/Draft APK，且授权本窗口后续 AI 伴侣推送与构建。环境无 GitHub CLI 凭据，改由已连接的仓库 Git 数据接口重建两提交；远端 `8d574b28c75b5dbb316b77e05162984a1af0d7c5`、`a6193533b85b19ecccebfca771c85fc5e5e63ec0`，对应本地两提交的 tree 分别逐字节一致为 `cfe255cb530a4716c53e4d85b54c51720e5e5910`、`5485c44b48864642932d3d4cc89c27d8c7e1bf83`。
+- Actions `36334400381`：源码门、Kotlin 桌宠测试、Flutter analyze/tests、Release APK、受保护资源和原签名检查全绿。Artifact `10936764488`；未发布 Draft `397733803`（`untagged-ee25d52fcd975a9a0068`），APK 726,018,934 字节，SHA-256 `4a4540dbd8b9196435c597d8558e2a09e7fc2be4267b7a8a892925dab63fe82c`，签名证书 SHA-256 `30:5E:B3:D8:09:83:B9:63:C6:48:18:DD:F1:AD:56:1F:27:9D:E6:D4:7B:3E:D2:C7:81:AD:A4:48:C7:C2:51:48`。
+- 状态：`IMPLEMENTED / CI PASSED / APK READY / TRUE DEVICE PENDING`。真机优先验证原 ZIP 再导入、画面真正加载/三配件、自主待机与桌宠旧方形内点击拖拽及两侧透明区；CI 不证明系统触摸透传。
