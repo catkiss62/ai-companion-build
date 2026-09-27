@@ -80,7 +80,7 @@ class PetFrameCache(
         }
         val frames = List(frameCount) {
             val size = input.readInt()
-            if (size !in 16..100_000) throw PetSkinFormatException("Invalid frame size: $folder")
+            if (size !in 16..250_000) throw PetSkinFormatException("Invalid frame size: $folder")
             ByteArray(size).also { input.readFully(it) }
         }
         if (input.available() != 0) throw PetSkinFormatException("Extra experimental data: $folder")

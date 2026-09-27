@@ -248,13 +248,14 @@ class PetOverlayWindow(
         )
 
         val windowPx = dp(windowDp(size))
+        val visualWidthPx = dp(PetOverlaySizing.visualWidthDp(size))
         val safe = menuSafeArea()
-        val defaultX = (safe.right - windowPx).coerceAtLeast(safe.left)
+        val defaultX = (safe.right - visualWidthPx).coerceAtLeast(safe.left)
         val defaultY = (safe.top + safe.height / 3).coerceAtMost(
             (safe.bottom - windowPx).coerceAtLeast(safe.top),
         )
         val layout = WindowManager.LayoutParams(
-            windowPx,
+            visualWidthPx,
             windowPx,
             overlayWindowType,
             WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or
@@ -263,11 +264,22 @@ class PetOverlayWindow(
             PixelFormat.TRANSLUCENT,
         ).apply {
             gravity = Gravity.TOP or Gravity.START
-            x = prefs.getInt(KEY_PET_X, defaultX)
+            val storedX = prefs.getInt(KEY_PET_X, defaultX)
+            x = if (prefs.contains(KEY_PET_X) &&
+                !prefs.getBoolean(KEY_WIDE_WINDOW_POSITION_MIGRATED, false)) {
+                storedX - (visualWidthPx - windowPx) / 2
+            } else storedX
             y = prefs.getInt(KEY_PET_Y, defaultY)
         }
         clamp(layout)
         enforceDockedAxis(layout)
+        (unread.layoutParams as FrameLayout.LayoutParams).let { badgeLayout ->
+            badgeLayout.setMargins(
+                0, dp(PetOverlaySizing.badgeTopDp(size)),
+                (visualWidthPx - windowPx) / 2 + dp(PetOverlaySizing.badgeEndDp(size)), 0,
+            )
+            unread.layoutParams = badgeLayout
+        }
         val calibration = PetExperimentalCalibration.load(prefs)
         experimentalCalibration = calibration
         petView.setExperimentalCalibration(calibration)
@@ -308,6 +320,7 @@ class PetOverlayWindow(
             handler.removeCallbacks(autonomyTick)
             handler.postDelayed(autonomyTick, AUTONOMY_TICK_MS)
             lastMotionArea = activeArea(layout)
+            prefs.edit().putBoolean(KEY_WIDE_WINDOW_POSITION_MIGRATED, true).apply()
             persistPosition()
             true
         }.getOrElse {
@@ -403,11 +416,12 @@ class PetOverlayWindow(
         val view = root ?: return
         val oldCenterX = layout.x + layout.width / 2
         val oldBottom = layout.y + layout.height
-        val next = dp(windowDp(normalized))
-        layout.width = next
-        layout.height = next
-        layout.x = oldCenterX - next / 2
-        layout.y = oldBottom - next
+        val nextHeight = dp(windowDp(normalized))
+        val nextWidth = dp(PetOverlaySizing.visualWidthDp(normalized))
+        layout.width = nextWidth
+        layout.height = nextHeight
+        layout.x = oldCenterX - nextWidth / 2
+        layout.y = oldBottom - nextHeight
         clamp(layout)
         enforceDockedAxis(layout)
         player?.setTargetHeight(assetHeight(normalized))
@@ -416,7 +430,7 @@ class PetOverlayWindow(
                 badgeLayout.setMargins(
                     0,
                     dp(PetOverlaySizing.badgeTopDp(normalized)),
-                    dp(PetOverlaySizing.badgeEndDp(normalized)),
+                    (nextWidth - nextHeight) / 2 + dp(PetOverlaySizing.badgeEndDp(normalized)),
                     0,
                 )
                 unread.layoutParams = badgeLayout
@@ -505,7 +519,10 @@ class PetOverlayWindow(
                     startWindowY = layout.y
                     dragging = false
                     longPressHandled = false
-                    pressedRegion = PetTouchRegions.classify(event.x, event.y, view.width, view.height)
+                    val hitWidth = dp(windowDp(normalizedSize(prefs.getString(KEY_PET_SIZE, PET_SIZE_MEDIUM))))
+                    pressedRegion = PetTouchRegions.classify(
+                        event.x - (view.width - hitWidth) / 2f, event.y, hitWidth, view.height,
+                    )
                     samples.clear()
                     addSample(event.rawX, event.rawY)
                     if (!experimentalClipsEnabled() && pressedRegion in setOf("head", "face")) {
@@ -1539,6 +1556,7 @@ class PetOverlayWindow(
         const val KEY_PET_SIZE = "pet_size"
         private const val KEY_PET_X = "pet_x"
         private const val KEY_PET_Y = "pet_y"
+        private const val KEY_WIDE_WINDOW_POSITION_MIGRATED = "pet_wide_window_position_migrated"
         private const val KEY_PET_MOTION_MODE = "pet_motion_mode"
         private const val KEY_PET_MOBILITY_MODE = "pet_mobility_mode"
         private const val KEY_PET_DOCK_EDGE = "pet_dock_edge"

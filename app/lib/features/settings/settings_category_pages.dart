@@ -394,28 +394,48 @@ class _ModelNetworkSettingsPageState
     }
   }
 
-  Future<void> _saveWeather() async {
-    final host = Uri.tryParse(_weatherHost.text.trim());
-    if (_weatherEnabled && (host == null || host.scheme != 'https' ||
-        host.host.isEmpty || _weatherCity.text.trim().isEmpty ||
-        _weatherKey.text.trim().isEmpty)) {
-      setState(() => _status = '启用天气需填写 HTTPS API Host、Key 和城市。');
-      return;
+  Future<bool> _saveWeather() async {
+    final rawHost = _weatherHost.text.trim();
+    final host = WeatherContext.parseApiHost(rawHost);
+    final city = _weatherCity.text.trim();
+    final key = _weatherKey.text.trim();
+    if (_weatherEnabled) {
+      if (rawHost.isEmpty) {
+        setState(() => _status = '请填写和风天气 API Host（控制台分配的域名）。');
+        return false;
+      }
+      if (host == null) {
+        setState(() => _status = 'API Host 只填 HTTPS 域名，例如 abcxyz.qweatherapi.com；不要填接口路径。');
+        return false;
+      }
+      if (key.isEmpty) {
+        setState(() => _status = '请填写和风天气 API Key。');
+        return false;
+      }
+      if (city.isEmpty) {
+        setState(() => _status = '请填写天气城市，例如上海。');
+        return false;
+      }
     }
     try {
-      await _secure.writeWeatherApiKey(_weatherKey.text);
-      await _db.setSetting('weather_api_host', _weatherHost.text.trim());
-      await _db.setSetting('weather_city', _weatherCity.text.trim());
+      await _secure.writeWeatherApiKey(key);
+      final savedHost = _weatherEnabled ? host!.origin : rawHost;
+      await _db.setSetting('weather_api_host', savedHost);
+      await _db.setSetting('weather_city', city);
       await _db.setSetting('weather_enabled', _weatherEnabled ? '1' : '0');
-      if (mounted) setState(() => _status = '天气设置已保存；实况每 10 分钟按需刷新。');
+      if (mounted) setState(() {
+        _weatherHost.text = savedHost;
+        _status = '天气设置已保存；实况每 10 分钟按需刷新。';
+      });
+      return true;
     } catch (_) {
       if (mounted) setState(() => _status = '天气设置保存失败。');
+      return false;
     }
   }
 
   Future<void> _testWeather() async {
-    await _saveWeather();
-    if (!_weatherEnabled || _status != '天气设置已保存；实况每 10 分钟按需刷新。') return;
+    if (!await _saveWeather() || !_weatherEnabled) return;
     setState(() {
       _testingWeather = true;
       _status = '正在获取天气实况…';
@@ -907,7 +927,8 @@ class _ModelNetworkSettingsPageState
                         keyboardType: TextInputType.url,
                         decoration: const InputDecoration(
                           labelText: '和风天气 API Host',
-                          hintText: 'https://abcxyz.qweatherapi.com',
+                          hintText: 'abcxyz.qweatherapi.com',
+                          helperText: '只填控制台分配的域名；可省略 https://',
                           border: OutlineInputBorder(),
                         ),
                       ),
@@ -929,7 +950,7 @@ class _ModelNetworkSettingsPageState
                       ),
                       const SizedBox(height: 12),
                       _SaveTestButtons(
-                        onSave: () => _sectionAction('weather', _saveWeather),
+                        onSave: () => _sectionAction('weather', () async { await _saveWeather(); }),
                         onTest: _testingWeather ? null : () => _sectionAction('weather', _testWeather),
                         testing: _testingWeather,
                         testLabel: '立即同步天气',

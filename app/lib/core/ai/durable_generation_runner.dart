@@ -418,8 +418,21 @@ class DurableGenerationRunner {
       // prompt's world-book context.
       generationSpecialStyleTrialId = '';
       generationSpecialStyleKey = '';
+      final precedingAssistant = previous.isNotEmpty && previous.last.isAssistant
+          ? previous.last
+          : null;
+      final contextualCedarRequest = precedingAssistant != null &&
+          CedarToyArcadeSkill.requestsContextualContinuation(
+            userText: user.content,
+            previousAssistantText: precedingAssistant.content,
+            activeSoloSession: cedarSession != null &&
+                cedarSession.mode == CedarParticipationMode.solo &&
+                cedarSession.continuable,
+            gap: user.createdAt.difference(precedingAssistant.createdAt),
+          );
       final cedarExplicitRequest = !userOnlyGameStatement &&
-          (CedarToyArcadeSkill.isRelevant(user.content) ||
+          (contextualCedarRequest ||
+              CedarToyArcadeSkill.isRelevant(user.content) ||
               CedarToyActivityStore.catalogMentionsGame(
                 user.content,
                 cedarCatalog,
@@ -484,9 +497,13 @@ class DurableGenerationRunner {
                   state: cedarState,
                   playProtocol: cedarPlayProtocol,
                 ),
+              if (contextualCedarRequest)
+                '用户本轮承接刚才的游戏话题，明确要求推进当前活动。应依玩家指南及真实状态调用工具；若必须等待或确实缺少参数，才说明原因，不要只用对白推迟。',
               if (explicitCedarGameId.isNotEmpty && immediateCedarEntry)
                 '用户本轮明确提到游戏厅或游玩。若指定的目标游戏不同于当前 game，必须先对目标 game 调用 get_guide；当前游戏的指南绝不授权另一个游戏。无在途原子动作时可立即切换，旧 session 仍保留可恢复；若正有原子动作执行中，应诚实说明当前动作和排队目标，不可假装已经进入。不得等待一个跨游戏无法通用定义的“整把打完”而无限拖延切换。',
-              if (cedarExplicitRequest && !immediateCedarEntry)
+              if (cedarExplicitRequest &&
+                  !contextualCedarRequest &&
+                  !immediateCedarEntry)
                 '用户本轮提到了一个或多个目录游戏，但没有明确要求现在进入；这可以作为建议或未来探索方向，不得擅自把多个候选中的第一个当成立即命令，也不得声称已经切换或建档。',
               if (AgentParticipationConsentPolicy.describesExistingRoom(
                 user.content,

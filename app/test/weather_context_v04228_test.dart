@@ -2,6 +2,15 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:ai_companion_localfirst/core/perception/weather_context.dart';
 
 void main() {
+  test('weather host accepts the console domain and rejects endpoint URLs', () {
+    expect(WeatherContext.parseApiHost('abcxyz.qweatherapi.com')?.origin,
+        'https://abcxyz.qweatherapi.com');
+    expect(WeatherContext.parseApiHost('https://abcxyz.qweatherapi.com/')?.origin,
+        'https://abcxyz.qweatherapi.com');
+    expect(WeatherContext.parseApiHost('http://abcxyz.qweatherapi.com'), isNull);
+    expect(WeatherContext.parseApiHost('https://abcxyz.qweatherapi.com/v7/weather/now'), isNull);
+  });
+
   test('current weather v1 fact uses the documented fields and retrieval time', () {
     final fact = WeatherContext.describe(
       city: '北京',

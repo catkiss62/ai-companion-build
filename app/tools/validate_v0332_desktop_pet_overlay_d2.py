@@ -50,7 +50,8 @@ require(
         'menuHeader("桌宠选项")',
         'optionButton("打开聊天")',
         'optionButton("切换为悬浮球")',
-        "PetTouchRegions.classify(event.x, event.y, view.width, view.height)",
+        "PetTouchRegions.classify(",
+        "event.x - (view.width - hitWidth) / 2f, event.y, hitWidth, view.height,",
     ],
     "pet overlay",
 )

@@ -50,8 +50,10 @@ def prepare(archive: Path, limit: int = 0) -> None:
                     # centered square crop discarded 140 source pixels from
                     # *each* side, cutting off speech props and effects before
                     # the Android renderer ever saw them.
-                    "-vf", "scale=224:126:flags=lanczos,format=rgba,"
-                    "pad=224:224:0:49:color=black@0,format=yuva420p",
+                    # Scale by the source height: the visible character keeps
+                    # the same 224-pixel height as the former square crop.
+                    # The window becomes wider instead of shrinking the pet.
+                    "-vf", "scale=398:224:flags=lanczos,format=yuva420p",
                     "-vsync", "0", "-c:v", "libwebp", "-quality", "65",
                     "-compression_level", "4", "-y", str(output),
                 ]

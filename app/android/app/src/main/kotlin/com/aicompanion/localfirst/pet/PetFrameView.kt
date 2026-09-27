@@ -99,21 +99,26 @@ class PetFrameView(context: Context) : View(context) {
     }
 
     private fun displayScale(layer: PetRenderLayer): Float {
-        val availableWidth = logicalWindowPx?.toFloat() ?: width.toFloat()
+        val availableWidth = width.toFloat()
         val availableHeight = logicalWindowPx?.toFloat() ?: height.toFloat()
         // The trial clips have a second calibration transform in drawLayer.
         // Fit the *transformed* frame to the same surface, so wide effects and
         // text at the edges stay inside the opaque single-window render path.
         val experimental = PetExperimentalClips.isExperimental(layer.actionId)
-        val horizontalCalibration = if (experimental) calibration.scale * calibration.widthScale else 1f
-        val verticalCalibration = if (experimental) calibration.scale else 1f
+        // Fit the default calibration, then let the size slider change the
+        // actual drawn height. Fitting against the *current* size cancelled
+        // every size adjustment and made the visual scale impossible to tune.
+        val referenceScale = if (experimental) PetExperimentalCalibration().scale else 1f
+        val horizontalCalibration = if (experimental) referenceScale * calibration.widthScale else 1f
+        val verticalCalibration = referenceScale
         val available = min(
             availableWidth * 0.90f / (layer.bitmap.width.toFloat() * horizontalCalibration),
             availableHeight * 0.88f / (layer.bitmap.height.toFloat() * verticalCalibration),
         )
         val requested = previewWindowDp?.let { windowDp ->
+            val requestedWidth = if (experimental) windowDp * 16f / 9f else windowDp.toFloat()
             min(
-                dp(windowDp.toFloat()) * 0.90f / (layer.bitmap.width.toFloat() * horizontalCalibration),
+                dp(requestedWidth) * 0.90f / (layer.bitmap.width.toFloat() * horizontalCalibration),
                 dp(windowDp.toFloat()) * 0.88f / (layer.bitmap.height.toFloat() * verticalCalibration),
             )
         } ?: available
@@ -123,8 +128,9 @@ class PetFrameView(context: Context) : View(context) {
     private fun renderAnchor(layer: PetRenderLayer, scale: Float): Pair<Float, Float> {
         val originX = if (logicalWindowPx == null) width / 2f else
             overflowPaddingPx + logicalWindowPx!! / 2f
-        val floorY = if (logicalWindowPx == null) height * 0.94f else
-            overflowPaddingPx + logicalWindowPx!! * 0.94f
+        val floorFraction = if (PetExperimentalClips.isExperimental(layer.actionId)) 0.92f else 0.94f
+        val floorY = if (logicalWindowPx == null) height * floorFraction else
+            overflowPaddingPx + logicalWindowPx!! * floorFraction
         val anchorY = if (layer.anchor.kind in setOf("drag", "seat", "sleep")) {
             if (logicalWindowPx == null) height * 0.52f else
                 overflowPaddingPx + logicalWindowPx!! * 0.52f

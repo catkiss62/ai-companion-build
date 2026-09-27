@@ -31,6 +31,9 @@ object PetOverlaySizing {
         else -> 152
     }
 
+    /** Full 16:9 clips need a wider drawing surface at the old pet height. */
+    fun visualWidthDp(size: String): Int = (windowDp(size) * 16 + 4) / 9
+
     fun assetHeight(size: String): Int = when (normalized(size)) {
         SMALL -> 187
         LARGE -> 306

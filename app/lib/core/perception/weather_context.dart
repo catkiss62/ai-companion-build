@@ -15,6 +15,16 @@ class WeatherContext {
   static const maxAge = Duration(minutes: 40);
   static Future<String?>? _refreshing;
 
+  static Uri? parseApiHost(String input) {
+    final raw = input.trim();
+    if (raw.isEmpty) return null;
+    final uri = Uri.tryParse(raw.contains('://') ? raw : 'https://$raw');
+    if (uri == null || uri.scheme != 'https' || uri.host.isEmpty ||
+        uri.userInfo.isNotEmpty || (uri.path.isNotEmpty && uri.path != '/') ||
+        uri.hasQuery || uri.hasFragment) return null;
+    return Uri.parse(uri.origin);
+  }
+
   static Future<String> forPrompt(AppDatabase db, DateTime now) async {
     if (await db.getSetting('weather_enabled') != '1') return '';
     try {
@@ -68,10 +78,8 @@ class WeatherContext {
 
   static Future<String> _fetch(AppDatabase db, String city, DateTime time) async {
     final key = (await SecureConfig.instance.readWeatherApiKey() ?? '').trim();
-    final hostText = (await db.getSetting('weather_api_host') ?? '').trim();
-    final host = Uri.tryParse(hostText.startsWith('https://') ? hostText : 'https://$hostText');
-    if (key.isEmpty || host == null || host.scheme != 'https' || host.host.isEmpty ||
-        host.userInfo.isNotEmpty || host.path.isNotEmpty && host.path != '/') {
+    final host = parseApiHost(await db.getSetting('weather_api_host') ?? '');
+    if (key.isEmpty || host == null) {
       throw const FormatException('请配置有效的和风天气 HTTPS API Host 和 Key');
     }
     final client = http.Client();
