@@ -46,7 +46,12 @@ def prepare(archive: Path, limit: int = 0) -> None:
                 command = [
                     "ffmpeg", "-hide_banner", "-loglevel", "error", "-nostdin",
                     "-c:v", "libvpx-vp9", "-i", str(video),
-                    "-vf", "crop=360:360:140:0,scale=224:224:flags=lanczos",
+                    # Keep the complete 640x360 composition. The previous
+                    # centered square crop discarded 140 source pixels from
+                    # *each* side, cutting off speech props and effects before
+                    # the Android renderer ever saw them.
+                    "-vf", "scale=224:126:flags=lanczos,format=rgba,"
+                    "pad=224:224:0:49:color=black@0,format=yuva420p",
                     "-vsync", "0", "-c:v", "libwebp", "-quality", "65",
                     "-compression_level", "4", "-y", str(output),
                 ]
