@@ -1,6 +1,6 @@
 # AI Companion · 当前总账
 
-更新时间：2026-09-28（中国时间；+281 桌宠残影／待机像素触摸与 Live2D 背景穿透修复进行中；真机待验）
+更新时间：2026-09-28（中国时间；+281 Actions 全绿、测试 Draft APK 就绪；小米文件界面残影、桌宠尺寸/透传与 Live2D 背景待真机验）
 
 > 本文件是唯一的当前接班入口，继续采用“总账 v2”。顶部是快速接班索引；标记后的正式记录按版本持续追加，不设总容量上限。
 >
@@ -51,7 +51,7 @@
 | +278 当前任务 | `v0.42.34+278` / 同 `agent/v04232-caicai-import-pet-touch`。+277 用户已报告动画缩小、导入未显示、空模型开关卡输入法，不能沿用 TRUE DEVICE PENDING 掩盖失败。恢复批准的宽动画尺寸，系统输入区域独立；无模型不创建原生视图，渲染失败保留导入包，Hybrid Composition/焦点隔离；Live2D 独立设置与确认删除；Jev 稀疏动作/原装预设/小豆丁/PCM 口型。构建 head `cf69e61`，Actions `36348468407` 全绿，961 项 Flutter 测试，Draft `397797809`。`IMPLEMENTED / CI PASSED / APK READY / TRUE DEVICE PENDING`。Jev 持续观察，最高概率/近似平局中性/-18 不改；详见末尾 +278 和专项文档。|
 | +279 真机回归 | 用户 `2026-09-28T00:57:57Z` 脱敏诊断：六次导入均有 `manifest_validated → import_staged`，最终 `available=false / pending=true / render=not_open`；桌宠 `overlayPetTouchRegion=unavailable:NoSuchFieldException`。+279 的绿色 CI 和 Draft 不能视为效果成功，状态改为 `TRUE DEVICE FAILED`。|
 | +280 当前任务 | `agent/v04232-caicai-import-pet-touch`，`v0.42.36+280`。导入后正式目录模型/索引读回与恢复、明确错误；桌宠 112/152/200dp 真实触摸窗口与独立可信宽绘制层，移除失败的隐藏 insets；普通闲聊话题词不额外触发 Agent DeepSeek 规划。Actions `36370446031` 全绿，Draft APK 已就绪；用户后续复现层残影、尺寸回退和 Live2D 背景穿透，状态更正为 `IMPLEMENTED / CI PASSED / APK READY / TRUE DEVICE FAILED / JEV ACCURACY PENDING`；见末尾 +280。|
-| +281 当前任务 | `agent/v04232-caicai-import-pet-touch` / `v0.42.37+281`：用户真机确认 +280 Live2D 导入成功，但聊天页透明背景显示上一次页面，桌宠变小，更多页出现两、三层持续增加的静止桌宠假图片且不接收触摸；+280 真机状态改为 `TRUE DEVICE FAILED`。固定旧待机正面原帧为小／中／大尺寸的唯一触摸 alpha 范围，动作变化不改范围；恢复原宽动画绘制比例，一个 WindowManager 桌宠窗口，失去系统 alpha mask 时禁用整窗触摸；移除反复重挂载，聊天页不可见时销毁 Live2D 原生 Surface。`IMPLEMENTED LOCALLY / CI PENDING / TRUE DEVICE PENDING`，详见末尾 +281。|
+| +281 当前任务 | `agent/v04232-caicai-import-pet-touch` / `v0.42.37+281`：用户真机确认 +280 Live2D 导入成功，但聊天页透明背景显示上一次页面，桌宠变小，更多页出现两、三层持续增加的静止桌宠假图片且不接收触摸；+280 真机状态改为 `TRUE DEVICE FAILED`。固定旧待机正面原帧为小／中／大尺寸的唯一触摸 alpha 范围，动作变化不改范围；恢复原宽动画绘制比例，一个 WindowManager 桌宠窗口，失去系统 alpha mask 时禁用整窗触摸；移除反复重挂载，聊天页不可见时销毁 Live2D 原生 Surface。`IMPLEMENTED / CI PASSED / APK READY / TRUE DEVICE PENDING`，Actions `36376305397` 全绿；详见末尾 +281。|
 | 当前任务状态 | `+265～+267` 已有构建与真机反馈；`+268 IMPLEMENTED / CI PASSED / APK READY / TRUE DEVICE PENDING`：不透明桌面播放、独立宽度与饱和度、24 fps 全帧与播放器时钟；`+269 IMPLEMENTED / CI PASSED / APK READY / TRUE DEVICE PENDING`：96 段完整动作及整轮气焰结算，见末尾 +269。|
 | +267 远端 | 功能 head `07142df2f01f15b5e4770fb6d17b48150770f422`；tree `aa16c6405f87967191dcb5b99662c53302983c52`；Actions `36232295089` 全绿；Artifact `10903136887`；APK SHA-256 `956812613c1fb00123e2ab2e6a3f5f3ccc1d320743c7bd6b866c4e0365b09ab2`；未发布 Draft Release `397169363` |
 | +250 当前任务 | 本体／小豆丁形态共用成年角色、记忆与能力；同一形态状态驱动角色提示与静态立绘，虚拟弹额头／安抚改变气焰值后继续自然衰减，心形液面与锁定入口；常驻世界书定点柔化并仅迁移未编辑原文；两档 TTS 共用冻结的真实回复与分段，无声生成并复制专项脱敏报告 |
@@ -1212,4 +1212,4 @@ Actions 与交付证据：远端功能 head `33647c7bff15084d6fd3cbc7b817e9b0b21
 - 根因检查：+280 的桌宠主触摸方窗和辅助可信宽绘制窗同时存在；`bringToFront` 又在悬浮聊天的输入模式切换时对主窗执行 remove/add；更直接的是系统文件界面进入时 `retireBubbleForSystemCover` 在 `removeViewImmediate` 成功前清空窗口所有权，失败后恢复会追加新窗。聊天 `IndexedStack` 保持原生 `GLSurfaceView`，切页时透明像素可能显示已离开的页面缓冲。以上为源码对应的风险，不以 CI 代替真机因果证明。
 - 保护边界：旧版已确认宽动画显示尺寸不缩水；小中大按原 `IDLE/down` 第一帧 alpha 定义静态触摸范围，新动作、特效和自主动作不扩张命中。透明区域由系统输入分发直接透传，失败时整窗不可触摸，不退回宽矩形；不使用隐藏 insets 反射。Live2D 保持已成功导入的模型、Hybrid Composition 和模型 ZIP 私有性。
 - 实现：单一宽且留出大动作绘制边距的 `TYPE_APPLICATION_OVERLAY` 负责桌宠显示和输入，保持 +278 的宽绘制缩放基准及原逻辑高度，按旧待机帧原始 alpha 像素映射到窗口局部 `Region` 并调用 API 33 `AttachedSurfaceControl.setTouchableRegion`；初始及重挂载、尺寸变更先 `FLAG_NOT_TOUCHABLE`，mask 成功后才解锁。系统文件界面进入时先隐藏旧窗口，移除成功才释放并清空所有权；重建时移除失败保留旧引用并有界重试，避免生成孤儿图层；移除悬浮聊天输入状态变更中的重复 remove/add。聊天页不处于当前 tab 或 route 时释放原生 Live2D，dispose 前立即隐藏 GLSurfaceView。
-- 验证：+281 初始提交 `f883811` 的 Actions `36374983658` 在旧版本静态校验处停下；六个历史校验器只允许到 +280，已补充 +281 并逐个本地通过。待回填重跑 Actions、APK、真机截图与小米文件界面进出、透明区透传、层数稳定、三尺寸显示测试。不得将 CI 绿称作真机通过。
+- 验证：+281 初始提交 `f883811` 的 Actions `36374983658` 在旧版本静态校验处停下；六个历史校验器只允许到 +280，已补充 +281 并逐个本地通过。下一次 `36375657702` 的 Kotlin 编译发现浮点偏移误传整数 dp，已修正。最终构建 head `203ee46721285f0776b8225419e05c1b5efc99cd`、Actions `36376305397` 全绿（127 项源码校验、Kotlin 桌宠测试、Flutter analyze/test、签名及素材校验），Artifact `10951905935`，APK SHA-256 `38ea4ccaaf3247ba3faecfc5fa2d1108b41267f89fca56345223b3631c569f77`，未发布 Draft `https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-fb9ac196917098c4e4f2`。`IMPLEMENTED / CI PASSED / APK READY / TRUE DEVICE PENDING`：小米文件界面进出、透明区透传、层数稳定、三尺寸显示和 Live2D 背景穿透仍必须真机复测；不得将 CI 绿称作真机通过。
