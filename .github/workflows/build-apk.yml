@@ -1578,18 +1578,19 @@ jobs:
           test "${upload_ok}" = '1'
           MONITOR_BRANCH='ci-monitor-v0345'
           MONITOR_PATH='.ci/v04237-monitor.txt'
-          MONITOR_CONTENT="$(base64 -w0 "app/${CI_NAME}")"
+          MONITOR_CONTENT_FILE="$(mktemp)"
+          base64 -w0 "app/${CI_NAME}" > "${MONITOR_CONTENT_FILE}"
           MONITOR_SHA="$(gh api "/repos/${GITHUB_REPOSITORY}/contents/${MONITOR_PATH}?ref=${MONITOR_BRANCH}" --jq '.sha' 2>/dev/null || true)"
           if test -n "${MONITOR_SHA}"; then
             gh api --method PUT "/repos/${GITHUB_REPOSITORY}/contents/${MONITOR_PATH}" \
               -f message='Update v0.42.41 CI success monitor' \
-              -f content="${MONITOR_CONTENT}" \
+              -F "content=@${MONITOR_CONTENT_FILE}" \
               -f branch="${MONITOR_BRANCH}" \
               -f sha="${MONITOR_SHA}" >/dev/null
           else
             gh api --method PUT "/repos/${GITHUB_REPOSITORY}/contents/${MONITOR_PATH}" \
               -f message='Create v0.42.41 CI success monitor' \
-              -f content="${MONITOR_CONTENT}" \
+              -F "content=@${MONITOR_CONTENT_FILE}" \
               -f branch="${MONITOR_BRANCH}" >/dev/null
           fi
 
@@ -1663,17 +1664,18 @@ jobs:
             --repo "${GITHUB_REPOSITORY}"
           MONITOR_BRANCH='ci-monitor-v0345'
           MONITOR_PATH='.ci/v04237-monitor.txt'
-          MONITOR_CONTENT="$(base64 -w0 "${REPORT}")"
+          MONITOR_CONTENT_FILE="$(mktemp)"
+          base64 -w0 "${REPORT}" > "${MONITOR_CONTENT_FILE}"
           MONITOR_SHA="$(gh api "/repos/${GITHUB_REPOSITORY}/contents/${MONITOR_PATH}?ref=${MONITOR_BRANCH}" --jq '.sha' 2>/dev/null || true)"
           if test -n "${MONITOR_SHA}"; then
             gh api --method PUT "/repos/${GITHUB_REPOSITORY}/contents/${MONITOR_PATH}" \
               -f message='Update v0.42.41 CI failure monitor' \
-              -f content="${MONITOR_CONTENT}" \
+              -F "content=@${MONITOR_CONTENT_FILE}" \
               -f branch="${MONITOR_BRANCH}" \
               -f sha="${MONITOR_SHA}" >/dev/null
           else
             gh api --method PUT "/repos/${GITHUB_REPOSITORY}/contents/${MONITOR_PATH}" \
               -f message='Create v0.42.41 CI failure monitor' \
-              -f content="${MONITOR_CONTENT}" \
+              -F "content=@${MONITOR_CONTENT_FILE}" \
               -f branch="${MONITOR_BRANCH}" >/dev/null
           fi

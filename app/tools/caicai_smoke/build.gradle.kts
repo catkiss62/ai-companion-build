@@ -32,6 +32,8 @@ android {
         // No copied host implementation, private model, Flutter or TTS payload.
         java.srcDirs("../../android/app/src/main/java", layout.buildDirectory.dir("generated/import-sources"))
         java.exclude("io/flutter/**")
+        assets.srcDir("../../android/app/src/main/assets")
+        assets.include("com/live2d/**", "sen-default-profile-v1.json", "maid-parameter-semantics-v1.json")
     }
 }
 tasks.named("preBuild").configure { dependsOn(syncImportSources) }

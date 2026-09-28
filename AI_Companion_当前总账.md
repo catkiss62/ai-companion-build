@@ -25,6 +25,7 @@
 - 宿主生命周期补强：临时 detach/reparent 只让 GLSurfaceView 重建 EGL，不把模型标成永久释放；真正 dispose 在原线程仍在时排队释放，若 Flutter 先 detach 再 dispose，则在旧 EGL 已销毁后清理剩余 Cubism CPU 状态并移交所有权。测试增加临时重挂和先 detach 后 dispose。
 - 新增真实 Android emulator 门禁：直接编译生产宿主与仓库，测试 View 构造、空场景GL帧、暂停恢复、已暂停旧实例释放/新实例接手；导入测试覆盖别名目录、嵌套中文路径、提升读回、损坏包保留旧包、回滚、索引恢复、删除后重导。结构假模型不用于绘制，不构成私有模型真机成功证据。
 - 首轮原生门禁运行 `36441861951` 在编译 smoke 时失败：Kotlin 未继承 Java SourceSet 的 exclude，误编入依赖 Flutter 的 PlatformView 适配器。改为 Sync 精确选入生产导入仓库/路径/诊断三文件；宿主/renderer 仍直接编译生产 Java 源码。没有删除测试或降低门禁。
+- 后续 smoke 配置失败 `36442598138`：SourceSet 不接受 Sync Task 作为目录 notation，改为明确 generated 目录并保留 preBuild 依赖。`36447749140` 已完成编译并执行2项 Android 测试，导入事务通过；渲染初始化失败指出测试包漏装 Cubism shader assets，补齐生产 shader/profile 资源（生产 APK 已有独立资源门）。CI 失败监视器另改为文件输入，避免大日志触发命令参数长度上限。
 - 本地原菜菜渲染/资源哈希门、路由连线门已通过；全源门初跑识别到旧版版本白名单/旧路由断言，已按本次新合同更新。环境缺Flutter/Kotlin编译器和部分CI恢复资源，完整编译/自动测试交给既有CI恢复环境；不降低资源门。
 
 ## 上一批 · +284 菜菜专项动作与舞台体验（真机失败，待 +285 修复）
