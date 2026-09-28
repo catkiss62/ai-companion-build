@@ -1383,7 +1383,8 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
                         fit:BoxFit.cover,alignment:Alignment.center)),
                     Positioned(
                       left: 0, right: 0, top: 0,
-                      height: constraints.maxHeight,
+                      // Keep AndroidView and its GL buffer full size under the IME.
+                      height: _caicaiEnabled ? _caicaiStableHeight : constraints.maxHeight,
                       child: _caicaiEnabled
                           ? CaicaiLive2DStage(qForm: _playfulForm.qForm, emotion: _currentEmotion.key, active: widget.active, sceneSize: Size(constraints.maxWidth, _caicaiStableHeight!))
                           : IgnorePointer(

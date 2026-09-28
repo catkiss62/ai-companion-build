@@ -132,6 +132,15 @@ class PetFrameView(context: Context) : View(context) {
         val value = snapshot ?: return
         val pose = PetEffects.poseFor(value.effect, value.elapsedSeconds)
         val scale = displayScale(value.current)
+        val layer = value.current
+        com.aicompanion.localfirst.CompanionRuntimeState.recordPetRender(
+            "action=${layer.actionId} bitmap=${layer.bitmap.width}x${layer.bitmap.height}" +
+                " view=${width}x${height} logical=${logicalWindowPx ?: -1}" +
+                " padding=${overflowPaddingX},${overflowPaddingY}" +
+                " fit=${(scale * 1000f).toInt() / 1000f}" +
+                " experimental=${PetExperimentalClips.isExperimental(layer.actionId)}" +
+                " calibration=${calibration.scale},${calibration.widthScale}"
+        )
         val anchor = renderAnchor(value.current, scale)
         drawShadow(canvas, value.current, anchor.first, anchor.second, scale, pose)
         value.previous?.takeIf { value.previousOpacity > 0f }?.let {

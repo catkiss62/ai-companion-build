@@ -107,6 +107,14 @@ object CompanionRuntimeState {
     @Volatile var overlayPositionSafe: Boolean = false
         private set
     @Volatile var overlayPetTouchRegion: String = "not_attached"
+    @Volatile var overlayPetRender: String = "not_drawn"
+    @Volatile var overlayPetRenderHistory: List<String> = emptyList()
+    @Synchronized fun recordPetRender(detail: String) {
+        if (detail == overlayPetRender) return
+        overlayPetRender = detail
+        overlayPetRenderHistory = (overlayPetRenderHistory +
+            "${System.currentTimeMillis()}:$detail").takeLast(24)
+    }
     @Volatile var overlayChatWindowAttached: Boolean = false
         private set
     @Volatile var overlayLastTouchAt: Long = 0L
@@ -332,6 +340,8 @@ object CompanionRuntimeState {
             "overlayPositionSafe" to overlayPositionSafe,
             "overlayChatWindowAttached" to overlayChatWindowAttached,
             "overlayPetTouchRegion" to overlayPetTouchRegion,
+            "overlayPetRender" to overlayPetRender,
+            "overlayPetRenderHistory" to overlayPetRenderHistory,
             "overlayLastTouchAt" to overlayLastTouchAt,
             "overlayLastTouchAction" to overlayLastTouchAction,
             "overlayLastSelfHealAt" to overlayLastSelfHealAt,

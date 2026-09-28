@@ -224,6 +224,7 @@ class PetOverlayWindow(
         // the input dispatcher; one surface owns both drawing and idle mask.
         val trustedManager = AccessibilityBridgeService.petVisualWindowManager()
         entryWindowManager = trustedManager ?: windowManager
+        CompanionRuntimeState.recordPetRender("attach trusted=${trustedManager != null}")
         migrateLegacyMotionMode()
         val manifest = PetSkinManifest.load(context.assets)
         val frameCache = PetFrameCache(context.assets)
