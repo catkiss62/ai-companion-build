@@ -1384,7 +1384,7 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
                       left: 0, right: 0, top: 0,
                       height: _caicaiEnabled ? _caicaiStableHeight : constraints.maxHeight,
                       child: _caicaiEnabled
-                          ? CaicaiLive2DStage(qForm: _playfulForm.qForm, emotion: _currentEmotion.key)
+                          ? CaicaiLive2DStage(qForm: _playfulForm.qForm, emotion: _currentEmotion.key, active: widget.active)
                           : IgnorePointer(
                         child: ChatPortraitStage(
                           emotion: _currentEmotion,

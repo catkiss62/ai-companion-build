@@ -453,14 +453,31 @@ final class SenLive2DModel extends CubismUserModel {
         if (activeExpressionNames.contains("变小") && !activeExpressionNames.contains("2插手")) startMaidPreset("2插手");
     }
 
+    private CaicaiParameterPlan.Target cachedCaicaiTarget;
+    private CaicaiParameterPlan.Target caicaiTarget() {
+        if (cachedCaicaiTarget == null) {
+            final java.util.Map<String, Integer> indices = new java.util.HashMap<>();
+            final java.util.Map<String, float[]> limits = new java.util.HashMap<>();
+            for (int i=0; i<model.getParameterCount(); i++) {
+                String id=model.getParameterId(i).getString();
+                if (!CaicaiParameterPlan.supports(id)) continue;
+                indices.put(id,i);
+                limits.put(id,new float[]{model.getParameterMinimumValue(i),model.getParameterMaximumValue(i)});
+            }
+            cachedCaicaiTarget = new CaicaiParameterPlan.Target() {
+                public boolean accepts(String id) { return indices.containsKey(id); }
+                public float current(String id) { return model.getParameterValue(indices.get(id)); }
+                public void write(String id,float value) {
+                    float[] range=limits.get(id);
+                    model.getModel().getParameterViews()[indices.get(id)].setValue(Math.max(range[0],Math.min(range[1],value)));
+                }
+            };
+        }
+        return cachedCaicaiTarget;
+    }
     private void applyCaicaiIdle(float delta) {
-        CaicaiParameterPlan.Target target = new CaicaiParameterPlan.Target() {
-            public boolean accepts(String id) { return findParameterIndex(id) >= 0; }
-            public float current(String id) { return model.getParameterValue(findParameterIndex(id)); }
-            public void write(String id, float value) { setParameter(id, value); }
-        };
-        caicaiIdle.update(delta, target);
-        caicaiFace.update(performance.getEmotion(), delta, target);
+        caicaiIdle.update(delta, caicaiTarget());
+        caicaiFace.update(performance.getEmotion(), delta, caicaiTarget());
     }
     void setCaicaiLook(boolean active, float x, float y) { caicaiIdle.look(active, x, y); }
     private void applyParameterPlan(float delta) {
@@ -473,16 +490,8 @@ final class SenLive2DModel extends CubismUserModel {
                 if (activeExpressionNames.contains("变小") && !activeExpressionNames.contains("2插手")) startMaidPreset("2插手");
             }
         }
-        parameterPlan.apply(delta, new CaicaiParameterPlan.Target() {
-            public boolean accepts(String id) { return findParameterIndex(id) >= 0; }
-            public float current(String id) { return model.getParameterValue(findParameterIndex(id)); }
-            public void write(String id, float value) { setParameter(id, value); }
-        });
-        if (delta > 0) caicaiIdle.applyAttention(new CaicaiParameterPlan.Target() {
-            public boolean accepts(String id) { return findParameterIndex(id) >= 0; }
-            public float current(String id) { return model.getParameterValue(findParameterIndex(id)); }
-            public void write(String id, float value) { setParameter(id, value); }
-        });
+        parameterPlan.apply(delta, caicaiTarget());
+        if (delta > 0) caicaiIdle.applyAttention(caicaiTarget());
     }
 
     void setSmallForm(boolean small) {

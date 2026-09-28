@@ -74,7 +74,10 @@ class _Live2DSettingsPageState extends State<Live2DSettingsPage> {
             subtitle: const Text('聊天舞台使用女仆与三配件；随小豆丁形态变小／变大'),
             value: _enabled, onChanged: _busy ? null : (value) => _run(() async {
               await _db.setSetting('chat_portrait_mode', value ? 'caicai_live2d' : 'static');
-              if (value) await _db.setSetting('chat_visual_stage_enabled', '1');
+              if (value) {
+                await _db.setSetting('chat_visual_stage_enabled', '1');
+                if (mounted) Navigator.of(context).popUntil((route) => route.isFirst);
+              }
             })),
           ListTile(leading: const Icon(Icons.folder_zip_outlined),
             title: Text(_status['available'] == true ? '重新导入模型 ZIP' : '导入模型 ZIP'),

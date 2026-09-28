@@ -42,11 +42,14 @@ internal class CaicaiPlatformView(
     }
     private val companion = CaicaiCompanionView(context)
     private val channel = MethodChannel(messenger, "ai_companion/caicai_live2d/view/$viewId")
+    private val executionId = "caicai-$viewId-${android.os.SystemClock.uptimeMillis()}"
     private var disposed = false
     @Volatile private var renderStatus = "created"
     @Volatile private var renderDetail = "等待画面连接"
     @Volatile private var awaitingModelStart = false
     @Volatile private var modelStarted = false
+    private var stageVisible = true
+    private var hostActive = true
     private var keyboardVisible = false
     private val viewPrefs = app.getSharedPreferences("caicai_stage", Context.MODE_PRIVATE)
     private var stageAdjustment = false
@@ -88,6 +91,7 @@ internal class CaicaiPlatformView(
         companion.setFrontHairExperimentEnabled(true)
         companion.setOnTouchListener { view, event -> handleStageTouch(view, event) }
         root.addView(companion, FrameLayout.LayoutParams(-1, -1))
+        CaicaiDiagnostics.record(app, "lifecycle_owner", org.json.JSONObject(state()).toString())
         CaicaiRuntime.attach(this)
         companion.onHostResume()
     }
@@ -97,6 +101,7 @@ internal class CaicaiPlatformView(
     override fun dispose() {
         if (disposed) return
         disposed = true
+        CaicaiDiagnostics.record(app, "lifecycle_terminal", org.json.JSONObject(state()).toString())
         // Hide the SurfaceView immediately, before the hybrid PlatformView
         // teardown and GL thread release. Otherwise its last buffer can remain
         // visible over a newly selected Flutter tab on some compositors.
@@ -116,6 +121,11 @@ internal class CaicaiPlatformView(
             "start" -> { loadCurrentModel(); result.success(state()) }
             "getState" -> result.success(state())
             "reloadModel" -> { loadCurrentModel(); result.success(null) }
+            "setVisible" -> {
+                stageVisible = call.arguments == true
+                if (stageVisible && hostActive) companion.onHostResume() else companion.onHostPause()
+                result.success(null)
+            }
             "setKeyboardVisible" -> {
                 setKeyboardVisible(call.arguments == true)
                 result.success(null)
@@ -171,13 +181,13 @@ internal class CaicaiPlatformView(
                 companion.setStaticMode(false); result.success(true)
             }
             "adjustStage" -> { stageAdjustment = call.arguments == true; result.success(true) }
-            "resetPresets" -> { companion.clearParameterPlan(); companion.resetNativePresets(); companion.setSmallForm(smallForm); result.success(true) }
+            "resetPresets" -> { companion.clearParameterPlan(); companion.setSmallForm(smallForm); result.success(true) }
             "stopMotion" -> { companion.clearParameterPlan(); result.success(true) }
             "motionPlan" -> {
                 val args = call.arguments as? Map<*, *>
                 val plan = org.json.JSONArray(args?.get("frames") as? List<*> ?: emptyList<Any>()).toString()
                 companion.startParameterPlan(plan, args?.get("face")?.toString() ?: "", args?.get("action")?.toString() ?: "")
-                CaicaiDiagnostics.record(app, "motion_plan_applied", org.json.JSONObject(args ?: emptyMap<Any, Any>()).toString())
+                CaicaiDiagnostics.record(app, "motion_plan_submitted", org.json.JSONObject(args ?: emptyMap<Any, Any>()).toString())
                 result.success(true)
             }
             else -> result.notImplemented()
@@ -188,12 +198,13 @@ internal class CaicaiPlatformView(
 
     fun reloadModel() { if (!disposed) main.post(::loadCurrentModel) }
     fun hostResume() {
-        if (!disposed) {
+        hostActive = true
+        if (!disposed && stageVisible) {
             companion.onHostResume()
             companion.requestRender()
         }
     }
-    fun hostPause() { if (!disposed) { companion.clearParameterPlan(); companion.onHostPause() } }
+    fun hostPause() { hostActive = false; if (!disposed) { companion.clearParameterPlan(); companion.onHostPause() } }
     fun setKeyboardVisible(visible: Boolean) {
         if (!disposed && keyboardVisible != visible) {
             keyboardVisible = visible
@@ -203,7 +214,16 @@ internal class CaicaiPlatformView(
         }
     }
 
-    fun state(): Map<String, String> = mapOf("status" to renderStatus, "detail" to renderDetail, "surface" to companion.surfaceDiagnostics())
+    fun state(): Map<String, String> = mapOf(
+        "status" to renderStatus, "detail" to renderDetail, "surface" to companion.surfaceDiagnostics(),
+        "feature" to "caicai_live2d", "execution_id" to executionId,
+        "trigger_source" to "chat_stage", "continuation_owner" to "CaicaiGL",
+        "phase" to if (disposed) "disposed" else if (!hostActive || !stageVisible) "paused" else renderStatus,
+        "planning_rounds" to "0", "tool_calls" to "0", "committed_mutations" to "0",
+        "continuation_requested" to "false", "terminal" to disposed.toString(),
+        "preempt" to (!hostActive || !stageVisible).toString(), "late_write" to "false",
+        "usage_lane" to "local_render_no_network",
+    )
 
     private fun loadCurrentModel() {
         if (disposed) return

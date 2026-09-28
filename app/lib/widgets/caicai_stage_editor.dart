@@ -39,7 +39,10 @@ class _CaicaiStageEditorState extends State<CaicaiStageEditor> {
     } catch (e) { if (mounted) setState(() { _saving = false; _error = '保存失败：$e'; }); }
   }
   @override
-  Widget build(BuildContext context) => LayoutBuilder(builder: (context, box) {
+  Widget build(BuildContext context) => PopScope(
+    canPop: false,
+    onPopInvokedWithResult: (didPop, result) { if (!didPop && !_saving) _finish(false); },
+    child: LayoutBuilder(builder: (context, box) {
     final size = box.biggest;
     final headMode = widget.mode == 'head';
     final rect = Rect.fromLTRB(_head.left*size.width, _head.top*size.height,
@@ -47,11 +50,11 @@ class _CaicaiStageEditorState extends State<CaicaiStageEditor> {
     return Stack(fit: StackFit.expand, children: [
       GestureDetector(
         behavior: HitTestBehavior.opaque,
-        onScaleStart: (d) {
+        onScaleStart: _saving ? null : (d) {
           _start = d.localFocalPoint; _origin = Offset(_x,_y); _startScale = _scale; _startHead = _head;
           _resizeHead = (d.localFocalPoint-rect.bottomRight).distance < 56;
         },
-        onScaleUpdate: (d) {
+        onScaleUpdate: _saving ? null : (d) {
           final delta = d.localFocalPoint-_start;
           setState(() {
             if (headMode) {
@@ -88,7 +91,7 @@ class _CaicaiStageEditorState extends State<CaicaiStageEditor> {
         ]),
       ))),
     ]);
-  });
+  }));
 }
 class _HeadBoxPainter extends CustomPainter {
   const _HeadBoxPainter(this.rect);

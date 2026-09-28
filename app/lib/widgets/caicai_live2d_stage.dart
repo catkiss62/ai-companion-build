@@ -33,8 +33,9 @@ class CaicaiLive2DService {
 }
 
 class CaicaiLive2DStage extends StatefulWidget {
-  const CaicaiLive2DStage({super.key, this.qForm = false, this.emotion = 'normal'});
+  const CaicaiLive2DStage({super.key, this.qForm = false, this.emotion = 'normal', this.active = true});
   final bool qForm;
+  final bool active;
   final String emotion;
   @override
   State<CaicaiLive2DStage> createState() => _CaicaiLive2DStageState();
@@ -43,6 +44,7 @@ class CaicaiLive2DStage extends StatefulWidget {
 class _CaicaiLive2DStageState extends State<CaicaiLive2DStage> {
   MethodChannel? _channel;
   bool _available = false;
+  bool _failed = false;
   int _generation = 0;
   int _modelRevision = 0;
   String? _status = '未导入模型';
@@ -65,6 +67,7 @@ class _CaicaiLive2DStageState extends State<CaicaiLive2DStage> {
       _channel = null;
       setState(() {
         _modelRevision++;
+        _failed = false;
         _available = exists;
         _status = exists ? '已导入模型' : '未导入模型';
       });
@@ -90,6 +93,7 @@ class _CaicaiLive2DStageState extends State<CaicaiLive2DStage> {
   @override
   void didUpdateWidget(CaicaiLive2DStage oldWidget) {
     super.didUpdateWidget(oldWidget);
+    if (oldWidget.active != widget.active) _channel?.invokeMethod<void>('setVisible', widget.active);
     if (oldWidget.qForm != widget.qForm || oldWidget.emotion != widget.emotion) _syncState();
   }
 
@@ -106,32 +110,37 @@ class _CaicaiLive2DStageState extends State<CaicaiLive2DStage> {
       if (!mounted || _channel != channel) return;
       switch (call.method) {
         case 'onReady':
-          setState(() => _status = null);
+          setState(() { _status = null; _failed = false; });
           await _syncState();
           return;
         case 'onStatus':
           if (_status != null) setState(() => _status = '已导入模型');
           return;
         case 'onModelMissing':
+          setState(() { _failed = false; _status = '未导入模型'; });
+          return;
         case 'onError':
-          setState(() => _status = _available ? '已导入模型' : '未导入模型');
+          setState(() { _failed = true; _status = '模型显示失败'; });
           return;
       }
     });
     () async {
       try {
+        await channel.invokeMethod<void>('setVisible', widget.active);
         await channel.invokeMethod<void>('setKeyboardVisible', _keyboardVisible);
         final state = await channel.invokeMapMethod<String, Object?>('start');
         if (!mounted || _channel != channel) return;
         if (state?['status'] == 'ready') {
-          setState(() => _status = null);
+          setState(() { _status = null; _failed = false; });
           await _syncState();
         } else if (state?['status'] == 'missing' || state?['status'] == 'error') {
-          setState(() => _status = state?['status'] == 'missing'
-              ? '未导入模型' : '已导入模型');
+          setState(() {
+            _failed = state?['status'] == 'error';
+            _status = _failed ? '模型显示失败' : '未导入模型';
+          });
         }
       } catch (_) {
-        if (mounted) setState(() => _status = _available ? '已导入模型' : '未导入模型');
+        if (mounted) setState(() { _failed = true; _status = '模型显示失败'; });
       }
     }();
   }
@@ -152,11 +161,14 @@ class _CaicaiLive2DStageState extends State<CaicaiLive2DStage> {
       viewType: 'ai_companion/caicai_live2d_view',
       onPlatformViewCreated: _created,
     ),
-    if (_status != null) Center(child: IgnorePointer(child: Container(
+    if (_status != null) Center(child: Container(
       margin: const EdgeInsets.all(20),
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(color: Colors.black.withValues(alpha: .68), borderRadius: BorderRadius.circular(12)),
-      child: Text(_status!, style: const TextStyle(color: Colors.white)),
-    ))),
+      child: Column(mainAxisSize: MainAxisSize.min, children: [
+        Text(_status!, style: const TextStyle(color: Colors.white)),
+        if (_failed) TextButton(onPressed: _checkModel, child: const Text('重试')),
+      ]),
+    )),
   ]);
 }

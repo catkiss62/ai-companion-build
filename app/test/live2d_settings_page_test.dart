@@ -8,6 +8,49 @@ import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
   sqfliteFfiInit();
+  testWidgets('an action returns from nested settings directly to chat', (tester) async {
+    await tester.runAsync(() async {
+      final db = await AppDatabase.createForTesting(databaseFactoryFfi);
+      await db.setSetting('chat_portrait_mode', 'caicai_live2d');
+      final calls = <String>[];
+      final messenger = TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger;
+      const channel = MethodChannel('ai_companion/caicai_live2d');
+      messenger.setMockMethodCallHandler(channel, (call) async {
+        if (call.method == 'control') {
+          calls.add((call.arguments as Map)['method'] as String);
+          return true;
+        }
+        return {'available': true};
+      });
+      addTearDown(() async {
+        messenger.setMockMethodCallHandler(channel, null);
+        await db.closeForTesting();
+      });
+      await tester.pumpWidget(MaterialApp(
+        home: Builder(builder: (context) => Scaffold(body: TextButton(
+          onPressed: () => Navigator.of(context).pushNamed('/quick'),
+          child: const Text('聊天画面'),
+        ))),
+        routes: {'/quick': (context) => Scaffold(body: TextButton(
+          onPressed: () => Navigator.of(context).push(MaterialPageRoute(
+            builder: (_) => Live2DSettingsPage(database: db))),
+          child: const Text('进入 Live2D'),
+        ))},
+      ));
+      await tester.tap(find.text('聊天画面')); await tester.pumpAndSettle();
+      await tester.tap(find.text('进入 Live2D'));
+      await Future<void>.delayed(const Duration(milliseconds: 50));
+      await tester.pumpAndSettle();
+      await tester.scrollUntilVisible(find.text('自主待机'),300);
+      await tester.tap(find.text('自主待机'));
+      await Future<void>.delayed(const Duration(milliseconds: 50));
+      await tester.pumpAndSettle();
+      expect(calls,contains('static'));
+      expect(find.text('聊天画面'),findsOneWidget);
+      expect(find.text('进入 Live2D'),findsNothing);
+      expect(find.text('Live2D 设置'),findsNothing);
+    });
+  });
   testWidgets('deletion requires confirmation and disables Live2D only after confirmation', (tester) async {
     await tester.runAsync(() async {
     final db = await AppDatabase.createForTesting(databaseFactoryFfi);
