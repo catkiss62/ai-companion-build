@@ -5,11 +5,11 @@ final class CaicaiEmotionLease {
     private String event = "", emotion = "normal";
     private long start;
     private final java.util.LinkedHashSet<String> seen = new java.util.LinkedHashSet<>();
-    void present(String id, String value, long now) {
-        if (id.equals(event)) { if (weight(now) > 0) emotion=value; return; }
-        if (!seen.add(id)) return;
+    boolean present(String id, String value, long now) {
+        if (id.equals(event)) { if (weight(now) > 0) emotion=value; return false; }
+        if (!seen.add(id)) return false;
         while (seen.size()>64) seen.remove(seen.iterator().next());
-        event=id; emotion=value; start=now;
+        event=id; emotion=value; start=now; return true;
     }
     String emotion() { return emotion; }
     float weight(long now) {

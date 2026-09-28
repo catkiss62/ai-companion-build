@@ -5,6 +5,9 @@ final class CaicaiFaceMotion {
     private final float[] current = new float[8];
     private static final String[] IDS = {"ParamMouthForm","MOUTHX","SHRUG","ParamBrowLY","ParamBrowRY",
         "ParamEyeLSmile","ParamEyeRSmile","ParamAngleZ"};
+    void begin(CaicaiParameterPlan.Target pose) {
+        for(int i=0;i<IDS.length;i++) current[i]=i==7 || !pose.accepts(IDS[i]) ? 0 : pose.current(IDS[i]);
+    }
     void update(String emotion,float dt,CaicaiParameterPlan.Target target) { update(emotion,dt,target,1); }
     void update(String emotion, float dt, CaicaiParameterPlan.Target target, float weight) {
         float[] wanted;

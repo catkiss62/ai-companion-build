@@ -56,6 +56,7 @@ internal class CaicaiPlatformView(
     private var stageVisible = true
     private var hostActive = true
     private var keyboardVisible = false
+    private var sceneRatio = 0f
     private val viewPrefs = app.getSharedPreferences("caicai_stage", Context.MODE_PRIVATE)
     private var motionGain = viewPrefs.getFloat("motionGain", 1f)
     private var motionSpeed = viewPrefs.getFloat("motionSpeed", 1f)
@@ -81,7 +82,7 @@ internal class CaicaiPlatformView(
                 val previous = stageScale
                 stageScale = (previous * detector.scaleFactor).coerceIn(.35f, 6f)
                 val focusX = detector.focusX * 2f / companion.width.coerceAtLeast(1) - 1f
-                val focusY = 1f - detector.focusY * 2f / companion.height.coerceAtLeast(1)
+                val focusY = 1f - detector.focusY * 2f / scenePixelHeight()
                 stageX = focusX - (focusX - stageX) * stageScale / previous
                 stageY = focusY - (focusY - stageY) * stageScale / previous
                 applyStage()
@@ -142,6 +143,7 @@ internal class CaicaiPlatformView(
             "getState" -> result.success(state())
             "reloadModel" -> { loadCurrentModel(); result.success(null) }
             "setVisible" -> {
+                if(stageVisible != (call.arguments == true)) CaicaiDiagnostics.record(app,"stage_visibility","visible=${call.arguments == true}")
                 stageVisible = call.arguments == true
                 if (stageVisible && hostActive) companion.onHostResume() else companion.onHostPause()
                 result.success(null)
@@ -157,8 +159,10 @@ internal class CaicaiPlatformView(
             "setForm" -> { smallForm = call.arguments == true; companion.setSmallForm(smallForm); result.success(true) }
             "setSceneSize" -> {
                 val a=call.arguments as? Map<*, *>
-                companion.setCaicaiScene((a?.get("width") as? Number)?.toFloat() ?: 0f,
-                    (a?.get("height") as? Number)?.toFloat() ?: 0f)
+                val width=(a?.get("width") as? Number)?.toFloat() ?: 0f
+                val height=(a?.get("height") as? Number)?.toFloat() ?: 0f
+                if(width.isFinite() && height.isFinite() && width>0 && height>0) sceneRatio=height/width
+                companion.setCaicaiScene(width,height)
                 result.success(true)
             }
             "exportLive2DDiagnostics" -> result.success(org.json.JSONObject()
@@ -171,7 +175,7 @@ internal class CaicaiPlatformView(
                     a?.get("emotion")?.toString() ?: call.arguments?.toString() ?: "normal")
                 result.success(true)
             }
-            "previewEmotion" -> { companion.setEmotion(call.arguments?.toString() ?: "normal"); result.success(true) }
+            "previewEmotion" -> { companion.setStaticMode(false); companion.setEmotion(call.arguments?.toString() ?: "normal"); result.success(true) }
             "parameters" -> companion.motionParameters { json -> main.post { result.success(json) } }
             "expression" -> {
                 val name = call.arguments?.toString() ?: ""
@@ -264,13 +268,14 @@ internal class CaicaiPlatformView(
 
     fun reloadModel() { if (!disposed) main.post(::loadCurrentModel) }
     fun hostResume() {
+        if(!hostActive) CaicaiDiagnostics.record(app,"host_resume")
         hostActive = true
         if (!disposed && stageVisible) {
             companion.onHostResume()
             companion.requestRender()
         }
     }
-    fun hostPause() { hostActive = false; if (!disposed) { companion.clearParameterPlan(); companion.onHostPause() } }
+    fun hostPause() { if(hostActive) CaicaiDiagnostics.record(app,"host_pause"); hostActive = false; if (!disposed) { companion.clearParameterPlan(); companion.onHostPause() } }
     fun setKeyboardVisible(visible: Boolean) {
         if (!disposed && keyboardVisible != visible) {
             keyboardVisible = visible
@@ -283,6 +288,9 @@ internal class CaicaiPlatformView(
     fun state(): Map<String, String> = mapOf(
         "status" to renderStatus, "detail" to renderDetail, "surface" to companion.surfaceDiagnostics(),
         "feature" to "caicai_live2d", "execution_id" to executionId,
+        "view_attached" to companion.isAttachedToWindow.toString(), "view_shown" to companion.isShown.toString(),
+        "view_alpha" to companion.alpha.toString(), "keyboard_visible" to keyboardVisible.toString(),
+        "scene_ratio" to sceneRatio.toString(),
         "trigger_source" to "chat_stage", "continuation_owner" to "CaicaiGL",
         "phase" to if (disposed) "disposed" else if (!hostActive || !stageVisible) "paused" else renderStatus,
         "planning_rounds" to "0", "tool_calls" to "0", "committed_mutations" to "0",
@@ -336,7 +344,7 @@ internal class CaicaiPlatformView(
                 if (!scaleDetector.isInProgress && event.pointerCount == 1) {
                     stageX = (stageX + 2f * (event.x - lastX) / view.width.coerceAtLeast(1))
                         .coerceIn(-2f, 2f)
-                    stageY = (stageY - 2f * (event.y - lastY) / view.height.coerceAtLeast(1))
+                    stageY = (stageY - 2f * (event.y - lastY) / scenePixelHeight())
                         .coerceIn(-2f, 2f)
                     applyStage()
                 }
@@ -385,6 +393,7 @@ internal class CaicaiPlatformView(
         CaicaiDiagnostics.record(app,"head_pat_started","held=$held rare=$rare")
     }
     fun observeTouch(x: Float, y: Float) { if (!disposed && editSnapshot == null) companion.setLookTarget(true,x,y) }
+    private fun scenePixelHeight(): Float = if(sceneRatio>0) companion.width.coerceAtLeast(1)*sceneRatio else companion.height.coerceAtLeast(1).toFloat()
     private fun applyStage(persist: Boolean = true) {
         val limit = .9f + .5f * stageScale
         stageX = stageX.coerceIn(-limit, limit); stageY = stageY.coerceIn(-limit, limit)

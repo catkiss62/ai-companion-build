@@ -411,7 +411,7 @@ final class SenLive2DModel extends CubismUserModel {
     private boolean collectingHead;
     void presentCaicaiEmotion(String id,String emotion) {
         performance.selectEmotion("normal");
-        caicaiEmotion.present(id,emotion,System.nanoTime());
+        if(caicaiEmotion.present(id,emotion,System.nanoTime())) caicaiFace.begin(caicaiTarget());
     }
     void beginCaicaiPat(boolean held,boolean rare) {
         // Snapshot the final rendered face before clearing the conversational layer.
@@ -423,7 +423,7 @@ final class SenLive2DModel extends CubismUserModel {
         }
     }
     void releaseCaicaiPat() { caicaiPat.release(); }
-    String caicaiMotionTrace() { return headIntent.trace(caicaiTarget())+" captureXY="+getParameterValue("ParamAngleX")+","+getParameterValue("ParamAngleY")+" pat="+caicaiPat.state()+" emotionWeight="+caicaiEmotion.weight(System.nanoTime())+" idle="+caicaiIdle.phraseName(); }
+    String caicaiMotionTrace() { return headIntent.trace(caicaiTarget())+" opacity="+model.getModelOpacity()+" captureXY="+getParameterValue("ParamAngleX")+","+getParameterValue("ParamAngleY")+" pat="+caicaiPat.state()+" emotionWeight="+caicaiEmotion.weight(System.nanoTime())+" idle="+caicaiIdle.phraseName(); }
     private void finishCaicaiHead() {
         collectingHead=false;
         if(compositeRole!=CompositeModelRole.MAID_PRIMARY || staticMode) return;
