@@ -45,7 +45,7 @@ require(
     "User turns are reply-live",
 )
 runner = read("lib/core/ai/durable_generation_runner.dart")
-assert "finalProvider.isGeminiRelay && providerNotice.isNotEmpty" in runner, (
+assert "finalProvider.isGeminiRelay && providerNotice?.isNotEmpty == true" in runner, (
     "DeepSeek repairs only after the configured final channel failed"
 )
 require(
