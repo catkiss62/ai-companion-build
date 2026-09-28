@@ -1444,10 +1444,10 @@ $finalGenerationReminder
         try {
           // One correction by the provider that wrote the visible draft.
           // DeepSeek takes over only after the configured second channel fails.
-          generated = finalProvider.isGeminiRelay && providerNotice.isNotEmpty
+          generated = finalProvider.isGeminiRelay && providerNotice?.isNotEmpty == true
               ? await generateCheckedDeepSeek(correctionMessages)
               : await generateFinal(correctionMessages);
-          if (providerNotice.isNotEmpty) finalTextFromGemini = false;
+          if (providerNotice?.isNotEmpty == true) finalTextFromGemini = false;
           effectiveCancellation.throwIfCancelled();
           envelope = EmotionEnvelope.parse(generated.content);
           finalContent = visibleBody(envelope);
