@@ -15,12 +15,14 @@ runner = (app / "lib/core/ai/durable_generation_runner.dart").read_text()
 context_judge = (app / "lib/core/mcp/cedar_context_intent_judge.dart").read_text()
 diagnostics = (app / "lib/core/diagnostics/preflight_diagnostics.dart").read_text()
 
-# Use one wide drawing window. Its original idle-front alpha is the fixed
-# system-level input region even while larger action frames are displayed.
+# The trusted single window keeps a fixed idle mask; old logical bounds own
+# movement and docking while larger action frames may extend past the bounds.
 assert re.search(r"WindowManager\.LayoutParams\(\s*visualWidthPx,\s*visualHeightPx,", pet)
-assert "val nextWidth = maxOf(dp(PetOverlaySizing.visualWidthDp(normalized))" in pet
+assert "maxOf(dp(PetOverlaySizing.visualWidthDp(normalized)), nextHeight + nextPaddingY * 2)" in pet
 assert "petView.setOverflowGeometry(windowPx, paddingX, paddingY)" in pet
-assert "TYPE_ACCESSIBILITY_OVERLAY" not in pet
+assert "TYPE_ACCESSIBILITY_OVERLAY" in pet
+assert "logicalLimits(activeArea(layout), layout)" in pet
+assert "entryWindowManager.addView(container, layout)" in pet
 assert "setTouchableRegion(region)" in pet and "FLAG_NOT_TOUCHABLE" in pet
 assert "installStandingReference(petView, manifest, frameCache, size)" in pet
 assert "disableUnmaskedInput(" in pet
@@ -28,7 +30,10 @@ assert 'keepPetAboveChat("chat_input_enter")' not in service
 assert 'keepPetAboveChat("chat_input_exit")' not in service
 assert "private fun removeOwnedEntryWindow(view: View): Boolean" in service
 assert "if (bubble != null && !removeOwnedEntryWindow(bubble))" in service
-assert "widget.active &&" in chat and "live2dOnScreen" in chat
+assert "live2dOnScreen" not in chat
+assert "height: constraints.maxHeight," in chat
+assert "AndroidView(" in (app / "lib/widgets/caicai_live2d_stage.dart").read_text()
+assert "setZOrderMediaOverlay(true)" not in caicai
 assert "companion.visibility = View.GONE" in caicai
 assert "PetTouchableRegion(container)" not in pet
 assert "updateTouchRegionStatus(layout)" in pet

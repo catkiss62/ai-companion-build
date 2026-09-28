@@ -40,11 +40,7 @@ internal class CaicaiPlatformView(
         descendantFocusability = android.view.ViewGroup.FOCUS_BLOCK_DESCENDANTS
         isFocusable = false
     }
-    private val companion = SenCompanionView(context).apply {
-        // GLSurfaceView is a separate SurfaceView. Keep it above the activity's
-        // base surface, but behind Flutter's window UI and chat controls.
-        setZOrderMediaOverlay(true)
-    }
+    private val companion = SenCompanionView(context)
     private val channel = MethodChannel(messenger, "ai_companion/caicai_live2d/view/$viewId")
     private var disposed = false
     @Volatile private var renderStatus = "created"
@@ -159,7 +155,12 @@ internal class CaicaiPlatformView(
     fun stopForDeletion() { dispose() }
 
     fun reloadModel() { if (!disposed) main.post(::loadCurrentModel) }
-    fun hostResume() { if (!disposed) companion.onHostResume() }
+    fun hostResume() {
+        if (!disposed) {
+            companion.onHostResume()
+            companion.requestRender()
+        }
+    }
     fun hostPause() { if (!disposed) companion.onHostPause() }
     fun setKeyboardVisible(visible: Boolean) {
         if (!disposed && keyboardVisible != visible) {

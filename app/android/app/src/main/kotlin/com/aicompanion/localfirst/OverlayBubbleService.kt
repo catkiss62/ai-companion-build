@@ -2015,6 +2015,8 @@ class OverlayBubbleService : Service() {
     }
 
     private fun removeOwnedEntryWindow(view: View): Boolean = runCatching {
+        val pet = petOverlayWindow
+        if (pet?.root === view) return pet.removeRootWindow(view)
         windowManager.removeViewImmediate(view)
         true
     }.getOrElse {

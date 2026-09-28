@@ -60,7 +60,7 @@ require(
     "pet overlay",
 )
 assert "PetTouchableRegion(container)" not in pet
-assert "windowManager.addView(container, layout)" in pet
+assert "entryWindowManager.addView(container, layout)" in pet
 assert "class PetOverlayWindow" in pet and ": Service" not in pet
 
 contract = read(

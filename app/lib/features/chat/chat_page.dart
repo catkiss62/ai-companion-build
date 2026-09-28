@@ -1204,11 +1204,6 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
   @override
   Widget build(BuildContext context) {
     final timeline = controller.timelineItems;
-    // IndexedStack keeps chat mounted behind other tabs. A SurfaceView remains
-    // a separate native layer there; release it whenever chat is covered so
-    // transparent pixels cannot expose the previously visited page's buffer.
-    final live2dOnScreen = widget.active &&
-        (ModalRoute.of(context)?.isCurrent ?? true);
     String? latestAssistantId;
     for (final message in controller.messages.reversed) {
       if (message.isAssistant) {
@@ -1379,11 +1374,9 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
                     ),
                     Positioned(
                       left: 0, right: 0, top: 0,
-                      height: constraints.maxHeight + (_caicaiEnabled ? MediaQuery.viewInsetsOf(context).bottom : 0),
+                      height: constraints.maxHeight,
                       child: _caicaiEnabled
-                          ? (live2dOnScreen
-                              ? CaicaiLive2DStage(qForm: _playfulForm.qForm, emotion: _currentEmotion.key)
-                              : const SizedBox.expand())
+                          ? CaicaiLive2DStage(qForm: _playfulForm.qForm, emotion: _currentEmotion.key)
                           : IgnorePointer(
                         child: ChatPortraitStage(
                           emotion: _currentEmotion,

@@ -1,7 +1,5 @@
 import 'package:flutter/foundation.dart';
-import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter/rendering.dart' show PlatformViewHitTestBehavior;
 import 'package:flutter/services.dart';
 
 class CaicaiLive2DService {
@@ -142,27 +140,10 @@ class _CaicaiLive2DStageState extends State<CaicaiLive2DStage> {
   @override
   Widget build(BuildContext context) => Stack(fit: StackFit.expand, children: [
     // No imported model means no native view, GL thread or focus participant.
-    if (_available) PlatformViewLink(
+    if (_available) AndroidView(
       key: ValueKey(_modelRevision),
       viewType: 'ai_companion/caicai_live2d_view',
-      surfaceFactory: (context, controller) => AndroidViewSurface(
-        controller: controller as AndroidViewController,
-        gestureRecognizers: const <Factory<OneSequenceGestureRecognizer>>{},
-        hitTestBehavior: PlatformViewHitTestBehavior.opaque,
-      ),
-      onCreatePlatformView: (params) {
-        final controller = PlatformViewsService.initExpensiveAndroidView(
-          id: params.id,
-          viewType: 'ai_companion/caicai_live2d_view',
-          layoutDirection: TextDirection.ltr,
-          creationParamsCodec: const StandardMessageCodec(),
-          onFocus: () => params.onFocusChanged(true),
-        );
-        controller.addOnPlatformViewCreatedListener(params.onPlatformViewCreated);
-        controller.addOnPlatformViewCreatedListener(_created);
-        controller.create();
-        return controller;
-      },
+      onPlatformViewCreated: _created,
     ),
     if (_status != null) Center(child: IgnorePointer(child: Container(
       margin: const EdgeInsets.all(20),

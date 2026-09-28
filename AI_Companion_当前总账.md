@@ -1,6 +1,6 @@
 # AI Companion · 当前总账
 
-更新时间：2026-09-28（中国时间；+281 Actions 全绿、测试 Draft APK 就绪；小米文件界面残影、桌宠尺寸/透传与 Live2D 背景待真机验）
+更新时间：2026-09-28（中国时间；+281 真机失败，+282 恢复旧几何与 Sen 宿主路径，待构建和真机验收）
 
 > 本文件是唯一的当前接班入口，继续采用“总账 v2”。顶部是快速接班索引；标记后的正式记录按版本持续追加，不设总容量上限。
 >
@@ -1212,4 +1212,11 @@ Actions 与交付证据：远端功能 head `33647c7bff15084d6fd3cbc7b817e9b0b21
 - 根因检查：+280 的桌宠主触摸方窗和辅助可信宽绘制窗同时存在；`bringToFront` 又在悬浮聊天的输入模式切换时对主窗执行 remove/add；更直接的是系统文件界面进入时 `retireBubbleForSystemCover` 在 `removeViewImmediate` 成功前清空窗口所有权，失败后恢复会追加新窗。聊天 `IndexedStack` 保持原生 `GLSurfaceView`，切页时透明像素可能显示已离开的页面缓冲。以上为源码对应的风险，不以 CI 代替真机因果证明。
 - 保护边界：旧版已确认宽动画显示尺寸不缩水；小中大按原 `IDLE/down` 第一帧 alpha 定义静态触摸范围，新动作、特效和自主动作不扩张命中。透明区域由系统输入分发直接透传，失败时整窗不可触摸，不退回宽矩形；不使用隐藏 insets 反射。Live2D 保持已成功导入的模型、Hybrid Composition 和模型 ZIP 私有性。
 - 实现：单一宽且留出大动作绘制边距的 `TYPE_APPLICATION_OVERLAY` 负责桌宠显示和输入，保持 +278 的宽绘制缩放基准及原逻辑高度，按旧待机帧原始 alpha 像素映射到窗口局部 `Region` 并调用 API 33 `AttachedSurfaceControl.setTouchableRegion`；初始及重挂载、尺寸变更先 `FLAG_NOT_TOUCHABLE`，mask 成功后才解锁。系统文件界面进入时先隐藏旧窗口，移除成功才释放并清空所有权；重建时移除失败保留旧引用并有界重试，避免生成孤儿图层；移除悬浮聊天输入状态变更中的重复 remove/add。聊天页不处于当前 tab 或 route 时释放原生 Live2D，dispose 前立即隐藏 GLSurfaceView。
-- 验证：+281 初始提交 `f883811` 的 Actions `36374983658` 在旧版本静态校验处停下；六个历史校验器只允许到 +280，已补充 +281 并逐个本地通过。下一次 `36375657702` 的 Kotlin 编译发现浮点偏移误传整数 dp，已修正。最终构建 head `203ee46721285f0776b8225419e05c1b5efc99cd`、Actions `36376305397` 全绿（127 项源码校验、Kotlin 桌宠测试、Flutter analyze/test、签名及素材校验），Artifact `10951905935`，APK SHA-256 `38ea4ccaaf3247ba3faecfc5fa2d1108b41267f89fca56345223b3631c569f77`，未发布 Draft `https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-fb9ac196917098c4e4f2`。`IMPLEMENTED / CI PASSED / APK READY / TRUE DEVICE PENDING`：小米文件界面进出、透明区透传、层数稳定、三尺寸显示和 Live2D 背景穿透仍必须真机复测；不得将 CI 绿称作真机通过。
+- 验证：+281 初始提交 `f883811` 的 Actions `36374983658` 在旧版本静态校验处停下；六个历史校验器只允许到 +280，已补充 +281 并逐个本地通过。下一次 `36375657702` 的 Kotlin 编译发现浮点偏移误传整数 dp，已修正。最终构建 head `203ee46721285f0776b8225419e05c1b5efc99cd`、Actions `36376305397` 全绿（127 项源码校验、Kotlin 桌宠测试、Flutter analyze/test、签名及素材校验），Artifact `10951905935`，APK SHA-256 `38ea4ccaaf3247ba3faecfc5fa2d1108b41267f89fca56345223b3631c569f77`，未发布 Draft `https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-fb9ac196917098c4e4f2`。用户实测：旧待机范围外虽不能拖动，但底下 UI 点不到；贴边距离变远；Live2D 主后台变黑、切页重新加载、键盘拉长。故明确更正为 **TRUE DEVICE FAILED**；上述静态 mask 不能被当成透传证据。
+
+## v0.42.38+282 · 旧桌宠逻辑尺寸、可信透传与 Sen 稳定宿主（2026-09-28 中国时间，进行中）
+
+- 用户验收标准：小中大三档均以旧 `IDLE/down` 可见像素为固定输入范围，超出范围必须由底层 App 真正收到点击；新动画可以超出这个范围显示，不允许缩小身体取巧；旧版关闭新动画时同样遵守早期贴边与输入规则。小米系统文件界面进出不产生冻结残影。菜菜在主后台、切 Tab/侧栏仍保持同一个模型实例和正确背景，输入法弹出时不被拉长。
+- 追溯：删除 Sen 的 +244 前代码为普通 `AndroidView` + 无 `setZOrderMediaOverlay(true)` 的 `SenCompanionView`，聊天舞台 `Positioned.fill`；当前菜菜的 `PlatformViewLink/initExpensiveAndroidView`、媒体 Z 层、切页销毁/重建、输入法额外高度均偏离该路径。旧桌宠逻辑方框 112/152/200dp 被 +281 的宽绘制窗口尺寸代替作为运动/贴边边界；Android 12 起不可信应用悬浮窗的遮挡判定使仅调用 `setTouchableRegion` 仍可能拦住底层点击。
+- 本次实现：有连接的无障碍服务时，改为**单个** `TYPE_ACCESSIBILITY_OVERLAY` 可信绘制兼输入窗口，用原待机 alpha Region 给系统输入分发，窗口管理器在系统文件界面移除路径保持一致；逻辑方框独立于可视溢出计算重力、运动、贴边、旋转迁移和尺寸调整；输入 Region 在位置更新后重应用。无障碍服务不在时退回旧尺寸方窗，避免宽应用悬浮窗吃掉大片点击，这条降级路径仍需实机验收。菜菜恢复普通 AndroidView 与无媒体 Z 层，聊天 Tab/route 不销毁平台视图，键盘时舞台保持布局高度。原生模型算法/私有 ZIP 未动。
+- 状态：**IMPLEMENTED LOCALLY / CI PENDING / APK PENDING / TRUE DEVICE PENDING**。必须在用户手机实测三尺寸旁边按钮、贴边、文件界面多次开关、主后台黑屏、Tab/侧栏返回加载次数及输入法；CI 不能替代这些验证。
