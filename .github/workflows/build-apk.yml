@@ -638,9 +638,11 @@ jobs:
       - name: Android native constructor, lifecycle and import transactions
         uses: reactivecircus/android-emulator-runner@v2
         with:
-          api-level: 29
+          # API 29 image intermittently crashes in ART JIT debug-info XZ compression
+          # (libartbase Hc4_MatchFinder_GetMatches), before assertions can complete.
+          api-level: 35
           arch: x86_64
-          target: default
+          target: google_apis
           disable-animations: true
           emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none
           script: cd app/android && chmod +x gradlew && ./gradlew -p ../tools/caicai_smoke connectedDebugAndroidTest --stacktrace

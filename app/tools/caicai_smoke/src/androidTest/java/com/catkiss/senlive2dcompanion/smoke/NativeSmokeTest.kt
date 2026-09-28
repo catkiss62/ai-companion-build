@@ -22,7 +22,7 @@ import java.util.zip.ZipOutputStream
 @RunWith(AndroidJUnit4::class)
 class NativeSmokeTest {
     @Test fun nativeConstructorDrawPauseResumeAndReplacement() {
-        repeat(2) {
+        repeat(4) {
             ActivityScenario.launch(SmokeActivity::class.java).use { scenario ->
                 lateinit var activity: SmokeActivity
                 scenario.onActivity { activity = it }

@@ -28,6 +28,7 @@
 - 后续 smoke 配置失败 `36442598138`：SourceSet 不接受 Sync Task 作为目录 notation，改为明确 generated 目录并保留 preBuild 依赖。`36447749140` 已完成编译并执行2项 Android 测试，导入事务通过；渲染初始化失败指出测试包漏装 Cubism shader assets，补齐生产 shader/profile 资源（生产 APK 已有独立资源门）。CI 失败监视器另改为文件输入，避免大日志触发命令参数长度上限。
 - `8dc7cc0` / Actions `36448394737` 的 Android 原生门禁于2026-09-29 00:08中国时间通过：2项 instrumentation 测试，涵盖别名导入事务和宿主 EGL 绘制/暂停恢复/重挂/释放交接。仍未使用用户私有模型进行设备画面验收；完整 APK 检查与构建继续执行。
 - `36448394737` 后续完整检查：128源回归、Android/Kotlin单元测试、Flutter静态分析通过。Flutter为973通过/6失败，失败全部是新HTTP夹具在http.Response中用默认Latin-1编码中文，未进入路由断言；显式改UTF-8响应夹具后重跑，不删除失败用例或放宽断言。
+- `36450788936` 原生复跑出现进程 SIGSEGV。已下载 instrumentation 原始 logcat：崩溃线程是 Android10/API29 x86_64 的 Jit thread pool；栈为 libartbase Hc4_MatchFinder_GetMatches → LZMA/XZ → PackElfFileForJIT/GenerateJitDebugInfo，无应用/Live2D栈帧。API29前次通过仍保留，但不凭一次通过声称稳定。门禁改用API35 google_apis镜像保持JIT/断言启用，生命周期重复从2增至4；产品代码未据此猜改。API29真机兼容性仍未验证。
 - 本地原菜菜渲染/资源哈希门、路由连线门已通过；全源门初跑识别到旧版版本白名单/旧路由断言，已按本次新合同更新。环境缺Flutter/Kotlin编译器和部分CI恢复资源，完整编译/自动测试交给既有CI恢复环境；不降低资源门。
 
 ## 上一批 · +284 菜菜专项动作与舞台体验（真机失败，待 +285 修复）
