@@ -1,6 +1,6 @@
 # AI Companion · 当前总账
 
-更新时间：2026-09-28（中国时间；+280 Actions 编译修复后全绿、测试 Draft APK 就绪；三项效果待真机验证）
+更新时间：2026-09-28（中国时间；+281 桌宠残影／待机像素触摸与 Live2D 背景穿透修复进行中；真机待验）
 
 > 本文件是唯一的当前接班入口，继续采用“总账 v2”。顶部是快速接班索引；标记后的正式记录按版本持续追加，不设总容量上限。
 >
@@ -51,6 +51,7 @@
 | +278 当前任务 | `v0.42.34+278` / 同 `agent/v04232-caicai-import-pet-touch`。+277 用户已报告动画缩小、导入未显示、空模型开关卡输入法，不能沿用 TRUE DEVICE PENDING 掩盖失败。恢复批准的宽动画尺寸，系统输入区域独立；无模型不创建原生视图，渲染失败保留导入包，Hybrid Composition/焦点隔离；Live2D 独立设置与确认删除；Jev 稀疏动作/原装预设/小豆丁/PCM 口型。构建 head `cf69e61`，Actions `36348468407` 全绿，961 项 Flutter 测试，Draft `397797809`。`IMPLEMENTED / CI PASSED / APK READY / TRUE DEVICE PENDING`。Jev 持续观察，最高概率/近似平局中性/-18 不改；详见末尾 +278 和专项文档。|
 | +279 真机回归 | 用户 `2026-09-28T00:57:57Z` 脱敏诊断：六次导入均有 `manifest_validated → import_staged`，最终 `available=false / pending=true / render=not_open`；桌宠 `overlayPetTouchRegion=unavailable:NoSuchFieldException`。+279 的绿色 CI 和 Draft 不能视为效果成功，状态改为 `TRUE DEVICE FAILED`。|
 | +280 当前任务 | `agent/v04232-caicai-import-pet-touch`，`v0.42.36+280`。导入后正式目录模型/索引读回与恢复、明确错误；桌宠 112/152/200dp 真实触摸窗口与独立可信宽绘制层，移除失败的隐藏 insets；普通闲聊话题词不额外触发 Agent DeepSeek 规划。Actions `36370446031` 全绿，Draft APK 已就绪；`IMPLEMENTED / CI PASSED / APK READY / TRUE DEVICE PENDING / JEV ACCURACY PENDING`；见末尾 +280。|
+| +281 当前任务 | `agent/v04232-caicai-import-pet-touch` / `v0.42.37+281`：用户真机确认 +280 Live2D 导入成功，但聊天页透明背景显示上一次页面，桌宠变小，更多页出现两、三层持续增加的静止桌宠假图片且不接收触摸；+280 真机状态改为 `TRUE DEVICE FAILED`。固定旧待机正面原帧为小／中／大尺寸的唯一触摸 alpha 范围，动作变化不改范围；恢复原宽动画绘制比例，一个 WindowManager 桌宠窗口，失去系统 alpha mask 时禁用整窗触摸；移除反复重挂载，聊天页不可见时销毁 Live2D 原生 Surface。`IMPLEMENTED LOCALLY / CI PENDING / TRUE DEVICE PENDING`，详见末尾 +281。|
 | 当前任务状态 | `+265～+267` 已有构建与真机反馈；`+268 IMPLEMENTED / CI PASSED / APK READY / TRUE DEVICE PENDING`：不透明桌面播放、独立宽度与饱和度、24 fps 全帧与播放器时钟；`+269 IMPLEMENTED / CI PASSED / APK READY / TRUE DEVICE PENDING`：96 段完整动作及整轮气焰结算，见末尾 +269。|
 | +267 远端 | 功能 head `07142df2f01f15b5e4770fb6d17b48150770f422`；tree `aa16c6405f87967191dcb5b99662c53302983c52`；Actions `36232295089` 全绿；Artifact `10903136887`；APK SHA-256 `956812613c1fb00123e2ab2e6a3f5f3ccc1d320743c7bd6b866c4e0365b09ab2`；未发布 Draft Release `397169363` |
 | +250 当前任务 | 本体／小豆丁形态共用成年角色、记忆与能力；同一形态状态驱动角色提示与静态立绘，虚拟弹额头／安抚改变气焰值后继续自然衰减，心形液面与锁定入口；常驻世界书定点柔化并仅迁移未编辑原文；两档 TTS 共用冻结的真实回复与分段，无声生成并复制专项脱敏报告 |
@@ -1204,3 +1205,11 @@ Actions 与交付证据：远端功能 head `33647c7bff15084d6fd3cbc7b817e9b0b21
 - 构建前本地 127 项门禁中 124 项通过；其余 3 项依赖私有 417 帧素材、LingChat 素材或本机没有的 `kotlinc`，已由下述 Actions 在恢复固定资源后执行。
 - 构建过程：首轮 Actions `36367245272` 在 Kotlin 编译失败，`PetOverlayWindow.kt:1253/1255/1257` 把 Float 校准偏移传给只收 Int 的 `dp()`；127 项源码门禁已通过，但 Flutter 测试和 APK 尚未运行。修复提交 `437f0c8e6cccadb23ac1fb7de57872250ebcdf47` 将偏移按 `displayMetrics.density` 保留浮点精度换算，再由现有 `roundToInt()` 合并边距。失败报告作业本身未成功上传监控，故以 Actions 作业步骤与日志为准；不能把首轮状态当成功。
 - 修复后 Actions [`36370446031`](https://github.com/catkiss62/ai-companion-build/actions/runs/36370446031) 全绿：127 项源码门禁、Kotlin 原生编译与测试、Flutter analyze/测试、Release APK、签名与固定资源打包校验、Draft 上传均通过。Artifact `10949561191`；签名证书 SHA-256 `30:5E:B3:D8:09:83:B9:63:C6:48:18:DD:F1:AD:56:1F:27:9D:E6:D4:7B:3E:D2:C7:81:AD:A4:48:C7:C2:51:48`。测试 [Draft](https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-a43ab3029f8301924603) 文件 `AI-Companion-v0.42.36-280-Caicai-Index-Pet-Rect-Agent-Route-APK.apk`，SHA-256 `e9f745e445fa7db50b6f63c2697cd96e797f62ca04e86674560384aff0a8e659`；成功监控 `.ci/v04236-monitor.txt` 与 head、SHA 一致。状态 `IMPLEMENTED / CI PASSED / APK READY / TRUE DEVICE PENDING / JEV ACCURACY PENDING`。真机仍需确认导入后出画、键盘共存、桌宠框外触摸透传与绘制层是否 `trusted_visual`、自然游戏续话与闲聊的调用统计；说话动作停不下来另列待排查，尚未在 +280 修复。
+
+## v0.42.37+281 · 桌宠残影、固定待机触摸范围与 Live2D 背景穿透（2026-09-28 中国时间，进行中）
+
+- 真机证据：+280 的模型导入已经成功；聊天页 Live2D 背景显示上一次操作页面；“更多”页顶部有两层、随后三层相同桌宠，旧画面冻结且手指穿过；用户进一步给出稳定触发路径：进入小米系统文件界面（存档/读取）时产生假图片，说明不能简单当作两个可交互桌宠。桌宠视觉也再次缩小。+280 的 `TRUE DEVICE PENDING` 由此更正为 `TRUE DEVICE FAILED`。
+- 根因检查：+280 的桌宠主触摸方窗和辅助可信宽绘制窗同时存在；`bringToFront` 又在悬浮聊天的输入模式切换时对主窗执行 remove/add；更直接的是系统文件界面进入时 `retireBubbleForSystemCover` 在 `removeViewImmediate` 成功前清空窗口所有权，失败后恢复会追加新窗。聊天 `IndexedStack` 保持原生 `GLSurfaceView`，切页时透明像素可能显示已离开的页面缓冲。以上为源码对应的风险，不以 CI 代替真机因果证明。
+- 保护边界：旧版已确认宽动画显示尺寸不缩水；小中大按原 `IDLE/down` 第一帧 alpha 定义静态触摸范围，新动作、特效和自主动作不扩张命中。透明区域由系统输入分发直接透传，失败时整窗不可触摸，不退回宽矩形；不使用隐藏 insets 反射。Live2D 保持已成功导入的模型、Hybrid Composition 和模型 ZIP 私有性。
+- 实现：单一宽且留出大动作绘制边距的 `TYPE_APPLICATION_OVERLAY` 负责桌宠显示和输入，保持 +278 的宽绘制缩放基准及原逻辑高度，按旧待机帧原始 alpha 像素映射到窗口局部 `Region` 并调用 API 33 `AttachedSurfaceControl.setTouchableRegion`；初始及重挂载、尺寸变更先 `FLAG_NOT_TOUCHABLE`，mask 成功后才解锁。系统文件界面进入时先隐藏旧窗口，移除成功才释放并清空所有权；重建时移除失败保留旧引用并有界重试，避免生成孤儿图层；移除悬浮聊天输入状态变更中的重复 remove/add。聊天页不处于当前 tab 或 route 时释放原生 Live2D，dispose 前立即隐藏 GLSurfaceView。
+- 验证：待回填源检、Actions、APK、真机截图与透明区透传/层数稳定/三尺寸显示测试。不得将 CI 绿称作真机通过。

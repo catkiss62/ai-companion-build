@@ -7,18 +7,29 @@ import re
 app = Path(__file__).resolve().parents[1]
 pet = (app / "android/app/src/main/kotlin/com/aicompanion/localfirst/pet/PetOverlayWindow.kt").read_text()
 caicai = (app / "android/app/src/main/kotlin/com/catkiss/senlive2dcompanion/CaicaiPlatformView.kt").read_text()
+chat = (app / "lib/features/chat/chat_page.dart").read_text()
+service = (app / "android/app/src/main/kotlin/com/aicompanion/localfirst/OverlayBubbleService.kt").read_text()
 jev = (app / "lib/core/ai/jev_decision_gateway.dart").read_text()
 cedar = (app / "lib/core/mcp/cedar_toy_arcade_skill.dart").read_text()
 runner = (app / "lib/core/ai/durable_generation_runner.dart").read_text()
 context_judge = (app / "lib/core/mcp/cedar_context_intent_judge.dart").read_text()
 diagnostics = (app / "lib/core/diagnostics/preflight_diagnostics.dart").read_text()
 
-# HyperOS rejected the hidden insets field. The input window itself is now
-# the 112/152/200dp rectangle; a trusted non-touchable window draws wide clips.
-assert re.search(r"WindowManager\.LayoutParams\(\s*windowPx,\s*windowPx,", pet)
-assert "val nextWidth = nextHeight" in pet
-assert "TYPE_ACCESSIBILITY_OVERLAY" in pet and "FLAG_NOT_TOUCHABLE" in pet
-assert "visual.setOverflowGeometry(windowPx, visualPadding)" in pet
+# Use one wide drawing window. Its original idle-front alpha is the fixed
+# system-level input region even while larger action frames are displayed.
+assert re.search(r"WindowManager\.LayoutParams\(\s*visualWidthPx,\s*visualHeightPx,", pet)
+assert "val nextWidth = maxOf(dp(PetOverlaySizing.visualWidthDp(normalized))" in pet
+assert "petView.setOverflowGeometry(windowPx, paddingX, paddingY)" in pet
+assert "TYPE_ACCESSIBILITY_OVERLAY" not in pet
+assert "setTouchableRegion(region)" in pet and "FLAG_NOT_TOUCHABLE" in pet
+assert "installStandingReference(petView, manifest, frameCache, size)" in pet
+assert "disableUnmaskedInput(" in pet
+assert 'keepPetAboveChat("chat_input_enter")' not in service
+assert 'keepPetAboveChat("chat_input_exit")' not in service
+assert "private fun removeOwnedEntryWindow(view: View): Boolean" in service
+assert "if (bubble != null && !removeOwnedEntryWindow(bubble))" in service
+assert "widget.active &&" in chat and "live2dOnScreen" in chat
+assert "companion.visibility = View.GONE" in caicai
 assert "PetTouchableRegion(container)" not in pet
 assert "updateTouchRegionStatus(layout)" in pet
 
@@ -38,4 +49,4 @@ assert "usageLane: 'cedar_context_intent'" in context_judge
 assert "report['jevShortUsage']" in diagnostics
 assert "report['playfulHeatTrace']" in diagnostics
 assert "report['caicaiLive2d']" in diagnostics
-print("+280 rectangular system input, trusted wide visual, deferred Caicai load and Jev guard passed")
+print("single pet layer, fixed idle-alpha input, deferred Caicai load and Jev guard passed")

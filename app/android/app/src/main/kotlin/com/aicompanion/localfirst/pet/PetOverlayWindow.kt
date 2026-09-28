@@ -9,6 +9,7 @@ import android.os.Handler
 import android.os.Looper
 import android.os.SystemClock
 import android.view.Gravity
+import android.view.AttachedSurfaceControl
 import android.view.MotionEvent
 import android.view.View
 import android.view.ViewConfiguration
@@ -20,7 +21,6 @@ import android.widget.LinearLayout
 import android.widget.ScrollView
 import android.widget.TextView
 import com.aicompanion.localfirst.OverlayBubbleService
-import com.aicompanion.localfirst.AccessibilityBridgeService
 import com.aicompanion.localfirst.CompanionRuntimeState
 import kotlin.math.abs
 import kotlin.math.cos
@@ -32,7 +32,7 @@ import kotlin.random.Random
 /**
  * System-overlay host for the source-parity pet player.
  *
- * It deliberately owns only the visual entry window. Chat, unread state,
+ * It owns one visual and input window. Chat, unread state,
  * foreground lifetime and the background brain remain owned by
  * [OverlayBubbleService], so pet and legacy bubble are two modes of the same
  * companion service rather than two competing services.
@@ -61,14 +61,14 @@ class PetOverlayWindow(
     var badge: TextView? = null
         private set
 
-    private var visualView: PetFrameView? = null
-    private var visualParams: WindowManager.LayoutParams? = null
-    private var visualWindowManager: WindowManager? = null
-    private var visualFailure = "accessibility_unavailable"
     private var touchRegionStatus = "not_attached"
+    private var touchInputStatus = "system_rect"
+    private var touchSurface: AttachedSurfaceControl? = null
+    private var touchRegionSize: Pair<Int, Int>? = null
+    private var logicalWindowPx = 0
+    private var visualPaddingY = 0
     private var experimentalCalibration = PetExperimentalCalibration()
     private var player: PetAnimationPlayer? = null
-    private var lastSnapshot: PetRenderSnapshot? = null
     private var cache: PetFrameCache? = null
     private var optionsRoot: View? = null
     private var optionsParams: WindowManager.LayoutParams? = null
@@ -154,7 +154,6 @@ class PetOverlayWindow(
 
     private val autonomyTick = object : Runnable {
         override fun run() {
-            checkVisualWindow()
             runAutonomyTick()
             if (root?.isAttachedToWindow == true) {
                 handler.postDelayed(this, AUTONOMY_TICK_MS)
@@ -256,17 +255,22 @@ class PetOverlayWindow(
         )
 
         val windowPx = dp(windowDp(size))
-        val visualWidthPx = dp(PetOverlaySizing.visualWidthDp(size))
+        val calibration = PetExperimentalCalibration.load(prefs)
+        val paddingY = experimentalPadding(windowPx, calibration)
+        val visualWidthPx = maxOf(dp(PetOverlaySizing.visualWidthDp(size)), windowPx + paddingY * 2)
+        val visualHeightPx = windowPx + paddingY * 2
+        val paddingX = (visualWidthPx - windowPx) / 2
         val safe = menuSafeArea()
-        val defaultX = (safe.right - windowPx).coerceAtLeast(safe.left)
-        val defaultY = (safe.top + safe.height / 3).coerceAtMost(
-            (safe.bottom - windowPx).coerceAtLeast(safe.top),
+        val defaultX = (safe.right - visualWidthPx).coerceAtLeast(safe.left)
+        val defaultY = (safe.top + safe.height / 3 - paddingY).coerceAtMost(
+            (safe.bottom - visualHeightPx).coerceAtLeast(safe.top),
         )
         val layout = WindowManager.LayoutParams(
-            windowPx,
-            windowPx,
+            visualWidthPx,
+            visualHeightPx,
             overlayWindowType,
-            WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or
+            WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE or
+                WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or
                 WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL or
                 WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS,
             PixelFormat.TRANSLUCENT,
@@ -274,55 +278,40 @@ class PetOverlayWindow(
             gravity = Gravity.TOP or Gravity.START
             val storedX = prefs.getInt(KEY_PET_X, defaultX)
             x = if (prefs.contains(KEY_PET_X) &&
-                prefs.getBoolean(KEY_VISUAL_WIDTH_RESTORED, false) &&
-                !prefs.getBoolean(KEY_STANDING_TOUCH_WINDOW_RESTORED, false)) {
-                storedX + (visualWidthPx - windowPx) / 2
+                prefs.getBoolean(KEY_STANDING_TOUCH_WINDOW_RESTORED, false) &&
+                !prefs.getBoolean(KEY_ALPHA_WIDE_WINDOW_RESTORED, false)) {
+                storedX - paddingX
             } else storedX
-            y = prefs.getInt(KEY_PET_Y, defaultY)
+            val storedY = prefs.getInt(KEY_PET_Y, defaultY)
+            y = if (prefs.contains(KEY_PET_Y) &&
+                prefs.getBoolean(KEY_STANDING_TOUCH_WINDOW_RESTORED, false) &&
+                !prefs.getBoolean(KEY_ALPHA_WIDE_WINDOW_RESTORED, false)) {
+                storedY - paddingY
+            } else storedY
         }
         clamp(layout)
         enforceDockedAxis(layout)
         (unread.layoutParams as FrameLayout.LayoutParams).let { badgeLayout ->
             badgeLayout.setMargins(
-                0, dp(PetOverlaySizing.badgeTopDp(size)),
-                dp(PetOverlaySizing.badgeEndDp(size)), 0,
+                0, paddingY + dp(PetOverlaySizing.badgeTopDp(size)),
+                paddingX + dp(PetOverlaySizing.badgeEndDp(size)), 0,
             )
             unread.layoutParams = badgeLayout
         }
-        val calibration = PetExperimentalCalibration.load(prefs)
         experimentalCalibration = calibration
         petView.setExperimentalCalibration(calibration)
+        petView.setOverflowGeometry(windowPx, paddingX, paddingY)
+        logicalWindowPx = windowPx
+        visualPaddingY = paddingY
         frameCache.setExperimentalColors(calibration.gamma, calibration.saturation, calibration.blackPoint, calibration.whitePoint)
-
-        val visual = PetFrameView(context).apply {
-            setExperimentalCalibration(calibration)
-        }
-        val visualPadding = experimentalPadding(windowPx, calibration)
-        val visualLayout = WindowManager.LayoutParams(
-            windowPx + visualPadding * 2,
-            windowPx + visualPadding * 2,
-            WindowManager.LayoutParams.TYPE_ACCESSIBILITY_OVERLAY,
-            WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or
-                WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE or
-                WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL or
-                WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS,
-            PixelFormat.TRANSLUCENT,
-        ).apply {
-            gravity = Gravity.TOP or Gravity.START
-            x = layout.x - visualPadding
-            y = layout.y - visualPadding
-            alpha = 1f
-        }
-        visual.setOverflowGeometry(windowPx, visualPadding)
+        installStandingReference(petView, manifest, frameCache, size)
 
         val animation = PetAnimationPlayer(
             manifest = manifest,
             cache = frameCache,
             onSnapshot = { snapshot ->
-                lastSnapshot = snapshot
-                val drawing = visualView ?: petView
-                refreshExperimentalCalibration(frameCache, drawing)
-                drawing.showSnapshot(snapshot)
+                refreshExperimentalCalibration(frameCache, petView)
+                petView.showSnapshot(snapshot)
             },
             onActionChanged = { action, phase ->
                 if (action.id == "IDLE" && phase == PetAnimationPhase.BODY) {
@@ -336,22 +325,18 @@ class PetOverlayWindow(
 
         return runCatching {
             windowManager.addView(container, layout)
-            val trustedManager = AccessibilityBridgeService.petVisualWindowManager()
-            if (trustedManager != null) {
-                runCatching { trustedManager.addView(visual, visualLayout) }
-                    .onSuccess {
-                        visualView = visual
-                        visualParams = visualLayout
-                        visualWindowManager = trustedManager
-                        petView.visibility = View.INVISIBLE
-                    }
-                    .onFailure { visualFailure = "visual_add_failed:${it.javaClass.simpleName}" }
+            container.addOnLayoutChangeListener { changed, left, top, right, bottom,
+                    oldLeft, oldTop, oldRight, oldBottom ->
+                if (right - left != oldRight - oldLeft || bottom - top != oldBottom - oldTop) {
+                    applyStandingTouchRegion(changed)
+                }
             }
             root = container
             params = layout
             badge = unread
             cache = frameCache
             player = animation
+            container.post { applyStandingTouchRegion(container) }
             animation.start()
             val autonomyStartedAtMs = SystemClock.uptimeMillis()
             scheduleNextAmbient(autonomyStartedAtMs)
@@ -359,19 +344,14 @@ class PetOverlayWindow(
             handler.removeCallbacks(autonomyTick)
             handler.postDelayed(autonomyTick, AUTONOMY_TICK_MS)
             lastMotionArea = activeArea(layout)
-            prefs.edit().putBoolean(KEY_STANDING_TOUCH_WINDOW_RESTORED, true).apply()
+            prefs.edit().putBoolean(KEY_ALPHA_WIDE_WINDOW_RESTORED, true)
+                .putBoolean(KEY_VISUAL_WIDTH_RESTORED, true).apply()
             updateTouchRegionStatus(layout)
             persistPosition()
             true
         }.getOrElse {
             animation.stop()
             frameCache.clear()
-            visualWindowManager?.let { manager ->
-                if (visual.isAttachedToWindow) runCatching { manager.removeViewImmediate(visual) }
-            }
-            visualView = null
-            visualParams = null
-            visualWindowManager = null
             if (container.isAttachedToWindow) runCatching { windowManager.removeViewImmediate(container) }
             root = null
             params = null
@@ -383,9 +363,7 @@ class PetOverlayWindow(
     }
 
     fun setVisible(visible: Boolean) {
-        if (visible) checkVisualWindow()
         root?.visibility = if (visible) View.VISIBLE else View.GONE
-        visualView?.visibility = if (visible) View.VISIBLE else View.GONE
         player?.setPaused(!visible)
         if (!visible) {
             // Screen-off/system hiding removes the autonomous movement tick. Reset
@@ -408,8 +386,12 @@ class PetOverlayWindow(
         val layout = params ?: return false
         if (!view.isAttachedToWindow) return false
         return runCatching {
+            layout.flags = layout.flags or WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE
             windowManager.removeViewImmediate(view)
             windowManager.addView(view, layout)
+            touchSurface = null
+            touchRegionSize = null
+            view.post { applyStandingTouchRegion(view) }
             true
         }.getOrElse { false }
     }
@@ -462,28 +444,41 @@ class PetOverlayWindow(
         val layout = params ?: return
         val view = root ?: return
         val oldCenterX = layout.x + layout.width / 2
-        val oldBottom = layout.y + layout.height
+        val oldLogicalBottom = layout.y + visualPaddingY + logicalWindowPx
         val nextHeight = dp(windowDp(normalized))
-        val nextWidth = nextHeight
+        val nextPaddingY = experimentalPadding(nextHeight, experimentalCalibration)
+        val nextWidth = maxOf(dp(PetOverlaySizing.visualWidthDp(normalized)), nextHeight + nextPaddingY * 2)
+        val nextPaddingX = (nextWidth - nextHeight) / 2
         layout.width = nextWidth
-        layout.height = nextHeight
+        layout.height = nextHeight + nextPaddingY * 2
         layout.x = oldCenterX - nextWidth / 2
-        layout.y = oldBottom - nextHeight
+        layout.y = oldLogicalBottom - nextHeight - nextPaddingY
         clamp(layout)
         enforceDockedAxis(layout)
         player?.setTargetHeight(assetHeight(normalized))
+        (view.getChildAt(0) as? PetFrameView)?.let { petView ->
+            petView.setOverflowGeometry(nextHeight, nextPaddingX, nextPaddingY)
+            val manifest = PetSkinManifest.load(context.assets)
+            cache?.let { installStandingReference(petView, manifest, it, normalized) }
+        }
+        logicalWindowPx = nextHeight
+        visualPaddingY = nextPaddingY
+        layout.flags = layout.flags or WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE
+        touchSurface = null
+        touchRegionSize = null
         badge?.let { unread ->
             (unread.layoutParams as? FrameLayout.LayoutParams)?.let { badgeLayout ->
                 badgeLayout.setMargins(
                     0,
-                    dp(PetOverlaySizing.badgeTopDp(normalized)),
-                    dp(PetOverlaySizing.badgeEndDp(normalized)),
+                    nextPaddingY + dp(PetOverlaySizing.badgeTopDp(normalized)),
+                    nextPaddingX + dp(PetOverlaySizing.badgeEndDp(normalized)),
                     0,
                 )
                 unread.layoutParams = badgeLayout
             }
         }
         updatePetWindowLayout(view, layout)
+        view.post { applyStandingTouchRegion(view) }
         persistPosition()
         if (optionsRoot != null) repositionOptions()
     }
@@ -517,15 +512,9 @@ class PetOverlayWindow(
     }
 
     fun release(removeRoot: Boolean) {
-        visualView?.let { visual ->
-            if (visual.isAttachedToWindow) runCatching {
-                visualWindowManager?.removeViewImmediate(visual)
-            }
-        }
-        visualView = null
-        visualParams = null
-        visualWindowManager = null
-        visualFailure = "accessibility_unavailable"
+        touchSurface = null
+        touchRegionSize = null
+        touchInputStatus = "system_rect"
         touchRegionStatus = "not_attached"
         CompanionRuntimeState.overlayPetTouchRegion = touchRegionStatus
         handler.removeCallbacks(longPress)
@@ -545,7 +534,6 @@ class PetOverlayWindow(
         params = null
         badge = null
         player = null
-        lastSnapshot = null
         cache = null
     }
 
@@ -554,8 +542,7 @@ class PetOverlayWindow(
             val layout = params ?: return@setOnTouchListener false
             when (event.actionMasked) {
                 MotionEvent.ACTION_DOWN -> {
-                    // This whole system window is the three-size standing hit box.
-                    // Android routes touches outside it to the underlying app.
+                    // The system input dispatcher already applied the fixed idle alpha region.
                     onTouchActivity("pet_down")
                     noteUserActivity()
                     cancelAutonomyPlayback(resetToIdle = true)
@@ -1214,71 +1201,102 @@ class PetOverlayWindow(
         experimentalCalibration = latest
         frameCache.setExperimentalColors(latest.gamma, latest.saturation, latest.blackPoint, latest.whitePoint)
         view.setExperimentalCalibration(latest)
-        params?.let(::syncVisualWindow)
+        if (root?.isAttachedToWindow == true) {
+            resize(normalizedSize(prefs.getString(KEY_PET_SIZE, PET_SIZE_MEDIUM)))
+        }
     }
 
-    /** Input bounds are a real WindowManager rectangle, not an internal inset. */
+    private fun experimentalPadding(logicalPx: Int, value: PetExperimentalCalibration): Int {
+        val widthExtra = logicalPx * 0.90f * value.scale * value.widthScale * 1.075f / 2f -
+            logicalPx / 2f + dp(abs(value.xDp))
+        val topExtra = logicalPx * 0.88f * value.scale * 1.09f * 0.92f -
+            logicalPx * 0.94f + dp(abs(value.yDp))
+        val bottomExtra = logicalPx * 0.88f * value.scale * 1.09f * 0.08f -
+            logicalPx * 0.06f + dp(abs(value.yDp))
+        return maxOf(dp(8), widthExtra.roundToInt(), topExtra.roundToInt(), bottomExtra.roundToInt())
+    }
+
+    /** The one wide drawing window has a fixed idle-front alpha input mask. */
     fun touchRegionStatus(): String = touchRegionStatus
 
-    private fun updateTouchRegionStatus(layout: WindowManager.LayoutParams) {
-        touchRegionStatus = "system_rect:${layout.width}x${layout.height}:" +
-            if (visualView != null) "trusted_visual" else "visual_clipped:$visualFailure"
-        CompanionRuntimeState.overlayPetTouchRegion = touchRegionStatus
+    private fun installStandingReference(
+        view: PetFrameView, manifest: PetSkinManifest, frameCache: PetFrameCache, size: String,
+    ) {
+        val clip = manifest.clipFor("IDLE", assetHeight(size), "down")
+        view.setStandingReference(PetRenderLayer(
+            bitmap = frameCache.get(clip.frames.first()),
+            actionId = "IDLE", assetId = clip.assetId, frameIndex = 0,
+            anchor = clip.anchor, phase = PetAnimationPhase.BODY, mirrored = false,
+        ))
     }
 
-    private fun checkVisualWindow() {
-        val visual = visualView ?: return
-        if (visual.isAttachedToWindow && AccessibilityBridgeService.petVisualWindowManager() != null) return
-        dropVisualWindow("visual_detached_or_service_lost")
-    }
-
-    private fun dropVisualWindow(reason: String) {
-        val visual = visualView ?: return
-        if (visual.isAttachedToWindow) runCatching {
-            visualWindowManager?.removeViewImmediate(visual)
+    private fun applyStandingTouchRegion(view: View, retries: Int = 2) {
+        if (root !== view || !view.isAttachedToWindow) return
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU) {
+            disableUnmaskedInput("api_below_33")
+            return
         }
-        visualView = null
-        visualParams = null
-        visualWindowManager = null
-        visualFailure = reason
-        (root?.getChildAt(0) as? PetFrameView)?.let { fallback ->
-            fallback.visibility = View.VISIBLE
-            lastSnapshot?.let(fallback::showSnapshot)
+        val surface = view.rootSurfaceControl
+        if (surface == null || view.width <= 0 || view.height <= 0) {
+            if (retries > 0) view.post { applyStandingTouchRegion(view, retries - 1) }
+            else {
+                disableUnmaskedInput("surface_unavailable")
+            }
+            return
+        }
+        val size = view.width to view.height
+        if (surface === touchSurface && size == touchRegionSize) return
+        val mask = (view as? FrameLayout)?.getChildAt(0) as? PetFrameView
+        val region = mask?.standingTouchRegion()
+        if (region == null || region.isEmpty) {
+            disableUnmaskedInput("idle_mask_empty")
+        } else {
+            runCatching { surface.setTouchableRegion(region) }
+                .onSuccess {
+                    touchSurface = surface
+                    touchRegionSize = size
+                    touchInputStatus = "idle_alpha:${region.bounds.width()}x${region.bounds.height()}"
+                    params?.let { layout ->
+                        if (layout.flags and WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE != 0) {
+                            layout.flags = layout.flags and WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE.inv()
+                            runCatching { windowManager.updateViewLayout(view, layout) }
+                                .onSuccess {
+                                    // A relayout can replace the SurfaceControl on some OEMs.
+                                    touchSurface = null
+                                    view.post { applyStandingTouchRegion(view) }
+                                }
+                                .onFailure { disableUnmaskedInput("enable_failed") }
+                        }
+                    }
+                }
+                .onFailure { disableUnmaskedInput("alpha_failed:${it.javaClass.simpleName}") }
         }
         params?.let(::updateTouchRegionStatus)
     }
 
-    private fun experimentalPadding(logicalPx: Int, value: PetExperimentalCalibration): Int {
-        val density = context.resources.displayMetrics.density
-        val widthExtra = logicalPx * 0.90f * value.scale * value.widthScale * 1.075f / 2f -
-            logicalPx / 2f + abs(value.xDp) * density
-        val topExtra = logicalPx * 0.88f * value.scale * 1.09f * 0.92f -
-            logicalPx * 0.94f + abs(value.yDp) * density
-        val bottomExtra = logicalPx * 0.88f * value.scale * 1.09f * 0.08f -
-            logicalPx * 0.06f + abs(value.yDp) * density
-        return maxOf(dp(8), widthExtra.roundToInt(), topExtra.roundToInt(), bottomExtra.roundToInt())
+    private fun disableUnmaskedInput(reason: String) {
+        touchSurface = null
+        touchRegionSize = null
+        touchInputStatus = "untouchable:$reason"
+        val view = root
+        params?.let { layout ->
+            if (view?.isAttachedToWindow == true &&
+                layout.flags and WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE == 0) {
+                layout.flags = layout.flags or WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE
+                runCatching { windowManager.updateViewLayout(view, layout) }
+            }
+            updateTouchRegionStatus(layout)
+        }
+    }
+
+    private fun updateTouchRegionStatus(layout: WindowManager.LayoutParams) {
+        touchRegionStatus = "$touchInputStatus:${layout.width}x${layout.height}:single_visual"
+        CompanionRuntimeState.overlayPetTouchRegion = touchRegionStatus
     }
 
     private fun updatePetWindowLayout(view: View, layout: WindowManager.LayoutParams) {
         runCatching { windowManager.updateViewLayout(view, layout) }
-        syncVisualWindow(layout)
         updateTouchRegionStatus(layout)
-    }
-
-    private fun syncVisualWindow(logical: WindowManager.LayoutParams) {
-        val visual = visualView ?: return
-        checkVisualWindow()
-        if (visualView !== visual) return
-        val display = visualParams ?: return
-        val manager = visualWindowManager ?: return
-        val padding = experimentalPadding(logical.width, experimentalCalibration)
-        display.width = logical.width + padding * 2
-        display.height = logical.height + padding * 2
-        display.x = logical.x - padding
-        display.y = logical.y - padding
-        visual.setOverflowGeometry(logical.width, padding)
-        runCatching { manager.updateViewLayout(visual, display) }
-            .onFailure { dropVisualWindow("visual_update_failed:${it.javaClass.simpleName}") }
     }
 
     private fun scheduleNextBlink(now: Long) {
@@ -1678,6 +1696,7 @@ class PetOverlayWindow(
         private const val KEY_WIDE_WINDOW_POSITION_MIGRATED = "pet_wide_window_position_migrated"
         private const val KEY_VISUAL_WIDTH_RESTORED = "pet_visual_width_restored_v278"
         private const val KEY_STANDING_TOUCH_WINDOW_RESTORED = "pet_standing_touch_window_v280"
+        private const val KEY_ALPHA_WIDE_WINDOW_RESTORED = "pet_alpha_wide_window_v281"
         private const val KEY_SQUARE_WINDOW_POSITION_RESTORED = "pet_square_window_position_restored"
         private const val KEY_PET_MOTION_MODE = "pet_motion_mode"
         private const val KEY_PET_MOBILITY_MODE = "pet_mobility_mode"

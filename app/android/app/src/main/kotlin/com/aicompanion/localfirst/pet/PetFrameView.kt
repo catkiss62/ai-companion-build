@@ -6,9 +6,11 @@ import android.graphics.Color
 import android.graphics.Paint
 import android.graphics.Path
 import android.graphics.RectF
+import android.graphics.Region
 import android.view.View
 import kotlin.math.PI
 import kotlin.math.cos
+import kotlin.math.floor
 import kotlin.math.min
 import kotlin.math.sin
 
@@ -28,9 +30,55 @@ class PetFrameView(context: Context) : View(context) {
     private var translationY = 0f
     private var previewWindowDp: Int? = null
     private var logicalWindowPx: Int? = null
-    private var overflowPaddingPx = 0
+    private var overflowPaddingX = 0
+    private var overflowPaddingY = 0
     private var calibration = PetExperimentalCalibration()
     private var comparison: Pair<PetRenderLayer, PetRenderLayer>? = null
+    private var standingReference: PetRenderLayer? = null
+    private var standingPixels = IntArray(0)
+    private var standingRegion: Region? = null
+    private var standingRegionSize: Pair<Int, Int>? = null
+
+    /** One original idle-front frame defines input for every action at this size. */
+    fun setStandingReference(layer: PetRenderLayer) {
+        standingReference = layer
+        standingPixels = IntArray(layer.bitmap.width * layer.bitmap.height).also {
+            layer.bitmap.getPixels(it, 0, layer.bitmap.width, 0, 0,
+                layer.bitmap.width, layer.bitmap.height)
+        }
+        standingRegion = null
+        standingRegionSize = null
+    }
+
+    /** Window-local pixels; the input dispatcher, not a View listener, applies this mask. */
+    fun standingTouchRegion(): Region {
+        if (standingRegionSize == (width to height)) return standingRegion ?: Region()
+        val layer = standingReference ?: return Region()
+        if (width <= 0 || height <= 0) return Region()
+        val scale = displayScale(layer)
+        val anchor = renderAnchor(layer, scale)
+        val bitmapWidth = layer.bitmap.width
+        val bitmapHeight = layer.bitmap.height
+        val result = Region()
+        for (y in 0 until height) {
+            val sourceY = floor((y + .5f - anchor.second) / scale + bitmapHeight * layer.anchor.y).toInt()
+            if (sourceY !in 0 until bitmapHeight) continue
+            var start = -1
+            for (x in 0..width) {
+                val sourceX = floor((x + .5f - anchor.first) / scale + bitmapWidth * layer.anchor.x).toInt()
+                val visible = x < width && sourceX in 0 until bitmapWidth &&
+                    (standingPixels[sourceY * bitmapWidth + sourceX] ushr 24) >= 32
+                if (visible && start < 0) start = x
+                if (!visible && start >= 0) {
+                    result.op(start, y, x, y + 1, Region.Op.UNION)
+                    start = -1
+                }
+            }
+        }
+        standingRegion = result
+        standingRegionSize = width to height
+        return result
+    }
 
     fun showSnapshot(value: PetRenderSnapshot) {
         snapshot = value
@@ -55,10 +103,13 @@ class PetFrameView(context: Context) : View(context) {
         postInvalidateOnAnimation()
     }
 
-    /** The large drawing surface follows a separate, unchanged logical hit window. */
-    fun setOverflowGeometry(logicalPx: Int, paddingPx: Int) {
+    /** Keep the old logical display height while reserving room for larger actions. */
+    fun setOverflowGeometry(logicalPx: Int, paddingX: Int, paddingY: Int) {
         logicalWindowPx = logicalPx
-        overflowPaddingPx = paddingPx
+        overflowPaddingX = paddingX
+        overflowPaddingY = paddingY
+        standingRegion = null
+        standingRegionSize = null
         postInvalidateOnAnimation()
     }
 
@@ -129,13 +180,13 @@ class PetFrameView(context: Context) : View(context) {
 
     private fun renderAnchor(layer: PetRenderLayer, scale: Float): Pair<Float, Float> {
         val originX = if (logicalWindowPx == null) width / 2f else
-            overflowPaddingPx + logicalWindowPx!! / 2f
+            overflowPaddingX + logicalWindowPx!! / 2f
         val floorFraction = if (PetExperimentalClips.isExperimental(layer.actionId)) 0.92f else 0.94f
         val floorY = if (logicalWindowPx == null) height * floorFraction else
-            overflowPaddingPx + logicalWindowPx!! * floorFraction
+            overflowPaddingY + logicalWindowPx!! * floorFraction
         val anchorY = if (layer.anchor.kind in setOf("drag", "seat", "sleep")) {
             if (logicalWindowPx == null) height * 0.52f else
-                overflowPaddingPx + logicalWindowPx!! * 0.52f
+                overflowPaddingY + logicalWindowPx!! * 0.52f
         } else {
             floorY
         }

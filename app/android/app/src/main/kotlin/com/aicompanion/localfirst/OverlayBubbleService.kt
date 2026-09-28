@@ -965,7 +965,7 @@ class OverlayBubbleService : Service() {
             chatInput?.requestFocus()
             val imm = getSystemService(InputMethodManager::class.java)
             imm.showSoftInput(chatInput, InputMethodManager.SHOW_IMPLICIT)
-            keepPetAboveChat("chat_input_enter")
+            petOverlayWindow?.setVisible(true)
         }
     }
 
@@ -978,7 +978,7 @@ class OverlayBubbleService : Service() {
             val params = chatParams ?: return
             params.flags = readModeFlags()
             runCatching { windowManager.updateViewLayout(root, params) }
-            keepPetAboveChat("chat_input_exit")
+            petOverlayWindow?.setVisible(true)
         }
     }
 
@@ -1996,22 +1996,31 @@ class OverlayBubbleService : Service() {
     private fun retireBubbleForSystemCover(): Boolean {
         val bubble = bubbleRoot ?: return false
         closeBubbleOptions()
-        // Clear ownership before removeViewImmediate: OEMs may dispatch a late
-        // visibility callback for the retired root. It must not start a second
-        // cover session or recreate itself while the picker is still on top.
-        bubbleRoot = null
-        badge = null
-        petOverlayWindow?.release(removeRoot = false)
-        petOverlayWindow = null
         coverWindowMutationInProgress = true
-        val removed = runCatching {
-            windowManager.removeViewImmediate(bubble)
-            true
-        }.getOrDefault(false)
+        // Hide first, then retain ownership until WindowManager confirms the
+        // removal. Dropping the reference on failure lets recovery add another
+        // pet window over the orphaned old surface on system file pickers.
+        petOverlayWindow?.setVisible(false) ?: run { bubble.visibility = View.GONE }
+        val removed = removeOwnedEntryWindow(bubble)
+        if (removed) {
+            petOverlayWindow?.release(removeRoot = false)
+            petOverlayWindow = null
+            bubbleRoot = null
+            badge = null
+        }
         coverWindowMutationInProgress = false
         CompanionRuntimeState.setOverlayVisible(false)
         updateOverlayTouchHealth()
         return removed
+    }
+
+    private fun removeOwnedEntryWindow(view: View): Boolean = runCatching {
+        windowManager.removeViewImmediate(view)
+        true
+    }.getOrElse {
+        // An already detached View with no parent cannot still be a registered
+        // WindowManager root. An attached/parented View remains owned for retry.
+        !view.isAttachedToWindow && view.parent == null
     }
 
     private fun handleSystemCoverExited(reason: String) {
@@ -2185,9 +2194,15 @@ class OverlayBubbleService : Service() {
         var repaired = false
         var bubble = bubbleRoot
         if (bubble == null || !bubble.isAttachedToWindow || rebuildInputChannel) {
+            if (bubble != null && !removeOwnedEntryWindow(bubble)) {
+                // Keep the hidden original as the single owner. The bounded
+                // recovery retries removal instead of stacking a new surface.
+                bubble.visibility = View.GONE
+                updateOverlayTouchHealth()
+                return
+            }
             petOverlayWindow?.release(removeRoot = false)
             petOverlayWindow = null
-            bubble?.let { runCatching { windowManager.removeViewImmediate(it) } }
             bubbleRoot = null
             repaired = createBubble()
             bubble = bubbleRoot
@@ -2195,7 +2210,7 @@ class OverlayBubbleService : Service() {
             val attachedBubble = requireNotNull(bubble)
             val expectedFlags = bubbleModeFlags()
             var layoutUpdateRequired = false
-            if (bubbleParams.flags != expectedFlags) {
+            if (petOverlayWindow == null && bubbleParams.flags != expectedFlags) {
                 bubbleParams.flags = expectedFlags
                 repaired = true
                 layoutUpdateRequired = true

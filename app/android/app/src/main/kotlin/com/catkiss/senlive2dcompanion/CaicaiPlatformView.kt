@@ -108,6 +108,11 @@ internal class CaicaiPlatformView(
     override fun dispose() {
         if (disposed) return
         disposed = true
+        // Hide the SurfaceView immediately, before the hybrid PlatformView
+        // teardown and GL thread release. Otherwise its last buffer can remain
+        // visible over a newly selected Flutter tab on some compositors.
+        companion.visibility = View.GONE
+        root.visibility = View.GONE
         CaicaiRuntime.detach(this)
         channel.setMethodCallHandler(null)
         companion.setListener(null)

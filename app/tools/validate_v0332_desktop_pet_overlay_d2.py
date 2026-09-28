@@ -52,10 +52,10 @@ require(
         'optionButton("切换为悬浮球")',
         "PetTouchRegions.classify(",
         "event.x, event.y, view.width, view.height,",
-        "WindowManager.LayoutParams.TYPE_ACCESSIBILITY_OVERLAY",
+        "setTouchableRegion(region)",
         "WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE",
-        "visualWindowManager = trustedManager",
-        "visual_clipped:$visualFailure",
+        "installStandingReference(petView, manifest, frameCache, size)",
+        "single_visual",
     ],
     "pet overlay",
 )
