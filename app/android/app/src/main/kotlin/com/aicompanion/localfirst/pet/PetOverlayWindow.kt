@@ -1249,12 +1249,13 @@ class PetOverlayWindow(
     }
 
     private fun experimentalPadding(logicalPx: Int, value: PetExperimentalCalibration): Int {
+        val density = context.resources.displayMetrics.density
         val widthExtra = logicalPx * 0.90f * value.scale * value.widthScale * 1.075f / 2f -
-            logicalPx / 2f + dp(abs(value.xDp))
+            logicalPx / 2f + abs(value.xDp) * density
         val topExtra = logicalPx * 0.88f * value.scale * 1.09f * 0.92f -
-            logicalPx * 0.94f + dp(abs(value.yDp))
+            logicalPx * 0.94f + abs(value.yDp) * density
         val bottomExtra = logicalPx * 0.88f * value.scale * 1.09f * 0.08f -
-            logicalPx * 0.06f + dp(abs(value.yDp))
+            logicalPx * 0.06f + abs(value.yDp) * density
         return maxOf(dp(8), widthExtra.roundToInt(), topExtra.roundToInt(), bottomExtra.roundToInt())
     }
 
