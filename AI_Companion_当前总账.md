@@ -21,7 +21,7 @@
 - 修复导入 root/file canonical 混用：所有索引都相对于规范化目录；staging 提升 current、backup 回滚和索引恢复使用同一规范。构造异常纳入错误通道；素材存在不再显示为画面就绪，30 秒加载看门狗仅在前台活跃舞台计时。诊断增加 build/首模型绘制帧，旧记录标 legacy_unknown。
 - 第二通道：普通/后台聊天与桌宠共用 runner；主动所有 intent（含网页/游戏分享）共用 proactive；另核对 Cedar 房间、沉浸、日历。各正文入口显式使用 FinalReplyRoute，真实性/重复修正不改变路由，实际失败（含400）才兜底。系统消息专用任务增加“内部表达任务，不是真实用户发言”封装，不写聊天历史；400根因仍未证实，只修复已发现的system-only请求兼容风险。内部规划/Jev继续保留原通道。
 - 桌宠默认：151% / 宽91% / x0dp / y1dp / RGB输入0、0.86、230 / 输出0、255 / 饱和100%；已有用户设置保留，截图外配置不改。
-- 继续审计发现工具规划的 DeepSeek 前言会拼接到最终正文；双通道模式禁止拼接该内部前言，Gemini 截断待确认草稿也保留实际通道标记，不误记为 DeepSeek。
+- 继续审计发现工具规划的 DeepSeek 前言会拼接到最终正文；双通道模式禁止拼接该内部前言，Gemini 截断待确认候选的即时展示也标记实际通道；手动保留旧截断草稿时的历史 model 元数据不可作为正文实际供应商证据。
 - 宿主生命周期补强：临时 detach/reparent 只让 GLSurfaceView 重建 EGL，不把模型标成永久释放；真正 dispose 在原线程仍在时排队释放，若 Flutter 先 detach 再 dispose，则在旧 EGL 已销毁后清理剩余 Cubism CPU 状态并移交所有权。测试增加临时重挂和先 detach 后 dispose。
 - 新增真实 Android emulator 门禁：直接编译生产宿主与仓库，测试 View 构造、空场景GL帧、暂停恢复、已暂停旧实例释放/新实例接手；导入测试覆盖别名目录、嵌套中文路径、提升读回、损坏包保留旧包、回滚、索引恢复、删除后重导。结构假模型不用于绘制，不构成私有模型真机成功证据。
 - 首轮原生门禁运行 `36441861951` 在编译 smoke 时失败：Kotlin 未继承 Java SourceSet 的 exclude，误编入依赖 Flutter 的 PlatformView 适配器。改为 Sync 精确选入生产导入仓库/路径/诊断三文件；宿主/renderer 仍直接编译生产 Java 源码。没有删除测试或降低门禁。
@@ -29,6 +29,8 @@
 - `8dc7cc0` / Actions `36448394737` 的 Android 原生门禁于2026-09-29 00:08中国时间通过：2项 instrumentation 测试，涵盖别名导入事务和宿主 EGL 绘制/暂停恢复/重挂/释放交接。仍未使用用户私有模型进行设备画面验收；完整 APK 检查与构建继续执行。
 - `36448394737` 后续完整检查：128源回归、Android/Kotlin单元测试、Flutter静态分析通过。Flutter为973通过/6失败，失败全部是新HTTP夹具在http.Response中用默认Latin-1编码中文，未进入路由断言；显式改UTF-8响应夹具后重跑，不删除失败用例或放宽断言。
 - `36450788936` 原生复跑出现进程 SIGSEGV。已下载 instrumentation 原始 logcat：崩溃线程是 Android10/API29 x86_64 的 Jit thread pool；栈为 libartbase Hc4_MatchFinder_GetMatches → LZMA/XZ → PackElfFileForJIT/GenerateJitDebugInfo，无应用/Live2D栈帧。API29前次通过仍保留，但不凭一次通过声称稳定。门禁改用API35 google_apis镜像保持JIT/断言启用，生命周期重复从2增至4；产品代码未据此猜改。API29真机兼容性仍未验证。
+- `058288d` / Actions `36451634195`：API35原生门禁通过；同一生命周期测试连续4轮（包含临时重挂、暂停后替换、先detach后dispose）全部完成，导入事务通过。仍保持真机画面与输入延迟待用户设备确认。
+- 最后核对后台/桌宠重连显示：生成检查点曾把 agent_tool_planning 的 DeepSeek content 写入 partialContent，虽然实时回调不发正文，重连读检查点仍可能短暂显示。规划检查点现只保留独立推理，正文为空，直到最终回复通道生成正文；源门新增断言。
 - 本地原菜菜渲染/资源哈希门、路由连线门已通过；全源门初跑识别到旧版版本白名单/旧路由断言，已按本次新合同更新。环境缺Flutter/Kotlin编译器和部分CI恢复资源，完整编译/自动测试交给既有CI恢复环境；不降低资源门。
 
 ## 上一批 · +284 菜菜专项动作与舞台体验（真机失败，待 +285 修复）

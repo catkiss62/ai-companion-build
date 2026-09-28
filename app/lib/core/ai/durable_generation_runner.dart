@@ -679,7 +679,9 @@ class DurableGenerationRunner {
                     ? ''
                     : '最终回复',
               ),
-              partialContent: content,
+              // A restored chat/overlay reads checkpoints directly. Internal
+              // planning prose must not become a visible second-channel reply.
+              partialContent: usageLane == 'agent_tool_planning' ? '' : content,
             );
             if (!checkpointed) {
               throw const GenerationSuspendedException(
