@@ -1,7 +1,7 @@
 status=success
-run_id=36411092518
-run_url=https://github.com/catkiss62/ai-companion-build/actions/runs/36411092518
-head_sha=a6834a368e7179ccf342bc269951e4335e191f55
+run_id=36426075648
+run_url=https://github.com/catkiss62/ai-companion-build/actions/runs/36426075648
+head_sha=b7b578a3e06a7630b22062c4805c83f307900b8d
 signer_sha256=30:5E:B3:D8:09:83:B9:63:C6:48:18:DD:F1:AD:56:1F:27:9D:E6:D4:7B:3E:D2:C7:81:AD:A4:48:C7:C2:51:48
-abe13d897590698cab52e7d2c829414028e76f2b79a573da8f5fc4ed9d5ee06b  AI-Companion-v0.42.39-283-Pet-Trusted-Touch-Sen-Stage-APK.apk
-release_url=https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-a357276b16f6c89f4735
+232ae45bf50ddfd5c7643f65d35584e9114ffd39899f201acf7cc40a2f1f98ff  AI-Companion-v0.42.40-284-Caicai-Performance-APK.apk
+release_url=https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-6c1bbb4fd7e86a6bc5ce
