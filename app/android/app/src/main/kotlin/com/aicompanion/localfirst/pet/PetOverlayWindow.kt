@@ -396,6 +396,9 @@ class PetOverlayWindow(
         val view = root ?: return false
         val layout = params ?: return false
         if (!view.isAttachedToWindow) return false
+        // Accessibility overlays already sit above the application chat
+        // window. Reparenting a Surface here can leave a frozen OEM snapshot.
+        if (layout.type == WindowManager.LayoutParams.TYPE_ACCESSIBILITY_OVERLAY) return true
         return runCatching {
             layout.flags = layout.flags or WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE
             entryWindowManager.removeViewImmediate(view)
