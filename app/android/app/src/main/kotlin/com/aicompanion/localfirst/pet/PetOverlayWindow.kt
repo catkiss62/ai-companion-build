@@ -567,7 +567,9 @@ class PetOverlayWindow(
                     dragging = false
                     longPressHandled = false
                     pressedRegion = PetTouchRegions.classify(
-                        event.x, event.y, view.width, view.height,
+                        event.x - (view.width - logicalWindowPx) / 2f,
+                        event.y - visualPaddingY,
+                        logicalWindowPx, logicalWindowPx,
                     )
                     samples.clear()
                     addSample(event.rawX, event.rawY)

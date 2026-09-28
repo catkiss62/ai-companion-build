@@ -51,7 +51,7 @@ require(
         'optionButton("打开聊天")',
         'optionButton("切换为悬浮球")',
         "PetTouchRegions.classify(",
-        "event.x, event.y, view.width, view.height,",
+        "event.x - (view.width - logicalWindowPx) / 2f,",
         "setTouchableRegion(region)",
         "WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE",
         "installStandingReference(petView, manifest, frameCache, size)",
