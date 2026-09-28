@@ -31,6 +31,7 @@
 - `36450788936` 原生复跑出现进程 SIGSEGV。已下载 instrumentation 原始 logcat：崩溃线程是 Android10/API29 x86_64 的 Jit thread pool；栈为 libartbase Hc4_MatchFinder_GetMatches → LZMA/XZ → PackElfFileForJIT/GenerateJitDebugInfo，无应用/Live2D栈帧。API29前次通过仍保留，但不凭一次通过声称稳定。门禁改用API35 google_apis镜像保持JIT/断言启用，生命周期重复从2增至4；产品代码未据此猜改。API29真机兼容性仍未验证。
 - `058288d` / Actions `36451634195`：API35原生门禁通过；同一生命周期测试连续4轮（包含临时重挂、暂停后替换、先detach后dispose）全部完成，导入事务通过。仍保持真机画面与输入延迟待用户设备确认。
 - 最后核对后台/桌宠重连显示：生成检查点曾把 agent_tool_planning 的 DeepSeek content 写入 partialContent，虽然实时回调不发正文，重连读检查点仍可能短暂显示。规划检查点现只保留独立推理，正文为空，直到最终回复通道生成正文；源门新增断言。
+- `053ceb4` / Actions `36452994727`：API35原生门、128源回归、Android/Kotlin单元测试通过；Flutter静态分析发现新路由测试的`http.Response(encoding:)`参数不存在（2处）。前一轮修复中文夹具时错误假设了构造签名，现按http1.6.0实际API改为`Response.bytes(utf8.encode(...))`，显式UTF-8事件流头；保留所有请求与路由断言。此次失败属于新增测试代码错误，继续重跑全部门禁。
 - 本地原菜菜渲染/资源哈希门、路由连线门已通过；全源门初跑识别到旧版版本白名单/旧路由断言，已按本次新合同更新。环境缺Flutter/Kotlin编译器和部分CI恢复资源，完整编译/自动测试交给既有CI恢复环境；不降低资源门。
 
 ## 上一批 · +284 菜菜专项动作与舞台体验（真机失败，待 +285 修复）
