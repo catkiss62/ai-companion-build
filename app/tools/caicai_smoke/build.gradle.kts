@@ -30,7 +30,7 @@ android {
     sourceSets.getByName("main") {
         // Compile the actual production renderer, import repository and diagnostics.
         // No copied host implementation, private model, Flutter or TTS payload.
-        java.srcDirs("../../android/app/src/main/java", syncImportSources)
+        java.srcDirs("../../android/app/src/main/java", layout.buildDirectory.dir("generated/import-sources"))
         java.exclude("io/flutter/**")
     }
 }
