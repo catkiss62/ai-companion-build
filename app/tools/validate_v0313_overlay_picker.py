@@ -34,7 +34,7 @@ def main() -> int:
         "ACTION_SYSTEM_COVER_EXIT",
         "handleSystemCoverEntered",
         "retireBubbleForSystemCover",
-        "windowManager.removeViewImmediate(bubble)",
+        "removeOwnedEntryWindow(bubble)",
         "handleSystemCoverExited",
         "COVER_EXIT_STABLE_DELAY_MS = 1_100L",
         "COVER_RECOVERY_MAX_ATTEMPTS = 3",
@@ -47,6 +47,8 @@ def main() -> int:
         'eventType = "overlay_system_cover_recovered"',
     ]:
         assert token in overlay, token
+    assert "if (bubble != null && !removeOwnedEntryWindow(bubble))" in overlay
+    assert "windowManager.removeViewImmediate(view)" in overlay
 
     recovery_start = overlay.index("private fun scheduleCoverRecovery(")
     recovery_end = overlay.index("private fun updateOverlayTouchHealth()", recovery_start)
