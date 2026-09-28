@@ -1,18 +1,18 @@
 # AI Companion · 当前总账
 
-更新时间：2026-09-28（+284 菜菜专项动作、舞台交互与普通形态气焰；实现待构建，真机待验收）
+更新时间：2026-09-28（+284 菜菜专项动作、舞台交互与普通形态气焰；CI 全绿、Draft APK 就绪，真机待验收）
 
 > 本文件是唯一的当前接班入口，继续采用“总账 v2”。顶部是快速接班索引；标记后的正式记录按版本持续追加，不设总容量上限。
 >
 > 判断优先级：用户最新明确决定 > 当前 GitHub 源码与 Actions > 同时刻脱敏真机诊断/备份 > 本文件 > 冻结归档与 Git 历史。`DESIGNED`、`IMPLEMENTED`、`CI PASSED`、`APK READY`、`TRUE DEVICE PASSED`、`PENDING` 必须严格区分。
 
-## 当前任务 · +284 菜菜专项动作与舞台体验（实施中）
+## 当前任务 · +284 菜菜专项动作与舞台体验（CI/APK 完成，真机待验收）
 
 用户已明确批准实施，并补充：以菜菜标注的真实可动参数专项设计；以 anai-1.1.53 APK 的幅度、速度作主要参考；Jev 驱动丰富头身表演；视线覆盖输入框、聊天记录及其他界面触摸。
 
 - 基线：0fd3cfc（+283 CI/APK 成功后的总账记录）。所有上一轮未经汇报的试改已撤销，本轮重新实施。
 - 证据：菜菜捕捉轴 X/Y 显动弱，应使用 X3/Y2；现有键盘逻辑停止连续渲染；手动预设永久 toggle；诊断有重复 surface/context 重建；普通形态 19 条气焰记录被固定扣 18。
-- 待办：模型专用待机与 Jev 大动作；4.5 秒手动释放；按钮回聊天；聊天内舞台/摸头框编辑；全界面 gaze 与真实摸头；稳定 EGL 生命周期/键盘尺寸；普通形态不扣 18；针对性测试和 APK。
+- 本轮代码已实现：模型专用待机与 Jev 大动作；4.5 秒手动释放；按钮回聊天；聊天内舞台/摸头框编辑；全界面 gaze 与真实摸头；稳定 EGL 生命周期/键盘尺寸；普通形态不扣 18；针对性测试和 APK。
 - 桌宠缩小：报告只有 small 与当时命中区域，没有尺寸变化因果证据，按用户要求不改。
 - 保护边界：菜菜原 renderer/三配件投影、衣装、PCM 口型、独立情绪保持；私有附件不上传；不改模型路由/游戏/人格；不合并 main、不发布正式 Release。
 - 验收：实现、自动测试、APK、真机分开记录；必须实机观察大动作、触摸、键盘和切前后台，不能用静态检查代替。
@@ -1246,7 +1246,7 @@ Actions 与交付证据：远端功能 head `33647c7bff15084d6fd3cbc7b817e9b0b21
 
 ## v0.42.40+284 菜菜专项表演与聊天舞台
 
-状态：IMPLEMENTED LOCALLY / LOCAL STATIC VALIDATION PENDING / CI PENDING / TRUE DEVICE PENDING。
+状态：CI PASSED / APK READY / TRUE DEVICE PENDING。
 
 - 实现：新增菜菜专用可见轴待机、局部重心短语及十九情绪的实际女仆参数；Jev 四段语义选择加强 X3/Y2/Z 与身体 XYZ，摆胯/wink/吐舌增加同段释放，不增加模型调用。
 - 舞台：TextureView 单 EGL owner，窗口表面与 context 生命周期分离；30 FPS，不因输入框停帧；键盘仅裁切固定比例的舞台。原菜菜 renderer、配件投影和 shader 通过原始哈希校验。
@@ -1264,3 +1264,14 @@ Actions 与交付证据：远端功能 head `33647c7bff15084d6fd3cbc7b817e9b0b21
 
 - 重载交接复核发现并修正：CubismFramework/Shader 是进程全局状态，新旧 TextureView 的 GL 线程不能并行初始化/释放。用单一全局租约在 GL 线程交接；旧 renderer 完成 release 和 EGL 销毁后才释放租约；从未创建 context 的旧 view 不调用全局清理。UI 线程不等待。此项为本次新宿主必须具备的保护，随最后构建重验。
 - 第二轮 Actions 36424013404：源码回归、Android 原生编译/测试通过；Flutter 970 通过、1 失败。失败为新加的导航测试在新路由首次 build 之前等待 SQLite，随后 pumpAndSettle 推进虚拟时钟导致加载超时。补上首次 pump 与有界真实 IO 等待，保留导航断言；两项确认/取消测试已通过。不得把此轮记为 APK READY。
+
+### +284 最终交付核验（2026-09-28）
+
+- 最终功能提交：`b7b578a3e06a7630b22062c4805c83f307900b8d`；tree `b6045d7b07d1457069e6a1bd1608a27e88a90f5b`；分支 `agent/v04232-caicai-import-pet-touch`。后续总账提交不改变 APK 功能。
+- Actions：`36426075648`，build job `108940275928`，全绿；127 项源码回归、Android 编译及原生测试、Flutter analyze（既有非致命提示不作零警告声明）、**971 项 Flutter 测试**通过；包括自动返回聊天与调整确认/取消。稳定签名、Genie/桌宠/塔罗等固定资源完整性检查通过。
+- Draft Release：`398253913`，tag `v0.42.40-caicai-performance-test`，保持 draft；链接 https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-6c1bbb4fd7e86a6bc5ce 。
+- APK：`AI-Companion-v0.42.40-284-Caicai-Performance-APK.apk`，726,078,514 bytes；asset `595463873`；SHA-256 `232ae45bf50ddfd5c7643f65d35584e9114ffd39899f201acf7cc40a2f1f98ff`。构建输出与 Release asset digest 一致。
+- Actions artifact：`10972990521`；校验文件 asset `595463874`；最终成功 CI 记录 asset `595463881`。没有发布正式 Release、没有合并 main，没有下载整包 APK 到本工作区。
+- 设计及逐项验收：`app/docs/CAICAI_PERFORMANCE_DESIGN.md`。主要覆盖菜菜可见轴大动作、Jev 四段表演与局部释放、手动原装预设 4.5 秒、自动回聊天、同屏舞台/摸头框编辑、全界面触点观察、真实摸头、键盘固定比例、EGL 保持与交接、普通形态不固定扣 18。
+- 尚待真机：实际幅度/速度是否符合参考 APK 观感；输入法延迟、前后台/页面切换与重导入/重试稳定性；摸头框与模型大小/位置的实际吻合；连续对话的 Jev 原始选项、动作采用与气焰账。不能将 CI 全绿写成 TRUE DEVICE PASSED。
+- 桌宠缩小：没有确切尺寸变更因果证据，依用户要求未改桌宠行为代码。
