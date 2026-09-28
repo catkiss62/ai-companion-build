@@ -12,6 +12,11 @@ import android.view.TextureView;
  * the context, Cubism models and uploaded textures survive route/foreground changes.
  * All EGL calls and queued model mutations run on this thread, never the IME thread. */
 class CaicaiTextureSurface extends TextureView implements TextureView.SurfaceTextureListener {
+    // CubismFramework and its shader registry are process globals. A replacement
+    // view waits on its GL thread, never the UI thread, until the old owner releases.
+    private static final java.util.concurrent.Semaphore FRAMEWORK_OWNER = new java.util.concurrent.Semaphore(1,true);
+    private boolean frameworkLease;
+    final boolean ownsRendererContext() { return frameworkLease && contexts > 0; }
     static final int RENDERMODE_WHEN_DIRTY = 0, RENDERMODE_CONTINUOUSLY = 1;
     private final HandlerThread thread = new HandlerThread("CaicaiGL");
     private final Handler gl;
@@ -33,7 +38,9 @@ class CaicaiTextureSurface extends TextureView implements TextureView.SurfaceTex
     void setRenderer(GLSurfaceView.Renderer value) { renderer = value; }
     public void setRenderMode(int value) { mode = value; requestRender(); }
     public int getRenderMode() { return mode; }
-    public void queueEvent(Runnable command) { gl.post(() -> { if (!closed) command.run(); }); }
+    public void queueEvent(Runnable command) { gl.post(() -> {
+        if (!closed) try { command.run(); } catch (Throwable failure) { onSurfaceFailure(failure); }
+    }); }
     public void requestRender() { gl.post(this::schedule); }
     public void onResume() { gl.post(() -> { paused = false; schedule(); }); }
     public void onPause() { gl.post(() -> { paused = true; gl.removeCallbacks(frame); scheduled = false; }); }
@@ -68,6 +75,7 @@ class CaicaiTextureSurface extends TextureView implements TextureView.SurfaceTex
         }
     };
     private void initialize() {
+        if (!frameworkLease) { FRAMEWORK_OWNER.acquireUninterruptibly(); frameworkLease = true; }
         display = EGL14.eglGetDisplay(EGL14.EGL_DEFAULT_DISPLAY);
         if (!EGL14.eglInitialize(display, new int[2], 0, new int[2], 0)) throw new IllegalStateException("eglInitialize");
         int[] attributes = {EGL14.EGL_RED_SIZE,8,EGL14.EGL_GREEN_SIZE,8,EGL14.EGL_BLUE_SIZE,8,
@@ -126,5 +134,12 @@ class CaicaiTextureSurface extends TextureView implements TextureView.SurfaceTex
         }
         display=EGL14.EGL_NO_DISPLAY; context=EGL14.EGL_NO_CONTEXT; parking=EGL14.EGL_NO_SURFACE;
     }
-    void closeSurface() { gl.post(() -> { closed=true; destroyEgl(); thread.quitSafely(); }); }
+    void closeSurface() { gl.post(() -> {
+        closed=true;
+        try { destroyEgl(); }
+        finally {
+            if (frameworkLease) { frameworkLease=false; FRAMEWORK_OWNER.release(); }
+            thread.quitSafely();
+        }
+    }); }
 }

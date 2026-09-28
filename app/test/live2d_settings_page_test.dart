@@ -39,7 +39,15 @@ void main() {
       ));
       await tester.tap(find.text('聊天画面')); await tester.pumpAndSettle();
       await tester.tap(find.text('进入 Live2D'));
-      await Future<void>.delayed(const Duration(milliseconds: 50));
+      // Build the pushed route before waiting for its real SQLite initialization.
+      // pumpAndSettle alone advances fake animation time and can starve database IO.
+      await tester.pump();
+      for (var attempt = 0; attempt < 50 &&
+          find.text('启用菜菜 Live2D').evaluate().isEmpty; attempt++) {
+        await Future<void>.delayed(const Duration(milliseconds: 20));
+        await tester.pump();
+      }
+      expect(find.text('启用菜菜 Live2D'), findsOneWidget);
       await tester.pumpAndSettle();
       await tester.scrollUntilVisible(find.text('自主待机'),300);
       await tester.tap(find.text('自主待机'));

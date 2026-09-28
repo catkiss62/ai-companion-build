@@ -1261,3 +1261,6 @@ Actions 与交付证据：远端功能 head `33647c7bff15084d6fd3cbc7b817e9b0b21
 - 补充实现：动作参数索引/限值按模型缓存，避免每帧线性扫描完整参数表；聊天不可见时暂停绘制；清除手动预设保留装扮；显示失败提供重试。
 - 本地执行 Java/JUnit：`CaicaiParameterPlanTest` 与 `CaicaiPerformanceTest` 共 5 项通过（实际时间 0.04 秒）；覆盖短计划释放/受保护参数、60 秒待机幅度/连续性、注意力抢占释放、菜菜真实参数表情。
 - 首轮 Actions：36422468888，功能提交 104db6c；构建进行中。交互回归与专项设计文档随收尾提交补齐，最终 APK 以最后一次成功 run 为准。
+
+- 重载交接复核发现并修正：CubismFramework/Shader 是进程全局状态，新旧 TextureView 的 GL 线程不能并行初始化/释放。用单一全局租约在 GL 线程交接；旧 renderer 完成 release 和 EGL 销毁后才释放租约；从未创建 context 的旧 view 不调用全局清理。UI 线程不等待。此项为本次新宿主必须具备的保护，随最后构建重验。
+- 第二轮 Actions 36424013404：源码回归、Android 原生编译/测试通过；Flutter 970 通过、1 失败。失败为新加的导航测试在新路由首次 build 之前等待 SQLite，随后 pumpAndSettle 推进虚拟时钟导致加载超时。补上首次 pump 与有界真实 IO 等待，保留导航断言；两项确认/取消测试已通过。不得把此轮记为 APK READY。

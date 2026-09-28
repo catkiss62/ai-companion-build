@@ -318,7 +318,10 @@ public final class CaicaiCompanionView extends CaicaiTextureSurface implements S
         setRenderMode(RENDERMODE_WHEN_DIRTY);
         // GLSurfaceView executes queued events on its GL thread even while paused. This keeps
         // texture deletion and Cubism renderer teardown on the context-owning thread.
-        queueEvent(renderer::release);
+        queueEvent(() -> {
+            // A view removed before its first frame never owned Cubism globals.
+            if (ownsRendererContext()) renderer.release();
+        });
         closeSurface();
         listener = NO_OP_LISTENER;
     }
