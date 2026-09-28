@@ -40,11 +40,12 @@ def main() -> None:
     proactive = read("lib/core/desire/proactive_engine.dart")
     require(proactive, "secureConfig.readApiKey()", "secureConfig.readEndpoint()")
     # +262: the DeepSeek key remains mandatory for internal work and fallback;
-    # one Gemini request is permitted only when the final provider is selected.
+    # +285: the configured second channel owns the first draft and semantic repairs;
+    # only a real request failure opens the fallback path.
     require(proactive, "secureConfig.readFinalReplyApiKey()",
             "secureConfig.readFinalReplyEndpoint()",
-            "(!geminiAttempted || (repair && geminiSucceeded))",
-            "geminiAttempted = true", "return request(gemini: false)")
+            "FinalReplyRoute(secondChannelEnabled: finalProvider.isGeminiRelay)",
+            "if (finalRoute.useSecondChannel)", "finalRoute.recordFailure(error)", "return request(gemini: false)")
 
     queue = read("lib/core/tts/tts_playback_queue.dart")
     processor = read("lib/core/tts/tts_text_processor.dart")

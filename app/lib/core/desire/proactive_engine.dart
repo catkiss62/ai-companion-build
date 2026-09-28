@@ -68,6 +68,7 @@ import 'proactive_thought_readiness_policy.dart';
 import 'self_drive_engine.dart';
 import 'thought_consolidation_engine.dart';
 import 'thought_lifecycle_engine.dart';
+import '../ai/final_reply_route.dart';
 
 class LocalCompanionHeartbeat {
   const LocalCompanionHeartbeat({
@@ -1431,8 +1432,7 @@ ${startsFreshTopic ? '本类型属于新话题通道：ANSWERED CHAT HISTORY 已
     final finalApiKey = (await secureConfig.readFinalReplyApiKey())?.trim() ?? '';
     final finalEndpoint = await secureConfig.readFinalReplyEndpoint();
     final finalModelName = await secureConfig.readFinalReplyModel();
-    var geminiAttempted = false;
-    var geminiSucceeded = false;
+    final finalRoute = FinalReplyRoute(secondChannelEnabled: finalProvider.isGeminiRelay);
     var visibleModelName = model.apiName;
     final lastGroundedUser = proactiveGrounding.lastUserMessageId == null
         ? null
@@ -1442,7 +1442,6 @@ ${startsFreshTopic ? '本类型属于新话题通道：ANSWERED CHAT HISTORY 已
 
     Future<_ProactiveGenerationCandidate?> generateCandidate(
       List<Map<String, Object?>> promptMessages,
-      {bool repair = false}
     ) async {
       // All source, grounding and style context is already in promptMessages.
       // Gemini owns one correction after a successful first answer. Only an
@@ -1487,9 +1486,7 @@ ${startsFreshTopic ? '本类型属于新话题通道：ANSWERED CHAT HISTORY 已
         );
       }
 
-      if (finalProvider.isGeminiRelay &&
-          (!geminiAttempted || (repair && geminiSucceeded))) {
-        geminiAttempted = true;
+      if (finalRoute.useSecondChannel) {
         try {
           if (finalApiKey.isEmpty) {
             throw const FormatException('missing_gemini_final_reply_key');
@@ -1505,7 +1502,6 @@ ${startsFreshTopic ? '本类型属于新话题通道：ANSWERED CHAT HISTORY 已
           visibleModelName = finalModelName.isEmpty
               ? finalProvider.effectiveModel(model)
               : finalModelName;
-          geminiSucceeded = true;
           await db.setSetting('proactive_last_final_provider_notice', '');
           return result;
         } on GenerationSuspendedByRuntimeGateException {
@@ -1513,6 +1509,7 @@ ${startsFreshTopic ? '本类型属于新话题通道：ANSWERED CHAT HISTORY 已
         } on GenerationCancelledByUserException {
           rethrow;
         } catch (error) {
+          finalRoute.recordFailure(error);
           await db.setSetting('proactive_last_final_provider_notice',
               '主动消息第二通道失败（${FinalReplyFailurePolicy.userCategory(error)}），本轮由 DeepSeek 兜底。');
         }
@@ -1590,7 +1587,7 @@ ${startsFreshTopic ? '本类型属于新话题通道：ANSWERED CHAT HISTORY 已
 上一份候选被确认在流式传输或对白结构中截断。丢弃它并重新生成一条完整、较短的主动消息；不要从半句续写，不要复述内部错误。若没有值得完整说完的内容，只输出 WAIT。''',
         },
       ];
-      final retried = await generateCandidate(retryContext, repair: true);
+      final retried = await generateCandidate(retryContext);
       if (retried == null) {
         await noteGeneration('preempted', reasonTag: 'writer_lease');
         return ProactiveDecision(
@@ -1750,7 +1747,7 @@ ${PromptBuilder.visibleChineseGenerationReminder(proactive: true)}
 '''.trim(),
         },
       ];
-      final retried = await generateCandidate(retryContext, repair: true);
+      final retried = await generateCandidate(retryContext);
       if (retried == null) {
         await noteGeneration('preempted', reasonTag: 'writer_lease');
         return ProactiveDecision(

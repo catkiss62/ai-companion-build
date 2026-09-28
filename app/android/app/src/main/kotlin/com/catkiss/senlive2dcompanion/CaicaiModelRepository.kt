@@ -11,7 +11,7 @@ import java.util.zip.ZipInputStream
 /** Transactional, private import of the two-model ZIP consumed by the Caicai lab. */
 class CaicaiModelRepository(context: Context) {
     private val app = context.applicationContext
-    private val root = File(app.filesDir, "caicai-live2d")
+    private val root = File(app.filesDir, "caicai-live2d").canonicalFile
     private val current = File(root, "current")
     private val staging = File(root, "staging")
     private val backup = File(root, "backup")
@@ -47,8 +47,8 @@ class CaicaiModelRepository(context: Context) {
                 if (maid?.isFile != true || accessory?.isFile != true) {
                     throw IOException("正式目录中的模型文件无法读回")
                 }
-                val recoveredMaid = maid.relativeTo(current).invariantSeparatorsPath
-                val recoveredAccessory = accessory.relativeTo(current).invariantSeparatorsPath
+                val recoveredMaid = CaicaiModelPaths.relative(current, maid)
+                val recoveredAccessory = CaicaiModelPaths.relative(current, accessory)
                 if (!prefs.edit().putString("maid", recoveredMaid)
                         .putString("accessory", recoveredAccessory).commit()) {
                     throw IOException("无法恢复模型索引")
@@ -89,8 +89,8 @@ class CaicaiModelRepository(context: Context) {
             validateModelFiles(maid, accessoryDonor = false)
             validateModelFiles(accessory, accessoryDonor = true)
             CaicaiDiagnostics.record(app, "manifest_validated")
-            val maidPath = maid.relativeTo(staging).invariantSeparatorsPath
-            val accessoryPath = accessory.relativeTo(staging).invariantSeparatorsPath
+            val maidPath = CaicaiModelPaths.relative(staging, maid)
+            val accessoryPath = CaicaiModelPaths.relative(staging, accessory)
             // Settings can import before the stage exists, so the candidate may
             // remain pending indefinitely. Keep it until the replacement ZIP
             // has passed structural checks, then restore the last verified
@@ -203,12 +203,7 @@ class CaicaiModelRepository(context: Context) {
         }
     }
 
-    private fun safeChild(parent: File, path: String): File? = runCatching {
-        if (path.isBlank()) return null
-        File(parent, path).canonicalFile.takeIf {
-            it.path.startsWith(parent.canonicalPath + File.separator)
-        }
-    }.getOrNull()
+    private fun safeChild(parent: File, path: String): File? = CaicaiModelPaths.child(parent, path)
 
     private fun indexedModels(maidPath: String, accessoryPath: String): Models? {
         val maid = safeChild(current, maidPath)

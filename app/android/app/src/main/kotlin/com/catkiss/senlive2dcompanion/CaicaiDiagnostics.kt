@@ -16,8 +16,12 @@ object CaicaiDiagnostics {
         for (i in (existing.length() - 39).coerceAtLeast(0) until existing.length()) {
             result.put(existing.get(i))
         }
-        result.put(JSONObject().put("at", System.currentTimeMillis())
-            .put("stage", stage).put("detail", detail.take(if (stage == "motion_plan_applied" || stage == "render_error") 12000 else 1000)))
+        val version = runCatching {
+            val info = context.packageManager.getPackageInfo(context.packageName, 0)
+            "${info.versionName}+${info.versionCode}"
+        }.getOrDefault("unknown")
+        result.put(JSONObject().put("at", System.currentTimeMillis()).put("build", version)
+            .put("stage", stage).put("detail", detail.take(if (stage == "motion_plan_applied" || stage == "render_error" || stage == "view_create_failed") 12000 else 1000)))
         prefs.edit().putString(KEY, result.toString()).apply()
     }
 
@@ -27,7 +31,7 @@ object CaicaiDiagnostics {
         return (0 until entries.length()).mapNotNull { i ->
             entries.optJSONObject(i)?.let {
                 mapOf("at" to it.optLong("at"), "stage" to it.optString("stage"),
-                    "detail" to it.optString("detail"))
+                    "detail" to it.optString("detail"), "build" to it.optString("build", "legacy_unknown"))
             }
         }
     }

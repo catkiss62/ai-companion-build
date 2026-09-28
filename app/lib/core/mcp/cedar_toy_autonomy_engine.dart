@@ -29,6 +29,7 @@ import 'cedar_solo_episode_policy.dart';
 import 'mcp_protocol.dart';
 import 'mcp_http_client.dart';
 import 'mcp_turn_state_resolver.dart';
+import '../ai/final_reply_route.dart';
 
 class CedarAutonomyAvailability {
   const CedarAutonomyAvailability(this.available, this.reason);
@@ -2020,6 +2021,7 @@ game=${session.gameId}
     ];
 
     final finalProvider = await secureConfig.readChatProvider();
+    final finalRoute = FinalReplyRoute(secondChannelEnabled: finalProvider.isGeminiRelay);
     final finalKey = (await secureConfig.readFinalReplyApiKey())?.trim() ?? '';
     final finalEndpoint = await secureConfig.readFinalReplyEndpoint();
     final finalModel = await secureConfig.readFinalReplyModel();
@@ -2068,7 +2070,7 @@ game=${session.gameId}
     }
 
     try {
-      if (finalProvider.isGeminiRelay) {
+      if (finalRoute.useSecondChannel) {
         if (finalKey.isEmpty) {
           throw const FormatException('missing_gemini_final_reply_key');
         }
@@ -2092,6 +2094,7 @@ game=${session.gameId}
       rethrow;
     } catch (error) {
       if (finalProvider.isGeminiRelay) {
+        finalRoute.recordFailure(error);
         await db.setSetting('cedar_room_last_final_provider_notice',
             '第二通道调用失败（${FinalReplyFailurePolicy.userCategory(error)}），房间发言由 DeepSeek 兜底。');
         try {

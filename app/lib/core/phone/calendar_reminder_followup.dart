@@ -8,6 +8,7 @@ import '../models/chat_message.dart';
 import '../models/chat_segment.dart';
 import '../platform/android_bridge.dart';
 import '../storage/secure_config.dart';
+import '../ai/final_reply_route.dart';
 
 /// One continuation owner for a stopped alarm. The native stop record remains
 /// pending until a real assistant message has been committed or is found by ID.
@@ -65,6 +66,7 @@ class CalendarReminderFollowup {
         },
       ];
       final provider = await config.readChatProvider();
+      final finalRoute = FinalReplyRoute(secondChannelEnabled: provider.isGeminiRelay);
       final finalKey = (await config.readFinalReplyApiKey())?.trim() ?? '';
       final finalEndpoint = await config.readFinalReplyEndpoint();
       final finalName = await config.readFinalReplyModel();
@@ -96,7 +98,7 @@ class CalendarReminderFollowup {
             if (delta.finishReason != null) finish = delta.finishReason!;
           }
           final content = buffer.toString().trim();
-          if (!done || content.isEmpty || content == 'WAIT' ||
+          if (!done || content.isEmpty ||
               FinalReplyFailurePolicy.isIncompleteFinishReason(finish) ||
               FinalReplyFailurePolicy.hasStrongIncompleteStructure(content)) {
             return null;
@@ -104,14 +106,19 @@ class CalendarReminderFollowup {
           return content;
         }
 
-        if (provider.isGeminiRelay && finalKey.isNotEmpty) {
+        if (finalRoute.useSecondChannel) {
           try {
+            if (finalKey.isEmpty) throw const FormatException('missing_gemini_final_reply_key');
             text = await request(finalChannel: true);
+            if (text == null) throw const EmptyFinalReplyException();
+            await db.setSetting('calendar_last_final_provider_notice', '');
             if (text != null) model = finalName.isEmpty
                 ? provider.effectiveModel(DeepSeekModelProfile.flash)
                 : finalName;
-          } catch (_) {
-            // One final-channel attempt; the existing internal lane can answer.
+          } catch (error) {
+            finalRoute.recordFailure(error);
+            await db.setSetting('calendar_last_final_provider_notice',
+                '第二通道调用失败（${FinalReplyFailurePolicy.userCategory(error)}），日历提醒由 DeepSeek 兜底。');
           }
         }
         text ??= await request(finalChannel: false);
@@ -120,7 +127,7 @@ class CalendarReminderFollowup {
       } finally {
         client.close();
       }
-      if (text == null || !await db.brainWorkAllowed()) return;
+      if (text == null || text == 'WAIT' || !await db.brainWorkAllowed()) return;
       // The deterministic ID and lease make a crash between commit and native
       // acknowledgement recoverable without generating a second reply.
       await db.insertMessage(ChatMessage(

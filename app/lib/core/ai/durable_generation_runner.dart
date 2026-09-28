@@ -51,6 +51,7 @@ import 'prompt_builder.dart';
 import 'playful_self_judge.dart';
 import 'playful_breakthrough_judge.dart';
 import 'visible_reasoning_transcript.dart';
+import 'final_reply_route.dart';
 
 class GenerationRunResult {
   const GenerationRunResult({
@@ -159,6 +160,7 @@ class DurableGenerationRunner {
     final apiKey = await secureConfig.readApiKey();
     final endpoint = await secureConfig.readEndpoint();
     final finalProvider = await secureConfig.readChatProvider();
+    final finalRoute = FinalReplyRoute(secondChannelEnabled: finalProvider.isGeminiRelay);
     final configuredFinalApiKey =
         (await secureConfig.readFinalReplyApiKey())?.trim() ?? '';
     final configuredFinalEndpoint =
@@ -817,7 +819,7 @@ class DurableGenerationRunner {
         List<DeepSeekToolCall> toolCalls,
         String finishReason,
       })> generateFinal(List<Map<String, Object?>> messages) async {
-        if (!finalProvider.isGeminiRelay) {
+        if (!finalRoute.useSecondChannel) {
           finalTextFromGemini = false;
           return generateCheckedDeepSeek(messages);
         }
@@ -858,6 +860,7 @@ class DurableGenerationRunner {
                 );
               }
               finalTextFromGemini = true;
+              providerNotice = null;
               return result;
             } on FinalReplyIncompleteException {
               rethrow;
@@ -888,6 +891,7 @@ class DurableGenerationRunner {
         } else {
           lastError = const FormatException('missing_gemini_final_reply_key');
         }
+        finalRoute.recordFailure(lastError!);
         providerNotice =
             '第二通道调用失败（${FinalReplyFailurePolicy.userCategory(lastError!)}），本轮已由 DeepSeek 兜底。';
         finalTextFromGemini = false;
@@ -1444,9 +1448,7 @@ $finalGenerationReminder
         try {
           // One correction by the provider that wrote the visible draft.
           // DeepSeek takes over only after the configured second channel fails.
-          generated = finalProvider.isGeminiRelay && providerNotice?.isNotEmpty == true
-              ? await generateCheckedDeepSeek(correctionMessages)
-              : await generateFinal(correctionMessages);
+          generated = await generateFinal(correctionMessages);
           if (providerNotice?.isNotEmpty == true) finalTextFromGemini = false;
           effectiveCancellation.throwIfCancelled();
           envelope = EmotionEnvelope.parse(generated.content);

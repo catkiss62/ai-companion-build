@@ -20,8 +20,13 @@ import java.lang.ref.WeakReference
 
 class CaicaiPlatformViewFactory(private val messenger: BinaryMessenger) :
     PlatformViewFactory(StandardMessageCodec.INSTANCE) {
-    override fun create(context: Context, viewId: Int, args: Any?): PlatformView =
-        CaicaiPlatformView(context, messenger, viewId)
+    override fun create(context: Context, viewId: Int, args: Any?): PlatformView {
+        return try { CaicaiPlatformView(context, messenger, viewId) }
+        catch (error: Throwable) {
+            CaicaiDiagnostics.record(context, "view_create_failed", error.stackTraceToString())
+            CaicaiFailedPlatformView(context, messenger, viewId, error)
+        }
+    }
 
     companion object { const val VIEW_TYPE = "ai_companion/caicai_live2d_view" }
 }
@@ -85,6 +90,14 @@ internal class CaicaiPlatformView(
         companion.isFocusableInTouchMode = false
         companion.renderMode = GLSurfaceView.RENDERMODE_WHEN_DIRTY
         companion.setListener(this)
+        companion.holder.addCallback(object : SurfaceHolder.Callback {
+            override fun surfaceCreated(holder: SurfaceHolder) { CaicaiDiagnostics.record(app, "surface_created") }
+            override fun surfaceChanged(holder: SurfaceHolder, format: Int, width: Int, height: Int) {
+                CaicaiDiagnostics.record(app, "surface_changed", "${width}x$height")
+                if (renderStatus == "loading") companion.requestRender()
+            }
+            override fun surfaceDestroyed(holder: SurfaceHolder) { CaicaiDiagnostics.record(app, "surface_destroyed") }
+        })
         // The standalone app's accepted front-hair connection and secondary motion.
         companion.setGeometryConstraintEnabled(true)
         companion.setFrontHairPoint(FRONT_HAIR_POINT)
@@ -110,8 +123,9 @@ internal class CaicaiPlatformView(
         CaicaiRuntime.detach(this)
         channel.setMethodCallHandler(null)
         companion.setListener(null)
-        companion.onHostPause()
+        // Queue global Cubism release before GLSurfaceView pauses/detaches.
         companion.release()
+        companion.onPause()
         root.removeAllViews()
     }
 
@@ -208,7 +222,7 @@ internal class CaicaiPlatformView(
     fun setKeyboardVisible(visible: Boolean) {
         if (!disposed && keyboardVisible != visible) {
             keyboardVisible = visible
-            // Input never freezes the model. Texture host is paced at 30 fps.
+            // Input never freezes the model. GLSurfaceView retains the tested native composition.
             companion.requestRender()
             CaicaiDiagnostics.record(app, if (visible) "keyboard_open" else "keyboard_closed")
         }
@@ -346,6 +360,7 @@ internal class CaicaiPlatformView(
         renderStatus = "ready"
         renderDetail = detail
         CaicaiDiagnostics.record(app, "render_ready", detail)
+        CaicaiDiagnostics.record(app, "first_model_frame", companion.surfaceDiagnostics())
         if (newlyLoaded) main.post { if (!disposed) repository.confirmPendingImport() }
         main.post {
             if (!disposed) companion.renderMode = GLSurfaceView.RENDERMODE_CONTINUOUSLY
@@ -379,6 +394,23 @@ internal class CaicaiPlatformView(
 }
 
 /** A single native renderer owner for the chat stage. */
+/** Keep creation failures observable through the same Dart channel, including start. */
+private class CaicaiFailedPlatformView(context: Context, messenger: BinaryMessenger,
+    viewId: Int, error: Throwable) : PlatformView {
+    private val root = FrameLayout(context)
+    private val channel = MethodChannel(messenger, "ai_companion/caicai_live2d/view/$viewId")
+    init {
+        channel.setMethodCallHandler { call, result ->
+            if (call.method == "start" || call.method == "getState")
+                result.success(mapOf("status" to "error", "detail" to
+                    "原生画面创建失败：${error.javaClass.simpleName}"))
+            else result.success(null)
+        }
+    }
+    override fun getView(): View = root
+    override fun dispose() { channel.setMethodCallHandler(null) }
+}
+
 object CaicaiRuntime {
     @Volatile private var active = WeakReference<CaicaiPlatformView>(null)
 

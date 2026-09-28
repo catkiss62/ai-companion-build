@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -41,7 +43,9 @@ class CaicaiLive2DStage extends StatefulWidget {
   State<CaicaiLive2DStage> createState() => _CaicaiLive2DStageState();
 }
 
-class _CaicaiLive2DStageState extends State<CaicaiLive2DStage> {
+class _CaicaiLive2DStageState extends State<CaicaiLive2DStage> with WidgetsBindingObserver {
+  Timer? _loadDeadline;
+  bool _foreground = true;
   MethodChannel? _channel;
   bool _available = false;
   bool _failed = false;
@@ -53,12 +57,14 @@ class _CaicaiLive2DStageState extends State<CaicaiLive2DStage> {
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     CaicaiLive2DService.revision.addListener(_checkModel);
     _checkModel();
   }
 
   Future<void> _checkModel() async {
     final generation = ++_generation;
+    _loadDeadline?.cancel();
     try {
       final model = await CaicaiLive2DService.diagnostics;
       final exists = model['available'] == true;
@@ -69,14 +75,45 @@ class _CaicaiLive2DStageState extends State<CaicaiLive2DStage> {
         _modelRevision++;
         _failed = false;
         _available = exists;
-        _status = exists ? '已导入模型' : '未导入模型';
+        _status = exists ? '素材已导入，正在加载画面…' : '未导入模型';
       });
+      _watchLoading();
     } catch (_) {
       if (mounted && generation == _generation) setState(() {
         _available = false;
-        _status = '未导入模型';
+        _failed = true;
+        _status = '无法读取模型状态，请重试';
       });
     }
+  }
+
+  // This also covers failure before onPlatformViewCreated. File availability is
+  // not renderer readiness, and a missing callback must never spin indefinitely.
+  void _watchLoading() {
+    _loadDeadline?.cancel();
+    if (!_available || _status == null || _failed || !widget.active || !_foreground) return;
+    final generation = _generation;
+    _loadDeadline = Timer(const Duration(seconds: 30), () async {
+      try {
+        final state = await _channel?.invokeMapMethod<String, Object?>('getState')
+            .timeout(const Duration(seconds: 3));
+        if (!mounted || generation != _generation || !widget.active || !_foreground || _status == null) return;
+        if (state?['status'] == 'ready') {
+          setState(() { _status = null; _failed = false; });
+          await _syncState();
+          return;
+        }
+      } catch (_) {}
+      if (mounted && generation == _generation && widget.active && _foreground && _status != null) {
+        setState(() { _failed = true; _status = '画面加载未完成，请重试；模型文件仍保留'; });
+      }
+    });
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    _foreground = state == AppLifecycleState.resumed;
+    _watchLoading();
   }
 
   @override
@@ -93,7 +130,10 @@ class _CaicaiLive2DStageState extends State<CaicaiLive2DStage> {
   @override
   void didUpdateWidget(CaicaiLive2DStage oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (oldWidget.active != widget.active) _channel?.invokeMethod<void>('setVisible', widget.active);
+    if (oldWidget.active != widget.active) {
+      _channel?.invokeMethod<void>('setVisible', widget.active);
+      _watchLoading();
+    }
     if (oldWidget.qForm != widget.qForm || oldWidget.emotion != widget.emotion) _syncState();
   }
 
@@ -110,16 +150,18 @@ class _CaicaiLive2DStageState extends State<CaicaiLive2DStage> {
       if (!mounted || _channel != channel) return;
       switch (call.method) {
         case 'onReady':
+          _loadDeadline?.cancel();
           setState(() { _status = null; _failed = false; });
           await _syncState();
           return;
         case 'onStatus':
-          if (_status != null) setState(() => _status = '已导入模型');
           return;
         case 'onModelMissing':
+          _loadDeadline?.cancel();
           setState(() { _failed = false; _status = '未导入模型'; });
           return;
         case 'onError':
+          _loadDeadline?.cancel();
           setState(() { _failed = true; _status = '模型显示失败'; });
           return;
       }
@@ -131,22 +173,29 @@ class _CaicaiLive2DStageState extends State<CaicaiLive2DStage> {
         final state = await channel.invokeMapMethod<String, Object?>('start');
         if (!mounted || _channel != channel) return;
         if (state?['status'] == 'ready') {
+          _loadDeadline?.cancel();
           setState(() { _status = null; _failed = false; });
           await _syncState();
         } else if (state?['status'] == 'missing' || state?['status'] == 'error') {
+          _loadDeadline?.cancel();
           setState(() {
             _failed = state?['status'] == 'error';
             _status = _failed ? '模型显示失败' : '未导入模型';
           });
         }
       } catch (_) {
-        if (mounted) setState(() { _failed = true; _status = '模型显示失败'; });
+        if (mounted && _channel == channel) {
+          _loadDeadline?.cancel();
+          setState(() { _failed = true; _status = '模型显示失败'; });
+        }
       }
     }();
   }
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    _loadDeadline?.cancel();
     CaicaiLive2DService.revision.removeListener(_checkModel);
     _channel?.setMethodCallHandler(null);
     _channel = null;

@@ -40,12 +40,12 @@ require(
     "UserReplyLivenessPolicy.choose",
     "grounded_reply_retry_degraded_pass",
     "finalProvider.isGeminiRelay",
-    "await generateCheckedDeepSeek(correctionMessages)",
+    "await generateFinal(correctionMessages)",
     "preferCompletedCorrection: initialWasGemini && finalTextFromGemini",
     "User turns are reply-live",
 )
 runner = read("lib/core/ai/durable_generation_runner.dart")
-assert "finalProvider.isGeminiRelay && providerNotice?.isNotEmpty == true" in runner, (
+assert "if (!finalRoute.useSecondChannel)" in runner and "finalRoute.recordFailure(lastError!)" in runner, (
     "DeepSeek repairs only after the configured final channel failed"
 )
 require(

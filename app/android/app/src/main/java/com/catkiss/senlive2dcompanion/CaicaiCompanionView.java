@@ -24,7 +24,7 @@ import java.util.List;
  * {@link #onHostResume()}, {@link #onHostPause()} and {@link #release()} from the matching owner
  * lifecycle. One released instance must not be reused.</p>
  */
-public final class CaicaiCompanionView extends CaicaiTextureSurface implements SenCompanionController {
+public final class CaicaiCompanionView extends GLSurfaceView implements SenCompanionController {
     public interface Listener {
         // Renderer callbacks arrive on the GL thread. UI hosts must marshal them to their UI
         // thread; the included MainActivity demonstrates that boundary.
@@ -50,6 +50,16 @@ public final class CaicaiCompanionView extends CaicaiTextureSurface implements S
                                                     boolean frontHairExperiment) { }
     };
 
+    private static final java.util.concurrent.Semaphore FRAMEWORK_OWNER =
+            new java.util.concurrent.Semaphore(1, true);
+    private boolean ownsFramework;
+    private volatile int contexts, surfaces;
+    private volatile long frames;
+    private long nextFrameNanos;
+    private final java.util.concurrent.CountDownLatch releaseComplete =
+            new java.util.concurrent.CountDownLatch(1);
+    private String readyAfterDraw;
+    private boolean frameFailed;
     private final SenRenderer renderer;
     private volatile Listener listener = NO_OP_LISTENER;
     private volatile boolean released;
@@ -61,16 +71,21 @@ public final class CaicaiCompanionView extends CaicaiTextureSurface implements S
     public CaicaiCompanionView(Context context, AttributeSet attrs) {
         super(context, attrs);
         setBackgroundColor(Color.TRANSPARENT);
+        getHolder().setFormat(PixelFormat.TRANSLUCENT);
+        setEGLContextClientVersion(2);
+        setEGLConfigChooser(8, 8, 8, 8, 24, 0);
         renderer = new SenRenderer(context, new SenRenderer.Listener() {
             @Override public void onStatus(String status) {
                 listener.onStatus(status);
             }
 
             @Override public void onReady(String detail) {
-                listener.onReady(detail);
+                readyAfterDraw = detail;
             }
 
             @Override public void onError(Throwable error) {
+                frameFailed = true;
+                readyAfterDraw = null;
                 listener.onError(error);
             }
 
@@ -90,8 +105,41 @@ public final class CaicaiCompanionView extends CaicaiTextureSurface implements S
                 listener.onMaidHairPointPicked(anchorJson, frontHairExperiment);
             }
         });
-        setRenderer(renderer);
+        setRenderer(new GLSurfaceView.Renderer() {
+            @Override public void onSurfaceCreated(javax.microedition.khronos.opengles.GL10 gl,
+                    javax.microedition.khronos.egl.EGLConfig config) {
+                if (released) return;
+                if (!ownsFramework) {
+                    FRAMEWORK_OWNER.acquireUninterruptibly();
+                    ownsFramework = true;
+                }
+                if (released) return;
+                contexts++;
+                renderer.onSurfaceCreated(gl, config);
+            }
+            @Override public void onSurfaceChanged(javax.microedition.khronos.opengles.GL10 gl,
+                    int width, int height) {
+                if (!released) { surfaces++; renderer.onSurfaceChanged(gl, width, height); }
+            }
+            @Override public void onDrawFrame(javax.microedition.khronos.opengles.GL10 gl) {
+                if (released) return;
+                long delay = nextFrameNanos - System.nanoTime();
+                if (delay > 0) java.util.concurrent.locks.LockSupport.parkNanos(delay);
+                if (released) return;
+                nextFrameNanos = System.nanoTime() + 33_333_333L;
+                frameFailed = false;
+                renderer.onDrawFrame(gl);
+                frames++;
+                // Resource-ready alone is not a successful model frame.
+                if (!frameFailed && readyAfterDraw != null) {
+                    String detail = readyAfterDraw;
+                    readyAfterDraw = null;
+                    listener.onReady(detail);
+                }
+            }
+        });
         setRenderMode(RENDERMODE_CONTINUOUSLY);
+        setPreserveEGLContextOnPause(true);
     }
 
     public void setListener(Listener listener) {
@@ -320,13 +368,30 @@ public final class CaicaiCompanionView extends CaicaiTextureSurface implements S
         // texture deletion and Cubism renderer teardown on the context-owning thread.
         queueEvent(() -> {
             // A view removed before its first frame never owned Cubism globals.
-            if (ownsRendererContext()) renderer.release();
+            try { if (ownsFramework) renderer.release(); }
+            finally {
+                if (ownsFramework) { ownsFramework = false; FRAMEWORK_OWNER.release(); }
+                releaseComplete.countDown();
+            }
         });
-        closeSurface();
         listener = NO_OP_LISTENER;
     }
 
-    @Override protected void onSurfaceFailure(Throwable failure) { listener.onError(failure); }
+    @Override protected void onDetachedFromWindow() {
+        // GLSurfaceView exits before draining events when detached. Finish the queued
+        // teardown first, including when this view was already paused in another tab.
+        release();
+        try {
+            if (!releaseComplete.await(3, java.util.concurrent.TimeUnit.SECONDS)) {
+                android.util.Log.e("CaicaiGL", "Timed out releasing detached renderer");
+            }
+        } catch (InterruptedException error) { Thread.currentThread().interrupt(); }
+        super.onDetachedFromWindow();
+    }
+
+    public String surfaceDiagnostics() {
+        return "glsurface contexts=" + contexts + " surfaces=" + surfaces + " frames=" + frames;
+    }
 
     void playTimedPreset(String name) { queueRenderer(() -> renderer.playTimedPreset(name)); }
 

@@ -7,6 +7,7 @@ import 'package:http/http.dart' as http;
 import 'chat_api_provider.dart';
 import 'generation_cancellation.dart';
 import 'model_profile.dart';
+import 'final_reply_route.dart';
 
 class DeepSeekToolCallDelta {
   const DeepSeekToolCallDelta({
@@ -159,7 +160,9 @@ class DeepSeekClient {
       configuredModel: modelName,
     );
     final canonicalTools = _canonicalTools(tools);
-    final promptShape = _promptShape(messages, canonicalTools);
+    final requestMessages = provider.isGeminiRelay
+        ? FinalReplyRoute.prepareMessages(messages) : messages;
+    final promptShape = _promptShape(requestMessages, canonicalTools);
     final request = http.Request('POST', Uri.parse(endpoint))
       ..headers.addAll({
         'Content-Type': 'application/json',
@@ -168,7 +171,7 @@ class DeepSeekClient {
       })
       ..body = jsonEncode({
         'model': effectiveModel,
-        'messages': messages,
+        'messages': requestMessages,
         ...provider.thinkingRequestFields(
           thinking: thinking,
           effort: effort,

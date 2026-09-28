@@ -31,6 +31,7 @@ import 'immersive_nsfw_router.dart';
 import 'immersive_prompt_builder.dart';
 import 'immersive_room_repository.dart';
 import 'immersive_scene_advance.dart';
+import '../ai/final_reply_route.dart';
 
 class ImmersiveRoomController extends ChangeNotifier {
   ImmersiveRoomController({
@@ -511,7 +512,8 @@ class ImmersiveRoomController extends ChangeNotifier {
     required bool captureReasoning,
   }) async {
     _lastFinalReplyUsedFallback = false;
-    if (!finalProvider.isGeminiRelay) {
+    final finalRoute = FinalReplyRoute(secondChannelEnabled: finalProvider.isGeminiRelay);
+    if (!finalRoute.useSecondChannel) {
       return _streamRequest(
         apiKey: internalApiKey,
         endpoint: internalEndpoint,
@@ -576,6 +578,7 @@ class ImmersiveRoomController extends ChangeNotifier {
     notice =
         '第二通道调用失败（${FinalReplyFailurePolicy.userCategory(lastError!)}），本轮已由 DeepSeek 兜底。';
     await db.setSetting(_fallbackNoticeSettingKey, notice!);
+    finalRoute.recordFailure(lastError!);
     _lastFinalReplyUsedFallback = true;
     _safeNotify();
     return _streamRequest(

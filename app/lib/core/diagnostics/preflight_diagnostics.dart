@@ -585,6 +585,14 @@ class PreflightDiagnosticsService {
       report['modelUsage'] = _modelUsageSummary(
         await db.getSetting('deepseek_usage_telemetry_v1') ?? '',
       );
+      report['finalReplyRouting'] = {
+        'configuredProvider': (await SecureConfig.instance.readChatProvider()).storageValue,
+        'policy': 'second_channel_for_body_and_semantic_repair; fallback_only_after_channel_failure',
+        // These are last notices, not evidence that every earlier turn used a provider.
+        'lastProactiveNotice': await db.getSetting('proactive_last_final_provider_notice') ?? '',
+        'lastRoomNotice': await db.getSetting('cedar_room_last_final_provider_notice') ?? '',
+        'lastCalendarNotice': await db.getSetting('calendar_last_final_provider_notice') ?? '',
+      };
 
       report['database'] = {
         'schemaVersion': AppDatabase.schemaVersion,

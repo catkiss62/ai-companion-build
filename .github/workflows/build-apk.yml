@@ -404,7 +404,7 @@
 # Historical +240 validator tokens: agent/v04196-sen-hybrid-composition | AI-Companion-v0.41.96-240-Sen-Hybrid-Composition-Hotfix-APK | v0.41.96-sen-hybrid-composition-hotfix-test
 # Historical +241 validator tokens: agent/v04197-no-canned-fallbacks | AI-Companion-v0.41.97-241-Natural-Reply-Liveness-APK | v0.41.97-natural-reply-liveness-test
 # Historical +242 validator tokens: agent/v04198-sen-texture-direct-port | AI-Companion-v0.41.98-242-Sen-Direct-Port-APK | v0.41.98-sen-direct-port-test | .ci/v04198-monitor.txt
-name: Build AI Companion v0.42.40+284 APK (Gemini Reply, Cedar Routing and Caicai Emotion)
+name: Build AI Companion v0.42.41+285 APK (Gemini Reply, Cedar Routing and Caicai Emotion)
 
 # BUILD INPUTS: The 96-clip source ZIP is private Draft Release asset 591363139
 # (release 397377805), fetched and SHA-256 checked below. The persistent
@@ -619,8 +619,40 @@ jobs:
             echo 'The full APK build is intentionally skipped; no project source, asset, configuration, or workflow file changed.'
           } >> "${GITHUB_STEP_SUMMARY}"
 
-  build-apk:
+  caicai-native-smoke:
     needs: detect-change-scope
+    if: ${{ needs.detect-change-scope.outputs.run-full-build == 'true' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - name: Enable emulator acceleration
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+      - name: Android native constructor, lifecycle and import transactions
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 29
+          arch: x86_64
+          target: default
+          disable-animations: true
+          emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none
+          script: cd app/android && chmod +x gradlew && ./gradlew -p ../tools/caicai_smoke connectedDebugAndroidTest --stacktrace
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: Caicai-v04241-native-smoke-results
+          path: app/tools/caicai_smoke/build/outputs/androidTest-results/
+          retention-days: 14
+
+  build-apk:
+    needs: [detect-change-scope, caicai-native-smoke]
     if: ${{ needs.detect-change-scope.outputs.run-full-build == 'true' }}
     runs-on: ubuntu-latest
     timeout-minutes: 120
@@ -922,7 +954,7 @@ jobs:
         run: |
           set -euo pipefail
           test -f app/pubspec.yaml
-          grep -Fqx 'version: 0.42.40+284' app/pubspec.yaml
+          grep -Fqx 'version: 0.42.41+285' app/pubspec.yaml
           grep -Fqx '  static const int schemaVersion = 61;' app/lib/core/database/app_database.dart
           test -d app/lib
           test -d app/android
@@ -936,7 +968,7 @@ jobs:
           test -f app/android/app/src/main/jniLibs/arm64-v8a/libc++_shared.so
           test ! -d app/android/app/src/main/assets/tts_models
           test ! -d app/android/app/src/main/assets/legacy_tts
-          echo 'Building v0.42.40+284 calibrated Caicai performance, stage interaction and normal-form heat.'
+          echo 'Building v0.42.41+285 native Caicai recovery, canonical model import and second-channel final replies.'
 
       - name: Generate complete pet clips from pinned Draft Release asset
         shell: bash
@@ -1482,26 +1514,26 @@ jobs:
           APK='app/build/app/outputs/flutter-apk/app-release.apk'
           sha256sum "$APK" | tee app/app-release.apk.sha256
 
-      - name: Upload v0.42.40+284 APK as workflow artifact
+      - name: Upload v0.42.41+285 APK as workflow artifact
         uses: actions/upload-artifact@v4
         with:
-          name: AI-Companion-v0.42.40-284-Caicai-Performance-APK
+          name: AI-Companion-v0.42.41-285-Caicai-Repair-APK
           path: |
             app/build/app/outputs/flutter-apk/app-release.apk
             app/app-release.apk.sha256
           if-no-files-found: error
           retention-days: 14
 
-      - name: Upload v0.42.40+284 APK to draft release
+      - name: Upload v0.42.41+285 APK to draft release
         shell: bash
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
-          TAG='v0.42.40-caicai-performance-test'
-          APK_NAME='AI-Companion-v0.42.40-284-Caicai-Performance-APK.apk'
+          TAG='v0.42.41-caicai-repair-test'
+          APK_NAME='AI-Companion-v0.42.41-285-Caicai-Repair-APK.apk'
           SHA_NAME="${APK_NAME}.sha256"
-          CI_NAME='AI-Companion-v0.42.40-284-Caicai-Performance-CI-Monitor.txt'
+          CI_NAME='AI-Companion-v0.42.41-285-Caicai-Repair-CI-Monitor.txt'
           cp app/build/app/outputs/flutter-apk/app-release.apk "app/${APK_NAME}"
           sed "s#app/build/app/outputs/flutter-apk/app-release.apk#${APK_NAME}#" \
             app/app-release.apk.sha256 > "app/${SHA_NAME}"
@@ -1518,14 +1550,14 @@ jobs:
               --repo "${GITHUB_REPOSITORY}" \
               --target "${GITHUB_SHA}" \
               --draft \
-              --title 'AI Companion v0.42.40+284 Gemini reply, Cedar routing and Caicai emotion controls' \
-              --notes 'Unpublished schema-61 test: use one trusted accessibility overlay with idle-front input bounds and old logical docking; retain the Sen-style AndroidView across tabs and keep its height fixed during IME resize. Requires device verification; private model ZIP is excluded from public source.'
+              --title 'AI Companion v0.42.41+285 Live2D recovery and complete second-channel routing' \
+              --notes 'Unpublished schema-61 test: restore native GLSurfaceView with 30 FPS pacing, canonical transactional model imports and honest loading errors; keep all +284 performance and interaction features. All visible reply routes retain the configured second channel through semantic correction, with DeepSeek fallback only after channel failure (including HTTP 400). Update only pictured pet defaults. Native emulator and CI checks do not replace private-model real-device verification.'
           else
             gh release edit "${TAG}" \
               --repo "${GITHUB_REPOSITORY}" \
               --target "${GITHUB_SHA}" \
-              --title 'AI Companion v0.42.40+284 Gemini reply, Cedar routing and Caicai emotion controls' \
-              --notes 'Unpublished schema-61 test: use one trusted accessibility overlay with idle-front input bounds and old logical docking; retain the Sen-style AndroidView across tabs and keep its height fixed during IME resize. Requires device verification; private model ZIP is excluded from public source.'
+              --title 'AI Companion v0.42.41+285 Live2D recovery and complete second-channel routing' \
+              --notes 'Unpublished schema-61 test: restore native GLSurfaceView with 30 FPS pacing, canonical transactional model imports and honest loading errors; keep all +284 performance and interaction features. All visible reply routes retain the configured second channel through semantic correction, with DeepSeek fallback only after channel failure (including HTTP 400). Update only pictured pet defaults. Native emulator and CI checks do not replace private-model real-device verification.'
           fi
           RELEASE_URL="$(gh release view "${TAG}" --repo "${GITHUB_REPOSITORY}" --json url --jq '.url')"
           echo "release_url=${RELEASE_URL}" >> "app/${CI_NAME}"
@@ -1550,13 +1582,13 @@ jobs:
           MONITOR_SHA="$(gh api "/repos/${GITHUB_REPOSITORY}/contents/${MONITOR_PATH}?ref=${MONITOR_BRANCH}" --jq '.sha' 2>/dev/null || true)"
           if test -n "${MONITOR_SHA}"; then
             gh api --method PUT "/repos/${GITHUB_REPOSITORY}/contents/${MONITOR_PATH}" \
-              -f message='Update v0.42.40 CI success monitor' \
+              -f message='Update v0.42.41 CI success monitor' \
               -f content="${MONITOR_CONTENT}" \
               -f branch="${MONITOR_BRANCH}" \
               -f sha="${MONITOR_SHA}" >/dev/null
           else
             gh api --method PUT "/repos/${GITHUB_REPOSITORY}/contents/${MONITOR_PATH}" \
-              -f message='Create v0.42.40 CI success monitor' \
+              -f message='Create v0.42.41 CI success monitor' \
               -f content="${MONITOR_CONTENT}" \
               -f branch="${MONITOR_BRANCH}" >/dev/null
           fi
@@ -1564,6 +1596,7 @@ jobs:
   report-ci-failure:
     needs:
       - detect-change-scope
+      - caicai-native-smoke
       - build-apk
     if: ${{ always() && needs.detect-change-scope.outputs.run-full-build == 'true' && needs.build-apk.result != 'success' }}
     runs-on: ubuntu-latest
@@ -1577,8 +1610,8 @@ jobs:
           BUILD_RESULT: ${{ needs.build-apk.result }}
         run: |
           set -uo pipefail
-          TAG='v0.42.40-caicai-performance-test'
-          CI_NAME='AI-Companion-v0.42.40-284-Caicai-Performance-CI-Monitor.txt'
+          TAG='v0.42.41-caicai-repair-test'
+          CI_NAME='AI-Companion-v0.42.41-285-Caicai-Repair-CI-Monitor.txt'
           REPORT="${RUNNER_TEMP}/${CI_NAME}"
           JOBS_JSON="${RUNNER_TEMP}/jobs.json"
           {
@@ -1619,8 +1652,8 @@ jobs:
               --repo "${GITHUB_REPOSITORY}" \
               --target "${GITHUB_SHA}" \
               --draft \
-              --title 'AI Companion v0.42.40+284 Gemini reply, Cedar routing and Caicai emotion controls' \
-              --notes 'Unpublished Draft failure diagnostics for the Gemini reply, Cedar routing and Caicai emotion controls test. No user content, keys, backups or device diagnostics are included.'
+              --title 'AI Companion v0.42.41+285 Live2D recovery and complete second-channel routing' \
+              --notes 'Unpublished Draft failure diagnostics for the Live2D recovery and complete second-channel routing test. No user content, keys, backups or device diagnostics are included.'
           fi
           RELEASE_URL="$(gh release view "${TAG}" --repo "${GITHUB_REPOSITORY}" --json url --jq '.url')"
           echo "release_url=${RELEASE_URL}" >> "${REPORT}"
@@ -1634,13 +1667,13 @@ jobs:
           MONITOR_SHA="$(gh api "/repos/${GITHUB_REPOSITORY}/contents/${MONITOR_PATH}?ref=${MONITOR_BRANCH}" --jq '.sha' 2>/dev/null || true)"
           if test -n "${MONITOR_SHA}"; then
             gh api --method PUT "/repos/${GITHUB_REPOSITORY}/contents/${MONITOR_PATH}" \
-              -f message='Update v0.42.40 CI failure monitor' \
+              -f message='Update v0.42.41 CI failure monitor' \
               -f content="${MONITOR_CONTENT}" \
               -f branch="${MONITOR_BRANCH}" \
               -f sha="${MONITOR_SHA}" >/dev/null
           else
             gh api --method PUT "/repos/${GITHUB_REPOSITORY}/contents/${MONITOR_PATH}" \
-              -f message='Create v0.42.40 CI failure monitor' \
+              -f message='Create v0.42.41 CI failure monitor' \
               -f content="${MONITOR_CONTENT}" \
               -f branch="${MONITOR_BRANCH}" >/dev/null
           fi
