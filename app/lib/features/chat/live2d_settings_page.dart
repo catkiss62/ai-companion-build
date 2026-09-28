@@ -84,7 +84,7 @@ class _Live2DSettingsPageState extends State<Live2DSettingsPage> {
     if (mounted) Navigator.of(context).popUntil((route)=>route.isFirst);
   });
   Widget _tuner(String label,double value,double min,double max,ValueChanged<double> change) => Column(
-    crossAxisAlignment:CrossAxisAlignment.start,children:[Text(label),Slider(value:value.clamp(min,max),
+    crossAxisAlignment:CrossAxisAlignment.start,children:[Text(label),Slider(value:value.clamp(min,max).toDouble(),
       min:min,max:max,onChanged:_busy?null:change,onChangeEnd:(_)=>_saveTuning())]);
   Widget _presets(String label, List<String> names) => Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
     const SizedBox(height: 18), Text(label, style: Theme.of(context).textTheme.titleMedium),
