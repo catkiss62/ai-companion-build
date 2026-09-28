@@ -30,7 +30,8 @@ void main() {
       final client = DeepSeekClient(streamClientFactory: () => MockClient((request) async {
         requests.add(jsonDecode(request.body) as Map<String, dynamic>);
         return http.Response('data: {"choices":[{"delta":{"content":"正文"},"finish_reason":"stop"}]}\n\n'
-            'data: [DONE]\n\n', 200, headers: {'content-type': 'text/event-stream'});
+            'data: [DONE]\n\n', 200, encoding: utf8,
+            headers: {'content-type': 'text/event-stream; charset=utf-8'});
       }));
       final route = FinalReplyRoute(secondChannelEnabled: true);
       const source = <Map<String, Object?>>[{'role': 'system', 'content': '真实事件'}];
@@ -58,7 +59,7 @@ void main() {
       final body = jsonDecode(request.body) as Map;
       models.add(body['model'] as String);
       return models.length == 1 ? http.Response('{"error":{"message":"bad request"}}', 400)
-          : http.Response('data: {"choices":[{"delta":{"content":"正文"},"finish_reason":"stop"}]}\n\ndata: [DONE]\n\n', 200);
+          : http.Response('data: {"choices":[{"delta":{"content":"正文"},"finish_reason":"stop"}]}\n\ndata: [DONE]\n\n', 200, encoding: utf8);
     }));
     Future<void> request(FinalReplyRoute route) => client.streamChat(apiKey: 'test',
       model: DeepSeekModelProfile.flash, effort: ReasoningEffort.high,
