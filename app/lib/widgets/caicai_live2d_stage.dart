@@ -5,6 +5,7 @@ import 'package:flutter/services.dart';
 class CaicaiLive2DService {
   CaicaiLive2DService._();
   static const _channel = MethodChannel('ai_companion/caicai_live2d');
+  static final editor = ValueNotifier<Map<String, Object?>?>(null);
   static final revision = ValueNotifier<int>(0);
   static Future<Map<String, Object?>> get diagnostics async =>
       (await _channel.invokeMapMethod<String, Object?>('status')) ?? const {};

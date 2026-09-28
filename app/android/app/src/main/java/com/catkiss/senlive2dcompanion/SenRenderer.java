@@ -480,6 +480,10 @@ final class SenRenderer implements GLSurfaceView.Renderer {
     }
 
     // BEGIN AI_COMPANION_HOST_EXTENSION
+    void playTimedPreset(String name) { if (model != null) model.playTimedPreset(name); }
+    void setCaicaiLook(boolean active, float x, float y) {
+        if (model != null) model.setCaicaiLook(active, x, y);
+    }
     String motionParameters() { return model == null ? "{}" : model.motionParameters(); }
     void setSmallForm(boolean small) { if (model != null) model.setSmallForm(small); }
     void startParameterPlan(String json, String face, String action) {

@@ -51,6 +51,14 @@ class _Live2DSettingsPageState extends State<Live2DSettingsPage> {
   Future<void> _control(String method, [Object? value]) => _run(() async {
     final result = await CaicaiLive2DService.command(method, value);
     if (result == false) throw StateError('请先在聊天画面加载 Live2D 模型，再使用动作控制');
+    if (mounted) Navigator.of(context).popUntil((route) => route.isFirst);
+  });
+  Future<void> _edit(String mode) => _run(() async {
+    FocusManager.instance.primaryFocus?.unfocus();
+    final state = await CaicaiLive2DService.command('beginEdit');
+    if (state is! Map) throw StateError('请先在聊天画面加载模型');
+    CaicaiLive2DService.editor.value = {'mode': mode, 'state': state};
+    if (mounted) Navigator.of(context).popUntil((route) => route.isFirst);
   });
   Widget _presets(String label, List<String> names) => Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
     const SizedBox(height: 18), Text(label, style: Theme.of(context).textTheme.titleMedium),
@@ -77,7 +85,7 @@ class _Live2DSettingsPageState extends State<Live2DSettingsPage> {
           SwitchListTile(title: const Text('Jev 对话动作'), value: _motion,
             subtitle: const Text('复用已配置的 Jev，每条新回复批量判断短时动作；自主呼吸和眨眼由本机驱动'),
             onChanged: _busy ? null : (value) => _run(() => _db.setSetting('caicai_jev_motion', value ? '1' : '0'))),
-          const Text('下面的控制应用到已打开的聊天舞台。再次点击同一预设可关闭。'),
+          const Text('点击后返回聊天查看。临时表情和动作 4.5 秒后结束；装扮及聊天情绪保持。'),
           const SizedBox(height: 18),
           Text('聊天情绪预览（19 种）', style: Theme.of(context).textTheme.titleMedium),
           Wrap(spacing: 8, children: [
@@ -101,8 +109,8 @@ class _Live2DSettingsPageState extends State<Live2DSettingsPage> {
           _presets('装扮', ['1白袜','丝袜带子','双马尾','发带']),
           const SizedBox(height: 16),
           Wrap(spacing: 8, children: [
-            ActionChip(label: const Text('调整位置与缩放'), onPressed: _busy ? null : () => _control('adjustStage', true)),
-            ActionChip(label: const Text('结束调整'), onPressed: _busy ? null : () => _control('adjustStage', false)),
+            ActionChip(label: const Text('调整位置与缩放'), onPressed: _busy ? null : () => _edit('stage')),
+            ActionChip(label: const Text('调整摸头区域'), onPressed: _busy ? null : () => _edit('head')),
             ActionChip(label: const Text('还原位置'), onPressed: _busy ? null : () => _control('resetStage')),
             ActionChip(label: const Text('清除手动预设'), onPressed: _busy ? null : () => _control('resetPresets')),
             ActionChip(label: const Text('重载模型'), onPressed: _busy ? null : () => _control('reloadModel')),

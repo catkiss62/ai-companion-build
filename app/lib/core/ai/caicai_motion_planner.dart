@@ -11,13 +11,18 @@ class CaicaiMotionPlanner {
   final JevDecisionGateway gateway;
   static const channels = <String, Map<String, Map<String, double>>>{
     'head': {
-      '自然待机': {}, '左侧头': {'ParamAngleX3': -16}, '右侧头': {'ParamAngleX3': 16},
-      '低头': {'ParamAngleY2': -12}, '抬头': {'ParamAngleY2': 12},
-      '左歪头': {'ParamAngleZ': -14, 'ParamAngleZ2': -14},
-      '右歪头': {'ParamAngleZ': 14, 'ParamAngleZ2': 14},
+      '自然待机': {}, '左侧头': {'ParamAngleX3': -27}, '右侧头': {'ParamAngleX3': 27},
+      '低头': {'ParamAngleY2': -24}, '抬头': {'ParamAngleY2': 24},
+      '左歪头': {'ParamAngleZ': -24, 'ParamAngleZ2': -24},
+      '右歪头': {'ParamAngleZ': 24, 'ParamAngleZ2': 24},
+      '探头打量': {'ParamAngleX3': 23, 'ParamAngleY2': -12, 'ParamAngleZ': -18, 'ParamAngleZ2': -18},
+      '扬头得意': {'ParamAngleY2': 25, 'ParamAngleZ': 16, 'ParamAngleZ2': 16},
     },
-    'body': {'自然待机': {}, '轻轻下压': {'ParamBodyAngleY': -4},
-      '轻轻踮起': {'ParamBodyAngleY': 4}, '左摆': {'ParamBodyAngleZ': -4}, '右摆': {'ParamBodyAngleZ': 4}},
+    'body': {'自然待机': {}, '左移重心': {'ParamBodyAngleX': -9, 'ParamBodyAngleZ': 5},
+      '右移重心': {'ParamBodyAngleX': 9, 'ParamBodyAngleZ': -5},
+      '兴奋踮起': {'ParamBodyAngleY': 9, 'ParamBodyAngleZ': 6},
+      '俏皮侧身': {'ParamBodyAngleX': 8, 'ParamBodyAngleY': -5, 'ParamBodyAngleZ': -8}, '轻轻下压': {'ParamBodyAngleY': -8},
+      '轻轻踮起': {'ParamBodyAngleY': 8}, '左摆': {'ParamBodyAngleZ': -8}, '右摆': {'ParamBodyAngleZ': 8}},
     'gaze': {'自然视线': {}, '看左': {'ParamEyeBallX': -.7}, '看右': {'ParamEyeBallX': .7},
       '看上': {'ParamEyeBallY': .6}, '看下': {'ParamEyeBallY': -.6}},
     'mouth': {'自然嘴型': {}, '不高兴': {'ParamMouthForm': -1}, '顽皮笑': {'ParamMouthForm': 1},
@@ -45,7 +50,9 @@ class CaicaiMotionPlanner {
         }
         if (options.length > 1) questions['f${frame}_${entry.key}'] = JevChoiceQuestion(
           '这是回复开始后第${frame + 1}秒的${entry.key}动作。根据用户要求、回复语气与动作描写选择；'
-          '自然交流允许保持待机，不需要每秒换动作。显式动作尽早执行；随后恢复自然。', options);
+          '把四段当成一次连贯的表演：起意、强调、反应、收势。根据回复实际语气选择可见的转头、点头或身体动作；'
+          '避免四段全选自然待机，也不要每段重复同一姿势。安静或严肃语境可克制；俏皮、兴奋时使用完整幅度。'
+          '头和身方向有配合但不必同向；显式动作尽早执行。自然待机仍有本地重心和头身运动。', options);
       }
     }
     questions['face'] = JevChoiceQuestion('选择本次短时原装表情，情绪不明显时选无。', {for (final x in faces) x: x});
@@ -78,7 +85,14 @@ class CaicaiMotionPlanner {
           targets[target.key] = target.value.clamp(min, max).toDouble();
         }
       }
-      frames.add({'time': frame.toDouble(), 'duration': .8, 'parameters': targets});
+      frames.add({'time': frame.toDouble(), 'duration': .32, 'parameters': targets});
+      // A hip shift, wink or tongue is a gesture with a return, never a held latch.
+      if (targets.keys.any((id) => const {'OUT','ParamEyeLOpen','ParamEyeROpen','ParamBodyAngleX'}.contains(id))) {
+        final release = Map<String,double>.from(targets)
+          ..removeWhere((id, _) => const {'OUT','ParamEyeLOpen','ParamEyeROpen',
+            'ParamEyeLSmile','ParamEyeRSmile','ParamBodyAngleX'}.contains(id));
+        frames.add({'time': frame + .55, 'duration': .25, 'parameters': release});
+      }
     }
     return {'frames': frames,
       'face': faces.contains(answers['face']) && answers['face'] != '无' ? answers['face'] : '',

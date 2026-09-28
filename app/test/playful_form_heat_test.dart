@@ -4,6 +4,20 @@ import 'package:ai_companion_localfirst/core/personality/playful_form_state.dart
 void main() {
   final now = DateTime.utc(2026, 9, 26);
 
+  test('normal form keeps neutral heat and accumulates playful turns without Q cooling', () {
+    var state = const PlayfulFormState();
+    for (var i=0; i<3; i++) {
+      state=state.advance(PlayfulInteraction.mutual, 'u$i', now)
+        .onAssistantTurn(PlayfulSelfActivity.playful, 'a$i', now);
+    }
+    expect(state.heat, 99);
+    expect(state.qForm, isFalse);
+    state=state.advance(PlayfulInteraction.ordinary,'neutral',now)
+      .onAssistantTurn(PlayfulSelfActivity.none,'neutral-reply',now);
+    expect(state.heat, 99);
+    expect(state.onAssistantTurn(PlayfulSelfActivity.none,'neutral-reply',now).heat,99);
+  });
+
   test('both contributions settle before zero and switch', () {
     final ordinary = const PlayfulFormState(heat: 19, qForm: true)
         .advance(PlayfulInteraction.ordinary, 'user-a', now);

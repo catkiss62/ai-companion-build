@@ -31,7 +31,7 @@ assert 'keepPetAboveChat("chat_input_exit")' not in service
 assert "private fun removeOwnedEntryWindow(view: View): Boolean" in service
 assert "if (bubble != null && !removeOwnedEntryWindow(bubble))" in service
 assert "live2dOnScreen" not in chat
-assert "height: constraints.maxHeight," in chat
+assert "height: _caicaiEnabled ? _caicaiStableHeight : constraints.maxHeight" in chat
 assert "AndroidView(" in (app / "lib/widgets/caicai_live2d_stage.dart").read_text()
 assert "setZOrderMediaOverlay(true)" not in caicai
 assert "companion.visibility = View.GONE" in caicai

@@ -38,6 +38,18 @@ void main() {
       emotion: 'normal', parameters: {'ParamAngleX3': {'min': -30, 'max': 30}}), isNull);
     expect(calls, 1);
   });
+  test('hip and tongue gestures release within the same conversational beat', () {
+    final plan = CaicaiMotionPlanner.buildPlan({'f0_body':'左移重心','f0_mouth':'吐舌'}, {
+      'ParamBodyAngleX':{'min':-10,'max':10}, 'ParamBodyAngleZ':{'min':-10,'max':10},
+      'OUT':{'min':0,'max':1},
+    });
+    final frames=plan['frames'] as List;
+    expect(frames[0]['parameters']['ParamBodyAngleX'],-9);
+    expect(frames[0]['parameters']['OUT'],1);
+    expect(frames[1]['time'],.55);
+    expect((frames[1]['parameters'] as Map).containsKey('OUT'),isFalse);
+    expect((frames[1]['parameters'] as Map).containsKey('ParamBodyAngleX'),isFalse);
+  });
   test('nineteen dialog emotions use the native Caicai IDs', () {
     expect(CaicaiMotionPlanner.buildPlan({'emotion': 'crying'}, {})['emotion'], 'sad');
     expect(CaicaiMotionPlanner.buildPlan({'emotion': 'nervous'}, {})['emotion'], 'tense');

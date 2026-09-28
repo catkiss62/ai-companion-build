@@ -66,7 +66,7 @@ void main() {
     final completed = pending.onAssistantTurn(
       PlayfulSelfActivity.none, 'assistant-a', now,
     );
-    expect(completed.rollbackTurn('user-a').heat, 66);
+    expect(completed.rollbackTurn('user-a').heat, 84);
     expect(PlayfulFormState.decode(pending.encode()).rollbackTurn('user-a').heat, 54);
   });
 

@@ -18,7 +18,7 @@ def require(condition: bool, detail: str) -> None:
 def tree_digest(relative: str, expected_count: int, expected_hash: str) -> None:
     root = ANDROID / relative
     files = sorted(path for path in root.rglob("*") if path.is_file()
-                   and path.name not in {"CubismShaderAndroid.java", "CubismRendererAndroid.java", "CaicaiParameterPlan.java"})
+                   and path.name not in {"CubismShaderAndroid.java", "CubismRendererAndroid.java", "CaicaiParameterPlan.java", "CaicaiIdleMotion.java", "CaicaiFaceMotion.java", "CaicaiCompanionView.java", "CaicaiTextureSurface.java"})
     digest = hashlib.sha256()
     for path in files:
         digest.update(str(path.relative_to(root)).encode())

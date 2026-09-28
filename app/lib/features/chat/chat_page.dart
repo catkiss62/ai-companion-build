@@ -1,3 +1,4 @@
+import '../../widgets/caicai_stage_editor.dart';
 import 'dart:async';
 import 'dart:io';
 
@@ -90,6 +91,7 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
   double _panelOpacity = 0.75;
   double _panelFraction = 0.62;
   ChatPortraitSet _portraitSet = ChatPortraitSet.largeWhale;
+  double? _caicaiStableHeight;
   bool _caicaiEnabled = false;
   final _caicaiMotion = CaicaiChatMotion();
   PlayfulFormState _playfulForm = const PlayfulFormState();
@@ -1359,9 +1361,15 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
         Expanded(
           child: LayoutBuilder(
             builder: (context, constraints) {
+              final keyboardInset = MediaQuery.viewInsetsOf(context).bottom;
+              if (keyboardInset == 0 || _caicaiStableHeight == null) {
+                _caicaiStableHeight = constraints.maxHeight + keyboardInset;
+              }
               final fraction = _visualStageEnabled ? _panelFraction : 1.0;
               final panelHeight = constraints.maxHeight * fraction;
-              return Stack(
+              return ValueListenableBuilder<Map<String, Object?>?>(
+                valueListenable: CaicaiLive2DService.editor,
+                builder: (context, edit, _) => Stack(
                 fit: StackFit.expand,
                 children: [
                   if (_visualStageEnabled) ...[
@@ -1374,7 +1382,7 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
                     ),
                     Positioned(
                       left: 0, right: 0, top: 0,
-                      height: constraints.maxHeight,
+                      height: _caicaiEnabled ? _caicaiStableHeight : constraints.maxHeight,
                       child: _caicaiEnabled
                           ? CaicaiLive2DStage(qForm: _playfulForm.qForm, emotion: _currentEmotion.key)
                           : IgnorePointer(
@@ -1545,8 +1553,12 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
                       onClose: () =>
                           setState(() => _showCedarActivityWindow = false),
                     ),
+                  if (edit != null && _caicaiEnabled)
+                    Positioned.fill(child: CaicaiStageEditor(
+                      key: ValueKey(edit), mode: edit['mode']! as String,
+                      initial: edit['state']! as Map<Object?, Object?>)),
                 ],
-              );
+              ));
             },
           ),
         ),

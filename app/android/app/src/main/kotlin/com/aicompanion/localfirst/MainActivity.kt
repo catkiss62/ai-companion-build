@@ -22,6 +22,21 @@ class MainActivity : FlutterActivity() {
         volumeControlStream = AudioManager.STREAM_MUSIC
     }
 
+    private var lastCaicaiTouch = 0L
+    override fun dispatchTouchEvent(event: android.view.MotionEvent): Boolean {
+        // Observe without consuming: Flutter text selection, buttons and scrolling retain ownership.
+        val now = android.os.SystemClock.uptimeMillis()
+        if (event.actionMasked == android.view.MotionEvent.ACTION_DOWN ||
+            event.actionMasked == android.view.MotionEvent.ACTION_MOVE && now-lastCaicaiTouch >= 33) {
+            lastCaicaiTouch = now
+            val root = window.decorView
+            com.catkiss.senlive2dcompanion.CaicaiRuntime.observeTouch(
+                (event.x * 2f / root.width.coerceAtLeast(1) - 1f).coerceIn(-1f,1f),
+                (1f - event.y * 2f / root.height.coerceAtLeast(1)).coerceIn(-1f,1f))
+        }
+        return super.dispatchTouchEvent(event)
+    }
+
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
         bridge = SystemBridge(this, flutterEngine)

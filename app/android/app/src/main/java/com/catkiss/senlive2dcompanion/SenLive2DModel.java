@@ -398,9 +398,12 @@ final class SenLive2DModel extends CubismUserModel {
     }
 
     // BEGIN AI_COMPANION_HOST_EXTENSION
+    private final CaicaiFaceMotion caicaiFace = new CaicaiFaceMotion();
+    private final CaicaiIdleMotion caicaiIdle = new CaicaiIdleMotion();
     private final CaicaiParameterPlan parameterPlan = new CaicaiParameterPlan();
     private final java.util.Set<String> planOwnedPresets = new java.util.HashSet<>();
-    private float planPresetSeconds;
+    private long planPresetDeadlineNanos;
+    private boolean manualPlan;
 
     String motionParameters() {
         JSONObject result = new JSONObject();
@@ -417,36 +420,65 @@ final class SenLive2DModel extends CubismUserModel {
     }
 
     void startParameterPlan(String json, String face, String action) throws JSONException {
+        if (manualPlan && System.nanoTime() < planPresetDeadlineNanos) return;
         clearParameterPlan();
         parameterPlan.start(json);
         for (String name : new String[]{face, action}) {
             if (name == null || name.isEmpty() || !maidPresetValues.containsKey(name) && !isWinkPreset(name)) continue;
-            // A manual preset owns its group until the user turns it off.
+            // Existing authored appearances remain independent from the conversational plan.
             boolean occupied = false;
             for (String active : activeExpressionNames) {
                 if (active.equals(name) || maidPresetsConflict(name, active)) { occupied = true; break; }
             }
             if (!occupied) { startMaidPreset(name); planOwnedPresets.add(name); }
         }
-        planPresetSeconds = 4.5f;
+        planPresetDeadlineNanos = System.nanoTime() + 4_120_000_000L; // .38s native release completes by 4.5s
+    }
+
+    void playTimedPreset(String name) {
+        clearParameterPlan();
+        if (!maidPresetValues.containsKey(name) && !isWinkPreset(name)) return;
+        startMaidPreset(name);
+        planOwnedPresets.add(name);
+        manualPlan = true;
+        planPresetDeadlineNanos = System.nanoTime() + 4_120_000_000L;
     }
 
     void clearParameterPlan() {
         parameterPlan.clear();
         for (String name : new java.util.ArrayList<>(planOwnedPresets)) stopMaidPreset(name);
         planOwnedPresets.clear();
-        planPresetSeconds = 0f;
+        planPresetDeadlineNanos = 0L;
+        manualPlan = false;
+        if (activeExpressionNames.contains("变小") && !activeExpressionNames.contains("2插手")) startMaidPreset("2插手");
     }
 
+    private void applyCaicaiIdle(float delta) {
+        CaicaiParameterPlan.Target target = new CaicaiParameterPlan.Target() {
+            public boolean accepts(String id) { return findParameterIndex(id) >= 0; }
+            public float current(String id) { return model.getParameterValue(findParameterIndex(id)); }
+            public void write(String id, float value) { setParameter(id, value); }
+        };
+        caicaiIdle.update(delta, target);
+        caicaiFace.update(performance.getEmotion(), delta, target);
+    }
+    void setCaicaiLook(boolean active, float x, float y) { caicaiIdle.look(active, x, y); }
     private void applyParameterPlan(float delta) {
-        if (planPresetSeconds > 0) {
-            planPresetSeconds -= delta;
-            if (planPresetSeconds <= 0) {
+        if (planPresetDeadlineNanos > 0) {
+            if (System.nanoTime() >= planPresetDeadlineNanos) {
+                planPresetDeadlineNanos = 0L;
                 for (String name : new java.util.ArrayList<>(planOwnedPresets)) stopMaidPreset(name);
                 planOwnedPresets.clear();
+                manualPlan = false;
+                if (activeExpressionNames.contains("变小") && !activeExpressionNames.contains("2插手")) startMaidPreset("2插手");
             }
         }
         parameterPlan.apply(delta, new CaicaiParameterPlan.Target() {
+            public boolean accepts(String id) { return findParameterIndex(id) >= 0; }
+            public float current(String id) { return model.getParameterValue(findParameterIndex(id)); }
+            public void write(String id, float value) { setParameter(id, value); }
+        });
+        if (delta > 0) caicaiIdle.applyAttention(new CaicaiParameterPlan.Target() {
             public boolean accepts(String id) { return findParameterIndex(id) >= 0; }
             public float current(String id) { return model.getParameterValue(findParameterIndex(id)); }
             public void write(String id, float value) { setParameter(id, value); }
@@ -514,9 +546,9 @@ final class SenLive2DModel extends CubismUserModel {
                 fadeOutManager(transientExpressionManager, transientExpressionFadeOut);
             }
         }
+        if (compositeRole == CompositeModelRole.MAID_PRIMARY) { applyCaicaiIdle(frameDelta); applyParameterPlan(frameDelta); } // AI_COMPANION_HOST_PLAN_HOOK
         updateScheduler.onLateUpdate(model, frameDelta);
         if (compositeRole == CompositeModelRole.MAID_PRIMARY) {
-            applyParameterPlan(frameDelta); // AI_COMPANION_HOST_PLAN_HOOK
             applyMaidPresetLayer(frameDelta);
         }
         // The authored angry pose crossfades from the previous face for half a second. During
@@ -568,6 +600,7 @@ final class SenLive2DModel extends CubismUserModel {
         // original breath clock, but never wrote its value into the donor model.
         // Supply the same input as Sen's full-model update before native physics runs.
         if (!staticMode) setParameter("ParamBreath", performance.getBreathValue());
+        if (compositeRole == CompositeModelRole.MAID_PRIMARY) { applyCaicaiIdle(frameDelta); applyParameterPlan(frameDelta); } // AI_COMPANION_HOST_PLAN_HOOK
         updateScheduler.onLateUpdate(model, frameDelta);
         applyOutfitParameters(SenOutfitPresets.MAID, null);
         updateModelWithOutfitShapeLock();

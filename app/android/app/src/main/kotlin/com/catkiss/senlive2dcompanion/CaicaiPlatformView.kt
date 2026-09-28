@@ -31,7 +31,7 @@ internal class CaicaiPlatformView(
     context: Context,
     messenger: BinaryMessenger,
     viewId: Int,
-) : PlatformView, MethodChannel.MethodCallHandler, SenCompanionView.Listener {
+) : PlatformView, MethodChannel.MethodCallHandler, CaicaiCompanionView.Listener {
     private val main = Handler(Looper.getMainLooper())
     private val repository = CaicaiModelRepository(context)
     private val app = context.applicationContext
@@ -40,7 +40,7 @@ internal class CaicaiPlatformView(
         descendantFocusability = android.view.ViewGroup.FOCUS_BLOCK_DESCENDANTS
         isFocusable = false
     }
-    private val companion = SenCompanionView(context)
+    private val companion = CaicaiCompanionView(context)
     private val channel = MethodChannel(messenger, "ai_companion/caicai_live2d/view/$viewId")
     private var disposed = false
     @Volatile private var renderStatus = "created"
@@ -54,6 +54,11 @@ internal class CaicaiPlatformView(
     private var stageScale = viewPrefs.getFloat("scale", 1f)
     private var stageX = viewPrefs.getFloat("x", 0f)
     private var stageY = viewPrefs.getFloat("y", 0f)
+    private var headBox = floatArrayOf(viewPrefs.getFloat("headLeft", .27f), viewPrefs.getFloat("headTop", .02f),
+        viewPrefs.getFloat("headRight", .73f), viewPrefs.getFloat("headBottom", .32f))
+    private var editSnapshot: FloatArray? = null
+    private var strokeDistance = 0f
+    private var lastPatTime = 0L
     private var lastX = 0f
     private var lastY = 0f
     private val scaleDetector = ScaleGestureDetector(context,
@@ -77,18 +82,6 @@ internal class CaicaiPlatformView(
         companion.isFocusableInTouchMode = false
         companion.renderMode = GLSurfaceView.RENDERMODE_WHEN_DIRTY
         companion.setListener(this)
-        companion.holder.addCallback(object : SurfaceHolder.Callback {
-            override fun surfaceCreated(holder: SurfaceHolder) {
-                CaicaiDiagnostics.record(app, "surface_created")
-            }
-            override fun surfaceChanged(holder: SurfaceHolder, format: Int, width: Int, height: Int) {
-                CaicaiDiagnostics.record(app, "surface_changed", "${width}x$height")
-                if (renderStatus == "loading") companion.requestRender()
-            }
-            override fun surfaceDestroyed(holder: SurfaceHolder) {
-                CaicaiDiagnostics.record(app, "surface_destroyed")
-            }
-        })
         // The standalone app's accepted front-hair connection and secondary motion.
         companion.setGeometryConstraintEnabled(true)
         companion.setFrontHairPoint(FRONT_HAIR_POINT)
@@ -135,10 +128,48 @@ internal class CaicaiPlatformView(
             "setEmotion" -> { companion.setEmotion(call.arguments?.toString() ?: "normal"); result.success(true) }
             "previewEmotion" -> { companion.setEmotion(call.arguments?.toString() ?: "normal"); result.success(true) }
             "parameters" -> companion.motionParameters { json -> main.post { result.success(json) } }
-            "expression" -> { companion.clearParameterPlan(); companion.applyExpression(call.arguments?.toString() ?: ""); result.success(true) }
-            "static" -> { companion.setStaticMode(call.arguments == true); result.success(true) }
+            "expression" -> {
+                val name = call.arguments?.toString() ?: ""
+                companion.setStaticMode(false)
+                if (name in setOf("1白袜", "丝袜带子", "双马尾", "发带")) companion.applyExpression(name)
+                else companion.playTimedPreset(name)
+                result.success(true)
+            }
+            "static" -> { companion.clearParameterPlan(); companion.setStaticMode(call.arguments == true); result.success(true) }
             "earTwitch" -> { companion.triggerEarTwitch(); result.success(true) }
-            "headPat" -> { companion.triggerHeadPat(false); result.success(true) }
+            "headPat" -> { pat(); result.success(true) }
+            "beginEdit" -> {
+                editSnapshot = floatArrayOf(stageScale, stageX, stageY, *headBox)
+                companion.setStaticMode(true)
+                result.success(editState())
+            }
+            "previewStage" -> {
+                val a = call.arguments as? Map<*, *>
+                stageScale = (a?.get("scale") as? Number)?.toFloat()?.coerceIn(.35f, 6f) ?: stageScale
+                stageX = (a?.get("x") as? Number)?.toFloat() ?: stageX
+                stageY = (a?.get("y") as? Number)?.toFloat() ?: stageY
+                applyStage(false); result.success(editState())
+            }
+            "previewHeadBox" -> {
+                val a = call.arguments as? List<*>
+                if (a?.size == 4) {
+                    val top = FloatArray(2); val bottom = FloatArray(2)
+                    if (companion.screenToModelNormalized((a[0] as Number).toFloat(), (a[1] as Number).toFloat(), top)
+                        && companion.screenToModelNormalized((a[2] as Number).toFloat(), (a[3] as Number).toFloat(), bottom)) {
+                        headBox = floatArrayOf(top[0],top[1],bottom[0],bottom[1])
+                    }
+                }
+                result.success(editState())
+            }
+            "finishEdit" -> {
+                if (call.arguments != true) editSnapshot?.let {
+                    stageScale=it[0]; stageX=it[1]; stageY=it[2]; headBox=it.copyOfRange(3,7)
+                }
+                editSnapshot=null; applyStage(call.arguments == true)
+                if (call.arguments == true) viewPrefs.edit().putFloat("headLeft",headBox[0]).putFloat("headTop",headBox[1])
+                    .putFloat("headRight",headBox[2]).putFloat("headBottom",headBox[3]).apply()
+                companion.setStaticMode(false); result.success(true)
+            }
             "adjustStage" -> { stageAdjustment = call.arguments == true; result.success(true) }
             "resetPresets" -> { companion.clearParameterPlan(); companion.resetNativePresets(); companion.setSmallForm(smallForm); result.success(true) }
             "stopMotion" -> { companion.clearParameterPlan(); result.success(true) }
@@ -162,20 +193,17 @@ internal class CaicaiPlatformView(
             companion.requestRender()
         }
     }
-    fun hostPause() { if (!disposed) companion.onHostPause() }
+    fun hostPause() { if (!disposed) { companion.clearParameterPlan(); companion.onHostPause() } }
     fun setKeyboardVisible(visible: Boolean) {
         if (!disposed && keyboardVisible != visible) {
             keyboardVisible = visible
-            companion.renderMode = if (visible && renderStatus != "loading") GLSurfaceView.RENDERMODE_WHEN_DIRTY
-                else if (renderStatus == "ready") GLSurfaceView.RENDERMODE_CONTINUOUSLY
-                else if (renderStatus == "loading") GLSurfaceView.RENDERMODE_CONTINUOUSLY
-                else GLSurfaceView.RENDERMODE_WHEN_DIRTY
-            if (visible) companion.requestRender()
+            // Input never freezes the model. Texture host is paced at 30 fps.
+            companion.requestRender()
             CaicaiDiagnostics.record(app, if (visible) "keyboard_open" else "keyboard_closed")
         }
     }
 
-    fun state(): Map<String, String> = mapOf("status" to renderStatus, "detail" to renderDetail)
+    fun state(): Map<String, String> = mapOf("status" to renderStatus, "detail" to renderDetail, "surface" to companion.surfaceDiagnostics())
 
     private fun loadCurrentModel() {
         if (disposed) return
@@ -211,7 +239,23 @@ internal class CaicaiPlatformView(
 
     private fun handleStageTouch(view: View, event: MotionEvent): Boolean {
         if (!stageAdjustment) {
-            if (event.actionMasked == MotionEvent.ACTION_UP) companion.applyExpression("点击")
+            val point = FloatArray(2)
+            val inside = companion.screenToModelNormalized(event.x / view.width.coerceAtLeast(1),
+                event.y / view.height.coerceAtLeast(1), point) && point[0] in headBox[0]..headBox[2]
+                && point[1] in headBox[1]..headBox[3]
+            when(event.actionMasked) {
+                MotionEvent.ACTION_DOWN -> { lastX=event.x; lastY=event.y; strokeDistance=0f }
+                MotionEvent.ACTION_MOVE -> {
+                    if (inside) strokeDistance += kotlin.math.hypot(event.x-lastX,event.y-lastY)
+                    else strokeDistance=0f
+                    lastX=event.x; lastY=event.y
+                    val now=android.os.SystemClock.uptimeMillis()
+                    if (inside && strokeDistance > 20*view.resources.displayMetrics.density && now-lastPatTime > 900) {
+                        pat(); lastPatTime=now; strokeDistance=0f
+                    }
+                }
+                MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> companion.releaseHeadPat()
+            }
             return true
         }
         scaleDetector.onTouchEvent(event)
@@ -236,11 +280,27 @@ internal class CaicaiPlatformView(
         return true
     }
 
-    private fun applyStage() {
+    private fun editState(): Map<String, Any> {
+        val a=FloatArray(2); val b=FloatArray(2)
+        val valid=companion.screenToModelNormalized(0f,0f,a) && companion.screenToModelNormalized(1f,1f,b)
+        val rect=if(valid && b[0]!=a[0] && b[1]!=a[1]) listOf(
+            (headBox[0]-a[0])/(b[0]-a[0]), (headBox[1]-a[1])/(b[1]-a[1]),
+            (headBox[2]-a[0])/(b[0]-a[0]), (headBox[3]-a[1])/(b[1]-a[1])) else listOf(.3f,.1f,.7f,.4f)
+        return mapOf("scale" to stageScale,"x" to stageX,"y" to stageY,"headRect" to rect)
+    }
+    private fun pat() {
+        companion.setStaticMode(false)
+        companion.triggerEarTwitch()
+        companion.startParameterPlan("""[{"time":0,"duration":0.22,"parameters":{"ParamAngleY2":-18,"ParamAngleZ":12,"ParamAngleZ2":12,"ParamEyeLSmile":1,"ParamEyeRSmile":1,"ParamMouthForm":1}},
+            {"time":0.55,"duration":0.25,"parameters":{"ParamAngleY2":8,"ParamAngleZ":-9,"ParamAngleZ2":-9,"ParamBodyAngleY":4}},
+            {"time":1.05,"duration":0.25,"parameters":{}}]""", "", "")
+    }
+    fun observeTouch(x: Float, y: Float) { if (!disposed && editSnapshot == null) companion.setLookTarget(true,x,y) }
+    private fun applyStage(persist: Boolean = true) {
         val limit = .9f + .5f * stageScale
         stageX = stageX.coerceIn(-limit, limit); stageY = stageY.coerceIn(-limit, limit)
         companion.setStageTransform(stageScale, stageX, stageY)
-        viewPrefs.edit().putFloat("scale", stageScale).putFloat("x", stageX).putFloat("y", stageY).apply()
+        if (persist) viewPrefs.edit().putFloat("scale", stageScale).putFloat("x", stageX).putFloat("y", stageY).apply()
         companion.requestRender()
     }
 
@@ -268,7 +328,7 @@ internal class CaicaiPlatformView(
         CaicaiDiagnostics.record(app, "render_ready", detail)
         if (newlyLoaded) main.post { if (!disposed) repository.confirmPendingImport() }
         main.post {
-            if (!disposed && !keyboardVisible) companion.renderMode = GLSurfaceView.RENDERMODE_CONTINUOUSLY
+            if (!disposed) companion.renderMode = GLSurfaceView.RENDERMODE_CONTINUOUSLY
         }
         send("onReady", mapOf("detail" to detail))
     }
@@ -309,6 +369,7 @@ object CaicaiRuntime {
     @Synchronized internal fun detach(view: CaicaiPlatformView) {
         if (active.get() === view) active.clear()
     }
+    fun observeTouch(x: Float, y: Float) = active.get()?.observeTouch(x,y)
     fun hasActiveView(): Boolean = active.get() != null
     fun speechAmplitude(value: Float) = active.get()?.speechAmplitude(value)
     fun control(method: String, arguments: Any?, result: MethodChannel.Result) {
