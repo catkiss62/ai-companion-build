@@ -806,6 +806,25 @@ class AgentToolPlanner {
   static Set<String> _routeToolIds(String rawText) {
     final text = rawText.replaceAll(RegExp(r'\s+'), ' ').trim().toLowerCase();
     if (text.isEmpty) return const <String>{};
+    // The broad topic words below are only capability candidates. They must
+    // not start a separate DeepSeek planning round just because an ordinary
+    // reply mentions a memory, photo, diary, game or the weather. Clear local
+    // commands run without planning; only a real task or active Cedar route
+    // may expose schemas to the model.
+    final local = routeLocally(rawText);
+    final localIds = local?.calls.map((call) => call.toolId).toSet() ?? <String>{};
+    final asksCurrentFact = RegExp(
+      r'(今天|现在|当前|最新|实时).{0,16}(天气|气温|新闻|价格|汇率|比分|赛程)|'
+      r'(天气|气温|新闻|价格|汇率|比分|赛程).{0,16}(今天|现在|当前|最新|实时)',
+    ).hasMatch(text) && RegExp(r'(什么|多少|如何|怎么样|有没有|查|搜|看看)').hasMatch(text);
+    final asksPhoneRead = RegExp(
+      r'(看看|查看|查|搜索|读|念|打开|告诉我).{0,18}(你的|你手机|查手机)?.{0,8}'
+      r'(日记|随笔|心情|愿望|购物车|塔罗|浏览器|相册).{0,6}(记录|内容|条目)?',
+    ).hasMatch(text);
+    final cedarRequested = CedarToyArcadeSkill.isRelevant(text);
+    if (localIds.isEmpty && !asksCurrentFact && !asksPhoneRead && !cedarRequested) {
+      return const <String>{};
+    }
     final result = <String>{};
     if (_isExplicitAlbumImageSend(text)) {
       result.add(AgentToolRegistry.albumImageSend.id);
@@ -860,6 +879,17 @@ class AgentToolPlanner {
         ..add(AgentToolRegistry.cedarToyPlay.id)
         ..add(AgentToolRegistry.cedarToyManageActivity.id);
     }
-    return result.take(AgentTaskLoopPolicy.maxToolCalls).toSet();
+    final allowed = <String>{...localIds};
+    if (asksCurrentFact) allowed.add(AgentToolRegistry.publicWebSearch.id);
+    if (asksPhoneRead) allowed.addAll(<String>{
+      AgentToolRegistry.phoneSearch.id, AgentToolRegistry.phoneRead.id,
+    });
+    if (cedarRequested) allowed.addAll(<String>{
+      AgentToolRegistry.cedarToyListGames.id,
+      AgentToolRegistry.cedarToyGetGuide.id,
+      AgentToolRegistry.cedarToyPlay.id,
+      AgentToolRegistry.cedarToyManageActivity.id,
+    });
+    return result.intersection(allowed).take(AgentTaskLoopPolicy.maxToolCalls).toSet();
   }
 }

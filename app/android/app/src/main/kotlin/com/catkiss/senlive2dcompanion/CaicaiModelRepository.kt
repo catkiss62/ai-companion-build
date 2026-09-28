@@ -28,10 +28,40 @@ class CaicaiModelRepository(context: Context) {
     fun isPending(): Boolean = synchronized(lock) { prefs.getBoolean("pending", false) }
 
     fun currentModels(): Models = synchronized(lock) {
-        val maid = safeChild(current, prefs.getString("maid", "").orEmpty())
-        val accessory = safeChild(current, prefs.getString("accessory", "").orEmpty())
-        if (maid?.isFile == true && accessory?.isFile == true) {
-            Models(maid, accessory, "菜菜女仆与三配件已导入")
+        val maidPath = prefs.getString("maid", "").orEmpty()
+        val accessoryPath = prefs.getString("accessory", "").orEmpty()
+        indexedModels(maidPath, accessoryPath)?.let { return@synchronized it }
+
+        // The ZIP's own manifest is the source of truth. Restore a stale or
+        // missing preference index only after both files can be read from the
+        // promoted current directory. Never turn a failed read into "no import".
+        val manifest = current.walkTopDown().firstOrNull {
+            it.isFile && it.name.equals("accessory-lab.json", ignoreCase = true)
+        }
+        if (manifest != null) {
+            try {
+                val config = JSONObject(manifest.readText(Charsets.UTF_8))
+                val parent = manifest.parentFile ?: throw IOException("模型清单目录无效")
+                val maid = safeChild(parent, config.getString("mainModel"))
+                val accessory = safeChild(parent, config.getString("accessoryModel"))
+                if (maid?.isFile != true || accessory?.isFile != true) {
+                    throw IOException("正式目录中的模型文件无法读回")
+                }
+                val recoveredMaid = maid.relativeTo(current).invariantSeparatorsPath
+                val recoveredAccessory = accessory.relativeTo(current).invariantSeparatorsPath
+                if (!prefs.edit().putString("maid", recoveredMaid)
+                        .putString("accessory", recoveredAccessory).commit()) {
+                    throw IOException("无法恢复模型索引")
+                }
+                CaicaiDiagnostics.record(app, "index_recovered")
+                return@synchronized Models(maid, accessory, "菜菜女仆与三配件已导入")
+            } catch (error: Exception) {
+                val detail = "模型文件读回失败：${error.message ?: error.javaClass.simpleName}"
+                return@synchronized Models(detail = detail)
+            }
+        }
+        if (prefs.getBoolean("pending", false) || maidPath.isNotBlank() || accessoryPath.isNotBlank()) {
+            Models(detail = "模型索引存在，但正式目录中没有模型清单；请重新导入 ZIP")
         } else Models()
     }
 
@@ -73,6 +103,13 @@ class CaicaiModelRepository(context: Context) {
                     if (backup.exists()) backup.renameTo(current)
                     throw IOException("无法启用新模型")
                 }
+                val promotedMaid = safeChild(current, maidPath)
+                val promotedAccessory = safeChild(current, accessoryPath)
+                if (promotedMaid?.isFile != true || promotedAccessory?.isFile != true) {
+                    remove(current)
+                    if (backup.exists()) backup.renameTo(current)
+                    throw IOException("模型暂存完成，但正式目录中的主模型或配件模型无法读回")
+                }
                 val oldMaid = prefs.getString("maid", "").orEmpty()
                 val oldAccessory = prefs.getString("accessory", "").orEmpty()
                 if (!prefs.edit().putString("old_maid", oldMaid)
@@ -83,8 +120,17 @@ class CaicaiModelRepository(context: Context) {
                     if (backup.exists()) backup.renameTo(current)
                     throw IOException("无法保存模型索引")
                 }
+                val readback = currentModels()
+                if (!readback.available) {
+                    remove(current)
+                    if (backup.exists()) backup.renameTo(current)
+                    prefs.edit().putString("maid", oldMaid)
+                        .putString("accessory", oldAccessory)
+                        .remove("pending").remove("old_maid").remove("old_accessory").commit()
+                    throw IOException("模型索引读回失败：${readback.detail}")
+                }
                 CaicaiDiagnostics.record(app, "import_staged", "等待 Live2D 画面渲染确认")
-                currentModels()
+                readback
             }
         } catch (error: Throwable) {
             synchronized(lock) {
@@ -163,6 +209,14 @@ class CaicaiModelRepository(context: Context) {
             it.path.startsWith(parent.canonicalPath + File.separator)
         }
     }.getOrNull()
+
+    private fun indexedModels(maidPath: String, accessoryPath: String): Models? {
+        val maid = safeChild(current, maidPath)
+        val accessory = safeChild(current, accessoryPath)
+        return if (maid?.isFile == true && accessory?.isFile == true) {
+            Models(maid, accessory, "菜菜女仆与三配件已导入")
+        } else null
+    }
 
     private fun validateModelFiles(modelFile: File, accessoryDonor: Boolean) {
         val references = JSONObject(modelFile.readText(Charsets.UTF_8)).getJSONObject("FileReferences")

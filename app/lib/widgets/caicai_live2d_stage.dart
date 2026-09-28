@@ -53,14 +53,16 @@ class _CaicaiLive2DStageState extends State<CaicaiLive2DStage> {
   Future<void> _checkModel() async {
     final generation = ++_generation;
     try {
-      final exists = await CaicaiLive2DService.available;
+      final model = await CaicaiLive2DService.diagnostics;
+      final exists = model['available'] == true;
       if (!mounted || generation != _generation) return;
       _channel?.setMethodCallHandler(null);
       _channel = null;
       setState(() {
         _modelRevision++;
         _available = exists;
-        _status = exists ? '正在加载菜菜模型…' : '请在 Live2D 设置中导入菜菜模型 ZIP';
+        _status = exists ? '正在加载菜菜模型…' :
+            (model['detail']?.toString() ?? '请在 Live2D 设置中导入菜菜模型 ZIP');
       });
     } catch (error) {
       if (mounted && generation == _generation) setState(() {

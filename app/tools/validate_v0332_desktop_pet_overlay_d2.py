@@ -51,14 +51,16 @@ require(
         'optionButton("打开聊天")',
         'optionButton("切换为悬浮球")',
         "PetTouchRegions.classify(",
-        "event.x - standing.left, event.y - standing.top,",
-        "frameView?.standingTouchRegion()?.contains(event.x.toInt(), event.y.toInt())",
+        "event.x, event.y, view.width, view.height,",
+        "WindowManager.LayoutParams.TYPE_ACCESSIBILITY_OVERLAY",
+        "WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE",
+        "visualWindowManager = trustedManager",
+        "visual_clipped:$visualFailure",
     ],
     "pet overlay",
 )
-region = read("android/app/src/main/kotlin/com/aicompanion/localfirst/pet/PetTouchableRegion.kt")
-require(region, ["touchableRegion", "mode.invoke(data, 3)", "(regionField.get(data) as Region).set(region)"],
-        "system-level standing alpha input region")
+assert "PetTouchableRegion(container)" not in pet
+assert "windowManager.addView(container, layout)" in pet
 assert "class PetOverlayWindow" in pet and ": Service" not in pet
 
 contract = read(

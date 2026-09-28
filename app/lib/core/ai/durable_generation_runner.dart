@@ -33,6 +33,7 @@ import '../models/message_attachment.dart';
 import '../personality/playful_form_state.dart';
 import '../mcp/cedar_agent_loop_policy.dart';
 import '../mcp/cedar_toy_arcade_skill.dart';
+import '../mcp/cedar_context_intent_judge.dart';
 import '../mcp/cedar_toy_activity.dart';
 import '../models/thought.dart';
 import '../somatic/somatic_engine.dart';
@@ -421,9 +422,12 @@ class DurableGenerationRunner {
       final precedingAssistant = previous.isNotEmpty && previous.last.isAssistant
           ? previous.last
           : null;
-      final cedarContextAvailable = precedingAssistant != null &&
-          user.content.trim().isNotEmpty &&
-          CedarToyArcadeSkill.contextualToolsAvailable(
+      final cedarContextCandidate = cedarConfigured &&
+          precedingAssistant != null &&
+          CedarToyArcadeSkill.contextualDecisionCandidate(
+            userText: user.content,
+            previousAssistantText: precedingAssistant.content,
+            activeGameTitle: cedarSession?.displayName ?? '',
             activeSoloSession: cedarSession?.mode == CedarParticipationMode.solo &&
                 cedarSession?.continuable == true,
             gap: user.createdAt.difference(precedingAssistant.createdAt),
@@ -438,6 +442,16 @@ class DurableGenerationRunner {
       // dialogue merely lets the model interpret a short user reply with Cedar
       // tools available; it does not itself advance the session.
       final cedarSessionActive = cedarState.hasUserTurnContinuation;
+      final cedarContextAvailable = cedarContextCandidate &&
+          !cedarExplicitRequest &&
+          !cedarSessionActive &&
+          (!finalProvider.isGeminiRelay ||
+              await CedarContextIntentJudge().shouldOfferTools(
+                userText: user.content,
+                previousAssistantText: precedingAssistant!.content,
+                activeGameTitle: cedarSession?.displayName ?? '',
+                cancellationToken: effectiveCancellation,
+              ));
       final cedarSkillActive =
           (cedarExplicitRequest || cedarSessionActive || cedarContextAvailable) &&
           cedarConfigured;

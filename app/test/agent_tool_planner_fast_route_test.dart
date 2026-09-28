@@ -24,6 +24,17 @@ void main() {
       isEmpty,
       reason: 'a topic mention must not turn into a phone-read task',
     );
+    for (final text in <String>[
+      '你还记得那天的事吗',
+      '今天的天气让我有点想睡觉',
+      '刚才相册里那张图真可爱',
+      '你的记忆不错，继续聊吧',
+      '你说话时别老惦记游戏啦',
+    ]) {
+      expect(AgentToolPlanner.routeLocally(text), isNull, reason: text);
+      expect(AgentToolPlanner.nativeToolDefinitionsFor(text), isEmpty,
+          reason: 'ordinary dialogue must not make an Agent DeepSeek planning call: $text');
+    }
   });
 
   test('media-only empty text safely accepts Cedar stage tool injection', () {

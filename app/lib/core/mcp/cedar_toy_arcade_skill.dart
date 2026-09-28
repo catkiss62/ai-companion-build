@@ -72,6 +72,32 @@ class CedarToyArcadeSkill {
       !gap.isNegative &&
       gap <= const Duration(minutes: 15);
 
+  /// A recent solo session alone is too broad: it used to open DeepSeek tool
+  /// planning for every nearby chat turn. Only a short reply to an assistant
+  /// message about the actual game merits a contextual semantic decision.
+  static bool contextualDecisionCandidate({
+    required String userText,
+    required String previousAssistantText,
+    required String activeGameTitle,
+    required bool activeSoloSession,
+    required Duration gap,
+  }) {
+    final text = userText.trim();
+    if (!contextualToolsAvailable(
+          activeSoloSession: activeSoloSession,
+          gap: gap,
+        ) ||
+        text.isEmpty ||
+        text.runes.length > 90 ||
+        describesUserOnlyPlay(text)) return false;
+    final previous = previousAssistantText.trim();
+    if (previous.isEmpty) return false;
+    final title = activeGameTitle.trim();
+    return (title.runes.length >= 2 && previous.contains(title)) ||
+        RegExp(r'(游戏厅|游戏|钓鱼|鱼竿|鱼饵|鱼漂|渔具|海沟|下棋|棋局|牌局|回合|关卡|存档|副本|宝箱|矿洞)')
+            .hasMatch(previous);
+  }
+
   /// A first-person plan is conversation context, not authority for the
   /// companion to mutate a remote game. Explicitly including/commanding the
   /// companion wins, so “我想和你一起玩” remains a real request.

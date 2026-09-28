@@ -31,12 +31,16 @@ class CaicaiLive2DBridge(
         channel.setMethodCallHandler { call, result ->
             if (disposed) return@setMethodCallHandler result.error("disposed", "Live2D bridge detached", null)
             when (call.method) {
-                "status" -> result.success(mapOf(
-                    "available" to repository.currentModels().available,
-                    "pending" to repository.isPending(),
-                    "render" to CaicaiRuntime.state(),
-                    "events" to CaicaiDiagnostics.events(activity),
-                ))
+                "status" -> {
+                    val models = repository.currentModels()
+                    result.success(mapOf(
+                        "available" to models.available,
+                        "detail" to models.detail,
+                        "pending" to repository.isPending(),
+                        "render" to CaicaiRuntime.state(),
+                        "events" to CaicaiDiagnostics.events(activity),
+                    ))
+                }
                 "control" -> {
                     val args = call.arguments as? Map<*, *>
                     CaicaiRuntime.control(args?.get("method")?.toString() ?: "", args?.get("arguments"), result)

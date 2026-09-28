@@ -122,6 +122,29 @@ void main() {
     ).isEmpty, isTrue);
   });
 
+  test('recent game context is a semantic candidate, unrelated chat is not', () {
+    bool candidate(String user, String assistant, {bool active = true}) =>
+        CedarToyArcadeSkill.contextualDecisionCandidate(
+          userText: user,
+          previousAssistantText: assistant,
+          activeGameTitle: '深海钓鱼',
+          activeSoloSession: active,
+          gap: const Duration(seconds: 30),
+        );
+    expect(candidate('那就去吧，我陪你', '要不要一起去深海钓鱼？'), isTrue);
+    expect(candidate('好，走着', '我想去钓鱼海沟看看'), isTrue);
+    expect(candidate('那就去吧，我陪你', '我的鲸鱼尾巴有点痒'), isFalse);
+    expect(candidate('抱抱我', '今晚一起看看星星吧'), isFalse);
+    expect(candidate('那就去吧，我陪你', '要不要去钓鱼？', active: false), isFalse);
+    expect(CedarToyArcadeSkill.contextualDecisionCandidate(
+      userText: '那就去吧，我陪你',
+      previousAssistantText: '一起去钓鱼吗？',
+      activeGameTitle: '深海钓鱼',
+      activeSoloSession: true,
+      gap: const Duration(minutes: 16),
+    ), isFalse);
+  });
+
   test('immersive rendering keeps narration bracketless', () {
     const segments = <ChatSegment>[
       ChatSegment(kind: ChatSegmentKind.action, text: '她抬起眼看你。'),

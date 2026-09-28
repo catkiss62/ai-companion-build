@@ -180,6 +180,7 @@ class JevDecisionGateway {
           ('immersive_playful_route', 'initiative') => 'closed',
           ('chat_playful_self', 'route') => 'none',
           ('playful_breakthrough', 'route') => 'wait',
+          ('cedar_context_intent', 'route') => 'chat',
           _ => null,
         };
         final highest = ranked.first.key;

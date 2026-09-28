@@ -3,11 +3,13 @@ package com.aicompanion.localfirst
 import android.accessibilityservice.AccessibilityService
 import android.content.Intent
 import android.app.KeyguardManager
+import android.content.Context
 import android.graphics.Bitmap
 import android.os.Build
 import android.os.PowerManager
 import android.os.SystemClock
 import android.view.Display
+import android.view.WindowManager
 import android.view.accessibility.AccessibilityEvent
 import android.view.accessibility.AccessibilityNodeInfo
 import android.view.accessibility.AccessibilityWindowInfo
@@ -390,6 +392,9 @@ class AccessibilityBridgeService : AccessibilityService() {
     companion object {
         @Volatile
         private var activeService: AccessibilityBridgeService? = null
+        /** A trusted, non-touchable drawing surface for the desktop pet. */
+        fun petVisualWindowManager(): WindowManager? =
+            activeService?.getSystemService(Context.WINDOW_SERVICE) as? WindowManager
         private val captureInFlight = AtomicBoolean(false)
 
         fun captureOnce(callback: (Map<String, Any>) -> Unit) {

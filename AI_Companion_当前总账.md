@@ -1,6 +1,6 @@
 # AI Companion · 当前总账
 
-更新时间：2026-09-27（UTC；+279 常规 Actions 全绿、测试 Draft APK 就绪；真机显示/触摸与 Jev 准确性仍待验）
+更新时间：2026-09-28（中国时间；+279 真机失败证据已读；+280 导入索引、系统触摸矩形及 Agent 额外规划修复中）
 
 > 本文件是唯一的当前接班入口，继续采用“总账 v2”。顶部是快速接班索引；标记后的正式记录按版本持续追加，不设总容量上限。
 >
@@ -49,7 +49,8 @@
 | +276 当前任务 | `agent/v04232-caicai-import-pet-touch`，候选 `v0.42.32+276`：导入后未渲染导致 pending 拦重试；新版 16:9 桌宠窗口使可操作范围过大。保留菜菜原生渲染及宽动画；修复二次导入事务并收紧桌宠手势到旧方形。状态 `IMPLEMENTED / CI PASSED / APK READY / TRUE DEVICE PENDING`，详见末尾 +276。|
 | +277 当前任务／Jev 持续观察 | 用户真机反馈 +276 桌宠范围无变化、菜菜导入无反应、Live2D 令输入法卡顿；Jev 低 confidence 回退频繁且旧诊断无法审计。重新按 +222 旧方窗及菜菜实验室 `fb04512` 验证源码：恢复真实 152×152dp 中号窗口与旧坐标迁移；导入/渲染阶段及 IME 降载；Jev 用最高概率、近似平局不加气焰、小豆丁固定 -18（用户更正），导出完整 Jev/气焰账。`v0.42.33+277`，Actions `36342200023` 全绿、测试 Draft 已有；状态 `IMPLEMENTED / CI PASSED / APK READY / TRUE DEVICE FAILED（用户回归反馈，见 +278） / JEV ACCURACY PENDING`。每份后续诊断与存档都分析 Jev 准确度，直到真机明确成功。详见末尾 +277。|
 | +278 当前任务 | `v0.42.34+278` / 同 `agent/v04232-caicai-import-pet-touch`。+277 用户已报告动画缩小、导入未显示、空模型开关卡输入法，不能沿用 TRUE DEVICE PENDING 掩盖失败。恢复批准的宽动画尺寸，系统输入区域独立；无模型不创建原生视图，渲染失败保留导入包，Hybrid Composition/焦点隔离；Live2D 独立设置与确认删除；Jev 稀疏动作/原装预设/小豆丁/PCM 口型。构建 head `cf69e61`，Actions `36348468407` 全绿，961 项 Flutter 测试，Draft `397797809`。`IMPLEMENTED / CI PASSED / APK READY / TRUE DEVICE PENDING`。Jev 持续观察，最高概率/近似平局中性/-18 不改；详见末尾 +278 和专项文档。|
-| +279 当前任务 | 已核对实际定版 ZIP、菜菜实验室 `fb04512` 和伴侣宿主/桌宠完整链路。最新 ZIP SHA-256 `e0406d06…`，与先前同名包仅 `texture_16.png` 内容不同，私有素材未入公开仓。桌宠按原始站立图 alpha 区域触摸，保留宽动画和 147% 校准。功能构建提交 `3af8e394`，Actions `36352508874` 全绿、Draft APK 已就绪。状态 `IMPLEMENTED / CI PASSED / APK READY / TRUE DEVICE PENDING / JEV ACCURACY PENDING`；详见末尾 +279。|
+| +279 真机回归 | 用户 `2026-09-28T00:57:57Z` 脱敏诊断：六次导入均有 `manifest_validated → import_staged`，最终 `available=false / pending=true / render=not_open`；桌宠 `overlayPetTouchRegion=unavailable:NoSuchFieldException`。+279 的绿色 CI 和 Draft 不能视为效果成功，状态改为 `TRUE DEVICE FAILED`。|
+| +280 当前任务 | `agent/v04232-caicai-import-pet-touch`，候选 `v0.42.36+280`。导入后正式目录模型/索引读回与恢复、明确错误；桌宠 112/152/200dp 真实触摸窗口与独立可信宽绘制层，移除失败的隐藏 insets；普通闲聊话题词不额外触发 Agent DeepSeek 规划。`IMPLEMENTATION IN PROGRESS / CI PENDING / APK PENDING / TRUE DEVICE PENDING`；见末尾 +280。|
 | 当前任务状态 | `+265～+267` 已有构建与真机反馈；`+268 IMPLEMENTED / CI PASSED / APK READY / TRUE DEVICE PENDING`：不透明桌面播放、独立宽度与饱和度、24 fps 全帧与播放器时钟；`+269 IMPLEMENTED / CI PASSED / APK READY / TRUE DEVICE PENDING`：96 段完整动作及整轮气焰结算，见末尾 +269。|
 | +267 远端 | 功能 head `07142df2f01f15b5e4770fb6d17b48150770f422`；tree `aa16c6405f87967191dcb5b99662c53302983c52`；Actions `36232295089` 全绿；Artifact `10903136887`；APK SHA-256 `956812613c1fb00123e2ab2e6a3f5f3ccc1d320743c7bd6b866c4e0365b09ab2`；未发布 Draft Release `397169363` |
 | +250 当前任务 | 本体／小豆丁形态共用成年角色、记忆与能力；同一形态状态驱动角色提示与静态立绘，虚拟弹额头／安抚改变气焰值后继续自然衰减，心形液面与锁定入口；常驻世界书定点柔化并仅迁移未编辑原文；两档 TTS 共用冻结的真实回复与分段，无声生成并复制专项脱敏报告 |
@@ -1192,3 +1193,12 @@ Actions 与交付证据：远端功能 head `33647c7bff15084d6fd3cbc7b817e9b0b21
 - 最终常规 [Actions 36352508874](https://github.com/catkiss62/ai-companion-build/actions/runs/36352508874) **全绿**：127 项源码门禁、Android 原生编译及相关测试、Flutter analyze/测试、Release APK、稳定签名、Genie/完整桌宠和其它固定资源打包校验均通过。签名证书 SHA-256 `30:5E:B3:D8:09:83:B9:63:C6:48:18:DD:F1:AD:56:1F:27:9D:E6:D4:7B:3E:D2:C7:81:AD:A4:48:C7:C2:51:48`。
 - 未发布的 [测试 Draft](https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-51cf4439c183e4442fdc) 已完成上传；APK `AI-Companion-v0.42.35-279-Caicai-Host-Standing-Alpha-Touch-APK.apk`，SHA-256 `04b4b8f086dd10bc91080734097a655895dd88b5c998c4a0c5fdbcfea248eac7`。Actions Artifact `10943216129`，另有同名 `.sha256` 及 CI Monitor。监控记录 `.ci/v04235-monitor.txt` 写入 `ci-monitor-v0345`，状态 `success`，构建 HEAD 与签名、校验值均一致。
 - 状态 **IMPLEMENTED / CI PASSED / APK READY / TRUE DEVICE PENDING / JEV ACCURACY PENDING**。本环境未连接用户 Android 设备，不能从绿色 CI 推断菜菜在用户手机实际出画、口型/动作、键盘共存、桌宠 alpha 透传在目标 ROM 生效。真机重点：导入这份 SHA `e0406d06…` 的最新 ZIP；检查两模型与三配件显示、键盘开合、桌宠透明区域底层点击及站立轮廓点击/拖动。诊断 `overlayPetTouchRegion` 必须出现 `applied:…:alpha`，若为 `failed`/`pending` 则记录设备和日志以继续定位系统 insets 兼容。Jev 预测准确性需实样对照，继续按顶部观察协议。
+
+## v0.42.36+280 · 真机失败证据驱动的导入、桌宠与 Agent 调用修复（2026-09-28 中国时间，进行中）
+
+- 用户 +279 真机诊断 `ai_companion_diagnostics_2026-09-28T00-57-57-591331Z.txt`：六次导入有选取、解压、清单校验与 `import_staged`，没有 `import_failed`，最后 `available=false / pending=true / render=not_open`，说明设置回调没有把模型带进 PlatformView；未记录正式目录究竟哪条索引或文件失败。桌宠状态 `unavailable:NoSuchFieldException`，表明 +279 隐藏 `OnComputeInternalInsetsListener` 方案在 REDMI K80 Ultra / HyperOS 15 未注册。上述是 **TRUE DEVICE FAILED**，不能以 +279 CI 绿色代替。最新 ZIP 的结构检查已通过，不能继续猜“用户没导入”或“ZIP 缺资源”。
+- 已审阅当前 `CaicaiModelRepository → CaicaiLive2DBridge → CaicaiLive2DStage → CaicaiPlatformView` 和菜菜实验室的双模型启动；导入切换正式目录后逐个读回主/配件模型，索引无效时从 `accessory-lab.json` 的相对路径恢复，仍失败则直接报真实读回错误并回滚；状态向界面传递具体 detail。原生 Cubism 动作/投影不动，私有 ZIP 不进入公开仓。
+- 桌宠对照 `d8d4417` 旧双窗口与 +278/+279 的宽单窗：旧非触摸可视窗 `alpha=.79` 使主体半透明，`alpha=1` 会挡掉下层点击；+279 的隐藏系统 insets 在本机报 NoSuchFieldException。当前改为 112/152/200dp 的物理系统触摸窗，宽动画由已连接的现有无障碍服务承载 `TYPE_ACCESSIBILITY_OVERLAY / FLAG_NOT_TOUCHABLE / alpha=1` 的独立可视窗；无服务、添加失败或服务失联时退回矩形内绘制，并把 `visual_clipped` 后的具体原因写进诊断，不能称为视觉/透传验收。历史 alpha Region 与失败反射类已移除，窗口位置与 147% 校准保留。
+- 追溯旧 `v0.35.7+82`：明确命令本地快路由，其余需要工具的轮次在同一次 DeepSeek Chat Completion 附原生函数 schema，由主模型语义选择；无工具调用时不增加规划请求。后来项目新增 DeepSeek 内部规划 + 可选独立最终回复模型，旧单请求方法仅能原样用于 DeepSeek 单通道，不能让第二通道越过既定内部工具权限。9 月 27 日 `be9bbf5` 把“15 分钟内活跃单人游戏”放宽成任意紧邻助手消息都开放 Cedar，导致普通聊天也进入 DeepSeek `agent_tool_planning`；诊断最近样本为该 lane 11 次、`final_reply` 17 次，不能说每轮都加，但频率明显过高。前一个 `98f42ac` 固定短语候选又漏掉“那就去吧，我陪你”。
+- +280 路由修正：宽话题词不再使普通提及“记忆、相册、天气、游戏”启动规划；游戏自然续话只在真实可继续单人会话、15 分钟内、上一条助手消息明确谈游戏且用户为短回复时成为候选。DeepSeek 单通道直接把 Cedar schema 放在正常请求中，让主模型判断；独立最终回复通道先用已有 Jev 短判断判断最新话语是否授权现在推进游戏，Jev 判无则不发 DeepSeek 规划，判有再交 DeepSeek 选动作；Jev 不可用时仍交给原有 DeepSeek 工具规划，不静默丢失邀请。工具执行仍经真实指南/权限/Outcome 门。测试覆盖“那就去吧，我陪你”、普通鲸鱼尾巴/抱抱、过期会话、Jev 正反判定及不可用回退。此方案的语义准确性和调用成本待真机样本验证；不会把静态候选测试冒充模型判断效果。用户新指出的“说话动作停不下来”另需对真实播放状态核实，不凭模型调用统计猜改 TTS。
+- 本地 127 项门禁中 124 项已通过；其余 3 项因私有 417 帧素材、私有 LingChat 素材和本机无 `kotlinc`，需在 Actions 恢复固定资源后运行。Flutter/Android 编译与真机三项效果仍待验；构建结果、APK 及提交信息待回填。

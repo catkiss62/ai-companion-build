@@ -5,9 +5,7 @@ import android.graphics.Canvas
 import android.graphics.Color
 import android.graphics.Paint
 import android.graphics.Path
-import android.graphics.Rect
 import android.graphics.RectF
-import android.graphics.Region
 import android.view.View
 import kotlin.math.PI
 import kotlin.math.cos
@@ -33,79 +31,6 @@ class PetFrameView(context: Context) : View(context) {
     private var overflowPaddingPx = 0
     private var calibration = PetExperimentalCalibration()
     private var comparison: Pair<PetRenderLayer, PetRenderLayer>? = null
-    private var standingReference: PetRenderLayer? = null
-    private var standingPixels: Rect? = null
-    private var standingRuns: List<Rect> = emptyList()
-    private var standingRegion: Region? = null
-    private var standingRegionSize: Pair<Int, Int>? = null
-
-    /** The original front standing frame is the touch reference for every animation. */
-    fun setStandingReference(layer: PetRenderLayer) {
-        standingReference = layer
-        standingRuns = visibleRuns(layer.bitmap)
-        standingPixels = Rect().also { bounds ->
-            standingRuns.forEach { bounds.union(it) }
-        }
-        standingRegion = null
-        standingRegionSize = null
-        requestLayout()
-    }
-
-    fun standingTouchRegion(): Region {
-        if (standingRegionSize == (width to height)) return standingRegion ?: Region()
-        val layer = standingReference ?: return Region()
-        if (width <= 0 || height <= 0) return Region()
-        val scale = displayScale(layer)
-        val anchor = renderAnchor(layer, scale)
-        val region = Region()
-        val clipping = Region(0, 0, width, height)
-        for (run in standingRuns) {
-            val left = kotlin.math.floor((anchor.first + (run.left - layer.bitmap.width * layer.anchor.x) * scale).toDouble()).toInt()
-            val right = kotlin.math.ceil((anchor.first + (run.right - layer.bitmap.width * layer.anchor.x) * scale).toDouble()).toInt()
-            val top = kotlin.math.floor((anchor.second + (run.top - layer.bitmap.height * layer.anchor.y) * scale).toDouble()).toInt()
-            val bottom = kotlin.math.ceil((anchor.second + (run.bottom - layer.bitmap.height * layer.anchor.y) * scale).toDouble()).toInt()
-            if (right > left && bottom > top) region.op(left, top, right, bottom, Region.Op.UNION)
-        }
-        region.op(clipping, Region.Op.INTERSECT)
-        standingRegion = region
-        standingRegionSize = width to height
-        return region
-    }
-
-    fun standingTouchRect(): Rect {
-        val layer = standingReference ?: return Rect()
-        val pixels = standingPixels ?: return Rect()
-        if (pixels.isEmpty) return Rect()
-        if (width <= 0 || height <= 0) return Rect()
-        val scale = displayScale(layer)
-        val anchor = renderAnchor(layer, scale)
-        val left = anchor.first + (pixels.left - layer.bitmap.width * layer.anchor.x) * scale
-        val top = anchor.second + (pixels.top - layer.bitmap.height * layer.anchor.y) * scale
-        val right = anchor.first + (pixels.right - layer.bitmap.width * layer.anchor.x) * scale
-        val bottom = anchor.second + (pixels.bottom - layer.bitmap.height * layer.anchor.y) * scale
-        return Rect(left.toInt(), top.toInt(), kotlin.math.ceil(right.toDouble()).toInt(),
-            kotlin.math.ceil(bottom.toDouble()).toInt()).apply {
-            if (!intersect(0, 0, width, height)) setEmpty()
-        }
-    }
-
-    private fun visibleRuns(bitmap: android.graphics.Bitmap): List<Rect> {
-        val row = IntArray(bitmap.width)
-        val runs = ArrayList<Rect>()
-        for (y in 0 until bitmap.height) {
-            bitmap.getPixels(row, 0, bitmap.width, 0, y, bitmap.width, 1)
-            var start = -1
-            for (x in 0..bitmap.width) {
-                val visible = x < bitmap.width && (row[x] ushr 24) >= 32
-                if (visible && start < 0) start = x
-                if (!visible && start >= 0) {
-                    runs.add(Rect(start, y, x, y + 1))
-                    start = -1
-                }
-            }
-        }
-        return runs
-    }
 
     fun showSnapshot(value: PetRenderSnapshot) {
         snapshot = value
