@@ -18,11 +18,11 @@ class CaicaiMotionPlanner {
       '探头打量': {'ParamAngleX3': 23, 'ParamAngleY2': -12, 'ParamAngleZ': -18, 'ParamAngleZ2': -18},
       '扬头得意': {'ParamAngleY2': 25, 'ParamAngleZ': 16, 'ParamAngleZ2': 16},
     },
-    'body': {'自然待机': {}, '左移重心': {'ParamBodyAngleX': -9, 'ParamBodyAngleZ': 5},
-      '右移重心': {'ParamBodyAngleX': 9, 'ParamBodyAngleZ': -5},
-      '兴奋踮起': {'ParamBodyAngleY': 9, 'ParamBodyAngleZ': 6},
-      '俏皮侧身': {'ParamBodyAngleX': 8, 'ParamBodyAngleY': -5, 'ParamBodyAngleZ': -8}, '轻轻下压': {'ParamBodyAngleY': -8},
-      '轻轻踮起': {'ParamBodyAngleY': 8}, '左摆': {'ParamBodyAngleZ': -8}, '右摆': {'ParamBodyAngleZ': 8}},
+    'body': {'自然待机': {}, '左移重心': {'ParamBodyAngleX': -18, 'ParamBodyAngleZ': 5},
+      '右移重心': {'ParamBodyAngleX': 18, 'ParamBodyAngleZ': -5},
+      '兴奋踮起': {'ParamBodyAngleY': 18, 'ParamBodyAngleZ': 14},
+      '俏皮侧身': {'ParamBodyAngleX': 16, 'ParamBodyAngleY': -5, 'ParamBodyAngleZ': -16}, '轻轻下压': {'ParamBodyAngleY': -16},
+      '轻轻踮起': {'ParamBodyAngleY': 16}, '左摆': {'ParamBodyAngleZ': -16}, '右摆': {'ParamBodyAngleZ': 16}},
     'gaze': {'自然视线': {}, '看左': {'ParamEyeBallX': -.7}, '看右': {'ParamEyeBallX': .7},
       '看上': {'ParamEyeBallY': .6}, '看下': {'ParamEyeBallY': -.6}},
     'mouth': {'自然嘴型': {}, '不高兴': {'ParamMouthForm': -1}, '顽皮笑': {'ParamMouthForm': 1},
@@ -32,6 +32,14 @@ class CaicaiMotionPlanner {
     'brows': {'自然眉眼': {}, '皱眉': {'ParamBrowLY': -.7, 'ParamBrowRY': -.7},
       '大睁眼': {'ParamBrowLY': .7, 'ParamBrowRY': .7}},
   };
+  static const rootMotions = <String, Map<String, double>>{
+    '不位移': {}, '向左探身': {'x': -.10, 'tilt': 3},
+    '向右探身': {'x': .10, 'tilt': -3},
+    '小腿支点左倾': {'x': -.025, 'tilt': 7},
+    '小腿支点右倾': {'x': .025, 'tilt': -7},
+  };
+  static const intensities = {'轻巧': .65, '鲜明': 1.0, '夸张': 1.2};
+  static const tempos = {'舒展': 1.0, '明快': .78, '俏皮快拍': .62};
   static const faces = ['无','1爱心','1生气','1红脸','1钱钱','1黑脸','1星星眼','1流泪'];
   static const actions = ['无','2奶茶','2插手','2比耶','2点单','2菜单','2餐盘左','2餐盘右'];
 
@@ -49,12 +57,24 @@ class CaicaiMotionPlanner {
           }
         }
         if (options.length > 1) questions['f${frame}_${entry.key}'] = JevChoiceQuestion(
-          '这是回复开始后第${frame + 1}秒的${entry.key}动作。根据用户要求、回复语气与动作描写选择；'
+          '这是四拍表演的第${frame + 1}拍${entry.key}动作。根据用户要求、回复语气与动作描写选择；'
           '把四段当成一次连贯的表演：起意、强调、反应、收势。根据回复实际语气选择可见的转头、点头或身体动作；'
-          '避免四段全选自然待机，也不要每段重复同一姿势。安静或严肃语境可克制；俏皮、兴奋时使用完整幅度。'
+          '这是夸张的虚拟主播表演，不必模拟真人的克制；普通对话也用鲜明动作。参数由本地限幅，不要因范围数字大而保守。'
+          '避免四拍全选自然待机；强调拍用完整幅度，反应拍可换方向，收势拍回落。明确安静语境才选轻巧。'
           '头和身方向有配合但不必同向；显式动作尽早执行。自然待机仍有本地重心和头身运动。', options);
       }
     }
+    for (var frame = 0; frame < 4; frame++) {
+      questions['f${frame}_intensity'] = JevChoiceQuestion(
+        '第${frame + 1}拍头身与整模位移幅度：默认鲜明，强调/俏皮用夸张；轻巧只用于有意收敛。',
+        {'轻巧':'基准65%', '鲜明':'基准100%', '夸张':'基准120%，本地限制到模型范围'});
+      questions['f${frame}_root'] = JevChoiceQuestion(
+        '第${frame + 1}拍整模动作：独立的水平平移和以小腿为中心的整体倾斜。'
+        '请配合头身动作，探身看向一侧、俏皮倾身、换重心都可用；四拍不必全动，收势可以不位移。',
+        {for(final x in rootMotions.keys) x:x});
+    }
+    questions['tempo'] = JevChoiceQuestion('整段表演节奏，默认明快；兴奋或俏皮可快拍，安静时舒展。',
+      {'舒展':'每拍1秒', '明快':'每拍0.78秒', '俏皮快拍':'每拍0.62秒'});
     questions['face'] = JevChoiceQuestion('选择本次短时原装表情，情绪不明显时选无。', {for (final x in faces) x: x});
     questions['action'] = JevChoiceQuestion('选择与本轮明确动作或场景有关的原装动作；无关时选无。', {for (final x in actions) x: x});
     questions['emotion'] = JevChoiceQuestion(
@@ -64,7 +84,7 @@ class CaicaiMotionPlanner {
     final answers = await gateway.chooseMany(state: {
       'user': user, 'reply': reply, 'emotion': emotion,
       'parameter_contract': parameters,
-      'schedule': '4 frames at 0,1,2,3 seconds; authored presets above motion; mouth opening belongs to audio',
+      'schedule': '4 beats; tempo chooses interval 0.62/0.78/1s; intensity scales head/body/root only; root x is fraction of model width and tilt is screen rotation degrees about lower legs; Cubism head values are parameter units, NOT physical angles; authored presets above motion; mouth opening belongs to audio',
     }, questions: questions, usageLane: 'caicai_speaking_motion', cancellationToken: cancellationToken);
     if (answers == null) return null;
     return buildPlan(answers, parameters);
@@ -72,8 +92,10 @@ class CaicaiMotionPlanner {
 
   static Map<String, Object?> buildPlan(Map<String, String> answers, Map<String, dynamic> parameters) {
     final frames = <Map<String, Object?>>[];
+    final interval = tempos[answers['tempo']] ?? .78;
     for (var frame = 0; frame < 4; frame++) {
       final targets = <String, double>{};
+      final intensity = intensities[answers['f${frame}_intensity']] ?? 1.0;
       for (final channel in channels.entries) {
         final chosen = channel.value[answers['f${frame}_${channel.key}']];
         if (chosen == null) continue;
@@ -82,16 +104,19 @@ class CaicaiMotionPlanner {
           if (metadata is! Map || metadata['min'] is! num || metadata['max'] is! num) continue;
           final min = (metadata['min'] as num).toDouble(), max = (metadata['max'] as num).toDouble();
           if (!min.isFinite || !max.isFinite || min > max) continue;
-          targets[target.key] = target.value.clamp(min, max).toDouble();
+          final gain = channel.key == 'head' || channel.key == 'body' ? intensity : 1.0;
+          targets[target.key] = (target.value * gain).clamp(min, max).toDouble();
         }
       }
-      frames.add({'time': frame.toDouble(), 'duration': .32, 'parameters': targets});
+      final root = {for(final e in (rootMotions[answers['f${frame}_root']] ?? <String,double>{}).entries)
+        e.key: e.value * intensity};
+      frames.add({'time': frame * interval, 'duration': interval * .28, 'parameters': targets, 'root': root});
       // A hip shift, wink or tongue is a gesture with a return, never a held latch.
       if (targets.keys.any((id) => const {'OUT','ParamEyeLOpen','ParamEyeROpen','ParamBodyAngleX'}.contains(id))) {
         final release = Map<String,double>.from(targets)
           ..removeWhere((id, _) => const {'OUT','ParamEyeLOpen','ParamEyeROpen',
             'ParamEyeLSmile','ParamEyeRSmile','ParamBodyAngleX'}.contains(id));
-        frames.add({'time': frame + .55, 'duration': .25, 'parameters': release});
+        frames.add({'time': (frame + .55) * interval, 'duration': interval * .25, 'parameters': release, 'root': root});
       }
     }
     return {'frames': frames,

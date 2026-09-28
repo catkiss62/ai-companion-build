@@ -205,11 +205,22 @@ class _CaicaiLive2DStageState extends State<CaicaiLive2DStage> with WidgetsBindi
   @override
   Widget build(BuildContext context) => Stack(fit: StackFit.expand, children: [
     // No imported model means no native view, GL thread or focus participant.
-    if (_available) AndroidView(
-      key: ValueKey(_modelRevision),
-      viewType: 'ai_companion/caicai_live2d_view',
-      onPlatformViewCreated: _created,
-    ),
+    if (_available) LayoutBuilder(builder: (context, size) {
+      void touch(PointerEvent event, int action) {
+        if (!widget.active || size.maxWidth <= 0 || size.maxHeight <= 0) return;
+        _channel?.invokeMethod<void>('stageTouch', {
+          'action': action, 'x': event.localPosition.dx / size.maxWidth,
+          'y': event.localPosition.dy / size.maxHeight,
+        });
+      }
+      return Listener(
+        behavior: HitTestBehavior.translucent,
+        onPointerDown: (e) => touch(e, 0), onPointerMove: (e) => touch(e, 2),
+        onPointerUp: (e) => touch(e, 1), onPointerCancel: (e) => touch(e, 3),
+        child: AndroidView(key: ValueKey(_modelRevision),
+          viewType: 'ai_companion/caicai_live2d_view', onPlatformViewCreated: _created),
+      );
+    }),
     if (_status != null) Center(child: Container(
       margin: const EdgeInsets.all(20),
       padding: const EdgeInsets.all(12),

@@ -55,6 +55,8 @@ public final class CaicaiCompanionView extends GLSurfaceView implements SenCompa
     private volatile boolean ownsFramework;
     private boolean surfaceThreadDetached;
     private volatile int contexts, surfaces;
+    private volatile String renderSize="0x0";
+    public String renderSize() { return renderSize; }
     private volatile long frames;
     private long nextFrameNanos;
     private final java.util.concurrent.CountDownLatch releaseComplete =
@@ -120,7 +122,7 @@ public final class CaicaiCompanionView extends GLSurfaceView implements SenCompa
             }
             @Override public void onSurfaceChanged(javax.microedition.khronos.opengles.GL10 gl,
                     int width, int height) {
-                if (!released) { surfaces++; renderer.onSurfaceChanged(gl, width, height); }
+                if (!released) { surfaces++; renderer.onSurfaceChanged(gl, width, height); renderSize=width+"x"+height; }
             }
             @Override public void onDrawFrame(javax.microedition.khronos.opengles.GL10 gl) {
                 if (released) return;
@@ -333,6 +335,11 @@ public final class CaicaiCompanionView extends GLSurfaceView implements SenCompa
         queueRenderer(() -> renderer.pickMaidHairPoint(x, y));
     }
 
+    public void tuneCaicaiMotion(float gain,float speed,float pivot) {
+        queueRenderer(() -> renderer.tuneCaicaiMotion(gain,speed,pivot));
+    }
+    public void stopConversationPlan() { queueRenderer(renderer::stopConversationPlan); }
+    public void startCaicaiPat(String json) { queueRenderer(() -> renderer.startCaicaiPat(json)); }
     public void setStaticMode(boolean enabled) {
         queueRenderer(() -> renderer.setStaticMode(enabled));
     }
@@ -405,7 +412,7 @@ public final class CaicaiCompanionView extends GLSurfaceView implements SenCompa
     }
 
     public String surfaceDiagnostics() {
-        return "glsurface contexts=" + contexts + " surfaces=" + surfaces + " frames=" + frames;
+        return "glsurface contexts=" + contexts + " surfaces=" + surfaces + " buffer=" + renderSize + " view=" + getWidth()+"x"+getHeight()+" frames=" + frames;
     }
 
     void playTimedPreset(String name) { queueRenderer(() -> renderer.playTimedPreset(name)); }

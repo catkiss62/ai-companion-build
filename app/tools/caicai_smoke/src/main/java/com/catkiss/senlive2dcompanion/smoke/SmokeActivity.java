@@ -31,6 +31,7 @@ public class SmokeActivity extends Activity {
         root.addView(view, new FrameLayout.LayoutParams(-1, -1));
         view.onHostResume();
     }
+    public void resizeView(int height) { view.setLayoutParams(new FrameLayout.LayoutParams(-1,height)); }
     public void reparentView() {
         root.removeView(view);
         root.addView(view, new FrameLayout.LayoutParams(-1, -1));

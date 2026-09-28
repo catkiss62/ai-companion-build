@@ -54,6 +54,26 @@ class NativeSmokeTest {
         }
     }
 
+    @Test fun resizeRetainsContextAndTracksActualBuffer() {
+        ActivityScenario.launch(SmokeActivity::class.java).use { scenario ->
+            lateinit var activity: SmokeActivity
+            scenario.onActivity { activity=it }
+            fun awaitSize(height:Int) {
+                val deadline=SystemClock.uptimeMillis()+10000
+                while((activity.view.renderSize().substringAfter("x").toInt()!=height ||
+                    !activity.view.surfaceDiagnostics().contains("frames=")) && SystemClock.uptimeMillis()<deadline) SystemClock.sleep(30)
+                assertNull(activity.error)
+                assertEquals(height,activity.view.renderSize().substringAfter("x").toInt())
+            }
+            scenario.onActivity { it.resizeView(800) }; awaitSize(800)
+            val contexts=activity.view.surfaceDiagnostics().substringAfter("contexts=").substringBefore(" ")
+            for(height in listOf(560,320,560,800)) {
+                scenario.onActivity { it.resizeView(height) }; awaitSize(height)
+                assertEquals(contexts,activity.view.surfaceDiagnostics().substringAfter("contexts=").substringBefore(" "))
+            }
+        }
+    }
+
     @Test fun importThroughAliasPromotionRecoveryRollbackAndReimport() {
         val base = ApplicationProvider.getApplicationContext<Context>()
         val actual = File(base.cacheDir, "import-real").apply { mkdirs() }

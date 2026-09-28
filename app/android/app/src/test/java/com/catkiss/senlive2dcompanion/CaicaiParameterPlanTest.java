@@ -31,4 +31,22 @@ public class CaicaiParameterPlanTest {
             public void write(String id, float value) { fail(); }
         });
     }
+    @Test public void rootHasBoundedSeparateNamespaceAndReturnsToIdle() throws Exception {
+        CaicaiParameterPlan plan=new CaicaiParameterPlan();
+        plan.start("[{\"time\":0,\"duration\":0.2,\"parameters\":{\"@rootX\":99},\"root\":{\"x\":5,\"tilt\":90}}]");
+        final java.util.Map<String,Float> values=new java.util.HashMap<>();
+        CaicaiParameterPlan.Target out=new CaicaiParameterPlan.Target() {
+            public boolean accepts(String id) { return true; }
+            public float current(String id) { return 0; }
+            public void write(String id,float v) { values.put(id,v); }
+        };
+        plan.apply(.1f,out);
+        assertTrue(values.get("@rootX")>0 && values.get("@rootX")<=.15f);
+        assertTrue(values.get("@rootTilt")>0 && values.get("@rootTilt")<=10);
+        assertFalse(CaicaiParameterPlan.supports("@rootX"));
+        for(int i=0;i<15;i++) plan.apply(.1f,out);
+        assertEquals(0,values.get("@rootX"),.001f);
+        assertEquals(0,values.get("@rootTilt"),.001f);
+    }
+
 }

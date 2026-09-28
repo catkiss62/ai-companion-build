@@ -24,7 +24,9 @@ final class CaicaiParameterPlan {
     }
     private final List<Frame> frames = new ArrayList<>();
     private final Map<String, Float> previous = new HashMap<>();
-    private float elapsed;
+    private float elapsed, gain=1f, speed=1f;
+    void setSpeed(float value) { speed=value; }
+    void setGain(float value) { gain=value; }
     void clear() { frames.clear(); previous.clear(); elapsed = 0f; }
     void start(String json) throws JSONException {
         clear();
@@ -44,13 +46,23 @@ final class CaicaiParameterPlan {
                 float value = (float)values.optDouble(id, Double.NaN);
                 if (supports(id) && Float.isFinite(value)) f.values.put(id, value);
             }
+            // Root movement has its own namespace; never write fabricated Cubism IDs.
+            JSONObject root = item.optJSONObject("root");
+            if (root != null) {
+                for (String key : new String[]{"x","tilt"}) {
+                    float v=(float)root.optDouble(key,Double.NaN);
+                    if (Float.isFinite(v)) f.values.put(key.equals("x") ? "@rootX" : "@rootTilt",
+                        Math.max(key.equals("x") ? -.15f : -10f,Math.min(key.equals("x") ? .15f : 10f,v)));
+                }
+            }
             lastTime = f.time;
             frames.add(f);
         }
     }
     void apply(float delta, Target target) {
         if (frames.isEmpty()) return;
-        elapsed += Math.max(0f, delta);
+        delta=Math.max(0f,delta)*speed;
+        elapsed += delta;
         Frame current = null;
         float end = 0f;
         for (Frame frame : frames) {
@@ -66,7 +78,11 @@ final class CaicaiParameterPlan {
             if (!target.accepts(id)) { previous.remove(id); continue; }
             float lower = target.current(id);
             float old = previous.containsKey(id) ? previous.get(id) : lower;
-            float wanted = finishing ? lower : current.values.getOrDefault(id, lower);
+            float wanted = lower;
+            if (!finishing && current.values.containsKey(id)) {
+                float scale=id.startsWith("ParamAngle") || id.startsWith("ParamBodyAngle") || id.startsWith("@root") ? gain : 1f;
+                wanted=current.values.get(id)*scale;
+            }
             float value = old + (wanted - old) * smoothing;
             target.write(id, value);
             previous.put(id, value);

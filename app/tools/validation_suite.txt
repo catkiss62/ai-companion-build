@@ -131,3 +131,5 @@ tools/validate_v04203_media_empty_turn_hotfix.py
 tools/validate_v04204_tts_affinity_tool_activity.py
 
 tools/validate_v04241_caicai_and_final_route.py
+
+tools/validate_v04242_caicai_performance.py

@@ -1,3 +1,4 @@
+import '../../widgets/caicai_stage_viewport.dart';
 import '../../widgets/caicai_stage_editor.dart';
 import 'dart:async';
 import 'dart:io';
@@ -92,6 +93,7 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
   double _panelFraction = 0.62;
   ChatPortraitSet _portraitSet = ChatPortraitSet.largeWhale;
   double? _caicaiStableHeight;
+  final _caicaiViewport = CaicaiStageViewport();
   bool _caicaiEnabled = false;
   final _caicaiMotion = CaicaiChatMotion();
   PlayfulFormState _playfulForm = const PlayfulFormState();
@@ -1362,9 +1364,8 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
           child: LayoutBuilder(
             builder: (context, constraints) {
               final keyboardInset = MediaQuery.viewInsetsOf(context).bottom;
-              if (keyboardInset == 0 || _caicaiStableHeight == null) {
-                _caicaiStableHeight = constraints.maxHeight + keyboardInset;
-              }
+              _caicaiStableHeight = _caicaiViewport.resolve(width: constraints.maxWidth,
+                availableHeight: constraints.maxHeight, keyboardInset: keyboardInset);
               final fraction = _visualStageEnabled ? _panelFraction : 1.0;
               final panelHeight = constraints.maxHeight * fraction;
               return ValueListenableBuilder<Map<String, Object?>?>(

@@ -31,7 +31,7 @@ void main() {
         calls++;
         final body = jsonDecode(request.body) as Map;
         final questions = body['questions'] as Map;
-        expect(questions.keys, containsAll(['f0_head','f1_head','f2_head','f3_head','face','action','emotion']));
+        expect(questions.keys, containsAll(['f0_head','f1_head','f2_head','f3_head','face','action','emotion','tempo','f0_intensity','f3_root']));
         return http.Response('{}', 503);
       }));
     expect(await CaicaiMotionPlanner(gateway: gateway).plan(user: '看看左边', reply: '好呀',
@@ -44,9 +44,9 @@ void main() {
       'OUT':{'min':0,'max':1},
     });
     final frames=plan['frames'] as List;
-    expect(frames[0]['parameters']['ParamBodyAngleX'],-9);
+    expect(frames[0]['parameters']['ParamBodyAngleX'],-10);
     expect(frames[0]['parameters']['OUT'],1);
-    expect(frames[1]['time'],.55);
+    expect(frames[1]['time'],closeTo(.55*.78,.0001));
     expect((frames[1]['parameters'] as Map).containsKey('OUT'),isFalse);
     expect((frames[1]['parameters'] as Map).containsKey('ParamBodyAngleX'),isFalse);
   });
@@ -55,4 +55,18 @@ void main() {
     expect(CaicaiMotionPlanner.buildPlan({'emotion': 'nervous'}, {})['emotion'], 'tense');
     expect(CaicaiMotionPlanner.buildPlan({'emotion': 'embarrassed'}, {})['emotion'], 'ashamed');
   });
+  test('Jev intensity and tempo control head/body and root but preserve face targets', () {
+    final plan=CaicaiMotionPlanner.buildPlan({'tempo':'俏皮快拍','f0_head':'右侧头',
+      'f0_intensity':'夸张','f0_root':'小腿支点左倾','f0_mouth':'顽皮笑'}, {
+      'ParamAngleX3':{'min':-30,'max':30},'ParamMouthForm':{'min':-1,'max':1},
+    });
+    final frames=plan['frames'] as List;
+    expect(frames[0]['parameters']['ParamAngleX3'],30);
+    expect(frames[0]['parameters']['ParamMouthForm'],1);
+    expect(frames[0]['root']['tilt'],closeTo(8.4,.001));
+    expect(frames[1]['time'],.62);
+    expect(frames[0]['duration'],closeTo(.62*.28,.001));
+    expect(frames.last['root'],isEmpty);
+  });
+
 }

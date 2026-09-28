@@ -404,6 +404,25 @@ final class SenLive2DModel extends CubismUserModel {
     private final java.util.Set<String> planOwnedPresets = new java.util.HashSet<>();
     private long planPresetDeadlineNanos;
     private boolean manualPlan;
+    private float rootX, rootTilt, motionTempo=1f;
+    private long patDeadlineNanos;
+    private float[] rootDrawTransform;
+    void setRootDrawTransform(float[] matrix) { rootDrawTransform=matrix; }
+    float rootX() { return staticMode ? 0 : rootX; }
+    float rootTilt() { return staticMode ? 0 : rootTilt; }
+    void resizeRenderTarget(int width,int height) {
+        if (getRenderer()!=null) getRenderer().setRenderTargetSize(width,height);
+    }
+    void tuneMotion(float gain,float speed) { motionTempo=speed; caicaiIdle.tune(gain,speed); parameterPlan.setGain(gain); parameterPlan.setSpeed(speed); }
+    void startCaicaiPat(String json) throws JSONException {
+        clearParameterPlan();
+        caicaiIdle.clearAttention();
+        parameterPlan.start(json);
+        patDeadlineNanos=System.nanoTime()+(long)(1_950_000_000L/motionTempo);
+    }
+    private void applyRootDrawTransform() {
+        if(rootDrawTransform!=null) applyClipTransform(drawMvpMatrix,rootDrawTransform);
+    }
 
     String motionParameters() {
         JSONObject result = new JSONObject();
@@ -420,7 +439,7 @@ final class SenLive2DModel extends CubismUserModel {
     }
 
     void startParameterPlan(String json, String face, String action) throws JSONException {
-        if (manualPlan && System.nanoTime() < planPresetDeadlineNanos) return;
+        if (System.nanoTime() < patDeadlineNanos || manualPlan && System.nanoTime() < planPresetDeadlineNanos) return;
         clearParameterPlan();
         parameterPlan.start(json);
         for (String name : new String[]{face, action}) {
@@ -444,8 +463,10 @@ final class SenLive2DModel extends CubismUserModel {
         planPresetDeadlineNanos = System.nanoTime() + 4_120_000_000L;
     }
 
+    void stopConversationPlan() { if(System.nanoTime() >= patDeadlineNanos && !manualPlan) clearParameterPlan(); }
     void clearParameterPlan() {
         parameterPlan.clear();
+        rootX=0; rootTilt=0; patDeadlineNanos=0;
         for (String name : new java.util.ArrayList<>(planOwnedPresets)) stopMaidPreset(name);
         planOwnedPresets.clear();
         planPresetDeadlineNanos = 0L;
@@ -465,9 +486,11 @@ final class SenLive2DModel extends CubismUserModel {
                 limits.put(id,new float[]{model.getParameterMinimumValue(i),model.getParameterMaximumValue(i)});
             }
             cachedCaicaiTarget = new CaicaiParameterPlan.Target() {
-                public boolean accepts(String id) { return indices.containsKey(id); }
-                public float current(String id) { return model.getParameterValue(indices.get(id)); }
+                public boolean accepts(String id) { return id.equals("@rootX") || id.equals("@rootTilt") || indices.containsKey(id); }
+                public float current(String id) { return id.equals("@rootX") ? rootX : id.equals("@rootTilt") ? rootTilt : model.getParameterValue(indices.get(id)); }
                 public void write(String id,float value) {
+                    if(id.equals("@rootX")) { rootX=Math.max(-.15f,Math.min(.15f,value)); return; }
+                    if(id.equals("@rootTilt")) { rootTilt=Math.max(-10,Math.min(10,value)); return; }
                     float[] range=limits.get(id);
                     model.getModel().getParameterViews()[indices.get(id)].setValue(Math.max(range[0],Math.min(range[1],value)));
                 }
@@ -479,7 +502,7 @@ final class SenLive2DModel extends CubismUserModel {
         caicaiIdle.update(delta, caicaiTarget());
         caicaiFace.update(performance.getEmotion(), delta, caicaiTarget());
     }
-    void setCaicaiLook(boolean active, float x, float y) { caicaiIdle.look(active, x, y); }
+    void setCaicaiLook(boolean active, float x, float y) { if (System.nanoTime() >= patDeadlineNanos) caicaiIdle.look(active, x, y); }
     private void applyParameterPlan(float delta) {
         if (planPresetDeadlineNanos > 0) {
             if (System.nanoTime() >= planPresetDeadlineNanos) {
@@ -491,7 +514,7 @@ final class SenLive2DModel extends CubismUserModel {
             }
         }
         parameterPlan.apply(delta, caicaiTarget());
-        if (delta > 0) caicaiIdle.applyAttention(caicaiTarget());
+        if (delta > 0 && System.nanoTime() >= patDeadlineNanos) caicaiIdle.applyAttention(caicaiTarget());
     }
 
     void setSmallForm(boolean small) {
@@ -741,6 +764,7 @@ final class SenLive2DModel extends CubismUserModel {
                 drawMvpMatrix.getArray());
         CubismRendererAndroid renderer = getRenderer();
         renderer.setDrawableVisibilityFilter(filter);
+        applyRootDrawTransform(); // AI_COMPANION_HOST_PLAN_HOOK
         renderer.setMvpMatrix(drawMvpMatrix);
         renderer.drawModel();
     }

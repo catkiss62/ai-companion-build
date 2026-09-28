@@ -1,4 +1,6 @@
+import 'dart:convert';
 import 'package:flutter/material.dart';
+import '../../core/ai/caicai_motion_planner.dart';
 import '../../core/database/app_database.dart';
 import '../../core/emotion/emotion_contract.dart';
 import '../../core/platform/live2d_model_storage.dart';
@@ -16,6 +18,7 @@ class _Live2DSettingsPageState extends State<Live2DSettingsPage> {
   bool _enabled = false, _motion = true, _busy = false, _loading = true;
   Map<String, Object?> _status = const {};
   String? _error;
+  double _gain=1, _speed=1, _pivot=.88;
   @override
   void initState() { super.initState(); _load(); }
   Future<void> _load() async {
@@ -23,6 +26,12 @@ class _Live2DSettingsPageState extends State<Live2DSettingsPage> {
       final enabled = await _db.getSetting('chat_portrait_mode') == 'caicai_live2d';
       final motion = await _db.getSetting('caicai_jev_motion') != '0';
       final status = await CaicaiLive2DService.diagnostics;
+      final tuning = await CaicaiLive2DService.command('getMotionTuning');
+      if (tuning is Map) {
+        _gain=(tuning['gain'] as num?)?.toDouble() ?? 1;
+        _speed=(tuning['speed'] as num?)?.toDouble() ?? 1;
+        _pivot=(tuning['pivot'] as num?)?.toDouble() ?? .88;
+      }
       if (mounted) setState(() { _enabled = enabled; _motion = motion; _status = status; _loading = false; });
     } catch (error) { if (mounted) setState(() { _error = '$error'; _loading = false; }); }
   }
@@ -60,6 +69,23 @@ class _Live2DSettingsPageState extends State<Live2DSettingsPage> {
     CaicaiLive2DService.editor.value = {'mode': mode, 'state': state};
     if (mounted) Navigator.of(context).popUntil((route) => route.isFirst);
   });
+  Future<void> _saveTuning() => _run(() async {
+    await CaicaiLive2DService.command('setMotionTuning', {'gain':_gain,'speed':_speed,'pivot':_pivot});
+  });
+  Future<void> _previewRoot(String root, String head) => _run(() async {
+    final raw=await CaicaiLive2DService.command('parameters');
+    final parameters=raw is String ? (jsonDecode(raw) as Map).cast<String,dynamic>() : <String,dynamic>{};
+    if (parameters.isEmpty) throw StateError('请先在聊天画面加载模型');
+    final answers=<String,String>{'tempo':'明快',
+      'f0_root':root,'f1_root':root,'f0_head':head,'f1_head':head,
+      'f0_body':'兴奋踮起','f1_body':'轻轻下压'};
+    await CaicaiLive2DService.command('static',false);
+    await CaicaiLive2DService.command('motionPlan',CaicaiMotionPlanner.buildPlan(answers,parameters));
+    if (mounted) Navigator.of(context).popUntil((route)=>route.isFirst);
+  });
+  Widget _tuner(String label,double value,double min,double max,ValueChanged<double> change) => Column(
+    crossAxisAlignment:CrossAxisAlignment.start,children:[Text(label),Slider(value:value.clamp(min,max),
+      min:min,max:max,onChanged:_busy?null:change,onChangeEnd:(_)=>_saveTuning())]);
   Widget _presets(String label, List<String> names) => Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
     const SizedBox(height: 18), Text(label, style: Theme.of(context).textTheme.titleMedium),
     Wrap(spacing: 8, children: names.map((name) => ActionChip(label: Text(name.replaceFirst(RegExp(r'^[12]'), '')),
@@ -88,7 +114,17 @@ class _Live2DSettingsPageState extends State<Live2DSettingsPage> {
           SwitchListTile(title: const Text('Jev 对话动作'), value: _motion,
             subtitle: const Text('复用已配置的 Jev，每条新回复批量判断短时动作；自主呼吸和眨眼由本机驱动'),
             onChanged: _busy ? null : (value) => _run(() => _db.setSetting('caicai_jev_motion', value ? '1' : '0'))),
-          const Text('点击后返回聊天查看。临时表情和动作 4.5 秒后结束；装扮及聊天情绪保持。'),
+          const Text('点击后返回聊天查看。原装临时表情和动作 4.5 秒后结束；装扮及聊天情绪保持。'),
+          const SizedBox(height: 16),
+          const Text('表演调节：默认鲜明、明快；幅度仍受模型自身范围限制。'),
+          _tuner('头身与整模幅度 · ${(_gain*100).round()}%',_gain,.5,1.5,(v)=>setState(()=>_gain=v)),
+          _tuner('待机与动作速度 · ${(_speed*100).round()}%',_speed,.65,1.6,(v)=>setState(()=>_speed=v)),
+          _tuner('倾斜支点 · 从模型顶部向下 ${(_pivot*100).round()}%',_pivot,.65,.98,(v)=>setState(()=>_pivot=v)),
+          Wrap(spacing:8,children:[
+            for(final pair in const {'向左探身':'左侧头','向右探身':'右侧头',
+              '小腿支点左倾':'右歪头','小腿支点右倾':'左歪头'}.entries)
+              ActionChip(label:Text(pair.key),onPressed:_busy?null:()=>_previewRoot(pair.key,pair.value)),
+          ]),
           const SizedBox(height: 18),
           Text('聊天情绪预览（19 种）', style: Theme.of(context).textTheme.titleMedium),
           Wrap(spacing: 8, children: [

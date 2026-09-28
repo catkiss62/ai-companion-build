@@ -7,7 +7,7 @@ import static org.junit.Assert.*;
 public class CaicaiPerformanceTest {
     private static class Pose implements CaicaiParameterPlan.Target {
         final Map<String,Float> values=new HashMap<>();
-        public boolean accepts(String id) { return CaicaiParameterPlan.supports(id); }
+        public boolean accepts(String id) { return CaicaiParameterPlan.supports(id) || id.startsWith("@root"); }
         public float current(String id) { return values.getOrDefault(id,0f); }
         public void write(String id,float value) { assertTrue(Float.isFinite(value)); values.put(id,value); }
     }
@@ -21,13 +21,15 @@ public class CaicaiPerformanceTest {
                 lo.merge(e.getKey(),e.getValue(),Math::min); hi.merge(e.getKey(),e.getValue(),Math::max);
             }
             float x=pose.current("ParamAngleX3");
-            if(i>0) assertTrue("no pulse discontinuity",Math.abs(x-previous)<2);
+            if(i>0) assertTrue("no pulse discontinuity",Math.abs(x-previous)<4);
             previous=x;
         }
-        assertTrue(hi.get("ParamAngleX3")-lo.get("ParamAngleX3")>25);
-        assertTrue(hi.get("ParamAngleY2")-lo.get("ParamAngleY2")>20);
+        assertTrue(hi.get("ParamAngleX3")-lo.get("ParamAngleX3")>40);
+        assertTrue(hi.get("ParamAngleY2")-lo.get("ParamAngleY2")>30);
         for(String id:new String[]{"ParamBodyAngleX","ParamBodyAngleY","ParamBodyAngleZ"})
             assertTrue(id,hi.get(id)-lo.get(id)>7);
+        assertTrue(hi.get("@rootX")-lo.get("@rootX")>.12f);
+        assertTrue(hi.get("@rootTilt")-lo.get("@rootTilt")>8f);
         assertFalse(pose.values.containsKey("ParamAngleX"));
         assertFalse(pose.values.containsKey("ParamMouthOpenY"));
         assertFalse(pose.values.containsKey("ParamBreath"));
@@ -41,6 +43,12 @@ public class CaicaiPerformanceTest {
         for(int i=0;i<100;i++) idle.update(1f/30,pose);
         pose.write("ParamAngleX3",-20); idle.applyAttention(pose);
         assertEquals(-20,pose.current("ParamAngleX3"),.001);
+    }
+    @Test public void patLeaseClearsAttentionSoHeadPlanSurvives() {
+        CaicaiIdleMotion idle=new CaicaiIdleMotion(); Pose pose=new Pose();
+        idle.look(true,1,1); idle.update(.1f,pose); idle.clearAttention();
+        pose.write("ParamAngleY2",-25); idle.applyAttention(pose);
+        assertEquals(-25,pose.current("ParamAngleY2"),.001f);
     }
     @Test public void maidExpressionsAreVisibleWithoutStealingLipSync() {
         CaicaiFaceMotion face=new CaicaiFaceMotion(); Pose pose=new Pose();

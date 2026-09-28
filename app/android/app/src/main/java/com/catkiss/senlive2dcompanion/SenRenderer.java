@@ -454,6 +454,7 @@ final class SenRenderer implements GLSurfaceView.Renderer {
     }
 
     boolean screenToModelNormalized(float screenX, float screenY, float[] result) {
+        if (caicaiRoot != null) return caicaiHit(screenX,screenY,result); // AI_COMPANION_HOST_PLAN_HOOK
         if (!modelBoundsValid || result == null || result.length < 2) return false;
         float left = modelBoundsLeft;
         float right = modelBoundsRight;
@@ -480,6 +481,37 @@ final class SenRenderer implements GLSurfaceView.Renderer {
     }
 
     // BEGIN AI_COMPANION_HOST_EXTENSION
+    private volatile CaicaiRootTransform caicaiRoot = CaicaiRootTransform.IDENTITY;
+    private float motionGain=1f, motionSpeed=1f, lowerLegPivot=.88f;
+    void tuneCaicaiMotion(float gain,float speed,float pivot) {
+        motionGain=gain; motionSpeed=speed; lowerLegPivot=pivot;
+        if(model!=null) model.tuneMotion(gain,speed);
+    }
+    private void resizeCaicaiTargets(int width,int height) {
+        if(width<=0 || height<=0) return;
+        if(model!=null) model.resizeRenderTarget(width,height);
+        if(overlayModel!=null) overlayModel.resizeRenderTarget(width,height);
+    }
+    private void updateCaicaiRoot() {
+        model.tuneMotion(motionGain,motionSpeed);
+        caicaiRoot=CaicaiRootTransform.create(surfaceWidth,surfaceHeight,modelBoundsLeft,
+            modelBoundsRight,modelBoundsTop,modelBoundsBottom,model.rootX(),model.rootTilt(),lowerLegPivot);
+        float[] matrix=caicaiRoot.matrix();
+        model.setRootDrawTransform(matrix);
+        if(overlayModel!=null) overlayModel.setRootDrawTransform(matrix);
+    }
+    private boolean caicaiHit(float sx,float sy,float[] result) {
+        if(!modelBoundsValid || result==null || result.length<2) return false;
+        float[] clip=new float[2]; caicaiRoot.inverse(sx*2-1,1-sy*2,clip);
+        result[0]=(clip[0]-modelBoundsLeft)/(modelBoundsRight-modelBoundsLeft);
+        result[1]=(modelBoundsTop-clip[1])/(modelBoundsTop-modelBoundsBottom);
+        return Float.isFinite(result[0]) && Float.isFinite(result[1]);
+    }
+    void startCaicaiPat(String json) {
+        if(model==null) return;
+        try { model.startCaicaiPat(json); } catch(org.json.JSONException e) { listener.onError(e); }
+    }
+
     void playTimedPreset(String name) { if (model != null) model.playTimedPreset(name); }
     void setCaicaiLook(boolean active, float x, float y) {
         if (model != null) model.setCaicaiLook(active, x, y);
@@ -491,6 +523,7 @@ final class SenRenderer implements GLSurfaceView.Renderer {
         try { model.startParameterPlan(json, face, action); }
         catch (org.json.JSONException error) { listener.onStatus("动作计划格式错误：" + error.getMessage()); }
     }
+    void stopConversationPlan() { if(model!=null) model.stopConversationPlan(); }
     void clearParameterPlan() { if (model != null) model.clearParameterPlan(); }
 
     // END AI_COMPANION_HOST_EXTENSION
@@ -589,6 +622,7 @@ final class SenRenderer implements GLSurfaceView.Renderer {
         if (released) return;
         surfaceWidth = width;
         surfaceHeight = height;
+        resizeCaicaiTargets(width,height); // AI_COMPANION_HOST_PLAN_HOOK
         GLES20.glViewport(0, 0, width, height);
         if (contextRecreated && model != null) {
             try {
@@ -644,6 +678,7 @@ final class SenRenderer implements GLSurfaceView.Renderer {
             prepareProjection(model, maidProjection, 1.0f, 0.0f, 0.0f);
             projection.setMatrix(maidProjection);
             updateInteractionBounds();
+            updateCaicaiRoot(); // AI_COMPANION_HOST_PLAN_HOOK
 
             if (showSen) {
                 drawOverlayGroup(CompositeOverlayGroup.TAIL);
