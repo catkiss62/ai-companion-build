@@ -7,7 +7,7 @@ read = lambda p: (app / p).read_text()
 host = read("android/app/src/main/java/com/catkiss/senlive2dcompanion/CaicaiCompanionView.java")
 assert "extends GLSurfaceView" in host
 assert "readyAfterDraw" in host and "releaseComplete.await" in host
-assert "33_333_333L" in host
+assert "16_666_667L" in host
 assert not (app / "android/app/src/main/java/com/catkiss/senlive2dcompanion/CaicaiTextureSurface.java").exists()
 repo = read("android/app/src/main/kotlin/com/catkiss/senlive2dcompanion/CaicaiModelRepository.kt")
 assert '"caicai-live2d").canonicalFile' in repo

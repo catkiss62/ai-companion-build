@@ -26,7 +26,7 @@ class NativeSmokeTest {
             ActivityScenario.launch(SmokeActivity::class.java).use { scenario ->
                 lateinit var activity: SmokeActivity
                 scenario.onActivity { activity = it }
-                fun frames() = activity.view.surfaceDiagnostics().substringAfter("frames=").toLong()
+                fun frames() = activity.view.surfaceDiagnostics().substringAfter("frames=").substringBefore(" ").toLong()
                 fun awaitFrames(previous: Long) {
                     val deadline = SystemClock.uptimeMillis() + 10000
                     while (frames() <= previous && activity.error == null && SystemClock.uptimeMillis() < deadline) {

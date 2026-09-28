@@ -35,7 +35,8 @@ class CaicaiLive2DService {
 }
 
 class CaicaiLive2DStage extends StatefulWidget {
-  const CaicaiLive2DStage({super.key, this.qForm = false, this.emotion = 'normal', this.active = true});
+  const CaicaiLive2DStage({super.key, this.qForm = false, this.emotion = 'normal', this.active = true, this.sceneSize});
+  final Size? sceneSize;
   final bool qForm;
   final bool active;
   final String emotion;
@@ -134,13 +135,13 @@ class _CaicaiLive2DStageState extends State<CaicaiLive2DStage> with WidgetsBindi
       _channel?.invokeMethod<void>('setVisible', widget.active);
       _watchLoading();
     }
-    if (oldWidget.qForm != widget.qForm || oldWidget.emotion != widget.emotion) _syncState();
+    if (oldWidget.qForm != widget.qForm || oldWidget.sceneSize != widget.sceneSize) _syncState();
   }
 
   Future<void> _syncState() async {
     await _channel?.invokeMethod<void>('setForm', widget.qForm);
-    await _channel?.invokeMethod<void>('setEmotion',
-        CaicaiLive2DService.nativeEmotionId(widget.emotion));
+    final size=widget.sceneSize;
+    if(size!=null) await _channel?.invokeMethod<void>('setSceneSize',{'width':size.width,'height':size.height});
   }
 
   void _created(int id) {
@@ -168,6 +169,7 @@ class _CaicaiLive2DStageState extends State<CaicaiLive2DStage> with WidgetsBindi
     });
     () async {
       try {
+        await _syncState();
         await channel.invokeMethod<void>('setVisible', widget.active);
         await channel.invokeMethod<void>('setKeyboardVisible', _keyboardVisible);
         final state = await channel.invokeMapMethod<String, Object?>('start');

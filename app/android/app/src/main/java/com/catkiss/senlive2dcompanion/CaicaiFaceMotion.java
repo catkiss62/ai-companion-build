@@ -5,7 +5,8 @@ final class CaicaiFaceMotion {
     private final float[] current = new float[8];
     private static final String[] IDS = {"ParamMouthForm","MOUTHX","SHRUG","ParamBrowLY","ParamBrowRY",
         "ParamEyeLSmile","ParamEyeRSmile","ParamAngleZ"};
-    void update(String emotion, float dt, CaicaiParameterPlan.Target target) {
+    void update(String emotion,float dt,CaicaiParameterPlan.Target target) { update(emotion,dt,target,1); }
+    void update(String emotion, float dt, CaicaiParameterPlan.Target target, float weight) {
         float[] wanted;
         switch(emotion) {
             case "happy": wanted=v(1,0,0,.35f,.35f,.9f,.9f,4); break;
@@ -33,9 +34,9 @@ final class CaicaiFaceMotion {
         float mix=1-(float)Math.exp(-Math.max(0,dt)/.16f);
         for(int i=0;i<IDS.length;i++) {
             current[i]+=(wanted[i]-current[i])*mix;
-            if(target.accepts(IDS[i])) target.write(IDS[i], i==7 ? target.current(IDS[i])+current[i] : current[i]);
+            if(target.accepts(IDS[i])) target.write(IDS[i], i==7 ? target.current(IDS[i])+current[i]*weight : target.current(IDS[i])*(1-weight)+current[i]*weight);
         }
-        if(target.accepts("ParamAngleZ2")) target.write("ParamAngleZ2", target.current("ParamAngleZ2")+current[7]);
+        if(target.accepts("ParamAngleZ2")) target.write("ParamAngleZ2", target.current("ParamAngleZ2")+current[7]*weight);
     }
     private static float[] v(float... values) { return values; }
 }

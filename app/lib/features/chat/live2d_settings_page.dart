@@ -1,4 +1,7 @@
 import 'dart:convert';
+import 'dart:io';
+import 'package:path_provider/path_provider.dart';
+import '../../core/platform/android_bridge.dart';
 import 'package:flutter/material.dart';
 import '../../core/ai/caicai_motion_planner.dart';
 import '../../core/database/app_database.dart';
@@ -41,6 +44,18 @@ class _Live2DSettingsPageState extends State<Live2DSettingsPage> {
     catch (error) { if (mounted) setState(() => _error = '$error'); }
     finally { if (mounted) setState(() => _busy = false); }
   }
+  Future<void> _exportDiagnostics() => _run(() async {
+    final detail=await CaicaiLive2DService.command('exportLive2DDiagnostics');
+    final report=detail is String ? detail : jsonEncode(await CaicaiLive2DService.diagnostics);
+    final directory=await getTemporaryDirectory();
+    final stamp=DateTime.now().toUtc().toIso8601String().replaceAll(':','-');
+    final name='live2d_diagnostics_$stamp.json';
+    final file=File('${directory.path}/$name');
+    try {
+      await file.writeAsString(report,flush:true);
+      await AndroidBridge.instance.saveDiagnosticReport(sourcePath:file.path,suggestedName:name);
+    } finally { if(await file.exists()) await file.delete(); }
+  });
   Future<void> _delete() async {
     final confirmed = await showDialog<bool>(context: context, builder: (context) => AlertDialog(
       title: const Text('确认删除 Live2D 模型？'),
@@ -88,7 +103,7 @@ class _Live2DSettingsPageState extends State<Live2DSettingsPage> {
       min:min,max:max,onChanged:_busy?null:change,onChangeEnd:(_)=>_saveTuning())]);
   Widget _presets(String label, List<String> names) => Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
     const SizedBox(height: 18), Text(label, style: Theme.of(context).textTheme.titleMedium),
-    Wrap(spacing: 8, children: names.map((name) => ActionChip(label: Text(name.replaceFirst(RegExp(r'^[12]'), '')),
+    Wrap(spacing: 8, children: names.map((name) => ActionChip(label: Text(name == '1白袜' ? '丝袜' : name.replaceFirst(RegExp(r'^[12]'), '')),
       onPressed: _busy ? null : () => _control('expression', name))).toList()),
   ]);
   @override
@@ -114,9 +129,19 @@ class _Live2DSettingsPageState extends State<Live2DSettingsPage> {
           SwitchListTile(title: const Text('Jev 对话动作'), value: _motion,
             subtitle: const Text('复用已配置的 Jev，每条新回复批量判断短时动作；自主呼吸和眨眼由本机驱动'),
             onChanged: _busy ? null : (value) => _run(() => _db.setSetting('caicai_jev_motion', value ? '1' : '0'))),
-          const Text('点击后返回聊天查看。原装临时表情和动作 4.5 秒后结束；装扮及聊天情绪保持。'),
+          const Text('点击后返回聊天查看。聊天情绪、临时表情和动作 4.5 秒内淡出；装扮保持。摸头可按住持续。'),
           const SizedBox(height: 16),
           const Text('表演调节：默认鲜明、明快；幅度仍受模型自身范围限制。'),
+          const Text('目标 60 FPS · 高精度蒙版 512px'),
+          ListTile(leading:const Icon(Icons.file_download_outlined),title:const Text('导出 Live2D 诊断'),
+            subtitle:const Text('包含近期帧率、头部参数和显示状态，不包含聊天与模型素材'),
+            onTap:_busy?null:_exportDiagnostics),
+          Wrap(spacing:8,children:[
+            ActionChip(label:const Text('左右大幅测试'),onPressed:_busy?null:()=>_control('headSweep','head_x_sweep')),
+            ActionChip(label:const Text('上下大幅测试'),onPressed:_busy?null:()=>_control('headSweep','head_y_sweep')),
+            ActionChip(label:const Text('结束大幅测试'),onPressed:_busy?null:()=>_control('headSweep','live')),
+            ActionChip(label:const Text('摸头彩蛋预览'),onPressed:_busy?null:()=>_control('headPatRare')),
+          ]),
           _tuner('头身与整模幅度 · ${(_gain*100).round()}%',_gain,.5,1.5,(v)=>setState(()=>_gain=v)),
           _tuner('待机与动作速度 · ${(_speed*100).round()}%',_speed,.65,1.6,(v)=>setState(()=>_speed=v)),
           _tuner('倾斜支点 · 从模型顶部向下 ${(_pivot*100).round()}%',_pivot,.65,.98,(v)=>setState(()=>_pivot=v)),

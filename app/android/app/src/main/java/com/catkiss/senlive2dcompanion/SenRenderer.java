@@ -483,6 +483,19 @@ final class SenRenderer implements GLSurfaceView.Renderer {
     // BEGIN AI_COMPANION_HOST_EXTENSION
     private volatile CaicaiRootTransform caicaiRoot = CaicaiRootTransform.IDENTITY;
     private float motionGain=1f, motionSpeed=1f, lowerLegPivot=.88f;
+    private final CaicaiSceneCamera caicaiCamera=new CaicaiSceneCamera();
+    void setCaicaiScene(float width,float height) { caicaiCamera.setScene(width,height); }
+    private float sceneHeight() { return caicaiCamera.height(surfaceWidth,surfaceHeight); }
+    boolean hasCaicaiModel() { return model!=null; }
+    String caicaiFrameTrace() {
+        return "surface="+surfaceWidth+"x"+surfaceHeight+" sceneHeight="+sceneHeight()
+            +" model="+(model!=null)+" contextRecreated="+contextRecreated
+            +" bounds="+modelBoundsLeft+","+modelBoundsTop+","+modelBoundsRight+","+modelBoundsBottom
+            +" root="+(model==null?"none":model.rootX()+","+model.rootTilt())
+            +" "+(model==null?"":model.caicaiMotionTrace());
+    }
+    void presentCaicaiEmotion(String id,String emotion) { if(model!=null) model.presentCaicaiEmotion(id,emotion); }
+    void beginCaicaiPat(boolean held,boolean rare) { if(model!=null) model.beginCaicaiPat(held,rare); }
     void tuneCaicaiMotion(float gain,float speed,float pivot) {
         motionGain=gain; motionSpeed=speed; lowerLegPivot=pivot;
         if(model!=null) model.tuneMotion(gain,speed);
@@ -494,22 +507,20 @@ final class SenRenderer implements GLSurfaceView.Renderer {
     }
     private void updateCaicaiRoot() {
         model.tuneMotion(motionGain,motionSpeed);
-        caicaiRoot=CaicaiRootTransform.create(surfaceWidth,surfaceHeight,modelBoundsLeft,
+        caicaiRoot=CaicaiRootTransform.create(surfaceWidth,sceneHeight(),modelBoundsLeft,
             modelBoundsRight,modelBoundsTop,modelBoundsBottom,model.rootX(),model.rootTilt(),lowerLegPivot);
-        float[] matrix=caicaiRoot.matrix();
+        float[] matrix=new float[16];
+        CubismMatrix44.multiply(caicaiRoot.matrix(),caicaiCamera.crop(surfaceWidth,surfaceHeight),matrix);
         model.setRootDrawTransform(matrix);
         if(overlayModel!=null) overlayModel.setRootDrawTransform(matrix);
     }
     private boolean caicaiHit(float sx,float sy,float[] result) {
         if(!modelBoundsValid || result==null || result.length<2) return false;
-        float[] clip=new float[2]; caicaiRoot.inverse(sx*2-1,1-sy*2,clip);
+        float[] crop=caicaiCamera.crop(surfaceWidth,surfaceHeight);
+        float[] clip=new float[2]; caicaiRoot.inverse(sx*2-1,(1-sy*2-crop[13])/crop[5],clip);
         result[0]=(clip[0]-modelBoundsLeft)/(modelBoundsRight-modelBoundsLeft);
         result[1]=(modelBoundsTop-clip[1])/(modelBoundsTop-modelBoundsBottom);
         return Float.isFinite(result[0]) && Float.isFinite(result[1]);
-    }
-    void startCaicaiPat(String json) {
-        if(model==null) return;
-        try { model.startCaicaiPat(json); } catch(org.json.JSONException e) { listener.onError(e); }
     }
 
     void playTimedPreset(String name) { if (model != null) model.playTimedPreset(name); }
@@ -1438,6 +1449,7 @@ final class SenRenderer implements GLSurfaceView.Renderer {
         destination.loadIdentity();
         float aspectRatio = (float) surfaceWidth / (float) surfaceHeight;
         float displayRatio = (float) surfaceHeight / (float) surfaceWidth;
+        aspectRatio=surfaceWidth/sceneHeight(); displayRatio=sceneHeight()/surfaceWidth; // AI_COMPANION_HOST_PLAN_HOOK
         float canvasRatio = target.getCanvasHeight() / target.getCanvasWidth();
         if (canvasRatio < displayRatio) {
             target.fitWidth(2.0f);

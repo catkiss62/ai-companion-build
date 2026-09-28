@@ -15,8 +15,8 @@ assert 'resizeCaicaiTargets(width,height); // AI_COMPANION_HOST_PLAN_HOOK' in re
 assert 'model.setRootDrawTransform(matrix)' in renderer and 'overlayModel.setRootDrawTransform(matrix)' in renderer
 assert model.count('applyRootDrawTransform(); // AI_COMPANION_HOST_PLAN_HOOK')==1
 assert 'caicaiRoot.inverse' in renderer
-assert 'System.nanoTime() >= patDeadlineNanos' in model
-assert 'companion.startCaicaiPat' in host and 'trackHeadStroke' in host
+assert 'caicaiPat.followWeight()' in model and 'caicaiPat.apply' in model
+assert 'companion.beginCaicaiPat' in host and 'trackHeadStroke' in host
 assert "'stageTouch'" in (app/'lib/widgets/caicai_live2d_stage.dart').read_text()
 assert 'root' in (app/'lib/core/ai/caicai_motion_planner.dart').read_text()
 assert (app/'test/caicai_stage_viewport_test.dart').is_file()

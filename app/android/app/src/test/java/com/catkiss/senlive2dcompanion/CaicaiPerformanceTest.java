@@ -12,7 +12,7 @@ public class CaicaiPerformanceTest {
         public void write(String id,float value) { assertTrue(Float.isFinite(value)); values.put(id,value); }
     }
     @Test public void idleUsesVisibleAxesAndKeepsMovingAcrossPhraseBoundaries() {
-        CaicaiIdleMotion idle=new CaicaiIdleMotion(); Pose pose=new Pose();
+        CaicaiIdleMotion idle=new CaicaiIdleMotion(new Random(71)); Pose pose=new Pose();
         Map<String,Float> lo=new HashMap<>(),hi=new HashMap<>();
         float previous=0;
         for(int i=0;i<1800;i++) {
@@ -35,7 +35,7 @@ public class CaicaiPerformanceTest {
         assertFalse(pose.values.containsKey("ParamBreath"));
     }
     @Test public void attentionOverridesConversationThenReleasesToIdle() {
-        CaicaiIdleMotion idle=new CaicaiIdleMotion(); Pose pose=new Pose();
+        CaicaiIdleMotion idle=new CaicaiIdleMotion(new Random(71)); Pose pose=new Pose();
         idle.look(true,1,-1);
         for(int i=0;i<20;i++) { idle.update(1f/30,pose); pose.write("ParamAngleX3",-20); idle.applyAttention(pose); }
         assertTrue(pose.current("ParamAngleX3")>18);
@@ -45,7 +45,7 @@ public class CaicaiPerformanceTest {
         assertEquals(-20,pose.current("ParamAngleX3"),.001);
     }
     @Test public void patLeaseClearsAttentionSoHeadPlanSurvives() {
-        CaicaiIdleMotion idle=new CaicaiIdleMotion(); Pose pose=new Pose();
+        CaicaiIdleMotion idle=new CaicaiIdleMotion(new Random(71)); Pose pose=new Pose();
         idle.look(true,1,1); idle.update(.1f,pose); idle.clearAttention();
         pose.write("ParamAngleY2",-25); idle.applyAttention(pose);
         assertEquals(-25,pose.current("ParamAngleY2"),.001f);

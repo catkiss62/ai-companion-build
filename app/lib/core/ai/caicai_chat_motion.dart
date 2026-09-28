@@ -22,6 +22,7 @@ class CaicaiChatMotion {
     try {
       await CaicaiLive2DService.command('stopMotion');
       token.throwIfCancelled();
+      await CaicaiLive2DService.command('setEmotion', {'event':id,'emotion':CaicaiLive2DService.nativeEmotionId(emotion)});
       if (await AppDatabase.instance.getSetting('caicai_jev_motion') == '0') return;
       final raw = await CaicaiLive2DService.command('parameters');
       if (raw is! String) return;
@@ -32,7 +33,7 @@ class CaicaiChatMotion {
       if (plan != null) {
         final chosenEmotion = plan['emotion']?.toString() ?? '';
         if (chosenEmotion.isNotEmpty) {
-          await CaicaiLive2DService.command('setEmotion', chosenEmotion);
+          await CaicaiLive2DService.command('setEmotion', {'event':id,'emotion':chosenEmotion});
         }
         await CaicaiLive2DService.command('motionPlan', plan);
       }

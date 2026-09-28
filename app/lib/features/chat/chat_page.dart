@@ -1374,18 +1374,18 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
                 fit: StackFit.expand,
                 children: [
                   if (_visualStageEnabled) ...[
-                    Image.asset(
-                      _useNightBackground
-                          ? 'assets/lingchat/background/night.webp'
-                          : 'assets/lingchat/background/day.webp',
-                      fit: BoxFit.cover,
-                      alignment: Alignment.center,
-                    ),
+                    Positioned(left:0,right:0,top:0,
+                      height:_caicaiEnabled ? _caicaiStableHeight : constraints.maxHeight,
+                      child:Image.asset(
+                        _useNightBackground
+                            ? 'assets/lingchat/background/night.webp'
+                            : 'assets/lingchat/background/day.webp',
+                        fit:BoxFit.cover,alignment:Alignment.center)),
                     Positioned(
                       left: 0, right: 0, top: 0,
-                      height: _caicaiEnabled ? _caicaiStableHeight : constraints.maxHeight,
+                      height: constraints.maxHeight,
                       child: _caicaiEnabled
-                          ? CaicaiLive2DStage(qForm: _playfulForm.qForm, emotion: _currentEmotion.key, active: widget.active)
+                          ? CaicaiLive2DStage(qForm: _playfulForm.qForm, emotion: _currentEmotion.key, active: widget.active, sceneSize: Size(constraints.maxWidth, _caicaiStableHeight!))
                           : IgnorePointer(
                         child: ChatPortraitStage(
                           emotion: _currentEmotion,

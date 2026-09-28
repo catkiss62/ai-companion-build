@@ -63,6 +63,11 @@ public final class CaicaiCompanionView extends GLSurfaceView implements SenCompa
             new java.util.concurrent.CountDownLatch(1);
     private String readyAfterDraw;
     private boolean frameFailed;
+    private final CaicaiFrameDiagnostics frameDiagnostics=new CaicaiFrameDiagnostics();
+    public String frameDiagnostics() { return frameDiagnostics.export(); }
+    public void setCaicaiScene(float w,float h) { queueRenderer(()->renderer.setCaicaiScene(w,h)); }
+    public void presentCaicaiEmotion(String id,String emotion) { queueRenderer(()->renderer.presentCaicaiEmotion(id,emotion)); }
+    public void beginCaicaiPat(boolean held,boolean rare) { queueRenderer(()->renderer.beginCaicaiPat(held,rare)); }
     private final SenRenderer renderer;
     private volatile Listener listener = NO_OP_LISTENER;
     private volatile boolean released;
@@ -129,10 +134,12 @@ public final class CaicaiCompanionView extends GLSurfaceView implements SenCompa
                 long delay = nextFrameNanos - System.nanoTime();
                 if (delay > 0) java.util.concurrent.locks.LockSupport.parkNanos(delay);
                 if (released) return;
-                nextFrameNanos = System.nanoTime() + 33_333_333L;
+                nextFrameNanos = System.nanoTime() + 16_666_667L;
                 frameFailed = false;
                 renderer.onDrawFrame(gl);
                 frames++;
+                frameDiagnostics.frame(System.nanoTime(),!frameFailed && renderer.hasCaicaiModel(),
+                    ()->renderer.caicaiFrameTrace());
                 // Resource-ready alone is not a successful model frame.
                 if (!frameFailed && readyAfterDraw != null) {
                     String detail = readyAfterDraw;
@@ -250,7 +257,7 @@ public final class CaicaiCompanionView extends GLSurfaceView implements SenCompa
     // END AI_COMPANION_HOST_EXTENSION
     @Override
     public void setEmotion(String emotionId) {
-        queueRenderer(() -> renderer.selectEmotion(emotionId));
+        presentCaicaiEmotion("manual-"+System.nanoTime(),emotionId);
     }
 
     @Override
@@ -339,7 +346,7 @@ public final class CaicaiCompanionView extends GLSurfaceView implements SenCompa
         queueRenderer(() -> renderer.tuneCaicaiMotion(gain,speed,pivot));
     }
     public void stopConversationPlan() { queueRenderer(renderer::stopConversationPlan); }
-    public void startCaicaiPat(String json) { queueRenderer(() -> renderer.startCaicaiPat(json)); }
+    public void cancelCaicaiPat() { queueRenderer(renderer::releaseHeadPat); }
     public void setStaticMode(boolean enabled) {
         queueRenderer(() -> renderer.setStaticMode(enabled));
     }
@@ -412,7 +419,7 @@ public final class CaicaiCompanionView extends GLSurfaceView implements SenCompa
     }
 
     public String surfaceDiagnostics() {
-        return "glsurface contexts=" + contexts + " surfaces=" + surfaces + " buffer=" + renderSize + " view=" + getWidth()+"x"+getHeight()+" frames=" + frames;
+        return "glsurface contexts=" + contexts + " surfaces=" + surfaces + " buffer=" + renderSize + " view=" + getWidth()+"x"+getHeight()+" frames=" + frames+" "+frameDiagnostics.summary();
     }
 
     void playTimedPreset(String name) { queueRenderer(() -> renderer.playTimedPreset(name)); }

@@ -69,7 +69,9 @@ internal class CaicaiPlatformView(
         viewPrefs.getFloat("headRight", .73f), viewPrefs.getFloat("headBottom", .32f))
     private var editSnapshot: FloatArray? = null
     private var strokeDistance = 0f
-    private var lastPatTime = 0L
+    private var patCandidate = false
+    private var patTriggered = false
+    private var patStartedAt = 0L
     private var lastX = 0f
     private var lastY = 0f
     private val scaleDetector = ScaleGestureDetector(context,
@@ -153,7 +155,22 @@ internal class CaicaiPlatformView(
                 applyStage(); result.success(null)
             }
             "setForm" -> { smallForm = call.arguments == true; companion.setSmallForm(smallForm); result.success(true) }
-            "setEmotion" -> { companion.setEmotion(call.arguments?.toString() ?: "normal"); result.success(true) }
+            "setSceneSize" -> {
+                val a=call.arguments as? Map<*, *>
+                companion.setCaicaiScene((a?.get("width") as? Number)?.toFloat() ?: 0f,
+                    (a?.get("height") as? Number)?.toFloat() ?: 0f)
+                result.success(true)
+            }
+            "exportLive2DDiagnostics" -> result.success(org.json.JSONObject()
+                .put("schema","caicai-runtime-v287").put("state",org.json.JSONObject(state()))
+                .put("events",org.json.JSONArray(CaicaiDiagnostics.events(app)))
+                .put("frames",org.json.JSONObject(companion.frameDiagnostics())).toString())
+            "setEmotion" -> {
+                val a=call.arguments as? Map<*, *>
+                companion.presentCaicaiEmotion(a?.get("event")?.toString() ?: "manual-${System.nanoTime()}",
+                    a?.get("emotion")?.toString() ?: call.arguments?.toString() ?: "normal")
+                result.success(true)
+            }
             "previewEmotion" -> { companion.setEmotion(call.arguments?.toString() ?: "normal"); result.success(true) }
             "parameters" -> companion.motionParameters { json -> main.post { result.success(json) } }
             "expression" -> {
@@ -163,7 +180,7 @@ internal class CaicaiPlatformView(
                 else companion.playTimedPreset(name)
                 result.success(true)
             }
-            "static" -> { companion.clearParameterPlan(); companion.setStaticMode(call.arguments == true); result.success(true) }
+            "static" -> { companion.clearParameterPlan(); companion.setCompositeTestMotion("live"); companion.setStaticMode(call.arguments == true); result.success(true) }
             "earTwitch" -> { companion.triggerEarTwitch(); result.success(true) }
             "getMotionTuning" -> result.success(mapOf("gain" to motionGain,"speed" to motionSpeed,"pivot" to legPivot))
             "setMotionTuning" -> {
@@ -189,7 +206,13 @@ internal class CaicaiPlatformView(
                 }
                 result.success(null)
             }
-            "headPat" -> { pat(); result.success(true) }
+            "headPat" -> { pat(false,false); result.success(true) }
+            "headPatRare" -> { pat(false,true); result.success(true) }
+            "headSweep" -> {
+                companion.setStaticMode(false)
+                companion.setCompositeTestMotion(call.arguments?.toString() ?: "live")
+                result.success(true)
+            }
             "beginEdit" -> {
                 companion.clearParameterPlan()
                 editSnapshot = floatArrayOf(stageScale, stageX, stageY, *headBox)
@@ -341,25 +364,25 @@ internal class CaicaiPlatformView(
         val inside=companion.screenToModelNormalized(x/companion.width.coerceAtLeast(1),y/companion.height.coerceAtLeast(1),point)
             && point[0] in headBox[0]..headBox[2] && point[1] in headBox[1]..headBox[3]
         when(action) {
-            0 -> { lastX=x; lastY=y; strokeDistance=0f }
+            0 -> { lastX=x; lastY=y; strokeDistance=0f; patCandidate=inside;
+                patTriggered=false; patStartedAt=android.os.SystemClock.uptimeMillis() }
             2 -> {
-                if(inside) strokeDistance+=kotlin.math.hypot(x-lastX,y-lastY) else strokeDistance=0f
+                if(!inside) { patCandidate=false; companion.releaseHeadPat() }
+                strokeDistance+=kotlin.math.hypot(x-lastX,y-lastY)
                 lastX=x; lastY=y
-                val now=android.os.SystemClock.uptimeMillis()
-                if(inside && strokeDistance>20*root.resources.displayMetrics.density && now-lastPatTime>900) {
-                    pat(); lastPatTime=now; strokeDistance=0f
+                if(patCandidate && !patTriggered && android.os.SystemClock.uptimeMillis()-patStartedAt>=120
+                    && strokeDistance>maxOf(34*root.resources.displayMetrics.density,companion.width*.075f)) {
+                    patTriggered=true; pat(true,Math.random()<.10)
                 }
             }
-            1,3 -> { strokeDistance=0f; companion.releaseHeadPat() }
+            1,3 -> { strokeDistance=0f; patCandidate=false; patTriggered=false; companion.releaseHeadPat() }
         }
     }
-    private fun pat() {
+    private fun pat(held:Boolean,rare:Boolean) {
         companion.setStaticMode(false)
         companion.triggerEarTwitch()
-        companion.startCaicaiPat("""[{"time":0,"duration":0.18,"parameters":{"ParamAngleY2":-25,"ParamAngleZ":20,"ParamAngleZ2":20,"ParamEyeLSmile":1,"ParamEyeRSmile":1,"ParamMouthForm":1}},
-            {"time":0.55,"duration":0.25,"parameters":{"ParamAngleY2":15,"ParamAngleZ":-16,"ParamAngleZ2":-16,"ParamBodyAngleY":8}},
-            {"time":1.05,"duration":0.25,"parameters":{}}]""")
-        CaicaiDiagnostics.record(app,"head_pat_started")
+        companion.beginCaicaiPat(held,rare)
+        CaicaiDiagnostics.record(app,"head_pat_started","held=$held rare=$rare")
     }
     fun observeTouch(x: Float, y: Float) { if (!disposed && editSnapshot == null) companion.setLookTarget(true,x,y) }
     private fun applyStage(persist: Boolean = true) {
