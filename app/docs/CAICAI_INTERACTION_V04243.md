@@ -14,3 +14,5 @@
 保护：原始配件标定/源码哈希、导入事务/生命周期、PCM口型、双形态、Gemini最终回复及真实性修订通道/400失败兜底、桌宠默认。私密模型/诊断/存档不进入公开Git。
 
 验证：CaicaiInteractionTest覆盖像素不变、三入口物理覆盖恢复、事件超时/重播、长按/松手/彩蛋/渐变、去重、诊断有界；保留原Java/Dart/原生emulator门禁。空GL冒烟不代表私有模型真机效果。CI及用户验收分别记录总账。
+
+交付：`3582ff0` / Actions `36480742163` 全绿（130源门、3原生冒烟、Android单元测试、Flutter analyze/982 tests、release/签名/资源）。Draft `398607461`，APK SHA256 `21cd6c313ccca3091e6d1e76914a4650775b2a4b468cb57e71d1cc47b5707aca`。CI PASSED / APK READY；真机观感及消失重现定位待用户反馈。
