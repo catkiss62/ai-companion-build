@@ -31,7 +31,12 @@ assert 'keepPetAboveChat("chat_input_exit")' not in service
 assert "private fun removeOwnedEntryWindow(view: View): Boolean" in service
 assert "if (bubble != null && !removeOwnedEntryWindow(bubble))" in service
 assert "live2dOnScreen" not in chat
-assert "height: constraints.maxHeight" in chat and "sceneSize: Size(constraints.maxWidth, _caicaiStableHeight!)" in chat
+# The native view retains a full-size GL buffer while the keyboard crops the
+# visible conversation area. Preserve the scene passed to its camera.
+assert "height: _caicaiEnabled ? _caicaiStableHeight : constraints.maxHeight" in chat
+assert "sceneSize: Size(constraints.maxWidth, _caicaiStableHeight!)" in chat
+viewport = (app / "lib/widgets/caicai_stage_viewport.dart").read_text()
+assert "keyboardInset == 0 && availableHeight > _height!" in viewport
 assert "AndroidView(" in (app / "lib/widgets/caicai_live2d_stage.dart").read_text()
 assert "setZOrderMediaOverlay(true)" not in caicai
 assert "companion.visibility = View.GONE" in caicai
