@@ -24,7 +24,7 @@ void main() {
     ));
     await tester.pumpWidget(page(0));
     await tester.pumpAndSettle();
-    expect(find.text('请在 Live2D 设置中导入菜菜模型 ZIP'), findsOneWidget);
+    expect(find.text('未导入模型'), findsOneWidget);
     expect(find.byType(PlatformViewLink), findsNothing);
     await tester.pumpWidget(page(300));
     await tester.pumpAndSettle();
