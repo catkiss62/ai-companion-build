@@ -1,12 +1,12 @@
 # AI Companion · 当前总账
 
-更新时间：2026-09-28（+284 Live2D 真机失败；+285 原生宿主/导入/第二通道完整性修复实施中）
+更新时间：2026-09-29（+285 CI PASSED / APK READY；Live2D 私有模型真机验收待确认）
 
 > 本文件是唯一的当前接班入口，继续采用“总账 v2”。顶部是快速接班索引；标记后的正式记录按版本持续追加，不设总容量上限。
 >
 > 判断优先级：用户最新明确决定 > 当前 GitHub 源码与 Actions > 同时刻脱敏真机诊断/备份 > 本文件 > 冻结归档与 Git 历史。`DESIGNED`、`IMPLEMENTED`、`CI PASSED`、`APK READY`、`TRUE DEVICE PASSED`、`PENDING` 必须严格区分。
 
-## 当前任务 · +285 恢复 Live2D 并核对全部正文入口（实施中）
+## 当前任务 · +285 恢复 Live2D 并核对全部正文入口（CI 通过，测试 APK 已交付）
 
 - 用户 22:46 明确批准：先修 Live2D，保留 +284 的大动作/表情、4.5 秒释放、按钮回聊天、同屏舞台/摸头框编辑、全界面视线、气焰修正；同时核对所有正文与真实性修正优先第二通道（400 可 DeepSeek 兜底），桌宠只改截图可见默认值。网页卡住暂不处理。
 - 基线：`1a08a2d` / 功能 `b7b578a` / `v0.42.40+284`，分支 `agent/v04232-caicai-import-pet-touch`。+284 状态更正为 **CI PASSED / APK READY / TRUE DEVICE FAILED**。
@@ -15,9 +15,9 @@
 - 保护：原菜菜 renderer/三配件数学及资源哈希、TTS 口型、衣装、19 情绪、已实现的交互和大动作不丢；桌宠偶发缩小仍无证据，不猜修；不上传私密存档/诊断/模型；不合并 main、不发布正式 Release。
 - 验证要求：路径别名/重导/回滚、真实 Android View 创建与生命周期、各正文入口路由/修正/400 兜底回归；CI 与真机分开。真机画面、键盘延迟和触摸观感须用户设备验收，不用测试数量代替。
 
-### +285 实施记录（提交 CI 前）
+### +285 实施与 CI 记录
 
-- 状态：IMPLEMENTED / CI PENDING / APK PENDING / TRUE DEVICE PENDING。恢复 GLSurfaceView 原生宿主，保留 30 FPS 节奏与 +284 全部表演接口；释放事件在原 GL 线程退出前完成，进程级 Cubism 所有权串行交接。原始 renderer/三配件数学哈希未动。
+- 状态：IMPLEMENTED / CI PASSED / APK READY / TRUE DEVICE PENDING。最终功能提交 `6cfca5a`，Actions `36455411205` 全绿，979 项 Flutter 测试及原生回归通过；最终包和证据见本文件末尾 +285 交付核验。恢复 GLSurfaceView 原生宿主，保留 30 FPS 节奏与 +284 全部表演接口；释放事件在原 GL 线程退出前完成，进程级 Cubism 所有权串行交接。原始 renderer/三配件数学哈希未动。
 - 修复导入 root/file canonical 混用：所有索引都相对于规范化目录；staging 提升 current、backup 回滚和索引恢复使用同一规范。构造异常纳入错误通道；素材存在不再显示为画面就绪，30 秒加载看门狗仅在前台活跃舞台计时。诊断增加 build/首模型绘制帧，旧记录标 legacy_unknown。
 - 第二通道：普通/后台聊天与桌宠共用 runner；主动所有 intent（含网页/游戏分享）共用 proactive；另核对 Cedar 房间、沉浸、日历。各正文入口显式使用 FinalReplyRoute，真实性/重复修正不改变路由，实际失败（含400）才兜底。系统消息专用任务增加“内部表达任务，不是真实用户发言”封装，不写聊天历史；400根因仍未证实，只修复已发现的system-only请求兼容风险。内部规划/Jev继续保留原通道。
 - 桌宠默认：151% / 宽91% / x0dp / y1dp / RGB输入0、0.86、230 / 输出0、255 / 饱和100%；已有用户设置保留，截图外配置不改。
@@ -1303,3 +1303,27 @@ Actions 与交付证据：远端功能 head `33647c7bff15084d6fd3cbc7b817e9b0b21
 - 设计及逐项验收：`app/docs/CAICAI_PERFORMANCE_DESIGN.md`。主要覆盖菜菜可见轴大动作、Jev 四段表演与局部释放、手动原装预设 4.5 秒、自动回聊天、同屏舞台/摸头框编辑、全界面触点观察、真实摸头、键盘固定比例、EGL 保持与交接、普通形态不固定扣 18。
 - 尚待真机：实际幅度/速度是否符合参考 APK 观感；输入法延迟、前后台/页面切换与重导入/重试稳定性；摸头框与模型大小/位置的实际吻合；连续对话的 Jev 原始选项、动作采用与气焰账。不能将 CI 全绿写成 TRUE DEVICE PASSED。
 - 桌宠缩小：没有确切尺寸变更因果证据，依用户要求未改桌宠行为代码。
+
+
+## +285 Live2D 恢复、完整第二通道路由与截图默认值（2026-09-29）
+
+### 范围与实现
+
+- 用户授权修复 Live2D，并明确三项不能遗漏：导入/显示；所有可见正文及真实性修正使用配置的第二通道 Gemini，实际请求失败（含 HTTP 400）才允许 DeepSeek 兜底；桌宠只改截图可见默认值。网页显示卡住的问题暂不处理。
+- Live2D：恢复 GLSurfaceView，修复 TextureView 构造异常；规范化导入根目录与相对索引，保留暂存提升/回滚/损坏包保护；处理暂停、临时重挂、先 detach 后 dispose、全局 Cubism 所有权交接。加载状态不再把素材存在当成画面已就绪，增加失败诊断和前台加载超时重试。生产原始 renderer/配件数学和资源哈希不变。
+- 保留 +284 大动作/Jev、4.5 秒临时动作、回聊天、舞台与摸头框编辑、全界面视线、摸头、TTS 口型、衣装/配件、19 情绪、气焰修正。原生测试使用空场景 EGL 和结构假模型事务，没有私有模型绘制证据。
+- 正文：普通/后台/悬浮桌宠、主动对话及所有分享 intent、Cedar 房间、沉浸、日历入口共用明确第二通道策略；真实性/重复/截断修正仍走第二通道，失败兜底不跨轮继承。系统消息专用请求增加明确“内部表达任务、非真实用户发言”的传输封装；不写假用户历史。DeepSeek 工具规划前言及规划检查点不进入正文。旧截断草稿历史 model 字段不作为供应商证据。
+- 桌宠默认：新动画缩放151%、宽度91%、水平0dp、垂直1dp、黑场0、中间调0.86、白场230、输出0/255、饱和度100%；已有自定义值和截图外设置保留。桌宠偶发缩小仍缺因果证据，不猜修。
+
+### 最终交付核验
+
+- 状态：**IMPLEMENTED / CI PASSED / APK READY / TRUE DEVICE PENDING**。之前 CI 失败及修正原因保留在顶部 +285 记录，不能将前次失败改写成通过。
+- 最终功能提交 `6cfca5ae303f384283a653d1627ff4a548150322`；tree `158f220a851934fe91c786c5cfa92f7ddcc225a0`；分支 `agent/v04232-caicai-import-pet-touch`。本次总账收尾提交不改变 APK 功能。
+- Actions https://github.com/catkiss62/ai-companion-build/actions/runs/36455411205 全绿。原生 smoke job `109040444025`：API35 的2项 instrumentation 测试通过，生命周期连续4轮，覆盖暂停恢复/重挂/替换/释放以及导入事务。结果 artifact `10984649347`。API29曾发生JIT线程崩溃，旧平台真机兼容性仍未确认。
+- build job `109042465341`：128项源码验证、Android/Kotlin单元测试、Flutter analyze、**979项 Flutter 测试**、release APK构建通过。已有非致命静态提示仍在，不声称零警告。原签名、Genie/桌宠/塔罗资源门通过。
+- 版本 `0.42.41+285`，schema61保持。稳定签名 SHA-256 `30:5E:B3:D8:09:83:B9:63:C6:48:18:DD:F1:AD:56:1F:27:9D:E6:D4:7B:3E:D2:C7:81:AD:A4:48:C7:C2:51:48`；可覆盖安装，无需卸载。
+- Draft Release `398368739`，仍为 draft；tag `v0.42.41-caicai-repair-test`；最终链接 https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-56cc9ee2419fc27a69e8 。注意草稿 untagged 链接已变化，不沿用此前失败轮的旧链接。
+- APK `AI-Companion-v0.42.41-285-Caicai-Repair-APK.apk`，726,078,982 bytes，asset `595975495`，state=uploaded。SHA-256 `0f28b4dd43a2b5ffe00bedcd21878984c086cbe077d22d3433199f6b454968c6`：构建校验输出、成功 CI Monitor、Release asset digest 三者一致。
+- APK workflow artifact `10987060772`；校验文件 asset `595975493`；成功 CI Monitor asset `595975504`，记录对应最终功能提交和成功 run。未下载整包到本工作区。
+- 下一步仅为用户真机回归：覆盖安装后确认聊天模型可见、已有包重载/确需时重导、切页和前后台/键盘、动作摸头/TTS；观察主动/分享及修正的实际通道与失败记录。第二通道400根因未被现有附件证实，不能把请求形状修复写成已消除所有400。Jev原始选项/气焰账继续按既定要求观察。
+- 不合并 main、不发布正式 Release；私有存档/诊断/模型不上传。原工作区和未提交的 `part-075.bin` 保持不动，未纳入此次提交。网页卡住分析继续暂缓。
