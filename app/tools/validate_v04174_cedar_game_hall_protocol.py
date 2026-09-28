@@ -53,12 +53,13 @@ require(
     "CedarAutonomyProgress('read_only_loop_blocked')",
     "CedarAutonomyProgress('platform_action_loop_blocked')",
     "【近期建议候选】",
-    "Room dialogue is a session-local action annotation",
-    "apiKey: apiKey",
-    "endpoint: endpoint",
+    "finalProvider.isGeminiRelay",
+    "apiKey: gemini ? finalKey : apiKey",
+    "endpoint: gemini ? finalEndpoint : endpoint",
 )
 autonomy = read("lib/core/mcp/cedar_toy_autonomy_engine.dart")
-assert "readFinalReplyApiKey" not in autonomy
+assert "readFinalReplyApiKey" in autonomy
+assert "cedar_room_final_reply" in autonomy
 assert "FinalReplyFailurePolicy.maxGeminiAttempts" not in autonomy
 assert "final recent = await db.recentMessages(limit: 8)" not in autonomy
 
