@@ -1,6 +1,6 @@
 # AI Companion · 当前总账
 
-更新时间：2026-09-28（中国时间；+283 游戏规划与 Gemini 正文路由、菜菜情绪控制；CI / 真机待验收）
+更新时间：2026-09-28（中国时间；+283 游戏规划与 Gemini 正文路由、菜菜情绪控制；Actions 全绿、Draft APK 就绪，真机待验收）
 
 > 本文件是唯一的当前接班入口，继续采用“总账 v2”。顶部是快速接班索引；标记后的正式记录按版本持续追加，不设总容量上限。
 >
@@ -107,7 +107,7 @@
 
 +256 工作分支 `agent/v04212-form-pitch-zero`，候选 `v0.42.12+256`：气焰只在 0 自动退出小豆丁，严肃话题仍认真回应；设置音调是小豆丁基准，本体低 1 半音。沿用 +255 已真机恢复的单一试听和发声链，保留锁定与手动安抚。状态 IMPLEMENTATION IN PROGRESS / CI PENDING / APK PENDING / TRUE DEVICE PENDING；详见末尾 +256。
 
-+283 当前任务：以 +282 远端为基线，依据 2026-09-28 存档与诊断收紧 Cedar 关键词误触发；Gemini 成功时由 Gemini 完成一次正文修正，DeepSeek 仅第二通道失败兜底；菜菜导入状态精简、十九情绪预览和 Jev 逐轮情绪判断。状态 IMPLEMENTED LOCALLY / CI PENDING / APK PENDING / TRUE DEVICE PENDING；详见末尾 +283 正式记录。用户私密存档、诊断及模型素材不得上传公开仓。
++283 当前任务：以 +282 远端为基线，依据 2026-09-28 存档与诊断收紧 Cedar 关键词误触发；Gemini 成功时由 Gemini 完成一次正文修正，DeepSeek 仅第二通道失败兜底；菜菜导入状态精简、十九情绪预览和 Jev 逐轮情绪判断。状态 IMPLEMENTED / CI PASSED / APK READY / TRUE DEVICE PENDING；详见末尾 +283 正式记录。用户私密存档、诊断及模型素材不得上传公开仓。
 
 <!-- END QUICK HANDOFF INDEX -->
 
@@ -1230,4 +1230,4 @@ Actions 与交付证据：远端功能 head `33647c7bff15084d6fd3cbc7b817e9b0b21
 - 私密证据：2026-09-28 08:56 `.aibackup` 与诊断只在本机分析，绝不进入仓库。诊断近 120 次模型使用的 `agent_tool_planning` 21 次，累计 429,189 input / 19,480 output tokens；`cedar_toy_no_call_recheck_count=23`。16:49 对“怎么还有这么奇怪的游戏啊，买菜做饭……感觉还是钓鱼更实在”做了两次有工具 schema 的规划但零调用；16:50 对“但是你最近钓鱼很欧呢”又做两次规划才实际 `cedar_toy.play`。该样本的 Jev short usage 无 `cedar_context_intent`：误触发来自 Cedar 标题/钓鱼宽泛入口及 no-call 重查，不是 Jev 输出错误。备份里 `messages.model` 曾将第二通道正文记成内部模型，单看字段不能证明真正生成者。
 - 实现：Cedar 明确指令入口要求动作语义；“你最近钓鱼”不再命中陪伴单人游玩；陈述/随口讨论可直接进入普通最终回复，真正游戏请求和已有会话的语义跟进仍保留。Gemini 首稿需事实或重复修正时，最多一次 Gemini 修正并直接发送；第二通道传输/配置/完整性失败才用 DeepSeek。主动消息及 Cedar 房间发言同样遵守第二通道优先，保存可见正文实际模型。限制修正次数为一次，保留真实操作事实强校验。
 - Live2D：导入状态只显示“已导入模型”或“未导入模型”；增加十九种持久情绪与正常状态的预览按钮，Jev 在同一批动作问题里选择对话情绪，不再固定映射回复关键词；调皮的本地持久参数采用 wink+吐舌。原模型、用户素材与旧 Sen 冻结资源保持隔离。
-- 验证与交付：本地针对性源代码门和新增回归用例；Flutter/Dart SDK 未安装，必须以远端 Actions 编译/测试与 Draft APK 为构建证据。CI、APK、真机行为在远端结果出现前均不得标记完成；真机还需观察 Gemini 调用日志、Cedar 零调用规划、情绪持续与触摸。
+- 验证与交付：本地针对性源码门通过；Actions `36411092518` 源码门、Kotlin、Flutter analyze、966 项 Flutter 测试、release APK、固定签名与素材校验全绿。远端提交 `a6834a368e7179ccf342bc269951e4335e191f55`；Draft `v0.42.39-gemini-cedar-caicai-test`（release 398130580）含 APK、SHA 文件和 CI monitor；APK SHA-256 `abe13d897590698cab52e7d2c829414028e76f2b79a573da8f5fc4ed9d5ee06b`。状态 IMPLEMENTED / CI PASSED / APK READY / TRUE DEVICE PENDING。真机仍需观察 Gemini 调用日志、Cedar 零调用规划、情绪持续与触摸。
