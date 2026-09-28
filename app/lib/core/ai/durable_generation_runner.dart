@@ -829,6 +829,9 @@ class DurableGenerationRunner {
               attempt <= FinalReplyFailurePolicy.maxGeminiAttempts;
               attempt++) {
             try {
+              // Also preserve provenance if this attempt produces a partial
+              // draft that must be held for the user's explicit decision.
+              finalTextFromGemini = true;
               final result = await generate(
                 messages,
                 requestApiKey: configuredFinalApiKey,
@@ -1353,7 +1356,9 @@ $finalGenerationReminder
 
       var envelope = EmotionEnvelope.parse(generated.content);
       String finalContent = visibleBody(envelope);
-      if (streamedToolPreamble.isNotEmpty) {
+      // Tool planning may use DeepSeek, but its preamble is not second-channel
+      // prose. Never splice that internal draft into a Gemini-mode reply.
+      if (!finalProvider.isGeminiRelay && streamedToolPreamble.isNotEmpty) {
         finalContent = '$streamedToolPreamble\n\n$finalContent'.trim();
       }
       final promptResponsibilityShape =
@@ -1806,7 +1811,9 @@ $finalGenerationReminder
         role: 'assistant',
         content: visible,
         reasoningContent: preserveProviderReasoning(e.reasoning),
-        model: job.model,
+        model: finalTextFromGemini
+            ? (configuredFinalModel.isEmpty ? ChatApiProvider.aiWangYouModel : configuredFinalModel)
+            : job.model,
         createdAt: DateTime.now(),
         deviceId: await db.ensureDeviceId(),
         segments: ChatSegmentCodec.parseAssistantText(visible),

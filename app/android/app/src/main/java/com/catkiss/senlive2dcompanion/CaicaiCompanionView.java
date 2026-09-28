@@ -52,7 +52,8 @@ public final class CaicaiCompanionView extends GLSurfaceView implements SenCompa
 
     private static final java.util.concurrent.Semaphore FRAMEWORK_OWNER =
             new java.util.concurrent.Semaphore(1, true);
-    private boolean ownsFramework;
+    private volatile boolean ownsFramework;
+    private boolean surfaceThreadDetached;
     private volatile int contexts, surfaces;
     private volatile long frames;
     private long nextFrameNanos;
@@ -366,27 +367,41 @@ public final class CaicaiCompanionView extends GLSurfaceView implements SenCompa
         setRenderMode(RENDERMODE_WHEN_DIRTY);
         // GLSurfaceView executes queued events on its GL thread even while paused. This keeps
         // texture deletion and Cubism renderer teardown on the context-owning thread.
-        queueEvent(() -> {
+        Runnable teardown = () -> {
             // A view removed before its first frame never owned Cubism globals.
             try { if (ownsFramework) renderer.release(); }
             finally {
                 if (ownsFramework) { ownsFramework = false; FRAMEWORK_OWNER.release(); }
                 releaseComplete.countDown();
             }
-        });
+        };
+        if (surfaceThreadDetached) {
+            // Flutter can detach before calling PlatformView.dispose(). The old
+            // GL thread and its EGL resources are already gone; dispose the remaining
+            // Cubism CPU objects under this view's ownership, then allow a new owner.
+            new Thread(teardown, "CaicaiFinalRelease").start();
+        } else queueEvent(teardown);
         listener = NO_OP_LISTENER;
     }
 
     @Override protected void onDetachedFromWindow() {
-        // GLSurfaceView exits before draining events when detached. Finish the queued
-        // teardown first, including when this view was already paused in another tab.
-        release();
-        try {
-            if (!releaseComplete.await(3, java.util.concurrent.TimeUnit.SECONDS)) {
-                android.util.Log.e("CaicaiGL", "Timed out releasing detached renderer");
-            }
-        } catch (InterruptedException error) { Thread.currentThread().interrupt(); }
+        // A virtual display resize/reparent is not terminal disposal. Retain CPU
+        // models and framework ownership so GLSurfaceView can recreate its context.
+        // Only an explicitly released owner must drain teardown before thread exit.
+        if (released) {
+            try {
+                if (!releaseComplete.await(3, java.util.concurrent.TimeUnit.SECONDS)) {
+                    android.util.Log.e("CaicaiGL", "Timed out releasing detached renderer");
+                }
+            } catch (InterruptedException error) { Thread.currentThread().interrupt(); }
+        }
         super.onDetachedFromWindow();
+        surfaceThreadDetached = true;
+    }
+
+    @Override protected void onAttachedToWindow() {
+        super.onAttachedToWindow();
+        surfaceThreadDetached = false;
     }
 
     public String surfaceDiagnostics() {

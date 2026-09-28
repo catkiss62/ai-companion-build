@@ -41,9 +41,14 @@ class NativeSmokeTest {
                 val pausedFrames = frames()
                 scenario.moveToState(Lifecycle.State.RESUMED)
                 awaitFrames(pausedFrames)
+                val beforeReparent = frames()
+                scenario.onActivity { it.reparentView() }
+                awaitFrames(beforeReparent)
                 // Release a paused owner too: GLSurfaceView must drain teardown
                 // before detach or the next owner will wait forever on Cubism.
                 scenario.onActivity { it.view.onHostPause(); it.replaceView() }
+                awaitFrames(0)
+                scenario.onActivity { it.detachThenReplaceView() }
                 awaitFrames(0)
             }
         }

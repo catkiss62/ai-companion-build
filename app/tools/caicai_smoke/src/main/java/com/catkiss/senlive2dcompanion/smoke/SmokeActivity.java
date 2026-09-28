@@ -31,6 +31,14 @@ public class SmokeActivity extends Activity {
         root.addView(view, new FrameLayout.LayoutParams(-1, -1));
         view.onHostResume();
     }
+    public void reparentView() {
+        root.removeView(view);
+        root.addView(view, new FrameLayout.LayoutParams(-1, -1));
+    }
+    public void detachThenReplaceView() {
+        root.removeView(view);
+        replaceView();
+    }
     @Override public void onResume() { super.onResume(); if (view != null) view.onHostResume(); }
     @Override public void onPause() { if (view != null) view.onHostPause(); super.onPause(); }
     @Override public void onDestroy() { if (view != null) view.release(); super.onDestroy(); }

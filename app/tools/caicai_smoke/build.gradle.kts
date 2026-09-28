@@ -3,6 +3,13 @@ plugins {
     id("org.jetbrains.kotlin.android") version "2.1.0"
 }
 
+val syncImportSources = tasks.register<Sync>("syncImportSources") {
+    from("../../android/app/src/main/kotlin/com/catkiss/senlive2dcompanion") {
+        include("CaicaiModelRepository.kt", "CaicaiModelPaths.kt", "CaicaiDiagnostics.kt")
+    }
+    into(layout.buildDirectory.dir("generated/import-sources"))
+}
+
 android {
     namespace = "com.catkiss.senlive2dcompanion.smoke"
     compileSdk = 35
@@ -23,10 +30,11 @@ android {
     sourceSets.getByName("main") {
         // Compile the actual production renderer, import repository and diagnostics.
         // No copied host implementation, private model, Flutter or TTS payload.
-        java.srcDirs("../../android/app/src/main/java", "../../android/app/src/main/kotlin/com/catkiss/senlive2dcompanion")
-        java.exclude("io/flutter/**", "**/CaicaiPlatformView.kt", "**/CaicaiLive2DPlugin.kt")
+        java.srcDirs("../../android/app/src/main/java", syncImportSources)
+        java.exclude("io/flutter/**")
     }
 }
+tasks.named("preBuild").configure { dependsOn(syncImportSources) }
 
 dependencies {
     implementation(files("../../android/app/libs/Live2DCubismCore.aar"))
