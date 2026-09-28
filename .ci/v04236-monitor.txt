@@ -1,0 +1,7 @@
+status=success
+run_id=36370446031
+run_url=https://github.com/catkiss62/ai-companion-build/actions/runs/36370446031
+head_sha=437f0c8e6cccadb23ac1fb7de57872250ebcdf47
+signer_sha256=30:5E:B3:D8:09:83:B9:63:C6:48:18:DD:F1:AD:56:1F:27:9D:E6:D4:7B:3E:D2:C7:81:AD:A4:48:C7:C2:51:48
+e9f745e445fa7db50b6f63c2697cd96e797f62ca04e86674560384aff0a8e659  AI-Companion-v0.42.36-280-Caicai-Index-Pet-Rect-Agent-Route-APK.apk
+release_url=https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-a43ab3029f8301924603
