@@ -57,7 +57,11 @@ class UserReplyLivenessPolicy {
     required String correctedText,
     required bool initialRepeated,
     required bool correctedRepeated,
+    bool preferCompletedCorrection = false,
   }) {
+    if (preferCompletedCorrection && correctedText.trim().isNotEmpty) {
+      return UserReplyCandidateSource.corrected;
+    }
     if (correctedText.trim().isNotEmpty && !correctedRepeated) {
       return UserReplyCandidateSource.corrected;
     }

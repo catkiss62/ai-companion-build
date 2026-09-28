@@ -9,6 +9,12 @@ class CaicaiLive2DService {
   static Future<Map<String, Object?>> get diagnostics async =>
       (await _channel.invokeMapMethod<String, Object?>('status')) ?? const {};
   static Future<bool> get available async => (await diagnostics)['available'] == true;
+  static String nativeEmotionId(String emotion) => switch (emotion) {
+        'crying' => 'sad',
+        'nervous' => 'tense',
+        'embarrassed' => 'ashamed',
+        _ => emotion,
+      };
   static Future<void> setEditorFocused(bool focused) =>
       _channel.invokeMethod<void>('setEditorFocused', focused);
   static Future<bool> pickModelZip() async {
@@ -38,7 +44,7 @@ class _CaicaiLive2DStageState extends State<CaicaiLive2DStage> {
   bool _available = false;
   int _generation = 0;
   int _modelRevision = 0;
-  String? _status = '正在检查菜菜模型…';
+  String? _status = '未导入模型';
   bool _keyboardVisible = false;
 
   @override
@@ -59,13 +65,12 @@ class _CaicaiLive2DStageState extends State<CaicaiLive2DStage> {
       setState(() {
         _modelRevision++;
         _available = exists;
-        _status = exists ? '正在加载菜菜模型…' :
-            (model['detail']?.toString() ?? '请在 Live2D 设置中导入菜菜模型 ZIP');
+        _status = exists ? '已导入模型' : '未导入模型';
       });
-    } catch (error) {
+    } catch (_) {
       if (mounted && generation == _generation) setState(() {
         _available = false;
-        _status = '模型检查失败：$error';
+        _status = '未导入模型';
       });
     }
   }
@@ -89,7 +94,8 @@ class _CaicaiLive2DStageState extends State<CaicaiLive2DStage> {
 
   Future<void> _syncState() async {
     await _channel?.invokeMethod<void>('setForm', widget.qForm);
-    await _channel?.invokeMethod<void>('setEmotion', widget.emotion);
+    await _channel?.invokeMethod<void>('setEmotion',
+        CaicaiLive2DService.nativeEmotionId(widget.emotion));
   }
 
   void _created(int id) {
@@ -97,18 +103,17 @@ class _CaicaiLive2DStageState extends State<CaicaiLive2DStage> {
     _channel = channel;
     channel.setMethodCallHandler((call) async {
       if (!mounted || _channel != channel) return;
-      final args = (call.arguments as Map?)?.cast<Object?, Object?>();
       switch (call.method) {
         case 'onReady':
           setState(() => _status = null);
           await _syncState();
           return;
         case 'onStatus':
-          if (_status != null) setState(() => _status = args?['detail']?.toString() ?? '正在加载模型…');
+          if (_status != null) setState(() => _status = '已导入模型');
           return;
         case 'onModelMissing':
         case 'onError':
-          setState(() => _status = args?['detail']?.toString() ?? 'Live2D 模型不可用');
+          setState(() => _status = _available ? '已导入模型' : '未导入模型');
           return;
       }
     });
@@ -121,10 +126,11 @@ class _CaicaiLive2DStageState extends State<CaicaiLive2DStage> {
           setState(() => _status = null);
           await _syncState();
         } else if (state?['status'] == 'missing' || state?['status'] == 'error') {
-          setState(() => _status = state?['detail']?.toString());
+          setState(() => _status = state?['status'] == 'missing'
+              ? '未导入模型' : '已导入模型');
         }
-      } catch (error) {
-        if (mounted) setState(() => _status = '模型加载失败：$error');
+      } catch (_) {
+        if (mounted) setState(() => _status = _available ? '已导入模型' : '未导入模型');
       }
     }();
   }

@@ -43,7 +43,7 @@ def main() -> None:
     # one Gemini request is permitted only when the final provider is selected.
     require(proactive, "secureConfig.readFinalReplyApiKey()",
             "secureConfig.readFinalReplyEndpoint()",
-            "finalProvider.isGeminiRelay && !geminiAttempted",
+            "(!geminiAttempted || (repair && geminiSucceeded))",
             "geminiAttempted = true", "return request(gemini: false)")
 
     queue = read("lib/core/tts/tts_playback_queue.dart")

@@ -1,6 +1,6 @@
 # AI Companion · 当前总账
 
-更新时间：2026-09-28（中国时间；+281 真机失败，+282 Actions 全绿、Draft APK 就绪，真机验收待完成）
+更新时间：2026-09-28（中国时间；+283 游戏规划与 Gemini 正文路由、菜菜情绪控制；CI / 真机待验收）
 
 > 本文件是唯一的当前接班入口，继续采用“总账 v2”。顶部是快速接班索引；标记后的正式记录按版本持续追加，不设总容量上限。
 >
@@ -106,6 +106,8 @@
 +254 工作分支 agent/v04210-audio-heat，候选 v0.42.10+254：情绪音效改用媒体音量通道，硬件音量键控制媒体；轻微玩笑净降 6 点，互相挑衅需明确升级；Jev 回退诊断按题区分不确定与格式错误。紧急存档事件：+252 06:40 诊断仍有 422 条记忆、1 条会话、旧设备/谱系指纹，+253 08:44 诊断变为 0 条记忆、0 条会话、状态代数 0、新指纹，证明启动了新数据库；本份报告不含闪退栈，不能归因于 TTS 或声称旧库可恢复。06:39 外部 .aibackup 是已知恢复候选，恢复前保留原件且禁止卸载/清数据。状态 IMPLEMENTED LOCALLY / CI PENDING / TRUE DEVICE PENDING；详见 6.27。
 
 +256 工作分支 `agent/v04212-form-pitch-zero`，候选 `v0.42.12+256`：气焰只在 0 自动退出小豆丁，严肃话题仍认真回应；设置音调是小豆丁基准，本体低 1 半音。沿用 +255 已真机恢复的单一试听和发声链，保留锁定与手动安抚。状态 IMPLEMENTATION IN PROGRESS / CI PENDING / APK PENDING / TRUE DEVICE PENDING；详见末尾 +256。
+
++283 当前任务：以 +282 远端为基线，依据 2026-09-28 存档与诊断收紧 Cedar 关键词误触发；Gemini 成功时由 Gemini 完成一次正文修正，DeepSeek 仅第二通道失败兜底；菜菜导入状态精简、十九情绪预览和 Jev 逐轮情绪判断。状态 IMPLEMENTED LOCALLY / CI PENDING / APK PENDING / TRUE DEVICE PENDING；详见末尾 +283 正式记录。用户私密存档、诊断及模型素材不得上传公开仓。
 
 <!-- END QUICK HANDOFF INDEX -->
 
@@ -1221,3 +1223,11 @@ Actions 与交付证据：远端功能 head `33647c7bff15084d6fd3cbc7b817e9b0b21
 - 本次实现：有连接的无障碍服务时，改为**单个** `TYPE_ACCESSIBILITY_OVERLAY` 可信绘制兼输入窗口，用原待机 alpha Region 给系统输入分发，窗口管理器在系统文件界面移除路径保持一致；逻辑方框独立于可视溢出计算重力、运动、贴边、旋转迁移和尺寸调整；输入 Region 在位置更新后重应用。无障碍服务不在时退回旧尺寸方窗，避免宽应用悬浮窗吃掉大片点击，这条降级路径仍需实机验收。菜菜恢复普通 AndroidView 与无媒体 Z 层，聊天 Tab/route 不销毁平台视图，键盘时舞台保持布局高度。原生模型算法/私有 ZIP 未动。
 - 构建前状态：**IMPLEMENTED LOCALLY / CI PENDING / APK PENDING / TRUE DEVICE PENDING**。必须在用户手机实测三尺寸旁边按钮、贴边、文件界面多次开关、主后台黑屏、Tab/侧栏返回加载次数及输入法；CI 不能替代这些验证。
 - 构建回填：初轮 `36380024118` 在 20/127 旧版版本白名单失败，五个遗漏门禁补充并本地逐项通过；最终功能 head `56e628f25ebd133fa9d2c38ffcf005281e610162`，Actions [36380517278](https://github.com/catkiss62/ai-companion-build/actions/runs/36380517278) **全绿**（127 项源码门禁、Kotlin 编译与桌宠测试、Flutter analyze/test、Release、固定签名及资源校验）。未发布 [测试 Draft](https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-0130fd8887312ddd45ff) `397962996`，APK `AI-Companion-v0.42.38-282-Pet-Trusted-Touch-Sen-Stage-APK.apk`，726,053,350 bytes，SHA-256 `f320fc1f3c029124d807286d8a33227a03696055f512c8660c2ee2ff67dfaef4`。状态更新为 **IMPLEMENTED / CI PASSED / APK READY / TRUE DEVICE PENDING**。真机特别验证：开启无障碍服务时三尺寸桌宠范围外点底下按钮是否真实生效；贴边是否恢复；小米系统文件界面多次进出无冻结层；Live2D 后台返回无黑底，切 Tab/侧栏不重载，输入法不拉长。
+
+## +283 正式记录（2026-09-28，中国时间）
+
+- 授权：用户批准先推送 `catkiss62/ai-companion-build` 当前分支、完成本批修改后构建一次 APK。当前环境最初的本地 +279 分支落后远端 +282；保存旧分支到 `backup/local-v04235-before-sync`，本批从远端 `3dcc96b` 接续。HTTPS git push 无凭据，采用已连接的 GitHub 写入能力更新同一分支。不得强推、合并 main 或公开用户附件。
+- 私密证据：2026-09-28 08:56 `.aibackup` 与诊断只在本机分析，绝不进入仓库。诊断近 120 次模型使用的 `agent_tool_planning` 21 次，累计 429,189 input / 19,480 output tokens；`cedar_toy_no_call_recheck_count=23`。16:49 对“怎么还有这么奇怪的游戏啊，买菜做饭……感觉还是钓鱼更实在”做了两次有工具 schema 的规划但零调用；16:50 对“但是你最近钓鱼很欧呢”又做两次规划才实际 `cedar_toy.play`。该样本的 Jev short usage 无 `cedar_context_intent`：误触发来自 Cedar 标题/钓鱼宽泛入口及 no-call 重查，不是 Jev 输出错误。备份里 `messages.model` 曾将第二通道正文记成内部模型，单看字段不能证明真正生成者。
+- 实现：Cedar 明确指令入口要求动作语义；“你最近钓鱼”不再命中陪伴单人游玩；陈述/随口讨论可直接进入普通最终回复，真正游戏请求和已有会话的语义跟进仍保留。Gemini 首稿需事实或重复修正时，最多一次 Gemini 修正并直接发送；第二通道传输/配置/完整性失败才用 DeepSeek。主动消息及 Cedar 房间发言同样遵守第二通道优先，保存可见正文实际模型。限制修正次数为一次，保留真实操作事实强校验。
+- Live2D：导入状态只显示“已导入模型”或“未导入模型”；增加十九种持久情绪与正常状态的预览按钮，Jev 在同一批动作问题里选择对话情绪，不再固定映射回复关键词；调皮的本地持久参数采用 wink+吐舌。原模型、用户素材与旧 Sen 冻结资源保持隔离。
+- 验证与交付：本地针对性源代码门和新增回归用例；Flutter/Dart SDK 未安装，必须以远端 Actions 编译/测试与 Draft APK 为构建证据。CI、APK、真机行为在远端结果出现前均不得标记完成；真机还需观察 Gemini 调用日志、Cedar 零调用规划、情绪持续与触摸。

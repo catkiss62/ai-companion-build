@@ -1432,6 +1432,7 @@ ${startsFreshTopic ? '本类型属于新话题通道：ANSWERED CHAT HISTORY 已
     final finalEndpoint = await secureConfig.readFinalReplyEndpoint();
     final finalModelName = await secureConfig.readFinalReplyModel();
     var geminiAttempted = false;
+    var geminiSucceeded = false;
     var visibleModelName = model.apiName;
     final lastGroundedUser = proactiveGrounding.lastUserMessageId == null
         ? null
@@ -1441,10 +1442,11 @@ ${startsFreshTopic ? '本类型属于新话题通道：ANSWERED CHAT HISTORY 已
 
     Future<_ProactiveGenerationCandidate?> generateCandidate(
       List<Map<String, Object?>> promptMessages,
+      {bool repair = false}
     ) async {
       // All source, grounding and style context is already in promptMessages.
-      // Gemini receives one complete final-expression request. Optional
-      // corrections and a failed second channel use the internal DeepSeek lane.
+      // Gemini owns one correction after a successful first answer. Only an
+      // unavailable or unusable second channel falls back to DeepSeek.
       Future<_ProactiveGenerationCandidate?> request({required bool gemini}) async {
         final reasoning = StringBuffer();
         final content = StringBuffer();
@@ -1485,8 +1487,9 @@ ${startsFreshTopic ? '本类型属于新话题通道：ANSWERED CHAT HISTORY 已
         );
       }
 
-      if (finalProvider.isGeminiRelay && !geminiAttempted) {
-        geminiAttempted = true; // Including failures: never bill a second request.
+      if (finalProvider.isGeminiRelay &&
+          (!geminiAttempted || (repair && geminiSucceeded))) {
+        geminiAttempted = true;
         try {
           if (finalApiKey.isEmpty) {
             throw const FormatException('missing_gemini_final_reply_key');
@@ -1502,6 +1505,7 @@ ${startsFreshTopic ? '本类型属于新话题通道：ANSWERED CHAT HISTORY 已
           visibleModelName = finalModelName.isEmpty
               ? finalProvider.effectiveModel(model)
               : finalModelName;
+          geminiSucceeded = true;
           await db.setSetting('proactive_last_final_provider_notice', '');
           return result;
         } on GenerationSuspendedByRuntimeGateException {
@@ -1557,6 +1561,8 @@ ${startsFreshTopic ? '本类型属于新话题通道：ANSWERED CHAT HISTORY 已
       );
     }
 
+    var replyRepairUsed = false;
+    var groundingRepairApplied = false;
     var candidate = await generateCandidate(context);
     if (candidate == null) {
       await noteGeneration('preempted', reasonTag: 'writer_lease');
@@ -1575,6 +1581,7 @@ ${startsFreshTopic ? '本类型属于新话题通道：ANSWERED CHAT HISTORY 已
         FinalReplyFailurePolicy.hasStrongIncompleteStructure(value.content);
 
     if (incompleteCandidate(candidate)) {
+      replyRepairUsed = true;
       final retryContext = <Map<String, Object?>>[
         ...context,
         <String, Object?>{
@@ -1583,7 +1590,7 @@ ${startsFreshTopic ? '本类型属于新话题通道：ANSWERED CHAT HISTORY 已
 上一份候选被确认在流式传输或对白结构中截断。丢弃它并重新生成一条完整、较短的主动消息；不要从半句续写，不要复述内部错误。若没有值得完整说完的内容，只输出 WAIT。''',
         },
       ];
-      final retried = await generateCandidate(retryContext);
+      final retried = await generateCandidate(retryContext, repair: true);
       if (retried == null) {
         await noteGeneration('preempted', reasonTag: 'writer_lease');
         return ProactiveDecision(
@@ -1708,11 +1715,13 @@ ${startsFreshTopic ? '本类型属于新话题通道：ANSWERED CHAT HISTORY 已
       );
     }
 
-    if (!textGuard.allowed ||
-        !reasoningGuard.allowed ||
-        !memoryTemporalGuard.allowed ||
-        !operationGuard.allowed ||
-        !repetitionGuard.allowed) {
+    if (!replyRepairUsed &&
+        (!textGuard.allowed ||
+            !reasoningGuard.allowed ||
+            !memoryTemporalGuard.allowed ||
+            !operationGuard.allowed ||
+            !repetitionGuard.allowed)) {
+      replyRepairUsed = true;
       final retryReason = !reasoningGuard.allowed
           ? reasoningGuard.reason
           : !textGuard.allowed
@@ -1741,7 +1750,7 @@ ${PromptBuilder.visibleChineseGenerationReminder(proactive: true)}
 '''.trim(),
         },
       ];
-      final retried = await generateCandidate(retryContext);
+      final retried = await generateCandidate(retryContext, repair: true);
       if (retried == null) {
         await noteGeneration('preempted', reasonTag: 'writer_lease');
         return ProactiveDecision(
@@ -1768,10 +1777,7 @@ ${PromptBuilder.visibleChineseGenerationReminder(proactive: true)}
       }
       emotionEnvelope = EmotionEnvelope.parse(retried.content);
       candidate = retried.copyWith(content: emotionEnvelope.visibleText);
-      if (finalProvider.isGeminiRelay) {
-        await db.setSetting('proactive_last_final_provider_notice',
-            '第二通道主动消息未通过事实校验，本轮已由 DeepSeek 自然重答。');
-      }
+      groundingRepairApplied = true;
       if (isWait(candidate)) {
         if (webShareCandidateId != null) {
           await publicWebSharing.markDeclined(webShareCandidateId);
@@ -1847,15 +1853,15 @@ ${PromptBuilder.visibleChineseGenerationReminder(proactive: true)}
       );
     }
 
-    if (!textGuard.allowed) {
+    if (!groundingRepairApplied && !textGuard.allowed) {
       await noteGeneration('guard_blocked', reasonTag: 'grounding_guard');
       return blockGrounding(textGuard.reason);
     }
-    if (!reasoningGuard.allowed) {
+    if (!groundingRepairApplied && !reasoningGuard.allowed) {
       await noteGeneration('guard_blocked', reasonTag: 'grounding_guard');
       return blockGrounding(reasoningGuard.reason);
     }
-    if (!memoryTemporalGuard.allowed) {
+    if (!groundingRepairApplied && !memoryTemporalGuard.allowed) {
       await noteGeneration('guard_blocked', reasonTag: 'grounding_guard');
       return blockGrounding(memoryTemporalGuard.reason);
     }
@@ -1880,7 +1886,7 @@ ${PromptBuilder.visibleChineseGenerationReminder(proactive: true)}
         recentAssistantTexts: recentAssistantTexts,
       );
     }
-    if (!repetitionGuard.allowed) {
+    if (!groundingRepairApplied && !repetitionGuard.allowed) {
       await noteGeneration('guard_blocked', reasonTag: 'exact_recent_reply');
       return blockGrounding(repetitionGuard.reason);
     }

@@ -133,6 +133,7 @@ internal class CaicaiPlatformView(
             }
             "setForm" -> { smallForm = call.arguments == true; companion.setSmallForm(smallForm); result.success(true) }
             "setEmotion" -> { companion.setEmotion(call.arguments?.toString() ?: "normal"); result.success(true) }
+            "previewEmotion" -> { companion.setEmotion(call.arguments?.toString() ?: "normal"); result.success(true) }
             "parameters" -> companion.motionParameters { json -> main.post { result.success(json) } }
             "expression" -> { companion.clearParameterPlan(); companion.applyExpression(call.arguments?.toString() ?: ""); result.success(true) }
             "static" -> { companion.setStaticMode(call.arguments == true); result.success(true) }

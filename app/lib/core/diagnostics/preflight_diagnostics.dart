@@ -24,6 +24,7 @@ import '../moe/infrastructure/sqlite_moe_repository.dart';
 import '../models/desire_state.dart';
 import '../models/thought.dart';
 import '../platform/android_bridge.dart';
+import '../storage/secure_config.dart';
 import '../tts/tts_service.dart';
 import '../tts/tts_provider.dart';
 import '../../widgets/caicai_live2d_stage.dart';
@@ -544,8 +545,15 @@ class PreflightDiagnosticsService {
           }
         } catch (_) {}
       }
-      cedarRealtime['roomDialogueProvider'] = 'deepseek';
-      cedarRealtime['roomFinalProviderFallback'] = false;
+      final roomNotice =
+          await db.getSetting('cedar_room_last_final_provider_notice') ?? '';
+      cedarRealtime['roomDialogueProvider'] =
+          roomNotice.startsWith('房间发言生成失败')
+              ? 'none'
+              : (await SecureConfig.instance.readChatProvider()).isGeminiRelay
+                  ? (roomNotice.contains('DeepSeek') ? 'deepseek_fallback' : 'gemini')
+                  : 'deepseek';
+      cedarRealtime['roomFinalProviderFallback'] = roomNotice.contains('DeepSeek');
       cedarRealtime['roomMessageBodiesIncluded'] = false;
       cedarRealtime['continuationParamsIncluded'] = false;
       cedarRealtime['roomIdentityIncluded'] = false;

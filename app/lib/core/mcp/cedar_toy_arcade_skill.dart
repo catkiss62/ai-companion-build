@@ -57,9 +57,22 @@ class CedarToyArcadeSkill {
     return requestsNaturalPlay(text) ||
         requestsCompanionSoloPlay(text) ||
         RegExp(
-          r'(cedar\s*toy|游戏厅|小游戏|一起玩|玩(?:个|一下|一会儿)?游戏|防沉迷|重置(?:游戏)?(?:次数|轮次|限制))',
+          r'((?:去|进|进入|打开|启动|继续|玩|逛).{0,12}(?:cedar\s*toy|游戏厅|小游戏)|'
+          r'(?:cedar\s*toy|游戏厅|小游戏).{0,12}(?:玩|逛|进去|开始|继续|打开)|'
+          r'一起玩|玩(?:个|一下|一会儿)?游戏|重置(?:游戏)?(?:次数|轮次|限制))',
           caseSensitive: false,
         ).hasMatch(text);
+  }
+
+  /// A catalog title alone is context, not an instruction to spend a tool
+  /// planning round. Keep imperative game entry reachable without treating
+  /// “你在玩白房间啊” as “现在去玩白房间”.
+  static bool requestsCatalogAction(String text) {
+    if (describesUserOnlyPlay(text)) return false;
+    return RegExp(
+      r'(?:^|[，。！？\s])(?:现在|马上|立刻|快|赶紧)?(?:去|来|开|开始|继续|进入|加入|玩|你去|你先|我们去|咱们去).{0,22}(?:吧|呗|一下|一局|存档|房间|游戏|棋)|'
+      r'(?:现在|马上|立刻|这就|赶紧|立即).{0,16}(?:去|来|开|开始|继续|进入|加入|玩)',
+    ).hasMatch(text);
   }
 
   /// Keep the existing solo session available to the model for a nearby reply.
@@ -122,7 +135,8 @@ class CedarToyArcadeSkill {
       ).hasMatch(text);
 
   static bool requestsCompanionSoloPlay(String text) => RegExp(
-        r'(你|让你|叫你|给你|小机|宝贝|老婆).{0,16}(玩|下棋|钓(?:鱼)?|去游戏厅)|'
+        r'(让你|叫你|给你|小机|宝贝|老婆).{0,16}(玩|下棋|钓(?:鱼)?|去游戏厅)|'
+        r'你(?:现在|马上|快|继续|先|自己|去|也去|要不要|想不想|可以).{0,12}(玩|下棋|钓(?:鱼)?|进游戏厅)|'
         r'(?:^|[，。！？]\s*)(去|快去|自己去|你先).{0,10}(玩|下棋|钓(?:鱼)?|游戏厅).{0,6}(吧|呗|呀|啊)?$',
         caseSensitive: false,
       ).hasMatch(text);

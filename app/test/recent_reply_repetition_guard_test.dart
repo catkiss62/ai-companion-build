@@ -58,4 +58,17 @@ void main() {
       UserReplyCandidateSource.initial,
     );
   });
+
+  test('completed Gemini correction wins after one repair even if repeated', () {
+    expect(UserReplyLivenessPolicy.choose(
+      initialText: '草稿', correctedText: '修正的正文',
+      initialRepeated: false, correctedRepeated: true,
+      preferCompletedCorrection: true,
+    ), UserReplyCandidateSource.corrected);
+    expect(UserReplyLivenessPolicy.choose(
+      initialText: '草稿', correctedText: ' ',
+      initialRepeated: false, correctedRepeated: true,
+      preferCompletedCorrection: true,
+    ), UserReplyCandidateSource.initial);
+  });
 }

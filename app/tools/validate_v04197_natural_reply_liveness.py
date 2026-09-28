@@ -41,12 +41,12 @@ require(
     "grounded_reply_retry_degraded_pass",
     "finalProvider.isGeminiRelay",
     "await generateCheckedDeepSeek(correctionMessages)",
-    "never call the paid final provider a second time",
+    "preferCompletedCorrection: initialWasGemini && finalTextFromGemini",
     "User turns are reply-live",
 )
 runner = read("lib/core/ai/durable_generation_runner.dart")
-assert "generated = await generateFinal(correctionMessages);" not in runner, (
-    "grounding repair may call the paid final provider twice"
+assert "finalProvider.isGeminiRelay && providerNotice.isNotEmpty" in runner, (
+    "DeepSeek repairs only after the configured final channel failed"
 )
 require(
     "lib/core/desire/proactive_engine.dart",

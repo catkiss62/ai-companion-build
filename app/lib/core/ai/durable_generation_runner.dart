@@ -164,6 +164,7 @@ class DurableGenerationRunner {
     final configuredFinalEndpoint =
         await secureConfig.readFinalReplyEndpoint();
     final configuredFinalModel = await secureConfig.readFinalReplyModel();
+    var finalTextFromGemini = false;
     if (cancellationToken?.isCancelled ?? false) {
       await db.cancelGenerationJobByUser(requested.id);
       return const GenerationRunResult(status: 'cancelled_by_user');
@@ -434,10 +435,8 @@ class DurableGenerationRunner {
           );
       final cedarExplicitRequest = !userOnlyGameStatement &&
           (CedarToyArcadeSkill.isRelevant(user.content) ||
-              CedarToyActivityStore.catalogMentionsGame(
-                user.content,
-                cedarCatalog,
-              ));
+              (mentionsCatalogGame &&
+                  CedarToyArcadeSkill.requestsCatalogAction(user.content)));
       // Solo game progression still belongs to the background clock. A recent
       // dialogue merely lets the model interpret a short user reply with Cedar
       // tools available; it does not itself advance the session.
@@ -819,6 +818,7 @@ class DurableGenerationRunner {
         String finishReason,
       })> generateFinal(List<Map<String, Object?>> messages) async {
         if (!finalProvider.isGeminiRelay) {
+          finalTextFromGemini = false;
           return generateCheckedDeepSeek(messages);
         }
         Object? lastError;
@@ -857,6 +857,7 @@ class DurableGenerationRunner {
                       : result.finishReason,
                 );
               }
+              finalTextFromGemini = true;
               return result;
             } on FinalReplyIncompleteException {
               rethrow;
@@ -889,6 +890,7 @@ class DurableGenerationRunner {
         }
         providerNotice =
             '第二通道调用失败（${FinalReplyFailurePolicy.userCategory(lastError!)}），本轮已由 DeepSeek 兜底。';
+        finalTextFromGemini = false;
         return generateCheckedDeepSeek(messages);
       }
 
@@ -1438,14 +1440,14 @@ $finalGenerationReminder
 '''.trim(),
           },
         ];
+        final initialWasGemini = finalTextFromGemini;
         try {
-          // A configured second channel is charged per request and is allowed
-          // exactly once for the visible reply. If that one result needs a
-          // factual/repetition repair, DeepSeek owns the single repair pass;
-          // never call the paid final provider a second time.
-          generated = finalProvider.isGeminiRelay
+          // One correction by the provider that wrote the visible draft.
+          // DeepSeek takes over only after the configured second channel fails.
+          generated = finalProvider.isGeminiRelay && providerNotice.isNotEmpty
               ? await generateCheckedDeepSeek(correctionMessages)
               : await generateFinal(correctionMessages);
+          if (providerNotice.isNotEmpty) finalTextFromGemini = false;
           effectiveCancellation.throwIfCancelled();
           envelope = EmotionEnvelope.parse(generated.content);
           finalContent = visibleBody(envelope);
@@ -1462,15 +1464,16 @@ $finalGenerationReminder
             correctedText: finalContent,
             initialRepeated: !initialRepetitionGuard.allowed,
             correctedRepeated: !repetitionGuard.allowed,
+            preferCompletedCorrection: initialWasGemini && finalTextFromGemini,
           );
           if (candidateSource == UserReplyCandidateSource.initial) {
+            finalTextFromGemini = initialWasGemini;
+            if (initialWasGemini) providerNotice = '';
             generated = initialGenerated;
             envelope = initialEnvelope;
             finalContent = initialFinalContent;
             operationGuard = initialOperationGuard;
             repetitionGuard = initialRepetitionGuard;
-          } else if (finalProvider.isGeminiRelay) {
-            providerNotice = '第二通道回复未通过事实或重复校验，本轮已由 DeepSeek 自然重答。';
           }
         } catch (error) {
           if (error is GenerationCancelledByUserException ||
@@ -1482,13 +1485,15 @@ $finalGenerationReminder
           // Keep the original natural speech and expose only an ordinary UI
           // notice; do not insert local persona dialogue into chat/history/TTS.
           generated = initialGenerated;
+          finalTextFromGemini = initialWasGemini;
+          if (initialWasGemini) providerNotice = '';
           envelope = initialEnvelope;
           finalContent = initialFinalContent;
           operationGuard = initialOperationGuard;
           repetitionGuard = initialRepetitionGuard;
           ablationTransformation = 'grounded_reply_retry_unavailable_pass';
           providerNotice = finalProvider.isGeminiRelay
-              ? '第二通道回复需要修正，但 DeepSeek 自然重答失败；本轮已保留原模型回复。'
+              ? '第二通道回复需要修正，但重试失败；本轮已保留原模型回复。'
               : '回复自然重答失败；本轮已保留原模型回复。';
         }
         if (!operationGuard.allowed || !repetitionGuard.allowed) {
@@ -1546,7 +1551,11 @@ $finalGenerationReminder
         role: 'assistant',
         content: finalContent,
         reasoningContent: visibleReasoning,
-        model: job.model,
+        model: finalTextFromGemini
+            ? (configuredFinalModel.isEmpty
+                ? ChatApiProvider.aiWangYouModel
+                : configuredFinalModel)
+            : job.model,
         createdAt: DateTime.now(),
         deviceId: await db.ensureDeviceId(),
         segments: ChatSegmentCodec.parseAssistantText(finalContent),

@@ -47,8 +47,9 @@ require(
     '_composeRoomDialogue',
     'params = CedarRoomActionPayload.withMessage(params, roomMessage)',
     'CedarActionTransportPolicy.immediateResponseParams',
-    'Room dialogue is a session-local action annotation',
-    "apiKey: apiKey",
+    'finalProvider.isGeminiRelay',
+    "apiKey: gemini ? finalKey : apiKey",
+    "requestProvider: gemini ? finalProvider : null",
     'AgentToolTextEnvelope.looksLikeMachinePayload',
 )
 require(

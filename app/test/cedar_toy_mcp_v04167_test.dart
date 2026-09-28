@@ -65,6 +65,12 @@ void main() {
   test('skill relevance stays explicit and avoids generic game talk', () {
     expect(CedarToyArcadeSkill.isRelevant('一起玩个小游戏吧'), isTrue);
     expect(CedarToyArcadeSkill.isRelevant('我今天打游戏输了'), isFalse);
+    expect(CedarToyArcadeSkill.isRelevant('但是你最近钓鱼很欧呢'), isFalse);
+    expect(CedarToyArcadeSkill.isRelevant('怎么还有这么奇怪的游戏啊'), isFalse);
+    expect(CedarToyArcadeSkill.isRelevant('我们去游戏厅玩一局吧'), isTrue);
+    expect(CedarToyArcadeSkill.requestsCatalogAction('你在玩白房间啊？这个游戏是不是很深奥？'), isFalse);
+    expect(CedarToyArcadeSkill.requestsCatalogAction('怎么还有这么奇怪的游戏啊，买菜做饭'), isFalse);
+    expect(CedarToyArcadeSkill.requestsCatalogAction('现在去花园与猫开一个存档吧'), isTrue);
   });
 
   test('recent solo dialogue exposes tools for semantic planning', () {

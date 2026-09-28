@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../core/database/app_database.dart';
+import '../../core/emotion/emotion_contract.dart';
 import '../../core/platform/live2d_model_storage.dart';
 import '../../widgets/caicai_live2d_stage.dart';
 
@@ -58,7 +59,6 @@ class _Live2DSettingsPageState extends State<Live2DSettingsPage> {
   ]);
   @override
   Widget build(BuildContext context) {
-    final render = _status['render'] as Map?;
     return Scaffold(appBar: AppBar(title: const Text('Live2D 设置')),
       body: _loading ? const Center(child: CircularProgressIndicator()) : ListView(
         padding: const EdgeInsets.all(16), children: [
@@ -70,7 +70,7 @@ class _Live2DSettingsPageState extends State<Live2DSettingsPage> {
             })),
           ListTile(leading: const Icon(Icons.folder_zip_outlined),
             title: Text(_status['available'] == true ? '重新导入模型 ZIP' : '导入模型 ZIP'),
-            subtitle: Text(_status['available'] == true ? '模型文件已保存；${render?['detail'] ?? ''}' : '导入菜菜女仆三配件完整模型包'),
+            subtitle: Text(_status['available'] == true ? '已导入模型' : '未导入模型'),
             onTap: _busy ? null : () => _run(() async { await CaicaiLive2DService.pickModelZip(); })),
           if (_busy) const LinearProgressIndicator(),
           if (_error != null) Text(_error!, style: TextStyle(color: Theme.of(context).colorScheme.error)),
@@ -78,6 +78,17 @@ class _Live2DSettingsPageState extends State<Live2DSettingsPage> {
             subtitle: const Text('复用已配置的 Jev，每条新回复批量判断短时动作；自主呼吸和眨眼由本机驱动'),
             onChanged: _busy ? null : (value) => _run(() => _db.setSetting('caicai_jev_motion', value ? '1' : '0'))),
           const Text('下面的控制应用到已打开的聊天舞台。再次点击同一预设可关闭。'),
+          const SizedBox(height: 18),
+          Text('聊天情绪预览（19 种）', style: Theme.of(context).textTheme.titleMedium),
+          Wrap(spacing: 8, children: [
+            ActionChip(label: const Text('正常'),
+              onPressed: _busy ? null : () => _control('previewEmotion', 'normal')),
+            ...EmotionCatalog.labelsByKey.entries.map((entry) => ActionChip(
+              label: Text(entry.value),
+              onPressed: _busy ? null : () => _control('previewEmotion',
+                CaicaiLive2DService.nativeEmotionId(entry.key)),
+            )),
+          ]),
           Wrap(spacing: 8, children: [
             ActionChip(label: const Text('自主待机'), onPressed: _busy ? null : () => _control('static', false)),
             ActionChip(label: const Text('完全静止'), onPressed: _busy ? null : () => _control('static', true)),

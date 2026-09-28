@@ -2019,44 +2019,92 @@ game=${session.gameId}
       },
     ];
 
-    try {
+    final finalProvider = await secureConfig.readChatProvider();
+    final finalKey = (await secureConfig.readFinalReplyApiKey())?.trim() ?? '';
+    final finalEndpoint = await secureConfig.readFinalReplyEndpoint();
+    final finalModel = await secureConfig.readFinalReplyModel();
+
+    Future<String> request({
+      required bool gemini,
+      bool correction = false,
+    }) async {
       var content = '';
       var finishReason = '';
+      var completed = false;
       await for (final delta in ai.streamChat(
-        apiKey: apiKey,
+        apiKey: gemini ? finalKey : apiKey,
         model: DeepSeekModelProfile.flash,
         effort: ReasoningEffort.low,
-        messages: prompt,
-        endpoint: endpoint,
-        // Room dialogue is a session-local action annotation, so the internal
-        // DeepSeek lane owns it. The global final-reply provider remains for
-        // ordinary chat and immersive rooms only.
+        messages: correction
+            ? <Map<String, Object?>>[
+                ...prompt,
+                <String, Object?>{
+                  'role': 'system',
+                  'content': '刚才的候选格式或完整性不符合房间发言要求。只修正一次，直接输出一条完整的简短中文房间发言，不输出结构化数据。',
+                },
+              ]
+            : prompt,
+        endpoint: gemini ? finalEndpoint : endpoint,
+        requestProvider: gemini ? finalProvider : null,
+        modelName: gemini ? finalModel : null,
         thinking: false,
         maxTokens: 512,
         cancellationToken: cancellationToken,
         requestTimeout: const Duration(seconds: 30),
-        usageLane: 'cedar_room_dialogue',
+        usageLane: gemini ? 'cedar_room_final_reply' : 'cedar_room_dialogue',
       )) {
         content += delta.content;
+        if (delta.done || delta.finishReason != null) completed = true;
         if (delta.finishReason != null) finishReason = delta.finishReason!;
       }
       final clean = _cleanRoomDialogue(content);
-      if (clean.isEmpty) throw const FormatException('empty_room_dialogue');
-      if (const <String>{'length', 'content_filter', 'safety', 'error'}
-          .contains(finishReason.trim().toLowerCase())) {
+      if (!completed ||
+          clean.isEmpty ||
+          FinalReplyFailurePolicy.isIncompleteFinishReason(finishReason) ||
+          FinalReplyFailurePolicy.hasStrongIncompleteStructure(content)) {
         throw const FormatException('incomplete_room_dialogue');
       }
-      await db.setSetting('cedar_room_last_final_provider_notice', '');
       return clean;
+    }
+
+    try {
+      if (finalProvider.isGeminiRelay) {
+        if (finalKey.isEmpty) {
+          throw const FormatException('missing_gemini_final_reply_key');
+        }
+        try {
+          final text = await request(gemini: true);
+          await db.setSetting('cedar_room_last_final_provider_notice', '');
+          return text;
+        } on FormatException catch (error) {
+          if (error.message != 'incomplete_room_dialogue') rethrow;
+          final text = await request(gemini: true, correction: true);
+          await db.setSetting('cedar_room_last_final_provider_notice', '');
+          return text;
+        }
+      }
+      final text = await request(gemini: false);
+      await db.setSetting('cedar_room_last_final_provider_notice', '');
+      return text;
     } on GenerationCancelledByUserException {
       rethrow;
     } on GenerationSuspendedByRuntimeGateException {
       rethrow;
-    } catch (_) {
-      await db.setSetting('cedar_room_last_final_provider_notice', '');
-      return session.pendingRoomMessage.isNotEmpty
-          ? '看到了，我在这儿，继续来。'
-          : '这手我接了，看你怎么回。';
+    } catch (error) {
+      if (finalProvider.isGeminiRelay) {
+        await db.setSetting('cedar_room_last_final_provider_notice',
+            '第二通道调用失败（${FinalReplyFailurePolicy.userCategory(error)}），房间发言由 DeepSeek 兜底。');
+        try {
+          return await request(gemini: false);
+        } on GenerationCancelledByUserException {
+          rethrow;
+        } on GenerationSuspendedByRuntimeGateException {
+          rethrow;
+        } catch (_) {}
+      }
+      await db.setSetting('cedar_room_last_final_provider_notice',
+          '房间发言生成失败，本次动作未附带对白。');
+      return '';
     }
   }
 

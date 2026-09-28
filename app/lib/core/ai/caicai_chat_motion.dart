@@ -29,7 +29,13 @@ class CaicaiChatMotion {
       final plan = await const CaicaiMotionPlanner().plan(user: user, reply: reply, emotion: emotion,
         parameters: parameters, cancellationToken: token);
       token.throwIfCancelled();
-      if (plan != null) await CaicaiLive2DService.command('motionPlan', plan);
+      if (plan != null) {
+        final chosenEmotion = plan['emotion']?.toString() ?? '';
+        if (chosenEmotion.isNotEmpty) {
+          await CaicaiLive2DService.command('setEmotion', chosenEmotion);
+        }
+        await CaicaiLive2DService.command('motionPlan', plan);
+      }
     } on GenerationCancelledByUserException {
       return;
     } catch (_) {

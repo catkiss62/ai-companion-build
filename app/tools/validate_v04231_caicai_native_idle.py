@@ -24,10 +24,10 @@ def tree_digest(relative: str, expected_count: int, expected_hash: str) -> None:
         digest.update(str(path.relative_to(root)).encode())
         digest.update(b"\0")
         data = path.read_bytes()
-        if path.name in {"SenCompanionView.java", "SenRenderer.java", "SenLive2DModel.java"}:
+        if path.name in {"SenCompanionView.java", "SenRenderer.java", "SenLive2DModel.java", "SenPerformanceEngine.java"}:
             # Pin original renderer and accessory math; allow reviewed host additions.
             text = data.decode()
-            text = re.sub(r"    // BEGIN AI_COMPANION_HOST_EXTENSION\n.*?    // END AI_COMPANION_HOST_EXTENSION\n", "", text, flags=re.S)
+            text = re.sub(r"^[ \t]*// BEGIN AI_COMPANION_HOST_EXTENSION\n.*?^[ \t]*// END AI_COMPANION_HOST_EXTENSION\n", "", text, flags=re.S | re.M)
             text = re.sub(r"^.*// AI_COMPANION_HOST_PLAN_HOOK\n", "", text, flags=re.M)
             data = text.encode()
         digest.update(data)

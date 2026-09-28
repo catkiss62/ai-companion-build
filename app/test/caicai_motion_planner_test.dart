@@ -16,6 +16,7 @@ void main() {
     expect(frames[1]['parameters'], isEmpty);
     expect(plan['face'], '1生气');
     expect(plan['action'], '');
+    expect(plan['emotion'], '');
     for (final channel in CaicaiMotionPlanner.channels.values) {
       for (final target in channel.values) {
         expect(target.containsKey('ParamMouthOpenY'), isFalse);
@@ -30,11 +31,16 @@ void main() {
         calls++;
         final body = jsonDecode(request.body) as Map;
         final questions = body['questions'] as Map;
-        expect(questions.keys, containsAll(['f0_head','f1_head','f2_head','f3_head','face','action']));
+        expect(questions.keys, containsAll(['f0_head','f1_head','f2_head','f3_head','face','action','emotion']));
         return http.Response('{}', 503);
       }));
     expect(await CaicaiMotionPlanner(gateway: gateway).plan(user: '看看左边', reply: '好呀',
       emotion: 'normal', parameters: {'ParamAngleX3': {'min': -30, 'max': 30}}), isNull);
     expect(calls, 1);
+  });
+  test('nineteen dialog emotions use the native Caicai IDs', () {
+    expect(CaicaiMotionPlanner.buildPlan({'emotion': 'crying'}, {})['emotion'], 'sad');
+    expect(CaicaiMotionPlanner.buildPlan({'emotion': 'nervous'}, {})['emotion'], 'tense');
+    expect(CaicaiMotionPlanner.buildPlan({'emotion': 'embarrassed'}, {})['emotion'], 'ashamed');
   });
 }

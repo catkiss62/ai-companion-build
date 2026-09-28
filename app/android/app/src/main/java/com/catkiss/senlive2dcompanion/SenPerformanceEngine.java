@@ -425,6 +425,16 @@ final class SenPerformanceEngine {
                 values.put(id, value);
             }
         });
+        // BEGIN AI_COMPANION_HOST_EXTENSION
+        // The persistent playful preset is a wink with tongue out. Keep this
+        // local adjustment separate from the donor's other nineteen faces.
+        if ("playful".equals(name)) {
+            values.put("ParamTongueOut", 1.0f);
+            values.put("ParamEyeLOpen", -1.35f);
+            values.put("ParamEyeROpen", 0.04f);
+            values.put("ParamEyeLSmile", 1.0f);
+        }
+        // END AI_COMPANION_HOST_EXTENSION
         return values;
     }
 

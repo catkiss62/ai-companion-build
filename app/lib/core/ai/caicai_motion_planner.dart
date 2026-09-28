@@ -1,6 +1,8 @@
 import 'dart:convert';
 import 'generation_cancellation.dart';
 import 'jev_decision_gateway.dart';
+import '../emotion/emotion_contract.dart';
+import '../../widgets/caicai_live2d_stage.dart';
 
 /// SoulLink's sparse four-keyframe contract adapted to Jev's actual Choice API.
 /// Labels and IDs come from Caicai's calibrated parameter contract, not Sen names.
@@ -48,6 +50,10 @@ class CaicaiMotionPlanner {
     }
     questions['face'] = JevChoiceQuestion('选择本次短时原装表情，情绪不明显时选无。', {for (final x in faces) x: x});
     questions['action'] = JevChoiceQuestion('选择与本轮明确动作或场景有关的原装动作；无关时选无。', {for (final x in actions) x: x});
+    questions['emotion'] = JevChoiceQuestion(
+      '选择对话结束后持续显示的聊天情绪。以实际回复语气为准；没有明显情绪选正常，不要为了变化而强选。',
+      {'normal': '正常', for (final x in EmotionCatalog.labelsByKey.entries) x.key: x.value},
+    );
     final answers = await gateway.chooseMany(state: {
       'user': user, 'reply': reply, 'emotion': emotion,
       'parameter_contract': parameters,
@@ -76,6 +82,8 @@ class CaicaiMotionPlanner {
     }
     return {'frames': frames,
       'face': faces.contains(answers['face']) && answers['face'] != '无' ? answers['face'] : '',
-      'action': actions.contains(answers['action']) && answers['action'] != '无' ? answers['action'] : ''};
+      'action': actions.contains(answers['action']) && answers['action'] != '无' ? answers['action'] : '',
+      'emotion': answers['emotion'] == 'normal' || EmotionCatalog.labelsByKey.containsKey(answers['emotion'])
+          ? CaicaiLive2DService.nativeEmotionId(answers['emotion']!) : ''};
   }
 }
