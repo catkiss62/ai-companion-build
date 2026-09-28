@@ -1,12 +1,12 @@
 # AI Companion · 当前总账
 
-更新时间：2026-09-29（+285 用户确认功能成功，可回退；+286 表演调节实施中）
+更新时间：2026-09-29（+285 用户确认功能基准；+286 CI PASSED / APK READY，真机观感待验收）
 
 > 本文件是唯一的当前接班入口，继续采用“总账 v2”。顶部是快速接班索引；标记后的正式记录按版本持续追加，不设总容量上限。
 >
 > 判断优先级：用户最新明确决定 > 当前 GitHub 源码与 Actions > 同时刻脱敏真机诊断/备份 > 本文件 > 冻结归档与 Git 历史。`DESIGNED`、`IMPLEMENTED`、`CI PASSED`、`APK READY`、`TRUE DEVICE PASSED`、`PENDING` 必须严格区分。
 
-## 当前任务 · +286 菜菜表演调节与输入法几何修复（IMPLEMENTING）
+## 当前任务 · +286 菜菜表演调节与输入法几何修复（CI PASSED / APK READY）
 
 - 用户明确确认：+285 头部各轴已有效，现阶段是幅度/速度调节；+285 功能成功，作为可回退基准。已授权直接实施，无需继续方案确认。
 - 回退基准：`0.42.41+285` / 功能 `6cfca5ae303f384283a653d1627ff4a548150322`；Actions `36455411205`；Draft APK SHA256 `0f28b4dd43a2b5ffe00bedcd21878984c086cbe077d22d3433199f6b454968c6`。已知缺陷：输入法拉伸；动作偏小偏慢、摸头/视线优先级待修。不以整体 TRUE DEVICE PENDING 覆盖用户已确认的功能成功。
@@ -14,6 +14,7 @@
 - 证据：当前窗口变化仅更新 glViewport，未同步 Cubism render target；摸头参数计划后执行的 applyAttention 会覆盖其头部 Y。两者是代码问题，尚不冒称已证明真机拉伸/卡顿全部原因。头部参数按用户确认有效处理。
 - 保护：+285 GLSurfaceView/导入事务、原 renderer/三配件标定数学、TTS 口型、19 情绪/衣装/4.5 秒预设、第二通道正文及 400 兜底、桌宠默认不回退。已有脏二进制 part-075.bin 排除提交；不上传私密模型/诊断，不合并 main、不正式发布。
 - 验证：位移支点/逆变换、参数上下界和优先级、Jev 请求及本地动作、窗口尺寸与生命周期；现有源/资源/路由门禁和 Flutter/Android 测试，Draft APK。私有模型视觉、键盘延迟与夸张程度仍需用户设备调节，不用空场景GL测试代替。
+- 交付：`0.42.42+286` / 功能 `0627376f4f787a072cdabe94c8f25ab78da8b445`，Actions `36468439975` 全绿（129源门、3原生冒烟、Android单元测试、Flutter analyze、982 Flutter测试、release与签名/资源门）。Draft `398534068`：[测试APK](https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-6536c4ec9e8814a55b44)，SHA256 `2838c8967924de7144b892c73915f9f283725659909210cb35af9f75943c7da6`。默认幅度100%/速度100%/支点88%；先原样实测再调节，尚不标 TRUE DEVICE PASSED。
 
 ## 上一批 · +285 恢复 Live2D 并核对全部正文入口（CI 通过，测试 APK 已交付）
 
@@ -1343,3 +1344,19 @@ Actions 与交付证据：远端功能 head `33647c7bff15084d6fd3cbc7b817e9b0b21
 - 整模位移与小腿支点旋转在最终drawMvp共同执行，校准数学保持原哈希；命中走逆变换。摸头由露出舞台Listener转发，短时lease阻止视线/晚到Jev覆盖。设置新增幅度/速度/支点与四项组合预览。详见app/docs/CAICAI_PERFORMANCE_V04242.md。
 - 本地JDK可通过模块调用编译器；纯几何/待机检查已执行生产CaicaiRootTransform、CaicaiIdleMotion和CubismMatrix44（使用临时接口/非执行数学依赖桩）：像素比例、支点、不同行列标定后的共同矩阵与逆命中通过；60秒头X原始范围-29.32..29.40、头Y-22.89..27.31，30FPS最大相邻X差2.71。原始值仍须模型限幅，不是设备实测视觉角度。
 - 本地源门初检118通过，7项失败是新版本未进历史白名单，已补286；另3项依赖CI恢复资源/kotlinc，不降门禁。新版本尚未CI通过/APK就绪，不声称真机修复完成。
+
+### +286 构建进度
+
+- 功能提交 `8293c7b7851bd54bde29294a041437ba31da8c03`，随后显式转换滑块clamp结果为double，最终待验证提交 `0627376f4f787a072cdabe94c8f25ab78da8b445`。
+- 首轮 `36467891844` 因新提交由工作流自动取消，不是测试失败；已完成Java宿主编译并开始3项模拟器测试。
+- 当前 Actions `36468439975`；原生门 job `109084683320` 成功，3项测试覆盖实际SurfaceView连续缩放、4轮生命周期/交接与导入事务。结果artifact `10990742490`（沿用旧测试工具名称Caicai-v04241，实际源码为本轮0627376）。完整APK job `109086799034` 已通过129源回归，Android/Flutter编译测试继续中。
+- 回退保留的是 +285 的功能源码和原始APK。若后续要回到其功能并覆盖安装，应从该源码重打更高versionCode的恢复包，不依赖Android允许旧APK直接降级，不要求用户卸载数据。
+
+### +286 最终交付核验
+
+- 最终代码提交 `0627376f4f787a072cdabe94c8f25ab78da8b445`；Actions `36468439975` 于2026-09-29 03:17中国时间完成，conclusion=success。129源码/回归门、Android/Kotlin单元测试、Flutter静态分析、982项Flutter测试、release构建、稳定签名与资源完整性均通过；原生3项测试及4轮生命周期证据见上节。
+- APK：`AI-Companion-v0.42.42-286-Caicai-Performance-APK.apk`，726090274 bytes；SHA256 `2838c8967924de7144b892c73915f9f283725659909210cb35af9f75943c7da6`。构建日志hash与GitHub asset.digest一致。APK asset `596202913`，sha256旁件 `596202912`，CI monitor `596202930`，均uploaded。
+- Draft Release `398534068`，tag `v0.42.42-caicai-performance-test`，target=0627376，draft=true；URL https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-6536c4ec9e8814a55b44 。Workflow APK artifact `10991456188`；未合并main、未正式发布、未下载大APK到本地。
+- 签名 SHA256 `30:5E:B3:D8:09:83:B9:63:C6:48:18:DD:F1:AD:56:1F:27:9D:E6:D4:7B:3E:D2:C7:81:AD:A4:48:C7:C2:51:48`，与+285一致，支持从+285覆盖安装。保留模型与既有设置；原先脏的part-075.bin未进入提交。
+- 验收顺序：默认幅度100%、速度100%、支点88%下，反复开关输入法观察比例；头眼跟随/触摸摸头；左右探身与小腿支点倾斜预览；最后观察普通对话与主动分享的Jev选项和实际动作。需要时调幅度/速度/支点；第二通道正文及400兜底、桌宠默认继续保留。
+- 状态边界：IMPLEMENTED / CI PASSED / APK READY；尚未取得本版私有模型真机录像或诊断，不能称输入法拉伸、延迟、摸头命中或动作观感已真机通过。真实Jev新增问题的服务端选项分布也仍需设备日志验证。+285仍为用户确认的功能基准。

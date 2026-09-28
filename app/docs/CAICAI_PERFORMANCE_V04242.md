@@ -21,3 +21,13 @@
 键盘期间 Flutter 舞台保持关闭键盘时的尺寸；横竖屏变化重建尺寸基准；原生 onSurfaceChanged 同步主/配件 Cubism render target，避免只有 glViewport 更新。日志记录 surface buffer/view/IME 尺寸；此代码缺口成立，但不先把键盘延迟断言为同一根因。触摸由露出舞台的 Flutter Listener 转发，聊天遮挡区域不会穿透触发摸头；全界面 Activity 观察仍提供视线输入。
 
 本轮没有取得参考 APK 的当前可执行文件，不声称逐条复现其曲线。Java测试覆盖矩阵组合、像素比例、支点与逆映射；参数计划测试覆盖根通道隔离/回落，Dart测试覆盖请求和IME尺寸策略；原生冒烟增加实际SurfaceView连续缩放不重建EGL。空GL测试不代表私有模型画面验收。
+
+## 回退与验证边界
+
++285 原始APK与功能提交均保留。若需恢复该版本功能并覆盖安装，可从其源码重打更高versionCode的恢复包；不把保留旧APK等同于Android一定允许直接降级覆盖。
+
+接口复核：OpenRouter 官方 Decisions API 使用 `state` + `questions` 对象，支持一次提交多个Choice；本轮没有改网关协议与最高概率选项规则。参考：https://openrouter.ai/docs/api/api-reference/alphadecisions/submit-a-decisions-request 。本轮没有使用私有Key发出真实Jev请求；实际新增问题的服务端延迟/选项偏好需设备日志验收，单元测试只验证请求与计划转换。
+
+## 构建结果
+
+`0627376` / Actions `36468439975` 全部通过：129源门、3原生冒烟、Android单元测试、Flutter静态分析、982 Flutter测试、APK签名/资源检查。测试包位于Draft Release `398534068`，APK SHA256 `2838c8967924de7144b892c73915f9f283725659909210cb35af9f75943c7da6`。真机比例、输入延迟、触摸与观感仍待用户验收。
