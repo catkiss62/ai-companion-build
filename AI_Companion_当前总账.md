@@ -1,16 +1,19 @@
 # AI Companion · 当前总账
 
-更新时间：2026-09-29（+290 CI PASSED / APK READY / TRUE DEVICE PENDING；Cedar 与诊断导出方案待实施）
+更新时间：2026-09-29（+291 CI PASSED / APK READY / TRUE DEVICE PENDING；+290 Jev 动作真机待验收）
 
 > 本文件是唯一的当前接班入口，继续采用“总账 v2”。顶部是快速接班索引；标记后的正式记录按版本持续追加，不设总容量上限。
 >
 > 判断优先级：用户最新明确决定 > 当前 GitHub 源码与 Actions > 同时刻脱敏真机诊断/备份 > 本文件 > 冻结归档与 Git 历史。`DESIGNED`、`IMPLEMENTED`、`CI PASSED`、`APK READY`、`TRUE DEVICE PASSED`、`PENDING` 必须严格区分。
 
-## 当前实施 · v0.42.47+291 游戏厅按需续话与诊断导出（IN PROGRESS）
+## 当前实施 · v0.42.47+291 游戏厅按需续话与诊断导出（CI PASSED / APK READY / TRUE DEVICE PENDING）
 
-- 2026-09-29 用户明确授权修改、推送并构建测试 APK。分支 `agent/v04247-cedar-context-diagnostics` 基于 +290 总账 `48d1e0e`；不合并 main、不正式发布，不上传私有备份或原始诊断。
-- 范围：只补共同游玩明确邀请与短时未完成邀请的按需 Cedar 入口；保留普通聊天零工具规划、Jev 短判断与 DeepSeek 真正工具规划的分层，以及唯一循环 owner、服务端 Outcome、Stop 和切换协议。诊断导出提高本地有界大小上限，保留完整 Jev 证据并显示失败类型/体积。+290 Jev 动作、桌宠/待机、模型路由正文和私有资源不改。
-- 验证计划：末轮三段语义重放、闲聊/拒绝/不同游戏/时间窗/已有工具 Outcome 的反例；确认只有候选进入规划、零调用不虚称行动；超过2MiB的完整报告可保存，取消与上限错误可区分；CI 全部源码门、Flutter/Android、APK 签名与资源核验。真机效果独立待测。
+- 2026-09-29 用户授权修改、推送并构建测试 APK。分支 `agent/v04247-cedar-context-diagnostics` 基于 +290 总账提交 `48d1e0e`，先记录范围于 `66601d`，功能与源码门禁最终提交 `250ca9436375e06fd1f9c3f14f0edf510d47cab7`。未合并 main、未正式发布；私有备份、原始诊断及模型资源均未上传。
+- 修复实现：明确“陪你钓鱼”等共同游玩邀请成为窄候选；最近 10 分钟用户发出的未完成邀请可让简短同意续接进入 Cedar，助手自己谈游戏不能授权。含糊的短句由 Jev 判断，仅候选才进入既有 DeepSeek 工具规划；不同旧活动游戏不冒作新目标、已有成功 `cedar_toy.play` Outcome 不重复触发、拒绝/普通聊天不启动规划。最终正文只有真实成功 Outcome 才可声称已游玩，仍遵守既有 Cedar owner、Stop、预算和切换。诊断加入有界路由轨迹，不记录用户正文。
+- 修复实现：Android 系统文档保存入口将本地诊断报告来源上限从 2 MiB 提高至 16 MiB，保留流式复制与完整 Jev 证据；超限/无效来源错误包含体积与上限，界面展示具体错误码和体积。旧备份 `jev_short_usage_v1` 原始约 1,645,590 字节，仅其双空格 JSON 约 2,103,848 字节，已经超过旧 2 MiB 限额，符合在文件选择器之前报 `diagnostic_source_invalid` 的原因。新的真机保存体验仍待验收。
+- 版本 `0.42.47+291`，工作流使用本分支构建。首次 Actions #1122 在源码门禁第 18 项因七个历史版本白名单止于 +290 失败；补充 +291 到这七个白名单后重跑，不删测试。最终 [Actions #1123](https://github.com/catkiss62/ai-companion-build/actions/runs/36547678072) / run `36547678072` conclusion=success：原生冒烟、130 项源码回归、Kotlin、Flutter analyze、986 项 Flutter 测试、Release 打包、签名/资源校验、Artifact 与 Draft Release 上传通过。
+- 未发布 Draft Release `398981952`、tag `v0.42.47-cedar-context-diagnostics-test`：[+291 测试 APK](https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-c2032264c6d26e26a609)，target=`250ca9436375e06fd1f9c3f14f0edf510d47cab7`。Asset `597832102`，`AI-Companion-v0.42.47-291-Cedar-Context-Diagnostics-APK.apk`，726100298 字节；SHA-256 `471d341ddf9f7bd4903777371792d988baf09fd026bbb7fcc91ec9d145e9351c`，构建日志与 Release digest 一致。签名证书 SHA-256 `30:5E:B3:D8:09:83:B9:63:C6:48:18:DD:F1:AD:56:1F:27:9D:E6:D4:7B:3E:D2:C7:81:AD:A4:48:C7:C2:51:48` 与 +290 一致，可覆盖安装保留数据。
+- 真机待测：覆盖安装后先直接导出普通脱敏诊断，确认系统文件选择器出现且保存成功；在已配置 Cedar 条件下以“陪你钓鱼”邀请、短句确认、再续一轮，检查真实 `cedar_toy.play` Outcome 与对话描述一致；普通闲聊与拒绝不应触发 DeepSeek 规划。几轮之后再导出报告，看路由轨迹与 Jev 证据完整。+290 Jev 四拍动作的幅度、频率与节奏仍单独等待真机视觉验收。代码和 CI 已通过，不将模拟器/单测结果写作 TRUE DEVICE PASSED。
 
 ## 当前接班调查 · Cedar 跨轮漏触发与脱敏诊断导出（DESIGNED / NOT IMPLEMENTED）
 
