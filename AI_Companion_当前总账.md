@@ -1,17 +1,19 @@
 # AI Companion · 当前总账
 
-更新时间：2026-09-29（+292 IMPLEMENTED / CI RE-RUN PENDING；+291 CI PASSED / APK READY / TRUE DEVICE PENDING；+290 Jev 真机待验）
+更新时间：2026-09-29（+292 CI PASSED / APK READY / TRUE DEVICE PENDING；+291 CI PASSED / APK READY / TRUE DEVICE PENDING；+290 Jev 真机待验）
 
 > 本文件是唯一的当前接班入口，继续采用“总账 v2”。顶部是快速接班索引；标记后的正式记录按版本持续追加，不设总容量上限。
 >
 > 判断优先级：用户最新明确决定 > 当前 GitHub 源码与 Actions > 同时刻脱敏真机诊断/备份 > 本文件 > 冻结归档与 Git 历史。`DESIGNED`、`IMPLEMENTED`、`CI PASSED`、`APK READY`、`TRUE DEVICE PASSED`、`PENDING` 必须严格区分。
 
-## 当前任务 · +292 Jev 游戏语义入口与 Live2D 回前台计时（IMPLEMENTED / CI PENDING）
+## 当前任务 · +292 Jev 游戏语义入口与 Live2D 回前台计时（CI PASSED / APK READY / TRUE DEVICE PENDING）
 
 - 用户在 2026-09-29 切换至 6sol 后批准开始此批并要求复核上下文；本批包含 Jev 语义游戏入口与 Live2D 回前台耗时诊断。菜菜现有模型与未来第二模型的隔离/切换收口仍为后续批次；用户暂缓 Live2D 真机观感验收。
 - Jev 游戏意图加入回复前现有 `chat_intimacy_route` 合批问题，无每轮额外 Jev/DeepSeek 调用；`act_now` 或有近期助手回合承接的 `accept` 打开按需 Cedar 规划，`chat/defer` 阻止显式正则误触发，接近概率时归 `chat`。Jev 不可用时仅原显式/窄候选进入 DeepSeek 规划；普通聊天不新增工具请求。唯一 Cedar owner、真实 Outcome 守卫与预算继续有效。诊断新增语义选择及门状态，不写正文。语义准确率仍需独立改写样本和设备实测，不把单元测试当自然语言准确率。
 - Live2D 现有 surface 诊断增加 view 身份、Cubism owner 等待、context 初始化、surfaceChanged（含 renderer/纹理重载）耗时、最近 context 的贴图解码/上传累计及恢复后首次有效模型帧耗时。保留当前 EGL、模型加载和桌宠行为；这些本地耗时不能单独证明屏幕合成呈现时间。用户可在诊断导出中比较 context/surface/首帧事件。
-- 版本 `0.42.48+292`，分支 `agent/v04248-jev-cedar-live2d-trace` 基于远端 +291 总账 `fb6177f`。首轮功能提交本地 `3e6b100` 与远端 `195da8e` 同 tree `712b753`；Actions `36564832663` 原生冒烟通过，但源码门第 1 项还要求旧版候选轮单独 Jev 调用，未进 Flutter 阶段便失败。已更新该历史门以验证新合批路线，并把 NativeTextureManager/SenRenderer 的受审计源树摘要重钉。此环境跑至 28/130 项通过，第 29 项缺 CI 构建时恢复的 417 个私有桌宠帧而停；继续推送复跑，尚无 APK/真机证据。
+- 版本 `0.42.48+292`，分支 `agent/v04248-jev-cedar-live2d-trace` 基于远端 +291 总账 `fb6177f`。首轮功能提交本地 `3e6b100` 与远端 `195da8e` 同 tree `712b753`；Actions `36564832663` 原生冒烟通过，但源码门第 1 项还要求旧版候选轮单独 Jev 调用，未进 Flutter 阶段便失败。已更新该历史门以验证新合批路线，并把 NativeTextureManager/SenRenderer 的受审计源树摘要重钉。本地源码门跑至 28/130 项通过，第 29 项因缺 CI 构建时恢复的 417 个私有桌宠帧而停；后续第二轮 CI 结果见下一条。
+- 修复提交本地 `4893b96` 与远端 `8fbbad51e4486c096d4bdb26d5492b18d588f83f` 同 tree `066fc71c00bd3848d3b72dc56e716cb0746a49e9`。第二轮 Actions [36566315566](https://github.com/catkiss62/ai-companion-build/actions/runs/36566315566) conclusion=success：原生冒烟、130 项源码门、Kotlin 桌宠/悬浮窗测试、Flutter analyze 与测试、arm64 Release、资源及稳定签名校验通过。Draft Release `399109401`：[+292 未发布测试 APK](https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-0646b808f36e63198f97)，target=`8fbbad51`，asset `598175410`，文件名 `AI-Companion-v0.42.48-292-Jev-Cedar-Live2D-Trace-APK.apk`，726106342 字节，SHA-256 `e64b827c9726476d97d2d516a7c6ea0596bb9de62ba492340763cf6a9818a510`。签名验证步骤成功，同一持久私有测试签名身份；未发布正式 Release。
+- 真机待验：邀请的改写/反问/否定/延期/话题切换和“走着”“开始吧”后是否出现正确 Cedar Outcome，普通聊天不触发工具规划；统计 Jev 的实际选择、误触发/漏触发与费用。Live2D 回前台导出 `surface` 的 view_id、owner_wait_ms、context_init_ms、surface_changed_ms、texture_decode_ms、texture_upload_ms、resume_first_model_frame_ms，结合 GL context 和 frame trace 判断空白阶段；当前 CI 与耗时指标不等于真机可见观感通过。+290 Jev 动作真机验收仍独立待定。
 
 ## 2026-09-29 后续检查 · Jev 路由与多 Live2D 收口（DISCUSSION / NOT IMPLEMENTED）
 
