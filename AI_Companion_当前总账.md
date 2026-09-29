@@ -1,10 +1,19 @@
 # AI Companion · 当前总账
 
-更新时间：2026-09-29（+289 CI PASSED / APK READY / TRUE DEVICE PENDING；+288 保留回退）
+更新时间：2026-09-29（+290 CI PASSED / APK READY / TRUE DEVICE PENDING；Cedar 与诊断导出方案待实施）
 
 > 本文件是唯一的当前接班入口，继续采用“总账 v2”。顶部是快速接班索引；标记后的正式记录按版本持续追加，不设总容量上限。
 >
 > 判断优先级：用户最新明确决定 > 当前 GitHub 源码与 Actions > 同时刻脱敏真机诊断/备份 > 本文件 > 冻结归档与 Git 历史。`DESIGNED`、`IMPLEMENTED`、`CI PASSED`、`APK READY`、`TRUE DEVICE PASSED`、`PENDING` 必须严格区分。
+
+## 当前接班调查 · Cedar 跨轮漏触发与脱敏诊断导出（DESIGNED / NOT IMPLEMENTED）
+
+- 2026-09-29 接班调查已完成，承接用户“先出方案”的要求；本节仅记录证据与拟实施方案，没有修改产品代码、运行新 CI 或生成新 APK。基线仍为 +290；+290 真机动作验收独立待定。
+- 用户私有备份仅在本地分析，没有上传仓库。末尾三轮含一次共同钓鱼邀请和两次简短确认，均有正常模型正文，却没有新增 Cedar 工具 Outcome；不得把拟开始的对白算作游戏实际推进。存档当时活动游戏为另一款、会话 mode=unknown / phase=guide_ready。当前 `CedarToyArcadeSkill.isRelevant` 未覆盖“陪你+钓鱼”句式；续话候选要求可续玩的 solo 会话，`hasUserTurnContinuation` 对 guide_ready 不开放；因此这三轮都可能在 DeepSeek 工具规划之前被挡住。已核对相关源码，最终真机路由仍需新诊断证据。
+- 历史入口：`4171c67856`（2026-09-25）在 `durable_generation_runner.dart` 通过显式意图或用户回合续接决定 `cedarSkillActive`，普通聊天不因此调用 DeepSeek。后来 `98f42ac9cf` 和 `be9bbf5f35` 扩展上下文入口，`a6d08fad9a` 收窄并加入 Jev 决策。应保留按需门控结构，不直接回退旧代码；旧规则同样不完整覆盖这次跨轮邀请。
+- 方案：显式“陪你/和你+游玩动作”仅作为窄候选，普通提及游戏、筹码、摸鱼不触发；根据最近少量用户/助手轮次维护有时限、可取消的未完成游戏邀请，短句同意只在有用户原始邀请且尚无真实 Outcome 时成为候选。候选有歧义时一次 Jev 判断；Jev 不可用才在这个候选回合交给既有 DeepSeek 工具规划。真正确认后仍由唯一 Cedar Agent owner 读实时目录/指南并执行，遵守预算、Stop、切换与服务端事实；不得从助手自行承诺开启游戏。正文若无真实 Outcome，不能声称已开始、已落子或已下潜。新增每轮有界路由诊断：候选原因、是否 Jev/DeepSeek、工具规划与 Outcome 数、零调用原因；不记录私密正文。
+- 诊断导出根因：`SystemBridge.startDiagnosticReportSave` 在打开系统文件选择器前拒绝大于 2 MiB 的报告，错误为 `diagnostic_source_invalid`；`PreflightDiagnosticsService.run` 完整纳入最多120条 Jev 问题、上下文、概率及费用。此备份 `jev_short_usage_v1` 原始 1,645,590 字节，按双空格缩进的 UTF-8 JSON 单独约 2,103,848 字节，已超过 2,097,152 字节上限，尚未计入报告其他字段。方案是在原生保存入口采用明确更高且有界的本地报告上限（建议 16 MiB）并保留流式复制、完整 Jev 证据与脱敏约束；页面显示具体错误类别/体积，避免只有异常类型。不得截断 Jev 历史掩盖问题。
+- 实施时验证：用末轮三回合语义重放，确认只开一次按需工具规划、真实 Outcome 才能支持完成声明；普通游戏闲聊、无关短句、拒绝/延后、旧会话不同游戏及 Stop 不误触发；诊断报告超过2 MiB可保存且内容完整，取消和超上限显示明确原因。实现、CI/APK、真机三项分别登记，不提前勾选。下一步从本节进入上述两项修复，随后返回 +290 Jev 动作真机验收。
 
 ## 当前任务 · +290 Jev 四拍可见动作恢复与适中调节（CI PASSED / APK READY / TRUE DEVICE PENDING）
 
