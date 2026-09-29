@@ -38,6 +38,9 @@ class AccessibilityBridgeService : AccessibilityService() {
         super.onServiceConnected()
         activeService = this
         CompanionRuntimeState.markAccessibilityConnected(this)
+        // The pet may already be attached to a narrow application overlay if
+        // this service connects after the foreground service on a fresh install.
+        OverlayBubbleService.notifyPetVisualManagerReady(this)
         NativeEventStore.addDeviceEvent(
             this,
             source = "system",

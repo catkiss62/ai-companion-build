@@ -435,6 +435,18 @@ class OverlayBubbleService : Service() {
                 )
                 return START_STICKY
             }
+            ACTION_PET_VISUAL_MANAGER_READY -> {
+                // Rebind only a pet that actually started before accessibility.
+                // A file picker used to cause this same upgrade accidentally.
+                val pet = petOverlayWindow
+                if (pet != null &&
+                    pet.params?.type != WindowManager.LayoutParams.TYPE_ACCESSIBILITY_OVERLAY &&
+                    AccessibilityBridgeService.petVisualWindowManager() != null &&
+                    !CompanionRuntimeState.isOverlaySystemCoverActive() && !chatExpanded) {
+                    ensureOverlayHealth("pet_accessibility_wide_window", rebuildInputChannel = true)
+                }
+                return START_STICKY
+            }
             ACTION_WAKE_BRAIN -> {
                 val wakeReason = intent.getStringExtra(EXTRA_REASON) ?: "native_wake"
                 pendingBrainWakeReason = wakeReason.take(120)
@@ -3232,6 +3244,8 @@ class OverlayBubbleService : Service() {
             "com.aicompanion.localfirst.SYSTEM_COVER_ENTER"
         private const val ACTION_SYSTEM_COVER_EXIT =
             "com.aicompanion.localfirst.SYSTEM_COVER_EXIT"
+        private const val ACTION_PET_VISUAL_MANAGER_READY =
+            "com.aicompanion.localfirst.PET_VISUAL_MANAGER_READY"
         private const val INLINE_REPLY_MAX_ATTEMPTS = 5
         private const val BUBBLE_WINDOW_DP = 62
         private const val BUBBLE_AVATAR_DP = 50
@@ -3419,6 +3433,14 @@ class OverlayBubbleService : Service() {
                 reason = reason,
                 detachBubble = false,
             )
+
+        fun notifyPetVisualManagerReady(context: Context) {
+            if (!running) return
+            runCatching {
+                context.startService(Intent(context, OverlayBubbleService::class.java)
+                    .setAction(ACTION_PET_VISUAL_MANAGER_READY))
+            }
+        }
 
         fun requestSystemCoverRecovery(
             context: Context,

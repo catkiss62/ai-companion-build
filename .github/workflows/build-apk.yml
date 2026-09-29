@@ -404,7 +404,7 @@
 # Historical +240 validator tokens: agent/v04196-sen-hybrid-composition | AI-Companion-v0.41.96-240-Sen-Hybrid-Composition-Hotfix-APK | v0.41.96-sen-hybrid-composition-hotfix-test
 # Historical +241 validator tokens: agent/v04197-no-canned-fallbacks | AI-Companion-v0.41.97-241-Natural-Reply-Liveness-APK | v0.41.97-natural-reply-liveness-test
 # Historical +242 validator tokens: agent/v04198-sen-texture-direct-port | AI-Companion-v0.41.98-242-Sen-Direct-Port-APK | v0.41.98-sen-direct-port-test | .ci/v04198-monitor.txt
-name: Build AI Companion v0.42.44+288 APK (Gemini Reply, Cedar Routing and Caicai Emotion)
+name: Build AI Companion v0.42.45+289 APK (Gemini Reply, Cedar Routing and Caicai Emotion)
 
 # BUILD INPUTS: The 96-clip source ZIP is private Draft Release asset 591363139
 # (release 397377805), fetched and SHA-256 checked below. The persistent
@@ -485,6 +485,7 @@ on:
       - agent/v04230-game-resume-pet-collapse
       - agent/v04231-caicai-native-idle-pet-speech
       - agent/v04232-caicai-import-pet-touch
+      - agent/v04245-jev-motion-pet-scale
       - agent/v04214-visible-process-fate-wheel
       - maintenance/repository-governance-20260919
   workflow_dispatch:
@@ -956,7 +957,7 @@ jobs:
         run: |
           set -euo pipefail
           test -f app/pubspec.yaml
-          grep -Fqx 'version: 0.42.44+288' app/pubspec.yaml
+          grep -Fqx 'version: 0.42.45+289' app/pubspec.yaml
           grep -Fqx '  static const int schemaVersion = 61;' app/lib/core/database/app_database.dart
           test -d app/lib
           test -d app/android
@@ -970,7 +971,7 @@ jobs:
           test -f app/android/app/src/main/jniLibs/arm64-v8a/libc++_shared.so
           test ! -d app/android/app/src/main/assets/tts_models
           test ! -d app/android/app/src/main/assets/legacy_tts
-          echo 'Building v0.42.44+288 fixed Caicai canvas through IME animation and bounded pet render diagnostics.'
+          echo 'Building v0.42.45+289 balanced Jev motion and pet wide-window recovery.'
 
       - name: Generate complete pet clips from pinned Draft Release asset
         shell: bash
@@ -1516,26 +1517,26 @@ jobs:
           APK='app/build/app/outputs/flutter-apk/app-release.apk'
           sha256sum "$APK" | tee app/app-release.apk.sha256
 
-      - name: Upload v0.42.44+288 APK as workflow artifact
+      - name: Upload v0.42.45+289 APK as workflow artifact
         uses: actions/upload-artifact@v4
         with:
-          name: AI-Companion-v0.42.44-288-Caicai-IME-Pet-Trace-APK
+          name: AI-Companion-v0.42.45-289-Jev-Pet-Scale-APK
           path: |
             app/build/app/outputs/flutter-apk/app-release.apk
             app/app-release.apk.sha256
           if-no-files-found: error
           retention-days: 14
 
-      - name: Upload v0.42.44+288 APK to draft release
+      - name: Upload v0.42.45+289 APK to draft release
         shell: bash
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
-          TAG='v0.42.44-caicai-ime-pet-trace-test'
-          APK_NAME='AI-Companion-v0.42.44-288-Caicai-IME-Pet-Trace-APK.apk'
+          TAG='v0.42.45-jev-pet-scale-test'
+          APK_NAME='AI-Companion-v0.42.45-289-Jev-Pet-Scale-APK.apk'
           SHA_NAME="${APK_NAME}.sha256"
-          CI_NAME='AI-Companion-v0.42.44-288-Caicai-IME-Pet-Trace-CI-Monitor.txt'
+          CI_NAME='AI-Companion-v0.42.45-289-Jev-Pet-Scale-CI-Monitor.txt'
           cp app/build/app/outputs/flutter-apk/app-release.apk "app/${APK_NAME}"
           sed "s#app/build/app/outputs/flutter-apk/app-release.apk#${APK_NAME}#" \
             app/app-release.apk.sha256 > "app/${SHA_NAME}"
@@ -1552,14 +1553,14 @@ jobs:
               --repo "${GITHUB_REPOSITORY}" \
               --target "${GITHUB_SHA}" \
               --draft \
-              --title 'AI Companion v0.42.44+288 Live2D fixed IME canvas and pet render trace' \
-              --notes 'Unpublished schema-61 tuning build above the user-accepted +285 rollback baseline: synchronize Cubism render targets on resize, stabilize IME canvas, prioritize head pat, increase head/body idle and gaze, add shared whole-model translation and lower-leg pivot rotation. Jev chooses intensity, tempo and root gestures in one batch; settings expose gain/speed/pivot and previews. Preserve imports, accessory calibration, TTS, emotions, second-channel replies and pet defaults. CI does not replace private-model visual and IME latency verification.'
+              --title 'AI Companion v0.42.45+289 balanced Live2D Jev motion and pet wide-window recovery' \
+              --notes 'Jev speaking motion is bounded against the accepted idle movement and slowed, repeated poses hold without hip rebound, whole-model motion is sparse. A newly connected accessibility manager rebinds a narrow pet fallback window to the normal wide visual surface. Preserve accepted idle, IME canvas, model imports, TTS and second-channel replies. Real-device visual verification remains required.'
           else
             gh release edit "${TAG}" \
               --repo "${GITHUB_REPOSITORY}" \
               --target "${GITHUB_SHA}" \
-              --title 'AI Companion v0.42.44+288 Live2D fixed IME canvas and pet render trace' \
-              --notes 'Unpublished schema-61 tuning build above the user-accepted +285 rollback baseline: synchronize Cubism render targets on resize, stabilize IME canvas, prioritize head pat, increase head/body idle and gaze, add shared whole-model translation and lower-leg pivot rotation. Jev chooses intensity, tempo and root gestures in one batch; settings expose gain/speed/pivot and previews. Preserve imports, accessory calibration, TTS, emotions, second-channel replies and pet defaults. CI does not replace private-model visual and IME latency verification.'
+              --title 'AI Companion v0.42.45+289 balanced Live2D Jev motion and pet wide-window recovery' \
+              --notes 'Jev speaking motion is bounded against the accepted idle movement and slowed, repeated poses hold without hip rebound, whole-model motion is sparse. A newly connected accessibility manager rebinds a narrow pet fallback window to the normal wide visual surface. Preserve accepted idle, IME canvas, model imports, TTS and second-channel replies. Real-device visual verification remains required.'
           fi
           RELEASE_URL="$(gh release view "${TAG}" --repo "${GITHUB_REPOSITORY}" --json url --jq '.url')"
           echo "release_url=${RELEASE_URL}" >> "app/${CI_NAME}"
@@ -1585,13 +1586,13 @@ jobs:
           MONITOR_SHA="$(gh api "/repos/${GITHUB_REPOSITORY}/contents/${MONITOR_PATH}?ref=${MONITOR_BRANCH}" --jq '.sha' 2>/dev/null || true)"
           if test -n "${MONITOR_SHA}"; then
             gh api --method PUT "/repos/${GITHUB_REPOSITORY}/contents/${MONITOR_PATH}" \
-              -f message='Update v0.42.44 CI success monitor' \
+              -f message='Update v0.42.45 CI success monitor' \
               -F "content=@${MONITOR_CONTENT_FILE}" \
               -f branch="${MONITOR_BRANCH}" \
               -f sha="${MONITOR_SHA}" >/dev/null
           else
             gh api --method PUT "/repos/${GITHUB_REPOSITORY}/contents/${MONITOR_PATH}" \
-              -f message='Create v0.42.44 CI success monitor' \
+              -f message='Create v0.42.45 CI success monitor' \
               -F "content=@${MONITOR_CONTENT_FILE}" \
               -f branch="${MONITOR_BRANCH}" >/dev/null
           fi
@@ -1613,8 +1614,8 @@ jobs:
           BUILD_RESULT: ${{ needs.build-apk.result }}
         run: |
           set -uo pipefail
-          TAG='v0.42.44-caicai-ime-pet-trace-test'
-          CI_NAME='AI-Companion-v0.42.44-288-Caicai-IME-Pet-Trace-CI-Monitor.txt'
+          TAG='v0.42.45-jev-pet-scale-test'
+          CI_NAME='AI-Companion-v0.42.45-289-Jev-Pet-Scale-CI-Monitor.txt'
           REPORT="${RUNNER_TEMP}/${CI_NAME}"
           JOBS_JSON="${RUNNER_TEMP}/jobs.json"
           {
@@ -1655,8 +1656,8 @@ jobs:
               --repo "${GITHUB_REPOSITORY}" \
               --target "${GITHUB_SHA}" \
               --draft \
-              --title 'AI Companion v0.42.44+288 Live2D fixed IME canvas and pet render trace' \
-              --notes 'Unpublished Draft failure diagnostics for the Live2D fixed IME canvas and pet render trace test. No user content, keys, backups or device diagnostics are included.'
+              --title 'AI Companion v0.42.45+289 balanced Live2D Jev motion and pet wide-window recovery' \
+              --notes 'Unpublished Draft failure diagnostics for the balanced Live2D Jev motion and pet wide-window recovery test. No user content, keys, backups or device diagnostics are included.'
           fi
           RELEASE_URL="$(gh release view "${TAG}" --repo "${GITHUB_REPOSITORY}" --json url --jq '.url')"
           echo "release_url=${RELEASE_URL}" >> "${REPORT}"
@@ -1671,13 +1672,13 @@ jobs:
           MONITOR_SHA="$(gh api "/repos/${GITHUB_REPOSITORY}/contents/${MONITOR_PATH}?ref=${MONITOR_BRANCH}" --jq '.sha' 2>/dev/null || true)"
           if test -n "${MONITOR_SHA}"; then
             gh api --method PUT "/repos/${GITHUB_REPOSITORY}/contents/${MONITOR_PATH}" \
-              -f message='Update v0.42.44 CI failure monitor' \
+              -f message='Update v0.42.45 CI failure monitor' \
               -F "content=@${MONITOR_CONTENT_FILE}" \
               -f branch="${MONITOR_BRANCH}" \
               -f sha="${MONITOR_SHA}" >/dev/null
           else
             gh api --method PUT "/repos/${GITHUB_REPOSITORY}/contents/${MONITOR_PATH}" \
-              -f message='Create v0.42.44 CI failure monitor' \
+              -f message='Create v0.42.45 CI failure monitor' \
               -F "content=@${MONITOR_CONTENT_FILE}" \
               -f branch="${MONITOR_BRANCH}" >/dev/null
           fi

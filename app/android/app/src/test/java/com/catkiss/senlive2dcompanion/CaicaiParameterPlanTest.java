@@ -49,4 +49,19 @@ public class CaicaiParameterPlanTest {
         assertEquals(0,values.get("@rootTilt"),.001f);
     }
 
+    @Test public void spatialPoseSettlesMoreGraduallyThanFacialCue() throws Exception {
+        CaicaiParameterPlan plan = new CaicaiParameterPlan();
+        plan.start("[{\"time\":0,\"duration\":0.4,\"parameters\":{\"ParamAngleX3\":10,\"ParamMouthForm\":1},\"root\":{\"x\":0.05}}]");
+        final java.util.Map<String, Float> written = new java.util.HashMap<>();
+        plan.apply(.1f, new CaicaiParameterPlan.Target() {
+            public boolean accepts(String id) { return true; }
+            public float current(String id) { return 0f; }
+            public void write(String id, float value) { written.put(id, value); }
+        });
+        assertTrue(written.get("ParamAngleX3") > 0);
+        assertTrue(written.get("ParamAngleX3") < 6);
+        assertTrue(written.get("ParamMouthForm") > .7f);
+        assertTrue(written.get("@rootX") > 0 && written.get("@rootX") < .03f);
+    }
+
 }

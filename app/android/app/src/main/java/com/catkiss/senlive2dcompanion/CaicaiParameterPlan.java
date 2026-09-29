@@ -73,9 +73,14 @@ final class CaicaiParameterPlan {
         if (current == null) return;
         Set<String> keys = new HashSet<>(previous.keySet());
         keys.addAll(current.values.keySet());
-        float smoothing = 1f - (float)Math.exp(-Math.max(0f, delta) * 5f / Math.max(.1f, current.duration));
         for (String id : keys) {
             if (!target.accepts(id)) { previous.remove(id); continue; }
+            // Head, body and whole-model travel should pass through the pose
+            // instead of reaching it in a few frames. Facial cues stay quick.
+            boolean spatial = id.startsWith("ParamAngle") || id.startsWith("ParamBodyAngle")
+                || id.startsWith("@root");
+            float smoothing = 1f - (float)Math.exp(-delta * (spatial ? 2.7f : 5f)
+                / Math.max(.1f, current.duration));
             float lower = target.current(id);
             float old = previous.containsKey(id) ? previous.get(id) : lower;
             float wanted = lower;
