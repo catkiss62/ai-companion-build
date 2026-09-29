@@ -1,7 +1,7 @@
 status=success
-run_id=36609270446
-run_url=https://github.com/catkiss62/ai-companion-build/actions/runs/36609270446
-head_sha=b631f2a12369d3f032a51b5fe3bd19c53546e8df
+run_id=36632620687
+run_url=https://github.com/catkiss62/ai-companion-build/actions/runs/36632620687
+head_sha=c08bfd7a908f1e594ac60ab75327d4ce20fa6bd5
 signer_sha256=30:5E:B3:D8:09:83:B9:63:C6:48:18:DD:F1:AD:56:1F:27:9D:E6:D4:7B:3E:D2:C7:81:AD:A4:48:C7:C2:51:48
-0b42e4f342f56546ab6b02b9bcf6ea0216cea50ba9c9adba90f0e0034f6c83f4  AI-Companion-v0.42.50-294-Caicai-Recents-Pause-APK.apk
-release_url=https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-7d3c66f7eb520f70d808
+41ce939487189b7f6078a8071b80dfa84baf6824be2ea5a3eddbc44232f9d5b6  AI-Companion-v0.42.51-295-Caicai-Direct-Hybrid-APK.apk
+release_url=https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-31bb487d183a055036d9
