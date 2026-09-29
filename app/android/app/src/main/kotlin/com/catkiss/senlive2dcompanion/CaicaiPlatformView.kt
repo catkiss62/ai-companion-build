@@ -143,9 +143,14 @@ internal class CaicaiPlatformView(
             "getState" -> result.success(state())
             "reloadModel" -> { loadCurrentModel(); result.success(null) }
             "setVisible" -> {
-                if(stageVisible != (call.arguments == true)) CaicaiDiagnostics.record(app,"stage_visibility","visible=${call.arguments == true}")
-                stageVisible = call.arguments == true
-                if (stageVisible && hostActive) companion.onHostResume() else companion.onHostPause()
+                val visible = call.arguments == true
+                if (stageVisible != visible) {
+                    CaicaiDiagnostics.record(app, "stage_visibility", "visible=$visible")
+                    stageVisible = visible
+                    if (hostActive) {
+                        if (visible) companion.onHostResume() else companion.onHostPause()
+                    }
+                }
                 result.success(null)
             }
             "setKeyboardVisible" -> {
@@ -268,14 +273,23 @@ internal class CaicaiPlatformView(
 
     fun reloadModel() { if (!disposed) main.post(::loadCurrentModel) }
     fun hostResume() {
-        if(!hostActive) CaicaiDiagnostics.record(app,"host_resume")
+        if (hostActive) return
+        CaicaiDiagnostics.record(app, "host_resume")
         hostActive = true
         if (!disposed && stageVisible) {
             companion.onHostResume()
             companion.requestRender()
         }
     }
-    fun hostPause() { if(hostActive) CaicaiDiagnostics.record(app,"host_pause"); hostActive = false; if (!disposed) { companion.clearParameterPlan(); companion.onHostPause() } }
+    fun hostPause() {
+        if (!hostActive) return
+        CaicaiDiagnostics.record(app, "host_pause")
+        hostActive = false
+        if (!disposed) {
+            companion.clearParameterPlan()
+            if (stageVisible) companion.onHostPause()
+        }
+    }
     fun setKeyboardVisible(visible: Boolean) {
         if (!disposed && keyboardVisible != visible) {
             keyboardVisible = visible

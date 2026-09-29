@@ -404,7 +404,7 @@
 # Historical +240 validator tokens: agent/v04196-sen-hybrid-composition | AI-Companion-v0.41.96-240-Sen-Hybrid-Composition-Hotfix-APK | v0.41.96-sen-hybrid-composition-hotfix-test
 # Historical +241 validator tokens: agent/v04197-no-canned-fallbacks | AI-Companion-v0.41.97-241-Natural-Reply-Liveness-APK | v0.41.97-natural-reply-liveness-test
 # Historical +242 validator tokens: agent/v04198-sen-texture-direct-port | AI-Companion-v0.41.98-242-Sen-Direct-Port-APK | v0.41.98-sen-direct-port-test | .ci/v04198-monitor.txt
-name: Build AI Companion v0.42.49+293 APK (Cedar Target, Caicai Motion and Config Transfer)
+name: Build AI Companion v0.42.50+294 APK (Caicai Recents Pause Trial)
 
 # BUILD INPUTS: The 96-clip source ZIP is private Draft Release asset 591363139
 # (release 397377805), fetched and SHA-256 checked below. The persistent
@@ -488,6 +488,7 @@ on:
       - agent/v04246-jev-visible-motion
       - agent/v04248-jev-cedar-live2d-trace
       - agent/v04249-cedar-target-caicai-config
+      - agent/v04250-caicai-recents-pause
       - agent/v04214-visible-process-fate-wheel
       - maintenance/repository-governance-20260919
   workflow_dispatch:
@@ -959,7 +960,7 @@ jobs:
         run: |
           set -euo pipefail
           test -f app/pubspec.yaml
-          grep -Fqx 'version: 0.42.49+293' app/pubspec.yaml
+          grep -Fqx 'version: 0.42.50+294' app/pubspec.yaml
           grep -Fqx '  static const int schemaVersion = 61;' app/lib/core/database/app_database.dart
           test -d app/lib
           test -d app/android
@@ -973,7 +974,7 @@ jobs:
           test -f app/android/app/src/main/jniLibs/arm64-v8a/libc++_shared.so
           test ! -d app/android/app/src/main/assets/tts_models
           test ! -d app/android/app/src/main/assets/legacy_tts
-          echo 'Building v0.42.49+293 Cedar target, Caicai motion and config transfer.'
+          echo 'Building v0.42.50+294 Caicai Recents pause trial.'
 
       - name: Generate complete pet clips from pinned Draft Release asset
         shell: bash
@@ -1519,26 +1520,26 @@ jobs:
           APK='app/build/app/outputs/flutter-apk/app-release.apk'
           sha256sum "$APK" | tee app/app-release.apk.sha256
 
-      - name: Upload v0.42.49+293 APK as workflow artifact
+      - name: Upload v0.42.50+294 APK as workflow artifact
         uses: actions/upload-artifact@v4
         with:
-          name: AI-Companion-v0.42.49-293-Cedar-Caicai-Config-APK
+          name: AI-Companion-v0.42.50-294-Caicai-Recents-Pause-APK
           path: |
             app/build/app/outputs/flutter-apk/app-release.apk
             app/app-release.apk.sha256
           if-no-files-found: error
           retention-days: 14
 
-      - name: Upload v0.42.49+293 APK to draft release
+      - name: Upload v0.42.50+294 APK to draft release
         shell: bash
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
-          TAG='v0.42.49-cedar-caicai-config-test'
-          APK_NAME='AI-Companion-v0.42.49-293-Cedar-Caicai-Config-APK.apk'
+          TAG='v0.42.50-caicai-recents-pause-test'
+          APK_NAME='AI-Companion-v0.42.50-294-Caicai-Recents-Pause-APK.apk'
           SHA_NAME="${APK_NAME}.sha256"
-          CI_NAME='AI-Companion-v0.42.49-293-Cedar-Caicai-Config-CI-Monitor.txt'
+          CI_NAME='AI-Companion-v0.42.50-294-Caicai-Recents-Pause-CI-Monitor.txt'
           cp app/build/app/outputs/flutter-apk/app-release.apk "app/${APK_NAME}"
           sed "s#app/build/app/outputs/flutter-apk/app-release.apk#${APK_NAME}#" \
             app/app-release.apk.sha256 > "app/${SHA_NAME}"
@@ -1555,14 +1556,14 @@ jobs:
               --repo "${GITHUB_REPOSITORY}" \
               --target "${GITHUB_SHA}" \
               --draft \
-              --title 'AI Companion v0.42.49+293 Cedar target, Caicai motion and config transfer' \
-              --notes 'Honor valid Jev game acceptance; verify Cedar game target, tune Caicai speaking axes, expose native wink presets and import/export model/network settings. Real-device verification remains required.'
+              --title 'AI Companion v0.42.50+294 Caicai Recents pause trial' \
+              --notes 'Delay Live2D GL pause until Activity stops and trace lifecycle and surface recreation. Compare with +293 on device; this is an unpublished test build.'
           else
             gh release edit "${TAG}" \
               --repo "${GITHUB_REPOSITORY}" \
               --target "${GITHUB_SHA}" \
-              --title 'AI Companion v0.42.49+293 Cedar target, Caicai motion and config transfer' \
-              --notes 'Honor valid Jev game acceptance; verify Cedar game target, tune Caicai speaking axes, expose native wink presets and import/export model/network settings. Real-device verification remains required.'
+              --title 'AI Companion v0.42.50+294 Caicai Recents pause trial' \
+              --notes 'Delay Live2D GL pause until Activity stops and trace lifecycle and surface recreation. Compare with +293 on device; this is an unpublished test build.'
           fi
           RELEASE_URL="$(gh release view "${TAG}" --repo "${GITHUB_REPOSITORY}" --json url --jq '.url')"
           echo "release_url=${RELEASE_URL}" >> "app/${CI_NAME}"
@@ -1617,7 +1618,7 @@ jobs:
         run: |
           set -uo pipefail
           TAG='v0.42.49-cedar-caicai-config-test'
-          CI_NAME='AI-Companion-v0.42.49-293-Cedar-Caicai-Config-CI-Monitor.txt'
+          CI_NAME='AI-Companion-v0.42.50-294-Caicai-Recents-Pause-CI-Monitor.txt'
           REPORT="${RUNNER_TEMP}/${CI_NAME}"
           JOBS_JSON="${RUNNER_TEMP}/jobs.json"
           {
@@ -1658,8 +1659,8 @@ jobs:
               --repo "${GITHUB_REPOSITORY}" \
               --target "${GITHUB_SHA}" \
               --draft \
-              --title 'AI Companion v0.42.49+293 Cedar target, Caicai motion and config transfer' \
-              --notes 'Unpublished Draft failure diagnostics for the Cedar target, Caicai motion and config transfer test. No user content, keys, backups or device diagnostics are included.'
+              --title 'AI Companion v0.42.50+294 Caicai Recents pause trial' \
+              --notes 'Unpublished Draft failure diagnostics for the Live2D Recents pause trial. No user content, keys, backups or device diagnostics are included.'
           fi
           RELEASE_URL="$(gh release view "${TAG}" --repo "${GITHUB_REPOSITORY}" --json url --jq '.url')"
           echo "release_url=${RELEASE_URL}" >> "${REPORT}"

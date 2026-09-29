@@ -72,11 +72,15 @@ class MainActivity : FlutterActivity() {
     override fun onStart() {
         super.onStart()
         CompanionRuntimeState.activityStarted()
+        traceCaicaiLifecycle("activity_start")
+        // Recents can pause an Activity while its chat SurfaceView remains visible.
+        // Resume the GL thread only after it was stopped with the Activity.
+        caicaiLive2DBridge?.onResume()
     }
 
     override fun onResume() {
         super.onResume()
-        caicaiLive2DBridge?.onResume()
+        traceCaicaiLifecycle("activity_resume")
         // Returning from overlay/accessibility/notification settings is a
         // user-visible moment, so it is safe to reconcile an explicitly
         // enabled foreground companion service here. If the true floating
@@ -99,13 +103,24 @@ class MainActivity : FlutterActivity() {
     }
 
     override fun onStop() {
+        traceCaicaiLifecycle("activity_stop")
+        caicaiLive2DBridge?.onPause()
         CompanionRuntimeState.activityStopped()
         super.onStop()
     }
 
     override fun onPause() {
-        caicaiLive2DBridge?.onPause()
+        traceCaicaiLifecycle("activity_pause")
         super.onPause()
+    }
+
+    private fun traceCaicaiLifecycle(stage: String) {
+        val runtime = com.catkiss.senlive2dcompanion.CaicaiRuntime
+        if (!runtime.hasActiveView()) return
+        val state = runtime.state()
+        com.catkiss.senlive2dcompanion.CaicaiDiagnostics.record(
+            this, stage, "owner=${state["execution_id"]} ${state["surface"].orEmpty()}",
+        )
     }
 
     override fun cleanUpFlutterEngine(flutterEngine: FlutterEngine) {

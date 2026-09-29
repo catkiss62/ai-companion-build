@@ -1,19 +1,37 @@
 # AI Companion · 当前总账
 
-更新时间：2026-09-29（+293 IMPLEMENTED / CI PENDING / TRUE DEVICE PENDING；+292 CI PASSED / APK READY / TRUE DEVICE PENDING）
+更新时间：2026-09-30（+294 IMPLEMENTED LOCALLY / CI PENDING / TRUE DEVICE PENDING；+293 CI PASSED / APK READY / DEVICE VISUAL BASELINE）
 
 > 本文件是唯一的当前接班入口，继续采用“总账 v2”。顶部是快速接班索引；标记后的正式记录按版本持续追加，不设总容量上限。
 >
 > 判断优先级：用户最新明确决定 > 当前 GitHub 源码与 Actions > 同时刻脱敏真机诊断/备份 > 本文件 > 冻结归档与 Git 历史。`DESIGNED`、`IMPLEMENTED`、`CI PASSED`、`APK READY`、`TRUE DEVICE PASSED`、`PENDING` 必须严格区分。
 
-## 当前任务 · +293 Cedar 目标核对、菜菜动作与模型联网配置迁移（IMPLEMENTED / CI PENDING / TRUE DEVICE PENDING）
+## 当前试验 · +294 系统最近任务返回时的菜菜画面恢复（IMPLEMENTED LOCALLY / CI PENDING / APK PENDING / TRUE DEVICE PENDING）
+
+- 用户确认 +293 人物效果已经达标，是本轮可覆盖安装及回退基线；仅剩切出切回时固定出现“卡约一秒、消失约一秒、恢复”。最小复现：在聊天的 Live2D 画面按手机“≡”进入最近任务，**不切换其他 App**，直接点回；几乎每次复现。不需要先索取视频才开始排查。第二套 Live2D 的通用切换待有模型后再做。
+- 同版专用诊断 `live2d_diagnostics_2026-09-29T17-08-30.929748Z.json.txt` 有两次完整恢复：从 `host_resume` 至 `first_model_frame` 约 2.95/3.05 秒；其中 surfaceChanged/reload 约 2.72 秒、七张 PNG 解码约 2.20 秒、上传约 0.19 秒；均有 `surface_destroyed`→`surface_created`，view_id 保持 1，Cubism owner 等待 0。一次没有 stage_visibility 变化，故不能把每次现象归于切标签。原生首帧不等于屏幕实际合成帧。
+- 当前源码的 `MainActivity.onPause` 总会调用 `CaicaiLive2DBridge.onPause`→`CaicaiRuntime.onHostPause`→`GLSurfaceView.onPause`；返回 `onResume` 即恢复。+294 将宿主 GL 暂停/恢复分别改为 `onStop`/`onStart`；`onPause`/`onResume` 仅记录诊断，继续保留悬浮窗恢复逻辑；`setVisible` 和 host 调用只在真实状态改变时对 GL 线程执行，避免重复恢复重置首帧计时。不改 Flutter AndroidView、已验证 GLSurfaceView、Cubism 渲染器、模型 ZIP、配件几何、输入法布局、桌宠或 Jev。
+- 诊断增加 `activity_pause/stop/start/resume` 与当前 view/surface 状态。同一版需反复“≡→点回”三次，并按一次较长停留和一次真正切 App 对照：比对是否出现 `activity_stop`、`host_pause`、`surface_destroyed`，看 context 计数是否增长及实际肉眼空白是否消失。**CI 只验证代码/构建；真正视觉成功须用户手机回报。** 若没有 `activity_stop` 仍重建 Surface，应调查 Flutter/厂商 Surface 附着与合成；若有 `activity_stop`，该方案本就会暂停，下一试验再依据实测选保活/重载优化，不能称 +294 修复成功。
+- 回退基线：+293 已验收的当前效果，Draft `399274286`，APK SHA-256 `4c108da236e0c47e0b2d20647659c2157371be3cc18ebd5a8dd9c43bf246b094`，远端源码 `b548cf37`；本试验独立分支 `agent/v04250-caicai-recents-pause`，版本 `0.42.50+294`。不合并 main、不正式发布。
+
+| 尝试 | 成功或失败证据 | 后续约束 |
+|---|---|---|
+| +281 缩短视图离页存活 | 用户真机：后台返回 Live2D 变黑，切页重新加载、键盘拉长；`TRUE DEVICE FAILED` | 不为此问题重启/重建 Flutter 舞台 |
+| +284 自定义 TextureView 宿主 | 构造异常、模型未显示；+285 改回 GLSurfaceView | 不以 TextureView 或重写原生渲染宿主冒险 |
+| +285 恢复 GLSurfaceView/导入事务 | 原生生命周期门与构建通过，后续模型已能显示；仍未解决最近任务的秒级空白 | 保持可见模型和导入路径基线 |
+| +293 当前真机效果 | 用户确认人物效果非常好；最近任务返回稳定出现卡住→消失→恢复，诊断见上 | 本轮仅动生命周期并逐项记录 CI/真机结果 |
+| +294 暂停时机试验 | 已实施，CI/APK 与真机待记录 | 后续按此表追加成功或失败，不凭绿色 CI 标成功 |
+
+## 当前任务 · +293 Cedar 目标核对、菜菜动作与模型联网配置迁移（CI PASSED / APK READY / TRUE DEVICE PENDING）
 
 - 用户最新决定：Jev 提示词、选项、概率接近时的本地中性改写、气焰值计分均暂不调整；须用后续明显错误再评估。诊断 2026-09-29 22:50:47 “好啊，走，去玩白房间游戏”：Jev `accept=.89` 且 `applied=accept`，但距上条助手消息约 39 分钟，本地 `recentAssistant<=15分钟` 否决，工具入口关闭，规划 0 轮、Cedar 0 次。移除有效 Jev `accept` 后的时间否决；不可用时窄候选仍有原边界。22:11 的另一问题是 Agent 确实调用了旧钓鱼游戏，这两条因果分别修。
 - Cedar：从本轮与近期用户真实游戏名称取目标线索给按需 DeepSeek Agent，旧活动状态保留以供自主续玩；若本轮目标与旧活动不同，首轮不注入旧游戏完整指南。拟调用不同目标游戏的 `get_guide/play` 时，在 MCP 执行前最多重规划一次；仍不一致则不执行并如实说明，普通聊天不新增 DS 工具调用。游戏名称仅来自真实目录；多游戏歧义由 Agent 判断，不按固定关键词直接调用游戏。
 - 菜菜：仅说话表演的横向整模平移、身体 X/Z 缩小目标和减慢原生过渡；身体 X 不再每拍强制释放，头、身体 Y、视线、嘴、眉、既有动作照旧。原装 `wink`、`wink吐舌`、`比耶wink吐舌` 进入 Jev 可选短时表情，原生 4.5 秒租期/冲突规则生效；装扮保持手动。需要真机观察实际幅度和速度。
 - 模型与联网页右上角导入/导出：仅当前已保存的本页配置，版本化 JSON 包含 API Key，导出前提示妥善保管；导入先完整校验，再写安全存储与原子 DB，失败尽量恢复旧设置、成功刷新并唤醒待重试任务。不包含聊天、记忆、Cedar Token、模型 ZIP。检测无本地 Flutter SDK，依赖 Actions Flutter analyze/test 与 APK 构建。
 - 多 Live2D 收口：当前已是菜菜专有的文件目录 `caicai-live2d`、私有 `caicai_stage` 舞台偏好、MethodChannel/PlatformView、`CaicaiMotionPlanner` 参数映射和单 active native runtime。此批保持既有独立边界；第二模型接入时再增加 modelId/profile、独立存储及 modelId+generation 异步结果防串，不能把菜菜 ID 强加给新模型。未声称已实现双模型切换。
-- 待验：Jev `accept` 隔 39 分钟能进入按需 Agent；白房间目标不会执行钓鱼；明确续钓旧存档仍可用；普通聊天仍无额外 DS；三轴和三个 Wink 真机观感；配置 JSON 往返及错误文件不覆盖。CI/草稿 APK 结果后续补填，真机未验。
+- 版本 `0.42.49+293`，分支 `agent/v04249-cedar-target-caicai-config`。最终功能提交远端 `b548cf37375ba6b577c85d12e3214579fa19982b`，tree `ff555e3e6c2a19e796d838606bd69fb13dcf1bad` 与本地源码树一致。早期 Actions 分别由历史版本白名单、旧平移收尾测试容差、目录短名称提取测试拦截；逐项修复后最终 [Actions 36595936006](https://github.com/catkiss62/ai-companion-build/actions/runs/36595936006) conclusion=success：原生烟测、130 项源码回归、Kotlin 测试、Flutter analyze、Dart 测试、release APK、资源和持久测试签名检查通过。
+- 未发布 Draft Release `399274286`：[+293 测试 APK](https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-b372f5486ed637a4230c)，target=`b548cf37`，asset `598685345`，文件名 `AI-Companion-v0.42.49-293-Cedar-Caicai-Config-APK.apk`，726108578 字节，SHA-256 `4c108da236e0c47e0b2d20647659c2157371be3cc18ebd5a8dd9c43bf246b094`；Release 另附 `.sha256` 与 CI Monitor。未合并 main，未正式发布。
+- 待真机验收：Jev `accept` 隔 39 分钟能进入按需 Agent；白房间目标不会执行钓鱼；明确续钓旧存档仍可用；普通聊天仍无额外 DS；三轴和三个 Wink 观感；配置 JSON 往返及错误文件不覆盖。自动测试和 APK 可用不等于实际设备语义与视觉已通过。
 
 ## 当前任务 · +292 Jev 游戏语义入口与 Live2D 回前台计时（CI PASSED / APK READY / TRUE DEVICE PENDING）
 
