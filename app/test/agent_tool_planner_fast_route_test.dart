@@ -2,6 +2,7 @@ import 'package:ai_companion_localfirst/core/agent/agent_tool_planner.dart';
 import 'package:ai_companion_localfirst/core/ai/deepseek_client.dart';
 import 'package:ai_companion_localfirst/core/agent/agent_tool_registry.dart';
 import 'package:ai_companion_localfirst/core/models/chat_message.dart';
+import 'package:ai_companion_localfirst/core/mcp/cedar_toy_arcade_skill.dart';
 import 'package:ai_companion_localfirst/core/models/message_attachment.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -106,6 +107,63 @@ void main() {
     }
 
     expect(AgentToolPlanner.nativeToolDefinitionsFor(''), isEmpty);
+  });
+
+  test('a shared fishing invitation opens Cedar without broad game chatter', () {
+    final names = AgentToolPlanner.nativeToolDefinitionsFor(
+      '陪你钓鱼？看你今天都没钓鱼',
+    ).map((item) => (item['function'] as Map)['name']).toSet();
+    expect(names, contains('cedar_toy_play'));
+    for (final text in const <String>[
+      '看你今天都没钓鱼',
+      '当然先摸会儿鱼',
+      '我在游戏厅前端看到你只剩筹码了',
+      '改天陪你钓鱼',
+    ]) {
+      expect(AgentToolPlanner.nativeToolDefinitionsFor(text), isEmpty,
+          reason: text);
+    }
+  });
+
+  test('short assent inherits only a recent user-authored shared invitation', () {
+    final start = DateTime(2026, 9, 29, 15);
+    ChatMessage turn(String id, String role, String content, int seconds) =>
+        ChatMessage(
+          id: id,
+          role: role,
+          content: content,
+          createdAt: start.add(Duration(seconds: seconds)),
+        );
+    final invitation = turn('invite', 'user', '陪你钓鱼？看你今天都没钓鱼', 0);
+    final firstReply = turn('reply-1', 'assistant', '那就去钓鱼，看看海沟', 10);
+    final assent = turn('assent', 'user', '走着', 20);
+    final secondReply = turn('reply-2', 'assistant', '鱼竿拿好了，准备开始', 30);
+    expect(CedarToyArcadeSkill.pendingSharedPlayInvitation(
+      latestUserText: '走着',
+      previous: [invitation, firstReply],
+      now: start.add(const Duration(seconds: 20)),
+    )?.id, 'invite');
+    expect(CedarToyArcadeSkill.pendingSharedPlayInvitation(
+      latestUserText: '开始吧',
+      previous: [invitation, firstReply, assent, secondReply],
+      now: start.add(const Duration(seconds: 40)),
+    )?.id, 'invite');
+    expect(CedarToyArcadeSkill.pendingSharedPlayInvitation(
+      latestUserText: '开始吧',
+      previous: [firstReply],
+      now: start.add(const Duration(seconds: 20)),
+    ), isNull, reason: 'the assistant cannot authorize a game alone');
+    expect(CedarToyArcadeSkill.pendingSharedPlayInvitation(
+      latestUserText: '开始吧',
+      previous: [invitation, firstReply, turn('delay', 'user', '改天再说', 20),
+        secondReply],
+      now: start.add(const Duration(seconds: 40)),
+    ), isNull);
+    expect(CedarToyArcadeSkill.pendingSharedPlayInvitation(
+      latestUserText: '开始吧',
+      previous: [invitation, firstReply],
+      now: start.add(const Duration(minutes: 11)),
+    ), isNull);
   });
 
   test('first-person game plans do not authorize companion game tools', () {
