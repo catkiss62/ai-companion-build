@@ -1,7 +1,7 @@
 status=success
-run_id=36517195317
-run_url=https://github.com/catkiss62/ai-companion-build/actions/runs/36517195317
-head_sha=f853ef397f972d552f2517f0aff670556100fc35
+run_id=36527469120
+run_url=https://github.com/catkiss62/ai-companion-build/actions/runs/36527469120
+head_sha=dd3347faa279468d88cedaed0d8fe06d96b1915f
 signer_sha256=30:5E:B3:D8:09:83:B9:63:C6:48:18:DD:F1:AD:56:1F:27:9D:E6:D4:7B:3E:D2:C7:81:AD:A4:48:C7:C2:51:48
-07b3686022ce40ad0177dfaeb612548bd7866f695e0a4aa1b18e82768cf83085  AI-Companion-v0.42.45-289-Jev-Pet-Scale-APK.apk
-release_url=https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-43632f0cf8e06a13f5d5
+f36a463e844d0cbb3f6a009137880c1bb57b5f466a14253dbf5ab8d2c27ff863  AI-Companion-v0.42.46-290-Jev-Visible-Motion-APK.apk
+release_url=https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-fdf0e1749b6a7d2d8112
