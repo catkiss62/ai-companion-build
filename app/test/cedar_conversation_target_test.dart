@@ -28,6 +28,10 @@ void main() {
       targetGameId: 'white_room',
       calls: [(toolId: 'cedar_toy.get_guide', gameId: 'white_room')],
     ), isFalse);
+    expect(CedarConversationTarget.conflictsWithPlan(
+      targetGameId: 'white_room',
+      calls: [(toolId: 'cedar_toy.play', gameId: '')],
+    ), isTrue);
   });
 
   test('short acceptance inherits the latest user game reference', () {
