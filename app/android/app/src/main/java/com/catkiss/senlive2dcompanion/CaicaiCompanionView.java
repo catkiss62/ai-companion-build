@@ -422,6 +422,10 @@ public final class CaicaiCompanionView extends GLSurfaceView implements SenCompa
     }
 
     @Override protected void onDetachedFromWindow() {
+        CaicaiDiagnostics.INSTANCE.record(getContext(), "view_detaching",
+                "view_id=" + diagnosticViewId + " contexts=" + contexts
+                        + " released=" + released + " display=" + getDisplay()
+                        + " caller=" + android.util.Log.getStackTraceString(new Throwable()));
         // A virtual display resize/reparent is not terminal disposal. Retain CPU
         // models and framework ownership so GLSurfaceView can recreate its context.
         // Only an explicitly released owner must drain teardown before thread exit.
@@ -434,11 +438,16 @@ public final class CaicaiCompanionView extends GLSurfaceView implements SenCompa
         }
         super.onDetachedFromWindow();
         surfaceThreadDetached = true;
+        CaicaiDiagnostics.INSTANCE.record(getContext(), "view_detached",
+                "view_id=" + diagnosticViewId + " contexts=" + contexts);
     }
 
     @Override protected void onAttachedToWindow() {
         super.onAttachedToWindow();
         surfaceThreadDetached = false;
+        CaicaiDiagnostics.INSTANCE.record(getContext(), "view_attached",
+                "view_id=" + diagnosticViewId + " contexts=" + contexts
+                        + " display=" + getDisplay());
     }
 
     public String surfaceDiagnostics() {

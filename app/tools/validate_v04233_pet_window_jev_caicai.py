@@ -39,7 +39,9 @@ assert "height: _caicaiEnabled ? _caicaiStableHeight : constraints.maxHeight" in
 assert "sceneSize: Size(constraints.maxWidth, _caicaiStableHeight!)" in chat
 viewport = (app / "lib/widgets/caicai_stage_viewport.dart").read_text()
 assert "keyboardInset == 0 && availableHeight > _height!" in viewport
-assert "AndroidView(" in (app / "lib/widgets/caicai_live2d_stage.dart").read_text()
+stage = (app / "lib/widgets/caicai_live2d_stage.dart").read_text()
+assert "PlatformViewLink(" in stage and "initExpensiveAndroidView(" in stage
+assert "AndroidViewSurface(" in stage and "child: AndroidView(" not in stage
 assert "setZOrderMediaOverlay(true)" not in caicai
 assert "companion.visibility = View.GONE" in caicai
 assert "PetTouchableRegion(container)" not in pet

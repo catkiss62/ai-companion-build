@@ -1,7 +1,9 @@
 import 'dart:async';
 
 import 'package:flutter/foundation.dart';
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart' show PlatformViewHitTestBehavior;
 import 'package:flutter/services.dart';
 
 class CaicaiLive2DService {
@@ -219,8 +221,31 @@ class _CaicaiLive2DStageState extends State<CaicaiLive2DStage> with WidgetsBindi
         behavior: HitTestBehavior.translucent,
         onPointerDown: (e) => touch(e, 0), onPointerMove: (e) => touch(e, 2),
         onPointerUp: (e) => touch(e, 1), onPointerCancel: (e) => touch(e, 3),
-        child: AndroidView(key: ValueKey(_modelRevision),
-          viewType: 'ai_companion/caicai_live2d_view', onPlatformViewCreated: _created),
+        // A GLSurfaceView inside ordinary AndroidView falls back to Virtual
+        // Display, whose surface is reset on every Activity resume. Keep the
+        // native surface attached with direct Hybrid Composition instead.
+        child: PlatformViewLink(
+          key: ValueKey(_modelRevision),
+          viewType: 'ai_companion/caicai_live2d_view',
+          surfaceFactory: (context, controller) => AndroidViewSurface(
+            controller: controller as AndroidViewController,
+            gestureRecognizers: const <Factory<OneSequenceGestureRecognizer>>{},
+            hitTestBehavior: PlatformViewHitTestBehavior.opaque,
+          ),
+          onCreatePlatformView: (params) {
+            final controller = PlatformViewsService.initExpensiveAndroidView(
+              id: params.id,
+              viewType: 'ai_companion/caicai_live2d_view',
+              layoutDirection: TextDirection.ltr,
+              creationParamsCodec: const StandardMessageCodec(),
+              onFocus: () => params.onFocusChanged(true),
+            );
+            controller.addOnPlatformViewCreatedListener(params.onPlatformViewCreated);
+            controller.addOnPlatformViewCreatedListener(_created);
+            controller.create();
+            return controller;
+          },
+        ),
       );
     }),
     if (_status != null) Center(child: Container(
