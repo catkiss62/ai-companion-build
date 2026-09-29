@@ -13,6 +13,7 @@ class CedarContextIntentJudge {
   Future<bool> shouldOfferTools({
     required String userText,
     required String previousAssistantText,
+    String originalInvitationText = '',
     required String activeGameTitle,
     GenerationCancellationToken? cancellationToken,
   }) async {
@@ -22,12 +23,16 @@ class CedarContextIntentJudge {
         'previous_assistant': previousAssistantText.length > 850
             ? previousAssistantText.substring(previousAssistantText.length - 850)
             : previousAssistantText,
+        if (originalInvitationText.isNotEmpty)
+          'original_user_invitation': originalInvitationText.length > 240
+              ? originalInvitationText.substring(0, 240)
+              : originalInvitationText,
         'latest_user': userText,
       },
       instruction: 'Judge the latest user reply in the actual conversation. '
-          'Does it ask or authorize the companion to advance the active game '
-          'now? Indirect agreement such as “那就去吧，我陪你” after an invitation '
-          'to go fishing counts. Mere affection, discussing a game, a plan '
+          'Does it accept the original user game invitation or ask the companion '
+          'to advance a game now? “走着” or “开始吧” can accept a recent fishing '
+          'invitation even without an active session. Mere affection, discussing a game, a plan '
           'for another day, a refusal or changing topics does not count. '
           'Only decide intent; do not choose an action or assume it happened.',
       options: const <String, String>{

@@ -1081,8 +1081,13 @@ class SystemBridge(
             return
         }
         val source = File(sourcePath)
-        if (!source.exists() || !source.isFile || source.length() > 2L * 1024L * 1024L) {
-            result.error("diagnostic_source_invalid", "Diagnostic report source is missing or too large", null)
+        if (!source.exists() || !source.isFile) {
+            result.error("diagnostic_source_missing", "Diagnostic report file is missing", null)
+            return
+        }
+        val maxDiagnosticBytes = 16L * 1024L * 1024L
+        if (source.length() > maxDiagnosticBytes) {
+            result.error("diagnostic_source_too_large", "Diagnostic report is ${source.length()} bytes; limit is $maxDiagnosticBytes bytes", null)
             return
         }
         val safeName = suggestedName

@@ -506,6 +506,16 @@ class PreflightDiagnosticsService {
             await db.getSetting('cedar_toy_no_call_recheck_count') ?? '',
           ) ??
           0;
+      try {
+        final routes = jsonDecode(
+          await db.getSetting('cedar_toy_user_route_diagnostics_v1') ?? '[]',
+        );
+        cedarRealtime['recentUserRoutes'] = routes is List
+            ? routes.take(12).toList(growable: false)
+            : const <Object>[];
+      } catch (_) {
+        cedarRealtime['recentUserRoutes'] = const <Object>[];
+      }
       cedarRealtime['jsonRetryCount'] = int.tryParse(
             await db.getSetting('cedar_toy_json_retry_count') ?? '',
           ) ??

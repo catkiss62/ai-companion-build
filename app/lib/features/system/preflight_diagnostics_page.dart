@@ -1,3 +1,4 @@
+import 'package:flutter/services.dart';
 import 'package:flutter/material.dart';
 
 import '../../core/diagnostics/preflight_diagnostics.dart';
@@ -71,6 +72,14 @@ class _PreflightDiagnosticsPageState extends State<PreflightDiagnosticsPage> {
       final saved = await service.export(current);
       if (!mounted) return;
       setState(() => note = saved ? '脱敏报告已保存。' : '已取消保存。');
+    } on PlatformException catch (e) {
+      if (!mounted) return;
+      setState(() => note = switch (e.code) {
+        'diagnostic_source_too_large' => '报告超过本机保存上限：${e.message ?? '16 MiB'}',
+        'diagnostic_source_missing' => '报告临时文件不存在，请重新运行自检后保存。',
+        'diagnostic_export_busy' => '已有一个报告保存窗口，请先完成或取消。',
+        _ => '报告导出失败（${e.code}）：${e.message ?? '请重试'}',
+      });
     } catch (e) {
       if (!mounted) return;
       setState(() => note = '报告导出失败：${e.runtimeType}');

@@ -1,4 +1,5 @@
 import 'cedar_agent_loop_policy.dart';
+import '../models/chat_message.dart';
 
 class CedarToyArcadeSkill {
   const CedarToyArcadeSkill._();
@@ -111,6 +112,43 @@ class CedarToyArcadeSkill {
             .hasMatch(previous);
   }
 
+  /// A brief acceptance can refer back to the user's own recent invitation,
+  /// even when no solo session exists and the assistant's reply did not name
+  /// the game. Only the semantic judge may turn this candidate into tools.
+  static ChatMessage? pendingUserInvitation({
+    required List<ChatMessage> previous,
+    required String latestUserText,
+    required DateTime now,
+  }) {
+    final reply = latestUserText.trim();
+    if (reply.isEmpty || reply.runes.length > 24 ||
+        !RegExp(r'^(?:好|嗯|行|可以|走|走着|来|开始|开吧|去吧|出发|就这么办|那就).{0,12}$')
+            .hasMatch(reply) ||
+        RegExp(r'不玩|别玩|算了|改天|等会|以后|暂停|先不').hasMatch(reply)) {
+      return null;
+    }
+    final recent = previous.reversed.take(6).toList().reversed.toList();
+    for (var i = recent.length - 1; i >= 0; i--) {
+      final source = recent[i];
+      final age = now.difference(source.createdAt);
+      if (age.isNegative || age > const Duration(minutes: 15)) break;
+      if (!source.isUser) continue;
+      if (RegExp(r'不玩|别玩|算了|改天|等会|以后|暂停|先不')
+          .hasMatch(source.content)) break;
+      if (isRelevant(source.content) &&
+          !describesUserOnlyPlay(source.content) &&
+          recent.skip(i + 1).any((turn) => turn.isAssistant) &&
+          recent.skip(i + 1).where((turn) => turn.isUser).length <= 1) {
+        return source;
+      }
+      // A newer unrelated user turn breaks the invitation chain.
+      if (source.content.trim().runes.length > 24 ||
+          !RegExp(r'^(?:好|嗯|行|可以|走|走着|来|开始|开吧|去吧|出发|那就)')
+              .hasMatch(source.content.trim())) break;
+    }
+    return null;
+  }
+
   /// A first-person plan is conversation context, not authority for the
   /// companion to mutate a remote game. Explicitly including/commanding the
   /// companion wins, so “我想和你一起玩” remains a real request.
@@ -129,6 +167,7 @@ class CedarToyArcadeSkill {
 
   static bool requestsNaturalPlay(String text) => RegExp(
         r'(陪我|跟我|和我|我们|咱们|一起).{0,12}(玩|下棋|打牌|对局|五子棋|围棋|象棋|双弈)|'
+        r'(陪你|跟你|和你|陪着你).{0,12}(钓鱼|下棋|打牌|玩游戏|玩一局|玩一把)|'
         r'(下|来|玩).{0,8}(棋|五子棋|围棋|象棋|一局)|'
         r'(五子棋|围棋|象棋|双弈).{0,12}(下|玩|来|开始|开局)',
         caseSensitive: false,

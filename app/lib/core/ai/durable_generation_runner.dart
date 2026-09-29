@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:convert';
 
 import '../agent/agent_tool.dart';
 import '../agent/agent_native_tool_accumulator.dart';
@@ -366,7 +367,10 @@ class DurableGenerationRunner {
       final userOnlyGameStatement =
           CedarToyArcadeSkill.describesUserOnlyPlay(user.content);
       final immediateCedarEntry = !userOnlyGameStatement &&
-          CedarToyActivityStore.requestsImmediateGameEntry(user.content);
+          (CedarToyActivityStore.requestsImmediateGameEntry(user.content) ||
+              (CedarToyArcadeSkill.requestsNaturalPlay(user.content) &&
+                  !RegExp(r'以后|有空|改天|哪天|下次|可以考虑')
+                      .hasMatch(user.content)));
       final cedarConfigured =
           (await db.getSetting('cedar_toy_enabled')) != '0' &&
           ((await secureConfig.readCedarToyToken())?.trim().isNotEmpty ?? false);
@@ -439,17 +443,33 @@ class DurableGenerationRunner {
           (CedarToyArcadeSkill.isRelevant(user.content) ||
               (mentionsCatalogGame &&
                   CedarToyArcadeSkill.requestsCatalogAction(user.content)));
+      final invitation = cedarConfigured && !cedarExplicitRequest
+          ? CedarToyArcadeSkill.pendingUserInvitation(
+              previous: previous,
+              latestUserText: user.content,
+              now: user.createdAt,
+            )
+          : null;
+      final recentCedarOutcomes = invitation == null
+          ? const <AgentToolOutcomeRecord>[]
+          : (await db.recentAgentToolOutcomeRecords(limit: 200))
+              .where((record) => record.toolId.startsWith('cedar_toy.') &&
+                  !record.finishedAt.isBefore(invitation.createdAt) &&
+                  record.resultCount > 0)
+              .toList();
+      final pendingInvitation = invitation != null && recentCedarOutcomes.isEmpty;
       // Solo game progression still belongs to the background clock. A recent
       // dialogue merely lets the model interpret a short user reply with Cedar
       // tools available; it does not itself advance the session.
       final cedarSessionActive = cedarState.hasUserTurnContinuation;
-      final cedarContextAvailable = cedarContextCandidate &&
+      final cedarContextAvailable = (cedarContextCandidate || pendingInvitation) &&
           !cedarExplicitRequest &&
           !cedarSessionActive &&
           (!finalProvider.isGeminiRelay ||
               await CedarContextIntentJudge().shouldOfferTools(
                 userText: user.content,
                 previousAssistantText: precedingAssistant!.content,
+                originalInvitationText: pendingInvitation ? invitation!.content : '',
                 activeGameTitle: cedarSession?.displayName ?? '',
                 cancellationToken: effectiveCancellation,
               ));
@@ -513,7 +533,7 @@ class DurableGenerationRunner {
                   playProtocol: cedarPlayProtocol,
                 ),
               if (cedarContextAvailable && !cedarExplicitRequest)
-                '当前有单人游戏活动。结合上一句和用户最新回复，由你判断用户是否现在要你推进游戏。若是，就根据真实指南和状态调用 Cedar 工具；若是在闲聊、转移话题或延后，则不要调用。没有真实 Outcome 不得只用对白声称或推迟本应执行的动作。',
+                '结合用户原始游戏邀请、最近对话和本轮简短回复，判断用户是否现在要你推进游戏。若是，就根据真实目录、指南和状态调用 Cedar 工具；若是在闲聊、转移话题或延后，则不要调用。没有真实 Outcome 不得只用对白声称或推迟本应执行的动作。',
               if (explicitCedarGameId.isNotEmpty && immediateCedarEntry)
                 '用户本轮明确提到游戏厅或游玩。若指定的目标游戏不同于当前 game，必须先对目标 game 调用 get_guide；当前游戏的指南绝不授权另一个游戏。无在途原子动作时可立即切换，旧 session 仍保留可恢复；若正有原子动作执行中，应诚实说明当前动作和排队目标，不可假装已经进入。不得等待一个跨游戏无法通用定义的“整把打完”而无限拖延切换。',
               if (cedarExplicitRequest &&
@@ -1337,6 +1357,30 @@ $finalGenerationReminder
         budgetExhausted: agentLoopBudgetExhausted,
         invalidPlan: agentLoopInvalidPlan,
       );
+      if (cedarConfigured) {
+        // Bounded metadata only: no message text, prompts, arguments or Outcome.
+        try {
+          final key = 'cedar_toy_user_route_diagnostics_v1';
+          final old = jsonDecode(await db.getSetting(key) ?? '[]');
+          final entries = old is List ? old.take(11).toList() : <dynamic>[];
+          entries.insert(0, <String, Object?>{
+            'at': user.createdAt.millisecondsSinceEpoch,
+            'reason': cedarExplicitRequest ? 'explicit'
+                : cedarSessionActive ? 'session'
+                : cedarContextAvailable ? (pendingInvitation ? 'invitation' : 'solo_context')
+                : pendingInvitation ? 'invitation_rejected'
+                : cedarContextCandidate ? 'context_rejected' : 'no_candidate',
+            'planningRounds': agentPlanningRounds,
+            'cedarOutcomeCount': agentToolResults
+                .where((result) => result.toolId.startsWith('cedar_toy.')).length,
+            'jevGate': finalProvider.isGeminiRelay &&
+                (cedarContextCandidate || pendingInvitation) &&
+                !cedarExplicitRequest && !cedarSessionActive,
+            'toolGate': cedarSkillActive,
+          });
+          await db.setSetting(key, jsonEncode(entries));
+        } catch (_) { /* A diagnostic write must not interrupt the reply. */ }
+      }
 
       if (generated.content.isEmpty) {
         throw const FormatException('模型没有返回可用正文');

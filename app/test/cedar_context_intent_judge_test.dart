@@ -14,6 +14,7 @@ void main() {
           final sent = jsonDecode(request.body) as Map;
           expect(sent['state']['previous_assistant'], contains('钓鱼'));
           expect(sent['state']['latest_user'], '那就去吧，我陪你');
+          expect(sent['state']['original_user_invitation'], '陪你钓鱼？');
           return http.Response(jsonEncode({
             'answers': {
               'route': {
@@ -32,6 +33,7 @@ void main() {
       CedarContextIntentJudge(gateway: gateway).shouldOfferTools(
         userText: '那就去吧，我陪你',
         previousAssistantText: '想去钓鱼海沟看看吗？',
+        originalInvitationText: '陪你钓鱼？',
         activeGameTitle: '深海钓鱼',
       );
 
