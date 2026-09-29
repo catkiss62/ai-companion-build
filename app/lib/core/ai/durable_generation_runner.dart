@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:convert';
 
 import '../agent/agent_tool.dart';
 import '../agent/agent_native_tool_accumulator.dart';
@@ -366,7 +367,8 @@ class DurableGenerationRunner {
       final userOnlyGameStatement =
           CedarToyArcadeSkill.describesUserOnlyPlay(user.content);
       final immediateCedarEntry = !userOnlyGameStatement &&
-          CedarToyActivityStore.requestsImmediateGameEntry(user.content);
+          (CedarToyActivityStore.requestsImmediateGameEntry(user.content) ||
+              CedarToyArcadeSkill.requestsSharedPlay(user.content));
       final cedarConfigured =
           (await db.getSetting('cedar_toy_enabled')) != '0' &&
           ((await secureConfig.readCedarToyToken())?.trim().isNotEmpty ?? false);
@@ -425,20 +427,50 @@ class DurableGenerationRunner {
       final precedingAssistant = previous.isNotEmpty && previous.last.isAssistant
           ? previous.last
           : null;
-      final cedarContextCandidate = cedarConfigured &&
-          precedingAssistant != null &&
-          CedarToyArcadeSkill.contextualDecisionCandidate(
-            userText: user.content,
-            previousAssistantText: precedingAssistant.content,
-            activeGameTitle: cedarSession?.displayName ?? '',
-            activeSoloSession: cedarSession?.mode == CedarParticipationMode.solo &&
-                cedarSession?.continuable == true,
-            gap: user.createdAt.difference(precedingAssistant.createdAt),
-          );
-      final cedarExplicitRequest = !userOnlyGameStatement &&
+      // A short assent can inherit only a recent user-authored invitation.
+      // An assistant's own game-flavored promise cannot open the tool lane.
+      final pendingInvitationCandidate = cedarConfigured
+          ? CedarToyArcadeSkill.pendingSharedPlayInvitation(
+              latestUserText: user.content,
+              previous: previous,
+              now: user.createdAt,
+            )
+          : null;
+      final pendingAssistantIds = pendingInvitationCandidate == null
+          ? const <String>{}
+          : previous
+              .where((message) =>
+                  message.isAssistant &&
+                  !message.createdAt.isBefore(pendingInvitationCandidate.createdAt))
+              .map((message) => message.id)
+              .toSet();
+      final priorPlayCompleted = pendingInvitationCandidate != null &&
+          (await db.recentAgentToolOutcomeRecords()).any((outcome) =>
+              pendingAssistantIds.contains(outcome.assistantMessageId) &&
+              outcome.toolId == 'cedar_toy.play' &&
+              outcome.status == AgentToolStatus.succeeded &&
+              outcome.resultCount > 0);
+      final pendingInvitation =
+          priorPlayCompleted ? null : pendingInvitationCandidate;
+      final strongPendingAssent = pendingInvitation != null &&
+          CedarToyArcadeSkill.isStrongGameAssent(user.content);
+      final directCedarRequest = !userOnlyGameStatement &&
           (CedarToyArcadeSkill.isRelevant(user.content) ||
               (mentionsCatalogGame &&
                   CedarToyArcadeSkill.requestsCatalogAction(user.content)));
+      final cedarContextCandidate = cedarConfigured &&
+          precedingAssistant != null &&
+          (CedarToyArcadeSkill.contextualDecisionCandidate(
+                userText: user.content,
+                previousAssistantText: precedingAssistant.content,
+                activeGameTitle: cedarSession?.displayName ?? '',
+                activeSoloSession:
+                    cedarSession?.mode == CedarParticipationMode.solo &&
+                        cedarSession?.continuable == true,
+                gap: user.createdAt.difference(precedingAssistant.createdAt),
+              ) ||
+              (pendingInvitation != null && !strongPendingAssent));
+      final cedarExplicitRequest = directCedarRequest || strongPendingAssent;
       // Solo game progression still belongs to the background clock. A recent
       // dialogue merely lets the model interpret a short user reply with Cedar
       // tools available; it does not itself advance the session.
@@ -451,14 +483,17 @@ class DurableGenerationRunner {
                 userText: user.content,
                 previousAssistantText: precedingAssistant!.content,
                 activeGameTitle: cedarSession?.displayName ?? '',
+                priorUserInvitation: pendingInvitation?.content ?? '',
                 cancellationToken: effectiveCancellation,
               ));
       final cedarSkillActive =
           (cedarExplicitRequest || cedarSessionActive || cedarContextAvailable) &&
           cedarConfigured;
-      final cedarContextOnly = cedarContextAvailable &&
-          !cedarExplicitRequest &&
-          !cedarSessionActive;
+      final cedarContextOnly = !cedarSessionActive &&
+          ((cedarContextAvailable && !cedarExplicitRequest) ||
+              (strongPendingAssent && !directCedarRequest));
+      final cedarImmediateRequest =
+          immediateCedarEntry || (pendingInvitation != null && cedarSkillActive);
       final cedarPromptSession = cedarSession;
       final cedarTerminalGameId =
           cedarPromptSession?.hasPendingTerminalDelivery == true
@@ -512,12 +547,14 @@ class DurableGenerationRunner {
                   state: cedarState,
                   playProtocol: cedarPlayProtocol,
                 ),
-              if (cedarContextAvailable && !cedarExplicitRequest)
+              if (cedarContextAvailable && !cedarExplicitRequest && pendingInvitation == null)
                 '当前有单人游戏活动。结合上一句和用户最新回复，由你判断用户是否现在要你推进游戏。若是，就根据真实指南和状态调用 Cedar 工具；若是在闲聊、转移话题或延后，则不要调用。没有真实 Outcome 不得只用对白声称或推迟本应执行的动作。',
-              if (explicitCedarGameId.isNotEmpty && immediateCedarEntry)
+              if (pendingInvitation != null && cedarSkillActive)
+                '最近用户曾明确邀请你共同游玩，本轮短句是在延续该邀请。当前活动游戏可能是另一款，不得把旧游戏当成这次目标；从最近用户邀请和真实目录确认目标，再读取对应指南执行。若仍需用户参与，按服务端实际规则等待。没有真实 play Outcome 不得声称已开始或推进。',
+              if (explicitCedarGameId.isNotEmpty && cedarImmediateRequest)
                 '用户本轮明确提到游戏厅或游玩。若指定的目标游戏不同于当前 game，必须先对目标 game 调用 get_guide；当前游戏的指南绝不授权另一个游戏。无在途原子动作时可立即切换，旧 session 仍保留可恢复；若正有原子动作执行中，应诚实说明当前动作和排队目标，不可假装已经进入。不得等待一个跨游戏无法通用定义的“整把打完”而无限拖延切换。',
               if (cedarExplicitRequest &&
-                  !immediateCedarEntry)
+                  !cedarImmediateRequest)
                 '用户本轮提到了一个或多个目录游戏，但没有明确要求现在进入；这可以作为建议或未来探索方向，不得擅自把多个候选中的第一个当成立即命令，也不得声称已经切换或建档。',
               if (AgentParticipationConsentPolicy.describesExistingRoom(
                 user.content,
@@ -980,6 +1017,7 @@ ${verification.renderForFinalPrompt()}
 【工具结果后的中文表达约束】
 工具循环已经结束。现在只用自然中文形成她自己的可见思考与最终正文；专业名词可保留英文。不得复述英文工具规划、参数、调用日志、轮次、预算或搜索步骤。
 若提到已经执行的动作、落子坐标、房间、身份或轮次，只能使用上方真实工具 Outcome 与“本机已实际提交的参数”，不得改写、换算或猜测。
+${cedarSkillActive && !agentToolResults.any((result) => result.toolId == 'cedar_toy.play' && result.succeeded) ? '本轮没有成功的 Cedar play Outcome。可以自然继续交流或说明尚未执行，不能把准备、出发、下潜、落子描述为真实已发生。' : ''}
 $finalGenerationReminder
 '''.trim(),
           },
@@ -1708,6 +1746,33 @@ $finalGenerationReminder
           result: agentToolResults[index],
           callIndex: index,
         );
+      }
+      if (cedarConfigured &&
+          (directCedarRequest || pendingInvitationCandidate != null ||
+              cedarContextCandidate || cedarSessionActive)) {
+        try {
+          final raw = await db.getSetting('cedar_user_turn_route_trace_v1') ?? '[]';
+          final decoded = jsonDecode(raw);
+          final entries = decoded is List ? decoded.toList() : <dynamic>[];
+          entries.add(<String, Object?>{
+            'at': user.createdAt.millisecondsSinceEpoch,
+            'route': directCedarRequest ? 'direct' :
+                pendingInvitationCandidate != null ?
+                    (priorPlayCompleted ? 'prior_play_completed' :
+                        strongPendingAssent ? 'pending_assent' : 'pending_semantic') :
+                    cedarSessionActive ? 'session' : 'solo_context',
+            'opened': cedarSkillActive,
+            'planningRounds': agentPlanningRounds,
+            'toolCalls': agentToolResults.where((result) =>
+                result.toolId.startsWith('cedar_toy.')).length,
+            'successfulPlay': agentToolResults.any((result) =>
+                result.toolId == 'cedar_toy.play' && result.succeeded),
+          });
+          await db.setSetting('cedar_user_turn_route_trace_v1',
+              jsonEncode(entries.length > 20 ? entries.sublist(entries.length - 20) : entries));
+        } catch (_) {
+          // Diagnostic persistence never changes a committed reply.
+        }
       }
       if (agentTaskAttempted) {
         await _recordAgentLoopSummary(
