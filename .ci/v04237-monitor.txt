@@ -1,7 +1,7 @@
 status=success
-run_id=36547678072
-run_url=https://github.com/catkiss62/ai-companion-build/actions/runs/36547678072
-head_sha=250ca9436375e06fd1f9c3f14f0edf510d47cab7
+run_id=36553832513
+run_url=https://github.com/catkiss62/ai-companion-build/actions/runs/36553832513
+head_sha=964483e6c63ff13ef0021195e393744c7f155106
 signer_sha256=30:5E:B3:D8:09:83:B9:63:C6:48:18:DD:F1:AD:56:1F:27:9D:E6:D4:7B:3E:D2:C7:81:AD:A4:48:C7:C2:51:48
-471d341ddf9f7bd4903777371792d988baf09fd026bbb7fcc91ec9d145e9351c  AI-Companion-v0.42.47-291-Cedar-Context-Diagnostics-APK.apk
-release_url=https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-c2032264c6d26e26a609
+dfe11685cdc81f2dcf0744171c5349f1e7465544d6b65ef42a70aeff8ed927a4  AI-Companion-v0.42.47-291-Cedar-Diagnostic-APK.apk
+release_url=https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-cccaadca93c93fd4c7d9
