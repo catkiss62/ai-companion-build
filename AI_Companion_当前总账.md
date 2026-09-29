@@ -6,12 +6,14 @@
 >
 > 判断优先级：用户最新明确决定 > 当前 GitHub 源码与 Actions > 同时刻脱敏真机诊断/备份 > 本文件 > 冻结归档与 Git 历史。`DESIGNED`、`IMPLEMENTED`、`CI PASSED`、`APK READY`、`TRUE DEVICE PASSED`、`PENDING` 必须严格区分。
 
-## 当前任务 · +290 Jev 四拍可见动作恢复与适中调节（IMPLEMENTED / CI PENDING / TRUE DEVICE PENDING）
+## 当前任务 · +290 Jev 四拍可见动作恢复与适中调节（CI PASSED / APK READY / TRUE DEVICE PENDING）
 
 - 用户真机确认 +289 桌宠尺寸已经修好，但 Jev 对话动作偏小且与待机难区分；随后明确发现可见动作次数变少，要求恢复此前 Jev 每拍的可见动作，只在幅度与速度上按已讨论的适中方案调整。+289 功能及 APK 是回退基准；无需改桌宠、待机、摸头、视线、输入法画布和双通道正文。
 - 代码差异：+289 把四拍的“夸张”选择本地压为仅一拍，整模探身压为最多一次，同方向身体 X 取消了拍内释放；Jev 文案也引导保持同一姿势。上述改变减少可见姿势变化，叠加较小目标值和较慢过渡，不能单凭提高参数目标修复。用户当前没有提供这版逐轮 Jev 原始选择，不能冒称模型实际选择次数已确认。
 - +290 恢复四拍各自强度/整模选择和身体 X 每拍释放；Jev 文案鼓励有语义的多次姿势变化，但不强制机械左右交替。头部侧头 ±25（强调 ±28）、俯仰 ±24、歪头 ±23；身体 X/Z 常用约 ±6、强调约 ±6.72，整模探身 5.5% 模型宽，腿支点约 5°；同时选整模和身体 X/Z 时保留 0.75 混合限幅。节奏每拍 .82/.95/1.10 秒，空间插值 3.4（+289 为 2.7），过渡 34% 拍长；人脸、口型及自主待机不变。四拍仍严格最多八个原生 keyframe；任何实际行为/手感待真机验收。
-- 开发分支 `agent/v04246-jev-visible-motion`，版本 `0.42.46+290`。计划跑定点 Flutter/Kotlin 与全量 CI，形成可覆盖安装的未发布 Draft APK；CI、APK、真机状态不得提前勾选。隐私：只推公开源码、测试、总账，不上传用户存档/诊断/模型素材；不合并 main、不正式发布。
+- 开发分支 `agent/v04246-jev-visible-motion`，版本 `0.42.46+290`。本地功能提交 `3943d4b01c895a0fdf840934acc69b1f9bd058a3` 与公开分支功能提交 `dd3347faa279468d88cedaed0d8fe06d96b1915f` 共享完全相同的 tree `fdc9b086ec4090ca371adf7ad466f302222eeea0`，均基于 +289 总账提交 `8d318c6f`。只推公开源码、测试、总账；无用户存档/诊断/模型素材；未合并 main、未正式发布。
+- Actions [36527469120](https://github.com/catkiss62/ai-companion-build/actions/runs/36527469120) conclusion=success：原生模拟器、源码回归、Kotlin 桌宠/悬浮窗测试、Flutter analyze 与测试、Release 编译、签名身份和包内资源校验通过。未发布 Draft Release `398862838`：[+290 测试 APK](https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-fdf0e1749b6a7d2d8112)，target=`dd3347f`，asset `597420421`，文件名 `AI-Companion-v0.42.46-290-Jev-Visible-Motion-APK.apk`，726100546 字节，SHA-256 `f36a463e844d0cbb3f6a009137880c1bb57b5f466a14253dbf5ab8d2c27ff863`，Release digest 与 CI 日志一致。签名 SHA-256 `30:5E:B3:D8:09:83:B9:63:C6:48:18:DD:F1:AD:56:1F:27:9D:E6:D4:7B:3E:D2:C7:81:AD:A4:48:C7:C2:51:48` 与 +289 相同，可以覆盖安装保留数据。
+- 真机待测：同一类对话比较 +289 和 +290 的动作次数、头身幅度、左右位移与节奏，看是否恢复可见变化且没有回到 +288 的“到处乱撞”。四拍可自主选择，不保证每次对话一定四次大动作；以具体 Jev 选择和最终画面复验。用户已确认 +289 桌宠修好，+290 没有改桌宠代码；输入法保持 +288 的固定画布。
 
 ## 当前任务 · +289 Jev 动作贴近待机、桌宠重装后尺寸（CI PASSED / APK READY / TRUE DEVICE PENDING）
 
