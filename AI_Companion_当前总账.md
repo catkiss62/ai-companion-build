@@ -1,16 +1,19 @@
 # AI Companion · 当前总账
 
-更新时间：2026-09-29（+291 IMPLEMENTED / CI PENDING / APK PENDING / TRUE DEVICE PENDING；+290 Jev 真机待验）
+更新时间：2026-09-29（+291 CI PASSED / APK READY / TRUE DEVICE PENDING；+290 Jev 真机待验）
 
 > 本文件是唯一的当前接班入口，继续采用“总账 v2”。顶部是快速接班索引；标记后的正式记录按版本持续追加，不设总容量上限。
 >
 > 判断优先级：用户最新明确决定 > 当前 GitHub 源码与 Actions > 同时刻脱敏真机诊断/备份 > 本文件 > 冻结归档与 Git 历史。`DESIGNED`、`IMPLEMENTED`、`CI PASSED`、`APK READY`、`TRUE DEVICE PASSED`、`PENDING` 必须严格区分。
 
-## 当前任务 · +291 Cedar 邀请路由与诊断导出（IMPLEMENTED / CI PENDING / TRUE DEVICE PENDING）
+## 当前任务 · +291 Cedar 邀请路由与诊断导出（CI PASSED / APK READY / TRUE DEVICE PENDING）
 
 - 2026-09-29 用户明确授权修改、推送与构建；基于 +290 总账 `48d1e0e` 开始。+290 Jev 动作真机验收继续独立待定。原调查与失败路线见下节。
 - 实现：`陪你/跟你/和你 + 钓鱼/下棋/打牌/游戏` 纳入显式邀请，延期表达不视为立即进入；最近15分钟且最多6条消息、两次简短同意内的原始用户邀请成为候选。若期间拒绝/延后、话题转移或已有实际 Cedar Outcome，候选撤销。含糊确认由 Jev 判断，Jev 失效时仅候选轮开放原 DeepSeek 工具规划；普通聊天不增加 DeepSeek 调用。保留现有 Cedar 工具 owner、预算、Stop 及运营声明守卫。
 - 路由诊断保存最近12条时间、候选原因、规划轮数、Cedar Outcome 数及 Jev 门状态，不保存正文/参数。Android 报告保存上限2→16 MiB，流式复制保持；缺失/超限错误区分并在页面显示类别与大小，完整 Jev 报告不截断。
+- 2026-09-29 用户再次明确批准将本地 `4f6ab85` 推往指定公开仓库的现有分支并触发未发布测试 APK。Git HTTPS 因本机无凭据失败；用已连接的 GitHub 仓库接口上传同一 tree `37f4f27e4bf175b7f7893abfa1c32ca6f1d16642`，与本地提交 tree 完全一致，远端功能提交 `964483e6c63ff13ef0021195e393744c7f155106`，父提交 `48d1e0e`。两次早期自动审批拒绝及无凭据失败仅是交付路径，不是代码 CI 失败。
+- Actions [36553832513](https://github.com/catkiss62/ai-companion-build/actions/runs/36553832513) conclusion=success：原生模拟器、源码门、Kotlin、Flutter analyze、985项 Flutter 测试、arm64 Release、资源与签名校验通过。Draft Release `399039624`：[本次 +291 测试 APK](https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-cccaadca93c93fd4c7d9)，target=`964483e`，asset `597938006`，文件名 `AI-Companion-v0.42.47-291-Cedar-Diagnostic-APK.apk`，726099994 字节，SHA-256 `dfe11685cdc81f2dcf0744171c5349f1e7465544d6b65ef42a70aeff8ed927a4`；Release digest 与 CI 一致。签名 `30:5E:B3:D8:09:83:B9:63:C6:48:18:DD:F1:AD:56:1F:27:9D:E6:D4:7B:3E:D2:C7:81:AD:A4:48:C7:C2:51:48` 与 +290 相同，可覆盖安装保留数据。仓库另有同版本号 +291 的不同草稿，务必以本段目标提交与 asset 识别本次包。
+- 真机待验：用“陪你钓鱼？看你今天都没钓鱼”直接邀请，及“走着”“开始吧”续话，确认 Cedar 真实工具调用、结果与对白一致；再试普通闲聊、拒绝/改天、15分钟过期与已有 Outcome 后无多余 DeepSeek 规划。导出超过2 MiB的完整脱敏诊断报告，并查看 `cedarRealtime.recentUserRoutes`。CI 不能替代真机语义和系统文件选择器验收。+290 Jev 可见动作仍单独待验。
 - 新版本 `0.42.47+291`，已补单元测试和历史版本门；本地7项历史版本门、Cedar相关源码门与差异格式检查通过；本环境没有Flutter SDK，Dart/Android测试待CI。推送至 `catkiss62/ai-companion-build` 的现有分支两次被自动审批拒绝，远端仍为 `48d1e0e`，因此当前尚无 CI、APK 或真机证据。自动审批认为上传仓库源码/历史到该目的地有外传风险，需用户对具体目标再明确批准；不得通过其他通道绕过。
 
 ## 当前接班调查 · Cedar 跨轮漏触发与脱敏诊断导出（DESIGNED / NOT IMPLEMENTED）
