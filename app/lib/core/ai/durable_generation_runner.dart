@@ -35,6 +35,7 @@ import '../personality/playful_form_state.dart';
 import '../mcp/cedar_agent_loop_policy.dart';
 import '../mcp/cedar_toy_arcade_skill.dart';
 import '../mcp/cedar_semantic_route_policy.dart';
+import '../mcp/cedar_conversation_target.dart';
 import '../mcp/cedar_toy_activity.dart';
 import '../models/thought.dart';
 import '../somatic/somatic_engine.dart';
@@ -467,24 +468,19 @@ class DurableGenerationRunner {
               nsfwRoute.cedarIntent == 'act_now' ||
               nsfwRoute.cedarIntent == 'accept');
       // Jev has already read this entire exchange in the pre-reply batch.
-      // A semantic request does not require a regex candidate. Acceptance
-      // still needs a nearby assistant reply; the Jev question verifies the
-      // actual invitation. If Jev is offline, only the old narrow candidates
-      // reach DeepSeek's existing on-demand tool planner.
+      // A valid semantic acceptance does not expire after a local time window.
+      // If Jev is offline, only the old narrow candidates reach the on-demand
+      // DeepSeek tool planner.
       final cedarSemantic = nsfwRoute.cedarIntent;
-      final recentAssistant = precedingAssistant != null &&
-          !user.createdAt.isBefore(precedingAssistant.createdAt) &&
-          user.createdAt.difference(precedingAssistant.createdAt) <=
-              const Duration(minutes: 15);
       final cedarDirectRequest = CedarSemanticRoutePolicy.directRequest(
         configured: cedarConfigured, explicitRequest: cedarExplicitRequest,
-        intent: cedarSemantic, recentAssistant: recentAssistant,
+        intent: cedarSemantic,
       );
       final cedarContextAvailable = CedarSemanticRoutePolicy.contextualRequest(
         configured: cedarConfigured, sessionActive: cedarSessionActive,
         explicitRequest: cedarExplicitRequest,
         narrowCandidate: cedarContextCandidate || pendingInvitation,
-        intent: cedarSemantic, recentAssistant: recentAssistant,
+        intent: cedarSemantic,
       );
       final cedarSkillActive =
           (cedarDirectRequest || cedarSessionActive || cedarContextAvailable) &&
@@ -493,6 +489,14 @@ class DurableGenerationRunner {
           !cedarDirectRequest &&
           !cedarSessionActive;
       final cedarPromptSession = cedarSession;
+      final cedarConversationGameId = cedarSkillActive
+          ? CedarConversationTarget.recentGameId(
+              latestUserText: user.content,
+              now: user.createdAt,
+              previous: previous,
+              catalog: cedarCatalog,
+            )
+          : '';
       final cedarTerminalGameId =
           cedarPromptSession?.hasPendingTerminalDelivery == true
               ? cedarPromptSession!.gameId
@@ -539,7 +543,22 @@ class DurableGenerationRunner {
             'role': 'system',
             'content': <String>[
               CedarToyArcadeSkill.prompt,
-              if (cedarPromptSession != null && cedarPromptSession.guideComplete)
+              if (cedarConversationGameId.isNotEmpty)
+                '【本轮对话目标线索】最近用户消息明确提到的目录游戏 ID：$cedarConversationGameId。'
+                '这是供你结合完整对话核对的线索，不是用户在当时已经授权执行。'
+                '本轮若已获授权，先判断用户是否仍在说它，再决定目标；旧活动可以保留供以后续玩。'
+                '若选择不同游戏，须能从本轮用户消息或更近的对话解释原因，不能仅沿用旧活动。',
+              if (cedarPromptSession != null &&
+                  cedarConversationGameId.isNotEmpty &&
+                  cedarConversationGameId != cedarPromptSession.gameId)
+                '【可恢复旧活动】game=${cedarPromptSession.gameId}; '
+                'mode=${cedarPromptSession.mode.key}; '
+                'phase=${cedarPromptSession.phase.key}。该存档仍可继续，'
+                '但它的指南不适用于另一游戏；先从真实目录取得新目标指南。',
+              if (cedarPromptSession != null &&
+                  cedarPromptSession.guideComplete &&
+                  (cedarConversationGameId.isEmpty ||
+                      cedarConversationGameId == cedarPromptSession.gameId))
                 cedarActivityStore.promptContext(
                   cedarPromptSession,
                   state: cedarState,
@@ -1041,6 +1060,7 @@ $finalGenerationReminder
       var toolsOpen = taskToolDefinitions.isNotEmpty &&
           !localPlanClosesLoop &&
           allowedTaskCalls() > 0;
+      var cedarTargetCorrectionUsed = false;
       var finalRequestMessages = toolsOpen
           ? <Map<String, Object?>>[
               ...baseRequestMessages,
@@ -1155,6 +1175,52 @@ $finalGenerationReminder
             statusText: '正在核验工具结果…',
             toolId: '',
           );
+          generated = await generateFinal(finalRequestMessages);
+          effectiveCancellation.throwIfCancelled();
+          break;
+        }
+
+        // The active solo session may be a different game. Give DeepSeek one
+        // bounded chance to repair a stale-game tool call before it reaches MCP.
+        if (CedarConversationTarget.conflictsWithPlan(
+          targetGameId: cedarConversationGameId,
+          calls: nativePlan.calls.map((call) => (
+                toolId: call.toolId,
+                gameId: call.arguments['game'] ?? '',
+              )),
+        )) {
+          if (!cedarTargetCorrectionUsed &&
+              agentPlanningRounds < planningRoundLimit()) {
+            cedarTargetCorrectionUsed = true;
+            finalRequestMessages = <Map<String, Object?>>[
+              ...finalRequestMessages,
+              <String, Object?>{
+                'role': 'system',
+                'content': '执行前核对：刚才提出的 Cedar 工具调用指向旧游戏，'
+                    '与最近用户明确提到的 $cedarConversationGameId 不一致。'
+                    '请重读用户最近的对话，确认本轮真正目标；若是新游戏，'
+                    '先调用该游戏 get_guide，再按指南行动。'
+                    '保留旧存档，不得仅因为它仍是 active session 就继续旧游戏。',
+              },
+            ];
+            agentPlanningRounds++;
+            generated = await generateInternal(
+              finalRequestMessages,
+              tools: taskToolDefinitions,
+            );
+            effectiveCancellation.throwIfCancelled();
+            continue;
+          }
+          agentLoopInvalidPlan = true;
+          toolsOpen = false;
+          finalRequestMessages = finalizationMessages(<Map<String, Object?>>[
+            ...finalRequestMessages,
+            <String, Object?>{
+              'role': 'system',
+              'content': '本轮 Cedar 操作因游戏目标与最近对话不一致而未执行。'
+                  '不得声称已经进入、操作或切换游戏；如实回应用户。',
+            },
+          ]);
           generated = await generateFinal(finalRequestMessages);
           effectiveCancellation.throwIfCancelled();
           break;

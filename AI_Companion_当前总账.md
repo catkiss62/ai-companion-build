@@ -1,10 +1,19 @@
 # AI Companion · 当前总账
 
-更新时间：2026-09-29（+292 CI PASSED / APK READY / TRUE DEVICE PENDING；+291 CI PASSED / APK READY / TRUE DEVICE PENDING；+290 Jev 真机待验）
+更新时间：2026-09-29（+293 IMPLEMENTED / CI PENDING / TRUE DEVICE PENDING；+292 CI PASSED / APK READY / TRUE DEVICE PENDING）
 
 > 本文件是唯一的当前接班入口，继续采用“总账 v2”。顶部是快速接班索引；标记后的正式记录按版本持续追加，不设总容量上限。
 >
 > 判断优先级：用户最新明确决定 > 当前 GitHub 源码与 Actions > 同时刻脱敏真机诊断/备份 > 本文件 > 冻结归档与 Git 历史。`DESIGNED`、`IMPLEMENTED`、`CI PASSED`、`APK READY`、`TRUE DEVICE PASSED`、`PENDING` 必须严格区分。
+
+## 当前任务 · +293 Cedar 目标核对、菜菜动作与模型联网配置迁移（IMPLEMENTED / CI PENDING / TRUE DEVICE PENDING）
+
+- 用户最新决定：Jev 提示词、选项、概率接近时的本地中性改写、气焰值计分均暂不调整；须用后续明显错误再评估。诊断 2026-09-29 22:50:47 “好啊，走，去玩白房间游戏”：Jev `accept=.89` 且 `applied=accept`，但距上条助手消息约 39 分钟，本地 `recentAssistant<=15分钟` 否决，工具入口关闭，规划 0 轮、Cedar 0 次。移除有效 Jev `accept` 后的时间否决；不可用时窄候选仍有原边界。22:11 的另一问题是 Agent 确实调用了旧钓鱼游戏，这两条因果分别修。
+- Cedar：从本轮与近期用户真实游戏名称取目标线索给按需 DeepSeek Agent，旧活动状态保留以供自主续玩；若本轮目标与旧活动不同，首轮不注入旧游戏完整指南。拟调用不同目标游戏的 `get_guide/play` 时，在 MCP 执行前最多重规划一次；仍不一致则不执行并如实说明，普通聊天不新增 DS 工具调用。游戏名称仅来自真实目录；多游戏歧义由 Agent 判断，不按固定关键词直接调用游戏。
+- 菜菜：仅说话表演的横向整模平移、身体 X/Z 缩小目标和减慢原生过渡；身体 X 不再每拍强制释放，头、身体 Y、视线、嘴、眉、既有动作照旧。原装 `wink`、`wink吐舌`、`比耶wink吐舌` 进入 Jev 可选短时表情，原生 4.5 秒租期/冲突规则生效；装扮保持手动。需要真机观察实际幅度和速度。
+- 模型与联网页右上角导入/导出：仅当前已保存的本页配置，版本化 JSON 包含 API Key，导出前提示妥善保管；导入先完整校验，再写安全存储与原子 DB，失败尽量恢复旧设置、成功刷新并唤醒待重试任务。不包含聊天、记忆、Cedar Token、模型 ZIP。检测无本地 Flutter SDK，依赖 Actions Flutter analyze/test 与 APK 构建。
+- 多 Live2D 收口：当前已是菜菜专有的文件目录 `caicai-live2d`、私有 `caicai_stage` 舞台偏好、MethodChannel/PlatformView、`CaicaiMotionPlanner` 参数映射和单 active native runtime。此批保持既有独立边界；第二模型接入时再增加 modelId/profile、独立存储及 modelId+generation 异步结果防串，不能把菜菜 ID 强加给新模型。未声称已实现双模型切换。
+- 待验：Jev `accept` 隔 39 分钟能进入按需 Agent；白房间目标不会执行钓鱼；明确续钓旧存档仍可用；普通聊天仍无额外 DS；三轴和三个 Wink 真机观感；配置 JSON 往返及错误文件不覆盖。CI/草稿 APK 结果后续补填，真机未验。
 
 ## 当前任务 · +292 Jev 游戏语义入口与 Live2D 回前台计时（CI PASSED / APK READY / TRUE DEVICE PENDING）
 

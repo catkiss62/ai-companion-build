@@ -8,10 +8,9 @@ class CedarSemanticRoutePolicy {
     required bool configured,
     required bool explicitRequest,
     required String? intent,
-    required bool recentAssistant,
   }) => configured && explicitRequest &&
       (intent == null || intent == 'act_now' ||
-          (intent == 'accept' && recentAssistant));
+          intent == 'accept');
 
   static bool contextualRequest({
     required bool configured,
@@ -19,12 +18,12 @@ class CedarSemanticRoutePolicy {
     required bool explicitRequest,
     required bool narrowCandidate,
     required String? intent,
-    required bool recentAssistant,
   }) {
     if (!configured || sessionActive) return false;
     if (intent == null) return narrowCandidate && !explicitRequest;
-    final accepted = intent == 'act_now' ||
-        (intent == 'accept' && recentAssistant);
+    // Jev has already classified the current user turn against the dialogue.
+    // A local 15-minute check must not cancel its valid acceptance decision.
+    final accepted = intent == 'act_now' || intent == 'accept';
     return accepted && !explicitRequest;
   }
 }

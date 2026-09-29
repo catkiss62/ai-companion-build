@@ -38,17 +38,17 @@ void main() {
       emotion: 'normal', parameters: {'ParamAngleX3': {'min': -30, 'max': 30}}), isNull);
     expect(calls, 1);
   });
-  test('hip and tongue gestures release within the same conversational beat', () {
+  test('tongue releases while the slower body X remains continuous', () {
     final plan = CaicaiMotionPlanner.buildPlan({'f0_body':'左移重心','f0_mouth':'吐舌'}, {
       'ParamBodyAngleX':{'min':-10,'max':10}, 'ParamBodyAngleZ':{'min':-10,'max':10},
       'OUT':{'min':0,'max':1},
     });
     final frames=plan['frames'] as List;
-    expect(frames[0]['parameters']['ParamBodyAngleX'],-6);
+    expect(frames[0]['parameters']['ParamBodyAngleX'],-4);
     expect(frames[0]['parameters']['OUT'],1);
     expect(frames[1]['time'],closeTo(.60*.95,.0001));
     expect((frames[1]['parameters'] as Map).containsKey('OUT'),isFalse);
-    expect((frames[1]['parameters'] as Map).containsKey('ParamBodyAngleX'),isFalse);
+    expect(frames[1]['parameters']['ParamBodyAngleX'],-4);
   });
   test('nineteen dialog emotions use the native Caicai IDs', () {
     expect(CaicaiMotionPlanner.buildPlan({'emotion': 'crying'}, {})['emotion'], 'sad');
@@ -82,16 +82,20 @@ void main() {
           'max': id.startsWith('ParamBody') ? 10 : 30},
     });
     final frames = plan['frames'] as List;
-    expect(frames.length, 8); // Four poses with their own hip releases.
-    expect(frames[0]['root']['x'], closeTo(-.055 * 1.12, .0001));
-    expect(frames[2]['root']['x'], closeTo(.055 * 1.12, .0001));
-    expect(frames[0]['parameters']['ParamBodyAngleX'], closeTo(6 * 1.12 * .75, .0001));
-    expect(frames[2]['parameters']['ParamAngleX3'], closeTo(28, .0001));
-    expect(frames[2]['parameters']['ParamBodyAngleX'], closeTo(6 * 1.12 * .75, .0001));
-    expect((frames[1]['parameters'] as Map).containsKey('ParamBodyAngleX'), isFalse);
-    expect((frames[3]['parameters'] as Map).containsKey('ParamBodyAngleX'), isFalse);
-    expect((frames.last['parameters'] as Map).containsKey('ParamBodyAngleX'), isFalse);
+    expect(frames.length, 4); // Body axes no longer get forced midbeat releases.
+    expect(frames[0]['root']['x'], closeTo(-.038 * 1.12, .0001));
+    expect(frames[1]['root']['x'], closeTo(.038 * 1.12, .0001));
+    expect(frames[0]['parameters']['ParamBodyAngleX'], closeTo(4 * 1.12 * .75, .0001));
+    expect(frames[1]['parameters']['ParamAngleX3'], closeTo(28, .0001));
+    expect(frames[1]['parameters']['ParamBodyAngleX'], closeTo(4 * 1.12 * .75, .0001));
     expect(frames[0]['duration'], closeTo(.82 * .34, .0001));
+  });
+
+  test('three original wink presets are available with native names', () {
+    for (final name in ['wink', 'wink吐舌', '比耶wink吐舌']) {
+      expect(CaicaiMotionPlanner.faces, contains(name));
+      expect(CaicaiMotionPlanner.buildPlan({'face': name}, {})['face'], name);
+    }
   });
 
 }

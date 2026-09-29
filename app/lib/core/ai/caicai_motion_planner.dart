@@ -18,11 +18,11 @@ class CaicaiMotionPlanner {
       '探头打量': {'ParamAngleX3': 23, 'ParamAngleY2': -12, 'ParamAngleZ': -18, 'ParamAngleZ2': -18},
       '扬头得意': {'ParamAngleY2': 25, 'ParamAngleZ': 16, 'ParamAngleZ2': 16},
     },
-    'body': {'自然待机': {}, '左移重心': {'ParamBodyAngleX': -6, 'ParamBodyAngleZ': 3},
-      '右移重心': {'ParamBodyAngleX': 6, 'ParamBodyAngleZ': -3},
-      '兴奋踮起': {'ParamBodyAngleY': 7, 'ParamBodyAngleZ': 5},
-      '俏皮侧身': {'ParamBodyAngleX': 6, 'ParamBodyAngleY': -4, 'ParamBodyAngleZ': -6}, '轻轻下压': {'ParamBodyAngleY': -7},
-      '轻轻踮起': {'ParamBodyAngleY': 7}, '左摆': {'ParamBodyAngleZ': -6}, '右摆': {'ParamBodyAngleZ': 6}},
+    'body': {'自然待机': {}, '左移重心': {'ParamBodyAngleX': -4, 'ParamBodyAngleZ': 2},
+      '右移重心': {'ParamBodyAngleX': 4, 'ParamBodyAngleZ': -2},
+      '兴奋踮起': {'ParamBodyAngleY': 7, 'ParamBodyAngleZ': 3.5},
+      '俏皮侧身': {'ParamBodyAngleX': 4, 'ParamBodyAngleY': -4, 'ParamBodyAngleZ': -3.5}, '轻轻下压': {'ParamBodyAngleY': -7},
+      '轻轻踮起': {'ParamBodyAngleY': 7}, '左摆': {'ParamBodyAngleZ': -4}, '右摆': {'ParamBodyAngleZ': 4}},
     'gaze': {'自然视线': {}, '看左': {'ParamEyeBallX': -.7}, '看右': {'ParamEyeBallX': .7},
       '看上': {'ParamEyeBallY': .6}, '看下': {'ParamEyeBallY': -.6}},
     'mouth': {'自然嘴型': {}, '不高兴': {'ParamMouthForm': -1}, '顽皮笑': {'ParamMouthForm': 1},
@@ -33,14 +33,15 @@ class CaicaiMotionPlanner {
       '大睁眼': {'ParamBrowLY': .7, 'ParamBrowRY': .7}},
   };
   static const rootMotions = <String, Map<String, double>>{
-    '不位移': {}, '向左探身': {'x': -.055, 'tilt': 3},
-    '向右探身': {'x': .055, 'tilt': -3},
-    '小腿支点左倾': {'x': -.02, 'tilt': 5},
-    '小腿支点右倾': {'x': .02, 'tilt': -5},
+    '不位移': {}, '向左探身': {'x': -.038, 'tilt': 3},
+    '向右探身': {'x': .038, 'tilt': -3},
+    '小腿支点左倾': {'x': -.015, 'tilt': 5},
+    '小腿支点右倾': {'x': .015, 'tilt': -5},
   };
   static const intensities = {'轻巧': .8, '鲜明': 1.0, '夸张': 1.12};
   static const tempos = {'舒展': 1.10, '明快': .95, '俏皮快拍': .82};
-  static const faces = ['无','1爱心','1生气','1红脸','1钱钱','1黑脸','1星星眼','1流泪'];
+  static const faces = ['无','1爱心','1生气','1红脸','1钱钱','1黑脸','1星星眼','1流泪',
+    'wink','wink吐舌','比耶wink吐舌'];
   static const actions = ['无','2奶茶','2插手','2比耶','2点单','2菜单','2餐盘左','2餐盘右'];
 
   Future<Map<String, Object?>?> plan({required String user, required String reply,
@@ -76,7 +77,9 @@ class CaicaiMotionPlanner {
     }
     questions['tempo'] = JevChoiceQuestion('整段表演节奏，默认明快；兴奋或俏皮可用快拍，安静时舒展。',
       {'舒展':'每拍1.10秒', '明快':'每拍0.95秒', '俏皮快拍':'每拍0.82秒'});
-    questions['face'] = JevChoiceQuestion('选择本次短时原装表情，情绪不明显时选无。', {for (final x in faces) x: x});
+    questions['face'] = JevChoiceQuestion('选择本次短时原装表情，情绪不明显时选无。'
+      'wink、wink吐舌、比耶wink吐舌是模型原装的完整预设，后者已自带比耶手势；'
+      '轻微眨眼也可由四拍眼睛参数单独表达。', {for (final x in faces) x: x});
     questions['action'] = JevChoiceQuestion('选择与本轮明确动作或场景有关的原装动作；无关时选无。', {for (final x in actions) x: x});
     questions['emotion'] = JevChoiceQuestion(
       '选择对话结束后持续显示的聊天情绪。以实际回复语气为准；没有明显情绪选正常，不要为了变化而强选。',
@@ -119,12 +122,12 @@ class CaicaiMotionPlanner {
         }
       }
       frames.add({'time': frame * interval, 'duration': interval * .34, 'parameters': targets, 'root': root});
-      // Keep the original beat-level hip release: this is a visible gesture,
-      // even if Jev chooses the same direction again on the next beat.
-      if (targets.keys.any((id) => const {'OUT','ParamEyeLOpen','ParamEyeROpen','ParamBodyAngleX'}.contains(id))) {
+      // Only facial cues release within a beat. Body X must travel smoothly
+      // across adjacent beats instead of snapping back to idle each time.
+      if (targets.keys.any((id) => const {'OUT','ParamEyeLOpen','ParamEyeROpen'}.contains(id))) {
         final release = Map<String,double>.from(targets)
           ..removeWhere((id, _) => const {'OUT','ParamEyeLOpen','ParamEyeROpen',
-            'ParamEyeLSmile','ParamEyeRSmile','ParamBodyAngleX'}.contains(id));
+            'ParamEyeLSmile','ParamEyeRSmile'}.contains(id));
         frames.add({'time': (frame + .60) * interval, 'duration': interval * .30, 'parameters': release, 'root': root});
       }
     }

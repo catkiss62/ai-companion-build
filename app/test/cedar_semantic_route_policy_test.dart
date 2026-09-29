@@ -3,14 +3,14 @@ import 'package:flutter_test/flutter_test.dart';
 
 void main() {
   bool opens(String? intent, {bool explicit = false, bool narrow = false,
-      bool recent = false, bool configured = true, bool active = false}) =>
+      bool configured = true, bool active = false}) =>
       CedarSemanticRoutePolicy.directRequest(
         configured: configured, explicitRequest: explicit,
-        intent: intent, recentAssistant: recent,
+        intent: intent,
       ) || CedarSemanticRoutePolicy.contextualRequest(
         configured: configured, sessionActive: active,
         explicitRequest: explicit, narrowCandidate: narrow,
-        intent: intent, recentAssistant: recent,
+        intent: intent,
       );
 
   test('semantic action can enter without keyword; chat and delay veto keywords', () {
@@ -20,10 +20,10 @@ void main() {
     expect(opens('chat', narrow: true), isFalse);
   });
 
-  test('short acceptance needs recent assistant context; disabled never opens', () {
-    expect(opens('accept', recent: true), isTrue);
-    expect(opens('accept'), isFalse);
-    expect(opens('accept', recent: true, configured: false), isFalse);
+  test('valid Jev acceptance survives a stale assistant timestamp', () {
+    expect(opens('accept'), isTrue);
+    expect(opens('accept', explicit: true), isTrue);
+    expect(opens('accept', configured: false), isFalse);
   });
 
   test('Jev unavailable leaves narrow DeepSeek planner only', () {

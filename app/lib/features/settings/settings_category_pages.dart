@@ -21,6 +21,7 @@ import '../../core/storage/secure_config.dart';
 import '../../widgets/chat_portrait_stage.dart';
 import '../chat/chat_quick_settings_pages.dart';
 import 'media_cache_page.dart';
+import 'model_network_config_transfer.dart';
 
 class ModelNetworkSettingsPage extends StatefulWidget {
   const ModelNetworkSettingsPage({super.key});
@@ -77,6 +78,65 @@ class _ModelNetworkSettingsPageState
   bool _testingWeather = false;
   String? _status;
   String? _statusSection;
+
+  Future<void> _transferConfig(String action) async {
+    final exporting = action == 'export';
+    final accepted = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: Text(exporting ? '导出模型与联网配置' : '导入模型与联网配置'),
+        content: Text(exporting
+            ? '导出当前已保存的本页设置，包括 API Key。请妥善保管生成的 JSON 文件；未保存的输入请先点对应的保存按钮。'
+            : '将使用文件中的设置替换本页已保存的模型、联网与 API Key 配置；聊天、记忆和游戏存档不会改变。'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext, false),
+            child: const Text('取消'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(dialogContext, true),
+            child: Text(exporting ? '导出文件' : '选择文件并导入'),
+          ),
+        ],
+      ),
+    );
+    if (accepted != true) return;
+    setState(() {
+      _statusSection = 'transfer';
+      _status = null;
+    });
+    final transfer = ModelNetworkConfigTransfer(_db, _secure);
+    try {
+      if (exporting) {
+        final now = DateTime.now().toIso8601String().replaceAll(':', '-');
+        final saved = await _android.savePromptPack(
+          content: await transfer.exportSaved(),
+          suggestedName: 'ai_companion_model_network_$now.json',
+        );
+        if (mounted) setState(() => _status = saved
+            ? '模型与联网配置已导出；文件包含 API Key。'
+            : '已取消导出。');
+      } else {
+        final text = await _android.openPromptPack();
+        if (text == null) {
+          if (mounted) setState(() => _status = '已取消导入。');
+          return;
+        }
+        await transfer.importSaved(text);
+        await _db.wakeRetryableGenerationJobs();
+        await _db.wakeRetryablePostTurnJobs();
+        try {
+          await _android.wakeBackgroundBrain(reason: 'model_network_config_imported');
+        } catch (_) {}
+        if (!mounted) return;
+        setState(() => _loading = true);
+        await _load();
+        if (mounted) setState(() => _status = '模型与联网配置导入完成，页面已刷新。');
+      }
+    } catch (error) {
+      if (mounted) setState(() => _status = '配置${exporting ? '导出' : '导入'}失败：$error');
+    }
+  }
 
   void _sectionAction(String section, Future<void> Function() action) {
     setState(() {
@@ -598,12 +658,26 @@ class _ModelNetworkSettingsPageState
 
   @override
   Widget build(BuildContext context) => Scaffold(
-        appBar: AppBar(title: const Text('模型与联网')),
+        appBar: AppBar(
+          title: const Text('模型与联网'),
+          actions: [
+            PopupMenuButton<String>(
+              tooltip: '导入或导出本页配置',
+              icon: const Icon(Icons.import_export),
+              onSelected: _transferConfig,
+              itemBuilder: (_) => const [
+                PopupMenuItem(value: 'export', child: Text('导出本页配置')),
+                PopupMenuItem(value: 'import', child: Text('导入本页配置')),
+              ],
+            ),
+          ],
+        ),
         body: _loading
             ? const Center(child: CircularProgressIndicator())
             : ListView(
                 padding: const EdgeInsets.fromLTRB(16, 8, 16, 32),
                 children: [
+                  _sectionFeedback('transfer'),
                   _SettingsSectionCard(
                     title: '聊天模型',
                     subtitle: 'DeepSeek 是必填的内部工作通道；也可启用独立的第二通道，只负责用户可见的最终回复。',

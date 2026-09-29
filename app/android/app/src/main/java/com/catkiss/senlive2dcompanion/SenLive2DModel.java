@@ -1823,6 +1823,8 @@ final class SenLive2DModel extends CubismUserModel {
     }
 
     private static boolean maidPresetsConflict(String incoming, String active) {
+        if (("比耶wink吐舌".equals(incoming) && active.startsWith("2"))
+                || ("比耶wink吐舌".equals(active) && incoming.startsWith("2"))) return true;
         if (isFacePreset(incoming)) return isFacePreset(active);
         if (!incoming.startsWith("2") && !"比耶wink吐舌".equals(incoming)) return false;
         if (!active.startsWith("2")) return false;

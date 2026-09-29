@@ -79,7 +79,11 @@ final class CaicaiParameterPlan {
             // instead of reaching it in a few frames. Facial cues stay quick.
             boolean spatial = id.startsWith("ParamAngle") || id.startsWith("ParamBodyAngle")
                 || id.startsWith("@root");
-            float smoothing = 1f - (float)Math.exp(-delta * (spatial ? 3.4f : 5f)
+            // Speaking-only horizontal travel and body X/Z should settle on
+            // the cadence of idle movement; head, Y, face remain responsive.
+            boolean slowAxis = id.equals("@rootX") || id.equals("ParamBodyAngleX")
+                || id.equals("ParamBodyAngleZ");
+            float smoothing = 1f - (float)Math.exp(-delta * (slowAxis ? .85f : spatial ? 3.4f : 5f)
                 / Math.max(.1f, current.duration));
             float lower = target.current(id);
             float old = previous.containsKey(id) ? previous.get(id) : lower;
