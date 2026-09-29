@@ -1,16 +1,18 @@
 # AI Companion · 当前总账
 
-更新时间：2026-09-30（+295 DIRECT HYBRID TRIAL / TRUE DEVICE PENDING；+294 TRUE DEVICE FAILED；+293 DEVICE VISUAL BASELINE）
+更新时间：2026-09-30（+295 CI PASSED / APK READY / TRUE DEVICE PENDING；+294 TRUE DEVICE FAILED；+293 DEVICE VISUAL BASELINE）
 
 > 本文件是唯一的当前接班入口，继续采用“总账 v2”。顶部是快速接班索引；标记后的正式记录按版本持续追加，不设总容量上限。
 >
 > 判断优先级：用户最新明确决定 > 当前 GitHub 源码与 Actions > 同时刻脱敏真机诊断/备份 > 本文件 > 冻结归档与 Git 历史。`DESIGNED`、`IMPLEMENTED`、`CI PASSED`、`APK READY`、`TRUE DEVICE PASSED`、`PENDING` 必须严格区分。
 
-## 当前试验 · +295 菜菜原生直接合成，绕开最近任务返回时的 Virtual Display 重置（IMPLEMENTED / CI PENDING / TRUE DEVICE PENDING）
+## 当前试验 · +295 菜菜原生直接合成，绕开最近任务返回时的 Virtual Display 重置（CI PASSED / APK READY / TRUE DEVICE PENDING）
 
 - 用户同意继续下一步。+294 真机确认最近任务返回仍卡顿、消失、再出现；其诊断显示 Activity 恢复后 Surface 被拆装，EGL context 增加、7 张 PNG 重载。Flutter 3.44.9 普通 `AndroidView` 对 `GLSurfaceView` 落入 Virtual Display，每次 `onPostResume` 重置该 Surface。本试验在 `CaicaiLive2DStage` 用 `PlatformViewLink`、`AndroidViewSurface` 和 `initExpensiveAndroidView` 强制直接 Hybrid Composition；保留原生 `GLSurfaceView`、外层触摸归一化、舞台尺寸、IME 和 renderer。`setVisible(false)` 对原生 root 设 alpha=0 避免真实 Surface 把上一帧盖在其它标签页上，不额外拆除视图；返回时 alpha=1。原生新增 attach/detach 时的 view_id、context、display 和 detach 调用栈诊断，便于验证是否仍被重新挂载。
 - 曾经 +278～+281 直接合成出现黑底、切标签残影和键盘拉长，+282 退回普通 AndroidView；此版并非照搬旧时的整体布局和生命周期，而是在 +294 当前舞台/原生宿主基础上单独替换承载方式。+284 TextureView 不显示也禁止复用。历史问题须逐项真机验证，CI 不能证明屏幕合成画面。
 - 分支 `agent/v04251-caicai-direct-hybrid`，版本 `0.42.51+295`；+293 用户已认可画面作为视觉回退基线（远端 `b548cf37`、Draft `399274286`、APK SHA-256 `4c108da236e0c47e0b2d20647659c2157371be3cc18ebd5a8dd9c43bf246b094`），+294 仍有直接前一源码回退点（远端 `b631f2a`、Draft `399415602`）。不合并 main、不发布正式 Release。
+- 功能提交本地 `d808fb17f0a7ba76266e70dfa38d775b10a9798b`、远端同源码树 `c08bfd7a908f1e594ac60ab75327d4ce20fa6bd5`，tree `728f774cd279d3f8558da5328afdfe93a8f8e6fb`。本地专项源码门通过；完整套件本地在第 29/130 项因未恢复的私有桌宠素材停止，Actions 恢复素材后全套通过。[Actions 36632620687](https://github.com/catkiss62/ai-companion-build/actions/runs/36632620687) `success`：原生模拟器烟测、源码门、Kotlin、Flutter analyze/test、arm64 Release 和资源/签名校验全绿；失败报告任务跳过。
+- 未发布 Draft `399549119`：[+295 测试 APK](https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-31bb487d183a055036d9)，target=`c08bfd7`，asset `599287961`，文件 `AI-Companion-v0.42.51-295-Caicai-Direct-Hybrid-APK.apk`，726110402 字节，SHA-256 `41ce939487189b7f6078a8071b80dfa84baf6824be2ea5a3eddbc44232f9d5b6`；Artifact `11063573671`。仍是同一持久测试签名，覆盖安装可保留数据；未正式发布。
 - 真机验收：同一聊天画面连续三次“≡→直接返回”，观察人物是否仍卡住/消失及画面透明度；再切 App 后返回；切换其它标签页再回来，确认无残影、黑底或重新加载；开合键盘确认输入区尺寸和触摸；导出诊断核对 `view_detaching`、`surface_destroyed`、context 计数及 model frame。若任一视觉回归，标记本试验 `TRUE DEVICE FAILED` 并按 +293 覆盖安装回退。**构建成功仅写 `CI PASSED / APK READY`，手机未验不得写 `TRUE DEVICE PASSED`。**
 
 ## 当前试验 · +294 系统最近任务返回时的菜菜画面恢复（CI PASSED / APK READY / TRUE DEVICE FAILED）
@@ -30,7 +32,7 @@
 | +285 恢复 GLSurfaceView/导入事务 | 原生生命周期门与构建通过，后续模型已能显示；仍未解决最近任务的秒级空白 | 保持可见模型和导入路径基线 |
 | +293 当前真机效果 | 用户确认人物效果非常好；最近任务返回稳定出现卡住→消失→恢复，诊断见上 | 本轮仅动生命周期并逐项记录 CI/真机结果 |
 | +294 暂停时机试验 | 2026-09-30 05:07 用户及 +294 诊断确认仍卡住→消失→重现；`TRUE DEVICE FAILED` | 仅移动 onPause/onStop 无效，转查 Flutter Virtual Display 恢复拆装 |
-| +295 直接 Hybrid 试验 | 源码已修改，构建与真机验收待完成；`TRUE DEVICE PENDING` | 验证最近任务返回无 VD 重置，同时排查旧版黑底、切页残影、IME 回归 |
+| +295 直接 Hybrid 试验 | Actions `36632620687` 全绿，Draft `399549119` / APK SHA-256 `41ce939487189b7f6078a8071b80dfa84baf6824be2ea5a3eddbc44232f9d5b6`；`CI PASSED / APK READY / TRUE DEVICE PENDING` | 验证最近任务返回无 VD 重置，同时排查旧版黑底、切页残影、IME 回归 |
 
 ### +294 真机失败分析 · Flutter 恢复路径（2026-09-30 05:07 后，调查完成／下一实现待定）
 
