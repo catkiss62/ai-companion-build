@@ -13,6 +13,8 @@ jev = (app / "lib/core/ai/jev_decision_gateway.dart").read_text()
 cedar = (app / "lib/core/mcp/cedar_toy_arcade_skill.dart").read_text()
 runner = (app / "lib/core/ai/durable_generation_runner.dart").read_text()
 context_judge = (app / "lib/core/mcp/cedar_context_intent_judge.dart").read_text()
+pre_reply_router = (app / "lib/core/ai/nsfw_context_router.dart").read_text()
+semantic_policy = (app / "lib/core/mcp/cedar_semantic_route_policy.dart").read_text()
 diagnostics = (app / "lib/core/diagnostics/preflight_diagnostics.dart").read_text()
 
 # The trusted single window keeps a fixed idle mask; old logical bounds own
@@ -53,8 +55,14 @@ assert "confidenceFloor" not in jev and "highest_probability_choice" in jev
 assert "used_neutral_close_probability" in jev
 assert "contextualDecisionCandidate" in cedar
 assert "previousAssistantText" in cedar and "activeGameTitle" in cedar
-assert "!finalProvider.isGeminiRelay ||" in runner
-assert "CedarContextIntentJudge().shouldOfferTools" in runner
+# The older contextual-only Jev gate was replaced by one question in the
+# already-existing pre-reply batch. A null answer retains narrow on-demand
+# planning, and a chat/defer decision must veto regex-based entry.
+assert "if (cedarConfigured) 'cedar': const JevChoiceQuestion(" in pre_reply_router
+assert "usageLane: 'chat_intimacy_route'" in pre_reply_router
+assert "CedarSemanticRoutePolicy.contextualRequest(" in runner
+assert "if (intent == null) return narrowCandidate && !explicitRequest" in semantic_policy
+assert "return accepted && !explicitRequest" in semantic_policy
 assert "usageLane: 'cedar_context_intent'" in context_judge
 assert "report['jevShortUsage']" in diagnostics
 assert "report['playfulHeatTrace']" in diagnostics
