@@ -1,3 +1,4 @@
+import '../models/chat_message.dart';
 import 'cedar_agent_loop_policy.dart';
 
 class CedarToyArcadeSkill {
@@ -55,6 +56,7 @@ class CedarToyArcadeSkill {
   static bool isRelevant(String text) {
     if (describesUserOnlyPlay(text)) return false;
     return requestsNaturalPlay(text) ||
+        requestsSharedPlay(text) ||
         requestsCompanionSoloPlay(text) ||
         RegExp(
           r'((?:去|进|进入|打开|启动|继续|玩|逛).{0,12}(?:cedar\s*toy|游戏厅|小游戏)|'
@@ -127,6 +129,49 @@ class CedarToyArcadeSkill {
     return firstPersonPlan && !companionDirected;
   }
 
+  /// A direct invitation to play together. A game title or an assistant
+  /// suggestion alone is not permission to act.
+  static bool requestsSharedPlay(String text) =>
+      !RegExp(r'(改天|下次|以后|有空再|先别|不想|不要)').hasMatch(text) &&
+      RegExp(
+        r'(陪你|你陪我|和你一起|跟你一起|我们一起|咱们一起).{0,10}'
+        r'(钓鱼|捕鱼|下棋|五子棋|打牌|玩游戏|玩一局|玩一把)',
+      ).hasMatch(text);
+
+  static bool isStrongGameAssent(String text) => RegExp(
+        r'^(走着|走吧|出发|开始吧|开吧|那就开始|就现在|现在开始|来一局|开搞)[！!。~～\s]*$',
+      ).hasMatch(text.trim());
+
+  static bool isShortGameAssent(String text) =>
+      isStrongGameAssent(text) ||
+      RegExp(r'^(好|好啊|好呀|行|可以|来吧|嗯|嗯嗯)[！!。~～\s]*$')
+          .hasMatch(text.trim());
+
+  /// Keep a user-authored invitation across a short acknowledgement chain.
+  /// The assistant's game dialogue alone can never create this authority.
+  static ChatMessage? pendingSharedPlayInvitation({
+    required String latestUserText,
+    required List<ChatMessage> previous,
+    required DateTime now,
+  }) {
+    if (!isShortGameAssent(latestUserText) ||
+        previous.isEmpty ||
+        !previous.last.isAssistant) return null;
+    final assistant = previous.last;
+    final gap = now.difference(assistant.createdAt);
+    if (gap.isNegative || gap > const Duration(minutes: 10) ||
+        !RegExp(r'(游戏|钓鱼|鱼竿|海沟|下棋|棋局|牌局|回合|开局|捕鱼)')
+            .hasMatch(assistant.content)) return null;
+    for (final turn in previous.reversed) {
+      final age = now.difference(turn.createdAt);
+      if (age > const Duration(minutes: 10)) break;
+      if (age.isNegative || !turn.isUser) continue;
+      if (requestsSharedPlay(turn.content)) return turn;
+      if (!isShortGameAssent(turn.content)) return null;
+    }
+    return null;
+  }
+
   static bool requestsNaturalPlay(String text) => RegExp(
         r'(陪我|跟我|和我|我们|咱们|一起).{0,12}(玩|下棋|打牌|对局|五子棋|围棋|象棋|双弈)|'
         r'(下|来|玩).{0,8}(棋|五子棋|围棋|象棋|一局)|'
@@ -146,6 +191,7 @@ class CedarToyArcadeSkill {
   /// model still decides whether and how to use Cedar from its live catalog.
   static bool requestsBlindPlay(String text) {
     if (describesUserOnlyPlay(text)) return false;
+    if (requestsSharedPlay(text)) return true;
     return RegExp(
       r'(陪.{0,8}(玩|下棋|打牌)|一起.{0,8}(玩|下棋|打牌)|'
       r'(玩|开).{0,8}(一把|一局|游戏)|下.{0,8}(棋|五子棋|围棋|象棋)|'
