@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 import '../../core/diagnostics/preflight_diagnostics.dart';
 
@@ -71,6 +72,14 @@ class _PreflightDiagnosticsPageState extends State<PreflightDiagnosticsPage> {
       final saved = await service.export(current);
       if (!mounted) return;
       setState(() => note = saved ? '脱敏报告已保存。' : '已取消保存。');
+    } on PlatformException catch (e) {
+      if (!mounted) return;
+      final details = e.details;
+      final sourceBytes = details is Map ? details['sourceBytes'] : null;
+      final maxBytes = details is Map ? details['maxBytes'] : null;
+      setState(() => note = sourceBytes is num && maxBytes is num
+          ? '报告导出失败：${e.code}（${sourceBytes.toInt()} 字节；上限 ${maxBytes.toInt()} 字节）'
+          : '报告导出失败：${e.code}');
     } catch (e) {
       if (!mounted) return;
       setState(() => note = '报告导出失败：${e.runtimeType}');
