@@ -1081,8 +1081,13 @@ class SystemBridge(
             return
         }
         val source = File(sourcePath)
-        if (!source.exists() || !source.isFile || source.length() > 2L * 1024L * 1024L) {
-            result.error("diagnostic_source_invalid", "Diagnostic report source is missing or too large", null)
+        val sourceBytes = if (source.isFile) source.length() else 0L
+        if (sourceBytes !in 1..MAX_DIAGNOSTIC_REPORT_BYTES) {
+            result.error(
+                "diagnostic_source_invalid",
+                "Diagnostic report missing or outside local size limit",
+                mapOf("sourceBytes" to sourceBytes, "maxBytes" to MAX_DIAGNOSTIC_REPORT_BYTES),
+            )
             return
         }
         val safeName = suggestedName
@@ -1776,6 +1781,7 @@ class SystemBridge(
         private const val REQUEST_PLAIN_BACKUP_OPEN = 4211
         private const val REQUEST_TTS_ROBERTA_OPEN = 4212
         private const val MAX_PLAIN_BACKUP_BYTES = 8L * 1024L * 1024L * 1024L
+        private const val MAX_DIAGNOSTIC_REPORT_BYTES = 16L * 1024L * 1024L
         private const val MAX_PROMPT_PACK_BYTES = 2 * 1024 * 1024
         private const val MAX_TTS_MODEL_BYTES = 1024L * 1024L * 1024L
     }
