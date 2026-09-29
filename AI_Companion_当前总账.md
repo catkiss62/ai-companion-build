@@ -6,6 +6,14 @@
 >
 > 判断优先级：用户最新明确决定 > 当前 GitHub 源码与 Actions > 同时刻脱敏真机诊断/备份 > 本文件 > 冻结归档与 Git 历史。`DESIGNED`、`IMPLEMENTED`、`CI PASSED`、`APK READY`、`TRUE DEVICE PASSED`、`PENDING` 必须严格区分。
 
+## 2026-09-29 后续检查 · Jev 路由与多 Live2D 收口（DISCUSSION / NOT IMPLEMENTED）
+
+- 用户暂缓Live2D真机观感验收，要求检查+291游戏入口、DeepSeek附件建议及未来第二套Live2D切换；本轮仅检查及方案，未改产品代码/未构建新APK。
+- 路由事实：9月25日`4171c67`已有按需DeepSeek工具规划；近期`a6d08fa`已有Jev上下文判断；+291新加用户邀请短时续接，非整段回退。显式正则直接开规划；候选续话只有第二通道模式才先问Jev，单DeepSeek模式交同次工具请求判断。续接先受24字/固定开头、原始用户邀请、15分钟/6条消息/最多两次确认约束；未进入候选者Jev看不到。Jev两类概率差≤0.10时本地归chat；Jev无效才候选轮交DeepSeek。985项CI通过不构成自然语言准确率评测。
+- 建议待批准：将“现在执行/接受邀请/讨论/拒绝延期”等语义交回复前Jev，优先与同阶段短判断合批；后置表演Jev不能用于提前路由。避免继续增加固定口令作为必要入口。需用未参与提示词设计的改写/否定/反问/延后/话题切换样例量误触发、漏触发、Jev与DS调用数和费用，不宣称已有准确率。
+- 附件定点核查：NativeTextureManager确实decodeFile后recycle；上下文恢复reloadRenderer重建渲染器/贴图而保留CPU模型，hostResume已requestRender。contexts计数onSurfaceCreated，surfaces计数onSurfaceChanged（尺寸事件也加），不能单凭计数断言耗时原因。CaicaiRuntime.attach会dispose旧owner，不能由IndexedStack断言永久双owner争抢；信号量等待仍需owner/等待时长证据。优先补context/surface/view身份与decode/upload/首帧耗时。CPU缓存需实测收益与内存预算；RGB565无alpha不适合透明贴图；直接draw不能保证交换缓冲与合成显示，不将其承诺为消除秒级空白。自管EGL/不onPause/改composition均暂不采纳为默认修复。
+- 多模型收口建议：共用宿主+单活动renderer+每模型adapter/capability profile；菜菜现有已验证渲染与配件数学封装保留。素材与舞台/摸头/衣装/幅度设置按modelId隔离；模型档案提供语义动作、实际参数ID/方向/范围/中性值、物理后写入及混合优先级、预设与可用能力。Jev根据活动档案取得选项。每次切换递增session generation，Jev/动作/异步回调都校验modelId+generation，防旧模型结果落到新模型；保留两套磁盘资源，默认只驻留一套渲染实例，失败恢复旧模型。以上尚未实施，第二套模型具体参数需拿到后标定。
+
 ## 当前任务 · +291 Cedar 邀请路由与诊断导出（CI PASSED / APK READY / TRUE DEVICE PENDING）
 
 - 2026-09-29 用户明确授权修改、推送与构建；基于 +290 总账 `48d1e0e` 开始。+290 Jev 动作真机验收继续独立待定。原调查与失败路线见下节。
