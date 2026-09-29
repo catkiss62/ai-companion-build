@@ -1,18 +1,20 @@
 # AI Companion · 当前总账
 
-更新时间：2026-09-30（+294 IMPLEMENTED LOCALLY / CI PENDING / TRUE DEVICE PENDING；+293 CI PASSED / APK READY / DEVICE VISUAL BASELINE）
+更新时间：2026-09-30（+294 CI PASSED / APK READY / TRUE DEVICE PENDING；+293 CI PASSED / APK READY / DEVICE VISUAL BASELINE）
 
 > 本文件是唯一的当前接班入口，继续采用“总账 v2”。顶部是快速接班索引；标记后的正式记录按版本持续追加，不设总容量上限。
 >
 > 判断优先级：用户最新明确决定 > 当前 GitHub 源码与 Actions > 同时刻脱敏真机诊断/备份 > 本文件 > 冻结归档与 Git 历史。`DESIGNED`、`IMPLEMENTED`、`CI PASSED`、`APK READY`、`TRUE DEVICE PASSED`、`PENDING` 必须严格区分。
 
-## 当前试验 · +294 系统最近任务返回时的菜菜画面恢复（IMPLEMENTED LOCALLY / CI PENDING / APK PENDING / TRUE DEVICE PENDING）
+## 当前试验 · +294 系统最近任务返回时的菜菜画面恢复（CI PASSED / APK READY / TRUE DEVICE PENDING）
 
 - 用户确认 +293 人物效果已经达标，是本轮可覆盖安装及回退基线；仅剩切出切回时固定出现“卡约一秒、消失约一秒、恢复”。最小复现：在聊天的 Live2D 画面按手机“≡”进入最近任务，**不切换其他 App**，直接点回；几乎每次复现。不需要先索取视频才开始排查。第二套 Live2D 的通用切换待有模型后再做。
 - 同版专用诊断 `live2d_diagnostics_2026-09-29T17-08-30.929748Z.json.txt` 有两次完整恢复：从 `host_resume` 至 `first_model_frame` 约 2.95/3.05 秒；其中 surfaceChanged/reload 约 2.72 秒、七张 PNG 解码约 2.20 秒、上传约 0.19 秒；均有 `surface_destroyed`→`surface_created`，view_id 保持 1，Cubism owner 等待 0。一次没有 stage_visibility 变化，故不能把每次现象归于切标签。原生首帧不等于屏幕实际合成帧。
 - 当前源码的 `MainActivity.onPause` 总会调用 `CaicaiLive2DBridge.onPause`→`CaicaiRuntime.onHostPause`→`GLSurfaceView.onPause`；返回 `onResume` 即恢复。+294 将宿主 GL 暂停/恢复分别改为 `onStop`/`onStart`；`onPause`/`onResume` 仅记录诊断，继续保留悬浮窗恢复逻辑；`setVisible` 和 host 调用只在真实状态改变时对 GL 线程执行，避免重复恢复重置首帧计时。不改 Flutter AndroidView、已验证 GLSurfaceView、Cubism 渲染器、模型 ZIP、配件几何、输入法布局、桌宠或 Jev。
 - 诊断增加 `activity_pause/stop/start/resume` 与当前 view/surface 状态。同一版需反复“≡→点回”三次，并按一次较长停留和一次真正切 App 对照：比对是否出现 `activity_stop`、`host_pause`、`surface_destroyed`，看 context 计数是否增长及实际肉眼空白是否消失。**CI 只验证代码/构建；真正视觉成功须用户手机回报。** 若没有 `activity_stop` 仍重建 Surface，应调查 Flutter/厂商 Surface 附着与合成；若有 `activity_stop`，该方案本就会暂停，下一试验再依据实测选保活/重载优化，不能称 +294 修复成功。
 - 回退基线：+293 已验收的当前效果，Draft `399274286`，APK SHA-256 `4c108da236e0c47e0b2d20647659c2157371be3cc18ebd5a8dd9c43bf246b094`，远端源码 `b548cf37`；本试验独立分支 `agent/v04250-caicai-recents-pause`，版本 `0.42.50+294`。不合并 main、不正式发布。
+- 实施与构建：本地功能提交 `1dbba1c`、工作流标签修正 `6c2b0d5`，远端分别为同源码树的 `372cc5a`、`b631f2a12369d3f032a51b5fe3bd19c53546e8df`；最终 tree `6f9c477175fd60784faf37320d62a0bab6eec22b` 与本地一致。初次运行 `36609065282` 因补正失败诊断的 Draft 标签而主动取消，不算源代码回归失败。最终 [Actions 36609270446](https://github.com/catkiss62/ai-companion-build/actions/runs/36609270446) success：原生 Live2D 模拟器烟测、130 项源码门、Kotlin、Flutter analyze/test、arm64 Release、稳定签名和资源核验通过。
+- 未发布 Draft `399415602`：[+294 测试 APK](https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-7d3c66f7eb520f70d808)，target=`b631f2a`，asset `598907556`，文件 `AI-Companion-v0.42.50-294-Caicai-Recents-Pause-APK.apk`，726108946 字节，SHA-256 `0b42e4f342f56546ab6b02b9bcf6ea0216cea50ba9c9adba90f0e0034f6c83f4`。CI 签名摘要与 +293 相同，可覆盖安装保留数据；未合并 main、未发布正式 Release。真机成功/失败保持待判。
 
 | 尝试 | 成功或失败证据 | 后续约束 |
 |---|---|---|
@@ -20,7 +22,7 @@
 | +284 自定义 TextureView 宿主 | 构造异常、模型未显示；+285 改回 GLSurfaceView | 不以 TextureView 或重写原生渲染宿主冒险 |
 | +285 恢复 GLSurfaceView/导入事务 | 原生生命周期门与构建通过，后续模型已能显示；仍未解决最近任务的秒级空白 | 保持可见模型和导入路径基线 |
 | +293 当前真机效果 | 用户确认人物效果非常好；最近任务返回稳定出现卡住→消失→恢复，诊断见上 | 本轮仅动生命周期并逐项记录 CI/真机结果 |
-| +294 暂停时机试验 | 已实施，CI/APK 与真机待记录 | 后续按此表追加成功或失败，不凭绿色 CI 标成功 |
+| +294 暂停时机试验 | CI 及 Draft APK 已通过；手机最近任务复现结果待用户报告 | 后续按此表追加真机成功或失败，不凭绿色 CI 标成功 |
 
 ## 当前任务 · +293 Cedar 目标核对、菜菜动作与模型联网配置迁移（CI PASSED / APK READY / TRUE DEVICE PENDING）
 
