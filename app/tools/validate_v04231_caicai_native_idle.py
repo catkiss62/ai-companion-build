@@ -46,10 +46,10 @@ def main() -> None:
     # Caicai lab fb04512f (framework submodule c2d4200). Test-only Activity
     # and system-TTS harness are excluded. The Cubism renderer's drawable
     # filter and shader's no-mipmap filter are the lab's two required patches.
-    # +292 adds bounded texture timing counters and a read-only renderer
-    # summary; keep pinning the entire reviewed source tree after that edit.
+    # +293 also guards the authored combo Wink's arm preset ownership.
+    # Keep pinning the reviewed source tree after that conflict fix.
     tree_digest("src/main/java/com/catkiss/senlive2dcompanion", 26,
-                "958ad2f31b69f2203b35e5f52cd346dd091b39caff6c24a8be629ce959d8b4d3")
+                "439589fcd73cf6c47eff041ed863a8242e73ac885b4cbe9d248ca8c8c043c41b")
     tree_digest("src/main/java/com/live2d/sdk/cubism/framework", 103,
                 "0b74f27d46c5e5988d798095e0139728bd2fd58386b854cbb41fcc138a3686ea")
     tree_digest("src/main/assets/com/live2d/sdk/cubism/framework", 36,
