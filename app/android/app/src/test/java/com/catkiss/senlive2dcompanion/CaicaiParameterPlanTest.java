@@ -45,7 +45,9 @@ public class CaicaiParameterPlanTest {
         assertTrue(values.get("@rootTilt")>0 && values.get("@rootTilt")<=10);
         assertFalse(CaicaiParameterPlan.supports("@rootX"));
         for(int i=0;i<15;i++) plan.apply(.1f,out);
-        assertEquals(0,values.get("@rootX"),.001f);
+        // Horizontal travel now eases toward idle at the same slower cadence
+        // as body X/Z, so its final tiny residual is released to native idle.
+        assertEquals(0,values.get("@rootX"),.01f);
         assertEquals(0,values.get("@rootTilt"),.001f);
     }
 
