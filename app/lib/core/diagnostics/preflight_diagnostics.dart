@@ -558,6 +558,15 @@ class PreflightDiagnosticsService {
       cedarRealtime['continuationParamsIncluded'] = false;
       cedarRealtime['roomIdentityIncluded'] = false;
 
+      try {
+        final routeTrace =
+            jsonDecode(await db.getSetting('cedar_user_turn_route_trace_v1') ?? '[]');
+        report['cedarUserTurnRouteTrace'] =
+            routeTrace is List ? routeTrace : const <Object>[];
+      } catch (_) {
+        report['cedarUserTurnRouteTrace'] = const <Object>[];
+      }
+
       // The owner explicitly requested full Jev questions, input context,
       // probabilities, chosen/applied answers and cost to audit accuracy.
       try {
