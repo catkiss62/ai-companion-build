@@ -79,7 +79,7 @@ final class CaicaiParameterPlan {
             // instead of reaching it in a few frames. Facial cues stay quick.
             boolean spatial = id.startsWith("ParamAngle") || id.startsWith("ParamBodyAngle")
                 || id.startsWith("@root");
-            float smoothing = 1f - (float)Math.exp(-delta * (spatial ? 2.7f : 5f)
+            float smoothing = 1f - (float)Math.exp(-delta * (spatial ? 3.4f : 5f)
                 / Math.max(.1f, current.duration));
             float lower = target.current(id);
             float old = previous.containsKey(id) ? previous.get(id) : lower;

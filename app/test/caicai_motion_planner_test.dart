@@ -44,9 +44,9 @@ void main() {
       'OUT':{'min':0,'max':1},
     });
     final frames=plan['frames'] as List;
-    expect(frames[0]['parameters']['ParamBodyAngleX'],-5);
+    expect(frames[0]['parameters']['ParamBodyAngleX'],-6);
     expect(frames[0]['parameters']['OUT'],1);
-    expect(frames[1]['time'],closeTo(.60*.98,.0001));
+    expect(frames[1]['time'],closeTo(.60*.95,.0001));
     expect((frames[1]['parameters'] as Map).containsKey('OUT'),isFalse);
     expect((frames[1]['parameters'] as Map).containsKey('ParamBodyAngleX'),isFalse);
   });
@@ -61,20 +61,20 @@ void main() {
       'ParamAngleX3':{'min':-30,'max':30},'ParamMouthForm':{'min':-1,'max':1},
     });
     final frames=plan['frames'] as List;
-    expect(frames[0]['parameters']['ParamAngleX3'],closeTo(24.64,.001));
+    expect(frames[0]['parameters']['ParamAngleX3'],closeTo(28,.001));
     expect(frames[0]['parameters']['ParamMouthForm'],1);
-    expect(frames[0]['root']['tilt'],closeTo(4.48,.001));
-    expect(frames[1]['time'],.86);
-    expect(frames[0]['duration'],closeTo(.86*.42,.001));
+    expect(frames[0]['root']['tilt'],closeTo(5.6,.001));
+    expect(frames[1]['time'],.82);
+    expect(frames[0]['duration'],closeTo(.82*.34,.001));
     expect(frames.last['root'],isEmpty);
   });
-  test('repeated strong pose has one emphasis and no hip reset each beat', () {
+  test('Jev keeps each of four visible beats while using tuned pose limits', () {
     final answers = <String, String>{'tempo': '俏皮快拍'};
     for (var beat = 0; beat < 4; beat++) {
       answers['f${beat}_head'] = '右侧头';
       answers['f${beat}_body'] = '俏皮侧身';
       answers['f${beat}_intensity'] = '夸张';
-      answers['f${beat}_root'] = beat == 0 ? '向左探身' : '不位移';
+      answers['f${beat}_root'] = beat.isEven ? '向左探身' : '向右探身';
     }
     final plan = CaicaiMotionPlanner.buildPlan(answers, {
       for (final id in ['ParamAngleX3','ParamBodyAngleX','ParamBodyAngleY','ParamBodyAngleZ'])
@@ -82,15 +82,16 @@ void main() {
           'max': id.startsWith('ParamBody') ? 10 : 30},
     });
     final frames = plan['frames'] as List;
-    expect(frames.length, 5); // Four poses and one final hip release.
-    expect(frames[0]['root']['x'], closeTo(-.04, .0001));
-    expect(frames[0]['parameters']['ParamBodyAngleX'], closeTo(3.75, .0001));
-    expect(frames[1]['parameters']['ParamAngleX3'], closeTo(24.64, .0001));
-    expect(frames[1]['parameters']['ParamBodyAngleX'], closeTo(5.6, .0001));
-    expect(frames[2]['parameters']['ParamBodyAngleX'], 5);
-    expect(frames[3]['parameters']['ParamBodyAngleX'], 5);
+    expect(frames.length, 8); // Four poses with their own hip releases.
+    expect(frames[0]['root']['x'], closeTo(-.055 * 1.12, .0001));
+    expect(frames[2]['root']['x'], closeTo(.055 * 1.12, .0001));
+    expect(frames[0]['parameters']['ParamBodyAngleX'], closeTo(6 * 1.12 * .75, .0001));
+    expect(frames[2]['parameters']['ParamAngleX3'], closeTo(28, .0001));
+    expect(frames[2]['parameters']['ParamBodyAngleX'], closeTo(6 * 1.12 * .75, .0001));
+    expect((frames[1]['parameters'] as Map).containsKey('ParamBodyAngleX'), isFalse);
+    expect((frames[3]['parameters'] as Map).containsKey('ParamBodyAngleX'), isFalse);
     expect((frames.last['parameters'] as Map).containsKey('ParamBodyAngleX'), isFalse);
-    expect(frames[0]['duration'], greaterThan(.3));
+    expect(frames[0]['duration'], closeTo(.82 * .34, .0001));
   });
 
 }
