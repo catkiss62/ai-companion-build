@@ -16,6 +16,7 @@ class NsfwRouteDecision {
     required this.source,
     this.playfulInteraction,
     this.initiativeOpportunity = false,
+    this.cedarIntent,
   });
 
   final bool active;
@@ -24,6 +25,8 @@ class NsfwRouteDecision {
   final PlayfulInteraction? playfulInteraction;
   /// Whether a gentle optional invitation to initiate play fits this turn.
   final bool initiativeOpportunity;
+  /// Null when Jev was unavailable; otherwise a closed-set game intent.
+  final String? cedarIntent;
 }
 
 /// A small pre-generation model pass that decides which prompt layers the
@@ -44,6 +47,7 @@ class NsfwContextRouter {
     required String turnId,
     required String latestUserText,
     required List<ChatMessage> recent,
+    bool cedarConfigured = false,
     GenerationCancellationToken? cancellationToken,
   }) async {
     if ((await db.getSetting('nsfw_route_turn_id')) == turnId) {
@@ -57,6 +61,10 @@ class NsfwContextRouter {
         ),
         initiativeOpportunity:
             (await db.getSetting('playful_form_initiative_open_v1')) == '1',
+        cedarIntent: switch (await db.getSetting('cedar_route_intent_v1')) {
+          '' || null => null,
+          final value => value,
+        },
       );
     }
     final manual = await db.getSetting('nsfw_manual_override') ?? '';
@@ -86,7 +94,7 @@ class NsfwContextRouter {
             '${message.isUser ? 'REAL_USER_MESSAGE' : 'ASSISTANT_HISTORY'}: ${message.content.trim()}')
         .join('\n');
 
-    // Two independent short decisions share one Jev call. Preserve the
+    // Independent short decisions share one Jev call. Preserve the
     // semantic Q-form interaction signal added in +251 when Jev succeeds.
     // Manual routing above is authoritative; unavailable/malformed answers
     // return null and the original DeepSeek pass below owns every field.
@@ -99,7 +107,7 @@ class NsfwContextRouter {
             : transcript,
         'latest_user_text': latestUserText,
       },
-      questions: const <String, JevChoiceQuestion>{
+      questions: <String, JevChoiceQuestion>{
         'mode': JevChoiceQuestion(
           'Which descriptive prompt depth fits latest_user_text in '
           'recent_context? Keep an ongoing explicit scene active when the '
@@ -144,6 +152,25 @@ class NsfwContextRouter {
                 'there is no natural opening for a new playful challenge.',
           },
         ),
+        if (cedarConfigured) 'cedar': const JevChoiceQuestion(
+          'Judge ONLY the latest real user turn against recent_context. Is the '
+          'user authorizing the companion to act in the Cedar game hall now? '
+          'A short acceptance may refer to a recent genuine game invitation '
+          'from either speaker. An assistant promise without a user request '
+          'does not authorize action. Distinguish discussion, hypothetical '
+          'examples, self-only plans, negation, delay, stopping, and a new '
+          'topic. Do not infer an action already happened.',
+          <String, String>{
+            'act_now': 'A direct request or invitation for the companion to '
+                'enter or advance an actual game now, even in novel wording.',
+            'accept': 'The user accepts a recent, concrete game invitation '
+                'in this conversation and wants it to happen now.',
+            'defer': 'Declines, stops, postpones or explicitly does not want '
+                'the companion to act now.',
+            'chat': 'Game talk, strategy, quotes, hypothetical or unrelated '
+                'chat without present authorization to act.',
+          },
+        ),
       },
       cancellationToken: cancellationToken,
       usageLane: 'chat_intimacy_route',
@@ -156,6 +183,7 @@ class NsfwContextRouter {
         source: 'jev_${jev['mode']}',
         playfulInteraction: PlayfulInteraction.parse(jev['interaction']),
         initiativeOpportunity: jev['initiative'] == 'open',
+        cedarIntent: jev['cedar'],
       );
       await _persist(decision, turnId: turnId);
       return decision;
@@ -287,6 +315,7 @@ $latestUserText''',
         decision.playfulInteraction?.name ?? 'unknown');
     await db.setSetting('playful_form_initiative_open_v1',
         decision.initiativeOpportunity ? '1' : '0');
+    await db.setSetting('cedar_route_intent_v1', decision.cedarIntent ?? '');
     await db.setSetting('nsfw_route_turn_id', turnId);
     if (consumeManualOverride) {
       await db.setSetting('nsfw_manual_override', '');

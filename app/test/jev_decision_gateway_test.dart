@@ -105,6 +105,23 @@ void main() {
     });
   });
 
+  test('a close game decision does not open Cedar planning', () async {
+    final result = await gateway(200, <String, Object?>{
+      'answers': <String, Object?>{
+        'cedar': <String, Object?>{
+          'type': 'choice', 'choice': 'act_now', 'confidence': 0.52,
+          'probabilities': <String, double>{
+            'act_now': 0.52, 'accept': 0, 'defer': 0, 'chat': 0.48,
+          },
+        },
+      },
+    }).chooseMany(state: '例子', usageLane: 'chat_intimacy_route',
+        questions: const {'cedar': JevChoiceQuestion('game', {
+          'act_now': 'act', 'accept': 'accept', 'defer': 'defer', 'chat': 'chat',
+        })});
+    expect(result?['cedar'], 'chat');
+  });
+
   test('disabled or missing key makes no OpenRouter request', () async {
     var calls = 0;
     JevDecisionGateway makeGateway(bool enabled, String? key) =>

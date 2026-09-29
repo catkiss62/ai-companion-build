@@ -487,6 +487,7 @@ final class SenRenderer implements GLSurfaceView.Renderer {
     void setCaicaiScene(float width,float height) { caicaiCamera.setScene(width,height); }
     private float sceneHeight() { return caicaiCamera.height(surfaceWidth,surfaceHeight); }
     boolean hasCaicaiModel() { return model!=null; }
+    String textureTimingSummary() { return textures.timingSummary(); }
     String caicaiFrameTrace() {
         return "surface="+surfaceWidth+"x"+surfaceHeight+" sceneHeight="+sceneHeight()
             +" model="+(model!=null)+" contextRecreated="+contextRecreated

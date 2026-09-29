@@ -1,10 +1,17 @@
 # AI Companion · 当前总账
 
-更新时间：2026-09-29（+291 CI PASSED / APK READY / TRUE DEVICE PENDING；+290 Jev 真机待验）
+更新时间：2026-09-29（+292 IMPLEMENTED / CI PENDING；+291 CI PASSED / APK READY / TRUE DEVICE PENDING；+290 Jev 真机待验）
 
 > 本文件是唯一的当前接班入口，继续采用“总账 v2”。顶部是快速接班索引；标记后的正式记录按版本持续追加，不设总容量上限。
 >
 > 判断优先级：用户最新明确决定 > 当前 GitHub 源码与 Actions > 同时刻脱敏真机诊断/备份 > 本文件 > 冻结归档与 Git 历史。`DESIGNED`、`IMPLEMENTED`、`CI PASSED`、`APK READY`、`TRUE DEVICE PASSED`、`PENDING` 必须严格区分。
+
+## 当前任务 · +292 Jev 游戏语义入口与 Live2D 回前台计时（IMPLEMENTED / CI PENDING）
+
+- 用户在 2026-09-29 切换至 6sol 后批准开始此批并要求复核上下文；本批包含 Jev 语义游戏入口与 Live2D 回前台耗时诊断。菜菜现有模型与未来第二模型的隔离/切换收口仍为后续批次；用户暂缓 Live2D 真机观感验收。
+- Jev 游戏意图加入回复前现有 `chat_intimacy_route` 合批问题，无每轮额外 Jev/DeepSeek 调用；`act_now` 或有近期助手回合承接的 `accept` 打开按需 Cedar 规划，`chat/defer` 阻止显式正则误触发，接近概率时归 `chat`。Jev 不可用时仅原显式/窄候选进入 DeepSeek 规划；普通聊天不新增工具请求。唯一 Cedar owner、真实 Outcome 守卫与预算继续有效。诊断新增语义选择及门状态，不写正文。语义准确率仍需独立改写样本和设备实测，不把单元测试当自然语言准确率。
+- Live2D 现有 surface 诊断增加 view 身份、Cubism owner 等待、context 初始化、surfaceChanged（含 renderer/纹理重载）耗时、最近 context 的贴图解码/上传累计及恢复后首次有效模型帧耗时。保留当前 EGL、模型加载和桌宠行为；这些本地耗时不能单独证明屏幕合成呈现时间。用户可在诊断导出中比较 context/surface/首帧事件。
+- 版本 `0.42.48+292`，分支 `agent/v04248-jev-cedar-live2d-trace` 基于远端 +291 总账 `fb6177f`。源码与回归检查进行中，未推送/未构建/未真机验收；完成 CI 和 Draft APK 后回填提交、run、asset、摘要与签名。
 
 ## 2026-09-29 后续检查 · Jev 路由与多 Live2D 收口（DISCUSSION / NOT IMPLEMENTED）
 

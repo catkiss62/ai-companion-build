@@ -34,7 +34,7 @@ import '../models/message_attachment.dart';
 import '../personality/playful_form_state.dart';
 import '../mcp/cedar_agent_loop_policy.dart';
 import '../mcp/cedar_toy_arcade_skill.dart';
-import '../mcp/cedar_context_intent_judge.dart';
+import '../mcp/cedar_semantic_route_policy.dart';
 import '../mcp/cedar_toy_activity.dart';
 import '../models/thought.dart';
 import '../somatic/somatic_engine.dart';
@@ -308,12 +308,16 @@ class DurableGenerationRunner {
           }
         }
       }
+      final cedarConfigured =
+          (await db.getSetting('cedar_toy_enabled')) != '0' &&
+          ((await secureConfig.readCedarToyToken())?.trim().isNotEmpty ?? false);
       final nsfwRoute = await nsfwRouter.decide(
         apiKey: apiKey,
         endpoint: endpoint,
         turnId: user.id,
         latestUserText: user.content,
         recent: recent,
+        cedarConfigured: cedarConfigured,
         cancellationToken: effectiveCancellation,
       );
       onNsfwRoute?.call(nsfwRoute);
@@ -371,9 +375,6 @@ class DurableGenerationRunner {
               (CedarToyArcadeSkill.requestsNaturalPlay(user.content) &&
                   !RegExp(r'以后|有空|改天|哪天|下次|可以考虑')
                       .hasMatch(user.content)));
-      final cedarConfigured =
-          (await db.getSetting('cedar_toy_enabled')) != '0' &&
-          ((await secureConfig.readCedarToyToken())?.trim().isNotEmpty ?? false);
       var localPlan = AgentToolPlanner.routeLocally(user.content);
       if (blindPlayRequested &&
           (localPlan?.calls.any((call) => const <String>{
@@ -461,23 +462,35 @@ class DurableGenerationRunner {
       // Solo game progression still belongs to the background clock. A recent
       // dialogue merely lets the model interpret a short user reply with Cedar
       // tools available; it does not itself advance the session.
-      final cedarSessionActive = cedarState.hasUserTurnContinuation;
-      final cedarContextAvailable = (cedarContextCandidate || pendingInvitation) &&
-          !cedarExplicitRequest &&
-          !cedarSessionActive &&
-          (!finalProvider.isGeminiRelay ||
-              await CedarContextIntentJudge().shouldOfferTools(
-                userText: user.content,
-                previousAssistantText: precedingAssistant!.content,
-                originalInvitationText: pendingInvitation ? invitation!.content : '',
-                activeGameTitle: cedarSession?.displayName ?? '',
-                cancellationToken: effectiveCancellation,
-              ));
+      final cedarSessionActive = cedarState.hasUserTurnContinuation &&
+          (nsfwRoute.cedarIntent == null ||
+              nsfwRoute.cedarIntent == 'act_now' ||
+              nsfwRoute.cedarIntent == 'accept');
+      // Jev has already read this entire exchange in the pre-reply batch.
+      // A semantic request does not require a regex candidate. Acceptance
+      // still needs a nearby assistant reply; the Jev question verifies the
+      // actual invitation. If Jev is offline, only the old narrow candidates
+      // reach DeepSeek's existing on-demand tool planner.
+      final cedarSemantic = nsfwRoute.cedarIntent;
+      final recentAssistant = precedingAssistant != null &&
+          !user.createdAt.isBefore(precedingAssistant.createdAt) &&
+          user.createdAt.difference(precedingAssistant.createdAt) <=
+              const Duration(minutes: 15);
+      final cedarDirectRequest = CedarSemanticRoutePolicy.directRequest(
+        configured: cedarConfigured, explicitRequest: cedarExplicitRequest,
+        intent: cedarSemantic, recentAssistant: recentAssistant,
+      );
+      final cedarContextAvailable = CedarSemanticRoutePolicy.contextualRequest(
+        configured: cedarConfigured, sessionActive: cedarSessionActive,
+        explicitRequest: cedarExplicitRequest,
+        narrowCandidate: cedarContextCandidate || pendingInvitation,
+        intent: cedarSemantic, recentAssistant: recentAssistant,
+      );
       final cedarSkillActive =
-          (cedarExplicitRequest || cedarSessionActive || cedarContextAvailable) &&
+          (cedarDirectRequest || cedarSessionActive || cedarContextAvailable) &&
           cedarConfigured;
       final cedarContextOnly = cedarContextAvailable &&
-          !cedarExplicitRequest &&
+          !cedarDirectRequest &&
           !cedarSessionActive;
       final cedarPromptSession = cedarSession;
       final cedarTerminalGameId =
@@ -532,11 +545,11 @@ class DurableGenerationRunner {
                   state: cedarState,
                   playProtocol: cedarPlayProtocol,
                 ),
-              if (cedarContextAvailable && !cedarExplicitRequest)
-                '结合用户原始游戏邀请、最近对话和本轮简短回复，判断用户是否现在要你推进游戏。若是，就根据真实目录、指南和状态调用 Cedar 工具；若是在闲聊、转移话题或延后，则不要调用。没有真实 Outcome 不得只用对白声称或推迟本应执行的动作。',
+              if (cedarContextOnly)
+                '结合用户本轮意图和最近对话，判断是否现在要你推进真实游戏。若是，就根据真实目录、指南和状态调用 Cedar 工具；若是在闲聊、转移话题或延后，则不要调用。没有真实 Outcome 不得只用对白声称或推迟本应执行的动作。',
               if (explicitCedarGameId.isNotEmpty && immediateCedarEntry)
                 '用户本轮明确提到游戏厅或游玩。若指定的目标游戏不同于当前 game，必须先对目标 game 调用 get_guide；当前游戏的指南绝不授权另一个游戏。无在途原子动作时可立即切换，旧 session 仍保留可恢复；若正有原子动作执行中，应诚实说明当前动作和排队目标，不可假装已经进入。不得等待一个跨游戏无法通用定义的“整把打完”而无限拖延切换。',
-              if (cedarExplicitRequest &&
+              if (cedarDirectRequest && cedarSemantic == null &&
                   !immediateCedarEntry)
                 '用户本轮提到了一个或多个目录游戏，但没有明确要求现在进入；这可以作为建议或未来探索方向，不得擅自把多个候选中的第一个当成立即命令，也不得声称已经切换或建档。',
               if (AgentParticipationConsentPolicy.describesExistingRoom(
@@ -1064,7 +1077,7 @@ $finalGenerationReminder
       if (toolsOpen &&
           generated.toolCalls.isEmpty &&
           CedarAgentLoopPolicy.shouldRetryInitialNoCall(
-            cedarRequested: cedarExplicitRequest || cedarSessionActive,
+            cedarRequested: cedarDirectRequest || cedarSessionActive,
             retryUsed: cedarNoCallRetryUsed,
             remainingCalls: allowedTaskCalls(),
           )) {
@@ -1365,17 +1378,16 @@ $finalGenerationReminder
           final entries = old is List ? old.take(11).toList() : <dynamic>[];
           entries.insert(0, <String, Object?>{
             'at': user.createdAt.millisecondsSinceEpoch,
-            'reason': cedarExplicitRequest ? 'explicit'
+            'reason': cedarDirectRequest ? 'explicit'
                 : cedarSessionActive ? 'session'
-                : cedarContextAvailable ? (pendingInvitation ? 'invitation' : 'solo_context')
+                : cedarContextAvailable ? 'semantic_context'
                 : pendingInvitation ? 'invitation_rejected'
                 : cedarContextCandidate ? 'context_rejected' : 'no_candidate',
+            'semanticIntent': cedarSemantic ?? 'unavailable',
             'planningRounds': agentPlanningRounds,
             'cedarOutcomeCount': agentToolResults
                 .where((result) => result.toolId.startsWith('cedar_toy.')).length,
-            'jevGate': finalProvider.isGeminiRelay &&
-                (cedarContextCandidate || pendingInvitation) &&
-                !cedarExplicitRequest && !cedarSessionActive,
+            'jevGate': cedarSemantic != null,
             'toolGate': cedarSkillActive,
           });
           await db.setSetting(key, jsonEncode(entries));

@@ -24,12 +24,23 @@ final class NativeTextureManager {
     }
 
     private final List<Integer> textureIds = new ArrayList<>();
+    private volatile long decodedNanos, uploadedNanos;
+    private volatile int decodedCount, uploadedCount;
+
+    String timingSummary() {
+        return "texture_decode_ms=" + decodedNanos / 1_000_000L
+                + " texture_upload_ms=" + uploadedNanos / 1_000_000L
+                + " texture_decoded=" + decodedCount + " texture_uploaded=" + uploadedCount;
+    }
 
     TextureInfo loadPng(File file) throws IOException {
         BitmapFactory.Options options = new BitmapFactory.Options();
         options.inPreferredConfig = Bitmap.Config.ARGB_8888;
         options.inPremultiplied = true;
+        long decodeStart = System.nanoTime();
         Bitmap bitmap = BitmapFactory.decodeFile(file.getAbsolutePath(), options);
+        decodedNanos += System.nanoTime() - decodeStart;
+        decodedCount++;
         if (bitmap == null) throw new IOException("无法解码贴图：" + file.getName());
 
         int[] generated = new int[1];
@@ -43,7 +54,10 @@ final class NativeTextureManager {
             GLES20.glTexParameteri(GLES20.GL_TEXTURE_2D, GLES20.GL_TEXTURE_MAG_FILTER, GLES20.GL_LINEAR);
             GLES20.glTexParameteri(GLES20.GL_TEXTURE_2D, GLES20.GL_TEXTURE_WRAP_S, GLES20.GL_CLAMP_TO_EDGE);
             GLES20.glTexParameteri(GLES20.GL_TEXTURE_2D, GLES20.GL_TEXTURE_WRAP_T, GLES20.GL_CLAMP_TO_EDGE);
+            long uploadStart = System.nanoTime();
             GLUtils.texImage2D(GLES20.GL_TEXTURE_2D, 0, bitmap, 0);
+            uploadedNanos += System.nanoTime() - uploadStart;
+            uploadedCount++;
 
             int error = GLES20.glGetError();
             if (error != GLES20.GL_NO_ERROR) {
@@ -69,5 +83,7 @@ final class NativeTextureManager {
 
     void forgetAfterContextLoss() {
         textureIds.clear();
+        decodedNanos = uploadedNanos = 0;
+        decodedCount = uploadedCount = 0;
     }
 }

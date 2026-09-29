@@ -55,6 +55,11 @@ public final class CaicaiCompanionView extends GLSurfaceView implements SenCompa
     private volatile boolean ownsFramework;
     private boolean surfaceThreadDetached;
     private volatile int contexts, surfaces;
+    private static final java.util.concurrent.atomic.AtomicInteger NEXT_VIEW_ID =
+            new java.util.concurrent.atomic.AtomicInteger();
+    private final int diagnosticViewId = NEXT_VIEW_ID.incrementAndGet();
+    private volatile long resumeNanos, firstModelFrameMs = -1;
+    private volatile long ownerWaitMs, contextInitMs, surfaceChangedMs;
     private volatile String renderSize="0x0";
     public String renderSize() { return renderSize; }
     private volatile long frames;
@@ -117,17 +122,27 @@ public final class CaicaiCompanionView extends GLSurfaceView implements SenCompa
             @Override public void onSurfaceCreated(javax.microedition.khronos.opengles.GL10 gl,
                     javax.microedition.khronos.egl.EGLConfig config) {
                 if (released) return;
+                long started = System.nanoTime();
                 if (!ownsFramework) {
                     FRAMEWORK_OWNER.acquireUninterruptibly();
                     ownsFramework = true;
                 }
+                ownerWaitMs = (System.nanoTime() - started) / 1_000_000L;
                 if (released) return;
                 contexts++;
+                started = System.nanoTime();
                 renderer.onSurfaceCreated(gl, config);
+                contextInitMs = (System.nanoTime() - started) / 1_000_000L;
             }
             @Override public void onSurfaceChanged(javax.microedition.khronos.opengles.GL10 gl,
                     int width, int height) {
-                if (!released) { surfaces++; renderer.onSurfaceChanged(gl, width, height); renderSize=width+"x"+height; }
+                if (!released) {
+                    surfaces++;
+                    long started = System.nanoTime();
+                    renderer.onSurfaceChanged(gl, width, height);
+                    surfaceChangedMs = (System.nanoTime() - started) / 1_000_000L;
+                    renderSize=width+"x"+height;
+                }
             }
             @Override public void onDrawFrame(javax.microedition.khronos.opengles.GL10 gl) {
                 if (released) return;
@@ -138,6 +153,10 @@ public final class CaicaiCompanionView extends GLSurfaceView implements SenCompa
                 frameFailed = false;
                 renderer.onDrawFrame(gl);
                 frames++;
+                if (!frameFailed && renderer.hasCaicaiModel() &&
+                        resumeNanos > 0 && firstModelFrameMs < 0) {
+                    firstModelFrameMs = (System.nanoTime() - resumeNanos) / 1_000_000L;
+                }
                 frameDiagnostics.frame(System.nanoTime(),!frameFailed && renderer.hasCaicaiModel(),
                     ()->renderer.caicaiFrameTrace());
                 // Resource-ready alone is not a successful model frame.
@@ -364,7 +383,11 @@ public final class CaicaiCompanionView extends GLSurfaceView implements SenCompa
     }
 
     public void onHostResume() {
-        if (!released) onResume();
+        if (!released) {
+            resumeNanos = System.nanoTime();
+            firstModelFrameMs = -1;
+            onResume();
+        }
     }
 
     public void onHostPause() {
@@ -419,7 +442,14 @@ public final class CaicaiCompanionView extends GLSurfaceView implements SenCompa
     }
 
     public String surfaceDiagnostics() {
-        return "glsurface contexts=" + contexts + " surfaces=" + surfaces + " buffer=" + renderSize + " view=" + getWidth()+"x"+getHeight()+" frames=" + frames+" "+frameDiagnostics.summary();
+        return "glsurface view_id=" + diagnosticViewId + " contexts=" + contexts
+                + " surfaces=" + surfaces + " buffer=" + renderSize + " view="
+                + getWidth()+"x"+getHeight()+" frames=" + frames
+                + " resume_first_model_frame_ms=" + firstModelFrameMs
+                + " owner_wait_ms=" + ownerWaitMs
+                + " context_init_ms=" + contextInitMs
+                + " surface_changed_ms=" + surfaceChangedMs
+                + " " + renderer.textureTimingSummary() + " " + frameDiagnostics.summary();
     }
 
     void playTimedPreset(String name) { queueRenderer(() -> renderer.playTimedPreset(name)); }
