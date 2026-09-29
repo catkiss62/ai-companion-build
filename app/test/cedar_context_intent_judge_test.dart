@@ -40,6 +40,36 @@ void main() {
     expect(await decide(gateway('chat')), isFalse);
   });
 
+  test('pending user invitation is supplied separately from an old game', () async {
+    final judge = CedarContextIntentJudge(
+      gateway: JevDecisionGateway(
+        enabledReader: () async => true,
+        keyReader: () async => 'test-key',
+        clientFactory: () => MockClient((request) async {
+          final sent = jsonDecode(request.body) as Map;
+          final state = sent['state'] as Map;
+          expect(state['active_game'], '旧游戏');
+          expect(state['prior_user_invitation'], '陪你钓鱼？');
+          expect(state['latest_user'], '好呀');
+          return http.Response(jsonEncode({
+            'answers': {
+              'route': {
+                'type': 'choice', 'choice': 'advance', 'confidence': 0.9,
+                'probabilities': {'advance': 0.9, 'chat': 0.1},
+              },
+            },
+          }), 200);
+        }),
+      ),
+    );
+    expect(await judge.shouldOfferTools(
+      userText: '好呀',
+      previousAssistantText: '去钓鱼吗？',
+      activeGameTitle: '旧游戏',
+      priorUserInvitation: '陪你钓鱼？',
+    ), isTrue);
+  });
+
   test('unavailable Jev leaves the existing DeepSeek tool decision reachable', () async {
     expect(await decide(JevDecisionGateway(
       enabledReader: () async => false,
