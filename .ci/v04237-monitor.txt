@@ -1,7 +1,7 @@
 status=success
-run_id=36492157673
-run_url=https://github.com/catkiss62/ai-companion-build/actions/runs/36492157673
-head_sha=e4655ea8357897052c7e8b72d5b18ee03b78f91f
+run_id=36517195317
+run_url=https://github.com/catkiss62/ai-companion-build/actions/runs/36517195317
+head_sha=f853ef397f972d552f2517f0aff670556100fc35
 signer_sha256=30:5E:B3:D8:09:83:B9:63:C6:48:18:DD:F1:AD:56:1F:27:9D:E6:D4:7B:3E:D2:C7:81:AD:A4:48:C7:C2:51:48
-c0457e8d92d0157689546f01f39cad21db7ad6981500f8d813a79310fcaf0b42  AI-Companion-v0.42.44-288-Caicai-IME-Pet-Trace-APK.apk
-release_url=https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-21985d5229af921530dc
+07b3686022ce40ad0177dfaeb612548bd7866f695e0a4aa1b18e82768cf83085  AI-Companion-v0.42.45-289-Jev-Pet-Scale-APK.apk
+release_url=https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-43632f0cf8e06a13f5d5
