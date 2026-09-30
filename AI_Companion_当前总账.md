@@ -1,18 +1,20 @@
 # AI Companion · 当前总账
 
-更新时间：2026-09-30（+296 SURFACE BACKGROUND IMPLEMENTED / CI PENDING；+295 恢复真机成功、背景回归 PARTIAL；+293 DEVICE VISUAL BASELINE）
+更新时间：2026-09-30（+296 CI PASSED / APK READY / TRUE DEVICE PENDING；+295 恢复真机成功、背景回归 PARTIAL；+293 DEVICE VISUAL BASELINE）
 
 > 本文件是唯一的当前接班入口，继续采用“总账 v2”。顶部是快速接班索引；标记后的正式记录按版本持续追加，不设总容量上限。
 >
 > 判断优先级：用户最新明确决定 > 当前 GitHub 源码与 Actions > 同时刻脱敏真机诊断/备份 > 本文件 > 冻结归档与 Git 历史。`DESIGNED`、`IMPLEMENTED`、`CI PASSED`、`APK READY`、`TRUE DEVICE PASSED`、`PENDING` 必须严格区分。
 
-## 当前修复 · +296 保留直接合成恢复，把昼夜背景合入人物 Surface（IMPLEMENTED / CI PENDING / TRUE DEVICE PENDING）
+## 当前修复 · +296 保留直接合成恢复，把昼夜背景合入人物 Surface（CI PASSED / APK READY / TRUE DEVICE PENDING）
 
 - 2026-09-30 09:40 用户确认 +295 切出切回卡住→消失→重现已经解决；但人物背后默认黑色，进入“更多”或“她”再返回聊天时露出刚才页面。截图 `1000155919.jpg` 显示聊天文字/按钮与人物正常叠合、背后却是更多列表。**+295 恢复项单独 TRUE DEVICE PASSED，背景项 TRUE DEVICE FAILED，整版 PARTIAL。保留成功的直接 HC，不回退 Virtual Display。**
 - 同版专用诊断 `live2d_diagnostics_2026-09-30T01-34-52.929576Z.json.txt`：`view_id=1 contexts=1 surfaces=18 frames=1811`，约 59.5 fps；09:34:21、32、44 的多次 Activity 恢复后仍 context=1，模型纹理仅解码/上传 7 张，原先约 2.7 秒重载不再出现。Surface 仍可因停止/显示变化重建，但 EGL 被保留，没有证明“Surface 永不销毁”。普通诊断同为 +295。本次只分析此问题，不改 Jev/Cedar。
 - 读取 Android 15 [SurfaceView 官方源码](https://github.com/aosp-mirror/platform_frameworks_base/blob/android-15.0.0_r1/core/java/android/view/SurfaceView.java)：默认窗口下层的 `draw/dispatchDraw` 用 `clearSurfaceViewPort` 清空其后的窗口 Canvas，`gatherTransparentRegion` 声明透明区域；Flutter HC 背景 `FlutterImageView` 是同窗口的 Canvas 图像，旧 FlutterSurfaceView 的冻结帧在更下层。此源码机制与黑底/上页透出一致；不把旧页误认成正在绘制的聊天背景。简单媒体 Z 层仍在窗口下，`setZOrderOnTop(true)` 又会挡住 Flutter 聊天覆盖层，故不采用这两条。
 - 修复：保留 +295 `PlatformViewLink/initExpensiveAndroidView/GLSurfaceView`。仅为伴侣宿主增加 `CaicaiStageBackground`，将原有公共 day/night WebP 以不透明 GL 四边形绘入与人物相同的 Surface，然后绘制原有 Cubism 人物；Flutter 保留聊天覆盖层、普通立绘与无模型状态的背景。从 Dart 同步现有昼夜选择，原生只接受这两个公共素材路径；居中 cover 及稳定 sceneHeight/顶部 IME 裁剪与 Flutter 原布局一致。纹理按资产变化或真正 EGL 换代加载，Surface 改尺寸/恢复不重解码；缺图记录背景错误且填充不透明深色，避免旧缓冲透出。诊断 state/frame 添加背景资产/加载与上传次数，不包含用户图片或私有模型。
 - 验证：新 Android ES2 pbuffer 像素烟测检查昼夜颜色/上下方向、alpha=255、IME 顶部裁剪不挤压、同资产多帧/resize 不重复加载、真正换 context 重建纹理，以及缺失图像不反复重试。原有 26 文件/配件算法经宿主标记剥离仍通过来源校验；新背景层独立于私有模型。版本 `0.42.52+296`，独立分支 `agent/v04252-caicai-surface-background`；构建结果另行回填。
+- 构建：本地功能提交 `c88bc4e3284df94a7317af754867a1e0c14222a4`，远端同源码树 `0a1b2f3695c9eac4a32989cefe5ec2008b5c22a1`，tree `ad979f9d6f3d1a0cca34187313ad9165f9413177`。[Actions 36657791150](https://github.com/catkiss62/ai-companion-build/actions/runs/36657791150) `success`；原生模拟器日志确认新增两项背景像素测试与既有三项测试合计 5/5 完成、0 跳过、0 失败；130 项源码门、Kotlin、Flutter analyze/test、arm64 Release、资源和签名核验全绿，失败报告跳过。未合并 main。
+- 未发布 Draft `399666814`：[+296 测试 APK](https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-6cc8871713cb98446307)，target=`0a1b2f3`，asset `599823261`，文件 `AI-Companion-v0.42.52-296-Caicai-Surface-Background-APK.apk`，726117130 字节，SHA-256 `2e8d26353b2705bdc2340a7bc8b9906139bebcde76db7b7d65d2be51b2bb2dce`；Artifact `11074270365`。CI monitor 与 release digest 一致；签名证书 `30:5E:B3:D8:09:83:B9:63:C6:48:18:DD:F1:AD:56:1F:27:9D:E6:D4:7B:3E:D2:C7:81:AD:A4:48:C7:C2:51:48` 与现有测试版本一致，可覆盖安装保留数据；`draft=true / published_at=null`，未正式发布。背景和综合真机效果仍 PENDING。
 - 真机待验：开机直接进聊天可见正常昼夜背景；“聊天→更多→聊天”和“聊天→她→聊天”各三次无旧页残留；“≡→直接返回”和真正切 App 后返回仍无秒级空白；聊天文字、按钮、气焰条覆盖顺序正常；键盘开合人物和背景保持尺寸。+293 保留完整视觉回退基线，+295 保留恢复成功的源码与 Draft；若失败记录具体项，不能覆盖已确认的恢复成功事实。
 
 ## 当前试验 · +295 菜菜原生直接合成，绕开最近任务返回时的 Virtual Display 重置（CI PASSED / APK READY / TRUE DEVICE PARTIAL：恢复成功，背景回归）
@@ -43,7 +45,7 @@
 | +293 当前真机效果 | 用户确认人物效果非常好；最近任务返回稳定出现卡住→消失→恢复，诊断见上 | 本轮仅动生命周期并逐项记录 CI/真机结果 |
 | +294 暂停时机试验 | 2026-09-30 05:07 用户及 +294 诊断确认仍卡住→消失→重现；`TRUE DEVICE FAILED` | 仅移动 onPause/onStop 无效，转查 Flutter Virtual Display 恢复拆装 |
 | +295 直接 Hybrid 试验 | 2026-09-30 09:40 用户确认恢复成功，同版 context 始终 1；背景黑色/旧页面透出失败。Draft `399549119`；`TRUE DEVICE PARTIAL` | 保留直接 HC 与恢复成功，+296 单独修复 Surface 背景 |
-| +296 原生背景合成 | 已实现，新增真实 ES2 像素烟测；CI 与真机待验 | 不能牺牲 +295 恢复结果；检查昼夜、切页、聊天覆盖与键盘裁剪 |
+| +296 原生背景合成 | Actions `36657791150` 全绿、原生 5/5（含两项 ES2 像素测试），Draft `399666814`；`CI PASSED / APK READY / TRUE DEVICE PENDING` | 不能牺牲 +295 恢复结果；检查昼夜、切页、聊天覆盖与键盘裁剪 |
 
 ### +294 真机失败分析 · Flutter 恢复路径（2026-09-30 05:07 后，调查完成／下一实现待定）
 
