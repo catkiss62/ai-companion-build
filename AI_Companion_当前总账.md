@@ -1,6 +1,6 @@
 # AI Companion · 当前总账
 
-更新时间：2026-09-30（+298 IN PROGRESS；+297 CI PASSED / APK READY / TRUE DEVICE PENDING；+295 恢复真机成功、背景回归 PARTIAL；+293 DEVICE VISUAL BASELINE）
+更新时间：2026-09-30（+298 CI PASSED / APK READY / TRUE DEVICE PENDING；+297 CI PASSED / APK READY / TRUE DEVICE PENDING；+295 恢复真机成功、背景回归 PARTIAL；+293 DEVICE VISUAL BASELINE）
 
 > 本文件是唯一的当前接班入口，继续采用“总账 v2”。顶部是快速接班索引；标记后的正式记录按版本持续追加，不设总容量上限。
 >
@@ -18,12 +18,19 @@
 - 未发布 Draft `399666814`：[+296 测试 APK](https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-6cc8871713cb98446307)，target=`0a1b2f3`，asset `599823261`，文件 `AI-Companion-v0.42.52-296-Caicai-Surface-Background-APK.apk`，726117130 字节，SHA-256 `2e8d26353b2705bdc2340a7bc8b9906139bebcde76db7b7d65d2be51b2bb2dce`；Artifact `11074270365`。CI monitor 与 release digest 一致；签名证书 `30:5E:B3:D8:09:83:B9:63:C6:48:18:DD:F1:AD:56:1F:27:9D:E6:D4:7B:3E:D2:C7:81:AD:A4:48:C7:C2:51:48` 与现有测试版本一致，可覆盖安装保留数据；`draft=true / published_at=null`，未正式发布。背景和综合真机效果仍 PENDING。
 - 真机待验：开机直接进聊天可见正常昼夜背景；“聊天→更多→聊天”和“聊天→她→聊天”各三次无旧页残留；“≡→直接返回”和真正切 App 后返回仍无秒级空白；聊天文字、按钮、气焰条覆盖顺序正常；键盘开合人物和背景保持尺寸。+293 保留完整视觉回退基线，+295 保留恢复成功的源码与 Draft；若失败记录具体项，不能覆盖已确认的恢复成功事实。
 
-## 当前实施 · v0.42.54+298 指定时长游戏任务与过程分享（IN PROGRESS / CI PENDING / TRUE DEVICE PENDING）
+## 当前实施 · v0.42.54+298 指定时长游戏任务与过程分享（CI PASSED / APK READY / TRUE DEVICE PENDING）
 
 - 用户 2026-09-30 批准直接授权“现在去玩半小时白色房间，看看结果”，并指出游戏过程新进展不能套用45分钟普通主动分享间隔；不能每一步都分享。澄清：旧45分钟、24小时6条、2小时3条按mcp/cedar_game来源统一计数，刚发生与延后分享都受限；普通回忆旧游戏内容不必然走此源通道。
 - 基线+297源码6524f3e、结果总账114c97e；独立分支agent/v04254-explicit-game-task-sharing。新增明确时长本机任务入口，模型按语义选择工具、核对真实目录和完整指南；任务仅在正式回复落库后激活，复用唯一Cedar后台执行器/lease/fence，用户聊天暂停计时，时限到/服务器限制/等待人类/换游戏/关闭/重启终止并保留真实结果回报。默认持续竞争仍由Desire决定；任务回报绕过普通欲望抽选而保留Active Brain与写入围栏。
 - 分享判断合并到既有下一步原生工具规划，用已存Outcome和已分享内容判断新发现/明显变化，连续结果合并、事件去重；结构化quiet保持执行真值核验快速，不新增每步DS判定。游玩过程值得分享的结果直接排队，移除该路径45分钟/6条/3条额度，不设半小时最多2次；旧经历自主分享保留原普通竞争规则。真实时间、防剧透、MCP凭据、终局/结果快照防重放、暂停/Stop与+297其它六项功能保持回归覆盖。
-- 验证计划：时长引用与边界、失败/Stop不激活、已落库恢复、有效计时、提前结束回报、重复投递、结构化过程分享及事件去重；专项源码门、131既有门、Flutter analyze/test、Kotlin/native smoke与签名APK。未构建/未真机验收前不写PASSED。
+- 验证计划：时长引用与边界、失败/Stop不激活、已落库恢复、有效计时、提前结束回报、重复投递、结构化过程分享及事件去重；专项源码门、132项完整门、Flutter analyze/test、Kotlin/native smoke与签名APK。未构建/未真机验收前不写PASSED。
+
+
+- 实施及验证完成：新增cedar_toy.start_timed_play用户专用原生工具，逐字核对1至30分钟时长引用，真实指定目录/完整指南后登记；仅已落库assistant ID激活，过日或超过2小时未启动则过期。同一回合至多一次真实mutation；若先play再登记，后续schema只开放本机时长任务，不重复远端动作。明确暂停清除待启动授权、结束任务并暂停释放该活动；有效时长计数与服务器/疲劳/夜间围栏保持原权威，进程/导入不延长旧授权。
+- 回报保留持久outbox，固定message ID与提交前writer/Brain/沉浸围栏防重复；有任务结果即优先交付，不参与普通欲望抽选、不被游戏分享开关屏蔽；报告请求时长与实际usedMs、已确认进展及提前结束原因。过程分享判断合并到已有后台native play规划，结构化quiet继续即时入库；只用已保存事件，排除get_result/状态查询/前台已展示与已分享部分，待发期间合并新事件。旧经历的普通Desire分享规则仍保留；过程direct队列不套45分钟/6条/3条硬额。
+- 最终源码869a117ebbd71a2d6cb2e049d3e23af3f1133771，tree6693a12440b12afdb608442b471ea30014446e8e；[Actions 36703913197](https://github.com/catkiss62/ai-companion-build/actions/runs/36703913197) success：原生烟测、132项完整源码门、Kotlin、Flutter analyze/test、arm64 Release、资源/稳定签名全绿，11项新行为回归通过。本地可运行119项通过，13项依赖未恢复资源/Android工具链，已由完整CI补齐。首轮36702658130因加入暂停补强被新版替代取消，不记作源码失败。
+- [未发布+298测试APK](https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-73dccee8ef74735b707f)，Draft399945262，target869a117e，asset600714919，AI-Companion-v0.42.54-298-Explicit-Game-Task-Sharing-APK.apk，726471818bytes，SHA-2569a2ec0b07e556ee270cb32102c5337fbc0267ce0ec654e88784e7d19b4937fc2；Artifact11092411285。CI monitor源码/digest一致，签名30:5E:B3:D8:09:83:B9:63:C6:48:18:DD:F1:AD:56:1F:27:9D:E6:D4:7B:3E:D2:C7:81:AD:A4:48:C7:C2:51:48与+297相同，可覆盖安装保留数据；未合并main、未正式发布。
+- 真机待验：自然说“你现在去玩半小时白色房间，看看结果”无需Desire抽选开始；重要新进展能自然分享，小额重复不每步播报；聊天暂停会顺延有效计时，结束/限制按实际回报；“先别玩了”停止任务；重启/导入不自行重授30分钟。讨论示例和笼统“你可以自己玩玩”不建立固定时长任务。导出诊断仍需持续核对Jev原始概率、实际路由与fallback，未获得本轮真机样本不能标TRUE DEVICE PASSED。+297沉浸冻结、独立情绪层/语音开关、记住事项与圆形原图球作为关联回归保留。
 
 ## 当前试验 · +295 菜菜原生直接合成，绕开最近任务返回时的 Virtual Display 重置（CI PASSED / APK READY / TRUE DEVICE PARTIAL：恢复成功，背景回归）
 
