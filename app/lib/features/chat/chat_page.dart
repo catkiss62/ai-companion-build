@@ -1386,7 +1386,11 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
                       // Keep AndroidView and its GL buffer full size under the IME.
                       height: _caicaiEnabled ? _caicaiStableHeight : constraints.maxHeight,
                       child: _caicaiEnabled
-                          ? CaicaiLive2DStage(qForm: _playfulForm.qForm, emotion: _currentEmotion.key, active: widget.active, sceneSize: Size(constraints.maxWidth, _caicaiStableHeight!))
+                          ? CaicaiLive2DStage(qForm: _playfulForm.qForm, emotion: _currentEmotion.key, active: widget.active,
+                              sceneSize: Size(constraints.maxWidth, _caicaiStableHeight!),
+                              backgroundAsset: _useNightBackground
+                                  ? 'assets/lingchat/background/night.webp'
+                                  : 'assets/lingchat/background/day.webp')
                           : IgnorePointer(
                         child: ChatPortraitStage(
                           emotion: _currentEmotion,

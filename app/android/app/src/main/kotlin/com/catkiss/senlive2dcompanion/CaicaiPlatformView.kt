@@ -141,6 +141,15 @@ internal class CaicaiPlatformView(
         when (call.method) {
             "start" -> { loadCurrentModel(); result.success(state()) }
             "getState" -> result.success(state())
+            "setBackground" -> {
+                val asset = call.arguments as? String
+                if (asset !in setOf("assets/lingchat/background/day.webp", "assets/lingchat/background/night.webp")) {
+                    result.error("invalid_background", "Unsupported stage background", null)
+                } else {
+                    companion.setStageBackground(asset!!)
+                    result.success(null)
+                }
+            }
             "reloadModel" -> { loadCurrentModel(); result.success(null) }
             "setVisible" -> {
                 val visible = call.arguments == true
@@ -304,6 +313,7 @@ internal class CaicaiPlatformView(
 
     fun state(): Map<String, String> = mapOf(
         "status" to renderStatus, "detail" to renderDetail, "surface" to companion.surfaceDiagnostics(),
+        "background" to companion.backgroundDiagnostics(),
         "feature" to "caicai_live2d", "execution_id" to executionId,
         "view_attached" to companion.isAttachedToWindow.toString(), "view_shown" to companion.isShown.toString(),
         "view_alpha" to companion.alpha.toString(), "keyboard_visible" to keyboardVisible.toString(),

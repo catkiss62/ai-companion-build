@@ -484,6 +484,15 @@ final class SenRenderer implements GLSurfaceView.Renderer {
     private volatile CaicaiRootTransform caicaiRoot = CaicaiRootTransform.IDENTITY;
     private float motionGain=1f, motionSpeed=1f, lowerLegPivot=.88f;
     private final CaicaiSceneCamera caicaiCamera=new CaicaiSceneCamera();
+    private volatile CaicaiStageBackground caicaiBackground;
+    void setCaicaiBackground(String asset) {
+        if (caicaiBackground == null) caicaiBackground = new CaicaiStageBackground(context);
+        caicaiBackground.setAsset(asset);
+    }
+    String caicaiBackgroundDiagnostics() { return caicaiBackground == null ? "disabled" : caicaiBackground.diagnostics(); }
+    private void drawCaicaiBackground() {
+        if (caicaiBackground != null) caicaiBackground.draw(surfaceWidth,surfaceHeight,sceneHeight());
+    }
     void setCaicaiScene(float width,float height) { caicaiCamera.setScene(width,height); }
     private float sceneHeight() { return caicaiCamera.height(surfaceWidth,surfaceHeight); }
     boolean hasCaicaiModel() { return model!=null; }
@@ -491,6 +500,7 @@ final class SenRenderer implements GLSurfaceView.Renderer {
     String caicaiFrameTrace() {
         return "surface="+surfaceWidth+"x"+surfaceHeight+" sceneHeight="+sceneHeight()
             +" model="+(model!=null)+" contextRecreated="+contextRecreated
+            +" background="+caicaiBackgroundDiagnostics()
             +" bounds="+modelBoundsLeft+","+modelBoundsTop+","+modelBoundsRight+","+modelBoundsBottom
             +" root="+(model==null?"none":model.rootX()+","+model.rootTilt())
             +" "+(model==null?"":model.caicaiMotionTrace());
@@ -612,6 +622,7 @@ final class SenRenderer implements GLSurfaceView.Renderer {
     @Override
     public void onSurfaceCreated(GL10 unused, EGLConfig config) {
         if (released) return;
+        if (caicaiBackground != null) caicaiBackground.contextCreated(); // AI_COMPANION_HOST_PLAN_HOOK
         try {
             initializeFramework();
             GLES20.glEnable(GLES20.GL_BLEND);
@@ -658,6 +669,7 @@ final class SenRenderer implements GLSurfaceView.Renderer {
         GLES20.glClearColor(0.0f, 0.0f, 0.0f, 0.0f);
         GLES20.glClear(GLES20.GL_COLOR_BUFFER_BIT | GLES20.GL_DEPTH_BUFFER_BIT);
         GLES20.glClearDepthf(1.0f);
+        drawCaicaiBackground(); // AI_COMPANION_HOST_PLAN_HOOK
 
         if (released) return;
 
@@ -1502,6 +1514,7 @@ final class SenRenderer implements GLSurfaceView.Renderer {
     void release() {
         if (released) return;
         released = true;
+        if (caicaiBackground != null) caicaiBackground.release(); // AI_COMPANION_HOST_PLAN_HOOK
         pendingRequest = null;
         releaseCurrentModel();
         if (frameworkReady && CubismFramework.isInitialized()) CubismFramework.dispose();
