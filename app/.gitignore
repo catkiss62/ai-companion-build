@@ -3,6 +3,8 @@
 .pub-cache/
 .pub/
 build/
+!assets/memory_galaxy/vendor/three/build/
+!assets/memory_galaxy/vendor/three/build/three.module.js
 android/.gradle/
 android/local.properties
 *.iml

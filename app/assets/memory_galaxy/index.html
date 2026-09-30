@@ -112,7 +112,9 @@ window.galaxyFailed = message => {
   else show();
   window.galaxyPause?.();
 };
-addEventListener('error', () => window.galaxyFailed());
+addEventListener('error', event => {
+  if(event instanceof ErrorEvent || event.target instanceof HTMLScriptElement)window.galaxyFailed();
+}, true);
 addEventListener('unhandledrejection', () => window.galaxyFailed());
 </script>
 <script type="importmap">

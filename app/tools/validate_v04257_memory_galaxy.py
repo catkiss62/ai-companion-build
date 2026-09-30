@@ -5,9 +5,16 @@ Database, lifecycle and native path behavior are exercised by real runtime tests
 from pathlib import Path
 import json
 import re
+import subprocess
 
 app = Path(__file__).resolve().parents[1]
 root = app / 'assets/memory_galaxy'
+tracked = set(subprocess.check_output(
+    ['git', 'ls-files', '-z', '--', 'app/assets/memory_galaxy'], cwd=app.parent,
+).decode().split('\0'))
+for asset in root.rglob('*'):
+    if asset.is_file():
+        assert asset.relative_to(app.parent).as_posix() in tracked, f'Untracked offline asset: {asset}'
 html = (root / 'index.html').read_text()
 imports = json.loads(re.search(r'<script type="importmap">(.*?)</script>', html, re.S)[1])['imports']
 assert imports['three'] == './vendor/three/build/three.module.js'
