@@ -1,5 +1,6 @@
 import '../mcp/cedar_play_session_policy.dart';
 import '../mcp/cedar_timed_play_task.dart';
+import '../mcp/cedar_live_share_policy.dart';
 import 'dart:async';
 import 'dart:convert';
 import 'dart:math';
@@ -231,8 +232,8 @@ class ProactiveEngine {
   Future<void> deferCedarCheckpointAfterCompetition({required DateTime now}) =>
       cedarToyAutonomy.deferCheckpointAfterCompetition(now: now);
 
-  /// Fast/spectate mode promotes a Cedar Thought into the ordinary main-chat
-  /// generation path immediately. It still honors Active Brain, user-turn,
+  /// Eligible game progress uses the ordinary main-chat generation path.
+  /// It still honors Active Brain, user-turn,
   /// immersive-page and writer-lease boundaries.
   Future<ProactiveDecision> deliverPendingCedarShareIfAny() async {
     if (!await db.brainWorkAllowed() ||
@@ -253,6 +254,7 @@ class ProactiveEngine {
     final thoughtId = queue.first;
     final committedShare = await db.messageById('cedar-share:$thoughtId');
     if (committedShare != null) {
+      await CedarLiveSharePolicy(db).noteDelivered(thoughtId);
       final savedThought = await db.thoughtById(thoughtId);
       if (savedThought != null && savedThought.lastActedAt == null) {
         await thoughtLifecycle.markActed(thought: savedThought, messageId: committedShare.id);
@@ -272,6 +274,14 @@ class ProactiveEngine {
       await store.removeDirectShare(thoughtId);
       return const ProactiveDecision(sent: false, reason: 'stale_cedar_share_removed');
     }
+    final shares = CedarLiveSharePolicy(db);
+    if (!await shares.deliveryAllowed(thoughtId, thought.source)) {
+      return const ProactiveDecision(
+        sent: false,
+        reason: 'cedar_share_round_interval',
+      );
+    }
+    await shares.refreshPending(thoughtId);
     final decision = await evaluate(
       forceForDebug: true,
       forcedThoughtIdForDebug: thoughtId,
@@ -1169,6 +1179,10 @@ class ProactiveEngine {
     final isImmediateCedarShare = isCedarGameShare &&
         forceForDebug &&
         forcedThoughtIdForDebug == intentThought?.id;
+    if (isImmediateCedarShare && !await CedarLiveSharePolicy(db)
+        .deliveryAllowed(intentThought!.id, intentThought.source)) {
+      return const ProactiveDecision(sent: false, reason: 'cedar_share_round_interval');
+    }
     if (isCedarGameShare) {
       final activeSharedSession = await CedarToyActivityStore(db).load();
       if (activeSharedSession != null &&
@@ -1413,13 +1427,9 @@ ${jsonEncode({
               'cedar_event_age_minutes': cedarOutcomeAgeMinutes!,
               'cedar_event_is_recent': cedarOutcomeIsRecent,
             },
-            'thought': intentThought.text.length <=
-                    (isCedarGameShare ? 6000 : 500)
+            'thought': intentThought.text.length <= (isCedarGameShare ? 14000 : 500)
                 ? intentThought.text
-                : intentThought.text.substring(
-                    0,
-                    isCedarGameShare ? 6000 : 500,
-                  ),
+                : intentThought.text.substring(0, isCedarGameShare ? 14000 : 500),
           })}
 【END SELECTED_THOUGHT_DATA】''';
     final sourceAgnosticShareContract = !shareLikeIntent
@@ -1982,6 +1992,11 @@ ${PromptBuilder.visibleChineseGenerationReminder(proactive: true)}
     );
     final messageId = isImmediateCedarShare
         ? 'cedar-share:${intentThought!.id}' : _uuid.v4();
+    if (isImmediateCedarShare && !await CedarLiveSharePolicy(db)
+        .deliveryAllowed(intentThought!.id, intentThought.source)) {
+      await noteGeneration('preempted', reasonTag: 'cedar_share_round_interval');
+      return const ProactiveDecision(sent: false, reason: 'cedar_share_round_interval');
+    }
     final proactiveAttachments = <MessageAttachment>[];
     if (isCedarGameShare) {
       final activityState = await CedarToyActivityStore(db).loadState();
@@ -2061,6 +2076,9 @@ ${PromptBuilder.visibleChineseGenerationReminder(proactive: true)}
         intentKind: intentKind,
         deliveryStyle: deliveryStyle,
       );
+    }
+    if (isImmediateCedarShare) {
+      await CedarLiveSharePolicy(db).noteDelivered(intentThought!.id);
     }
     await db.addProactiveHistory(
       triggerReason:

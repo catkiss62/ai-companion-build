@@ -5,6 +5,7 @@ import 'package:uuid/uuid.dart';
 import '../database/app_database.dart';
 import 'cedar_agent_loop_policy.dart';
 import 'cedar_game_protocol.dart';
+import 'cedar_solo_episode_policy.dart';
 import 'cedar_duel_observer_resolver.dart';
 import 'cedar_toy_client.dart';
 import 'mcp_protocol.dart';
@@ -31,21 +32,22 @@ enum CedarParticipationMode {
       );
 }
 
-/// User-selected pace while the Cedar activity window is visibly open.
-/// A stale/missing viewer heartbeat always resolves to [leisure], so the
-/// faster rates are temporary observation modes rather than durable autonomy
-/// settings.
+/// Durable minimum sharing interval. Ordinary solo play always uses two
+/// minutes; legacy viewing-speed keys intentionally migrate to five rounds.
 enum CedarViewingPace {
-  leisure('leisure', '休闲模式', Duration(minutes: 2)),
-  fast('fast', '快速模式', Duration(seconds: 5)),
-  spectate('spectate', '观战模式', Duration(seconds: 10));
+  leisure('every5', '5轮回复', 5),
+  fast('every1', '1轮回复', 1),
+  spectate('every10', '10轮回复', 10);
 
-  const CedarViewingPace(this.key, this.label, this.soloStepGap);
+  const CedarViewingPace(this.key, this.label, this.shareRounds);
   final String key;
   final String label;
-  final Duration soloStepGap;
+  final int shareRounds;
+  Duration get soloStepGap => const Duration(minutes: 2);
 
-  bool get isWatching => this != leisure;
+  // Retained for callers of the former temporary observation mode. Selecting
+  // a sharing interval never increases the drive to play or the play speed.
+  bool get isWatching => false;
 
   static CedarViewingPace fromKey(String? value) => values.firstWhere(
         (item) => item.key == value,
@@ -538,6 +540,7 @@ class CedarToyActivityState {
     this.queuedSwitches = const <CedarQueuedSwitch>[],
     this.notices = const <CedarCrossGameNotice>[],
     this.execution,
+    this.completedPlayRounds = 0,
   });
 
   final String activeGameId;
@@ -546,6 +549,7 @@ class CedarToyActivityState {
   final List<CedarCrossGameNotice> notices;
   final CedarGameExecution? execution;
   final DateTime updatedAt;
+  final int completedPlayRounds;
 
   CedarGameSession? get activeSession => sessions[activeGameId];
   bool get hasUserTurnContinuation {
@@ -573,6 +577,7 @@ class CedarToyActivityState {
     CedarGameExecution? execution,
     bool clearExecution = false,
     DateTime? updatedAt,
+    int? completedPlayRounds,
   }) =>
       CedarToyActivityState(
         activeGameId: activeGameId ?? this.activeGameId,
@@ -581,10 +586,12 @@ class CedarToyActivityState {
         notices: notices ?? this.notices,
         execution: clearExecution ? null : execution ?? this.execution,
         updatedAt: updatedAt ?? this.updatedAt,
+        completedPlayRounds: completedPlayRounds ?? this.completedPlayRounds,
       );
 
   Map<String, Object?> toJson() => <String, Object?>{
         'version': 2,
+        'completed_play_rounds': completedPlayRounds,
         'active_game_id': activeGameId,
         'sessions': sessions.values.map((item) => item.toJson()).toList(),
         'queued_switches': queuedSwitches.map((item) => item.toJson()).toList(),
@@ -609,6 +616,10 @@ class CedarToyActivityState {
     return CedarToyActivityState(
       activeGameId: json['active_game_id']?.toString() ?? '',
       sessions: sessions,
+      completedPlayRounds:
+          ((json['completed_play_rounds'] as num?)?.toInt() ?? 0)
+              .clamp(0, 9007199254740991)
+              .toInt(),
       queuedSwitches: (json['queued_switches'] as List?)
               ?.whereType<Map>()
               .map((item) => CedarQueuedSwitch.fromJson(item))
@@ -666,7 +677,6 @@ class CedarToyActivityStore {
 
   Future<void> beginViewing() async {
     final now = DateTime.now();
-    await db.setSetting(viewingPaceSettingKey, CedarViewingPace.leisure.key);
     await db.setSetting(
       viewerHeartbeatSettingKey,
       now.millisecondsSinceEpoch.toString(),
@@ -679,18 +689,10 @@ class CedarToyActivityStore {
       );
 
   Future<void> endViewing() async {
-    await db.setSetting(viewingPaceSettingKey, CedarViewingPace.leisure.key);
     await db.setSetting(viewerHeartbeatSettingKey, '0');
   }
 
   Future<CedarViewingPace> currentViewingPace({DateTime? now}) async {
-    final at = int.tryParse(await db.getSetting(viewerHeartbeatSettingKey) ?? '');
-    if (at == null || at <= 0) return CedarViewingPace.leisure;
-    final current = now ?? DateTime.now();
-    if (current.difference(DateTime.fromMillisecondsSinceEpoch(at)) >
-        viewerHeartbeatTtl) {
-      return CedarViewingPace.leisure;
-    }
     return CedarViewingPace.fromKey(
       await db.getSetting(viewingPaceSettingKey),
     );
@@ -703,21 +705,6 @@ class CedarToyActivityStore {
       viewerHeartbeatSettingKey,
       now.millisecondsSinceEpoch.toString(),
     );
-    if (!pace.isWatching) return;
-    final state = await loadState();
-    final session = state.activeSession;
-    if (session == null || !session.needsContinuation) return;
-    final fasterDue = now.add(pace.soloStepGap);
-    final existingDue = session.nextActionAt;
-    if (existingDue != null && !existingDue.isAfter(fasterDue)) return;
-    await _saveState(state.copyWith(
-      sessions: Map<String, CedarGameSession>.from(state.sessions)
-        ..[session.gameId] = session.copyWith(
-          nextActionAt: fasterDue,
-          updatedAt: now,
-        ),
-      updatedAt: now,
-    ));
   }
 
   Future<void> queueDirectShare(String thoughtId) async {
@@ -1346,7 +1333,10 @@ class CedarToyActivityStore {
             pendingRoomMessage.isNotEmpty);
     final effectiveInvitationApproved =
         invitationApproved || existing.invitationApproved;
-    final realtime = CedarServerContinuationPolicy.usesRealtimePace(
+    final ordinarySolo = mode == CedarParticipationMode.solo &&
+        pendingRoomMessage.isEmpty && existing.ownRoomAliases.isEmpty &&
+        !(continuation != null && CedarPlatformActionPolicy.isReadOnly(continuation.action));
+    final realtime = !ordinarySolo && CedarServerContinuationPolicy.usesRealtimePace(
       hasContinuationCall: continuation != null,
       hasPendingRoomMessage: pendingRoomMessage.isNotEmpty,
       companionTurn: normalizedActor == 'companion' &&
@@ -1386,7 +1376,8 @@ class CedarToyActivityStore {
           ? now.add(ordinaryRetryGap)
           : shouldContinue
           ? now.add(scheduledWait
-              ? Duration(seconds: boundedResumeSeconds)
+              ? Duration(seconds: ordinarySolo && boundedResumeSeconds < 120
+                  ? 120 : boundedResumeSeconds)
               : realtime
                   ? realtimeContinuationGap
                   : viewingPace.soloStepGap)
@@ -1426,6 +1417,12 @@ class CedarToyActivityStore {
         : next;
     state = state.copyWith(
       activeGameId: next.isUnroutableRemoteWait ? '' : gameId,
+      completedPlayRounds:
+          state.completedPlayRounds +
+          (!outcome.isError &&
+                  CedarSoloEpisodePolicy.isStateChangingAction(action)
+              ? 1
+              : 0),
       sessions: Map<String, CedarGameSession>.from(state.sessions)
         ..[gameId] = storedNext,
       clearExecution: !keepExecution,

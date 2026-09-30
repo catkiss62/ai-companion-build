@@ -143,8 +143,8 @@ for token in (
 assert "attachment.blobId.isNotEmpty" in chat
 assert "adds an independent DB reference without copying bytes" in chat
 for token in (
-    "'protocol_version': 6",
-    "protocolVersion: 6",
+    "'protocol_version': 7",
+    "protocolVersion: 7",
     "'media_files': mediaFiles",
     "_validateMediaPayload",
     "_validateMediaReferences",

@@ -1,41 +1,37 @@
 # AI Companion · 当前总账
 
-更新时间：2026-09-30（+299 CI PASSED / APK READY / TRUE DEVICE PENDING；+298 CI PASSED / APK READY / TRUE DEVICE PENDING；+297 CI PASSED / APK READY / TRUE DEVICE PENDING；+295 恢复真机成功、背景回归 PARTIAL；+293 DEVICE VISUAL BASELINE）
+更新时间：2026-10-01（+300 IMPLEMENTED / CI PENDING / APK PENDING；+299 CI PASSED / APK READY / TRUE DEVICE PENDING；+298 CI PASSED / APK READY / TRUE DEVICE PENDING；+297 CI PASSED / APK READY / TRUE DEVICE PENDING；+295 恢复真机成功、背景回归 PARTIAL；+293 DEVICE VISUAL BASELINE）
 
 > 本文件是唯一的当前接班入口，继续采用“总账 v2”。顶部是快速接班索引；标记后的正式记录按版本持续追加，不设总容量上限。
 >
 > 判断优先级：用户最新明确决定 > 当前 GitHub 源码与 Actions > 同时刻脱敏真机诊断/备份 > 本文件 > 冻结归档与 Git 历史。`DESIGNED`、`IMPLEMENTED`、`CI PASSED`、`APK READY`、`TRUE DEVICE PASSED`、`PENDING` 必须严格区分。
 
 
-## 当前加急 · v0.42.55+299 存档 CursorWindow 与白天背景（CI PASSED / APK READY / TRUE DEVICE PENDING）
+## 当前实施 · v0.42.56+300 游戏分享间隔、旋转、持续摸头与存档完整性（IMPLEMENTED / CI PENDING / APK PENDING / TRUE DEVICE PENDING）
 
-- 用户 2026-09-30 20:37 明确只做两件事：修复现有存档失败、替换已生成并认可的白天背景；授权直接推送并构建测试 APK。上一轮其余方案暂缓，详见正文“2026-09-30 美术与存档完整性后续方案”。
-- 截图证据：普通备份在 `SELECT * FROM settings` 报 `Row too big to fit into CursorWindow requiredPos=294 totalRows=295`。确定是 settings 的单条大值读取故障，尚无本机数据库证据可确定具体设置键；不凭行号猜键，不清空、截断或删除用户记录。
-- 基线 +298 源码869a117e/总账2ebe1d6；独立分支 `agent/v04255-backup-cursor-window-day`。计划在既有导出事务中按字节分段读取大 settings，重组后仍导出原 key/value；常规 getSetting 同用有界读取，长值保持事务一致性。兼容现有 schema61/protocol6；不扩大本轮到 Live2D 全量备份补齐。
-- 背景：仅把本窗口日光预览转换为 WebP 并替换公共 `assets/lingchat/background/day.webp`，沿用 Flutter/原生同路径、cover/IME/EGL 恢复机制；夜图、人物、配件、模型路由、游戏与界面其余项保持原实现。
-- 验证：多 MiB 中文/emoji/NUL 字节重组、受限 CursorWindow 查询、完整数据库 JSON 导出/导入、Android 真 SQLite 游标烟测；完整源码门、Flutter analyze/tests、原生烟测、Kotlin、arm64 签名 APK。CI 与真机分别回填，不提前标成功。
-- 实施：新增 SqliteSettingsReader，首段和后续每次查询最多64KiB BLOB；完整拼接后一次UTF-8解码，支持中文/emoji跨段与NUL，空值保留。导出在原全库事务内读取；单项小设置一次查询，大设置重新在事务内读。短段/字节不一致报错，不返回部分成功；无数据迁移/删除，无协议变更。实际背景1672×941 RGB，原预览无损WebP转换，1,606,718bytes，SHA-256 `6b4296044fd5b882f459e3f66cb586f67d59949a3a49a786a343619149781fb7`。本地真实SQLite 3.85MiB中文/emoji/NUL无损往返通过，新增4项Flutter回归和1项Android游标烟测（已由最终CI补齐，见下文）；本机无Flutter SDK。局部快检中6项历史版号白名单已补+299；120项本地源码门通过，13项因未恢复私有资源/稀疏未取出Android测试或缺Kotlin工具链留给完整CI补齐。
+用户2026-09-30 23:22批准以下修改；基线+299功能a2341425、总账526e1bb4，本地同tree df232243；独立分支agent/v04256-game-share-portable-state。授权推送/构建延续，不再重复确认。
 
-- 首轮CI [36724790798](https://github.com/catkiss62/ai-companion-build/actions/runs/36724790798)，源码3a7d2007/tree c9d615a6：Android15原生6项烟测通过，含512KiB CursorWindow读取3MiB以上settings完整字节；前132项源码门通过。第133项发现CI恢复LingChat原素材覆盖已提交的新day.webp，哈希门正确阻止错误APK，未进入Flutter。修复素材恢复函数：仅day按已批准SHA-256保留，缺失/损坏则失败，其余61项仍按上游LFS校验；增加实际恢复函数的正常/损坏/缺失回归及APK内day哈希核验，保留原严格门。后续完整CI结果见下文。
+- [x] 游戏厅三按钮改成“10轮回复 / 5轮回复 / 1轮回复”，等宽、默认5轮，选择持久化且后台同样生效。普通单人自主推进固定至少2分钟；已承诺的多人事件监听/轮到用户/服务器定时协议不靠UI按钮加速，也不把轮询算推进。
+- [x] 5/10/1为两次过程分享之间的最少成功游戏推进轮数；指定时长任务、自主半小时竞争和普通自主推进共用门。无值得分享的进展不发，到轮数不强制播报。默认5轮约10分钟而非严格定时器；失败、查询、等待不计。
+- [x] 一次正文可概括多轮尚未分享的已保存结果；消除旧最近6条导致10轮信息不足，保留事件身份、排队合并、用户聊天/沉浸/Brain/写入围栏。分享判断仍合并现有DeepSeek下一步规划，Gemini一次最终正文；不增加逐步判断调用。任务终止结果回报仍独立必达，不再等待攒满轮数。
+- [x] 只调整自制@rootTilt、小腿支点整体左右旋转：Jev目标速度接近自主待机、略快；检查接管、反向、退出和回到待机，保留身体XYZ及头/表情/平移原效果。
+- [x] 2026-10-01 00:31追加：Live2D自制摸头在有效手势按住期间持续表情，UP/CANCEL才恢复；头部自身移动导致触点暂离区域不应提前松开。彩蛋总时长4.5秒，期间新普通摸头或重复彩蛋不能抢占/重置计时；保留原10%概率与平滑恢复。参考Sen按住/松开机制，勿改模型自带表情。
+- [x] 左栏代办提醒上方增加记住事项入口，复用原页面和同一数据源，不改重要性/提醒逻辑。
+- [x] 完整存档审计并补齐可迁移的Live2D当前模型/配件及舞台偏好、SecureConfig非密钥配置、表情包及桌宠显示/位置偏好；API Key/Token/密码仍排除，设备身份/进程lease/旧游玩授权不复制。普通备份与接管包均核验，旧包兼容；新机导入无模型、哈希损坏、部分失败保持事务回滚，实际模型不提交公开仓。
+- [ ] 验证专项行为、完整源码/Flutter/Kotlin/native及签名APK；CI和真机分开记录。保留+299大settings无损读取和已批准白天图。
 
-- 第二轮36728003121，源码144776f3/tree d96cef6f：原生6项再次通过，build-apk在已通过资源/基线检查后，14:23:32Z进入既有桌宠素材生成步骤，至14:43Z超过20分钟未完成，尚未进入后续源码门/Flutter；上一轮相同步骤约5分钟。仅为构建恢复补该步骤15分钟超时、下载连接/总时长及停流超时，源码与素材完整性校验不变；同分支推送替代旧运行以取得取消日志并重跑，产品仍仅两项。未把未完成流水线记为通过。
-
-- 最终源码a2341425dfd6192551e3a5470eed89b5038165f4，tree dbd8558ecbc53f1a720bec82358ccb7f5c3bc63c与本地一致；[Actions 36731605271](https://github.com/catkiss62/ai-companion-build/actions/runs/36731605271) conclusion=success。Android15原生6/6（报告Artifact11105103500，CursorWindow新用例实际执行且0失败）、133项源码门、Kotlin、Flutter analyze及1018项Flutter测试通过，包含4项新设置/导出/导入/损坏分段回归；arm64 Release、稳定签名及资源检查通过，APK内day哈希与批准预览完全一致。analyze沿用仓库非致命info/warning策略，未宣称零提示。第二轮被新版替代取消，取消日志无动画生成进度，无法确定下载/apt/转换哪个子步骤停留；最终这一步约6分钟完成，不归因为产品代码失败。
-- [未发布+299测试APK](https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-96970c13c85e77efbdd1)，Draft400107673，target a2341425，asset601202681，AI-Companion-v0.42.55-299-Backup-CursorWindow-Day-APK.apk，727738166bytes，SHA-256 8f848e1ceeaf992a3f54fb2bd1a5721d2316a478515906cf8be4f19302c242d3；APK Artifact11107390635。ci-monitor-v0345/.ci/v04255-monitor.txt的run/head/digest与Release一致，签名30:5E:B3:D8:09:83:B9:63:C6:48:18:DD:F1:AD:56:1F:27:9D:E6:D4:7B:3E:D2:C7:81:AD:A4:48:C7:C2:51:48与+298相同，可覆盖安装保留数据。真机仍待：先保存备份确认不再报settings CursorWindow错误，再看白天背景；未用本机数据库定位具体大键，未声称Live2D原生模型/舞台偏好等后续全量备份审计已完成。其余六项后续方案继续暂缓。
-
-## 当前实施 · v0.42.54+298 指定时长游戏任务与过程分享（CI PASSED / APK READY / TRUE DEVICE PENDING）
-
-- 用户 2026-09-30 批准直接授权“现在去玩半小时白色房间，看看结果”，并指出游戏过程新进展不能套用45分钟普通主动分享间隔；不能每一步都分享。澄清：旧45分钟、24小时6条、2小时3条按mcp/cedar_game来源统一计数，刚发生与延后分享都受限；普通回忆旧游戏内容不必然走此源通道。
-- 基线+297源码6524f3e、结果总账114c97e；独立分支agent/v04254-explicit-game-task-sharing。新增明确时长本机任务入口，模型按语义选择工具、核对真实目录和完整指南；任务仅在正式回复落库后激活，复用唯一Cedar后台执行器/lease/fence，用户聊天暂停计时，时限到/服务器限制/等待人类/换游戏/关闭/重启终止并保留真实结果回报。默认持续竞争仍由Desire决定；任务回报绕过普通欲望抽选而保留Active Brain与写入围栏。
-- 分享判断合并到既有下一步原生工具规划，用已存Outcome和已分享内容判断新发现/明显变化，连续结果合并、事件去重；结构化quiet保持执行真值核验快速，不新增每步DS判定。游玩过程值得分享的结果直接排队，移除该路径45分钟/6条/3条额度，不设半小时最多2次；旧经历自主分享保留原普通竞争规则。真实时间、防剧透、MCP凭据、终局/结果快照防重放、暂停/Stop与+297其它六项功能保持回归覆盖。
-- 验证计划：时长引用与边界、失败/Stop不激活、已落库恢复、有效计时、提前结束回报、重复投递、结构化过程分享及事件去重；专项源码门、132项完整门、Flutter analyze/test、Kotlin/native smoke与签名APK。未构建/未真机验收前不写PASSED。
+旧桌宠图片任务暂缓，且用户纠正大肥鱼/小小鲸是立绘而非旧桌宠；原六项方案中的素材路径仅是立绘路径，不能据此替换旧桌宠。七大规则删除任务明确放弃，其页面与共享导入导出均保留。
 
 
-- 实施及验证完成：新增cedar_toy.start_timed_play用户专用原生工具，逐字核对1至30分钟时长引用，真实指定目录/完整指南后登记；仅已落库assistant ID激活，过日或超过2小时未启动则过期。同一回合至多一次真实mutation；若先play再登记，后续schema只开放本机时长任务，不重复远端动作。明确暂停清除待启动授权、结束任务并暂停释放该活动；有效时长计数与服务器/疲劳/夜间围栏保持原权威，进程/导入不延长旧授权。
-- 回报保留持久outbox，固定message ID与提交前writer/Brain/沉浸围栏防重复；有任务结果即优先交付，不参与普通欲望抽选、不被游戏分享开关屏蔽；报告请求时长与实际usedMs、已确认进展及提前结束原因。过程分享判断合并到已有后台native play规划，结构化quiet继续即时入库；只用已保存事件，排除get_result/状态查询/前台已展示与已分享部分，待发期间合并新事件。旧经历的普通Desire分享规则仍保留；过程direct队列不套45分钟/6条/3条硬额。
-- 最终源码869a117ebbd71a2d6cb2e049d3e23af3f1133771，tree6693a12440b12afdb608442b471ea30014446e8e；[Actions 36703913197](https://github.com/catkiss62/ai-companion-build/actions/runs/36703913197) success：原生烟测、132项完整源码门、Kotlin、Flutter analyze/test、arm64 Release、资源/稳定签名全绿，11项新行为回归通过。本地可运行119项通过，13项依赖未恢复资源/Android工具链，已由完整CI补齐。首轮36702658130因加入暂停补强被新版替代取消，不记作源码失败。
-- [未发布+298测试APK](https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-73dccee8ef74735b707f)，Draft399945262，target869a117e，asset600714919，AI-Companion-v0.42.54-298-Explicit-Game-Task-Sharing-APK.apk，726471818bytes，SHA-2569a2ec0b07e556ee270cb32102c5337fbc0267ce0ec654e88784e7d19b4937fc2；Artifact11092411285。CI monitor源码/digest一致，签名30:5E:B3:D8:09:83:B9:63:C6:48:18:DD:F1:AD:56:1F:27:9D:E6:D4:7B:3E:D2:C7:81:AD:A4:48:C7:C2:51:48与+297相同，可覆盖安装保留数据；未合并main、未正式发布。
-- 真机待验：自然说“你现在去玩半小时白色房间，看看结果”无需Desire抽选开始；重要新进展能自然分享，小额重复不每步播报；聊天暂停会顺延有效计时，结束/限制按实际回报；“先别玩了”停止任务；重启/导入不自行重授30分钟。讨论示例和笼统“你可以自己玩玩”不建立固定时长任务。导出诊断仍需持续核对Jev原始概率、实际路由与fallback，未获得本轮真机样本不能标TRUE DEVICE PASSED。+297沉浸冻结、独立情绪层/语音开关、记住事项与圆形原图球作为关联回归保留。
+## +299 存档大值读取与白天背景（CI PASSED / APK READY / TRUE DEVICE PENDING）
+
+- 已完成加急两项，基线功能a2341425/tree dbd8558e、总账526e1bb4/tree df232243；[Actions36731605271](https://github.com/catkiss62/ai-companion-build/actions/runs/36731605271)全绿，133项门、Flutter1018项、原生6项通过。完整实施与回归证据在正文“+299完整接班记录”。
+- [未发布+299测试APK](https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-96970c13c85e77efbdd1)，Draft400107673/asset601202681，SHA-256 8f848e1ceeaf992a3f54fb2bd1a5721d2316a478515906cf8be4f19302c242d3；签名沿用稳定签名，可覆盖安装。真机仍待备份和白天图验收。
+- +300保留settings无损分段读取及已批准day.webp（SHA-256 6b4296044fd5b882f459e3f66cb586f67d59949a3a49a786a343619149781fb7）；不重新生成图片，不清空/截断存档。
+
+## +298 指定时长游戏与过程分享（已构建）
+
+完整实施、CI与APK证据保留在正文“+298完整接班记录”；+300在此基线上统一轮数分享间隔。
 
 ## 当前试验 · +295 菜菜原生直接合成，绕开最近任务返回时的 Virtual Display 重置（CI PASSED / APK READY / TRUE DEVICE PARTIAL：恢复成功，背景回归）
 
@@ -1608,3 +1604,48 @@ Actions 与交付证据：远端功能 head `33647c7bff15084d6fd3cbc7b817e9b0b21
 4. 左侧栏“代办提醒”上方增加“记住事项”快捷入口，复用 `RememberedUserFactsPage` 和既有 settings 数据；原记忆库入口保留，不改变重要性/提醒机制。
 5. 小腿支点整体旋转：Jev/自主待机共享默认1.0、范围0.65～1.6倍速度。待机平滑理论上界默认19.6°/s，幅度/速度最大约47.1°/s；Jev没有独立角速度硬上限，最快节奏最大左右反向场景的理论起始速度默认约137°/s、全部满档约328°/s，属于代码估算而非真机实测或全场景最大值。建议后续单独给 Jev 整体倾斜约30°/s限速，并检查接管、反向、清理归零及回到待机的衔接；用户尚未要求本轮实施。
 6. 存档完整性专项：记住事项已在 settings 中；原生 `caicai-live2d` 模型/配件文件与 `caicai_stage` 布局、摸头框、幅度/速度/支点尚未纳入 SnapshotService 的 DB/attachments/album/media 通道；SecureConfig 中部分非 Key 的 provider/endpoint/model/开关亦需单独白名单导出。后续目标为用户数据与可迁移设置完整恢复、API Key 排除、旧存档兼容，采用导出→新安装环境导入→逐项比对；保留已有 Active Brain、运行任务中断与写入围栏，不能用复制设备运行态代替恢复。此次仅修现有导出崩溃，不在加急版扩展协议/原生模型备份。
+
+
+## +298完整接班记录（从快速索引原样移入）
+
+## 当前实施 · v0.42.54+298 指定时长游戏任务与过程分享（CI PASSED / APK READY / TRUE DEVICE PENDING）
+
+- 用户 2026-09-30 批准直接授权“现在去玩半小时白色房间，看看结果”，并指出游戏过程新进展不能套用45分钟普通主动分享间隔；不能每一步都分享。澄清：旧45分钟、24小时6条、2小时3条按mcp/cedar_game来源统一计数，刚发生与延后分享都受限；普通回忆旧游戏内容不必然走此源通道。
+- 基线+297源码6524f3e、结果总账114c97e；独立分支agent/v04254-explicit-game-task-sharing。新增明确时长本机任务入口，模型按语义选择工具、核对真实目录和完整指南；任务仅在正式回复落库后激活，复用唯一Cedar后台执行器/lease/fence，用户聊天暂停计时，时限到/服务器限制/等待人类/换游戏/关闭/重启终止并保留真实结果回报。默认持续竞争仍由Desire决定；任务回报绕过普通欲望抽选而保留Active Brain与写入围栏。
+- 分享判断合并到既有下一步原生工具规划，用已存Outcome和已分享内容判断新发现/明显变化，连续结果合并、事件去重；结构化quiet保持执行真值核验快速，不新增每步DS判定。游玩过程值得分享的结果直接排队，移除该路径45分钟/6条/3条额度，不设半小时最多2次；旧经历自主分享保留原普通竞争规则。真实时间、防剧透、MCP凭据、终局/结果快照防重放、暂停/Stop与+297其它六项功能保持回归覆盖。
+- 验证计划：时长引用与边界、失败/Stop不激活、已落库恢复、有效计时、提前结束回报、重复投递、结构化过程分享及事件去重；专项源码门、132项完整门、Flutter analyze/test、Kotlin/native smoke与签名APK。未构建/未真机验收前不写PASSED。
+
+
+- 实施及验证完成：新增cedar_toy.start_timed_play用户专用原生工具，逐字核对1至30分钟时长引用，真实指定目录/完整指南后登记；仅已落库assistant ID激活，过日或超过2小时未启动则过期。同一回合至多一次真实mutation；若先play再登记，后续schema只开放本机时长任务，不重复远端动作。明确暂停清除待启动授权、结束任务并暂停释放该活动；有效时长计数与服务器/疲劳/夜间围栏保持原权威，进程/导入不延长旧授权。
+- 回报保留持久outbox，固定message ID与提交前writer/Brain/沉浸围栏防重复；有任务结果即优先交付，不参与普通欲望抽选、不被游戏分享开关屏蔽；报告请求时长与实际usedMs、已确认进展及提前结束原因。过程分享判断合并到已有后台native play规划，结构化quiet继续即时入库；只用已保存事件，排除get_result/状态查询/前台已展示与已分享部分，待发期间合并新事件。旧经历的普通Desire分享规则仍保留；过程direct队列不套45分钟/6条/3条硬额。
+- 最终源码869a117ebbd71a2d6cb2e049d3e23af3f1133771，tree6693a12440b12afdb608442b471ea30014446e8e；[Actions 36703913197](https://github.com/catkiss62/ai-companion-build/actions/runs/36703913197) success：原生烟测、132项完整源码门、Kotlin、Flutter analyze/test、arm64 Release、资源/稳定签名全绿，11项新行为回归通过。本地可运行119项通过，13项依赖未恢复资源/Android工具链，已由完整CI补齐。首轮36702658130因加入暂停补强被新版替代取消，不记作源码失败。
+- [未发布+298测试APK](https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-73dccee8ef74735b707f)，Draft399945262，target869a117e，asset600714919，AI-Companion-v0.42.54-298-Explicit-Game-Task-Sharing-APK.apk，726471818bytes，SHA-2569a2ec0b07e556ee270cb32102c5337fbc0267ce0ec654e88784e7d19b4937fc2；Artifact11092411285。CI monitor源码/digest一致，签名30:5E:B3:D8:09:83:B9:63:C6:48:18:DD:F1:AD:56:1F:27:9D:E6:D4:7B:3E:D2:C7:81:AD:A4:48:C7:C2:51:48与+297相同，可覆盖安装保留数据；未合并main、未正式发布。
+- 真机待验：自然说“你现在去玩半小时白色房间，看看结果”无需Desire抽选开始；重要新进展能自然分享，小额重复不每步播报；聊天暂停会顺延有效计时，结束/限制按实际回报；“先别玩了”停止任务；重启/导入不自行重授30分钟。讨论示例和笼统“你可以自己玩玩”不建立固定时长任务。导出诊断仍需持续核对Jev原始概率、实际路由与fallback，未获得本轮真机样本不能标TRUE DEVICE PASSED。+297沉浸冻结、独立情绪层/语音开关、记住事项与圆形原图球作为关联回归保留。
+
+## +299完整接班记录（从快速索引原样移入）
+
+## 当前加急 · v0.42.55+299 存档 CursorWindow 与白天背景（CI PASSED / APK READY / TRUE DEVICE PENDING）
+
+- 用户 2026-09-30 20:37 明确只做两件事：修复现有存档失败、替换已生成并认可的白天背景；授权直接推送并构建测试 APK。上一轮其余方案暂缓，详见正文“2026-09-30 美术与存档完整性后续方案”。
+- 截图证据：普通备份在 `SELECT * FROM settings` 报 `Row too big to fit into CursorWindow requiredPos=294 totalRows=295`。确定是 settings 的单条大值读取故障，尚无本机数据库证据可确定具体设置键；不凭行号猜键，不清空、截断或删除用户记录。
+- 基线 +298 源码869a117e/总账2ebe1d6；独立分支 `agent/v04255-backup-cursor-window-day`。计划在既有导出事务中按字节分段读取大 settings，重组后仍导出原 key/value；常规 getSetting 同用有界读取，长值保持事务一致性。兼容现有 schema61/protocol6；不扩大本轮到 Live2D 全量备份补齐。
+- 背景：仅把本窗口日光预览转换为 WebP 并替换公共 `assets/lingchat/background/day.webp`，沿用 Flutter/原生同路径、cover/IME/EGL 恢复机制；夜图、人物、配件、模型路由、游戏与界面其余项保持原实现。
+- 验证：多 MiB 中文/emoji/NUL 字节重组、受限 CursorWindow 查询、完整数据库 JSON 导出/导入、Android 真 SQLite 游标烟测；完整源码门、Flutter analyze/tests、原生烟测、Kotlin、arm64 签名 APK。CI 与真机分别回填，不提前标成功。
+- 实施：新增 SqliteSettingsReader，首段和后续每次查询最多64KiB BLOB；完整拼接后一次UTF-8解码，支持中文/emoji跨段与NUL，空值保留。导出在原全库事务内读取；单项小设置一次查询，大设置重新在事务内读。短段/字节不一致报错，不返回部分成功；无数据迁移/删除，无协议变更。实际背景1672×941 RGB，原预览无损WebP转换，1,606,718bytes，SHA-256 `6b4296044fd5b882f459e3f66cb586f67d59949a3a49a786a343619149781fb7`。本地真实SQLite 3.85MiB中文/emoji/NUL无损往返通过，新增4项Flutter回归和1项Android游标烟测（已由最终CI补齐，见下文）；本机无Flutter SDK。局部快检中6项历史版号白名单已补+299；120项本地源码门通过，13项因未恢复私有资源/稀疏未取出Android测试或缺Kotlin工具链留给完整CI补齐。
+
+- 首轮CI [36724790798](https://github.com/catkiss62/ai-companion-build/actions/runs/36724790798)，源码3a7d2007/tree c9d615a6：Android15原生6项烟测通过，含512KiB CursorWindow读取3MiB以上settings完整字节；前132项源码门通过。第133项发现CI恢复LingChat原素材覆盖已提交的新day.webp，哈希门正确阻止错误APK，未进入Flutter。修复素材恢复函数：仅day按已批准SHA-256保留，缺失/损坏则失败，其余61项仍按上游LFS校验；增加实际恢复函数的正常/损坏/缺失回归及APK内day哈希核验，保留原严格门。后续完整CI结果见下文。
+
+- 第二轮36728003121，源码144776f3/tree d96cef6f：原生6项再次通过，build-apk在已通过资源/基线检查后，14:23:32Z进入既有桌宠素材生成步骤，至14:43Z超过20分钟未完成，尚未进入后续源码门/Flutter；上一轮相同步骤约5分钟。仅为构建恢复补该步骤15分钟超时、下载连接/总时长及停流超时，源码与素材完整性校验不变；同分支推送替代旧运行以取得取消日志并重跑，产品仍仅两项。未把未完成流水线记为通过。
+
+- 最终源码a2341425dfd6192551e3a5470eed89b5038165f4，tree dbd8558ecbc53f1a720bec82358ccb7f5c3bc63c与本地一致；[Actions 36731605271](https://github.com/catkiss62/ai-companion-build/actions/runs/36731605271) conclusion=success。Android15原生6/6（报告Artifact11105103500，CursorWindow新用例实际执行且0失败）、133项源码门、Kotlin、Flutter analyze及1018项Flutter测试通过，包含4项新设置/导出/导入/损坏分段回归；arm64 Release、稳定签名及资源检查通过，APK内day哈希与批准预览完全一致。analyze沿用仓库非致命info/warning策略，未宣称零提示。第二轮被新版替代取消，取消日志无动画生成进度，无法确定下载/apt/转换哪个子步骤停留；最终这一步约6分钟完成，不归因为产品代码失败。
+- [未发布+299测试APK](https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-96970c13c85e77efbdd1)，Draft400107673，target a2341425，asset601202681，AI-Companion-v0.42.55-299-Backup-CursorWindow-Day-APK.apk，727738166bytes，SHA-256 8f848e1ceeaf992a3f54fb2bd1a5721d2316a478515906cf8be4f19302c242d3；APK Artifact11107390635。ci-monitor-v0345/.ci/v04255-monitor.txt的run/head/digest与Release一致，签名30:5E:B3:D8:09:83:B9:63:C6:48:18:DD:F1:AD:56:1F:27:9D:E6:D4:7B:3E:D2:C7:81:AD:A4:48:C7:C2:51:48与+298相同，可覆盖安装保留数据。真机仍待：先保存备份确认不再报settings CursorWindow错误，再看白天背景；未用本机数据库定位具体大键，未声称Live2D原生模型/舞台偏好等后续全量备份审计已完成。其余六项后续方案继续暂缓。
+
+## +300实施记录 · 游戏间隔、持续摸头与完整存档（2026-10-01；CI待运行）
+
+- 功能清单含用户中途追加的持续摸头和彩蛋4.5秒，原任务未丢。普通单人推进统一至少120秒，10/5/1轮按实际成功状态变更累积，选择持久化、默认5轮；实际消息提交后才重置过程分享间隔，多轮真实结果合并生成，既有规划判断复用。终止/指定时长回报单独必达；报告提交后清理此前的过程队列，保留后续恢复游戏的新事件。过期Thought不能永久阻塞新分享。
+- 自制小腿支点rootTilt从当前显示值限速，默认25°/秒，对比待机上界约19.6°/秒；跟随同一gain/speed设置，最高60°/秒对比待机约47.1°/秒。只限draw transform，不改模型BodyXYZ。有效摸头达到原手势门后持续到UP/CANCEL，头部移动出判定框不能提前释放；彩蛋4.5秒且重复触发不重置/覆盖。原概率10%、原生表情和顺滑恢复保留。
+- 记住事项快捷入口在左栏代办提醒上方，复用原页面/数据库。旧桌宠素材清理暂缓，七大规则删除放弃。
+- 新状态包协议7包含相对路径Live2D模型/配件、原生舞台/悬浮显示位置偏好、完整表情包文件、SecureConfig九项非密钥配置；API Key、Cedar Token、密码不导出且目标凭据不覆盖。绝对模型索引从验证后的包重建；旧1～6包不覆盖新原生/secure配置。文件/偏好/secure配置激活后若DB导入失败，回滚原本状态。原有Brain/代次/ACK/lease/旧游玩授权失效规则继续保留。
+- 逐项核查CREATE TABLE与exportAll：六个既有例外仅为迁移临时、运行审计/维护记录、设备转移回执（maintenance_runs/memory_retrieval_audit/messages_v20/proactive_policy_events/provider_health_events/transfer_receipts）；settings含记住事项、日历、Jev开关和其余可迁移用户状态。身份/权限/任务租约不跨机恢复。本轮不改变 schema61。
+- 新增有意义行为测试：5/10/1轮及失败/只读排除、队列幂等/积压聚合/过期恢复/报告清理；v7本机与新安装往返、原生部分失败及DB失败回滚、文件损坏/缺失/穿越拒绝、v6兼容、空模型域、凭据排除；原生实际headpat/rootTilt行为及模型租约/索引恢复。运行结果待CI，不把仅添加测试宣称为通过。
+- 本地Dart语法、YAML解析、diff检查、专项门/总账门通过；有序全套因缺Cubism AAR在第2项停止。依同一有序清单逐项诊断129/134通过，其余5项为未恢复私有AAR/立绘/桌宠/LingChat特效或未安装kotlinc。完整资源与Flutter/Kotlin/Android测试交给既有Actions，尚未构建成功。

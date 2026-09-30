@@ -12,6 +12,7 @@ import '../storage/companion_album_storage.dart';
 import '../storage/message_attachment_storage.dart';
 import '../storage/media_blob_storage.dart';
 import '../storage/snapshot_directory_swap.dart';
+import '../storage/portable_companion_storage.dart';
 import 'transfer_identity.dart';
 
 enum SnapshotArchiveKind {
@@ -150,11 +151,17 @@ class _ValidatedSnapshot {
 }
 
 class _PreparedSnapshotFiles {
-  const _PreparedSnapshotFiles(this.attachments, this.album, this.media);
+  const _PreparedSnapshotFiles(
+    this.attachments,
+    this.album,
+    this.media,
+    this.portable,
+  );
 
   final PreparedDirectorySwap attachments;
   final PreparedDirectorySwap album;
   final PreparedDirectorySwap media;
+  final PreparedPortableState? portable;
 
   Future<void> activate() async {
     await attachments.activate();
@@ -162,6 +169,7 @@ class _PreparedSnapshotFiles {
       await album.activate();
       try {
         await media.activate();
+        await portable?.activate();
       } catch (_) {
         await album.rollback();
         rethrow;
@@ -174,6 +182,14 @@ class _PreparedSnapshotFiles {
 
   Future<void> rollback() async {
     try {
+      await portable?.rollback();
+    } finally {
+      await _rollbackMedia();
+    }
+  }
+
+  Future<void> _rollbackMedia() async {
+    try {
       await media.rollback();
     } finally {
       try {
@@ -185,6 +201,7 @@ class _PreparedSnapshotFiles {
   }
 
   Future<void> commit() async {
+    await portable?.commit();
     await attachments.commit();
     await album.commit();
     await media.commit();
@@ -197,14 +214,17 @@ class SnapshotService {
     MessageAttachmentStorage? attachmentStorage,
     CompanionAlbumStorage? albumStorage,
     MediaBlobStorage? blobStorage,
+    PortableCompanionStorage? portableStorage,
   }) : attachmentStorage = attachmentStorage ?? MessageAttachmentStorage(),
        albumStorage = albumStorage ?? CompanionAlbumStorage(),
-       blobStorage = blobStorage ?? MediaBlobStorage();
+       blobStorage = blobStorage ?? MediaBlobStorage(),
+       portableStorage = portableStorage ?? PortableCompanionStorage();
 
   final AppDatabase db;
   final MessageAttachmentStorage attachmentStorage;
   final CompanionAlbumStorage albumStorage;
   final MediaBlobStorage blobStorage;
+  final PortableCompanionStorage portableStorage;
   final Uuid _uuid = const Uuid();
 
   Future<SnapshotBundle> exportBundle() =>
@@ -222,6 +242,7 @@ class SnapshotService {
     final identity = isTakeover
         ? await db.reserveTransferSnapshot(snapshotId)
         : await db.transferStateIdentity();
+    NativePortableSnapshot? nativeSnapshot;
     try {
       if (!isTakeover) {
         if (await db.getSetting('transfer_lock') != '1') {
@@ -231,10 +252,9 @@ class SnapshotService {
           throw StateError('只有当前 Active Brain 可以创建普通备份。');
         }
       }
+      nativeSnapshot = await portableStorage.native.begin();
       final exported = await db.exportAll();
       if (!isTakeover) _normalizeBackupRuntimeSettings(exported);
-      final jsonBytes = utf8.encode(jsonEncode(exported));
-      final digest = sha256.convert(jsonBytes).toString();
       final now = DateTime.now().toUtc();
       final temp = await getTemporaryDirectory();
       final stamp = now.toIso8601String().replaceAll(':', '-');
@@ -251,7 +271,15 @@ class SnapshotService {
           Directory(p.join(work.path, 'attachments'));
       final albumExportDirectory = Directory(p.join(work.path, 'album'));
       final mediaExportDirectory = Directory(p.join(work.path, 'media'));
+      final portableExportDirectory = Directory(p.join(work.path, 'portable'));
       try {
+        final portable = await portableStorage.exportTo(
+          portableExportDirectory,
+          nativeSnapshot,
+        );
+        exported['portable_state'] = portable.state;
+        final jsonBytes = utf8.encode(jsonEncode(exported));
+        final digest = sha256.convert(jsonBytes).toString();
         final pendingSnapshotId =
             _settingFromBackup(exported, 'pending_outbound_snapshot_id');
         final pendingGeneration = int.tryParse(
@@ -346,9 +374,13 @@ class SnapshotService {
       if (missingMediaFiles.isNotEmpty) {
         throw StateError('共享媒体文件不完整，已拒绝生成可能破图的状态包。');
       }
+        if (attachmentBytes + albumBytes + mediaBytes + portable.bytes >
+            8 * 1024 * 1024 * 1024) {
+          throw const FormatException('存档文件超过容量限制');
+        }
       final manifest = {
         'format': 'ai-companion-snapshot-zip',
-        'protocol_version': 6,
+          'protocol_version': 7,
         'archive_kind': archiveKind.key,
         'schema_version': AppDatabase.schemaVersion,
         'snapshot_id': snapshotId,
@@ -368,6 +400,8 @@ class SnapshotService {
         'media_files': mediaFiles,
         'missing_media_files': missingMediaFiles,
         'media_bytes': mediaBytes,
+          'portable_files': portable.hashes,
+          'portable_bytes': portable.bytes,
         'encryption': archiveKind.manifestEncryption,
         'zip_layout': 'files_only',
       };
@@ -405,6 +439,18 @@ class SnapshotService {
           );
           await encoder.addFile(file, 'media/$relative');
         }
+          final sortedPortablePaths = portable.hashes.keys.toList()..sort();
+          for (final relative in sortedPortablePaths) {
+            await encoder.addFile(
+              File(
+                p.joinAll([
+                  portableExportDirectory.path,
+                  ...relative.split('/'),
+                ]),
+              ),
+              'portable/$relative',
+            );
+          }
         await encoder.close();
       } catch (_) {
         try {
@@ -426,7 +472,7 @@ class SnapshotService {
           stateBytes: jsonBytes.length,
           schemaVersion: AppDatabase.schemaVersion,
           createdAt: now,
-          protocolVersion: 6,
+            protocolVersion: 7,
           archiveKind: archiveKind,
         ),
         );
@@ -439,6 +485,9 @@ class SnapshotService {
     } catch (_) {
       if (isTakeover) await db.cancelPreparedTransferSnapshot(snapshotId);
       rethrow;
+    } finally {
+      if (nativeSnapshot != null)
+        await portableStorage.native.finish(nativeSnapshot, commit: true);
     }
   }
 
@@ -706,7 +755,19 @@ class SnapshotService {
           expectedPaths: _expectedMediaPaths(validated.backup),
           snapshotId: validated.metadata.snapshotId,
         );
-        return _PreparedSnapshotFiles(attachments, album, media);
+        try {
+          final portable = validated.metadata.protocolVersion >= 7
+              ? await portableStorage.prepare(
+                  Directory(p.join(validated.workDirectory.path, 'portable')),
+                  validated.backup['portable_state'],
+                  validated.metadata.snapshotId,
+                )
+              : null;
+          return _PreparedSnapshotFiles(attachments, album, media, portable);
+        } catch (_) {
+          await media.rollback();
+          rethrow;
+        }
       } catch (_) {
         await album.rollback();
         rethrow;
@@ -765,6 +826,7 @@ class SnapshotService {
       var attachmentSize = 0;
       var albumSize = 0;
       var mediaSize = 0;
+      var portableSize = 0;
       var totalExpanded = 0;
       final directoryEntries = <String>[];
       const legacyDirectoryEntries = <String>{
@@ -799,11 +861,13 @@ class SnapshotService {
         final isAttachment = name.startsWith('attachments/');
         final isAlbum = name.startsWith('album/');
         final isMedia = name.startsWith('media/');
+        final isPortable = name.startsWith('portable/');
         if (name != 'state.json' &&
             name != 'manifest.json' &&
             !isAttachment &&
             !isAlbum &&
-            !isMedia) {
+            !isMedia &&
+            !isPortable) {
           throw FormatException('状态包含意外文件：$name');
         }
         if (isAttachment && !isDirectoryEntry) {
@@ -821,6 +885,11 @@ class SnapshotService {
             name.substring('media/'.length),
           );
         }
+        if (isPortable && !isDirectoryEntry) {
+          PortableCompanionStorage.archivePath(
+            name.substring('portable/'.length),
+          );
+        }
         if (!seen.add(name)) {
           throw FormatException('状态包包含重复文件：$name');
         }
@@ -835,6 +904,7 @@ class SnapshotService {
         if (isAttachment && !isDirectoryEntry) attachmentSize += size;
         if (isAlbum && !isDirectoryEntry) albumSize += size;
         if (isMedia && !isDirectoryEntry) mediaSize += size;
+        if (isPortable && !isDirectoryEntry) portableSize += size;
       }
       if (!seen.contains('state.json') || !seen.contains('manifest.json')) {
         throw const FormatException('状态包必须包含 state.json 与 manifest.json');
@@ -845,7 +915,8 @@ class SnapshotService {
       if (manifestSize <= 0 || manifestSize > maxManifestBytes) {
         throw const FormatException('manifest.json 大小异常');
       }
-      if (attachmentSize + albumSize + mediaSize > maxBundledFileBytes ||
+      if (attachmentSize + albumSize + mediaSize + portableSize >
+              maxBundledFileBytes ||
           totalExpanded > maxExpandedBytes) {
         throw const FormatException('状态包解压后大小异常');
       }
@@ -901,12 +972,25 @@ class SnapshotService {
       }
 
       final protocolVersion = (manifest['protocol_version'] as num?)?.toInt() ?? 1;
-      if (protocolVersion < 1 || protocolVersion > 6) {
+      if (protocolVersion < 1 || protocolVersion > 7) {
         throw FormatException('状态包协议版本不受支持：$protocolVersion');
       }
       final archiveKind = protocolVersion >= 5
           ? SnapshotArchiveKind.parse(manifest['archive_kind']?.toString() ?? '')
           : SnapshotArchiveKind.takeover;
+      if (protocolVersion >= 7) {
+        await PortableCompanionStorage.validatePayload(
+          root: Directory(p.join(target.path, 'portable')),
+          state: backup['portable_state'],
+          rawHashes: manifest['portable_files'],
+          declaredBytes: manifest['portable_bytes'],
+          observedBytes: portableSize,
+        );
+      } else if (portableSize != 0 ||
+          backup.containsKey('portable_state') ||
+          manifest.containsKey('portable_files')) {
+        throw const FormatException('旧版状态包不能携带新版可迁移数据');
+      }
       _normalizeArchiveStateDomains(backup, protocolVersion);
       await _validateAttachmentPayload(
         target: target,

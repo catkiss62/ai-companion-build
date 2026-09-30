@@ -23,9 +23,9 @@ require('lib/core/mcp/mcp_http_client.dart', "'version': '0.41.82'")
 require(
     'lib/core/mcp/cedar_toy_activity.dart',
     'enum CedarViewingPace',
-    "leisure('leisure', '休闲模式', Duration(minutes: 2))",
-    "fast('fast', '快速模式', Duration(seconds: 5))",
-    "spectate('spectate', '观战模式', Duration(seconds: 10))",
+    "leisure('every5', '5轮回复', 5)",
+    "fast('every1', '1轮回复', 1)",
+    "spectate('every10', '10轮回复', 10)",
     'viewerHeartbeatTtl',
     'currentViewingPace',
     'pendingDirectShares',
@@ -53,9 +53,9 @@ require(
     'lib/features/chat/cedar_toy_activity_window.dart',
     'store.beginViewing()',
     'store.endViewing()',
-    'CedarViewingPace.values',
+    'CedarViewingPace.spectate',
     "reason: 'cedar_viewing_pace_${pace.key}'",
-    '值得分享的进展会直接发到聊天',
+    '两次过程分享最少间隔',
 )
 require(
     'lib/core/desire/proactive_engine.dart',
@@ -72,7 +72,7 @@ require(
 )
 require(
     'test/cedar_trust_watch_modes_v04172_test.dart',
-    'exact temporary solo pace contract',
+    'fixed solo pace and durable sharing interval contract',
     'solo companion turn remains',
     'structured turn ownership stays authoritative',
     'resume cadence is consumed without reinterpretation',

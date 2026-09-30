@@ -402,7 +402,10 @@ internal class CaicaiPlatformView(
             0 -> { lastX=x; lastY=y; strokeDistance=0f; patCandidate=inside;
                 patTriggered=false; patStartedAt=android.os.SystemClock.uptimeMillis() }
             2 -> {
-                if(!inside) { patCandidate=false; companion.releaseHeadPat() }
+                // Once a stroke is accepted, the held gesture owns its face until
+                // UP/CANCEL. Idle head movement may move the hit box away from
+                // the finger; that is not a release.
+                if(!inside && !patTriggered) patCandidate=false
                 strokeDistance+=kotlin.math.hypot(x-lastX,y-lastY)
                 lastX=x; lastY=y
                 if(patCandidate && !patTriggered && android.os.SystemClock.uptimeMillis()-patStartedAt>=120

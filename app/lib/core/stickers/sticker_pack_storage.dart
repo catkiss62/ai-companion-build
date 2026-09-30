@@ -351,6 +351,22 @@ class StickerPackStorage {
     return file;
   }
 
+  /// Full snapshot validation uses the same manifest/index/image contract as
+  /// a regular pack import, and never silently ignores a damaged pack.
+  Future<void> validateSnapshotDirectory(Directory root, {bool allowLocalTemporary = false}) async {
+    if (!await root.exists()) return;
+    await for (final entity in root.list(followLinks: false)) {
+      if (allowLocalTemporary && entity is Directory && p.basename(entity.path).startsWith('.')) continue;
+      if (entity is! Directory || p.basename(entity.path).startsWith('.')) {
+        throw const FormatException('表情包存档目录包含意外条目');
+      }
+      final pack = await _validateExtractedPack(entity);
+      if (pack.id != p.basename(entity.path)) {
+        throw const FormatException('表情包存档 ID 与目录不一致');
+      }
+    }
+  }
+
   Future<StickerPackMeta> _validateExtractedPack(Directory root) async {
     final pack = await _readPack(root);
     await readRecords(pack);

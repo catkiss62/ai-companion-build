@@ -115,6 +115,40 @@ class NativeSmokeTest {
         }
     }
 
+    @Test fun portableModelLeaseValidationAndIndexReconstruction() {
+        val base = ApplicationProvider.getApplicationContext<Context>()
+        val folder = File(base.cacheDir, "portable-fixture").apply { mkdirs() }
+        val context = object : ContextWrapper(base) {
+            override fun getApplicationContext(): Context = this
+            override fun getFilesDir(): File = folder
+        }
+        val repository = CaicaiModelRepository(context)
+        repository.clearImportedModels()
+        var token: String? = null
+        try {
+            repository.importZip(Uri.fromFile(fixture(base, "portable")))
+            repository.confirmPendingImport()
+            val lease = repository.beginPortableSnapshot()
+            token = lease
+            val current = repository.portableDirectory(lease)
+            assertTrue(repository.validatePortableDirectory(current).available)
+            assertTrue(runCatching { repository.importZip(Uri.fromFile(fixture(base, "blocked"))) }.isFailure)
+            assertTrue(runCatching { repository.clearImportedModels() }.isFailure)
+            base.getSharedPreferences("caicai_live2d",0).edit().clear().commit()
+            repository.installPortableIndex(lease)
+            assertTrue(repository.currentModels().available)
+            assertFalse(repository.isPending())
+            val moc = current.walkTopDown().first { it.name == "model.moc3" }
+            val saved = moc.readBytes(); moc.delete()
+            assertTrue(runCatching { repository.validatePortableDirectory(current) }.isFailure)
+            moc.writeBytes(saved)
+            repository.finishPortableInstall(lease)
+        } finally {
+            token?.let { repository.endPortableSnapshot(it) }
+            repository.clearImportedModels(); folder.deleteRecursively()
+        }
+    }
+
     // Structural import fixture only; fake moc/texture bytes are never rendered.
     private fun fixture(context: Context, marker: String): File {
         val file = File(context.cacheDir, "$marker.zip")

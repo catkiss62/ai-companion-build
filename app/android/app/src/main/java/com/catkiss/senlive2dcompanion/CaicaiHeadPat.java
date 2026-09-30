@@ -11,9 +11,13 @@ final class CaicaiHeadPat {
     private final Map<String,Float> from=new HashMap<>();
     private boolean active, held, confused;
     private float age, releaseAge=-1;
-    void start(boolean hold, boolean rare, CaicaiParameterPlan.Target pose) {
+    static final float EASTER_EGG_SECONDS = 4.5f;
+    boolean start(boolean hold, boolean rare, CaicaiParameterPlan.Target pose) {
+        if (active && confused && age < EASTER_EGG_SECONDS) return false;
+        if (active && held && hold && !rare) return false;
         from.clear(); for(String id:FACE) if(pose.accepts(id)) from.put(id,pose.current(id));
         active=true; held=hold && !rare; confused=rare; age=0; releaseAge=-1;
+        return true;
     }
     void release() { held=false; if(active && !confused && releaseAge<0) releaseAge=0; }
     void cancel() { active=false; held=false; }
@@ -26,7 +30,7 @@ final class CaicaiHeadPat {
         if(!held && !confused && releaseAge<0 && age>=1.1f) releaseAge=0;
         if(releaseAge>=0) releaseAge+=dt;
         float in=smooth(Math.min(1,age/.38f));
-        float out=confused ? smooth(Math.max(0,(age-2.2f)/.6f))
+        float out=confused ? smooth(Math.max(0,(age-(EASTER_EGG_SECONDS-.6f))/.6f))
             : releaseAge<0 ? 0 : smooth(Math.min(1,releaseAge/.55f));
         float weight=in*(1-out);
         for(String id:FACE) {
@@ -47,7 +51,7 @@ final class CaicaiHeadPat {
         add(pose,"ParamAngleY2",-12*weight);
         add(pose,"ParamAngleZ",(confused?-12:6*(float)Math.sin(age*5))*weight);
         add(pose,"ParamAngleZ2",(confused?-12:6*(float)Math.sin(age*5))*weight);
-        if(out>=1) active=false;
+        if(out>=1 || confused && age>=EASTER_EGG_SECONDS) active=false;
     }
     private static float smooth(float x) { x=Math.max(0,Math.min(1,x)); return x*x*(3-2*x); }
     private static void add(CaicaiParameterPlan.Target p,String id,float v) {

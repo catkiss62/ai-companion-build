@@ -16,6 +16,7 @@ class CaicaiLive2DBridge(
     flutterEngine: FlutterEngine,
 ) {
     private val repository = CaicaiModelRepository(activity)
+    private val portable = PortableCompanionState(activity, repository)
     private val channel = MethodChannel(flutterEngine.dartExecutor.binaryMessenger, CHANNEL)
     private val worker = Executors.newSingleThreadExecutor { task ->
         Thread(task, "caicai-live2d-import").apply { isDaemon = true }
@@ -30,6 +31,22 @@ class CaicaiLive2DBridge(
         )
         channel.setMethodCallHandler { call, result ->
             if (disposed) return@setMethodCallHandler result.error("disposed", "Live2D bridge detached", null)
+            if (call.method.startsWith("portable")) {
+                try {
+                    val token = call.argument<String>("token").orEmpty()
+                    when (call.method) {
+                        "portableBegin" -> {
+                            require(pending == null) { "模型导入正在进行" }; result.success(portable.begin())
+                        }
+                        "portableValidatePreferences" -> { PortableCompanionState.validatedPreferences(call.argument<Map<*, *>>("preferences") ?: emptyMap<Any, Any>()); result.success(null) }
+                        "portableValidate" -> { portable.validate(token, call.argument<String>("directory").orEmpty()); result.success(null) }
+                        "portableApply" -> { portable.apply(token, call.argument<Map<*, *>>("preferences") ?: emptyMap<Any, Any>()); result.success(null) }
+                        "portableFinish" -> { portable.finish(token, call.argument<Boolean>("commit") == true); result.success(null) }
+                        else -> result.notImplemented()
+                    }
+                } catch (error: Exception) { result.error("portable_state_failed", error.message, null) }
+                return@setMethodCallHandler
+            }
             when (call.method) {
                 "status" -> {
                     val models = repository.currentModels()
@@ -50,7 +67,7 @@ class CaicaiLive2DBridge(
                     result.success(null)
                 }
                 "clearImportedModels" -> {
-                    if (pending != null) return@setMethodCallHandler result.error("busy", "模型导入正在进行", null)
+                    if (pending != null || portable.busy) return@setMethodCallHandler result.error("busy", "模型导入正在进行", null)
                     CaicaiRuntime.releaseModel()
                     worker.execute {
                         try {
@@ -62,7 +79,7 @@ class CaicaiLive2DBridge(
                     }
                 }
                 "pickModelZip" -> {
-                    if (pending != null) return@setMethodCallHandler result.error("busy", "模型导入正在进行", null)
+                    if (pending != null || portable.busy) return@setMethodCallHandler result.error("busy", "模型导入正在进行", null)
                     pending = result
                     CaicaiDiagnostics.record(activity, "picker_opened")
                     val intent = Intent(Intent.ACTION_OPEN_DOCUMENT).apply {
@@ -124,6 +141,7 @@ class CaicaiLive2DBridge(
     fun onPause() = CaicaiRuntime.onHostPause()
 
     fun dispose() {
+        portable.dispose()
         disposed = true
         pending?.error("cancelled", "模型导入已取消", null)
         pending = null

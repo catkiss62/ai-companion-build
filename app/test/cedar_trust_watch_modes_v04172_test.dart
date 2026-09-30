@@ -3,13 +3,13 @@ import 'package:ai_companion_localfirst/core/mcp/mcp_turn_state_resolver.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
-  test('activity window exposes the exact temporary solo pace contract', () {
+  test('activity window exposes the fixed solo pace and durable sharing interval contract', () {
     expect(CedarViewingPace.leisure.soloStepGap, const Duration(minutes: 2));
-    expect(CedarViewingPace.fast.soloStepGap, const Duration(seconds: 5));
-    expect(CedarViewingPace.spectate.soloStepGap, const Duration(seconds: 10));
+    expect(CedarViewingPace.fast.soloStepGap, const Duration(minutes: 2));
+    expect(CedarViewingPace.spectate.soloStepGap, const Duration(minutes: 2));
     expect(CedarViewingPace.leisure.isWatching, isFalse);
-    expect(CedarViewingPace.fast.isWatching, isTrue);
-    expect(CedarViewingPace.spectate.isWatching, isTrue);
+    expect(CedarViewingPace.fast.isWatching, isFalse);
+    expect(CedarViewingPace.spectate.isWatching, isFalse);
     expect(CedarViewingPace.fromKey('unknown'), CedarViewingPace.leisure);
   });
 

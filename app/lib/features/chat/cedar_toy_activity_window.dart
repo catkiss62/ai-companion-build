@@ -415,25 +415,30 @@ class _CedarToyActivityWindowState extends State<CedarToyActivityWindow> {
           ],
         ),
         const SizedBox(height: 10),
-        Text('游玩节奏', style: Theme.of(context).textTheme.labelLarge),
+        Text('分享间隔', style: Theme.of(context).textTheme.labelLarge),
         const SizedBox(height: 6),
-        Wrap(
-          spacing: 7,
-          runSpacing: 7,
+        Row(
           children: [
-            for (final pace in CedarViewingPace.values)
-              ChoiceChip(
-                selected: pace == _pace,
-                label: Text(pace.label),
-                onSelected: (_) => _selectPace(pace),
+            for (final pace in const [CedarViewingPace.spectate,
+                CedarViewingPace.leisure, CedarViewingPace.fast])
+              Expanded(
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 3),
+                  child: ChoiceChip(
+                    showCheckmark: false,
+                    selected: pace == _pace,
+                    label: SizedBox(width: double.infinity,
+                        child: Text(pace.label, textAlign: TextAlign.center)),
+                    onSelected: (_) => _selectPace(pace),
+                  ),
+                ),
               ),
           ],
         ),
         const SizedBox(height: 5),
         Text(
-          _pace == CedarViewingPace.leisure
-              ? '默认自主节奏：单人游戏每步至少 2 分钟，值得分享的进展先进入念头。'
-              : '你正在观战：单人游戏每步至少 ${_pace.soloStepGap.inSeconds} 秒，值得分享的进展会直接发到聊天。',
+          '单人自主游戏每轮至少 2 分钟；有值得分享的进展才回复，'
+          '两次过程分享最少间隔 ${_pace.shareRounds} 轮，可合并这段时间的重要发现。',
           style: Theme.of(context).textTheme.bodySmall,
         ),
         if (session.waitingReason.isNotEmpty) ...[

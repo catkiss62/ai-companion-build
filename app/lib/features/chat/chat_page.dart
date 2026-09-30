@@ -46,6 +46,7 @@ import 'chat_timestamp_formatter.dart';
 import '../reference/reference_library_page.dart';
 import '../phone/simulated_phone_page.dart';
 import '../phone/calendar_reminder_page.dart';
+import '../memory/remembered_user_facts_page.dart';
 import '../../core/phone/calendar_reminder_followup.dart';
 import '../immersive/immersive_room_page.dart';
 import 'chat_quick_settings_pages.dart';
@@ -2260,6 +2261,19 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
                       await Navigator.of(pageContext).push(
                         MaterialPageRoute(
                           builder: (_) => const CompanionStateOverviewPage(),
+                        ),
+                      );
+                    },
+                  ),
+                  _QuickPanelTile(
+                    icon: Icons.bookmark_outline_rounded,
+                    title: '记住事项',
+                    subtitle: '查看和修改希望她记住的日常事实。',
+                    onTap: () async {
+                      Navigator.pop(dialogContext);
+                      await Navigator.of(pageContext).push(
+                        MaterialPageRoute(
+                          builder: (_) => const RememberedUserFactsPage(),
                         ),
                       );
                     },

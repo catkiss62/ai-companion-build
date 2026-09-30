@@ -138,3 +138,5 @@ tools/validate_v04243_caicai_interaction.py
 tools/validate_v04253_room_game_session.py
 tools/validate_v04254_timed_game_sharing.py
 tools/validate_v04255_backup_settings.py
+
+tools/validate_v04256_share_portable_state.py

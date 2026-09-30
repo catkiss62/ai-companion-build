@@ -3,7 +3,9 @@ import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import '../ai/chat_api_provider.dart';
 
 class SecureConfig {
-  SecureConfig._();
+  SecureConfig._()
+    : _storage = const FlutterSecureStorage(aOptions: AndroidOptions());
+  SecureConfig.forTesting(FlutterSecureStorage storage) : _storage = storage;
   static final SecureConfig instance = SecureConfig._();
 
   static const _apiKeyName = 'deepseek_api_key';
@@ -31,9 +33,105 @@ class SecureConfig {
       'https://apihub.agnes-ai.com/v1/chat/completions';
   static const defaultAgnesModel = 'agnes-2.5-flash';
 
-  final FlutterSecureStorage _storage = FlutterSecureStorage(
-    aOptions: const AndroidOptions(),
-  );
+  final FlutterSecureStorage _storage;
+
+  /// Explicit allowlist: never enumerate secure storage, which also owns keys,
+  /// Cedar tokens and other credentials. Null preserves an unset/default value.
+  static const portableKeys = <String>{
+    _endpointName,
+    _chatProviderName,
+    _aiWangYouEndpointName,
+    _aiWangYouModelName,
+    _visionEndpointName,
+    _visionModelName,
+    _agnesEndpointName,
+    _agnesModelName,
+    _jevEnabledName,
+  };
+  Future<Map<String, String?>> readPortableSettings() async => {
+    for (final key in portableKeys) key: await _storage.read(key: key),
+  };
+
+  static Map<String, String?> validatePortableSettings(Object? raw) {
+    if (raw is! Map ||
+        raw.length != portableKeys.length ||
+        !raw.keys.toSet().containsAll(portableKeys)) {
+      throw const FormatException('存档的非密钥 API 配置清单不完整');
+    }
+    final values = <String, String?>{};
+    for (final key in portableKeys) {
+      final value = raw[key];
+      if (value != null && (value is! String || value.length > 8192)) {
+        throw const FormatException('存档的 API 配置格式无效');
+      }
+      if (value is String && value.isNotEmpty) {
+        if (key.endsWith('_endpoint')) {
+          final uri = Uri.tryParse(value);
+          if (uri == null ||
+              !uri.hasAuthority ||
+              !const {'http', 'https'}.contains(uri.scheme) ||
+              uri.userInfo.isNotEmpty ||
+              uri.queryParameters.keys.any(_credentialParameter)) {
+            throw const FormatException('存档 API 地址无效或包含凭据');
+          }
+        }
+        if (key == _chatProviderName &&
+            !const {
+              'deepseek',
+              'aiwangyou_gemini',
+              'shuaiapi_gemini',
+            }.contains(value)) {
+          throw const FormatException('存档的回复模型提供方无效');
+        }
+        if (key == _jevEnabledName && value != '0' && value != '1') {
+          throw const FormatException('存档的 Jev 开关无效');
+        }
+      }
+      values[key] = value as String?;
+    }
+    return values;
+  }
+
+  static bool _credentialParameter(String key) => RegExp(
+    r'api.?key|token|secret|password|authorization',
+    caseSensitive: false,
+  ).hasMatch(key);
+
+  Future<Map<String, String?>> exportPortableSettings() async {
+    final values = await readPortableSettings();
+    for (final key in portableKeys.where((key) => key.endsWith('_endpoint'))) {
+      final value = values[key];
+      if (value == null || value.isEmpty) continue;
+      final uri = Uri.parse(value);
+      if (uri.userInfo.isEmpty && !uri.hasFragment &&
+          !uri.queryParameters.keys.any(_credentialParameter)) continue;
+      final query = {
+        for (final entry in uri.queryParametersAll.entries)
+          if (!_credentialParameter(entry.key)) entry.key: entry.value,
+      };
+      values[key] = Uri(scheme: uri.scheme, host: uri.host,
+          port: uri.hasPort ? uri.port : null, path: uri.path,
+          queryParameters: query.isEmpty ? null : query).toString();
+    }
+    return validatePortableSettings(values);
+  }
+
+  Future<void> replacePortableSettings(
+    Map<String, String?> values, {
+    bool restoringLocal = false,
+  }) async {
+    // Local rollback may contain an endpoint with credentials. It remains local
+    // and must be restored byte-for-byte, rather than exported or sanitized.
+    if (!restoringLocal) validatePortableSettings(values);
+    for (final key in portableKeys) {
+      final value = values[key];
+      if (value == null) {
+        await _storage.delete(key: key);
+      } else {
+        await _storage.write(key: key, value: value);
+      }
+    }
+  }
 
   Future<ChatApiProvider> readChatProvider() async {
     return ChatApiProvider.fromStorage(

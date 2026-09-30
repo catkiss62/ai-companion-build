@@ -1923,14 +1923,8 @@ $shareContext''',
         !CedarPlatformActionPolicy.isResultSnapshot(action) &&
         shareLevel != 'quiet' &&
         (await db.getSetting(shareEnabledKey)) != '0') {
-      await _seedThought(
-        text: '我刚在 Cedar Toy 的“${session.displayName}”真实推进了一步。${updated.lastOutcome}',
-        strength: shareLevel == 'required' ? 0.90 : 0.72,
-        eventId: updated.events.last.id,
-        gameId: session.gameId,
-        directWhenWatched: true,
-        directForProgress: true,
-      );
+      await CedarLiveSharePolicy(db)
+          .offer(updated, share: true, now: DateTime.now());
     }
     final timedTask = await CedarTimedPlayTaskStore(db).active();
     if (!outcome.isError && updated.hasPendingTerminalDelivery &&

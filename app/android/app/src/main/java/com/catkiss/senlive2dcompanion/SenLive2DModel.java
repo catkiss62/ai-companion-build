@@ -405,6 +405,7 @@ final class SenLive2DModel extends CubismUserModel {
     private long planPresetDeadlineNanos;
     private boolean manualPlan;
     private float rootX, rootTilt, motionTempo=1f;
+    private final CaicaiRootTiltSmoother rootTiltSmoother = new CaicaiRootTiltSmoother();
     private final CaicaiHeadPat caicaiPat = new CaicaiHeadPat();
     private final CaicaiEmotionLease caicaiEmotion = new CaicaiEmotionLease();
     private final CaicaiHeadPose headIntent = new CaicaiHeadPose();
@@ -415,7 +416,7 @@ final class SenLive2DModel extends CubismUserModel {
     }
     void beginCaicaiPat(boolean held,boolean rare) {
         // Snapshot the final rendered face before clearing the conversational layer.
-        caicaiPat.start(held,rare,caicaiTarget());
+        if (!caicaiPat.start(held,rare,caicaiTarget())) return;
         stopConversationPlan();
         for(String name:new java.util.ArrayList<>(activeExpressionNames)) {
             if(!name.equals("1白袜") && !name.equals("丝袜带子") && !name.equals("双马尾")
@@ -432,11 +433,11 @@ final class SenLive2DModel extends CubismUserModel {
     private float[] rootDrawTransform;
     void setRootDrawTransform(float[] matrix) { rootDrawTransform=matrix; }
     float rootX() { return staticMode ? 0 : rootX; }
-    float rootTilt() { return staticMode ? 0 : rootTilt; }
+    float rootTilt() { return staticMode ? 0 : rootTiltSmoother.value(); }
     void resizeRenderTarget(int width,int height) {
         if (getRenderer()!=null) getRenderer().setRenderTargetSize(width,height);
     }
-    void tuneMotion(float gain,float speed) { motionTempo=speed; caicaiIdle.tune(gain,speed); parameterPlan.setGain(gain); parameterPlan.setSpeed(speed); }
+    void tuneMotion(float gain,float speed) { motionTempo=speed; rootTiltSmoother.tune(gain,speed); caicaiIdle.tune(gain,speed); parameterPlan.setGain(gain); parameterPlan.setSpeed(speed); }
     private void applyRootDrawTransform() {
         if(rootDrawTransform!=null) applyClipTransform(drawMvpMatrix,rootDrawTransform);
     }
@@ -599,7 +600,7 @@ final class SenLive2DModel extends CubismUserModel {
                 fadeOutManager(transientExpressionManager, transientExpressionFadeOut);
             }
         }
-        if (compositeRole == CompositeModelRole.MAID_PRIMARY) { applyCaicaiIdle(frameDelta); applyParameterPlan(frameDelta); } // AI_COMPANION_HOST_PLAN_HOOK
+        if (compositeRole == CompositeModelRole.MAID_PRIMARY) { applyCaicaiIdle(frameDelta); applyParameterPlan(frameDelta); rootTiltSmoother.update(rootTilt, frameDelta); } // AI_COMPANION_HOST_PLAN_HOOK
         updateScheduler.onLateUpdate(model, frameDelta);
         if (compositeRole == CompositeModelRole.MAID_PRIMARY) {
             applyMaidPresetLayer(frameDelta);
@@ -654,7 +655,7 @@ final class SenLive2DModel extends CubismUserModel {
         // original breath clock, but never wrote its value into the donor model.
         // Supply the same input as Sen's full-model update before native physics runs.
         if (!staticMode) setParameter("ParamBreath", performance.getBreathValue());
-        if (compositeRole == CompositeModelRole.MAID_PRIMARY) { applyCaicaiIdle(frameDelta); applyParameterPlan(frameDelta); } // AI_COMPANION_HOST_PLAN_HOOK
+        if (compositeRole == CompositeModelRole.MAID_PRIMARY) { applyCaicaiIdle(frameDelta); applyParameterPlan(frameDelta); rootTiltSmoother.update(rootTilt, frameDelta); } // AI_COMPANION_HOST_PLAN_HOOK
         updateScheduler.onLateUpdate(model, frameDelta);
         applyOutfitParameters(SenOutfitPresets.MAID, null);
         updateModelWithOutfitShapeLock();
@@ -669,6 +670,7 @@ final class SenLive2DModel extends CubismUserModel {
     void setStaticMode(boolean enabled) {
         if (staticMode == enabled) return;
         staticMode = enabled;
+        rootTiltSmoother.reset(); // AI_COMPANION_HOST_PLAN_HOOK
         if (enabled) {
             motionManager.stopAllMotions();
             transientExpressionManager.stopAllMotions();

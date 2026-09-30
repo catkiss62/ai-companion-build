@@ -225,6 +225,7 @@ void main() {
     'structured quiet results can be shared, and queued evidence coalesces',
     () async {
       await guide(db);
+      await CedarToyActivityStore(db).setViewingPace(CedarViewingPace.fast);
       final first = await outcome(db, '发现了一扇隐藏的门。');
       final shares = CedarLiveSharePolicy(db);
       await shares.offer(first, share: true, now: DateTime.now());
@@ -240,14 +241,16 @@ void main() {
           createdAt: DateTime.now(),
         ),
       );
+      await shares.noteDelivered(id);
       await CedarToyActivityStore(db).removeDirectShare(id);
-      await shares.offer(second, share: true, now: DateTime.now());
+      final third = await outcome(db, '沿新路线继续发现了房间。');
+      await shares.offer(third, share: true, now: DateTime.now());
       final nextId = (await CedarToyActivityStore(
         db,
       ).pendingDirectShares()).single;
       expect(nextId, isNot(id));
       expect((await db.thoughtById(nextId))!.text, isNot(contains('隐藏的门')));
-      await shares.offer(second, share: true, now: DateTime.now());
+      await shares.offer(third, share: true, now: DateTime.now());
       expect(await CedarToyActivityStore(db).pendingDirectShares(), [nextId]);
     },
   );

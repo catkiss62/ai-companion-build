@@ -66,6 +66,7 @@ class CaicaiModelRepository(context: Context) {
     }
 
     fun importZip(uri: Uri): Models {
+        synchronized(lock) { require(portableLease == null) { "存档操作正在进行" } }
         if (!root.exists() && !root.mkdirs()) throw IOException("无法创建模型目录")
         remove(staging)
         if (!staging.mkdirs()) throw IOException("无法创建模型暂存目录")
@@ -96,6 +97,7 @@ class CaicaiModelRepository(context: Context) {
             // has passed structural checks, then restore the last verified
             // package (if any) before starting the next transaction.
             return synchronized(lock) {
+                require(portableLease == null) { "存档操作正在进行" }
                 if (prefs.getBoolean("pending", false)) rollbackPendingImport()
                 remove(backup)
                 if (current.exists() && !current.renameTo(backup)) throw IOException("无法暂存旧模型")
@@ -142,6 +144,7 @@ class CaicaiModelRepository(context: Context) {
     }
 
     fun clearImportedModels() = synchronized(lock) {
+        require(portableLease == null) { "存档操作正在进行" }
         remove(root)
         if (!prefs.edit().clear().commit()) throw IOException("无法清除模型索引")
         CaicaiDiagnostics.record(app, "models_deleted")
@@ -156,6 +159,7 @@ class CaicaiModelRepository(context: Context) {
     }
 
     fun rollbackPendingImport(): Boolean = synchronized(lock) {
+        if (portableLease != null) return@synchronized false
         if (!prefs.getBoolean("pending", false)) return@synchronized false
         remove(current)
         val restored = backup.exists() && backup.renameTo(current)
@@ -255,5 +259,48 @@ class CaicaiModelRepository(context: Context) {
         }
     }
 
-    companion object { private val lock = Any() }
+    fun beginPortableSnapshot(): String = synchronized(lock) {
+        require(portableLease == null) { "存档操作正在进行" }
+        java.util.UUID.randomUUID().toString().also { portableLease = it }
+    }
+    fun endPortableSnapshot(token: String) = synchronized(lock) {
+        require(portableLease == token); portableLease = null
+    }
+    fun portableDirectory(token: String): File = synchronized(lock) {
+        require(portableLease == token)
+        // A damaged installed package must not silently become an empty backup.
+        if (current.exists() && current.listFiles().orEmpty().isNotEmpty()) validatePortableDirectory(current)
+        else require(prefs.getString("maid", "").isNullOrEmpty() && prefs.getString("accessory", "").isNullOrEmpty()) {
+            "模型索引存在但文件丢失，无法创建完整存档"
+        }
+        current
+    }
+    fun validatePortableDirectory(directory: File): Models {
+        if (!directory.exists() || directory.listFiles().orEmpty().isEmpty()) return Models()
+        val manifest = directory.walkTopDown().firstOrNull {
+            it.isFile && it.name.equals("accessory-lab.json", ignoreCase = true)
+        } ?: throw IOException("存档模型缺少 accessory-lab.json")
+        val config = JSONObject(manifest.readText(Charsets.UTF_8))
+        val parent = manifest.parentFile ?: throw IOException("模型清单路径无效")
+        val maid = safeChild(parent, config.getString("mainModel"))
+        val accessory = safeChild(parent, config.getString("accessoryModel"))
+        require(maid?.isFile == true && accessory?.isFile == true) { "存档模型引用不完整" }
+        validateModelFiles(maid!!, false); validateModelFiles(accessory!!, true)
+        return Models(maid, accessory)
+    }
+    fun installPortableIndex(token: String) = synchronized(lock) {
+        require(portableLease == token)
+        val restored = validatePortableDirectory(current)
+        val edit = prefs.edit().remove("maid").remove("accessory").remove("old_maid")
+            .remove("old_accessory").remove("pending")
+        if (restored.available) edit.putString("maid", CaicaiModelPaths.relative(current, restored.maid!!))
+            .putString("accessory", CaicaiModelPaths.relative(current, restored.accessory!!))
+        if (!edit.commit()) throw IOException("无法保存存档模型索引")
+    }
+    fun finishPortableInstall(token: String) = synchronized(lock) {
+        require(portableLease == token)
+        // Stale import rollback candidates are not part of the restored user state.
+        runCatching { remove(backup); remove(staging) }
+    }
+    companion object { private val lock = Any(); private var portableLease: String? = null }
 }
