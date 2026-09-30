@@ -1083,7 +1083,7 @@ class CedarToyAutonomyEngine {
   Future<CedarAutonomyProgress> beginPlaySession({required DateTime now,
       required bool resume}) async {
     final progress = resume
-        ? await resumeCheckpoint(now: now)
+        ? await resumeCheckpoint(now: now, selfReset: false)
         : await this.progress(now: now);
     final session = await CedarToyActivityStore(db).load();
     if (session != null && session.needsContinuation &&

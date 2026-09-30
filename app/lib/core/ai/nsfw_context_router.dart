@@ -68,6 +68,7 @@ class NsfwContextRouter {
           '' || null => null,
           final value => value,
         },
+        gameAttitude: await db.getSetting('cedar_game_attitude_route_signal') ?? 'none',
       );
     }
     final manual = await db.getSetting('nsfw_manual_override') ?? '';
@@ -241,12 +242,14 @@ light: the user deliberately joins a small joke or gentle teasing; ordinary frie
 mutual: the user knowingly escalates reciprocal teasing into a playful challenge aimed at the assistant. Routine back-and-forth, friendly jokes and shyness are not enough.
 strong: especially vivid, reciprocal playful provocation; do not select it merely for insults, anger, or repetition.
 Do not treat a request for technical help, genuine distress, or conflict as banter.
-Judge INITIATIVE independently: open means a small self-started playful challenge could fit naturally now; closed means this message needs a direct response or offers no natural opening. This field only permits a possible optional nudge and does not grant heat points. Also judge game_attitude: encourage means optional autonomous game exploration when free; pause means set autonomous gaming aside; none covers direct act-now requests, ordinary game talk, quotes and unrelated messages. Return the independent fields in one JSON object.''',
+Judge INITIATIVE independently: open means a small self-started playful challenge could fit naturally now; closed means this message needs a direct response or offers no natural opening. This field only permits a possible optional nudge and does not grant heat points. Also judge game_attitude: encourage means optional autonomous game exploration when free; pause means set autonomous gaming aside; none covers direct act-now requests, ordinary game talk, quotes, different named games and unrelated messages. If CEDAR_CONFIGURED is false, game_attitude must be none. Return the independent fields in one JSON object.''',
           },
           {
             'role': 'user',
-            'content': '''CURRENT_ROUTE=${currentActive ? 'nsfw' : 'daily'}
+              'content': '''CURRENT_ROUTE=${currentActive ? 'nsfw' : 'daily'}
 SEDUCTRESS_BIAS=${seductressBias ? 'true' : 'false'}
+CEDAR_CONFIGURED=$cedarConfigured
+ACTIVE_GAME=$attitudeGame
 
 RECENT_CONTEXT:
 $transcript
@@ -270,7 +273,7 @@ $latestUserText''',
       final mode = result['mode']?.toString().trim().toLowerCase() ?? '';
       final interaction = PlayfulInteraction.parse(result['interaction']);
       final initiativeOpportunity = result['initiative'] == 'open';
-      final gameAttitude = const {'encourage', 'pause'}.contains(result['game_attitude'])
+      final gameAttitude = cedarConfigured && const {'encourage', 'pause'}.contains(result['game_attitude'])
           ? result['game_attitude'] as String : 'none';
       final decision = switch (mode) {
         'nsfw_reference' => NsfwRouteDecision(

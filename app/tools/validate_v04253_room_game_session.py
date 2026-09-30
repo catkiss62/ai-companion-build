@@ -29,6 +29,7 @@ assert "executionId: scope.executionId" in engine
 assert "cedarDidWork && !cedarSustainedActive" in read("lib/core/maintenance/recovery_orchestrator.dart")
 policy = read("lib/core/mcp/cedar_play_session_policy.dart")
 assert "30 * 60 * 1000" in policy and "processEpoch" in policy
+assert read("lib/core/sync/snapshot_service.dart").count("'cedar_toy_play_session_v1': ''") == 2
 assert "720" in policy and "minutes / 180" in policy
 assert "CedarGameAttitudeStore(db).commit" in read("lib/core/ai/durable_generation_runner.dart")
 assert "RememberedUserFactsStore(db).load()" in read("lib/core/ai/prompt_builder.dart")
