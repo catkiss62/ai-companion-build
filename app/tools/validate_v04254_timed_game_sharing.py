@@ -39,5 +39,6 @@ assert 'Duration(minutes: 45)' in proactive and 'forceForDebug: true' in proacti
 assert 'isImmersiveChatPageVisible' in proactive and 'commitProactiveMessageIfCurrent' in proactive
 assert read('lib/core/sync/snapshot_service.dart').count("'cedar_timed_play_pending_v1': ''") == 2
 assert (app / 'test/cedar_timed_live_share_v04254_test.dart').is_file()
-assert 'version: 0.42.54+298' in read('pubspec.yaml')
+assert any('version: ' + version in read('pubspec.yaml')
+           for version in ('0.42.54+298', '0.42.55+299'))
 print('v0.42.54 explicit timed task, durable report and native progress sharing wired')

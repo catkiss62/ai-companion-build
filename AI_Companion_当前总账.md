@@ -1,22 +1,20 @@
 # AI Companion · 当前总账
 
-更新时间：2026-09-30（+298 CI PASSED / APK READY / TRUE DEVICE PENDING；+297 CI PASSED / APK READY / TRUE DEVICE PENDING；+295 恢复真机成功、背景回归 PARTIAL；+293 DEVICE VISUAL BASELINE）
+更新时间：2026-09-30（+299 加急 IMPLEMENTED / CI PENDING；+298 CI PASSED / APK READY / TRUE DEVICE PENDING；+297 CI PASSED / APK READY / TRUE DEVICE PENDING；+295 恢复真机成功、背景回归 PARTIAL；+293 DEVICE VISUAL BASELINE）
 
 > 本文件是唯一的当前接班入口，继续采用“总账 v2”。顶部是快速接班索引；标记后的正式记录按版本持续追加，不设总容量上限。
 >
 > 判断优先级：用户最新明确决定 > 当前 GitHub 源码与 Actions > 同时刻脱敏真机诊断/备份 > 本文件 > 冻结归档与 Git 历史。`DESIGNED`、`IMPLEMENTED`、`CI PASSED`、`APK READY`、`TRUE DEVICE PASSED`、`PENDING` 必须严格区分。
 
 
-## 当前修复 · +296 保留直接合成恢复，把昼夜背景合入人物 Surface（CI PASSED / APK READY / TRUE DEVICE PENDING）
+## 当前加急 · v0.42.55+299 存档 CursorWindow 与白天背景（IMPLEMENTED / CI PENDING）
 
-- 2026-09-30 09:40 用户确认 +295 切出切回卡住→消失→重现已经解决；但人物背后默认黑色，进入“更多”或“她”再返回聊天时露出刚才页面。截图 `1000155919.jpg` 显示聊天文字/按钮与人物正常叠合、背后却是更多列表。**+295 恢复项单独 TRUE DEVICE PASSED，背景项 TRUE DEVICE FAILED，整版 PARTIAL。保留成功的直接 HC，不回退 Virtual Display。**
-- 同版专用诊断 `live2d_diagnostics_2026-09-30T01-34-52.929576Z.json.txt`：`view_id=1 contexts=1 surfaces=18 frames=1811`，约 59.5 fps；09:34:21、32、44 的多次 Activity 恢复后仍 context=1，模型纹理仅解码/上传 7 张，原先约 2.7 秒重载不再出现。Surface 仍可因停止/显示变化重建，但 EGL 被保留，没有证明“Surface 永不销毁”。普通诊断同为 +295。本次只分析此问题，不改 Jev/Cedar。
-- 读取 Android 15 [SurfaceView 官方源码](https://github.com/aosp-mirror/platform_frameworks_base/blob/android-15.0.0_r1/core/java/android/view/SurfaceView.java)：默认窗口下层的 `draw/dispatchDraw` 用 `clearSurfaceViewPort` 清空其后的窗口 Canvas，`gatherTransparentRegion` 声明透明区域；Flutter HC 背景 `FlutterImageView` 是同窗口的 Canvas 图像，旧 FlutterSurfaceView 的冻结帧在更下层。此源码机制与黑底/上页透出一致；不把旧页误认成正在绘制的聊天背景。简单媒体 Z 层仍在窗口下，`setZOrderOnTop(true)` 又会挡住 Flutter 聊天覆盖层，故不采用这两条。
-- 修复：保留 +295 `PlatformViewLink/initExpensiveAndroidView/GLSurfaceView`。仅为伴侣宿主增加 `CaicaiStageBackground`，将原有公共 day/night WebP 以不透明 GL 四边形绘入与人物相同的 Surface，然后绘制原有 Cubism 人物；Flutter 保留聊天覆盖层、普通立绘与无模型状态的背景。从 Dart 同步现有昼夜选择，原生只接受这两个公共素材路径；居中 cover 及稳定 sceneHeight/顶部 IME 裁剪与 Flutter 原布局一致。纹理按资产变化或真正 EGL 换代加载，Surface 改尺寸/恢复不重解码；缺图记录背景错误且填充不透明深色，避免旧缓冲透出。诊断 state/frame 添加背景资产/加载与上传次数，不包含用户图片或私有模型。
-- 验证：新 Android ES2 pbuffer 像素烟测检查昼夜颜色/上下方向、alpha=255、IME 顶部裁剪不挤压、同资产多帧/resize 不重复加载、真正换 context 重建纹理，以及缺失图像不反复重试。原有 26 文件/配件算法经宿主标记剥离仍通过来源校验；新背景层独立于私有模型。版本 `0.42.52+296`，独立分支 `agent/v04252-caicai-surface-background`；构建结果另行回填。
-- 构建：本地功能提交 `c88bc4e3284df94a7317af754867a1e0c14222a4`，远端同源码树 `0a1b2f3695c9eac4a32989cefe5ec2008b5c22a1`，tree `ad979f9d6f3d1a0cca34187313ad9165f9413177`。[Actions 36657791150](https://github.com/catkiss62/ai-companion-build/actions/runs/36657791150) `success`；原生模拟器日志确认新增两项背景像素测试与既有三项测试合计 5/5 完成、0 跳过、0 失败；130 项源码门、Kotlin、Flutter analyze/test、arm64 Release、资源和签名核验全绿，失败报告跳过。未合并 main。
-- 未发布 Draft `399666814`：[+296 测试 APK](https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-6cc8871713cb98446307)，target=`0a1b2f3`，asset `599823261`，文件 `AI-Companion-v0.42.52-296-Caicai-Surface-Background-APK.apk`，726117130 字节，SHA-256 `2e8d26353b2705bdc2340a7bc8b9906139bebcde76db7b7d65d2be51b2bb2dce`；Artifact `11074270365`。CI monitor 与 release digest 一致；签名证书 `30:5E:B3:D8:09:83:B9:63:C6:48:18:DD:F1:AD:56:1F:27:9D:E6:D4:7B:3E:D2:C7:81:AD:A4:48:C7:C2:51:48` 与现有测试版本一致，可覆盖安装保留数据；`draft=true / published_at=null`，未正式发布。背景和综合真机效果仍 PENDING。
-- 真机待验：开机直接进聊天可见正常昼夜背景；“聊天→更多→聊天”和“聊天→她→聊天”各三次无旧页残留；“≡→直接返回”和真正切 App 后返回仍无秒级空白；聊天文字、按钮、气焰条覆盖顺序正常；键盘开合人物和背景保持尺寸。+293 保留完整视觉回退基线，+295 保留恢复成功的源码与 Draft；若失败记录具体项，不能覆盖已确认的恢复成功事实。
+- 用户 2026-09-30 20:37 明确只做两件事：修复现有存档失败、替换已生成并认可的白天背景；授权直接推送并构建测试 APK。上一轮其余方案暂缓，详见正文“2026-09-30 美术与存档完整性后续方案”。
+- 截图证据：普通备份在 `SELECT * FROM settings` 报 `Row too big to fit into CursorWindow requiredPos=294 totalRows=295`。确定是 settings 的单条大值读取故障，尚无本机数据库证据可确定具体设置键；不凭行号猜键，不清空、截断或删除用户记录。
+- 基线 +298 源码869a117e/总账2ebe1d6；独立分支 `agent/v04255-backup-cursor-window-day`。计划在既有导出事务中按字节分段读取大 settings，重组后仍导出原 key/value；常规 getSetting 同用有界读取，长值保持事务一致性。兼容现有 schema61/protocol6；不扩大本轮到 Live2D 全量备份补齐。
+- 背景：仅把本窗口日光预览转换为 WebP 并替换公共 `assets/lingchat/background/day.webp`，沿用 Flutter/原生同路径、cover/IME/EGL 恢复机制；夜图、人物、配件、模型路由、游戏与界面其余项保持原实现。
+- 验证：多 MiB 中文/emoji/NUL 字节重组、受限 CursorWindow 查询、完整数据库 JSON 导出/导入、Android 真 SQLite 游标烟测；完整源码门、Flutter analyze/tests、原生烟测、Kotlin、arm64 签名 APK。CI 与真机分别回填，不提前标成功。
+- 实施：新增 SqliteSettingsReader，首段和后续每次查询最多64KiB BLOB；完整拼接后一次UTF-8解码，支持中文/emoji跨段与NUL，空值保留。导出在原全库事务内读取；单项小设置一次查询，大设置重新在事务内读。短段/字节不一致报错，不返回部分成功；无数据迁移/删除，无协议变更。实际背景1672×941 RGB，原预览无损WebP转换，1,606,718bytes，SHA-256 `6b4296044fd5b882f459e3f66cb586f67d59949a3a49a786a343619149781fb7`。本地真实SQLite 3.85MiB中文/emoji/NUL无损往返通过，新增4项Flutter回归和1项Android游标烟测待CI；本机无Flutter SDK。局部快检中6项历史版号白名单已补+299；120项本地源码门通过，13项因未恢复私有资源/稀疏未取出Android测试或缺Kotlin工具链留给完整CI补齐。
 
 ## 当前实施 · v0.42.54+298 指定时长游戏任务与过程分享（CI PASSED / APK READY / TRUE DEVICE PENDING）
 
@@ -334,6 +332,19 @@
 +283 当前任务：以 +282 远端为基线，依据 2026-09-28 存档与诊断收紧 Cedar 关键词误触发；Gemini 成功时由 Gemini 完成一次正文修正，DeepSeek 仅第二通道失败兜底；菜菜导入状态精简、十九情绪预览和 Jev 逐轮情绪判断。状态 IMPLEMENTED / CI PASSED / APK READY / TRUE DEVICE PENDING；详见末尾 +283 正式记录。用户私密存档、诊断及模型素材不得上传公开仓。
 
 <!-- END QUICK HANDOFF INDEX -->
+
+## 当前修复 · +296 保留直接合成恢复，把昼夜背景合入人物 Surface（CI PASSED / APK READY / TRUE DEVICE PENDING）
+
+- 2026-09-30 09:40 用户确认 +295 切出切回卡住→消失→重现已经解决；但人物背后默认黑色，进入“更多”或“她”再返回聊天时露出刚才页面。截图 `1000155919.jpg` 显示聊天文字/按钮与人物正常叠合、背后却是更多列表。**+295 恢复项单独 TRUE DEVICE PASSED，背景项 TRUE DEVICE FAILED，整版 PARTIAL。保留成功的直接 HC，不回退 Virtual Display。**
+- 同版专用诊断 `live2d_diagnostics_2026-09-30T01-34-52.929576Z.json.txt`：`view_id=1 contexts=1 surfaces=18 frames=1811`，约 59.5 fps；09:34:21、32、44 的多次 Activity 恢复后仍 context=1，模型纹理仅解码/上传 7 张，原先约 2.7 秒重载不再出现。Surface 仍可因停止/显示变化重建，但 EGL 被保留，没有证明“Surface 永不销毁”。普通诊断同为 +295。本次只分析此问题，不改 Jev/Cedar。
+- 读取 Android 15 [SurfaceView 官方源码](https://github.com/aosp-mirror/platform_frameworks_base/blob/android-15.0.0_r1/core/java/android/view/SurfaceView.java)：默认窗口下层的 `draw/dispatchDraw` 用 `clearSurfaceViewPort` 清空其后的窗口 Canvas，`gatherTransparentRegion` 声明透明区域；Flutter HC 背景 `FlutterImageView` 是同窗口的 Canvas 图像，旧 FlutterSurfaceView 的冻结帧在更下层。此源码机制与黑底/上页透出一致；不把旧页误认成正在绘制的聊天背景。简单媒体 Z 层仍在窗口下，`setZOrderOnTop(true)` 又会挡住 Flutter 聊天覆盖层，故不采用这两条。
+- 修复：保留 +295 `PlatformViewLink/initExpensiveAndroidView/GLSurfaceView`。仅为伴侣宿主增加 `CaicaiStageBackground`，将原有公共 day/night WebP 以不透明 GL 四边形绘入与人物相同的 Surface，然后绘制原有 Cubism 人物；Flutter 保留聊天覆盖层、普通立绘与无模型状态的背景。从 Dart 同步现有昼夜选择，原生只接受这两个公共素材路径；居中 cover 及稳定 sceneHeight/顶部 IME 裁剪与 Flutter 原布局一致。纹理按资产变化或真正 EGL 换代加载，Surface 改尺寸/恢复不重解码；缺图记录背景错误且填充不透明深色，避免旧缓冲透出。诊断 state/frame 添加背景资产/加载与上传次数，不包含用户图片或私有模型。
+- 验证：新 Android ES2 pbuffer 像素烟测检查昼夜颜色/上下方向、alpha=255、IME 顶部裁剪不挤压、同资产多帧/resize 不重复加载、真正换 context 重建纹理，以及缺失图像不反复重试。原有 26 文件/配件算法经宿主标记剥离仍通过来源校验；新背景层独立于私有模型。版本 `0.42.52+296`，独立分支 `agent/v04252-caicai-surface-background`；构建结果另行回填。
+- 构建：本地功能提交 `c88bc4e3284df94a7317af754867a1e0c14222a4`，远端同源码树 `0a1b2f3695c9eac4a32989cefe5ec2008b5c22a1`，tree `ad979f9d6f3d1a0cca34187313ad9165f9413177`。[Actions 36657791150](https://github.com/catkiss62/ai-companion-build/actions/runs/36657791150) `success`；原生模拟器日志确认新增两项背景像素测试与既有三项测试合计 5/5 完成、0 跳过、0 失败；130 项源码门、Kotlin、Flutter analyze/test、arm64 Release、资源和签名核验全绿，失败报告跳过。未合并 main。
+- 未发布 Draft `399666814`：[+296 测试 APK](https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-6cc8871713cb98446307)，target=`0a1b2f3`，asset `599823261`，文件 `AI-Companion-v0.42.52-296-Caicai-Surface-Background-APK.apk`，726117130 字节，SHA-256 `2e8d26353b2705bdc2340a7bc8b9906139bebcde76db7b7d65d2be51b2bb2dce`；Artifact `11074270365`。CI monitor 与 release digest 一致；签名证书 `30:5E:B3:D8:09:83:B9:63:C6:48:18:DD:F1:AD:56:1F:27:9D:E6:D4:7B:3E:D2:C7:81:AD:A4:48:C7:C2:51:48` 与现有测试版本一致，可覆盖安装保留数据；`draft=true / published_at=null`，未正式发布。背景和综合真机效果仍 PENDING。
+- 真机待验：开机直接进聊天可见正常昼夜背景；“聊天→更多→聊天”和“聊天→她→聊天”各三次无旧页残留；“≡→直接返回”和真正切 App 后返回仍无秒级空白；聊天文字、按钮、气焰条覆盖顺序正常；键盘开合人物和背景保持尺寸。+293 保留完整视觉回退基线，+295 保留恢复成功的源码与 Draft；若失败记录具体项，不能覆盖已确认的恢复成功事实。
+
+
 
 ## 当前实施 · v0.42.53+297 沉浸形态快照、独立情绪层与自主游戏投入（CI PASSED / APK READY / TRUE DEVICE PENDING）
 
@@ -1578,3 +1589,15 @@ Actions 与交付证据：远端功能 head `33647c7bff15084d6fd3cbc7b817e9b0b21
 - 签名 SHA256 `30:5E:B3:D8:09:83:B9:63:C6:48:18:DD:F1:AD:56:1F:27:9D:E6:D4:7B:3E:D2:C7:81:AD:A4:48:C7:C2:51:48`，与+285一致，支持从+285覆盖安装。保留模型与既有设置；原先脏的part-075.bin未进入提交。
 - 验收顺序：默认幅度100%、速度100%、支点88%下，反复开关输入法观察比例；头眼跟随/触摸摸头；左右探身与小腿支点倾斜预览；最后观察普通对话与主动分享的Jev选项和实际动作。需要时调幅度/速度/支点；第二通道正文及400兜底、桌宠默认继续保留。
 - 状态边界：IMPLEMENTED / CI PASSED / APK READY；尚未取得本版私有模型真机录像或诊断，不能称输入法拉伸、延迟、摸头命中或动作观感已真机通过。真实Jev新增问题的服务端选项分布也仍需设备日志验证。+285仍为用户确认的功能基准。
+
+
+## 2026-09-30 美术与存档完整性后续方案（DISCUSSION / DEFERRED）
+
+用户要求暂时保留本轮六项方案，加急修复后继续讨论；此记录不等于实施许可扩展。背景替换已单独纳入 +299，其余只保留方案。
+
+1. 白天图使用夜景同一房间构图改日光；当前生成工具不能指定/核验用户提及的 gpt-image2.5，预览已告知版本限制。新图需检查普通聊天、沉浸与原生 Live2D 的同资产显示、昼夜切换及裁切。
+2. 旧桌宠素材主要为 `app/assets/lingchat/deepseek/`（21张含头像）与 `app/assets/portraits/large_whale/`（20张）。后续整理透明 PNG 与角色/情绪/原文件名对照给用户 PS；保持每张画布尺寸、人物位置与透明通道，回收后转换并按原路径接入，不搬迁资源或改变锚点。
+3. 删除七大规则右上角文件导入/导出、剪贴板设定包入口和页面专用逻辑。`AndroidBridge.savePromptPack/openPromptPack` 仍被“模型与联网配置”页面使用，不连带删除；保留规则编辑/搜索/重置、codec 与完整存档的 rule_layers。
+4. 左侧栏“代办提醒”上方增加“记住事项”快捷入口，复用 `RememberedUserFactsPage` 和既有 settings 数据；原记忆库入口保留，不改变重要性/提醒机制。
+5. 小腿支点整体旋转：Jev/自主待机共享默认1.0、范围0.65～1.6倍速度。待机平滑理论上界默认19.6°/s，幅度/速度最大约47.1°/s；Jev没有独立角速度硬上限，最快节奏最大左右反向场景的理论起始速度默认约137°/s、全部满档约328°/s，属于代码估算而非真机实测或全场景最大值。建议后续单独给 Jev 整体倾斜约30°/s限速，并检查接管、反向、清理归零及回到待机的衔接；用户尚未要求本轮实施。
+6. 存档完整性专项：记住事项已在 settings 中；原生 `caicai-live2d` 模型/配件文件与 `caicai_stage` 布局、摸头框、幅度/速度/支点尚未纳入 SnapshotService 的 DB/attachments/album/media 通道；SecureConfig 中部分非 Key 的 provider/endpoint/model/开关亦需单独白名单导出。后续目标为用户数据与可迁移设置完整恢复、API Key 排除、旧存档兼容，采用导出→新安装环境导入→逐项比对；保留已有 Active Brain、运行任务中断与写入围栏，不能用复制设备运行态代替恢复。此次仅修现有导出崩溃，不在加急版扩展协议/原生模型备份。

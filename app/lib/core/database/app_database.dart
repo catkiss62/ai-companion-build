@@ -6,6 +6,8 @@ import 'package:path/path.dart' as p;
 import 'package:sqflite/sqflite.dart';
 import 'package:uuid/uuid.dart';
 
+import 'sqlite_settings_reader.dart';
+
 import '../emotion/emotion_contract.dart';
 import '../agent/agent_tool.dart';
 import '../diagnostics/provider_health.dart';
@@ -17976,14 +17978,7 @@ class AppDatabase {
 
   Future<String?> getSetting(String key) async {
     final db = await database;
-    final rows = await db.query(
-      'settings',
-      columns: ['value'],
-      where: 'key = ?',
-      whereArgs: [key],
-      limit: 1,
-    );
-    return rows.isEmpty ? null : rows.first['value'] as String;
+    return SqliteSettingsReader.read(db, key);
   }
 
   Future<void> setSetting(String key, String value) async {
@@ -19093,7 +19088,9 @@ class AppDatabase {
     final data = await db.transaction<Map<String, Object?>>((txn) async {
       final result = <String, Object?>{};
       for (final table in tables) {
-        if (table == 'post_turn_jobs') {
+        if (table == 'settings') {
+          result[table] = await SqliteSettingsReader.readAll(txn);
+        } else if (table == 'post_turn_jobs') {
           // Completed maintenance jobs are device-local bookkeeping; only carry
           // unfinished work across a phone/tablet Active Brain transfer.
           result[table] = await txn.query(
