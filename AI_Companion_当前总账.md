@@ -1,24 +1,27 @@
 # AI Companion · 当前总账
 
-更新时间：2026-09-30（+299 加急 IMPLEMENTED / CI PENDING；+298 CI PASSED / APK READY / TRUE DEVICE PENDING；+297 CI PASSED / APK READY / TRUE DEVICE PENDING；+295 恢复真机成功、背景回归 PARTIAL；+293 DEVICE VISUAL BASELINE）
+更新时间：2026-09-30（+299 CI PASSED / APK READY / TRUE DEVICE PENDING；+298 CI PASSED / APK READY / TRUE DEVICE PENDING；+297 CI PASSED / APK READY / TRUE DEVICE PENDING；+295 恢复真机成功、背景回归 PARTIAL；+293 DEVICE VISUAL BASELINE）
 
 > 本文件是唯一的当前接班入口，继续采用“总账 v2”。顶部是快速接班索引；标记后的正式记录按版本持续追加，不设总容量上限。
 >
 > 判断优先级：用户最新明确决定 > 当前 GitHub 源码与 Actions > 同时刻脱敏真机诊断/备份 > 本文件 > 冻结归档与 Git 历史。`DESIGNED`、`IMPLEMENTED`、`CI PASSED`、`APK READY`、`TRUE DEVICE PASSED`、`PENDING` 必须严格区分。
 
 
-## 当前加急 · v0.42.55+299 存档 CursorWindow 与白天背景（IMPLEMENTED / CI PENDING）
+## 当前加急 · v0.42.55+299 存档 CursorWindow 与白天背景（CI PASSED / APK READY / TRUE DEVICE PENDING）
 
 - 用户 2026-09-30 20:37 明确只做两件事：修复现有存档失败、替换已生成并认可的白天背景；授权直接推送并构建测试 APK。上一轮其余方案暂缓，详见正文“2026-09-30 美术与存档完整性后续方案”。
 - 截图证据：普通备份在 `SELECT * FROM settings` 报 `Row too big to fit into CursorWindow requiredPos=294 totalRows=295`。确定是 settings 的单条大值读取故障，尚无本机数据库证据可确定具体设置键；不凭行号猜键，不清空、截断或删除用户记录。
 - 基线 +298 源码869a117e/总账2ebe1d6；独立分支 `agent/v04255-backup-cursor-window-day`。计划在既有导出事务中按字节分段读取大 settings，重组后仍导出原 key/value；常规 getSetting 同用有界读取，长值保持事务一致性。兼容现有 schema61/protocol6；不扩大本轮到 Live2D 全量备份补齐。
 - 背景：仅把本窗口日光预览转换为 WebP 并替换公共 `assets/lingchat/background/day.webp`，沿用 Flutter/原生同路径、cover/IME/EGL 恢复机制；夜图、人物、配件、模型路由、游戏与界面其余项保持原实现。
 - 验证：多 MiB 中文/emoji/NUL 字节重组、受限 CursorWindow 查询、完整数据库 JSON 导出/导入、Android 真 SQLite 游标烟测；完整源码门、Flutter analyze/tests、原生烟测、Kotlin、arm64 签名 APK。CI 与真机分别回填，不提前标成功。
-- 实施：新增 SqliteSettingsReader，首段和后续每次查询最多64KiB BLOB；完整拼接后一次UTF-8解码，支持中文/emoji跨段与NUL，空值保留。导出在原全库事务内读取；单项小设置一次查询，大设置重新在事务内读。短段/字节不一致报错，不返回部分成功；无数据迁移/删除，无协议变更。实际背景1672×941 RGB，原预览无损WebP转换，1,606,718bytes，SHA-256 `6b4296044fd5b882f459e3f66cb586f67d59949a3a49a786a343619149781fb7`。本地真实SQLite 3.85MiB中文/emoji/NUL无损往返通过，新增4项Flutter回归和1项Android游标烟测待CI；本机无Flutter SDK。局部快检中6项历史版号白名单已补+299；120项本地源码门通过，13项因未恢复私有资源/稀疏未取出Android测试或缺Kotlin工具链留给完整CI补齐。
+- 实施：新增 SqliteSettingsReader，首段和后续每次查询最多64KiB BLOB；完整拼接后一次UTF-8解码，支持中文/emoji跨段与NUL，空值保留。导出在原全库事务内读取；单项小设置一次查询，大设置重新在事务内读。短段/字节不一致报错，不返回部分成功；无数据迁移/删除，无协议变更。实际背景1672×941 RGB，原预览无损WebP转换，1,606,718bytes，SHA-256 `6b4296044fd5b882f459e3f66cb586f67d59949a3a49a786a343619149781fb7`。本地真实SQLite 3.85MiB中文/emoji/NUL无损往返通过，新增4项Flutter回归和1项Android游标烟测（已由最终CI补齐，见下文）；本机无Flutter SDK。局部快检中6项历史版号白名单已补+299；120项本地源码门通过，13项因未恢复私有资源/稀疏未取出Android测试或缺Kotlin工具链留给完整CI补齐。
 
-- 首轮CI [36724790798](https://github.com/catkiss62/ai-companion-build/actions/runs/36724790798)，源码3a7d2007/tree c9d615a6：Android15原生6项烟测通过，含512KiB CursorWindow读取3MiB以上settings完整字节；前132项源码门通过。第133项发现CI恢复LingChat原素材覆盖已提交的新day.webp，哈希门正确阻止错误APK，未进入Flutter。修复素材恢复函数：仅day按已批准SHA-256保留，缺失/损坏则失败，其余61项仍按上游LFS校验；增加实际恢复函数的正常/损坏/缺失回归及APK内day哈希核验，保留原严格门。下一轮完整CI待回填。
+- 首轮CI [36724790798](https://github.com/catkiss62/ai-companion-build/actions/runs/36724790798)，源码3a7d2007/tree c9d615a6：Android15原生6项烟测通过，含512KiB CursorWindow读取3MiB以上settings完整字节；前132项源码门通过。第133项发现CI恢复LingChat原素材覆盖已提交的新day.webp，哈希门正确阻止错误APK，未进入Flutter。修复素材恢复函数：仅day按已批准SHA-256保留，缺失/损坏则失败，其余61项仍按上游LFS校验；增加实际恢复函数的正常/损坏/缺失回归及APK内day哈希核验，保留原严格门。后续完整CI结果见下文。
 
 - 第二轮36728003121，源码144776f3/tree d96cef6f：原生6项再次通过，build-apk在已通过资源/基线检查后，14:23:32Z进入既有桌宠素材生成步骤，至14:43Z超过20分钟未完成，尚未进入后续源码门/Flutter；上一轮相同步骤约5分钟。仅为构建恢复补该步骤15分钟超时、下载连接/总时长及停流超时，源码与素材完整性校验不变；同分支推送替代旧运行以取得取消日志并重跑，产品仍仅两项。未把未完成流水线记为通过。
+
+- 最终源码a2341425dfd6192551e3a5470eed89b5038165f4，tree dbd8558ecbc53f1a720bec82358ccb7f5c3bc63c与本地一致；[Actions 36731605271](https://github.com/catkiss62/ai-companion-build/actions/runs/36731605271) conclusion=success。Android15原生6/6（报告Artifact11105103500，CursorWindow新用例实际执行且0失败）、133项源码门、Kotlin、Flutter analyze及1018项Flutter测试通过，包含4项新设置/导出/导入/损坏分段回归；arm64 Release、稳定签名及资源检查通过，APK内day哈希与批准预览完全一致。analyze沿用仓库非致命info/warning策略，未宣称零提示。第二轮被新版替代取消，取消日志无动画生成进度，无法确定下载/apt/转换哪个子步骤停留；最终这一步约6分钟完成，不归因为产品代码失败。
+- [未发布+299测试APK](https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-96970c13c85e77efbdd1)，Draft400107673，target a2341425，asset601202681，AI-Companion-v0.42.55-299-Backup-CursorWindow-Day-APK.apk，727738166bytes，SHA-256 8f848e1ceeaf992a3f54fb2bd1a5721d2316a478515906cf8be4f19302c242d3；APK Artifact11107390635。ci-monitor-v0345/.ci/v04255-monitor.txt的run/head/digest与Release一致，签名30:5E:B3:D8:09:83:B9:63:C6:48:18:DD:F1:AD:56:1F:27:9D:E6:D4:7B:3E:D2:C7:81:AD:A4:48:C7:C2:51:48与+298相同，可覆盖安装保留数据。真机仍待：先保存备份确认不再报settings CursorWindow错误，再看白天背景；未用本机数据库定位具体大键，未声称Live2D原生模型/舞台偏好等后续全量备份审计已完成。其余六项后续方案继续暂缓。
 
 ## 当前实施 · v0.42.54+298 指定时长游戏任务与过程分享（CI PASSED / APK READY / TRUE DEVICE PENDING）
 
