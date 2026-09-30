@@ -27,6 +27,8 @@ import 'cedar_game_protocol.dart';
 import 'cedar_play_outcome_bookkeeper.dart';
 import 'cedar_solo_episode_policy.dart';
 import 'cedar_play_session_policy.dart';
+import 'cedar_timed_play_task.dart';
+import 'cedar_live_share_policy.dart';
 import 'mcp_protocol.dart';
 import 'mcp_http_client.dart';
 import 'mcp_turn_state_resolver.dart';
@@ -169,6 +171,7 @@ class CedarAgentActionDecision {
     required this.params,
     required this.mode,
     required this.invitationApproved,
+    this.sharePreviousOutcome = false,
   });
 
   final String gameId;
@@ -176,6 +179,7 @@ class CedarAgentActionDecision {
   final Map<String, Object?> params;
   final CedarParticipationMode mode;
   final bool invitationApproved;
+  final bool sharePreviousOutcome;
 }
 
 class CedarAgentActionPlanningException implements Exception {
@@ -289,6 +293,12 @@ class CedarAgentActionPlanner {
       'description': '指南中的精确可执行动作名。轮到 companion 且状态已读取时，禁止 state/status/observe/rooms/actions/catalog/help/look/inventory/announcements 等只读动作。',
     };
 
+    properties['share_previous_outcome'] = const <String, Object?>{
+      'type': 'boolean',
+      'description': '只判断已落库的前面游戏进展是否有值得分享的新内容；无新发现、重复小收益或仍有待发分享则false。当前准备执行的动作不算结果。',
+    };
+
+    (parameters['required'] as List).add('share_previous_outcome');
     final accumulator = AgentNativeToolCallAccumulator();
     await for (final delta in ai.streamChat(
       apiKey: apiKey,
@@ -366,6 +376,7 @@ class CedarAgentActionPlanner {
       params: params,
       mode: mode,
       invitationApproved: invitationApproved,
+      sharePreviousOutcome: arguments['share_previous_outcome'] == 'true',
     );
   }
 
@@ -1082,6 +1093,9 @@ class CedarToyAutonomyEngine {
 
   Future<CedarAutonomyProgress> beginPlaySession({required DateTime now,
       required bool resume}) async {
+    if (await CedarTimedPlayTaskStore(db).active() != null) {
+      return const CedarAutonomyProgress('user_task_active');
+    }
     final progress = resume
         ? await resumeCheckpoint(now: now, selfReset: false)
         : await this.progress(now: now);
@@ -1106,6 +1120,7 @@ class CedarToyAutonomyEngine {
     required DateTime now,
     bool episodeAuthorized = false,
   }) async {
+    await CedarTimedPlayTaskStore(db).reconcile(now);
     final delay = await continuationDelay(now: now);
     if (delay == null) return const CedarAutonomyProgress('no_continuation');
     if (delay > Duration.zero) return const CedarAutonomyProgress('not_due');
@@ -1165,7 +1180,13 @@ class CedarToyAutonomyEngine {
     if (period != null) {
       period = period.tick(now);
       if (!period.validAt(now, session.gameId)) {
-        await playPeriods.end('budget_complete'); period = null;
+        final timed = period.taskId.isNotEmpty;
+      await playPeriods.save(period);
+      await playPeriods.end('budget_complete'); period = null;
+      if (timed) {
+        await store.pauseAndRelease();
+        return const CedarAutonomyProgress('timed_task_complete');
+      }
       } else { await playPeriods.save(period); }
     }
     var sustained = period != null && !realtimeCommitment;
@@ -1262,7 +1283,9 @@ class CedarToyAutonomyEngine {
           scope.throwIfPreempted();
           if (after == null || !after.needsContinuation || saved == null ||
               !saved.validAt(finishedAt, after.gameId)) {
-            await playPeriods.end('finished_or_budget_complete');
+            if (saved != null) await playPeriods.save(saved.tick(finishedAt));
+            await playPeriods.end(after?.phase == CedarActivityPhase.completed
+                ? 'game_finished' : 'finished_or_budget_complete');
           } else {
             await playPeriods.save(saved.tick(finishedAt));
             await store.deferContinuation(gameId: after.gameId,
@@ -1273,6 +1296,11 @@ class CedarToyAutonomyEngine {
       },
     );
     if (progress.state.contains('preempted')) await playPeriods.pause(DateTime.now());
+    if (period?.taskId.isNotEmpty == true && await playPeriods.load() == null) {
+      final afterState = await store.loadState();
+      if (afterState.execution == null && afterState.activeSession?.id == session.id &&
+          afterState.activeSession!.phase.continuable) await store.pauseAndRelease();
+    }
     return progress;
   }
 
@@ -1532,6 +1560,7 @@ $catalog''',
   }) async {
     final state = await store.loadState();
     final playProtocol = await store.loadPlayProtocol();
+    final shareContext = await CedarLiveSharePolicy(db).planningContext(session, now);
     final decision = await CedarAgentActionPlanner(
       ai: ai,
       onRetry: (error) => _recordAgentActionRetry(error),
@@ -1581,7 +1610,9 @@ $catalog''',
 共玩、多人模式必须已有用户邀请/同意；混合模式可以独自开始，但只有用户明确同意后才能进入共玩分支。单人模式每次只推进一步。不得打开 GitHub 或补写结果。
 平台公共 action `rest / announcements / vote` 由 Cedar play schema 授权，不要求在单个游戏指南重复出现；`rest` 只在真实防沉迷提醒/锁定需要重置时使用。若 last_action 已是 state/status/observe/rooms/actions 等只读动作，且 next_actor=companion 或 Outcome 已给出合法动作，本次必须调用真实推进动作，不得重复查询。服务端 next_call 若存在则是最高优先级；近期用户建议只是参考，不是逐步命令。
 
-${store.promptContext(session, state: state, playProtocol: playProtocol)}''',
+${store.promptContext(session, state: state, playProtocol: playProtocol)}
+
+$shareContext''',
     );
     scope.throwIfPreempted();
     // Participation is session identity. Once established, do not let a fresh
@@ -1719,6 +1750,9 @@ ${store.promptContext(session, state: state, playProtocol: playProtocol)}''',
       scope.throwIfPreempted();
       params = CedarRoomActionPayload.withMessage(params, roomMessage);
     }
+    scope.throwIfPreempted();
+    await CedarLiveSharePolicy(db).offer(session,
+      share: decision.sharePreviousOutcome, now: DateTime.now());
     await store.updateExecutionAction(
       executionId: scope.executionId,
       action: action,
@@ -1895,15 +1929,19 @@ ${store.promptContext(session, state: state, playProtocol: playProtocol)}''',
         eventId: updated.events.last.id,
         gameId: session.gameId,
         directWhenWatched: true,
+        directForProgress: true,
       );
     }
-    if (!outcome.isError && updated.hasPendingTerminalDelivery) {
+    final timedTask = await CedarTimedPlayTaskStore(db).active();
+    if (!outcome.isError && updated.hasPendingTerminalDelivery &&
+        timedTask?['gameId'] != updated.gameId) {
       await _seedThought(
         text: '“${updated.displayName}”这局已经由 Cedar 确认结束。${updated.pendingTerminalSummary}',
         strength: 0.94,
         eventId: updated.pendingTerminalKey,
         gameId: session.gameId,
         directWhenWatched: true,
+        directForProgress: true,
       );
     }
     return CedarAutonomyProgress(
@@ -2300,9 +2338,10 @@ game=${session.gameId}
     required String eventId,
     required String gameId,
     bool directWhenWatched = false,
+    bool directForProgress = false,
   }) async {
     final thoughtId = 'cedar-$eventId';
-    await db.upsertThought(
+    if (await db.thoughtById(thoughtId) == null) await db.upsertThought(
         id: thoughtId,
         text: _bounded(text, 12000),
         drive: DriveKey.curiosity,
@@ -2311,9 +2350,9 @@ game=${session.gameId}
         source: 'mcp/cedar_game:$gameId:$eventId',
         topicKey: 'cedar_game:$gameId',
       );
-    if (directWhenWatched) {
+    if (directWhenWatched || directForProgress) {
       final store = CedarToyActivityStore(db);
-      if ((await store.currentViewingPace()).isWatching) {
+      if (directForProgress || (await store.currentViewingPace()).isWatching) {
         await store.queueDirectShare(thoughtId);
       }
     }

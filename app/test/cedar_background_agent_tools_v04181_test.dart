@@ -127,7 +127,7 @@ void main() {
       streamClientFactory: () => MockClient((request) async {
         requestBody = jsonDecode(request.body) as Map<String, dynamic>;
         return http.Response(
-          _toolResponse(_decision()),
+          _toolResponse({..._decision(), 'share_previous_outcome': true}),
           200,
           headers: const {'content-type': 'text/event-stream'},
         );
@@ -142,6 +142,7 @@ void main() {
       acceptsAction: (action) => action == 'move',
     );
 
+    expect(result.sharePreviousOutcome, isTrue);
     expect(result.gameId, 'duel');
     expect(result.action, 'move');
     expect(result.mode, CedarParticipationMode.multiplayer);

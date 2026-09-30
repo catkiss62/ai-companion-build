@@ -7,6 +7,8 @@ import '../models/desire_state.dart';
 import 'cedar_game_protocol.dart';
 import 'cedar_solo_episode_policy.dart';
 import 'cedar_toy_activity.dart';
+import 'cedar_live_share_policy.dart';
+import 'cedar_timed_play_task.dart';
 import 'mcp_protocol.dart';
 
 enum CedarPlayBookkeepingOrigin { userTurn, autonomous }
@@ -116,7 +118,11 @@ class CedarPlayOutcomeBookkeeper {
       });
     }
 
+    if (origin == CedarPlayBookkeepingOrigin.userTurn) {
+      await _bestEffort(() => CedarLiveSharePolicy(db).noteForeground(session));
+    }
     if (!successfulStateChange) return;
+    await _bestEffort(() => CedarTimedPlayTaskStore(db).recordProgress(session));
     await _bestEffort(() async {
       final desire = await db.loadDesire();
       await FatigueAffectController(db).recordAutonomousExertion(

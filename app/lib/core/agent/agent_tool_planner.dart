@@ -324,6 +324,7 @@ class AgentToolPlanner {
       'cedar_toy.get_guide',
       'cedar_toy.play',
       'cedar_toy.manage_activity',
+      'cedar_toy.start_timed_play',
     };
     if (cedarStageToolIds != null) {
       toolIds
@@ -353,6 +354,7 @@ class AgentToolPlanner {
     AgentToolOrigin origin = AgentToolOrigin.userTurn,
     String latestUserText = '',
     bool cedarSessionActive = false,
+    Set<String>? cedarStageToolIds,
     bool cedarBlindPlay = false,
     int maxCalls = AgentTaskLoopPolicy.maxCallsPerRound,
     Set<String> excludedCallFingerprints = const <String>{},
@@ -369,6 +371,7 @@ class AgentToolPlanner {
         'cedar_toy.get_guide',
         'cedar_toy.play',
         'cedar_toy.manage_activity',
+      'cedar_toy.start_timed_play',
       });
     }
     final boundedMaxCalls = maxCalls
@@ -378,6 +381,8 @@ class AgentToolPlanner {
       if (calls.length >= boundedMaxCalls) break;
       final toolId = _toolIdByNativeName[native.name];
       if (toolId == null) continue;
+      if (toolId.startsWith('cedar_toy.') && cedarStageToolIds != null &&
+          !cedarStageToolIds.contains(toolId)) continue;
       // Pixel capture requires an unmistakable local user command. A model
       // function selection is never treated as consent.
       if (toolId == AgentToolRegistry.screenObservation.id) continue;
@@ -544,6 +549,14 @@ class AgentToolPlanner {
         'participation_mode',
         'invitation_approved',
       ]);
+    } else if (tool.id == AgentToolRegistry.cedarToyTimedPlay.id) {
+      properties['game'] = const <String, Object?>{
+        'type': 'string', 'description': '真实目录中的指定游戏ID，已取得它的完整玩家指南。',
+      };
+      properties['duration_text'] = const <String, Object?>{
+        'type': 'string', 'description': '逐字引用用户本轮给出的时长，例如半小时、三十分钟、10分钟。支持1至30分钟；不可凭空补时长。',
+      };
+      required.addAll(const ['game', 'duration_text']);
     } else if (tool.id == AgentToolRegistry.cedarToyManageActivity.id) {
       properties['operation'] = const <String, Object?>{
         'type': 'string',
@@ -598,6 +611,12 @@ class AgentToolPlanner {
         '只在已取得该游戏完整真实指南后调用；game 必须来自真实列表，action 必须来自真实指南或 Cedar play schema 的公共 rest/announcements/vote。rest 是否准许完全交给 Cedar 的人类 allow_self_reset 开关，不在本地拒绝。'
         '先据指南判断 participation_mode。共玩/多人游戏必须有明确的双方参与许可；hybrid 可独自开始，只有进入其中共玩分支才需要许可。用户主动建房邀请、给出房间信息或接受邀请均已满足，不得把用户的邀请颠倒成你邀请用户。不得把“想玩”写成“玩过”。'
         '每次只推进指南允许的一步。next_actor 与 share_level 必须等真实 Outcome 返回后由内部 DeepSeek 核验，不得在调用前猜。',
+      'cedar_toy.start_timed_play' =>
+        '只在用户明确要求你现在独自玩某游戏一段指定时长时调用。'
+        '例如“你现在去玩半小时白色房间，看看结果”。'
+        '先从目录定位指定游戏并取得完整指南，再调用本工具；它交给现有后台循环执行。'
+        '讨论这个功能、引用示例、以后计划、笼统“你可以自己玩玩”均不创建任务。'
+        '不得改成提醒或先只执行一步就声称已玩足时长；成功仅代表登记成功，游戏结果待真实执行。',
       'cedar_toy.manage_activity' =>
         '用户说暂停、暂离、先忙或让你先玩别的时使用本机活动管理，不得用远端 leave/resign 代替。只有用户明确要求认输、离席或永久退出对局时才使用游戏指南里的远端动作。',
       _ => '',
@@ -750,6 +769,7 @@ class AgentToolPlanner {
     'cedar_toy.get_guide': 'cedar_toy_get_guide',
     'cedar_toy.play': 'cedar_toy_play',
     'cedar_toy.manage_activity': 'cedar_toy_manage_activity',
+    'cedar_toy.start_timed_play': 'cedar_toy_start_timed_play',
   };
   static const _toolIdByNativeName = <String, String>{
     'public_web_search': 'public_web.search',
@@ -770,6 +790,7 @@ class AgentToolPlanner {
     'cedar_toy_get_guide': 'cedar_toy.get_guide',
     'cedar_toy_play': 'cedar_toy.play',
     'cedar_toy_manage_activity': 'cedar_toy.manage_activity',
+    'cedar_toy_start_timed_play': 'cedar_toy.start_timed_play',
   };
 
   static String _bounded(String value, int limit) =>

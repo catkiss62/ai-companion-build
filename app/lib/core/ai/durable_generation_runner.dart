@@ -33,6 +33,7 @@ import '../models/generation_job.dart';
 import '../models/message_attachment.dart';
 import '../personality/playful_form_state.dart';
 import '../mcp/cedar_agent_loop_policy.dart';
+import '../mcp/cedar_game_protocol.dart';
 import '../mcp/cedar_toy_arcade_skill.dart';
 import '../mcp/cedar_semantic_route_policy.dart';
 import '../mcp/cedar_conversation_target.dart';
@@ -53,6 +54,7 @@ import 'prompt_builder.dart';
 import 'playful_self_judge.dart';
 import 'playful_breakthrough_judge.dart';
 import '../mcp/cedar_play_session_policy.dart';
+import '../mcp/cedar_timed_play_task.dart';
 import 'visible_reasoning_transcript.dart';
 import 'final_reply_route.dart';
 
@@ -544,6 +546,7 @@ class DurableGenerationRunner {
             'role': 'system',
             'content': <String>[
               CedarToyArcadeSkill.prompt,
+              '用户本轮若明确要求现在独自游玩指定时长，读取指定游戏目录/完整指南后调用cedar_toy_start_timed_play登记任务；不要用单步play或提醒替代。只有真实登记Outcome允许承诺后台任务。笼统许可、讨论、否定或将来计划不登记。',
               if (cedarConversationGameId.isNotEmpty)
                 '【本轮对话目标线索】最近用户消息明确提到的目录游戏 ID：$cedarConversationGameId。'
                 '这是供你结合完整对话核对的线索，不是用户在当时已经授权执行。'
@@ -957,6 +960,13 @@ class DurableGenerationRunner {
       }
 
       Set<String> cedarStageToolIds() {
+        if (CedarTimedPlayTaskStore.hasDuration(user.content) &&
+            agentToolResults.any((result) => result.succeeded &&
+              result.toolId == 'cedar_toy.play' &&
+              !CedarPlatformActionPolicy.isReadOnly(
+                result.submittedArguments['action']?.toString() ?? ''))) {
+          return const {'cedar_toy.start_timed_play'};
+        }
         return CedarToyArcadeSkill.toolIdsForUserTurn(
           configured: cedarConfigured,
           skillActive: cedarSkillActive,
@@ -1162,6 +1172,7 @@ $finalGenerationReminder
         final nativePlan = AgentToolPlanner.fromNativeToolCalls(
           generated.toolCalls,
           latestUserText: user.content,
+          cedarStageToolIds: cedarStageToolIds(),
           cedarSessionActive: cedarLoopEngaged(),
           cedarBlindPlay: cedarBlindPlay(),
           maxCalls: callsAllowed,
@@ -1332,6 +1343,7 @@ $finalGenerationReminder
           commitPendingMedia:
               AgentTaskLoopPolicy.hasCommitPendingMedia(roundResults),
           loopLimitReached: loopLimitReached,
+          timedTaskRequired: CedarTimedPlayTaskStore.hasDuration(user.content),
         );
         if (shouldFinalize) {
           if (loopLimitReached && !proposalExecuted) {
@@ -1816,6 +1828,14 @@ $finalGenerationReminder
         return const GenerationRunResult(status: 'suspended');
       }
       agentAttachmentsCommitted = true;
+      try {
+        await CedarTimedPlayTaskStore(db).activateCommitted(turnId: user.id,
+          now: assistant.createdAt);
+        if (agentToolResults.any((result) => result.succeeded &&
+            result.toolId == 'cedar_toy.start_timed_play')) {
+          await AndroidBridge.instance.wakeBackgroundBrain(reason: 'cedar_timed_task_committed');
+        }
+      } catch (_) { /* Recovery retries admission from the committed reply ID. */ }
       try {
         await CedarGameAttitudeStore(db).commit(turnId: user.id,
           now: assistant.createdAt);

@@ -404,7 +404,7 @@
 # Historical +240 validator tokens: agent/v04196-sen-hybrid-composition | AI-Companion-v0.41.96-240-Sen-Hybrid-Composition-Hotfix-APK | v0.41.96-sen-hybrid-composition-hotfix-test
 # Historical +241 validator tokens: agent/v04197-no-canned-fallbacks | AI-Companion-v0.41.97-241-Natural-Reply-Liveness-APK | v0.41.97-natural-reply-liveness-test
 # Historical +242 validator tokens: agent/v04198-sen-texture-direct-port | AI-Companion-v0.41.98-242-Sen-Direct-Port-APK | v0.41.98-sen-direct-port-test | .ci/v04198-monitor.txt
-name: Build AI Companion v0.42.53+297 APK (Room Freeze and Game Session)
+name: Build AI Companion v0.42.54+298 APK (Explicit Game Task and Sharing)
 
 # BUILD INPUTS: The 96-clip source ZIP is private Draft Release asset 591363139
 # (release 397377805), fetched and SHA-256 checked below. The persistent
@@ -490,6 +490,7 @@ on:
       - agent/v04249-cedar-target-caicai-config
       - agent/v04252-caicai-surface-background
       - agent/v04253-room-freeze-game-session
+      - agent/v04254-explicit-game-task-sharing
       - agent/v04214-visible-process-fate-wheel
       - maintenance/repository-governance-20260919
   workflow_dispatch:
@@ -961,7 +962,7 @@ jobs:
         run: |
           set -euo pipefail
           test -f app/pubspec.yaml
-          grep -Fqx 'version: 0.42.53+297' app/pubspec.yaml
+          grep -Fqx 'version: 0.42.54+298' app/pubspec.yaml
           grep -Fqx '  static const int schemaVersion = 61;' app/lib/core/database/app_database.dart
           test -d app/lib
           test -d app/android
@@ -975,7 +976,7 @@ jobs:
           test -f app/android/app/src/main/jniLibs/arm64-v8a/libc++_shared.so
           test ! -d app/android/app/src/main/assets/tts_models
           test ! -d app/android/app/src/main/assets/legacy_tts
-          echo 'Building v0.42.53+297 Room freeze and game session.'
+          echo 'Building v0.42.54+298 Explicit game task and sharing.'
 
       - name: Generate complete pet clips from pinned Draft Release asset
         shell: bash
@@ -1521,26 +1522,26 @@ jobs:
           APK='app/build/app/outputs/flutter-apk/app-release.apk'
           sha256sum "$APK" | tee app/app-release.apk.sha256
 
-      - name: Upload v0.42.53+297 APK as workflow artifact
+      - name: Upload v0.42.54+298 APK as workflow artifact
         uses: actions/upload-artifact@v4
         with:
-          name: AI-Companion-v0.42.53-297-Room-Freeze-Game-Session-APK
+          name: AI-Companion-v0.42.54-298-Explicit-Game-Task-Sharing-APK
           path: |
             app/build/app/outputs/flutter-apk/app-release.apk
             app/app-release.apk.sha256
           if-no-files-found: error
           retention-days: 14
 
-      - name: Upload v0.42.53+297 APK to draft release
+      - name: Upload v0.42.54+298 APK to draft release
         shell: bash
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
-          TAG='v0.42.53-room-freeze-game-session-test'
-          APK_NAME='AI-Companion-v0.42.53-297-Room-Freeze-Game-Session-APK.apk'
+          TAG='v0.42.54-explicit-game-task-sharing-test'
+          APK_NAME='AI-Companion-v0.42.54-298-Explicit-Game-Task-Sharing-APK.apk'
           SHA_NAME="${APK_NAME}.sha256"
-          CI_NAME='AI-Companion-v0.42.53-297-Room-Freeze-Game-Session-CI-Monitor.txt'
+          CI_NAME='AI-Companion-v0.42.54-298-Explicit-Game-Task-Sharing-CI-Monitor.txt'
           cp app/build/app/outputs/flutter-apk/app-release.apk "app/${APK_NAME}"
           sed "s#app/build/app/outputs/flutter-apk/app-release.apk#${APK_NAME}#" \
             app/app-release.apk.sha256 > "app/${SHA_NAME}"
@@ -1557,13 +1558,13 @@ jobs:
               --repo "${GITHUB_REPOSITORY}" \
               --target "${GITHUB_SHA}" \
               --draft \
-              --title 'AI Companion v0.42.53+297 Room freeze and game session' \
+              --title 'AI Companion v0.42.54+298 Explicit game task and sharing' \
               --notes 'Freeze immersive entry form without heat judgments; independent emotion effects; bounded Desire-granted game sessions, decaying encouragement, editable everyday facts and circular image bubble. Preserve existing Live2D and final-reply routes. Unpublished device test build.'
           else
             gh release edit "${TAG}" \
               --repo "${GITHUB_REPOSITORY}" \
               --target "${GITHUB_SHA}" \
-              --title 'AI Companion v0.42.53+297 Room freeze and game session' \
+              --title 'AI Companion v0.42.54+298 Explicit game task and sharing' \
               --notes 'Freeze immersive entry form without heat judgments; independent emotion effects; bounded Desire-granted game sessions, decaying encouragement, editable everyday facts and circular image bubble. Preserve existing Live2D and final-reply routes. Unpublished device test build.'
           fi
           RELEASE_URL="$(gh release view "${TAG}" --repo "${GITHUB_REPOSITORY}" --json url --jq '.url')"
@@ -1584,19 +1585,19 @@ jobs:
           done
           test "${upload_ok}" = '1'
           MONITOR_BRANCH='ci-monitor-v0345'
-          MONITOR_PATH='.ci/v04253-monitor.txt'
+          MONITOR_PATH='.ci/v04254-monitor.txt'
           MONITOR_CONTENT_FILE="$(mktemp)"
           base64 -w0 "app/${CI_NAME}" > "${MONITOR_CONTENT_FILE}"
           MONITOR_SHA="$(gh api "/repos/${GITHUB_REPOSITORY}/contents/${MONITOR_PATH}?ref=${MONITOR_BRANCH}" --jq '.sha' 2>/dev/null || true)"
           if test -n "${MONITOR_SHA}"; then
             gh api --method PUT "/repos/${GITHUB_REPOSITORY}/contents/${MONITOR_PATH}" \
-              -f message='Update v0.42.53 CI success monitor' \
+              -f message='Update v0.42.54 CI success monitor' \
               -F "content=@${MONITOR_CONTENT_FILE}" \
               -f branch="${MONITOR_BRANCH}" \
               -f sha="${MONITOR_SHA}" >/dev/null
           else
             gh api --method PUT "/repos/${GITHUB_REPOSITORY}/contents/${MONITOR_PATH}" \
-              -f message='Create v0.42.53 CI success monitor' \
+              -f message='Create v0.42.54 CI success monitor' \
               -F "content=@${MONITOR_CONTENT_FILE}" \
               -f branch="${MONITOR_BRANCH}" >/dev/null
           fi
@@ -1618,8 +1619,8 @@ jobs:
           BUILD_RESULT: ${{ needs.build-apk.result }}
         run: |
           set -uo pipefail
-          TAG='v0.42.53-room-freeze-game-session-test'
-          CI_NAME='AI-Companion-v0.42.53-297-Room-Freeze-Game-Session-CI-Monitor.txt'
+          TAG='v0.42.54-explicit-game-task-sharing-test'
+          CI_NAME='AI-Companion-v0.42.54-298-Explicit-Game-Task-Sharing-CI-Monitor.txt'
           REPORT="${RUNNER_TEMP}/${CI_NAME}"
           JOBS_JSON="${RUNNER_TEMP}/jobs.json"
           {
@@ -1660,7 +1661,7 @@ jobs:
               --repo "${GITHUB_REPOSITORY}" \
               --target "${GITHUB_SHA}" \
               --draft \
-              --title 'AI Companion v0.42.53+297 Room freeze and game session' \
+              --title 'AI Companion v0.42.54+298 Explicit game task and sharing' \
               --notes 'Unpublished Draft failure diagnostics for the Live2D surface background fix. No user content, keys, backups or device diagnostics are included.'
           fi
           RELEASE_URL="$(gh release view "${TAG}" --repo "${GITHUB_REPOSITORY}" --json url --jq '.url')"
@@ -1670,19 +1671,19 @@ jobs:
             --clobber \
             --repo "${GITHUB_REPOSITORY}"
           MONITOR_BRANCH='ci-monitor-v0345'
-          MONITOR_PATH='.ci/v04253-monitor.txt'
+          MONITOR_PATH='.ci/v04254-monitor.txt'
           MONITOR_CONTENT_FILE="$(mktemp)"
           base64 -w0 "${REPORT}" > "${MONITOR_CONTENT_FILE}"
           MONITOR_SHA="$(gh api "/repos/${GITHUB_REPOSITORY}/contents/${MONITOR_PATH}?ref=${MONITOR_BRANCH}" --jq '.sha' 2>/dev/null || true)"
           if test -n "${MONITOR_SHA}"; then
             gh api --method PUT "/repos/${GITHUB_REPOSITORY}/contents/${MONITOR_PATH}" \
-              -f message='Update v0.42.53 CI failure monitor' \
+              -f message='Update v0.42.54 CI failure monitor' \
               -F "content=@${MONITOR_CONTENT_FILE}" \
               -f branch="${MONITOR_BRANCH}" \
               -f sha="${MONITOR_SHA}" >/dev/null
           else
             gh api --method PUT "/repos/${GITHUB_REPOSITORY}/contents/${MONITOR_PATH}" \
-              -f message='Create v0.42.53 CI failure monitor' \
+              -f message='Create v0.42.54 CI failure monitor' \
               -F "content=@${MONITOR_CONTENT_FILE}" \
               -f branch="${MONITOR_BRANCH}" >/dev/null
           fi

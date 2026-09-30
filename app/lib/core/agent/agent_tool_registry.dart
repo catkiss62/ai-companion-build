@@ -172,6 +172,15 @@ class AgentToolRegistry {
     userTurnAvailable: true,
     autonomousAvailable: true,
   );
+  static const cedarToyTimedPlay = AgentToolDefinition(
+    id: 'cedar_toy.start_timed_play',
+    title: '按用户指定时长游玩',
+    description: '登记明确授权的1至30分钟指定游戏任务；正式回复提交后由唯一后台执行器推进，到时或提前结束回报真实结果。',
+    risk: AgentToolRisk.proposal,
+    executable: true,
+    userTurnAvailable: true,
+    autonomousAvailable: false,
+  );
   static const cedarToyManageActivity = AgentToolDefinition(
     id: 'cedar_toy.manage_activity',
     title: '管理 Cedar 游戏活动',
@@ -256,6 +265,7 @@ class AgentToolRegistry {
     cedarToyGetGuide,
     cedarToyPlay,
     cedarToyManageActivity,
+    cedarToyTimedPlay,
     videoUnderstanding,
     memoryProposal,
     personalityProposal,

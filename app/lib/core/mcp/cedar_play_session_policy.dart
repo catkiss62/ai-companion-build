@@ -3,6 +3,7 @@ import 'dart:math' as math;
 
 import '../database/app_database.dart';
 import '../platform/android_bridge.dart';
+import 'cedar_timed_play_task.dart';
 
 /// A Desire-granted period, independent from chat/share opportunity counts.
 class CedarPlaySession {
@@ -12,12 +13,16 @@ class CedarPlaySession {
     required this.lastTickAt,
     this.usedMs = 0,
     this.paused = false,
+    this.taskId = '',
+    this.limitMs = budgetMs,
   });
   final String gameId;
   final DateTime startedAt;
   final DateTime lastTickAt;
   final int usedMs;
   final bool paused;
+  final String taskId;
+  final int limitMs;
   static const budgetMs = 30 * 60 * 1000;
   bool validAt(DateTime now, String game) =>
       gameId == game &&
@@ -26,7 +31,8 @@ class CedarPlaySession {
       now.day == startedAt.day &&
       !now.isBefore(lastTickAt) &&
       now.difference(lastTickAt) <= const Duration(hours: 2) &&
-      usedMs < budgetMs;
+      (taskId.isEmpty || now.difference(startedAt) <= const Duration(hours: 2)) &&
+      usedMs < limitMs;
   CedarPlaySession tick(DateTime now, {bool pause = false}) {
     final gap = now.difference(lastTickAt).inMilliseconds;
     // Long gaps are unobserved process suspension, never effective play.
@@ -35,8 +41,10 @@ class CedarPlaySession {
       gameId: gameId,
       startedAt: startedAt,
       lastTickAt: now,
-      usedMs: (usedMs + addition).clamp(0, budgetMs).toInt(),
+      usedMs: (usedMs + addition).clamp(0, limitMs).toInt(),
       paused: pause,
+      taskId: taskId,
+      limitMs: limitMs,
     );
   }
 
@@ -46,6 +54,8 @@ class CedarPlaySession {
     'lastTickAt': lastTickAt.millisecondsSinceEpoch,
     'usedMs': usedMs,
     'paused': paused,
+    'taskId': taskId,
+    'limitMs': limitMs,
   };
   static CedarPlaySession? decode(String? raw) {
     try {
@@ -63,6 +73,9 @@ class CedarPlaySession {
             .clamp(0, budgetMs)
             .toInt(),
         paused: d['paused'] == true,
+        taskId: d['taskId']?.toString() ?? '',
+        limitMs: ((d['limitMs'] as num?)?.toInt() ?? budgetMs)
+            .clamp(60000, budgetMs).toInt(),
       );
     } catch (_) {
       return null;
@@ -96,11 +109,25 @@ class CedarPlaySessionStore {
     }
   }
 
-  Future<void> save(CedarPlaySession state) async => db.setSetting(
-    key,
-    jsonEncode({...state.toJson(), 'processEpoch': await _epoch()}),
-  );
+  Future<String> encoded(CedarPlaySession state) async =>
+      jsonEncode({...state.toJson(), 'processEpoch': await _epoch()});
+  Future<void> save(CedarPlaySession state) async {
+    final task = await CedarTimedPlayTaskStore(db).active();
+    await db.setSettingsAtomically({
+      key: await encoded(state),
+      if (task != null && task['id'] == state.taskId)
+        CedarTimedPlayTaskStore.activeKey: jsonEncode({...task, 'usedMs': state.usedMs}),
+    });
+  }
   Future<void> end(String reason) async {
+    final state = CedarPlaySession.decode(await db.getSetting(key));
+    if (state != null && state.taskId.isNotEmpty) {
+      final tasks = CedarTimedPlayTaskStore(db);
+      final task = await tasks.active();
+      if (task?['id'] == state.taskId) {
+        await tasks.finish(task!, usedMs: state.usedMs, reason: reason);
+      }
+    }
     await db.setSetting(key, '');
     await db.setSetting('cedar_toy_play_session_end_reason', reason);
   }

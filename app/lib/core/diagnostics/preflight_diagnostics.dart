@@ -545,6 +545,11 @@ class PreflightDiagnosticsService {
             await db.getSetting('cedar_toy_last_preempt_at') ?? '',
           ) ??
           0;
+      try {
+        final timedDiagnostic = jsonDecode(
+            await db.getSetting('cedar_timed_play_diagnostic_v1') ?? '{}');
+        if (timedDiagnostic is Map) cedarRealtime['timedTask'] = timedDiagnostic;
+      } catch (_) { /* Diagnostics never affect execution. */ }
       final cedarGateRaw =
           await db.getSetting('cedar_toy_last_continuation_gate_v1') ?? '';
       if (cedarGateRaw.isNotEmpty) {

@@ -1,4 +1,5 @@
 import '../mcp/cedar_play_session_policy.dart';
+import '../mcp/cedar_timed_play_task.dart';
 import 'dart:async';
 import 'dart:convert';
 import 'dart:math';
@@ -234,16 +235,40 @@ class ProactiveEngine {
   /// generation path immediately. It still honors Active Brain, user-turn,
   /// immersive-page and writer-lease boundaries.
   Future<ProactiveDecision> deliverPendingCedarShareIfAny() async {
+    if (!await db.brainWorkAllowed() ||
+        await db.isLocalLeaseHeld('chat_turn_lease') ||
+        await db.blockingGenerationJob() != null ||
+        await android.isImmersiveChatPageVisible()) {
+      return const ProactiveDecision(sent: false, reason: 'cedar_share_waiting_for_writer');
+    }
+    final tasks = CedarTimedPlayTaskStore(db);
+    await tasks.reconcile(DateTime.now());
+    final reportId = await tasks.queueReport();
     final store = CedarToyActivityStore(db);
     final queue = await store.pendingDirectShares();
+    if (reportId != null) { queue.remove(reportId); queue.insert(0, reportId); }
     if (queue.isEmpty) {
       return const ProactiveDecision(sent: false, reason: 'no_pending_cedar_share');
     }
     final thoughtId = queue.first;
+    final committedShare = await db.messageById('cedar-share:$thoughtId');
+    if (committedShare != null) {
+      final savedThought = await db.thoughtById(thoughtId);
+      if (savedThought != null && savedThought.lastActedAt == null) {
+        await thoughtLifecycle.markActed(thought: savedThought, messageId: committedShare.id);
+      }
+      await store.removeDirectShare(thoughtId);
+      if (thoughtId.startsWith('cedar-report:')) {
+        await tasks.acknowledge(thoughtId.substring('cedar-report:'.length));
+      }
+      return const ProactiveDecision(sent: false, reason: 'cedar_share_already_committed');
+    }
     final thought = await db.thoughtById(thoughtId);
     if (thought == null ||
         !thought.source.startsWith('mcp/cedar_game:') ||
-        !const <String>{'active', 'fixation'}.contains(thought.lifecycleState)) {
+        thought.actionCount > 0 || thought.lastActedAt != null ||
+        (!thoughtId.startsWith('cedar-report:') &&
+          !const <String>{'active', 'fixation'}.contains(thought.lifecycleState))) {
       await store.removeDirectShare(thoughtId);
       return const ProactiveDecision(sent: false, reason: 'stale_cedar_share_removed');
     }
@@ -251,7 +276,12 @@ class ProactiveEngine {
       forceForDebug: true,
       forcedThoughtIdForDebug: thoughtId,
     );
-    if (decision.sent) await store.removeDirectShare(thoughtId);
+    if (decision.sent) {
+      await store.removeDirectShare(thoughtId);
+      if (thoughtId.startsWith('cedar-report:')) {
+        await tasks.acknowledge(thoughtId.substring('cedar-report:'.length));
+      }
+    }
     return decision;
   }
 
@@ -440,7 +470,9 @@ class ProactiveEngine {
           reason: '刚刚已经互道晚安并结束场景，短时间内保持休息连续性',
         );
       }
+      final queuedCedarShares = (await CedarToyActivityStore(db).pendingDirectShares()).toSet();
       final thoughts = (await db.activeThoughts(limit: 40))
+          .where((thought) => forceForDebug || !queuedCedarShares.contains(thought.id))
           .where(
             (thought) => ProactiveThoughtReadinessPolicy.isReady(
               thought,
@@ -1399,7 +1431,7 @@ ${jsonEncode({
     final watchedCedarShareContract = !isImmediateCedarShare
         ? ''
         : '''
-这是用户正在观战时、已被结果分类器确认“值得分享”的 Cedar 真实游戏进展。本轮必须直接生成一条自然聊天正文，不输出 WAIT。
+${intentThought!.source.contains(':task:') ? '这是用户明确安排的指定时长游戏任务结果回报。必须自然说清已执行的实际进度、实际有效游玩时间，以及是否到时或提前结束和原因。usedMs是实际记录，minutes是请求时长；零进度就诚实说未能推进，不能把请求时长写成已玩时长。无需等待普通主动欲望，不输出WAIT。' : '这是游玩中已确认值得分享的新进展，连续步骤可以合成一条自然感受；不逐步报流水账，不复述已说过的内容，不输出WAIT。'}
 MCP Outcome 是她自己刚完成的真实游戏操作结果，可以用第一人称分享感受；但具体操作、坐标、战绩和结果必须与 SELECTED_THOUGHT_DATA 中的真值一致，不得补写。''';
     final cedarTemporalContract = !isCedarGameShare
         ? ''
@@ -1948,12 +1980,16 @@ ${PromptBuilder.visibleChineseGenerationReminder(proactive: true)}
     unawaited(
       VisibleReasoningLanguageTelemetry.note(db, visibleReasoning),
     );
-    final messageId = _uuid.v4();
+    final messageId = isImmediateCedarShare
+        ? 'cedar-share:${intentThought!.id}' : _uuid.v4();
     final proactiveAttachments = <MessageAttachment>[];
     if (isCedarGameShare) {
-      final session = await CedarToyActivityStore(db).load();
+      final activityState = await CedarToyActivityStore(db).loadState();
+      final session = activityState.sessions.values.where((item) =>
+          intentThought!.source.startsWith('mcp/cedar_game:${item.gameId}:')).firstOrNull;
       final event = session?.events.reversed
-          .where((item) => item.imageData.isNotEmpty)
+          .where((item) => item.imageData.isNotEmpty &&
+            intentThought!.source.endsWith(':${item.id}'))
           .firstOrNull;
       if (event != null && event.imageMimeType.startsWith('image/')) {
         try {

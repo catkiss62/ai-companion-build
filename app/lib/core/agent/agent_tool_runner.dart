@@ -15,6 +15,8 @@ import '../diagnostics/provider_health.dart';
 import '../memory/memory_brain.dart';
 import '../mcp/cedar_toy_client.dart';
 import '../mcp/cedar_toy_activity.dart';
+import '../mcp/cedar_timed_play_task.dart';
+import '../mcp/cedar_play_session_policy.dart';
 import '../mcp/cedar_agent_loop_policy.dart';
 import '../mcp/cedar_game_protocol.dart';
 import '../mcp/cedar_play_outcome_bookkeeper.dart';
@@ -90,6 +92,7 @@ class AgentToolRunner {
                   call.toolId == AgentToolRegistry.webImageSend.id ||
                   call.toolId == AgentToolRegistry.albumImageSend.id ||
                   call.toolId == AgentToolRegistry.cedarToyPlay.id ||
+                  call.toolId == AgentToolRegistry.cedarToyTimedPlay.id ||
                   call.toolId ==
                       AgentToolRegistry.cedarToyManageActivity.id) &&
               call.reasonTag == 'explicit_request' &&
@@ -354,6 +357,10 @@ class AgentToolRunner {
         latestUserText: latestUserText,
       );
     }
+    if (call.toolId == AgentToolRegistry.cedarToyTimedPlay.id) {
+      return _stageTimedCedarPlay(call.arguments, userMessageId: userMessageId,
+        assistantMessageId: assistantMessageId, latestUserText: latestUserText);
+    }
     if (call.toolId == AgentToolRegistry.cedarToyManageActivity.id) {
       return _manageCedarActivity(call.arguments);
     }
@@ -402,6 +409,38 @@ class AgentToolRunner {
     }
   }
 
+  Future<AgentToolResult> _stageTimedCedarPlay(Map<String, String> arguments,
+      {required String userMessageId, required String assistantMessageId,
+      required String latestUserText}) async {
+    final game = _safeCedarIdentifier(arguments['game'] ?? '');
+    final minutes = CedarTimedPlayTaskStore.durationMinutes(
+      arguments['duration_text'] ?? '', latestUserText);
+    final state = await CedarToyActivityStore(db).loadState();
+    final session = state.activeSession;
+    if (minutes == null || session == null || session.gameId != game ||
+        !session.guideComplete || !session.phase.continuable ||
+        session.mode.requiresInvitation || state.execution != null ||
+        userMessageId.isEmpty || assistantMessageId.isEmpty ||
+        await db.getSetting('cedar_toy_autonomy_enabled') == '0') {
+      return const AgentToolResult(toolId: 'cedar_toy.start_timed_play',
+        status: AgentToolStatus.blocked, displayText: '尚未登记持续游玩任务',
+        promptData: '没有建立任务。需要用户本轮明确给出的1至30分钟时长、指定游戏完整指南、可独自推进的活动和开启的后台游戏；当前原子动作若尚在执行须等待，不得承诺已经开始。',
+        errorCode: 'cedar_timed_task_not_ready');
+    }
+    if ((await CedarTimedPlayTaskStore(db).pendingReports()).length >= 16) {
+      return const AgentToolResult(toolId: 'cedar_toy.start_timed_play',
+        status: AgentToolStatus.blocked, displayText: '先交付已有游戏结果',
+        promptData: '已有多份用户指定任务结果尚未交付，本次没有新增任务。',
+        errorCode: 'cedar_timed_report_backlog');
+    }
+    await CedarTimedPlayTaskStore(db).stage(turnId: userMessageId,
+      assistantId: assistantMessageId, session: session, minutes: minutes);
+    return AgentToolResult(toolId: 'cedar_toy.start_timed_play',
+      status: AgentToolStatus.succeeded, displayText: '已登记$minutes分钟游玩任务',
+      promptData: '指定${session.displayName}的$minutes分钟有效游玩任务已登记；本轮回复正式提交后会立即交给已有后台执行器，不等待Desire抽选。到时停止这次任务并回报；提前结束/游戏限制/等待用户也如实回报。当前没有因本工具产生游戏动作或结果，不可声称已玩完。',
+      submittedArguments: {'game': game, 'duration_minutes': minutes});
+  }
+
   Future<AgentToolResult> _manageCedarActivity(
     Map<String, String> arguments,
   ) async {
@@ -429,9 +468,11 @@ class AgentToolRunner {
     }
     switch (operation) {
       case 'pause':
+        await CedarPlaySessionStore(db).end('user_pause');
         await store.pause();
         break;
       case 'pause_and_release':
+        await CedarPlaySessionStore(db).end('user_pause');
         await store.pauseAndRelease();
         break;
       case 'resume':

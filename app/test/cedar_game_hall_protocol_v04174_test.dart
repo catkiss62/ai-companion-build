@@ -105,6 +105,7 @@ void main() {
         'cedar_toy.list_games',
         'cedar_toy.get_guide',
         'cedar_toy.play',
+        'cedar_toy.start_timed_play',
       },
     );
     expect(

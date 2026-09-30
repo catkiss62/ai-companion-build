@@ -29,6 +29,7 @@ class CedarAgentLoopPolicy {
     required bool proposalExecuted,
     required bool commitPendingMedia,
     required bool loopLimitReached,
+    bool timedTaskRequired = false,
   }) {
     if (commitPendingMedia || loopLimitReached) return true;
     final cedar = results.where(isCedarResult).toList(growable: false);
@@ -44,7 +45,10 @@ class CedarAgentLoopPolicy {
       return action.isNotEmpty &&
           !CedarPlatformActionPolicy.isReadOnly(action);
     });
-    if (committedMutation) return true;
+    if (cedar.any((result) => result.toolId == 'cedar_toy.start_timed_play')) return true;
+    // One game mutation remains the foreground ceiling. Only local task
+    // registration may follow when the user's duration goal is still missing.
+    if (committedMutation) return !timedTaskRequired;
     if (cedar.any((result) => result.continuationRecommended)) return false;
 
     // A successful play without a continuation signal means Cedar handed
