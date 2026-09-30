@@ -1570,13 +1570,13 @@ jobs:
               --target "${GITHUB_SHA}" \
               --draft \
               --title 'AI Companion v0.42.56+300 Game share rounds, held pat and complete portable state' \
-              --notes 'Read large settings in bounded lossless SQLite chunks for backup and ordinary settings access; preserve snapshot protocol, restore and device ownership. Replace only the approved day background. Other planned UI, Live2D speed and backup-coverage work is deferred. Unpublished device test build.'
+              --notes 'Ordinary solo play uses two-minute rounds with equal-width 10/5/1 sharing controls (default five); worthwhile outcomes are batched after actual delivery. Add held head pat and protected 4.5-second easter egg, cap only custom lower-leg root rotation, and link Remembered Facts in the sidebar. Portable v7 snapshots include Live2D files, native visual preferences, sticker packs and non-secret model configuration; target credentials and ownership fences remain local, older archives remain supported. Retain the approved day background and lossless large-settings reads. Unpublished device test build.'
           else
             gh release edit "${TAG}" \
               --repo "${GITHUB_REPOSITORY}" \
               --target "${GITHUB_SHA}" \
               --title 'AI Companion v0.42.56+300 Game share rounds, held pat and complete portable state' \
-              --notes 'Read large settings in bounded lossless SQLite chunks for backup and ordinary settings access; preserve snapshot protocol, restore and device ownership. Replace only the approved day background. Other planned UI, Live2D speed and backup-coverage work is deferred. Unpublished device test build.'
+              --notes 'Ordinary solo play uses two-minute rounds with equal-width 10/5/1 sharing controls (default five); worthwhile outcomes are batched after actual delivery. Add held head pat and protected 4.5-second easter egg, cap only custom lower-leg root rotation, and link Remembered Facts in the sidebar. Portable v7 snapshots include Live2D files, native visual preferences, sticker packs and non-secret model configuration; target credentials and ownership fences remain local, older archives remain supported. Retain the approved day background and lossless large-settings reads. Unpublished device test build.'
           fi
           RELEASE_URL="$(gh release view "${TAG}" --repo "${GITHUB_REPOSITORY}" --json url --jq '.url')"
           echo "release_url=${RELEASE_URL}" >> "app/${CI_NAME}"
@@ -1673,7 +1673,7 @@ jobs:
               --target "${GITHUB_SHA}" \
               --draft \
               --title 'AI Companion v0.42.56+300 Game share rounds, held pat and complete portable state' \
-              --notes 'Unpublished Draft failure diagnostics for the Live2D surface background fix. No user content, keys, backups or device diagnostics are included.'
+              --notes 'Unpublished Draft failure diagnostics for game sharing, held head pat and portable state. No user content, keys, backups or device diagnostics are included.'
           fi
           RELEASE_URL="$(gh release view "${TAG}" --repo "${GITHUB_REPOSITORY}" --json url --jq '.url')"
           echo "release_url=${RELEASE_URL}" >> "${REPORT}"

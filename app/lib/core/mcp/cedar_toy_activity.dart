@@ -1420,7 +1420,9 @@ class CedarToyActivityStore {
       completedPlayRounds:
           state.completedPlayRounds +
           (!outcome.isError &&
-                  CedarSoloEpisodePolicy.isStateChangingAction(action)
+                  CedarSoloEpisodePolicy.isStateChangingAction(action) &&
+                  !CedarPlatformActionPolicy.isResultSnapshot(action) &&
+                  !const {'wait', 'poll'}.contains(action)
               ? 1
               : 0),
       sessions: Map<String, CedarGameSession>.from(state.sessions)

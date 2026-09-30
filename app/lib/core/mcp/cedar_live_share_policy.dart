@@ -23,6 +23,7 @@ class CedarLiveSharePolicy {
             !CedarPlatformActionPolicy.isReadOnly(event.action) &&
             !CedarPlatformActionPolicy.isPlatformAction(event.action) &&
             !CedarPlatformActionPolicy.isResultSnapshot(event.action) &&
+            !const {'wait', 'poll'}.contains(event.action) &&
             !now.isBefore(event.createdAt) &&
             now.difference(event.createdAt) <= const Duration(hours: 1),
       )
