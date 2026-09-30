@@ -135,7 +135,7 @@ class MemoryGalaxySmokeTest {
     @Test fun malformedSnapshotShowsFailureAndNeverSubstitutesExamples() {
         withSnapshot("{ malformed JSON", "invalid") { scenario, _ ->
             awaitJavaScriptTrue(scenario,
-                "document.getElementById('loading').textContent.includes('记忆加载失败')")
+                "document.getElementById('loading')?.textContent.includes('记忆加载失败')===true")
             val failed = awaitStatus(scenario) { it.optBoolean("paused") }
             assertEquals(0, failed.getInt("memoryCount"))
             assertEquals(0, failed.getInt("renderCount"))
@@ -210,8 +210,7 @@ class MemoryGalaxySmokeTest {
             if (last != null && condition(last)) return last
             SystemClock.sleep(100)
         }
-        fail("Galaxy state timed out: $last; " + jsString(scenario,
-            "document.getElementById('loading').textContent"))
+        fail("Galaxy state timed out: $last; " + bootstrapState(scenario))
         throw AssertionError("unreachable")
     }
 
@@ -221,8 +220,17 @@ class MemoryGalaxySmokeTest {
             if (javascript(scenario, script) == "true") return
             SystemClock.sleep(100)
         }
-        fail("Galaxy DOM condition timed out")
+        fail("Galaxy DOM condition timed out: " + bootstrapState(scenario))
     }
+
+    private fun bootstrapState(scenario: ActivityScenario<NativeMemoryGalaxyActivity>): String =
+        javascript(scenario, "JSON.stringify({ready:document.readyState,config:typeof CONFIG," +
+            "failure:typeof window.galaxyFailed,importmap:HTMLScriptElement.supports?.('importmap')," +
+            "header:!!document.getElementById('hTitle')?.textContent," +
+            "loading:document.getElementById('loading')?.textContent," +
+            "scripts:Array.from(document.scripts).map(s=>({type:s.type,src:s.src}))," +
+            "resources:performance.getEntriesByType('resource').map(e=>({name:e.name," +
+            "duration:e.duration,size:e.transferSize}))})")
 
     private fun digest(file: File): String =
         MessageDigest.getInstance("SHA-256").digest(file.readBytes())

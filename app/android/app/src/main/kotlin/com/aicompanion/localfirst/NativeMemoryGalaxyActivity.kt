@@ -4,9 +4,11 @@ import android.app.Activity
 import android.content.Intent
 import android.graphics.Color
 import android.os.Bundle
+import android.util.Log
 import android.view.View
 import android.view.ViewGroup
 import android.webkit.RenderProcessGoneDetail
+import android.webkit.ConsoleMessage
 import android.webkit.WebChromeClient
 import android.webkit.WebResourceError
 import android.webkit.WebResourceRequest
@@ -47,7 +49,35 @@ class NativeMemoryGalaxyActivity : Activity() {
             settings.allowFileAccessFromFileURLs = false
             settings.allowUniversalAccessFromFileURLs = false
             settings.cacheMode = android.webkit.WebSettings.LOAD_NO_CACHE
-            webChromeClient = WebChromeClient()
+            Log.d(DIAGNOSTIC_TAG,
+                "settings javascript=${settings.javaScriptEnabled} networkBlocked=${settings.blockNetworkLoads}")
+            webChromeClient = object : WebChromeClient() {
+                override fun onConsoleMessage(message: ConsoleMessage): Boolean {
+                    // Categorize errors without copying messages that could contain
+                    // a snippet of stored memory or a private snapshot file path.
+                    if (message.messageLevel() == ConsoleMessage.MessageLevel.ERROR ||
+                        message.messageLevel() == ConsoleMessage.MessageLevel.WARNING) {
+                        val text = message.message()
+                        val category = when {
+                            text.contains("Content Security Policy", ignoreCase = true) -> "content_policy"
+                            text.contains("MIME", ignoreCase = true) -> "module_mime"
+                            text.contains("module specifier", ignoreCase = true) -> "module_resolution"
+                            text.contains("module script", ignoreCase = true) -> "module_load"
+                            text.contains("WebGL", ignoreCase = true) -> "webgl"
+                            text.contains("SyntaxError") -> "syntax"
+                            else -> "javascript"
+                        }
+                        val source = android.net.Uri.parse(message.sourceId())
+                        val sourceLabel = if (source.host == LOCAL_HOST) {
+                            diagnosticPath(MemoryGalaxyFiles.assetPath(source.path)) ?: "other_local"
+                        } else "other"
+                        Log.w(DIAGNOSTIC_TAG,
+                            "console category=$category source=$sourceLabel line=${message.lineNumber()}")
+                        return true
+                    }
+                    return super.onConsoleMessage(message)
+                }
+            }
             webViewClient = object : WebViewClient() {
                 override fun shouldOverrideUrlLoading(view: WebView, request: WebResourceRequest): Boolean =
                     request.url.toString() != PAGE_URL
@@ -58,8 +88,16 @@ class NativeMemoryGalaxyActivity : Activity() {
                 ): WebResourceResponse {
                     val uri = request.url
                     if (request.method != "GET" || uri.scheme != "https" ||
-                        uri.host != LOCAL_HOST || uri.port != -1) return missingResource()
-                    val path = MemoryGalaxyFiles.assetPath(uri.path) ?: return missingResource()
+                        uri.host != LOCAL_HOST || uri.port != -1) {
+                        Log.d(DIAGNOSTIC_TAG,
+                            "resource rejected get=${request.method == "GET"} https=${uri.scheme == "https"} " +
+                                "localHost=${uri.host == LOCAL_HOST} defaultPort=${uri.port == -1}")
+                        return missingResource()
+                    }
+                    val path = MemoryGalaxyFiles.assetPath(uri.path) ?: run {
+                        Log.d(DIAGNOSTIC_TAG, "resource rejected invalid_asset_path")
+                        return missingResource()
+                    }
                     return try {
                         val stream = if (path == "memory.json") {
                             snapshot?.inputStream() ?: return missingResource()
@@ -67,6 +105,9 @@ class NativeMemoryGalaxyActivity : Activity() {
                             assets.open("$ASSET_ROOT/$path")
                         }
                         val mime = mimeType(path)
+                        diagnosticPath(path)?.let { label ->
+                            Log.d(DIAGNOSTIC_TAG, "resource asset=$label status=200 mime=$mime")
+                        }
                         WebResourceResponse(
                             mime,
                             if (mime.startsWith("text/") || mime == "application/javascript" ||
@@ -77,11 +118,15 @@ class NativeMemoryGalaxyActivity : Activity() {
                             stream,
                         )
                     } catch (_: IOException) {
+                        diagnosticPath(path)?.let { label ->
+                            Log.w(DIAGNOSTIC_TAG, "resource asset=$label status=404")
+                        }
                         missingResource()
                     }
                 }
 
                 override fun onPageFinished(view: WebView, url: String) {
+                    Log.d(DIAGNOSTIC_TAG, "page_finished local=${url == PAGE_URL}")
                     if (pagePaused) view.evaluateJavascript("window.galaxyPause?.();", null)
                 }
 
@@ -155,6 +200,25 @@ class NativeMemoryGalaxyActivity : Activity() {
         private const val PAGE_URL = "https://$LOCAL_HOST/index.html"
         private const val ASSET_ROOT = "flutter_assets/assets/memory_galaxy"
         private val BACKGROUND = Color.rgb(6, 4, 14)
+        private const val DIAGNOSTIC_TAG = "MemoryGalaxyView"
+        private val DIAGNOSTIC_ASSETS = setOf(
+            "index.html", "memory.json", "vendor/fonts/fonts.css",
+            "vendor/three/build/three.module.js",
+            "vendor/three/examples/jsm/controls/OrbitControls.js",
+            "vendor/three/examples/jsm/postprocessing/EffectComposer.js",
+            "vendor/three/examples/jsm/postprocessing/RenderPass.js",
+            "vendor/three/examples/jsm/postprocessing/UnrealBloomPass.js",
+            "vendor/three/examples/jsm/postprocessing/OutputPass.js",
+            "vendor/three/examples/jsm/postprocessing/ShaderPass.js",
+            "vendor/three/examples/jsm/postprocessing/MaskPass.js",
+            "vendor/three/examples/jsm/postprocessing/Pass.js",
+            "vendor/three/examples/jsm/shaders/OutputShader.js",
+            "vendor/three/examples/jsm/shaders/LuminosityHighPassShader.js",
+            "vendor/three/examples/jsm/shaders/CopyShader.js",
+        )
+
+        private fun diagnosticPath(path: String?): String? =
+            path?.takeIf { it in DIAGNOSTIC_ASSETS }
         private val RESPONSE_HEADERS = mapOf(
             "Cache-Control" to "no-store",
             "Content-Security-Policy" to

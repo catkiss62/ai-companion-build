@@ -1698,3 +1698,5 @@ MemoryPage保留原编辑/保存/归档，并新增折叠同话题条目和只�
 当前状态：IMPLEMENTATION IN PROGRESS / CI PENDING / APK PENDING / TRUE DEVICE PENDING。后续仅在实际Actions及release资产验证完成后回填提交、run、SHA和APK链接。冻结归档保持原SHA。
 
 +301首轮CI 36780935800（功能远端c3343783、本地935b8464同tree b93a1d33）：生产/测试Kotlin编译通过，原有9项原生测试通过；新增3项停留加载页，日志确认WebView124且无模块状态。原生测试应用未声明INTERNET，与生产应用不同；Android WebSettings无权限时blockNetworkLoads默认true，虚拟HTTPS的ESM子资源未启动。修正测试Manifest以匹配生产权限，继续用本地资源来源及CSP拒绝外部请求证明离线边界，不降低640条/原文/暂停/空库/错误/清理断言。另将加载错误提示容忍DOM尚未创建。待重跑，不将失败轮标为交付成功。
+
++301第二轮CI 36782569619（远端3e0ee60a、本地9de5da46同tree 2d23b5c1）：生产与测试权限一致后仍是原9项通过、新3项启动超时，未到截图步骤；因此上一轮权限差异不是完整根因，不声称已定位完毕。补充原生固定资源状态/MIME、启动开关及分类控制台日志，测试超时输出脚本/资源/支持状态等匿名启动证据；不记录记忆正文。保留全部功能断言继续定位。
