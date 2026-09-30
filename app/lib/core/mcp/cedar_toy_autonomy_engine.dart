@@ -1085,6 +1085,8 @@ class CedarToyAutonomyEngine {
     final progress = resume
         ? await resumeCheckpoint(now: now, selfReset: false)
         : await this.progress(now: now);
+    if (!await db.brainWorkAllowed() ||
+        await db.isLocalLeaseHeld('chat_turn_lease')) return progress;
     final session = await CedarToyActivityStore(db).load();
     if (session != null && session.needsContinuation &&
         !_isRealtimeCommitment(session) &&
@@ -1096,8 +1098,6 @@ class CedarToyAutonomyEngine {
       final started = DateTime.now();
       await CedarPlaySessionStore(db).save(CedarPlaySession(gameId: session.gameId,
         startedAt: started, lastTickAt: started));
-      await CedarToyActivityStore(db).deferContinuation(gameId: session.gameId,
-        delay: const Duration(seconds: 15));
     }
     return progress;
   }
