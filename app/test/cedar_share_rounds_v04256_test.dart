@@ -180,6 +180,26 @@ void main() {
     await shares.offer((await store.load())!, share: true, now: DateTime.now());
     final old = (await store.pendingDirectShares()).single;
     final cutoff = (await db.thoughtById(old))!.bornAt;
+    // Report rows use milliseconds but the covered game result retains
+    // microseconds in the same recorded millisecond.
+    final covered = (await store.load())!;
+    await store.save(
+      covered.copyWith(
+        events: covered.events
+            .map(
+              (event) => event.id != covered.events.last.id
+                  ? event
+                  : CedarGameEvent(
+                      id: event.id,
+                      kind: event.kind,
+                      action: event.action,
+                      summary: event.summary,
+                      createdAt: cutoff.add(const Duration(microseconds: 500)),
+                    ),
+            )
+            .toList(),
+      ),
+    );
     await db.upsertThought(
       id: 'cedar-report:task',
       text: '实际结束结果',

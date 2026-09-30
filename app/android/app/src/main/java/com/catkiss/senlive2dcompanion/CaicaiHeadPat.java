@@ -11,7 +11,8 @@ final class CaicaiHeadPat {
     private final Map<String,Float> from=new HashMap<>();
     private boolean active, held, confused;
     private float age, releaseAge=-1;
-    static final float EASTER_EGG_SECONDS = 4.5f;
+    // Original timing: begin fading at 2.2 seconds, finish after 0.6 seconds.
+    static final float EASTER_EGG_SECONDS = 2.8f;
     boolean start(boolean hold, boolean rare, CaicaiParameterPlan.Target pose) {
         if (active && confused && age < EASTER_EGG_SECONDS) return false;
         if (active && held && hold && !rare) return false;

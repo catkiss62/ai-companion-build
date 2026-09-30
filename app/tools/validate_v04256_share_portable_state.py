@@ -54,7 +54,7 @@ exported=set(re.findall(r"'([a-z_]+)'",export.split('const tables',1)[1]))
 assert created-exported=={'maintenance_runs','memory_retrieval_audit','messages_v20',
                          'proactive_policy_events','provider_health_events','transfer_receipts'}
 pat=read('android/app/src/main/java/com/catkiss/senlive2dcompanion/CaicaiHeadPat.java')
-assert 'EASTER_EGG_SECONDS = 4.5f' in pat and 'age < EASTER_EGG_SECONDS) return false' in pat
+assert 'EASTER_EGG_SECONDS = 2.8f' in pat and 'age < EASTER_EGG_SECONDS) return false' in pat
 host=read('android/app/src/main/kotlin/com/catkiss/senlive2dcompanion/CaicaiPlatformView.kt')
 assert 'if(!inside && !patTriggered)' in host
 rate=read('android/app/src/main/java/com/catkiss/senlive2dcompanion/CaicaiRootTiltSmoother.java')

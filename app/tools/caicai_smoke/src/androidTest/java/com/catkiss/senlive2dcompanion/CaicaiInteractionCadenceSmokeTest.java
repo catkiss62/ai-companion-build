@@ -24,13 +24,13 @@ public class CaicaiInteractionCadenceSmokeTest {
         pat.release(); for(int i=0;i<40;i++) pat.apply(1f/60, pose);
         assertFalse(pat.active());
         assertTrue(pat.start(true, true, pose));
-        for (int i=0;i<260;i++) {
+        for (int i=0;i<166;i++) {
             pat.apply(1f/60, pose);
             assertFalse(pat.start(true, false, pose));
             assertFalse(pat.start(false, true, pose));
             pat.release(); assertEquals("easter_egg",pat.state());
         }
-        for(int i=0;i<12;i++) pat.apply(1f/60,pose);
+        for(int i=0;i<4;i++) pat.apply(1f/60,pose);
         assertFalse(pat.active()); assertTrue(pat.start(true,false,pose));
     }
     @Test public void customRootTiltRateIsBoundedIncludingReversalPauseAndIdleHandoff() {

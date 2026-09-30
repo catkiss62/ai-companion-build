@@ -77,10 +77,10 @@ public class CaicaiInteractionTest {
     }
     @Test public void rarePatCompletesEvenWhenFingerRemainsDown() {
         Pose p=new Pose(); CaicaiHeadPat pat=new CaicaiHeadPat(); pat.start(true,true,p);
-        for(int i=0;i<180;i++) pat.apply(1f/60,p);
+        for(int i=0;i<120;i++) pat.apply(1f/60,p);
         assertTrue(pat.active());
         assertFalse(pat.start(true,false,p));
-        for(int i=0;i<88;i++) pat.apply(1f/60,p);
+        for(int i=0;i<46;i++) pat.apply(1f/60,p);
         assertTrue(pat.active());
         for(int i=0;i<3;i++) pat.apply(1f/60,p);
         assertFalse(pat.active());

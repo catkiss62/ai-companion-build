@@ -181,7 +181,13 @@ class CedarLiveSharePolicy {
         }
       }
       final state = await _state(session);
-      final events = evidence(session, through);
+      // Thought rows store milliseconds; saved game events can retain
+      // microseconds. Include the entire recorded report millisecond so its
+      // last outcome is not offered again due only to timestamp truncation.
+      final events = evidence(
+        session,
+        through.add(const Duration(microseconds: 999)),
+      );
       final previousIndex = session.events.indexWhere(
         (e) => e.id == state['sharedThrough'],
       );
