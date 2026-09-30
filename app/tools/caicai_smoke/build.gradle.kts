@@ -7,7 +7,15 @@ val syncImportSources = tasks.register<Sync>("syncImportSources") {
     from("../../android/app/src/main/kotlin/com/catkiss/senlive2dcompanion") {
         include("CaicaiModelRepository.kt", "CaicaiModelPaths.kt", "CaicaiDiagnostics.kt")
     }
+    from("../../android/app/src/main/kotlin/com/aicompanion/localfirst") {
+        include("NativeMemoryGalaxyActivity.kt", "MemoryGalaxyFiles.kt")
+    }
     into(layout.buildDirectory.dir("generated/import-sources"))
+}
+
+val syncGalaxyAssets = tasks.register<Sync>("syncGalaxyAssets") {
+    from("../../assets/memory_galaxy")
+    into(layout.buildDirectory.dir("generated/galaxy-assets/flutter_assets/assets/memory_galaxy"))
 }
 
 android {
@@ -33,10 +41,11 @@ android {
         java.srcDirs("../../android/app/src/main/java", layout.buildDirectory.dir("generated/import-sources"))
         java.exclude("io/flutter/**")
         assets.srcDir("../../android/app/src/main/assets")
-        assets.include("com/live2d/**", "sen-default-profile-v1.json", "maid-parameter-semantics-v1.json")
+        assets.srcDir(layout.buildDirectory.dir("generated/galaxy-assets"))
+        assets.include("com/live2d/**", "sen-default-profile-v1.json", "maid-parameter-semantics-v1.json", "flutter_assets/assets/memory_galaxy/**")
     }
 }
-tasks.named("preBuild").configure { dependsOn(syncImportSources) }
+tasks.named("preBuild").configure { dependsOn(syncImportSources, syncGalaxyAssets) }
 
 dependencies {
     implementation(files("../../android/app/libs/Live2DCubismCore.aar"))

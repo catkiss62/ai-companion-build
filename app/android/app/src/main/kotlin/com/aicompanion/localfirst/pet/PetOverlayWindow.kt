@@ -922,13 +922,13 @@ class PetOverlayWindow(
         val layout = params ?: return
         val view = root ?: return
         val limits = logicalLimits(activeArea(layout), layout)
-        val distances = listOf(
-            EDGE_LEFT to abs(layout.x - limits.minX),
-            EDGE_RIGHT to abs(limits.maxX - layout.x),
-            EDGE_TOP to abs(layout.y - limits.minY),
-            EDGE_BOTTOM to abs(limits.maxY - layout.y),
+        val edge = PetEdgeDockPolicy.choose(
+            leftDistance = abs(layout.x - limits.minX),
+            rightDistance = abs(limits.maxX - layout.x),
+            topDistance = abs(layout.y - limits.minY),
+            bottomDistance = abs(limits.maxY - layout.y),
+            captureRange = edgeCaptureRange(),
         )
-        val edge = distances.minByOrNull { it.second }?.first ?: EDGE_BOTTOM
         when (edge) {
             EDGE_LEFT -> layout.x = limits.minX
             EDGE_RIGHT -> layout.x = limits.maxX
@@ -1049,17 +1049,18 @@ class PetOverlayWindow(
 
     private fun isNearAnyEdge(layout: WindowManager.LayoutParams): Boolean {
         val limits = logicalLimits(activeArea(layout), layout)
-        val threshold = maxOf(
-            dp(EDGE_CAPTURE_DP),
-            (logicalWindowPx * 0.10f).toInt(),
-        )
         return minOf(
             abs(layout.x - limits.minX),
             abs(limits.maxX - layout.x),
             abs(layout.y - limits.minY),
             abs(limits.maxY - layout.y),
-        ) <= threshold
+        ) <= edgeCaptureRange()
     }
+
+    private fun edgeCaptureRange(): Int = maxOf(
+        dp(EDGE_CAPTURE_DP),
+        (logicalWindowPx * 0.10f).toInt(),
+    )
 
     private fun playLightLanding(reason: String) {
         pendingLightLanding?.let(handler::removeCallbacks)

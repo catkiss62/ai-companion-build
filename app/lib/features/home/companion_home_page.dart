@@ -6,9 +6,11 @@ import '../../core/database/app_database.dart';
 import '../../core/continuity/daily_continuity_presentation.dart';
 import '../../core/models/interaction_session.dart';
 import '../../core/models/proactive_intent.dart';
+import '../../core/platform/memory_galaxy.dart';
 import '../../core/relationship/relationship_presentation.dart';
 import '../relationship/relationship_page.dart';
 import 'companion_home_state.dart';
+import 'memory_galaxy_button.dart';
 
 class CompanionHomePage extends StatefulWidget {
   const CompanionHomePage({
@@ -31,6 +33,7 @@ class _CompanionHomePageState extends State<CompanionHomePage>
   Timer? refreshTimer;
   bool loading = true;
   bool refreshing = false;
+  bool openingGalaxy = false;
   String? error;
 
   @override
@@ -90,6 +93,21 @@ class _CompanionHomePageState extends State<CompanionHomePage>
     if (mounted) await _refresh(silent: true);
   }
 
+  Future<void> _openMemoryGalaxy() async {
+    if (openingGalaxy) return;
+    setState(() => openingGalaxy = true);
+    try {
+      await MemoryGalaxyLauncher.open();
+    } catch (_) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('记忆星谷暂时无法打开，请稍后再试。')),
+      );
+    } finally {
+      if (mounted) setState(() => openingGalaxy = false);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     if (loading && snapshot == null) {
@@ -125,13 +143,9 @@ class _CompanionHomePageState extends State<CompanionHomePage>
             ),
           ],
           const SizedBox(height: 14),
-          FilledButton.icon(
-            onPressed: widget.onOpenChat,
-            icon: const Icon(Icons.chat_bubble_rounded),
-            label: const Padding(
-              padding: EdgeInsets.symmetric(vertical: 13),
-              child: Text('去找她'),
-            ),
+          MemoryGalaxyButton(
+            onPressed: openingGalaxy ? null : _openMemoryGalaxy,
+            opening: openingGalaxy,
           ),
           if (care != null) ...[
             const SizedBox(height: 18),

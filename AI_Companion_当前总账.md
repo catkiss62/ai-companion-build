@@ -1,11 +1,21 @@
 # AI Companion · 当前总账
 
-更新时间：2026-10-01（+300 CI PASSED / APK READY / TRUE DEVICE PENDING；+299 CI PASSED / APK READY / TRUE DEVICE PENDING；+298 CI PASSED / APK READY / TRUE DEVICE PENDING；+297 CI PASSED / APK READY / TRUE DEVICE PENDING；+295 恢复真机成功、背景回归 PARTIAL；+293 DEVICE VISUAL BASELINE）
+更新时间：2026-10-01（+301 IMPLEMENTATION IN PROGRESS / CI PENDING / APK PENDING / TRUE DEVICE PENDING；+300 CI PASSED / APK READY / TRUE DEVICE PENDING；+299 CI PASSED / APK READY / TRUE DEVICE PENDING；+298 CI PASSED / APK READY / TRUE DEVICE PENDING；+297 CI PASSED / APK READY / TRUE DEVICE PENDING；+295 恢复真机成功、背景回归 PARTIAL；+293 DEVICE VISUAL BASELINE）
 
 > 本文件是唯一的当前接班入口，继续采用“总账 v2”。顶部是快速接班索引；标记后的正式记录按版本持续追加，不设总容量上限。
 >
 > 判断优先级：用户最新明确决定 > 当前 GitHub 源码与 Actions > 同时刻脱敏真机诊断/备份 > 本文件 > 冻结归档与 Git 历史。`DESIGNED`、`IMPLEMENTED`、`CI PASSED`、`APK READY`、`TRUE DEVICE PASSED`、`PENDING` 必须严格区分。
 
+
+## 当前任务 · v0.42.57+301 只读记忆星谷、星空入口与四角吸附（IMPLEMENTATION IN PROGRESS / CI PENDING / APK PENDING / TRUE DEVICE PENDING）
+
+用户2026-10-01 05:15批准实施上一轮方案并追加“她”页按钮替换；基线+300功能620e0885、总账18edbf64（本地d696987e同tree dcc5c3d6）；分支agent/v04257-memory-galaxy-corner-dock，版本0.42.57+301，schema61/存档protocol7保持。授权推送构建延续。
+
+- 记忆星谷：沿用用户HTML模板的星海、粒子、Bloom、流星与文案，独立原生WebView Activity，离线资源随APK打包；读取全部active主记忆，未随机抽样、无300条上限，归档/旧版本不显示，记住事项不加入。空库和错误不回退虚构示例。
+- 只读路径：专用分页快照，不走AI relevantMemories；浏览/搜索/点击/临时“心动”均不写数据库，不增加召回或表达次数，不改重要度/钉选/冷却，不调用模型。模板连线仍按记忆类别作视觉提示，不声称是新知识图谱；列表详情另加精确已存topicKey的同话题条目，折叠查看、只读切换，不新增关系表。
+- 入口：记忆库页+“她”页；原“去找她”位置替换为“记忆星谷”，紫靛渐变、缓慢星点、偶发流星；离开首页、后台、减少动画时停止。原其它聊天入口保留。
+- 桌宠：同时进入水平/垂直吸附范围的四角优先上/下，保持原阈值；普通边缘、抛掷、重力、半屏、沿边行走不改。Jev Live2D不增加兜底；旧桌宠图片清理暂缓，七大规则删除放弃。
+- 回归保留+299白天背景及大settings无损读取、+300游戏分享/自制旋转/2.8秒摸头彩蛋/记住事项/完整存档。新增数据库只读、投影、动画生命周期、原生路径和四角测试，APK离线资源逐个哈希核对；当前尚待CI与真机，不提前宣称通过。
 
 ## 当前交付 · v0.42.56+300 游戏分享间隔、旋转、持续摸头与存档完整性（CI PASSED / APK READY / TRUE DEVICE PENDING）
 
@@ -1674,3 +1684,15 @@ Actions 与交付证据：远端功能 head `33647c7bff15084d6fd3cbc7b817e9b0b21
 - [未发布+300测试APK](https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-509ccfd78b2217c9fdc2)，Draft400290010，target620e08852283d6a5389d307e161d02166443785d，asset601559245，AI-Companion-v0.42.56-300-Game-Share-Portable-State-APK.apk，727767998bytes，SHA-256 c6049f59ccaec150d26d71bcdaf1ff5b28272a025aee1f8658832a7ec851fcbf。APK workflow Artifact11116914259；其ZIP digest876a81c8fcdcb9e890037df6bd88fd743f872792a69a0c71bc2e0aa484f41a3d是压缩归档哈希，不混作APK文件哈希。sha256附件asset601559246、CI Monitor附件asset601559250。
 - ci-monitor-v0345/.ci/v04256-monitor.txt为status=success、run36756872531、head620e0885；Release target与monitor一致，GitHub上传资产digest与monitor APK hash一致。稳定签名30:5E:B3:D8:09:83:B9:63:C6:48:18:DD:F1:AD:56:1F:27:9D:E6:D4:7B:3E:D2:C7:81:AD:A4:48:C7:C2:51:48与+299相同，可覆盖安装保留现有数据；不合并main、不正式发布、不提交私有模型、旧桌宠图片清理暂缓、七大规则删除放弃。
 - 真机待验收：按住摸头后头部移动不提前恢复，松手恢复；彩蛋2.8秒内继续摸不会覆盖/续期；自制小腿支点左右旋转不再瞬跳且身体XYZ不变；左栏记住事项直达原页面；默认5轮在值得分享时概括多轮结果，1轮/10轮是最少间隔而非强制播报，直接指定时长与半小时竞争共用该门；本机及另一设备实际存档还原Live2D/记住事项/表情包/非密钥配置，目标API Key仍留本地。本轮自动化已完成，TRUE DEVICE PENDING。
+
+## v0.42.57+301 · 记忆星谷实施记录（2026-10-01）
+
+用户批准纯视觉查看功能，外观沿用所附galaxy-template.html / 记忆银河搭建教程。不存在“星谷维护记忆”或模型重写；RememberedUserFacts仍走原入口，不参与星谷。全部active记忆由MemoryBrowseRepository同一数据库事务按created_at/id分页读取，投影只映射标题、类别、重要度、钉选、记录日期和原文；保留不确定推断标签。文本作为私有JSON文件而非拼进HTML，以textContent显示，HTML/emoji/NUL均不作为脚本执行；日期按本地年月日显示，UTC用于排序。
+
+NativeMemoryGalaxyActivity以本地HTTPS虚拟域名拦截JS/字体/JSON，不走外网；无JS写入桥接，CSP约束本地资源，关闭file/content访问。Intent只传经规范路径校验的cache/memory_galaxy快照路径，避免Binder大JSON；返回、异常和释放清理临时快照。独立Activity退出销毁WebView，暂停取消动画帧，恢复续播；保留既有Flutter舞台生命周期。模板所有有效记忆展示；空数据正确显示空提示，加载失败展示失败信息而无演示故事。连线为模板原按类别的视觉聚合，并不等同精确话题关系。
+
+MemoryPage保留原编辑/保存/归档，并新增折叠同话题条目和只读详情切换；查询只匹配非空现存topicKey+active，不使用主体或类别作假关联，不触发相关记忆检索计数。新增记忆星谷AppBar入口。“她”页原去找她按钮替换为MemoryGalaxyButton，局部CustomPainter渐变星空+流星；TickerMode与应用生命周期及减少动画选项共同暂停，控制器dispose。
+
+桌宠PetEdgeDockPolicy在同一旧吸附阈值下优先上/下角落，其余维持最近边缘；纯策略JUnit覆盖非等距四角、等距、普通边缘、范围边界和窄屏重叠。未改抛掷/重力/半屏/沿边行走等机制，未触碰Jev兜底、Live2D身体XYZ或原2.8秒彩蛋时长。构建身份0.42.57+301，各历史源码门的版本白名单只新增本版；快照协议与schema未变。
+
+当前状态：IMPLEMENTATION IN PROGRESS / CI PENDING / APK PENDING / TRUE DEVICE PENDING。后续仅在实际Actions及release资产验证完成后回填提交、run、SHA和APK链接。冻结归档保持原SHA。

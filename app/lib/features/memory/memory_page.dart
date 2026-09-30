@@ -3,7 +3,9 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 
 import '../../core/database/app_database.dart';
+import '../../core/memory/memory_browse_repository.dart';
 import '../../core/models/memory_item.dart';
+import '../../core/platform/memory_galaxy.dart';
 import '../../core/relationship/relationship_age.dart';
 import 'remembered_user_facts_page.dart';
 
@@ -24,6 +26,7 @@ class _MemoryPageState extends State<MemoryPage> {
   final searchController = TextEditingController();
   Timer? searchDelay;
   int loadGeneration = 0;
+  bool openingGalaxy = false;
 
   static const kinds = <String, String>{
     'all': '全部',
@@ -81,6 +84,7 @@ class _MemoryPageState extends State<MemoryPage> {
 
   Future<void> _edit(MemoryItem item) async {
     final evidence = await db.memoryEvidenceFor(item.id, limit: 8);
+    final related = await MemoryBrowseRepository(db).sameTopic(item);
     if (!mounted) return;
     final content = TextEditingController(text: item.content);
     final tags = TextEditingController(text: item.tags.join('、'));
@@ -167,6 +171,35 @@ class _MemoryPageState extends State<MemoryPage> {
                         value: confidence,
                         onChanged: (v) => setLocal(() => confidence = v),
                       ),
+                      if (related.isNotEmpty)
+                        ExpansionTile(
+                          tilePadding: EdgeInsets.zero,
+                          title: const Text('同话题记忆'),
+                          children: related
+                              .map(
+                                (relatedItem) => ListTile(
+                                  dense: true,
+                                  contentPadding: const EdgeInsets.only(
+                                    left: 8,
+                                    right: 4,
+                                  ),
+                                  title: Text(
+                                    relatedItem.content,
+                                    maxLines: 2,
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                  subtitle: Text(_date(relatedItem.createdAt)),
+                                  onTap: () => showDialog<void>(
+                                    context: context,
+                                    builder: (_) => _RelatedMemoryDialog(
+                                      item: relatedItem,
+                                      repository: MemoryBrowseRepository(db),
+                                    ),
+                                  ),
+                                ),
+                              )
+                              .toList(),
+                        ),
                     ],
                   ),
                 ),
@@ -238,13 +271,42 @@ class _MemoryPageState extends State<MemoryPage> {
     }
   }
 
+  Future<void> _openGalaxy() async {
+    if (openingGalaxy) return;
+    setState(() => openingGalaxy = true);
+    try {
+      await MemoryGalaxyLauncher.open();
+    } catch (_) {
+      if (mounted) {
+        ScaffoldMessenger.of(context)
+            .showSnackBar(const SnackBar(content: Text('记忆星谷暂时无法打开，请稍后再试。')));
+      }
+    } finally {
+      if (mounted) setState(() => openingGalaxy = false);
+    }
+  }
+
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('本地记忆库'), actions: [
-        TextButton(onPressed: () => Navigator.of(context).push(MaterialPageRoute<void>(
-          builder: (_) => const RememberedUserFactsPage())), child: const Text('记住事项')),
-      ]),
+      appBar: AppBar(
+        title: const Text('本地记忆库'),
+        actions: [
+          TextButton(
+            onPressed: openingGalaxy ? null : _openGalaxy,
+            child: const Text('记忆星谷'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.of(context).push(
+              MaterialPageRoute<void>(
+                builder: (_) => const RememberedUserFactsPage(),
+              ),
+            ),
+            child: const Text('记住事项'),
+          ),
+        ],
+      ),
       body: Column(
         children: [
           if (relationshipAge != null)
@@ -391,6 +453,136 @@ class _MemoryPageState extends State<MemoryPage> {
           ),
         ],
       ),
+    );
+  }
+}
+
+/// Related memories share one read-only dialog. Choosing another item updates
+/// this view instead of recursively opening more dialogs or an edit form.
+class _RelatedMemoryDialog extends StatefulWidget {
+  const _RelatedMemoryDialog({required this.item, required this.repository});
+
+  final MemoryItem item;
+  final MemoryBrowseRepository repository;
+
+  @override
+  State<_RelatedMemoryDialog> createState() => _RelatedMemoryDialogState();
+}
+
+class _RelatedMemoryDialogState extends State<_RelatedMemoryDialog> {
+  late MemoryItem item;
+  List<MemoryItem> related = const [];
+  bool loading = true;
+  bool loadFailed = false;
+  int loadGeneration = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    item = widget.item;
+    _loadRelated(item);
+  }
+
+  Future<void> _loadRelated(MemoryItem next) async {
+    final generation = ++loadGeneration;
+    setState(() {
+      item = next;
+      related = const [];
+      loading = true;
+      loadFailed = false;
+    });
+    try {
+      final loaded = await widget.repository.sameTopic(next);
+      if (!mounted || generation != loadGeneration) return;
+      setState(() {
+        related = loaded;
+        loading = false;
+      });
+    } catch (_) {
+      if (!mounted || generation != loadGeneration) return;
+      setState(() {
+        loading = false;
+        loadFailed = true;
+      });
+    }
+  }
+
+  String _date(DateTime value) {
+    final local = value.toLocal();
+    return '${local.year}-${local.month.toString().padLeft(2, '0')}-'
+        '${local.day.toString().padLeft(2, '0')}';
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: const Text('查看记忆'),
+      content: SizedBox(
+        width: 520,
+        child: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              SelectableText(item.content),
+              const SizedBox(height: 12),
+              Text(
+                '${_MemoryPageState.kinds[item.kind] ?? item.kind} · '
+                '${_MemoryPageState.semanticLabel(item)} · 版本 v${item.factVersion}'
+                '\n记录于 ${_date(item.createdAt)} · 证据 ${item.evidenceCount} 次',
+                style: Theme.of(context).textTheme.bodySmall,
+              ),
+              if (item.tags.isNotEmpty) ...[
+                const SizedBox(height: 6),
+                Text(
+                  item.tags.join(' · '),
+                  style: Theme.of(context).textTheme.bodySmall,
+                ),
+              ],
+              if (loading) ...[
+                const SizedBox(height: 12),
+                const LinearProgressIndicator(),
+              ] else if (loadFailed) ...[
+                const SizedBox(height: 12),
+                const Text('同话题记忆暂时无法读取。'),
+                TextButton(
+                  onPressed: () => _loadRelated(item),
+                  child: const Text('重试'),
+                ),
+              ] else if (related.isNotEmpty)
+                ExpansionTile(
+                  key: ValueKey(item.id),
+                  tilePadding: EdgeInsets.zero,
+                  title: const Text('同话题记忆'),
+                  children: related
+                      .map(
+                        (next) => ListTile(
+                          dense: true,
+                          contentPadding: const EdgeInsets.only(
+                            left: 8,
+                            right: 4,
+                          ),
+                          title: Text(
+                            next.content,
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                          subtitle: Text(_date(next.createdAt)),
+                          onTap: () => _loadRelated(next),
+                        ),
+                      )
+                      .toList(),
+                ),
+            ],
+          ),
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(context),
+          child: const Text('关闭'),
+        ),
+      ],
     );
   }
 }

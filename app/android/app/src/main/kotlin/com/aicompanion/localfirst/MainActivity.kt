@@ -14,6 +14,8 @@ class MainActivity : FlutterActivity() {
     private var caicaiLive2DBridge: CaicaiLive2DBridge? = null
     private var nativeFateWheelChannel: MethodChannel? = null
     private var pendingFateWheelResult: MethodChannel.Result? = null
+    private var nativeMemoryGalaxyChannel: MethodChannel? = null
+    private var pendingMemoryGalaxyResult: MethodChannel.Result? = null
 
     override fun onCreate(savedInstanceState: android.os.Bundle?) {
         super.onCreate(savedInstanceState)
@@ -62,6 +64,31 @@ class MainActivity : FlutterActivity() {
                         )
                     } catch (error: Exception) {
                         pendingFateWheelResult = null
+                        result.error("open_failed", error.javaClass.simpleName, null)
+                    }
+                }
+            }
+        }
+        nativeMemoryGalaxyChannel = MethodChannel(
+            flutterEngine.dartExecutor.binaryMessenger,
+            "ai_companion/memory_galaxy_native",
+        ).also { channel ->
+            channel.setMethodCallHandler { call, result ->
+                if (call.method != "open") {
+                    result.notImplemented()
+                } else if (pendingMemoryGalaxyResult != null) {
+                    result.error("already_open", "Memory galaxy is already open", null)
+                } else {
+                    try {
+                        val dataFile = MemoryGalaxyFiles.snapshot(cacheDir, call.argument<String>("dataPath"))
+                        pendingMemoryGalaxyResult = result
+                        startActivityForResult(
+                            Intent(this, NativeMemoryGalaxyActivity::class.java)
+                                .putExtra(NativeMemoryGalaxyActivity.EXTRA_DATA_PATH, dataFile.path),
+                            REQUEST_NATIVE_MEMORY_GALAXY,
+                        )
+                    } catch (error: Exception) {
+                        pendingMemoryGalaxyResult = null
                         result.error("open_failed", error.javaClass.simpleName, null)
                     }
                 }
@@ -139,6 +166,10 @@ class MainActivity : FlutterActivity() {
         nativeFateWheelChannel = null
         pendingFateWheelResult?.success(null)
         pendingFateWheelResult = null
+        nativeMemoryGalaxyChannel?.setMethodCallHandler(null)
+        nativeMemoryGalaxyChannel = null
+        pendingMemoryGalaxyResult?.success(null)
+        pendingMemoryGalaxyResult = null
         super.cleanUpFlutterEngine(flutterEngine)
     }
 
@@ -161,6 +192,16 @@ class MainActivity : FlutterActivity() {
             pendingFateWheelResult = null
             return
         }
+        if (requestCode == REQUEST_NATIVE_MEMORY_GALAXY) {
+            val error = data?.getStringExtra(NativeMemoryGalaxyActivity.EXTRA_ERROR)
+            if (error != null) {
+                pendingMemoryGalaxyResult?.error("galaxy_failed", error, null)
+            } else {
+                pendingMemoryGalaxyResult?.success(resultCode == RESULT_OK)
+            }
+            pendingMemoryGalaxyResult = null
+            return
+        }
         if (caicaiLive2DBridge?.onActivityResult(requestCode, resultCode, data) == true) return
         bridge?.onActivityResult(requestCode, resultCode, data)
     }
@@ -168,5 +209,6 @@ class MainActivity : FlutterActivity() {
     companion object {
         const val EXTRA_OPEN_CHAT = "ai_companion_open_chat"
         private const val REQUEST_NATIVE_FATE_WHEEL = 0xF217
+        private const val REQUEST_NATIVE_MEMORY_GALAXY = 0xF218
     }
 }

@@ -70,6 +70,14 @@
             android:exported="false"
             android:theme="@android:style/Theme.Material.NoActionBar" />
 
+        <activity
+            android:name=".NativeMemoryGalaxyActivity"
+            android:exported="false"
+            android:configChanges="orientation|keyboardHidden|screenSize|smallestScreenSize|screenLayout|density|uiMode"
+            android:hardwareAccelerated="true"
+            android:windowSoftInputMode="adjustResize"
+            android:theme="@android:style/Theme.Material.NoActionBar" />
+
         <service
             android:name=".CalendarReminderRingingService"
             android:exported="false"

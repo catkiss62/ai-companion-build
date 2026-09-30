@@ -65,5 +65,5 @@ assert model.count('rootTiltSmoother.update(rootTilt, frameDelta)')==2
 for test in ('cedar_share_rounds_v04256_test.dart','portable_snapshot_v04256_test.dart'):
     assert (app/'test'/test).is_file()
 assert (app/'tools/caicai_smoke/src/androidTest/java/com/catkiss/senlive2dcompanion/CaicaiInteractionCadenceSmokeTest.java').is_file()
-assert re.search(r'^version: 0.42.56\+300$',read('pubspec.yaml'),re.M)
+assert re.search(r'^version: 0.42.(?:56\+300|57\+301)$',read('pubspec.yaml'),re.M)
 print('v0.42.56 rounds, lower-leg tilt, held pat, sidebar and v7 portable inventory wired')

@@ -406,7 +406,8 @@
 # Historical +242 validator tokens: agent/v04198-sen-texture-direct-port | AI-Companion-v0.41.98-242-Sen-Direct-Port-APK | v0.41.98-sen-direct-port-test | .ci/v04198-monitor.txt
 # Historical +298: Build AI Companion v0.42.54+298 APK (Explicit Game Task and Sharing) | AI-Companion-v0.42.54-298-Explicit-Game-Task-Sharing-APK | v0.42.54-explicit-game-task-sharing-test | .ci/v04254-monitor.txt
 # Historical +299: Build AI Companion v0.42.55+299 APK (Backup CursorWindow and Day Background) | AI-Companion-v0.42.55-299-Backup-CursorWindow-Day-APK | v0.42.55-backup-cursor-window-day-test | .ci/v04255-monitor.txt
-name: Build AI Companion v0.42.56+300 APK (Game Share Rounds and Portable State)
+# Historical +300: Build AI Companion v0.42.56+300 APK (Game Share Rounds and Portable State) | AI-Companion-v0.42.56-300-Game-Share-Portable-State-APK | v0.42.56-game-share-portable-state-test | .ci/v04256-monitor.txt
+name: Build AI Companion v0.42.57+301 APK (Memory Galaxy and Corner Docking)
 
 # BUILD INPUTS: The 96-clip source ZIP is private Draft Release asset 591363139
 # (release 397377805), fetched and SHA-256 checked below. The persistent
@@ -495,6 +496,7 @@ on:
       - agent/v04254-explicit-game-task-sharing
       - agent/v04255-backup-cursor-window-day
       - agent/v04256-game-share-portable-state
+      - agent/v04257-memory-galaxy-corner-dock
       - agent/v04214-visible-process-fate-wheel
       - maintenance/repository-governance-20260919
   workflow_dispatch:
@@ -966,7 +968,7 @@ jobs:
         run: |
           set -euo pipefail
           test -f app/pubspec.yaml
-          grep -Fqx 'version: 0.42.56+300' app/pubspec.yaml
+          grep -Fqx 'version: 0.42.57+301' app/pubspec.yaml
           grep -Fqx '  static const int schemaVersion = 61;' app/lib/core/database/app_database.dart
           test -d app/lib
           test -d app/android
@@ -980,7 +982,7 @@ jobs:
           test -f app/android/app/src/main/jniLibs/arm64-v8a/libc++_shared.so
           test ! -d app/android/app/src/main/assets/tts_models
           test ! -d app/android/app/src/main/assets/legacy_tts
-          echo 'Building v0.42.56+300 Game share rounds, held pat and complete portable state.'
+          echo 'Building v0.42.57+301 Offline Memory Galaxy and corner docking.'
 
       - name: Generate complete pet clips from pinned Draft Release asset
         timeout-minutes: 15
@@ -1526,6 +1528,29 @@ jobs:
           print('All 22 pinned tarot JPGs are present and hash-exact in the APK.')
           PY
 
+      - name: Verify complete offline Memory Galaxy assets in APK
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY_GALAXY'
+          from hashlib import sha256
+          from pathlib import Path
+          from zipfile import ZipFile
+
+          root = Path('app/assets/memory_galaxy')
+          files = sorted(path for path in root.rglob('*') if path.is_file())
+          assert files and any(path.suffix == '.html' for path in files)
+          assert any(path.suffix == '.woff2' for path in files)
+          assert any(path.name == 'LICENSE' for path in files)
+          with ZipFile('app/build/app/outputs/flutter-apk/app-release.apk') as archive:
+              for source in files:
+                  target = 'assets/flutter_assets/' + source.relative_to('app').as_posix()
+                  expected = sha256(source.read_bytes()).hexdigest()
+                  actual = sha256(archive.read(target)).hexdigest()
+                  assert actual == expected, (target, actual, expected)
+          print(f'All {len(files)} offline Memory Galaxy assets are hash-exact in the APK.')
+          PY_GALAXY
+
       - name: Create APK checksum
         shell: bash
         run: |
@@ -1533,26 +1558,26 @@ jobs:
           APK='app/build/app/outputs/flutter-apk/app-release.apk'
           sha256sum "$APK" | tee app/app-release.apk.sha256
 
-      - name: Upload v0.42.56+300 APK as workflow artifact
+      - name: Upload v0.42.57+301 APK as workflow artifact
         uses: actions/upload-artifact@v4
         with:
-          name: AI-Companion-v0.42.56-300-Game-Share-Portable-State-APK
+          name: AI-Companion-v0.42.57-301-Memory-Galaxy-Corner-Dock-APK
           path: |
             app/build/app/outputs/flutter-apk/app-release.apk
             app/app-release.apk.sha256
           if-no-files-found: error
           retention-days: 14
 
-      - name: Upload v0.42.56+300 APK to draft release
+      - name: Upload v0.42.57+301 APK to draft release
         shell: bash
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
-          TAG='v0.42.56-game-share-portable-state-test'
-          APK_NAME='AI-Companion-v0.42.56-300-Game-Share-Portable-State-APK.apk'
+          TAG='v0.42.57-memory-galaxy-corner-dock-test'
+          APK_NAME='AI-Companion-v0.42.57-301-Memory-Galaxy-Corner-Dock-APK.apk'
           SHA_NAME="${APK_NAME}.sha256"
-          CI_NAME='AI-Companion-v0.42.56-300-Game-Share-Portable-State-CI-Monitor.txt'
+          CI_NAME='AI-Companion-v0.42.57-301-Memory-Galaxy-Corner-Dock-CI-Monitor.txt'
           cp app/build/app/outputs/flutter-apk/app-release.apk "app/${APK_NAME}"
           sed "s#app/build/app/outputs/flutter-apk/app-release.apk#${APK_NAME}#" \
             app/app-release.apk.sha256 > "app/${SHA_NAME}"
@@ -1569,14 +1594,14 @@ jobs:
               --repo "${GITHUB_REPOSITORY}" \
               --target "${GITHUB_SHA}" \
               --draft \
-              --title 'AI Companion v0.42.56+300 Game share rounds, held pat and complete portable state' \
-              --notes 'Ordinary solo play uses two-minute rounds with equal-width 10/5/1 sharing controls (default five); worthwhile outcomes are batched after actual delivery. Add held head pat and protected original 2.8-second easter egg, cap only custom lower-leg root rotation, and link Remembered Facts in the sidebar. Portable v7 snapshots include Live2D files, native visual preferences, sticker packs and non-secret model configuration; target credentials and ownership fences remain local, older archives remain supported. Retain the approved day background and lossless large-settings reads. Unpublished device test build.'
+              --title 'AI Companion v0.42.57+301 Offline Memory Galaxy and corner docking' \
+              --notes 'Open the template-based offline Memory Galaxy from Her and the memory library; show all active memories without changing recall counts or importance, and browse same-topic details. Add an animated purple starfield entry and prioritize upper/lower docking when gentle pet drops capture both corner axes. Retain portable v7 snapshots, approved day art, held head pat with its original 2.8-second easter egg, and the custom lower-leg tilt limit. Unpublished device test build.'
           else
             gh release edit "${TAG}" \
               --repo "${GITHUB_REPOSITORY}" \
               --target "${GITHUB_SHA}" \
-              --title 'AI Companion v0.42.56+300 Game share rounds, held pat and complete portable state' \
-              --notes 'Ordinary solo play uses two-minute rounds with equal-width 10/5/1 sharing controls (default five); worthwhile outcomes are batched after actual delivery. Add held head pat and protected original 2.8-second easter egg, cap only custom lower-leg root rotation, and link Remembered Facts in the sidebar. Portable v7 snapshots include Live2D files, native visual preferences, sticker packs and non-secret model configuration; target credentials and ownership fences remain local, older archives remain supported. Retain the approved day background and lossless large-settings reads. Unpublished device test build.'
+              --title 'AI Companion v0.42.57+301 Offline Memory Galaxy and corner docking' \
+              --notes 'Open the template-based offline Memory Galaxy from Her and the memory library; show all active memories without changing recall counts or importance, and browse same-topic details. Add an animated purple starfield entry and prioritize upper/lower docking when gentle pet drops capture both corner axes. Retain portable v7 snapshots, approved day art, held head pat with its original 2.8-second easter egg, and the custom lower-leg tilt limit. Unpublished device test build.'
           fi
           RELEASE_URL="$(gh release view "${TAG}" --repo "${GITHUB_REPOSITORY}" --json url --jq '.url')"
           echo "release_url=${RELEASE_URL}" >> "app/${CI_NAME}"
@@ -1596,19 +1621,19 @@ jobs:
           done
           test "${upload_ok}" = '1'
           MONITOR_BRANCH='ci-monitor-v0345'
-          MONITOR_PATH='.ci/v04256-monitor.txt'
+          MONITOR_PATH='.ci/v04257-monitor.txt'
           MONITOR_CONTENT_FILE="$(mktemp)"
           base64 -w0 "app/${CI_NAME}" > "${MONITOR_CONTENT_FILE}"
           MONITOR_SHA="$(gh api "/repos/${GITHUB_REPOSITORY}/contents/${MONITOR_PATH}?ref=${MONITOR_BRANCH}" --jq '.sha' 2>/dev/null || true)"
           if test -n "${MONITOR_SHA}"; then
             gh api --method PUT "/repos/${GITHUB_REPOSITORY}/contents/${MONITOR_PATH}" \
-              -f message='Update v0.42.56 CI success monitor' \
+              -f message='Update v0.42.57 CI success monitor' \
               -F "content=@${MONITOR_CONTENT_FILE}" \
               -f branch="${MONITOR_BRANCH}" \
               -f sha="${MONITOR_SHA}" >/dev/null
           else
             gh api --method PUT "/repos/${GITHUB_REPOSITORY}/contents/${MONITOR_PATH}" \
-              -f message='Create v0.42.56 CI success monitor' \
+              -f message='Create v0.42.57 CI success monitor' \
               -F "content=@${MONITOR_CONTENT_FILE}" \
               -f branch="${MONITOR_BRANCH}" >/dev/null
           fi
@@ -1630,8 +1655,8 @@ jobs:
           BUILD_RESULT: ${{ needs.build-apk.result }}
         run: |
           set -uo pipefail
-          TAG='v0.42.56-game-share-portable-state-test'
-          CI_NAME='AI-Companion-v0.42.56-300-Game-Share-Portable-State-CI-Monitor.txt'
+          TAG='v0.42.57-memory-galaxy-corner-dock-test'
+          CI_NAME='AI-Companion-v0.42.57-301-Memory-Galaxy-Corner-Dock-CI-Monitor.txt'
           REPORT="${RUNNER_TEMP}/${CI_NAME}"
           JOBS_JSON="${RUNNER_TEMP}/jobs.json"
           {
@@ -1672,8 +1697,8 @@ jobs:
               --repo "${GITHUB_REPOSITORY}" \
               --target "${GITHUB_SHA}" \
               --draft \
-              --title 'AI Companion v0.42.56+300 Game share rounds, held pat and complete portable state' \
-              --notes 'Unpublished Draft failure diagnostics for game sharing, held head pat and portable state. No user content, keys, backups or device diagnostics are included.'
+              --title 'AI Companion v0.42.57+301 Offline Memory Galaxy and corner docking' \
+              --notes 'Unpublished Draft failure diagnostics for offline Memory Galaxy and corner docking. No user content, keys, backups or device diagnostics are included.'
           fi
           RELEASE_URL="$(gh release view "${TAG}" --repo "${GITHUB_REPOSITORY}" --json url --jq '.url')"
           echo "release_url=${RELEASE_URL}" >> "${REPORT}"
@@ -1682,19 +1707,19 @@ jobs:
             --clobber \
             --repo "${GITHUB_REPOSITORY}"
           MONITOR_BRANCH='ci-monitor-v0345'
-          MONITOR_PATH='.ci/v04256-monitor.txt'
+          MONITOR_PATH='.ci/v04257-monitor.txt'
           MONITOR_CONTENT_FILE="$(mktemp)"
           base64 -w0 "${REPORT}" > "${MONITOR_CONTENT_FILE}"
           MONITOR_SHA="$(gh api "/repos/${GITHUB_REPOSITORY}/contents/${MONITOR_PATH}?ref=${MONITOR_BRANCH}" --jq '.sha' 2>/dev/null || true)"
           if test -n "${MONITOR_SHA}"; then
             gh api --method PUT "/repos/${GITHUB_REPOSITORY}/contents/${MONITOR_PATH}" \
-              -f message='Update v0.42.56 CI failure monitor' \
+              -f message='Update v0.42.57 CI failure monitor' \
               -F "content=@${MONITOR_CONTENT_FILE}" \
               -f branch="${MONITOR_BRANCH}" \
               -f sha="${MONITOR_SHA}" >/dev/null
           else
             gh api --method PUT "/repos/${GITHUB_REPOSITORY}/contents/${MONITOR_PATH}" \
-              -f message='Create v0.42.56 CI failure monitor' \
+              -f message='Create v0.42.57 CI failure monitor' \
               -F "content=@${MONITOR_CONTENT_FILE}" \
               -f branch="${MONITOR_BRANCH}" >/dev/null
           fi

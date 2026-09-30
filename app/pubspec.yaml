@@ -104,7 +104,8 @@ publish_to: 'none'
 # Historical validator compatibility token: version: 0.42.6+250
 # Historical validator compatibility token: version: 0.42.41+285
 # Historical: version: 0.42.55+299
-version: 0.42.56+300
+# Historical: version: 0.42.56+300
+version: 0.42.57+301
 
 environment:
   sdk: '>=3.12.0 <4.0.0'
@@ -114,6 +115,14 @@ flutter:
   assets:
     - assets/fate_wheel/
     - assets/fate_wheel/fonts/
+    - assets/memory_galaxy/
+    - assets/memory_galaxy/vendor/
+    - assets/memory_galaxy/vendor/three/
+    - assets/memory_galaxy/vendor/three/build/
+    - assets/memory_galaxy/vendor/three/examples/jsm/controls/
+    - assets/memory_galaxy/vendor/three/examples/jsm/postprocessing/
+    - assets/memory_galaxy/vendor/three/examples/jsm/shaders/
+    - assets/memory_galaxy/vendor/fonts/
     - assets/appearance/dafeiyu_reference.webp
     - assets/appearance/large_whale_mirror.jpg
     - assets/appearance/chat_avatar.webp

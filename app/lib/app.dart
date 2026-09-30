@@ -155,7 +155,10 @@ class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
         child: IndexedStack(
           index: index,
           children: [
-            CompanionHomePage(onOpenChat: _openChat),
+            TickerMode(
+              enabled: index == 0,
+              child: CompanionHomePage(onOpenChat: _openChat),
+            ),
             ChatPage(
               active: index == 1,
               onOpenMore: _openMore,

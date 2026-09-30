@@ -1,0 +1,454 @@
+{
+  "three": {
+    "repo": "mrdoob/three.js",
+    "ref": "r160",
+    "engineGitBlob": "0bcc7a286da2c115853ceec9deea19923e10ddc1"
+  },
+  "fontsource": {
+    "repo": "fontsource/font-files",
+    "commit": "c3f4e3e5a664d2c3002e800050ce809a790d7281",
+    "cssFamilyAlias": "Noto Serif SC Variable -> Noto Serif SC",
+    "fonts": [
+      {
+        "path": "noto-serif-sc-4-wght-normal.woff2",
+        "sha": "880ad33e0731a7806ad4cb1e60868c60c534e9cf"
+      },
+      {
+        "path": "noto-serif-sc-5-wght-normal.woff2",
+        "sha": "009ef7e7fc4293906e3ab4a7f83739b16ad72715"
+      },
+      {
+        "path": "noto-serif-sc-6-wght-normal.woff2",
+        "sha": "b0c6cf7af88a2dc44720faac10a23054b1a54b5c"
+      },
+      {
+        "path": "noto-serif-sc-21-wght-normal.woff2",
+        "sha": "9156f0de990aca1ce5041b09a2777a240dbb6a01"
+      },
+      {
+        "path": "noto-serif-sc-22-wght-normal.woff2",
+        "sha": "bc4ef529078a573b73949774448d2977e2793603"
+      },
+      {
+        "path": "noto-serif-sc-23-wght-normal.woff2",
+        "sha": "2d992f1c0c7e562d9ab0bc3b0fe330182a37f9bf"
+      },
+      {
+        "path": "noto-serif-sc-24-wght-normal.woff2",
+        "sha": "543271764da197cc6c3e5476f715b2a244164be7"
+      },
+      {
+        "path": "noto-serif-sc-25-wght-normal.woff2",
+        "sha": "d139814041d3400c4d80e47eb109e04fdbf83ab0"
+      },
+      {
+        "path": "noto-serif-sc-26-wght-normal.woff2",
+        "sha": "e8dd122e925ef5a5ef2f8dd7255b5456a9a94c2e"
+      },
+      {
+        "path": "noto-serif-sc-27-wght-normal.woff2",
+        "sha": "7d5032499c26cc8eb855efd437a8f53daff7e327"
+      },
+      {
+        "path": "noto-serif-sc-28-wght-normal.woff2",
+        "sha": "b393525798a6a3cb532ca1b2380aefeae2125f64"
+      },
+      {
+        "path": "noto-serif-sc-29-wght-normal.woff2",
+        "sha": "818c542c04a13dd32438792d3a0fbd3507c23c30"
+      },
+      {
+        "path": "noto-serif-sc-30-wght-normal.woff2",
+        "sha": "901e35f7ed2cccfcecee041d44985d9fc7732fe7"
+      },
+      {
+        "path": "noto-serif-sc-31-wght-normal.woff2",
+        "sha": "6451c4dd7af79e980bdc278d3e00999509af39e5"
+      },
+      {
+        "path": "noto-serif-sc-32-wght-normal.woff2",
+        "sha": "630150f9f543a138a1311d023effd50d5e31a1f7"
+      },
+      {
+        "path": "noto-serif-sc-33-wght-normal.woff2",
+        "sha": "164c4fae388afdc0a3ca9ff716b9e9cd3b722f57"
+      },
+      {
+        "path": "noto-serif-sc-34-wght-normal.woff2",
+        "sha": "1356ab6b2048a78cec478ebc741f62d11a6b561b"
+      },
+      {
+        "path": "noto-serif-sc-35-wght-normal.woff2",
+        "sha": "43b854c4d3021dd08cfd902b5fce0202de3ee1ad"
+      },
+      {
+        "path": "noto-serif-sc-36-wght-normal.woff2",
+        "sha": "ba4304a15763f67aa58f28a819bf2dac98ddd82f"
+      },
+      {
+        "path": "noto-serif-sc-37-wght-normal.woff2",
+        "sha": "de0eb719082f34f8450bf8b26f70ac8b95ea5877"
+      },
+      {
+        "path": "noto-serif-sc-38-wght-normal.woff2",
+        "sha": "bf00beb3dfd50930908cb7aaf4b6ee65b133e57e"
+      },
+      {
+        "path": "noto-serif-sc-39-wght-normal.woff2",
+        "sha": "603b0013dca1a7e009e2551fc32f285f31539758"
+      },
+      {
+        "path": "noto-serif-sc-40-wght-normal.woff2",
+        "sha": "19a49b19906b17b11366a0f8cd59c73dfa5f092e"
+      },
+      {
+        "path": "noto-serif-sc-41-wght-normal.woff2",
+        "sha": "aa2142240c6c9e4f8f414e76f08167752bd2c12c"
+      },
+      {
+        "path": "noto-serif-sc-42-wght-normal.woff2",
+        "sha": "200fc4fba6ea159c053db362db25a18b83b53231"
+      },
+      {
+        "path": "noto-serif-sc-43-wght-normal.woff2",
+        "sha": "c0819ec39f7ae9ed6757483f7f2e6fa73c9beaaa"
+      },
+      {
+        "path": "noto-serif-sc-44-wght-normal.woff2",
+        "sha": "d912be061ca1a6e108458f4abf5d88900cf1745e"
+      },
+      {
+        "path": "noto-serif-sc-45-wght-normal.woff2",
+        "sha": "761b061f2b6ef9ec79bbefdf1640e84bbcedb615"
+      },
+      {
+        "path": "noto-serif-sc-46-wght-normal.woff2",
+        "sha": "1c3b67d5ac29036e60a346399b80644adc7983c7"
+      },
+      {
+        "path": "noto-serif-sc-47-wght-normal.woff2",
+        "sha": "b1ad5393390d3a61a405c8df21bcfda3b24fd57a"
+      },
+      {
+        "path": "noto-serif-sc-48-wght-normal.woff2",
+        "sha": "60196c8a4a7502420d96fa84784aacd97ee6744e"
+      },
+      {
+        "path": "noto-serif-sc-49-wght-normal.woff2",
+        "sha": "4fa1ef7b74bdc3c66e76607c0373b186db36d9a6"
+      },
+      {
+        "path": "noto-serif-sc-50-wght-normal.woff2",
+        "sha": "f7f4599535c221cfb57554dc9e8818c7587b8311"
+      },
+      {
+        "path": "noto-serif-sc-51-wght-normal.woff2",
+        "sha": "0238e1f1f70167a52d3a99142636ccb94f707569"
+      },
+      {
+        "path": "noto-serif-sc-52-wght-normal.woff2",
+        "sha": "715f780451b0043484426b40bbdc96eb42aeecdc"
+      },
+      {
+        "path": "noto-serif-sc-53-wght-normal.woff2",
+        "sha": "f4d233a63b839b613ce03336fcc44f8fa4c707a5"
+      },
+      {
+        "path": "noto-serif-sc-54-wght-normal.woff2",
+        "sha": "8be8a3e15482f6bde9eedb57e7024d57aa66fa36"
+      },
+      {
+        "path": "noto-serif-sc-55-wght-normal.woff2",
+        "sha": "60fd1f8d986d2675df77eb6e321f2bda470f8b98"
+      },
+      {
+        "path": "noto-serif-sc-56-wght-normal.woff2",
+        "sha": "194f1e4474f4bc17c9f3b057ee017b21d1785cd0"
+      },
+      {
+        "path": "noto-serif-sc-57-wght-normal.woff2",
+        "sha": "1417e778ac481aec778db5ab366010054cc618be"
+      },
+      {
+        "path": "noto-serif-sc-58-wght-normal.woff2",
+        "sha": "563e598b151371cfe45e63acb201699c4b50db1b"
+      },
+      {
+        "path": "noto-serif-sc-59-wght-normal.woff2",
+        "sha": "4dbee833b3ed94cb8e83ae86ba26eb5eefa6f5f4"
+      },
+      {
+        "path": "noto-serif-sc-60-wght-normal.woff2",
+        "sha": "e6adadba7c3d94bcebec8abbf3c185f30fb84ab0"
+      },
+      {
+        "path": "noto-serif-sc-61-wght-normal.woff2",
+        "sha": "374bd424a3ee38701c0b33e6ad99980eb537c921"
+      },
+      {
+        "path": "noto-serif-sc-62-wght-normal.woff2",
+        "sha": "a548f53054c0abdbedcda005c0e03cf2a5ce087d"
+      },
+      {
+        "path": "noto-serif-sc-63-wght-normal.woff2",
+        "sha": "6ec61bc8717c62ebf8ada5405437aeb2138716c7"
+      },
+      {
+        "path": "noto-serif-sc-64-wght-normal.woff2",
+        "sha": "6e08ccbd90e1983844cb02b797b5de721d30b528"
+      },
+      {
+        "path": "noto-serif-sc-65-wght-normal.woff2",
+        "sha": "a8e6b82f490daca625921a8c92cd6f486569f91e"
+      },
+      {
+        "path": "noto-serif-sc-66-wght-normal.woff2",
+        "sha": "c03f43802a800a89735b04f475068881dc4e16e6"
+      },
+      {
+        "path": "noto-serif-sc-67-wght-normal.woff2",
+        "sha": "adb0b23f8fe41d531e87cf02a472e5c9bc6e2ded"
+      },
+      {
+        "path": "noto-serif-sc-68-wght-normal.woff2",
+        "sha": "88ce38a36faad7c55b4399a4f909b222fad1ad4c"
+      },
+      {
+        "path": "noto-serif-sc-69-wght-normal.woff2",
+        "sha": "0ef4a014f6a24cd84ec672da826fb4b4c1e46a58"
+      },
+      {
+        "path": "noto-serif-sc-70-wght-normal.woff2",
+        "sha": "8b43b996c96985b4b323a23135e3c71213f76f52"
+      },
+      {
+        "path": "noto-serif-sc-71-wght-normal.woff2",
+        "sha": "f69135202b21e423e7db47270e21cdb6cb899e3d"
+      },
+      {
+        "path": "noto-serif-sc-72-wght-normal.woff2",
+        "sha": "97c2f9d2a3a59b1774e62aba48f9820aeeeaa9d5"
+      },
+      {
+        "path": "noto-serif-sc-73-wght-normal.woff2",
+        "sha": "f2ac6765e7081621c5e53e9b60ac1ff7fdafbb0d"
+      },
+      {
+        "path": "noto-serif-sc-74-wght-normal.woff2",
+        "sha": "5e7a7fa2dac02085e1d4159fa12890aa33060364"
+      },
+      {
+        "path": "noto-serif-sc-75-wght-normal.woff2",
+        "sha": "9e56b481d0ee70b78bdadcfcbb2f766a0e04f53d"
+      },
+      {
+        "path": "noto-serif-sc-76-wght-normal.woff2",
+        "sha": "3af9b9456062c3d1f16159fbc05c77b90e95c6ec"
+      },
+      {
+        "path": "noto-serif-sc-77-wght-normal.woff2",
+        "sha": "cb461c57e1886eea1d818c75988b96b8891b9bcd"
+      },
+      {
+        "path": "noto-serif-sc-78-wght-normal.woff2",
+        "sha": "810066576746b29e0247faa157bbdcf80325d134"
+      },
+      {
+        "path": "noto-serif-sc-79-wght-normal.woff2",
+        "sha": "d24412c3d6003a353d15cfe0bd9135b7fd0e62e3"
+      },
+      {
+        "path": "noto-serif-sc-80-wght-normal.woff2",
+        "sha": "27694b839453640e581d7a0efe05a230d9ffc0e7"
+      },
+      {
+        "path": "noto-serif-sc-81-wght-normal.woff2",
+        "sha": "40666bf79aac17f3c27968733779a9eddd13e30d"
+      },
+      {
+        "path": "noto-serif-sc-82-wght-normal.woff2",
+        "sha": "92d78042a56d8048c2d1c9880a5e62776e380e42"
+      },
+      {
+        "path": "noto-serif-sc-83-wght-normal.woff2",
+        "sha": "bacc13f8bc830b87e3da2024184cc1b2faf8b268"
+      },
+      {
+        "path": "noto-serif-sc-84-wght-normal.woff2",
+        "sha": "88e20514a34f1ee02d38881750766ab9ec92342a"
+      },
+      {
+        "path": "noto-serif-sc-85-wght-normal.woff2",
+        "sha": "eb26a8a725890786bd6ce11a3a081d0189cd85b2"
+      },
+      {
+        "path": "noto-serif-sc-86-wght-normal.woff2",
+        "sha": "812b1d146941645872dec815626c75f2402583c6"
+      },
+      {
+        "path": "noto-serif-sc-87-wght-normal.woff2",
+        "sha": "9e59b702c864d9f9a14deed80ce24b3942518b6a"
+      },
+      {
+        "path": "noto-serif-sc-88-wght-normal.woff2",
+        "sha": "475f052b2d84887e730fa928cb8c1fe0b5d108e5"
+      },
+      {
+        "path": "noto-serif-sc-89-wght-normal.woff2",
+        "sha": "b88e237fb74cbbfd9ddb26233eb4df7208321bf6"
+      },
+      {
+        "path": "noto-serif-sc-90-wght-normal.woff2",
+        "sha": "cc5cc397c02a3e5eef9dc6f6a7b085cef4256bdc"
+      },
+      {
+        "path": "noto-serif-sc-91-wght-normal.woff2",
+        "sha": "4054c5c913e8adc544513a448a938459db38b653"
+      },
+      {
+        "path": "noto-serif-sc-97-wght-normal.woff2",
+        "sha": "0698a4ec8ef6b1da4a050ac909eef9fe2585fdcb"
+      },
+      {
+        "path": "noto-serif-sc-98-wght-normal.woff2",
+        "sha": "ea49dca4dded00373bbcaa7fbeb0cf9b0d65b1a3"
+      },
+      {
+        "path": "noto-serif-sc-99-wght-normal.woff2",
+        "sha": "6e39539d56d11cd8f3c8176875dbbf8e0977895a"
+      },
+      {
+        "path": "noto-serif-sc-100-wght-normal.woff2",
+        "sha": "fd4a650bdef7c25a13c02b4f47734e4b42dfdb44"
+      },
+      {
+        "path": "noto-serif-sc-101-wght-normal.woff2",
+        "sha": "89711ccc26e589361ea5952fdb1839ad43220fb5"
+      },
+      {
+        "path": "noto-serif-sc-102-wght-normal.woff2",
+        "sha": "7bb82fd5828468652a91cb4c1e386e17b9284519"
+      },
+      {
+        "path": "noto-serif-sc-103-wght-normal.woff2",
+        "sha": "0a6e772e7d534db0ffc9d7b3cb2a05f9c0600259"
+      },
+      {
+        "path": "noto-serif-sc-104-wght-normal.woff2",
+        "sha": "3ea9ba26e7f281a9e822b68fbb7d640e4cab48f5"
+      },
+      {
+        "path": "noto-serif-sc-105-wght-normal.woff2",
+        "sha": "c918b7dcf9e68e3e8351f2cbba786d88d096e832"
+      },
+      {
+        "path": "noto-serif-sc-106-wght-normal.woff2",
+        "sha": "80b3656ef9776e940f406f6bce29a3264523cfe7"
+      },
+      {
+        "path": "noto-serif-sc-107-wght-normal.woff2",
+        "sha": "04bc48b299d2b59d71af0d2db57b21dce225ebf5"
+      },
+      {
+        "path": "noto-serif-sc-108-wght-normal.woff2",
+        "sha": "6b80965a10970cdfbdcf54849f844f7b5c93faac"
+      },
+      {
+        "path": "noto-serif-sc-109-wght-normal.woff2",
+        "sha": "6f7dcf47b616f23e107fab42e9aad78c7bcfce2a"
+      },
+      {
+        "path": "noto-serif-sc-110-wght-normal.woff2",
+        "sha": "1d7b89d54766d4ae8780fcd9845203f4e462d127"
+      },
+      {
+        "path": "noto-serif-sc-111-wght-normal.woff2",
+        "sha": "ba62adc9919f21f207892967e77f567a1024521a"
+      },
+      {
+        "path": "noto-serif-sc-112-wght-normal.woff2",
+        "sha": "83be65123a1d17af1ae0e8da37f707eab2bafa88"
+      },
+      {
+        "path": "noto-serif-sc-113-wght-normal.woff2",
+        "sha": "d23335b78fbbb2a1e646037591d3ab7ee4176239"
+      },
+      {
+        "path": "noto-serif-sc-114-wght-normal.woff2",
+        "sha": "43bf7a768c520e7939978eb5edd5d72c622d0c1f"
+      },
+      {
+        "path": "noto-serif-sc-115-wght-normal.woff2",
+        "sha": "cac7717f23041ecba93968d90d5075c3710a3be1"
+      },
+      {
+        "path": "noto-serif-sc-116-wght-normal.woff2",
+        "sha": "2b7cdc485966ca5858855f3eb17ce363b4e45969"
+      },
+      {
+        "path": "noto-serif-sc-117-wght-normal.woff2",
+        "sha": "f4f3da988b8a3e4556531978d7a2afbb7662ee92"
+      },
+      {
+        "path": "noto-serif-sc-118-wght-normal.woff2",
+        "sha": "e2354f8abf2d357d3b0dfe50833bd65f6c0fd0a0"
+      },
+      {
+        "path": "noto-serif-sc-119-wght-normal.woff2",
+        "sha": "13ec918f52bd55696543c818175a6a2dd2fa1e06"
+      },
+      {
+        "path": "noto-serif-sc-cyrillic-wght-normal.woff2",
+        "sha": "42a3c46fd4ea1aacdf63f72276d1c2d2c1fa6d47"
+      },
+      {
+        "path": "noto-serif-sc-vietnamese-wght-normal.woff2",
+        "sha": "6740ff0ee301558aef14bdd5f3834c495f4dc543"
+      },
+      {
+        "path": "noto-serif-sc-latin-ext-wght-normal.woff2",
+        "sha": "d84c4bbbae1511f6ce9fd1e1b31c530d9a731d56"
+      },
+      {
+        "path": "noto-serif-sc-latin-wght-normal.woff2",
+        "sha": "138fa1ad45dd8a31725d4394748c02c7fb64353c"
+      },
+      {
+        "path": "cormorant-garamond-cyrillic-ext-400-italic.woff2",
+        "sha": "df8f2b7195b3740984ce135a84ac53a91c418a15"
+      },
+      {
+        "path": "cormorant-garamond-cyrillic-400-italic.woff2",
+        "sha": "5125407069f058ac2445b3330881d6048f5611ea"
+      },
+      {
+        "path": "cormorant-garamond-vietnamese-400-italic.woff2",
+        "sha": "efeeada40a46837a3c34035f4f46195f8f388823"
+      },
+      {
+        "path": "cormorant-garamond-latin-ext-400-italic.woff2",
+        "sha": "17d37725c8ab840f55af9b53c8464e44652c8ba0"
+      },
+      {
+        "path": "cormorant-garamond-latin-400-italic.woff2",
+        "sha": "d9272649681c0d1843e3b5403b7834e9c6add271"
+      },
+      {
+        "path": "playfair-display-cyrillic-600-italic.woff2",
+        "sha": "69ade0e4956abcad60b94744ffd8bf98a07f5790"
+      },
+      {
+        "path": "playfair-display-vietnamese-600-italic.woff2",
+        "sha": "bb09e2d7ade3b2f1d73dd7818c454b62b345ccc3"
+      },
+      {
+        "path": "playfair-display-latin-ext-600-italic.woff2",
+        "sha": "4687ff4e702b6bbf6a1d65ca29926578a6c3df69"
+      },
+      {
+        "path": "playfair-display-latin-600-italic.woff2",
+        "sha": "78abff9047b26a24a695336ef73bb234651edb00"
+      }
+    ]
+  }
+}

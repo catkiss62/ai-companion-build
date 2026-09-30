@@ -140,3 +140,4 @@ tools/validate_v04254_timed_game_sharing.py
 tools/validate_v04255_backup_settings.py
 
 tools/validate_v04256_share_portable_state.py
+tools/validate_v04257_memory_galaxy.py
