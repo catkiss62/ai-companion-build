@@ -6,7 +6,7 @@
 >
 > 判断优先级：用户最新明确决定 > 当前 GitHub 源码与 Actions > 同时刻脱敏真机诊断/备份 > 本文件 > 冻结归档与 Git 历史。`DESIGNED`、`IMPLEMENTED`、`CI PASSED`、`APK READY`、`TRUE DEVICE PASSED`、`PENDING` 必须严格区分。
 
-## 当前实施 · v0.42.53+297 沉浸形态快照、独立情绪层与自主游戏投入（IMPLEMENTED / CI PENDING / APK PENDING / TRUE DEVICE PENDING）
+## 当前实施 · v0.42.53+297 沉浸形态快照、独立情绪层与自主游戏投入（CI PASSED / APK READY / TRUE DEVICE PENDING）
 
 - 2026-09-30 用户批准开始七项方案，并明确情绪动画只是独立固定动画层，按现有情绪动画/语音开关播放，不改Live2D表情、动作、参数或效果。此最新要求覆盖方案3中任何可能涉及修改Live2D效果的表述。
 - 基线+296及方案总账HEAD `034d643`，独立分支 `agent/v04253-room-freeze-game-session`；实施沉浸入口快照与房间气焰判断删除、普通突破语义、独立情绪层、持续游玩竞争与有限对话倾向、小型记住事项及原图圆形悬浮球。用户特别要求核对沉浸共用机制，保留普通聊天与已成功功能。开始时仅记录范围，尚无新CI/APK/真机证据。
@@ -16,6 +16,10 @@
 - 持续游玩是Desire竞争选中的独立action，统一归入play_game冷却/满足账本；一次授予30分钟有效投入，暂停/长时间进程挂起不计时，同日同游戏有效，进程重启或导入不自动恢复。沿用单Cedar执行器和围栏，服务器防沉迷、结束/等待人类、夜间与疲劳会终止；推进后普通主动聊天仍可竞争，不占每步主动槽。对话鼓励/暂停用现有Jev路由合批（失败沿用原DS路由），正式回复提交后才保存；最多±0.10、3小时半衰、12小时过期，重复仅刷新不叠加。
 - 记住事项入口：本地记忆库右上角→记住事项，手动添加/编辑/删除，最多16项（事项24字、事实120字）。通用settings随备份保存；普通及主动相关话题参考，当前当天例外优先，不写Memory重要度、不产生Thought/提醒，不从角色扮演抽取，也不注入角色扮演。
 - 新增Flutter行为回归覆盖房间TTS冻结/普通TTS仍随全局、30分钟与暂停/跨夜、疲劳/睡眠、鼓励幂等/衰减/撤回、日常事实持久化与情绪历史不重播；新增专项源门，旧版本白名单追加297且其余合同保留。本地Dart语法、YAML、专项门与关联源门已通过；完整资源/Flutter/Kotlin/APK由Actions核验，未宣称真机通过。CI监视路径为ci-monitor-v0345分支的.ci/v04253-monitor.txt。详设与前置分析已移到本总账正文，保留全部内容以控制快速索引体积。
+
+- 构建完成：源码提交 `6524f3e60b4d42a013cb8d17ced04923b1d0debc`（之前的运行因后续修正推送被工作流正常取消，最终只认本提交），[Actions 36690963830](https://github.com/catkiss62/ai-companion-build/actions/runs/36690963830) success；131项完整源码门、原生生命周期/导入烟测、Kotlin、Flutter analyze、完整Flutter tests（含新8个行为用例）、arm64 Release APK资源/签名核验全部通过，失败报告 skipped。main 未合并。
+- 未发布 Draft `399848801`：[+297 测试 APK 下载页](https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-cc829aca051c852f5c40)，target=`6524f3e`；APK asset `600471102`，文件 `AI-Companion-v0.42.53-297-Room-Freeze-Game-Session-APK.apk`，726453574字节，SHA-256 `f20a04df72d434aa9890bf7ec549a529dcb467f4213de2ec0edea63648968a84`；Artifact `11086582753`。Release digest与成功CI monitor一致；签名证书 `30:5E:B3:D8:09:83:B9:63:C6:48:18:DD:F1:AD:56:1F:27:9D:E6:D4:7B:3E:D2:C7:81:AD:A4:48:C7:C2:51:48` 与现有测试版本一致，保留现有数据覆盖安装。draft=true，未正式发布。
+- TRUE DEVICE PENDING：①进入房间后无气焰条/变身判断，普通聊天气焰不被房间轮次推进；设置/短暂后台返回不变形，真正退出再入捕获最新形态，手动/三语语音音调保持快照；Stop、重生、继续剧情和保留截断回复正常。②普通满值仍可等待，累计玩闹/强烈害羞判定更合理与否需实际上下文观测，未宣称新的Jev概率或准确率。③独立情绪动画/语音开关生效，新回复单次播放，历史/返回不重播，Live2D原有效果和背景/恢复正常。④Desire选择持续游玩后进度加快，同时其他主动聊天可发生；用户聊天先行，暂停不计时，夜间/疲劳/防沉迷与等待人类能结束资格；鼓励不叠加并衰减。⑤记住事项保存13点用餐等小事后相关事实正确、当天例外优先且不产生催促，重启/备份恢复保留，恢复不续临时游戏资格。⑥悬浮球图案、圆形、拖动、贴边、点击、未读及展开聊天正常。
 
 ## 当前修复 · +296 保留直接合成恢复，把昼夜背景合入人物 Surface（CI PASSED / APK READY / TRUE DEVICE PENDING）
 
