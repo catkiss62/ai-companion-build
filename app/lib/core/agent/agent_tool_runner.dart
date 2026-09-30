@@ -468,10 +468,12 @@ class AgentToolRunner {
     }
     switch (operation) {
       case 'pause':
+        await db.setSetting(CedarTimedPlayTaskStore.pendingKey, '');
         await CedarPlaySessionStore(db).end('user_pause');
         await store.pause();
         break;
       case 'pause_and_release':
+        await db.setSetting(CedarTimedPlayTaskStore.pendingKey, '');
         await CedarPlaySessionStore(db).end('user_pause');
         await store.pauseAndRelease();
         break;

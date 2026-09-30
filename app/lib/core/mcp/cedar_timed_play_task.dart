@@ -107,6 +107,18 @@ class CedarTimedPlayTaskStore {
         (await db.messageById(assistantId))?.isAssistant != true)
       return;
     final at = now ?? DateTime.now();
+    final requested = DateTime.fromMillisecondsSinceEpoch(
+      (pending['requestedAt'] as num?)?.toInt() ?? 0,
+    );
+    if (at.isBefore(requested) ||
+        at.difference(requested) > const Duration(hours: 2) ||
+        at.year != requested.year ||
+        at.month != requested.month ||
+        at.day != requested.day) {
+      await finish(pending, usedMs: 0, reason: 'expired_before_start', now: at);
+      await db.setSetting(pendingKey, '');
+      return;
+    }
     final existing = await active();
     if (existing?['id'] == pending['id']) {
       await db.setSetting(pendingKey, '');

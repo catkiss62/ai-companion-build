@@ -165,6 +165,31 @@ void main() {
     expect(await tasks.pendingReports(), isEmpty);
   });
 
+  test(
+    'a committed pause stops the timed task and cannot revive a pending grant',
+    () async {
+      await start();
+      final tasks = CedarTimedPlayTaskStore(db);
+      await tasks.stage(
+        turnId: 'another',
+        assistantId: 'not-committed',
+        session: (await CedarToyActivityStore(db).load())!,
+        minutes: 30,
+      );
+      await db.setSettingsAtomically({
+        'nsfw_route_turn_id': 'pause',
+        'cedar_game_attitude_route_signal': 'pause',
+        'cedar_game_attitude_route_game': 'white_room',
+      });
+      await CedarGameAttitudeStore(db)
+          .commit(turnId: 'pause', now: DateTime.now());
+      expect(await tasks.active(), isNull);
+      expect(await db.getSetting(CedarTimedPlayTaskStore.pendingKey), '');
+      expect(await CedarToyActivityStore(db).load(), isNull);
+      expect((await tasks.pendingReports()).single['reason'], 'user_pause');
+    },
+  );
+
   test('budget completion parks only the authorized activity', () async {
     await start(minutes: 1);
     final store = CedarPlaySessionStore(db);
@@ -221,6 +246,7 @@ void main() {
         db,
       ).pendingDirectShares()).single;
       expect(nextId, isNot(id));
+      expect((await db.thoughtById(nextId))!.text, isNot(contains('隐藏的门')));
       await shares.offer(second, share: true, now: DateTime.now());
       expect(await CedarToyActivityStore(db).pendingDirectShares(), [nextId]);
     },

@@ -4,6 +4,7 @@ import 'dart:math' as math;
 import '../database/app_database.dart';
 import '../platform/android_bridge.dart';
 import 'cedar_timed_play_task.dart';
+import 'cedar_toy_activity.dart';
 
 /// A Desire-granted period, independent from chat/share opportunity counts.
 class CedarPlaySession {
@@ -216,6 +217,14 @@ class CedarGameAttitudeStore {
         ).toJson(),
       ),
     );
-    if (signal == 'pause') await CedarPlaySessionStore(db).end('user_pause');
+    if (signal == 'pause') {
+      final task = await CedarTimedPlayTaskStore(db).active();
+      await db.setSetting(CedarTimedPlayTaskStore.pendingKey, '');
+      await CedarPlaySessionStore(db).end('user_pause');
+      final activity = CedarToyActivityStore(db);
+      if (task != null && (await activity.load())?.gameId == task['gameId']) {
+        await activity.pauseAndRelease();
+      }
+    }
   }
 }
