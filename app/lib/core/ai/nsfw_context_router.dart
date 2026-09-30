@@ -165,7 +165,9 @@ class NsfwContextRouter {
           'play of active_game (or games generally), or ask to pause it? '
           'Use recent_context for references. A present action request is '
           'handled by cedar, not encouragement. Different named games, '
-          'quotes, hypotheticals and routine game talk are none.',
+          'quotes, hypotheticals and routine game talk are none. '
+          'Permission such as 你可以自己玩玩 or 有空自己去玩吧 is encouragement '
+          'unless this context clearly requests immediate action.',
           {'encourage': 'Encourages her to explore on her own when free.',
            'pause': 'Asks her to put autonomous gaming aside for now.',
            'none': 'No optional autonomous game preference.'}),
@@ -176,7 +178,8 @@ class NsfwContextRouter {
           'from either speaker. An assistant promise without a user request '
           'does not authorize action. Distinguish discussion, hypothetical '
           'examples, self-only plans, negation, delay, stopping, and a new '
-          'topic. Do not infer an action already happened.',
+          'topic. Optional permission to explore alone when free is chat, '
+          'not a present action request. Do not infer an action already happened.',
           <String, String>{
             'act_now': 'A direct request or invitation for the companion to '
                 'enter or advance an actual game now, even in novel wording.',
@@ -242,7 +245,7 @@ light: the user deliberately joins a small joke or gentle teasing; ordinary frie
 mutual: the user knowingly escalates reciprocal teasing into a playful challenge aimed at the assistant. Routine back-and-forth, friendly jokes and shyness are not enough.
 strong: especially vivid, reciprocal playful provocation; do not select it merely for insults, anger, or repetition.
 Do not treat a request for technical help, genuine distress, or conflict as banter.
-Judge INITIATIVE independently: open means a small self-started playful challenge could fit naturally now; closed means this message needs a direct response or offers no natural opening. This field only permits a possible optional nudge and does not grant heat points. Also judge game_attitude: encourage means optional autonomous game exploration when free; pause means set autonomous gaming aside; none covers direct act-now requests, ordinary game talk, quotes, different named games and unrelated messages. If CEDAR_CONFIGURED is false, game_attitude must be none. Return the independent fields in one JSON object.''',
+Judge INITIATIVE independently: open means a small self-started playful challenge could fit naturally now; closed means this message needs a direct response or offers no natural opening. This field only permits a possible optional nudge and does not grant heat points. Also judge game_attitude: encourage means optional autonomous game exploration when free; pause means set autonomous gaming aside; none covers direct act-now requests, ordinary game talk, quotes, different named games and unrelated messages. Permission such as 你可以自己玩玩 or 有空自己去玩吧 is encouragement unless immediate action is clearly requested in context. If CEDAR_CONFIGURED is false, game_attitude must be none. Return the independent fields in one JSON object.''',
           },
           {
             'role': 'user',
