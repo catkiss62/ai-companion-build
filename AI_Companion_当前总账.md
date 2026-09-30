@@ -1702,3 +1702,5 @@ MemoryPage保留原编辑/保存/归档，并新增折叠同话题条目和只�
 +301第二轮CI 36782569619（远端3e0ee60a、本地9de5da46同tree 2d23b5c1）：生产与测试权限一致后仍是原9项通过、新3项启动超时，未到截图步骤；因此上一轮权限差异不是完整根因，不声称已定位完毕。补充原生固定资源状态/MIME、启动开关及分类控制台日志，测试超时输出脚本/资源/支持状态等匿名启动证据；不记录记忆正文。保留全部功能断言继续定位。
 
 +301第三轮CI 36784152124（远端130ef3ca、本地09c664e4同tree 48396603）确认根因：JS开/网络未禁止/importmap支持且其余模块200，唯Three引擎404；本地文件虽存在，app/.gitignore通用build/规则使vendor/three/build/three.module.js未进入HEAD，实际此前发布129/130星谷资源。该公开引擎blob早已上传并校验0bcc7a286da2c115853ceec9deea19923e10ddc1，只漏进提交树。加最小忽略规则例外并纳入源码，新增全部离线资源必须被Git跟踪的验证；并保留最终APK逐文件哈希检查。前两轮权限假设不是完整根因，第三轮精确404证据用于修复，无视觉调整。
+
++301第四轮CI [36785322975](https://github.com/catkiss62/ai-companion-build/actions/runs/36785322975)（远端38977282177ed3dd63ab058f4b5ea7229eaebea7、本地279e2f3d同tree48306e48）完整success：Android15原生12/12、源码门、Kotlin、Flutter analyze/test、签名arm64 APK及离线资源检查均通过。原生XML Artifact11129299181已下载核实0失败/0跳过，640条真实渲染/原文/只读/外域拒绝/停帧恢复、空库、错误状态全部实际执行。截图像素断言通过，但UTP卸载测试应用清理externalFiles后原adb pull未取得PNG，因此尚未人工看图。下一提交只修测试截图保留：测试结束前通过UiAutomation固定路径复制到/data/local/tmp，wrapper必须取得非空PNG；不改生产/模板/资源。最终交付待这一轮实跑和截图复核，不把未取得的截图说成人工视觉通过。

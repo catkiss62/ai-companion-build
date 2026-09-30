@@ -6,6 +6,7 @@ import android.content.pm.PackageManager
 import android.graphics.Bitmap
 import android.graphics.Color
 import android.os.SystemClock
+import android.os.ParcelFileDescriptor
 import android.view.View
 import android.view.ViewGroup
 import android.webkit.WebView
@@ -264,6 +265,20 @@ class MemoryGalaxySmokeTest {
             File(directory!!, "memory-galaxy-640-render.png").outputStream().use { output ->
                 assertTrue(bitmap.compress(Bitmap.CompressFormat.PNG, 100, output))
             }
+            // UTP uninstalls the test app after this suite, including its external
+            // files. Copy this verified render while the app still owns it.
+            // Both paths are fixed test artifacts; no memory data enters the shell.
+            val retained = InstrumentationRegistry.getInstrumentation().uiAutomation
+                .executeShellCommand(
+                    "cp /sdcard/Android/data/com.catkiss.senlive2dcompanion.smoke/files/" +
+                        "memory-galaxy-640-render.png /data/local/tmp/memory-galaxy-640-render.png && " +
+                        "test -s /data/local/tmp/memory-galaxy-640-render.png && " +
+                        "echo galaxy_render_retained",
+                )
+            val marker = ParcelFileDescriptor.AutoCloseInputStream(retained)
+                .bufferedReader().use { it.readText().trim() }
+            assertEquals("Retain the actual PNG before test app cleanup",
+                "galaxy_render_retained", marker)
         } finally {
             bitmap.recycle()
             screenshot.recycle()

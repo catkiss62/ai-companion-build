@@ -4,6 +4,7 @@ set -uo pipefail
 task_root="$(cd "$(dirname "$0")/../.." && pwd)"
 chmod +x "${task_root}/app/android/gradlew"
 cd "${task_root}/app/android" || exit 1
+adb shell rm -f /data/local/tmp/memory-galaxy-640-render.png || exit 1
 if ./gradlew -p ../tools/caicai_smoke connectedDebugAndroidTest --stacktrace; then
   test_status=0
 else
@@ -11,6 +12,12 @@ else
 fi
 preview_dir="${task_root}/app/tools/caicai_smoke/build/outputs/androidTest-results/galaxy-preview"
 mkdir -p "${preview_dir}"
-adb pull /sdcard/Android/data/com.catkiss.senlive2dcompanion.smoke/files/memory-galaxy-640-render.png \
-  "${preview_dir}/memory-galaxy-640-render.png" || true
+if adb pull /data/local/tmp/memory-galaxy-640-render.png \
+    "${preview_dir}/memory-galaxy-640-render.png" && \
+    [ -s "${preview_dir}/memory-galaxy-640-render.png" ]; then
+  :
+elif [ "${test_status}" -eq 0 ]; then
+  echo 'Native tests passed but the verified galaxy render PNG was not retained.' >&2
+  exit 1
+fi
 exit "${test_status}"
