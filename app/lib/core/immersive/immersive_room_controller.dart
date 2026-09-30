@@ -9,9 +9,6 @@ import '../ai/final_reply_failure_policy.dart';
 import '../ai/generation_cancellation.dart';
 import '../ai/message_language_variant_service.dart';
 import '../ai/model_profile.dart';
-import '../ai/playful_turn_judge.dart';
-import '../ai/playful_breakthrough_judge.dart';
-import '../ai/playful_self_judge.dart';
 import '../database/app_database.dart';
 import '../emotion/emotion_classifier_service.dart';
 import '../emotion/emotion_contract.dart';
@@ -31,6 +28,7 @@ import 'immersive_nsfw_router.dart';
 import 'immersive_prompt_builder.dart';
 import 'immersive_room_repository.dart';
 import 'immersive_scene_advance.dart';
+import 'immersive_form_snapshot.dart';
 import '../ai/final_reply_route.dart';
 
 class ImmersiveRoomController extends ChangeNotifier {
@@ -54,7 +52,8 @@ class ImmersiveRoomController extends ChangeNotifier {
     promptBuilder = ImmersivePromptBuilder(this.db);
     nsfwRouter = ImmersiveNsfwRouter(this.client);
     somaticEngine = SomaticEngine(this.db);
-    ttsService = TtsService(db: this.db);
+    ttsService = TtsService(db: this.db,
+      qFormOverride: () async => (await _captureEntryForm()).qForm);
     ttsPlayback = TtsPlaybackQueue(
       service: ttsService,
       onStateChanged: (state) {
@@ -75,6 +74,18 @@ class ImmersiveRoomController extends ChangeNotifier {
   late final SomaticEngine somaticEngine;
   late final TtsService ttsService;
   late final TtsPlaybackQueue ttsPlayback;
+
+  ImmersiveFormSnapshot? _entryForm;
+  Future<ImmersiveFormSnapshot>? _entryFormLoading;
+  ImmersiveFormSnapshot get formSnapshot =>
+      _entryForm ?? const ImmersiveFormSnapshot();
+  Future<ImmersiveFormSnapshot> _captureEntryForm() =>
+      _entryFormLoading ??= (() async {
+        final snapshot = ImmersiveFormSnapshot.capture(
+          await PlayfulFormStore(db).load());
+        _entryForm = snapshot;
+        return snapshot;
+      })();
 
   ImmersiveRoom? room;
   List<ImmersiveMessage> messages = const [];
@@ -127,6 +138,7 @@ class ImmersiveRoomController extends ChangeNotifier {
   }
 
   Future<void> initialize() async {
+    await _captureEntryForm();
     room = await repository.roomById(roomId);
     if (room == null) {
       error = '这个房间不存在或已经无法读取。';
@@ -251,55 +263,13 @@ class ImmersiveRoomController extends ChangeNotifier {
       room = await repository.roomById(roomId);
       nsfwRouting = false;
       _safeNotify();
-      final playfulDecision = sceneAdvance
-          ? null
-          : await PlayfulTurnJudge(client).decide(
-              apiKey: apiKey,
-              endpoint: endpoint,
-              userText: text,
-              recentContext: historyBeforeTurn.reversed
-                  .take(8)
-                  .toList(growable: false)
-                  .reversed
-                  .map((message) =>
-                      '${message.isUser ? 'USER' : 'ASSISTANT'}: ${message.content}')
-                  .join('\n'),
-              cancellationToken: cancellation,
-            );
-      cancellation.throwIfCancelled();
-      final priorForm = await PlayfulFormStore(db).load();
-      final breakthrough = !sceneAdvance && priorForm.breakthroughDue
-          ? await PlayfulBreakthroughJudge(client).decide(
-              apiKey: apiKey,
-              endpoint: endpoint,
-              userText: text,
-              recentContext: historyBeforeTurn.reversed
-                  .take(10).toList(growable: false).reversed
-                  .map((message) =>
-                      '${message.isUser ? 'USER' : 'ASSISTANT'}: ${message.content}')
-                  .join('\n'),
-              cancellationToken: cancellation,
-            )
-          : null;
-      cancellation.throwIfCancelled();
-      final playfulForm = sceneAdvance
-          ? await PlayfulFormStore(db).load()
-          : await PlayfulFormStore(db).onTurn(
-              interaction: playfulDecision!.interaction,
-              breakthrough: breakthrough,
-              turn: user.id,
-              now: user.createdAt,
-            );
       final request = await promptBuilder.build(
         room: room!,
         history: historyBeforeTurn,
         latestUserText: sceneAdvance ? ImmersiveSceneAdvance.instruction : text,
         nsfwActive: route.active,
         nsfwTurnDirective: route.turnDirective,
-        playfulForm: playfulForm,
-        playfulTurnId: user.id,
-        playfulInitiativeOpportunity:
-            playfulDecision?.initiativeOpportunity ?? false,
+        formSnapshot: await _captureEntryForm(),
       );
       final profile = DeepSeekModelProfile.fromApiName(
         await db.getSetting('model'),
@@ -364,28 +334,6 @@ class ImmersiveRoomController extends ChangeNotifier {
         throw const FormatException('模型没有返回可用的小说正文');
       }
       await _finishStreamingSpeech();
-      PlayfulSelfActivity? selfActivity;
-      try {
-        if (!sceneAdvance) {
-          selfActivity = await PlayfulSelfJudge(client: client).classify(
-            apiKey: apiKey,
-            endpoint: endpoint,
-            userText: user.content,
-            assistantText: streamingContent,
-            recentContext: historyBeforeTurn.reversed
-                .take(4)
-                .toList(growable: false)
-                .reversed
-                .map((message) => message.content)
-                .join('\n'),
-            cancellationToken: cancellation,
-          );
-        }
-      } on GenerationCancelledByUserException {
-        rethrow;
-      } catch (_) {
-        // A classifier failure never replaces the companion's visible reply.
-      }
       cancellation.throwIfCancelled();
       final assistant = await repository.addMessage(
         roomId: roomId,
@@ -394,15 +342,7 @@ class ImmersiveRoomController extends ChangeNotifier {
         reasoningContent: _allStreamingReasoning,
       );
       committed = true;
-      try {
-        await PlayfulFormStore(db).onAssistantTurn(
-          activity: selfActivity ?? PlayfulSelfActivity.none,
-          assistantTurn: assistant.id,
-          now: assistant.createdAt,
-        );
-      } catch (_) {
-        // The already committed room reply remains available.
-      }
+
       _streamingDraftVisible = false;
       messages = [...messages, assistant];
       room = await repository.roomById(roomId);
@@ -740,13 +680,7 @@ class ImmersiveRoomController extends ChangeNotifier {
         content: draft.content,
         reasoningContent: draft.reasoningContent,
       );
-      try {
-        await PlayfulFormStore(db).onAssistantTurn(
-          activity: PlayfulSelfActivity.none,
-          assistantTurn: assistant.id,
-          now: assistant.createdAt,
-        );
-      } catch (_) {}
+
       await _clearIncompleteReplyDraft();
       messages = await repository.messagesForRoom(roomId);
       room = await repository.roomById(roomId);
@@ -851,49 +785,13 @@ class ImmersiveRoomController extends ChangeNotifier {
       );
       room = await repository.roomById(roomId);
       nsfwRouting = false;
-      final playfulDecision = await PlayfulTurnJudge(client).decide(
-        apiKey: internalApiKey,
-        endpoint: internalEndpoint,
-        userText: user.content,
-        recentContext: historyBeforeTurn.reversed
-            .take(8)
-            .toList(growable: false)
-            .reversed
-            .map((message) => message.content)
-            .join('\n'),
-        cancellationToken: cancellation,
-      );
-      cancellation.throwIfCancelled();
-      final priorForm = await PlayfulFormStore(db).load();
-      final breakthrough = priorForm.breakthroughDue
-          ? await PlayfulBreakthroughJudge(client).decide(
-              apiKey: internalApiKey,
-              endpoint: internalEndpoint,
-              userText: user.content,
-              recentContext: historyBeforeTurn.reversed
-                  .take(10).toList(growable: false).reversed
-                  .map((message) =>
-                      '${message.isUser ? 'USER' : 'ASSISTANT'}: ${message.content}')
-                  .join('\n'),
-              cancellationToken: cancellation,
-            )
-          : null;
-      cancellation.throwIfCancelled();
-      final playfulForm = await PlayfulFormStore(db).onTurn(
-        interaction: playfulDecision.interaction,
-        breakthrough: breakthrough,
-        turn: user.id,
-        now: user.createdAt,
-      );
       final request = await promptBuilder.build(
         room: room!,
         history: historyBeforeTurn,
         latestUserText: user.content,
         nsfwActive: route.active,
         nsfwTurnDirective: route.turnDirective,
-        playfulForm: playfulForm,
-        playfulTurnId: user.id,
-        playfulInitiativeOpportunity: playfulDecision.initiativeOpportunity,
+        formSnapshot: await _captureEntryForm(),
       );
       final profile = DeepSeekModelProfile.fromApiName(
         await db.getSetting('model'),
@@ -933,18 +831,6 @@ class ImmersiveRoomController extends ChangeNotifier {
         throw const FormatException('模型没有返回可用的小说正文');
       }
       await _finishStreamingSpeech();
-      PlayfulSelfActivity? selfActivity;
-      try {
-        selfActivity = await PlayfulSelfJudge(client: client).classify(
-          apiKey: internalApiKey,
-          endpoint: internalEndpoint,
-          userText: user.content,
-          assistantText: streamingContent,
-          cancellationToken: cancellation,
-        );
-      } on GenerationCancelledByUserException {
-        rethrow;
-      } catch (_) {}
       cancellation.throwIfCancelled();
       final assistant = await repository.addMessage(
         roomId: roomId,
@@ -952,13 +838,7 @@ class ImmersiveRoomController extends ChangeNotifier {
         content: streamingContent,
         reasoningContent: _allStreamingReasoning,
       );
-      try {
-        await PlayfulFormStore(db).onAssistantTurn(
-          activity: selfActivity ?? PlayfulSelfActivity.none,
-          assistantTurn: assistant.id,
-          now: assistant.createdAt,
-        );
-      } catch (_) {}
+
       messages = await repository.messagesForRoom(roomId);
       room = await repository.roomById(roomId);
       unawaited(_maybeRefreshRollingState(

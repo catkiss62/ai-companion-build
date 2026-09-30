@@ -52,6 +52,7 @@ import 'nsfw_context_router.dart';
 import 'prompt_builder.dart';
 import 'playful_self_judge.dart';
 import 'playful_breakthrough_judge.dart';
+import '../mcp/cedar_play_session_policy.dart';
 import 'visible_reasoning_transcript.dart';
 import 'final_reply_route.dart';
 
@@ -1815,6 +1816,11 @@ $finalGenerationReminder
         return const GenerationRunResult(status: 'suspended');
       }
       agentAttachmentsCommitted = true;
+      try {
+        await CedarGameAttitudeStore(db).commit(turnId: user.id,
+          now: assistant.createdAt);
+      } catch (_) { /* A committed reply survives optional preference storage. */ }
+
       try {
         await PlayfulFormStore(db).onAssistantTurn(
           activity: selfActivity ?? PlayfulSelfActivity.none,

@@ -26,6 +26,7 @@ import 'cedar_toy_client.dart';
 import 'cedar_game_protocol.dart';
 import 'cedar_play_outcome_bookkeeper.dart';
 import 'cedar_solo_episode_policy.dart';
+import 'cedar_play_session_policy.dart';
 import 'mcp_protocol.dart';
 import 'mcp_http_client.dart';
 import 'mcp_turn_state_resolver.dart';
@@ -416,6 +417,7 @@ class CedarContinuationGatePolicy {
     required double reflection,
     required double strongestGameThought,
     required bool activelyWatched,
+    bool sustained = false,
     int recentActionCount = 0,
     double engagementAdjustment = 0,
     double? saturationPenaltyOverride,
@@ -463,6 +465,14 @@ class CedarContinuationGatePolicy {
         restScore: restScore,
         saturationPenalty: saturationPenalty,
       );
+    }
+    if (sustained) {
+      final allowed = fatigue < 0.76 && fatigueAffect.sleepDebt < 0.15;
+      return CedarContinuationGateDecision(allowed: allowed,
+        delay: allowed ? Duration.zero : const Duration(minutes: 10),
+        reason: allowed ? 'desire_granted_session' : 'fatigue_rest', effectiveFatigue: fatigue,
+        playScore: playScore, restScore: restScore,
+        saturationPenalty: saturationPenalty);
     }
     if (!DesireCorePolicy.fatigueRestEligible(
           fatigue,
@@ -711,6 +721,7 @@ class CedarToyAutonomyEngine {
     required DateTime now,
     required CedarGameSession session,
     required CedarToyActivityStore store,
+    bool sustained = false,
   }) async {
     final snapshot = await db.loadDesire();
     final thoughts = await db.activeThoughts(limit: 40);
@@ -754,6 +765,7 @@ class CedarToyAutonomyEngine {
       reflection: snapshot.drives[DriveKey.reflection] ?? 0.0,
       strongestGameThought: strongestGameThought,
       activelyWatched: pace.isWatching,
+      sustained: sustained,
       recentActionCount: recentActionCount,
       engagementAdjustment:
           engagement.scoreAdjustment + engagement.saturation,
@@ -1046,6 +1058,8 @@ class CedarToyAutonomyEngine {
   Future<void> deferCheckpointAfterCompetition({required DateTime now}) async {
     final store = CedarToyActivityStore(db);
     final session = await store.load();
+    final period = await CedarPlaySessionStore(db).load();
+    if (session != null && period?.validAt(now, session.gameId) == true) return;
     if (session == null ||
         !session.needsContinuation ||
         _isRealtimeCommitment(session) ||
@@ -1064,6 +1078,28 @@ class CedarToyAutonomyEngine {
       gameId: session.gameId,
       delay: untilUnlock.isNegative ? Duration.zero : untilUnlock,
     );
+  }
+
+  Future<CedarAutonomyProgress> beginPlaySession({required DateTime now,
+      required bool resume}) async {
+    final progress = resume
+        ? await resumeCheckpoint(now: now)
+        : await this.progress(now: now);
+    final session = await CedarToyActivityStore(db).load();
+    if (session != null && session.needsContinuation &&
+        !_isRealtimeCommitment(session) &&
+        const {'played_one_step', 'guide_ready', 'queued_guide_ready',
+          'write_outcome_sync'}.contains(progress.state) &&
+        !(await _currentSoloEpisode(session: session, now: now)).antiAddictionPresent &&
+        (await _optionalContinuationGate(now: DateTime.now(), session: session,
+          store: CedarToyActivityStore(db), sustained: true)).allowed) {
+      final started = DateTime.now();
+      await CedarPlaySessionStore(db).save(CedarPlaySession(gameId: session.gameId,
+        startedAt: started, lastTickAt: started));
+      await CedarToyActivityStore(db).deferContinuation(gameId: session.gameId,
+        delay: const Duration(seconds: 15));
+    }
+    return progress;
   }
 
   Future<CedarAutonomyProgress> continueDue({
@@ -1121,13 +1157,28 @@ class CedarToyAutonomyEngine {
     // optional autonomy and competes with fatigue/rest before exactly one
     // model-planned step is allowed.
     final realtimeCommitment = _isRealtimeCommitment(session);
+    final playPeriods = CedarPlaySessionStore(db);
+    var period = await playPeriods.load();
+    if (period != null && !period.validAt(now, session.gameId)) {
+      await playPeriods.end('expired_or_changed_game'); period = null;
+    }
+    if (period != null) {
+      period = period.tick(now);
+      if (!period.validAt(now, session.gameId)) {
+        await playPeriods.end('budget_complete'); period = null;
+      } else { await playPeriods.save(period); }
+    }
+    var sustained = period != null && !realtimeCommitment;
     if (!realtimeCommitment) {
       final episode = CedarSoloEpisodePolicy.checkpointIfDue(
         await _currentSoloEpisode(session: session, now: now),
         now,
       );
       await _saveSoloEpisode(episode);
-      if (!episodeAuthorized && episode.checkpointPending) {
+      if (episode.antiAddictionPresent && sustained) {
+        await playPeriods.end('anti_addiction'); sustained = false;
+      }
+      if (!episodeAuthorized && !sustained && episode.checkpointPending) {
         // Leave the due clock intact until this wake's Desire competition has
         // considered resume_game. The orchestrator defers it afterwards when
         // another behavior wins or no proactive work is allowed.
@@ -1152,13 +1203,15 @@ class CedarToyAutonomyEngine {
         );
       }
     }
-    if (!realtimeCommitment && !episodeAuthorized) {
+    if (!realtimeCommitment && (!episodeAuthorized || sustained)) {
       final gate = await _optionalContinuationGate(
         now: now,
         session: session,
         store: store,
+        sustained: sustained,
       );
       if (!gate.allowed) {
+        if (sustained) await playPeriods.end(gate.reason);
         await store.deferContinuation(
           gameId: session.gameId,
           delay: gate.delay,
@@ -1166,7 +1219,7 @@ class CedarToyAutonomyEngine {
         return CedarAutonomyProgress('continuation_${gate.reason}');
       }
     }
-    return _runExecution(
+    final progress = await _runExecution(
       store: store,
       gameId: session.gameId,
       action: session.companionCanObserve
@@ -1192,7 +1245,7 @@ class CedarToyAutonomyEngine {
           }
           current = refreshed;
         }
-        return _runCompanionTurnStep(
+        final step = await _runCompanionTurnStep(
           now: now,
           apiKey: apiKey,
           endpoint: endpoint,
@@ -1201,8 +1254,26 @@ class CedarToyAutonomyEngine {
           session: current,
           scope: scope,
         );
+        scope.throwIfPreempted();
+        if (sustained) {
+          final after = await store.load();
+          final saved = await playPeriods.load();
+          final finishedAt = DateTime.now();
+          scope.throwIfPreempted();
+          if (after == null || !after.needsContinuation || saved == null ||
+              !saved.validAt(finishedAt, after.gameId)) {
+            await playPeriods.end('finished_or_budget_complete');
+          } else {
+            await playPeriods.save(saved.tick(finishedAt));
+            await store.deferContinuation(gameId: after.gameId,
+              delay: const Duration(seconds: 15), executionId: scope.executionId);
+          }
+        }
+        return step;
       },
     );
+    if (progress.state.contains('preempted')) await playPeriods.pause(DateTime.now());
+    return progress;
   }
 
   Future<CedarAutonomyProgress> progress({required DateTime now}) async {

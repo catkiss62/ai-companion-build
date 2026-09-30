@@ -16,7 +16,6 @@ import '../../core/models/chat_segment.dart';
 import '../../core/models/immersive_room.dart';
 import '../../core/models/personality_trial.dart';
 import '../../core/personality/personality_catalog.dart';
-import '../../core/personality/playful_form_state.dart';
 import '../../core/platform/android_bridge.dart';
 import '../../core/presentation/chat_visuals.dart';
 import '../../core/presentation/generation_presentation_policy.dart';
@@ -24,7 +23,6 @@ import '../../core/tts/tts_playback_queue.dart';
 import '../../widgets/action_tint_text.dart';
 import '../../widgets/active_trial_capsule.dart';
 import '../../widgets/chat_portrait_stage.dart';
-import '../../widgets/playful_heat_gauge.dart';
 import '../../widgets/reasoning_panel.dart';
 import '../../widgets/companion_bottom_navigation.dart';
 import '../chat/chat_timestamp_formatter.dart';
@@ -381,9 +379,6 @@ class _ImmersiveRoomPageState extends State<ImmersiveRoomPage> {
   double _panelOpacity = 0.75;
   double _panelFraction = 0.62;
   ChatPortraitSet _portraitSet = ChatPortraitSet.largeWhale;
-  PlayfulFormState _playfulForm = const PlayfulFormState();
-  Timer? _formTimer;
-  bool _refreshingForm = false;
   double _portraitScale = ChatPortraitTransform.defaults.scale;
   Offset _portraitOffset = ChatPortraitTransform.defaults.offset;
   String _backgroundMode = 'auto';
@@ -404,11 +399,6 @@ class _ImmersiveRoomPageState extends State<ImmersiveRoomPage> {
     controller.addListener(_onChanged);
     unawaited(controller.initialize());
     unawaited(_loadVisualSettings());
-    unawaited(_refreshPlayfulForm());
-    _formTimer = Timer.periodic(
-      const Duration(seconds: 2),
-      (_) => unawaited(_refreshPlayfulForm()),
-    );
     unawaited(_refreshTrials());
     _trialTimer = Timer.periodic(
       const Duration(seconds: 30),
@@ -421,7 +411,6 @@ class _ImmersiveRoomPageState extends State<ImmersiveRoomPage> {
     unawaited(AndroidBridge.instance.setImmersiveChatPageVisible(false));
     controller.removeListener(_onChanged);
     _trialTimer?.cancel();
-    _formTimer?.cancel();
     controller.dispose();
     input.dispose();
     inputFocus.dispose();
@@ -442,31 +431,7 @@ class _ImmersiveRoomPageState extends State<ImmersiveRoomPage> {
   void _onChanged() {
     if (!mounted) return;
     setState(() {});
-    unawaited(_refreshPlayfulForm());
     _scheduleFollowLatest();
-  }
-
-  Future<void> _refreshPlayfulForm() async {
-    if (!mounted || _refreshingForm) return;
-    _refreshingForm = true;
-    try {
-      final state = await PlayfulFormStore(AppDatabase.instance).load();
-      if (mounted && (state.heat != _playfulForm.heat ||
-          state.qForm != _playfulForm.qForm ||
-          state.locked != _playfulForm.locked)) {
-        setState(() => _playfulForm = state);
-      }
-    } finally {
-      _refreshingForm = false;
-    }
-  }
-
-  Future<void> _onPlayfulFormAction(String action) async {
-    final store = PlayfulFormStore(AppDatabase.instance);
-    final next = action == 'lock'
-        ? await store.lock(!_playfulForm.locked)
-        : await store.interact(action == 'kindle');
-    if (mounted) setState(() => _playfulForm = next);
   }
 
   void _scheduleFollowLatest() {
@@ -1221,8 +1186,8 @@ class _ImmersiveRoomPageState extends State<ImmersiveRoomPage> {
                               emotion: ChatVisualResolver.resolveEmotionKey(
                                 'affection',
                               ),
-                              qForm: _playfulForm.qForm,
-                              portraitSet: _playfulForm.qForm
+                              qForm: controller.formSnapshot.qForm,
+                              portraitSet: controller.formSnapshot.qForm
                                   ? ChatPortraitSet.smallWhale
                                   : _portraitSet,
                               transform: ChatPortraitTransform(
@@ -1230,29 +1195,11 @@ class _ImmersiveRoomPageState extends State<ImmersiveRoomPage> {
                                 offset: _portraitOffset,
                               ),
                               showEffect: false,
-                              animate: _playfulForm.qForm,
+                              animate: controller.formSnapshot.qForm,
                             ),
                           ),
                         ),
                       ],
-                      if (_visualStageEnabled)
-                        Positioned(
-                          top: activeTrialCapsuleLabels(
-                            personalityBaseKey:
-                                _personalityTrial?.baseKey ?? '',
-                            specialStyleKey:
-                                room?.specialStyleKey ?? '',
-                          ).isEmpty
-                              ? 10
-                              : 47,
-                          right: 10,
-                          child: PlayfulHeatGauge(
-                            heat: _playfulForm.heat,
-                            qForm: _playfulForm.qForm,
-                            locked: _playfulForm.locked,
-                            onSelected: _onPlayfulFormAction,
-                          ),
-                        ),
                       Positioned(
                         left: 0,
                         right: 0,

@@ -37,6 +37,7 @@ import '../../core/tts/tts_text_processor.dart';
 import '../../widgets/reasoning_panel.dart';
 import '../../widgets/action_tint_text.dart';
 import '../../widgets/chat_portrait_stage.dart';
+import '../../widgets/chat_emotion_effect_layer.dart';
 import '../../widgets/caicai_live2d_stage.dart';
 import '../../widgets/playful_heat_gauge.dart';
 import 'chat_controller.dart';
@@ -80,6 +81,7 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
   bool _appResumed = true;
   bool _pickingImage = false;
   bool _visualStageEnabled = true;
+  bool _emotionAnimationEnabled = true;
   bool _emotionSoundEnabled = false;
   double _emotionSoundVolume = 0.15;
   bool _showEmotionLabel = true;
@@ -355,6 +357,8 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
     final db = AppDatabase.instance;
     _visualStageEnabled =
         (await db.getSetting('chat_visual_stage_enabled')) != '0';
+    _emotionAnimationEnabled =
+        (await db.getSetting('emotion_animation_enabled')) != '0';
     _emotionSoundEnabled =
         (await db.getSetting('emotion_sound_enabled')) == '1';
     _emotionSoundVolume = (double.tryParse(
@@ -1403,9 +1407,19 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
                             offset: _portraitOffset,
                           ),
                           animationToken: latestAssistantId,
+                          showEffect: _emotionAnimationEnabled,
                         ),
                       ),
                     ),
+                    if (_caicaiEnabled)
+                      Positioned(left: 0, right: 0, top: 0,
+                        height: _caicaiStableHeight,
+                        child: ChatEmotionEffectLayer(
+                          emotion: _currentEmotion, replyId: latestAssistantId,
+                          enabled: _emotionAnimationEnabled,
+                          active: widget.active && _appResumed,
+                          generating: controller.generationActive,
+                          qForm: _playfulForm.qForm)),
                     Positioned(
                       top: 10,
                       right: 10,
@@ -1889,6 +1903,16 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
                             await update('tts_reading_scope', value.key);
                           },
                         ),
+                      SwitchListTile(
+                        contentPadding: EdgeInsets.zero,
+                        title: const Text('情绪动画'),
+                        subtitle: const Text('按本轮情绪显示独立动画，不改变人物动作。'),
+                        value: _emotionAnimationEnabled,
+                        onChanged: (value) async {
+                          setState(() => _emotionAnimationEnabled = value);
+                          await update('emotion_animation_enabled', value ? '1' : '0');
+                        },
+                      ),
                       SwitchListTile(
                         contentPadding: EdgeInsets.zero,
                         title: const Text('显示当前情绪'),

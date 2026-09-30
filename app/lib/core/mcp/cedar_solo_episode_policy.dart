@@ -111,7 +111,9 @@ class CedarSoloEpisodePolicy {
   }) {
     if (current == null ||
         current.gameId != gameId ||
-        current.startedAt.millisecondsSinceEpoch <= 0) {
+        current.startedAt.millisecondsSinceEpoch <= 0 ||
+        (!current.antiAddictionPresent && now.difference(current.startedAt) >=
+            const Duration(hours: 2))) {
       return start(gameId, now);
     }
     return current;

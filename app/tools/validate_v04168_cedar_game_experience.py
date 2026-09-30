@@ -56,7 +56,7 @@ require(
 )
 require(
     "lib/core/desire/proactive_engine.dart",
-    "wantAction: 'play_game'",
+    "'play_game_session' : 'play_game'",
     "game_share:",
     "isImmersiveChatPageVisible",
     "Duration(minutes: 45)",

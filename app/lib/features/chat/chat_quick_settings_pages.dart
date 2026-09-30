@@ -367,6 +367,7 @@ class ChatVisualSettingsPage extends StatefulWidget {
 class _ChatVisualSettingsPageState extends State<ChatVisualSettingsPage> {
   final _db = AppDatabase.instance;
   bool _enabled = true;
+  bool _emotionAnimation = true;
   bool _caicai = false;
   ChatPortraitSet _portrait = ChatPortraitSet.largeWhale;
   String _background = 'auto';
@@ -381,6 +382,7 @@ class _ChatVisualSettingsPageState extends State<ChatVisualSettingsPage> {
 
   Future<void> _load() async {
     _enabled = (await _db.getSetting('chat_visual_stage_enabled')) != '0';
+    _emotionAnimation = (await _db.getSetting('emotion_animation_enabled')) != '0';
     _caicai = (await _db.getSetting('chat_portrait_mode')) == 'caicai_live2d';
     _portrait = chatPortraitSetFromKey(
       await _db.getSetting('chat_portrait_set'),
@@ -403,6 +405,15 @@ class _ChatVisualSettingsPageState extends State<ChatVisualSettingsPage> {
             : ListView(
                 padding: const EdgeInsets.fromLTRB(16, 8, 16, 32),
                 children: [
+                  SwitchListTile(
+                    title: const Text('情绪动画'),
+                    subtitle: const Text('独立显示层，不改变Live2D动作。'),
+                    value: _emotionAnimation,
+                    onChanged: (value) async {
+                      setState(() => _emotionAnimation = value);
+                      await _db.setSetting('emotion_animation_enabled', value ? '1' : '0');
+                    },
+                  ),
                   SwitchListTile(
                     contentPadding: EdgeInsets.zero,
                     title: const Text('角色聊天舞台'),

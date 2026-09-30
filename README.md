@@ -20,3 +20,7 @@ Only `AI_Companion_当前总账.md` is the current cross-window status source. R
 ## CI scope
 
 Pull-request synchronizations that change only the evergreen ledger, repository READMEs, or files under `app/docs/` run the lightweight change-scope check and skip the full APK job. Any project source, asset, configuration, workflow, mixed, or indeterminate change still runs the complete validation and release build. Manual workflow dispatches always run the full build.
+
+## Current test build
+
+v0.42.53+297 freezes the immersive entry form, adds the separate emotion overlay, gives sustained solo play one Desire competition, and includes editable everyday facts and the circular image bubble. See the current ledger for CI status and device checks.

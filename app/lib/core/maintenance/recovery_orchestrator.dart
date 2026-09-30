@@ -1,3 +1,4 @@
+import '../mcp/cedar_play_session_policy.dart';
 import 'dart:math';
 
 import '../ai/durable_generation_recovery.dart';
@@ -155,6 +156,9 @@ class RecoveryOrchestrator {
       final now = DateTime.now();
       final blocking = await db.blockingGenerationJob();
       var cedarContinuationState = 'not_checked';
+      if (blocking != null || !allowProactive) {
+        await CedarPlaySessionStore(db).pause(now);
+      }
       if (blocking == null && allowProactive) {
         try {
           // Cedar planning and MCP calls are network waits. Never keep the
@@ -236,6 +240,9 @@ class RecoveryOrchestrator {
         }
       }
       final cedarDirectShareSent = cedarDirectShare?.sent == true;
+      final playPeriod = await CedarPlaySessionStore(db).load();
+      final cedarSustainedActive = playPeriod != null &&
+          playPeriod.validAt(DateTime.now(), playPeriod.gameId);
       final scheduledHeartbeatDue = await _heartbeatIsDue(now);
       final reactiveHeartbeatDue = await _reactiveHeartbeatIsDue(
         now: now,
@@ -263,7 +270,8 @@ class RecoveryOrchestrator {
             heartbeatDelay = _nextHeartbeat(snapshot, _random);
             await _storeNextHeartbeat(now.add(heartbeatDelay));
             proactiveReason = 'cedar_watched_share_sent';
-          } else if (blocking != null || !allowProactive || cedarDidWork) {
+          } else if (blocking != null || !allowProactive ||
+              (cedarDidWork && !cedarSustainedActive)) {
             final heartbeat = await proactive.maintainLocalStateOnly(
               perceptionMinInterval: perceptionMinInterval,
             );

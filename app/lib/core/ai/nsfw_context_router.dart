@@ -4,6 +4,7 @@ import '../database/app_database.dart';
 import '../models/chat_message.dart';
 import '../personality/personality_catalog.dart';
 import '../personality/playful_form_state.dart';
+import '../mcp/cedar_toy_activity.dart';
 import 'deepseek_client.dart';
 import 'generation_cancellation.dart';
 import 'jev_decision_gateway.dart';
@@ -17,6 +18,7 @@ class NsfwRouteDecision {
     this.playfulInteraction,
     this.initiativeOpportunity = false,
     this.cedarIntent,
+    this.gameAttitude = 'none',
   });
 
   final bool active;
@@ -27,6 +29,7 @@ class NsfwRouteDecision {
   final bool initiativeOpportunity;
   /// Null when Jev was unavailable; otherwise a closed-set game intent.
   final String? cedarIntent;
+  final String gameAttitude;
 }
 
 /// A small pre-generation model pass that decides which prompt layers the
@@ -98,6 +101,9 @@ class NsfwContextRouter {
     // semantic Q-form interaction signal added in +251 when Jev succeeds.
     // Manual routing above is authoritative; unavailable/malformed answers
     // return null and the original DeepSeek pass below owns every field.
+    final attitudeGame = cedarConfigured
+        ? (await CedarToyActivityStore(db).load())?.gameId ?? '' : '';
+    await db.setSetting('cedar_game_attitude_route_game', attitudeGame);
     final jev = await JevDecisionGateway.instance.chooseMany(
       state: <String, Object?>{
         'current_route': currentActive ? 'nsfw' : 'daily',
@@ -106,6 +112,7 @@ class NsfwContextRouter {
             ? transcript.substring(transcript.length - 2400)
             : transcript,
         'latest_user_text': latestUserText,
+        'active_game': attitudeGame,
       },
       questions: <String, JevChoiceQuestion>{
         'mode': JevChoiceQuestion(
@@ -152,6 +159,15 @@ class NsfwContextRouter {
                 'there is no natural opening for a new playful challenge.',
           },
         ),
+        if (cedarConfigured) 'game_attitude': const JevChoiceQuestion(
+          'Does the latest real user message encourage optional autonomous '
+          'play of active_game (or games generally), or ask to pause it? '
+          'Use recent_context for references. A present action request is '
+          'handled by cedar, not encouragement. Different named games, '
+          'quotes, hypotheticals and routine game talk are none.',
+          {'encourage': 'Encourages her to explore on her own when free.',
+           'pause': 'Asks her to put autonomous gaming aside for now.',
+           'none': 'No optional autonomous game preference.'}),
         if (cedarConfigured) 'cedar': const JevChoiceQuestion(
           'Judge ONLY the latest real user turn against recent_context. Is the '
           'user authorizing the companion to act in the Cedar game hall now? '
@@ -183,6 +199,7 @@ class NsfwContextRouter {
         source: 'jev_${jev['mode']}',
         playfulInteraction: PlayfulInteraction.parse(jev['interaction']),
         initiativeOpportunity: jev['initiative'] == 'open',
+        gameAttitude: jev['game_attitude'] ?? 'none',
         cedarIntent: jev['cedar'],
       );
       await _persist(decision, turnId: turnId);
@@ -203,7 +220,7 @@ class NsfwContextRouter {
         messages: <Map<String, Object?>>[
           const {
             'role': 'system',
-            'content': '''You are a prompt-depth router for a private romance companion. Return JSON only: {"mode":"daily|nsfw|nsfw_reference","interaction":"serious|ordinary|light|mutual|strong","initiative":"open|closed"}.
+            'content': '''You are a prompt-depth router for a private romance companion. Return JSON only: {"mode":"daily|nsfw|nsfw_reference","interaction":"serious|ordinary|light|mutual|strong","initiative":"open|closed","game_attitude":"encourage|pause|none"}.
 
 All three modes remain intimacy-capable. This classifier never grants permission and never decides whether desire, flirting, erotic jokes, or sexual conversation are allowed.
 Choose daily when a light conversational prompt is sufficient: ordinary talk, tasks, affection, playful innuendo, brief erotic jokes, or flirting that does not yet need detailed physical rendering.
@@ -224,7 +241,7 @@ light: the user deliberately joins a small joke or gentle teasing; ordinary frie
 mutual: the user knowingly escalates reciprocal teasing into a playful challenge aimed at the assistant. Routine back-and-forth, friendly jokes and shyness are not enough.
 strong: especially vivid, reciprocal playful provocation; do not select it merely for insults, anger, or repetition.
 Do not treat a request for technical help, genuine distress, or conflict as banter.
-Judge INITIATIVE independently: open means a small self-started playful challenge could fit naturally now; closed means this message needs a direct response or offers no natural opening. This field only permits a possible optional nudge and does not grant heat points. Return all three fields in one JSON object.''',
+Judge INITIATIVE independently: open means a small self-started playful challenge could fit naturally now; closed means this message needs a direct response or offers no natural opening. This field only permits a possible optional nudge and does not grant heat points. Also judge game_attitude: encourage means optional autonomous game exploration when free; pause means set autonomous gaming aside; none covers direct act-now requests, ordinary game talk, quotes and unrelated messages. Return the independent fields in one JSON object.''',
           },
           {
             'role': 'user',
@@ -253,6 +270,8 @@ $latestUserText''',
       final mode = result['mode']?.toString().trim().toLowerCase() ?? '';
       final interaction = PlayfulInteraction.parse(result['interaction']);
       final initiativeOpportunity = result['initiative'] == 'open';
+      final gameAttitude = const {'encourage', 'pause'}.contains(result['game_attitude'])
+          ? result['game_attitude'] as String : 'none';
       final decision = switch (mode) {
         'nsfw_reference' => NsfwRouteDecision(
             active: true,
@@ -260,6 +279,7 @@ $latestUserText''',
             source: 'auto_reference',
             playfulInteraction: interaction,
             initiativeOpportunity: initiativeOpportunity,
+            gameAttitude: gameAttitude,
           ),
         'nsfw' => NsfwRouteDecision(
             active: true,
@@ -267,6 +287,7 @@ $latestUserText''',
             source: 'auto_nsfw',
             playfulInteraction: interaction,
             initiativeOpportunity: initiativeOpportunity,
+            gameAttitude: gameAttitude,
           ),
         _ => NsfwRouteDecision(
             active: false,
@@ -274,6 +295,7 @@ $latestUserText''',
             source: 'auto_daily',
             playfulInteraction: interaction,
             initiativeOpportunity: initiativeOpportunity,
+            gameAttitude: gameAttitude,
           ),
       };
       await _persist(decision, turnId: turnId,
@@ -316,6 +338,7 @@ $latestUserText''',
     await db.setSetting('playful_form_initiative_open_v1',
         decision.initiativeOpportunity ? '1' : '0');
     await db.setSetting('cedar_route_intent_v1', decision.cedarIntent ?? '');
+    await db.setSetting('cedar_game_attitude_route_signal', decision.gameAttitude);
     await db.setSetting('nsfw_route_turn_id', turnId);
     if (consumeManualOverride) {
       await db.setSetting('nsfw_manual_override', '');

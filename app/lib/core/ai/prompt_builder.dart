@@ -1,3 +1,4 @@
+import '../memory/remembered_user_facts.dart';
 import '../agent/agent_tool.dart';
 import '../autonomy/public_web_prompt_policy.dart';
 import 'dialogue_expression_plan.dart';
@@ -353,6 +354,9 @@ class PromptBuilder {
     context.writeln(emotionEpisodeSection);
     context.writeln(_awarenessSection(awareness, instant));
 
+    final userFacts = worldBookContext.hasRoleplay
+        ? const RememberedUserFacts([])
+        : await RememberedUserFactsStore(db).load();
     final messages = <Map<String, Object?>>[
       {
         'role': 'system',
@@ -381,6 +385,8 @@ $roleplayContinuity''',
         {'role': 'system', 'content': weatherContext},
       if (agentToolResults.isNotEmpty)
         {'role': 'system', 'content': _agentToolResultSection(agentToolResults)},
+      if (userFacts.items.isNotEmpty)
+        {'role': 'system', 'content': userFacts.prompt},
       {'role': 'system', 'content': _operationalTruthContract()},
       if (worldBookContext.hasRoleplay)
         const {'role': 'system', 'content': roleplayExecutionAnchor},

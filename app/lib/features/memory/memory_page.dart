@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import '../../core/database/app_database.dart';
 import '../../core/models/memory_item.dart';
 import '../../core/relationship/relationship_age.dart';
+import 'remembered_user_facts_page.dart';
 
 class MemoryPage extends StatefulWidget {
   const MemoryPage({super.key});
@@ -240,7 +241,10 @@ class _MemoryPageState extends State<MemoryPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('本地记忆库')),
+      appBar: AppBar(title: const Text('本地记忆库'), actions: [
+        TextButton(onPressed: () => Navigator.of(context).push(MaterialPageRoute<void>(
+          builder: (_) => const RememberedUserFactsPage())), child: const Text('记住事项')),
+      ]),
       body: Column(
         children: [
           if (relationshipAge != null)

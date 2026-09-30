@@ -135,3 +135,4 @@ tools/validate_v04241_caicai_and_final_route.py
 tools/validate_v04242_caicai_performance.py
 
 tools/validate_v04243_caicai_interaction.py
+tools/validate_v04253_room_game_session.py

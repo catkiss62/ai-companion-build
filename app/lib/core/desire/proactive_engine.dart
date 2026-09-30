@@ -1,3 +1,4 @@
+import '../mcp/cedar_play_session_policy.dart';
 import 'dart:async';
 import 'dart:convert';
 import 'dart:math';
@@ -210,10 +211,15 @@ class ProactiveEngine {
 
   Future<String> continueCedarActivityIfDue({required DateTime now}) async {
     if ((await db.getSetting('transfer_lock')) == '1' ||
-        !(await db.brainWorkAllowed())) return 'inactive_brain';
+        !(await db.brainWorkAllowed())) {
+      return 'inactive_brain';
+    }
     if (CedarContinuationPriorityPolicy.shouldDefer(
       chatTurnLeaseHeld: await db.isLocalLeaseHeld('chat_turn_lease'),
-    )) return 'user_chat';
+    )) {
+      await CedarPlaySessionStore(db).pause(now);
+      return 'user_chat';
+    }
     final result = await cedarToyAutonomy.continueDue(now: now);
     return result.state;
   }
@@ -545,19 +551,26 @@ class ProactiveEngine {
           ),
         );
       }
+      final activeGame = (await CedarToyActivityStore(db).load())?.gameId ?? '';
+      final attitude = await CedarGameAttitudeStore(db).load();
+      final gameBias = attitude?.bonusAt(evaluationStartedAt, activeGame) ?? 0.0;
+      final period = await CedarPlaySessionStore(db).load();
+      final sessionActive = period?.validAt(evaluationStartedAt, activeGame) ?? false;
       final cedarAvailability = await cedarToyAutonomy.availability(
         now: evaluationStartedAt,
       );
-      if (cedarAvailability.available) {
+      if (cedarAvailability.available && !sessionActive) {
         final curiosity = snapshot.drives[DriveKey.curiosity] ?? 0.0;
         final reflection = snapshot.drives[DriveKey.reflection] ?? 0.0;
         unifiedCandidates.add(DesireIntent(
           drive: DriveKey.curiosity,
-          score: (max(curiosity, reflection * 0.82) + 0.08)
+          score: (max(curiosity, reflection * 0.82) + 0.08 + gameBias)
               .clamp(0.0, 0.78)
               .toDouble(),
           reason: '想去游戏厅找一点真实、轻松而未知的事情做',
-          wantAction: 'play_game',
+          wantAction: CedarPlaySessionStore.offer(
+            interest: max(curiosity, reflection * 0.82) + gameBias,
+            fatigue: fatigue, saturation: 0) ? 'play_game_session' : 'play_game',
           reasonSource: 'mcp/cedar_game:desire',
         ));
       }
@@ -577,7 +590,7 @@ class ProactiveEngine {
               ) +
               0.08 +
               strongestGameThought.clamp(0.0, 1.0) * 0.22 +
-              gameEngagement.scoreAdjustment -
+              gameEngagement.scoreAdjustment + gameBias -
               DesireCorePolicy.fatigueActionPenalty(fatigue))
           .clamp(0.0, 0.92)
           .toDouble();
@@ -585,14 +598,16 @@ class ProactiveEngine {
         now: evaluationStartedAt,
         baseScore: resumeBaseScore,
       );
-      for (final option in resumeOptions) {
+      for (final option in sessionActive ? <CedarResumeOption>[] : resumeOptions) {
         unifiedCandidates.add(DesireIntent(
           drive: DriveKey.curiosity,
           score: option.score,
           reason: option.action == 'self_reset_and_resume'
               ? '防沉迷允许自行重置，但只有重新竞争后仍真正想继续才重置一次'
               : '短暂离开后，重新决定是否继续当前同一局游戏',
-          wantAction: option.action,
+          wantAction: option.action == 'resume_game' && CedarPlaySessionStore.offer(
+            interest: resumeBaseScore, fatigue: fatigue,
+            saturation: gameEngagement.saturation) ? 'resume_game_session' : option.action,
           reasonSource:
               'mcp/cedar_game:${option.gameId}:episode:${option.reason}',
         ));
@@ -866,11 +881,16 @@ class ProactiveEngine {
       }
       if (const <String>{
         'play_game',
+        'play_game_session',
+        'resume_game_session',
         'resume_game',
         'self_reset_and_resume',
       }.contains(intent.wantAction)) {
         try {
-          final progress = intent.wantAction == 'play_game'
+          final progress = intent.wantAction == 'play_game_session' || intent.wantAction == 'resume_game_session'
+              ? await cedarToyAutonomy.beginPlaySession(now: evaluationStartedAt,
+                  resume: intent.wantAction == 'resume_game_session')
+              : intent.wantAction == 'play_game'
               ? await cedarToyAutonomy.progress(now: evaluationStartedAt)
               : await cedarToyAutonomy.resumeCheckpoint(
                   now: evaluationStartedAt,

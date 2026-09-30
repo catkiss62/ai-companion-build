@@ -15,14 +15,16 @@ class PlayfulBreakthroughJudge {
   final JevDecisionGateway jevGateway;
   final Future<bool?> Function(String, String)? fallbackClassifier;
 
-  static const instruction = 'Look at the latest user message in the context '
-      'of the previous 3-5 exchanges. Would this specific interaction naturally '
-      'make the companion visibly lose her playful composure, such as suddenly '
-      'getting flustered, mock-angry or mischievous? Require a distinct, vivid '
-      'emotional turn. Prior strong messages explain context but cannot by '
-      'themselves trigger it. Routine conversation, mere affection, repetition, '
-      'real distress, requests for serious help and real anger are not triggers. '
-      'Judge the situation, not literal keywords or whether she already replied.';
+  static const instruction = 'The companion is in her normal adult form and her '
+      'playful heat is already fully charged at 100. Look at the latest user '
+      'message together with the previous 3-5 exchanges. Does the accumulated '
+      'teasing, her own mischievous pushback, or strong flustered embarrassment '
+      'now make her naturally lose composure? A continuous escalation can '
+      'reach this tipping point without a brand-new event. Being fully charged '
+      'is readiness, not an obligation to transform. Ordinary affection, '
+      'routine talk, repetition without escalation, real anger, distress and '
+      'serious help can comfortably remain wait. Judge the interpersonal '
+      'situation and its accumulated intensity, not literal keywords.';
 
   Future<bool?> decide({
     required String apiKey,
@@ -38,11 +40,12 @@ class PlayfulBreakthroughJudge {
         ? userText.substring(userText.length - 1100)
         : userText;
     final jev = await jevGateway.choose(
-      state: {'recent_context': recent, 'latest_user_text': latest},
+      state: {'recent_context': recent, 'latest_user_text': latest,
+        'current_form': 'normal', 'heat': 100},
       instruction: instruction,
       options: const {
-        'breakthrough': 'The latest interaction has a clear and natural emotional tipping point for her.',
-        'wait': 'No clear emotional tipping point in the latest interaction.',
+        'breakthrough': 'The latest exchange reaches a natural loss of composure through cumulative teasing, mischief or intense embarrassment.',
+        'wait': 'She remains composed; full heat alone does not require a transformation.',
       },
       cancellationToken: cancellationToken,
       usageLane: 'playful_breakthrough',

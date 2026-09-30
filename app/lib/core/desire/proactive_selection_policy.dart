@@ -437,6 +437,8 @@ class ProactiveSelectionPolicy {
     }
     if (const <String>{
       'play_game',
+      'play_game_session',
+      'resume_game_session',
       'resume_game',
       'self_reset_and_resume',
     }.contains(intent.wantAction)) return 'play_game';

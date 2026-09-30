@@ -16,6 +16,7 @@ class TtsService implements TtsQueueService {
     AppDatabase? db,
     TtsProvider? provider,
     TtsTextProcessor? processor,
+    this.qFormOverride,
   })  : db = db ?? AppDatabase.instance,
         provider = provider ?? NativeTtsProvider.instance,
         processor = processor ?? const TtsTextProcessor();
@@ -23,6 +24,7 @@ class TtsService implements TtsQueueService {
   final AppDatabase db;
   final TtsProvider provider;
   final TtsTextProcessor processor;
+  final Future<bool> Function()? qFormOverride;
   bool? _appliedAutoAffinity;
 
   /// Read-only settings and quick preflight must not bind the ONNX process.
@@ -131,10 +133,12 @@ class TtsService implements TtsQueueService {
   }
 
   Future<double> _pitchRatioForCurrentForm(double selectedSemitones) async {
-    final form = await PlayfulFormStore(db).load();
+    final qForm = qFormOverride != null
+        ? await qFormOverride!()
+        : (await PlayfulFormStore(db).load()).qForm;
     return TtsPlaybackTuning.pitchRatioForForm(
       selectedSemitones,
-      qForm: form.qForm,
+      qForm: qForm,
     );
   }
 

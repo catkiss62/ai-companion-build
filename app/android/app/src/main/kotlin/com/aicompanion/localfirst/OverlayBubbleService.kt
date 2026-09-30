@@ -568,13 +568,13 @@ class OverlayBubbleService : Service() {
             clipChildren = false
             clipToPadding = false
         }
-        val avatar = TextView(this).apply {
-            text = "她"
-            textSize = 17f
-            gravity = Gravity.CENTER
-            setTextColor(Color.WHITE)
-            background = rounded(Color.rgb(176, 130, 255), 999f)
+        val avatar = ImageView(this).apply {
+            setImageResource(R.drawable.companion_bubble_avatar)
+            scaleType = ImageView.ScaleType.CENTER_CROP
+            background = rounded(Color.rgb(196, 220, 255), 999f)
+            clipToOutline = true
             elevation = dp(6).toFloat()
+            contentDescription = "打开伴侣聊天"
         }
         container.addView(
             avatar,

@@ -179,6 +179,7 @@ class JevDecisionGateway {
           ('chat_intimacy_route', 'initiative') ||
           ('immersive_playful_route', 'initiative') => 'closed',
           ('chat_intimacy_route', 'cedar') => 'chat',
+          ('chat_intimacy_route', 'game_attitude') => 'none',
           ('chat_playful_self', 'route') => 'none',
           ('playful_breakthrough', 'route') => 'wait',
           ('cedar_context_intent', 'route') => 'chat',
