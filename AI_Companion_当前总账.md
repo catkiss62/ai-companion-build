@@ -1696,3 +1696,5 @@ MemoryPage保留原编辑/保存/归档，并新增折叠同话题条目和只�
 桌宠PetEdgeDockPolicy在同一旧吸附阈值下优先上/下角落，其余维持最近边缘；纯策略JUnit覆盖非等距四角、等距、普通边缘、范围边界和窄屏重叠。未改抛掷/重力/半屏/沿边行走等机制，未触碰Jev兜底、Live2D身体XYZ或原2.8秒彩蛋时长。构建身份0.42.57+301，各历史源码门的版本白名单只新增本版；快照协议与schema未变。
 
 当前状态：IMPLEMENTATION IN PROGRESS / CI PENDING / APK PENDING / TRUE DEVICE PENDING。后续仅在实际Actions及release资产验证完成后回填提交、run、SHA和APK链接。冻结归档保持原SHA。
+
++301首轮CI 36780935800（功能远端c3343783、本地935b8464同tree b93a1d33）：生产/测试Kotlin编译通过，原有9项原生测试通过；新增3项停留加载页，日志确认WebView124且无模块状态。原生测试应用未声明INTERNET，与生产应用不同；Android WebSettings无权限时blockNetworkLoads默认true，虚拟HTTPS的ESM子资源未启动。修正测试Manifest以匹配生产权限，继续用本地资源来源及CSP拒绝外部请求证明离线边界，不降低640条/原文/暂停/空库/错误/清理断言。另将加载错误提示容忍DOM尚未创建。待重跑，不将失败轮标为交付成功。

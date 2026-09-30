@@ -102,8 +102,14 @@ body{font-family:"Noto Serif SC","Songti SC",serif;color:#F3EAF5}
 </style>
 <script>
 window.galaxyFailed = message => {
-  document.getElementById('loading').textContent = message || '星光加载失败，请返回后重新打开';
-  document.getElementById('loading').style.display = 'flex';
+  const show=()=>{
+    const loading=document.getElementById('loading');
+    if(!loading)return;
+    loading.textContent=message || '星光加载失败，请返回后重新打开';
+    loading.style.display='flex';
+  };
+  if(document.readyState==='loading')addEventListener('DOMContentLoaded',show,{once:true});
+  else show();
   window.galaxyPause?.();
 };
 addEventListener('error', () => window.galaxyFailed());

@@ -1,4 +1,7 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <!-- Match the production WebView environment. Without INTERNET Android
+         defaults blockNetworkLoads to true, including virtual HTTPS modules. -->
+    <uses-permission android:name="android.permission.INTERNET" />
     <application android:theme="@android:style/Theme.Material.Light.NoActionBar" android:label="Caicai native smoke">
         <activity android:name=".SmokeActivity" android:exported="false" />
         <activity android:name="com.aicompanion.localfirst.NativeMemoryGalaxyActivity"

@@ -657,7 +657,9 @@ jobs:
           target: google_apis
           disable-animations: true
           emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none
-          script: cd app/android && chmod +x gradlew && ./gradlew -p ../tools/caicai_smoke connectedDebugAndroidTest --stacktrace
+          # Wrapper runs: cd app/android && chmod +x gradlew && ./gradlew -p ../tools/caicai_smoke connectedDebugAndroidTest --stacktrace
+          # Its exit status is preserved while pulling the real render preview.
+          script: bash app/tools/run_native_smoke_v04257.sh
       - uses: actions/upload-artifact@v4
         if: always()
         with:

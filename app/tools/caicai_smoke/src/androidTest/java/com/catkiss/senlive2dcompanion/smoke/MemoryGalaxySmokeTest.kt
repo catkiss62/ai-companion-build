@@ -3,6 +3,8 @@ package com.catkiss.senlive2dcompanion.smoke
 import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
+import android.graphics.Bitmap
+import android.graphics.Color
 import android.os.SystemClock
 import android.view.View
 import android.view.ViewGroup
@@ -11,6 +13,7 @@ import androidx.lifecycle.Lifecycle
 import androidx.test.core.app.ActivityScenario
 import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
+import androidx.test.platform.app.InstrumentationRegistry
 import com.aicompanion.localfirst.NativeMemoryGalaxyActivity
 import org.json.JSONArray
 import org.json.JSONObject
@@ -32,7 +35,7 @@ class MemoryGalaxySmokeTest {
         val permissions = context.packageManager.getPackageInfo(
             context.packageName, PackageManager.GET_PERMISSIONS,
         ).requestedPermissions ?: emptyArray()
-        assertFalse("Smoke app must render without Internet permission",
+        assertTrue("Smoke WebView must match the production Internet permission",
             permissions.contains("android.permission.INTERNET"))
         val raw = "  <img src=x onerror=\"window.__unsafeMemory=1\">😀\u0000\n" +
             "原文 </script> & \\n 尾部  "
@@ -55,6 +58,28 @@ class MemoryGalaxySmokeTest {
                 it.optBoolean("started") && it.optInt("renderCount") > 1
             }
             assertEquals(640, rendered.getInt("memoryCount"))
+            assertEquals("none", jsString(scenario,
+                "document.getElementById('loading').style.display"))
+            awaitJavaScriptTrue(scenario,
+                "Number(getComputedStyle(document.getElementById('veil')).opacity)<0.05")
+            captureActualGalaxy(context)
+            scenario.onActivity { activity ->
+                assertEquals("https://memory-galaxy.local/index.html",
+                    findWebView(activity.window.decorView)!!.url)
+            }
+            assertEquals("https://memory-galaxy.local/index.html",
+                jsString(scenario, "window.location.href"))
+            assertEquals("true", javascript(scenario,
+                "performance.getEntriesByType('resource').length>0 && " +
+                    "performance.getEntriesByType('resource').every(e=>" +
+                    "new URL(e.name).origin==='https://memory-galaxy.local')"))
+            // A handled CSP rejection must never trigger the page's failure UI.
+            // Unlike a network 404, connect-src rejection rejects the promise.
+            javascript(scenario,
+                "fetch('https://outside-galaxy.invalid/memory.json').then(" +
+                    "()=>{window.__smokeExternalRejected=false;}," +
+                    "()=>{window.__smokeExternalRejected=true;});true;")
+            awaitJavaScriptTrue(scenario, "window.__smokeExternalRejected===true")
             assertEquals("none", jsString(scenario,
                 "document.getElementById('loading').style.display"))
             // Read the same intercepted private JSON used by the production page,
@@ -202,4 +227,38 @@ class MemoryGalaxySmokeTest {
     private fun digest(file: File): String =
         MessageDigest.getInstance("SHA-256").digest(file.readBytes())
             .joinToString("") { "%02x".format(it) }
+
+    private fun captureActualGalaxy(context: Context) {
+        val screenshot = InstrumentationRegistry.getInstrumentation().uiAutomation.takeScreenshot()
+        assertNotNull("Capture the actual emulator galaxy display", screenshot)
+        // UiAutomation may return a hardware-backed bitmap; sample a software copy.
+        val copied = screenshot!!.copy(Bitmap.Config.ARGB_8888, false)
+        assertNotNull("Read the captured galaxy pixels", copied)
+        val bitmap = copied!!
+        try {
+            val colors = HashSet<Int>()
+            val left = bitmap.width / 5
+            val right = bitmap.width * 4 / 5
+            val top = bitmap.height / 5
+            val bottom = bitmap.height * 4 / 5
+            val xStep = maxOf(1, (right - left) / 100)
+            val yStep = maxOf(1, (bottom - top) / 100)
+            for (y in top until bottom step yStep) {
+                for (x in left until right step xStep) {
+                    val pixel = bitmap.getPixel(x, y)
+                    colors.add(Color.rgb(Color.red(pixel), Color.green(pixel), Color.blue(pixel)))
+                }
+            }
+            assertTrue("Rendered particles and glow must vary from a blank central canvas",
+                colors.size >= 8)
+            val directory = context.getExternalFilesDir(null)
+            assertNotNull("Keep the emulator render available for visual QA", directory)
+            File(directory!!, "memory-galaxy-640-render.png").outputStream().use { output ->
+                assertTrue(bitmap.compress(Bitmap.CompressFormat.PNG, 100, output))
+            }
+        } finally {
+            bitmap.recycle()
+            screenshot.recycle()
+        }
+    }
 }
