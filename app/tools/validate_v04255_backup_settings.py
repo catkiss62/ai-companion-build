@@ -5,6 +5,8 @@ import hashlib
 import json
 import re
 import sqlite3
+import subprocess
+import tempfile
 
 app = Path(__file__).resolve().parents[1]
 reader = (app / 'lib/core/database/sqlite_settings_reader.dart').read_text()
@@ -52,9 +54,36 @@ assert json.loads(json.dumps(restored, ensure_ascii=False)) == original
 assert len(value.encode()) > 3 * 1024 * 1024
 
 asset = app / 'assets/lingchat/background/day.webp'
-assert hashlib.sha256(asset.read_bytes()).hexdigest() == (
-    '6b4296044fd5b882f459e3f66cb586f67d59949a3a49a786a343619149781fb7')
+day_sha = '6b4296044fd5b882f459e3f66cb586f67d59949a3a49a786a343619149781fb7'
+assert hashlib.sha256(asset.read_bytes()).hexdigest() == day_sha
 assert asset.read_bytes()[:4] == b'RIFF' and asset.read_bytes()[8:12] == b'WEBP'
+# Exercise the actual fetch function with network commands blocked. The valid
+# derivative must survive restoration; damaged/missing copies must fail closed.
+fetch = (app / 'tools/fetch_lingchat_visual_assets.sh').read_text()
+function = fetch[fetch.index('download_lfs() {'):fetch.index('\nwhile IFS=')]
+shell = ('set -euo pipefail\n' + function + '\nASSET_ROOT="$1"\n'
+         'curl() { return 77; }\njq() { return 78; }\n'
+         'download_lfs "data/game_data/backgrounds/白天.webp" '
+         '"$ASSET_ROOT/background/day.webp"\n')
+with tempfile.TemporaryDirectory() as directory:
+    copy = Path(directory) / 'background/day.webp'
+    copy.parent.mkdir()
+    copy.write_bytes(asset.read_bytes())
+    result = subprocess.run(['bash', '-c', shell, 'restore-test', directory],
+                            capture_output=True, text=True)
+    assert result.returncode == 0, result.stderr
+    assert hashlib.sha256(copy.read_bytes()).hexdigest() == day_sha
+    copy.write_bytes(b'wrong day image')
+    result = subprocess.run(['bash', '-c', shell, 'restore-test', directory],
+                            capture_output=True, text=True)
+    assert result.returncode == 1 and 'hash mismatch' in result.stderr
+    copy.unlink()
+    result = subprocess.run(['bash', '-c', shell, 'restore-test', directory],
+                            capture_output=True, text=True)
+    assert result.returncode == 1 and 'missing' in result.stderr
+workflow = (app.parent / '.github/workflows/build-apk.yml').read_text()
+assert "hashlib.sha256(z.read(reviewed_day)).hexdigest()" in workflow
+assert day_sha in workflow
 assert (app / 'test/sqlite_settings_backup_v04255_test.dart').is_file()
 assert (app / 'tools/caicai_smoke/src/androidTest/java/com/catkiss/'
         'senlive2dcompanion/smoke/SettingsCursorWindowSmokeTest.kt').is_file()

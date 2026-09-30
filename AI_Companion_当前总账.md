@@ -16,6 +16,8 @@
 - 验证：多 MiB 中文/emoji/NUL 字节重组、受限 CursorWindow 查询、完整数据库 JSON 导出/导入、Android 真 SQLite 游标烟测；完整源码门、Flutter analyze/tests、原生烟测、Kotlin、arm64 签名 APK。CI 与真机分别回填，不提前标成功。
 - 实施：新增 SqliteSettingsReader，首段和后续每次查询最多64KiB BLOB；完整拼接后一次UTF-8解码，支持中文/emoji跨段与NUL，空值保留。导出在原全库事务内读取；单项小设置一次查询，大设置重新在事务内读。短段/字节不一致报错，不返回部分成功；无数据迁移/删除，无协议变更。实际背景1672×941 RGB，原预览无损WebP转换，1,606,718bytes，SHA-256 `6b4296044fd5b882f459e3f66cb586f67d59949a3a49a786a343619149781fb7`。本地真实SQLite 3.85MiB中文/emoji/NUL无损往返通过，新增4项Flutter回归和1项Android游标烟测待CI；本机无Flutter SDK。局部快检中6项历史版号白名单已补+299；120项本地源码门通过，13项因未恢复私有资源/稀疏未取出Android测试或缺Kotlin工具链留给完整CI补齐。
 
+- 首轮CI [36724790798](https://github.com/catkiss62/ai-companion-build/actions/runs/36724790798)，源码3a7d2007/tree c9d615a6：Android15原生6项烟测通过，含512KiB CursorWindow读取3MiB以上settings完整字节；前132项源码门通过。第133项发现CI恢复LingChat原素材覆盖已提交的新day.webp，哈希门正确阻止错误APK，未进入Flutter。修复素材恢复函数：仅day按已批准SHA-256保留，缺失/损坏则失败，其余61项仍按上游LFS校验；增加实际恢复函数的正常/损坏/缺失回归及APK内day哈希核验，保留原严格门。下一轮完整CI待回填。
+
 ## 当前实施 · v0.42.54+298 指定时长游戏任务与过程分享（CI PASSED / APK READY / TRUE DEVICE PENDING）
 
 - 用户 2026-09-30 批准直接授权“现在去玩半小时白色房间，看看结果”，并指出游戏过程新进展不能套用45分钟普通主动分享间隔；不能每一步都分享。澄清：旧45分钟、24小时6条、2小时3条按mcp/cedar_game来源统一计数，刚发生与延后分享都受限；普通回忆旧游戏内容不必然走此源通道。

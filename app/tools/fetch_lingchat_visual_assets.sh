@@ -10,6 +10,22 @@ download_lfs() {
   local source_path="$1"
   local destination="$2"
   local encoded pointer oid size response href actual
+  # This reviewed derivative is committed, rather than restored from upstream.
+  # Fail closed if it is missing or damaged; never silently replace it with the
+  # original daytime scene while recovering the remaining pinned assets.
+  if test "$destination" = "$ASSET_ROOT/background/day.webp"; then
+    if ! test -f "$destination"; then
+      printf 'ERROR: committed reviewed day background is missing\n' >&2
+      return 1
+    fi
+    actual="$(sha256sum "$destination" | cut -d' ' -f1)"
+    if test "$actual" != '6b4296044fd5b882f459e3f66cb586f67d59949a3a49a786a343619149781fb7'; then
+      printf 'ERROR: committed reviewed day background hash mismatch\n' >&2
+      return 1
+    fi
+    printf '%s  background/day.webp (reviewed derivative preserved)\n' "$actual"
+    return
+  fi
   encoded="$(jq -rn --arg value "$source_path" '$value|@uri')"
   pointer="$(curl -sS --fail --retry 3 --max-time 60 "${RAW_ROOT}/${encoded}")"
   oid="$(sed -n 's/^oid sha256://p' <<<"$pointer")"
@@ -104,4 +120,3 @@ public/pictures/animation/聊天.webp|effects/dialogue.webp
 public/pictures/animation/难为情.webp|effects/embarrassed.webp
 public/pictures/animation/高兴.webp|effects/happy.webp
 ASSETS
-

@@ -37,6 +37,7 @@ The generated preview was converted to lossless WebP, 1672x941 RGB; SHA-256:
 `6b4296044fd5b882f459e3f66cb586f67d59949a3a49a786a343619149781fb7`.
 
 The committed day asset is the authoritative revised background. The fetch
-script above reproduces original upstream inputs and must not be used to
-overwrite this reviewed derivative with the original upstream day scene.
-Other assets, including the night scene, remain pinned and unchanged.
+script verifies its approved SHA-256 and preserves it before restoring the
+remaining upstream inputs. A missing or changed derivative stops restoration
+rather than substituting the original upstream day scene. Other assets,
+including the night scene, remain pinned and unchanged.

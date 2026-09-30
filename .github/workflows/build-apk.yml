@@ -1384,6 +1384,11 @@ jobs:
                   )
                   sys.exit(1)
               print('Complete pinned 62-file LingChat presentation pack is present in the APK.')
+              reviewed_day = 'assets/flutter_assets/assets/lingchat/background/day.webp'
+              if hashlib.sha256(z.read(reviewed_day)).hexdigest() != '6b4296044fd5b882f459e3f66cb586f67d59949a3a49a786a343619149781fb7':
+                  print('ERROR: reviewed day background changed during asset restoration or APK packaging', file=sys.stderr)
+                  sys.exit(1)
+              print('Reviewed day background is SHA-256 exact in the APK.')
 
               portrait_prefix = 'assets/flutter_assets/assets/portraits/large_whale/'
               portraits = sorted(
