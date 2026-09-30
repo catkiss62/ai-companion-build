@@ -20,6 +20,8 @@
 - [x] 完整存档审计并补齐可迁移的Live2D当前模型/配件及舞台偏好、SecureConfig非密钥配置、表情包及桌宠显示/位置偏好；API Key/Token/密码仍排除，设备身份/进程lease/旧游玩授权不复制。普通备份与接管包均核验，旧包兼容；新机导入无模型、哈希损坏、部分失败保持事务回滚，实际模型不提交公开仓。
 - [ ] 验证专项行为、完整源码/Flutter/Kotlin/native及签名APK；CI和真机分开记录。保留+299大settings无损读取和已批准白天图。
 
+当前CI：首轮36750751460因补全计数排除/Release说明被新版替代取消；第二轮[36751155364](https://github.com/catkiss62/ai-companion-build/actions/runs/36751155364)原生9/9、134项源码门通过，但既有Java用例仍在3秒断言彩蛋结束，Kotlin/Android单元测试阶段失败，Flutter未运行。按用户新要求更新旧用例为4.5秒并保留3秒仍活动/普通摸头不可覆盖检查；尚无可交付+300 APK，重跑中。
+
 旧桌宠图片任务暂缓，且用户纠正大肥鱼/小小鲸是立绘而非旧桌宠；原六项方案中的素材路径仅是立绘路径，不能据此替换旧桌宠。七大规则删除任务明确放弃，其页面与共享导入导出均保留。
 
 
@@ -1649,3 +1651,9 @@ Actions 与交付证据：远端功能 head `33647c7bff15084d6fd3cbc7b817e9b0b21
 - 逐项核查CREATE TABLE与exportAll：六个既有例外仅为迁移临时、运行审计/维护记录、设备转移回执（maintenance_runs/memory_retrieval_audit/messages_v20/proactive_policy_events/provider_health_events/transfer_receipts）；settings含记住事项、日历、Jev开关和其余可迁移用户状态。身份/权限/任务租约不跨机恢复。本轮不改变 schema61。
 - 新增有意义行为测试：5/10/1轮及失败/只读排除、队列幂等/积压聚合/过期恢复/报告清理；v7本机与新安装往返、原生部分失败及DB失败回滚、文件损坏/缺失/穿越拒绝、v6兼容、空模型域、凭据排除；原生实际headpat/rootTilt行为及模型租约/索引恢复。运行结果待CI，不把仅添加测试宣称为通过。
 - 本地Dart语法、YAML解析、diff检查、专项门/总账门通过；有序全套因缺Cubism AAR在第2项停止。依同一有序清单逐项诊断129/134通过，其余5项为未恢复私有AAR/立绘/桌宠/LingChat特效或未安装kotlinc。完整资源与Flutter/Kotlin/Android测试交给既有Actions，尚未构建成功。
+
+### +300第二轮CI回归与模型存档边界补正
+
+- 本地ce809c1/tree92090584对应远端99ee9512；补齐get_result/wait/poll不计轮数、实际Release说明后，本地b16b9ae/treebcdc3051对应远端a07f3d4。首轮36750751460被新版替代取消。
+- [36751155364](https://github.com/catkiss62/ai-companion-build/actions/runs/36751155364) Android15原生9/9成功：CaicaiInteractionCadenceSmokeTest两项、真实模型租约/索引恢复、CursorWindow与既有生命周期/背景均实际执行且0失败；Artifact11113874815的XML已核实。134项源码门通过。Android完整单元测试在CaicaiInteractionTest.rarePatCompletesEvenWhenFingerRemainsDown失败：旧用例180帧（3秒）断言结束，与本次4.5秒冲突；不是新增4.5秒行为失败。更新旧用例同时断言3秒仍活动、普通摸头无法覆盖、接近4.5秒仍活动及随后结束。未把此流水线记为成功。
+- 审计模型导入事务时补两条边界：尚未渲染确认的pending模型事务不与存档同时进行；导出验证当前已安装模型完整性，恢复验证incoming模型而允许替换原本损坏的目标模型，避免“需要恢复却因本机旧模型损坏而无法进入恢复”。失败仍保留旧树及索引用于回滚；增加实际原生用例覆盖pending租约拒绝和损坏目标路径。未复制渲染器，不提交模型权重，不改变BodyXYZ。

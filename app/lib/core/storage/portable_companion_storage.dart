@@ -22,7 +22,7 @@ class NativePortableSnapshot {
 }
 
 abstract class NativePortableBackend {
-  Future<NativePortableSnapshot> begin();
+  Future<NativePortableSnapshot> begin({bool exporting = false});
   Future<void> validateModels(
     NativePortableSnapshot snapshot,
     Directory directory,
@@ -38,9 +38,10 @@ abstract class NativePortableBackend {
 class AndroidPortableBackend implements NativePortableBackend {
   static const _channel = MethodChannel('ai_companion/caicai_live2d');
   @override
-  Future<NativePortableSnapshot> begin() async {
+  Future<NativePortableSnapshot> begin({bool exporting = false}) async {
     final raw = await _channel.invokeMapMethod<String, dynamic>(
       'portableBegin',
+      {'exporting': exporting},
     );
     if (raw == null ||
         raw['token'] is! String ||
@@ -92,11 +93,12 @@ class AndroidPortableBackend implements NativePortableBackend {
 
 class _NoNativeBackend implements NativePortableBackend {
   @override
-  Future<NativePortableSnapshot> begin() async => const NativePortableSnapshot(
-    '',
-    null,
-    {'caicai_stage': {}, 'overlay_state': {}, 'companion_runtime': {}},
-  );
+  Future<NativePortableSnapshot> begin({bool exporting = false}) async =>
+      const NativePortableSnapshot('', null, {
+        'caicai_stage': {},
+        'overlay_state': {},
+        'companion_runtime': {},
+      });
   @override
   Future<void> validateModels(
     NativePortableSnapshot snapshot,

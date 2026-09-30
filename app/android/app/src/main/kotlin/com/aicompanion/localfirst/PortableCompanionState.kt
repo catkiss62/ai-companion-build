@@ -15,7 +15,7 @@ class PortableCompanionState(private val context: Context, private val models: C
     private var applied = false
     val busy: Boolean get() = token != null
 
-    fun begin(): Map<String, Any> {
+    fun begin(exporting: Boolean = false): Map<String, Any> {
         check(!busy) { "存档操作正在进行" }
         val lease = models.beginPortableSnapshot()
         try {
@@ -26,7 +26,7 @@ class PortableCompanionState(private val context: Context, private val models: C
             previousIndex = prefs("caicai_live2d").all.toMap()
             token = lease
             applied = false
-            return mapOf("token" to lease, "live2dDirectory" to models.portableDirectory(lease).path,
+            return mapOf("token" to lease, "live2dDirectory" to models.portableDirectory(lease, validateInstalled = exporting).path,
                 "preferences" to previous)
         } catch (error: Throwable) {
             models.endPortableSnapshot(lease)

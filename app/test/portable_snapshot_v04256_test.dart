@@ -37,7 +37,7 @@ class _Native extends NativePortableBackend {
   bool busy = false;
   int applyCount = 0;
   @override
-  Future<NativePortableSnapshot> begin() async {
+  Future<NativePortableSnapshot> begin({bool exporting = false}) async {
     if (busy) throw StateError('busy');
     busy = true;
     before = Map<String, dynamic>.from(jsonDecode(jsonEncode(prefs)));

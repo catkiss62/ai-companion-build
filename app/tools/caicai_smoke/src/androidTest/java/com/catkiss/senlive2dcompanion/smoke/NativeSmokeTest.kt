@@ -127,6 +127,7 @@ class NativeSmokeTest {
         var token: String? = null
         try {
             repository.importZip(Uri.fromFile(fixture(base, "portable")))
+            assertTrue(runCatching { repository.beginPortableSnapshot() }.isFailure)
             repository.confirmPendingImport()
             val lease = repository.beginPortableSnapshot()
             token = lease
@@ -141,6 +142,8 @@ class NativeSmokeTest {
             val moc = current.walkTopDown().first { it.name == "model.moc3" }
             val saved = moc.readBytes(); moc.delete()
             assertTrue(runCatching { repository.validatePortableDirectory(current) }.isFailure)
+            assertEquals(current, repository.portableDirectory(lease, validateInstalled = false))
+            assertTrue(runCatching { repository.portableDirectory(lease, validateInstalled = true) }.isFailure)
             moc.writeBytes(saved)
             repository.finishPortableInstall(lease)
         } finally {

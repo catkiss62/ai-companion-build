@@ -252,7 +252,7 @@ class SnapshotService {
           throw StateError('只有当前 Active Brain 可以创建普通备份。');
         }
       }
-      nativeSnapshot = await portableStorage.native.begin();
+      nativeSnapshot = await portableStorage.native.begin(exporting: true);
       final exported = await db.exportAll();
       if (!isTakeover) _normalizeBackupRuntimeSettings(exported);
       final now = DateTime.now().toUtc();

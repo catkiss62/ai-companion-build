@@ -36,7 +36,8 @@ class CaicaiLive2DBridge(
                     val token = call.argument<String>("token").orEmpty()
                     when (call.method) {
                         "portableBegin" -> {
-                            require(pending == null) { "模型导入正在进行" }; result.success(portable.begin())
+                            require(pending == null) { "模型导入正在进行" }
+                            result.success(portable.begin(call.argument<Boolean>("exporting") == true))
                         }
                         "portableValidatePreferences" -> { PortableCompanionState.validatedPreferences(call.argument<Map<*, *>>("preferences") ?: emptyMap<Any, Any>()); result.success(null) }
                         "portableValidate" -> { portable.validate(token, call.argument<String>("directory").orEmpty()); result.success(null) }

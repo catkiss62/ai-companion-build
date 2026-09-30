@@ -261,13 +261,17 @@ class CaicaiModelRepository(context: Context) {
 
     fun beginPortableSnapshot(): String = synchronized(lock) {
         require(portableLease == null) { "存档操作正在进行" }
+        require(!prefs.getBoolean("pending", false)) { "模型导入尚未完成渲染确认，请稍后再存档" }
         java.util.UUID.randomUUID().toString().also { portableLease = it }
     }
     fun endPortableSnapshot(token: String) = synchronized(lock) {
         require(portableLease == token); portableLease = null
     }
-    fun portableDirectory(token: String): File = synchronized(lock) {
+    fun portableDirectory(token: String, validateInstalled: Boolean = true): File = synchronized(lock) {
         require(portableLease == token)
+        // Import can repair a damaged existing package. Preserve its exact
+        // tree for rollback; validate only the incoming package in that case.
+        if (!validateInstalled) return@synchronized current
         // A damaged installed package must not silently become an empty backup.
         if (current.exists() && current.listFiles().orEmpty().isNotEmpty()) validatePortableDirectory(current)
         else require(prefs.getString("maid", "").isNullOrEmpty() && prefs.getString("accessory", "").isNullOrEmpty()) {
