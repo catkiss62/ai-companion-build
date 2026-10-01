@@ -16,7 +16,9 @@ class CaicaiLive2DBridge(
     flutterEngine: FlutterEngine,
 ) {
     private val repository = CaicaiModelRepository(activity)
-    private val portable = PortableCompanionState(activity, repository) { CaicaiRuntime.releaseModel() }
+    private val portable = PortableCompanionState(activity, repository,
+        releaseModel = { CaicaiRuntime.releaseModel() },
+        refreshPreferences = { CaicaiRuntime.refreshPreferences() })
     private val channel = MethodChannel(flutterEngine.dartExecutor.binaryMessenger, CHANNEL)
     private val worker = Executors.newSingleThreadExecutor { task ->
         Thread(task, "caicai-live2d-import").apply { isDaemon = true }

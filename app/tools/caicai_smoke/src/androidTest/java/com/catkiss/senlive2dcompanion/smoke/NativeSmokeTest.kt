@@ -10,6 +10,7 @@ import androidx.test.core.app.ActivityScenario
 import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.catkiss.senlive2dcompanion.CaicaiModelRepository
+import com.catkiss.senlive2dcompanion.CaicaiStagePreferences
 import com.aicompanion.localfirst.PortableCompanionState
 import org.json.JSONArray
 import org.json.JSONObject
@@ -22,6 +23,111 @@ import java.util.zip.ZipOutputStream
 
 @RunWith(AndroidJUnit4::class)
 class NativeSmokeTest {
+    @Test fun settingsRestoreHotAppliesToTheSameRendererAndRestoresMissingKeyDefaults() {
+        val context = ApplicationProvider.getApplicationContext<Context>()
+        val prefs = context.getSharedPreferences("caicai_stage", Context.MODE_PRIVATE)
+        prefs.edit().clear().commit()
+        try {
+            ActivityScenario.launch(SmokeActivity::class.java).use { scenario ->
+                lateinit var activity: SmokeActivity
+                scenario.onActivity { activity = it }
+                val original = activity.view
+                fun frames() = original.surfaceDiagnostics().substringAfter("frames=").substringBefore(" ").toLong()
+                val deadline = SystemClock.uptimeMillis() + 10000
+                while (frames() == 0L && activity.error == null && SystemClock.uptimeMillis() < deadline) SystemClock.sleep(30)
+                assertNull(activity.error)
+                assertTrue(original.surfaceDiagnostics(), frames() > 0L)
+                val contexts = original.surfaceDiagnostics().substringAfter("contexts=").substringBefore(" ")
+                var releases = 0
+                var refreshes = 0
+                val portable = PortableCompanionState(context, CaicaiModelRepository(context), refreshPreferences = {
+                    refreshes++
+                    CaicaiStagePreferences.read(prefs).applyTo(original)
+                }) { releases++ }
+                fun restore(stage: Map<String, Any>, commit: Boolean) {
+                    scenario.onActivity {
+                        val lease = portable.begin()["token"] as String
+                        val before = refreshes
+                        portable.apply(lease, mapOf("caicai_stage" to stage,
+                            "overlay_state" to emptyMap<String, Any>(), "companion_runtime" to emptyMap<String, Any>()), false)
+                        assertEquals(before, refreshes)
+                        portable.finish(lease, commit)
+                        assertEquals(before + 1, refreshes)
+                    }
+                    val drained = java.util.concurrent.CountDownLatch(1)
+                    original.queueEvent { drained.countDown() }
+                    assertTrue("Renderer update drained", drained.await(5, java.util.concurrent.TimeUnit.SECONDS))
+                    assertSame(original, activity.view)
+                    assertEquals(contexts, original.surfaceDiagnostics().substringAfter("contexts=").substringBefore(" "))
+                    assertEquals(0, releases)
+                    assertFalse(portable.busy)
+                }
+                val values = mapOf<String, Any>("motionGain" to 1.25f, "motionSpeed" to 1.4f, "legPivot" to .94f,
+                    "scale" to 2f, "x" to .4f, "y" to -.6f,
+                    "headLeft" to .1f, "headTop" to .2f, "headRight" to .8f, "headBottom" to .9f)
+                restore(values, true)
+                assertArrayEquals(floatArrayOf(.1f, .2f, .8f, .9f), CaicaiStagePreferences.read(prefs).headBox(), .001f)
+                val rendererField = original.javaClass.getDeclaredField("renderer").apply { isAccessible = true }
+                val renderer = rendererField.get(original)
+                fun rendererValue(name: String): Float = renderer.javaClass.getDeclaredField(name).apply { isAccessible = true }.getFloat(renderer)
+                fun checkRenderer(gain: Float, speed: Float, pivot: Float, scale: Float, x: Float, y: Float) {
+                    for ((name, expected) in mapOf("motionGain" to gain, "motionSpeed" to speed, "lowerLegPivot" to pivot,
+                        "stageScale" to scale, "stageTranslateX" to x, "stageTranslateY" to y))
+                        assertEquals(name, expected, rendererValue(name), .001f)
+                }
+                checkRenderer(1.25f, 1.4f, .94f, 2f, .4f, -.6f)
+                restore(mapOf("scale" to .5f), false)
+                checkRenderer(1.25f, 1.4f, .94f, 2f, .4f, -.6f)
+                restore(emptyMap(), true)
+                checkRenderer(1f, 1f, .88f, 1f, 0f, 0f)
+                assertArrayEquals(floatArrayOf(.27f, .02f, .73f, .32f), CaicaiStagePreferences.read(prefs).headBox(), .001f)
+                scenario.onActivity {
+                    val before = refreshes
+                    portable.finish(portable.begin()["token"] as String, true)
+                    assertEquals("Export does not refresh", before, refreshes)
+                }
+            }
+        } finally { prefs.edit().clear().commit() }
+    }
+
+    @Test fun settingsRefreshFailureKeepsErrorAndReleasesSnapshotLease() {
+        val context = ApplicationProvider.getApplicationContext<Context>()
+        val failure = java.io.IOException("refresh failed")
+        var releases = 0
+        val portable = PortableCompanionState(context, CaicaiModelRepository(context), refreshPreferences = { throw failure }) { releases++ }
+        val lease = portable.begin()["token"] as String
+        portable.apply(lease, mapOf("caicai_stage" to emptyMap<String, Any>(),
+            "overlay_state" to emptyMap<String, Any>(), "companion_runtime" to emptyMap<String, Any>()), false)
+        assertSame(failure, runCatching { portable.finish(lease, false) }.exceptionOrNull())
+        assertEquals(0, releases)
+        assertFalse(portable.busy)
+        portable.finish(portable.begin()["token"] as String, true)
+    }
+
+    @Test fun legacyModelRestoreStillReleasesAndRestoresIndexWithoutHotRefresh() {
+        val context = ApplicationProvider.getApplicationContext<Context>()
+        val repository = CaicaiModelRepository(context)
+        repository.clearImportedModels()
+        var releases = 0
+        var refreshes = 0
+        try {
+            repository.importZip(Uri.fromFile(fixture(context, "legacy-portable")))
+            repository.confirmPendingImport()
+            val prefs = context.getSharedPreferences("caicai_live2d", Context.MODE_PRIVATE)
+            val previous = prefs.all.toMap()
+            val portable = PortableCompanionState(context, repository, refreshPreferences = { refreshes++ }) { releases++ }
+            for (commit in listOf(true, false)) {
+                val snapshot = portable.begin()
+                portable.apply(snapshot["token"] as String, snapshot["preferences"] as Map<*, *>, true)
+                portable.finish(snapshot["token"] as String, commit)
+                if (!commit) assertEquals(previous, prefs.all)
+                assertTrue(repository.currentModels().available)
+                assertEquals(0, refreshes)
+            }
+            assertEquals(2, releases)
+        } finally { repository.clearImportedModels() }
+    }
+
     @Test fun preferencesOnlySnapshotPreservesExternalModelFilesAndIndexOnCommitAndRollback() {
         val context = ApplicationProvider.getApplicationContext<Context>()
         val repository = CaicaiModelRepository(context)
@@ -36,18 +142,25 @@ class NativeSmokeTest {
         stagePrefs.edit().clear().putFloat("legPivot", .87f).commit()
         val indexBefore = modelPrefs.all.toMap()
         var releases = 0
+        var refreshes = 0
         try {
             for (commit in listOf(true, false)) {
-                val portable = PortableCompanionState(context, repository) { releases++ }
+                val portable = PortableCompanionState(context, repository, refreshPreferences = {
+                    refreshes++
+                    assertEquals(if (commit) .96f else .87f, stagePrefs.getFloat("legPivot", 0f), .001f)
+                }) { releases++ }
                 val before = releases
+                val beforeRefresh = refreshes
                 val snapshot = portable.begin()
                 assertEquals("Read-only snapshot does not release the model", before, releases)
                 val lease = snapshot["token"] as String
                 portable.apply(lease, mapOf("caicai_stage" to mapOf("legPivot" to .96f),
                     "overlay_state" to emptyMap<String, Any>(),
                     "companion_runtime" to emptyMap<String, Any>()), restoreModels = false)
+                assertEquals("Temporary preferences do not touch the live stage", beforeRefresh, refreshes)
                 portable.finish(lease, commit)
-                assertEquals(before + 1, releases)
+                assertEquals("Settings restore keeps the model", before, releases)
+                assertEquals(beforeRefresh + 1, refreshes)
                 assertEquals(indexBefore, modelPrefs.all)
                 assertEquals("EXTERNAL_RESOURCE_KEEP", external.readText())
                 assertEquals(if (commit) .96f else .87f, stagePrefs.getFloat("legPivot", 0f), .001f)

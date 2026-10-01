@@ -61,7 +61,29 @@ void main() {
     await backend.finish(snapshot, commit: true);
     final apply = calls.singleWhere((call) => call.method == 'portableApply');
     expect((apply.arguments as Map)['restoreModels'], false);
-    expect(CaicaiLive2DService.revision.value, revision + 1);
+    expect(CaicaiLive2DService.revision.value, revision);
+  });
+  test('settings-only rollback keeps the existing stage', () async {
+    final snapshot = await backend.begin();
+    await backend.apply(snapshot, {}, restoreModels: false);
+    await backend.finish(snapshot, commit: false);
+    expect(CaicaiLive2DService.revision.value, revision);
+  });
+  test('partial settings apply failure keeps the stage after rollback', () async {
+    final snapshot = await backend.begin();
+    failApply = true;
+    await expectLater(backend.apply(snapshot, {}, restoreModels: false),
+        throwsA(isA<PlatformException>()));
+    await backend.finish(snapshot, commit: false);
+    expect(CaicaiLive2DService.revision.value, revision);
+  });
+  test('settings finish failure stays visible without stage recreation', () async {
+    final snapshot = await backend.begin();
+    await backend.apply(snapshot, {}, restoreModels: false);
+    failFinish = true;
+    await expectLater(backend.finish(snapshot, commit: false),
+        throwsA(isA<PlatformException>()));
+    expect(CaicaiLive2DService.revision.value, revision);
   });
   test('rollback after native apply refreshes the restored model', () async {
     final snapshot = await backend.begin();

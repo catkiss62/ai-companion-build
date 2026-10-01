@@ -58,16 +58,16 @@ internal class CaicaiPlatformView(
     private var keyboardVisible = false
     private var sceneRatio = 0f
     private val viewPrefs = app.getSharedPreferences("caicai_stage", Context.MODE_PRIVATE)
-    private var motionGain = viewPrefs.getFloat("motionGain", 1f)
-    private var motionSpeed = viewPrefs.getFloat("motionSpeed", 1f)
-    private var legPivot = viewPrefs.getFloat("legPivot", .88f)
+    private val initialPreferences = CaicaiStagePreferences.read(viewPrefs)
+    private var motionGain = initialPreferences.motionGain
+    private var motionSpeed = initialPreferences.motionSpeed
+    private var legPivot = initialPreferences.legPivot
     private var stageAdjustment = false
     private var smallForm = false
-    private var stageScale = viewPrefs.getFloat("scale", 1f)
-    private var stageX = viewPrefs.getFloat("x", 0f)
-    private var stageY = viewPrefs.getFloat("y", 0f)
-    private var headBox = floatArrayOf(viewPrefs.getFloat("headLeft", .27f), viewPrefs.getFloat("headTop", .02f),
-        viewPrefs.getFloat("headRight", .73f), viewPrefs.getFloat("headBottom", .32f))
+    private var stageScale = initialPreferences.scale
+    private var stageX = initialPreferences.x
+    private var stageY = initialPreferences.y
+    private var headBox = initialPreferences.headBox()
     private var editSnapshot: FloatArray? = null
     private var strokeDistance = 0f
     private var patCandidate = false
@@ -432,6 +432,20 @@ internal class CaicaiPlatformView(
         companion.requestRender()
     }
 
+    fun refreshPreferences() {
+        if (disposed) return
+        val restored = CaicaiStagePreferences.read(viewPrefs)
+        val previous = CaicaiStagePreferences(motionGain, motionSpeed, legPivot,
+            stageScale, stageX, stageY, headBox[0], headBox[1], headBox[2], headBox[3])
+        val changed = restored != previous
+        motionGain = restored.motionGain; motionSpeed = restored.motionSpeed; legPivot = restored.legPivot
+        stageScale = restored.scale; stageX = restored.x; stageY = restored.y; headBox = restored.headBox()
+        // An editor opened before restore must not later put its old snapshot back.
+        editSnapshot?.let { editSnapshot = floatArrayOf(stageScale, stageX, stageY, *headBox) }
+        if (changed) restored.applyTo(companion, previous)
+        CaicaiDiagnostics.record(app, "stage_preferences_restored", "execution_id=$executionId changed=$changed")
+    }
+
     fun speechAmplitude(value: Float) { if (!disposed) companion.setSpeechAmplitude(value) }
 
     override fun onStatus(status: String) {
@@ -523,6 +537,7 @@ object CaicaiRuntime {
         if (view == null) result.success(false) else view.onMethodCall(MethodCall(method, arguments), result)
     }
     fun releaseModel() = active.get()?.stopForDeletion()
+    fun refreshPreferences() = active.get()?.refreshPreferences()
     fun reloadModel() = active.get()?.reloadModel()
     fun onHostResume() = active.get()?.hostResume()
     fun onHostPause() = active.get()?.hostPause()

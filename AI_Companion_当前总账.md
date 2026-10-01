@@ -7,11 +7,11 @@
 > 判断优先级：用户最新明确决定 > 当前 GitHub 源码与 Actions > 同时刻脱敏真机诊断/备份 > 本文件 > 冻结归档与 Git 历史。`DESIGNED`、`IMPLEMENTED`、`CI PASSED`、`APK READY`、`TRUE DEVICE PASSED`、`PENDING` 必须严格区分。
 
 
-## 当前检查 · 设置包导入保留Live2D（DESIGNED / 尚未改产品代码）
+## 当前实施 · v0.42.60+304 设置包导入保留Live2D（IMPLEMENTED / CI PENDING）
 
-- 用户2026-10-01 21:18确认+303导出没问题，指出导入仍重载，要求对比存档出错前版本并判断改法。本轮仅源码/实际包检查与方案，总账更新；不提前构建APK。
-- 新包54,425,356bytes/约51.9MiB，ZIP protocol7/portable_state2、外部资源0，state及84媒体SHA-256通过，无重复路径。+303导出部分已获真机确认；全版本真机状态仍为PENDING。
-- 对比+298：Stage组件无变化；+300恢复流程新增releaseModel和模型revision，+303设置恢复仍无条件执行两者。方案为设置恢复保留原生视图、成功/回滚后同步缓存参数；只有真实模型替换才释放/重建。证据、验证目标见正式记录末尾“+303导入重载定点检查与修正方案”。
+- 用户2026-10-01 21:33授权开始修改；基线+303功能afe1baa5、总账c8074c9。独立分支agent/v04260-settings-import-live2d；v0.42.60+304/schema61/ZIP7/portable_state2。
+- 设置包不释放原生模型、不增加Flutter模型revision；成功或回滚后同步动作/舞台/摸头区域，缺失键回默认值。旧完整资源包保留释放/重载与回滚。源码、回归及Draft APK构建进行中，真机PENDING。
+- +303导出用户已确认；新包54,425,356bytes、外部资源0及全部SHA通过。+298/+300差异、设计与证据见正式记录末尾。
 
 ## 当前交付 · v0.42.59+303 游戏推进与仅设置备份（CI PASSED / APK READY / TRUE DEVICE PENDING）
 
@@ -22,7 +22,7 @@
 
 ## 当前接班快照 · 2026-10-01
 
-当前分支agent/v04259-game-cadence-settings-only-backup，功能afe1baa5，v0.42.59+303/schema61/ZIP protocol7/portable_state2，Actions36860037884成功，真机待验。新增仅设置备份与持续单人两分钟；基线+302的导出不重载、焦点及星谷交互保留。保护菜菜HC/GLSurfaceView、IME、摸头2.8秒、大settings读取、星谷只读。第二套Live2D未实现；旧桌宠素材暂缓；七大规则删除放弃。允许开发分支推送与Draft APK构建，不合并main/正式发布。后续文档提交不改变APK功能源码。
+当前开发分支agent/v04260-settings-import-live2d，v0.42.60+304/schema61/ZIP protocol7/portable_state2；基线+303功能afe1baa5/Actions36860037884成功，+304导入不重载实施与CI进行中，真机待验。新增仅设置备份与持续单人两分钟；基线+302的导出不重载、焦点及星谷交互保留。保护菜菜HC/GLSurfaceView、IME、摸头2.8秒、大settings读取、星谷只读。第二套Live2D未实现；旧桌宠素材暂缓；七大规则删除放弃。允许开发分支推送与Draft APK构建，不合并main/正式发布。后续文档提交不改变APK功能源码。
 
 ## 当前交付 · v0.42.58+302 导出刷新、侧栏焦点与星谷交互（CI PASSED / APK READY / TRUE DEVICE PENDING）
 
@@ -1865,3 +1865,19 @@ MemoryPage保留原编辑/保存/归档，并新增折叠同话题条目和只�
 - 修正方案：原生release及Dart模型revision都仅绑定真实模型资源恢复；新v2设置包不释放renderer、不改变模型revision/原生view身份。偏好仍先完整校验并保持原提交/回滚，完成后对活跃视图同步最终caicai_stage缓存：动作gain/speed/pivot、scale/x/y、头部触摸区域，缺省值也按原默认恢复。复用tuneCaicaiMotion和applyStage(persist=false)，不通过重新载入模型读取设置；设置相同则跳过渲染更新，无活跃视图时由下次创建读取。恢复失败回滚后同步回原设置，不重建视图、不隐藏错误。
 - 旧protocol6导入继续不碰原生资源；旧150MB/portable_state1包若确实替换模型文件仍按现事务释放并重建一次。独立ZIP模型导入/删除同样仍需重建，不为追求所有情况零重载而留下失效GL模型。新方案不动HC/GLSurfaceView、IME、Stage载入/生命周期、资源目录或+299大settings修复。
 - 后续实施验证（尚未执行）：新包导入成功/中途失败/回滚/finish失败均不递增模型revision、不调用release；恢复不同设置及删除缺省键后，活跃视图位置/缩放/动作/摸头区域立即正确且view/execution identity保持；无模型/未打开聊天仍能恢复设置；导出零重载和旧资源包真实替换继续回归。沿用已获授权的开发分支/Draft构建；本轮为定点检查与方案，没有新增功能版本或APK。
+
+
+## +304 设置包导入保留Live2D · 实施开始（2026-10-01 21:33）
+
+用户明确“ok，开始修改”，延续开发分支推送与Draft APK授权，不合并main/正式发布。基线c8074c9550b3e328eb54d15eff1d103f23ef8010（+303功能afe1baa58a5e9f63412ff1913aa14b64ebafced4）。本轮版本0.42.60+304，分支agent/v04260-settings-import-live2d，schema61/ZIP7/portable_state2不变。
+
+实施：设置包restoreModels=false不调用releaseModel、不登记Dart模型revision；PortableCompanionState.finish仅在最终提交/回滚后通知原生同步偏好，异常仍释放lease且保留错误。既有CaicaiPlatformView读取同一偏好、更新动作/缩放位置/摸头区域缓存，复用tuneCaicaiMotion和setStageTransform，不loadModels/dispose，不改HC/GLSurfaceView/IME/模型渲染器。活动编辑器的撤销快照同步，避免旧编辑快照覆盖刚恢复的设置。旧完整模型包仍释放、重建和恢复索引；纯导出不通知刷新，无活动视图时下次创建读取最终偏好。
+
+新增验证目标：Dart设置成功/回滚/部分失败/finish失败revision保持；原生真实SharedPreferences提交/回滚只同步最终值、外部模型与索引不变；同一CaicaiCompanionView/renderer热应用并检查实际renderer参数、EGL context保持、缺失键默认值、导出不刷新；同步异常保留且释放lease；旧模型恢复仍release且不热同步。验证与构建未完成，此时状态IMPLEMENTING / CI PENDING / TRUE DEVICE PENDING。
+
+
+### +304 本地实施与检查
+
+代码IMPLEMENTED；本地138项逐项检查131通过，7项仅缺既有构建依赖：Live2DCubismCore.aar为LFS占位，立绘/桌宠/lingchat效果/星谷131资源未恢复，且未安装kotlinc。+304新门、+303备份/节奏门、+300完整存档门和总账门通过；diff --check通过。未把本地缺依赖记作全套通过，Flutter/原生行为尚未执行，完整Actions负责恢复固定资源并运行138门、Flutter、原生17项、Kotlin/analyze、签名和APK资源哈希。
+
+生产热点仅修改portable释放/最终偏好通知、Dart模型revision登记和原生视图偏好读取/热同步。既有Java渲染器、GL生命周期、Stage Dart组件、模型加载/普通模型ZIP导入未修改；相同参数不重复更新动作或舞台，避免重置既有舞台运动。新增偏好读取器同时用于首次构造与热应用；回归直接检查生产SenRenderer字段和原视图/context保持，但不等同手机屏幕验收。公开分支提交仅源码/测试/工作流/总账，不含用户存档、诊断、模型或密钥。

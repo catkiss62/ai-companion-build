@@ -79,7 +79,8 @@ class AndroidPortableBackend implements NativePortableBackend {
   }) async {
     // Mark before awaiting: a native apply may release the renderer and then
     // fail partway through. Its rollback must also recreate the stage.
-    _reloadAfterFinish.add(snapshot.token);
+    // Settings-only restores keep the native view and hot-apply final preferences.
+    if (restoreModels) _reloadAfterFinish.add(snapshot.token);
     await _channel.invokeMethod<void>('portableApply', {
       'token': snapshot.token,
       'preferences': preferences,
@@ -98,7 +99,7 @@ class AndroidPortableBackend implements NativePortableBackend {
       });
     } finally {
       // Read-only export/validation does not change the installed model.
-      // Applied restores (including partial failure/rollback) do need a reload.
+      // Model restores (including partial failure/rollback) do need a reload.
       if (_reloadAfterFinish.remove(snapshot.token)) {
         CaicaiLive2DService.revision.value++;
       }

@@ -144,3 +144,4 @@ tools/validate_v04257_memory_galaxy.py
 tools/validate_v04258_backup_focus_memory.py
 
 tools/validate_v04259_game_cadence_settings_backup.py
+tools/validate_v04260_settings_import_live2d.py

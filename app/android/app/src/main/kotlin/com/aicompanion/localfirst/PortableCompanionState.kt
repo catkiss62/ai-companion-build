@@ -10,6 +10,7 @@ import java.io.IOException
 class PortableCompanionState(
     private val context: Context,
     private val models: CaicaiModelRepository,
+    private val refreshPreferences: () -> Unit = {},
     private val releaseModel: () -> Unit,
 ) {
     private var token: String? = null
@@ -53,7 +54,7 @@ class PortableCompanionState(
     fun apply(lease: String, raw: Map<*, *>, restoreModels: Boolean = true) {
         requireToken(lease)
         val values = validatedPreferences(raw) // Validate the entire input before any write.
-        releaseModel()
+        if (restoreModels) releaseModel()
         applied = true // Partial preference/index writes must also roll back.
         for ((group, keys) in fields) replace(prefs(group), keys.keys, values.getValue(group))
         if (restoreModels) {
@@ -64,15 +65,27 @@ class PortableCompanionState(
 
     fun finish(lease: String, commit: Boolean) {
         requireToken(lease)
+        var failure: Throwable? = null
         try {
             if (applied && !commit) {
                 for ((group, keys) in fields) replace(prefs(group), keys.keys, previous.getValue(group))
                 if (modelsTouched) replace(prefs("caicai_live2d"), prefs("caicai_live2d").all.keys.union(previousIndex.keys), previousIndex)
             }
             if (modelsTouched && commit) models.finishPortableInstall(lease)
+        } catch (error: Throwable) {
+            failure = error
+            throw error
         } finally {
-            models.endPortableSnapshot(lease)
-            token = null; applied = false; modelsTouched = false; previous = emptyMap(); previousIndex = emptyMap()
+            try {
+                // Read final committed/rolled-back values, never the temporary apply.
+                if (applied && !modelsTouched) refreshPreferences()
+            } catch (error: Throwable) {
+                if (failure != null) failure.addSuppressed(error) else throw error
+            } finally {
+                try { models.endPortableSnapshot(lease) } finally {
+                    token = null; applied = false; modelsTouched = false; previous = emptyMap(); previousIndex = emptyMap()
+                }
+            }
         }
     }
 
