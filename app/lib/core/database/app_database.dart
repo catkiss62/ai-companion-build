@@ -18041,10 +18041,14 @@ class AppDatabase {
       // Checking them together prevents an old engine from reviving a task
       // after Stop, replacement, or a same-process snapshot restore.
       for (final guard in expectedSettings.entries) {
-        final rows = await txn.query('settings', columns: const ['value'],
-            where: 'key = ?', whereArgs: [guard.key], limit: 1);
-        final current = rows.isEmpty ? '' : rows.first['value'] as String? ?? '';
-        if (current != guard.value) return false;
+        // Compare in SQLite and return one integer. An activity row can be
+        // larger than Android's CursorWindow; never read it back as a guard.
+        final rows = await txn.rawQuery(
+          "SELECT COALESCE((SELECT COALESCE(value, '') = ? FROM settings "
+          'WHERE key = ? LIMIT 1), ?) AS matches',
+          [guard.value, guard.key, guard.value.isEmpty ? 1 : 0],
+        );
+        if (rows.first['matches'] != 1) return false;
       }
       for (final entry in values.entries) {
         await txn.insert(

@@ -1619,6 +1619,30 @@ class CedarToyActivityStore {
     ));
   }
 
+  /// Background completion may park only the exact state it inspected. The
+  /// foreground user's Pause/Resume methods above keep their existing flow.
+  Future<bool> pauseCompletedTask({required String sessionId,
+      required String source, required Map<String, String> expectedSettings}) async {
+    final raw = await db.getSetting(stateSettingKey) ?? '';
+    final state = await loadState();
+    final existing = state.activeSession;
+    if (existing == null || existing.id != sessionId ||
+        !existing.phase.continuable || state.execution != null) return false;
+    final now = DateTime.now();
+    final paused = existing.copyWith(phase: CedarActivityPhase.paused,
+        pauseSource: source, waitingReason: '已在本机暂停，进度仍由远端存档保存',
+        updatedAt: now, clearNextActionAt: true);
+    final committed = await db.setSettingsAtomically({
+      ..._stateSettingValues(state.copyWith(activeGameId: '',
+          sessions: Map<String, CedarGameSession>.from(state.sessions)
+            ..[existing.gameId] = paused, clearExecution: true, updatedAt: now)),
+      executionFenceSettingKey: 'cancel-pause-${_uuid.v4()}',
+    }, expectedSettings: {...expectedSettings, stateSettingKey: raw});
+    if (committed) await CedarPlayTransitionLog(db).record(source: source,
+        reason: 'task_complete_pause', before: existing.phase.key, after: 'paused');
+    return committed;
+  }
+
   /// Parks a server wait that supplied neither `next_call` nor a resume time.
   /// The remote save remains resumable, while the empty active slot allows the
   /// Agent to choose another game instead of deadlocking the whole arcade.

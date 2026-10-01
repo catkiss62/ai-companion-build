@@ -317,4 +317,27 @@ void main() {
     expect(report, isNot(contains('processEpoch')));
     expect(report, isNot(contains('clockId')));
   });
+
+  test('background completion cannot park a game after foreground fencing changes', () async {
+    await start();
+    final store = CedarToyActivityStore(db);
+    final session = (await store.load())!;
+    final oldFence = await db.getSetting(CedarToyActivityStore.executionFenceSettingKey) ?? '';
+    await db.setSetting(CedarToyActivityStore.executionFenceSettingKey, 'new-foreground');
+    expect(await store.pauseCompletedTask(sessionId: session.id,
+        source: 'budget_complete', expectedSettings: {
+          CedarToyActivityStore.executionFenceSettingKey: oldFence,
+        }), false);
+    expect((await store.load())!.phase, isNot(CedarActivityPhase.paused));
+  });
+
+  test('large state guards compare in SQLite and stale content cannot commit', () async {
+    final large = List.filled(300000, '完整状态').join();
+    await db.setSetting('large-task-state', large);
+    expect(await db.setSettingsAtomically({'guarded-write': 'yes'},
+        expectedSettings: {'large-task-state': large}), true);
+    expect(await db.setSettingsAtomically({'guarded-write': 'late'},
+        expectedSettings: {'large-task-state': large.substring(1)}), false);
+    expect(await db.getSetting('guarded-write'), 'yes');
+  });
 }

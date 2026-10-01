@@ -351,13 +351,15 @@ class CedarTimedPlayTaskStore {
       if (state.execution == null && state.activeSession?.id == task['sessionId'] &&
           state.activeSession!.phase.continuable &&
           !await db.isLocalLeaseHeld('chat_turn_lease')) {
-        await store.pauseAndRelease(source: reason);
+        await store.pauseCompletedTask(sessionId: task['sessionId'].toString(),
+            source: reason, expectedSettings: {...controls, activeKey: ''});
       }
       return;
     }
     final current = session!;
     final waiting = !current.needsContinuation;
     if (period == null || period.taskId != task['id'] || period.gameId != current.gameId ||
+        period.limitMs != limit || period.usedMs < used ||
         now.isBefore(period.lastTickAt.subtract(CedarPlaySession.observedTaskGap))) {
       period = CedarPlaySession(gameId: current.gameId,
           startedAt: DateTime.fromMillisecondsSinceEpoch(
