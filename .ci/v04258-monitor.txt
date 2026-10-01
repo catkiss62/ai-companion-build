@@ -1,0 +1,7 @@
+status=success
+run_id=36805517505
+run_url=https://github.com/catkiss62/ai-companion-build/actions/runs/36805517505
+head_sha=521effa77e61e915cc477913c8b7ddf7ad1db8f1
+signer_sha256=30:5E:B3:D8:09:83:B9:63:C6:48:18:DD:F1:AD:56:1F:27:9D:E6:D4:7B:3E:D2:C7:81:AD:A4:48:C7:C2:51:48
+6f678acfaaed3e1883c091b9f979294aa9b9c375e8767d2f5694d039ca39265d  AI-Companion-v0.42.58-302-Backup-Focus-Memory-Interaction-APK.apk
+release_url=https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-65dae53b720ceb33676f
