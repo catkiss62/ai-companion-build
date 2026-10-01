@@ -7,7 +7,7 @@ import 'package:ai_companion_localfirst/core/mcp/cedar_toy_activity.dart';
 import 'package:ai_companion_localfirst/core/mcp/cedar_toy_autonomy_engine.dart';
 import 'package:ai_companion_localfirst/core/mcp/cedar_toy_client.dart';
 import 'package:ai_companion_localfirst/core/mcp/mcp_http_client.dart';
-import 'package:ai_companion_localfirst/core/mcp/mcp_protocol.dart';
+import 'package:ai_companion_localfirst/core/storage/secure_config.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
@@ -66,6 +66,7 @@ void main() {
         return http.Response(jsonEncode({'jsonrpc': '2.0', 'id': body['id'], 'result': result}), 200);
       });
       final engine = CedarToyAutonomyEngine(db: db, ai: ai,
+        secureConfig: SecureConfig.instance,
         tokenReader: () async => 'ctai_v1_test', apiKeyReader: () async => 'test',
         endpointReader: () async => DeepSeekClient.defaultEndpoint,
         clientFactory: (token) => CedarToyClient(token: token,
