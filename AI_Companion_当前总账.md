@@ -1,29 +1,29 @@
 # AI Companion · 当前总账
 
-更新时间：2026-10-01（+304 CI PASSED / APK READY / TRUE DEVICE PENDING；+303 CI PASSED / APK READY / TRUE DEVICE PENDING；+302 CI PASSED / APK READY / TRUE DEVICE PENDING；+301 CI PASSED / APK READY / TRUE DEVICE PENDING；+300 CI PASSED / APK READY / TRUE DEVICE PENDING；+299 CI PASSED / APK READY / TRUE DEVICE PENDING；+298 CI PASSED / APK READY / TRUE DEVICE PENDING；+297 CI PASSED / APK READY / TRUE DEVICE PENDING；+295 恢复真机成功、背景回归 PARTIAL；+293 DEVICE VISUAL BASELINE）
+更新时间：2026-10-02（+305 CI PASSED / APK READY / TRUE DEVICE PENDING；+304 CI PASSED / APK READY / TRUE DEVICE PENDING；+303 CI PASSED / APK READY / TRUE DEVICE PENDING；+302 CI PASSED / APK READY / TRUE DEVICE PENDING；+301 CI PASSED / APK READY / TRUE DEVICE PENDING；+300 CI PASSED / APK READY / TRUE DEVICE PENDING；+299 CI PASSED / APK READY / TRUE DEVICE PENDING；+298 CI PASSED / APK READY / TRUE DEVICE PENDING；+297 CI PASSED / APK READY / TRUE DEVICE PENDING；+295 恢复真机成功、背景回归 PARTIAL；+293 DEVICE VISUAL BASELINE）
 
 > 本文件是唯一的当前接班入口，继续采用“总账 v2”。顶部是快速接班索引；标记后的正式记录按版本持续追加，不设总容量上限。
 >
 > 判断优先级：用户最新明确决定 > 当前 GitHub 源码与 Actions > 同时刻脱敏真机诊断/备份 > 本文件 > 冻结归档与 Git 历史。`DESIGNED`、`IMPLEMENTED`、`CI PASSED`、`APK READY`、`TRUE DEVICE PASSED`、`PENDING` 必须严格区分。
 
 
-## 当前交付 · v0.42.60+304 设置包导入保留Live2D（CI PASSED / APK READY / TRUE DEVICE PENDING）
+## 当前交付 · v0.42.61+305 指定时长游戏接续（CI PASSED / APK READY / TRUE DEVICE PENDING）
 
-- 新版设置存档导入保留当前原生视图；提交/回滚后直接同步动作、缩放位置和摸头区域，缺失键回默认值。旧完整资源包仍恢复模型并重载。+303仅设置导出与两分钟游戏推进保留。
-- 功能9ba2f176/tree5281e748，[Actions36871635441](https://github.com/catkiss62/ai-companion-build/actions/runs/36871635441)首次全绿：138源码门、1059 Flutter、原生17/17、Kotlin/analyze、稳定签名和131资源哈希通过。
-- [未发布+304测试APK](https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-73790dec9e521a871822)，Draft401037240/asset603408682；734320025bytes，稳定签名可覆盖安装。详细SHA及原生报告见正式记录末尾“+304最终构建、回归与APK证据”。手机导入观感尚待验收。
+- [未发布+305测试APK](https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-fd6b8028d13084f6cc9f)，Draft401142295/asset603731423；734330053bytes，稳定签名可覆盖安装。
+- 重启/读档后只续保存的剩余有效预算，聊天与存档冻结暂让路；两分钟等待与长请求正常计时，离线不计。本地手动停止及原中性回报保持，新指定时长从零替换、不叠加。
+- 功能7c089e3d/treec22501bd，[Actions36894733801](https://github.com/catkiss62/ai-companion-build/actions/runs/36894733801)成功：139门、1082 Flutter、原生17/17、Kotlin/analyze、稳定签名及131星谷资源哈希通过；另47项专项实际行为通过。完整SHA/替代及失败路线见正式记录末尾。手机实测待验。
 
-## 当前实施 · v0.42.61+305 指定时长游戏接续（IMPLEMENTATION IN PROGRESS / CI PENDING / APK PENDING / TRUE DEVICE PENDING）
+## +304 已交付基线
 
-用户23:14批准修改，23:17明确本地暂停保留为手动停止。基线+304功能9ba2f176、排查总账de5415e；分支agent/v04261-timed-play-recovery。重启/读档后只续剩余预算，聊天与存档冻结暂让路；修正计时并补停止来源。两分钟推进、5/10/1轮分享、Active Brain和单执行器、Live2D导入修复保持；完整证据见正式记录末尾。本地手动停止不自动恢复，本輪未构建。
++304功能9ba2f176/Actions36871635441成功，设置导入热同步并保留Live2D视图、旧资源包兼容；原生17/17、Flutter1059通过，Draft401037240可回退。真机导入观感待验。原快速交付全文迁至正式记录末尾，完整SHA与APK证据保留。
 
 ## +303 已交付基线
 
 +303功能afe1baa5/Actions36860037884成功，设置存档不打包外部资源、持续单人两分钟与5/10/1轮分享保留；导出已获用户真机确认，导入重载由+304修正。旧快速索引全文迁至正式记录末尾，失败路线和APK证据保留。
 
-## 当前接班快照 · 2026-10-01
+## 当前接班快照 · 2026-10-02
 
-当前工作分支agent/v04261-timed-play-recovery、目标v0.42.61+305，游戏接续实现中；当前可安装基线仍为+304功能9ba2f176/tree5281e748、Actions36871635441成功，Live2D导入真机待验。schema61/protocol7/portable_state2保持；设置导入保留视图、两分钟推进和5/10/1轮分享保留。手动停止及中性回报不改，新任务替换不叠加；意外恢复仅续剩余预算。允许开发分支推送/Draft构建，不合并main/正式发布。其余保护与失败路线见正式记录。
+当前分支agent/v04261-timed-play-recovery，功能7c089e3d/treec22501bd，v0.42.61+305，Actions36894733801成功，Draft401142295可覆盖安装，真机待验。schema61/protocol7/portable_state2保持；+304设置导入保留视图、两分钟推进和5/10/1轮分享保留。手动停止及原中性回报保持，新任务替换不叠加，意外恢复仅续剩余有效预算。保护原生HC/GL、IME、2.8秒摸头、大settings与星谷；旧桌宠素材及第二模型仍按原边界。允许开发分支推送/Draft构建，不合并main/正式发布。后续文档提交不改变APK功能源码。其余保护与失败路线见正式记录。
 
 
 ## 当前交付 · v0.42.58+302 导出刷新、侧栏焦点与星谷交互（CI PASSED / APK READY / TRUE DEVICE PENDING）
@@ -1956,3 +1956,64 @@ MemoryPage保留原编辑/保存/归档，并新增折叠同话题条目和只�
 ### +305 并发完成清理复核
 
 首次提交9828d3c/treec629e994已推送并触发Actions36888245042，原生烟测先通过，尚未交付。复核发现任务结束后的“暂停并释放”原为先读后写，前台在中间接管可能被旧后台清理覆盖；补充仅后台使用的原子完成清理，并比较原活动状态/前台lease/围栏/Brain，原手动方法流程保留。大状态比较在SQLite内返回单个整数，避免重新引入+299的CursorWindow大值问题；追加两个实际SQLite行为回归与本地SQL验证。该后续提交会替代首轮CI并自动取消旧运行，以最终源码和最终CI为交付准据。
+
+
+### +305 最终源码与被替代的构建
+
+- 并发完成保护提交86d0a01a/tree613fb8dc触发36890538387；随后检查Draft文案仍遗留+304说明，补正为本轮任务恢复与计时、保留手动Stop及中性回报。最终构建源码35a8f7633d623a527e94f5e8c5441c64e22721dd/tree6e5c762634d6fea5eb56d3b997fd983a318898fc，Actions36890835883。此前9828d3c和86d0a01a两次运行由新提交主动替代并取消，不是最终产物，也不作为功能回归失败。首次旧运行完整139门已通过，最终仍重跑全部检查。
+- 最终CI、签名APK和真机状态须以随后成功证据更新；此处仅记录源码与替代原因，不预先宣称通过。
+
+
+### +305 中间源码原生回归证据
+
+Actions36890835883原生job110466094042成功。Android15实际XML报告17 tests/0 failures/0 errors/0 skipped，artifact11176213788，ZIP183234bytes，SHA-2561ba213f466c7bef44c36c65dadc8c965cfd552652d6544a60d9d0749c1b48e75；已通过下载工具取回并核验ZIP哈希/XML。包含+304同一renderer热应用/回滚/默认值、同步失败释放租约及旧完整模型恢复等，未把模拟器验收当真机观感。首次直接临时URL下载403，改用授权文件下载成功，不影响源码或CI。最终Flutter、完整构建及APK状态仍待后续证据。
+
+
+### +305 测试调用复核与提前编译检查
+
+复核发现新增回归中的finishExecution(execution)错误使用位置参数，现有方法要求executionId命名参数；已纠正为finishExecution(executionId: execution)。这是新增测试的可避免编译错误，35a8f763运行尚未完成Flutter analyze，主动取消并替代，不能把此前静态字符串门通过当可编译证明。最终构建源码9ff6bf25bb629b0a4b4830ed2c7a99eb7f30cc51/treee5beb5fa8d2914c40696af795fdddc1eaa439fdb，完整Actions36892634426。原生生产代码未变，仍以此最终运行重新校验。
+
+额外只在临时开发分支agent/v04261-recovery-analyze增加快速分析workflow，ff863b0b触发36892856346，checkout显式固定9ff6bf25，对生产Dart与测试全量flutter analyze；不改变交付功能分支，不取代完整素材/原生/行为测试/APK构建。最终以完整运行及签名产物为准。
+
+
+### +305 双数据库并发实际失败与修复候选
+
+快速分析36892856346成功：checkout固定9ff6bf25，生产与测试编译无error；315条info/warning按原非fatal规则，不称零问题。随后快速行为lane64941cfe/Actions36893180747执行4份相关测试（仅不打包无关UI素材，完整APK lane仍保留全部素材验证），实际46 passed/1 failed。唯一失败为两真实SQLite连接同时恢复时BEGIN IMMEDIATE抛SQLITE_BUSY(code5)，不能通过单连接替代或顺序运行掩盖。其余重启/读档预算、临时等待、手动Stop、中性回报元数据、新时长不叠加、真实终局与两分钟节奏已通过。
+
+候选7c089e3d106d932a26004658339cfa9f5c6d95af/treec22501bdca41b0f03c829cdf6176e2b64972eb77仅对tryAcquireLocalLease处理SQLite主结果码5：未获得数据库写事务时视为未获取逻辑lease，返回false，由原唤醒让路重试，保留所有原子事务/owner token/前台围栏，其他异常继续抛出。既有双连接行为测试保持不改。先由临时分析分支19f2b4f/Actions36894284006固定checkout候选，编译及47项复测通过后再推进功能分支和最终完整构建；在通过前不标修复成功。
+
+
+### +305 锁竞争修复复测通过，进入最终完整构建
+
+Actions36894284006/job110477250315对固定7c089e3d先全量analyze（无error，315 info/warning按原非fatal规则），随后实际47 tests passed。原双真实SQLite连接并发恢复测试通过，未改为单连接、未顺序化、未跳过。已将同一候选提交快进到功能分支agent/v04261-timed-play-recovery；最终完整Actions36894733801，source7c089e3d106d932a26004658339cfa9f5c6d95af/treec22501bdca41b0f03c829cdf6176e2b64972eb77。前9ff6bf25完整运行被新源码替代取消，最终以本次139门/全Flutter/原生/Kotlin/APK及签名证据为准。
+
+
+### +304快速交付原文（+305期间迁移保留）
+
+## 当前交付 · v0.42.60+304 设置包导入保留Live2D（CI PASSED / APK READY / TRUE DEVICE PENDING）
+
+- 新版设置存档导入保留当前原生视图；提交/回滚后直接同步动作、缩放位置和摸头区域，缺失键回默认值。旧完整资源包仍恢复模型并重载。+303仅设置导出与两分钟游戏推进保留。
+- 功能9ba2f176/tree5281e748，[Actions36871635441](https://github.com/catkiss62/ai-companion-build/actions/runs/36871635441)首次全绿：138源码门、1059 Flutter、原生17/17、Kotlin/analyze、稳定签名和131资源哈希通过。
+- [未发布+304测试APK](https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-73790dec9e521a871822)，Draft401037240/asset603408682；734320025bytes，稳定签名可覆盖安装。详细SHA及原生报告见正式记录末尾“+304最终构建、回归与APK证据”。手机导入观感尚待验收。
+
+
+### +305 最终源码原生回归（7c089e3d）
+
+Actions36894733801/job110479233862成功，Android15实际XML17 tests/0 failures/0 errors/0 skipped；最终artifact11179416978，ZIP191841bytes，SHA-2567fe5a1e5cdd925a96f3318b687db3c8081016d3f171ff292527b36fd577f77fb。已取回并核验哈希和XML，source固定7c089e3d；不使用被替代35a8f763的原生结果冒充最终。当前继续完整素材恢复/139门/Kotlin/全Flutter与签名APK，原生通过不等于最终构建或真机通过。
+
+
+## +305 最终完整构建、签名与交付证据（2026-10-02；CI PASSED / APK READY / TRUE DEVICE PENDING）
+
+最终功能源码7c089e3d106d932a26004658339cfa9f5c6d95af，treec22501bdca41b0f03c829cdf6176e2b64972eb77；分支agent/v04261-timed-play-recovery，0.42.61+305，schema61/存档protocol7/portable_state2保持。完整[Actions36894733801](https://github.com/catkiss62/ai-companion-build/actions/runs/36894733801)conclusion=success，buildjob110481301479成功、失败诊断job跳过。功能分支未合并main，Release保持Draft。以下正式交付覆盖此前IMPLEMENTED/CI PENDING以及所有被替代运行；后续总账文档提交不改变此APK源码与树。
+
+139项完整验证门通过；Kotlin桌宠/菜菜/文本/ANR脱敏/隐私/备份/资源单元测试通过；Flutter analyze按原非fatal info/warning规则通过（314 info/warning、无error）；实际1082 Flutter tests passed（+304的1059基础上新增23个有效行为用例，原有测试合同按用户授权更新）。最终Android15原生17 tests/0 failures/0 errors/0 skipped、artifact11179416978及ZIP哈希核验见上节。另临时分析分支Actions36894284006对同一7c089e3d固定checkout，无UI素材打包的47项专项实际测试通过；仅作提前反馈，完整构建仍恢复全部固定素材、执行全部139门与1082项行为，不跳过原生/资源门。
+
+修复结果：可迁移的指定时长任务与进程游玩授权分离；重启/读档后当前Brain在原任务/动作lease下以新clockId续用已保存预算，旧lease/fence和Desire自行授权不迁移。30秒原恢复唤醒与45秒原执行心跳保存正常两分钟等待及请求耗时，超过可观测窗口、离线及临时前台让路不补算游玩；保存冻结只暂停时钟，实际备份往返保留任务usedMs。后台完成清理和晚写比较状态/时钟/任务/前台围栏，SQLite大状态比较只返回整数；数据库写事务忙时获取lease返回未获取，由原唤醒重试，其他异常仍抛出。双真实连接并发测试保持不改且已通过。继续使用原唯一执行器、已落库结果和服务端下一调用/原不确定结果处理。
+
+按用户23:17/23:21/23:25最后决定，本地暂停/手动中断仍直接结束当前任务，含旧包缺pause_source的本地paused状态不自动复活；新“玩半小时”从零替换，不叠加旧余额。原Agent工具、态度Pause和最终回报提示词未改，来源仅进入32条有界脱敏诊断，任务回报不含来源/epoch/clockId。真实终局、关闭、适用限制仍按原门结束；临时等待、重启、保存/读档不再被通用runtime_interrupted分支误判终局。两分钟普通单人推进、5/10/1轮分享及+304 Live2D导入不重载均在原生/Flutter回归中保留。
+
+最终Draft401142295：[未发布+305测试APK](https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-fd6b8028d13084f6cc9f)，tagv0.42.61-timed-play-recovery-test，target7c089e3d。APK asset603731423，文件AI-Companion-v0.42.61-305-Timed-Play-Recovery-APK.apk，734330053bytes，SHA-256d4ef7a761b48cc2afc0dfd784abc08c08d839240c7159deecf607386661cf669。SHA文件asset603731424、CI monitor asset603731430；workflow APK artifact11179284801，ZIP727423386bytes，digest e50f062a75dcbc2c4beb2aef882a8d670344a19f9f8730c5965d17d68efbf9dd。授权Release列表、CI实际sha256sum与ci-monitor-v0345/.ci/v04261-monitor.txt的run/head/URL/hash一致，未用旧包替代。
+
+稳定测试签名305eb3d80983b963c64818ddf1ad561f279de6d47b3ed2c781ada448c7c25148，实际APK签名校验步骤成功，与+304及前轮稳定身份一致，可覆盖安装保留数据。所有131个离线Memory Galaxy资源在APK中hash-exact；外部导入Live2D/表情包不重新打入存档，不提交用户原始包/诊断或私密配置到公开仓。原生/Flutter检查通过不证明手机视觉或远端模型规划自然语言已验收。
+
+真机重点：覆盖安装后发10分钟或20分钟游戏任务，正常两分钟推进；切出后重新启动、保存/读档或聊天暂让路，回来只续剩余有效预算，离线不算、无重复终止回报；手动停止后重启不得恢复已结束任务；读取停止后保存的存档也不得续玩。新半小时不叠加旧余额，结束语气沿用原设置。同时检查设置存档导入人物无重载、导出保持外部资源排除。真实终局/关闭等仍正常结束。当前CI PASSED / APK READY / TRUE DEVICE PENDING；用户未回报本版真机结果，不宣称TRUE DEVICE PASSED。
