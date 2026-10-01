@@ -1,28 +1,26 @@
 # AI Companion · 当前总账
 
-更新时间：2026-10-01（+303 CI PASSED / APK READY / TRUE DEVICE PENDING；+302 CI PASSED / APK READY / TRUE DEVICE PENDING；+301 CI PASSED / APK READY / TRUE DEVICE PENDING；+300 CI PASSED / APK READY / TRUE DEVICE PENDING；+299 CI PASSED / APK READY / TRUE DEVICE PENDING；+298 CI PASSED / APK READY / TRUE DEVICE PENDING；+297 CI PASSED / APK READY / TRUE DEVICE PENDING；+295 恢复真机成功、背景回归 PARTIAL；+293 DEVICE VISUAL BASELINE）
+更新时间：2026-10-01（+304 CI PASSED / APK READY / TRUE DEVICE PENDING；+303 CI PASSED / APK READY / TRUE DEVICE PENDING；+302 CI PASSED / APK READY / TRUE DEVICE PENDING；+301 CI PASSED / APK READY / TRUE DEVICE PENDING；+300 CI PASSED / APK READY / TRUE DEVICE PENDING；+299 CI PASSED / APK READY / TRUE DEVICE PENDING；+298 CI PASSED / APK READY / TRUE DEVICE PENDING；+297 CI PASSED / APK READY / TRUE DEVICE PENDING；+295 恢复真机成功、背景回归 PARTIAL；+293 DEVICE VISUAL BASELINE）
 
 > 本文件是唯一的当前接班入口，继续采用“总账 v2”。顶部是快速接班索引；标记后的正式记录按版本持续追加，不设总容量上限。
 >
 > 判断优先级：用户最新明确决定 > 当前 GitHub 源码与 Actions > 同时刻脱敏真机诊断/备份 > 本文件 > 冻结归档与 Git 历史。`DESIGNED`、`IMPLEMENTED`、`CI PASSED`、`APK READY`、`TRUE DEVICE PASSED`、`PENDING` 必须严格区分。
 
 
-## 当前实施 · v0.42.60+304 设置包导入保留Live2D（IMPLEMENTED / CI PENDING）
+## 当前交付 · v0.42.60+304 设置包导入保留Live2D（CI PASSED / APK READY / TRUE DEVICE PENDING）
 
-- 用户2026-10-01 21:33授权开始修改；基线+303功能afe1baa5、总账c8074c9。独立分支agent/v04260-settings-import-live2d；v0.42.60+304/schema61/ZIP7/portable_state2。
-- 设置包不释放原生模型、不增加Flutter模型revision；成功或回滚后同步动作/舞台/摸头区域，缺失键回默认值。旧完整资源包保留释放/重载与回滚。源码、回归及Draft APK构建进行中，真机PENDING。
-- +303导出用户已确认；新包54,425,356bytes、外部资源0及全部SHA通过。+298/+300差异、设计与证据见正式记录末尾。
+- 新版设置存档导入保留当前原生视图；提交/回滚后直接同步动作、缩放位置和摸头区域，缺失键回默认值。旧完整资源包仍恢复模型并重载。+303仅设置导出与两分钟游戏推进保留。
+- 功能9ba2f176/tree5281e748，[Actions36871635441](https://github.com/catkiss62/ai-companion-build/actions/runs/36871635441)首次全绿：138源码门、1059 Flutter、原生17/17、Kotlin/analyze、稳定签名和131资源哈希通过。
+- [未发布+304测试APK](https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-73790dec9e521a871822)，Draft401037240/asset603408682；734320025bytes，稳定签名可覆盖安装。详细SHA及原生报告见正式记录末尾“+304最终构建、回归与APK证据”。手机导入观感尚待验收。
 
-## 当前交付 · v0.42.59+303 游戏推进与仅设置备份（CI PASSED / APK READY / TRUE DEVICE PENDING）
+## +303 已交付基线
 
-- 按用户最新决定覆盖+300资源方案：只保存Live2D/表情包等设置，外部导入资源不打包；保留+302纯导出不重载。按实际包约159.7MB中约105.3MB为资源压缩数据，新导出预计约54MB，手机实际值待验。
-- 持续单人不再用15秒覆盖普通2分钟或更长服务端等待；所有过程分享出口统一5/10/1轮门及发送水位。默认5轮约10分钟，终止回报和多人协议保留。
-- 新包导入保留本机模型/表情包及索引，恢复设置；旧150MB完整资源包兼容。新portable_state版本2需+303或以上导入，旧App明确拒绝；API密钥仍排除。
-- 功能afe1baa5/treef4eda290，[Actions36860037884](https://github.com/catkiss62/ai-companion-build/actions/runs/36860037884) success：137源码门、1056 Flutter、原生14/14和签名/131资源哈希通过。[未发布+303测试APK](https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-cb53feb090790f12ef38)，Draft400893101/asset603227522；稳定签名可覆盖安装。最终SHA、失败路线及真机边界见正式记录末尾“+303最终构建、回归与APK证据”。
++303功能afe1baa5/Actions36860037884成功，设置存档不打包外部资源、持续单人两分钟与5/10/1轮分享保留；导出已获用户真机确认，导入重载由+304修正。旧快速索引全文迁至正式记录末尾，失败路线和APK证据保留。
 
 ## 当前接班快照 · 2026-10-01
 
-当前开发分支agent/v04260-settings-import-live2d，v0.42.60+304/schema61/ZIP protocol7/portable_state2；基线+303功能afe1baa5/Actions36860037884成功，+304导入不重载实施与CI进行中，真机待验。新增仅设置备份与持续单人两分钟；基线+302的导出不重载、焦点及星谷交互保留。保护菜菜HC/GLSurfaceView、IME、摸头2.8秒、大settings读取、星谷只读。第二套Live2D未实现；旧桌宠素材暂缓；七大规则删除放弃。允许开发分支推送与Draft APK构建，不合并main/正式发布。后续文档提交不改变APK功能源码。
+当前分支agent/v04260-settings-import-live2d，功能9ba2f176/tree5281e748（tree全值见末尾），v0.42.60+304/schema61/ZIP protocol7/portable_state2，Actions36871635441成功，真机待验。设置导入保留视图并热同步；+303仅设置备份、持续单人两分钟与分享门保留。保护菜菜HC/GLSurfaceView、IME、摸头2.8秒、大settings读取、星谷只读。第二套Live2D未实现；旧桌宠素材暂缓；七大规则删除放弃。允许开发分支推送与Draft APK构建，不合并main/正式发布。后续文档提交不改变APK功能源码。
+
 
 ## 当前交付 · v0.42.58+302 导出刷新、侧栏焦点与星谷交互（CI PASSED / APK READY / TRUE DEVICE PENDING）
 
@@ -1881,3 +1879,29 @@ MemoryPage保留原编辑/保存/归档，并新增折叠同话题条目和只�
 代码IMPLEMENTED；本地138项逐项检查131通过，7项仅缺既有构建依赖：Live2DCubismCore.aar为LFS占位，立绘/桌宠/lingchat效果/星谷131资源未恢复，且未安装kotlinc。+304新门、+303备份/节奏门、+300完整存档门和总账门通过；diff --check通过。未把本地缺依赖记作全套通过，Flutter/原生行为尚未执行，完整Actions负责恢复固定资源并运行138门、Flutter、原生17项、Kotlin/analyze、签名和APK资源哈希。
 
 生产热点仅修改portable释放/最终偏好通知、Dart模型revision登记和原生视图偏好读取/热同步。既有Java渲染器、GL生命周期、Stage Dart组件、模型加载/普通模型ZIP导入未修改；相同参数不重复更新动作或舞台，避免重置既有舞台运动。新增偏好读取器同时用于首次构造与热应用；回归直接检查生产SenRenderer字段和原视图/context保持，但不等同手机屏幕验收。公开分支提交仅源码/测试/工作流/总账，不含用户存档、诊断、模型或密钥。
+
+
+### +303 原快速交付索引迁移留档
+
+## 当前交付 · v0.42.59+303 游戏推进与仅设置备份（CI PASSED / APK READY / TRUE DEVICE PENDING）
+
+- 按用户最新决定覆盖+300资源方案：只保存Live2D/表情包等设置，外部导入资源不打包；保留+302纯导出不重载。按实际包约159.7MB中约105.3MB为资源压缩数据，新导出预计约54MB，手机实际值待验。
+- 持续单人不再用15秒覆盖普通2分钟或更长服务端等待；所有过程分享出口统一5/10/1轮门及发送水位。默认5轮约10分钟，终止回报和多人协议保留。
+- 新包导入保留本机模型/表情包及索引，恢复设置；旧150MB完整资源包兼容。新portable_state版本2需+303或以上导入，旧App明确拒绝；API密钥仍排除。
+- 功能afe1baa5/treef4eda290，[Actions36860037884](https://github.com/catkiss62/ai-companion-build/actions/runs/36860037884) success：137源码门、1056 Flutter、原生14/14和签名/131资源哈希通过。[未发布+303测试APK](https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-cb53feb090790f12ef38)，Draft400893101/asset603227522；稳定签名可覆盖安装。最终SHA、失败路线及真机边界见正式记录末尾“+303最终构建、回归与APK证据”。
+
+
+
+## +304 最终构建、回归与APK证据（2026-10-01）
+
+功能远端9ba2f176d30501dabe3cdf08c09f58f32e9600ea，tree5281e748bdf4f2d17e17376589b0c58e03991daf；本地首提交7adcf6ad6de2a9ff0b8bd1d55c0b7739f2be3e9b与远端同tree，上传21个源码/测试/工作流/总账blob及总tree逐个校验。随后本地同步远端且工作树干净。此最终接班文档采用后续[skip ci]提交，只改唯一总账，不改变APK功能树。
+
+[Actions36871635441](https://github.com/catkiss62/ai-companion-build/actions/runs/36871635441)，run_attempt1，head9ba2f176，conclusion=success。本轮无失败CI或改用弱化测试；先前本地7项缺依赖仍保留为本地限制。Actions恢复固定依赖后：138源码/回归门全过、Kotlin桌宠/悬浮窗测试与编译通过、Flutter analyze按既有no-fatal-infos/no-fatal-warnings配置通过（306条info/warning，未宣称零提示）、Flutter1059项全部通过，arm64 Release编译、稳定签名、Genie/桌宠/塔罗/shader与APK资源校验通过。
+
+原生Android15实际报告17 tests/0 failures/0 errors/0 skipped，artifact11167726170，ZIP168209bytes，SHA-2566e8433e2fd693b54eb9e0de9e8c5bb33cde3589f955f0b2ff58c2dd5cf6c80bb，已下载核验XML与ZIP哈希。新增三项为同一原生renderer热应用/回滚/缺失键默认值、同步失败保留错误并释放lease、旧模型恢复保留release/index与不热同步；已有settings-only外部文件/索引回归改为release=0及finish才sync。Flutter原生通道回归10项包括设置成功/回滚/部分apply失败/finish失败revision均不变，同时保留旧模型恢复revision+1和纯导出不刷新。生产reader与实际CaicaiCompanionView/SenRenderer通过模拟器验证；Flutter PlatformView实际手机屏幕表现尚未验收，不冒充TRUE DEVICE PASSED。
+
+最终Draft401037240：[未发布+304测试APK](https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-73790dec9e521a871822)，tagv0.42.60-settings-import-live2d-test，target9ba2f176。APK asset603408682，文件AI-Companion-v0.42.60-304-Settings-Import-Live2D-APK.apk，734320025bytes，SHA-256 ea7afacc400643c13e9f385627ccc31cd4c40ae2636549fc66ca101344dac707。SHA文件asset603408683、CI monitor asset603408681；APK workflow artifact11168014447，727411299bytes，其ZIPdigest f44a0080fec5f5d9427fb84e2d89052d74a316539a13895fad70d91898ce9a1c。Release计算的APK digest、CI sha256sum、ci-monitor-v0345/.ci/v04260-monitor.txt三者相符，monitor head/run/Release URL与本轮功能一致。Draft按tag REST读取404，改用授权Release列表解析ID401037240后核验，未用旧版产物代替。
+
+实际APK签名305eb3d80983b963c64818ddf1ad561f279de6d47b3ed2c781ada448c7c25148，与稳定测试签名及+303一致，可覆盖安装保留数据。所有131个离线Memory Galaxy资源在APK中hash-exact；原有Java renderer、宿主/GL生命周期、Dart Stage组件未改。+303资源排除、只读导出不重载、游戏推进/分享修复全部保留；外部资源不提交公开仓或重新打包进存档。
+
+当前状态CI PASSED / APK READY / TRUE DEVICE PENDING；+303导出已获用户真机确认，不能据此把+304导入判真机通过。手机需覆盖安装后导入同一54.4MB新存档：人物无消失/重新载入、当前view/execution_id保持，动作/缩放位置/摸头区域按存档同步；导出仍不刷新，普通聊天/切页/输入法保留。不同设置、无已安装模型及旧完整资源包导入按各自范围验收。未合并main、未发布正式Release。
