@@ -1,13 +1,13 @@
 # AI Companion · 当前总账
 
-更新时间：2026-10-02（+305 CI PASSED / APK READY / DEVICE REPORTED REPLY STALL；+304 CI PASSED / APK READY / TRUE DEVICE PENDING；+303 CI PASSED / APK READY / TRUE DEVICE PENDING；+302 CI PASSED / APK READY / TRUE DEVICE PENDING；+301 CI PASSED / APK READY / TRUE DEVICE PENDING；+300 CI PASSED / APK READY / TRUE DEVICE PENDING；+299 CI PASSED / APK READY / TRUE DEVICE PENDING；+298 CI PASSED / APK READY / TRUE DEVICE PENDING；+297 CI PASSED / APK READY / TRUE DEVICE PENDING；+295 恢复真机成功、背景回归 PARTIAL；+293 DEVICE VISUAL BASELINE）
+更新时间：2026-10-02（+306 CI PASSED / APK READY / TRUE DEVICE PENDING；+305 CI PASSED / APK READY / DEVICE REPORTED REPLY STALL；+304 CI PASSED / APK READY / TRUE DEVICE PENDING；+303 CI PASSED / APK READY / TRUE DEVICE PENDING；+302 CI PASSED / APK READY / TRUE DEVICE PENDING；+301 CI PASSED / APK READY / TRUE DEVICE PENDING；+300 CI PASSED / APK READY / TRUE DEVICE PENDING；+299 CI PASSED / APK READY / TRUE DEVICE PENDING；+298 CI PASSED / APK READY / TRUE DEVICE PENDING；+297 CI PASSED / APK READY / TRUE DEVICE PENDING；+295 恢复真机成功、背景回归 PARTIAL；+293 DEVICE VISUAL BASELINE）
 
 > 本文件是唯一的当前接班入口，继续采用“总账 v2”。顶部是快速接班索引；标记后的正式记录按版本持续追加，不设总容量上限。
 >
 > 判断优先级：用户最新明确决定 > 当前 GitHub 源码与 Actions > 同时刻脱敏真机诊断/备份 > 本文件 > 冻结归档与 Git 历史。`DESIGNED`、`IMPLEMENTED`、`CI PASSED`、`APK READY`、`TRUE DEVICE PASSED`、`PENDING` 必须严格区分。
 
 
-## 当前修复 · v0.42.62+306（IMPLEMENTED / TEST PENDING）
+## 当前交付 · v0.42.62+306（CI PASSED / APK READY / TRUE DEVICE PENDING）
 
 +305用户真机报告：指定时长工具登记后正文等待、读档慢，不能再视为已验收。新诊断01:29/01:31两次停在工具完成到最终正文；现有证据不证明第二通道服务端原因。修无输出期间聊天租约过期、SSE保活无限延长超时；读档76418行改有界批次、单事务完整回滚。手动Stop/中性回报、两分钟游戏间隔、Live2D设置导入不重载均保留。新增无正文请求阶段和恢复阶段耗时诊断，不存用户正文或密钥。先专项验证再构建；未经手机实测不标TRUE DEVICE PASSED。
 
@@ -21,7 +21,8 @@
 
 ## 当前接班快照 · 2026-10-02
 
-当前分支agent/v04261-timed-play-recovery，功能7c089e3d/treec22501bd，v0.42.61+305，Actions36894733801成功，Draft401142295可覆盖安装，真机待验。schema61/protocol7/portable_state2保持；+304设置导入保留视图、两分钟推进和5/10/1轮分享保留。手动停止及原中性回报保持，新任务替换不叠加，意外恢复仅续剩余有效预算。保护原生HC/GL、IME、2.8秒摸头、大settings与星谷；旧桌宠素材及第二模型仍按原边界。允许开发分支推送/Draft构建，不合并main/正式发布。后续文档提交不改变APK功能源码。其余保护与失败路线见正式记录。
+当前分支agent/v04261-timed-play-recovery，+306功能65b21322693b4e9b67f907a9d476d9ff90cf286f/tree6e4d99b7e860525b62165d200393999001931a59，Actions36904432860完整success，Flutter1092/原生17项通过，139门、Kotlin/analyze及资源签名通过。[+306测试APK](https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-47419c1a160cf54bd59a)。+305用户真机报告工具登记后无正文，不能称已验收。三版同一完整模拟流程与+306候选均通过，专项72项通过；真实第二通道卡住直接原因仍未确认。Cedar首页实测HTTP200，MCP被Cloudflare1010拦截，不能据此宣布官方宕机。schema61/protocol7/portable_state2不变；手动Stop与中性回报、两分钟推进、5/10/1轮分享和Live2D设置导入不重载保留。允许开发分支推送/Draft构建，不合并main/正式发布。其余证据与保护见正式记录。
+
 
 
 ## 当前交付 · v0.42.58+302 导出刷新、侧栏焦点与星谷交互（CI PASSED / APK READY / TRUE DEVICE PENDING）
@@ -2026,3 +2027,26 @@ Actions36894733801/job110479233862成功，Android15实际XML17 tests/0 failures
 - 功能7c089e3d/treec22501bd，[Actions36894733801](https://github.com/catkiss62/ai-companion-build/actions/runs/36894733801)成功：139门、1082 Flutter、原生17/17、Kotlin/analyze、稳定签名及131星谷资源哈希通过；另47项专项实际行为通过。完整SHA/替代及失败路线见正式记录末尾。手机实测待验。
 
 用户报告指定时长工具登记后对话卡住、读取存档慢。实际+305诊断显示第二通道启用，工具阶段成功，最终正文未提交；两次工具后等待分别约89秒（用户停止）和约61秒（导出时），不能凭此声称已证实服务端永久挂起。新备份76418行，state.json 34293945字节，恢复每行独立await txn.insert。代码确认聊天续期依赖delta、原网络超时作用于原始字节（保活会重置），分别修复为既有取消围栏续期、有效delta无进展超时。第二通道策略/重试次数/120秒阈值保持。批量恢复128行或256K字符一批，仍在同一事务；不截断大settings，不删除历史。新增专项行为测试与阶段诊断；测试和APK待完成。用户私有备份/诊断不提交仓库。
+
+
+### +306 三版对照、实际连接与专项验证 · 2026-10-02 02:08
+
+- 对照功能：+303 afe1baa5、+304 9ba2f176、+305 7c089e3d；前三版deepseek_client、final_reply_route、agent_tool_runner对应Git blob完全相同。+303→+304功能差异是Live2D设置导入，不改游戏/正文流程；+305在durable runner进入生成前增加游戏时钟pause，另改游戏恢复/计时/写入围栏。
+- 用户的新截图01:58显示钓鱼10分钟同样停在已登记、活动已在本机暂停。17:32备份实际白房间旧session是paused且pause_source为空，01:29、01:31只有新guide事件，没有新play outcome。不能把工具登记当游戏已经开始；三版均在正文提交后activateCommitted。
+- MCP实际只读连通探测：Cedar首页HTTP200约10.28s；initialize/tools/list/list_games均403。进一步读取403响应确认Cloudflare1010 browser_signature_banned；在确认拒绝后停止重试，未换身份绕过。此环境访问被站点拦截不证明官方宕机；用户01:31目录/指南约2s成功。无用户Token/API密钥被导出/提交/打印，也未改其远端游戏进度。两个备份的正文provider、endpoint、model一致（第二通道启用），不是此次升级换了正文配置。
+- 候选1fe7577、019199d的第一轮快检36903090152：完整流程四版均通过提交/激活断言，但测试把一次内部DeepSeek判断计成第二次最终正文，计数断言失败；修正为按真实第二通道endpoint计数，没有放宽提交/任务激活断言。另无进展超时用内层async*过滤SSE，取消会等待下一yield，空保活测试真实超时失败；改为可取消的asyncMap/filter流解析，保留原失败用例，不降低门。
+- 最终候选65b21322693b4e9b67f907a9d476d9ff90cf286f/tree6e4d99b7e860525b62165d200393999001931a59。快检36904052231全绿：分析无error（316既存/提示级问题），72项行为测试通过；独立matrix将同一timed_reply_pipeline_v04262_test放到+303/+304/+305/+306，四组全部成功，覆盖真实runner、本地native timed tool、模拟第二通道正文、SQLite正式提交、paused游戏恢复激活。不是外网模型/MCP游戏实测，不能将它等同用户真机根因已修复。
+- 无输出期间改在既有取消围栏检查续30秒聊天租约，10秒间隔；不会另起游戏循环或请求模型。失去所有权只suspend，显式用户Stop仍cancelled_by_user。SSE无有效delta才触发120秒deadline，空保活不续命，错误HTTP响应体也有deadline；保留原第二通道两次尝试及失败后DeepSeek兜底策略。诊断增加body-free generationRequest和backupRestoreTiming。
+- 实际存档76418行，按128行/256Ki字符批次估算632次插入batch代替76418次逐条调用；不裁剪历史、不截断大setting，单一事务保持。4万行实际SQLite完整恢复、末尾坏行回滚全部旧批次、大于3MiB设置无损测试均通过；手机实际耗时待新诊断验证，不能拿CI速度当手机速度。
+- 本地当前139门中132通过，7项因缺资源/原生工具等待完整Actions恢复（不是逻辑失败）；误对273个历史validator全量执行的结果不作为当前门。完整APK36904432860已开始，尚未交付，后续文档提交不改变65b2132功能构建源。
+
+
+### +306 最终构建交付 · 2026-10-02 02:32
+
+- 功能源65b21322693b4e9b67f907a9d476d9ff90cf286f/tree6e4d99b7e860525b62165d200393999001931a59；完整Actions36904432860（18:07—18:31 UTC）success。139项源码/回归门、Kotlin原生测试与编译、Flutter analyze（316 info/warning按既有非fatal规则，无error）、1092项Flutter测试、arm64 Release APK、稳定签名和固定资源校验全部成功。快检36904052231的72项及四版本模拟流程成功证据仍见上节，不能替代外部服务或手机验收。
+- Android15原生报告17 tests/0 failures/0 errors/0 skipped；Artifact11182599694，ZIP195846bytes，SHA-2565e78e7c66800a4a2d97d420bd58ea0bbc66ef6e290082e16a159991faf223ce4，已下载核验XML。APK内131个离线Memory Galaxy文件、49个Genie/Jiuhu/OpenJTalk文件与22个塔罗JPG均hash-exact，桌宠等完整载荷门全部通过。
+- [未发布+306测试包](https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-47419c1a160cf54bd59a)，Draft401242273/tag v0.42.62-reply-wait-restore-test，target65b2132；APK AI-Companion-v0.42.62-306-Reply-Wait-Restore-APK.apk，asset603874804，734338929bytes，SHA-2563aa13a278f75eb501921a1513bb30f2da96e01090ea09f60efaa56f840baf793。CI实际checksum、GitHub资产digest、ci-monitor-v0345/.ci/v04262-monitor.txt一致。工作流APK Artifact11185311176（压缩包digest c6a1dce43caee3eb81e8b73d6ec2cf07fc975514f099f633388ea727899ed89d）。未在本机再次下载734MB APK，不冒充本地重新验签。
+- CI实际V2签名证书SHA-256305eb3d80983b963c64818ddf1ad561f279de6d47b3ed2c781ada448c7c25148，与前版稳定测试签名一致。仍为Draft测试，不合并main、不正式发布。
+- 交付边界：修复已确认的无输出租约续期/SSE有效进展超时缺陷、批量事务读档和脱敏阶段诊断；这次真实手机“登记后没有正文”的直接根因仍未证实，不能声称根因已修复或官方宕机。公开MCP探测被Cloudflare1010阻断后已停止，未绕过拦截、未用用户身份实际启动远程游戏。新版指定时长正常回复并开始游玩、真机读档速度仍为TRUE DEVICE PENDING。
+- Draft原工作流沿用+305说明，已由仅说明修正的临时工作流36907621577成功替换为+306实际改动和未确认根因边界；helper提交85fc7f09edf0e0d30f8d4496e2a12627501a3f23。修正前验证完整构建success及Draft/target65b，修正后API复核正文一致、draft仍true、APK目标与资产不变；不重打APK。
+- GitHub在编辑Draft说明后将html_url更新为untagged-47419c1a160cf54bd59a，顶部及交付链接已同步最新API；CI monitor保留构建时旧Draft路径，run/head/checksum不变，Release id401242273及APK asset603874804仍一致。
