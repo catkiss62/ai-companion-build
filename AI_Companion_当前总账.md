@@ -7,6 +7,12 @@
 > 判断优先级：用户最新明确决定 > 当前 GitHub 源码与 Actions > 同时刻脱敏真机诊断/备份 > 本文件 > 冻结归档与 Git 历史。`DESIGNED`、`IMPLEMENTED`、`CI PASSED`、`APK READY`、`TRUE DEVICE PASSED`、`PENDING` 必须严格区分。
 
 
+## 当前检查 · 设置包导入保留Live2D（DESIGNED / 尚未改产品代码）
+
+- 用户2026-10-01 21:18确认+303导出没问题，指出导入仍重载，要求对比存档出错前版本并判断改法。本轮仅源码/实际包检查与方案，总账更新；不提前构建APK。
+- 新包54,425,356bytes/约51.9MiB，ZIP protocol7/portable_state2、外部资源0，state及84媒体SHA-256通过，无重复路径。+303导出部分已获真机确认；全版本真机状态仍为PENDING。
+- 对比+298：Stage组件无变化；+300恢复流程新增releaseModel和模型revision，+303设置恢复仍无条件执行两者。方案为设置恢复保留原生视图、成功/回滚后同步缓存参数；只有真实模型替换才释放/重建。证据、验证目标见正式记录末尾“+303导入重载定点检查与修正方案”。
+
 ## 当前交付 · v0.42.59+303 游戏推进与仅设置备份（CI PASSED / APK READY / TRUE DEVICE PENDING）
 
 - 按用户最新决定覆盖+300资源方案：只保存Live2D/表情包等设置，外部导入资源不打包；保留+302纯导出不重载。按实际包约159.7MB中约105.3MB为资源压缩数据，新导出预计约54MB，手机实际值待验。
@@ -1849,3 +1855,13 @@ MemoryPage保留原编辑/保存/归档，并新增折叠同话题条目和只�
 - [未发布+303测试APK](https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-cb53feb090790f12ef38)：Draft400893101，tagv0.42.59-game-cadence-settings-backup-test，target afe1baa58a5e9f63412ff1913aa14b64ebafced4；APK asset603227522，AI-Companion-v0.42.59-303-Game-Cadence-Settings-Backup-APK.apk，734318257bytes，SHA-256 d543f443b408ca9814e6b4cc00f144cbaa69681a589894cb541534140a038558。sha256附件603227521、CI Monitor附件603227536。APK Artifact11163140428 ZIP digest a6fb633d48385a5596d24be179dc6fdb4143be8fc9ad5098dfdeb147a6125600是归档哈希，不与APK文件哈希混用。
 - ci-monitor-v0345/.ci/v04259-monitor.txt为status=success、run36860037884、head afe1baa5；Release target、monitor源码/签名/APK checksum、GitHub资产digest及Release URL逐项一致。未在当前环境重新下载700余MB APK，以CI实际验签/载荷核验与GitHub资产digest交叉确认；不宣称本地再验签。继续Draft测试交付，不合并main、不正式发布，不上传真实模型/备份/私密诊断。
 - 当前状态IMPLEMENTED / CI PASSED / APK READY / TRUE DEVICE PENDING。手机验收：导出文件约50多MB且Live2D不重新载入；新包导入已有设置正确、已安装模型/表情包仍在；持续普通单人每轮至少两分钟，默认5轮的过程分享约十分钟，终止报告不等攒轮数。实际模型/设备导出与后台节奏仍待用户反馈；不要据自动测试宣称真机通过。
+
+### +303导入重载定点检查与修正方案 · 2026-10-01（DESIGNED / IMPLEMENTATION NOT STARTED）
+
+- 用户21:18反馈导出没问题，导入仍导致Live2D重新加载，要求对比存档出错前版本。工作区基线308ac6a（仅交付总账）、功能afe1baa5；本轮无产品/测试/版本/工作流改动，无新APK。此前+303关于导出不重载/资源排除的真机反馈可记该子项通过，不能扩大为整个+303真机验收。
+- 只读核验新附件AI_Companion_Backup_2026-10-01T13-14-48.aibackup（libfile_1c5f1c15ae948191b83ecdb8a3b21c22）：54,425,356bytes、86项（state/manifest及84媒体）；protocol7/schema61、portable_state2/resource_files=external、portable_bytes=0，两域文件清单为空。state及84媒体SHA-256全部一致、无重复ZIP路径；stage设置包含headBottom/headLeft/headRight/headTop/scale/x/y。没有改写用户存档，也未上传附件到公开仓。
+- 存档CursorWindow错误前功能基线v0.42.54+298/869a117e。该SnapshotService用protocol6恢复数据库和已有媒体，不调用任何portable native apply/releaseModel/revision。CaicaiLive2DStage自+298至+303逐字节相同；恢复页面也没有新建整个App或pushReplacement。主要变化来自+300提交99ee951新增便携资源/原生设置恢复，不是+299无损大settings读取或Live2D载入机制改变。
+- 当前v2 prepare已经restoreModels=false，不交换外部模型/表情包目录；但PortableCompanionState.apply仍无条件releaseModel，实际调用CaicaiRuntime.releaseModel→stopForDeletion→dispose，销毁原生视图。AndroidPortableBackend.apply仍无条件把token加入_reloadAfterFinish，finish递增revision，Stage监听后增加_modelRevision/ValueKey并创建新PlatformView。即使设置完全相同也执行这两个步骤，因此能直接解释本次设备反馈。+303现有settings-only restore测试还明确期望revision+1：测试符合当时实现，但这个保留不符合用户现在要求，下一次要改正确行为断言。
+- 修正方案：原生release及Dart模型revision都仅绑定真实模型资源恢复；新v2设置包不释放renderer、不改变模型revision/原生view身份。偏好仍先完整校验并保持原提交/回滚，完成后对活跃视图同步最终caicai_stage缓存：动作gain/speed/pivot、scale/x/y、头部触摸区域，缺省值也按原默认恢复。复用tuneCaicaiMotion和applyStage(persist=false)，不通过重新载入模型读取设置；设置相同则跳过渲染更新，无活跃视图时由下次创建读取。恢复失败回滚后同步回原设置，不重建视图、不隐藏错误。
+- 旧protocol6导入继续不碰原生资源；旧150MB/portable_state1包若确实替换模型文件仍按现事务释放并重建一次。独立ZIP模型导入/删除同样仍需重建，不为追求所有情况零重载而留下失效GL模型。新方案不动HC/GLSurfaceView、IME、Stage载入/生命周期、资源目录或+299大settings修复。
+- 后续实施验证（尚未执行）：新包导入成功/中途失败/回滚/finish失败均不递增模型revision、不调用release；恢复不同设置及删除缺省键后，活跃视图位置/缩放/动作/摸头区域立即正确且view/execution identity保持；无模型/未打开聊天仍能恢复设置；导出零重载和旧资源包真实替换继续回归。沿用已获授权的开发分支/Draft构建；本轮为定点检查与方案，没有新增功能版本或APK。
