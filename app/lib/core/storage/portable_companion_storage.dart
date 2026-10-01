@@ -37,6 +37,7 @@ abstract class NativePortableBackend {
 
 class AndroidPortableBackend implements NativePortableBackend {
   static const _channel = MethodChannel('ai_companion/caicai_live2d');
+  final Set<String> _reloadAfterFinish = {};
   @override
   Future<NativePortableSnapshot> begin({bool exporting = false}) async {
     final raw = await _channel.invokeMapMethod<String, dynamic>(
@@ -73,21 +74,32 @@ class AndroidPortableBackend implements NativePortableBackend {
   Future<void> apply(
     NativePortableSnapshot snapshot,
     Map<String, dynamic> preferences,
-  ) => _channel.invokeMethod<void>('portableApply', {
-    'token': snapshot.token,
-    'preferences': preferences,
-  });
+  ) async {
+    // Mark before awaiting: a native apply may release the renderer and then
+    // fail partway through. Its rollback must also recreate the stage.
+    _reloadAfterFinish.add(snapshot.token);
+    await _channel.invokeMethod<void>('portableApply', {
+      'token': snapshot.token,
+      'preferences': preferences,
+    });
+  }
   @override
   Future<void> finish(
     NativePortableSnapshot snapshot, {
     required bool commit,
   }) async {
-    await _channel.invokeMethod<void>('portableFinish', {
-      'token': snapshot.token,
-      'commit': commit,
-    });
-    // Recreate the stage so it rereads the installed package and calibration.
-    CaicaiLive2DService.revision.value++;
+    try {
+      await _channel.invokeMethod<void>('portableFinish', {
+        'token': snapshot.token,
+        'commit': commit,
+      });
+    } finally {
+      // Read-only export/validation does not change the installed model.
+      // Applied restores (including partial failure/rollback) do need a reload.
+      if (_reloadAfterFinish.remove(snapshot.token)) {
+        CaicaiLive2DService.revision.value++;
+      }
+    }
   }
 }
 

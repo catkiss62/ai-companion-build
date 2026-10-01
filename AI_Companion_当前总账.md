@@ -1,11 +1,21 @@
 # AI Companion · 当前总账
 
-更新时间：2026-10-01（+301 CI PASSED / APK READY / TRUE DEVICE PENDING；+300 CI PASSED / APK READY / TRUE DEVICE PENDING；+299 CI PASSED / APK READY / TRUE DEVICE PENDING；+298 CI PASSED / APK READY / TRUE DEVICE PENDING；+297 CI PASSED / APK READY / TRUE DEVICE PENDING；+295 恢复真机成功、背景回归 PARTIAL；+293 DEVICE VISUAL BASELINE）
+更新时间：2026-10-01（+302 IMPLEMENTATION IN PROGRESS / CI PENDING / APK PENDING / TRUE DEVICE PENDING；+301 CI PASSED / APK READY / TRUE DEVICE PENDING；+300 CI PASSED / APK READY / TRUE DEVICE PENDING；+299 CI PASSED / APK READY / TRUE DEVICE PENDING；+298 CI PASSED / APK READY / TRUE DEVICE PENDING；+297 CI PASSED / APK READY / TRUE DEVICE PENDING；+295 恢复真机成功、背景回归 PARTIAL；+293 DEVICE VISUAL BASELINE）
 
 > 本文件是唯一的当前接班入口，继续采用“总账 v2”。顶部是快速接班索引；标记后的正式记录按版本持续追加，不设总容量上限。
 >
 > 判断优先级：用户最新明确决定 > 当前 GitHub 源码与 Actions > 同时刻脱敏真机诊断/备份 > 本文件 > 冻结归档与 Git 历史。`DESIGNED`、`IMPLEMENTED`、`CI PASSED`、`APK READY`、`TRUE DEVICE PASSED`、`PENDING` 必须严格区分。
 
+
+## 当前任务 · v0.42.58+302 导出刷新、侧栏焦点与星谷交互（IMPLEMENTATION IN PROGRESS / CI PENDING / APK PENDING / TRUE DEVICE PENDING）
+
+用户2026-10-01 10:02授权按五色方案实施，并修导出后Live2D重载和侧栏输入法；延续长按最近记忆方案。基线+301功能54a15696、总账552b78e4（本地addda81同tree48bab8ab），分支agent/v04258-backup-focus-galaxy-pick，版本0.42.58+302；schema61/protocol7保持。
+
+- 纯导出只结束读取租约；真正尝试应用原生恢复后，成功或回滚均刷新Live2D。保留完整存档和大settings无损读取，不调整渲染/生命周期。
+- 统一侧栏入口先清除输入焦点及恢复历史，保留草稿和正常点选输入。
+- 五色：共同经历#ff7ec4、用户资料#7ed9cc、AI Self#b98cff、偏好/边界#8f9fff、其他#ffa18f；重要度大小/亮度保持。
+- 550ms单指静止长按选择屏幕投影最近的可见真实记忆，无距离上限；短按保留射线选择。拖动、多指、取消、失捕、后台取消长按；不选装饰星/镜头后/屏幕外/空库。只读、不加模型调用。
+- 新增真实Android触摸、13项JS行为与6项原生通道通知回归，待完整CI/APK；沿用稳定测试签名，既有2.8秒摸头彩蛋、游戏分享、四角吸附及已认可星谷外观保留。
 
 ## 当前交付 · v0.42.57+301 只读记忆星谷、星空入口与四角吸附（CI PASSED / APK READY / TRUE DEVICE PENDING）
 
@@ -1721,3 +1731,16 @@ MemoryPage保留原编辑/保存/归档，并新增折叠同话题条目和只�
 - [未发布+301测试APK](https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-43a85864492ba629cd8b)：Draft400462139，tagv0.42.57-memory-galaxy-corner-dock-test，target54a15696159719171c028a05c2d6ba957a2453a4；APK asset602000829，AI-Companion-v0.42.57-301-Memory-Galaxy-Corner-Dock-APK.apk，734318315bytes，SHA-256325eedd99dbcbf1026cbf0eeae82a13e2fa5a09a07302d8783b80d4b56ed4a0c。sha附件602000828、CI Monitor附件602000830。APK Workflow Artifact11131242918的ZIP digest6952d6adab1c15a1d718a9bf870373a912b3b478415ab63d18bb3b2a308e64e5是归档哈希，不能与APK文件哈希混用。
 - ci-monitor-v0345/.ci/v04257-monitor.txt为status=success、run36789231773、head54a15696；GitHub计算的APK digest、monitor checksum和Release target逐项一致。仍为Draft，不合并main、不发布正式Release，不上传真实私有记忆/模型/备份。
 - 真机待验：她页紫靛渐变缓慢星点/偶发流星，离页/后台暂停；两入口均显示实际主记忆，归档/记住事项不混入、详情原文和返回正常、同话题展开只读；桌宠轻拖到四角优先上下，普通侧边/抛掷/半屏/沿边行走保持。大量真实记忆及旧WebView/厂商设备的性能与触摸观感仍以用户手机为准。自动检查完成，TRUE DEVICE PENDING。
+
+
+## v0.42.58+302 · 导出通知与星谷交互实施（2026-10-01）
+
+用户09:43反馈上一轮效果挺好、星谷整体正常，并要求先检查三个方向；分析全程只读。+298与当前Live2D Stage同blob a18af1f5，+299分块读取未改载入；+300存档完整性新增AndroidPortableBackend.finish无条件revision，纯导出也触发，是明确多余重载原因。侧栏是showGeneralDialog，原入口保留inputFocus，关闭路由恢复输入法。颜色投影未命中原PAL，五类仅有蓝紫；原模板粉红未删。原短/长按同一有限三维raycast，没有最近节点长按，装饰14k银河/6400星尘不可点。
+
+10:02批准五色方案及修复，并延续前述长按辅助。本轮仅在AndroidPortableBackend记录已尝试portableApply的token，finish在finally按标记刷新并移除；导出/未应用校验不标记，不再重建Stage；部分原生应用失败或收尾失败仍通知，同时错误继续上抛。native目录/租约/校验/恢复及schema61/protocol7不变。侧栏统一入口在任何await之前inputFocus.unfocus(scope)，不清草稿、不改常规requestFocus/Live2D IME布局。
+
+星谷增加一份本地memory_interaction.js，显式五色映射，类别名称和原记忆不修改。长按550ms、全程移动最多8CSS像素；实时投影到当前CSS屏幕按二维最近，无半径限；只查可见真实memory points，排除behind/裁剪/屏幕外，单次O(N)。短按仍走原0.14世界单位射线；拖动回原点也取消，多指/取消/失捕/后台/blur均撤销，长按后的pointerup不重复。布局、粒子数量、Bloom、流星、重要度大小亮度保持，提示缩短以容纳手机宽度。
+
+本地13项JS测试已通过；新增6项Flutter实际AndroidPortableBackend通道/通知回归及1项Android真实触摸空白天空选择/五色验证待CI。不会用假的native backend测试代替本次revision回归。仍需完整源码136门、Kotlin/Flutter、原生13项、APK131离线文件哈希与稳定签名验证；未通过前不标CI/APK成功。
+
+本地独立执行136项源码门，131通过；剩余5项仅缺原有Cubism AAR/立绘/417桌宠帧/情绪特效或kotlinc，沿用CI精确恢复。YAML及23段Shell、Python语法和diff检查通过；7份载入/备份/摸头/游戏/四角受保护源码逐字节与+301一致，白天图SHA仍为批准值。当前无本地Flutter SDK，实际Flutter与原生触摸留待CI，不提前计成功。

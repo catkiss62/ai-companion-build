@@ -135,7 +135,7 @@ addEventListener('unhandledrejection', () => window.galaxyFailed());
   <div class="zh" id="hZh"></div>
 </div>
 <div class="loading" id="loading">entering the galaxy…</div>
-<div class="hint" id="hint">drag to orbit · pinch to fly · tap a star</div>
+<div class="hint" id="hint">drag · pinch · tap · hold to find</div>
 
 <div id="scrim" onclick="closeCard()"></div>
 <div id="card">
@@ -160,6 +160,7 @@ import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
 import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
 import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
 import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
+import { MEMORY_DOMAIN_COLORS, nearestProjectedMemory, bindMemorySelection } from './memory_interaction.js';
 
 // 文案从 CONFIG 注入
 document.title=CONFIG.title+' · 记忆银河';
@@ -169,6 +170,7 @@ document.getElementById('hZh').textContent=CONFIG.motto;
 
 // ── 颜色语言（粉=温柔·金=珍贵·蓝紫=思考）——类别→颜色，想加类别就照抄一行 ──
 const PAL={
+  ...MEMORY_DOMAIN_COLORS,
   '恋爱':'#ff7ec4','关系核心':'#ff8fd0','婚恋':'#ff9ad0','我们的故事':'#e888d8',
   '编程':'#8f9fff','AI':'#a98cff','网络':'#8fa8ff','心理':'#9a8cf0','自省':'#a89ce8','情绪':'#b48ce8',
   '家庭':'#ffcf8a','宠物':'#ffbe7a','居家':'#ffd6a3','回忆':'#f0c88a','工作':'#ffe39a','求职':'#ffdb88',
@@ -374,18 +376,34 @@ let galaxy=null,dustPts=null;
 // ── 交互：点击星 → 飞近 + 卡片 ──
 const ray=new THREE.Raycaster();ray.params.Points.threshold=0.14;
 const ndc=new THREE.Vector2();
-let downXY=null;
-canvas.addEventListener('pointerdown',e=>{downXY=[e.clientX,e.clientY];});
-canvas.addEventListener('pointerup',e=>{
-  if(!downXY)return;
-  const moved=Math.abs(e.clientX-downXY[0])+Math.abs(e.clientY-downXY[1]);
-  downXY=null; if(moved>8||!memPoints)return;
-  ndc.x=(e.clientX/innerWidth)*2-1; ndc.y=-(e.clientY/innerHeight)*2+1;
-  ray.setFromCamera(ndc,camera);
-  const hit=ray.intersectObject(memPoints);
-  if(hit.length){ const i=hit[0].index; highlight(i); openCard(mem[i].s);
-    document.getElementById('hint').style.opacity=0; }
+function selectMemory(i){
+  if(i===null || !mem[i])return;
+  highlight(i);openCard(mem[i].s);
+  document.getElementById('hint').style.opacity=0;
+}
+function* projectedMemories(){
+  camera.updateMatrixWorld();memPoints.updateWorldMatrix(true,false);
+  for(let i=0;i<memPos.length;i++){
+    const world=memPos[i].clone().applyMatrix4(memPoints.matrixWorld);
+    const eye=world.clone().applyMatrix4(camera.matrixWorldInverse);
+    const p=world.project(camera);
+    yield {index:i,x:p.x,y:p.y,z:p.z,behind:eye.z>=0};
+  }
+}
+const memorySelection=bindMemorySelection(canvas,{
+  enabled:()=>started&&!paused&&!!memPoints&&memPoints.visible,
+  onTap:(x,y)=>{
+    const rect=canvas.getBoundingClientRect();
+    ndc.x=((x-rect.left)/rect.width)*2-1;
+    ndc.y=-((y-rect.top)/rect.height)*2+1;
+    ray.setFromCamera(ndc,camera);
+    const hit=ray.intersectObject(memPoints);
+    if(hit.length)selectMemory(hit[0].index);
+  },
+  onLongPress:(x,y)=>selectMemory(nearestProjectedMemory(
+    projectedMemories(),x,y,canvas.getBoundingClientRect())),
 });
+addEventListener('blur',memorySelection.cancel);
 
 // ── 流星 ──
 const meteors=[]; let meteorTimer=2.5;
@@ -481,6 +499,7 @@ let openT=0, frameId=0, paused=false, started=false, renderedFrames=0;
 // Anonymous read-only counters let device checks verify loading and lifecycle.
 window.galaxyStatus=()=>Object.freeze({memoryCount:mem.length,renderCount:renderedFrames,started,paused});
 window.galaxyPause=()=>{
+  memorySelection.cancel();
   paused=true; cancelAnimationFrame(frameId); clock.stop();
 };
 window.galaxyResume=()=>{

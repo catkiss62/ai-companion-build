@@ -1636,6 +1636,7 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
   }
 
   Future<void> _openQuickPanel() async {
+    inputFocus.unfocus(disposition: UnfocusDisposition.scope);
     if (Theme.of(context).useMaterial3) {
       await _openQuickPanelV2();
       return;

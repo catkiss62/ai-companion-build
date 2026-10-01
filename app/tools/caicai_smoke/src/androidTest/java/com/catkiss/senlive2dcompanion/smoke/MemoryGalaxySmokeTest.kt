@@ -9,6 +9,8 @@ import android.os.SystemClock
 import android.os.ParcelFileDescriptor
 import android.view.View
 import android.view.ViewGroup
+import android.view.InputDevice
+import android.view.MotionEvent
 import android.webkit.WebView
 import androidx.lifecycle.Lifecycle
 import androidx.test.core.app.ActivityScenario
@@ -45,7 +47,7 @@ class MemoryGalaxySmokeTest {
             stars.put(JSONObject()
                 .put("id", "memory$index")
                 .put("name", "真实记忆 $index")
-                .put("domain", "共同经历")
+                .put("domain", listOf("共同经历", "用户资料", "AI Self", "偏好/边界", "记忆")[index % 5])
                 .put("importance", 5)
                 .put("pinned", false)
                 .put("created", "2026-09-30T13:00:00.000Z")
@@ -116,6 +118,61 @@ class MemoryGalaxySmokeTest {
             awaitStatus(scenario) {
                 !it.optBoolean("paused") && it.optInt("renderCount") > background.getInt("renderCount")
             }
+            assertEquals(before, digest(file))
+        }
+    }
+
+    @Test fun realLongPressOnEmptySkyFindsMemoryAndPaletteIsDistinct() {
+        val domains = listOf("共同经历", "用户资料", "AI Self", "偏好/边界", "记忆")
+        val colors = listOf("#ff7ec4", "#7ed9cc", "#b98cff", "#8f9fff", "#ffa18f")
+        val stars = JSONArray()
+        domains.forEachIndexed { index, domain ->
+            stars.put(JSONObject().put("id", "pick$index").put("name", "记忆$index")
+                .put("domain", domain).put("importance", 5).put("pinned", false)
+                .put("created", "2026-09-30T13:00:00Z").put("content", "原文$index"))
+        }
+        withSnapshot(JSONObject().put("stars", stars).toString(), "long-press") { scenario, file ->
+            val before = digest(file)
+            awaitStatus(scenario) { it.optBoolean("started") && it.optInt("renderCount") > 1 }
+            awaitJavaScriptTrue(scenario,
+                "Number(getComputedStyle(document.getElementById('veil')).opacity)<0.05")
+            // Check the actual page's category color mapping, not a fixture copy.
+            domains.forEachIndexed { index, _ ->
+                javascript(scenario, "window.openCard(${stars.getJSONObject(index)})")
+                assertEquals(colors[index], jsString(scenario,
+                    "document.querySelector('#cStar path').getAttribute('fill')"))
+                javascript(scenario, "window.closeCard()")
+            }
+            var x = 0f; var y = 0f
+            scenario.onActivity { activity ->
+                val web = findWebView(activity.window.decorView)!!
+                val location = IntArray(2); web.getLocationOnScreen(location)
+                x = location[0] + web.width * .94f
+                y = location[1] + web.height * .12f
+            }
+            var downTime = 0L
+            fun touch(action: Int) {
+                val now = SystemClock.uptimeMillis()
+                if (action == MotionEvent.ACTION_DOWN) downTime = now
+                val event = MotionEvent.obtain(downTime, now, action, x, y, 0)
+                event.source = InputDevice.SOURCE_TOUCHSCREEN
+                try {
+                    assertTrue("Inject a real touch into the production WebView",
+                        InstrumentationRegistry.getInstrumentation().uiAutomation.injectInputEvent(event, true))
+                } finally { event.recycle() }
+            }
+            // This is an empty sky region: short tap still does not pick remotely.
+            touch(MotionEvent.ACTION_DOWN); SystemClock.sleep(80); touch(MotionEvent.ACTION_UP)
+            SystemClock.sleep(150)
+            assertEquals("false", javascript(scenario,
+                "document.getElementById('card').classList.contains('show')"))
+            touch(MotionEvent.ACTION_DOWN)
+            try {
+                awaitJavaScriptTrue(scenario,
+                    "document.getElementById('card').classList.contains('show')")
+                assertTrue(jsString(scenario, "document.getElementById('cTitle').textContent")
+                    .matches(Regex("记忆[0-4]")))
+            } finally { touch(MotionEvent.ACTION_UP) }
             assertEquals(before, digest(file))
         }
     }

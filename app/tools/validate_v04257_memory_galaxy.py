@@ -46,8 +46,14 @@ def module_closure(file):
             target = file.parent / spec
         module_closure(target)
 for spec in re.findall(r"from\s*['\"]([^'\"]+)['\"]", html):
-    module_closure(root / (imports[spec] if spec == 'three' else
-        imports['three/addons/'] + spec[len('three/addons/'):]))
+    if spec == 'three':
+        target = root / imports[spec]
+    elif spec.startswith('three/addons/'):
+        target = root / imports['three/addons/'] / spec[len('three/addons/'):]
+    else:
+        assert spec.startswith('.'), f'External import: {spec}'
+        target = root / spec
+    module_closure(target)
 font_css = list((root / 'vendor/fonts').glob('*.css'))
 assert font_css
 assert len(re.findall(r'@font-face', ''.join(p.read_text() for p in font_css))) >= 3
