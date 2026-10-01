@@ -28,3 +28,6 @@ jobs:
       - name: Analyze production and regression tests
         working-directory: app
         run: flutter analyze --no-fatal-infos --no-fatal-warnings
+      - name: Timed recovery and portable snapshot behavior
+        working-directory: app
+        run: flutter test --no-test-assets test/cedar_timed_recovery_v04261_test.dart test/portable_snapshot_v04256_test.dart test/cedar_timed_live_share_v04254_test.dart test/cedar_cadence_regression_v04259_test.dart
