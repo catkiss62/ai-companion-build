@@ -42,7 +42,9 @@ void main() {
             .timeout(const Duration(seconds: 45));
         expect(child.kill(ProcessSignal.sigkill), isTrue);
         expect(await child.exitCode, isNot(0));
-        expect(await errors, isEmpty);
+        // Dart's native-asset hooks legitimately print progress to stderr.
+        final childErrors = (await errors).replaceAll('Running build hooks...', '').trim();
+        expect(childErrors, isEmpty);
         db = await AppDatabase.createForTesting(databaseFactoryFfi,
             path: p.join(root.path, 'state.db'), reopenExisting: true);
         final journal = SnapshotRestoreJournal(root);

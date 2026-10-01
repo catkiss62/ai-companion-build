@@ -1,3 +1,4 @@
+import 'core/diagnostics/unhandled_error_recorder.dart';
 import 'dart:async';
 import 'dart:io';
 
@@ -23,6 +24,7 @@ import 'core/sync/snapshot_restore_coordinator.dart';
 @pragma('vm:entry-point')
 Future<void> companionBackgroundMain() async {
   WidgetsFlutterBinding.ensureInitialized();
+  UnhandledErrorRecorder(runtime: 'background').install();
   final db = AppDatabase.instance;
   await SnapshotRestoreCoordinator(db, PortableCompanionStorage()).ensureRecovered();
   if (Platform.isAndroid) {

@@ -35,4 +35,8 @@ jobs:
           test/snapshot_directory_swap_test.dart
           test/snapshot_process_recovery_test.dart
           test/calendar_reminder_store_test.dart
+          test/mcp_transport_boundary_test.dart
+          test/cedar_end_to_end_state_machine_v04182_test.dart
+          test/cedar_cadence_regression_v04259_test.dart
+          test/unhandled_error_recorder_test.dart
         working-directory: app

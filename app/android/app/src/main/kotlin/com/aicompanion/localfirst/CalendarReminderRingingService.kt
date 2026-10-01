@@ -40,7 +40,9 @@ class CalendarReminderRingingService : Service() {
         }
         val id = intent?.getStringExtra(CalendarReminderAlarm.EXTRA_ID).orEmpty()
         val occurrence = intent?.getStringExtra(CalendarReminderAlarm.EXTRA_OCCURRENCE).orEmpty()
-        if (id.isBlank() || occurrence.isBlank()) {
+        val revision = intent?.getStringExtra(CalendarReminderAlarm.EXTRA_REVISION).orEmpty()
+        if (id.isBlank() || occurrence.isBlank() ||
+            !CalendarReminderAlarm.acceptsRing(this, id, occurrence, revision)) {
             stopSelf()
             return START_NOT_STICKY
         }

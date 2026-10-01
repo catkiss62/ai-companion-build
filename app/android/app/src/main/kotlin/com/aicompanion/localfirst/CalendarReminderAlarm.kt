@@ -27,6 +27,7 @@ object CalendarReminderAlarm {
     private const val ACTION_TIMEOUT = "com.aicompanion.localfirst.calendar.TIMEOUT"
     const val EXTRA_ID = "calendar_id"
     const val EXTRA_TITLE = "calendar_title"
+    const val EXTRA_REVISION = "calendar_revision"
     const val EXTRA_OCCURRENCE = "calendar_occurrence"
     const val FIVE_MINUTES = 5L * 60L * 1000L
 
@@ -196,6 +197,7 @@ object CalendarReminderAlarm {
         if (id.isNotEmpty()) stop(context, id, "interrupted_by_restart")
     }
 
+    @Synchronized
     fun fire(context: Context, id: String, due: Long) {
         val all = entries(context)
         val entry = (0 until all.length()).mapNotNull(all::optJSONObject)
@@ -212,6 +214,7 @@ object CalendarReminderAlarm {
             putExtra(EXTRA_ID, id)
             putExtra(EXTRA_TITLE, entry.optString("title"))
             putExtra(EXTRA_OCCURRENCE, occurrence)
+            putExtra(EXTRA_REVISION, prefs(context).getString("revision", "").orEmpty())
         }
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             context.startForegroundService(alert)
@@ -229,8 +232,19 @@ object CalendarReminderAlarm {
         } // The service also has its own five-minute timeout.
     }
 
-    fun timeout(context: Context, id: String) {
-        stop(context, id, "timeout")
+    @Synchronized
+    fun acceptsRing(context: Context, id: String, occurrence: String, revision: String): Boolean {
+        if (prefs(context).getString("revision", "").orEmpty() != revision ||
+            occurrence.substringBeforeLast(':', "") != id) return false
+        val all = entries(context)
+        val entry = (0 until all.length()).mapNotNull(all::optJSONObject)
+            .firstOrNull { it.optString("id") == id } ?: return false
+        return matchesOccurrence(entry, occurrence.substringAfterLast(':').toLongOrNull() ?: 0L)
+    }
+
+    @Synchronized
+    fun timeout(context: Context, id: String, due: Long) {
+        if (prefs(context).getString("ringing", "") == "$id:$due") stop(context, id, "timeout")
     }
 
     @Synchronized
@@ -306,7 +320,7 @@ class CalendarReminderReceiver : BroadcastReceiver() {
             "com.aicompanion.localfirst.calendar.FIRE" ->
                 CalendarReminderAlarm.fire(context, id, intent.getLongExtra("due", 0L))
             "com.aicompanion.localfirst.calendar.TIMEOUT" ->
-                CalendarReminderAlarm.timeout(context, id)
+                CalendarReminderAlarm.timeout(context, id, intent.getLongExtra("due", 0L))
             "com.aicompanion.localfirst.calendar.STOP" ->
                 CalendarReminderAlarm.stop(context, id, "dismissed")
         }

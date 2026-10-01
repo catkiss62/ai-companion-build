@@ -1,3 +1,4 @@
+import 'core/diagnostics/unhandled_error_recorder.dart';
 import 'dart:async';
 import 'dart:io';
 
@@ -20,6 +21,7 @@ Future<void> companionBackgroundMain() =>
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
+  UnhandledErrorRecorder(runtime: 'foreground').install();
   ErrorWidget.builder = (details) => _FatalFlutterError(details: details);
   runApp(const _StartupRecoveryRoot());
 }

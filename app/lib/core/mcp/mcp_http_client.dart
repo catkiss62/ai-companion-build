@@ -25,7 +25,9 @@ class McpHttpClient {
     http.Client? client,
     this.timeout = const Duration(seconds: 25),
     this.headers = const <String, String>{},
-  }) : client = client ?? http.Client();
+    http.Client Function()? clientFactory,
+  }) : _providedClient = client,
+       _clientFactory = clientFactory ?? http.Client.new;
 
   factory McpHttpClient.fromConfig(
     McpServerConfig config, {
@@ -42,7 +44,8 @@ class McpHttpClient {
   static const protocolVersion = '2024-11-05';
 
   final Uri endpoint;
-  final http.Client client;
+  final http.Client? _providedClient;
+  final http.Client Function() _clientFactory;
   final Duration timeout;
   final Map<String, String> headers;
   String? _sessionId;
@@ -146,7 +149,7 @@ class McpHttpClient {
       },
       cancellationToken,
     );
-    final decoded = _decode(response.body);
+    final decoded = response!;
     if (decoded['error'] != null) {
       throw McpHttpException('remote_error', _bounded(jsonEncode(decoded['error'])));
     }
@@ -168,61 +171,128 @@ class McpHttpClient {
     );
   }
 
-  Future<http.Response> _post(
+  Future<Map<String, Object?>?> _post(
     Map<String, Object?> payload,
     GenerationCancellationToken? cancellationToken,
   ) async {
     cancellationToken?.throwIfCancelled();
-    final headers = <String, String>{
-      'content-type': 'application/json',
-      'accept': 'application/json, text/event-stream',
-      ...this.headers,
-      if (_sessionId?.isNotEmpty == true) 'mcp-session-id': _sessionId!,
-    };
+    // Each internally owned client has one request lifetime. Session identity is
+    // retained here, while abandoned one-shot Cedar clients leave no sockets.
+    final client = _providedClient ?? _clientFactory();
+    final abort = Completer<void>();
+    final clock = Stopwatch()..start();
+    Stream<List<int>>? unreadBody;
+    StreamIterator<String>? lines;
+    var finished = false;
+    Future<T> bounded<T>(Future<T> pending) {
+      final remaining = timeout - clock.elapsed;
+      final guarded = cancellationToken == null ? pending : Future.any<T>([
+        pending,
+        cancellationToken.whenCancelled.then<T>((_) {
+          throw const GenerationCancelledByUserException();
+        }),
+      ]);
+      return guarded.timeout(remaining.isNegative ? Duration.zero : remaining);
+    }
     try {
-      final pending = client
-          .post(endpoint, headers: headers, body: jsonEncode(payload))
-          .timeout(timeout);
-      final response = cancellationToken == null
-          ? await pending
-          : await Future.any<http.Response>([
-              pending,
-              cancellationToken.whenCancelled.then<http.Response>((_) {
-                client.close();
-                throw const GenerationCancelledByUserException();
-              }),
-            ]);
+      final request = http.AbortableRequest('POST', endpoint,
+          abortTrigger: abort.future)
+        ..headers.addAll({
+          'content-type': 'application/json',
+          'accept': 'application/json, text/event-stream',
+          ...headers,
+          if (_sessionId?.isNotEmpty == true) 'mcp-session-id': _sessionId!,
+        })
+        ..body = jsonEncode(payload);
+      final response = await bounded(client.send(request).then((response) {
+        if (finished) unawaited(_cancelBody(response.stream));
+        return response;
+      }));
+      unreadBody = response.stream;
+      if (response.statusCode < 200 || response.statusCode >= 300) {
+        throw McpHttpException('http_${response.statusCode}');
+      }
       final session = response.headers['mcp-session-id']?.trim();
       if (session != null && session.isNotEmpty) _sessionId = session;
-      if (response.statusCode < 200 || response.statusCode >= 300) {
-        throw McpHttpException('http_${response.statusCode}', _bounded(response.body));
-      }
-      if (utf8.encode(response.body).length > 1024 * 1024) {
+      if (!payload.containsKey('id')) return null;
+      const limit = 1024 * 1024;
+      if ((response.contentLength ?? 0) > limit) {
         throw const McpHttpException('response_too_large');
       }
-      return response;
+      var count = 0;
+      final body = response.stream.map((chunk) {
+        count += chunk.length;
+        if (count > limit) throw const McpHttpException('response_too_large');
+        return chunk;
+      });
+      final sse = (response.headers['content-type'] ?? '')
+          .toLowerCase().contains('text/event-stream');
+      lines = StreamIterator(body.transform(utf8.decoder)
+          .transform(const LineSplitter()));
+      unreadBody = null;
+      final text = StringBuffer();
+      final event = <String>[];
+      Map<String, Object?>? eventResult() {
+        if (event.isEmpty) return null;
+        final data = event.join('\n');
+        event.clear();
+        if (data.trim().isEmpty) return null;
+        return _decode(data, payload['id'], allowUnrelated: true);
+      }
+      while (await bounded(lines.moveNext())) {
+        final line = lines.current;
+        if (!sse) {
+          text.writeln(line);
+        } else if (line.isEmpty) {
+          final result = eventResult();
+          if (result != null) return result;
+        } else if (line.startsWith('data:')) {
+          final value = line.substring(5);
+          event.add(value.startsWith(' ') ? value.substring(1) : value);
+        }
+      }
+      if (sse) {
+        final result = eventResult();
+        if (result != null) return result;
+        throw const McpHttpException('invalid_response');
+      }
+      return _decode(text.toString(), payload['id']);
     } on GenerationCancelledByUserException {
       rethrow;
     } on McpHttpException {
       rethrow;
-    } on TimeoutException {
-      throw const McpHttpException('network_or_timeout');
+    } on FormatException {
+      throw const McpHttpException('invalid_response');
     } catch (error) {
+      cancellationToken?.throwIfCancelled();
       throw McpHttpException('network_or_timeout', error.runtimeType.toString());
+    } finally {
+      finished = true;
+      if (!abort.isCompleted) abort.complete();
+      if (unreadBody != null) await _cancelBody(unreadBody);
+      try { await lines?.cancel().timeout(const Duration(seconds: 2)); } catch (_) {}
+      if (_providedClient == null) client.close();
     }
   }
 
-  static Map<String, Object?> _decode(String body) {
-    final trimmed = body.trim();
-    final jsonText = (trimmed.startsWith('data:') || trimmed.contains('\ndata:'))
-        ? trimmed
-            .split('\n')
-            .where((line) => line.startsWith('data:'))
-            .map((line) => line.substring(5).trim())
-            .firstWhere((line) => line.isNotEmpty, orElse: () => '{}')
-        : trimmed;
-    final decoded = jsonDecode(jsonText);
-    if (decoded is! Map) throw const McpHttpException('invalid_response');
+  static Future<void> _cancelBody(Stream<List<int>> body) async {
+    try {
+      await body.listen((_) {}, onError: (Object _) {}).cancel()
+          .timeout(const Duration(seconds: 2));
+    } catch (_) {}
+  }
+
+  static Map<String, Object?>? _decode(String body, Object? expectedId,
+      {bool allowUnrelated = false}) {
+    final decoded = jsonDecode(body);
+    if (decoded is! Map || decoded['jsonrpc'] != '2.0') {
+      throw const McpHttpException('invalid_response');
+    }
+    if (decoded['id'] != expectedId ||
+        (!decoded.containsKey('result') && !decoded.containsKey('error'))) {
+      if (allowUnrelated) return null;
+      throw const McpHttpException('invalid_response');
+    }
     return decoded.map((key, value) => MapEntry(key.toString(), value));
   }
 

@@ -91,6 +91,15 @@ class SystemBridge(
                         result.error("snapshot_recovery_failed", "恢复本机设置未完成", null)
                     }
                 }
+                "recordDartRuntimeError" -> {
+                    RuntimeDiagnosticStore.recordDartError(activity,
+                        call.argument<String>("runtime").orEmpty(),
+                        call.argument<String>("source").orEmpty(),
+                        call.argument<String>("errorType").orEmpty(),
+                        call.argument<String>("stackFp").orEmpty(),
+                        call.argument<String>("frame").orEmpty())
+                    result.success(null)
+                }
                 "syncCalendarReminders" -> {
                     try {
                         val raw = call.argument<List<Map<String, Any?>>>("entries") ?: emptyList()
@@ -1408,10 +1417,18 @@ class SystemBridge(
     private fun historicalExitReason(): Map<String, Any> {
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.R) return emptyMap()
         val manager = activity.getSystemService(ActivityManager::class.java)
-        val info = runCatching {
-            manager.getHistoricalProcessExitReasons(activity.packageName, 0, 5)
-                .firstOrNull()
+        val exits = runCatching {
+            manager.getHistoricalProcessExitReasons(activity.packageName, 0, 32)
         }.getOrNull() ?: return emptyMap()
+        val child = exits.filter { it.processName == "${activity.packageName}:genie_tts" }
+            .maxByOrNull { it.timestamp }
+        val childSummary = if (child == null) emptyMap() else mapOf<String, Any>(
+            "historicalTtsChildExitReason" to exitReasonKey(child.reason),
+            "historicalTtsChildExitAt" to child.timestamp,
+            "historicalTtsChildExitStatus" to child.status)
+        // A normal TTS child shutdown must not hide the main app's last crash.
+        val info = exits.filter { it.processName == activity.packageName }
+            .maxByOrNull { it.timestamp } ?: return childSummary
         val anrTraceSummary = if (info.reason == ApplicationExitInfo.REASON_ANR) {
             HistoricalAnrTraceSanitizer.summarize(
                 runCatching { info.traceInputStream }.getOrNull(),
@@ -1437,7 +1454,7 @@ class SystemBridge(
             "historicalExitRssKb" to info.rss,
             "historicalExitDescriptionIncluded" to false,
             "historicalExitTraceIncluded" to false,
-        ) + anrTraceSummary + nativeTraceSummary
+        ) + anrTraceSummary + nativeTraceSummary + childSummary
     }
 
     private fun exitReasonKey(reason: Int): String = when (reason) {

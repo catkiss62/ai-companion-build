@@ -205,7 +205,13 @@ class SnapshotRestoreCoordinator {
         }
         await log.recoverDirectories(record, committed: true);
         await _markConsistent(record, committed: true);
-        await log.clear();
+        try {
+          await log.clear();
+        } catch (_) {
+          // Consistency was durably confirmed above. A leftover journal only
+          // needs deletion; it must not be reported as a blocked half-restore.
+          warning = '数据已恢复，恢复日志将在下次启动时清理。';
+        }
         return SnapshotCommitOutcome(warning: warning);
       } catch (_) {
         return const SnapshotCommitOutcome(

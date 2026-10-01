@@ -32,6 +32,15 @@ class BackgroundSystemBridge(
     init {
         channel.setMethodCallHandler { call, result ->
             when (call.method) {
+                "recordDartRuntimeError" -> {
+                    RuntimeDiagnosticStore.recordDartError(context,
+                        call.argument<String>("runtime").orEmpty(),
+                        call.argument<String>("source").orEmpty(),
+                        call.argument<String>("errorType").orEmpty(),
+                        call.argument<String>("stackFp").orEmpty(),
+                        call.argument<String>("frame").orEmpty())
+                    result.success(null)
+                }
                 "syncCalendarReminders" -> {
                     try {
                         val raw = call.argument<List<Map<String, Any?>>>("entries") ?: emptyList()

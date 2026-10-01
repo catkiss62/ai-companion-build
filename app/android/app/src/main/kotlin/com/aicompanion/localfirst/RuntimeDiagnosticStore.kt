@@ -59,7 +59,7 @@ object RuntimeDiagnosticStore {
                     "inputCharacterClasses", "normalizedCharacterClasses",
                     "referenceEchoReason" ->
                         safeMetadata.put(key, DiagnosticRedaction.safeToken(value?.toString().orEmpty(), 160))
-                    "voice", "referenceCaseId", "textSha256", "phoneHash", "semanticHash", "pcmHash" ->
+                    "voice", "referenceCaseId", "stackFp", "textSha256", "phoneHash", "semanticHash", "pcmHash" ->
                         safeMetadata.put(key, DiagnosticRedaction.safeToken(value?.toString().orEmpty(), 96))
                     "referenceEchoScore" ->
                         if (value is Number) safeMetadata.put(key, value.toDouble().coerceIn(-1.0, 1.0))
@@ -82,6 +82,17 @@ object RuntimeDiagnosticStore {
             val editor = prefs.edit().putString(KEY_EVENTS, kept.toString())
             if (durable) editor.commit() else editor.apply()
         }
+    }
+
+    fun recordDartError(context: Context, runtime: String, source: String,
+                        errorType: String, stackFp: String, frame: String) {
+        if (runtime !in setOf("foreground", "background") ||
+            source !in setOf("flutter", "platform") ||
+            !stackFp.matches(Regex("[a-f0-9]{64}"))) return
+        record(context, category = "dart", phase = source, severity = "error",
+            code = DiagnosticRedaction.safeToken(errorType, 80),
+            metadata = mapOf("runtimeProfile" to runtime, "stackFp" to stackFp,
+                "failureTarget" to DiagnosticRedaction.safeToken(frame, 120)), durable = true)
     }
 
     fun recordNearby(context: Context, type: String, extra: Map<String, Any?>) {
