@@ -1,13 +1,13 @@
 # AI Companion · 当前总账
 
-更新时间：2026-10-01（+301 IMPLEMENTATION IN PROGRESS / CI PENDING / APK PENDING / TRUE DEVICE PENDING；+300 CI PASSED / APK READY / TRUE DEVICE PENDING；+299 CI PASSED / APK READY / TRUE DEVICE PENDING；+298 CI PASSED / APK READY / TRUE DEVICE PENDING；+297 CI PASSED / APK READY / TRUE DEVICE PENDING；+295 恢复真机成功、背景回归 PARTIAL；+293 DEVICE VISUAL BASELINE）
+更新时间：2026-10-01（+301 CI PASSED / APK READY / TRUE DEVICE PENDING；+300 CI PASSED / APK READY / TRUE DEVICE PENDING；+299 CI PASSED / APK READY / TRUE DEVICE PENDING；+298 CI PASSED / APK READY / TRUE DEVICE PENDING；+297 CI PASSED / APK READY / TRUE DEVICE PENDING；+295 恢复真机成功、背景回归 PARTIAL；+293 DEVICE VISUAL BASELINE）
 
 > 本文件是唯一的当前接班入口，继续采用“总账 v2”。顶部是快速接班索引；标记后的正式记录按版本持续追加，不设总容量上限。
 >
 > 判断优先级：用户最新明确决定 > 当前 GitHub 源码与 Actions > 同时刻脱敏真机诊断/备份 > 本文件 > 冻结归档与 Git 历史。`DESIGNED`、`IMPLEMENTED`、`CI PASSED`、`APK READY`、`TRUE DEVICE PASSED`、`PENDING` 必须严格区分。
 
 
-## 当前任务 · v0.42.57+301 只读记忆星谷、星空入口与四角吸附（IMPLEMENTATION IN PROGRESS / CI PENDING / APK PENDING / TRUE DEVICE PENDING）
+## 当前交付 · v0.42.57+301 只读记忆星谷、星空入口与四角吸附（CI PASSED / APK READY / TRUE DEVICE PENDING）
 
 用户2026-10-01 05:15批准实施上一轮方案并追加“她”页按钮替换；基线+300功能620e0885、总账18edbf64（本地d696987e同tree dcc5c3d6）；分支agent/v04257-memory-galaxy-corner-dock，版本0.42.57+301，schema61/存档protocol7保持。授权推送构建延续。
 
@@ -15,7 +15,11 @@
 - 只读路径：专用分页快照，不走AI relevantMemories；浏览/搜索/点击/临时“心动”均不写数据库，不增加召回或表达次数，不改重要度/钉选/冷却，不调用模型。模板连线仍按记忆类别作视觉提示，不声称是新知识图谱；列表详情另加精确已存topicKey的同话题条目，折叠查看、只读切换，不新增关系表。
 - 入口：记忆库页+“她”页；原“去找她”位置替换为“记忆星谷”，紫靛渐变、缓慢星点、偶发流星；离开首页、后台、减少动画时停止。原其它聊天入口保留。
 - 桌宠：同时进入水平/垂直吸附范围的四角优先上/下，保持原阈值；普通边缘、抛掷、重力、半屏、沿边行走不改。Jev Live2D不增加兜底；旧桌宠图片清理暂缓，七大规则删除放弃。
-- 回归保留+299白天背景及大settings无损读取、+300游戏分享/自制旋转/2.8秒摸头彩蛋/记住事项/完整存档。新增数据库只读、投影、动画生命周期、原生路径和四角测试，APK离线资源逐个哈希核对；当前尚待CI与真机，不提前宣称通过。
+- 回归保留+299白天背景及大settings无损读取、+300游戏分享/自制旋转/2.8秒摸头彩蛋/记住事项/完整存档。新增数据库只读、投影、动画生命周期、原生路径和四角测试，APK离线资源逐个哈希核对；最终CI已通过并已查看真实模拟器星谷截图，真机待验。
+
+最终[Actions36789231773](https://github.com/catkiss62/ai-companion-build/actions/runs/36789231773) success；源码54a15696159719171c028a05c2d6ba957a2453a4/tree0a27d13401eec72d8ad44d52a3cd4f901b4553e5与本地2fb75150同树。135项源码门、原生12/12、Flutter1042及Kotlin/analyze通过，130个星谷APK资源逐个哈希一致；真实640条星谷PNG已查看，非空画面及原模板效果正常。此前失败轮仅作排查历史，最终以本轮为准。
+
+[未发布+301测试APK](https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-43a85864492ba629cd8b)，Draft400462139/asset602000829，734318315bytes，SHA-256325eedd99dbcbf1026cbf0eeae82a13e2fa5a09a07302d8783b80d4b56ed4a0c；Release target、CI head及ci-monitor一致，稳定签名沿用+300，可覆盖安装。真机仍待入口动画、记忆查看/返回、四角吸附及既有功能实际观感验收；TRUE DEVICE PENDING。
 
 ## 当前交付 · v0.42.56+300 游戏分享间隔、旋转、持续摸头与存档完整性（CI PASSED / APK READY / TRUE DEVICE PENDING）
 
@@ -1695,7 +1699,7 @@ MemoryPage保留原编辑/保存/归档，并新增折叠同话题条目和只�
 
 桌宠PetEdgeDockPolicy在同一旧吸附阈值下优先上/下角落，其余维持最近边缘；纯策略JUnit覆盖非等距四角、等距、普通边缘、范围边界和窄屏重叠。未改抛掷/重力/半屏/沿边行走等机制，未触碰Jev兜底、Live2D身体XYZ或原2.8秒彩蛋时长。构建身份0.42.57+301，各历史源码门的版本白名单只新增本版；快照协议与schema未变。
 
-当前状态：IMPLEMENTATION IN PROGRESS / CI PENDING / APK PENDING / TRUE DEVICE PENDING。后续仅在实际Actions及release资产验证完成后回填提交、run、SHA和APK链接。冻结归档保持原SHA。
+最终状态：IMPLEMENTED / CI PASSED / APK READY / TRUE DEVICE PENDING。最终构建、截图和资产证据见本节末尾；冻结归档保持原SHA。
 
 +301首轮CI 36780935800（功能远端c3343783、本地935b8464同tree b93a1d33）：生产/测试Kotlin编译通过，原有9项原生测试通过；新增3项停留加载页，日志确认WebView124且无模块状态。原生测试应用未声明INTERNET，与生产应用不同；Android WebSettings无权限时blockNetworkLoads默认true，虚拟HTTPS的ESM子资源未启动。修正测试Manifest以匹配生产权限，继续用本地资源来源及CSP拒绝外部请求证明离线边界，不降低640条/原文/暂停/空库/错误/清理断言。另将加载错误提示容忍DOM尚未创建。待重跑，不将失败轮标为交付成功。
 
@@ -1706,3 +1710,14 @@ MemoryPage保留原编辑/保存/归档，并新增折叠同话题条目和只�
 +301第四轮CI [36785322975](https://github.com/catkiss62/ai-companion-build/actions/runs/36785322975)（远端38977282177ed3dd63ab058f4b5ea7229eaebea7、本地279e2f3d同tree48306e48）完整success：Android15原生12/12、源码门、Kotlin、Flutter analyze/test、签名arm64 APK及离线资源检查均通过。原生XML Artifact11129299181已下载核实0失败/0跳过，640条真实渲染/原文/只读/外域拒绝/停帧恢复、空库、错误状态全部实际执行。截图像素断言通过，但UTP卸载测试应用清理externalFiles后原adb pull未取得PNG，因此尚未人工看图。下一提交只修测试截图保留：测试结束前通过UiAutomation固定路径复制到/data/local/tmp，wrapper必须取得非空PNG；不改生产/模板/资源。最终交付待这一轮实跑和截图复核，不把未取得的截图说成人工视觉通过。
 
 +301第五轮36787573265（远端1cb3518e、本地b89cef8同tree91f44d94）仅截图保留辅助断言失败：真实像素断言先通过，但复制后的成功marker为空、目标PNG不存在；其余11项通过，APK步骤正确跳过。核对Android15官方UiAutomationConnection.java第552行直接Runtime.exec(command)，连写&&被当作cp参数而非shell语法。改为独立cp、独立cat两条固定命令，并将目标PNG与原实际截图逐字节比较；不改任何生产/模板/资源。第四轮已完成135源码门、原生12、Flutter1042、Kotlin/analyze和APK130资源哈希及稳定签名；本次继续实跑完成截图复核后再交付最终head。
+
+
+### +301最终构建、模拟器截图与APK（2026-10-01）
+
+- 最终远端54a15696159719171c028a05c2d6ba957a2453a4、本地2fb751501c758aaf4c53c1fb624f4b05deaf30f9，完全相同tree0a27d13401eec72d8ad44d52a3cd4f901b4553e5。[Actions36789231773](https://github.com/catkiss62/ai-companion-build/actions/runs/36789231773) completed/success；之后仅总账记录同步，不更改安装包功能源码。
+- Android15原生12/12，0失败/错误/跳过，XML总耗时64.961秒；Native Artifact11131261020（ZIP SHA-25662575ec00fbd778c2028ce206659cc162b08d0fdea62ccb164f66d49c374caae）包含真实memory-galaxy-640-render.png，62964bytes。实际像素渲染和原截图/保留副本逐字节一致性通过；人工已查看PNG，星海、光晕、环线及模板文字确实渲染，无加载遮罩/错误回退。640全记录/原文HTML不执行/临时心动不改快照/本地域资源与外域拒绝/帧暂停恢复/关闭清理、空库和坏JSON均通过。此为模拟器证据，不等同用户手机视觉验收。
+- 135/135源码validator通过；Kotlin/Android单元测试BUILD SUCCESSFUL；Flutter analyze通过，1042项Flutter测试通过，包括全量只读事务及写入拒绝触发器、精确同topic、投影原文及动画生命周期。最终生产代码和资源自第四轮38977282以来未改，第五/六轮仅修测试截图保留及记录。
+- APK签名30:5E:B3:D8:09:83:B9:63:C6:48:18:DD:F1:AD:56:1F:27:9D:E6:D4:7B:3E:D2:C7:81:AD:A4:48:C7:C2:51:48沿用+300。全部130个离线星谷文件在APK内逐个SHA-256完全一致；已批准day.webp仍是6b4296044fd5b882f459e3f66cb586f67d59949a3a49a786a343619149781fb7，Genie/完整桌宠/tarot/shader等原门通过。另只读逐字节核对15个受保护文件，保留+299大settings读取及+300游戏2分钟/默认5轮、原2.8秒摸头彩蛋、旋转限速和完整存档protocol7；Jev不加兜底、旧桌宠修图暂缓、七大规则不删。
+- [未发布+301测试APK](https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-43a85864492ba629cd8b)：Draft400462139，tagv0.42.57-memory-galaxy-corner-dock-test，target54a15696159719171c028a05c2d6ba957a2453a4；APK asset602000829，AI-Companion-v0.42.57-301-Memory-Galaxy-Corner-Dock-APK.apk，734318315bytes，SHA-256325eedd99dbcbf1026cbf0eeae82a13e2fa5a09a07302d8783b80d4b56ed4a0c。sha附件602000828、CI Monitor附件602000830。APK Workflow Artifact11131242918的ZIP digest6952d6adab1c15a1d718a9bf870373a912b3b478415ab63d18bb3b2a308e64e5是归档哈希，不能与APK文件哈希混用。
+- ci-monitor-v0345/.ci/v04257-monitor.txt为status=success、run36789231773、head54a15696；GitHub计算的APK digest、monitor checksum和Release target逐项一致。仍为Draft，不合并main、不发布正式Release，不上传真实私有记忆/模型/备份。
+- 真机待验：她页紫靛渐变缓慢星点/偶发流星，离页/后台暂停；两入口均显示实际主记忆，归档/记住事项不混入、详情原文和返回正常、同话题展开只读；桌宠轻拖到四角优先上下，普通侧边/抛掷/半屏/沿边行走保持。大量真实记忆及旧WebView/厂商设备的性能与触摸观感仍以用户手机为准。自动检查完成，TRUE DEVICE PENDING。
