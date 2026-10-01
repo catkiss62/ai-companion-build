@@ -1,0 +1,48 @@
+name: Timed reply version comparison
+on:
+  push:
+    branches: [agent/v04261-recovery-analyze]
+  workflow_dispatch:
+permissions: {contents: read}
+concurrency:
+  group: timed-recovery-analysis-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  compare:
+    strategy:
+      fail-fast: false
+      matrix:
+        ref: [afe1baa5, 9ba2f176, 7c089e3d, 65b21322693b4e9b67f907a9d476d9ff90cf286f]
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: 65b21322693b4e9b67f907a9d476d9ff90cf286f
+          fetch-depth: 0
+      - name: Use identical pipeline test on each version
+        run: |
+          cp app/test/timed_reply_pipeline_v04262_test.dart /tmp/timed_reply_pipeline_v04262_test.dart
+          git checkout ${{ matrix.ref }}
+          cp /tmp/timed_reply_pipeline_v04262_test.dart app/test/
+          git rev-parse HEAD
+      - uses: subosito/flutter-action@v2
+        with: {channel: stable, flutter-version: 3.44.9}
+      - run: flutter pub get
+        working-directory: app
+      - run: flutter test --no-test-assets test/timed_reply_pipeline_v04262_test.dart
+        working-directory: app
+  analyze:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with: {ref: 65b21322693b4e9b67f907a9d476d9ff90cf286f}
+      - uses: subosito/flutter-action@v2
+        with: {channel: stable, flutter-version: 3.44.9}
+      - run: flutter pub get
+        working-directory: app
+      - run: flutter analyze --no-fatal-infos --no-fatal-warnings
+        working-directory: app
+      - run: flutter test --no-test-assets test/generation_wait_restore_v04262_test.dart test/cedar_timed_recovery_v04261_test.dart test/portable_snapshot_v04256_test.dart test/cedar_timed_live_share_v04254_test.dart test/cedar_cadence_regression_v04259_test.dart test/sqlite_settings_backup_v04255_test.dart test/stop_transfer_interlock_v04178_test.dart test/final_reply_route_v04241_test.dart
+        working-directory: app
