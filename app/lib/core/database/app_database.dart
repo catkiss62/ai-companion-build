@@ -7,6 +7,7 @@ import 'package:sqflite/sqflite.dart';
 import 'package:uuid/uuid.dart';
 
 import 'sqlite_settings_reader.dart';
+import 'brain_work_fence.dart';
 
 import '../emotion/emotion_contract.dart';
 import '../agent/agent_tool.dart';
@@ -5160,6 +5161,23 @@ class AppDatabase {
     });
   }
 
+  /// Idempotent, fenced delivery for asynchronous reminder continuations.
+  Future<bool> insertBackgroundMessage(
+    ChatMessage message,
+    BrainWorkFence fence,
+  ) async {
+    final handle = await database;
+    return handle.transaction((txn) async {
+      if (!await fence.matches(txn)) return false;
+      final exists = await txn.query('messages', columns: ['id'],
+          where: 'id = ?', whereArgs: [message.id], limit: 1);
+      if (exists.isNotEmpty) return true;
+      await txn.insert('messages', message.toDb());
+      await _insertLanguageVariants(txn, message);
+      return true;
+    });
+  }
+
   Future<void> _insertLanguageVariants(
     DatabaseExecutor executor,
     ChatMessage message,
@@ -7361,10 +7379,15 @@ class AppDatabase {
   Future<InterruptedTurnDisplay?> interruptImmersiveUserMessageForDisplay({
     required String roomId,
     required String messageId,
+    BrainWorkFence? workFence,
   }) async {
     final db = await database;
     final now = DateTime.now().millisecondsSinceEpoch;
     return db.transaction<InterruptedTurnDisplay?>((txn) async {
+      if (!await BrainWorkFence.workAllowed(txn) ||
+          (workFence != null && !await workFence.matches(txn))) {
+        throw const BrainWorkInvalidated();
+      }
       final rows = await txn.query(
         'immersive_messages',
         where: 'id = ? AND room_id = ? AND role = ?',
@@ -8511,6 +8534,7 @@ class AppDatabase {
     double? spontaneousSalience,
     String evidenceMode = 'auto',
     String? targetMemoryId,
+    Transaction? transaction,
   }) async {
     final normalized = content.trim();
     if (normalized.isEmpty) return;
@@ -8552,7 +8576,7 @@ class AppDatabase {
       return shared / min(left.length, right.length);
     }
 
-    await db.transaction((txn) async {
+    Future<void> writeMemory(Transaction txn) async {
       Future<MemoryLifecycleProfile> lifecycleFor({
         required String lifecycleKind,
         required String lifecycleSemantic,
@@ -8850,7 +8874,12 @@ class AppDatabase {
         evidenceText: normalized,
         relation: mode == 'replace' ? 'replaced' : 'created',
       );
-    });
+    }
+    if (transaction != null) {
+      await writeMemory(transaction);
+    } else {
+      await db.transaction(writeMemory);
+    }
   }
 
   Future<List<MemoryItem>> memoriesByKind(
@@ -18021,10 +18050,12 @@ class AppDatabase {
     String? guardKey,
     String expectedGuardValue = '',
     Map<String, String> expectedSettings = const {},
+    BrainWorkFence? workFence,
   }) async {
     if (values.isEmpty) return true;
     final db = await database;
     return db.transaction<bool>((txn) async {
+      if (workFence != null && !await workFence.matches(txn)) return false;
       if (guardKey != null) {
         final rows = await txn.query(
           'settings',
@@ -18284,9 +18315,35 @@ class AppDatabase {
   /// durable inner state on this device. Standby devices remain view-only, and
   /// an in-progress transfer freezes new brain work until the snapshot handoff
   /// finishes. User-facing settings can still be changed separately.
-  Future<bool> brainWorkAllowed() async {
-    if ((await getSetting('transfer_lock')) == '1') return false;
-    return (await getSetting('active_brain')) != '0';
+  Future<bool> brainWorkAllowed() async =>
+      BrainWorkFence.workAllowed(await database);
+
+  Future<BrainWorkFence?> captureBrainWorkFence({
+    String? leaseKey,
+    Iterable<String> settingKeys = const [],
+  }) async {
+    final handle = await database;
+    return handle.transaction((txn) async {
+      final fence = BrainWorkFence(
+        identity: {
+          for (final key in const [
+            'state_lineage_id', 'state_generation', 'runtime_state_epoch_v1',
+          ]) key: await BrainWorkFence.value(txn, key),
+        },
+        leaseKey: leaseKey,
+        leaseToken: leaseKey == null ? null : _ownedLeaseTokens[leaseKey],
+        expectedSettings: {
+          for (final key in settingKeys)
+            key: await BrainWorkFence.value(txn, key),
+        },
+      );
+      return await fence.matches(txn) ? fence : null;
+    });
+  }
+
+  Future<bool> brainWorkFenceCurrent(BrainWorkFence fence) async {
+    final handle = await database;
+    return handle.transaction((txn) => fence.matches(txn));
   }
 
   Future<bool> tryAcquireProactiveLease({

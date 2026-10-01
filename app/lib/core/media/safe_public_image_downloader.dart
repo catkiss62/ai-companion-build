@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 import 'dart:typed_data';
 
@@ -26,45 +27,67 @@ class SafePublicImageDownloader {
     required String rawUrl,
     required int maxBytes,
     required String filePrefix,
+    Duration totalTimeout = const Duration(seconds: 60),
+    Duration idleTimeout = const Duration(seconds: 24),
+    Directory? temporaryDirectory,
   }) async {
     var uri = Uri.tryParse(rawUrl);
     if (!safePublicHttps(uri)) {
       throw const FormatException('unsafe_image_url');
     }
+    final clock = Stopwatch()..start();
+    Duration remaining() {
+      final left = totalTimeout - clock.elapsed;
+      if (left <= Duration.zero) throw TimeoutException('image_download_timeout');
+      return left < idleTimeout ? left : idleTimeout;
+    }
     for (var redirects = 0; redirects <= 3; redirects++) {
-      final request = http.Request('GET', uri!)
+      final abort = Completer<void>();
+      void cancelRequest() {
+        if (!abort.isCompleted) abort.complete();
+      }
+      final request = http.AbortableRequest('GET', uri!, abortTrigger: abort.future)
         ..followRedirects = false
         ..headers.addAll(const <String, String>{
           'Accept': 'image/webp,image/png,image/jpeg,image/gif,*/*;q=0.2',
           'User-Agent': 'AICompanion/0.41.49 (private Android companion)',
         });
-      final response = await client.send(request).timeout(
-            const Duration(seconds: 24),
-          );
-      if (response.isRedirect) {
-        await response.stream.drain<void>();
-        final location = response.headers['location'];
-        if (location == null || redirects == 3) {
-          throw HttpException('image_redirect_rejected');
+      StreamIterator<List<int>>? chunks;
+      try {
+        // The same deadline covers headers, redirects and the entire body.
+        // Attach to a late response too, even if a custom client ignores abort.
+        final response = await client.send(request).then((response) async {
+          if (abort.isCompleted) {
+            await _cancelStream(response.stream);
+            throw TimeoutException('image_download_timeout');
+          }
+          return response;
+        }).timeout(remaining(), onTimeout: () {
+          cancelRequest();
+          throw TimeoutException('image_download_timeout');
+        });
+        chunks = StreamIterator(response.stream);
+        if (response.isRedirect) {
+          final location = response.headers['location'];
+          if (location == null || redirects == 3) {
+            throw HttpException('image_redirect_rejected');
+          }
+          final redirected = uri.resolve(location);
+          if (!safePublicHttps(redirected)) {
+            throw const FormatException('unsafe_image_redirect');
+          }
+          uri = redirected;
+          continue;
         }
-        final redirected = uri.resolve(location);
-        if (!safePublicHttps(redirected)) {
-          throw const FormatException('unsafe_image_redirect');
+        if (response.statusCode < 200 || response.statusCode >= 300) {
+          throw HttpException('image_download_${response.statusCode}');
         }
-        uri = redirected;
-        continue;
-      }
-      if (response.statusCode < 200 || response.statusCode >= 300) {
-        await response.stream.drain<void>();
-        throw HttpException('image_download_${response.statusCode}');
-      }
-      final declared = int.tryParse(response.headers['content-length'] ?? '');
-      if (declared != null && (declared <= 0 || declared > maxBytes)) {
-        await response.stream.drain<void>();
-        throw const FormatException('image_size_rejected');
-      }
+        final declared = int.tryParse(response.headers['content-length'] ?? '');
+        if (declared != null && (declared <= 0 || declared > maxBytes)) {
+          throw const FormatException('image_size_rejected');
+        }
 
-      final temp = await getTemporaryDirectory();
+      final temp = temporaryDirectory ?? await getTemporaryDirectory();
       final staging = File(p.join(
         temp.path,
         '${filePrefix}_${DateTime.now().microsecondsSinceEpoch}.download',
@@ -73,7 +96,11 @@ class SafePublicImageDownloader {
       var bytes = 0;
       var sinkClosed = false;
       try {
-        await for (final chunk in response.stream) {
+        while (await chunks.moveNext().timeout(remaining(), onTimeout: () {
+          cancelRequest();
+          throw TimeoutException('image_download_timeout');
+        })) {
+          final chunk = chunks.current;
           bytes += chunk.length;
           if (bytes > maxBytes) {
             throw const FormatException('image_size_rejected');
@@ -112,8 +139,25 @@ class SafePublicImageDownloader {
         if (await staging.exists()) await staging.delete();
         rethrow;
       }
+      } finally {
+        // Do not drain an error/redirect body: it may never finish. Cancelling
+        // only this request keeps the caller's shared HTTP client usable.
+        cancelRequest();
+        if (chunks != null) {
+          try {
+            await chunks.cancel().timeout(const Duration(seconds: 2));
+          } catch (_) {}
+        }
+      }
     }
     throw HttpException('image_redirect_rejected');
+  }
+
+  static Future<void> _cancelStream(Stream<List<int>> stream) async {
+    try {
+      await stream.listen((_) {}, onError: (Object _) {}).cancel()
+          .timeout(const Duration(seconds: 2));
+    } catch (_) {}
   }
 
   static String? detectSupportedMime(List<int> bytes) {

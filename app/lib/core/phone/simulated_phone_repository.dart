@@ -4,6 +4,7 @@ import 'dart:math';
 import 'package:path/path.dart' as p;
 
 import '../database/app_database.dart';
+import '../database/brain_work_fence.dart';
 import '../models/desire_state.dart';
 import '../models/daily_continuity.dart';
 import '../models/companion_album.dart';
@@ -156,6 +157,9 @@ class SimulatedPhoneRepository {
   final SimulatedNoteGenerator _noteGenerator;
   final SimulatedPhoneReflectionGenerator _reflectionGenerator;
   final int Function(int upperBound) _noteIndexPicker;
+
+  BrainWorkFence? _refreshFence;
+  Map<String, String> _enabledGuard = const {};
 
   static const enabledKey = 'simulated_phone_enabled';
   static const _leaseKey = 'simulated_phone_refresh_lease_until';
@@ -400,41 +404,58 @@ class SimulatedPhoneRepository {
 
   Future<void> refreshIfDue({DateTime? now}) async {
     final current = (now ?? DateTime.now()).toLocal();
-    await _refreshTarot(current);
     if (!await db.brainWorkAllowed()) return;
-    if (!await isEnabled()) return;
-
     final acquired = await db.tryAcquireLocalLease(
       _leaseKey,
       holdFor: const Duration(minutes: 3),
     );
     if (!acquired) return;
     try {
-      if (!await isEnabled()) return;
-      await _refreshDiary(current);
-      if (!await isEnabled()) return;
-      await _refreshMood(current);
-      if (!await isEnabled()) return;
-      await _refreshNotes(current);
-      if (!await isEnabled()) return;
-      await _refreshWishes(current);
-      if (!await isEnabled()) return;
-      await _refreshCart(current);
-      await db.setSetting(
-        'simulated_phone_last_refresh_at',
-        current.millisecondsSinceEpoch.toString(),
+      _refreshFence = await db.captureBrainWorkFence(
+        leaseKey: _leaseKey,
+        settingKeys: const ['simulated_phone_switch_changed_at'],
       );
-      await db.setSetting('simulated_phone_last_error', '');
+      if (_refreshFence == null) return;
+      _enabledGuard = const {};
+      // Tarot is still available with the phone switch off, but never writes
+      // on a standby device or outside the refresh owner's state generation.
+      await _refreshTarot(current);
+      if (!await isEnabled()) return;
+      _enabledGuard = {enabledKey: await db.getSetting(enabledKey) ?? ''};
+      for (final refresh in [
+        _refreshDiary, _refreshMood, _refreshNotes, _refreshWishes, _refreshCart,
+      ]) {
+        if (!await db.brainWorkFenceCurrent(_refreshFence!) ||
+            !await isEnabled()) return;
+        if (!await db.renewLocalLease(_leaseKey,
+            holdFor: const Duration(minutes: 3))) return;
+        await refresh(current);
+      }
+      await _writeRefreshSetting('simulated_phone_last_refresh_at',
+          current.millisecondsSinceEpoch.toString());
+      await _writeRefreshSetting('simulated_phone_last_error', '');
+    } on BrainWorkInvalidated {
+      // A restore, transfer or switch change invalidates the old result.
     } catch (error) {
+      final fence = _refreshFence;
+      if (fence == null || !await db.brainWorkFenceCurrent(fence)) return;
       final text = error.toString();
-      await db.setSetting(
-        'simulated_phone_last_error',
-        text.length <= 240 ? text : text.substring(0, 240),
-      );
+      await db.setSettingsAtomically({
+        'simulated_phone_last_error': text.length <= 240 ? text : text.substring(0, 240),
+      }, workFence: fence, expectedSettings: _enabledGuard);
       rethrow;
     } finally {
+      _refreshFence = null;
+      _enabledGuard = const {};
       await db.releaseLocalLease(_leaseKey);
     }
+  }
+
+  Future<void> _writeRefreshSetting(String key, String value) async {
+    final fence = _refreshFence;
+    if (fence == null || !await db.setSettingsAtomically(
+      {key: value}, workFence: fence, expectedSettings: _enabledGuard,
+    )) throw const BrainWorkInvalidated();
   }
 
   Future<void> _refreshDiary(DateTime now) async {
@@ -534,7 +555,7 @@ class SimulatedPhoneRepository {
     if (previous?.metadata['reflection_version'] == 1 &&
         (!change || revisions >= 1)) return;
     if (!await _reflectionRetryDue(_moodAttemptKey, now)) return;
-    await db.setSetting(_moodAttemptKey, now.millisecondsSinceEpoch.toString());
+    await _writeRefreshSetting(_moodAttemptKey, now.millisecondsSinceEpoch.toString());
     final continuity = await db.latestDailyContinuity(limit: 3);
     final today = continuity.where((entry) => entry.localDay == day).firstOrNull;
     final generated = await _reflectionGenerator.mood(
@@ -882,7 +903,7 @@ class SimulatedPhoneRepository {
         ];
         budget += 1;
         changed = true;
-        await db.setSetting(
+        await _writeRefreshSetting(
           _wishLastAddedAtKey,
           now.millisecondsSinceEpoch.toString(),
         );
@@ -892,8 +913,8 @@ class SimulatedPhoneRepository {
     if (!changed) return;
     await _writeList(_wishesKey, active.take(12).toList());
     await _writeList(_completedWishesKey, completed.take(180).toList());
-    await db.setSetting(_wishBudgetDayKey, day);
-    await db.setSetting(_wishBudgetCountKey, budget.clamp(0, 3).toString());
+    await _writeRefreshSetting(_wishBudgetDayKey, day);
+    await _writeRefreshSetting(_wishBudgetCountKey, budget.clamp(0, 3).toString());
   }
 
   Future<void> _refreshCart(DateTime now) async {
@@ -958,9 +979,9 @@ class SimulatedPhoneRepository {
       nextHistory.add(title);
       if (nextHistory.length >= 36) break;
     }
-    await db.setSetting(_cartHistoryKey, jsonEncode(nextHistory));
-    await db.setSetting('simulated_phone_cart_generation_mode', mode);
-    await db.setSetting(
+    await _writeRefreshSetting(_cartHistoryKey, jsonEncode(nextHistory));
+    await _writeRefreshSetting('simulated_phone_cart_generation_mode', mode);
+    await _writeRefreshSetting(
       'simulated_phone_cart_generated_at',
       now.millisecondsSinceEpoch.toString(),
     );
@@ -1102,7 +1123,7 @@ class SimulatedPhoneRepository {
       ];
       existing = entries;
       await _writeList(_tarotKey, entries);
-      await db.setSetting('simulated_phone_tarot_last_day', day);
+      await _writeRefreshSetting('simulated_phone_tarot_last_day', day);
     }
     // A card created by the previous build may still be today's card. Keep
     // its draw, but remove the old fixed explanation immediately on upgrade.
@@ -1123,7 +1144,7 @@ class SimulatedPhoneRepository {
       return;
     }
     if (!await _reflectionRetryDue(_tarotAttemptKey, now)) return;
-    await db.setSetting(_tarotAttemptKey, now.millisecondsSinceEpoch.toString());
+    await _writeRefreshSetting(_tarotAttemptKey, now.millisecondsSinceEpoch.toString());
     final cards = <String, Object?>{};
     for (final entry in existing) {
       final index = (entry.metadata['card_index'] as num).toInt();
@@ -1209,10 +1230,10 @@ class SimulatedPhoneRepository {
 
   Future<void> _writeNoteAttemptSlots(String day, Set<int> slots) async {
     final ordered = slots.toList()..sort();
-    await db.setSetting(_noteAttemptSlotsKey, jsonEncode(ordered));
+    await _writeRefreshSetting(_noteAttemptSlotsKey, jsonEncode(ordered));
     // Publish the day marker last: a crash between the two writes leaves the
     // new slot payload ignored instead of applying stale slots to a new day.
-    await db.setSetting(_noteAttemptDayKey, day);
+    await _writeRefreshSetting(_noteAttemptDayKey, day);
   }
 
   Future<List<SimulatedPhoneEntry>> _readList(String key) async {
@@ -1239,7 +1260,7 @@ class SimulatedPhoneRepository {
     String key,
     List<SimulatedPhoneEntry> entries,
   ) =>
-      db.setSetting(
+      _writeRefreshSetting(
         key,
         jsonEncode(entries.map((entry) => entry.toJson()).toList()),
       );

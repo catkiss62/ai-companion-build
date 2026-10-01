@@ -10,6 +10,7 @@ import '../ai/generation_cancellation.dart';
 import '../ai/message_language_variant_service.dart';
 import '../ai/model_profile.dart';
 import '../database/app_database.dart';
+import '../database/brain_work_fence.dart';
 import '../emotion/emotion_classifier_service.dart';
 import '../emotion/emotion_contract.dart';
 import '../models/chat_language_variant.dart';
@@ -39,9 +40,13 @@ class ImmersiveRoomController extends ChangeNotifier {
     SecureConfig? secureConfig,
     MessageLanguageVariantGateway? languageVariantGateway,
   })  : db = db ?? AppDatabase.instance,
-        client = client ?? DeepSeekClient(),
         secureConfig = secureConfig ?? SecureConfig.instance {
     repository = ImmersiveRoomRepository(this.db);
+    this.client = client ?? DeepSeekClient(abortWhen: () async {
+      final fence = repository.stateFence;
+      return fence == null ? !await this.db.brainWorkAllowed()
+          : !await this.db.brainWorkFenceCurrent(fence);
+    });
     languageVariantService = ImmersiveMessageLanguageVariantService(
       store: RepositoryImmersiveMessageLanguageVariantStore(repository),
       gateway: languageVariantGateway ??
@@ -65,7 +70,7 @@ class ImmersiveRoomController extends ChangeNotifier {
 
   final String roomId;
   final AppDatabase db;
-  final DeepSeekClient client;
+  late final DeepSeekClient client;
   final SecureConfig secureConfig;
   late final ImmersiveRoomRepository repository;
   late final ImmersiveMessageLanguageVariantService languageVariantService;
@@ -138,6 +143,7 @@ class ImmersiveRoomController extends ChangeNotifier {
   }
 
   Future<void> initialize() async {
+    repository.stateFence = await db.captureBrainWorkFence();
     await _captureEntryForm();
     room = await repository.roomById(roomId);
     if (room == null) {
@@ -149,13 +155,29 @@ class ImmersiveRoomController extends ChangeNotifier {
       messages = await repository.messagesForRoom(roomId);
       interruptions = await repository.interruptionsForRoom(roomId);
       await _restoreIncompleteReplyDraft();
-      if (!room!.isEnded) {
+      if (!room!.isEnded && repository.stateFence != null) {
         await repository.activateRoom(roomId);
         room = await repository.inheritActiveSpecialStyleIfNeeded(roomId);
       }
     }
     loading = false;
     _safeNotify();
+  }
+
+  Future<bool> _canWrite() async {
+    repository.stateFence ??= await db.captureBrainWorkFence();
+    final fence = repository.stateFence;
+    if (fence != null && await db.brainWorkFenceCurrent(fence)) return true;
+    error = '当前设备处于待命、恢复中或状态已切换，请接管或重新打开房间后继续。';
+    _safeNotify();
+    return false;
+  }
+
+  Future<void> _writeRoomSetting(String key, String value) async {
+    final fence = repository.stateFence;
+    if (fence == null || !await db.setSettingsAtomically(
+      {key: value}, workFence: fence,
+    )) throw const BrainWorkInvalidated();
   }
 
   Future<void> reloadRoom() async {
@@ -174,6 +196,7 @@ class ImmersiveRoomController extends ChangeNotifier {
       );
 
   Future<void> _send(String rawText, {bool sceneAdvance = false}) async {
+    if (!await _canWrite()) return;
     final text = rawText.trim();
     final currentRoom = room;
     if (text.isEmpty || sending || currentRoom == null || currentRoom.isEnded) {
@@ -206,6 +229,7 @@ class ImmersiveRoomController extends ChangeNotifier {
       return;
     }
 
+    try {
     final historyBeforeTurn = List<ImmersiveMessage>.from(messages);
     await ttsPlayback.stop();
     final user = await repository.addMessage(
@@ -432,8 +456,15 @@ class ImmersiveRoomController extends ChangeNotifier {
       _allStreamingReasoning = '';
       _streamingDraftVisible = false;
       if (identical(_cancellation, cancellation)) _cancellation = null;
-      await db.releaseLocalLease('immersive_room_lease');
       _safeNotify();
+    }
+    } catch (exception) {
+      sending = false;
+      nsfwRouting = false;
+      error = '这一轮未能开始: $exception';
+      _safeNotify();
+    } finally {
+      await db.releaseLocalLease('immersive_room_lease');
     }
   }
 
@@ -517,7 +548,7 @@ class ImmersiveRoomController extends ChangeNotifier {
     _allStreamingReasoning = '';
     notice =
         '第二通道调用失败（${FinalReplyFailurePolicy.userCategory(lastError!)}），本轮已由 DeepSeek 兜底。';
-    await db.setSetting(_fallbackNoticeSettingKey, notice!);
+    await _writeRoomSetting(_fallbackNoticeSettingKey, notice!);
     finalRoute.recordFailure(lastError!);
     _lastFinalReplyUsedFallback = true;
     _safeNotify();
@@ -607,7 +638,7 @@ class ImmersiveRoomController extends ChangeNotifier {
       reasoningContent: reasoning.trim(),
       createdAt: createdAt,
     );
-    await db.setSetting(
+    await _writeRoomSetting(
       _pendingReplySettingKey,
       jsonEncode(<String, Object?>{
         'room_id': roomId,
@@ -642,17 +673,20 @@ class ImmersiveRoomController extends ChangeNotifier {
       );
       notice ??= '有一条截断回复尚未处理；它还没有进入房间上下文或摘要。';
     } catch (_) {
-      await _clearIncompleteReplyDraft();
+      if (repository.stateFence != null && await _canWrite()) {
+        await _clearIncompleteReplyDraft();
+      }
     }
   }
 
   Future<void> _clearIncompleteReplyDraft() async {
     incompleteReplyDraft = null;
     incompleteReplyUserMessageId = null;
-    await db.setSetting(_pendingReplySettingKey, '');
+    await _writeRoomSetting(_pendingReplySettingKey, '');
   }
 
   Future<void> confirmIncompleteReply() async {
+    if (!await _canWrite()) return;
     final draft = incompleteReplyDraft;
     if (draft == null || sending) return;
     final internalApiKey = (await secureConfig.readApiKey())?.trim() ?? '';
@@ -710,6 +744,10 @@ class ImmersiveRoomController extends ChangeNotifier {
   }
 
   Future<void> regenerateIncompleteReply({bool leaseAlreadyHeld = false}) async {
+    if (!await _canWrite()) {
+      if (leaseAlreadyHeld) await db.releaseLocalLease('immersive_room_lease');
+      return;
+    }
     final userMessageId = incompleteReplyUserMessageId;
     if (userMessageId == null || sending || room?.isEnded == true) {
       if (leaseAlreadyHeld) await db.releaseLocalLease('immersive_room_lease');
@@ -742,6 +780,7 @@ class ImmersiveRoomController extends ChangeNotifier {
       _safeNotify();
       return;
     }
+    try {
     await _clearIncompleteReplyDraft();
     await ttsPlayback.stop();
     sending = true;
@@ -884,8 +923,15 @@ class ImmersiveRoomController extends ChangeNotifier {
       _allStreamingReasoning = '';
       _streamingDraftVisible = false;
       if (identical(_cancellation, cancellation)) _cancellation = null;
-      await db.releaseLocalLease('immersive_room_lease');
       _safeNotify();
+    }
+    } catch (exception) {
+      sending = false;
+      nsfwRouting = false;
+      error = '重新生成未能开始: $exception';
+      _safeNotify();
+    } finally {
+      await db.releaseLocalLease('immersive_room_lease');
     }
   }
 
@@ -898,6 +944,7 @@ class ImmersiveRoomController extends ChangeNotifier {
   }
 
   Future<void> regenerateLatestReply(ImmersiveMessage assistant) async {
+    if (!await _canWrite()) return;
     if (!assistant.isAssistant || sending || room?.isEnded == true) return;
     if (assistant.id == incompleteReplyDraft?.id) {
       await regenerateIncompleteReply();
@@ -918,13 +965,13 @@ class ImmersiveRoomController extends ChangeNotifier {
       _safeNotify();
       return;
     }
+    try {
     final userMessageId =
         await repository.removeLatestAssistantForRegeneration(
       roomId: roomId,
       assistantMessageId: assistant.id,
     );
     if (userMessageId == null) {
-      await db.releaseLocalLease('immersive_room_lease');
       error = '只能重新生成当前最新且尚未归入滚动摘要的回复。';
       _safeNotify();
       return;
@@ -936,6 +983,14 @@ class ImmersiveRoomController extends ChangeNotifier {
     error = null;
     _safeNotify();
     await regenerateIncompleteReply(leaseAlreadyHeld: true);
+    } catch (exception) {
+      sending = false;
+      nsfwRouting = false;
+      error = '重新生成未能开始: $exception';
+      _safeNotify();
+    } finally {
+      await db.releaseLocalLease('immersive_room_lease');
+    }
   }
 
   Future<void> stop() async {
@@ -944,7 +999,12 @@ class ImmersiveRoomController extends ChangeNotifier {
 
   void dismissNotice() {
     notice = null;
-    unawaited(db.setSetting(_fallbackNoticeSettingKey, ''));
+    final fence = repository.stateFence;
+    if (fence != null) {
+      unawaited(db.setSettingsAtomically(
+        {_fallbackNoticeSettingKey: ''}, workFence: fence,
+      ).then<void>((_) {}).catchError((Object _) {}));
+    }
     _safeNotify();
   }
 
@@ -1166,7 +1226,7 @@ class ImmersiveRoomController extends ChangeNotifier {
     if (sending || ending || room == null) return false;
     await ttsPlayback.stop();
     await _clearIncompleteReplyDraft();
-    await db.setSetting(_fallbackNoticeSettingKey, '');
+    await _writeRoomSetting(_fallbackNoticeSettingKey, '');
     await repository.deleteRoom(roomId);
     room = null;
     messages = const [];
@@ -1192,6 +1252,7 @@ class ImmersiveRoomController extends ChangeNotifier {
   }
 
   Future<bool> endRoom() async {
+    if (!await _canWrite()) return false;
     if (sending || ending || room == null || room!.isEnded) return false;
     if (incompleteReplyDraft != null) {
       error = '请先处理待确认的截断回复，再整理结束房间。';

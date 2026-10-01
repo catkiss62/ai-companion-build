@@ -3,6 +3,7 @@ import '../ai/final_reply_failure_policy.dart';
 import '../ai/model_profile.dart';
 import '../ai/prompt_builder.dart';
 import '../database/app_database.dart';
+import '../database/brain_work_fence.dart';
 import '../diagnostics/model_usage_telemetry.dart';
 import '../models/chat_message.dart';
 import '../models/chat_segment.dart';
@@ -23,13 +24,18 @@ class CalendarReminderFollowup {
     if (!await db.brainWorkAllowed() || await db.blockingGenerationJob() != null) {
       return;
     }
-    final pending = await android.pendingStoppedReminders();
-    if (pending.isEmpty) return;
     if (!await db.tryAcquireLocalLease(
       'calendar_reminder_followup_lease_until',
       holdFor: const Duration(minutes: 3),
     )) return;
     try {
+      final fence = await db.captureBrainWorkFence(
+        leaseKey: 'calendar_reminder_followup_lease_until',
+        settingKeys: const ['calendar_reminders_v1'],
+      );
+      if (fence == null) return;
+      final pending = await android.pendingStoppedReminders();
+      if (pending.isEmpty || !await db.brainWorkFenceCurrent(fence)) return;
       final entry = pending.first;
       final occurrence = entry['occurrence']?.toString() ?? '';
       final title = entry['title']?.toString().trim() ?? '';
@@ -71,12 +77,18 @@ class CalendarReminderFollowup {
       final finalEndpoint = await config.readFinalReplyEndpoint();
       final finalName = await config.readFinalReplyModel();
       final client = DeepSeekClient(
+        abortWhen: () async => !await db.brainWorkFenceCurrent(fence),
         onUsage: (event) => ModelUsageTelemetry.record(db, event),
       );
       String? text;
       String model = DeepSeekModelProfile.flash.apiName;
       try {
         Future<String?> request({required bool finalChannel}) async {
+          if (!await db.brainWorkFenceCurrent(fence) ||
+              !await db.renewLocalLease('calendar_reminder_followup_lease_until',
+                  holdFor: const Duration(minutes: 3))) {
+            throw const BrainWorkInvalidated();
+          }
           final buffer = StringBuffer();
           var done = false;
           var finish = '';
@@ -111,14 +123,15 @@ class CalendarReminderFollowup {
             if (finalKey.isEmpty) throw const FormatException('missing_gemini_final_reply_key');
             text = await request(finalChannel: true);
             if (text == null) throw const EmptyFinalReplyException();
-            await db.setSetting('calendar_last_final_provider_notice', '');
+            await db.setSettingsAtomically({'calendar_last_final_provider_notice': ''}, workFence: fence);
             if (text != null) model = finalName.isEmpty
                 ? provider.effectiveModel(DeepSeekModelProfile.flash)
                 : finalName;
           } catch (error) {
             finalRoute.recordFailure(error);
-            await db.setSetting('calendar_last_final_provider_notice',
-                '第二通道调用失败（${FinalReplyFailurePolicy.userCategory(error)}），日历提醒由 DeepSeek 兜底。');
+            if (!await db.brainWorkFenceCurrent(fence)) return;
+            await db.setSettingsAtomically({'calendar_last_final_provider_notice':
+                '第二通道调用失败（${FinalReplyFailurePolicy.userCategory(error)}），日历提醒由 DeepSeek 兜底。'}, workFence: fence);
           }
         }
         text ??= await request(finalChannel: false);
@@ -130,7 +143,7 @@ class CalendarReminderFollowup {
       if (text == null || text == 'WAIT' || !await db.brainWorkAllowed()) return;
       // The deterministic ID and lease make a crash between commit and native
       // acknowledgement recoverable without generating a second reply.
-      await db.insertMessage(ChatMessage(
+      final committed = await db.insertBackgroundMessage(ChatMessage(
         id: messageId,
         role: 'assistant',
         content: text,
@@ -141,7 +154,8 @@ class CalendarReminderFollowup {
         proactiveDelivery: 'normal',
         deviceId: await db.ensureDeviceId(),
         segments: ChatSegmentCodec.parseAssistantText(text),
-      ));
+      ), fence);
+      if (!committed || !await db.brainWorkFenceCurrent(fence)) return;
       await android.acknowledgeStoppedReminder(occurrence);
       await android.incrementOverlayUnread();
       try {

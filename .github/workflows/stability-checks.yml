@@ -1,0 +1,36 @@
+name: Stability regression checks
+on:
+  push:
+    branches: [agent/v04263-stability]
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: stability-checks-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  flutter-checks:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          flutter-version: '3.44.9'
+          cache: true
+      - run: flutter pub get
+        working-directory: app
+      - run: flutter analyze --no-fatal-infos --no-fatal-warnings
+        working-directory: app
+      - name: Behavioral regression tests
+        run: >-
+          flutter test
+          test/public_image_download_boundary_test.dart
+          test/safe_public_image_downloader_test.dart
+          test/brain_work_fence_test.dart
+          test/generation_wait_restore_v04262_test.dart
+          test/timed_reply_pipeline_v04262_test.dart
+          test/portable_snapshot_v04256_test.dart
+          test/snapshot_directory_swap_test.dart
+        working-directory: app

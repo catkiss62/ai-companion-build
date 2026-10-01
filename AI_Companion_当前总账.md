@@ -7,7 +7,13 @@
 > 判断优先级：用户最新明确决定 > 当前 GitHub 源码与 Actions > 同时刻脱敏真机诊断/备份 > 本文件 > 冻结归档与 Git 历史。`DESIGNED`、`IMPLEMENTED`、`CI PASSED`、`APK READY`、`TRUE DEVICE PASSED`、`PENDING` 必须严格区分。
 
 
-## 当前交付 · v0.42.62+306（CI PASSED / APK READY / TRUE DEVICE PENDING）
+## 当前实施 · v0.42.63+307 稳定性第一批
+
+用户已指定 **0.42.62+306 为真机可用的对照/回退基线**，无需额外整包备份。基线源码 65b21322693b4e9b67f907a9d476d9ff90cf286f；新分支 agent/v04263-stability 从公开提交 a77f5191c7dc74ee6daaede040ac60fec6f6be10 开始。IMPLEMENTATION IN PROGRESS / CI PENDING / APK PENDING / TRUE DEVICE PENDING。
+
+本批处理恢复一致性、异步写入、下载等待、提醒同步及沉浸房间写入边界，补故障测试后再交付。保留手动停止、中性回报、两分钟推进及设置读档不重载 Live2D。桌宠渲染和图片地址过滤暂缓；工作区、陪玩模型及低频澄清另批。基线可用不代表此前所有长时场景都已验证；具体历史证据保留。
+
+## 历史交付 · v0.42.62+306（CI PASSED / APK READY / TRUE DEVICE PENDING）
 
 +305用户真机报告：指定时长工具登记后正文等待、读档慢，不能再视为已验收。新诊断01:29/01:31两次停在工具完成到最终正文；现有证据不证明第二通道服务端原因。修无输出期间聊天租约过期、SSE保活无限延长超时；读档76418行改有界批次、单事务完整回滚。手动Stop/中性回报、两分钟游戏间隔、Live2D设置导入不重载均保留。新增无正文请求阶段和恢复阶段耗时诊断，不存用户正文或密钥。先专项验证再构建；未经手机实测不标TRUE DEVICE PASSED。
 
@@ -2050,3 +2056,10 @@ Actions36894733801/job110479233862成功，Android15实际XML17 tests/0 failures
 - 交付边界：修复已确认的无输出租约续期/SSE有效进展超时缺陷、批量事务读档和脱敏阶段诊断；这次真实手机“登记后没有正文”的直接根因仍未证实，不能声称根因已修复或官方宕机。公开MCP探测被Cloudflare1010阻断后已停止，未绕过拦截、未用用户身份实际启动远程游戏。新版指定时长正常回复并开始游玩、真机读档速度仍为TRUE DEVICE PENDING。
 - Draft原工作流沿用+305说明，已由仅说明修正的临时工作流36907621577成功替换为+306实际改动和未确认根因边界；helper提交85fc7f09edf0e0d30f8d4496e2a12627501a3f23。修正前验证完整构建success及Draft/target65b，修正后API复核正文一致、draft仍true、APK目标与资产不变；不重打APK。
 - GitHub在编辑Draft说明后将html_url更新为untagged-47419c1a160cf54bd59a，顶部及交付链接已同步最新API；CI monitor保留构建时旧Draft路径，run/head/checksum不变，Release id401242273及APK asset603874804仍一致。
+
+
+## v0.42.63+307 · 实施边界记录
+
+用户已指定 **0.42.62+306 为真机可用的对照/回退基线**，无需额外整包备份。基线源码 65b21322693b4e9b67f907a9d476d9ff90cf286f；新分支 agent/v04263-stability 从公开提交 a77f5191c7dc74ee6daaede040ac60fec6f6be10 开始。IMPLEMENTATION IN PROGRESS / CI PENDING / APK PENDING / TRUE DEVICE PENDING。
+
+本批处理恢复一致性、异步写入、下载等待、提醒同步及沉浸房间写入边界，补故障测试后再交付。保留手动停止、中性回报、两分钟推进及设置读档不重载 Live2D。桌宠渲染和图片地址过滤暂缓；工作区、陪玩模型及低频澄清另批。基线可用不代表此前所有长时场景都已验证；具体历史证据保留。

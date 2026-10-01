@@ -1,6 +1,8 @@
 import 'package:uuid/uuid.dart';
+import 'package:sqflite/sqflite.dart';
 
 import '../database/app_database.dart';
+import '../database/brain_work_fence.dart';
 import '../models/immersive_room.dart';
 import '../models/generation_job.dart';
 import '../models/chat_language_variant.dart';
@@ -14,6 +16,18 @@ class ImmersiveRoomRepository {
 
   final AppDatabase db;
   final Uuid _uuid = Uuid();
+  BrainWorkFence? stateFence;
+
+  Future<T> _write<T>(Future<T> Function(Transaction) action) async {
+    final database = await db.database;
+    return database.transaction((txn) async {
+      final fence = stateFence;
+      if (fence == null ? !await BrainWorkFence.workAllowed(txn)
+          : !await fence.matches(txn)) throw const BrainWorkInvalidated();
+      return action(txn);
+    });
+  }
+
 
   Future<List<ImmersiveRoom>> listRooms() async {
     final database = await db.database;
@@ -41,7 +55,6 @@ class ImmersiveRoomRepository {
     required bool inheritCurrentChat,
     String fateWheelEntry = '',
   }) async {
-    final database = await db.database;
     final now = DateTime.now().millisecondsSinceEpoch;
     final id = _uuid.v4();
     final activeSpecial = await db.activeSpecialStyleTrial();
@@ -55,7 +68,7 @@ class ImmersiveRoomRepository {
       if (inherited.isNotEmpty) inherited,
       if (fateWheelEntry.trim().isNotEmpty) fateWheelEntry.trim(),
     ];
-    await database.transaction((txn) async {
+    await _write((txn) async {
       await txn.update(
         'immersive_rooms',
         {'status': 'paused', 'updated_at': now},
@@ -85,9 +98,8 @@ class ImmersiveRoomRepository {
   }
 
   Future<void> activateRoom(String id) async {
-    final database = await db.database;
     final now = DateTime.now().millisecondsSinceEpoch;
-    await database.transaction((txn) async {
+    await _write((txn) async {
       await txn.update(
         'immersive_rooms',
         {'status': 'paused', 'updated_at': now},
@@ -112,8 +124,7 @@ class ImmersiveRoomRepository {
     if (active == null || !PersonalityCatalog.isKnownSpecial(active.styleKey)) {
       return current;
     }
-    final database = await db.database;
-    await database.update(
+    await _write((txn) => txn.update(
       'immersive_rooms',
       {
         'special_style_key': active.styleKey,
@@ -122,7 +133,7 @@ class ImmersiveRoomRepository {
       },
       where: "id = ? AND status != 'ended' AND special_style_binding = 'inherit'",
       whereArgs: [id],
-    );
+    ));
     return roomById(id);
   }
 
@@ -131,8 +142,7 @@ class ImmersiveRoomRepository {
     if (active == null || !PersonalityCatalog.isKnownSpecial(active.styleKey)) {
       return roomById(id);
     }
-    final database = await db.database;
-    await database.update(
+    await _write((txn) => txn.update(
       'immersive_rooms',
       {
         'special_style_key': active.styleKey,
@@ -141,13 +151,12 @@ class ImmersiveRoomRepository {
       },
       where: "id = ? AND status != 'ended'",
       whereArgs: [id],
-    );
+    ));
     return roomById(id);
   }
 
   Future<ImmersiveRoom?> disableSpecialStyle(String id) async {
-    final database = await db.database;
-    await database.update(
+    await _write((txn) => txn.update(
       'immersive_rooms',
       {
         'special_style_key': '',
@@ -156,13 +165,12 @@ class ImmersiveRoomRepository {
       },
       where: "id = ? AND status != 'ended'",
       whereArgs: [id],
-    );
+    ));
     return roomById(id);
   }
 
   Future<void> pauseRoom(String id) async {
-    final database = await db.database;
-    await database.update(
+    await _write((txn) => txn.update(
       'immersive_rooms',
       {
         'status': 'paused',
@@ -170,12 +178,11 @@ class ImmersiveRoomRepository {
       },
       where: "id = ? AND status != 'ended'",
       whereArgs: [id],
-    );
+    ));
   }
 
   Future<void> renameRoom(String id, String title) async {
-    final database = await db.database;
-    await database.update(
+    await _write((txn) => txn.update(
       'immersive_rooms',
       {
         'title': title.trim().isEmpty ? '未命名房间' : title.trim(),
@@ -183,12 +190,11 @@ class ImmersiveRoomRepository {
       },
       where: 'id = ?',
       whereArgs: [id],
-    );
+    ));
   }
 
   Future<void> deleteRoom(String id) async {
-    final database = await db.database;
-    await database.transaction((txn) async {
+    await _write((txn) async {
       await txn.delete(
         'immersive_messages',
         where: 'room_id = ?',
@@ -213,8 +219,7 @@ class ImmersiveRoomRepository {
     required String entryContext,
     required String novelRules,
   }) async {
-    final database = await db.database;
-    await database.update(
+    await _write((txn) => txn.update(
       'immersive_rooms',
       {
         'title': title.trim().isEmpty ? '未命名房间' : title.trim(),
@@ -226,12 +231,11 @@ class ImmersiveRoomRepository {
       },
       where: "id = ? AND status != 'ended'",
       whereArgs: [id],
-    );
+    ));
   }
 
   Future<void> setNsfwManualOverride(String id, bool active) async {
-    final database = await db.database;
-    await database.update(
+    await _write((txn) => txn.update(
       'immersive_rooms',
       {
         'nsfw_active': active ? 1 : 0,
@@ -241,7 +245,7 @@ class ImmersiveRoomRepository {
       },
       where: "id = ? AND status != 'ended'",
       whereArgs: [id],
-    );
+    ));
   }
 
   Future<void> saveNsfwRoute({
@@ -249,8 +253,7 @@ class ImmersiveRoomRepository {
     required bool active,
     required String source,
   }) async {
-    final database = await db.database;
-    await database.update(
+    await _write((txn) => txn.update(
       'immersive_rooms',
       {
         'nsfw_active': active ? 1 : 0,
@@ -260,7 +263,7 @@ class ImmersiveRoomRepository {
       },
       where: "id = ? AND status != 'ended'",
       whereArgs: [id],
-    );
+    ));
   }
 
   Future<List<ImmersiveMessage>> messagesForRoom(String roomId) async {
@@ -292,9 +295,8 @@ class ImmersiveRoomRepository {
         variant.segments.isEmpty) {
       throw StateError('invalid_immersive_message_language_variant');
     }
-    final database = await db.database;
     final prefix = variant.language == ChatLanguage.japanese ? 'ja' : 'en';
-    final updated = await database.update(
+    final updated = await _write((txn) => txn.update(
       'immersive_messages',
       <String, Object?>{
         '${prefix}_content': variant.content,
@@ -302,7 +304,7 @@ class ImmersiveRoomRepository {
       },
       where: 'id = ? AND role = ?',
       whereArgs: [variant.messageId, 'assistant'],
-    );
+    ));
     if (updated != 1) throw StateError('language_variant_owner_missing');
   }
 
@@ -319,6 +321,7 @@ class ImmersiveRoomRepository {
   }) => db.interruptImmersiveUserMessageForDisplay(
         roomId: roomId,
         messageId: messageId,
+        workFence: stateFence,
       );
 
   Future<ImmersiveMessage> addMessage({
@@ -327,7 +330,6 @@ class ImmersiveRoomRepository {
     required String content,
     String reasoningContent = '',
   }) async {
-    final database = await db.database;
     final now = DateTime.now().millisecondsSinceEpoch;
     final message = ImmersiveMessage(
       id: _uuid.v4(),
@@ -337,7 +339,7 @@ class ImmersiveRoomRepository {
       reasoningContent: reasoningContent.trim(),
       createdAt: DateTime.fromMillisecondsSinceEpoch(now),
     );
-    await database.transaction((txn) async {
+    await _write((txn) async {
       await txn.insert('immersive_messages', {
         'id': message.id,
         'room_id': roomId,
@@ -363,8 +365,7 @@ class ImmersiveRoomRepository {
     required String roomId,
     required String assistantMessageId,
   }) async {
-    final database = await db.database;
-    return database.transaction<String?>((txn) async {
+    return _write<String?>((txn) async {
       final rows = await txn.query(
         'immersive_messages',
         where: 'room_id = ?',
@@ -415,8 +416,7 @@ class ImmersiveRoomRepository {
     required String sceneLedger,
     required int summarizedMessageCount,
   }) async {
-    final database = await db.database;
-    await database.update(
+    await _write((txn) => txn.update(
       'immersive_rooms',
       {
         'rolling_summary': rollingSummary.trim(),
@@ -426,7 +426,7 @@ class ImmersiveRoomRepository {
       },
       where: 'id = ?',
       whereArgs: [roomId],
-    );
+    ));
   }
 
   Future<void> endRoom({
@@ -435,12 +435,12 @@ class ImmersiveRoomRepository {
     required String sceneLedger,
     required List<String> sharedMemories,
   }) async {
-    final database = await db.database;
     final now = DateTime.now().millisecondsSinceEpoch;
     final admittedMemories = ImmersiveSharedMemoryPolicy.admit(sharedMemories);
     final room = await roomById(roomId);
     final style = PersonalityCatalog.special(room?.specialStyleKey ?? '');
-    await database.update(
+    await _write((txn) async {
+      await txn.update(
       'immersive_rooms',
       {
         'status': 'ended',
@@ -470,8 +470,10 @@ class ImmersiveRoomRepository {
         ],
         source: 'immersive_room:$roomId${style.key.isNotEmpty ? '|special_style:${style.key}' : ''}',
         semanticType: 'shared_experience',
+        transaction: txn,
       );
     }
+    });
   }
 
   Future<String> currentChatEntryContext() async {
