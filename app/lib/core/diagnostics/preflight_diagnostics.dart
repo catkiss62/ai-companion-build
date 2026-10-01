@@ -645,6 +645,12 @@ class PreflightDiagnosticsService {
               },
         'lastTakeoverAt': lastTakeoverAt,
         'postTurnJobs': jobs,
+        'generationRequest': await _generationRequestState(),
+        'backupRestoreTiming': {
+          for (final entry in _safeJsonObject(await db.getSetting('backup_restore_timing_v1') ?? '').entries)
+            if (const ['validationMs', 'prepareFilesMs', 'databaseMs', 'commitFilesMs', 'at'].contains(entry.key) && entry.value is num)
+              entry.key: entry.value,
+        },
         'blockingGenerationStatus': generationJob?.status ?? 'none',
         'failedGenerationNeedsAttention': failedGeneration != null,
         'recordCounts': memoryStats,
@@ -2017,4 +2023,19 @@ class PreflightDiagnosticsService {
 
   Map<String, Object?> _asMap(Object? value) =>
       value is Map ? _normalizeMap(value) : const <String, Object?>{};
+  Future<Map<String, Object?>> _generationRequestState() async {
+    try {
+      final value = jsonDecode(await db.getSetting('generation_request_state_v1') ?? '{}');
+      if (value is! Map) return const {};
+      return {
+        for (final key in ['lane', 'provider', 'phase', 'errorType'])
+          key: value[key]?.toString().substring(0,
+              min(96, value[key]?.toString().length ?? 0)) ?? '',
+        for (final key in ['startedAt', 'updatedAt'])
+          key: value[key] is num ? value[key] : 0,
+        'contentIncluded': false,
+      };
+    } catch (_) { return const {}; }
+  }
+
 }

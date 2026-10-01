@@ -232,74 +232,79 @@ class DeepSeekClient {
           .timeout(requestTimeout);
       cancellationToken?.throwIfCancelled();
       if (response.statusCode < 200 || response.statusCode >= 300) {
-        final body = await response.stream.bytesToString();
+        final body = await response.stream.bytesToString().timeout(requestTimeout);
         throw DeepSeekException(response.statusCode, _extractError(body));
       }
 
-      final lines = response.stream
-          .timeout(requestTimeout)
-          .transform(utf8.decoder)
-          .transform(const LineSplitter());
+      // Transport keepalives are not model progress. Apply the deadline to
+      // parsed deltas, otherwise comments/empty SSE frames can wait forever.
+      Stream<DeepSeekDelta> responseDeltas() async* {
+        final lines = response.stream
+            .transform(utf8.decoder)
+            .transform(const LineSplitter());
 
-      await for (final rawLine in lines) {
-        cancellationToken?.throwIfCancelled();
-        final line = rawLine.trim();
-        if (line.isEmpty || !line.startsWith('data:')) continue;
-        final payload = line.substring(5).trim();
-        if (payload == '[DONE]') {
-          yield const DeepSeekDelta(done: true);
-          break;
-        }
-        final json = jsonDecode(payload) as Map<String, dynamic>;
-        final usage = _usageEvent(
-          json['usage'],
-          lane: usageLane,
-          executionId: usageExecutionId,
-          streaming: true,
-          promptShape: promptShape,
-        );
-        if (usage != null) {
-          try {
-            await _onUsage?.call(usage);
-          } catch (_) {
-            // Accounting is diagnostic-only and must never fail a reply.
+        await for (final rawLine in lines) {
+          cancellationToken?.throwIfCancelled();
+          final line = rawLine.trim();
+          if (line.isEmpty || !line.startsWith('data:')) continue;
+          final payload = line.substring(5).trim();
+          if (payload == '[DONE]') {
+            yield const DeepSeekDelta(done: true);
+            break;
           }
-        }
-        final choices = json['choices'] as List?;
-        if (choices == null || choices.isEmpty) continue;
-        final first = choices.first as Map<String, dynamic>;
-        final delta =
-            (first['delta'] as Map?)?.cast<String, dynamic>() ?? const {};
-        final reasoning = delta['reasoning_content'] as String? ?? '';
-        final content = delta['content'] as String? ?? '';
-        final finishReason = first['finish_reason'] as String?;
-        final toolCallDeltas = <DeepSeekToolCallDelta>[];
-        final rawToolCalls = delta['tool_calls'];
-        if (rawToolCalls is List) {
-          for (final rawCall in rawToolCalls.whereType<Map>()) {
-            final call = rawCall.cast<String, dynamic>();
-            final function =
-                (call['function'] as Map?)?.cast<String, dynamic>() ?? const {};
-            toolCallDeltas.add(DeepSeekToolCallDelta(
-              index: (call['index'] as num?)?.toInt() ?? 0,
-              id: call['id'] as String? ?? '',
-              name: function['name'] as String? ?? '',
-              argumentsFragment: function['arguments'] as String? ?? '',
-            ));
-          }
-        }
-        if (reasoning.isNotEmpty ||
-            content.isNotEmpty ||
-            toolCallDeltas.isNotEmpty ||
-            finishReason != null) {
-          yield DeepSeekDelta(
-            reasoning: reasoning,
-            content: content,
-            finishReason: finishReason,
-            toolCallDeltas: toolCallDeltas,
+          final json = jsonDecode(payload) as Map<String, dynamic>;
+          final usage = _usageEvent(
+            json['usage'],
+            lane: usageLane,
+            executionId: usageExecutionId,
+            streaming: true,
+            promptShape: promptShape,
           );
+          if (usage != null) {
+            try {
+              await _onUsage?.call(usage);
+            } catch (_) {
+              // Accounting is diagnostic-only and must never fail a reply.
+            }
+          }
+          final choices = json['choices'] as List?;
+          if (choices == null || choices.isEmpty) continue;
+          final first = choices.first as Map<String, dynamic>;
+          final delta =
+              (first['delta'] as Map?)?.cast<String, dynamic>() ?? const {};
+          final reasoning = delta['reasoning_content'] as String? ?? '';
+          final content = delta['content'] as String? ?? '';
+          final finishReason = first['finish_reason'] as String?;
+          final toolCallDeltas = <DeepSeekToolCallDelta>[];
+          final rawToolCalls = delta['tool_calls'];
+          if (rawToolCalls is List) {
+            for (final rawCall in rawToolCalls.whereType<Map>()) {
+              final call = rawCall.cast<String, dynamic>();
+              final function =
+                  (call['function'] as Map?)?.cast<String, dynamic>() ?? const {};
+              toolCallDeltas.add(DeepSeekToolCallDelta(
+                index: (call['index'] as num?)?.toInt() ?? 0,
+                id: call['id'] as String? ?? '',
+                name: function['name'] as String? ?? '',
+                argumentsFragment: function['arguments'] as String? ?? '',
+              ));
+            }
+          }
+          if (reasoning.isNotEmpty ||
+              content.isNotEmpty ||
+              toolCallDeltas.isNotEmpty ||
+              finishReason != null) {
+            yield DeepSeekDelta(
+              reasoning: reasoning,
+              content: content,
+              finishReason: finishReason,
+              toolCallDeltas: toolCallDeltas,
+            );
+          }
         }
       }
+      yield* responseDeltas().timeout(requestTimeout);
+
     } catch (_) {
       if (cancellationToken?.isCancelled ?? false) {
         throw const GenerationCancelledByUserException();

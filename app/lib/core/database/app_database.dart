@@ -19244,6 +19244,9 @@ class AppDatabase {
       for (final table in ordered) {
         await txn.delete(table);
         final rows = (rawTables[table] as List?) ?? const [];
+        var batch = txn.batch();
+        var batchRows = 0;
+        var batchCharacters = 0;
         for (final raw in rows) {
           final row = Map<String, Object?>.from(raw as Map);
           if (table == 'memory_items' && version < 2) {
@@ -19446,14 +19449,27 @@ class AppDatabase {
             row['resume_reason'] = 'resumed_after_transfer';
             row['last_error'] = 'source_generation_interrupted_by_transfer';
           }
-          await txn.insert(
+          batch.insert(
             table,
             row,
             conflictAlgorithm: table == 'conversation_summaries'
                 ? ConflictAlgorithm.ignore
                 : ConflictAlgorithm.abort,
           );
+          batchRows++;
+          batchCharacters += row.values.fold<int>(0,
+              (size, value) => size + (value is String ? value.length : 8));
+          // Keep Android channel payloads bounded, without splitting/truncating
+          // a large setting. Every batch remains inside this ONE transaction:
+          // a later error must roll back all earlier batches and table deletes.
+          if (batchRows >= 128 || batchCharacters >= 256 * 1024) {
+            await batch.commit(noResult: true);
+            batch = txn.batch();
+            batchRows = 0;
+            batchCharacters = 0;
+          }
         }
+        if (batchRows > 0) await batch.commit(noResult: true);
       }
       await txn.insert(
         'moe_config',

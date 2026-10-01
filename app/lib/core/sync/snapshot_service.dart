@@ -531,7 +531,9 @@ class SnapshotService {
     bool allowLineageReplacement = false,
     Future<bool> Function(SnapshotMetadata metadata)? confirmRestore,
   }) async {
+    final validationWatch = Stopwatch()..start();
     final validated = await _readValidatedBundle(zipPath, allowLegacy: false);
+    final validationMs = validationWatch.elapsedMilliseconds;
     try {
       if (!validated.metadata.isBackup) {
         throw const FormatException('这不是普通备份，请使用设备接管入口导入。');
@@ -543,6 +545,7 @@ class SnapshotService {
       return await _restoreValidatedBackup(
         validated,
         allowLineageReplacement: allowLineageReplacement,
+        validationMs: validationMs,
       );
     } finally {
       await validated.dispose();
@@ -682,6 +685,7 @@ class SnapshotService {
   Future<SnapshotImportResult> _restoreValidatedBackup(
     _ValidatedSnapshot validated, {
     required bool allowLineageReplacement,
+    int validationMs = 0,
   }) async {
     final metadata = validated.metadata;
     final localDeviceId = await db.ensureDeviceId();
@@ -719,18 +723,32 @@ class SnapshotService {
           sameInstallation ? '' : metadata.stateSha256,
     };
 
+    final watch = Stopwatch()..start();
     final preparedFiles = await _prepareValidatedFiles(validated);
+    var preparedMs = 0;
+    var databaseMs = 0;
     try {
       await preparedFiles.activate();
+      preparedMs = watch.elapsedMilliseconds;
       await db.importAll(
         validated.backup,
         runtimeSettingOverrides: runtime,
       );
+      databaseMs = watch.elapsedMilliseconds - preparedMs;
     } catch (_) {
       await preparedFiles.rollback();
       rethrow;
     }
     await preparedFiles.commit();
+    try {
+      await db.setSetting('backup_restore_timing_v1', jsonEncode({
+        'validationMs': validationMs,
+        'prepareFilesMs': preparedMs,
+        'databaseMs': databaseMs,
+        'commitFilesMs': watch.elapsedMilliseconds - preparedMs - databaseMs,
+        'at': DateTime.now().millisecondsSinceEpoch,
+      }));
+    } catch (_) { /* Optional timing must not fail an already restored backup. */ }
     return SnapshotImportResult(
       metadata: metadata,
       imported: true,

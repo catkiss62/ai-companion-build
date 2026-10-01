@@ -1,17 +1,15 @@
 # AI Companion · 当前总账
 
-更新时间：2026-10-02（+305 CI PASSED / APK READY / TRUE DEVICE PENDING；+304 CI PASSED / APK READY / TRUE DEVICE PENDING；+303 CI PASSED / APK READY / TRUE DEVICE PENDING；+302 CI PASSED / APK READY / TRUE DEVICE PENDING；+301 CI PASSED / APK READY / TRUE DEVICE PENDING；+300 CI PASSED / APK READY / TRUE DEVICE PENDING；+299 CI PASSED / APK READY / TRUE DEVICE PENDING；+298 CI PASSED / APK READY / TRUE DEVICE PENDING；+297 CI PASSED / APK READY / TRUE DEVICE PENDING；+295 恢复真机成功、背景回归 PARTIAL；+293 DEVICE VISUAL BASELINE）
+更新时间：2026-10-02（+305 CI PASSED / APK READY / DEVICE REPORTED REPLY STALL；+304 CI PASSED / APK READY / TRUE DEVICE PENDING；+303 CI PASSED / APK READY / TRUE DEVICE PENDING；+302 CI PASSED / APK READY / TRUE DEVICE PENDING；+301 CI PASSED / APK READY / TRUE DEVICE PENDING；+300 CI PASSED / APK READY / TRUE DEVICE PENDING；+299 CI PASSED / APK READY / TRUE DEVICE PENDING；+298 CI PASSED / APK READY / TRUE DEVICE PENDING；+297 CI PASSED / APK READY / TRUE DEVICE PENDING；+295 恢复真机成功、背景回归 PARTIAL；+293 DEVICE VISUAL BASELINE）
 
 > 本文件是唯一的当前接班入口，继续采用“总账 v2”。顶部是快速接班索引；标记后的正式记录按版本持续追加，不设总容量上限。
 >
 > 判断优先级：用户最新明确决定 > 当前 GitHub 源码与 Actions > 同时刻脱敏真机诊断/备份 > 本文件 > 冻结归档与 Git 历史。`DESIGNED`、`IMPLEMENTED`、`CI PASSED`、`APK READY`、`TRUE DEVICE PASSED`、`PENDING` 必须严格区分。
 
 
-## 当前交付 · v0.42.61+305 指定时长游戏接续（CI PASSED / APK READY / TRUE DEVICE PENDING）
+## 当前修复 · v0.42.62+306（IMPLEMENTED / TEST PENDING）
 
-- [未发布+305测试APK](https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-fd6b8028d13084f6cc9f)，Draft401142295/asset603731423；734330053bytes，稳定签名可覆盖安装。
-- 重启/读档后只续保存的剩余有效预算，聊天与存档冻结暂让路；两分钟等待与长请求正常计时，离线不计。本地手动停止及原中性回报保持，新指定时长从零替换、不叠加。
-- 功能7c089e3d/treec22501bd，[Actions36894733801](https://github.com/catkiss62/ai-companion-build/actions/runs/36894733801)成功：139门、1082 Flutter、原生17/17、Kotlin/analyze、稳定签名及131星谷资源哈希通过；另47项专项实际行为通过。完整SHA/替代及失败路线见正式记录末尾。手机实测待验。
++305用户真机报告：指定时长工具登记后正文等待、读档慢，不能再视为已验收。新诊断01:29/01:31两次停在工具完成到最终正文；现有证据不证明第二通道服务端原因。修无输出期间聊天租约过期、SSE保活无限延长超时；读档76418行改有界批次、单事务完整回滚。手动Stop/中性回报、两分钟游戏间隔、Live2D设置导入不重载均保留。新增无正文请求阶段和恢复阶段耗时诊断，不存用户正文或密钥。先专项验证再构建；未经手机实测不标TRUE DEVICE PASSED。
 
 ## +304 已交付基线
 
@@ -2017,3 +2015,14 @@ Actions36894733801/job110479233862成功，Android15实际XML17 tests/0 failures
 稳定测试签名305eb3d80983b963c64818ddf1ad561f279de6d47b3ed2c781ada448c7c25148，实际APK签名校验步骤成功，与+304及前轮稳定身份一致，可覆盖安装保留数据。所有131个离线Memory Galaxy资源在APK中hash-exact；外部导入Live2D/表情包不重新打入存档，不提交用户原始包/诊断或私密配置到公开仓。原生/Flutter检查通过不证明手机视觉或远端模型规划自然语言已验收。
 
 真机重点：覆盖安装后发10分钟或20分钟游戏任务，正常两分钟推进；切出后重新启动、保存/读档或聊天暂让路，回来只续剩余有效预算，离线不算、无重复终止回报；手动停止后重启不得恢复已结束任务；读取停止后保存的存档也不得续玩。新半小时不叠加旧余额，结束语气沿用原设置。同时检查设置存档导入人物无重载、导出保持外部资源排除。真实终局/关闭等仍正常结束。当前CI PASSED / APK READY / TRUE DEVICE PENDING；用户未回报本版真机结果，不宣称TRUE DEVICE PASSED。
+
+
+## +306 开始修复与 +305 真机反馈 · 2026-10-02
+
+## 当前交付 · v0.42.61+305 指定时长游戏接续（CI PASSED / APK READY / TRUE DEVICE PENDING）
+
+- [未发布+305测试APK](https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-fd6b8028d13084f6cc9f)，Draft401142295/asset603731423；734330053bytes，稳定签名可覆盖安装。
+- 重启/读档后只续保存的剩余有效预算，聊天与存档冻结暂让路；两分钟等待与长请求正常计时，离线不计。本地手动停止及原中性回报保持，新指定时长从零替换、不叠加。
+- 功能7c089e3d/treec22501bd，[Actions36894733801](https://github.com/catkiss62/ai-companion-build/actions/runs/36894733801)成功：139门、1082 Flutter、原生17/17、Kotlin/analyze、稳定签名及131星谷资源哈希通过；另47项专项实际行为通过。完整SHA/替代及失败路线见正式记录末尾。手机实测待验。
+
+用户报告指定时长工具登记后对话卡住、读取存档慢。实际+305诊断显示第二通道启用，工具阶段成功，最终正文未提交；两次工具后等待分别约89秒（用户停止）和约61秒（导出时），不能凭此声称已证实服务端永久挂起。新备份76418行，state.json 34293945字节，恢复每行独立await txn.insert。代码确认聊天续期依赖delta、原网络超时作用于原始字节（保活会重置），分别修复为既有取消围栏续期、有效delta无进展超时。第二通道策略/重试次数/120秒阈值保持。批量恢复128行或256K字符一批，仍在同一事务；不截断大settings，不删除历史。新增专项行为测试与阶段诊断；测试和APK待完成。用户私有备份/诊断不提交仓库。

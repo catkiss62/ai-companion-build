@@ -1,3 +1,4 @@
+import 'generation_lease_guard.dart';
 import 'dart:async';
 import 'dart:convert';
 
@@ -218,6 +219,8 @@ class DurableGenerationRunner {
         effectiveCancellation.cancel();
       }));
     }
+    final generationLeaseGuard = GenerationLeaseGuard(db, job);
+    var runtimeOwnershipLost = false;
     var cancellationFenceCheckRunning = false;
     final cancellationFenceTimer = Timer.periodic(
       const Duration(milliseconds: 250),
@@ -228,8 +231,11 @@ class DurableGenerationRunner {
         cancellationFenceCheckRunning = true;
         unawaited(() async {
           try {
-            final latest = await db.generationJobById(job.id);
-            if (latest?.status == 'cancelled_by_user') {
+            final state = await generationLeaseGuard.check();
+            if (state == GenerationFenceState.cancelled) {
+              effectiveCancellation.cancel();
+            } else if (state == GenerationFenceState.ownershipLost) {
+              runtimeOwnershipLost = true;
               effectiveCancellation.cancel();
             }
           } catch (_) {
@@ -260,7 +266,6 @@ class DurableGenerationRunner {
 
     var lastCheckpoint = DateTime.now();
     var charsAtCheckpoint = 0;
-    var lastLeaseRefresh = DateTime.now();
     var lastFenceCheck = DateTime.fromMillisecondsSinceEpoch(0);
     var generationSpecialStyleTrialId = '';
     var generationSpecialStyleKey = '';
@@ -615,143 +620,162 @@ class DurableGenerationRunner {
         final toolCallAccumulator = AgentNativeToolCallAccumulator();
         charsAtCheckpoint = 0;
         lastCheckpoint = DateTime.now();
-        await for (final delta in client.streamChat(
-          apiKey: requestApiKey,
-          model: DeepSeekModelProfile.fromApiName(job.model),
-          effort: ReasoningEffort.fromApiName(job.reasoningEffort),
-          messages: messages,
-          endpoint: requestEndpoint,
-          requestProvider: requestProvider,
-          modelName: requestModelName,
-          thinking: job.thinking,
-          tools: tools,
-          cancellationToken: effectiveCancellation,
-          usageLane: usageLane,
-          usageExecutionId: job.id,
-        )) {
-          effectiveCancellation.throwIfCancelled();
-          if (!await db.brainWorkAllowed()) {
-            throw const GenerationSuspendedException('设备正在转移或已经下线');
-          }
-
-          final now = DateTime.now();
-          if (now.difference(lastFenceCheck) >=
-              const Duration(milliseconds: 200)) {
-            final current = await db.isGenerationRunCurrent(
-              job.id,
-              runToken: job.runToken,
-            );
-            if (!current) {
-              final latest = await db.generationJobById(job.id);
-              if (latest?.status == 'cancelled_by_user') {
-                throw const GenerationCancelledByUserException();
-              }
-              throw const GenerationSuspendedException(
-                '本次生成尝试的写入所有权已经失效',
-              );
-            }
-            lastFenceCheck = now;
-          }
-          if (now.difference(lastLeaseRefresh) >= const Duration(seconds: 10)) {
-            final renewed = await db.renewLocalLease(
-              'chat_turn_lease',
-              holdFor: const Duration(seconds: 30),
-            );
-            if (!renewed) {
-              throw const GenerationSuspendedException('聊天写入权限已经转移');
-            }
-            lastLeaseRefresh = now;
-          }
-
-          if (delta.done || delta.finishReason != null) {
-            sawTerminalSignal = true;
-          }
-          if (delta.finishReason != null) finishReason = delta.finishReason!;
-          if (delta.reasoning.isNotEmpty) {
-            reasoning += delta.reasoning;
-            upstreamReasoningDeltaSeen = true;
-          }
-          if (delta.content.isNotEmpty) {
-            content += delta.content;
-            if (!publishedAnswering) {
-              publishedAnswering = true;
-              unawaited(_publishToolRuntime(
-                phase: 'answering',
-                statusText: '',
-                toolId: '',
-              ));
-            }
-          }
-          toolCallAccumulator.addAll(delta.toolCallDeltas);
-          if (!emitDeltas && publishReasoning && delta.reasoning.isNotEmpty) {
-            onDelta?.call(DeepSeekDelta(reasoning: delta.reasoning));
-            if (onDelta != null) reasoningDeltaForwardedToSurface = true;
-          }
-          if (emitDeltas) {
-            // Hold the leading machine-readable emotion envelope out of the
-            // visible bubble and streaming TTS. Providers that ignore the
-            // contract still stream ordinary text without waiting for commit.
-            final envelopeVisible =
-                AgentToolTextEnvelope.shouldHoldFromVisibleStream(content)
-                    ? ''
-                    : EmotionEnvelope.streamingVisible(content);
-            final visibleContent = envelopeVisible;
-            final visibleDelta = visibleContent.startsWith(emittedVisibleContent)
-                ? visibleContent.substring(emittedVisibleContent.length)
-                : visibleContent;
-            emittedVisibleContent = visibleContent;
-            if (!visibleEmotionCueSent && visibleDelta.isNotEmpty) {
-              final partialEnvelope = EmotionEnvelope.parse(content);
-              final visibleEmotionKey =
-                  EmotionCatalog.keyForLabel(partialEnvelope.rawTag);
-              if (visibleEmotionKey.isNotEmpty) {
-                visibleEmotionCueSent = true;
-                // Historical validator token: onEmotionCue?.call(emotionKey).
-                // The live cue intentionally uses the emotion parsed only
-                // after visibleDelta becomes non-empty.
-                onEmotionCue?.call(visibleEmotionKey);
-              }
-            }
-            // Publish provider reasoning as it arrives so both chat surfaces
-            // can expand the reasoning panel immediately. Prompt language
-            // guidance still prefers Chinese without rewriting model thought.
-            onDelta?.call(DeepSeekDelta(
-              reasoning: delta.reasoning,
-              content: visibleDelta,
-              done: delta.done,
-              finishReason: delta.finishReason,
-              toolCallDeltas: delta.toolCallDeltas,
-            ));
-            if (onDelta != null && delta.reasoning.isNotEmpty) {
-              reasoningDeltaForwardedToSurface = true;
-            }
-          }
-
-          final chars = reasoning.length + content.length;
-          if (now.difference(lastCheckpoint) >= const Duration(seconds: 2) ||
-              chars - charsAtCheckpoint >= 768) {
-            final checkpointed = await db.checkpointGenerationJob(
-              job.id,
-              runToken: job.runToken,
-              partialReasoning: visibleTranscript.snapshot(
-                live: reasoning,
-                liveLabel: usageLane == 'agent_tool_planning'
-                    ? ''
-                    : '最终回复',
-              ),
-              // A restored chat/overlay reads checkpoints directly. Internal
-              // planning prose must not become a visible second-channel reply.
-              partialContent: usageLane == 'agent_tool_planning' ? '' : content,
-            );
-            if (!checkpointed) {
-              throw const GenerationSuspendedException(
-                '本次生成尝试的写入所有权已经过期',
-              );
-            }
-            lastCheckpoint = now;
-            charsAtCheckpoint = chars;
-          }
+        final requestStartedAt = DateTime.now().millisecondsSinceEpoch;
+        var requestProgressSeen = false;
+        Future<void> recordRequest(String phase, [Object? error]) async {
+          try {
+            await db.setSetting('generation_request_state_v1', jsonEncode({
+              'jobId': job.id,
+              'lane': usageLane,
+              'provider': (requestProvider ?? ChatApiProvider.fromEndpoint(requestEndpoint)).name,
+              'phase': phase,
+              'startedAt': requestStartedAt,
+              'updatedAt': DateTime.now().millisecondsSinceEpoch,
+              'errorType': error?.runtimeType.toString() ?? '',
+              'contentIncluded': false,
+            }));
+          } catch (_) { /* Diagnostics must not fail generation. */ }
         }
+        await recordRequest('waiting');
+        try {
+          await for (final delta in client.streamChat(
+            apiKey: requestApiKey,
+            model: DeepSeekModelProfile.fromApiName(job.model),
+            effort: ReasoningEffort.fromApiName(job.reasoningEffort),
+            messages: messages,
+            endpoint: requestEndpoint,
+            requestProvider: requestProvider,
+            modelName: requestModelName,
+            thinking: job.thinking,
+            tools: tools,
+            cancellationToken: effectiveCancellation,
+            usageLane: usageLane,
+            usageExecutionId: job.id,
+          )) {
+            if (!requestProgressSeen) {
+              requestProgressSeen = true;
+              await recordRequest('receiving');
+            }
+            effectiveCancellation.throwIfCancelled();
+            if (!await db.brainWorkAllowed()) {
+              throw const GenerationSuspendedException('设备正在转移或已经下线');
+            }
+
+            final now = DateTime.now();
+            if (now.difference(lastFenceCheck) >=
+                const Duration(milliseconds: 200)) {
+              final current = await db.isGenerationRunCurrent(
+                job.id,
+                runToken: job.runToken,
+              );
+              if (!current) {
+                final latest = await db.generationJobById(job.id);
+                if (latest?.status == 'cancelled_by_user') {
+                  throw const GenerationCancelledByUserException();
+                }
+                throw const GenerationSuspendedException(
+                  '本次生成尝试的写入所有权已经失效',
+                );
+              }
+              lastFenceCheck = now;
+            }
+
+
+            if (delta.done || delta.finishReason != null) {
+              sawTerminalSignal = true;
+            }
+            if (delta.finishReason != null) finishReason = delta.finishReason!;
+            if (delta.reasoning.isNotEmpty) {
+              reasoning += delta.reasoning;
+              upstreamReasoningDeltaSeen = true;
+            }
+            if (delta.content.isNotEmpty) {
+              content += delta.content;
+              if (!publishedAnswering) {
+                publishedAnswering = true;
+                unawaited(_publishToolRuntime(
+                  phase: 'answering',
+                  statusText: '',
+                  toolId: '',
+                ));
+              }
+            }
+            toolCallAccumulator.addAll(delta.toolCallDeltas);
+            if (!emitDeltas && publishReasoning && delta.reasoning.isNotEmpty) {
+              onDelta?.call(DeepSeekDelta(reasoning: delta.reasoning));
+              if (onDelta != null) reasoningDeltaForwardedToSurface = true;
+            }
+            if (emitDeltas) {
+              // Hold the leading machine-readable emotion envelope out of the
+              // visible bubble and streaming TTS. Providers that ignore the
+              // contract still stream ordinary text without waiting for commit.
+              final envelopeVisible =
+                  AgentToolTextEnvelope.shouldHoldFromVisibleStream(content)
+                      ? ''
+                      : EmotionEnvelope.streamingVisible(content);
+              final visibleContent = envelopeVisible;
+              final visibleDelta = visibleContent.startsWith(emittedVisibleContent)
+                  ? visibleContent.substring(emittedVisibleContent.length)
+                  : visibleContent;
+              emittedVisibleContent = visibleContent;
+              if (!visibleEmotionCueSent && visibleDelta.isNotEmpty) {
+                final partialEnvelope = EmotionEnvelope.parse(content);
+                final visibleEmotionKey =
+                    EmotionCatalog.keyForLabel(partialEnvelope.rawTag);
+                if (visibleEmotionKey.isNotEmpty) {
+                  visibleEmotionCueSent = true;
+                  // Historical validator token: onEmotionCue?.call(emotionKey).
+                  // The live cue intentionally uses the emotion parsed only
+                  // after visibleDelta becomes non-empty.
+                  onEmotionCue?.call(visibleEmotionKey);
+                }
+              }
+              // Publish provider reasoning as it arrives so both chat surfaces
+              // can expand the reasoning panel immediately. Prompt language
+              // guidance still prefers Chinese without rewriting model thought.
+              onDelta?.call(DeepSeekDelta(
+                reasoning: delta.reasoning,
+                content: visibleDelta,
+                done: delta.done,
+                finishReason: delta.finishReason,
+                toolCallDeltas: delta.toolCallDeltas,
+              ));
+              if (onDelta != null && delta.reasoning.isNotEmpty) {
+                reasoningDeltaForwardedToSurface = true;
+              }
+            }
+
+            final chars = reasoning.length + content.length;
+            if (now.difference(lastCheckpoint) >= const Duration(seconds: 2) ||
+                chars - charsAtCheckpoint >= 768) {
+              final checkpointed = await db.checkpointGenerationJob(
+                job.id,
+                runToken: job.runToken,
+                partialReasoning: visibleTranscript.snapshot(
+                  live: reasoning,
+                  liveLabel: usageLane == 'agent_tool_planning'
+                      ? ''
+                      : '最终回复',
+                ),
+                // A restored chat/overlay reads checkpoints directly. Internal
+                // planning prose must not become a visible second-channel reply.
+                partialContent: usageLane == 'agent_tool_planning' ? '' : content,
+              );
+              if (!checkpointed) {
+                throw const GenerationSuspendedException(
+                  '本次生成尝试的写入所有权已经过期',
+                );
+              }
+              lastCheckpoint = now;
+              charsAtCheckpoint = chars;
+            }
+          }
+          await recordRequest('stream_ended');
+        } catch (error) {
+          await recordRequest('failed', error);
+          rethrow;
+        }
+
         if (!sawTerminalSignal) {
           final partialContent = content.toString().trim();
           // A natural-language body with no partial native/DSML call is a
@@ -1188,7 +1212,7 @@ $finalGenerationReminder
           finalRequestMessages = finalizationMessages(finalRequestMessages);
           await _publishToolRuntime(
             phase: 'thinking',
-            statusText: '正在核验工具结果…',
+            statusText: '工具已完成，正在生成回复…',
             toolId: '',
           );
           generated = await generateFinal(finalRequestMessages);
@@ -1357,7 +1381,7 @@ $finalGenerationReminder
           finalRequestMessages = finalizationMessages(history);
           await _publishToolRuntime(
             phase: 'thinking',
-            statusText: '正在核验工具结果…',
+            statusText: '工具已完成，正在生成回复…',
             toolId: '',
           );
           generated = await generateFinal(finalRequestMessages);
@@ -1994,6 +2018,12 @@ $finalGenerationReminder
         notice: '回复已截断。当前文字尚未进入上下文或记忆，请选择“重新生成”或“保留这段回复”。',
       );
     } on GenerationCancelledByUserException catch (e) {
+      if (runtimeOwnershipLost &&
+          (await db.generationJobById(job.id))?.status != 'cancelled_by_user') {
+        await db.suspendGenerationJob(job.id,
+            reason: 'generation_ownership_lost', runToken: job.runToken);
+        return GenerationRunResult(status: 'suspended', error: e);
+      }
       await db.cancelGenerationJobByUser(job.id);
       return GenerationRunResult(status: 'cancelled_by_user', error: e);
     } on GenerationSuspendedByRuntimeGateException catch (e) {
