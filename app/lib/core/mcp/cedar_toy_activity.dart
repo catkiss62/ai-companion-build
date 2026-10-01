@@ -5,6 +5,7 @@ import 'package:uuid/uuid.dart';
 import '../database/app_database.dart';
 import 'cedar_agent_loop_policy.dart';
 import 'cedar_game_protocol.dart';
+import 'cedar_play_transition_log.dart';
 import 'cedar_solo_episode_policy.dart';
 import 'cedar_duel_observer_resolver.dart';
 import 'cedar_toy_client.dart';
@@ -198,6 +199,7 @@ class CedarGameSession {
     this.adviceNotes = const <String>[],
     this.pendingTerminalKey = '',
     this.pendingTerminalSummary = '',
+    this.pauseSource = '',
   });
 
   final String id;
@@ -225,6 +227,7 @@ class CedarGameSession {
   final List<String> adviceNotes;
   final String pendingTerminalKey;
   final String pendingTerminalSummary;
+  final String pauseSource;
 
   bool get continuable => phase.continuable && guideComplete;
   bool get companionCanContinue =>
@@ -289,6 +292,7 @@ class CedarGameSession {
     String? pendingTerminalKey,
     String? pendingTerminalSummary,
     bool clearPendingTerminal = false,
+    String? pauseSource,
   }) =>
       CedarGameSession(
         id: id,
@@ -329,6 +333,7 @@ class CedarGameSession {
         pendingTerminalSummary: clearPendingTerminal
             ? ''
             : pendingTerminalSummary ?? this.pendingTerminalSummary,
+        pauseSource: pauseSource ?? this.pauseSource,
       );
 
   Map<String, Object?> toJson() => <String, Object?>{
@@ -356,6 +361,7 @@ class CedarGameSession {
         'advice_notes': adviceNotes,
         'pending_terminal_key': pendingTerminalKey,
         'pending_terminal_summary': pendingTerminalSummary,
+        'pause_source': pauseSource,
         'events': events.map((item) => item.toJson()).toList(growable: false),
       };
 
@@ -403,6 +409,7 @@ class CedarGameSession {
       pendingTerminalKey: json['pending_terminal_key']?.toString() ?? '',
       pendingTerminalSummary:
           json['pending_terminal_summary']?.toString() ?? '',
+      pauseSource: json['pause_source']?.toString() ?? '',
       events: (json['events'] as List?)
               ?.whereType<Map>()
               .map((item) => CedarGameEvent.fromJson(item))
@@ -1410,6 +1417,7 @@ class CedarToyActivityStore {
     final storedNext = next.isUnroutableRemoteWait
         ? next.copyWith(
             phase: CedarActivityPhase.paused,
+            pauseSource: 'remote_wait_unroutable',
             waitingReason:
                 '服务端没有提供下一调用或唤醒时间，已暂存远端进度并释放当前游戏',
             updatedAt: now,
@@ -1527,7 +1535,7 @@ class CedarToyActivityStore {
     return next;
   }
 
-  Future<void> pause() async {
+  Future<void> pause({String source = 'local_pause'}) async {
     final state = await loadState();
     final existing = state.activeSession;
     if (existing == null || !existing.phase.continuable) {
@@ -1541,6 +1549,7 @@ class CedarToyActivityStore {
     final now = DateTime.now();
     final next = existing.copyWith(
       phase: CedarActivityPhase.paused,
+      pauseSource: source,
       waitingReason: '已在本机暂停，进度仍由远端存档保存',
       updatedAt: now,
       clearNextActionAt: true,
@@ -1555,6 +1564,8 @@ class CedarToyActivityStore {
       ..._stateSettingValues(paused),
       executionFenceSettingKey: 'cancel-pause-${_uuid.v4()}',
     });
+    await CedarPlayTransitionLog(db).record(source: source,
+        reason: 'local_pause', before: existing.phase.key, after: 'paused');
   }
 
   Future<void> suspendForSwitch() async {
@@ -1571,6 +1582,7 @@ class CedarToyActivityStore {
     final next = session.copyWith(
       phase: CedarActivityPhase.paused,
       waitingReason: '游戏厅开关已关闭，远端存档保留',
+      pauseSource: 'game_disabled',
       clearNextActionAt: true,
       updatedAt: now,
     );
@@ -1597,8 +1609,8 @@ class CedarToyActivityStore {
     await resumeGame(gameId);
   }
 
-  Future<void> pauseAndRelease() async {
-    await pause();
+  Future<void> pauseAndRelease({String source = 'local_pause'}) async {
+    await pause(source: source);
     final state = await loadState();
     if (state.activeGameId.isEmpty) return;
     await _saveState(state.copyWith(
@@ -1618,6 +1630,7 @@ class CedarToyActivityStore {
     final parked = session.copyWith(
       phase: CedarActivityPhase.paused,
       waitingReason: '服务端没有提供下一调用或唤醒时间，已暂存远端进度并释放当前游戏',
+      pauseSource: 'remote_wait_unroutable',
       clearNextActionAt: true,
       updatedAt: now,
     );
@@ -1696,6 +1709,7 @@ class CedarToyActivityStore {
     final now = DateTime.now();
     final next = existing.copyWith(
       phase: restoredPhase,
+      pauseSource: '',
       waitingReason: switch (restoredPhase) {
         CedarActivityPhase.awaitingInvitation => '等待你同意后再开始',
         CedarActivityPhase.waitingUser => '等待你参与下一步',

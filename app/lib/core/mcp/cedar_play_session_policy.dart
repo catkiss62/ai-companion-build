@@ -1,6 +1,8 @@
 import 'dart:convert';
 import 'dart:math' as math;
 
+import 'package:uuid/uuid.dart';
+
 import '../database/app_database.dart';
 import '../platform/android_bridge.dart';
 import 'cedar_timed_play_task.dart';
@@ -16,6 +18,7 @@ class CedarPlaySession {
     this.paused = false,
     this.taskId = '',
     this.limitMs = budgetMs,
+    this.clockId = '',
   });
   final String gameId;
   final DateTime startedAt;
@@ -24,28 +27,34 @@ class CedarPlaySession {
   final bool paused;
   final String taskId;
   final int limitMs;
+  final String clockId;
   static const budgetMs = 30 * 60 * 1000;
+  static const checkpointGap = Duration(seconds: 30);
+  // Recovery checkpoints every 30 s, including the ordinary two-minute wait;
+  // in-flight planning checkpoints on its existing 45 s lease heartbeat.
+  // A missed observation window is suspension, not billable offline time.
+  static const observedTaskGap = Duration(minutes: 3);
   bool validAt(DateTime now, String game) =>
       gameId == game &&
-      now.year == startedAt.year &&
-      now.month == startedAt.month &&
-      now.day == startedAt.day &&
-      !now.isBefore(lastTickAt) &&
-      now.difference(lastTickAt) <= const Duration(hours: 2) &&
-      (taskId.isEmpty || now.difference(startedAt) <= const Duration(hours: 2)) &&
+      (taskId.isNotEmpty || (now.year == startedAt.year &&
+          now.month == startedAt.month && now.day == startedAt.day &&
+          !now.isBefore(lastTickAt) &&
+          now.difference(lastTickAt) <= const Duration(hours: 2))) &&
       usedMs < limitMs;
   CedarPlaySession tick(DateTime now, {bool pause = false}) {
     final gap = now.difference(lastTickAt).inMilliseconds;
     // Long gaps are unobserved process suspension, never effective play.
-    final addition = !paused && gap > 0 && gap <= 120000 ? gap : 0;
+    final observedGap = taskId.isEmpty ? 120000 : observedTaskGap.inMilliseconds;
+    final addition = !paused && gap > 0 && gap <= observedGap ? gap : 0;
     return CedarPlaySession(
       gameId: gameId,
       startedAt: startedAt,
-      lastTickAt: now,
+      lastTickAt: now.isBefore(lastTickAt) ? lastTickAt : now,
       usedMs: (usedMs + addition).clamp(0, limitMs).toInt(),
       paused: pause,
       taskId: taskId,
       limitMs: limitMs,
+      clockId: clockId,
     );
   }
 
@@ -57,6 +66,7 @@ class CedarPlaySession {
     'paused': paused,
     'taskId': taskId,
     'limitMs': limitMs,
+    'clockId': clockId,
   };
   static CedarPlaySession? decode(String? raw) {
     try {
@@ -77,6 +87,7 @@ class CedarPlaySession {
         taskId: d['taskId']?.toString() ?? '',
         limitMs: ((d['limitMs'] as num?)?.toInt() ?? budgetMs)
             .clamp(60000, budgetMs).toInt(),
+        clockId: d['clockId']?.toString() ?? '',
       );
     } catch (_) {
       return null;
@@ -98,7 +109,8 @@ class CedarPlaySessionStore {
     return 'dart-${identityHashCode(db)}';
   }
 
-  // Grants are local to this process. Backup/restore never resumes a grant.
+  // Execution grants are local. A committed user task can recreate its clock
+  // through reconcile; unsolicited Desire grants are never restored.
   Future<CedarPlaySession?> load() async {
     final raw = await db.getSetting(key);
     try {
@@ -111,32 +123,47 @@ class CedarPlaySessionStore {
   }
 
   Future<String> encoded(CedarPlaySession state) async =>
-      jsonEncode({...state.toJson(), 'processEpoch': await _epoch()});
-  Future<void> save(CedarPlaySession state) async {
-    final task = await CedarTimedPlayTaskStore(db).active();
-    await db.setSettingsAtomically({
+      jsonEncode({...state.toJson(), 'processEpoch': await _epoch(),
+        'clockId': state.clockId.isEmpty ? const Uuid().v4() : state.clockId});
+  Future<bool> save(CedarPlaySession state, {String? expectedRaw,
+      Map<String, String> expectedSettings = const {}}) async {
+    final raw = await db.getSetting(key) ?? '';
+    if (expectedRaw != null && raw != expectedRaw) return false;
+    final taskRaw = await db.getSetting(CedarTimedPlayTaskStore.activeKey) ?? '';
+    final task = CedarTimedPlayTaskStore.decode(taskRaw);
+    final recorded = CedarPlaySession.decode(raw);
+    if (state.taskId.isNotEmpty && task?['id'] != state.taskId) return false;
+    if (state.taskId.isEmpty && task != null) return false;
+    if (expectedRaw == null && state.clockId.isNotEmpty &&
+        recorded?.clockId != state.clockId) return false;
+    if (expectedRaw == null && recorded?.taskId == state.taskId &&
+        recorded!.lastTickAt.isAfter(state.lastTickAt)) return false;
+    return db.setSettingsAtomically({
       key: await encoded(state),
       if (task != null && task['id'] == state.taskId)
         CedarTimedPlayTaskStore.activeKey: jsonEncode({...task, 'usedMs': state.usedMs}),
-    });
+    }, expectedSettings: {...expectedSettings,
+      key: raw, CedarTimedPlayTaskStore.activeKey: taskRaw});
   }
-  Future<void> end(String reason) async {
-    final state = CedarPlaySession.decode(await db.getSetting(key));
-    if (state != null && state.taskId.isNotEmpty) {
-      final tasks = CedarTimedPlayTaskStore(db);
-      final task = await tasks.active();
-      if (task?['id'] == state.taskId) {
-        await tasks.finish(task!, usedMs: state.usedMs, reason: reason);
-      }
+  Future<bool> end(String reason) async {
+    final raw = await db.getSetting(key) ?? '';
+    final state = CedarPlaySession.decode(raw);
+    final tasks = CedarTimedPlayTaskStore(db);
+    final task = await tasks.active();
+    if (task != null && (state == null || task['id'] == state.taskId)) {
+      if (!await tasks.finish(task, usedMs: state?.usedMs ??
+          (task['usedMs'] as num?)?.toInt() ?? 0, reason: reason,
+          onlyIfActive: true)) return false;
     }
-    await db.setSetting(key, '');
-    await db.setSetting('cedar_toy_play_session_end_reason', reason);
+    return db.setSettingsAtomically({
+      key: '', 'cedar_toy_play_session_end_reason': reason,
+    }, expectedSettings: {key: raw});
   }
 
   Future<void> pause(DateTime now) async {
     final state = await load();
     if (state != null) {
-      if (!state.validAt(now, state.gameId)) {
+      if (state.taskId.isEmpty && !state.validAt(now, state.gameId)) {
         await end('expired');
         return;
       }

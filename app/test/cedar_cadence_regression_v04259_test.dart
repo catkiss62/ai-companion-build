@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:ai_companion_localfirst/core/ai/deepseek_client.dart';
 import 'package:ai_companion_localfirst/core/database/app_database.dart';
 import 'package:ai_companion_localfirst/core/mcp/cedar_play_session_policy.dart';
+import 'package:ai_companion_localfirst/core/mcp/cedar_timed_play_task.dart';
 import 'package:ai_companion_localfirst/core/mcp/cedar_toy_activity.dart';
 import 'package:ai_companion_localfirst/core/mcp/cedar_toy_autonomy_engine.dart';
 import 'package:ai_companion_localfirst/core/mcp/cedar_toy_client.dart';
@@ -35,6 +36,12 @@ void main() {
         shareLevel: 'quiet', invitationApproved: false);
       final now = DateTime.now();
       await store.save(session.copyWith(nextActionAt: now.subtract(const Duration(seconds: 1))));
+      if (taskId.isNotEmpty) {
+        await db.setSetting(CedarTimedPlayTaskStore.activeKey, jsonEncode({
+          'id': taskId, 'gameId': session.gameId, 'sessionId': session.id,
+          'minutes': 30, 'startedAt': now.millisecondsSinceEpoch, 'usedMs': 0,
+        }));
+      }
       await CedarPlaySessionStore(db).save(CedarPlaySession(gameId: 'white_room',
         startedAt: now, lastTickAt: now, taskId: taskId, limitMs: 1800000));
       var calls = 0;

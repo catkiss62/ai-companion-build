@@ -8,6 +8,7 @@ import 'package:path_provider/path_provider.dart';
 import 'package:uuid/uuid.dart';
 
 import '../database/app_database.dart';
+import '../mcp/cedar_play_session_policy.dart';
 import '../storage/companion_album_storage.dart';
 import '../storage/message_attachment_storage.dart';
 import '../storage/media_blob_storage.dart';
@@ -253,6 +254,9 @@ class SnapshotService {
         }
       }
       nativeSnapshot = await portableStorage.native.begin(exporting: true);
+      // Freeze the clock, not the committed task. The portable task retains
+      // usedMs while runtime grants/leases remain excluded from the archive.
+      await CedarPlaySessionStore(db).pause(DateTime.now());
       final exported = await db.exportAll();
       if (!isTakeover) _normalizeBackupRuntimeSettings(exported);
       final now = DateTime.now().toUtc();
@@ -642,6 +646,7 @@ class SnapshotService {
         'cedar_toy_execution_fence_v1': 'restored',
         'cedar_toy_play_session_v1': '',
         'cedar_timed_play_pending_v1': '',
+        'cedar_timed_play_task_lease_v1': '0',
         'cedar_game_attitude_route_signal': 'none',
         'recovery_orchestrator_lease_until': '0',
         'recovery_orchestrator_state': 'standby_after_import',
@@ -1644,6 +1649,7 @@ class SnapshotService {
     'cedar_toy_action_lease_until': '0',
     'cedar_toy_play_session_v1': '',
         'cedar_timed_play_pending_v1': '',
+    'cedar_timed_play_task_lease_v1': '0',
     'cedar_game_attitude_route_signal': 'none',
     'cedar_toy_execution_fence_v1': 'restored',
     'recovery_orchestrator_lease_until': '0',

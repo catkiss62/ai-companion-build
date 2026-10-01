@@ -94,10 +94,12 @@ class AppDatabase {
   static Future<AppDatabase> createForTesting(
     DatabaseFactory factory, {
     String path = inMemoryDatabasePath,
+    bool reopenExisting = false,
   }) async {
     final instance = AppDatabase._();
-    final opened = await factory.openDatabase(path);
-    await instance._createSchema(opened);
+    final opened = await factory.openDatabase(path,
+        options: OpenDatabaseOptions(singleInstance: !reopenExisting));
+    if (!reopenExisting) await instance._createSchema(opened);
     instance._db = opened;
     return instance;
   }
@@ -18018,6 +18020,7 @@ class AppDatabase {
     Map<String, String> values, {
     String? guardKey,
     String expectedGuardValue = '',
+    Map<String, String> expectedSettings = const {},
   }) async {
     if (values.isEmpty) return true;
     final db = await database;
@@ -18033,6 +18036,15 @@ class AppDatabase {
         final current =
             rows.isEmpty ? '' : rows.first['value'] as String? ?? '';
         if (current != expectedGuardValue) return false;
+      }
+      // A task checkpoint owns both its task revision and its runtime clock.
+      // Checking them together prevents an old engine from reviving a task
+      // after Stop, replacement, or a same-process snapshot restore.
+      for (final guard in expectedSettings.entries) {
+        final rows = await txn.query('settings', columns: const ['value'],
+            where: 'key = ?', whereArgs: [guard.key], limit: 1);
+        final current = rows.isEmpty ? '' : rows.first['value'] as String? ?? '';
+        if (current != guard.value) return false;
       }
       for (final entry in values.entries) {
         await txn.insert(

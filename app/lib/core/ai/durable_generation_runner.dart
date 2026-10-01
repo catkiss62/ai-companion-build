@@ -158,6 +158,10 @@ class DurableGenerationRunner {
       return const GenerationRunResult(status: 'suspended');
     }
 
+    // Foreground generation temporarily owns the execution lane, not the
+    // user's remaining game budget.
+    await CedarPlaySessionStore(db).pause(DateTime.now());
+
     // API credentials are device-local and intentionally excluded from state
     // transfer. Check them before claiming so a newly transferred pending job
     // does not burn an attempt simply because the new device has not configured

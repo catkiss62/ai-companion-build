@@ -27,6 +27,7 @@ import 'cedar_game_protocol.dart';
 import 'cedar_play_outcome_bookkeeper.dart';
 import 'cedar_solo_episode_policy.dart';
 import 'cedar_play_session_policy.dart';
+import 'cedar_play_transition_log.dart';
 import 'cedar_timed_play_task.dart';
 import 'cedar_live_share_policy.dart';
 import 'mcp_protocol.dart';
@@ -582,11 +583,21 @@ class _CedarExecutionScope {
           reason = 'action_lease_lost';
         } else {
           _nextLeaseRenewAt = DateTime.now().add(const Duration(seconds: 45));
+          final periods = CedarPlaySessionStore(db);
+          final period = await periods.load();
+          if (period != null && period.taskId.isNotEmpty) {
+            final tick = period.tick(DateTime.now());
+            await periods.save(tick);
+            if (tick.usedMs >= tick.limitMs) reason = 'timed_budget_complete';
+          }
         }
       }
       if (reason.isEmpty) return;
       preemptReason = reason;
       cancellation.cancel();
+      await CedarPlaySessionStore(db).pause(DateTime.now());
+      await CedarPlayTransitionLog(db).record(source: 'execution_preempt',
+          reason: reason, before: 'executing', after: 'paused');
       await db.setSetting('cedar_toy_last_preempt_reason', reason);
       await db.setSetting(
         'cedar_toy_last_preempt_at',
@@ -1127,6 +1138,7 @@ class CedarToyAutonomyEngine {
     final token = await _readToken();
     final apiKey = await _readApiKey();
     if (token.isEmpty || apiKey.isEmpty) {
+      await CedarPlaySessionStore(db).pause(now);
       return const CedarAutonomyProgress('missing_config');
     }
     final store = CedarToyActivityStore(db);
@@ -1184,7 +1196,7 @@ class CedarToyAutonomyEngine {
       await playPeriods.save(period);
       await playPeriods.end('budget_complete'); period = null;
       if (timed) {
-        await store.pauseAndRelease();
+        await store.pauseAndRelease(source: 'budget_complete');
         return const CedarAutonomyProgress('timed_task_complete');
       }
       } else { await playPeriods.save(period); }
@@ -1281,7 +1293,12 @@ class CedarToyAutonomyEngine {
           final saved = await playPeriods.load();
           final finishedAt = DateTime.now();
           scope.throwIfPreempted();
-          if (after == null || !after.needsContinuation || saved == null ||
+          if (period?.taskId.isNotEmpty == true) {
+            // The durable task owns completion. A lost clock or temporary
+            // server wait is not permission to turn it into a local Stop.
+            if (saved != null) await playPeriods.save(saved.tick(finishedAt,
+                pause: after == null || !after.needsContinuation));
+          } else if (after == null || !after.needsContinuation || saved == null ||
               !saved.validAt(finishedAt, after.gameId)) {
             if (saved != null) await playPeriods.save(saved.tick(finishedAt));
             await playPeriods.end(after?.phase == CedarActivityPhase.completed
@@ -1297,11 +1314,7 @@ class CedarToyAutonomyEngine {
       },
     );
     if (progress.state.contains('preempted')) await playPeriods.pause(DateTime.now());
-    if (period?.taskId.isNotEmpty == true && await playPeriods.load() == null) {
-      final afterState = await store.loadState();
-      if (afterState.execution == null && afterState.activeSession?.id == session.id &&
-          afterState.activeSession!.phase.continuable) await store.pauseAndRelease();
-    }
+    if (period?.taskId.isNotEmpty == true) await CedarTimedPlayTaskStore(db).reconcile(DateTime.now());
     return progress;
   }
 

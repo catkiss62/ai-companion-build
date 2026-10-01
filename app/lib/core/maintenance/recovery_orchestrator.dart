@@ -351,6 +351,9 @@ class RecoveryOrchestrator {
         state = heartbeatAdvanced ? 'idle:heartbeat' : 'idle';
       }
 
+      if (playPeriod?.taskId.isNotEmpty == true && !playPeriod!.paused) {
+        nextDelay = _smallestDelay(nextDelay, CedarPlaySession.checkpointGap);
+      }
       nextDelay = _boundedDelay(nextDelay);
       await _markCompleted(
         state: state,

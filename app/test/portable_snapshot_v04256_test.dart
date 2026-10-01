@@ -4,6 +4,10 @@ import 'dart:io';
 import 'package:archive/archive_io.dart';
 import 'package:crypto/crypto.dart';
 import 'package:ai_companion_localfirst/core/database/app_database.dart';
+import 'package:ai_companion_localfirst/core/mcp/cedar_play_session_policy.dart';
+import 'package:ai_companion_localfirst/core/mcp/cedar_timed_play_task.dart';
+import 'package:ai_companion_localfirst/core/mcp/cedar_toy_activity.dart';
+import 'package:ai_companion_localfirst/core/models/chat_message.dart';
 import 'package:ai_companion_localfirst/core/storage/portable_companion_storage.dart';
 import 'package:ai_companion_localfirst/core/storage/secure_config.dart';
 import 'package:ai_companion_localfirst/core/sync/snapshot_service.dart';
@@ -211,6 +215,41 @@ void main() {
     await writeArchive(archive, bundle.filePath);
     return bundle;
   }
+
+  test('real backup restore keeps task budget but excludes clock and stale leases', () async {
+    await fixture();
+    await db.setSetting('transfer_lock', '0');
+    final session = await CedarToyActivityStore(db).recordGuide(
+        gameId: 'white_room', guide: '单人游戏。explore 探索。');
+    await db.insertMessage(ChatMessage(id: 'task-reply', role: 'assistant',
+        content: '好，我去玩。', createdAt: DateTime.now()));
+    final tasks = CedarTimedPlayTaskStore(db);
+    await tasks.stage(turnId: 'backup', assistantId: 'task-reply', session: session, minutes: 20);
+    await tasks.activateCommitted(turnId: 'backup');
+    final periods = CedarPlaySessionStore(db);
+    final period = (await periods.load())!;
+    await periods.save(period.tick(period.startedAt.add(const Duration(minutes: 1))));
+    await db.setSetting('transfer_lock', '1');
+    final bundle = await service.exportBackupBundle();
+    final exported = object(await decode(bundle.filePath), 'state.json');
+    final settings = (exported['tables']['settings'] as List)
+        .map((r) => r as Map).toList();
+    expect(settings.singleWhere((r) => r['key'] == CedarPlaySessionStore.key)['value'], '');
+    expect(jsonDecode(settings.singleWhere((r) => r['key'] == CedarTimedPlayTaskStore.activeKey)['value'])['usedMs'], 60000);
+    // Saving itself only pauses the clock, never ends the current task.
+    expect(await tasks.active(), isNotNull);
+    expect(await tasks.pendingReports(), isEmpty);
+    await service.restoreBackupBundle(bundle.filePath);
+    expect(await periods.load(), isNull);
+    expect(await db.getSetting(CedarTimedPlayTaskStore.leaseKey), '0');
+    expect((await tasks.active())!['usedMs'], 60000);
+    await tasks.reconcile(DateTime.now().add(const Duration(hours: 4)));
+    final resumed = (await periods.load())!;
+    expect(resumed.usedMs, 60000);
+    expect(resumed.limitMs, 1200000);
+    expect(await tasks.pendingReports(), isEmpty);
+    expect(native.restoredModels, false);
+  });
 
   test('legacy full v7 backup still restores models stickers facts and non-secret settings', () async {
     await fixture();

@@ -549,6 +549,18 @@ class PreflightDiagnosticsService {
         final timedDiagnostic = jsonDecode(
             await db.getSetting('cedar_timed_play_diagnostic_v1') ?? '{}');
         if (timedDiagnostic is Map) cedarRealtime['timedTask'] = timedDiagnostic;
+        final transitions = jsonDecode(
+            await db.getSetting('cedar_timed_play_transitions_v1') ?? '[]');
+        if (transitions is List) {
+          cedarRealtime['timedTaskTransitions'] = transitions.reversed.take(32)
+              .whereType<Map>().map((event) => {
+                'at': (event['at'] as num?)?.toInt() ?? 0,
+                for (final key in ['source', 'reason', 'before', 'after'])
+                  key: (event[key]?.toString() ?? '').substring(0,
+                      (event[key]?.toString() ?? '').length.clamp(0, 96).toInt()),
+                'contentIncluded': false,
+              }).toList(growable: false);
+        }
       } catch (_) { /* Diagnostics never affect execution. */ }
       final cedarGateRaw =
           await db.getSetting('cedar_toy_last_continuation_gate_v1') ?? '';

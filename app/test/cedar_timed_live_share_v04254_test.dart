@@ -148,7 +148,7 @@ void main() {
     await tasks.reconcile(DateTime.now());
     expect(await tasks.active(), isNull);
     final report = (await tasks.pendingReports()).single;
-    expect(report['reason'], 'finished_or_waiting_user');
+    expect(report['reason'], 'game_finished');
     expect(report['progressCount'], 1);
     expect(report['usedMs'], lessThan(1800000));
     final thoughtId = (await tasks.queueReport())!;
@@ -206,7 +206,7 @@ void main() {
     expect(report['usedMs'], 60000);
   });
 
-  test('restored process epoch produces an interruption report, never resumes play', () async {
+  test('restored process epoch rebuilds the remaining committed task budget', () async {
     await start();
     final raw =
         jsonDecode((await db.getSetting(CedarPlaySessionStore.key))!) as Map;
@@ -214,11 +214,12 @@ void main() {
     raw['usedMs'] = 120000;
     await db.setSetting(CedarPlaySessionStore.key, jsonEncode(raw));
     await CedarTimedPlayTaskStore(db).reconcile(DateTime.now());
-    final report = (await CedarTimedPlayTaskStore(db).pendingReports()).single;
-    expect(report['reason'], 'runtime_interrupted');
-    expect(report['usedMs'], 120000);
-    expect(await CedarPlaySessionStore(db).load(), isNull);
-    expect(await CedarToyActivityStore(db).load(), isNull);
+    expect(await CedarTimedPlayTaskStore(db).pendingReports(), isEmpty);
+    final resumed = (await CedarPlaySessionStore(db).load())!;
+    expect(resumed.usedMs, 120000);
+    expect(resumed.limitMs, 1800000);
+    expect(resumed.taskId, 'cedar-task:user');
+    expect(await CedarToyActivityStore(db).load(), isNotNull);
   });
 
   test(
