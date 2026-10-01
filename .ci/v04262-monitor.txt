@@ -1,0 +1,7 @@
+status=success
+run_id=36904432860
+run_url=https://github.com/catkiss62/ai-companion-build/actions/runs/36904432860
+head_sha=65b21322693b4e9b67f907a9d476d9ff90cf286f
+signer_sha256=30:5E:B3:D8:09:83:B9:63:C6:48:18:DD:F1:AD:56:1F:27:9D:E6:D4:7B:3E:D2:C7:81:AD:A4:48:C7:C2:51:48
+3aa13a278f75eb501921a1513bb30f2da96e01090ea09f60efaa56f840baf793  AI-Companion-v0.42.62-306-Reply-Wait-Restore-APK.apk
+release_url=https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-6007518967c6aa6da3dd
