@@ -1,48 +1,37 @@
-name: Timed reply version comparison
+name: Correct v306 draft test notes
 on:
   push:
-    branches: [agent/v04261-recovery-analyze]
-  workflow_dispatch:
-permissions: {contents: read}
-concurrency:
-  group: timed-recovery-analysis-${{ github.ref }}
-  cancel-in-progress: true
+    branches:
+      - agent/v04261-recovery-analyze
+permissions:
+  contents: write
+  actions: read
 jobs:
-  compare:
-    strategy:
-      fail-fast: false
-      matrix:
-        ref: [afe1baa5, 9ba2f176, 7c089e3d, 65b21322693b4e9b67f907a9d476d9ff90cf286f]
+  notes:
     runs-on: ubuntu-latest
-    timeout-minutes: 12
+    timeout-minutes: 5
     steps:
-      - uses: actions/checkout@v4
-        with:
-          ref: 65b21322693b4e9b67f907a9d476d9ff90cf286f
-          fetch-depth: 0
-      - name: Use identical pipeline test on each version
+      - name: Verify successful build and correct unpublished test notes
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
         run: |
-          cp app/test/timed_reply_pipeline_v04262_test.dart /tmp/timed_reply_pipeline_v04262_test.dart
-          git checkout ${{ matrix.ref }}
-          cp /tmp/timed_reply_pipeline_v04262_test.dart app/test/
-          git rev-parse HEAD
-      - uses: subosito/flutter-action@v2
-        with: {channel: stable, flutter-version: 3.44.9}
-      - run: flutter pub get
-        working-directory: app
-      - run: flutter test --no-test-assets test/timed_reply_pipeline_v04262_test.dart
-        working-directory: app
-  analyze:
-    runs-on: ubuntu-latest
-    timeout-minutes: 15
-    steps:
-      - uses: actions/checkout@v4
-        with: {ref: 65b21322693b4e9b67f907a9d476d9ff90cf286f}
-      - uses: subosito/flutter-action@v2
-        with: {channel: stable, flutter-version: 3.44.9}
-      - run: flutter pub get
-        working-directory: app
-      - run: flutter analyze --no-fatal-infos --no-fatal-warnings
-        working-directory: app
-      - run: flutter test --no-test-assets test/generation_wait_restore_v04262_test.dart test/cedar_timed_recovery_v04261_test.dart test/portable_snapshot_v04256_test.dart test/cedar_timed_live_share_v04254_test.dart test/cedar_cadence_regression_v04259_test.dart test/sqlite_settings_backup_v04255_test.dart test/stop_transfer_interlock_v04178_test.dart test/final_reply_route_v04241_test.dart
-        working-directory: app
+          set -euo pipefail
+          gh api repos/catkiss62/ai-companion-build/actions/runs/36904432860 --jq .conclusion | grep -qx success
+          gh api 'repos/catkiss62/ai-companion-build/releases?per_page=20' > /tmp/releases.json
+          python3 - <<'PY'
+          import json
+          r=next(r for r in json.load(open('/tmp/releases.json')) if r['tag_name']=='v0.42.62-reply-wait-restore-test')
+          assert r['draft'] is True
+          assert r['target_commitish']=='65b21322693b4e9b67f907a9d476d9ff90cf286f'
+          PY
+          cat > /tmp/notes.txt <<'NOTES'
+          v0.42.62+306 test build.
+          
+          Fixes chat lease renewal during silent provider/tool waits and a no-progress timeout that could be extended by empty SSE keepalives. Restores database rows in bounded batches within one atomic transaction, preserving rollback and large settings. Adds body-free request-stage and restore-timing diagnostics.
+          
+          An identical simulated timed-tool -> final reply -> durable commit -> game activation test passed on +303, +304, +305 and this candidate. The specific real-device no-reply incident is not yet confirmed resolved; these checks do not validate the external model service or authenticated Cedar gameplay.
+          
+          Manual Stop, neutral task reports, two-minute solo cadence, replacement budgets without stacking, and Live2D settings import without reload are preserved. Unpublished device test build.
+          NOTES
+          gh release edit v0.42.62-reply-wait-restore-test --repo catkiss62/ai-companion-build --draft --notes-file /tmp/notes.txt
