@@ -1,22 +1,22 @@
 # AI Companion · 当前总账
 
-更新时间：2026-10-01（+302 CI PASSED / APK READY / TRUE DEVICE PENDING；+301 CI PASSED / APK READY / TRUE DEVICE PENDING；+300 CI PASSED / APK READY / TRUE DEVICE PENDING；+299 CI PASSED / APK READY / TRUE DEVICE PENDING；+298 CI PASSED / APK READY / TRUE DEVICE PENDING；+297 CI PASSED / APK READY / TRUE DEVICE PENDING；+295 恢复真机成功、背景回归 PARTIAL；+293 DEVICE VISUAL BASELINE）
+更新时间：2026-10-01（+303 CI PASSED / APK READY / TRUE DEVICE PENDING；+302 CI PASSED / APK READY / TRUE DEVICE PENDING；+301 CI PASSED / APK READY / TRUE DEVICE PENDING；+300 CI PASSED / APK READY / TRUE DEVICE PENDING；+299 CI PASSED / APK READY / TRUE DEVICE PENDING；+298 CI PASSED / APK READY / TRUE DEVICE PENDING；+297 CI PASSED / APK READY / TRUE DEVICE PENDING；+295 恢复真机成功、背景回归 PARTIAL；+293 DEVICE VISUAL BASELINE）
 
 > 本文件是唯一的当前接班入口，继续采用“总账 v2”。顶部是快速接班索引；标记后的正式记录按版本持续追加，不设总容量上限。
 >
 > 判断优先级：用户最新明确决定 > 当前 GitHub 源码与 Actions > 同时刻脱敏真机诊断/备份 > 本文件 > 冻结归档与 Git 历史。`DESIGNED`、`IMPLEMENTED`、`CI PASSED`、`APK READY`、`TRUE DEVICE PASSED`、`PENDING` 必须严格区分。
 
 
-## 当前任务 · v0.42.59+303 游戏推进与仅设置备份（IMPLEMENTING）
+## 当前交付 · v0.42.59+303 游戏推进与仅设置备份（CI PASSED / APK READY / TRUE DEVICE PENDING）
 
-- 2026-10-01用户指出：Live2D模型和表情包是外部导入资源，备份只需新增设置，不应打包资源。按最新决定覆盖+300完整资源方案；必须保留+302纯导出不重载Live2D。
-- 将修复持续单人15秒覆盖普通2分钟间隔，并统一所有游戏过程分享出口的轮数门与发送水位；真正结束回报、多人大局协议照旧。
-- 新导出只含设置，未包含资源不等于空资源树；新包导入保留本机已导入模型/表情包，旧protocol7完整资源包仍兼容。API密钥仍排除。
-- 实際包结构、哈希、消息时序、主因/次级遗漏和调查失败路线见正式记录末尾“本轮定点调查证据与回归约束 · 2026-10-01”及“前置检查记录”；当前尚未构建，真机待验。
+- 按用户最新决定覆盖+300资源方案：只保存Live2D/表情包等设置，外部导入资源不打包；保留+302纯导出不重载。按实际包约159.7MB中约105.3MB为资源压缩数据，新导出预计约54MB，手机实际值待验。
+- 持续单人不再用15秒覆盖普通2分钟或更长服务端等待；所有过程分享出口统一5/10/1轮门及发送水位。默认5轮约10分钟，终止回报和多人协议保留。
+- 新包导入保留本机模型/表情包及索引，恢复设置；旧150MB完整资源包兼容。新portable_state版本2需+303或以上导入，旧App明确拒绝；API密钥仍排除。
+- 功能afe1baa5/treef4eda290，[Actions36860037884](https://github.com/catkiss62/ai-companion-build/actions/runs/36860037884) success：137源码门、1056 Flutter、原生14/14和签名/131资源哈希通过。[未发布+303测试APK](https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-cb53feb090790f12ef38)，Draft400893101/asset603227522；稳定签名可覆盖安装。最终SHA、失败路线及真机边界见正式记录末尾“+303最终构建、回归与APK证据”。
 
 ## 当前接班快照 · 2026-10-01
 
-基线分支agent/v04258-backup-focus-galaxy-pick，功能521effa7，v0.42.58+302/schema61/protocol7，Actions36805517505成功。导出不重载、侧栏焦点、星谷交互已CI，+302仍待真机。保护菜菜HC/GLSurfaceView、IME、摸头2.8秒、大settings读取、星谷只读。第二套Live2D未实现；旧桌宠素材暂缓；七大规则删除放弃。允许开发分支推送与Draft APK构建，不合并main/正式发布。完整接班记录保留在正式记录末尾。
+当前分支agent/v04259-game-cadence-settings-only-backup，功能afe1baa5，v0.42.59+303/schema61/ZIP protocol7/portable_state2，Actions36860037884成功，真机待验。新增仅设置备份与持续单人两分钟；基线+302的导出不重载、焦点及星谷交互保留。保护菜菜HC/GLSurfaceView、IME、摸头2.8秒、大settings读取、星谷只读。第二套Live2D未实现；旧桌宠素材暂缓；七大规则删除放弃。允许开发分支推送与Draft APK构建，不合并main/正式发布。后续文档提交不改变APK功能源码。
 
 ## 当前交付 · v0.42.58+302 导出刷新、侧栏焦点与星谷交互（CI PASSED / APK READY / TRUE DEVICE PENDING）
 
@@ -1838,3 +1838,14 @@ MemoryPage保留原编辑/保存/归档，并新增折叠同话题条目和只�
 
 - 功能15fa37b55ec0be9b417d61956f3f6b4c70b4b87e/treee05d405，Actions36857417191的Android15原生14/14再次通过，最终原生XML已下载核实0失败/0错误/0跳过，Artifact11160335602 ZIP SHA-256 dc5d94dfb3633f25699ec5084778461a4ffecc79d206ce2dabd747f3612bffe5。完整137源码门、Kotlin与Flutter analyze通过；全量Flutter只有新增两项持续游戏测试失败，实际返回write_outcome_sync而非played_one_step，其余备份/旧包/导出通知/分享水位回归通过。
 - 精确原因是测试MockClient的中文JSON响应没有Content-Type，http.Response用默认latin1编码中文时抛异常，被生产McpHttpClient正确分类为network_or_timeout并进入写结果同步分支；并非MCP结果控制逻辑回归。按dart-lang/http官方Response与utils实现确认，仅给该模拟响应加application/json;charset=utf-8，不改生产协议、同步围栏或断言。下一轮继续验证原两分钟行为和全包；此轮没有生成可交付APK。
+
+### +303最终构建、回归与APK证据 · 2026-10-01
+
+- 最终功能HEAD afe1baa58a5e9f63412ff1913aa14b64ebafced4/tree f4eda29002f87eafb5d660acfbca989b87bb5ec5，与本地f93f96e同树；隔离分支agent/v04259-game-cadence-settings-only-backup，版本0.42.59+303/schema61。最终[Actions36860037884](https://github.com/catkiss62/ai-companion-build/actions/runs/36860037884) completed/success、attempt1。此前三轮失败及原生重跑均保留上文，不混作最终成功；之后仅同步总账，不改产品/测试/构建源码。
+- 完整137源码门通过，Kotlin BUILD SUCCESSFUL，Flutter analyze无错误，1056项Flutter全部通过。两项普通持续游玩/带taskId持续游玩测试在12:28:39/40 UTC实际完成规划与模拟MCP推进，核实nextActionAt为两分钟、30秒再唤醒不执行；不是夜间分支跳过。新包不含外部资源、导入保留文件、无资源环境只恢复设置、旧完整资源包恢复/损坏拒绝/回滚及纯导出不通知Live2D回归均通过。
+- Android15原生14/14，最终原生job110361747353；Artifact11160943334已下载，实际XML为14 tests/0 failures/0 errors/0 skipped，ZIP SHA-256 852d84e39dbf9778b0bf16687ab7307e7711fb1ece2f1d06f4bb3294a62b800a。新增preferencesOnlySnapshotPreservesExternalModelFilesAndIndexOnCommitAndRollback实际验证只读begin不释放renderer、设置apply才释放、资源文件/路径索引在commit与rollback中均保留；大settings读取、原生生命周期、触摸及原星谷测试继续通过。
+- 新导出仍为ZIP protocol7，portable_state2明确resource_files=external，不枚举模型/表情包文件。设置恢复不触碰资源索引/目录；旧portable_state1完整资源包保持验证/恢复/事务回滚。旧App不识别新portable版本会在应用前明确拒绝，用户应先升级+303再导入新包。+302导出revision修复、菜菜GL宿主/IME/渲染及Jev规则未变；不增加模型调用。实际159,706,959-byte包的资源压缩数据为105,291,054bytes；新导出约54MB为同数据结构估算，未冒充手机实测。
+- arm64 Release沿用稳定签名30:5E:B3:D8:09:83:B9:63:C6:48:18:DD:F1:AD:56:1F:27:9D:E6:D4:7B:3E:D2:C7:81:AD:A4:48:C7:C2:51:48，可覆盖安装保留数据。131个离线星谷资源在APK内逐个哈希一致，已批准day.webp仍为6b4296044fd5b882f459e3f66cb586f67d59949a3a49a786a343619149781fb7，Genie/完整桌宠/tarot/shader等原载荷门继续通过。
+- [未发布+303测试APK](https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-cb53feb090790f12ef38)：Draft400893101，tagv0.42.59-game-cadence-settings-backup-test，target afe1baa58a5e9f63412ff1913aa14b64ebafced4；APK asset603227522，AI-Companion-v0.42.59-303-Game-Cadence-Settings-Backup-APK.apk，734318257bytes，SHA-256 d543f443b408ca9814e6b4cc00f144cbaa69681a589894cb541534140a038558。sha256附件603227521、CI Monitor附件603227536。APK Artifact11163140428 ZIP digest a6fb633d48385a5596d24be179dc6fdb4143be8fc9ad5098dfdeb147a6125600是归档哈希，不与APK文件哈希混用。
+- ci-monitor-v0345/.ci/v04259-monitor.txt为status=success、run36860037884、head afe1baa5；Release target、monitor源码/签名/APK checksum、GitHub资产digest及Release URL逐项一致。未在当前环境重新下载700余MB APK，以CI实际验签/载荷核验与GitHub资产digest交叉确认；不宣称本地再验签。继续Draft测试交付，不合并main、不正式发布，不上传真实模型/备份/私密诊断。
+- 当前状态IMPLEMENTED / CI PASSED / APK READY / TRUE DEVICE PENDING。手机验收：导出文件约50多MB且Live2D不重新载入；新包导入已有设置正确、已安装模型/表情包仍在；持续普通单人每轮至少两分钟，默认5轮的过程分享约十分钟，终止报告不等攒轮数。实际模型/设备导出与后台节奏仍待用户反馈；不要据自动测试宣称真机通过。
