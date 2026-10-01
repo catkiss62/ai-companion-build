@@ -18149,45 +18149,55 @@ class AppDatabase {
     final now = DateTime.now().millisecondsSinceEpoch;
     final ownerEpoch = await _leaseOwnerEpoch();
     final token = '$ownerEpoch:${_uuid.v4()}';
-    final acquired = await db.transaction<bool>((txn) async {
-      final rows = await txn.query(
-        'settings',
-        columns: ['value'],
-        where: 'key = ?',
-        whereArgs: [key],
-        limit: 1,
-      );
-      final raw = rows.isEmpty ? '' : rows.first['value'] as String? ?? '';
-      final until = _leaseUntil(raw);
-      final heldByCurrentProcess = raw.startsWith('$ownerEpoch:');
-      // A live lease from this process protects the other FlutterEngine. A
-      // lease from an older process is orphan evidence and may be reclaimed
-      // immediately instead of blocking chat for the old three-minute TTL.
-      if (until > now && heldByCurrentProcess) return false;
-      await txn.insert(
-        'settings',
-        {
-          'key': key,
-          'value': '$token|${now + holdFor.inMilliseconds}',
-        },
-        conflictAlgorithm: ConflictAlgorithm.replace,
-      );
-      if (key == 'chat_turn_lease') {
-        // Foreground chat has priority over autonomous Cedar work. Fencing in
-        // the same transaction as lease acquisition closes the small polling
-        // race in which a background result could otherwise overwrite state
-        // just after the user sent a message.
+    bool acquired;
+    try {
+      acquired = await db.transaction<bool>((txn) async {
+        final rows = await txn.query(
+          'settings',
+          columns: ['value'],
+          where: 'key = ?',
+          whereArgs: [key],
+          limit: 1,
+        );
+        final raw = rows.isEmpty ? '' : rows.first['value'] as String? ?? '';
+        final until = _leaseUntil(raw);
+        final heldByCurrentProcess = raw.startsWith('$ownerEpoch:');
+        // A live lease from this process protects the other FlutterEngine. A
+        // lease from an older process is orphan evidence and may be reclaimed
+        // immediately instead of blocking chat for the old three-minute TTL.
+        if (until > now && heldByCurrentProcess) return false;
         await txn.insert(
           'settings',
           {
-            'key': 'cedar_toy_execution_fence_v1',
-            'value': 'cancel-foreground-chat-${_uuid.v4()}',
+            'key': key,
+            'value': '$token|${now + holdFor.inMilliseconds}',
           },
           conflictAlgorithm: ConflictAlgorithm.replace,
         );
-      }
-      return true;
-    });
+        if (key == 'chat_turn_lease') {
+          // Foreground chat has priority over autonomous Cedar work. Fencing in
+          // the same transaction as lease acquisition closes the small polling
+          // race in which a background result could otherwise overwrite state
+          // just after the user sent a message.
+          await txn.insert(
+            'settings',
+            {
+              'key': 'cedar_toy_execution_fence_v1',
+              'value': 'cancel-foreground-chat-${_uuid.v4()}',
+            },
+            conflictAlgorithm: ConflictAlgorithm.replace,
+          );
+        }
+        return true;
+      });
+    } on DatabaseException catch (error) {
+      // Another connection can own SQLite's write transaction before it owns
+      // this logical lease. Defer to the existing wake loop; never turn that
+      // temporary contention into a recovery error or steal its lease.
+      final code = error.getResultCode();
+      if (code != null && (code & 0xff) == 5) return false; // SQLITE_BUSY
+      rethrow;
+    }
     if (acquired) {
       _ownedLeaseTokens[key] = token;
     }
