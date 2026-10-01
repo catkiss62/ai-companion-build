@@ -35,15 +35,19 @@ class NativeSmokeTest {
         modelPrefs.edit().clear().putString("maid", "external.model3.json").commit()
         stagePrefs.edit().clear().putFloat("legPivot", .87f).commit()
         val indexBefore = modelPrefs.all.toMap()
+        var releases = 0
         try {
             for (commit in listOf(true, false)) {
-                val portable = PortableCompanionState(context, repository)
+                val portable = PortableCompanionState(context, repository) { releases++ }
+                val before = releases
                 val snapshot = portable.begin()
+                assertEquals("Read-only snapshot does not release the model", before, releases)
                 val lease = snapshot["token"] as String
                 portable.apply(lease, mapOf("caicai_stage" to mapOf("legPivot" to .96f),
                     "overlay_state" to emptyMap<String, Any>(),
                     "companion_runtime" to emptyMap<String, Any>()), restoreModels = false)
                 portable.finish(lease, commit)
+                assertEquals(before + 1, releases)
                 assertEquals(indexBefore, modelPrefs.all)
                 assertEquals("EXTERNAL_RESOURCE_KEEP", external.readText())
                 assertEquals(if (commit) .96f else .87f, stagePrefs.getFloat("legPivot", 0f), .001f)

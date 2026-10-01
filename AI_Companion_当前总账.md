@@ -1820,3 +1820,10 @@ MemoryPage保留原编辑/保存/归档，并新增折叠同话题条目和只�
 - 回归新增：新包已有资源保留/无资源环境只恢复设置/外部排除声明完整性；独立构造旧v7包验证旧资源迁移/损坏拒绝/空资源明确清除；Android真实偏好与模型索引commit/rollback；直接/普通分享水位幂等及持续任务/自主游戏2分钟行为。版本0.42.59+303/schema61，分支agent/v04259-game-cadence-settings-only-backup。
 - 本地总账门、新分享/portable源码门、原+297/+298门和diff空白检查通过。全137门本地在Live2DCubismCore.aar资源门停止，记忆星谷门缺离线资源；工作区仅有LFS指针且无Flutter SDK，交由既有CI按锁定资源恢复再完整验证，不宣称Flutter已通过。
 - 总账快速索引在开始本轮前已达102,063 bytes、超过既有100KB门；将既有接班完整记录及+301完整交付条目移动到正式记录，保留顶部摘要与全部内容后门通过（约97.8KB）。未改冻结归档，未删除失败路线。
+
+
+### +303首轮CI失败与修正 · 2026-10-01
+
+- 功能远端a551f48/tree149d979与本地77e14ef同树；Actions36853738851在原生烟测compileDebugKotlin失败。实际错误仅PortableCompanionState的CaicaiRuntime引用：该Runtime与Flutter PlatformView同文件，原生独立烟测不能连带引入Flutter宿主。未进入Flutter/未生成APK，不能把本轮列为通过。
+- 修正把模型release作为PortableCompanionState构造依赖；实际Bridge仍传原CaicaiRuntime.releaseModel，调用顺序/渲染逻辑不变。原生烟测传计数器，验证只读begin不release、apply才release，并运行真实配置/索引回滚；不复制Runtime、不重写渲染器。
+- 发布首个本地gitpush被自动审批以目标/授权未明确拦截；随后核对catkiss62为用户已连接且有push权限的目标仓库、25项提交只有源码/测试/总账、无私密文件或真实密钥，直接重试通过审批但命令缺Git凭据。转用既有GitHub连接提交，blob及tree逐项与本地校验一致；未绕过仍有效的审批拒绝，未合并main或正式发布。

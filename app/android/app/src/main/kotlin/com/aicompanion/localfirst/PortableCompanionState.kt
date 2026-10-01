@@ -3,12 +3,15 @@ package com.aicompanion.localfirst
 import android.content.Context
 import android.content.SharedPreferences
 import com.catkiss.senlive2dcompanion.CaicaiModelRepository
-import com.catkiss.senlive2dcompanion.CaicaiRuntime
 import java.io.File
 import java.io.IOException
 
 /** Portable user preferences only. Runtime receipts, unread counters and leases stay local. */
-class PortableCompanionState(private val context: Context, private val models: CaicaiModelRepository) {
+class PortableCompanionState(
+    private val context: Context,
+    private val models: CaicaiModelRepository,
+    private val releaseModel: () -> Unit,
+) {
     private var token: String? = null
     private var previous = emptyMap<String, Map<String, Any?>>()
     private var previousIndex = emptyMap<String, Any?>()
@@ -50,7 +53,7 @@ class PortableCompanionState(private val context: Context, private val models: C
     fun apply(lease: String, raw: Map<*, *>, restoreModels: Boolean = true) {
         requireToken(lease)
         val values = validatedPreferences(raw) // Validate the entire input before any write.
-        CaicaiRuntime.releaseModel()
+        releaseModel()
         applied = true // Partial preference/index writes must also roll back.
         for ((group, keys) in fields) replace(prefs(group), keys.keys, values.getValue(group))
         if (restoreModels) {
