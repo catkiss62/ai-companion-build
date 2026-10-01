@@ -1604,13 +1604,13 @@ jobs:
               --target "${GITHUB_SHA}" \
               --draft \
               --title 'AI Companion v0.42.61+305 Timed play recovery and accurate clock' \
-              --notes 'Restore settings into the existing Live2D view and hot-apply committed or rolled-back motion, stage and head-area preferences without releasing the model or rebuilding Flutter PlatformView. Keep legacy full-resource import reload and rollback, read-only export, external-resource exclusion, two-minute game cadence, accepted rendering, keyboard and memory gallery behavior. Unpublished device test build.'
+              --notes 'Resume committed timed game tasks after process restart or settings restore using only their saved remaining budget. Checkpoint active time during two-minute cadence and long requests, exclude offline and temporary foreground waits, and fence stale writers. Preserve manual Stop, neutral reports, replacement budgets without stacking, Live2D settings import without reload, external-resource exclusion and existing rendering. Unpublished device test build.'
           else
             gh release edit "${TAG}" \
               --repo "${GITHUB_REPOSITORY}" \
               --target "${GITHUB_SHA}" \
               --title 'AI Companion v0.42.61+305 Timed play recovery and accurate clock' \
-              --notes 'Restore settings into the existing Live2D view and hot-apply committed or rolled-back motion, stage and head-area preferences without releasing the model or rebuilding Flutter PlatformView. Keep legacy full-resource import reload and rollback, read-only export, external-resource exclusion, two-minute game cadence, accepted rendering, keyboard and memory gallery behavior. Unpublished device test build.'
+              --notes 'Resume committed timed game tasks after process restart or settings restore using only their saved remaining budget. Checkpoint active time during two-minute cadence and long requests, exclude offline and temporary foreground waits, and fence stale writers. Preserve manual Stop, neutral reports, replacement budgets without stacking, Live2D settings import without reload, external-resource exclusion and existing rendering. Unpublished device test build.'
           fi
           RELEASE_URL="$(gh release view "${TAG}" --repo "${GITHUB_REPOSITORY}" --json url --jq '.url')"
           echo "release_url=${RELEASE_URL}" >> "app/${CI_NAME}"
@@ -1707,7 +1707,7 @@ jobs:
               --target "${GITHUB_SHA}" \
               --draft \
               --title 'AI Companion v0.42.61+305 Timed play recovery and accurate clock' \
-              --notes 'Unpublished Draft failure diagnostics for settings import without Live2D reload. No user content, keys, backups or device diagnostics are included.'
+              --notes 'Unpublished Draft failure diagnostics for timed game recovery and accurate active-time accounting. No user content, keys, backups or device diagnostics are included.'
           fi
           RELEASE_URL="$(gh release view "${TAG}" --repo "${GITHUB_REPOSITORY}" --json url --jq '.url')"
           echo "release_url=${RELEASE_URL}" >> "${REPORT}"
