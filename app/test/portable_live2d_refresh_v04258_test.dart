@@ -55,6 +55,14 @@ void main() {
     await backend.finish(snapshot, commit: true);
     expect(CaicaiLive2DService.revision.value, revision + 1);
   });
+  test('settings-only restore applies calibration without replacing the model index', () async {
+    final snapshot = await backend.begin();
+    await backend.apply(snapshot, {'caicai_stage': {}}, restoreModels: false);
+    await backend.finish(snapshot, commit: true);
+    final apply = calls.singleWhere((call) => call.method == 'portableApply');
+    expect((apply.arguments as Map)['restoreModels'], false);
+    expect(CaicaiLive2DService.revision.value, revision + 1);
+  });
   test('rollback after native apply refreshes the restored model', () async {
     final snapshot = await backend.begin();
     await backend.apply(snapshot, {});

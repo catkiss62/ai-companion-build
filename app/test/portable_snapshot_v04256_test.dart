@@ -36,6 +36,7 @@ class _Native extends NativePortableBackend {
   bool failApply = false;
   bool busy = false;
   int applyCount = 0;
+  bool? restoredModels;
   @override
   Future<NativePortableSnapshot> begin({bool exporting = false}) async {
     if (busy) throw StateError('busy');
@@ -65,9 +66,11 @@ class _Native extends NativePortableBackend {
   @override
   Future<void> apply(
     NativePortableSnapshot snapshot,
-    Map<String, dynamic> preferences,
-  ) async {
+    Map<String, dynamic> preferences, {
+    bool restoreModels = true,
+  }) async {
     applyCount++;
+    restoredModels = restoreModels;
     prefs = Map<String, dynamic>.from(jsonDecode(jsonEncode(preferences)));
     if (failApply) throw StateError('simulated native preference failure');
   }
@@ -167,9 +170,51 @@ void main() {
   Future<void> writeArchive(Archive archive, String path) async =>
       File(path).writeAsBytes(ZipEncoder().encode(archive));
 
-  test('full v7 backup roundtrip includes models stickers facts and non-secret settings; local keys survive', () async {
-    await fixture();
+  // Construct the previous v7 payload independently of the new exporter, so
+  // compatibility tests cannot silently follow its settings-only behavior.
+  Future<SnapshotBundle> legacyBackup() async {
     final bundle = await service.exportBackupBundle();
+    final archive = await decode(bundle.filePath);
+    final state = object(archive, 'state.json');
+    final config = state['portable_state'] as Map;
+    config['version'] = 1;
+    config.remove('resource_files');
+    final paths = <String, List<String>>{'live2d': [], 'stickers': []};
+    final hashes = <String, String>{};
+    var size = 0;
+    for (final entry in {
+      'live2d': native.models,
+      'stickers': await portable.stickerRoot,
+    }.entries) {
+      if (!await entry.value.exists()) continue;
+      await for (final file in entry.value.list(recursive: true)) {
+        if (file is! File) continue;
+        final relative = p.relative(file.path, from: entry.value.path)
+            .replaceAll('\\', '/');
+        final bytes = await file.readAsBytes();
+        paths[entry.key]!.add(relative);
+        hashes['${entry.key}/$relative'] = sha256.convert(bytes).toString();
+        size += bytes.length;
+        archive.addFile(ArchiveFile('portable/${entry.key}/$relative', bytes.length, bytes));
+      }
+    }
+    config['file_paths'] = paths;
+    final bytes = utf8.encode(jsonEncode(state));
+    final manifest = object(archive, 'manifest.json');
+    manifest['portable_files'] = hashes;
+    manifest['portable_bytes'] = size;
+    manifest['state_sha256'] = sha256.convert(bytes).toString();
+    manifest['state_bytes'] = bytes.length;
+    archive.addFile(ArchiveFile('state.json', bytes.length, bytes));
+    final m = utf8.encode(jsonEncode(manifest));
+    archive.addFile(ArchiveFile('manifest.json', m.length, m));
+    await writeArchive(archive, bundle.filePath);
+    return bundle;
+  }
+
+  test('legacy full v7 backup still restores models stickers facts and non-secret settings', () async {
+    await fixture();
+    final bundle = await legacyBackup();
     final archive = await decode(bundle.filePath);
     expect(bundle.metadata.protocolVersion, 7);
     final state = object(archive, 'state.json');
@@ -263,7 +308,7 @@ void main() {
 
   test('fresh installation restores relative model and sticker paths without copying ownership or keys', () async {
     await fixture();
-    final bundle = await service.exportBackupBundle();
+    final bundle = await legacyBackup();
     final targetRoot = Directory(p.join(root.path, 'other-installation'));
     await targetRoot.create();
     await Directory(p.join(targetRoot.path, 'temp')).create();
@@ -335,7 +380,7 @@ void main() {
 
   test('corrupt missing and unsafe portable entries are rejected before installation', () async {
     await fixture();
-    final bundle = await service.exportBackupBundle();
+    final bundle = await legacyBackup();
     for (final kind in ['corrupt', 'missing', 'unsafe']) {
       final archive = await decode(bundle.filePath);
       const model = 'portable/live2d/女仆/model.moc3';
@@ -381,12 +426,55 @@ void main() {
   });
 
   test('an empty v7 model domain restores absence instead of retaining a foreign model', () async {
-    final bundle = await service.exportBackupBundle();
+    final bundle = await legacyBackup();
     await fixture();
     await service.restoreBackupBundle(bundle.filePath);
     expect(await native.models.list().isEmpty, true);
     expect(await (await portable.stickerRoot).list().isEmpty, true);
     expect(await secure.readApiKey(), 'LOCAL_SECRET_KEEP');
+  });
+
+  test('new backup restores settings while retaining externally imported resource files', () async {
+    await fixture();
+    final bundle = await service.exportBackupBundle();
+    final archive = await decode(bundle.filePath);
+    expect(archive.files.where((file) => file.name.startsWith('portable/')), isEmpty);
+    expect(object(archive, 'manifest.json')['portable_bytes'], 0);
+    final state = object(archive, 'state.json');
+    expect(state['portable_state']['version'], 2);
+    expect(state['portable_state']['resource_files'], 'external');
+    final model = File(p.join(native.models.path, '女仆', 'model.moc3'));
+    await model.writeAsString('KEEP_CURRENT_MODEL');
+    native.prefs['caicai_stage'] = {'legPivot': .96};
+    await service.restoreBackupBundle(bundle.filePath);
+    expect(await model.readAsString(), 'KEEP_CURRENT_MODEL');
+    expect(await File(p.join((await portable.stickerRoot).path,
+      'fixture-pack', 'memes', '1.png')).exists(), true);
+    expect(native.prefs['caicai_stage']['legPivot'], .87);
+    expect(native.restoredModels, false);
+  });
+
+  test('settings-only archive on an installation without resources restores preferences without creating models', () async {
+    await fixture();
+    final bundle = await service.exportBackupBundle();
+    await native.models.delete(recursive: true);
+    await (await portable.stickerRoot).delete(recursive: true);
+    native.prefs['caicai_stage'] = {};
+    await service.restoreBackupBundle(bundle.filePath);
+    expect(await native.models.exists(), false);
+    expect(await (await portable.stickerRoot).exists(), false);
+    expect(native.prefs['caicai_stage']['legPivot'], .87);
+    expect(native.restoredModels, false);
+  });
+
+  test('settings-only payload cannot disguise resource entries as excluded', () {
+    final config = {
+      'version': 2, 'resource_files': 'external',
+      'native_preferences': native.prefs,
+      'secure_config': {for (final key in SecureConfig.portableKeys) key: null},
+      'file_paths': {'live2d': ['model.moc3'], 'stickers': []},
+    };
+    expect(() => PortableCompanionStorage.validateState(config), throwsFormatException);
   });
 
   test('API URL credentials are stripped; unknown secure keys cannot enter portable config', () async {

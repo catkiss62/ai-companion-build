@@ -142,3 +142,5 @@ tools/validate_v04255_backup_settings.py
 tools/validate_v04256_share_portable_state.py
 tools/validate_v04257_memory_galaxy.py
 tools/validate_v04258_backup_focus_memory.py
+
+tools/validate_v04259_game_cadence_settings_backup.py

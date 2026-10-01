@@ -10,6 +10,7 @@ import androidx.test.core.app.ActivityScenario
 import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.catkiss.senlive2dcompanion.CaicaiModelRepository
+import com.aicompanion.localfirst.PortableCompanionState
 import org.json.JSONArray
 import org.json.JSONObject
 import org.junit.Assert.*
@@ -21,6 +22,37 @@ import java.util.zip.ZipOutputStream
 
 @RunWith(AndroidJUnit4::class)
 class NativeSmokeTest {
+    @Test fun preferencesOnlySnapshotPreservesExternalModelFilesAndIndexOnCommitAndRollback() {
+        val context = ApplicationProvider.getApplicationContext<Context>()
+        val repository = CaicaiModelRepository(context)
+        val modelPrefs = context.getSharedPreferences("caicai_live2d", Context.MODE_PRIVATE)
+        val stagePrefs = context.getSharedPreferences("caicai_stage", Context.MODE_PRIVATE)
+        val root = java.io.File(context.filesDir, "caicai-live2d")
+        root.deleteRecursively()
+        val external = java.io.File(root, "current/external-model.bin")
+        external.parentFile!!.mkdirs()
+        external.writeText("EXTERNAL_RESOURCE_KEEP")
+        modelPrefs.edit().clear().putString("maid", "external.model3.json").commit()
+        stagePrefs.edit().clear().putFloat("legPivot", .87f).commit()
+        val indexBefore = modelPrefs.all.toMap()
+        try {
+            for (commit in listOf(true, false)) {
+                val portable = PortableCompanionState(context, repository)
+                val snapshot = portable.begin()
+                val lease = snapshot["token"] as String
+                portable.apply(lease, mapOf("caicai_stage" to mapOf("legPivot" to .96f),
+                    "overlay_state" to emptyMap<String, Any>(),
+                    "companion_runtime" to emptyMap<String, Any>()), restoreModels = false)
+                portable.finish(lease, commit)
+                assertEquals(indexBefore, modelPrefs.all)
+                assertEquals("EXTERNAL_RESOURCE_KEEP", external.readText())
+                assertEquals(if (commit) .96f else .87f, stagePrefs.getFloat("legPivot", 0f), .001f)
+                stagePrefs.edit().putFloat("legPivot", .87f).commit()
+            }
+        } finally {
+            root.deleteRecursively(); modelPrefs.edit().clear().commit(); stagePrefs.edit().clear().commit()
+        }
+    }
     @Test fun nativeConstructorDrawPauseResumeAndReplacement() {
         repeat(4) {
             ActivityScenario.launch(SmokeActivity::class.java).use { scenario ->

@@ -30,8 +30,9 @@ abstract class NativePortableBackend {
   Future<void> validatePreferences(Map<String, dynamic> preferences);
   Future<void> apply(
     NativePortableSnapshot snapshot,
-    Map<String, dynamic> preferences,
-  );
+    Map<String, dynamic> preferences, {
+    bool restoreModels = true,
+  });
   Future<void> finish(NativePortableSnapshot snapshot, {required bool commit});
 }
 
@@ -73,14 +74,16 @@ class AndroidPortableBackend implements NativePortableBackend {
   @override
   Future<void> apply(
     NativePortableSnapshot snapshot,
-    Map<String, dynamic> preferences,
-  ) async {
+    Map<String, dynamic> preferences, {
+    bool restoreModels = true,
+  }) async {
     // Mark before awaiting: a native apply may release the renderer and then
     // fail partway through. Its rollback must also recreate the stage.
     _reloadAfterFinish.add(snapshot.token);
     await _channel.invokeMethod<void>('portableApply', {
       'token': snapshot.token,
       'preferences': preferences,
+      'restoreModels': restoreModels,
     });
   }
   @override
@@ -126,8 +129,9 @@ class _NoNativeBackend implements NativePortableBackend {
   @override
   Future<void> apply(
     NativePortableSnapshot snapshot,
-    Map<String, dynamic> preferences,
-  ) async {}
+    Map<String, dynamic> preferences, {
+    bool restoreModels = true,
+  }) async {}
   @override
   Future<void> finish(
     NativePortableSnapshot snapshot, {
@@ -142,8 +146,8 @@ class PortableExport {
   final int bytes;
 }
 
-/// The portable domain covers imported models, sticker packs, native visual
-/// preferences and the explicit non-secret secure-storage configuration.
+/// Exports native preferences and non-secret configuration. Externally imported
+/// model/sticker files remain local; legacy resource-bearing packages can restore.
 class PortableCompanionStorage {
   PortableCompanionStorage({
     NativePortableBackend? native,
@@ -196,66 +200,26 @@ class PortableCompanionStorage {
     Directory directory,
     NativePortableSnapshot snapshot,
   ) async {
-    final roots = <String, Directory>{
-      if (snapshot.live2dDirectory != null) 'live2d': snapshot.live2dDirectory!,
-      'stickers': await stickerRoot,
-    };
     final paths = <String, List<String>>{'live2d': [], 'stickers': []};
-    final hashes = <String, String>{};
-    var bytes = 0;
-    for (final entry in roots.entries) {
-      final root = entry.value;
-      if (entry.key == 'stickers')
-        await stickers.validateSnapshotDirectory(
-          root,
-          allowLocalTemporary: true,
-        );
-      if (!await root.exists()) continue;
-      await for (final entity in root.list(
-        recursive: true,
-        followLinks: false,
-      )) {
-        if (entity is Link) throw const FormatException('可迁移文件不能包含符号链接');
-        if (entity is! File) continue;
-        final relative = safePath(
-          p.relative(entity.path, from: root.path).replaceAll('\\', '/'),
-        );
-        if (entry.key == 'stickers' &&
-            relative.split('/').first.startsWith('.'))
-          continue;
-        final name = '${entry.key}/$relative';
-        paths[entry.key]!.add(relative);
-        bytes += await entity.length();
-        if (bytes > 8 * 1024 * 1024 * 1024 || hashes.length >= 160000) {
-          throw const FormatException('可迁移文件超过存档容量限制');
-        }
-        final target = File(p.joinAll([directory.path, ...name.split('/')]));
-        await target.parent.create(recursive: true);
-        await entity.copy(target.path);
-        hashes[name] = (await sha256.bind(target.openRead()).first).toString();
-      }
-    }
-    for (final values in paths.values) {
-      values.sort();
-    }
     final config = secure == null
         ? {for (final key in SecureConfig.portableKeys) key: null}
         : await secure!.exportPortableSettings();
     return PortableExport(
       {
-        'version': 1,
+        'version': 2,
+        'resource_files': 'external',
         'secure_config': config,
         'native_preferences': snapshot.preferences,
         'file_paths': paths,
       },
-      hashes,
-      bytes,
+      const {},
+      0,
     );
   }
 
   static Map<String, dynamic> validateState(Object? raw) {
     if (raw is! Map ||
-        raw['version'] != 1 ||
+        !const [1, 2].contains(raw['version']) ||
         raw['native_preferences'] is! Map ||
         raw['file_paths'] is! Map) {
       throw const FormatException('状态包缺少可迁移配置');
@@ -269,6 +233,10 @@ class PortableCompanionStorage {
     }
     for (final domain in ['live2d', 'stickers']) {
       final values = paths[domain] as List;
+      if (raw['version'] == 2 &&
+          (raw['resource_files'] != 'external' || values.isNotEmpty)) {
+        throw const FormatException('仅设置存档不能包含外部模型或表情包文件');
+      }
       if (values.any((item) => item is! String) ||
           values.toSet().length != values.length) {
         throw const FormatException('状态包可迁移文件清单格式无效');
@@ -279,6 +247,9 @@ class PortableCompanionStorage {
     }
     return Map<String, dynamic>.from(raw);
   }
+
+  static bool includesResourceFiles(Map<String, dynamic> state) =>
+      state['version'] == 1;
 
   static Future<void> validatePayload({
     required Directory root,
@@ -339,26 +310,28 @@ class PortableCompanionStorage {
     PreparedDirectorySwap? live2d;
     PreparedDirectorySwap? packs;
     try {
-      final models = Directory(p.join(root.path, 'live2d'));
-      await native.validateModels(snapshot, models);
-      final incomingStickers = Directory(p.join(root.path, 'stickers'));
-      await stickers.validateSnapshotDirectory(incomingStickers);
-      if (snapshot.live2dDirectory != null) {
-        live2d = await PreparedDirectorySwap.prepare(
-          sourceDirectory: models,
-          targetDirectory: snapshot.live2dDirectory!,
-          expectedPaths: List<String>.from(state['file_paths']['live2d']),
+      if (includesResourceFiles(state)) {
+        final models = Directory(p.join(root.path, 'live2d'));
+        await native.validateModels(snapshot, models);
+        final incomingStickers = Directory(p.join(root.path, 'stickers'));
+        await stickers.validateSnapshotDirectory(incomingStickers);
+        if (snapshot.live2dDirectory != null) {
+          live2d = await PreparedDirectorySwap.prepare(
+            sourceDirectory: models,
+            targetDirectory: snapshot.live2dDirectory!,
+            expectedPaths: List<String>.from(state['file_paths']['live2d']),
+            validatePath: safePath,
+            token: token,
+          );
+        }
+        packs = await PreparedDirectorySwap.prepare(
+          sourceDirectory: incomingStickers,
+          targetDirectory: await stickerRoot,
+          expectedPaths: List<String>.from(state['file_paths']['stickers']),
           validatePath: safePath,
           token: token,
         );
       }
-      packs = await PreparedDirectorySwap.prepare(
-        sourceDirectory: incomingStickers,
-        targetDirectory: await stickerRoot,
-        expectedPaths: List<String>.from(state['file_paths']['stickers']),
-        validatePath: safePath,
-        token: token,
-      );
       return PreparedPortableState(
         native,
         snapshot,
@@ -368,6 +341,7 @@ class PortableCompanionStorage {
         preferences,
         SecureConfig.validatePortableSettings(state['secure_config']),
         await secure?.readPortableSettings(),
+        restoreModels: includesResourceFiles(state),
       );
     } catch (_) {
       try {
@@ -393,13 +367,15 @@ class PreparedPortableState {
     this.stickers,
     this.preferences,
     this.config,
-    this.previousConfig,
-  );
+    this.previousConfig, {
+    this.restoreModels = true,
+  });
   final NativePortableBackend native;
   final NativePortableSnapshot snapshot;
   final SecureConfig? secure;
   final PreparedDirectorySwap? live2d;
-  final PreparedDirectorySwap stickers;
+  final PreparedDirectorySwap? stickers;
+  final bool restoreModels;
   final Map<String, dynamic> preferences;
   final Map<String, String?> config;
   final Map<String, String?>? previousConfig;
@@ -407,8 +383,8 @@ class PreparedPortableState {
   bool _configTouched = false;
   Future<void> activate() async {
     await live2d?.activate();
-    await stickers.activate();
-    await native.apply(snapshot, preferences);
+    await stickers?.activate();
+    await native.apply(snapshot, preferences, restoreModels: restoreModels);
     _configTouched = true;
     await secure?.replacePortableSettings(config);
   }
@@ -416,7 +392,7 @@ class PreparedPortableState {
   Future<void> rollback() async {
     if (_finished) return;
     try {
-      await stickers.rollback();
+      await stickers?.rollback();
     } finally {
       try {
         await live2d?.rollback();
@@ -442,6 +418,6 @@ class PreparedPortableState {
     await native.finish(snapshot, commit: true);
     _finished = true;
     await live2d?.commit();
-    await stickers.commit();
+    await stickers?.commit();
   }
 }

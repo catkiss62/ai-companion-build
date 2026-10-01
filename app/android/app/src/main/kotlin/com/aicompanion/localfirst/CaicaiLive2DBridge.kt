@@ -37,11 +37,11 @@ class CaicaiLive2DBridge(
                     when (call.method) {
                         "portableBegin" -> {
                             require(pending == null) { "模型导入正在进行" }
-                            result.success(portable.begin(call.argument<Boolean>("exporting") == true))
+                            result.success(portable.begin())
                         }
                         "portableValidatePreferences" -> { PortableCompanionState.validatedPreferences(call.argument<Map<*, *>>("preferences") ?: emptyMap<Any, Any>()); result.success(null) }
                         "portableValidate" -> { portable.validate(token, call.argument<String>("directory").orEmpty()); result.success(null) }
-                        "portableApply" -> { portable.apply(token, call.argument<Map<*, *>>("preferences") ?: emptyMap<Any, Any>()); result.success(null) }
+                        "portableApply" -> { portable.apply(token, call.argument<Map<*, *>>("preferences") ?: emptyMap<Any, Any>(), call.argument<Boolean>("restoreModels") != false); result.success(null) }
                         "portableFinish" -> { portable.finish(token, call.argument<Boolean>("commit") == true); result.success(null) }
                         else -> result.notImplemented()
                     }

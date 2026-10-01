@@ -8,7 +8,7 @@ val syncImportSources = tasks.register<Sync>("syncImportSources") {
         include("CaicaiModelRepository.kt", "CaicaiModelPaths.kt", "CaicaiDiagnostics.kt")
     }
     from("../../android/app/src/main/kotlin/com/aicompanion/localfirst") {
-        include("NativeMemoryGalaxyActivity.kt", "MemoryGalaxyFiles.kt")
+        include("NativeMemoryGalaxyActivity.kt", "MemoryGalaxyFiles.kt", "PortableCompanionState.kt")
     }
     into(layout.buildDirectory.dir("generated/import-sources"))
 }

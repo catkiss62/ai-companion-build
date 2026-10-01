@@ -22,7 +22,8 @@ assert '真实推进了一步。${updated.lastOutcome}' not in engine
 proactive=read('lib/core/desire/proactive_engine.dart')
 assert proactive.count('.deliveryAllowed(')>=3
 commit=proactive.index('final commitBlock = await db.commitProactiveMessageIfCurrent')
-assert proactive.index('await CedarLiveSharePolicy(db).noteDelivered(intentThought!.id)',commit)>commit
+assert proactive.index('await CedarLiveSharePolicy(db).noteDelivered(',commit)>commit
+assert 'messageId: message.id' in proactive
 ui=read('lib/features/chat/cedar_toy_activity_window.dart')
 assert 'Row(' in ui and 'Expanded(' in ui and 'width: double.infinity' in ui
 chat=read('lib/features/chat/chat_page.dart')
@@ -65,5 +66,5 @@ assert model.count('rootTiltSmoother.update(rootTilt, frameDelta)')==2
 for test in ('cedar_share_rounds_v04256_test.dart','portable_snapshot_v04256_test.dart'):
     assert (app/'test'/test).is_file()
 assert (app/'tools/caicai_smoke/src/androidTest/java/com/catkiss/senlive2dcompanion/CaicaiInteractionCadenceSmokeTest.java').is_file()
-assert re.search(r'^version: 0.42.(?:56\+300|57\+301|58\+302)$',read('pubspec.yaml'),re.M)
+assert re.search(r'^version: 0.42.(?:56\+300|57\+301|58\+302|59\+303)$',read('pubspec.yaml'),re.M)
 print('v0.42.56 rounds, lower-leg tilt, held pat, sidebar and v7 portable inventory wired')

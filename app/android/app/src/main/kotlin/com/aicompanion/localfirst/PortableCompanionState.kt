@@ -13,9 +13,10 @@ class PortableCompanionState(private val context: Context, private val models: C
     private var previous = emptyMap<String, Map<String, Any?>>()
     private var previousIndex = emptyMap<String, Any?>()
     private var applied = false
+    private var modelsTouched = false
     val busy: Boolean get() = token != null
 
-    fun begin(exporting: Boolean = false): Map<String, Any> {
+    fun begin(): Map<String, Any> {
         check(!busy) { "存档操作正在进行" }
         val lease = models.beginPortableSnapshot()
         try {
@@ -26,7 +27,10 @@ class PortableCompanionState(private val context: Context, private val models: C
             previousIndex = prefs("caicai_live2d").all.toMap()
             token = lease
             applied = false
-            return mapOf("token" to lease, "live2dDirectory" to models.portableDirectory(lease, validateInstalled = exporting).path,
+            modelsTouched = false
+            // New exports read preferences only. Legacy restore validates its
+            // incoming model tree separately; neither needs the old tree valid.
+            return mapOf("token" to lease, "live2dDirectory" to models.portableDirectory(lease, validateInstalled = false).path,
                 "preferences" to previous)
         } catch (error: Throwable) {
             models.endPortableSnapshot(lease)
@@ -43,13 +47,16 @@ class PortableCompanionState(private val context: Context, private val models: C
         models.validatePortableDirectory(file)
     }
 
-    fun apply(lease: String, raw: Map<*, *>) {
+    fun apply(lease: String, raw: Map<*, *>, restoreModels: Boolean = true) {
         requireToken(lease)
         val values = validatedPreferences(raw) // Validate the entire input before any write.
         CaicaiRuntime.releaseModel()
         applied = true // Partial preference/index writes must also roll back.
         for ((group, keys) in fields) replace(prefs(group), keys.keys, values.getValue(group))
-        models.installPortableIndex(lease)
+        if (restoreModels) {
+            modelsTouched = true
+            models.installPortableIndex(lease)
+        }
     }
 
     fun finish(lease: String, commit: Boolean) {
@@ -57,12 +64,12 @@ class PortableCompanionState(private val context: Context, private val models: C
         try {
             if (applied && !commit) {
                 for ((group, keys) in fields) replace(prefs(group), keys.keys, previous.getValue(group))
-                replace(prefs("caicai_live2d"), prefs("caicai_live2d").all.keys.union(previousIndex.keys), previousIndex)
+                if (modelsTouched) replace(prefs("caicai_live2d"), prefs("caicai_live2d").all.keys.union(previousIndex.keys), previousIndex)
             }
-            if (applied && commit) models.finishPortableInstall(lease)
+            if (modelsTouched && commit) models.finishPortableInstall(lease)
         } finally {
             models.endPortableSnapshot(lease)
-            token = null; applied = false; previous = emptyMap(); previousIndex = emptyMap()
+            token = null; applied = false; modelsTouched = false; previous = emptyMap(); previousIndex = emptyMap()
         }
     }
 

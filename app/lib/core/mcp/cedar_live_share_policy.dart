@@ -124,10 +124,10 @@ class CedarLiveSharePolicy {
 
   /// Call only after the assistant message has committed. Recovered duplicate
   /// acknowledgements must not move the interval's start to a later round.
-  Future<void> noteDelivered(String thoughtId) async {
+  Future<void> noteDelivered(String thoughtId, {String? messageId}) async {
     final thought = await db.thoughtById(thoughtId);
     if (thought == null ||
-        await db.messageById('cedar-share:$thoughtId') == null)
+        await db.messageById(messageId ?? 'cedar-share:$thoughtId') == null)
       return;
     if (isResultReport(thoughtId, thought.source)) {
       await _noteReportDelivered(thought.source, thought.bornAt);
@@ -151,6 +151,7 @@ class CedarLiveSharePolicy {
       );
     }
     final states = await _states();
+    var matchedPending = false;
     for (final entry in states.entries) {
       if (entry.value is! Map || entry.value['pending'] != thoughtId) continue;
       final state = Map<String, dynamic>.from(entry.value);
@@ -159,7 +160,27 @@ class CedarLiveSharePolicy {
       state['pending'] = '';
       states[entry.key] = state;
       await db.setSetting(key, jsonEncode(states));
+      matchedPending = true;
       break;
+    }
+    if (!matchedPending) {
+      // Legacy progress can win ordinary proactive competition without being
+      // the queued aggregation. Settle only its actual saved event, never newer
+      // outcomes that happened during the model call.
+      for (final session in (await CedarToyActivityStore(db).loadState()).sessions.values) {
+        if (!thought.source.startsWith('mcp/cedar_game:${session.gameId}:')) continue;
+        final index = session.events.indexWhere((event) =>
+          thought.source.endsWith(':${event.id}'));
+        if (index < 0) continue;
+        final state = await _state(session);
+        final previousIndex = session.events.indexWhere((event) =>
+          event.id == state['sharedThrough']);
+        if (index >= previousIndex) {
+          await _save(session, {...state,
+            'sharedThrough': session.events[index].id, 'shown': thought.text});
+        }
+        break;
+      }
     }
   }
 

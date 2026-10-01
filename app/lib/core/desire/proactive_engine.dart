@@ -1179,8 +1179,9 @@ class ProactiveEngine {
     final isImmediateCedarShare = isCedarGameShare &&
         forceForDebug &&
         forcedThoughtIdForDebug == intentThought?.id;
-    if (isImmediateCedarShare && !await CedarLiveSharePolicy(db)
+    if (isCedarGameShare && !await CedarLiveSharePolicy(db)
         .deliveryAllowed(intentThought!.id, intentThought.source)) {
+      await noteGeneration('preempted', reasonTag: 'cedar_share_round_interval');
       return const ProactiveDecision(sent: false, reason: 'cedar_share_round_interval');
     }
     if (isCedarGameShare) {
@@ -1992,7 +1993,7 @@ ${PromptBuilder.visibleChineseGenerationReminder(proactive: true)}
     );
     final messageId = isImmediateCedarShare
         ? 'cedar-share:${intentThought!.id}' : _uuid.v4();
-    if (isImmediateCedarShare && !await CedarLiveSharePolicy(db)
+    if (isCedarGameShare && !await CedarLiveSharePolicy(db)
         .deliveryAllowed(intentThought!.id, intentThought.source)) {
       await noteGeneration('preempted', reasonTag: 'cedar_share_round_interval');
       return const ProactiveDecision(sent: false, reason: 'cedar_share_round_interval');
@@ -2077,8 +2078,11 @@ ${PromptBuilder.visibleChineseGenerationReminder(proactive: true)}
         deliveryStyle: deliveryStyle,
       );
     }
-    if (isImmediateCedarShare) {
-      await CedarLiveSharePolicy(db).noteDelivered(intentThought!.id);
+    if (isCedarGameShare) {
+      await CedarLiveSharePolicy(db).noteDelivered(
+        intentThought!.id,
+        messageId: message.id,
+      );
     }
     await db.addProactiveHistory(
       triggerReason:

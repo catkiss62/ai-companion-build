@@ -101,6 +101,47 @@ void main() {
     }
   });
 
+  test('ordinary proactive message IDs acknowledge the same share interval idempotently', () async {
+    for (var n = 1; n <= 5; n++) {
+      await step(n);
+    }
+    await shares.offer((await store.load())!, share: true, now: DateTime.now());
+    final id = (await store.pendingDirectShares()).single;
+    await shares.noteDelivered(id, messageId: 'not-committed');
+    expect(await shares.intervalElapsed(), true);
+    await db.insertMessage(ChatMessage(id: 'ordinary-proactive-id',
+      role: 'assistant', content: '实际分享', createdAt: DateTime.now()));
+    await shares.noteDelivered(id, messageId: 'ordinary-proactive-id');
+    expect(await shares.intervalElapsed(), false);
+    for (var n = 6; n <= 9; n++) {
+      await step(n);
+    }
+    await shares.noteDelivered(id, messageId: 'ordinary-proactive-id');
+    expect(await shares.intervalElapsed(), false);
+    await step(10);
+    expect(await shares.intervalElapsed(), true);
+  });
+
+  test('legacy ordinary progress settles only its own saved event', () async {
+    for (var n = 1; n <= 5; n++) {
+      await step(n);
+    }
+    final session = (await store.load())!;
+    await db.upsertThought(id: 'legacy-progress', text: '实际发现5',
+      drive: DriveKey.curiosity, kind: 'flit', strength: .8,
+      source: 'mcp/cedar_game:white_room:${session.events.last.id}');
+    await db.insertMessage(ChatMessage(id: 'ordinary-legacy-message',
+      role: 'assistant', content: '实际发现5', createdAt: DateTime.now()));
+    await shares.noteDelivered('legacy-progress', messageId: 'ordinary-legacy-message');
+    for (var n = 6; n <= 10; n++) {
+      await step(n);
+    }
+    await shares.offer((await store.load())!, share: true, now: DateTime.now());
+    final id = (await store.pendingDirectShares()).single;
+    expect((await db.thoughtById(id))!.text, isNot(contains('实际发现5')));
+    expect((await db.thoughtById(id))!.text, contains('实际发现6'));
+  });
+
   test('actual delivery starts next interval; pending writer aggregation is frozen once', () async {
     for (var n = 1; n <= 5; n++) {
       await step(n);

@@ -1288,8 +1288,9 @@ class CedarToyAutonomyEngine {
                 ? 'game_finished' : 'finished_or_budget_complete');
           } else {
             await playPeriods.save(saved.tick(finishedAt));
-            await store.deferContinuation(gameId: after.gameId,
-              delay: const Duration(seconds: 15), executionId: scope.executionId);
+            // recordPlay already scheduled the ordinary two-minute step gap
+            // or a longer server-authorized wait. A sustained play budget
+            // grants continued play, not a faster continuation clock.
           }
         }
         return step;
