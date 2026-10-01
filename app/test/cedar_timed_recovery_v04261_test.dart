@@ -160,7 +160,7 @@ void main() {
     await tasks.reconcile(base.add(const Duration(seconds: 30)));
     expect((await store.loadState()).execution!.id, execution);
     expect((await CedarPlaySessionStore(db).load())!.usedMs, 0);
-    await store.finishExecution(execution);
+    await store.finishExecution(executionId: execution);
     await db.releaseLocalLease('cedar_toy_action_lease_until');
     await tasks.reconcile(base.add(const Duration(seconds: 30)));
     expect((await CedarPlaySessionStore(db).load())!.usedMs, 30000);
