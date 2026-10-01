@@ -345,6 +345,12 @@ class SimulatedPhoneRepository {
   }
 
   Future<int> maintainAlbum({DateTime? now}) async {
+    const lease = 'simulated_phone_media_lease_until';
+    if (!await db.brainWorkAllowed() || !await db.tryAcquireLocalLease(
+      lease, holdFor: const Duration(minutes: 3),
+    )) return 0;
+    try {
+      if (!await db.brainWorkAllowed()) return 0;
     await _recoverUserMessageAlbumOriginals();
     final duePaths = await db.purgeDueCompanionAlbumDeletes(now: now);
     final retiredNsfwPaths = await db.retireLegacyNsfwAlbumItems();
@@ -359,6 +365,9 @@ class SimulatedPhoneRepository {
     }
     removed += await _collectUnreferencedMediaBlobs();
     return removed;
+    } finally {
+      await db.releaseLocalLease(lease);
+    }
   }
 
   Future<int> _collectUnreferencedMediaBlobs() async {

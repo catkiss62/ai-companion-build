@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:io';
 
 import 'package:flutter/widgets.dart';
 
@@ -7,6 +8,7 @@ import 'core/ai/durable_generation_recovery.dart';
 import 'core/ai/durable_generation_runner.dart';
 import 'core/ai/memory_extractor.dart';
 import 'core/database/app_database.dart';
+import 'core/phone/calendar_reminder_store.dart';
 import 'core/desire/desire_engine.dart';
 import 'core/desire/proactive_engine.dart';
 import 'core/diagnostics/model_usage_telemetry.dart';
@@ -15,11 +17,17 @@ import 'core/maintenance/recovery_orchestrator.dart';
 import 'core/platform/android_bridge.dart';
 import 'core/platform/background_chat_command_server.dart';
 import 'core/storage/secure_config.dart';
+import 'core/storage/portable_companion_storage.dart';
+import 'core/sync/snapshot_restore_coordinator.dart';
 
 @pragma('vm:entry-point')
 Future<void> companionBackgroundMain() async {
   WidgetsFlutterBinding.ensureInitialized();
   final db = AppDatabase.instance;
+  await SnapshotRestoreCoordinator(db, PortableCompanionStorage()).ensureRecovered();
+  if (Platform.isAndroid) {
+    try { await CalendarReminderStore(db).sync(); } catch (_) {}
+  }
   final desire = DesireEngine(db);
   // A transfer freeze must interrupt background provider waits immediately.
   // Otherwise a stalled Cedar or recovery request can keep the orchestrator

@@ -24,4 +24,14 @@ void main() {
     expect(reminder.occursOn(DateTime(2027, 9, 26)), isFalse);
     expect(CalendarReminder.fromJson(reminder.toJson()).timed, isTrue);
   });
+  test('old alarm occurrences cannot follow a changed time or deleted identity', () {
+    const reminder = CalendarReminder(id: 'id:with:colon', title: '事项',
+        year: 2026, month: 10, day: 1, yearly: false, hour: 14, minute: 30);
+    final due = DateTime(2026, 10, 1, 14, 30);
+    expect(reminder.occurrenceTime('id:with:colon:${due.millisecondsSinceEpoch}'), due);
+    expect(reminder.occurrenceTime('id:with:colon:${due.add(const Duration(minutes: 1)).millisecondsSinceEpoch}'), isNull);
+    expect(reminder.occurrenceTime('different:${due.millisecondsSinceEpoch}'), isNull);
+    expect(reminder.occurrenceTime('id:with:colon:invalid'), isNull);
+  });
+
 }

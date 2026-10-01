@@ -31,6 +31,16 @@ class CalendarReminder {
   bool occursOn(DateTime local) => month == local.month &&
       day == local.day && (yearly || year == local.year);
 
+  DateTime? occurrenceTime(String occurrence) {
+    final split = occurrence.lastIndexOf(':');
+    if (!timed || split < 0 || occurrence.substring(0, split) != id) return null;
+    final millis = int.tryParse(occurrence.substring(split + 1));
+    if (millis == null || millis <= 0) return null;
+    final local = DateTime.fromMillisecondsSinceEpoch(millis).toLocal();
+    return occursOn(local) && local.hour == hour && local.minute == minute
+        ? local : null;
+  }
+
   Map<String, Object?> toJson() => {
         'id': id,
         'title': title,
@@ -84,10 +94,16 @@ class CalendarReminderStore {
     return sync(entries);
   }
 
-  Future<bool> sync([List<CalendarReminder>? entries]) async =>
-      android.syncCalendarReminders(
-        (entries ?? await load()).map((entry) => entry.toJson()).toList(),
-      );
+  Future<bool> sync([List<CalendarReminder>? entries]) async {
+    final active = await db.getSetting('active_brain') != '0';
+    final revision = '${await db.getSetting('state_lineage_id') ?? ''}:'
+        '${await db.getSetting('runtime_state_epoch_v1') ?? ''}';
+    return android.syncCalendarReminders(
+      active ? (entries ?? await load()).map((entry) => entry.toJson()).toList()
+          : const [],
+      revision: revision,
+    );
+  }
 
   Future<List<CalendarReminder>> today([DateTime? now]) async {
     final local = (now ?? DateTime.now()).toLocal();

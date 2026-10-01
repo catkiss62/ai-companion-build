@@ -7,6 +7,8 @@ import '../../core/database/app_database.dart';
 import '../../core/platform/android_bridge.dart';
 import '../../core/sync/snapshot_cache_janitor.dart';
 import '../../core/sync/snapshot_service.dart';
+import '../../core/sync/snapshot_restore_coordinator.dart';
+import '../../core/phone/calendar_reminder_store.dart';
 
 class TransferPage extends StatefulWidget {
   const TransferPage({super.key});
@@ -38,6 +40,16 @@ class _TransferPageState extends State<TransferPage> {
     sub = android.nearbyEvents.listen(_onNearbyEvent);
     unawaited(SnapshotCacheJanitor.clean());
     unawaited(_restoreStandbyUiState());
+  }
+
+  Future<void> _syncRemindersSafely() async {
+    try {
+      if (!await CalendarReminderStore(db).sync()) {
+        _append('数据状态已更新，提醒响铃暂未能全部排入系统；请检查闹钟权限。');
+      }
+    } catch (_) {
+      _append('数据状态已更新，本机提醒将在下次打开应用时重新同步。');
+    }
   }
 
   Future<void> _restoreStandbyUiState() async {
@@ -229,7 +241,8 @@ class _TransferPageState extends State<TransferPage> {
               throw StateError('ACK 目标代次与数据库激活代次不一致。');
             }
             try {
-              await android.reconcileOverlayAfterTakeover();
+              await _syncRemindersSafely();
+          await android.reconcileOverlayAfterTakeover();
             } catch (_) {
               // Ownership is already committed. Overlay restoration is best
               // effort and must never undo a successful Active Brain takeover.
@@ -244,6 +257,7 @@ class _TransferPageState extends State<TransferPage> {
             _append('旧设备已确认下线，本机成为第 $activatedGeneration 代 Active Brain。');
           } catch (e) {
             await db.setSetting('active_brain', '0');
+            await _syncRemindersSafely();
             await db.setSetting('transfer_lock', '0');
             if (!mounted) return;
             setState(() {
@@ -257,6 +271,7 @@ class _TransferPageState extends State<TransferPage> {
       case 'takeoverAckFailed':
         if (awaitingTakeoverAck) {
           await db.setSetting('active_brain', '0');
+            await _syncRemindersSafely();
           await db.setSetting('transfer_lock', '0');
           if (!mounted) return;
           setState(() {
@@ -268,6 +283,7 @@ class _TransferPageState extends State<TransferPage> {
           // Source-side ACK send failure occurs only after NativeEventStore has
           // atomically fenced this source. Never reactivate it automatically.
           await db.setSetting('active_brain', '0');
+            await _syncRemindersSafely();
           await db.setSetting('transfer_lock', '0');
           if (mounted) setState(() => importedStandby = true);
           _append('确认回执发送失败；本机已经安全下线。确认另一台状态后再决定是否手动恢复。');
@@ -277,6 +293,7 @@ class _TransferPageState extends State<TransferPage> {
         final reason = event.data['reason'] ?? 'metadata_mismatch';
         if (awaitingTakeoverAck) {
           await db.setSetting('active_brain', '0');
+            await _syncRemindersSafely();
           await db.setSetting('transfer_lock', '0');
           if (!mounted) return;
           setState(() {
@@ -311,6 +328,7 @@ class _TransferPageState extends State<TransferPage> {
         }
         if (awaitingTakeoverAck) {
           await db.setSetting('active_brain', '0');
+            await _syncRemindersSafely();
           await db.setSetting('transfer_lock', '0');
           if (!mounted) return;
           setState(() {
@@ -381,6 +399,10 @@ class _TransferPageState extends State<TransferPage> {
     final deadline = DateTime.now().add(const Duration(seconds: 90));
     const keys = <String>[
       'chat_turn_lease',
+      'immersive_room_lease',
+      'calendar_reminder_followup_lease_until',
+      'simulated_phone_refresh_lease_until',
+      'simulated_phone_media_lease_until',
       'cedar_toy_action_lease_until',
       'recovery_orchestrator_lease_until',
       'post_turn_memory_lease',
@@ -518,6 +540,8 @@ class _TransferPageState extends State<TransferPage> {
       allowLineageReplacement: true,
       allowLegacy: allowLegacy,
     );
+    if (result.recoveryPending) throw const SnapshotRecoveryRequired();
+    if (result.completionWarning.isNotEmpty) _append(result.completionWarning);
     importedMetadata = result.metadata;
     final pending = await db.pendingImportedTransfer();
     if (result.duplicate && pending?.snapshotId != result.metadata.snapshotId) {
@@ -534,6 +558,7 @@ class _TransferPageState extends State<TransferPage> {
       await _beginTakeoverHandshake(result.metadata);
     } else {
       await db.setSetting('active_brain', '0');
+            await _syncRemindersSafely();
       await db.setSetting('transfer_lock', '0');
       _append(
         result.metadata.legacy
@@ -584,6 +609,7 @@ class _TransferPageState extends State<TransferPage> {
     final endpoint = connectedEndpoint;
     if (endpoint == null) {
       await db.setSetting('active_brain', '0');
+            await _syncRemindersSafely();
       await db.setSetting('transfer_lock', '0');
       if (mounted) setState(() => importedStandby = true);
       _append('状态已导入，但连接已经断开，本机保持待机。');
@@ -615,6 +641,7 @@ class _TransferPageState extends State<TransferPage> {
     final pending = await db.pendingImportedTransfer();
     if (pending?.snapshotId != snapshotId) return;
     await db.setSetting('active_brain', '0');
+            await _syncRemindersSafely();
     await db.setSetting('transfer_lock', '0');
     if (!mounted || !awaitingTakeoverAck) return;
     setState(() {
@@ -655,7 +682,8 @@ class _TransferPageState extends State<TransferPage> {
           ? await db.activatePendingImportedBrain(expectedSnapshotId: pending.snapshotId)
           : await db.forceLocalBrainTakeover();
       try {
-        await android.reconcileOverlayAfterTakeover();
+        await _syncRemindersSafely();
+          await android.reconcileOverlayAfterTakeover();
       } catch (_) {
         // The database ownership epoch is authoritative; overlay restoration
         // remains best effort.
@@ -778,6 +806,7 @@ class _TransferPageState extends State<TransferPage> {
         lineageId: bundle.metadata.lineageId,
         generation: bundle.metadata.sourceGeneration,
       );
+      await _syncRemindersSafely();
       try {
         await android.suspendOverlayForStandby();
       } catch (_) {
@@ -969,18 +998,24 @@ class _TransferPageState extends State<TransferPage> {
         _append('已取消恢复，不改变本机数据。');
         return;
       }
+      if (result.recoveryPending) {
+        _append(result.completionWarning);
+        return;
+      }
+      if (result.completionWarning.isNotEmpty) _append(result.completionWarning);
       if (result.requiresManualTakeover) {
         if (mounted) setState(() => importedStandby = true);
         _append('备份已恢复并通过校验。这是另一台设备的备份，本机先保持待机；确认原设备已停用后再手动接管。');
       } else {
         try {
+          await _syncRemindersSafely();
           await android.reconcileOverlayAfterTakeover();
         } catch (_) {}
         if (mounted) setState(() => importedStandby = false);
         _append('备份已恢复并通过校验。本机仍是当前主设备，可以继续正常使用。');
       }
     } catch (e) {
-      _append('恢复备份失败：$e；本机原数据没有被半覆盖。');
+      _append('恢复备份未完成：$e');
     } finally {
       if (restoredPath != null) await _deleteCachePath(restoredPath);
       if (freezeToken != null) {

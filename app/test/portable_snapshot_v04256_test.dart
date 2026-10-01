@@ -38,6 +38,7 @@ class _Native extends NativePortableBackend {
   };
   Map<String, dynamic>? before;
   bool failApply = false;
+  bool failFinishOnce = false;
   bool busy = false;
   int applyCount = 0;
   bool? restoredModels;
@@ -86,6 +87,10 @@ class _Native extends NativePortableBackend {
   }) async {
     if (!commit) prefs = before!;
     busy = false;
+    if (commit && failFinishOnce) {
+      failFinishOnce = false;
+      throw StateError('simulated failure after database commit');
+    }
   }
 }
 
@@ -291,6 +296,23 @@ void main() {
     expect(await db.getSetting('remembered_user_facts_v1'), contains('中午一点吃饭'));
     expect(native.prefs['caicai_stage']['legPivot'], .87);
     expect(await db.getSetting('cedar_toy_play_session_v1'), '');
+  });
+
+  test('a failure after database commit completes new state instead of reporting rollback', () async {
+    await fixture();
+    final bundle = await service.exportBackupBundle();
+    await db.setSetting('restore_sentinel', 'not-in-backup');
+    await secure.writeEndpoint('https://local.invalid/v1');
+    native.failFinishOnce = true;
+    final result = await service.restoreBackupBundle(bundle.filePath);
+    expect(result!.imported, isTrue);
+    expect(result.recoveryPending, isFalse);
+    expect(result.completionWarning, contains('数据已恢复'));
+    expect(await db.getSetting('restore_sentinel'), isNull);
+    expect(await secure.readEndpoint(), 'https://example.com/v1/chat/completions');
+    expect(native.busy, isFalse);
+    expect(native.restoredModels, isFalse);
+    expect(await db.getSetting('snapshot_recovery_pending_v1'), '');
   });
 
   test('failure after native writes restores files prefs secure config and database', () async {

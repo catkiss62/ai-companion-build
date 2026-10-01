@@ -35,7 +35,7 @@ class PortableCompanionState(
             // New exports read preferences only. Legacy restore validates its
             // incoming model tree separately; neither needs the old tree valid.
             return mapOf("token" to lease, "live2dDirectory" to models.portableDirectory(lease, validateInstalled = false).path,
-                "preferences" to previous)
+                "preferences" to previous, "recoveryState" to mapOf("index" to encodeIndex(previousIndex)))
         } catch (error: Throwable) {
             models.endPortableSnapshot(lease)
             token = null; applied = false; previous = emptyMap(); previousIndex = emptyMap()
@@ -93,6 +93,7 @@ class PortableCompanionState(
     private fun requireToken(lease: String) { require(token == lease && lease.isNotEmpty()) { "存档租约失效" } }
     private fun prefs(group: String) = context.getSharedPreferences(group, Context.MODE_PRIVATE)
 
+    companion object {
     private fun replace(prefs: SharedPreferences, keys: Set<String>, values: Map<String, Any?>) {
         val edit = prefs.edit()
         keys.forEach { edit.remove(it) }
@@ -102,13 +103,63 @@ class PortableCompanionState(
             is Long -> edit.putLong(key, value)
             is Boolean -> edit.putBoolean(key, value)
             is String -> edit.putString(key, value)
+            is Set<*> -> edit.putStringSet(key, value.map { it as String }.toSet())
             null -> edit.remove(key)
             else -> throw IOException("不支持的存档设置类型")
         } }
         if (!edit.commit()) throw IOException("无法写入存档设置")
     }
 
-    companion object {
+        private fun encodeIndex(index: Map<String, Any?>): Map<String, Any> = index.mapValues { (_, value) ->
+            val type = when (value) {
+                is Float -> "float"; is Int -> "int"; is Long -> "long"
+                is Boolean -> "boolean"; is String -> "string"; is Set<*> -> "set"
+                else -> throw IOException("模型索引包含未知类型")
+            }
+            mapOf("type" to type, "value" to if (value is Set<*>) value.toList() else value)
+        }
+
+        /** Restart recovery uses the same private journal as SQLite/files. No Activity needed. */
+        fun recover(context: Context, raw: Map<*, *>, localState: Map<*, *>,
+                    restoreModels: Boolean, committed: Boolean,
+                    releaseModel: () -> Unit = {}, refreshPreferences: () -> Unit = {}) {
+            val values = validatedPreferences(raw)
+            if (restoreModels) releaseModel()
+            for ((group, keys) in fields) {
+                replace(context.getSharedPreferences(group, Context.MODE_PRIVATE), keys.keys, values.getValue(group))
+            }
+            if (restoreModels) {
+                if (committed) {
+                    val repository = CaicaiModelRepository(context)
+                    val lease = repository.beginPortableSnapshot()
+                    try { repository.installPortableIndex(lease); repository.finishPortableInstall(lease) }
+                    finally { repository.endPortableSnapshot(lease) }
+                } else {
+                    val encoded = localState["index"] as? Map<*, *>
+                        ?: throw IOException("恢复日志缺少原模型索引")
+                    val old = encoded.entries.associate { (key, rawValue) ->
+                        val item = rawValue as? Map<*, *> ?: throw IOException("模型索引日志无效")
+                        val v = item["value"]
+                        val value: Any = when (item["type"]) {
+                            "float" -> (v as Number).toFloat()
+                            "int" -> (v as Number).toInt()
+                            "long" -> (v as Number).toLong()
+                            "boolean" -> v as Boolean
+                            "string" -> v as String
+                            "set" -> (v as List<*>).map { it as String }.toSet()
+                            else -> throw IOException("模型索引类型无效")
+                        }
+                        key as String to value
+                    }
+                    val prefs = context.getSharedPreferences("caicai_live2d", Context.MODE_PRIVATE)
+                    replace(prefs, prefs.all.keys.union(old.keys), old)
+                }
+            } else {
+                // Settings-only recovery never destroys/recreates a live model.
+                refreshPreferences()
+            }
+        }
+
         // Ranges mirror the existing stage/pet controls; no permission or identity is portable.
         private val fields: Map<String, Map<String, Any>> = mapOf(
             "caicai_stage" to mapOf("motionGain" to .5f..1.5f, "motionSpeed" to .65f..1.6f,

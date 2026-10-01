@@ -353,9 +353,12 @@ class AndroidBridge {
   Future<void> clearRuntimeDiagnostics() =>
       _channel.invokeMethod<void>('clearRuntimeDiagnostics');
 
-  Future<bool> syncCalendarReminders(List<Map<String, Object?>> entries) async =>
+  Future<bool> syncCalendarReminders(List<Map<String, Object?>> entries, {
+    String revision = '',
+  }) async =>
       await _channel.invokeMethod<bool>('syncCalendarReminders', {
         'entries': entries,
+        'revision': revision,
       }) ?? false;
 
   Future<bool> canScheduleExactReminders() async =>

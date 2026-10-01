@@ -14,11 +14,13 @@ class NativePortableSnapshot {
   const NativePortableSnapshot(
     this.token,
     this.live2dDirectory,
-    this.preferences,
-  );
+    this.preferences, {
+    this.localRecoveryState = const {},
+  });
   final String token;
   final Directory? live2dDirectory;
   final Map<String, dynamic> preferences;
+  final Map<String, dynamic> localRecoveryState;
 }
 
 abstract class NativePortableBackend {
@@ -34,9 +36,23 @@ abstract class NativePortableBackend {
     bool restoreModels = true,
   });
   Future<void> finish(NativePortableSnapshot snapshot, {required bool commit});
+
+  Future<void> recoverPreferences(
+    Map<String, dynamic> preferences,
+    Map<String, dynamic> localState, {
+    required bool restoreModels,
+    required bool committed,
+  }) async {
+    final snapshot = await begin();
+    try {
+      await apply(snapshot, preferences, restoreModels: restoreModels);
+    } finally {
+      await finish(snapshot, commit: true);
+    }
+  }
 }
 
-class AndroidPortableBackend implements NativePortableBackend {
+class AndroidPortableBackend extends NativePortableBackend {
   static const _channel = MethodChannel('ai_companion/caicai_live2d');
   final Set<String> _reloadAfterFinish = {};
   @override
@@ -55,8 +71,24 @@ class AndroidPortableBackend implements NativePortableBackend {
       raw['token'],
       Directory(raw['live2dDirectory']),
       Map<String, dynamic>.from(raw['preferences']),
+      localRecoveryState: Map<String, dynamic>.from(raw['recoveryState'] as Map? ?? {}),
     );
   }
+
+  @override
+  Future<void> recoverPreferences(
+    Map<String, dynamic> preferences,
+    Map<String, dynamic> localState, {
+    required bool restoreModels,
+    required bool committed,
+  }) => const MethodChannel('ai_companion/system').invokeMethod<void>(
+    'recoverPortablePreferences', {
+      'preferences': preferences,
+      'localState': localState,
+      'restoreModels': restoreModels,
+      'committed': committed,
+    },
+  );
 
   @override
   Future<void> validateModels(
@@ -107,7 +139,7 @@ class AndroidPortableBackend implements NativePortableBackend {
   }
 }
 
-class _NoNativeBackend implements NativePortableBackend {
+class _NoNativeBackend extends NativePortableBackend {
   @override
   Future<NativePortableSnapshot> begin({bool exporting = false}) async =>
       const NativePortableSnapshot('', null, {
@@ -357,6 +389,21 @@ class PortableCompanionStorage {
       rethrow;
     }
   }
+  Future<void> recover(Map<String, dynamic> record, {required bool committed}) async {
+    final preferences = Map<String, dynamic>.from(record[
+      committed ? 'preferences' : 'previousPreferences'] as Map);
+    await native.recoverPreferences(preferences,
+      Map<String, dynamic>.from(record['localState'] as Map? ?? {}),
+      restoreModels: record['restoreModels'] == true,
+      committed: committed,
+    );
+    final config = record[committed ? 'config' : 'previousConfig'];
+    if (config is Map) {
+      await secure?.replacePortableSettings(Map<String, String?>.from(config),
+          restoringLocal: !committed);
+    }
+  }
+
 }
 
 class PreparedPortableState {
@@ -380,6 +427,14 @@ class PreparedPortableState {
   final Map<String, dynamic> preferences;
   final Map<String, String?> config;
   final Map<String, String?>? previousConfig;
+  Map<String, Object?> get recoveryRecord => {
+    'preferences': preferences,
+    'previousPreferences': snapshot.preferences,
+    'config': config,
+    'previousConfig': previousConfig,
+    'localState': snapshot.localRecoveryState,
+    'restoreModels': restoreModels,
+  };
   bool _finished = false;
   bool _configTouched = false;
   Future<void> activate() async {

@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
@@ -8,6 +9,9 @@ import 'core/presentation/app_theme.dart';
 import 'app.dart';
 import 'background_main.dart' as background_runtime;
 import 'core/database/app_database.dart';
+import 'core/phone/calendar_reminder_store.dart';
+import 'core/storage/portable_companion_storage.dart';
+import 'core/sync/snapshot_restore_coordinator.dart';
 
 
 @pragma('vm:entry-point')
@@ -30,7 +34,7 @@ class _StartupRecoveryRoot extends StatefulWidget {
 class _StartupRecoveryRootState extends State<_StartupRecoveryRoot> {
   final List<_StartupStep> _steps = <_StartupStep>[
     const _StartupStep('Flutter 首帧', _StartupStepState.pending),
-    const _StartupStep('打开本地数据库', _StartupStepState.pending),
+    const _StartupStep('打开数据库并检查恢复', _StartupStepState.pending),
     const _StartupStep('检查本机身份', _StartupStepState.pending),
     const _StartupStep('进入主界面', _StartupStepState.pending),
   ];
@@ -64,7 +68,14 @@ class _StartupRecoveryRootState extends State<_StartupRecoveryRoot> {
     try {
       await _runStep(
         1,
-        () => AppDatabase.instance.database.timeout(const Duration(seconds: 30)),
+        () async {
+          await AppDatabase.instance.database.timeout(const Duration(seconds: 30));
+          await SnapshotRestoreCoordinator(AppDatabase.instance,
+              PortableCompanionStorage()).ensureRecovered();
+          if (Platform.isAndroid) {
+            try { await CalendarReminderStore(AppDatabase.instance).sync(); } catch (_) {}
+          }
+        },
       );
       await _runStep(
         2,

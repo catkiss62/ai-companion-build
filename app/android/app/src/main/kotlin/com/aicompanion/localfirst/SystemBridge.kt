@@ -77,9 +77,28 @@ class SystemBridge(
 
         methodChannel.setMethodCallHandler { call, result ->
             when (call.method) {
+                "recoverPortablePreferences" -> {
+                    try {
+                        PortableCompanionState.recover(activity,
+                            call.argument<Map<*, *>>("preferences") ?: emptyMap<Any, Any>(),
+                            call.argument<Map<*, *>>("localState") ?: emptyMap<Any, Any>(),
+                            call.argument<Boolean>("restoreModels") == true,
+                            call.argument<Boolean>("committed") == true,
+                            releaseModel = { com.catkiss.senlive2dcompanion.CaicaiRuntime.releaseModel() },
+                            refreshPreferences = { com.catkiss.senlive2dcompanion.CaicaiRuntime.refreshPreferences() })
+                        result.success(null)
+                    } catch (error: Exception) {
+                        result.error("snapshot_recovery_failed", "恢复本机设置未完成", null)
+                    }
+                }
                 "syncCalendarReminders" -> {
-                    val raw = call.argument<List<Map<String, Any?>>>("entries") ?: emptyList()
-                    result.success(CalendarReminderAlarm.replaceAll(activity, raw))
+                    try {
+                        val raw = call.argument<List<Map<String, Any?>>>("entries") ?: emptyList()
+                        result.success(CalendarReminderAlarm.replaceAll(activity, raw,
+                            call.argument<String>("revision").orEmpty()))
+                    } catch (error: Exception) {
+                        result.error("calendar_sync_failed", "本机提醒同步未完成", null)
+                    }
                 }
                 "canScheduleExactReminders" ->
                     result.success(CalendarReminderAlarm.canScheduleExact(activity))

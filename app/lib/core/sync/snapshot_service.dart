@@ -12,9 +12,10 @@ import '../mcp/cedar_play_session_policy.dart';
 import '../storage/companion_album_storage.dart';
 import '../storage/message_attachment_storage.dart';
 import '../storage/media_blob_storage.dart';
-import '../storage/snapshot_directory_swap.dart';
+import '../storage/snapshot_state_decoder.dart';
 import '../storage/portable_companion_storage.dart';
 import 'transfer_identity.dart';
+import 'snapshot_restore_coordinator.dart';
 
 enum SnapshotArchiveKind {
   takeover('takeover'),
@@ -95,6 +96,8 @@ class SnapshotImportResult {
     required this.duplicate,
     this.restoredFromBackup = false,
     this.requiresManualTakeover = false,
+    this.completionWarning = '',
+    this.recoveryPending = false,
   });
 
   final SnapshotMetadata metadata;
@@ -102,6 +105,8 @@ class SnapshotImportResult {
   final bool duplicate;
   final bool restoredFromBackup;
   final bool requiresManualTakeover;
+  final String completionWarning;
+  final bool recoveryPending;
 }
 
 class SnapshotLineageMismatch implements Exception {
@@ -151,64 +156,6 @@ class _ValidatedSnapshot {
   }
 }
 
-class _PreparedSnapshotFiles {
-  const _PreparedSnapshotFiles(
-    this.attachments,
-    this.album,
-    this.media,
-    this.portable,
-  );
-
-  final PreparedDirectorySwap attachments;
-  final PreparedDirectorySwap album;
-  final PreparedDirectorySwap media;
-  final PreparedPortableState? portable;
-
-  Future<void> activate() async {
-    await attachments.activate();
-    try {
-      await album.activate();
-      try {
-        await media.activate();
-        await portable?.activate();
-      } catch (_) {
-        await album.rollback();
-        rethrow;
-      }
-    } catch (_) {
-      await attachments.rollback();
-      rethrow;
-    }
-  }
-
-  Future<void> rollback() async {
-    try {
-      await portable?.rollback();
-    } finally {
-      await _rollbackMedia();
-    }
-  }
-
-  Future<void> _rollbackMedia() async {
-    try {
-      await media.rollback();
-    } finally {
-      try {
-        await album.rollback();
-      } finally {
-        await attachments.rollback();
-      }
-    }
-  }
-
-  Future<void> commit() async {
-    await portable?.commit();
-    await attachments.commit();
-    await album.commit();
-    await media.commit();
-  }
-}
-
 class SnapshotService {
   SnapshotService(
     this.db, {
@@ -227,6 +174,9 @@ class SnapshotService {
   final MediaBlobStorage blobStorage;
   final PortableCompanionStorage portableStorage;
   final Uuid _uuid = const Uuid();
+
+  SnapshotRestoreCoordinator get _restoreCoordinator =>
+      SnapshotRestoreCoordinator(db, portableStorage);
 
   Future<SnapshotBundle> exportBundle() =>
       _exportBundle(SnapshotArchiveKind.takeover);
@@ -609,15 +559,9 @@ class SnapshotService {
       importedAt: DateTime.now().millisecondsSinceEpoch,
     );
 
-    final preparedFiles = await _prepareValidatedFiles(validated);
-    try {
-      // Files become live first while their exact previous trees remain beside
-      // them for rollback. The database transaction only starts after both
-      // complete incoming trees can be activated.
-      await preparedFiles.activate();
-      // Device identity and transport receipts are installation-local and must
-      // never be overwritten by the source snapshot. Imported relationship
-      // state remains frozen until takeover succeeds.
+    final outcome = await _restoreCoordinator.install(
+      prepare: (id) => _prepareValidatedFiles(validated, transactionId: id),
+      commitDatabase: (journalRuntime) async {
       await db.importAll(
         validated.backup,
         runtimeSettingOverrides: <String, String>{
@@ -654,6 +598,7 @@ class SnapshotService {
         'recovery_orchestrator_lease_until': '0',
         'calendar_reminder_followup_lease_until': '0',
         'simulated_phone_refresh_lease_until': '0',
+        'simulated_phone_media_lease_until': '0',
         'recovery_orchestrator_state': 'standby_after_import',
         'recovery_orchestrator_last_wake_reason': 'state_import',
         'recovery_orchestrator_last_started_at': '0',
@@ -669,18 +614,19 @@ class SnapshotService {
         'last_long_usage_package': '',
         'last_accessibility_thought_text': '',
         'last_accessibility_thought_at': '0',
+        'immersive_room_lease': '0',
+        ...journalRuntime,
         },
         localTransferReceipt: receipt,
       );
-    } catch (_) {
-      await preparedFiles.rollback();
-      rethrow;
-    }
-    await preparedFiles.commit();
+      },
+    );
     return SnapshotImportResult(
       metadata: metadata,
       imported: true,
       duplicate: false,
+      completionWarning: outcome.warning,
+      recoveryPending: outcome.recoveryPending,
     );
   }
 
@@ -726,22 +672,18 @@ class SnapshotService {
     };
 
     final watch = Stopwatch()..start();
-    final preparedFiles = await _prepareValidatedFiles(validated);
     var preparedMs = 0;
     var databaseMs = 0;
-    try {
-      await preparedFiles.activate();
-      preparedMs = watch.elapsedMilliseconds;
-      await db.importAll(
-        validated.backup,
-        runtimeSettingOverrides: runtime,
-      );
-      databaseMs = watch.elapsedMilliseconds - preparedMs;
-    } catch (_) {
-      await preparedFiles.rollback();
-      rethrow;
-    }
-    await preparedFiles.commit();
+    final outcome = await _restoreCoordinator.install(
+      prepare: (id) => _prepareValidatedFiles(validated, transactionId: id),
+      commitDatabase: (journalRuntime) async {
+        preparedMs = watch.elapsedMilliseconds;
+        await db.importAll(validated.backup,
+          runtimeSettingOverrides: {...runtime, ...journalRuntime},
+        );
+        databaseMs = watch.elapsedMilliseconds - preparedMs;
+      },
+    );
     try {
       await db.setSetting('backup_restore_timing_v1', jsonEncode({
         'validationMs': validationMs,
@@ -757,38 +699,41 @@ class SnapshotService {
       duplicate: false,
       restoredFromBackup: true,
       requiresManualTakeover: !sameInstallation,
+      completionWarning: outcome.warning,
+      recoveryPending: outcome.recoveryPending,
     );
   }
 
-  Future<_PreparedSnapshotFiles> _prepareValidatedFiles(
-    _ValidatedSnapshot validated,
-  ) async {
+  Future<SnapshotInstallPlan> _prepareValidatedFiles(
+    _ValidatedSnapshot validated, {
+    required String transactionId,
+  }) async {
     final attachments = await attachmentStorage.prepareSnapshotInstall(
       extractedAttachments: validated.attachmentsDirectory,
       expectedPaths: _expectedAttachmentPaths(validated.backup),
-      snapshotId: validated.metadata.snapshotId,
+      snapshotId: transactionId,
     );
     try {
       final album = await albumStorage.prepareSnapshotInstall(
         extractedAlbum: validated.albumDirectory,
         expectedPaths: _expectedAlbumPaths(validated.backup),
-        snapshotId: validated.metadata.snapshotId,
+        snapshotId: transactionId,
       );
       try {
         final media = await blobStorage.prepareSnapshotInstall(
           extractedMedia: validated.mediaDirectory,
           expectedPaths: _expectedMediaPaths(validated.backup),
-          snapshotId: validated.metadata.snapshotId,
+          snapshotId: transactionId,
         );
         try {
           final portable = validated.metadata.protocolVersion >= 7
               ? await portableStorage.prepare(
                   Directory(p.join(validated.workDirectory.path, 'portable')),
                   validated.backup['portable_state'],
-                  validated.metadata.snapshotId,
+                  transactionId,
                 )
               : null;
-          return _PreparedSnapshotFiles(attachments, album, media, portable);
+          return SnapshotInstallPlan([attachments, album, media], portable: portable);
         } catch (_) {
           await media.rollback();
           rethrow;
@@ -804,14 +749,11 @@ class SnapshotService {
   }
 
   Future<void> _replaceValidatedFiles(_ValidatedSnapshot validated) async {
-    final prepared = await _prepareValidatedFiles(validated);
-    try {
-      await prepared.activate();
-    } catch (_) {
-      await prepared.rollback();
-      rethrow;
-    }
-    await prepared.commit();
+    final outcome = await _restoreCoordinator.install(
+      prepare: (id) => _prepareValidatedFiles(validated, transactionId: id),
+      commitDatabase: (runtime) async { await db.setSettingsAtomically(runtime); },
+    );
+    if (outcome.recoveryPending) throw const SnapshotRecoveryRequired();
   }
 
   Future<_ValidatedSnapshot> _readValidatedBundle(
@@ -978,20 +920,13 @@ class SnapshotService {
           manifestVersion > AppDatabase.schemaVersion) {
         throw FormatException('状态包版本不受支持：$manifestVersion');
       }
-      final bytes = await stateFile.readAsBytes();
-      final actual = sha256.convert(bytes).toString();
-      if (actual != manifest['state_sha256']) {
-        throw const FormatException('状态包 SHA-256 校验失败');
-      }
-      final declaredBytes = (manifest['state_bytes'] as num?)?.toInt();
-      if (declaredBytes != null && declaredBytes != bytes.length) {
-        throw const FormatException('状态包声明大小与实际内容不一致');
-      }
-      final backupRaw = jsonDecode(utf8.decode(bytes));
-      if (backupRaw is! Map) {
-        throw const FormatException('state.json 格式不正确');
-      }
-      final backup = Map<String, dynamic>.from(backupRaw);
+      final decodedState = await decodeSnapshotState(stateFile.path,
+        expectedHash: manifest['state_sha256']?.toString() ?? '',
+        maxBytes: maxStateBytes,
+        declaredBytes: (manifest['state_bytes'] as num?)?.toInt(),
+      );
+      final actual = decodedState.hash;
+      final backup = decodedState.state;
       if ((backup['schema_version'] as num?)?.toInt() != manifestVersion) {
         throw const FormatException('manifest 与 state.json 的版本不一致');
       }
@@ -1091,7 +1026,7 @@ class SnapshotService {
             sourceGeneration: sourceGeneration,
             targetActivationGeneration: targetActivationGeneration,
             stateSha256: actual,
-            stateBytes: bytes.length,
+            stateBytes: decodedState.bytes,
             schemaVersion: manifestVersion,
             createdAt: createdAt,
             protocolVersion: protocolVersion,
@@ -1120,7 +1055,7 @@ class SnapshotService {
           sourceGeneration: 1,
           targetActivationGeneration: 2,
           stateSha256: actual,
-          stateBytes: bytes.length,
+          stateBytes: decodedState.bytes,
           schemaVersion: manifestVersion,
           createdAt: createdAt,
           protocolVersion: 1,
@@ -1645,6 +1580,11 @@ class SnapshotService {
   }
 
   static const Map<String, String> _restoredRuntimeSettings = <String, String>{
+    'snapshot_recovery_pending_v1': '',
+    'snapshot_restore_commit_v1': '',
+    'snapshot_restore_lease_v1': '0',
+    'runtime_state_epoch_v1': '',
+    'immersive_room_lease': '0',
     'transfer_lock': '0',
     'transfer_lock_owner': '',
     'pending_outbound_snapshot_id': '',
@@ -1675,6 +1615,7 @@ class SnapshotService {
     'recovery_orchestrator_lease_until': '0',
         'calendar_reminder_followup_lease_until': '0',
         'simulated_phone_refresh_lease_until': '0',
+        'simulated_phone_media_lease_until': '0',
     'recovery_orchestrator_last_started_at': '0',
     'recovery_orchestrator_last_completed_at': '0',
     'recovery_orchestrator_cycle_count': '0',

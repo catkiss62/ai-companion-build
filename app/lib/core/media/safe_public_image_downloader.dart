@@ -53,6 +53,8 @@ class SafePublicImageDownloader {
           'User-Agent': 'AICompanion/0.41.49 (private Android companion)',
         });
       StreamIterator<List<int>>? chunks;
+      Stream<List<int>>? body;
+      var bodyStarted = false;
       try {
         // The same deadline covers headers, redirects and the entire body.
         // Attach to a late response too, even if a custom client ignores abort.
@@ -66,7 +68,7 @@ class SafePublicImageDownloader {
           cancelRequest();
           throw TimeoutException('image_download_timeout');
         });
-        chunks = StreamIterator(response.stream);
+        body = response.stream;
         if (response.isRedirect) {
           final location = response.headers['location'];
           if (location == null || redirects == 3) {
@@ -96,6 +98,8 @@ class SafePublicImageDownloader {
       var bytes = 0;
       var sinkClosed = false;
       try {
+        chunks = StreamIterator(body);
+        bodyStarted = true;
         while (await chunks.moveNext().timeout(remaining(), onTimeout: () {
           cancelRequest();
           throw TimeoutException('image_download_timeout');
@@ -142,6 +146,7 @@ class SafePublicImageDownloader {
       } finally {
         // Do not drain an error/redirect body: it may never finish. Cancelling
         // only this request keeps the caller's shared HTTP client usable.
+        if (!bodyStarted && body != null) await _cancelStream(body);
         cancelRequest();
         if (chunks != null) {
           try {

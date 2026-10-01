@@ -33,4 +33,6 @@ jobs:
           test/timed_reply_pipeline_v04262_test.dart
           test/portable_snapshot_v04256_test.dart
           test/snapshot_directory_swap_test.dart
+          test/snapshot_process_recovery_test.dart
+          test/calendar_reminder_store_test.dart
         working-directory: app

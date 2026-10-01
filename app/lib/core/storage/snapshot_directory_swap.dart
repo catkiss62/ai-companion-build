@@ -14,11 +14,20 @@ class PreparedDirectorySwap {
     required this.targetDirectory,
     required this.stagedDirectory,
     required this.backupDirectory,
+    required this.hadTarget,
   });
 
   final Directory targetDirectory;
   final Directory stagedDirectory;
   final Directory backupDirectory;
+  final bool hadTarget;
+
+  Map<String, Object?> get recoveryRecord => {
+    'target': targetDirectory.path,
+    'staged': stagedDirectory.path,
+    'previous': backupDirectory.path,
+    'hadTarget': hadTarget,
+  };
 
   bool _activated = false;
   bool _committed = false;
@@ -58,6 +67,7 @@ class PreparedDirectorySwap {
         targetDirectory: targetDirectory,
         stagedDirectory: staged,
         backupDirectory: backup,
+        hadTarget: await targetDirectory.exists(),
       );
     } catch (_) {
       if (await staged.exists()) await staged.delete(recursive: true);
@@ -65,7 +75,7 @@ class PreparedDirectorySwap {
     }
   }
 
-  Future<void> activate() async {
+  Future<void> activate({Future<void> Function()? afterPreviousMoved}) async {
     if (_committed) throw StateError('状态包目录已经提交');
     if (_activated) return;
     var movedPrevious = false;
@@ -73,6 +83,7 @@ class PreparedDirectorySwap {
       if (await targetDirectory.exists()) {
         await targetDirectory.rename(backupDirectory.path);
         movedPrevious = true;
+        await afterPreviousMoved?.call();
       }
       await stagedDirectory.rename(targetDirectory.path);
       _activated = true;
@@ -84,6 +95,38 @@ class PreparedDirectorySwap {
       }
       rethrow;
     }
+  }
+
+  /// Uses filesystem evidence, not process-local flags. Safe to repeat after a
+  /// process exits between either rename, rollback steps or backup cleanup.
+  static Future<void> recover(Map<String, dynamic> record, {
+    required bool committed,
+    Future<void> Function()? afterTargetRemoved,
+  }) async {
+    final target = Directory(record['target'] as String);
+    final staged = Directory(record['staged'] as String);
+    final previous = Directory(record['previous'] as String);
+    if (!p.isAbsolute(target.path) ||
+        p.dirname(target.path) != p.dirname(staged.path) ||
+        p.dirname(target.path) != p.dirname(previous.path) ||
+        !p.basename(staged.path).startsWith('.${p.basename(target.path)}.snapshot-') ||
+        !staged.path.endsWith('.staged') ||
+        previous.path != '${staged.path.substring(0, staged.path.length - 7)}.previous') {
+      throw const FormatException('恢复日志的目录关系无效');
+    }
+    if (committed) {
+      if (!await target.exists()) {
+        throw const FileSystemException('已提交的恢复目录缺失，保留恢复日志');
+      }
+      if (await previous.exists()) await previous.delete(recursive: true);
+    } else if (await previous.exists()) {
+      if (await target.exists()) await target.delete(recursive: true);
+      await afterTargetRemoved?.call();
+      await previous.rename(target.path);
+    } else if (record['hadTarget'] == false && !await staged.exists()) {
+      if (await target.exists()) await target.delete(recursive: true);
+    }
+    if (await staged.exists()) await staged.delete(recursive: true);
   }
 
   Future<void> rollback() async {

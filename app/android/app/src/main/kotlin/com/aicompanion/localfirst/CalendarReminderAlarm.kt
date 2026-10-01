@@ -61,12 +61,9 @@ object CalendarReminderAlarm {
         JSONArray()
     }
 
-    fun replaceAll(context: Context, raw: List<Map<String, Any?>>): Boolean {
+    @Synchronized
+    fun replaceAll(context: Context, raw: List<Map<String, Any?>>, revision: String = ""): Boolean {
         val old = entries(context)
-        for (index in 0 until old.length()) {
-            val id = old.optJSONObject(index)?.optString("id").orEmpty()
-            if (id.isNotEmpty()) cancelFire(context, id)
-        }
         val fresh = JSONArray()
         for (item in raw.take(500)) {
             val id = item["id"]?.toString().orEmpty()
@@ -86,14 +83,48 @@ object CalendarReminderAlarm {
             }
             fresh.put(entry)
         }
-        // Commit the full mirror before scheduling. Reboot/update can restore it.
-        prefs(context).edit().putString(ENTRIES, fresh.toString()).commit()
+        val previousRevision = prefs(context).getString("revision", "").orEmpty()
+        if (fresh.toString() == old.toString() && previousRevision == revision &&
+            prefs(context).getBoolean("scheduled", false)) return true
+        val replacedState = previousRevision.isNotEmpty() && previousRevision != revision
+        val validIds = (0 until fresh.length()).mapNotNull(fresh::optJSONObject).associateBy { it.optString("id") }
+        val ringing = prefs(context).getString("ringing", "").orEmpty()
+        val ringingId = ringing.substringBeforeLast(':', "")
+        val active = validIds[ringingId]
+        if (ringing.isNotEmpty() && (replacedState || active == null ||
+            !matchesOccurrence(active, ringing.substringAfterLast(':').toLongOrNull() ?: 0L))) {
+            prefs(context).edit().remove("ringing").remove("ringing_title").commit()
+            context.getSystemService(AlarmManager::class.java).cancel(intent(context, ringingId, ACTION_TIMEOUT))
+            context.stopService(Intent(context, CalendarReminderRingingService::class.java))
+        }
+        val stops = pendingStops(context).filter { stop ->
+            val item = validIds[stop["id"]?.toString()]
+            !replacedState && item != null && stop["title"] == item.optString("title") &&
+                matchesOccurrence(item, stop["occurrence"]?.toString()?.substringAfterLast(':')?.toLongOrNull() ?: 0L)
+        }
+        // Commit the new scheduling truth before cancelling/replacing alarms.
+        check(prefs(context).edit().putString(ENTRIES, fresh.toString())
+            .putString("revision", revision).putBoolean("scheduled", false)
+            .putString(STOPS, JSONArray(stops).toString()).commit()) { "无法保存提醒镜像" }
+        for (index in 0 until old.length()) {
+            val id = old.optJSONObject(index)?.optString("id").orEmpty()
+            if (id.isNotEmpty()) cancelFire(context, id)
+        }
         var success = true
         for (index in 0 until fresh.length()) {
             val entry = fresh.optJSONObject(index) ?: continue
             if (entry.has("hour") && !schedule(context, entry)) success = false
         }
+        prefs(context).edit().putBoolean("scheduled", success).commit()
         return success
+    }
+
+    private fun matchesOccurrence(entry: JSONObject, due: Long): Boolean {
+        if (due <= 0L || !entry.has("hour") || !entry.has("minute")) return false
+        val local = java.time.Instant.ofEpochMilli(due).atZone(ZoneId.systemDefault())
+        return (entry.optBoolean("yearly") || local.year == entry.optInt("year")) &&
+            local.monthValue == entry.optInt("month") && local.dayOfMonth == entry.optInt("day") &&
+            local.hour == entry.optInt("hour") && local.minute == entry.optInt("minute")
     }
 
     private fun dueAt(entry: JSONObject, after: Long): Long? {
@@ -169,6 +200,7 @@ object CalendarReminderAlarm {
         val all = entries(context)
         val entry = (0 until all.length()).mapNotNull(all::optJSONObject)
             .firstOrNull { it.optString("id") == id } ?: return
+        if (!matchesOccurrence(entry, due)) return
         val deliveredAt = System.currentTimeMillis()
         if (due <= 0L || due > deliveredAt + 60_000L ||
             deliveredAt - due > 12L * 60L * 60L * 1000L) return
@@ -201,6 +233,7 @@ object CalendarReminderAlarm {
         stop(context, id, "timeout")
     }
 
+    @Synchronized
     fun stop(context: Context, id: String, reason: String, stopService: Boolean = true) {
         val ringing = prefs(context).getString("ringing", "").orEmpty()
         if (!ringing.startsWith("$id:")) return
@@ -212,7 +245,7 @@ object CalendarReminderAlarm {
         val pending = try { JSONArray(prefs(context).getString(STOPS, "[]")) }
             catch (_: Exception) { JSONArray() }
         pending.put(JSONObject().put("id", id).put("occurrence", ringing)
-            .put("reason", reason).put("title", title))
+            .put("reason", reason).put("title", title).put("stoppedAt", System.currentTimeMillis()))
         prefs(context).edit().putString(STOPS, pending.toString()).commit()
         if (stopService) {
             context.stopService(Intent(context, CalendarReminderRingingService::class.java))
@@ -230,11 +263,13 @@ object CalendarReminderAlarm {
                     "occurrence" to item.optString("occurrence"),
                     "reason" to item.optString("reason"),
                     "title" to item.optString("title"),
+                    "stoppedAt" to item.optLong("stoppedAt", 0L),
                 )
             }
         }
     }
 
+    @Synchronized
     fun acknowledgeStop(context: Context, occurrence: String) {
         val items = pendingStops(context).filter { it["occurrence"] != occurrence }
         prefs(context).edit().putString(STOPS, JSONArray(items).toString()).apply()

@@ -104,6 +104,42 @@ class NativeSmokeTest {
         portable.finish(portable.begin()["token"] as String, true)
     }
 
+    @Test fun durablePreferenceRecoveryPreservesTypesAndSettingsOnlyModelIdentity() {
+        val context = ApplicationProvider.getApplicationContext<Context>()
+        val stage = context.getSharedPreferences("caicai_stage", Context.MODE_PRIVATE)
+        val index = context.getSharedPreferences("caicai_live2d", Context.MODE_PRIVATE)
+        stage.edit().clear().putFloat("legPivot", .87f).commit()
+        index.edit().clear().putString("maid", "external.model3.json").putInt("fixtureInt", 3)
+            .putLong("fixtureLong", 922337203685477L).putFloat("fixtureFloat", .5f)
+            .putBoolean("fixtureBool", true).putStringSet("fixtureSet", setOf("a", "b")).commit()
+        var releases = 0
+        var refreshes = 0
+        val state = PortableCompanionState(context, CaicaiModelRepository(context),
+            refreshPreferences = { refreshes++ }, releaseModel = { releases++ })
+        val before = index.all.toMap()
+        try {
+            val snapshot = state.begin()
+            state.apply(snapshot["token"] as String,
+                mapOf("caicai_stage" to mapOf("legPivot" to .96),
+                    "overlay_state" to emptyMap<String, Any>(),
+                    "companion_runtime" to emptyMap<String, Any>()), false)
+            state.finish(snapshot["token"] as String, true)
+            PortableCompanionState.recover(context,
+                snapshot["preferences"] as Map<*, *>, snapshot["recoveryState"] as Map<*, *>,
+                false, false, releaseModel = { releases++ }, refreshPreferences = { refreshes++ })
+            assertEquals(.87f, stage.getFloat("legPivot", 0f), .0001f)
+            assertEquals(before, index.all)
+            assertEquals(0, releases)
+            assertEquals(2, refreshes)
+            index.edit().clear().commit()
+            PortableCompanionState.recover(context,
+                snapshot["preferences"] as Map<*, *>, snapshot["recoveryState"] as Map<*, *>,
+                true, false, releaseModel = { releases++ })
+            assertEquals(before, index.all)
+            assertEquals(1, releases)
+        } finally { state.dispose(); stage.edit().clear().commit(); index.edit().clear().commit() }
+    }
+
     @Test fun legacyModelRestoreStillReleasesAndRestoresIndexWithoutHotRefresh() {
         val context = ApplicationProvider.getApplicationContext<Context>()
         val repository = CaicaiModelRepository(context)
