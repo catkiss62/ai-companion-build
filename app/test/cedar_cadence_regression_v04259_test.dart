@@ -63,7 +63,8 @@ void main() {
           'isError': false,
         };
         if (body['method'] == 'tools/call') calls++;
-        return http.Response(jsonEncode({'jsonrpc': '2.0', 'id': body['id'], 'result': result}), 200);
+        return http.Response(jsonEncode({'jsonrpc': '2.0', 'id': body['id'], 'result': result}), 200,
+          headers: {'content-type': 'application/json; charset=utf-8'});
       });
       final engine = CedarToyAutonomyEngine(db: db, ai: ai,
         secureConfig: SecureConfig.instance,
