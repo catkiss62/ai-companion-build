@@ -64,9 +64,14 @@ void main() {
           }}
         ]}, 'tool_calls');
       }
-      finalCalls++;
-      if (!finalStarted.isCompleted) finalStarted.complete();
-      return finalResponse.future;
+      if (request.url.host == 'relay.invalid') {
+        finalCalls++;
+        if (!finalStarted.isCompleted) finalStarted.complete();
+        return finalResponse.future;
+      }
+      // Optional post-turn judging stays on DeepSeek and is not a second
+      // visible reply. It must not hold or activate the staged game task.
+      return sse({'content': '{}'}, 'stop');
     }), jsonClientFactory: () => MockClient((_) async => http.Response(
       jsonEncode({'choices': [{'message': {'content': '{}'}}]}), 200)));
     try {

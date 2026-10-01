@@ -238,19 +238,19 @@ class DeepSeekClient {
 
       // Transport keepalives are not model progress. Apply the deadline to
       // parsed deltas, otherwise comments/empty SSE frames can wait forever.
-      Stream<DeepSeekDelta> responseDeltas() async* {
-        final lines = response.stream
-            .transform(utf8.decoder)
-            .transform(const LineSplitter());
-
-        await for (final rawLine in lines) {
+      // A transform can cancel its upstream immediately on timeout. An inner
+      // async* generator filtering endless keepalives would delay cancellation
+      // until its next yield, recreating the very hang this deadline prevents.
+      final deltas = response.stream
+          .transform(utf8.decoder)
+          .transform(const LineSplitter())
+          .asyncMap<DeepSeekDelta?>((rawLine) async {
           cancellationToken?.throwIfCancelled();
           final line = rawLine.trim();
-          if (line.isEmpty || !line.startsWith('data:')) continue;
+          if (line.isEmpty || !line.startsWith('data:')) return null;
           final payload = line.substring(5).trim();
           if (payload == '[DONE]') {
-            yield const DeepSeekDelta(done: true);
-            break;
+            return const DeepSeekDelta(done: true);
           }
           final json = jsonDecode(payload) as Map<String, dynamic>;
           final usage = _usageEvent(
@@ -268,7 +268,7 @@ class DeepSeekClient {
             }
           }
           final choices = json['choices'] as List?;
-          if (choices == null || choices.isEmpty) continue;
+          if (choices == null || choices.isEmpty) return null;
           final first = choices.first as Map<String, dynamic>;
           final delta =
               (first['delta'] as Map?)?.cast<String, dynamic>() ?? const {};
@@ -294,16 +294,20 @@ class DeepSeekClient {
               content.isNotEmpty ||
               toolCallDeltas.isNotEmpty ||
               finishReason != null) {
-            yield DeepSeekDelta(
+            return DeepSeekDelta(
               reasoning: reasoning,
               content: content,
               finishReason: finishReason,
               toolCallDeltas: toolCallDeltas,
             );
           }
-        }
+          return null;
+        }).where((delta) => delta != null).cast<DeepSeekDelta>()
+          .timeout(requestTimeout);
+      await for (final delta in deltas) {
+        yield delta;
+        if (delta.done) break;
       }
-      yield* responseDeltas().timeout(requestTimeout);
 
     } catch (_) {
       if (cancellationToken?.isCancelled ?? false) {
