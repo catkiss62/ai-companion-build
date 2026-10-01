@@ -63,7 +63,8 @@ resume_body = controller[resume_at:resume_end]
 assert "generationRecovery.recoverOne()" in resume_body
 assert "generationRunner.run" not in resume_body
 assert "正在结束上次中断的回复" in chat
-assert "const Duration(seconds: 30)" in runner
+assert "GenerationLeaseGuard(db, job)" in runner
+assert "const Duration(seconds: 30)" in read("lib/core/ai/generation_lease_guard.dart")
 assert "reasoning: delta.reasoning" in runner
 
 assert "pushNamed('/settings')" in chat or "widget.onOpenMore?.call();" in chat

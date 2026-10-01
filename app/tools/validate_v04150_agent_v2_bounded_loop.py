@@ -66,7 +66,9 @@ assert "AgentTaskLoopPolicy.hasCommitPendingMedia" in durable
 assert "currentToolResults: agentToolResults" in durable
 assert "GenerationCancelledByUserException" in durable
 assert "isGenerationRunCurrent" in durable
-assert "renewLocalLease" in durable
+assert "GenerationLeaseGuard(db, job)" in durable
+assert "generationLeaseGuard.check()" in durable
+assert "renewLocalLease" in read("lib/core/ai/generation_lease_guard.dart")
 
 # Diagnostics contain counts and states only, never plans, arguments or result
 # bodies. System self-read describes the bounded capability honestly.
