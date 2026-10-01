@@ -1,0 +1,30 @@
+name: Timed recovery Dart analysis
+on:
+  push:
+    branches: [agent/v04261-recovery-analyze]
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: timed-recovery-analysis-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  analyze:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: 9ff6bf25bb629b0a4b4830ed2c7a99eb7f30cc51
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          flutter-version: '3.44.9'
+      - name: Confirm tested source
+        run: git rev-parse HEAD
+      - name: Fetch Flutter packages
+        working-directory: app
+        run: flutter pub get
+      - name: Analyze production and regression tests
+        working-directory: app
+        run: flutter analyze --no-fatal-infos --no-fatal-warnings
