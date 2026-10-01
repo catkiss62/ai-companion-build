@@ -1,0 +1,7 @@
+status=success
+run_id=36871635441
+run_url=https://github.com/catkiss62/ai-companion-build/actions/runs/36871635441
+head_sha=9ba2f176d30501dabe3cdf08c09f58f32e9600ea
+signer_sha256=30:5E:B3:D8:09:83:B9:63:C6:48:18:DD:F1:AD:56:1F:27:9D:E6:D4:7B:3E:D2:C7:81:AD:A4:48:C7:C2:51:48
+ea7afacc400643c13e9f385627ccc31cd4c40ae2636549fc66ca101344dac707  AI-Companion-v0.42.60-304-Settings-Import-Live2D-APK.apk
+release_url=https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-73790dec9e521a871822
