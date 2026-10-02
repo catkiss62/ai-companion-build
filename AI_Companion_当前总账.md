@@ -1,17 +1,17 @@
 # AI Companion · 当前总账
 
-更新时间：2026-10-02（+306 CI PASSED / APK READY / TRUE DEVICE PENDING；+305 CI PASSED / APK READY / DEVICE REPORTED REPLY STALL；+304 CI PASSED / APK READY / TRUE DEVICE PENDING；+303 CI PASSED / APK READY / TRUE DEVICE PENDING；+302 CI PASSED / APK READY / TRUE DEVICE PENDING；+301 CI PASSED / APK READY / TRUE DEVICE PENDING；+300 CI PASSED / APK READY / TRUE DEVICE PENDING；+299 CI PASSED / APK READY / TRUE DEVICE PENDING；+298 CI PASSED / APK READY / TRUE DEVICE PENDING；+297 CI PASSED / APK READY / TRUE DEVICE PENDING；+295 恢复真机成功、背景回归 PARTIAL；+293 DEVICE VISUAL BASELINE）
+更新时间：2026-10-02（+307 CI PASSED / APK READY / TRUE DEVICE PENDING；+306 CI PASSED / APK READY / TRUE DEVICE PENDING；+305 CI PASSED / APK READY / DEVICE REPORTED REPLY STALL；+304 CI PASSED / APK READY / TRUE DEVICE PENDING；+303 CI PASSED / APK READY / TRUE DEVICE PENDING；+302 CI PASSED / APK READY / TRUE DEVICE PENDING；+301 CI PASSED / APK READY / TRUE DEVICE PENDING；+300 CI PASSED / APK READY / TRUE DEVICE PENDING；+299 CI PASSED / APK READY / TRUE DEVICE PENDING；+298 CI PASSED / APK READY / TRUE DEVICE PENDING；+297 CI PASSED / APK READY / TRUE DEVICE PENDING；+295 恢复真机成功、背景回归 PARTIAL；+293 DEVICE VISUAL BASELINE）
 
 > 本文件是唯一的当前接班入口，继续采用“总账 v2”。顶部是快速接班索引；标记后的正式记录按版本持续追加，不设总容量上限。
 >
 > 判断优先级：用户最新明确决定 > 当前 GitHub 源码与 Actions > 同时刻脱敏真机诊断/备份 > 本文件 > 冻结归档与 Git 历史。`DESIGNED`、`IMPLEMENTED`、`CI PASSED`、`APK READY`、`TRUE DEVICE PASSED`、`PENDING` 必须严格区分。
 
 
-## 当前实施 · v0.42.63+307 稳定性第一批
+## 当前交付 · v0.42.63+307 稳定性第一批
 
-用户已指定 **0.42.62+306 为真机可用的对照/回退基线**，无需额外整包备份。基线源码 65b21322693b4e9b67f907a9d476d9ff90cf286f；新分支 agent/v04263-stability 从公开提交 a77f5191c7dc74ee6daaede040ac60fec6f6be10 开始。IMPLEMENTATION IN PROGRESS / CI PENDING / APK PENDING / TRUE DEVICE PENDING。
+用户已指定 **0.42.62+306 为真机可用的对照/回退基线**，无需额外整包备份。基线源码 65b21322693b4e9b67f907a9d476d9ff90cf286f；新分支 agent/v04263-stability 从公开提交 a77f5191c7dc74ee6daaede040ac60fec6f6be10 开始。CI PASSED / APK READY / TRUE DEVICE PENDING。
 
-本批处理恢复一致性、异步写入、下载等待、提醒同步及沉浸房间写入边界，补故障测试后再交付。保留手动停止、中性回报、两分钟推进及设置读档不重载 Live2D。桌宠渲染和图片地址过滤暂缓；工作区、陪玩模型及低频澄清另批。基线可用不代表此前所有长时场景都已验证；具体历史证据保留。
+本批完成恢复一致性、异步写入、下载等待、提醒同步及沉浸房间写入边界；1136项Flutter、18项原生、139项源码门及APK签名/资源检查通过。保留手动停止、中性回报、两分钟推进及设置读档不重载 Live2D。桌宠渲染和图片地址过滤暂缓；工作区、陪玩模型及低频澄清另批。基线可用不代表此前所有长时场景都已验证；具体历史证据保留。
 
 ## 历史交付 · v0.42.62+306（CI PASSED / APK READY / TRUE DEVICE PENDING）
 
@@ -27,7 +27,7 @@
 
 ## 当前接班快照 · 稳定性第一批
 
-分支agent/v04263-stability，候选0.42.63+307；+306为用户确认的可用对照。专项Actions36933085939通过，完整构建待验。schema61/protocol7/portable_state2保持。手动停止、中性回报、两分钟推进、5/10/1轮分享和Live2D设置导入不重载保持。允许开发分支/Draft构建，不合并main、不正式发布。上次接班快照完整移至文末。
+分支agent/v04263-stability，候选0.42.63+307；+306为用户确认的可用对照。专项85项通过；完整Actions36946211181通过，[+307测试APK](https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-f766059b1837df323a54)已生成。schema61/protocol7/portable_state2保持。手动停止、中性回报、两分钟推进、5/10/1轮分享和Live2D设置导入不重载保持。允许开发分支/Draft构建，不合并main、不正式发布。上次接班快照完整移至文末。
 
 
 ## 当前交付 · v0.42.58+302 导出刷新、侧栏焦点与星谷交互（CI PASSED / APK READY / TRUE DEVICE PENDING）
@@ -2081,3 +2081,13 @@ Actions36894733801/job110479233862成功，Android15实际XML17 tests/0 failures
 ## 当前接班快照 · 2026-10-02
 
 当前分支agent/v04261-timed-play-recovery，+306功能65b21322693b4e9b67f907a9d476d9ff90cf286f/tree6e4d99b7e860525b62165d200393999001931a59，Actions36904432860完整success，Flutter1092/原生17项通过，139门、Kotlin/analyze及资源签名通过。[+306测试APK](https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-47419c1a160cf54bd59a)。+305用户真机报告工具登记后无正文，不能称已验收。三版同一完整模拟流程与+306候选均通过，专项72项通过；真实第二通道卡住直接原因仍未确认。Cedar首页实测HTTP200，MCP被Cloudflare1010拦截，不能据此宣布官方宕机。schema61/protocol7/portable_state2不变；手动Stop与中性回报、两分钟推进、5/10/1轮分享和Live2D设置导入不重载保留。允许开发分支推送/Draft构建，不合并main/正式发布。其余证据与保护见正式记录。
+
+## +307 最终构建与交付证据
+
+状态：CI PASSED / APK READY / TRUE DEVICE PENDING。功能HEAD 5ad45f0bbc159d8300ba1e75ab324555d2ef7a9d，tree96c4e8c17781b1da5f944c2439c6483a9b34e6b1；后续此总账更新不改变APK源码。Actions36946211181完整成功，专项36946211173成功。139项源码门、1136项Flutter测试、18项Android15原生测试、Kotlin单元测试、Flutter analyze、arm64 Release、资源哈希和稳定签名检查全部通过。杀进程九切点包含rename中间、SQLite事务中、提交后收尾及重复启动恢复；不以正常抛异常替代实际进程退出。
+
+[+307未发布测试APK](https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-f766059b1837df323a54)：Draft401461684/asset604466459，734363521bytes；SHA-256964e2964c757229b73a3d5ac77ced9046662bd5bd62a067b4da46844406b18ee。GitHub资产digest与构建checksum、ci-monitor-v0345/.ci/v04263-monitor.txt一致；签名305eb3d80983b963c64818ddf1ad561f279de6d47b3ed2c781ada448c7c25148与+306一致，可覆盖安装。未合并main、未正式发布；+306原Draft与源码保留。
+
+最终差异核对：Cedar任务/自主游戏逻辑、主动分享规则、Live2D Java渲染及PlatformView宿主均未变更。新增MCP流式响应按请求ID收取正式结果，不调整40秒游戏等待配置。已通过原有游戏状态机、节奏和双通道相关回归。用户无需手工复现故障注入，只需继续留意日常聊天、游戏、读档和提醒；具体手机读档耗时、Live2D外观及长时使用仍属真机待验，偶发闪退只补证据采集，未宣称根因已修。
+
+本轮至此完成第一批稳定性修复。下一批体验/低频澄清未在此版本实现；可选API来源绑定暂缓，桌宠及图片地址过滤按用户决定暂缓。早前失败CI与中间状态保留为历史，不覆盖最终成功证据。
