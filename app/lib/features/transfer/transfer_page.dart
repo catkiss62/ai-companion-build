@@ -401,6 +401,7 @@ class _TransferPageState extends State<TransferPage> {
       'chat_turn_lease',
       'immersive_room_lease',
       'calendar_reminder_followup_lease_until',
+      'immersive_archive_lease_until',
       'simulated_phone_refresh_lease_until',
       'simulated_phone_media_lease_until',
       'cedar_toy_action_lease_until',

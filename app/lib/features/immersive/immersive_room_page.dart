@@ -10,6 +10,7 @@ import '../../core/ai/reasoning_translation_service.dart';
 import '../../core/database/app_database.dart';
 import '../../core/immersive/immersive_room_controller.dart';
 import '../../core/immersive/immersive_room_repository.dart';
+import '../../core/immersive/immersive_archive_worker.dart';
 import '../../core/immersive/immersive_scene_advance.dart';
 import '../../core/models/chat_language_variant.dart';
 import '../../core/models/chat_segment.dart';
@@ -59,6 +60,17 @@ class _ImmersiveRoomLobbyPageState extends State<ImmersiveRoomLobbyPage> {
       rooms = next;
       loading = false;
     });
+    unawaited(_retryArchive());
+  }
+
+  Future<void> _retryArchive() async {
+    try {
+      await ImmersiveArchiveWorker(AppDatabase.instance).drainOne();
+      final next = await repository.listRooms();
+      if (mounted) setState(() => rooms = next);
+    } catch (_) {
+      // Original text and the pending archive remain available to the user.
+    }
   }
 
   Future<void> _createRoom({String fateWheelEntry = ''}) async {
@@ -342,7 +354,7 @@ class _ImmersiveRoomLobbyPageState extends State<ImmersiveRoomLobbyPage> {
   }
 
   static String _statusLabel(ImmersiveRoom room) {
-    if (room.isEnded) return '已结束';
+    if (room.isEnded) return room.archivePending ? '已结束 · 待整理' : '已结束 · 已归档';
     if (room.isPaused) return '暂离中';
     return '进行中';
   }
@@ -352,7 +364,7 @@ class _ImmersiveRoomLobbyPageState extends State<ImmersiveRoomLobbyPage> {
       '${time.hour.toString().padLeft(2, '0')}:${time.minute.toString().padLeft(2, '0')}';
 
   static String _deleteRoomWarning(ImmersiveRoom room) => room.isEnded
-      ? '“${room.title}”的完整原文、现场和归档都会永久删除。这个房间已经整理结束，当时已经筛选进长期记忆的条目不会随房间删除。此操作无法撤销。'
+      ? '“${room.title}”的完整原文、现场和归档都会永久删除。待整理的归档将取消，已经筛选进长期记忆的条目不会随房间删除。此操作无法撤销。'
       : '“${room.title}”的完整原文和现场都会永久删除。直接删除不会执行“整理并结束”，也不会新增长期记忆。此操作无法撤销。';
 }
 
@@ -741,7 +753,7 @@ class _ImmersiveRoomPageState extends State<ImmersiveRoomPage> {
       builder: (dialogContext) => AlertDialog(
         title: const Text('删除这个房间？'),
         content: Text(room.isEnded
-            ? '“${room.title}”的完整原文、现场和归档都会永久删除。这个房间已经整理结束，当时已筛选进长期记忆的条目不会随房间删除。此操作无法撤销。'
+            ? '“${room.title}”的完整原文、现场和归档都会永久删除。待整理的归档将取消，已筛选进长期记忆的条目不会随房间删除。此操作无法撤销。'
             : '“${room.title}”的完整原文和现场都会永久删除。直接删除不会执行“整理并结束”，也不会新增长期记忆。此操作无法撤销。'),
         actions: [
           TextButton(
@@ -839,7 +851,7 @@ class _ImmersiveRoomPageState extends State<ImmersiveRoomPage> {
       builder: (dialogContext) => AlertDialog(
         title: const Text('结束这个房间？'),
         content: const Text(
-          '系统会保留完整原文，生成房间归档摘要，并只把真正重要的共同经历筛选进长期记忆。结束后这个房间只能回看。',
+          '立即结束并保留完整原文，结束后只能回看。归档摘要与重要共同经历会在网络可用后整理；整理失败也不会丢失原文。',
         ),
         actions: [
           TextButton(
@@ -848,7 +860,7 @@ class _ImmersiveRoomPageState extends State<ImmersiveRoomPage> {
           ),
           FilledButton(
             onPressed: () => Navigator.pop(dialogContext, true),
-            child: const Text('整理并结束'),
+            child: const Text('结束房间'),
           ),
         ],
       ),
@@ -944,7 +956,9 @@ class _ImmersiveRoomPageState extends State<ImmersiveRoomPage> {
               width: double.infinity,
               color: Theme.of(context).colorScheme.surfaceContainerHigh,
               padding: const EdgeInsets.all(12),
-              child: const Text('这个房间已经结束，下面保留完整原文供回看。'),
+              child: Text(room!.archivePending
+                  ? '房间已结束，原文完整保留。归档待整理，网络可用后会自动重试。'
+                  : '这个房间已归档，下面保留完整原文供回看。'),
             ),
           Expanded(
             child: NotificationListener<UserScrollNotification>(

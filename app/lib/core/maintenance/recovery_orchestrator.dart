@@ -11,6 +11,7 @@ import '../models/desire_state.dart';
 import '../presence/background_presence_policy.dart';
 import '../phone/simulated_phone_repository.dart';
 import '../phone/calendar_reminder_followup.dart';
+import '../immersive/immersive_archive_worker.dart';
 import '../phone/companion_album_discovery_engine.dart';
 
 class RecoveryCycleResult {
@@ -55,6 +56,11 @@ class RecoveryOrchestrator {
     bool allowProactive = true,
   }) async {
     await db.ensureReady();
+    try {
+      await ImmersiveArchiveWorker(db).drainOne();
+    } catch (_) {
+      // A pending archive remains durable and must not block other recovery.
+    }
     try {
       await CalendarReminderFollowup(db).deliverOne();
     } on GenerationSuspendedByRuntimeGateException {

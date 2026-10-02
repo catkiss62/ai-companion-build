@@ -1,7 +1,7 @@
 name: Stability regression checks
 on:
   push:
-    branches: [agent/v04263-stability]
+    branches: [agent/v04263-stability, agent/v04264-experience]
   workflow_dispatch:
 permissions:
   contents: read
@@ -26,6 +26,7 @@ jobs:
       - name: Behavioral regression tests
         run: >-
           flutter test
+          test/experience_v04264_test.dart
           test/public_image_download_boundary_test.dart
           test/safe_public_image_downloader_test.dart
           test/brain_work_fence_test.dart

@@ -437,6 +437,8 @@ class CedarTimedPlayTaskStore {
     jsonEncode({
       'feature': 'cedar_timed_play',
       'execution_id': task['id'],
+      'game_id': task['gameId'],
+      'session_id': task['sessionId'],
       'trigger_source': 'committed_user_turn',
       'continuation_owner': 'CedarToyAutonomyEngine.continueDue',
       'phase': phase,

@@ -3,6 +3,7 @@ import 'package:uuid/uuid.dart';
 
 import '../../core/database/app_database.dart';
 import '../../core/phone/calendar_reminder_store.dart';
+import '../../core/phone/reminder_timeliness.dart';
 import '../../core/platform/android_bridge.dart';
 
 class CalendarReminderPage extends StatefulWidget {
@@ -168,10 +169,13 @@ class _CalendarReminderPageState extends State<CalendarReminderPage> {
               itemCount: entries.length,
               itemBuilder: (context, index) {
                 final entry = entries[index];
+                final scheduled = DateTime(entry.yearly ? DateTime.now().year : entry.year,
+                    entry.month, entry.day, entry.hour ?? 23, entry.minute ?? 59);
                 return ListTile(
                   title: Text(entry.title),
                   subtitle: Text('${entry.dateLabel}${entry.yearly ? ' · 每年' : ''}'
-                      '${entry.timed ? ' · ${entry.hour!.toString().padLeft(2, '0')}:${entry.minute!.toString().padLeft(2, '0')} 响铃' : ' · 全天'}'),
+                      '${entry.timed ? ' · ${entry.hour!.toString().padLeft(2, '0')}:${entry.minute!.toString().padLeft(2, '0')} 响铃' : ' · 全天'}'
+                      '${entry.timed ? '\n${entry.occursOn(scheduled) ? ReminderTimeliness.label(scheduled, DateTime.now()) : '本年无此日期'}' : ''}'),
                   onTap: () => _edit(entry),
                   trailing: IconButton(
                     tooltip: '删除',

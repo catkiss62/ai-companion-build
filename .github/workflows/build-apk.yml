@@ -411,7 +411,7 @@
 # Historical +300: Build AI Companion v0.42.56+300 APK (Game Share Rounds and Portable State) | AI-Companion-v0.42.56-300-Game-Share-Portable-State-APK | v0.42.56-game-share-portable-state-test | .ci/v04256-monitor.txt
 # Historical +301: Build AI Companion v0.42.57+301 APK (Memory Galaxy and Corner Docking) | AI-Companion-v0.42.57-301-Memory-Galaxy-Corner-Dock-APK | v0.42.57-memory-galaxy-corner-dock-test | .ci/v04257-monitor.txt
 # Historical +303: Build AI Companion v0.42.59+303 APK (Game Cadence and Settings Backup) | AI-Companion-v0.42.59-303-Game-Cadence-Settings-Backup-APK | v0.42.59-game-cadence-settings-backup-test | .ci/v04259-monitor.txt
-name: Build AI Companion v0.42.63+307 APK (Stability)
+name: Build AI Companion v0.42.64+308 APK (Experience)
 
 # BUILD INPUTS: The 96-clip source ZIP is private Draft Release asset 591363139
 # (release 397377805), fetched and SHA-256 checked below. The persistent
@@ -506,6 +506,7 @@ on:
       - agent/v04260-settings-import-live2d
       - agent/v04261-timed-play-recovery
       - agent/v04263-stability
+      - agent/v04264-experience
       - agent/v04214-visible-process-fate-wheel
       - maintenance/repository-governance-20260919
   workflow_dispatch:
@@ -979,7 +980,7 @@ jobs:
         run: |
           set -euo pipefail
           test -f app/pubspec.yaml
-          grep -Fqx 'version: 0.42.63+307' app/pubspec.yaml
+          grep -Fqx 'version: 0.42.64+308' app/pubspec.yaml
           grep -Fqx '  static const int schemaVersion = 61;' app/lib/core/database/app_database.dart
           test -d app/lib
           test -d app/android
@@ -993,7 +994,7 @@ jobs:
           test -f app/android/app/src/main/jniLibs/arm64-v8a/libc++_shared.so
           test ! -d app/android/app/src/main/assets/tts_models
           test ! -d app/android/app/src/main/assets/legacy_tts
-          echo 'Building v0.42.63+307 Snapshot recovery and runtime stability.'
+          echo 'Building v0.42.64+308 Task status, reminder timing and offline room archive.'
 
       - name: Generate complete pet clips from pinned Draft Release asset
         timeout-minutes: 15
@@ -1569,26 +1570,26 @@ jobs:
           APK='app/build/app/outputs/flutter-apk/app-release.apk'
           sha256sum "$APK" | tee app/app-release.apk.sha256
 
-      - name: Upload v0.42.63+307 APK as workflow artifact
+      - name: Upload v0.42.64+308 APK as workflow artifact
         uses: actions/upload-artifact@v4
         with:
-          name: AI-Companion-v0.42.63-307-Stability-APK
+          name: AI-Companion-v0.42.64-308-Experience-APK
           path: |
             app/build/app/outputs/flutter-apk/app-release.apk
             app/app-release.apk.sha256
           if-no-files-found: error
           retention-days: 14
 
-      - name: Upload v0.42.63+307 APK to draft release
+      - name: Upload v0.42.64+308 APK to draft release
         shell: bash
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
-          TAG='v0.42.63-stability-test'
-          APK_NAME='AI-Companion-v0.42.63-307-Stability-APK.apk'
+          TAG='v0.42.64-experience-test'
+          APK_NAME='AI-Companion-v0.42.64-308-Experience-APK.apk'
           SHA_NAME="${APK_NAME}.sha256"
-          CI_NAME='AI-Companion-v0.42.63-307-Stability-CI-Monitor.txt'
+          CI_NAME='AI-Companion-v0.42.64-308-Experience-CI-Monitor.txt'
           cp app/build/app/outputs/flutter-apk/app-release.apk "app/${APK_NAME}"
           sed "s#app/build/app/outputs/flutter-apk/app-release.apk#${APK_NAME}#" \
             app/app-release.apk.sha256 > "app/${SHA_NAME}"
@@ -1605,14 +1606,14 @@ jobs:
               --repo "${GITHUB_REPOSITORY}" \
               --target "${GITHUB_SHA}" \
               --draft \
-              --title 'AI Companion v0.42.63+307 Snapshot recovery and runtime stability' \
-              --notes 'Improve interrupted snapshot recovery, background write coordination, reminder synchronization and request cleanup. Add fault-injection regression tests and redacted runtime diagnostics. Preserve existing game cadence, manual Stop, Live2D settings import without reload and external-resource exclusion. Unpublished device test build; physical-device verification pending.'
+              --title 'AI Companion v0.42.64+308 Task status, reminder timing and offline room archive' \
+              --notes 'Show truthful timed-game status and saved effective time, distinguish delayed reminders, end immersive rooms locally with durable and idempotent archive retries, and offer rare relevant clarifications through the existing reply and memory flow. Preserve manual Stop, two-minute game cadence, 5/10/1 share intervals and settings import without Live2D reload. Unpublished device test build; physical-device verification pending.'
           else
             gh release edit "${TAG}" \
               --repo "${GITHUB_REPOSITORY}" \
               --target "${GITHUB_SHA}" \
-              --title 'AI Companion v0.42.63+307 Snapshot recovery and runtime stability' \
-              --notes 'Improve interrupted snapshot recovery, background write coordination, reminder synchronization and request cleanup. Add fault-injection regression tests and redacted runtime diagnostics. Preserve existing game cadence, manual Stop, Live2D settings import without reload and external-resource exclusion. Unpublished device test build; physical-device verification pending.'
+              --title 'AI Companion v0.42.64+308 Task status, reminder timing and offline room archive' \
+              --notes 'Show truthful timed-game status and saved effective time, distinguish delayed reminders, end immersive rooms locally with durable and idempotent archive retries, and offer rare relevant clarifications through the existing reply and memory flow. Preserve manual Stop, two-minute game cadence, 5/10/1 share intervals and settings import without Live2D reload. Unpublished device test build; physical-device verification pending.'
           fi
           RELEASE_URL="$(gh release view "${TAG}" --repo "${GITHUB_REPOSITORY}" --json url --jq '.url')"
           echo "release_url=${RELEASE_URL}" >> "app/${CI_NAME}"
@@ -1632,19 +1633,19 @@ jobs:
           done
           test "${upload_ok}" = '1'
           MONITOR_BRANCH='ci-monitor-v0345'
-          MONITOR_PATH='.ci/v04263-monitor.txt'
+          MONITOR_PATH='.ci/v04264-monitor.txt'
           MONITOR_CONTENT_FILE="$(mktemp)"
           base64 -w0 "app/${CI_NAME}" > "${MONITOR_CONTENT_FILE}"
           MONITOR_SHA="$(gh api "/repos/${GITHUB_REPOSITORY}/contents/${MONITOR_PATH}?ref=${MONITOR_BRANCH}" --jq '.sha' 2>/dev/null || true)"
           if test -n "${MONITOR_SHA}"; then
             gh api --method PUT "/repos/${GITHUB_REPOSITORY}/contents/${MONITOR_PATH}" \
-              -f message='Update v0.42.63 CI success monitor' \
+              -f message='Update v0.42.64 CI success monitor' \
               -F "content=@${MONITOR_CONTENT_FILE}" \
               -f branch="${MONITOR_BRANCH}" \
               -f sha="${MONITOR_SHA}" >/dev/null
           else
             gh api --method PUT "/repos/${GITHUB_REPOSITORY}/contents/${MONITOR_PATH}" \
-              -f message='Create v0.42.63 CI success monitor' \
+              -f message='Create v0.42.64 CI success monitor' \
               -F "content=@${MONITOR_CONTENT_FILE}" \
               -f branch="${MONITOR_BRANCH}" >/dev/null
           fi
@@ -1666,8 +1667,8 @@ jobs:
           BUILD_RESULT: ${{ needs.build-apk.result }}
         run: |
           set -uo pipefail
-          TAG='v0.42.63-stability-test'
-          CI_NAME='AI-Companion-v0.42.63-307-Stability-CI-Monitor.txt'
+          TAG='v0.42.64-experience-test'
+          CI_NAME='AI-Companion-v0.42.64-308-Experience-CI-Monitor.txt'
           REPORT="${RUNNER_TEMP}/${CI_NAME}"
           JOBS_JSON="${RUNNER_TEMP}/jobs.json"
           {
@@ -1708,7 +1709,7 @@ jobs:
               --repo "${GITHUB_REPOSITORY}" \
               --target "${GITHUB_SHA}" \
               --draft \
-              --title 'AI Companion v0.42.63+307 Snapshot recovery and runtime stability' \
+              --title 'AI Companion v0.42.64+308 Task status, reminder timing and offline room archive' \
               --notes 'Unpublished Draft failure diagnostics for timed game recovery and accurate active-time accounting. No user content, keys, backups or device diagnostics are included.'
           fi
           RELEASE_URL="$(gh release view "${TAG}" --repo "${GITHUB_REPOSITORY}" --json url --jq '.url')"
@@ -1718,19 +1719,19 @@ jobs:
             --clobber \
             --repo "${GITHUB_REPOSITORY}"
           MONITOR_BRANCH='ci-monitor-v0345'
-          MONITOR_PATH='.ci/v04263-monitor.txt'
+          MONITOR_PATH='.ci/v04264-monitor.txt'
           MONITOR_CONTENT_FILE="$(mktemp)"
           base64 -w0 "${REPORT}" > "${MONITOR_CONTENT_FILE}"
           MONITOR_SHA="$(gh api "/repos/${GITHUB_REPOSITORY}/contents/${MONITOR_PATH}?ref=${MONITOR_BRANCH}" --jq '.sha' 2>/dev/null || true)"
           if test -n "${MONITOR_SHA}"; then
             gh api --method PUT "/repos/${GITHUB_REPOSITORY}/contents/${MONITOR_PATH}" \
-              -f message='Update v0.42.63 CI failure monitor' \
+              -f message='Update v0.42.64 CI failure monitor' \
               -F "content=@${MONITOR_CONTENT_FILE}" \
               -f branch="${MONITOR_BRANCH}" \
               -f sha="${MONITOR_SHA}" >/dev/null
           else
             gh api --method PUT "/repos/${GITHUB_REPOSITORY}/contents/${MONITOR_PATH}" \
-              -f message='Create v0.42.63 CI failure monitor' \
+              -f message='Create v0.42.64 CI failure monitor' \
               -F "content=@${MONITOR_CONTENT_FILE}" \
               -f branch="${MONITOR_BRANCH}" >/dev/null
           fi

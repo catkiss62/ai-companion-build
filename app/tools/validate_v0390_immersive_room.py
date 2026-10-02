@@ -60,11 +60,16 @@ for token in (
     "client.streamChat(",
     "maxTokens: 6000",
     "ImmersivePromptBuilder.continuationMessages",
-    "repository.endRoom(",
+    "repository.endRoomLocally(roomId)",
     "showStreamingDraft",
     "原始记录仍完整保留",
 ):
     assert token in controller, token
+archive_worker = read("lib/core/immersive/immersive_archive_worker.dart")
+assert "repository.endRoom(" in archive_worker
+assert "expectedArchiveJob: raw" in archive_worker
+assert "requestTimeout: const Duration(seconds: 60)" in archive_worker
+assert "ImmersiveArchiveWorker" in read("lib/core/maintenance/recovery_orchestrator.dart")
 assert "AndroidBridge" not in controller
 assert "streamingContent += delta.content" in controller
 

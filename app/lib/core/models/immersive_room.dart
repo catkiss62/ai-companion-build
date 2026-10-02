@@ -20,6 +20,7 @@ class ImmersiveRoom {
     required this.createdAt,
     required this.updatedAt,
     this.endedAt,
+    this.archivePending = false,
   });
 
   final String id;
@@ -39,6 +40,7 @@ class ImmersiveRoom {
   final DateTime createdAt;
   final DateTime updatedAt;
   final DateTime? endedAt;
+  final bool archivePending;
 
   bool get isEnded => status == 'ended';
   bool get isPaused => status == 'paused';
@@ -47,6 +49,7 @@ class ImmersiveRoom {
         id: row['id'] as String,
         title: row['title'] as String? ?? '未命名房间',
         status: row['status'] as String? ?? 'paused',
+        archivePending: row['archive_pending'] == 1,
         novelRules: row['novel_rules'] as String? ?? '',
         entryContext: row['entry_context'] as String? ?? '',
         rollingSummary: row['rolling_summary'] as String? ?? '',

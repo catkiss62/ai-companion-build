@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'package:uuid/uuid.dart';
 import 'package:sqflite/sqflite.dart';
 
@@ -16,6 +17,8 @@ class ImmersiveRoomRepository {
 
   final AppDatabase db;
   final Uuid _uuid = Uuid();
+  static const archivePrefix = 'immersive_archive_pending:';
+  static String archiveKey(String roomId) => '$archivePrefix$roomId';
   BrainWorkFence? stateFence;
 
   Future<T> _write<T>(Future<T> Function(Transaction) action) async {
@@ -31,21 +34,18 @@ class ImmersiveRoomRepository {
 
   Future<List<ImmersiveRoom>> listRooms() async {
     final database = await db.database;
-    final rows = await database.query(
-      'immersive_rooms',
-      orderBy: "CASE status WHEN 'active' THEN 0 WHEN 'paused' THEN 1 ELSE 2 END, updated_at DESC",
-    );
+    final rows = await database.rawQuery("SELECT r.*, EXISTS(SELECT 1 FROM settings s "
+        "WHERE s.key = ? || r.id AND s.value != '') AS archive_pending "
+        "FROM immersive_rooms r ORDER BY CASE r.status WHEN 'active' THEN 0 "
+        "WHEN 'paused' THEN 1 ELSE 2 END, r.updated_at DESC", [archivePrefix]);
     return rows.map(ImmersiveRoom.fromDb).toList(growable: false);
   }
 
   Future<ImmersiveRoom?> roomById(String id) async {
     final database = await db.database;
-    final rows = await database.query(
-      'immersive_rooms',
-      where: 'id = ?',
-      whereArgs: [id],
-      limit: 1,
-    );
+    final rows = await database.rawQuery("SELECT r.*, EXISTS(SELECT 1 FROM settings s "
+        "WHERE s.key = ? || r.id AND s.value != '') AS archive_pending "
+        "FROM immersive_rooms r WHERE r.id = ? LIMIT 1", [archivePrefix, id]);
     return rows.isEmpty ? null : ImmersiveRoom.fromDb(rows.first);
   }
 
@@ -195,6 +195,7 @@ class ImmersiveRoomRepository {
 
   Future<void> deleteRoom(String id) async {
     await _write((txn) async {
+      await txn.delete('settings', where: 'key = ?', whereArgs: [archiveKey(id)]);
       await txn.delete(
         'immersive_messages',
         where: 'room_id = ?',
@@ -340,6 +341,9 @@ class ImmersiveRoomRepository {
       createdAt: DateTime.fromMillisecondsSinceEpoch(now),
     );
     await _write((txn) async {
+      final open = await txn.query('immersive_rooms', columns: ['id'],
+          where: "id = ? AND status != 'ended'", whereArgs: [roomId], limit: 1);
+      if (open.isEmpty) throw const BrainWorkInvalidated();
       await txn.insert('immersive_messages', {
         'id': message.id,
         'room_id': roomId,
@@ -424,9 +428,25 @@ class ImmersiveRoomRepository {
         'summarized_message_count': summarizedMessageCount,
         'updated_at': DateTime.now().millisecondsSinceEpoch,
       },
-      where: 'id = ?',
+      where: "id = ? AND status != 'ended'",
       whereArgs: [roomId],
     ));
+  }
+
+  /// End locally and enqueue archive work in the same transaction. No network
+  /// result is required to leave a room, and all original messages stay intact.
+  Future<void> endRoomLocally(String roomId) async {
+    final now = DateTime.now().millisecondsSinceEpoch;
+    await _write((txn) async {
+      final changed = await txn.update('immersive_rooms',
+          {'status': 'ended', 'ended_at': now, 'updated_at': now},
+          where: "id = ? AND status != 'ended'", whereArgs: [roomId]);
+      if (changed != 1) return;
+      await txn.insert('settings', {'key': archiveKey(roomId),
+        'value': jsonEncode({'roomId': roomId, 'endedAt': now,
+          'attempts': 0, 'nextAttemptAt': 0})},
+        conflictAlgorithm: ConflictAlgorithm.replace);
+    });
   }
 
   Future<void> endRoom({
@@ -434,12 +454,27 @@ class ImmersiveRoomRepository {
     required String archiveSummary,
     required String sceneLedger,
     required List<String> sharedMemories,
+    String? expectedArchiveJob,
   }) async {
     final now = DateTime.now().millisecondsSinceEpoch;
     final admittedMemories = ImmersiveSharedMemoryPolicy.admit(sharedMemories);
     final room = await roomById(roomId);
     final style = PersonalityCatalog.special(room?.specialStyleKey ?? '');
     await _write((txn) async {
+      if (expectedArchiveJob != null) {
+        if (await BrainWorkFence.value(txn, archiveKey(roomId)) != expectedArchiveJob) {
+          throw const BrainWorkInvalidated();
+        }
+        final expected = jsonDecode(expectedArchiveJob) as Map;
+        final current = await txn.query('immersive_rooms', columns: ['status', 'ended_at'],
+            where: 'id = ?', whereArgs: [roomId], limit: 1);
+        if (current.isEmpty || current.first['status'] != 'ended' ||
+            current.first['ended_at'] != expected['endedAt']) {
+          throw const BrainWorkInvalidated();
+        }
+      } else if (room == null || room.isEnded) {
+        return;
+      }
       await txn.update(
       'immersive_rooms',
       {
@@ -448,7 +483,7 @@ class ImmersiveRoomRepository {
         'scene_ledger': sceneLedger.trim(),
         'shared_memory_summary': admittedMemories.join('\n'),
         'updated_at': now,
-        'ended_at': now,
+        'ended_at': room?.endedAt?.millisecondsSinceEpoch ?? now,
       },
       where: 'id = ?',
       whereArgs: [roomId],
@@ -473,6 +508,7 @@ class ImmersiveRoomRepository {
         transaction: txn,
       );
     }
+      await txn.delete('settings', where: 'key = ?', whereArgs: [archiveKey(roomId)]);
     });
   }
 

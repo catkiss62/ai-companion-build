@@ -14,6 +14,7 @@ import '../memory/memory_brain.dart';
 import '../memory/memory_grounding_policy.dart';
 import '../memory/memory_lifecycle_policy.dart';
 import '../memory/personality_learning_prompt_policy.dart';
+import '../memory/low_frequency_clarification.dart';
 import '../integration/moe_expression_prompt_adapter.dart';
 import '../models/awareness_observation.dart';
 import '../emotion/emotion_episode_engine.dart';
@@ -307,12 +308,18 @@ class PromptBuilder {
         now: instant,
       );
     }
+    final clarification = mode == PromptGenerationMode.userTurn &&
+            !worldBookContext.hasRoleplay && !freshTopicSourceOnly &&
+            agentToolResults.isEmpty && nsfwActive != true
+        ? await LowFrequencyClarification(db).offer(query: latestUserText, now: instant)
+        : '';
     final context = StringBuffer()
       ..writeln(_groundingSection(grounding, mode))
       ..writeln()
       ..writeln(personalityLearningCapability)
       ..writeln()
       ..writeln(matureLearning.formatForPrompt())
+      ..writeln(clarification)
       ..writeln()
       ..writeln(_relationshipAgeSection(relationshipAge))
       ..writeln();

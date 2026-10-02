@@ -7,6 +7,7 @@ import 'package:flutter/material.dart';
 import '../../core/database/app_database.dart';
 import '../../core/mcp/cedar_toy_activity.dart';
 import '../../core/mcp/cedar_toy_client.dart';
+import '../../core/mcp/cedar_task_presentation.dart';
 import '../../core/platform/android_bridge.dart';
 import '../../core/storage/message_attachment_storage.dart';
 
@@ -28,6 +29,7 @@ class _CedarToyActivityWindowState extends State<CedarToyActivityWindow> {
   Timer? _refreshTimer;
   CedarToyActivityState? _state;
   CedarGameSession? _session;
+  CedarTaskPresentation? _task;
   String _viewingGameId = '';
   bool _loading = true;
   CedarViewingPace _pace = CedarViewingPace.leisure;
@@ -69,10 +71,13 @@ class _CedarToyActivityWindowState extends State<CedarToyActivityWindow> {
     final selected = state.sessions[_viewingGameId] ??
         state.activeSession ??
         (recentSessions.isEmpty ? null : recentSessions.first);
+    final task = selected == null ? null :
+        await CedarTaskPresentation.load(AppDatabase.instance, selected);
     if (!mounted) return;
     setState(() {
       _state = state;
       _session = selected;
+      _task = task;
       _viewingGameId = selected?.gameId ?? '';
       _loading = false;
       _pace = pace;
@@ -371,6 +376,8 @@ class _CedarToyActivityWindowState extends State<CedarToyActivityWindow> {
                       onTap: () => setState(() {
                         _viewingGameId = item.gameId;
                         _session = item;
+                        _task = null;
+                        unawaited(_refresh());
                       }),
                     ),
                   ),
@@ -401,6 +408,13 @@ class _CedarToyActivityWindowState extends State<CedarToyActivityWindow> {
             ),
           ),
         ],
+        if (_task != null) Card(
+          child: ListTile(
+            leading: const Icon(Icons.timer_outlined),
+            title: Text(_task!.label),
+            subtitle: Text(_task!.detail),
+          ),
+        ),
         Wrap(
           spacing: 7,
           runSpacing: 7,

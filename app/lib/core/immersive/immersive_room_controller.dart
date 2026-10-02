@@ -1255,13 +1255,7 @@ class ImmersiveRoomController extends ChangeNotifier {
     if (!await _canWrite()) return false;
     if (sending || ending || room == null || room!.isEnded) return false;
     if (incompleteReplyDraft != null) {
-      error = '请先处理待确认的截断回复，再整理结束房间。';
-      _safeNotify();
-      return false;
-    }
-    final apiKey = (await secureConfig.readApiKey())?.trim() ?? '';
-    if (apiKey.isEmpty) {
-        error = '结束房间前需要用所选聊天模型整理归档，请先填写 API Key。';
+      error = '请先处理待确认的截断回复，再结束房间。';
       _safeNotify();
       return false;
     }
@@ -1269,55 +1263,11 @@ class ImmersiveRoomController extends ChangeNotifier {
     error = null;
     _safeNotify();
     try {
-      final transcript = _summaryTranscript(messages, maxCharacters: 26000);
-      final result = await client.jsonCompletion(
-        apiKey: apiKey,
-        model: DeepSeekModelProfile.fromApiName(await db.getSetting('model')),
-        endpoint: await secureConfig.readEndpoint(),
-        thinking: false,
-        maxTokens: 2200,
-        usageLane: 'immersive_archive',
-        messages: [
-          {
-            'role': 'system',
-            'content': '''你在整理一个已经结束的独立沉浸房间。只输出 JSON：
-{"archive_summary":"供房间归档继续回看的剧情摘要","scene_ledger":"结束时的地点、人物、姿势、衣物、当前阶段、身体状态和未完成事件","shared_memories":["0至3条可让普通聊天知道的简短共同经历"]}
-archive_summary 和 scene_ledger 中提及用户时统一写“用户”，不得写成“他”或替用户新增台词、主动动作、内心、态度、同意、意图和决定。可以记录原文中已经发生的用户输入，以及由AI行为直接造成、原文已经写出的生理或被动身体反馈。
-archive_summary 可以相对详细但去除重复描写。shared_memories 只保留真正重要的共同经历、稳定偏好、关系变化或约定；不得把临时姿势、角色身份、露骨动作流水账或虚构场景当成现实事实。没有值得共享的内容就返回空数组。''',
-          },
-          {
-            'role': 'user',
-            'content': '''房间标题：${room!.title}
-本房间固定特殊风格：${room!.specialStyleKey.isEmpty ? '无' : room!.specialStyleKey}（只作为临时体验来源，不是永久AI Self或现实身体）
-已有滚动摘要：${room!.rollingSummary}
-已有现场账：${room!.sceneLedger}
-
-房间原文：
-$transcript''',
-          },
-        ],
-      );
-      final archive = result['archive_summary']?.toString().trim() ?? '';
-      if (archive.isEmpty) throw const FormatException('归档摘要为空');
-      final ledger = result['scene_ledger']?.toString().trim() ?? '';
-      final rawMemories = result['shared_memories'];
-      final shared = rawMemories is List
-          ? rawMemories
-              .map((item) => item.toString().trim())
-              .where((item) => item.isNotEmpty)
-              .take(3)
-              .toList(growable: false)
-          : const <String>[];
-      await repository.endRoom(
-        roomId: roomId,
-        archiveSummary: archive,
-        sceneLedger: ledger,
-        sharedMemories: shared,
-      );
+      await repository.endRoomLocally(roomId);
       room = await repository.roomById(roomId);
-      return true;
-    } catch (exception) {
-      error = '房间没有结束：归档整理失败，原始记录仍完整保留。$exception';
+      return room?.isEnded == true;
+    } catch (_) {
+      error = '房间未能结束，原始记录仍完整保留，请稍后重试。';
       return false;
     } finally {
       ending = false;

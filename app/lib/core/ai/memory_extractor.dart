@@ -370,7 +370,7 @@ $editableMemoryPolicy
    - replace：同一 subject_key 的“当前事实”明确发生变化；填 target_id 和同一个 subject_key。旧版本会保留为历史，不会删除。
    - append：确实是新的独立事实/经历/推断。
    看到 PINNED 条目时不得 replace；可以 reinforce，但不要制造冲突的另一个 current_fact。
-11. 不要因为一次模糊措辞就把旧事实 replace。拿不准是否真的改变时，用 inference + append。
+11. 不要因为一次模糊措辞就把旧事实 replace。拿不准是否真的改变时，用 inference + append。AI提出的澄清问题不是用户证据；用户未回答、换话题或继续聊天都不表示确认。只有本轮真实回答明确消除了歧义，才沿用target_id/subject_key和证据校验修订事实或learning_signals，不创建另一套人格结论。
 12. relationship_events 只记录真正影响长期关系连续性的事件，不要每轮都生成。允许 kind：closeness / trust / conflict / repair / promise / milestone / intimacy / boundary / roleplay / support / shared_discovery。
 13. session_update 用于“临时互动层”：roleplay、intimacy 或 roleplay_intimacy。只有对话明确进入/改变/结束临时场景时才返回 open/update/end；普通聊天返回 action=none。临时 Session 永远不把 AI 本体改写成现实人类。
 13.1 每条 memory 还必须保留最小实体与时态绑定：
