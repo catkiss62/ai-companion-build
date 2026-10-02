@@ -1,15 +1,28 @@
 # AI Companion · 当前总账
 
-更新时间：2026-10-02（+308 IMPLEMENTATION IN PROGRESS；+307 CI PASSED / APK READY / USER DEVICE ACCEPTED；+306 CI PASSED / APK READY / TRUE DEVICE PENDING；+305 CI PASSED / APK READY / DEVICE REPORTED REPLY STALL；+304 CI PASSED / APK READY / TRUE DEVICE PENDING；+303 CI PASSED / APK READY / TRUE DEVICE PENDING；+302 CI PASSED / APK READY / TRUE DEVICE PENDING；+301 CI PASSED / APK READY / TRUE DEVICE PENDING；+300 CI PASSED / APK READY / TRUE DEVICE PENDING；+299 CI PASSED / APK READY / TRUE DEVICE PENDING；+298 CI PASSED / APK READY / TRUE DEVICE PENDING；+297 CI PASSED / APK READY / TRUE DEVICE PENDING；+295 恢复真机成功、背景回归 PARTIAL；+293 DEVICE VISUAL BASELINE）
+更新时间：2026-10-02（+308 CI PASSED / APK READY / TRUE DEVICE PENDING；+307 CI PASSED / APK READY / USER DEVICE ACCEPTED；+306 CI PASSED / APK READY / TRUE DEVICE PENDING；+305 CI PASSED / APK READY / DEVICE REPORTED REPLY STALL；+304 CI PASSED / APK READY / TRUE DEVICE PENDING；+303 CI PASSED / APK READY / TRUE DEVICE PENDING；+302 CI PASSED / APK READY / TRUE DEVICE PENDING；+301 CI PASSED / APK READY / TRUE DEVICE PENDING；+300 CI PASSED / APK READY / TRUE DEVICE PENDING；+299 CI PASSED / APK READY / TRUE DEVICE PENDING；+298 CI PASSED / APK READY / TRUE DEVICE PENDING；+297 CI PASSED / APK READY / TRUE DEVICE PENDING；+295 恢复真机成功、背景回归 PARTIAL；+293 DEVICE VISUAL BASELINE）
 
 > 本文件是唯一的当前接班入口，继续采用“总账 v2”。顶部是快速接班索引；标记后的正式记录按版本持续追加，不设总容量上限。
 >
 > 判断优先级：用户最新明确决定 > 当前 GitHub 源码与 Actions > 同时刻脱敏真机诊断/备份 > 本文件 > 冻结归档与 Git 历史。`DESIGNED`、`IMPLEMENTED`、`CI PASSED`、`APK READY`、`TRUE DEVICE PASSED`、`PENDING` 必须严格区分。
 
 
-## 当前交付 · v0.42.63+307 稳定性第一批
+## 当前接班快照 · +308 体验改善第二批
 
-用户已指定 **0.42.62+306 为真机可用的对照/回退基线**，无需额外整包备份。基线源码 65b21322693b4e9b67f907a9d476d9ff90cf286f；新分支 agent/v04263-stability 从公开提交 a77f5191c7dc74ee6daaede040ac60fec6f6be10 开始。CI PASSED / APK READY / TRUE DEVICE PENDING。
+2026-10-02 接替因对话上限被用户手动停止的窗口。当前开发分支 `agent/v04264-experience`，基于 `0ff59c0ff850af4dd78857baf13eb46ed254470f`（+307功能 `5ad45f0`，Actions `36946211181` success）；接班时工作树干净、无第二批产品改动或构建。用户已确认+307真机无问题并允许开始第二批；这只表示本次日常验收，不补认尚未观测的极端/长时场景。+306仍是用户指定的可用对照，不需整包备份。
+
+本批四项：游戏任务真实状态/有效剩余时长；离线/过期提醒准确时效表达；沉浸房间先本地结束、联网补整理且失败保留原文；重要信息矛盾的低频澄清，未答暂缓、不把沉默当确认、复用现有记忆修订。当前 v0.42.64+308 IMPLEMENTED / CI PASSED / APK READY / TRUE DEVICE PENDING。首轮发现手动暂停未立即结算，已修复并补测；专项101项、全量Flutter1152项（含本批16项）、Android15原生18项、139项源码门及签名/资源检查全部通过。2026-10-02 16:32用户明确授权本分支当前改动及本轮必要修正推送、CI与未发布测试APK构建；上轮授权阻塞已解除。
+
+必须保留：手动暂停即停止当前时长任务、不积存待补时长，中性结果回报；单人至少两分钟推进和5/10/1轮分享；普通聊天不增加每轮DS规划；内部处理DS、双通道正文Gemini一次最终生成；设置读档不重载Live2D；+307状态围栏/取消/恢复事务。禁止固定角色回复兜底。桌宠渲染、图片地址过滤、可选API来源绑定暂缓；工作区与陪玩模型另议。允许开发分支推送及未发布测试APK，不合并main/正式发布。
+
+最终功能提交 `dad52be3c45f97f7aa2064eca8dceb70e68d194f` / tree `53553806c2cc74a0141a0249ee8fabfd0ca461b0`；[完整Actions36985831222](https://github.com/catkiss62/ai-companion-build/actions/runs/36985831222) success。[未发布+308测试APK](https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-0cac33eb64faac342d0c)，Draft401660027 / asset605227641，SHA-256 `fbe209532a97c5756520e1e1bbe94e5e190020b47f7ce2594ae2eacaa777a43f`，同一持久签名可覆盖安装。未合并main、未正式发布，真机体验仍待用户验收。
+
+完整本轮记录从正文“+308 接班与实施记录”进入，最终证据见文末“+308 最终CI与未发布APK交付”。后续优先验收本批；其余候选仍从6.3唯一后续清单及+307末段取，不复活已撤销旧任务。
+
+
+## 历史交付 · v0.42.63+307 稳定性第一批
+
+用户已指定 **0.42.62+306 为真机可用的对照/回退基线**，无需额外整包备份。基线源码 65b21322693b4e9b67f907a9d476d9ff90cf286f；新分支 agent/v04263-stability 从公开提交 a77f5191c7dc74ee6daaede040ac60fec6f6be10 开始。CI PASSED / APK READY / USER DEVICE ACCEPTED（本次日常验收，非所有极端场景）。
 
 本批完成恢复一致性、异步写入、下载等待、提醒同步及沉浸房间写入边界；1136项Flutter、18项原生、139项源码门及APK签名/资源检查通过。保留手动停止、中性回报、两分钟推进及设置读档不重载 Live2D。桌宠渲染和图片地址过滤暂缓；工作区、陪玩模型及低频澄清另批。基线可用不代表此前所有长时场景都已验证；具体历史证据保留。
 
@@ -25,17 +38,6 @@
 
 +303功能afe1baa5/Actions36860037884成功，设置存档不打包外部资源、持续单人两分钟与5/10/1轮分享保留；导出已获用户真机确认，导入重载由+304修正。旧快速索引全文迁至正式记录末尾，失败路线和APK证据保留。
 
-## 当前接班快照 · +308 体验改善第二批
-
-2026-10-02 接替因对话上限被用户手动停止的窗口。当前开发分支 `agent/v04264-experience`，基于 `0ff59c0ff850af4dd78857baf13eb46ed254470f`（+307功能 `5ad45f0`，Actions `36946211181` success）；接班时工作树干净、无第二批产品改动或构建。用户已确认+307真机无问题并允许开始第二批；这只表示本次日常验收，不补认尚未观测的极端/长时场景。+306仍是用户指定的可用对照，不需整包备份。
-
-本批四项：游戏任务真实状态/有效剩余时长；离线/过期提醒准确时效表达；沉浸房间先本地结束、联网补整理且失败保留原文；重要信息矛盾的低频澄清，未答暂缓、不把沉默当确认、复用现有记忆修订。当前 v0.42.64+308 LOCAL IMPLEMENTED / CI PENDING / APK PENDING / TRUE DEVICE PENDING。新增16项行为测试；首轮专项99通过/1失败，手动暂停立即结算遗漏已修，等待重跑。2026-10-02 16:32用户明确授权本分支当前改动及本轮必要修正推送、CI与未发布测试APK构建；上轮授权阻塞已解除。
-
-必须保留：手动暂停即停止当前时长任务、不积存待补时长，中性结果回报；单人至少两分钟推进和5/10/1轮分享；普通聊天不增加每轮DS规划；内部处理DS、双通道正文Gemini一次最终生成；设置读档不重载Live2D；+307状态围栏/取消/恢复事务。禁止固定角色回复兜底。桌宠渲染、图片地址过滤、可选API来源绑定暂缓；工作区与陪玩模型另议。允许开发分支推送及未发布测试APK，不合并main/正式发布。
-
-完整本轮记录从文末“+308 接班与实施记录”进入；完成后其余候选仍从6.3唯一后续清单及+307末段取，不复活已撤销旧任务。
-
-
 ## +302 历史交付索引
 
 导出刷新、侧栏焦点与星谷交互已交付；完整证据原文移至文末“+302完整历史交付索引”。本批不改这些行为。
@@ -45,25 +47,9 @@
 
 记忆星谷只读分页、星空入口与四角吸附已实现。Actions36789231773成功，Flutter1042/原生12项；用户随后表示整体效果挺好，但不扩展为+302真机验收。完整源码/签名/PNG与APK资源证据及任务边界移至正式记录末尾“+301完整交付索引”，旧证据完整保留。
 
-## 当前交付 · v0.42.56+300 游戏分享间隔、旋转、持续摸头与存档完整性（CI PASSED / APK READY / TRUE DEVICE PENDING）
+## +300 历史交付索引
 
-用户2026-09-30 23:22批准以下修改；基线+299功能a2341425、总账526e1bb4，本地同tree df232243；独立分支agent/v04256-game-share-portable-state。授权推送/构建延续，不再重复确认。
-
-- [x] 游戏厅三按钮改成“10轮回复 / 5轮回复 / 1轮回复”，等宽、默认5轮，选择持久化且后台同样生效。普通单人自主推进固定至少2分钟；已承诺的多人事件监听/轮到用户/服务器定时协议不靠UI按钮加速，也不把轮询算推进。
-- [x] 5/10/1为两次过程分享之间的最少成功游戏推进轮数；指定时长任务、自主半小时竞争和普通自主推进共用门。无值得分享的进展不发，到轮数不强制播报。默认5轮约10分钟而非严格定时器；失败、查询、等待不计。
-- [x] 一次正文可概括多轮尚未分享的已保存结果；消除旧最近6条导致10轮信息不足，保留事件身份、排队合并、用户聊天/沉浸/Brain/写入围栏。分享判断仍合并现有DeepSeek下一步规划，Gemini一次最终正文；不增加逐步判断调用。任务终止结果回报仍独立必达，不再等待攒满轮数。
-- [x] 只调整自制@rootTilt、小腿支点整体左右旋转：Jev目标速度接近自主待机、略快；检查接管、反向、退出和回到待机，保留身体XYZ及头/表情/平移原效果。
-- [x] 2026-10-01 00:31追加、02:04最终修订：Live2D自制摸头在有效手势按住期间持续表情，UP/CANCEL才恢复；头部自身移动导致触点暂离区域不应提前松开。彩蛋采用原总时长2.8秒（2.2秒开始淡出、0.6秒淡出），期间新普通摸头或重复彩蛋不能抢占/重置计时；保留原10%概率与平滑恢复。参考Sen按住/松开机制，勿改模型自带表情；不改其它4.5秒临时表情。
-- [x] 左栏代办提醒上方增加记住事项入口，复用原页面和同一数据源，不改重要性/提醒逻辑。
-- [x] 完整存档审计并补齐可迁移的Live2D当前模型/配件及舞台偏好、SecureConfig非密钥配置、表情包及桌宠显示/位置偏好；API Key/Token/密码仍排除，设备身份/进程lease/旧游玩授权不复制。普通备份与接管包均核验，旧包兼容；新机导入无模型、哈希损坏、部分失败保持事务回滚，实际模型不提交公开仓。
-- [x] 专项行为、134项源码门、Kotlin/Android单元测试、Flutter analyze及1033项测试、Android15原生9/9、arm64签名APK均通过；真机仍待验收。保留+299大settings无损读取和已批准白天图。
-
-最终CI：[36756872531](https://github.com/catkiss62/ai-companion-build/actions/runs/36756872531) conclusion=success；功能源码620e08852283d6a5389d307e161d02166443785d/tree85471e6f48418947e81b3ca225d0b801c4fdfe94，与本地fe10a850同tree。摸头彩蛋为原2.8秒，其余本轮任务完整保留。失败/替代的前三轮记录见正文，不作为最终交付。
-
-[未发布+300测试APK](https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-509ccfd78b2217c9fdc2)，Draft400290010/asset601559245，727767998bytes，SHA-256 c6049f59ccaec150d26d71bcdaf1ff5b28272a025aee1f8658832a7ec851fcbf；稳定签名与+299一致，可覆盖安装。Release target、CI head、ci-monitor-v0345/.ci/v04256-monitor.txt及GitHub计算的APK digest一致，代码和安装包都采用2.8秒。真机尚待游戏分享节奏、连续摸头、旋转观感与实际设备存档往返验收；不宣称TRUE DEVICE PASSED。
-
-旧桌宠图片任务暂缓，且用户纠正大肥鱼/小小鲸是立绘而非旧桌宠；原六项方案中的素材路径仅是立绘路径，不能据此替换旧桌宠。七大规则删除任务明确放弃，其页面与共享导入导出均保留。
-
+游戏5/10/1轮分享、两分钟单人推进、持续摸头和设置存档完整性已交付；完整源码、CI、签名、APK和任务边界保留在文末“+300完整历史交付索引”。本批沿用原行为。
 
 ## +299 存档大值读取与白天背景（CI PASSED / APK READY / TRUE DEVICE PENDING）
 
@@ -2148,3 +2134,56 @@ Actions36894733801/job110479233862成功，Android15实际XML17 tests/0 failures
 首轮专项 Actions `36985080998`：Flutter analyze 成功，行为测试99通过/1失败；失败在新增游戏状态测试的手动暂停后 active task 仍存。检查实际窗口按钮同样只调用 `CedarToyActivityStore.pause`，依赖下次后台 reconcile 结算；若立即恢复可能绕过暂停终止，故不能仅放宽测试。修正 store.pause：先取消执行并持久化暂停，同时取消未提交登记，再立即使用现有 end/finish 原子结果路径结算，保留 `finished_or_waiting_user` 中性原因。已暂停重复操作也结算；不累积旧时长、不添加游戏推进或新循环。补测立即恢复后无旧任务/时钟、回复晚到不能激活已暂停登记；本批行为用例增至16。
 
 首轮完整 Actions `36985081071` 已启动；截至修正时原生烟测进行中，不能记为通过。后续最终 Actions 与APK证据以追加记录为准。此次必要修正本地 v04261 时长恢复/围栏/中性停止门和 git diff --check 通过；Flutter 仍以CI实际执行为准。
+
+
+## +300完整历史交付索引（从快速索引完整迁入，不删历史）
+
+## 当前交付 · v0.42.56+300 游戏分享间隔、旋转、持续摸头与存档完整性（CI PASSED / APK READY / TRUE DEVICE PENDING）
+
+用户2026-09-30 23:22批准以下修改；基线+299功能a2341425、总账526e1bb4，本地同tree df232243；独立分支agent/v04256-game-share-portable-state。授权推送/构建延续，不再重复确认。
+
+- [x] 游戏厅三按钮改成“10轮回复 / 5轮回复 / 1轮回复”，等宽、默认5轮，选择持久化且后台同样生效。普通单人自主推进固定至少2分钟；已承诺的多人事件监听/轮到用户/服务器定时协议不靠UI按钮加速，也不把轮询算推进。
+- [x] 5/10/1为两次过程分享之间的最少成功游戏推进轮数；指定时长任务、自主半小时竞争和普通自主推进共用门。无值得分享的进展不发，到轮数不强制播报。默认5轮约10分钟而非严格定时器；失败、查询、等待不计。
+- [x] 一次正文可概括多轮尚未分享的已保存结果；消除旧最近6条导致10轮信息不足，保留事件身份、排队合并、用户聊天/沉浸/Brain/写入围栏。分享判断仍合并现有DeepSeek下一步规划，Gemini一次最终正文；不增加逐步判断调用。任务终止结果回报仍独立必达，不再等待攒满轮数。
+- [x] 只调整自制@rootTilt、小腿支点整体左右旋转：Jev目标速度接近自主待机、略快；检查接管、反向、退出和回到待机，保留身体XYZ及头/表情/平移原效果。
+- [x] 2026-10-01 00:31追加、02:04最终修订：Live2D自制摸头在有效手势按住期间持续表情，UP/CANCEL才恢复；头部自身移动导致触点暂离区域不应提前松开。彩蛋采用原总时长2.8秒（2.2秒开始淡出、0.6秒淡出），期间新普通摸头或重复彩蛋不能抢占/重置计时；保留原10%概率与平滑恢复。参考Sen按住/松开机制，勿改模型自带表情；不改其它4.5秒临时表情。
+- [x] 左栏代办提醒上方增加记住事项入口，复用原页面和同一数据源，不改重要性/提醒逻辑。
+- [x] 完整存档审计并补齐可迁移的Live2D当前模型/配件及舞台偏好、SecureConfig非密钥配置、表情包及桌宠显示/位置偏好；API Key/Token/密码仍排除，设备身份/进程lease/旧游玩授权不复制。普通备份与接管包均核验，旧包兼容；新机导入无模型、哈希损坏、部分失败保持事务回滚，实际模型不提交公开仓。
+- [x] 专项行为、134项源码门、Kotlin/Android单元测试、Flutter analyze及1033项测试、Android15原生9/9、arm64签名APK均通过；真机仍待验收。保留+299大settings无损读取和已批准白天图。
+
+最终CI：[36756872531](https://github.com/catkiss62/ai-companion-build/actions/runs/36756872531) conclusion=success；功能源码620e08852283d6a5389d307e161d02166443785d/tree85471e6f48418947e81b3ca225d0b801c4fdfe94，与本地fe10a850同tree。摸头彩蛋为原2.8秒，其余本轮任务完整保留。失败/替代的前三轮记录见正文，不作为最终交付。
+
+[未发布+300测试APK](https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-509ccfd78b2217c9fdc2)，Draft400290010/asset601559245，727767998bytes，SHA-256 c6049f59ccaec150d26d71bcdaf1ff5b28272a025aee1f8658832a7ec851fcbf；稳定签名与+299一致，可覆盖安装。Release target、CI head、ci-monitor-v0345/.ci/v04256-monitor.txt及GitHub计算的APK digest一致，代码和安装包都采用2.8秒。真机尚待游戏分享节奏、连续摸头、旋转观感与实际设备存档往返验收；不宣称TRUE DEVICE PASSED。
+
+旧桌宠图片任务暂缓，且用户纠正大肥鱼/小小鲸是立绘而非旧桌宠；原六项方案中的素材路径仅是立绘路径，不能据此替换旧桌宠。七大规则删除任务明确放弃，其页面与共享导入导出均保留。
+
+
+
+
+## +308 修正后验证进度 · 2026-10-02
+
+修正功能提交远端 `dad52be3c45f97f7aa2064eca8dceb70e68d194f`，本地 `1d1d451f33efdd9f79c1e588e9c85cea89383253`；两边tree均 `53553806c2cc74a0141a0249ee8fabfd0ca461b0`。专项 Actions `36985831218` success：Flutter analyze成功，101项行为测试全通过，含本批16项。新版完整 Actions `36985831222` 已通过 Android 15 原生18项（08:51 UTC日志BUILD SUCCESSFUL），正在恢复固定资源；全量 Flutter/APK/签名资源验证此时仍 PENDING。首轮完整 `36985081071` build job cancelled，不能作为最终构建。
+
+为保持快速接班索引小于100KB，将+300完整历史交付段落原样迁入正文末尾；冻结归档未改变，唯一总账门通过。最终交付后需追加最终完整CI、Draft/asset/校验值、签名和真机待验事项；不得把上述中间进度当最终交付。
+
+
+### +308 真机待验边界（CI不能代替）
+
+- 游戏：指定时长回复提交前显示已登记；提交后按保存的有效计时显示，不把打开窗口当作授权或推进。中断/读档后恢复等待不能算离线时间；手动暂停立即结束旧任务，快速继续不能恢复旧剩余时长；终止后结果仍走原有中性回报，已送达仍可见上次结束状态。
+- 提醒：断网跨日/过期事项重连后应说明真实计划时间与延迟，不假定事项已完成或仍需马上执行；积压补送沿现有幂等消息路径并至少间隔10分钟，不连发多条。
+- 沉浸：断网时本地结束立即成立且保留完整原文，显示待整理；重启后任务仍在，有网络且不占用主聊天时补整理，失败继续保留原文；成功仅入一次共同记忆；删除、读档、待机期间迟到结果不能越过围栏写入。
+- 澄清：仅重要、相关且有双方证据的普通话题可能自然出现一个简短可选问题；不要求每次触发、不新增每轮规划；明确纠正/边界应直接尊重，沉默不确认、不追问。真实回答仍走原有证据与记忆版本链。
+- 回归观察：普通双通道最终正文、单人两分钟与5/10/1轮分享、设置读档不重载Live2D继续按既有契约；真机未报告前不标TRUE DEVICE PASSED，不把+307日常验收扩展到+308。
+
+
+## +308 最终CI与未发布APK交付 · 2026-10-02 17:10（北京时间）
+
+状态：IMPLEMENTED / CI PASSED / APK READY / TRUE DEVICE PENDING。本批四项全部完成；新增16项行为测试并修正首轮CI暴露的手动暂停即时结算遗漏。不是只写方案或只编译；但未在用户手机运行，不得记为TRUE DEVICE PASSED。
+
+- 功能源码：远端 `dad52be3c45f97f7aa2064eca8dceb70e68d194f`，本地 `1d1d451f33efdd9f79c1e588e9c85cea89383253`，tree均 `53553806c2cc74a0141a0249ee8fabfd0ca461b0`。最终总账回写仅修改本文件，不改变产品/工作流/资源或已构建APK；保留不同提交历史下源码树完全一致的验证方式。
+- 专项 [Actions36985831218](https://github.com/catkiss62/ai-companion-build/actions/runs/36985831218) success：Flutter analyze和101项行为回归通过。首轮99通过/1失败及实际代码修正已在前文保留，不隐去失败路线。
+- 完整 [Actions36985831222](https://github.com/catkiss62/ai-companion-build/actions/runs/36985831222) conclusion=success、head=`dad52be3`。Android15原生18项通过；Source and regression validation139/139通过；Kotlin测试BUILD SUCCESSFUL；Flutter analyze通过；Flutter全量1152项通过（其中experience_v04264_test.dart16项）；arm64 Release APK构建及所有APK资源/签名验证通过，report-ci-failure跳过。
+- APK：[未发布+308测试包](https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-0cac33eb64faac342d0c)。Draft release `401660027`，tag `v0.42.64-experience-test`，draft=true、published_at=null、target=`dad52be3c45f97f7aa2064eca8dceb70e68d194f`。APK asset `605227641`，文件 `AI-Companion-v0.42.64-308-Experience-APK.apk`，734386153字节。SHA-256 `fbe209532a97c5756520e1e1bbe94e5e190020b47f7ce2594ae2eacaa777a43f`，与构建日志、ci-monitor-v0345/.ci/v04264-monitor.txt和GitHub实际资产digest逐一一致。
+- 持久签名：`305eb3d80983b963c64818ddf1ad561f279de6d47b3ed2c781ada448c7c25148`，apksigner与CI monitor一致，沿用既有测试签名，可覆盖安装。Genie运行库字节身份、桌宠素材、Caicai边界、塔罗与离线记忆星谷资源均由既有APK检查通过；本批没有改动桌宠渲染/模型素材。
+- CI Monitor asset `605227647`；checksum asset `605227642`。Workflow APK artifact `11217304620`（727476504字节ZIP、核验时未过期）；原生结果artifact `11217242391`。Draft URL在成功上传时从旧失败轮次的untagged地址变为上述地址，最终只能交付此成功地址，不使用旧轮次诊断草稿链接。
+- 本轮只更新体验分支和工作流既有监控分支，未合并main、未正式发布。+306仍保留为用户指定对照；+307既有日常真机确认不替代+308验收。游戏有效时长/暂停立即终止、延迟提醒、离线结束/补归档、低频澄清和Live2D设置导入回归的真机待验清单见上节。
