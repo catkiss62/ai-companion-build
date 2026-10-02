@@ -5,10 +5,12 @@ import 'package:uuid/uuid.dart';
 import '../database/app_database.dart';
 import 'cedar_agent_loop_policy.dart';
 import 'cedar_game_protocol.dart';
+import 'cedar_play_session_policy.dart';
 import 'cedar_play_transition_log.dart';
 import 'cedar_solo_episode_policy.dart';
 import 'cedar_duel_observer_resolver.dart';
 import 'cedar_toy_client.dart';
+import 'cedar_timed_play_task.dart';
 import 'mcp_protocol.dart';
 import 'mcp_turn_state_resolver.dart';
 
@@ -1544,6 +1546,8 @@ class CedarToyActivityStore {
     }
     if (existing.phase == CedarActivityPhase.paused) {
       await cancelExecution(reason: 'pause');
+      await db.setSetting(CedarTimedPlayTaskStore.pendingKey, '');
+      await CedarPlaySessionStore(db).end('finished_or_waiting_user');
       return;
     }
     final now = DateTime.now();
@@ -1563,7 +1567,11 @@ class CedarToyActivityStore {
     await db.setSettingsAtomically(<String, String>{
       ..._stateSettingValues(paused),
       executionFenceSettingKey: 'cancel-pause-${_uuid.v4()}',
+      CedarTimedPlayTaskStore.pendingKey: '',
     });
+    // Manual Pause is Stop for a timed task. Complete it before a quick
+    // Resume can remove the paused state that background recovery observes.
+    await CedarPlaySessionStore(db).end('finished_or_waiting_user');
     await CedarPlayTransitionLog(db).record(source: source,
         reason: 'local_pause', before: existing.phase.key, after: 'paused');
   }

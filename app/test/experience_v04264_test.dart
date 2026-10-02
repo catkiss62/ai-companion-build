@@ -181,6 +181,24 @@ void main() {
     expect((await CedarTaskPresentation.load(db, paused))!.detail, isNot(contains('有效剩余')));
     await tasks.acknowledge(active['id'].toString());
     expect((await CedarTaskPresentation.load(db, paused))!.label, '上一时长任务已结束');
+    await store.resume();
+    await tasks.reconcile(DateTime.now());
+    expect(await tasks.active(), isNull);
+    expect(await CedarPlaySessionStore(db).load(), isNull);
+  });
+
+  test('manual pause cancels an uncommitted grant before a late reply commits', () async {
+    final store = CedarToyActivityStore(db);
+    final session = await store.recordGuide(gameId: 'white_room', guide: '单人游戏。start 开始；explore 探索。');
+    final tasks = CedarTimedPlayTaskStore(db);
+    await tasks.stage(turnId: 'late', assistantId: 'late-reply', session: session, minutes: 20);
+    await store.pause();
+    await db.insertMessage(ChatMessage(id: 'late-reply', role: 'assistant', content: '好', createdAt: DateTime.now()));
+    await store.resume();
+    await tasks.activateCommitted();
+    expect(await tasks.active(), isNull);
+    expect(await CedarPlaySessionStore(db).load(), isNull);
+    expect(await db.getSetting(CedarTimedPlayTaskStore.pendingKey), isEmpty);
   });
 
   test('old reminder timing never means the task was completed or still actionable', () {
