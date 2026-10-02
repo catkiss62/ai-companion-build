@@ -1,0 +1,7 @@
+status=success
+run_id=36946211181
+run_url=https://github.com/catkiss62/ai-companion-build/actions/runs/36946211181
+head_sha=5ad45f0bbc159d8300ba1e75ab324555d2ef7a9d
+signer_sha256=30:5E:B3:D8:09:83:B9:63:C6:48:18:DD:F1:AD:56:1F:27:9D:E6:D4:7B:3E:D2:C7:81:AD:A4:48:C7:C2:51:48
+964e2964c757229b73a3d5ac77ced9046662bd5bd62a067b4da46844406b18ee  AI-Companion-v0.42.63-307-Stability-APK.apk
+release_url=https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-f766059b1837df323a54
