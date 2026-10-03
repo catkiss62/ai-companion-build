@@ -42,6 +42,19 @@ class CaicaiMotionPlanner {
   static const tempos = {'舒展': 1.10, '明快': .95, '俏皮快拍': .82};
   static const faces = ['无','1爱心','1生气','1红脸','1钱钱','1黑脸','1星星眼','1流泪',
     'wink','wink吐舌','比耶wink吐舌'];
+  static const faceMeanings = <String, String>{
+    '无': '不使用额外原装表情。',
+    '1爱心': '明显心动、喜爱或亲昵。',
+    '1生气': '明显气鼓鼓、佯怒或抗议。',
+    '1红脸': '明显害羞、浪漫表达或难为情时可以使用；轻微害羞不必使用。',
+    '1钱钱': '明显财迷式的兴奋。',
+    '1黑脸': '明显无语、阴沉或被噎住。',
+    '1星星眼': '明显惊喜、赞叹或期待。',
+    '1流泪': '明显难过、委屈或感动。',
+    'wink': '轻度：轻巧眨眼、俏皮或默契。',
+    'wink吐舌': '中度：眨眼加吐舌，更淘气。',
+    '比耶wink吐舌': '程度更强：比耶加吐舌加眨眼，更夸张的得意、庆祝或卖萌。',
+  };
   static const actions = ['无','2奶茶','2插手','2比耶','2点单','2菜单','2餐盘左','2餐盘右'];
 
   Future<Map<String, Object?>?> plan({required String user, required String reply,
@@ -79,7 +92,7 @@ class CaicaiMotionPlanner {
       {'舒展':'每拍1.10秒', '明快':'每拍0.95秒', '俏皮快拍':'每拍0.82秒'});
     questions['face'] = JevChoiceQuestion('选择本次短时原装表情，情绪不明显时选无。'
       'wink、wink吐舌、比耶wink吐舌是模型原装的完整预设，后者已自带比耶手势；'
-      '轻微眨眼也可由四拍眼睛参数单独表达。', {for (final x in faces) x: x});
+      '轻微眨眼也可由四拍眼睛参数单独表达。', faceMeanings);
     questions['action'] = JevChoiceQuestion('选择与本轮明确动作或场景有关的原装动作；无关时选无。', {for (final x in actions) x: x});
     questions['emotion'] = JevChoiceQuestion(
       '选择对话结束后持续显示的聊天情绪。以实际回复语气为准；没有明显情绪选正常，不要为了变化而强选。',

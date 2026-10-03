@@ -1,11 +1,15 @@
 # AI Companion · 当前总账
 
-更新时间：2026-10-03（+309 CI PASSED / APK READY / TRUE DEVICE PENDING；+308 CI PASSED / APK READY / TRUE DEVICE PENDING；+307 CI PASSED / APK READY / USER DEVICE ACCEPTED；+306 CI PASSED / APK READY / TRUE DEVICE PENDING；+305 CI PASSED / APK READY / DEVICE REPORTED REPLY STALL；+304 CI PASSED / APK READY / TRUE DEVICE PENDING；+303 CI PASSED / APK READY / TRUE DEVICE PENDING；+302 CI PASSED / APK READY / TRUE DEVICE PENDING；+301 CI PASSED / APK READY / TRUE DEVICE PENDING；+300 CI PASSED / APK READY / TRUE DEVICE PENDING；+299 CI PASSED / APK READY / TRUE DEVICE PENDING；+298 CI PASSED / APK READY / TRUE DEVICE PENDING；+297 CI PASSED / APK READY / TRUE DEVICE PENDING；+295 恢复真机成功、背景回归 PARTIAL；+293 DEVICE VISUAL BASELINE）
+更新时间：2026-10-03（+310 IMPLEMENTED / CI PENDING / APK PENDING / TRUE DEVICE PENDING；+309 CI PASSED / APK READY / TRUE DEVICE PENDING；+308 CI PASSED / APK READY / TRUE DEVICE PENDING；+307 CI PASSED / APK READY / USER DEVICE ACCEPTED；+306 CI PASSED / APK READY / TRUE DEVICE PENDING；+305 CI PASSED / APK READY / DEVICE REPORTED REPLY STALL；+304 CI PASSED / APK READY / TRUE DEVICE PENDING；+303 CI PASSED / APK READY / TRUE DEVICE PENDING；+302 CI PASSED / APK READY / TRUE DEVICE PENDING；+301 CI PASSED / APK READY / TRUE DEVICE PENDING；+300 CI PASSED / APK READY / TRUE DEVICE PENDING；+299 CI PASSED / APK READY / TRUE DEVICE PENDING；+298 CI PASSED / APK READY / TRUE DEVICE PENDING；+297 CI PASSED / APK READY / TRUE DEVICE PENDING；+295 恢复真机成功、背景回归 PARTIAL；+293 DEVICE VISUAL BASELINE）
 
 > 本文件是唯一的当前接班入口，继续采用“总账 v2”。顶部是快速接班索引；标记后的正式记录按版本持续追加，不设总容量上限。
 >
 > 判断优先级：用户最新明确决定 > 当前 GitHub 源码与 Actions > 同时刻脱敏真机诊断/备份 > 本文件 > 冻结归档与 Git 历史。`DESIGNED`、`IMPLEMENTED`、`CI PASSED`、`APK READY`、`TRUE DEVICE PASSED`、`PENDING` 必须严格区分。
 
+
+## 当前实施 · +310 记忆连续性与表情语义
+
+2026-10-03 18:01用户授权实施：现有记忆合格，以玩家体验改善为目标。扩大近期上下文约64条、结合近期话题消解指代、扩大旧总结检索、按可靠来源补回少量共同经历；远期语义召回先验证收益，不盲加向量依赖或每轮规划。保持原提取/总结/衰减，不制造随机遗忘、不装记不清、不增加固定角色话术。补充JEV原装表情适用语义，不强制情绪映射、不改阈值、不规定频率。深度模式/网页原文转交另批；心情与拒绝另议；TTS及Nearby不修。基于+309功能39c3bcf及总账65548fd，开发分支agent/v04266-memory-continuity。状态IMPLEMENTED / CI PENDING / APK PENDING / TRUE DEVICE PENDING，详细验收见文末+310范围记录。
 
 ## 当前接班快照 · +309 气焰完整性修复（已交付测试APK）
 
@@ -2337,3 +2341,34 @@ H11【源码确定的提示契约漂移】普通JEV和DS fallback仍写light “
 真机验收从升级后的新对话开始：在自然满值且未锁定时连续完成两轮故意轻逗/互逗，第二轮应表现并进入小豆丁；强挑衅一次、首次刚涨满不立即变、满值普通聊天不自动变。另观察Stop/重生成和锁定是否重复加分或改错形态；用前文具体话题后说“你去搜搜看”检验搜索query完整。CI覆盖逻辑与事务，不能替代用户设备上真实JEV语义判定、正文表现或最终UI观感。
 
 范围已收束：普通搜索只优化自然显式请求和前文query补全，不增加每轮DeepSeek规划。Agnes网页压缩/原文转交未改，深度思考开关未实现；未来聊天+菜单替换世界书小按钮、灰/紫灯泡与+号紫色要求已写入6.3。陪看视频暂停、其他界面和既有桌宠/Live2D/TTS保持原任务边界。后续先收集本版真机结果，无需重复扩展测试或重建本版。
+
+
+## +310 范围记录与实施依据（2026-10-03 18:01）
+
+已完整承接17:18至18:01讨论。现有记忆没有用户报告的重大问题，优化须有具体体验收益：短句无需对暗号、重要共同经历能接住前因后果、平时克制不反复翻旧账。查不到只表示证据不足，不能伪称记忆删除；不强求所有细节永远召回。参考Ombre-Brain https://github.com/P0luz/Ombre-Brain （检查版3.6.14/115d831）；只借鉴按需找回、相关片段与明确证据，不移植整套系统、不复制已删除source_read或旧anchor介绍。
+
+实施目标：
+1. 普通用户回复近期历史约64条，总文本有界，尽量保留完整轮次；原文/总结避免重叠，清空上下文与世界书roleplay隔离继续生效。
+2. 先理解明确指代，再按主题检索。非指代的新话题不得混入旧话题；内部判断/检索不会变成每轮DeepSeek规划。语义补充只按需、有界、返回存储证据，不生成虚构回忆；需要时自然确认，不写固定人格兜底。
+3. 旧阶段总结不再仅能从最新8份查找；命中重要共同经历时有界补回可靠来源相邻内容，防同名/同主题不同事件串线。归档/替代版本不冒充当前事实，主动回忆频率与衰减保护保留。
+4. 长期条目提取、14至36条批次阶段总结、后台队列、原始聊天保存、缓慢衰减不重写；不重整全部旧记忆，不新建庞大事件档案系统。
+5. JEV原装表情已有10项加无；43次保留调用均选择无说明偏保守，但不等同渲染故障。补充红脸/星眼/生气/wink/爱心等语义与分寸，允许凭实际语气选择而无需动作关键词，默认平静可无；不强绑害羞必红、不通过随机/固定频率/降低阈值强制表情。四拍、19情绪加正常、原生时长保持。
+6. TTS真机无感知故障，历史10条错误只观察；Nearby双设备权限待需要时再处理。心情需后续独立设计，避免随机拒绝/冷落。深度模式和取消网页整理本批继续延期，未来+菜单灯泡要求不丢。
+
+验证：扩大上下文的整轮/长消息预算/重置边界；含指代与明确换题的正反样本；较早低重要度事实与旧总结可查；共同经历来源邻接不串线、不重复注入；失配/歧义不编造；被动闲聊无新增模型调用；表情所有选项都提供意义且无强制配额。用户备份和诊断只在临时空间，测试用合成样本；完整CI、签名与Draft APK待完成，不合并main。
+
++310 实施中补充 · 18:04/18:16：三个wink分别补轻度wink、中度wink吐舌、程度更强比耶wink吐舌，不连续升级。用户明确现有JEV动作整体很好，只轻量补选项含义；红脸使用原文“明显害羞、浪漫表达或难为情时可以使用；轻微害羞不必使用”，删除被夸奖触发语义、删除“不需要正文动作词”的新增说明。保持既有总指令和动作选择，仅加“以下语义仅供参考，不要求一定使用表情”。此补充覆盖前文较强语义方案。
+
+
+### +310 实现与候选验证
+
+近期原文最多64条/36000字符，按用户轮次截取，当前完整输入例外保留；仅从已有重置边界内读取。明确短指代借用最近一轮上下文，多个书名、换题、角色扮演或超过6小时均不自动承接。普通长期记忆候选改为先词项匹配再限量，避免旧低重要度条目永远进不了180候选；原准入、排序、衰减、提取和修订继续使用。旧阶段总结全库按线索筛选，最多2份且不与近期原文重叠。
+
+共同经历只对强直接线索、精确conversation_turn来源补回最多2组完整原话/2400字符；跳过缺失、主动消息、跨轮、角色扮演、特殊风格、过长或与近期重叠的片段，并移除重叠总结。原文标明历史证据，不作为当前指令或当前现场。无需新表或迁移。
+
+远期同义召回采用现有memory.search工具本地未命中后的单次DS Flash短查询改写，最多3个候选词/260输出Token/18秒；仅用户轮工具路径允许，同一工具链最多一次，主动回忆和普通被动注入不调用。结果仍来自原数据库，候选保留人物/时间/否定约束并由正文核对；查询失败保留本地结果，不新增记忆，不装作遗忘。此实现不承诺任意同义句都命中；歧义或证据不足允许自然确认。
+
+红脸与三个wink按18:16用户原要求提供轻量语义，其他动作/情绪/时长/阈值不改。新增合成行为测试覆盖整轮预算、指代隔离、低权重旧记忆、旧总结、原话完整与排重、角色扮演/缺失/特殊风格、同义补搜次数/取消/失败以及可不使用表情。已通过本地可用的134项源码门；7项依赖CI恢复资源或kotlinc，未宣称本地完整通过。本地无Flutter SDK，后续以专项和完整CI实际结果为准。所有私有备份/诊断均留在仓库外。
+
+
++310 用户18:28最新补充：删除统一追加的“以下语义仅供参考，不要求一定使用表情”。已有“情绪不明显时选无”保留；红脸原句不变，爱心/生气/钱钱/黑脸/星星眼/流泪用简短“明显…”描述，三个wink仍分轻、中、较强，不统一加明显。只给选择倾向，不保证或硬控频率；此补充覆盖18:16的统一附句方案。

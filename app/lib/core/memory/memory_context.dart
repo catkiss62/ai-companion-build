@@ -1,3 +1,4 @@
+import '../models/chat_message.dart';
 import '../models/conversation_summary.dart';
 import '../models/memory_item.dart';
 import '../models/unfinished_thread.dart';
@@ -12,6 +13,7 @@ class MemoryContext {
     required this.history,
     required this.summaries,
     required this.threads,
+    this.experienceSources = const [],
   });
 
   final List<MemoryItem> stableUser;
@@ -22,8 +24,9 @@ class MemoryContext {
   final List<MemoryItem> history;
   final List<ConversationSummary> summaries;
   final List<UnfinishedThread> threads;
+  final List<ChatMessage> experienceSources;
 
   bool get isEmpty => stableUser.isEmpty && aiSelf.isEmpty && preferences.isEmpty &&
       relevant.isEmpty && inferences.isEmpty && history.isEmpty &&
-      summaries.isEmpty && threads.isEmpty;
+      summaries.isEmpty && threads.isEmpty && experienceSources.isEmpty;
 }

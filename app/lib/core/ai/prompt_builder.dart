@@ -1,3 +1,4 @@
+import '../memory/conversation_recall_policy.dart';
 import '../memory/remembered_user_facts.dart';
 import '../agent/agent_tool.dart';
 import '../autonomy/public_web_prompt_policy.dart';
@@ -107,7 +108,7 @@ class PromptBuilder {
   }) async {
     final instant = now ?? DateTime.now();
     final weatherContext = await WeatherContext.forPrompt(db, instant);
-    final query = (retrievalQuery ?? latestUserText).trim();
+    final baseQuery = (retrievalQuery ?? latestUserText).trim();
     var latestUserMessageId = '';
     if (mode == PromptGenerationMode.userTurn) {
       for (final message in recent.reversed) {
@@ -117,6 +118,11 @@ class PromptBuilder {
         }
       }
     }
+    final query = baseQuery;
+    final memoryQuery = mode == PromptGenerationMode.userTurn && retrievalQuery == null
+        ? ConversationRecallPolicy.contextualQuery(baseQuery, recent,
+            currentMessageId: latestUserMessageId, now: instant)
+        : baseQuery;
     final worldBookTurnKey = mode == PromptGenerationMode.userTurn
         ? (latestUserMessageId.isEmpty
             ? 'user:${instant.millisecondsSinceEpoch}'
@@ -125,7 +131,7 @@ class PromptBuilder {
     final memoryContext = freshTopicSourceOnly
         ? null
         : await memoryBrain.buildContext(
-            query,
+            memoryQuery,
             relevantLimit: memoryLimit,
             summaryBefore: recent.isEmpty ? null : recent.first.createdAt,
             retrievalMode: mode.name,

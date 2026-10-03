@@ -2,6 +2,7 @@ import 'generation_lease_guard.dart';
 import 'dart:async';
 import 'dart:convert';
 
+import '../memory/conversation_recall_policy.dart';
 import '../agent/agent_tool.dart';
 import '../agent/agent_native_tool_accumulator.dart';
 import '../agent/agent_participation_consent.dart';
@@ -282,10 +283,10 @@ class DurableGenerationRunner {
           PromptBuilder.visibleChineseGenerationReminder();
       final previous = await db.messagesBefore(
         user.createdAt,
-        limit: 33,
+        limit: 96,
         notBefore: await db.conversationContextResetAt(),
       );
-      final recent = <ChatMessage>[...previous, user];
+      final recent = ConversationRecallPolicy.recentWindow([...previous, user]);
       // Capture after the durable user turn exists and before prompt build.
       // Stable event IDs make recovered attempts idempotent; cancellation
       // withdraws these events with the user message.

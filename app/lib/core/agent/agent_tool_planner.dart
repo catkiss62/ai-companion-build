@@ -471,7 +471,7 @@ class AgentToolPlanner {
     } else if (tool.id == AgentToolRegistry.memorySearch.id) {
       properties['query'] = const <String, Object?>{
         'type': 'string',
-        'description': '要从本地记忆中查找的话题。',
+        'description': '结合近期对话补全要查找的经历、人物和时间。保持用户原意；指代不明时不要猜具体事件。',
       };
     } else if (tool.id == AgentToolRegistry.albumSearch.id) {
       properties['query'] = const <String, Object?>{

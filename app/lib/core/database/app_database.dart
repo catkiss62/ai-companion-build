@@ -1,3 +1,5 @@
+import '../memory/conversation_recall_policy.dart';
+import '../models/world_book_turn_context.dart';
 import 'dart:convert';
 import 'dart:math';
 
@@ -8920,6 +8922,66 @@ class AppDatabase {
     return rows.map(MemoryItem.fromDb).toList();
   }
 
+  // Filter by the cue before applying a candidate cap. Importance alone must
+  // not exclude an old fact from ever being examined. All terms are bound args.
+  Future<List<Map<String, Object?>>> _lexicalRecallRows(
+    String table, String baseWhere, List<Object?> args, List<String> terms,
+    String textColumn, String order, {int limit = 120}) async {
+    if (terms.isEmpty) return const [];
+    final database = await this.database;
+    final match = "$textColumn LIKE ? ESCAPE '\\'";
+    final patterns = terms.map(ConversationRecallPolicy.likePattern).toList();
+    return database.query(table,
+        where: '$baseWhere AND (${terms.map((_) => match).join(' OR ')})',
+        whereArgs: [...args, ...patterns, ...patterns],
+        orderBy: '${terms.map((_) => '(CASE WHEN $match THEN 1 ELSE 0 END)').join(' + ')} DESC, $order',
+        limit: limit);
+  }
+
+  Future<List<ConversationSummary>> recallConversationSummaries(String query, {
+    DateTime? before, int limit = 2,
+  }) async {
+    final rows = await _lexicalRecallRows('conversation_summaries',
+        before == null ? '1 = 1' : 'to_at < ?',
+        [if (before != null) before.millisecondsSinceEpoch],
+        ConversationRecallPolicy.searchTerms(query), "summary || ' ' || key_points",
+        'to_at DESC', limit: 100);
+    final summaries = rows.map(ConversationSummary.fromDb).where((s) =>
+        MemoryRetrievalPolicy.hasDirectTextEvidence(query, '${s.summary} ${s.keyPoints.join(' ')}')).toList();
+    return summaries.take(limit.clamp(0, 2)).toList();
+  }
+
+  /// Retrieve an actual source turn, never a neighbouring turn guessed by
+  /// time or a broad topic. Old reasoning and roleplay never enter this lane.
+  Future<List<ChatMessage>> recallExperienceSources(List<MemoryItem> seeds, {
+    DateTime? before,
+  }) async {
+    final result = <ChatMessage>[];
+    final seen = <String>{};
+    var chars = 0;
+    for (final seed in seeds.where((m) => m.isSharedExperience && m.isActive).take(2)) {
+      final match = RegExp(r'^conversation_turn:([^|]+)$').firstMatch(seed.source);
+      if (match == null) continue; // Do not reconnect special-style provenance.
+      final user = await messageById(match.group(1)!);
+      if (user == null || !user.isUser || seen.contains(user.id) ||
+          WorldBookTurnContext.decode(user.worldBookContextJson).hasRoleplay ||
+          (before != null && !user.createdAt.isBefore(before))) continue;
+      final next = await messagesAfter(user.createdAt, limit: 1);
+      if (next.isEmpty || !next.first.isAssistant || next.first.isProactive ||
+          next.first.createdAt.difference(user.createdAt) > const Duration(minutes: 30) ||
+          WorldBookTurnContext.decode(next.first.worldBookContextJson).hasRoleplay ||
+          (before != null && !next.first.createdAt.isBefore(before))) continue;
+      final pair = [user, next.first];
+      if (!MemoryRetrievalPolicy.hasDirectTextEvidence(seed.content,
+          pair.map((m) => m.promptContent).join(' '))) continue;
+      final size = pair.fold<int>(0, (sum, m) => sum + m.promptContent.length);
+      if (chars + size > 2400) continue; // Omit whole turns, never distort quotes.
+      result.addAll(pair); seen.add(user.id); chars += size;
+    }
+    result.sort((a,b) => a.createdAt.compareTo(b.createdAt));
+    return result;
+  }
+
   Future<List<MemoryItem>> relevantMemories(
     String query, {
     int limit = 12,
@@ -8928,20 +8990,18 @@ class AppDatabase {
   }) async {
     final db = await database;
     final proactive = retrievalMode == 'proactive';
-    final rows = await db.query(
-      'memory_items',
-      where: proactive
-          ? "status = ? AND semantic_type IN ('current_fact','shared_experience') "
-              "AND attention_state = 'closed' "
-              "AND recall_policy IN ('reminiscence','identity') "
-              'AND spontaneous_salience >= ?'
-          : "status = ? AND semantic_type IN ('current_fact','shared_experience')",
-      whereArgs: proactive ? const ['active', 0.68] : const ['active'],
-      orderBy: proactive
-          ? 'spontaneous_salience DESC, importance DESC, updated_at DESC'
-          : 'importance DESC, retention_score DESC, updated_at DESC',
-      limit: 180,
-    );
+    final terms = ConversationRecallPolicy.searchTerms(query);
+    final rows = proactive
+        ? await db.query('memory_items',
+            where: "status = ? AND semantic_type IN ('current_fact','shared_experience') "
+                "AND attention_state = 'closed' "
+                "AND recall_policy IN ('reminiscence','identity') AND spontaneous_salience >= ?",
+            whereArgs: const ['active', 0.68],
+            orderBy: 'spontaneous_salience DESC, importance DESC, updated_at DESC', limit: 180)
+        : await _lexicalRecallRows('memory_items',
+            "status = 'active' AND semantic_type IN ('current_fact','shared_experience')",
+            const [], terms, "content || ' ' || tags || ' ' || subject_key || ' ' || topic_key",
+            'importance DESC, retention_score DESC, updated_at DESC', limit: 400);
     final instant = now ?? DateTime.now();
     final queryTokenCount = MemoryRetrievalPolicy.tokensFor(query).length;
     var directCount = 0;
@@ -8975,10 +9035,15 @@ class AppDatabase {
         .map((item) => item.topicKey)
         .where((topic) => topic.isNotEmpty)
         .toSet();
-    final associationPool = rows
-        .map(MemoryItem.fromDb)
-        .where((item) => !directlyConsideredIds.contains(item.id))
-        .toList(growable: false);
+    final associationRows = !proactive && seedTopics.isNotEmpty
+        ? await db.query('memory_items',
+            where: "status = 'active' AND semantic_type IN ('current_fact','shared_experience') "
+                "AND topic_key IN (${List.filled(seedTopics.length, '?').join(',')})",
+            whereArgs: seedTopics.toList(),
+            orderBy: 'importance DESC, updated_at DESC', limit: 60)
+        : rows;
+    final associationPool = associationRows.map(MemoryItem.fromDb)
+        .where((item) => !directlyConsideredIds.contains(item.id)).toList(growable: false);
     final associatedSelected = TopicAssociationPolicy.selectAssociated(
       directSeeds: directSelected,
       candidates: associationPool,

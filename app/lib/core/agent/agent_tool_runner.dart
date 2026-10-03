@@ -2,6 +2,8 @@ import 'dart:convert';
 
 import 'package:http/http.dart' as http;
 
+import '../memory/memory_query_expander.dart';
+import '../memory/conversation_recall_policy.dart';
 import '../ai/deepseek_client.dart';
 import '../ai/generation_cancellation.dart';
 import '../ai/model_profile.dart';
@@ -59,6 +61,7 @@ class AgentToolRunner {
   final AndroidBridge android;
   final SecureConfig secureConfig;
   final DeepSeekClient _ai;
+  final Set<String> _memoryExpansionScopes = {};
   final Map<String, String> _cedarGameListsByScope = <String, String>{};
   final Map<String, String> _cedarGuidesByScopeAndGame = <String, String>{};
 
@@ -317,7 +320,9 @@ class AgentToolRunner {
       return _readRules(call.arguments['scope'] ?? '');
     }
     if (call.toolId == AgentToolRegistry.memorySearch.id) {
-      return _searchMemory(call.arguments['query'] ?? '');
+      return _searchMemory(call.arguments['query'] ?? '', cancellationToken,
+        allowExpansion: origin == AgentToolOrigin.userTurn,
+        scope: toolChainScopeId.isNotEmpty ? toolChainScopeId : userMessageId);
     }
     if (call.toolId == AgentToolRegistry.albumSearch.id) {
       return _searchAlbum(call.arguments['query'] ?? '');
@@ -2116,25 +2121,57 @@ ${lines.join('\n')}
     );
   }
 
-  Future<AgentToolResult> _searchMemory(String query) async {
-    final normalized = query.trim();
-    final context = await MemoryBrain(db).buildContext(
-      normalized.isEmpty ? '当前话题' : normalized,
-      relevantLimit: 8,
-    );
+  Future<AgentToolResult> _searchMemory(String query,
+      GenerationCancellationToken? cancellationToken, {
+      bool allowExpansion = false, String scope = '',
+  }) async {
+    var normalized = query.trim();
+    if (normalized.length > 180) normalized = normalized.substring(0, 180);
+    final recent = ConversationRecallPolicy.recentWindow(
+      await db.recentMessagesForPrompt(limit: 96));
+    final summaryBefore = recent.isEmpty ? null : recent.first.createdAt;
+    var context = await MemoryBrain(db).buildContext(normalized,
+      relevantLimit: 8, summaryBefore: summaryBefore, retrievalMode: 'explicitRecall');
+    var expanded = false;
+    if (context.isEmpty && allowExpansion && scope.isNotEmpty &&
+        ConversationRecallPolicy.searchTerms(normalized).length >= 2 &&
+        _memoryExpansionScopes.add(scope)) {
+      if (_memoryExpansionScopes.length > 32) {
+        _memoryExpansionScopes.remove(_memoryExpansionScopes.first);
+      }
+      cancellationToken?.throwIfCancelled();
+      final apiKey = (await secureConfig.readApiKey())?.trim() ?? '';
+      if (apiKey.isNotEmpty) {
+        try {
+          final queries = await MemoryQueryExpander(_ai).expand(normalized,
+            apiKey: apiKey, endpoint: await secureConfig.readEndpoint(),
+            cancellationToken: cancellationToken);
+          if (queries.isNotEmpty) {
+            cancellationToken?.throwIfCancelled();
+            context = await MemoryBrain(db).buildContext(queries.join(' '),
+              relevantLimit: 5, summaryBefore: summaryBefore,
+              retrievalMode: 'explicitRecallExpanded');
+            expanded = true;
+          }
+        } on GenerationCancelledByUserException { rethrow; }
+        on GenerationSuspendedByRuntimeGateException { rethrow; }
+        catch (_) { /* Original local result remains authoritative; no retry loop. */ }
+      }
+    }
+    cancellationToken?.throwIfCancelled();
     final formatted = MemoryBrain(db).formatForPrompt(context);
     return AgentToolResult(
       toolId: AgentToolRegistry.memorySearch.id,
       status: AgentToolStatus.succeeded,
       displayText: '已检索本地记忆',
-      promptData:
-          '已真实检索本地记忆。记忆可能过时，历史版本不能冒充当前事实：\n${_bounded(formatted, 10000)}',
-      resultCount: context.stableUser.length +
-          context.aiSelf.length +
-          context.preferences.length +
-          context.relevant.length +
-          context.history.length +
-          context.threads.length,
+      promptData: '已真实检索本地记忆。只凭存储证据回答；未命中不代表没有发生或已删除，不必假装遗忘。'
+          '记忆可能过时，历史版本不能冒充当前事实。'
+          '${expanded ? "以下是同义检索候选，仍须对照用户原始问题核对人物、归属、时间与事件；歧义时确认，不能拼接成同一件事。" : ""}\n'
+          '${_bounded(formatted, 10000)}',
+      resultCount: context.stableUser.length + context.aiSelf.length +
+          context.preferences.length + context.relevant.length +
+          context.inferences.length + context.history.length +
+          context.summaries.length + context.threads.length,
     );
   }
 
