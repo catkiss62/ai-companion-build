@@ -49,6 +49,17 @@ void main() {
     final first = finish(const PlayfulFormState(heat: 90), PlayfulInteraction.strong, '2');
     expect(first.heat, 100); expect(first.qForm, isFalse); expect(first.stimulusStreak, 0);
   });
+  test('resuming a full saved meter counts fresh stimuli after hourly cooling', () {
+    final oldTime = now.subtract(const Duration(hours: 3)).millisecondsSinceEpoch;
+    for (final oldStreak in [0, 1]) {
+      final restored = PlayfulFormState(heat: 100, stimulusStreak: oldStreak, updatedAt: oldTime);
+      final first = finish(restored, PlayfulInteraction.light, 'fresh1', self: PlayfulSelfActivity.strong);
+      expect(first.heat, 100); expect(first.qForm, isFalse);
+      expect(first.stimulusStreak, 1); // Old streak expired; current tease still counts.
+      expect(finish(first, PlayfulInteraction.mutual, 'fresh2').qForm, isTrue);
+      expect(finish(restored, PlayfulInteraction.strong, 'strong').qForm, isTrue);
+    }
+  });
   test('neutral interruption clears consecutive stimuli without normal cooling', () {
     var s = finish(const PlayfulFormState(heat: 100), PlayfulInteraction.light, '1');
     s = finish(s, PlayfulInteraction.ordinary, '2');

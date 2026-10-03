@@ -205,9 +205,10 @@ class PlayfulFormState {
         interaction == PlayfulInteraction.mutual;
     // The turn that first fills the meter is protected. Only a completed,
     // still-full prior turn can contribute to the two-stimulus sequence.
-    final stimulated = breakthroughDue && elapsedHours == 0 &&
+    final stimulated = breakthroughDue &&
         (interaction == PlayfulInteraction.strong ||
-         gentle && stimulusStreak >= 1 || breakthrough == true);
+         gentle && elapsedHours == 0 && stimulusStreak >= 1 ||
+         breakthrough == true);
     // Keep the user classification provisional. Applying a negative delta now
     // can hit zero before the visible reply contributes its own real activity.
     return PlayfulFormState(
@@ -282,8 +283,10 @@ class PlayfulFormState {
         : pendingBreakthrough;
     final gentle = pendingInteraction == PlayfulInteraction.light ||
         pendingInteraction == PlayfulInteraction.mutual;
+    // A long gap discards the previous streak, not this fresh stimulus.
+    // Cooling still participates in nextHeat; dropping below full resets it.
     final nextStreak = !nextForm && !locked && heat == 100 && nextHeat == 100 &&
-        pendingElapsedHours == 0 && gentle ? 1 : 0;
+        gentle ? 1 : 0;
     return PlayfulFormState(
       heat: nextHeat,
       stimulusStreak: nextStreak,
