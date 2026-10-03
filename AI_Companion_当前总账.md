@@ -1,15 +1,15 @@
 # AI Companion · 当前总账
 
-更新时间：2026-10-03（+311 LOCAL TEST PASSED / PUSH AUTHORIZED / CI PENDING；+310 CI PASSED / APK READY / TRUE DEVICE PENDING；+309 CI PASSED / APK READY / TRUE DEVICE PENDING；+308 CI PASSED / APK READY / TRUE DEVICE PENDING；+307 CI PASSED / APK READY / USER DEVICE ACCEPTED；+306 CI PASSED / APK READY / TRUE DEVICE PENDING；+305 CI PASSED / APK READY / DEVICE REPORTED REPLY STALL；+304 CI PASSED / APK READY / TRUE DEVICE PENDING；+303 CI PASSED / APK READY / TRUE DEVICE PENDING；+302 CI PASSED / APK READY / TRUE DEVICE PENDING；+301 CI PASSED / APK READY / TRUE DEVICE PENDING；+300 CI PASSED / APK READY / TRUE DEVICE PENDING；+299 CI PASSED / APK READY / TRUE DEVICE PENDING；+298 CI PASSED / APK READY / TRUE DEVICE PENDING；+297 CI PASSED / APK READY / TRUE DEVICE PENDING；+295 恢复真机成功、背景回归 PARTIAL；+293 DEVICE VISUAL BASELINE）
+更新时间：2026-10-03（+311 CI PASSED / APK READY / TRUE DEVICE PENDING；+310 CI PASSED / APK READY / TRUE DEVICE PENDING；+309 CI PASSED / APK READY / TRUE DEVICE PENDING；+308 CI PASSED / APK READY / TRUE DEVICE PENDING；+307 CI PASSED / APK READY / USER DEVICE ACCEPTED；+306 CI PASSED / APK READY / TRUE DEVICE PENDING；+305 CI PASSED / APK READY / DEVICE REPORTED REPLY STALL；+304 CI PASSED / APK READY / TRUE DEVICE PENDING；+303 CI PASSED / APK READY / TRUE DEVICE PENDING；+302 CI PASSED / APK READY / TRUE DEVICE PENDING；+301 CI PASSED / APK READY / TRUE DEVICE PENDING；+300 CI PASSED / APK READY / TRUE DEVICE PENDING；+299 CI PASSED / APK READY / TRUE DEVICE PENDING；+298 CI PASSED / APK READY / TRUE DEVICE PENDING；+297 CI PASSED / APK READY / TRUE DEVICE PENDING；+295 恢复真机成功、背景回归 PARTIAL；+293 DEVICE VISUAL BASELINE）
 
 > 本文件是唯一的当前接班入口，继续采用“总账 v2”。顶部是快速接班索引；标记后的正式记录按版本持续追加，不设总容量上限。
 >
 > 判断优先级：用户最新明确决定 > 当前 GitHub 源码与 Actions > 同时刻脱敏真机诊断/备份 > 本文件 > 冻结归档与 Git 历史。`DESIGNED`、`IMPLEMENTED`、`CI PASSED`、`APK READY`、`TRUE DEVICE PASSED`、`PENDING` 必须严格区分。
 
 
-## 当前任务 · +311 持续心情（本地通过，推送与构建已授权）
+## 当前交付 · +311 持续心情（完整CI通过，测试APK已生成）
 
-2026-10-03 20:59用户授权实施，已回读+310交付及其后讨论，完整任务记录见 `app/docs/PERSISTENT_MOOD_v1.md`。+310用户日常真机确认无问题；本批基于371d069，开发分支agent/v04267-persistent-mood。整合持续情绪与余波，复用回复前JEV及原有DS失效路径，独立core/mood；玩闹与真实介意分开，概率不作强度，无离线惩罚/依恋放大/固定台词。真实活动、发现、休息与缓存天气轻背景，提交/取消/重试有界一致；记忆、气焰、19表情与正文路由保留。状态IMPLEMENTED / LOCAL TEST PASSED / PUSH AUTHORIZED / CI PENDING，尚无APK；不合并main，细节及验证在文末。
+2026-10-03 20:59用户授权实施，已回读+310交付及其后讨论，完整任务记录见 `app/docs/PERSISTENT_MOOD_v1.md`。+310用户日常真机确认无问题；本批基于371d069，开发分支agent/v04267-persistent-mood。整合持续情绪与余波，复用回复前JEV及原有DS失效路径，独立core/mood；玩闹与真实介意分开，概率不作强度，无离线惩罚/依恋放大/固定台词。真实活动、发现、休息与缓存天气轻背景，提交/取消/重试有界一致；记忆、气焰、19表情与正文路由保留。状态CI PASSED / APK READY / TRUE DEVICE PENDING。功能e883203，完整Actions37130412433成功：1214项Flutter、18项Android原生、142项源码门通过；[未发布+311测试APK](https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-6681d12631e11b37810f)，同签名覆盖安装。未合并main，细节及验证在文末。
 
 ## 当前交付 · +310 记忆连续性与表情语义
 
@@ -2434,3 +2434,22 @@ JEV仅增加选项的轻量含义：红脸严格保留“明显害羞、浪漫�
 ### +311 推送与构建授权解除
 
 2026-10-03用户直接明确授权将agent/v04267-persistent-mood分支推送到catkiss62/ai-companion-build，运行CI并构建未发布测试APK。此前审批阻塞已解除。新git push获得审批，但命令行缺少GitHub登录凭据；改用已连接GitHub写接口上传，并核对源码tree一致。完整CI/签名/资源验证完成后才能标APK READY；不合并main、不正式发布。
+
+### +311 远端源码与完整CI候选
+
+已通过用户明确授权的GitHub连接推送本分支。本地d37fb8e与远端b9574f35b8d18a98d92458505a60fc79e7bd9ea2源码tree均ea22e0bcd69d91d4cedfa444e508afd518c4725e。复核发现工作流实际版本门仍引用+310，修正为+311并加入专项源码门验证；未改产品逻辑。最终候选e883203b77e559f30123d249624429d8817183e7/treea55d4f5a0561333fdc1c11c6fec48da21bd51a01，与本地2d09ea1树完全一致。早期Actions37130295600/37130295598由后续提交自动取消，不作为交付成功或产品测试失败。最终完整Actions37130412433、专项37130412353执行中，待实际完成再记结果。
+
++311专项Actions37130412353成功，job111224278852日志2026-10-03T14:42:31Z为188 tests passed。完整Actions37130412433的Android15原生job111224285166成功；已下载artifact11276109715（182342bytes，SHA-256476ab267b45227c38f64d1f0591271cec90b0279f528ec50db79ba19b32be052）核对XML：18 tests/0 failures/0 errors/0 skipped。APK build job111225227222进行中。
+
+### +311 最终CI与未发布测试APK交付（2026-10-03，中国时间）
+
+最终状态：IMPLEMENTED / CI PASSED / APK READY / TRUE DEVICE PENDING。版本0.42.67+311，功能提交`e883203b77e559f30123d249624429d8817183e7`，tree `a55d4f5a0561333fdc1c11c6fec48da21bd51a01`。后续总账提交仅记交付证据，不改变APK产品代码。分支agent/v04267-persistent-mood，未合并main，Release仍为Draft。
+
+- [完整Actions37130412433](https://github.com/catkiss62/ai-companion-build/actions/runs/37130412433) completed/success，head为上述最终功能提交。Android15原生18项；build job111225227222通过142/142源码门、Kotlin桌宠/悬浮窗文字测试、Flutter analyze、1214项全量Flutter测试（本批新增18项）、arm64 Release APK编译、资源和持久签名检查。全量Flutter日志2026-10-03T14:59:42Z为1214 tests passed。专项Actions37130412353另通过188项，与全量有重叠，不相加计数。
+- [最终未发布测试APK](https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-6681d12631e11b37810f)，Draft402560834，tag v0.42.67-persistent-mood-test，target_commitish=e883203。APK asset608003258，文件`AI-Companion-v0.42.67-311-Persistent-Mood-APK.apk`，734420373bytes；SHA文件asset608003257；CI Monitor asset608003256，均为uploaded。
+- APK SHA-256 `9faabe35e7e9da3b4e74de269acf43552c5b39ea55aa75ad4288a7aa97751c44`，构建日志、Release资产服务端digest和ci-monitor-v0345分支`.ci/v04267-monitor.txt`三处一致。证书SHA-256 `305eb3d80983b963c64818ddf1ad561f279de6d47b3ed2c781ada448c7c25148`，与+310及原持久测试身份一致，支持覆盖安装保留数据。实际apksigner由CI验证，未在本机重复下载734MB包冒称重新验签。
+- 包内49个Genie/Jiuhu/OpenJTalk文件、22张塔罗JPG、131个离线Memory Galaxy资源均hash-exact；桌宠、Cubism资源及私有模型排除边界检查成功。真实用户存档/诊断/私有模型与密钥未提交到公开源码仓。
+- 用户验收建议：先正常聊天观察自然度，再看双方玩闹、纠正回答或正常拒绝是否误留下介意；确有不适时应对应具体原因，澄清误会或和好后应自然缓和。Stop/重生不应残留取消轮的心情。无需故意伤害或机械凑表情；JEV自然语言判断与心情语气质量仍待实际模型/真机体验，自动测试不等于已验收。
+- 本批不改记忆提取/整理/衰减、欲望值与气焰计分、19表情/Live2D映射；新增心情仅消费现有身体状态和缓存天气，未新增定位或天气请求。普通/悬浮/主动对话共用模块；维护停用键和删除接入清单见`app/docs/PERSISTENT_MOOD_v1.md`。深度模式等旧待办未顺带实施。
+
+工作流APK artifact11277526186，ZIP727510393bytes，digest `0dd7ab268584ef8b73f708f23fb9046dd041fc58308484d69444b63abc916479`；核验时未过期。APK实际资产digest与ZIP digest用途不同，不混用。

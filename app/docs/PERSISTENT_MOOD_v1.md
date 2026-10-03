@@ -34,11 +34,11 @@
 - [x] 普通/主动/悬浮共用状态；沉浸/roleplay 不污染现实关系。
 - [x] 诊断和模拟手机显示不与新心情冲突；备份/重置/取消兼容。
 - [x] 本地规则与事务行为测试；语义提示覆盖玩闹、边界、引用、纠错。真实JEV语义准确率仍待聊天验收，合成概率测试不冒充准确率评估。
-- [ ] 总账、文档地图、版本、CI与 Draft APK；自动验证不冒充真机体验。
+- [x] 总账、文档地图、版本、CI与 Draft APK；自动验证不冒充真机体验。
 
 ## 当前状态
 
-IMPLEMENTED / LOCAL TEST PASSED / PUSH AUTHORIZED / CI PENDING。候选0.42.67+311；用户已解除授权阻塞，准备通过已连接GitHub上传一致源码并执行完整CI，尚无APK，未真机验收。
+IMPLEMENTED / CI PASSED / APK READY / TRUE DEVICE PENDING。版本0.42.67+311；最终功能e883203b77e559f30123d249624429d8817183e7/tree a55d4f5a0561333fdc1c11c6fec48da21bd51a01与本地源码一致。完整Actions37130412433与专项37130412353成功；1214项Flutter、18项Android原生、142项源码门及资源/签名验证通过。未发布测试APK已生成，未真机验收。
 
 
 ## 模块及接入位置
@@ -81,3 +81,11 @@ IMPLEMENTED / LOCAL TEST PASSED / PUSH AUTHORIZED / CI PENDING。候选0.42.67+3
 两次同目标git push被自动审批拒绝。已核验origin是用户公开仓库catkiss62/ai-companion-build，父提交371d069存在，待推仅项目代码/合成测试/文档，无用户附件/存档/密钥。复核仍拒绝，因为旧授权由上下文工具返回，审批要求当前对话的用户明确授权。未使用GitHub写接口绕过；本地工作已完成后再请求该具体推送与CI授权。
 
 2026-10-03用户在当前对话明确批准：将agent/v04267-persistent-mood分支推送到catkiss62/ai-companion-build、运行CI并构建未发布测试APK。新git push已获审批但因命令行缺少GitHub凭据失败；改用已连接GitHub写接口完成相同授权操作，必须核对远端源码树与本地完全相同。未批准合并main或正式发布。
+
+上传后复核发现工作流实际版本门仍引用+310，已修正为+311并增加相应专项验证；仅构建配置修正，不改心情产品逻辑。早期Actions由新提交自动取消，交付只认最终完整CI。
+
+## 最终交付证据
+
+[未发布+311测试APK](https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-6681d12631e11b37810f)，Draft402560834/asset608003258，734420373bytes。APK SHA-256 `9faabe35e7e9da3b4e74de269acf43552c5b39ea55aa75ad4288a7aa97751c44`；构建日志、GitHub资产digest、CI monitor一致。持久签名`305eb3d80983b963c64818ddf1ad561f279de6d47b3ed2c781ada448c7c25148`与旧版一致，可覆盖安装。完整CI37130412433，专项188项与全量1214项有重叠，不相加。Android15原生XML已核对18/0失败/0错误/0跳过。最终交付总账提交不改变APK源码，未合并main、未正式发布。
+
+建议先自然聊天，观察互相玩闹、正常拒绝/纠错不误判伤害，真正介意有可追溯原因，澄清与和好能缓和，Stop/重生不留下取消轮事件。自然语言判断准确率及语气自然度仍待用户验收，不靠合成概率测试冒充。
