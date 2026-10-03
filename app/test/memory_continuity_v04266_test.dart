@@ -126,6 +126,15 @@ void main() {
       expect((await db.relevantMemories('device_key')).map((m) => m.id), ['literal']);
       expect(await db.relevantMemories('完全无关的棒球比赛'), isEmpty);
     });
+    test('explicit recall bypasses repetition cooldown without weakening ordinary admission', () async {
+      await rawMemory('shell', 'shell beach treasure');
+      expect((await db.relevantMemories('shell')).length, 1);
+      const cue = 'shell unknown1 unknown2 unknown3';
+      expect(await db.relevantMemories(cue), isEmpty);
+      expect((await db.relevantMemories(cue, retrievalMode: 'explicitRecall')).map((m) => m.id), ['shell']);
+      expect(await db.relevantMemories(cue), isEmpty);
+      expect(await db.relevantMemories('unrelated tomato', retrievalMode: 'explicitRecall'), isEmpty);
+    });
     test('old summary beyond latest eight is searchable without overlapping recent raw turns', () async {
       await db.insertConversationSummary(fromAt: at, toAt: at.add(const Duration(seconds: 10)),
         summary: '海边一起拾取蓝色贝壳');
@@ -155,7 +164,7 @@ void main() {
     for (final condition in ['next_user', 'proactive', 'roleplay', 'special_style', 'oversized', 'missing', 'unrelated']) {
       test('unsafe source $condition cannot become an invented shared scene', () async {
         if (condition != 'missing') {
-          await db.insertMessage(message(0, 'user', condition == 'oversized' ? 'a' * 2500 : condition == 'unrelated' ? '午饭米线' : '贝壳',
+          await db.insertMessage(message(0, 'user', condition == 'oversized' ? '贝壳${'a' * 2500}' : condition == 'unrelated' ? '午饭米线' : '贝壳',
             worldBook: condition == 'roleplay' ? const WorldBookTurnContext(roleplaySessionId: 'fiction').encode() : ''));
           await db.insertMessage(message(1, condition == 'next_user' ? 'user' : 'assistant', '回答',
             proactive: condition == 'proactive'));

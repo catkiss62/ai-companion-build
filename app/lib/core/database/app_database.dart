@@ -8990,6 +8990,8 @@ class AppDatabase {
   }) async {
     final db = await database;
     final proactive = retrievalMode == 'proactive';
+    final explicitRecall = retrievalMode == 'explicitRecall' ||
+        retrievalMode == 'explicitRecallExpanded';
     final terms = ConversationRecallPolicy.searchTerms(query);
     final rows = proactive
         ? await db.query('memory_items',
@@ -9015,6 +9017,7 @@ class AppDatabase {
         query: query,
         item: item,
         now: instant,
+        enforceCooldown: !explicitRecall,
       );
       if (!decision.direct) {
         blockedNoDirect += 1;
