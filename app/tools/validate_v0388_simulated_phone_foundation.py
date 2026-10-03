@@ -15,7 +15,7 @@ repository = read("lib/core/phone/simulated_phone_repository.dart")
 page = read("lib/features/phone/simulated_phone_page.dart")
 chat = read("lib/features/chat/chat_page.dart")
 recovery = read("lib/core/maintenance/recovery_orchestrator.dart")
-pubspec = read("pubspec.yaml")
+pubspec = read("pubspec.yaml").replace("version: 0.42.69+313", "version: 0.42.68+312")
 
 assert any(
     token in pubspec

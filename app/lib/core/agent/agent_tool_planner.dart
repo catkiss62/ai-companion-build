@@ -105,15 +105,7 @@ class AgentToolPlanner {
       ]);
     }
 
-    if (_isExplicitStickerSend(text)) {
-      return AgentToolPlan(calls: [
-        AgentToolCall(
-          toolId: AgentToolRegistry.stickerSend.id,
-          arguments: {'intent': _bounded(_stickerIntent(text), 120)},
-          reasonTag: 'explicit_request',
-        ),
-      ]);
-    }
+    // Sticker expression is chosen in the final reply, never a forced tool route.
 
     final calls = <AgentToolCall>[];
 
@@ -692,33 +684,6 @@ class AgentToolPlanner {
     return subject == '任意安全图片' ? '自然风景' : subject;
   }
 
-  static bool _isExplicitStickerSend(String text) {
-    if (RegExp(r'(别|不要|不用|不必|无需).{0,8}(发|来|给).{0,8}(表情包|表情)')
-        .hasMatch(text)) {
-      return false;
-    }
-    if (RegExp(
-      r'(会不会|会发|能否|是否|支不支持|支持|功能|能力).{0,12}(表情包|表情)|'
-      r'你?(会|能|可以).{0,6}(发|发送).{0,6}(表情包|表情).{0,3}(吗|嘛|么|？|\?)',
-    )
-        .hasMatch(text)) {
-      return false;
-    }
-    return text.contains('斗图') ||
-        RegExp(
-          r'((发|来|甩|丢|整|回复|回)(给我)?(一)?(个|张)?[^，。！？!?]{0,8}(表情包|表情))|'
-          r'((给我|我要|想要)[^，。！？!?]{0,8}(个|张)?(表情包|表情))',
-        ).hasMatch(text);
-  }
-
-  static String _stickerIntent(String text) {
-    final stripped = text
-        .replaceAll(RegExp(r'(请|麻烦|能不能|可以|你|帮我|给我|只|发|来|甩|丢|整|回复|回|斗图|一个|一张|个|张|表情包|表情)'), ' ')
-        .replaceAll(RegExp(r'\s+'), ' ')
-        .trim();
-    return stripped.isEmpty ? '自然回应' : stripped;
-  }
-
   static bool _isExplicitAlbumImageSend(String text) {
     if (RegExp(r'(别|不要|不用|不必|无需).{0,8}(发|发送|给我).{0,8}(图片|照片|图)')
         .hasMatch(text)) return false;
@@ -882,9 +847,6 @@ class AgentToolPlanner {
     }
     if (_isExplicitWebImageSend(text)) {
       result.add(AgentToolRegistry.webImageSend.id);
-    }
-    if (_isExplicitStickerSend(text)) {
-      result.add(AgentToolRegistry.stickerSend.id);
     }
     final explicitImageSave =
         RegExp(r'(上网|联网|网页|搜|找).{0,18}(图|照片).{0,18}(保存|存下|存进|存起来|收进|收藏)|'

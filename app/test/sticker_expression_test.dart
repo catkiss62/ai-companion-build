@@ -1,6 +1,6 @@
+import 'package:ai_companion_localfirst/core/stickers/sticker_reply_choice.dart';
 import 'package:ai_companion_localfirst/core/models/chat_message.dart';
 import 'package:ai_companion_localfirst/core/models/message_attachment.dart';
-import 'package:ai_companion_localfirst/core/desire/conversation_initiative_policy.dart';
 import 'package:ai_companion_localfirst/core/stickers/sticker_expression_service.dart';
 import 'package:ai_companion_localfirst/core/stickers/sticker_pack.dart';
 import 'package:ai_companion_localfirst/core/stickers/sticker_pack_storage.dart';
@@ -211,33 +211,10 @@ void main() {
     expect(normalized.keywords, isNot(contains('动漫女孩')));
   });
 
-  test('real sticker actions may carry the whole reply without dialogue', () {
-    expect(
-      StickerExpressionService.shouldUseStickerOnly(
-        messageId: 'explicit',
-        generatedText: '「给你。」',
-        speechAct: ConversationSpeechAct.answer,
-        explicitStickerTool: true,
-      ),
-      isTrue,
-    );
-    expect(
-      StickerExpressionService.shouldUseStickerOnly(
-        messageId: 'battle',
-        generatedText: '「接招。」',
-        speechAct: ConversationSpeechAct.react,
-        stickerBattle: true,
-      ),
-      isTrue,
-    );
-    expect(
-      StickerExpressionService.shouldUseStickerOnly(
-        messageId: 'question',
-        generatedText: '「你具体想找哪一张？」',
-        speechAct: ConversationSpeechAct.ask,
-      ),
-      isFalse,
-    );
+  test('real sticker choice is explicit metadata, not a random deletion', () {
+    expect(StickerReplyChoice.parse('你好').stickerOnly, isFalse);
+    expect(StickerReplyChoice.parse('<sticker_choice>only:s1</sticker_choice>').stickerOnly, isTrue);
+    expect(StickerReplyChoice.parse('<sticker_choice>with_text:s2</sticker_choice>').stickerOnly, isFalse);
   });
 
   group('sticker expression mapping', () {

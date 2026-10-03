@@ -43,7 +43,7 @@ for token in (
     "SimulatedDiaryQuality.acceptable",
     "similarity(trimmed, recent) < 0.72",
     "不得补造用户说过的话",
-    "factualFallback",
+    "SimulatedDiaryAttempt.run",
 ):
     assert token in diary + repository, token
 for token in ("sharedMoments", "cares", "carriedThreads", "awarenessSummaries"):
@@ -88,7 +88,7 @@ tests = read("test/simulated_diary_generator_v04152_test.dart") + read(
 )
 for token in (
     "quality gate rejects boilerplate",
-    "factual fallback uses only organized continuity material",
+    "bounded generation retries once without publishing a factual fallback",
     "fresh source is promoted when visible history is below half fresh",
     "balanced visible history does not force a weaker fresh source",
 ):

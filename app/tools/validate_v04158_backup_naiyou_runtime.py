@@ -44,8 +44,8 @@ for token in ("偶尔（12%）", "自然（24%）", "较多（42%）"):
     assert token in sticker_ui, token
 for token in (
     "ordinaryReplySemanticContext",
-    "latestUserText: latestUserText",
-    "if (bestScore <= 0) return null;",
+    "replyCandidates",
+    "不贴切就不用",
 ):
     assert token in sticker, token
 

@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:async';
 
 import '../ai/deepseek_client.dart';
 import '../ai/model_profile.dart';
@@ -36,6 +37,19 @@ class SimulatedDiaryMaterial {
         'quiet_day': quietDay,
       };
 
+  factory SimulatedDiaryMaterial.fromJson(Map<String, dynamic> value) {
+    List<String> list(String key) => (value[key] as List? ?? const [])
+        .whereType<String>().toList(growable: false);
+    return SimulatedDiaryMaterial(
+      localDay: value['local_day'] as String,
+      sharedMoments: list('shared_moments'), cares: list('cares'),
+      carriedThreads: list('carried_threads'), awareness: list('awareness'),
+      messageCount: (value['message_count'] as num?)?.toInt() ?? 0,
+      relationshipEventCount: (value['relationship_event_count'] as num?)?.toInt() ?? 0,
+      quietDay: value['quiet_day'] == true,
+    );
+  }
+
   int get concreteItemCount =>
       sharedMoments.length + cares.length + carriedThreads.length + awareness.length;
 }
@@ -72,6 +86,12 @@ class SimulatedDiaryQuality {
     final trimmed = body.trim();
     if (trimmed.length < 60 || trimmed.length > 800) return false;
     if (forbiddenBoilerplate.any(trimmed.contains)) return false;
+    // Ignore quoted language and technical mentions; reject report perspective,
+    // never globally replace the words AI or 用户 in genuine diary prose.
+    final voice = trimmed.replaceAll(RegExp(r'“[^”]*”|「[^」]*」|"[^"]*"'), '');
+    if (!voice.contains('我')) return false;
+    if (RegExp(r'(?:^|[。！？；\n])\s*(?:用户|AI|助手)(?:今天|随后|主动|又|曾|已|在|向|对|与|和|表示|提出|询问|回复|说|进行|要求|分享|讨论|希望|认为)')
+        .hasMatch(voice)) return false;
     return recentBodies.take(7).every(
           (recent) => similarity(trimmed, recent) < 0.72,
         );
@@ -84,28 +104,6 @@ class SimulatedDiaryQuality {
     final union = <String>{...a, ...b};
     if (union.isEmpty) return 0;
     return a.intersection(b).length / union.length;
-  }
-
-  static String factualFallback(SimulatedDiaryMaterial material) {
-    final paragraphs = <String>[];
-    if (material.sharedMoments.isNotEmpty) {
-      paragraphs.add(material.sharedMoments.take(3).join('；'));
-    }
-    if (material.cares.isNotEmpty) {
-      paragraphs.add('到了晚上，心里仍有没完全放下的部分：${material.cares.take(2).join('；')}');
-    }
-    if (material.carriedThreads.isNotEmpty) {
-      paragraphs.add('还有没走完的线头：${material.carriedThreads.take(2).join('；')}');
-    }
-    if (material.awareness.isNotEmpty) {
-      paragraphs.add('这一天外面的动静也留下了痕迹：${material.awareness.take(2).join('；')}');
-    }
-    if (paragraphs.isEmpty) {
-      return material.quietDay
-          ? '这一天确实很安静。没有足够具体的事情值得硬写成故事，我只记得自己在这段安静里待过。'
-          : '这一天留下的资料很少。我不想拿空泛的话补齐它，只把这份没有被整理成故事的空白留着。';
-    }
-    return paragraphs.take(4).join('\n\n');
   }
 
   static String _normalize(String value) => value
@@ -152,7 +150,9 @@ class DeepSeekSimulatedDiaryGenerator implements SimulatedDiaryGenerator {
             'role': 'system',
             'content': '你替 Android AI Companion 中持续存在的女性小鲸鱼整理一天的私人日记。'
                 '只能使用给出的真实派生资料，不得补造用户说过的话、现实经历、网页事实或关系进展。'
-                '日记只是展示层，不是新的记忆、人格结论或学习证据。只输出 JSON，不输出 Markdown。',
+                '日记只是展示层，不是新的记忆、人格结论或学习证据。只输出 JSON，不输出 Markdown。'
+                '用我称呼自己，用你或对方的真实称呼写对方；资料中的AI和用户只是内部角色标记，'
+                '不要沿用旁观者报告口吻。技术讨论中确实提到AI时可以保留，不要机械替换。',
           },
           {
             'role': 'user',
@@ -196,4 +196,30 @@ class DeepSeekSimulatedDiaryGenerator implements SimulatedDiaryGenerator {
       .replaceAll(RegExp(r'[ \t]+\n'), '\n')
       .trim() ??
       '';
+}
+
+class SimulatedDiaryAttempt {
+  const SimulatedDiaryAttempt(this.draft, this.attempts, this.failureKind);
+  final SimulatedDiaryDraft? draft;
+  final int attempts;
+  final String failureKind;
+
+  static Future<SimulatedDiaryAttempt> run(SimulatedDiaryGenerator generator, {
+    required SimulatedDiaryMaterial material,
+    required List<String> recentBodies,
+  }) async {
+    var failure = 'unavailable';
+    for (var attempt = 1; attempt <= 2; attempt++) {
+      try {
+        final draft = await generator.generate(material: material, recentBodies: recentBodies);
+        if (draft != null && SimulatedDiaryQuality.acceptable(draft.body, recentBodies: recentBodies)) {
+          return SimulatedDiaryAttempt(draft, attempt, '');
+        }
+        failure = draft == null ? 'unavailable' : 'quality_rejected';
+      } on TimeoutException { failure = 'timeout';
+      } on FormatException { failure = 'invalid_response';
+      } catch (_) { failure = 'generation_failed'; }
+    }
+    return SimulatedDiaryAttempt(null, 2, failure);
+  }
 }

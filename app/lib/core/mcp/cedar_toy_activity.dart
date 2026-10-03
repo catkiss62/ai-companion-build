@@ -186,6 +186,7 @@ class CedarGameSession {
     this.gameTitle = '',
     this.lastAction = '',
     this.lastOutcome = '',
+    this.lastOutcomeAt,
     this.nextActor = 'companion',
     this.waitingReason = '',
     this.viewerUrl = '',
@@ -213,6 +214,13 @@ class CedarGameSession {
   final CedarActivityPhase phase;
   final String lastAction;
   final String lastOutcome;
+  final DateTime? lastOutcomeAt;
+
+  DateTime? get progressAt => lastOutcomeAt ?? events.reversed
+      .where((event) => const {'outcome', 'failure', 'platform_action', 'platform_failure'}.contains(event.kind) &&
+          lastOutcome.isNotEmpty && (event.summary == lastOutcome ||
+          lastOutcome.startsWith(event.summary)))
+      .map((event) => event.createdAt).firstOrNull;
   final String nextActor;
   final String waitingReason;
   final String viewerUrl;
@@ -274,6 +282,7 @@ class CedarGameSession {
     CedarActivityPhase? phase,
     String? lastAction,
     String? lastOutcome,
+    DateTime? lastOutcomeAt,
     String? nextActor,
     String? waitingReason,
     String? viewerUrl,
@@ -306,6 +315,7 @@ class CedarGameSession {
         phase: phase ?? this.phase,
         lastAction: lastAction ?? this.lastAction,
         lastOutcome: lastOutcome ?? this.lastOutcome,
+        lastOutcomeAt: lastOutcomeAt ?? this.lastOutcomeAt,
         nextActor: nextActor ?? this.nextActor,
         waitingReason: waitingReason ?? this.waitingReason,
         viewerUrl: viewerUrl ?? this.viewerUrl,
@@ -348,6 +358,7 @@ class CedarGameSession {
         'phase': phase.key,
         'last_action': lastAction,
         'last_outcome': lastOutcome,
+        'last_outcome_at': lastOutcomeAt?.millisecondsSinceEpoch,
         'next_actor': nextActor,
         'waiting_reason': waitingReason,
         'viewer_url': viewerUrl,
@@ -379,6 +390,8 @@ class CedarGameSession {
       phase: CedarActivityPhase.fromKey(json['phase']?.toString()),
       lastAction: json['last_action']?.toString() ?? '',
       lastOutcome: json['last_outcome']?.toString() ?? '',
+      lastOutcomeAt: (json['last_outcome_at'] as num?) == null ? null :
+          DateTime.fromMillisecondsSinceEpoch((json['last_outcome_at'] as num).toInt()),
       nextActor: json['next_actor']?.toString() ?? 'companion',
       waitingReason: json['waiting_reason']?.toString() ?? '',
       viewerUrl: json['viewer_url']?.toString() ?? '',
@@ -1371,6 +1384,7 @@ class CedarToyActivityStore {
       phase: outcome.isError ? existing.phase : phase,
       lastAction: action,
       lastOutcome: _bounded(fullText, maxGuidePromptChars),
+      lastOutcomeAt: now,
       nextActor: normalizedActor,
       waitingReason: switch (normalizedActor) {
         'user' || 'shared' => '等待你参与下一步',
@@ -1517,6 +1531,7 @@ class CedarToyActivityStore {
     final next = existing.copyWith(
       lastAction: action,
       lastOutcome: _bounded(text, maxGuidePromptChars),
+      lastOutcomeAt: now,
       updatedAt: now,
       events: _append(existing.events, event),
       nextActionAt: existing.needsContinuation

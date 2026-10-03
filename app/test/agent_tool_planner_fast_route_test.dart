@@ -240,23 +240,9 @@ void main() {
     expect(plan!.calls.single.toolId, AgentToolRegistry.attachmentSave.id);
   });
 
-  test('explicit sticker request takes the deterministic local Agent route', () {
-    final plain = AgentToolPlanner.routeLocally('发个表情包');
-    expect(plain, isNotNull);
-    expect(plain!.calls.single.toolId, AgentToolRegistry.stickerSend.id);
-    expect(plain.calls.single.arguments['intent'], '自然回应');
-
-    final happy = AgentToolPlanner.routeLocally('给我发一张开心的表情包');
-    expect(happy, isNotNull);
-    expect(happy!.calls.single.toolId, AgentToolRegistry.stickerSend.id);
-    expect(happy.calls.single.arguments['intent'], contains('开心'));
-  });
-
-  test('sticker battle and sticker-only wording route to real sticker tool', () {
-    for (final text in const <String>['来斗图', '这次只回复表情包']) {
-      final plan = AgentToolPlanner.routeLocally(text);
-      expect(plan, isNotNull, reason: text);
-      expect(plan!.calls.single.toolId, AgentToolRegistry.stickerSend.id);
+  test('sticker requests stay in the final writer instead of forcing a tool', () {
+    for (final text in ['发个表情包', '给我发一张开心的表情包', '来斗图', '这次只回复表情包']) {
+      expect(AgentToolPlanner.routeLocally(text), isNull, reason: text);
     }
   });
 

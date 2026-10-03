@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'thinking_brain_icon.dart';
 
 import '../core/ai/reasoning_translation_service.dart';
 
@@ -110,7 +111,7 @@ class _ReasoningPanelState extends State<ReasoningPanel> {
   Widget build(BuildContext context) {
     if (widget.reasoning.trim().isEmpty) return const SizedBox.shrink();
     final translation = _translation?.trim() ?? '';
-    const purple = Color(0xFFB388FF);
+    const purple = thinkingColor;
     return Container(
       margin: const EdgeInsets.only(top: 6),
       decoration: BoxDecoration(

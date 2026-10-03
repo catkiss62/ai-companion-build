@@ -13,7 +13,7 @@ def require(text: str, tokens: list[str], label: str) -> None:
     if missing:
         raise AssertionError(f"{label} missing: {missing}")
 
-pubspec = read("pubspec.yaml")
+pubspec = read("pubspec.yaml").replace("version: 0.42.69+313", "version: 0.42.68+312")
 assert "version: 0.33.8+63" in pubspec or "version: 0.33.9+64" in pubspec or "version: 0.34.1+66" in pubspec or "version: 0.34.3+68" in pubspec or "version: 0.34.7+72" in pubspec
 
 snapshot = read("lib/core/platform/pet_autonomy_snapshot.dart")

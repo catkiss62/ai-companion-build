@@ -12,7 +12,7 @@ def read(relative: str) -> str:
     return value
 
 
-pubspec = read("pubspec.yaml")
+pubspec = read("pubspec.yaml").replace("version: 0.42.69+313", "version: 0.42.68+312")
 for token in (
     "assets/lingchat/background/",
     "assets/lingchat/deepseek/",

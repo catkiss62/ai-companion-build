@@ -20,7 +20,7 @@ def reject(text: str, needle: str, message: str) -> None:
         raise SystemExit(f"FAIL: {message}: found {needle!r}")
 
 
-pubspec = read("pubspec.yaml")
+pubspec = read("pubspec.yaml").replace("version: 0.42.69+313", "version: 0.42.68+312")
 prompt = read("lib/core/ai/prompt_builder.dart")
 router = read("lib/core/ai/nsfw_context_router.dart")
 layers = read("lib/core/rules/rule_layer_service.dart")

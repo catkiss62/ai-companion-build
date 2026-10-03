@@ -114,7 +114,7 @@ class _CedarToyActivityWindowState extends State<CedarToyActivityWindow> {
     await _refresh();
   }
 
-  Future<void> _showEventDetails(CedarGameEvent event) => showDialog<void>(
+  Future<void> _showEventDetails(CedarGameSession session, CedarGameEvent event) => showDialog<void>(
         context: context,
         builder: (dialogContext) => AlertDialog(
           title: const Text('活动记录详情'),
@@ -126,7 +126,7 @@ class _CedarToyActivityWindowState extends State<CedarToyActivityWindow> {
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   Text(
-                    _formatEventTime(event.createdAt),
+                    '${session.displayName} · ${_formatEventTime(event.createdAt)}',
                     style: Theme.of(dialogContext).textTheme.bodySmall,
                   ),
                   if (event.action.isNotEmpty) ...[
@@ -470,6 +470,8 @@ class _CedarToyActivityWindowState extends State<CedarToyActivityWindow> {
         if (session.lastOutcome.isNotEmpty) ...[
           const SizedBox(height: 12),
           Text('最近进展', style: Theme.of(context).textTheme.labelLarge),
+          Text('${session.displayName} · ${session.progressAt == null ? '时间未记录' : _formatEventTime(session.progressAt!)}',
+            style: Theme.of(context).textTheme.bodySmall),
           const SizedBox(height: 5),
           Align(
             alignment: Alignment.center,
@@ -551,9 +553,9 @@ class _CedarToyActivityWindowState extends State<CedarToyActivityWindow> {
                 maxLines: 3,
                 overflow: TextOverflow.ellipsis,
               ),
-              subtitle: event.action.isEmpty ? null : Text(event.action),
+              subtitle: Text('${session.displayName} · ${_formatEventTime(event.createdAt)}${event.action.isEmpty ? '' : '\n${event.action}'}'),
               trailing: const Icon(Icons.chevron_right_rounded, size: 19),
-              onTap: () => _showEventDetails(event),
+              onTap: () => _showEventDetails(session, event),
             ),
         ],
         if (state?.notices.isNotEmpty == true) ...[

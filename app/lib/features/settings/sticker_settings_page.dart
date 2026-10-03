@@ -143,8 +143,8 @@ class _StickerSettingsPageState extends State<StickerSettingsPage> {
                         Text('单聊表达强度', style: Theme.of(context).textTheme.titleMedium),
                         const SizedBox(height: 6),
                         const Text(
-                          '只在轻量闲聊、言语行动、情绪和语义都匹配后配图。'
-                          '括号内是在这些条件全部通过后的概率；不改欲望、不增加主动消息、不另调模型。',
+                          '聊天和主动消息中，她会自己选择文字、图文或纯表情包。'
+                          '括号内是提供候选的机会，实际是否发送由她结合语境决定；不会因为你只发一张图就强制斗图。',
                         ),
                         const SizedBox(height: 12),
                         DropdownButtonFormField<String>(

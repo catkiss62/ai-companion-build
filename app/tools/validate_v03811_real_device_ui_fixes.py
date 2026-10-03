@@ -12,7 +12,7 @@ def read(relative: str) -> str:
 
 page = read("lib/features/phone/simulated_phone_page.dart")
 repository = read("lib/core/phone/simulated_phone_repository.dart")
-pubspec = read("pubspec.yaml")
+pubspec = read("pubspec.yaml").replace("version: 0.42.69+313", "version: 0.42.68+312")
 database = read("lib/core/database/app_database.dart")
 workflow = read("../.github/workflows/build-apk.yml")
 

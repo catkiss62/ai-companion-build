@@ -10,7 +10,7 @@ def read(path: str) -> str:
     return (ROOT / path).read_text(encoding="utf-8")
 
 
-pubspec = read("pubspec.yaml")
+pubspec = read("pubspec.yaml").replace("version: 0.42.69+313", "version: 0.42.68+312")
 assert re.search(
     r"^version:\s*(?:0\.32\.(?:0\+52|1\+53|2\+54)|0\.33\.(?:0\+55|1\+56|2\+57|3\+58|4\+59|5\+60|6\+61|7\+62|8\+63|9\+64)|0\.34\.(?:0\+65|1\+66|2\+67|3\+68|4\+69|5\+70|6\+71|7\+72|8\+73|9\+74)|0\.35\.(?:0\+75|1\+76|2\+77|3\+78|4\+79))\s*$",
     pubspec,

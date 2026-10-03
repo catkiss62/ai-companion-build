@@ -7,7 +7,6 @@ import '../agent/agent_tool.dart';
 import '../agent/agent_native_tool_accumulator.dart';
 import '../agent/agent_participation_consent.dart';
 import '../agent/agent_tool_planner.dart';
-import '../agent/agent_tool_registry.dart';
 import '../agent/agent_tool_runner.dart';
 import '../agent/agent_task_loop.dart';
 import '../agent/agent_tool_text_envelope.dart';
@@ -43,6 +42,7 @@ import '../mcp/cedar_toy_activity.dart';
 import '../models/thought.dart';
 import '../somatic/somatic_engine.dart';
 import '../stickers/sticker_expression_service.dart';
+import '../stickers/sticker_reply_choice.dart';
 import '../storage/secure_config.dart';
 import '../platform/android_bridge.dart';
 import 'chat_api_provider.dart';
@@ -119,7 +119,9 @@ class DurableGenerationRunner {
     required this.client,
     SecureConfig? secureConfig,
     EmotionClassifierService? emotionClassifier,
-  })  : secureConfig = secureConfig ?? SecureConfig.instance,
+    StickerExpressionService? stickerService,
+  })  : stickerService = stickerService ?? StickerExpressionService(db: db),
+        secureConfig = secureConfig ?? SecureConfig.instance,
         emotionClassifier =
             emotionClassifier ?? EmotionClassifierService.instance,
         somaticEngine = SomaticEngine(db),
@@ -132,6 +134,7 @@ class DurableGenerationRunner {
           ai: client,
         );
 
+  final StickerExpressionService stickerService;
   final AppDatabase db;
   final DeepSeekClient client;
   final SecureConfig secureConfig;
@@ -898,12 +901,26 @@ class DurableGenerationRunner {
         }
       }
 
+      List<StickerReplyCandidate> stickerCandidates = const [];
+      try {
+        stickerCandidates = await stickerService.replyCandidates(
+          seed: job.assistantMessageId, context: user.promptContent,
+          eligible: DialogueExpressionPlan.select(latestUserText: user.content).mode == DialogueResponseMode.casual,
+          allowBold: const {ConversationSpeechAct.tease, ConversationSpeechAct.seekAttention,
+            ConversationSpeechAct.showNeed}.contains(conversationPlan.speechAct),
+        );
+      } catch (_) { /* Optional local assets must never block text generation. */ }
+      final stickerPrompt = StickerExpressionService.replyChoicePrompt(stickerCandidates);
+
       Future<({
         String reasoning,
         String content,
         List<DeepSeekToolCall> toolCalls,
         String finishReason,
       })> generateFinal(List<Map<String, Object?>> messages) async {
+        if (stickerPrompt.isNotEmpty) messages = [
+          ...messages, {'role': 'system', 'content': stickerPrompt},
+        ];
         if (!finalRoute.useSecondChannel) {
           finalTextFromGemini = false;
           return generateCheckedDeepSeek(messages);
@@ -1743,56 +1760,21 @@ $finalGenerationReminder
         worldBookContextJson: promptBuild.worldBookContext.encode(),
         attachments: preparedAgentAttachments,
       );
-      final userStickerAttachments = user.attachments
-          .where((item) => item.source.startsWith('user_sticker:'))
-          .toList(growable: false);
-      final stickerBattle = user.content.trim().isEmpty &&
-          userStickerAttachments.isNotEmpty;
+      final stickerChoice = StickerReplyChoice.parse(generated.content);
       SelectedStickerAttachment? selectedSticker;
-      if (agentToolResults.isEmpty) {
+      if (baseAssistant.attachments.isEmpty) {
         try {
-          final stickerService = StickerExpressionService(db: db);
-          selectedSticker = stickerBattle
-              ? await stickerService.prepareForExplicitAgentRequest(
-                  messageId: baseAssistant.id,
-                  intent: userStickerAttachments.first.visionSummary.trim().isEmpty
-                      ? '自然斗图回应'
-                      : userStickerAttachments.first.visionSummary,
-                )
-              : await stickerService.maybePrepareForOrdinaryReply(
-                  messageId: baseAssistant.id,
-                  text: baseAssistant.content,
-                  latestUserText: user.content,
-                  emotionKey: baseAssistant.emotionKey,
-                  conversationPlan: conversationPlan,
-                  responseMode: DialogueExpressionPlan.select(
-                    latestUserText: user.content,
-                  ).mode,
-                );
-        } catch (_) {
-          // A local expression asset is optional and must never block the reply.
-        }
+          selectedSticker = await stickerService.prepareReplyChoice(
+            messageId: baseAssistant.id, choice: stickerChoice, candidates: stickerCandidates);
+        } catch (_) { /* Keep the actual generated text when the asset fails. */ }
       }
       final assistantAttachments = <MessageAttachment>[
         ...baseAssistant.attachments,
         if (selectedSticker != null) selectedSticker.attachment,
       ];
-      final explicitStickerTool = agentToolResults.any(
-        (result) =>
-            result.toolId == AgentToolRegistry.stickerSend.id &&
-            result.status == AgentToolStatus.succeeded,
-      );
-      final hasAssistantSticker = assistantAttachments.any(
-        (item) => item.source.startsWith('assistant_sticker:'),
-      );
-      final stickerOnly = hasAssistantSticker &&
-          StickerExpressionService.shouldUseStickerOnly(
-            messageId: baseAssistant.id,
-            generatedText: baseAssistant.content,
-            speechAct: conversationPlan.speechAct,
-            stickerBattle: stickerBattle,
-            explicitStickerTool: explicitStickerTool,
-          );
+      final stickerOnly = selectedSticker != null && stickerChoice.stickerOnly;
+      // Share the existing transaction cleanup on every cancellation/failure.
+      if (selectedSticker != null) preparedAgentAttachments.add(selectedSticker.attachment);
       final assistant = baseAssistant.copyWith(
         content: stickerOnly ? '' : baseAssistant.content,
         segments: stickerOnly ? const <ChatSegment>[] : baseAssistant.segments,
@@ -1842,15 +1824,9 @@ $finalGenerationReminder
           playfulActivity: selfActivity ?? PlayfulSelfActivity.none,
         );
       } catch (_) {
-        if (selectedSticker != null) {
-          await StickerExpressionService(db: db).discard(selectedSticker);
-        }
         rethrow;
       }
       if (!committed) {
-        if (selectedSticker != null) {
-          await StickerExpressionService(db: db).discard(selectedSticker);
-        }
         await db.suspendGenerationJob(
           job.id,
           reason: 'ownership_changed_before_commit',

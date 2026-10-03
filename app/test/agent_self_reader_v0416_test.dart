@@ -36,7 +36,7 @@ void main() {
     expect(result.promptData, contains('id=mcp.invoke status=not_implemented'));
     expect(result.promptData, contains('id=sticker.send status=executable'));
     expect(result.promptData, contains('表情包 Agent 与自我认知'));
-    expect(result.promptData, contains('用户只发表情包也会进入斗图回应'));
+    expect(result.promptData, contains('用户只发表情包不会强制斗图'));
     expect(result.promptData, contains('自主让一张表情包承担整条回复'));
     expect(result.promptData, contains('不得声称这些功能是你自己编写的'));
     expect(result.promptData, isNot(contains('raw-device-id')));

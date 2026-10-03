@@ -1082,6 +1082,9 @@ class PreflightDiagnosticsService {
             await db.getSetting('presence_last_gate_breakdown') ?? '',
           ),
         },
+        'diaryGeneration': _safeJsonObject(
+          await db.getSetting('simulated_phone_diary_last_attempt_v1') ?? '{}',
+        ),
         'publicWebCompaction': {
           'enabled':
               (await db.getSetting('agnes_web_compaction_enabled')) != '0',

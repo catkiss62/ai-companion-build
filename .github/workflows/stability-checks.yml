@@ -1,7 +1,7 @@
 name: Stability regression checks
 on:
   push:
-    branches: [agent/v04263-stability, agent/v04264-experience, agent/v04266-memory-continuity, agent/v04267-persistent-mood, agent/v04268-deep-web]
+    branches: [agent/v04263-stability, agent/v04264-experience, agent/v04266-memory-continuity, agent/v04267-persistent-mood, agent/v04268-deep-web, agent/v04269-expression-diary]
   workflow_dispatch:
 permissions:
   contents: read
@@ -26,6 +26,8 @@ jobs:
       - name: Behavioral regression tests
         run: >-
           flutter test
+          test/expression_diary_v04269_test.dart
+          test/diary_retry_repository_v04269_test.dart
           test/deep_web_v04268_test.dart
           test/deep_web_pipeline_v04268_test.dart
           test/persistent_mood_v04267_test.dart

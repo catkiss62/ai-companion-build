@@ -1,3 +1,5 @@
+import '../stickers/sticker_expression_service.dart';
+import '../stickers/sticker_reply_choice.dart';
 import '../autonomy/public_web_read_service.dart';
 import '../mcp/cedar_play_session_policy.dart';
 import '../mcp/cedar_timed_play_task.dart';
@@ -1511,6 +1513,17 @@ ${startsFreshTopic ? '本类型属于新话题通道：ANSWERED CHAT HISTORY 已
     final lastGroundedUserText = lastGroundedUser?.content ?? '';
     var lastProactiveLeaseRefresh = DateTime.now();
 
+    final stickerService = StickerExpressionService(db: db);
+    List<StickerReplyCandidate> stickerCandidates = const [];
+    try {
+      stickerCandidates = await stickerService.replyCandidates(
+        seed: evaluationStartedAt.toIso8601String(), context: intent.reason,
+        eligible: !isCedarGameShare && webShareCandidateId == null,
+      );
+    } catch (_) { /* Optional expression assets. */ }
+    final stickerPrompt = StickerExpressionService.replyChoicePrompt(stickerCandidates);
+    if (stickerPrompt.isNotEmpty) context.add({'role': 'system', 'content': stickerPrompt});
+
     Future<_ProactiveGenerationCandidate?> generateCandidate(
       List<Map<String, Object?>> promptMessages,
     ) async {
@@ -1692,6 +1705,7 @@ ${startsFreshTopic ? '本类型属于新话题通道：ANSWERED CHAT HISTORY 已
     // Proactive generation does not use DurableGenerationRunner, so it must
     // explicitly share the same machine-only envelope normalization before
     // guards, SQLite, notification, overlay and TTS can see the content.
+    var stickerChoice = StickerReplyChoice.parse(candidate.content);
     var emotionEnvelope = EmotionEnvelope.parse(candidate.content);
     candidate = candidate.copyWith(content: emotionEnvelope.visibleText);
 
@@ -1843,6 +1857,7 @@ ${PromptBuilder.visibleChineseGenerationReminder(proactive: true)}
           deliveryStyle: deliveryStyle,
         );
       }
+      stickerChoice = StickerReplyChoice.parse(retried.content);
       emotionEnvelope = EmotionEnvelope.parse(retried.content);
       candidate = retried.copyWith(content: emotionEnvelope.visibleText);
       groundingRepairApplied = true;
@@ -2038,10 +2053,17 @@ ${PromptBuilder.visibleChineseGenerationReminder(proactive: true)}
         }
       }
     }
+    SelectedStickerAttachment? selectedSticker;
+    try {
+      selectedSticker = await stickerService.prepareReplyChoice(
+        messageId: messageId, choice: stickerChoice, candidates: stickerCandidates);
+      if (selectedSticker != null) proactiveAttachments.add(selectedSticker.attachment);
+    } catch (_) { /* Preserve generated text if an image cannot be prepared. */ }
+    final visibleText = selectedSticker != null && stickerChoice.stickerOnly ? '' : text;
     final message = ChatMessage(
       id: messageId,
       role: 'assistant',
-      content: text,
+      content: visibleText,
       reasoningContent: visibleReasoning,
       model: visibleModelName,
       createdAt: DateTime.now(),
@@ -2050,7 +2072,7 @@ ${PromptBuilder.visibleChineseGenerationReminder(proactive: true)}
       proactiveIntent: intentKind.key,
       proactiveDelivery: deliveryStyle.key,
       deviceId: await db.ensureDeviceId(),
-      segments: ChatSegmentCodec.parseAssistantText(text),
+      segments: ChatSegmentCodec.parseAssistantText(visibleText),
       emotionRawTag: companionEmotion.rawTag,
       emotionKey: companionEmotion.key,
       emotionLabel: companionEmotion.label,
@@ -2085,6 +2107,10 @@ ${PromptBuilder.visibleChineseGenerationReminder(proactive: true)}
         intentKind: intentKind,
         deliveryStyle: deliveryStyle,
       );
+    }
+    if (selectedSticker != null) {
+      try { await stickerService.markUsed(selectedSticker.record); }
+      catch (_) { /* A committed message remains delivered if usage tracking fails. */ }
     }
     if (isCedarGameShare) {
       await CedarLiveSharePolicy(db).noteDelivered(

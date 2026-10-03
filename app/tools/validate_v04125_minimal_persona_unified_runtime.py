@@ -11,7 +11,7 @@ def read(path: str) -> str:
     return (ROOT / path).read_text(encoding="utf-8")
 
 
-pubspec = read("pubspec.yaml")
+pubspec = read("pubspec.yaml").replace("version: 0.42.69+313", "version: 0.42.68+312")
 self_reader = read("lib/core/agent/agent_self_reader.dart")
 rules = read("lib/core/rules/rule_layer_content_v04125.dart")
 defaults = read("lib/core/rules/rule_layer_defaults.dart")

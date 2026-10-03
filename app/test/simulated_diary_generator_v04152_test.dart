@@ -42,14 +42,19 @@ void main() {
     );
   });
 
-  test('factual fallback uses only organized continuity material', () {
-    final body = SimulatedDiaryQuality.factualFallback(material);
-
-    expect(body, contains(material.sharedMoments.single));
-    expect(body, contains(material.cares.single));
-    expect(body, contains(material.carriedThreads.single));
-    expect(body, contains(material.awareness.single));
-    expect(body, isNot(contains('不是流水账')));
-    expect(body, isNot(contains('轻轻收在这里')));
+  test('bounded generation retries once without publishing a factual fallback', () async {
+    final generator = _Diary();
+    final result = await SimulatedDiaryAttempt.run(generator, material: material, recentBodies: []);
+    expect(generator.calls, 2);
+    expect(result.draft, isNull);
+    expect(result.failureKind, 'unavailable');
   });
+}
+
+class _Diary implements SimulatedDiaryGenerator {
+  int calls = 0;
+  @override
+  Future<SimulatedDiaryDraft?> generate({required SimulatedDiaryMaterial material, required List<String> recentBodies}) async {
+    calls++; return null;
+  }
 }

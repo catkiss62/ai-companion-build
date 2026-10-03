@@ -165,6 +165,10 @@ class SimulatedPhoneRepository {
   static const enabledKey = 'simulated_phone_enabled';
   static const _leaseKey = 'simulated_phone_refresh_lease_until';
   static const _diaryKey = 'simulated_phone_diary_json';
+  static const _diaryAttemptAtKey = 'simulated_phone_diary_attempt_at';
+  static const _diaryPendingKey = 'simulated_phone_diary_pending_v1';
+  static const _diaryRepairAtKey = 'simulated_phone_diary_repair_at';
+  static const _diaryDiagnosticKey = 'simulated_phone_diary_last_attempt_v1';
   static const _notesKey = 'simulated_phone_notes_json';
   static const _moodKey = 'simulated_phone_mood_json';
   static const _wishesKey = 'simulated_phone_wishes_json';
@@ -469,19 +473,49 @@ class SimulatedPhoneRepository {
   }
 
   Future<void> _refreshDiary(DateTime now) async {
+    final lastAttempt = int.tryParse(await db.getSetting(_diaryAttemptAtKey) ?? '') ?? 0;
+    if (now.millisecondsSinceEpoch - lastAttempt < const Duration(hours: 6).inMilliseconds) return;
     final yesterday = SimulatedPhonePolicy.previousLocalDay(now);
     final entries = await _readList(_diaryKey);
-    if (entries.any((entry) => entry.localDay == yesterday)) return;
-    final continuity = await db.latestDailyContinuity(limit: 7);
-    final records = continuity.where(
-      (record) => record.localDay == yesterday && record.isFinalized,
-    );
-    if (records.isEmpty) return;
-    final record = records.first;
+    final pending = <String, dynamic>{};
+    try {
+      final decoded = jsonDecode(await db.getSetting(_diaryPendingKey) ?? '{}');
+      if (decoded is Map<String, dynamic>) pending.addAll(decoded);
+    } catch (_) {}
+    bool due(String day) {
+      final item = pending[day];
+      return item is! Map || ((item['next_at'] as num?)?.toInt() ?? 0) <= now.millisecondsSinceEpoch;
+    }
+    final continuity = await db.latestDailyContinuity(limit: 180);
+    bool needsRepair(SimulatedPhoneEntry entry) =>
+        entry.metadata['generation_mode'] == 'factual_fallback' ||
+        (entry.metadata.isEmpty && SimulatedDiaryQuality.forbiddenBoilerplate.any(entry.body.contains));
+    final repairAt = int.tryParse(await db.getSetting(_diaryRepairAtKey) ?? '') ?? 0;
+    final repairDue = now.millisecondsSinceEpoch - repairAt >= const Duration(hours: 6).inMilliseconds;
+    final candidates = <String>[
+      if (!entries.any((entry) => entry.localDay == yesterday)) yesterday,
+      ...pending.keys,
+      if (repairDue) ...entries.where(needsRepair).map((entry) => entry.localDay),
+    ].toSet();
+    String? target;
+    for (final day in candidates) {
+      if (!due(day)) continue;
+      if (pending[day] is Map || continuity.any((record) => record.localDay == day && record.isFinalized)) {
+        target = day; break;
+      }
+    }
+    if (target == null) return;
+    final day = target;
+    final existing = entries.where((entry) => entry.localDay == day).firstOrNull;
+    final record = continuity.where((record) => record.localDay == day && record.isFinalized).firstOrNull;
+    final cached = pending[day] is Map ? Map<String, dynamic>.from(pending[day] as Map) : <String, dynamic>{};
+    if (record == null && cached['material'] is! Map) return;
     String clean(String value) => value.trim();
-    final material = SimulatedDiaryMaterial(
-      localDay: yesterday,
-      sharedMoments: record.sharedMoments
+    final material = cached['material'] is Map
+        ? SimulatedDiaryMaterial.fromJson(Map<String, dynamic>.from(cached['material'] as Map))
+        : SimulatedDiaryMaterial(
+      localDay: day,
+      sharedMoments: record!.sharedMoments
           .map((item) => clean(item.summary))
           .where((item) => item.isNotEmpty)
           .take(3)
@@ -510,43 +544,44 @@ class SimulatedPhoneRepository {
       relationshipEventCount: record.relationshipEventCount,
       quietDay: record.quietDay,
     );
-    final recentBodies = entries
-        .map((entry) => entry.body.trim())
-        .where((body) => body.isNotEmpty)
-        .take(7)
-        .toList(growable: false);
-    SimulatedDiaryDraft? generated;
-    try {
-      generated = await _diaryGenerator.generate(
-        material: material,
-        recentBodies: recentBodies,
-      );
-    } catch (_) {
-      generated = null;
-    }
-    final useGenerated = generated != null &&
-        SimulatedDiaryQuality.acceptable(
-          generated.body,
-          recentBodies: recentBodies,
-    );
-    final body = useGenerated
-        ? generated!.body
-        : SimulatedDiaryQuality.factualFallback(material);
+    final recentBodies = entries.where((entry) => entry.localDay != day)
+        .map((entry) => entry.body.trim()).where((body) => body.isNotEmpty)
+        .take(7).toList(growable: false);
+    final provenance = cached['provenance']?.toString() ?? 'daily_continuity:${record!.id}';
+    // Persist the material and cooldown before any network work. Process death
+    // cannot turn a refresh loop into unbounded generation attempts.
+    pending[day] = {
+      'material': material.toPromptJson(), 'provenance': provenance,
+      'next_at': now.add(const Duration(hours: 6)).millisecondsSinceEpoch,
+    };
+    await _writeRefreshSetting(_diaryPendingKey, jsonEncode(pending));
+    await _writeRefreshSetting(_diaryAttemptAtKey, now.millisecondsSinceEpoch.toString());
+    if (existing != null) await _writeRefreshSetting(_diaryRepairAtKey, now.millisecondsSinceEpoch.toString());
+    final result = await SimulatedDiaryAttempt.run(_diaryGenerator,
+      material: material, recentBodies: recentBodies);
+    await _writeRefreshSetting(_diaryDiagnosticKey, jsonEncode({
+      'day': day, 'at': now.millisecondsSinceEpoch, 'attempts': result.attempts,
+      'result': result.draft == null ? result.failureKind : 'generated',
+      'repair': existing != null, 'pending_count': pending.length - (result.draft == null ? 0 : 1),
+    }));
+    final generated = result.draft;
+    if (generated == null) return; // Other phone columns still refresh.
     final next = SimulatedPhoneEntry(
-      id: 'diary:$yesterday',
-      kind: 'diary',
-      title: '$yesterday · 日记',
-      body: body,
-      localDay: yesterday,
-      createdAt: now,
-      provenance: 'daily_continuity:${record.id}',
+      id: existing?.id ?? 'diary:$day', kind: 'diary',
+      title: existing?.title ?? '$day · 日记', body: generated.body,
+      localDay: day, createdAt: existing?.createdAt ?? now, provenance: provenance,
       metadata: {
-        'generation_mode': useGenerated ? 'deepseek' : 'factual_fallback',
-        'source_item_count': material.concreteItemCount,
-        if (useGenerated) 'focus_kind': generated!.focusKind,
+        ...?existing?.metadata,
+        'generation_mode': 'deepseek', 'source_item_count': material.concreteItemCount,
+        'focus_kind': generated.focusKind,
+        if (existing != null) 'repaired_at': now.millisecondsSinceEpoch,
       },
     );
-    await _writeList(_diaryKey, [next, ...entries].take(180).toList());
+    final updated = existing == null ? [next, ...entries] :
+        entries.map((entry) => entry.id == existing.id ? next : entry).toList();
+    await _writeList(_diaryKey, updated.take(180).toList());
+    pending.remove(day);
+    await _writeRefreshSetting(_diaryPendingKey, jsonEncode(pending));
   }
 
   Future<void> _refreshMood(DateTime now) async {

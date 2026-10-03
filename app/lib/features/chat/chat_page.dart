@@ -4,6 +4,7 @@ import 'dart:async';
 import 'dart:io';
 
 import 'package:flutter/material.dart';
+import '../../widgets/thinking_brain_icon.dart';
 import 'package:flutter/rendering.dart' show ScrollDirection;
 import 'package:image_picker/image_picker.dart';
 
@@ -695,8 +696,8 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
                         _closeComposerTools();
                         unawaited(controller.setDeepThinking(!controller.deepThinking));
                       },
-                      icon: Icon(Icons.lightbulb_outline,
-                        color: controller.deepThinking ? Colors.purpleAccent : Colors.grey),
+                      icon: ThinkingBrainIcon(
+                        color: controller.deepThinking ? thinkingColor : null),
                     ),
                   ],
                 ),
@@ -2473,7 +2474,7 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
                     : _toggleComposerTools,
                 tooltip: controller.deepThinking ? '深度思考已开启' : '表情包、图片与深度思考',
                 style: controller.deepThinking
-                    ? IconButton.styleFrom(foregroundColor: Colors.purpleAccent)
+                    ? IconButton.styleFrom(foregroundColor: thinkingColor)
                     : null,
                 icon: _pickingImage || controller.savingImage
                     ? const SizedBox.square(

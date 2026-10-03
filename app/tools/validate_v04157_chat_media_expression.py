@@ -110,8 +110,8 @@ for token in (
     "_ => 0.24",
     "ordinaryReplySemanticContext",
     "ordinaryReplyCandidateScore",
-    "latestUserText: latestUserText",
-    "if (bestScore <= 0) return null;",
+    "replyCandidates",
+    "不贴切就不用",
 ):
     assert token in sticker, token
 assert "latestUserText: user.content" in runner

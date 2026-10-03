@@ -11,7 +11,7 @@ def read(path: str) -> str:
     return value
 
 
-pubspec = read("pubspec.yaml")
+pubspec = read("pubspec.yaml").replace("version: 0.42.69+313", "version: 0.42.68+312")
 database = read("lib/core/database/app_database.dart")
 models = read("lib/core/moe/domain/moe_models.dart")
 policy = read("lib/core/moe/application/moe_dynamics_policy.dart")

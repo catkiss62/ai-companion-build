@@ -43,7 +43,7 @@ require(
     "cedar_recent_progress_narrow_card",
     "widthFactor: 0.84",
     "活动记录详情",
-    "onTap: () => _showEventDetails(event)",
+    "onTap: () => _showEventDetails(session, event)",
     "SelectableText(event.summary)",
 )
 require(

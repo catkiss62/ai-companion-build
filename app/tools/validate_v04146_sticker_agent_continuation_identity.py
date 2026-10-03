@@ -13,7 +13,7 @@ def read(path: str) -> str:
     return (ROOT / path).read_text(encoding="utf-8")
 
 
-pubspec = read("pubspec.yaml")
+pubspec = read("pubspec.yaml").replace("version: 0.42.69+313", "version: 0.42.68+312")
 database = read("lib/core/database/app_database.dart")
 tool = read("lib/core/agent/agent_tool.dart")
 registry = read("lib/core/agent/agent_tool_registry.dart")
@@ -57,8 +57,8 @@ for token in (
     "autonomousAvailable: false",
 ):
     assert token in registry
-assert "AgentToolRegistry.stickerSend.id" in planner
-assert "_isExplicitStickerSend" in planner
+assert "_isExplicitStickerSend" not in planner
+assert "StickerReplyChoice.parse(generated.content)" in durable
 assert "capability talk and negation never send media" in tests
 assert "call.reasonTag == 'explicit_request'" in runner
 assert "assistantMessageId.trim().isEmpty" in runner
@@ -121,7 +121,7 @@ for forbidden in ("“傻逼”“儿子”“哥哥”“宝贝”", "固定词
     assert forbidden not in rules
 
 for phrase in (
-    "explicit sticker request takes the deterministic local Agent route",
+    "sticker requests stay in the final writer instead of forcing a tool",
     "sticker send claims require the current real media result",
     "continuation repairs truncation instead of filling a word quota",
     "continuation reasoning stays private",

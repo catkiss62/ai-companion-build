@@ -1,3 +1,7 @@
+import 'package:ai_companion_localfirst/core/stickers/sticker_expression_service.dart';
+import 'package:ai_companion_localfirst/core/stickers/sticker_reply_choice.dart';
+import 'package:ai_companion_localfirst/core/stickers/sticker_pack.dart';
+import 'package:ai_companion_localfirst/core/models/message_attachment.dart';
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
@@ -27,9 +31,10 @@ class _Paths extends PathProviderPlatform {
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
   sqfliteFfiInit();
+  for (final scenario in ['none', 'with_text', 'only', 'failed_asset']) {
   for (final deep in [false, true]) {
     test(
-      'real reply pipeline: deep=$deep plans only when enabled, Gemini writes once',
+      'real reply pipeline: deep=$deep expression=$scenario plans only when enabled, Gemini writes once',
       () async {
         final root = await Directory.systemTemp.createTemp(
           'deep-web-pipeline-',
@@ -72,7 +77,7 @@ void main() {
             }
             if (request.url.host == 'relay.invalid') {
               finals++;
-              return sse('「嗯，我在听。」');
+              return sse('「嗯，我在听。」\n<sticker_choice>${scenario == 'none' ? 'none' : '${scenario == 'failed_asset' ? 'only' : scenario}:s1'}</sticker_choice>');
             }
             return sse('{}');
           }),
@@ -109,10 +114,14 @@ void main() {
                     db: db,
                     client: client,
                     secureConfig: secure,
+                    stickerService: _Stickers(db, scenario),
                   )
                   .run(job, cancellationToken: cancellation)
                   .timeout(const Duration(seconds: 20));
           expect(result.status, 'completed', reason: '${result.error}');
+          final reply = (await db.messageById('reply'))!;
+          expect(reply.content, scenario == 'only' ? '' : '「嗯，我在听。」');
+          expect(reply.attachments.length, ['only', 'with_text'].contains(scenario) ? 1 : 0);
           expect(plans, deep ? 1 : 0);
           expect(finals, 1);
           expect(
@@ -130,5 +139,25 @@ void main() {
         }
       },
     );
+  }
+}
+}
+
+class _Stickers extends StickerExpressionService {
+  _Stickers(AppDatabase db, this.scenario) : super(db: db);
+  final String scenario;
+  static const pack = StickerPackMeta(id: 'test', name: 'test', description: '', license: '', rootPath: '', count: 1);
+  static const record = StickerRecord(packId: 'test', path: 'smile.png', tag: 'happy', caption: '微笑着听对方说话', keywords: '听 开心', toneScope: 'general', intensity: 1, enabled: true);
+  @override
+  Future<List<StickerReplyCandidate>> replyCandidates({required String seed, required String context,
+    bool eligible = true, bool allowBold = false}) async => [const StickerReplyCandidate('s1', pack, record)];
+  @override
+  Future<SelectedStickerAttachment?> prepareReplyChoice({required String messageId,
+    required StickerReplyChoice choice, required List<StickerReplyCandidate> candidates}) async {
+    if (scenario == 'failed_asset') throw const FileSystemException('missing asset');
+    if (choice.mode == 'none') return null;
+    return SelectedStickerAttachment(record: record, attachment: MessageAttachment(
+      id: 'a', messageId: messageId, kind: 'image', originalPath: '', thumbnailPath: '',
+      mimeType: 'image/png', byteSize: 1, width: 1, height: 1, createdAt: DateTime.now(), source: 'assistant_sticker:test'));
   }
 }
