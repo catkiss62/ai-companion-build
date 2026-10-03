@@ -23,5 +23,5 @@ assert '以下语义仅供参考，不要求一定使用表情。' not in face
 assert '情绪不明显时选无。' in face
 assert '被夸奖' not in face
 assert (r / 'test/memory_continuity_v04266_test.dart').is_file()
-assert '\nversion: 0.42.66+310\n' in read('pubspec.yaml')
+assert any(f'\nversion: {v}\n' in read('pubspec.yaml') for v in ['0.42.66+310', '0.42.67+311'])
 print('v04266 bounded recall, explicit-only expansion and optional expression hints wired')

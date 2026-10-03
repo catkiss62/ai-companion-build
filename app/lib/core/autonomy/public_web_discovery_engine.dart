@@ -1,3 +1,5 @@
+import '../mood/mood_service.dart';
+import '../mood/mood_state.dart';
 import 'package:uuid/uuid.dart';
 
 import '../ai/deepseek_client.dart';
@@ -402,6 +404,15 @@ class PublicWebDiscoveryEngine {
       now: DateTime.now(),
     );
     if (stored > 0) {
+      // Reuse the existing semantic appraisal, never equate HTTP success with joy.
+      final discovery = kept.where((c) => c.isVerifiedRead &&
+        c.semanticState == 'valid' && c.interestScore >= .65).firstOrNull;
+      if (discovery != null) {
+        try {
+          await MoodService(db).external(MoodEvent(id: 'web:${discovery.fingerprint}',
+            kind: 'discovery', source: 'web_discovery', at: instant));
+        } catch (_) { /* Optional mood must not replay a committed discovery. */ }
+      }
       await _recordRuntime(
         at: instant,
         outcome: 'candidate_stored',

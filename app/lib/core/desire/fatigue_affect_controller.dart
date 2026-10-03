@@ -1,3 +1,4 @@
+import '../mood/mood_store.dart';
 import '../database/app_database.dart';
 import 'fatigue_affect_policy.dart';
 
@@ -43,7 +44,8 @@ class FatigueAffectController {
     }
     final episodes = await db.activeEmotionEpisodes(now: instant, limit: 6);
     return FatigueAffectPolicy.evaluate(
-      episodes: episodes,
+      episodes: await db.getSetting(MoodStore.enabledKey) == '0' ? episodes
+          : episodes.where((e) => e.evidenceType == 'drive_snapshot'),
       now: instant,
       sleepDebt: repaid,
       updatedAt: storedUpdatedAt ?? instant,

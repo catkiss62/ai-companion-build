@@ -1,3 +1,4 @@
+import '../mood/mood_service.dart';
 import 'dart:convert';
 import 'dart:io';
 import 'dart:math';
@@ -657,6 +658,8 @@ class PreflightDiagnosticsService {
         'chatTurnLease': chatTurnLease,
         'stateWriterLeases': stateWriterLeases,
         'emotionObservability': emotionDiagnostics,
+        'persistentMood': {'enabled': await MoodService(db).enabled,
+          ...(await MoodService(db).snapshot(now: now)).diagnostic()},
         'visibleReasoningLanguage': reasoningLanguageDiagnostics,
         'memoryRetrieval': memoryRetrievalDiagnostics,
         'memoryLifecycle': memoryLifecycleDiagnostics,

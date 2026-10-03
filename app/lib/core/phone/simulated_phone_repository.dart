@@ -1,3 +1,4 @@
+import '../mood/mood_service.dart';
 import 'dart:convert';
 import 'dart:math';
 
@@ -555,9 +556,13 @@ class SimulatedPhoneRepository {
     final episodes = await db.activeEmotionEpisodes(now: now, limit: 1);
     final episode = episodes.isEmpty ? null : episodes.first;
     final strongest = _strongestDrive(desire);
+    final moodEnabled = await MoodService(db).enabled;
+    final mood = moodEnabled ? await MoodService(db).snapshot(now: now) : null;
     final metrics = SimulatedPhonePolicy.moodMetrics(desire);
+    if (mood != null) metrics['score'] = (mood.valence * 100).round();
     final previous = entries.where((entry) => entry.localDay == day).firstOrNull;
-    final episodeId = episode?.id ?? '';
+    final episodeId = mood != null
+        ? 'mood:${mood.label}:${mood.causes.map((e) => e.id).join(',')}' : episode?.id ?? '';
     final change = previous != null &&
         previous.metadata['source_episode_id'] != episodeId;
     final revisions = (previous?.metadata['revisions'] as num?)?.toInt() ?? 0;
@@ -573,8 +578,9 @@ class SimulatedPhoneRepository {
         'strongest_drive': strongest.key.name,
         'drive_strength': strongest.value.toStringAsFixed(2),
         'metrics': metrics,
-        'emotion': episode?.category.name ?? '',
-        'emotion_intensity': episode?.intensity.toStringAsFixed(2) ?? '',
+        'emotion': mood?.label ?? episode?.category.name ?? '',
+        if (mood != null) 'mood': mood.diagnostic(),
+        'emotion_intensity': mood == null ? episode?.intensity.toStringAsFixed(2) ?? '' : '',
         if (today != null) 'shared_moments':
             today.sharedMoments.map((e) => e.summary).take(2).toList(),
         if (today != null) 'open_cares':
@@ -590,7 +596,7 @@ class SimulatedPhoneRepository {
       body: generated.body,
       localDay: day,
       createdAt: now,
-      provenance: episode == null
+      provenance: mood != null ? 'persistent_mood_snapshot' : episode == null
           ? 'desire_snapshot:${strongest.key.name}'
           : 'emotion_episode:${episode.id}',
       metadata: {

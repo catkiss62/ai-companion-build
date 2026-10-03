@@ -1,3 +1,6 @@
+import 'package:crypto/crypto.dart';
+import '../mood/mood_service.dart';
+import '../mood/mood_state.dart';
 import 'dart:convert';
 
 import '../database/app_database.dart';
@@ -122,6 +125,10 @@ class CedarPlayOutcomeBookkeeper {
       await _bestEffort(() => CedarLiveSharePolicy(db).noteForeground(session));
     }
     if (!successfulStateChange) return;
+    await _bestEffort(() => MoodService(db).external(MoodEvent(
+      id: 'cedar:${session.gameId}:${sha256.convert(utf8.encode(outcome.text))}',
+      kind: 'progress', source: 'cedar_activity', at: now)));
+    // A confirmed step can give mild engagement; it never proves a win/loss.
     await _bestEffort(() => CedarTimedPlayTaskStore(db).recordProgress(session));
     await _bestEffort(() async {
       final desire = await db.loadDesire();

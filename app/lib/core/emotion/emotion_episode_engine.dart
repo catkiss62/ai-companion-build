@@ -1,3 +1,4 @@
+import '../mood/mood_store.dart';
 import '../database/app_database.dart';
 import '../models/chat_message.dart';
 import '../models/desire_state.dart';
@@ -27,6 +28,7 @@ class EmotionEpisodeEngine {
       desire: desire,
       now: instant,
     );
+    if (await db.getSetting(MoodStore.enabledKey) != '0') return restEpisode;
     final appraisal = EmotionAppraisalPolicy.appraise(
       userText: user.content,
       desire: desire,
@@ -58,7 +60,7 @@ class EmotionEpisodeEngine {
     return inserted ? episode : db.emotionEpisodeById(episode.id);
   }
 
-  Future<String> buildPromptSection({DateTime? now}) async {
+  Future<String> buildPromptSection({DateTime? now, bool bodyOnly = false}) async {
     final instant = now ?? DateTime.now();
     await db.expireEmotionEpisodes(now: instant);
     final desire = await db.loadDesire();
@@ -90,6 +92,7 @@ class EmotionEpisodeEngine {
       persistRecovery: false,
     );
     final fatigueGuidance = _fatigueAffectGuidance(fatigueAffect);
+    if (bodyOnly) return fatigueGuidance;
     if (visible.isEmpty) {
       return '【可追溯情绪事件】暂无；不要为了显得有情绪而补写原因。\n$fatigueGuidance';
     }

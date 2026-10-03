@@ -1,3 +1,4 @@
+import '../mood/mood_store.dart';
 import '../memory/conversation_recall_policy.dart';
 import '../models/world_book_turn_context.dart';
 import 'dart:convert';
@@ -7150,6 +7151,7 @@ class AppDatabase {
     Transaction txn,
     String userMessageId,
   ) async {
+    await MoodStore.removeTurn(txn, userId: userMessageId);
     final rows = await txn.query(
       'settings',
       columns: const ['value'],
@@ -7780,6 +7782,7 @@ class AppDatabase {
           );
         }
       }
+      await MoodStore.removeTurn(txn, replyId: assistantMessageId);
       await PlayfulFormStore.undoReplyInTransaction(txn, assistantMessageId);
       await txn.delete(
         'post_turn_jobs',
@@ -7965,6 +7968,9 @@ class AppDatabase {
         somaticEvents,
         assistant.createdAt,
       );
+      await MoodStore.commitTurn(txn, userId: job.userMessageId,
+        replyId: assistant.id, now: assistant.createdAt,
+        roleplay: WorldBookTurnContext.decode(assistant.worldBookContextJson).hasRoleplay);
       if (playfulActivity != null) {
         await PlayfulFormStore.settleInTransaction(txn,
           userTurn: job.userMessageId, assistantTurn: assistant.id,

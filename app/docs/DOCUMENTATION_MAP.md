@@ -37,6 +37,8 @@
 
 ### 人格、驱动、情绪与关系
 
+- `PERSISTENT_MOOD_v1.md`：+311持续心情，任务上下文、模块边界、真实事件、JEV复用、生命周期与验收。
+
 - `INNER_DRIVE_DESIRE_SYSTEM_BACKUP_v2.md`：欲望/内在驱动唯一融合主干；已吸收旧审计中的 screen companion 与维护约束。
 - `PERSONALITY_TRIAL_SYSTEM_v1.md`：性格试穿。
 - `PERSONALITY_INNER_VOICE_v2.md`：长期人格内心声。

@@ -1,3 +1,5 @@
+import '../mood/mood_appraisal.dart';
+import '../mood/mood_service.dart';
 import 'dart:convert';
 
 import '../database/app_database.dart';
@@ -101,6 +103,12 @@ class NsfwContextRouter {
     final attitudeGame = cedarConfigured
         ? (await CedarToyActivityStore(db).load())?.gameId ?? '' : '';
     await db.setSetting('cedar_game_attitude_route_game', attitudeGame);
+    final mood = MoodService(db);
+    final moodEnabled = await mood.enabled;
+    final moodNow = recent.where((m) => m.id == turnId).firstOrNull?.createdAt ?? DateTime.now();
+    final pendingCause = moodEnabled ? await mood.pendingCause(moodNow) : null;
+    final causeMessage = pendingCause == null ? null
+        : await db.messageById(pendingCause.id.replaceFirst('user:', ''));
     final jev = await jevGateway.chooseMany(
       state: <String, Object?>{
         'current_route': currentActive ? 'nsfw' : 'daily',
@@ -110,8 +118,14 @@ class NsfwContextRouter {
             : transcript,
         'latest_user_text': latestUserText,
         'active_game': attitudeGame,
+        if (causeMessage != null) 'pending_cause': {
+          'id': pendingCause!.id, 'user_evidence': causeMessage.promptContent.length > 500
+              ? causeMessage.promptContent.substring(0, 500) : causeMessage.promptContent,
+          'meaning': pendingCause.kind, 'provisional_interpretation_not_fact': true,
+        },
       },
       questions: <String, JevChoiceQuestion>{
+        if (moodEnabled) ...MoodAppraisal.questions,
         'mode': JevChoiceQuestion(
           'Which descriptive prompt depth fits latest_user_text in '
           'recent_context? Keep an ongoing explicit scene active when the '
@@ -197,6 +211,9 @@ class NsfwContextRouter {
       cancellationToken: cancellationToken,
       usageLane: 'chat_intimacy_route',
     );
+    cancellationToken?.throwIfCancelled();
+    await mood.stage(moodEnabled ? MoodAppraisal.event(answers: jev,
+      userId: turnId, at: moodNow, targetId: pendingCause?.id ?? '') : null);
     if (jev != null) {
       cancellationToken?.throwIfCancelled();
       final decision = NsfwRouteDecision(
@@ -221,7 +238,7 @@ class NsfwContextRouter {
         model: DeepSeekModelProfile.flash,
         effort: ReasoningEffort.high,
         thinking: false,
-        maxTokens: 180,
+        maxTokens: moodEnabled ? 260 : 180,
         cancellationToken: cancellationToken,
         usageLane: 'chat_intimacy_route',
         messages: <Map<String, Object?>>[
@@ -250,6 +267,16 @@ strong: clearly strong deliberate playful provocation, including an initial chal
 Do not treat a request for technical help, genuine distress, or conflict as banter.
 Judge FLUSTERED independently: yes only for clear intense flustered embarrassment in the actual exchange, not mild shyness or routine affection. Judge INITIATIVE independently: open means a small self-started playful challenge could fit naturally now; closed means this message needs a direct response or offers no natural opening. This field only permits a possible optional nudge and does not grant heat points. Also judge game_attitude: encourage means optional autonomous game exploration when free; pause means set autonomous gaming aside; none covers direct act-now requests, ordinary game talk, quotes, different named games and unrelated messages. Permission such as 你可以自己玩玩 or 有空自己去玩吧 is encouragement unless immediate action is clearly requested in context. If CEDAR_CONFIGURED is false, game_attitude must be none. Return the independent fields in one JSON object.''',
           },
+          if (moodEnabled) {
+            'role': 'system',
+            'content': 'Also include mood_event, mood_impact and mood_certainty (clear or uncertain) '
+                'in the SAME JSON; do not change the other fields. '
+                '${MoodAppraisal.questions['mood_event']!.instruction} '
+                'mood_event options: ${jsonEncode(MoodAppraisal.questions['mood_event']!.options)}. '
+                '${MoodAppraisal.questions['mood_impact']!.instruction} '
+                'mood_impact: none|mild|clear|strong. Uncertain interpretation must use none. '
+                'Pending cause for targeted repair: ${causeMessage == null ? "none" : jsonEncode({"id": pendingCause!.id, "evidence": causeMessage.promptContent.length > 500 ? causeMessage.promptContent.substring(0, 500) : causeMessage.promptContent})}',
+          },
           {
             'role': 'user',
               'content': '''CURRENT_ROUTE=${currentActive ? 'nsfw' : 'daily'}
@@ -276,6 +303,13 @@ $latestUserText''',
       }
       final result = (jsonDecode(raw.substring(objectStart, objectEnd + 1)) as Map)
           .cast<String, dynamic>();
+      if (moodEnabled && result['mood_certainty'] == 'clear') {
+        await mood.stage(MoodAppraisal.event(answers: {
+          'mood_event': result['mood_event']?.toString() ?? 'none',
+          'mood_impact': result['mood_impact']?.toString() ?? 'none',
+          'interaction': result['interaction']?.toString() ?? 'ordinary',
+        }, userId: turnId, at: moodNow, targetId: pendingCause?.id ?? ''));
+      }
       final mode = manualRoute ? (manual == 'on' ? 'nsfw' : 'daily')
           : result['mode']?.toString().trim().toLowerCase() ?? '';
       final interaction = PlayfulInteraction.parse(result['interaction']);
@@ -322,6 +356,7 @@ $latestUserText''',
       // Routing only selects prompt depth. A classifier failure falls back to
       // the light daily layer; relationship capability, libido and
       // natural flirting remain available in that layer.
+      await mood.stage(null);
       final fallback = NsfwRouteDecision(
         active: manualRoute && manual == 'on',
         referenceActive: false,

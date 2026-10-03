@@ -149,7 +149,7 @@ class JevDecisionGateway {
       final results = <String, String>{};
       final answerTrace = <String, Object?>{};
       var closeDecisions = false;
-      for (final entry in questions.entries) {
+      questionLoop: for (final entry in questions.entries) {
         final category = switch (entry.key) {
           'mode' => 'mode',
           'interaction' => 'interaction',
@@ -159,6 +159,7 @@ class JevDecisionGateway {
         };
         final answer = answers[entry.key];
         if (answer is! Map || answer['type'] != 'choice') {
+          if (entry.value.optional) { answerTrace[entry.key] = {'status': 'optional_missing'}; continue; }
           await _record(usageLane, 'invalid_answer_$category', started,
               usage: decoded['usage'], request: requestTrace,
               answers: answerTrace);
@@ -173,6 +174,7 @@ class JevDecisionGateway {
             probabilities is! Map || probabilities[selected] is! num ||
             (probabilities[selected] as num) < 0 ||
             (probabilities[selected] as num) > 1) {
+          if (entry.value.optional) { answerTrace[entry.key] = {'status': 'optional_invalid'}; continue; }
           await _record(usageLane, 'invalid_answer_$category', started,
               usage: decoded['usage'], request: requestTrace,
               answers: answerTrace);
@@ -186,6 +188,7 @@ class JevDecisionGateway {
           // a close-race rule needs at least two reported options.
           if (value == null && !probabilities.containsKey(option)) continue;
           if (value is! num || !value.isFinite || value < 0 || value > 1) {
+            if (entry.value.optional) { answerTrace[entry.key] = {'status': 'optional_invalid_probability'}; continue questionLoop; }
             await _record(usageLane, 'invalid_answer_$category', started,
                 usage: decoded['usage'], request: requestTrace,
                 answers: answerTrace);
@@ -212,7 +215,8 @@ class JevDecisionGateway {
         };
         final highest = ranked.first.key;
         final grouped = resolvePlayfulGroup(usageLane, entry.key, distribution);
-        final applied = grouped ?? (close && neutral != null ? neutral : highest);
+        var applied = grouped ?? (close && neutral != null ? neutral : highest);
+        applied = entry.value.resolve?.call(distribution) ?? applied;
         closeDecisions = closeDecisions || (applied == neutral && applied != highest);
         results[entry.key] = applied;
         answerTrace[entry.key] = <String, Object?>{
@@ -280,7 +284,9 @@ class JevDecisionGateway {
 }
 
 class JevChoiceQuestion {
-  const JevChoiceQuestion(this.instruction, this.options);
+  const JevChoiceQuestion(this.instruction, this.options, {this.optional = false, this.resolve});
+  final String Function(Map<String, double>)? resolve;
+  final bool optional;
   final String instruction;
   final Map<String, String> options;
 }

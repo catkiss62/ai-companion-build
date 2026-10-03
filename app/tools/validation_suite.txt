@@ -150,3 +150,4 @@ tools/validate_v04261_timed_play_recovery.py
 tools/validate_v04265_playful_integrity.py
 
 tools/validate_v04266_memory_continuity.py
+tools/validate_v04267_persistent_mood.py
