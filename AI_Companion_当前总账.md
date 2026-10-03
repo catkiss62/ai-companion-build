@@ -1,19 +1,19 @@
 # AI Companion · 当前总账
 
-更新时间：2026-10-03（+309 IMPLEMENTED / CI PENDING / APK PENDING；+308 CI PASSED / APK READY / TRUE DEVICE PENDING；+307 CI PASSED / APK READY / USER DEVICE ACCEPTED；+306 CI PASSED / APK READY / TRUE DEVICE PENDING；+305 CI PASSED / APK READY / DEVICE REPORTED REPLY STALL；+304 CI PASSED / APK READY / TRUE DEVICE PENDING；+303 CI PASSED / APK READY / TRUE DEVICE PENDING；+302 CI PASSED / APK READY / TRUE DEVICE PENDING；+301 CI PASSED / APK READY / TRUE DEVICE PENDING；+300 CI PASSED / APK READY / TRUE DEVICE PENDING；+299 CI PASSED / APK READY / TRUE DEVICE PENDING；+298 CI PASSED / APK READY / TRUE DEVICE PENDING；+297 CI PASSED / APK READY / TRUE DEVICE PENDING；+295 恢复真机成功、背景回归 PARTIAL；+293 DEVICE VISUAL BASELINE）
+更新时间：2026-10-03（+309 CI PASSED / APK READY / TRUE DEVICE PENDING；+308 CI PASSED / APK READY / TRUE DEVICE PENDING；+307 CI PASSED / APK READY / USER DEVICE ACCEPTED；+306 CI PASSED / APK READY / TRUE DEVICE PENDING；+305 CI PASSED / APK READY / DEVICE REPORTED REPLY STALL；+304 CI PASSED / APK READY / TRUE DEVICE PENDING；+303 CI PASSED / APK READY / TRUE DEVICE PENDING；+302 CI PASSED / APK READY / TRUE DEVICE PENDING；+301 CI PASSED / APK READY / TRUE DEVICE PENDING；+300 CI PASSED / APK READY / TRUE DEVICE PENDING；+299 CI PASSED / APK READY / TRUE DEVICE PENDING；+298 CI PASSED / APK READY / TRUE DEVICE PENDING；+297 CI PASSED / APK READY / TRUE DEVICE PENDING；+295 恢复真机成功、背景回归 PARTIAL；+293 DEVICE VISUAL BASELINE）
 
 > 本文件是唯一的当前接班入口，继续采用“总账 v2”。顶部是快速接班索引；标记后的正式记录按版本持续追加，不设总容量上限。
 >
 > 判断优先级：用户最新明确决定 > 当前 GitHub 源码与 Actions > 同时刻脱敏真机诊断/备份 > 本文件 > 冻结归档与 Git 历史。`DESIGNED`、`IMPLEMENTED`、`CI PASSED`、`APK READY`、`TRUE DEVICE PASSED`、`PENDING` 必须严格区分。
 
 
-## 当前接班快照 · +309 气焰完整性修复（实施中）
+## 当前接班快照 · +309 气焰完整性修复（已交付测试APK）
 
-2026-10-03 14:52用户授权实施气焰全链路修复，普通搜索低风险优化可一并处理，允许自行判断深度模式是否延期。本轮选择延期深度思考：涉及工具入口、资料传递、记忆来源，应另批验收；其未来UI为聊天+菜单替换世界书按钮，灯泡关闭灰/开启紫，同时+号紫。不自动开展该功能。当前开发分支agent/v04265-playful-integrity，基于5f198bd（+308），候选v0.42.65+309。此前+306可回退基线保留。
+2026-10-03 14:52用户授权实施气焰全链路修复，普通搜索低风险优化可一并处理，允许自行判断深度模式是否延期。本轮选择延期深度思考：涉及工具入口、资料传递、记忆来源，应另批验收；其未来UI为聊天+菜单替换世界书按钮，灯泡关闭灰/开启紫，同时+号紫。不自动开展该功能。当前开发分支agent/v04265-playful-integrity，基于+308同源码树（本地5f198bd/远端b98c2d4），版本v0.42.65+309。此前+306可回退基线保留。
 
-已写候选：JEV按相关语义组消歧、满值后轻逗/互逗累计两次或强刺激一次，首次涨满保护；强烈害羞并入现有JEV批次，不再每满值轮另调突破模型。原计分值保留。手动正文模式不跳过独立气焰分类；贴图语义参与。气焰与回复同事务、截断确认结算、重生按最新结算快照撤销，锁定保留待结算；手动动作阻止旧轮迟到加分。普通显式搜索交现有Agent按前文补完整query，不增加每轮规划。自然进入Q在本轮提示中生效，归零恢复在完成回复后结算，避免先扣零漏算正加分。
+已实现并通过CI：JEV按相关语义组消歧、满值后轻逗/互逗累计两次或强刺激一次，首次涨满保护；强烈害羞并入现有JEV批次，不再每满值轮另调突破模型。原计分值保留。手动正文模式不跳过独立气焰分类；贴图语义参与。气焰与回复同事务、截断确认结算、重生按最新结算快照撤销，锁定保留待结算；手动动作阻止旧轮迟到加分。普通显式搜索交现有Agent按前文补完整query，不增加每轮规划。自然进入Q在本轮提示中生效，归零恢复在完成回复后结算，避免先扣零漏算正加分。
 
-尚未CI/未构建/未真机验收。详细审计在文末14:39记录，本轮实现和验证后续追加。除说明的搜索词优化外，不重构网页整理链；Agnes原文传递与深度模式下一批讨论。桌宠/Live2D、沉浸入口冻结、TTS接入及普通双通道架构保留。本轮允许开发分支推送/完整CI/未发布测试APK，不合并main。
+最终功能39c3bcf457702f0eaac55da08bbbf4d0932551d8；[Actions37109660394](https://github.com/catkiss62/ai-companion-build/actions/runs/37109660394)全绿，140项源码门、1175项Flutter（新增23）、Android15原生18项及签名/资源检查通过。[未发布+309测试APK](https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-911e1e7cf409cdf1dd2e)，同一签名可覆盖安装；真机仍待验收。最终哈希和资产信息见文末“+309 最终CI与APK交付”；早期09e818b包已被最终包替代。除说明的搜索词优化外，不重构网页整理链；Agnes原文传递与深度模式下一批讨论。桌宠/Live2D、沉浸入口冻结、TTS接入及普通双通道架构保留。本轮允许开发分支推送/完整CI/未发布测试APK，不合并main。
 
 ## 当前接班快照 · +308 体验改善第二批
 
@@ -554,10 +554,12 @@ Actions 与交付证据：
 | P1 | 设置“帮助”与真实能力清单 | `v0.41.87+231 TRUE DEVICE PASSED`：页面直接消费当前 `AgentToolRegistry`，并整理 `【检查系统】`、联网/网页阅读/图片、查手机、Cedar、Stop、备份恢复、TTS、权限隐私、故障排查与明确限制。用户确认入口与内容正常，且 UI 干净美观；其分节层级、图标、留白、克制的卡片色和可折叠说明作为未来全局 UI 美化的参考方向。 |
 | P1 | 本地 Genie TTS 推理速度实验 | 当前生产基线是 CPU 8 线程，旧真机已证明 XNNPACK 会出现异常短音频、NNAPI 无收益。先在独立 `Genie-TTS-Android` 测试工程用同设备/同模型拆出前端、语义 Decoder、声码器、WAV 与冷/热启动瓶颈，并比较 4/6/8 线程、`PerformanceHintManager`/线程优先级、大核调度提示、session/张量缓存和分段预生成；只有证据稳定的引擎级方案再移植到伴侣项目做一次集成 A/B。最终必须是默认关闭的“快速推理”开关，关闭即回到当前路径，并具备温度、功耗、峰值内存、音频完整性、音质与自动回退门。普通 App 不承诺 root 级硬件超频，也不直接恢复已否证的 XNNPACK/NNAPI。 |
 | P1 | 全工具调用动作展示 | `+248 IMPLEMENTED / CI PASSED`：工具活动生成中展开，终态按真实 Outcome 绑定并回看；`+257` 补齐可读实文的有界持久化与悬浮窗回看。实现已完成，不再列为开发待办；失败、Stop 与重启后展示仍待逐项真机验收。 |
-| P2 | 通用 MCP Registry 与未来工作区 | Cedar 专用 MCP 已完成，但通用 `mcp.invoke` 仍为不可执行占位。未来按只读优先分批实现 Server 注册、能力目录、权限、审计、超时、取消、凭据隔离和可卸载；需要处理工作任务时再设计独立合理工作区。OAuth、社区工具与 stdio/Harness 不与陪伴数据库直接混用。 |
+| P1 | 联网资料原文传递（待完成） | +309仅修明确搜索入口和上下文query；用户要求的取消Agnes压缩尚未实现。后续调整网页可读性筛选、证据预算与原文传递，不能简单关整理后把资料全部过滤。 |
+| P2 | 深度思考模式（+309延期） | 用户允许自行判断实施；本轮延期。复用现有Agent循环扩展查证，普通聊天不每轮规划；搜索资料不当作亲历记忆。聊天+菜单替换世界书按钮，灯泡关灰/开紫，开启时+号也紫。 |
+| P2 | 通用 MCP Registry 与未来工作区 | Cedar 专用 MCP 已完成，但通用 `mcp.invoke` 仍为不可执行占位。未来按只读优先分批实现 Server 注册、能力目录、权限、审计、超时、取消、凭据隔离和可卸载；2026-10-03用户更倾向深度回答，独立工作区暂不优先。OAuth、社区工具与 stdio/Harness 不与陪伴数据库直接混用。 |
 | P2 | 日历式提醒（DESIGN DISCUSSION） | 用户 2026-09-26 明确撤回相对时间语句自动判断方案，改为手写日历条目：只有日期的纪念日可在当天自然提起；日期+具体时间要有明显的到点强提醒，电话/闹钟式效果及其替代方案待讨论。`reminder.schedule` 继续不可执行，不以聊天约定冒充系统提醒；此前 +265 实验代码已撤回，无交付 APK。 |
 | P2 | 记忆/人设/规则修改提案 | `memory.propose_change / personality.propose_change / rules.propose_change` 当前均不可执行。以后只先做可审查 diff 提案；写入、删除或其他可破坏操作必须增加确认、版本与回滚，当前只读 Agent 不增加多余确认。 |
-| P3 | 视频理解 | `video_understanding.inspect` 仍为占位。以后独立评估短片抽帧、预算、临时文件隐私、取消和结果持久化；不冒充当前已能看视频。 |
+| P3 | 视频理解 | 2026-10-03用户暂停连续陪看，参考项目见ScreenMate总账，不自动重启。`video_understanding.inspect`仍为占位。以后独立评估短片抽帧、预算、临时文件隐私、取消和结果持久化；不冒充当前已能看视频。 |
 | P3 | Live2D 反应接入 | 模型、动作和素材已在独立 Live2D 仓库完成；伴侣侧以后专门设计“LLM 语义反应 + 本地低延迟关键词/事件反射 + 动作仲裁/冷却/打断”，避免只等完整 LLM 回复才动，也不得让关键词层直接改写人格或对话。完成基础 P1 后再立专项版本。 |
 | P3 | DeepSeek 缓存命中优化 | `v0.41.89+233 CI PASSED / APK READY / TRUE DEVICE PENDING`：已补齐细分 `usage_lane`、body-free 段落顺序/长度/哈希观测，并对工具 schema 做语义等价的确定性 key 排序；没有重排提示词、删记忆或冻结实时状态。后续只在真机积累足够样本后按 lane 对比 `recentPromptShapes` 与 hit/miss，再决定是否存在可证明、低风险的第二步 A/B；Gemini `final_reply` 仍不纳入。 |
 | P3 | 疲劳与心境的小幅耦合 | 保留昼夜节律主基线，单独评估负面心情导致难入睡、兴奋/聊天愉快/玩嗨短时压住疲劳的有限偏移；必须有幅度上限、短时衰减、睡眠债回补和防止夜间无限续航。排在 +232 真机包之后，优先在北京时间 2026-09-21 下午至晚上、或后续相同自然时段开专项，便于观察从白天到夜间的真实曲线；不在 +232 顺手改公式。 |
@@ -2300,7 +2302,7 @@ H11【源码确定的提示契约漂移】普通JEV和DS fallback仍写light “
 - 正常回复与气焰同一SQLite事务，截断稿确认也分类/结算；重生成撤销本版本最新回复的结算快照再算新回复，不撤销后来的手动操作。旧版本没有快照的历史回复不推算不存在的原状态；升级后新完成回复覆盖此能力。诊断保留原始分类概率及新刺激计数。
 - 普通显式web请求进入现有Agent循环按前文消歧query；普通闲聊无新每轮规划。网页整理和Agnes原文转交策略本轮不改，深度模式/记忆来源分层延期。
 
-本地验证：140项注册源码门中133通过，7项为已知构建资源或kotlinc缺失；git diff --check通过。新增22项行为场景测试（含语义合并、满值序列、强刺激、Stop、锁定、手动路由、表情语义、同事务失败回滚、重生成、截断确认），等待Flutter CI实际执行；本机无Flutter/Dart/Android SDK，不将源码检查冒称APK或真机通过。旧门只扩展+309允许版本，资源门、冻结历史与功能断言不弱化。
+本地验证：140项注册源码门中133通过，7项为已知构建资源或kotlinc缺失；git diff --check通过。新增23项行为场景测试（含语义合并、满值序列、强刺激、Stop、锁定、手动路由、表情语义、同事务失败回滚、重生成、截断确认），等待Flutter CI实际执行；本机无Flutter/Dart/Android SDK，不将源码检查冒称APK或真机通过。旧门只扩展+309允许版本，资源门、冻结历史与功能断言不弱化。
 
 状态：IMPLEMENTED / CI PENDING / APK PENDING / TRUE DEVICE PENDING。计划提交开发分支agent/v04265-playful-integrity，完整原生/Flutter/源码/签名流水线，产物保持Draft，不合并main、不正式发布。
 
@@ -2310,3 +2312,28 @@ H11【源码确定的提示契约漂移】普通JEV和DS fallback仍写light “
 首轮功能fa08bf0490d7d73a5ff02f500be498a0dcf1d02e / tree ef021018f87ce7eeaaf2620f8223071cac3482dd；Actions37107252996的Android15原生18项已通过，APK尚在资源准备。远端基线b98c2d41ddb88eefc90dce4e657a43a055617e42与本地5f198bd代码树均406f6c3107cd9260875a4ccb3acac456ca03e3dc，历史本地/远端提交SHA不同但树一致。
 
 等待构建时补查两点：重生成撤销旧形态变化后必须保留其后用户锁定的当前形态；“你去搜搜看”没有上网标记也属于明确搜索候选，应进入现有上下文规划，而“看看我”、否定和引用仍不自动搜。补实现及测试；总计新增22个行为场景。推送最终修正会依照既有concurrency取消旧流水线，最终必须以新提交完整CI及其产物为准，不交付首轮包。
+
+
+### +309 最终候选与验证追踪
+
+产品补修cdc2ca84082d5cbe86acec679606a5546b6a4183；最终候选09e818bbfc26925674e09d00076fb7acd54b09c4 / tree 9f25fcf5adf441999b5c7b594178ddaa24efad58仅进一步使回归fixture助手时间晚于用户，满足生产“最新回复”排序约束，不修改产品行为。前两轮37107252996、37107818360由后续提交自动取消，不作为交付CI。最终Actions37108120850，native job111160577312成功；完整Flutter/源码/签名与APK仍等待，最终结果后补。
+
+
+### +309 跨小时恢复补修
+
+09e818b的Actions37108120850已完整success并产出Draft包，但交付前确认：elapsedHours应当使旧连续序列失效，不能连当前这次新刺激也漏计；已满值的强刺激也不应仅因时间间隔被拦截。39c3bcf457702f0eaac55da08bbbf4d0932551d8 / tree 04adb4b728c308c89567cf1aebc6c7c5dcf7873c修正此边界，新增一个含旧序列0/1、两次新刺激及强刺激的回归场景，共23项新测试；数值冷却照原规则，冷却结算后离开满值仍会清序列。最终交付改跟Actions37109660394，等待其完整验证与覆盖Draft资产，不能把旧09e818b包作为最终交付。用户16:25询问是否停止，已说明仍在推进。
+
+
+### +309 最终CI与APK交付（2026-10-03）
+
+最终状态：IMPLEMENTED / CI PASSED / APK READY / TRUE DEVICE PENDING。功能提交 `39c3bcf457702f0eaac55da08bbbf4d0932551d8`，tree `04adb4b728c308c89567cf1aebc6c7c5dcf7873c`，版本 `0.42.65+309`。后续总账提交只补交付记录，不改变本APK的产品代码。未合并main，Release仍为Draft。
+
+- [完整Actions37109660394](https://github.com/catkiss62/ai-companion-build/actions/runs/37109660394) completed/success，head为上述最终功能提交。Android15原生job111164959631的18项测试通过；build job111165913804通过140/140源码验证门、Kotlin测试、Flutter analyze、1175项Flutter测试（新增23项）、Release APK构建、资源与持久签名检查。Flutter完成日志2026-10-03T08:45:10.8490359Z为1175 tests passed。未把本地缺少SDK/私有构建素材的检查当作完整通过，完整结果来自此CI。
+- [最终未发布测试APK](https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-911e1e7cf409cdf1dd2e)：Draft402398014，target_commitish=39c3bcf457702f0eaac55da08bbbf4d0932551d8。APK asset607480650，文件 `AI-Companion-v0.42.65-309-Playful-Integrity-APK.apk`，734389445 bytes；SHA文件asset607480654，CI Monitor asset607480649。
+- APK SHA-256 `357254dd34bfcb566510116a068b591c740aba9981f7e9f34d348cd594418058`，已核对CI输出、最终Release资产服务端digest和ci-monitor-v0345分支 `.ci/v04265-monitor.txt` 三处一致。签名证书SHA-256 `305eb3d80983b963c64818ddf1ad561f279de6d47b3ed2c781ada448c7c25148`，沿用原持久测试签名，可覆盖安装。旧09e818b的1174项CI和先前同版资产只属于被替代候选，不能作为本次最终下载依据。
+
+行为边界：原气焰计分不改、满值可以不变、首次涨满保护；明确玩闹按上位语义合并，已满值连续两轮light/mutual刺激或一次strong变小。跨整小时只清旧连续序列，当前新刺激仍按结算后的满值状态判断。Stop、重复回调、锁定、手动操作、重生成与截断确认纳入统一结算；附件的已有识别语义参与。历史旧回复没有新结算快照时不编造回滚，也不追溯旧对话补触发变身。
+
+真机验收从升级后的新对话开始：在自然满值且未锁定时连续完成两轮故意轻逗/互逗，第二轮应表现并进入小豆丁；强挑衅一次、首次刚涨满不立即变、满值普通聊天不自动变。另观察Stop/重生成和锁定是否重复加分或改错形态；用前文具体话题后说“你去搜搜看”检验搜索query完整。CI覆盖逻辑与事务，不能替代用户设备上真实JEV语义判定、正文表现或最终UI观感。
+
+范围已收束：普通搜索只优化自然显式请求和前文query补全，不增加每轮DeepSeek规划。Agnes网页压缩/原文转交未改，深度思考开关未实现；未来聊天+菜单替换世界书小按钮、灰/紫灯泡与+号紫色要求已写入6.3。陪看视频暂停、其他界面和既有桌宠/Live2D/TTS保持原任务边界。后续先收集本版真机结果，无需重复扩展测试或重建本版。
