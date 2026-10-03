@@ -1,0 +1,7 @@
+status=success
+run_id=37161508950
+run_url=https://github.com/catkiss62/ai-companion-build/actions/runs/37161508950
+head_sha=3e63c4322992b8abdedc8d3bacdb42861fd577c1
+signer_sha256=30:5E:B3:D8:09:83:B9:63:C6:48:18:DD:F1:AD:56:1F:27:9D:E6:D4:7B:3E:D2:C7:81:AD:A4:48:C7:C2:51:48
+716b50e73d20efde8d05f1c23c7bb8dc5ac578990f4379c59009eb68d9c4e0f0  AI-Companion-v0.42.69-313-Expression-Diary-APK.apk
+release_url=https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-e8e431359c99b0c25837
