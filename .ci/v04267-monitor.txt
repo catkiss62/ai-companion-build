@@ -1,0 +1,7 @@
+status=success
+run_id=37130412433
+run_url=https://github.com/catkiss62/ai-companion-build/actions/runs/37130412433
+head_sha=e883203b77e559f30123d249624429d8817183e7
+signer_sha256=30:5E:B3:D8:09:83:B9:63:C6:48:18:DD:F1:AD:56:1F:27:9D:E6:D4:7B:3E:D2:C7:81:AD:A4:48:C7:C2:51:48
+9faabe35e7e9da3b4e74de269acf43552c5b39ea55aa75ad4288a7aa97751c44  AI-Companion-v0.42.67-311-Persistent-Mood-APK.apk
+release_url=https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-6681d12631e11b37810f
