@@ -200,6 +200,14 @@ class AgentToolPlanner {
       r'(?:搜索|搜一下|搜搜|查一下|查查|检索|找一下|看看)',
       caseSensitive: false,
     ).hasMatch(text);
+    // Search verbs are explicit requests even without an extra “上网” marker.
+    // Generic “看看/查一下” still needs its existing disambiguation below.
+    final explicitSearchVerb = RegExp(
+      r'(^|[，。！？；])\s*'
+      r'(?:请|麻烦|能不能|可以|你|帮我|替我|给我|现在|马上|去|用工具){0,4}\s*'
+      r'(?:上网|联网)?\s*(?:帮我|替我|给我|去)?\s*'
+      r'(?:搜索|搜一下|搜搜|检索)',
+    ).hasMatch(text);
     final hasWebMarker = RegExp(r'(上网|联网|网页|网站|网址)', caseSensitive: false)
         .hasMatch(text);
     final explicitUrl = RegExp(
@@ -215,7 +223,7 @@ class AgentToolPlanner {
     ).hasMatch(text);
     final explicitWeb = explicitUrl ||
         (webCommand &&
-            (hasWebMarker || currentPublicFact) &&
+            (hasWebMarker || currentPublicFact || explicitSearchVerb) &&
             !explicitRules &&
             !explicitMemory &&
             !explicitAlbum &&
@@ -642,7 +650,7 @@ class AgentToolPlanner {
 
   static bool _looksLikeMetaToolTalk(String text) => RegExp(
         r'(没说|没有说|并没说).{0,12}(搜索|上网|联网)|'
-        r'(不需要|不用|不要|别|不必).{0,8}(搜索|上网|联网)|'
+        r'(不需要|不用|不要|别|不必).{0,8}(搜索|搜一下|搜搜|检索|上网|联网)|'
         r'(为什么|怎么会|会不会).{0,12}(搜索|上网|联网)|'
         r'(让你.{0,10}(搜索|上网).{0,10}你就)|'
         r'(变聪明了|误触发|这句话|这几个词|引用|复述|例如|比如).{0,20}(搜索|上网|联网)?',
@@ -867,7 +875,8 @@ class AgentToolPlanner {
     if (explicitImageSave) {
       result.add(AgentToolRegistry.imageFindAndSave.id);
     }
-    if (RegExp(r'(最新|新闻|价格|天气|汇率|上网|联网|网页|网站|搜索|查资料)')
+    if (localIds.contains(AgentToolRegistry.publicWebSearch.id) ||
+        RegExp(r'(最新|新闻|价格|天气|汇率|上网|联网|网页|网站|搜索|查资料)')
         .hasMatch(text)) {
       result.add(AgentToolRegistry.publicWebSearch.id);
     }

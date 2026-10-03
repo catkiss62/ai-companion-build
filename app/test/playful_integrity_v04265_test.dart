@@ -89,9 +89,15 @@ void main() {
     expect(q.heat, 0); expect(q.qForm, isFalse);
   });
   test('explicit search planning can resolve an elliptical query; chat stays tool-free', () {
-    final tools = AgentToolPlanner.nativeToolDefinitionsFor('你去搜搜看', webSearchRequested: true);
+    expect(AgentToolPlanner.routeLocally('你去搜搜看')?.calls.single.toolId, 'public_web.search');
+    final tools = AgentToolPlanner.nativeToolDefinitionsFor('你去搜搜看');
     expect(tools.map((t) => (t['function'] as Map)['name']), contains('public_web_search'));
     expect(AgentToolPlanner.nativeToolDefinitionsFor('你说得对'), isEmpty);
+  });
+  test('search negation and discussion do not expose search tools', () {
+    for (final text in ['不用搜搜看了', '例如你去搜搜看这种说法', '你看看我呀', '你说得对']) {
+      expect(AgentToolPlanner.nativeToolDefinitionsFor(text), isEmpty, reason: text);
+    }
   });
   group('SQLite reply and heat atomicity', () {
     late AppDatabase db;
@@ -166,6 +172,18 @@ void main() {
       await PlayfulFormStore(db).onTurn(interaction: PlayfulInteraction.mutual, turn: 'u', now: now);
       await commit(retry, self: PlayfulSelfActivity.settle);
       expect((await PlayfulFormStore(db).load()).heat, 72);
+    });
+    test('regeneration preserves the form locked after a transformation', () async {
+      final job = await prepare();
+      await db.setSetting(PlayfulFormState.settingKey,
+        const PlayfulFormState(heat: 100).advance(PlayfulInteraction.strong, 'u', now).encode());
+      await commit(job);
+      expect((await PlayfulFormStore(db).load()).qForm, isTrue);
+      await PlayfulFormStore(db).lock(true);
+      await db.restartLatestCompletedReply('a');
+      final restored = await PlayfulFormStore(db).load();
+      expect(restored.qForm, isTrue); expect(restored.locked, isTrue);
+      expect(restored.heat, 100);
     });
     test('regeneration cannot undo a newer manual form selection', () async {
       final job = await prepare(); await commit(job); await PlayfulFormStore(db).interact(false);

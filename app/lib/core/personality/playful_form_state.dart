@@ -422,7 +422,12 @@ class PlayfulFormStore {
     if (current.lastAssistantTurn != assistantTurn ||
         current.manualRevision != after.manualRevision || current.pendingTurn) return;
     final before = PlayfulFormState.decode(record['before'] as String?);
-    await writeInTransaction(txn, before.withLock(current.locked));
+    final restored = jsonDecode(before.withLock(current.locked).encode())
+        as Map<String, dynamic>;
+    // A lock taken after the old reply must keep the form the user locked,
+    // even when undoing that reply would otherwise cross a form boundary.
+    if (current.locked) restored['qForm'] = current.qForm;
+    await writeInTransaction(txn, PlayfulFormState.decode(jsonEncode(restored)));
     await txn.delete('settings', where: 'key = ?', whereArgs: const [settlementKey]);
   }
 
