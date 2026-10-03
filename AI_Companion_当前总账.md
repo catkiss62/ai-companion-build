@@ -1,15 +1,15 @@
 # AI Companion · 当前总账
 
-更新时间：2026-10-03（+310 IMPLEMENTED / CI PENDING / APK PENDING / TRUE DEVICE PENDING；+309 CI PASSED / APK READY / TRUE DEVICE PENDING；+308 CI PASSED / APK READY / TRUE DEVICE PENDING；+307 CI PASSED / APK READY / USER DEVICE ACCEPTED；+306 CI PASSED / APK READY / TRUE DEVICE PENDING；+305 CI PASSED / APK READY / DEVICE REPORTED REPLY STALL；+304 CI PASSED / APK READY / TRUE DEVICE PENDING；+303 CI PASSED / APK READY / TRUE DEVICE PENDING；+302 CI PASSED / APK READY / TRUE DEVICE PENDING；+301 CI PASSED / APK READY / TRUE DEVICE PENDING；+300 CI PASSED / APK READY / TRUE DEVICE PENDING；+299 CI PASSED / APK READY / TRUE DEVICE PENDING；+298 CI PASSED / APK READY / TRUE DEVICE PENDING；+297 CI PASSED / APK READY / TRUE DEVICE PENDING；+295 恢复真机成功、背景回归 PARTIAL；+293 DEVICE VISUAL BASELINE）
+更新时间：2026-10-03（+310 CI PASSED / APK READY / TRUE DEVICE PENDING；+309 CI PASSED / APK READY / TRUE DEVICE PENDING；+308 CI PASSED / APK READY / TRUE DEVICE PENDING；+307 CI PASSED / APK READY / USER DEVICE ACCEPTED；+306 CI PASSED / APK READY / TRUE DEVICE PENDING；+305 CI PASSED / APK READY / DEVICE REPORTED REPLY STALL；+304 CI PASSED / APK READY / TRUE DEVICE PENDING；+303 CI PASSED / APK READY / TRUE DEVICE PENDING；+302 CI PASSED / APK READY / TRUE DEVICE PENDING；+301 CI PASSED / APK READY / TRUE DEVICE PENDING；+300 CI PASSED / APK READY / TRUE DEVICE PENDING；+299 CI PASSED / APK READY / TRUE DEVICE PENDING；+298 CI PASSED / APK READY / TRUE DEVICE PENDING；+297 CI PASSED / APK READY / TRUE DEVICE PENDING；+295 恢复真机成功、背景回归 PARTIAL；+293 DEVICE VISUAL BASELINE）
 
 > 本文件是唯一的当前接班入口，继续采用“总账 v2”。顶部是快速接班索引；标记后的正式记录按版本持续追加，不设总容量上限。
 >
 > 判断优先级：用户最新明确决定 > 当前 GitHub 源码与 Actions > 同时刻脱敏真机诊断/备份 > 本文件 > 冻结归档与 Git 历史。`DESIGNED`、`IMPLEMENTED`、`CI PASSED`、`APK READY`、`TRUE DEVICE PASSED`、`PENDING` 必须严格区分。
 
 
-## 当前实施 · +310 记忆连续性与表情语义
+## 当前交付 · +310 记忆连续性与表情语义
 
-2026-10-03 18:01用户授权实施：现有记忆合格，以玩家体验改善为目标。扩大近期上下文约64条、结合近期话题消解指代、扩大旧总结检索、按可靠来源补回少量共同经历；远期语义召回先验证收益，不盲加向量依赖或每轮规划。保持原提取/总结/衰减，不制造随机遗忘、不装记不清、不增加固定角色话术。补充JEV原装表情适用语义，不强制情绪映射、不改阈值、不规定频率。深度模式/网页原文转交另批；心情与拒绝另议；TTS及Nearby不修。基于+309功能39c3bcf及总账65548fd，开发分支agent/v04266-memory-continuity。状态IMPLEMENTED / CI PENDING / APK PENDING / TRUE DEVICE PENDING，详细验收见文末+310范围记录。
+2026-10-03 18:01用户授权实施：现有记忆合格，以玩家体验改善为目标。扩大近期上下文约64条、结合近期话题消解指代、扩大旧总结检索、按可靠来源补回少量共同经历；远期语义召回先验证收益，不盲加向量依赖或每轮规划。保持原提取/总结/衰减，不制造随机遗忘、不装记不清、不增加固定角色话术。补充JEV原装表情适用语义，不强制情绪映射、不改阈值、不规定频率。深度模式/网页原文转交另批；心情与拒绝另议；TTS及Nearby不修。基于+309功能39c3bcf及总账65548fd，开发分支agent/v04266-memory-continuity。状态CI PASSED / APK READY / TRUE DEVICE PENDING。功能88a2bee，完整Actions37119329162全绿：1196项Flutter、18项Android原生、141项源码门通过；[未发布+310测试APK](https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-2bf4989e9ecec904aae3)，同签名覆盖安装。最终哈希与语义边界见文末+310交付记录。
 
 ## 当前接班快照 · +309 气焰完整性修复（已交付测试APK）
 
@@ -2380,3 +2380,23 @@ H11【源码确定的提示契约漂移】普通JEV和DS fallback仍写light “
 
 
 +310 显式回忆复查：发现沿用普通注入的重复冷却会把“刚检索过的弱关键词条目”在用户主动查记忆时挡掉，并误走同义补搜。只对explicitRecall/explicitRecallExpanded关闭重复注入冷却，仍要求原直接相关证据；普通注入、主动回忆的冷却与频率完整保留。补回归验证普通冷却仍生效、显式可查但无关条目仍被拒绝。该修正进入最终候选，首轮169项专项通过记录不替代最终全量验收。
+
+
+### +310 最终功能候选
+
+功能提交88a2bee7937191c7ccd34d44e14e12f7e5434e82 / tree eba9e3e09e1819fe3b5a68c0df6e8fecf9463afe。专项Actions37119329161成功（含显式回忆冷却边界），完整Actions37119329162继续执行；前两轮完整流程因最终候选更新被concurrency取消，不是测试失败。最后以该提交完整CI、Draft APK与签名校验为准。无更多产品改动计划，等待最终验证。
+
+
+### +310 最终CI与测试APK交付（2026-10-03）
+
+最终状态：IMPLEMENTED / CI PASSED / APK READY / TRUE DEVICE PENDING。版本0.42.66+310，功能提交`88a2bee7937191c7ccd34d44e14e12f7e5434e82`，tree `eba9e3e09e1819fe3b5a68c0df6e8fecf9463afe`。后续总账提交仅记交付证据，不更改APK产品代码。开发分支agent/v04266-memory-continuity，未合并main，Release仍为Draft。
+
+- [完整Actions37119329162](https://github.com/catkiss62/ai-companion-build/actions/runs/37119329162) completed/success，head为上述最终功能提交。Android15模拟器job111192270207的18项测试通过；build job111193252062通过141/141源码门、Kotlin桌宠/悬浮窗文字测试、Flutter analyze、1196项全量Flutter测试（本批新增21项）、Release APK构建、资源完整性与持久签名检查。全量Flutter日志2026-10-03T11:40:57.8237527Z为1196 tests passed。专项Actions37119329161另通过170项；不能把这些模拟器/自动测试称作用户真机体验已验收。
+- [最终未发布测试APK](https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-2bf4989e9ecec904aae3)，Draft402477909，target_commitish为88a2bee。APK asset607719679，文件`AI-Companion-v0.42.66-310-Memory-Continuity-APK.apk`，734402049 bytes；SHA文件asset607719680；成功CI Monitor asset607719688。早先取消候选留下的Draft仅有失败诊断，已由最终成功产物覆盖，旧untagged链接不能作为最终交付入口。
+- APK SHA-256 `da5b9096d921127418f4275c11ba7f794cdcf0f2cdef18f17358d6ed422d3c0f`，已核对构建日志、Release资产服务端digest与ci-monitor-v0345分支`.ci/v04266-monitor.txt`三处一致。签名证书SHA-256 `305eb3d80983b963c64818ddf1ad561f279de6d47b3ed2c781ada448c7c25148`，沿用原持久测试签名，可覆盖安装。
+
+本轮交付：约64条近期消息/36000字符（完整轮次，保留当前完整输入）、保守指代补全、先匹配后限量的旧记忆检索、最多2份相关旧阶段总结、最多2组/2400字符可核对的共同经历原话，以及记忆工具未命中后的单次同义查询补充。来源缺失/错配/特殊风格/roleplay/已在近期上下文中的片段均不补，重叠总结去重；同义结果是候选而非新事实，仍须核对人物、归属、时间与事件。阶段总结和条目提取继续原有方式，衰减/归档不重写，无数据库迁移；不随机遗忘、不把未命中说成从未发生，不增加普通闲聊每轮规划。
+
+JEV仅增加选项的轻量含义：红脸严格保留“明显害羞、浪漫表达或难为情时可以使用；轻微害羞不必使用”；爱心/生气/钱钱/黑脸/星星眼/流泪使用简短“明显…”语义；三种wink分别轻巧眨眼、中度吐舌加眨眼、程度更强的比耶加吐舌加眨眼。已删除统一“以下语义仅供参考，不要求一定使用表情”，不增加“无需正文动作词”的附句；保留既有“情绪不明显时选无”、四拍动作、情绪分类、阈值与时长。“明显”是语义倾向，不是频率保证；真实JEV选择频率与表情观感仍待用户设备聊天验收。
+
+真机可自然观察：较长聊天后能否接住前文；明确旧经历的内容及归属是否正确；模糊线索能否自然确认而不编造；明显情绪与三个wink程度是否合适。没有要求强制触发表情或所有远期细节必定召回。TTS/Nearby、心情与拒绝、深度模式及网页原文传递仍按既定边界延期，陪看视频仍暂停；本轮实施收束，后续先依据真机反馈。
