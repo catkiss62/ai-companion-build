@@ -3,6 +3,8 @@ from pathlib import Path
 r = Path(__file__).resolve().parents[1]
 read = lambda p: (r / p).read_text()
 assert '\nversion: 0.42.67+311\n' in read('pubspec.yaml')
+workflow = (r.parent / '.github/workflows/build-apk.yml').read_text()
+assert "grep -Fqx 'version: 0.42.67+311' app/pubspec.yaml" in workflow
 store = read('lib/core/mood/mood_store.dart')
 assert 'DatabaseExecutor' in store and 'events.take(96)' in store
 db = read('lib/core/database/app_database.dart')
