@@ -55,6 +55,8 @@ void main() {
       q, ms, currentMessageId: 'm2', now: at.add(const Duration(minutes: 1)));
     expect(resolve('那个后来呢', recent), contains('远山来信'));
     expect(resolve('换个话题，那台电脑怎么样', recent), '换个话题，那台电脑怎么样');
+    expect(resolve('那台电脑后来怎么样了', recent), '那台电脑后来怎么样了');
+    expect(resolve('后来我买了新电脑', recent), '后来我买了新电脑');
     expect(resolve('那个后来呢', [message(0, 'user', '《远山来信》和《海边书店》'), recent.last]), '那个后来呢');
     expect(ConversationRecallPolicy.contextualQuery('那个后来呢', recent, currentMessageId: 'm2',
       now: at.add(const Duration(hours: 7))), '那个后来呢');

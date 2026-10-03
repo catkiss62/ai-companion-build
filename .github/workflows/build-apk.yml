@@ -1608,13 +1608,13 @@ jobs:
               --target "${GITHUB_SHA}" \
               --draft \
               --title 'AI Companion v0.42.66+310 Memory continuity and optional expression semantics' \
-              --notes 'Preserve numerical heat scoring while grouping related play judgments, require two deliberate full-meter stimuli or one strong provocation, and settle replies and heat atomically. Cover Stop, locks, accepted drafts and regeneration. Resolve explicit web search queries from recent context. Deep mode is deferred. Unpublished device test build; physical-device verification pending.'
+              --notes 'Expand recent dialogue within a whole-turn budget; retrieve older relevant memories and summaries; add bounded source evidence and one optional synonym search after an explicit memory-tool miss. Preserve extraction, decay, proactive cadence and existing JEV motion logic; add light expression meanings including three wink levels. Deep mode is deferred. Unpublished device test build; physical-device verification pending.'
           else
             gh release edit "${TAG}" \
               --repo "${GITHUB_REPOSITORY}" \
               --target "${GITHUB_SHA}" \
               --title 'AI Companion v0.42.66+310 Memory continuity and optional expression semantics' \
-              --notes 'Preserve numerical heat scoring while grouping related play judgments, require two deliberate full-meter stimuli or one strong provocation, and settle replies and heat atomically. Cover Stop, locks, accepted drafts and regeneration. Resolve explicit web search queries from recent context. Deep mode is deferred. Unpublished device test build; physical-device verification pending.'
+              --notes 'Expand recent dialogue within a whole-turn budget; retrieve older relevant memories and summaries; add bounded source evidence and one optional synonym search after an explicit memory-tool miss. Preserve extraction, decay, proactive cadence and existing JEV motion logic; add light expression meanings including three wink levels. Deep mode is deferred. Unpublished device test build; physical-device verification pending.'
           fi
           RELEASE_URL="$(gh release view "${TAG}" --repo "${GITHUB_REPOSITORY}" --json url --jq '.url')"
           echo "release_url=${RELEASE_URL}" >> "app/${CI_NAME}"

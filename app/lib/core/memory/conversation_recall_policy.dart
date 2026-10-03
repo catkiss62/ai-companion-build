@@ -52,6 +52,13 @@ class ConversationRecallPolicy {
       if (message.isUser || prior.length >= 3) break;
     }
     if (prior.isEmpty) return query;
+    final text = prior.reversed.map((m) => m.promptContent).join('\n');
+    // A deictic word alone cannot attach a newly introduced object to the old
+    // topic (for example, a computer question following a novel discussion).
+    final explicitCue = query.replaceAll(RegExp(
+      r'我们|还记得|记得|刚才|之前|说过|说到|聊过|提到|那件事|这件事|这个话题|那个|那次|那台|这段|后来|接着说|继续说|怎么样|怎么了|怎样|然后|结果|到底|你|我|它|呢|吗|呀|吧|啊|了|的|是|还|就'), '');
+    if (MemoryRetrievalPolicy.tokensFor(explicitCue).isNotEmpty &&
+        !MemoryRetrievalPolicy.hasDirectTextEvidence(explicitCue, text)) return query;
     // Prefer an explicit title over an entire assistant paragraph. If there
     // are several possible titles, do not silently decide which one was meant.
     final titles = <String>{};
@@ -61,7 +68,6 @@ class ConversationRecallPolicy {
     }
     if (titles.length > 1) return query;
     if (titles.length == 1) return '$query ${titles.single}';
-    final text = prior.reversed.map((m) => m.promptContent).join('\n');
     if (text.length > 600) return query; // No arbitrary partial topic.
     return '$query\n$text';
   }
