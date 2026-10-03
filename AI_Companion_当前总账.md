@@ -1,21 +1,23 @@
 # AI Companion · 当前总账
 
-更新时间：2026-10-03（+311 CI PASSED / APK READY / TRUE DEVICE PENDING；+310 CI PASSED / APK READY / TRUE DEVICE PENDING；+309 CI PASSED / APK READY / TRUE DEVICE PENDING；+308 CI PASSED / APK READY / TRUE DEVICE PENDING；+307 CI PASSED / APK READY / USER DEVICE ACCEPTED；+306 CI PASSED / APK READY / TRUE DEVICE PENDING；+305 CI PASSED / APK READY / DEVICE REPORTED REPLY STALL；+304 CI PASSED / APK READY / TRUE DEVICE PENDING；+303 CI PASSED / APK READY / TRUE DEVICE PENDING；+302 CI PASSED / APK READY / TRUE DEVICE PENDING；+301 CI PASSED / APK READY / TRUE DEVICE PENDING；+300 CI PASSED / APK READY / TRUE DEVICE PENDING；+299 CI PASSED / APK READY / TRUE DEVICE PENDING；+298 CI PASSED / APK READY / TRUE DEVICE PENDING；+297 CI PASSED / APK READY / TRUE DEVICE PENDING；+295 恢复真机成功、背景回归 PARTIAL；+293 DEVICE VISUAL BASELINE）
+更新时间：2026-10-04（+312 CI PASSED / APK READY / TRUE DEVICE PENDING；+311 CI PASSED / APK READY / TRUE DEVICE PENDING；+310 CI PASSED / APK READY / TRUE DEVICE PENDING；+309 CI PASSED / APK READY / TRUE DEVICE PENDING；+308 CI PASSED / APK READY / TRUE DEVICE PENDING；+307 CI PASSED / APK READY / USER DEVICE ACCEPTED；+306 CI PASSED / APK READY / TRUE DEVICE PENDING；+305 CI PASSED / APK READY / DEVICE REPORTED REPLY STALL；+304 CI PASSED / APK READY / TRUE DEVICE PENDING；+303 CI PASSED / APK READY / TRUE DEVICE PENDING；+302 CI PASSED / APK READY / TRUE DEVICE PENDING；+301 CI PASSED / APK READY / TRUE DEVICE PENDING；+300 CI PASSED / APK READY / TRUE DEVICE PENDING；+299 CI PASSED / APK READY / TRUE DEVICE PENDING；+298 CI PASSED / APK READY / TRUE DEVICE PENDING；+297 CI PASSED / APK READY / TRUE DEVICE PENDING；+295 恢复真机成功、背景回归 PARTIAL；+293 DEVICE VISUAL BASELINE）
 
 > 本文件是唯一的当前接班入口，继续采用“总账 v2”。顶部是快速接班索引；标记后的正式记录按版本持续追加，不设总容量上限。
 >
 > 判断优先级：用户最新明确决定 > 当前 GitHub 源码与 Actions > 同时刻脱敏真机诊断/备份 > 本文件 > 冻结归档与 Git 历史。`DESIGNED`、`IMPLEMENTED`、`CI PASSED`、`APK READY`、`TRUE DEVICE PASSED`、`PENDING` 必须严格区分。
 
 
-## 当前任务 · +312 深度思考与网页证据（IMPLEMENTED / CI IN PROGRESS）
+## 当前交付 · +312 深度思考与网页证据（CI PASSED / APK READY / TRUE DEVICE PENDING）
 
-2026-10-04 02:55用户核对接班范围后批准实施。基于+311 HEAD 5d3f0ee（功能e883203/Actions37130412433成功），分支agent/v04268-deep-web，目标0.42.68+312。聊天+菜单世界书小按钮换深度灯泡，默认关/记住选择/+同步紫色；发送固定模式，重试沿用。普通聊天保持按需规划；深度用户轮先DS规划、允许有界补搜追读核验，后台主动消息不新增逐轮规划，原写入/媒体/游戏权限不扩大。普通/深度/主动分享共用网页阅读证据，正文不能只靠800字摘要；保留来源、阅读时间和覆盖状态，暂缓候选使用前重读，读取失败不伪装成功。内部DS/双通道Gemini最终正文路由不变。沉浸深度开关未约定，本批不新增；不动Live2D/桌宠/TTS/既有心情与气焰。5轮/10次为本批深度预算初值，需验证取消、重试和普通模式边界。
+2026-10-04用户核对范围后授权实施；基于+311，版本0.42.68+312，分支agent/v04268-deep-web。聊天+菜单的世界书快捷按钮换为深度灯泡，默认关、记住选择、+同步紫色，原侧栏世界书保留；文字/图片发送固定模式，重试沿用。普通聊天保持按需规划，深度用户轮先DS规划，初始5轮10次；后台不增加逐轮通用规划。原写入/媒体/游戏权限及盲玩约束、双通道Gemini一次最终正文与DS失效路径保留。
 
-授权开发分支推送、CI、未发布测试APK；不合并main、不正式发布。已实现，199项专项通过；完整CI进行中，真机待验。完整过程与最终证据在文末“+312实施记录”；其他后续从6.3唯一后续清单取得，保留+306对照基线。
+普通/深度/主动分享共用网页阅读证据：短页传提取正文，长页目录+相关原文并可追读；来源、read_at、覆盖状态明确，摘要仅导航。已选旧候选使用前重读，失败不假称已读、不复活删除，不加固定角色话术。2分钟有效缓存可复用；schema61兼容添加字段。沉浸开关未约定，本批不新增；不改Live2D/桌宠/TTS/心情/气焰。
 
-## 当前交付 · +311 持续心情（完整CI通过，测试APK已生成）
+最终构建提交ef2d71c357854372d9f4205286dc872215f7300f（产品修正af2b29，后续仅交付文案/旧版本门/总账），[完整Actions37153220612](https://github.com/catkiss62/ai-companion-build/actions/runs/37153220612)成功：1225项Flutter、18项Android原生、143项源码门、Kotlin与签名/资源检查通过。[未发布+312测试APK](https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-e219e5593dff05bb4d20)，同签名覆盖安装。未合并main、未正式发布，真机效果待验。完整哈希、失败修正与交付证据在文末“+312最终交付”；说明见app/docs/DEEP_WEB_v1.md。其余任务从6.3唯一后续清单取得，保留+306对照基线。
 
-2026-10-03 20:59用户授权实施，已回读+310交付及其后讨论，完整任务记录见 `app/docs/PERSISTENT_MOOD_v1.md`。+310用户日常真机确认无问题；本批基于371d069，开发分支agent/v04267-persistent-mood。整合持续情绪与余波，复用回复前JEV及原有DS失效路径，独立core/mood；玩闹与真实介意分开，概率不作强度，无离线惩罚/依恋放大/固定台词。真实活动、发现、休息与缓存天气轻背景，提交/取消/重试有界一致；记忆、气焰、19表情与正文路由保留。状态CI PASSED / APK READY / TRUE DEVICE PENDING。功能e883203，完整Actions37130412433成功：1214项Flutter、18项Android原生、142项源码门通过；[未发布+311测试APK](https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-6681d12631e11b37810f)，同签名覆盖安装。未合并main，细节及验证在文末。
+## 历史交付 · +311 持续心情
+
+功能e883203/Actions37130412433成功，1214项Flutter、18原生、142源码门；同签名未发布测试包可回退。用户+310日常真机确认无问题不外推为+311验收；+311仍TRUE DEVICE PENDING。完整范围、发布证据与原快速索引保留在正式记录及文末，+312沿用心情与余波模块。
 
 ## 当前交付 · +310 记忆连续性与表情语义
 
@@ -2487,7 +2489,7 @@ Git HTTPS推送因无本地凭据失败（非审批拒绝），使用已连接Gi
 
 修正后本地快照SIGKILL九检查点+网页/模式九专项共18项全部通过。复跑本地先遇到子进程PATH未含dart、Flutter包装脚本root提示干扰协议，改用已安装SDK的dart本体后通过；这些属于本地测试环境，不计产品失败。
 
-修正候选af2b29fceb5ec4366513fd1df4da6a9810cb06bd（本地00c4f0d，同树4383b85dae8f6018a5c03feecf033e25b6bab557）专项Actions37151993748成功：静态分析无错误（363项原有warning/info按原规则展示）、199项行为测试通过。旧完整Actions37151520967已取消。交付元数据检查发现工作流Draft正文仍是+311心情说明，现一并改为本批深度/网页说明；不改产品代码，重新构建最终候选，避免交付页面任务错位。
+修正候选af2b29fceb5ec4366513fd1df4da6a9810cb06bd（本地00c4f0d，同树4383b85dae8f6018a5c03feecf033e25b6bab557）专项Actions37151993748成功：静态分析无错误（363项warning/info按原CI规则展示）、199项行为测试通过。旧完整Actions37151520967已取消。交付元数据检查发现工作流Draft正文仍是+311心情说明，现一并改为本批深度/网页说明；不改产品代码，重新构建最终候选，避免交付页面任务错位。
 
 ### +312 最终候选与原生证据
 
@@ -2500,3 +2502,32 @@ Android15原生job111288714095成功；artifact11285225038下载后核对ZIP SHA
 Actions37152344472的原生18项已过，APK job在源码门第134/143项停止：validate_v04256_share_portable_state.py版本白名单遗漏+312。扫描发现另外两处同类遗漏（validate_v04260_settings_import_live2d.py、validate_v04261_timed_play_recovery.py），只追加68\+312，所有功能/存档/渲染/恢复断言保留。不是产品代码回归，未降低校验。
 
 本地补检出所需Android Java/Kotlin与memory_galaxy离线资源后，134～143十项全部通过；此前133项已在该CI通过。原两项星空校验先因稀疏检出缺文件未完成，恢复仓库原资源后通过，未伪造素材。下一候选仅以上3个版本门与本总账变化，产品实现继续与af2b29一致。
+
+版本门修正后最终候选ef2d71c357854372d9f4205286dc872215f7300f（本地c00a151，同源码树ce83bce86ac69374dab7458113f19259ce21b983），完整Actions37153220612。专项Actions37153220637成功，日志199项行为测试通过、analyze无error（warning/info沿用现有非阻断规则）；原生job111291205731成功，18/18通过、0跳过、0失败。APK job111292125688开始。
+
+最终原生artifact11284423571（190757bytes，ZIP SHA-256 c6cd493c29f8fcfe84a32d80dd204bd7b1cbd1406c69b5fcdbdf5acef70d235c）也已下载核对XML，18 tests/0 failures/0 errors/0 skipped。完整CI中143项源码门、Kotlin桌宠/悬浮窗/存档等回归、Flutter analyze、全量Flutter tests均成功；APK编译中，测试总数待最终日志确认。
+
+### +312 最终交付（2026-10-04，中国时间）
+
+最终状态：IMPLEMENTED / CI PASSED / APK READY / TRUE DEVICE PENDING。版本0.42.68+312，构建提交`ef2d71c357854372d9f4205286dc872215f7300f`，tree `ce83bce86ac69374dab7458113f19259ce21b983`（本地c00a151同树）。实际产品代码修正止于af2b29；其后只修正交付文字、版本门与总账。分支agent/v04268-deep-web，不合并main；后续交付总账提交不改变此APK。
+
+- [完整Actions37153220612](https://github.com/catkiss62/ai-companion-build/actions/runs/37153220612) completed/success，head为上述构建提交。原生18项成功且已下载XML核对；build job111292125688通过143/143源码门、Kotlin桌宠/悬浮窗/存档等回归、Flutter analyze、1225项全量Flutter测试、android-arm64 Release编译、资源和持久签名检查。全量日志2026-10-03T21:14:48Z为1225 tests passed。专项Actions37153220637另通过199项，与全量重叠，不相加计数。analyze按原CI规则保留非阻断warning/info，不宣称零告警。
+- [最终未发布测试APK](https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-e219e5593dff05bb4d20)，Draft402681630，tag v0.42.68-deep-web-test，target_commitish=ef2d71c。APK asset608553759，文件`AI-Companion-v0.42.68-312-Deep-Web-APK.apk`，734433737bytes；SHA文件asset608553760；CI Monitor asset608553771，均uploaded，Release仍draft=true。发布说明已核对为本批深度/网页改动。
+- APK SHA-256 `fb32487c999f65eb7ba38aff1e66e1baa95652eb8e19f6f8a00b4d9c6bfeb472`，构建日志、Release资产服务端digest和ci-monitor-v0345分支`.ci/v04268-monitor.txt`三处一致。签名证书SHA-256 `305eb3d80983b963c64818ddf1ad561f279de6d47b3ed2c781ada448c7c25148`，与+311/+310持久测试身份一致；CI apksigner实际验证，可同签名覆盖安装保留数据。
+- 包内49个Genie/Jiuhu/OpenJTalk文件、22张塔罗JPG、131个离线Memory Galaxy资源均size/hash-exact；桌宠、Cubism资源及私有模型排除检查成功。用户数据、密钥和私人模型没有加入源码改动。
+- 工作流APK artifact11285188388，ZIP727523436bytes，digest `f4bda2c9ec177db3cd8645a1bbea2d1b2e4c2009d0ace2368888a40df6a6740b`，与APK文件digest是两种不同对象。尝试将APK作为当前会话附件交付时，GitHub连接器明确返回Artifact超过536870912bytes上限；未下载整包、不冒称本地重新验签，也未生成虚假附件链接。保留已成功的GitHub Draft下载入口，未为传输限制重构CI或正式发布。
+- 真机建议：普通模式先正常聊天，再打开+菜单灯泡比较需要核验的联网问题；长页追问中后段细节、稍后再谈同一网页、停止后重试、切换开关后重试旧消息。观察实际来源与回答一致性、读取失败诚实表达、耗时是否可接受。自动测试不代表真实模型回答质量或真机表现已验收，不补认TRUE DEVICE PASSED。
+
+### +311 原快速交付索引（迁入正式历史，原文保留）
+
+## 当前交付 · +311 持续心情（完整CI通过，测试APK已生成）
+
+2026-10-03 20:59用户授权实施，已回读+310交付及其后讨论，完整任务记录见 `app/docs/PERSISTENT_MOOD_v1.md`。+310用户日常真机确认无问题；本批基于371d069，开发分支agent/v04267-persistent-mood。整合持续情绪与余波，复用回复前JEV及原有DS失效路径，独立core/mood；玩闹与真实介意分开，概率不作强度，无离线惩罚/依恋放大/固定台词。真实活动、发现、休息与缓存天气轻背景，提交/取消/重试有界一致；记忆、气焰、19表情与正文路由保留。状态CI PASSED / APK READY / TRUE DEVICE PENDING。功能e883203，完整Actions37130412433成功：1214项Flutter、18项Android原生、142项源码门通过；[未发布+311测试APK](https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-6681d12631e11b37810f)，同签名覆盖安装。未合并main，细节及验证在文末。
+
+### +312 实施时快速索引（保留授权与原边界）
+
+## 当前任务 · +312 深度思考与网页证据（IMPLEMENTED / CI IN PROGRESS）
+
+2026-10-04 02:55用户核对接班范围后批准实施。基于+311 HEAD 5d3f0ee（功能e883203/Actions37130412433成功），分支agent/v04268-deep-web，目标0.42.68+312。聊天+菜单世界书小按钮换深度灯泡，默认关/记住选择/+同步紫色；发送固定模式，重试沿用。普通聊天保持按需规划；深度用户轮先DS规划、允许有界补搜追读核验，后台主动消息不新增逐轮规划，原写入/媒体/游戏权限不扩大。普通/深度/主动分享共用网页阅读证据，正文不能只靠800字摘要；保留来源、阅读时间和覆盖状态，暂缓候选使用前重读，读取失败不伪装成功。内部DS/双通道Gemini最终正文路由不变。沉浸深度开关未约定，本批不新增；不动Live2D/桌宠/TTS/既有心情与气焰。5轮/10次为本批深度预算初值，需验证取消、重试和普通模式边界。
+
+授权开发分支推送、CI、未发布测试APK；不合并main、不正式发布。已实现，199项专项通过；完整CI进行中，真机待验。完整过程与最终证据在文末“+312实施记录”；其他后续从6.3唯一后续清单取得，保留+306对照基线。
