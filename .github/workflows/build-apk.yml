@@ -191,8 +191,8 @@
 # AI-Companion-v0.40.1-129-Album-Identity-Closure-APK
 # v0.40.1-album-identity-closure
 # Historical v0.40.2 workflow compatibility:
-# # Historical +312: Build AI Companion v0.42.68+312 APK (Deep Thinking and Web Evidence) | AI-Companion-v0.42.68-312-Deep-Web-APK | v0.42.68-deep-web-test | .ci/v04268-monitor.txt
-name: Build AI Companion v0.40.2+130 APK (Provider Diagnostics)
+# Historical +312: Build AI Companion v0.42.68+312 APK (Deep Thinking and Web Evidence) | AI-Companion-v0.42.68-312-Deep-Web-APK | v0.42.68-deep-web-test | .ci/v04268-monitor.txt
+# name: Build AI Companion v0.40.2+130 APK (Provider Diagnostics)
 # agent/v0402-provider-diagnostics
 # AI-Companion-v0.40.2-130-Provider-Diagnostics-APK
 # v0.40.2-provider-diagnostics
