@@ -1612,13 +1612,13 @@ jobs:
               --target "${GITHUB_SHA}" \
               --draft \
               --title 'AI Companion v0.42.68+312 Deep thinking and web evidence' \
-              --notes 'Add bounded persistent mood from contextual interaction and real activity. Reuse the existing short-decision batch; conservative harm judgement, natural recovery and transactional cancellation. Weather is an optional cached background. Preserve memory, playful form, desire core and Live2D. Unpublished device test build; physical-device verification pending.'
+              --notes 'Add an optional persistent deep-thinking mode with per-turn snapshots and bounded DeepSeek planning. Read and verify original web evidence across ordinary, deep and proactive flows, refresh stale selected sources, and support bounded follow-up page reads. Preserve the normal-mode planner, existing tool permissions and final-response routing. Unpublished device test build; physical-device verification pending.'
           else
             gh release edit "${TAG}" \
               --repo "${GITHUB_REPOSITORY}" \
               --target "${GITHUB_SHA}" \
               --title 'AI Companion v0.42.68+312 Deep thinking and web evidence' \
-              --notes 'Add bounded persistent mood from contextual interaction and real activity. Reuse the existing short-decision batch; conservative harm judgement, natural recovery and transactional cancellation. Weather is an optional cached background. Preserve memory, playful form, desire core and Live2D. Unpublished device test build; physical-device verification pending.'
+              --notes 'Add an optional persistent deep-thinking mode with per-turn snapshots and bounded DeepSeek planning. Read and verify original web evidence across ordinary, deep and proactive flows, refresh stale selected sources, and support bounded follow-up page reads. Preserve the normal-mode planner, existing tool permissions and final-response routing. Unpublished device test build; physical-device verification pending.'
           fi
           RELEASE_URL="$(gh release view "${TAG}" --repo "${GITHUB_REPOSITORY}" --json url --jq '.url')"
           echo "release_url=${RELEASE_URL}" >> "app/${CI_NAME}"
@@ -1644,13 +1644,13 @@ jobs:
           MONITOR_SHA="$(gh api "/repos/${GITHUB_REPOSITORY}/contents/${MONITOR_PATH}?ref=${MONITOR_BRANCH}" --jq '.sha' 2>/dev/null || true)"
           if test -n "${MONITOR_SHA}"; then
             gh api --method PUT "/repos/${GITHUB_REPOSITORY}/contents/${MONITOR_PATH}" \
-              -f message='Update v0.42.65 CI success monitor' \
+              -f message='Update v0.42.68 CI success monitor' \
               -F "content=@${MONITOR_CONTENT_FILE}" \
               -f branch="${MONITOR_BRANCH}" \
               -f sha="${MONITOR_SHA}" >/dev/null
           else
             gh api --method PUT "/repos/${GITHUB_REPOSITORY}/contents/${MONITOR_PATH}" \
-              -f message='Create v0.42.65 CI success monitor' \
+              -f message='Create v0.42.68 CI success monitor' \
               -F "content=@${MONITOR_CONTENT_FILE}" \
               -f branch="${MONITOR_BRANCH}" >/dev/null
           fi
