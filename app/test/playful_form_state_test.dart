@@ -33,21 +33,23 @@ void main() {
     expect(comforted.qForm, isFalse);
   });
 
-  test('repeated mutually playful turns arm a later trigger without keywords', () {
+  test('first full turn is protected, then two deliberate stimuli transform', () {
     final now = DateTime(2026, 9, 24, 12);
     var state = const PlayfulFormState();
-    for (var turn = 1; turn <= 8; turn++) {
+    for (var turn = 1; turn <= 4; turn++) {
       state = state.advance(PlayfulInteraction.mutual, '$turn', now)
           .onAssistantTurn(PlayfulSelfActivity.none, 'reply-$turn', now);
       expect(state.qForm, isFalse);
     }
-    state = state.advance(PlayfulInteraction.mutual, '9', now)
-        .onAssistantTurn(PlayfulSelfActivity.none, 'reply-9', now);
     expect(state.heat, 100);
+    state = state.advance(PlayfulInteraction.light, '5', now)
+        .onAssistantTurn(PlayfulSelfActivity.none, 'reply-5', now);
     expect(state.qForm, isFalse);
-    expect(state.breakthroughDue, isTrue);
-    expect(state.advance(PlayfulInteraction.strong, '9', now).heat, 100);
-    expect(state.advance(PlayfulInteraction.serious, '10', now).qForm, isFalse);
+    state = state.advance(PlayfulInteraction.mutual, '6', now);
+    expect(state.promptQForm, isTrue);
+    expect(state.qForm, isFalse); // Durable form changes only on commit.
+    state = state.onAssistantTurn(PlayfulSelfActivity.none, 'reply-6', now);
+    expect(state.qForm, isTrue);
   });
 
   test('Stop restores only the pending user turn and keeps later actions', () {

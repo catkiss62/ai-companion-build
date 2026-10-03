@@ -314,11 +314,13 @@ class AgentToolPlanner {
     String text, {
     Set<String>? cedarStageToolIds,
     bool cedarBlindPlay = false,
+    bool webSearchRequested = false,
   }) {
     // Routing may legitimately return an immutable empty set (for example,
     // media-only user turns have an empty text body). Cedar stage narrowing
     // mutates this collection, so take ownership at the mutation boundary.
     final toolIds = <String>{..._routeToolIds(text)};
+    if (webSearchRequested) toolIds.add(AgentToolRegistry.publicWebSearch.id);
     const cedarIds = <String>{
       'cedar_toy.list_games',
       'cedar_toy.get_guide',
@@ -572,6 +574,8 @@ class AgentToolPlanner {
     final decisionBoundary = switch (tool.id) {
       'public_web.search' =>
         '仅在当前这句话真的要求上网/搜索，或答案明确依赖最新公开事实时调用。'
+        'query必须是可独立检索的具体问题：结合最近对话补全省略的片名、对象、时间和待核实之处，'
+        '不得直接发送“去搜搜看”“不是喜剧”等缺少主体的原句。若上下文无法消歧，应先询问。'
         '用户明确要求联网发图或联网存图时应改用对应图片工具，不用本工具。'
         '不要因为用户引用、复述、评价“搜索/上网”这个词而调用；否定、假设、闲聊和常识回答不调用。',
       'rules.read' =>

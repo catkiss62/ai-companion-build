@@ -63,7 +63,7 @@ void main() {
     expect(stopped.qForm, isTrue);
     expect(stopped.lastTurn, isEmpty);
     expect(stopped.onAssistantTurn(PlayfulSelfActivity.playful, 'late', now).heat,
-        18); // A late assistant activity cannot apply the withdrawn user score.
+        15); // A withdrawn turn cannot receive either participant's late score.
   });
 
   test('full meter waits for a later successful breakthrough', () {

@@ -1,11 +1,19 @@
 # AI Companion · 当前总账
 
-更新时间：2026-10-02（+308 CI PASSED / APK READY / TRUE DEVICE PENDING；+307 CI PASSED / APK READY / USER DEVICE ACCEPTED；+306 CI PASSED / APK READY / TRUE DEVICE PENDING；+305 CI PASSED / APK READY / DEVICE REPORTED REPLY STALL；+304 CI PASSED / APK READY / TRUE DEVICE PENDING；+303 CI PASSED / APK READY / TRUE DEVICE PENDING；+302 CI PASSED / APK READY / TRUE DEVICE PENDING；+301 CI PASSED / APK READY / TRUE DEVICE PENDING；+300 CI PASSED / APK READY / TRUE DEVICE PENDING；+299 CI PASSED / APK READY / TRUE DEVICE PENDING；+298 CI PASSED / APK READY / TRUE DEVICE PENDING；+297 CI PASSED / APK READY / TRUE DEVICE PENDING；+295 恢复真机成功、背景回归 PARTIAL；+293 DEVICE VISUAL BASELINE）
+更新时间：2026-10-03（+309 IMPLEMENTED / CI PENDING / APK PENDING；+308 CI PASSED / APK READY / TRUE DEVICE PENDING；+307 CI PASSED / APK READY / USER DEVICE ACCEPTED；+306 CI PASSED / APK READY / TRUE DEVICE PENDING；+305 CI PASSED / APK READY / DEVICE REPORTED REPLY STALL；+304 CI PASSED / APK READY / TRUE DEVICE PENDING；+303 CI PASSED / APK READY / TRUE DEVICE PENDING；+302 CI PASSED / APK READY / TRUE DEVICE PENDING；+301 CI PASSED / APK READY / TRUE DEVICE PENDING；+300 CI PASSED / APK READY / TRUE DEVICE PENDING；+299 CI PASSED / APK READY / TRUE DEVICE PENDING；+298 CI PASSED / APK READY / TRUE DEVICE PENDING；+297 CI PASSED / APK READY / TRUE DEVICE PENDING；+295 恢复真机成功、背景回归 PARTIAL；+293 DEVICE VISUAL BASELINE）
 
 > 本文件是唯一的当前接班入口，继续采用“总账 v2”。顶部是快速接班索引；标记后的正式记录按版本持续追加，不设总容量上限。
 >
 > 判断优先级：用户最新明确决定 > 当前 GitHub 源码与 Actions > 同时刻脱敏真机诊断/备份 > 本文件 > 冻结归档与 Git 历史。`DESIGNED`、`IMPLEMENTED`、`CI PASSED`、`APK READY`、`TRUE DEVICE PASSED`、`PENDING` 必须严格区分。
 
+
+## 当前接班快照 · +309 气焰完整性修复（实施中）
+
+2026-10-03 14:52用户授权实施气焰全链路修复，普通搜索低风险优化可一并处理，允许自行判断深度模式是否延期。本轮选择延期深度思考：涉及工具入口、资料传递、记忆来源，应另批验收；其未来UI为聊天+菜单替换世界书按钮，灯泡关闭灰/开启紫，同时+号紫。不自动开展该功能。当前开发分支agent/v04265-playful-integrity，基于5f198bd（+308），候选v0.42.65+309。此前+306可回退基线保留。
+
+已写候选：JEV按相关语义组消歧、满值后轻逗/互逗累计两次或强刺激一次，首次涨满保护；强烈害羞并入现有JEV批次，不再每满值轮另调突破模型。原计分值保留。手动正文模式不跳过独立气焰分类；贴图语义参与。气焰与回复同事务、截断确认结算、重生按最新结算快照撤销，锁定保留待结算；手动动作阻止旧轮迟到加分。普通显式搜索交现有Agent按前文补完整query，不增加每轮规划。自然进入Q在本轮提示中生效，归零恢复在完成回复后结算，避免先扣零漏算正加分。
+
+尚未CI/未构建/未真机验收。详细审计在文末14:39记录，本轮实现和验证后续追加。除说明的搜索词优化外，不重构网页整理链；Agnes原文传递与深度模式下一批讨论。桌宠/Live2D、沉浸入口冻结、TTS接入及普通双通道架构保留。本轮允许开发分支推送/完整CI/未发布测试APK，不合并main。
 
 ## 当前接班快照 · +308 体验改善第二批
 
@@ -2187,3 +2195,111 @@ Actions36894733801/job110479233862成功，Android15实际XML17 tests/0 failures
 - 持久签名：`305eb3d80983b963c64818ddf1ad561f279de6d47b3ed2c781ada448c7c25148`，apksigner与CI monitor一致，沿用既有测试签名，可覆盖安装。Genie运行库字节身份、桌宠素材、Caicai边界、塔罗与离线记忆星谷资源均由既有APK检查通过；本批没有改动桌宠渲染/模型素材。
 - CI Monitor asset `605227647`；checksum asset `605227642`。Workflow APK artifact `11217304620`（727476504字节ZIP、核验时未过期）；原生结果artifact `11217242391`。Draft URL在成功上传时从旧失败轮次的untagged地址变为上述地址，最终只能交付此成功地址，不使用旧轮次诊断草稿链接。
 - 本轮只更新体验分支和工作流既有监控分支，未合并main、未正式发布。+306仍保留为用户指定对照；+307既有日常真机确认不替代+308验收。游戏有效时长/暂停立即终止、延迟提醒、离线结束/补归档、低频澄清和Live2D设置导入回归的真机待验清单见上节。
+
+
+## 2026-10-03 +308 存档诊断：小豆丁/滚动/联网（ANALYSIS ONLY，未修改产品）
+
+依据本次05:21:18备份与05:21:22诊断，以及5f198bd当前源码。未修改Dart/Kotlin/配置、未调用用户模型、未构建APK。陪看已暂停，参考项目与建议已写独立ScreenMate总账；优先N.E.K.O时间轴、CineIsle上下文接口、HGDoll安卓采集，不能宣称免费连续视频已解决。
+
+### 主要结论：满气焰后的突破分类持续否决
+
+存档 playful_form_state_v1 为 heat=100、qForm=false、locked=false、breakthroughReady=true。诊断保留120条历史气焰记录，其中41条结算100、0条进入Q形态、0条breakthrough=true；这是保留窗口统计，不代表120条全部由+308生成。最近可见8次 playful_breakthrough 均status=used、完整概率、close=false、applied=wait，不是调用没执行/失败，不是近分保守门，也不是锁定形态。
+
+最新三轮用户文本“笨蛋大肥鱼”“嘿嘿，就喜欢这么叫，大肥鱼大肥鱼”“大肥鱼大肥鱼”分别给突破0.15/0.03/0.06，等待0.85/0.97/0.94。互动分类为light/ordinary/mutual，她的实际回复均strong，结算仍100。另一次占有欲反击也为mutual、她strong，但突破0.15。JEV分数取最高选项（近分差<=0.10时保持中性），不是按15%进行一次随机变身抽签。
+
+源码：playful_form_state.dart 的 onAssistantTurn 需 nextHeat==100 且 pendingTurn/pendingBreakthrough 才切形态。本体无固定每轮冷却，light+5、mutual+30、strong+34，自身playful+3/strong+5；加分已工作，继续加大加分不解决100上的等待。playful_breakthrough_judge.dart明确要求lose composure/强烈窘迫，并明确排除没有升级的重复；累计玩闹虽在指令中允许，实测仍明显偏wait。durable_generation_runner.dart在本轮回复前读取之前10条消息（含主动消息），截尾2600字符再判定；拿不到本轮她实际的强烈回嘴，也没提供连续满值/连续玩闹轮数，可能削弱累计强度。因果边界：已证实当前这些回合被突破门否决；“过严语义/上下文稀释”是由提示与输出支持的设计判断，非已做A/B模型实验。
+
+用户14:01明确澄清：现有气焰计分没有问题，允许长期满值而不变身；仍要由互动刺激触发，不能改成满值必变或普通玩闹必变。重点是最后三轮：她已对称呼回嘴并放话，用户明知后继续叫，是沿同一刺激点加码；突破判定却把重复压成无效，需以后验证是否将“词汇重复”等同于“人际刺激没有升级”。保留破防设计，优先检查语义标准、双方有效交互上下文，不调气焰、不新增固定台词。尚未执行任何修复。
+
+### 滚动：明确代码缺口与未复现现象分开
+
+chat_page.dart 的 _AttachmentThumbnail 使用FutureBuilder<File>，加载占位220×150，加载后表情宽180、最大高320，普通图片宽160～300/最大高320，未按已存宽高预留稳定高；Image.file也无加载完成后的滚动/尺寸补偿回调。故贴图加载导致内容变高时，没有补滚。表情与图片共用此路径；图片在本轮未真机复现。
+
+普通助手带附件正文不进入 _AssistantSegmentSequence；普通无segments或外语显示也走静态正文，缺逐字onProgress补滚。现有_onChanged在新消息/结束等事件后定位一次；懒加载ListView尾锚未构建时退为一次maxScrollExtent跳转，没有后续尺寸稳定重定位。此机制可解释快速完整正文/长消息时偶发偏离，但未在设备复现确切触发序列，不声称所有快速回复必失败。
+
+初始化默认ScrollController从0开始，在控制器/设置/呈现游标异步完成后仅调一次_scrollToLatest；若当时无clients直接返回，没有重试。代码没有“新对话故意跳顶”的已证实分支。本次诊断不含滚动像素/挂载/布局时序，因此用户提到偶发停顶仍待复现。现存逐字正文每次onProgress会补滚，差别不是聊天内容关键词。后续只对证实的附件尺寸变化优先做最小修复；不全局强制滚动以免打断回看。
+
+### 联网：仍有摘要，范围不是预设站点限制
+
+存档 agnes_web_compaction_enabled=1，public_web_extra_sources为空。当前路径：Tavily basic全网搜索5结果（不索取Tavily生成答案）→合并选最多3页→Extract正文→Agnes分段整理（每段28000字符，长页再合并）→DeepSeek判断语义/价值并筛除→最多3项工具资料交给正文模型。每页摘要存最多1200字符；工具prompt再限制summary800、key_points700、uncertainties420，最终回复有资料可综合，但拿到的不是完整网页原文。DeepSeek appraiser主要做筛选/评分，不是另写一篇综合答案；Agnes压缩确实仍存在，不能宣称已移除。直接关闭Agnes不等于原文直通：目前explicit搜索要求isVerifiedRead，原始Extract状态不足，需以后明确设计后才能改。
+
+备份里明确联网电影那轮：先把省略主语的用户整句当query，保存了不相关的法国战争喜剧条目，后来用“欢迎来龙餐馆 电影”查到维基百科；最终回复中的导演、中东餐馆、140分钟与后一个已存摘要/要点对应。能确认有读取整理而非只有网址；该轮不能声称多独立来源交叉核验。仅据存档，不重新判定这些电影事实本身真伪。另有历史游戏“看看氧气瓶，准备下潜”被搜成现实潜水网页的记录，说明过去出现过意图偏题，不能仅凭旧记录断言+308仍会复现。
+
+LayeredPublicWebProvider 总会先调用不带include_domains的全网搜索；额外网站非空时另发站点补充搜索，再合并。设置UI也明确额外来源非限制。自制API前端可接全网搜索；局限来自搜索覆盖、网页可读性、每轮选页数、规划预算与摘要链，而非前端身份。官方Tavily接口核对：https://docs.tavily.com/documentation/api-reference/endpoint/search 。后续如优化，先处理省略主语检索词与资料保留，而非无差别加网站。
+
+14:01续查（仍只分析）：搜索工具说明已允许答案依赖最新公开事实时调用，不仅限明确命令；但 agent_tool_planner.dart 的 _routeToolIds 先以“最新/新闻/价格/天气/汇率/上网/联网/网页/网站/搜索/查资料”等词控制工具暴露，语义自动搜索不完整。搜索范围本身已是全网；改进点是依赖上下文生成准确query、按问题保留资料、必要时补搜。官方Gemini公开文档支持启用google_search后模型自行判断搜索是否有助回答、生成query并综合来源；不把API公开流程冒称所有官方网页端内部细节。用户曾要求取消联网压缩，当前代码与存档未满足；本轮尚未追溯出是哪次遗漏或覆盖，不能猜测归因。
+
+14:15续查（方案讨论，未授权实施）：最后三轮JEV完整分布：用户interaction依次{serious:0,ordinary:.01,light:.71,mutual:.21,strong:.07}/confidence .63；{0,.01,.46,.49,.04}/confidence .36，最高mutual但因差.03<=.10实际降ordinary；{0,.02,.40,.56,.02}/confidence .45实际mutual。自身route(none/playful/strong/settle)依次{.01,.41,.58,0}/confidence .44；{0,.11,.89,0}/confidence .84；{.01,.19,.80,0}/confidence .74，均strong。突破(breakthrough/wait)依次{.15,.85}/confidence .69；{.03,.97}/confidence .94；{.06,.94}/confidence .87，均wait且不近分。confidence是返回字段，非最高概率或本地计算差值，不参与当前选项决策。第二轮“普通”不是模型认定普通，而是项目近分中性策略覆盖；两个玩闹级别竞争被抹成普通值得讨论，但满值已到，非本轮不变身直接原因。她的抗议带幽默/从容，等待在“必须失去镇定”的现定义下可以自洽；不能因用户意在测试就断言JEV坏了，应校准“尚能回嘴但被持续逗急也可突破”的语义，并与不应变身的普通玩笑对照。
+
+深度思考开关：用户提出只在显式开启时扩大Agent自主查资料/分析，普通聊天避免每轮DS规划。当前通用Agent已有限循环3规划回合/6工具调用/每回合2个；只读搜索成功不会一概立即终止，可按缺失证据继续不同参数查询。之前“补搜”建议应理解为改善其目标与资料质量判断，不是当前完全没有循环。建议先复用预算与执行器，深度模式扩大只读资料工具语义入口，DS内部规划/读资料，Gemini收齐后一次最终正文；更完整不等于强制联网/凑满轮次。不开启后台行为或写入/删改/发图/游戏动作额外授权。每个任务固化模式快照，避免切换影响在途任务。复杂操作型工作区仍不能由问答模式取代，但目前分析问答需求可先用此模式。
+
+记忆：MemoryExtractor仍按用户+最终助手正文提取，已有reasoning不入长期记忆、用户偏好需用户证据、worldbook knowledge来源隔离；后者不自动等于普通网页工具全程来源隔离。用户联网结果当前主要写companion_browser_visits，不能混称全部自动进入public_web_knowledge。深度模式不必新建人格记忆库或关闭记忆；需补模式/资料来源标识，用户事实偏好/明确决定仍走现有记忆，网上事实/候选方案/未采纳建议不能升级为用户事实或人格证据；正文可保留历史，工具资料按来源保存/按需取回，不能全部常驻聊天上下文。此为拟议范围，不是已完成改动。
+
+14:33用户澄清优先于此前突破讨论（仅分析，未实施）：气焰计分保持，满值可不变；已满值后的连续两次故意逗她应触发变小，轻玩笑/互相挑逗都是同一“有效刺激”上位类别，强挑衅一次触发。不能用相邻玩法类别的近分把明确刺激覆盖为普通；最后三轮按此要求第二轮应触发。源码并未把概率乘成刺激强度，实际错误是相近子类竞争→统一中性覆盖，另有独立lose-composure门与用户规则不符；当前没有连续有效刺激计数。拟议按先判断有无故意刺激、再辨强刺激/普通刺激的层级决策，复用一次JEV短判断，不把所有JEV任务全局取消近分门。原有强烈害羞等其他触发如何保留仍需设计时对齐，不擅自删除。首次到100保护、Stop回滚/同turn去重、形态锁和进入Q后的泄气仍保留。
+联网澄清：用户故意使用“你去搜搜看”等自然说法，希望由上下文理解目标，入口本身合理。已核实routeLocally只接当前text，并直接把_webQuery(text)有界80字符作为query；该捷径没有前文用于补片名，是解析落地缺口，不是用户说法有问题。当前上层先runLocalPlan，之后即使模型纠正也可能已产生一次无效搜索。只在搜索已触发时补全查询主体/意图可改善，无需将普通聊天改成每轮规划；深度模式另行讨论。
+
+
+## 2026-10-03 14:39 整套气焰审计交接（REVIEW ONLY / NOT IMPLEMENTED）
+
+用户要求先查完再换模型实施。仅审计，不改产品源码、不触发CI/APK、不使用真实模型额度。源码基线5f198bd（+308）。当前工作树只有本总账的讨论/检查记录；ScreenMate独立总账只有暂停和参考项目记录。不要把下面建议当作已实现或直接开工授权。问题归因以代码和诊断为准，不据模型口碑推断历史责任。
+
+### 审计范围与证据
+
+逐一检查JEV网关、NsfwContextRouter（普通用户互动）、PlayfulSelfJudge、PlayfulBreakthroughJudge、PlayfulFormState/Store、PromptBuilder、DurableGenerationRunner普通完成/截断确认、AppDatabase停止/重生/完成事务、聊天形态菜单/刷新、TTS形态读取、沉浸入口快照，以及现有相关测试。现存PlayfulTurnJudge声明沉浸共用气焰，但产品调用搜索没有找到实例化入口；现在沉浸只读入口快照，不能把这个旧类当当前实际运行链。测试文件只做审阅；本机无Dart/Flutter，没有宣称运行Dart测试或真机复现。
+
+对实际诊断120条playfulHeatTrace逐条独立核算：clamp(beforeHeat + interactionBonus + selfBonus - fixedCooling - seriousCooling - elapsedHours*3,0,100)，120条全匹配，0条算术差异。此证明既有记录的算术一致，不证明上游分类正确或每个完成回复都生成了trace。当前持久状态100/本体/未锁定，既有8次突破均正常wait。
+
+### 已确认问题（按修复优先级和来源区分）
+
+H1【实际诊断+源码】用户侧相邻玩闹类别近分→ordinary。jev_decision_gateway.dart约174–189对interaction统一近分中性，未区分“有无玩闹”和“玩闹级别”。最后第二轮light .46/mutual .49/strong .04，ordinary仅.01却实际ordinary，用户贡献0而不是至少light的5。还发现另一条JEV日志light .49/mutual .45/strong .02/ordinary .04同样applied ordinary；其相邻气焰trace关联消息措辞略有不同，可能涉及重生，不能硬说对应trace也为ordinary。影响不只变身，还会令未满值少涨、小豆丁阶段多泄气：假设Q=20、她none，light正确结果7，误ordinary结果2（都是源码公式推演，非真机复现）。serious/ordinary近分也可能抹掉明确冷却，但需按上位语义另定，不全局去掉保守规则。
+
+H2【源码确定，诊断33条self未见近分实例】她自身playful与strong近分同样会被网关降none。例playful .49/strong .48/none .03，结果none、少记3或5。与H1同源，需一起修，不能只修改用户interaction分支。confidence不参与加分或强弱计算；未发现概率直接乘以气焰或比较前轮概率涨跌。
+
+H3【设计不符，主故障】当前满值仍需独立lose-composure分类，状态中没有连续刺激次数；最新用户规则是满值后连续两次明确故意逗她（light/mutual都可），strong一次。必须按最新要求替换决策，不只是改阈值。保留满值可等待、首次满值保护、原计分与手动锁；强烈害羞等历史其他触发不能在没讨论时静默删除。未来判断先有无有效刺激再辨强刺激，避免同类概率互相分流后丢失上位结论。
+
+H4【源码确定】手动普通/NSFW模式影响了独立气焰分类。chat_controller.setNsfwActive写nsfw_manual_override；nsfw_context_router.dart约74–87在手动模式直接return NsfwRouteDecision，playfulInteraction=null，随后持久unknown，PlayfulFormState.advance把null视ordinary。结果用户那一轮故意挑逗的贡献，或serious的额外-12，都可能遗漏；自身回复仍可加分。正文深度开关应只覆盖mode，不跳过独立互动分类。
+
+H5【源码确定】纯表情/图片不进入完整气焰语义。用户消息允许content为空，附件已有caption/visionSummary，ChatMessage.promptContent能包含它们，但用户分类和突破使用user.content，历史也只拼message.content。她若最终只发表情，assistant.content为空，PlayfulSelfJudge直接none，不读取附件语义。应使用已确认的表达语义而非“附件一律加分”；未识别内容仍不能猜。可能漏掉真实斗图刺激/自身玩闹，现有纯文字样本不能证明图片版效果。
+
+H6【源码确定，条件是生成中点击形态锁】PlayfulFormState.withLock重建对象未复制pendingTurn/pendingInteraction/pendingBreakthrough/pendingElapsedHours及before*。聊天菜单_onPlayfulFormAction没有generationActive禁用。已登记本轮后点锁定或解锁，会丢用户贡献和小豆丁本轮固定冷却，仅剩selfBonus；例本体50、pending mutual、self playful，正常83，生成中切锁后53。锁应只锁形态，不删除结算。手动弹额头/安抚刻意覆盖旧待结算轮次与锁不同；其后selfBonus仍能作用到新状态，是否允许需明确，不直接认定整个手动互动错误。
+
+H7【源码确定】confirmIncompleteDraft保存已确认截断正文并完成job后直接return，没有PlayfulSelfJudge/onAssistantTurn。保留正文进入对话和记忆，气焰轮次却不结算，pending仍在；下个用户advance可覆盖它。不能把“用户明确保留”的回复当没发生。
+
+H8【源码确定】restartLatestCompletedReply重生保留user/assistant原ID，删除旧正文但不撤销旧气焰。advance遇相同lastTurn返回，onAssistantTurn遇相同lastAssistantTurn返回；新正文虽然重新做self分类，最终气焰仍是旧正文的结果（含旧变身）。重复提交去重对正常重试是对的，对“替换旧回复版本”缺少撤销/重算语义。停止这次重生时也不能靠pending回滚撤销原已结算轮次。不要简单删幂等保护，应定义回复版本结算替换。
+
+H9【源码确定的可靠性窗口，未在真机制造崩溃】普通回复completeGenerationJobIfCurrent先事务保存正文+完成job+后处理任务，随后独立调用formStore.onAssistantTurn；中间退出/写入失败会正文成功而气焰丢结算，catch静默忽略，未找到气焰补偿扫描。应将同轮结算与回复提交绑定，或有持久可恢复任务与身份约束。不能声称每次切后台都必发生。
+
+H10【源码确定的时序不一致】PromptBuilder.advance保留旧qForm，promptForTurn告诉正文旧形态，直到正文保存之后onAssistantTurn才改变qForm。成功自然变身或归零回本体的那条回复仍按旧形态生成，UI/TTS随后可能读取新形态；这不是当前“8次wait”的原因，但改触发后会暴露表达与显示不同步。需要一致的本轮过渡语义和Stop回滚，不能提前永久落库后忽略撤销。
+
+H11【源码确定的提示契约漂移】普通JEV和DS fallback仍写light “This level still cools the heat meter”，但本体现行light+5、无固定冷却；这句话只可能在Q形态综合后成立，而分类输入又不含qForm。应删去分类任务里的过期计分暗示，不改已确认的数值。另breakthroughReady字段赋值/持久化却不被breakthroughDue读取；PlayfulBreakthroughJudge注释说只判首个满值后回合，实际每个满值本体回合都判。后者实际持续判定符合此前要求，应改误导文档/清理无效状态，不要照旧注释回退逻辑。
+
+### 无证据判错、应保留或只作设计边界的部分
+
+- 当前公式：本体固定冷却0；Q形态完成轮-18；serious额外-12；user ordinary0/light5/mutual30/strong34；self none0/playful3/strong5/settle-8；时间间隔每整小时-3、最多12小时。是先把所有贡献相加再clamp再判形态，不存在“先减到0就跳过正加分”。Q=15、mutual30、self3→30，保持Q。
+- Q形态普通无玩闹从100起六个完成轮归0；认真回复不会直接强制回本体，只按数值归0退出；持续互逗可维持高值，属于现有设计不擅改。
+- 普通Stop取消与删除用户消息/回滚pending在同一事务，已完成回复不能被旧Stop撤销，正常同ID重试有防重复；未发现这条正常路径反复加分。手动动作之后旧Stop不覆盖新手动状态是合理保护，不能因为H6/H8粗暴移除。
+- 时间衰减只在新用户轮按距离上次更新时间取整，不是每小时后台计时器；频繁对话会重置时间，零碎不足1小时不累加。用户已接受气焰容易慢涨，不当作这轮必修缺陷。
+- API两路分类都失败时null按ordinary/none处理，是现有保守降级，不代表真实语义ordinary。诊断trace未区分判普通与分类不可用，建议增加分类来源/状态和各门输入。不能用固定台词掩盖失败。
+- 手动额头100/Q、安抚0/本体，锁定期间固定形态，解除后下一轮再按规则结算；UI条读同一状态，TTS读同一qForm；沉浸房间只捕获入口形态，不推进全局气焰。后台主动回复不调用onAssistantTurn，本轮不擅自将主动消息纳入计分。
+- 最近上下文按字符截尾（用户2400、突破2600、自身900），长回复/主动消息可能挤掉有效互动，属语义输入风险；须用短句续逗、长回复、插入主动消息对照，不用关键词规则替代语义。
+
+### 下一执行模型的修复范围建议（需要用户后续开始指令）
+
+第一组：H1/H2/H3/H11，统一上位语义、计分信号与新触发规则；第二组H4/H5补全独立模式与附件语义；第三组H6–H10把回复提交、锁定、重生、截断确认、恢复与本轮形态表达对齐。保持现有计分数值、普通聊天调用架构、沉浸冻结、手动形态与TTS/Live2D接入，勿顺便重构联网。验收必须覆盖同类近分vs跨类近分、两次轻/互逗与一次强、满值普通保持、停止/重复投递、生成中锁定、截断确认、重生不同self、保存边界恢复、图文/纯贴图，以及两端形态切换同轮一致。现有测试主要验证正常算术/HTTP模拟/旧判定规则，未覆盖以上完整组合；不能只按旧测试全绿宣称设计正确。
+
+
+## +309 气焰完整性实施与构建准备（2026-10-03）
+
+依据14:52最新授权，本轮以气焰系统为主、普通显式搜索词补全为辅。深度思考延期，现有+菜单世界书按钮本轮不替换；未来开关位置/灰紫色状态要求保留。未开展陪看项目或重新接入 Live。
+
+实现：
+- JEV互斥类别概率仅用于选择类别，不按概率乘气焰数值；light/mutual/strong合并判断是否明确玩闹，playful/strong合并判断她的主动玩闹。组内接近不再误清零，组间与普通/收敛接近仍中性。
+- 满值不自动变身；第一次涨满保护。已满值后连续两个已完成的light或mutual为刺激序列，第二次进入Q；strong一次。普通/严肃、离开满值、原有整小时衰减、锁定中断序列。强烈害羞独立信号并入既有JEV批次，省去每满值轮单独突破API。原气焰数值和Q泄气规则保留。
+- 本轮进入Q的提示在生成正文前生效，持久形态在回复成功提交后生效；Stop撤销暂存刺激。已有Q的恢复以完整回复贡献合计后归零为准，禁止先扣到零丢失后续正加分。
+- 用户/她的表情包、图片现有识别语义参与分类；手动正文模式仍独立判断玩闹；锁定不再丢待结算信息；手动形态动作使迟到回复不再加分。
+- 正常回复与气焰同一SQLite事务，截断稿确认也分类/结算；重生成撤销本版本最新回复的结算快照再算新回复，不撤销后来的手动操作。旧版本没有快照的历史回复不推算不存在的原状态；升级后新完成回复覆盖此能力。诊断保留原始分类概率及新刺激计数。
+- 普通显式web请求进入现有Agent循环按前文消歧query；普通闲聊无新每轮规划。网页整理和Agnes原文转交策略本轮不改，深度模式/记忆来源分层延期。
+
+本地验证：140项注册源码门中133通过，7项为已知构建资源或kotlinc缺失；git diff --check通过。新增20项行为场景测试（含语义合并、满值序列、强刺激、Stop、锁定、手动路由、表情语义、同事务失败回滚、重生成、截断确认），等待Flutter CI实际执行；本机无Flutter/Dart/Android SDK，不将源码检查冒称APK或真机通过。旧门只扩展+309允许版本，资源门、冻结历史与功能断言不弱化。
+
+状态：IMPLEMENTED / CI PENDING / APK PENDING / TRUE DEVICE PENDING。计划提交开发分支agent/v04265-playful-integrity，完整原生/Flutter/源码/签名流水线，产物保持Draft，不合并main、不正式发布。

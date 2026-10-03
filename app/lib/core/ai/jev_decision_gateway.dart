@@ -28,6 +28,30 @@ class JevDecisionGateway {
   final Future<bool> Function()? enabledReader;
   final Future<String?> Function()? keyReader;
 
+  /// Probabilities select meanings, not heat intensity. Uncertainty between
+  /// two kinds of play must not erase their shared evidence for play.
+  static String? resolvePlayfulGroup(String lane, String question,
+      Map<String, double> distribution) {
+    final user = (lane == 'chat_intimacy_route' || lane == 'immersive_playful_route') &&
+        question == 'interaction';
+    final self = lane == 'chat_playful_self' && question == 'route';
+    if (!user && !self) return null;
+    final positive = user ? const {'light', 'mutual', 'strong'} : const {'playful', 'strong'};
+    final neutral = user ? 'ordinary' : 'none';
+    final groups = <String, double>{};
+    for (final entry in distribution.entries) {
+      final group = positive.contains(entry.key) ? 'play' : entry.key;
+      groups[group] = (groups[group] ?? 0) + entry.value;
+    }
+    final ranked = groups.entries.toList()..sort((a, b) => b.value.compareTo(a.value));
+    if (ranked.isEmpty) return neutral;
+    if (ranked.length > 1 && ranked[0].value - ranked[1].value <= 0.10 + 1e-9) return neutral;
+    if (ranked.first.key != 'play') return ranked.first.key;
+    final levels = distribution.entries.where((e) => positive.contains(e.key)).toList()
+      ..sort((a, b) => b.value.compareTo(a.value));
+    return levels.first.key;
+  }
+
   Future<String?> choose({
     required Object state,
     required String instruction,
@@ -176,6 +200,7 @@ class JevDecisionGateway {
         final neutral = switch ((usageLane, entry.key)) {
           ('chat_intimacy_route', 'interaction') ||
           ('immersive_playful_route', 'interaction') => 'ordinary',
+          ('chat_intimacy_route', 'flustered') => 'no',
           ('chat_intimacy_route', 'initiative') ||
           ('immersive_playful_route', 'initiative') => 'closed',
           ('chat_intimacy_route', 'cedar') => 'chat',
@@ -186,8 +211,9 @@ class JevDecisionGateway {
           _ => null,
         };
         final highest = ranked.first.key;
-        final applied = close && neutral != null ? neutral : highest;
-        closeDecisions = closeDecisions || close && neutral != null;
+        final grouped = resolvePlayfulGroup(usageLane, entry.key, distribution);
+        final applied = grouped ?? (close && neutral != null ? neutral : highest);
+        closeDecisions = closeDecisions || (applied == neutral && applied != highest);
         results[entry.key] = applied;
         answerTrace[entry.key] = <String, Object?>{
           'choice': selected,
@@ -198,6 +224,7 @@ class JevDecisionGateway {
               distribution.length == entry.value.options.length,
           'close': close,
           'applied': applied,
+          if (grouped != null) 'decision_policy': 'playful_semantic_groups_v2',
         };
       }
       await _record(usageLane,

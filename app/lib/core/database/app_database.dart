@@ -7778,6 +7778,7 @@ class AppDatabase {
           );
         }
       }
+      await PlayfulFormStore.undoReplyInTransaction(txn, assistantMessageId);
       await txn.delete(
         'post_turn_jobs',
         where: 'assistant_message_id = ?',
@@ -7833,6 +7834,7 @@ class AppDatabase {
     required String jobId,
     required String runToken,
     required ChatMessage assistant,
+    PlayfulSelfActivity? playfulActivity,
     List<SomaticEvent> somaticEvents = const <SomaticEvent>[],
   }) async {
     if (assistant.attachments.any((item) => item.messageId != assistant.id)) {
@@ -7961,6 +7963,11 @@ class AppDatabase {
         somaticEvents,
         assistant.createdAt,
       );
+      if (playfulActivity != null) {
+        await PlayfulFormStore.settleInTransaction(txn,
+          userTurn: job.userMessageId, assistantTurn: assistant.id,
+          activity: playfulActivity, now: assistant.createdAt);
+      }
       await _recordPersonalityTrialReplyInTransaction(txn, now);
       return true;
     });

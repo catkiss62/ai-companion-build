@@ -108,7 +108,8 @@ publish_to: 'none'
 # Historical: version: 0.42.57+301
 # Historical: version: 0.42.59+303
 # Historical: version: 0.42.60+304
-version: 0.42.64+308
+# Historical: version: 0.42.64+308
+version: 0.42.65+309
 
 environment:
   sdk: '>=3.12.0 <4.0.0'

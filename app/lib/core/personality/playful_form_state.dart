@@ -1,5 +1,7 @@
 import 'dart:convert';
 
+import 'package:sqflite/sqflite.dart';
+
 import '../database/app_database.dart';
 
 /// Jev (or DeepSeek on failure) classifies the user's actual participation.
@@ -73,6 +75,9 @@ class PlayfulInitiativePolicy {
 class PlayfulFormState {
   const PlayfulFormState({
     this.heat = 0,
+    this.stimulusStreak = 0,
+    this.beforeStimulusStreak = 0,
+    this.manualRevision = 0,
     this.qForm = false,
     this.locked = false,
     this.lastTurn = '',
@@ -96,6 +101,10 @@ class PlayfulFormState {
 
   static const settingKey = 'playful_form_state_v1';
   final int heat;
+  final int stimulusStreak;
+  final int beforeStimulusStreak;
+  final int manualRevision;
+  bool get promptQForm => (!locked && pendingTurn && pendingBreakthrough) || qForm;
   final bool qForm;
   final bool locked;
   final String lastTurn;
@@ -124,6 +133,9 @@ class PlayfulFormState {
     try {
       final data = jsonDecode(raw ?? '') as Map<String, dynamic>;
       return PlayfulFormState(
+        stimulusStreak: ((data['stimulusStreak'] as num?)?.toInt() ?? 0).clamp(0, 1).toInt(),
+        beforeStimulusStreak: ((data['beforeStimulusStreak'] as num?)?.toInt() ?? 0).clamp(0, 1).toInt(),
+        manualRevision: (data['manualRevision'] as num?)?.toInt() ?? 0,
         heat: ((data['heat'] as num?)?.toInt() ?? 0).clamp(0, 100).toInt(),
         qForm: data['qForm'] == true,
         locked: data['locked'] == true,
@@ -154,6 +166,9 @@ class PlayfulFormState {
 
   String encode() => jsonEncode({
         'heat': heat,
+        'stimulusStreak': stimulusStreak,
+        'beforeStimulusStreak': beforeStimulusStreak,
+        'manualRevision': manualRevision,
         'qForm': qForm,
         'locked': locked,
         'lastTurn': lastTurn,
@@ -186,6 +201,13 @@ class PlayfulFormState {
         ? 0
         : ((now.millisecondsSinceEpoch - updatedAt) ~/ 3600000).clamp(0, 12);
     final serious = interaction == PlayfulInteraction.serious;
+    final gentle = interaction == PlayfulInteraction.light ||
+        interaction == PlayfulInteraction.mutual;
+    // The turn that first fills the meter is protected. Only a completed,
+    // still-full prior turn can contribute to the two-stimulus sequence.
+    final stimulated = breakthroughDue && elapsedHours == 0 &&
+        (interaction == PlayfulInteraction.strong ||
+         gentle && stimulusStreak >= 1 || breakthrough == true);
     // Keep the user classification provisional. Applying a negative delta now
     // can hit zero before the visible reply contributes its own real activity.
     return PlayfulFormState(
@@ -196,7 +218,10 @@ class PlayfulFormState {
       lastAssistantTurn: lastAssistantTurn,
       pendingTurn: true,
       pendingInteraction: interaction ?? PlayfulInteraction.ordinary,
-      pendingBreakthrough: breakthrough == true,
+      pendingBreakthrough: stimulated,
+      stimulusStreak: stimulusStreak,
+      beforeStimulusStreak: stimulusStreak,
+      manualRevision: manualRevision,
       pendingElapsedHours: elapsedHours,
       breakthroughReady: breakthroughReady,
       beforeBreakthroughReady: breakthroughReady,
@@ -225,6 +250,8 @@ class PlayfulFormState {
     if (!pendingTurn || turn.isEmpty || lastTurn != turn) return this;
     return PlayfulFormState(
       heat: beforeHeat,
+      stimulusStreak: beforeStimulusStreak,
+      manualRevision: manualRevision,
       qForm: beforeQForm,
       breakthroughReady: beforeBreakthroughReady,
       locked: locked,
@@ -241,7 +268,7 @@ class PlayfulFormState {
     String assistantTurn,
     DateTime now,
   ) {
-    if (assistantTurn.isEmpty || lastAssistantTurn == assistantTurn) return this;
+    if (!pendingTurn || assistantTurn.isEmpty || lastAssistantTurn == assistantTurn) return this;
     // One clamp and one form decision after both participants and the fixed
     // per-turn cooling have contributed. A pending Stop rolls back all of it.
     // Only the small form cools by 18 per completed turn.
@@ -252,9 +279,15 @@ class PlayfulFormState {
         .clamp(0, 100).toInt();
     final nextForm = locked ? qForm : qForm
         ? nextHeat > 0
-        : nextHeat == 100 && pendingTurn && pendingBreakthrough;
+        : pendingBreakthrough;
+    final gentle = pendingInteraction == PlayfulInteraction.light ||
+        pendingInteraction == PlayfulInteraction.mutual;
+    final nextStreak = !nextForm && !locked && heat == 100 && nextHeat == 100 &&
+        pendingElapsedHours == 0 && gentle ? 1 : 0;
     return PlayfulFormState(
       heat: nextHeat,
+      stimulusStreak: nextStreak,
+      manualRevision: manualRevision,
       qForm: nextForm,
       breakthroughReady: !nextForm && !locked && nextHeat == 100,
       locked: locked,
@@ -269,6 +302,7 @@ class PlayfulFormState {
   PlayfulFormState interact({required bool kindle, required DateTime now}) =>
       PlayfulFormState(
         heat: kindle ? 100 : 0,
+        manualRevision: manualRevision + 1,
         qForm: kindle,
         breakthroughReady: false,
         locked: locked,
@@ -279,17 +313,16 @@ class PlayfulFormState {
         updatedAt: now.millisecondsSinceEpoch,
       );
 
-  PlayfulFormState withLock(bool value) => PlayfulFormState(
-        heat: heat,
-        qForm: qForm,
-        breakthroughReady: value ? false : breakthroughReady,
-        locked: value,
-        lastTurn: lastTurn,
-        lastAssistantTurn: lastAssistantTurn,
-        event: event,
-        eventTurn: eventTurn,
-        updatedAt: updatedAt,
-      );
+  PlayfulFormState withLock(bool value) {
+    final data = jsonDecode(encode()) as Map<String, dynamic>;
+    data['locked'] = value;
+    if (value) {
+      data['stimulusStreak'] = 0;
+      data['beforeStimulusStreak'] = 0;
+      data['pendingBreakthrough'] = false;
+    }
+    return PlayfulFormState.decode(jsonEncode(data));
+  }
 
   String promptForTurn(String turn) {
     final interaction = eventTurn == turn
@@ -300,8 +333,9 @@ class PlayfulFormState {
                 : ''
         : '';
     return '''【当前形态】
-你是同一个成年鲸鱼娘；本体与小豆丁形态是同一人的两种表现，年龄、记忆和判断能力始终相同。小豆丁形态会让你的外观缩成 Q 版小豆丁，心智表现也暂时变得孩子气：情绪更直冲、耐心更少，更容易任性、冲动和耍赖。这是当下反应与表达的变化，不是年龄倒退或换了一个人。玩闹的气焰升满只表示蓄势，遇到让你真的绷不住的互动才会变成小豆丁；冷静下来会恢复。可以在对方提及时自然承认，不主动报系统阈值。
-当前是${qForm ? '小豆丁形态' : '本体'}。${qForm ? '现在脾气更冲、更爱逞强顶嘴，得意时会挑衅或耍赖；心思被看穿或被对方轻巧反击时，容易嘴硬、害羞、慌乱地破防。保持同一个人的感情和记忆，不让每句话都变成挑衅。' : '现在保持松弛自然，能调侃也能直接、温柔地回应。'}
+你是同一个成年鲸鱼娘；本体与小豆丁形态是同一人的两种表现，年龄、记忆和判断能力始终相同。小豆丁形态会让你的外观缩成 Q 版小豆丁，心智表现也暂时变得孩子气：情绪更直冲、耐心更少，更容易任性、冲动和耍赖。这是当下反应与表达的变化，不是年龄倒退或换了一个人。玩闹的气焰升满只表示蓄势，连续被故意逗弄、明显的强挑衅或被逗到强烈害羞时会变成小豆丁；冷静下来会恢复。可以在对方提及时自然承认，不主动报系统阈值。
+${pendingBreakthrough && !locked ? '这一轮被对方接连逗弄或强烈刺激，已经转为小豆丁；自然接着互动，不必专门播报变身。' : ''}
+当前是${promptQForm ? '小豆丁形态' : '本体'}。${promptQForm ? '现在脾气更冲、更爱逞强顶嘴，得意时会挑衅或耍赖；心思被看穿或被对方轻巧反击时，容易嘴硬、害羞、慌乱地破防。保持同一个人的感情和记忆，不让每句话都变成挑衅。冷静是否完成在这轮回复结束后结算，不自行宣告已经恢复本体。' : '现在保持松弛自然，能调侃也能直接、温柔地回应。'}
 ${locked ? '用户锁定了当前形态。' : ''}
 $interaction''';
   }
@@ -310,93 +344,104 @@ $interaction''';
 class PlayfulFormStore {
   PlayfulFormStore(this.db);
   final AppDatabase db;
+  static const settlementKey = 'playful_last_settlement_v2';
 
   Future<PlayfulFormState> load() async =>
       PlayfulFormState.decode(await db.getSetting(PlayfulFormState.settingKey));
 
-  /// All heat and lock mutations use the same SQLite transaction. A delayed
-  /// Jev result must not overwrite a manual action or a newer user turn.
-  Future<PlayfulFormState> _update(
-    PlayfulFormState Function(PlayfulFormState) change,
-    {PlayfulSelfActivity? completedActivity}
-  ) async {
+  static Future<PlayfulFormState> readInTransaction(DatabaseExecutor txn) async {
+    final rows = await txn.query('settings', columns: const ['value'],
+        where: 'key = ?', whereArgs: const [PlayfulFormState.settingKey], limit: 1);
+    return PlayfulFormState.decode(rows.isEmpty ? null : rows.first['value'] as String?);
+  }
+
+  static Future<void> writeInTransaction(DatabaseExecutor txn, PlayfulFormState state) =>
+      txn.rawInsert('INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)',
+        [PlayfulFormState.settingKey, state.encode()]).then((_) {});
+
+  Future<PlayfulFormState> _update(PlayfulFormState Function(PlayfulFormState) change) async {
     final database = await db.database;
-    return database.transaction<PlayfulFormState>((txn) async {
-      final rows = await txn.query(
-        'settings',
-        columns: const ['value'],
-        where: 'key = ?',
-        whereArgs: const [PlayfulFormState.settingKey],
-        limit: 1,
-      );
-      final current = PlayfulFormState.decode(
-        rows.isEmpty ? null : rows.first['value'] as String?,
-      );
+    return database.transaction((txn) async {
+      final current = await readInTransaction(txn);
       final next = change(current);
-      if (next != current) {
-        await txn.rawInsert(
-          'INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)',
-          [PlayfulFormState.settingKey, next.encode()],
-        );
-        if (completedActivity != null) {
-          const traceKey = 'playful_heat_trace_v1';
-          final prior = await txn.query('settings', columns: const ['value'],
-              where: 'key = ?', whereArgs: const [traceKey], limit: 1);
-          List<dynamic> events;
-          try {
-            events = jsonDecode(prior.isEmpty ? '[]' : prior.first['value'] as String) as List;
-          } catch (_) {
-            events = [];
-          }
-          events.add({
-            'at': DateTime.now().millisecondsSinceEpoch,
-            'userTurn': current.lastTurn,
-            'assistantTurn': next.lastAssistantTurn,
-            'beforeHeat': current.heat,
-            'afterHeat': next.heat,
-            'beforeQForm': current.qForm,
-            'afterQForm': next.qForm,
-            'interaction': current.pendingInteraction.name,
-            'interactionBonus': current.pendingTurn ? current.pendingInteraction.bonus : 0,
-            'selfActivity': completedActivity.name,
-            'selfBonus': completedActivity.bonus,
-            'fixedCooling': current.pendingTurn && current.qForm ? 18 : 0,
-            'seriousCooling': current.pendingTurn &&
-                    current.pendingInteraction == PlayfulInteraction.serious ? 12 : 0,
-            'elapsedHours': current.pendingElapsedHours,
-            'breakthrough': current.pendingBreakthrough,
-          });
-          await txn.rawInsert('INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)',
-              [traceKey, jsonEncode(events.length > 120
-                  ? events.sublist(events.length - 120) : events)]);
-        }
-      }
+      if (!identical(next, current)) await writeInTransaction(txn, next);
       return next;
     });
   }
 
-  Future<PlayfulFormState> onTurn({
-    required PlayfulInteraction? interaction,
-    required String turn,
-    required DateTime now,
-    bool? breakthrough,
-  }) =>
-      _update((current) => current.advance(interaction, turn, now,
-          breakthrough: breakthrough));
+  /// The winning reply and this settlement share the same SQLite transaction.
+  /// A manual form action invalidates the pending turn; a lock preserves it.
+  static Future<void> settleInTransaction(DatabaseExecutor txn, {
+    required String userTurn, required String assistantTurn,
+    required PlayfulSelfActivity activity, required DateTime now,
+  }) async {
+    final current = await readInTransaction(txn);
+    if (!current.pendingTurn || current.lastTurn != userTurn) return;
+    final next = current.onAssistantTurn(activity, assistantTurn, now);
+    if (identical(next, current)) return;
+    final before = current.rollbackTurn(userTurn);
+    await writeInTransaction(txn, next);
+    await txn.rawInsert('INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)',
+      [settlementKey, jsonEncode({'assistantTurn': assistantTurn,
+        'before': before.encode(), 'after': next.encode()})]);
+    const traceKey = 'playful_heat_trace_v1';
+    final rows = await txn.query('settings', columns: const ['value'],
+      where: 'key = ?', whereArgs: const [traceKey], limit: 1);
+    List<dynamic> events;
+    try { events = jsonDecode(rows.isEmpty ? '[]' : rows.first['value'] as String) as List; }
+    catch (_) { events = []; }
+    events.add({
+      'at': now.millisecondsSinceEpoch, 'userTurn': userTurn,
+      'assistantTurn': assistantTurn, 'beforeHeat': current.heat, 'afterHeat': next.heat,
+      'beforeQForm': current.qForm, 'afterQForm': next.qForm,
+      'interaction': current.pendingInteraction.name,
+      'interactionBonus': current.pendingInteraction.bonus,
+      'selfActivity': activity.name, 'selfBonus': activity.bonus,
+      'fixedCooling': current.qForm ? 18 : 0,
+      'seriousCooling': current.pendingInteraction == PlayfulInteraction.serious ? 12 : 0,
+      'elapsedHours': current.pendingElapsedHours,
+      'breakthrough': current.pendingBreakthrough,
+      'stimulusBefore': current.beforeStimulusStreak, 'stimulusAfter': next.stimulusStreak,
+      'settlementVersion': 2,
+    });
+    await txn.rawInsert('INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)',
+      [traceKey, jsonEncode(events.length > 120 ? events.sublist(events.length - 120) : events)]);
+  }
 
-  Future<PlayfulFormState> onAssistantTurn({
-    required PlayfulSelfActivity activity,
-    required String assistantTurn,
-    required DateTime now,
-  }) =>
-      _update((current) =>
-          current.onAssistantTurn(activity, assistantTurn, now),
-          completedActivity: activity);
+  /// Undo only the latest matching reply version, never a newer manual action.
+  static Future<void> undoReplyInTransaction(DatabaseExecutor txn, String assistantTurn) async {
+    final rows = await txn.query('settings', columns: const ['value'],
+      where: 'key = ?', whereArgs: const [settlementKey], limit: 1);
+    if (rows.isEmpty) return; // Older app versions did not retain an undo snapshot.
+    Map<String, dynamic> record;
+    try { record = jsonDecode(rows.first['value'] as String) as Map<String, dynamic>; }
+    catch (_) { return; }
+    if (record['assistantTurn'] != assistantTurn) return;
+    final current = await readInTransaction(txn);
+    final after = PlayfulFormState.decode(record['after'] as String?);
+    if (current.lastAssistantTurn != assistantTurn ||
+        current.manualRevision != after.manualRevision || current.pendingTurn) return;
+    final before = PlayfulFormState.decode(record['before'] as String?);
+    await writeInTransaction(txn, before.withLock(current.locked));
+    await txn.delete('settings', where: 'key = ?', whereArgs: const [settlementKey]);
+  }
+
+  Future<PlayfulFormState> onTurn({required PlayfulInteraction? interaction,
+    required String turn, required DateTime now, bool? breakthrough}) =>
+    _update((current) => current.advance(interaction, turn, now, breakthrough: breakthrough));
+
+  Future<PlayfulFormState> onAssistantTurn({required PlayfulSelfActivity activity,
+    required String assistantTurn, required DateTime now}) async {
+    final database = await db.database;
+    return database.transaction((txn) async {
+      final current = await readInTransaction(txn);
+      await settleInTransaction(txn, userTurn: current.lastTurn,
+        assistantTurn: assistantTurn, activity: activity, now: now);
+      return readInTransaction(txn);
+    });
+  }
 
   Future<PlayfulFormState> interact(bool kindle) =>
-      _update((current) =>
-          current.interact(kindle: kindle, now: DateTime.now()));
-
-  Future<PlayfulFormState> lock(bool locked) =>
-      _update((current) => current.withLock(locked));
+    _update((current) => current.interact(kindle: kindle, now: DateTime.now()));
+  Future<PlayfulFormState> lock(bool locked) => _update((current) => current.withLock(locked));
 }

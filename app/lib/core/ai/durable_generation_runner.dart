@@ -53,7 +53,6 @@ import 'model_profile.dart';
 import 'nsfw_context_router.dart';
 import 'prompt_builder.dart';
 import 'playful_self_judge.dart';
-import 'playful_breakthrough_judge.dart';
 import '../mcp/cedar_play_session_policy.dart';
 import '../mcp/cedar_timed_play_task.dart';
 import 'visible_reasoning_transcript.dart';
@@ -328,7 +327,7 @@ class DurableGenerationRunner {
         apiKey: apiKey,
         endpoint: endpoint,
         turnId: user.id,
-        latestUserText: user.content,
+        latestUserText: user.promptContent,
         recent: recent,
         cedarConfigured: cedarConfigured,
         cancellationToken: effectiveCancellation,
@@ -398,6 +397,12 @@ class DurableGenerationRunner {
               false)) {
         localPlan = null;
       }
+
+      // Recognizing a request is not constructing its search query. Route this
+      // request through the existing tool planner with the conversation, once.
+      final contextualWebSearch = localPlan?.calls.any(
+        (call) => call.toolId == 'public_web.search') ?? false;
+      if (contextualWebSearch) localPlan = null;
 
       Future<void> runLocalPlan(AgentToolPlan plan) async {
         // Deterministic local routing is one planning stage even when an empty
@@ -517,25 +522,12 @@ class DurableGenerationRunner {
           cedarPromptSession?.hasPendingTerminalDelivery == true
               ? cedarPromptSession!.pendingTerminalKey
               : '';
-      final formBeforeTurn = await PlayfulFormStore(db).load();
-      final breakthrough = formBeforeTurn.breakthroughDue
-          ? await PlayfulBreakthroughJudge(client).decide(
-              apiKey: apiKey,
-              endpoint: endpoint,
-              userText: user.content,
-              recentContext: previous.reversed
-                  .take(10)
-                  .toList(growable: false)
-                  .reversed
-                  .map((message) =>
-                      '${message.isUser ? 'USER' : 'ASSISTANT'}: ${message.content}')
-                  .join('\n'),
-              cancellationToken: effectiveCancellation,
-            )
-          : null;
+      // Deliberate teasing and intense fluster are judged in the existing
+      // short batch. State owns consecutive stimuli; no extra breakthrough call.
+      final breakthrough = nsfwRoute.playfulFlustered;
       effectiveCancellation.throwIfCancelled();
       final promptBuild = await PromptBuilder(db).buildChatPrompt(
-        latestUserText: user.content,
+        latestUserText: user.promptContent,
         recent: recent,
         desire: desire,
         thoughts: thoughts,
@@ -1047,6 +1039,7 @@ class DurableGenerationRunner {
             user.content,
             cedarStageToolIds: cedarStageToolIds(),
             cedarBlindPlay: cedarBlindPlay(),
+            webSearchRequested: contextualWebSearch,
           );
 
       var taskToolDefinitions = currentTaskToolDefinitions();
@@ -1808,13 +1801,13 @@ $finalGenerationReminder
           apiKey: apiKey,
           endpoint: endpoint,
           userText: user.promptContent,
-          assistantText: assistant.content,
+          assistantText: assistant.promptContent,
           recentContext: previous.reversed
               .take(4)
               .toList(growable: false)
               .reversed
               .map((message) =>
-                  '${message.isUser ? 'USER' : 'ASSISTANT'}: ${message.content}')
+                  '${message.isUser ? 'USER' : 'ASSISTANT'}: ${message.promptContent}')
               .join('\n'),
           cancellationToken: effectiveCancellation,
         );
@@ -1837,6 +1830,7 @@ $finalGenerationReminder
           runToken: job.runToken,
           assistant: assistant,
           somaticEvents: assistantSomaticEvents,
+          playfulActivity: selfActivity ?? PlayfulSelfActivity.none,
         );
       } catch (_) {
         if (selectedSticker != null) {
@@ -1869,15 +1863,6 @@ $finalGenerationReminder
           now: assistant.createdAt);
       } catch (_) { /* A committed reply survives optional preference storage. */ }
 
-      try {
-        await PlayfulFormStore(db).onAssistantTurn(
-          activity: selfActivity ?? PlayfulSelfActivity.none,
-          assistantTurn: assistant.id,
-          now: assistant.createdAt,
-        );
-      } catch (_) {
-        // A committed answer survives an optional score storage failure.
-      }
       for (var index = 0; index < agentToolResults.length; index++) {
         await agentToolRunner.recordCommittedMediaOutcome(
           eventScopeId: job.id,
@@ -2132,7 +2117,16 @@ $finalGenerationReminder
       emotionTop3Json: companionEmotion.top3Json,
       emotionSource: companionEmotion.source,
     );
+    final recent = await db.recentMessages(limit: 6);
+    final activity = await PlayfulSelfJudge(client: client).classify(
+      apiKey: await secureConfig.readApiKey() ?? '',
+      endpoint: await secureConfig.readEndpoint(),
+      userText: user.promptContent, assistantText: assistant.promptContent,
+      recentContext: recent.where((m) => m.createdAt.isBefore(user.createdAt))
+          .map((m) => '${m.role}: ${m.promptContent}').join('\n'),
+    );
     final committed = await db.completeGenerationJobIfCurrent(
+      playfulActivity: activity ?? PlayfulSelfActivity.none,
       jobId: job.id,
       runToken: job.runToken,
       assistant: assistant,

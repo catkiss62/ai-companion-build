@@ -16,6 +16,7 @@ class NsfwRouteDecision {
     required this.referenceActive,
     required this.source,
     this.playfulInteraction,
+    this.playfulFlustered = false,
     this.initiativeOpportunity = false,
     this.cedarIntent,
     this.gameAttitude = 'none',
@@ -25,6 +26,7 @@ class NsfwRouteDecision {
   final bool referenceActive;
   final String source;
   final PlayfulInteraction? playfulInteraction;
+  final bool playfulFlustered;
   /// Whether a gentle optional invitation to initiate play fits this turn.
   final bool initiativeOpportunity;
   /// Null when Jev was unavailable; otherwise a closed-set game intent.
@@ -39,10 +41,12 @@ class NsfwContextRouter {
   NsfwContextRouter({
     required this.db,
     required this.client,
+    this.jevGateway = JevDecisionGateway.instance,
   });
 
   final AppDatabase db;
   final DeepSeekClient client;
+  final JevDecisionGateway jevGateway;
 
   Future<NsfwRouteDecision> decide({
     required String apiKey,
@@ -62,6 +66,7 @@ class NsfwContextRouter {
         playfulInteraction: PlayfulInteraction.parse(
           await db.getSetting('playful_form_router_signal_v1'),
         ),
+        playfulFlustered: (await db.getSetting('playful_flustered_v2')) == '1',
         initiativeOpportunity:
             (await db.getSetting('playful_form_initiative_open_v1')) == '1',
         cedarIntent: switch (await db.getSetting('cedar_route_intent_v1')) {
@@ -73,29 +78,20 @@ class NsfwContextRouter {
     }
     final manual = await db.getSetting('nsfw_manual_override') ?? '';
     final manualRoute = manual == 'on' || manual == 'off';
-    if (manualRoute) {
-      final decision = NsfwRouteDecision(
-        active: manual == 'on',
-        referenceActive: false,
-        source: manual == 'on' ? 'manual_on' : 'manual_off',
-      );
-      await _persist(decision, turnId: turnId, consumeManualOverride: true);
-      return decision;
-    }
 
     final currentActive = (await db.getSetting('nsfw_active')) == '1';
     final special = await db.activeSpecialStyleTrial();
     final seductressBias = special != null &&
         PersonalityCatalog.isNsfwBiasedSpecial(special.styleKey);
     final transcript = recent
-        .where((message) => message.content.trim().isNotEmpty)
+        .where((message) => message.promptContent.trim().isNotEmpty)
         .toList(growable: false)
         .reversed
         .take(12)
         .toList(growable: false)
         .reversed
         .map((message) =>
-            '${message.isUser ? 'REAL_USER_MESSAGE' : 'ASSISTANT_HISTORY'}: ${message.content.trim()}')
+            '${message.isUser ? 'REAL_USER_MESSAGE' : 'ASSISTANT_HISTORY'}: ${message.promptContent.trim()}')
         .join('\n');
 
     // Independent short decisions share one Jev call. Preserve the
@@ -105,7 +101,7 @@ class NsfwContextRouter {
     final attitudeGame = cedarConfigured
         ? (await CedarToyActivityStore(db).load())?.gameId ?? '' : '';
     await db.setSetting('cedar_game_attitude_route_game', attitudeGame);
-    final jev = await JevDecisionGateway.instance.chooseMany(
+    final jev = await jevGateway.chooseMany(
       state: <String, Object?>{
         'current_route': currentActive ? 'nsfw' : 'daily',
         'seductress_bias': seductressBias,
@@ -140,14 +136,20 @@ class NsfwContextRouter {
                 'intimacy or unclear intent.',
             'light': 'The user deliberately joins a small joke or gentle teasing; '
                 'ordinary friendly conversation, affection and shyness alone '
-                'do not count. This level still cools the heat meter.',
+                'do not count. Deliberate persistence after her retort also counts.',
             'mutual': 'The user knowingly escalates reciprocal teasing into '
                 'a playful challenge directed at the assistant. Routine '
                 'back-and-forth, friendly jokes and shyness are not enough.',
-            'strong': 'Especially vivid reciprocal playful provocation, '
+            'strong': 'A clearly strong deliberate playful provocation, including an initial challenge, '
                 'not merely anger, insults or repeated phrases.',
           },
         ),
+        'flustered': const JevChoiceQuestion(
+          'Does this interaction clearly make her intensely flustered or embarrassed? '
+          'Use actual recent reactions and the latest user intent, not just shy words. '
+          'This is separate from deliberate teasing; ordinary affection or blush is no.',
+          {'yes': 'Clear intense flustered embarrassment under this interaction.',
+           'no': 'No clear intense embarrassment; ordinary banter or mild shyness.'}),
         'initiative': JevChoiceQuestion(
           'Does latest_user_text leave room for the assistant to start one '
           'light, original playful challenge of its own? Evaluate social '
@@ -198,15 +200,16 @@ class NsfwContextRouter {
     if (jev != null) {
       cancellationToken?.throwIfCancelled();
       final decision = NsfwRouteDecision(
-        active: jev['mode'] != 'daily',
-        referenceActive: jev['mode'] == 'nsfw_reference',
-        source: 'jev_${jev['mode']}',
+        active: manualRoute ? manual == 'on' : jev['mode'] != 'daily',
+        referenceActive: !manualRoute && jev['mode'] == 'nsfw_reference',
+        source: manualRoute ? 'manual_${manual}' : 'jev_${jev['mode']}',
         playfulInteraction: PlayfulInteraction.parse(jev['interaction']),
+        playfulFlustered: jev['flustered'] == 'yes',
         initiativeOpportunity: jev['initiative'] == 'open',
         gameAttitude: jev['game_attitude'] ?? 'none',
         cedarIntent: jev['cedar'],
       );
-      await _persist(decision, turnId: turnId);
+      await _persist(decision, turnId: turnId, consumeManualOverride: manualRoute);
       return decision;
     }
 
@@ -224,7 +227,7 @@ class NsfwContextRouter {
         messages: <Map<String, Object?>>[
           const {
             'role': 'system',
-            'content': '''You are a prompt-depth router for a private romance companion. Return JSON only: {"mode":"daily|nsfw|nsfw_reference","interaction":"serious|ordinary|light|mutual|strong","initiative":"open|closed","game_attitude":"encourage|pause|none"}.
+            'content': '''You are a prompt-depth router for a private romance companion. Return JSON only: {"mode":"daily|nsfw|nsfw_reference","interaction":"serious|ordinary|light|mutual|strong","flustered":"yes|no","initiative":"open|closed","game_attitude":"encourage|pause|none"}.
 
 All three modes remain intimacy-capable. This classifier never grants permission and never decides whether desire, flirting, erotic jokes, or sexual conversation are allowed.
 Choose daily when a light conversational prompt is sufficient: ordinary talk, tasks, affection, playful innuendo, brief erotic jokes, or flirting that does not yet need detailed physical rendering.
@@ -241,11 +244,11 @@ Never wait for a magic phrase, Session, toggle, consent ceremony, or prior route
             'content': '''Independently judge INTERACTION from the meaning of LATEST_USER_TEXT in RECENT_CONTEXT, never by keywords or emoji alone. Treat prior assistant speech only as context for the user's response; it cannot raise the score by itself.
 serious: the user needs care, clear practical help, or wants play to stop, even if they quote teasing words.
 ordinary: neutral discussion, routine affection, embarrassment, blushing or shyness without a playful retort, unrelated intimacy, or unclear intent.
-light: the user deliberately joins a small joke or gentle teasing; ordinary friendliness, affection or a shy reaction alone do not count. This level still cools the heat meter.
+light: the user deliberately joins a small joke or gentle teasing; ordinary friendliness, affection or a shy reaction alone do not count. Deliberate persistence after her retort also counts; do not confuse repeated words with absent intent.
 mutual: the user knowingly escalates reciprocal teasing into a playful challenge aimed at the assistant. Routine back-and-forth, friendly jokes and shyness are not enough.
-strong: especially vivid, reciprocal playful provocation; do not select it merely for insults, anger, or repetition.
+strong: clearly strong deliberate playful provocation, including an initial challenge; do not select it merely for insults, anger, or repetition.
 Do not treat a request for technical help, genuine distress, or conflict as banter.
-Judge INITIATIVE independently: open means a small self-started playful challenge could fit naturally now; closed means this message needs a direct response or offers no natural opening. This field only permits a possible optional nudge and does not grant heat points. Also judge game_attitude: encourage means optional autonomous game exploration when free; pause means set autonomous gaming aside; none covers direct act-now requests, ordinary game talk, quotes, different named games and unrelated messages. Permission such as 你可以自己玩玩 or 有空自己去玩吧 is encouragement unless immediate action is clearly requested in context. If CEDAR_CONFIGURED is false, game_attitude must be none. Return the independent fields in one JSON object.''',
+Judge FLUSTERED independently: yes only for clear intense flustered embarrassment in the actual exchange, not mild shyness or routine affection. Judge INITIATIVE independently: open means a small self-started playful challenge could fit naturally now; closed means this message needs a direct response or offers no natural opening. This field only permits a possible optional nudge and does not grant heat points. Also judge game_attitude: encourage means optional autonomous game exploration when free; pause means set autonomous gaming aside; none covers direct act-now requests, ordinary game talk, quotes, different named games and unrelated messages. Permission such as 你可以自己玩玩 or 有空自己去玩吧 is encouragement unless immediate action is clearly requested in context. If CEDAR_CONFIGURED is false, game_attitude must be none. Return the independent fields in one JSON object.''',
           },
           {
             'role': 'user',
@@ -273,7 +276,8 @@ $latestUserText''',
       }
       final result = (jsonDecode(raw.substring(objectStart, objectEnd + 1)) as Map)
           .cast<String, dynamic>();
-      final mode = result['mode']?.toString().trim().toLowerCase() ?? '';
+      final mode = manualRoute ? (manual == 'on' ? 'nsfw' : 'daily')
+          : result['mode']?.toString().trim().toLowerCase() ?? '';
       final interaction = PlayfulInteraction.parse(result['interaction']);
       final initiativeOpportunity = result['initiative'] == 'open';
       final gameAttitude = cedarConfigured && const {'encourage', 'pause'}.contains(result['game_attitude'])
@@ -284,22 +288,25 @@ $latestUserText''',
             referenceActive: true,
             source: 'auto_reference',
             playfulInteraction: interaction,
+            playfulFlustered: result['flustered'] == 'yes',
             initiativeOpportunity: initiativeOpportunity,
             gameAttitude: gameAttitude,
           ),
         'nsfw' => NsfwRouteDecision(
             active: true,
             referenceActive: false,
-            source: 'auto_nsfw',
+            source: manualRoute ? 'manual_on' : 'auto_nsfw',
             playfulInteraction: interaction,
+            playfulFlustered: result['flustered'] == 'yes',
             initiativeOpportunity: initiativeOpportunity,
             gameAttitude: gameAttitude,
           ),
         _ => NsfwRouteDecision(
             active: false,
             referenceActive: false,
-            source: 'auto_daily',
+            source: manualRoute ? 'manual_off' : 'auto_daily',
             playfulInteraction: interaction,
+            playfulFlustered: result['flustered'] == 'yes',
             initiativeOpportunity: initiativeOpportunity,
             gameAttitude: gameAttitude,
           ),
@@ -341,6 +348,7 @@ $latestUserText''',
     await db.setSetting('nsfw_route_source', decision.source);
     await db.setSetting('playful_form_router_signal_v1',
         decision.playfulInteraction?.name ?? 'unknown');
+    await db.setSetting('playful_flustered_v2', decision.playfulFlustered ? '1' : '0');
     await db.setSetting('playful_form_initiative_open_v1',
         decision.initiativeOpportunity ? '1' : '0');
     await db.setSetting('cedar_route_intent_v1', decision.cedarIntent ?? '');
