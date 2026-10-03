@@ -1844,6 +1844,9 @@ class AppDatabase {
     }.entries) {
       final columns = (await db.rawQuery('PRAGMA table_info(${entry.key})'))
           .map((row) => row['name']).toSet();
+      // Recovery probes may intentionally open a partial staging database.
+      // Only extend existing tables; never manufacture a missing app schema.
+      if (columns.isEmpty) continue;
       for (final column in entry.value.entries) {
         if (!columns.contains(column.key)) {
           await db.execute('ALTER TABLE ${entry.key} ADD COLUMN ${column.key} ${column.value}');
