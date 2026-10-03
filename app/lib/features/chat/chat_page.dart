@@ -19,7 +19,6 @@ import '../../core/models/chat_segment.dart';
 import '../../core/database/app_database.dart';
 import '../../core/diagnostics/attachment_pipeline_telemetry.dart';
 import '../../core/models/message_attachment.dart';
-import '../../core/models/reference_document.dart';
 import '../../core/mcp/cedar_toy_activity.dart';
 import '../../core/platform/android_bridge.dart';
 import '../../core/personality/playful_form_state.dart';
@@ -615,72 +614,6 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
     );
   }
 
-  Future<void> _openWorldBookQuickPanel() async {
-    List<ReferenceDocument> modules =
-        await AppDatabase.instance.worldBookBehaviorDocuments(
-      manualOnly: true,
-      limit: 100,
-    );
-    if (!mounted) return;
-    await showModalBottomSheet<void>(
-      context: context,
-      showDragHandle: true,
-      isScrollControlled: true,
-      builder: (sheetContext) => StatefulBuilder(
-        builder: (context, setSheetState) => SafeArea(
-          child: SizedBox(
-            height: MediaQuery.sizeOf(context).height * 0.68,
-            child: Column(
-              children: [
-                ListTile(
-                  leading: const Icon(Icons.auto_stories_outlined),
-                  title: const Text('世界书模块'),
-                  subtitle: const Text('这里只显示“手动开关”模块；设置立即作用于下一轮。'),
-                  trailing: IconButton(
-                    tooltip: '管理全部世界书',
-                    icon: const Icon(Icons.tune_rounded),
-                    onPressed: () async {
-                      Navigator.pop(sheetContext);
-                      await _openWorldBookLibrary();
-                    },
-                  ),
-                ),
-                const Divider(height: 1),
-                Expanded(
-                  child: modules.isEmpty
-                      ? const Center(child: Text('还没有手动开关模块。'))
-                      : ListView.builder(
-                          itemCount: modules.length,
-                          itemBuilder: (context, index) {
-                            final module = modules[index];
-                            return SwitchListTile(
-                              value: module.enabled && module.manualActive,
-                              title: Text(module.name),
-                              subtitle: Text(
-                                '优先级 ${module.priority} · ${module.activationProbability}% · ${_worldBookScopeLabel(module.scope)}',
-                              ),
-                              onChanged: (active) async {
-                                await AppDatabase.instance
-                                    .setWorldBookManualActive(module.id, active);
-                                modules = await AppDatabase.instance
-                                    .worldBookBehaviorDocuments(
-                                  manualOnly: true,
-                                  limit: 100,
-                                );
-                                if (sheetContext.mounted) setSheetState(() {});
-                              },
-                            );
-                          },
-                        ),
-                ),
-              ],
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-
   Future<void> _send() async {
     final text = input.text;
     final sticker = _selectedUserSticker;
@@ -757,12 +690,13 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
                       icon: const Icon(Icons.add_photo_alternate_outlined),
                     ),
                     IconButton(
-                      tooltip: '世界书',
+                      tooltip: controller.deepThinking ? '关闭深度思考' : '开启深度思考',
                       onPressed: () {
                         _closeComposerTools();
-                        unawaited(_openWorldBookQuickPanel());
+                        unawaited(controller.setDeepThinking(!controller.deepThinking));
                       },
-                      icon: const Icon(Icons.auto_stories_outlined),
+                      icon: Icon(Icons.lightbulb_outline,
+                        color: controller.deepThinking ? Colors.purpleAccent : Colors.grey),
                     ),
                   ],
                 ),
@@ -2537,7 +2471,10 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
                         _pickingImage
                     ? null
                     : _toggleComposerTools,
-                tooltip: '表情包、图片与世界书',
+                tooltip: controller.deepThinking ? '深度思考已开启' : '表情包、图片与深度思考',
+                style: controller.deepThinking
+                    ? IconButton.styleFrom(foregroundColor: Colors.purpleAccent)
+                    : null,
                 icon: _pickingImage || controller.savingImage
                     ? const SizedBox.square(
                         dimension: 20,
@@ -2943,15 +2880,6 @@ class _StickerPickerSheetState extends State<_StickerPickerSheet> {
     );
   }
 }
-
-String _worldBookScopeLabel(String scope) => switch (scope) {
-      'chat' => '普通聊天',
-      'chat|proactive' => '普通与主动',
-      'proactive' => '主动联系',
-      'immersive' => '沉浸房间',
-      _ => '全部场景',
-    };
-
 
 class _DateSeparator extends StatelessWidget {
   const _DateSeparator({required this.createdAt});

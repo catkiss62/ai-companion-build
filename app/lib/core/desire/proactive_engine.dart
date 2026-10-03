@@ -1,3 +1,4 @@
+import '../autonomy/public_web_read_service.dart';
 import '../mcp/cedar_play_session_policy.dart';
 import '../mcp/cedar_timed_play_task.dart';
 import '../mcp/cedar_live_share_policy.dart';
@@ -1366,6 +1367,13 @@ class ProactiveEngine {
         intentKind: intentKind,
         deliveryStyle: deliveryStyle,
       );
+    }
+
+    if (webShareCandidateId != null && !await PublicWebReadService(db,
+        secureConfig: secureConfig, ai: ai).refreshForUse(webShareCandidateId)) {
+      await noteGeneration('source_read_failed', reasonTag: 'web_source_unavailable');
+      return ProactiveDecision(sent: false, reason: '网页原文暂时不可用',
+        gateScore: gateScore, intentKind: intentKind, deliveryStyle: deliveryStyle);
     }
 
     final recent = await db.recentMessagesForPrompt(limit: 28);

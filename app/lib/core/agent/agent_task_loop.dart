@@ -94,6 +94,7 @@ class AgentTaskLoopPolicy {
   }
 
   static String planningInstruction({
+    bool deepThinking = false,
     required int completedPlanningRounds,
     required int completedToolCalls,
     int planningRoundLimit = maxPlanningRounds,
@@ -103,6 +104,7 @@ class AgentTaskLoopPolicy {
     final remainingCalls = toolCallLimit - completedToolCalls;
     return '''
 【Agent v2 有界任务循环 · 第 $nextRound/$planningRoundLimit 个规划回合】
+${deepThinking ? '深度思考已开启：先结合完整对话判断缺少的记忆或公开事实，必要时补搜、追读原文与交叉核验。不需要工具即可回答时直接结束规划，不为用完预算反复查询。网页摘要只用于导航，事实应有原文证据；不确定或读取不全应保留限制。此开关不授予保存、删除、发图、截图或游戏的新权限。' : ''}
 先根据用户原始目标与已有真实工具结果判断：目标已获支持就直接形成最终回答；只有还缺一个可验证步骤时才调用工具。本回合最多选择 $maxCallsPerRound 个彼此必要且不重复的工具，整轮还剩最多 $remainingCalls 次真实调用。
 no_result、failed、blocked 不是成功；可以据此改用当前最小工具集合里的另一条合理路径，但不得原样重试同一工具和参数。写入、保存、发送等操作仍必须来自用户原始消息的明确意图；屏幕观察不会提供给模型选择。不要输出计划、参数、调用日志或“接下来我将”的工作汇报。
 '''.trim();

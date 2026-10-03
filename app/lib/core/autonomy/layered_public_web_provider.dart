@@ -8,6 +8,7 @@ import 'package:http/http.dart' as http;
 import '../ai/generation_cancellation.dart';
 import '../models/public_web_candidate.dart';
 import 'wikimedia_public_web_provider.dart';
+import 'web_page_evidence.dart';
 
 /// Search discovers URLs, Tavily Extract reads their public bodies, and Agnes
 /// produces bounded dual summaries. Extra domains never replace the
@@ -166,6 +167,7 @@ class LayeredPublicWebProvider implements PublicWebProvider {
                 )
               : draft.copyWith(
                   readState: 'extracted',
+                  pageBody: body,
                   contentSha256: sha256.convert(utf8.encode(body)).toString(),
                   readAt: now,
                   searchQuery: normalized,
@@ -266,6 +268,7 @@ class LayeredPublicWebProvider implements PublicWebProvider {
           }
           return draft.copyWith(
             readState: 'extracted',
+                  pageBody: body,
             contentSha256: sha256.convert(utf8.encode(body)).toString(),
             readAt: now,
           );
@@ -355,12 +358,14 @@ class LayeredPublicWebProvider implements PublicWebProvider {
     if (body == null || body.trim().isEmpty) {
       return candidate.copyWith(
         readState: 'unreadable',
+        pageBody: '',
         semanticState: 'unreadable',
         appraisalReason: extraction.failureReason,
       );
     }
     final extracted = candidate.copyWith(
       readState: 'extracted',
+                  pageBody: body,
       semanticState: 'pending_appraisal',
       contentSha256: sha256.convert(utf8.encode(body)).toString(),
       readAt: now,
@@ -441,7 +446,8 @@ class LayeredPublicWebProvider implements PublicWebProvider {
         final uri = Uri.tryParse(raw['url']?.toString() ?? '');
         if (!_safePublicHttps(uri)) continue;
         final content = raw['raw_content']?.toString().trim() ?? '';
-        if (content.length < 80) continue;
+        if (WebPageEvidence.rejection(content,
+            truncated: raw['truncated'] == true || raw['is_truncated'] == true) != null) continue;
         contents[uri!.toString()] = content;
       }
       return _TavilyExtractBatch(
@@ -709,6 +715,11 @@ class AgnesWebCompactor {
         output.add(candidate.copyWith(readState: 'unreadable'));
         continue;
       }
+      final issue = WebPageEvidence.rejection(content);
+      if (issue != null) {
+        output.add(candidate.copyWith(readState: 'unreadable', pageBody: '', appraisalReason: issue));
+        continue;
+      }
       final chunks = _chunks(content, 28000);
       final partials = <_AgnesPageSummary>[];
       for (var index = 0; index < chunks.length; index++) {
@@ -741,6 +752,7 @@ class AgnesWebCompactor {
       }
       output.add(candidate.copyWith(
         summary: _bounded(merged.readerSummary, 1200),
+        pageBody: content,
         provider: candidate.provider.contains('+extract+agnes')
             ? candidate.provider
             : '${candidate.provider}+extract+agnes',

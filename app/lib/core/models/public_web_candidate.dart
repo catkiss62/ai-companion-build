@@ -18,6 +18,7 @@ class PublicWebCandidateDraft {
     this.imageDescription = '',
     this.appraisalState = 'share_candidate',
     this.readState = 'snippet_only',
+    this.pageBody = '',
     this.semanticState = 'unappraised',
     this.keyPoints = const <String>[],
     this.uncertainties = const <String>[],
@@ -55,6 +56,7 @@ class PublicWebCandidateDraft {
   final String imageDescription;
   final String appraisalState;
   final String readState;
+  final String pageBody;
   final String semanticState;
   final List<String> keyPoints;
   final List<String> uncertainties;
@@ -80,6 +82,7 @@ class PublicWebCandidateDraft {
     String? provider,
     String? appraisalState,
     String? readState,
+    String? pageBody,
     String? semanticState,
     List<String>? keyPoints,
     List<String>? uncertainties,
@@ -117,6 +120,7 @@ class PublicWebCandidateDraft {
         imageDescription: imageDescription,
         appraisalState: appraisalState ?? this.appraisalState,
         readState: readState ?? this.readState,
+        pageBody: pageBody ?? this.pageBody,
         semanticState: semanticState ?? this.semanticState,
         keyPoints: keyPoints ?? this.keyPoints,
         uncertainties: uncertainties ?? this.uncertainties,
@@ -149,6 +153,7 @@ class PublicWebContextItem {
     required this.safetyState,
     this.motiveKind = '',
     this.whyCared = '',
+    this.pageBody = '',
     this.keyPoints = const <String>[],
     this.uncertainties = const <String>[],
     this.readAt,
@@ -157,6 +162,7 @@ class PublicWebContextItem {
   final String id;
   final String title;
   final String summary;
+  final String pageBody;
   final String url;
   final String sourceDomain;
   final String provider;

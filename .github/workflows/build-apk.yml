@@ -1,3 +1,4 @@
+# Historical +311: Build AI Companion v0.42.67+311 APK (Persistent Mood) | AI-Companion-v0.42.67-311-Persistent-Mood-APK | v0.42.67-persistent-mood-test | .ci/v04267-monitor.txt.
 # Historical +310: Build AI Companion v0.42.66+310 APK (Memory Continuity) | AI-Companion-v0.42.66-310-Memory-Continuity-APK | v0.42.66-memory-continuity-test | .ci/v04266-monitor.txt.
 # Historical +308: Build AI Companion v0.42.64+308 APK (Experience) | AI-Companion-v0.42.64-308-Experience-APK | v0.42.64-experience-test | .ci/v04264-monitor.txt.
 # Historical +305: Build AI Companion v0.42.61+305 APK (Timed Play Recovery) | AI-Companion-v0.42.61-305-Timed-Play-Recovery-APK | v0.42.61-timed-play-recovery-test | .ci/v04261-monitor.txt.
@@ -413,7 +414,7 @@
 # Historical +300: Build AI Companion v0.42.56+300 APK (Game Share Rounds and Portable State) | AI-Companion-v0.42.56-300-Game-Share-Portable-State-APK | v0.42.56-game-share-portable-state-test | .ci/v04256-monitor.txt
 # Historical +301: Build AI Companion v0.42.57+301 APK (Memory Galaxy and Corner Docking) | AI-Companion-v0.42.57-301-Memory-Galaxy-Corner-Dock-APK | v0.42.57-memory-galaxy-corner-dock-test | .ci/v04257-monitor.txt
 # Historical +303: Build AI Companion v0.42.59+303 APK (Game Cadence and Settings Backup) | AI-Companion-v0.42.59-303-Game-Cadence-Settings-Backup-APK | v0.42.59-game-cadence-settings-backup-test | .ci/v04259-monitor.txt
-name: Build AI Companion v0.42.67+311 APK (Persistent Mood)
+name: Build AI Companion v0.42.68+312 APK (Deep Thinking and Web Evidence)
 
 # BUILD INPUTS: The 96-clip source ZIP is private Draft Release asset 591363139
 # (release 397377805), fetched and SHA-256 checked below. The persistent
@@ -510,6 +511,7 @@ on:
       - agent/v04263-stability
       - agent/v04266-memory-continuity
       - agent/v04267-persistent-mood
+      - agent/v04268-deep-web
       - agent/v04214-visible-process-fate-wheel
       - maintenance/repository-governance-20260919
   workflow_dispatch:
@@ -983,7 +985,7 @@ jobs:
         run: |
           set -euo pipefail
           test -f app/pubspec.yaml
-          grep -Fqx 'version: 0.42.67+311' app/pubspec.yaml
+          grep -Fqx 'version: 0.42.68+312' app/pubspec.yaml
           grep -Fqx '  static const int schemaVersion = 61;' app/lib/core/database/app_database.dart
           test -d app/lib
           test -d app/android
@@ -997,7 +999,7 @@ jobs:
           test -f app/android/app/src/main/jniLibs/arm64-v8a/libc++_shared.so
           test ! -d app/android/app/src/main/assets/tts_models
           test ! -d app/android/app/src/main/assets/legacy_tts
-          echo 'Building v0.42.67+311 Persistent mood with contextual appraisal and gradual recovery.'
+          echo 'Building v0.42.68+312 Deep thinking and original web evidence.'
 
       - name: Generate complete pet clips from pinned Draft Release asset
         timeout-minutes: 15
@@ -1573,26 +1575,26 @@ jobs:
           APK='app/build/app/outputs/flutter-apk/app-release.apk'
           sha256sum "$APK" | tee app/app-release.apk.sha256
 
-      - name: Upload v0.42.67+311 APK as workflow artifact
+      - name: Upload v0.42.68+312 APK as workflow artifact
         uses: actions/upload-artifact@v4
         with:
-          name: AI-Companion-v0.42.67-311-Persistent-Mood-APK
+          name: AI-Companion-v0.42.68-312-Deep-Web-APK
           path: |
             app/build/app/outputs/flutter-apk/app-release.apk
             app/app-release.apk.sha256
           if-no-files-found: error
           retention-days: 14
 
-      - name: Upload v0.42.67+311 APK to draft release
+      - name: Upload v0.42.68+312 APK to draft release
         shell: bash
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
-          TAG='v0.42.67-persistent-mood-test'
-          APK_NAME='AI-Companion-v0.42.67-311-Persistent-Mood-APK.apk'
+          TAG='v0.42.68-deep-web-test'
+          APK_NAME='AI-Companion-v0.42.68-312-Deep-Web-APK.apk'
           SHA_NAME="${APK_NAME}.sha256"
-          CI_NAME='AI-Companion-v0.42.67-311-Persistent-Mood-CI-Monitor.txt'
+          CI_NAME='AI-Companion-v0.42.68-312-Deep-Web-CI-Monitor.txt'
           cp app/build/app/outputs/flutter-apk/app-release.apk "app/${APK_NAME}"
           sed "s#app/build/app/outputs/flutter-apk/app-release.apk#${APK_NAME}#" \
             app/app-release.apk.sha256 > "app/${SHA_NAME}"
@@ -1609,13 +1611,13 @@ jobs:
               --repo "${GITHUB_REPOSITORY}" \
               --target "${GITHUB_SHA}" \
               --draft \
-              --title 'AI Companion v0.42.67+311 Persistent mood' \
+              --title 'AI Companion v0.42.68+312 Deep thinking and web evidence' \
               --notes 'Add bounded persistent mood from contextual interaction and real activity. Reuse the existing short-decision batch; conservative harm judgement, natural recovery and transactional cancellation. Weather is an optional cached background. Preserve memory, playful form, desire core and Live2D. Unpublished device test build; physical-device verification pending.'
           else
             gh release edit "${TAG}" \
               --repo "${GITHUB_REPOSITORY}" \
               --target "${GITHUB_SHA}" \
-              --title 'AI Companion v0.42.67+311 Persistent mood' \
+              --title 'AI Companion v0.42.68+312 Deep thinking and web evidence' \
               --notes 'Add bounded persistent mood from contextual interaction and real activity. Reuse the existing short-decision batch; conservative harm judgement, natural recovery and transactional cancellation. Weather is an optional cached background. Preserve memory, playful form, desire core and Live2D. Unpublished device test build; physical-device verification pending.'
           fi
           RELEASE_URL="$(gh release view "${TAG}" --repo "${GITHUB_REPOSITORY}" --json url --jq '.url')"
@@ -1636,7 +1638,7 @@ jobs:
           done
           test "${upload_ok}" = '1'
           MONITOR_BRANCH='ci-monitor-v0345'
-          MONITOR_PATH='.ci/v04267-monitor.txt'
+          MONITOR_PATH='.ci/v04268-monitor.txt'
           MONITOR_CONTENT_FILE="$(mktemp)"
           base64 -w0 "app/${CI_NAME}" > "${MONITOR_CONTENT_FILE}"
           MONITOR_SHA="$(gh api "/repos/${GITHUB_REPOSITORY}/contents/${MONITOR_PATH}?ref=${MONITOR_BRANCH}" --jq '.sha' 2>/dev/null || true)"
@@ -1670,8 +1672,8 @@ jobs:
           BUILD_RESULT: ${{ needs.build-apk.result }}
         run: |
           set -uo pipefail
-          TAG='v0.42.67-persistent-mood-test'
-          CI_NAME='AI-Companion-v0.42.67-311-Persistent-Mood-CI-Monitor.txt'
+          TAG='v0.42.68-deep-web-test'
+          CI_NAME='AI-Companion-v0.42.68-312-Deep-Web-CI-Monitor.txt'
           REPORT="${RUNNER_TEMP}/${CI_NAME}"
           JOBS_JSON="${RUNNER_TEMP}/jobs.json"
           {
@@ -1712,7 +1714,7 @@ jobs:
               --repo "${GITHUB_REPOSITORY}" \
               --target "${GITHUB_SHA}" \
               --draft \
-              --title 'AI Companion v0.42.67+311 Persistent mood' \
+              --title 'AI Companion v0.42.68+312 Deep thinking and web evidence' \
               --notes 'Unpublished Draft failure diagnostics for memory continuity and optional expression semantics. No user content, keys, backups or device diagnostics are included.'
           fi
           RELEASE_URL="$(gh release view "${TAG}" --repo "${GITHUB_REPOSITORY}" --json url --jq '.url')"
@@ -1722,7 +1724,7 @@ jobs:
             --clobber \
             --repo "${GITHUB_REPOSITORY}"
           MONITOR_BRANCH='ci-monitor-v0345'
-          MONITOR_PATH='.ci/v04267-monitor.txt'
+          MONITOR_PATH='.ci/v04268-monitor.txt'
           MONITOR_CONTENT_FILE="$(mktemp)"
           base64 -w0 "${REPORT}" > "${MONITOR_CONTENT_FILE}"
           MONITOR_SHA="$(gh api "/repos/${GITHUB_REPOSITORY}/contents/${MONITOR_PATH}?ref=${MONITOR_BRANCH}" --jq '.sha' 2>/dev/null || true)"

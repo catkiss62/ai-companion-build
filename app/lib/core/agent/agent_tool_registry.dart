@@ -16,6 +16,12 @@ class AgentToolRegistry {
     userTurnAvailable: true,
     autonomousAvailable: false,
   );
+  static const publicWebRead = AgentToolDefinition(
+    id: 'public_web.read', title: '读取网页原文',
+    description: '读取指定公开网页，返回阅读状态、来源目录和可追读的原文证据。',
+    risk: AgentToolRisk.readOnly, executable: true,
+    userTurnAvailable: true, autonomousAvailable: false,
+  );
   // Scheduler-only capability. Keeping this distinct from publicWebSearch
   // prevents an autonomous model turn from gaining arbitrary web access while
   // allowing the budgeted Desire discovery engine to pass the registry gate.
@@ -247,6 +253,7 @@ class AgentToolRegistry {
 
   static const all = <AgentToolDefinition>[
     publicWebSearch,
+    publicWebRead,
     publicWebDiscovery,
     rulesRead,
     memorySearch,

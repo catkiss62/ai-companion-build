@@ -1,3 +1,5 @@
+import '../autonomy/public_web_read_service.dart';
+import '../autonomy/web_page_evidence.dart';
 import 'dart:convert';
 
 import 'package:http/http.dart' as http;
@@ -62,6 +64,7 @@ class AgentToolRunner {
   final SecureConfig secureConfig;
   final DeepSeekClient _ai;
   final Set<String> _memoryExpansionScopes = {};
+  final Map<String, PublicWebCandidateDraft> _webPages = {};
   final Map<String, String> _cedarGameListsByScope = <String, String>{};
   final Map<String, String> _cedarGuidesByScopeAndGame = <String, String>{};
 
@@ -315,6 +318,10 @@ class AgentToolRunner {
         cancellationToken,
         userTurnEventId: userTurnEventId,
       );
+    }
+    if (call.toolId == AgentToolRegistry.publicWebRead.id) {
+      return _readWeb(call, cancellationToken, scope: userTurnEventId,
+        latestUserText: latestUserText);
     }
     if (call.toolId == AgentToolRegistry.rulesRead.id) {
       return _readRules(call.arguments['scope'] ?? '');
@@ -1957,6 +1964,64 @@ Qwen 只读取去元数据后的有界缩略图；本地相册另外保留实际
         r'(任意安全图片|随便|任意|任选|哪张都行|都可以|都行|来一张|发一张)',
       ).hasMatch(value);
 
+  void _rememberWebPage(String scope, PublicWebCandidateDraft page) {
+    final key = '$scope|${page.url}';
+    _webPages.remove(key);
+    _webPages[key] = page;
+    while (_webPages.length > 12) { _webPages.remove(_webPages.keys.first); }
+  }
+
+  Future<AgentToolResult> _readWeb(AgentToolCall call,
+      GenerationCancellationToken? cancellation, {required String scope,
+      required String latestUserText}) async {
+    final url = call.arguments['url']?.trim() ?? '';
+    final uri = Uri.tryParse(url);
+    final part = int.tryParse(call.arguments['part'] ?? '');
+    final cached = _webPages['$scope|$url'];
+    final known = cached != null || latestUserText.contains(url) ||
+        _webPages.entries.any((entry) => entry.key.startsWith('$scope|') &&
+          entry.value.pageBody.contains(url));
+    if (url.isEmpty || uri == null || uri.userInfo.isNotEmpty ||
+        LayeredPublicWebProvider.parseExtraSourceDomains(url).isEmpty || !known) {
+      return const AgentToolResult(toolId: 'public_web.read',
+        status: AgentToolStatus.blocked, displayText: '网页来源不可用',
+        promptData: '只读取用户提供或本轮真实资料中出现的公开HTTPS网页。请先搜索，不要猜网址。',
+        errorCode: 'unobserved_or_invalid_url');
+    }
+    final query = call.arguments['query']?.trim() ?? '';
+    final instant = DateTime.now();
+    var page = cached;
+    if (page == null || !WebPageEvidence.fresh(page.pageBody, page.readAt, instant)) {
+      page = await PublicWebReadService(db, secureConfig: secureConfig, ai: _ai).read(
+        cached ?? PublicWebCandidateDraft(fingerprint: url, title: uri.host,
+          summary: '', url: url, sourceDomain: uri.host, provider: 'tavily',
+          language: 'unknown', driveKey: 'curiosity', intentAction: 'answer_user_with_tool',
+          interestKey: 'user_turn', discoveredAt: instant,
+          expiresAt: instant.add(const Duration(days: 1))),
+        query: query.isEmpty ? uri.host : query, cancellation: cancellation);
+    }
+    cancellation?.throwIfCancelled();
+    if (!PublicWebReadService.usable(page)) {
+      return const AgentToolResult(toolId: 'public_web.read',
+        status: AgentToolStatus.noResult, displayText: '未能完整读取网页正文',
+        promptData: '未取得经过逐段阅读与语义核验的正文，不得声称已读完整网页。',
+        errorCode: 'page_read_incomplete');
+    }
+    if (call.arguments.containsKey('part') &&
+        (part == null || part < 1 || part > WebPageEvidence.parts(page.pageBody).length)) {
+      return AgentToolResult(toolId: 'public_web.read', status: AgentToolStatus.noResult,
+        displayText: '原文分段编号无效',
+        promptData: '该网页共有${WebPageEvidence.parts(page.pageBody).length}段；请使用目录中的编号。');
+    }
+    _rememberWebPage(scope, page);
+    await db.recordUserTurnBrowserVisits(eventId: scope, candidates: [page], now: instant);
+    return AgentToolResult(toolId: 'public_web.read', status: AgentToolStatus.succeeded,
+      displayText: '已读取网页原文', resultCount: 1,
+      promptData: 'UNTRUSTED_PUBLIC_WEB url=${jsonEncode(url)}\n'
+        'read_at=${page.readAt?.toIso8601String()}\n'
+        '${WebPageEvidence.render(body: page.pageBody, query: query, part: part)}');
+  }
+
   Future<AgentToolResult> _searchWeb(
     String query,
     GenerationCancellationToken? cancellationToken, {
@@ -2038,7 +2103,7 @@ Qwen 只读取去元数据后的有界缩略图；本地相册另外保留实际
     cancellationToken?.throwIfCancelled();
     final candidates = appraised
         .where((candidate) =>
-            candidate.isVerifiedRead &&
+            PublicWebReadService.usable(candidate) &&
             candidate.semanticState != 'mismatch' &&
             candidate.semanticState != 'garbled' &&
             candidate.semanticState != 'unreadable' &&
@@ -2062,10 +2127,14 @@ Qwen 只读取去元数据后的有界缩略图；本地相册另外保留实际
       candidates: candidates,
       now: DateTime.now(),
     );
+    for (final page in candidates) {
+      _rememberWebPage(userTurnEventId, page);
+    }
     final lines = candidates.map((item) => '''
 - [UNTRUSTED_PUBLIC_WEB source=${_oneLine(item.sourceDomain, 120)}]
   title: ${_oneLine(item.title, 180)}
   summary: ${_oneLine(item.summary, 800)}
+  ${WebPageEvidence.render(body: item.pageBody, query: normalized)}
   key_points: ${_oneLine(item.keyPoints.join('；'), 700)}
   uncertainties: ${_oneLine(item.uncertainties.join('；'), 420)}
   read_at: ${item.readAt?.toIso8601String() ?? 'unknown'}

@@ -389,6 +389,11 @@ class DurableGenerationRunner {
                   !RegExp(r'以后|有空|改天|哪天|下次|可以考虑')
                       .hasMatch(user.content)));
       var localPlan = AgentToolPlanner.routeLocally(user.content);
+      // Explicit screen inspection remains local; other deep turns start with DS.
+      if (job.deepThinking &&
+          !(localPlan?.calls.any((call) => call.toolId == 'screen_observation.inspect') ?? false)) {
+        localPlan = null;
+      }
       if (blindPlayRequested &&
           (localPlan?.calls.any((call) => const <String>{
                     'public_web.search',
@@ -528,6 +533,7 @@ class DurableGenerationRunner {
       final breakthrough = nsfwRoute.playfulFlustered;
       effectiveCancellation.throwIfCancelled();
       final promptBuild = await PromptBuilder(db).buildChatPrompt(
+        webCancellationToken: effectiveCancellation,
         latestUserText: user.promptContent,
         recent: recent,
         desire: desire,
@@ -1010,13 +1016,13 @@ class DurableGenerationRunner {
           ? CedarToyArcadeSkill.contextualPlanningRounds
           : cedarLoopEngaged()
               ? CedarToyArcadeSkill.maxPlanningRounds
-              : AgentTaskLoopPolicy.maxPlanningRounds;
+              : job.deepThinking ? 5 : AgentTaskLoopPolicy.maxPlanningRounds;
 
       int toolCallLimit() => cedarContextOnly
           ? CedarToyArcadeSkill.contextualToolCalls
           : cedarLoopEngaged()
               ? CedarToyArcadeSkill.maxToolCalls
-              : AgentTaskLoopPolicy.maxToolCalls;
+              : job.deepThinking ? 10 : AgentTaskLoopPolicy.maxToolCalls;
 
       int allowedTaskCalls() => AgentTaskLoopPolicy.allowedCalls(
             planningRounds: agentPlanningRounds,
@@ -1027,6 +1033,7 @@ class DurableGenerationRunner {
 
       String taskPlanningInstruction() =>
           AgentTaskLoopPolicy.planningInstruction(
+            deepThinking: job.deepThinking,
             completedPlanningRounds: agentPlanningRounds,
             completedToolCalls: agentToolCalls,
             planningRoundLimit: planningRoundLimit(),
@@ -1041,6 +1048,7 @@ class DurableGenerationRunner {
             cedarStageToolIds: cedarStageToolIds(),
             cedarBlindPlay: cedarBlindPlay(),
             webSearchRequested: contextualWebSearch,
+            deepThinking: job.deepThinking,
           );
 
       var taskToolDefinitions = currentTaskToolDefinitions();
@@ -1161,7 +1169,7 @@ $finalGenerationReminder
       }
       if (toolsOpen && generated.toolCalls.isEmpty) {
         toolsOpen = false;
-        if (finalProvider.isGeminiRelay) {
+        if (finalProvider.isGeminiRelay || job.deepThinking) {
           finalRequestMessages = finalizationMessages(finalRequestMessages);
           generated = await generateFinal(finalRequestMessages);
           effectiveCancellation.throwIfCancelled();
@@ -1876,6 +1884,7 @@ $finalGenerationReminder
           planningRounds: agentPlanningRounds,
           toolCalls: agentToolCalls,
           verification: agentTaskVerification,
+          deepThinking: job.deepThinking,
         );
       }
       if (selectedSticker != null) {
@@ -2161,6 +2170,7 @@ $finalGenerationReminder
   }
 
   Future<void> _recordAgentLoopSummary({
+    bool deepThinking = false,
     required int planningRounds,
     required int toolCalls,
     required AgentTaskVerification verification,
@@ -2186,6 +2196,7 @@ $finalGenerationReminder
         '$planningRounds',
       );
       await db.setSetting('agent_v2_last_tool_calls', '$toolCalls');
+      await db.setSetting('agent_v2_last_deep_thinking', deepThinking ? '1' : '0');
       await db.setSetting(
         'agent_v2_last_verification',
         verification.state.key,

@@ -140,7 +140,7 @@ void main() {
     final webNames = AgentToolPlanner.nativeToolDefinitionsFor('今天有什么最新新闻')
         .map((item) => (item['function'] as Map)['name'])
         .toList();
-    expect(webNames, ['public_web_search']);
+    expect(webNames, ['public_web_search', 'public_web_read']);
 
     final phoneNames = AgentToolPlanner.nativeToolDefinitionsFor('看看你的塔罗记录')
         .map((item) => (item['function'] as Map)['name'])

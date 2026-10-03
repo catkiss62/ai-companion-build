@@ -13,6 +13,7 @@ class GenerationJob {
     required this.runToken,
     required this.createdAt,
     required this.updatedAt,
+    this.deepThinking = false,
     this.deviceId,
     this.startedAt,
     this.completedAt,
@@ -30,6 +31,7 @@ class GenerationJob {
   final String model;
   final String reasoningEffort;
   final bool thinking;
+  final bool deepThinking;
   final String partialReasoning;
   final String partialContent;
   final String runToken;
@@ -61,6 +63,7 @@ class GenerationJob {
         model: row['model'] as String? ?? 'deepseek-v4-pro',
         reasoningEffort: row['reasoning_effort'] as String? ?? 'high',
         thinking: (row['thinking'] as int? ?? 1) != 0,
+        deepThinking: (row['deep_thinking'] as int? ?? 0) == 1,
         partialReasoning: row['partial_reasoning'] as String? ?? '',
         partialContent: row['partial_content'] as String? ?? '',
         runToken: row['run_token'] as String? ?? '',

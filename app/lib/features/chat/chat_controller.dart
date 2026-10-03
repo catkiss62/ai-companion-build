@@ -175,6 +175,14 @@ class ChatController extends ChangeNotifier {
   String? notice;
   ChatMessage? incompleteReplyDraft;
   String? incompleteReplyJobId;
+  bool deepThinking = false;
+
+  Future<void> setDeepThinking(bool value) async {
+    await db.setSetting('deep_thinking_enabled', value ? '1' : '0');
+    deepThinking = value;
+    _safeNotify();
+  }
+
   DeepSeekModelProfile model = DeepSeekModelProfile.flash;
   ReasoningEffort effort = ReasoningEffort.high;
   bool nsfwActive = false;
@@ -342,6 +350,7 @@ class ChatController extends ChangeNotifier {
       model = DeepSeekModelProfile.fromApiName(await db.getSetting('model'));
       effort = ReasoningEffort.fromApiName(await db.getSetting('reasoning_effort'));
       nsfwActive = (await db.getSetting('nsfw_active')) == '1';
+      deepThinking = (await db.getSetting('deep_thinking_enabled')) == '1';
       messages = await db.recentMessages(limit: 120);
       generationInterruptions =
           await db.recentGenerationInterruptions(limit: 20);
@@ -414,6 +423,7 @@ class ChatController extends ChangeNotifier {
   }
 
   Future<void> reload() async {
+    deepThinking = (await db.getSetting('deep_thinking_enabled')) == '1';
     messages = await db.recentMessages(limit: 120);
     generationInterruptions =
         await db.recentGenerationInterruptions(limit: 20);
@@ -590,6 +600,7 @@ class ChatController extends ChangeNotifier {
     PreparedImageAttachment draft, {
     String caption = '',
   }) async {
+    final turnDeepThinking = deepThinking;
     if (sending || savingImage || analyzingImage) return false;
     error = null;
     savingImage = true;
@@ -660,7 +671,8 @@ class ChatController extends ChangeNotifier {
         attachments: [committed],
         expectsReply: false,
       );
-      await db.insertMessageWithAttachments(message, [committed]);
+      await db.insertMessageWithAttachments(message, [committed],
+        deepThinking: turnDeepThinking);
       messages = [...messages, message];
       _safeNotify();
       unawaited(_analyzeImageMessage(message.id));
@@ -1079,6 +1091,7 @@ class ChatController extends ChangeNotifier {
     StickerRecord? userSticker,
   }) async {
     final text = raw.trim();
+    final turnDeepThinking = deepThinking;
     final hasSticker = userStickerPack != null && userSticker != null;
     if ((text.isEmpty && !hasSticker) || generationActive || analyzingImage) {
       return false;
@@ -1221,6 +1234,7 @@ class ChatController extends ChangeNotifier {
         model: model.apiName,
         reasoningEffort: effort.apiName,
         thinking: true,
+        deepThinking: turnDeepThinking,
       );
       durableTurnCreated = true;
       _activeGenerationJobId = job.id;

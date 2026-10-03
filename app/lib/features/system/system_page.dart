@@ -180,7 +180,7 @@ class _SystemPageState extends State<SystemPage> with WidgetsBindingObserver {
     try {
       await db.beginPublicWebShareTest();
       testStarted = true;
-      final sharing = PublicWebShareCoordinator(db: db, desire: desire);
+      final sharing = PublicWebShareCoordinator(db: db, desire: desire, refreshBeforeShare: true);
       final staged = await sharing.seedDiagnosticCandidate();
       candidateSource = staged.candidateSource;
       if (!staged.ready) {

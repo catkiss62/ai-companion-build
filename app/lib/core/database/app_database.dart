@@ -104,6 +104,7 @@ class AppDatabase {
     final opened = await factory.openDatabase(path,
         options: OpenDatabaseOptions(singleInstance: !reopenExisting));
     if (!reopenExisting) await instance._createSchema(opened);
+    await instance._ensureDeepWebColumns(opened);
     instance._db = opened;
     return instance;
   }
@@ -200,6 +201,7 @@ class AppDatabase {
       },
       onCreate: (db, version) async => _createSchema(db),
       onUpgrade: _upgradeSchema,
+      onOpen: _ensureDeepWebColumns,
     );
   }
 
@@ -1830,6 +1832,24 @@ class AppDatabase {
     await db.execute(
       'CREATE INDEX IF NOT EXISTS idx_maintenance_runs_time ON maintenance_runs(completed_at DESC)',
     );
+  }
+
+  // Additive columns intentionally keep schema 61 readable by the rollback APK.
+  // Called once per open and after restoring a backup, never per chat query.
+  Future<void> _ensureDeepWebColumns(Database db) async {
+    for (final entry in const <String, Map<String, String>>{
+      'generation_jobs': {'deep_thinking': 'INTEGER NOT NULL DEFAULT 0'},
+      'messages': {'deep_thinking': 'INTEGER NOT NULL DEFAULT 0'},
+      'public_web_candidates': {'page_body': "TEXT NOT NULL DEFAULT ''"},
+    }.entries) {
+      final columns = (await db.rawQuery('PRAGMA table_info(${entry.key})'))
+          .map((row) => row['name']).toSet();
+      for (final column in entry.value.entries) {
+        if (!columns.contains(column.key)) {
+          await db.execute('ALTER TABLE ${entry.key} ADD COLUMN ${column.key} ${column.value}');
+        }
+      }
+    }
   }
 
   Future<void> _createV11Tables(Database db) async {
@@ -5296,8 +5316,9 @@ class AppDatabase {
 
   Future<void> insertMessageWithAttachments(
     ChatMessage message,
-    List<MessageAttachment> attachments,
-  ) async {
+    List<MessageAttachment> attachments, {
+    bool deepThinking = false,
+  }) async {
     if (attachments.isEmpty) {
       throw ArgumentError.value(attachments, 'attachments', 'must not be empty');
     }
@@ -5324,7 +5345,7 @@ class AppDatabase {
       }
       await txn.insert(
         'messages',
-        message.toDb(),
+        {...message.toDb(), 'deep_thinking': deepThinking ? 1 : 0},
         conflictAlgorithm: ConflictAlgorithm.abort,
       );
       await _insertLanguageVariants(txn, message);
@@ -6089,7 +6110,7 @@ class AppDatabase {
         throw StateError('上一轮 AI 回复仍在生成或等待恢复。');
       }
       final attachmentRows = await txn.rawQuery('''
-        SELECT a.message_id, a.vision_status, m.role, m.device_id
+        SELECT a.message_id, a.vision_status, m.role, m.device_id, m.deep_thinking
         FROM message_attachments a
         JOIN messages m ON m.id = a.message_id
         WHERE a.id = ?
@@ -6130,6 +6151,7 @@ class AppDatabase {
         'model': model,
         'reasoning_effort': reasoningEffort,
         'thinking': thinking ? 1 : 0,
+        'deep_thinking': attachmentRows.first['deep_thinking'] ?? 0,
         'partial_reasoning': '',
         'partial_content': '',
         'run_token': '',
@@ -6962,6 +6984,7 @@ class AppDatabase {
     required String model,
     required String reasoningEffort,
     bool thinking = true,
+    bool deepThinking = false,
   }) async {
     if (user.attachments.any((item) => item.messageId != user.id)) {
       throw StateError('user_attachment_message_mismatch');
@@ -7018,6 +7041,7 @@ class AppDatabase {
         'model': model,
         'reasoning_effort': reasoningEffort,
         'thinking': thinking ? 1 : 0,
+        'deep_thinking': deepThinking ? 1 : 0,
         'partial_reasoning': '',
         'partial_content': '',
         'run_token': '',
@@ -11905,6 +11929,7 @@ class AppDatabase {
             'subjective_seed_hash': candidate.subjectiveSeedHash,
             'appraisal_reason': candidate.appraisalReason,
             'content_sha256': candidate.contentSha256,
+            'page_body': candidate.pageBody,
             'read_at': candidate.readAt?.millisecondsSinceEpoch,
             'search_query': candidate.searchQuery,
           },
@@ -12444,9 +12469,26 @@ class AppDatabase {
       subjectiveSeedHash: row['subjective_seed_hash'] as String? ?? '',
       appraisalReason: row['appraisal_reason'] as String? ?? '',
       contentSha256: row['content_sha256'] as String? ?? '',
+      pageBody: row['page_body'] as String? ?? '',
       readAt: row['read_at'] == null ? null : time('read_at'),
       searchQuery: row['search_query'] as String? ?? '',
     );
+  }
+
+  Future<bool> cachePublicWebPromptRead(String id, PublicWebCandidateDraft page,
+      {required String expectedContentSha}) async {
+    final db = await database;
+    final changed = await db.update('public_web_candidates', {
+      'summary': page.summary, 'page_body': page.pageBody,
+      'read_state': page.readState, 'semantic_state': page.semanticState,
+      'key_points_json': jsonEncode(page.keyPoints),
+      'uncertainties_json': jsonEncode(page.uncertainties),
+      'content_sha256': page.contentSha256,
+      'read_at': page.readAt?.millisecondsSinceEpoch,
+      'provider': page.provider,
+    }, where: "id = ? AND content_sha256 = ? AND lifecycle_state NOT IN ('user_deleted','discarded','declined','share_staging')",
+      whereArgs: [id, expectedContentSha]);
+    return changed == 1;
   }
 
   Future<bool> completePublicWebShareRefresh(
@@ -12480,6 +12522,7 @@ class AppDatabase {
           'subjective_seed_hash': refreshed.subjectiveSeedHash,
           'appraisal_reason': refreshed.appraisalReason,
           'content_sha256': refreshed.contentSha256,
+          'page_body': refreshed.pageBody,
           'read_at': refreshed.readAt?.millisecondsSinceEpoch,
           'search_query': refreshed.searchQuery,
           if (!eligible) 'lifecycle_state': 'declined',
@@ -12915,6 +12958,7 @@ class AppDatabase {
         'id',
         'title',
         'summary',
+        'page_body',
         'url',
         'source_domain',
         'provider',
@@ -12950,6 +12994,7 @@ class AppDatabase {
               id: row['id'] as String,
               title: row['title'] as String? ?? '',
               summary: row['summary'] as String? ?? '',
+              pageBody: row['page_body'] as String? ?? '',
               url: row['url'] as String? ?? '',
               sourceDomain: row['source_domain'] as String? ?? '',
               provider: row['provider'] as String? ?? '',
@@ -19823,6 +19868,7 @@ class AppDatabase {
       await _rebuildMediaBlobRefCountsInTransaction(txn);
     });
     await _createV61AiInterestConsumptionTables(await database);
+    await _ensureDeepWebColumns(await database);
     await _seedRuleLayers(await database);
     await ensureDeviceId();
     await ensureStateLineageId();

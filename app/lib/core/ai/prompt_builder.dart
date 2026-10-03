@@ -1,3 +1,6 @@
+import '../autonomy/public_web_read_service.dart';
+import '../autonomy/web_page_evidence.dart';
+import 'generation_cancellation.dart';
 import '../mood/mood_service.dart';
 import '../memory/conversation_recall_policy.dart';
 import '../memory/remembered_user_facts.dart';
@@ -105,6 +108,7 @@ class PromptBuilder {
     String? specialStyleKeyOverride,
     ConversationInitiativePlan? conversationInitiativeOverride,
     String? selectedPublicWebCandidateId,
+    GenerationCancellationToken? webCancellationToken,
     bool freshTopicSourceOnly = false,
   }) async {
     final instant = now ?? DateTime.now();
@@ -287,13 +291,29 @@ class PromptBuilder {
       selectedThought: selectedConversationThought,
       selectedCandidateId: selectedPublicWebCandidateId,
     );
+    final readableWebIds = await PublicWebReadService(db).refreshIds(
+      publicWebCandidateIds, query: query, cancellation: webCancellationToken);
     final publicWeb = await db.publicWebContextByIds(
-      candidateIds: publicWebCandidateIds,
+      candidateIds: readableWebIds,
       now: instant,
     );
-    final publicKnowledge = freshTopicSourceOnly || worldBookContext.hasRoleplay
+    final historicalPublicKnowledge = freshTopicSourceOnly || worldBookContext.hasRoleplay
         ? const <PublicWebContextItem>[]
         : await db.activePublicWebKnowledgeContext(query: query);
+    final publicKnowledge = <PublicWebContextItem>[];
+    for (final old in historicalPublicKnowledge) {
+      if (await PublicWebReadService(db).refreshForUse(old.id, query: query,
+          cancellation: webCancellationToken)) {
+        final page = await db.publicWebCandidateForRefresh(old.id);
+        if (page != null && PublicWebReadService.usable(page)) {
+          publicKnowledge.add(PublicWebContextItem(id: old.id, title: page.title,
+            summary: page.summary, url: page.url, sourceDomain: page.sourceDomain,
+            provider: page.provider, discoveredAt: page.discoveredAt,
+            safetyState: page.safetyState, keyPoints: page.keyPoints,
+            uncertainties: page.uncertainties, readAt: page.readAt, pageBody: page.pageBody));
+        }
+      }
+    }
     if (conversationInitiative != null) {
       await ConversationInitiativeTelemetry.recordPlan(
         db,
@@ -569,6 +589,7 @@ ANSWERED_HISTORY_ONLY = true
     String? specialStyleKeyOverride,
     ConversationInitiativePlan? conversationInitiativeOverride,
     String? selectedPublicWebCandidateId,
+    GenerationCancellationToken? webCancellationToken,
     bool freshTopicSourceOnly = false,
   }) async =>
       (await buildChatPrompt(
@@ -686,6 +707,7 @@ $blocks
 - [WEB_CANDIDATE_DATA safety=untrusted_public; provider=${_webData(item.provider, 40)}; source=${_webData(item.sourceDomain, 120)}]
   title: ${_webData(item.title, 180)}
   summary: ${_webData(item.summary, 800)}
+  ${WebPageEvidence.render(body: item.pageBody, query: item.keyPoints.join(' '))}
   key_points: ${_webData(item.keyPoints.join('；'), 900)}
   uncertainties: ${_webData(item.uncertainties.join('；'), 500)}
   read_at: ${item.readAt?.toIso8601String() ?? 'unknown'}
@@ -708,6 +730,7 @@ ${lines.join('\n')}
 - [VERIFIED_WEB_KNOWLEDGE source=${_webData(item.sourceDomain, 120)}; read_at=${item.discoveredAt.toIso8601String()}]
   title: ${_webData(item.title, 180)}
   summary: ${_webData(item.summary, 900)}
+  ${WebPageEvidence.render(body: item.pageBody, query: item.keyPoints.join(' '))}
   key_points: ${_webData(item.keyPoints.join('；'), 900)}
   uncertainties: ${_webData(item.uncertainties.join('；'), 500)}
   read_at: ${item.readAt?.toIso8601String() ?? item.discoveredAt.toIso8601String()}
