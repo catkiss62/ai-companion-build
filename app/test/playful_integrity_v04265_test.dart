@@ -145,7 +145,7 @@ void main() {
     }
     Future<bool> commit(GenerationJob job, {PlayfulSelfActivity self = PlayfulSelfActivity.playful}) =>
       db.completeGenerationJobIfCurrent(jobId: job.id, runToken: job.runToken,
-        assistant: ChatMessage(id: 'a', role: 'assistant', content: '回嘴', createdAt: now), playfulActivity: self);
+        assistant: ChatMessage(id: 'a', role: 'assistant', content: '回嘴', createdAt: now.add(const Duration(seconds: 1))), playfulActivity: self);
     test('reply commit writes heat exactly once', () async {
       final job = await prepare(); expect(await commit(job), isTrue);
       expect((await PlayfulFormStore(db).load()).heat, 83);
