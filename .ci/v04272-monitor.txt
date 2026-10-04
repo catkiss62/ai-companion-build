@@ -1,0 +1,7 @@
+status=success
+run_id=37215744845
+run_url=https://github.com/catkiss62/ai-companion-build/actions/runs/37215744845
+head_sha=8c4688e262e18008775e5b1723b12256c2fdf458
+signer_sha256=30:5E:B3:D8:09:83:B9:63:C6:48:18:DD:F1:AD:56:1F:27:9D:E6:D4:7B:3E:D2:C7:81:AD:A4:48:C7:C2:51:48
+659fd546673a6c61a99d8d58c0e77feb9c521feae2f6e1191f62fa680f07046e  AI-Companion-v0.42.72-316-Proactive-Windows-APK.apk
+release_url=https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-96f7b1905b456741aeca
