@@ -7,6 +7,10 @@
 > 判断优先级：用户最新明确决定 > 当前 GitHub 源码与 Actions > 同时刻脱敏真机诊断/备份 > 本文件 > 冻结归档与 Git 历史。`DESIGNED`、`IMPLEMENTED`、`CI PASSED`、`APK READY`、`TRUE DEVICE PASSED`、`PENDING` 必须严格区分。
 
 
+## 当前任务 · +318 表情包整理与编辑（IMPLEMENTING / CI PENDING / TRUE DEVICE PENDING）
+
+2026-10-05用户明确批准本窗口完整方案并开始：四套整合包A/B/Q版鲸鱼娘/大肥鱼，定点补动物和猫猫头描述，重整小分类，新增普通图片ZIP导入，选择提示不因外观不同拒选，编辑器仅保存生效且草稿异常退出丢弃。基线f64cf655/+317；开发分支agent/v04274-sticker-workbench。完整范围、附件对应、边界和验收清单见app/docs/STICKER_WORKBENCH_v0.42.74.md。原ID/路径和禁用策略保留，同ID覆盖不叠加；不改其他产品链路。代码及整合ZIP完成，本地专项通过；完整CI及真机待验收。
+
 ## 当前交付 · +317 手机活动证据优化（CI PASSED / APK READY / TRUE DEVICE PENDING）
 
 2026-10-05 01:41用户授权，仅优化手机活动加分的累计与时效。基线+316，本地200b571，分支agent/v04273-phone-activity-evidence，目标0.42.73+317。保留解锁唤醒、独立念头、原发送门槛及+316额度；不加解锁后禁止发送时间。改成有效感知间的新使用证据，新会话/长期感知中断先建基线，积攒通知不代表用户操作；仅过时的手机活动念头失效。不改Token缓存、第二通道、Live2D、桌宠、游戏和其他念头。本地及完整CI通过，同签名APK已就绪，真机待观察；交付证据见文末+317最终记录。
@@ -85,15 +89,9 @@
 
 完整实施、CI与APK证据保留在正文“+298完整接班记录”；+300在此基线上统一轮数分享间隔。
 
-## 当前试验 · +295 菜菜原生直接合成，绕开最近任务返回时的 Virtual Display 重置（CI PASSED / APK READY / TRUE DEVICE PARTIAL：恢复成功，背景回归）
+## +295 历史交付索引
 
-- 用户同意继续下一步。+294 真机确认最近任务返回仍卡顿、消失、再出现；其诊断显示 Activity 恢复后 Surface 被拆装，EGL context 增加、7 张 PNG 重载。Flutter 3.44.9 普通 `AndroidView` 对 `GLSurfaceView` 落入 Virtual Display，每次 `onPostResume` 重置该 Surface。本试验在 `CaicaiLive2DStage` 用 `PlatformViewLink`、`AndroidViewSurface` 和 `initExpensiveAndroidView` 强制直接 Hybrid Composition；保留原生 `GLSurfaceView`、外层触摸归一化、舞台尺寸、IME 和 renderer。`setVisible(false)` 对原生 root 设 alpha=0 避免真实 Surface 把上一帧盖在其它标签页上，不额外拆除视图；返回时 alpha=1。原生新增 attach/detach 时的 view_id、context、display 和 detach 调用栈诊断，便于验证是否仍被重新挂载。
-- 曾经 +278～+281 直接合成出现黑底、切标签残影和键盘拉长，+282 退回普通 AndroidView；此版并非照搬旧时的整体布局和生命周期，而是在 +294 当前舞台/原生宿主基础上单独替换承载方式。+284 TextureView 不显示也禁止复用。历史问题须逐项真机验证，CI 不能证明屏幕合成画面。
-- 分支 `agent/v04251-caicai-direct-hybrid`，版本 `0.42.51+295`；+293 用户已认可画面作为视觉回退基线（远端 `b548cf37`、Draft `399274286`、APK SHA-256 `4c108da236e0c47e0b2d20647659c2157371be3cc18ebd5a8dd9c43bf246b094`），+294 仍有直接前一源码回退点（远端 `b631f2a`、Draft `399415602`）。不合并 main、不发布正式 Release。
-- 功能提交本地 `d808fb17f0a7ba76266e70dfa38d775b10a9798b`、远端同源码树 `c08bfd7a908f1e594ac60ab75327d4ce20fa6bd5`，tree `728f774cd279d3f8558da5328afdfe93a8f8e6fb`。本地专项源码门通过；完整套件本地在第 29/130 项因未恢复的私有桌宠素材停止，Actions 恢复素材后全套通过。[Actions 36632620687](https://github.com/catkiss62/ai-companion-build/actions/runs/36632620687) `success`：原生模拟器烟测、源码门、Kotlin、Flutter analyze/test、arm64 Release 和资源/签名校验全绿；失败报告任务跳过。
-- 未发布 Draft `399549119`：[+295 测试 APK](https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-31bb487d183a055036d9)，target=`c08bfd7`，asset `599287961`，文件 `AI-Companion-v0.42.51-295-Caicai-Direct-Hybrid-APK.apk`，726110402 字节，SHA-256 `41ce939487189b7f6078a8071b80dfa84baf6824be2ea5a3eddbc44232f9d5b6`；Artifact `11063573671`。仍是同一持久测试签名，覆盖安装可保留数据；未正式发布。
-- 真机回报 2026-09-30 09:40：恢复卡顿已成功，背景黑色或显示前一标签页；状态改为 PARTIAL，具体证据与 +296 修复见顶部。旧验收清单仅为当时计划，不能继续把实际结果记为 PENDING。
-- 真机验收：同一聊天画面连续三次“≡→直接返回”，观察人物是否仍卡住/消失及画面透明度；再切 App 后返回；切换其它标签页再回来，确认无残影、黑底或重新加载；开合键盘确认输入区尺寸和触摸；导出诊断核对 `view_detaching`、`surface_destroyed`、context 计数及 model frame。若任一视觉回归，标记本试验 `TRUE DEVICE FAILED` 并按 +293 覆盖安装回退。**构建成功仅写 `CI PASSED / APK READY`，手机未验不得写 `TRUE DEVICE PASSED`。**
+原生直接合成的完整失败路线、签名与验证记录保留在文末“+295历史索引原文”，当前任务不改Live2D。
 
 ## 当前试验 · +294 系统最近任务返回时的菜菜画面恢复（CI PASSED / APK READY / TRUE DEVICE FAILED）
 
@@ -2745,3 +2743,25 @@ Draft Release403146012，target精确对应02c76c9，draft=true；下载 https:/
 签名SHA-256 305eb3d80983b963c64818ddf1ad561f279de6d47b3ed2c781ada448c7c25148，与+316持久私测签名一致，可覆盖安装。未合并main、未公开发布，收尾文档以[skip ci]独立推送。CI PASSED / APK READY / TRUE DEVICE PENDING。
 
 真机观察重点：长时间放下后只看一眼手机，不应仅由积攒活动推动消息；持续使用后仍可自然联系；有具体独立念头时解锁后很快联系仍属允许行为。诊断presenceEvidence区分基线/新间隔、实际impulse与score，不用“完全不再解锁即发”当验收条件。Token缓存优化仍未实施。后续任务从唯一总账6.3及本节进入，本次只交付手机活动累计/时效优化。
+
+
+## +295历史索引原文（+318接班时原样移出快速索引）
+
+## 当前试验 · +295 菜菜原生直接合成，绕开最近任务返回时的 Virtual Display 重置（CI PASSED / APK READY / TRUE DEVICE PARTIAL：恢复成功，背景回归）
+
+- 用户同意继续下一步。+294 真机确认最近任务返回仍卡顿、消失、再出现；其诊断显示 Activity 恢复后 Surface 被拆装，EGL context 增加、7 张 PNG 重载。Flutter 3.44.9 普通 `AndroidView` 对 `GLSurfaceView` 落入 Virtual Display，每次 `onPostResume` 重置该 Surface。本试验在 `CaicaiLive2DStage` 用 `PlatformViewLink`、`AndroidViewSurface` 和 `initExpensiveAndroidView` 强制直接 Hybrid Composition；保留原生 `GLSurfaceView`、外层触摸归一化、舞台尺寸、IME 和 renderer。`setVisible(false)` 对原生 root 设 alpha=0 避免真实 Surface 把上一帧盖在其它标签页上，不额外拆除视图；返回时 alpha=1。原生新增 attach/detach 时的 view_id、context、display 和 detach 调用栈诊断，便于验证是否仍被重新挂载。
+- 曾经 +278～+281 直接合成出现黑底、切标签残影和键盘拉长，+282 退回普通 AndroidView；此版并非照搬旧时的整体布局和生命周期，而是在 +294 当前舞台/原生宿主基础上单独替换承载方式。+284 TextureView 不显示也禁止复用。历史问题须逐项真机验证，CI 不能证明屏幕合成画面。
+- 分支 `agent/v04251-caicai-direct-hybrid`，版本 `0.42.51+295`；+293 用户已认可画面作为视觉回退基线（远端 `b548cf37`、Draft `399274286`、APK SHA-256 `4c108da236e0c47e0b2d20647659c2157371be3cc18ebd5a8dd9c43bf246b094`），+294 仍有直接前一源码回退点（远端 `b631f2a`、Draft `399415602`）。不合并 main、不发布正式 Release。
+- 功能提交本地 `d808fb17f0a7ba76266e70dfa38d775b10a9798b`、远端同源码树 `c08bfd7a908f1e594ac60ab75327d4ce20fa6bd5`，tree `728f774cd279d3f8558da5328afdfe93a8f8e6fb`。本地专项源码门通过；完整套件本地在第 29/130 项因未恢复的私有桌宠素材停止，Actions 恢复素材后全套通过。[Actions 36632620687](https://github.com/catkiss62/ai-companion-build/actions/runs/36632620687) `success`：原生模拟器烟测、源码门、Kotlin、Flutter analyze/test、arm64 Release 和资源/签名校验全绿；失败报告任务跳过。
+- 未发布 Draft `399549119`：[+295 测试 APK](https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-31bb487d183a055036d9)，target=`c08bfd7`，asset `599287961`，文件 `AI-Companion-v0.42.51-295-Caicai-Direct-Hybrid-APK.apk`，726110402 字节，SHA-256 `41ce939487189b7f6078a8071b80dfa84baf6824be2ea5a3eddbc44232f9d5b6`；Artifact `11063573671`。仍是同一持久测试签名，覆盖安装可保留数据；未正式发布。
+- 真机回报 2026-09-30 09:40：恢复卡顿已成功，背景黑色或显示前一标签页；状态改为 PARTIAL，具体证据与 +296 修复见顶部。旧验收清单仅为当时计划，不能继续把实际结果记为 PENDING。
+- 真机验收：同一聊天画面连续三次“≡→直接返回”，观察人物是否仍卡住/消失及画面透明度；再切 App 后返回；切换其它标签页再回来，确认无残影、黑底或重新加载；开合键盘确认输入区尺寸和触摸；导出诊断核对 `view_detaching`、`surface_destroyed`、context 计数及 model frame。若任一视觉回归，标记本试验 `TRUE DEVICE FAILED` 并按 +293 覆盖安装回退。**构建成功仅写 `CI PASSED / APK READY`，手机未验不得写 `TRUE DEVICE PASSED`。**
+
+
+## +318 表情包工作台实施记录（2026-10-05）
+
+- 基线f64cf655/+317，开发分支agent/v04274-sticker-workbench，版本0.42.74+318。仅表情包导入、描述、分类及选择器UI；未改主动消息、Token缓存、第二通道、Live2D、桌宠与游戏行为。
+- 原稳定ID/路径保留；新包q-whale-001；整合包顺序A/B/Q版鲸鱼娘/大肥鱼，原始269条、可见261张（67/85/60/49）。原媒体字节未变。A补猫狗鼠等主体，B八处Q版动漫猫猫头且纠正气鼓鼓；Q与大肥鱼前缀一致，小类按语义重整。
+- 普通ZIP支持包名文件夹/描述文件名图片；同名覆盖、异名新增在最后，内容哈希去重且保留编辑。JPG/PNG/GIF/WebP有效性检查；实际WebP的.webq规范扩展名。
+- 描述编辑采用仅内存草稿，确认暂存、重置本次编辑基线，顶部保存整批SQLite事务。退出/返回/销毁丢弃，编辑遮罩与下滑不退出，保存失败可重试；新描述进入预览、发图和模型候选，历史附件不改写。模型选择提示明确按语义，主体无须匹配身份外貌，未增加调用。
+- 本地专项、真实整合ZIP重导入和CI证据逐项见app/docs/STICKER_WORKBENCH_v0.42.74.md；当前CI PENDING / TRUE DEVICE PENDING。未推用户备份、诊断、表情图片到公开仓库，未合并main、未正式发布。

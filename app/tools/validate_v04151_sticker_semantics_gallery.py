@@ -49,7 +49,7 @@ require(
 )
 require("test/sticker_expression_test.dart", "file_5447071", "file_5614628")
 require(
-    "lib/features/chat/chat_page.dart",
+    "lib/features/chat/sticker_picker_sheet.dart",
     "item.record.caption",
     "onLongPressStart",
 )

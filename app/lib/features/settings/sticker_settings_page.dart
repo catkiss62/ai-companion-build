@@ -178,8 +178,8 @@ class _StickerSettingsPageState extends State<StickerSettingsPage> {
                         Text('本机图库', style: Theme.of(context).textTheme.titleMedium),
                         const SizedBox(height: 6),
                         const Text(
-                          '可导入单个 dsh-meme 图库 ZIP，也可导入组合 ZIP'
-                          '（根目录直接放 2～20 个图库 ZIP）。图库只保存在内部目录，'
+                          '支持原图库与整合 ZIP；也可导入“包名文件夹/带描述文件名图片”的普通 ZIP。'
+                          '支持 JPG、PNG、GIF、WebP；同套重复导入覆盖更新。图库只保存在内部目录，'
                           '不进入查手机相册或当前 AI Companion 备份。',
                         ),
                         const SizedBox(height: 12),

@@ -16,7 +16,7 @@ def require(text: str, needle: str, label: str) -> None:
         raise AssertionError(f"missing {label}: {needle}")
 
 
-pubspec = read("pubspec.yaml").replace("version: 0.42.73+317", "version: 0.42.72+316").replace("version: 0.42.72+316", "version: 0.42.71+315").replace("version: 0.42.71+315", "version: 0.42.70+314").replace("version: 0.42.70+314", "version: 0.42.69+313").replace("version: 0.42.69+313", "version: 0.42.68+312")
+pubspec = read("pubspec.yaml").replace("version: 0.42.74+318", "version: 0.42.73+317").replace("version: 0.42.73+317", "version: 0.42.72+316").replace("version: 0.42.72+316", "version: 0.42.71+315").replace("version: 0.42.71+315", "version: 0.42.70+314").replace("version: 0.42.70+314", "version: 0.42.69+313").replace("version: 0.42.69+313", "version: 0.42.68+312")
 database = read("lib/core/database/app_database.dart")
 runner = read("lib/core/agent/agent_tool_runner.dart")
 moe_adapter = read("lib/core/integration/moe_input_adapter.dart")

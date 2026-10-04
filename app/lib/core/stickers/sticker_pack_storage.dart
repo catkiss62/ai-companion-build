@@ -7,8 +7,10 @@ import 'package:path_provider/path_provider.dart';
 import 'package:sqflite/sqflite.dart';
 
 import '../database/app_database.dart';
+import '../database/sqlite_settings_reader.dart';
 import '../storage/snapshot_directory_swap.dart';
 import 'sticker_pack.dart';
+import 'simple_sticker_archive.dart';
 
 class StickerPackStorage {
   StickerPackStorage({AppDatabase? db}) : db = db ?? AppDatabase.instance;
@@ -16,6 +18,7 @@ class StickerPackStorage {
   static const modeSetting = 'sticker_expression_mode_v1';
   static const enabledPacksSetting = 'sticker_enabled_pack_ids_v1';
   static const usageHistorySetting = 'sticker_usage_history_v1';
+  static const captionOverridesSetting = 'sticker_caption_overrides_v1';
   static const maxArchiveBytes = 512 * 1024 * 1024;
   static const maxExpandedBytes = 768 * 1024 * 1024;
   static const maxEntries = 2400;
@@ -52,10 +55,7 @@ class StickerPackStorage {
     try {
       final decoded = jsonDecode(raw);
       if (decoded is! List) return <String>{};
-      return decoded
-          .map((item) => item.toString())
-          .where(_validPackId)
-          .toSet();
+      return decoded.map((item) => item.toString()).where(_validPackId).toSet();
     } catch (_) {
       return <String>{};
     }
@@ -85,9 +85,9 @@ class StickerPackStorage {
   Future<StickerImportBatchResult> importZip(String zipPath) async {
     final source = File(zipPath);
     if (!await source.exists() ||
-        !await source
-            .stat()
-            .then((value) => value.type == FileSystemEntityType.file)) {
+        !await source.stat().then(
+          (value) => value.type == FileSystemEntityType.file,
+        )) {
       throw const FileSystemException('没有找到表情包 ZIP');
     }
     final compressedBytes = await source.length();
@@ -96,19 +96,32 @@ class StickerPackStorage {
     }
     final archive = _decodeZip(zipPath);
     final outerShape = _validateArchive(archive);
-    final temp = await Directory.systemTemp.createTemp('companion_sticker_import_');
+    final temp = await Directory.systemTemp.createTemp(
+      'companion_sticker_import_',
+    );
     final prepared = <_PreparedStickerPackImport>[];
     try {
       final packManifests = _packManifestPaths(outerShape.names);
       final hasRootChildZip = outerShape.names.any(
-        (name) => !name.contains('/') && p.extension(name).toLowerCase() == '.zip',
+        (name) =>
+            !name.contains('/') && p.extension(name).toLowerCase() == '.zip',
       );
       if (packManifests.length == 1 && !hasRootChildZip) {
-        prepared.add(await _prepareArchive(
-          archive: archive,
-          manifestPath: packManifests.single,
-          extractionDirectory: Directory(p.join(temp.path, 'single')),
-        ));
+        prepared.add(
+          await _prepareArchive(
+            archive: archive,
+            manifestPath: packManifests.single,
+            extractionDirectory: Directory(p.join(temp.path, 'single')),
+          ),
+        );
+      } else if (packManifests.isEmpty &&
+          !hasRootChildZip &&
+          !outerShape.names.any(
+            (n) => n.endsWith('manifest.json') || n.endsWith('index.db'),
+          )) {
+        final root = Directory(p.join(temp.path, 'simple'));
+        await SimpleStickerArchive.write(archive, root);
+        prepared.add(await _prepareRoot(root));
       } else {
         final childNames = requireRootBundleZipPaths(archive);
         await extractArchiveToDisk(archive, temp.path);
@@ -127,11 +140,13 @@ class StickerPackStorage {
           if (manifests.length != 1) {
             throw FormatException('子 ZIP 必须且只能包含一个表情包：${childNames[index]}');
           }
-          prepared.add(await _prepareArchive(
-            archive: childArchive,
-            manifestPath: manifests.single,
-            extractionDirectory: Directory(p.join(temp.path, 'pack_$index')),
-          ));
+          prepared.add(
+            await _prepareArchive(
+              archive: childArchive,
+              manifestPath: manifests.single,
+              extractionDirectory: Directory(p.join(temp.path, 'pack_$index')),
+            ),
+          );
         }
       }
 
@@ -155,10 +170,12 @@ class StickerPackStorage {
       }
       final imports = <StickerImportResult>[];
       for (final item in prepared) {
-        imports.add(StickerImportResult(
-          pack: await _readPack(item.target),
-          replaced: item.replaced,
-        ));
+        imports.add(
+          StickerImportResult(
+            pack: await _readPack(item.target),
+            replaced: item.replaced,
+          ),
+        );
       }
       return StickerImportBatchResult(imports: imports);
     } catch (_) {
@@ -213,14 +230,29 @@ class StickerPackStorage {
       0,
       manifestPath.length - 'manifest.json'.length,
     );
-    final extractedRoot = Directory(p.joinAll([
-      extractionDirectory.path,
-      ...prefix.split('/').where((part) => part.isNotEmpty),
-    ]));
+    final extractedRoot = Directory(
+      p.joinAll([
+        extractionDirectory.path,
+        ...prefix.split('/').where((part) => part.isNotEmpty),
+      ]),
+    );
+    return _prepareRoot(extractedRoot);
+  }
+
+  Future<_PreparedStickerPackImport> _prepareRoot(
+    Directory extractedRoot,
+  ) async {
     final meta = await _validateExtractedPack(extractedRoot);
     final target = Directory(p.join((await rootDirectory).path, meta.id));
+    if (await target.exists() && meta.id.startsWith('user-')) {
+      final old = await _readPack(target);
+      final manifestFile = File(p.join(extractedRoot.path, 'manifest.json'));
+      final manifest = jsonDecode(await manifestFile.readAsString()) as Map;
+      manifest['imported_at'] = old.importedAt;
+      await manifestFile.writeAsString(jsonEncode(manifest));
+    }
     final expected = <String>['manifest.json', 'index.db'];
-    final records = await readRecords(meta);
+    final records = await readRecords(meta, applyEdits: false);
     expected.addAll(records.map((item) => item.path));
     final swap = await PreparedDirectorySwap.prepare(
       sourceDirectory: extractedRoot,
@@ -238,8 +270,9 @@ class StickerPackStorage {
   }
 
   static List<String> _packManifestPaths(Set<String> names) => names
-      .where((name) =>
-          name == 'manifest.json' || name.endsWith('/manifest.json'))
+      .where(
+        (name) => name == 'manifest.json' || name.endsWith('/manifest.json'),
+      )
       .where((name) {
         final prefix = name.substring(0, name.length - 'manifest.json'.length);
         return names.contains('${prefix}index.db');
@@ -265,8 +298,9 @@ class StickerPackStorage {
     if (names.length < 2 || names.length > maxBundlePacks) {
       throw const FormatException('组合包必须包含 2–20 个子 ZIP');
     }
-    if (names.any((name) =>
-        name.contains('/') || p.extension(name).toLowerCase() != '.zip')) {
+    if (names.any(
+      (name) => name.contains('/') || p.extension(name).toLowerCase() != '.zip',
+    )) {
       throw const FormatException('组合包根目录只能直接放置子 ZIP');
     }
     return names;
@@ -279,7 +313,13 @@ class StickerPackStorage {
     await setPackEnabled(id, false);
   }
 
-  Future<List<StickerRecord>> readRecords(StickerPackMeta pack) async {
+  Future<List<StickerRecord>> readRecords(
+    StickerPackMeta pack, {
+    bool applyEdits = true,
+  }) async {
+    final overrides = applyEdits
+        ? await captionOverrides()
+        : <String, String>{};
     final indexPath = p.join(pack.rootPath, 'index.db');
     final database = await openDatabase(
       indexPath,
@@ -287,9 +327,9 @@ class StickerPackStorage {
       singleInstance: false,
     );
     try {
-      final columns = (await database.rawQuery('PRAGMA table_info(memes)'))
-          .map((row) => row['name']?.toString() ?? '')
-          .toSet();
+      final columns = (await database.rawQuery(
+        'PRAGMA table_info(memes)',
+      )).map((row) => row['name']?.toString() ?? '').toSet();
       const required = {'path', 'tag', 'file_name', 'caption', 'keywords'};
       if (!columns.containsAll(required)) {
         throw const FormatException('index.db 缺少 memes 标准字段');
@@ -322,25 +362,81 @@ class StickerPackStorage {
           throw FormatException('表情包图片为空或超过 25 MB：$path');
         }
         final extension = p.extension(path).toLowerCase();
-        if (!const {'.jpg', '.jpeg', '.png', '.webp', '.gif'}.contains(extension)) {
+        if (!const {
+          '.jpg',
+          '.jpeg',
+          '.png',
+          '.webp',
+          '.gif',
+        }.contains(extension)) {
           throw FormatException('不支持的表情格式：$path');
         }
-        result.add(StickerAgencyPolicy.normalized(StickerRecord(
-          packId: pack.id,
-          path: path,
-          tag: (row['tag']?.toString() ?? '').trim().toLowerCase(),
-          caption: _bounded(row['caption']?.toString() ?? '', 120),
-          keywords: _bounded(row['keywords']?.toString() ?? '', 240),
-          toneScope: _safeTone(row['tone_scope']?.toString() ?? 'general'),
-          intensity:
-              ((row['intensity'] as num?)?.toInt() ?? 1).clamp(1, 3).toInt(),
-          enabled: (row['enabled'] as num?)?.toInt() != 0,
-        )));
+        final record = StickerAgencyPolicy.normalized(
+          StickerRecord(
+            packId: pack.id,
+            path: path,
+            tag: (row['tag']?.toString() ?? '').trim(),
+            caption: _bounded(row['caption']?.toString() ?? '', 240),
+            keywords: _bounded(row['keywords']?.toString() ?? '', 240),
+            toneScope: _safeTone(row['tone_scope']?.toString() ?? 'general'),
+            intensity: ((row['intensity'] as num?)?.toInt() ?? 1)
+                .clamp(1, 3)
+                .toInt(),
+            enabled: (row['enabled'] as num?)?.toInt() != 0,
+          ),
+        );
+        final edited = overrides[record.usageKey];
+        result.add(edited == null ? record : record.withCaption(edited));
       }
       return result;
     } finally {
       await database.close();
     }
+  }
+
+  static String validateCaption(String value) {
+    final clean = value.replaceAll(RegExp(r'\s+'), ' ').trim();
+    if (clean.isEmpty || clean.runes.length > 240) {
+      throw const FormatException('表情描述需要1–240字');
+    }
+    return clean;
+  }
+
+  static Map<String, String> _decodeOverrides(String? raw) {
+    if (raw == null || raw.isEmpty) return {};
+    final values = jsonDecode(raw);
+    if (values is! Map) throw const FormatException('表情描述编辑数据损坏');
+    return values.map(
+      (key, value) => MapEntry(key.toString(), value.toString()),
+    );
+  }
+
+  Future<Map<String, String>> captionOverrides() async =>
+      _decodeOverrides(await db.getSetting(captionOverridesSetting));
+
+  /// A single SQLite transaction is the only durable editor commit point.
+  /// No draft is ever written here before the user presses the top Save button.
+  Future<void> saveCaptionEdits(Map<String, String> edits) async {
+    if (edits.isEmpty) return;
+    final clean = <String, String>{};
+    for (final entry in edits.entries) {
+      final colon = entry.key.indexOf(':');
+      if (colon < 1 || !_validPackId(entry.key.substring(0, colon)))
+        throw const FormatException('表情身份无效');
+      requireSafePackPath(entry.key.substring(colon + 1));
+      clean[entry.key] = validateCaption(entry.value);
+    }
+    final database = await db.database;
+    await database.transaction((txn) async {
+      final current = _decodeOverrides(
+        await SqliteSettingsReader.read(txn, captionOverridesSetting),
+      );
+      current.addAll(clean);
+      await txn.insert('settings', {
+        'key': captionOverridesSetting,
+        'value': jsonEncode(current),
+      }, conflictAlgorithm: ConflictAlgorithm.replace);
+    });
   }
 
   Future<File> fileFor(StickerPackMeta pack, StickerRecord record) async {
@@ -353,10 +449,16 @@ class StickerPackStorage {
 
   /// Full snapshot validation uses the same manifest/index/image contract as
   /// a regular pack import, and never silently ignores a damaged pack.
-  Future<void> validateSnapshotDirectory(Directory root, {bool allowLocalTemporary = false}) async {
+  Future<void> validateSnapshotDirectory(
+    Directory root, {
+    bool allowLocalTemporary = false,
+  }) async {
     if (!await root.exists()) return;
     await for (final entity in root.list(followLinks: false)) {
-      if (allowLocalTemporary && entity is Directory && p.basename(entity.path).startsWith('.')) continue;
+      if (allowLocalTemporary &&
+          entity is Directory &&
+          p.basename(entity.path).startsWith('.'))
+        continue;
       if (entity is! Directory || p.basename(entity.path).startsWith('.')) {
         throw const FormatException('表情包存档目录包含意外条目');
       }
@@ -369,7 +471,7 @@ class StickerPackStorage {
 
   Future<StickerPackMeta> _validateExtractedPack(Directory root) async {
     final pack = await _readPack(root);
-    await readRecords(pack);
+    await readRecords(pack, applyEdits: false);
     return pack;
   }
 
@@ -384,10 +486,15 @@ class StickerPackStorage {
     final manifest = raw.map((key, value) => MapEntry(key.toString(), value));
     final id = (manifest['id']?.toString() ?? p.basename(root.path)).trim();
     if (!_validPackId(id)) throw const FormatException('manifest 的 id 无效');
-    final countDb = await openDatabase(indexFile.path, readOnly: true, singleInstance: false);
+    final countDb = await openDatabase(
+      indexFile.path,
+      readOnly: true,
+      singleInstance: false,
+    );
     int count;
     try {
-      count = Sqflite.firstIntValue(
+      count =
+          Sqflite.firstIntValue(
             await countDb.rawQuery('SELECT COUNT(*) FROM memes'),
           ) ??
           0;
@@ -404,6 +511,7 @@ class StickerPackStorage {
       license: _bounded(manifest['license']?.toString() ?? 'unspecified', 80),
       rootPath: root.path,
       count: count,
+      importedAt: (manifest['imported_at'] as num?)?.toInt() ?? 0,
     );
   }
 
@@ -439,14 +547,20 @@ class StickerPackStorage {
       RegExp(r'^[a-z0-9][a-z0-9._-]{0,63}$').hasMatch(value);
 
   static String _safeTone(String value) =>
-      const {'general', 'bold', 'nsfw', 'disabled'}
-              .contains(value.trim().toLowerCase())
-          ? value.trim().toLowerCase()
-          : 'general';
+      const {
+        'general',
+        'bold',
+        'nsfw',
+        'disabled',
+      }.contains(value.trim().toLowerCase())
+      ? value.trim().toLowerCase()
+      : 'general';
 
   static String _bounded(String value, int limit) {
     final normalized = value.replaceAll(RegExp(r'\s+'), ' ').trim();
-    return normalized.length <= limit ? normalized : normalized.substring(0, limit);
+    return normalized.length <= limit
+        ? normalized
+        : normalized.substring(0, limit);
   }
 }
 

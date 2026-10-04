@@ -12,7 +12,7 @@ def read(relative: str) -> str:
     return (ROOT / relative).read_text(encoding="utf-8")
 
 
-pubspec = read("pubspec.yaml").replace("version: 0.42.73+317", "version: 0.42.72+316").replace("version: 0.42.72+316", "version: 0.42.71+315").replace("version: 0.42.71+315", "version: 0.42.70+314").replace("version: 0.42.70+314", "version: 0.42.69+313").replace("version: 0.42.69+313", "version: 0.42.68+312")
+pubspec = read("pubspec.yaml").replace("version: 0.42.74+318", "version: 0.42.73+317").replace("version: 0.42.73+317", "version: 0.42.72+316").replace("version: 0.42.72+316", "version: 0.42.71+315").replace("version: 0.42.71+315", "version: 0.42.70+314").replace("version: 0.42.70+314", "version: 0.42.69+313").replace("version: 0.42.69+313", "version: 0.42.68+312")
 policy = read("lib/core/desire/desire_core_policy.dart")
 engine = read("lib/core/desire/desire_engine.dart")
 proactive = read("lib/core/desire/proactive_engine.dart")

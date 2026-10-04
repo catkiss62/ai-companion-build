@@ -81,7 +81,7 @@ for stale in (
 ):
     assert stale not in chat, stale
 assert "pickExternalGalleryImage" not in bridge + kotlin
-assert "item.record.caption" in chat
+assert "item.record.caption" in (ROOT / "lib/features/chat/sticker_picker_sheet.dart").read_text()
 
 tests = read("test/simulated_diary_generator_v04152_test.dart") + read(
     "test/proactive_selection_policy_v0403_test.dart"

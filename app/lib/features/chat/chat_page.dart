@@ -24,8 +24,8 @@ import '../../core/mcp/cedar_toy_activity.dart';
 import '../../core/platform/android_bridge.dart';
 import '../../core/personality/playful_form_state.dart';
 import '../../core/storage/message_attachment_storage.dart';
-import '../../core/stickers/sticker_pack.dart';
 import '../../core/stickers/sticker_pack_storage.dart';
+import 'sticker_picker_sheet.dart';
 import '../../core/models/proactive_intent.dart';
 import '../../core/models/proactive_frequency.dart';
 import '../../core/models/proactive_notification_settings.dart';
@@ -75,7 +75,7 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
       StickerPackStorage(db: AppDatabase.instance);
   final LayerLink _composerToolsLink = LayerLink();
   OverlayEntry? _composerToolsOverlay;
-  _SelectedUserSticker? _selectedUserSticker;
+  SelectedUserSticker? _selectedUserSticker;
   Timer? _externalSyncTimer;
   int _externalSyncTicks = 0;
   bool _refreshingPlayfulForm = false;
@@ -711,11 +711,11 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
   }
 
   Future<void> _openStickerPicker() async {
-    final selected = await showModalBottomSheet<_SelectedUserSticker>(
+    final selected = await showGeneralDialog<SelectedUserSticker>(
       context: context,
-      isScrollControlled: true,
-      showDragHandle: true,
-      builder: (context) => _StickerPickerSheet(
+      barrierDismissible: false,
+      barrierColor: Colors.transparent,
+      pageBuilder: (context, _, __) => StickerPickerSheet(
         storage: _stickerStorage,
       ),
     );
@@ -2574,309 +2574,6 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
             ),
           ],
         ),
-      ),
-    );
-  }
-}
-
-class _SelectedUserSticker {
-  const _SelectedUserSticker({
-    required this.pack,
-    required this.record,
-    required this.file,
-  });
-
-  final StickerPackMeta pack;
-  final StickerRecord record;
-  final File file;
-}
-
-class _StickerPickerItem {
-  const _StickerPickerItem({
-    required this.pack,
-    required this.record,
-    required this.file,
-  });
-
-  final StickerPackMeta pack;
-  final StickerRecord record;
-  final File file;
-
-  _SelectedUserSticker get selection => _SelectedUserSticker(
-        pack: pack,
-        record: record,
-        file: file,
-      );
-}
-
-class _StickerPickerSheet extends StatefulWidget {
-  const _StickerPickerSheet({
-    required this.storage,
-  });
-
-  final StickerPackStorage storage;
-
-  @override
-  State<_StickerPickerSheet> createState() => _StickerPickerSheetState();
-}
-
-class _StickerPickerSheetState extends State<_StickerPickerSheet> {
-  List<StickerPackMeta> _packs = const <StickerPackMeta>[];
-  List<_StickerPickerItem> _items = const <_StickerPickerItem>[];
-  String? _packId;
-  String? _tag;
-  String? _error;
-  bool _loading = true;
-  OverlayEntry? _preview;
-
-  @override
-  void initState() {
-    super.initState();
-    _load();
-  }
-
-  @override
-  void dispose() {
-    _hidePreview();
-    super.dispose();
-  }
-
-  Future<void> _load() async {
-    try {
-      final enabledIds = await widget.storage.enabledPackIds();
-      final packs = (await widget.storage.scanPacks())
-          .where((pack) => enabledIds.contains(pack.id))
-          .toList(growable: false);
-      final items = <_StickerPickerItem>[];
-      for (final pack in packs) {
-        final records = await widget.storage.readRecords(pack);
-        for (final record in records) {
-          if (!StickerAgencyPolicy.isVisible(record)) {
-            continue;
-          }
-          items.add(_StickerPickerItem(
-            pack: pack,
-            record: record,
-            file: await widget.storage.fileFor(pack, record),
-          ));
-        }
-      }
-      if (!mounted) return;
-      setState(() {
-        _packs = packs;
-        _items = items;
-        _loading = false;
-      });
-    } catch (error) {
-      if (!mounted) return;
-      setState(() {
-        _loading = false;
-        _error = '读取表情包失败：$error';
-      });
-    }
-  }
-
-  List<_StickerPickerItem> get _packItems => _packId == null
-      ? _items
-      : _items.where((item) => item.pack.id == _packId).toList(growable: false);
-
-  List<String> get _tags {
-    final tags = _packItems
-        .map((item) => StickerAgencyPolicy.categoryKey(item.record))
-        .toSet()
-        .toList()
-      ..sort((a, b) => StickerDisplayLabels.tagName(a)
-          .compareTo(StickerDisplayLabels.tagName(b)));
-    return tags;
-  }
-
-  List<_StickerPickerItem> get _visibleItems {
-    final packItems = _packItems;
-    final tag = _tag;
-    return tag == null
-        ? packItems
-        : packItems
-            .where(
-              (item) => StickerAgencyPolicy.categoryKey(item.record) == tag,
-            )
-            .toList(growable: false);
-  }
-
-  void _showPreview(_StickerPickerItem item) {
-    _hidePreview();
-    final overlay = Overlay.of(context, rootOverlay: true);
-    _preview = OverlayEntry(
-      builder: (context) => IgnorePointer(
-        child: ColoredBox(
-          color: Colors.black.withValues(alpha: 0.22),
-          child: Center(
-            child: Material(
-              elevation: 14,
-              color: Theme.of(context).colorScheme.surface,
-              borderRadius: BorderRadius.circular(16),
-              clipBehavior: Clip.antiAlias,
-              child: ConstrainedBox(
-                constraints: BoxConstraints(
-                  minWidth: 240,
-                  maxWidth: 300,
-                  maxHeight: MediaQuery.sizeOf(context).height * 0.72,
-                ),
-                child: Padding(
-                  padding: const EdgeInsets.all(12),
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Flexible(
-                        child: Image.file(
-                          item.file,
-                          fit: BoxFit.contain,
-                          errorBuilder: (_, __, ___) => const SizedBox(
-                            width: 220,
-                            height: 220,
-                            child: Icon(Icons.broken_image_outlined),
-                          ),
-                        ),
-                      ),
-                      const SizedBox(height: 12),
-                      Text(
-                        item.record.caption,
-                        textAlign: TextAlign.left,
-                        style: Theme.of(context).textTheme.bodyMedium,
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-            ),
-          ),
-        ),
-      ),
-    );
-    overlay.insert(_preview!);
-  }
-
-  void _hidePreview() {
-    _preview?.remove();
-    _preview = null;
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return SafeArea(
-      child: SizedBox(
-        height: MediaQuery.sizeOf(context).height * 0.72,
-        child: _loading
-            ? const Center(child: CircularProgressIndicator())
-            : _error != null
-                ? Center(child: Padding(
-                    padding: const EdgeInsets.all(24),
-                    child: Text(_error!, textAlign: TextAlign.center),
-                  ))
-                : _packs.isEmpty
-                    ? const Center(child: Text('还没有启用的表情包，请先到设置中导入并开启。'))
-                    : Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          const Padding(
-                            padding: EdgeInsets.fromLTRB(16, 0, 16, 8),
-                            child: Text('选择表情包 · 长按预览，单击放入输入框'),
-                          ),
-                          SingleChildScrollView(
-                            scrollDirection: Axis.horizontal,
-                            padding: const EdgeInsets.symmetric(horizontal: 12),
-                            child: Row(
-                              children: [
-                                ChoiceChip(
-                                  label: Text('全部大类 ${_items.length}'),
-                                  selected: _packId == null,
-                                  onSelected: (_) => setState(() {
-                                    _packId = null;
-                                    _tag = null;
-                                  }),
-                                ),
-                                for (final pack in _packs) ...[
-                                  const SizedBox(width: 8),
-                                  ChoiceChip(
-                                    label: Text(
-                                      '${StickerDisplayLabels.packName(pack)} ${_items.where((item) => item.pack.id == pack.id).length}',
-                                    ),
-                                    selected: _packId == pack.id,
-                                    onSelected: (_) => setState(() {
-                                      _packId = pack.id;
-                                      _tag = null;
-                                    }),
-                                  ),
-                                ],
-                              ],
-                            ),
-                          ),
-                          const SizedBox(height: 8),
-                          SingleChildScrollView(
-                            scrollDirection: Axis.horizontal,
-                            padding: const EdgeInsets.symmetric(horizontal: 12),
-                            child: Row(
-                              children: [
-                                ChoiceChip(
-                                  label: Text('全部小类 ${_packItems.length}'),
-                                  selected: _tag == null,
-                                  onSelected: (_) => setState(() => _tag = null),
-                                ),
-                                for (final tag in _tags) ...[
-                                  const SizedBox(width: 8),
-                                  ChoiceChip(
-                                    label: Text(
-                                      '${StickerDisplayLabels.tagName(tag)} ${_packItems.where((item) => StickerAgencyPolicy.categoryKey(item.record) == tag).length}',
-                                    ),
-                                    selected: _tag == tag,
-                                    onSelected: (_) => setState(() => _tag = tag),
-                                  ),
-                                ],
-                              ],
-                            ),
-                          ),
-                          const Divider(height: 18),
-                          Expanded(
-                            child: GridView.builder(
-                              padding: const EdgeInsets.fromLTRB(12, 0, 12, 20),
-                              gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                                crossAxisCount: 4,
-                                crossAxisSpacing: 8,
-                                mainAxisSpacing: 8,
-                              ),
-                              itemCount: _visibleItems.length,
-                              itemBuilder: (context, index) {
-                                final item = _visibleItems[index];
-                                return GestureDetector(
-                                  onTap: () => Navigator.pop(
-                                    context,
-                                    item.selection,
-                                  ),
-                                  onLongPressStart: (_) => _showPreview(item),
-                                  onLongPressEnd: (_) => _hidePreview(),
-                                  onLongPressCancel: _hidePreview,
-                                  child: DecoratedBox(
-                                    decoration: BoxDecoration(
-                                      color: Theme.of(context)
-                                          .colorScheme
-                                          .surfaceContainerHighest,
-                                      borderRadius: BorderRadius.circular(12),
-                                    ),
-                                    child: Padding(
-                                      padding: const EdgeInsets.all(5),
-                                      child: Image.file(
-                                        item.file,
-                                        fit: BoxFit.contain,
-                                        errorBuilder: (_, __, ___) =>
-                                            const Icon(Icons.broken_image_outlined),
-                                      ),
-                                    ),
-                                  ),
-                                );
-                              },
-                            ),
-                          ),
-                        ],
-                      ),
       ),
     );
   }

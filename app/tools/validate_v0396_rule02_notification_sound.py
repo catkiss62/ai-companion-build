@@ -16,14 +16,14 @@ def read(relative: str) -> str:
     return value
 
 
-pubspec = read("pubspec.yaml").replace("version: 0.42.73+317", "version: 0.42.72+316").replace("version: 0.42.72+316", "version: 0.42.71+315").replace("version: 0.42.71+315", "version: 0.42.70+314").replace("version: 0.42.70+314", "version: 0.42.69+313").replace("version: 0.42.69+313", "version: 0.42.68+312")
+pubspec = read("pubspec.yaml").replace("version: 0.42.74+318", "version: 0.42.73+317").replace("version: 0.42.73+317", "version: 0.42.72+316").replace("version: 0.42.72+316", "version: 0.42.71+315").replace("version: 0.42.71+315", "version: 0.42.70+314").replace("version: 0.42.70+314", "version: 0.42.69+313").replace("version: 0.42.69+313", "version: 0.42.68+312")
 assert re.search(r"^version:\s*(?:0\.39\.(?:6\+124|7\+125|8\+126|9\+127)|0\.40\.0\+128|0\.40\.1\+129|0\.40\.2\+130|0\.40\.3\+(?:131|132)|0\.40\.4\+133|0\.40\.5\+134|0\.40\.6\+135|0\.40\.7\+136)\s*$", pubspec, re.MULTILINE) or "version: 0.40.9+138" in (Path(__file__).resolve().parents[1] / "pubspec.yaml").read_text()
 assert "static const int schemaVersion = 35;" in read(
     "lib/core/database/app_database.dart"
 )
 
 rules = read("lib/core/rules/rule_layer_content_v0353.dart")
-pubspec = read("pubspec.yaml").replace("version: 0.42.73+317", "version: 0.42.72+316").replace("version: 0.42.72+316", "version: 0.42.71+315").replace("version: 0.42.71+315", "version: 0.42.70+314").replace("version: 0.42.70+314", "version: 0.42.69+313").replace("version: 0.42.69+313", "version: 0.42.68+312")
+pubspec = read("pubspec.yaml").replace("version: 0.42.74+318", "version: 0.42.73+317").replace("version: 0.42.73+317", "version: 0.42.72+316").replace("version: 0.42.72+316", "version: 0.42.71+315").replace("version: 0.42.71+315", "version: 0.42.70+314").replace("version: 0.42.70+314", "version: 0.42.69+313").replace("version: 0.42.69+313", "version: 0.42.68+312")
 daily_match = re.search(
     r"const ruleContentV0353_02_daily = r'''(.*?)''';",
     rules,

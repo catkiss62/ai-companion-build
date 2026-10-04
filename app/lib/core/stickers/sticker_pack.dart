@@ -6,6 +6,7 @@ class StickerPackMeta {
     required this.license,
     required this.rootPath,
     required this.count,
+    this.importedAt = 0,
   });
 
   final String id;
@@ -14,6 +15,7 @@ class StickerPackMeta {
   final String license;
   final String rootPath;
   final int count;
+  final int importedAt;
 }
 
 /// UI-only labels for imported sticker metadata. Stable pack ids and the
@@ -25,19 +27,25 @@ class StickerDisplayLabels {
     const preferredOrder = <String, int>{
       'personal-001': 0,
       'official-001': 1,
+      'q-whale-001': 2,
+      'dafeiyu-001': 3,
     };
-    final byPreferred = (preferredOrder[a.id] ?? 1000)
-        .compareTo(preferredOrder[b.id] ?? 1000);
+    final byPreferred = (preferredOrder[a.id] ?? 1000).compareTo(
+      preferredOrder[b.id] ?? 1000,
+    );
     if (byPreferred != 0) return byPreferred;
+    final byImported = a.importedAt.compareTo(b.importedAt);
+    if (byImported != 0) return byImported;
     final byLabel = packName(a).compareTo(packName(b));
     return byLabel != 0 ? byLabel : a.id.compareTo(b.id);
   }
 
   static String packName(StickerPackMeta pack) => switch (pack.id) {
-        'personal-001' => '表情包A',
-        'official-001' => '表情包B',
-        _ => pack.name,
-      };
+    'personal-001' => '表情包A',
+    'official-001' => '表情包B',
+    'q-whale-001' => 'Q版鲸鱼娘',
+    _ => pack.name,
+  };
 
   static String tagName(String tag) {
     final normalized = tag.trim().toLowerCase();
@@ -46,7 +54,7 @@ class StickerDisplayLabels {
       'happy' => '开心',
       'sad' => '难过',
       'shy' => '害羞',
-      'confused' => '困惑',
+      'confused' => '疑惑懵圈',
       'daily' => '日常',
       'surprised' => '惊讶',
       'sleep' => '睡觉',
@@ -56,12 +64,21 @@ class StickerDisplayLabels {
       'like' => '喜欢',
       'see' => '看看',
       'reply' => '回复',
-      'sigh' => '叹气',
+      'sigh' => '无语叹气',
       'baka' => '笨蛋',
       'fool' => '傻瓜',
       'givemoney' => '给钱',
-      'color' => '彩色',
-      'cpu' => 'CPU',
+      'color' => '成人玩笑',
+      'cpu' => '懵圈',
+      'tease' => '调侃',
+      'cute' => '卖萌',
+      'love' => '亲昵',
+      'refuse' => '拒绝',
+      'food' => '吃喝',
+      'watch' => '围观',
+      'greet' => '招呼',
+      'request' => '请求',
+      'tired' => '疲惫躺平',
       'nsfw' => '涩涩',
       _ => tag.trim().isEmpty ? '其他' : tag.trim(),
     };
@@ -90,6 +107,18 @@ class StickerRecord {
   final bool enabled;
 
   String get usageKey => '$packId:$path';
+
+  StickerRecord withCaption(String value) => StickerRecord(
+    packId: packId,
+    path: path,
+    tag: tag,
+    caption: value,
+    // The previous keywords can contradict an explicitly edited meaning.
+    keywords: '',
+    toneScope: toneScope,
+    intensity: intensity,
+    enabled: enabled,
+  );
 }
 
 /// Content-level expression policy for the imported private pack. The NSFW
@@ -150,9 +179,7 @@ class StickerAgencyPolicy {
 
   static bool _isDarkHumor(StickerRecord record) =>
       record.toneScope == 'disabled' &&
-      RegExp(
-        r'(上吊|吊死|轻生|自杀|自尽|绳子)',
-      ).hasMatch(_semanticText(record));
+      RegExp(r'(上吊|吊死|轻生|自杀|自尽|绳子)').hasMatch(_semanticText(record));
 
   static bool _isExplicitlyDisabled(StickerRecord record) =>
       record.packId == 'official-001' &&
@@ -171,10 +198,7 @@ class StickerAgencyPolicy {
 }
 
 class StickerImportResult {
-  const StickerImportResult({
-    required this.pack,
-    required this.replaced,
-  });
+  const StickerImportResult({required this.pack, required this.replaced});
 
   final StickerPackMeta pack;
   final bool replaced;
@@ -186,9 +210,7 @@ class StickerImportBatchResult {
   final List<StickerImportResult> imports;
 
   int get packCount => imports.length;
-  int get stickerCount => imports.fold<int>(
-        0,
-        (total, item) => total + item.pack.count,
-      );
+  int get stickerCount =>
+      imports.fold<int>(0, (total, item) => total + item.pack.count);
   int get replacedCount => imports.where((item) => item.replaced).length;
 }
