@@ -1,3 +1,4 @@
+import 'proactive_delivery_budget.dart';
 import '../reflection/deep_reflection_engine.dart';
 import '../reflection/deep_reflection_store.dart';
 import '../wishes/wish_engine.dart';
@@ -69,7 +70,6 @@ import 'desire_satisfaction_ledger.dart';
 import 'desire_engine.dart';
 import 'fatigue_affect_controller.dart';
 import 'proactive_dawn_gate_policy.dart';
-import 'proactive_history_queries.dart';
 import 'proactive_presentation.dart';
 import 'proactive_rhythm_engine.dart';
 import 'proactive_scene_continuity_policy.dart';
@@ -1160,27 +1160,6 @@ class ProactiveEngine {
       );
     }
 
-    final nightWindowStart =
-        ProactiveNightContactCapPolicy.windowStart(evaluationStartedAt);
-    if (!forceForDebug && nightWindowStart != null) {
-      final deliveredInWindow =
-          await db.deliveredProactiveCountAfter(nightWindowStart);
-      if (ProactiveNightContactCapPolicy.blocks(
-        now: evaluationStartedAt,
-        deliveredSinceWindowStart: deliveredInWindow,
-      )) {
-        await db.addProactiveHistory(
-          triggerReason: '${intent.drive.name}:${intent.reason}',
-          decision: 'night_contact_ceiling',
-        );
-        await noteGeneration('gate_blocked', reasonTag: 'night_contact_ceiling');
-        return const ProactiveDecision(
-          sent: false,
-          reason: '深夜至早上九点的主动联系额度已经使用',
-        );
-      }
-    }
-
     final apiKey = await secureConfig.readApiKey();
     final endpoint = await secureConfig.readEndpoint();
     if (apiKey == null || apiKey.isEmpty) {
@@ -1224,66 +1203,29 @@ class ProactiveEngine {
       }
     }
     const gameSharePrefix = 'game_share:';
-    final sentToday = await db.proactiveCountSince(
-      const Duration(hours: 24),
-      triggerPrefix: gameSharePrefix,
-      excludePrefix: !isCedarGameShare,
-    );
-    final sentLastTwoHours = await db.proactiveCountSince(
-      const Duration(hours: 2),
-      triggerPrefix: gameSharePrefix,
-      excludePrefix: !isCedarGameShare,
-    );
     final frequencyMode = ProactiveFrequencyMode.fromSetting(
       await db.getSetting(ProactiveFrequencyPolicy.settingKey),
     );
-    final lastProactiveSentAt = await db.lastSentProactiveAt(
-      triggerPrefix: gameSharePrefix,
-      excludePrefix: !isCedarGameShare,
+    final budget = await ProactiveDeliveryBudget.read(
+      await db.database, evaluationStartedAt, mode: frequencyMode,
     );
-    final proactiveGap = lastProactiveSentAt == null
-        ? null
+    await db.setSetting('proactive_last_budget', jsonEncode(budget.toJson()));
+    final sentToday = budget.used;
+    final sentLastTwoHours = budget.twoHourUsed;
+    final lastProactiveSentAt = budget.lastSentAt;
+    final proactiveGap = lastProactiveSentAt == null ? null
         : evaluationStartedAt.difference(lastProactiveSentAt);
-    if (!forceForDebug &&
-        proactiveGap != null &&
-        !(isCedarGameShare
-            ? proactiveGap >= const Duration(minutes: 45)
-            : frequencyMode.allowsGap(proactiveGap))) {
+    final budgetBlock = budget.blockReason(gameShare: isCedarGameShare);
+    if (!forceForDebug && budgetBlock != null) {
       await db.addProactiveHistory(
         triggerReason: '${intent.drive.name}:${intent.reason}',
-        decision: 'minimum_gap',
+        decision: budgetBlock,
       );
-      await noteGeneration('gate_blocked', reasonTag: 'minimum_gap');
-      return ProactiveDecision(
-        sent: false,
-        reason: '距离上一条主动消息不足 '
-            '${isCedarGameShare ? 45 : frequencyMode.minimumGap.inMinutes} 分钟',
-      );
-    }
-    if (!forceForDebug &&
-        sentToday >= (isCedarGameShare ? 6 : frequencyMode.dayLimit)) {
-      await db.addProactiveHistory(
-        triggerReason: '${intent.drive.name}:${intent.reason}',
-        decision: 'daily_ceiling',
-      );
-      await noteGeneration('gate_blocked', reasonTag: 'frequency_ceiling');
-      return const ProactiveDecision(
-        sent: false,
-        reason: '过去24小时已经主动联系较多，暂时留一点空间',
-      );
-    }
-    if (!forceForDebug &&
-        sentLastTwoHours >=
-            (isCedarGameShare ? 3 : frequencyMode.twoHourLimit)) {
-      await db.addProactiveHistory(
-        triggerReason: '${intent.drive.name}:${intent.reason}',
-        decision: 'short_window_ceiling',
-      );
-      await noteGeneration('gate_blocked', reasonTag: 'frequency_ceiling');
-      return const ProactiveDecision(
-        sent: false,
-        reason: '短时间内已经主动联系过，避免连续打扰',
-      );
+      await noteGeneration('gate_blocked', reasonTag: budgetBlock);
+      return ProactiveDecision(sent: false,
+        reason: budgetBlock == 'night_contact_ceiling'
+            ? '零点至早上九点的独立主动联系额度已经使用'
+            : '当前主动联系额度或间隔尚不允许发送：$budgetBlock');
     }
     final rhythmContext = await rhythm.currentContext(
       now: evaluationStartedAt,
@@ -1362,6 +1304,10 @@ class ProactiveEngine {
         'rawIdleBoost': double.parse(rawIdleBoost.toStringAsFixed(3)),
         'idleBoost': double.parse(idleBoost.toStringAsFixed(3)),
         'dawnScreenOff': dawnAdjustment.active,
+        'nightIdleSuppressed': budget.night,
+        'quotaWindow': budget.night ? 'night' : 'daytime',
+        'quotaUsed': budget.used,
+        'quotaReleased': budget.released,
         'dawnThresholdPenalty':
             double.parse(dawnAdjustment.thresholdPenalty.toStringAsFixed(3)),
         'presenceMomentum': double.parse(presenceMomentum.toStringAsFixed(3)),
@@ -1511,6 +1457,13 @@ MCP Outcome 是她自己刚完成的真实游戏操作结果，可以用第一�
         : '''
 这是一个带不可变发生时间的 Cedar 真实 Outcome。Thought 正文里的“刚”只代表事件生成当时，不能覆盖 SELECTED_THOUGHT_DATA 的 cedar_event_age_minutes。
 只有 cedar_event_is_recent=true 才能说“刚才/刚刚/刚在”；否则仍可分享真实内容，但必须明确说成“之前/上次/前面玩的时候”，不得暗示当前游戏正在运行。''';
+    final nightContactContract = !budget.night || isImmediateCedarShare
+        ? ''
+        : "现在是本地0–9点的夜间主动联系判断。还有发送机会不代表应该联系，不要求用完机会。"
+          "请根据本轮具体念头、疲劳、近期真实互动和收尾状态判断：它是否值得此刻发出，还是留到以后更合适。"
+          "用户长时间没回复、熄屏或正在用手机，都不能单独证明应该找用户，也不能断言用户睡着或醒着。"
+          "没有足够具体且此刻值得表达的内容就只输出 WAIT；不为通过判断编造紧急性或自称非常想说。"
+          "不要求重大事件：有真实缘由的想念、发现或疑问也可以自然表达。";
     final pendingGameThreadContract = linkedThread == null ||
             !ProactiveSelectionPolicy.isGameTopic(linkedThread.topicKey) ||
             isCedarGameShare
@@ -1536,6 +1489,7 @@ $sourceAgnosticShareContract
 $watchedCedarShareContract
 $cedarTemporalContract
 $pendingGameThreadContract
+$nightContactContract
 $selectedThoughtData
 ${selection != null && selection.rawRepetitionPenalty > 0 ? '近期同类主动主题已连续出现 ${selection.rawRepeatDepth} 次，本轮已经在本地选择阶段降权；若当前最终意图不是该主题，不要擅自绕回重复的亲密联系。' : ''}
 过去主动消息样本：${rhythmProfile.sampleCount}；当前主题历史样本：${rhythmProfile.topicSampleCount}；同类主动意图样本：${rhythmProfile.intentSampleCount}。当前粗粒度时间段=${rhythmProfile.currentHourBucket}，活动情境=${rhythmProfile.currentActivityContext}。这些只作为轻量节奏参考，不要向用户提及统计。
@@ -2138,6 +2092,10 @@ ${PromptBuilder.visibleChineseGenerationReminder(proactive: true)}
       evaluationStartedAt: evaluationStartedAt,
       workFence: wishDeliveryFence,
       reflectionInvitation: reflectionInvitation,
+      proactiveTriggerReason: '${isCedarGameShare ? gameSharePrefix : ''}'
+          '${isImmediateCedarShare ? 'immediate:' : ''}${intent.drive.name}:${intent.reason}',
+      enforceProactiveBudget: !forceForDebug,
+      proactiveGameShare: isCedarGameShare,
     );
     if (commitBlock != null) {
       for (final attachment in proactiveAttachments) {
@@ -2146,17 +2104,17 @@ ${PromptBuilder.visibleChineseGenerationReminder(proactive: true)}
       final userPreempted = commitBlock == 'chat_turn' || commitBlock == 'new_user';
       await db.addProactiveHistory(
         triggerReason: '${intent.drive.name}:${intent.reason}',
-        decision: userPreempted ? 'preempted_by_user' : 'preempted_by_device_state',
+        decision: userPreempted ? 'preempted_by_user' : commitBlock,
       );
       await noteGeneration(
         'preempted',
-        reasonTag: userPreempted ? 'user_preempted' : 'device_state',
+        reasonTag: userPreempted ? 'user_preempted' : commitBlock,
       );
       return ProactiveDecision(
         sent: false,
         reason: userPreempted
             ? '用户已经开始新的聊天，本次主动消息取消'
-            : '设备状态已变化，本次主动消息取消',
+            : '发送条件已变化，本次主动消息取消：$commitBlock',
         gateScore: gateScore,
         intentKind: intentKind,
         deliveryStyle: deliveryStyle,
@@ -2175,12 +2133,6 @@ ${PromptBuilder.visibleChineseGenerationReminder(proactive: true)}
         messageId: message.id,
       );
     }
-    await db.addProactiveHistory(
-      triggerReason:
-          '${isCedarGameShare ? gameSharePrefix : ''}${intent.drive.name}:${intent.reason}',
-      decision: 'sent',
-      messageId: message.id,
-    );
     if (webShareCandidateId != null) {
       await publicWebSharing.markShared(webShareCandidateId);
     }

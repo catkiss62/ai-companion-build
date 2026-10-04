@@ -157,3 +157,5 @@ tools/validate_v04268_deep_web.py
 tools/validate_v04270_wish_lifecycle.py
 
 tools/validate_v04271_deep_reflection.py
+
+tools/validate_v04272_proactive_windows.py

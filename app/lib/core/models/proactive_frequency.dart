@@ -6,36 +6,52 @@ enum ProactiveFrequencyMode {
   String get key => name;
 
   String get zhLabel => switch (this) {
-        ProactiveFrequencyMode.quiet => '安静',
-        ProactiveFrequencyMode.natural => '自然',
-        ProactiveFrequencyMode.frequent => '频繁',
-      };
+    ProactiveFrequencyMode.quiet => '安静',
+    ProactiveFrequencyMode.natural => '自然',
+    ProactiveFrequencyMode.frequent => '频繁',
+  };
 
-  String get description => switch (this) {
-        ProactiveFrequencyMode.quiet => '至少间隔30分钟；过去24小时最多8次，2小时最多2次',
-        ProactiveFrequencyMode.natural => '至少间隔15分钟；过去24小时最多16次，2小时最多3次',
-        ProactiveFrequencyMode.frequent => '至少间隔8分钟；过去24小时最多24次，2小时最多4次',
-      };
+  String get description =>
+      '白天9–14点可用$morningLimit次，14–19点累计$afternoonLimit次，'
+      '19–24点累计$dayLimit次；未用次数顺延。0–9点独立最多2次，不要求用完。'
+      '至少间隔${minimumGap.inMinutes}分钟，2小时最多$twoHourLimit次；切换档位不清零。';
+
+  int get morningLimit => switch (this) {
+    ProactiveFrequencyMode.quiet => 3,
+    ProactiveFrequencyMode.natural => 6,
+    ProactiveFrequencyMode.frequent => 8,
+  };
+
+  int get afternoonLimit => morningLimit * 2;
 
   Duration get minimumGap => switch (this) {
-        ProactiveFrequencyMode.quiet => const Duration(minutes: 30),
-        ProactiveFrequencyMode.natural => const Duration(minutes: 15),
-        ProactiveFrequencyMode.frequent => const Duration(minutes: 8),
-      };
+    ProactiveFrequencyMode.quiet => const Duration(minutes: 30),
+    ProactiveFrequencyMode.natural => const Duration(minutes: 15),
+    ProactiveFrequencyMode.frequent => const Duration(minutes: 8),
+  };
 
-  bool allowsGap(Duration elapsed) => !elapsed.isNegative && elapsed >= minimumGap;
+  bool allowsGap(Duration elapsed) =>
+      !elapsed.isNegative && elapsed >= minimumGap;
 
   int get dayLimit => switch (this) {
-        ProactiveFrequencyMode.quiet => 8,
-        ProactiveFrequencyMode.natural => 16,
-        ProactiveFrequencyMode.frequent => 24,
-      };
+    ProactiveFrequencyMode.quiet => 10,
+    ProactiveFrequencyMode.natural => 18,
+    ProactiveFrequencyMode.frequent => 24,
+  };
 
   int get twoHourLimit => switch (this) {
-        ProactiveFrequencyMode.quiet => 2,
-        ProactiveFrequencyMode.natural => 3,
-        ProactiveFrequencyMode.frequent => 4,
-      };
+    ProactiveFrequencyMode.quiet => 2,
+    ProactiveFrequencyMode.natural => 3,
+    ProactiveFrequencyMode.frequent => 4,
+  };
+
+  int releasedLimit(DateTime now) => now.hour < 9
+      ? ProactiveFrequencyPolicy.nightLimit
+      : now.hour < 14
+      ? morningLimit
+      : now.hour < 19
+      ? afternoonLimit
+      : dayLimit;
 
   static ProactiveFrequencyMode fromSetting(String? raw) {
     final normalized = raw?.trim().toLowerCase();
@@ -47,6 +63,17 @@ enum ProactiveFrequencyMode {
 }
 
 abstract final class ProactiveFrequencyPolicy {
+  static const nightLimit = 2;
+  static bool isNight(DateTime now) => now.hour < 9;
+
+  // Construct wall-clock boundaries, rather than adding 24 hours across DST.
+  static DateTime boundary(DateTime now, int hour) => now.isUtc
+      ? DateTime.utc(now.year, now.month, now.day, hour)
+      : DateTime(now.year, now.month, now.day, hour);
+
+  static DateTime windowStart(DateTime now) =>
+      boundary(now, isNight(now) ? 0 : 9);
+
   static const settingKey = 'proactive_frequency_mode';
   static const defaultKey = 'natural';
   static const defaultMode = ProactiveFrequencyMode.natural;

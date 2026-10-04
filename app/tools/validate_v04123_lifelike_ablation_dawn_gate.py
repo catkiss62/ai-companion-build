@@ -104,7 +104,7 @@ for token in (
     "now.hour >= 5",
     "now.hour < 9",
     "activityContext == 'screen_off'",
-    "maxIdleBoost = 0.04",
+    "maxIdleBoost = 0.0",
     "thresholdPenalty = 0.10",
     "suppressLongIdleRelief: true",
 ):

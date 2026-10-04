@@ -59,7 +59,7 @@ require(
     "'play_game_session' : 'play_game'",
     "game_share:",
     "isImmersiveChatPageVisible",
-    "Duration(minutes: 45)",
+    "budget.blockReason(gameShare: isCedarGameShare)",
 )
 require(
     "lib/features/chat/cedar_toy_activity_window.dart",
@@ -111,3 +111,5 @@ require(
 )
 
 print("v0.41.68+212 Cedar game experience validation passed.")
+
+require("lib/core/desire/proactive_delivery_budget.dart", "Duration(minutes: 45)")

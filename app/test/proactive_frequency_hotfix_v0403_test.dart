@@ -17,9 +17,9 @@ void main() {
     });
 
     test('exposes the three bounded delivery profiles', () {
-      expect(ProactiveFrequencyMode.quiet.dayLimit, 8);
+      expect(ProactiveFrequencyMode.quiet.dayLimit, 10);
       expect(ProactiveFrequencyMode.quiet.twoHourLimit, 2);
-      expect(ProactiveFrequencyMode.natural.dayLimit, 16);
+      expect(ProactiveFrequencyMode.natural.dayLimit, 18);
       expect(ProactiveFrequencyMode.natural.twoHourLimit, 3);
       expect(ProactiveFrequencyMode.frequent.dayLimit, 24);
       expect(ProactiveFrequencyMode.frequent.twoHourLimit, 4);

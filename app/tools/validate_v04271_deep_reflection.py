@@ -1,7 +1,7 @@
 from pathlib import Path
 r = Path(__file__).resolve().parents[1]
 read = lambda p: (r / p).read_text()
-assert '\nversion: 0.42.71+315\n' in read('pubspec.yaml')
+assert any(f'\nversion: {v}\n' in read('pubspec.yaml') for v in ('0.42.71+315', '0.42.72+316'))
 engine = read('lib/core/reflection/deep_reflection_engine.dart')
 store = read('lib/core/reflection/deep_reflection_store.dart')
 runner = read('lib/core/ai/durable_generation_runner.dart')

@@ -2,86 +2,75 @@ import 'package:ai_companion_localfirst/core/desire/proactive_dawn_gate_policy.d
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
-  test('screen-off dawn removes long-idle acceleration', () {
-    final adjusted = ProactiveDawnGatePolicy.adjust(
-      now: DateTime(2026, 9, 3, 7, 20),
-      activityContext: 'screen_off',
-      rawIdleBoost: 0.24,
-    );
-
-    expect(adjusted.active, isTrue);
-    expect(adjusted.idleBoost, ProactiveDawnGatePolicy.maxIdleBoost);
-    expect(adjusted.thresholdPenalty, greaterThan(0));
-    expect(adjusted.suppressLongIdleRelief, isTrue);
-  });
-
-  test('late-night through nine uses one cross-source delivery ceiling', () {
-    final beforeMidnight = DateTime(2026, 9, 3, 23, 10);
-    final dawn = DateTime(2026, 9, 4, 8, 59);
-
-    expect(
-      ProactiveNightContactCapPolicy.windowStart(beforeMidnight),
-      DateTime(2026, 9, 3, 21),
-    );
-    expect(
-      ProactiveNightContactCapPolicy.windowStart(dawn),
-      DateTime(2026, 9, 3, 21),
-    );
-    expect(
-      ProactiveNightContactCapPolicy.blocks(
-        now: dawn,
-        deliveredSinceWindowStart: 0,
-      ),
-      isFalse,
-    );
-    expect(
-      ProactiveNightContactCapPolicy.blocks(
-        now: dawn,
-        deliveredSinceWindowStart: 1,
-      ),
-      isTrue,
-    );
-    expect(
-      ProactiveNightContactCapPolicy.windowStart(DateTime(2026, 9, 4, 9)),
-      isNull,
-    );
-  });
-
-  test('dawn boundaries and screen-on contexts keep the ordinary gate', () {
-    for (final instant in <DateTime>[
-      DateTime(2026, 9, 3, 4, 59),
-      DateTime(2026, 9, 3, 9),
-    ]) {
-      final adjusted = ProactiveDawnGatePolicy.adjust(
-        now: instant,
-        activityContext: 'screen_off',
-        rawIdleBoost: 0.24,
-      );
-      expect(adjusted.active, isFalse);
-      expect(adjusted.idleBoost, 0.24);
-      expect(adjusted.thresholdPenalty, 0);
-      expect(adjusted.suppressLongIdleRelief, isFalse);
+  test('all night contexts remove silence acceleration', () {
+    for (final hour in [0, 3, 5, 8]) {
+      for (final context in ['screen_off', 'idle', 'game']) {
+        final result = ProactiveDawnGatePolicy.adjust(
+          now: DateTime(2026, 10, 5, hour),
+          activityContext: context,
+          rawIdleBoost: .24,
+        );
+        expect(result.idleBoost, 0);
+        expect(result.suppressLongIdleRelief, isTrue);
+        expect(result.active, hour >= 5 && context == 'screen_off');
+        expect(
+          result.thresholdPenalty,
+          hour >= 5 && context == 'screen_off' ? .10 : 0,
+        );
+      }
     }
-
-    final screenOn = ProactiveDawnGatePolicy.adjust(
-      now: DateTime(2026, 9, 3, 7),
-      activityContext: 'idle',
-      rawIdleBoost: 0.24,
-    );
-    expect(screenOn.active, isFalse);
   });
-
-  test('strong intent still has a score path through the adjusted gate', () {
-    final adjusted = ProactiveDawnGatePolicy.adjust(
-      now: DateTime(2026, 9, 3, 7),
+  test('09:00 and late evening keep ordinary daytime motivation', () {
+    for (final hour in [9, 19, 21, 23]) {
+      final result = ProactiveDawnGatePolicy.adjust(
+        now: DateTime(2026, 10, 5, hour),
+        activityContext: 'screen_off',
+        rawIdleBoost: .24,
+      );
+      expect(result.idleBoost, .24);
+      expect(result.suppressLongIdleRelief, isFalse);
+      expect(result.thresholdPenalty, 0);
+      expect(
+        ProactiveNightContactCapPolicy.windowStart(DateTime(2026, 10, 5, hour)),
+        isNull,
+      );
+    }
+  });
+  test(
+    '00:00 through 08:59 shares two opportunities, including UTC clocks',
+    () {
+      for (final time in [
+        DateTime(2026, 10, 5),
+        DateTime(2026, 10, 5, 8, 59),
+        DateTime.utc(2026, 10, 5, 8, 59),
+      ]) {
+        final start = ProactiveNightContactCapPolicy.windowStart(time)!;
+        expect(start.day, 5);
+        expect(start.hour, 0);
+        expect(start.isUtc, time.isUtc);
+        expect(
+          ProactiveNightContactCapPolicy.blocks(
+            now: time,
+            deliveredSinceWindowStart: 1,
+          ),
+          isFalse,
+        );
+        expect(
+          ProactiveNightContactCapPolicy.blocks(
+            now: time,
+            deliveredSinceWindowStart: 2,
+          ),
+          isTrue,
+        );
+      }
+    },
+  );
+  test('strong motivation can still pass the screen-off dawn gate', () {
+    final result = ProactiveDawnGatePolicy.adjust(
+      now: DateTime(2026, 10, 5, 7),
       activityContext: 'screen_off',
-      rawIdleBoost: 0.24,
+      rawIdleBoost: .24,
     );
-    const strongIntent = 0.92;
-    const maximumPositiveJitter = 0.05;
-    final gateScore = strongIntent + adjusted.idleBoost + maximumPositiveJitter;
-    final threshold = 0.60 + adjusted.thresholdPenalty;
-
-    expect(gateScore, greaterThan(threshold));
+    expect(.92 + result.idleBoost, greaterThan(.60 + result.thresholdPenalty));
   });
 }

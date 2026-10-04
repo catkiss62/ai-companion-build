@@ -17,7 +17,7 @@ def read(relative: str) -> str:
     return value
 
 
-pubspec = read("pubspec.yaml").replace("version: 0.42.71+315", "version: 0.42.70+314").replace("version: 0.42.70+314", "version: 0.42.69+313").replace("version: 0.42.69+313", "version: 0.42.68+312")
+pubspec = read("pubspec.yaml").replace("version: 0.42.72+316", "version: 0.42.71+315").replace("version: 0.42.71+315", "version: 0.42.70+314").replace("version: 0.42.70+314", "version: 0.42.69+313").replace("version: 0.42.69+313", "version: 0.42.68+312")
 current = "version: 0.41.29+168" in pubspec
 database = read("lib/core/database/app_database.dart")
 catalog = read("lib/core/personality/personality_catalog.dart")

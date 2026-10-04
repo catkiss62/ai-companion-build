@@ -21,8 +21,8 @@ require(PUBSPEC, "version: 0.40.3+132", "hotfix version")
 require(DB, "static const int schemaVersion = 40;", "schema remains 40")
 
 for token in (
-    "ProactiveFrequencyMode.quiet => 8",
-    "ProactiveFrequencyMode.natural => 16",
+    "ProactiveFrequencyMode.quiet => 10",
+    "ProactiveFrequencyMode.natural => 18",
     "ProactiveFrequencyMode.frequent => 24",
     "ProactiveFrequencyMode.quiet => 2",
     "ProactiveFrequencyMode.natural => 3",
@@ -31,14 +31,12 @@ for token in (
 ):
     require(FREQUENCY, token, "frequency contract")
 
-require(ENGINE, "frequencyMode.dayLimit", "runtime daily policy")
-require(ENGINE, "frequencyMode.twoHourLimit", "runtime short-window policy")
+require(ENGINE, "budget.blockReason", "runtime time-window policy")
+require(ENGINE, "budget.twoHourUsed", "runtime short-window policy")
 assert "sentToday >= 8" not in ENGINE
 assert "sentLastTwoHours >= 2" not in ENGINE
 
-require(DB, "'mode': proactiveFrequency.key", "diagnostic mode")
-require(DB, "proactiveFrequency.dayLimit", "diagnostic daily limit")
-require(DB, "proactiveFrequency.twoHourLimit", "diagnostic short-window limit")
+require(DB, "'proactiveContact': proactiveBudget.toJson()", "shared diagnostic budget")
 
 for table in ("provider_health_events", "proactive_policy_events"):
     require(PRUNE_POLICY, f"'{table}'", f"{table} allowlist")

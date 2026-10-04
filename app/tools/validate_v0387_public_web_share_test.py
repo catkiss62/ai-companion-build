@@ -13,7 +13,7 @@ def require(text: str, needle: str, label: str) -> None:
         raise SystemExit(f"missing {label}: {needle}")
 
 
-pubspec = read("pubspec.yaml").replace("version: 0.42.71+315", "version: 0.42.70+314").replace("version: 0.42.70+314", "version: 0.42.69+313").replace("version: 0.42.69+313", "version: 0.42.68+312")
+pubspec = read("pubspec.yaml").replace("version: 0.42.72+316", "version: 0.42.71+315").replace("version: 0.42.71+315", "version: 0.42.70+314").replace("version: 0.42.70+314", "version: 0.42.69+313").replace("version: 0.42.69+313", "version: 0.42.68+312")
 policy = read("lib/core/autonomy/public_web_share_policy.dart")
 coordinator = read("lib/core/autonomy/public_web_share_coordinator.dart")
 database = read("lib/core/database/app_database.dart")

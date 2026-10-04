@@ -1708,7 +1708,7 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
                               (mode) => DropdownMenuItem(
                                 value: mode,
                                 child: Text(
-                                  '${mode.zhLabel} · ${mode.dayLimit}次/24小时',
+                                  '${mode.zhLabel} · 白天${mode.dayLimit} + 夜间2次',
                                 ),
                               ),
                             )

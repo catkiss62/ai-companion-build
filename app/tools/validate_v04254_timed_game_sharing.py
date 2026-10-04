@@ -35,7 +35,8 @@ assert "'cedar-share:${intentThought!.id}'" in proactive
 assert 'queuedCedarShares.contains(thought.id)' in proactive
 # Older unsolicited memories retain the original limits. The direct queue
 # intentionally uses the existing forced delivery, preserving runtime gates.
-assert 'Duration(minutes: 45)' in proactive and 'forceForDebug: true' in proactive
+assert 'Duration(minutes: 45)' in read('lib/core/desire/proactive_delivery_budget.dart')
+assert 'budget.blockReason(gameShare: isCedarGameShare)' in proactive and 'forceForDebug: true' in proactive
 assert 'isImmersiveChatPageVisible' in proactive and 'commitProactiveMessageIfCurrent' in proactive
 assert read('lib/core/sync/snapshot_service.dart').count("'cedar_timed_play_pending_v1': ''") == 2
 assert (app / 'test/cedar_timed_live_share_v04254_test.dart').is_file()

@@ -1,3 +1,4 @@
+import '../desire/proactive_delivery_budget.dart';
 import '../reflection/deep_reflection_store.dart';
 import '../reflection/deep_reflection_contract.dart';
 import '../mood/mood_store.dart';
@@ -8162,6 +8163,10 @@ class AppDatabase {
     required DateTime evaluationStartedAt,
     BrainWorkFence? workFence,
     DeepReflectionContext? reflectionInvitation,
+    String? proactiveTriggerReason,
+    bool enforceProactiveBudget = false,
+    bool proactiveGameShare = false,
+    DateTime? deliveryAt,
   }) async {
     if (message.attachments.any((item) => item.messageId != message.id)) {
       throw StateError('proactive_attachment_message_mismatch');
@@ -8205,6 +8210,19 @@ class AppDatabase {
         }
       }
 
+      final sentAt = deliveryAt ?? DateTime.now();
+      if (enforceProactiveBudget) {
+        // A candidate evaluated in daytime must not cross into the night
+        // without the night motivation gate and writing context.
+        if (ProactiveFrequencyPolicy.isNight(sentAt) !=
+            ProactiveFrequencyPolicy.isNight(evaluationStartedAt)) {
+          return 'proactive_window_changed';
+        }
+        final budget = await ProactiveDeliveryBudget.read(txn, sentAt);
+        final blocked = budget.blockReason(gameShare: proactiveGameShare);
+        if (blocked != null) return blocked;
+      }
+
       await txn.insert(
         'messages',
         message.toDb(),
@@ -8218,6 +8236,16 @@ class AppDatabase {
           conflictAlgorithm: ConflictAlgorithm.abort,
         );
         await _retainMessageMediaBlob(txn, attachment);
+      }
+      if (proactiveTriggerReason != null) {
+        // Message and quota evidence either both commit or both roll back.
+        await txn.insert('proactive_history', {
+          'id': _uuid.v4(),
+          'trigger_reason': proactiveTriggerReason,
+          'decision': 'sent',
+          'message_id': message.id,
+          'created_at': sentAt.millisecondsSinceEpoch,
+        });
       }
       await DeepReflectionStore.commit(txn, context: reflectionInvitation,
         replyId: message.id, visibleReply: message.content, now: message.createdAt,
@@ -14377,10 +14405,11 @@ class AppDatabase {
       ],
     );
     final publicWebUsed = Sqflite.firstIntValue(publicWebRows) ?? 0;
-    final twoHourProactive = await proactiveCountSince(const Duration(hours: 2));
-    final dayProactive = await proactiveCountSince(const Duration(hours: 24));
     final proactiveFrequency = ProactiveFrequencyMode.fromSetting(
       await getSetting(ProactiveFrequencyPolicy.settingKey),
+    );
+    final proactiveBudget = await ProactiveDeliveryBudget.read(
+      db, instant, mode: proactiveFrequency,
     );
     Map<String, Object?>? last;
     if (lastRows.isNotEmpty) {
@@ -14433,20 +14462,7 @@ class AppDatabase {
           'configured': false,
           'remaining': null,
         },
-        'proactiveContact': {
-          'mode': proactiveFrequency.key,
-          'modeLabel': proactiveFrequency.zhLabel,
-          'twoHourLimit': proactiveFrequency.twoHourLimit,
-          'twoHourUsed': twoHourProactive,
-          'twoHourRemaining':
-              (proactiveFrequency.twoHourLimit - twoHourProactive)
-                  .clamp(0, proactiveFrequency.twoHourLimit),
-          'dayLimit': proactiveFrequency.dayLimit,
-          'dayUsed': dayProactive,
-          'dayRemaining': (proactiveFrequency.dayLimit - dayProactive)
-              .clamp(0, proactiveFrequency.dayLimit),
-          'separateDeliveryGate': true,
-        },
+        'proactiveContact': proactiveBudget.toJson(),
       },
       'privacy': {
         'intentReasonIncluded': false,

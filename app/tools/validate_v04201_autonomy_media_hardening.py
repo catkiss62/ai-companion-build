@@ -42,7 +42,7 @@ def main() -> None:
     )
     require("agent/v04201-autonomy-media-hardening" in workflow, "branch trigger missing")
     require("ProactiveNightContactCapPolicy" in dawn, "night contact cap missing")
-    require("deliveredProactiveCountAfter" in proactive, "night cap is not wired before generation")
+    require("ProactiveDeliveryBudget.read" in proactive, "night cap is not wired before generation")
     require("night_contact_ceiling" in proactive, "night cap outcome is not diagnosed")
     require("describesUserOnlyPlay" in arcade, "first-person game statement boundary missing")
     require("CedarToyArcadeSkill.isRelevant(text)" in planner, "planner bypasses Cedar semantic boundary")

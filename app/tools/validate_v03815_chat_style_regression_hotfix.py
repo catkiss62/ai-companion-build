@@ -25,7 +25,7 @@ overlay = read(
 overlay_formatter = read(
     "android/app/src/main/kotlin/com/aicompanion/localfirst/OverlayDialogueFormatter.kt"
 )
-pubspec = read("pubspec.yaml").replace("version: 0.42.71+315", "version: 0.42.70+314").replace("version: 0.42.70+314", "version: 0.42.69+313").replace("version: 0.42.69+313", "version: 0.42.68+312")
+pubspec = read("pubspec.yaml").replace("version: 0.42.72+316", "version: 0.42.71+315").replace("version: 0.42.71+315", "version: 0.42.70+314").replace("version: 0.42.70+314", "version: 0.42.69+313").replace("version: 0.42.69+313", "version: 0.42.68+312")
 aggressive_dialogue = "version: 0.41.22+161" in pubspec
 lifelike_ablation = any(version in pubspec for version in (
     "version: 0.41.23+162", "version: 0.41.24+163"

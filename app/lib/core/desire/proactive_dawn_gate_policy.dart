@@ -1,3 +1,5 @@
+import '../models/proactive_frequency.dart';
+
 class ProactiveDawnGateAdjustment {
   const ProactiveDawnGateAdjustment({
     required this.active,
@@ -12,14 +14,15 @@ class ProactiveDawnGateAdjustment {
   final bool suppressLongIdleRelief;
 }
 
-/// A continuous delivery adjustment for the quiet dawn window.
+/// Night silence is not a reason to contact the user.
+/// Keep the existing additional screen-off dawn caution.
 ///
 /// This is deliberately not a message-count ceiling. A strong intent can still
 /// pass, while long screen-off silence no longer makes repeated delivery easier.
 class ProactiveDawnGatePolicy {
   const ProactiveDawnGatePolicy._();
 
-  static const double maxIdleBoost = 0.04;
+  static const double maxIdleBoost = 0.0;
   static const double thresholdPenalty = 0.10;
 
   static ProactiveDawnGateAdjustment adjust({
@@ -27,10 +30,10 @@ class ProactiveDawnGatePolicy {
     required String activityContext,
     required double rawIdleBoost,
   }) {
-    final active = now.hour >= 5 &&
-        now.hour < 9 &&
-        activityContext == 'screen_off';
-    if (!active) {
+    final active =
+        now.hour >= 5 && now.hour < 9 && activityContext == 'screen_off';
+    final night = ProactiveFrequencyPolicy.isNight(now);
+    if (!night) {
       return ProactiveDawnGateAdjustment(
         active: false,
         idleBoost: rawIdleBoost.clamp(0.0, 1.0).toDouble(),
@@ -39,37 +42,28 @@ class ProactiveDawnGatePolicy {
       );
     }
     return ProactiveDawnGateAdjustment(
-      active: true,
+      active: active,
       idleBoost: rawIdleBoost.clamp(0.0, maxIdleBoost).toDouble(),
-      thresholdPenalty: thresholdPenalty,
+      thresholdPenalty: active ? thresholdPenalty : 0,
       suppressLongIdleRelief: true,
     );
   }
 }
 
-/// One shared contact ceiling for the whole late-night-to-morning window.
-/// It counts successful proactive deliveries from every source lane; game and
-/// web shares cannot each consume a separate quota.
+/// One independent allowance from local midnight until 09:00.
 class ProactiveNightContactCapPolicy {
   const ProactiveNightContactCapPolicy._();
-
-  static const startHour = 21;
+  static const startHour = 0;
   static const endHour = 9;
-  static const maxDelivered = 1;
+  static const maxDelivered = ProactiveFrequencyPolicy.nightLimit;
 
-  static DateTime? windowStart(DateTime now) {
-    if (now.hour >= endHour && now.hour < startHour) return null;
-    final date = now.hour >= startHour
-        ? now
-        : now.subtract(const Duration(days: 1));
-    return now.isUtc
-        ? DateTime.utc(date.year, date.month, date.day, startHour)
-        : DateTime(date.year, date.month, date.day, startHour);
-  }
+  static DateTime? windowStart(DateTime now) =>
+      ProactiveFrequencyPolicy.isNight(now)
+      ? ProactiveFrequencyPolicy.boundary(now, 0)
+      : null;
 
   static bool blocks({
     required DateTime now,
     required int deliveredSinceWindowStart,
-  }) =>
-      windowStart(now) != null && deliveredSinceWindowStart >= maxDelivered;
+  }) => windowStart(now) != null && deliveredSinceWindowStart >= maxDelivered;
 }
