@@ -417,7 +417,8 @@
 # Historical +303: Build AI Companion v0.42.59+303 APK (Game Cadence and Settings Backup) | AI-Companion-v0.42.59-303-Game-Cadence-Settings-Backup-APK | v0.42.59-game-cadence-settings-backup-test | .ci/v04259-monitor.txt
 # Historical +313: Build AI Companion v0.42.69+313 APK (Expression and Diary) | AI-Companion-v0.42.69-313-Expression-Diary-APK | v0.42.69-expression-diary-test | .ci/v04269-monitor.txt
 
-name: Build AI Companion v0.42.70+314 APK (Wish Lifecycle)
+# Historical +314: Build AI Companion v0.42.70+314 APK (Wish Lifecycle) | AI-Companion-v0.42.70-314-Wish-Lifecycle-APK | v0.42.70-wish-lifecycle-test | .ci/v04270-monitor.txt
+name: Build AI Companion v0.42.71+315 APK (Deep Reflection)
 
 # BUILD INPUTS: The 96-clip source ZIP is private Draft Release asset 591363139
 # (release 397377805), fetched and SHA-256 checked below. The persistent
@@ -517,6 +518,7 @@ on:
       - agent/v04268-deep-web
       - agent/v04269-expression-diary
       - agent/v04270-wish-lifecycle
+      - agent/v04271-deep-reflection
       - agent/v04214-visible-process-fate-wheel
       - maintenance/repository-governance-20260919
   workflow_dispatch:
@@ -990,7 +992,7 @@ jobs:
         run: |
           set -euo pipefail
           test -f app/pubspec.yaml
-          grep -Fqx 'version: 0.42.70+314' app/pubspec.yaml
+          grep -Fqx 'version: 0.42.71+315' app/pubspec.yaml
           grep -Fqx '  static const int schemaVersion = 61;' app/lib/core/database/app_database.dart
           test -d app/lib
           test -d app/android
@@ -1004,7 +1006,7 @@ jobs:
           test -f app/android/app/src/main/jniLibs/arm64-v8a/libc++_shared.so
           test ! -d app/android/app/src/main/assets/tts_models
           test ! -d app/android/app/src/main/assets/legacy_tts
-          echo 'Building v0.42.70+314 Generated wishes, goal routing and evidence-driven lifecycle.'
+          echo 'Building v0.42.71+315 Lightweight persistent reflection and discussion continuity; restore lightbulb icon.'
 
       - name: Generate complete pet clips from pinned Draft Release asset
         timeout-minutes: 15
@@ -1580,26 +1582,26 @@ jobs:
           APK='app/build/app/outputs/flutter-apk/app-release.apk'
           sha256sum "$APK" | tee app/app-release.apk.sha256
 
-      - name: Upload v0.42.70+314 APK as workflow artifact
+      - name: Upload v0.42.71+315 APK as workflow artifact
         uses: actions/upload-artifact@v4
         with:
-          name: AI-Companion-v0.42.70-314-Wish-Lifecycle-APK
+          name: AI-Companion-v0.42.71-315-Deep-Reflection-APK
           path: |
             app/build/app/outputs/flutter-apk/app-release.apk
             app/app-release.apk.sha256
           if-no-files-found: error
           retention-days: 14
 
-      - name: Upload v0.42.70+314 APK to draft release
+      - name: Upload v0.42.71+315 APK to draft release
         shell: bash
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
-          TAG='v0.42.70-wish-lifecycle-test'
-          APK_NAME='AI-Companion-v0.42.70-314-Wish-Lifecycle-APK.apk'
+          TAG='v0.42.71-deep-reflection-test'
+          APK_NAME='AI-Companion-v0.42.71-315-Deep-Reflection-APK.apk'
           SHA_NAME="${APK_NAME}.sha256"
-          CI_NAME='AI-Companion-v0.42.70-314-Wish-Lifecycle-CI-Monitor.txt'
+          CI_NAME='AI-Companion-v0.42.71-315-Deep-Reflection-CI-Monitor.txt'
           cp app/build/app/outputs/flutter-apk/app-release.apk "app/${APK_NAME}"
           sed "s#app/build/app/outputs/flutter-apk/app-release.apk#${APK_NAME}#" \
             app/app-release.apk.sha256 > "app/${SHA_NAME}"
@@ -1616,14 +1618,14 @@ jobs:
               --repo "${GITHUB_REPOSITORY}" \
               --target "${GITHUB_SHA}" \
               --draft \
-              --title 'AI Companion v0.42.70+314 Wish lifecycle' \
-              --notes 'Replace template-projected wishes with low-frequency generated goals, persistent criteria, grounded progress and completion evidence. Wishes can influence existing game planning or be expressed naturally through the existing final reply. Add pause, abandon, decay, legacy migration and restore-safe state. No new per-turn Agent loop. Deep reflection and complex cross-tool wish plans remain deferred. Unpublished device test build; physical-device verification pending.'
+              --title 'AI Companion v0.42.71+315 Deep reflection' \
+              --notes 'Add low-frequency experience-grounded reflection, one current discussion, natural invitations and progress from the existing final reply. Commit state atomically with actual messages; pause unrelated discussion, allow genuine one-turn resolution and undo regenerated replies. Restore lightbulb icon with existing THINKING colors. No extra per-turn Agent loop or fixed philosophical topic bank. Unpublished device test build; long-term naturalness and physical-device verification pending.'
           else
             gh release edit "${TAG}" \
               --repo "${GITHUB_REPOSITORY}" \
               --target "${GITHUB_SHA}" \
-              --title 'AI Companion v0.42.70+314 Wish lifecycle' \
-              --notes 'Replace template-projected wishes with low-frequency generated goals, persistent criteria, grounded progress and completion evidence. Wishes can influence existing game planning or be expressed naturally through the existing final reply. Add pause, abandon, decay, legacy migration and restore-safe state. No new per-turn Agent loop. Deep reflection and complex cross-tool wish plans remain deferred. Unpublished device test build; physical-device verification pending.'
+              --title 'AI Companion v0.42.71+315 Deep reflection' \
+              --notes 'Add low-frequency experience-grounded reflection, one current discussion, natural invitations and progress from the existing final reply. Commit state atomically with actual messages; pause unrelated discussion, allow genuine one-turn resolution and undo regenerated replies. Restore lightbulb icon with existing THINKING colors. No extra per-turn Agent loop or fixed philosophical topic bank. Unpublished device test build; long-term naturalness and physical-device verification pending.'
           fi
           RELEASE_URL="$(gh release view "${TAG}" --repo "${GITHUB_REPOSITORY}" --json url --jq '.url')"
           echo "release_url=${RELEASE_URL}" >> "app/${CI_NAME}"
@@ -1643,19 +1645,19 @@ jobs:
           done
           test "${upload_ok}" = '1'
           MONITOR_BRANCH='ci-monitor-v0345'
-          MONITOR_PATH='.ci/v04270-monitor.txt'
+          MONITOR_PATH='.ci/v04271-monitor.txt'
           MONITOR_CONTENT_FILE="$(mktemp)"
           base64 -w0 "app/${CI_NAME}" > "${MONITOR_CONTENT_FILE}"
           MONITOR_SHA="$(gh api "/repos/${GITHUB_REPOSITORY}/contents/${MONITOR_PATH}?ref=${MONITOR_BRANCH}" --jq '.sha' 2>/dev/null || true)"
           if test -n "${MONITOR_SHA}"; then
             gh api --method PUT "/repos/${GITHUB_REPOSITORY}/contents/${MONITOR_PATH}" \
-              -f message='Update v0.42.70 CI success monitor' \
+              -f message='Update v0.42.71 CI success monitor' \
               -F "content=@${MONITOR_CONTENT_FILE}" \
               -f branch="${MONITOR_BRANCH}" \
               -f sha="${MONITOR_SHA}" >/dev/null
           else
             gh api --method PUT "/repos/${GITHUB_REPOSITORY}/contents/${MONITOR_PATH}" \
-              -f message='Create v0.42.70 CI success monitor' \
+              -f message='Create v0.42.71 CI success monitor' \
               -F "content=@${MONITOR_CONTENT_FILE}" \
               -f branch="${MONITOR_BRANCH}" >/dev/null
           fi
@@ -1677,8 +1679,8 @@ jobs:
           BUILD_RESULT: ${{ needs.build-apk.result }}
         run: |
           set -uo pipefail
-          TAG='v0.42.70-wish-lifecycle-test'
-          CI_NAME='AI-Companion-v0.42.70-314-Wish-Lifecycle-CI-Monitor.txt'
+          TAG='v0.42.71-deep-reflection-test'
+          CI_NAME='AI-Companion-v0.42.71-315-Deep-Reflection-CI-Monitor.txt'
           REPORT="${RUNNER_TEMP}/${CI_NAME}"
           JOBS_JSON="${RUNNER_TEMP}/jobs.json"
           {
@@ -1719,7 +1721,7 @@ jobs:
               --repo "${GITHUB_REPOSITORY}" \
               --target "${GITHUB_SHA}" \
               --draft \
-              --title 'AI Companion v0.42.70+314 Wish lifecycle' \
+              --title 'AI Companion v0.42.71+315 Deep reflection' \
               --notes 'Unpublished Draft failure diagnostics for memory continuity and optional expression semantics. No user content, keys, backups or device diagnostics are included.'
           fi
           RELEASE_URL="$(gh release view "${TAG}" --repo "${GITHUB_REPOSITORY}" --json url --jq '.url')"
@@ -1729,7 +1731,7 @@ jobs:
             --clobber \
             --repo "${GITHUB_REPOSITORY}"
           MONITOR_BRANCH='ci-monitor-v0345'
-          MONITOR_PATH='.ci/v04270-monitor.txt'
+          MONITOR_PATH='.ci/v04271-monitor.txt'
           MONITOR_CONTENT_FILE="$(mktemp)"
           base64 -w0 "${REPORT}" > "${MONITOR_CONTENT_FILE}"
           MONITOR_SHA="$(gh api "/repos/${GITHUB_REPOSITORY}/contents/${MONITOR_PATH}?ref=${MONITOR_BRANCH}" --jq '.sha' 2>/dev/null || true)"

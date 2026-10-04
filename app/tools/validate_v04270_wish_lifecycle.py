@@ -1,7 +1,7 @@
 from pathlib import Path
 r = Path(__file__).resolve().parents[1]
 read = lambda p: (r / p).read_text()
-assert '\nversion: 0.42.70+314\n' in read('pubspec.yaml')
+assert any(f'\nversion: {v}\n' in read('pubspec.yaml') for v in ('0.42.70+314', '0.42.71+315'))
 engine=read('lib/core/wishes/wish_engine.dart')
 store=read('lib/core/wishes/wish_store.dart')
 repo=read('lib/core/phone/simulated_phone_repository.dart')

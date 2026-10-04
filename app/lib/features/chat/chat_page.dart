@@ -4,7 +4,7 @@ import 'dart:async';
 import 'dart:io';
 
 import 'package:flutter/material.dart';
-import '../../widgets/thinking_brain_icon.dart';
+import '../../widgets/thinking_icon.dart';
 import 'package:flutter/rendering.dart' show ScrollDirection;
 import 'package:image_picker/image_picker.dart';
 
@@ -696,7 +696,7 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
                         _closeComposerTools();
                         unawaited(controller.setDeepThinking(!controller.deepThinking));
                       },
-                      icon: ThinkingBrainIcon(
+                      icon: ThinkingIcon(
                         color: controller.deepThinking ? thinkingColor : null),
                     ),
                   ],

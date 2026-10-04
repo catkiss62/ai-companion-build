@@ -1,3 +1,5 @@
+import '../reflection/deep_reflection_engine.dart';
+import '../reflection/deep_reflection_store.dart';
 import '../wishes/wish_engine.dart';
 import '../wishes/wish_store.dart';
 import '../stickers/sticker_expression_service.dart';
@@ -342,6 +344,7 @@ class ProactiveEngine {
     await thoughtConsolidation.maybeRun();
     await thoughtLifecycle.advance(forceForDebug: forceForDebug);
     await WishEngine(db).maybeRefresh();
+    await DeepReflectionEngine(db).maybePrepare();
 
     final perceptionSnapshot = await perception.capture(
       minInterval: perceptionMinInterval,
@@ -530,6 +533,12 @@ class ProactiveEngine {
         for (final thought in thoughts) thought.id: thought,
       };
       final unifiedCandidates = previewCandidates.toList(growable: true);
+      final reflection = await DeepReflectionStore(db).context(now: evaluationStartedAt, invite: true);
+      if (reflection != null) {
+        unifiedCandidates.add(DesireIntent(drive: DriveKey.reflection, score: .61,
+          reason: reflection.topic['question'] as String, wantAction: 'share_thought',
+          reasonSource: 'deep_reflection:${reflection.topic['id']}'));
+      }
       final liveWishes = await WishStore(db).load();
       for (final wish in liveWishes.where((w) => w.mayContact(evaluationStartedAt))) {
         unifiedCandidates.add(DesireIntent(drive: DriveKey.curiosity,
@@ -1392,15 +1401,25 @@ class ProactiveEngine {
         gateScore: gateScore, intentKind: intentKind, deliveryStyle: deliveryStyle);
     }
 
+    final selectedReflectionId = intent.reasonSource.startsWith('deep_reflection:')
+        ? intent.reasonSource.substring('deep_reflection:'.length) : '';
+    final reflectionInvitation = selectedReflectionId.isEmpty ? null
+        : await DeepReflectionStore(db).claimInvitation(selectedReflectionId, evaluationStartedAt);
+    if (selectedReflectionId.isNotEmpty && reflectionInvitation == null) {
+      return const ProactiveDecision(sent: false, reason: '深层议题已搁置或仍在冷却');
+    }
     final selectedWishId = intent.reasonSource.startsWith('wish:')
         ? intent.reasonSource.substring(5) : '';
     if (selectedWishId.isNotEmpty &&
         !await WishStore(db).claimContact(selectedWishId, evaluationStartedAt)) {
       return const ProactiveDecision(sent: false, reason: '愿望表达已冷却或暂停');
     }
-    final wishDeliveryFence = selectedWishId.isEmpty ? null
-        : await db.captureBrainWorkFence(settingKeys: [WishStore.stateKey, WishStore.enabledKey]);
-    if (selectedWishId.isNotEmpty && wishDeliveryFence == null) {
+    final wishDeliveryFence = selectedWishId.isEmpty && reflectionInvitation == null ? null
+        : await db.captureBrainWorkFence(settingKeys: [
+            if (selectedWishId.isNotEmpty) ...[WishStore.stateKey, WishStore.enabledKey],
+            if (reflectionInvitation != null) ...[DeepReflectionStore.stateKey, DeepReflectionStore.enabledKey, DeepReflectionStore.resetKey],
+          ]);
+    if ((selectedWishId.isNotEmpty || reflectionInvitation != null) && wishDeliveryFence == null) {
       return const ProactiveDecision(sent: false, reason: '愿望表达状态已变化');
     }
     final recent = await db.recentMessagesForPrompt(limit: 28);
@@ -1423,6 +1442,9 @@ class ProactiveEngine {
       freshTopicSourceOnly: startsFreshTopic,
     );
     final context = promptBuild.messages.toList(growable: true);
+    if (reflectionInvitation != null) {
+      context.add({'role': 'system', 'content': reflectionInvitation.invitation});
+    }
     if (selectedWishId.isNotEmpty) {
       final wishContext = await WishStore(db).prompt(selectedId: selectedWishId, now: evaluationStartedAt);
       if (wishContext.isEmpty) return const ProactiveDecision(sent: false, reason: '愿望状态已变化');
@@ -1548,7 +1570,7 @@ ${startsFreshTopic ? '本类型属于新话题通道：ANSWERED CHAT HISTORY 已
     try {
       stickerCandidates = await stickerService.replyCandidates(
         seed: evaluationStartedAt.toIso8601String(), context: intent.reason,
-        eligible: !isCedarGameShare && webShareCandidateId == null && selectedWishId.isEmpty,
+        eligible: !isCedarGameShare && webShareCandidateId == null && selectedWishId.isEmpty && reflectionInvitation == null,
       );
     } catch (_) { /* Optional expression assets. */ }
     final stickerPrompt = StickerExpressionService.replyChoicePrompt(stickerCandidates);
@@ -2115,6 +2137,7 @@ ${PromptBuilder.visibleChineseGenerationReminder(proactive: true)}
       message: message,
       evaluationStartedAt: evaluationStartedAt,
       workFence: wishDeliveryFence,
+      reflectionInvitation: reflectionInvitation,
     );
     if (commitBlock != null) {
       for (final attachment in proactiveAttachments) {

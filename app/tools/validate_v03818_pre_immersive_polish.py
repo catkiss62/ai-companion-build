@@ -15,7 +15,7 @@ def read(relative: str) -> str:
     return path.read_text(encoding="utf-8")
 
 
-pubspec = read("pubspec.yaml").replace("version: 0.42.70+314", "version: 0.42.69+313").replace("version: 0.42.69+313", "version: 0.42.68+312")
+pubspec = read("pubspec.yaml").replace("version: 0.42.71+315", "version: 0.42.70+314").replace("version: 0.42.70+314", "version: 0.42.69+313").replace("version: 0.42.69+313", "version: 0.42.68+312")
 database = read("lib/core/database/app_database.dart")
 rules = read("lib/core/rules/rule_layer_content_v0353.dart")
 defaults = read("lib/core/rules/rule_layer_defaults.dart")

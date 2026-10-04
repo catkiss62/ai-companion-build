@@ -17,7 +17,7 @@ def require(text: str, tokens: list[str], label: str) -> None:
         raise AssertionError(f"{label} missing: {missing}")
 
 
-pubspec = read("pubspec.yaml").replace("version: 0.42.70+314", "version: 0.42.69+313").replace("version: 0.42.69+313", "version: 0.42.68+312")
+pubspec = read("pubspec.yaml").replace("version: 0.42.71+315", "version: 0.42.70+314").replace("version: 0.42.70+314", "version: 0.42.69+313").replace("version: 0.42.69+313", "version: 0.42.68+312")
 assert any(version in pubspec for version in (
     "version: 0.33.4+59", "version: 0.33.5+60", "version: 0.33.6+61", "version: 0.33.7+62", "version: 0.33.8+63", "version: 0.33.9+64", "version: 0.34.1+66", "version: 0.34.3+68", "version: 0.34.6+71",
 ))

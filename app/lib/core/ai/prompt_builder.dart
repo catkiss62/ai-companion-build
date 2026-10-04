@@ -1,3 +1,5 @@
+import '../reflection/deep_reflection_contract.dart';
+import '../reflection/deep_reflection_store.dart';
 import '../wishes/wish_store.dart';
 import '../autonomy/public_web_read_service.dart';
 import '../autonomy/web_page_evidence.dart';
@@ -50,10 +52,12 @@ class PromptBuildResult {
   const PromptBuildResult({
     required this.messages,
     required this.worldBookContext,
+    this.deepReflection,
   });
 
   final List<Map<String, Object?>> messages;
   final WorldBookTurnContext worldBookContext;
+  final DeepReflectionContext? deepReflection;
 }
 
 class PromptBuilder {
@@ -210,6 +214,9 @@ class PromptBuilder {
     final awareness = await db.activeAwarenessObservations(limit: 6, now: instant);
     final grounding = groundingOverride ?? await GroundingEngine(db).capture(now: instant);
     final relationshipAge = await db.relationshipAge(now: instant);
+    final deepReflection = mode == PromptGenerationMode.userTurn &&
+        !freshTopicSourceOnly && !worldBookContext.hasRoleplay
+        ? await DeepReflectionStore(db).context(now: instant) : null;
     final wishContext = !freshTopicSourceOnly && !worldBookContext.hasRoleplay
         ? await WishStore(db).prompt(now: instant, includeCompleted: true) : '';
     final dailyContinuity = freshTopicSourceOnly
@@ -399,6 +406,7 @@ class PromptBuilder {
     context.writeln(emotionEpisodeSection);
     if (moodSection.isNotEmpty) context.writeln(moodSection);
     if (wishContext.isNotEmpty) context.writeln(wishContext);
+    if (deepReflection != null) context.writeln(deepReflection.prompt);
     context.writeln(_awarenessSection(awareness, instant));
 
     final userFacts = worldBookContext.hasRoleplay
@@ -574,6 +582,7 @@ ANSWERED_HISTORY_ONLY = true
     return PromptBuildResult(
       messages: List<Map<String, Object?>>.unmodifiable(messages),
       worldBookContext: worldBookContext,
+      deepReflection: deepReflection,
     );
   }
 

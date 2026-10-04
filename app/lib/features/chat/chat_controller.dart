@@ -444,11 +444,11 @@ class ChatController extends ChangeNotifier {
     incompleteReplyDraft = ChatMessage(
       id: job.assistantMessageId,
       role: 'assistant',
-      content: job.partialContent,
+      content: EmotionEnvelope.streamingVisible(job.partialContent),
       reasoningContent: job.partialReasoning,
       model: job.model,
       createdAt: job.updatedAt,
-      segments: ChatSegmentCodec.parseAssistantText(job.partialContent),
+      segments: ChatSegmentCodec.parseAssistantText(EmotionEnvelope.streamingVisible(job.partialContent)),
     );
     notice ??= '回复已截断。当前文字尚未进入上下文或记忆，请选择“重新生成”或“保留这段回复”。';
   }

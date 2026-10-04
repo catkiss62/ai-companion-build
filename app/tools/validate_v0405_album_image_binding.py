@@ -12,7 +12,7 @@ def read(relative: str) -> str:
     return (ROOT / relative).read_text(encoding="utf-8")
 
 
-pubspec = read("pubspec.yaml").replace("version: 0.42.70+314", "version: 0.42.69+313").replace("version: 0.42.69+313", "version: 0.42.68+312")
+pubspec = read("pubspec.yaml").replace("version: 0.42.71+315", "version: 0.42.70+314").replace("version: 0.42.70+314", "version: 0.42.69+313").replace("version: 0.42.69+313", "version: 0.42.68+312")
 vision = read("lib/core/ai/qwen_vision_client.dart")
 storage = read("lib/core/storage/companion_album_storage.dart")
 discovery = read("lib/core/phone/companion_album_discovery_engine.dart")

@@ -1,3 +1,4 @@
+import '../reflection/deep_reflection_contract.dart';
 import 'generation_lease_guard.dart';
 import 'dart:async';
 import 'dart:convert';
@@ -761,7 +762,7 @@ class DurableGenerationRunner {
                 ),
                 // A restored chat/overlay reads checkpoints directly. Internal
                 // planning prose must not become a visible second-channel reply.
-                partialContent: usageLane == 'agent_tool_planning' ? '' : content,
+                partialContent: usageLane == 'agent_tool_planning' ? '' : EmotionEnvelope.streamingVisible(content),
               );
               if (!checkpointed) {
                 throw const GenerationSuspendedException(
@@ -1822,6 +1823,8 @@ $finalGenerationReminder
           assistant: assistant,
           somaticEvents: assistantSomaticEvents,
           playfulActivity: selfActivity ?? PlayfulSelfActivity.none,
+          deepReflection: promptBuild.deepReflection,
+          reflectionUpdate: DeepReflectionUpdate.parse(generated.content),
         );
       } catch (_) {
         rethrow;

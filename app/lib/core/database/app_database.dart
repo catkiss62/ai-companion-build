@@ -1,3 +1,5 @@
+import '../reflection/deep_reflection_store.dart';
+import '../reflection/deep_reflection_contract.dart';
 import '../mood/mood_store.dart';
 import '../memory/conversation_recall_policy.dart';
 import '../models/world_book_turn_context.dart';
@@ -7179,6 +7181,7 @@ class AppDatabase {
     String userMessageId,
   ) async {
     await MoodStore.removeTurn(txn, userId: userMessageId);
+    await DeepReflectionStore.undo(txn, userId: userMessageId);
     final rows = await txn.query(
       'settings',
       columns: const ['value'],
@@ -7810,6 +7813,7 @@ class AppDatabase {
         }
       }
       await MoodStore.removeTurn(txn, replyId: assistantMessageId);
+      await DeepReflectionStore.undo(txn, replyId: assistantMessageId);
       await PlayfulFormStore.undoReplyInTransaction(txn, assistantMessageId);
       await txn.delete(
         'post_turn_jobs',
@@ -7867,6 +7871,8 @@ class AppDatabase {
     required String runToken,
     required ChatMessage assistant,
     PlayfulSelfActivity? playfulActivity,
+    DeepReflectionContext? deepReflection,
+    DeepReflectionUpdate? reflectionUpdate,
     List<SomaticEvent> somaticEvents = const <SomaticEvent>[],
   }) async {
     if (assistant.attachments.any((item) => item.messageId != assistant.id)) {
@@ -7995,6 +8001,15 @@ class AppDatabase {
         somaticEvents,
         assistant.createdAt,
       );
+      if (deepReflection != null) {
+        final userRows = await txn.query('messages', columns: ['content'],
+          where: 'id = ? AND role = ?', whereArgs: [job.userMessageId, 'user'], limit: 1);
+        await DeepReflectionStore.commit(txn, context: deepReflection,
+          update: reflectionUpdate, replyId: assistant.id, userId: job.userMessageId,
+          visibleReply: assistant.content, now: assistant.createdAt,
+          userText: userRows.isEmpty ? '' : userRows.first['content'] as String? ?? '',
+          roleplay: WorldBookTurnContext.decode(assistant.worldBookContextJson).hasRoleplay);
+      }
       await MoodStore.commitTurn(txn, userId: job.userMessageId,
         replyId: assistant.id, now: assistant.createdAt,
         roleplay: WorldBookTurnContext.decode(assistant.worldBookContextJson).hasRoleplay);
@@ -8146,6 +8161,7 @@ class AppDatabase {
     required ChatMessage message,
     required DateTime evaluationStartedAt,
     BrainWorkFence? workFence,
+    DeepReflectionContext? reflectionInvitation,
   }) async {
     if (message.attachments.any((item) => item.messageId != message.id)) {
       throw StateError('proactive_attachment_message_mismatch');
@@ -8153,6 +8169,7 @@ class AppDatabase {
     final db = await database;
     return db.transaction<String?>((txn) async {
       if (workFence != null && !await workFence.matches(txn)) return 'work_fence';
+      if (reflectionInvitation != null && !await DeepReflectionStore.current(txn, reflectionInvitation)) return 'reflection_changed';
       final settingsRows = await txn.query(
         'settings',
         columns: ['key', 'value'],
@@ -8202,6 +8219,9 @@ class AppDatabase {
         );
         await _retainMessageMediaBlob(txn, attachment);
       }
+      await DeepReflectionStore.commit(txn, context: reflectionInvitation,
+        replyId: message.id, visibleReply: message.content, now: message.createdAt,
+        invitation: true, roleplay: WorldBookTurnContext.decode(message.worldBookContextJson).hasRoleplay);
       return null;
     });
   }

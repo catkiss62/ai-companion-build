@@ -1,3 +1,4 @@
+import '../reflection/deep_reflection_contract.dart';
 import '../stickers/sticker_reply_choice.dart';
 import 'dart:convert';
 
@@ -352,7 +353,7 @@ class EmotionEnvelope {
   static String streamingVisible(String raw) => _stripReservedMarkup(raw);
 
   static String _stripReservedMarkup(String raw) {
-    var value = _stripRecoverableEm(StickerReplyChoice.visible(raw)).replaceAll(_complete, '');
+    var value = _stripRecoverableEm(StickerReplyChoice.visible(DeepReflectionUpdate.visible(raw))).replaceAll(_complete, '');
     value = value.replaceFirst(_recoverableXmlFirstLine, '');
     value = value.replaceFirst(_recoverableNamedFirstLine, '');
     value = value.replaceFirst(_malformedFirstLine, '');

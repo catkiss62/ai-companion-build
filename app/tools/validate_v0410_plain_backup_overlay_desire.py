@@ -12,7 +12,7 @@ def read(relative: str) -> str:
     return (ROOT / relative).read_text(encoding="utf-8")
 
 
-pubspec = read("pubspec.yaml").replace("version: 0.42.70+314", "version: 0.42.69+313").replace("version: 0.42.69+313", "version: 0.42.68+312")
+pubspec = read("pubspec.yaml").replace("version: 0.42.71+315", "version: 0.42.70+314").replace("version: 0.42.70+314", "version: 0.42.69+313").replace("version: 0.42.69+313", "version: 0.42.68+312")
 transfer = read("lib/features/transfer/transfer_page.dart")
 bridge = read("lib/core/platform/android_bridge.dart")
 app = read("lib/app.dart")

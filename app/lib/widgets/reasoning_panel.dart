@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'thinking_brain_icon.dart';
+import 'thinking_icon.dart';
 
 import '../core/ai/reasoning_translation_service.dart';
 

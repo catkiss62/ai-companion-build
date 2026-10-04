@@ -28,7 +28,7 @@ assert "geminiAttempted" not in proactive and "geminiSucceeded" not in proactive
 assert proactive.count("await generateCandidate(retryContext)") == 2
 assert "generated = await generateFinal(correctionMessages)" in read("lib/core/ai/durable_generation_runner.dart")
 assert "if (!finalProvider.isGeminiRelay && streamedToolPreamble.isNotEmpty)" in read("lib/core/ai/durable_generation_runner.dart")
-assert "partialContent: usageLane == 'agent_tool_planning' ? '' : content" in read("lib/core/ai/durable_generation_runner.dart")
+assert "partialContent: usageLane == 'agent_tool_planning' ? '' : EmotionEnvelope.streamingVisible(content)" in read("lib/core/ai/durable_generation_runner.dart")
 assert "FinalReplyRoute.prepareMessages(messages)" in read("lib/core/ai/deepseek_client.dart")
 pet = read("android/app/src/main/kotlin/com/aicompanion/localfirst/pet/PetExperimentalCalibration.kt")
 for token in ["scale: Float = 1.51f", "widthScale: Float = 0.91f", "yDp: Float = 1f",
