@@ -1,0 +1,7 @@
+status=success
+run_id=37222115700
+run_url=https://github.com/catkiss62/ai-companion-build/actions/runs/37222115700
+head_sha=02c76c974d1daa66ee7b31090991f667fed81b39
+signer_sha256=30:5E:B3:D8:09:83:B9:63:C6:48:18:DD:F1:AD:56:1F:27:9D:E6:D4:7B:3E:D2:C7:81:AD:A4:48:C7:C2:51:48
+a4cd15e445120dd52451207d5558584fc1843173c019bde290022eabb2498258  AI-Companion-v0.42.73-317-Phone-Activity-Evidence-APK.apk
+release_url=https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-8de0eee5fc4124271030
