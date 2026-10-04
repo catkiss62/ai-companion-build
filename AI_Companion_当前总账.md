@@ -1,17 +1,17 @@
 # AI Companion · 当前总账
 
-更新时间：2026-10-05（+317 CI PASSED / APK READY / TRUE DEVICE PENDING；+316 CI PASSED / APK READY / TRUE DEVICE PENDING；+315 CI PASSED / APK READY / TRUE DEVICE PENDING；+314 CI PASSED / APK READY / TRUE DEVICE PENDING；+313 CI PASSED / APK READY / TRUE DEVICE PENDING；+312 CI PASSED / APK READY / TRUE DEVICE PENDING；+311 CI PASSED / APK READY / TRUE DEVICE PENDING；+310 CI PASSED / APK READY / TRUE DEVICE PENDING；+309 CI PASSED / APK READY / TRUE DEVICE PENDING；+308 CI PASSED / APK READY / TRUE DEVICE PENDING；+307 CI PASSED / APK READY / USER DEVICE ACCEPTED；+306 CI PASSED / APK READY / TRUE DEVICE PENDING；+305 CI PASSED / APK READY / DEVICE REPORTED REPLY STALL；+304 CI PASSED / APK READY / TRUE DEVICE PENDING；+303 CI PASSED / APK READY / TRUE DEVICE PENDING；+302 CI PASSED / APK READY / TRUE DEVICE PENDING；+301 CI PASSED / APK READY / TRUE DEVICE PENDING；+300 CI PASSED / APK READY / TRUE DEVICE PENDING；+299 CI PASSED / APK READY / TRUE DEVICE PENDING；+298 CI PASSED / APK READY / TRUE DEVICE PENDING；+297 CI PASSED / APK READY / TRUE DEVICE PENDING；+295 恢复真机成功、背景回归 PARTIAL；+293 DEVICE VISUAL BASELINE）
+更新时间：2026-10-05（+318 CI PASSED / APK READY / TRUE DEVICE PENDING；+317 CI PASSED / APK READY / TRUE DEVICE PENDING；+316 CI PASSED / APK READY / TRUE DEVICE PENDING；+315 CI PASSED / APK READY / TRUE DEVICE PENDING；+314 CI PASSED / APK READY / TRUE DEVICE PENDING；+313 CI PASSED / APK READY / TRUE DEVICE PENDING；+312 CI PASSED / APK READY / TRUE DEVICE PENDING；+311 CI PASSED / APK READY / TRUE DEVICE PENDING；+310 CI PASSED / APK READY / TRUE DEVICE PENDING；+309 CI PASSED / APK READY / TRUE DEVICE PENDING；+308 CI PASSED / APK READY / TRUE DEVICE PENDING；+307 CI PASSED / APK READY / USER DEVICE ACCEPTED；+306 CI PASSED / APK READY / TRUE DEVICE PENDING；+305 CI PASSED / APK READY / DEVICE REPORTED REPLY STALL；+304 CI PASSED / APK READY / TRUE DEVICE PENDING；+303 CI PASSED / APK READY / TRUE DEVICE PENDING；+302 CI PASSED / APK READY / TRUE DEVICE PENDING；+301 CI PASSED / APK READY / TRUE DEVICE PENDING；+300 CI PASSED / APK READY / TRUE DEVICE PENDING；+299 CI PASSED / APK READY / TRUE DEVICE PENDING；+298 CI PASSED / APK READY / TRUE DEVICE PENDING；+297 CI PASSED / APK READY / TRUE DEVICE PENDING；+295 恢复真机成功、背景回归 PARTIAL；+293 DEVICE VISUAL BASELINE）
 
 > 本文件是唯一的当前接班入口，继续采用“总账 v2”。顶部是快速接班索引；标记后的正式记录按版本持续追加，不设总容量上限。
 >
 > 判断优先级：用户最新明确决定 > 当前 GitHub 源码与 Actions > 同时刻脱敏真机诊断/备份 > 本文件 > 冻结归档与 Git 历史。`DESIGNED`、`IMPLEMENTED`、`CI PASSED`、`APK READY`、`TRUE DEVICE PASSED`、`PENDING` 必须严格区分。
 
 
-## 当前任务 · +318 表情包整理与编辑（IMPLEMENTING / CI PENDING / TRUE DEVICE PENDING）
+## 当前交付 · +318 表情包整理与编辑（CI PASSED / APK READY / TRUE DEVICE PENDING）
 
-2026-10-05用户明确批准本窗口完整方案并开始：四套整合包A/B/Q版鲸鱼娘/大肥鱼，定点补动物和猫猫头描述，重整小分类，新增普通图片ZIP导入，选择提示不因外观不同拒选，编辑器仅保存生效且草稿异常退出丢弃。基线f64cf655/+317；开发分支agent/v04274-sticker-workbench。完整范围、附件对应、边界和验收清单见app/docs/STICKER_WORKBENCH_v0.42.74.md。原ID/路径和禁用策略保留，同ID覆盖不叠加；不改其他产品链路。代码及整合ZIP完成，本地专项通过；完整CI及真机待验收。
+2026-10-05用户明确批准本窗口完整方案并开始：四套整合包A/B/Q版鲸鱼娘/大肥鱼，定点补动物和猫猫头描述，重整小分类，新增普通图片ZIP导入，选择提示不因外观不同拒选，编辑器仅保存生效且草稿异常退出丢弃。基线f64cf655/+317；开发分支agent/v04274-sticker-workbench。完整范围、附件对应、边界和验收清单见app/docs/STICKER_WORKBENCH_v0.42.74.md。原ID/路径和禁用策略保留，同ID覆盖不叠加；不改其他产品链路。代码、整合ZIP及同签名APK完成，完整Actions37235636484通过；真机待用户验收，最终证据见文末+318交付记录。
 
-## 当前交付 · +317 手机活动证据优化（CI PASSED / APK READY / TRUE DEVICE PENDING）
+## 前次交付 · +317 手机活动证据优化（CI PASSED / APK READY / TRUE DEVICE PENDING）
 
 2026-10-05 01:41用户授权，仅优化手机活动加分的累计与时效。基线+316，本地200b571，分支agent/v04273-phone-activity-evidence，目标0.42.73+317。保留解锁唤醒、独立念头、原发送门槛及+316额度；不加解锁后禁止发送时间。改成有效感知间的新使用证据，新会话/长期感知中断先建基线，积攒通知不代表用户操作；仅过时的手机活动念头失效。不改Token缓存、第二通道、Live2D、桌宠、游戏和其他念头。本地及完整CI通过，同签名APK已就绪，真机待观察；交付证据见文末+317最终记录。
 
@@ -2764,4 +2764,15 @@ Draft Release403146012，target精确对应02c76c9，draft=true；下载 https:/
 - 原稳定ID/路径保留；新包q-whale-001；整合包顺序A/B/Q版鲸鱼娘/大肥鱼，原始269条、可见261张（67/85/60/49）。原媒体字节未变。A补猫狗鼠等主体，B八处Q版动漫猫猫头且纠正气鼓鼓；Q与大肥鱼前缀一致，小类按语义重整。
 - 普通ZIP支持包名文件夹/描述文件名图片；同名覆盖、异名新增在最后，内容哈希去重且保留编辑。JPG/PNG/GIF/WebP有效性检查；实际WebP的.webq规范扩展名。
 - 描述编辑采用仅内存草稿，确认暂存、重置本次编辑基线，顶部保存整批SQLite事务。退出/返回/销毁丢弃，编辑遮罩与下滑不退出，保存失败可重试；新描述进入预览、发图和模型候选，历史附件不改写。模型选择提示明确按语义，主体无须匹配身份外貌，未增加调用。
-- 本地专项、真实整合ZIP重导入和CI证据逐项见app/docs/STICKER_WORKBENCH_v0.42.74.md；当前CI PENDING / TRUE DEVICE PENDING。未推用户备份、诊断、表情图片到公开仓库，未合并main、未正式发布。
+- 本地专项、真实整合ZIP重导入和CI证据逐项见app/docs/STICKER_WORKBENCH_v0.42.74.md；当前CI PASSED / APK READY / TRUE DEVICE PENDING。未推用户备份、诊断、表情图片到公开仓库，未合并main、未正式发布。
+
+
+### +318 最终CI与APK、整合ZIP交付
+
+功能本地5a5437c0c88a53c2dcb9ca733f1c9ad037dfb212，远端3fb066ef9128e95882dc6dc9438b73c45a9f3901，源码tree均为7afa07a3dd014dadfc4e51ecb7431604fbd22a72。完整Actions37235636484 SUCCESS（原生模拟器job111534069184，build-apk job111535164663）。147项源码门、Kotlin、Flutter分析/全量测试、原生模拟器、Release编译和全部资源/签名核对成功；本地缺私有资源的检查由完整CI补齐。11项新专项、17项原有表情测试、1项真实269条整合ZIP双次导入验证通过；9项既有进程强杀/恢复测试使用SDK原生dart补验通过，未修改断言。
+
+Draft Release403222682，draft=true，target精确对应3fb066ef；下载 https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-50bdc2265be69297f6e5 。APK asset610746292，AI-Companion-v0.42.74-318-Sticker-Workbench-APK.apk，734497649 bytes，uploaded；Artifact11316047413。SHA-256 4114585866a49092d0494d03fac65f6c13244b314b3b6fd8be595262a4a96e6d，与GitHub digest及ci-monitor-v0345/.ci/v04274-monitor.txt一致。签名SHA-256 305eb3d80983b963c64818ddf1ad561f279de6d47b3ed2c781ada448c7c25148，与+317持久私测签名一致。
+
+另交付AI-Companion-Sticker-Bundle-v2.zip，51268495 bytes，SHA-256 ee07a0d4dad12981dc80edef0c14d31fc3f1fc15f78c040e14e4e7bed5bc20a6，已保存可下载。顺序A67/B85/Q版鲸鱼娘60/大肥鱼49；真实应用importZip连导两次仍四套，同ID全部replaced，无重复叠加；全部旧媒体字节原样保留。四套整合ZIP与用户原图/备份/诊断未写入公开仓库。
+
+使用：覆盖安装+318，再导入新整合ZIP，不需清空旧包。新描述和小分类随ZIP更新；后续手工编辑在应用独立保存，重新导入保留。普通ZIP按包名文件夹/描述文件名图片导入为同名大类和小类；同名覆盖，异名追加。真机观察261张顺序和描述、编辑草稿退出/强关取消、保存/重置/遮罩与键盘体验、重导入，以及AI表情选择自然度。CI PASSED / APK READY / TRUE DEVICE PENDING。未合并main、未正式发布；仅以[skip ci]收尾文档提交同步总账。
