@@ -1,15 +1,15 @@
 # AI Companion · 当前总账
 
-更新时间：2026-10-04（+315 CI PASSED / APK READY / TRUE DEVICE PENDING；+314 CI PASSED / APK READY / TRUE DEVICE PENDING；+313 CI PASSED / APK READY / TRUE DEVICE PENDING；+312 CI PASSED / APK READY / TRUE DEVICE PENDING；+311 CI PASSED / APK READY / TRUE DEVICE PENDING；+310 CI PASSED / APK READY / TRUE DEVICE PENDING；+309 CI PASSED / APK READY / TRUE DEVICE PENDING；+308 CI PASSED / APK READY / TRUE DEVICE PENDING；+307 CI PASSED / APK READY / USER DEVICE ACCEPTED；+306 CI PASSED / APK READY / TRUE DEVICE PENDING；+305 CI PASSED / APK READY / DEVICE REPORTED REPLY STALL；+304 CI PASSED / APK READY / TRUE DEVICE PENDING；+303 CI PASSED / APK READY / TRUE DEVICE PENDING；+302 CI PASSED / APK READY / TRUE DEVICE PENDING；+301 CI PASSED / APK READY / TRUE DEVICE PENDING；+300 CI PASSED / APK READY / TRUE DEVICE PENDING；+299 CI PASSED / APK READY / TRUE DEVICE PENDING；+298 CI PASSED / APK READY / TRUE DEVICE PENDING；+297 CI PASSED / APK READY / TRUE DEVICE PENDING；+295 恢复真机成功、背景回归 PARTIAL；+293 DEVICE VISUAL BASELINE）
+更新时间：2026-10-05（+316 CI PASSED / APK READY / TRUE DEVICE PENDING；+315 CI PASSED / APK READY / TRUE DEVICE PENDING；+314 CI PASSED / APK READY / TRUE DEVICE PENDING；+313 CI PASSED / APK READY / TRUE DEVICE PENDING；+312 CI PASSED / APK READY / TRUE DEVICE PENDING；+311 CI PASSED / APK READY / TRUE DEVICE PENDING；+310 CI PASSED / APK READY / TRUE DEVICE PENDING；+309 CI PASSED / APK READY / TRUE DEVICE PENDING；+308 CI PASSED / APK READY / TRUE DEVICE PENDING；+307 CI PASSED / APK READY / USER DEVICE ACCEPTED；+306 CI PASSED / APK READY / TRUE DEVICE PENDING；+305 CI PASSED / APK READY / DEVICE REPORTED REPLY STALL；+304 CI PASSED / APK READY / TRUE DEVICE PENDING；+303 CI PASSED / APK READY / TRUE DEVICE PENDING；+302 CI PASSED / APK READY / TRUE DEVICE PENDING；+301 CI PASSED / APK READY / TRUE DEVICE PENDING；+300 CI PASSED / APK READY / TRUE DEVICE PENDING；+299 CI PASSED / APK READY / TRUE DEVICE PENDING；+298 CI PASSED / APK READY / TRUE DEVICE PENDING；+297 CI PASSED / APK READY / TRUE DEVICE PENDING；+295 恢复真机成功、背景回归 PARTIAL；+293 DEVICE VISUAL BASELINE）
 
 > 本文件是唯一的当前接班入口，继续采用“总账 v2”。顶部是快速接班索引；标记后的正式记录按版本持续追加，不设总容量上限。
 >
 > 判断优先级：用户最新明确决定 > 当前 GitHub 源码与 Actions > 同时刻脱敏真机诊断/备份 > 本文件 > 冻结归档与 Git 历史。`DESIGNED`、`IMPLEMENTED`、`CI PASSED`、`APK READY`、`TRUE DEVICE PASSED`、`PENDING` 必须严格区分。
 
 
-## 当前实施 · +316 主动消息分时与夜间窗口
+## 当前交付 · +316 主动消息分时与夜间窗口
 
-2026-10-04 23:58用户批准只修改主动消息；DeepSeek token缓存优化后续单独做。基线+315总账5b8f793，分支agent/v04272-proactive-windows，目标0.42.72+316。安静/自然/频繁白天总额10/18/24，9/14/19点累计开放3/6/10、6/12/18、8/16/24；未用顺延、不预借、不跨日。0–9点独立共用2次，只给机会不补发。切换按新档当前累计额度扣实际发送，失败/WAIT不扣，冷却不重置。夜间去掉沉默加成，保留疲劳/休息竞争及同次正文WAIT。当前IMPLEMENTED / CI PENDING / APK PENDING / TRUE DEVICE PENDING；详细实现和验证见文末。+315愿望/反思仍自然测试，不扩展。
+2026-10-04 23:58用户批准只修改主动消息；DeepSeek token缓存优化后续单独做。基线+315总账5b8f793，分支agent/v04272-proactive-windows，目标0.42.72+316。安静/自然/频繁白天总额10/18/24，9/14/19点累计开放3/6/10、6/12/18、8/16/24；未用顺延、不预借、不跨日。0–9点独立共用2次，只给机会不补发。切换按新档当前累计额度扣实际发送，失败/WAIT不扣，冷却不重置。夜间去掉沉默加成，保留疲劳/休息竞争及同次正文WAIT。当前CI PASSED / APK READY / TRUE DEVICE PENDING；1306全量Flutter/292专项/18原生/146源码门通过，同签名Draft403105475可下载，详细交付见文末。+315愿望/反思仍自然测试，不扩展。
 
 ## 历史交付 · +312 深度思考与网页证据
 
@@ -2708,3 +2708,11 @@ ready议题只进入现有主动候选竞争（弱分数0.61），不会注入�
 ### +316 本地验证与构建准备
 
 本地27项频率/夜间/SQLite边界测试通过，合并愿望/反思/管线/存档围栏/主动节奏/游戏节奏回归共116项通过。分析无编译error，历史非阻塞warning/info保留。原145项源码门初跑140通过；两项45分钟游戏间隔检查随策略抽出改为验证新文件及真实调用，已通过；三项私有宠物帧/lingchat特效/kotlinc依赖本地不可用，留完整CI核验，不豁免。新增本版源码门后总146项。一次本地SQLite native hook缓存为空导致测试启动失败，清理该生成缓存后116项全部通过；未修改依赖或运行代码。只测试可确定实现边界，夜间主动内容是否自然与全天分布仍TRUE DEVICE PENDING。
+
+### +316 最终构建与交付（2026-10-05中国时间）
+
+- 功能远端提交8c4688e262e18008775e5b1723b12256c2fdf458，本地7e0290eb8ada9579abb25455b8ae2720ce2ab89f；二者源码树严格一致：db64de940645443e080ff2c7622a2ee64d7aa6a6。119个变更文件中，大多数只是旧验证器接受新版本号；产品范围仍限本次主动消息。基线5b8f793417e11aeda96b01692312063803072256，分支agent/v04272-proactive-windows，未合并main。
+- 完整Actions37215744845 SUCCESS：https://github.com/catkiss62/ai-companion-build/actions/runs/37215744845 。原生job111475788850在Android15模拟器18项通过；build-apk job111476599045确认146/146源码门、Kotlin检查、1306 Flutter测试、编译及资源/签名核验成功。源码分析无error，历史非阻塞warning/info仍存在。专项Actions37215744852 / job111475771610 SUCCESS，292 tests passed。
+- 未发布Draft Release403105475，tag v0.42.72-proactive-windows-test，target精确为8c4688e，draft=true。下载页面：https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-96f7b1905b456741aeca 。APK asset610182060，AI-Companion-v0.42.72-316-Proactive-Windows-APK.apk，734481401 bytes，uploaded；SHA-256：659fd546673a6c61a99d8d58c0e77feb9c521feae2f6e1191f62fa680f07046e。GitHub资产digest、CI校验值及ci-monitor-v0345/.ci/v04272-monitor.txt三者一致，配套sha256资产610182057、monitor资产610182058。
+- 签名SHA-256为305eb3d80983b963c64818ddf1ad561f279de6d47b3ed2c781ada448c7c25148，与+315及此前私测版本一致，可覆盖安装。未发布公开Release，未创建无实际APK的本地下载附件。本次交付后的文档提交使用[skip ci]，不替换已验证的产品APK。
+- 状态CI PASSED / APK READY / TRUE DEVICE PENDING。真机先日常观察两天：安静是否避免上午耗尽且晚间有机会；切档沿用已发数，不突然连发；0–9最多2次且可0次；晚安后/疲劳时没有因长时间不回复硬找话题。升级不清空当日历史；旧未细分的游戏分享保守计入，不伪造迁移分类。不能用额度未用满判失败；语义自然度仍依赖模型，自动测试不证明主观欲望。DeepSeek token缓存命中率优化严格保留为后续独立任务，本版未实施。
