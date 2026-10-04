@@ -1,0 +1,7 @@
+status=success
+run_id=37235636484
+run_url=https://github.com/catkiss62/ai-companion-build/actions/runs/37235636484
+head_sha=3fb066ef9128e95882dc6dc9438b73c45a9f3901
+signer_sha256=30:5E:B3:D8:09:83:B9:63:C6:48:18:DD:F1:AD:56:1F:27:9D:E6:D4:7B:3E:D2:C7:81:AD:A4:48:C7:C2:51:48
+4114585866a49092d0494d03fac65f6c13244b314b3b6fd8be595262a4a96e6d  AI-Companion-v0.42.74-318-Sticker-Workbench-APK.apk
+release_url=https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-50bdc2265be69297f6e5
