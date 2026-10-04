@@ -1,4 +1,7 @@
 import 'dart:math';
+import 'dart:convert';
+
+import 'phone_activity_evidence.dart';
 
 import '../database/app_database.dart';
 import '../desire/desire_engine.dart';
@@ -7,6 +10,7 @@ import '../models/desire_state.dart';
 class PresenceMomentumInput {
   const PresenceMomentumInput({
     required this.screenInteractive,
+    required this.evidence,
     required this.busyScore,
     required this.dominantActivityMinutes,
     required this.appSwitchesLast30Minutes,
@@ -17,6 +21,7 @@ class PresenceMomentumInput {
   });
 
   final bool screenInteractive;
+  final PhoneActivityEvidence evidence;
   final double busyScore;
   final int dominantActivityMinutes;
   final int appSwitchesLast30Minutes;
@@ -60,20 +65,13 @@ class PresenceMomentumPolicy {
     final retained = previousScore.clamp(0.0, 1.0).toDouble() * decay;
 
     var impulse = 0.0;
-    if (input.screenInteractive) {
-      if (input.hasCurrentActivity) impulse += 0.035;
-      impulse += (input.dominantActivityMinutes / 60.0 * 0.12)
-          .clamp(0.0, 0.12)
-          .toDouble();
-      impulse += (input.appSwitchesLast30Minutes / 14.0 * 0.10)
-          .clamp(0.0, 0.10)
-          .toDouble();
-      impulse += (input.newNotificationCount / 8.0 * 0.08)
-          .clamp(0.0, 0.08)
-          .toDouble();
-      impulse += (input.newAccessibilityCount / 12.0 * 0.10)
-          .clamp(0.0, 0.10)
-          .toDouble();
+    final fresh = input.evidence;
+    if (input.screenInteractive && !fresh.reset) {
+      // Only new evidence can add pressure. Notifications are not user actions.
+      // Time-normalized activity replaces the flat bonus on every capture.
+      impulse += (fresh.activeMinutes * 0.009).clamp(0.0, 0.27);
+      impulse += (fresh.switches / 14.0 * 0.10).clamp(0.0, 0.10);
+      impulse += (fresh.accessibilityEvents / 12.0 * 0.10).clamp(0.0, 0.10);
     }
 
     // One capture should rarely be enough. Repeated evidence over several
@@ -81,13 +79,14 @@ class PresenceMomentumPolicy {
     // about/contact the user.
     final score = (retained + impulse).clamp(0.0, 0.88).toDouble();
     final signalClass = _signalClass(input);
-    final shouldFeedThought = input.screenInteractive &&
+    final shouldFeedThought =
+        input.screenInteractive &&
+        !fresh.reset &&
+        impulse > 0 &&
         input.userIdleMinutes >= 5 &&
         score >= 0.20 &&
         (impulse >= 0.035 || score >= 0.34);
-    final thoughtStrength = (0.14 + score * 0.34)
-        .clamp(0.16, 0.43)
-        .toDouble();
+    final thoughtStrength = (0.14 + score * 0.34).clamp(0.16, 0.43).toDouble();
 
     return PresenceMomentumResult(
       score: score,
@@ -128,10 +127,13 @@ class PresenceIntelligenceEngine {
   Future<double> currentMomentum({DateTime? now}) async {
     final instant = now ?? DateTime.now();
     final stored = double.tryParse(await db.getSetting(_scoreKey) ?? '') ?? 0.0;
-    final updatedMillis = int.tryParse(await db.getSetting(_updatedKey) ?? '') ?? 0;
+    final updatedMillis =
+        int.tryParse(await db.getSetting(_updatedKey) ?? '') ?? 0;
     if (updatedMillis <= 0) return stored.clamp(0.0, 1.0).toDouble();
     final updated = DateTime.fromMillisecondsSinceEpoch(updatedMillis);
-    final elapsed = instant.isAfter(updated) ? instant.difference(updated) : Duration.zero;
+    final elapsed = instant.isAfter(updated)
+        ? instant.difference(updated)
+        : Duration.zero;
     final decay = pow(
       0.5,
       max(0.0, elapsed.inSeconds / 60.0) /
@@ -142,6 +144,7 @@ class PresenceIntelligenceEngine {
 
   Future<PresenceMomentumResult> integrate({
     required bool screenInteractive,
+    required PhoneActivityEvidence evidence,
     required double busyScore,
     required int dominantActivityMinutes,
     required int appSwitchesLast30Minutes,
@@ -152,7 +155,8 @@ class PresenceIntelligenceEngine {
   }) async {
     final instant = now ?? DateTime.now();
     final stored = double.tryParse(await db.getSetting(_scoreKey) ?? '') ?? 0.0;
-    final updatedMillis = int.tryParse(await db.getSetting(_updatedKey) ?? '') ?? 0;
+    final updatedMillis =
+        int.tryParse(await db.getSetting(_updatedKey) ?? '') ?? 0;
     final updated = updatedMillis <= 0
         ? instant
         : DateTime.fromMillisecondsSinceEpoch(updatedMillis);
@@ -163,9 +167,12 @@ class PresenceIntelligenceEngine {
 
     final result = PresenceMomentumPolicy.advance(
       previousScore: stored,
-      elapsed: instant.isAfter(updated) ? instant.difference(updated) : Duration.zero,
+      elapsed: instant.isAfter(updated)
+          ? instant.difference(updated)
+          : Duration.zero,
       input: PresenceMomentumInput(
         screenInteractive: screenInteractive,
+        evidence: evidence,
         busyScore: busyScore,
         dominantActivityMinutes: dominantActivityMinutes,
         appSwitchesLast30Minutes: appSwitchesLast30Minutes,
@@ -177,6 +184,30 @@ class PresenceIntelligenceEngine {
     );
 
     if (!await db.brainWorkAllowed()) return result;
+    if (evidence.reset) await retirePhoneActivityThoughts();
+    await db.setSetting(
+      'presence_evidence_at_v317',
+      instant.millisecondsSinceEpoch.toString(),
+    );
+    await db.setSetting(
+      'presence_evidence_interactive_v317',
+      screenInteractive ? '1' : '0',
+    );
+    await db.setSetting(
+      'presence_last_evidence',
+      jsonEncode({
+        'at': instant.millisecondsSinceEpoch,
+        'reason': evidence.reason,
+        'activeMinutes': double.parse(
+          evidence.activeMinutes.toStringAsFixed(3),
+        ),
+        'newSwitches': evidence.switches,
+        'newAccessibilityEvents': evidence.accessibilityEvents,
+        'impulse': double.parse(result.impulse.toStringAsFixed(4)),
+        'score': double.parse(result.score.toStringAsFixed(4)),
+        'feedEligible': result.shouldFeedThought,
+      }),
+    );
     await db.setSetting(_scoreKey, result.score.toStringAsFixed(4));
     await db.setSetting(_updatedKey, instant.millisecondsSinceEpoch.toString());
     await db.setSetting(_signalClassKey, result.signalClass);
@@ -218,13 +249,38 @@ class PresenceIntelligenceEngine {
         DriveKey.curiosity: 0.003 + result.score * 0.005,
         DriveKey.social: 0.001 + result.score * 0.002,
       }, baselineLearning: 0.002);
-      await db.setSetting(_thoughtAtKey, instant.millisecondsSinceEpoch.toString());
+      await db.setSetting(
+        _thoughtAtKey,
+        instant.millisecondsSinceEpoch.toString(),
+      );
       await db.setSetting(
         _thoughtStrengthKey,
         result.thoughtStrength.toStringAsFixed(4),
       );
     }
     return result;
+  }
+
+  // Retire only device-derived contact thoughts, never personal/shared topics.
+  Future<void> retirePhoneActivityThoughts() async {
+    final thoughts = await db.lifecycleThoughts(limit: 120);
+    for (final thought in thoughts.where(
+      (t) =>
+          t.source == 'presence/phone_activity' ||
+          (t.source == 'perception/awareness' &&
+              t.topicKey.startsWith('usage:')),
+    )) {
+      await db.updateThoughtLifecycle(
+        thought.id,
+        lifecycleState: 'dormant',
+        kind: 'flit',
+        strength: 0.03,
+        residualStrength: 0,
+        clearOutboundMessage: true,
+        clearSnooze: true,
+        expectedUpdatedAt: thought.updatedAt,
+      );
+    }
   }
 
   Future<bool> _thoughtCooldownPassed(DateTime now) async {

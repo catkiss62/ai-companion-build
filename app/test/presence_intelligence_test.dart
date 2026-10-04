@@ -1,4 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
+import 'package:ai_companion_localfirst/core/presence/phone_activity_evidence.dart';
 import 'package:ai_companion_localfirst/core/presence/presence_intelligence.dart';
 
 void main() {
@@ -8,6 +9,13 @@ void main() {
       elapsed: Duration.zero,
       input: const PresenceMomentumInput(
         screenInteractive: true,
+        evidence: PhoneActivityEvidence(
+          reset: false,
+          reason: "test",
+          activeMinutes: 3,
+          switches: 1,
+          accessibilityEvents: 3,
+        ),
         busyScore: 0.35,
         dominantActivityMinutes: 3,
         appSwitchesLast30Minutes: 1,
@@ -31,6 +39,13 @@ void main() {
         elapsed: const Duration(minutes: 2),
         input: const PresenceMomentumInput(
           screenInteractive: true,
+          evidence: PhoneActivityEvidence(
+            reset: false,
+            reason: "test",
+            activeMinutes: 3,
+            switches: 1,
+            accessibilityEvents: 3,
+          ),
           busyScore: 0.52,
           dominantActivityMinutes: 8,
           appSwitchesLast30Minutes: 4,
@@ -55,6 +70,7 @@ void main() {
       elapsed: const Duration(minutes: 20),
       input: const PresenceMomentumInput(
         screenInteractive: false,
+        evidence: PhoneActivityEvidence(reset: true, reason: "not_interactive"),
         busyScore: 0.12,
         dominantActivityMinutes: 40,
         appSwitchesLast30Minutes: 20,
@@ -71,23 +87,33 @@ void main() {
     expect(result.shouldFeedThought, isFalse);
   });
 
-  test('recent direct chat suppresses presence thought even with strong activity', () {
-    final result = PresenceMomentumPolicy.advance(
-      previousScore: 0.35,
-      elapsed: const Duration(minutes: 2),
-      input: const PresenceMomentumInput(
-        screenInteractive: true,
-        busyScore: 0.68,
-        dominantActivityMinutes: 35,
-        appSwitchesLast30Minutes: 14,
-        newNotificationCount: 6,
-        newAccessibilityCount: 15,
-        hasCurrentActivity: true,
-        userIdleMinutes: 2,
-      ),
-    );
+  test(
+    'recent direct chat suppresses presence thought even with strong activity',
+    () {
+      final result = PresenceMomentumPolicy.advance(
+        previousScore: 0.35,
+        elapsed: const Duration(minutes: 2),
+        input: const PresenceMomentumInput(
+          screenInteractive: true,
+          evidence: PhoneActivityEvidence(
+            reset: false,
+            reason: "test",
+            activeMinutes: 3,
+            switches: 1,
+            accessibilityEvents: 3,
+          ),
+          busyScore: 0.68,
+          dominantActivityMinutes: 35,
+          appSwitchesLast30Minutes: 14,
+          newNotificationCount: 6,
+          newAccessibilityCount: 15,
+          hasCurrentActivity: true,
+          userIdleMinutes: 2,
+        ),
+      );
 
-    expect(result.score, greaterThan(0.35));
-    expect(result.shouldFeedThought, isFalse);
-  });
+      expect(result.score, greaterThan(0.35));
+      expect(result.shouldFeedThought, isFalse);
+    },
+  );
 }

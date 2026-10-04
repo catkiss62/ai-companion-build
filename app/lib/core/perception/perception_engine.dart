@@ -6,6 +6,7 @@ import '../models/desire_state.dart';
 import '../models/perception_snapshot.dart';
 import '../platform/android_bridge.dart';
 import '../presence/presence_intelligence.dart';
+import '../presence/phone_activity_evidence.dart';
 import 'current_device_context_refresher.dart';
 import 'perception_interpreter.dart';
 import 'screen_off_contact_policy.dart';
@@ -22,8 +23,9 @@ class PerceptionEngine {
     required this.desire,
     PerceptionInterpreter interpreter = const PerceptionInterpreter(),
     PresenceIntelligenceEngine? presence,
-  })  : interpreter = interpreter,
-        presence = presence ?? PresenceIntelligenceEngine(db: db, desire: desire);
+  }) : interpreter = interpreter,
+       presence =
+           presence ?? PresenceIntelligenceEngine(db: db, desire: desire);
 
   final AppDatabase db;
   final AndroidBridge android;
@@ -43,8 +45,7 @@ class PerceptionEngine {
   Future<CurrentDeviceContextCapture?> refreshCurrentContext({
     required String reason,
     DateTime? now,
-  }) =>
-      contextRefresher.refresh(reason: reason, now: now);
+  }) => contextRefresher.refresh(reason: reason, now: now);
 
   Future<PerceptionSnapshot?> capture({
     bool force = false,
@@ -80,6 +81,21 @@ class PerceptionEngine {
           );
 
     final interpretation = context.interpretation;
+    final evidenceMillis = int.tryParse(
+      await db.getSetting('presence_evidence_at_v317') ?? '',
+    );
+    final phoneEvidence = PhoneActivityEvidence.collect(
+      now: now,
+      previousAt: evidenceMillis == null
+          ? null
+          : DateTime.fromMillisecondsSinceEpoch(evidenceMillis),
+      wasInteractive:
+          await db.getSetting('presence_evidence_interactive_v317') == '1',
+      interactive: deviceState.screenInteractive && !deviceState.deviceLocked,
+      usage: usage,
+      deviceEvents: context.deviceStateEvents,
+      signals: newEvents,
+    );
 
     final newNotificationCount = newEvents
         .where((row) => (row['source'] as String? ?? '') == 'notification')
@@ -89,6 +105,8 @@ class PerceptionEngine {
         .length;
     await _integrateIntoInnerState(
       interpretation: interpretation,
+      phoneEvidence: phoneEvidence,
+      deviceLocked: deviceState.deviceLocked,
       newNotificationCount: newNotificationCount,
       newAccessibilityCount: newAccessibilityCount,
       screenInteractive: deviceState.screenInteractive,
@@ -100,7 +118,8 @@ class PerceptionEngine {
         .map((e) => e.summary.trim())
         .where((e) => e.isNotEmpty)
         .join('\n');
-    final hasInput = usage.isNotEmpty || recentSignals.isNotEmpty || summary.isNotEmpty;
+    final hasInput =
+        usage.isNotEmpty || recentSignals.isNotEmpty || summary.isNotEmpty;
     if (!hasInput && !force) {
       await db.setSetting(
         'last_perception_capture_at',
@@ -130,7 +149,9 @@ class PerceptionEngine {
       busyScore: interpretation.busyScore,
       notificationCount: interpretation.notificationCount,
       metadata: {
-        'awareness_keys': interpretation.observations.map((e) => e.dedupeKey).toList(),
+        'awareness_keys': interpretation.observations
+            .map((e) => e.dedupeKey)
+            .toList(),
         'dominant_activity': interpretation.dominantActivityKey,
         'dominant_minutes': interpretation.dominantActivityMinutes,
         'accessibility_event_count_30m': interpretation.accessibilityEventCount,
@@ -149,6 +170,8 @@ class PerceptionEngine {
 
   Future<void> _integrateIntoInnerState({
     required PerceptionInterpretation interpretation,
+    required PhoneActivityEvidence phoneEvidence,
+    required bool deviceLocked,
     required int newNotificationCount,
     required int newAccessibilityCount,
     required bool screenInteractive,
@@ -160,6 +183,18 @@ class PerceptionEngine {
     // after it has lost Active Brain ownership.
     if (!await db.brainWorkAllowed()) return;
 
+    final oldActiveMinutes =
+        double.tryParse(
+          await db.getSetting('presence_observed_minutes_v317') ?? '',
+        ) ??
+        0;
+    final observedMinutes = phoneEvidence.reset
+        ? 0.0
+        : min(180.0, oldActiveMinutes + phoneEvidence.activeMinutes);
+    await db.setSetting(
+      'presence_observed_minutes_v317',
+      observedMinutes.toStringAsFixed(4),
+    );
     final activityKey = interpretation.dominantActivityKey;
     final activityLabel = interpretation.dominantActivityLabel;
     if (!screenInteractive) {
@@ -167,9 +202,11 @@ class PerceptionEngine {
       // Keep the bounded Awareness history, but retire active curiosity
       // Thoughts that would otherwise bridge the dark-screen interval.
       final active = await db.activeThoughts(limit: 80);
-      for (final thought in active.where((item) =>
-          item.source == 'perception/awareness' &&
-          item.topicKey.startsWith('usage:'))) {
+      for (final thought in active.where(
+        (item) =>
+            item.source == 'perception/awareness' &&
+            item.topicKey.startsWith('usage:'),
+      )) {
         await db.updateThoughtLifecycle(
           thought.id,
           lifecycleState: 'dormant',
@@ -182,13 +219,18 @@ class PerceptionEngine {
         );
       }
     }
-    if (screenInteractive && interpretation.dominantActivityMinutes >= 35) {
+    if (screenInteractive &&
+        !phoneEvidence.reset &&
+        phoneEvidence.activeMinutes > 0 &&
+        observedMinutes >= 35 &&
+        interpretation.dominantActivityMinutes >= 35) {
       final lastLongMillis = int.tryParse(
         await db.getSetting('last_long_usage_thought_at') ?? '',
       );
       final lastLongCategory = await db.getSetting('last_long_usage_category');
       final normalizedKey = activityKey ?? 'general';
-      final throttled = lastLongMillis != null &&
+      final throttled =
+          lastLongMillis != null &&
           lastLongCategory == normalizedKey &&
           now.difference(DateTime.fromMillisecondsSinceEpoch(lastLongMillis)) <
               const Duration(minutes: 40);
@@ -199,9 +241,10 @@ class PerceptionEngine {
         await desire.feedThought(
           text: text,
           drive: DriveKey.curiosity,
-          incomingStrength: (0.16 + min(45, interpretation.dominantActivityMinutes) / 260)
-              .clamp(0.16, 0.34)
-              .toDouble(),
+          incomingStrength:
+              (0.16 + min(45, interpretation.dominantActivityMinutes) / 260)
+                  .clamp(0.16, 0.34)
+                  .toDouble(),
           source: 'perception/awareness',
           topicKey: 'usage:$normalizedKey',
         );
@@ -219,14 +262,11 @@ class PerceptionEngine {
 
     // External text is never promoted into a durable Thought. Dense interface
     // activity may nudge curiosity slightly, but only as a count.
-    if (newAccessibilityCount >= 8) {
+    if (!phoneEvidence.reset && phoneEvidence.accessibilityEvents >= 8) {
       await desire.applyExperience({DriveKey.curiosity: 0.004});
     }
     if (newNotificationCount >= 4) {
-      await desire.applyExperience({
-        DriveKey.social: 0.008,
-        DriveKey.stress: 0.006,
-      });
+      await desire.applyExperience({DriveKey.stress: 0.006});
     }
 
     // Screen-on inactivity cannot reliably prove that the user is free: a
@@ -279,14 +319,17 @@ class PerceptionEngine {
     // coarse captures over time can feed one mergeable Thought instead. Raw app
     // names/text never enter this layer.
     await presence.integrate(
-      screenInteractive: screenInteractive,
+      screenInteractive: screenInteractive && !deviceLocked,
+      evidence: phoneEvidence,
       busyScore: interpretation.busyScore,
       dominantActivityMinutes: interpretation.dominantActivityMinutes,
       appSwitchesLast30Minutes: interpretation.appSwitchesLast30Minutes,
       newNotificationCount: newNotificationCount,
       newAccessibilityCount: newAccessibilityCount,
-      hasCurrentActivity:
-          interpretation.observations.any((observation) => observation.kind == 'current_activity'),
+      hasCurrentActivity: interpretation.observations.any(
+        (observation) => observation.kind == 'current_activity',
+      ),
+      now: now,
     );
   }
 

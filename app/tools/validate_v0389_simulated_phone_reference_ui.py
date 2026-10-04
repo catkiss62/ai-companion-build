@@ -17,7 +17,7 @@ repository = read("lib/core/phone/simulated_phone_repository.dart")
 page = read("lib/features/phone/simulated_phone_page.dart")
 fetch = read("tools/fetch_tarot_assets.sh")
 attribution = read("assets/tarot/rws_major/ATTRIBUTION.md")
-pubspec = read("pubspec.yaml").replace("version: 0.42.72+316", "version: 0.42.71+315").replace("version: 0.42.71+315", "version: 0.42.70+314").replace("version: 0.42.70+314", "version: 0.42.69+313").replace("version: 0.42.69+313", "version: 0.42.68+312")
+pubspec = read("pubspec.yaml").replace("version: 0.42.73+317", "version: 0.42.72+316").replace("version: 0.42.72+316", "version: 0.42.71+315").replace("version: 0.42.71+315", "version: 0.42.70+314").replace("version: 0.42.70+314", "version: 0.42.69+313").replace("version: 0.42.69+313", "version: 0.42.68+312")
 workflow = read("../.github/workflows/build-apk.yml")
 
 assert any(version in pubspec for version in (

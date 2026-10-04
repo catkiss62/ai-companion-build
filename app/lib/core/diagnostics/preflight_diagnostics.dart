@@ -1070,6 +1070,9 @@ class PreflightDiagnosticsService {
                 await db.getSetting('presence_momentum_score') ?? '',
               ) ??
               0.0,
+          'presenceEvidence': _safeJsonObject(
+            await db.getSetting('presence_last_evidence') ?? '{}',
+          ),
           'presenceSignalClass':
               await db.getSetting('presence_last_signal_class') ?? '',
           'presenceLastThoughtAt': int.tryParse(
