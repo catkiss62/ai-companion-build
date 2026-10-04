@@ -1,15 +1,17 @@
 # AI Companion · 当前总账
 
-更新时间：2026-10-04（+312 CI PASSED / APK READY / TRUE DEVICE PENDING；+311 CI PASSED / APK READY / TRUE DEVICE PENDING；+310 CI PASSED / APK READY / TRUE DEVICE PENDING；+309 CI PASSED / APK READY / TRUE DEVICE PENDING；+308 CI PASSED / APK READY / TRUE DEVICE PENDING；+307 CI PASSED / APK READY / USER DEVICE ACCEPTED；+306 CI PASSED / APK READY / TRUE DEVICE PENDING；+305 CI PASSED / APK READY / DEVICE REPORTED REPLY STALL；+304 CI PASSED / APK READY / TRUE DEVICE PENDING；+303 CI PASSED / APK READY / TRUE DEVICE PENDING；+302 CI PASSED / APK READY / TRUE DEVICE PENDING；+301 CI PASSED / APK READY / TRUE DEVICE PENDING；+300 CI PASSED / APK READY / TRUE DEVICE PENDING；+299 CI PASSED / APK READY / TRUE DEVICE PENDING；+298 CI PASSED / APK READY / TRUE DEVICE PENDING；+297 CI PASSED / APK READY / TRUE DEVICE PENDING；+295 恢复真机成功、背景回归 PARTIAL；+293 DEVICE VISUAL BASELINE）
+更新时间：2026-10-04（+313 CI PASSED / APK READY / TRUE DEVICE PENDING；+312 CI PASSED / APK READY / TRUE DEVICE PENDING；+311 CI PASSED / APK READY / TRUE DEVICE PENDING；+310 CI PASSED / APK READY / TRUE DEVICE PENDING；+309 CI PASSED / APK READY / TRUE DEVICE PENDING；+308 CI PASSED / APK READY / TRUE DEVICE PENDING；+307 CI PASSED / APK READY / USER DEVICE ACCEPTED；+306 CI PASSED / APK READY / TRUE DEVICE PENDING；+305 CI PASSED / APK READY / DEVICE REPORTED REPLY STALL；+304 CI PASSED / APK READY / TRUE DEVICE PENDING；+303 CI PASSED / APK READY / TRUE DEVICE PENDING；+302 CI PASSED / APK READY / TRUE DEVICE PENDING；+301 CI PASSED / APK READY / TRUE DEVICE PENDING；+300 CI PASSED / APK READY / TRUE DEVICE PENDING；+299 CI PASSED / APK READY / TRUE DEVICE PENDING；+298 CI PASSED / APK READY / TRUE DEVICE PENDING；+297 CI PASSED / APK READY / TRUE DEVICE PENDING；+295 恢复真机成功、背景回归 PARTIAL；+293 DEVICE VISUAL BASELINE）
 
 > 本文件是唯一的当前接班入口，继续采用“总账 v2”。顶部是快速接班索引；标记后的正式记录按版本持续追加，不设总容量上限。
 >
 > 判断优先级：用户最新明确决定 > 当前 GitHub 源码与 Actions > 同时刻脱敏真机诊断/备份 > 本文件 > 冻结归档与 Git 历史。`DESIGNED`、`IMPLEMENTED`、`CI PASSED`、`APK READY`、`TRUE DEVICE PASSED`、`PENDING` 必须严格区分。
 
 
-## 当前任务 · +313 表达与日记优化（IMPLEMENTED / CI PENDING）
+## 当前交付 · +313 表达与日记优化（CI PASSED / APK READY / TRUE DEVICE PENDING）
 
 2026-10-04 06:47用户批准本窗口讨论后的简单优化，基于+312总账5d3df82，分支agent/v04269-expression-diary，目标0.42.69+313。范围：深度开关默认色继承图片/表情按钮、选中色复用THINKING #B388FF，线框大脑；不改主动消息深度规划。取消单独表情包强制斗图与随机删正文，文字/图文/纯图由本轮模型语义选择，普通与主动消息共用，本轮不新增每轮Agent规划或第二次Gemini正文调用。活动窗最近进展/记录补真实时间与游戏中文名。日记首次失败或不合格后DeepSeek再写一次，仍失败保留材料有界延后，不发布固定拼接；有真实材料的旧机械日记逐步修复。用户先测试两天，不预写验收。愿望单与深层反思为两个独立后续研究任务，本批仅完整记账，见文末专题。
+
++313最终功能3e63c43，完整Actions37161508950成功，1236 Flutter/18原生/143源码门及211专项通过。同签名未发布APK已就绪；下载与校验证据见文末。两天真机观察待用户反馈。
 
 ## 历史交付 · +312 深度思考与网页证据
 
@@ -2587,3 +2589,14 @@ Actions37152344472的原生18项已过，APK job在源码门第134/143项停止�
 最近进展新增独立lastOutcomeAt，实际结果写入，指南/暂停不更新；旧档仅从匹配的真实结果事件取时间，未知标为未记录。进展、活动列表及详情显示所属session游戏名，已有中文名直接恢复。
 
 本地首轮57专项通过；随后扩展真实回复链为8项（四种表达×深度开关），全部通过；新增SQLite日记冷却/保留/修复/其他栏目继续刷新验证通过。全量无资源模式1227通过、9失败：其中1项旧自述断言已更新且定向复测通过，8项是缺失资源/着色器，不能写成全量通过。flutter analyze无编译错误（已有warning/info保留）；git diff --check通过。完整143源码门的非资源部分本地通过；原生/私有资源依赖等待Actions完整环境。愿望单与深层反思仅上述独立专题，无实现。用户两天真机观察尚未开始，不预写验收。
+
+
+## +313 最终构建核验与交付（2026-10-04）
+
+最终功能提交 `3e63c4322992b8abdedc8d3bacdb42861fd577c1`，tree `a93b200dc872d094b130d4643471ef23574e66eb`，分支 `agent/v04269-expression-diary`。完整 Actions `37161508950` success：143项源码门、Android原生18项（零失败/错误/跳过）、Kotlin桌宠与悬浮窗测试、Flutter analyze、全量1236项Flutter测试、release APK、签名和资源完整性验证全部通过。独立稳定性 Actions `37161508924` success，211项通过。首次提交 `0aa4047` 的构建因历史名称注释被误展开为重复YAML name而被拒绝启动；仅修正注释后重跑成功，无遗留失败产品构建。
+
+APK：`AI-Companion-v0.42.69-313-Expression-Diary-APK.apk`，734,440,077 bytes；SHA-256 `716b50e73d20efde8d05f1c23c7bb8dc5ac578990f4379c59009eb68d9c4e0f0`。签名证书 SHA-256 `305eb3d80983b963c64818ddf1ad561f279de6d47b3ed2c781ada448c7c25148`，与+312一致。未发布 Draft Release `402736602`，APK asset `608739332`，tag `v0.42.69-expression-diary-test`；下载：https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-e8e431359c99b0c25837 。成功监控 `.ci/v04269-monitor.txt`（分支ci-monitor-v0345）与Release文件一致。本次仅交付私测包，未正式发布、未合并main；本条交付记账不改APK代码，无需重建。
+
+用户中断等待后构建在GitHub继续完成；2026-10-04 17:00用户要求确认是否可直接下载，本轮已重新核验run、日志、Release资产与监控，不沿用编译中的状态。存档只读语气复核：4篇factual_fallback均命中报告式口吻，21篇正常DeepSeek日记全部通过人称检查，12篇旧模板命中固定文案、1篇旧记录长度不合格；未改动用户存档，未将私人日记正文写入仓库。历史修复仍需真实来源且成功后替换，不能宣称旧日记已全部修好。
+
+状态：IMPLEMENTED / CI PASSED / APK READY / TRUE DEVICE PENDING。用户计划先测试两天，重点观察单张表情包不打断原话题、三种表达和主动表情是否自然、新日记的人称与失败后补写、活动记录游戏名/时间。深度开关对主动规划未改；愿望单与深层反思仍为上述两个独立后续研究专题，已详细记账，未实施。大APK超过现有附件下载工具512MiB上限，提供GitHub未发布下载入口，不伪称已附本地APK。
