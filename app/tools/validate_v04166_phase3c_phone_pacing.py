@@ -118,10 +118,9 @@ def main() -> None:
         "_noteAttemptSlots(day)",
         "_writeNoteAttemptSlots",
         "'day_slot': noteSlot",
-        "_wishLastAddedAtKey",
-        "SimulatedPhonePolicy.wishAdditionAllowed",
-        "budget.clamp(0, 3)",
+        "await WishStore(db).initialize()",
     )
+    require(read("lib/core/wishes/wish_engine.dart"), "Duration(hours: 12)", "Duration(hours: 2)")
     assert "if (today >= 10)" not in phone_repo
 
     special = read("lib/core/rules/rule_layer_content_v0400.dart")

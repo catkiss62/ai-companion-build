@@ -20,7 +20,7 @@ overlay = read(
 )
 tests = read("test/chat_visuals_test.dart")
 database = read("lib/core/database/app_database.dart")
-pubspec = read("pubspec.yaml").replace("version: 0.42.69+313", "version: 0.42.68+312")
+pubspec = read("pubspec.yaml").replace("version: 0.42.70+314", "version: 0.42.69+313").replace("version: 0.42.69+313", "version: 0.42.68+312")
 workflow = read("../.github/workflows/build-apk.yml")
 
 assert "version: 0.38.16+115" in pubspec

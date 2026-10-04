@@ -10,7 +10,7 @@ def read(path: str) -> str:
     return value
 
 
-pubspec = read("pubspec.yaml").replace("version: 0.42.69+313", "version: 0.42.68+312")
+pubspec = read("pubspec.yaml").replace("version: 0.42.70+314", "version: 0.42.69+313").replace("version: 0.42.69+313", "version: 0.42.68+312")
 controller = read("lib/features/chat/chat_controller.dart")
 recovery = read("lib/core/ai/durable_generation_recovery.dart")
 database = read("lib/core/database/app_database.dart")

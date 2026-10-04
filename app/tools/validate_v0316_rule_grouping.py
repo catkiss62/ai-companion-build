@@ -14,7 +14,7 @@ grouping = read("lib/core/rules/rule_layer_grouping.dart")
 service = read("lib/core/rules/rule_layer_service.dart")
 page = read("lib/features/settings/rule_layers_page.dart")
 tests = read("test/rule_layer_defaults_test.dart")
-pubspec = read("pubspec.yaml").replace("version: 0.42.69+313", "version: 0.42.68+312")
+pubspec = read("pubspec.yaml").replace("version: 0.42.70+314", "version: 0.42.69+313").replace("version: 0.42.69+313", "version: 0.42.68+312")
 
 version = re.search(
     r"^version: (\d+)\.(\d+)\.(\d+)\+(\d+)$",

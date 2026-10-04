@@ -15,7 +15,7 @@ repository = read("lib/core/phone/simulated_phone_repository.dart")
 page = read("lib/features/phone/simulated_phone_page.dart")
 chat = read("lib/features/chat/chat_page.dart")
 recovery = read("lib/core/maintenance/recovery_orchestrator.dart")
-pubspec = read("pubspec.yaml").replace("version: 0.42.69+313", "version: 0.42.68+312")
+pubspec = read("pubspec.yaml").replace("version: 0.42.70+314", "version: 0.42.69+313").replace("version: 0.42.69+313", "version: 0.42.68+312")
 
 assert any(
     token in pubspec
@@ -31,9 +31,9 @@ assert "if (!await isEnabled()) return;" in repository
 assert "await _refreshTarot(current);" in repository
 assert "simulated_phone_enabled" in repository
 assert "simulated_phone_switch_changed_at" in repository
-assert "thought_projection" in repository
-assert "desire_thought_projection" in repository
-assert "source_thought_id" in repository
+assert "await WishStore(db).initialize()" in repository
+assert "companion_wishes_v2" in read("lib/core/wishes/wish_store.dart")
+assert "w.legacy" in read("lib/core/wishes/wish_engine.dart")
 assert "thought.text" not in repository
 assert any(
     tabs in page

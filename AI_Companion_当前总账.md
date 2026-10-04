@@ -1,17 +1,17 @@
 # AI Companion · 当前总账
 
-更新时间：2026-10-04（+313 CI PASSED / APK READY / TRUE DEVICE PENDING；+312 CI PASSED / APK READY / TRUE DEVICE PENDING；+311 CI PASSED / APK READY / TRUE DEVICE PENDING；+310 CI PASSED / APK READY / TRUE DEVICE PENDING；+309 CI PASSED / APK READY / TRUE DEVICE PENDING；+308 CI PASSED / APK READY / TRUE DEVICE PENDING；+307 CI PASSED / APK READY / USER DEVICE ACCEPTED；+306 CI PASSED / APK READY / TRUE DEVICE PENDING；+305 CI PASSED / APK READY / DEVICE REPORTED REPLY STALL；+304 CI PASSED / APK READY / TRUE DEVICE PENDING；+303 CI PASSED / APK READY / TRUE DEVICE PENDING；+302 CI PASSED / APK READY / TRUE DEVICE PENDING；+301 CI PASSED / APK READY / TRUE DEVICE PENDING；+300 CI PASSED / APK READY / TRUE DEVICE PENDING；+299 CI PASSED / APK READY / TRUE DEVICE PENDING；+298 CI PASSED / APK READY / TRUE DEVICE PENDING；+297 CI PASSED / APK READY / TRUE DEVICE PENDING；+295 恢复真机成功、背景回归 PARTIAL；+293 DEVICE VISUAL BASELINE）
+更新时间：2026-10-04（+314 IMPLEMENTED / CI PENDING；+313 CI PASSED / APK READY / TRUE DEVICE PENDING；+312 CI PASSED / APK READY / TRUE DEVICE PENDING；+311 CI PASSED / APK READY / TRUE DEVICE PENDING；+310 CI PASSED / APK READY / TRUE DEVICE PENDING；+309 CI PASSED / APK READY / TRUE DEVICE PENDING；+308 CI PASSED / APK READY / TRUE DEVICE PENDING；+307 CI PASSED / APK READY / USER DEVICE ACCEPTED；+306 CI PASSED / APK READY / TRUE DEVICE PENDING；+305 CI PASSED / APK READY / DEVICE REPORTED REPLY STALL；+304 CI PASSED / APK READY / TRUE DEVICE PENDING；+303 CI PASSED / APK READY / TRUE DEVICE PENDING；+302 CI PASSED / APK READY / TRUE DEVICE PENDING；+301 CI PASSED / APK READY / TRUE DEVICE PENDING；+300 CI PASSED / APK READY / TRUE DEVICE PENDING；+299 CI PASSED / APK READY / TRUE DEVICE PENDING；+298 CI PASSED / APK READY / TRUE DEVICE PENDING；+297 CI PASSED / APK READY / TRUE DEVICE PENDING；+295 恢复真机成功、背景回归 PARTIAL；+293 DEVICE VISUAL BASELINE）
 
 > 本文件是唯一的当前接班入口，继续采用“总账 v2”。顶部是快速接班索引；标记后的正式记录按版本持续追加，不设总容量上限。
 >
 > 判断优先级：用户最新明确决定 > 当前 GitHub 源码与 Actions > 同时刻脱敏真机诊断/备份 > 本文件 > 冻结归档与 Git 历史。`DESIGNED`、`IMPLEMENTED`、`CI PASSED`、`APK READY`、`TRUE DEVICE PASSED`、`PENDING` 必须严格区分。
 
 
-## 当前交付 · +313 表达与日记优化（CI PASSED / APK READY / TRUE DEVICE PENDING）
+## 当前任务 · +314 愿望单基础链条（IMPLEMENTED / CI PENDING）
 
-2026-10-04 06:47用户批准本窗口讨论后的简单优化，基于+312总账5d3df82，分支agent/v04269-expression-diary，目标0.42.69+313。范围：深度开关默认色继承图片/表情按钮、选中色复用THINKING #B388FF，线框大脑；不改主动消息深度规划。取消单独表情包强制斗图与随机删正文，文字/图文/纯图由本轮模型语义选择，普通与主动消息共用，本轮不新增每轮Agent规划或第二次Gemini正文调用。活动窗最近进展/记录补真实时间与游戏中文名。日记首次失败或不合格后DeepSeek再写一次，仍失败保留材料有界延后，不发布固定拼接；有真实材料的旧机械日记逐步修复。用户先测试两天，不预写验收。愿望单与深层反思为两个独立后续研究任务，本批仅完整记账，见文末专题。
+2026-10-04 17:29用户批准第一步：先做可独立保存、由真实兴趣生成的愿望，接入现有对话和活动竞争、按证据推进/完成，并支持暂存/放下/衰退及恢复一致性。基线+313功能3e63c43、交付总账ff7b0dc，分支agent/v04270-wish-lifecycle，目标0.42.70+314。不是固定主题模板、不是每轮新增规划；内部低频DeepSeek整理，Gemini正文仍一次。深层反思继续延期。详细讨论与本轮接口/限制见文末。
 
-+313最终功能3e63c43，完整Actions37161508950成功，1236 Flutter/18原生/143源码门及211专项通过。同签名未发布APK已就绪；下载与校验证据见文末。两天真机观察待用户反馈。
++313已交付同签名私测APK，完整Actions37161508950成功（1236 Flutter/18原生/143源码门、211专项）；两天真机反馈待收。原交付索引保留在文末。
 
 ## 历史交付 · +312 深度思考与网页证据
 
@@ -2600,3 +2600,35 @@ APK：`AI-Companion-v0.42.69-313-Expression-Diary-APK.apk`，734,440,077 bytes�
 用户中断等待后构建在GitHub继续完成；2026-10-04 17:00用户要求确认是否可直接下载，本轮已重新核验run、日志、Release资产与监控，不沿用编译中的状态。存档只读语气复核：4篇factual_fallback均命中报告式口吻，21篇正常DeepSeek日记全部通过人称检查，12篇旧模板命中固定文案、1篇旧记录长度不合格；未改动用户存档，未将私人日记正文写入仓库。历史修复仍需真实来源且成功后替换，不能宣称旧日记已全部修好。
 
 状态：IMPLEMENTED / CI PASSED / APK READY / TRUE DEVICE PENDING。用户计划先测试两天，重点观察单张表情包不打断原话题、三种表达和主动表情是否自然、新日记的人称与失败后补写、活动记录游戏名/时间。深度开关对主动规划未改；愿望单与深层反思仍为上述两个独立后续研究专题，已详细记账，未实施。大APK超过现有附件下载工具512MiB上限，提供GitHub未发布下载入口，不伪称已附本地APK。
+
+
+## +313 接班索引原文归档（+314开始时保留）
+
+## 当前交付 · +313 表达与日记优化（CI PASSED / APK READY / TRUE DEVICE PENDING）
+
+2026-10-04 06:47用户批准本窗口讨论后的简单优化，基于+312总账5d3df82，分支agent/v04269-expression-diary，目标0.42.69+313。范围：深度开关默认色继承图片/表情按钮、选中色复用THINKING #B388FF，线框大脑；不改主动消息深度规划。取消单独表情包强制斗图与随机删正文，文字/图文/纯图由本轮模型语义选择，普通与主动消息共用，本轮不新增每轮Agent规划或第二次Gemini正文调用。活动窗最近进展/记录补真实时间与游戏中文名。日记首次失败或不合格后DeepSeek再写一次，仍失败保留材料有界延后，不发布固定拼接；有真实材料的旧机械日记逐步修复。用户先测试两天，不预写验收。愿望单与深层反思为两个独立后续研究任务，本批仅完整记账，见文末专题。
+
++313最终功能3e63c43，完整Actions37161508950成功，1236 Flutter/18原生/143源码门及211专项通过。同签名未发布APK已就绪；下载与校验证据见文末。两天真机观察待用户反馈。
+
+
+## +314 愿望单第一步 · 授权与设计底稿
+
+17:19—17:29讨论确认：完整基础链条首版→真机自然程度校准→后续多阶段/跨天复杂愿望；首版即要完成证据与停止/恢复一致性。愿望来自聊天/共同经历、自主游戏结果、真正读过的网页和已有兴趣念头，允许新联想，但不编造用户经历。不预设“花/钓鱼”方向；例子只是测试案例。可自行推进、需要用户参与、暂时向往均可存在；能推进优先于保证成功。完成标准不能降级或替换对象（用户路上的花≠任意网图）；没有图鉴新增证据就不能认定新图鉴。
+
+源码核查：旧Wish来自thought阈值与固定分类投影，thought消失会移除Wish，thought.lastSatisfiedAt即可被视为完成，未接行为链。现有统一欲望选择可加入弱候选，游戏目录选择与每步规划可带入愿望目标，继续沿用权限、休息、共玩/覆盖、停止与节奏限制。首版采用独立持久化愿望状态，兼容旧展示历史，不借“产生念头/表达/尝试过”虚构实现。内部生成和证据评估共用低频DeepSeek批处理，不增加Gemini正文轮次、不新建后台工具循环。
+
+首版应具备：明确目标/来源/实现路径/完成条件/当前进展/证据引用；最多少量活跃愿望，按真实新材料低频生成，允许无新愿望；新事件才触发评估，限定调用频率。现有活动竞争按愿望增加有限理由，绝不绕过可用性与用户控制；外部内容仅资料，不成为执行指令。对外表达必须由最终正文模型自然决定，不用固定角色台词。暂停/放下保留历史；真机检查重复催促、目标漂移、假完成与跨恢复重复执行。复杂分解和深层反思不在本批。
+
+
+## +314 首版实现与验证（2026-10-04，CI PENDING）
+
+- 独立 `companion_wishes_v2` 保存 goal/reason/route/game_id/next_step/criterion/completion_kind/source_ids/baseline/progress/interest/deadline/表达与尝试时间/证据引用/状态；active、completed、archived 三份手机展示投影与主体一次 SQLite CAS 事务更新。旧“念头分类→固定文案→lastSatisfiedAt即完成”的运行路径已移除；历史文案策略仍保留供兼容测试。原进行中愿望迁入“暂时放下”并标旧记录，原完成历史保留旧标记，不补造新证据。
+- 既有主动心跳内调用 WishEngine，一次 DeepSeek Flash 非思考 JSON 批处理同时整理新愿望及评估旧愿望；24秒上限，无模板兜底，无额外 Gemini 正文调用，无后台工具循环。新生成尝试最短12小时、核验尝试最短2小时、最多4个进行中；允许生成空结果。尝试时间先持久化，失败/崩溃不会立即重试；相同资料指纹跳过。来源覆盖现实聊天、已完成识图的非表情包用户图片、游戏真实回执、已验证网页摘要、已有有效念头与记忆。角色扮演聊天不入证据。
+- 实现路径首版为 game/user/aspiration：游戏愿望只能绑定真实目录ID，最多增加0.08×当前愿望优先级的游戏竞争分，现有目录选择和逐步规划携带目标；不覆盖停止、休息、共玩邀请、存档覆盖、防沉迷、节奏和现有权限。用户参与型愿望进入原主动候选与普通聊天背景，由既有最终正文模型自然表达；每次发起有24小时冷却，确认表达后不再主动重复。专门愿望消息保留文字，不降成单表情包。没有可验证执行路径的保留向往；**通用自主搜索、任意工具及跨工具/多阶段愿望执行不在首版**，网页在此版提供灵感来源。
+- 完成目标与条件创建后不改；评估器核对目标语义、归属、范围与baseline，本地再核对证据类型/同游戏/创建后与截止前时间/真实原文引用/observed与same_target/最低0.85置信度。模型置信度不是概率保证；语义判断仍需真机校准。指南、失败、念头、助手自述、网上资料不能完成游戏或用户照片目标；答应/尝试/说过不能当完成。过期后才处理、但证据在截止前已经成立的结果仍可核验；无证据不猜完成。最近两天已实现愿望可作为普通聊天资料，不主动循环报喜。
+- 进行中/已实现/暂时放下三页，显示缘由、进展与条件，支持暂停/恢复/放下。人工暂停不自动复活；自然优先级半衰14天、30天无进展转搁置、明确截止后转过期，历史不删除。恢复继续读取同一身份和尝试记录；新租约纳入导入清理与转移等待。核验结果受状态CAS、Active Brain/运行代际/聊天租约约束；愿望主动消息提交也受愿望状态fence约束，暂停后已生成的旧消息不会落库。
+- 诊断 `wishLifecycle` 仅记录最近尝试/状态、数量等无正文信息。核验采用有界最近材料：聊天64条中各取最多16条用户/助手文本、每局最近8个事件、已验证网页6条、有效念头与记忆各8条；事件来源按类型最多10项，最近14天窗口。**极密集活动/长期不运行可能让早期证据落在窗口外，此时会保持未完成，不据缺失信息补写成功**。后续若真机出现漏结算，再针对证据收件队列优化，不以无边界全历史模型扫描补救。
+- 本地已通过愿望与相关数据库/表达/日记/游戏/存档专项82项（愿望新增22项），包含真实SQLite的暂停CAS、存档导入租约失效、前台聊天抢占、迟到主动消息取消、完成投影原子更新、接口失败冷却和表情包不作照片。`flutter analyze --no-fatal-infos --no-fatal-warnings`无error；既有warning/info不作为本轮额外清理任务。源码门140/144通过，其余4项依赖稀疏工作区未拉取的模型/动画资源或本地缺少kotlinc，必须由完整CI继续验证；不能据此宣称完整CI或真机通过。
+- 构建版本0.42.70+314；branch agent/v04270-wish-lifecycle；未发布测试标签v0.42.70-wish-lifecycle-test。深层反思独立任务、复杂愿望后续讨论和+313两天真机反馈均保留。
+
+补充本地全套记录：`flutter test --no-pub --no-test-assets`完成1250项成功、8项失败；逐项均为本地未打包的shader/AssetManifest/fate_wheel资源缺失。最终愿望22项再次独立通过。完整资源CI应跑1258项，实际结果待Actions，不以预期数字当通过证据。

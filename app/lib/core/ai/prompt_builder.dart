@@ -1,3 +1,4 @@
+import '../wishes/wish_store.dart';
 import '../autonomy/public_web_read_service.dart';
 import '../autonomy/web_page_evidence.dart';
 import 'generation_cancellation.dart';
@@ -209,6 +210,8 @@ class PromptBuilder {
     final awareness = await db.activeAwarenessObservations(limit: 6, now: instant);
     final grounding = groundingOverride ?? await GroundingEngine(db).capture(now: instant);
     final relationshipAge = await db.relationshipAge(now: instant);
+    final wishContext = !freshTopicSourceOnly && !worldBookContext.hasRoleplay
+        ? await WishStore(db).prompt(now: instant, includeCompleted: true) : '';
     final dailyContinuity = freshTopicSourceOnly
         ? const <DailyContinuityRecord>[]
         : await db.latestDailyContinuity(limit: 2);
@@ -395,6 +398,7 @@ class PromptBuilder {
     if (somaticSection.isNotEmpty) context.writeln(somaticSection);
     context.writeln(emotionEpisodeSection);
     if (moodSection.isNotEmpty) context.writeln(moodSection);
+    if (wishContext.isNotEmpty) context.writeln(wishContext);
     context.writeln(_awarenessSection(awareness, instant));
 
     final userFacts = worldBookContext.hasRoleplay

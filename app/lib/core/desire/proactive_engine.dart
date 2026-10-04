@@ -1,3 +1,5 @@
+import '../wishes/wish_engine.dart';
+import '../wishes/wish_store.dart';
 import '../stickers/sticker_expression_service.dart';
 import '../stickers/sticker_reply_choice.dart';
 import '../autonomy/public_web_read_service.dart';
@@ -339,6 +341,7 @@ class ProactiveEngine {
     await selfDrive.maybeGenerate();
     await thoughtConsolidation.maybeRun();
     await thoughtLifecycle.advance(forceForDebug: forceForDebug);
+    await WishEngine(db).maybeRefresh();
 
     final perceptionSnapshot = await perception.capture(
       minInterval: perceptionMinInterval,
@@ -527,6 +530,13 @@ class ProactiveEngine {
         for (final thought in thoughts) thought.id: thought,
       };
       final unifiedCandidates = previewCandidates.toList(growable: true);
+      final liveWishes = await WishStore(db).load();
+      for (final wish in liveWishes.where((w) => w.mayContact(evaluationStartedAt))) {
+        unifiedCandidates.add(DesireIntent(drive: DriveKey.curiosity,
+          score: (0.45 + wish.priority(evaluationStartedAt) * 0.24).clamp(0.0, .66),
+          reason: wish.goal, wantAction: 'share_thought', reasonSource: 'wish:${wish.id}'));
+      }
+      final gameWishes = liveWishes.where((w) => w.route == 'game' && w.mayAct(evaluationStartedAt)).toList();
       DesireIntent? discoverySource;
       for (final candidate in previewCandidates) {
         final thought = candidate.thoughtId == null
@@ -596,9 +606,13 @@ class ProactiveEngine {
           ),
         );
       }
-      final activeGame = (await CedarToyActivityStore(db).load())?.gameId ?? '';
+      final wishGameSession = await CedarToyActivityStore(db).load();
+      final activeGame = wishGameSession?.gameId ?? '';
+      final choosingGame = wishGameSession == null || const {CedarActivityPhase.completed, CedarActivityPhase.failed}.contains(wishGameSession.phase);
       final attitude = await CedarGameAttitudeStore(db).load();
-      final gameBias = attitude?.bonusAt(evaluationStartedAt, activeGame) ?? 0.0;
+      final wishGameBonus = gameWishes.where((w) => choosingGame || w.gameId == activeGame)
+          .fold<double>(0, (best, w) => max(best, .08 * w.priority(evaluationStartedAt)));
+      final gameBias = (attitude?.bonusAt(evaluationStartedAt, activeGame) ?? 0.0) + wishGameBonus;
       final period = await CedarPlaySessionStore(db).load();
       final sessionActive = period?.validAt(evaluationStartedAt, activeGame) ?? false;
       final cedarAvailability = await cedarToyAutonomy.availability(
@@ -1378,6 +1392,17 @@ class ProactiveEngine {
         gateScore: gateScore, intentKind: intentKind, deliveryStyle: deliveryStyle);
     }
 
+    final selectedWishId = intent.reasonSource.startsWith('wish:')
+        ? intent.reasonSource.substring(5) : '';
+    if (selectedWishId.isNotEmpty &&
+        !await WishStore(db).claimContact(selectedWishId, evaluationStartedAt)) {
+      return const ProactiveDecision(sent: false, reason: '愿望表达已冷却或暂停');
+    }
+    final wishDeliveryFence = selectedWishId.isEmpty ? null
+        : await db.captureBrainWorkFence(settingKeys: [WishStore.stateKey, WishStore.enabledKey]);
+    if (selectedWishId.isNotEmpty && wishDeliveryFence == null) {
+      return const ProactiveDecision(sent: false, reason: '愿望表达状态已变化');
+    }
     final recent = await db.recentMessagesForPrompt(limit: 28);
     final startsFreshTopic =
         ProactivePresentationPolicy.startsFreshTopic(intentKind);
@@ -1398,6 +1423,11 @@ class ProactiveEngine {
       freshTopicSourceOnly: startsFreshTopic,
     );
     final context = promptBuild.messages.toList(growable: true);
+    if (selectedWishId.isNotEmpty) {
+      final wishContext = await WishStore(db).prompt(selectedId: selectedWishId, now: evaluationStartedAt);
+      if (wishContext.isEmpty) return const ProactiveDecision(sent: false, reason: '愿望状态已变化');
+      context.add({'role': 'system', 'content': '$wishContext\n这次只是自然表达这个愿望，可以征询，不向用户派任务，不催促，也不编造已发生的行动。'});
+    }
     final todayCalendar = (await CalendarReminderStore(db).today(evaluationStartedAt))
         .where((entry) => !entry.timed)
         .take(5)
@@ -1518,7 +1548,7 @@ ${startsFreshTopic ? '本类型属于新话题通道：ANSWERED CHAT HISTORY 已
     try {
       stickerCandidates = await stickerService.replyCandidates(
         seed: evaluationStartedAt.toIso8601String(), context: intent.reason,
-        eligible: !isCedarGameShare && webShareCandidateId == null,
+        eligible: !isCedarGameShare && webShareCandidateId == null && selectedWishId.isEmpty,
       );
     } catch (_) { /* Optional expression assets. */ }
     final stickerPrompt = StickerExpressionService.replyChoicePrompt(stickerCandidates);
@@ -2084,6 +2114,7 @@ ${PromptBuilder.visibleChineseGenerationReminder(proactive: true)}
     final commitBlock = await db.commitProactiveMessageIfCurrent(
       message: message,
       evaluationStartedAt: evaluationStartedAt,
+      workFence: wishDeliveryFence,
     );
     if (commitBlock != null) {
       for (final attachment in proactiveAttachments) {
@@ -2107,6 +2138,9 @@ ${PromptBuilder.visibleChineseGenerationReminder(proactive: true)}
         intentKind: intentKind,
         deliveryStyle: deliveryStyle,
       );
+    }
+    if (selectedWishId.isNotEmpty) {
+      await WishStore(db).noteExpressed(selectedWishId, DateTime.now());
     }
     if (selectedSticker != null) {
       try { await stickerService.markUsed(selectedSticker.record); }

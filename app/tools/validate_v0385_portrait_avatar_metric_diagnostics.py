@@ -27,7 +27,7 @@ def vp8x_canvas(path: Path) -> tuple[int, int, int]:
     return width, height, flags
 
 
-pubspec = read("pubspec.yaml").replace("version: 0.42.69+313", "version: 0.42.68+312")
+pubspec = read("pubspec.yaml").replace("version: 0.42.70+314", "version: 0.42.69+313").replace("version: 0.42.69+313", "version: 0.42.68+312")
 database = read("lib/core/database/app_database.dart")
 chat = read("lib/features/chat/chat_page.dart")
 inner = read("lib/features/inner/inner_page.dart")

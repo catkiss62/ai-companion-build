@@ -13,7 +13,7 @@ def read(path: str) -> str:
     return value
 
 
-pubspec = read("pubspec.yaml").replace("version: 0.42.69+313", "version: 0.42.68+312")
+pubspec = read("pubspec.yaml").replace("version: 0.42.70+314", "version: 0.42.69+313").replace("version: 0.42.69+313", "version: 0.42.68+312")
 visuals = read("lib/core/presentation/chat_visuals.dart")
 stage = read("lib/widgets/chat_portrait_stage.dart")
 chat = read("lib/features/chat/chat_page.dart")

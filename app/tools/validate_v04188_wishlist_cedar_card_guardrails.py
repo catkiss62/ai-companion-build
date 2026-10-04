@@ -40,15 +40,10 @@ require(
     "想把最近那趟钓鱼继续认真玩下去",
     "The private Thought body is deliberately never used",
 )
-require(
-    "lib/core/phone/simulated_phone_repository.dart",
-    "eligibleBySemanticKey",
-    "retainedSemanticKeys",
-    "source_topic_key",
-    "semantic_key",
-    "presentation_version",
-    "SimulatedPhonePolicy.wishTextForThought",
-)
+# +314 replaces fixed runtime projection; keep legacy formatting tests above.
+require("lib/core/phone/simulated_phone_repository.dart", "await WishStore(db).initialize()")
+require("lib/core/wishes/wish_engine.dart", "source_ids", "WishPolicy.apply", "duplicates(goal, w.goal)")
+
 activity = read("lib/features/chat/cedar_toy_activity_window.dart")
 recent = activity.split("cedar_recent_progress_narrow_card", 1)[1]
 recent = recent.split("if (session.events.isNotEmpty", 1)[0]

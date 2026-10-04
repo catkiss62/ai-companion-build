@@ -1,3 +1,4 @@
+import '../wishes/wish_store.dart';
 import '../mood/mood_service.dart';
 import 'dart:convert';
 import 'dart:math';
@@ -14,7 +15,6 @@ import '../storage/companion_album_storage.dart';
 import '../storage/media_blob_storage.dart';
 import '../storage/message_attachment_storage.dart';
 import '../models/emotion_episode.dart';
-import '../models/thought.dart';
 import 'simulated_cart_generator.dart';
 import 'simulated_diary_generator.dart';
 import 'simulated_note_generator.dart';
@@ -101,6 +101,7 @@ class SimulatedPhoneSnapshot {
     required this.moods,
     required this.wishes,
     required this.completedWishes,
+    this.archivedWishes = const [],
     required this.cart,
     required this.tarotSelf,
     required this.tarotUser,
@@ -118,6 +119,7 @@ class SimulatedPhoneSnapshot {
   final List<SimulatedPhoneEntry> moods;
   final List<SimulatedPhoneEntry> wishes;
   final List<SimulatedPhoneEntry> completedWishes;
+  final List<SimulatedPhoneEntry> archivedWishes;
   final List<SimulatedPhoneEntry> cart;
   final SimulatedPhoneEntry? tarotSelf;
   final SimulatedPhoneEntry? tarotUser;
@@ -176,9 +178,6 @@ class SimulatedPhoneRepository {
   static const _cartKey = 'simulated_phone_cart_json';
   static const _cartHistoryKey = 'simulated_phone_cart_recent_titles_json';
   static const _tarotKey = 'simulated_phone_tarot_json';
-  static const _wishBudgetDayKey = 'simulated_phone_wish_budget_day';
-  static const _wishBudgetCountKey = 'simulated_phone_wish_budget_count';
-  static const _wishLastAddedAtKey = 'simulated_phone_wish_last_added_at';
   static const _noteAttemptDayKey = 'simulated_phone_note_attempt_day';
   static const _noteAttemptSlotsKey = 'simulated_phone_note_attempt_slots';
   static const _moodAttemptKey = 'simulated_phone_mood_reflection_attempt_at';
@@ -222,6 +221,7 @@ class SimulatedPhoneRepository {
       moods: await _readList(_moodKey),
       wishes: await _readList(_wishesKey),
       completedWishes: await _readList(_completedWishesKey),
+      archivedWishes: await _readList(WishStore.archivedKey),
       cart: await _readList(_cartKey),
       tarotSelf: _firstWhereOrNull(tarot, (entry) => entry.state == 'self'),
       tarotUser: _firstWhereOrNull(tarot, (entry) => entry.state == 'user'),
@@ -253,6 +253,7 @@ class SimulatedPhoneRepository {
       moods: await _readList(_moodKey),
       wishes: await _readList(_wishesKey),
       completedWishes: await _readList(_completedWishesKey),
+      archivedWishes: await _readList(WishStore.archivedKey),
       cart: await _readList(_cartKey),
       tarotSelf: _firstWhereOrNull(tarot, (entry) => entry.state == 'self'),
       tarotUser: _firstWhereOrNull(tarot, (entry) => entry.state == 'user'),
@@ -292,7 +293,8 @@ class SimulatedPhoneRepository {
     if (seen <= 0) return 0;
     final active = await _readList(_wishesKey);
     final completed = await _readList(_completedWishesKey);
-    return [...active, ...completed]
+    final archived = await _readList(WishStore.archivedKey);
+    return [...active, ...completed, ...archived]
         .where((entry) =>
             ((entry.metadata['updated_at'] as num?)?.toInt() ??
                 entry.createdAt.millisecondsSinceEpoch) > seen)
@@ -747,224 +749,9 @@ class SimulatedPhoneRepository {
       ].where((item) => item.isNotEmpty).take(8).toList(growable: false);
 
   Future<void> _refreshWishes(DateTime now) async {
-    final day = SimulatedPhonePolicy.localDay(now);
-    var active = await _readList(_wishesKey);
-    var completed = await _readList(_completedWishesKey);
-    var changed = false;
-    var releasedActiveSlot = false;
-
-    final desire = await db.loadDesire();
-    final currentThoughts = await db.currentThoughtsForPresentation(limit: 40);
-    final currentById = <String, CompanionThought>{
-      for (final thought in currentThoughts) thought.id: thought,
-    };
-    final eligibleBySemanticKey = <String, CompanionThought>{};
-    for (final thought in currentThoughts) {
-      if (!SimulatedPhonePolicy.wishEligible(
-        thought: thought,
-        desire: desire,
-      )) {
-        continue;
-      }
-      eligibleBySemanticKey.putIfAbsent(
-        SimulatedPhonePolicy.wishSemanticKey(thought),
-        () => thought,
-      );
-    }
-
-    // One-time presentation migration for existing history. It changes only
-    // the public projection; private Thought text is never read or copied.
-    completed = completed.map((wish) {
-      final version = (wish.metadata['presentation_version'] as num?)?.toInt();
-      if (version == SimulatedPhonePolicy.wishPresentationVersion) return wish;
-      final drive = wish.metadata['drive_key'] as String? ?? '';
-      final sourceId = wish.metadata['source_thought_id'] as String? ?? wish.id;
-      final sourceTopic = wish.metadata['source_topic_key'] as String? ?? '';
-      changed = true;
-      return wish.copyWith(
-        body: SimulatedPhonePolicy.wishText(
-          drive,
-          topicKey: sourceTopic,
-          stableKey: '$drive|legacy:$sourceId',
-        ),
-        metadata: {
-          ...wish.metadata,
-          'safe_subject_key': SimulatedPhonePolicy.wishSubjectKey(sourceTopic),
-          'presentation_version': SimulatedPhonePolicy.wishPresentationVersion,
-          'updated_at': now.millisecondsSinceEpoch,
-        },
-      );
-    }).toList(growable: false);
-
-    final retained = <SimulatedPhoneEntry>[];
-    final retainedSemanticKeys = <String>{};
-    for (final wish in active) {
-      final thoughtId = wish.metadata['source_thought_id'] as String? ?? '';
-      final thought = thoughtId.isEmpty
-          ? null
-          : currentById[thoughtId] ?? await db.thoughtById(thoughtId);
-      if (thought == null) {
-        changed = true;
-        releasedActiveSlot = true;
-        continue;
-      }
-      final semanticKey = SimulatedPhonePolicy.wishSemanticKey(thought);
-      final replacement = eligibleBySemanticKey[semanticKey];
-      if (replacement != null) {
-        if (!retainedSemanticKeys.add(semanticKey)) {
-          changed = true;
-          releasedActiveSlot = true;
-          continue;
-        }
-        final body = SimulatedPhonePolicy.wishTextForThought(replacement);
-        final updated = body != wish.body ||
-            wish.metadata['source_thought_id'] != replacement.id ||
-            wish.metadata['presentation_version'] !=
-                SimulatedPhonePolicy.wishPresentationVersion;
-        final migrated = wish.copyWith(
-          body: body,
-          metadata: {
-            ...wish.metadata,
-            'source_thought_id': replacement.id,
-            'source_topic_key': replacement.topicKey,
-            'drive_key': replacement.driveKey,
-            'semantic_key': semanticKey,
-            'safe_subject_key':
-                SimulatedPhonePolicy.wishSubjectKeyForThought(replacement),
-            'presentation_version':
-                SimulatedPhonePolicy.wishPresentationVersion,
-            if (updated) 'updated_at': now.millisecondsSinceEpoch,
-          },
-        );
-        if (migrated.body != wish.body ||
-            migrated.metadata.toString() != wish.metadata.toString()) {
-          changed = true;
-        }
-        retained.add(migrated);
-        continue;
-      }
-      if (thought.lastSatisfiedAt != null) {
-        completed = [
-          wish.copyWith(
-            state: 'completed',
-            body: SimulatedPhonePolicy.wishTextForThought(thought),
-            metadata: {
-              ...wish.metadata,
-              'source_topic_key': thought.topicKey,
-              'semantic_key': semanticKey,
-              'safe_subject_key':
-                  SimulatedPhonePolicy.wishSubjectKeyForThought(thought),
-              'presentation_version':
-                  SimulatedPhonePolicy.wishPresentationVersion,
-              'updated_at': now.millisecondsSinceEpoch,
-            },
-          ),
-          ...completed.where((entry) => entry.id != wish.id),
-        ];
-        changed = true;
-        releasedActiveSlot = true;
-        continue;
-      }
-      if (!SimulatedPhonePolicy.wishEligible(
-        thought: thought,
-        desire: desire,
-      )) {
-        // The Thought itself is preserved. Only its unsafe or no-longer-valid
-        // public projection leaves the active wish list.
-        changed = true;
-        releasedActiveSlot = true;
-        continue;
-      }
-      if (!thought.canDriveIntent) {
-        changed = true;
-        releasedActiveSlot = true;
-        continue;
-      }
-      if (!retainedSemanticKeys.add(semanticKey)) {
-        changed = true;
-        releasedActiveSlot = true;
-        continue;
-      }
-      final migrated = wish.copyWith(
-        body: SimulatedPhonePolicy.wishTextForThought(thought),
-        metadata: {
-          ...wish.metadata,
-          'source_topic_key': thought.topicKey,
-          'drive_key': thought.driveKey,
-          'semantic_key': semanticKey,
-          'safe_subject_key':
-              SimulatedPhonePolicy.wishSubjectKeyForThought(thought),
-          'presentation_version': SimulatedPhonePolicy.wishPresentationVersion,
-        },
-      );
-      if (migrated.body != wish.body ||
-          migrated.metadata.toString() != wish.metadata.toString()) {
-        changed = true;
-      }
-      retained.add(migrated);
-    }
-    active = retained;
-
-    var budget = await _wishBudget(day);
-    if (releasedActiveSlot && budget < 3) budget += 1;
-    final lastAddedMillis = int.tryParse(
-      await db.getSetting(_wishLastAddedAtKey) ?? '',
-    );
-    final lastAddedAt = lastAddedMillis == null || lastAddedMillis <= 0
-        ? null
-        : DateTime.fromMillisecondsSinceEpoch(lastAddedMillis);
-    if (budget < 3 &&
-        active.length < 12 &&
-        SimulatedPhonePolicy.wishAdditionAllowed(
-          now: now,
-          lastAddedAt: lastAddedAt,
-        )) {
-      for (final entry in eligibleBySemanticKey.entries) {
-        final semanticKey = entry.key;
-        final thought = entry.value;
-        if (active.any(
-          (wish) =>
-              wish.metadata['semantic_key'] == semanticKey ||
-              wish.metadata['source_thought_id'] == thought.id,
-        )) {
-          continue;
-        }
-        active = [
-          SimulatedPhoneEntry(
-            id: 'wish:${thought.id}',
-            kind: 'wish',
-            title: '想做的事',
-            body: SimulatedPhonePolicy.wishTextForThought(thought),
-            localDay: day,
-            createdAt: now,
-            provenance: 'desire_thought_projection',
-            metadata: {
-              'source_thought_id': thought.id,
-              'source_topic_key': thought.topicKey,
-              'drive_key': thought.driveKey,
-              'semantic_key': semanticKey,
-              'safe_subject_key':
-                  SimulatedPhonePolicy.wishSubjectKeyForThought(thought),
-              'presentation_version':
-                  SimulatedPhonePolicy.wishPresentationVersion,
-            },
-          ),
-          ...active,
-        ];
-        budget += 1;
-        changed = true;
-        await _writeRefreshSetting(
-          _wishLastAddedAtKey,
-          now.millisecondsSinceEpoch.toString(),
-        );
-        break;
-      }
-    }
-    if (!changed) return;
-    await _writeList(_wishesKey, active.take(12).toList());
-    await _writeList(_completedWishesKey, completed.take(180).toList());
-    await _writeRefreshSetting(_wishBudgetDayKey, day);
-    await _writeRefreshSetting(_wishBudgetCountKey, budget.clamp(0, 3).toString());
+    // UI refresh only migrates/project states. Model work belongs exclusively
+    // to the bounded autonomous heartbeat, never to opening the phone.
+    await WishStore(db).initialize();
   }
 
   Future<void> _refreshCart(DateTime now) async {
@@ -1250,14 +1037,6 @@ class SimulatedPhoneRepository {
         'asset_path': SimulatedPhonePolicy.tarotAssetPath(cardIndex),
       },
     );
-  }
-
-  Future<int> _wishBudget(String day) async {
-    final storedDay = await db.getSetting(_wishBudgetDayKey);
-    if (storedDay != day) return 0;
-    return (int.tryParse(await db.getSetting(_wishBudgetCountKey) ?? '') ?? 0)
-        .clamp(0, 3)
-        .toInt();
   }
 
   Future<Set<int>> _noteAttemptSlots(String day) async {

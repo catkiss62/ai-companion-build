@@ -9,7 +9,7 @@ def read(relative: str) -> str:
     return (ROOT / relative).read_text(encoding="utf-8")
 
 
-pubspec = read("pubspec.yaml").replace("version: 0.42.69+313", "version: 0.42.68+312")
+pubspec = read("pubspec.yaml").replace("version: 0.42.70+314", "version: 0.42.69+313").replace("version: 0.42.69+313", "version: 0.42.68+312")
 version = re.search(r"^version: (\d+)\.(\d+)\.(\d+)\+(\d+)$", pubspec, re.MULTILINE)
 assert version and tuple(map(int, version.groups())) >= (0, 35, 1, 76)
 

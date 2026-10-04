@@ -10,7 +10,7 @@ def read(relative: str) -> str:
     return path.read_text(encoding="utf-8")
 
 
-pubspec = read("pubspec.yaml").replace("version: 0.42.69+313", "version: 0.42.68+312")
+pubspec = read("pubspec.yaml").replace("version: 0.42.70+314", "version: 0.42.69+313").replace("version: 0.42.69+313", "version: 0.42.68+312")
 workflow = read("../.github/workflows/build-apk.yml")
 database = read("lib/core/database/app_database.dart")
 message = read("lib/core/models/chat_message.dart")

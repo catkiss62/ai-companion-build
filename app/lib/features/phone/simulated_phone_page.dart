@@ -1,3 +1,4 @@
+import '../../core/wishes/wish_store.dart';
 import 'dart:async';
 import 'dart:io';
 import 'dart:math' as math;
@@ -2214,96 +2215,94 @@ class MoodChartPainter extends CustomPainter {
   }
 }
 
-class WishPage extends StatelessWidget {
+class WishPage extends StatefulWidget {
   const WishPage({required this.snapshot, super.key});
   final SimulatedPhoneSnapshot? snapshot;
+  @override
+  State<WishPage> createState() => _WishPageState();
+}
 
+class _WishPageState extends State<WishPage> {
+  SimulatedPhoneSnapshot? current;
+  bool saving = false;
+  @override
+  void initState() { super.initState(); current = widget.snapshot; }
+  Future<void> change(String id, String state) async {
+    if (saving) return;
+    setState(() => saving = true);
+    try {
+      final saved = await WishStore(AppDatabase.instance).setUserState(id, state);
+      if (saved) {
+        final next = await SimulatedPhoneRepository(AppDatabase.instance).load();
+        if (mounted) setState(() => current = next);
+      } else if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('暂时无法更新，请刷新后再试；同时最多保留四个进行中的愿望。')));
+      }
+    } finally { if (mounted) setState(() => saving = false); }
+  }
   @override
   Widget build(BuildContext context) => DefaultTabController(
-        length: 2,
-        child: PhoneAppScaffold(
-          emoji: '✨',
-          title: '愿望单',
-          bottom: const TabBar(
-            indicatorColor: purple,
-            labelColor: text1,
-            unselectedLabelColor: text3,
-            tabs: [Tab(text: '进行中'), Tab(text: '已实现')],
-          ),
-          child: TabBarView(
-            children: [
-              WishList(
-                entries: snapshot?.wishes ?? const [],
-                completed: false,
-              ),
-              WishList(
-                entries: snapshot?.completedWishes ?? const [],
-                completed: true,
-              ),
-            ],
-          ),
-        ),
-      );
+    length: 3,
+    child: PhoneAppScaffold(emoji: '✨', title: '愿望单',
+      bottom: const TabBar(indicatorColor: purple, labelColor: text1,
+        unselectedLabelColor: text3,
+        tabs: [Tab(text: '进行中'), Tab(text: '已实现'), Tab(text: '暂时放下')]),
+      child: TabBarView(children: [
+        WishList(entries: current?.wishes ?? const [], completed: false,
+          onChange: saving ? null : change),
+        WishList(entries: current?.completedWishes ?? const [], completed: true),
+        WishList(entries: current?.archivedWishes ?? const [], completed: false,
+          archived: true, onChange: saving ? null : change),
+      ])),
+  );
 }
 
 class WishList extends StatelessWidget {
-  const WishList({
-    required this.entries,
-    required this.completed,
-    super.key,
-  });
+  const WishList({required this.entries, required this.completed,
+    this.archived = false, this.onChange, super.key});
   final List<SimulatedPhoneEntry> entries;
-  final bool completed;
-
+  final bool completed, archived;
+  final Future<void> Function(String, String)? onChange;
   @override
   Widget build(BuildContext context) {
-    if (entries.isEmpty) {
-      return HonestEmpty(
-        emoji: completed ? '🌟' : '💫',
-        title: completed ? '还没有已实现的愿望' : '现在没有足够明确的愿望',
-        body: completed
-            ? '真正实现的愿望会被留在这里。'
-            : '自然衰退或放弃的愿望不会留下假记录。',
-      );
-    }
-    return ListView.builder(
-      padding: const EdgeInsets.fromLTRB(14, 12, 14, 28),
-      itemCount: entries.length,
-      itemBuilder: (_, index) {
+    if (entries.isEmpty) return HonestEmpty(
+      emoji: completed ? '🌟' : '💫',
+      title: completed ? '还没有已实现的愿望' : archived ? '还没有放下的愿望' : '现在没有特别想做的事',
+      body: completed ? '真正实现的愿望会被留在这里。' : archived
+        ? '暂时搁置、过期或放弃的愿望也会留下来。' : '有了在意的事，她会慢慢记下来。');
+    return ListView.builder(padding: const EdgeInsets.fromLTRB(14,12,14,28),
+      itemCount: entries.length, itemBuilder: (_, index) {
         final entry = entries[index];
-        return Container(
-          margin: const EdgeInsets.only(bottom: 9),
-          padding: const EdgeInsets.all(13),
-          decoration: BoxDecoration(
-            color: purple.withValues(alpha: completed ? 0.055 : 0.09),
-            border: Border.all(color: purple.withValues(alpha: 0.18)),
-            borderRadius: BorderRadius.circular(14),
-          ),
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(completed ? '✅' : '⭐',
-                  style: const TextStyle(fontSize: 20)),
-              const SizedBox(width: 11),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(entry.body,
-                        style:
-                            const TextStyle(color: text1, height: 1.5)),
-                    const SizedBox(height: 6),
-                    Text(entry.localDay,
-                        style:
-                            const TextStyle(color: text3, fontSize: 11)),
-                  ],
-                ),
-              ),
-            ],
-          ),
-        );
-      },
-    );
+        final legacy = entry.metadata['legacy'] == true;
+        final reason = entry.metadata['reason']?.toString() ?? '';
+        final progress = entry.metadata['progress']?.toString() ?? '';
+        final criterion = entry.metadata['criterion']?.toString() ?? '';
+        final status = switch(entry.state) {
+          'completed' => '已实现', 'paused' => '暂时搁置',
+          'abandoned' => '已放下', 'expired' => '已过期', _ => '还在心里',
+        };
+        return Container(margin: const EdgeInsets.only(bottom:9), padding: const EdgeInsets.all(13),
+          decoration: BoxDecoration(color: purple.withValues(alpha: .07),
+            border: Border.all(color: purple.withValues(alpha:.18)), borderRadius: BorderRadius.circular(14)),
+          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Text(entry.body, style: const TextStyle(color: text1, height:1.5)),
+            if (reason.isNotEmpty) Padding(padding: const EdgeInsets.only(top:6),
+              child: Text(reason, style: const TextStyle(color:text2, fontSize:12, height:1.5))),
+            if (progress.isNotEmpty) Padding(padding: const EdgeInsets.only(top:6),
+              child: Text(progress, style: const TextStyle(color:text2, fontSize:12, height:1.5))),
+            if (criterion.isNotEmpty) Padding(padding: const EdgeInsets.only(top:6),
+              child: Text('想做到：$criterion', style: const TextStyle(color:text3, fontSize:11, height:1.5))),
+            const SizedBox(height:6),
+            Text('${entry.localDay} · $status${legacy ? ' · 旧记录' : entry.metadata['route'] == 'aspiration' ? ' · 一个向往' : ''}',
+              style: const TextStyle(color:text3, fontSize:11)),
+            if (!legacy && !completed && (entry.state == 'active' || entry.state == 'paused'))
+              Wrap(spacing:8, children: [
+                TextButton(onPressed: onChange == null ? null : () => onChange!(entry.id, entry.state == 'paused' ? 'active' : 'paused'),
+                  child: Text(entry.state == 'paused' ? '重新放回心上' : '先放一放')),
+                TextButton(onPressed: onChange == null ? null : () => onChange!(entry.id, 'abandoned'), child: const Text('放下这个愿望')),
+              ]),
+          ]));
+      });
   }
 }
 

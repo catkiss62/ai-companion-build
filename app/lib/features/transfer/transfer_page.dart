@@ -411,6 +411,7 @@ class _TransferPageState extends State<TransferPage> {
       'relationship_assimilation_lease_until',
       'deferred_followup_lease_until',
       'self_drive_lease_until',
+      'companion_wish_review_lease_until',
       'thought_lifecycle_lease_until',
       'memory_maintenance_lease_until',
       'thought_consolidation_lease_until',

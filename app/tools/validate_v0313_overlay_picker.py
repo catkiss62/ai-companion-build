@@ -10,7 +10,7 @@ def read(relative: str) -> str:
 
 
 def main() -> int:
-    pubspec = read("pubspec.yaml").replace("version: 0.42.69+313", "version: 0.42.68+312")
+    pubspec = read("pubspec.yaml").replace("version: 0.42.70+314", "version: 0.42.69+313").replace("version: 0.42.69+313", "version: 0.42.68+312")
     version = re.search(
         r"^version: (\d+)\.(\d+)\.(\d+)\+(\d+)$",
         pubspec,

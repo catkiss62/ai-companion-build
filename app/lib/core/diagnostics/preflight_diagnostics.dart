@@ -271,6 +271,7 @@ class PreflightDiagnosticsService {
         'relationship_assimilation_lease_until',
         'deferred_followup_lease_until',
         'self_drive_lease_until',
+        'companion_wish_review_lease_until',
         'thought_lifecycle_lease_until',
         'memory_maintenance_lease_until',
         'thought_consolidation_lease_until',
@@ -1082,6 +1083,9 @@ class PreflightDiagnosticsService {
             await db.getSetting('presence_last_gate_breakdown') ?? '',
           ),
         },
+        'wishLifecycle': _safeJsonObject(
+          await db.getSetting('companion_wish_last_review_v2') ?? '{}',
+        ),
         'diaryGeneration': _safeJsonObject(
           await db.getSetting('simulated_phone_diary_last_attempt_v1') ?? '{}',
         ),

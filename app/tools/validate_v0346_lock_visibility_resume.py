@@ -17,7 +17,7 @@ def require(text: str, token: str, label: str) -> None:
 
 
 def main() -> int:
-    pubspec = read("pubspec.yaml").replace("version: 0.42.69+313", "version: 0.42.68+312")
+    pubspec = read("pubspec.yaml").replace("version: 0.42.70+314", "version: 0.42.69+313").replace("version: 0.42.69+313", "version: 0.42.68+312")
     workflow = read("../.github/workflows/build-apk.yml")
     service = read(
         "android/app/src/main/kotlin/com/aicompanion/localfirst/OverlayBubbleService.kt"

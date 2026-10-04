@@ -8145,12 +8145,14 @@ class AppDatabase {
   Future<String?> commitProactiveMessageIfCurrent({
     required ChatMessage message,
     required DateTime evaluationStartedAt,
+    BrainWorkFence? workFence,
   }) async {
     if (message.attachments.any((item) => item.messageId != message.id)) {
       throw StateError('proactive_attachment_message_mismatch');
     }
     final db = await database;
     return db.transaction<String?>((txn) async {
+      if (workFence != null && !await workFence.matches(txn)) return 'work_fence';
       final settingsRows = await txn.query(
         'settings',
         columns: ['key', 'value'],

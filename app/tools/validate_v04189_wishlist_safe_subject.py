@@ -32,14 +32,8 @@ require(
 if "想认真弄明白最近惦记的那个问题" in policy:
     raise SystemExit("ambiguous current-wish fallback still exists")
 
-require(
-    "lib/core/phone/simulated_phone_repository.dart",
-    [
-        "'safe_subject_key'",
-        "SimulatedPhonePolicy.wishSubjectKeyForThought",
-        "Only its unsafe or no-longer-valid",
-    ],
-)
+# +314 keeps old wishes explicitly marked, never completes them from Thought satisfaction.
+require("lib/core/wishes/wish_store.dart", ["legacy: true", "manualHold: true", "'paused'"])
 require(
     "test/simulated_phone_policy_v0388_test.dart",
     [

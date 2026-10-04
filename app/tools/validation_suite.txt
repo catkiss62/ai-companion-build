@@ -153,3 +153,5 @@ tools/validate_v04266_memory_continuity.py
 tools/validate_v04267_persistent_mood.py
 
 tools/validate_v04268_deep_web.py
+
+tools/validate_v04270_wish_lifecycle.py
