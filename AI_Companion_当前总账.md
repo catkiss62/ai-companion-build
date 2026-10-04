@@ -1,15 +1,17 @@
 # AI Companion · 当前总账
 
-更新时间：2026-10-04（+314 IMPLEMENTED / CI PENDING；+313 CI PASSED / APK READY / TRUE DEVICE PENDING；+312 CI PASSED / APK READY / TRUE DEVICE PENDING；+311 CI PASSED / APK READY / TRUE DEVICE PENDING；+310 CI PASSED / APK READY / TRUE DEVICE PENDING；+309 CI PASSED / APK READY / TRUE DEVICE PENDING；+308 CI PASSED / APK READY / TRUE DEVICE PENDING；+307 CI PASSED / APK READY / USER DEVICE ACCEPTED；+306 CI PASSED / APK READY / TRUE DEVICE PENDING；+305 CI PASSED / APK READY / DEVICE REPORTED REPLY STALL；+304 CI PASSED / APK READY / TRUE DEVICE PENDING；+303 CI PASSED / APK READY / TRUE DEVICE PENDING；+302 CI PASSED / APK READY / TRUE DEVICE PENDING；+301 CI PASSED / APK READY / TRUE DEVICE PENDING；+300 CI PASSED / APK READY / TRUE DEVICE PENDING；+299 CI PASSED / APK READY / TRUE DEVICE PENDING；+298 CI PASSED / APK READY / TRUE DEVICE PENDING；+297 CI PASSED / APK READY / TRUE DEVICE PENDING；+295 恢复真机成功、背景回归 PARTIAL；+293 DEVICE VISUAL BASELINE）
+更新时间：2026-10-04（+314 CI PASSED / APK READY / TRUE DEVICE PENDING；+313 CI PASSED / APK READY / TRUE DEVICE PENDING；+312 CI PASSED / APK READY / TRUE DEVICE PENDING；+311 CI PASSED / APK READY / TRUE DEVICE PENDING；+310 CI PASSED / APK READY / TRUE DEVICE PENDING；+309 CI PASSED / APK READY / TRUE DEVICE PENDING；+308 CI PASSED / APK READY / TRUE DEVICE PENDING；+307 CI PASSED / APK READY / USER DEVICE ACCEPTED；+306 CI PASSED / APK READY / TRUE DEVICE PENDING；+305 CI PASSED / APK READY / DEVICE REPORTED REPLY STALL；+304 CI PASSED / APK READY / TRUE DEVICE PENDING；+303 CI PASSED / APK READY / TRUE DEVICE PENDING；+302 CI PASSED / APK READY / TRUE DEVICE PENDING；+301 CI PASSED / APK READY / TRUE DEVICE PENDING；+300 CI PASSED / APK READY / TRUE DEVICE PENDING；+299 CI PASSED / APK READY / TRUE DEVICE PENDING；+298 CI PASSED / APK READY / TRUE DEVICE PENDING；+297 CI PASSED / APK READY / TRUE DEVICE PENDING；+295 恢复真机成功、背景回归 PARTIAL；+293 DEVICE VISUAL BASELINE）
 
 > 本文件是唯一的当前接班入口，继续采用“总账 v2”。顶部是快速接班索引；标记后的正式记录按版本持续追加，不设总容量上限。
 >
 > 判断优先级：用户最新明确决定 > 当前 GitHub 源码与 Actions > 同时刻脱敏真机诊断/备份 > 本文件 > 冻结归档与 Git 历史。`DESIGNED`、`IMPLEMENTED`、`CI PASSED`、`APK READY`、`TRUE DEVICE PASSED`、`PENDING` 必须严格区分。
 
 
-## 当前任务 · +314 愿望单基础链条（IMPLEMENTED / CI PENDING）
+## 当前交付 · +314 愿望单基础链条（CI PASSED / APK READY / TRUE DEVICE PENDING）
 
 2026-10-04 17:29用户批准第一步：先做可独立保存、由真实兴趣生成的愿望，接入现有对话和活动竞争、按证据推进/完成，并支持暂存/放下/衰退及恢复一致性。基线+313功能3e63c43、交付总账ff7b0dc，分支agent/v04270-wish-lifecycle，目标0.42.70+314。不是固定主题模板、不是每轮新增规划；内部低频DeepSeek整理，Gemini正文仍一次。深层反思继续延期。详细讨论与本轮接口/限制见文末。
+
++314功能7979fc52，完整Actions37194108905成功：1258 Flutter、18原生、144源码门；专项37194108922共233项通过。同签名未发布测试包Draft402963038已就绪，详见文末交付核验。真机自然度与漏结算待观察。
 
 +313已交付同签名私测APK，完整Actions37161508950成功（1236 Flutter/18原生/143源码门、211专项）；两天真机反馈待收。原交付索引保留在文末。
 
@@ -2632,3 +2634,12 @@ APK：`AI-Companion-v0.42.69-313-Expression-Diary-APK.apk`，734,440,077 bytes�
 - 构建版本0.42.70+314；branch agent/v04270-wish-lifecycle；未发布测试标签v0.42.70-wish-lifecycle-test。深层反思独立任务、复杂愿望后续讨论和+313两天真机反馈均保留。
 
 补充本地全套记录：`flutter test --no-pub --no-test-assets`完成1250项成功、8项失败；逐项均为本地未打包的shader/AssetManifest/fate_wheel资源缺失。最终愿望22项再次独立通过。完整资源CI应跑1258项，实际结果待Actions，不以预期数字当通过证据。
+
+
+## +314 最终构建核验与交付（2026-10-04，中国时间）
+
+- 功能提交 `7979fc52f2ba5dbc8a158e052ec03af193721868`，源码树 `5bac53709079108fdcd5156ebdccb4924b194473`；本地119个变更文件逐blob SHA校验与远端树完全一致。分支 `agent/v04270-wish-lifecycle`，未合并主线。
+- 完整构建 [Actions 37194108905](https://github.com/catkiss62/ai-companion-build/actions/runs/37194108905) SUCCESS；job111413223992日志确认144源码门、Kotlin检查、1258 Flutter测试全部通过；原生job111412284423完成18项且BUILD SUCCESSFUL。专项Actions37194108922 SUCCESS，job111412268297日志确认233项通过。此前本地8项shader/资源缺失在完整资源CI未复现。
+- 未发布Draft Release `402963038`，标签 `v0.42.70-wish-lifecycle-test`，target精确为功能SHA；页面 https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-44c3437d0bf54e7abf8d 。APK asset609613568，`AI-Companion-v0.42.70-314-Wish-Lifecycle-APK.apk`，734463181 bytes；SHA-256 `676ef18df334d968aa0c076157e659a428dd699073f35f9b39010f69303ee3c6`。GitHub资产digest、CI monitor与构建日志相符。签名 `305eb3d80983b963c64818ddf1ad561f279de6d47b3ed2c781ada448c7c25148` 与+313及既有安装保持一致。
+- `.ci/v04270-monitor.txt` 位于 `ci-monitor-v0345`，记录success/同一head/run/signer/APK SHA和实际Draft链接。交付保留GitHub下载路径，不谎称已经有本地APK附件。构建成功后仅补充本总账，后续文档提交 `[skip ci]` 不改变已验证源码与APK。
+- 本批完成第一步基础链条；真实使用仍标记TRUE DEVICE PENDING。观察重点：愿望是否自然且不复读、已有话题会否被强行转开、是否愿意采取可行游戏行动、用户参与是否只请求一次、尝试/答应是否误判完成、密集游戏或聊天是否因有界证据窗口出现漏结算。安装后不强制立即生成愿望；无愿望时优先读取诊断wishLifecycle区分未到生成窗口/无合适候选/服务暂不可用，不补模板或提高催促频率。阶段二按真机样本调整，阶段三多阶段跨工具愿望和独立深层反思继续等待后续讨论。
