@@ -1,15 +1,15 @@
 # AI Companion · 当前总账
 
-更新时间：2026-10-05（+316 CI PASSED / APK READY / TRUE DEVICE PENDING；+315 CI PASSED / APK READY / TRUE DEVICE PENDING；+314 CI PASSED / APK READY / TRUE DEVICE PENDING；+313 CI PASSED / APK READY / TRUE DEVICE PENDING；+312 CI PASSED / APK READY / TRUE DEVICE PENDING；+311 CI PASSED / APK READY / TRUE DEVICE PENDING；+310 CI PASSED / APK READY / TRUE DEVICE PENDING；+309 CI PASSED / APK READY / TRUE DEVICE PENDING；+308 CI PASSED / APK READY / TRUE DEVICE PENDING；+307 CI PASSED / APK READY / USER DEVICE ACCEPTED；+306 CI PASSED / APK READY / TRUE DEVICE PENDING；+305 CI PASSED / APK READY / DEVICE REPORTED REPLY STALL；+304 CI PASSED / APK READY / TRUE DEVICE PENDING；+303 CI PASSED / APK READY / TRUE DEVICE PENDING；+302 CI PASSED / APK READY / TRUE DEVICE PENDING；+301 CI PASSED / APK READY / TRUE DEVICE PENDING；+300 CI PASSED / APK READY / TRUE DEVICE PENDING；+299 CI PASSED / APK READY / TRUE DEVICE PENDING；+298 CI PASSED / APK READY / TRUE DEVICE PENDING；+297 CI PASSED / APK READY / TRUE DEVICE PENDING；+295 恢复真机成功、背景回归 PARTIAL；+293 DEVICE VISUAL BASELINE）
+更新时间：2026-10-05（+317 CI PASSED / APK READY / TRUE DEVICE PENDING；+316 CI PASSED / APK READY / TRUE DEVICE PENDING；+315 CI PASSED / APK READY / TRUE DEVICE PENDING；+314 CI PASSED / APK READY / TRUE DEVICE PENDING；+313 CI PASSED / APK READY / TRUE DEVICE PENDING；+312 CI PASSED / APK READY / TRUE DEVICE PENDING；+311 CI PASSED / APK READY / TRUE DEVICE PENDING；+310 CI PASSED / APK READY / TRUE DEVICE PENDING；+309 CI PASSED / APK READY / TRUE DEVICE PENDING；+308 CI PASSED / APK READY / TRUE DEVICE PENDING；+307 CI PASSED / APK READY / USER DEVICE ACCEPTED；+306 CI PASSED / APK READY / TRUE DEVICE PENDING；+305 CI PASSED / APK READY / DEVICE REPORTED REPLY STALL；+304 CI PASSED / APK READY / TRUE DEVICE PENDING；+303 CI PASSED / APK READY / TRUE DEVICE PENDING；+302 CI PASSED / APK READY / TRUE DEVICE PENDING；+301 CI PASSED / APK READY / TRUE DEVICE PENDING；+300 CI PASSED / APK READY / TRUE DEVICE PENDING；+299 CI PASSED / APK READY / TRUE DEVICE PENDING；+298 CI PASSED / APK READY / TRUE DEVICE PENDING；+297 CI PASSED / APK READY / TRUE DEVICE PENDING；+295 恢复真机成功、背景回归 PARTIAL；+293 DEVICE VISUAL BASELINE）
 
 > 本文件是唯一的当前接班入口，继续采用“总账 v2”。顶部是快速接班索引；标记后的正式记录按版本持续追加，不设总容量上限。
 >
 > 判断优先级：用户最新明确决定 > 当前 GitHub 源码与 Actions > 同时刻脱敏真机诊断/备份 > 本文件 > 冻结归档与 Git 历史。`DESIGNED`、`IMPLEMENTED`、`CI PASSED`、`APK READY`、`TRUE DEVICE PASSED`、`PENDING` 必须严格区分。
 
 
-## 当前任务 · +317 手机活动证据优化（IN PROGRESS）
+## 当前交付 · +317 手机活动证据优化（CI PASSED / APK READY / TRUE DEVICE PENDING）
 
-2026-10-05 01:41用户授权，仅优化手机活动加分的累计与时效。基线+316，本地200b571，分支agent/v04273-phone-activity-evidence，目标0.42.73+317。保留解锁唤醒、独立念头、原发送门槛及+316额度；不加解锁后禁止发送时间。改成有效感知间的新使用证据，新会话/长期感知中断先建基线，积攒通知不代表用户操作；仅过时的手机活动念头失效。不改Token缓存、第二通道、Live2D、桌宠、游戏和其他念头。本地实现及相关回归通过，CI/APK待验证，真机待观察。
+2026-10-05 01:41用户授权，仅优化手机活动加分的累计与时效。基线+316，本地200b571，分支agent/v04273-phone-activity-evidence，目标0.42.73+317。保留解锁唤醒、独立念头、原发送门槛及+316额度；不加解锁后禁止发送时间。改成有效感知间的新使用证据，新会话/长期感知中断先建基线，积攒通知不代表用户操作；仅过时的手机活动念头失效。不改Token缓存、第二通道、Live2D、桌宠、游戏和其他念头。本地及完整CI通过，同签名APK已就绪，真机待观察；交付证据见文末+317最终记录。
 
 ## 当前交付 · +316 主动消息分时与夜间窗口
 
@@ -2735,3 +2735,13 @@ ready议题只进入现有主动候选竞争（弱分数0.61），不会注入�
 12项新测试加原有相关测试共42项通过，涵盖新会话、旧统计、无新增、高残分、时间积分、通知、重复前台、后台间隙、时钟倒退及SQLite退休范围。静态分析无编译error。147项源码门中本地144项可验证，3项需CI完整资源/kotlinc（旧桌宠417文件、lingchat特效、原生编译器），未豁免。全量首跑1308通过、10项未过：1项缺lingchat特效，9项子进程dart不在PATH；补PATH后root包装脚本警告使9项stderr断言失败，改用Dart SDK原生可执行路径重测。这是本地验证环境修正，未改产品存档或测试断言。曾普通flutter test误触pub get，本地生成的锁文件/注册文件变更已回撤，不更新依赖。当前待完整CI/签名APK与真机自然度。
 
 补验：Dart SDK原生路径下9项进程强杀/恢复全部通过；因此本地全量除1项缺lingchat特效外，1317项已通过（完整一次全量1308项+9项环境补验）。最终静态分析无error。未新增/修改任何API模型调用。
+
+### +317 最终CI与APK交付（2026-10-05）
+
+功能本地f84f1fc004c3100d71139ca5bce87e86287db977，远端02c76c974d1daa66ee7b31090991f667fed81b39，源码tree均为d27e6be9d9022b6e6d1cca340162f1f901f71209。完整Actions37222115700 SUCCESS（原生job111494399819、build-apk job111495444043），专项Actions37222115670 SUCCESS。源码147项门、Kotlin、Flutter分析/全量测试、原生模拟器、APK编译及全部资源/签名步骤成功；本地缺资源的检查在完整CI补齐。未读取完整Actions日志，不将推算的测试数量当成日志实测数。
+
+Draft Release403146012，target精确对应02c76c9，draft=true；下载 https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-8de0eee5fc4124271030 。APK asset610351535，AI-Companion-v0.42.73-317-Phone-Activity-Evidence-APK.apk，734487841 bytes，uploaded。SHA-256 a4cd15e445120dd52451207d5558584fc1843173c019bde290022eabb2498258，GitHub资产digest与ci-monitor-v0345/.ci/v04273-monitor.txt一致；配套校验文件610351533、monitor610351534。
+
+签名SHA-256 305eb3d80983b963c64818ddf1ad561f279de6d47b3ed2c781ada448c7c25148，与+316持久私测签名一致，可覆盖安装。未合并main、未公开发布，收尾文档以[skip ci]独立推送。CI PASSED / APK READY / TRUE DEVICE PENDING。
+
+真机观察重点：长时间放下后只看一眼手机，不应仅由积攒活动推动消息；持续使用后仍可自然联系；有具体独立念头时解锁后很快联系仍属允许行为。诊断presenceEvidence区分基线/新间隔、实际impulse与score，不用“完全不再解锁即发”当验收条件。Token缓存优化仍未实施。后续任务从唯一总账6.3及本节进入，本次只交付手机活动累计/时效优化。
