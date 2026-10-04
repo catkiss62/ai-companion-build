@@ -1,0 +1,7 @@
+status=success
+run_id=37199438551
+run_url=https://github.com/catkiss62/ai-companion-build/actions/runs/37199438551
+head_sha=187cfdc2417096f65e9c719ec629a55d1c791157
+signer_sha256=30:5E:B3:D8:09:83:B9:63:C6:48:18:DD:F1:AD:56:1F:27:9D:E6:D4:7B:3E:D2:C7:81:AD:A4:48:C7:C2:51:48
+f48f1d0b535aa9375a6f5d3bee2cf2d44f3f226b642fc1458224146adf45030f  AI-Companion-v0.42.71-315-Deep-Reflection-APK.apk
+release_url=https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-4df3fb731eccfa26bb99
