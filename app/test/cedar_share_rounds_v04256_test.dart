@@ -306,6 +306,7 @@ void main() {
       await shares.deliveryAllowed(
         'cedar-terminal:event',
         'mcp/cedar_game:white_room:terminal:event',
+        now: daytime,
       ),
       true,
     );
