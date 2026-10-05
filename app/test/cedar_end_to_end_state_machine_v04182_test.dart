@@ -1,3 +1,4 @@
+import 'package:ai_companion_localfirst/core/desire/daily_wake_store.dart';
 import 'dart:convert';
 
 import 'package:ai_companion_localfirst/core/ai/deepseek_client.dart';
@@ -170,6 +171,13 @@ void main() {
       );
       try {
         final due = DateTime.now().add(const Duration(seconds: 1));
+        final wake = await DailyWakeStore.read(await db.database, due);
+        if (wake.beforeWake(due)) {
+          expect((await engine.continueDue(now: due)).state, 'not_due');
+          expect(await engine.continuationDelay(now: due), wake.wakeAt.difference(due));
+          expect(await engine.resumeOptions(now: due, baseScore: 0.7), isEmpty);
+          return;
+        }
         expect((await engine.continueDue(now: due)).state, 'episode_checkpoint');
         expect(await engine.continuationDelay(now: due), Duration.zero);
         expect(

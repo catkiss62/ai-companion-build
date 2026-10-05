@@ -289,9 +289,11 @@ void main() {
     await shares.offer(session, share: true, now: DateTime.now());
     final id = (await store.pendingDirectShares()).single;
     final source = (await db.thoughtById(id))!.source;
-    expect(await shares.deliveryAllowed(id, source), true);
+    final day = DateTime.now();
+    final daytime = DateTime(day.year, day.month, day.day, 12);
+    expect(await shares.deliveryAllowed(id, source, now: daytime), true);
     await store.setViewingPace(CedarViewingPace.spectate);
-    expect(await shares.deliveryAllowed(id, source), false);
+    expect(await shares.deliveryAllowed(id, source, now: daytime), false);
     await db.setSetting('cedar_toy_game_share_enabled', '0');
     expect(
       await shares.deliveryAllowed(
