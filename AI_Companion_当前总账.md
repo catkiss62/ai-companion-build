@@ -1,6 +1,6 @@
 # AI Companion · 当前总账
 
-更新时间：2026-10-05（+321 IMPLEMENTED / CI PENDING；+320 CI PASSED / APK READY / TRUE DEVICE PENDING；+319 CI PASSED / APK READY / TRUE DEVICE PENDING；+318 USER DEVICE ACCEPTED；+317 CI PASSED / APK READY / TRUE DEVICE PENDING；+316 CI PASSED / APK READY / TRUE DEVICE PENDING；+315 CI PASSED / APK READY / TRUE DEVICE PENDING；+314 CI PASSED / APK READY / TRUE DEVICE PENDING；+313 CI PASSED / APK READY / TRUE DEVICE PENDING；+312 CI PASSED / APK READY / TRUE DEVICE PENDING；+311 CI PASSED / APK READY / TRUE DEVICE PENDING；+310 CI PASSED / APK READY / TRUE DEVICE PENDING；+309 CI PASSED / APK READY / TRUE DEVICE PENDING；+308 CI PASSED / APK READY / TRUE DEVICE PENDING；+307 CI PASSED / APK READY / USER DEVICE ACCEPTED；+306 CI PASSED / APK READY / TRUE DEVICE PENDING；+305 CI PASSED / APK READY / DEVICE REPORTED REPLY STALL；+304 CI PASSED / APK READY / TRUE DEVICE PENDING；+303 CI PASSED / APK READY / TRUE DEVICE PENDING；+302 CI PASSED / APK READY / TRUE DEVICE PENDING；+301 CI PASSED / APK READY / TRUE DEVICE PENDING；+300 CI PASSED / APK READY / TRUE DEVICE PENDING；+299 CI PASSED / APK READY / TRUE DEVICE PENDING；+298 CI PASSED / APK READY / TRUE DEVICE PENDING；+297 CI PASSED / APK READY / TRUE DEVICE PENDING；+295 恢复真机成功、背景回归 PARTIAL；+293 DEVICE VISUAL BASELINE）
+更新时间：2026-10-05（+321 CI PASSED / APK READY / TRUE DEVICE PENDING；+320 CI PASSED / APK READY / TRUE DEVICE PENDING；+319 CI PASSED / APK READY / TRUE DEVICE PENDING；+318 USER DEVICE ACCEPTED；+317 CI PASSED / APK READY / TRUE DEVICE PENDING；+316 CI PASSED / APK READY / TRUE DEVICE PENDING；+315 CI PASSED / APK READY / TRUE DEVICE PENDING；+314 CI PASSED / APK READY / TRUE DEVICE PENDING；+313 CI PASSED / APK READY / TRUE DEVICE PENDING；+312 CI PASSED / APK READY / TRUE DEVICE PENDING；+311 CI PASSED / APK READY / TRUE DEVICE PENDING；+310 CI PASSED / APK READY / TRUE DEVICE PENDING；+309 CI PASSED / APK READY / TRUE DEVICE PENDING；+308 CI PASSED / APK READY / TRUE DEVICE PENDING；+307 CI PASSED / APK READY / USER DEVICE ACCEPTED；+306 CI PASSED / APK READY / TRUE DEVICE PENDING；+305 CI PASSED / APK READY / DEVICE REPORTED REPLY STALL；+304 CI PASSED / APK READY / TRUE DEVICE PENDING；+303 CI PASSED / APK READY / TRUE DEVICE PENDING；+302 CI PASSED / APK READY / TRUE DEVICE PENDING；+301 CI PASSED / APK READY / TRUE DEVICE PENDING；+300 CI PASSED / APK READY / TRUE DEVICE PENDING；+299 CI PASSED / APK READY / TRUE DEVICE PENDING；+298 CI PASSED / APK READY / TRUE DEVICE PENDING；+297 CI PASSED / APK READY / TRUE DEVICE PENDING；+295 恢复真机成功、背景回归 PARTIAL；+293 DEVICE VISUAL BASELINE）
 
 > 本文件是唯一的当前接班入口，继续采用“总账 v2”。顶部是快速接班索引；标记后的正式记录按版本持续追加，不设总容量上限。
 >
@@ -8,9 +8,9 @@
 
 
 
-## 当前任务 · +321 自主话题与按钮缩小（IMPLEMENTED / CI PENDING）
+## 当前任务 · +321 自主话题与按钮缩小（CI PASSED / APK READY / TRUE DEVICE PENDING）
 
-2026-10-05用户授权实施话题讨论方案并允许合理改进。分支agent/v04277-conversation-topics，基线+320远端ad8bc459/本地01ca6d9，目标0.42.77+321。先表达只是选项；按语义承接短回复、真实兴趣与少量发展中线程、重复开题降权；复用已有机制，不增加每轮模型调用，不改次数/起床/游戏分享独立额度。同步缩小直接开始可见框与文字。范围见app/docs/CONVERSATION_TOPICS_v0.42.77.md；CI与APK待完成。
+2026-10-05用户授权实施话题讨论方案并允许合理改进。分支agent/v04277-conversation-topics，基线+320远端ad8bc459/本地01ca6d9，目标0.42.77+321。先表达只是选项；按语义承接短回复、真实兴趣与少量发展中线程、重复开题降权；复用已有机制，不增加每轮模型调用，不改次数/起床/游戏分享独立额度。同步缩小直接开始可见框与文字。范围见app/docs/CONVERSATION_TOPICS_v0.42.77.md；完整Actions37318345621与专项37318345719成功，同签名未发布APK已就绪，详细交付证据见文末。
 
 ## 当前交付 · +320 命运之轮直接开始与面板透明（CI PASSED / APK READY / TRUE DEVICE PENDING）
 
@@ -2839,3 +2839,22 @@ Draft Release403677991，draft=true，target精确对应3420d05bf123b75cd66f5fc2
 - 首帧字段还存在口径问题：`resume_first_model_frame_ms=36/2` 捕捉到的可能是拆装前旧 context 一帧，或后续舞台显示时的新计时；不能代表完整恢复 2.75 秒。下一实现按恢复/context generation 记录后续重建和首个新 context 模型帧，区分 draw 与合成呈现。
 - 菜菜独立项目直接把 GLSurfaceView 挂在 Activity 中，没有 Flutter 的 Virtual Display/Presentation 重建层，故这个差异能解释相同模型在独立项目恢复正常。下一方向是以现有 GLSurfaceView 试验直接 Hybrid Composition，绕开 VD；此前 +278～+281 用过 HC，有背景残影/黑底等真机失败，+282 `6e38280` 改回 AndroidView，因此不能原样回退旧实现或宣称 HC 已验证。要保留当前透明层级、稳定画布/IME、舞台可见性及 dispose 修复，先覆盖这些旧失败项，再交设备验证。自定义 TextureView 仍为已知失败路线。
 - 官方源码依据：[AndroidView 创建](https://github.com/flutter/flutter/blob/3.44.9/packages/flutter/lib/src/widgets/platform_view.dart#L787-L801)、[VD 选择](https://github.com/flutter/flutter/blob/3.44.9/engine/src/flutter/shell/platform/android/io/flutter/plugin/platform/PlatformViewsController.java#L223-L241)、[恢复无条件重置](https://github.com/flutter/flutter/blob/3.44.9/engine/src/flutter/shell/platform/android/io/flutter/plugin/platform/PlatformViewsController.java#L1124-L1129)、[VD 拆装](https://github.com/flutter/flutter/blob/3.44.9/engine/src/flutter/shell/platform/android/io/flutter/plugin/platform/VirtualDisplayController.java#L291-L330)、[Android 15 GLSurfaceView detach](https://github.com/aosp-mirror/platform_frameworks_base/blob/android-15.0.0_r1/opengl/java/android/opengl/GLSurfaceView.java#L629-L639)。本轮仅读取诊断/查源码/回填记录，未改产品代码、未构建新 APK。
+
+
+## +321 自主话题与按钮缩小 · 最终交付（2026-10-05）
+
+用户授权：本轮自主选题讨论方案和直接开始按钮缩小，可以加入合理改进；先表达只是选项，不覆盖所有聊天方式，不设比例。既有开发分支/未发布测试APK授权继续有效，无main合并或正式发布。
+
+- 普通聊天与主动联系共用具体内容展开指导；回答、关心、玩笑、亲密、邀请、好奇和收尾保留。短回复结合语义接续，既不按字数降温，也不自动当成继续邀请。
+- 复用兴趣、愿望、Thought、真实经历及线程，不新增模型/联网调用或数据库表。普通新开题对最近24小时最多8条非角色扮演AI正文做高精度近重复降权（0.18局部分）；同一主题的新进展不因topic_key相同被封禁。只在自主开题内选择，保留答案/转题/收尾优先和原驱动分。主动选题仍使用已有降权机制。
+- 原后处理提示优先更新少量有真实后续价值的聊天线索，写清已聊到哪/新增内容/真实悬念；每轮最多新增两条这类线索是模型契约，沿用原线程入库上限与校验，不另称硬性两条数据库上限。AI单方想聊、复述旧事或用户简短应答不足以创建线程。
+- 新话题来源隔离、记忆直接相关准入、角色扮演隔离、每日起床/疲劳、主动次数/门槛及游戏独立分享额度保持。
+- 直接开始可见边框32×92，字13px；外层触摸区44×104，原读当前卷轴与忙碌禁用逻辑保留。上版半透明设定条保持。
+
+源码：本地71942d8，远端c995a181d45c4c1475c69bca21bff623bc71ffe8；相同tree 2dcd20266a003bb4e1ea1fabce4401e043a0ab3b。分支agent/v04277-conversation-topics，版本0.42.77+321。
+
+验证：本地145项源码门、实际页面JS回归、总账与diff检查通过；三项本地缺环境检查在CI补验。完整[Actions37318345621](https://github.com/catkiss62/ai-companion-build/actions/runs/37318345621)成功：148源码门、1349全量Flutter、Android15原生18项、Kotlin、资源与签名核验通过；专项Actions37318345719成功，337项（含新增9项话题测试）。当前产品改动没有新的analyzer错误；项目已有warning仍由原no-fatal-warnings工作流处理。
+
+[未发布同签名+321 APK](https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-a00cc7860e6638004048)：Draft403775577，target c995a181，asset612735360，AI-Companion-v0.42.77-321-Conversation-Topics-APK.apk，734510557字节。SHA-256 91e2888980afb64d75f68c3e969f6cbb10f954b165e4222fde25f3b0c8736903；签名305eb3d80983b963c64818ddf1ad561f279de6d47b3ed2c781ada448c7c25148。下载页保持draft=true。
+
+CI PASSED / APK READY / TRUE DEVICE PENDING。聊天自然程度、短回复后的实际展开、重复频率与按钮手机观感仍待用户实际体验；没有运行收费模型体验评测，不以源码提示或自动测试宣称聊天质量已获验收。可回退+320未发布包，但覆盖降级按Android既有版本规则处理。任务文档app/docs/CONVERSATION_TOPICS_v0.42.77.md。
