@@ -1,19 +1,21 @@
 # AI Companion · 当前总账
 
-更新时间：2026-10-05（+319 IMPLEMENTED / LOCAL TARGETED PASSED / CI PENDING；+318 USER DEVICE ACCEPTED；+317 CI PASSED / APK READY / TRUE DEVICE PENDING；+316 CI PASSED / APK READY / TRUE DEVICE PENDING；+315 CI PASSED / APK READY / TRUE DEVICE PENDING；+314 CI PASSED / APK READY / TRUE DEVICE PENDING；+313 CI PASSED / APK READY / TRUE DEVICE PENDING；+312 CI PASSED / APK READY / TRUE DEVICE PENDING；+311 CI PASSED / APK READY / TRUE DEVICE PENDING；+310 CI PASSED / APK READY / TRUE DEVICE PENDING；+309 CI PASSED / APK READY / TRUE DEVICE PENDING；+308 CI PASSED / APK READY / TRUE DEVICE PENDING；+307 CI PASSED / APK READY / USER DEVICE ACCEPTED；+306 CI PASSED / APK READY / TRUE DEVICE PENDING；+305 CI PASSED / APK READY / DEVICE REPORTED REPLY STALL；+304 CI PASSED / APK READY / TRUE DEVICE PENDING；+303 CI PASSED / APK READY / TRUE DEVICE PENDING；+302 CI PASSED / APK READY / TRUE DEVICE PENDING；+301 CI PASSED / APK READY / TRUE DEVICE PENDING；+300 CI PASSED / APK READY / TRUE DEVICE PENDING；+299 CI PASSED / APK READY / TRUE DEVICE PENDING；+298 CI PASSED / APK READY / TRUE DEVICE PENDING；+297 CI PASSED / APK READY / TRUE DEVICE PENDING；+295 恢复真机成功、背景回归 PARTIAL；+293 DEVICE VISUAL BASELINE）
+更新时间：2026-10-05（+319 CI PASSED / APK READY / TRUE DEVICE PENDING；+318 USER DEVICE ACCEPTED；+317 CI PASSED / APK READY / TRUE DEVICE PENDING；+316 CI PASSED / APK READY / TRUE DEVICE PENDING；+315 CI PASSED / APK READY / TRUE DEVICE PENDING；+314 CI PASSED / APK READY / TRUE DEVICE PENDING；+313 CI PASSED / APK READY / TRUE DEVICE PENDING；+312 CI PASSED / APK READY / TRUE DEVICE PENDING；+311 CI PASSED / APK READY / TRUE DEVICE PENDING；+310 CI PASSED / APK READY / TRUE DEVICE PENDING；+309 CI PASSED / APK READY / TRUE DEVICE PENDING；+308 CI PASSED / APK READY / TRUE DEVICE PENDING；+307 CI PASSED / APK READY / USER DEVICE ACCEPTED；+306 CI PASSED / APK READY / TRUE DEVICE PENDING；+305 CI PASSED / APK READY / DEVICE REPORTED REPLY STALL；+304 CI PASSED / APK READY / TRUE DEVICE PENDING；+303 CI PASSED / APK READY / TRUE DEVICE PENDING；+302 CI PASSED / APK READY / TRUE DEVICE PENDING；+301 CI PASSED / APK READY / TRUE DEVICE PENDING；+300 CI PASSED / APK READY / TRUE DEVICE PENDING；+299 CI PASSED / APK READY / TRUE DEVICE PENDING；+298 CI PASSED / APK READY / TRUE DEVICE PENDING；+297 CI PASSED / APK READY / TRUE DEVICE PENDING；+295 恢复真机成功、背景回归 PARTIAL；+293 DEVICE VISUAL BASELINE）
 
 > 本文件是唯一的当前接班入口，继续采用“总账 v2”。顶部是快速接班索引；标记后的正式记录按版本持续追加，不设总容量上限。
 >
 > 判断优先级：用户最新明确决定 > 当前 GitHub 源码与 Actions > 同时刻脱敏真机诊断/备份 > 本文件 > 冻结归档与 Git 历史。`DESIGNED`、`IMPLEMENTED`、`CI PASSED`、`APK READY`、`TRUE DEVICE PASSED`、`PENDING` 必须严格区分。
 
 
-## 当前任务 · +319 每日起床时间与醒后疲劳（IMPLEMENTED / LOCAL TARGETED PASSED / CI PENDING）
+## 当前交付 · +319 每日起床时间与醒后疲劳（CI PASSED / APK READY / TRUE DEVICE PENDING）
 
 2026-10-05 08:08 用户授权实施 +318 APK 后讨论。用户明确白天游戏分享正常、不占普通主动次数是故意设计，禁止因本次清晨问题改为共用额度。每日零点后首次打开/运行检查保存 08:00—09:00 的一个起床时间；自主游戏及旧待发分享、主动额度夜间/白天边界、清晨门槛共用它。起床后 45 分钟困意平缓消退，只使用原疲劳竞争，不新增游戏概率或复杂睡眠模拟；不自动问候、不固定揉眼睛话术。保留明确请求的用户游戏与任务回报。当前分支 agent/v04275-daily-wake，基线 b9a8349（远端同树 47f9a903）；完整范围见 app/docs/DAILY_WAKE_v0.42.75.md。+318 用户已确认“ok，没有问题”，仅代表此次日常验收。
 
-## 前次交付 · +318 表情包整理与编辑（CI PASSED / APK READY / TRUE DEVICE PENDING）
+完整Actions37281178394与专项回归37281178329成功，1340项全量Flutter、319项专项、18项原生、148项源码门通过。同签名[未发布+319 APK](https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-4ec9a13fa3760b8d153e)可覆盖安装，最终哈希和接班证据见文末。
 
-2026-10-05用户明确批准本窗口完整方案并开始：四套整合包A/B/Q版鲸鱼娘/大肥鱼，定点补动物和猫猫头描述，重整小分类，新增普通图片ZIP导入，选择提示不因外观不同拒选，编辑器仅保存生效且草稿异常退出丢弃。基线f64cf655/+317；开发分支agent/v04274-sticker-workbench。完整范围、附件对应、边界和验收清单见app/docs/STICKER_WORKBENCH_v0.42.74.md。原ID/路径和禁用策略保留，同ID覆盖不叠加；不改其他产品链路。代码、整合ZIP及同签名APK完成，完整Actions37235636484通过；真机待用户验收，最终证据见文末+318交付记录。
+## 前次交付 · +318 表情包整理与编辑（CI PASSED / APK READY / USER DEVICE ACCEPTED）
+
+2026-10-05用户明确批准本窗口完整方案并开始：四套整合包A/B/Q版鲸鱼娘/大肥鱼，定点补动物和猫猫头描述，重整小分类，新增普通图片ZIP导入，选择提示不因外观不同拒选，编辑器仅保存生效且草稿异常退出丢弃。基线f64cf655/+317；开发分支agent/v04274-sticker-workbench。完整范围、附件对应、边界和验收清单见app/docs/STICKER_WORKBENCH_v0.42.74.md。原ID/路径和禁用策略保留，同ID覆盖不叠加；不改其他产品链路。代码、整合ZIP及同签名APK完成，完整Actions37235636484通过；用户已确认本次日常使用无问题，不外推所有边界场景。最终证据见文末+318交付记录。
 
 ## 前次交付 · +317 手机活动证据优化（CI PASSED / APK READY / TRUE DEVICE PENDING）
 
@@ -2788,6 +2790,17 @@ Draft Release403222682，draft=true，target精确对应3fb066ef；下载 https:
 - 实现：每日期限记录存于 settings，SQLite 事务串行化首次抽取，前后台一致且随现有备份保留；晚打开按当天时间直接计算，不补演醒来。游戏新开/续玩/待发分享及最终发送复验使用同一记录；旧待发自主分享也延后，明确用户任务结果保留路径。夜间上限 2、白天总额及 14/19 点累计释放不变，冷却不因起床重置。
 - 疲劳：保留至 06:00 的原夜间曲线，再缓降到起床时下限 0.54；45 分钟内下限平缓降到 0.16。已有真实疲劳和睡眠债不强制清零；沿用 0.48 休息竞争阈值和原游戏得分。对话只注入当时醒神状态提示，无额外模型调用、后台逐步模拟、固定角色回复或自动起床消息。
 - 诊断：dailyWake 含当天起床、清醒参考时间、首次确定时间、醒神强度；游戏门槛和主动预算记录同一边界。仅 App 内部节律，无用户正文和私人作息文本。
-- 本地/CI/交付证据待验证后回填。用户真机仍待验收；不改桌宠、Live2D、模型路由、TTS 或表情包。
+- 本地/CI/交付证据见下节。用户真机仍待验收；不改桌宠、Live2D、模型路由、TTS 或表情包。
 
 +319 本地专项与相关回归 81 项通过；analyze 无 error。源码门 145/148 本地通过，3 项缺构建期原始帧/动效/Kotlin 编译器，完整 CI 保留并验证。先前共玩边界误拦已修正且旧端到端测试通过；最终 APK 证据待 CI 回填。
+
+
+### +319 最终CI与同签名APK交付（2026-10-05）
+
+最终功能/测试远端提交 5fcc2b35fac438ce253d038dc9cad94fa877fd46，本地同树提交 7ccbe62；tree 02c30bdc7f503c0e2d4ddf56bc26b1886bb221d3。开发分支 agent/v04275-daily-wake。完整 Actions 37281178394 SUCCESS（原生 job111669422169，build-apk job111671161846），专项 Actions 37281178329 SUCCESS。日志核实 1340 项全量 Flutter、319 项专项、18 项 Android 原生、148 项源码门通过；Kotlin、Flutter analyze、arm64 Release、APK签名及全部资源一致性检查通过。原有非致命静态分析提示保留，没有借本批改动清理无关模块。
+
+前序失败真实保留：37247488491 原生星谷DOM加载超时，APK未执行；37247488530 旧端到端测试忽略清晨限制，318通过/1失败。第二轮37278874070原生/源码/分析通过，Flutter1339通过/1失败，轮数测试的终局分享遗漏显式白天时间。已补齐测试边界并在最终全量流程验证；没有关闭检查或撤除起床前拦截，真实自主终局分享仍等起床。
+
+Draft Release 403275161，draft=true，target精确对应 5fcc2b35fac438ce253d038dc9cad94fa877fd46。下载 https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-4ec9a13fa3760b8d153e 。APK asset611962233，文件 AI-Companion-v0.42.75-319-Daily-Wake-APK.apk，734505357 bytes，uploaded。SHA-256 6c15104f86bf74f0d60769c55118ababd2dfdb272c3dac014a2129f85bc5cfaf，GitHub资产digest与成功构建记录一致。签名SHA-256 305eb3d80983b963c64818ddf1ad561f279de6d47b3ed2c781ada448c7c25148，与+318持久私测签名一致，可覆盖安装。未合并main、未正式发布；收尾文档以[skip ci]另提交。
+
+真机观察：零点后首次打开/允许运行检查确定当天08:00—09:00时间并保存，同日重启不变；自主游戏及其旧分享在起床前不提前恢复。起床后仍靠原疲劳竞争，足够强的游戏动机可以胜出；普通主动消息转用白天额度，但不自动问候、不补发。若抽到08:55，余困可延至约09:40；白天晚打开不补演醒来。游戏分享继续不占普通主动额度；用户明确游戏任务和进行中的共玩回合保留请求路径。观察诊断dailyWake与实际聊天即可，不需额外设置。CI PASSED / APK READY / TRUE DEVICE PENDING。
