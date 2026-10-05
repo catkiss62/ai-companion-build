@@ -1,0 +1,7 @@
+status=success
+run_id=37305657345
+run_url=https://github.com/catkiss62/ai-companion-build/actions/runs/37305657345
+head_sha=3420d05bf123b75cd66f5fc2d818acf253d8bc4f
+signer_sha256=30:5E:B3:D8:09:83:B9:63:C6:48:18:DD:F1:AD:56:1F:27:9D:E6:D4:7B:3E:D2:C7:81:AD:A4:48:C7:C2:51:48
+90de92713ae775f5c6c63a8b5ff6102f09b0652fd7695f9602586c12c195a373  AI-Companion-v0.42.76-320-Fate-Wheel-Start-APK.apk
+release_url=https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-eda462918686630190f8
