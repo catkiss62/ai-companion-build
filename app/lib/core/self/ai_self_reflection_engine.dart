@@ -7,9 +7,12 @@ import 'dream_engine.dart';
 /// Compatibility entry point. Nightly Dream is now the sole reflective writer;
 /// the old repeated-pattern collector must not run alongside it.
 class AiSelfReflectionEngine {
-  AiSelfReflectionEngine({required this.db, required DeepSeekClient client,
-    required DesireEngine desire, SecureConfig? secureConfig})
-    : secureConfig = secureConfig ?? SecureConfig.instance;
+  AiSelfReflectionEngine({
+    required this.db,
+    required DeepSeekClient client,
+    required DesireEngine desire,
+    SecureConfig? secureConfig,
+  }) : secureConfig = secureConfig ?? SecureConfig.instance;
   final AppDatabase db;
   final SecureConfig secureConfig;
   Future<bool> maybeReflect({bool force = false}) =>

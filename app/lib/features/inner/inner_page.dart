@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../../core/ai/deepseek_client.dart';
+
 import '../../core/self/dream_engine.dart';
 import '../../core/self/dream_store.dart';
 import '../../core/self/dream_contract.dart';
