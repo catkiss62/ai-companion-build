@@ -1,6 +1,6 @@
 # AI Companion · 当前总账
 
-更新时间：2026-10-05（+320 IMPLEMENTED / CI PENDING；+319 CI PASSED / APK READY / TRUE DEVICE PENDING；+318 USER DEVICE ACCEPTED；+317 CI PASSED / APK READY / TRUE DEVICE PENDING；+316 CI PASSED / APK READY / TRUE DEVICE PENDING；+315 CI PASSED / APK READY / TRUE DEVICE PENDING；+314 CI PASSED / APK READY / TRUE DEVICE PENDING；+313 CI PASSED / APK READY / TRUE DEVICE PENDING；+312 CI PASSED / APK READY / TRUE DEVICE PENDING；+311 CI PASSED / APK READY / TRUE DEVICE PENDING；+310 CI PASSED / APK READY / TRUE DEVICE PENDING；+309 CI PASSED / APK READY / TRUE DEVICE PENDING；+308 CI PASSED / APK READY / TRUE DEVICE PENDING；+307 CI PASSED / APK READY / USER DEVICE ACCEPTED；+306 CI PASSED / APK READY / TRUE DEVICE PENDING；+305 CI PASSED / APK READY / DEVICE REPORTED REPLY STALL；+304 CI PASSED / APK READY / TRUE DEVICE PENDING；+303 CI PASSED / APK READY / TRUE DEVICE PENDING；+302 CI PASSED / APK READY / TRUE DEVICE PENDING；+301 CI PASSED / APK READY / TRUE DEVICE PENDING；+300 CI PASSED / APK READY / TRUE DEVICE PENDING；+299 CI PASSED / APK READY / TRUE DEVICE PENDING；+298 CI PASSED / APK READY / TRUE DEVICE PENDING；+297 CI PASSED / APK READY / TRUE DEVICE PENDING；+295 恢复真机成功、背景回归 PARTIAL；+293 DEVICE VISUAL BASELINE）
+更新时间：2026-10-05（+320 CI PASSED / APK READY / TRUE DEVICE PENDING；+319 CI PASSED / APK READY / TRUE DEVICE PENDING；+318 USER DEVICE ACCEPTED；+317 CI PASSED / APK READY / TRUE DEVICE PENDING；+316 CI PASSED / APK READY / TRUE DEVICE PENDING；+315 CI PASSED / APK READY / TRUE DEVICE PENDING；+314 CI PASSED / APK READY / TRUE DEVICE PENDING；+313 CI PASSED / APK READY / TRUE DEVICE PENDING；+312 CI PASSED / APK READY / TRUE DEVICE PENDING；+311 CI PASSED / APK READY / TRUE DEVICE PENDING；+310 CI PASSED / APK READY / TRUE DEVICE PENDING；+309 CI PASSED / APK READY / TRUE DEVICE PENDING；+308 CI PASSED / APK READY / TRUE DEVICE PENDING；+307 CI PASSED / APK READY / USER DEVICE ACCEPTED；+306 CI PASSED / APK READY / TRUE DEVICE PENDING；+305 CI PASSED / APK READY / DEVICE REPORTED REPLY STALL；+304 CI PASSED / APK READY / TRUE DEVICE PENDING；+303 CI PASSED / APK READY / TRUE DEVICE PENDING；+302 CI PASSED / APK READY / TRUE DEVICE PENDING；+301 CI PASSED / APK READY / TRUE DEVICE PENDING；+300 CI PASSED / APK READY / TRUE DEVICE PENDING；+299 CI PASSED / APK READY / TRUE DEVICE PENDING；+298 CI PASSED / APK READY / TRUE DEVICE PENDING；+297 CI PASSED / APK READY / TRUE DEVICE PENDING；+295 恢复真机成功、背景回归 PARTIAL；+293 DEVICE VISUAL BASELINE）
 
 > 本文件是唯一的当前接班入口，继续采用“总账 v2”。顶部是快速接班索引；标记后的正式记录按版本持续追加，不设总容量上限。
 >
@@ -8,9 +8,9 @@
 
 
 
-## 当前任务 · +320 命运之轮直接开始与面板透明（IMPLEMENTED / CI PENDING）
+## 当前交付 · +320 命运之轮直接开始与面板透明（CI PASSED / APK READY / TRUE DEVICE PENDING）
 
-2026-10-05 19:39用户授权两项：SPIN右边增加竖排“直接开始”，使用现有显示且不重抽；沉浸房间命运之轮设定面板半透明。基线+319功能5fcc2b35/交付9f4a5f19，本地同树cc66725；分支agent/v04276-fate-wheel-start，版本0.42.76+320。按钮位于SPIN与拉杆之间，读取已选且未锁定卷轴中央标签，首开无需转动；转动/单独重抽期间禁用。房间面板底色约65%不透明，文字完全不透明，独立于聊天底色避免叠加变实。验证与同签名APK待CI，真机待用户体验。
+2026-10-05 19:39用户授权两项：SPIN右边增加竖排“直接开始”，使用现有显示且不重抽；沉浸房间命运之轮设定面板半透明。基线+319功能5fcc2b35/交付9f4a5f19，本地同树cc66725；分支agent/v04276-fate-wheel-start，版本0.42.76+320。按钮位于SPIN与拉杆之间，读取已选且未锁定卷轴中央标签，首开无需转动；转动/单独重抽期间禁用。房间面板底色约65%不透明，文字完全不透明，独立于聊天底色避免叠加变实。完整Actions37305657345与专项37305657322通过，同签名[未发布+320 APK](https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-eda462918686630190f8)已就绪；真机观感待用户体验。
 
 ## 当前交付 · +319 每日起床时间与醒后疲劳（CI PASSED / APK READY / TRUE DEVICE PENDING）
 
@@ -2817,3 +2817,14 @@ Draft Release 403275161，draft=true，target精确对应 5fcc2b35fac438ce253d03
 - 新按钮在SPIN与原拉杆之间，44px触控宽度、竖排“直接开始”，窄屏缩放SPIN以容纳；原SPIN和拉杆保留。直接读取当前选中未锁定卷轴的中央显示值，经同一受限Bridge打开原新建房间确认流程；没有转动、随机抽取、模型请求或自动开场。首次显示、重抽后、增删标签后的显示都从当前卷轴读，转动或单独重抽中禁用并在方法入口复验。原抽签确认入口保持。
 - 沉浸房间中已确认设定条使用约65%不透明背景，标题与正文不降低透明度；设定条移到聊天底色之外，避免两层半透明叠加遮住背景。其余聊天透明度仍按原设置。
 - 页面实际JavaScript通过本地执行验证：初始中央值无需转动、已有结果与显示值不同、正负循环位置、选中/锁定筛选、转动与单独重抽限制、原确认payload。源码145/148项本地通过，3项缺完整桌宠帧/动效/Kotlin编译器，保留在完整CI恢复后验证。当前环境浏览器下载不完整，未把手机布局或面板观感记为已真机验证；CI和未发布同签名APK完成后回填。
+
+
+### +320 最终CI与同签名APK交付（2026-10-05）
+
+功能本地c440ca7，远端3420d05bf123b75cd66f5fc2d818acf253d8bc4f，源码tree均为856d20101d48cc3c3195e7062ea7199aea46f079；分支agent/v04276-fate-wheel-start。产品改动仅命运之轮HTML和沉浸房间页面，本批108个文件中，其余主要来自既有版本门的兼容列表更新、构建目标与总账，未变其他产品逻辑。
+
+完整Actions37305657345 SUCCESS（原生job111748625127、build-apk job111750566597），专项Actions37305657322 SUCCESS。日志确认1340项Flutter全量、319项专项、18项原生、148项源码门通过；Kotlin、Flutter分析、arm64 Release编译、持久签名与全部包内资源一致性核验成功。本地环境缺少原始桌宠帧、动效和Kotlin编译器的3项由完整CI恢复验证，没有跳过任何门。
+
+Draft Release403677991，draft=true，target精确对应3420d05bf123b75cd66f5fc2d818acf253d8bc4f；下载 https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-eda462918686630190f8 。APK asset612486610，AI-Companion-v0.42.76-320-Fate-Wheel-Start-APK.apk，734505781 bytes，uploaded；SHA-256 90de92713ae775f5c6c63a8b5ff6102f09b0652fd7695f9602586c12c195a373，GitHub资产digest与成功构建记录相同。签名SHA-256 305eb3d80983b963c64818ddf1ad561f279de6d47b3ed2c781ada448c7c25148，沿用+319持久私测签名，可覆盖安装。未合并main、未正式发布；收尾总账[skip ci]独立提交。
+
+真机检查两项即可：首次打开命运之轮，直接开始应使用当前选中的卷轴中央显示并打开原新建房间确认；SPIN、拉杆与长按重抽仍可使用。进入该房间后，命运之轮设定条能透出背景，标题和内容文字清晰。CI验证不能替代手机间距与透明观感；状态CI PASSED / APK READY / TRUE DEVICE PENDING。+319起床时间与游戏分享额度继续沿用。
