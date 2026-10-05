@@ -17,6 +17,9 @@ class DreamStore {
   static const leaseKey = 'nightly_dream_lease_until';
   static const busyLeases = ['chat_turn_lease', 'cedar_toy_action_lease_until',
     'post_turn_memory_lease', 'conversation_summary_lease_until'];
+  static const chatColumns = ['id', 'role', 'content', 'created_at', 'worldbook_context_json'];
+  static const webColumns = ['id', 'title', 'summary', 'read_at', 'read_state',
+    'semantic_state', 'lifecycle_state'];
 
   Future<Map<String, dynamic>> load() async => DreamContract.decode(await db.getSetting(stateKey));
 
@@ -75,6 +78,7 @@ class DreamStore {
           .map((id) => id.substring(prefix.length + 1)).toSet().take(600).toList();
       if (selected.isEmpty) continue;
       final rows = await handle.query(prefix == 'chat' ? 'messages' : 'public_web_candidates',
+        columns: prefix == 'chat' ? chatColumns : webColumns,
         where: 'id IN (${List.filled(selected.length, '?').join(',')})', whereArgs: selected);
       final excluded = prefix == 'chat' ? await roleplayUsers(handle, rows) : <String>{};
       for (final row in rows) {
@@ -156,12 +160,14 @@ class DreamStore {
     final state = await load();
     final valid = await usableInsights(state);
     final last = DreamContract.decode(await db.getSetting(diagnosticKey));
+    final status = last['status'] == 'preparing' && !await db.isLocalLeaseHeld(leaseKey)
+        ? 'interrupted_or_preempted' : DreamContract.string(last['status']);
     return {'enabled': await db.getSetting(enabledKey) != '0',
       'last_completed_at': DreamContract.number(state['last_completed_at']),
       'last_weekly_at': DreamContract.number(state['last_weekly_at']),
       'insight_count': DreamContract.records(state['insights']).length,
       'usable_insight_count': valid.length, 'history_count': DreamContract.records(state['history']).length,
-      'last_status': DreamContract.string(last['status']),
+      'last_status': status,
       'last_source_count': DreamContract.number(last['source_count']),
       'last_changed_count': DreamContract.number(last['changed_count']),
       'has_backlog': last['has_backlog'] == true,

@@ -292,6 +292,14 @@ void main() {
       final settings = ((exported['tables'] as Map)['settings'] as List).cast<Map>();
       final saved = settings.singleWhere((s) => s['key'] == DreamStore.stateKey)['value'];
       expect(saved, await db.getSetting(DreamStore.stateKey));
+      final restored = await AppDatabase.createForTesting(databaseFactoryFfi);
+      try {
+        await restored.importAll(exported);
+        expect(await restored.getSetting(DreamStore.stateKey), saved);
+        expect(await DreamStore(restored).prompt(), contains(change()['understanding']));
+        expect(await DreamEngine(restored, reviewer: (_) async => throw StateError('must not run twice'))
+            .maybeDream(now: night), isFalse);
+      } finally { await restored.closeForTesting(); }
     });
     test('malformed saved state is not silently replaced', () async {
       await seed();

@@ -53,6 +53,7 @@ class DreamMaterial {
     var webId = DreamContract.string(cursor['web_id']);
     if (bootstrap) webAt = recentFloor;
     final pages = await handle.query('public_web_candidates',
+      columns: DreamStore.webColumns,
       where: "read_state = 'verified' AND semantic_state = 'valid' AND lifecycle_state NOT IN ('discarded','declined','user_deleted') AND (read_at > ? OR (read_at = ? AND id > ?)) AND read_at <= ?",
       whereArgs: [webAt, webAt, webId, now.millisecondsSinceEpoch],
       orderBy: 'read_at ASC, id ASC', limit: 12);
