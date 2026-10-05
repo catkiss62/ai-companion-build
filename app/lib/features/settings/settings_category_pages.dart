@@ -1087,8 +1087,8 @@ class _MemoryGrowthSettingsPageState extends State<MemoryGrowthSettingsPage> {
       ),
       _GrowthSetting(
         'ai_self_reflection_enabled',
-        'AI Self 自我整理',
-        '低频从真实长期互动形成稳定自我认识。',
+        '午夜梦境与自我理解',
+        '午夜空闲时回看经历，修订自己的理解；错过后补做，可在内在状态中查看。',
       ),
     ]),
     _GrowthGroup('关系与场景', [

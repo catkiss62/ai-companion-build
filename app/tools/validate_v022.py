@@ -136,17 +136,23 @@ def check_conflict_semantics() -> None:
             fail(f'post-turn memory semantic prompt/application missing: {token}')
 
     reflection = (ROOT / 'lib/core/self/ai_self_reflection_engine.dart').read_text(encoding='utf-8')
-    for token in (
-        'action=reinforce',
-        'action=replace',
-        'semantic=inference',
-        'evidence=${e.evidenceCount}',
-        'semanticType:',
-        'evidenceMode:',
-        'targetMemoryId:',
-    ):
-        if token not in reflection:
-            fail(f'AI Self v15 conflict semantics missing: {token}')
+    if 'DreamEngine(db' in reflection:
+        contract = (ROOT/'lib/core/self/dream_contract.dart').read_text(encoding='utf-8')
+        for token in ("'retire'", "'history'", "'tentative'", "'reinterpretation'"):
+            if token not in contract:
+                fail(f'dream revision semantics missing: {token}')
+    else:
+        for token in (
+            'action=reinforce',
+            'action=replace',
+            'semantic=inference',
+            'evidence=${e.evidenceCount}',
+            'semanticType:',
+            'evidenceMode:',
+            'targetMemoryId:',
+        ):
+            if token not in reflection:
+                fail(f'AI Self v15 conflict semantics missing: {token}')
 
 
 def check_retrieval_semantics() -> None:

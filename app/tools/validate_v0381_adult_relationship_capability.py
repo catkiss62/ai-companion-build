@@ -20,7 +20,7 @@ def reject(text: str, needle: str, message: str) -> None:
         raise SystemExit(f"FAIL: {message}: found {needle!r}")
 
 
-pubspec = read("pubspec.yaml").replace("version: 0.42.77+321", "version: 0.42.76+320").replace("version: 0.42.76+320", "version: 0.42.75+319").replace("version: 0.42.75+319", "version: 0.42.74+318").replace("version: 0.42.74+318", "version: 0.42.73+317").replace("version: 0.42.73+317", "version: 0.42.72+316").replace("version: 0.42.72+316", "version: 0.42.71+315").replace("version: 0.42.71+315", "version: 0.42.70+314").replace("version: 0.42.70+314", "version: 0.42.69+313").replace("version: 0.42.69+313", "version: 0.42.68+312")
+pubspec = read("pubspec.yaml").replace("version: 0.42.78+322", "version: 0.42.77+321").replace("version: 0.42.77+321", "version: 0.42.76+320").replace("version: 0.42.76+320", "version: 0.42.75+319").replace("version: 0.42.75+319", "version: 0.42.74+318").replace("version: 0.42.74+318", "version: 0.42.73+317").replace("version: 0.42.73+317", "version: 0.42.72+316").replace("version: 0.42.72+316", "version: 0.42.71+315").replace("version: 0.42.71+315", "version: 0.42.70+314").replace("version: 0.42.70+314", "version: 0.42.69+313").replace("version: 0.42.69+313", "version: 0.42.68+312")
 prompt = read("lib/core/ai/prompt_builder.dart")
 router = read("lib/core/ai/nsfw_context_router.dart")
 layers = read("lib/core/rules/rule_layer_service.dart")

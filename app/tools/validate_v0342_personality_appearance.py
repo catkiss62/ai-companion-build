@@ -23,7 +23,7 @@ def png_contract(relative: str, size: tuple[int, int], digest: str) -> None:
     assert sha256(data).hexdigest() == digest, relative
 
 
-pubspec = read("pubspec.yaml").replace("version: 0.42.77+321", "version: 0.42.76+320").replace("version: 0.42.76+320", "version: 0.42.75+319").replace("version: 0.42.75+319", "version: 0.42.74+318").replace("version: 0.42.74+318", "version: 0.42.73+317").replace("version: 0.42.73+317", "version: 0.42.72+316").replace("version: 0.42.72+316", "version: 0.42.71+315").replace("version: 0.42.71+315", "version: 0.42.70+314").replace("version: 0.42.70+314", "version: 0.42.69+313").replace("version: 0.42.69+313", "version: 0.42.68+312")
+pubspec = read("pubspec.yaml").replace("version: 0.42.78+322", "version: 0.42.77+321").replace("version: 0.42.77+321", "version: 0.42.76+320").replace("version: 0.42.76+320", "version: 0.42.75+319").replace("version: 0.42.75+319", "version: 0.42.74+318").replace("version: 0.42.74+318", "version: 0.42.73+317").replace("version: 0.42.73+317", "version: 0.42.72+316").replace("version: 0.42.72+316", "version: 0.42.71+315").replace("version: 0.42.71+315", "version: 0.42.70+314").replace("version: 0.42.70+314", "version: 0.42.69+313").replace("version: 0.42.69+313", "version: 0.42.68+312")
 defaults = read("lib/core/rules/rule_layer_defaults.dart")
 grouping = read("lib/core/rules/rule_layer_grouping.dart")
 database = read("lib/core/database/app_database.dart")

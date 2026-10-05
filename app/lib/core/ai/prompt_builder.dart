@@ -1,3 +1,4 @@
+import '../self/dream_store.dart';
 import '../desire/daily_wake_store.dart';
 import '../reflection/deep_reflection_contract.dart';
 import '../reflection/deep_reflection_store.dart';
@@ -222,6 +223,8 @@ class PromptBuilder {
         ? await DeepReflectionStore(db).context(now: instant) : null;
     final wishContext = !freshTopicSourceOnly && !worldBookContext.hasRoleplay
         ? await WishStore(db).prompt(now: instant, includeCompleted: true) : '';
+    final dreamContext = await DreamStore(db).prompt(
+      freshSourceOnly: freshTopicSourceOnly, roleplay: worldBookContext.hasRoleplay);
     final dailyContinuity = freshTopicSourceOnly
         ? const <DailyContinuityRecord>[]
         : await db.latestDailyContinuity(limit: 2);
@@ -416,6 +419,7 @@ class PromptBuilder {
     if (somaticSection.isNotEmpty) context.writeln(somaticSection);
     context.writeln(emotionEpisodeSection);
     if (moodSection.isNotEmpty) context.writeln(moodSection);
+    if (dreamContext.isNotEmpty) context.writeln(dreamContext);
     if (wishContext.isNotEmpty) context.writeln(wishContext);
     if (deepReflection != null) context.writeln(deepReflection.prompt);
     context.writeln(_awarenessSection(awareness, instant));

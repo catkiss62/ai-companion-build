@@ -1,3 +1,4 @@
+import '../self/dream_engine.dart';
 import 'proactive_delivery_budget.dart';
 import '../reflection/deep_reflection_engine.dart';
 import '../reflection/deep_reflection_store.dart';
@@ -344,6 +345,7 @@ class ProactiveEngine {
     await thoughtConsolidation.maybeRun();
     await thoughtLifecycle.advance(forceForDebug: forceForDebug);
     await WishEngine(db).maybeRefresh();
+    await DreamEngine(db).maybeDream();
     await DeepReflectionEngine(db).maybePrepare();
 
     final perceptionSnapshot = await perception.capture(

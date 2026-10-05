@@ -414,9 +414,15 @@ def check_async_worker_ownership() -> None:
             fail(f'memory maintenance fence missing: {token}')
 
     self_reflection = (ROOT/'lib/core/self/ai_self_reflection_engine.dart').read_text(encoding='utf-8')
-    for token in ("'ai_self_reflection_lease_until'", 'self_reflection_run:$total:$observationIndex', 'self_reflection_run:$total:thought'):
-        if token not in self_reflection:
-            fail(f'AI Self retry fence token missing: {token}')
+    if 'DreamEngine(db' in self_reflection:
+        dream = (ROOT/'lib/core/self/dream_store.dart').read_text(encoding='utf-8')
+        for token in ('fence.matches(txn)', 'handle.transaction', 'expectedRaw'):
+            if token not in dream:
+                fail(f'nightly dream ownership fence missing: {token}')
+    else:
+        for token in ("'ai_self_reflection_lease_until'", 'self_reflection_run:$total:$observationIndex', 'self_reflection_run:$total:thought'):
+            if token not in self_reflection:
+                fail(f'AI Self retry fence token missing: {token}')
 
     self_drive = (ROOT/'lib/core/desire/self_drive_engine.dart').read_text(encoding='utf-8')
     if self_drive.count('stillOwn()') < 5:

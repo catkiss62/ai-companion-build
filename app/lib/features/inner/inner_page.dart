@@ -1,10 +1,11 @@
 import 'package:flutter/material.dart';
 
-import '../../core/ai/deepseek_client.dart';
+import '../../core/self/dream_engine.dart';
+import '../../core/self/dream_store.dart';
+import '../../core/self/dream_contract.dart';
 import '../../core/database/app_database.dart';
 import '../../core/grounding/grounding_engine.dart';
 import '../../core/grounding/grounding_snapshot.dart';
-import '../../core/self/ai_self_reflection_engine.dart';
 import '../../core/desire/desire_engine.dart';
 import '../../core/desire/proactive_engine.dart';
 import '../../core/desire/self_drive_engine.dart';
@@ -65,6 +66,8 @@ class _InnerPageState extends State<InnerPage> {
   bool moeExpressionEnabled = true;
   bool busy = false;
   String? result;
+  List<Map<String, dynamic>> dreamInsights = const [];
+  Map<String, dynamic> dreamState = const {};
 
   @override
   void initState() {
@@ -94,6 +97,8 @@ class _InnerPageState extends State<InnerPage> {
     relationshipEvents = await db.recentRelationshipEvents(limit: 10);
     rhythmProfile = await proactiveRhythm.profile();
     stats = await db.memoryStats();
+    dreamState = await DreamStore(db).load();
+    dreamInsights = await DreamStore(db).usableInsights(dreamState);
     try {
       delayedProactiveTest =
           await AndroidBridge.instance.delayedProactiveTestStatus();
@@ -124,20 +129,14 @@ class _InnerPageState extends State<InnerPage> {
   Future<void> _selfReflect() async {
     setState(() {
       busy = true;
-      result = '正在用真实长期历史做一次 AI Self 整理…';
+      result = '正在回看经历，整理目前对自己的理解…';
     });
-    final ai = DeepSeekClient();
     try {
-      final reflected = await AiSelfReflectionEngine(
-        db: db,
-        client: ai,
-        desire: desire,
-      ).maybeReflect(force: true);
-      result = reflected ? '已形成/强化 AI Self。' : '这次没有足够证据形成新的 AI Self。';
-    } catch (e) {
-      result = e.toString();
+      final completed = await DreamEngine(db).maybeDream(manual: true);
+      result = completed ? '梦境整理已完成；当前理解可以保留不变。' : '暂未执行：可能已完成今日整理、正在忙碌或等待重试。';
+    } catch (_) {
+      result = '这次未完成，原有理解和待整理内容已保留。';
     } finally {
-      ai.close();
       await _refresh();
       if (mounted) setState(() => busy = false);
     }
@@ -550,10 +549,35 @@ class _InnerPageState extends State<InnerPage> {
           ),
         ),
         const SizedBox(height: 8),
+        Card(
+          child: Padding(
+            padding: const EdgeInsets.all(12),
+            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Text('梦境与自我理解', style: Theme.of(context).textTheme.titleSmall),
+              const SizedBox(height: 6),
+              Text(dreamState['last_success_day'] is String
+                  ? '最近整理：${dreamState['last_success_day']} · 经历变化时可以继续修订'
+                  : '午夜在空闲时整理，错过后会补上。'),
+              if (dreamInsights.isEmpty) const Text('尚未形成有可核对出处的理解。'),
+              for (final item in dreamInsights) Padding(
+                padding: const EdgeInsets.only(top: 10),
+                child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                  Text('${item['stance'] == 'aspiration' ? '想尝试' : item['stance'] == 'considered' ? '目前认可' : '暂时理解'} · ${item['understanding']}'),
+                  if (DreamContract.string(item['uncertainty']).isNotEmpty)
+                    Text('仍在想：${item['uncertainty']}'),
+                  if (DreamContract.string(item['choice']).isNotEmpty)
+                    Text('可能影响的选择：${item['choice']}'),
+                  if (DreamContract.string(item['reason']).isNotEmpty)
+                    Text('缘由：${item['reason']}'),
+                ]),
+              ),
+            ]),
+          ),
+        ),
         OutlinedButton.icon(
           onPressed: busy ? null : _selfReflect,
           icon: const Icon(Icons.self_improvement),
-          label: const Text('整理 AI Self'),
+          label: const Text('梦境整理'),
         ),
         const SizedBox(height: 8),
         FilledButton.tonalIcon(

@@ -56,8 +56,14 @@ require(EXTRACTOR, "return;", "roleplay hard extraction exit")
 require(EXTRACTOR, "knowledgeReferenceActive", "knowledge memory gate")
 require(EXTRACTOR, "user_evidence_quote", "verbatim user evidence for knowledge turns")
 
-require(SELF_ENGINE, "evidence_message_ids", "model evidence citations")
-require(SELF_ENGINE, "ai_self_tendency", "autonomous self tendency lane")
+if 'DreamEngine(db' in SELF_ENGINE:
+    DREAM = (ROOT / "lib/core/self/dream_store.dart").read_text(encoding="utf-8")
+    require(DREAM, 'provenance.hasRoleplay', 'dream roleplay isolation')
+    require(DREAM, 'roleplayUsers', 'paired user roleplay exclusion')
+    require(DREAM, 'fingerprint', 'original evidence integrity')
+else:
+    require(SELF_ENGINE, "evidence_message_ids", "model evidence citations")
+    require(SELF_ENGINE, "ai_self_tendency", "autonomous self tendency lane")
 require(SELF_POLICY, "requested.length < 3", "multi-message evidence floor")
 require(SELF_POLICY, "Duration(hours: 2)", "independent time buckets")
 require(SELF_POLICY, "evidence.length >= 4 && days.length >= 2", "cross-day promotion")

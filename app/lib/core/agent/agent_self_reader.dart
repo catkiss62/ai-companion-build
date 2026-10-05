@@ -1,3 +1,4 @@
+import '../self/dream_store.dart';
 import '../database/app_database.dart';
 import '../platform/android_bridge.dart';
 import '../personality/playful_form_state.dart';
@@ -188,6 +189,12 @@ class AgentSelfReader {
       detail: '用户明确请求时可经敏感页 Gate 截取一张当前屏幕交给视觉模型；截图不保存。自主截屏与 Desire 调度尚未实现。',
     ),
     AgentSystemFact(
+      id: 'nightly_dream_v04278',
+      title: '午夜梦境与可修订的自我理解',
+      status: 'implemented_bounded',
+      detail: '午夜空闲时整理真实经历，错过后补做；保留可修订的理解、出处和历史，参与普通聊天与已有自主游戏选择，不自动汇报、不新增行动权限。整理完成或提示注入不证明行为必然改变。',
+    ),
+    AgentSystemFact(
       id: 'personality_learning_phase2b',
       title: '人格学习低权重使用层',
       status: 'implemented_bounded_bias',
@@ -230,6 +237,8 @@ class AgentSelfReader {
       userRows: userRows,
       autonomousRows: autonomousRows,
       growthStats: growthStats,
+      dreamStats: scope == AgentSelfReadScope.growth || scope == AgentSelfReadScope.all
+          ? await DreamStore(db).diagnostics() : const {},
       form: form,
     );
   }
@@ -244,6 +253,7 @@ class AgentSelfReader {
     List<Map<String, Object?>> userRows = const <Map<String, Object?>>[],
     List<Map<String, Object?>> autonomousRows = const <Map<String, Object?>>[],
     Map<String, Object?> growthStats = const <String, Object?>{},
+    Map<String, Object?> dreamStats = const <String, Object?>{},
     PlayfulFormState? form,
   }) {
     final factLines = <String>[];
@@ -301,6 +311,11 @@ class AgentSelfReader {
 
     final growthLines = <String>[];
     if (scope == AgentSelfReadScope.growth || scope == AgentSelfReadScope.all) {
+      if (dreamStats.isNotEmpty) growthLines.add(
+        '[DREAM_RUNTIME enabled=${dreamStats['enabled'] == true} '
+        'completed_at=${_safeCount(dreamStats['last_completed_at'])} '
+        'usable_understandings=${_safeCount(dreamStats['usable_insight_count'])}] '
+        '有界元数据，不含理解正文；完成整理不证明性格或行动已经改变。');
       final statusCounts = _safeCountMap(growthStats['statusCounts']);
       final latestObservedAt =
           (growthStats['latestObservedAt'] as num?)?.toInt() ?? 0;
@@ -338,7 +353,7 @@ ${outcomeLines.isEmpty ? '最近 14 天没有可读取的 terminal tool Outcome�
 '''.trim(),
       if (growthLines.isNotEmpty) '''
 【PERSONALITY LEARNING STATUS / 人格学习与成长状态】
-这些是本次从本地学习表真实读取的有界元数据，只能据此说明当前 Phase 2B 有界倾向阶段、计数、成熟度分布和最近观察时间。结果没有读取任何候选命题、subject、证据原句、用户/AI 消息或模型提案；不得补写“学到了什么”，也不得把一次读取夸大成持续数小时的查看。
+这些是本次从本地学习表真实读取的有界元数据，只能据此说明 Phase 2B 用户偏好使用、梦境整理状态、计数和最近时间。结果没有读取任何候选命题、subject、证据原句、用户/AI 消息或模型提案；不得补写“学到了什么”，也不得把一次读取夸大成持续数小时的查看。
 ${growthLines.join('\n')}
 '''.trim(),
       '''

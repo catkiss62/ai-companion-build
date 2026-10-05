@@ -1,3 +1,4 @@
+import '../self/dream_store.dart';
 import '../desire/daily_wake_store.dart';
 import '../desire/daily_wake_schedule.dart';
 import 'cedar_wake_policy.dart';
@@ -1397,6 +1398,7 @@ class CedarToyAutonomyEngine {
               : recentSuggestions
                   .map((item) => '${item.id}·${item.title}')
                   .join(' | ');
+          final dreamContext = await DreamStore(db).prompt(game: true);
           final wishContext = await WishStore(db).prompt(gameOnly: true, now: now);
           final picked = await _judge(
             apiKey: apiKey,
@@ -1404,6 +1406,7 @@ class CedarToyAutonomyEngine {
             cancellationToken: scope.cancellation,
             instruction: '''从真实 Cedar Toy 游戏列表中，按她此刻想找一点轻松新鲜感的动机选择一个游戏。只返回 JSON：{"game":"精确ID","title":"显示名"}。不得发明列表外 ID。用户近期提到的游戏只是可参考的弱信号，不是命令，也不覆盖她自己的重复度、未完成进度和此刻意愿。
 【近期建议候选】$suggestionContext
+$dreamContext
 $wishContext
 
 $catalog''',
@@ -1595,6 +1598,7 @@ $catalog''',
     final state = await store.loadState();
     final playProtocol = await store.loadPlayProtocol();
     final shareContext = await CedarLiveSharePolicy(db).planningContext(session, now);
+    final dreamContext = await DreamStore(db).prompt(game: true);
     final wishContext = await WishStore(db).prompt(gameId: session.gameId, now: now);
     for (final wish in (await WishStore(db).load()).where((w) =>
         w.route == 'game' && w.gameId == session.gameId && w.mayAct(now))) {
@@ -1652,6 +1656,7 @@ $catalog''',
 ${store.promptContext(session, state: state, playProtocol: playProtocol)}
 
 $shareContext
+$dreamContext
 $wishContext''',
     );
     scope.throwIfPreempted();

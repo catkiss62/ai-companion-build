@@ -85,7 +85,7 @@ lane_files = {
     "core/ai/reasoning_translation_service.dart": "reasoning_translation",
     "core/immersive/immersive_nsfw_router.dart": "immersive_route",
     "core/immersive/immersive_room_controller.dart": "immersive_reply",
-    "core/self/ai_self_reflection_engine.dart": "self_reflection",
+    "core/self/dream_engine.dart": "nightly_dream",
 }
 for relative, lane in lane_files.items():
     require(f"lib/{relative}", [f"usageLane: '{lane}'"])

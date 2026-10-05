@@ -1,3 +1,4 @@
+import '../self/dream_store.dart';
 import '../desire/daily_wake_store.dart';
 import '../mood/mood_service.dart';
 import 'dart:convert';
@@ -278,6 +279,7 @@ class PreflightDiagnosticsService {
         'memory_maintenance_lease_until',
         'thought_consolidation_lease_until',
         'ai_self_reflection_lease_until',
+        DreamStore.leaseKey,
         'conversation_summary_lease_until',
         'long_running_maintenance_lease',
       ];
@@ -1090,6 +1092,7 @@ class PreflightDiagnosticsService {
             await db.getSetting('presence_last_gate_breakdown') ?? '',
           ),
         },
+        'nightlyDream': await DreamStore(db).diagnostics(),
         'deepReflection': _safeJsonObject(
           await db.getSetting('deep_reflection_last_execution_v1') ?? '{}',
         ),
