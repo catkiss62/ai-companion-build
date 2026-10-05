@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:io';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 import 'package:ai_companion_localfirst/core/database/app_database.dart';
@@ -692,7 +693,13 @@ void main() {
           (s) => s['key'] == DreamStore.stateKey,
         )['value'];
         expect(saved, await db.getSetting(DreamStore.stateKey));
-        final restored = await AppDatabase.createForTesting(databaseFactoryFfi);
+        final restoredRoot = await Directory.systemTemp.createTemp(
+          'dream-restore-',
+        );
+        final restored = await AppDatabase.createForTesting(
+          databaseFactoryFfi,
+          path: '${restoredRoot.path}/restored.db',
+        );
         try {
           await restored.importAll(exported);
           expect(await restored.getSetting(DreamStore.stateKey), saved);
@@ -709,6 +716,7 @@ void main() {
           );
         } finally {
           await restored.closeForTesting();
+          await restoredRoot.delete(recursive: true);
         }
       },
     );
