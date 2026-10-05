@@ -1,3 +1,6 @@
+import '../desire/daily_wake_store.dart';
+import '../desire/daily_wake_schedule.dart';
+import 'cedar_wake_policy.dart';
 import '../wishes/wish_store.dart';
 import 'dart:async';
 import 'dart:convert';
@@ -431,6 +434,8 @@ class CedarContinuationGatePolicy {
     required double strongestGameThought,
     required bool activelyWatched,
     bool sustained = false,
+    bool userRequested = false,
+    DateTime? wakeAt,
     int recentActionCount = 0,
     double engagementAdjustment = 0,
     double? saturationPenaltyOverride,
@@ -439,7 +444,7 @@ class CedarContinuationGatePolicy {
     final localNow = now.toLocal();
     final fatigue = max(
       storedFatigue.clamp(0.0, 1.0).toDouble(),
-      DesireCorePolicy.circadianFatigueFloor(localNow),
+      DesireCorePolicy.circadianFatigueFloor(localNow, wakeAt: wakeAt),
     );
     final restScore = DesireCorePolicy.fatigueRestScore(
       fatigue,
@@ -462,16 +467,11 @@ class CedarContinuationGatePolicy {
             engagementAdjustment.clamp(-0.28, 0.18))
         .clamp(0.0, 0.92)
         .toDouble();
-    if (!activelyWatched && localNow.hour < 7) {
-      final wakeAt = DateTime(
-        localNow.year,
-        localNow.month,
-        localNow.day,
-        7,
-      );
+    final dailyWakeAt = DailyWakeSchedule.boundary(localNow, wakeAt);
+    if (!activelyWatched && !userRequested && localNow.isBefore(dailyWakeAt)) {
       return CedarContinuationGateDecision(
         allowed: false,
-        delay: wakeAt.difference(localNow),
+        delay: dailyWakeAt.difference(localNow),
         reason: 'night_sleep',
         effectiveFatigue: fatigue,
         playScore: playScore,
@@ -671,6 +671,9 @@ class CedarToyAutonomyEngine {
       _CedarExecutionScope scope,
     ) body,
   }) async {
+    if (await CedarWakePolicy.delay(await db.database, DateTime.now(), gameId: gameId) > Duration.zero) {
+      return const CedarAutonomyProgress('night_sleep');
+    }
     final acquired = await db.tryAcquireLocalLease(
       'cedar_toy_action_lease_until',
       holdFor: const Duration(minutes: 2),
@@ -746,6 +749,9 @@ class CedarToyAutonomyEngine {
     required CedarToyActivityStore store,
     bool sustained = false,
   }) async {
+    final wake = await DailyWakeStore.read(await db.database, now);
+    final userRequested = wake.beforeWake(now) &&
+        await CedarWakePolicy.delay(await db.database, now, gameId: session.gameId) == Duration.zero;
     final snapshot = await db.loadDesire();
     final thoughts = await db.activeThoughts(limit: 40);
     var strongestGameThought = 0.0;
@@ -788,6 +794,8 @@ class CedarToyAutonomyEngine {
       reflection: snapshot.drives[DriveKey.reflection] ?? 0.0,
       strongestGameThought: strongestGameThought,
       activelyWatched: pace.isWatching,
+      userRequested: userRequested,
+      wakeAt: wake.wakeAt,
       sustained: sustained,
       recentActionCount: recentActionCount,
       engagementAdjustment:
@@ -816,6 +824,8 @@ class CedarToyAutonomyEngine {
         'positiveActivation': fatigueAffect.positiveActivation,
         'negativeRestlessness': fatigueAffect.negativeRestlessness,
         'sleepDebt': fatigueAffect.sleepDebt,
+        'dailyWake': wake.toJson(now),
+        'userRequested': userRequested,
         'evaluatedAt': now.millisecondsSinceEpoch,
       }),
     );
@@ -868,6 +878,7 @@ class CedarToyAutonomyEngine {
   }) async {
     if ((await db.getSetting('cedar_toy_enabled')) == '0' ||
         (await db.getSetting(enabledKey)) == '0') return const [];
+    if (await CedarWakePolicy.delay(await db.database, now) > Duration.zero) return const [];
     if ((await _readToken()).isEmpty) return const [];
     final continuationDelay = await this.continuationDelay(now: now);
     // A checkpoint is not executable until the authoritative continuation
@@ -1025,6 +1036,9 @@ class CedarToyAutonomyEngine {
   }
 
   Future<CedarAutonomyAvailability> availability({required DateTime now}) async {
+    if (await CedarWakePolicy.delay(await db.database, now) > Duration.zero) {
+      return const CedarAutonomyAvailability(false, 'night_sleep');
+    }
     if ((await db.getSetting('cedar_toy_enabled')) == '0' ||
         (await db.getSetting(enabledKey)) == '0') {
       return const CedarAutonomyAvailability(false, 'disabled');
@@ -1072,7 +1086,10 @@ class CedarToyAutonomyEngine {
         (await db.getSetting(enabledKey)) == '0') return null;
     final token = await _readToken();
     if (token.isEmpty) return null;
-    return CedarToyActivityStore(db).nextContinuationDelay(now);
+    final delay = await CedarToyActivityStore(db).nextContinuationDelay(now);
+    if (delay == null) return null;
+    final wakeDelay = await CedarWakePolicy.delay(await db.database, now);
+    return wakeDelay > delay ? wakeDelay : delay;
   }
 
   /// The checkpoint gets one ordinary Desire competition while its clock is
@@ -1783,6 +1800,9 @@ $wishContext''',
     scope.throwIfPreempted();
     late McpToolOutcome outcome;
     try {
+      if (await CedarWakePolicy.delay(await db.database, DateTime.now(), gameId: session.gameId) > Duration.zero) {
+        return const CedarAutonomyProgress('night_sleep');
+      }
       outcome = await client.play(
         session.gameId,
         action,

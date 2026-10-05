@@ -1,3 +1,4 @@
+import 'core/desire/daily_wake_store.dart';
 import 'core/diagnostics/unhandled_error_recorder.dart';
 import 'dart:async';
 import 'dart:io';
@@ -74,6 +75,7 @@ class _StartupRecoveryRootState extends State<_StartupRecoveryRoot> {
           await AppDatabase.instance.database.timeout(const Duration(seconds: 30));
           await SnapshotRestoreCoordinator(AppDatabase.instance,
               PortableCompanionStorage()).ensureRecovered();
+          await DailyWakeStore.read(await AppDatabase.instance.database, DateTime.now());
           if (Platform.isAndroid) {
             try { await CalendarReminderStore(AppDatabase.instance).sync(); } catch (_) {}
           }

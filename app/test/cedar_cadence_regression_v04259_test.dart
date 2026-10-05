@@ -1,3 +1,4 @@
+import 'package:ai_companion_localfirst/core/desire/daily_wake_store.dart';
 import 'dart:convert';
 
 import 'package:ai_companion_localfirst/core/ai/deepseek_client.dart';
@@ -82,8 +83,8 @@ void main() {
       final progress = await engine.continueDue(now: now);
       // Night sleep remains authoritative. During daytime the real execution
       // used to overwrite recordPlay's two minutes with the sustained 15s gap.
-      if (now.toLocal().hour < 7) {
-        expect(progress.state, 'continuation_night_sleep');
+      if (taskId.isEmpty && (await DailyWakeStore.read(await db.database, now)).beforeWake(now)) {
+        expect(progress.state, 'not_due');
         expect(calls, 0);
         return;
       }

@@ -1,3 +1,4 @@
+import 'core/desire/daily_wake_store.dart';
 import 'core/diagnostics/unhandled_error_recorder.dart';
 import 'dart:async';
 import 'dart:io';
@@ -79,6 +80,9 @@ Future<void> companionBackgroundMain() async {
   while (true) {
     var interval = const Duration(minutes: 10);
     try {
+      if (await db.brainWorkAllowed()) {
+        await DailyWakeStore.read(await db.database, DateTime.now());
+      }
       final result = await orchestrator.runOnce(wakeReason: wakeReason);
       interval = result.nextDelay;
       await _clearBackgroundErrorSafely(db);

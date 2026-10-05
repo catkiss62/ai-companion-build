@@ -1,3 +1,4 @@
+import 'daily_wake_schedule.dart';
 import 'dart:math';
 
 import '../models/desire_state.dart';
@@ -103,6 +104,7 @@ class DesireCorePolicy {
     required DateTime now,
     Map<DriveKey, double> pulses = const {},
     bool userBusy = false,
+    DateTime? wakeAt,
   }) {
     final elapsedMinutes = snapshot.lastTickAt == null
         ? unitMinutes
@@ -149,7 +151,7 @@ class DesireCorePolicy {
     // Fatigue has a real circadian body component. Other drives retain their
     // own values: late-night attachment/curiosity is allowed to remain real,
     // while the body becomes progressively sleepier underneath it.
-    final circadianFloor = circadianFatigueFloor(now);
+    final circadianFloor = circadianFatigueFloor(now, wakeAt: wakeAt);
     drives[DriveKey.fatigue] = max(
       drives[DriveKey.fatigue] ?? 0.0,
       circadianFloor,
@@ -425,9 +427,11 @@ class DesireCorePolicy {
   /// Local wall-clock fatigue floor. The interpolation avoids a cliff at a
   /// particular bedtime and intentionally remains independent of the user's
   /// willingness to receive a message at that hour.
-  static double circadianFatigueFloor(DateTime now) {
-    final minute = now.hour * 60 + now.minute;
-    const points = <(int, double)>[
+  static double circadianFatigueFloor(DateTime now, {DateTime? wakeAt}) {
+    final minute = now.hour * 60 + now.minute + now.second / 60.0;
+    final wake = DailyWakeSchedule.boundary(now, wakeAt);
+    final wakeMinute = wake.hour * 60 + wake.minute;
+    final points = <(int, double)>[
       (0, 0.52),
       (60, 0.60),
       (120, 0.68),
@@ -435,9 +439,8 @@ class DesireCorePolicy {
       (240, 0.78),
       (300, 0.72),
       (360, 0.58),
-      (420, 0.40),
-      (480, 0.24),
-      (540, 0.16),
+      (wakeMinute, 0.54),
+      (wakeMinute + DailyWakeSchedule.settlingDuration.inMinutes, 0.16),
       (1080, 0.16),
       (1200, 0.18),
       (1320, 0.28),

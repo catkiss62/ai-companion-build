@@ -1,3 +1,4 @@
+import '../desire/daily_wake_store.dart';
 import '../reflection/deep_reflection_contract.dart';
 import '../reflection/deep_reflection_store.dart';
 import '../wishes/wish_store.dart';
@@ -117,6 +118,7 @@ class PromptBuilder {
     bool freshTopicSourceOnly = false,
   }) async {
     final instant = now ?? DateTime.now();
+    final wake = await DailyWakeStore.read(await db.database, instant);
     final weatherContext = await WeatherContext.forPrompt(db, instant);
     final baseQuery = (retrievalQuery ?? latestUserText).trim();
     var latestUserMessageId = '';
@@ -402,6 +404,8 @@ class PromptBuilder {
         ..writeln()
         ..writeln(_conversationResetSection(conversationResetAt));
     }
+    final wakingContext = wake.promptSection(instant);
+    if (wakingContext.isNotEmpty) context.writeln(wakingContext);
     if (somaticSection.isNotEmpty) context.writeln(somaticSection);
     context.writeln(emotionEpisodeSection);
     if (moodSection.isNotEmpty) context.writeln(moodSection);

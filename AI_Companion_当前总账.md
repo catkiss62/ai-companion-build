@@ -1,13 +1,17 @@
 # AI Companion · 当前总账
 
-更新时间：2026-10-05（+318 CI PASSED / APK READY / TRUE DEVICE PENDING；+317 CI PASSED / APK READY / TRUE DEVICE PENDING；+316 CI PASSED / APK READY / TRUE DEVICE PENDING；+315 CI PASSED / APK READY / TRUE DEVICE PENDING；+314 CI PASSED / APK READY / TRUE DEVICE PENDING；+313 CI PASSED / APK READY / TRUE DEVICE PENDING；+312 CI PASSED / APK READY / TRUE DEVICE PENDING；+311 CI PASSED / APK READY / TRUE DEVICE PENDING；+310 CI PASSED / APK READY / TRUE DEVICE PENDING；+309 CI PASSED / APK READY / TRUE DEVICE PENDING；+308 CI PASSED / APK READY / TRUE DEVICE PENDING；+307 CI PASSED / APK READY / USER DEVICE ACCEPTED；+306 CI PASSED / APK READY / TRUE DEVICE PENDING；+305 CI PASSED / APK READY / DEVICE REPORTED REPLY STALL；+304 CI PASSED / APK READY / TRUE DEVICE PENDING；+303 CI PASSED / APK READY / TRUE DEVICE PENDING；+302 CI PASSED / APK READY / TRUE DEVICE PENDING；+301 CI PASSED / APK READY / TRUE DEVICE PENDING；+300 CI PASSED / APK READY / TRUE DEVICE PENDING；+299 CI PASSED / APK READY / TRUE DEVICE PENDING；+298 CI PASSED / APK READY / TRUE DEVICE PENDING；+297 CI PASSED / APK READY / TRUE DEVICE PENDING；+295 恢复真机成功、背景回归 PARTIAL；+293 DEVICE VISUAL BASELINE）
+更新时间：2026-10-05（+319 IMPLEMENTED / LOCAL TARGETED PASSED / CI PENDING；+318 USER DEVICE ACCEPTED；+317 CI PASSED / APK READY / TRUE DEVICE PENDING；+316 CI PASSED / APK READY / TRUE DEVICE PENDING；+315 CI PASSED / APK READY / TRUE DEVICE PENDING；+314 CI PASSED / APK READY / TRUE DEVICE PENDING；+313 CI PASSED / APK READY / TRUE DEVICE PENDING；+312 CI PASSED / APK READY / TRUE DEVICE PENDING；+311 CI PASSED / APK READY / TRUE DEVICE PENDING；+310 CI PASSED / APK READY / TRUE DEVICE PENDING；+309 CI PASSED / APK READY / TRUE DEVICE PENDING；+308 CI PASSED / APK READY / TRUE DEVICE PENDING；+307 CI PASSED / APK READY / USER DEVICE ACCEPTED；+306 CI PASSED / APK READY / TRUE DEVICE PENDING；+305 CI PASSED / APK READY / DEVICE REPORTED REPLY STALL；+304 CI PASSED / APK READY / TRUE DEVICE PENDING；+303 CI PASSED / APK READY / TRUE DEVICE PENDING；+302 CI PASSED / APK READY / TRUE DEVICE PENDING；+301 CI PASSED / APK READY / TRUE DEVICE PENDING；+300 CI PASSED / APK READY / TRUE DEVICE PENDING；+299 CI PASSED / APK READY / TRUE DEVICE PENDING；+298 CI PASSED / APK READY / TRUE DEVICE PENDING；+297 CI PASSED / APK READY / TRUE DEVICE PENDING；+295 恢复真机成功、背景回归 PARTIAL；+293 DEVICE VISUAL BASELINE）
 
 > 本文件是唯一的当前接班入口，继续采用“总账 v2”。顶部是快速接班索引；标记后的正式记录按版本持续追加，不设总容量上限。
 >
 > 判断优先级：用户最新明确决定 > 当前 GitHub 源码与 Actions > 同时刻脱敏真机诊断/备份 > 本文件 > 冻结归档与 Git 历史。`DESIGNED`、`IMPLEMENTED`、`CI PASSED`、`APK READY`、`TRUE DEVICE PASSED`、`PENDING` 必须严格区分。
 
 
-## 当前交付 · +318 表情包整理与编辑（CI PASSED / APK READY / TRUE DEVICE PENDING）
+## 当前任务 · +319 每日起床时间与醒后疲劳（IMPLEMENTED / LOCAL TARGETED PASSED / CI PENDING）
+
+2026-10-05 08:08 用户授权实施 +318 APK 后讨论。用户明确白天游戏分享正常、不占普通主动次数是故意设计，禁止因本次清晨问题改为共用额度。每日零点后首次打开/运行检查保存 08:00—09:00 的一个起床时间；自主游戏及旧待发分享、主动额度夜间/白天边界、清晨门槛共用它。起床后 45 分钟困意平缓消退，只使用原疲劳竞争，不新增游戏概率或复杂睡眠模拟；不自动问候、不固定揉眼睛话术。保留明确请求的用户游戏与任务回报。当前分支 agent/v04275-daily-wake，基线 b9a8349（远端同树 47f9a903）；完整范围见 app/docs/DAILY_WAKE_v0.42.75.md。+318 用户已确认“ok，没有问题”，仅代表此次日常验收。
+
+## 前次交付 · +318 表情包整理与编辑（CI PASSED / APK READY / TRUE DEVICE PENDING）
 
 2026-10-05用户明确批准本窗口完整方案并开始：四套整合包A/B/Q版鲸鱼娘/大肥鱼，定点补动物和猫猫头描述，重整小分类，新增普通图片ZIP导入，选择提示不因外观不同拒选，编辑器仅保存生效且草稿异常退出丢弃。基线f64cf655/+317；开发分支agent/v04274-sticker-workbench。完整范围、附件对应、边界和验收清单见app/docs/STICKER_WORKBENCH_v0.42.74.md。原ID/路径和禁用策略保留，同ID覆盖不叠加；不改其他产品链路。代码、整合ZIP及同签名APK完成，完整Actions37235636484通过；真机待用户验收，最终证据见文末+318交付记录。
 
@@ -2776,3 +2780,14 @@ Draft Release403222682，draft=true，target精确对应3fb066ef；下载 https:
 另交付AI-Companion-Sticker-Bundle-v2.zip，51268495 bytes，SHA-256 ee07a0d4dad12981dc80edef0c14d31fc3f1fc15f78c040e14e4e7bed5bc20a6，已保存可下载。顺序A67/B85/Q版鲸鱼娘60/大肥鱼49；真实应用importZip连导两次仍四套，同ID全部replaced，无重复叠加；全部旧媒体字节原样保留。四套整合ZIP与用户原图/备份/诊断未写入公开仓库。
 
 使用：覆盖安装+318，再导入新整合ZIP，不需清空旧包。新描述和小分类随ZIP更新；后续手工编辑在应用独立保存，重新导入保留。普通ZIP按包名文件夹/描述文件名图片导入为同名大类和小类；同名覆盖，异名追加。真机观察261张顺序和描述、编辑草稿退出/强关取消、保存/重置/遮罩与键盘体验、重导入，以及AI表情选择自然度。CI PASSED / APK READY / TRUE DEVICE PENDING。未合并main、未正式发布；仅以[skip ci]收尾文档提交同步总账。
+
+
+## +319 实施记录 · 每日起床时间与醒后疲劳
+
+- 用户确认：每日本地零点后首次打开/运行时取当天 08:00—09:00 时间；游戏、游戏分享与普通主动额度同时跨越起床边界；困意延续 45 分钟而非 09:00 硬清零。游戏分享继续不占普通额度，不改白天分享机制；不增加额外游戏竞争修正。
+- 实现：每日期限记录存于 settings，SQLite 事务串行化首次抽取，前后台一致且随现有备份保留；晚打开按当天时间直接计算，不补演醒来。游戏新开/续玩/待发分享及最终发送复验使用同一记录；旧待发自主分享也延后，明确用户任务结果保留路径。夜间上限 2、白天总额及 14/19 点累计释放不变，冷却不因起床重置。
+- 疲劳：保留至 06:00 的原夜间曲线，再缓降到起床时下限 0.54；45 分钟内下限平缓降到 0.16。已有真实疲劳和睡眠债不强制清零；沿用 0.48 休息竞争阈值和原游戏得分。对话只注入当时醒神状态提示，无额外模型调用、后台逐步模拟、固定角色回复或自动起床消息。
+- 诊断：dailyWake 含当天起床、清醒参考时间、首次确定时间、醒神强度；游戏门槛和主动预算记录同一边界。仅 App 内部节律，无用户正文和私人作息文本。
+- 本地/CI/交付证据待验证后回填。用户真机仍待验收；不改桌宠、Live2D、模型路由、TTS 或表情包。
+
++319 本地专项与相关回归 81 项通过；analyze 无 error。源码门 145/148 本地通过，3 项缺构建期原始帧/动效/Kotlin 编译器，完整 CI 保留并验证。先前共玩边界误拦已修正且旧端到端测试通过；最终 APK 证据待 CI 回填。

@@ -1,3 +1,4 @@
+import '../desire/daily_wake_schedule.dart';
 enum ProactiveFrequencyMode {
   quiet,
   natural,
@@ -12,8 +13,8 @@ enum ProactiveFrequencyMode {
   };
 
   String get description =>
-      '白天9–14点可用$morningLimit次，14–19点累计$afternoonLimit次，'
-      '19–24点累计$dayLimit次；未用次数顺延。0–9点独立最多2次，不要求用完。'
+      '每日8–9点间自然起床，起床至14点可用$morningLimit次，14–19点累计$afternoonLimit次，'
+      '19–24点累计$dayLimit次；未用次数顺延。零点至起床独立最多2次，不要求用完。'
       '至少间隔${minimumGap.inMinutes}分钟，2小时最多$twoHourLimit次；切换档位不清零。';
 
   int get morningLimit => switch (this) {
@@ -45,7 +46,7 @@ enum ProactiveFrequencyMode {
     ProactiveFrequencyMode.frequent => 4,
   };
 
-  int releasedLimit(DateTime now) => now.hour < 9
+  int releasedLimit(DateTime now, {DateTime? wakeAt}) => ProactiveFrequencyPolicy.isNight(now, wakeAt: wakeAt)
       ? ProactiveFrequencyPolicy.nightLimit
       : now.hour < 14
       ? morningLimit
@@ -64,15 +65,16 @@ enum ProactiveFrequencyMode {
 
 abstract final class ProactiveFrequencyPolicy {
   static const nightLimit = 2;
-  static bool isNight(DateTime now) => now.hour < 9;
+  static bool isNight(DateTime now, {DateTime? wakeAt}) =>
+      now.isBefore(DailyWakeSchedule.boundary(now, wakeAt));
 
   // Construct wall-clock boundaries, rather than adding 24 hours across DST.
   static DateTime boundary(DateTime now, int hour) => now.isUtc
       ? DateTime.utc(now.year, now.month, now.day, hour)
       : DateTime(now.year, now.month, now.day, hour);
 
-  static DateTime windowStart(DateTime now) =>
-      boundary(now, isNight(now) ? 0 : 9);
+  static DateTime windowStart(DateTime now, {DateTime? wakeAt}) =>
+      isNight(now, wakeAt: wakeAt) ? boundary(now, 0) : DailyWakeSchedule.boundary(now, wakeAt);
 
   static const settingKey = 'proactive_frequency_mode';
   static const defaultKey = 'natural';

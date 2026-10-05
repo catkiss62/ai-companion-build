@@ -36,7 +36,7 @@ void main() {
 
     expect(decision.allowed, isFalse);
     expect(decision.reason, 'night_sleep');
-    expect(decision.delay, const Duration(hours: 2, minutes: 20));
+    expect(decision.delay, const Duration(hours: 4, minutes: 20));
     expect(decision.restScore, greaterThan(decision.playScore));
   });
 
@@ -52,7 +52,7 @@ void main() {
 
     expect(decision.allowed, isFalse);
     expect(decision.reason, 'night_sleep');
-    expect(decision.delay, const Duration(hours: 6));
+    expect(decision.delay, const Duration(hours: 8));
   });
 
   test('active night watching remains an explicit user-paced exception', () {

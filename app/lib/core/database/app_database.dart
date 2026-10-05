@@ -1,3 +1,5 @@
+import '../desire/daily_wake_store.dart';
+import '../mcp/cedar_wake_policy.dart';
 import '../desire/proactive_delivery_budget.dart';
 import '../reflection/deep_reflection_store.dart';
 import '../reflection/deep_reflection_contract.dart';
@@ -8166,6 +8168,8 @@ class AppDatabase {
     String? proactiveTriggerReason,
     bool enforceProactiveBudget = false,
     bool proactiveGameShare = false,
+    String? cedarShareThoughtId,
+    String? cedarShareGameId,
     DateTime? deliveryAt,
   }) async {
     if (message.attachments.any((item) => item.messageId != message.id)) {
@@ -8211,11 +8215,19 @@ class AppDatabase {
       }
 
       final sentAt = deliveryAt ?? DateTime.now();
+      if (cedarShareThoughtId != null &&
+          await CedarWakePolicy.delay(txn, sentAt, gameId: cedarShareGameId,
+              thoughtId: cedarShareThoughtId) > Duration.zero) {
+        return 'cedar_share_before_wake';
+      }
       if (enforceProactiveBudget) {
         // A candidate evaluated in daytime must not cross into the night
         // without the night motivation gate and writing context.
-        if (ProactiveFrequencyPolicy.isNight(sentAt) !=
-            ProactiveFrequencyPolicy.isNight(evaluationStartedAt)) {
+        final sendingWake = await DailyWakeStore.read(txn, sentAt);
+        final startingWake = await DailyWakeStore.read(txn, evaluationStartedAt);
+        if (ProactiveFrequencyPolicy.isNight(sentAt, wakeAt: sendingWake.wakeAt) !=
+            ProactiveFrequencyPolicy.isNight(evaluationStartedAt, wakeAt: startingWake.wakeAt) ||
+            DailyWakeStore.keyFor(sentAt) != DailyWakeStore.keyFor(evaluationStartedAt)) {
           return 'proactive_window_changed';
         }
         final budget = await ProactiveDeliveryBudget.read(txn, sentAt);

@@ -102,7 +102,7 @@ assert "action-expression reminder has removable A/B branches" in prompt_test
 
 for token in (
     "now.hour >= 5",
-    "now.hour < 9",
+    "ProactiveFrequencyPolicy.isNight(now, wakeAt: wakeAt)",
     "activityContext == 'screen_off'",
     "maxIdleBoost = 0.0",
     "thresholdPenalty = 0.10",
@@ -117,7 +117,7 @@ for token in (
 ):
     assert token in proactive, token
 assert "hour < 5" in rhythm
-assert "hour < 9" in rhythm
+assert "DailyWakeSchedule.boundary(instant, wakeAt)" in rhythm
 assert "return 'dawn'" in rhythm
 assert "ProactiveOutcomeFitPolicy.timing" in rhythm
 assert "ProactiveOutcomeFitPolicy.topic" in rhythm

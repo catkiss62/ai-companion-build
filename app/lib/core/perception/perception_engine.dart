@@ -1,3 +1,4 @@
+import '../desire/daily_wake_store.dart';
 import 'dart:math';
 
 import '../database/app_database.dart';
@@ -275,12 +276,14 @@ class PerceptionEngine {
     // opportunity, never as an availability fact and never once per heartbeat.
     if (!screenInteractive) {
       final current = await db.loadDesire();
+      final wake = await DailyWakeStore.read(await db.database, now);
       final decision = ScreenOffContactPolicy.evaluate(
         now: now,
         screenOffAt: screenOffAt,
         lastPulsedSessionKey:
             await db.getSetting('screen_off_contact_pulsed_session') ?? '',
         currentFatigue: current.drives[DriveKey.fatigue] ?? 0,
+        wakeAt: wake.wakeAt,
       );
       await db.setSetting('screen_off_contact_last_reason', decision.reason);
       await db.setSetting(

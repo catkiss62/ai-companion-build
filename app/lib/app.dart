@@ -1,3 +1,5 @@
+import 'core/database/app_database.dart';
+import 'core/desire/daily_wake_store.dart';
 import 'dart:async';
 
 import 'package:flutter/material.dart';
@@ -117,7 +119,13 @@ class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state == AppLifecycleState.resumed) {
       _consumeOpenChatLaunch();
+      unawaited(_ensureDailyWake());
     }
+  }
+
+  Future<void> _ensureDailyWake() async {
+    try { await DailyWakeStore.read(await AppDatabase.instance.database, DateTime.now()); }
+    catch (_) { /* The next behavior/prompt read retries without a second draw. */ }
   }
 
   @override

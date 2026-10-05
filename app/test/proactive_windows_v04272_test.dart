@@ -1,3 +1,5 @@
+import 'dart:convert';
+import 'package:ai_companion_localfirst/core/desire/daily_wake_store.dart';
 import 'package:ai_companion_localfirst/core/database/app_database.dart';
 import 'package:ai_companion_localfirst/core/desire/proactive_delivery_budget.dart';
 import 'package:ai_companion_localfirst/core/models/chat_message.dart';
@@ -11,7 +13,15 @@ void main() {
   late AppDatabase db;
   var serial = 0;
   setUp(
-    () async => db = await AppDatabase.createForTesting(databaseFactoryFfi),
+    () async {
+      db = await AppDatabase.createForTesting(databaseFactoryFfi);
+      for (final day in [4, 5, 6]) {
+        final now = DateTime(2026, 10, day);
+        await db.setSetting(DailyWakeStore.keyFor(now), jsonEncode({
+          'minute': 540, 'sampledAt': now.millisecondsSinceEpoch,
+        }));
+      }
+    },
   );
   tearDown(() async => db.closeForTesting());
   DateTime time(int hour, [int minute = 0, int day = 5]) =>

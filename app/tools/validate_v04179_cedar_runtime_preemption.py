@@ -94,7 +94,7 @@ require(
 require(
     "test/cedar_runtime_preemption_v04179_test.dart",
     "late-night unattended game sleeps until the morning boundary",
-    "Duration(hours: 2, minutes: 20)",
+    "Duration(hours: 4, minutes: 20)",
     "Cedar JSON cancellation closes a blocked planner immediately",
     "a provider timeout retries once with the bounded fallback",
     "execution identity survives state serialization",

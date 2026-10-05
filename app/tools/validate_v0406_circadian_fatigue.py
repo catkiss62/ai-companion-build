@@ -12,7 +12,7 @@ def read(relative: str) -> str:
     return (ROOT / relative).read_text(encoding="utf-8")
 
 
-pubspec = read("pubspec.yaml").replace("version: 0.42.74+318", "version: 0.42.73+317").replace("version: 0.42.73+317", "version: 0.42.72+316").replace("version: 0.42.72+316", "version: 0.42.71+315").replace("version: 0.42.71+315", "version: 0.42.70+314").replace("version: 0.42.70+314", "version: 0.42.69+313").replace("version: 0.42.69+313", "version: 0.42.68+312")
+pubspec = read("pubspec.yaml").replace("version: 0.42.75+319", "version: 0.42.74+318").replace("version: 0.42.74+318", "version: 0.42.73+317").replace("version: 0.42.73+317", "version: 0.42.72+316").replace("version: 0.42.72+316", "version: 0.42.71+315").replace("version: 0.42.71+315", "version: 0.42.70+314").replace("version: 0.42.70+314", "version: 0.42.69+313").replace("version: 0.42.69+313", "version: 0.42.68+312")
 policy = read("lib/core/desire/desire_core_policy.dart")
 engine = read("lib/core/desire/desire_engine.dart")
 proactive = read("lib/core/desire/proactive_engine.dart")
@@ -27,7 +27,7 @@ assert re.search(r"^version:\s*0\.40\.(?:6\+135|7\+136)\s*$", pubspec, re.M) or 
 assert "static const int schemaVersion = 40;" in database
 
 for token in (
-    "circadianFatigueFloor(DateTime now)",
+    "circadianFatigueFloor(DateTime now, {DateTime? wakeAt})",
     "fatigueCompetitionFloor = 0.48",
     "fatigueRestScore(fatigue)",
     "rawScore - fatigueActionPenalty(fatigue)",

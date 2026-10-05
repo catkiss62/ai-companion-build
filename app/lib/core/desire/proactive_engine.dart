@@ -1224,7 +1224,7 @@ class ProactiveEngine {
       await noteGeneration('gate_blocked', reasonTag: budgetBlock);
       return ProactiveDecision(sent: false,
         reason: budgetBlock == 'night_contact_ceiling'
-            ? '零点至早上九点的独立主动联系额度已经使用'
+            ? '零点至当天起床时间的独立主动联系额度已经使用'
             : '当前主动联系额度或间隔尚不允许发送：$budgetBlock');
     }
     final rhythmContext = await rhythm.currentContext(
@@ -1250,6 +1250,7 @@ class ProactiveEngine {
     final rawIdleBoost = (idleMinutes / 240).clamp(0.0, 0.24).toDouble();
     final dawnAdjustment = ProactiveDawnGatePolicy.adjust(
       now: evaluationStartedAt,
+      wakeAt: budget.wakeAt,
       activityContext: rhythmContext.activityContext,
       rawIdleBoost: rawIdleBoost,
     );
@@ -1459,7 +1460,7 @@ MCP Outcome 是她自己刚完成的真实游戏操作结果，可以用第一�
 只有 cedar_event_is_recent=true 才能说“刚才/刚刚/刚在”；否则仍可分享真实内容，但必须明确说成“之前/上次/前面玩的时候”，不得暗示当前游戏正在运行。''';
     final nightContactContract = !budget.night || isImmediateCedarShare
         ? ''
-        : "现在是本地0–9点的夜间主动联系判断。还有发送机会不代表应该联系，不要求用完机会。"
+        : "现在尚未到当天自然起床时间，属于夜间主动联系判断。还有发送机会不代表应该联系，不要求用完机会。"
           "请根据本轮具体念头、疲劳、近期真实互动和收尾状态判断：它是否值得此刻发出，还是留到以后更合适。"
           "用户长时间没回复、熄屏或正在用手机，都不能单独证明应该找用户，也不能断言用户睡着或醒着。"
           "没有足够具体且此刻值得表达的内容就只输出 WAIT；不为通过判断编造紧急性或自称非常想说。"
@@ -2096,6 +2097,9 @@ ${PromptBuilder.visibleChineseGenerationReminder(proactive: true)}
           '${isImmediateCedarShare ? 'immediate:' : ''}${intent.drive.name}:${intent.reason}',
       enforceProactiveBudget: !forceForDebug,
       proactiveGameShare: isCedarGameShare,
+      cedarShareThoughtId: isCedarGameShare ? intentThought!.id : null,
+      cedarShareGameId: isCedarGameShare
+          ? intentThought!.source.substring('mcp/cedar_game:'.length).split(':').first : null,
     );
     if (commitBlock != null) {
       for (final attachment in proactiveAttachments) {

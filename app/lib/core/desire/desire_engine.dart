@@ -1,3 +1,4 @@
+import 'daily_wake_store.dart';
 import 'dart:math';
 
 import 'package:uuid/uuid.dart';
@@ -43,6 +44,7 @@ class DesireEngine {
     DateTime? now,
   }) async {
     final instant = now ?? DateTime.now();
+    final wake = await DailyWakeStore.read(await db.database, instant);
     final fatigueAffect =
         await FatigueAffectController(db).snapshot(now: instant);
     if ((await db.getSetting('thought_lifecycle_enabled')) == '0') {
@@ -56,6 +58,7 @@ class DesireEngine {
         now: instant,
         pulses: pulses,
         userBusy: userBusy,
+        wakeAt: wake.wakeAt,
       );
       final drives = Map<DriveKey, double>.from(advanced.drives);
       for (final drive in DriveKey.values) {

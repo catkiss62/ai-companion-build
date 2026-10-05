@@ -1,3 +1,4 @@
+import 'cedar_wake_policy.dart';
 import 'dart:convert';
 
 import '../database/app_database.dart';
@@ -73,10 +74,15 @@ class CedarLiveSharePolicy {
       source.contains(':task:');
 
   /// Also covers pre-upgrade per-step messages that are still in the queue.
-  Future<bool> deliveryAllowed(String thoughtId, String source) async =>
-      isResultReport(thoughtId, source) ||
-      (await db.getSetting('cedar_toy_game_share_enabled') != '0' &&
-          await intervalElapsed());
+  Future<bool> deliveryAllowed(String thoughtId, String source, {DateTime? now}) async {
+    final gameId = source.startsWith('mcp/cedar_game:')
+        ? source.substring('mcp/cedar_game:'.length).split(':').first : null;
+    if (await CedarWakePolicy.delay(await db.database, now ?? DateTime.now(),
+        gameId: gameId, thoughtId: thoughtId) > Duration.zero) return false;
+    return isResultReport(thoughtId, source) ||
+        (await db.getSetting('cedar_toy_game_share_enabled') != '0' &&
+            await intervalElapsed());
+  }
 
   String _freshText(List<CedarGameEvent> events, Map<String, dynamic> state) {
     final sharedIndex = events.indexWhere(

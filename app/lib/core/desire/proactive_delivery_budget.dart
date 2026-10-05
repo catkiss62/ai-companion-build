@@ -1,3 +1,4 @@
+import 'daily_wake_store.dart';
 import 'package:sqflite/sqflite.dart';
 
 import '../models/proactive_frequency.dart';
@@ -13,17 +14,19 @@ class ProactiveDeliveryBudget {
     required this.twoHourUsed,
     required this.gameDayUsed,
     required this.gameTwoHourUsed,
+    this.wakeAt,
     this.lastSentAt,
     this.lastGameSentAt,
   });
 
   final DateTime now;
+  final DateTime? wakeAt;
   final ProactiveFrequencyMode mode;
   final int dayUsed, nightUsed, twoHourUsed, gameDayUsed, gameTwoHourUsed;
   final DateTime? lastSentAt, lastGameSentAt;
-  bool get night => ProactiveFrequencyPolicy.isNight(now);
+  bool get night => ProactiveFrequencyPolicy.isNight(now, wakeAt: wakeAt);
   int get used => night ? nightUsed : dayUsed;
-  int get released => mode.releasedLimit(now);
+  int get released => mode.releasedLimit(now, wakeAt: wakeAt);
   int get remaining => (released - used).clamp(0, released);
 
   String? blockReason({bool gameShare = false}) {
@@ -50,7 +53,8 @@ class ProactiveDeliveryBudget {
     'mode': mode.key,
     'modeLabel': mode.zhLabel,
     'window': night ? 'night' : 'daytime',
-    'windowStart': ProactiveFrequencyPolicy.windowStart(now).toIso8601String(),
+    'windowStart': ProactiveFrequencyPolicy.windowStart(now, wakeAt: wakeAt).toIso8601String(),
+    'wakeAt': wakeAt?.toIso8601String(),
     'releasedLimit': released,
     'windowUsed': used,
     'windowRemaining': remaining,
@@ -89,14 +93,12 @@ class ProactiveDeliveryBudget {
         rows.isEmpty ? null : rows.first['value'] as String?,
       );
     }
+    final wake = await DailyWakeStore.read(db, now);
     final midnight = ProactiveFrequencyPolicy.boundary(
       now,
       0,
     ).millisecondsSinceEpoch;
-    final nine = ProactiveFrequencyPolicy.boundary(
-      now,
-      9,
-    ).millisecondsSinceEpoch;
+    final morning = wake.wakeAt.millisecondsSinceEpoch;
     final tomorrow = ProactiveFrequencyPolicy.boundary(
       now,
       24,
@@ -120,7 +122,7 @@ class ProactiveDeliveryBudget {
       FROM proactive_history WHERE decision = 'sent'
         AND trigger_reason NOT GLOB 'game_share:immediate:*'
     ''',
-      [nine, tomorrow, midnight, nine, twoHours, dayAgo, twoHours],
+      [morning, tomorrow, midnight, morning, twoHours, dayAgo, twoHours],
     );
     final row = rows.single;
     int count(String key) => (row[key] as num?)?.toInt() ?? 0;
@@ -129,6 +131,7 @@ class ProactiveDeliveryBudget {
         : DateTime.fromMillisecondsSinceEpoch(count(key), isUtc: now.isUtc);
     return ProactiveDeliveryBudget(
       now: now,
+      wakeAt: wake.wakeAt,
       mode: mode,
       dayUsed: count('daytime'),
       nightUsed: count('night'),

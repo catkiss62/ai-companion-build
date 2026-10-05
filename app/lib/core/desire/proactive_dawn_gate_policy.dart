@@ -27,12 +27,12 @@ class ProactiveDawnGatePolicy {
 
   static ProactiveDawnGateAdjustment adjust({
     required DateTime now,
+    DateTime? wakeAt,
     required String activityContext,
     required double rawIdleBoost,
   }) {
-    final active =
-        now.hour >= 5 && now.hour < 9 && activityContext == 'screen_off';
-    final night = ProactiveFrequencyPolicy.isNight(now);
+    final night = ProactiveFrequencyPolicy.isNight(now, wakeAt: wakeAt);
+    final active = now.hour >= 5 && night && activityContext == 'screen_off';
     if (!night) {
       return ProactiveDawnGateAdjustment(
         active: false,
@@ -50,20 +50,20 @@ class ProactiveDawnGatePolicy {
   }
 }
 
-/// One independent allowance from local midnight until 09:00.
+/// One independent allowance from local midnight until the daily wake time.
 class ProactiveNightContactCapPolicy {
   const ProactiveNightContactCapPolicy._();
   static const startHour = 0;
-  static const endHour = 9;
   static const maxDelivered = ProactiveFrequencyPolicy.nightLimit;
 
-  static DateTime? windowStart(DateTime now) =>
-      ProactiveFrequencyPolicy.isNight(now)
+  static DateTime? windowStart(DateTime now, {DateTime? wakeAt}) =>
+      ProactiveFrequencyPolicy.isNight(now, wakeAt: wakeAt)
       ? ProactiveFrequencyPolicy.boundary(now, 0)
       : null;
 
   static bool blocks({
     required DateTime now,
     required int deliveredSinceWindowStart,
-  }) => windowStart(now) != null && deliveredSinceWindowStart >= maxDelivered;
+    DateTime? wakeAt,
+  }) => windowStart(now, wakeAt: wakeAt) != null && deliveredSinceWindowStart >= maxDelivered;
 }

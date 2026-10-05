@@ -1,3 +1,4 @@
+import '../desire/daily_wake_store.dart';
 import '../mood/mood_service.dart';
 import 'dart:convert';
 import 'dart:io';
@@ -348,8 +349,9 @@ class PreflightDiagnosticsService {
       );
       final currentFatigue =
           desireSnapshot.drives[DriveKey.fatigue] ?? 0.0;
+      final wake = await DailyWakeStore.read(await db.database, now);
       final circadianFatigueFloor =
-          DesireCorePolicy.circadianFatigueFloor(now);
+          DesireCorePolicy.circadianFatigueFloor(now, wakeAt: wake.wakeAt);
       DesireCoreCandidate? restCandidate;
       DesireCoreCandidate? strongestNonRestCandidate;
       for (final candidate in desireCandidates) {
@@ -943,6 +945,7 @@ class PreflightDiagnosticsService {
           'fatigueGateActive':
               currentFatigue >= DesireCorePolicy.fatigueRestGate,
           'fatiguePolicyMode': 'circadian_affect_debt_v04191',
+          'dailyWake': wake.toJson(now),
           'circadianFatigue': {
             'localHour': now.hour,
             'floor': double.parse(

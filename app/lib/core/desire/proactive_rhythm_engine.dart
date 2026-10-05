@@ -1,3 +1,5 @@
+import 'daily_wake_store.dart';
+import 'daily_wake_schedule.dart';
 import 'dart:math';
 
 import '../database/app_database.dart';
@@ -17,10 +19,10 @@ class ProactiveRhythmContext {
   final String activityContext;
   final double busyScore;
 
-  static String hourBucketFor(DateTime instant) {
+  static String hourBucketFor(DateTime instant, {DateTime? wakeAt}) {
     final hour = instant.hour;
     if (hour < 5) return 'late_night';
-    if (hour < 9) return 'dawn';
+    if (instant.isBefore(DailyWakeSchedule.boundary(instant, wakeAt))) return 'dawn';
     if (hour < 12) return 'morning';
     if (hour < 18) return 'afternoon';
     return 'evening';
@@ -110,6 +112,7 @@ class ProactiveRhythmEngine {
     double? busyScore,
   }) async {
     final instant = now ?? DateTime.now();
+    final wake = await DailyWakeStore.read(await db.database, instant);
     final observations = await db.activeAwarenessObservations(
       limit: 8,
       now: instant,
@@ -143,7 +146,7 @@ class ProactiveRhythmEngine {
       activity = 'idle';
     }
     return ProactiveRhythmContext(
-      hourBucket: ProactiveRhythmContext.hourBucketFor(instant),
+      hourBucket: ProactiveRhythmContext.hourBucketFor(instant, wakeAt: wake.wakeAt),
       activityContext: activity,
       busyScore: busy,
     );

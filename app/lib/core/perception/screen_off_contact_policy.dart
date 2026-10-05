@@ -37,6 +37,7 @@ class ScreenOffContactPolicy {
     required DateTime? screenOffAt,
     required String lastPulsedSessionKey,
     required double currentFatigue,
+    DateTime? wakeAt,
   }) {
     if (screenOffAt == null || screenOffAt.isAfter(now)) {
       return const ScreenOffContactDecision(
@@ -63,7 +64,7 @@ class ScreenOffContactPolicy {
 
     final effectiveFatigue = max(
       currentFatigue,
-      DesireCorePolicy.circadianFatigueFloor(now),
+      DesireCorePolicy.circadianFatigueFloor(now, wakeAt: wakeAt),
     );
     // Daytime fatigue at/below 0.16 keeps full weight. Around 22:00 the
     // contact opportunity is already roughly halved; from about 23:00 through
