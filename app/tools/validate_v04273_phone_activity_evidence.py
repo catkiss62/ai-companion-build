@@ -4,7 +4,7 @@ read = lambda p: (r / p).read_text()
 evidence = read('lib/core/presence/phone_activity_evidence.dart')
 presence = read('lib/core/presence/presence_intelligence.dart')
 perception = read('lib/core/perception/perception_engine.dart')
-assert any(f'version: {v}' in read('pubspec.yaml') for v in ['0.42.73+317', '0.42.74+318', '0.42.75+319', '0.42.76+320'])
+assert any(f'version: {v}' in read('pubspec.yaml') for v in ['0.42.73+317', '0.42.74+318', '0.42.75+319', '0.42.76+320', '0.42.77+321'])
 assert 'PhoneActivityEvidence.collect(' in perception
 assert 'screenInteractive && !deviceLocked' in perception
 assert 'evidence: phoneEvidence' in perception

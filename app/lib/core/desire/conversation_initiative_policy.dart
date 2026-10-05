@@ -2,6 +2,7 @@ import '../models/chat_message.dart';
 import '../models/desire_state.dart';
 import '../models/thought.dart';
 import 'desire_core_policy.dart';
+import 'conversation_topic_policy.dart';
 
 enum ConversationInitiativeMode {
   answerUser('answer_user'),
@@ -102,7 +103,7 @@ class ConversationInitiativePlan {
       ConversationInitiativeMode.branchFromDetail =>
         '从当前真实词语、情绪或已有 Thought 长出一个可追溯旁支；联想可以跳，但不能随机胡扯或虚构经历。',
       ConversationInitiativeMode.openOwnTopic =>
-        '用户把开题权交给了你：打开一个与刚才旧话不同、你现在确实想聊的新话题。不要又回到自主性、项目打磨或最近反复追过的旧事；没有现成 Thought 时也可从当前兴趣、观察或一个具体小问题起头。',
+        '你现在可以自己开题：优先表达一个此刻确实想聊的具体内容，不要求用户先提供话题。用户仍在展开原话题时先接住，不强行打断。不要又回到自主性、项目打磨或最近反复追过的旧事；没有现成 Thought 时也可从当前兴趣、观察或一个具体小问题起头。',
       ConversationInitiativeMode.seekAttention =>
         '当前更想得到用户的注意、陪伴或明确回应，可以直接讨、撒赖或轻微坚持，不必切回成熟照料者。',
       ConversationInitiativeMode.inviteSharedActivity =>
@@ -187,7 +188,7 @@ class ConversationInitiativePolicy {
       intimacyAllowed: true,
       includeThoughtAlternatives: true,
     );
-    final selected = candidates.isEmpty
+    var selected = candidates.isEmpty
         ? DesireCoreCandidate(
             drive: DriveKey.social,
             score: snapshot.drives[DriveKey.social] ?? 0.5,
@@ -210,6 +211,27 @@ class ConversationInitiativePolicy {
                 orElse: () => candidates.first,
               )
             : candidates.first;
+    // Novelty may choose content, never override an answer, redirect, rest,
+    // boundary or an ongoing thread. Preserve the selected drive/action.
+    final canChooseTopic = !_userRequestsAnswer(latestUserText) &&
+        !_releaseMarkers.any(normalizedUser.contains) &&
+        !_jumpMarkers.any(normalizedUser.contains);
+    if (userInvitesOwnTopic || (canChooseTopic &&
+        selected.thoughtId != null && selected.drive == DriveKey.social && selected.action != 'continue_thread')) {
+      final topicCandidates = candidates.where((candidate) {
+        final thought = thoughts.where((t) => t.id == candidate.thoughtId).firstOrNull;
+        if (thought == null) return false;
+        if (userInvitesOwnTopic) {
+          return thought.provenance != ThoughtProvenance.realUserMessage &&
+              thought.provenance != ThoughtProvenance.memory;
+        }
+        return candidate.drive == selected.drive && candidate.action == selected.action;
+      }).toList();
+      if (topicCandidates.isNotEmpty) {
+        selected = ConversationTopicPolicy.preferNovel(candidates: topicCandidates,
+            thoughts: thoughts, recent: recent, now: instant);
+      }
+    }
     final selectedThoughtCandidate = selected.thoughtId == null
         ? null
         : thoughts.where((item) => item.id == selected.thoughtId).firstOrNull;

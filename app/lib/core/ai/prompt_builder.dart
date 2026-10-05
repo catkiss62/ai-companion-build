@@ -13,6 +13,7 @@ import '../autonomy/public_web_prompt_policy.dart';
 import 'dialogue_expression_plan.dart';
 import '../database/app_database.dart';
 import '../desire/conversation_initiative_policy.dart';
+import '../desire/conversation_topic_policy.dart';
 import '../diagnostics/conversation_initiative_telemetry.dart';
 import '../diagnostics/dialogue_expression_telemetry.dart';
 import '../grounding/grounding_engine.dart';
@@ -398,6 +399,12 @@ class PromptBuilder {
             now: instant,
           ),
         );
+    }
+    if (!worldBookContext.hasRoleplay) {
+      context.writeln(ConversationTopicPolicy.prompt(
+        proactive: mode == PromptGenerationMode.proactive,
+        freshSourceOnly: freshTopicSourceOnly,
+      ));
     }
     if (conversationResetAt > 0) {
       context

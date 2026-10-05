@@ -358,6 +358,7 @@ $editableMemoryPolicy
 4.1 用户关于“某项 App/模型能力已经实现、开启或可用”的说法只能证明用户这样说过，不能由经验整合器升级成已实现的 SYSTEM FACT、AI Self 或关系事实；不要据此写“AI 已拥有/正式开启某能力”。
 4.2 【本轮世界书来源】中 knowledge 只是回答问题时查到的资料，不是用户或 AI 的亲身事实。若本轮用了 knowledge，任何 memory 必须额外给 user_evidence_quote，逐字引用【刚发生的对话】中的用户原话；没有独立用户原话就不要创建 memory。behavior 只是表达尝试来源，不能凭模块名称或正文创建人格结论；roleplay 会由手机在进入本整合器前硬隔离。
 5. unfinished_threads 只记录确实需要以后继续的话题、承诺、等待结果或用户明确说“之后再说”的事项。每个长期主题尽量给稳定的 topic_key，例如 user.return_tonight / user.project.result；同一主题必须复用已有 topic_key。topic_key 要短、稳定、语义化，不要包含时间戳、随机数或消息 ID。
+5.1 可以保留双方真实感兴趣、以后仍值得发展的聊天线索，不限于待办；但不能因 AI 单方面想聊、用户只说“嗯”或 AI 复述旧事就创建。每轮最多新增两条这类线索，优先更新已有主题；detail 简要写清已聊到哪、新增了什么、还真正期待什么，区分谁的想法。没有真实悬念就不要留，已聊完就 resolve；普通兴趣线索不安排定时追问，不把它变成催问用户的任务。
 6. thoughts 也尽量给稳定 topic_key。若它来自某个未完成话题，复用该话题的 topic_key。
 7. desire_pulses 只是这一轮尚未被其他结构表达的轻微、瞬时变化。普通聊天本身不默认增加 attachment；如果同一变化已经写进 relationship_events，不要再用 desire_pulses 重复计算。单轴建议 -0.02 到 0.02，全部轴绝对值之和不要超过 0.05。
 8. memory 必须区分 semantic：current_fact / inference / shared_experience。

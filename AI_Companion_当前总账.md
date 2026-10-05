@@ -1,12 +1,16 @@
 # AI Companion · 当前总账
 
-更新时间：2026-10-05（+320 CI PASSED / APK READY / TRUE DEVICE PENDING；+319 CI PASSED / APK READY / TRUE DEVICE PENDING；+318 USER DEVICE ACCEPTED；+317 CI PASSED / APK READY / TRUE DEVICE PENDING；+316 CI PASSED / APK READY / TRUE DEVICE PENDING；+315 CI PASSED / APK READY / TRUE DEVICE PENDING；+314 CI PASSED / APK READY / TRUE DEVICE PENDING；+313 CI PASSED / APK READY / TRUE DEVICE PENDING；+312 CI PASSED / APK READY / TRUE DEVICE PENDING；+311 CI PASSED / APK READY / TRUE DEVICE PENDING；+310 CI PASSED / APK READY / TRUE DEVICE PENDING；+309 CI PASSED / APK READY / TRUE DEVICE PENDING；+308 CI PASSED / APK READY / TRUE DEVICE PENDING；+307 CI PASSED / APK READY / USER DEVICE ACCEPTED；+306 CI PASSED / APK READY / TRUE DEVICE PENDING；+305 CI PASSED / APK READY / DEVICE REPORTED REPLY STALL；+304 CI PASSED / APK READY / TRUE DEVICE PENDING；+303 CI PASSED / APK READY / TRUE DEVICE PENDING；+302 CI PASSED / APK READY / TRUE DEVICE PENDING；+301 CI PASSED / APK READY / TRUE DEVICE PENDING；+300 CI PASSED / APK READY / TRUE DEVICE PENDING；+299 CI PASSED / APK READY / TRUE DEVICE PENDING；+298 CI PASSED / APK READY / TRUE DEVICE PENDING；+297 CI PASSED / APK READY / TRUE DEVICE PENDING；+295 恢复真机成功、背景回归 PARTIAL；+293 DEVICE VISUAL BASELINE）
+更新时间：2026-10-05（+321 IMPLEMENTED / CI PENDING；+320 CI PASSED / APK READY / TRUE DEVICE PENDING；+319 CI PASSED / APK READY / TRUE DEVICE PENDING；+318 USER DEVICE ACCEPTED；+317 CI PASSED / APK READY / TRUE DEVICE PENDING；+316 CI PASSED / APK READY / TRUE DEVICE PENDING；+315 CI PASSED / APK READY / TRUE DEVICE PENDING；+314 CI PASSED / APK READY / TRUE DEVICE PENDING；+313 CI PASSED / APK READY / TRUE DEVICE PENDING；+312 CI PASSED / APK READY / TRUE DEVICE PENDING；+311 CI PASSED / APK READY / TRUE DEVICE PENDING；+310 CI PASSED / APK READY / TRUE DEVICE PENDING；+309 CI PASSED / APK READY / TRUE DEVICE PENDING；+308 CI PASSED / APK READY / TRUE DEVICE PENDING；+307 CI PASSED / APK READY / USER DEVICE ACCEPTED；+306 CI PASSED / APK READY / TRUE DEVICE PENDING；+305 CI PASSED / APK READY / DEVICE REPORTED REPLY STALL；+304 CI PASSED / APK READY / TRUE DEVICE PENDING；+303 CI PASSED / APK READY / TRUE DEVICE PENDING；+302 CI PASSED / APK READY / TRUE DEVICE PENDING；+301 CI PASSED / APK READY / TRUE DEVICE PENDING；+300 CI PASSED / APK READY / TRUE DEVICE PENDING；+299 CI PASSED / APK READY / TRUE DEVICE PENDING；+298 CI PASSED / APK READY / TRUE DEVICE PENDING；+297 CI PASSED / APK READY / TRUE DEVICE PENDING；+295 恢复真机成功、背景回归 PARTIAL；+293 DEVICE VISUAL BASELINE）
 
 > 本文件是唯一的当前接班入口，继续采用“总账 v2”。顶部是快速接班索引；标记后的正式记录按版本持续追加，不设总容量上限。
 >
 > 判断优先级：用户最新明确决定 > 当前 GitHub 源码与 Actions > 同时刻脱敏真机诊断/备份 > 本文件 > 冻结归档与 Git 历史。`DESIGNED`、`IMPLEMENTED`、`CI PASSED`、`APK READY`、`TRUE DEVICE PASSED`、`PENDING` 必须严格区分。
 
 
+
+## 当前任务 · +321 自主话题与按钮缩小（IMPLEMENTED / CI PENDING）
+
+2026-10-05用户授权实施话题讨论方案并允许合理改进。分支agent/v04277-conversation-topics，基线+320远端ad8bc459/本地01ca6d9，目标0.42.77+321。先表达只是选项；按语义承接短回复、真实兴趣与少量发展中线程、重复开题降权；复用已有机制，不增加每轮模型调用，不改次数/起床/游戏分享独立额度。同步缩小直接开始可见框与文字。范围见app/docs/CONVERSATION_TOPICS_v0.42.77.md；CI与APK待完成。
 
 ## 当前交付 · +320 命运之轮直接开始与面板透明（CI PASSED / APK READY / TRUE DEVICE PENDING）
 
@@ -104,35 +108,9 @@
 
 原生直接合成的完整失败路线、签名与验证记录保留在文末“+295历史索引原文”，当前任务不改Live2D。
 
-## 当前试验 · +294 系统最近任务返回时的菜菜画面恢复（CI PASSED / APK READY / TRUE DEVICE FAILED）
+## +294 历史索引
 
-- 用户确认 +293 人物效果已经达标，是本轮可覆盖安装及回退基线；仅剩切出切回时固定出现“卡约一秒、消失约一秒、恢复”。最小复现：在聊天的 Live2D 画面按手机“≡”进入最近任务，**不切换其他 App**，直接点回；几乎每次复现。不需要先索取视频才开始排查。第二套 Live2D 的通用切换待有模型后再做。
-- 同版专用诊断 `live2d_diagnostics_2026-09-29T17-08-30.929748Z.json.txt` 有两次完整恢复：从 `host_resume` 至 `first_model_frame` 约 2.95/3.05 秒；其中 surfaceChanged/reload 约 2.72 秒、七张 PNG 解码约 2.20 秒、上传约 0.19 秒；均有 `surface_destroyed`→`surface_created`，view_id 保持 1，Cubism owner 等待 0。一次没有 stage_visibility 变化，故不能把每次现象归于切标签。原生首帧不等于屏幕实际合成帧。
-- +293 源码的 `MainActivity.onPause` 总会调用 `CaicaiLive2DBridge.onPause`→`CaicaiRuntime.onHostPause`→`GLSurfaceView.onPause`；返回 `onResume` 即恢复。+294 将宿主 GL 暂停/恢复分别改为 `onStop`/`onStart`；`onPause`/`onResume` 仅记录诊断，继续保留悬浮窗恢复逻辑；`setVisible` 和 host 调用只在真实状态改变时对 GL 线程执行，避免重复恢复重置首帧计时。不改 Flutter AndroidView、已验证 GLSurfaceView、Cubism 渲染器、模型 ZIP、配件几何、输入法布局、桌宠或 Jev。
-- 诊断增加 `activity_pause/stop/start/resume` 与当前 view/surface 状态。同一版需反复“≡→点回”三次，并按一次较长停留和一次真正切 App 对照：比对是否出现 `activity_stop`、`host_pause`、`surface_destroyed`，看 context 计数是否增长及实际肉眼空白是否消失。**CI 只验证代码/构建；真正视觉成功须用户手机回报。** 若没有 `activity_stop` 仍重建 Surface，应调查 Flutter/厂商 Surface 附着与合成；若有 `activity_stop`，该方案本就会暂停，下一试验再依据实测选保活/重载优化，不能称 +294 修复成功。
-- 回退基线：+293 已验收的当前效果，Draft `399274286`，APK SHA-256 `4c108da236e0c47e0b2d20647659c2157371be3cc18ebd5a8dd9c43bf246b094`，远端源码 `b548cf37`；本试验独立分支 `agent/v04250-caicai-recents-pause`，版本 `0.42.50+294`。不合并 main、不正式发布。
-- 实施与构建：本地功能提交 `1dbba1c`、工作流标签修正 `6c2b0d5`，远端分别为同源码树的 `372cc5a`、`b631f2a12369d3f032a51b5fe3bd19c53546e8df`；最终 tree `6f9c477175fd60784faf37320d62a0bab6eec22b` 与本地一致。初次运行 `36609065282` 因补正失败诊断的 Draft 标签而主动取消，不算源代码回归失败。最终 [Actions 36609270446](https://github.com/catkiss62/ai-companion-build/actions/runs/36609270446) success：原生 Live2D 模拟器烟测、130 项源码门、Kotlin、Flutter analyze/test、arm64 Release、稳定签名和资源核验通过。
-- 未发布 Draft `399415602`：[+294 测试 APK](https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-7d3c66f7eb520f70d808)，target=`b631f2a`，asset `598907556`，文件 `AI-Companion-v0.42.50-294-Caicai-Recents-Pause-APK.apk`，726108946 字节，SHA-256 `0b42e4f342f56546ab6b02b9bcf6ea0216cea50ba9c9adba90f0e0034f6c83f4`。CI 签名摘要与 +293 相同，可覆盖安装保留数据；未合并 main、未发布正式 Release。后续真机确认恢复问题仍存在，分析见下节。
-
-| 尝试 | 成功或失败证据 | 后续约束 |
-|---|---|---|
-| +281 缩短视图离页存活 | 用户真机：后台返回 Live2D 变黑，切页重新加载、键盘拉长；`TRUE DEVICE FAILED` | 不为此问题重启/重建 Flutter 舞台 |
-| +284 自定义 TextureView 宿主 | 构造异常、模型未显示；+285 改回 GLSurfaceView | 不以 TextureView 或重写原生渲染宿主冒险 |
-| +285 恢复 GLSurfaceView/导入事务 | 原生生命周期门与构建通过，后续模型已能显示；仍未解决最近任务的秒级空白 | 保持可见模型和导入路径基线 |
-| +293 当前真机效果 | 用户确认人物效果非常好；最近任务返回稳定出现卡住→消失→恢复，诊断见上 | 本轮仅动生命周期并逐项记录 CI/真机结果 |
-| +294 暂停时机试验 | 2026-09-30 05:07 用户及 +294 诊断确认仍卡住→消失→重现；`TRUE DEVICE FAILED` | 仅移动 onPause/onStop 无效，转查 Flutter Virtual Display 恢复拆装 |
-| +295 直接 Hybrid 试验 | 2026-09-30 09:40 用户确认恢复成功，同版 context 始终 1；背景黑色/旧页面透出失败。Draft `399549119`；`TRUE DEVICE PARTIAL` | 保留直接 HC 与恢复成功，+296 单独修复 Surface 背景 |
-| +296 原生背景合成 | Actions `36657791150` 全绿、原生 5/5（含两项 ES2 像素测试），Draft `399666814`；`CI PASSED / APK READY / TRUE DEVICE PENDING` | 不能牺牲 +295 恢复结果；检查昼夜、切页、聊天覆盖与键盘裁剪 |
-
-### +294 真机失败分析 · Flutter 恢复路径（2026-09-30 05:07 后，调查完成／下一实现待定）
-
-- 附件 `live2d_diagnostics_2026-09-29T21-05-56.330261Z.json.txt` 全部保留事件均为 `0.42.50+294`。可见两次返回：05:05:39.902→42.742 为 2840 ms；05:05:49.514→52.264 为 2750 ms。后一次完整记录 `activity_pause` 48.630、`activity_stop` 49.296、`activity_start` 49.514、`activity_resume` 49.519，之后 49.521 Surface 才销毁，49.613 重建。context 3→4→5，view_id 恒为 1；owner 等待、context 初始化均为 0 ms。
-- 贴图重载两次 2655/2614 ms，PNG 解码 2161/2135 ms、GPU 上传 194/183 ms，均为 7 张。约 82% 重载时间花在 PNG 解码。用户的卡住/空白有实质的 GL 绘制中断，不能归因于大肥鱼立绘；精确屏幕合成帧尚无录屏/合成追踪证据。
-- 已读取构建所固定 Flutter **3.44.9** 的官方源码：普通 `AndroidView`→`PlatformViewsService.initAndroidView`→`TextureAndroidViewController`（hybrid=false、hybridFallback 默认为 false）；`PlatformViewsController` 检测到子树中 `SurfaceView`，走 `configureForVirtualDisplay`。`FlutterActivityAndFragmentDelegate.onPostResume` 调用 `PlatformViewsController.onResume`，后者**每次恢复无条件遍历 VD 调用 resetSurface**，并不先检查是否发生内存回收。
-- `VirtualDisplayController.resetSurface()` 会 `presentation.detachState()`、释放旧 VirtualDisplay，再建 Display/Presentation 挂回同一个 View。项目 `CaicaiCompanionView.onDetachedFromWindow` 调用 Android `GLSurfaceView` 的父实现；Android 15 父实现 `requestExitAndWait()` 结束 GL 线程，其退出清理释放 EGL。`setPreserveEGLContextOnPause(true)` 仅解决暂停，挡不住 detach。此源码路径与“先 activity_resume、再 Surface 销毁、view_id 不变但 context 增长”的真机事件一致；诊断尚未记录实际 detach 调用栈，下一版需补该直接证据与 display ID。
-- 首帧字段还存在口径问题：`resume_first_model_frame_ms=36/2` 捕捉到的可能是拆装前旧 context 一帧，或后续舞台显示时的新计时；不能代表完整恢复 2.75 秒。下一实现按恢复/context generation 记录后续重建和首个新 context 模型帧，区分 draw 与合成呈现。
-- 菜菜独立项目直接把 GLSurfaceView 挂在 Activity 中，没有 Flutter 的 Virtual Display/Presentation 重建层，故这个差异能解释相同模型在独立项目恢复正常。下一方向是以现有 GLSurfaceView 试验直接 Hybrid Composition，绕开 VD；此前 +278～+281 用过 HC，有背景残影/黑底等真机失败，+282 `6e38280` 改回 AndroidView，因此不能原样回退旧实现或宣称 HC 已验证。要保留当前透明层级、稳定画布/IME、舞台可见性及 dispose 修复，先覆盖这些旧失败项，再交设备验证。自定义 TextureView 仍为已知失败路线。
-- 官方源码依据：[AndroidView 创建](https://github.com/flutter/flutter/blob/3.44.9/packages/flutter/lib/src/widgets/platform_view.dart#L787-L801)、[VD 选择](https://github.com/flutter/flutter/blob/3.44.9/engine/src/flutter/shell/platform/android/io/flutter/plugin/platform/PlatformViewsController.java#L223-L241)、[恢复无条件重置](https://github.com/flutter/flutter/blob/3.44.9/engine/src/flutter/shell/platform/android/io/flutter/plugin/platform/PlatformViewsController.java#L1124-L1129)、[VD 拆装](https://github.com/flutter/flutter/blob/3.44.9/engine/src/flutter/shell/platform/android/io/flutter/plugin/platform/VirtualDisplayController.java#L291-L330)、[Android 15 GLSurfaceView detach](https://github.com/aosp-mirror/platform_frameworks_base/blob/android-15.0.0_r1/opengl/java/android/opengl/GLSurfaceView.java#L629-L639)。本轮仅读取诊断/查源码/回填记录，未改产品代码、未构建新 APK。
+完整原文迁至文末“+321整理保留的+294历史索引”；既有真机失败结论和回退证据不变。
 
 ## 当前任务 · +293 Cedar 目标核对、菜菜动作与模型联网配置迁移（CI PASSED / APK READY / TRUE DEVICE PENDING）
 
@@ -2828,3 +2806,36 @@ Draft Release 403275161，draft=true，target精确对应 5fcc2b35fac438ce253d03
 Draft Release403677991，draft=true，target精确对应3420d05bf123b75cd66f5fc2d818acf253d8bc4f；下载 https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-eda462918686630190f8 。APK asset612486610，AI-Companion-v0.42.76-320-Fate-Wheel-Start-APK.apk，734505781 bytes，uploaded；SHA-256 90de92713ae775f5c6c63a8b5ff6102f09b0652fd7695f9602586c12c195a373，GitHub资产digest与成功构建记录相同。签名SHA-256 305eb3d80983b963c64818ddf1ad561f279de6d47b3ed2c781ada448c7c25148，沿用+319持久私测签名，可覆盖安装。未合并main、未正式发布；收尾总账[skip ci]独立提交。
 
 真机检查两项即可：首次打开命运之轮，直接开始应使用当前选中的卷轴中央显示并打开原新建房间确认；SPIN、拉杆与长按重抽仍可使用。进入该房间后，命运之轮设定条能透出背景，标题和内容文字清晰。CI验证不能替代手机间距与透明观感；状态CI PASSED / APK READY / TRUE DEVICE PENDING。+319起床时间与游戏分享额度继续沿用。
+
+
+## +321整理保留的+294历史索引
+
+## 当前试验 · +294 系统最近任务返回时的菜菜画面恢复（CI PASSED / APK READY / TRUE DEVICE FAILED）
+
+- 用户确认 +293 人物效果已经达标，是本轮可覆盖安装及回退基线；仅剩切出切回时固定出现“卡约一秒、消失约一秒、恢复”。最小复现：在聊天的 Live2D 画面按手机“≡”进入最近任务，**不切换其他 App**，直接点回；几乎每次复现。不需要先索取视频才开始排查。第二套 Live2D 的通用切换待有模型后再做。
+- 同版专用诊断 `live2d_diagnostics_2026-09-29T17-08-30.929748Z.json.txt` 有两次完整恢复：从 `host_resume` 至 `first_model_frame` 约 2.95/3.05 秒；其中 surfaceChanged/reload 约 2.72 秒、七张 PNG 解码约 2.20 秒、上传约 0.19 秒；均有 `surface_destroyed`→`surface_created`，view_id 保持 1，Cubism owner 等待 0。一次没有 stage_visibility 变化，故不能把每次现象归于切标签。原生首帧不等于屏幕实际合成帧。
+- +293 源码的 `MainActivity.onPause` 总会调用 `CaicaiLive2DBridge.onPause`→`CaicaiRuntime.onHostPause`→`GLSurfaceView.onPause`；返回 `onResume` 即恢复。+294 将宿主 GL 暂停/恢复分别改为 `onStop`/`onStart`；`onPause`/`onResume` 仅记录诊断，继续保留悬浮窗恢复逻辑；`setVisible` 和 host 调用只在真实状态改变时对 GL 线程执行，避免重复恢复重置首帧计时。不改 Flutter AndroidView、已验证 GLSurfaceView、Cubism 渲染器、模型 ZIP、配件几何、输入法布局、桌宠或 Jev。
+- 诊断增加 `activity_pause/stop/start/resume` 与当前 view/surface 状态。同一版需反复“≡→点回”三次，并按一次较长停留和一次真正切 App 对照：比对是否出现 `activity_stop`、`host_pause`、`surface_destroyed`，看 context 计数是否增长及实际肉眼空白是否消失。**CI 只验证代码/构建；真正视觉成功须用户手机回报。** 若没有 `activity_stop` 仍重建 Surface，应调查 Flutter/厂商 Surface 附着与合成；若有 `activity_stop`，该方案本就会暂停，下一试验再依据实测选保活/重载优化，不能称 +294 修复成功。
+- 回退基线：+293 已验收的当前效果，Draft `399274286`，APK SHA-256 `4c108da236e0c47e0b2d20647659c2157371be3cc18ebd5a8dd9c43bf246b094`，远端源码 `b548cf37`；本试验独立分支 `agent/v04250-caicai-recents-pause`，版本 `0.42.50+294`。不合并 main、不正式发布。
+- 实施与构建：本地功能提交 `1dbba1c`、工作流标签修正 `6c2b0d5`，远端分别为同源码树的 `372cc5a`、`b631f2a12369d3f032a51b5fe3bd19c53546e8df`；最终 tree `6f9c477175fd60784faf37320d62a0bab6eec22b` 与本地一致。初次运行 `36609065282` 因补正失败诊断的 Draft 标签而主动取消，不算源代码回归失败。最终 [Actions 36609270446](https://github.com/catkiss62/ai-companion-build/actions/runs/36609270446) success：原生 Live2D 模拟器烟测、130 项源码门、Kotlin、Flutter analyze/test、arm64 Release、稳定签名和资源核验通过。
+- 未发布 Draft `399415602`：[+294 测试 APK](https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-7d3c66f7eb520f70d808)，target=`b631f2a`，asset `598907556`，文件 `AI-Companion-v0.42.50-294-Caicai-Recents-Pause-APK.apk`，726108946 字节，SHA-256 `0b42e4f342f56546ab6b02b9bcf6ea0216cea50ba9c9adba90f0e0034f6c83f4`。CI 签名摘要与 +293 相同，可覆盖安装保留数据；未合并 main、未发布正式 Release。后续真机确认恢复问题仍存在，分析见下节。
+
+| 尝试 | 成功或失败证据 | 后续约束 |
+|---|---|---|
+| +281 缩短视图离页存活 | 用户真机：后台返回 Live2D 变黑，切页重新加载、键盘拉长；`TRUE DEVICE FAILED` | 不为此问题重启/重建 Flutter 舞台 |
+| +284 自定义 TextureView 宿主 | 构造异常、模型未显示；+285 改回 GLSurfaceView | 不以 TextureView 或重写原生渲染宿主冒险 |
+| +285 恢复 GLSurfaceView/导入事务 | 原生生命周期门与构建通过，后续模型已能显示；仍未解决最近任务的秒级空白 | 保持可见模型和导入路径基线 |
+| +293 当前真机效果 | 用户确认人物效果非常好；最近任务返回稳定出现卡住→消失→恢复，诊断见上 | 本轮仅动生命周期并逐项记录 CI/真机结果 |
+| +294 暂停时机试验 | 2026-09-30 05:07 用户及 +294 诊断确认仍卡住→消失→重现；`TRUE DEVICE FAILED` | 仅移动 onPause/onStop 无效，转查 Flutter Virtual Display 恢复拆装 |
+| +295 直接 Hybrid 试验 | 2026-09-30 09:40 用户确认恢复成功，同版 context 始终 1；背景黑色/旧页面透出失败。Draft `399549119`；`TRUE DEVICE PARTIAL` | 保留直接 HC 与恢复成功，+296 单独修复 Surface 背景 |
+| +296 原生背景合成 | Actions `36657791150` 全绿、原生 5/5（含两项 ES2 像素测试），Draft `399666814`；`CI PASSED / APK READY / TRUE DEVICE PENDING` | 不能牺牲 +295 恢复结果；检查昼夜、切页、聊天覆盖与键盘裁剪 |
+
+### +294 真机失败分析 · Flutter 恢复路径（2026-09-30 05:07 后，调查完成／下一实现待定）
+
+- 附件 `live2d_diagnostics_2026-09-29T21-05-56.330261Z.json.txt` 全部保留事件均为 `0.42.50+294`。可见两次返回：05:05:39.902→42.742 为 2840 ms；05:05:49.514→52.264 为 2750 ms。后一次完整记录 `activity_pause` 48.630、`activity_stop` 49.296、`activity_start` 49.514、`activity_resume` 49.519，之后 49.521 Surface 才销毁，49.613 重建。context 3→4→5，view_id 恒为 1；owner 等待、context 初始化均为 0 ms。
+- 贴图重载两次 2655/2614 ms，PNG 解码 2161/2135 ms、GPU 上传 194/183 ms，均为 7 张。约 82% 重载时间花在 PNG 解码。用户的卡住/空白有实质的 GL 绘制中断，不能归因于大肥鱼立绘；精确屏幕合成帧尚无录屏/合成追踪证据。
+- 已读取构建所固定 Flutter **3.44.9** 的官方源码：普通 `AndroidView`→`PlatformViewsService.initAndroidView`→`TextureAndroidViewController`（hybrid=false、hybridFallback 默认为 false）；`PlatformViewsController` 检测到子树中 `SurfaceView`，走 `configureForVirtualDisplay`。`FlutterActivityAndFragmentDelegate.onPostResume` 调用 `PlatformViewsController.onResume`，后者**每次恢复无条件遍历 VD 调用 resetSurface**，并不先检查是否发生内存回收。
+- `VirtualDisplayController.resetSurface()` 会 `presentation.detachState()`、释放旧 VirtualDisplay，再建 Display/Presentation 挂回同一个 View。项目 `CaicaiCompanionView.onDetachedFromWindow` 调用 Android `GLSurfaceView` 的父实现；Android 15 父实现 `requestExitAndWait()` 结束 GL 线程，其退出清理释放 EGL。`setPreserveEGLContextOnPause(true)` 仅解决暂停，挡不住 detach。此源码路径与“先 activity_resume、再 Surface 销毁、view_id 不变但 context 增长”的真机事件一致；诊断尚未记录实际 detach 调用栈，下一版需补该直接证据与 display ID。
+- 首帧字段还存在口径问题：`resume_first_model_frame_ms=36/2` 捕捉到的可能是拆装前旧 context 一帧，或后续舞台显示时的新计时；不能代表完整恢复 2.75 秒。下一实现按恢复/context generation 记录后续重建和首个新 context 模型帧，区分 draw 与合成呈现。
+- 菜菜独立项目直接把 GLSurfaceView 挂在 Activity 中，没有 Flutter 的 Virtual Display/Presentation 重建层，故这个差异能解释相同模型在独立项目恢复正常。下一方向是以现有 GLSurfaceView 试验直接 Hybrid Composition，绕开 VD；此前 +278～+281 用过 HC，有背景残影/黑底等真机失败，+282 `6e38280` 改回 AndroidView，因此不能原样回退旧实现或宣称 HC 已验证。要保留当前透明层级、稳定画布/IME、舞台可见性及 dispose 修复，先覆盖这些旧失败项，再交设备验证。自定义 TextureView 仍为已知失败路线。
+- 官方源码依据：[AndroidView 创建](https://github.com/flutter/flutter/blob/3.44.9/packages/flutter/lib/src/widgets/platform_view.dart#L787-L801)、[VD 选择](https://github.com/flutter/flutter/blob/3.44.9/engine/src/flutter/shell/platform/android/io/flutter/plugin/platform/PlatformViewsController.java#L223-L241)、[恢复无条件重置](https://github.com/flutter/flutter/blob/3.44.9/engine/src/flutter/shell/platform/android/io/flutter/plugin/platform/PlatformViewsController.java#L1124-L1129)、[VD 拆装](https://github.com/flutter/flutter/blob/3.44.9/engine/src/flutter/shell/platform/android/io/flutter/plugin/platform/VirtualDisplayController.java#L291-L330)、[Android 15 GLSurfaceView detach](https://github.com/aosp-mirror/platform_frameworks_base/blob/android-15.0.0_r1/opengl/java/android/opengl/GLSurfaceView.java#L629-L639)。本轮仅读取诊断/查源码/回填记录，未改产品代码、未构建新 APK。

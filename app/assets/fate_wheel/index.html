@@ -185,13 +185,16 @@ body.gore .spin{ color:#ffd8d4; }
 
 /* ---- start from the displayed payline ---- */
 .start-lever-col{ justify-self:end; display:flex; align-items:center; gap:8px; }
-.direct-start{ width:44px; height:128px; padding:12px 0; flex:0 0 44px;
-  display:flex; align-items:center; justify-content:center; writing-mode:vertical-rl; text-orientation:upright;
-  font-family:var(--f-cn); font-size:14px; font-weight:700; letter-spacing:4px;
-  cursor:pointer; border:1px solid var(--gold-2); border-radius:12px; color:var(--gold-1);
-  background:linear-gradient(180deg,rgba(231,196,99,.12),rgba(7,5,4,.9));
-  box-shadow:0 0 10px -3px var(--accent),inset 0 0 12px rgba(231,196,99,.12);
+.direct-start{ width:44px; height:104px; padding:6px; flex:0 0 44px;
+  display:flex; align-items:center; justify-content:center;
+  cursor:pointer; border:0; color:var(--gold-1); background:transparent;
   transition:transform .08s ease,filter .2s ease; }
+.direct-start-face{ width:32px; height:92px; display:flex; align-items:center; justify-content:center;
+  writing-mode:vertical-rl; text-orientation:upright;
+  font-family:var(--f-cn); font-size:13px; font-weight:700; letter-spacing:2px;
+  border:1px solid var(--gold-2); border-radius:9px;
+  background:linear-gradient(180deg,rgba(231,196,99,.12),rgba(7,5,4,.9));
+  box-shadow:0 0 8px -3px var(--accent),inset 0 0 10px rgba(231,196,99,.12); }
 .direct-start:active{ transform:scale(.96); }
 .direct-start:disabled{ filter:grayscale(.4) brightness(.6); cursor:default; }
 .direct-start:focus-visible{ outline:2px solid var(--gold-1); outline-offset:3px; }
@@ -411,7 +414,7 @@ body.gore .omi-again{ color:#ffd8d4; }
       </div>
 
       <div class="start-lever-col">
-        <button class="direct-start" id="directStartBtn" aria-label="直接开始" title="使用当前选中滚轮的显示内容开始">直接开始</button>
+        <button class="direct-start" id="directStartBtn" aria-label="直接开始" title="使用当前选中滚轮的显示内容开始"><span class="direct-start-face" aria-hidden="true">直接开始</span></button>
         <div class="lever-col" id="leverCol">
           <div class="lever-rod"></div>
           <div class="lever-track"></div>
