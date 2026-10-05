@@ -1,9 +1,9 @@
 from pathlib import Path
 r = Path(__file__).resolve().parents[1]
 read = lambda p: (r / p).read_text()
-assert any(f'\nversion: {v}\n' in read('pubspec.yaml') for v in ('0.42.68+312', '0.42.69+313', '0.42.70+314', '0.42.71+315', '0.42.72+316', '0.42.73+317', '0.42.74+318', '0.42.75+319'))
+assert any(f'\nversion: {v}\n' in read('pubspec.yaml') for v in ('0.42.68+312', '0.42.69+313', '0.42.70+314', '0.42.71+315', '0.42.72+316', '0.42.73+317', '0.42.74+318', '0.42.75+319', '0.42.76+320'))
 w = (r.parent / '.github/workflows/build-apk.yml').read_text()
-assert any(f"grep -Fqx 'version: {v}' app/pubspec.yaml" in w for v in ("0.42.68+312", "0.42.69+313", "0.42.70+314", "0.42.71+315", "0.42.72+316", "0.42.73+317", "0.42.74+318", "0.42.75+319"))
+assert any(f"grep -Fqx 'version: {v}' app/pubspec.yaml" in w for v in ("0.42.68+312", "0.42.69+313", "0.42.70+314", "0.42.71+315", "0.42.72+316", "0.42.73+317", "0.42.74+318", "0.42.75+319", "0.42.76+320"))
 assert 'agent/v04268-deep-web' in w
 assert 'onOpen: _ensureDeepWebColumns' in read('lib/core/database/app_database.dart')
 assert 'deepThinking: turnDeepThinking' in read('lib/features/chat/chat_controller.dart')

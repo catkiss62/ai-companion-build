@@ -1,7 +1,7 @@
 name: Stability regression checks
 on:
   push:
-    branches: [agent/v04263-stability, agent/v04264-experience, agent/v04266-memory-continuity, agent/v04267-persistent-mood, agent/v04268-deep-web, agent/v04269-expression-diary, agent/v04270-wish-lifecycle, agent/v04271-deep-reflection, agent/v04272-proactive-windows, agent/v04273-phone-activity-evidence, agent/v04275-daily-wake]
+    branches: [agent/v04263-stability, agent/v04264-experience, agent/v04266-memory-continuity, agent/v04267-persistent-mood, agent/v04268-deep-web, agent/v04269-expression-diary, agent/v04270-wish-lifecycle, agent/v04271-deep-reflection, agent/v04272-proactive-windows, agent/v04273-phone-activity-evidence, agent/v04275-daily-wake, agent/v04276-fate-wheel-start]
   workflow_dispatch:
 permissions:
   contents: read

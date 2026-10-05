@@ -145,7 +145,7 @@ body.gore .reel.active .window{ box-shadow:inset 0 2px 10px rgba(0,0,0,.9), 0 0 
 .hint{ text-align:center; font-family:var(--f-cn); font-size:10px; letter-spacing:2px; color:var(--ink-ghost); margin-top:-2px; }
 
 /* ===================== control deck ===================== */
-.deck{ display:grid; grid-template-columns:1fr auto 1fr; align-items:center; gap:10px; padding:4px 2px; }
+.deck{ display:grid; grid-template-columns:1fr auto 1fr; align-items:center; gap:clamp(6px,2.2vw,10px); padding:4px 2px; }
 
 /* ---- gore flip-cover ---- */
 .gore-mod{ justify-self:start; width:78px; }
@@ -173,7 +173,7 @@ body.gore .reel.active .window{ box-shadow:inset 0 2px 10px rgba(0,0,0,.9), 0 0 
 
 /* ---- SPIN (neon only) ---- */
 .spin-col{ justify-self:center; display:flex; flex-direction:column; align-items:center; gap:6px; }
-.spin{ position:relative; width:128px; height:128px; border-radius:50%; cursor:pointer; border:none;
+.spin{ position:relative; width:clamp(96px,30vw,128px); height:clamp(96px,30vw,128px); border-radius:50%; cursor:pointer; border:none;
   font-family:var(--f-deco); font-size:24px; letter-spacing:3px; text-indent:3px; font-weight:700;
   background:radial-gradient(circle at 50% 40%, rgba(24,18,8,.55), rgba(7,5,4,.9)); color:var(--gold-1);
   border:2px solid var(--gold-2); text-shadow:0 0 8px var(--accent), 0 0 18px var(--accent);
@@ -182,6 +182,19 @@ body.gore .reel.active .window{ box-shadow:inset 0 2px 10px rgba(0,0,0,.9), 0 0 
 .spin:active{ transform:scale(.96); box-shadow:0 0 8px 1px var(--accent), inset 0 0 12px rgba(231,196,99,.25); }
 .spin:disabled{ filter:grayscale(.4) brightness(.7); cursor:default; }
 body.gore .spin{ color:#ffd8d4; }
+
+/* ---- start from the displayed payline ---- */
+.start-lever-col{ justify-self:end; display:flex; align-items:center; gap:8px; }
+.direct-start{ width:44px; height:128px; padding:12px 0; flex:0 0 44px;
+  display:flex; align-items:center; justify-content:center; writing-mode:vertical-rl; text-orientation:upright;
+  font-family:var(--f-cn); font-size:14px; font-weight:700; letter-spacing:4px;
+  cursor:pointer; border:1px solid var(--gold-2); border-radius:12px; color:var(--gold-1);
+  background:linear-gradient(180deg,rgba(231,196,99,.12),rgba(7,5,4,.9));
+  box-shadow:0 0 10px -3px var(--accent),inset 0 0 12px rgba(231,196,99,.12);
+  transition:transform .08s ease,filter .2s ease; }
+.direct-start:active{ transform:scale(.96); }
+.direct-start:disabled{ filter:grayscale(.4) brightness(.6); cursor:default; }
+.direct-start:focus-visible{ outline:2px solid var(--gold-1); outline-offset:3px; }
 
 /* ---- lever (neon) ---- */
 .lever-col{ justify-self:end; width:50px; height:140px; position:relative; }
@@ -397,11 +410,14 @@ body.gore .omi-again{ color:#ffd8d4; }
         <button class="spin" id="spinBtn">SPIN</button>
       </div>
 
-      <div class="lever-col" id="leverCol">
-        <div class="lever-rod"></div>
-        <div class="lever-track"></div>
-        <div class="lever-knob" id="leverKnob"></div>
-        <span class="lever-label">PULL</span>
+      <div class="start-lever-col">
+        <button class="direct-start" id="directStartBtn" aria-label="直接开始" title="使用当前选中滚轮的显示内容开始">直接开始</button>
+        <div class="lever-col" id="leverCol">
+          <div class="lever-rod"></div>
+          <div class="lever-track"></div>
+          <div class="lever-knob" id="leverKnob"></div>
+          <span class="lever-label">PULL</span>
+        </div>
       </div>
     </section>
 
@@ -577,6 +593,10 @@ body.gore .omi-again{ color:#ffd8d4; }
       el.classList.toggle("ghost", !this.active && !this.locked);
       el.classList.toggle("locked", this.locked);
     }
+    currentTag() {
+      const index = Math.floor(this.d / ROW_H) + VISIBLE_CENTER;
+      return this.tags[((index % this.tags.length) + this.tags.length) % this.tags.length];
+    }
     markPaycell() {
       this.strip.querySelectorAll(".cell.paycell").forEach(c => c.classList.remove("paycell"));
       if (this.result == null) return;
@@ -591,6 +611,7 @@ body.gore .omi-again{ color:#ffd8d4; }
       this.d = ((this.d % total) + total) % total;
       this.render();
       this.spinning = true; this.el.classList.add("spinning"); this.el.classList.remove("settled"); this.result = null;
+      App.refreshStartButton();
       const SPEED = 2200; let last = performance.now();
       let stopping = false, t0, from, to, dur, lastTick = 0;
       const target = Math.floor(Math.random() * this.tags.length);
@@ -605,6 +626,7 @@ body.gore .omi-again{ color:#ffd8d4; }
           this.d = from + (to - from) * e + overshoot;
           if (t >= 1) {
             this.d = to; this.spinning = false; this.el.classList.remove("spinning");
+            App.refreshStartButton();
             this.result = this.tags[target]; this.render(); this.markPaycell();
             Audio.clunk(); buzz(18); cancelAnimationFrame(this.raf); this.raf = null; onStop && onStop(); return;
           }
@@ -709,6 +731,8 @@ body.gore .omi-again{ color:#ffd8d4; }
       helpVeil.addEventListener("click", (e) => { if (e.target === helpVeil) helpVeil.classList.remove("show"); });
       this.spinBtn = document.getElementById("spinBtn");
       this.spinBtn.addEventListener("click", () => this.spinAll());
+      this.directStartBtn = document.getElementById("directStartBtn");
+      this.directStartBtn.addEventListener("click", () => this.enterRoom(true));
       const leverCol = document.getElementById("leverCol");
       const leverKnob = document.getElementById("leverKnob");
       leverKnob.addEventListener("click", () => { leverCol.classList.add("pulled"); setTimeout(() => leverCol.classList.remove("pulled"), 520); this.spinAll(); });
@@ -739,21 +763,9 @@ body.gore .omi-again{ color:#ffd8d4; }
       this.wireAddTag();
       document.getElementById("omiAgain").addEventListener("click", () => { this.hideResult(); this.spinAll(); });
       document.getElementById("omiClose").addEventListener("click", () => this.hideResult());
-      // A confirmed result is the only message sent to Flutter. The WebView
+      // A user-approved selection is the only message sent to Flutter. The WebView
       // cannot create a room, call a model, or advance an Agent on its own.
-      document.getElementById("omiEnterRoom").addEventListener("click", () => {
-        if (this.busy || !window.FateWheelBridge) return;
-        const selected = this.activeReels().filter(r => r.result).map(r => ({
-          dimension: r.dim.id,
-          zh: r.result.zh || "",
-          en: r.result.en || "",
-          ja: r.result.ja || ""
-        }));
-        if (!selected.length) return;
-        window.FateWheelBridge.postMessage(JSON.stringify({
-          source: "ruota-local-v1", armed: this.gore, selected
-        }));
-      });
+      document.getElementById("omiEnterRoom").addEventListener("click", () => this.enterRoom());
       document.getElementById("resultVeil").addEventListener("click", (e) => { if (e.target.id === "resultVeil") this.hideResult(); });
     },
     toggleGore(v) {
@@ -905,7 +917,22 @@ body.gore .omi-again{ color:#ffd8d4; }
       renderList();
     },
 
-    setBusy(v) { this.busy = v; document.body.classList.toggle("busy", v); this.spinBtn.disabled = v; },
+    refreshStartButton() {
+      if (this.directStartBtn) this.directStartBtn.disabled = this.busy || this.reels.some(r => r.spinning);
+    },
+    enterRoom(useCurrent = false) {
+      if (this.busy || this.reels.some(r => r.spinning) || !window.FateWheelBridge) return;
+      const live = this.activeReels();
+      const selected = live.map(r => {
+        const tag = useCurrent ? r.currentTag() : r.result;
+        return tag ? { dimension: r.dim.id, zh: tag.zh || "", en: tag.en || "", ja: tag.ja || "" } : null;
+      }).filter(Boolean);
+      if (!selected.length) { this.flashHint("请先点亮卷轴"); return; }
+      window.FateWheelBridge.postMessage(JSON.stringify({
+        source: "ruota-local-v1", armed: this.gore, selected
+      }));
+    },
+    setBusy(v) { this.busy = v; document.body.classList.toggle("busy", v); this.spinBtn.disabled = v; this.refreshStartButton(); },
     spinAll() {
       if (this.busy) return;
       const live = this.activeReels();

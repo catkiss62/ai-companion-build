@@ -870,28 +870,28 @@ class _ImmersiveRoomPageState extends State<ImmersiveRoomPage> {
     if (ended && mounted) Navigator.pop(context);
   }
 
+  Widget _fateWheelPanel(ImmersiveRoom room) => Container(
+        width: double.infinity,
+        color: const Color(0xA6392635),
+        padding: const EdgeInsets.fromLTRB(12, 7, 12, 9),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text('✦ 命运之轮 · 已确认的虚构设定',
+                style: TextStyle(color: Color(0xFFE9BA70), fontSize: 12)),
+            const SizedBox(height: 4),
+            Text(
+              FateWheelResult.preview(room.entryContext).join('   /   '),
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(color: Color(0xFFFFE2B4), fontSize: 12),
+            ),
+          ],
+        ),
+      );
+
   Widget _conversationPanel(ImmersiveRoom? room) => Column(
         children: [
-          if (room != null && FateWheelResult.preview(room.entryContext).isNotEmpty)
-            Container(
-              width: double.infinity,
-              color: const Color(0xFF392635),
-              padding: const EdgeInsets.fromLTRB(12, 7, 12, 9),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Text('✦ 命运之轮 · 已确认的虚构设定',
-                      style: TextStyle(color: Color(0xFFE9BA70), fontSize: 12)),
-                  const SizedBox(height: 4),
-                  Text(
-                    FateWheelResult.preview(room.entryContext).join('   /   '),
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(color: Color(0xFFFFE2B4), fontSize: 12),
-                  ),
-                ],
-              ),
-            ),
           if (controller.error != null)
             MaterialBanner(
               content: Text(
@@ -1221,14 +1221,6 @@ class _ImmersiveRoomPageState extends State<ImmersiveRoomPage> {
                         height: panelHeight,
                         child: DecoratedBox(
                           decoration: BoxDecoration(
-                            color: Theme.of(context)
-                                .colorScheme
-                                .surface
-                                .withValues(
-                                  alpha: _visualStageEnabled
-                                      ? _panelOpacity
-                                      : 1.0,
-                                ),
                             border: Border(
                               top: BorderSide(
                                 color: Theme.of(context)
@@ -1238,7 +1230,27 @@ class _ImmersiveRoomPageState extends State<ImmersiveRoomPage> {
                               ),
                             ),
                           ),
-                          child: _conversationPanel(room),
+                          child: Column(
+                            children: [
+                              if (room != null &&
+                                  FateWheelResult.preview(room.entryContext)
+                                      .isNotEmpty)
+                                _fateWheelPanel(room),
+                              Expanded(
+                                child: ColoredBox(
+                                  color: Theme.of(context)
+                                      .colorScheme
+                                      .surface
+                                      .withValues(
+                                        alpha: _visualStageEnabled
+                                            ? _panelOpacity
+                                            : 1.0,
+                                      ),
+                                  child: _conversationPanel(room),
+                                ),
+                              ),
+                            ],
+                          ),
                         ),
                       ),
                       if (_visualStageEnabled)

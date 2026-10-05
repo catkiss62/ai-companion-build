@@ -18,7 +18,7 @@ def digest(relative: str) -> str:
     return sha256((ROOT / relative).read_bytes()).hexdigest()
 
 
-pubspec = read("pubspec.yaml").replace("version: 0.42.75+319", "version: 0.42.74+318").replace("version: 0.42.74+318", "version: 0.42.73+317").replace("version: 0.42.73+317", "version: 0.42.72+316").replace("version: 0.42.72+316", "version: 0.42.71+315").replace("version: 0.42.71+315", "version: 0.42.70+314").replace("version: 0.42.70+314", "version: 0.42.69+313").replace("version: 0.42.69+313", "version: 0.42.68+312")
+pubspec = read("pubspec.yaml").replace("version: 0.42.76+320", "version: 0.42.75+319").replace("version: 0.42.75+319", "version: 0.42.74+318").replace("version: 0.42.74+318", "version: 0.42.73+317").replace("version: 0.42.73+317", "version: 0.42.72+316").replace("version: 0.42.72+316", "version: 0.42.71+315").replace("version: 0.42.71+315", "version: 0.42.70+314").replace("version: 0.42.70+314", "version: 0.42.69+313").replace("version: 0.42.69+313", "version: 0.42.68+312")
 is_exact_rollback = "version: 0.41.64+208" in pubspec
 assert is_exact_rollback or any(
     version in pubspec

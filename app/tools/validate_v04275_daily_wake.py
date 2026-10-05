@@ -1,7 +1,7 @@
 from pathlib import Path
 r = Path(__file__).resolve().parents[1]
 read = lambda p: (r / p).read_text()
-assert '\nversion: 0.42.75+319\n' in read('pubspec.yaml')
+assert any(f'\nversion: {v}\n' in read('pubspec.yaml') for v in ['0.42.75+319', '0.42.76+320'])
 store = read('lib/core/desire/daily_wake_store.dart')
 assert 'db.transaction' in store and 'nextInt(61)' in store and 'sampledAt' in store
 budget = read('lib/core/desire/proactive_delivery_budget.dart')
