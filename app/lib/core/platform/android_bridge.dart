@@ -294,17 +294,6 @@ class CapabilityStatus {
   }
 }
 
-class NearbyEvent {
-  const NearbyEvent(this.type, this.data);
-  final String type;
-  final Map<Object?, Object?> data;
-
-  factory NearbyEvent.fromDynamic(dynamic value) {
-    final map = Map<Object?, Object?>.from(value as Map);
-    return NearbyEvent(map['type'] as String? ?? 'unknown', map);
-  }
-}
-
 class AndroidBridge {
   AndroidBridge._() {
     _channel.setMethodCallHandler((call) async {
@@ -316,20 +305,12 @@ class AndroidBridge {
   static final AndroidBridge instance = AndroidBridge._();
 
   static const MethodChannel _channel = MethodChannel('ai_companion/system');
-  static const EventChannel _nearbyChannel =
-      EventChannel('ai_companion/nearby_events');
   final StreamController<void> _openChatLaunchController =
       StreamController<void>.broadcast();
 
   Stream<void> get openChatLaunches => _openChatLaunchController.stream;
 
   String get packageNameHint => 'com.aicompanion.localfirst';
-
-  Stream<NearbyEvent>? _nearbyEvents;
-  Stream<NearbyEvent> get nearbyEvents => _nearbyEvents ??= _nearbyChannel
-      .receiveBroadcastStream()
-      .map(NearbyEvent.fromDynamic)
-      .asBroadcastStream();
 
   Future<CapabilityStatus> capabilityStatus() async {
     final raw = await _channel.invokeMapMethod<Object?, Object?>('capabilityStatus');
@@ -419,9 +400,6 @@ class AndroidBridge {
 
   Future<bool> requestNotificationPermission() async =>
       await _channel.invokeMethod<bool>('requestNotificationPermission') ?? false;
-
-  Future<bool> requestNearbyPermissions() async =>
-      await _channel.invokeMethod<bool>('requestNearbyPermissions') ?? false;
 
   Future<void> openDesktopPetPreview() =>
       _channel.invokeMethod<void>('openDesktopPetPreview');
@@ -716,64 +694,6 @@ class AndroidBridge {
         errorCode: 'platform_unavailable',
       );
     }
-  }
-
-  Future<void> startNearbyReceive() =>
-      _channel.invokeMethod<void>('startNearbyReceive');
-
-  Future<void> startNearbyDiscovery() =>
-      _channel.invokeMethod<void>('startNearbyDiscovery');
-
-  Future<void> stopNearby() => _channel.invokeMethod<void>('stopNearby');
-
-  Future<void> connectNearby(String endpointId) =>
-      _channel.invokeMethod<void>('connectNearby', {'endpointId': endpointId});
-
-  Future<void> acceptNearbyConnection(String endpointId) =>
-      _channel.invokeMethod<void>('acceptNearbyConnection', {'endpointId': endpointId});
-
-  Future<void> rejectNearbyConnection(String endpointId) =>
-      _channel.invokeMethod<void>('rejectNearbyConnection', {'endpointId': endpointId});
-
-  Future<void> confirmNearbyTakeover({
-    required String endpointId,
-    required String snapshotId,
-    required String lineageId,
-    required String sourceDeviceId,
-    required int sourceGeneration,
-    required String stateSha256,
-    required String targetDeviceId,
-    required int targetActivationGeneration,
-  }) =>
-      _channel.invokeMethod<void>('confirmNearbyTakeover', {
-        'endpointId': endpointId,
-        'snapshotId': snapshotId,
-        'lineageId': lineageId,
-        'sourceDeviceId': sourceDeviceId,
-        'sourceGeneration': sourceGeneration,
-        'stateSha256': stateSha256,
-        'targetDeviceId': targetDeviceId,
-        'targetActivationGeneration': targetActivationGeneration,
-      });
-
-  Future<void> sendNearbyFile({
-    required String endpointId,
-    required String filePath,
-    required String snapshotId,
-    required String lineageId,
-    required String sourceDeviceId,
-    required int sourceGeneration,
-    required String stateSha256,
-  }) {
-    return _channel.invokeMethod<void>('sendNearbyFile', {
-      'endpointId': endpointId,
-      'filePath': filePath,
-      'snapshotId': snapshotId,
-      'lineageId': lineageId,
-      'sourceDeviceId': sourceDeviceId,
-      'sourceGeneration': sourceGeneration,
-      'stateSha256': stateSha256,
-    });
   }
 
   Future<bool> saveManualSnapshot({

@@ -1282,7 +1282,6 @@ class PreflightDiagnosticsService {
       final native = _normalizeMap(await android.preflightStatus());
       report['native'] = native;
       final capabilities = _asMap(native['capabilities']);
-      final nearby = _asMap(native['nearby']);
       final androidInfo = _asMap(native['android']);
       final audio = _asMap(native['audio']);
       final selfHealCount =
@@ -1799,18 +1798,6 @@ class PreflightDiagnosticsService {
                     : transientCoverRecovery
                         ? '系统图片/文件/权限页面刚退出，悬浮输入通道正在一次性恢复。'
                         : '悬浮入口存在输入通道、坐标或隐藏聊天窗口异常；服务会尝试自动恢复。',
-      ));
-
-      final nearbyPermission = nearby['permissionsGranted'] == true;
-      final playServices = nearby['googlePlayServicesAvailable'] == true;
-      final bluetooth = nearby['bluetoothEnabled'] == true;
-      checks.add(PreflightCheck(
-        id: 'nearby',
-        title: '手机 / 平板 Nearby',
-        level: nearbyPermission && playServices && bluetooth ? 'pass' : 'warn',
-        summary: nearbyPermission && playServices && bluetooth
-            ? 'Nearby 所需权限、Google Play services 与蓝牙条件可用。'
-            : 'Nearby 条件未完全满足；深度真机接管前需要处理。',
       ));
 
       final backgroundRestricted = androidInfo['backgroundRestricted'] == true;

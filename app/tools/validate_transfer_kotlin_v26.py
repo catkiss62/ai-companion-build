@@ -106,15 +106,8 @@ def main():
         print('[SKIP] kotlinc unavailable'); return 0
     with tempfile.TemporaryDirectory(prefix='transfer-kotlin-v26-') as td:
         base=Path(td)
-        # Nearby uses a tiny NativeEventStore stub so its protocol source is type-checked independently.
-        compile_group(compiler,['NearbyTransferManager.kt'],{
-            'com/aicompanion/localfirst/NativeEventStore.kt': r'''package com.aicompanion.localfirst
-import android.content.Context
-object NativeEventStore { fun fenceForTakeover(c:Context,snapshotId:String,lineageId:String,generation:Long,targetDeviceId:String)=true }
-'''
-        },base/'nearby')
         # Compile the real NativeEventStore + pure JVM crypto against DB/context stubs.
         compile_group(compiler,['NativeEventStore.kt','ManualSnapshotCrypto.kt'],{},base/'native')
-    print('[OK] Nearby v3 protocol + NativeEventStore fence + manual crypto Kotlin compile against API stubs')
+    print('[OK] NativeEventStore ownership + manual crypto (Nearby retired in +324) Kotlin compile against API stubs')
     return 0
 if __name__=='__main__': raise SystemExit(main())

@@ -1,17 +1,12 @@
 package com.aicompanion.localfirst
 
-import android.Manifest
 import android.app.ActivityManager
-import android.bluetooth.BluetoothManager
 import android.content.Context
 import android.content.pm.PackageManager
-import android.location.LocationManager
 import android.media.AudioDeviceInfo
 import android.media.AudioManager
 import android.os.Build
 import android.os.PowerManager
-import com.google.android.gms.common.ConnectionResult
-import com.google.android.gms.common.GoogleApiAvailability
 
 /** Read-only Android runtime probe used by the v0.27 device preflight page. */
 object NativePreflightProbe {
@@ -22,12 +17,6 @@ object NativePreflightProbe {
         val power = context.getSystemService(PowerManager::class.java)
         val activityManager = context.getSystemService(ActivityManager::class.java)
         val audio = context.getSystemService(AudioManager::class.java)
-        val bluetooth = context.getSystemService(BluetoothManager::class.java).adapter
-        val location = context.getSystemService(LocationManager::class.java)
-        val missingNearby = nearbyPermissionNames().filter { permission ->
-            context.checkSelfPermission(permission) != PackageManager.PERMISSION_GRANTED
-        }
-        val playServices = GoogleApiAvailability.getInstance().isGooglePlayServicesAvailable(context)
         val outputs = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
             audio.getDevices(AudioManager.GET_DEVICES_OUTPUTS)
                 .map { audioDeviceName(it.type) }
@@ -49,7 +38,6 @@ object NativePreflightProbe {
         } else {
             versionInfo.versionCode.toLong()
         }
-        val bluetoothEnabled = runCatching { bluetooth?.isEnabled == true }.getOrDefault(false)
         return mapOf(
             "app" to mapOf(
                 "versionName" to (versionInfo.versionName ?: ""),
@@ -65,14 +53,6 @@ object NativePreflightProbe {
                 "batteryOptimizationIgnored" to power.isIgnoringBatteryOptimizations(context.packageName),
             ),
             "capabilities" to capabilities,
-            "nearby" to mapOf(
-                "permissionsGranted" to missingNearby.isEmpty(),
-                "missingPermissions" to missingNearby.map { it.substringAfterLast('.') },
-                "bluetoothEnabled" to bluetoothEnabled,
-                "locationEnabled" to (if (Build.VERSION.SDK_INT >= 28) location.isLocationEnabled else true),
-                "googlePlayServicesAvailable" to (playServices == ConnectionResult.SUCCESS),
-                "googlePlayServicesCode" to playServices,
-            ),
             "audio" to mapOf(
                 "mode" to audio.mode,
                 "musicActive" to audio.isMusicActive,
@@ -80,30 +60,6 @@ object NativePreflightProbe {
             ),
             "runtimeDiagnosticCount" to RuntimeDiagnosticStore.snapshot(context, 160).size,
         )
-    }
-
-    fun nearbyPermissionNames(): List<String> = when {
-        Build.VERSION.SDK_INT >= 37 -> listOf(
-            Manifest.permission.BLUETOOTH_ADVERTISE,
-            Manifest.permission.BLUETOOTH_CONNECT,
-            Manifest.permission.BLUETOOTH_SCAN,
-            Manifest.permission.NEARBY_WIFI_DEVICES,
-            "android.permission.ACCESS_LOCAL_NETWORK",
-        )
-        Build.VERSION.SDK_INT >= 33 -> listOf(
-            Manifest.permission.BLUETOOTH_ADVERTISE,
-            Manifest.permission.BLUETOOTH_CONNECT,
-            Manifest.permission.BLUETOOTH_SCAN,
-            Manifest.permission.NEARBY_WIFI_DEVICES,
-        )
-        Build.VERSION.SDK_INT >= 31 -> listOf(
-            Manifest.permission.BLUETOOTH_ADVERTISE,
-            Manifest.permission.BLUETOOTH_CONNECT,
-            Manifest.permission.BLUETOOTH_SCAN,
-            Manifest.permission.ACCESS_FINE_LOCATION,
-        )
-        Build.VERSION.SDK_INT >= 29 -> listOf(Manifest.permission.ACCESS_FINE_LOCATION)
-        else -> listOf(Manifest.permission.ACCESS_COARSE_LOCATION)
     }
 
     private fun audioDeviceName(type: Int): String = when (type) {

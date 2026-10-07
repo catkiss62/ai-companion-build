@@ -11,33 +11,28 @@ import '../../core/sync/snapshot_restore_coordinator.dart';
 import '../../core/phone/calendar_reminder_store.dart';
 
 class TransferPage extends StatefulWidget {
-  const TransferPage({super.key});
+  const TransferPage({super.key, this.database});
+
+  final AppDatabase? database;
 
   @override
   State<TransferPage> createState() => _TransferPageState();
 }
 
 class _TransferPageState extends State<TransferPage> {
-  static const int _maxNearbyBytes = 512 * 1024 * 1024;
-  final db = AppDatabase.instance;
+  static const int _maxManualBytes = 512 * 1024 * 1024;
+  late final db = widget.database ?? AppDatabase.instance;
   final android = AndroidBridge.instance;
   late final SnapshotService snapshots = SnapshotService(db);
 
-  StreamSubscription<NearbyEvent>? sub;
-  final Map<String, String> endpoints = {};
   SnapshotBundle? outboundBundle;
-  SnapshotMetadata? importedMetadata;
-  String? connectedEndpoint;
-  String? receivedPath;
   String? log;
   bool busy = false;
-  bool awaitingTakeoverAck = false;
   bool importedStandby = false;
 
   @override
   void initState() {
     super.initState();
-    sub = android.nearbyEvents.listen(_onNearbyEvent);
     unawaited(SnapshotCacheJanitor.clean());
     unawaited(_restoreStandbyUiState());
   }
@@ -54,42 +49,19 @@ class _TransferPageState extends State<TransferPage> {
 
   Future<void> _restoreStandbyUiState() async {
     final active = await db.getSetting('active_brain');
-    final pending = await db.pendingImportedTransfer();
     if (!mounted) return;
     if (active == '0') {
       setState(() {
         importedStandby = true;
-        if (pending != null) {
-          importedMetadata = SnapshotMetadata(
-            snapshotId: pending.snapshotId,
-            lineageId: pending.lineageId,
-            sourceDeviceId: pending.sourceDeviceId,
-            sourceGeneration: pending.sourceGeneration,
-            targetActivationGeneration: pending.sourceGeneration + 1,
-            stateSha256: pending.stateSha256,
-            stateBytes: 0,
-            schemaVersion: AppDatabase.schemaVersion,
-            createdAt: DateTime.fromMillisecondsSinceEpoch(0, isUtc: true),
-            protocolVersion: 2,
-          );
-        }
       });
     }
   }
 
   @override
   void dispose() {
-    unawaited(sub?.cancel() ?? Future<void>.value());
-    unawaited(android.stopNearby());
     if (outboundBundle != null) {
       unawaited(_clearSourceSnapshot());
-    } else if (awaitingTakeoverAck) {
-      // Leaving the UI cancels transport. If this is the target it remains
-      // active_brain=0 and keeps the imported state safely in standby.
-      unawaited(db.setSetting('transfer_lock', '0'));
     }
-    final incomingPath = receivedPath;
-    if (incomingPath != null) unawaited(_deleteCachePath(incomingPath));
     super.dispose();
   }
 
@@ -118,281 +90,10 @@ class _TransferPageState extends State<TransferPage> {
     }
   }
 
-  Future<void> _clearReceivedSnapshot() async {
-    final path = receivedPath;
-    receivedPath = null;
-    if (path != null) await _deleteCachePath(path);
-  }
-
   void _append(String text) {
     if (!mounted) return;
     final now = TimeOfDay.now().format(context);
     setState(() => log = '${log ?? ''}${log == null ? '' : '\n'}[$now] $text');
-  }
-
-  Future<void> _onNearbyEvent(NearbyEvent event) async {
-    if (!mounted) return;
-    switch (event.type) {
-      case 'endpointFound':
-        final id = event.data['endpointId'] as String?;
-        final name = event.data['endpointName'] as String? ?? '附近设备';
-        if (id != null) setState(() => endpoints[id] = name);
-        break;
-      case 'endpointLost':
-        final id = event.data['endpointId'] as String?;
-        if (id != null) setState(() => endpoints.remove(id));
-        break;
-      case 'connectionInitiated':
-        final id = event.data['endpointId'] as String?;
-        final name = event.data['endpointName'] as String? ?? '附近设备';
-        final code = event.data['verificationCode']?.toString() ?? '无';
-        _append('连接验证：$name · $code');
-        if (id != null && mounted) {
-          final accepted = await showDialog<bool>(
-                context: context,
-                barrierDismissible: false,
-                builder: (context) => AlertDialog(
-                  title: const Text('确认附近设备'),
-                  content: Text(
-                    '请确认两台设备显示相同验证码：\n\n$code\n\n设备：$name',
-                    textAlign: TextAlign.center,
-                  ),
-                  actions: [
-                    TextButton(
-                      onPressed: () => Navigator.pop(context, false),
-                      child: const Text('拒绝'),
-                    ),
-                    FilledButton(
-                      onPressed: () => Navigator.pop(context, true),
-                      child: const Text('验证码一致，连接'),
-                    ),
-                  ],
-                ),
-              ) ??
-              false;
-          if (accepted) {
-            await android.acceptNearbyConnection(id);
-          } else {
-            await android.rejectNearbyConnection(id);
-          }
-        }
-        break;
-      case 'connected':
-        final id = event.data['endpointId'] as String?;
-        if (id != null) {
-          connectedEndpoint = id;
-          _append('已连接 ${event.data['endpointName'] ?? id}');
-          final bundle = outboundBundle;
-          if (bundle != null) {
-            final meta = bundle.metadata;
-            await android.sendNearbyFile(
-              endpointId: id,
-              filePath: bundle.filePath,
-              snapshotId: meta.snapshotId,
-              lineageId: meta.lineageId,
-              sourceDeviceId: meta.sourceDeviceId,
-              sourceGeneration: meta.sourceGeneration,
-              stateSha256: meta.stateSha256,
-            );
-            _append('开始发送第 ${meta.sourceGeneration} 代状态包');
-          }
-        }
-        break;
-      case 'connectionFailed':
-        if (outboundBundle != null) {
-          await _clearSourceSnapshot();
-          if (mounted) setState(() {});
-        }
-        _append('连接失败：${event.data['status'] ?? ''}。请重新生成状态包后再试。');
-        break;
-      case 'sendComplete':
-        _append('状态包发送完成，等待目标设备校验和导入');
-        break;
-      case 'fileReceived':
-        final path = event.data['filePath'] as String?;
-        final id = event.data['endpointId'] as String?;
-        if (id != null) connectedEndpoint = id;
-        if (path != null) {
-          setState(() => receivedPath = path);
-          _append('收到状态包，可校验后导入到本机');
-        }
-        break;
-      case 'transferFailed':
-        if (outboundBundle != null) {
-          await _clearSourceSnapshot();
-          if (mounted) setState(() {});
-        }
-        final status = event.data['status']?.toString() ?? '';
-        _append(
-          status == 'payload_too_large_use_multipart_backup'
-              ? '状态包超过 Nearby 512 MiB 发送上限，未开始发送；请使用下方“保存备份”。'
-              : '传输失败：$status。本次包已作废，请重新生成。',
-        );
-        break;
-      case 'takeoverConfirmed':
-        if (awaitingTakeoverAck) {
-          final snapshotId = event.data['snapshotId'] as String? ?? '';
-          final expectedActivation = (event.data['targetActivationGeneration'] as num?)?.toInt();
-          try {
-            final activatedGeneration = await db.activatePendingImportedBrain(
-              expectedSnapshotId: snapshotId,
-            );
-            if (expectedActivation != null && expectedActivation != activatedGeneration) {
-              throw StateError('ACK 目标代次与数据库激活代次不一致。');
-            }
-            try {
-              await _syncRemindersSafely();
-          await android.reconcileOverlayAfterTakeover();
-            } catch (_) {
-              // Ownership is already committed. Overlay restoration is best
-              // effort and must never undo a successful Active Brain takeover.
-            }
-            await _clearReceivedSnapshot();
-            if (!mounted) return;
-            setState(() {
-              awaitingTakeoverAck = false;
-              importedStandby = false;
-              importedMetadata = null;
-            });
-            _append('旧设备已确认下线，本机成为第 $activatedGeneration 代 Active Brain。');
-          } catch (e) {
-            await db.setSetting('active_brain', '0');
-            await _syncRemindersSafely();
-            await db.setSetting('transfer_lock', '0');
-            if (!mounted) return;
-            setState(() {
-              awaitingTakeoverAck = false;
-              importedStandby = true;
-            });
-            _append('收到 ACK，但本机状态身份校验失败：$e。本机继续待机。');
-          }
-        }
-        break;
-      case 'takeoverAckFailed':
-        if (awaitingTakeoverAck) {
-          await db.setSetting('active_brain', '0');
-            await _syncRemindersSafely();
-          await db.setSetting('transfer_lock', '0');
-          if (!mounted) return;
-          setState(() {
-            awaitingTakeoverAck = false;
-            importedStandby = true;
-          });
-          _append('接管确认没有可靠送达，本机保持待机，避免双 Active Brain。');
-        } else {
-          // Source-side ACK send failure occurs only after NativeEventStore has
-          // atomically fenced this source. Never reactivate it automatically.
-          await db.setSetting('active_brain', '0');
-            await _syncRemindersSafely();
-          await db.setSetting('transfer_lock', '0');
-          if (mounted) setState(() => importedStandby = true);
-          _append('确认回执发送失败；本机已经安全下线。确认另一台状态后再决定是否手动恢复。');
-        }
-        break;
-      case 'takeoverRejected':
-        final reason = event.data['reason'] ?? 'metadata_mismatch';
-        if (awaitingTakeoverAck) {
-          await db.setSetting('active_brain', '0');
-            await _syncRemindersSafely();
-          await db.setSetting('transfer_lock', '0');
-          if (!mounted) return;
-          setState(() {
-            awaitingTakeoverAck = false;
-            importedStandby = true;
-          });
-        } else if (outboundBundle != null) {
-          await _clearSourceSnapshot();
-          if (mounted) setState(() {});
-        }
-        _append('接管协议拒绝了不匹配的会话：$reason。没有改变 Active Brain 所有权。');
-        break;
-      case 'remoteTookOver':
-        // NativeEventStore already fenced the exact source snapshot generation
-        // atomically before this event is emitted.
-        await _clearSourceSnapshot(
-          unlock: false,
-          invalidatePending: false,
-        );
-        if (!mounted) return;
-        setState(() {
-          importedStandby = true;
-          awaitingTakeoverAck = false;
-        });
-        _append('另一台设备已用本次状态包接管，本机已经下线；本地数据仍完整保留。');
-        break;
-      case 'disconnected':
-        connectedEndpoint = null;
-        if (outboundBundle != null) {
-          await _clearSourceSnapshot();
-          if (mounted) setState(() {});
-        }
-        if (awaitingTakeoverAck) {
-          await db.setSetting('active_brain', '0');
-            await _syncRemindersSafely();
-          await db.setSetting('transfer_lock', '0');
-          if (!mounted) return;
-          setState(() {
-            awaitingTakeoverAck = false;
-            importedStandby = true;
-          });
-        } else if (receivedPath != null && !importedStandby) {
-          await _clearReceivedSnapshot();
-          if (mounted) setState(() {});
-        }
-        _append('附近设备连接已断开。未完成状态包自动失效；已导入状态仍保持 standby。');
-        break;
-      default:
-        _append('Nearby: ${event.type}');
-    }
-  }
-
-  Future<void> _prepareAndDiscover() async {
-    await SnapshotCacheJanitor.clean();
-    await _clearSourceSnapshot();
-    await _clearReceivedSnapshot();
-    if (!mounted) return;
-    setState(() {
-      busy = true;
-      endpoints.clear();
-      log = null;
-      receivedPath = null;
-    });
-    try {
-      final ok = await android.requestNearbyPermissions();
-      if (!ok) {
-        _append('附近设备权限未完整授予');
-        return;
-      }
-      await db.setSetting('transfer_lock', '1');
-      await _waitForStateWriters();
-      final bundle = await snapshots.exportBundle();
-      outboundBundle = bundle;
-      final bundleBytes = await File(bundle.filePath).length();
-      if (bundleBytes > _maxNearbyBytes) {
-        await _clearSourceSnapshot();
-        if (mounted) setState(() {});
-        _append(
-          '完整状态包为 ${(bundleBytes / (1024 * 1024)).toStringAsFixed(1)} MiB，'
-          '超过 Nearby 512 MiB 发送上限。本机仍可正常使用，请改用“保存备份”。',
-        );
-        return;
-      }
-      _append(
-        '状态包已冻结：第 ${bundle.metadata.sourceGeneration} 代 · '
-        'SHA-256 ${bundle.sha256Hex.substring(0, 12)}…',
-      );
-      await android.startNearbyDiscovery();
-      _append('正在搜索附近接收设备…');
-    } catch (e) {
-      if (outboundBundle != null) {
-        await _clearSourceSnapshot();
-      } else {
-        await db.setSetting('transfer_lock', '0');
-      }
-      _append('发送准备失败：$e');
-    } finally {
-      if (mounted) setState(() => busy = false);
-    }
   }
 
   Future<void> _waitForStateWriters() async {
@@ -438,30 +139,6 @@ class _TransferPageState extends State<TransferPage> {
       '${lastHeldKey.isEmpty ? 'unknown' : lastHeldKey}），'
       '请等这一轮完成后重试。',
     );
-  }
-
-  Future<void> _receive() async {
-    await _clearSourceSnapshot();
-    await _clearReceivedSnapshot();
-    if (!mounted) return;
-    setState(() {
-      busy = true;
-      log = null;
-      receivedPath = null;
-    });
-    try {
-      final ok = await android.requestNearbyPermissions();
-      if (!ok) {
-        _append('附近设备权限未完整授予');
-        return;
-      }
-      await android.startNearbyReceive();
-      _append('本机正在等待另一台设备发送状态包…');
-    } catch (e) {
-      _append('接收启动失败：$e');
-    } finally {
-      if (mounted) setState(() => busy = false);
-    }
   }
 
   Future<bool> _confirmLineageReplacement(SnapshotMetadata metadata) async {
@@ -523,7 +200,6 @@ class _TransferPageState extends State<TransferPage> {
   Future<SnapshotImportResult?> _importPath(
     String path, {
     required bool allowLegacy,
-    required bool nearbyTakeover,
   }) async {
     final metadata = await snapshots.inspectBundle(path, allowLegacy: allowLegacy);
     if (!await _confirmIncompleteArchive(metadata)) {
@@ -545,7 +221,6 @@ class _TransferPageState extends State<TransferPage> {
     );
     if (result.recoveryPending) throw const SnapshotRecoveryRequired();
     if (result.completionWarning.isNotEmpty) _append(result.completionWarning);
-    importedMetadata = result.metadata;
     final pending = await db.pendingImportedTransfer();
     if (result.duplicate && pending?.snapshotId != result.metadata.snapshotId) {
       // The same snapshot was successfully imported in the past and this device
@@ -557,101 +232,15 @@ class _TransferPageState extends State<TransferPage> {
 
     if (!mounted) return result;
     setState(() => importedStandby = true);
-    if (nearbyTakeover && !result.metadata.legacy && connectedEndpoint != null) {
-      await _beginTakeoverHandshake(result.metadata);
-    } else {
-      await db.setSetting('active_brain', '0');
-            await _syncRemindersSafely();
-      await db.setSetting('transfer_lock', '0');
-      _append(
-        result.metadata.legacy
-            ? '旧版状态包已安全导入，本机保持待机；确认旧设备下线后再手动接管。'
-            : '状态已导入，本机保持待机；确认源设备已下线后可手动接管。',
-      );
-    }
-    return result;
-  }
-
-  Future<void> _importReceived() async {
-    final path = receivedPath;
-    if (path == null) return;
-    setState(() => busy = true);
-    var waitingForAck = false;
-    try {
-      final result = await _importPath(
-        path,
-        allowLegacy: false,
-        nearbyTakeover: true,
-      );
-      if (result == null) return;
-      waitingForAck = awaitingTakeoverAck;
-      await _clearReceivedSnapshot();
-      if (result.imported) {
-        _append('状态包身份、代次、大小与 SHA-256 均校验通过。');
-      }
-    } catch (e) {
-      final active = await db.getSetting('active_brain');
-      if (active == '0') {
-        await db.setSetting('transfer_lock', '0');
-        if (mounted) setState(() => importedStandby = true);
-        _append('导入/接管没有完成：$e。本机保持待机。');
-      } else {
-        await db.setSetting('transfer_lock', '0');
-        _append('导入失败：$e；本机原数据未被半覆盖。');
-      }
-    } finally {
-      if (!waitingForAck && !awaitingTakeoverAck) {
-        final active = await db.getSetting('active_brain');
-        if (active != '0') await db.setSetting('transfer_lock', '0');
-      }
-      if (mounted) setState(() => busy = false);
-    }
-  }
-
-  Future<void> _beginTakeoverHandshake(SnapshotMetadata metadata) async {
-    final endpoint = connectedEndpoint;
-    if (endpoint == null) {
-      await db.setSetting('active_brain', '0');
-            await _syncRemindersSafely();
-      await db.setSetting('transfer_lock', '0');
-      if (mounted) setState(() => importedStandby = true);
-      _append('状态已导入，但连接已经断开，本机保持待机。');
-      return;
-    }
-    final targetDeviceId = await db.ensureDeviceId();
-    if (!mounted) return;
-    setState(() {
-      awaitingTakeoverAck = true;
-      importedStandby = true;
-    });
-    await android.confirmNearbyTakeover(
-      endpointId: endpoint,
-      snapshotId: metadata.snapshotId,
-      lineageId: metadata.lineageId,
-      sourceDeviceId: metadata.sourceDeviceId,
-      sourceGeneration: metadata.sourceGeneration,
-      stateSha256: metadata.stateSha256,
-      targetDeviceId: targetDeviceId,
-      targetActivationGeneration: metadata.targetActivationGeneration,
-    );
-    unawaited(_takeoverAckTimeout(metadata.snapshotId));
-    _append('状态已导入，正在等待旧设备对本次状态包进行绑定确认…');
-  }
-
-  Future<void> _takeoverAckTimeout(String snapshotId) async {
-    await Future<void>.delayed(const Duration(seconds: 12));
-    if (!mounted || !awaitingTakeoverAck) return;
-    final pending = await db.pendingImportedTransfer();
-    if (pending?.snapshotId != snapshotId) return;
     await db.setSetting('active_brain', '0');
-            await _syncRemindersSafely();
+    await _syncRemindersSafely();
     await db.setSetting('transfer_lock', '0');
-    if (!mounted || !awaitingTakeoverAck) return;
-    setState(() {
-      awaitingTakeoverAck = false;
-      importedStandby = true;
-    });
-    _append('等待绑定 ACK 超时。本机保持待机；不会根据迟到的旧 ACK 自动上线。');
+    _append(
+      result.metadata.legacy
+          ? '旧版状态包已安全导入，本机保持待机；确认旧设备下线后再手动接管。'
+          : '状态已导入，本机保持待机；确认源设备已下线后可手动接管。',
+    );
+    return result;
   }
 
   Future<void> _forceTakeover() async {
@@ -693,9 +282,7 @@ class _TransferPageState extends State<TransferPage> {
       }
       if (!mounted) return;
       setState(() {
-        awaitingTakeoverAck = false;
         importedStandby = false;
-        importedMetadata = null;
       });
       _append('已手动接管，本机现在是第 $generation 代 Active Brain。');
     } catch (e) {
@@ -785,7 +372,7 @@ class _TransferPageState extends State<TransferPage> {
       bundle = await snapshots.exportBundle();
       outboundBundle = bundle;
       final bundleBytes = await File(bundle.filePath).length();
-      if (bundleBytes > _maxNearbyBytes) {
+      if (bundleBytes > _maxManualBytes) {
         await _clearSourceSnapshot();
         bundle = null;
         _append(
@@ -851,7 +438,6 @@ class _TransferPageState extends State<TransferPage> {
       final result = await _importPath(
         decryptedPath,
         allowLegacy: true,
-        nearbyTakeover: false,
       );
       if (result != null && result.imported) {
         _append('加密包与内部状态 SHA-256 校验通过。');
@@ -1033,57 +619,8 @@ class _TransferPageState extends State<TransferPage> {
     return ListView(
       padding: const EdgeInsets.all(16),
       children: [
-        Text('手机 ↔ 平板 · 同一个她', style: Theme.of(context).textTheme.headlineSmall),
-        const SizedBox(height: 6),
-        const Text(
-          '正常使用采用 Nearby 本地直传 + 单 Active Brain。状态包带关系谱系、单调代次、会话 ID 与 SHA-256；只有旧设备确认同一包后，新设备才会上线。',
-        ),
-        const SizedBox(height: 16),
-        Row(
-          children: [
-            Expanded(
-              child: FilledButton.icon(
-                onPressed: busy || awaitingTakeoverAck ? null : _prepareAndDiscover,
-                icon: const Icon(Icons.upload_rounded),
-                label: const Text('从本机发送'),
-              ),
-            ),
-            const SizedBox(width: 10),
-            Expanded(
-              child: OutlinedButton.icon(
-                onPressed: busy || awaitingTakeoverAck ? null : _receive,
-                icon: const Icon(Icons.download_rounded),
-                label: const Text('本机接收'),
-              ),
-            ),
-          ],
-        ),
-        if (endpoints.isNotEmpty) ...[
-          const SizedBox(height: 18),
-          Text('发现的设备', style: Theme.of(context).textTheme.titleMedium),
-          ...endpoints.entries.map((entry) => ListTile(
-                contentPadding: EdgeInsets.zero,
-                leading: const Icon(Icons.devices),
-                title: Text(entry.value),
-                subtitle: Text(entry.key),
-                trailing: FilledButton(
-                  onPressed: () async {
-                    _append('请求连接 ${entry.value}…');
-                    await android.connectNearby(entry.key);
-                  },
-                  child: const Text('连接'),
-                ),
-              )),
-        ],
-        if (receivedPath != null) ...[
-          const SizedBox(height: 14),
-          FilledButton.tonalIcon(
-            onPressed: busy || awaitingTakeoverAck ? null : _importReceived,
-            icon: const Icon(Icons.restore),
-            label: Text(awaitingTakeoverAck ? '等待旧设备绑定确认…' : '校验、导入并接管'),
-          ),
-        ],
-        if (importedStandby && !awaitingTakeoverAck) ...[
+        Text('备份与恢复', style: Theme.of(context).textTheme.headlineSmall),
+        if (importedStandby) ...[
           const SizedBox(height: 10),
           OutlinedButton.icon(
             onPressed: busy ? null : _forceTakeover,
@@ -1104,7 +641,7 @@ class _TransferPageState extends State<TransferPage> {
           children: [
             Expanded(
               child: OutlinedButton.icon(
-                onPressed: busy || awaitingTakeoverAck ? null : _backupExport,
+                onPressed: busy ? null : _backupExport,
                 icon: const Icon(Icons.save_alt),
                 label: const Text('保存备份'),
               ),
@@ -1112,7 +649,7 @@ class _TransferPageState extends State<TransferPage> {
             const SizedBox(width: 10),
             Expanded(
               child: OutlinedButton.icon(
-                onPressed: busy || awaitingTakeoverAck ? null : _backupImport,
+                onPressed: busy ? null : _backupImport,
                 icon: const Icon(Icons.restore),
                 label: const Text('恢复备份'),
               ),
@@ -1122,22 +659,22 @@ class _TransferPageState extends State<TransferPage> {
         Align(
           alignment: Alignment.centerLeft,
           child: TextButton(
-            onPressed: busy || awaitingTakeoverAck ? null : _legacyBackupImport,
+            onPressed: busy ? null : _legacyBackupImport,
             child: const Text('恢复旧版文件夹备份'),
           ),
         ),
         const SizedBox(height: 22),
-        Text('设备接管备用', style: Theme.of(context).textTheme.titleMedium),
+        Text('换机与旧接管包', style: Theme.of(context).textTheme.titleMedium),
         const SizedBox(height: 4),
         const Text(
-          '仅在 Nearby 接管不可靠时使用单个 .aicomp 文件。导出成功后本机会进入待机；这不是普通备份。超过 512 MiB 时请使用上方“保存备份”。',
+          '保留旧版 .aicomp 加密接管包的导入和换机功能。导出后本机会进入待机；日常保存进度请使用上方“保存备份”。',
         ),
         const SizedBox(height: 10),
         Row(
           children: [
             Expanded(
               child: OutlinedButton.icon(
-                onPressed: busy || awaitingTakeoverAck ? null : _manualExport,
+                onPressed: busy ? null : _manualExport,
                 icon: const Icon(Icons.phonelink_erase),
                 label: const Text('导出加密接管包'),
               ),
@@ -1145,7 +682,7 @@ class _TransferPageState extends State<TransferPage> {
             const SizedBox(width: 10),
             Expanded(
               child: OutlinedButton.icon(
-                onPressed: busy || awaitingTakeoverAck ? null : _manualImport,
+                onPressed: busy ? null : _manualImport,
                 icon: const Icon(Icons.phonelink_setup),
                 label: const Text('打开加密接管包'),
               ),
@@ -1164,7 +701,7 @@ class _TransferPageState extends State<TransferPage> {
           ),
         const SizedBox(height: 18),
         const Text(
-          '安全边界：旧状态包、重复投递、损坏/截断文件、错会话 ACK 都不能激活本机。被挤下线的设备只改变 Active Brain 身份，不删除它本地保存的数据。',
+          '恢复另一台设备的备份后，确认旧设备已停用，再将本机设为主设备。待机不会删除本机数据。',
         ),
       ],
     );

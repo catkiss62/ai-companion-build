@@ -619,7 +619,7 @@ class ChatController extends ChangeNotifier {
         throw StateError(await _activeWriteFreezeMessage());
       }
       if ((await db.getSetting('active_brain')) == '0') {
-        throw StateError('她现在在另一台设备上，请先把她接到这台设备。');
+        throw StateError('她现在在另一台设备上，请先确认旧设备已停用，并将本机设为主设备。');
       }
       final messageId = _uuid.v4();
       final commitStarted = DateTime.now();
@@ -1121,7 +1121,7 @@ class ChatController extends ChangeNotifier {
       return false;
     }
     if ((await db.getSetting('active_brain')) == '0') {
-      error = '她现在在另一台设备上。请先到“更多”→“手机 / 平板接管”把她接到这台设备，再继续聊天。';
+      error = '她现在在另一台设备上。请先到“更多”→“备份与恢复”确认旧设备已停用，并将本机设为主设备，再继续聊天。';
       _safeNotify();
       return false;
     }

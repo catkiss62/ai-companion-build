@@ -10,7 +10,7 @@ import org.json.JSONObject
  * This store must never contain relationship/chat/reference plaintext, API
  * secrets, raw notification/accessibility text, full device ids, endpoint ids,
  * snapshot ids, lineages or filesystem paths. It exists only to explain real
- * Android/TTS/Nearby failures during the first device checkpoint.
+ * Android/TTS failures during the first device checkpoint.
  */
 object RuntimeDiagnosticStore {
     private const val PREFS = "companion_runtime_diagnostics"
@@ -93,43 +93,6 @@ object RuntimeDiagnosticStore {
             code = DiagnosticRedaction.safeToken(errorType, 80),
             metadata = mapOf("runtimeProfile" to runtime, "stackFp" to stackFp,
                 "failureTarget" to DiagnosticRedaction.safeToken(frame, 120)), durable = true)
-    }
-
-    fun recordNearby(context: Context, type: String, extra: Map<String, Any?>) {
-        // Discovery can emit dozens of endpoint churn events. Keep the durable
-        // ring phase-oriented so one scan cannot evict the failure that matters.
-        if (type == "endpointFound" || type == "endpointLost") return
-        val severity = when {
-            type.contains("failed", true) || type.contains("error", true) -> "error"
-            type.contains("rejected", true) || type.contains("lost", true) || type == "disconnected" -> "warn"
-            else -> "info"
-        }
-        val code = when {
-            extra["reason"] != null -> extra["reason"].toString()
-            extra["operation"] != null -> extra["operation"].toString()
-            extra["status"] is Number -> "status_${extra["status"]}"
-            extra["status"] in setOf(
-                "empty_endpoint", "payload_too_large", "file_not_found",
-                "invalid_snapshot_metadata", "invalid_control_size",
-            ) -> extra["status"].toString()
-            extra.containsKey("status") -> "transport_status_error"
-            else -> type
-        }
-        val safeMeta = HashMap<String, Any?>()
-        for (key in listOf(
-            "endpointId", "snapshotId", "lineageId", "sourceDeviceId", "targetDeviceId", "stateSha256",
-            "sourceGeneration", "targetActivationGeneration", "payloadBytes", "totalBytes", "operation", "direction",
-        )) {
-            if (extra.containsKey(key)) safeMeta[key] = extra[key]
-        }
-        record(
-            context,
-            category = "nearby",
-            phase = type,
-            severity = severity,
-            code = code,
-            metadata = safeMeta,
-        )
     }
 
     @Synchronized

@@ -114,7 +114,7 @@ class DataAdvancedDomainPage extends StatelessWidget {
           ),
           _DomainEntry(
             icon: Icons.swap_horiz_rounded,
-            title: '手机 / 平板接管',
+            title: '备份与恢复',
             subtitle: '让同一个她换到另一台设备继续',
             onTap: () => Navigator.of(context).pushNamed('/transfer'),
           ),

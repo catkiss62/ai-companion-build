@@ -26,7 +26,6 @@ import android.provider.MediaStore
 import android.provider.Settings
 import io.flutter.embedding.engine.FlutterEngine
 import com.aicompanion.localfirst.pet.PetPreviewActivity
-import io.flutter.plugin.common.EventChannel
 import io.flutter.plugin.common.MethodChannel
 import java.io.File
 import java.io.FileInputStream
@@ -35,17 +34,12 @@ import java.io.ByteArrayOutputStream
 import java.io.InputStream
 import java.io.OutputStream
 import java.security.MessageDigest
-import java.util.UUID
 
 class SystemBridge(
     private val activity: android.app.Activity,
     flutterEngine: FlutterEngine,
 ) {
     private val methodChannel = MethodChannel(flutterEngine.dartExecutor.binaryMessenger, METHOD_CHANNEL)
-    private val nearbyEventChannel = EventChannel(flutterEngine.dartExecutor.binaryMessenger, NEARBY_EVENT_CHANNEL)
-    private val nearby = NearbyTransferManager.get(activity)
-    private val nearbyOwnerId = UUID.randomUUID().toString()
-    private var nearbySink: EventChannel.EventSink? = null
     private var permissionResult: MethodChannel.Result? = null
     private var permissionRequestCode: Int? = null
     private var manualDocumentResult: MethodChannel.Result? = null
@@ -63,18 +57,6 @@ class SystemBridge(
 
     init {
         SnapshotCacheCleaner.clean(activity)
-        nearbyEventChannel.setStreamHandler(object : EventChannel.StreamHandler {
-            override fun onListen(arguments: Any?, events: EventChannel.EventSink?) {
-                nearbySink = events
-                nearby.addListener(nearbyOwnerId) { message -> nearbySink?.success(message) }
-            }
-
-            override fun onCancel(arguments: Any?) {
-                nearby.removeListener(nearbyOwnerId)
-                nearbySink = null
-            }
-        })
-
         methodChannel.setMethodCallHandler { call, result ->
             when (call.method) {
                 "recoverPortablePreferences" -> {
@@ -222,7 +204,6 @@ class SystemBridge(
                     result.success(null)
                 }
                 "requestNotificationPermission" -> requestNotifications(result)
-                "requestNearbyPermissions" -> requestNearbyPermissions(result)
                 "startOverlay" -> {
                     OverlayBubbleService.startUserEnabled(activity)
                     result.success(null)
@@ -384,55 +365,6 @@ class SystemBridge(
                         }
                     }
                 }
-                "startNearbyReceive" -> {
-                    nearby.startAdvertising()
-                    result.success(null)
-                }
-                "startNearbyDiscovery" -> {
-                    nearby.startDiscovery()
-                    result.success(null)
-                }
-                "stopNearby" -> {
-                    nearby.stopAll()
-                    result.success(null)
-                }
-                "connectNearby" -> {
-                    nearby.requestConnection(call.argument<String>("endpointId") ?: "")
-                    result.success(null)
-                }
-                "acceptNearbyConnection" -> {
-                    nearby.acceptConnection(call.argument<String>("endpointId") ?: "")
-                    result.success(null)
-                }
-                "rejectNearbyConnection" -> {
-                    nearby.rejectConnection(call.argument<String>("endpointId") ?: "")
-                    result.success(null)
-                }
-                "confirmNearbyTakeover" -> {
-                    nearby.confirmTakeover(
-                        endpointId = call.argument<String>("endpointId") ?: "",
-                        snapshotId = call.argument<String>("snapshotId") ?: "",
-                        lineageId = call.argument<String>("lineageId") ?: "",
-                        sourceDeviceId = call.argument<String>("sourceDeviceId") ?: "",
-                        sourceGeneration = (call.argument<Number>("sourceGeneration")?.toLong() ?: 0L),
-                        stateSha256 = call.argument<String>("stateSha256") ?: "",
-                        targetDeviceId = call.argument<String>("targetDeviceId") ?: "",
-                        targetActivationGeneration = (call.argument<Number>("targetActivationGeneration")?.toLong() ?: 0L),
-                    )
-                    result.success(null)
-                }
-                "sendNearbyFile" -> {
-                    nearby.sendFile(
-                        endpointId = call.argument<String>("endpointId") ?: "",
-                        path = call.argument<String>("filePath") ?: "",
-                        snapshotId = call.argument<String>("snapshotId") ?: "",
-                        lineageId = call.argument<String>("lineageId") ?: "",
-                        sourceDeviceId = call.argument<String>("sourceDeviceId") ?: "",
-                        sourceGeneration = (call.argument<Number>("sourceGeneration")?.toLong() ?: 0L),
-                        stateSha256 = call.argument<String>("stateSha256") ?: "",
-                    )
-                    result.success(null)
-                }
                 "saveManualSnapshot" -> startManualSave(
                     sourcePath = call.argument<String>("sourcePath") ?: "",
                     passphrase = call.argument<String>("passphrase") ?: "",
@@ -558,9 +490,6 @@ class SystemBridge(
     }
 
     fun dispose() {
-        nearby.removeListener(nearbyOwnerId)
-        nearbySink = null
-        nearbyEventChannel.setStreamHandler(null)
         methodChannel.setMethodCallHandler(null)
         permissionResult?.error("activity_disposed", "Activity was destroyed during permission request", null)
         permissionResult = null
@@ -1489,17 +1418,6 @@ class SystemBridge(
         requestPermissions(arrayOf(Manifest.permission.POST_NOTIFICATIONS), REQUEST_NOTIFICATIONS, result)
     }
 
-    private fun requestNearbyPermissions(result: MethodChannel.Result) {
-        val missing = NativePreflightProbe.nearbyPermissionNames().distinct().filter {
-            activity.checkSelfPermission(it) != PackageManager.PERMISSION_GRANTED
-        }
-        if (missing.isEmpty()) {
-            result.success(true)
-            return
-        }
-        requestPermissions(missing.toTypedArray(), REQUEST_NEARBY, result)
-    }
-
     private fun requestPermissions(
         permissions: Array<String>,
         requestCode: Int,
@@ -1803,9 +1721,7 @@ class SystemBridge(
 
     companion object {
         private const val METHOD_CHANNEL = "ai_companion/system"
-        private const val NEARBY_EVENT_CHANNEL = "ai_companion/nearby_events"
         private const val REQUEST_NOTIFICATIONS = 4201
-        private const val REQUEST_NEARBY = 4202
         private const val REQUEST_MANUAL_SAVE = 4203
         private const val REQUEST_MANUAL_OPEN = 4204
         private const val REQUEST_DIAGNOSTIC_SAVE = 4205

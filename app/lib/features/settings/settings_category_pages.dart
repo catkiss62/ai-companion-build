@@ -1420,7 +1420,7 @@ class _DeviceDataSettingsPageState extends State<DeviceDataSettingsPage> {
           builder: (context) => AlertDialog(
             title: const Text('在本机手动上线？'),
             content: const Text(
-              '仅在确认另一台设备已经下线、关机或不再运行 Active Brain 时使用。正常切换请使用“手机 / 平板接管”。',
+              '仅在确认另一台设备已经下线、关机或不再运行 Active Brain 时使用。换机请使用“备份与恢复”。',
             ),
             actions: [
               TextButton(
@@ -1526,7 +1526,7 @@ class _DeviceDataSettingsPageState extends State<DeviceDataSettingsPage> {
                   ),
                   _SettingsRouteCard(
                     icon: Icons.swap_horiz_rounded,
-                    title: '手机 / 平板接管与备份',
+                    title: '备份与恢复',
                     subtitle: '正常换设备、保存备份或恢复单个 .aibackup 文件',
                     onTap: () => Navigator.of(context).pushNamed('/transfer'),
                   ),
