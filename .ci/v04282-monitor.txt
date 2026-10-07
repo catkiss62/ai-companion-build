@@ -1,0 +1,7 @@
+status=success
+run_id=37637286301
+run_url=https://github.com/catkiss62/ai-companion-build/actions/runs/37637286301
+head_sha=b3258c94f2c8d379dd1a571d0021fcecb41a3d6f
+signer_sha256=30:5E:B3:D8:09:83:B9:63:C6:48:18:DD:F1:AD:56:1F:27:9D:E6:D4:7B:3E:D2:C7:81:AD:A4:48:C7:C2:51:48
+f16d4c951b90407a89f89d0ca98f3ccf7b25bbd7ed31618b232ab00c1c884b29  AI-Companion-v0.42.82-326-Device-Motion-APK.apk
+release_url=https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-1ab7a7e7f56954bd0c48
