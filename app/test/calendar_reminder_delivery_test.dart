@@ -134,4 +134,18 @@ void main() {
     expect(await CalendarReminderStateStore.revision(await db.database),isNot(snapshot['revision']));
     expect((await CalendarReminderStateStore.read(await db.database)).records,isEmpty);
   });
+  test('unchanged cancellation polls do not rewrite the durable context cache',() async {
+    final sql=await db.database;
+    await sql.execute('CREATE TABLE reminder_cache_writes (value INTEGER)');
+    await sql.execute('''CREATE TRIGGER reminder_cache_write AFTER INSERT ON settings
+      WHEN NEW.key = 'calendar_reminder_runtime_v2'
+      BEGIN INSERT INTO reminder_cache_writes VALUES (1); END''');
+    await CalendarReminderStateStore.read(sql);
+    for(var i=0;i<4;i++) { await CalendarReminderStateStore.read(sql); }
+    expect((await sql.query('reminder_cache_writes')).length,1);
+    finishEvent('confirmed');
+    final state=await CalendarReminderStateStore.read(sql);
+    expect(state.records.single.status,'confirmed');
+    expect((await sql.query('reminder_cache_writes')).length,2);
+  });
 }

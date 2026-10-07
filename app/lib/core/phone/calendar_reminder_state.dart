@@ -82,7 +82,8 @@ class CalendarReminderStateStore {
       if (saved['revision'] != identity) saved = {};
       if (fresh != null && fresh['revision'] == identity &&
           (await BrainWorkFence.value(executor, 'snapshot_recovery_pending_v1')).isEmpty &&
-          ((fresh['sequence'] as num?)?.toInt() ?? 0) >= ((saved['sequence'] as num?)?.toInt() ?? 0)) {
+          (saved.isEmpty || ((fresh['sequence'] as num?)?.toInt() ?? 0) >
+              ((saved['sequence'] as num?)?.toInt() ?? 0))) {
         await executor.insert('settings', {'key': key, 'value': jsonEncode(fresh)},
             conflictAlgorithm: ConflictAlgorithm.replace);
         saved = fresh;
