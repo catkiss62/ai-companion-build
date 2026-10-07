@@ -127,7 +127,11 @@ void main() {
     finishEvent('confirmed');await CalendarReminderStateStore.read(await db.database);
     snapshot['sequence']=1;event['status']='ringing';
     expect((await CalendarReminderStateStore.read(await db.database)).records.single.status,'confirmed');
-    final backup=await db.exportAll();await db.importAll(backup);
+    // The restore coordinator supplies a fresh runtime epoch to importAll.
+    // Bare importAll intentionally preserves exported identity for low-level use.
+    final backup=await db.exportAll();await db.importAll(backup,
+        runtimeSettingOverrides: {'runtime_state_epoch_v1':'restored-epoch'});
+    expect(await CalendarReminderStateStore.revision(await db.database),isNot(snapshot['revision']));
     expect((await CalendarReminderStateStore.read(await db.database)).records,isEmpty);
   });
 }

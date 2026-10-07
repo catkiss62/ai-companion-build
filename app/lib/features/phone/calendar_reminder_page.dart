@@ -52,7 +52,7 @@ class _CalendarReminderPageState extends State<CalendarReminderPage> with Widget
   }
 
   Future<void> _edit([CalendarReminder? old]) async {
-    final title = TextEditingController(text: old?.title ?? '');
+    var title = old?.title ?? '';
     var date = old == null ? DateTime.now() :
         DateTime(old.year, old.month, old.day);
     var timed = old?.timed ?? false;
@@ -68,8 +68,9 @@ class _CalendarReminderPageState extends State<CalendarReminderPage> with Widget
           title: Text(old == null ? '添加代办事项' : '编辑代办事项'),
           content: SingleChildScrollView(
             child: Column(mainAxisSize: MainAxisSize.min, children: [
-              TextField(
-                controller: title,
+              TextFormField(
+                initialValue: title,
+                onChanged: (value) => title = value,
                 maxLength: 80,
                 decoration: const InputDecoration(labelText: '事项，例如生日'),
               ),
@@ -122,7 +123,7 @@ class _CalendarReminderPageState extends State<CalendarReminderPage> with Widget
             TextButton(onPressed: () => Navigator.pop(context), child: const Text('取消')),
             FilledButton(
               onPressed: () {
-                final value = title.text.trim();
+                final value = title.trim();
                 if (value.isEmpty) return;
                 if (repeat == 'weekly' && weekdays.isEmpty) { refresh(() => error='请至少选择一个星期');return; }
                 if (enabled && timed && repeat == 'once' &&
@@ -148,7 +149,6 @@ class _CalendarReminderPageState extends State<CalendarReminderPage> with Widget
         ),
       ),
     );
-    title.dispose();
     if (result == null) return;
     final next = [...entries.where((e) => e.id != result.id), result];
     final scheduled = await store.save(next);
