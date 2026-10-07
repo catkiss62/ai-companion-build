@@ -1,6 +1,6 @@
 # AI Companion · 当前总账
 
-更新时间：2026-10-08（+328 IMPLEMENTATION IN PROGRESS / CI PENDING / APK PENDING / TRUE DEVICE PENDING；+327 CI PASSED / APK READY / TRUE DEVICE PENDING；+326 CI PASSED / APK READY / TRUE DEVICE PENDING；+325 CI PASSED / APK READY / TRUE DEVICE PENDING；+324 CI PASSED / APK READY / TRUE DEVICE PENDING；+323 CI PASSED / APK READY / TRUE DEVICE PENDING；+322 CI PASSED / APK READY / TRUE DEVICE PENDING；+321 CI PASSED / APK READY / TRUE DEVICE PENDING；+320 CI PASSED / APK READY / TRUE DEVICE PENDING；+319 CI PASSED / APK READY / TRUE DEVICE PENDING；+318 USER DEVICE ACCEPTED；+317 CI PASSED / APK READY / TRUE DEVICE PENDING；+316 CI PASSED / APK READY / TRUE DEVICE PENDING；+315 CI PASSED / APK READY / TRUE DEVICE PENDING；+314 CI PASSED / APK READY / TRUE DEVICE PENDING；+313 CI PASSED / APK READY / TRUE DEVICE PENDING；+312 CI PASSED / APK READY / TRUE DEVICE PENDING；+311 CI PASSED / APK READY / TRUE DEVICE PENDING；+310 CI PASSED / APK READY / TRUE DEVICE PENDING；+309 CI PASSED / APK READY / TRUE DEVICE PENDING；+308 CI PASSED / APK READY / TRUE DEVICE PENDING；+307 CI PASSED / APK READY / USER DEVICE ACCEPTED；+306 CI PASSED / APK READY / TRUE DEVICE PENDING；+305 CI PASSED / APK READY / DEVICE REPORTED REPLY STALL；+304 CI PASSED / APK READY / TRUE DEVICE PENDING；+303 CI PASSED / APK READY / TRUE DEVICE PENDING；+302 CI PASSED / APK READY / TRUE DEVICE PENDING；+301 CI PASSED / APK READY / TRUE DEVICE PENDING；+300 CI PASSED / APK READY / TRUE DEVICE PENDING；+299 CI PASSED / APK READY / TRUE DEVICE PENDING；+298 CI PASSED / APK READY / TRUE DEVICE PENDING；+297 CI PASSED / APK READY / TRUE DEVICE PENDING；+295 恢复真机成功、背景回归 PARTIAL；+293 DEVICE VISUAL BASELINE）
+更新时间：2026-10-08（+328 CI PASSED / APK READY / TRUE DEVICE PENDING；+327 CI PASSED / APK READY / TRUE DEVICE PENDING；+326 CI PASSED / APK READY / TRUE DEVICE PENDING；+325 CI PASSED / APK READY / TRUE DEVICE PENDING；+324 CI PASSED / APK READY / TRUE DEVICE PENDING；+323 CI PASSED / APK READY / TRUE DEVICE PENDING；+322 CI PASSED / APK READY / TRUE DEVICE PENDING；+321 CI PASSED / APK READY / TRUE DEVICE PENDING；+320 CI PASSED / APK READY / TRUE DEVICE PENDING；+319 CI PASSED / APK READY / TRUE DEVICE PENDING；+318 USER DEVICE ACCEPTED；+317 CI PASSED / APK READY / TRUE DEVICE PENDING；+316 CI PASSED / APK READY / TRUE DEVICE PENDING；+315 CI PASSED / APK READY / TRUE DEVICE PENDING；+314 CI PASSED / APK READY / TRUE DEVICE PENDING；+313 CI PASSED / APK READY / TRUE DEVICE PENDING；+312 CI PASSED / APK READY / TRUE DEVICE PENDING；+311 CI PASSED / APK READY / TRUE DEVICE PENDING；+310 CI PASSED / APK READY / TRUE DEVICE PENDING；+309 CI PASSED / APK READY / TRUE DEVICE PENDING；+308 CI PASSED / APK READY / TRUE DEVICE PENDING；+307 CI PASSED / APK READY / USER DEVICE ACCEPTED；+306 CI PASSED / APK READY / TRUE DEVICE PENDING；+305 CI PASSED / APK READY / DEVICE REPORTED REPLY STALL；+304 CI PASSED / APK READY / TRUE DEVICE PENDING；+303 CI PASSED / APK READY / TRUE DEVICE PENDING；+302 CI PASSED / APK READY / TRUE DEVICE PENDING；+301 CI PASSED / APK READY / TRUE DEVICE PENDING；+300 CI PASSED / APK READY / TRUE DEVICE PENDING；+299 CI PASSED / APK READY / TRUE DEVICE PENDING；+298 CI PASSED / APK READY / TRUE DEVICE PENDING；+297 CI PASSED / APK READY / TRUE DEVICE PENDING；+295 恢复真机成功、背景回归 PARTIAL；+293 DEVICE VISUAL BASELINE）
 
 > 本文件是唯一的当前接班入口，继续采用“总账 v2”。顶部是快速接班索引；标记后的正式记录按版本持续追加，不设总容量上限。
 >
@@ -8,9 +8,9 @@
 
 
 
-## 当前任务 · +328 系统待办确认（IMPLEMENTATION IN PROGRESS / CI PENDING / APK PENDING / TRUE DEVICE PENDING）
+## 当前交付 · +328 系统待办确认（CI PASSED / APK READY / TRUE DEVICE PENDING）
 
-2026-10-08 02:15用户授权，基线44f8e57，agent/v04284-reminder-confirmation，目标0.42.84+328。确认卡片深色紫色、最长5分钟、到点同时生成不占额提醒；点击确认仅停铃记事实，实际用户发言取消尚未投递提醒。确认/超时供后续回复及普通主动聊天理解，响铃及结束后10分钟暂停普通主动，恢复重新评估不补发。加每日/自定义星期及独立启用，兼容旧每年/日期；独立系统调度、身份围栏、多个发生记录不覆盖。详情与验证边界：app/docs/REMINDER_CONFIRMATION_v0.42.84.md。用户本轮未新增+327真机验收。
+0.42.84+328，agent/v04284-reminder-confirmation，源码deba3136bc2dc61ecaa7754d99136fea703478d0。深色紫色确认卡片、最长5分钟；到点发起不占主动次数的提醒，秒确认保留初次提醒，用户实际发消息取消未发提醒。确认/超时供后续对话理解；响铃及实际结束后10分钟暂停普通主动聊天。支持每日/自定义星期/每年/仅一次及启用开关，多个发生记录独立，系统调度不依赖AI开关。完整37673051886/专项37673051744成功：149源码、1424全量Flutter、424专项、26原生；APK同签名未发布，已提供直链。下载、签名及边界见文末和app/docs/REMINDER_CONFIRMATION_v0.42.84.md；HyperOS锁屏/浮窗/实际响铃及网络行为仍待用户真机验证。+327尚无新增真机验收。
 
 ## 前次交付 · +327 背景逐帧平滑（CI PASSED / APK READY / TRUE DEVICE PENDING）
 
@@ -3012,3 +3012,29 @@ CI monitor：https://raw.githubusercontent.com/catkiss62/ai-companion-build/ci-m
 Actions API：2026-10-07T16:15:01Z开始，2026-10-07T16:34:48Z更新为completed/success。当前已结束，不应将旧工具状态判为还在构建。没有合并main或正式发布。
 
 用户设备的实际FPS、手感和功耗仍TRUE DEVICE PENDING；此次交付证明去除了已知30Hz姿态限制并有逐帧过渡，不能保证任何手机稳定60FPS。沿用聊天顶部头像/DeepSeek→聊天画面→聊天背景下“立体背景”及既有开关/强度，无需重新开通。构建和最终总账分别提交，APK对应上述源码commit。
+
+
+## +328 系统待办确认 · 最终CI与未发布APK交付
+
+2026-10-08 03:50（北京时间），0.42.84+328，agent/v04284-reminder-confirmation，源码deba3136bc2dc61ecaa7754d99136fea703478d0，tree 100952dffd42c7200ef31eb8ddf1e4606552d57e。状态CI PASSED / APK READY / TRUE DEVICE PENDING。
+
+授权与范围：用户2026-10-08 02:15授权阅读上下文后实施。保留最长5分钟，系统到点响铃；深色紫色计时卡片只有确认键，无左滑/取消，通知栏停止动作移除，Android所需的服务状态通知保留。确认仅表示收到，不表示完成；超时仅表示无确认，不推断没听见。超时后补确认保留曾超时及原停铃时间。原生前台/浮窗/锁屏页共享持久化状态，应用内保留待确认入口；清通知、返回、重建不误确认或重置计时。
+
+到点建立一次独立、不占日常主动额度的生成提醒，系统响铃不等模型。快速确认或超时不取消初次提醒，也不强制新回复；用户实际发送消息取消尚未投递提醒，旧请求迟到不能写入聊天或通知。编辑/删除/停用、恢复身份变化、更新一次发生也拦截旧投递。消息围绕事项和原定时间，不声称铃声仍在响，不固定句式。确认/超时事实进入普通回复及普通主动上下文。普通主动在生成前及最终SQLite提交时双重检查：响铃中和实际结束后10分钟暂停、不扣次数、不积压已生成正文，恢复后正常重新评估；用户回复、明确安排的其他提醒、原独立游戏分享语义保留。
+
+重复规则增加每天、自定义星期、独立启用开关，兼容仅一次、每年及旧JSON；本地下一次调度不依赖确认和AI运行开关。每次发生有独立身份，同时到点不覆盖，逐条确认不误停其他事件，计时基于原始开始/截止和单调时钟。缓存仅状态序号推进时落盘，取消轮询不重复写相同数据。每个事项初次提醒沿用12小时迟到有效界限，近7天最近12条事实进入提示词；本机保留最多100条非响铃历史。模型实际投递仍取决于AI运行条件与网络；导入保留重复配置，旧运行身份的未发提醒与缓存失效。
+
+验证：完整Actions 37673051886（build job 112972486008、native job 112970193713）及专项37673051744（job 112969412877）均completed/success，head逐项匹配源码。149项源码门、1424项全量Flutter、424项专项、26项Android35原生通过；Kotlin/Java、analyze、签名与完整资源校验通过。新增真实SQLite/受控异步模型/真实widget/原生生产视图与记录测试，覆盖秒确认、用户消息抢先、原子提交、修改失效、超时补确认、静默10分钟、恢复身份与旧快照、仅新状态写缓存、星期编辑/开关、日期跨年/闰日/时区、卡片重建计时、多个事件独立确认。analyze门通过但仍有非致命提示，不声称零提示。
+
+过程修正：第一轮界面测试发现编辑器控制器过早dispose，修复为TextFormField管理生命周期；恢复测试补齐正式恢复协调器提供的新epoch；两项原生测试改为按occurrence身份核对结果，保留确认/其他项响铃/计时/真实按钮断言。未删除测试或放宽断言。数据库只增加提醒导入与消息提交门，备份/恢复/所有权方法未动，另六个共享核心文件hash保持；整文件数据库钉住随已审阅增量更新。原Caicai导入源码及资源钉住保持。
+
+下载页：https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-26a8aa0da9f6ea12d228
+APK直链：https://github.com/catkiss62/ai-companion-build/releases/download/untagged-26a8aa0da9f6ea12d228/AI-Companion-v0.42.84-328-Reminder-Confirmation-APK.apk
+文件：AI-Companion-v0.42.84-328-Reminder-Confirmation-APK.apk；736780301 bytes；release 406072898（draft=true）；asset 619639128（uploaded）。
+APK SHA-256：7c705eac95c2455b91ff2fe5127a325e7729aeaf1fd48906a828d1afe4706e8e
+签名证书SHA-256：30:5E:B3:D8:09:83:B9:63:C6:48:18:DD:F1:AD:56:1F:27:9D:E6:D4:7B:3E:D2:C7:81:AD:A4:48:C7:C2:51:48
+CI monitor：https://raw.githubusercontent.com/catkiss62/ai-companion-build/ci-monitor-v0345/.ci/v04284-monitor.txt。status/run/head/signer/hash与release APK digest逐项一致。没有合并main或正式发布。
+
+最终Actions从2026-10-07T19:15:06Z到2026-10-07T19:48:41Z，含排队；资源步骤618秒、Kotlin312秒、全量Flutter166秒、APK编译207秒、Draft上传33秒。中途旧HEAD因修正被取消，不应混同最终成功HEAD。用户03:45两次询问状态时仍在APK编译，已明确尚未交付；最终上传后立即提供直链，随后收尾总账。无证据将开发等待归因于总账，本轮缓存优化针对应用内重复写入。
+
+使用：聊天快捷面板→代办提醒，在编辑器选择重复类型与星期；同页提供精确提醒、锁屏全屏、悬浮窗权限入口。自动化证明代码和受控时序通过，用户手机实际锁屏/浮窗、声音/振动、系统后台限制及真实网络模型表现仍需真机验收，不记为TRUE DEVICE PASSED。APK对应上述源码commit，总账收尾为单独文档提交。
