@@ -1,584 +1,773 @@
 status=failure
-build_result=cancelled
-run_id=37670586279
-run_url=https://github.com/catkiss62/ai-companion-build/actions/runs/37670586279
-head_sha=2012e4320f556c3cb8aa5e8a381bbdeb6bf47771
+build_result=skipped
+run_id=37671470426
+run_url=https://github.com/catkiss62/ai-companion-build/actions/runs/37671470426
+head_sha=7d36ec3743197edd10403a4b7046aa9fdb6b525e
 
 === failed or cancelled job logs ===
 
---- job=caicai-native-smoke conclusion=cancelled id=112961061147 ---
-﻿2026-10-07T18:55:59.4860501Z Current runner version: '2.337.0'
-2026-10-07T18:55:59.4884974Z ##[group]Runner Image Provisioner
-2026-10-07T18:55:59.4885884Z Hosted Compute Agent
-2026-10-07T18:55:59.4886453Z Version: 20261002.596
-2026-10-07T18:55:59.4887032Z Commit: c3d12f3313a95f25162a1503be624f3b0617f8c0
-2026-10-07T18:55:59.4887724Z Build Date: 2026-10-02T22:28:27Z
-2026-10-07T18:55:59.4888348Z Worker ID: {0066b66c-aad6-480f-bb5a-5cf001426210}
-2026-10-07T18:55:59.4888987Z Region: westus3
-2026-10-07T18:55:59.4889511Z Cloud: Azure
-2026-10-07T18:55:59.4889993Z ##[endgroup]
-2026-10-07T18:55:59.4891502Z ##[group]Operating System
-2026-10-07T18:55:59.4892061Z Ubuntu
-2026-10-07T18:55:59.4892517Z 24.04.5
-2026-10-07T18:55:59.4893046Z LTS
-2026-10-07T18:55:59.4893535Z ##[endgroup]
-2026-10-07T18:55:59.4894043Z ##[group]Runner Image
-2026-10-07T18:55:59.4894831Z Image: ubuntu-24.04
-2026-10-07T18:55:59.4895391Z Version: 20261004.327.1
-2026-10-07T18:55:59.4896690Z Included Software: https://github.com/actions/runner-images/blob/ubuntu24/20261004.327/images/ubuntu/Ubuntu2404-Readme.md
-2026-10-07T18:55:59.4898397Z Image Release: https://github.com/actions/runner-images/releases/tag/ubuntu24%2F20261004.327
-2026-10-07T18:55:59.4899244Z ##[endgroup]
-2026-10-07T18:55:59.4900372Z ##[group]GITHUB_TOKEN Permissions
-2026-10-07T18:55:59.4902560Z Actions: read
-2026-10-07T18:55:59.4903084Z Contents: write
-2026-10-07T18:55:59.4903645Z Metadata: read
-2026-10-07T18:55:59.4904139Z ##[endgroup]
-2026-10-07T18:55:59.4906477Z Secret source: Actions
-2026-10-07T18:55:59.4907348Z Cache mode: write
-2026-10-07T18:55:59.4907962Z Prepare workflow directory
-2026-10-07T18:55:59.5243785Z Prepare all required actions
-2026-10-07T18:55:59.5293937Z Getting action download info
-2026-10-07T18:55:59.8575287Z Download action repository 'actions/checkout@v4' (SHA:11d5960a326750d5838078e36cf38b85af677262)
-2026-10-07T18:55:59.9525787Z Download action repository 'actions/setup-java@v4' (SHA:cf277c60eb25467037889841efdb72551f06f6c3)
-2026-10-07T18:56:00.8342860Z Download action repository 'reactivecircus/android-emulator-runner@v2' (SHA:a421e43855164a8197daf9d8d40fe71c6996bb0d)
-2026-10-07T18:56:01.4037354Z Download action repository 'actions/upload-artifact@v4' (SHA:ea165f8d65b6e75b540449e92b4886f43607fa02)
-2026-10-07T18:56:01.6317836Z Complete job name: caicai-native-smoke
-2026-10-07T18:56:01.7289539Z ##[group]Run actions/checkout@v4
-2026-10-07T18:56:01.7290901Z with:
-2026-10-07T18:56:01.7291730Z   repository: catkiss62/ai-companion-build
-2026-10-07T18:56:01.7301095Z   token: ***
-2026-10-07T18:56:01.7301929Z   ssh-strict: true
-2026-10-07T18:56:01.7302751Z   ssh-user: git
-2026-10-07T18:56:01.7303597Z   persist-credentials: true
-2026-10-07T18:56:01.7304744Z   clean: true
-2026-10-07T18:56:01.7305617Z   sparse-checkout-cone-mode: true
-2026-10-07T18:56:01.7306616Z   fetch-depth: 1
-2026-10-07T18:56:01.7307425Z   fetch-tags: false
-2026-10-07T18:56:01.7308284Z   show-progress: true
-2026-10-07T18:56:01.7309146Z   lfs: false
-2026-10-07T18:56:01.7309930Z   submodules: false
-2026-10-07T18:56:01.7310804Z   set-safe-directory: true
-2026-10-07T18:56:01.7311823Z   allow-unsafe-pr-checkout: false
-2026-10-07T18:56:01.7313259Z ##[endgroup]
-2026-10-07T18:56:01.8379550Z Syncing repository: catkiss62/ai-companion-build
-2026-10-07T18:56:01.8384516Z ##[group]Getting Git version info
-2026-10-07T18:56:01.8387230Z Working directory is '/home/runner/work/ai-companion-build/ai-companion-build'
-2026-10-07T18:56:01.8391092Z [command]/usr/bin/git version
-2026-10-07T18:56:01.8392785Z git version 2.55.0
-2026-10-07T18:56:01.8413700Z ##[endgroup]
-2026-10-07T18:56:01.8428076Z Temporarily overriding HOME='/home/runner/work/_temp/263720d3-aa5d-4ff5-8b00-feaf3cd9ad4c' before making global git config changes
-2026-10-07T18:56:01.8433013Z Adding repository directory to the temporary git global config as a safe directory
-2026-10-07T18:56:01.8437517Z [command]/usr/bin/git config --global --add safe.directory /home/runner/work/ai-companion-build/ai-companion-build
-2026-10-07T18:56:01.8488198Z Deleting the contents of '/home/runner/work/ai-companion-build/ai-companion-build'
-2026-10-07T18:56:01.8503931Z ##[group]Initializing the repository
-2026-10-07T18:56:01.8512869Z [command]/usr/bin/git init /home/runner/work/ai-companion-build/ai-companion-build
-2026-10-07T18:56:01.8603588Z hint: Using 'master' as the name for the initial branch. This default branch name
-2026-10-07T18:56:01.8607567Z hint: will change to "main" in Git 3.0. To configure the initial branch name
-2026-10-07T18:56:01.8611125Z hint: to use in all of your new repositories, which will suppress this warning,
-2026-10-07T18:56:01.8613720Z hint: call:
-2026-10-07T18:56:01.8615370Z hint:
-2026-10-07T18:56:01.8617150Z hint: 	git config --global init.defaultBranch <name>
-2026-10-07T18:56:01.8619086Z hint:
-2026-10-07T18:56:01.8621275Z hint: Names commonly chosen instead of 'master' are 'main', 'trunk' and
-2026-10-07T18:56:01.8624763Z hint: 'development'. The just-created branch can be renamed via this command:
-2026-10-07T18:56:01.8627493Z hint:
-2026-10-07T18:56:01.8629030Z hint: 	git branch -m <name>
-2026-10-07T18:56:01.8630803Z hint:
-2026-10-07T18:56:01.8632992Z hint: Disable this message with "git config set advice.defaultBranchName false"
-2026-10-07T18:56:01.8637513Z Initialized empty Git repository in /home/runner/work/ai-companion-build/ai-companion-build/.git/
-2026-10-07T18:56:01.8644865Z [command]/usr/bin/git remote add origin https://github.com/catkiss62/ai-companion-build
-2026-10-07T18:56:01.8661409Z ##[endgroup]
-2026-10-07T18:56:01.8664434Z ##[group]Disabling automatic garbage collection
-2026-10-07T18:56:01.8666718Z [command]/usr/bin/git config --local gc.auto 0
-2026-10-07T18:56:01.8697942Z ##[endgroup]
-2026-10-07T18:56:01.8700554Z ##[group]Setting up auth
-2026-10-07T18:56:01.8703919Z [command]/usr/bin/git config --local --name-only --get-regexp core\.sshCommand
-2026-10-07T18:56:01.8736511Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'core\.sshCommand' && git config --local --unset-all 'core.sshCommand' || :"
-2026-10-07T18:56:01.9060519Z [command]/usr/bin/git config --local --name-only --get-regexp http\.https\:\/\/github\.com\/\.extraheader
-2026-10-07T18:56:01.9097737Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'http\.https\:\/\/github\.com\/\.extraheader' && git config --local --unset-all 'http.https://github.com/.extraheader' || :"
-2026-10-07T18:56:01.9310637Z [command]/usr/bin/git config --local --name-only --get-regexp ^includeIf\.gitdir:
-2026-10-07T18:56:01.9346477Z [command]/usr/bin/git submodule foreach --recursive git config --local --show-origin --name-only --get-regexp remote.origin.url
-2026-10-07T18:56:01.9533684Z [command]/usr/bin/git config --local http.https://github.com/.extraheader AUTHORIZATION: basic ***
-2026-10-07T18:56:01.9568124Z ##[endgroup]
-2026-10-07T18:56:01.9569615Z ##[group]Fetching the repository
-2026-10-07T18:56:01.9578150Z [command]/usr/bin/git -c protocol.version=2 fetch --no-tags --prune --no-recurse-submodules --depth=1 origin +2012e4320f556c3cb8aa5e8a381bbdeb6bf47771:refs/remotes/origin/agent/v04284-reminder-confirmation
-2026-10-07T18:56:04.9255983Z From https://github.com/catkiss62/ai-companion-build
-2026-10-07T18:56:04.9256707Z  * [new ref]         2012e4320f556c3cb8aa5e8a381bbdeb6bf47771 -> origin/agent/v04284-reminder-confirmation
-2026-10-07T18:56:04.9260447Z ##[endgroup]
-2026-10-07T18:56:04.9261148Z ##[group]Determining the checkout info
-2026-10-07T18:56:04.9263007Z ##[endgroup]
-2026-10-07T18:56:04.9270797Z [command]/usr/bin/git sparse-checkout disable
-2026-10-07T18:56:04.9345912Z [command]/usr/bin/git config --local --unset-all extensions.worktreeConfig
-2026-10-07T18:56:04.9360101Z ##[group]Checking out the ref
-2026-10-07T18:56:04.9377979Z [command]/usr/bin/git checkout --progress --force -B agent/v04284-reminder-confirmation refs/remotes/origin/agent/v04284-reminder-confirmation
-2026-10-07T18:56:05.4708300Z Switched to a new branch 'agent/v04284-reminder-confirmation'
-2026-10-07T18:56:05.4713670Z branch 'agent/v04284-reminder-confirmation' set up to track 'origin/agent/v04284-reminder-confirmation'.
-2026-10-07T18:56:05.4740582Z ##[endgroup]
-2026-10-07T18:56:05.4788511Z [command]/usr/bin/git log -1 --format=%H
-2026-10-07T18:56:05.4812162Z 2012e4320f556c3cb8aa5e8a381bbdeb6bf47771
-2026-10-07T18:56:05.5103097Z ##[group]Run actions/setup-java@v4
-2026-10-07T18:56:05.5103432Z with:
-2026-10-07T18:56:05.5103641Z   distribution: temurin
-2026-10-07T18:56:05.5103872Z   java-version: 17
-2026-10-07T18:56:05.5104097Z   java-package: jdk
-2026-10-07T18:56:05.5104537Z   check-latest: false
-2026-10-07T18:56:05.5104762Z   server-id: github
-2026-10-07T18:56:05.5104986Z   server-username: GITHUB_ACTOR
-2026-10-07T18:56:05.5105249Z   server-password: GITHUB_TOKEN
-2026-10-07T18:56:05.5105505Z   overwrite-settings: true
-2026-10-07T18:56:05.5105746Z   job-status: success
-2026-10-07T18:56:05.5108445Z   token: ***
-2026-10-07T18:56:05.5108663Z ##[endgroup]
-2026-10-07T18:56:05.6844163Z ##[warning]setup-java v4 is deprecated and will no longer receive updates. Please migrate to actions/setup-java@v5.
-2026-10-07T18:56:05.6856961Z ##[group]Installed distributions
-2026-10-07T18:56:05.7262085Z Resolved Java 17.0.20+1 from tool-cache
-2026-10-07T18:56:05.7262783Z Setting Java 17.0.20+1 as the default
-2026-10-07T18:56:05.7274210Z (node:2223) [DEP0040] DeprecationWarning: The `punycode` module is deprecated. Please use a userland alternative instead.
-2026-10-07T18:56:05.7275809Z (Use `node --trace-deprecation ...` to show where the warning was created)
-2026-10-07T18:56:05.7277326Z Creating toolchains.xml for JDK version 17 from temurin
-2026-10-07T18:56:05.7350897Z Writing to /home/runner/.m2/toolchains.xml
-2026-10-07T18:56:05.7351319Z 
-2026-10-07T18:56:05.7351468Z Java configuration:
-2026-10-07T18:56:05.7351832Z   Distribution: temurin
-2026-10-07T18:56:05.7352209Z   Version: 17.0.20+1
-2026-10-07T18:56:05.7352731Z   Path: /opt/hostedtoolcache/Java_Temurin-Hotspot_jdk/17.0.20-1/x64
-2026-10-07T18:56:05.7353199Z 
-2026-10-07T18:56:05.7353890Z ##[endgroup]
-2026-10-07T18:56:05.7376125Z Creating settings.xml with server-id: github
-2026-10-07T18:56:05.7397504Z Writing to /home/runner/.m2/settings.xml
-2026-10-07T18:56:05.7555799Z ##[group]Run echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
-2026-10-07T18:56:05.7556779Z [36;1mecho 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules[0m
-2026-10-07T18:56:05.7557405Z [36;1msudo udevadm control --reload-rules[0m
-2026-10-07T18:56:05.7557778Z [36;1msudo udevadm trigger --name-match=kvm[0m
-2026-10-07T18:56:05.7785798Z shell: /usr/bin/bash -e {0}
-2026-10-07T18:56:05.7786298Z env:
-2026-10-07T18:56:05.7786837Z   JAVA_HOME: /opt/hostedtoolcache/Java_Temurin-Hotspot_jdk/17.0.20-1/x64
-2026-10-07T18:56:05.7787763Z   JAVA_HOME_17_X64: /opt/hostedtoolcache/Java_Temurin-Hotspot_jdk/17.0.20-1/x64
-2026-10-07T18:56:05.7788450Z ##[endgroup]
-2026-10-07T18:56:05.7936230Z KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"
-2026-10-07T18:56:05.8280802Z ##[group]Run reactivecircus/android-emulator-runner@v2
-2026-10-07T18:56:05.8281143Z with:
-2026-10-07T18:56:05.8281341Z   api-level: 35
-2026-10-07T18:56:05.8281552Z   arch: x86_64
-2026-10-07T18:56:05.8281750Z   target: google_apis
-2026-10-07T18:56:05.8281971Z   disable-animations: true
-2026-10-07T18:56:05.8282412Z   emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none
-2026-10-07T18:56:05.8282891Z   script: bash app/tools/run_native_smoke_v04257.sh
-2026-10-07T18:56:05.8283177Z   cores: 2
-2026-10-07T18:56:05.8283366Z   avd-name: test
-2026-10-07T18:56:05.8283585Z   force-avd-creation: true
-2026-10-07T18:56:05.8283827Z   emulator-boot-timeout: 600
-2026-10-07T18:56:05.8284061Z   emulator-port: 5554
-2026-10-07T18:56:05.8284432Z   disable-spellchecker: false
-2026-10-07T18:56:05.8284683Z   disable-linux-hw-accel: auto
-2026-10-07T18:56:05.8284931Z   enable-hw-keyboard: false
-2026-10-07T18:56:05.8285160Z   channel: stable
-2026-10-07T18:56:05.8285419Z env:
-2026-10-07T18:56:05.8285873Z   JAVA_HOME: /opt/hostedtoolcache/Java_Temurin-Hotspot_jdk/17.0.20-1/x64
-2026-10-07T18:56:05.8286337Z   JAVA_HOME_17_X64: /opt/hostedtoolcache/Java_Temurin-Hotspot_jdk/17.0.20-1/x64
-2026-10-07T18:56:05.8286700Z ##[endgroup]
-2026-10-07T18:56:05.8835794Z ##[group]Configure emulator
-2026-10-07T18:56:05.8837716Z API level: 35
-2026-10-07T18:56:05.8838124Z System image API level: 35
-2026-10-07T18:56:05.8838542Z target: google_apis
-2026-10-07T18:56:05.8838929Z CPU architecture: x86_64
-2026-10-07T18:56:05.8839330Z Hardware profile: 
-2026-10-07T18:56:05.8842700Z Cores: 2
-2026-10-07T18:56:05.8843023Z RAM size: 
-2026-10-07T18:56:05.8843332Z Heap size: 
-2026-10-07T18:56:05.8843656Z SD card path or size: 
-2026-10-07T18:56:05.8843983Z Disk size: 
-2026-10-07T18:56:05.8844177Z AVD name: test
-2026-10-07T18:56:05.8844648Z force avd creation: true
-2026-10-07T18:56:05.8845035Z Emulator boot timeout: 600
-2026-10-07T18:56:05.8845419Z emulator port: 5554
-2026-10-07T18:56:05.8846150Z emulator options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none
-2026-10-07T18:56:05.8846942Z disable animations: true
-2026-10-07T18:56:05.8847343Z disable spellchecker: false
-2026-10-07T18:56:05.8847712Z disable Linux hardware acceleration: false
-2026-10-07T18:56:05.8847992Z enable hardware keyboard: false
-2026-10-07T18:56:05.8848225Z Channel: 0 (stable)
-2026-10-07T18:56:05.8848622Z Script:
-2026-10-07T18:56:05.8848996Z bash app/tools/run_native_smoke_v04257.sh
-2026-10-07T18:56:05.8849466Z Pre emulator launch script:
-2026-10-07T18:56:05.8849981Z ##[endgroup]
-2026-10-07T18:56:05.8850753Z ##[group]Install Android SDK
-2026-10-07T18:56:05.9052833Z [command]/usr/bin/sh -c \yes | sdkmanager --licenses > /dev/null
-2026-10-07T18:56:19.3988654Z Installing latest build tools, platform tools, and platform.
-2026-10-07T18:56:19.4003060Z [command]/usr/bin/sh -c \sdkmanager --install 'build-tools;37.0.0' platform-tools 'platforms;android-35'> /dev/null
-2026-10-07T18:56:20.9638848Z Installing latest emulator.
-2026-10-07T18:56:20.9651271Z [command]/usr/bin/sh -c \sdkmanager --install emulator --channel=0 > /dev/null
-2026-10-07T18:56:46.7855611Z Installing system images.
-2026-10-07T18:56:46.7868533Z [command]/usr/bin/sh -c \sdkmanager --install 'system-images;android-35;google_apis;x86_64' --channel=0 > /dev/null
-2026-10-07T18:58:11.2666500Z ##[endgroup]
-2026-10-07T18:58:11.2668899Z ##[group]Create AVD
-2026-10-07T18:58:11.2669438Z Creating AVD.
-2026-10-07T18:58:11.2683463Z [command]/usr/bin/sh -c \echo no | avdmanager create avd --force -n test --package 'system-images;android-35;google_apis;x86_64'
-2026-10-07T18:58:12.1967148Z Loading local repository...                                                     
-2026-10-07T18:58:12.1975916Z [=========                              ] 25% Loading local repository...       
-2026-10-07T18:58:12.1976786Z [=========                              ] 25% Fetch remote repository...        
-2026-10-07T18:58:12.1978300Z [=======================================] 100% Fetch remote repository...       
-2026-10-07T18:58:12.4821042Z Auto-selecting single ABI x86_64
-2026-10-07T18:58:12.5804689Z Do you wish to create a custom hardware profile? [no] [command]/usr/bin/sh -c \printf 'hw.cpu.ncore=2\n' >> /home/runner/.android/avd/test.avd/config.ini
-2026-10-07T18:58:12.5824949Z ##[endgroup]
-2026-10-07T18:58:12.5826154Z ##[group]Launch Emulator
-2026-10-07T18:58:12.5826522Z Starting emulator.
-2026-10-07T18:58:12.5842614Z [command]/usr/bin/sh -c \/usr/local/lib/android/sdk/emulator/emulator -port 5554 -avd test -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none &
-2026-10-07T18:58:12.5949952Z INFO         | Android emulator version 37.2.12.0 (build_id 16428233) (CL:N/A)
-2026-10-07T18:58:12.5950676Z INFO         | Graphics backend: gfxstream
-2026-10-07T18:58:12.5951706Z INFO         | Found systemPath /usr/local/lib/android/sdk/system-images/android-35/google_apis/x86_64/
-2026-10-07T18:58:12.6372832Z INFO         | Saving last run QEMU version for the AVD to 2
-2026-10-07T18:58:12.6374578Z INFO         | Increasing RAM size to 2560MB
-2026-10-07T18:58:12.6375457Z ##############################################################################
-2026-10-07T18:58:12.6376471Z ##                        WARNING - ACTION REQUIRED                         ##
-2026-10-07T18:58:12.6377637Z ##  Consider using the '-metrics-collection' flag to help improve the       ##
-2026-10-07T18:58:12.6378939Z ##  emulator by sending anonymized usage data. Or use the '-no-metrics'     ##
-2026-10-07T18:58:12.6380291Z ##  flag to bypass this warning and turn off the metrics collection.        ##
-2026-10-07T18:58:12.6381581Z ##  In a future release this warning will turn into a one-time blocking     ##
-2026-10-07T18:58:12.6405664Z ##  prompt to ask for explicit user input regarding metrics collection.     ##
-2026-10-07T18:58:12.6435507Z ##                                                                          ##
-2026-10-07T18:58:12.6436799Z ##  Please see '-help-metrics-collection' for more details. You can use     ##
-2026-10-07T18:58:12.6438017Z ##  '-metrics-to-file' or '-metrics-to-console' flags to see what type of   ##
-2026-10-07T18:58:12.6439107Z ##  data is being collected by emulator as part of usage statistics.        ##
-2026-10-07T18:58:12.6440042Z ##############################################################################
-2026-10-07T18:58:12.6440783Z INFO         | Guest GLES Driver: Auto (ext controls)
-2026-10-07T18:58:12.6441801Z INFO         | emuglConfig_init: vulkan_mode_selected:swiftshader gles_mode_selected:swiftshader
-2026-10-07T18:58:12.6442873Z INFO         | Checking system compatibility:
-2026-10-07T18:58:12.6443618Z INFO         |   Checking: hasSufficientDiskSpace
-2026-10-07T18:58:12.6444831Z INFO         |      Ok: Disk space requirements to run avd: `test` are met
-2026-10-07T18:58:12.6445663Z INFO         |   Checking: hasSufficientHwGpu
-2026-10-07T18:58:12.6446527Z INFO         |      Ok: Hardware GPU compatibility checks are not required
-2026-10-07T18:58:12.6447393Z INFO         |   Checking: hasSufficientSystem
-2026-10-07T18:58:12.6448146Z INFO         |      Ok: System requirements to run avd: `test` are met
-2026-10-07T18:58:12.6449857Z WARNING      | Feature QuickbootFileBacked is disabled due to stability issues, if you really want that, the environment variable ANDROID_EMU_FORCE_QUICKBOOT_FILE_BACKED need to set to 1
-2026-10-07T18:58:14.2884098Z ERROR        | Unable to connect to adb daemon on port: 5037
-2026-10-07T18:58:14.2885597Z INFO         | Storing crashdata in: /tmp/android-runner/emu-crash-37.2.12.db, detection is enabled for process: 2572
-2026-10-07T18:58:14.2886703Z INFO         | Initializing gfxstream backend
-2026-10-07T18:58:14.2899935Z INFO         | startOpenglesRendererImpl: gpu info
-2026-10-07T18:58:14.2900650Z INFO         | 
-2026-10-07T18:58:14.2902550Z INFO         | initIcdPaths: ICD set to 'swiftshader', using Swiftshader ICD
-2026-10-07T18:58:14.2903903Z INFO         | Setting ICD filenames for the loader = /usr/local/lib/android/sdk/emulator/lib64/vulkan/vk_swiftshader_icd.json
-2026-10-07T18:58:14.2905766Z INFO         | SharedLibrary::open for [/usr/local/lib/android/sdk/emulator/qemu/linux-x86_64/lib64/vulkan/libvulkan.so]
-2026-10-07T18:58:14.2906798Z INFO         | SharedLibrary::open for [/usr/local/lib/android/sdk/emulator/qemu/linux-x86_64/lib64/vulkan/libvulkan.so.1]
-2026-10-07T18:58:14.2908120Z INFO         | SharedLibrary::open for [/usr/local/lib/android/sdk/emulator/lib64/vulkan/libvulkan.so]
-2026-10-07T18:58:14.2909691Z INFO         | Added library: /usr/local/lib/android/sdk/emulator/lib64/vulkan/libvulkan.so
-2026-10-07T18:58:14.2959235Z INFO         | Selecting Vulkan device: SwiftShader Device (Subzero), Version: 1.3.0
-2026-10-07T18:58:14.2960151Z INFO         | Using Vulkan externalMemoryMode: OpaqueFd for VkEmulation
-2026-10-07T18:58:14.3247076Z INFO         | Format VK_FORMAT_G10X6_B10X6R10X6_2PLANE_422_UNORM_3PACK16 does not support YCbCr sampler conversion
-2026-10-07T18:58:14.3274237Z INFO         | SharedLibrary::open for [libX11]
-2026-10-07T18:58:14.3275614Z WARNING      | Could not open libX11.so, try libX11.so.6
-2026-10-07T18:58:14.3276256Z INFO         | SharedLibrary::open for [libX11.so.6]
-2026-10-07T18:58:14.3276882Z INFO         | SharedLibrary::open for [libX11-xcb]
-2026-10-07T18:58:14.3277639Z WARNING      | Could not open libX11-xcb.so, try libX11-xcb.so.1
-2026-10-07T18:58:14.3278204Z INFO         | SharedLibrary::open for [libX11-xcb.so.1]
-2026-10-07T18:58:14.3336949Z INFO         | Initializing VkEmulation features:
-2026-10-07T18:58:14.3337487Z INFO         |     glInteropSupported: false
-2026-10-07T18:58:14.3338042Z INFO         |     useDeferredCommands: true
-2026-10-07T18:58:14.3338525Z INFO         |     createResourceWithRequirements: true
-2026-10-07T18:58:14.3338991Z INFO         |     useVulkanComposition: false
-2026-10-07T18:58:14.3339651Z INFO         |     useVulkanNativeSwapchain: false
-2026-10-07T18:58:14.3340300Z INFO         |     enable guestRenderDoc: false
-2026-10-07T18:58:14.3340933Z INFO         |     ASTC LDR emulation mode: Gpu
-2026-10-07T18:58:14.3341526Z INFO         |     enable ETC2 emulation: true
-2026-10-07T18:58:14.3342059Z INFO         |     enable Ycbcr emulation: false
-2026-10-07T18:58:14.3342703Z INFO         |     guestVulkanOnly: false
-2026-10-07T18:58:14.3343271Z INFO         |     useDedicatedAllocations: false
-2026-10-07T18:58:14.3343862Z INFO         |     guestVulkanMaxApiVersion: 1.3.0
-2026-10-07T18:58:14.3344725Z INFO         |     enableProtectedMemoryEmulation: false
-2026-10-07T18:58:14.3350479Z INFO         | Graphics Adapter Vendor Google (Google Inc.)
-2026-10-07T18:58:14.3358511Z INFO         | Graphics Adapter Android Emulator OpenGL ES Translator (Google SwiftShader)
-2026-10-07T18:58:14.3359155Z INFO         | Graphics API Version OpenGL ES 3.0 (OpenGL ES 3.0 SwiftShader 4.0.0.1)
-2026-10-07T18:58:14.3361322Z INFO         | Graphics API Extensions GL_OES_EGL_sync GL_OES_EGL_image GL_OES_EGL_image_external GL_OES_depth24 GL_OES_depth32 GL_OES_element_index_uint GL_OES_texture_float GL_OES_texture_float_linear GL_OES_compressed_paletted_texture GL_OES_compressed_ETC1_RGB8_texture GL_OES_depth_texture GL_OES_texture_half_float GL_OES_texture_half_float_linear GL_OES_packed_depth_stencil GL_OES_vertex_half_float GL_OES_standard_derivatives GL_OES_texture_npot GL_OES_rgb8_rgba8 GL_EXT_color_buffer_float GL_EXT_color_buffer_half_float GL_EXT_texture_format_BGRA8888 GL_APPLE_texture_format_BGRA8888 
-2026-10-07T18:58:14.3363316Z INFO         | Graphics Device Extensions N/A
-2026-10-07T18:58:14.3363735Z INFO         | Disabling sparse binding feature support
-2026-10-07T18:58:14.3408243Z INFO         | Sending adb public key [QAAAAF0nkfELm8bSwk1yz4GGNv5vEEF1uWtB1ij31kMTUn8qUWI3wamOvsNH1FLgtoc5F3TCWBr9eBgLwYOXKOPv5PPLfZh8hwskAKNeiLX/N/wlkpHQ6E357Ol+WX1ULsWHPSouk2xeI21DyniQ9dvm2j3R+YQBvDctRrqUiv//MG5CGhnfZTJVoXkrTb6R3lgjcMrM9hiFL85JGJBa/S5CyNsvTReoc/HMKwYZfLNeaqrxEREBhxaOisKz0yXae3mS5DZtfF4OSU69nQXA/0dqT4Y0Wtz3U8wPDaxFFnScIy05J0B0hrr1B8pJTfxiu4iMB3JlyeaQAM5gBXS2eKw8osmvWE2+nX72ahImQcCuUZksnPWGEfoKz2/+rU1hSmhjp6kviVFOHqkeNHuhctItO20NvaDo5W6Jn9qHAHpOzeoQv6kpaKpdjsx1IDpA+VS9g4q6d2jYAWgVP5v/Vk3n3OqUCbd0Ua3qgrG/PjzCRiAqrIrWHKwnSp5HLqb8oDR0WMCPUE1TCVIynk9o7LkDLt0w9u2RzO+96e0grYAbMQ7LzbwfGHV/KuUB03BhvYeu9gu58FayPbD7Nk4UhleuvXtBmBgK9CqkZ2FbH8iWL1+Kt6WXz6doV9/rGrxt51NE0bkqeQDd7LJCZDfG5ikvXtMS0MN9cSEeL0cm25zz3mldMk52HgEAAQA= runner@unknown]
-2026-10-07T18:58:14.3414466Z INFO         | Userspace boot properties:
-2026-10-07T18:58:14.3415570Z INFO         |   androidboot.boot_devices=pci0000:00/0000:00:03.0 pci0000:00/0000:00:06.0
-2026-10-07T18:58:14.3416297Z INFO         |   androidboot.dalvik.vm.heapsize=576m
-2026-10-07T18:58:14.3417284Z INFO         |   androidboot.debug.hwui.renderer=skiagl
-2026-10-07T18:58:14.3418058Z INFO         |   androidboot.debug.sf.nobootanimation=1
-2026-10-07T18:58:14.3418791Z INFO         |   androidboot.hardware=ranchu
-2026-10-07T18:58:14.3419539Z INFO         |   androidboot.hardware.gltransport=pipe
-2026-10-07T18:58:14.3420213Z INFO         |   androidboot.hardware.vulkan=ranchu
-2026-10-07T18:58:14.3421138Z INFO         |   androidboot.logcat=*:V
-2026-10-07T18:58:14.3421750Z INFO         |   androidboot.opengles.version=196608
-2026-10-07T18:58:14.3422532Z INFO         |   androidboot.qemu=1
-2026-10-07T18:58:14.3428499Z INFO         |   androidboot.qemu.adb.pubkey=QAAAAF0nkfELm8bSwk1yz4GGNv5vEEF1uWtB1ij31kMTUn8qUWI3wamOvsNH1FLgtoc5F3TCWBr9eBgLwYOXKOPv5PPLfZh8hwskAKNeiLX/N/wlkpHQ6E357Ol+WX1ULsWHPSouk2xeI21DyniQ9dvm2j3R+YQBvDctRrqUiv//MG5CGhnfZTJVoXkrTb6R3lgjcMrM9hiFL85JGJBa/S5CyNsvTReoc/HMKwYZfLNeaqrxEREBhxaOisKz0yXae3mS5DZtfF4OSU69nQXA/0dqT4Y0Wtz3U8wPDaxFFnScIy05J0B0hrr1B8pJTfxiu4iMB3JlyeaQAM5gBXS2eKw8osmvWE2+nX72ahImQcCuUZksnPWGEfoKz2/+rU1hSmhjp6kviVFOHqkeNHuhctItO20NvaDo5W6Jn9qHAHpOzeoQv6kpaKpdjsx1IDpA+VS9g4q6d2jYAWgVP5v/Vk3n3OqUCbd0Ua3qgrG/PjzCRiAqrIrWHKwnSp5HLqb8oDR0WMCPUE1TCVIynk9o7LkDLt0w9u2RzO+96e0grYAbMQ7LzbwfGHV/KuUB03BhvYeu9gu58FayPbD7Nk4UhleuvXtBmBgK9CqkZ2FbH8iWL1+Kt6WXz6doV9/rGrxt51NE0bkqeQDd7LJCZDfG5ikvXtMS0MN9cSEeL0cm25zz3mldMk52HgEAAQA= runner@unknown
-2026-10-07T18:58:14.3434996Z INFO         |   androidboot.qemu.avd_name=test
-2026-10-07T18:58:14.3435866Z INFO         |   androidboot.qemu.camera_hq_edge_processing=0
-2026-10-07T18:58:14.3436643Z INFO         |   androidboot.qemu.camera_protocol_ver=1
-2026-10-07T18:58:14.3437442Z INFO         |   androidboot.qemu.cpuvulkan.version=4206592
-2026-10-07T18:58:14.3438297Z INFO         |   androidboot.qemu.gltransport.drawFlushInterval=800
-2026-10-07T18:58:14.3439038Z INFO         |   androidboot.qemu.gltransport.name=pipe
-2026-10-07T18:58:14.3439730Z INFO         |   androidboot.qemu.hwcodec.avcdec=2
-2026-10-07T18:58:14.3440353Z INFO         |   androidboot.qemu.hwcodec.hevcdec=2
-2026-10-07T18:58:14.3441081Z INFO         |   androidboot.qemu.hwcodec.vpxdec=2
-2026-10-07T18:58:14.3441885Z INFO         |   androidboot.qemu.settings.system.screen_off_timeout=2147483647
-2026-10-07T18:58:14.3442705Z INFO         |   androidboot.qemu.skin=320x640
-2026-10-07T18:58:14.3443438Z INFO         |   androidboot.qemu.virtiowifi=1
-2026-10-07T18:58:14.3444224Z INFO         |   androidboot.qemu.vsync=60
-2026-10-07T18:58:14.3445090Z INFO         |   androidboot.serialno=EMULATOR37X2X12X0
-2026-10-07T18:58:14.3446094Z INFO         |   androidboot.vbmeta.digest=b3271ba499104f4631ae3723913d5c12574e01715fce5b82d60beed097ead264
-2026-10-07T18:58:14.3447010Z INFO         |   androidboot.vbmeta.hash_alg=sha256
-2026-10-07T18:58:14.3561388Z INFO         |   androidboot.vbmeta.size=6720
-2026-10-07T18:58:14.3561974Z INFO         |   androidboot.veritymode=enforcing
-2026-10-07T18:58:14.3656996Z WARNING: cannnot unmap ptr 0x7f7e77001000 as it is in the protected range from 0x7f7dd7000000 to 0x7f7e77200000
-2026-10-07T18:58:14.3869144Z INFO         | Monitoring duration of emulator setup.
-2026-10-07T18:58:15.3712667Z INFO         | Successfully initialized netsim WiFi
-2026-10-07T18:58:15.3713225Z INFO         | Activated packet streamer for bluetooth emulation
-2026-10-07T18:58:15.3771729Z INFO         | Setting display: 0 configuration to: 320x640, dpi: 160x160 
-2026-10-07T18:58:15.3772371Z INFO         | setDisplayActiveConfig: id:0, 320x640
-2026-10-07T18:58:15.3773906Z INFO         | emulatorSetupEnvironment: Environment scene is not required
-2026-10-07T18:58:15.3845644Z INFO         | Loading snapshot 'default_boot'...
-2026-10-07T18:58:15.3846792Z WARNING      | Failed to process .ini file /home/runner/.android/emu-update-last-check.ini for reading.
-2026-10-07T18:58:15.3970583Z WARNING      | Device 'cache' does not have the requested snapshot 'default_boot'
-2026-10-07T18:58:15.3971268Z 
-2026-10-07T18:58:15.3971657Z WARNING      | Failed to load snapshot 'default_boot'
-2026-10-07T18:58:15.3972636Z USER_INFO    | The emulator is performing a cold boot without a saved state because there's no snapshot and you have configured it not to save on exit.
-2026-10-07T18:58:15.6488734Z WARNING      | Failed to process .ini file /home/runner/.android/emu-update-last-check.ini for reading.
-2026-10-07T18:58:22.5893813Z [command]/usr/local/lib/android/sdk/platform-tools/adb -s emulator-5554 shell getprop sys.boot_completed
-2026-10-07T18:58:22.5920974Z * daemon not running; starting now at tcp:5037
-2026-10-07T18:58:23.1057104Z * daemon started successfully
-2026-10-07T18:58:23.1061838Z adb: device offline
-2026-10-07T18:58:23.1066344Z The process '/usr/local/lib/android/sdk/platform-tools/adb' failed with exit code 1
-2026-10-07T18:58:25.1163608Z [command]/usr/local/lib/android/sdk/platform-tools/adb -s emulator-5554 shell getprop sys.boot_completed
-2026-10-07T18:58:25.1183534Z adb: device offline
-2026-10-07T18:58:25.1191474Z The process '/usr/local/lib/android/sdk/platform-tools/adb' failed with exit code 1
-2026-10-07T18:58:27.1220305Z [command]/usr/local/lib/android/sdk/platform-tools/adb -s emulator-5554 shell getprop sys.boot_completed
-2026-10-07T18:58:27.1270008Z adb: device offline
-2026-10-07T18:58:27.1275997Z The process '/usr/local/lib/android/sdk/platform-tools/adb' failed with exit code 1
-2026-10-07T18:58:29.1309503Z [command]/usr/local/lib/android/sdk/platform-tools/adb -s emulator-5554 shell getprop sys.boot_completed
-2026-10-07T18:58:29.1338975Z adb: device offline
-2026-10-07T18:58:29.1343853Z The process '/usr/local/lib/android/sdk/platform-tools/adb' failed with exit code 1
-2026-10-07T18:58:31.1407758Z [command]/usr/local/lib/android/sdk/platform-tools/adb -s emulator-5554 shell getprop sys.boot_completed
-2026-10-07T18:58:31.1951730Z 
-2026-10-07T18:58:33.1996144Z [command]/usr/local/lib/android/sdk/platform-tools/adb -s emulator-5554 shell getprop sys.boot_completed
-2026-10-07T18:58:33.2250402Z 
-2026-10-07T18:58:35.2328943Z [command]/usr/local/lib/android/sdk/platform-tools/adb -s emulator-5554 shell getprop sys.boot_completed
-2026-10-07T18:58:35.2548870Z 
-2026-10-07T18:58:37.2603033Z [command]/usr/local/lib/android/sdk/platform-tools/adb -s emulator-5554 shell getprop sys.boot_completed
-2026-10-07T18:58:37.2853795Z 
-2026-10-07T18:58:39.2917263Z [command]/usr/local/lib/android/sdk/platform-tools/adb -s emulator-5554 shell getprop sys.boot_completed
-2026-10-07T18:58:39.3147839Z 
-2026-10-07T18:58:41.3236023Z [command]/usr/local/lib/android/sdk/platform-tools/adb -s emulator-5554 shell getprop sys.boot_completed
-2026-10-07T18:58:41.3494949Z 
-2026-10-07T18:58:43.3535827Z [command]/usr/local/lib/android/sdk/platform-tools/adb -s emulator-5554 shell getprop sys.boot_completed
-2026-10-07T18:58:43.3819828Z 
-2026-10-07T18:58:45.3896508Z [command]/usr/local/lib/android/sdk/platform-tools/adb -s emulator-5554 shell getprop sys.boot_completed
-2026-10-07T18:58:45.4488294Z 
-2026-10-07T18:58:47.4573835Z [command]/usr/local/lib/android/sdk/platform-tools/adb -s emulator-5554 shell getprop sys.boot_completed
-2026-10-07T18:58:47.4802325Z 
-2026-10-07T18:58:49.4875232Z [command]/usr/local/lib/android/sdk/platform-tools/adb -s emulator-5554 shell getprop sys.boot_completed
-2026-10-07T18:58:49.5172284Z 
-2026-10-07T18:58:51.5265811Z [command]/usr/local/lib/android/sdk/platform-tools/adb -s emulator-5554 shell getprop sys.boot_completed
-2026-10-07T18:58:51.5505316Z 
-2026-10-07T18:58:53.5539976Z [command]/usr/local/lib/android/sdk/platform-tools/adb -s emulator-5554 shell getprop sys.boot_completed
-2026-10-07T18:58:53.5824244Z 
-2026-10-07T18:58:55.5876545Z [command]/usr/local/lib/android/sdk/platform-tools/adb -s emulator-5554 shell getprop sys.boot_completed
-2026-10-07T18:58:55.6151078Z 
-2026-10-07T18:58:57.6191205Z [command]/usr/local/lib/android/sdk/platform-tools/adb -s emulator-5554 shell getprop sys.boot_completed
-2026-10-07T18:58:57.6782680Z 1
-2026-10-07T18:58:57.6795450Z Emulator booted.
-2026-10-07T18:58:57.6831533Z [command]/usr/local/lib/android/sdk/platform-tools/adb -s emulator-5554 shell input keyevent 82
-2026-10-07T18:58:57.7797455Z INFO         | Boot completed in 45158 ms
-2026-10-07T18:58:57.7798293Z INFO         | Increasing screen off timeout, logcat buffer size to 2M.
-2026-10-07T18:58:57.9044572Z Disabling animations.
-2026-10-07T18:58:57.9068675Z [command]/usr/local/lib/android/sdk/platform-tools/adb -s emulator-5554 shell settings put global window_animation_scale 0.0
-2026-10-07T18:58:57.9606497Z [command]/usr/local/lib/android/sdk/platform-tools/adb -s emulator-5554 shell settings put global transition_animation_scale 0.0
-2026-10-07T18:58:58.0340858Z [command]/usr/local/lib/android/sdk/platform-tools/adb -s emulator-5554 shell settings put global animator_duration_scale 0.0
-2026-10-07T18:58:58.0785195Z ##[endgroup]
-2026-10-07T18:58:58.0798832Z [command]/usr/bin/sh -c bash app/tools/run_native_smoke_v04257.sh
-2026-10-07T18:58:58.3179550Z Downloading https://services.gradle.org/distributions/gradle-8.12-all.zip
-2026-10-07T18:59:01.1587503Z ................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................
-2026-10-07T18:59:01.1626837Z Unzipping /home/runner/.gradle/wrapper/dists/gradle-8.12-all/ejduaidbjup3bmmkhw3rie4zb/gradle-8.12-all.zip to /home/runner/.gradle/wrapper/dists/gradle-8.12-all/ejduaidbjup3bmmkhw3rie4zb
-2026-10-07T18:59:04.5916136Z Set executable permissions for: /home/runner/.gradle/wrapper/dists/gradle-8.12-all/ejduaidbjup3bmmkhw3rie4zb/gradle-8.12/bin/gradle
-2026-10-07T18:59:05.6615146Z 
-2026-10-07T18:59:05.6615966Z Welcome to Gradle 8.12!
-2026-10-07T18:59:05.6644964Z 
-2026-10-07T18:59:05.6662944Z Here are the highlights of this release:
-2026-10-07T18:59:05.6663897Z  - Enhanced error and warning reporting with the Problems API
-2026-10-07T18:59:05.6664930Z  - File-system watching support on Alpine Linux
-2026-10-07T18:59:05.6665544Z  - Build and test Swift 6 libraries and apps
-2026-10-07T18:59:05.6665918Z 
-2026-10-07T18:59:05.6666324Z For more details see https://docs.gradle.org/8.12/release-notes.html
-2026-10-07T18:59:05.6666819Z 
-2026-10-07T18:59:05.8555886Z Starting a Gradle Daemon (subsequent builds will be faster)
-2026-10-07T19:00:35.4569199Z > Task :checkKotlinGradlePluginConfigurationErrors SKIPPED
-2026-10-07T19:00:35.8559100Z > Task :syncGalaxyAssets
-2026-10-07T19:00:35.8587759Z > Task :syncImportSources
-2026-10-07T19:00:35.8616081Z > Task :preBuild
-2026-10-07T19:00:35.8645857Z > Task :preDebugBuild
-2026-10-07T19:00:36.3574451Z > Task :checkDebugAarMetadata
-2026-10-07T19:00:36.3605298Z > Task :generateDebugResValues
-2026-10-07T19:00:36.3643015Z > Task :mapDebugSourceSetPaths
-2026-10-07T19:00:36.3685479Z > Task :generateDebugResources
-2026-10-07T19:00:36.4605556Z > Task :mergeDebugResources
-2026-10-07T19:00:36.5555394Z > Task :packageDebugResources
-2026-10-07T19:00:39.0565448Z > Task :createDebugCompatibleScreenManifests
-2026-10-07T19:00:39.0595476Z > Task :extractDeepLinksDebug
-2026-10-07T19:00:39.1554087Z > Task :parseDebugLocalResources
-2026-10-07T19:00:39.2555715Z > Task :processDebugMainManifest
-2026-10-07T19:00:39.3555184Z > Task :processDebugManifest
-2026-10-07T19:00:39.3582841Z > Task :preDebugAndroidTestBuild SKIPPED
-2026-10-07T19:00:39.3585042Z > Task :javaPreCompileDebug
-2026-10-07T19:00:41.7575494Z > Task :checkDebugAndroidTestAarMetadata
-2026-10-07T19:00:41.7610408Z > Task :generateDebugAndroidTestResValues
-2026-10-07T19:00:41.7625575Z > Task :mapDebugAndroidTestSourceSetPaths
-2026-10-07T19:00:41.7646991Z > Task :generateDebugAndroidTestResources
-2026-10-07T19:00:42.1584933Z > Task :mergeDebugAndroidTestResources
-2026-10-07T19:00:42.3604580Z > Task :processDebugAndroidTestManifest
-2026-10-07T19:00:42.8576477Z > Task :processDebugManifestForPackage
-2026-10-07T19:00:42.9577613Z > Task :javaPreCompileDebugAndroidTest
-2026-10-07T19:00:43.0594852Z > Task :mergeDebugShaders
-2026-10-07T19:00:43.0598381Z > Task :compileDebugShaders NO-SOURCE
-2026-10-07T19:00:43.0598922Z > Task :generateDebugAssets UP-TO-DATE
-2026-10-07T19:00:43.3553602Z > Task :processDebugResources
-2026-10-07T19:00:43.3554100Z > Task :processDebugAndroidTestResources
-2026-10-07T19:00:43.5554108Z > Task :mergeDebugAssets
-2026-10-07T19:00:51.6595561Z > Task :compressDebugAssets
-2026-10-07T19:00:51.7558245Z > Task :mergeDebugJniLibFolders
-2026-10-07T19:00:51.7581006Z > Task :checkDebugDuplicateClasses
-2026-10-07T19:00:51.8554479Z > Task :mergeDebugNativeLibs
-2026-10-07T19:00:51.9564616Z > Task :mergeLibDexDebug
-2026-10-07T19:00:51.9585188Z 
-2026-10-07T19:00:51.9615354Z > Task :stripDebugDebugSymbols
-2026-10-07T19:00:51.9695664Z Unable to strip the following libraries, packaging them as they are: libLive2DCubismCoreJNI.so.
-2026-10-07T19:00:53.6584969Z 
-2026-10-07T19:00:53.6608512Z > Task :validateSigningDebug
-2026-10-07T19:00:53.6665197Z > Task :writeDebugAppMetadata
-2026-10-07T19:00:53.7615673Z > Task :writeDebugSigningConfigVersions
-2026-10-07T19:00:53.7635252Z > Task :mergeDebugAndroidTestShaders
-2026-10-07T19:00:53.7690484Z > Task :compileDebugAndroidTestShaders NO-SOURCE
-2026-10-07T19:00:53.7781488Z > Task :generateDebugAndroidTestAssets UP-TO-DATE
-2026-10-07T19:00:53.8605515Z > Task :mergeDebugAndroidTestAssets
-2026-10-07T19:00:53.8635469Z > Task :compressDebugAndroidTestAssets
-2026-10-07T19:00:53.8636384Z > Task :desugarDebugAndroidTestFileDependencies
-2026-10-07T19:00:54.4562432Z > Task :checkDebugAndroidTestDuplicateClasses
-2026-10-07T19:00:54.4586214Z > Task :mergeDebugAndroidTestJniLibFolders
-2026-10-07T19:00:55.2565604Z > Task :desugarDebugFileDependencies
-2026-10-07T19:01:13.4575237Z > Task :compileDebugKotlin
-2026-10-07T19:01:14.9570032Z > Task :mergeExtDexDebugAndroidTest
-2026-10-07T19:01:14.9596382Z > Task :mergeLibDexDebugAndroidTest
-2026-10-07T19:01:15.0555867Z > Task :mergeDebugAndroidTestNativeLibs NO-SOURCE
-2026-10-07T19:01:15.0610809Z > Task :stripDebugAndroidTestDebugSymbols NO-SOURCE
-2026-10-07T19:01:15.0615543Z > Task :validateSigningDebugAndroidTest
-2026-10-07T19:01:15.0616419Z > Task :writeDebugAndroidTestSigningConfigVersions
-2026-10-07T19:01:15.0617108Z > Task :mergeExtDexDebug
-2026-10-07T19:01:16.5553303Z 
-2026-10-07T19:01:16.5566430Z > Task :compileDebugKotlin
-2026-10-07T19:01:16.5568081Z w: file:///home/runner/work/ai-companion-build/ai-companion-build/app/tools/caicai_smoke/build/generated/import-sources/CaicaiDiagnostics.kt:21:41 'field versionCode: Int' is deprecated. Deprecated in Java.
-2026-10-07T19:01:16.5570917Z w: file:///home/runner/work/ai-companion-build/ai-companion-build/app/tools/caicai_smoke/build/generated/import-sources/NativeMemoryGalaxyActivity.kt:30:16 'var statusBarColor: Int' is deprecated. Deprecated in Java.
-2026-10-07T19:01:16.5574006Z w: file:///home/runner/work/ai-companion-build/ai-companion-build/app/tools/caicai_smoke/build/generated/import-sources/NativeMemoryGalaxyActivity.kt:31:16 'var navigationBarColor: Int' is deprecated. Deprecated in Java.
-2026-10-07T19:01:16.5577240Z w: file:///home/runner/work/ai-companion-build/ai-companion-build/app/tools/caicai_smoke/build/generated/import-sources/NativeMemoryGalaxyActivity.kt:49:22 'var allowFileAccessFromFileURLs: Boolean' is deprecated. Deprecated in Java.
-2026-10-07T19:01:16.5580035Z w: file:///home/runner/work/ai-companion-build/ai-companion-build/app/tools/caicai_smoke/build/generated/import-sources/NativeMemoryGalaxyActivity.kt:50:22 'var allowUniversalAccessFromFileURLs: Boolean' is deprecated. Deprecated in Java.
-2026-10-07T19:01:22.6554789Z 
-2026-10-07T19:01:22.6555704Z > Task :compileDebugJavaWithJavac
-2026-10-07T19:01:22.6557548Z /home/runner/work/ai-companion-build/ai-companion-build/app/android/app/src/main/java/com/live2d/sdk/cubism/framework/model/CubismModel.java:1442: warning: [dep-ann] deprecated item is not annotated with @Deprecated
-2026-10-07T19:01:22.6561580Z     public boolean getOverwriteFlagForModelCullings() {
-2026-10-07T19:01:22.6562326Z                    ^
-2026-10-07T19:01:22.7553945Z /home/runner/work/ai-companion-build/ai-companion-build/app/android/app/src/main/java/com/live2d/sdk/cubism/framework/model/CubismModel.java:1462: warning: [dep-ann] deprecated item is not annotated with @Deprecated
-2026-10-07T19:01:22.7557962Z     public void setOverwriteFlagForModelCullings(boolean value) {
-2026-10-07T19:01:22.7558760Z                 ^
-2026-10-07T19:01:22.7561198Z /home/runner/work/ai-companion-build/ai-companion-build/app/android/app/src/main/java/com/live2d/sdk/cubism/framework/model/CubismModel.java:1483: warning: [dep-ann] deprecated item is not annotated with @Deprecated
-2026-10-07T19:01:22.7563087Z     public boolean getOverwriteFlagForDrawableCullings(int drawableIndex) {
-2026-10-07T19:01:22.7563765Z                    ^
-2026-10-07T19:01:22.7565482Z /home/runner/work/ai-companion-build/ai-companion-build/app/android/app/src/main/java/com/live2d/sdk/cubism/framework/model/CubismModel.java:1505: warning: [dep-ann] deprecated item is not annotated with @Deprecated
-2026-10-07T19:01:22.7567419Z     public void setOverwriteFlagForDrawableCullings(int drawableIndex, boolean value) {
-2026-10-07T19:01:22.7568266Z                 ^
-2026-10-07T19:01:23.0553674Z Note: Some input files use unchecked or unsafe operations.
-2026-10-07T19:01:23.0554915Z Note: Recompile with -Xlint:unchecked for details.
-2026-10-07T19:01:23.0555570Z 4 warnings
-2026-10-07T19:01:24.6574944Z 
-2026-10-07T19:01:24.6590715Z > Task :bundleDebugClassesToCompileJar
-2026-10-07T19:01:27.0589434Z > Task :dexBuilderDebug
-2026-10-07T19:01:27.3563218Z > Task :mergeDebugGlobalSynthetics
-2026-10-07T19:01:27.3595272Z > Task :processDebugJavaRes
-2026-10-07T19:01:27.7554862Z > Task :mergeDebugJavaResource
-2026-10-07T19:01:27.7574391Z > Task :mergeProjectDexDebug
-2026-10-07T19:01:28.1553981Z > Task :packageDebug
-2026-10-07T19:01:28.1585326Z > Task :createDebugApkListingFileRedirect
-2026-10-07T19:01:30.9575447Z > Task :compileDebugAndroidTestKotlin
-2026-10-07T19:01:31.8553471Z > Task :compileDebugAndroidTestJavaWithJavac
-2026-10-07T19:01:32.3558169Z > Task :dexBuilderDebugAndroidTest
-2026-10-07T19:01:32.3569974Z > Task :mergeDebugAndroidTestGlobalSynthetics
-2026-10-07T19:01:32.3570747Z > Task :processDebugAndroidTestJavaRes
-2026-10-07T19:01:32.5595244Z > Task :mergeProjectDexDebugAndroidTest
-2026-10-07T19:01:32.6558182Z > Task :mergeDebugAndroidTestJavaResource
-2026-10-07T19:01:32.7558058Z > Task :packageDebugAndroidTest
-2026-10-07T19:01:32.7571861Z > Task :createDebugAndroidTestApkListingFileRedirect
-2026-10-07T19:01:39.6553430Z [EmulatorConsole]: Failed to start Emulator console for 5554
-2026-10-07T19:01:47.1554129Z 
-2026-10-07T19:01:47.1554909Z > Task :connectedDebugAndroidTest
-2026-10-07T19:01:47.1555500Z Starting 26 tests on emulator-5554 - 15
-2026-10-07T19:01:57.1565349Z 
-2026-10-07T19:01:57.1566455Z emulator-5554 - 15 Tests 10/26 completed. (0 skipped) (0 failed)
-2026-10-07T19:02:07.1554049Z emulator-5554 - 15 Tests 11/26 completed. (0 skipped) (0 failed)
-2026-10-07T19:02:17.1553812Z emulator-5554 - 15 Tests 12/26 completed. (0 skipped) (0 failed)
-2026-10-07T19:03:27.1572390Z emulator-5554 - 15 Tests 17/26 completed. (0 skipped) (0 failed)
-2026-10-07T19:03:29.6726170Z ##[error]The operation was canceled.
-2026-10-07T19:03:29.6795271Z ##[group]Run actions/upload-artifact@v4
-2026-10-07T19:03:29.6795582Z with:
-2026-10-07T19:03:29.6795807Z   name: Caicai-v04243-native-smoke-results
-2026-10-07T19:03:29.6796173Z   path: app/tools/caicai_smoke/build/outputs/androidTest-results/
-2026-10-07T19:03:29.6796587Z   retention-days: 14
-2026-10-07T19:03:29.6796802Z   if-no-files-found: warn
-2026-10-07T19:03:29.6797037Z   compression-level: 6
-2026-10-07T19:03:29.6797332Z   overwrite: false
-2026-10-07T19:03:29.6797547Z   include-hidden-files: false
-2026-10-07T19:03:29.6797772Z env:
-2026-10-07T19:03:29.6798047Z   JAVA_HOME: /opt/hostedtoolcache/Java_Temurin-Hotspot_jdk/17.0.20-1/x64
-2026-10-07T19:03:29.6798499Z   JAVA_HOME_17_X64: /opt/hostedtoolcache/Java_Temurin-Hotspot_jdk/17.0.20-1/x64
-2026-10-07T19:03:29.6798875Z   ANDROID_AVD_HOME: /home/runner/.android/avd
-2026-10-07T19:03:29.6799134Z ##[endgroup]
-2026-10-07T19:03:29.9290185Z (node:3674) [DEP0040] DeprecationWarning: The `punycode` module is deprecated. Please use a userland alternative instead.
-2026-10-07T19:03:29.9291947Z (Use `node --trace-deprecation ...` to show where the warning was created)
-2026-10-07T19:03:30.0387713Z With the provided path, there will be 25 files uploaded
-2026-10-07T19:03:30.0406664Z Artifact name is valid!
-2026-10-07T19:03:30.0457348Z Root directory input is valid!
-2026-10-07T19:03:30.3766228Z Beginning upload of artifact content to blob storage
-2026-10-07T19:03:30.4703934Z (node:3674) [DEP0169] DeprecationWarning: `url.parse()` behavior is not standardized and prone to errors that have security implications. Use the WHATWG URL API instead. CVEs are not issued for `url.parse()` vulnerabilities.
-2026-10-07T19:03:30.8469619Z Uploaded bytes 123442
-2026-10-07T19:03:30.9112358Z Finished uploading artifact content to blob storage!
-2026-10-07T19:03:30.9113640Z SHA256 digest of uploaded artifact zip is b77b8dae2dacac451cf5b01128ea05554a41b5d253617568324076ece7c51231
-2026-10-07T19:03:30.9115392Z Finalizing artifact upload
-2026-10-07T19:03:31.1580686Z Artifact Caicai-v04243-native-smoke-results.zip successfully finalized. Artifact ID 11504942721
-2026-10-07T19:03:31.1582566Z Artifact Caicai-v04243-native-smoke-results has been successfully uploaded! Final size is 123442 bytes. Artifact ID is 11504942721
-2026-10-07T19:03:31.1590109Z Artifact download URL: https://github.com/catkiss62/ai-companion-build/actions/runs/37670586279/artifacts/11504942721
-2026-10-07T19:03:31.1777817Z Post job cleanup.
-2026-10-07T19:03:31.3519907Z (node:3688) [DEP0040] DeprecationWarning: The `punycode` module is deprecated. Please use a userland alternative instead.
-2026-10-07T19:03:31.3520937Z (Use `node --trace-deprecation ...` to show where the warning was created)
-2026-10-07T19:03:31.3797522Z Post job cleanup.
-2026-10-07T19:03:31.5535826Z [command]/usr/bin/git version
-2026-10-07T19:03:31.5595367Z git version 2.55.0
-2026-10-07T19:03:31.5719067Z Temporarily overriding HOME='/home/runner/work/_temp/78950af5-2d39-472b-ab08-16a28c302f61' before making global git config changes
-2026-10-07T19:03:31.5725500Z Adding repository directory to the temporary git global config as a safe directory
-2026-10-07T19:03:31.5727587Z [command]/usr/bin/git config --global --add safe.directory /home/runner/work/ai-companion-build/ai-companion-build
-2026-10-07T19:03:31.5814205Z [command]/usr/bin/git config --local --name-only --get-regexp core\.sshCommand
-2026-10-07T19:03:31.5881588Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'core\.sshCommand' && git config --local --unset-all 'core.sshCommand' || :"
-2026-10-07T19:03:31.6505930Z [command]/usr/bin/git config --local --name-only --get-regexp http\.https\:\/\/github\.com\/\.extraheader
-2026-10-07T19:03:31.6560175Z http.https://github.com/.extraheader
-2026-10-07T19:03:31.6647027Z [command]/usr/bin/git config --local --unset-all http.https://github.com/.extraheader
-2026-10-07T19:03:31.6687708Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'http\.https\:\/\/github\.com\/\.extraheader' && git config --local --unset-all 'http.https://github.com/.extraheader' || :"
-2026-10-07T19:03:31.7136607Z [command]/usr/bin/git config --local --name-only --get-regexp ^includeIf\.gitdir:
-2026-10-07T19:03:31.7266283Z [command]/usr/bin/git submodule foreach --recursive git config --local --show-origin --name-only --get-regexp remote.origin.url
-2026-10-07T19:03:31.7645410Z Cleaning up orphan processes
-2026-10-07T19:03:31.8062469Z Terminate orphan process: pid (2572) (qemu-system-x86_64-headless)
-2026-10-07T19:03:31.8194135Z Terminate orphan process: pid (2576) (crashpad_handler)
-2026-10-07T19:03:31.8296167Z Terminate orphan process: pid (2636) (netsimd)
-2026-10-07T19:03:31.8398504Z Terminate orphan process: pid (2674) (adb)
-2026-10-07T19:03:31.8633104Z Terminate orphan process: pid (2769) (sh)
-2026-10-07T19:03:31.8777775Z Terminate orphan process: pid (2770) (bash)
-2026-10-07T19:03:31.8920246Z Terminate orphan process: pid (2776) (java)
-2026-10-07T19:03:31.9063407Z Terminate orphan process: pid (2838) (java)
-2026-10-07T19:03:31.9155552Z Terminate orphan process: pid (3136) (aapt2)
-2026-10-07T19:03:31.9241347Z Terminate orphan process: pid (3137) (aapt2)
-2026-10-07T19:03:31.9323799Z Terminate orphan process: pid (3189) (java)
-2026-10-07T19:03:31.9498469Z Terminate orphan process: pid (3393) (java)
-2026-10-07T19:03:31.9512035Z ##[warning]Node.js 20 is deprecated. The following actions target Node.js 20 but are being forced to run on Node.js 24: actions/checkout@v4, actions/setup-java@v4, actions/upload-artifact@v4. For more information see: https://github.blog/changelog/2025-09-19-deprecation-of-node-20-on-github-actions-runners/
-
---- job=build-apk conclusion=cancelled id=112964430726 ---
-Unable to download this completed job log.
-﻿<?xml version="1.0" encoding="utf-8"?><Error><Code>BlobNotFound</Code><Message>The specified blob does not exist.
-RequestId:12a81893-901e-0023-3d8e-56527e000000
-Time:2026-10-07T19:03:41.8842683Z</Message></Error>gh: HTTP 404
+--- job=caicai-native-smoke conclusion=failure id=112964568501 ---
+﻿2026-10-07T19:03:56.3012170Z Current runner version: '2.337.0'
+2026-10-07T19:03:56.3047010Z ##[group]Runner Image Provisioner
+2026-10-07T19:03:56.3048204Z Hosted Compute Agent
+2026-10-07T19:03:56.3049177Z Version: 20261002.596
+2026-10-07T19:03:56.3050128Z Commit: c3d12f3313a95f25162a1503be624f3b0617f8c0
+2026-10-07T19:03:56.3051307Z Build Date: 2026-10-02T22:28:27Z
+2026-10-07T19:03:56.3052575Z Worker ID: {285a90ab-385b-4329-a83a-06a01de4102f}
+2026-10-07T19:03:56.3053731Z Region: centralus
+2026-10-07T19:03:56.3054611Z Cloud: Azure
+2026-10-07T19:03:56.3055479Z ##[endgroup]
+2026-10-07T19:03:56.3057701Z ##[group]Operating System
+2026-10-07T19:03:56.3058664Z Ubuntu
+2026-10-07T19:03:56.3059454Z 24.04.5
+2026-10-07T19:03:56.3060233Z LTS
+2026-10-07T19:03:56.3061008Z ##[endgroup]
+2026-10-07T19:03:56.3061796Z ##[group]Runner Image
+2026-10-07T19:03:56.3062915Z Image: ubuntu-24.04
+2026-10-07T19:03:56.3063786Z Version: 20261004.327.1
+2026-10-07T19:03:56.3065807Z Included Software: https://github.com/actions/runner-images/blob/ubuntu24/20261004.327/images/ubuntu/Ubuntu2404-Readme.md
+2026-10-07T19:03:56.3068748Z Image Release: https://github.com/actions/runner-images/releases/tag/ubuntu24%2F20261004.327
+2026-10-07T19:03:56.3070346Z ##[endgroup]
+2026-10-07T19:03:56.3072188Z ##[group]GITHUB_TOKEN Permissions
+2026-10-07T19:03:56.3075252Z Actions: read
+2026-10-07T19:03:56.3076217Z Contents: write
+2026-10-07T19:03:56.3077132Z Metadata: read
+2026-10-07T19:03:56.3077957Z ##[endgroup]
+2026-10-07T19:03:56.3080742Z Secret source: Actions
+2026-10-07T19:03:56.3082203Z Cache mode: write
+2026-10-07T19:03:56.3083875Z Prepare workflow directory
+2026-10-07T19:03:56.3419775Z Prepare all required actions
+2026-10-07T19:03:56.3470650Z Getting action download info
+2026-10-07T19:03:56.5928117Z Download action repository 'actions/checkout@v4' (SHA:11d5960a326750d5838078e36cf38b85af677262)
+2026-10-07T19:03:56.6617126Z Download action repository 'actions/setup-java@v4' (SHA:cf277c60eb25467037889841efdb72551f06f6c3)
+2026-10-07T19:03:57.2676763Z Download action repository 'reactivecircus/android-emulator-runner@v2' (SHA:a421e43855164a8197daf9d8d40fe71c6996bb0d)
+2026-10-07T19:03:57.7110118Z Download action repository 'actions/upload-artifact@v4' (SHA:ea165f8d65b6e75b540449e92b4886f43607fa02)
+2026-10-07T19:03:57.9337758Z Complete job name: caicai-native-smoke
+2026-10-07T19:03:58.0270162Z ##[group]Run actions/checkout@v4
+2026-10-07T19:03:58.0271514Z with:
+2026-10-07T19:03:58.0272525Z   repository: catkiss62/ai-companion-build
+2026-10-07T19:03:58.0281221Z   token: ***
+2026-10-07T19:03:58.0282642Z   ssh-strict: true
+2026-10-07T19:03:58.0283488Z   ssh-user: git
+2026-10-07T19:03:58.0284389Z   persist-credentials: true
+2026-10-07T19:03:58.0285439Z   clean: true
+2026-10-07T19:03:58.0286995Z   sparse-checkout-cone-mode: true
+2026-10-07T19:03:58.0288008Z   fetch-depth: 1
+2026-10-07T19:03:58.0289061Z   fetch-tags: false
+2026-10-07T19:03:58.0290265Z   show-progress: true
+2026-10-07T19:03:58.0291125Z   lfs: false
+2026-10-07T19:03:58.0291908Z   submodules: false
+2026-10-07T19:03:58.0293002Z   set-safe-directory: true
+2026-10-07T19:03:58.0293997Z   allow-unsafe-pr-checkout: false
+2026-10-07T19:03:58.0295470Z ##[endgroup]
+2026-10-07T19:03:58.1318640Z Syncing repository: catkiss62/ai-companion-build
+2026-10-07T19:03:58.1321604Z ##[group]Getting Git version info
+2026-10-07T19:03:58.1323436Z Working directory is '/home/runner/work/ai-companion-build/ai-companion-build'
+2026-10-07T19:03:58.1325573Z [command]/usr/bin/git version
+2026-10-07T19:03:58.1414466Z git version 2.55.0
+2026-10-07T19:03:58.1435771Z ##[endgroup]
+2026-10-07T19:03:58.1450808Z Temporarily overriding HOME='/home/runner/work/_temp/c6a786fe-45ab-42e9-92aa-edb3526789ed' before making global git config changes
+2026-10-07T19:03:58.1455970Z Adding repository directory to the temporary git global config as a safe directory
+2026-10-07T19:03:58.1460874Z [command]/usr/bin/git config --global --add safe.directory /home/runner/work/ai-companion-build/ai-companion-build
+2026-10-07T19:03:58.1508872Z Deleting the contents of '/home/runner/work/ai-companion-build/ai-companion-build'
+2026-10-07T19:03:58.1513933Z ##[group]Initializing the repository
+2026-10-07T19:03:58.1519773Z [command]/usr/bin/git init /home/runner/work/ai-companion-build/ai-companion-build
+2026-10-07T19:03:58.1607013Z hint: Using 'master' as the name for the initial branch. This default branch name
+2026-10-07T19:03:58.1608807Z hint: will change to "main" in Git 3.0. To configure the initial branch name
+2026-10-07T19:03:58.1610505Z hint: to use in all of your new repositories, which will suppress this warning,
+2026-10-07T19:03:58.1611834Z hint: call:
+2026-10-07T19:03:58.1612828Z hint:
+2026-10-07T19:03:58.1613796Z hint: 	git config --global init.defaultBranch <name>
+2026-10-07T19:03:58.1614885Z hint:
+2026-10-07T19:03:58.1616226Z hint: Names commonly chosen instead of 'master' are 'main', 'trunk' and
+2026-10-07T19:03:58.1617886Z hint: 'development'. The just-created branch can be renamed via this command:
+2026-10-07T19:03:58.1619210Z hint:
+2026-10-07T19:03:58.1619973Z hint: 	git branch -m <name>
+2026-10-07T19:03:58.1620873Z hint:
+2026-10-07T19:03:58.1621994Z hint: Disable this message with "git config set advice.defaultBranchName false"
+2026-10-07T19:03:58.1628658Z Initialized empty Git repository in /home/runner/work/ai-companion-build/ai-companion-build/.git/
+2026-10-07T19:03:58.1639456Z [command]/usr/bin/git remote add origin https://github.com/catkiss62/ai-companion-build
+2026-10-07T19:03:58.1684467Z ##[endgroup]
+2026-10-07T19:03:58.1686572Z ##[group]Disabling automatic garbage collection
+2026-10-07T19:03:58.1688653Z [command]/usr/bin/git config --local gc.auto 0
+2026-10-07T19:03:58.1718505Z ##[endgroup]
+2026-10-07T19:03:58.1719884Z ##[group]Setting up auth
+2026-10-07T19:03:58.1726277Z [command]/usr/bin/git config --local --name-only --get-regexp core\.sshCommand
+2026-10-07T19:03:58.1757621Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'core\.sshCommand' && git config --local --unset-all 'core.sshCommand' || :"
+2026-10-07T19:03:58.2067571Z [command]/usr/bin/git config --local --name-only --get-regexp http\.https\:\/\/github\.com\/\.extraheader
+2026-10-07T19:03:58.2101737Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'http\.https\:\/\/github\.com\/\.extraheader' && git config --local --unset-all 'http.https://github.com/.extraheader' || :"
+2026-10-07T19:03:58.2296963Z [command]/usr/bin/git config --local --name-only --get-regexp ^includeIf\.gitdir:
+2026-10-07T19:03:58.2325977Z [command]/usr/bin/git submodule foreach --recursive git config --local --show-origin --name-only --get-regexp remote.origin.url
+2026-10-07T19:03:58.2500180Z [command]/usr/bin/git config --local http.https://github.com/.extraheader AUTHORIZATION: basic ***
+2026-10-07T19:03:58.2533276Z ##[endgroup]
+2026-10-07T19:03:58.2534793Z ##[group]Fetching the repository
+2026-10-07T19:03:58.2543754Z [command]/usr/bin/git -c protocol.version=2 fetch --no-tags --prune --no-recurse-submodules --depth=1 origin +7d36ec3743197edd10403a4b7046aa9fdb6b525e:refs/remotes/origin/agent/v04284-reminder-confirmation
+2026-10-07T19:04:02.4287799Z From https://github.com/catkiss62/ai-companion-build
+2026-10-07T19:04:02.4289826Z  * [new ref]         7d36ec3743197edd10403a4b7046aa9fdb6b525e -> origin/agent/v04284-reminder-confirmation
+2026-10-07T19:04:02.4292958Z ##[endgroup]
+2026-10-07T19:04:02.4293819Z ##[group]Determining the checkout info
+2026-10-07T19:04:02.4294788Z ##[endgroup]
+2026-10-07T19:04:02.4301133Z [command]/usr/bin/git sparse-checkout disable
+2026-10-07T19:04:02.4343017Z [command]/usr/bin/git config --local --unset-all extensions.worktreeConfig
+2026-10-07T19:04:02.4368150Z ##[group]Checking out the ref
+2026-10-07T19:04:02.4372523Z [command]/usr/bin/git checkout --progress --force -B agent/v04284-reminder-confirmation refs/remotes/origin/agent/v04284-reminder-confirmation
+2026-10-07T19:04:02.7537165Z Switched to a new branch 'agent/v04284-reminder-confirmation'
+2026-10-07T19:04:02.7541085Z branch 'agent/v04284-reminder-confirmation' set up to track 'origin/agent/v04284-reminder-confirmation'.
+2026-10-07T19:04:02.7563605Z ##[endgroup]
+2026-10-07T19:04:02.7605990Z [command]/usr/bin/git log -1 --format=%H
+2026-10-07T19:04:02.7628392Z 7d36ec3743197edd10403a4b7046aa9fdb6b525e
+2026-10-07T19:04:02.7900775Z ##[group]Run actions/setup-java@v4
+2026-10-07T19:04:02.7901091Z with:
+2026-10-07T19:04:02.7901305Z   distribution: temurin
+2026-10-07T19:04:02.7901536Z   java-version: 17
+2026-10-07T19:04:02.7901756Z   java-package: jdk
+2026-10-07T19:04:02.7901971Z   check-latest: false
+2026-10-07T19:04:02.7902192Z   server-id: github
+2026-10-07T19:04:02.7902622Z   server-username: GITHUB_ACTOR
+2026-10-07T19:04:02.7902879Z   server-password: GITHUB_TOKEN
+2026-10-07T19:04:02.7903126Z   overwrite-settings: true
+2026-10-07T19:04:02.7903362Z   job-status: success
+2026-10-07T19:04:02.7906068Z   token: ***
+2026-10-07T19:04:02.7906299Z ##[endgroup]
+2026-10-07T19:04:02.9530386Z ##[warning]setup-java v4 is deprecated and will no longer receive updates. Please migrate to actions/setup-java@v5.
+2026-10-07T19:04:02.9539075Z ##[group]Installed distributions
+2026-10-07T19:04:02.9570561Z Resolved Java 17.0.20+1 from tool-cache
+2026-10-07T19:04:02.9571185Z Setting Java 17.0.20+1 as the default
+2026-10-07T19:04:02.9579822Z (node:2295) [DEP0040] DeprecationWarning: The `punycode` module is deprecated. Please use a userland alternative instead.
+2026-10-07T19:04:02.9580518Z (Use `node --trace-deprecation ...` to show where the warning was created)
+2026-10-07T19:04:02.9583263Z Creating toolchains.xml for JDK version 17 from temurin
+2026-10-07T19:04:02.9654337Z Writing to /home/runner/.m2/toolchains.xml
+2026-10-07T19:04:02.9654766Z 
+2026-10-07T19:04:02.9654906Z Java configuration:
+2026-10-07T19:04:02.9655271Z   Distribution: temurin
+2026-10-07T19:04:02.9655652Z   Version: 17.0.20+1
+2026-10-07T19:04:02.9656182Z   Path: /opt/hostedtoolcache/Java_Temurin-Hotspot_jdk/17.0.20-1/x64
+2026-10-07T19:04:02.9656663Z 
+2026-10-07T19:04:02.9658541Z ##[endgroup]
+2026-10-07T19:04:02.9679225Z Creating settings.xml with server-id: github
+2026-10-07T19:04:02.9696841Z Writing to /home/runner/.m2/settings.xml
+2026-10-07T19:04:02.9831148Z ##[group]Run echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+2026-10-07T19:04:02.9832028Z [36;1mecho 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules[0m
+2026-10-07T19:04:02.9832911Z [36;1msudo udevadm control --reload-rules[0m
+2026-10-07T19:04:02.9833235Z [36;1msudo udevadm trigger --name-match=kvm[0m
+2026-10-07T19:04:03.0036215Z shell: /usr/bin/bash -e {0}
+2026-10-07T19:04:03.0036719Z env:
+2026-10-07T19:04:03.0037233Z   JAVA_HOME: /opt/hostedtoolcache/Java_Temurin-Hotspot_jdk/17.0.20-1/x64
+2026-10-07T19:04:03.0038025Z   JAVA_HOME_17_X64: /opt/hostedtoolcache/Java_Temurin-Hotspot_jdk/17.0.20-1/x64
+2026-10-07T19:04:03.0038643Z ##[endgroup]
+2026-10-07T19:04:03.0199605Z KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"
+2026-10-07T19:04:03.0525052Z ##[group]Run reactivecircus/android-emulator-runner@v2
+2026-10-07T19:04:03.0525404Z with:
+2026-10-07T19:04:03.0525611Z   api-level: 35
+2026-10-07T19:04:03.0525812Z   arch: x86_64
+2026-10-07T19:04:03.0526015Z   target: google_apis
+2026-10-07T19:04:03.0526242Z   disable-animations: true
+2026-10-07T19:04:03.0526679Z   emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none
+2026-10-07T19:04:03.0527162Z   script: bash app/tools/run_native_smoke_v04257.sh
+2026-10-07T19:04:03.0527456Z   cores: 2
+2026-10-07T19:04:03.0527643Z   avd-name: test
+2026-10-07T19:04:03.0527861Z   force-avd-creation: true
+2026-10-07T19:04:03.0528099Z   emulator-boot-timeout: 600
+2026-10-07T19:04:03.0528336Z   emulator-port: 5554
+2026-10-07T19:04:03.0528558Z   disable-spellchecker: false
+2026-10-07T19:04:03.0528806Z   disable-linux-hw-accel: auto
+2026-10-07T19:04:03.0529056Z   enable-hw-keyboard: false
+2026-10-07T19:04:03.0529291Z   channel: stable
+2026-10-07T19:04:03.0529585Z env:
+2026-10-07T19:04:03.0530075Z   JAVA_HOME: /opt/hostedtoolcache/Java_Temurin-Hotspot_jdk/17.0.20-1/x64
+2026-10-07T19:04:03.0530548Z   JAVA_HOME_17_X64: /opt/hostedtoolcache/Java_Temurin-Hotspot_jdk/17.0.20-1/x64
+2026-10-07T19:04:03.0530913Z ##[endgroup]
+2026-10-07T19:04:03.1076109Z ##[group]Configure emulator
+2026-10-07T19:04:03.1077879Z API level: 35
+2026-10-07T19:04:03.1078156Z System image API level: 35
+2026-10-07T19:04:03.1078483Z target: google_apis
+2026-10-07T19:04:03.1078855Z CPU architecture: x86_64
+2026-10-07T19:04:03.1079212Z Hardware profile: 
+2026-10-07T19:04:03.1083248Z Cores: 2
+2026-10-07T19:04:03.1089408Z RAM size: 
+2026-10-07T19:04:03.1089725Z Heap size: 
+2026-10-07T19:04:03.1090048Z SD card path or size: 
+2026-10-07T19:04:03.1090273Z Disk size: 
+2026-10-07T19:04:03.1090470Z AVD name: test
+2026-10-07T19:04:03.1090690Z force avd creation: true
+2026-10-07T19:04:03.1090939Z Emulator boot timeout: 600
+2026-10-07T19:04:03.1091194Z emulator port: 5554
+2026-10-07T19:04:03.1091675Z emulator options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none
+2026-10-07T19:04:03.1092150Z disable animations: true
+2026-10-07T19:04:03.1092572Z disable spellchecker: false
+2026-10-07T19:04:03.1092872Z disable Linux hardware acceleration: false
+2026-10-07T19:04:03.1093172Z enable hardware keyboard: false
+2026-10-07T19:04:03.1093418Z Channel: 0 (stable)
+2026-10-07T19:04:03.1093625Z Script:
+2026-10-07T19:04:03.1093841Z bash app/tools/run_native_smoke_v04257.sh
+2026-10-07T19:04:03.1094125Z Pre emulator launch script:
+2026-10-07T19:04:03.1094600Z ##[endgroup]
+2026-10-07T19:04:03.1094967Z ##[group]Install Android SDK
+2026-10-07T19:04:03.1305573Z [command]/usr/bin/sh -c \yes | sdkmanager --licenses > /dev/null
+2026-10-07T19:04:11.3561836Z Installing latest build tools, platform tools, and platform.
+2026-10-07T19:04:11.3574687Z [command]/usr/bin/sh -c \sdkmanager --install 'build-tools;37.0.0' platform-tools 'platforms;android-35'> /dev/null
+2026-10-07T19:04:12.6763316Z Installing latest emulator.
+2026-10-07T19:04:12.6775261Z [command]/usr/bin/sh -c \sdkmanager --install emulator --channel=0 > /dev/null
+2026-10-07T19:04:20.7221415Z Installing system images.
+2026-10-07T19:04:20.7235413Z [command]/usr/bin/sh -c \sdkmanager --install 'system-images;android-35;google_apis;x86_64' --channel=0 > /dev/null
+2026-10-07T19:05:07.3595235Z ##[endgroup]
+2026-10-07T19:05:07.3596522Z ##[group]Create AVD
+2026-10-07T19:05:07.3597080Z Creating AVD.
+2026-10-07T19:05:07.3613141Z [command]/usr/bin/sh -c \echo no | avdmanager create avd --force -n test --package 'system-images;android-35;google_apis;x86_64'
+2026-10-07T19:05:08.2686116Z Loading local repository...                                                     
+2026-10-07T19:05:08.2693657Z [=========                              ] 25% Loading local repository...       
+2026-10-07T19:05:08.2694623Z [=========                              ] 25% Fetch remote repository...        
+2026-10-07T19:05:08.2696353Z [=======================================] 100% Fetch remote repository...       
+2026-10-07T19:05:09.0089952Z Auto-selecting single ABI x86_64
+2026-10-07T19:05:09.0807706Z Do you wish to create a custom hardware profile? [no] [command]/usr/bin/sh -c \printf 'hw.cpu.ncore=2\n' >> /home/runner/.android/avd/test.avd/config.ini
+2026-10-07T19:05:09.0827669Z ##[endgroup]
+2026-10-07T19:05:09.0829401Z ##[group]Launch Emulator
+2026-10-07T19:05:09.0829940Z Starting emulator.
+2026-10-07T19:05:09.0843673Z [command]/usr/bin/sh -c \/usr/local/lib/android/sdk/emulator/emulator -port 5554 -avd test -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none &
+2026-10-07T19:05:09.0947777Z INFO         | Android emulator version 37.2.12.0 (build_id 16428233) (CL:N/A)
+2026-10-07T19:05:09.0948810Z INFO         | Graphics backend: gfxstream
+2026-10-07T19:05:09.0949893Z INFO         | Found systemPath /usr/local/lib/android/sdk/system-images/android-35/google_apis/x86_64/
+2026-10-07T19:05:09.1375373Z INFO         | Saving last run QEMU version for the AVD to 2
+2026-10-07T19:05:09.1377014Z INFO         | Increasing RAM size to 2560MB
+2026-10-07T19:05:09.1377900Z ##############################################################################
+2026-10-07T19:05:09.1378909Z ##                        WARNING - ACTION REQUIRED                         ##
+2026-10-07T19:05:09.1380061Z ##  Consider using the '-metrics-collection' flag to help improve the       ##
+2026-10-07T19:05:09.1381230Z ##  emulator by sending anonymized usage data. Or use the '-no-metrics'     ##
+2026-10-07T19:05:09.1383006Z ##  flag to bypass this warning and turn off the metrics collection.        ##
+2026-10-07T19:05:09.1384194Z ##  In a future release this warning will turn into a one-time blocking     ##
+2026-10-07T19:05:09.1385417Z ##  prompt to ask for explicit user input regarding metrics collection.     ##
+2026-10-07T19:05:09.1386518Z ##                                                                          ##
+2026-10-07T19:05:09.1387594Z ##  Please see '-help-metrics-collection' for more details. You can use     ##
+2026-10-07T19:05:09.1388957Z ##  '-metrics-to-file' or '-metrics-to-console' flags to see what type of   ##
+2026-10-07T19:05:09.1390144Z ##  data is being collected by emulator as part of usage statistics.        ##
+2026-10-07T19:05:09.1391290Z ##############################################################################
+2026-10-07T19:05:09.1392174Z INFO         | Guest GLES Driver: Auto (ext controls)
+2026-10-07T19:05:09.1393454Z INFO         | emuglConfig_init: vulkan_mode_selected:swiftshader gles_mode_selected:swiftshader
+2026-10-07T19:05:09.1394639Z INFO         | Checking system compatibility:
+2026-10-07T19:05:09.1395518Z INFO         |   Checking: hasSufficientDiskSpace
+2026-10-07T19:05:09.1396438Z INFO         |      Ok: Disk space requirements to run avd: `test` are met
+2026-10-07T19:05:09.1397386Z INFO         |   Checking: hasSufficientHwGpu
+2026-10-07T19:05:09.1398281Z INFO         |      Ok: Hardware GPU compatibility checks are not required
+2026-10-07T19:05:09.1399367Z INFO         |   Checking: hasSufficientSystem
+2026-10-07T19:05:09.1400271Z INFO         |      Ok: System requirements to run avd: `test` are met
+2026-10-07T19:05:09.1402434Z WARNING      | Feature QuickbootFileBacked is disabled due to stability issues, if you really want that, the environment variable ANDROID_EMU_FORCE_QUICKBOOT_FILE_BACKED need to set to 1
+2026-10-07T19:05:10.3097442Z ERROR        | Unable to connect to adb daemon on port: 5037
+2026-10-07T19:05:10.3099754Z INFO         | Storing crashdata in: /tmp/android-runner/emu-crash-37.2.12.db, detection is enabled for process: 2635
+2026-10-07T19:05:10.3100771Z INFO         | Initializing gfxstream backend
+2026-10-07T19:05:10.3110949Z INFO         | startOpenglesRendererImpl: gpu info
+2026-10-07T19:05:10.3111391Z INFO         | 
+2026-10-07T19:05:10.3113099Z INFO         | initIcdPaths: ICD set to 'swiftshader', using Swiftshader ICD
+2026-10-07T19:05:10.3114457Z INFO         | Setting ICD filenames for the loader = /usr/local/lib/android/sdk/emulator/lib64/vulkan/vk_swiftshader_icd.json
+2026-10-07T19:05:10.3115618Z INFO         | SharedLibrary::open for [/usr/local/lib/android/sdk/emulator/qemu/linux-x86_64/lib64/vulkan/libvulkan.so]
+2026-10-07T19:05:10.3116675Z INFO         | SharedLibrary::open for [/usr/local/lib/android/sdk/emulator/qemu/linux-x86_64/lib64/vulkan/libvulkan.so.1]
+2026-10-07T19:05:10.3117666Z INFO         | SharedLibrary::open for [/usr/local/lib/android/sdk/emulator/lib64/vulkan/libvulkan.so]
+2026-10-07T19:05:10.3118473Z INFO         | Added library: /usr/local/lib/android/sdk/emulator/lib64/vulkan/libvulkan.so
+2026-10-07T19:05:10.3160987Z INFO         | Selecting Vulkan device: SwiftShader Device (Subzero), Version: 1.3.0
+2026-10-07T19:05:10.3161717Z INFO         | Using Vulkan externalMemoryMode: OpaqueFd for VkEmulation
+2026-10-07T19:05:10.3405338Z INFO         | Format VK_FORMAT_G10X6_B10X6R10X6_2PLANE_422_UNORM_3PACK16 does not support YCbCr sampler conversion
+2026-10-07T19:05:10.3431827Z INFO         | SharedLibrary::open for [libX11]
+2026-10-07T19:05:10.3433228Z WARNING      | Could not open libX11.so, try libX11.so.6
+2026-10-07T19:05:10.3433908Z INFO         | SharedLibrary::open for [libX11.so.6]
+2026-10-07T19:05:10.3434323Z INFO         | SharedLibrary::open for [libX11-xcb]
+2026-10-07T19:05:10.3434939Z WARNING      | Could not open libX11-xcb.so, try libX11-xcb.so.1
+2026-10-07T19:05:10.3435687Z INFO         | SharedLibrary::open for [libX11-xcb.so.1]
+2026-10-07T19:05:10.3490825Z INFO         | Initializing VkEmulation features:
+2026-10-07T19:05:10.3491844Z INFO         |     glInteropSupported: false
+2026-10-07T19:05:10.3492878Z INFO         |     useDeferredCommands: true
+2026-10-07T19:05:10.3493654Z INFO         |     createResourceWithRequirements: true
+2026-10-07T19:05:10.3494461Z INFO         |     useVulkanComposition: false
+2026-10-07T19:05:10.3495184Z INFO         |     useVulkanNativeSwapchain: false
+2026-10-07T19:05:10.3496104Z INFO         |     enable guestRenderDoc: false
+2026-10-07T19:05:10.3496900Z INFO         |     ASTC LDR emulation mode: Gpu
+2026-10-07T19:05:10.3497524Z INFO         |     enable ETC2 emulation: true
+2026-10-07T19:05:10.3498137Z INFO         |     enable Ycbcr emulation: false
+2026-10-07T19:05:10.3498542Z INFO         |     guestVulkanOnly: false
+2026-10-07T19:05:10.3499018Z INFO         |     useDedicatedAllocations: false
+2026-10-07T19:05:10.3499566Z INFO         |     guestVulkanMaxApiVersion: 1.3.0
+2026-10-07T19:05:10.3500332Z INFO         |     enableProtectedMemoryEmulation: false
+2026-10-07T19:05:10.3500955Z INFO         | Graphics Adapter Vendor Google (Google Inc.)
+2026-10-07T19:05:10.3501800Z INFO         | Graphics Adapter Android Emulator OpenGL ES Translator (Google SwiftShader)
+2026-10-07T19:05:10.3502762Z INFO         | Graphics API Version OpenGL ES 3.0 (OpenGL ES 3.0 SwiftShader 4.0.0.1)
+2026-10-07T19:05:10.3506165Z INFO         | Graphics API Extensions GL_OES_EGL_sync GL_OES_EGL_image GL_OES_EGL_image_external GL_OES_depth24 GL_OES_depth32 GL_OES_element_index_uint GL_OES_texture_float GL_OES_texture_float_linear GL_OES_compressed_paletted_texture GL_OES_compressed_ETC1_RGB8_texture GL_OES_depth_texture GL_OES_texture_half_float GL_OES_texture_half_float_linear GL_OES_packed_depth_stencil GL_OES_vertex_half_float GL_OES_standard_derivatives GL_OES_texture_npot GL_OES_rgb8_rgba8 GL_EXT_color_buffer_float GL_EXT_color_buffer_half_float GL_EXT_texture_format_BGRA8888 GL_APPLE_texture_format_BGRA8888 
+2026-10-07T19:05:10.3509635Z INFO         | Graphics Device Extensions N/A
+2026-10-07T19:05:10.3510326Z INFO         | Disabling sparse binding feature support
+2026-10-07T19:05:10.3561112Z INFO         | Sending adb public key [QAAAAF/xwrxhVcLqnf/CcMLrDiapWUHzK66YSbfdh7aKeBmBTiL3bQN0OMB0lGcnm4j+bPsg30nRi2aXljOQA30oRdQ3yLDvRun10PnQcHujoAP5JLy7hkM0DmvkujgpjKP2NNL7H0VG/PtMEkJCAcdKw/uizyjUVi7gANVqKp8r9bP/WLZ0cWwugz4mzh1zeV7pMlzfy0fMfrIPMMiFRmRF96C4dOPU0B19PV5xrCj6FOszgORqOTtU8kNI+emDuVIrrRcPNR1sMKgAWyLzT5+Z9spdCCqufm3E1FM4CGuSZ2bb9rXx8lW9/8jWwLgGBLz01sQYndVVxzkpk/Xj+eQ6vLhkvcutrw05tEtyVe+S1wf0xCCFBiWS5TkYVF2Pjmk2FpSIW9TN1hIOFjXSAvHjXh0HuPb6pi0rhZSi67458Wbom6O5jGn2Hozd+Fw7pzCguk9rTcCFBUAZ5vO3DGkFwrJYtlbvQkMPEeAmtyM2lxXkd3ZuN11Qq00XJswW3Bp4ER6RdlVJoQGBcf7oukDCfzXOqbNIE2zAhjPmpn/0vaGb6ALOD5ftCKAXzHXkhmrJrY48ULJuvC/ZxR6+sEeviP73/aVKgREzP1a8sERhPX3Oj2QQTqcnZEziCvIEUHPiBfCs7xyy+ClPZm6WWsXAhPizQyQHsDf0YC59R3Mxw2UZhOD9jgEAAQA= runner@unknown]
+2026-10-07T19:05:10.3565614Z INFO         | Userspace boot properties:
+2026-10-07T19:05:10.3566092Z INFO         |   androidboot.boot_devices=pci0000:00/0000:00:03.0 pci0000:00/0000:00:06.0
+2026-10-07T19:05:10.3566650Z INFO         |   androidboot.dalvik.vm.heapsize=576m
+2026-10-07T19:05:10.3567114Z INFO         |   androidboot.debug.hwui.renderer=skiagl
+2026-10-07T19:05:10.3567534Z INFO         |   androidboot.debug.sf.nobootanimation=1
+2026-10-07T19:05:10.3567953Z INFO         |   androidboot.hardware=ranchu
+2026-10-07T19:05:10.3568338Z INFO         |   androidboot.hardware.gltransport=pipe
+2026-10-07T19:05:10.3568725Z INFO         |   androidboot.hardware.vulkan=ranchu
+2026-10-07T19:05:10.3569274Z INFO         |   androidboot.logcat=*:V
+2026-10-07T19:05:10.3569644Z INFO         |   androidboot.opengles.version=196608
+2026-10-07T19:05:10.3570020Z INFO         |   androidboot.qemu=1
+2026-10-07T19:05:10.3573533Z INFO         |   androidboot.qemu.adb.pubkey=QAAAAF/xwrxhVcLqnf/CcMLrDiapWUHzK66YSbfdh7aKeBmBTiL3bQN0OMB0lGcnm4j+bPsg30nRi2aXljOQA30oRdQ3yLDvRun10PnQcHujoAP5JLy7hkM0DmvkujgpjKP2NNL7H0VG/PtMEkJCAcdKw/uizyjUVi7gANVqKp8r9bP/WLZ0cWwugz4mzh1zeV7pMlzfy0fMfrIPMMiFRmRF96C4dOPU0B19PV5xrCj6FOszgORqOTtU8kNI+emDuVIrrRcPNR1sMKgAWyLzT5+Z9spdCCqufm3E1FM4CGuSZ2bb9rXx8lW9/8jWwLgGBLz01sQYndVVxzkpk/Xj+eQ6vLhkvcutrw05tEtyVe+S1wf0xCCFBiWS5TkYVF2Pjmk2FpSIW9TN1hIOFjXSAvHjXh0HuPb6pi0rhZSi67458Wbom6O5jGn2Hozd+Fw7pzCguk9rTcCFBUAZ5vO3DGkFwrJYtlbvQkMPEeAmtyM2lxXkd3ZuN11Qq00XJswW3Bp4ER6RdlVJoQGBcf7oukDCfzXOqbNIE2zAhjPmpn/0vaGb6ALOD5ftCKAXzHXkhmrJrY48ULJuvC/ZxR6+sEeviP73/aVKgREzP1a8sERhPX3Oj2QQTqcnZEziCvIEUHPiBfCs7xyy+ClPZm6WWsXAhPizQyQHsDf0YC59R3Mxw2UZhOD9jgEAAQA= runner@unknown
+2026-10-07T19:05:10.3576932Z INFO         |   androidboot.qemu.avd_name=test
+2026-10-07T19:05:10.3577405Z INFO         |   androidboot.qemu.camera_hq_edge_processing=0
+2026-10-07T19:05:10.3577825Z INFO         |   androidboot.qemu.camera_protocol_ver=1
+2026-10-07T19:05:10.3578290Z INFO         |   androidboot.qemu.cpuvulkan.version=4206592
+2026-10-07T19:05:10.3578750Z INFO         |   androidboot.qemu.gltransport.drawFlushInterval=800
+2026-10-07T19:05:10.3579209Z INFO         |   androidboot.qemu.gltransport.name=pipe
+2026-10-07T19:05:10.3579646Z INFO         |   androidboot.qemu.hwcodec.avcdec=2
+2026-10-07T19:05:10.3580037Z INFO         |   androidboot.qemu.hwcodec.hevcdec=2
+2026-10-07T19:05:10.3580449Z INFO         |   androidboot.qemu.hwcodec.vpxdec=2
+2026-10-07T19:05:10.3580925Z INFO         |   androidboot.qemu.settings.system.screen_off_timeout=2147483647
+2026-10-07T19:05:10.3581447Z INFO         |   androidboot.qemu.skin=320x640
+2026-10-07T19:05:10.3581873Z INFO         |   androidboot.qemu.virtiowifi=1
+2026-10-07T19:05:10.3582679Z INFO         |   androidboot.qemu.vsync=60
+2026-10-07T19:05:10.3583150Z INFO         |   androidboot.serialno=EMULATOR37X2X12X0
+2026-10-07T19:05:10.3583717Z INFO         |   androidboot.vbmeta.digest=b3271ba499104f4631ae3723913d5c12574e01715fce5b82d60beed097ead264
+2026-10-07T19:05:10.3584292Z INFO         |   androidboot.vbmeta.hash_alg=sha256
+2026-10-07T19:05:10.3584728Z INFO         |   androidboot.vbmeta.size=6720
+2026-10-07T19:05:10.3585109Z INFO         |   androidboot.veritymode=enforcing
+2026-10-07T19:05:10.3739639Z WARNING: cannnot unmap ptr 0x7f69fa601000 as it is in the protected range from 0x7f695a600000 to 0x7f69fa800000
+2026-10-07T19:05:10.3963454Z INFO         | Monitoring duration of emulator setup.
+2026-10-07T19:05:11.3859683Z INFO         | Activated packet streamer for bluetooth emulation
+2026-10-07T19:05:11.3861073Z INFO         | Successfully initialized netsim WiFi
+2026-10-07T19:05:11.3914090Z INFO         | Setting display: 0 configuration to: 320x640, dpi: 160x160 
+2026-10-07T19:05:11.3914955Z INFO         | setDisplayActiveConfig: id:0, 320x640
+2026-10-07T19:05:11.3915675Z INFO         | emulatorSetupEnvironment: Environment scene is not required
+2026-10-07T19:05:11.4002990Z INFO         | Loading snapshot 'default_boot'...
+2026-10-07T19:05:11.4016534Z WARNING      | Failed to process .ini file /home/runner/.android/emu-update-last-check.ini for reading.
+2026-10-07T19:05:11.4114711Z WARNING      | Device 'cache' does not have the requested snapshot 'default_boot'
+2026-10-07T19:05:11.4115250Z 
+2026-10-07T19:05:11.4115696Z WARNING      | Failed to load snapshot 'default_boot'
+2026-10-07T19:05:11.4133511Z USER_INFO    | The emulator is performing a cold boot without a saved state because there's no snapshot and you have configured it not to save on exit.
+2026-10-07T19:05:11.6060446Z WARNING      | Failed to process .ini file /home/runner/.android/emu-update-last-check.ini for reading.
+2026-10-07T19:05:19.0896273Z [command]/usr/local/lib/android/sdk/platform-tools/adb -s emulator-5554 shell getprop sys.boot_completed
+2026-10-07T19:05:19.0944300Z * daemon not running; starting now at tcp:5037
+2026-10-07T19:05:19.4997972Z * daemon started successfully
+2026-10-07T19:05:19.5006834Z adb: device offline
+2026-10-07T19:05:19.5013757Z The process '/usr/local/lib/android/sdk/platform-tools/adb' failed with exit code 1
+2026-10-07T19:05:21.5040150Z [command]/usr/local/lib/android/sdk/platform-tools/adb -s emulator-5554 shell getprop sys.boot_completed
+2026-10-07T19:05:21.5075054Z adb: device offline
+2026-10-07T19:05:21.5082529Z The process '/usr/local/lib/android/sdk/platform-tools/adb' failed with exit code 1
+2026-10-07T19:05:23.5116502Z [command]/usr/local/lib/android/sdk/platform-tools/adb -s emulator-5554 shell getprop sys.boot_completed
+2026-10-07T19:05:23.5165746Z adb: device offline
+2026-10-07T19:05:23.5168736Z The process '/usr/local/lib/android/sdk/platform-tools/adb' failed with exit code 1
+2026-10-07T19:05:25.5193940Z [command]/usr/local/lib/android/sdk/platform-tools/adb -s emulator-5554 shell getprop sys.boot_completed
+2026-10-07T19:05:25.5232496Z adb: device offline
+2026-10-07T19:05:25.5238782Z The process '/usr/local/lib/android/sdk/platform-tools/adb' failed with exit code 1
+2026-10-07T19:05:27.5335721Z [command]/usr/local/lib/android/sdk/platform-tools/adb -s emulator-5554 shell getprop sys.boot_completed
+2026-10-07T19:05:27.5694762Z 
+2026-10-07T19:05:29.5773895Z [command]/usr/local/lib/android/sdk/platform-tools/adb -s emulator-5554 shell getprop sys.boot_completed
+2026-10-07T19:05:29.5976729Z 
+2026-10-07T19:05:31.6067808Z [command]/usr/local/lib/android/sdk/platform-tools/adb -s emulator-5554 shell getprop sys.boot_completed
+2026-10-07T19:05:31.6237433Z 
+2026-10-07T19:05:33.6275477Z [command]/usr/local/lib/android/sdk/platform-tools/adb -s emulator-5554 shell getprop sys.boot_completed
+2026-10-07T19:05:33.6504617Z 
+2026-10-07T19:05:35.6613994Z [command]/usr/local/lib/android/sdk/platform-tools/adb -s emulator-5554 shell getprop sys.boot_completed
+2026-10-07T19:05:35.6913881Z 
+2026-10-07T19:05:37.6974041Z [command]/usr/local/lib/android/sdk/platform-tools/adb -s emulator-5554 shell getprop sys.boot_completed
+2026-10-07T19:05:37.7531567Z 
+2026-10-07T19:05:39.7614175Z [command]/usr/local/lib/android/sdk/platform-tools/adb -s emulator-5554 shell getprop sys.boot_completed
+2026-10-07T19:05:39.8112632Z 
+2026-10-07T19:05:41.8163988Z [command]/usr/local/lib/android/sdk/platform-tools/adb -s emulator-5554 shell getprop sys.boot_completed
+2026-10-07T19:05:41.8656838Z 
+2026-10-07T19:05:43.8744524Z [command]/usr/local/lib/android/sdk/platform-tools/adb -s emulator-5554 shell getprop sys.boot_completed
+2026-10-07T19:05:43.9108690Z 
+2026-10-07T19:05:45.9149591Z [command]/usr/local/lib/android/sdk/platform-tools/adb -s emulator-5554 shell getprop sys.boot_completed
+2026-10-07T19:05:45.9383659Z 
+2026-10-07T19:05:47.9454020Z [command]/usr/local/lib/android/sdk/platform-tools/adb -s emulator-5554 shell getprop sys.boot_completed
+2026-10-07T19:05:47.9681883Z 
+2026-10-07T19:05:49.9720793Z [command]/usr/local/lib/android/sdk/platform-tools/adb -s emulator-5554 shell getprop sys.boot_completed
+2026-10-07T19:05:49.9964627Z 
+2026-10-07T19:05:50.8298363Z INFO         | Boot completed in 41710 ms
+2026-10-07T19:05:50.8299401Z INFO         | Increasing screen off timeout, logcat buffer size to 2M.
+2026-10-07T19:05:52.0017423Z [command]/usr/local/lib/android/sdk/platform-tools/adb -s emulator-5554 shell getprop sys.boot_completed
+2026-10-07T19:05:52.0195371Z 1
+2026-10-07T19:05:52.0203750Z Emulator booted.
+2026-10-07T19:05:52.0230684Z [command]/usr/local/lib/android/sdk/platform-tools/adb -s emulator-5554 shell input keyevent 82
+2026-10-07T19:05:57.5941055Z Disabling animations.
+2026-10-07T19:05:57.5959819Z [command]/usr/local/lib/android/sdk/platform-tools/adb -s emulator-5554 shell settings put global window_animation_scale 0.0
+2026-10-07T19:05:57.7582746Z [command]/usr/local/lib/android/sdk/platform-tools/adb -s emulator-5554 shell settings put global transition_animation_scale 0.0
+2026-10-07T19:05:57.8066472Z [command]/usr/local/lib/android/sdk/platform-tools/adb -s emulator-5554 shell settings put global animator_duration_scale 0.0
+2026-10-07T19:05:57.8492374Z ##[endgroup]
+2026-10-07T19:05:57.8516917Z [command]/usr/bin/sh -c bash app/tools/run_native_smoke_v04257.sh
+2026-10-07T19:05:58.0884373Z Downloading https://services.gradle.org/distributions/gradle-8.12-all.zip
+2026-10-07T19:06:00.9713905Z ................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................
+2026-10-07T19:06:00.9813988Z Unzipping /home/runner/.gradle/wrapper/dists/gradle-8.12-all/ejduaidbjup3bmmkhw3rie4zb/gradle-8.12-all.zip to /home/runner/.gradle/wrapper/dists/gradle-8.12-all/ejduaidbjup3bmmkhw3rie4zb
+2026-10-07T19:06:03.8455974Z Set executable permissions for: /home/runner/.gradle/wrapper/dists/gradle-8.12-all/ejduaidbjup3bmmkhw3rie4zb/gradle-8.12/bin/gradle
+2026-10-07T19:06:04.6414817Z 
+2026-10-07T19:06:04.6434069Z Welcome to Gradle 8.12!
+2026-10-07T19:06:04.6449471Z 
+2026-10-07T19:06:04.6473135Z Here are the highlights of this release:
+2026-10-07T19:06:04.6503249Z  - Enhanced error and warning reporting with the Problems API
+2026-10-07T19:06:04.6503935Z  - File-system watching support on Alpine Linux
+2026-10-07T19:06:04.6504511Z  - Build and test Swift 6 libraries and apps
+2026-10-07T19:06:04.6504900Z 
+2026-10-07T19:06:04.6505272Z For more details see https://docs.gradle.org/8.12/release-notes.html
+2026-10-07T19:06:04.6505826Z 
+2026-10-07T19:06:04.8387305Z Starting a Gradle Daemon (subsequent builds will be faster)
+2026-10-07T19:07:30.1480771Z > Task :checkKotlinGradlePluginConfigurationErrors SKIPPED
+2026-10-07T19:07:30.4389534Z > Task :syncGalaxyAssets
+2026-10-07T19:07:30.5423735Z > Task :syncImportSources
+2026-10-07T19:07:30.5424358Z > Task :preBuild
+2026-10-07T19:07:30.5424742Z > Task :preDebugBuild
+2026-10-07T19:07:31.0405387Z > Task :generateDebugResValues
+2026-10-07T19:07:31.0433461Z > Task :checkDebugAarMetadata
+2026-10-07T19:07:31.0463123Z > Task :mapDebugSourceSetPaths
+2026-10-07T19:07:31.0493040Z > Task :generateDebugResources
+2026-10-07T19:07:31.1398882Z > Task :mergeDebugResources
+2026-10-07T19:07:31.1399647Z > Task :packageDebugResources
+2026-10-07T19:07:34.3423805Z > Task :createDebugCompatibleScreenManifests
+2026-10-07T19:07:34.3473406Z > Task :extractDeepLinksDebug
+2026-10-07T19:07:34.3503346Z > Task :parseDebugLocalResources
+2026-10-07T19:07:34.4433372Z > Task :processDebugMainManifest
+2026-10-07T19:07:34.5397028Z > Task :processDebugManifest
+2026-10-07T19:07:34.6387007Z > Task :processDebugManifestForPackage
+2026-10-07T19:07:34.6387789Z > Task :javaPreCompileDebug
+2026-10-07T19:07:35.2387240Z > Task :preDebugAndroidTestBuild SKIPPED
+2026-10-07T19:07:35.4386303Z > Task :processDebugResources
+2026-10-07T19:07:37.1403569Z > Task :checkDebugAndroidTestAarMetadata
+2026-10-07T19:07:43.0390070Z > Task :generateDebugAndroidTestResValues
+2026-10-07T19:07:43.0392667Z > Task :mapDebugAndroidTestSourceSetPaths
+2026-10-07T19:07:43.0393804Z > Task :generateDebugAndroidTestResources
+2026-10-07T19:07:43.3405290Z > Task :mergeDebugAndroidTestResources
+2026-10-07T19:07:43.4418445Z > Task :processDebugAndroidTestManifest
+2026-10-07T19:07:43.4419231Z > Task :javaPreCompileDebugAndroidTest
+2026-10-07T19:07:43.4419897Z > Task :mergeDebugShaders
+2026-10-07T19:07:43.5393135Z > Task :compileDebugShaders NO-SOURCE
+2026-10-07T19:07:43.5457278Z > Task :generateDebugAssets UP-TO-DATE
+2026-10-07T19:07:43.6393130Z > Task :processDebugAndroidTestResources
+2026-10-07T19:07:43.9403697Z > Task :mergeDebugAssets
+2026-10-07T19:07:44.4413576Z > Task :checkDebugDuplicateClasses
+2026-10-07T19:07:44.5387377Z > Task :compressDebugAssets
+2026-10-07T19:07:44.5422144Z > Task :mergeDebugJniLibFolders
+2026-10-07T19:07:44.5453271Z > Task :mergeLibDexDebug
+2026-10-07T19:07:44.6416867Z > Task :mergeDebugNativeLibs
+2026-10-07T19:07:45.9407490Z > Task :validateSigningDebug
+2026-10-07T19:07:45.9433108Z > Task :writeDebugAppMetadata
+2026-10-07T19:07:46.0417126Z > Task :writeDebugSigningConfigVersions
+2026-10-07T19:07:46.0467916Z 
+2026-10-07T19:07:46.0473017Z > Task :stripDebugDebugSymbols
+2026-10-07T19:07:46.0516520Z Unable to strip the following libraries, packaging them as they are: libLive2DCubismCoreJNI.so.
+2026-10-07T19:07:46.0562799Z 
+2026-10-07T19:07:46.0633214Z > Task :mergeDebugAndroidTestShaders
+2026-10-07T19:07:46.0683797Z > Task :compileDebugAndroidTestShaders NO-SOURCE
+2026-10-07T19:07:46.0743381Z > Task :generateDebugAndroidTestAssets UP-TO-DATE
+2026-10-07T19:07:46.1438504Z > Task :mergeDebugAndroidTestAssets
+2026-10-07T19:07:46.1478515Z > Task :compressDebugAndroidTestAssets
+2026-10-07T19:07:46.1499862Z > Task :desugarDebugAndroidTestFileDependencies
+2026-10-07T19:07:46.7412774Z > Task :checkDebugAndroidTestDuplicateClasses
+2026-10-07T19:07:46.7468286Z > Task :mergeDebugAndroidTestJniLibFolders
+2026-10-07T19:07:46.8443361Z > Task :desugarDebugFileDependencies
+2026-10-07T19:08:03.9393909Z > Task :mergeLibDexDebugAndroidTest
+2026-10-07T19:08:04.0393307Z > Task :mergeExtDexDebugAndroidTest
+2026-10-07T19:08:04.0423347Z > Task :mergeDebugAndroidTestNativeLibs NO-SOURCE
+2026-10-07T19:08:04.0445356Z > Task :stripDebugAndroidTestDebugSymbols NO-SOURCE
+2026-10-07T19:08:04.0461413Z > Task :validateSigningDebugAndroidTest
+2026-10-07T19:08:04.0465766Z > Task :writeDebugAndroidTestSigningConfigVersions
+2026-10-07T19:08:04.1386795Z > Task :mergeExtDexDebug
+2026-10-07T19:08:04.7397127Z 
+2026-10-07T19:08:04.7399581Z > Task :compileDebugKotlin
+2026-10-07T19:08:04.7403849Z w: file:///home/runner/work/ai-companion-build/ai-companion-build/app/tools/caicai_smoke/build/generated/import-sources/CaicaiDiagnostics.kt:21:41 'field versionCode: Int' is deprecated. Deprecated in Java.
+2026-10-07T19:08:04.7407498Z w: file:///home/runner/work/ai-companion-build/ai-companion-build/app/tools/caicai_smoke/build/generated/import-sources/NativeMemoryGalaxyActivity.kt:30:16 'var statusBarColor: Int' is deprecated. Deprecated in Java.
+2026-10-07T19:08:04.7410545Z w: file:///home/runner/work/ai-companion-build/ai-companion-build/app/tools/caicai_smoke/build/generated/import-sources/NativeMemoryGalaxyActivity.kt:31:16 'var navigationBarColor: Int' is deprecated. Deprecated in Java.
+2026-10-07T19:08:04.7413709Z w: file:///home/runner/work/ai-companion-build/ai-companion-build/app/tools/caicai_smoke/build/generated/import-sources/NativeMemoryGalaxyActivity.kt:49:22 'var allowFileAccessFromFileURLs: Boolean' is deprecated. Deprecated in Java.
+2026-10-07T19:08:04.7417136Z w: file:///home/runner/work/ai-companion-build/ai-companion-build/app/tools/caicai_smoke/build/generated/import-sources/NativeMemoryGalaxyActivity.kt:50:22 'var allowUniversalAccessFromFileURLs: Boolean' is deprecated. Deprecated in Java.
+2026-10-07T19:08:11.1385545Z 
+2026-10-07T19:08:11.1388123Z > Task :compileDebugJavaWithJavac
+2026-10-07T19:08:11.1390158Z /home/runner/work/ai-companion-build/ai-companion-build/app/android/app/src/main/java/com/live2d/sdk/cubism/framework/model/CubismModel.java:1442: warning: [dep-ann] deprecated item is not annotated with @Deprecated
+2026-10-07T19:08:11.1395361Z     public boolean getOverwriteFlagForModelCullings() {
+2026-10-07T19:08:11.1411408Z                    ^
+2026-10-07T19:08:11.2391169Z /home/runner/work/ai-companion-build/ai-companion-build/app/android/app/src/main/java/com/live2d/sdk/cubism/framework/model/CubismModel.java:1462: warning: [dep-ann] deprecated item is not annotated with @Deprecated
+2026-10-07T19:08:11.2393502Z     public void setOverwriteFlagForModelCullings(boolean value) {
+2026-10-07T19:08:11.2394374Z                 ^
+2026-10-07T19:08:11.2395972Z /home/runner/work/ai-companion-build/ai-companion-build/app/android/app/src/main/java/com/live2d/sdk/cubism/framework/model/CubismModel.java:1483: warning: [dep-ann] deprecated item is not annotated with @Deprecated
+2026-10-07T19:08:11.2398088Z     public boolean getOverwriteFlagForDrawableCullings(int drawableIndex) {
+2026-10-07T19:08:11.2398955Z                    ^
+2026-10-07T19:08:11.2400940Z /home/runner/work/ai-companion-build/ai-companion-build/app/android/app/src/main/java/com/live2d/sdk/cubism/framework/model/CubismModel.java:1505: warning: [dep-ann] deprecated item is not annotated with @Deprecated
+2026-10-07T19:08:11.2411164Z     public void setOverwriteFlagForDrawableCullings(int drawableIndex, boolean value) {
+2026-10-07T19:08:11.2412218Z                 ^
+2026-10-07T19:08:11.5387751Z Note: Some input files use unchecked or unsafe operations.
+2026-10-07T19:08:11.5388763Z Note: Recompile with -Xlint:unchecked for details.
+2026-10-07T19:08:11.5391482Z 4 warnings
+2026-10-07T19:08:12.9393651Z 
+2026-10-07T19:08:12.9424608Z > Task :bundleDebugClassesToCompileJar
+2026-10-07T19:08:15.5443005Z > Task :dexBuilderDebug
+2026-10-07T19:08:15.8403424Z > Task :mergeDebugGlobalSynthetics
+2026-10-07T19:08:15.8453394Z > Task :processDebugJavaRes
+2026-10-07T19:08:16.2387096Z > Task :mergeDebugJavaResource
+2026-10-07T19:08:16.2413317Z > Task :mergeProjectDexDebug
+2026-10-07T19:08:16.6390054Z > Task :packageDebug
+2026-10-07T19:08:16.6463567Z > Task :createDebugApkListingFileRedirect
+2026-10-07T19:08:19.2433381Z > Task :compileDebugAndroidTestKotlin
+2026-10-07T19:08:19.7397364Z > Task :compileDebugAndroidTestJavaWithJavac
+2026-10-07T19:08:20.0387851Z > Task :dexBuilderDebugAndroidTest
+2026-10-07T19:08:20.1443316Z > Task :mergeDebugAndroidTestGlobalSynthetics
+2026-10-07T19:08:20.1503320Z > Task :processDebugAndroidTestJavaRes
+2026-10-07T19:08:20.2387602Z > Task :mergeProjectDexDebugAndroidTest
+2026-10-07T19:08:20.2413391Z > Task :mergeDebugAndroidTestJavaResource
+2026-10-07T19:08:20.3386331Z > Task :packageDebugAndroidTest
+2026-10-07T19:08:20.3388380Z > Task :createDebugAndroidTestApkListingFileRedirect
+2026-10-07T19:08:27.9385938Z [EmulatorConsole]: Failed to start Emulator console for 5554
+2026-10-07T19:08:37.0387671Z 
+2026-10-07T19:08:37.0388383Z > Task :connectedDebugAndroidTest
+2026-10-07T19:08:37.0389168Z Starting 26 tests on emulator-5554 - 15
+2026-10-07T19:08:47.0398224Z 
+2026-10-07T19:08:47.0399637Z emulator-5554 - 15 Tests 10/26 completed. (0 skipped) (0 failed)
+2026-10-07T19:08:57.0386179Z emulator-5554 - 15 Tests 11/26 completed. (0 skipped) (0 failed)
+2026-10-07T19:09:07.0387140Z emulator-5554 - 15 Tests 12/26 completed. (0 skipped) (0 failed)
+2026-10-07T19:10:07.0392621Z emulator-5554 - 15 Tests 14/26 completed. (0 skipped) (0 failed)
+2026-10-07T19:10:12.4421626Z 
+2026-10-07T19:10:12.4426455Z > Task :connectedDebugAndroidTest
+2026-10-07T19:10:12.4427373Z 
+2026-10-07T19:10:12.4428935Z com.catkiss.senlive2dcompanion.smoke.ReminderCardSmokeTest > independentOccurrencesAndPersistentConfirmation[emulator-5554 - 15] [31mFAILED [0m
+2026-10-07T19:10:12.4430619Z 	org.junit.ComparisonFailure: expected:<[confirmed]> but was:<[ringing]>
+2026-10-07T19:10:12.4431509Z 	at org.junit.Assert.assertEquals(Assert.java:117)
+2026-10-07T19:10:13.5388281Z 
+2026-10-07T19:10:13.5437871Z com.catkiss.senlive2dcompanion.smoke.ReminderCardSmokeTest > productionCardKeepsItsTimeAcrossRecreationAndConfirmsOnlyItsOccurrence[emulator-5554 - 15] [31mFAILED [0m
+2026-10-07T19:10:13.5483976Z 	org.junit.ComparisonFailure: expected:<[confirmed]> but was:<[ringing]>
+2026-10-07T19:10:13.5484952Z 	at org.junit.Assert.assertEquals(Assert.java:117)
+2026-10-07T19:10:15.3423143Z Tests on emulator-5554 - 15 failed: There was 2 failure(s).
+2026-10-07T19:10:15.3447022Z 
+2026-10-07T19:10:15.3473292Z Finished 26 tests on emulator-5554 - 15
+2026-10-07T19:10:16.7410374Z 
+2026-10-07T19:10:16.7448112Z > Task :connectedDebugAndroidTest FAILED
+2026-10-07T19:10:16.7457012Z 
+2026-10-07T19:10:16.7458813Z [Incubating] Problems report is available at: file:///home/runner/work/ai-companion-build/ai-companion-build/app/tools/caicai_smoke/build/reports/problems/problems-report.html
+2026-10-07T19:10:16.7460568Z 
+2026-10-07T19:10:16.7461019Z FAILURE: Build failed with an exception.
+2026-10-07T19:10:16.7463590Z 
+2026-10-07T19:10:16.7464213Z * What went wrong:
+2026-10-07T19:10:16.7465935Z Execution failed for task ':connectedDebugAndroidTest'.
+2026-10-07T19:10:16.7468373Z > There were failing tests. See the report at: file:///home/runner/work/ai-companion-build/ai-companion-build/app/tools/caicai_smoke/build/reports/androidTests/connected/debug/index.html
+2026-10-07T19:10:16.7470563Z 
+2026-10-07T19:10:16.7471418Z * Try:
+2026-10-07T19:10:16.7473132Z > Run with --info or --debug option to get more log output.
+2026-10-07T19:10:16.7474658Z > Run with --scan to get full insights.
+2026-10-07T19:10:16.7476216Z > Get more help at https://help.gradle.org.
+2026-10-07T19:10:16.7477675Z 
+2026-10-07T19:10:16.7477933Z * Exception is:
+2026-10-07T19:10:16.7478818Z org.gradle.api.tasks.TaskExecutionException: Execution failed for task ':connectedDebugAndroidTest'.
+2026-10-07T19:10:16.7480566Z 	at org.gradle.api.internal.tasks.execution.ExecuteActionsTaskExecuter.lambda$executeIfValid$1(ExecuteActionsTaskExecuter.java:130)
+2026-10-07T19:10:16.7481964Z 	at org.gradle.internal.Try$Failure.ifSuccessfulOrElse(Try.java:293)
+2026-10-07T19:10:16.7483532Z 	at org.gradle.api.internal.tasks.execution.ExecuteActionsTaskExecuter.executeIfValid(ExecuteActionsTaskExecuter.java:128)
+2026-10-07T19:10:16.7485679Z 	at org.gradle.api.internal.tasks.execution.ExecuteActionsTaskExecuter.execute(ExecuteActionsTaskExecuter.java:116)
+2026-10-07T19:10:16.7487613Z 	at org.gradle.api.internal.tasks.execution.ProblemsTaskPathTrackingTaskExecuter.execute(ProblemsTaskPathTrackingTaskExecuter.java:40)
+2026-10-07T19:10:16.7489580Z 	at org.gradle.api.internal.tasks.execution.FinalizePropertiesTaskExecuter.execute(FinalizePropertiesTaskExecuter.java:46)
+2026-10-07T19:10:16.7491598Z 	at org.gradle.api.internal.tasks.execution.ResolveTaskExecutionModeExecuter.execute(ResolveTaskExecutionModeExecuter.java:51)
+2026-10-07T19:10:16.7493666Z 	at org.gradle.api.internal.tasks.execution.SkipTaskWithNoActionsExecuter.execute(SkipTaskWithNoActionsExecuter.java:57)
+2026-10-07T19:10:16.7495510Z 	at org.gradle.api.internal.tasks.execution.SkipOnlyIfTaskExecuter.execute(SkipOnlyIfTaskExecuter.java:74)
+2026-10-07T19:10:16.7497153Z 	at org.gradle.api.internal.tasks.execution.CatchExceptionTaskExecuter.execute(CatchExceptionTaskExecuter.java:36)
+2026-10-07T19:10:16.7498846Z 	at org.gradle.api.internal.tasks.execution.EventFiringTaskExecuter$1.executeTask(EventFiringTaskExecuter.java:77)
+2026-10-07T19:10:16.7500525Z 	at org.gradle.api.internal.tasks.execution.EventFiringTaskExecuter$1.call(EventFiringTaskExecuter.java:55)
+2026-10-07T19:10:16.7502077Z 	at org.gradle.api.internal.tasks.execution.EventFiringTaskExecuter$1.call(EventFiringTaskExecuter.java:52)
+2026-10-07T19:10:16.7504078Z 	at org.gradle.internal.operations.DefaultBuildOperationRunner$CallableBuildOperationWorker.execute(DefaultBuildOperationRunner.java:209)
+2026-10-07T19:10:16.7506070Z 	at org.gradle.internal.operations.DefaultBuildOperationRunner$CallableBuildOperationWorker.execute(DefaultBuildOperationRunner.java:204)
+2026-10-07T19:10:16.7507924Z 	at org.gradle.internal.operations.DefaultBuildOperationRunner$2.execute(DefaultBuildOperationRunner.java:66)
+2026-10-07T19:10:16.7509558Z 	at org.gradle.internal.operations.DefaultBuildOperationRunner$2.execute(DefaultBuildOperationRunner.java:59)
+2026-10-07T19:10:16.7511225Z 	at org.gradle.internal.operations.DefaultBuildOperationRunner.execute(DefaultBuildOperationRunner.java:166)
+2026-10-07T19:10:16.7513287Z 	at org.gradle.internal.operations.DefaultBuildOperationRunner.execute(DefaultBuildOperationRunner.java:59)
+2026-10-07T19:10:16.7514676Z 	at org.gradle.internal.operations.DefaultBuildOperationRunner.call(DefaultBuildOperationRunner.java:53)
+2026-10-07T19:10:16.7516267Z 	at org.gradle.api.internal.tasks.execution.EventFiringTaskExecuter.execute(EventFiringTaskExecuter.java:52)
+2026-10-07T19:10:16.7517571Z 	at org.gradle.execution.plan.LocalTaskNodeExecutor.execute(LocalTaskNodeExecutor.java:42)
+2026-10-07T19:10:16.7518977Z 	at org.gradle.execution.taskgraph.DefaultTaskExecutionGraph$InvokeNodeExecutorsAction.execute(DefaultTaskExecutionGraph.java:331)
+2026-10-07T19:10:16.7520856Z 	at org.gradle.execution.taskgraph.DefaultTaskExecutionGraph$InvokeNodeExecutorsAction.execute(DefaultTaskExecutionGraph.java:318)
+2026-10-07T19:10:16.7522838Z 	at org.gradle.execution.taskgraph.DefaultTaskExecutionGraph$BuildOperationAwareExecutionAction.lambda$execute$0(DefaultTaskExecutionGraph.java:314)
+2026-10-07T19:10:16.7524523Z 	at org.gradle.internal.operations.CurrentBuildOperationRef.with(CurrentBuildOperationRef.java:85)
+2026-10-07T19:10:16.7526187Z 	at org.gradle.execution.taskgraph.DefaultTaskExecutionGraph$BuildOperationAwareExecutionAction.execute(DefaultTaskExecutionGraph.java:314)
+2026-10-07T19:10:16.7528321Z 	at org.gradle.execution.taskgraph.DefaultTaskExecutionGraph$BuildOperationAwareExecutionAction.execute(DefaultTaskExecutionGraph.java:303)
+2026-10-07T19:10:16.7529853Z 	at org.gradle.execution.plan.DefaultPlanExecutor$ExecutorWorker.execute(DefaultPlanExecutor.java:459)
+2026-10-07T19:10:16.7531213Z 	at org.gradle.execution.plan.DefaultPlanExecutor$ExecutorWorker.run(DefaultPlanExecutor.java:376)
+2026-10-07T19:10:16.7532738Z 	at org.gradle.internal.concurrent.ExecutorPolicy$CatchAndRecordFailures.onExecute(ExecutorPolicy.java:64)
+2026-10-07T19:10:16.7534246Z 	at org.gradle.internal.concurrent.AbstractManagedExecutor$1.run(AbstractManagedExecutor.java:48)
+2026-10-07T19:10:16.7536061Z Caused by: org.gradle.api.GradleException: There were failing tests. See the report at: file:///home/runner/work/ai-companion-build/ai-companion-build/app/tools/caicai_smoke/build/reports/androidTests/connected/debug/index.html
+2026-10-07T19:10:16.7538132Z 	at com.android.build.gradle.internal.tasks.DeviceProviderInstrumentTestTask.run(DeviceProviderInstrumentTestTask.java:445)
+2026-10-07T19:10:16.7540078Z 	at com.android.build.gradle.internal.tasks.DeviceProviderInstrumentTestTask.doTaskAction(DeviceProviderInstrumentTestTask.java:305)
+2026-10-07T19:10:16.7541799Z 	at com.android.build.gradle.internal.tasks.NonIncrementalTask$taskAction$$inlined$recordTaskAction$1.invoke(BaseTask.kt:60)
+2026-10-07T19:10:16.7543348Z 	at com.android.build.gradle.internal.tasks.Blocks.recordSpan(Blocks.java:51)
+2026-10-07T19:10:16.7545519Z 	at com.android.build.gradle.internal.tasks.NonIncrementalTask.taskAction(NonIncrementalTask.kt:78)
+2026-10-07T19:10:16.7546912Z 	at jdk.internal.reflect.GeneratedMethodAccessor50.invoke(Unknown Source)
+2026-10-07T19:10:16.7548278Z 	at java.base/jdk.internal.reflect.DelegatingMethodAccessorImpl.invoke(DelegatingMethodAccessorImpl.java:43)
+2026-10-07T19:10:16.7549592Z 	at org.gradle.internal.reflect.JavaMethod.invoke(JavaMethod.java:125)
+2026-10-07T19:10:16.7550854Z 	at org.gradle.api.internal.project.taskfactory.StandardTaskAction.doExecute(StandardTaskAction.java:58)
+2026-10-07T19:10:16.7552501Z 	at org.gradle.api.internal.project.taskfactory.StandardTaskAction.execute(StandardTaskAction.java:51)
+2026-10-07T19:10:16.7554092Z 	at org.gradle.api.internal.project.taskfactory.StandardTaskAction.execute(StandardTaskAction.java:29)
+2026-10-07T19:10:16.7555449Z 	at org.gradle.api.internal.tasks.execution.TaskExecution$3.run(TaskExecution.java:244)
+2026-10-07T19:10:16.7556871Z 	at org.gradle.internal.operations.DefaultBuildOperationRunner$1.execute(DefaultBuildOperationRunner.java:29)
+2026-10-07T19:10:16.7558480Z 	at org.gradle.internal.operations.DefaultBuildOperationRunner$1.execute(DefaultBuildOperationRunner.java:26)
+2026-10-07T19:10:16.7560094Z 	at org.gradle.internal.operations.DefaultBuildOperationRunner$2.execute(DefaultBuildOperationRunner.java:66)
+2026-10-07T19:10:16.7561888Z 	at org.gradle.internal.operations.DefaultBuildOperationRunner$2.execute(DefaultBuildOperationRunner.java:59)
+2026-10-07T19:10:16.7563757Z 	at org.gradle.internal.operations.DefaultBuildOperationRunner.execute(DefaultBuildOperationRunner.java:166)
+2026-10-07T19:10:16.7565415Z 	at org.gradle.internal.operations.DefaultBuildOperationRunner.execute(DefaultBuildOperationRunner.java:59)
+2026-10-07T19:10:16.7567025Z 	at org.gradle.internal.operations.DefaultBuildOperationRunner.run(DefaultBuildOperationRunner.java:47)
+2026-10-07T19:10:16.7568747Z 	at org.gradle.api.internal.tasks.execution.TaskExecution.executeAction(TaskExecution.java:229)
+2026-10-07T19:10:16.7570179Z 	at org.gradle.api.internal.tasks.execution.TaskExecution.executeActions(TaskExecution.java:212)
+2026-10-07T19:10:16.7571705Z 	at org.gradle.api.internal.tasks.execution.TaskExecution.executeWithPreviousOutputFiles(TaskExecution.java:195)
+2026-10-07T19:10:16.7573315Z 	at org.gradle.api.internal.tasks.execution.TaskExecution.execute(TaskExecution.java:162)
+2026-10-07T19:10:16.7574364Z 	at org.gradle.internal.execution.steps.ExecuteStep.executeInternal(ExecuteStep.java:105)
+2026-10-07T19:10:16.7575408Z 	at org.gradle.internal.execution.steps.ExecuteStep.access$000(ExecuteStep.java:44)
+2026-10-07T19:10:16.7576327Z 	at org.gradle.internal.execution.steps.ExecuteStep$1.call(ExecuteStep.java:59)
+2026-10-07T19:10:16.7577215Z 	at org.gradle.internal.execution.steps.ExecuteStep$1.call(ExecuteStep.java:56)
+2026-10-07T19:10:16.7578441Z 	at org.gradle.internal.operations.DefaultBuildOperationRunner$CallableBuildOperationWorker.execute(DefaultBuildOperationRunner.java:209)
+2026-10-07T19:10:16.7580233Z 	at org.gradle.internal.operations.DefaultBuildOperationRunner$CallableBuildOperationWorker.execute(DefaultBuildOperationRunner.java:204)
+2026-10-07T19:10:16.7581645Z 	at org.gradle.internal.operations.DefaultBuildOperationRunner$2.execute(DefaultBuildOperationRunner.java:66)
+2026-10-07T19:10:16.7583013Z 	at org.gradle.internal.operations.DefaultBuildOperationRunner$2.execute(DefaultBuildOperationRunner.java:59)
+2026-10-07T19:10:16.7584274Z 	at org.gradle.internal.operations.DefaultBuildOperationRunner.execute(DefaultBuildOperationRunner.java:166)
+2026-10-07T19:10:16.7585476Z 	at org.gradle.internal.operations.DefaultBuildOperationRunner.execute(DefaultBuildOperationRunner.java:59)
+2026-10-07T19:10:16.7586658Z 	at org.gradle.internal.operations.DefaultBuildOperationRunner.call(DefaultBuildOperationRunner.java:53)
+2026-10-07T19:10:16.7587682Z 	at org.gradle.internal.execution.steps.ExecuteStep.execute(ExecuteStep.java:56)
+2026-10-07T19:10:16.7588614Z 	at org.gradle.internal.execution.steps.ExecuteStep.execute(ExecuteStep.java:44)
+2026-10-07T19:10:16.7589597Z 	at org.gradle.internal.execution.steps.CancelExecutionStep.execute(CancelExecutionStep.java:42)
+2026-10-07T19:10:16.7590658Z 	at org.gradle.internal.execution.steps.TimeoutStep.executeWithoutTimeout(TimeoutStep.java:75)
+2026-10-07T19:10:16.7591613Z 	at org.gradle.internal.execution.steps.TimeoutStep.execute(TimeoutStep.java:55)
+2026-10-07T19:10:16.7592776Z 	at org.gradle.internal.execution.steps.PreCreateOutputParentsStep.execute(PreCreateOutputParentsStep.java:50)
+2026-10-07T19:10:16.7594030Z 	at org.gradle.internal.execution.steps.PreCreateOutputParentsStep.execute(PreCreateOutputParentsStep.java:28)
+2026-10-07T19:10:16.7595242Z 	at org.gradle.internal.execution.steps.RemovePreviousOutputsStep.execute(RemovePreviousOutputsStep.java:67)
+2026-10-07T19:10:16.7596441Z 	at org.gradle.internal.execution.steps.RemovePreviousOutputsStep.execute(RemovePreviousOutputsStep.java:37)
+2026-10-07T19:10:16.7597681Z 	at org.gradle.internal.execution.steps.BroadcastChangingOutputsStep.execute(BroadcastChangingOutputsStep.java:61)
+2026-10-07T19:10:16.7598970Z 	at org.gradle.internal.execution.steps.BroadcastChangingOutputsStep.execute(BroadcastChangingOutputsStep.java:26)
+2026-10-07T19:10:16.7600331Z 	at org.gradle.internal.execution.steps.CaptureOutputsAfterExecutionStep.execute(CaptureOutputsAfterExecutionStep.java:69)
+2026-10-07T19:10:16.7601727Z 	at org.gradle.internal.execution.steps.CaptureOutputsAfterExecutionStep.execute(CaptureOutputsAfterExecutionStep.java:46)
+2026-10-07T19:10:16.7603417Z 	at org.gradle.internal.execution.steps.ResolveInputChangesStep.execute(ResolveInputChangesStep.java:40)
+2026-10-07T19:10:16.7604970Z 	at org.gradle.internal.execution.steps.ResolveInputChangesStep.execute(ResolveInputChangesStep.java:29)
+2026-10-07T19:10:16.7606504Z 	at org.gradle.internal.execution.steps.BuildCacheStep.executeWithoutCache(BuildCacheStep.java:189)
+2026-10-07T19:10:16.7608207Z 	at org.gradle.internal.execution.steps.BuildCacheStep.lambda$execute$1(BuildCacheStep.java:75)
+2026-10-07T19:10:16.7609338Z 	at org.gradle.internal.Either$Right.fold(Either.java:175)
+2026-10-07T19:10:16.7610338Z 	at org.gradle.internal.execution.caching.CachingState.fold(CachingState.java:62)
+2026-10-07T19:10:16.7611527Z 	at org.gradle.internal.execution.steps.BuildCacheStep.execute(BuildCacheStep.java:73)
+2026-10-07T19:10:16.7612881Z 	at org.gradle.internal.execution.steps.BuildCacheStep.execute(BuildCacheStep.java:48)
+2026-10-07T19:10:16.7614283Z 	at org.gradle.internal.execution.steps.StoreExecutionStateStep.execute(StoreExecutionStateStep.java:46)
+2026-10-07T19:10:16.7615889Z 	at org.gradle.internal.execution.steps.StoreExecutionStateStep.execute(StoreExecutionStateStep.java:35)
+2026-10-07T19:10:16.7617309Z 	at org.gradle.internal.execution.steps.SkipUpToDateStep.executeBecause(SkipUpToDateStep.java:75)
+2026-10-07T19:10:16.7618737Z 	at org.gradle.internal.execution.steps.SkipUpToDateStep.lambda$execute$2(SkipUpToDateStep.java:53)
+2026-10-07T19:10:16.7620165Z 	at org.gradle.internal.execution.steps.SkipUpToDateStep.execute(SkipUpToDateStep.java:53)
+2026-10-07T19:10:16.7621727Z 	at org.gradle.internal.execution.steps.SkipUpToDateStep.execute(SkipUpToDateStep.java:35)
+2026-10-07T19:10:16.7623587Z 	at org.gradle.internal.execution.steps.legacy.MarkSnapshottingInputsFinishedStep.execute(MarkSnapshottingInputsFinishedStep.java:37)
+2026-10-07T19:10:16.7625734Z 	at org.gradle.internal.execution.steps.legacy.MarkSnapshottingInputsFinishedStep.execute(MarkSnapshottingInputsFinishedStep.java:27)
+2026-10-07T19:10:16.7627829Z 	at org.gradle.internal.execution.steps.ResolveIncrementalCachingStateStep.executeDelegate(ResolveIncrementalCachingStateStep.java:49)
+2026-10-07T19:10:16.7630028Z 	at org.gradle.internal.execution.steps.ResolveIncrementalCachingStateStep.executeDelegate(ResolveIncrementalCachingStateStep.java:27)
+2026-10-07T19:10:16.7632039Z 	at org.gradle.internal.execution.steps.AbstractResolveCachingStateStep.execute(AbstractResolveCachingStateStep.java:71)
+2026-10-07T19:10:16.7633621Z 	at org.gradle.internal.execution.steps.AbstractResolveCachingStateStep.execute(AbstractResolveCachingStateStep.java:39)
+2026-10-07T19:10:16.7634841Z 	at org.gradle.internal.execution.steps.ResolveChangesStep.execute(ResolveChangesStep.java:65)
+2026-10-07T19:10:16.7636016Z 	at org.gradle.internal.execution.steps.ResolveChangesStep.execute(ResolveChangesStep.java:36)
+2026-10-07T19:10:16.7637312Z 	at org.gradle.internal.execution.steps.ValidateStep.execute(ValidateStep.java:107)
+2026-10-07T19:10:16.7638570Z 	at org.gradle.internal.execution.steps.ValidateStep.execute(ValidateStep.java:56)
+2026-10-07T19:10:16.7640265Z 	at org.gradle.internal.execution.steps.AbstractCaptureStateBeforeExecutionStep.execute(AbstractCaptureStateBeforeExecutionStep.java:64)
+2026-10-07T19:10:16.7642582Z 	at org.gradle.internal.execution.steps.AbstractCaptureStateBeforeExecutionStep.execute(AbstractCaptureStateBeforeExecutionStep.java:43)
+2026-10-07T19:10:16.7644732Z 	at org.gradle.internal.execution.steps.AbstractSkipEmptyWorkStep.executeWithNonEmptySources(AbstractSkipEmptyWorkStep.java:125)
+2026-10-07T19:10:16.7646611Z 	at org.gradle.internal.execution.steps.AbstractSkipEmptyWorkStep.execute(AbstractSkipEmptyWorkStep.java:56)
+2026-10-07T19:10:16.7647956Z 	at org.gradle.internal.execution.steps.AbstractSkipEmptyWorkStep.execute(AbstractSkipEmptyWorkStep.java:36)
+2026-10-07T19:10:16.7649552Z 	at org.gradle.internal.execution.steps.legacy.MarkSnapshottingInputsStartedStep.execute(MarkSnapshottingInputsStartedStep.java:38)
+2026-10-07T19:10:16.7651302Z 	at org.gradle.internal.execution.steps.LoadPreviousExecutionStateStep.execute(LoadPreviousExecutionStateStep.java:36)
+2026-10-07T19:10:16.7653107Z 	at org.gradle.internal.execution.steps.LoadPreviousExecutionStateStep.execute(LoadPreviousExecutionStateStep.java:23)
+2026-10-07T19:10:16.7654715Z 	at org.gradle.internal.execution.steps.HandleStaleOutputsStep.execute(HandleStaleOutputsStep.java:75)
+2026-10-07T19:10:16.7656573Z 	at org.gradle.internal.execution.steps.HandleStaleOutputsStep.execute(HandleStaleOutputsStep.java:41)
+2026-10-07T19:10:16.7658191Z 	at org.gradle.internal.execution.steps.AssignMutableWorkspaceStep.lambda$execute$0(AssignMutableWorkspaceStep.java:35)
+2026-10-07T19:10:16.7659712Z 	at org.gradle.api.internal.tasks.execution.TaskExecution$4.withWorkspace(TaskExecution.java:289)
+2026-10-07T19:10:16.7661208Z 	at org.gradle.internal.execution.steps.AssignMutableWorkspaceStep.execute(AssignMutableWorkspaceStep.java:31)
+2026-10-07T19:10:16.7663066Z 	at org.gradle.internal.execution.steps.AssignMutableWorkspaceStep.execute(AssignMutableWorkspaceStep.java:22)
+2026-10-07T19:10:16.7664536Z 	at org.gradle.internal.execution.steps.ChoosePipelineStep.execute(ChoosePipelineStep.java:40)
+2026-10-07T19:10:16.7665841Z 	at org.gradle.internal.execution.steps.ChoosePipelineStep.execute(ChoosePipelineStep.java:23)
+2026-10-07T19:10:16.7667532Z 	at org.gradle.internal.execution.steps.ExecuteWorkBuildOperationFiringStep.lambda$execute$2(ExecuteWorkBuildOperationFiringStep.java:67)
+2026-10-07T19:10:16.7676022Z 	at org.gradle.internal.execution.steps.ExecuteWorkBuildOperationFiringStep.execute(ExecuteWorkBuildOperationFiringStep.java:67)
+2026-10-07T19:10:16.7677710Z 	at org.gradle.internal.execution.steps.ExecuteWorkBuildOperationFiringStep.execute(ExecuteWorkBuildOperationFiringStep.java:39)
+2026-10-07T19:10:16.7679260Z 	at org.gradle.internal.execution.steps.IdentityCacheStep.execute(IdentityCacheStep.java:46)
+2026-10-07T19:10:16.7680365Z 	at org.gradle.internal.execution.steps.IdentityCacheStep.execute(IdentityCacheStep.java:34)
+2026-10-07T19:10:16.7681453Z 	at org.gradle.internal.execution.steps.IdentifyStep.execute(IdentifyStep.java:48)
+2026-10-07T19:10:16.7692973Z 	at org.gradle.internal.execution.steps.IdentifyStep.execute(IdentifyStep.java:35)
+2026-10-07T19:10:16.7694322Z 	at org.gradle.internal.execution.impl.DefaultExecutionEngine$1.execute(DefaultExecutionEngine.java:61)
+2026-10-07T19:10:16.7695799Z 	at org.gradle.api.internal.tasks.execution.ExecuteActionsTaskExecuter.executeIfValid(ExecuteActionsTaskExecuter.java:127)
+2026-10-07T19:10:16.7697362Z 	at org.gradle.api.internal.tasks.execution.ExecuteActionsTaskExecuter.execute(ExecuteActionsTaskExecuter.java:116)
+2026-10-07T19:10:16.7699044Z 	at org.gradle.api.internal.tasks.execution.ProblemsTaskPathTrackingTaskExecuter.execute(ProblemsTaskPathTrackingTaskExecuter.java:40)
+2026-10-07T19:10:16.7700764Z 	at org.gradle.api.internal.tasks.execution.FinalizePropertiesTaskExecuter.execute(FinalizePropertiesTaskExecuter.java:46)
+2026-10-07T19:10:16.7702590Z 	at org.gradle.api.internal.tasks.execution.ResolveTaskExecutionModeExecuter.execute(ResolveTaskExecutionModeExecuter.java:51)
+2026-10-07T19:10:16.7704182Z 	at org.gradle.api.internal.tasks.execution.SkipTaskWithNoActionsExecuter.execute(SkipTaskWithNoActionsExecuter.java:57)
+2026-10-07T19:10:16.7705658Z 	at org.gradle.api.internal.tasks.execution.SkipOnlyIfTaskExecuter.execute(SkipOnlyIfTaskExecuter.java:74)
+2026-10-07T19:10:16.7707100Z 	at org.gradle.api.internal.tasks.execution.CatchExceptionTaskExecuter.execute(CatchExceptionTaskExecuter.java:36)
+2026-10-07T19:10:16.7708568Z 	at org.gradle.api.internal.tasks.execution.EventFiringTaskExecuter$1.executeTask(EventFiringTaskExecuter.java:77)
+2026-10-07T19:10:16.7709936Z 	at org.gradle.api.internal.tasks.execution.EventFiringTaskExecuter$1.call(EventFiringTaskExecuter.java:55)
+2026-10-07T19:10:16.7711300Z 	at org.gradle.api.internal.tasks.execution.EventFiringTaskExecuter$1.call(EventFiringTaskExecuter.java:52)
+2026-10-07T19:10:16.7741215Z 	at org.gradle.internal.operations.DefaultBuildOperationRunner$CallableBuildOperationWorker.execute(DefaultBuildOperationRunner.java:209)
+2026-10-07T19:10:16.7773444Z 	at org.gradle.internal.operations.DefaultBuildOperationRunner$CallableBuildOperationWorker.execute(DefaultBuildOperationRunner.java:204)
+2026-10-07T19:10:16.7775067Z 	at org.gradle.internal.operations.DefaultBuildOperationRunner$2.execute(DefaultBuildOperationRunner.java:66)
+2026-10-07T19:10:16.7776648Z 	at org.gradle.internal.operations.DefaultBuildOperationRunner$2.execute(DefaultBuildOperationRunner.java:59)
+2026-10-07T19:10:16.7778088Z 	at org.gradle.internal.operations.DefaultBuildOperationRunner.execute(DefaultBuildOperationRunner.java:166)
+2026-10-07T19:10:16.7779427Z 	at org.gradle.internal.operations.DefaultBuildOperationRunner.execute(DefaultBuildOperationRunner.java:59)
+2026-10-07T19:10:16.7780719Z 	at org.gradle.internal.operations.DefaultBuildOperationRunner.call(DefaultBuildOperationRunner.java:53)
+2026-10-07T19:10:16.7782085Z 	at org.gradle.api.internal.tasks.execution.EventFiringTaskExecuter.execute(EventFiringTaskExecuter.java:52)
+2026-10-07T19:10:16.7783456Z 	at org.gradle.execution.plan.LocalTaskNodeExecutor.execute(LocalTaskNodeExecutor.java:42)
+2026-10-07T19:10:16.7784840Z 	at org.gradle.execution.taskgraph.DefaultTaskExecutionGraph$InvokeNodeExecutorsAction.execute(DefaultTaskExecutionGraph.java:331)
+2026-10-07T19:10:16.7786614Z 	at org.gradle.execution.taskgraph.DefaultTaskExecutionGraph$InvokeNodeExecutorsAction.execute(DefaultTaskExecutionGraph.java:318)
+2026-10-07T19:10:16.7788728Z 	at org.gradle.execution.taskgraph.DefaultTaskExecutionGraph$BuildOperationAwareExecutionAction.lambda$execute$0(DefaultTaskExecutionGraph.java:314)
+2026-10-07T19:10:16.7790302Z 	at org.gradle.internal.operations.CurrentBuildOperationRef.with(CurrentBuildOperationRef.java:85)
+2026-10-07T19:10:16.7791928Z 	at org.gradle.execution.taskgraph.DefaultTaskExecutionGraph$BuildOperationAwareExecutionAction.execute(DefaultTaskExecutionGraph.java:314)
+2026-10-07T19:10:16.7793884Z 	at org.gradle.execution.taskgraph.DefaultTaskExecutionGraph$BuildOperationAwareExecutionAction.execute(DefaultTaskExecutionGraph.java:303)
+2026-10-07T19:10:16.7795486Z 	at org.gradle.execution.plan.DefaultPlanExecutor$ExecutorWorker.execute(DefaultPlanExecutor.java:459)
+2026-10-07T19:10:16.7796602Z 	at org.gradle.execution.plan.DefaultPlanExecutor$ExecutorWorker.run(DefaultPlanExecutor.java:376)
+2026-10-07T19:10:16.7797762Z 	at org.gradle.internal.concurrent.ExecutorPolicy$CatchAndRecordFailures.onExecute(ExecutorPolicy.java:64)
+2026-10-07T19:10:16.7799096Z 	at org.gradle.internal.concurrent.AbstractManagedExecutor$1.run(AbstractManagedExecutor.java:48)
+2026-10-07T19:10:16.7799828Z 
+2026-10-07T19:10:16.7799838Z 
+2026-10-07T19:10:16.7799991Z BUILD FAILED in 4m 18s
+2026-10-07T19:10:16.7800390Z 67 actionable tasks: 67 executed
+2026-10-07T19:10:17.1918630Z /data/local/tmp/memory-galaxy-640-render.png: 1 file pulled, 0 skipped. 52.7 MB/s (66060 bytes in 0.001s)
+2026-10-07T19:10:17.1947822Z ##[error]The process '/usr/bin/sh' failed with exit code 1
+2026-10-07T19:10:17.1949170Z ##[group]Terminate Emulator
+2026-10-07T19:10:17.1967517Z [command]/usr/local/lib/android/sdk/platform-tools/adb -s emulator-5554 emu kill
+2026-10-07T19:10:17.1992850Z OK: killing emulator, bye bye
+2026-10-07T19:10:17.1993616Z OK
+2026-10-07T19:10:17.1997844Z ##[endgroup]
+2026-10-07T19:10:17.1998764Z INFO         | Wait for emulator (pid 2635) 20 seconds to shutdown gracefully before kill;you can set environment variable ANDROID_EMULATOR_WAIT_TIME_BEFORE_KILL(in seconds) to change the default value (20 seconds)
+2026-10-07T19:10:17.1999591Z 
+2026-10-07T19:10:20.3163667Z INFO         | Saving with gfxstream=1
+2026-10-07T19:10:20.3633943Z INFO         | Saving snapshot 'default_boot' took 3156 ms
+2026-10-07T19:10:20.5019049Z ERROR        | stop: Not implemented
+2026-10-07T19:10:20.5019616Z WARNING      | Emulator client has not yet been configured.. Call configure me first!
+2026-10-07T19:10:20.5420542Z INFO         | removeAll
+2026-10-07T19:10:20.5897950Z WARNING      | Netsim Wifi dns:///localhost:35859 is gone due to Stream removed (CANCELLED)
+2026-10-07T19:10:21.4547211Z ##[group]Run actions/upload-artifact@v4
+2026-10-07T19:10:21.4547491Z with:
+2026-10-07T19:10:21.4547704Z   name: Caicai-v04243-native-smoke-results
+2026-10-07T19:10:21.4548057Z   path: app/tools/caicai_smoke/build/outputs/androidTest-results/
+2026-10-07T19:10:21.4548392Z   retention-days: 14
+2026-10-07T19:10:21.4548609Z   if-no-files-found: warn
+2026-10-07T19:10:21.4548849Z   compression-level: 6
+2026-10-07T19:10:21.4549057Z   overwrite: false
+2026-10-07T19:10:21.4549263Z   include-hidden-files: false
+2026-10-07T19:10:21.4549507Z env:
+2026-10-07T19:10:21.4549791Z   JAVA_HOME: /opt/hostedtoolcache/Java_Temurin-Hotspot_jdk/17.0.20-1/x64
+2026-10-07T19:10:21.4550242Z   JAVA_HOME_17_X64: /opt/hostedtoolcache/Java_Temurin-Hotspot_jdk/17.0.20-1/x64
+2026-10-07T19:10:21.4550630Z   ANDROID_AVD_HOME: /home/runner/.android/avd
+2026-10-07T19:10:21.4550891Z ##[endgroup]
+2026-10-07T19:10:21.6142047Z (node:3883) [DEP0040] DeprecationWarning: The `punycode` module is deprecated. Please use a userland alternative instead.
+2026-10-07T19:10:21.6147253Z (Use `node --trace-deprecation ...` to show where the warning was created)
+2026-10-07T19:10:21.6280938Z With the provided path, there will be 40 files uploaded
+2026-10-07T19:10:21.6287214Z Artifact name is valid!
+2026-10-07T19:10:21.6288107Z Root directory input is valid!
+2026-10-07T19:10:21.9041014Z Beginning upload of artifact content to blob storage
+2026-10-07T19:10:21.9716860Z (node:3883) [DEP0169] DeprecationWarning: `url.parse()` behavior is not standardized and prone to errors that have security implications. Use the WHATWG URL API instead. CVEs are not issued for `url.parse()` vulnerabilities.
+2026-10-07T19:10:22.2113111Z Uploaded bytes 236060
+2026-10-07T19:10:22.2543555Z Finished uploading artifact content to blob storage!
+2026-10-07T19:10:22.2544466Z SHA256 digest of uploaded artifact zip is 764bb350a511b1b049a15007ebfd6fa7bd54a73d617902d4630ca100ac07224d
+2026-10-07T19:10:22.2546879Z Finalizing artifact upload
+2026-10-07T19:10:22.4774262Z Artifact Caicai-v04243-native-smoke-results.zip successfully finalized. Artifact ID 11505128638
+2026-10-07T19:10:22.4775913Z Artifact Caicai-v04243-native-smoke-results has been successfully uploaded! Final size is 236060 bytes. Artifact ID is 11505128638
+2026-10-07T19:10:22.4782186Z Artifact download URL: https://github.com/catkiss62/ai-companion-build/actions/runs/37671470426/artifacts/11505128638
+2026-10-07T19:10:22.4956583Z Post job cleanup.
+2026-10-07T19:10:22.6326558Z (node:3895) [DEP0040] DeprecationWarning: The `punycode` module is deprecated. Please use a userland alternative instead.
+2026-10-07T19:10:22.6327275Z (Use `node --trace-deprecation ...` to show where the warning was created)
+2026-10-07T19:10:22.6482175Z Post job cleanup.
+2026-10-07T19:10:22.7445460Z [command]/usr/bin/git version
+2026-10-07T19:10:22.7490982Z git version 2.55.0
+2026-10-07T19:10:22.7527949Z Temporarily overriding HOME='/home/runner/work/_temp/da184d84-53c7-4cba-8501-30c0c3191b1e' before making global git config changes
+2026-10-07T19:10:22.7529491Z Adding repository directory to the temporary git global config as a safe directory
+2026-10-07T19:10:22.7536743Z [command]/usr/bin/git config --global --add safe.directory /home/runner/work/ai-companion-build/ai-companion-build
+2026-10-07T19:10:22.7574820Z [command]/usr/bin/git config --local --name-only --get-regexp core\.sshCommand
+2026-10-07T19:10:22.7607770Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'core\.sshCommand' && git config --local --unset-all 'core.sshCommand' || :"
+2026-10-07T19:10:22.7985677Z [command]/usr/bin/git config --local --name-only --get-regexp http\.https\:\/\/github\.com\/\.extraheader
+2026-10-07T19:10:22.7988209Z http.https://github.com/.extraheader
+2026-10-07T19:10:22.8001391Z [command]/usr/bin/git config --local --unset-all http.https://github.com/.extraheader
+2026-10-07T19:10:22.8043110Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'http\.https\:\/\/github\.com\/\.extraheader' && git config --local --unset-all 'http.https://github.com/.extraheader' || :"
+2026-10-07T19:10:22.8358955Z [command]/usr/bin/git config --local --name-only --get-regexp ^includeIf\.gitdir:
+2026-10-07T19:10:22.8400775Z [command]/usr/bin/git submodule foreach --recursive git config --local --show-origin --name-only --get-regexp remote.origin.url
+2026-10-07T19:10:22.8750750Z Cleaning up orphan processes
+2026-10-07T19:10:22.9070039Z Terminate orphan process: pid (2737) (adb)
+2026-10-07T19:10:22.9153493Z Terminate orphan process: pid (2964) (java)
+2026-10-07T19:10:22.9306096Z Terminate orphan process: pid (3275) (java)
+2026-10-07T19:10:22.9352455Z ##[warning]Node.js 20 is deprecated. The following actions target Node.js 20 but are being forced to run on Node.js 24: actions/checkout@v4, actions/setup-java@v4, actions/upload-artifact@v4. For more information see: https://github.blog/changelog/2025-09-19-deprecation-of-node-20-on-github-actions-runners/
 release_url=https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-1fc697c9c8f1a8d869f0
