@@ -1,6 +1,6 @@
 # AI Companion · 当前总账
 
-更新时间：2026-10-07（+322 CI PASSED / APK READY / TRUE DEVICE PENDING；+321 CI PASSED / APK READY / TRUE DEVICE PENDING；+320 CI PASSED / APK READY / TRUE DEVICE PENDING；+319 CI PASSED / APK READY / TRUE DEVICE PENDING；+318 USER DEVICE ACCEPTED；+317 CI PASSED / APK READY / TRUE DEVICE PENDING；+316 CI PASSED / APK READY / TRUE DEVICE PENDING；+315 CI PASSED / APK READY / TRUE DEVICE PENDING；+314 CI PASSED / APK READY / TRUE DEVICE PENDING；+313 CI PASSED / APK READY / TRUE DEVICE PENDING；+312 CI PASSED / APK READY / TRUE DEVICE PENDING；+311 CI PASSED / APK READY / TRUE DEVICE PENDING；+310 CI PASSED / APK READY / TRUE DEVICE PENDING；+309 CI PASSED / APK READY / TRUE DEVICE PENDING；+308 CI PASSED / APK READY / TRUE DEVICE PENDING；+307 CI PASSED / APK READY / USER DEVICE ACCEPTED；+306 CI PASSED / APK READY / TRUE DEVICE PENDING；+305 CI PASSED / APK READY / DEVICE REPORTED REPLY STALL；+304 CI PASSED / APK READY / TRUE DEVICE PENDING；+303 CI PASSED / APK READY / TRUE DEVICE PENDING；+302 CI PASSED / APK READY / TRUE DEVICE PENDING；+301 CI PASSED / APK READY / TRUE DEVICE PENDING；+300 CI PASSED / APK READY / TRUE DEVICE PENDING；+299 CI PASSED / APK READY / TRUE DEVICE PENDING；+298 CI PASSED / APK READY / TRUE DEVICE PENDING；+297 CI PASSED / APK READY / TRUE DEVICE PENDING；+295 恢复真机成功、背景回归 PARTIAL；+293 DEVICE VISUAL BASELINE）
+更新时间：2026-10-07（+323 CI PASSED / APK READY / TRUE DEVICE PENDING；+322 CI PASSED / APK READY / TRUE DEVICE PENDING；+321 CI PASSED / APK READY / TRUE DEVICE PENDING；+320 CI PASSED / APK READY / TRUE DEVICE PENDING；+319 CI PASSED / APK READY / TRUE DEVICE PENDING；+318 USER DEVICE ACCEPTED；+317 CI PASSED / APK READY / TRUE DEVICE PENDING；+316 CI PASSED / APK READY / TRUE DEVICE PENDING；+315 CI PASSED / APK READY / TRUE DEVICE PENDING；+314 CI PASSED / APK READY / TRUE DEVICE PENDING；+313 CI PASSED / APK READY / TRUE DEVICE PENDING；+312 CI PASSED / APK READY / TRUE DEVICE PENDING；+311 CI PASSED / APK READY / TRUE DEVICE PENDING；+310 CI PASSED / APK READY / TRUE DEVICE PENDING；+309 CI PASSED / APK READY / TRUE DEVICE PENDING；+308 CI PASSED / APK READY / TRUE DEVICE PENDING；+307 CI PASSED / APK READY / USER DEVICE ACCEPTED；+306 CI PASSED / APK READY / TRUE DEVICE PENDING；+305 CI PASSED / APK READY / DEVICE REPORTED REPLY STALL；+304 CI PASSED / APK READY / TRUE DEVICE PENDING；+303 CI PASSED / APK READY / TRUE DEVICE PENDING；+302 CI PASSED / APK READY / TRUE DEVICE PENDING；+301 CI PASSED / APK READY / TRUE DEVICE PENDING；+300 CI PASSED / APK READY / TRUE DEVICE PENDING；+299 CI PASSED / APK READY / TRUE DEVICE PENDING；+298 CI PASSED / APK READY / TRUE DEVICE PENDING；+297 CI PASSED / APK READY / TRUE DEVICE PENDING；+295 恢复真机成功、背景回归 PARTIAL；+293 DEVICE VISUAL BASELINE）
 
 > 本文件是唯一的当前接班入口，继续采用“总账 v2”。顶部是快速接班索引；标记后的正式记录按版本持续追加，不设总容量上限。
 >
@@ -8,9 +8,11 @@
 
 
 
-## 当前任务 · +323 游戏授权、愿望自主处置与最终消息滚动（IMPLEMENTED / CI PENDING）
+## 当前接班快照 · +323 游戏授权、愿望自主处置、滚动与形态事实（CI PASSED / APK READY / TRUE DEVICE PENDING）
 
-2026-10-07 14:22 用户要求核对上下文后完成其余修改和 APK。分支 agent/v04279-wish-chat-fixes，基线+322，目标0.42.79+323。范围见 app/docs/WISH_CHAT_FIXES_v0.42.79.md：仅 Jev 游戏授权同方向合并，愿望既有评估允许有证据的自主暂放/放下和主观向往满足，最终消息布局收敛滚动。自主性浅约束明确不做；人设、梦境、愿望生成、桌宠和 Live2D 保持；不新增逐轮规划、不改游戏分享次数。不新建第三总账。追加正常形态历史污染修正（仅实时形态事实，不改性格/气焰规则）。14:40:57主进程crash有记录但无堆栈，根因未定，不猜修。首轮新恢复测试夹具冲突已修，当前待 CI 与同签名 APK，不视为已交付。
+2026-10-07 14:22 用户要求核对上下文后完成其余修改和 APK。分支 agent/v04279-wish-chat-fixes，基线+322，目标0.42.79+323。范围见 app/docs/WISH_CHAT_FIXES_v0.42.79.md：仅 Jev 游戏授权同方向合并，愿望既有评估允许有证据的自主暂放/放下和主观向往满足，最终消息布局收敛滚动。自主性浅约束明确不做；人设、梦境、愿望生成、桌宠和 Live2D 保持；不新增逐轮规划、不改游戏分享次数。不新建第三总账。追加正常形态历史污染修正（仅实时形态事实，不改性格/气焰规则）。14:40:57主进程crash有记录但无堆栈，根因未定，不猜修。首轮新恢复测试夹具冲突已修。完整Actions37583889573第二次尝试与专项37583889487通过；1402项全量Flutter、402项专项、18项Android原生及现行源码/资源门通过。同签名未发布APK已就绪，最终下载页与哈希见文末+323交付记录；真机效果待用户验证。
+
+> +323 失败路线：愿望恢复测试夹具冲突已修；随后原生星谷长按DOM等待超时，同源码重跑18/18通过，未删断言或改星谷。详细记录见app/docs/WISH_CHAT_FIXES_v0.42.79.md；不能与用户14:40闪退混为一谈。
 
 ## 当前交付 · +322 午夜梦境与可修订的自我理解（CI PASSED / APK READY / TRUE DEVICE PENDING）
 
@@ -2896,3 +2898,15 @@ CI PASSED / APK READY / TRUE DEVICE PENDING。自动测试证明调度、恢复�
 用户确认桌宠动态起床表现与 Live2D 历史收敛保留；Jev 只修游戏工具授权。愿望生成方式保持，不把小豆丁“霸占靠垫/催吃饭”的玩笑自动建立为愿望。自主性继续讨论，仅考虑事实判断与不确定性，不要求每轮分析或反驳，不削弱自然亲近；愿望自主处置方案尚未实施。此前发现的最终消息滚动缺口仍待修复。
 
 本地补丁：仅 chat_intimacy_route/cedar 将 act_now 与 accept 合并为执行方向，方向间仍保留接近判闲聊，再选方向内原标签；不改变其他 Jev 分支、工具权限或游戏分享额度。诊断标记 cedar_authorization_group_v1。新增原始 37/32/7/24 失效案例及拒绝、方向接近、稀疏概率和分支隔离用例，保留原有 52/48 不触发回归。git diff --check 通过；当前环境无 Flutter/Dart SDK，测试尚未运行，未推送、未构建、未交付新 APK，不得当作已验证修复。
+
+
+## +323 最终CI与未发布APK交付（2026-10-07 15:35）
+
+- 当前开发分支 `agent/v04279-wish-chat-fixes`。功能远端 `2509efb22c604531d9c1d8ab3ad8d51ae2a08309` / 本地 `6d46b4b87503c908650493c5ec34ea2d4d945425`，两者同树 `5c0097b96149a8be94cd183f0903ec4078bc96ef`。版本 `0.42.79+323`。
+- 已实现四项：仅Jev游戏act_now/accept合并执行方向；已有愿望的有依据自主暂停/恢复/放下和主观满足（客观目标仍需实际结果）；最终聊天布局稳定跟随且尊重用户上翻；历史之后补充本轮实时形态事实供推理和正文使用。不改自主性浅约束、人设、愿望生成、梦境、气焰阈值、桌宠和Live2D动作，不新增每轮模型调用。愿望仍由原定期评估处置，并非聊天每说一句就即时落库。
+- 专项Actions `37583889487` / job `112669521825`：402项通过。完整Actions `37583889573` 第二次尝试成功：1402项全量Flutter通过，Kotlin、源码门、签名与APK资源检查通过；Android35原生job `112676393919`：18/18通过。
+- 真实失败路线：首轮新增愿望导入恢复测试用了同时打开的两个内存数据库，导致建表冲突；改用同库恢复夹具并保留断言。后续原生MemoryGalaxySmokeTest长按后等卡片超时（第171行），页面启动、类别配色和短按断言已通过；未改星谷/测试门槛，重跑相同源码全通过。作为偶发测试失败保留，不伪称首轮全绿，不外推为用户闪退原因。
+- [未发布+323测试APK](https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-ab5bc801da4d200af06c)，Draft `405463091`，APK asset `617952157`，大小 `734537201` bytes。API确认asset uploaded，上传后digest与CI原始APK哈希一致：`04a3a51c9dd9f5ecec81370346cdd22516ac1804108e561bccd86c84bdff43ba`。
+- 持久签名SHA-256 `30:5E:B3:D8:09:83:B9:63:C6:48:18:DD:F1:AD:56:1F:27:9D:E6:D4:7B:3E:D2:C7:81:AD:A4:48:C7:C2:51:48`，CI比对通过，可以覆盖安装。未合并main、未正式发布。
+- 状态严格为 IMPLEMENTED / CI PASSED / APK READY / TRUE DEVICE PENDING。用户14:40:57主进程crash有系统记录，缺少异常堆栈，根因未定，未声称修复；重启后TTS异常不能倒推是崩溃原因。待真机观察游戏授权、愿望评估、正文滚动和形态措辞；若再闪退需尽快导出新诊断。
+- 后续入口：本批实现与失败证据见 `app/docs/WISH_CHAT_FIXES_v0.42.79.md`，其余待办仍从本总账6.3唯一后续清单与+322梦境长期观察进入。用户明确不改项不得因后续“优化”自动复活。
