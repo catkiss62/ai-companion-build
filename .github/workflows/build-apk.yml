@@ -1400,11 +1400,27 @@ jobs:
                   print(f'ERROR: native 19emo payload unexpectedly present: {forbidden_emotion_payloads}', file=sys.stderr)
                   sys.exit(1)
               print('DeepSeek 19-label contract retained; Genie ONNX Runtime is present without 19emo.')
+              background_prefix = 'assets/flutter_assets/assets/lingchat/background/'
+              background_names = {'day.webp', 'night.webp', 'day_depth.png', 'night_depth.png'}
+              packaged_backgrounds = {
+                  name.removeprefix(background_prefix) for name in z.namelist()
+                  if name.startswith(background_prefix) and not name.endswith('/')
+              }
+              if packaged_backgrounds != background_names:
+                  print(f'ERROR: unexpected room background payload: {packaged_backgrounds}', file=sys.stderr)
+                  sys.exit(1)
+              # The pinned original presentation pack still has 62 files.
+              # The two reviewed auxiliary depth maps are verified separately below.
+              auxiliary_depth_entries = {
+                  background_prefix + 'day_depth.png',
+                  background_prefix + 'night_depth.png',
+              }
               lingchat_entries = [
                   name for name in z.namelist()
                   if name.startswith('assets/flutter_assets/assets/lingchat/')
                   and not name.endswith('/')
                   and not name.endswith('/NOTICE.md')
+                  and name not in auxiliary_depth_entries
               ]
               expected_groups = {
                   'deepseek': 21,
