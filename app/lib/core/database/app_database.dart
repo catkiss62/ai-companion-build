@@ -1,3 +1,4 @@
+import '../phone/calendar_reminder_state.dart';
 import '../desire/daily_wake_store.dart';
 import '../mcp/cedar_wake_policy.dart';
 import '../desire/proactive_delivery_budget.dart';
@@ -5195,11 +5196,19 @@ class AppDatabase {
   /// Idempotent, fenced delivery for asynchronous reminder continuations.
   Future<bool> insertBackgroundMessage(
     ChatMessage message,
-    BrainWorkFence fence,
-  ) async {
+    BrainWorkFence fence, {
+    int? reminderStartedAt,
+    String? reminderOccurrence,
+  }) async {
     final handle = await database;
     return handle.transaction((txn) async {
       if (!await fence.matches(txn)) return false;
+      if (reminderStartedAt != null &&
+          await CalendarReminderStateStore.userSpokeSince(txn, reminderStartedAt)) return false;
+      if (reminderOccurrence != null) {
+        final state = await CalendarReminderStateStore.read(txn);
+        if (state.find(reminderOccurrence)?.eligible(DateTime.now()) != true) return false;
+      }
       final exists = await txn.query('messages', columns: ['id'],
           where: 'id = ?', whereArgs: [message.id], limit: 1);
       if (exists.isNotEmpty) return true;
@@ -8215,6 +8224,10 @@ class AppDatabase {
       }
 
       final sentAt = deliveryAt ?? DateTime.now();
+      if (!proactiveGameShare &&
+          (await CalendarReminderStateStore.read(txn)).ordinaryPaused(sentAt)) {
+        return 'calendar_reminder_quiet';
+      }
       if (cedarShareThoughtId != null &&
           await CedarWakePolicy.delay(txn, sentAt, gameId: cedarShareGameId,
               thoughtId: cedarShareThoughtId) > Duration.zero) {

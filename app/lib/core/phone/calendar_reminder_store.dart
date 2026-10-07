@@ -13,6 +13,9 @@ class CalendarReminder {
     required this.yearly,
     this.hour,
     this.minute,
+    this.recurrence,
+    this.weekdays = const [],
+    this.enabled = true,
   });
 
   final String id;
@@ -23,13 +26,49 @@ class CalendarReminder {
   final bool yearly;
   final int? hour;
   final int? minute;
+  final String? recurrence;
+  final List<int> weekdays;
+  final bool enabled;
+  String get repeat => recurrence ?? (yearly ? 'yearly' : 'once');
+  String get repeatLabel => switch (repeat) {
+    'daily' => '每天',
+    'weekly' => weekdays.where((d) => d >= 1 && d <= 7).map((d) => '周${'一二三四五六日'[d - 1]}').join('、'),
+    'yearly' => '每年',
+    _ => '仅一次',
+  };
 
   bool get timed => hour != null && minute != null;
   String get dateLabel => '$year-${month.toString().padLeft(2, '0')}-'
       '${day.toString().padLeft(2, '0')}';
 
-  bool occursOn(DateTime local) => month == local.month &&
-      day == local.day && (yearly || year == local.year);
+  bool occursOn(DateTime local) => enabled && switch (repeat) {
+    'daily' => true,
+    'weekly' => weekdays.contains(local.weekday),
+    'yearly' => month == local.month && day == local.day,
+    _ => month == local.month && day == local.day && year == local.year,
+  };
+
+  DateTime? nextOccurrence(DateTime after) {
+    if (!enabled || !timed || hour! < 0 || hour! > 23 || minute! < 0 || minute! > 59) return null;
+    final local = after.toLocal();
+    final candidates = <DateTime>[];
+    if (repeat == 'daily' || repeat == 'weekly') {
+      for (var offset = 0; offset <= 7; offset++) {
+        candidates.add(DateTime(local.year, local.month, local.day + offset, hour!, minute!));
+      }
+    } else {
+      final first = repeat == 'yearly' ? local.year : year;
+      for (var y = first; y <= (repeat == 'yearly' ? first + 8 : first); y++) {
+        final date = DateTime(y, month, day, hour!, minute!);
+        if (date.month == month && date.day == day) candidates.add(date);
+      }
+    }
+    return candidates.where((date) => date.isAfter(after) && occursOn(date)).firstOrNull;
+  }
+
+  CalendarReminder withEnabled(bool value) => CalendarReminder(id: id, title: title,
+      year: year, month: month, day: day, yearly: yearly, hour: hour, minute: minute,
+      recurrence: recurrence, weekdays: weekdays, enabled: value);
 
   DateTime? occurrenceTime(String occurrence) {
     final split = occurrence.lastIndexOf(':');
@@ -47,7 +86,10 @@ class CalendarReminder {
         'year': year,
         'month': month,
         'day': day,
-        'yearly': yearly,
+        'yearly': repeat == 'yearly',
+        'repeat': repeat,
+        'weekdays': weekdays,
+        'enabled': enabled,
         if (timed) 'hour': hour,
         if (timed) 'minute': minute,
       };
@@ -60,6 +102,9 @@ class CalendarReminder {
         month: (json['month'] as num?)?.toInt() ?? 0,
         day: (json['day'] as num?)?.toInt() ?? 0,
         yearly: json['yearly'] == true,
+        recurrence: const ['once', 'daily', 'weekly', 'yearly'].contains(json['repeat']) ? json['repeat'] as String : null,
+        weekdays: (json['weekdays'] as List?)?.whereType<num>().map((d) => d.toInt()).where((d) => d >= 1 && d <= 7).toSet().toList() ?? const [],
+        enabled: json['enabled'] != false,
         hour: (json['hour'] as num?)?.toInt(),
         minute: (json['minute'] as num?)?.toInt(),
       );
@@ -95,12 +140,11 @@ class CalendarReminderStore {
   }
 
   Future<bool> sync([List<CalendarReminder>? entries]) async {
-    final active = await db.getSetting('active_brain') != '0';
+    if ((await db.getSetting('snapshot_recovery_pending_v1') ?? '').isNotEmpty) return false;
     final revision = '${await db.getSetting('state_lineage_id') ?? ''}:'
         '${await db.getSetting('runtime_state_epoch_v1') ?? ''}';
     return android.syncCalendarReminders(
-      active ? (entries ?? await load()).map((entry) => entry.toJson()).toList()
-          : const [],
+      (entries ?? await load()).map((entry) => entry.toJson()).toList(),
       revision: revision,
     );
   }

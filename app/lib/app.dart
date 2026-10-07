@@ -1,3 +1,4 @@
+import 'widgets/calendar_reminder_host.dart';
 import 'core/database/app_database.dart';
 import 'core/desire/daily_wake_store.dart';
 import 'dart:async';
@@ -81,6 +82,7 @@ class AiCompanionApp extends StatelessWidget {
               child: InnerPage(),
             ),
       },
+      builder: (context, child) => CalendarReminderHost(child: child ?? const SizedBox()),
       home: const AppShell(),
     );
   }

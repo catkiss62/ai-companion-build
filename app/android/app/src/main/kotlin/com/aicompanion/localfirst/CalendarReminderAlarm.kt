@@ -29,7 +29,36 @@ object CalendarReminderAlarm {
     const val EXTRA_TITLE = "calendar_title"
     const val EXTRA_REVISION = "calendar_revision"
     const val EXTRA_OCCURRENCE = "calendar_occurrence"
-    const val FIVE_MINUTES = 5L * 60L * 1000L
+    const val FIVE_MINUTES = CalendarReminderRuntime.FIVE_MINUTES
+    private val listeners = java.util.concurrent.CopyOnWriteArraySet<() -> Unit>()
+    fun addListener(listener: () -> Unit) { listeners.add(listener) }
+    fun removeListener(listener: () -> Unit) { listeners.remove(listener) }
+    private fun changed(context: Context) {
+        CalendarReminderRingingService.refreshIfRunning(context)
+        android.os.Handler(android.os.Looper.getMainLooper()).post {
+            listeners.forEach { runCatching { it() } }
+        }
+        OverlayBubbleService.requestBrainWake(context, "calendar_reminder_changed")
+    }
+    fun state(context: Context): Map<String, Any> {
+        if(CalendarReminderRuntime.expire(context)) changed(context)
+        return CalendarReminderRuntime.snapshot(context)
+    }
+    fun confirm(context: Context, occurrence: String) {
+        if(CalendarReminderRuntime.confirm(context, occurrence)) changed(context)
+    }
+    fun openCard(context: Context, occurrence: String = "") {
+        context.startActivity(Intent(context, CalendarReminderAlertActivity::class.java)
+            .putExtra(EXTRA_OCCURRENCE, occurrence).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP))
+    }
+    fun presentationStatus(context: Context): Map<String,Boolean> = mapOf(
+        "overlay" to Settings.canDrawOverlays(context),
+        "fullScreen" to (Build.VERSION.SDK_INT < 34 || context.getSystemService(NotificationManager::class.java).canUseFullScreenIntent()))
+    fun openPresentationSettings(context: Context, kind: String) {
+        val action = if(kind == "fullScreen" && Build.VERSION.SDK_INT >= 34)
+            "android.settings.MANAGE_APP_USE_FULL_SCREEN_INTENT" else Settings.ACTION_MANAGE_OVERLAY_PERMISSION
+        context.startActivity(Intent(action, Uri.parse("package:${context.packageName}")).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
+    }
 
     fun canScheduleExact(context: Context): Boolean =
         Build.VERSION.SDK_INT < Build.VERSION_CODES.S ||
@@ -77,6 +106,9 @@ object CalendarReminderAlarm {
                 put("month", (item["month"] as? Number)?.toInt() ?: 0)
                 put("day", (item["day"] as? Number)?.toInt() ?: 0)
                 put("yearly", item["yearly"] == true)
+                put("repeat", item["repeat"]?.toString() ?: if(item["yearly"] == true) "yearly" else "once")
+                put("enabled", item["enabled"] != false)
+                put("weekdays", JSONArray((item["weekdays"] as? List<*>)?.mapNotNull { (it as? Number)?.toInt()?.takeIf { it in 1..7 } } ?: emptyList<Int>()))
                 if (item["hour"] is Number && item["minute"] is Number) {
                     put("hour", (item["hour"] as Number).toInt())
                     put("minute", (item["minute"] as Number).toInt())
@@ -89,20 +121,13 @@ object CalendarReminderAlarm {
             prefs(context).getBoolean("scheduled", false)) return true
         val replacedState = previousRevision.isNotEmpty() && previousRevision != revision
         val validIds = (0 until fresh.length()).mapNotNull(fresh::optJSONObject).associateBy { it.optString("id") }
-        val ringing = prefs(context).getString("ringing", "").orEmpty()
-        val ringingId = ringing.substringBeforeLast(':', "")
-        val active = validIds[ringingId]
-        if (ringing.isNotEmpty() && (replacedState || active == null ||
-            !matchesOccurrence(active, ringing.substringAfterLast(':').toLongOrNull() ?: 0L))) {
-            prefs(context).edit().remove("ringing").remove("ringing_title").commit()
-            context.getSystemService(AlarmManager::class.java).cancel(intent(context, ringingId, ACTION_TIMEOUT))
-            context.stopService(Intent(context, CalendarReminderRingingService::class.java))
+        CalendarReminderRuntime.reconcile(context, replacedState) { event ->
+            val entry = validIds[event.optString("id")]
+            entry != null && entry.optString("title") == event.optString("title") &&
+                matchesOccurrence(entry,event.optLong("scheduledAt")) &&
+                (event.optString("schedule").isEmpty() || event.optString("schedule") == entry.toString())
         }
-        val stops = pendingStops(context).filter { stop ->
-            val item = validIds[stop["id"]?.toString()]
-            !replacedState && item != null && stop["title"] == item.optString("title") &&
-                matchesOccurrence(item, stop["occurrence"]?.toString()?.substringAfterLast(':')?.toLongOrNull() ?: 0L)
-        }
+        val stops = emptyList<Map<String,Any?>>()
         // Commit the new scheduling truth before cancelling/replacing alarms.
         check(prefs(context).edit().putString(ENTRIES, fresh.toString())
             .putString("revision", revision).putBoolean("scheduled", false)
@@ -117,39 +142,18 @@ object CalendarReminderAlarm {
             if (entry.has("hour") && !schedule(context, entry)) success = false
         }
         prefs(context).edit().putBoolean("scheduled", success).commit()
+        changed(context)
         return success
     }
 
-    private fun matchesOccurrence(entry: JSONObject, due: Long): Boolean {
-        if (due <= 0L || !entry.has("hour") || !entry.has("minute")) return false
-        val local = java.time.Instant.ofEpochMilli(due).atZone(ZoneId.systemDefault())
-        return (entry.optBoolean("yearly") || local.year == entry.optInt("year")) &&
-            local.monthValue == entry.optInt("month") && local.dayOfMonth == entry.optInt("day") &&
-            local.hour == entry.optInt("hour") && local.minute == entry.optInt("minute")
-    }
-
-    private fun dueAt(entry: JSONObject, after: Long): Long? {
-        val year = entry.optInt("year")
-        val month = entry.optInt("month")
-        val day = entry.optInt("day")
-        val hour = entry.optInt("hour", -1)
-        val minute = entry.optInt("minute", -1)
-        if (hour !in 0..23 || minute !in 0..59) return null
-        val zone = ZoneId.systemDefault()
-        val yearly = entry.optBoolean("yearly")
-        val initialYear = if (yearly) LocalDate.now(zone).year else year
-        for (candidateYear in initialYear..(if (yearly) initialYear + 8 else initialYear)) {
-            try {
-                val date = LocalDate.of(candidateYear, month, day)
-                val local = LocalDateTime.of(date, java.time.LocalTime.of(hour, minute))
-                val instant = local.atZone(zone).toInstant().toEpochMilli()
-                if (instant > after) return instant
-            } catch (_: DateTimeException) {
-                // February 29 skips non-leap years without silently moving date.
-            }
-        }
-        return null
-    }
+    private fun rule(entry: JSONObject) = CalendarReminderSchedule(
+        entry.optInt("year"), entry.optInt("month"), entry.optInt("day"),
+        entry.optInt("hour",-1), entry.optInt("minute",-1),
+        entry.optString("repeat",if(entry.optBoolean("yearly")) "yearly" else "once"),
+        entry.optJSONArray("weekdays")?.let { days -> (0 until days.length()).map { days.optInt(it) }.toSet() } ?: emptySet(),
+        entry.optBoolean("enabled",true))
+    private fun matchesOccurrence(entry: JSONObject, due: Long) = rule(entry).matches(due)
+    private fun dueAt(entry: JSONObject, after: Long) = rule(entry).next(after)
 
     private fun intent(context: Context, id: String, action: String, due: Long = 0L): PendingIntent {
         val operation = Intent(context, CalendarReminderReceiver::class.java).apply {
@@ -191,103 +195,45 @@ object CalendarReminderAlarm {
     }
 
     fun recoverInterruptedRing(context: Context) {
-        val occurrence = prefs(context).getString("ringing", "").orEmpty()
-        if (occurrence.isEmpty()) return
-        val id = occurrence.substringBeforeLast(':')
-        if (id.isNotEmpty()) stop(context, id, "interrupted_by_restart")
+        CalendarReminderRuntime.interrupt(context)
+        prefs(context).edit().remove("ringing").remove("ringing_title").remove(STOPS).commit()
+        changed(context)
     }
 
     @Synchronized
     fun fire(context: Context, id: String, due: Long) {
-        val all = entries(context)
-        val entry = (0 until all.length()).mapNotNull(all::optJSONObject)
-            .firstOrNull { it.optString("id") == id } ?: return
-        if (!matchesOccurrence(entry, due)) return
-        val deliveredAt = System.currentTimeMillis()
-        if (due <= 0L || due > deliveredAt + 60_000L ||
-            deliveredAt - due > 12L * 60L * 60L * 1000L) return
-        val nextDue = dueAt(entry, due + 1000L)
-        if (entry.optBoolean("yearly") && nextDue != null) schedule(context, entry, due + 1000L)
-        val occurrence = "$id:$due"
-        val alert = Intent(context, CalendarReminderRingingService::class.java).apply {
-            action = CalendarReminderRingingService.START
-            putExtra(EXTRA_ID, id)
-            putExtra(EXTRA_TITLE, entry.optString("title"))
-            putExtra(EXTRA_OCCURRENCE, occurrence)
-            putExtra(EXTRA_REVISION, prefs(context).getString("revision", "").orEmpty())
-        }
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            context.startForegroundService(alert)
-        } else {
-            context.startService(alert)
-        }
-        val manager = context.getSystemService(AlarmManager::class.java)
-        val timeout = intent(context, id, ACTION_TIMEOUT, due)
+        val all=entries(context)
+        val entry=(0 until all.length()).mapNotNull(all::optJSONObject).firstOrNull { it.optString("id")==id } ?: return
+        if(!matchesOccurrence(entry,due)) return
+        val now=System.currentTimeMillis()
+        if(due <= 0 || due > now+60_000L || now-due > 12L*60*60*1000) return
+        // Repetition belongs to the system, independently of acknowledgement or AI.
+        if(rule(entry).repeat != "once") schedule(context,entry,due+1000L)
+        if(!CalendarReminderRuntime.start(context,id,due,entry.optString("title"),now,schedule=entry.toString())) return
+        val manager=context.getSystemService(AlarmManager::class.java)
+        val timeout=intent(context,id,ACTION_TIMEOUT,due)
         runCatching {
-            if (canScheduleExact(context)) {
-                manager.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, deliveredAt + FIVE_MINUTES, timeout)
-            } else {
-                manager.setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, deliveredAt + FIVE_MINUTES, timeout)
-            }
-        } // The service also has its own five-minute timeout.
-    }
-
-    @Synchronized
-    fun acceptsRing(context: Context, id: String, occurrence: String, revision: String): Boolean {
-        if (prefs(context).getString("revision", "").orEmpty() != revision ||
-            occurrence.substringBeforeLast(':', "") != id) return false
-        val all = entries(context)
-        val entry = (0 until all.length()).mapNotNull(all::optJSONObject)
-            .firstOrNull { it.optString("id") == id } ?: return false
-        return matchesOccurrence(entry, occurrence.substringAfterLast(':').toLongOrNull() ?: 0L)
+            if(canScheduleExact(context)) manager.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP,now+FIVE_MINUTES,timeout)
+            else manager.setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP,now+FIVE_MINUTES,timeout)
+        }
+        val alert=Intent(context,CalendarReminderRingingService::class.java).setAction(CalendarReminderRingingService.START)
+        runCatching {
+            if(Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) context.startForegroundService(alert)
+            else context.startService(alert)
+        }.onFailure { CalendarReminderRuntime.interrupt(context) }
+        changed(context)
     }
 
     @Synchronized
     fun timeout(context: Context, id: String, due: Long) {
-        if (prefs(context).getString("ringing", "") == "$id:$due") stop(context, id, "timeout")
+        // Expiration checks each original deadline, never a later occurrence by ID.
+        if(CalendarReminderRuntime.records(context).none { it.optString("occurrence")=="$id:$due" }) return
+        if(CalendarReminderRuntime.expire(context)) changed(context)
     }
 
-    @Synchronized
-    fun stop(context: Context, id: String, reason: String, stopService: Boolean = true) {
-        val ringing = prefs(context).getString("ringing", "").orEmpty()
-        if (!ringing.startsWith("$id:")) return
-        // Clear synchronously before any callback to make Stop idempotent.
-        val title = prefs(context).getString("ringing_title", "").orEmpty()
-        prefs(context).edit().remove("ringing").remove("ringing_title").commit()
-        context.getSystemService(AlarmManager::class.java)
-            .cancel(intent(context, id, ACTION_TIMEOUT))
-        val pending = try { JSONArray(prefs(context).getString(STOPS, "[]")) }
-            catch (_: Exception) { JSONArray() }
-        pending.put(JSONObject().put("id", id).put("occurrence", ringing)
-            .put("reason", reason).put("title", title).put("stoppedAt", System.currentTimeMillis()))
-        prefs(context).edit().putString(STOPS, pending.toString()).commit()
-        if (stopService) {
-            context.stopService(Intent(context, CalendarReminderRingingService::class.java))
-        }
-        OverlayBubbleService.requestSignalBrainWake(context, "calendar_reminder_stopped")
-    }
-
-    fun pendingStops(context: Context): List<Map<String, Any?>> {
-        val values = try { JSONArray(prefs(context).getString(STOPS, "[]")) }
-            catch (_: Exception) { JSONArray() }
-        return (0 until values.length()).mapNotNull { index ->
-            values.optJSONObject(index)?.let { item ->
-                mapOf(
-                    "id" to item.optString("id"),
-                    "occurrence" to item.optString("occurrence"),
-                    "reason" to item.optString("reason"),
-                    "title" to item.optString("title"),
-                    "stoppedAt" to item.optLong("stoppedAt", 0L),
-                )
-            }
-        }
-    }
-
-    @Synchronized
-    fun acknowledgeStop(context: Context, occurrence: String) {
-        val items = pendingStops(context).filter { it["occurrence"] != occurrence }
-        prefs(context).edit().putString(STOPS, JSONArray(items).toString()).apply()
-    }
+    fun pendingStops(context: Context): List<Map<String,Any?>> = emptyList()
+    fun acknowledgeStop(context: Context, occurrence: String) =
+        CalendarReminderRuntime.markDelivery(context,occurrence,"delivered")
 
     fun channel(context: Context): String {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
@@ -321,8 +267,6 @@ class CalendarReminderReceiver : BroadcastReceiver() {
                 CalendarReminderAlarm.fire(context, id, intent.getLongExtra("due", 0L))
             "com.aicompanion.localfirst.calendar.TIMEOUT" ->
                 CalendarReminderAlarm.timeout(context, id, intent.getLongExtra("due", 0L))
-            "com.aicompanion.localfirst.calendar.STOP" ->
-                CalendarReminderAlarm.stop(context, id, "dismissed")
         }
     }
 }

@@ -40,6 +40,7 @@ class SystemBridge(
     flutterEngine: FlutterEngine,
 ) {
     private val methodChannel = MethodChannel(flutterEngine.dartExecutor.binaryMessenger, METHOD_CHANNEL)
+    private val reminderListener: () -> Unit = { methodChannel.invokeMethod("calendarReminderChanged", null) }
     private var permissionResult: MethodChannel.Result? = null
     private var permissionRequestCode: Int? = null
     private var manualDocumentResult: MethodChannel.Result? = null
@@ -56,6 +57,7 @@ class SystemBridge(
     private var directPickerGuardDepth = 0
 
     init {
+        CalendarReminderAlarm.addListener(reminderListener)
         SnapshotCacheCleaner.clean(activity)
         methodChannel.setMethodCallHandler { call, result ->
             when (call.method) {
@@ -100,6 +102,21 @@ class SystemBridge(
                 "openReminderSoundSettings" -> {
                     CalendarReminderAlarm.openSoundSettings(activity)
                     result.success(null)
+                }
+                "calendarReminderState" -> result.success(CalendarReminderAlarm.state(activity))
+                "markCalendarReminderDelivery" -> {
+                    CalendarReminderRuntime.markDelivery(activity, call.argument<String>("occurrence").orEmpty(),call.argument<String>("outcome").orEmpty(),call.argument<String>("revision").orEmpty())
+                    result.success(null)
+                }
+                "confirmCalendarReminder" -> {
+                    CalendarReminderAlarm.confirm(activity,call.argument<String>("occurrence").orEmpty());result.success(null)
+                }
+                "openCalendarReminderCard" -> {
+                    CalendarReminderAlarm.openCard(activity,call.argument<String>("occurrence").orEmpty());result.success(null)
+                }
+                "calendarReminderPresentationStatus" -> result.success(CalendarReminderAlarm.presentationStatus(activity))
+                "openCalendarReminderPresentationSettings" -> {
+                    CalendarReminderAlarm.openPresentationSettings(activity,call.argument<String>("kind").orEmpty());result.success(null)
                 }
                 "pendingStoppedReminders" ->
                     result.success(CalendarReminderAlarm.pendingStops(activity))
@@ -490,6 +507,7 @@ class SystemBridge(
     }
 
     fun dispose() {
+        CalendarReminderAlarm.removeListener(reminderListener)
         methodChannel.setMethodCallHandler(null)
         permissionResult?.error("activity_disposed", "Activity was destroyed during permission request", null)
         permissionResult = null

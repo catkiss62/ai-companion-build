@@ -1,3 +1,4 @@
+import '../phone/calendar_reminder_state.dart';
 import '../self/dream_store.dart';
 import '../desire/daily_wake_store.dart';
 import '../reflection/deep_reflection_contract.dart';
@@ -120,6 +121,7 @@ class PromptBuilder {
     bool freshTopicSourceOnly = false,
   }) async {
     final instant = now ?? DateTime.now();
+    final reminderContext = (await CalendarReminderStateStore.read(await db.database)).prompt(instant);
     final wake = await DailyWakeStore.read(await db.database, instant);
     final weatherContext = await WeatherContext.forPrompt(db, instant);
     final baseQuery = (retrievalQuery ?? latestUserText).trim();
@@ -417,6 +419,7 @@ class PromptBuilder {
     final wakingContext = wake.promptSection(instant);
     if (wakingContext.isNotEmpty) context.writeln(wakingContext);
     if (somaticSection.isNotEmpty) context.writeln(somaticSection);
+    if (reminderContext.isNotEmpty) context.writeln(reminderContext);
     context.writeln(emotionEpisodeSection);
     if (moodSection.isNotEmpty) context.writeln(moodSection);
     if (dreamContext.isNotEmpty) context.writeln(dreamContext);

@@ -9,6 +9,7 @@ val syncImportSources = tasks.register<Sync>("syncImportSources") {
     }
     from("../../android/app/src/main/kotlin/com/aicompanion/localfirst") {
         include("NativeMemoryGalaxyActivity.kt", "MemoryGalaxyFiles.kt", "PortableCompanionState.kt")
+        include("CalendarReminderSchedule.kt", "CalendarReminderRuntime.kt", "CalendarReminderCard.kt")
     }
     into(layout.buildDirectory.dir("generated/import-sources"))
 }

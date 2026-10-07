@@ -1,3 +1,4 @@
+import '../phone/calendar_reminder_state.dart';
 import '../self/dream_engine.dart';
 import 'proactive_delivery_budget.dart';
 import '../reflection/deep_reflection_engine.dart';
@@ -378,6 +379,11 @@ class ProactiveEngine {
   }) async {
     if ((await db.getSetting('transfer_lock')) == '1') {
       return const ProactiveDecision(sent: false, reason: '设备转移锁定中');
+    }
+    final forcedShare = forcedThoughtIdForDebug == null ? null : await db.thoughtById(forcedThoughtIdForDebug);
+    final directGameShare = forceForDebug && (forcedShare?.source.startsWith('mcp/cedar_game:') ?? false);
+    if (!directGameShare && (await CalendarReminderStateStore.read(await db.database, android: android)).ordinaryPaused(DateTime.now())) {
+      return const ProactiveDecision(sent: false, reason: 'calendar_reminder_quiet');
     }
     // Debug/forced evaluation may bypass the probability gate, never the
     // cross-engine writer lease. Otherwise a debug tap could race the real

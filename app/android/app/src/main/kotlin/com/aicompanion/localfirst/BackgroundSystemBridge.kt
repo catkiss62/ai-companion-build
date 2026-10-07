@@ -64,6 +64,21 @@ class BackgroundSystemBridge(
                         result.error("snapshot_recovery_failed", "恢复本机设置未完成", null)
                     }
                 }
+                "calendarReminderState" -> result.success(CalendarReminderAlarm.state(context))
+                "markCalendarReminderDelivery" -> {
+                    CalendarReminderRuntime.markDelivery(context, call.argument<String>("occurrence").orEmpty(),call.argument<String>("outcome").orEmpty(),call.argument<String>("revision").orEmpty())
+                    result.success(null)
+                }
+                "confirmCalendarReminder" -> {
+                    CalendarReminderAlarm.confirm(context,call.argument<String>("occurrence").orEmpty());result.success(null)
+                }
+                "openCalendarReminderCard" -> {
+                    CalendarReminderAlarm.openCard(context,call.argument<String>("occurrence").orEmpty());result.success(null)
+                }
+                "calendarReminderPresentationStatus" -> result.success(CalendarReminderAlarm.presentationStatus(context))
+                "openCalendarReminderPresentationSettings" -> {
+                    CalendarReminderAlarm.openPresentationSettings(context,call.argument<String>("kind").orEmpty());result.success(null)
+                }
                 "pendingStoppedReminders" ->
                     result.success(CalendarReminderAlarm.pendingStops(context))
                 "acknowledgeStoppedReminder" -> {

@@ -297,6 +297,7 @@ class CapabilityStatus {
 class AndroidBridge {
   AndroidBridge._() {
     _channel.setMethodCallHandler((call) async {
+      if (call.method == 'calendarReminderChanged') _calendarReminderChanges.add(null);
       if (call.method == 'openChatLaunch') {
         _openChatLaunchController.add(null);
       }
@@ -307,6 +308,9 @@ class AndroidBridge {
   static const MethodChannel _channel = MethodChannel('ai_companion/system');
   final StreamController<void> _openChatLaunchController =
       StreamController<void>.broadcast();
+
+  final _calendarReminderChanges = StreamController<void>.broadcast();
+  Stream<void> get calendarReminderChanges => _calendarReminderChanges.stream;
 
   Stream<void> get openChatLaunches => _openChatLaunchController.stream;
 
@@ -341,6 +345,23 @@ class AndroidBridge {
         'entries': entries,
         'revision': revision,
       }) ?? false;
+
+  Future<Map<String, Object?>?> calendarReminderState() async {
+    try {
+      final raw = await _channel.invokeMapMethod<String, Object?>('calendarReminderState');
+      return raw;
+    } on MissingPluginException { return null; }
+  }
+  Future<void> markCalendarReminderDelivery(String occurrence, String outcome, {String revision = ''}) =>
+      _channel.invokeMethod<void>('markCalendarReminderDelivery', {'occurrence': occurrence, 'outcome': outcome, 'revision': revision});
+  Future<void> confirmCalendarReminder(String occurrence) =>
+      _channel.invokeMethod<void>('confirmCalendarReminder', {'occurrence': occurrence});
+  Future<void> openCalendarReminderCard([String occurrence = '']) =>
+      _channel.invokeMethod<void>('openCalendarReminderCard', {'occurrence': occurrence});
+  Future<Map<String, Object?>> calendarReminderPresentationStatus() async =>
+      await _channel.invokeMapMethod<String, Object?>('calendarReminderPresentationStatus') ?? const {};
+  Future<void> openCalendarReminderPresentationSettings(String kind) =>
+      _channel.invokeMethod<void>('openCalendarReminderPresentationSettings', {'kind': kind});
 
   Future<bool> canScheduleExactReminders() async =>
       await _channel.invokeMethod<bool>('canScheduleExactReminders') ?? false;

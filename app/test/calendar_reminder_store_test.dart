@@ -3,6 +3,28 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:ai_companion_localfirst/core/phone/calendar_reminder_store.dart';
 
 void main() {
+  test('daily and selected weekdays schedule the next local occurrence', () {
+    const daily = CalendarReminder(id:'daily',title:'每日',year:2026,month:10,day:8,
+        yearly:false,recurrence:'daily',hour:9,minute:15);
+    expect(daily.nextOccurrence(DateTime(2026,10,8,9,14)),DateTime(2026,10,8,9,15));
+    expect(daily.nextOccurrence(DateTime(2026,10,8,9,15)),DateTime(2026,10,9,9,15));
+    const weekly = CalendarReminder(id:'weekly',title:'星期',year:2026,month:10,day:8,
+        yearly:false,recurrence:'weekly',weekdays:[1,5],hour:8,minute:0);
+    expect(weekly.nextOccurrence(DateTime(2026,10,8,20)),DateTime(2026,10,9,8));
+    expect(weekly.nextOccurrence(DateTime(2026,10,9,8)),DateTime(2026,10,12,8));
+    expect(weekly.withEnabled(false).nextOccurrence(DateTime(2026,10,8)),isNull);
+    expect(weekly.withEnabled(false).occursOn(DateTime(2026,10,9)),isFalse);
+    final restored=CalendarReminder.fromJson(weekly.toJson());
+    expect(restored.weekdays,[1,5]);expect(restored.repeat,'weekly');
+    expect(restored.occurrenceTime('weekly:${DateTime(2026,10,9,8).millisecondsSinceEpoch}'),DateTime(2026,10,9,8));
+  });
+  test('legacy annual JSON and next leap day survive recurrence upgrade', () {
+    final old=CalendarReminder.fromJson({'id':'old','title':'生日','year':2024,'month':2,'day':29,
+      'yearly':true,'hour':9,'minute':0});
+    expect(old.repeat,'yearly');expect(old.enabled,isTrue);
+    expect(old.nextOccurrence(DateTime(2026,10,8)),DateTime(2028,2,29,9));
+    expect(CalendarReminder.fromJson(old.toJson()).repeat,'yearly');
+  });
   test('annual leap-day event belongs only to a real February 29', () {
     const reminder = CalendarReminder(
       id: 'leap', title: '闰日', year: 2024, month: 2, day: 29,
