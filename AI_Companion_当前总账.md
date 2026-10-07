@@ -1,6 +1,6 @@
 # AI Companion · 当前总账
 
-更新时间：2026-10-07（+324 IMPLEMENTED / CI PENDING / APK PENDING / TRUE DEVICE PENDING；+323 CI PASSED / APK READY / TRUE DEVICE PENDING；+322 CI PASSED / APK READY / TRUE DEVICE PENDING；+321 CI PASSED / APK READY / TRUE DEVICE PENDING；+320 CI PASSED / APK READY / TRUE DEVICE PENDING；+319 CI PASSED / APK READY / TRUE DEVICE PENDING；+318 USER DEVICE ACCEPTED；+317 CI PASSED / APK READY / TRUE DEVICE PENDING；+316 CI PASSED / APK READY / TRUE DEVICE PENDING；+315 CI PASSED / APK READY / TRUE DEVICE PENDING；+314 CI PASSED / APK READY / TRUE DEVICE PENDING；+313 CI PASSED / APK READY / TRUE DEVICE PENDING；+312 CI PASSED / APK READY / TRUE DEVICE PENDING；+311 CI PASSED / APK READY / TRUE DEVICE PENDING；+310 CI PASSED / APK READY / TRUE DEVICE PENDING；+309 CI PASSED / APK READY / TRUE DEVICE PENDING；+308 CI PASSED / APK READY / TRUE DEVICE PENDING；+307 CI PASSED / APK READY / USER DEVICE ACCEPTED；+306 CI PASSED / APK READY / TRUE DEVICE PENDING；+305 CI PASSED / APK READY / DEVICE REPORTED REPLY STALL；+304 CI PASSED / APK READY / TRUE DEVICE PENDING；+303 CI PASSED / APK READY / TRUE DEVICE PENDING；+302 CI PASSED / APK READY / TRUE DEVICE PENDING；+301 CI PASSED / APK READY / TRUE DEVICE PENDING；+300 CI PASSED / APK READY / TRUE DEVICE PENDING；+299 CI PASSED / APK READY / TRUE DEVICE PENDING；+298 CI PASSED / APK READY / TRUE DEVICE PENDING；+297 CI PASSED / APK READY / TRUE DEVICE PENDING；+295 恢复真机成功、背景回归 PARTIAL；+293 DEVICE VISUAL BASELINE）
+更新时间：2026-10-07（+324 CI PASSED / APK READY / TRUE DEVICE PENDING；+323 CI PASSED / APK READY / TRUE DEVICE PENDING；+322 CI PASSED / APK READY / TRUE DEVICE PENDING；+321 CI PASSED / APK READY / TRUE DEVICE PENDING；+320 CI PASSED / APK READY / TRUE DEVICE PENDING；+319 CI PASSED / APK READY / TRUE DEVICE PENDING；+318 USER DEVICE ACCEPTED；+317 CI PASSED / APK READY / TRUE DEVICE PENDING；+316 CI PASSED / APK READY / TRUE DEVICE PENDING；+315 CI PASSED / APK READY / TRUE DEVICE PENDING；+314 CI PASSED / APK READY / TRUE DEVICE PENDING；+313 CI PASSED / APK READY / TRUE DEVICE PENDING；+312 CI PASSED / APK READY / TRUE DEVICE PENDING；+311 CI PASSED / APK READY / TRUE DEVICE PENDING；+310 CI PASSED / APK READY / TRUE DEVICE PENDING；+309 CI PASSED / APK READY / TRUE DEVICE PENDING；+308 CI PASSED / APK READY / TRUE DEVICE PENDING；+307 CI PASSED / APK READY / USER DEVICE ACCEPTED；+306 CI PASSED / APK READY / TRUE DEVICE PENDING；+305 CI PASSED / APK READY / DEVICE REPORTED REPLY STALL；+304 CI PASSED / APK READY / TRUE DEVICE PENDING；+303 CI PASSED / APK READY / TRUE DEVICE PENDING；+302 CI PASSED / APK READY / TRUE DEVICE PENDING；+301 CI PASSED / APK READY / TRUE DEVICE PENDING；+300 CI PASSED / APK READY / TRUE DEVICE PENDING；+299 CI PASSED / APK READY / TRUE DEVICE PENDING；+298 CI PASSED / APK READY / TRUE DEVICE PENDING；+297 CI PASSED / APK READY / TRUE DEVICE PENDING；+295 恢复真机成功、背景回归 PARTIAL；+293 DEVICE VISUAL BASELINE）
 
 > 本文件是唯一的当前接班入口，继续采用“总账 v2”。顶部是快速接班索引；标记后的正式记录按版本持续追加，不设总容量上限。
 >
@@ -8,11 +8,13 @@
 
 
 
-## 当前接班快照 · +324 立体背景与旧连接清理（IMPLEMENTATION IN PROGRESS / CI PENDING / APK PENDING / TRUE DEVICE PENDING）
+## 当前接班快照 · +324 立体背景与旧连接清理（CI PASSED / APK READY / TRUE DEVICE PENDING）
 
-2026-10-07 16:22 用户调高思考力度并授权开始。基线+323 HEAD 2fc551f；分支agent/v04280-depth-background-cleanup，目标0.42.80+324。先完整审查旧手机↔平板连接直接实现及上下游依赖，删除Nearby发现/配对/整包接管入口与专用实现，保留普通备份/恢复、旧包兼容、换机手动恢复和共用状态围栏；再为既有日/夜背景加入可开关、可调强度的姿态深度视差。两项独立提交，同一同签名未发布测试APK。当前仅开始实施，不宣称CI/真机通过。范围与验证见app/docs/DEPTH_BACKGROUND_CLEANUP_v0.42.80.md。
+2026-10-07 用户授权的两项已完成并交付：`v0.42.80+324`，分支 `agent/v04280-depth-background-cleanup`，交付源码 `d6314bd3d0701bc81509d5a1de9fc9e41c48a422` / tree `de20d265b84bf70d96d5b7122e49c7be36b78ada`。Nearby专用入口、传输、依赖和权限已移除；页面改为“备份与恢复”，保留.aibackup、旧包兼容、手动换机及共用恢复/身份围栏。原日夜背景新增可开关深度视差，默认关闭、强度55%，普通立绘与原生Live2D均接入；页面离开/后台停用，重新进入校准，人物与文字不参与位移。完整审查范围见 `app/docs/DEPTH_BACKGROUND_CLEANUP_v0.42.80.md`。
 
-用户确认+323小豆丁形态问题已解决（本项TRUE DEVICE PASSED）；其他长期效果继续自然观察，不补认全部通过。用户撤销旧手机平板伴随端路线；未来平板独立陪玩App无聊天输入，与手机AI伴侣同步同一条台词、手机负责聊天入口，另案设计，本批不实现。闪退根因仍缺堆栈，不猜修。禁止破坏现有聊天/记忆/备份/Live2D，保留按需规划与既有人设。
+完整Actions `37612706122` 与专项 `37612706291` 成功：149项源码门、1406项全量Flutter、406项专项、20项Android35原生及Kotlin/签名/资源检查通过。[同签名未发布+324测试APK](https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-6662961f1fda0dcaf434)已就绪；文件哈希、失败路线与交付证据见文末“+324 最终CI与未发布APK交付”。仅CI通过，立体观感、耗电与实际设备备份操作仍待真机观察。未合并main、未正式发布。
+
+用户确认+323小豆丁恢复本体后仍自称小豆丁的问题已解决（本项TRUE DEVICE PASSED）；其余长期效果继续自然观察。旧手机平板伴随路线取消；未来独立平板陪玩App与手机同步同一条台词、手机提供聊天入口，另案设计，本批未实现。闪退仍缺堆栈，不猜修。下一步承接+324真机反馈，其余从本总账6.3和对应任务文档定点读取，不恢复已取消路线。
 
 ## 前次交付 · +323 游戏授权、愿望自主处置、滚动与形态事实（CI PASSED / APK READY / TRUE DEVICE PENDING）
 
@@ -2916,3 +2918,15 @@ CI PASSED / APK READY / TRUE DEVICE PENDING。自动测试证明调度、恢复�
 - 持久签名SHA-256 `30:5E:B3:D8:09:83:B9:63:C6:48:18:DD:F1:AD:56:1F:27:9D:E6:D4:7B:3E:D2:C7:81:AD:A4:48:C7:C2:51:48`，CI比对通过，可以覆盖安装。未合并main、未正式发布。
 - 状态严格为 IMPLEMENTED / CI PASSED / APK READY / TRUE DEVICE PENDING。用户14:40:57主进程crash有系统记录，缺少异常堆栈，根因未定，未声称修复；重启后TTS异常不能倒推是崩溃原因。待真机观察游戏授权、愿望评估、正文滚动和形态措辞；若再闪退需尽快导出新诊断。
 - 后续入口：本批实现与失败证据见 `app/docs/WISH_CHAT_FIXES_v0.42.79.md`，其余待办仍从本总账6.3唯一后续清单与+322梦境长期观察进入。用户明确不改项不得因后续“优化”自动复活。
+
+
+## +324 最终CI与未发布APK交付（2026-10-07 19:41）
+
+- 基线+323 `2fc551f`；当前版本 `0.42.80+324`，开发分支 `agent/v04280-depth-background-cleanup`。清理提交远端 `87ecb76f`（原本地997b5a2，同树b4b53f53）；立体背景 `8fdc7783`（原本地57bbe5e，同树71567a9e）；测试等待修正 `461421d2`；资源计数修正及最终交付源码 `d6314bd3d0701bc81509d5a1de9fc9e41c48a422` / tree `de20d265b84bf70d96d5b7122e49c7be36b78ada`。通过已连接GitHub接口上传，逐blob和整树SHA核对；本地工作分支已与真实远端提交对齐，原本地提交另有checkpoint引用保留。
+- 旧连接删除边界：完整审查TransferPage/NearbyManager、Dart与原生桥、权限、诊断、恢复协调器、状态身份和数据库相关事务。移除Nearby发现/配对/发送接收/ACK/自动接管路径、专用Google依赖及蓝牙/定位权限；保留通知、文件选择、普通备份、旧文件夹/加密包兼容、手动换机和待机接管。数据库、SnapshotService、SnapshotRestoreCoordinator、缓存清理、NativeEventStore、ManualSnapshotCrypto和PortableCompanionState与+323逐字节一致，未改schema或清除存量数据。旧状态保护辅助函数及旧包encryption字段按兼容边界保留，非遗漏的连接入口。
+- 立体背景：不替换原day/night图，增加同构图深度辅助图；Flutter FragmentShader与原生GL采用相同小幅深度采样。聊天外观中的“立体背景”默认关闭，强度20%—100%、默认55%；当前握持姿态校准、相对旋转、平滑、约20度限幅、30Hz限频，离开页面/后台/销毁停传感器，无传感器保持静态。恢复GL上下文重建纹理，深度加载失败保留原图，关闭恢复静态。人物、五官、配件和文字/按钮不变换；本批不改人设、主动额度、游戏、TTS和桌宠资源。
+- 真实失败与限制：前段本地Flutter初始化因云元数据访问触发自动审核，未绕过；源码门本地3项因缺资源/kotlinc交CI补验。前轮上传未完成、CLI无登录凭据，用户再次确认持续授权后通过GitHub接口完成。首轮专项37608544835为404通过/2失败：新页面测试在fake async区启动真实IO却只在runAsync固定等待80/100ms；改为整个交互处于真实异步区并有界等待完成UI，保留全部数据库/桥接断言，不改恢复代码。第二轮专项37609748768为406通过，完整37609748700中测试、APK编译与签名通过，但旧LingChat计数把新增深度图算入原62文件包，报background实际4/预期2，故未交付该包。最后只改CI：精确核对四张背景资源，再仅从原62文件包统计排除两张辅助图，原计数、原图SHA与后续四文件逐字节/编译shader检查均保留。没有取消检查或删断言来放行。
+- 最终验证：完整[Actions37612706122](https://github.com/catkiss62/ai-companion-build/actions/runs/37612706122)成功；原生job `112763595816` 20/20，完整build job `112765771838` 1406项Flutter、Kotlin、149项现行源码门成功；专项Actions `37612706291` 406项通过。APK中原62文件LingChat包、四张背景/深度资源、编译shader、131项离线星谷资源、Genie及完整桌宠载荷校验全部通过。覆盖近远位移、关闭还原、缺深度降级、GL重建、传感器订阅生命周期、备份取消不改变状态及待机手动接管；这些不等于真机观感/耗电验收。
+- [未发布+324测试APK](https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-6662961f1fda0dcaf434)，Draft `405657276`，APK asset `618513554`，文件 `AI-Companion-v0.42.80-324-Depth-Background-Cleanup-APK.apk`，大小 `736749233` bytes。API确认uploaded/draft=true/target=d6314bd3；CI Monitor的run/head一致，APK SHA-256与上传后digest一致：`dcaa661ced889c9d4896fc4b823cc54633ae1c06e0d835bbc0b76006c07a61a0`。
+- 持久签名SHA-256 `30:5E:B3:D8:09:83:B9:63:C6:48:18:DD:F1:AD:56:1F:27:9D:E6:D4:7B:3E:D2:C7:81:AD:A4:48:C7:C2:51:48`，与+323相同、可覆盖安装。未合并main、未正式发布。
+- 状态为IMPLEMENTED / CI PASSED / APK READY / TRUE DEVICE PENDING。用户确认的小豆丁错误自称仅该项记为真机通过；梦境/愿望等长期观察继续。独立平板陪玩同步只讨论并记录，未实现。旧闪退缺异常堆栈，根因未定，不宣称本批修好。下一步承接本批真机反馈，再从6.3唯一后续清单定点选择，不自动复活旧伴随端路线。

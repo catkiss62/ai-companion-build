@@ -16,7 +16,7 @@
 - Flutter analyze、全量行为测试、原生烟测、源码/资源/签名检查。同签名APK交付后由用户验证实机观感和耗电，不把模拟器视为真机。
 
 ## 状态
-IMPLEMENTED / CI PENDING / APK PENDING / TRUE DEVICE PENDING。
+IMPLEMENTED / CI PASSED / APK READY / TRUE DEVICE PENDING。
 
 ## 连接清理审查记录
 已完整阅读TransferPage、NearbyTransferManager、NativePreflightProbe、SnapshotService、SnapshotRestoreCoordinator、TransferStateIdentity及缓存清理；定点完整阅读AppDatabase的状态身份/冻结/取消/手动激活/手动导出事务，桥接的Nearby及共用权限生命周期和备份方法边界、诊断调用者。
@@ -40,3 +40,6 @@ IMPLEMENTED / CI PENDING / APK PENDING / TRUE DEVICE PENDING。
 两项独立提交通过GitHub接口逐blob上传，并核对远端tree与本地完全相同：清理87ecb76f/tree b4b53f53；背景8fdc7783/tree71567a9e。原生Actions37608544850烟测成功，静态分析成功；专项37608544835为404通过、2失败，均为新增备份页面测试。测试在fake async区启动文件/SQLite回调，随后仅在runAsync中固定休眠80/100ms，未等待真实操作结束；改为整个交互处于runAsync并有界等待真实取消/接管完成UI，再验证数据库代次和桥接调用。保留全部原断言，不改产品恢复逻辑。新一轮CI待验证；首轮不能记为全通过。
 
 第二轮：测试修正461421d2/tree eb812c74，专项37609748768全部406通过；完整37609748700中149项源码门、Kotlin、20项原生、1406项全量Flutter全部通过，736.7MB APK编译及持久签名校验通过，但旧包内LingChat检查仍把新增深度图计入原62文件包，报background=4而预期2，未完成交付。修正为先严格核对背景目录恰有day/night原图和两张深度图，再从原62文件包统计中仅排除这两张辅助图；原资源计数、原图哈希和随后四文件逐字节/编译shader检查完整保留。此修正只改CI与记录，产品源码不变；需重新完整构建，不把已生成但未验完的包交付。
+
+## 最终交付
+完整Actions37612706122与专项37612706291通过；149源码门、1406全量Flutter、406专项、20原生和Kotlin/签名/资源校验全部成功。交付源码d6314bd3/tree de20d265；同签名未发布Draft405657276，APK asset618513554，736749233字节，SHA-256 dcaa661ced889c9d4896fc4b823cc54633ae1c06e0d835bbc0b76006c07a61a0。下载：https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-6662961f1fda0dcaf434 。未合并main、未正式发布；真机观感/耗电待用户验收。完整唯一交接证据已写入总账顶部快照及文末+324最终交付记录。
