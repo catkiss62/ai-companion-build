@@ -432,12 +432,9 @@ void main() {
       expect(await WishStore(db).prompt(gameOnly: true, now: now), '');
       expect(await WishStore(db).prompt(includeCompleted: true, now: now), contains('abandoned'));
       final snapshot = await db.exportAll();
-      final other = await AppDatabase.createForTesting(databaseFactoryFfi);
-      try {
-        await other.importAll(snapshot);
-        expect((await WishStore(other).load()).single.state, 'abandoned');
-        expect(await WishStore(other).prompt(gameOnly: true, now: now), '');
-      } finally { await other.closeForTesting(); }
+      await db.importAll(snapshot);
+      expect((await WishStore(db).load()).single.state, 'abandoned');
+      expect(await WishStore(db).prompt(gameOnly: true, now: now), '');
     });
     test('disabled phone makes no call and exposes no wish prompt', () async {
       await seed();

@@ -26,6 +26,7 @@ jobs:
       - name: Behavioral regression tests
         run: >-
           flutter test
+          test/playful_form_state_test.dart
           test/jev_decision_gateway_test.dart
           test/wish_self_disposition_test.dart
           test/chat_tail_follower_test.dart

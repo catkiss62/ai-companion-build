@@ -594,6 +594,7 @@ ANSWERED_HISTORY_ONLY = true
         // Time-detail deduplication is optional; it must never block a reply.
       }
     }
+    form.anchorCurrentForm(messages);
     return PromptBuildResult(
       messages: List<Map<String, Object?>>.unmodifiable(messages),
       worldBookContext: worldBookContext,

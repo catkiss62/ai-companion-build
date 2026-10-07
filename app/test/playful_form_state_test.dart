@@ -2,6 +2,30 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:ai_companion_localfirst/core/personality/playful_form_state.dart';
 
 void main() {
+  test('zero settlement anchors normal form after historical Q dialogue', () {
+    final now = DateTime(2026, 10, 7, 14, 42);
+    final pending = const PlayfulFormState(heat: 15, qForm: true)
+        .advance(PlayfulInteraction.ordinary, 'gold', now);
+    expect(pending.currentFormFact, contains('当前为小豆丁形态'));
+    final normal = pending.onAssistantTurn(PlayfulSelfActivity.none, 'gold-reply', now);
+    expect(normal.qForm, false);
+    final next = normal.advance(PlayfulInteraction.light, 'food', now);
+    final messages = <Map<String, Object?>>[
+      {'role': 'assistant', 'content': '本豆丁晃着小短腿'},
+      {'role': 'user', 'content': '噫，还好没在吃饭'},
+    ];
+    next.anchorCurrentForm(messages);
+    expect(messages.first['content'], '本豆丁晃着小短腿');
+    expect(messages[messages.length - 2]['role'], 'system');
+    expect(messages[messages.length - 2]['content'], contains('当前为正常本体'));
+    expect(messages.last['role'], 'user');
+    final proactive = <Map<String, Object?>>[{'role': 'system', 'content': 'ANSWERED_HISTORY_ONLY'}];
+    next.anchorCurrentForm(proactive);
+    expect(proactive.last['content'], contains('当前为正常本体'));
+    expect(proactive.where((m) => m['role'] == 'user'), isEmpty);
+    final tiny = const PlayfulFormState(qForm: true, locked: true);
+    expect(tiny.currentFormFact, contains('当前为小豆丁形态'));
+  });
   test('manual virtual interaction persists, then ordinary turns cool down', () {
     final now = DateTime(2026, 9, 23, 12);
     final excited = const PlayfulFormState().interact(kindle: true, now: now);

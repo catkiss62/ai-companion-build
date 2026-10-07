@@ -327,6 +327,21 @@ class PlayfulFormState {
     return PlayfulFormState.decode(jsonEncode(data));
   }
 
+  String get currentFormFact => promptQForm
+      ? '【本轮形态事实】当前为小豆丁形态，以本轮状态为准；本轮回复完成前不预判降温后的形态。'
+      : '【本轮形态事实】当前为正常本体，不是小豆丁形态。历史消息里的小豆丁、变小、小短腿等描述属于当时的形态，不延续为当前身体或自称；回忆和引用历史不受此限制。可以继续自然调侃、亲近，不必播报恢复，也不必因形态正常而变严肃。';
+
+  /// Reassert live state after historical Q-form dialogue, keeping a real
+  /// current user message last. Both reasoning and final prose see one fact.
+  void anchorCurrentForm(List<Map<String, Object?>> messages) {
+    final index = messages.isNotEmpty && messages.last['role'] == 'user'
+        ? messages.length - 1 : messages.length;
+    messages.insert(index, {
+      'role': 'system',
+      'content': '$currentFormFact 推理与正文使用同一当前形态；历史措辞不改变形态事实。',
+    });
+  }
+
   String promptForTurn(String turn) {
     final interaction = eventTurn == turn
         ? event == 'forehead'
