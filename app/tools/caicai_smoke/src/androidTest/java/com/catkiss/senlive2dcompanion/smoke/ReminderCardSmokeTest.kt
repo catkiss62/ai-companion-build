@@ -25,9 +25,11 @@ class ReminderCardSmokeTest {
         assertTrue(Runtime.confirm(context,"a:1000",2000,1100))
         val items=Runtime.records(context)
         assertEquals(2,items.size)
-        assertEquals("confirmed",items.first().getString("status"))
-        assertEquals("ringing",items.last().getString("status"))
-        assertEquals(299_000L,Runtime.remaining(items.last(),1100,2000))
+        val confirmed=items.single { it.getString("occurrence")=="a:1000" }
+        val remaining=items.single { it.getString("occurrence")=="b:1000" }
+        assertEquals("confirmed",confirmed.getString("status"))
+        assertEquals("ringing",remaining.getString("status"))
+        assertEquals(299_000L,Runtime.remaining(remaining,1100,2000))
         assertFalse(Runtime.confirm(context,"a:1000",2100,1200))
     }
     @Test fun timeoutAndLateConfirmationKeepOriginalDeadline() {
@@ -67,8 +69,9 @@ class ReminderCardSmokeTest {
                 assertTrue(button.isShown)
                 assertTrue(button.getGlobalVisibleRect(Rect()))
                 assertTrue(button.performClick())
-                assertEquals("confirmed",Runtime.records(activity).first().getString("status"))
-                assertEquals("ringing",Runtime.records(activity).last().getString("status"))
+                val items=Runtime.records(activity)
+                assertEquals("confirmed",items.single { it.getString("occurrence")=="a:1000" }.getString("status"))
+                assertEquals("ringing",items.single { it.getString("occurrence")=="b:1000" }.getString("status"))
             }
         }
     }
