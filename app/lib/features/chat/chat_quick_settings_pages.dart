@@ -19,6 +19,7 @@ import '../../core/tts/tts_service.dart';
 import '../../core/tts/tts_text_processor.dart';
 import '../../core/tts/tts_voice_profile.dart';
 import '../../widgets/action_tint_text.dart';
+import '../../widgets/room_depth_background.dart';
 import 'live2d_settings_page.dart';
 
 class CompanionStateOverviewPage extends StatefulWidget {
@@ -355,9 +356,14 @@ class _ProactiveContactSettingsPageState
 }
 
 class ChatVisualSettingsPage extends StatefulWidget {
-  const ChatVisualSettingsPage({required this.onEditPortrait, super.key});
+  const ChatVisualSettingsPage({
+    required this.onEditPortrait,
+    this.database,
+    super.key,
+  });
 
   final Future<void> Function() onEditPortrait;
+  final AppDatabase? database;
 
   @override
   State<ChatVisualSettingsPage> createState() =>
@@ -365,12 +371,14 @@ class ChatVisualSettingsPage extends StatefulWidget {
 }
 
 class _ChatVisualSettingsPageState extends State<ChatVisualSettingsPage> {
-  final _db = AppDatabase.instance;
+  late final _db = widget.database ?? AppDatabase.instance;
   bool _enabled = true;
   bool _emotionAnimation = true;
   bool _caicai = false;
   ChatPortraitSet _portrait = ChatPortraitSet.largeWhale;
   String _background = 'auto';
+  bool _backgroundDepth = false;
+  double _backgroundDepthStrength = .55;
   double _opacity = 0.75;
   bool _loading = true;
 
@@ -388,6 +396,10 @@ class _ChatVisualSettingsPageState extends State<ChatVisualSettingsPage> {
       await _db.getSetting('chat_portrait_set'),
     );
     _background = await _db.getSetting('chat_background_mode') ?? 'auto';
+    _backgroundDepth = await _db.getSetting('chat_background_depth') == '1';
+    _backgroundDepthStrength = RoomDepthBackground.parseStrength(
+      await _db.getSetting('chat_background_depth_strength'),
+    );
     _opacity = (double.tryParse(
               await _db.getSetting('chat_panel_opacity') ?? '',
             ) ??
@@ -481,6 +493,36 @@ class _ChatVisualSettingsPageState extends State<ChatVisualSettingsPage> {
                         await _db.setSetting('chat_background_mode', value);
                       },
                     ),
+                    const SizedBox(height: 14),
+                    SwitchListTile(
+                      contentPadding: EdgeInsets.zero,
+                      title: const Text('立体背景'),
+                      subtitle: const Text('轻轻倾斜手机，感受房间的远近变化。重新开启可校准握持角度；不支持姿态感应时保持静态。'),
+                      value: _backgroundDepth,
+                      onChanged: (value) async {
+                        setState(() => _backgroundDepth = value);
+                        await _db.setSetting(
+                          'chat_background_depth',
+                          value ? '1' : '0',
+                        );
+                      },
+                    ),
+                    if (_backgroundDepth) ...[
+                      Text('立体感强度 ${(_backgroundDepthStrength * 100).round()}%'),
+                      Slider(
+                        value: _backgroundDepthStrength,
+                        min: .2,
+                        max: 1,
+                        divisions: 16,
+                        label: '${(_backgroundDepthStrength * 100).round()}%',
+                        onChanged: (value) =>
+                            setState(() => _backgroundDepthStrength = value),
+                        onChangeEnd: (value) => _db.setSetting(
+                          'chat_background_depth_strength',
+                          value.toStringAsFixed(2),
+                        ),
+                      ),
+                    ],
                     const SizedBox(height: 18),
                     Text('聊天框透明度 ${(_opacity * 100).round()}%'),
                     Slider(
