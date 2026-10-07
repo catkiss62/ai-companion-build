@@ -1,6 +1,6 @@
 # AI Companion · 当前总账
 
-更新时间：2026-10-06（+322 IMPLEMENTED / CI PENDING；+321 CI PASSED / APK READY / TRUE DEVICE PENDING；+320 CI PASSED / APK READY / TRUE DEVICE PENDING；+319 CI PASSED / APK READY / TRUE DEVICE PENDING；+318 USER DEVICE ACCEPTED；+317 CI PASSED / APK READY / TRUE DEVICE PENDING；+316 CI PASSED / APK READY / TRUE DEVICE PENDING；+315 CI PASSED / APK READY / TRUE DEVICE PENDING；+314 CI PASSED / APK READY / TRUE DEVICE PENDING；+313 CI PASSED / APK READY / TRUE DEVICE PENDING；+312 CI PASSED / APK READY / TRUE DEVICE PENDING；+311 CI PASSED / APK READY / TRUE DEVICE PENDING；+310 CI PASSED / APK READY / TRUE DEVICE PENDING；+309 CI PASSED / APK READY / TRUE DEVICE PENDING；+308 CI PASSED / APK READY / TRUE DEVICE PENDING；+307 CI PASSED / APK READY / USER DEVICE ACCEPTED；+306 CI PASSED / APK READY / TRUE DEVICE PENDING；+305 CI PASSED / APK READY / DEVICE REPORTED REPLY STALL；+304 CI PASSED / APK READY / TRUE DEVICE PENDING；+303 CI PASSED / APK READY / TRUE DEVICE PENDING；+302 CI PASSED / APK READY / TRUE DEVICE PENDING；+301 CI PASSED / APK READY / TRUE DEVICE PENDING；+300 CI PASSED / APK READY / TRUE DEVICE PENDING；+299 CI PASSED / APK READY / TRUE DEVICE PENDING；+298 CI PASSED / APK READY / TRUE DEVICE PENDING；+297 CI PASSED / APK READY / TRUE DEVICE PENDING；+295 恢复真机成功、背景回归 PARTIAL；+293 DEVICE VISUAL BASELINE）
+更新时间：2026-10-07（+322 CI PASSED / APK READY / TRUE DEVICE PENDING；+321 CI PASSED / APK READY / TRUE DEVICE PENDING；+320 CI PASSED / APK READY / TRUE DEVICE PENDING；+319 CI PASSED / APK READY / TRUE DEVICE PENDING；+318 USER DEVICE ACCEPTED；+317 CI PASSED / APK READY / TRUE DEVICE PENDING；+316 CI PASSED / APK READY / TRUE DEVICE PENDING；+315 CI PASSED / APK READY / TRUE DEVICE PENDING；+314 CI PASSED / APK READY / TRUE DEVICE PENDING；+313 CI PASSED / APK READY / TRUE DEVICE PENDING；+312 CI PASSED / APK READY / TRUE DEVICE PENDING；+311 CI PASSED / APK READY / TRUE DEVICE PENDING；+310 CI PASSED / APK READY / TRUE DEVICE PENDING；+309 CI PASSED / APK READY / TRUE DEVICE PENDING；+308 CI PASSED / APK READY / TRUE DEVICE PENDING；+307 CI PASSED / APK READY / USER DEVICE ACCEPTED；+306 CI PASSED / APK READY / TRUE DEVICE PENDING；+305 CI PASSED / APK READY / DEVICE REPORTED REPLY STALL；+304 CI PASSED / APK READY / TRUE DEVICE PENDING；+303 CI PASSED / APK READY / TRUE DEVICE PENDING；+302 CI PASSED / APK READY / TRUE DEVICE PENDING；+301 CI PASSED / APK READY / TRUE DEVICE PENDING；+300 CI PASSED / APK READY / TRUE DEVICE PENDING；+299 CI PASSED / APK READY / TRUE DEVICE PENDING；+298 CI PASSED / APK READY / TRUE DEVICE PENDING；+297 CI PASSED / APK READY / TRUE DEVICE PENDING；+295 恢复真机成功、背景回归 PARTIAL；+293 DEVICE VISUAL BASELINE）
 
 > 本文件是唯一的当前接班入口，继续采用“总账 v2”。顶部是快速接班索引；标记后的正式记录按版本持续追加，不设总容量上限。
 >
@@ -8,9 +8,9 @@
 
 
 
-## 当前任务 · +322 午夜梦境与可修订的自我理解（IMPLEMENTED / CI PENDING）
+## 当前交付 · +322 午夜梦境与可修订的自我理解（CI PASSED / APK READY / TRUE DEVICE PENDING）
 
-2026-10-06 03:53 用户授权实施此前多轮灵魂/梦境讨论，要求先整理文档。基线+321本地d59998c/远端9cdd5129同树419ec3fc，分支agent/v04278-nightly-dream，目标0.42.78+322。设计先落app/docs/NIGHTLY_DREAM_v0.42.78.md。午夜空档每日最多一次成功整理，断网/中断日间补做；周回顾替代当日整理，保留原事件日期与可核对出处，允许暂定认识、自主愿望、修订和撤回，旧重复不累计为永久人格。沿用自我整理开关，接管旧自动AI Self反思，保留事实记忆、正式性格、关系/Desire和具体问题讨论。紧凑理解进入普通聊天、合适的主动正文和已有自主游戏选择；新话题专用来源隔离/角色扮演边界保留，不增主动额度、不自动汇报、不加每轮规划。状态/游标/完成日原子提交，真机长期表现待用户观察，当前CI与APK尚待完成。
+2026-10-06 03:53 用户授权实施此前多轮灵魂/梦境讨论，要求先整理文档。基线+321本地d59998c/远端9cdd5129同树419ec3fc，分支agent/v04278-nightly-dream，目标0.42.78+322。设计先落app/docs/NIGHTLY_DREAM_v0.42.78.md。午夜空档每日最多一次成功整理，断网/中断日间补做；周回顾替代当日整理，保留原事件日期与可核对出处，允许暂定认识、自主愿望、修订和撤回，旧重复不累计为永久人格。沿用自我整理开关，接管旧自动AI Self反思，保留事实记忆、正式性格、关系/Desire和具体问题讨论。紧凑理解进入普通聊天、合适的主动正文和已有自主游戏选择；新话题专用来源隔离/角色扮演边界保留，不增主动额度、不自动汇报、不加每轮规划。状态/游标/完成日原子提交，真机长期表现待用户观察。完整Actions37371248037与专项37371248110第二次运行通过，1392项全量Flutter、380项专项、18项原生及148项源码门通过。同签名未发布APK已就绪，下载页与最终证据见文末+322交付记录。
 
 ## 当前任务 · +321 自主话题与按钮缩小（CI PASSED / APK READY / TRUE DEVICE PENDING）
 
@@ -2864,6 +2864,24 @@ Draft Release403677991，draft=true，target精确对应3420d05bf123b75cd66f5fc2
 CI PASSED / APK READY / TRUE DEVICE PENDING。聊天自然程度、短回复后的实际展开、重复频率与按钮手机观感仍待用户实际体验；没有运行收费模型体验评测，不以源码提示或自动测试宣称聊天质量已获验收。可回退+320未发布包，但覆盖降级按Android既有版本规则处理。任务文档app/docs/CONVERSATION_TOPICS_v0.42.77.md。
 
 
-## +322 梦境系统实施记录（待验证）
+## +322 梦境系统实施记录（实施时待验证；最终结果见下）
 
-按用户2026-10-06授权开始，详细目标、约束和验收见app/docs/NIGHTLY_DREAM_v0.42.78.md。模块拆为dream_contract/material/store/engine；当前理解10条以内、修订历史24条，出处原文校验、角色扮演成对排除，旧推断只作背景。默认夜间空档/日间补做，5分钟空闲，日最多一次成功整理、失败30/60/120分钟退避、之后最多4小时间隔重试（不耗尽当日补做机会，手动可提前重试）；每7日回顾替代当次。使用既有内部Pro+thinking high，一次有界JSON，不调用工具/不发送消息。模型语义质量需日常观察，不将prompt注入/记忆recall计数当成行为成长证据。CI、最终SHA与未发布同签名APK完成后补记。
+按用户2026-10-06授权开始，详细目标、约束和验收见app/docs/NIGHTLY_DREAM_v0.42.78.md。模块拆为dream_contract/material/store/engine；当前理解10条以内、修订历史24条，出处原文校验、角色扮演成对排除，旧推断只作背景。默认夜间空档/日间补做，5分钟空闲，日最多一次成功整理、失败30/60/120分钟退避、之后最多4小时间隔重试（不耗尽当日补做机会，手动可提前重试）；每7日回顾替代当次。使用既有内部Pro+thinking high，一次有界JSON，不调用工具/不发送消息。模型语义质量需日常观察，不将prompt注入/记忆recall计数当成行为成长证据。CI、最终SHA与未发布同签名APK已在下方补记。
+
+
+## +322 午夜梦境与可修订的自我理解 · 最终交付（2026-10-07）
+
+用户于2026-10-06授权按多轮灵魂/梦境讨论实施，要求先整理文档；2026-10-07额度恢复后明确继续。既有开发分支推送与未发布测试APK授权有效，未合并main、未正式发布。实现前已建立app/docs/NIGHTLY_DREAM_v0.42.78.md并据其验收。
+
+- 午夜后在既有心跳寻找空档，断网/强关/忙碌可稍后补做，每个本地日最多一次成功整理；失败不推进游标，采用30/60/120分钟、之后最多4小时间隔退避，没有耗尽白天补做机会的每日失败上限。每7日回顾替代当次整理，不自动问候或汇报，不增加主动额度。
+- 从真实消息与已读材料形成可修订理解，保留暂定、目前认可、想尝试及不确定性。旧重复不累计票数，新经历允许修订或撤回旧认识。原始时间、出处与修订理由可核对；旧摘要/自身反思不是新事实，角色扮演成对排除，原来源被删除或重生成后停止使用失去依据的理解。
+- 当前理解最多10条，每轮最多4项修改、修订历史24条，数量是存储预算而非人格过期时间。接管旧自动AI Self整理，事实记忆、正式性格、Desire、愿望与具体问题讨论各自保留职责；不增加人格分值或固定台词。
+- 紧凑理解参与普通聊天、适合的主动正文和已有游戏选择/推进，不增加逐轮规划调用；新话题专用来源及角色扮演边界保持。“内在状态”可查看当前理解、缘由及选择意义。沿用原自我整理开关与settings备份恢复，无需重新导入存档。
+
+源码：分支agent/v04278-nightly-dream，版本0.42.78+322，构建提交a05d427320f844bc500aad85ae87965ac8ea2438，tree44023bfb9cfb27e7ed66ea8276b2a0f79904b29a。最终文档记录提交与构建提交仅文档不同。
+
+验证：完整[Actions37371248037](https://github.com/catkiss62/ai-companion-build/actions/runs/37371248037)第二次运行成功，1392项全量Flutter、148项源码门、Android15原生18项、Kotlin、包内资源与签名验证通过；[专项Actions37371248110](https://github.com/catkiss62/ai-companion-build/actions/runs/37371248110)第二次运行成功，380项通过，其中新增梦境43项。analyze无error，原有no-fatal-warnings/no-fatal-infos口径保持。本地先前1382通过、10项缺环境失败已在完整CI补验；首轮缺导入及备份测试内存库夹具问题已修正，最后两条首次CI在测试前被取消，重试后通过，无绕过测试门。
+
+[未发布同签名+322 APK](https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-aaf06bea52b7c144c733)：Draft405397342，target a05d427320f844bc500aad85ae87965ac8ea2438，asset617633536，AI-Companion-v0.42.78-322-Nightly-Dream-APK.apk，734534297字节。SHA-256 15d751eb015ba9a758274e3cbc1631270cf15baa7e49fff7744891c43594cffa；签名305eb3d80983b963c64818ddf1ad561f279de6d47b3ed2c781ada448c7c25148，与+321一致。GitHub资产digest、构建日志和.ci/v04278-monitor.txt相互核对，draft=true。
+
+CI PASSED / APK READY / TRUE DEVICE PENDING。自动测试证明调度、恢复、证据和提示使用路径，不证明模型已形成理想人格；未使用用户真实API密钥进行收费语义评测。手机后台跨夜运行及长期自然变化仍待日常观察，不以记忆/注入计数冒充行为改变。+321保留为前一已验证构建，降级遵循Android既有版本规则。
