@@ -1,6 +1,6 @@
 # AI Companion · 当前总账
 
-更新时间：2026-10-07（+325 IMPLEMENTED / CI PENDING / APK PENDING / TRUE DEVICE PENDING；+324 CI PASSED / APK READY / TRUE DEVICE PENDING；+323 CI PASSED / APK READY / TRUE DEVICE PENDING；+322 CI PASSED / APK READY / TRUE DEVICE PENDING；+321 CI PASSED / APK READY / TRUE DEVICE PENDING；+320 CI PASSED / APK READY / TRUE DEVICE PENDING；+319 CI PASSED / APK READY / TRUE DEVICE PENDING；+318 USER DEVICE ACCEPTED；+317 CI PASSED / APK READY / TRUE DEVICE PENDING；+316 CI PASSED / APK READY / TRUE DEVICE PENDING；+315 CI PASSED / APK READY / TRUE DEVICE PENDING；+314 CI PASSED / APK READY / TRUE DEVICE PENDING；+313 CI PASSED / APK READY / TRUE DEVICE PENDING；+312 CI PASSED / APK READY / TRUE DEVICE PENDING；+311 CI PASSED / APK READY / TRUE DEVICE PENDING；+310 CI PASSED / APK READY / TRUE DEVICE PENDING；+309 CI PASSED / APK READY / TRUE DEVICE PENDING；+308 CI PASSED / APK READY / TRUE DEVICE PENDING；+307 CI PASSED / APK READY / USER DEVICE ACCEPTED；+306 CI PASSED / APK READY / TRUE DEVICE PENDING；+305 CI PASSED / APK READY / DEVICE REPORTED REPLY STALL；+304 CI PASSED / APK READY / TRUE DEVICE PENDING；+303 CI PASSED / APK READY / TRUE DEVICE PENDING；+302 CI PASSED / APK READY / TRUE DEVICE PENDING；+301 CI PASSED / APK READY / TRUE DEVICE PENDING；+300 CI PASSED / APK READY / TRUE DEVICE PENDING；+299 CI PASSED / APK READY / TRUE DEVICE PENDING；+298 CI PASSED / APK READY / TRUE DEVICE PENDING；+297 CI PASSED / APK READY / TRUE DEVICE PENDING；+295 恢复真机成功、背景回归 PARTIAL；+293 DEVICE VISUAL BASELINE）
+更新时间：2026-10-07（+325 CI PASSED / APK READY / TRUE DEVICE PENDING；+324 CI PASSED / APK READY / TRUE DEVICE PENDING；+323 CI PASSED / APK READY / TRUE DEVICE PENDING；+322 CI PASSED / APK READY / TRUE DEVICE PENDING；+321 CI PASSED / APK READY / TRUE DEVICE PENDING；+320 CI PASSED / APK READY / TRUE DEVICE PENDING；+319 CI PASSED / APK READY / TRUE DEVICE PENDING；+318 USER DEVICE ACCEPTED；+317 CI PASSED / APK READY / TRUE DEVICE PENDING；+316 CI PASSED / APK READY / TRUE DEVICE PENDING；+315 CI PASSED / APK READY / TRUE DEVICE PENDING；+314 CI PASSED / APK READY / TRUE DEVICE PENDING；+313 CI PASSED / APK READY / TRUE DEVICE PENDING；+312 CI PASSED / APK READY / TRUE DEVICE PENDING；+311 CI PASSED / APK READY / TRUE DEVICE PENDING；+310 CI PASSED / APK READY / TRUE DEVICE PENDING；+309 CI PASSED / APK READY / TRUE DEVICE PENDING；+308 CI PASSED / APK READY / TRUE DEVICE PENDING；+307 CI PASSED / APK READY / USER DEVICE ACCEPTED；+306 CI PASSED / APK READY / TRUE DEVICE PENDING；+305 CI PASSED / APK READY / DEVICE REPORTED REPLY STALL；+304 CI PASSED / APK READY / TRUE DEVICE PENDING；+303 CI PASSED / APK READY / TRUE DEVICE PENDING；+302 CI PASSED / APK READY / TRUE DEVICE PENDING；+301 CI PASSED / APK READY / TRUE DEVICE PENDING；+300 CI PASSED / APK READY / TRUE DEVICE PENDING；+299 CI PASSED / APK READY / TRUE DEVICE PENDING；+298 CI PASSED / APK READY / TRUE DEVICE PENDING；+297 CI PASSED / APK READY / TRUE DEVICE PENDING；+295 恢复真机成功、背景回归 PARTIAL；+293 DEVICE VISUAL BASELINE）
 
 > 本文件是唯一的当前接班入口，继续采用“总账 v2”。顶部是快速接班索引；标记后的正式记录按版本持续追加，不设总容量上限。
 >
@@ -8,11 +8,13 @@
 
 
 
-## 当前接班快照 · +325 立体背景新版入口漏接（IMPLEMENTED / CI PENDING / APK PENDING / TRUE DEVICE PENDING）
+## 当前接班快照 · +325 立体背景新版入口漏接（CI PASSED / APK READY / TRUE DEVICE PENDING）
 
-2026-10-07 20:08 用户报告+324找不到“立体背景”。已确认根因：开关仅加在chat_page.dart的旧_openQuickPanel里；默认Material3会分流至_openQuickPanelV2，再进入ChatVisualSettingsPage，此实际使用页面没有新开关。+324的CI通过仍是真实结果，但没有验证默认主题的实际设置入口，不能视为功能已真机可用。修正版目标0.42.81+325，分支agent/v04281-depth-settings-entry，基线e09a4cf。
+2026-10-07 20:44 已完成0.42.81+325，分支agent/v04281-depth-settings-entry，基线e09a4cf，交付源码4df64d8c7a099de60fe8317ea10c6a7674b6152d / tree d1755c834e625dc294b15983aae992f6f417e994。用户报告+324找不到开关，根因是只接入旧_openQuickPanel，默认Material3实际进入_openQuickPanelV2→ChatVisualSettingsPage。此次将同一“立体背景”开关及强度滑钮补入实际页面，默认关闭、强度55%，点击保存和重新进入读取，舞台关闭/重开保留设置。路径：聊天顶部头像/DeepSeek→聊天画面→聊天背景下方；需开启“角色聊天舞台”。沿用+324渲染/传感器和连接清理，不改共享恢复核心。
 
-本批仅给实际“聊天画面”分类页面接入同一开关和强度设置，并验证Material3页面真实SQLite保存、重新进入保持设置；沿用+324渲染/传感器和连接清理。路径：聊天顶部头像/DeepSeek→聊天画面→聊天背景下方。任务及失败路线见app/docs/DEPTH_SETTINGS_ENTRY_v0.42.81.md。入口代码与真实SQLite交互回归已写入，待CI执行。当地146/149项源码门通过，3项因本地缺CI恢复资源或kotlinc无法执行，不计为完整通过；工作流及嵌入Python语法、总账/连接清理边界通过。尚未交付新APK。
+完整Actions 37619987572和专项37619987582均成功：149项源码门、1407项全量Flutter、407项专项、20项Android35原生及Kotlin/签名/资源检查通过。新增实际Material3页面SQLite交互回归通过，修复先前缺失的入口测试覆盖。[同签名未发布+325测试APK](https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-226ea340df609599817a)已就绪，上传文件哈希和CI monitor一致。总账及app/docs/DEPTH_SETTINGS_ENTRY_v0.42.81.md已记录根因、边界和最终证据，详见文末+325交付。
+
++324的完整CI确实通过，但默认新版入口漏接，不能说该入口已真机可用；+325尚待用户确认实际手机观感、耗电和入口使用。用户已确认的+323小豆丁恢复本体命名修复仍有效，其余长期观察继续；未来平板独立陪玩同步仍另案设计，旧闪退缺堆栈仍不猜修。未合并main、未正式发布。
 
 ## 当前接班快照 · +324 立体背景与旧连接清理（CI PASSED / APK READY / TRUE DEVICE PENDING）
 
@@ -2936,3 +2938,20 @@ CI PASSED / APK READY / TRUE DEVICE PENDING。自动测试证明调度、恢复�
 - [未发布+324测试APK](https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-6662961f1fda0dcaf434)，Draft `405657276`，APK asset `618513554`，文件 `AI-Companion-v0.42.80-324-Depth-Background-Cleanup-APK.apk`，大小 `736749233` bytes。API确认uploaded/draft=true/target=d6314bd3；CI Monitor的run/head一致，APK SHA-256与上传后digest一致：`dcaa661ced889c9d4896fc4b823cc54633ae1c06e0d835bbc0b76006c07a61a0`。
 - 持久签名SHA-256 `30:5E:B3:D8:09:83:B9:63:C6:48:18:DD:F1:AD:56:1F:27:9D:E6:D4:7B:3E:D2:C7:81:AD:A4:48:C7:C2:51:48`，与+323相同、可覆盖安装。未合并main、未正式发布。
 - 状态为IMPLEMENTED / CI PASSED / APK READY / TRUE DEVICE PENDING。用户确认的小豆丁错误自称仅该项记为真机通过；梦境/愿望等长期观察继续。独立平板陪玩同步只讨论并记录，未实现。旧闪退缺异常堆栈，根因未定，不宣称本批修好。下一步承接本批真机反馈，再从6.3唯一后续清单定点选择，不自动复活旧伴随端路线。
+
+
+## +325 立体背景新版入口修复 · 最终CI与未发布APK交付
+
+2026-10-07 20:44，0.42.81+325，agent/v04281-depth-settings-entry，源码4df64d8c7a099de60fe8317ea10c6a7674b6152d，tree d1755c834e625dc294b15983aae992f6f417e994。状态CI PASSED / APK READY / TRUE DEVICE PENDING。
+
+用户+324真机反馈“没找到立体背景在哪里打开”。根因：旧面板虽然有控件，但默认Material3提前分流到新版聊天画面页面，此处没有入口。已在ChatVisualSettingsPage的聊天背景下方接入同一默认关闭开关和20%—100%强度滑钮，默认55%；设置保存SQLite，重进页面回读，角色聊天舞台关闭/重开保留设置。返回聊天沿用已有_loadVisualSettings及原生参数同步。只增加该实际页面的控件/加载、可选测试数据库注入和交互回归；不改传感器、shader、Live2D、桌宠、备份恢复、TTS、主动聊天和人设。
+
+验证：完整Actions 37619987572（build job 112789664873、native job 112787541978）与专项37619987582（job 112787510566）均成功，head与交付源码一致。149项源码门、1407项全量Flutter、407项专项、20项Android35原生、Kotlin、签名和资源校验通过。实际Material3页面测试点击开关和滑钮，真实SQLite保存/回读，舞台关闭/重开保留设置，关闭后重进仍关闭。Flutter analyze门通过，保留现有非致命info/warning，不声称零提示。本地146/149门通过，其余3项因缺CI资源或kotlinc不能运行，最终均在完整CI通过；未删门、未削弱断言。此轮没有CI失败重试。+324漏接入口及覆盖缺失的责任已记录，不将旧CI通过表述为真机入口通过。
+
+同签名未发布下载页：https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-226ea340df609599817a
+文件：AI-Companion-v0.42.81-325-Depth-Settings-Entry-APK.apk；736750241 bytes；release 405750901（draft=true）；asset 618659910（uploaded）。
+APK SHA-256：a0bc657a79b194ff5b1423cd7a3c09341bcd4157f30cf3c587a8d51123c07309
+签名证书SHA-256：30:5E:B3:D8:09:83:B9:63:C6:48:18:DD:F1:AD:56:1F:27:9D:E6:D4:7B:3E:D2:C7:81:AD:A4:48:C7:C2:51:48
+CI monitor：https://raw.githubusercontent.com/catkiss62/ai-companion-build/ci-monitor-v0345/.ci/v04281-monitor.txt，status=success、run/head/signer/hash与上传APK digest逐项一致。未合并main、未正式发布。
+
+开启路径：聊天顶部头像/DeepSeek→聊天画面→开启“角色聊天舞台”→聊天背景下方“立体背景”，开启后调强度。CI已验证入口及设置保存，不等于实际设备立体观感、耗电或长期效果已通过；待用户真机验证。
