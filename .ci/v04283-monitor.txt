@@ -1,0 +1,7 @@
+status=success
+run_id=37650541415
+run_url=https://github.com/catkiss62/ai-companion-build/actions/runs/37650541415
+head_sha=6dbde7c49a96f732a8f35975b2461ec27ac1e077
+signer_sha256=30:5E:B3:D8:09:83:B9:63:C6:48:18:DD:F1:AD:56:1F:27:9D:E6:D4:7B:3E:D2:C7:81:AD:A4:48:C7:C2:51:48
+b122abdb3a884a90b2cca75ff62d1eab1be6067358d8ae22feddd3d4934cd4eb  AI-Companion-v0.42.83-327-Background-Smoothing-APK.apk
+release_url=https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-f30a80b0b9613d403ee3
