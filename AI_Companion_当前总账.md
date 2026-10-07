@@ -1,6 +1,6 @@
 # AI Companion · 当前总账
 
-更新时间：2026-10-07（+326 IMPLEMENTED / CI PENDING / APK PENDING / TRUE DEVICE PENDING；+325 CI PASSED / APK READY / TRUE DEVICE PENDING；+324 CI PASSED / APK READY / TRUE DEVICE PENDING；+323 CI PASSED / APK READY / TRUE DEVICE PENDING；+322 CI PASSED / APK READY / TRUE DEVICE PENDING；+321 CI PASSED / APK READY / TRUE DEVICE PENDING；+320 CI PASSED / APK READY / TRUE DEVICE PENDING；+319 CI PASSED / APK READY / TRUE DEVICE PENDING；+318 USER DEVICE ACCEPTED；+317 CI PASSED / APK READY / TRUE DEVICE PENDING；+316 CI PASSED / APK READY / TRUE DEVICE PENDING；+315 CI PASSED / APK READY / TRUE DEVICE PENDING；+314 CI PASSED / APK READY / TRUE DEVICE PENDING；+313 CI PASSED / APK READY / TRUE DEVICE PENDING；+312 CI PASSED / APK READY / TRUE DEVICE PENDING；+311 CI PASSED / APK READY / TRUE DEVICE PENDING；+310 CI PASSED / APK READY / TRUE DEVICE PENDING；+309 CI PASSED / APK READY / TRUE DEVICE PENDING；+308 CI PASSED / APK READY / TRUE DEVICE PENDING；+307 CI PASSED / APK READY / USER DEVICE ACCEPTED；+306 CI PASSED / APK READY / TRUE DEVICE PENDING；+305 CI PASSED / APK READY / DEVICE REPORTED REPLY STALL；+304 CI PASSED / APK READY / TRUE DEVICE PENDING；+303 CI PASSED / APK READY / TRUE DEVICE PENDING；+302 CI PASSED / APK READY / TRUE DEVICE PENDING；+301 CI PASSED / APK READY / TRUE DEVICE PENDING；+300 CI PASSED / APK READY / TRUE DEVICE PENDING；+299 CI PASSED / APK READY / TRUE DEVICE PENDING；+298 CI PASSED / APK READY / TRUE DEVICE PENDING；+297 CI PASSED / APK READY / TRUE DEVICE PENDING；+295 恢复真机成功、背景回归 PARTIAL；+293 DEVICE VISUAL BASELINE）
+更新时间：2026-10-07（+326 CI PASSED / APK READY / TRUE DEVICE PENDING；+325 CI PASSED / APK READY / TRUE DEVICE PENDING；+324 CI PASSED / APK READY / TRUE DEVICE PENDING；+323 CI PASSED / APK READY / TRUE DEVICE PENDING；+322 CI PASSED / APK READY / TRUE DEVICE PENDING；+321 CI PASSED / APK READY / TRUE DEVICE PENDING；+320 CI PASSED / APK READY / TRUE DEVICE PENDING；+319 CI PASSED / APK READY / TRUE DEVICE PENDING；+318 USER DEVICE ACCEPTED；+317 CI PASSED / APK READY / TRUE DEVICE PENDING；+316 CI PASSED / APK READY / TRUE DEVICE PENDING；+315 CI PASSED / APK READY / TRUE DEVICE PENDING；+314 CI PASSED / APK READY / TRUE DEVICE PENDING；+313 CI PASSED / APK READY / TRUE DEVICE PENDING；+312 CI PASSED / APK READY / TRUE DEVICE PENDING；+311 CI PASSED / APK READY / TRUE DEVICE PENDING；+310 CI PASSED / APK READY / TRUE DEVICE PENDING；+309 CI PASSED / APK READY / TRUE DEVICE PENDING；+308 CI PASSED / APK READY / TRUE DEVICE PENDING；+307 CI PASSED / APK READY / USER DEVICE ACCEPTED；+306 CI PASSED / APK READY / TRUE DEVICE PENDING；+305 CI PASSED / APK READY / DEVICE REPORTED REPLY STALL；+304 CI PASSED / APK READY / TRUE DEVICE PENDING；+303 CI PASSED / APK READY / TRUE DEVICE PENDING；+302 CI PASSED / APK READY / TRUE DEVICE PENDING；+301 CI PASSED / APK READY / TRUE DEVICE PENDING；+300 CI PASSED / APK READY / TRUE DEVICE PENDING；+299 CI PASSED / APK READY / TRUE DEVICE PENDING；+298 CI PASSED / APK READY / TRUE DEVICE PENDING；+297 CI PASSED / APK READY / TRUE DEVICE PENDING；+295 恢复真机成功、背景回归 PARTIAL；+293 DEVICE VISUAL BASELINE）
 
 > 本文件是唯一的当前接班入口，继续采用“总账 v2”。顶部是快速接班索引；标记后的正式记录按版本持续追加，不设总容量上限。
 >
@@ -8,21 +8,17 @@
 
 
 
-## 当前接班快照 · +326 背景Device Motion整体平移（IMPLEMENTED / CI PENDING / APK PENDING / TRUE DEVICE PENDING）
+## 当前接班快照 · +326 背景Device Motion整体平移（CI PASSED / APK READY / TRUE DEVICE PENDING）
 
-2026-10-07 22:21用户明确要求加整体平移，参考先前Wallpaper Engine APK的Device Motion。已核对本地upload/base.apk：包名io.wallpaperengine.weclient，SHA-256 a6ca6d5ce34a1967fe987183076f7cf6f3b67a44fe720d69ffbb176173d543cc；英语/中文界面资源将Device Motion/设备运动与Depth Parallax/深度视差分开。未声称拿到该APK原生运动参数的完整实现。基线50eb9b6，开发分支agent/v04282-device-motion，目标0.42.82+326。
+2026-10-07 22:53 已完成0.42.82+326，分支agent/v04282-device-motion，基线50eb9b6，交付源码b3258c94f2c8d379dd1a571d0021fcecb41a3d6f / tree efe13605076e3b56c37258b6b9ad4f5683c9c869。用户22:21明确要求参考壁纸APK的Device Motion增加整体背景平移；已核对本地参考确为Wallpaper Engine，界面资源区分Device Motion与Depth Parallax，未声称逐参数复刻其闭源原生算法。
 
-计划在普通立绘Flutter shader与原生Live2D背景shader同时叠加统一平移，保留现有深度项，沿用已验证的姿态校准、平滑、生命周期、立体背景开关与强度；预留边缘避免露白。只移动背景，人物/聊天UI不随之移动。增加真实渲染像素验证整体位移及远近差异；代码及像素测试已写入，全部CI/同签名未发布APK待完成。本地146/149源码门通过，3项因缺CI恢复资源/kotlinc待CI验证，未削弱检查。任务细节见app/docs/DEVICE_MOTION_v0.42.82.md。
+普通立绘Flutter和原生Live2D背景均已增加统一平移，叠加已有深度项；沿用“立体背景”开关及20%—100%强度（默认55%），已有开启设置继续生效。采用移动边距覆盖最大合成位移，人物和聊天UI保持原坐标。设置说明同步更新。实际Flutter编译shader与原生ES2像素均验证了深度中性时双轴移动、方向对称、强度递增、远近差异；覆盖边缘和关闭静态也通过。任务细节见app/docs/DEVICE_MOTION_v0.42.82.md。
 
-## 当前接班快照 · +325 立体背景新版入口漏接（CI PASSED / APK READY / TRUE DEVICE PENDING）
+完整Actions 37637286301与专项37637286323成功，149项源码门、1409项全量Flutter、409项专项、21项Android35原生、Kotlin/签名/资源校验通过。[同签名未发布+326测试APK](https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-1ab7a7e7f56954bd0c48)已就绪，APK digest与CI monitor中的head/run/signer/hash一致。最终证据见文末+326交付。+325原有立体效果已获用户真机认可；+326整体移动手感、裁切幅度、耗电与长期表现仍待用户确认。未合并main、未正式发布。
 
-2026-10-07 20:44 已完成0.42.81+325，分支agent/v04281-depth-settings-entry，基线e09a4cf，交付源码4df64d8c7a099de60fe8317ea10c6a7674b6152d / tree d1755c834e625dc294b15983aae992f6f417e994。用户报告+324找不到开关，根因是只接入旧_openQuickPanel，默认Material3实际进入_openQuickPanelV2→ChatVisualSettingsPage。此次将同一“立体背景”开关及强度滑钮补入实际页面，默认关闭、强度55%，点击保存和重新进入读取，舞台关闭/重开保留设置。路径：聊天顶部头像/DeepSeek→聊天画面→聊天背景下方；需开启“角色聊天舞台”。沿用+324渲染/传感器和连接清理，不改共享恢复核心。
+## 前次交付 · +325 新版立体背景入口（CI PASSED / APK READY / 立体观感单项TRUE DEVICE PASSED）
 
-完整Actions 37619987572和专项37619987582均成功：149项源码门、1407项全量Flutter、407项专项、20项Android35原生及Kotlin/签名/资源检查通过。新增实际Material3页面SQLite交互回归通过，修复先前缺失的入口测试覆盖。[同签名未发布+325测试APK](https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-226ea340df609599817a)已就绪，上传文件哈希和CI monitor一致。总账及app/docs/DEPTH_SETTINGS_ENTRY_v0.42.81.md已记录根因、边界和最终证据，详见文末+325交付。
-
-+324的完整CI确实通过，但默认新版入口漏接，不能说该入口已真机可用；2026-10-07 21:40用户确认立体效果已出现、观感不错（立体观感单项TRUE DEVICE PASSED）；耗电和长期使用仍待观察。用户已确认的+323小豆丁恢复本体命名修复仍有效，其余长期观察继续；未来平板独立陪玩同步仍另案设计，旧闪退缺堆栈仍不猜修。未合并main、未正式发布。
-
-2026-10-07 21:40追加反馈核对：当前Flutter和原生背景都仅按深度图产生视差，尚未独立叠加整张背景统一平移。用户此轮询问实现情况，未据此擅自启动新版本。开发等待核对：+325完整Actions于北京时间20:17:53开始、20:41:27完成，约24分钟；原生检查308秒、资源帧生成218秒、Kotlin编译测试264秒、Flutter测试152秒、APK编译192秒。总账约662KB，本地整份读取约0.5毫秒；远程Git对象读写有额外开销，不能据此将所有界面停滞归因于总账。工具状态显示为何停留暂无客户端遥测，根因未定。
+0.42.81+325，agent/v04281-depth-settings-entry，源码4df64d8c7a099de60fe8317ea10c6a7674b6152d。修复默认Material3聊天画面缺少开关，真实SQLite保存/重进通过；完整Actions37619987572、专项37619987582成功，1407全量/407专项/20原生通过。用户21:40确认立体效果不错；当时整体平移尚未实现，现由+326补齐。耗电和长期表现待观察。该轮构建约24分钟，主要耗在测试/资源/编译；远程Git读写有等待，但无证据将全部停滞归因于总账。完整交付、哈希、根因和反馈见文末+325正式记录及app/docs/DEPTH_SETTINGS_ENTRY_v0.42.81.md。
 
 ## 当前接班快照 · +324 立体背景与旧连接清理（CI PASSED / APK READY / TRUE DEVICE PENDING）
 
@@ -2970,3 +2966,25 @@ CI monitor：https://raw.githubusercontent.com/catkiss62/ai-companion-build/ci-m
 用户确认“立体效果有了，还不错”：立体观感单项TRUE DEVICE PASSED，耗电和长期表现仍待观察。用户同时询问是否缺少随陀螺仪整张背景移动。已核对room_depth.frag与CaicaiStageBackground.java：现有位移受深度图调制，没有额外独立的整张背景统一平移；此轮只核对和解释，没有新增实现或启动APK构建。
 
 用户反映开发过程多次像卡在读写、询问是否总账导致。核对+325完整Actions 37619987572：北京时间20:17:53—20:41:27，状态success。耗时主要在原生检查308秒、角色帧资源生成218秒、Kotlin编译测试264秒、全量Flutter测试152秒、APK编译192秒；Draft上传29秒。总账662108 bytes的本地整份读取本次测量约0.5毫秒，不能代表远程连接性能。此前远程Git对象读取曾触发额外拉取，已中止并改为只读取所需改动对象；总账远程整份同步也有开销。尚无客户端状态渲染/工具停滞遥测，不能把所有“卡住”断言为总账或界面故障。继续按顶部快照/相关段落定点读取、只上传实际改动，并明确区分读写、CI等待和已完成状态。
+
+
+## +326 背景Device Motion整体平移 · 最终CI与未发布APK交付
+
+2026-10-07 22:53，0.42.82+326，agent/v04282-device-motion，源码b3258c94f2c8d379dd1a571d0021fcecb41a3d6f，tree efe13605076e3b56c37258b6b9ad4f5683c9c869。状态CI PASSED / APK READY / TRUE DEVICE PENDING。
+
+用户2026-10-07 22:21要求加整体平移，对照之前发送的壁纸APK Device Motion模式。已验证本地upload/base.apk包名io.wallpaperengine.weclient，SHA-256 a6ca6d5ce34a1967fe987183076f7cf6f3b67a44fe720d69ffbb176173d543cc；英文/中文界面资源分别列Device Motion/设备运动和Depth Parallax/深度视差。此次实现的是明确要求的行为，未声称完整还原该APK闭源方向或幅度参数。
+
+修改清单：Flutter房间shader与原生Live2D背景shader同步叠加统一tilt*.035*strength平移，已有深度位移系数.018与两次深度采样保留；移动后的同一坐标作为底图与深度图基准。每边预留.06*strength纹理边距，大于最大合成位移.0503*strength；关闭仍为静态背景。沿用现有开关、默认55%强度及20%—100%滑钮，更新新旧设置页说明；原姿态校准、平滑、前后台生命周期继续使用。人物、聊天UI不参与平移。没有改聊天/人设/主动/TTS/恢复核心。
+
+验证：完整Actions 37637286301（build job 112849532063，native job 112846755894）与专项37637286323（job 112846707563）均成功，head与交付源码一致。149项源码门、1409项全量Flutter、409项专项、21项Android35原生，Kotlin、签名和完整资源校验通过。新增2项Flutter实际编译shader像素测试和1项原生ES2像素测试，证明深度中性区域仍整体移动、双轴正负方向、强度递增、近景移动更多、边缘覆盖、关闭静态；原近远景原生断言升级为远景也移动且近景更大。此轮无CI失败重试，未删检查或削弱断言。Flutter analyze门通过，现有非致命info/warning仍在，不声称零提示。本地缺资源/kotlinc的3项门最终在完整CI全部通过。
+
+下载页：https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-1ab7a7e7f56954bd0c48
+文件：AI-Companion-v0.42.82-326-Device-Motion-APK.apk；736750349 bytes；release 405875340（draft=true）；asset 618992206（uploaded）。
+APK SHA-256：f16d4c951b90407a89f89d0ca98f3ccf7b25bbd7ed31618b232ab00c1c884b29
+签名证书SHA-256：30:5E:B3:D8:09:83:B9:63:C6:48:18:DD:F1:AD:56:1F:27:9D:E6:D4:7B:3E:D2:C7:81:AD:A4:48:C7:C2:51:48
+CI monitor：https://raw.githubusercontent.com/catkiss62/ai-companion-build/ci-monitor-v0345/.ci/v04282-monitor.txt，status=success、run/head/signer/hash与上传APK digest逐项匹配。
+Actions API时间：开始2026-10-07T14:30:36Z、完成记录更新2026-10-07T14:50:24Z（UTC）。本轮已完成，不能把旧工具状态当作仍在构建。未合并main、未正式发布。
+
+入口仍是聊天顶部头像/DeepSeek→聊天画面→聊天背景下方“立体背景”，需开启角色聊天舞台。已有开启设置保留，升级后同时叠加整体移动与深度效果。+325深度观感用户已认可，+326实际整体移动手感、画面裁切、耗电与长期效果待用户真机确认，不能把CI像素通过当真机通过。
+
++326交付文档收尾校验：新增完整结果使顶部快速索引超过既有100KB限额，已将+325重复摘要收短，正式记录及冻结归档完整保留。未修改或跳过上限检查，修正后重新校验。此为交付文档本地校验，不是APK构建失败。
