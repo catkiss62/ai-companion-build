@@ -497,7 +497,7 @@ class _ChatVisualSettingsPageState extends State<ChatVisualSettingsPage> {
                     SwitchListTile(
                       contentPadding: EdgeInsets.zero,
                       title: const Text('立体背景'),
-                      subtitle: const Text('轻轻倾斜手机，感受房间的远近变化。重新开启可校准握持角度；不支持姿态感应时保持静态。'),
+                      subtitle: const Text('倾斜手机，背景整体移动并呈现远近变化。重新开启可校准握持角度；不支持姿态感应时保持静态。'),
                       value: _backgroundDepth,
                       onChanged: (value) async {
                         setState(() => _backgroundDepth = value);

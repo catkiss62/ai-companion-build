@@ -36,6 +36,6 @@ runner = read('lib/core/agent/agent_tool_runner.dart')
 assert runner.count("await CedarPlaySessionStore(db).end('user_pause')") == 2
 assert "await CedarPlaySessionStore(db).end('user_pause')" in clock
 assert 'CedarPlayTransitionLog' not in read('lib/core/desire/proactive_engine.dart')
-assert re.search(r'^version: 0.42.(?:61\+305|62\+306|63\+307|64\+308|65\+309|66\+310|67\+311|68\+312|69\+313|70\+314|71\+315|72\+316|73\+317|74\+318|75\+319|76\+320|77\+321|78\+322|79\+323|80\+324|81\+325)$', read('pubspec.yaml'), re.M)
+assert re.search(r'^version: 0.42.(?:61\+305|62\+306|63\+307|64\+308|65\+309|66\+310|67\+311|68\+312|69\+313|70\+314|71\+315|72\+316|73\+317|74\+318|75\+319|76\+320|77\+321|78\+322|79\+323|80\+324|81\+325|82\+326)$', read('pubspec.yaml'), re.M)
 assert (app / 'test/cedar_timed_recovery_v04261_test.dart').is_file()
 print('v0.42.61 timed recovery, task clock, writer fencing and neutral manual Stop wired')

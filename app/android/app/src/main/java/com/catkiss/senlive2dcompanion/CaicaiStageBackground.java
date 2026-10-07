@@ -204,7 +204,10 @@ final class CaicaiStageBackground {
             fragment = shader(GLES20.GL_FRAGMENT_SHADER,
                     "precision mediump float; varying vec2 sampleUv; uniform sampler2D image;"
                     + "uniform sampler2D depthImage;uniform vec2 tilt;uniform float strength;"
-                    + "void main(){vec2 uv=(sampleUv-.5)*(1.0-.04*strength)+.5;"
+                    // Match the Flutter room shader: 6% edge margin covers the
+                    // 3.5% whole-room motion plus at most 1.53% depth motion.
+                    + "void main(){vec2 uv=(sampleUv-.5)*(1.0-.12*strength)+.5;"
+                    + "uv+=tilt*.035*strength;"
                     + "vec2 shift=tilt*.018*strength;"
                     + "vec2 p=uv+shift*(texture2D(depthImage,uv).r-.15);"
                     + "p=uv+shift*(texture2D(depthImage,p).r-.15);"

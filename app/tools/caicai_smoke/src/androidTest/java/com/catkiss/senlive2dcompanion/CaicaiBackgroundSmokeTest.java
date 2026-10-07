@@ -94,8 +94,9 @@ public class CaicaiBackgroundSmokeTest {
             backdrop.draw(256,256,256);
             int near=pixel(64,64)[0],far=pixel(64,192)[0];
             backdrop.setMotion(1,0);backdrop.draw(256,256,256);
-            assertTrue(pixel(64,64)[0]-near>=3);
-            assertTrue(Math.abs(pixel(64,192)[0]-far)<=1);
+            int nearMove=pixel(64,64)[0]-near,farMove=pixel(64,192)[0]-far;
+            assertTrue("The whole far background must move too",farMove>=8);
+            assertTrue("Depth displacement remains on top of whole-room motion",nearMove>=farMove+2);
             for(int i=0;i<20;i++) backdrop.draw(256,256,256);
             assertEquals(2,loads[0]);
             backdrop.setDepth(false,1f);backdrop.draw(256,256,256);
@@ -104,6 +105,46 @@ public class CaicaiBackgroundSmokeTest {
             assertArrayEquals(original,pixel(64,64));
             assertEquals(2,loads[0]);
             assertEquals(GLES20.GL_TEXTURE0,activeTexture());
+            assertEquals(GLES20.GL_NO_ERROR,GLES20.glGetError());
+            backdrop.release();
+        }
+    }
+
+    @Test public void neutralDepthStillMovesWholeRoomOnBothAxesWithoutClampedEdges() {
+        CaicaiStageBackground backdrop=new CaicaiStageBackground(asset->{
+            Bitmap bitmap=Bitmap.createBitmap(256,256,Bitmap.Config.ARGB_8888);
+            for(int y=0;y<256;y++) for(int x=0;x<256;x++) {
+                bitmap.setPixel(x,y,asset.endsWith("_depth.png")
+                        ? Color.rgb(38,38,38) : Color.rgb(x,y,80));
+            }
+            return bitmap;
+        });
+        try(GlContext gl=new GlContext()) {
+            backdrop.setAsset("day.webp");backdrop.setDepth(true,1f);
+            backdrop.draw(256,256,256);
+            int[] center=pixel(128,128);
+            backdrop.setMotion(1,1);backdrop.draw(256,256,256);
+            int[] positive=pixel(128,128);
+            for(int axis=0;axis<2;axis++) assertTrue(positive[axis]-center[axis]>=8);
+            for(int x:new int[]{0,255}) for(int y:new int[]{0,255}) {
+                int[] edge=pixel(x,y);
+                assertTrue(edge[0]>0 && edge[0]<255);
+                assertTrue(edge[1]>0 && edge[1]<255);
+                assertEquals(255,edge[3]);
+            }
+            backdrop.setMotion(-1,-1);backdrop.draw(256,256,256);
+            int[] negative=pixel(128,128);
+            for(int axis=0;axis<2;axis++) {
+                assertTrue(center[axis]-negative[axis]>=8);
+                assertTrue(Math.abs(positive[axis]+negative[axis]-2*center[axis])<=2);
+            }
+            backdrop.setDepth(true,.55f);backdrop.setMotion(0,0);backdrop.draw(256,256,256);
+            int[] halfCenter=pixel(128,128);
+            backdrop.setMotion(1,1);backdrop.draw(256,256,256);
+            for(int axis=0;axis<2;axis++) {
+                int move=pixel(128,128)[axis]-halfCenter[axis];
+                assertTrue(move>=4 && move<positive[axis]-center[axis]);
+            }
             assertEquals(GLES20.GL_NO_ERROR,GLES20.glGetError());
             backdrop.release();
         }
