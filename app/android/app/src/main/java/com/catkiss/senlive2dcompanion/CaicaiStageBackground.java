@@ -13,6 +13,7 @@ import java.io.InputStream;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.nio.FloatBuffer;
+import java.util.function.LongSupplier;
 
 /** Host backdrop in the same surface as the portrait; all methods run on its GL thread. */
 final class CaicaiStageBackground {
@@ -30,7 +31,9 @@ final class CaicaiStageBackground {
     private int depthTexture;
     private String attemptedDepth;
     private boolean depthEnabled;
-    private float strength=.55f, tiltX, tiltY;
+    private float strength=.55f;
+    private final RoomMotionInterpolator motion = new RoomMotionInterpolator();
+    private final LongSupplier frameClock;
     private int loads, uploads;
     private volatile String diagnostic = "disabled";
 
@@ -42,22 +45,31 @@ final class CaicaiStageBackground {
         });
     }
 
-    CaicaiStageBackground(ImageLoader loader) { this.loader = loader; }
+    CaicaiStageBackground(ImageLoader loader) { this(loader, System::nanoTime); }
+    CaicaiStageBackground(ImageLoader loader, LongSupplier frameClock) {
+        this.loader = loader;
+        this.frameClock = frameClock;
+    }
 
     void setAsset(String asset) { requestedAsset = asset == null ? "" : asset; }
     void setDepth(boolean enabled,float value) {
+        if (depthEnabled != enabled) motion.reset();
         depthEnabled=enabled;
         strength=Float.isFinite(value) ? Math.max(.2f,Math.min(1f,value)) : .55f;
     }
     void setMotion(float x,float y) {
-        tiltX=Float.isFinite(x) ? Math.max(-1f,Math.min(1f,x)) : 0f;
-        tiltY=Float.isFinite(y) ? Math.max(-1f,Math.min(1f,y)) : 0f;
+        setMotion(x,y,false);
+    }
+    void setMotion(float x,float y,boolean reset) {
+        if(reset) motion.reset();
+        else motion.target(x,y);
     }
     String diagnostics() { return diagnostic+" depth="+(depthEnabled && depthTexture!=0)+" strength="+strength; }
 
     void contextCreated() {
         // Old names belonged to the lost context. Never delete them in a new one.
         texture = depthTexture = program = 0;
+        motion.reset();
         attemptedAsset = attemptedDepth = null;
     }
 
@@ -102,7 +114,8 @@ final class CaicaiStageBackground {
             GLES20.glActiveTexture(GLES20.GL_TEXTURE1);
             GLES20.glBindTexture(GLES20.GL_TEXTURE_2D, depthTexture!=0 ? depthTexture : texture);
             GLES20.glUniform1i(depthUniform, 1);
-            GLES20.glUniform2f(tiltUniform,tiltX,tiltY);
+            if(depthEnabled) motion.frame(frameClock.getAsLong());
+            GLES20.glUniform2f(tiltUniform,motion.x,motion.y);
             GLES20.glUniform1f(strengthUniform,depthEnabled && depthTexture!=0 ? strength : 0f);
             GLES20.glBindBuffer(GLES20.GL_ARRAY_BUFFER, 0);
             GLES20.glEnableVertexAttribArray(0);

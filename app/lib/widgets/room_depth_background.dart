@@ -2,7 +2,10 @@ import 'dart:async';
 import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
+import 'package:flutter/scheduler.dart';
 import 'package:flutter/services.dart';
+
+import '../core/presentation/room_motion_smoother.dart';
 
 /// The sensor repaints only this backdrop; chat layout and portrait never move.
 class RoomDepthBackground extends StatefulWidget {
@@ -23,10 +26,12 @@ class RoomDepthBackground extends StatefulWidget {
 }
 
 class _RoomDepthBackgroundState extends State<RoomDepthBackground>
-    with WidgetsBindingObserver {
+    with SingleTickerProviderStateMixin, WidgetsBindingObserver {
   static final _events = const EventChannel('ai_companion/room_tilt').receiveBroadcastStream();
   static Future<ui.FragmentProgram>? _program;
-  final _tilt = ValueNotifier<Offset>(Offset.zero);
+  final _tilt = RoomMotionSmoother();
+  late final Ticker _ticker;
+  Duration? _lastTick;
   StreamSubscription<dynamic>? _subscription;
   ui.Image? _room;
   ui.Image? _depth;
@@ -37,6 +42,7 @@ class _RoomDepthBackgroundState extends State<RoomDepthBackground>
   @override
   void initState() {
     super.initState();
+    _ticker = createTicker(_onFrame);
     WidgetsBinding.instance.addObserver(this);
     _resumed = WidgetsBinding.instance.lifecycleState == null ||
         WidgetsBinding.instance.lifecycleState == AppLifecycleState.resumed;
@@ -65,14 +71,44 @@ class _RoomDepthBackgroundState extends State<RoomDepthBackground>
         if (!mounted || !widget.enabled || !widget.active || !_resumed || event is! Map) return;
         final x = (event['x'] as num?)?.toDouble() ?? 0;
         final y = (event['y'] as num?)?.toDouble() ?? 0;
-        _tilt.value = x.isFinite && y.isFinite
-            ? Offset(x.clamp(-1.0, 1.0).toDouble(), y.clamp(-1.0, 1.0).toDouble()) : Offset.zero;
-      }, onError: (Object _) { if (mounted) _tilt.value = Offset.zero; });
+        if (event['reset'] == true || event['available'] == false) {
+          _resetMotion();
+          return;
+        }
+        _tilt.setTarget(Offset(x, y));
+        _startMotion();
+      }, onError: (Object _) { if (mounted) _resetMotion(); });
     } else {
       unawaited(_subscription?.cancel());
       _subscription = null;
-      _tilt.value = Offset.zero;
+      _resetMotion();
     }
+  }
+
+  void _startMotion() {
+    if (_shader != null && widget.enabled && widget.active && _resumed &&
+        !_tilt.isSettled && !_ticker.isActive) {
+      _lastTick = null;
+      _ticker.start();
+    }
+  }
+
+  void _onFrame(Duration elapsed) {
+    final previous = _lastTick;
+    _lastTick = elapsed;
+    if (previous != null) {
+      _tilt.advance((elapsed - previous).inMicroseconds / 1e6);
+    }
+    if (_tilt.isSettled) {
+      _ticker.stop();
+      _lastTick = null;
+    }
+  }
+
+  void _resetMotion() {
+    _ticker.stop();
+    _lastTick = null;
+    _tilt.reset();
   }
 
   Future<ui.Image> _image(String asset) async {
@@ -90,6 +126,8 @@ class _RoomDepthBackgroundState extends State<RoomDepthBackground>
 
   Future<void> _load() async {
     final generation = ++_generation;
+    _ticker.stop();
+    _lastTick = null;
     _releaseImages();
     if (!widget.enabled) return;
     final asset = widget.asset;
@@ -104,6 +142,7 @@ class _RoomDepthBackgroundState extends State<RoomDepthBackground>
         _room = room; _depth = depth; _shader = program.fragmentShader();
         room = null; depth = null;
       });
+      _startMotion();
     } catch (_) {
       // The original packaged image remains usable on unsupported renderers.
       _program = null;
@@ -127,6 +166,7 @@ class _RoomDepthBackgroundState extends State<RoomDepthBackground>
     ++_generation;
     WidgetsBinding.instance.removeObserver(this);
     unawaited(_subscription?.cancel());
+    _ticker.dispose();
     _tilt.dispose();
     _releaseImages();
     super.dispose();

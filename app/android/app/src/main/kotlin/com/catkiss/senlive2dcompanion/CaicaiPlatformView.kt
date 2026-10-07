@@ -287,8 +287,8 @@ internal class CaicaiPlatformView(
         }
     }
 
-    fun backgroundMotion(x: Float, y: Float) {
-        if (!disposed && hostActive && stageVisible) companion.setStageMotion(x, y)
+    fun backgroundMotion(x: Float, y: Float, reset: Boolean = false) {
+        if (!disposed && (reset || hostActive && stageVisible)) companion.setStageMotion(x, y, reset)
     }
 
     fun stopForDeletion() { dispose() }
@@ -541,7 +541,7 @@ object CaicaiRuntime {
     }
     fun observeTouch(x: Float, y: Float) = active.get()?.observeTouch(x,y)
     fun hasActiveView(): Boolean = active.get() != null
-    fun backgroundMotion(x: Float, y: Float) = active.get()?.backgroundMotion(x, y)
+    fun backgroundMotion(x: Float, y: Float, reset: Boolean = false) = active.get()?.backgroundMotion(x, y, reset)
     fun speechAmplitude(value: Float) = active.get()?.speechAmplitude(value)
     fun control(method: String, arguments: Any?, result: MethodChannel.Result) {
         val view = active.get()

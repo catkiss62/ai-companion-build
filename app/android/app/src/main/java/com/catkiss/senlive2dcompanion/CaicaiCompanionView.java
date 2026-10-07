@@ -73,7 +73,10 @@ public final class CaicaiCompanionView extends GLSurfaceView implements SenCompa
     public void setCaicaiScene(float w,float h) { queueRenderer(()->renderer.setCaicaiScene(w,h)); }
     public void setStageBackground(String asset) { queueRenderer(()->renderer.setCaicaiBackground(asset)); }
     public void setStageDepth(boolean enabled, float strength) { queueRenderer(()->renderer.setCaicaiDepth(enabled,strength)); }
-    public void setStageMotion(float x,float y) { queueRenderer(()->renderer.setCaicaiBackgroundMotion(x,y)); }
+    public void setStageMotion(float x,float y) { setStageMotion(x,y,false); }
+    public void setStageMotion(float x,float y,boolean reset) {
+        queueRenderer(()->renderer.setCaicaiBackgroundMotion(x,y,reset));
+    }
     public String backgroundDiagnostics() { return renderer.caicaiBackgroundDiagnostics(); }
     public void presentCaicaiEmotion(String id,String emotion) { queueRenderer(()->renderer.presentCaicaiEmotion(id,emotion)); }
     public void beginCaicaiPat(boolean held,boolean rare) { queueRenderer(()->renderer.beginCaicaiPat(held,rare)); }

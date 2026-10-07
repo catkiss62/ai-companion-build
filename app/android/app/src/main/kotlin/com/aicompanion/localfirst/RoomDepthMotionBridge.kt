@@ -39,25 +39,26 @@ internal class RoomDepthMotionBridge(private val activity: Activity, engine: Flu
     private fun start() {
         if (!resumed || sink == null || registered) return
         filter.reset(); rotation = -1; lastEvent = 0
-        registered = sensor != null && manager?.registerListener(this, sensor, 33333) == true
-        if (!registered) emit(0f, 0f)
+        registered = sensor != null && manager?.registerListener(this, sensor, 16667) == true
+        if (!registered) emit(0f, 0f, reset = true)
     }
     private fun stop() {
         if (registered) manager?.unregisterListener(this)
         registered = false; filter.reset(); lastEvent = 0
-        emit(0f, 0f)
+        emit(0f, 0f, reset = true)
     }
-    private fun emit(x: Float, y: Float) {
-        CaicaiRuntime.backgroundMotion(x, y)
-        sink?.success(mapOf("x" to x.toDouble(), "y" to y.toDouble(), "available" to registered))
+    private fun emit(x: Float, y: Float, reset: Boolean = false) {
+        CaicaiRuntime.backgroundMotion(x, y, reset)
+        sink?.success(mapOf("x" to x.toDouble(), "y" to y.toDouble(), "available" to registered, "reset" to reset))
     }
     override fun onAccuracyChanged(sensor: Sensor?, accuracy: Int) = Unit
     @Suppress("DEPRECATION")
     override fun onSensorChanged(event: SensorEvent) {
-        if (!registered || !resumed || sink == null || event.timestamp-lastEvent < 30_000_000) return
+        if (!registered || !resumed || sink == null || event.timestamp-lastEvent < 15_000_000) return
         lastEvent = event.timestamp
         val nextRotation = activity.windowManager.defaultDisplay.rotation
-        if (rotation != nextRotation) { rotation = nextRotation; filter.reset() }
+        val recalibrated = rotation != nextRotation
+        if (recalibrated) { rotation = nextRotation; filter.reset() }
         SensorManager.getRotationMatrixFromVector(raw, event.values)
         val axes = when (rotation) {
             Surface.ROTATION_90 -> SensorManager.AXIS_Y to SensorManager.AXIS_MINUS_X
@@ -66,6 +67,6 @@ internal class RoomDepthMotionBridge(private val activity: Activity, engine: Flu
             else -> SensorManager.AXIS_X to SensorManager.AXIS_Y
         }
         if (SensorManager.remapCoordinateSystem(raw, axes.first, axes.second, screen) &&
-            filter.update(screen, event.timestamp)) emit(filter.x, filter.y)
+            filter.update(screen, event.timestamp)) emit(filter.x, filter.y, reset = recalibrated)
     }
 }

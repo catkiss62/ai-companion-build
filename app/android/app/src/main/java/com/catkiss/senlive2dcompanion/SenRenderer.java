@@ -494,7 +494,10 @@ final class SenRenderer implements GLSurfaceView.Renderer {
         caicaiBackground.setDepth(enabled,strength);
     }
     void setCaicaiBackgroundMotion(float x,float y) {
-        if (caicaiBackground != null) caicaiBackground.setMotion(x,y);
+        setCaicaiBackgroundMotion(x,y,false);
+    }
+    void setCaicaiBackgroundMotion(float x,float y,boolean reset) {
+        if (caicaiBackground != null) caicaiBackground.setMotion(x,y,reset);
     }
     String caicaiBackgroundDiagnostics() { return caicaiBackground == null ? "disabled" : caicaiBackground.diagnostics(); }
     private void drawCaicaiBackground() {

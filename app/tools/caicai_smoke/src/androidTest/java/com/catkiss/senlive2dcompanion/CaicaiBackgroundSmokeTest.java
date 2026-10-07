@@ -80,7 +80,7 @@ public class CaicaiBackgroundSmokeTest {
 
     @Test public void nearPixelsMoveMoreThanFarPixelsAndOffRestoresStatic() {
         int[] loads={0};
-        CaicaiStageBackground backdrop=new CaicaiStageBackground(asset->{
+        CaicaiStageBackground backdrop=animated(asset->{
             loads[0]++;
             Bitmap bitmap=Bitmap.createBitmap(256,256,Bitmap.Config.ARGB_8888);
             for(int y=0;y<256;y++) for(int x=0;x<256;x++) {
@@ -93,7 +93,7 @@ public class CaicaiBackgroundSmokeTest {
             backdrop.setAsset("day.webp");backdrop.setDepth(true,1f);
             backdrop.draw(256,256,256);
             int near=pixel(64,64)[0],far=pixel(64,192)[0];
-            backdrop.setMotion(1,0);backdrop.draw(256,256,256);
+            backdrop.setMotion(1,0);settle(backdrop);
             int nearMove=pixel(64,64)[0]-near,farMove=pixel(64,192)[0]-far;
             assertTrue("The whole far background must move too",farMove>=8);
             assertTrue("Depth displacement remains on top of whole-room motion",nearMove>=farMove+2);
@@ -111,7 +111,7 @@ public class CaicaiBackgroundSmokeTest {
     }
 
     @Test public void neutralDepthStillMovesWholeRoomOnBothAxesWithoutClampedEdges() {
-        CaicaiStageBackground backdrop=new CaicaiStageBackground(asset->{
+        CaicaiStageBackground backdrop=animated(asset->{
             Bitmap bitmap=Bitmap.createBitmap(256,256,Bitmap.Config.ARGB_8888);
             for(int y=0;y<256;y++) for(int x=0;x<256;x++) {
                 bitmap.setPixel(x,y,asset.endsWith("_depth.png")
@@ -123,7 +123,7 @@ public class CaicaiBackgroundSmokeTest {
             backdrop.setAsset("day.webp");backdrop.setDepth(true,1f);
             backdrop.draw(256,256,256);
             int[] center=pixel(128,128);
-            backdrop.setMotion(1,1);backdrop.draw(256,256,256);
+            backdrop.setMotion(1,1);settle(backdrop);
             int[] positive=pixel(128,128);
             for(int axis=0;axis<2;axis++) assertTrue(positive[axis]-center[axis]>=8);
             for(int x:new int[]{0,255}) for(int y:new int[]{0,255}) {
@@ -132,15 +132,15 @@ public class CaicaiBackgroundSmokeTest {
                 assertTrue(edge[1]>0 && edge[1]<255);
                 assertEquals(255,edge[3]);
             }
-            backdrop.setMotion(-1,-1);backdrop.draw(256,256,256);
+            backdrop.setMotion(-1,-1);settle(backdrop);
             int[] negative=pixel(128,128);
             for(int axis=0;axis<2;axis++) {
                 assertTrue(center[axis]-negative[axis]>=8);
                 assertTrue(Math.abs(positive[axis]+negative[axis]-2*center[axis])<=2);
             }
-            backdrop.setDepth(true,.55f);backdrop.setMotion(0,0);backdrop.draw(256,256,256);
+            backdrop.setDepth(true,.55f);backdrop.setMotion(0,0);settle(backdrop);
             int[] halfCenter=pixel(128,128);
-            backdrop.setMotion(1,1);backdrop.draw(256,256,256);
+            backdrop.setMotion(1,1);settle(backdrop);
             for(int axis=0;axis<2;axis++) {
                 int move=pixel(128,128)[axis]-halfCenter[axis];
                 assertTrue(move>=4 && move<positive[axis]-center[axis]);
@@ -167,6 +167,36 @@ public class CaicaiBackgroundSmokeTest {
             assertEquals(GLES20.GL_NO_ERROR,GLES20.glGetError());
             backdrop.release();
         }
+    }
+    @Test public void consecutiveFramesMoveWithoutAnotherSensorEventAndResetStopsMotion() {
+        CaicaiStageBackground backdrop=animated(asset->{
+            Bitmap bitmap=Bitmap.createBitmap(256,256,Bitmap.Config.ARGB_8888);
+            for(int y=0;y<256;y++) for(int x=0;x<256;x++)
+                bitmap.setPixel(x,y,asset.endsWith("_depth.png") ? Color.rgb(38,38,38) : Color.rgb(x,y,80));
+            return bitmap;
+        });
+        try(GlContext gl=new GlContext()) {
+            backdrop.setAsset("day.webp");backdrop.setDepth(true,1f);backdrop.draw(256,256,256);
+            int origin=pixel(128,128)[0];
+            backdrop.setMotion(1,0);
+            backdrop.draw(256,256,256);int first=pixel(128,128)[0];
+            backdrop.draw(256,256,256);int second=pixel(128,128)[0];
+            backdrop.draw(256,256,256);int third=pixel(128,128)[0];
+            assertTrue(first>origin && second>first && third>second);
+            settle(backdrop);assertTrue(pixel(128,128)[0]>third);
+            backdrop.setMotion(0,0,true);backdrop.draw(256,256,256);
+            assertEquals(origin,pixel(128,128)[0]);
+            for(int i=0;i<8;i++) backdrop.draw(256,256,256);
+            assertEquals(origin,pixel(128,128)[0]);
+            assertEquals(GLES20.GL_NO_ERROR,GLES20.glGetError());backdrop.release();
+        }
+    }
+    private static CaicaiStageBackground animated(CaicaiStageBackground.ImageLoader loader) {
+        long[] now={1};
+        return new CaicaiStageBackground(loader,()->{now[0]+=16_666_667L;return now[0];});
+    }
+    private static void settle(CaicaiStageBackground backdrop) {
+        for(int i=0;i<40;i++) backdrop.draw(256,256,256);
     }
     private static int activeTexture() {
         int[] value={0};GLES20.glGetIntegerv(GLES20.GL_ACTIVE_TEXTURE,value,0);return value[0];
