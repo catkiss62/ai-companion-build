@@ -1,6 +1,6 @@
 # AI Companion · 当前总账
 
-更新时间：2026-10-07（+327 IMPLEMENTED / CI PENDING / APK PENDING / TRUE DEVICE PENDING；+326 CI PASSED / APK READY / TRUE DEVICE PENDING；+325 CI PASSED / APK READY / TRUE DEVICE PENDING；+324 CI PASSED / APK READY / TRUE DEVICE PENDING；+323 CI PASSED / APK READY / TRUE DEVICE PENDING；+322 CI PASSED / APK READY / TRUE DEVICE PENDING；+321 CI PASSED / APK READY / TRUE DEVICE PENDING；+320 CI PASSED / APK READY / TRUE DEVICE PENDING；+319 CI PASSED / APK READY / TRUE DEVICE PENDING；+318 USER DEVICE ACCEPTED；+317 CI PASSED / APK READY / TRUE DEVICE PENDING；+316 CI PASSED / APK READY / TRUE DEVICE PENDING；+315 CI PASSED / APK READY / TRUE DEVICE PENDING；+314 CI PASSED / APK READY / TRUE DEVICE PENDING；+313 CI PASSED / APK READY / TRUE DEVICE PENDING；+312 CI PASSED / APK READY / TRUE DEVICE PENDING；+311 CI PASSED / APK READY / TRUE DEVICE PENDING；+310 CI PASSED / APK READY / TRUE DEVICE PENDING；+309 CI PASSED / APK READY / TRUE DEVICE PENDING；+308 CI PASSED / APK READY / TRUE DEVICE PENDING；+307 CI PASSED / APK READY / USER DEVICE ACCEPTED；+306 CI PASSED / APK READY / TRUE DEVICE PENDING；+305 CI PASSED / APK READY / DEVICE REPORTED REPLY STALL；+304 CI PASSED / APK READY / TRUE DEVICE PENDING；+303 CI PASSED / APK READY / TRUE DEVICE PENDING；+302 CI PASSED / APK READY / TRUE DEVICE PENDING；+301 CI PASSED / APK READY / TRUE DEVICE PENDING；+300 CI PASSED / APK READY / TRUE DEVICE PENDING；+299 CI PASSED / APK READY / TRUE DEVICE PENDING；+298 CI PASSED / APK READY / TRUE DEVICE PENDING；+297 CI PASSED / APK READY / TRUE DEVICE PENDING；+295 恢复真机成功、背景回归 PARTIAL；+293 DEVICE VISUAL BASELINE）
+更新时间：2026-10-08（+327 CI PASSED / APK READY / TRUE DEVICE PENDING；+326 CI PASSED / APK READY / TRUE DEVICE PENDING；+325 CI PASSED / APK READY / TRUE DEVICE PENDING；+324 CI PASSED / APK READY / TRUE DEVICE PENDING；+323 CI PASSED / APK READY / TRUE DEVICE PENDING；+322 CI PASSED / APK READY / TRUE DEVICE PENDING；+321 CI PASSED / APK READY / TRUE DEVICE PENDING；+320 CI PASSED / APK READY / TRUE DEVICE PENDING；+319 CI PASSED / APK READY / TRUE DEVICE PENDING；+318 USER DEVICE ACCEPTED；+317 CI PASSED / APK READY / TRUE DEVICE PENDING；+316 CI PASSED / APK READY / TRUE DEVICE PENDING；+315 CI PASSED / APK READY / TRUE DEVICE PENDING；+314 CI PASSED / APK READY / TRUE DEVICE PENDING；+313 CI PASSED / APK READY / TRUE DEVICE PENDING；+312 CI PASSED / APK READY / TRUE DEVICE PENDING；+311 CI PASSED / APK READY / TRUE DEVICE PENDING；+310 CI PASSED / APK READY / TRUE DEVICE PENDING；+309 CI PASSED / APK READY / TRUE DEVICE PENDING；+308 CI PASSED / APK READY / TRUE DEVICE PENDING；+307 CI PASSED / APK READY / USER DEVICE ACCEPTED；+306 CI PASSED / APK READY / TRUE DEVICE PENDING；+305 CI PASSED / APK READY / DEVICE REPORTED REPLY STALL；+304 CI PASSED / APK READY / TRUE DEVICE PENDING；+303 CI PASSED / APK READY / TRUE DEVICE PENDING；+302 CI PASSED / APK READY / TRUE DEVICE PENDING；+301 CI PASSED / APK READY / TRUE DEVICE PENDING；+300 CI PASSED / APK READY / TRUE DEVICE PENDING；+299 CI PASSED / APK READY / TRUE DEVICE PENDING；+298 CI PASSED / APK READY / TRUE DEVICE PENDING；+297 CI PASSED / APK READY / TRUE DEVICE PENDING；+295 恢复真机成功、背景回归 PARTIAL；+293 DEVICE VISUAL BASELINE）
 
 > 本文件是唯一的当前接班入口，继续采用“总账 v2”。顶部是快速接班索引；标记后的正式记录按版本持续追加，不设总容量上限。
 >
@@ -8,11 +8,11 @@
 
 
 
-## 当前任务 · +327 背景逐帧平滑（IMPLEMENTED / CI PENDING / APK PENDING / TRUE DEVICE PENDING）
+## 当前交付 · +327 背景逐帧平滑（CI PASSED / APK READY / TRUE DEVICE PENDING）
 
-2026-10-07 23:53用户报告背景帧数偏低，23:55确认人物动画正常。已确认现有姿态请求33333微秒、事件30ms门槛，背景坐标直接跟事件更新且无逐帧过渡。人物正常更支持背景更新节奏问题，但尚无设备GPU耗时，不能断言排除性能瓶颈。基线67186ea，agent/v04283-background-smoothing，目标0.42.83+327。
+0.42.83+327，agent/v04283-background-smoothing，源码6dbde7c49a96f732a8f35975b2461ec27ac1e077。用户报告背景低帧、人物正常；已确认约30Hz目标更新限制。改为请求60Hz姿态、Flutter/native显示帧35ms响应，静止收敛后停止Flutter重绘，关闭/后台/切页/校准复位。已有整体移动、深度和强度保持。实际设备FPS/手感/功耗待真机，不能保证稳定60FPS。
 
-范围：姿态请求改为60Hz并放宽重复事件门槛避免误降到30Hz；Flutter背景用显示帧ticker向最新姿态平滑，原生背景每个既有GL帧平滑；静止收敛后Flutter停止ticker，关闭/后台/切页/重新校准停止并归零。现有shader幅度/深度和人物帧率不改。验证低频输入间仍连续变化、时间一致性、生命周期停用及原像素边界；本地146源码门通过，3项环境缺资源/kotlinc待CI补验；新增host平滑器未改导入源码26文件原哈希。完整CI/同签名未发布APK待完成。详见app/docs/BACKGROUND_SMOOTHING_v0.42.83.md。
+完整37650541415、专项37650541791成功；149源码/1413全量Flutter/413专项/22原生及Kotlin、签名/资源通过。下载页：https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-f30a80b0b9613d403ee3。APK AI-Companion-v0.42.83-327-Background-Smoothing-APK.apk，736752169 bytes，同签名未发布草稿。源码、SHA、asset及完整证据见文末与app/docs/BACKGROUND_SMOOTHING_v0.42.83.md。总账快速索引及冻结归档按既有门复验。
 
 ## 前次交付 · +326 背景Device Motion（CI PASSED / APK READY / DEVICE REPORTED BACKGROUND LOW FPS）
 
@@ -2990,3 +2990,23 @@ Actions API时间：开始2026-10-07T14:30:36Z、完成记录更新2026-10-07T14
 入口仍是聊天顶部头像/DeepSeek→聊天画面→聊天背景下方“立体背景”，需开启角色聊天舞台。已有开启设置保留，升级后同时叠加整体移动与深度效果。+325深度观感用户已认可，+326实际整体移动手感、画面裁切、耗电与长期效果待用户真机确认，不能把CI像素通过当真机通过。
 
 +326交付文档收尾校验：新增完整结果使顶部快速索引超过既有100KB限额，已将+325重复摘要收短，正式记录及冻结归档完整保留。未修改或跳过上限检查，修正后重新校验。此为交付文档本地校验，不是APK构建失败。
+
+## +327 背景逐帧平滑 · 最终CI与未发布APK交付
+
+2026-10-08 00:37（北京时间），0.42.83+327，agent/v04283-background-smoothing，源码6dbde7c49a96f732a8f35975b2461ec27ac1e077，tree 4a4f89a14e35cf41590677a72ca355c0bdb69cce。状态CI PASSED / APK READY / TRUE DEVICE PENDING。
+
+问题证据：用户2026-10-07 23:53报告背景帧数偏低，23:55确认人物动画正常。代码中的姿态请求33333微秒和30ms门槛将目标更新限制在约30Hz，Flutter/native背景直接使用事件位置。这是可确认的台阶来源；人物正常不能单独排除背景GPU成本，尚无用户设备实测FPS。
+
+修改清单：姿态改为请求16667微秒、15ms重复事件门槛，实际采样由硬件决定；既有120ms姿态滤波保留。Flutter背景由显示帧ticker按35ms时间常数向最新目标平滑，原生在既有GL帧做相同时间响应，无新原生渲染循环。收敛后Flutter停止ticker；关闭、切页、后台、传感器不可用及重新校准立即停止/归零，native深度开关及GL重建也复位。原整体平移、深度shader、强度和边距均未改，人物动画帧率未改。
+
+验证：完整Actions 37650541415（build job 112895018928、native job 112892450243）及专项37650541791（job 112892410889）均success，head与交付源码一致。149项源码门、1413项全量Flutter、413项专项、22项Android35原生通过，Kotlin/Java单测、analyze、签名及完整资源门通过。新增Flutter核心3项、真实widget1项，Java平滑核心3项、ES2像素1项：低频单次输入之间连续变化、30/60/120帧时间响应一致、收敛停调度、后台/切页/释放/复位停止。原像素几何测试等目标收敛后仍执行原幅度/边缘断言；未削弱断言或跳过检查。本轮CI无失败重试。新增host-owned RoomMotionInterpolator加入既有host排除清单，导入源码26文件数及原SHA保持，原源码钉住门通过。本地缺桌宠帧/LingChat特效/kotlinc的3项已在CI补验。analyze仍有非致命提示，不声称零提示。
+
+下载：https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-f30a80b0b9613d403ee3
+APK直链：https://github.com/catkiss62/ai-companion-build/releases/download/untagged-f30a80b0b9613d403ee3/AI-Companion-v0.42.83-327-Background-Smoothing-APK.apk
+文件：AI-Companion-v0.42.83-327-Background-Smoothing-APK.apk；736752169 bytes；release 405962303（draft=true）；asset 619217660（uploaded）。
+APK SHA-256：b122abdb3a884a90b2cca75ff62d1eab1be6067358d8ae22feddd3d4934cd4eb
+签名证书SHA-256：30:5E:B3:D8:09:83:B9:63:C6:48:18:DD:F1:AD:56:1F:27:9D:E6:D4:7B:3E:D2:C7:81:AD:A4:48:C7:C2:51:48
+CI monitor：https://raw.githubusercontent.com/catkiss62/ai-companion-build/ci-monitor-v0345/.ci/v04283-monitor.txt，status/run/head/signer/hash与release APK digest逐项一致。原62文件LingChat、四张背景/深度图、编译shader、131项星谷、塔罗22张、Genie/桌宠资源均校验通过。
+Actions API：2026-10-07T16:15:01Z开始，2026-10-07T16:34:48Z更新为completed/success。当前已结束，不应将旧工具状态判为还在构建。没有合并main或正式发布。
+
+用户设备的实际FPS、手感和功耗仍TRUE DEVICE PENDING；此次交付证明去除了已知30Hz姿态限制并有逐帧过渡，不能保证任何手机稳定60FPS。沿用聊天顶部头像/DeepSeek→聊天画面→聊天背景下“立体背景”及既有开关/强度，无需重新开通。构建和最终总账分别提交，APK对应上述源码commit。
