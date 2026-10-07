@@ -1,0 +1,7 @@
+status=success
+run_id=37371248037
+run_url=https://github.com/catkiss62/ai-companion-build/actions/runs/37371248037
+head_sha=a05d427320f844bc500aad85ae87965ac8ea2438
+signer_sha256=30:5E:B3:D8:09:83:B9:63:C6:48:18:DD:F1:AD:56:1F:27:9D:E6:D4:7B:3E:D2:C7:81:AD:A4:48:C7:C2:51:48
+15d751eb015ba9a758274e3cbc1631270cf15baa7e49fff7744891c43594cffa  AI-Companion-v0.42.78-322-Nightly-Dream-APK.apk
+release_url=https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-aaf06bea52b7c144c733
