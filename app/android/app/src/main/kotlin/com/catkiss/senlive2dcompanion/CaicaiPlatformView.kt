@@ -150,6 +150,12 @@ internal class CaicaiPlatformView(
                     result.success(null)
                 }
             }
+            "setBackgroundDepth" -> {
+                val args = call.arguments as? Map<*, *>
+                val strength = (args?.get("strength") as? Number)?.toFloat() ?: .55f
+                companion.setStageDepth(args?.get("enabled") == true, strength)
+                result.success(null)
+            }
             "reloadModel" -> { loadCurrentModel(); result.success(null) }
             "setVisible" -> {
                 val visible = call.arguments == true
@@ -279,6 +285,10 @@ internal class CaicaiPlatformView(
             }
             else -> result.notImplemented()
         }
+    }
+
+    fun backgroundMotion(x: Float, y: Float) {
+        if (!disposed && hostActive && stageVisible) companion.setStageMotion(x, y)
     }
 
     fun stopForDeletion() { dispose() }
@@ -531,6 +541,7 @@ object CaicaiRuntime {
     }
     fun observeTouch(x: Float, y: Float) = active.get()?.observeTouch(x,y)
     fun hasActiveView(): Boolean = active.get() != null
+    fun backgroundMotion(x: Float, y: Float) = active.get()?.backgroundMotion(x, y)
     fun speechAmplitude(value: Float) = active.get()?.speechAmplitude(value)
     fun control(method: String, arguments: Any?, result: MethodChannel.Result) {
         val view = active.get()

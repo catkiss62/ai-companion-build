@@ -16,7 +16,7 @@
 - Flutter analyze、全量行为测试、原生烟测、源码/资源/签名检查。同签名APK交付后由用户验证实机观感和耗电，不把模拟器视为真机。
 
 ## 状态
-IMPLEMENTATION IN PROGRESS / CI PENDING / APK PENDING / TRUE DEVICE PENDING。
+IMPLEMENTED / CI PENDING / APK PENDING / TRUE DEVICE PENDING。
 
 ## 连接清理审查记录
 已完整阅读TransferPage、NearbyTransferManager、NativePreflightProbe、SnapshotService、SnapshotRestoreCoordinator、TransferStateIdentity及缓存清理；定点完整阅读AppDatabase的状态身份/冻结/取消/手动激活/手动导出事务，桥接的Nearby及共用权限生命周期和备份方法边界、诊断调用者。
@@ -24,3 +24,14 @@ IMPLEMENTATION IN PROGRESS / CI PENDING / APK PENDING / TRUE DEVICE PENDING。
 - .aibackup、旧文件夹备份、.aicomp手动换机仍在同一页面，改名“备份与恢复”；状态库、SnapshotService/恢复协调器/原生备份与加密不改。协议中历史encryption字段和旧缓存前缀保留以兼容旧包。
 - NativeEventStore的旧状态围栏辅助函数暂保留，与共用身份源码和历史协议检查同在；没有Nearby组件或入口可再调用它，避免把本批扩大成身份机制重构。
 - validate_transfer_kotlin_v26仅删除已退役Nearby类的编译目标；真实NativeEventStore、手动加密编译检查保留。旧测试桩后续同步清理，不删除备份/恢复断言。
+
+## 立体背景实现与资源
+- 开关默认关闭，聊天外观→聊天背景下开启；默认强度55%，范围20%—100%。设置随原settings表正常备份，不修改快照协议。
+- 原day.webp/night.webp保持原字节。新增同构图灰度深度贴图由图像生成工具依据原背景生成，仅作为位移辅助，不替代彩色背景。原背景来源及授权见assets/lingchat/NOTICE.md；辅助贴图不改变原素材授权。
+- Android优先游戏旋转向量，退至旋转向量；没有可用传感器保持静态。不新增权限。相对矩阵避开竖持欧拉角翻转，30Hz限频、时间平滑、约20度限幅；进入/恢复/屏幕方向改变重新校准。离开聊天、关闭开关、暂停Activity和销毁时释放监听。
+- Flutter背景单独RepaintBoundary/CustomPainter重绘；原生背景同surface GLSL深度采样，GL纹理缓存，恢复上下文重建，归还纹理单元0。近景位移更大，预留边缘防露底；文字/按钮/人物不变换。小幅2.5D视差不生成家具背后不可见内容。
+- 两条渲染路径用相同采样参数；深度资源失败回退原背景；原生核心源码/资源hash校验通过，无需重新固定哈希。
+
+## 提交前检查
+删除提交997b5a2。本地现行149项源码门运行，146项成功；3项受环境限制（私有桌宠/下载式表情资源未恢复、kotlinc缺失），交由现有完整CI恢复资源验证。Flutter初始化被自动审核拦截（尝试访问云实例元数据地址），未绕过，Flutter分析/全量测试交由CI。
+新增备份入口/取消选择/待机手动恢复测试、姿态相对校准/极值/无效输入/刷新率测试、背景订阅生命周期测试、真实ES2近远位移/关闭还原/缺深度降级测试，以及APK原图/深度图逐字节打包检查。真机观感与耗电仍待用户验收。

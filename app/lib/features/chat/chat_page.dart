@@ -1,5 +1,6 @@
 import 'chat_tail_follower.dart';
 import '../../widgets/caicai_stage_viewport.dart';
+import '../../widgets/room_depth_background.dart';
 import '../../widgets/caicai_stage_editor.dart';
 import 'dart:async';
 import 'dart:io';
@@ -105,6 +106,8 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
   Offset _portraitOffset = ChatPortraitTransform.defaults.offset;
   int _typewriterMs = 48;
   String _backgroundMode = 'auto';
+  bool _backgroundDepth = false;
+  double _backgroundDepthStrength = .55;
   ChatEmotionVisual _currentEmotion = ChatVisualResolver.normal;
   String _currentEmotionLabel = '正常';
   bool _followLatest = true;
@@ -423,6 +426,9 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
         .toInt();
     _backgroundMode =
         await db.getSetting('chat_background_mode') ?? 'auto';
+    _backgroundDepth = await db.getSetting('chat_background_depth') == '1';
+    _backgroundDepthStrength = RoomDepthBackground.parseStrength(
+        await db.getSetting('chat_background_depth_strength'));
     if (mounted && !_initializingMessages) setState(() {});
   }
 
@@ -1315,11 +1321,13 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
                   if (_visualStageEnabled) ...[
                     Positioned(left:0,right:0,top:0,
                       height:_caicaiEnabled ? _caicaiStableHeight : constraints.maxHeight,
-                      child:Image.asset(
-                        _useNightBackground
+                      child:RoomDepthBackground(
+                        enabled: _backgroundDepth, strength: _backgroundDepthStrength,
+                        active: widget.active && _appResumed,
+                        asset: _useNightBackground
                             ? 'assets/lingchat/background/night.webp'
                             : 'assets/lingchat/background/day.webp',
-                        fit:BoxFit.cover,alignment:Alignment.center)),
+                        )),
                     Positioned(
                       left: 0, right: 0, top: 0,
                       // Keep AndroidView and its GL buffer full size under the IME.
@@ -1327,6 +1335,7 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
                       child: _caicaiEnabled
                           ? CaicaiLive2DStage(qForm: _playfulForm.qForm, emotion: _currentEmotion.key, active: widget.active,
                               sceneSize: Size(constraints.maxWidth, _caicaiStableHeight!),
+                              depthEnabled: _backgroundDepth, depthStrength: _backgroundDepthStrength,
                               backgroundAsset: _useNightBackground
                                   ? 'assets/lingchat/background/night.webp'
                                   : 'assets/lingchat/background/day.webp')
@@ -1973,6 +1982,28 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
                           },
                         ),
                         const SizedBox(height: 14),
+                        SwitchListTile(
+                          contentPadding: EdgeInsets.zero,
+                          title: const Text('立体背景'),
+                          subtitle: const Text('轻轻倾斜手机，感受房间的远近变化。重新开启可校准握持角度；不支持姿态感应时保持静态。'),
+                          value: _backgroundDepth,
+                          onChanged: (value) async {
+                            setState(() => _backgroundDepth = value);
+                            setPanelState(() {});
+                            await update('chat_background_depth', value ? '1' : '0');
+                          },
+                        ),
+                        if (_backgroundDepth) ...[
+                          Text('立体感强度 ${(_backgroundDepthStrength * 100).round()}%'),
+                          Slider(
+                            value: _backgroundDepthStrength, min: .2, max: 1, divisions: 16,
+                            onChanged: (value) {
+                              setState(() => _backgroundDepthStrength = value);
+                              setPanelState(() {});
+                            },
+                            onChangeEnd: (value) => update('chat_background_depth_strength', value.toStringAsFixed(2)),
+                          ),
+                        ],
                         Text('聊天面板透明度 ${(_panelOpacity * 100).round()}%'),
                         Slider(
                           value: _panelOpacity,

@@ -64,22 +64,28 @@ void main() {
     await tester.pumpAndSettle();
     expect(calls, contains('openPlainBackup'));
     expect(calls.where((x) => x.toLowerCase().contains('nearby')), isEmpty);
-    expect(await db.getSetting('active_brain'), '1');
-    expect(await db.getSetting('transfer_lock'), '0');
+    await tester.runAsync(() async {
+      expect(await db.getSetting('active_brain'), '1');
+      expect(await db.getSetting('transfer_lock'), '0');
+    });
     await tester.pumpWidget(const SizedBox());
   });
   testWidgets('standby installation can still explicitly recover ownership', (tester) async {
-    await db.setSetting('active_brain', '0');
-    final before = (await db.transferStateIdentity()).generation;
+    final before = await tester.runAsync(() async {
+      await db.setSetting('active_brain', '0');
+      return (await db.transferStateIdentity()).generation;
+    });
     await show(tester);
     await tester.tap(find.text('确认另一台已下线，手动接管本机'));
     await tester.pumpAndSettle();
     await tester.tap(find.text('另一台已下线，接管'));
     await tester.runAsync(() async { await Future<void>.delayed(const Duration(milliseconds: 100)); });
     await tester.pumpAndSettle();
-    expect(await db.getSetting('active_brain'), '1');
-    expect((await db.transferStateIdentity()).generation, before + 1);
-    expect(await db.getSetting('transfer_lock'), '0');
+    await tester.runAsync(() async {
+      expect(await db.getSetting('active_brain'), '1');
+      expect((await db.transferStateIdentity()).generation, before! + 1);
+      expect(await db.getSetting('transfer_lock'), '0');
+    });
     expect(calls, contains('reconcileOverlayAfterTakeover'));
     expect(calls.where((x) => x.toLowerCase().contains('nearby')), isEmpty);
     await tester.pumpWidget(const SizedBox());

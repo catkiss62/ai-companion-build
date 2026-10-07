@@ -11,6 +11,7 @@ class MainActivity : FlutterActivity() {
     private var ttsBridge: NativeTtsBridge? = null
     private var emotionSoundBridge: EmotionSoundBridge? = null
     private var live2DModelStorageBridge: Live2DModelStorageBridge? = null
+    private var roomDepthMotion: RoomDepthMotionBridge? = null
     private var caicaiLive2DBridge: CaicaiLive2DBridge? = null
     private var nativeFateWheelChannel: MethodChannel? = null
     private var pendingFateWheelResult: MethodChannel.Result? = null
@@ -46,6 +47,7 @@ class MainActivity : FlutterActivity() {
         emotionSoundBridge = EmotionSoundBridge(this, flutterEngine)
         live2DModelStorageBridge = Live2DModelStorageBridge(this, flutterEngine)
         caicaiLive2DBridge = CaicaiLive2DBridge(this, flutterEngine)
+        roomDepthMotion = RoomDepthMotionBridge(this, flutterEngine)
         nativeFateWheelChannel = MethodChannel(
             flutterEngine.dartExecutor.binaryMessenger,
             "ai_companion/fate_wheel_native",
@@ -107,6 +109,7 @@ class MainActivity : FlutterActivity() {
 
     override fun onResume() {
         super.onResume()
+        roomDepthMotion?.onResume()
         traceCaicaiLifecycle("activity_resume")
         // Returning from overlay/accessibility/notification settings is a
         // user-visible moment, so it is safe to reconcile an explicitly
@@ -137,6 +140,7 @@ class MainActivity : FlutterActivity() {
     }
 
     override fun onPause() {
+        roomDepthMotion?.onPause()
         traceCaicaiLifecycle("activity_pause")
         super.onPause()
     }
@@ -152,6 +156,8 @@ class MainActivity : FlutterActivity() {
 
     override fun cleanUpFlutterEngine(flutterEngine: FlutterEngine) {
         CompanionRuntimeState.setImmersiveChatPageVisible(false)
+        roomDepthMotion?.dispose()
+        roomDepthMotion = null
         bridge?.dispose()
         bridge = null
         ttsBridge?.dispose()

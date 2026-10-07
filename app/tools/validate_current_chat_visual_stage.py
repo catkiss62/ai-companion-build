@@ -186,6 +186,8 @@ assert {p.name for p in (ROOT / "assets/lingchat/deepseek").iterdir()} == expect
 assert {p.name for p in (ROOT / "assets/lingchat/background").iterdir()} == {
     "day.webp",
     "night.webp",
+    "day_depth.png",
+    "night_depth.png",
 }
 
 asset_files = [
@@ -193,7 +195,7 @@ asset_files = [
     for path in (ROOT / "assets/lingchat").rglob("*")
     if path.is_file() and path.name != "NOTICE.md"
 ]
-assert len(asset_files) == 62, len(asset_files)
+assert len(asset_files) == 64, len(asset_files)
 for path in asset_files:
     data = path.read_bytes()
     assert len(data) > 100, (path, len(data))

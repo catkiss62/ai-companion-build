@@ -26,7 +26,11 @@ final class CaicaiStageBackground {
     private int texture, program, imageWidth, imageHeight;
     private int quadWidth, quadHeight;
     private float quadSceneHeight;
-    private int imageUniform;
+    private int imageUniform, depthUniform, tiltUniform, strengthUniform;
+    private int depthTexture;
+    private String attemptedDepth;
+    private boolean depthEnabled;
+    private float strength=.55f, tiltX, tiltY;
     private int loads, uploads;
     private volatile String diagnostic = "disabled";
 
@@ -41,12 +45,20 @@ final class CaicaiStageBackground {
     CaicaiStageBackground(ImageLoader loader) { this.loader = loader; }
 
     void setAsset(String asset) { requestedAsset = asset == null ? "" : asset; }
-    String diagnostics() { return diagnostic; }
+    void setDepth(boolean enabled,float value) {
+        depthEnabled=enabled;
+        strength=Float.isFinite(value) ? Math.max(.2f,Math.min(1f,value)) : .55f;
+    }
+    void setMotion(float x,float y) {
+        tiltX=Float.isFinite(x) ? Math.max(-1f,Math.min(1f,x)) : 0f;
+        tiltY=Float.isFinite(y) ? Math.max(-1f,Math.min(1f,y)) : 0f;
+    }
+    String diagnostics() { return diagnostic+" depth="+(depthEnabled && depthTexture!=0)+" strength="+strength; }
 
     void contextCreated() {
         // Old names belonged to the lost context. Never delete them in a new one.
-        texture = program = 0;
-        attemptedAsset = null;
+        texture = depthTexture = program = 0;
+        attemptedAsset = attemptedDepth = null;
     }
 
     void draw(int width, int height, float sceneHeight) {
@@ -56,10 +68,14 @@ final class CaicaiStageBackground {
         GLES20.glClear(GLES20.GL_COLOR_BUFFER_BIT);
         if (!requestedAsset.equals(attemptedAsset)) load();
         if (texture == 0) return;
+        if (depthEnabled && !requestedAsset.equals(attemptedDepth)) loadDepth();
         try {
             if (program == 0) {
                 program = createProgram();
                 imageUniform = GLES20.glGetUniformLocation(program, "image");
+                depthUniform = GLES20.glGetUniformLocation(program, "depthImage");
+                tiltUniform = GLES20.glGetUniformLocation(program, "tilt");
+                strengthUniform = GLES20.glGetUniformLocation(program, "strength");
             }
             float canvasHeight = sceneHeight > 0 ? sceneHeight : height;
             if (quadWidth != width || quadHeight != height || quadSceneHeight != canvasHeight) {
@@ -83,6 +99,11 @@ final class CaicaiStageBackground {
             GLES20.glActiveTexture(GLES20.GL_TEXTURE0);
             GLES20.glBindTexture(GLES20.GL_TEXTURE_2D, texture);
             GLES20.glUniform1i(imageUniform, 0);
+            GLES20.glActiveTexture(GLES20.GL_TEXTURE1);
+            GLES20.glBindTexture(GLES20.GL_TEXTURE_2D, depthTexture!=0 ? depthTexture : texture);
+            GLES20.glUniform1i(depthUniform, 1);
+            GLES20.glUniform2f(tiltUniform,tiltX,tiltY);
+            GLES20.glUniform1f(strengthUniform,depthEnabled && depthTexture!=0 ? strength : 0f);
             GLES20.glBindBuffer(GLES20.GL_ARRAY_BUFFER, 0);
             GLES20.glEnableVertexAttribArray(0);
             GLES20.glEnableVertexAttribArray(1);
@@ -100,6 +121,9 @@ final class CaicaiStageBackground {
             GLES20.glDisableVertexAttribArray(0);
             GLES20.glDisableVertexAttribArray(1);
             GLES20.glUseProgram(0);
+            GLES20.glActiveTexture(GLES20.GL_TEXTURE1);
+            GLES20.glBindTexture(GLES20.GL_TEXTURE_2D, 0);
+            GLES20.glActiveTexture(GLES20.GL_TEXTURE0);
             GLES20.glBindTexture(GLES20.GL_TEXTURE_2D, 0);
             GLES20.glEnable(GLES20.GL_BLEND);
             GLES20.glBlendFunc(GLES20.GL_ONE, GLES20.GL_ONE_MINUS_SRC_ALPHA);
@@ -108,6 +132,8 @@ final class CaicaiStageBackground {
 
     private void load() {
         deleteTexture();
+        deleteDepth();
+        attemptedDepth=null;
         attemptedAsset = requestedAsset;
         Bitmap bitmap = null;
         try {
@@ -138,6 +164,37 @@ final class CaicaiStageBackground {
         }
     }
 
+    private void loadDepth() {
+        deleteDepth();
+        attemptedDepth=requestedAsset;
+        Bitmap bitmap=null;
+        try {
+            if (!requestedAsset.endsWith(".webp")) return;
+            bitmap=loader.load(requestedAsset.substring(0,requestedAsset.length()-5)+"_depth.png");
+            if (bitmap==null) throw new IOException("depth decode failed");
+            int[] name=new int[1];
+            GLES20.glGenTextures(1,name,0); depthTexture=name[0];
+            GLES20.glActiveTexture(GLES20.GL_TEXTURE1);
+            GLES20.glBindTexture(GLES20.GL_TEXTURE_2D,depthTexture);
+            GLES20.glTexParameteri(GLES20.GL_TEXTURE_2D,GLES20.GL_TEXTURE_MIN_FILTER,GLES20.GL_LINEAR);
+            GLES20.glTexParameteri(GLES20.GL_TEXTURE_2D,GLES20.GL_TEXTURE_MAG_FILTER,GLES20.GL_LINEAR);
+            GLES20.glTexParameteri(GLES20.GL_TEXTURE_2D,GLES20.GL_TEXTURE_WRAP_S,GLES20.GL_CLAMP_TO_EDGE);
+            GLES20.glTexParameteri(GLES20.GL_TEXTURE_2D,GLES20.GL_TEXTURE_WRAP_T,GLES20.GL_CLAMP_TO_EDGE);
+            GLUtils.texImage2D(GLES20.GL_TEXTURE_2D,0,bitmap,0);
+        } catch(IOException | RuntimeException error) {
+            Log.w("CaicaiBackground","Depth unavailable; retaining static room",error);
+            deleteDepth();
+        } finally {
+            if(bitmap!=null) bitmap.recycle();
+            GLES20.glActiveTexture(GLES20.GL_TEXTURE0);
+        }
+    }
+
+    private void deleteDepth() {
+        if(depthTexture!=0) GLES20.glDeleteTextures(1,new int[]{depthTexture},0);
+        depthTexture=0;
+    }
+
     private static int createProgram() {
         int vertex = shader(GLES20.GL_VERTEX_SHADER,
                 "attribute vec2 position; attribute vec2 uv; varying vec2 sampleUv;"
@@ -146,7 +203,12 @@ final class CaicaiStageBackground {
         try {
             fragment = shader(GLES20.GL_FRAGMENT_SHADER,
                     "precision mediump float; varying vec2 sampleUv; uniform sampler2D image;"
-                    + "void main(){gl_FragColor=vec4(texture2D(image,sampleUv).rgb,1.0);}");
+                    + "uniform sampler2D depthImage;uniform vec2 tilt;uniform float strength;"
+                    + "void main(){vec2 uv=(sampleUv-.5)*(1.0-.04*strength)+.5;"
+                    + "vec2 shift=tilt*.018*strength;"
+                    + "vec2 p=uv+shift*(texture2D(depthImage,uv).r-.15);"
+                    + "p=uv+shift*(texture2D(depthImage,p).r-.15);"
+                    + "gl_FragColor=vec4(texture2D(image,p).rgb,1.0);}");
             result = GLES20.glCreateProgram();
             GLES20.glAttachShader(result, vertex); GLES20.glAttachShader(result, fragment);
             GLES20.glBindAttribLocation(result, 0, "position");
@@ -184,10 +246,11 @@ final class CaicaiStageBackground {
     void release() {
         // dispose() may follow a detach that already destroyed the EGL context.
         if (EGL14.EGL_NO_CONTEXT.equals(EGL14.eglGetCurrentContext())) {
-            texture = program = 0;
+            texture = depthTexture = program = 0;
             return;
         }
         deleteTexture();
+        deleteDepth();
         if (program != 0) GLES20.glDeleteProgram(program);
         program = 0;
     }

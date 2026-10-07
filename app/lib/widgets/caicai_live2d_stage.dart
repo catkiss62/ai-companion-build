@@ -38,7 +38,9 @@ class CaicaiLive2DService {
 
 class CaicaiLive2DStage extends StatefulWidget {
   const CaicaiLive2DStage({super.key, this.qForm = false, this.emotion = 'normal', this.active = true, this.sceneSize,
-    this.backgroundAsset = 'assets/lingchat/background/day.webp'});
+    this.backgroundAsset = 'assets/lingchat/background/day.webp', this.depthEnabled = false, this.depthStrength = .55});
+  final bool depthEnabled;
+  final double depthStrength;
   final String backgroundAsset;
   final Size? sceneSize;
   final bool qForm;
@@ -140,11 +142,13 @@ class _CaicaiLive2DStageState extends State<CaicaiLive2DStage> with WidgetsBindi
       _watchLoading();
     }
     if (oldWidget.qForm != widget.qForm || oldWidget.sceneSize != widget.sceneSize ||
-        oldWidget.backgroundAsset != widget.backgroundAsset) _syncState();
+        oldWidget.backgroundAsset != widget.backgroundAsset ||
+        oldWidget.depthEnabled != widget.depthEnabled || oldWidget.depthStrength != widget.depthStrength) _syncState();
   }
 
   Future<void> _syncState() async {
     await _channel?.invokeMethod<void>('setBackground', widget.backgroundAsset);
+    await _channel?.invokeMethod<void>('setBackgroundDepth', {'enabled':widget.depthEnabled,'strength':widget.depthStrength});
     await _channel?.invokeMethod<void>('setForm', widget.qForm);
     final size=widget.sceneSize;
     if(size!=null) await _channel?.invokeMethod<void>('setSceneSize',{'width':size.width,'height':size.height});

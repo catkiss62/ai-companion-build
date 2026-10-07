@@ -78,6 +78,59 @@ public class CaicaiBackgroundSmokeTest {
         }
     }
 
+    @Test public void nearPixelsMoveMoreThanFarPixelsAndOffRestoresStatic() {
+        int[] loads={0};
+        CaicaiStageBackground backdrop=new CaicaiStageBackground(asset->{
+            loads[0]++;
+            Bitmap bitmap=Bitmap.createBitmap(256,256,Bitmap.Config.ARGB_8888);
+            for(int y=0;y<256;y++) for(int x=0;x<256;x++) {
+                int shade=asset.endsWith("_depth.png") ? (y<128 ? 51 : 230) : x;
+                bitmap.setPixel(x,y,Color.rgb(shade,shade,shade));
+            }
+            return bitmap;
+        });
+        try(GlContext gl=new GlContext()) {
+            backdrop.setAsset("day.webp");backdrop.setDepth(true,1f);
+            backdrop.draw(256,256,256);
+            int near=pixel(64,64)[0],far=pixel(64,192)[0];
+            backdrop.setMotion(1,0);backdrop.draw(256,256,256);
+            assertTrue(pixel(64,64)[0]-near>=3);
+            assertTrue(Math.abs(pixel(64,192)[0]-far)<=1);
+            for(int i=0;i<20;i++) backdrop.draw(256,256,256);
+            assertEquals(2,loads[0]);
+            backdrop.setDepth(false,1f);backdrop.draw(256,256,256);
+            int[] original=pixel(64,64);
+            backdrop.setMotion(-1,1);backdrop.draw(256,256,256);
+            assertArrayEquals(original,pixel(64,64));
+            assertEquals(2,loads[0]);
+            assertEquals(GLES20.GL_TEXTURE0,activeTexture());
+            assertEquals(GLES20.GL_NO_ERROR,GLES20.glGetError());
+            backdrop.release();
+        }
+    }
+
+    @Test public void missingDepthRetainsOriginalAndDoesNotRetryEachFrame() {
+        int[] loads={0};
+        CaicaiStageBackground backdrop=new CaicaiStageBackground(asset->{
+            loads[0]++;
+            if(asset.endsWith("_depth.png")) throw new IOException("missing depth");
+            Bitmap bitmap=Bitmap.createBitmap(4,4,Bitmap.Config.ARGB_8888);
+            bitmap.eraseColor(Color.BLUE);return bitmap;
+        });
+        try(GlContext gl=new GlContext()) {
+            backdrop.setAsset("day.webp");backdrop.setDepth(true,1f);backdrop.setMotion(1,1);
+            for(int i=0;i<20;i++) backdrop.draw(4,4,4);
+            assertPixel(0,0,0,0,255,255);
+            assertEquals(2,loads[0]);
+            assertFalse(backdrop.diagnostics().contains("depth=true"));
+            assertEquals(GLES20.GL_NO_ERROR,GLES20.glGetError());
+            backdrop.release();
+        }
+    }
+    private static int activeTexture() {
+        int[] value={0};GLES20.glGetIntegerv(GLES20.GL_ACTIVE_TEXTURE,value,0);return value[0];
+    }
+
     private static int[] pixel(int x, int y) {
         ByteBuffer pixel = ByteBuffer.allocateDirect(4);
         GLES20.glReadPixels(x, y, 1, 1, GLES20.GL_RGBA, GLES20.GL_UNSIGNED_BYTE, pixel);
@@ -103,7 +156,7 @@ public class CaicaiBackgroundSmokeTest {
             context = EGL14.eglCreateContext(display, configs[0], EGL14.EGL_NO_CONTEXT,
                     new int[] {EGL14.EGL_CONTEXT_CLIENT_VERSION,2,EGL14.EGL_NONE}, 0);
             surface = EGL14.eglCreatePbufferSurface(display, configs[0],
-                    new int[] {EGL14.EGL_WIDTH,4,EGL14.EGL_HEIGHT,4,EGL14.EGL_NONE}, 0);
+                    new int[] {EGL14.EGL_WIDTH,256,EGL14.EGL_HEIGHT,256,EGL14.EGL_NONE}, 0);
             assertTrue(EGL14.eglMakeCurrent(display, surface, surface, context));
         }
         @Override public void close() {
