@@ -50,7 +50,7 @@ class CompanionWish {
   final bool manualHold, legacy;
   bool get active => state == 'active';
   bool get terminal =>
-      const {'completed', 'abandoned', 'expired'}.contains(state);
+      const {'completed', 'satisfied', 'abandoned', 'expired'}.contains(state);
   double priority(DateTime now) =>
       interest *
       pow(

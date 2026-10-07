@@ -122,6 +122,38 @@ void main() {
     expect(result?['cedar'], 'chat');
   });
 
+  test('recorded half-hour invitation keeps its shared authorization', () async {
+    final result = await gateway(200, {
+      'answers': {
+        'cedar': {
+          'type': 'choice', 'choice': 'act_now', 'confidence': 0.16,
+          'probabilities': {
+            'act_now': 0.37, 'accept': 0.32, 'defer': 0.07, 'chat': 0.24,
+          },
+        },
+      },
+    }).chooseMany(state: '那你去玩半小时白房间吧',
+        usageLane: 'chat_intimacy_route', questions: const {
+      'cedar': JevChoiceQuestion('game', {
+        'act_now': 'act', 'accept': 'accept', 'defer': 'defer', 'chat': 'chat',
+      }),
+    });
+    expect(result?['cedar'], 'act_now');
+  });
+
+  test('Cedar grouping preserves refusal, sparse answers and lane isolation', () {
+    expect(JevDecisionGateway.resolveCedarGroup('chat_intimacy_route', 'cedar',
+        {'act_now': .1, 'accept': .1, 'defer': .7, 'chat': .1}), 'defer');
+    expect(JevDecisionGateway.resolveCedarGroup('chat_intimacy_route', 'cedar',
+        {'act_now': .25, 'accept': .26, 'defer': .49}), 'chat');
+    expect(JevDecisionGateway.resolveCedarGroup('chat_intimacy_route', 'cedar',
+        {'accept': .7}), 'accept');
+    expect(JevDecisionGateway.resolveCedarGroup('chat_intimacy_route', 'cedar',
+        {'act_now': .2, 'accept': .1, 'chat': .7}), 'chat');
+    expect(JevDecisionGateway.resolveCedarGroup('cedar_context_intent', 'route',
+        {'advance': .52, 'chat': .48}), isNull);
+  });
+
   test('disabled or missing key makes no OpenRouter request', () async {
     var calls = 0;
     JevDecisionGateway makeGateway(bool enabled, String? key) =>

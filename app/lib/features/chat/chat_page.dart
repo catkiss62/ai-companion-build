@@ -1,3 +1,4 @@
+import 'chat_tail_follower.dart';
 import '../../widgets/caicai_stage_viewport.dart';
 import '../../widgets/caicai_stage_editor.dart';
 import 'dart:async';
@@ -107,6 +108,11 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
   ChatEmotionVisual _currentEmotion = ChatVisualResolver.normal;
   String _currentEmotionLabel = '正常';
   bool _followLatest = true;
+  late final _tailFollower = ChatTailFollower(
+    controller: scroll,
+    canFollow: () => mounted && widget.active && _followLatest,
+    onProgrammaticChange: (value) => _programmaticScroll = value,
+  );
   bool _programmaticScroll = false;
   bool _lastGenerationActive = false;
   String _lastStreamingReasoning = '';
@@ -341,10 +347,9 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
   }
 
   bool _onUserScroll(UserScrollNotification notification) {
-    if (_programmaticScroll || !scroll.hasClients) return false;
+    if (notification.depth != 0 || _programmaticScroll || !scroll.hasClients) return false;
     final distance = scroll.position.maxScrollExtent - scroll.offset;
-    if (notification.direction == ScrollDirection.forward &&
-        (controller.generationActive || _animatedMessageId != null)) {
+    if (notification.direction == ScrollDirection.forward) {
       // Only an actual upward user gesture disables follow mode. Content-size
       // changes from a growing/collapsing reasoning panel are not user scrolls.
       _followLatest = false;
@@ -522,17 +527,10 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
     return hour < 6 || hour >= 18;
   }
 
-  void _scrollToLatest() {
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!mounted || !scroll.hasClients) return;
-      final target = scroll.position.maxScrollExtent;
-      _programmaticScroll = true;
-      scroll.jumpTo(target);
-      _programmaticScroll = false;
-    });
-  }
+  void _scrollToLatest() => _tailFollower.request();
 
   void _anchorTimelineTail() {
+    _tailFollower.request();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted || !_followLatest) return;
       final tailContext = _timelineTailKey.currentContext;
@@ -599,6 +597,7 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
     input.dispose();
     inputFocus.removeListener(_onComposerFocusChanged);
     inputFocus.dispose();
+    _tailFollower.dispose();
     scroll.dispose();
     super.dispose();
   }
@@ -1397,7 +1396,15 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
                             child:
                                 NotificationListener<UserScrollNotification>(
                               onNotification: _onUserScroll,
-                              child: timelineList,
+                              child: NotificationListener<ScrollMetricsNotification>(
+                                onNotification: (notification) {
+                                  if (notification.depth == 0 && _followLatest) {
+                                    _tailFollower.request();
+                                  }
+                                  return false;
+                                },
+                                child: timelineList,
+                              ),
                             ),
                           ),
                           if (controller.error != null)

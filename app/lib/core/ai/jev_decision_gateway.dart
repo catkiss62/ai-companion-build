@@ -24,6 +24,29 @@ class JevDecisionGateway {
   static const model = 'typesafe/jev-1.13';
   static const endpoint = 'https://openrouter.ai/api/alpha/decisions';
 
+  /// Direct requests and accepted invitations authorize the same planning gate.
+  /// Compare that direction before deciding which authorization label won.
+  static String? resolveCedarGroup(String lane, String question,
+      Map<String, double> distribution) {
+    if (lane != 'chat_intimacy_route' || question != 'cedar') return null;
+    const execution = {'act_now', 'accept'};
+    final groups = <String, double>{};
+    for (final entry in distribution.entries) {
+      final group = execution.contains(entry.key) ? 'execute' : entry.key;
+      groups[group] = (groups[group] ?? 0) + entry.value;
+    }
+    final ranked = groups.entries.toList()
+      ..sort((a, b) => b.value.compareTo(a.value));
+    if (ranked.isEmpty) return 'chat';
+    if (ranked.length > 1 &&
+        ranked[0].value - ranked[1].value <= 0.10 + 1e-9) return 'chat';
+    if (ranked.first.key != 'execute') return ranked.first.key;
+    final labels = distribution.entries
+        .where((entry) => execution.contains(entry.key)).toList()
+      ..sort((a, b) => b.value.compareTo(a.value));
+    return labels.first.key;
+  }
+
   final http.Client Function() clientFactory;
   final Future<bool> Function()? enabledReader;
   final Future<String?> Function()? keyReader;
@@ -214,7 +237,9 @@ class JevDecisionGateway {
           _ => null,
         };
         final highest = ranked.first.key;
-        final grouped = resolvePlayfulGroup(usageLane, entry.key, distribution);
+        final cedarGrouped = resolveCedarGroup(usageLane, entry.key, distribution);
+        final grouped = cedarGrouped ??
+            resolvePlayfulGroup(usageLane, entry.key, distribution);
         var applied = grouped ?? (close && neutral != null ? neutral : highest);
         applied = entry.value.resolve?.call(distribution) ?? applied;
         closeDecisions = closeDecisions || (applied == neutral && applied != highest);
@@ -228,7 +253,8 @@ class JevDecisionGateway {
               distribution.length == entry.value.options.length,
           'close': close,
           'applied': applied,
-          if (grouped != null) 'decision_policy': 'playful_semantic_groups_v2',
+          if (grouped != null) 'decision_policy': cedarGrouped != null
+              ? 'cedar_authorization_group_v1' : 'playful_semantic_groups_v2',
         };
       }
       await _record(usageLane,

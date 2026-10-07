@@ -64,7 +64,9 @@ route 仅 game（真实已知游戏中可尝试）、user（需要用户自愿�
 source_ids 引用实际灵感来源，game baseline 来自给定游戏真实结果；不得把助手说过/念头/愿望本身当成发生过的事实。deadline 仅目标本身带时间时填写 ISO8601，不能默认给所有愿望加截止时间。
 updates 只评估给定愿望的新资料。返回 {id,state,progress,evidence_id,quote,confidence,same_target,observed,expressed}。
 无变化就不写 update。state 可 active/paused/abandoned/completed。用户拒绝/暂停时可以暂停或放弃；手动暂停绝不自动复活。尊重用户不想做，不劝说、不催。
-完成必须是 created_at 之后的实际结果，匹配原 criterion 的对象、归属、时间和范围。quote 必须逐字来自指定资料并足够说明结果。observed=true 仅已发生结果；用户计划、答应、假设、愿望、工具尝试、读指南、助手自述都不是完成。证据不够保持 active，progress 只记已知进展/障碍，禁止写已经实现。不得修改 criterion 降低标准。aspiration 本版不自动完成。
+完成必须是 created_at 之后的实际结果，匹配原 criterion 的对象、归属、时间和范围。quote 必须逐字来自指定资料并足够说明结果。observed=true 仅已发生结果；用户计划、答应、假设、愿望、工具尝试、读指南、助手自述都不是完成。证据不够保持 active，progress 只记已知进展/障碍，禁止写已经实现。不得修改 criterion 降低标准。aspiration 不按客观 completed 完成，可依下述规则主观满足。
+自主处置：可以根据她对已有具体愿望的认真表达，提出 self_decision=true 的 active/paused/abandoned/satisfied 更新。必须引用 assistant_text，reason（4~240字）解释意愿变化，speech_act=considered_decision；玩笑、撒娇、假设、引用、角色扮演或随口宣称完成不算处置决定。没有明确意愿变化则不更新，也不为了展示自主性频繁改变。用户手动暂停/放下不可自行恢复。
+paused=自己暂时不想追求，abandoned=不再追求原目标，active=明确重新想追求自己暂放的目标；satisfied=主观向往已得到满足，仅适用于 aspiration。游戏结果等客观目标即使“想通了、不执着了”也只能放下，不能当作客观达成。不得把“霸占靠垫、催吃饭”等玩笑新增为真实目标；原有新愿望生成规则保持。原 criterion 不变。
 expressed=true 仅 assistant_text 确实已经向用户说出了这一具体愿望；提过就不反复提，不把说过当完成。
 格式 {"new_wish":null或{"goal":"","reason":"","route":"","game_id":"","next_step":"","criterion":"","completion_kind":"","source_ids":[],"interest":0.6,"deadline":""},"updates":[]}。''';
 
@@ -119,7 +121,8 @@ expressed=true 仅 assistant_text 确实已经向用户说出了这一具体愿�
           wishes.where((w) => w.active).length < 4 &&
           instant.millisecondsSinceEpoch - generationAt >=
               generationGap.inMilliseconds;
-      if (!canGenerate && !wishes.any((w) => w.active || w.state == 'expired'))
+      if (!canGenerate && !wishes.any((w) => w.active || w.state == 'expired' ||
+            (w.state == 'paused' && !w.manualHold && !w.legacy)))
         return false;
       final catalog = CedarCatalogParser.parse(
         await db.getSetting(CedarToyActivityStore.catalogSettingKey) ?? '',
@@ -361,10 +364,11 @@ class WishPolicy {
         m[k] is String && (m[k] as String).length <= max
         ? (m[k] as String).trim()
         : '';
+    var activeCount = wishes.where((w) => w.active).length;
     final result = wishes.map((w) {
       final u = changes[w.id];
       if (u == null ||
-          (!w.active && w.state != 'expired') ||
+          (!w.active && w.state != 'expired' && w.state != 'paused') ||
           w.manualHold ||
           w.legacy)
         return w;
@@ -381,8 +385,32 @@ class WishPolicy {
         return w;
       if (w.state == 'expired' && u['state'] != 'completed') return w;
       if (e.kind == 'assistant_text') {
+        final state = text(u, 'state', 20);
+        final reason = text(u, 'reason', 240);
+        if (u['self_decision'] == true &&
+            u['speech_act'] == 'considered_decision' &&
+            reason.length >= 4 &&
+            const {'active', 'paused', 'abandoned', 'satisfied'}.contains(state) &&
+            (state != 'satisfied' || w.route == 'aspiration') &&
+            (state != 'active' || w.state == 'paused') &&
+            (state != 'active' || activeCount < 4) &&
+            (w.deadline == null || now.isBefore(w.deadline!)) &&
+            e.at.isAfter(w.updatedAt) &&
+            !w.evidenceIds.contains(e.id)) {
+          if (w.active && state != 'active') activeCount--;
+          if (!w.active && state == 'active') activeCount++;
+          return w.copyWith(
+            state: state, progress: reason, updatedAt: now,
+            manualHold: false, lastEvidenceAt: e.at,
+            evidenceIds: [...w.evidenceIds, e.id].reversed.take(12).toList().reversed.toList(),
+            evidenceQuote: quote,
+            expressedAt: u['expressed'] == true ? e.at : null,
+          );
+        }
         return u['expressed'] == true ? w.copyWith(expressedAt: e.at) : w;
       }
+      // Self-paused wishes only resume through an explicit new self decision.
+      if (w.state == 'paused') return w;
       if (!const {'game_result', 'user_photo', 'user_text'}.contains(e.kind) ||
           (e.kind == 'game_result' && e.gameId != w.gameId))
         return w;

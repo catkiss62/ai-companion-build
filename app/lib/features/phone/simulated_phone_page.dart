@@ -2269,7 +2269,7 @@ class WishList extends StatelessWidget {
       emoji: completed ? '🌟' : '💫',
       title: completed ? '还没有已实现的愿望' : archived ? '还没有放下的愿望' : '现在没有特别想做的事',
       body: completed ? '真正实现的愿望会被留在这里。' : archived
-        ? '暂时搁置、过期或放弃的愿望也会留下来。' : '有了在意的事，她会慢慢记下来。');
+        ? '暂时搁置、已经放下或内心得到满足的愿望也会留下来。' : '有了在意的事，她会慢慢记下来。');
     return ListView.builder(padding: const EdgeInsets.fromLTRB(14,12,14,28),
       itemCount: entries.length, itemBuilder: (_, index) {
         final entry = entries[index];
@@ -2278,7 +2278,7 @@ class WishList extends StatelessWidget {
         final progress = entry.metadata['progress']?.toString() ?? '';
         final criterion = entry.metadata['criterion']?.toString() ?? '';
         final status = switch(entry.state) {
-          'completed' => '已实现', 'paused' => '暂时搁置',
+          'completed' => '已实现', 'satisfied' => '心愿已满足', 'paused' => '暂时搁置',
           'abandoned' => '已放下', 'expired' => '已过期', _ => '还在心里',
         };
         return Container(margin: const EdgeInsets.only(bottom:9), padding: const EdgeInsets.all(13),

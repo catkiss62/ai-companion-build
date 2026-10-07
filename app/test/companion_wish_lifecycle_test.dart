@@ -411,6 +411,34 @@ void main() {
         await db.releaseLocalLease('chat_turn_lease');
       },
     );
+    test('self disposition commits history and removes active game motivation', () async {
+      await seed();
+      final now = at.add(const Duration(hours: 1));
+      const statement = '我现在已经不想继续追这个目标了';
+      await db.insertMessage(ChatMessage(id: 'self-choice', role: 'assistant',
+        content: statement, createdAt: at.add(const Duration(minutes: 10))));
+      final engine = WishEngine(db, reviewer: (_) async => {
+        'updates': [{
+          'id': 'w', 'state': 'abandoned', 'self_decision': true,
+          'speech_act': 'considered_decision', 'reason': '已经不再执着原先的目标',
+          'evidence_id': 'chat:self-choice', 'quote': statement,
+          'same_target': true, 'confidence': .95,
+        }],
+      });
+      expect(await engine.maybeRefresh(now: now), true);
+      expect((await WishStore(db).load()).single.state, 'abandoned');
+      expect(jsonDecode((await db.getSetting(WishStore.activeKey))!), isEmpty);
+      expect(jsonDecode((await db.getSetting(WishStore.archivedKey))!), hasLength(1));
+      expect(await WishStore(db).prompt(gameOnly: true, now: now), '');
+      expect(await WishStore(db).prompt(includeCompleted: true, now: now), contains('abandoned'));
+      final snapshot = await db.exportAll();
+      final other = await AppDatabase.createForTesting(databaseFactoryFfi);
+      try {
+        await other.importAll(snapshot);
+        expect((await WishStore(other).load()).single.state, 'abandoned');
+        expect(await WishStore(other).prompt(gameOnly: true, now: now), '');
+      } finally { await other.closeForTesting(); }
+    });
     test('disabled phone makes no call and exposes no wish prompt', () async {
       await seed();
       await db.setSetting(WishStore.enabledKey, '0');
