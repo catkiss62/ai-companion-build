@@ -68,9 +68,6 @@ internal class CaicaiPlatformView(
     private var stageX = initialPreferences.x
     private var stageY = initialPreferences.y
     private var headBox = initialPreferences.headBox()
-    private var earX = initialPreferences.earX
-    private var earY = initialPreferences.earY
-    private var earRotation = initialPreferences.earRotation
     private var editSnapshot: FloatArray? = null
     private var strokeDistance = 0f
     private var patCandidate = false
@@ -100,7 +97,6 @@ internal class CaicaiPlatformView(
         companion.renderMode = GLSurfaceView.RENDERMODE_WHEN_DIRTY
         companion.setListener(this)
         companion.tuneCaicaiMotion(motionGain,motionSpeed,legPivot)
-        applyRightEar()
         companion.holder.addCallback(object : SurfaceHolder.Callback {
             override fun surfaceCreated(holder: SurfaceHolder) { CaicaiDiagnostics.record(app, "surface_created") }
             override fun surfaceChanged(holder: SurfaceHolder, format: Int, width: Int, height: Int) {
@@ -246,7 +242,7 @@ internal class CaicaiPlatformView(
             }
             "beginEdit" -> {
                 companion.clearParameterPlan()
-                editSnapshot = floatArrayOf(stageScale, stageX, stageY, *headBox, earX, earY, earRotation)
+                editSnapshot = floatArrayOf(stageScale, stageX, stageY, *headBox)
                 companion.setStaticMode(true)
                 result.success(editState())
             }
@@ -256,19 +252,6 @@ internal class CaicaiPlatformView(
                 stageX = (a?.get("x") as? Number)?.toFloat() ?: stageX
                 stageY = (a?.get("y") as? Number)?.toFloat() ?: stageY
                 applyStage(false); result.success(editState())
-            }
-            "previewRightEar" -> {
-                val values = call.arguments as? Map<*, *>
-                fun bounded(key: String, old: Float, limit: Float): Float {
-                    val value = (values?.get(key) as? Number)?.toFloat() ?: return old
-                    return if (value.isFinite()) value.coerceIn(-limit,limit) else old
-                }
-                if (editSnapshot != null) {
-                    earX = bounded("x", earX, 1f); earY = bounded("y", earY, 1f)
-                    earRotation = bounded("rotation", earRotation, 45f)
-                    applyRightEar()
-                }
-                result.success(editState())
             }
             "previewHeadBox" -> {
                 val a = call.arguments as? List<*>
@@ -284,12 +267,10 @@ internal class CaicaiPlatformView(
             "finishEdit" -> {
                 if (call.arguments != true) editSnapshot?.let {
                     stageScale=it[0]; stageX=it[1]; stageY=it[2]; headBox=it.copyOfRange(3,7)
-                    earX=it[7]; earY=it[8]; earRotation=it[9]
                 }
-                editSnapshot=null; applyStage(call.arguments == true); applyRightEar()
+                editSnapshot=null; applyStage(call.arguments == true)
                 if (call.arguments == true) viewPrefs.edit().putFloat("headLeft",headBox[0]).putFloat("headTop",headBox[1])
-                    .putFloat("headRight",headBox[2]).putFloat("headBottom",headBox[3])
-                    .putFloat("rightEarX",earX).putFloat("rightEarY",earY).putFloat("rightEarRotation",earRotation).apply()
+                    .putFloat("headRight",headBox[2]).putFloat("headBottom",headBox[3]).apply()
                 companion.setStaticMode(false); result.success(true)
             }
             "adjustStage" -> { stageAdjustment = call.arguments == true; result.success(true) }
@@ -347,10 +328,10 @@ internal class CaicaiPlatformView(
         "view_attached" to companion.isAttachedToWindow.toString(), "view_shown" to companion.isShown.toString(),
         "view_alpha" to companion.alpha.toString(), "keyboard_visible" to keyboardVisible.toString(),
         "scene_ratio" to sceneRatio.toString(),
-        "right_ear_adjust_x" to earX.toString(), "right_ear_adjust_y" to earY.toString(),
-        "right_ear_adjust_rotation_degrees" to earRotation.toString(),
-        "right_ear_adjust_units" to "unadjusted_ear_width; x:right y:up rotation:counterclockwise",
-        "right_ear_adjust_editing" to (editSnapshot != null).toString(),
+        "right_ear_default_x" to CaicaiRightEarAdjustment.X.toString(),
+        "right_ear_default_y" to CaicaiRightEarAdjustment.Y.toString(),
+        "right_ear_default_rotation_degrees" to CaicaiRightEarAdjustment.ROTATION_DEGREES.toString(),
+        "right_ear_default_units" to "unadjusted_ear_width; x:right y:up rotation:counterclockwise",
         "trigger_source" to "chat_stage", "continuation_owner" to "CaicaiGL",
         "phase" to if (disposed) "disposed" else if (!hostActive || !stageVisible) "paused" else renderStatus,
         "planning_rounds" to "0", "tool_calls" to "0", "committed_mutations" to "0",
@@ -425,7 +406,7 @@ internal class CaicaiPlatformView(
         val rect=if(valid && b[0]!=a[0] && b[1]!=a[1]) listOf(
             (headBox[0]-a[0])/(b[0]-a[0]), (headBox[1]-a[1])/(b[1]-a[1]),
             (headBox[2]-a[0])/(b[0]-a[0]), (headBox[3]-a[1])/(b[1]-a[1])) else listOf(.3f,.1f,.7f,.4f)
-        return mapOf("scale" to stageScale,"x" to stageX,"y" to stageY,"headRect" to rect, "earX" to earX, "earY" to earY, "earRotation" to earRotation)
+        return mapOf("scale" to stageScale,"x" to stageX,"y" to stageY,"headRect" to rect)
     }
     private fun trackHeadStroke(action:Int,x:Float,y:Float) {
         val point=FloatArray(2)
@@ -457,10 +438,6 @@ internal class CaicaiPlatformView(
     }
     fun observeTouch(x: Float, y: Float) { if (!disposed && editSnapshot == null) companion.setLookTarget(true,x,y) }
     private fun scenePixelHeight(): Float = if(sceneRatio>0) companion.width.coerceAtLeast(1)*sceneRatio else companion.height.coerceAtLeast(1).toFloat()
-    private fun applyRightEar() {
-        companion.setRightEarAdjustment(earX,earY,earRotation)
-        companion.requestRender()
-    }
     private fun applyStage(persist: Boolean = true) {
         val limit = .9f + .5f * stageScale
         stageX = stageX.coerceIn(-limit, limit); stageY = stageY.coerceIn(-limit, limit)
@@ -473,13 +450,12 @@ internal class CaicaiPlatformView(
         if (disposed) return
         val restored = CaicaiStagePreferences.read(viewPrefs)
         val previous = CaicaiStagePreferences(motionGain, motionSpeed, legPivot,
-            stageScale, stageX, stageY, headBox[0], headBox[1], headBox[2], headBox[3], earX, earY, earRotation)
+            stageScale, stageX, stageY, headBox[0], headBox[1], headBox[2], headBox[3])
         val changed = restored != previous
         motionGain = restored.motionGain; motionSpeed = restored.motionSpeed; legPivot = restored.legPivot
         stageScale = restored.scale; stageX = restored.x; stageY = restored.y; headBox = restored.headBox()
-        earX = restored.earX; earY = restored.earY; earRotation = restored.earRotation
         // An editor opened before restore must not later put its old snapshot back.
-        editSnapshot?.let { editSnapshot = floatArrayOf(stageScale, stageX, stageY, *headBox, earX, earY, earRotation) }
+        editSnapshot?.let { editSnapshot = floatArrayOf(stageScale, stageX, stageY, *headBox) }
         if (changed) restored.applyTo(companion, previous)
         CaicaiDiagnostics.record(app, "stage_preferences_restored", "execution_id=$executionId changed=$changed")
     }

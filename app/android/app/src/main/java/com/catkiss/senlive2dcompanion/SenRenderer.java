@@ -550,16 +550,11 @@ final class SenRenderer implements GLSurfaceView.Renderer {
     }
     String motionParameters() { return model == null ? "{}" : model.motionParameters(); }
     void setSmallForm(boolean small) { if (model != null) model.setSmallForm(small); }
-    private float rightEarAdjustX, rightEarAdjustY, rightEarAdjustRotation;
-    void setRightEarAdjustment(float x, float y, float rotation) {
-        rightEarAdjustX = x; rightEarAdjustY = y; rightEarAdjustRotation = rotation;
-    }
     private void applyRightEarAdjustment() {
-        if (rightEarAdjustX == 0 && rightEarAdjustY == 0 && rightEarAdjustRotation == 0) return;
         float[] bounds = overlayModel.currentEarClipBounds(rightEarProjection, false);
         if (bounds == null) return;
         overlayModel.applyClipTransform(rightEarProjection, CaicaiRightEarAdjustment.matrix(
-                bounds, surfaceWidth, sceneHeight(), rightEarAdjustX, rightEarAdjustY, rightEarAdjustRotation));
+                bounds, surfaceWidth, sceneHeight()));
     }
 
     void startParameterPlan(String json, String face, String action, String wink) {

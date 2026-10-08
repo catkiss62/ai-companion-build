@@ -77,19 +77,12 @@ class NativeSmokeTest {
                         assertEquals(name, expected, rendererValue(name), .001f)
                 }
                 checkRenderer(1.25f, 1.4f, .94f, 2f, .4f, -.6f)
-                assertEquals(.2f,rendererValue("rightEarAdjustX"),.001f)
-                assertEquals(-.3f,rendererValue("rightEarAdjustY"),.001f)
-                assertEquals(12f,rendererValue("rightEarAdjustRotation"),.001f)
+                // +332 snapshots remain importable; their old ear controls are inert.
+                assertTrue(renderer.javaClass.declaredFields.none { it.name.startsWith("rightEarAdjust") })
                 restore(mapOf("scale" to .5f), false)
                 checkRenderer(1.25f, 1.4f, .94f, 2f, .4f, -.6f)
-                assertEquals(.2f,rendererValue("rightEarAdjustX"),.001f)
-                assertEquals(-.3f,rendererValue("rightEarAdjustY"),.001f)
-                assertEquals(12f,rendererValue("rightEarAdjustRotation"),.001f)
                 restore(emptyMap(), true)
                 checkRenderer(1f, 1f, .88f, 1f, 0f, 0f)
-                assertEquals(0f,rendererValue("rightEarAdjustX"),.001f)
-                assertEquals(0f,rendererValue("rightEarAdjustY"),.001f)
-                assertEquals(0f,rendererValue("rightEarAdjustRotation"),.001f)
                 assertArrayEquals(floatArrayOf(.27f, .02f, .73f, .32f), CaicaiStagePreferences.read(prefs).headBox(), .001f)
                 scenario.onActivity {
                     val before = refreshes

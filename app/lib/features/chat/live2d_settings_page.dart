@@ -174,7 +174,6 @@ class _Live2DSettingsPageState extends State<Live2DSettingsPage> {
           const SizedBox(height: 16),
           Wrap(spacing: 8, children: [
             ActionChip(label: const Text('调整位置与缩放'), onPressed: _busy ? null : () => _edit('stage')),
-            ActionChip(label: const Text('调整右侧耳鳍（临时）'), onPressed: _busy ? null : () => _edit('rightEar')),
             ActionChip(label: const Text('调整摸头区域'), onPressed: _busy ? null : () => _edit('head')),
             ActionChip(label: const Text('还原位置'), onPressed: _busy ? null : () => _control('resetStage')),
             ActionChip(label: const Text('清除手动预设'), onPressed: _busy ? null : () => _control('resetPresets')),
