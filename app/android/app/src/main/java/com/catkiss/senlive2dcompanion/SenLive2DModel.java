@@ -457,10 +457,14 @@ final class SenLive2DModel extends CubismUserModel {
     }
 
     void startParameterPlan(String json, String face, String action) throws JSONException {
+        startParameterPlan(json, face, action, "");
+    }
+
+    void startParameterPlan(String json, String face, String action, String wink) throws JSONException {
         if (caicaiPat.active() || manualPlan && System.nanoTime() < planPresetDeadlineNanos) return;
         clearParameterPlan();
         parameterPlan.start(json);
-        for (String name : new String[]{face, action}) {
+        for (String name : new String[]{face, wink, action}) {
             if (name == null || name.isEmpty() || !maidPresetValues.containsKey(name) && !isWinkPreset(name)) continue;
             // Existing authored appearances remain independent from the conversational plan.
             boolean occupied = false;
@@ -1827,7 +1831,8 @@ final class SenLive2DModel extends CubismUserModel {
     private static boolean maidPresetsConflict(String incoming, String active) {
         if (("比耶wink吐舌".equals(incoming) && active.startsWith("2"))
                 || ("比耶wink吐舌".equals(active) && incoming.startsWith("2"))) return true;
-        if (isFacePreset(incoming)) return isFacePreset(active);
+        if (isFacePreset(incoming)) return isFacePreset(active)
+                && isWinkPreset(incoming) == isWinkPreset(active);
         if (!incoming.startsWith("2") && !"比耶wink吐舌".equals(incoming)) return false;
         if (!active.startsWith("2")) return false;
         // Two trays have separate authored parameters: Param119 and Param115.

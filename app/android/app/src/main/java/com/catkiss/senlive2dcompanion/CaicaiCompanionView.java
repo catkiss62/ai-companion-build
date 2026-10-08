@@ -275,6 +275,10 @@ public final class CaicaiCompanionView extends GLSurfaceView implements SenCompa
         queueRenderer(() -> callback.accept(renderer.motionParameters()));
     }
     public void setSmallForm(boolean small) { queueRenderer(() -> renderer.setSmallForm(small)); }
+    public void startParameterPlan(String json, String face, String action, String wink) {
+        queueRenderer(() -> renderer.startParameterPlan(json, face, action, wink));
+    }
+
     public void startParameterPlan(String json, String face, String action) {
         queueRenderer(() -> renderer.startParameterPlan(json, face, action));
     }

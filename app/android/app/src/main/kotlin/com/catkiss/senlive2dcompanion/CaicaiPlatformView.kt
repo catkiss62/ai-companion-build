@@ -279,7 +279,7 @@ internal class CaicaiPlatformView(
             "motionPlan" -> {
                 val args = call.arguments as? Map<*, *>
                 val plan = org.json.JSONArray(args?.get("frames") as? List<*> ?: emptyList<Any>()).toString()
-                companion.startParameterPlan(plan, args?.get("face")?.toString() ?: "", args?.get("action")?.toString() ?: "")
+                companion.startParameterPlan(plan, args?.get("face")?.toString() ?: "", args?.get("action")?.toString() ?: "", args?.get("wink")?.toString() ?: "")
                 CaicaiDiagnostics.record(app, "motion_plan_submitted", org.json.JSONObject(args ?: emptyMap<Any, Any>()).toString())
                 result.success(true)
             }

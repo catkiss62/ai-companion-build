@@ -550,6 +550,12 @@ final class SenRenderer implements GLSurfaceView.Renderer {
     }
     String motionParameters() { return model == null ? "{}" : model.motionParameters(); }
     void setSmallForm(boolean small) { if (model != null) model.setSmallForm(small); }
+    void startParameterPlan(String json, String face, String action, String wink) {
+        if (model == null) return;
+        try { model.startParameterPlan(json, face, action, wink); }
+        catch (JSONException error) { listener.onError(error); }
+    }
+
     void startParameterPlan(String json, String face, String action) {
         if (model == null) return;
         try { model.startParameterPlan(json, face, action); }
@@ -970,6 +976,7 @@ final class SenRenderer implements GLSurfaceView.Renderer {
                 fineTune.y + center[1] - b * center[0] - a * center[1],
                 0f, 1f
         };
+        CaicaiEarRotation.correct(transform, surfaceWidth, sceneHeight(), center[0], center[1]); // AI_COMPANION_HOST_PLAN_HOOK
         overlayModel.applyClipTransform(projection, transform);
     }
 
@@ -1380,6 +1387,7 @@ final class SenRenderer implements GLSurfaceView.Renderer {
                 centerY - sin * centerX - cos * centerY,
                 0f, 1f
         };
+        CaicaiEarRotation.correct(rotate, surfaceWidth, sceneHeight(), centerX, centerY); // AI_COMPANION_HOST_PLAN_HOOK
         overlayModel.applyClipTransform(matrix, rotate);
     }
 

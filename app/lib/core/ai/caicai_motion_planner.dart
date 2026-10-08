@@ -55,6 +55,8 @@ class CaicaiMotionPlanner {
     'wink吐舌': '中度：眨眼加吐舌，更淘气。',
     '比耶wink吐舌': '程度更强：比耶加吐舌加眨眼，更夸张的得意、庆祝或卖萌。',
   };
+  static const overlayFaces = ['无','1爱心','1生气','1红脸','1钱钱','1黑脸','1星星眼','1流泪'];
+  static const winks = ['无','wink','wink吐舌','比耶wink吐舌'];
   static const actions = ['无','2奶茶','2插手','2比耶','2点单','2菜单','2餐盘左','2餐盘右'];
 
   Future<Map<String, Object?>?> plan({required String user, required String reply,
@@ -90,9 +92,16 @@ class CaicaiMotionPlanner {
     }
     questions['tempo'] = JevChoiceQuestion('整段表演节奏，默认明快；兴奋或俏皮可用快拍，安静时舒展。',
       {'舒展':'每拍1.10秒', '明快':'每拍0.95秒', '俏皮快拍':'每拍0.82秒'});
-    questions['face'] = JevChoiceQuestion('选择本次短时原装表情，情绪不明显时选无。'
-      'wink、wink吐舌、比耶wink吐舌是模型原装的完整预设，后者已自带比耶手势；'
-      '轻微眨眼也可由四拍眼睛参数单独表达。', faceMeanings);
+    questions['face'] = JevChoiceQuestion(
+      '选择七个原装叠加表情之一，或无。情绪不明显时选无。这是独立于情绪和五官动作的附加表现：'
+      '可以与情绪驱动的脸部变化、眉眼嘴型、wink及道具动作同时使用。'
+      '已经选择情绪或五官动作，不是放弃此层的理由；依据实际语气选择，不设使用次数，不为变化而强选。',
+      {for (final name in overlayFaces) name: faceMeanings[name]!});
+    questions['wink'] = JevChoiceQuestion(
+      '独立选择俏皮动作或无，可与七个叠加表情和情绪同时使用。'
+      'wink、wink吐舌、比耶wink吐舌是完整原装预设，后者自带比耶手势；'
+      '已有完整wink时不必再用四拍眼睛动作重复强调。无关语境选无。',
+      {for (final name in winks) name: faceMeanings[name]!});
     questions['action'] = JevChoiceQuestion('选择与本轮明确动作或场景有关的原装动作；无关时选无。', {for (final x in actions) x: x});
     questions['emotion'] = JevChoiceQuestion(
       '选择对话结束后持续显示的聊天情绪。以实际回复语气为准；没有明显情绪选正常，不要为了变化而强选。',
@@ -146,6 +155,7 @@ class CaicaiMotionPlanner {
     }
     return {'frames': frames,
       'face': faces.contains(answers['face']) && answers['face'] != '无' ? answers['face'] : '',
+      'wink': winks.contains(answers['wink']) && answers['wink'] != '无' ? answers['wink'] : '',
       'action': actions.contains(answers['action']) && answers['action'] != '无' ? answers['action'] : '',
       'emotion': answers['emotion'] == 'normal' || EmotionCatalog.labelsByKey.containsKey(answers['emotion'])
           ? CaicaiLive2DService.nativeEmotionId(answers['emotion']!) : ''};

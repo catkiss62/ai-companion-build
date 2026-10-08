@@ -31,7 +31,11 @@ void main() {
         calls++;
         final body = jsonDecode(request.body) as Map;
         final questions = body['questions'] as Map;
-        expect(questions.keys, containsAll(['f0_head','f1_head','f2_head','f3_head','face','action','emotion','tempo','f0_intensity','f3_root']));
+        expect(questions.keys, containsAll(['f0_head','f1_head','f2_head','f3_head','face','wink','action','emotion','tempo','f0_intensity','f3_root']));
+        final face = questions['face'] as Map;
+        final wink = questions['wink'] as Map;
+        expect((face['criteria'] as Map).keys, unorderedEquals(CaicaiMotionPlanner.overlayFaces));
+        expect((wink['criteria'] as Map).keys, unorderedEquals(CaicaiMotionPlanner.winks));
         return http.Response('{}', 503);
       }));
     expect(await CaicaiMotionPlanner(gateway: gateway).plan(user: '看看左边', reply: '好呀',
@@ -89,6 +93,18 @@ void main() {
     expect(frames[1]['parameters']['ParamAngleX3'], closeTo(28, .0001));
     expect(frames[1]['parameters']['ParamBodyAngleX'], closeTo(4 * 1.12 * .75, .0001));
     expect(frames[0]['duration'], closeTo(.82 * .34, .0001));
+  });
+
+  test('overlay, wink, emotion and action survive as independent layers', () {
+    final plan = CaicaiMotionPlanner.buildPlan({'face':'1红脸', 'wink':'wink吐舌',
+      'emotion':'embarrassed', 'action':'2奶茶', 'f0_brows':'皱眉'},
+      {'ParamBrowLY':{'min':-1,'max':1},'ParamBrowRY':{'min':-1,'max':1}});
+    expect(plan['face'], '1红脸');
+    expect(plan['wink'], 'wink吐舌');
+    expect(plan['action'], '2奶茶');
+    expect(plan['emotion'], 'ashamed');
+    expect((plan['frames'] as List).first['parameters'], isNotEmpty);
+    expect(CaicaiMotionPlanner.buildPlan({'wink':'1红脸'}, {})['wink'], '');
   });
 
   test('three original wink presets are available with native names', () {
