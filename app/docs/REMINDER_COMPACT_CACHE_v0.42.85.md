@@ -45,3 +45,14 @@ d22ab78原生29/29通过（37711964410），证明卡外触摸与48dp按钮断�
 首次真实截图复核发现确认按钮横向内边距被后设置的InsetDrawable背景覆盖，胶囊宽度不足；将setPadding移到背景赋值之后，并保证最小48dp宽，新增对应几何断言。保持可见高度36dp、触摸高度48dp。该问题由真实渲染发现，必须以修正后截图复核。
 
 本轮首次上传源码41acfcf1a4e16a5de0f8e650f7114ce92994890c（tree3183761bdf2354c172230dd8b0a7dcceabaf71b6）。专项CI37710902680：428测试全通过，analyze通过。完整CI37710902856：原生28/29通过，卡外点击断言失败，APK未构建。该测试在同一次onActivity主线程回调直接分发DOWN/UP后立即读取点击数，尚未等待View.post的performClick；改为instrumentation线程经系统输入注入并waitForIdleSync后断言，保留卡外可点击、原窗口未结束、确认及音量恢复全部断言。是否确为测试时序问题以重跑结果为准，未修改产品触摸逻辑。
+
+最终待交付源码8513ea508014e1527c7ace8c6525be17c04134fc（tree6f63234e3254cc67653bc048068c5972d2de26de）：原生29/29，专项428/428通过。原生artifact11522548395内reminder-compact.png已实际打开复核，卡片位置、字重、按钮胶囊宽度与原页面可点击均符合本轮要求；屏幕测试不是HyperOS真机验收。当前完整CI37713200224继续执行APK构建。
+
+
+## +329 最终交付核验 · 2026-10-08
+源码8513ea508014e1527c7ace8c6525be17c04134fc；完整Actions37713200224全部必需任务成功。全量Flutter、静态分析、源码门、Kotlin测试、APK编译、稳定签名及完整资源验证通过；专项428项、原生29项通过，最终截图已复核。状态CI PASSED / APK READY / TRUE DEVICE PENDING。
+未发布下载页：https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-e1f86bbcf4416f1a9784
+文件：AI-Companion-v0.42.85-329-Compact-Reminder-APK.apk
+SHA256：ef8f965e58a7252007b28e9cea33477f6e4545df6d119a965968d816078cbf34
+签名：30:5E:B3:D8:09:83:B9:63:C6:48:18:DD:F1:AD:56:1F:27:9D:E6:D4:7B:3E:D2:C7:81:AD:A4:48:C7:C2:51:48
+本轮完成右下角黑紫小卡、来电音量及缓存诊断隔离；不宣称缓存命中率提升。待真机验证来电音量/静音振动、锁屏/浮窗、确认/超时和多提醒。历史测试失败及修正路线保留；后续任务从总账6.3入口继续。
