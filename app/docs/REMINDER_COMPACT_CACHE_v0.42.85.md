@@ -37,3 +37,5 @@ final_reply 31次输入619335、proactive_final_reply 13次输入178911，均hit
 本轮恢复后必须重新执行验证，不沿用旧本地结果冒充本轮结果。新增Dart实际HTTP请求不变、工具消息哈希差异、第二通道/旧数据/缺统计隔离测试；原生生产卡片/宿主测试覆盖右下角、卡外点击、48dp触摸、独立确认、重建/前后台计时、音量流恢复并保存真实截图。原149源码门、全量Flutter、专项、Android原生、签名及完整资源检查仍由CI执行。自动化通过不代表HyperOS真机已验收。
 
 当前：IMPLEMENTED / CI PENDING / TRUE DEVICE PENDING。
+
+本轮首次上传源码41acfcf1a4e16a5de0f8e650f7114ce92994890c（tree3183761bdf2354c172230dd8b0a7dcceabaf71b6）。专项CI37710902680：428测试全通过，analyze通过。完整CI37710902856：原生28/29通过，卡外点击断言失败，APK未构建。该测试在同一次onActivity主线程回调直接分发DOWN/UP后立即读取点击数，尚未等待View.post的performClick；改为instrumentation线程经系统输入注入并waitForIdleSync后断言，保留卡外可点击、原窗口未结束、确认及音量恢复全部断言。是否确为测试时序问题以重跑结果为准，未修改产品触摸逻辑。

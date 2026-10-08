@@ -78,7 +78,9 @@ class ReminderCardSmokeTest {
     @Test fun compactCardKeepsCurrentScreenTouchableAndRestoresVolumeStream() {
         Runtime.start(context,"a",1000,"喝两杯水，补昨天欠的")
         ActivityScenario.launch(ReminderCardSmokeActivity::class.java).use { scenario ->
-            androidx.test.platform.app.InstrumentationRegistry.getInstrumentation().waitForIdleSync()
+            val instrumentation = androidx.test.platform.app.InstrumentationRegistry.getInstrumentation()
+            instrumentation.waitForIdleSync()
+            val buttonRect = Rect()
             scenario.onActivity { activity ->
                 val card = activity.card
                 val density = activity.resources.displayMetrics.density
@@ -90,15 +92,20 @@ class ReminderCardSmokeTest {
                 assertTrue(card.confirmButton.width < card.width / 2)
                 assertTrue(card.confirmButton.height >= (48 * density).toInt())
                 assertEquals(android.media.AudioManager.STREAM_RING, activity.volumeControlStream)
-                val buttonRect = Rect(); activity.outsideButton.getGlobalVisibleRect(buttonRect)
-                val origin = IntArray(2); activity.window.decorView.getLocationOnScreen(origin)
-                val now = android.os.SystemClock.uptimeMillis()
-                for (action in listOf(android.view.MotionEvent.ACTION_DOWN, android.view.MotionEvent.ACTION_UP)) {
-                    val event = android.view.MotionEvent.obtain(now, now, action,
-                        (buttonRect.centerX() - origin[0]).toFloat(), (buttonRect.centerY() - origin[1]).toFloat(), 0)
-                    activity.dispatchTouchEvent(event); event.recycle()
-                }
+                assertTrue(activity.outsideButton.getGlobalVisibleRect(buttonRect))
+            }
+            // Inject through the window on the instrumentation thread. View may post
+            // performClick after ACTION_UP; wait for it before asserting the result.
+            val downTime = android.os.SystemClock.uptimeMillis()
+            for (action in listOf(android.view.MotionEvent.ACTION_DOWN, android.view.MotionEvent.ACTION_UP)) {
+                val event = android.view.MotionEvent.obtain(downTime, android.os.SystemClock.uptimeMillis(), action,
+                    buttonRect.centerX().toFloat(), buttonRect.centerY().toFloat(), 0)
+                try { instrumentation.sendPointerSync(event) } finally { event.recycle() }
+            }
+            instrumentation.waitForIdleSync()
+            scenario.onActivity { activity ->
                 assertEquals(1, activity.outsideClicks)
+                val card = activity.card
                 assertTrue(card.confirmButton.performClick())
                 assertEquals(android.view.View.GONE, card.visibility)
                 assertEquals(android.media.AudioManager.STREAM_MUSIC, activity.volumeControlStream)
