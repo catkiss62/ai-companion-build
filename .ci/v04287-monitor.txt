@@ -1,0 +1,7 @@
+status=success
+run_id=37750314371
+run_url=https://github.com/catkiss62/ai-companion-build/actions/runs/37750314371
+head_sha=a857385dec246e69a71510901511c84ba7a7b75d
+signer_sha256=30:5E:B3:D8:09:83:B9:63:C6:48:18:DD:F1:AD:56:1F:27:9D:E6:D4:7B:3E:D2:C7:81:AD:A4:48:C7:C2:51:48
+ff5d1963c0e779ac033b1f05cf638e7d93f43e489116f718b7daa6db3debae87  AI-Companion-v0.42.87-331-Live2D-Ear-Face-APK.apk
+release_url=https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-3284acba17a4e6bbaa4b
