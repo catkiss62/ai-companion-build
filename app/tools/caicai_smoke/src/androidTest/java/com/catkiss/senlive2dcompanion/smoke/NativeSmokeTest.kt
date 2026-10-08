@@ -64,7 +64,8 @@ class NativeSmokeTest {
                 }
                 val values = mapOf<String, Any>("motionGain" to 1.25f, "motionSpeed" to 1.4f, "legPivot" to .94f,
                     "scale" to 2f, "x" to .4f, "y" to -.6f,
-                    "headLeft" to .1f, "headTop" to .2f, "headRight" to .8f, "headBottom" to .9f)
+                    "headLeft" to .1f, "headTop" to .2f, "headRight" to .8f, "headBottom" to .9f,
+                    "rightEarX" to .2f, "rightEarY" to -.3f, "rightEarRotation" to 12f)
                 restore(values, true)
                 assertArrayEquals(floatArrayOf(.1f, .2f, .8f, .9f), CaicaiStagePreferences.read(prefs).headBox(), .001f)
                 val rendererField = original.javaClass.getDeclaredField("renderer").apply { isAccessible = true }
@@ -76,10 +77,19 @@ class NativeSmokeTest {
                         assertEquals(name, expected, rendererValue(name), .001f)
                 }
                 checkRenderer(1.25f, 1.4f, .94f, 2f, .4f, -.6f)
+                assertEquals(.2f,rendererValue("rightEarAdjustX"),.001f)
+                assertEquals(-.3f,rendererValue("rightEarAdjustY"),.001f)
+                assertEquals(12f,rendererValue("rightEarAdjustRotation"),.001f)
                 restore(mapOf("scale" to .5f), false)
                 checkRenderer(1.25f, 1.4f, .94f, 2f, .4f, -.6f)
+                assertEquals(.2f,rendererValue("rightEarAdjustX"),.001f)
+                assertEquals(-.3f,rendererValue("rightEarAdjustY"),.001f)
+                assertEquals(12f,rendererValue("rightEarAdjustRotation"),.001f)
                 restore(emptyMap(), true)
                 checkRenderer(1f, 1f, .88f, 1f, 0f, 0f)
+                assertEquals(0f,rendererValue("rightEarAdjustX"),.001f)
+                assertEquals(0f,rendererValue("rightEarAdjustY"),.001f)
+                assertEquals(0f,rendererValue("rightEarAdjustRotation"),.001f)
                 assertArrayEquals(floatArrayOf(.27f, .02f, .73f, .32f), CaicaiStagePreferences.read(prefs).headBox(), .001f)
                 scenario.onActivity {
                     val before = refreshes

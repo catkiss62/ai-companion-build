@@ -164,7 +164,8 @@ class PortableCompanionState(
         private val fields: Map<String, Map<String, Any>> = mapOf(
             "caicai_stage" to mapOf("motionGain" to .5f..1.5f, "motionSpeed" to .65f..1.6f,
                 "legPivot" to .65f.. .98f, "scale" to .01f..100f, "x" to -100f..100f, "y" to -100f..100f,
-                "headLeft" to -100f..100f, "headTop" to -100f..100f, "headRight" to -100f..100f, "headBottom" to -100f..100f),
+                "headLeft" to -100f..100f, "headTop" to -100f..100f, "headRight" to -100f..100f, "headBottom" to -100f..100f,
+                "rightEarX" to -1f..1f, "rightEarY" to -1f..1f, "rightEarRotation" to -45f..45f),
             "overlay_state" to mapOf("entry_mode" to setOf("bubble", "pet"),
                 "dialogue_color" to setOf("purple", "gold", "pink"),
                 "pet_size" to setOf("small", "medium", "large"),

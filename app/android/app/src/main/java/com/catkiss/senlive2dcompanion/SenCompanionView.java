@@ -195,6 +195,10 @@ public final class SenCompanionView extends GLSurfaceView implements SenCompanio
         queueRenderer(() -> callback.accept(renderer.motionParameters()));
     }
     public void setSmallForm(boolean small) { queueRenderer(() -> renderer.setSmallForm(small)); }
+    public void setRightEarAdjustment(float x, float y, float rotation) {
+        queueRenderer(() -> renderer.setRightEarAdjustment(x, y, rotation));
+    }
+
     public void startParameterPlan(String json, String face, String action, String wink) {
         queueRenderer(() -> renderer.startParameterPlan(json, face, action, wink));
     }

@@ -1,7 +1,7 @@
 name: Stability regression checks
 on:
   push:
-    branches: [agent/v04263-stability, agent/v04264-experience, agent/v04266-memory-continuity, agent/v04267-persistent-mood, agent/v04268-deep-web, agent/v04269-expression-diary, agent/v04270-wish-lifecycle, agent/v04271-deep-reflection, agent/v04272-proactive-windows, agent/v04273-phone-activity-evidence, agent/v04275-daily-wake, agent/v04276-fate-wheel-start, agent/v04277-conversation-topics, agent/v04278-nightly-dream, agent/v04279-wish-chat-fixes, agent/v04280-depth-background-cleanup, agent/v04281-depth-settings-entry, agent/v04282-device-motion, agent/v04283-background-smoothing, agent/v04284-reminder-confirmation, agent/v04285-reminder-compact-cache, agent/v04287-live2d-ear-face]
+    branches: [agent/v04263-stability, agent/v04264-experience, agent/v04266-memory-continuity, agent/v04267-persistent-mood, agent/v04268-deep-web, agent/v04269-expression-diary, agent/v04270-wish-lifecycle, agent/v04271-deep-reflection, agent/v04272-proactive-windows, agent/v04273-phone-activity-evidence, agent/v04275-daily-wake, agent/v04276-fate-wheel-start, agent/v04277-conversation-topics, agent/v04278-nightly-dream, agent/v04279-wish-chat-fixes, agent/v04280-depth-background-cleanup, agent/v04281-depth-settings-entry, agent/v04282-device-motion, agent/v04283-background-smoothing, agent/v04284-reminder-confirmation, agent/v04285-reminder-compact-cache, agent/v04288-right-ear-editor]
   workflow_dispatch:
 permissions:
   contents: read
@@ -58,6 +58,7 @@ jobs:
           test/deep_web_pipeline_v04268_test.dart
           test/persistent_mood_v04267_test.dart
           test/memory_continuity_v04266_test.dart
+          test/caicai_stage_editor_test.dart
           test/caicai_motion_planner_test.dart
           test/memory_retrieval_policy_test.dart
           test/memory_lifecycle_policy_test.dart

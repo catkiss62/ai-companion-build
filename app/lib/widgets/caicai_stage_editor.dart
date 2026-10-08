@@ -11,6 +11,7 @@ class CaicaiStageEditor extends StatefulWidget {
 }
 class _CaicaiStageEditorState extends State<CaicaiStageEditor> {
   late double _scale, _x, _y;
+  late double _earX, _earY, _earRotation;
   late Rect _head;
   double _startScale = 1;
   Offset _start = Offset.zero, _origin = Offset.zero;
@@ -23,6 +24,9 @@ class _CaicaiStageEditorState extends State<CaicaiStageEditor> {
     _scale = (widget.initial['scale'] as num?)?.toDouble() ?? 1;
     _x = (widget.initial['x'] as num?)?.toDouble() ?? 0;
     _y = (widget.initial['y'] as num?)?.toDouble() ?? 0;
+    _earX = (widget.initial['earX'] as num?)?.toDouble() ?? 0;
+    _earY = (widget.initial['earY'] as num?)?.toDouble() ?? 0;
+    _earRotation = (widget.initial['earRotation'] as num?)?.toDouble() ?? 0;
     final a = widget.initial['headRect'] as List? ?? [.3,.1,.7,.4];
     _head = Rect.fromLTRB((a[0] as num).toDouble(), (a[1] as num).toDouble(),
       (a[2] as num).toDouble(), (a[3] as num).toDouble());
@@ -31,6 +35,12 @@ class _CaicaiStageEditorState extends State<CaicaiStageEditor> {
     try { await CaicaiLive2DService.command(command, value); }
     catch (e) { if (mounted) setState(() => _error = '预览失败：$e'); }
   }
+  void _earPreview() => _preview('previewRightEar', {'x':_earX,'y':_earY,'rotation':_earRotation});
+  Widget _earSlider(String label, double value, double limit, ValueChanged<double> change) => Row(children:[
+    SizedBox(width:110,child:Text(label)),
+    Expanded(child:Slider(value:value.clamp(-limit,limit).toDouble(),min:-limit,max:limit,
+      divisions:400,onChanged:_saving?null:(v){setState(()=>change(v));_earPreview();})),
+  ]);
   Future<void> _finish(bool save) async {
     setState(() => _saving = true);
     try {
@@ -45,16 +55,17 @@ class _CaicaiStageEditorState extends State<CaicaiStageEditor> {
     child: LayoutBuilder(builder: (context, box) {
     final size = box.biggest;
     final headMode = widget.mode == 'head';
+    final earMode = widget.mode == 'rightEar';
     final rect = Rect.fromLTRB(_head.left*size.width, _head.top*size.height,
       _head.right*size.width, _head.bottom*size.height);
     return Stack(fit: StackFit.expand, children: [
       GestureDetector(
         behavior: HitTestBehavior.opaque,
-        onScaleStart: _saving ? null : (d) {
+        onScaleStart: _saving || earMode ? null : (d) {
           _start = d.localFocalPoint; _origin = Offset(_x,_y); _startScale = _scale; _startHead = _head;
           _resizeHead = (d.localFocalPoint-rect.bottomRight).distance < 56;
         },
-        onScaleUpdate: _saving ? null : (d) {
+        onScaleUpdate: _saving || earMode ? null : (d) {
           final delta = d.localFocalPoint-_start;
           setState(() {
             if (headMode) {
@@ -82,9 +93,16 @@ class _CaicaiStageEditorState extends State<CaicaiStageEditor> {
       ),
       Positioned(left: 12, right: 12, bottom: 16, child: Card(child: Padding(
         padding: const EdgeInsets.all(12), child: Column(mainAxisSize: MainAxisSize.min, children: [
-          Text(headMode ? '摸头区域：拖动框，双指或拖右下角缩放' : '拖动调整位置，双指缩放'),
+          Text(earMode ? '调整画面右侧耳鳍 · 整体移动与旋转' : headMode ? '摸头区域：拖动框，双指或拖右下角缩放' : '拖动调整位置，双指缩放'),
+          if (earMode) ...[
+            _earSlider('水平 ${(_earX*100).toStringAsFixed(1)}%',_earX,1,(v)=>_earX=v),
+            _earSlider('垂直 ${(_earY*100).toStringAsFixed(1)}%',_earY,1,(v)=>_earY=v),
+            _earSlider('旋转 ${_earRotation.toStringAsFixed(1)}°',_earRotation,45,(v)=>_earRotation=v),
+            const Text('位移以耳鳍宽度为单位；正值向右、向上。确认后可导出 Live2D 诊断。'),
+          ],
           if (_error != null) Text(_error!),
           Row(mainAxisAlignment: MainAxisAlignment.end, children: [
+            if (earMode) TextButton(onPressed:_saving?null:(){setState((){_earX=0;_earY=0;_earRotation=0;});_earPreview();},child:const Text('归零')),
             TextButton(onPressed: _saving ? null : () => _finish(false), child: const Text('取消')),
             FilledButton(onPressed: _saving ? null : () => _finish(true), child: const Text('确认')),
           ]),
