@@ -38,6 +38,8 @@ final_reply 31次输入619335、proactive_final_reply 13次输入178911，均hit
 
 当前：IMPLEMENTED / CI PENDING / TRUE DEVICE PENDING。
 
+截图补测6e7c330在原生测试编译失败（37712705898）：syncInputTransactions非当前SDK公开方法，属本轮测试实现错误，产品代码未变。依据Android公开UiAutomation文档改为waitForIdle(500,5000)，保留两个动画帧和真实像素断言；不能用此失败版本交付APK。
+
 d22ab78原生29/29通过（37711964410），证明卡外触摸与48dp按钮断言通过；专项37711964395的428项通过。其截图捕获仍遇到首帧空白：waitForIdleSync不保证Surface已绘制。截图测试补等两个动画帧、同步输入事务/窗口动画，再检查卡片内边距像素确为生产卡底色，防止白屏也被保存为成功截图。产品代码不变，重跑以最终HEAD为准。
 
 首次真实截图复核发现确认按钮横向内边距被后设置的InsetDrawable背景覆盖，胶囊宽度不足；将setPadding移到背景赋值之后，并保证最小48dp宽，新增对应几何断言。保持可见高度36dp、触摸高度48dp。该问题由真实渲染发现，必须以修正后截图复核。

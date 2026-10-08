@@ -130,7 +130,7 @@ class ReminderCardSmokeTest {
                 }
             }
             assertTrue("reminder must draw before capture", frames.await(5, java.util.concurrent.TimeUnit.SECONDS))
-            instrumentation.uiAutomation.syncInputTransactions()
+            instrumentation.uiAutomation.waitForIdle(500, 5000)
             val screenshot = instrumentation.uiAutomation.takeScreenshot()
             assertNotNull(screenshot)
             assertFalse(cardRect.isEmpty)
