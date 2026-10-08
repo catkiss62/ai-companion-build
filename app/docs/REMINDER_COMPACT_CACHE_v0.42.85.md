@@ -38,6 +38,8 @@ final_reply 31次输入619335、proactive_final_reply 13次输入178911，均hit
 
 当前：IMPLEMENTED / CI PENDING / TRUE DEVICE PENDING。
 
+d22ab78原生29/29通过（37711964410），证明卡外触摸与48dp按钮断言通过；专项37711964395的428项通过。其截图捕获仍遇到首帧空白：waitForIdleSync不保证Surface已绘制。截图测试补等两个动画帧、同步输入事务/窗口动画，再检查卡片内边距像素确为生产卡底色，防止白屏也被保存为成功截图。产品代码不变，重跑以最终HEAD为准。
+
 首次真实截图复核发现确认按钮横向内边距被后设置的InsetDrawable背景覆盖，胶囊宽度不足；将setPadding移到背景赋值之后，并保证最小48dp宽，新增对应几何断言。保持可见高度36dp、触摸高度48dp。该问题由真实渲染发现，必须以修正后截图复核。
 
 本轮首次上传源码41acfcf1a4e16a5de0f8e650f7114ce92994890c（tree3183761bdf2354c172230dd8b0a7dcceabaf71b6）。专项CI37710902680：428测试全通过，analyze通过。完整CI37710902856：原生28/29通过，卡外点击断言失败，APK未构建。该测试在同一次onActivity主线程回调直接分发DOWN/UP后立即读取点击数，尚未等待View.post的performClick；改为instrumentation线程经系统输入注入并waitForIdleSync后断言，保留卡外可点击、原窗口未结束、确认及音量恢复全部断言。是否确为测试时序问题以重跑结果为准，未修改产品触摸逻辑。

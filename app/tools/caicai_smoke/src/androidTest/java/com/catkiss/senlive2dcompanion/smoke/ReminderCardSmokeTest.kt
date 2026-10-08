@@ -116,11 +116,26 @@ class ReminderCardSmokeTest {
     }
     @Test fun captureCompactReminderForVisualReview() {
         Runtime.start(context,"preview",1000,"喝两杯水，补昨天欠的")
-        ActivityScenario.launch(ReminderCardSmokeActivity::class.java).use {
+        ActivityScenario.launch(ReminderCardSmokeActivity::class.java).use { scenario ->
             val instrumentation = androidx.test.platform.app.InstrumentationRegistry.getInstrumentation()
             instrumentation.waitForIdleSync()
+            val frames = java.util.concurrent.CountDownLatch(1)
+            val cardRect = Rect()
+            scenario.onActivity { activity ->
+                activity.card.postOnAnimation {
+                    activity.card.postOnAnimation {
+                        activity.card.getGlobalVisibleRect(cardRect)
+                        frames.countDown()
+                    }
+                }
+            }
+            assertTrue("reminder must draw before capture", frames.await(5, java.util.concurrent.TimeUnit.SECONDS))
+            instrumentation.uiAutomation.syncInputTransactions()
             val screenshot = instrumentation.uiAutomation.takeScreenshot()
             assertNotNull(screenshot)
+            assertFalse(cardRect.isEmpty)
+            // Reject a launch/blank frame: this point is inside the card's solid padding.
+            assertEquals(android.graphics.Color.rgb(29,26,40), screenshot!!.getPixel(cardRect.left + 8, cardRect.centerY()))
             val file = java.io.File(context.getExternalFilesDir(null), "reminder-compact.png")
             file.outputStream().use { output ->
                 assertTrue(screenshot!!.compress(android.graphics.Bitmap.CompressFormat.PNG,100,output))
