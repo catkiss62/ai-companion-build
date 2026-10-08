@@ -18,4 +18,16 @@
 
 新增几何测试覆盖两侧与pair角度、横竖舞台、缩放、支点和校准平移守恒；原生互斥测试覆盖七预设与wink共存/同层互斥/手势冲突。Flutter测试覆盖分题同请求和四类字段同时传递。源代码pin仅更新已审阅的预设互斥修改，其余原版代码继续完整校验，耳旋转hook及独立helper由行为测试验证。
 
-状态：IMPLEMENTED；CI、APK及真机效果待确认。
+状态：CI PASSED / APK READY / TRUE DEVICE PENDING。
+
+## +331 最终CI与未发布APK交付
+
+源码a857385dec246e69a71510901511c84ba7a7b75d，tree aa1ccadb8e4c5f7baddfdb12728e30d95612e456。完整Actions37750314371与专项37750314477均成功：149源码校验、448专项、1447全量Flutter、29 Android原生回归及Java/Kotlin单元测试通过。耳旋转像素长度/支点/缩放测试与预设/wink互斥测试包含在Caicai*Test门内。签名/APK资源校验通过，沿用+330签名。
+
+下载：https://github.com/catkiss62/ai-companion-build/releases/download/untagged-3284acba17a4e6bbaa4b/AI-Companion-v0.42.87-331-Live2D-Ear-Face-APK.apk
+草稿页：https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-3284acba17a4e6bbaa4b
+Release406622978，asset621281205，736801493 bytes。
+APK SHA256：ff5d1963c0e779ac033b1f05cf638e7d93f43e489116f718b7daa6db3debae87。
+Signer SHA256：30:5E:B3:D8:09:83:B9:63:C6:48:18:DD:F1:AD:56:1F:27:9D:E6:D4:7B:3E:D2:C7:81:AD:A4:48:C7:C2:51:48。
+
+状态CI PASSED / APK READY / TRUE DEVICE PENDING。用户需观察画面右耳默认宽度、变小及转头、输入法开关，并自然观察七预设与wink组合。数学失真已修正，不等同已证实截图唯一根因；没有真人模型渲染A/B验收。表情不设频率配额，道具策略不加强。未合并main、未公开发布草稿、未上传私有模型和用户诊断。
