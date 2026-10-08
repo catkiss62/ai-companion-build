@@ -1,0 +1,7 @@
+status=success
+run_id=37805027819
+run_url=https://github.com/catkiss62/ai-companion-build/actions/runs/37805027819
+head_sha=a3a5b15051294b1ffa792bb4c06d1d9b9fc16e9f
+signer_sha256=30:5E:B3:D8:09:83:B9:63:C6:48:18:DD:F1:AD:56:1F:27:9D:E6:D4:7B:3E:D2:C7:81:AD:A4:48:C7:C2:51:48
+3f5ef4d82b7ef68231a183dfd8f229b85ec674d4623a7f770043071e43c94dbf  AI-Companion-v0.42.89-333-Right-Ear-Baked-APK.apk
+release_url=https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-2b24ab65170a4acaa614
