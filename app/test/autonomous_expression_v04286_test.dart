@@ -58,12 +58,15 @@ void main() {
     FlutterSecureStorage.setMockInitialValues({});
     final db = await AppDatabase.createForTesting(databaseFactoryFfi);
     addTearDown(db.closeForTesting);
+    final currentUser = ChatMessage(id: 'current-user', role: 'user',
+      content: '请直接告诉我你的看法，不要问问题', createdAt: DateTime(2026, 10, 8, 9));
+    await db.insertMessage(currentUser);
     Future<String> build() async {
       final result = await PromptBuilder(db).buildChatPrompt(latestUserText: '请直接告诉我你的看法，不要问问题',
-        retrievalQuery: '', recent: recent, desire: await db.loadDesire(), thoughts: const [],
+        retrievalQuery: '', recent: [...recent, currentUser], desire: await db.loadDesire(), thoughts: const [],
         now: DateTime(2026, 10, 8, 10));
-      expect(result.messages.any((m) => m['role'] == 'user' &&
-        m['content'].toString().contains('请直接告诉我你的看法，不要问问题')), true);
+      expect(result.messages.last['role'], 'user');
+      expect(result.messages.last['content'].toString(), contains(currentUser.content));
       return result.messages.map((m) => m['content']).join('\n');
     }
     expect(await build(), contains('【自主表达选择】'));

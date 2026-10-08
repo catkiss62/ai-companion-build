@@ -53,7 +53,7 @@ void main() {
       recentSignals: rows, deviceStateEvents: const [], now: now,
       deviceState: const DevicePerceptionState(usageAccess: false, screenInteractive: false,
         deviceLocked: true, notificationListenerConnected: true, accessibilityConnected: false));
-    expect(result.observations.any((o) => o.kind == 'notification_burst'), false);
+    expect(result.observations.any((o) => o.kind == 'notification_pressure'), false);
     expect(result.observations.map((o) => o.summary).join(), isNot(contains('次新的聊天通知内容')));
   });
   test('fresh arrival evidence expires promptly and never exposes message bodies', () {
