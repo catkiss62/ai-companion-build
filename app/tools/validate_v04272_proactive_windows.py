@@ -6,7 +6,7 @@ engine = read('lib/core/desire/proactive_engine.dart')
 db = read('lib/core/database/app_database.dart')
 frequency = read('lib/core/models/proactive_frequency.dart')
 night = read('lib/core/desire/proactive_dawn_gate_policy.dart')
-assert any(f'\nversion: {v}\n' in read('pubspec.yaml') for v in ('0.42.72+316', '0.42.73+317', '0.42.74+318', '0.42.75+319', '0.42.76+320', '0.42.77+321', '0.42.78+322', '0.42.79+323', '0.42.80+324', '0.42.81+325', '0.42.82+326', '0.42.83+327', '0.42.84+328'))
+assert any(f'\nversion: {v}\n' in read('pubspec.yaml') for v in ('0.42.72+316', '0.42.73+317', '0.42.74+318', '0.42.75+319', '0.42.76+320', '0.42.77+321', '0.42.78+322', '0.42.79+323', '0.42.80+324', '0.42.81+325', '0.42.82+326', '0.42.83+327', '0.42.84+328', '0.42.85+329'))
 for token in ('quiet => 10', 'natural => 18', 'frequent => 24', 'nightLimit = 2',
               'now.hour < 14', 'now.hour < 19'):
     assert token in frequency, token

@@ -26,7 +26,7 @@ for key in ('motionGain', 'motionSpeed', 'legPivot', 'scale', 'x', 'y', 'headLef
     assert f'getFloat("{key}"' in prefs
 assert 'tuneCaicaiMotion' in prefs and 'setStageTransform' in prefs
 assert 'edit()' not in prefs and 'loadModels' not in prefs
-assert re.search(r'^version: 0.42.(?:60\+304|61\+305|62\+306|63\+307|64\+308|65\+309|66\+310|67\+311|68\+312|69\+313|70\+314|71\+315|72\+316|73\+317|74\+318|75\+319|76\+320|77\+321|78\+322|79\+323|80\+324|81\+325|82\+326|83\+327|84\+328)$', read('pubspec.yaml'), re.M)
+assert re.search(r'^version: 0.42.(?:60\+304|61\+305|62\+306|63\+307|64\+308|65\+309|66\+310|67\+311|68\+312|69\+313|70\+314|71\+315|72\+316|73\+317|74\+318|75\+319|76\+320|77\+321|78\+322|79\+323|80\+324|81\+325|82\+326|83\+327|84\+328|85\+329)$', read('pubspec.yaml'), re.M)
 smoke = read('tools/caicai_smoke/src/androidTest/java/com/catkiss/senlive2dcompanion/smoke/NativeSmokeTest.kt')
 for name in ('settingsRestoreHotAppliesToTheSameRendererAndRestoresMissingKeyDefaults',
              'settingsRefreshFailureKeepsErrorAndReleasesSnapshotLease',

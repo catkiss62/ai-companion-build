@@ -1,7 +1,7 @@
 name: Stability regression checks
 on:
   push:
-    branches: [agent/v04263-stability, agent/v04264-experience, agent/v04266-memory-continuity, agent/v04267-persistent-mood, agent/v04268-deep-web, agent/v04269-expression-diary, agent/v04270-wish-lifecycle, agent/v04271-deep-reflection, agent/v04272-proactive-windows, agent/v04273-phone-activity-evidence, agent/v04275-daily-wake, agent/v04276-fate-wheel-start, agent/v04277-conversation-topics, agent/v04278-nightly-dream, agent/v04279-wish-chat-fixes, agent/v04280-depth-background-cleanup, agent/v04281-depth-settings-entry, agent/v04282-device-motion, agent/v04283-background-smoothing, agent/v04284-reminder-confirmation]
+    branches: [agent/v04263-stability, agent/v04264-experience, agent/v04266-memory-continuity, agent/v04267-persistent-mood, agent/v04268-deep-web, agent/v04269-expression-diary, agent/v04270-wish-lifecycle, agent/v04271-deep-reflection, agent/v04272-proactive-windows, agent/v04273-phone-activity-evidence, agent/v04275-daily-wake, agent/v04276-fate-wheel-start, agent/v04277-conversation-topics, agent/v04278-nightly-dream, agent/v04279-wish-chat-fixes, agent/v04280-depth-background-cleanup, agent/v04281-depth-settings-entry, agent/v04282-device-motion, agent/v04283-background-smoothing, agent/v04284-reminder-confirmation, agent/v04285-reminder-compact-cache]
   workflow_dispatch:
 permissions:
   contents: read
@@ -71,6 +71,8 @@ jobs:
           test/calendar_reminder_store_test.dart
           test/calendar_reminder_delivery_test.dart
           test/calendar_reminder_page_test.dart
+          test/deepseek_cache_audit_v04285_test.dart
+          test/deepseek_prompt_cache_shape_v04189_test.dart
           test/mcp_transport_boundary_test.dart
           test/cedar_end_to_end_state_machine_v04182_test.dart
           test/cedar_cadence_regression_v04259_test.dart

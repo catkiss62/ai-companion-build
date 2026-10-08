@@ -56,7 +56,8 @@
         <activity
             android:name=".CalendarReminderAlertActivity"
             android:exported="false"
-            android:theme="@android:style/Theme.Material.NoActionBar" />
+            android:excludeFromRecents="true"
+            android:theme="@style/ReminderCardTheme" />
 
         <activity
             android:name=".NativeMemoryGalaxyActivity"

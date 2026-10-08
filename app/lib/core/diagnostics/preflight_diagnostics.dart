@@ -16,6 +16,7 @@ import 'attachment_pipeline_telemetry.dart';
 import 'conversation_initiative_ablation_telemetry.dart';
 import 'dialogue_expression_telemetry.dart';
 import 'provider_health.dart';
+import 'model_usage_telemetry.dart';
 import 'visible_reasoning_language_telemetry.dart';
 import '../desire/desire_core_policy.dart';
 import '../desire/desire_satisfaction_ledger.dart';
@@ -2001,6 +2002,7 @@ class PreflightDiagnosticsService {
     } catch (_) {}
     return <String, Object?>{
       'eventCount': eventCount,
+      'deepseekCacheAudit': ModelUsageTelemetry.cacheAudit(raw),
       'byLane': byLane,
       'recentPromptShapes': recentPromptShapes.length <= 24
           ? recentPromptShapes

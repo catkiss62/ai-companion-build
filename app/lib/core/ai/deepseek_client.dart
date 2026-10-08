@@ -70,6 +70,11 @@ class DeepSeekUsageEvent {
     required this.cacheMissTokens,
     required this.streaming,
     required this.promptShape,
+    this.provider = 'unknown',
+    this.modelHash = '',
+    this.endpointHash = '',
+    this.usageLatencyMs = -1,
+    this.cacheUsageAvailable = false,
   });
 
   final String lane;
@@ -80,6 +85,12 @@ class DeepSeekUsageEvent {
   final int cacheMissTokens;
   final bool streaming;
   final DeepSeekPromptShape promptShape;
+  final String provider;
+  final String modelHash;
+  final String endpointHash;
+  /// Request start to provider usage report; not first-token latency.
+  final int usageLatencyMs;
+  final bool cacheUsageAvailable;
 }
 
 /// Body-free prompt layout telemetry. Hashes make repeated stable segments
@@ -92,7 +103,7 @@ class DeepSeekPromptShape {
     required this.toolHash,
   });
 
-  static const int version = 1;
+  static const int version = 2;
 
   final List<DeepSeekPromptSegmentShape> messages;
   final int toolCount;
@@ -106,12 +117,14 @@ class DeepSeekPromptSegmentShape {
     required this.role,
     required this.characters,
     required this.hash,
+    this.requestHash = '',
   });
 
   final int index;
   final String role;
   final int characters;
   final String hash;
+  final String requestHash;
 }
 
 class DeepSeekClient {
@@ -193,6 +206,7 @@ class DeepSeekClient {
     // request. JSON maintenance calls and a later chat turn remain unaffected.
     final streamClient = _streamClientFactory();
     _streamClients.add(streamClient);
+    final usageClock = Stopwatch()..start();
     var runtimeGateAborted = false;
     var gateCheckRunning = false;
     Timer? runtimeGateTimer;
@@ -259,6 +273,10 @@ class DeepSeekClient {
             executionId: usageExecutionId,
             streaming: true,
             promptShape: promptShape,
+            provider: provider.storageValue,
+            modelHash: _shortHash(effectiveModel),
+            endpointHash: _endpointHash(endpoint),
+            usageLatencyMs: usageClock.elapsedMilliseconds,
           );
           if (usage != null) {
             try {
@@ -351,6 +369,7 @@ class DeepSeekClient {
     final abortWhen = _abortWhen;
     final ownsClient = cancellationToken != null || abortWhen != null;
     final requestClient = ownsClient ? _jsonClientFactory() : _client;
+    final usageClock = Stopwatch()..start();
     var runtimeGateAborted = false;
     var gateCheckRunning = false;
     Timer? runtimeGateTimer;
@@ -429,6 +448,10 @@ class DeepSeekClient {
         executionId: usageExecutionId,
         streaming: false,
         promptShape: promptShape,
+        provider: provider.storageValue,
+        modelHash: _shortHash(effectiveModel),
+        endpointHash: _endpointHash(endpoint),
+        usageLatencyMs: usageClock.elapsedMilliseconds,
       );
       if (usage != null) {
         try {
@@ -494,6 +517,10 @@ class DeepSeekClient {
     required String executionId,
     required bool streaming,
     required DeepSeekPromptShape promptShape,
+    required String provider,
+    required String modelHash,
+    required String endpointHash,
+    required int usageLatencyMs,
   }) {
     if (raw is! Map) return null;
     int value(String key) => (raw[key] as num?)?.toInt() ?? 0;
@@ -511,7 +538,20 @@ class DeepSeekClient {
       cacheMissTokens: miss,
       streaming: streaming,
       promptShape: promptShape,
+      provider: provider,
+      modelHash: modelHash,
+      endpointHash: endpointHash,
+      usageLatencyMs: usageLatencyMs,
+      cacheUsageAvailable: raw['prompt_cache_hit_tokens'] is num &&
+          raw['prompt_cache_miss_tokens'] is num,
     );
+  }
+
+  static String _endpointHash(String endpoint) {
+    final uri = Uri.tryParse(endpoint);
+    if (uri == null) return '';
+    // Keep query strings, credentials and fragments out of diagnostic identifiers.
+    return _shortHash('${uri.scheme}://${uri.host}:${uri.port}${uri.path}');
   }
 
   static List<Map<String, Object?>> _canonicalTools(
@@ -534,6 +574,8 @@ class DeepSeekClient {
         role: message['role']?.toString().trim() ?? '',
         characters: encoded.runes.length,
         hash: _shortHash(encoded),
+        // Content alone cannot distinguish tool calls or reasoning continuation.
+        requestHash: _shortHash(jsonEncode(_canonicalValue(message))),
       ));
     }
     final encodedTools = tools.isEmpty ? '' : jsonEncode(tools);

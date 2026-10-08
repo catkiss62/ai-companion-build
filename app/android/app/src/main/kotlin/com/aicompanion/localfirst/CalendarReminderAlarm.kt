@@ -48,6 +48,7 @@ object CalendarReminderAlarm {
         if(CalendarReminderRuntime.confirm(context, occurrence)) changed(context)
     }
     fun openCard(context: Context, occurrence: String = "") {
+        if (CalendarReminderCardHost.show(occurrence)) return
         context.startActivity(Intent(context, CalendarReminderAlertActivity::class.java)
             .putExtra(EXTRA_OCCURRENCE, occurrence).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP))
     }

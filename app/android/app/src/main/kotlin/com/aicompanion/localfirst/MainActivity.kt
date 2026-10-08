@@ -7,6 +7,8 @@ import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.plugin.common.MethodChannel
 
 class MainActivity : FlutterActivity() {
+    private var reminderCardHost: CalendarReminderCardHost? = null
+    private val reminderChanged: () -> Unit = { reminderCardHost?.refresh() }
     private var bridge: SystemBridge? = null
     private var ttsBridge: NativeTtsBridge? = null
     private var emotionSoundBridge: EmotionSoundBridge? = null
@@ -110,6 +112,13 @@ class MainActivity : FlutterActivity() {
     override fun onResume() {
         super.onResume()
         roomDepthMotion?.onResume()
+        val reminderHost = reminderCardHost ?: CalendarReminderCardHost(this, {
+            CalendarReminderAlarm.state(this)
+            CalendarReminderRingingService.unconfirmed(this)
+        }, { CalendarReminderAlarm.confirm(this, it) }).also { reminderCardHost = it }
+        CalendarReminderAlarm.addListener(reminderChanged)
+        reminderHost.start()
+        CalendarReminderRingingService.refreshIfRunning(this)
         traceCaicaiLifecycle("activity_resume")
         // Returning from overlay/accessibility/notification settings is a
         // user-visible moment, so it is safe to reconcile an explicitly
@@ -140,6 +149,9 @@ class MainActivity : FlutterActivity() {
     }
 
     override fun onPause() {
+        CalendarReminderAlarm.removeListener(reminderChanged)
+        reminderCardHost?.stop()
+        CalendarReminderRingingService.refreshIfRunning(this)
         roomDepthMotion?.onPause()
         traceCaicaiLifecycle("activity_pause")
         super.onPause()
