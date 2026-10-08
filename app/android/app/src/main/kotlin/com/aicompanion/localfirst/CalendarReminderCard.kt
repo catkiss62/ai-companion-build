@@ -28,13 +28,14 @@ class CalendarReminderCard(context: Context, private val confirm: (String) -> Un
     private fun dp(value: Int) = (value * resources.displayMetrics.density).toInt()
     val confirmButton = Button(context).apply {
         text = "确认"; textSize = 13f; isAllCaps = false
-        minWidth = 0; minimumWidth = 0; minHeight = 0; minimumHeight = 0
-        setPadding(dp(14), 0, dp(14), 0)
+        minWidth = dp(48); minimumWidth = dp(48); minHeight = 0; minimumHeight = 0
         setTextColor(accent)
         background = android.graphics.drawable.InsetDrawable(GradientDrawable().apply {
             setColor(Color.rgb(54, 43, 76)); cornerRadius = dp(12).toFloat()
             setStroke(dp(1).coerceAtLeast(1), Color.rgb(86, 66, 120))
         }, 0, dp(6), 0, dp(6))
+        // Assign after the background, which can replace View's padding.
+        setPadding(dp(14), 0, dp(14), 0)
         setOnClickListener { if (occurrence.isNotEmpty()) confirm(occurrence) }
     }
     init {

@@ -90,6 +90,7 @@ class ReminderCardSmokeTest {
                 assertTrue(kotlin.math.abs(safe.right - cardRect.right - 12 * density) < 3 * density)
                 assertTrue(kotlin.math.abs(safe.bottom - cardRect.bottom - 12 * density) < 3 * density)
                 assertTrue(card.confirmButton.width < card.width / 2)
+                assertTrue(card.confirmButton.width >= (48 * density).toInt())
                 assertTrue(card.confirmButton.height >= (48 * density).toInt())
                 assertEquals(android.media.AudioManager.STREAM_RING, activity.volumeControlStream)
                 assertTrue(activity.outsideButton.getGlobalVisibleRect(buttonRect))
