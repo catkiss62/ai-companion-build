@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'package:ai_companion_localfirst/core/platform/android_bridge.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:ai_companion_localfirst/core/perception/notification_activity.dart';
 import 'package:ai_companion_localfirst/core/perception/perception_interpreter.dart';
