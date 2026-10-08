@@ -8,9 +8,9 @@
 
 
 
-## 当前接班快照 · +330 表达选择、通知判断与愿望同步（DESIGNED / IN PROGRESS）
+## 当前接班快照 · +330 表达选择、通知判断与愿望同步（CI PASSED / APK READY / TRUE DEVICE PENDING）
 
-目标0.42.86+330，agent/v04286-expression-wish-awareness，基线+329源码8513ea5/交付ac45a6d。用户10月8日12:22授权四项一起做：通知分类去重及时效、愿望自主处置与诊断、待办情绪标签、可关闭的轻量自主表达。先文档后代码，设计与证据见app/docs/EXPRESSION_WISH_AWARENESS_v0.42.86.md及文末。+329待办提醒用户确认正常；人格/白房间/可见思考不改。后续入口6.3。
+0.42.86+330，agent/v04286-expression-wish-awareness，源码aca8596/tree45f21b4。通知/愿望/提醒标签/自主表达已实现；专项37729350521、完整37729350559成功，447专项/1446全量Flutter/29原生通过。同签名未发布APK与证据见文末及app/docs/EXPRESSION_WISH_AWARENESS_v0.42.86.md。真机效果待用户验收；入口6.3。
 
 ## 前次交付 · +329（CI PASSED / APK READY / 待办提醒USER DEVICE ACCEPTED）
 
@@ -3076,3 +3076,25 @@ SHA256：ef8f965e58a7252007b28e9cea33477f6e4545df6d119a965968d816078cbf34
 ## 当前接班快照 · +329 提醒小窗、来电音量与缓存审计（CI PASSED / APK READY / TRUE DEVICE PENDING）
 
 0.42.85+329，agent/v04285-reminder-compact-cache，源码8513ea508014e1527c7ace8c6525be17c04134fc。用户已授权推送/CI/未发布APK。右下角黑紫小卡直接挂原页面；响铃跟随来电音量；DeepSeek仅补诊断，不改提示/记忆/路由。专项37713200199的428测试通过；完整37713200224已成功，APK编译、签名及资源校验通过。此前卡外触摸测试时序、真实截图暴露按钮内边距已修，原生29项与截图复核通过，APK已就绪；HyperOS真机待验。恢复与失败路线见文末及app/docs/REMINDER_COMPACT_CACHE_v0.42.85.md，后续从6.3取。
+
+### +330 实现及验证过程（2026-10-08，CI尚未结束）
+- 当前源码aca8596477d98650b7f005bf1ec9dae6bb7c4ab6，tree45f21b487c2c8e563f0f98124a575d118ce53325；本地4cda70e与远端源码树一致。
+- 通知：保存Android消息类别/持续服务/组摘要/内容摘要/消息时间；30分钟有界去重，5分钟近期证据、3分钟有效期；系统/推广/服务不算聊天，同一通知新内容保留，通知到达不推断用户忙碌。主动额度及唤醒方式保持。
+- 愿望：统一自主处置输出字段，扩展已有愿望时的原始聊天检索至256条并保留相关决定及上下文，仍有14天/条数限制；字段校验及原criterion不变。诊断记录无提案、应用、拒绝原因，不保存聊天正文。原存档白房间想通/结案原话在倒序索引81/83，旧recent64看不到，新窗口可以覆盖；不删除或强行完成旧愿望。
+- 待办：EmotionEnvelope清理正文/分段/通知，现有分类器写情绪元数据；空正文不发。既有提醒时间、确认、用户发言接管、普通主动静默合同保持。
+- 表达：同一次正文调用自主选择展开、直接程度、分享/承接/追问/收尾、玩笑/动作；近6条只有结构统计，允许维持语气，不强制轮换、不用短回复推断讨厌话题。文字演出开关默认开；角色扮演免注入，新话题不读取旧结构，明确格式优先；不改人格/梦境/白房间游戏机制。
+- 本地149项源码检查初轮122通过，18项版本列表及表达入口断言更新后通过；9项缺CI外部资产或Kotlin工具链，交由完整构建验证。
+- 首轮源码dbe5d7d：专项37728701773因新增测试缺android_bridge导入在analyze失败；完整37728701813被后续提交替换。第二轮d005ac5：专项37728979645 analyze通过、446测试通过/1失败（新增集成测试没有真实user消息夹具），完整37728979662被后续提交替换。两处均修正测试，未借此改产品历史路由或放松断言。
+- 当前专项37729350521、完整37729350559仍运行。没有发布/真机验收结论；等待准确结果后补交付信息。
+- 进展更新：专项37729350521已成功（analyze通过、447项测试通过）；完整37729350559的caicai-native-smoke成功，build-apk阶段开始。仍无APK交付结论。
+
+### +330 最终交付（2026-10-08，CI PASSED / APK READY / TRUE DEVICE PENDING）
+- 产品源码：aca8596477d98650b7f005bf1ec9dae6bb7c4ab6；源码树45f21b487c2c8e563f0f98124a575d118ce53325。最终文档提交只包含本总账和本版设计/验证记录，使用[skip ci]，产品代码与APK不变。
+- 专项 https://github.com/catkiss62/ai-companion-build/actions/runs/37729350521 成功：Flutter analyze通过、447项测试通过。
+- 完整 https://github.com/catkiss62/ai-companion-build/actions/runs/37729350559 成功：源码回归、Kotlin桌宠/悬浮窗/待办测试、Flutter analyze、1446项全量Flutter测试、29项Android原生测试、release构建、资源完整性与稳定签名检查全部通过；APK上传成功。
+- 未发布下载页：https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-c2c8f01f80ed2abe1173 。Draft Release 406425036，tag v0.42.86-expression-wish-test，target aca8596477d98650b7f005bf1ec9dae6bb7c4ab6。
+- APK：AI-Companion-v0.42.86-330-Expression-Wish-APK.apk；资产620806591，736800029字节。直链 https://github.com/catkiss62/ai-companion-build/releases/download/untagged-c2c8f01f80ed2abe1173/AI-Companion-v0.42.86-330-Expression-Wish-APK.apk 。校验文件资产620806593、CI记录资产620806614。
+- SHA-256：67c2c4c7e46b027d70ba57c721a0ac19a80545058e904002a84c4d36ccc5256b；CI计算值与GitHub上传资产digest一致。
+- 签名SHA-256：30:5E:B3:D8:09:83:B9:63:C6:48:18:DD:F1:AD:56:1F:27:9D:E6:D4:7B:3E:D2:C7:81:AD:A4:48:C7:C2:51:48，与+329相同，可覆盖安装。
+- 使用说明：文字演出→自主表达方式默认开启、可以关闭。旧愿望在后续既有评估时机读取相关原话并自行提出处置，不在安装时删除/强制完成。待办标签修复适用于新生成回复；不批改历史聊天。
+- 真机待验：通知分类对设备/App实际通知格式的效果、白房间愿望后续自主处置、自然表达多样性、待办新回复显示。没有凭CI宣称真机通过，也不承诺模型每句必然不同或永久不误判。
