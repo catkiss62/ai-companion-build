@@ -1,3 +1,4 @@
+import 'notification_activity.dart';
 import '../desire/daily_wake_store.dart';
 import 'dart:math';
 
@@ -98,9 +99,10 @@ class PerceptionEngine {
       signals: newEvents,
     );
 
-    final newNotificationCount = newEvents
-        .where((row) => (row['source'] as String? ?? '') == 'notification')
-        .length;
+    final newNotificationCount = lastMillis == null ? 0 :
+        NotificationActivity.collect([...recentSignals, ...newEvents], now)
+            .countSince(DateTime.fromMillisecondsSinceEpoch(
+                max(lastMillis, now.subtract(const Duration(minutes: 5)).millisecondsSinceEpoch)));
     final newAccessibilityCount = newEvents
         .where((row) => (row['source'] as String? ?? '') == 'accessibility')
         .length;
@@ -237,8 +239,8 @@ class PerceptionEngine {
               const Duration(minutes: 40);
       if (!throttled) {
         final text = activityLabel == null || activityKey == 'unknown'
-            ? '你好像持续用手机有一阵了，我有点在意，也有点好奇你在忙什么。'
-            : '你好像有一段时间主要在进行$activityLabel相关的活动，我有点好奇你现在在忙什么。';
+            ? '你好像持续用手机有一阵了，我有点在意，也好奇你现在的状态，但这不代表你正忙。'
+            : '你好像有一段时间主要在进行$activityLabel相关的活动，我有点好奇你现在的状态，具体是不是忙仍不确定。';
         await desire.feedThought(
           text: text,
           drive: DriveKey.curiosity,

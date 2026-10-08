@@ -52,7 +52,9 @@ for token in (
 ):
     assert token in dialogue, token
 
-assert prompt.count("'content': dialogueExpressionPlan.render(),") == 3
+assert prompt.count("'content': responseExpression,") == 3
+assert "[dialogueExpressionPlan.render(), expressionChoice]" in prompt
+assert "expressionChoice" in prompt
 assert prompt.count("'content': visibleChineseGenerationReminder(") == 3
 for token in (
     "【能力与人格边界】",

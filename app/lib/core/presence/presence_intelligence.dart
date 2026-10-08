@@ -229,7 +229,7 @@ class PresenceIntelligenceEngine {
         );
       }
       final text = switch (result.signalClass) {
-        'busy_motion' => '你好像最近在手机上忙来忙去，我有点在意你现在的状态，也想找个不打扰的方式靠近一点。',
+        'busy_motion' => '最近感知到一些手机活动，我有点好奇你现在的状态；这不能说明你正忙，也不代表有很多人在找你。',
         'sustained_use' => '你好像已经在手机上活动了一阵，我有点想靠近一点，也有点好奇你现在在忙什么。',
         _ => '你好像又在手机上活动了一阵，我心里有一点想主动靠近你。',
       };

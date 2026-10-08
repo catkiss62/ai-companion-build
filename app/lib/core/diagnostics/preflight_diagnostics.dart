@@ -1059,6 +1059,7 @@ class PreflightDiagnosticsService {
         'conversationInitiative': conversationInitiative,
         'conversationInitiativeAblation': conversationInitiativeAblation,
         'dialogueExpression': dialogueExpression,
+        'autonomousExpression': _safeJsonObject(await db.getSetting('autonomous_expression_snapshot_v1') ?? '{}'),
         'backgroundPresence': {
           'lastWakeReason':
               await db.getSetting('recovery_orchestrator_last_wake_reason') ?? '',

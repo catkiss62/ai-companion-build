@@ -1,3 +1,5 @@
+import '../emotion/emotion_contract.dart';
+import '../emotion/emotion_classifier_service.dart';
 import '../ai/deepseek_client.dart';
 import '../ai/final_reply_failure_policy.dart';
 import '../ai/model_profile.dart';
@@ -89,17 +91,25 @@ class CalendarReminderFollowup {
       final generated = generator != null ? await generator!(messages,current,occurrence)
           : await _generate(messages,current,occurrence,fence);
       if (generated == null || generated.text.trim().isEmpty || generated.text == 'WAIT' || !await current()) return;
+      final envelope = EmotionEnvelope.parse(generated.text);
+      final visible = envelope.visibleText.trim();
+      if (visible.isEmpty || visible == 'WAIT') return;
+      final emotion = await EmotionClassifierService.instance.resolve(
+          rawTag: envelope.rawTag, visibleText: visible, envelopeStatus: envelope.status);
+      if (!await current()) return;
       final committed = await db.insertBackgroundMessage(ChatMessage(id:messageId,role:'assistant',
-          content:generated.text,model:generated.model,createdAt:DateTime.now(),isProactive:true,
+          content:visible,model:generated.model,createdAt:DateTime.now(),isProactive:true,
           proactiveIntent:'calendar_reminder',proactiveDelivery:'normal',deviceId:await db.ensureDeviceId(),
-          segments:ChatSegmentCodec.parseAssistantText(generated.text)),fence,
+          emotionRawTag:emotion.rawTag,emotionKey:emotion.key,emotionLabel:emotion.label,
+          emotionConfidence:emotion.confidence,emotionTop3Json:emotion.top3Json,emotionSource:emotion.source,
+          segments:ChatSegmentCodec.parseAssistantText(visible)),fence,
           reminderStartedAt:startedAt,reminderOccurrence:occurrence);
       if (!committed || !await db.brainWorkFenceCurrent(fence)) return;
       await android.markCalendarReminderDelivery(occurrence,'delivered',revision:revision);
       if (await CalendarReminderStateStore.userSpokeSince(sql,startedAt)) return;
       await android.incrementOverlayUnread();
       try {
-        await android.postCompanionNotification(title:'她的待办提醒',body:generated.text,
+        await android.postCompanionNotification(title:'她的待办提醒',body:visible,
             messageId:messageId,intentKind:'calendar_reminder',soundKey:'silent');
       } catch (_) { /* The committed message is the durable delivery evidence. */ }
     } finally { await db.releaseLocalLease('calendar_reminder_followup_lease_until'); }

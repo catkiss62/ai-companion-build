@@ -1,3 +1,4 @@
+import '../../core/ai/autonomous_expression_choice.dart';
 import 'dart:io';
 
 import 'package:flutter/material.dart';
@@ -1080,6 +1081,7 @@ class _TextPerformanceSettingsPageState
     extends State<TextPerformanceSettingsPage> {
   final _db = AppDatabase.instance;
   bool _enabled = true;
+  bool _expressionChoice = true;
   int _milliseconds = 48;
   ChatDialogueColorOption _dialogueColor = ChatDialogueColorOption.purple;
   bool _loading = true;
@@ -1092,6 +1094,7 @@ class _TextPerformanceSettingsPageState
 
   Future<void> _load() async {
     _enabled = (await _db.getSetting('chat_typewriter_enabled')) != '0';
+    _expressionChoice = await _db.getSetting(AutonomousExpressionChoice.settingKey) != '0';
     _milliseconds = (int.tryParse(
               await _db.getSetting('chat_typewriter_ms') ?? '',
             ) ??
@@ -1112,6 +1115,18 @@ class _TextPerformanceSettingsPageState
             : ListView(
                 padding: const EdgeInsets.fromLTRB(16, 8, 16, 32),
                 children: [
+                  SwitchListTile(
+                    key: const ValueKey('autonomous-expression-choice'),
+                    contentPadding: EdgeInsets.zero,
+                    title: const Text('自主表达方式'),
+                    subtitle: const Text('让她根据想法选择怎样说，保留自然的长短变化和对话节奏。'),
+                    value: _expressionChoice,
+                    onChanged: (value) async {
+                      setState(() => _expressionChoice = value);
+                      await _db.setSetting(AutonomousExpressionChoice.settingKey, value ? '1' : '0');
+                    },
+                  ),
+                  const Divider(height: 24),
                   SwitchListTile(
                     contentPadding: EdgeInsets.zero,
                     title: const Text('逐段打字演出'),

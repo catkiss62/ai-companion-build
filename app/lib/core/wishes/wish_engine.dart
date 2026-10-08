@@ -9,6 +9,7 @@ import '../models/world_book_turn_context.dart';
 import '../storage/secure_config.dart';
 import 'companion_wish.dart';
 import 'wish_store.dart';
+import 'wish_evidence_window.dart';
 
 typedef WishReviewer =
     Future<Map<String, dynamic>?> Function(Map<String, Object?> material);
@@ -62,11 +63,13 @@ route 仅 game（真实已知游戏中可尝试）、user（需要用户自愿�
 游戏 ID 必须在 catalog；愿望不能代替当前用户意愿、游戏指南、停止、休息、共玩邀请或覆盖存档权限。不能声称已拥有尚未提供的能力。自主搜索/跨工具规划本版没有愿望专用执行器，相关想法保留 aspiration。
 新愿望 goal 是自然第一人称的一件具体想做的事（6~100字），reason 说明为什么想做，next_step 是一个小的可选行动，criterion 是不偷换目标的可核验完成条件。completion_kind 只能 game_result/user_photo/user_text；aspiration 留空。不明确条件或暂无证据途径则保留 aspiration。需要用户照片的目标不能用网络图片或用户答应代替。目标涉及“新/首次/增加”时必须有真实 baseline 或明确的新成就回执，不能把任意成功当新增。
 source_ids 引用实际灵感来源，game baseline 来自给定游戏真实结果；不得把助手说过/念头/愿望本身当成发生过的事实。deadline 仅目标本身带时间时填写 ISO8601，不能默认给所有愿望加截止时间。
-updates 只评估给定愿望的新资料。返回 {id,state,progress,evidence_id,quote,confidence,same_target,observed,expressed}。
-无变化就不写 update。state 可 active/paused/abandoned/completed。用户拒绝/暂停时可以暂停或放弃；手动暂停绝不自动复活。尊重用户不想做，不劝说、不催。
+updates 只评估给定愿望的资料；旧创建的愿望也须评估。按来源使用完整格式：
+客观结果或用户决定：{id,state,progress,evidence_id,quote,confidence,same_target,observed,expressed}。
+她自己的处置：{id,state,progress,evidence_id,quote,confidence,same_target,self_decision:true,speech_act:"considered_decision",reason,expressed}。三个自主处置字段必填，不能只写state。
+无变化就不写 update。state 可 active/paused/abandoned/completed/satisfied，各状态遵守下面的来源规则。用户拒绝/暂停时可以暂停或放弃；手动暂停绝不自动复活。尊重用户不想做，不劝说、不催。
 完成必须是 created_at 之后的实际结果，匹配原 criterion 的对象、归属、时间和范围。quote 必须逐字来自指定资料并足够说明结果。observed=true 仅已发生结果；用户计划、答应、假设、愿望、工具尝试、读指南、助手自述都不是完成。证据不够保持 active，progress 只记已知进展/障碍，禁止写已经实现。不得修改 criterion 降低标准。aspiration 不按客观 completed 完成，可依下述规则主观满足。
 自主处置：可以根据她对已有具体愿望的认真表达，提出 self_decision=true 的 active/paused/abandoned/satisfied 更新。必须引用 assistant_text，reason（4~240字）解释意愿变化，speech_act=considered_decision；玩笑、撒娇、假设、引用、角色扮演或随口宣称完成不算处置决定。没有明确意愿变化则不更新，也不为了展示自主性频繁改变。用户手动暂停/放下不可自行恢复。
-paused=自己暂时不想追求，abandoned=不再追求原目标，active=明确重新想追求自己暂放的目标；satisfied=主观向往已得到满足，仅适用于 aspiration。游戏结果等客观目标即使“想通了、不执着了”也只能放下，不能当作客观达成。不得把“霸占靠垫、催吃饭”等玩笑新增为真实目标；原有新愿望生成规则保持。原 criterion 不变。
+paused=自己暂时不想追求，abandoned=不再追求原目标，active=明确重新想追求自己暂放的目标；satisfied=主观向往已得到满足，仅适用于 aspiration。游戏结果等客观目标，如果她认真表示已经不想继续证明/追求原目标，使用abandoned表示自主放下（并不等于失败），不能当作客观达成或satisfied。单说心情变好、随口“完成了”而没有意愿变化则不算。不要因为没有游戏回执而漏掉明确的自主放下。允许引用旧对话中的决定，不要求她在本轮再说一遍；结合相邻对话与at判断指代和先后，不能把旧决定覆盖更新的意愿。不得把“霸占靠垫、催吃饭”等玩笑新增为真实目标；原有新愿望生成规则保持。原 criterion 不变。
 expressed=true 仅 assistant_text 确实已经向用户说出了这一具体愿望；提过就不反复提，不把说过当完成。
 格式 {"new_wish":null或{"goal":"","reason":"","route":"","game_id":"","next_step":"","criterion":"","completion_kind":"","source_ids":[],"interest":0.6,"deadline":""},"updates":[]}。''';
 
@@ -107,11 +110,11 @@ expressed=true 仅 assistant_text 确实已经向用户说出了这一具体愿�
       if (instant.millisecondsSinceEpoch - lastAttempt <
           reviewGap.inMilliseconds)
         return false;
-      final evidence = await collect(instant);
+      final evidence = await collect(instant, wishes: wishes);
       if (evidence.isEmpty) return false;
       final fingerprint = sha256
           .convert(
-            utf8.encode(jsonEncode(evidence.map((e) => e.toJson()).toList())),
+            utf8.encode(jsonEncode({"contract":3,"wishes":wishes.map((w)=>w.toJson()).toList(),"sources":evidence.map((e) => e.toJson()).toList()})),
           )
           .toString();
       if (await db.getSetting(fingerprintKey) == fingerprint) return false;
@@ -170,6 +173,7 @@ expressed=true 仅 assistant_text 确实已经向用户说出了这一具体愿�
         }, workFence: fence);
         return false;
       }
+      final decisions = <Map<String, Object?>>[];
       final updated = WishPolicy.apply(
         wishes: wishes,
         payload: payload,
@@ -177,6 +181,7 @@ expressed=true 仅 assistant_text 确实已经向用户说出了这一具体愿�
         catalogIds: catalog.map((e) => e.id).toSet(),
         now: instant,
         canGenerate: canGenerate,
+        decisions: decisions,
       );
       return store.save(
         updated,
@@ -190,6 +195,8 @@ expressed=true 仅 assistant_text 确实已经向用户说出了这一具体愿�
             'added': updated.length - wishes.length,
             'active': updated.where((w) => w.active).length,
             'completed': updated.where((w) => w.state == 'completed').length,
+            'contract': 3, 'source_count': evidence.length,
+            'decisions': decisions.take(16).toList(),
           }),
         },
       );
@@ -201,12 +208,13 @@ expressed=true 仅 assistant_text 确实已经向用户说出了这一具体愿�
     }
   }
 
-  Future<List<WishEvidence>> collect(DateTime now) async {
+  Future<List<WishEvidence>> collect(DateTime now, {List<CompanionWish> wishes = const []}) async {
     final result = <WishEvidence>[];
     String clip(String s, int n) => s.length <= n ? s : s.substring(0, n);
-    final messages = await db.recentMessages(limit: 64);
+    final messages = await db.recentMessages(limit: wishes.isEmpty ? 64 : 256);
     for (final m in messages) {
       if (WorldBookTurnContext.decode(m.worldBookContextJson).hasRoleplay ||
+          m.createdAt.isAfter(now) ||
           now.difference(m.createdAt) > const Duration(days: 14))
         continue;
       if (m.content.trim().isNotEmpty && (m.isUser || m.isAssistant)) {
@@ -307,14 +315,13 @@ expressed=true 仅 assistant_text 确实已经向用户说出了这一具体愿�
       'game_context',
       'web_read',
       'inspiration',
-      'user_text',
-      'assistant_text',
     ]) {
       final items =
           result.where((e) => e.kind == kind && !e.at.isAfter(now)).toList()
             ..sort((a, b) => b.at.compareTo(a.at));
       bounded.addAll(items.take(kind.endsWith('_text') ? 16 : 10));
     }
+    bounded.addAll(WishEvidenceWindow.select(result, wishes));
     bounded.sort((a, b) => a.id.compareTo(b.id));
     return bounded;
   }
@@ -352,6 +359,7 @@ class WishPolicy {
     required Set<String> catalogIds,
     required DateTime now,
     required bool canGenerate,
+    List<Map<String, Object?>>? decisions,
   }) {
     final byId = {for (final e in evidence) e.id: e};
     final changes = {
@@ -367,23 +375,33 @@ class WishPolicy {
     var activeCount = wishes.where((w) => w.active).length;
     final result = wishes.map((w) {
       final u = changes[w.id];
-      if (u == null ||
-          (!w.active && w.state != 'expired' && w.state != 'paused') ||
-          w.manualHold ||
-          w.legacy)
+      final requested = u?['state']?.toString() ?? '';
+      void note(String reason, {String? applied}) {
+        decisions?.add({
+          'wish_hash': sha256.convert(utf8.encode(w.id)).toString().substring(0, 12),
+          'requested': const {'active','paused','abandoned','completed','satisfied'}.contains(requested) ? requested : (u == null ? 'none' : 'invalid'),
+          'result': applied == null ? 'unchanged' : 'applied',
+          'reason': reason,
+          'state': applied ?? w.state,
+        });
+      }
+      CompanionWish reject(String reason) { note(reason); return w; }
+      if (u == null) {
+        if (w.active || w.state == 'paused') note('no_proposal');
         return w;
+      }
+      if ((!w.active && w.state != 'expired' && w.state != 'paused') || w.manualHold || w.legacy) {
+        return reject(w.manualHold ? 'manual_hold' : w.legacy ? 'legacy_protected' : 'terminal_state');
+      }
       final e = byId[u['evidence_id']];
       final quote = text(u, 'quote', 1200);
-      if (e == null ||
-          !e.at.isAfter(w.createdAt) ||
-          e.at.isAfter(now) ||
-          (w.deadline != null && e.at.isAfter(w.deadline!)) ||
-          quote.length < 3 ||
-          !e.text.contains(quote) ||
-          u['same_target'] != true ||
-          (u['confidence'] is! num || (u['confidence'] as num) < .85))
-        return w;
-      if (w.state == 'expired' && u['state'] != 'completed') return w;
+      if (e == null) return reject('missing_source');
+      if (!e.at.isAfter(w.createdAt) || e.at.isAfter(now) ||
+          (w.deadline != null && e.at.isAfter(w.deadline!))) return reject('source_time');
+      if (quote.length < 3 || !e.text.contains(quote)) return reject('quote_mismatch');
+      if (u['same_target'] != true) return reject('target_unconfirmed');
+      if (u['confidence'] is! num || (u['confidence'] as num) < .85) return reject('low_confidence');
+      if (w.state == 'expired' && u['state'] != 'completed') return reject('expired');
       if (e.kind == 'assistant_text') {
         final state = text(u, 'state', 20);
         final reason = text(u, 'reason', 240);
@@ -399,6 +417,7 @@ class WishPolicy {
             !w.evidenceIds.contains(e.id)) {
           if (w.active && state != 'active') activeCount--;
           if (!w.active && state == 'active') activeCount++;
+          note('self_decision', applied: state);
           return w.copyWith(
             state: state, progress: reason, updatedAt: now,
             manualHold: false, lastEvidenceAt: e.at,
@@ -407,27 +426,33 @@ class WishPolicy {
             expressedAt: u['expressed'] == true ? e.at : null,
           );
         }
+        note(u['self_decision'] != true || u['speech_act'] != 'considered_decision' || reason.length < 4
+            ? 'self_decision_fields_missing' : state == 'satisfied' && w.route != 'aspiration'
+            ? 'objective_goal_requires_release' : !e.at.isAfter(w.updatedAt)
+            ? 'decision_predates_update' : w.evidenceIds.contains(e.id)
+            ? 'duplicate_evidence' : 'invalid_self_transition');
         return u['expressed'] == true ? w.copyWith(expressedAt: e.at) : w;
       }
       // Self-paused wishes only resume through an explicit new self decision.
-      if (w.state == 'paused') return w;
+      if (w.state == 'paused') return reject('self_resume_required');
       if (!const {'game_result', 'user_photo', 'user_text'}.contains(e.kind) ||
           (e.kind == 'game_result' && e.gameId != w.gameId))
-        return w;
+        return reject('source_kind');
       final state = text(u, 'state', 20);
       if (!const {'active', 'paused', 'abandoned', 'completed'}.contains(state))
-        return w;
+        return reject('invalid_state');
       if (state == 'completed' &&
           (w.route == 'aspiration' ||
               e.kind != w.completionKind ||
               u['observed'] != true ||
               w.criterion.isEmpty))
-        return w;
+        return reject('completion_evidence_required');
       // A photo or game result cannot be interpreted as the user's refusal.
       if (const {'paused', 'abandoned'}.contains(state) &&
           e.kind != 'user_text')
-        return w;
-      if (w.evidenceIds.contains(e.id)) return w;
+        return reject('user_decision_required');
+      if (w.evidenceIds.contains(e.id)) return reject('duplicate_evidence');
+      note('evidence_applied', applied: state);
       return w.copyWith(
         state: state,
         progress: text(u, 'progress', 240),

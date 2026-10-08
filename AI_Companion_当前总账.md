@@ -8,9 +8,13 @@
 
 
 
-## 当前接班快照 · +329 提醒小窗、来电音量与缓存审计（CI PASSED / APK READY / TRUE DEVICE PENDING）
+## 当前接班快照 · +330 表达选择、通知判断与愿望同步（DESIGNED / IN PROGRESS）
 
-0.42.85+329，agent/v04285-reminder-compact-cache，源码8513ea508014e1527c7ace8c6525be17c04134fc。用户已授权推送/CI/未发布APK。右下角黑紫小卡直接挂原页面；响铃跟随来电音量；DeepSeek仅补诊断，不改提示/记忆/路由。专项37713200199的428测试通过；完整37713200224已成功，APK编译、签名及资源校验通过。此前卡外触摸测试时序、真实截图暴露按钮内边距已修，原生29项与截图复核通过，APK已就绪；HyperOS真机待验。恢复与失败路线见文末及app/docs/REMINDER_COMPACT_CACHE_v0.42.85.md，后续从6.3取。
+目标0.42.86+330，agent/v04286-expression-wish-awareness，基线+329源码8513ea5/交付ac45a6d。用户10月8日12:22授权四项一起做：通知分类去重及时效、愿望自主处置与诊断、待办情绪标签、可关闭的轻量自主表达。先文档后代码，设计与证据见app/docs/EXPRESSION_WISH_AWARENESS_v0.42.86.md及文末。+329待办提醒用户确认正常；人格/白房间/可见思考不改。后续入口6.3。
+
+## 前次交付 · +329（CI PASSED / APK READY / 待办提醒USER DEVICE ACCEPTED）
+
+0.42.85+329，源码8513ea5，完整37713200224成功；428专项、29原生通过，右下角小卡/来电音量和缓存诊断已交付。下载与失败路线保留在文末及app/docs/REMINDER_COMPACT_CACHE_v0.42.85.md。用户仅确认待办提醒正常，不外推全部真机边界。
 
 ## 当前交付 · +328 系统待办确认（CI PASSED / APK READY / TRUE DEVICE PENDING）
 
@@ -3063,3 +3067,12 @@ CI monitor：https://raw.githubusercontent.com/catkiss62/ai-companion-build/ci-m
 SHA256：ef8f965e58a7252007b28e9cea33477f6e4545df6d119a965968d816078cbf34
 签名：30:5E:B3:D8:09:83:B9:63:C6:48:18:DD:F1:AD:56:1F:27:9D:E6:D4:7B:3E:D2:C7:81:AD:A4:48:C7:C2:51:48
 本轮完成右下角黑紫小卡、来电音量及缓存诊断隔离；不宣称缓存命中率提升。待真机验证来电音量/静音振动、锁屏/浮窗、确认/超时和多提醒。历史测试失败及修正路线保留；后续任务从总账6.3入口继续。
+
+
+## +330 开始记录 · 2026-10-08
+用户12:22明确授权按本窗口方案实施；先前分析讨论完成，没有隐含删除存档或修改人格许可。基线远端ac45a6d（本地交付文档同blob，4d8f5f1），新分支agent/v04286-expression-wish-awareness。详细设计、证据、测试范围见app/docs/EXPRESSION_WISH_AWARENESS_v0.42.86.md。当前仅DESIGNED / IN PROGRESS，未声称实现/CI通过。
+
++329原接班快照保留：
+## 当前接班快照 · +329 提醒小窗、来电音量与缓存审计（CI PASSED / APK READY / TRUE DEVICE PENDING）
+
+0.42.85+329，agent/v04285-reminder-compact-cache，源码8513ea508014e1527c7ace8c6525be17c04134fc。用户已授权推送/CI/未发布APK。右下角黑紫小卡直接挂原页面；响铃跟随来电音量；DeepSeek仅补诊断，不改提示/记忆/路由。专项37713200199的428测试通过；完整37713200224已成功，APK编译、签名及资源校验通过。此前卡外触摸测试时序、真实截图暴露按钮内边距已修，原生29项与截图复核通过，APK已就绪；HyperOS真机待验。恢复与失败路线见文末及app/docs/REMINDER_COMPACT_CACHE_v0.42.85.md，后续从6.3取。

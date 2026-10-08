@@ -1,4 +1,5 @@
 import 'dart:math';
+import 'notification_activity.dart';
 
 import '../models/awareness_observation.dart';
 import '../platform/android_bridge.dart';
@@ -75,7 +76,7 @@ class PerceptionInterpreter {
         .where((event) => !event.timestamp.isAfter(screenSession.end))
         .toList(growable: false);
     final facts = _summarizeUsage(sessionUsage, screenSession.end);
-    final signalFacts = _summarizeSignals(recentSignals);
+    final signalFacts = _summarizeSignals(recentSignals, now);
     final observations = <AwarenessObservationDraft>[];
     final managed = <String>{...deviceManagedKeys};
 
@@ -112,8 +113,8 @@ class PerceptionInterpreter {
         AwarenessObservationDraft(
           kind: 'availability',
           summary: busyScore >= 0.74
-              ? '现在大概比较忙，适合低打扰地联系。'
-              : '现在可能有点忙，联系时更适合轻一点。',
+              ? '近期手机活动较多；联系时可以轻一些，具体在做什么仍不确定。'
+              : '近期有一些手机活动；不能据此判断用户正忙。',
           confidence: (0.58 + (busyScore - 0.56) * 0.9).clamp(0.58, 0.86).toDouble(),
           windowStart: now.subtract(const Duration(minutes: 15)),
           windowEnd: now,
@@ -235,7 +236,7 @@ class PerceptionInterpreter {
       out.add(
         AwarenessObservationDraft(
           kind: 'app_switching',
-          summary: '最近切换应用比较频繁，像是在同时处理几件事。',
+          summary: '最近30分钟有多次应用切换；这只能说明手机活动，不能确定在工作、休息或是否忙碌。',
           confidence: confidence,
           windowStart: now.subtract(const Duration(minutes: 30)),
           windowEnd: now,
@@ -253,21 +254,21 @@ class PerceptionInterpreter {
     _SignalFacts signals,
     DateTime now,
   ) {
-    if (signals.notificationCount < 5) return;
+    if (signals.recentMessages < 5) return;
     final confidence = (0.54 + min(12, signals.notificationCount) * 0.02)
         .clamp(0.56, 0.78)
         .toDouble();
     out.add(
       AwarenessObservationDraft(
         kind: 'notification_pressure',
-        summary: '近期通知比较密集，可能同时有不少事情在找你。',
+        summary: '最近5分钟观察到${signals.recentMessages}次新的聊天通知内容；只说明消息到达，不代表你正在回复或忙碌。',
         confidence: confidence,
-        windowStart: now.subtract(const Duration(minutes: 30)),
+        windowStart: now.subtract(const Duration(minutes: 5)),
         windowEnd: now,
-        expiresAt: now.add(const Duration(minutes: 20)),
+        expiresAt: now.add(const Duration(minutes: 3)),
         dedupeKey: 'notification_pressure',
         sourceFingerprint: 'notifications:${_bucket(signals.notificationCount, 3)}',
-        metadata: {'count_30m': signals.notificationCount},
+        metadata: {'count_30m': signals.notificationCount, 'new_content_5m': signals.recentMessages, 'count_kind': 'communication_content'},
       ),
     );
   }
@@ -423,22 +424,12 @@ class PerceptionInterpreter {
     );
   }
 
-  _SignalFacts _summarizeSignals(List<Map<String, Object?>> rows) {
-    var notifications = 0;
-    var accessibility = 0;
-    for (final row in rows) {
-      switch (row['source'] as String? ?? '') {
-        case 'notification':
-          notifications++;
-          break;
-        case 'accessibility':
-          accessibility++;
-          break;
-      }
-    }
+  _SignalFacts _summarizeSignals(List<Map<String, Object?>> rows, DateTime now) {
+    final notifications = NotificationActivity.collect(rows, now);
     return _SignalFacts(
-      notificationCount: notifications,
-      accessibilityEventCount: accessibility,
+      notificationCount: notifications.count30m,
+      recentMessages: notifications.recentCount(now),
+      accessibilityEventCount: rows.where((r) => r['source'] == 'accessibility').length,
     );
   }
 
@@ -453,7 +444,7 @@ class PerceptionInterpreter {
     if (usage.currentCategory != null) score += 0.24;
     score += (usage.dominantMinutes / 90 * 0.30).clamp(0.0, 0.30);
     score += (usage.switchesLast30Minutes / 18 * 0.18).clamp(0.0, 0.18);
-    score += (signals.notificationCount / 12 * 0.12).clamp(0.0, 0.12);
+    score += (signals.recentMessages / 12 * 0.12).clamp(0.0, 0.12);
     score += (signals.accessibilityEventCount / 35 * 0.08).clamp(0.0, 0.08);
     if (deviceState.deviceLocked) score -= 0.08;
     final hour = now.hour;
@@ -552,9 +543,11 @@ class _ScreenSessionWindow {
 class _SignalFacts {
   const _SignalFacts({
     this.notificationCount = 0,
+    this.recentMessages = 0,
     this.accessibilityEventCount = 0,
   });
 
   final int notificationCount;
+  final int recentMessages;
   final int accessibilityEventCount;
 }

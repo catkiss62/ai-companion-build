@@ -188,6 +188,9 @@ void main() {
   test('raw notification and accessibility text never appears in observations', () {
     final signals = List<Map<String, Object?>>.generate(8, (index) => {
           'source': index < 5 ? 'notification' : 'accessibility',
+          'app_package': 'com.tencent.mobileqq',
+          'occurred_at': now.subtract(Duration(seconds: index + 1)).millisecondsSinceEpoch,
+          'metadata_json': '{"category":"msg"}',
           'summary': index < 5 ? 'private notification text $index' : 'private page text $index',
         });
     final result = interpreter.interpret(
@@ -206,6 +209,6 @@ void main() {
     final joined = result.observations.map((e) => e.summary).join('\n');
     expect(joined, isNot(contains('private notification text')));
     expect(joined, isNot(contains('private page text')));
-    expect(joined, contains('通知比较密集'));
+    expect(joined, contains('次新的聊天通知内容'));
   });
 }

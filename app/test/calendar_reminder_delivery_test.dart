@@ -19,6 +19,7 @@ void main() {
   late Map<String,Object?> event;
   late DateTime start;
   var notifications=0;
+  var lastNotification = <String, Object?>{};
   setUp(() async {
     FlutterSecureStorage.setMockInitialValues({});
     db=await AppDatabase.createForTesting(databaseFactoryFfi);
@@ -28,14 +29,16 @@ void main() {
       'startedAt':start.millisecondsSinceEpoch,'scheduledAt':due.millisecondsSinceEpoch,
       'status':'ringing','delivery':'pending'};
     snapshot={'revision':await CalendarReminderStateStore.revision(await db.database),'sequence':1,'records':[event]};
-    notifications=0;
+    notifications=0; lastNotification = {};
     TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger.setMockMethodCallHandler(channel,(call) async {
       if(call.method=='calendarReminderState') return jsonDecode(jsonEncode(snapshot));
       if(call.method=='markCalendarReminderDelivery') {
         final args=Map<String,Object?>.from(call.arguments as Map);
         if(args['revision']==snapshot['revision']) { event['delivery']=args['outcome'];snapshot['sequence']=(snapshot['sequence'] as int)+1; }
       }
-      if(call.method=='postCompanionNotification') notifications++;
+      if(call.method=='postCompanionNotification') {
+        notifications++; lastNotification = Map<String, Object?>.from(call.arguments as Map);
+      }
       if(call.method=='syncCalendarReminders') return true;
       return null;
     });
@@ -53,6 +56,23 @@ void main() {
   }
   ChatMessage reply(String id,DateTime now) => ChatMessage(id:id,role:'assistant',content:'聊天',createdAt:now,isProactive:true);
 
+  test('reminder persists emotion separately and displays clean dialogue everywhere', () async {
+    await CalendarReminderFollowup(db, generator: (messages, current, id) async =>
+      (text: '<emotion>正常</emotion>你的出发时间到了。', model: 'test')).deliverOne();
+    final message = (await db.messageById('calendar-reminder:${event['occurrence']}'))!;
+    expect(message.content, '你的出发时间到了。');
+    expect(message.emotionLabel, '正常');
+    expect(message.emotionRawTag, '正常');
+    expect(message.segments.map((s) => s.text).join(), isNot(contains('<emotion>')));
+    expect(lastNotification['body'], '你的出发时间到了。');
+    expect(notifications, 1);
+  });
+  test('an emotion envelope without dialogue does not commit or notify', () async {
+    await CalendarReminderFollowup(db, generator: (messages, current, id) async =>
+      (text: '<emotion>正常</emotion>', model: 'test')).deliverOne();
+    expect(await db.messageById('calendar-reminder:${event['occurrence']}'), isNull);
+    expect(notifications, 0);
+  });
   test('quick confirmation preserves the one in-flight reminder and does not force another turn',() async {
     final started=Completer<void>();final result=Completer<({String text,String model})?>();var requests=0;
     final followup=CalendarReminderFollowup(db,generator:(messages,current,id) async {

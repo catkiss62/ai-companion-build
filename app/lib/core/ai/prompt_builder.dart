@@ -1,3 +1,5 @@
+import 'dart:convert';
+import 'autonomous_expression_choice.dart';
 import '../phone/calendar_reminder_state.dart';
 import '../self/dream_store.dart';
 import '../desire/daily_wake_store.dart';
@@ -279,6 +281,22 @@ class PromptBuilder {
           mode == PromptGenerationMode.userTurn ? latestUserText : '',
       proactive: mode == PromptGenerationMode.proactive,
     );
+    final expressionChoiceEnabled = await db.getSetting(AutonomousExpressionChoice.settingKey) != '0';
+    final expressionChoice = AutonomousExpressionChoice.render(
+      enabled: expressionChoiceEnabled, roleplay: worldBookContext.hasRoleplay,
+      freshSourceOnly: freshTopicSourceOnly, recent: promptRecent);
+    final responseExpression = [dialogueExpressionPlan.render(), expressionChoice]
+        .where((s) => s.isNotEmpty).join('\n\n');
+    try {
+      await db.setSetting(AutonomousExpressionChoice.diagnosticKey, jsonEncode({
+        'enabled': expressionChoiceEnabled,
+        'applied': expressionChoice.isNotEmpty,
+        'fresh_source_only': freshTopicSourceOnly,
+        'recent_structure': freshTopicSourceOnly || worldBookContext.hasRoleplay
+            ? <String, int>{} : AutonomousExpressionChoice.structure(promptRecent),
+        'at': instant.millisecondsSinceEpoch,
+      }));
+    } catch (_) { /* Optional diagnostics must not block a reply. */ }
     await DialogueExpressionTelemetry.record(
       db,
       dialogueExpressionPlan,
@@ -509,7 +527,7 @@ ANSWERED_HISTORY_ONLY = true
       }
       messages.add({
         'role': 'system',
-        'content': dialogueExpressionPlan.render(),
+        'content': responseExpression,
       });
       messages.add({
         'role': 'system',
@@ -537,7 +555,7 @@ ANSWERED_HISTORY_ONLY = true
         }
         messages.add({
           'role': 'system',
-          'content': dialogueExpressionPlan.render(),
+          'content': responseExpression,
         });
         if (lifecycleTurnContract.isNotEmpty) {
           messages.add({'role': 'system', 'content': lifecycleTurnContract});
@@ -568,7 +586,7 @@ ANSWERED_HISTORY_ONLY = true
         }
         messages.add({
           'role': 'system',
-          'content': dialogueExpressionPlan.render(),
+          'content': responseExpression,
         });
         if (lifecycleTurnContract.isNotEmpty) {
           messages.add({'role': 'system', 'content': lifecycleTurnContract});
