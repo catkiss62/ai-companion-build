@@ -29,8 +29,14 @@ class MediaBlobStorage {
   Future<MediaBlob> store({
     required File original, required File thumbnail, required String mimeType,
     required int width, required int height, required DateTime createdAt,
-  }) => SharedMediaLock.run(() => _store(original: original, thumbnail: thumbnail,
-      mimeType: mimeType, width: width, height: height, createdAt: createdAt), db: db);
+  }) => SharedMediaLock.run(() async {
+    final blob = await _store(original: original, thumbnail: thumbnail,
+        mimeType: mimeType, width: width, height: height, createdAt: createdAt);
+    // Publish the DB identity before releasing the file lease. Album/chat
+    // callers then add their existing transactional owner references.
+    await db.registerMediaBlob(blob);
+    return blob;
+  }, db: db);
 
   Future<MediaBlob> _store({
     required File original, required File thumbnail, required String mimeType,
@@ -82,6 +88,9 @@ class MediaBlobStorage {
     // caller removed the old DB row. Recheck under the shared file lease.
     if (await db.mediaBlobById(blob.id) != null) return;
     final protected = await stickerFiles.ownedOriginals();
+    for (final current in await db.allMediaBlobs()) {
+      protected.addAll([current.originalPath, current.thumbnailPath]);
+    }
     for (final path in <String>[blob.originalPath, blob.thumbnailPath]) {
       if (protected.contains(path)) continue;
       final file = await fileFor(path);

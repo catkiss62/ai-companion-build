@@ -89,7 +89,7 @@ settings = read("lib/features/settings/settings_category_pages.dart")
 cache = read("lib/features/settings/media_cache_page.dart")
 for token in (
     "清理重复图片与表情包",
-    "exact-SHA",
+    "文件内容完全相同",
     "旧重复副本",
 ):
     assert token in settings + cache, token

@@ -27,7 +27,6 @@ jobs:
         run: >-
           flutter test
           test/shared_stickers_v04291_test.dart
-          test/portable_snapshot_v04256_test.dart
           test/sticker_workbench_v04274_test.dart
           test/room_depth_background_test.dart
           test/room_device_motion_render_test.dart

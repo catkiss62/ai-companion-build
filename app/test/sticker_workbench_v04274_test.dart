@@ -148,15 +148,14 @@ void main() {
     'indexed bundle remains compatible and rejects broken child without replacing',
     () async {
       final pack = await fixture();
-      final files = <String, List<int>>{};
-      await for (final entity in Directory(
-        pack.rootPath,
-      ).list(recursive: true)) {
-        if (entity is File) {
-          files[entity.path.substring(pack.rootPath.length + 1)] = await entity
-              .readAsBytes();
-        }
-      }
+      // Build the public indexed-ZIP format independently of its installed
+      // shared representation; runtime ownership maps must never be imported.
+      final files = <String, List<int>>{
+        for (final name in ['manifest.json', 'index.db'])
+          name: await File('${pack.rootPath}/$name').readAsBytes(),
+        for (final record in await storage.readRecords(pack))
+          record.path: await (await storage.fileFor(pack, record)).readAsBytes(),
+      };
       final children = <String, List<int>>{};
       for (final id in [
         'personal-001',

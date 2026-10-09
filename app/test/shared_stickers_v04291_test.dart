@@ -127,6 +127,18 @@ void main() {
     expect(await (await blobs.fileForReference(latest.originalPath)).readAsBytes(), [...png, 0]);
   });
 
+  test('deleting old bytes retains thumbnail shared by another content identity', () async {
+    final pack = await importPack('缩略');
+    final old = await send(pack, 'old');
+    final changed = await importPack('缩略', bytes: [...png, 0]);
+    final latest = await send(changed, 'new');
+    expect(latest.thumbnailPath, old.thumbnailPath);
+    for (final orphan in await db.deleteMediaCacheBlobs({old.blobId})) {
+      await blobs.deleteBlobFiles(orphan);
+    }
+    expect(await (await blobs.fileForReference(latest.thumbnailPath)).exists(), isTrue);
+  });
+
   test('legacy pack plus existing chat blob migrates without copying another original', () async {
     final pack = await importPack('迁移');
     final a = await send(pack, 'old');

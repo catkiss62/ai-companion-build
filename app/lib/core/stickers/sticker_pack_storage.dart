@@ -187,6 +187,14 @@ class StickerPackStorage {
           ),
         );
       }
+      // An old same-name revision with no chat/album/pack owner can now go.
+      // Cleanup failure must not misreport an already committed import as a
+      // rollback; the manual media optimizer can safely retry it later.
+      try {
+        final storage = MediaBlobStorage(db: db, stickerFiles: await _sharedFiles());
+        await storage.pruneUnreferencedFiles((await db.allMediaBlobs())
+            .expand((b) => [b.originalPath, b.thumbnailPath]));
+      } catch (_) { /* Retain bytes conservatively; no referenced file is lost. */ }
       return StickerImportBatchResult(imports: imports);
     } catch (_) {
       for (final item in prepared.reversed) {

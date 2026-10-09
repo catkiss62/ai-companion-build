@@ -201,7 +201,7 @@ class _MediaCachePageState extends State<MediaCachePage> {
                         const SizedBox(height: 6),
                         const Text(
                           '清理改用共享媒体引用前重复保存的聊天图片、相册图片和表情包副本。'
-                          '先只读扫描，再由你确认；只合并原图 exact SHA-256 完全相同的文件，原备份不会改变。',
+                          '先只读扫描，再由你确认；只合并文件内容完全相同的图片，原备份不会改变。',
                         ),
                         const SizedBox(height: 12),
                         SizedBox(

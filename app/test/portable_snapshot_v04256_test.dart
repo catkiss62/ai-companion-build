@@ -163,7 +163,7 @@ void main() {
     await index.close();
     await File(p.join(pack.path, 'memes', '1.png')).writeAsBytes(
       base64Decode(
-        'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+aGqoAAAAASUVORK5CYII=',
+        'iVBORw0KGgoAAAANSUhEUgAAAAIAAAACCAIAAAD91JpzAAAAFklEQVR4nGP8z8DAwMDAxMDAwMDAAAANHQEDasKb6QAAAABJRU5ErkJggg==',
       ),
     );
     await secure.writeEndpoint('https://example.com/v1/chat/completions');
