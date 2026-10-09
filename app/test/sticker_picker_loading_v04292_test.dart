@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'dart:io';
+import 'dart:ui' as ui;
 
 import 'package:archive/archive_io.dart';
 import 'package:ai_companion_localfirst/core/database/app_database.dart';
@@ -7,7 +8,6 @@ import 'package:ai_companion_localfirst/core/stickers/sticker_pack.dart';
 import 'package:ai_companion_localfirst/core/stickers/sticker_pack_storage.dart';
 import 'package:ai_companion_localfirst/core/storage/sticker_shared_files.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:image/image.dart' as img;
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 
 class _Storage extends StickerPackStorage {
@@ -49,9 +49,21 @@ void main() {
   Future<StickerPackMeta> importPack(String name, {int count = 1, String caption = '开心'}) async {
     final archive = Archive();
     for (var i = 0; i < count; i++) {
-      final data = count == 1 ? png : img.encodePng(
-          img.Image(width: 2, height: 2)
-            ..setPixelRgba(0, 0, i % 256, i ~/ 256, 100, 255));
+      var data = png;
+      if (count > 1) {
+        final recorder = ui.PictureRecorder();
+        ui.Canvas(recorder).drawColor(
+            ui.Color.fromARGB(255, i % 256, i ~/ 256, 100), ui.BlendMode.src);
+        final picture = recorder.endRecording();
+        final image = await picture.toImage(2, 2);
+        try {
+          data = (await image.toByteData(format: ui.ImageByteFormat.png))!
+              .buffer.asUint8List();
+        } finally {
+          image.dispose();
+          picture.dispose();
+        }
+      }
       archive.addFile(ArchiveFile('$name/$caption$i.png', data.length, data));
     }
     final file = File('${root.path}/$name.zip');
