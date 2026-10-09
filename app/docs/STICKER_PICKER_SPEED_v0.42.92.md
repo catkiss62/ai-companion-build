@@ -1,6 +1,6 @@
 # v0.42.92+336 · 表情面板读取优化
 
-状态：TARGETED CI PASSED / FULL BUILD PENDING / TRUE DEVICE PENDING。
+状态：CI PASSED / APK READY / TRUE DEVICE PENDING。
 基线：+335，8ded16e9ff2790085d3567e267990dda7b312fae。
 分支：agent/v04292-sticker-picker-speed。
 
@@ -32,3 +32,24 @@
 首轮专项Actions37982628146（28f38beb）在分析阶段发现新测试引用了项目未安装的image库，未进入行为测试；已改用Flutter自带dart:ui生成600张不同PNG，不新增依赖。修正源码f25f0ff2（本地a56f96f，同树3ac6809821196ea097a1d5e13f3184cfb6297c02），专项37982939024继续验证。无用户数据参与测试。
 
 专项37982939024成功：静态分析通过、483项回归通过。600张不同PNG用例冷读176281μs、暖读2839μs，索引记录读取1次、逐图fileFor为0，文件集合不变；仅CI观测，不外推真机耗时，也不冒充+335同条件对照。现开启完整构建。
+
+完整构建源码d113aa586ef083fa54aef4554b9b84c6d6888508（本地8f2442f，同树f70e6d1d8a7f28b841d7026d9c148c25d8554eab）；Actions37983371136，原生job113999204991已通过29项Android15模拟器测试，build job114001322337成功。同源码专项37983371114也通过483项；600张冷读123050μs/暖读3069μs。
+
+
+## +336 最终CI与未发布APK交付（2026-10-10）
+
+状态：CI PASSED / APK READY / TRUE DEVICE PENDING。
+源码d113aa586ef083fa54aef4554b9b84c6d6888508（本地8f2442f），tree f70e6d1d8a7f28b841d7026d9c148c25d8554eab；分支agent/v04292-sticker-picker-speed。
+完整Actions37983371136成功（native113999204991/build114001322337）；150项源码检查、1469项全量Flutter、29项Android15原生、Kotlin和资源/签名检查通过。同源码专项37983371114通过483项。先前专项37982939024也通过483项。
+600张不同PNG测试：冷读123050μs/暖读3069μs；每包记录读取一次、逐图fileFor为0，复开不增图片文件。前次独立专项为176281μs/2839μs。均为CI样本，不代表真机耗时或+335同条件对照。
+
+交付Draft Release408311823，tag v0.42.92-sticker-picker-speed-test：
+https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-3fdb7f790e133d701ae1
+APK：AI-Companion-v0.42.92-336-Sticker-Picker-Speed-APK.apk，asset626074088，736822257 bytes（约703MiB），uploaded。
+SHA-256：00097a19e016305fa60d8eac373315443df3be785893c217c488fdcd5a432ba6（CI日志与GitHub资产digest一致）。
+签名：30:5E:B3:D8:09:83:B9:63:C6:48:18:DD:F1:AD:56:1F:27:9D:E6:D4:7B:3E:D2:C7:81:AD:A4:48:C7:C2:51:48，未变化。
+校验文件asset626074090，CI监控asset626074091，均uploaded。未合并main、未正式发布。
+
+修复：面板按包批量解析映射；复开复用内存元数据索引；导入/删除/启停/描述保存/恢复后正确刷新。保留共享原图、历史消息和旧包迁移保护，不新增图片副本。+334修订的59张306源图与118张派生图（177PNG）在APK内核验通过，原417文件/完整桌宠动画及TTS等载荷保留。用户备份和诊断未上传。
+首轮专项仅测试依赖引用错误，已改为Flutter自带接口，随后两轮专项和完整构建通过；未放宽断言、未新增图片库依赖。完整过程见app/docs/STICKER_PICKER_SPEED_v0.42.92.md。
+待真机：覆盖安装后首次打开及连续关闭/重开表情面板的等待；描述编辑、启停/重导入后显示。首次进程启动或图库变化仍需加载，不承诺所有设备零等待。
