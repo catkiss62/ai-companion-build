@@ -1,6 +1,6 @@
 # AI Companion · 当前总账
 
-更新时间：2026-10-09（+334 IMPLEMENTED / CI PENDING；+333 CI PASSED / APK READY / TRUE DEVICE PENDING；+332 CI PASSED / APK READY / USER EAR PLACEMENT ACCEPTED；+329 CI PASSED / APK READY / TRUE DEVICE PENDING；+328 CI PASSED / APK READY / TRUE DEVICE PENDING；+327 CI PASSED / APK READY / TRUE DEVICE PENDING；+326 CI PASSED / APK READY / TRUE DEVICE PENDING；+325 CI PASSED / APK READY / TRUE DEVICE PENDING；+324 CI PASSED / APK READY / TRUE DEVICE PENDING；+323 CI PASSED / APK READY / TRUE DEVICE PENDING；+322 CI PASSED / APK READY / TRUE DEVICE PENDING；+321 CI PASSED / APK READY / TRUE DEVICE PENDING；+320 CI PASSED / APK READY / TRUE DEVICE PENDING；+319 CI PASSED / APK READY / TRUE DEVICE PENDING；+318 USER DEVICE ACCEPTED；+317 CI PASSED / APK READY / TRUE DEVICE PENDING；+316 CI PASSED / APK READY / TRUE DEVICE PENDING；+315 CI PASSED / APK READY / TRUE DEVICE PENDING；+314 CI PASSED / APK READY / TRUE DEVICE PENDING；+313 CI PASSED / APK READY / TRUE DEVICE PENDING；+312 CI PASSED / APK READY / TRUE DEVICE PENDING；+311 CI PASSED / APK READY / TRUE DEVICE PENDING；+310 CI PASSED / APK READY / TRUE DEVICE PENDING；+309 CI PASSED / APK READY / TRUE DEVICE PENDING；+308 CI PASSED / APK READY / TRUE DEVICE PENDING；+307 CI PASSED / APK READY / USER DEVICE ACCEPTED；+306 CI PASSED / APK READY / TRUE DEVICE PENDING；+305 CI PASSED / APK READY / DEVICE REPORTED REPLY STALL；+304 CI PASSED / APK READY / TRUE DEVICE PENDING；+303 CI PASSED / APK READY / TRUE DEVICE PENDING；+302 CI PASSED / APK READY / TRUE DEVICE PENDING；+301 CI PASSED / APK READY / TRUE DEVICE PENDING；+300 CI PASSED / APK READY / TRUE DEVICE PENDING；+299 CI PASSED / APK READY / TRUE DEVICE PENDING；+298 CI PASSED / APK READY / TRUE DEVICE PENDING；+297 CI PASSED / APK READY / TRUE DEVICE PENDING；+295 恢复真机成功、背景回归 PARTIAL；+293 DEVICE VISUAL BASELINE）
+更新时间：2026-10-09（+334 CI PASSED / APK READY / TRUE DEVICE PENDING；+333 CI PASSED / APK READY / TRUE DEVICE PENDING；+332 CI PASSED / APK READY / USER EAR PLACEMENT ACCEPTED；+329 CI PASSED / APK READY / TRUE DEVICE PENDING；+328 CI PASSED / APK READY / TRUE DEVICE PENDING；+327 CI PASSED / APK READY / TRUE DEVICE PENDING；+326 CI PASSED / APK READY / TRUE DEVICE PENDING；+325 CI PASSED / APK READY / TRUE DEVICE PENDING；+324 CI PASSED / APK READY / TRUE DEVICE PENDING；+323 CI PASSED / APK READY / TRUE DEVICE PENDING；+322 CI PASSED / APK READY / TRUE DEVICE PENDING；+321 CI PASSED / APK READY / TRUE DEVICE PENDING；+320 CI PASSED / APK READY / TRUE DEVICE PENDING；+319 CI PASSED / APK READY / TRUE DEVICE PENDING；+318 USER DEVICE ACCEPTED；+317 CI PASSED / APK READY / TRUE DEVICE PENDING；+316 CI PASSED / APK READY / TRUE DEVICE PENDING；+315 CI PASSED / APK READY / TRUE DEVICE PENDING；+314 CI PASSED / APK READY / TRUE DEVICE PENDING；+313 CI PASSED / APK READY / TRUE DEVICE PENDING；+312 CI PASSED / APK READY / TRUE DEVICE PENDING；+311 CI PASSED / APK READY / TRUE DEVICE PENDING；+310 CI PASSED / APK READY / TRUE DEVICE PENDING；+309 CI PASSED / APK READY / TRUE DEVICE PENDING；+308 CI PASSED / APK READY / TRUE DEVICE PENDING；+307 CI PASSED / APK READY / USER DEVICE ACCEPTED；+306 CI PASSED / APK READY / TRUE DEVICE PENDING；+305 CI PASSED / APK READY / DEVICE REPORTED REPLY STALL；+304 CI PASSED / APK READY / TRUE DEVICE PENDING；+303 CI PASSED / APK READY / TRUE DEVICE PENDING；+302 CI PASSED / APK READY / TRUE DEVICE PENDING；+301 CI PASSED / APK READY / TRUE DEVICE PENDING；+300 CI PASSED / APK READY / TRUE DEVICE PENDING；+299 CI PASSED / APK READY / TRUE DEVICE PENDING；+298 CI PASSED / APK READY / TRUE DEVICE PENDING；+297 CI PASSED / APK READY / TRUE DEVICE PENDING；+295 恢复真机成功、背景回归 PARTIAL；+293 DEVICE VISUAL BASELINE）
 
 > 本文件是唯一的当前接班入口，继续采用“总账 v2”。顶部是快速接班索引；标记后的正式记录按版本持续追加，不设总容量上限。
 >
@@ -8,11 +8,13 @@
 
 
 
-## 当前任务 · +334 旧桌宠修图（IMPLEMENTED / CI PENDING）
+## 当前接班快照 · +334 旧桌宠修图（CI PASSED / APK READY / TRUE DEVICE PENDING）
 
-0.42.90+334，agent/v04290-pet-retouch。59张用户306原件、118张透明缩图；首次完整CI在旧哈欠哈希检查失败，已定位修正，等待重跑。相同路径替换，运行代码不改。维护、验证与来源见app/docs/PET_RETOUCH_v0.42.90.md及文末。
+0.42.90+334，agent/v04290-pet-retouch。59张用户306原件、118张透明缩图；首次完整CI旧哈欠哈希冲突已修正，重跑通过。相同路径替换，运行代码不改。维护、验证与来源见app/docs/PET_RETOUCH_v0.42.90.md及文末。
 
-2026-10-09跨窗口续传：本地HEAD128fa5d，上传检查点为205个变更文件中140个Git blob已上传、65个待传；远端开发分支未建立，本版Actions尚未启动。全部检查点路径/哈希与本地一致，177张修订图和现用帧覆盖校验通过。沿用用户19:12指定分支上传/构建授权，保留已有对象并补传缺失项；以+333远端4717105为基线核对最终tree后触发构建。CI和真机仍PENDING。后续任务入口6.3，不扩展本批范围。
+2026-10-09接班历史（已完成）：本地HEAD128fa5d，上传检查点为205个变更文件中140个Git blob已上传、65个待传；远端开发分支未建立，本版Actions尚未启动。全部检查点路径/哈希与本地一致，177张修订图和现用帧覆盖校验通过。沿用用户19:12指定分支上传/构建授权，保留已有对象并补传缺失项；以+333远端4717105为基线核对最终tree后触发构建。当时CI和真机均PENDING；现CI通过，真机仍待验证。后续任务入口6.3，不扩展本批范围。
+
+最终源码1f6de26；完整37939853983、专项37939853995成功，150源码/1447全量Flutter/450专项/29原生及177修订图、417源包和稳定签名通过。[同签名未发布+334 APK](https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-4cf0810a030b12182bda)已就绪；完整哈希和失败路线见文末。三档观感与动作衔接待真机观察。
 
 ## 前次交付 · +333 右耳定版
 
@@ -3192,3 +3194,21 @@ Release407040117，asset622356758，736802525 bytes，SHA256：3f5ef4d82b7ef6823
 修正只将APK旧哈欠哈希段改为读取已审核修订manifest里的三个精确SHA-256，保留固定三档尺寸、PNG/文件清单、未知集合拒绝及前置177图/417源包验证；原validate_v0342_personality_appearance.py的冻结原图哈希仍保留，并在覆盖前执行。不改人物图、播放器或测试门，不删除/放宽失败校验。后续改306并再生成时不需手改第二套哈希。定点检索确认旧哈希仅在冻结来源校验和该APK段重复。重跑前直接执行workflow实际哈欠验证段，分别检查三张修订图接受、旧图拒绝和修订集合缺项拒绝，再启动完整与专项CI。上一窗口和本次的推送授权继续有效。
 
 操作记录：生成续传检查点时git diff默认对中文路径转义，首次解析失败，改用--name-only -z按NUL解析后所有205项逐个哈希匹配；没有丢失或改名文件。CI仅按当前步骤和报错范围提取，不完整回显日志。
+
+
+## +334 最终CI与未发布APK交付
+
+2026-10-09续传和必要修正完成。交付源码`1f6de26c69958a59db9569c10f5a5e7b759c2c73` / tree`dde723b7cadfdb8149acabc030b5c1e6f2405426`，与本地560ef2d内容树一致。205项原续传文件全部完成，补上专项分支触发后共206项相对+333变更；177 PNG无需重复上传。全部59张306原件和用户ZIP/独立yawn逐字节相同；118张187/238从对应306单次预乘Alpha Lanczos缩小。运行时播放器、帧序、时序、镜像、锚点、设置和新动画保持原逻辑，最终包验证完整96 clips/23013 frames/192835596 bytes。
+
+完整Actions[37939853983](https://github.com/catkiss62/ai-companion-build/actions/runs/37939853983)成功，build job113853699637、native job113851195620；专项Actions[37939853995](https://github.com/catkiss62/ai-companion-build/actions/runs/37939853995)成功，job113851151756。150源码门、Kotlin/Java桌宠/Live2D/悬浮窗/待办及既有单元、1447全量Flutter、450专项、29 Android15/API35原生全部通过。release编译、177修订图和417源包全文件逐字节检查、旧哈欠改为manifest精确哈希后的完整资源门、塔罗/星谷/背景资源和稳定签名全部通过。
+
+Draft Release407936478，target明确指向交付源码；未发布、未合并main。
+下载页：https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-4cf0810a030b12182bda
+APK：AI-Companion-v0.42.90-334-Pet-Retouch-APK.apk
+直链：https://github.com/catkiss62/ai-companion-build/releases/download/untagged-4cf0810a030b12182bda/AI-Companion-v0.42.90-334-Pet-Retouch-APK.apk
+资产625177441，736803277 bytes；SHA-256：`a5c064e350be6b40595e5d3c7a7fe50752888f903f0959597f0b31a554e0f113`。CI计算值、成功monitor及GitHub上传资产digest三方一致。校验文件资产625177442，成功CI记录资产625177448。
+签名SHA-256：`30:5E:B3:D8:09:83:B9:63:C6:48:18:DD:F1:AD:56:1F:27:9D:E6:D4:7B:3E:D2:C7:81:AD:A4:48:C7:C2:51:48`，与既有+329/+333持久身份一致，可覆盖安装。
+
+失败路线保留：37935827155因总账quick index100448字节修正而被新提交取消，不是通过；37936112594虽然1447/29等和177/417字节检查通过，但后置旧哈欠原图哈希不接受修订图而失败，不能标绿。旧源图校验仍在覆盖前执行，最终APK哈欠哈希统一读取审核manifest，固定尺寸/恰好三档/未知缺项拒绝保持。实际workflow段本地接受三张新图、分别拒绝每档旧图、拒绝缺项；最终37939853983实际完整门通过，不是跳过或放宽校验。中文Git路径检查点解析用--name-only -z；稀疏检出的维护README用git add --sparse提交，未漏维护文件。
+
+交付状态CI PASSED / APK READY / TRUE DEVICE PENDING。静态三档预览已检查；需要用户真机查看小/中/大档白边、补全部位，以及入睡/醒来、行走衔接和自然播放。没有实体REDMI设备测试，不把模拟器/CI通过当成用户验收。唯一总账已更新；后续任务仍从6.3和本批app/docs/PET_RETOUCH_v0.42.90.md进入。冻结历史归档字节和哈希不变，旧+308顶部全文移入正式记录，顶部只保留入口。
