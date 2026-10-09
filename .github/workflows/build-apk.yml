@@ -541,6 +541,7 @@ on:
       - agent/v04289-right-ear-baked
       - agent/v04290-pet-retouch
       - agent/v04291-shared-stickers
+      - agent/v04292-sticker-picker-speed
       - agent/v04214-visible-process-fate-wheel
       - maintenance/repository-governance-20260919
   workflow_dispatch:
