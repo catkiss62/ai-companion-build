@@ -1,7 +1,6 @@
 import 'dart:convert';
 
 import 'package:crypto/crypto.dart';
-import 'package:path/path.dart' as p;
 
 import '../database/app_database.dart';
 import '../models/message_attachment.dart';
@@ -95,10 +94,9 @@ class StickerExpressionService {
     final selected = candidates.where((item) => item.id == choice.id).firstOrNull;
     if (selected == null || choice.mode == 'none') return null;
     final record = selected.record;
-    final source = await packStorage.fileFor(selected.pack, record);
-    final draft = await attachmentStorage.prepareImage(
-      sourcePath: source.path, source: 'assistant_sticker:${record.packId}', mimeType: _mimeFor(record.path));
-    final committed = await attachmentStorage.commitDraft(draft, messageId: messageId);
+    final committed = await packStorage.prepareAttachment(pack: selected.pack,
+      record: record, messageId: messageId, source: 'assistant_sticker:${record.packId}',
+      attachments: attachmentStorage);
     return SelectedStickerAttachment(record: record, attachment: committed.copyWith(
       visionStatus: MessageAttachment.visionCompletedStatus, visionSummary: record.caption,
       visionModel: 'sticker_index', visionUpdatedAt: DateTime.now()));
@@ -159,16 +157,9 @@ class StickerExpressionService {
         : selectedPool.take(12).toList(growable: false);
     final index = (_unit('$messageId|agent-sticker') * finalists.length).floor();
     final record = finalists[index.clamp(0, finalists.length - 1).toInt()];
-    final source = await packStorage.fileFor(selectedPack, record);
-    final draft = await attachmentStorage.prepareImage(
-      sourcePath: source.path,
-      source: 'assistant_sticker:${record.packId}',
-      mimeType: _mimeFor(record.path),
-    );
-    final committed = await attachmentStorage.commitDraft(
-      draft,
-      messageId: messageId,
-    );
+    final committed = await packStorage.prepareAttachment(pack: selectedPack,
+      record: record, messageId: messageId, source: 'assistant_sticker:${record.packId}',
+      attachments: attachmentStorage);
     return SelectedStickerAttachment(
       record: record,
       attachment: committed.copyWith(
@@ -322,10 +313,5 @@ class StickerExpressionService {
     return value / 0x100000000;
   }
 
-  static String _mimeFor(String path) => switch (p.extension(path).toLowerCase()) {
-        '.gif' => 'image/gif',
-        '.png' => 'image/png',
-        '.webp' => 'image/webp',
-        _ => 'image/jpeg',
-      };
+
 }

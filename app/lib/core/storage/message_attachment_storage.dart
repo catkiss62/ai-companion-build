@@ -9,6 +9,7 @@ import 'package:uuid/uuid.dart';
 import '../database/app_database.dart';
 import '../models/message_attachment.dart';
 import 'media_blob_storage.dart';
+import 'shared_media_lock.dart';
 import 'snapshot_directory_swap.dart';
 
 class PreparedImageAttachment {
@@ -145,8 +146,46 @@ class MessageAttachmentStorage {
     }
   }
 
+  Future<MessageAttachment> referenceSharedImage(File original, {
+    required String messageId, required String source, required AppDatabase database,
+    MediaBlobStorage? sharedStorage,
+  }) => SharedMediaLock.run(() async {
+    final hash = await MediaBlobStorage.contentSha256(original);
+    var blob = await database.mediaBlobById(hash);
+    final storage = sharedStorage ?? MediaBlobStorage(db: database);
+    if (blob != null) {
+      final stored = await storage.fileFor(blob.originalPath);
+      final thumb = await storage.fileFor(blob.thumbnailPath);
+      if (!await stored.exists() || await MediaBlobStorage.contentSha256(stored) != hash ||
+          !await thumb.exists() || await MediaBlobStorage.contentSha256(thumb) != blob.thumbnailSha256) {
+        throw const FileSystemException('共享表情文件不完整');
+      }
+    } else {
+      final bytes = await original.readAsBytes();
+      final decoded = await _decodeThumbnail(bytes);
+      final extension = p.extension(original.path).toLowerCase();
+      final mime = _normalizedMimeType(null, extension);
+      blob = await storage.storeSharedImage(original: original,
+        thumbnail: decoded.thumbnail, mimeType: mime, width: decoded.width,
+        height: decoded.height, createdAt: DateTime.now());
+      await database.registerMediaBlob(blob);
+      blob = await database.mediaBlobById(blob.id);
+      if (blob == null) throw StateError('media_blob_registration_failed');
+    }
+    return MessageAttachment(id: _uuid.v4(), messageId: messageId,
+      kind: MessageAttachment.imageKind,
+      originalPath: MediaBlobStorage.toReferencePath(blob.originalPath),
+      thumbnailPath: MediaBlobStorage.toReferencePath(blob.thumbnailPath),
+      mimeType: blob.mimeType, byteSize: blob.byteSize, width: blob.width,
+      height: blob.height, source: source, createdAt: DateTime.now(), blobId: blob.id);
+  }, db: database);
+
   Future<MessageAttachment> commitDraft(
     PreparedImageAttachment draft, {
+    required String messageId,
+  }) => SharedMediaLock.run(() => _commitDraft(draft, messageId: messageId));
+
+  Future<MessageAttachment> _commitDraft(PreparedImageAttachment draft, {
     required String messageId,
   }) async {
     try {

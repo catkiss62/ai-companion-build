@@ -6,6 +6,9 @@ import '../../core/database/app_database.dart';
 import '../../core/models/media_blob.dart';
 import '../../core/storage/media_blob_storage.dart';
 import '../../core/storage/media_storage_optimizer.dart';
+import '../../core/storage/shared_media_lock.dart';
+import '../../core/storage/sticker_shared_files.dart';
+import '../../core/stickers/sticker_pack_storage.dart';
 
 class MediaCachePage extends StatefulWidget {
   const MediaCachePage({super.key});
@@ -34,7 +37,18 @@ class _MediaCachePageState extends State<MediaCachePage> {
   }
 
   Future<void> _reload() async {
-    final entries = await _db.mediaCacheEntries();
+    List<MediaCacheEntry> entries;
+    try {
+      entries = await SharedMediaLock.run(() async {
+        await StickerPackStorage(db: _db).scanPacks();
+        final owned = await StickerSharedFiles().ownedOriginals();
+        return (await _db.mediaCacheEntries())
+            .where((entry) => !owned.contains(entry.blob.originalPath)).toList();
+      }, db: _db);
+    } catch (error) {
+      if (mounted) setState(() { _loading = false; _status = '图片存储检查失败：$error'; });
+      return;
+    }
     if (!mounted) return;
     setState(() {
       _entries = entries;
@@ -120,7 +134,8 @@ class _MediaCachePageState extends State<MediaCachePage> {
             title: const Text('删除所选聊天媒体缓存？'),
             content: Text(
               '将移除 ${selectedEntries.length} 份媒体、约 ${_formatBytes(bytes)}。'
-              '相册中永久保存的图片不会出现在这里，也不会被删除；含文字的消息会保留文字。',
+              '同一图片对应的所有聊天附件都会移除；含文字的消息保留文字。'
+              '图库或相册仍在使用的图片不会删除。',
             ),
             actions: <Widget>[
               TextButton(
@@ -138,10 +153,15 @@ class _MediaCachePageState extends State<MediaCachePage> {
     if (!confirmed) return;
     setState(() => _working = true);
     try {
-      final orphans = await _db.deleteMediaCacheBlobs(Set<String>.from(_selected));
-      for (final blob in orphans) {
-        await _blobStorage.deleteBlobFiles(blob);
-      }
+      final orphans = await SharedMediaLock.run(() async {
+        final owned = await StickerSharedFiles().ownedOriginals();
+        final current = await _db.mediaCacheEntries();
+        final allowed = current.where((entry) => _selected.contains(entry.blob.id) &&
+            !owned.contains(entry.blob.originalPath)).map((entry) => entry.blob.id).toSet();
+        final orphans = await _db.deleteMediaCacheBlobs(allowed);
+        for (final blob in orphans) { await _blobStorage.deleteBlobFiles(blob); }
+        return orphans;
+      }, db: _db);
       if (!mounted) return;
       setState(() {
         _selected.clear();
@@ -213,7 +233,7 @@ class _MediaCachePageState extends State<MediaCachePage> {
                           children: <Widget>[
                             Expanded(
                               child: Text(
-                                '聊天媒体缓存',
+                                '可删除的聊天图片',
                                 style: Theme.of(context).textTheme.titleMedium,
                               ),
                             ),
@@ -233,7 +253,7 @@ class _MediaCachePageState extends State<MediaCachePage> {
                             ),
                           ],
                         ),
-                        const Text('相册仍在引用的图片不会列入这里。删除一处不会影响其他消息或相册。'),
+                        const Text('这里列出聊天图片，不代表存在重复。相册仍在引用的图片不会列入这里；图库仍在使用的图片也不会列入。删除会移除该图对应的所有聊天附件。'),
                         if (_entries.isEmpty)
                           const Padding(
                             padding: EdgeInsets.symmetric(vertical: 18),

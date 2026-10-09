@@ -165,7 +165,7 @@ class SnapshotService {
     PortableCompanionStorage? portableStorage,
   }) : attachmentStorage = attachmentStorage ?? MessageAttachmentStorage(),
        albumStorage = albumStorage ?? CompanionAlbumStorage(),
-       blobStorage = blobStorage ?? MediaBlobStorage(),
+       blobStorage = blobStorage ?? MediaBlobStorage(db: db),
        portableStorage = portableStorage ?? PortableCompanionStorage();
 
   final AppDatabase db;
@@ -1586,6 +1586,7 @@ class SnapshotService {
     'snapshot_recovery_pending_v1': '',
     'snapshot_restore_commit_v1': '',
     'snapshot_restore_lease_v1': '0',
+    'shared_media_files_lease_v1': '0',
     'runtime_state_epoch_v1': '',
     'immersive_room_lease': '0',
     'transfer_lock': '0',

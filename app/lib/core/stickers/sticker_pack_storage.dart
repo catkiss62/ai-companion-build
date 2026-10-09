@@ -9,6 +9,11 @@ import 'package:sqflite/sqflite.dart';
 import '../database/app_database.dart';
 import '../database/sqlite_settings_reader.dart';
 import '../storage/snapshot_directory_swap.dart';
+import '../storage/shared_media_lock.dart';
+import '../storage/sticker_shared_files.dart';
+import '../storage/media_blob_storage.dart';
+import '../storage/message_attachment_storage.dart';
+import '../models/message_attachment.dart';
 import 'sticker_pack.dart';
 import 'simple_sticker_archive.dart';
 
@@ -32,7 +37,7 @@ class StickerPackStorage {
     return Directory(p.join(support.path, 'sticker_packs'));
   }
 
-  Future<List<StickerPackMeta>> scanPacks() async {
+  Future<List<StickerPackMeta>> scanPacks() => SharedMediaLock.run(() async {
     final root = await rootDirectory;
     if (!await root.exists()) return const <StickerPackMeta>[];
     final packs = <StickerPackMeta>[];
@@ -41,14 +46,16 @@ class StickerPackStorage {
         continue;
       }
       try {
-        packs.add(await _readPack(entity));
+        final pack = await _readPack(entity);
+        await _sharePack(pack);
+        packs.add(pack);
       } catch (_) {
         // A broken local pack is ignored, never allowed to break chat startup.
       }
     }
     packs.sort(StickerDisplayLabels.comparePacks);
     return packs;
-  }
+  }, db: db);
 
   Future<Set<String>> enabledPackIds() async {
     final raw = await db.getSetting(enabledPacksSetting) ?? '[]';
@@ -82,7 +89,10 @@ class StickerPackStorage {
     await db.setSetting(enabledPacksSetting, jsonEncode(sorted));
   }
 
-  Future<StickerImportBatchResult> importZip(String zipPath) async {
+  Future<StickerImportBatchResult> importZip(String zipPath) => SharedMediaLock.run(
+      () => _importZip(zipPath), db: db);
+
+  Future<StickerImportBatchResult> _importZip(String zipPath) async {
     final source = File(zipPath);
     if (!await source.exists() ||
         !await source.stat().then(
@@ -242,6 +252,9 @@ class StickerPackStorage {
   Future<_PreparedStickerPackImport> _prepareRoot(
     Directory extractedRoot,
   ) async {
+    if (await File(p.join(extractedRoot.path, StickerSharedFiles.manifestName)).exists()) {
+      throw const FormatException('导入包不能包含本机共享引用');
+    }
     final meta = await _validateExtractedPack(extractedRoot);
     final target = Directory(p.join((await rootDirectory).path, meta.id));
     if (await target.exists() && meta.id.startsWith('user-')) {
@@ -253,7 +266,8 @@ class StickerPackStorage {
     }
     final expected = <String>['manifest.json', 'index.db'];
     final records = await readRecords(meta, applyEdits: false);
-    expected.addAll(records.map((item) => item.path));
+    await _sharePack(meta, records: records);
+    expected.add(StickerSharedFiles.manifestName);
     final swap = await PreparedDirectorySwap.prepare(
       sourceDirectory: extractedRoot,
       targetDirectory: target,
@@ -306,12 +320,15 @@ class StickerPackStorage {
     return names;
   }
 
-  Future<void> deletePack(String id) async {
+  Future<void> deletePack(String id) => SharedMediaLock.run(() async {
     if (!_validPackId(id)) throw const FormatException('表情包 ID 无效');
     final target = Directory(p.join((await rootDirectory).path, id));
     if (await target.exists()) await target.delete(recursive: true);
     await setPackEnabled(id, false);
-  }
+    final blobs = MediaBlobStorage(db: db, stickerFiles: await _sharedFiles());
+    final referenced = (await db.allMediaBlobs()).expand((b) => [b.originalPath, b.thumbnailPath]);
+    await blobs.pruneUnreferencedFiles(referenced);
+  }, db: db);
 
   Future<List<StickerRecord>> readRecords(
     StickerPackMeta pack, {
@@ -320,6 +337,8 @@ class StickerPackStorage {
     final overrides = applyEdits
         ? await captionOverrides()
         : <String, String>{};
+    final shared = await _sharedFiles();
+    final mapping = await shared.readMap(Directory(pack.rootPath));
     final indexPath = p.join(pack.rootPath, 'index.db');
     final database = await openDatabase(
       indexPath,
@@ -355,7 +374,7 @@ class StickerPackStorage {
           throw FormatException('表情包图片必须位于 memes/：$path');
         }
         if (!seen.add(path)) throw FormatException('索引路径重复：$path');
-        final file = File(p.joinAll([pack.rootPath, ...path.split('/')]));
+        final file = await shared.resolveFromMap(Directory(pack.rootPath), path, mapping);
         if (!await file.exists()) throw FormatException('索引图片缺失：$path');
         final bytes = await file.length();
         if (bytes <= 0 || bytes > 25 * 1024 * 1024) {
@@ -442,10 +461,47 @@ class StickerPackStorage {
   Future<File> fileFor(StickerPackMeta pack, StickerRecord record) async {
     if (pack.id != record.packId) throw const FormatException('表情包归属不一致');
     final safe = requireSafePackPath(record.path);
-    final file = File(p.joinAll([pack.rootPath, ...safe.split('/')]));
+    final file = await (await _sharedFiles()).resolve(Directory(pack.rootPath), safe);
     if (!await file.exists()) throw const FileSystemException('表情包图片已丢失');
     return file;
   }
+
+  Future<StickerSharedFiles> _sharedFiles() async => StickerSharedFiles(
+      packRootOverride: await rootDirectory,
+      mediaRootOverride: Directory(p.join((await rootDirectory).parent.path, 'media_blobs')));
+
+  Future<void> _sharePack(StickerPackMeta pack, {List<StickerRecord>? records}) async {
+    final shared = await _sharedFiles();
+    final root = Directory(pack.rootPath);
+    final mapping = await shared.readMap(root);
+    records ??= await readRecords(pack, applyEdits: false);
+    if (mapping.isNotEmpty) {
+      final expected = records.map((r) => r.path).toSet();
+      if (mapping.length != expected.length || !mapping.keys.toSet().containsAll(expected)) {
+        throw const FormatException('共享表情清单不完整');
+      }
+      var unfinished = false;
+      for (final path in expected) {
+        if (await File(p.join(root.path, path)).exists()) { unfinished = true; break; }
+      }
+      if (!unfinished) return;
+    }
+    await shared.migrate(root, records.map((r) => r.path), canonicalPaths: {
+      for (final blob in await db.allMediaBlobs()) blob.id: blob.originalPath,
+    });
+  }
+
+  /// Never routes an installed sticker through the external-picture draft.
+  Future<MessageAttachment> prepareAttachment({required StickerPackMeta pack,
+    required StickerRecord record, required String messageId,
+    required String source, required MessageAttachmentStorage attachments}) =>
+      SharedMediaLock.run(() async {
+        if (pack.id != record.packId) throw const FormatException('表情包归属不一致');
+        await _sharePack(pack);
+        return attachments.referenceSharedImage(await fileFor(pack, record),
+          messageId: messageId, source: source, database: db,
+          sharedStorage: MediaBlobStorage(db: db, stickerFiles: await _sharedFiles()));
+      }, db: db);
 
   /// Full snapshot validation uses the same manifest/index/image contract as
   /// a regular pack import, and never silently ignores a damaged pack.
@@ -461,6 +517,9 @@ class StickerPackStorage {
         continue;
       if (entity is! Directory || p.basename(entity.path).startsWith('.')) {
         throw const FormatException('表情包存档目录包含意外条目');
+      }
+      if (await File(p.join(entity.path, StickerSharedFiles.manifestName)).exists()) {
+        throw const FormatException('外部存档不能引用本机共享表情文件');
       }
       final pack = await _validateExtractedPack(entity);
       if (pack.id != p.basename(entity.path)) {

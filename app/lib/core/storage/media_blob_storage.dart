@@ -1,4 +1,8 @@
 import 'dart:io';
+import 'dart:typed_data';
+import '../database/app_database.dart';
+import 'shared_media_lock.dart';
+import 'sticker_shared_files.dart';
 
 import 'package:crypto/crypto.dart';
 import 'package:path/path.dart' as p;
@@ -9,21 +13,28 @@ import 'snapshot_directory_swap.dart';
 
 /// Shared, content-addressed storage used by message, album and sticker refs.
 class MediaBlobStorage {
+  MediaBlobStorage({AppDatabase? db, StickerSharedFiles? stickerFiles})
+      : db = db ?? AppDatabase.instance, stickerFiles = stickerFiles ?? StickerSharedFiles();
+  final AppDatabase db;
+  final StickerSharedFiles stickerFiles;
   static const String rootFolderName = 'media_blobs';
   static const String referencePrefix = 'media/';
 
   Future<Directory> get rootDirectory async {
+    if (stickerFiles.mediaRootOverride != null) return stickerFiles.mediaRootOverride!;
     final support = await getApplicationSupportDirectory();
     return Directory(p.join(support.path, rootFolderName));
   }
 
   Future<MediaBlob> store({
-    required File original,
-    required File thumbnail,
-    required String mimeType,
-    required int width,
-    required int height,
-    required DateTime createdAt,
+    required File original, required File thumbnail, required String mimeType,
+    required int width, required int height, required DateTime createdAt,
+  }) => SharedMediaLock.run(() => _store(original: original, thumbnail: thumbnail,
+      mimeType: mimeType, width: width, height: height, createdAt: createdAt), db: db);
+
+  Future<MediaBlob> _store({
+    required File original, required File thumbnail, required String mimeType,
+    required int width, required int height, required DateTime createdAt,
   }) async {
     if (!await original.exists() || !await thumbnail.exists()) {
       throw const FileSystemException('待保存媒体文件不存在');
@@ -66,15 +77,24 @@ class MediaBlobStorage {
   Future<File> fileForReference(String referencePath) =>
       fileFor(requireMediaReferencePath(referencePath));
 
-  Future<void> deleteBlobFiles(MediaBlob blob) async {
+  Future<void> deleteBlobFiles(MediaBlob blob) => SharedMediaLock.run(() async {
+    // A restore/new sender may have re-registered this identity after the
+    // caller removed the old DB row. Recheck under the shared file lease.
+    if (await db.mediaBlobById(blob.id) != null) return;
+    final protected = await stickerFiles.ownedOriginals();
     for (final path in <String>[blob.originalPath, blob.thumbnailPath]) {
+      if (protected.contains(path)) continue;
       final file = await fileFor(path);
       if (await file.exists()) await file.delete();
     }
-  }
+  }, db: db);
 
-  Future<int> pruneUnreferencedFiles(Iterable<String> referencedPaths) async {
-    final referenced = referencedPaths.map(requireSafeRelativePath).toSet();
+  Future<int> pruneUnreferencedFiles(Iterable<String> referencedPaths) => SharedMediaLock.run(() async {
+    final referenced = referencedPaths.map(requireSafeRelativePath).toSet()
+      ..addAll(await stickerFiles.ownedOriginals());
+    for (final blob in await db.allMediaBlobs()) {
+      referenced.addAll([blob.originalPath, blob.thumbnailPath]);
+    }
     final root = await rootDirectory;
     var removed = 0;
     for (final folder in const <String>['originals', 'thumbnails']) {
@@ -90,20 +110,61 @@ class MediaBlobStorage {
       }
     }
     return removed;
-  }
+  }, db: db);
 
   Future<PreparedDirectorySwap> prepareSnapshotInstall({
     required Directory extractedMedia,
     required Iterable<String> expectedPaths,
     required String snapshotId,
-  }) async =>
-      PreparedDirectorySwap.prepare(
-        sourceDirectory: extractedMedia,
-        targetDirectory: await rootDirectory,
-        expectedPaths: expectedPaths,
-        validatePath: requireSafeRelativePath,
-        token: '${snapshotId}_${DateTime.now().microsecondsSinceEpoch}',
-      );
+  }) async {
+    // The validated backup excludes full installed packs. Preserve local pack
+    // originals in the same staged directory so rollback covers the union.
+    final union = expectedPaths.toSet();
+    for (final path in await stickerFiles.ownedOriginals()) {
+      if (union.contains(path)) continue;
+      final source = await fileFor(path);
+      if (!await source.exists() || await contentSha256(source) != p.basenameWithoutExtension(path)) {
+        throw const FileSystemException('本机表情原图缺失或损坏，已停止恢复');
+      }
+      final target = File(p.join(extractedMedia.path, path));
+      await target.parent.create(recursive: true);
+      await source.copy(target.path);
+      union.add(path);
+    }
+    return PreparedDirectorySwap.prepare(
+      sourceDirectory: extractedMedia,
+      targetDirectory: await rootDirectory,
+      expectedPaths: union,
+      validatePath: requireSafeRelativePath,
+      token: '${snapshotId}_${DateTime.now().microsecondsSinceEpoch}',
+    );
+  }
+
+  Future<MediaBlob> storeSharedImage({required File original,
+    required Uint8List thumbnail, required String mimeType,
+    required int width, required int height, required DateTime createdAt}) async {
+    final originalSha = await contentSha256(original);
+    final thumbnailSha = sha256.convert(thumbnail).toString();
+    final originalPath = p.posix.join('originals', '$originalSha${_extensionFor(mimeType, original.path)}');
+    final thumbnailPath = p.posix.join('thumbnails', '$thumbnailSha.png');
+    await _install(original, originalPath, originalSha);
+    final target = await fileFor(thumbnailPath);
+    if (!await target.exists()) {
+      await target.parent.create(recursive: true);
+      final temporary = File('${target.path}.saving');
+      try {
+        await temporary.writeAsBytes(thumbnail, flush: true);
+        await temporary.rename(target.path);
+      } finally { if (await temporary.exists()) await temporary.delete(); }
+    } else if (await contentSha256(target) != thumbnailSha) {
+      throw const FileSystemException('共享缩略图校验失败');
+    }
+    return MediaBlob(id: originalSha, originalPath: originalPath,
+      thumbnailPath: thumbnailPath, originalSha256: originalSha,
+      thumbnailSha256: thumbnailSha, mimeType: mimeType,
+      byteSize: await original.length(), thumbnailByteSize: thumbnail.length,
+      width: width, height: height, messageRefCount: 0, albumRefCount: 0, createdAt: createdAt);
+  }
 
   Future<void> _install(File source, String relative, String expectedSha) async {
     final target = await fileFor(relative);

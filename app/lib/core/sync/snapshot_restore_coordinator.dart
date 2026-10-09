@@ -10,6 +10,7 @@ import '../phone/calendar_reminder_store.dart';
 import '../storage/portable_companion_storage.dart';
 import '../storage/snapshot_directory_swap.dart';
 import '../storage/snapshot_restore_journal.dart';
+import '../storage/shared_media_lock.dart';
 
 class SnapshotInstallPlan {
   SnapshotInstallPlan(this.directories, {this.portable});
@@ -80,7 +81,9 @@ class SnapshotRestoreCoordinator {
     }
   }
 
-  Future<bool> recoverIfPending() async {
+  Future<bool> recoverIfPending() => SharedMediaLock.run(_recoverIfPending, db: db);
+
+  Future<bool> _recoverIfPending() async {
     final log = await _journal();
     if (await log.read() == null) {
       if ((await db.getSetting(pendingKey) ?? '').isNotEmpty) {
@@ -148,6 +151,11 @@ class SnapshotRestoreCoordinator {
   Future<SnapshotCommitOutcome> install({
     required Future<SnapshotInstallPlan> Function(String transactionId) prepare,
     required Future<void> Function(Map<String, String> runtime) commitDatabase,
+  }) => SharedMediaLock.run(() => _install(prepare: prepare, commitDatabase: commitDatabase), db: db);
+
+  Future<SnapshotCommitOutcome> _install({
+    required Future<SnapshotInstallPlan> Function(String transactionId) prepare,
+    required Future<void> Function(Map<String, String> runtime) commitDatabase,
   }) async {
     if (!await db.tryAcquireLocalLease(leaseKey,
         holdFor: const Duration(minutes: 30))) {
@@ -173,6 +181,7 @@ class SnapshotRestoreCoordinator {
           commitKey: id, pendingKey: id,
           'runtime_state_epoch_v1': id,
           leaseKey: await db.getSetting(leaseKey) ?? '',
+          SharedMediaLock.leaseKey: await db.getSetting(SharedMediaLock.leaseKey) ?? '',
         });
       } catch (error) {
         // importAll may report a seed/maintenance error AFTER its transaction

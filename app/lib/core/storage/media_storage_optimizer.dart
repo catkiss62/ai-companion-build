@@ -6,6 +6,7 @@ import '../models/message_attachment.dart';
 import '../models/media_blob.dart';
 import 'companion_album_storage.dart';
 import 'media_blob_storage.dart';
+import 'shared_media_lock.dart';
 import 'message_attachment_storage.dart';
 
 class MediaOptimizationReport {
@@ -58,7 +59,7 @@ class MediaStorageOptimizer {
     CompanionAlbumStorage? albumStorage,
     MediaBlobStorage? blobStorage,
   })  : db = db ?? AppDatabase.instance,
-        blobStorage = blobStorage ?? MediaBlobStorage(),
+        blobStorage = blobStorage ?? MediaBlobStorage(db: db),
         attachmentStorage = attachmentStorage ?? MessageAttachmentStorage(),
         albumStorage = albumStorage ?? CompanionAlbumStorage();
 
@@ -69,7 +70,9 @@ class MediaStorageOptimizer {
 
   Future<MediaOptimizationReport> scan() async => (await _buildPlan()).report;
 
-  Future<MediaOptimizationResult> optimize() async {
+  Future<MediaOptimizationResult> optimize() => SharedMediaLock.run(_optimize, db: db);
+
+  Future<MediaOptimizationResult> _optimize() async {
     final plan = await _buildPlan();
     if (!plan.report.hasWork) {
       final deleted = await _pruneUnreferencedStorage();

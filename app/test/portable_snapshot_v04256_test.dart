@@ -3,6 +3,8 @@ import 'dart:io';
 
 import 'package:archive/archive_io.dart';
 import 'package:crypto/crypto.dart';
+import 'package:ai_companion_localfirst/core/stickers/sticker_pack_storage.dart';
+import 'package:ai_companion_localfirst/core/storage/message_attachment_storage.dart';
 import 'package:ai_companion_localfirst/core/database/app_database.dart';
 import 'package:ai_companion_localfirst/core/mcp/cedar_play_session_policy.dart';
 import 'package:ai_companion_localfirst/core/mcp/cedar_timed_play_task.dart';
@@ -553,6 +555,41 @@ void main() {
       throwsFormatException,
     );
   });
+  test('shared stickers survive backup on an empty device and keep local pack on restore', () async {
+    await fixture();
+    final stickers = StickerPackStorage(db: db);
+    final pack = (await stickers.scanPacks()).single;
+    final record = (await stickers.readRecords(pack)).single;
+    final image = await stickers.prepareAttachment(pack: pack, record: record,
+      messageId: 'shared-u', source: 'user_sticker:${pack.id}', attachments: MessageAttachmentStorage());
+    await db.setSetting('transfer_lock', '0');
+    await db.insertMessageWithAttachments(ChatMessage(id: 'shared-u', role: 'user',
+      content: '', createdAt: DateTime.now()), [image]);
+    await db.setSetting('transfer_lock', '1');
+    final bundle = await service.exportBackupBundle();
+    final archive = await decode(bundle.filePath);
+    expect(archive.files.where((f) => f.name.startsWith('portable/stickers/')), isEmpty);
+    expect(archive.files.where((f) => f.name.startsWith('media/originals/')).length, 1);
+    await service.restoreBackupBundle(bundle.filePath);
+    expect(await (await stickers.fileFor(pack, record)).exists(), isTrue);
+    await stickers.deletePack(pack.id);
+    await service.restoreBackupBundle(bundle.filePath);
+    final restored = (await db.allMessageAttachments()).single;
+    expect(await (await MessageAttachmentStorage().fileFor(restored.originalPath)).exists(), isTrue);
+  });
+
+  test('restoring an older backup preserves newly imported local shared originals', () async {
+    await fixture();
+    final old = await service.exportBackupBundle();
+    final stickers = StickerPackStorage(db: db);
+    final pack = (await stickers.scanPacks()).single;
+    final record = (await stickers.readRecords(pack)).single;
+    final before = await (await stickers.fileFor(pack, record)).readAsBytes();
+    await service.restoreBackupBundle(old.filePath);
+    expect(await (await stickers.fileFor(pack, record)).readAsBytes(), before);
+    expect(await db.allMediaBlobs(), isEmpty);
+  });
+
 }
 
 Future<String> _digest(List<int> bytes) async =>

@@ -1193,23 +1193,9 @@ class ChatController extends ChangeNotifier {
       if (hasSticker) {
         final selectedPack = userStickerPack!;
         final selectedRecord = userSticker!;
-        final stickerFile = await StickerPackStorage(db: db).fileFor(
-          selectedPack,
-          selectedRecord,
-        );
-        final draft = await attachmentStorage.prepareImage(
-          sourcePath: stickerFile.path,
-          source: 'user_sticker:${selectedRecord.packId}',
-          mimeType: switch (p.extension(selectedRecord.path).toLowerCase()) {
-            '.gif' => 'image/gif',
-            '.png' => 'image/png',
-            '.webp' => 'image/webp',
-            _ => 'image/jpeg',
-          },
-        );
-        final committed = await attachmentStorage.commitDraft(
-          draft,
-          messageId: userId,
+        final committed = await StickerPackStorage(db: db).prepareAttachment(
+          pack: selectedPack, record: selectedRecord, messageId: userId,
+          source: 'user_sticker:${selectedRecord.packId}', attachments: attachmentStorage,
         );
         preparedUserStickerAttachment = committed.copyWith(
           visionStatus: MessageAttachment.visionCompletedStatus,
