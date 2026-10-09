@@ -17,6 +17,26 @@ import '../models/message_attachment.dart';
 import 'sticker_pack.dart';
 import 'simple_sticker_archive.dart';
 
+class StickerPickerEntry {
+  const StickerPickerEntry({required this.pack, required this.record, required this.file});
+  final StickerPackMeta pack;
+  final StickerRecord record;
+  final File file;
+}
+
+class StickerPickerCatalog {
+  StickerPickerCatalog(List<StickerPackMeta> packs, List<StickerPickerEntry> items)
+      : packs = List.unmodifiable(packs), items = List.unmodifiable(items);
+  final List<StickerPackMeta> packs;
+  final List<StickerPickerEntry> items;
+}
+
+class _StickerPickerCache {
+  const _StickerPickerCache(this.stamp, this.catalog);
+  final String stamp;
+  final StickerPickerCatalog catalog;
+}
+
 class StickerPackStorage {
   StickerPackStorage({AppDatabase? db}) : db = db ?? AppDatabase.instance;
 
@@ -31,6 +51,97 @@ class StickerPackStorage {
   static const maxBundlePacks = 20;
 
   final AppDatabase db;
+
+  // One metadata-only catalog per database/engine, shared by short-lived sheets.
+  // No decoded images or image bytes are retained here.
+  static final _pickerCache = Expando<_StickerPickerCache>();
+
+  Future<List<Directory>> _packDirectories(Directory root) async {
+    if (!await root.exists()) return [];
+    return (await root.list(followLinks: false).where((entry) =>
+        entry is Directory && !p.basename(entry.path).startsWith('.'))
+        .cast<Directory>().toList())..sort((a, b) => a.path.compareTo(b.path));
+  }
+
+  Future<String> _pickerStamp(Directory root, List<Directory> directories) async {
+    final paths = <String>[
+      root.path,
+      p.join(root.parent.path, 'media_blobs'),
+      p.join(root.parent.path, 'media_blobs', 'originals'),
+      for (final directory in directories) ...[
+        directory.path,
+        p.join(directory.path, 'manifest.json'),
+        p.join(directory.path, 'index.db'),
+        p.join(directory.path, 'index.db-wal'),
+        p.join(directory.path, StickerSharedFiles.manifestName),
+      ],
+    ];
+    // O(pack count), never O(image count). Directory stamps also detect
+    // replacement/deletion from another engine; restore has a unique epoch.
+    final stats = await Future.wait(paths.map(FileStat.stat));
+    return jsonEncode([
+      await db.getSetting(enabledPacksSetting),
+      await db.getSetting(captionOverridesSetting),
+      await db.getSetting('runtime_state_epoch_v1'),
+      for (var i = 0; i < paths.length; i++) [
+        paths[i], stats[i].type.toString(), stats[i].size,
+        stats[i].modified.microsecondsSinceEpoch,
+        stats[i].changed.microsecondsSinceEpoch,
+      ],
+    ]);
+  }
+
+  Future<StickerPickerCatalog> loadPickerCatalog() => SharedMediaLock.run(() async {
+    final root = await rootDirectory;
+    final directories = await _packDirectories(root);
+    final stamp = await _pickerStamp(root, directories);
+    final cached = _pickerCache[db];
+    if (cached != null && cached.stamp == stamp) return cached.catalog;
+    _pickerCache[db] = null;
+    final enabled = await enabledPackIds();
+    final packs = <StickerPackMeta>[];
+    final items = <StickerPickerEntry>[];
+    final shared = await _sharedFiles();
+    final mediaRoot = await shared.mediaRoot;
+    var complete = true;
+    for (final directory in directories) {
+      try {
+        final pack = await _readPack(directory);
+        if (!enabled.contains(pack.id)) continue;
+        // Validate/index once, finish any interrupted migration, then resolve
+        // the whole pack from ONE map. Never call fileFor once per image.
+        final records = await readRecords(pack);
+        await _sharePack(pack, records: records);
+        final mapping = await shared.readMap(directory);
+        final entries = <StickerPickerEntry>[];
+        for (final record in records) {
+          if (!StickerAgencyPolicy.isVisible(record)) continue;
+          final reference = mapping[record.path];
+          if (reference == null) throw const FormatException('共享表情清单不完整');
+          entries.add(StickerPickerEntry(pack: pack, record: record,
+              file: File(p.join(mediaRoot.path, reference))));
+        }
+        packs.add(pack);
+        items.addAll(entries);
+      } catch (_) {
+        // As with scanPacks, one broken pack must not hide healthy packs.
+        // Do not cache partial results: a repaired pack must be retried.
+        complete = false;
+      }
+    }
+    packs.sort(StickerDisplayLabels.comparePacks);
+    // Preserve each index's ordering when regrouping packs for display.
+    final catalog = StickerPickerCatalog(packs, [
+      for (final pack in packs) ...items.where((item) =>
+          item.pack.id == pack.id),
+    ]);
+    if (complete) {
+      // Migration can change directory/map stamps during this first load.
+      _pickerCache[db] = _StickerPickerCache(
+          await _pickerStamp(root, directories), catalog);
+    }
+    return catalog;
+  }, db: db);
 
   Future<Directory> get rootDirectory async {
     final support = await getApplicationSupportDirectory();
@@ -68,12 +179,12 @@ class StickerPackStorage {
     }
   }
 
-  Future<void> setPackEnabled(String id, bool enabled) async {
+  Future<void> setPackEnabled(String id, bool enabled) => SharedMediaLock.run(() async {
     if (!_validPackId(id)) throw const FormatException('表情包 ID 无效');
     final values = await enabledPackIds();
     enabled ? values.add(id) : values.remove(id);
     await _writeEnabledPackIds(values);
-  }
+  }, db: db);
 
   Future<void> _setPacksEnabled(Iterable<String> ids) async {
     final values = await enabledPackIds();
@@ -87,10 +198,14 @@ class StickerPackStorage {
   Future<void> _writeEnabledPackIds(Set<String> values) async {
     final sorted = values.toList()..sort();
     await db.setSetting(enabledPacksSetting, jsonEncode(sorted));
+    _pickerCache[db] = null;
   }
 
   Future<StickerImportBatchResult> importZip(String zipPath) => SharedMediaLock.run(
-      () => _importZip(zipPath), db: db);
+      () async {
+        _pickerCache[db] = null;
+        return _importZip(zipPath);
+      }, db: db);
 
   Future<StickerImportBatchResult> _importZip(String zipPath) async {
     final source = File(zipPath);
@@ -329,6 +444,7 @@ class StickerPackStorage {
   }
 
   Future<void> deletePack(String id) => SharedMediaLock.run(() async {
+    _pickerCache[db] = null;
     if (!_validPackId(id)) throw const FormatException('表情包 ID 无效');
     final target = Directory(p.join((await rootDirectory).path, id));
     if (await target.exists()) await target.delete(recursive: true);
@@ -443,7 +559,7 @@ class StickerPackStorage {
 
   /// A single SQLite transaction is the only durable editor commit point.
   /// No draft is ever written here before the user presses the top Save button.
-  Future<void> saveCaptionEdits(Map<String, String> edits) async {
+  Future<void> saveCaptionEdits(Map<String, String> edits) => SharedMediaLock.run(() async {
     if (edits.isEmpty) return;
     final clean = <String, String>{};
     for (final entry in edits.entries) {
@@ -464,7 +580,8 @@ class StickerPackStorage {
         'value': jsonEncode(current),
       }, conflictAlgorithm: ConflictAlgorithm.replace);
     });
-  }
+    _pickerCache[db] = null;
+  }, db: db);
 
   Future<File> fileFor(StickerPackMeta pack, StickerRecord record) async {
     if (pack.id != record.packId) throw const FormatException('表情包归属不一致');

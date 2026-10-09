@@ -559,6 +559,7 @@ void main() {
     await fixture();
     final stickers = StickerPackStorage(db: db);
     final pack = (await stickers.scanPacks()).single;
+    await stickers.setPackEnabled(pack.id, true);
     final record = (await stickers.readRecords(pack)).single;
     final image = await stickers.prepareAttachment(pack: pack, record: record,
       messageId: 'shared-u', source: 'user_sticker:${pack.id}', attachments: MessageAttachmentStorage());
@@ -570,7 +571,12 @@ void main() {
     final archive = await decode(bundle.filePath);
     expect(archive.files.where((f) => f.name.startsWith('portable/stickers/')), isEmpty);
     expect(archive.files.where((f) => f.name.startsWith('media/originals/')).length, 1);
+    final pickerBeforeRestore = await stickers.loadPickerCatalog();
+    expect(pickerBeforeRestore.items.length, 1);
     await service.restoreBackupBundle(bundle.filePath);
+    final pickerAfterRestore = await stickers.loadPickerCatalog();
+    expect(identical(pickerBeforeRestore, pickerAfterRestore), isFalse);
+    expect(pickerAfterRestore.items.length, pickerBeforeRestore.items.length);
     expect(await (await stickers.fileFor(pack, record)).exists(), isTrue);
     await stickers.deletePack(pack.id);
     await service.restoreBackupBundle(bundle.filePath);

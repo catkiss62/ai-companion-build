@@ -423,7 +423,7 @@
 
 # Historical +314: Build AI Companion v0.42.70+314 APK (Wish Lifecycle) | AI-Companion-v0.42.70-314-Wish-Lifecycle-APK | v0.42.70-wish-lifecycle-test | .ci/v04270-monitor.txt
 # Historical +323: Build AI Companion v0.42.79+323 APK (Wish Chat Fixes) | AI-Companion-v0.42.79-323-Wish-Chat-Fixes-APK | v0.42.79-wish-chat-fixes-test | .ci/v04279-monitor.txt
-name: Build AI Companion v0.42.91+335 APK (Shared Stickers)
+name: Build AI Companion v0.42.92+336 APK (Sticker Picker Speed)
 
 # BUILD INPUTS: The 96-clip source ZIP is private Draft Release asset 591363139
 # (release 397377805), fetched and SHA-256 checked below. The persistent
@@ -1014,7 +1014,7 @@ jobs:
         run: |
           set -euo pipefail
           test -f app/pubspec.yaml
-          grep -Fqx 'version: 0.42.91+335' app/pubspec.yaml
+          grep -Fqx 'version: 0.42.92+336' app/pubspec.yaml
           grep -Fqx '  static const int schemaVersion = 61;' app/lib/core/database/app_database.dart
           test -d app/lib
           test -d app/android
@@ -1028,7 +1028,7 @@ jobs:
           test -f app/android/app/src/main/jniLibs/arm64-v8a/libc++_shared.so
           test ! -d app/android/app/src/main/assets/tts_models
           test ! -d app/android/app/src/main/assets/legacy_tts
-          echo 'Building v0.42.91+335 Shared sticker originals.'
+          echo 'Building v0.42.92+336 Faster sticker picker.'
 
       - name: Generate complete pet clips from pinned Draft Release asset
         timeout-minutes: 15
@@ -1653,26 +1653,26 @@ jobs:
           APK='app/build/app/outputs/flutter-apk/app-release.apk'
           sha256sum "$APK" | tee app/app-release.apk.sha256
 
-      - name: Upload v0.42.91+335 APK as workflow artifact
+      - name: Upload v0.42.92+336 APK as workflow artifact
         uses: actions/upload-artifact@v4
         with:
-          name: AI-Companion-v0.42.91-335-Shared-Stickers-APK
+          name: AI-Companion-v0.42.92-336-Sticker-Picker-Speed-APK
           path: |
             app/build/app/outputs/flutter-apk/app-release.apk
             app/app-release.apk.sha256
           if-no-files-found: error
           retention-days: 14
 
-      - name: Upload v0.42.91+335 APK to draft release
+      - name: Upload v0.42.92+336 APK to draft release
         shell: bash
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
-          TAG='v0.42.91-shared-stickers-test'
-          APK_NAME='AI-Companion-v0.42.91-335-Shared-Stickers-APK.apk'
+          TAG='v0.42.92-sticker-picker-speed-test'
+          APK_NAME='AI-Companion-v0.42.92-336-Sticker-Picker-Speed-APK.apk'
           SHA_NAME="${APK_NAME}.sha256"
-          CI_NAME='AI-Companion-v0.42.91-335-Shared-Stickers-CI-Monitor.txt'
+          CI_NAME='AI-Companion-v0.42.92-336-Sticker-Picker-Speed-CI-Monitor.txt'
           cp app/build/app/outputs/flutter-apk/app-release.apk "app/${APK_NAME}"
           sed "s#app/build/app/outputs/flutter-apk/app-release.apk#${APK_NAME}#" \
             app/app-release.apk.sha256 > "app/${SHA_NAME}"
@@ -1689,14 +1689,14 @@ jobs:
               --repo "${GITHUB_REPOSITORY}" \
               --target "${GITHUB_SHA}" \
               --draft \
-              --title 'AI Companion v0.42.91+335 Shared sticker originals' \
-              --notes 'Imported sticker packs and chat share immutable originals. Reference-only sends, recoverable migration, ownership-safe cleanup and backup restoration. Same-signature unpublished test build.'
+              --title 'AI Companion v0.42.92+336 Faster sticker picker' \
+              --notes 'Batch sticker map reads and reusable metadata catalog with import, delete, edit and restore invalidation. Shared originals preserved. Same-signature unpublished test build.'
           else
             gh release edit "${TAG}" \
               --repo "${GITHUB_REPOSITORY}" \
               --target "${GITHUB_SHA}" \
-              --title 'AI Companion v0.42.91+335 Shared sticker originals' \
-              --notes 'Imported sticker packs and chat share immutable originals. Reference-only sends, recoverable migration, ownership-safe cleanup and backup restoration. Same-signature unpublished test build.'
+              --title 'AI Companion v0.42.92+336 Faster sticker picker' \
+              --notes 'Batch sticker map reads and reusable metadata catalog with import, delete, edit and restore invalidation. Shared originals preserved. Same-signature unpublished test build.'
           fi
           RELEASE_URL="$(gh release view "${TAG}" --repo "${GITHUB_REPOSITORY}" --json url --jq '.url')"
           echo "release_url=${RELEASE_URL}" >> "app/${CI_NAME}"
@@ -1750,8 +1750,8 @@ jobs:
           BUILD_RESULT: ${{ needs.build-apk.result }}
         run: |
           set -uo pipefail
-          TAG='v0.42.91-shared-stickers-test'
-          CI_NAME='AI-Companion-v0.42.91-335-Shared-Stickers-CI-Monitor.txt'
+          TAG='v0.42.92-sticker-picker-speed-test'
+          CI_NAME='AI-Companion-v0.42.92-336-Sticker-Picker-Speed-CI-Monitor.txt'
           REPORT="${RUNNER_TEMP}/${CI_NAME}"
           JOBS_JSON="${RUNNER_TEMP}/jobs.json"
           {
@@ -1792,7 +1792,7 @@ jobs:
               --repo "${GITHUB_REPOSITORY}" \
               --target "${GITHUB_SHA}" \
               --draft \
-              --title 'AI Companion v0.42.91+335 Shared sticker originals' \
+              --title 'AI Companion v0.42.92+336 Faster sticker picker' \
               --notes 'Unpublished Draft failure diagnostics for memory continuity and optional expression semantics. No user content, keys, backups or device diagnostics are included.'
           fi
           RELEASE_URL="$(gh release view "${TAG}" --repo "${GITHUB_REPOSITORY}" --json url --jq '.url')"

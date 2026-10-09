@@ -144,29 +144,15 @@ class _StickerPickerSheetState extends State<StickerPickerSheet> {
 
   Future<void> _load() async {
     try {
-      final enabledIds = await widget.storage.enabledPackIds();
-      final packs = (await widget.storage.scanPacks())
-          .where((pack) => enabledIds.contains(pack.id))
-          .toList(growable: false);
-      final items = <_StickerPickerItem>[];
-      for (final pack in packs) {
-        final records = await widget.storage.readRecords(pack);
-        for (final record in records) {
-          if (!StickerAgencyPolicy.isVisible(record)) {
-            continue;
-          }
-          items.add(
-            _StickerPickerItem(
-              pack: pack,
-              record: record,
-              file: await widget.storage.fileFor(pack, record),
-            ),
-          );
-        }
-      }
+      final catalog = await widget.storage.loadPickerCatalog();
+      final items = [
+        for (final item in catalog.items)
+          if (StickerAgencyPolicy.isVisible(item.record))
+            _StickerPickerItem(pack: item.pack, record: item.record, file: item.file),
+      ];
       if (!mounted) return;
       setState(() {
-        _packs = packs;
+        _packs = catalog.packs;
         _items = items;
         _loading = false;
       });
