@@ -423,7 +423,7 @@
 
 # Historical +314: Build AI Companion v0.42.70+314 APK (Wish Lifecycle) | AI-Companion-v0.42.70-314-Wish-Lifecycle-APK | v0.42.70-wish-lifecycle-test | .ci/v04270-monitor.txt
 # Historical +323: Build AI Companion v0.42.79+323 APK (Wish Chat Fixes) | AI-Companion-v0.42.79-323-Wish-Chat-Fixes-APK | v0.42.79-wish-chat-fixes-test | .ci/v04279-monitor.txt
-name: Build AI Companion v0.42.89+333 APK (Right Ear Placement)
+name: Build AI Companion v0.42.90+334 APK (Pet Retouch)
 
 # BUILD INPUTS: The 96-clip source ZIP is private Draft Release asset 591363139
 # (release 397377805), fetched and SHA-256 checked below. The persistent
@@ -539,6 +539,7 @@ on:
       - agent/v04285-reminder-compact-cache
       - agent/v04288-right-ear-editor
       - agent/v04289-right-ear-baked
+      - agent/v04290-pet-retouch
       - agent/v04214-visible-process-fate-wheel
       - maintenance/repository-governance-20260919
   workflow_dispatch:
@@ -1012,7 +1013,7 @@ jobs:
         run: |
           set -euo pipefail
           test -f app/pubspec.yaml
-          grep -Fqx 'version: 0.42.89+333' app/pubspec.yaml
+          grep -Fqx 'version: 0.42.90+334' app/pubspec.yaml
           grep -Fqx '  static const int schemaVersion = 61;' app/lib/core/database/app_database.dart
           test -d app/lib
           test -d app/android
@@ -1026,7 +1027,7 @@ jobs:
           test -f app/android/app/src/main/jniLibs/arm64-v8a/libc++_shared.so
           test ! -d app/android/app/src/main/assets/tts_models
           test ! -d app/android/app/src/main/assets/legacy_tts
-          echo 'Building v0.42.89+333 Accepted right ear placement.'
+          echo 'Building v0.42.90+334 Retouched legacy desktop pet frames.'
 
       - name: Generate complete pet clips from pinned Draft Release asset
         timeout-minutes: 15
@@ -1170,6 +1171,10 @@ jobs:
           # python3 tools/validate_v0405_album_image_binding.py
           python3 tools/run_validation_suite.py
 
+      - name: Apply reviewed legacy pet PNG revision after frozen-pack validation
+        working-directory: app
+        run: python3 tools/prepare_retouched_pet_frames.py --apply
+
       - name: Resolve Flutter packages
         working-directory: app
         run: flutter pub get
@@ -1210,6 +1215,10 @@ jobs:
         # for its default 32-bit ABI would make CMake link a nonexistent
         # armeabi-v7a/libopenjtalk_native.so.
         run: flutter build apk --release --target-platform android-arm64
+
+      - name: Verify retouched PNG bytes and complete source inventory inside APK
+        working-directory: app
+        run: python3 tools/prepare_retouched_pet_frames.py --verify-apk build/app/outputs/flutter-apk/app-release.apk
 
       - name: Verify stable APK signing identity
         shell: bash
@@ -1637,26 +1646,26 @@ jobs:
           APK='app/build/app/outputs/flutter-apk/app-release.apk'
           sha256sum "$APK" | tee app/app-release.apk.sha256
 
-      - name: Upload v0.42.89+333 APK as workflow artifact
+      - name: Upload v0.42.90+334 APK as workflow artifact
         uses: actions/upload-artifact@v4
         with:
-          name: AI-Companion-v0.42.89-333-Right-Ear-Baked-APK
+          name: AI-Companion-v0.42.90-334-Pet-Retouch-APK
           path: |
             app/build/app/outputs/flutter-apk/app-release.apk
             app/app-release.apk.sha256
           if-no-files-found: error
           retention-days: 14
 
-      - name: Upload v0.42.89+333 APK to draft release
+      - name: Upload v0.42.90+334 APK to draft release
         shell: bash
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
-          TAG='v0.42.89-right-ear-baked-test'
-          APK_NAME='AI-Companion-v0.42.89-333-Right-Ear-Baked-APK.apk'
+          TAG='v0.42.90-pet-retouch-test'
+          APK_NAME='AI-Companion-v0.42.90-334-Pet-Retouch-APK.apk'
           SHA_NAME="${APK_NAME}.sha256"
-          CI_NAME='AI-Companion-v0.42.89-333-Right-Ear-Baked-CI-Monitor.txt'
+          CI_NAME='AI-Companion-v0.42.90-334-Pet-Retouch-CI-Monitor.txt'
           cp app/build/app/outputs/flutter-apk/app-release.apk "app/${APK_NAME}"
           sed "s#app/build/app/outputs/flutter-apk/app-release.apk#${APK_NAME}#" \
             app/app-release.apk.sha256 > "app/${SHA_NAME}"
@@ -1673,14 +1682,14 @@ jobs:
               --repo "${GITHUB_REPOSITORY}" \
               --target "${GITHUB_SHA}" \
               --draft \
-              --title 'AI Companion v0.42.89+333 Accepted right ear placement' \
-              --notes 'Temporary screen-right ear editor: rigid whole-mesh translation and rotation, transactional preview and persisted diagnostics. Current aspect correction and expression layers retained. No repair toggle. Unpublished same-signature device calibration build.'
+              --title 'AI Companion v0.42.90+334 Retouched legacy desktop pet frames' \
+              --notes 'User-retouched legacy desktop pet artwork: 59 exact 306 sources and 118 alpha-aware size variants. Same paths, canvases and playback behavior. Visible PNG maintenance directory and verified APK payload. Same-signature unpublished test build.'
           else
             gh release edit "${TAG}" \
               --repo "${GITHUB_REPOSITORY}" \
               --target "${GITHUB_SHA}" \
-              --title 'AI Companion v0.42.89+333 Accepted right ear placement' \
-              --notes 'Temporary screen-right ear editor: rigid whole-mesh translation and rotation, transactional preview and persisted diagnostics. Current aspect correction and expression layers retained. No repair toggle. Unpublished same-signature device calibration build.'
+              --title 'AI Companion v0.42.90+334 Retouched legacy desktop pet frames' \
+              --notes 'User-retouched legacy desktop pet artwork: 59 exact 306 sources and 118 alpha-aware size variants. Same paths, canvases and playback behavior. Visible PNG maintenance directory and verified APK payload. Same-signature unpublished test build.'
           fi
           RELEASE_URL="$(gh release view "${TAG}" --repo "${GITHUB_REPOSITORY}" --json url --jq '.url')"
           echo "release_url=${RELEASE_URL}" >> "app/${CI_NAME}"
@@ -1700,7 +1709,7 @@ jobs:
           done
           test "${upload_ok}" = '1'
           MONITOR_BRANCH='ci-monitor-v0345'
-          MONITOR_PATH='.ci/v04289-monitor.txt'
+          MONITOR_PATH='.ci/v04290-monitor.txt'
           MONITOR_CONTENT_FILE="$(mktemp)"
           base64 -w0 "app/${CI_NAME}" > "${MONITOR_CONTENT_FILE}"
           MONITOR_SHA="$(gh api "/repos/${GITHUB_REPOSITORY}/contents/${MONITOR_PATH}?ref=${MONITOR_BRANCH}" --jq '.sha' 2>/dev/null || true)"
@@ -1734,8 +1743,8 @@ jobs:
           BUILD_RESULT: ${{ needs.build-apk.result }}
         run: |
           set -uo pipefail
-          TAG='v0.42.89-right-ear-baked-test'
-          CI_NAME='AI-Companion-v0.42.89-333-Right-Ear-Baked-CI-Monitor.txt'
+          TAG='v0.42.90-pet-retouch-test'
+          CI_NAME='AI-Companion-v0.42.90-334-Pet-Retouch-CI-Monitor.txt'
           REPORT="${RUNNER_TEMP}/${CI_NAME}"
           JOBS_JSON="${RUNNER_TEMP}/jobs.json"
           {
@@ -1776,7 +1785,7 @@ jobs:
               --repo "${GITHUB_REPOSITORY}" \
               --target "${GITHUB_SHA}" \
               --draft \
-              --title 'AI Companion v0.42.89+333 Accepted right ear placement' \
+              --title 'AI Companion v0.42.90+334 Retouched legacy desktop pet frames' \
               --notes 'Unpublished Draft failure diagnostics for memory continuity and optional expression semantics. No user content, keys, backups or device diagnostics are included.'
           fi
           RELEASE_URL="$(gh release view "${TAG}" --repo "${GITHUB_REPOSITORY}" --json url --jq '.url')"
@@ -1786,7 +1795,7 @@ jobs:
             --clobber \
             --repo "${GITHUB_REPOSITORY}"
           MONITOR_BRANCH='ci-monitor-v0345'
-          MONITOR_PATH='.ci/v04289-monitor.txt'
+          MONITOR_PATH='.ci/v04290-monitor.txt'
           MONITOR_CONTENT_FILE="$(mktemp)"
           base64 -w0 "${REPORT}" > "${MONITOR_CONTENT_FILE}"
           MONITOR_SHA="$(gh api "/repos/${GITHUB_REPOSITORY}/contents/${MONITOR_PATH}?ref=${MONITOR_BRANCH}" --jq '.sha' 2>/dev/null || true)"

@@ -17,3 +17,6 @@ __pycache__/
 *.py[cod]
 # Recreated from the pinned pet-source Draft asset during APK builds.
 app/android/app/src/main/assets/pets/dafeiyu/source/runtime_overrides/experimental/full_*/packed/*.bin
+
+# Restored frozen pet pack; reviewed PNG revisions live in app/asset_packs/dafeiyu_retouched.
+/app/android/app/src/main/assets/pets/dafeiyu/source/assets/
