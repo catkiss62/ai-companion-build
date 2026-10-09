@@ -1,0 +1,7 @@
+status=success
+run_id=37960129667
+run_url=https://github.com/catkiss62/ai-companion-build/actions/runs/37960129667
+head_sha=6cf1b7251a1b19618828f2ed12c65f85fd562c73
+signer_sha256=30:5E:B3:D8:09:83:B9:63:C6:48:18:DD:F1:AD:56:1F:27:9D:E6:D4:7B:3E:D2:C7:81:AD:A4:48:C7:C2:51:48
+dedece455b5cde6e59e6895ec1f924e04f5019bda93487d614c02d9fd862dc6a  AI-Companion-v0.42.91-335-Shared-Stickers-APK.apk
+release_url=https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-3af8d7187795ebbb0af9
