@@ -1507,11 +1507,17 @@ jobs:
                   if actual != expected:
                       print(f'ERROR: {name} is {actual}, expected {expected}', file=sys.stderr)
                       sys.exit(1)
+              # Frozen-source checks above run before the revision is applied.
+              # The actual APK must use the reviewed revision, including yawn.
+              revision = json.loads(pathlib.Path('app/asset_packs/dafeiyu_retouched/manifest.json').read_text(encoding='utf-8'))
               yawn_hashes = {
-                  'assets/pets/dafeiyu/source/runtime_overrides/yawning/sleepy_yawn_187.png': 'dcbbcba4ad2696849fca65eb7b900b76422a3fec805c244de4bc42ec6dfbd235',
-                  'assets/pets/dafeiyu/source/runtime_overrides/yawning/sleepy_yawn_238.png': 'f6659dc54dead83ad0be851496d3cb784c426c518784f64969606b9010d20096',
-                  'assets/pets/dafeiyu/source/runtime_overrides/yawning/sleepy_yawn_306.png': '141a88407f5e54c7da795b0c33b5fd5319689b0382b54f2771bec851ae0fa9df',
+                  'assets/pets/dafeiyu/source/' + output['target']: output['sha256']
+                  for frame in revision['frames'] for output in frame['outputs']
+                  if output['target'].startswith('runtime_overrides/yawning/')
               }
+              if set(yawn_hashes) != set(yawn_tiers):
+                  print('ERROR: reviewed yawn revision must contain exactly three existing tiers', file=sys.stderr)
+                  sys.exit(1)
               for name, expected_hash in yawn_hashes.items():
                   if hashlib.sha256(z.read(name)).hexdigest() != expected_hash:
                       print(f'ERROR: {name} does not match the approved aligned source', file=sys.stderr)

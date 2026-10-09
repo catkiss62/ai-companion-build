@@ -26,3 +26,5 @@
 ## 常用动作位置
 
 待机 `idle_front`；背面 `idle_back`；眨眼 `idle_blink`；观察 `idle_glance`；发呆 `idle_think`；走路 `walk_side`、`walk_start_left`、`walk_stop_left`；慢行侧站 `walk_side_stand`；开心 `happy`；摸头 `head_pat`；说话 `talk`；生气 `angry`；被戳 `poke_react`；尾巴 `tail_react`；进食 `eat`；扫地 `sweep`；入睡和持续睡姿 `sleep_enter`；醒来 `sleep_wake`；抓取 `dragging`；释放 `released_airborne`；落下 `falling`；着陆 `landing`；眩晕 `dizzy`；打哈欠 `yawning`。
+
+APK中的打哈欠三档校验也读取本manifest的精确新哈希，仍独立核对原固定画布和恰好三档；不再手工维护第二套旧哈希。冻结原图检查保持在修订应用前执行。
