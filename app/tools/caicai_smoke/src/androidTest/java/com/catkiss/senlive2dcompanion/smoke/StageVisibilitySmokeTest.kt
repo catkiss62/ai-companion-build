@@ -15,6 +15,8 @@ import com.catkiss.senlive2dcompanion.CaicaiStageVisibility
 import org.junit.Assert.*
 import org.junit.Test
 import org.junit.runner.RunWith
+import java.util.concurrent.CountDownLatch
+import java.util.concurrent.TimeUnit
 import javax.microedition.khronos.egl.EGLConfig
 import javax.microedition.khronos.opengles.GL10
 
@@ -26,6 +28,7 @@ class StageVisibilitySmokeTest {
             lateinit var surface: GLSurfaceView
             lateinit var button: Button
             var taps = 0
+            val rendered = CountDownLatch(1)
             scenario.onActivity { activity ->
                 val host = FrameLayout(activity)
                 stage = FrameLayout(activity)
@@ -34,7 +37,7 @@ class StageVisibilitySmokeTest {
                     setRenderer(object : GLSurfaceView.Renderer {
                         override fun onSurfaceCreated(gl: GL10?, config: EGLConfig?) {}
                         override fun onSurfaceChanged(gl: GL10?, w: Int, h: Int) { GLES20.glViewport(0,0,w,h) }
-                        override fun onDrawFrame(gl: GL10?) { GLES20.glClearColor(0f,0f,1f,1f); GLES20.glClear(GLES20.GL_COLOR_BUFFER_BIT) }
+                        override fun onDrawFrame(gl: GL10?) { GLES20.glClearColor(0f,0f,1f,1f); GLES20.glClear(GLES20.GL_COLOR_BUFFER_BIT); rendered.countDown() }
                     })
                 }
                 activity.surface = surface
@@ -44,6 +47,7 @@ class StageVisibilitySmokeTest {
                 host.addView(stage, FrameLayout.LayoutParams(-1,-1))
                 activity.setContentView(host)
             }
+            assertTrue("GL surface must render before hiding", rendered.await(10, TimeUnit.SECONDS))
             repeat(5) {
                 scenario.onActivity {
                     CaicaiStageVisibility.apply(stage, surface, false)

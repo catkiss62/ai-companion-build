@@ -247,7 +247,7 @@ class MemoryExtractor {
               .map((e) => '- id=${e.id} | topic_key=${e.topicKey} | ${e.title}：${e.detail}')
               .join('\n');
       final thoughtContext = jsonEncode((await db.activeThoughts(limit: 8))
-          .map((t) => {'drive': t.drive.name, 'topic_key': t.topicKey,
+          .map((t) => {'drive': t.driveKey, 'topic_key': t.topicKey,
             'text': t.text.length > 400 ? t.text.substring(0, 400) : t.text}).toList());
       final proactiveFeedback = await db.proactiveFeedbackForUserResponse(user.id);
       final proactiveContext = await _buildProactiveContext(proactiveFeedback);
