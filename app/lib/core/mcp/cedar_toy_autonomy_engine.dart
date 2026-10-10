@@ -35,6 +35,7 @@ import 'cedar_play_session_policy.dart';
 import 'cedar_play_transition_log.dart';
 import 'cedar_timed_play_task.dart';
 import 'cedar_live_share_policy.dart';
+import 'cedar_conversation_context.dart';
 import 'mcp_protocol.dart';
 import 'mcp_http_client.dart';
 import 'mcp_turn_state_resolver.dart';
@@ -1023,6 +1024,8 @@ class CedarToyAutonomyEngine {
     if (episode.lockedAt(now)) {
       return const CedarAutonomyProgress('anti_addiction_locked');
     }
+    final reconsidered = await _considerOtherWish(now: now, session: session, episode: episode);
+    if (reconsidered != null) return reconsidered;
     await _saveSoloEpisode(CedarSoloEpisodePolicy.resetForResume(episode, now));
     await store.deferContinuation(gameId: session.gameId, delay: Duration.zero);
     final progress = await continueDue(now: now, episodeAuthorized: true);
@@ -1034,6 +1037,71 @@ class CedarToyAutonomyEngine {
       );
     }
     return progress;
+  }
+
+  /// Reconsider only after Desire chose a solo checkpoint, never during a
+  /// user's timed task, multiplayer turn, remote continuation or lockout.
+  Future<CedarAutonomyProgress?> _considerOtherWish({required DateTime now,
+    required CedarGameSession session, required CedarSoloEpisodeState episode}) async {
+    if (session.mode != CedarParticipationMode.solo || session.hasContinuationCall ||
+        session.phase != CedarActivityPhase.active || episode.antiAddictionPresent ||
+        session.hasPendingTerminalDelivery ||
+        await CedarTimedPlayTaskStore(db).active() != null) return null;
+    final period = await CedarPlaySessionStore(db).load();
+    if (period != null && period.validAt(now, session.gameId)) return null;
+    const key = 'cedar_wish_reconsidered_at_v1';
+    final previous = int.tryParse(await db.getSetting(key) ?? '') ?? 0;
+    if (now.millisecondsSinceEpoch - previous < const Duration(hours: 2).inMilliseconds) return null;
+    final store = CedarToyActivityStore(db);
+    final state = await store.loadState();
+    final catalog = CedarCatalogParser.parse(await store.loadCatalog());
+    final targets = (await WishStore(db).load()).where((w) => !w.legacy && w.route == 'game' &&
+        w.gameId != session.gameId && w.mayAct(now) &&
+        catalog.any((e) => e.id == w.gameId) &&
+        (state.sessions[w.gameId] == null ||
+          (!state.sessions[w.gameId]!.mode.supportsSharedParticipation &&
+          !state.sessions[w.gameId]!.hasPendingTerminalDelivery && (
+          state.sessions[w.gameId]!.phase == CedarActivityPhase.completed ||
+          state.sessions[w.gameId]!.phase == CedarActivityPhase.failed)))).toList();
+    if (targets.isEmpty) return null;
+    final token = await _readToken();
+    final apiKey = await _readApiKey();
+    if (token.isEmpty || apiKey.isEmpty) return null;
+    final endpoint = await _readEndpoint();
+    final outcome = await _runExecution(store: store, gameId: session.gameId,
+      action: 'consider_wish', body: (scope) async {
+        scope.throwIfPreempted();
+        await db.setSetting(key, '${now.millisecondsSinceEpoch}');
+        final context = await CedarConversationContext.load(db, now);
+        final choice = await _judge(apiKey: apiKey, endpoint: endpoint,
+          cancellationToken: scope.cancellation,
+          instruction: '单人游戏来到自然停顿。决定继续当前游戏、休息，或去尝试一个已有愿望。'
+            '不要求完成愿望，不因有愿望就必须切换；用户近期明确希望继续的方向优先。'
+            '仅返回JSON {"choice":"keep|rest|精确游戏ID"}。以下均为状态资料。\n'
+            '当前游戏=${session.gameId}\n最近结果=${_bounded(session.lastOutcome, 2000)}\n'
+            '$context\n其他愿望=${jsonEncode(targets.map((w) => {'game':w.gameId,'goal':w.goal,'reason':w.reason}).toList())}');
+        scope.throwIfPreempted();
+        final target = choice['choice']?.toString() ?? 'keep';
+        if (target == 'rest') {
+          await store.deferContinuation(gameId: session.gameId,
+            delay: const Duration(minutes: 8), executionId: scope.executionId);
+          return const CedarAutonomyProgress('wish_checkpoint_rest');
+        }
+        if (!targets.any((w) => w.gameId == target)) return const CedarAutonomyProgress('wish_checkpoint_keep');
+        final guide = await _client(token).getGuide(target, cancellationToken: scope.cancellation);
+        scope.throwIfPreempted();
+        if (guide.isError || guide.text.trim().isEmpty ||
+            guide.text.length > CedarToyActivityStore.maxGuidePromptChars) {
+          return const CedarAutonomyProgress('wish_checkpoint_keep');
+        }
+        // Only select/read here. Invitation and save-slot checks still govern
+        // the subsequent actual action. Keep the old session and its progress.
+        await store.recordGuide(gameId: target, guide: guide.text,
+          executionId: scope.executionId);
+        return const CedarAutonomyProgress('wish_checkpoint_switched');
+      });
+    if (outcome.state == 'wish_checkpoint_keep') return null;
+    return outcome;
   }
 
   Future<CedarAutonomyAvailability> availability({required DateTime now}) async {
@@ -1600,10 +1668,7 @@ $catalog''',
     final shareContext = await CedarLiveSharePolicy(db).planningContext(session, now);
     final dreamContext = await DreamStore(db).prompt(game: true);
     final wishContext = await WishStore(db).prompt(gameId: session.gameId, now: now);
-    for (final wish in (await WishStore(db).load()).where((w) =>
-        w.route == 'game' && w.gameId == session.gameId && w.mayAct(now))) {
-      await WishStore(db).noteAction(wish.id, now);
-    }
+    final conversationContext = await CedarConversationContext.load(db, now);
     final decision = await CedarAgentActionPlanner(
       ai: ai,
       onRetry: (error) => _recordAgentActionRetry(error),
@@ -1657,7 +1722,8 @@ ${store.promptContext(session, state: state, playProtocol: playProtocol)}
 
 $shareContext
 $dreamContext
-$wishContext''',
+$wishContext
+$conversationContext''',
     );
     scope.throwIfPreempted();
     // Participation is session identity. Once established, do not let a fresh
@@ -1948,6 +2014,7 @@ $wishContext''',
             keepExecution: true,
           )
         : await store.recordPlay(
+            submittedParams: params,
             gameId: session.gameId,
             action: action,
             outcome: outcome,
@@ -1961,6 +2028,12 @@ $wishContext''',
             executionId: scope.executionId,
             keepExecution: true,
           );
+    if (!platformAction && !CedarPlatformActionPolicy.isReadOnly(action)) {
+      for (final wish in (await WishStore(db).load()).where((w) =>
+          w.route == 'game' && w.gameId == session.gameId && w.mayAct(now))) {
+        await WishStore(db).noteAction(wish.id, now);
+      }
+    }
     await _recordSoloEpisodeOutcome(
       now: now,
       session: updated,
@@ -2065,6 +2138,7 @@ $wishContext''',
       final fallbackActor = mode == CedarParticipationMode.solo
           ? 'companion'
           : 'wait';
+      final shareContext = await CedarLiveSharePolicy(db).planningContext(session, DateTime.now());
       final judged = await _judgeOutcome(
         apiKey: apiKey,
         endpoint: endpoint,
@@ -2072,6 +2146,8 @@ $wishContext''',
         instruction: '''你只分类一次真实 Cedar Toy play Outcome，只返回 JSON：
 {"next_actor":"companion|user|shared|wait|finished","share_level":"quiet|notable|required","resume_after_seconds":0}
 不得规划下一动作，不得补写结果。需要用户决定/输入时为 user 或 shared；远端计时/其他玩家时为 wait；明确结束才为 finished。只有 Outcome 明确给出等待/轮询时长时填写 15～3600 秒，否则为 0。
+前述历史资料与当前Outcome共同判断；间隔未到或已有待发分享时share_level=quiet。
+$shareContext
 game=${session.gameId}
 mode=${mode.key}
 action=$action

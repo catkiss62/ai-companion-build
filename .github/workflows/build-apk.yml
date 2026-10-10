@@ -423,7 +423,7 @@
 
 # Historical +314: Build AI Companion v0.42.70+314 APK (Wish Lifecycle) | AI-Companion-v0.42.70-314-Wish-Lifecycle-APK | v0.42.70-wish-lifecycle-test | .ci/v04270-monitor.txt
 # Historical +323: Build AI Companion v0.42.79+323 APK (Wish Chat Fixes) | AI-Companion-v0.42.79-323-Wish-Chat-Fixes-APK | v0.42.79-wish-chat-fixes-test | .ci/v04279-monitor.txt
-name: Build AI Companion v0.42.93+337 APK (Web Relevance and Recency)
+name: Build AI Companion v0.42.94+338 APK (Game Intent Continuity)
 
 # BUILD INPUTS: The 96-clip source ZIP is private Draft Release asset 591363139
 # (release 397377805), fetched and SHA-256 checked below. The persistent
@@ -541,7 +541,7 @@ on:
       - agent/v04289-right-ear-baked
       - agent/v04290-pet-retouch
       - agent/v04291-shared-stickers
-      - agent/v04293-web-relevance-recency
+      - agent/v04294-game-intent-continuity
       - agent/v04214-visible-process-fate-wheel
       - maintenance/repository-governance-20260919
   workflow_dispatch:
@@ -712,8 +712,39 @@ jobs:
           path: app/tools/caicai_smoke/build/outputs/androidTest-results/
           retention-days: 14
 
+  caicai-android8-smoke:
+    needs: detect-change-scope
+    if: ${{ needs.detect-change-scope.outputs.run-full-build == 'true' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - name: Enable emulator acceleration
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+      - name: Android 8 surface visibility lifecycle
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 26
+          arch: x86_64
+          target: google_apis
+          disable-animations: true
+          emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim
+          script: chmod +x app/android/gradlew && cd app/android && ./gradlew -p ../tools/caicai_smoke connectedDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.class=com.catkiss.senlive2dcompanion.smoke.StageVisibilitySmokeTest --stacktrace
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: android8-surface-results
+          path: app/tools/caicai_smoke/build/outputs/androidTest-results/
+
   build-apk:
-    needs: [detect-change-scope, caicai-native-smoke]
+    needs: [detect-change-scope, caicai-native-smoke, caicai-android8-smoke]
     if: ${{ needs.detect-change-scope.outputs.run-full-build == 'true' }}
     runs-on: ubuntu-latest
     timeout-minutes: 120
@@ -1015,7 +1046,7 @@ jobs:
         run: |
           set -euo pipefail
           test -f app/pubspec.yaml
-          grep -Fqx 'version: 0.42.93+337' app/pubspec.yaml
+          grep -Fqx 'version: 0.42.94+338' app/pubspec.yaml
           grep -Fqx '  static const int schemaVersion = 61;' app/lib/core/database/app_database.dart
           test -d app/lib
           test -d app/android
@@ -1029,7 +1060,7 @@ jobs:
           test -f app/android/app/src/main/jniLibs/arm64-v8a/libc++_shared.so
           test ! -d app/android/app/src/main/assets/tts_models
           test ! -d app/android/app/src/main/assets/legacy_tts
-          echo 'Building v0.42.93+337 Relevant source reads and recent discoveries.'
+          echo 'Building v0.42.94+338 Game intentions, wishes and Android 8 surface visibility.'
 
       - name: Generate complete pet clips from pinned Draft Release asset
         timeout-minutes: 15
@@ -1654,26 +1685,26 @@ jobs:
           APK='app/build/app/outputs/flutter-apk/app-release.apk'
           sha256sum "$APK" | tee app/app-release.apk.sha256
 
-      - name: Upload v0.42.93+337 APK as workflow artifact
+      - name: Upload v0.42.94+338 APK as workflow artifact
         uses: actions/upload-artifact@v4
         with:
-          name: AI-Companion-v0.42.93-337-Web-Relevance-Recency-APK
+          name: AI-Companion-v0.42.94-338-Game-Intent-Continuity-APK
           path: |
             app/build/app/outputs/flutter-apk/app-release.apk
             app/app-release.apk.sha256
           if-no-files-found: error
           retention-days: 14
 
-      - name: Upload v0.42.93+337 APK to draft release
+      - name: Upload v0.42.94+338 APK to draft release
         shell: bash
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
-          TAG='v0.42.93-web-relevance-recency-test'
-          APK_NAME='AI-Companion-v0.42.93-337-Web-Relevance-Recency-APK.apk'
+          TAG='v0.42.94-game-intent-continuity-test'
+          APK_NAME='AI-Companion-v0.42.94-338-Game-Intent-Continuity-APK.apk'
           SHA_NAME="${APK_NAME}.sha256"
-          CI_NAME='AI-Companion-v0.42.93-337-Web-Relevance-Recency-CI-Monitor.txt'
+          CI_NAME='AI-Companion-v0.42.94-338-Game-Intent-Continuity-CI-Monitor.txt'
           cp app/build/app/outputs/flutter-apk/app-release.apk "app/${APK_NAME}"
           sed "s#app/build/app/outputs/flutter-apk/app-release.apk#${APK_NAME}#" \
             app/app-release.apk.sha256 > "app/${SHA_NAME}"
@@ -1690,14 +1721,14 @@ jobs:
               --repo "${GITHUB_REPOSITORY}" \
               --target "${GITHUB_SHA}" \
               --draft \
-              --title 'AI Companion v0.42.93+337 Relevant source reads and recent discoveries' \
-              --notes 'Contextual source selection, bounded complete-page reads with visible progress, and interest-led recent discoveries with event-date checks. Preference formation audited only. Same-signature unpublished test build.'
+              --title 'AI Companion v0.42.94+338 Game intentions, wishes and Android 8 surface visibility' \
+              --notes 'Shared game novelty judgement, current thought descriptions, optional wish selection at solo checkpoints, durable action receipts and Android 8 surface visibility. Creative workspace remains discussion only. Same-signature unpublished test build.'
           else
             gh release edit "${TAG}" \
               --repo "${GITHUB_REPOSITORY}" \
               --target "${GITHUB_SHA}" \
-              --title 'AI Companion v0.42.93+337 Relevant source reads and recent discoveries' \
-              --notes 'Contextual source selection, bounded complete-page reads with visible progress, and interest-led recent discoveries with event-date checks. Preference formation audited only. Same-signature unpublished test build.'
+              --title 'AI Companion v0.42.94+338 Game intentions, wishes and Android 8 surface visibility' \
+              --notes 'Shared game novelty judgement, current thought descriptions, optional wish selection at solo checkpoints, durable action receipts and Android 8 surface visibility. Creative workspace remains discussion only. Same-signature unpublished test build.'
           fi
           RELEASE_URL="$(gh release view "${TAG}" --repo "${GITHUB_REPOSITORY}" --json url --jq '.url')"
           echo "release_url=${RELEASE_URL}" >> "app/${CI_NAME}"
@@ -1751,8 +1782,8 @@ jobs:
           BUILD_RESULT: ${{ needs.build-apk.result }}
         run: |
           set -uo pipefail
-          TAG='v0.42.93-web-relevance-recency-test'
-          CI_NAME='AI-Companion-v0.42.93-337-Web-Relevance-Recency-CI-Monitor.txt'
+          TAG='v0.42.94-game-intent-continuity-test'
+          CI_NAME='AI-Companion-v0.42.94-338-Game-Intent-Continuity-CI-Monitor.txt'
           REPORT="${RUNNER_TEMP}/${CI_NAME}"
           JOBS_JSON="${RUNNER_TEMP}/jobs.json"
           {
@@ -1793,7 +1824,7 @@ jobs:
               --repo "${GITHUB_REPOSITORY}" \
               --target "${GITHUB_SHA}" \
               --draft \
-              --title 'AI Companion v0.42.93+337 Relevant source reads and recent discoveries' \
+              --title 'AI Companion v0.42.94+338 Game intentions, wishes and Android 8 surface visibility' \
               --notes 'Unpublished Draft failure diagnostics for memory continuity and optional expression semantics. No user content, keys, backups or device diagnostics are included.'
           fi
           RELEASE_URL="$(gh release view "${TAG}" --repo "${GITHUB_REPOSITORY}" --json url --jq '.url')"

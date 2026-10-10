@@ -3,6 +3,7 @@
          defaults blockNetworkLoads to true, including virtual HTTPS modules. -->
     <uses-permission android:name="android.permission.INTERNET" />
     <application android:theme="@android:style/Theme.Material.Light.NoActionBar" android:label="Caicai native smoke">
+        <activity android:name=".StageVisibilitySmokeActivity" android:exported="false" />
         <activity android:name=".SmokeActivity" android:exported="false" />
         <activity android:name=".ReminderCardSmokeActivity" android:exported="false" />
         <activity android:name="com.aicompanion.localfirst.NativeMemoryGalaxyActivity"

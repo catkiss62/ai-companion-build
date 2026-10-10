@@ -10982,6 +10982,39 @@ class AppDatabase {
   /// Exactly-once Thought reinforcement for one cached post-turn proposal.
   /// The evidence row and the Thought mutation are committed together, so a
   /// retry of the same assistant turn cannot increment fed_count twice.
+  /// Repair the former text-retention bug using already-committed evidence,
+  /// never a guessed resolution. Runs once per imported pre-repair state.
+  Future<void> refreshLegacyThoughtDescriptions() async {
+    final handle = await database;
+    await handle.transaction((txn) async {
+      if (!await BrainWorkFence.workAllowed(txn)) return;
+      const key = 'thought_description_repaired_v338';
+      if (await BrainWorkFence.value(txn, key) == '1') return;
+      final rows = await txn.query('thoughts',
+        where: "source = 'self_drive/thread' AND lifecycle_state IN ('active','fixation','residual')");
+      for (final row in rows) {
+        final events = await txn.query('thought_lifecycle_events',
+          where: 'thought_id = ? AND event_type = ?',
+          whereArgs: [row['id'], 'post_turn_evidence'],
+          orderBy: 'created_at DESC', limit: 1);
+        if (events.isEmpty) continue;
+        final parts = (events.first['detail'] as String? ?? '').split('|');
+        if (parts.length < 4 || parts[1] != row['drive_key'] || parts[2] != row['topic_key']) continue;
+        final latest = parts.skip(3).join('|').trim();
+        if (latest.isEmpty || latest == row['text']) continue;
+        await txn.update('thoughts', {'text': latest,
+          'strength': min((row['strength'] as num).toDouble(), .62),
+          'fed_count': 1, 'kind': 'flit', 'residual_strength': 0.0,
+          // Preserve acted/dormant/cooldown ownership; no extra outbound action.
+          'lifecycle_state': row['lifecycle_state'] == 'fixation' ? 'active' : row['lifecycle_state'],
+          'updated_at': DateTime.now().millisecondsSinceEpoch},
+          where: 'id = ?', whereArgs: [row['id']]);
+      }
+      await txn.insert('settings', {'key': key, 'value': '1'},
+        conflictAlgorithm: ConflictAlgorithm.replace);
+    });
+  }
+
   Future<bool> applyPostTurnThoughtEvidenceAtomic({
     required String sourceMessageId,
     required String evidenceKey,
@@ -10989,6 +11022,7 @@ class AppDatabase {
     required DriveKey drive,
     required double incomingStrength,
     String topicKey = '',
+    String continuity = 'continued',
   }) async {
     final normalizedText = text.trim();
     final normalizedTopic = topicKey.trim().toLowerCase();
@@ -10998,6 +11032,7 @@ class AppDatabase {
     }
     final db = await database;
     return db.transaction<bool>((txn) async {
+      if (!await BrainWorkFence.workAllowed(txn)) return false;
       final seen = await txn.query(
         'thought_lifecycle_events',
         columns: ['id'],
@@ -11028,6 +11063,7 @@ class AppDatabase {
       final now = DateTime.now().millisecondsSinceEpoch;
       String thoughtId;
       if (matches.isEmpty) {
+        if (continuity == 'resolved') return true;
         thoughtId = _uuid.v4();
         final strength = incomingStrength.clamp(0.08, 0.70).toDouble();
         await txn.insert('thoughts', {
@@ -11057,8 +11093,12 @@ class AppDatabase {
       } else {
         final thought = CompanionThought.fromDb(matches.first);
         thoughtId = thought.id;
-        final fed = thought.fedCount + 1;
-        final nextStrength =
+        final changedUnderstanding = continuity == 'revised' || continuity == 'resolved';
+        final settled = continuity == 'resolved';
+        final fed = changedUnderstanding ? 1 : thought.fedCount + 1;
+        final nextStrength = changedUnderstanding
+            ? incomingStrength.clamp(0.0, 1.0).toDouble()
+            :
             (thought.strength * 0.88 + incomingStrength * 0.55 + 0.06)
                 .clamp(0.0, 1.0)
                 .toDouble();
@@ -11066,10 +11106,13 @@ class AppDatabase {
         await txn.update(
           'thoughts',
           {
-            'strength': nextStrength,
+            'text': normalizedText,
+            'strength': settled ? 0.08 : nextStrength,
             'fed_count': fed,
-            'kind': fixation ? 'fixation' : thought.kind,
-            'lifecycle_state': fixation ? 'fixation' : 'active',
+            'kind': fixation && !settled ? 'fixation' : 'flit',
+            'lifecycle_state': settled ? 'dormant' : fixation ? 'fixation' : 'active',
+            if (changedUnderstanding) 'residual_strength': 0.0,
+            if (settled) 'last_satisfied_at': now,
             'last_fed_at': now,
             'updated_at': now,
             if (thought.topicKey.isEmpty && normalizedTopic.isNotEmpty)
@@ -15215,7 +15258,7 @@ class AppDatabase {
         await txn.update(
           'thoughts',
           {
-            'strength': nextStrength,
+            'strength': settled ? 0.08 : nextStrength,
             'fed_count': fed,
             'kind': fixation ? 'fixation' : thought.kind,
             'lifecycle_state': fixation ? 'fixation' : 'active',
@@ -15909,7 +15952,7 @@ class AppDatabase {
         await txn.update(
           'thoughts',
           {
-            'strength': nextStrength,
+            'strength': settled ? 0.08 : nextStrength,
             'fed_count': fed,
             'kind': fixation ? 'fixation' : thought.kind,
             'lifecycle_state': fixation ? 'fixation' : 'active',

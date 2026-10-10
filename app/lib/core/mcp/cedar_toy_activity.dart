@@ -1,4 +1,6 @@
 import 'dart:convert';
+import '../wishes/wish_store.dart';
+import '../wishes/wish_game_evidence.dart';
 
 import 'package:uuid/uuid.dart';
 
@@ -87,6 +89,7 @@ class CedarGameEvent {
     required this.summary,
     required this.createdAt,
     this.action = '',
+    this.inputJson = '',
     this.contentKinds = const <String>[],
     this.viewerUrl = '',
     this.notable = false,
@@ -100,6 +103,7 @@ class CedarGameEvent {
   final String summary;
   final DateTime createdAt;
   final String action;
+  final String inputJson;
   final List<String> contentKinds;
   final String viewerUrl;
   final bool notable;
@@ -117,6 +121,7 @@ class CedarGameEvent {
         summary: summary,
         createdAt: createdAt,
         action: action,
+        inputJson: inputJson,
         contentKinds: <String>{...contentKinds, 'image'}.toList(growable: false),
         viewerUrl: viewerUrl,
         notable: notable,
@@ -133,6 +138,7 @@ class CedarGameEvent {
           summary: summary,
           createdAt: createdAt,
           action: action,
+          inputJson: inputJson,
           contentKinds: contentKinds,
           viewerUrl: viewerUrl,
           notable: notable,
@@ -146,6 +152,7 @@ class CedarGameEvent {
         'summary': summary,
         'created_at': createdAt.millisecondsSinceEpoch,
         'action': action,
+        'input_json': inputJson,
         'content_kinds': contentKinds,
         'viewer_url': viewerUrl,
         'notable': notable,
@@ -162,6 +169,7 @@ class CedarGameEvent {
           (json['created_at'] as num?)?.toInt() ?? 0,
         ),
         action: json['action']?.toString() ?? '',
+        inputJson: json['input_json']?.toString() ?? '',
         contentKinds: (json['content_kinds'] as List?)
                 ?.map((item) => item.toString())
                 .toList(growable: false) ??
@@ -1252,6 +1260,7 @@ class CedarToyActivityStore {
   }
 
   Future<CedarGameSession> recordPlay({
+    Map<String, Object?> submittedParams = const {},
     required String gameId,
     required String action,
     required McpToolOutcome outcome,
@@ -1333,6 +1342,7 @@ class CedarToyActivityStore {
           maxEventSummaryChars),
       createdAt: now,
       action: action,
+      inputJson: _bounded(CedarToyClient.redactSecrets(jsonEncode(submittedParams)), 2000),
       contentKinds: outcome.content
           .map((item) => item.kind.name)
           .toSet()
@@ -1455,7 +1465,14 @@ class CedarToyActivityStore {
       updatedAt: now,
     );
     state = _withExtractedNotices(state, storedNext, onlyEvent: event);
-    final saved = await _saveState(state, executionId: executionId);
+    final receipts = outcome.isError || CedarPlatformActionPolicy.isReadOnly(action) ||
+        CedarPlatformActionPolicy.isPlatformAction(action) ? null :
+        WishGameEvidence.append(raw: await db.getSetting(WishGameEvidence.key) ?? '',
+          wishes: await WishStore(db).load(), gameId: gameId, eventId: event.id,
+          action: action, input: event.inputJson,
+          output: _bounded(CedarToyClient.redactSecrets(fullText), 4000), at: now);
+    final saved = await _saveState(state, executionId: executionId,
+        extra: {if (receipts != null) WishGameEvidence.key: receipts});
     if (!saved && executionId.isNotEmpty) {
       throw const CedarExecutionPreemptedException('play_result_fenced');
     }
@@ -1857,6 +1874,7 @@ terminal_summary=${session.pendingTerminalSummary}
 recent_game_episode=$recentEpisode
 recent_user_game_advice=${session.adviceNotes.join(' | ')}
 latest_platform_event=$latestPlatformEvent
+recent_submitted_inputs=${session.events.where((e) => e.inputJson.isNotEmpty).toList().reversed.take(6).map((e) => '${e.action}: ${e.inputJson}').join(' | ')}
 last_action=${session.lastAction}
 last_outcome=${session.lastOutcome}
 viewer_url=${session.viewerUrl}
@@ -1875,9 +1893,10 @@ ${CedarSaveSlotPolicy.promptGuidance(session.guide, session.lastOutcome)}
   Future<bool> _saveState(
     CedarToyActivityState state, {
     String executionId = '',
+    Map<String, String> extra = const {},
   }) async =>
       db.setSettingsAtomically(
-        _stateSettingValues(state),
+        {..._stateSettingValues(state), ...extra},
         guardKey: executionId.isEmpty ? null : executionFenceSettingKey,
         expectedGuardValue: executionId,
       );

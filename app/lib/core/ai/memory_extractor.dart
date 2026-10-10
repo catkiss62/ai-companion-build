@@ -246,6 +246,9 @@ class MemoryExtractor {
           : activeThreads
               .map((e) => '- id=${e.id} | topic_key=${e.topicKey} | ${e.title}：${e.detail}')
               .join('\n');
+      final thoughtContext = jsonEncode((await db.activeThoughts(limit: 8))
+          .map((t) => {'drive': t.drive.name, 'topic_key': t.topicKey,
+            'text': t.text.length > 400 ? t.text.substring(0, 400) : t.text}).toList());
       final proactiveFeedback = await db.proactiveFeedbackForUserResponse(user.id);
       final proactiveContext = await _buildProactiveContext(proactiveFeedback);
       final previousAssistant = proactiveFeedback == null
@@ -352,7 +355,7 @@ $editableMemoryPolicy
 4.2 【本轮世界书来源】中 knowledge 只是回答问题时查到的资料，不是用户或 AI 的亲身事实。若本轮用了 knowledge，任何 memory 必须额外给 user_evidence_quote，逐字引用【刚发生的对话】中的用户原话；没有独立用户原话就不要创建 memory。behavior 只是表达尝试来源，不能凭模块名称或正文创建人格结论；roleplay 会由手机在进入本整合器前硬隔离。
 5. unfinished_threads 只记录确实需要以后继续的话题、承诺、等待结果或用户明确说“之后再说”的事项。每个长期主题尽量给稳定的 topic_key，例如 user.return_tonight / user.project.result；同一主题必须复用已有 topic_key。topic_key 要短、稳定、语义化，不要包含时间戳、随机数或消息 ID。
 5.1 可以保留双方真实感兴趣、以后仍值得发展的聊天线索，不限于待办；但不能因 AI 单方面想聊、用户只说“嗯”或 AI 复述旧事就创建。每轮最多新增两条这类线索，优先更新已有主题；detail 简要写清已聊到哪、新增了什么、还真正期待什么，区分谁的想法。没有真实悬念就不要留，已聊完就 resolve；普通兴趣线索不安排定时追问，不把它变成催问用户的任务。
-6. thoughts 也尽量给稳定 topic_key。若它来自某个未完成话题，复用该话题的 topic_key。
+6. thoughts 也尽量给稳定 topic_key。若它来自某个未完成话题，复用该话题的 topic_key。念头正文必须反映本轮后的最新理解：用户已回答的问题不能继续写成尚未讨论或没有答案。喜欢回味一个共同经历不等于还有待解问题。游戏中不同问题使用各自稳定子主题，不把同一游戏的所有新进展反复强化为最早那个谜题。已有问题被回答时关闭对应 thread；若出现新问题，写清新问题及已知结论。每个thought附continuity：continued表示同一个具体未解意图得到新证据；revised表示理解/目标已经变化或只是回味；resolved表示原疑问已经得到回答。不能因同属一个游戏就使用continued。
 7. desire_pulses 只是这一轮尚未被其他结构表达的轻微、瞬时变化。普通聊天本身不默认增加 attachment；如果同一变化已经写进 relationship_events，不要再用 desire_pulses 重复计算。单轴建议 -0.02 到 0.02，全部轴绝对值之和不要超过 0.05。
 8. memory 必须区分 semantic：current_fact / inference / shared_experience。
    - current_fact：用户直接说明、明确更新，或已经有足够证据支持的当前事实/当前偏好/稳定 AI Self。
@@ -424,7 +427,7 @@ thread action：open / update / resolve / dismiss。update/resolve/dismiss 已�
 必须输出严格 JSON，例如：
 {
   "memories":[{"kind":"user_profile","semantic":"current_fact","action":"replace","target_id":"已有记忆ID或空字符串","subject_key":"user.device_evening","topic_key":"user.device_evening","actor":"user","relation":"uses","object":"user.device.android_tablet","owner":"user","temporal_scope":"stable","fact_state":"stable","attention_state":"closed","recall_policy":"contextual","spontaneous_salience":0.0,"content":"用户通常晚上会换到自己的安卓平板继续聊天","user_evidence_quote":"用户本轮原话中的逐字证据；未使用 knowledge 时可留空","importance":0.72,"confidence":0.93,"tags":["设备","习惯"]}],
-  "thoughts":[{"drive":"attachment","topic_key":"user.return_tonight","text":"你刚才主动回来继续和我聊了","strength":0.28}],
+  "thoughts":[{"drive":"attachment","topic_key":"user.return_tonight","text":"你刚才主动回来继续和我聊了","strength":0.28,"continuity":"revised"}],
   "threads":[{"action":"open","thread_id":"","topic_key":"user.return_tonight","title":"等用户今晚回来","detail":"用户说晚些时候会回来继续聊","importance":0.66}],
   "relationship_events":[{"kind":"promise","topic_key":"user.return_tonight","summary":"用户说晚些时候会回来继续聊天","intensity":0.55,"valence":0.35}],
   "session_update":{"action":"none","kind":"roleplay","title":"","premise":"","boundaries":[],"continuity_note":""},
@@ -441,6 +444,10 @@ thread action：open / update / resolve / dismiss。update/resolve/dismiss 已�
             'content': '''
 【当前未完成话题】
 $threadContext
+
+【既有念头 · 仅用于核对修订，不是新的事实或要求】
+$thoughtContext
+只处理本轮确实触及的念头；修订或解决时复用对应drive与topic_key，不相关的不要更新。
 
 【本轮回应的主动消息】
 $proactiveContext
@@ -1253,6 +1260,8 @@ AI 主动消息：${outbound?.content ?? '(消息正文不可用)'}
       final applied = await db.applyPostTurnThoughtEvidenceAtomic(
         sourceMessageId: sourceMessageId,
         evidenceKey: '$ordinal|${drive.name}|$topicKey|${text.trim()}',
+        continuity: const {'continued', 'revised', 'resolved'}.contains(item['continuity'])
+            ? item['continuity'] as String : 'revised',
         text: text,
         drive: drive,
         incomingStrength: strength.clamp(0.08, 0.62).toDouble(),

@@ -19,6 +19,7 @@ import '../diagnostics/provider_health.dart';
 import '../memory/memory_brain.dart';
 import '../mcp/cedar_toy_client.dart';
 import '../mcp/cedar_toy_activity.dart';
+import '../mcp/cedar_live_share_policy.dart';
 import '../mcp/cedar_timed_play_task.dart';
 import '../mcp/cedar_play_session_policy.dart';
 import '../mcp/cedar_agent_loop_policy.dart';
@@ -879,6 +880,7 @@ class AgentToolRunner {
         recordedEventId = recorded.events.isEmpty ? '' : recorded.events.last.id;
       } else {
         final recorded = await activityStore.recordPlay(
+          submittedParams: params,
           gameId: game,
           action: action,
           outcome: outcome,
@@ -1003,6 +1005,7 @@ class AgentToolRunner {
     try {
       final apiKey = (await secureConfig.readApiKey())?.trim() ?? '';
       if (apiKey.isEmpty) throw const FormatException('missing_deepseek_key');
+      final shareContext = await CedarLiveSharePolicy(db).recentShares();
       final judged = await _ai.jsonCompletion(
         apiKey: apiKey,
         model: DeepSeekModelProfile.flash,
@@ -1019,6 +1022,8 @@ class AgentToolRunner {
             'content': '''你只核验一次真实 Cedar Toy play Outcome。依据完整指南、刚执行的 action 与真实 Outcome，只返回 JSON：
 {"next_actor":"companion|user|shared|wait|finished","share_level":"quiet|notable|required","resume_after_seconds":0}
 不得规划下一动作，不得补写结果。需要用户决定/输入时为 user 或 shared；远端计时/其他玩家时为 wait；明确结束才为 finished。只有指南或 Outcome 明确给出等待/轮询时长时填写 15～3600 秒，否则为 0。
+${CedarLiveSharePolicy.judgement}
+$shareContext
 game=$game
 action=$action
 【完整指南】

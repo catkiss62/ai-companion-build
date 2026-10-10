@@ -10,6 +10,7 @@ import '../storage/secure_config.dart';
 import 'companion_wish.dart';
 import 'wish_store.dart';
 import 'wish_evidence_window.dart';
+import 'wish_game_evidence.dart';
 
 typedef WishReviewer =
     Future<Map<String, dynamic>?> Function(Map<String, Object?> material);
@@ -60,6 +61,7 @@ class WishEngine {
 愿望应从她真实经历、游戏反馈、读过的网页、兴趣和记忆中自然形成；可联想出新方向，不局限复述最近聊天。不要固定模板或照搬例子，不必每次产生，宁可返回空。
 最多建议一个新愿望；can_generate=false 时不得生成。结合已有/历史愿望语义去重，近期放弃、过期或已完成的同一目标不得换句话重新产生。
 route 仅 game（真实已知游戏中可尝试）、user（需要用户自愿参与）、aspiration（暂时只有向往，没有可验证路径）。不要求一定能实现，不把向往强行变成任务。
+同一游戏的愿望若核心行动与预期体验基本相同，即使灵感来源不同也不要另建重复目标。没有完整指南或实际回执支撑的机制（具体菜单、等待时长、可观察感官等）不能臆造为客观完成条件；可先作为aspiration，不能仅凭catalog标题推断游戏支持。
 游戏 ID 必须在 catalog；愿望不能代替当前用户意愿、游戏指南、停止、休息、共玩邀请或覆盖存档权限。不能声称已拥有尚未提供的能力。自主搜索/跨工具规划本版没有愿望专用执行器，相关想法保留 aspiration。
 新愿望 goal 是自然第一人称的一件具体想做的事（6~100字），reason 说明为什么想做，next_step 是一个小的可选行动，criterion 是不偷换目标的可核验完成条件。completion_kind 只能 game_result/user_photo/user_text；aspiration 留空。不明确条件或暂无证据途径则保留 aspiration。需要用户照片的目标不能用网络图片或用户答应代替。目标涉及“新/首次/增加”时必须有真实 baseline 或明确的新成就回执，不能把任意成功当新增。
 source_ids 引用实际灵感来源，game baseline 来自给定游戏真实结果；不得把助手说过/念头/愿望本身当成发生过的事实。deadline 仅目标本身带时间时填写 ISO8601，不能默认给所有愿望加截止时间。
@@ -114,7 +116,7 @@ expressed=true 仅 assistant_text 确实已经向用户说出了这一具体愿�
       if (evidence.isEmpty) return false;
       final fingerprint = sha256
           .convert(
-            utf8.encode(jsonEncode({"contract":3,"wishes":wishes.map((w)=>w.toJson()).toList(),"sources":evidence.map((e) => e.toJson()).toList()})),
+            utf8.encode(jsonEncode({"contract":4,"wishes":wishes.map((w)=>w.toJson()).toList(),"sources":evidence.map((e) => e.toJson()).toList()})),
           )
           .toString();
       if (await db.getSetting(fingerprintKey) == fingerprint) return false;
@@ -159,6 +161,9 @@ expressed=true 仅 assistant_text 确实已经向用户说出了这一具体愿�
           'catalog': catalog
               .map((e) => {'id': e.id, 'title': e.title})
               .toList(),
+          'known_game_guides': (await CedarToyActivityStore(db).loadState()).sessions.values
+              .where((s) => s.guideComplete && s.guide.length <= 12000).take(2)
+              .map((s) => {'game':s.gameId, 'guide':s.guide}).toList(),
           'sources': evidence.map((e) => e.toJson()).toList(),
         });
       } catch (_) {
@@ -195,7 +200,7 @@ expressed=true 仅 assistant_text 确实已经向用户说出了这一具体愿�
             'added': updated.length - wishes.length,
             'active': updated.where((w) => w.active).length,
             'completed': updated.where((w) => w.state == 'completed').length,
-            'contract': 3, 'source_count': evidence.length,
+            'contract': 4, 'source_count': evidence.length,
             'decisions': decisions.take(16).toList(),
           }),
         },
@@ -254,7 +259,7 @@ expressed=true 仅 assistant_text 确实已经向用户说出了这一具体愿�
             id: 'game:${s.gameId}:${e.id}',
             gameId: s.gameId,
             kind: e.kind == 'outcome' ? 'game_result' : 'game_context',
-            text: clip('${e.action}\n${e.summary}', 1400),
+            text: clip('${e.action}\nsubmitted_input=${e.inputJson}\n${e.summary}', 4000),
             at: e.createdAt,
           ),
         );
@@ -322,6 +327,10 @@ expressed=true 仅 assistant_text 确实已经向用户说出了这一具体愿�
       bounded.addAll(items.take(kind.endsWith('_text') ? 16 : 10));
     }
     bounded.addAll(WishEvidenceWindow.select(result, wishes));
+    final receipts = WishGameEvidence.collect(await db.getSetting(WishGameEvidence.key) ?? '', wishes, now);
+    final receiptIds = receipts.map((e) => e.id).toSet();
+    bounded.removeWhere((e) => receiptIds.contains(e.id));
+    bounded.addAll(receipts);
     bounded.sort((a, b) => a.id.compareTo(b.id));
     return bounded;
   }

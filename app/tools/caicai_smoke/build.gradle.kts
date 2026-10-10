@@ -5,7 +5,7 @@ plugins {
 
 val syncImportSources = tasks.register<Sync>("syncImportSources") {
     from("../../android/app/src/main/kotlin/com/catkiss/senlive2dcompanion") {
-        include("CaicaiModelRepository.kt", "CaicaiModelPaths.kt", "CaicaiDiagnostics.kt", "CaicaiStagePreferences.kt")
+        include("CaicaiModelRepository.kt", "CaicaiModelPaths.kt", "CaicaiDiagnostics.kt", "CaicaiStagePreferences.kt", "CaicaiStageVisibility.kt")
     }
     from("../../android/app/src/main/kotlin/com/aicompanion/localfirst") {
         include("NativeMemoryGalaxyActivity.kt", "MemoryGalaxyFiles.kt", "PortableCompanionState.kt")

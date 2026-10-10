@@ -44,6 +44,7 @@ class DesireEngine {
     DateTime? now,
   }) async {
     final instant = now ?? DateTime.now();
+    await db.refreshLegacyThoughtDescriptions();
     final wake = await DailyWakeStore.read(await db.database, instant);
     final fatigueAffect =
         await FatigueAffectController(db).snapshot(now: instant);
@@ -330,7 +331,7 @@ class DesireEngine {
     );
     await db.upsertThought(
       id: match.id,
-      text: match.text,
+      text: source == 'self_drive/thread' ? normalized : match.text,
       drive: drive,
       kind: decision.kind,
       strength: decision.strength,
