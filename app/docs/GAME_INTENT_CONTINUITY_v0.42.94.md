@@ -1,6 +1,6 @@
 # 游戏意图连续性 · v0.42.94+338
 
-状态：IMPLEMENTED / CI PENDING / TRUE DEVICE PENDING。
+状态：CI PASSED / APK READY / TRUE DEVICE PENDING。
 基线：+337，分支 agent/v04294-game-intent-continuity。
 
 ## 授权与审计
@@ -24,4 +24,17 @@
 新增Flutter真实SQLite回归：修订/解决、幂等、旧存档证据修复、转移锁、上下文时效、回执跨日志滚动、抢占后不落库、分享轮数门、停顿可切换或休息且不调用开局。继续跑全量Flutter、专项稳定性、150个现行源码门、Kotlin及Android 35原生；新增Android 8/API26真实GL可见性测试。
 
 当前本地142/150源码门通过；8项缺少本地素材或kotlinc，交由完整CI。未把历史退役validator当现行门，也未删行为断言。restore保护hash仅更新本次Thought方法的已审查变更，恢复/所有权方法未变。
-完整CI结果和交付链接待追加。对语义分享质量与自然意图执行，只能以实际长期对话确认，测试不承诺模型每次都做相同选择。
+完整CI结果和交付链接见下方。对语义分享质量与自然意图执行，只能以实际长期对话确认，测试不承诺模型每次都做相同选择。
+
+
+## +338 最终CI与未发布APK交付
+
+源码 cce1c35f3dcfc217b849aac317f42493a6b95da9，tree e695f11ebc07d74c5015e40fc0a8694dde9f4014；本地对应7b03519。完整Actions https://github.com/catkiss62/ai-companion-build/actions/runs/38077013612 与专项 https://github.com/catkiss62/ai-companion-build/actions/runs/38077013425 全部成功。150现行源码门、1486全量Flutter、536专项、30项Android35原生、1项Android8/API26真实GL可见性回归以及Kotlin/资源/同签名校验通过。Android8用例包含先绘制GL帧、五次隐藏/恢复、隐藏时实际触摸下层按钮及Activity前后台。
+
+测试APK：https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-893afd5239b4ba5c7d2a
+文件：AI-Companion-v0.42.94-338-Game-Intent-Continuity-APK.apk，736843025 bytes。
+SHA256：440821b933ae4d3846f4227cb4a82675add323feffe64a605c256f9f9ae1c7b8。
+签名SHA256：30:5E:B3:D8:09:83:B9:63:C6:48:18:DD:F1:AD:56:1F:27:9D:E6:D4:7B:3E:D2:C7:81:AD:A4:48:C7:C2:51:48。
+CI于北京时间2026-10-11约03:11完成，06:00复核交付。保持draft，未合并main。真机待验收：朋友Android8打开更多/点选/返回聊天及前后台；用户手机现代显示路径与游戏长期分享、念头更新、愿望选择自然观察。不能把模拟器通过写成朋友真机已修复。
+
+失败路线如实保留：首个提交被后续修正替代取消；d7c58d2轮专项分析发现两处无关方法误用settled变量，已恢复原逻辑，未删测试或弱化断言。最终源码cce1c35全量重新通过。用户备份/诊断及提取的私密内容没有提交。第6项工作区/创意/梦境仍未实施。
