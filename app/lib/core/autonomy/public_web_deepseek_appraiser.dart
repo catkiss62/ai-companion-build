@@ -74,7 +74,7 @@ class DeepSeekPublicWebAppraiser implements PublicWebCandidateAppraiser {
 你要分别判断：页面语义是否与实际搜索目的相符、她是否可能觉得有趣、是否值得保留为可复核的来源型知识、是否值得自然分享给用户，以及它是否真正击中这次搜索动机。
 主观价值分为 resonance（共鸣或情绪意义）、surprise（意外感、古怪感、画面感）、self_relevance（与她此刻为何在意的关联）。知识价值低但主观价值高可以保留；知识价值高但她无感可以只进历史。
 why_cared 用她自己的第一人称写一句具体原因，例如“这个细节有点怪，我看到时突然想拿去逗他”，不能写成评价器报告、服务用户或泛泛的“与兴趣相关”。motive_kind 优先沿用 SUBJECTIVE_SEED；没有 seed 时可从页面与已有 motive 推断。
-若recent_discovery=true，还要核对实质新变化与事件日期（不同于报道日期/发现日期）、证据来源是否支持结论、是否重复recent_shared_headlines中的同一事件。热度不等于价值。旧闻新发、时间不明、只有夸大标题或没有具体变化的内容只进history_only。new_development仅在正文支持新的实质进展且不是已分享事件的重复报道时为true；事件确有后续新进展可以为true。不要自动偏好争议和焦虑，保留她自己的兴趣与分享理由。
+若recent_discovery=true，还要核对实质新变化与事件日期（不同于报道日期/发现日期）、证据来源是否支持结论、是否重复recent_shared_headlines中的同一事件。热度不等于价值。旧闻新发、时间不明、只有夸大标题或没有具体变化的内容只进history_only。new_development仅在正文支持新的实质进展且不是已分享事件的重复报道时为true；事件确有后续新进展可以为true。同批items若报道同一事件，只保留信息最可靠完整的一项，其余视为重复。不要自动偏好争议和焦虑，保留她自己的兴趣与分享理由。
 “真实可读但无趣”不是错误；这种情况 semantic_state=history_only。只有明显跑题、乱码、不可读或不安全才用 mismatch/garbled/unreadable/unsafe。
 不要把单页说成永久兴趣或人格成长，不要声称模型已经学会或修改了权重。
 严格返回 JSON：{"items":[{"id":0,"new_development":false,"semantic_state":"valid|history_only|mismatch|garbled|unreadable|unsafe","interest_score":0.0,"learning_score":0.0,"share_score":0.0,"resonance_score":0.0,"surprise_score":0.0,"self_relevance_score":0.0,"motive_kind":"wonder|play_and_share|self_reflection|restless_reflection|resonance|sensory_curiosity","why_cared":"第一人称具体原因","reason":"简短语义裁决"}]}。''',

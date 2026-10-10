@@ -136,7 +136,7 @@ class LayeredPublicWebProvider implements PublicWebProvider {
     if (drafts.isEmpty && recentMode) {
       return PublicWebProviderResult(candidates: const [], provider: providerKey,
         primaryProvider: 'tavily', primaryFailureReason: global.failureReason,
-        failureReason: global.failureReason.isEmpty ? 'no_recent_results' : global.failureReason);
+        failureReason: global.failureReason); // A successful empty search is no-result, not a provider failure.
     }
     if (drafts.isEmpty) {
       final fallback = await _fallback.discover(

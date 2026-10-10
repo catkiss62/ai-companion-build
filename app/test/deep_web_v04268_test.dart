@@ -146,6 +146,8 @@ void main() {
                     'key_points': ['研究材料'],
                     'uncertainties': ['有限'],
                     'topic_tags': ['研究'],
+                    'event_date': '2026-10-08',
+                    'publication_date': '2026-10-09',
                   }),
                 },
               },
@@ -162,6 +164,7 @@ void main() {
       ).rereadCandidate(candidate: _page(), query: '研究材料', now: DateTime.now());
       expect(page.readState, 'verified');
       expect(page.pageBody, original);
+      expect(page.topicTags, containsAll(['event_date=2026-10-08', 'publication_date=2026-10-09']));
       expect(seen.join(), contains('结尾限制'));
       expect(seen.length, greaterThanOrEqualTo(3));
       expect(peak, inInclusiveRange(2, 3));

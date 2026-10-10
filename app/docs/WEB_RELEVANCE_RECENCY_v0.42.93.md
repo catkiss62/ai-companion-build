@@ -24,7 +24,7 @@
 
 ## 偏好形成审计（只分析）
 
-代码入口：memory_extractor.dart、models/personality_learning.dart、personality_learning_prompt_policy.dart、post_turn_pipeline.dart及数据库证据提交。模型在回复后的提取队列提出偏好，不是只能等空闲才学习。空闲整理/Phase2b不是唯一学习入口。当前上下文可以影响下一句表达，长期偏好则依赖提取、引用核实、归属/语境检查、累计证据、成熟度及提示词选取。
+代码入口：memory_extractor.dart、models/personality_learning.dart、personality_learning_prompt_policy.dart中的回复后提取队列及数据库证据提交。模型在回复后的提取队列提出偏好，不是只能等空闲才学习。空闲整理/Phase2b不是唯一学习入口。当前上下文可以影响下一句表达，长期偏好则依赖提取、引用核实、归属/语境检查、累计证据、成熟度及提示词选取。
 
 合理部分：证据必须是真实用户原句；不把AI自己的输出当用户偏好，不从“好/继续”等轻易泛化，不把局部角色扮演偏好写入普通交流，不凭单次表达永久固化，允许反证与修订。拒绝多不自动证明设计错误。
 

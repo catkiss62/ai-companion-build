@@ -70,7 +70,8 @@ void main() {
         intentAction: 'discover_interest', interestKey: 'curiosity:recent_interest:ocean:recent7d', now: now);
     expect(seen.length, 1);
     expect(result.candidates, isEmpty);
-    expect(result.failureReason, 'no_recent_results');
+    expect(result.succeeded, isTrue);
+    expect(result.fallbackAttempted, isFalse);
   });
   test('recent appraisal needs a dated substantive change, including duplicate check', () async {
     final current = DateTime.now();
