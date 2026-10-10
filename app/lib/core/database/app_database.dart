@@ -15258,7 +15258,7 @@ class AppDatabase {
         await txn.update(
           'thoughts',
           {
-            'strength': settled ? 0.08 : nextStrength,
+            'strength': nextStrength,
             'fed_count': fed,
             'kind': fixation ? 'fixation' : thought.kind,
             'lifecycle_state': fixation ? 'fixation' : 'active',
@@ -15952,7 +15952,7 @@ class AppDatabase {
         await txn.update(
           'thoughts',
           {
-            'strength': settled ? 0.08 : nextStrength,
+            'strength': nextStrength,
             'fed_count': fed,
             'kind': fixation ? 'fixation' : thought.kind,
             'lifecycle_state': fixation ? 'fixation' : 'active',
