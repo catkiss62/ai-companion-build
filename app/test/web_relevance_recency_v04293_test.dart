@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 import 'package:ai_companion_localfirst/core/agent/agent_tool.dart';
 import 'package:ai_companion_localfirst/core/ai/deepseek_client.dart';
+import 'package:ai_companion_localfirst/core/ai/jev_decision_gateway.dart';
 import 'package:ai_companion_localfirst/core/ai/generation_cancellation.dart';
 import 'package:ai_companion_localfirst/core/autonomy/layered_public_web_provider.dart';
 import 'package:ai_companion_localfirst/core/autonomy/public_web_deepseek_appraiser.dart';
@@ -34,6 +35,24 @@ void main() {
     expect(WebKnowledgeSelection.selected(pages, null), isNull);
     expect(WebKnowledgeSelection.selected(pages, {'web_0': 'read'}), isNull);
     expect(((WebKnowledgeSelection.describe(pages)['web_0'] as Map)['summary'] as String).length, 500);
+  });
+  test('uncertain relevance retains evidence; missing optional web answer preserves main route', () async {
+    expect(WebKnowledgeSelection.resolve({'read': .45, 'skip': .55}), 'read');
+    expect(WebKnowledgeSelection.resolve({'skip': .6}), 'read');
+    expect(WebKnowledgeSelection.resolve({'read': .1, 'skip': .9}), 'skip');
+    final page = PublicWebContextItem(id: 'p', title: '研究', summary: '旧资料',
+      url: 'https://example.com', sourceDomain: 'example.com', provider: 'test',
+      discoveredAt: now, safetyState: 'untrusted_public');
+    final gateway = JevDecisionGateway(enabledReader: () async => true,
+      keyReader: () async => 'test', clientFactory: () => MockClient((request) async =>
+        http.Response(jsonEncode({'answers': {'mode': {'type': 'choice', 'choice': 'daily',
+          'confidence': .9, 'probabilities': {'daily': .9, 'other': .1}}}}), 200)));
+    final answer = await gateway.chooseMany(state: 'test', questions: {
+      'mode': const JevChoiceQuestion('route', {'daily': 'daily', 'other': 'other'}),
+      ...WebKnowledgeSelection.questions([page]),
+    });
+    expect(answer, {'mode': 'daily'});
+    expect(WebKnowledgeSelection.selected([page], answer), isNull);
   });
   test('topic routing uses interests without putting private sentences in queries', () {
     final date = List.generate(5, (i) => now.add(Duration(hours: i * 6)))
