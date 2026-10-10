@@ -170,6 +170,7 @@ class AutonomousActionCoordinator {
     required String runToken,
     required List<PublicWebCandidateDraft> candidates,
     DateTime? now,
+    bool suppressInterestEvidence = false,
   }) async {
     final instant = now ?? DateTime.now();
     final primaryDrive = DriveKey.values.firstWhere(
@@ -180,6 +181,7 @@ class AutonomousActionCoordinator {
       id: run.id,
       runToken: runToken,
       candidates: candidates,
+      suppressInterestEvidence: suppressInterestEvidence,
       now: instant,
       satisfyOnSuccess: (snapshot) {
         final drives = DesireCorePolicy.satisfiedDrives(

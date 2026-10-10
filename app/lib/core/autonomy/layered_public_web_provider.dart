@@ -23,6 +23,7 @@ class LayeredPublicWebProvider implements PublicWebProvider {
     this.agnesEnabled = true,
     this.pageReadingEnabled = true,
     this.extraSources = '',
+    this.recentMode = false,
     http.Client? client,
     PublicWebProvider? fallback,
   })  : _client = client ?? http.Client(),
@@ -35,6 +36,7 @@ class LayeredPublicWebProvider implements PublicWebProvider {
   final bool agnesEnabled;
   final bool pageReadingEnabled;
   final String extraSources;
+  final bool recentMode;
   final http.Client _client;
   final PublicWebProvider _fallback;
 
@@ -111,7 +113,7 @@ class LayeredPublicWebProvider implements PublicWebProvider {
     );
     var imageFallbackAttempted = false;
     var imageFallbackSucceeded = false;
-    if (_requiresImageCandidates(intentAction)) {
+    if (!recentMode && _requiresImageCandidates(intentAction)) {
       imageFallbackAttempted = true;
       final fallback = await _fallback.discover(
         query: normalized,
@@ -130,6 +132,11 @@ class LayeredPublicWebProvider implements PublicWebProvider {
         ...drafts,
         ...supplementalImages,
       ];
+    }
+    if (drafts.isEmpty && recentMode) {
+      return PublicWebProviderResult(candidates: const [], provider: providerKey,
+        primaryProvider: 'tavily', primaryFailureReason: global.failureReason,
+        failureReason: global.failureReason.isEmpty ? 'no_recent_results' : global.failureReason);
     }
     if (drafts.isEmpty) {
       final fallback = await _fallback.discover(
@@ -488,6 +495,7 @@ class LayeredPublicWebProvider implements PublicWebProvider {
     final body = <String, Object?>{
       'query': query,
       'topic': 'general',
+      if (recentMode) 'time_range': 'week',
       'search_depth': 'basic',
       'max_results': includeDomains.isEmpty ? 5 : 3,
       'include_answer': false,
@@ -587,7 +595,7 @@ class LayeredPublicWebProvider implements PublicWebProvider {
               interestKey: interestKey,
               searchQuery: searchQuery,
               discoveredAt: now,
-              expiresAt: now.add(const Duration(days: 14)),
+              expiresAt: now.add(Duration(days: recentMode ? 2 : 14)),
               imageUrl: item.imageUrl,
               imageDomain: item.imageDomain,
               imageDescription: item.imageDescription,
@@ -722,17 +730,14 @@ class AgnesWebCompactor {
       }
       final chunks = _chunks(content, 28000);
       final partials = <_AgnesPageSummary>[];
-      for (var index = 0; index < chunks.length; index++) {
-        final summary = await _summarizePageMaterial(
-          query: query,
-          title: candidate.title,
-          source: candidate.sourceDomain,
-          material: chunks[index],
-          part: index + 1,
-          totalParts: chunks.length,
-        );
-        if (summary == null) break;
-        partials.add(summary);
+      for (var start = 0; start < chunks.length; start += 3) {
+        final indices = List.generate((chunks.length - start).clamp(0, 3).toInt(),
+          (offset) => start + offset);
+        final batch = await Future.wait(indices.map((index) => _summarizePageMaterial(
+          query: query, title: candidate.title, source: candidate.sourceDomain,
+          material: chunks[index], part: index + 1, totalParts: chunks.length)));
+        if (batch.any((summary) => summary == null)) break;
+        partials.addAll(batch.whereType<_AgnesPageSummary>());
       }
       if (partials.length != chunks.length) {
         output.add(candidate.copyWith(readState: 'summary_failed'));
@@ -760,7 +765,12 @@ class AgnesWebCompactor {
         semanticState: 'pending_appraisal',
         keyPoints: merged.keyPoints.take(8).toList(growable: false),
         uncertainties: merged.uncertainties.take(5).toList(growable: false),
-        topicTags: merged.topicTags.take(8).toList(growable: false),
+        topicTags: [
+          ...merged.topicTags.where((t) => !t.startsWith('event_date=') &&
+            !t.startsWith('publication_date=')).take(8),
+          if (merged.eventDate.isNotEmpty) 'event_date=${merged.eventDate}',
+          if (merged.publicationDate.isNotEmpty) 'publication_date=${merged.publicationDate}',
+        ],
       ));
     }
     lastSucceeded = output.any((candidate) => candidate.isVerifiedRead);
@@ -781,7 +791,8 @@ class AgnesWebCompactor {
 搜索目的：${_bounded(query, 120)}
 标题：${_bounded(title, 240)}
 来源域名：${_bounded(source, 160)}
-返回严格 JSON：{"reader_summary":"给用户看的清楚中文概要","key_points":["可复核要点"],"uncertainties":["正文中的限制或不确定性"],"topic_tags":["主题标签"]}。
+返回严格 JSON：{"reader_summary":"给用户看的清楚中文概要","key_points":["可复核要点"],"uncertainties":["正文中的限制或不确定性"],"topic_tags":["主题标签"],"event_date":"YYYY-MM-DD或空","publication_date":"YYYY-MM-DD或空"}。
+分别记录正文明确支持的实质新进展发生日期与文章发布日期。无明确日期就留空，禁止用今天、抓取时间、网页版权年份补全；旧事件的新转载不算新事件。日期冲突写进 uncertainties。
 不得评价用户、不得决定学习或分享；保留与搜索目的是否相符所需的事实。若正文语义不通，也要在 uncertainties 明确写出。
 【公开正文开始】
 $material
@@ -798,11 +809,11 @@ $material
     required List<_AgnesPageSummary> partials,
   }) async {
     final raw = await _complete(
-      '''以下是同一公开网页所有分段的忠实整理结果。只合并、去重，不添加事实。
+      '''以下是同一公开网页所有分段的忠实整理结果。只合并、去重，不添加事实。event_date只能是文章主要新进展的日期，publication_date是发布日期，冲突或缺失留空；不能用网页提到的任意近期日期冒充主要事件日期。
 搜索目的：${_bounded(query, 120)}
 标题：${_bounded(title, 240)}
 来源域名：${_bounded(source, 160)}
-返回严格 JSON：{"reader_summary":"给用户看的清楚中文概要","key_points":["可复核要点"],"uncertainties":["限制或不确定性"],"topic_tags":["主题标签"]}。
+返回严格 JSON：{"reader_summary":"给用户看的清楚中文概要","key_points":["可复核要点"],"uncertainties":["限制或不确定性"],"topic_tags":["主题标签"],"event_date":"YYYY-MM-DD或空","publication_date":"YYYY-MM-DD或空"}。
 ${jsonEncode(partials.map((item) => item.toJson()).toList(growable: false))}''',
       maxTokens: 1600,
     );
@@ -831,10 +842,19 @@ ${jsonEncode(partials.map((item) => item.toJson()).toList(growable: false))}''',
         keyPoints: strings(decoded['key_points'], 10),
         uncertainties: strings(decoded['uncertainties'], 6),
         topicTags: strings(decoded['topic_tags'], 10),
+        eventDate: _date(decoded['event_date']),
+        publicationDate: _date(decoded['publication_date']),
       );
     } catch (_) {
       return null;
     }
+  }
+
+  static String _date(Object? raw) {
+    final value = raw?.toString() ?? '';
+    if (!RegExp(r'^\d{4}-\d{2}-\d{2}$').hasMatch(value)) return '';
+    final date = DateTime.tryParse('${value}T00:00:00Z');
+    return date != null && date.toIso8601String().substring(0, 10) == value ? value : '';
   }
 
   static List<String> _chunks(String value, int size) {
@@ -1008,18 +1028,23 @@ class _AgnesPageSummary {
     required this.keyPoints,
     required this.uncertainties,
     required this.topicTags,
+    this.eventDate = '', this.publicationDate = '',
   });
 
   final String readerSummary;
   final List<String> keyPoints;
   final List<String> uncertainties;
   final List<String> topicTags;
+  final String eventDate;
+  final String publicationDate;
 
   Map<String, Object?> toJson() => <String, Object?>{
         'reader_summary': readerSummary,
         'key_points': keyPoints,
         'uncertainties': uncertainties,
         'topic_tags': topicTags,
+        'event_date': eventDate,
+        'publication_date': publicationDate,
       };
 }
 

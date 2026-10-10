@@ -114,6 +114,7 @@ void main() {
     () async {
       final original = '${'研究材料。' * 12000}结尾限制。';
       final seen = <String>[];
+      var active = 0, peak = 0;
       final client = MockClient((request) async {
         final data = jsonDecode(request.body) as Map;
         if (request.url.path == '/extract') {
@@ -132,6 +133,9 @@ void main() {
         final prompt =
             ((data['messages'] as List).last as Map)['content'] as String;
         seen.add(prompt);
+        active++; if (active > peak) peak = active;
+        await Future<void>.delayed(const Duration(milliseconds: 5));
+        active--;
         return http.Response(
           jsonEncode({
             'choices': [
@@ -160,6 +164,7 @@ void main() {
       expect(page.pageBody, original);
       expect(seen.join(), contains('结尾限制'));
       expect(seen.length, greaterThanOrEqualTo(3));
+      expect(peak, inInclusiveRange(2, 3));
     },
   );
   group('real storage: snapshot, refresh and ownership', () {

@@ -58,6 +58,20 @@ void main() {
     };
   }
 
+  // Audit only: document the current false-negative gate; no policy changed.
+  test('audit: a short emoji preference cannot reinforce through semantic review', () {
+    final existing = candidate(subjectKey: 'user.preference.communication.emoji',
+      proposition: '用户喜欢交流中多用emoji');
+    const userText = '你以后多发emoji';
+    final parsed = PersonalityLearningProposal.parseDetailed(
+      raw: support(subjectKey: existing.subjectKey, quote: userText)
+        ..['target_id'] = existing.id,
+      userText: userText, context: ordinary, existingById: {existing.id: existing});
+    expect(parsed.proposal, isNull);
+    expect(parsed.needsSemanticReview, isFalse);
+    expect(parsed.rejectionReason, PersonalityLearningRejectionReason.ungroundedTarget);
+  });
+
   test('explicit user quote creates a calibrated ordinary proposal', () {
     final proposal = PersonalityLearningProposal.parse(
       raw: support(),

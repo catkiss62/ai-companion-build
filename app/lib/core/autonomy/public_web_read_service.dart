@@ -1,3 +1,4 @@
+import '../agent/agent_tool.dart';
 import '../ai/deepseek_client.dart';
 import '../ai/generation_cancellation.dart';
 import '../database/app_database.dart';
@@ -126,13 +127,46 @@ class PublicWebReadService {
     Iterable<String> ids, {
     String query = '',
     GenerationCancellationToken? cancellation,
+    int limit = 3,
+    void Function(AgentToolActivity)? onActivity,
   }) async {
+    final pages = ids.toSet().take(limit.clamp(1, 5).toInt()).toList();
     final ready = <String>[];
-    for (final id in ids.toSet().take(3)) {
+    final clock = Stopwatch()..start();
+    var completed = 0;
+    void report(AgentToolStatus status, String text) => onActivity?.call(
+      AgentToolActivity(toolId: 'public_web.read', status: status, text: text));
+    if (pages.isEmpty) return ready;
+    report(AgentToolStatus.running, '正在核对并读取相关网页资料（0/${pages.length}）…');
+    try {
+      for (var start = 0; start < pages.length; start += 2) {
+        cancellation?.throwIfCancelled();
+        final batch = pages.skip(start).take(2).toList();
+        final results = await Future.wait(batch.map((id) async {
+          final ok = await refreshForUse(id, query: query, cancellation: cancellation);
+          completed++;
+          report(AgentToolStatus.running, '正在核对并读取相关网页资料（$completed/${pages.length}）…');
+          return ok;
+        }));
+        for (var i = 0; i < batch.length; i++) {
+          if (results[i]) ready.add(batch[i]);
+        }
+      }
       cancellation?.throwIfCancelled();
-      if (await refreshForUse(id, query: query, cancellation: cancellation))
-        ready.add(id);
+      report(ready.isEmpty ? AgentToolStatus.noResult : AgentToolStatus.succeeded,
+        ready.isEmpty ? '未取得可核验的网页正文' : '已核验 ${ready.length} 份网页资料');
+      return ready;
+    } on GenerationCancelledByUserException {
+      report(AgentToolStatus.stopped, '网页读取已停止');
+      rethrow;
+    } catch (_) {
+      report(AgentToolStatus.failed, '网页读取未完成');
+      rethrow;
+    } finally {
+      try {
+        await db.setSetting('web_prompt_read_timing_v1',
+          '${DateTime.now().millisecondsSinceEpoch}|${pages.length}|${ready.length}|${clock.elapsedMilliseconds}');
+      } catch (_) { /* Timing never changes reply outcome. */ }
     }
-    return ready;
   }
 }

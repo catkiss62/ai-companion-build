@@ -121,6 +121,8 @@ class PromptBuilder {
     String? selectedPublicWebCandidateId,
     GenerationCancellationToken? webCancellationToken,
     bool freshTopicSourceOnly = false,
+    List<String>? historicalWebIds,
+    void Function(AgentToolActivity)? onWebReadActivity,
   }) async {
     final instant = now ?? DateTime.now();
     final reminderContext = (await CalendarReminderStateStore.read(await db.database)).prompt(instant);
@@ -327,27 +329,30 @@ class PromptBuilder {
       selectedThought: selectedConversationThought,
       selectedCandidateId: selectedPublicWebCandidateId,
     );
-    final readableWebIds = await PublicWebReadService(db).refreshIds(
-      publicWebCandidateIds, query: query, cancellation: webCancellationToken);
-    final publicWeb = await db.publicWebContextByIds(
-      candidateIds: readableWebIds,
-      now: instant,
-    );
     final historicalPublicKnowledge = freshTopicSourceOnly || worldBookContext.hasRoleplay
         ? const <PublicWebContextItem>[]
-        : await db.activePublicWebKnowledgeContext(query: query);
+        : (await db.activePublicWebKnowledgeContext(query: query))
+            .where((page) => historicalWebIds == null || historicalWebIds.contains(page.id))
+            .toList();
+    final allIds = <String>{...publicWebCandidateIds,
+      ...historicalPublicKnowledge.map((page) => page.id)};
+    final readableWebIds = await PublicWebReadService(db).refreshIds(
+      allIds, query: query, cancellation: webCancellationToken,
+      limit: 5, onActivity: onWebReadActivity);
+    final publicWeb = await db.publicWebContextByIds(
+      candidateIds: readableWebIds.where(publicWebCandidateIds.contains).toList(),
+      now: instant,
+    );
     final publicKnowledge = <PublicWebContextItem>[];
     for (final old in historicalPublicKnowledge) {
-      if (await PublicWebReadService(db).refreshForUse(old.id, query: query,
-          cancellation: webCancellationToken)) {
-        final page = await db.publicWebCandidateForRefresh(old.id);
-        if (page != null && PublicWebReadService.usable(page)) {
-          publicKnowledge.add(PublicWebContextItem(id: old.id, title: page.title,
-            summary: page.summary, url: page.url, sourceDomain: page.sourceDomain,
-            provider: page.provider, discoveredAt: page.discoveredAt,
-            safetyState: page.safetyState, keyPoints: page.keyPoints,
-            uncertainties: page.uncertainties, readAt: page.readAt, pageBody: page.pageBody));
-        }
+      if (publicWebCandidateIds.contains(old.id) || !readableWebIds.contains(old.id)) continue;
+      final page = await db.publicWebCandidateForRefresh(old.id);
+      if (page != null && PublicWebReadService.usable(page)) {
+        publicKnowledge.add(PublicWebContextItem(id: old.id, title: page.title,
+          summary: page.summary, url: page.url, sourceDomain: page.sourceDomain,
+          provider: page.provider, discoveredAt: page.discoveredAt,
+          safetyState: page.safetyState, keyPoints: page.keyPoints,
+          uncertainties: page.uncertainties, readAt: page.readAt, pageBody: page.pageBody));
       }
     }
     if (conversationInitiative != null) {

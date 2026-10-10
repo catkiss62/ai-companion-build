@@ -1,3 +1,5 @@
+import '../autonomy/web_knowledge_selection.dart';
+import '../models/public_web_candidate.dart';
 import '../mood/mood_appraisal.dart';
 import '../mood/mood_service.dart';
 import 'dart:convert';
@@ -22,6 +24,7 @@ class NsfwRouteDecision {
     this.initiativeOpportunity = false,
     this.cedarIntent,
     this.gameAttitude = 'none',
+    this.historicalWebIds,
   });
 
   final bool active;
@@ -34,6 +37,7 @@ class NsfwRouteDecision {
   /// Null when Jev was unavailable; otherwise a closed-set game intent.
   final String? cedarIntent;
   final String gameAttitude;
+  final List<String>? historicalWebIds;
 }
 
 /// A small pre-generation model pass that decides which prompt layers the
@@ -57,6 +61,7 @@ class NsfwContextRouter {
     required String latestUserText,
     required List<ChatMessage> recent,
     bool cedarConfigured = false,
+    List<PublicWebContextItem> historicalWebCandidates = const [],
     GenerationCancellationToken? cancellationToken,
   }) async {
     if ((await db.getSetting('nsfw_route_turn_id')) == turnId) {
@@ -65,6 +70,7 @@ class NsfwContextRouter {
         referenceActive:
             (await db.getSetting('nsfw_reference_active')) == '1',
         source: 'replay_${await db.getSetting('nsfw_route_source') ?? 'stored'}',
+        historicalWebIds: _readWebIds(await db.getSetting('route_web_ids_v1')),
         playfulInteraction: PlayfulInteraction.parse(
           await db.getSetting('playful_form_router_signal_v1'),
         ),
@@ -117,6 +123,8 @@ class NsfwContextRouter {
             ? transcript.substring(transcript.length - 2400)
             : transcript,
         'latest_user_text': latestUserText,
+        if (historicalWebCandidates.isNotEmpty)
+          'historical_web': WebKnowledgeSelection.describe(historicalWebCandidates),
         'active_game': attitudeGame,
         if (causeMessage != null) 'pending_cause': {
           'id': pendingCause!.id, 'user_evidence': causeMessage.promptContent.length > 500
@@ -125,6 +133,7 @@ class NsfwContextRouter {
         },
       },
       questions: <String, JevChoiceQuestion>{
+        ...WebKnowledgeSelection.questions(historicalWebCandidates),
         if (moodEnabled) ...MoodAppraisal.questions,
         'mode': JevChoiceQuestion(
           'Which descriptive prompt depth fits latest_user_text in '
@@ -225,6 +234,7 @@ class NsfwContextRouter {
         initiativeOpportunity: jev['initiative'] == 'open',
         gameAttitude: jev['game_attitude'] ?? 'none',
         cedarIntent: jev['cedar'],
+        historicalWebIds: WebKnowledgeSelection.selected(historicalWebCandidates, jev),
       );
       await _persist(decision, turnId: turnId, consumeManualOverride: manualRoute);
       return decision;
@@ -370,6 +380,13 @@ $latestUserText''',
     }
   }
 
+  static List<String>? _readWebIds(String? raw) {
+    try {
+      final value = jsonDecode(raw ?? 'null');
+      return value is List ? value.whereType<String>().take(2).toList() : null;
+    } catch (_) { return null; }
+  }
+
   Future<void> _persist(
     NsfwRouteDecision decision, {
     required String turnId,
@@ -388,6 +405,7 @@ $latestUserText''',
         decision.initiativeOpportunity ? '1' : '0');
     await db.setSetting('cedar_route_intent_v1', decision.cedarIntent ?? '');
     await db.setSetting('cedar_game_attitude_route_signal', decision.gameAttitude);
+    await db.setSetting('route_web_ids_v1', jsonEncode(decision.historicalWebIds));
     await db.setSetting('nsfw_route_turn_id', turnId);
     if (consumeManualOverride) {
       await db.setSetting('nsfw_manual_override', '');

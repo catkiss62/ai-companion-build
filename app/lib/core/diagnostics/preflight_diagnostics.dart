@@ -654,6 +654,7 @@ class PreflightDiagnosticsService {
         'lastTakeoverAt': lastTakeoverAt,
         'postTurnJobs': jobs,
         'generationRequest': await _generationRequestState(),
+        'webPromptReadTiming': await _webPromptReadTiming(),
         'backupRestoreTiming': {
           for (final entry in _safeJsonObject(await db.getSetting('backup_restore_timing_v1') ?? '').entries)
             if (const ['validationMs', 'prepareFilesMs', 'databaseMs', 'commitFilesMs', 'at'].contains(entry.key) && entry.value is num)
@@ -2040,6 +2041,16 @@ class PreflightDiagnosticsService {
 
   Map<String, Object?> _asMap(Object? value) =>
       value is Map ? _normalizeMap(value) : const <String, Object?>{};
+  Future<Map<String, Object?>> _webPromptReadTiming() async {
+    final raw = (await db.getSetting('web_prompt_read_timing_v1') ?? '').split('|');
+    if (raw.length != 4) return const {};
+    return {
+      for (final entry in ['at', 'requested', 'ready', 'elapsedMs'].asMap().entries)
+        entry.value: int.tryParse(raw[entry.key]) ?? 0,
+      'contentIncluded': false,
+    };
+  }
+
   Future<Map<String, Object?>> _generationRequestState() async {
     try {
       final value = jsonDecode(await db.getSetting('generation_request_state_v1') ?? '{}');
@@ -2048,7 +2059,7 @@ class PreflightDiagnosticsService {
         for (final key in ['lane', 'provider', 'phase', 'errorType'])
           key: value[key]?.toString().substring(0,
               min(96, value[key]?.toString().length ?? 0)) ?? '',
-        for (final key in ['startedAt', 'updatedAt'])
+        for (final key in ['startedAt', 'updatedAt', 'firstProgressMs', 'firstContentMs', 'elapsedMs'])
           key: value[key] is num ? value[key] : 0,
         'contentIncluded': false,
       };

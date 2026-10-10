@@ -1,3 +1,5 @@
+import 'recent_web_topics.dart';
+import 'ai_interest_evidence_policy.dart';
 import '../mood/mood_service.dart';
 import '../mood/mood_state.dart';
 import 'package:uuid/uuid.dart';
@@ -150,11 +152,38 @@ class PublicWebDiscoveryEngine {
       return const PublicWebDiscoveryDecision(state: 'no_eligible_intent');
     }
 
-    final topic = PublicWebDiscoveryPolicy.topicFor(
+    final recentKeys = await db.recentPublicWebInterestKeys();
+    var topic = PublicWebDiscoveryPolicy.topicFor(
       intent: sourceIntent,
       now: instant,
-      recentInterestKeys: await db.recentPublicWebInterestKeys(),
+      recentInterestKeys: recentKeys,
     );
+    final recentMode = await db.getSetting('public_web_last_recent_mode') != '1';
+    if (recentMode) {
+      final sql = await db.database;
+      final own = await sql.query('ai_interest_candidates',
+        columns: ['label', 'last_evidence_at'],
+        where: "status = 'established' AND confidence >= ? AND version >= 1",
+        whereArgs: [AiInterestEvidencePolicy.establishedConfidence],
+        orderBy: 'last_evidence_at DESC', limit: 24);
+      final ownLabels = own.where((row) {
+        final stamp = row['last_evidence_at'] as num?;
+        if (stamp == null) return false;
+        final at = DateTime.fromMillisecondsSinceEpoch(stamp.toInt());
+        return !at.isAfter(instant) &&
+          const AiInterestEvidencePolicy().freshnessAt(at, instant) >= .25;
+      }).map((row) => row['label'] as String? ?? '');
+      final preferences = await sql.query('memory_items', columns: ['content'],
+        where: "kind = 'preference' AND status = 'active' AND confidence >= 0.7",
+        orderBy: 'updated_at DESC', limit: 24);
+      final recent = await db.recentMessages(limit: 32);
+      topic = RecentWebTopics.choose(fallback: topic, now: instant,
+        ownInterest: ownLabels,
+        userPreferences: preferences.map((r) => r['content'] as String? ?? ''),
+        sharedTopics: recent.where((m) => m.isUser && !m.createdAt.isAfter(instant) &&
+          instant.difference(m.createdAt) <= const Duration(days: 7)).map((m) => m.content),
+        recentKeys: recentKeys);
+    }
     final subjectiveSeed = SubjectiveSearchSeedPolicy.build(
       snapshot: snapshot,
       intent: sourceIntent,
@@ -163,7 +192,7 @@ class PublicWebDiscoveryEngine {
       somatic: await db.activeSomaticAggregates(now: instant),
       now: instant,
     );
-    final provider = _providerOverride ?? await _configuredProvider();
+    final provider = _providerOverride ?? await _configuredProvider(recentMode: recentMode);
     final toolIntent = PublicWebDiscoveryPolicy.toToolIntent(sourceIntent);
     final capability = await availability(
       sourceIntent: sourceIntent,
@@ -227,6 +256,7 @@ class PublicWebDiscoveryEngine {
       return const PublicWebDiscoveryDecision(state: 'claim_lost');
     }
 
+    await db.setSetting('public_web_last_recent_mode', recentMode ? '1' : '0');
     final planner = _questionPlannerOverride ??
         DeepSeekPublicWebQuestionPlanner(
           apiKey: await secureConfig.readApiKey() ?? '',
@@ -308,11 +338,17 @@ class PublicWebDiscoveryEngine {
       );
     }
 
+    final sql = await db.database;
+    final sharedPages = await sql.query('public_web_candidates', columns: ['title'],
+      where: "lifecycle_state = 'shared' AND COALESCE(last_viewed_at, discovered_at) >= ?",
+      whereArgs: [instant.subtract(const Duration(days: 14)).millisecondsSinceEpoch],
+      orderBy: 'COALESCE(last_viewed_at, discovered_at) DESC', limit: 20);
     final appraiser = _appraiserOverride ??
         DeepSeekPublicWebAppraiser(
           apiKey: await secureConfig.readApiKey() ?? '',
           endpoint: await secureConfig.readEndpoint(),
           client: ai,
+          sharedHeadlines: sharedPages.map((r) => r['title'] as String? ?? '').toList(),
         );
     final appraisalStarted = DateTime.now();
     final seededCandidates = result.candidates
@@ -401,6 +437,7 @@ class PublicWebDiscoveryEngine {
       run: run,
       runToken: runToken,
       candidates: kept,
+      suppressInterestEvidence: recentMode,
       now: DateTime.now(),
     );
     if (stored > 0) {
@@ -455,10 +492,11 @@ class PublicWebDiscoveryEngine {
     return keys.map((key) => '$key:${counts[key]}').join(',');
   }
 
-  Future<PublicWebProvider> _configuredProvider() async {
+  Future<PublicWebProvider> _configuredProvider({bool recentMode = false}) async {
     final agnesEnabled =
         (await db.getSetting('agnes_web_compaction_enabled')) != '0';
     return LayeredPublicWebProvider(
+      recentMode: recentMode,
       tavilyApiKey: await secureConfig.readTavilyApiKey() ?? '',
       agnesApiKey: await secureConfig.readAgnesApiKey() ?? '',
       agnesEndpoint: await secureConfig.readAgnesEndpoint(),

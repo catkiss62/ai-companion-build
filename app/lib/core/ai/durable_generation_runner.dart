@@ -328,6 +328,8 @@ class DurableGenerationRunner {
       final cedarConfigured =
           (await db.getSetting('cedar_toy_enabled')) != '0' &&
           ((await secureConfig.readCedarToyToken())?.trim().isNotEmpty ?? false);
+      final historicalWebCandidates = await db.activePublicWebKnowledgeContext(
+        query: user.promptContent);
       final nsfwRoute = await nsfwRouter.decide(
         apiKey: apiKey,
         endpoint: endpoint,
@@ -335,6 +337,7 @@ class DurableGenerationRunner {
         latestUserText: user.promptContent,
         recent: recent,
         cedarConfigured: cedarConfigured,
+        historicalWebCandidates: historicalWebCandidates,
         cancellationToken: effectiveCancellation,
       );
       onNsfwRoute?.call(nsfwRoute);
@@ -538,6 +541,8 @@ class DurableGenerationRunner {
       effectiveCancellation.throwIfCancelled();
       final promptBuild = await PromptBuilder(db).buildChatPrompt(
         webCancellationToken: effectiveCancellation,
+        historicalWebIds: nsfwRoute.historicalWebIds,
+        onWebReadActivity: emitToolActivity,
         latestUserText: user.promptContent,
         recent: recent,
         desire: desire,
@@ -625,6 +630,8 @@ class DurableGenerationRunner {
         lastCheckpoint = DateTime.now();
         final requestStartedAt = DateTime.now().millisecondsSinceEpoch;
         var requestProgressSeen = false;
+        int? firstProgressAt;
+        int? firstContentAt;
         Future<void> recordRequest(String phase, [Object? error]) async {
           try {
             await db.setSetting('generation_request_state_v1', jsonEncode({
@@ -633,6 +640,9 @@ class DurableGenerationRunner {
               'provider': (requestProvider ?? ChatApiProvider.fromEndpoint(requestEndpoint)).name,
               'phase': phase,
               'startedAt': requestStartedAt,
+              if (firstProgressAt != null) 'firstProgressMs': firstProgressAt! - requestStartedAt,
+              if (firstContentAt != null) 'firstContentMs': firstContentAt! - requestStartedAt,
+              'elapsedMs': DateTime.now().millisecondsSinceEpoch - requestStartedAt,
               'updatedAt': DateTime.now().millisecondsSinceEpoch,
               'errorType': error?.runtimeType.toString() ?? '',
               'contentIncluded': false,
@@ -657,6 +667,7 @@ class DurableGenerationRunner {
           )) {
             if (!requestProgressSeen) {
               requestProgressSeen = true;
+              firstProgressAt = DateTime.now().millisecondsSinceEpoch;
               await recordRequest('receiving');
             }
             effectiveCancellation.throwIfCancelled();
@@ -693,6 +704,10 @@ class DurableGenerationRunner {
               upstreamReasoningDeltaSeen = true;
             }
             if (delta.content.isNotEmpty) {
+              if (firstContentAt == null) {
+                firstContentAt = DateTime.now().millisecondsSinceEpoch;
+                await recordRequest('receiving_content');
+              }
               content += delta.content;
               if (!publishedAnswering) {
                 publishedAnswering = true;
