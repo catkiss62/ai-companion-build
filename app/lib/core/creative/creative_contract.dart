@@ -44,6 +44,21 @@ class CreativeContract {
         if (utf8.encode(value).length > 300000) throw const FormatException('作品状态过大');
         final data = decode(value);
         if (data['schema'] != 1) throw const FormatException('不支持的作品版本');
+        if (key.startsWith(metaPrefix)) {
+          if (data['id'] != key.substring(metaPrefix.length) || data['updated'] is! int ||
+              !{...active, 'paused', 'failed', 'ready', 'deleted'}.contains(data['status'])) {
+            throw const FormatException('作品目录损坏');
+          }
+          for (final field in ['current', 'draft']) {
+            final hash = data[field];
+            if (hash != null && (hash is! String || (hash.isNotEmpty && !RegExp(r'^[a-f0-9]{64}$').hasMatch(hash)))) {
+              throw const FormatException('作品版本引用无效');
+            }
+          }
+          if (data['cover'] != null) base64Decode(data['cover'] as String);
+        } else if (data['version'] is! String || data['turns'] is! Map || data['reports'] is! List) {
+          throw const FormatException('作品游玩状态损坏');
+        }
         if (key.startsWith(metaPrefix) && active.contains(data['status'])) {
           data['status'] = 'paused';
           data['note'] = '从存档恢复；等待你继续';

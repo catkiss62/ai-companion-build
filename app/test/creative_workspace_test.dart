@@ -32,6 +32,12 @@ void main() {
       expect(plan.calls.isNotEmpty, deep);
     }
   });
+  test('corrupt archive metadata is rejected before restore', () {
+    final tables = <String, dynamic>{'settings': <Map<String, Object?>>[
+      {'key': '${CreativeContract.metaPrefix}id', 'value': jsonEncode({'schema': 1, 'id': 'wrong', 'status': 'ready', 'updated': 1})},
+    ]};
+    expect(() => CreativeContract.normalizeImport(tables), throwsFormatException);
+  });
   test('ordinary chat may stop a work without gaining commission capability', () {
     final tools = jsonEncode(AgentToolPlanner.nativeToolDefinitionsFor('先暂停作品制作'));
     expect(tools, contains('creative_work_stop'));
@@ -120,6 +126,8 @@ void main() {
       final ready = await store.get(work['id'] as String);
       expect(ready['status'], 'ready');
       expect(await db.getSetting('${CreativeContract.sourcePrefix}${ready['current']}'), contains('>2<'));
+      expect(calls, 2); expect(previews, 2);
+      await worker.runOnce();
       expect(calls, 2); expect(previews, 2);
     } finally { TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger.setMockMethodCallHandler(CreativeWorker.preview, null); }
   });

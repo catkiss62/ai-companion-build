@@ -17,7 +17,8 @@ class CreativeStore {
     final works = <Map<String, dynamic>>[];
     for (final row in keys) {
       final work = CreativeContract.decode(await db.getSetting(row['key'] as String));
-      if (work.isNotEmpty && work['status'] != 'deleted') works.add(work);
+      if (work.isNotEmpty && work['status'] != 'deleted' &&
+          (!pendingOnly || CreativeContract.active.contains(work['status']))) works.add(work);
     }
     works.sort((a, b) => (b['updated'] as int).compareTo(a['updated'] as int));
     return works;
