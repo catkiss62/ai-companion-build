@@ -1,6 +1,6 @@
 # 作品上下文与交付体验 · v0.42.98+342
 
-状态：DESIGNED / IMPLEMENTING。2026-10-12 00:52北京时间用户授权前五项并同意作品内详细、普通聊天摘要的边界。基线+341本地f6deb0e、远端b7979487同树0081aa1；分支agent/v04298-creative-context-ui。先记录设计再修改；不开始自主创作第二批。
+状态：IMPLEMENTED / CI PASSED / APK READY / TRUE DEVICE PENDING。2026-10-12 00:52北京时间用户授权前五项并同意作品内详细、普通聊天摘要的边界。基线+341本地f6deb0e、远端b7979487同树0081aa1；分支agent/v04298-creative-context-ui。先记录设计再修改；不开始自主创作第二批。
 
 ## 范围与合同
 
@@ -38,3 +38,14 @@
 2. 贺卡等作品内可谈当前文字、可观察动画属性、公开互动状态和作品提供的效果说明；返回普通聊天不自动注入这些详情。Canvas像素或未上报效果仍不可冒称已识别。
 3. 两种委托修改入口及作品聊天反复弹出/收回输入法，确认流畅度、输入焦点与网页进度。结构性布局回归已测，真实手机帧率、Live2D与键盘组合仍待反馈。
 4. 聊天/作品集卡片初始仅名称；展开后可打开。制作中穿插聊天，完成正文旁出现成品卡；再修改、导入存档后关联仍在，原制作记录不会变成第二份HTML。
+
+## 最终验证与交付
+
+最终源码8fe90f0551d9e6076552be839729f939f9ce53f8，本地b6090a89dcee6ae190bf38948a57207eec5a43cb，同树d747a2b4fcf053062f0224ffc87ed1698bc168fa。首轮原生桥修改漏暂存后已补入开发分支；最终完整编译、原生观察测试及APK均包含该桥。
+
+- [完整Actions38160024958](https://github.com/catkiss62/ai-companion-build/actions/runs/38160024958)成功：150源码门、1540全量Flutter、Kotlin单元、Android15 39项和Android8 10项原生、APK资源与签名检查。
+- [稳定性38160024928](https://github.com/catkiss62/ai-companion-build/actions/runs/38160024928)589项成功；[作品专项38160024931](https://github.com/catkiss62/ai-companion-build/actions/runs/38160024931)99项成功。Flutter analyze无错误；现存信息/警告由既有非fatal设置处理，未修改分析器门槛。
+- [测试包下载页](https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-eb3e12872b1f4cd3b75c)：Draft409806637，tag v0.42.98-creative-context-ui-test，目标8fe90f0。APK资产631406019，736990861 bytes；SHA资产631406016、成功CI Monitor631406023；Actions APK artifact11710506419。
+- APK SHA-256：`e5c2d6edfe1d85d1984931457f3bddc1c12d5939c28941f12f24c2885ad2d573`；上传digest与构建输出一致。签名SHA-256：`30:5E:B3:D8:09:83:B9:63:C6:48:18:DD:F1:AD:56:1F:27:9D:E6:D4:7B:3E:D2:C7:81:AD:A4:48:C7:C2:51:48`，与+341一致，可覆盖安装。
+
+未合并main、未正式发布；真实手机输入法/Live2D组合的流畅度和真实模型在多局中的理解仍待用户复核。没有使用真实用户API，也没有将私密备份、诊断或游戏源码上传公开仓。此前被拒绝的本地Flutter初始化路径未重试。
