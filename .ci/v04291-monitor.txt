@@ -1,7 +1,7 @@
 status=success
-run_id=38144993526
-run_url=https://github.com/catkiss62/ai-companion-build/actions/runs/38144993526
-head_sha=9d14f090af1d1227612ff87ec109a1bcb4844fa6
+run_id=38152645513
+run_url=https://github.com/catkiss62/ai-companion-build/actions/runs/38152645513
+head_sha=ea3325cfb73c209eb2c051580cbd6133ad2e233d
 signer_sha256=30:5E:B3:D8:09:83:B9:63:C6:48:18:DD:F1:AD:56:1F:27:9D:E6:D4:7B:3E:D2:C7:81:AD:A4:48:C7:C2:51:48
-593df757b49316a41715ed56595b5cb0f9623f2e49a76d6c729ce377d760171f  AI-Companion-v0.42.96-340-Creative-Agent-APK.apk
-release_url=https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-5eee2ece789c78bfe42c
+388c466a46ade46490dba491143cb80e312d0e56126301fe7ba94df2c00a238f  AI-Companion-v0.42.97-341-Creative-Play-Delivery-APK.apk
+release_url=https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-a1fb59d73f62b552c35c
