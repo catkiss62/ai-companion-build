@@ -5,6 +5,7 @@ import '../ai/model_profile.dart';
 import '../database/app_database.dart';
 import '../database/brain_work_fence.dart';
 import '../storage/secure_config.dart';
+import '../diagnostics/model_usage_telemetry.dart';
 import 'creative_contract.dart';
 import 'creative_store.dart';
 
@@ -37,6 +38,46 @@ class CreativePlay {
 
   Future<Object?> event(String version, String raw) async {
     if (utf8.encode(raw).length > 65536) throw const FormatException('互动数据过大');
+    final work = await CreativeStore(db).get(workId);
+    final fence = _sessionFence;
+    final clock = Stopwatch()..start();
+    var stage = 'decode';
+    var kind = 'unknown';
+    var code = '';
+    var modelCalled = false;
+    try {
+      final proposed = CreativeContract.decode(raw)['kind'];
+      if ({'save', 'report', 'choose', 'reveal'}.contains(proposed)) kind = proposed as String;
+      return await _event(version, raw, (value) {
+        stage = value;
+        if (value == 'model') modelCalled = true;
+      });
+    } catch (error) {
+      code = error is DeepSeekException ? 'http_${error.statusCode}' :
+          error is BrainWorkInvalidated ? 'state_changed' :
+          error is FormatException ? 'invalid_contract' : error.runtimeType.toString();
+      rethrow;
+    } finally {
+      // This separate, body-free trace must not mutate the public play state
+      // while another callback is saving it, or revive a deleted work.
+      if (fence != null && work.isNotEmpty && work['status'] != 'deleted') {
+        try {
+          final key = '${CreativeContract.playTracePrefix}$workId';
+          final before = await db.getSetting(key) ?? '';
+          final previous = CreativeContract.decode(before)['events'] as List? ?? [];
+          final events = [...previous, {'at': DateTime.now().millisecondsSinceEpoch,
+            'kind': kind, 'stage': stage, 'ok': code.isEmpty, 'code': code,
+            'model_called': modelCalled, 'elapsed_ms': clock.elapsedMilliseconds}]
+              .reversed.take(12).toList().reversed.toList();
+          await db.setSettingsAtomically({key: jsonEncode({'events': events})},
+            expectedSettings: {key: before, CreativeStore.key(workId): jsonEncode(work)}, workFence: fence);
+        } catch (_) { /* Diagnostics cannot fail a game action. */ }
+      }
+    }
+  }
+
+  Future<Object?> _event(String version, String raw, void Function(String) stage) async {
+    if (utf8.encode(raw).length > 65536) throw const FormatException('互动数据过大');
     final sessionFence = _sessionFence;
     if (sessionFence == null || !await db.brainWorkFenceCurrent(sessionFence)) throw const BrainWorkInvalidated();
     final event = CreativeContract.decode(raw);
@@ -65,10 +106,11 @@ class CreativePlay {
       await save({...before, 'reports': reports.reversed.take(8).toList().reversed.toList()});
       return true;
     }
-    if (data is! Map || data['turn'] is! String || (data['turn'] as String).length > 80 || data['turn'] == '') {
+    if (data is! Map) {
       throw const FormatException('无效回合');
     }
-    final turn = data['turn'] as String;
+    final turn = CreativeContract.turnId(data['turn']);
+    stage('validated');
     if (event['kind'] == 'reveal') {
       final entry = turns[turn];
       if (entry is! Map || entry['choice'] is! String) throw const FormatException('她还没有出招');
@@ -97,7 +139,8 @@ class CreativePlay {
     if (recent >= 5) throw const FormatException('她需要歇一下，请稍后再出招');
     final lease = 'creative_play_lease_$workId';
     if (!await db.tryAcquireLocalLease(lease, holdFor: const Duration(seconds: 90))) throw const FormatException('她正在出招，请稍等');
-    final makeClient = clientFactory ?? ((Future<bool> Function() abort) => DeepSeekClient(abortWhen: abort));
+    final makeClient = clientFactory ?? ((Future<bool> Function() abort) => DeepSeekClient(
+      abortWhen: abort, onUsage: (event) => ModelUsageTelemetry.record(db, event)));
     final client = makeClient(() async =>
       !await db.brainWorkFenceCurrent(fence) || jsonEncode(await read()) != jsonEncode(before));
     try {
@@ -106,6 +149,7 @@ class CreativePlay {
       final rules = await RuleLayerService(db).resolve(latestUserText: work['title'] as String? ?? '',
         session: null, references: const [], nsfwActive: false, nsfwReferenceActive: false);
       final conversation = await db.recentMessagesForPrompt(limit: 10);
+      stage('model');
       final choice = await client.jsonCompletion(apiKey: apiKey,
         endpoint: await SecureConfig.instance.readEndpoint(),
         model: DeepSeekModelProfile.fromApiName(await db.getSetting('deepseek_model')),
@@ -123,6 +167,7 @@ class CreativePlay {
           })},
         ]);
       if (!options.contains(choice['choice'])) throw const FormatException('她没有给出有效选择，请重试');
+      stage('commit');
       turns[turn] = {'options': options, 'choice': choice['choice'], 'at': instant};
       await save({...before, 'turns': turns});
       return {'committed': true};

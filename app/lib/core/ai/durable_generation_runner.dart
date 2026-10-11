@@ -1,4 +1,5 @@
 import '../creative/creative_play.dart';
+import '../creative/creative_store.dart';
 import '../reflection/deep_reflection_contract.dart';
 import 'generation_lease_guard.dart';
 import 'dart:async';
@@ -559,12 +560,14 @@ class DurableGenerationRunner {
         conversationInitiativeOverride: conversationPlan,
       );
       final creativeContext = await CreativePlay.chatContext(db);
+      final creativeWorkContext = await CreativeStore(db).chatContext();
       final baseRequestMessages = <Map<String, Object?>>[
         ...promptBuild.messages,
+        {'role': 'system', 'content': creativeWorkContext},
         if (creativeContext.isNotEmpty) {'role': 'system', 'content': creativeContext},
         {'role': 'system', 'content': job.deepThinking
           ? '小作品只有本轮明确委托才可调用制作工具；开关、反馈或设想不等于委托。工具只登记任务，完成由作品卡的真实状态决定。'
-          : '本轮普通聊天不能委托制作或修改小作品；可以讨论想法或游玩。若用户确实要求现在制作，应说明需要开启深度思考后重新委托；不承诺已开工，不留下待执行委托。'},
+          : '本轮普通聊天不能新建制作或修改委托，但已登记的后台制作照常进行；可以讨论想法、进度或游玩。仅当用户明确要求开始一件尚未登记的新制作时，说明开启深度思考后才能接受该新委托；不把对已有作品的询问误判为新委托，不留下待执行委托。'},
         if (cedarSkillActive)
           <String, Object?>{
             'role': 'system',

@@ -205,6 +205,7 @@ class CreativeWorkspace {
 original_request 是用户原始要求，优先于 creative_brief 中额外推断；brief 提供创作心意和风格。不要擅自添加离线、随机对手、固定台词等限制。“我们一起玩”“和她对战”应使用真实伴侣互动，不能伪装成随机电脑。保留相关审美与心意，不需要整套角色设定。作品源码中不放私人聊天、密钥、思考或工程诊断。
 先 work_plan 保存简短体验设计与后续步骤：interaction=companion 表示她实际参与选择，local 表示无需模型参与的本地作品。每次操作由宿主完成并返回事实；报错要检查和修正。内容开放，不局限于游戏。复用已有正确文件，缺信息先读文件。每次最多8个工具调用，依赖上一步返回的 hash 时等下一轮；工具执行严格按顺序，work_finish 必须最后。
 工作区仅含 index.html（界面）、style.css（可选纯CSS）、script.js（可选纯JS）。宿主自动内联后两者，脚本在界面后执行；不要 import/require、CDN、网络、iframe、本地文件、外部字体、localStorage 或请求手机权限。可以内联SVG/Canvas/CSS画图。适配360px手机，按钮有实际功能。单次文件写入最多16000字符，大文件追加或局部修改。
+companion.choose(turn, options, context) 的 turn 使用非空字符串或非负安全整数，reveal 使用同一个 turn；options 为2至8个不同的非空字符串。同回合重试不得改变选项；只能在 choose 成功后 reveal。不用随机台词假装她实时回应，网页可显示规则、状态或明确标注的游戏旁白。
 work_preview 传1至6个按顺序执行的 checks，每项 click 可选，selector 必须有且存在，text 是预期包含的文字。reload=true 表示先重开页面，保留该次试玩保存的进度和已出招回合，再进行本项检查。每步等待页面更新后检查。覆盖关键按钮、实际状态变化；互动作品须完成 choose/reveal 的整轮、saveState 保存进度，并安排 reload 检查恢复后的状态，不能只测标题。失败结果含实际DOM/错误，可据此重读并修复。修改之后必须再次试玩同一版本才能 work_finish。预览成功只证明已执行的检查，不编造全面质量保证。
 宿主异步 API window.companion：initialState 为上次保存的轻量状态；saveState(value) 保存进度；choose(turn, options, context) 请她在2–8个字符串选项中选择，只返回{committed:true}；reveal(turn, playerChoice) 提交玩家选择并返回{choice,playerChoice}；report({text:简短真实结果}) 留给聊天理解。先 await choose 成功，再允许玩家选择，最后 reveal。回合编号持久化且不复用，重进同局继续原回合，重复调用不重选。await saveState 后更新恢复点。API失败提供重试按钮，不以随机或预设台词冒充她。普通动画/计分在本地执行，不每点击都调用模型。
 companion.preview===true 时宿主模拟选择并记录顺序，不需要绕过真实游戏路径。只有通过真实试玩且有当前源码的验证记录才能提交。直接文字说完成不会发布。可用 work_plan 更新接续说明；任务可能暂停重启，文件和已执行工具会保留。''';

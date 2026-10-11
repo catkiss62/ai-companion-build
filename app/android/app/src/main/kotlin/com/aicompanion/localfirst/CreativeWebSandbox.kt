@@ -30,20 +30,38 @@ object CreativeWebSandbox {
     const val MAX_HTML = 800_000
     const val POLICY = "default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; img-src data:; font-src data:; media-src data:; connect-src 'none'; frame-src 'none'; object-src 'none'; base-uri 'none'; form-action 'none'"
 
+    fun turnId(value: Any?): String? = when (value) {
+        is String -> value.takeIf { it.isNotBlank() && it.length <= 80 }
+        is Number -> value.toDouble().let {
+            if (it.isFinite() && it >= 0 && it <= 9007199254740991.0 && it == Math.floor(it)) it.toLong().toString() else null
+        }
+        else -> null
+    }
+
+    fun options(value: JSONArray?): List<String>? {
+        if (value == null || value.length() !in 2..8) return null
+        val result = (0 until value.length()).map { value.opt(it) }
+        if (result.any { it !is String || it.isEmpty() || it.length > 80 } || result.toSet().size != result.size) return null
+        return result.map { it as String }
+    }
+
     fun document(html: String, state: String, preview: Boolean): String {
         require(html.toByteArray().size <= MAX_HTML) { "作品文件过大" }
         val initial = JSONObject.quote(state).replace("<", "\\u003c")
         val prefix = """<meta http-equiv="Content-Security-Policy" content="$POLICY"><meta name="viewport" content="width=device-width,initial-scale=1"><link rel="icon" href="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7"><script>
         (()=>{const pending=new Map();let sequence=0;
         const initial=JSON.parse($initial);
+        const turnId=value=>{if(typeof value==='string'&&value.trim()&&value.length<=80)return value;
+          if(typeof value==='number'&&Number.isSafeInteger(value)&&value>=0)return String(value);
+          throw new Error('回合编号需要非空字符串或安全整数');};
         const post=(kind,data)=>{const id=String(++sequence);return new Promise((resolve,reject)=>{
           pending.set(id,{resolve,reject});NativeWork.postMessage(JSON.stringify({id,kind,data}));
         });};
         window.__workReply=(id,value,error)=>{const p=pending.get(id);if(!p)return;pending.delete(id);error?p.reject(new Error(error)):p.resolve(value);};
         window.companion=Object.freeze({preview:$preview,initialState:initial,
           saveState:(value)=>post('save',value),
-          choose:(turn,options,context)=>post('choose',{turn,options,context}),
-          reveal:(turn,playerChoice)=>post('reveal',{turn,playerChoice}),
+          choose:async(turn,options,context)=>post('choose',{turn:turnId(turn),options,context}),
+          reveal:async(turn,playerChoice)=>post('reveal',{turn:turnId(turn),playerChoice}),
           report:(event)=>post('report',event)});
         window.__workErrors=[];window.addEventListener('error',e=>window.__workErrors.push(String(e.message).slice(0,300)));
         window.addEventListener('unhandledrejection',e=>window.__workErrors.push(String(e.reason).slice(0,300)));
@@ -174,6 +192,7 @@ class CreativePreview(private val context: Context) {
                 requireNotNull(display) { "此设备无法建立独立预览" }
                 presentation=Presentation(context,display!!.display)
                 val previewChoices = mutableMapOf<String,String>()
+                val previewOptions = mutableMapOf<String,List<String>>()
                 val previewPlayers = mutableMapOf<String,String>()
                 page=CreativeWebSandbox.create(presentation!!.context,{ raw ->
                     val message=runCatching { JSONObject(raw) }.getOrNull() ?: return@create
@@ -191,23 +210,27 @@ class CreativePreview(private val context: Context) {
                         "report" -> CreativeWebSandbox.reply(page!!,id,true)
                         "choose" -> {
                             val data=message.optJSONObject("data") ?: JSONObject()
-                            val turn=data.optString("turn")
-                            val choice=data.optJSONArray("options")?.optString(0) ?: ""
-                            if (turn.isBlank() || choice.isBlank()) CreativeWebSandbox.reply(page!!,id,null,"无效预览回合")
+                            val turn=CreativeWebSandbox.turnId(data.opt("turn"))
+                            val options=CreativeWebSandbox.options(data.optJSONArray("options"))
+                            if (turn == null || options == null) CreativeWebSandbox.reply(page!!,id,null,"无效回合或选项")
+                            else if (previewOptions.containsKey(turn) && previewOptions[turn] != options) CreativeWebSandbox.reply(page!!,id,null,"不能更改已出招的回合")
                             else {
                                 if (!previewChoices.containsKey(turn)) chooseCount++
-                                previewChoices.putIfAbsent(turn,choice)
+                                previewChoices.putIfAbsent(turn,options.first())
+                                previewOptions.putIfAbsent(turn,options)
                                 CreativeWebSandbox.reply(page!!,id,mapOf("committed" to true,"preview" to true))
                             }
                         }
                         "reveal" -> {
                             val data=message.optJSONObject("data") ?: JSONObject()
-                            val choice=previewChoices[data.optString("turn")]
+                            val turn=CreativeWebSandbox.turnId(data.opt("turn"))
+                            val choice=previewChoices[turn]
+                            val player=data.opt("playerChoice")
                             if (choice==null) CreativeWebSandbox.reply(page!!,id,null,"还没有出招")
+                            else if (player !is String || previewOptions[turn]?.contains(player) != true) CreativeWebSandbox.reply(page!!,id,null,"无效的玩家选择")
                             else {
-                                val turn=data.optString("turn")
-                                if (!previewPlayers.containsKey(turn)) revealCount++
-                                previewPlayers.putIfAbsent(turn,data.optString("playerChoice"))
+                                if (!previewPlayers.containsKey(turn!!)) revealCount++
+                                previewPlayers.putIfAbsent(turn,player)
                                 CreativeWebSandbox.reply(page!!,id,mapOf("choice" to choice,"playerChoice" to previewPlayers[turn],"preview" to true))
                             }
                         }

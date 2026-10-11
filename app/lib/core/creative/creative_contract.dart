@@ -7,11 +7,25 @@ class CreativeContract {
   static const metaPrefix = 'creative_work_v1:';
   static const sourcePrefix = 'creative_source_v1:';
   static const playPrefix = 'creative_play_v1:';
+  static const noticePrefix = 'creative_notice_v1:';
+  static const playTracePrefix = 'creative_interaction_trace_v1:';
   static const maxHtmlBytes = 800000;
   static const active = {'queued', 'building', 'checking'};
   static Map<String, dynamic> decode(String? raw) =>
       raw == null || raw.isEmpty ? {} : Map<String, dynamic>.from(jsonDecode(raw) as Map);
   static String hash(String value) => sha256.convert(utf8.encode(value)).toString();
+  /// Old generated pages use numeric round counters. Canonicalize without
+  /// conflating fractions, unsafe JS integers or arbitrary objects with IDs.
+  static String turnId(Object? value) {
+    if (value is String && value.trim().isNotEmpty && value.length <= 80) return value;
+    if (value is num && value.isFinite && value >= 0 &&
+        value <= 9007199254740991 && value == value.truncateToDouble()) {
+      return value.toInt().toString();
+    }
+    throw const FormatException('回合编号需要非空字符串或安全整数');
+  }
+  static String completionMessageId(String id, String request, String version) =>
+      'creative-complete:$id:$request:$version';
   static String clip(Object? value, int limit) {
     final text = value?.toString() ?? '';
     return text.length <= limit ? text : text.substring(0, limit);
@@ -37,6 +51,25 @@ class CreativeContract {
       final value = row['value'];
       if (value is! String) throw const FormatException('作品存档损坏');
       if (key == 'creative_focus_v1') { rows[i] = {...row, 'value': ''}; continue; }
+      if (key.startsWith(noticePrefix)) {
+        if (value.isEmpty) continue;
+        if (utf8.encode(value).length > 20000) throw const FormatException('作品回报记录过大');
+        final notice = decode(value);
+        if (notice['schema'] != 1 || notice['id'] != key.substring(noticePrefix.length) ||
+            notice['request_id'] is! String || notice['version'] is! String ||
+            !{'pending', 'paused', 'delivered', 'cancelled'}.contains(notice['status'])) {
+          throw const FormatException('作品回报记录无效');
+        }
+        if (notice['status'] != 'delivered') {
+          notice.addAll({'status': 'cancelled', 'text': '', 'preempt': 'import'});
+        }
+        rows[i] = {...row, 'value': jsonEncode(notice)};
+        continue;
+      }
+      if (key.startsWith(playTracePrefix)) {
+        rows[i] = {...row, 'value': ''};
+        continue;
+      }
       if (key.startsWith(CreativeWorkspace.prefix)) {
         if (value.isEmpty) continue;
         if (utf8.encode(value).length > CreativeWorkspace.maxStateBytes) throw const FormatException('工作检查点过大');
@@ -83,7 +116,7 @@ class CreativeContract {
           data['preempt'] = 'import';
           rows[i] = {...row, 'value': jsonEncode(data)};
         }
-      } else if (key == 'creative_worker_lease_until') {
+      } else if (key == 'creative_worker_lease_until' || key == 'creative_delivery_lease_until') {
         rows[i] = {...row, 'value': ''};
       }
     }

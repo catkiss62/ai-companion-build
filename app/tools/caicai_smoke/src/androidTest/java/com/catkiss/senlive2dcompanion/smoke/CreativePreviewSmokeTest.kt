@@ -5,6 +5,9 @@ import androidx.test.core.app.ApplicationProvider
 import androidx.test.platform.app.InstrumentationRegistry
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.aicompanion.localfirst.CreativePreview
+import com.aicompanion.localfirst.CreativeWebSandbox
+import org.json.JSONObject
+import org.json.JSONArray
 import org.junit.Assert.*
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -89,6 +92,43 @@ class CreativePreviewSmokeTest {
         val result=check(html+"<script>throw new Error('deliberate-preview-error')</script>")
         assertEquals(false,result["ok"])
         assertTrue(result["errors"].toString().contains("deliberate-preview-error"))
+    }
+    @Test fun numericRoundUsesTheSameSealedChoiceAsStringRound() {
+        val source=html+"""<script>document.getElementById('light').onclick=async()=>{
+          await companion.choose(1,['rock','paper'],'numeric round');
+          await companion.choose('1',['rock','paper'],'same round');
+          const a=await companion.reveal(1,'paper');
+          const b=await companion.reveal('1','rock');
+          document.getElementById('state').textContent=a.choice==='rock' && b.playerChoice==='paper'?'亮了':'wrong';
+        };</script>"""
+        val result=check(source)
+        assertEquals(result.toString(),true,result["ok"])
+        assertEquals(1,result["choose_count"])
+        assertEquals(1,result["reveal_count"])
+    }
+    @Test fun previewRejectsInvalidContractsInsteadOfMakingThemPass() {
+        val source=html+"""<script>document.getElementById('light').onclick=async()=>{
+          let denied=0;async function bad(action){try{await action()}catch(e){denied++}}
+          await bad(()=>companion.choose(1.5,['rock','paper'],''));
+          await bad(()=>companion.choose({},['rock','paper'],''));
+          await bad(()=>companion.choose(1,['rock','rock'],''));
+          await bad(()=>companion.choose(1,[1,2],''));
+          await companion.choose(1,['rock','paper'],'');
+          await bad(()=>companion.choose('1',['paper','rock'],''));
+          await bad(()=>companion.reveal(1,'unknown'));
+          document.getElementById('state').textContent=denied===6?'亮了':'wrong '+denied;
+        };</script>"""
+        val result=check(source)
+        assertEquals(result.toString(),true,result["ok"])
+        assertEquals(1,result["choose_count"])
+        assertEquals(0,result["reveal_count"])
+    }
+    @Test fun nativeContractAlsoRejectsLossyJsonCoercion() {
+        assertEquals("1",CreativeWebSandbox.turnId(1))
+        assertEquals("01",CreativeWebSandbox.turnId("01"))
+        for(value in listOf(null,true,JSONObject(),1.5,-1,9007199254740992.0,"   ")) assertNull(CreativeWebSandbox.turnId(value))
+        assertNull(CreativeWebSandbox.options(JSONArray("[1,2]")))
+        assertNull(CreativeWebSandbox.options(JSONArray("[\"a\",\"a\"]")))
     }
     @Test fun remainsOffscreenWhileDeviceSleeps() {
         val ui=InstrumentationRegistry.getInstrumentation().uiAutomation

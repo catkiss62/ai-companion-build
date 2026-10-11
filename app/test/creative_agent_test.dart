@@ -120,6 +120,47 @@ void main() {
     expect(diagnostics, isNot(contains(broken)));
   });
 
+  test('chat thinking and model changes during and between turns never cancel authorized work', () async {
+    final id = await commission();
+    await db.setSetting('deep_thinking_enabled', '1');
+    final runtime = worker((n, request) async {
+      final body = requests.last;
+      expect(body['model'], 'deepseek-flash');
+      expect(body['reasoning_effort'], 'max');
+      expect(body['thinking'], {'type': 'enabled'});
+      if (n == 1) {
+        await db.setSetting('deep_thinking_enabled', '0');
+        await db.setSetting('deepseek_model', 'deepseek-pro');
+        await db.setSetting('reasoning_effort', 'low');
+        return response(sse([plan(), write(repaired)]));
+      }
+      return response(sse([previewCall(), call('work_finish', {})]));
+    });
+    await runtime.runOnce();
+    expect((await store.get(id))['status'], 'building');
+    expect(await store.chatContext(), contains('关闭聊天深度思考、继续普通聊天不会取消制作'));
+    await runtime.runOnce();
+    expect((await store.get(id))['status'], 'ready');
+    expect(requests.length, 2);
+    final notice = CreativeContract.decode(await db.getSetting('${CreativeContract.noticePrefix}$id'));
+    expect(notice['status'], 'pending');
+    expect(notice['version'], (await store.get(id))['current']);
+    expect(notice['attempts'], 0);
+  });
+
+  test('a real user pause survives toggle changes and resume needs no new commission', () async {
+    final id = await commission();
+    final runtime = worker((_, request) async => response(sse([plan(), write(repaired), previewCall(), call('work_finish', {})])));
+    await store.stop(id);
+    await db.setSetting('deep_thinking_enabled', '0');
+    await runtime.runOnce();
+    expect(requests, isEmpty);
+    await store.resume(id);
+    await runtime.runOnce();
+    expect((await store.get(id))['status'], 'ready');
+    expect((await store.get(id))['request_id'], 'request');
+  });
+
   test('malformed arguments become tool feedback and a later call repairs them', () async {
     final id = await commission();
     final runtime = worker((n, request) async {
@@ -229,7 +270,7 @@ void main() {
     await runtime.runOnce();
     expect((await store.get(id))['status'], 'paused'); expect((await store.get(id))['current'], isNull);
     await runtime.runOnce(); expect(requests.length, 1);
-    await store.resume(id, deepThinking: true);
+    await store.resume(id);
     await runtime.runOnce();
     expect((await store.get(id))['status'], 'ready'); expect(requests.length, 1);
   });
@@ -282,7 +323,7 @@ void main() {
     expect((await state(id))['verification'], isEmpty);
     expect(CreativeWorkspace.files(await state(id))['index.html'], repaired);
     await runtime.runOnce(); expect(requests.length, 1);
-    await store.resume(id, deepThinking: true); await runtime.runOnce();
+    await store.resume(id); await runtime.runOnce();
     expect((await store.get(id))['status'], 'ready');
   });
 

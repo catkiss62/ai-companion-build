@@ -1289,7 +1289,8 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
                               }
                             : null,
                       ),
-                    if (!item.isInterruption && controller.toolOutcomesForMessage(item.message!.id).any((o) => o.toolId == 'creative_work.commission'))
+                    if (!item.isInterruption && (item.message!.proactiveIntent == 'creative_ready' ||
+                        controller.toolOutcomesForMessage(item.message!.id).any((o) => o.toolId == 'creative_work.commission')))
                       CreativeCards(chat: controller, messageId: item.message!.id),
                   ],
                 );
@@ -1666,10 +1667,6 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
                         const SizedBox(height: 8),
                       ],
                       ListTile(
-                        leading: const Icon(Icons.auto_awesome_outlined), title: const Text('作品集'),
-                        onTap: () async { Navigator.pop(dialogContext); await Navigator.of(pageContext).push(MaterialPageRoute(builder: (_) => CreativePortfolioPage(chat: controller))); },
-                      ),
-                      ListTile(
                         contentPadding: EdgeInsets.zero,
                         leading: const Icon(Icons.phone_iphone_rounded),
                         title: const Text('查手机'),
@@ -1713,6 +1710,10 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
                           Navigator.pop(dialogContext);
                           setState(() => _showCedarActivityWindow = true);
                         },
+                      ),
+                      ListTile(
+                        leading: const Icon(Icons.auto_awesome_outlined), title: const Text('作品集'),
+                        onTap: () async { Navigator.pop(dialogContext); await Navigator.of(pageContext).push(MaterialPageRoute(builder: (_) => CreativePortfolioPage(chat: controller))); },
                       ),
                       DropdownButtonFormField<ProactiveFrequencyMode>(
                         value: _proactiveFrequency,
@@ -2187,10 +2188,6 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
                     const SizedBox(height: 8),
                   ],
                   _QuickPanelTile(
-                    icon: Icons.auto_awesome_outlined, title: '作品集', subtitle: '打开小作品，继续一起玩。',
-                    onTap: () async { Navigator.pop(dialogContext); await Navigator.of(pageContext).push(MaterialPageRoute(builder: (_) => CreativePortfolioPage(chat: controller))); },
-                  ),
-                  _QuickPanelTile(
                     icon: Icons.phone_iphone_rounded,
                     title: '查手机',
                     subtitle: '相册、浏览器、心情、购物车、塔罗与日记。',
@@ -2226,6 +2223,10 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
                       Navigator.pop(dialogContext);
                       setState(() => _showCedarActivityWindow = true);
                     },
+                  ),
+                  _QuickPanelTile(
+                    icon: Icons.auto_awesome_outlined, title: '作品集', subtitle: '打开小作品，继续一起玩。',
+                    onTap: () async { Navigator.pop(dialogContext); await Navigator.of(pageContext).push(MaterialPageRoute(builder: (_) => CreativePortfolioPage(chat: controller))); },
                   ),
                   const Divider(height: 26),
                   _QuickPanelTile(

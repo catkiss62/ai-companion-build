@@ -6,6 +6,7 @@ import '../../core/database/app_database.dart';
 import '../../core/creative/creative_contract.dart';
 import '../../core/creative/creative_store.dart';
 import '../../core/creative/creative_play.dart';
+import '../../core/creative/creative_delivery.dart';
 import '../../core/platform/android_bridge.dart';
 import '../chat/chat_controller.dart';
 
@@ -30,6 +31,7 @@ class CreativeCards extends StatefulWidget {
 class _CreativeCardsState extends State<CreativeCards> {
   final store = CreativeStore(AppDatabase.instance);
   List<Map<String, dynamic>> works = [];
+  final Set<String> pausedNotices = {};
   Timer? timer;
   bool loading = true;
   @override
@@ -41,8 +43,14 @@ class _CreativeCardsState extends State<CreativeCards> {
   }
   Future<void> _load() async {
     final items = await store.list();
+    final paused = <String>{};
+    for (final item in items) {
+      if ((await CreativeDelivery(AppDatabase.instance).read(item['id'] as String))['status'] == 'paused') paused.add(item['id'] as String);
+    }
     if (mounted) setState(() {
-      works = items.where((w) => widget.messageId == null || w['message_id'] == widget.messageId).toList();
+      works = items.where((w) => widget.messageId == null || w['message_id'] == widget.messageId ||
+        w['completion_message_id'] == widget.messageId).toList();
+      pausedNotices..clear()..addAll(paused);
       loading = false;
     });
   }
@@ -67,8 +75,12 @@ class _CreativeCardsState extends State<CreativeCards> {
           isThreeLine: true,
           trailing: PopupMenuButton<String>(onSelected: (value) => _action(() async {
             if (value == 'stop') await store.stop(id);
+            if (value == 'retry_notice') {
+              await CreativeDelivery(AppDatabase.instance).retry(id);
+              await AndroidBridge.instance.wakeBackgroundBrain(reason: 'creative_delivery');
+            }
             if (value == 'resume') {
-              await store.resume(id, deepThinking: widget.chat.deepThinking);
+              await store.resume(id);
               await AndroidBridge.instance.wakeBackgroundBrain(reason: 'creative_resume');
             }
             if (value == 'edit') {
@@ -95,6 +107,7 @@ class _CreativeCardsState extends State<CreativeCards> {
           }), itemBuilder: (_) => [
             if (CreativeContract.active.contains(work['status'])) const PopupMenuItem(value: 'stop', child: Text('暂停制作')),
             if ({'paused', 'failed'}.contains(work['status'])) const PopupMenuItem(value: 'resume', child: Text('继续制作')),
+            if (pausedNotices.contains(id)) const PopupMenuItem(value: 'retry_notice', child: Text('重试完成提示')),
             const PopupMenuItem(value: 'edit', child: Text('委托修改')),
             if (playable) const PopupMenuItem(value: 'export', child: Text('导出 HTML 源文件')),
             const PopupMenuItem(value: 'delete', child: Text('删除作品')),

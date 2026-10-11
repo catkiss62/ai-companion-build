@@ -53,7 +53,8 @@ void main() {
     final backup = await db.exportAll();
     await db.importAll(Map<String, dynamic>.from(backup));
     expect((await store.get(first['id'] as String))['status'], 'paused');
-    await expectLater(store.resume(first['id'] as String, deepThinking: false), throwsFormatException);
+    await store.resume(first['id'] as String);
+    expect((await store.get(first['id'] as String))['status'], 'queued');
   });
   test('committed choice is hidden, first reveal wins, and backup retains it', () async {
     final store = CreativeStore(db);
@@ -72,19 +73,19 @@ void main() {
         return http.Response(jsonEncode({'choices': [{'message': {'content': jsonEncode({'choice': '石头'})}}]}), 200, headers: {'content-type': 'application/json; charset=utf-8'});
       })));
     await play.open();
-    final decision = jsonEncode({'kind': 'choose', 'data': {'turn': 't1', 'options': ['石头', '剪刀', '布']}});
+    final decision = jsonEncode({'kind': 'choose', 'data': {'turn': 1, 'options': ['石头', '剪刀', '布']}});
     expect(await play.event(hash, decision), {'committed': true});
-    expect(await play.event(hash, decision), {'committed': true});
+    expect(await play.event(hash, decision.replaceFirst('"turn":1', '"turn":"1"')), {'committed': true});
     expect(choices, 1);
     expect((await play.open())['public'], isEmpty);
     expect(await CreativePlay.chatContext(db), isNot(contains('石头')));
     Future<Object?> reveal(String choice) => play.event(hash, jsonEncode({'kind': 'reveal',
-      'data': {'turn': 't1', 'playerChoice': choice}}));
+      'data': {'turn': '1', 'playerChoice': choice}}));
     expect(await reveal('剪刀'), {'choice': '石头', 'playerChoice': '剪刀'});
     expect(await reveal('布'), {'choice': '石头', 'playerChoice': '剪刀'});
     final backup = await db.exportAll();
     await db.importAll(Map<String, dynamic>.from(backup));
-    expect(((await play.read())['turns'] as Map)['t1']['choice'], '石头');
+    expect(((await play.read())['turns'] as Map)['1']['choice'], '石头');
     expect(await db.getSetting('${CreativeContract.sourcePrefix}$hash'), html);
     await db.setSetting('runtime_state_epoch_v1', 'restored');
     await expectLater(play.event(hash, jsonEncode({'kind': 'save', 'data': {'stale': true}})), throwsA(isA<Exception>()));
@@ -94,6 +95,14 @@ void main() {
     expect((await store.commission(deepThinking: true, requestId: 'r', messageId: 'm',
       brief: '做猜拳', requestQuote: '做猜拳', latestText: '做猜拳'))['status'], 'deleted');
     await expectLater(reveal('布'), throwsA(isA<Exception>()));
+  });
+  test('invalid turn IDs are rejected without coercing objects or unsafe integers', () {
+    for (final value in [null, true, {}, [], '', '   ', -1, 1.2, 9007199254740992, double.infinity]) {
+      expect(() => CreativeContract.turnId(value), throwsFormatException);
+    }
+    expect(CreativeContract.turnId(1), '1');
+    expect(CreativeContract.turnId('01'), '01');
+    expect(CreativeContract.turnId(0), '0');
   });
   test('unknown prices and missing usage remain unknown; attempts deduplicate', () async {
     final at = DateTime(2026, 10, 11, 12);

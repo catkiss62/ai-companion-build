@@ -10,6 +10,7 @@ import '../database/brain_work_fence.dart';
 import '../diagnostics/model_usage_telemetry.dart';
 import '../storage/secure_config.dart';
 import 'creative_contract.dart';
+import 'creative_delivery.dart';
 import 'creative_store.dart';
 import 'creative_workspace.dart';
 
@@ -27,11 +28,18 @@ class CreativeWorker {
 
   static Timer startPolling(AppDatabase db, {String triggerSource = 'foreground_poll'}) {
     var running = false;
+    var delivering = false;
     final worker = CreativeWorker(db, triggerSource: triggerSource);
-    return Timer.periodic(const Duration(seconds: 5), (_) async {
-      if (running) return;
-      running = true;
-      try { await worker.runOnce(); } catch (_) {} finally { running = false; }
+    final delivery = CreativeDelivery(db);
+    return Timer.periodic(const Duration(seconds: 5), (_) {
+      if (!running) {
+        running = true;
+        unawaited(() async { try { await worker.runOnce(); } catch (_) {} finally { running = false; } }());
+      }
+      if (!delivering) {
+        delivering = true;
+        unawaited(() async { try { await delivery.runOnce(); } catch (_) {} finally { delivering = false; } }());
+      }
     });
   }
 
@@ -286,10 +294,12 @@ class CreativeWorker {
                 }
                 final versions = <String>{hash, ...(work['versions'] as List? ?? []).whereType<String>()}.take(3).toList();
                 patch.addAll({'current': hash, 'draft': '', 'versions': versions,
+                  'completion_message_id': CreativeContract.completionMessageId(id, work['request_id'] as String, hash),
                   'status': 'ready', 'note': '做好了，可以打开试玩',
                   'cover': verified['cover'] ?? '', 'errors': <Object?>[],
                   'updated': now().millisecondsSinceEpoch, 'retry_at': 0});
                 extra['${CreativeContract.sourcePrefix}$hash'] = html;
+                extra[CreativeDelivery.key(id)] = jsonEncode(CreativeDelivery.pending(work, hash, verified, now().millisecondsSinceEpoch));
                 result = {'ok': true, 'published': true, 'hash': hash};
                 published = true;
               default:
