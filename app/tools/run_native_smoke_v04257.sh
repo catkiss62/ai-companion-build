@@ -4,7 +4,7 @@ set -uo pipefail
 task_root="$(cd "$(dirname "$0")/../.." && pwd)"
 chmod +x "${task_root}/app/android/gradlew"
 cd "${task_root}/app/android" || exit 1
-adb shell rm -f /data/local/tmp/reminder-compact.png /data/local/tmp/memory-galaxy-640-render.png || exit 1
+adb shell rm -f /data/local/tmp/creative-preview.png /data/local/tmp/reminder-compact.png /data/local/tmp/memory-galaxy-640-render.png || exit 1
 if ./gradlew -p ../tools/caicai_smoke connectedDebugAndroidTest --stacktrace; then
   test_status=0
 else
@@ -26,10 +26,13 @@ elif [ "${test_status}" -eq 0 ]; then
   echo 'Reminder render PNG missing after successful native tests.' >&2
   exit 1
 fi
-if ! adb pull /sdcard/Android/data/com.catkiss.senlive2dcompanion.smoke/files/creative-preview.png "${preview_dir}/creative-preview.png"; then
+if ! adb pull /data/local/tmp/creative-preview.png "${preview_dir}/creative-preview.png"; then
   if [ "${test_status}" -eq 0 ]; then
     echo 'Creative preview PNG missing after successful native tests.' >&2
     exit 1
   fi
+fi
+if [ -s "${preview_dir}/creative-preview.png" ]; then
+  python3 -c 'import base64,pathlib,sys; print("CREATIVE_PREVIEW_PNG="+base64.b64encode(pathlib.Path(sys.argv[1]).read_bytes()).decode())' "${preview_dir}/creative-preview.png"
 fi
 exit "${test_status}"

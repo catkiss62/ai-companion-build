@@ -32,7 +32,17 @@ class CreativePreviewSmokeTest {
         assertEquals("private_virtual",result["display"])
         val screenshot=File(result["screenshot"] as String)
         assertTrue(screenshot.length()>1000)
-        screenshot.copyTo(File(context.getExternalFilesDir(null),"creative-preview.png"),overwrite=true)
+        val exported=File(context.getExternalFilesDir(null),"creative-preview.png")
+        screenshot.copyTo(exported,overwrite=true)
+        // UTP removes the app and its external files at the end of the suite.
+        val automation=InstrumentationRegistry.getInstrumentation().uiAutomation
+        android.os.ParcelFileDescriptor.AutoCloseInputStream(
+            automation.executeShellCommand("cp ${exported.absolutePath} /data/local/tmp/creative-preview.png")
+        ).use { it.readBytes() }
+        val retained=android.os.ParcelFileDescriptor.AutoCloseInputStream(
+            automation.executeShellCommand("cat /data/local/tmp/creative-preview.png")
+        ).use { it.readBytes() }
+        assertArrayEquals("Keep the actual frame before test cleanup",screenshot.readBytes(),retained)
     }
     @Test fun previewBridgeUsesValidSimulatedChoices() {
         val source=html+"""<script>document.getElementById('light').onclick=async()=>{
