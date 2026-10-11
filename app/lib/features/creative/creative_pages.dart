@@ -271,8 +271,11 @@ class _CreativePlayerPageState extends State<CreativePlayerPage> {
       if (call.method == 'event') {
         try {
           final result = await play.event(viewVersion, call.arguments as String, sessionId: viewSession);
-          final kind = CreativeContract.decode(call.arguments as String)['kind'];
-          if (mounted && channel == current && !canReset && {'save', 'choose', 'reveal'}.contains(kind)) setState(() => canReset = true);
+          final event = CreativeContract.decode(call.arguments as String);
+          final kind = event['kind'];
+          final resettable = {'save', 'choose', 'reveal'}.contains(kind) ||
+            (kind == 'describe' && (event['data'] as Map?)?['resettable'] == true);
+          if (mounted && channel == current && !canReset && resettable) setState(() => canReset = true);
           return result;
         } catch (e) { throw PlatformException(code: 'work_event', message: e.toString()); }
       }
@@ -300,7 +303,7 @@ class _CreativePlayerPageState extends State<CreativePlayerPage> {
   }
   Future<void> _restart() async {
     final yes = await showDialog<bool>(context: context, builder: (c) => AlertDialog(
-      title: const Text('重新开始？'), content: const Text('清空当前作品进度，使用最新版本。聊天历史会保留，新的对局会单独记录。'),
+      title: const Text('重新开始？'), content: const Text('清空当前作品进度，使用最新版本。聊天历史会保留，重置后的进度会单独记录。'),
       actions: [TextButton(onPressed: () => Navigator.pop(c, false), child: const Text('取消')),
         TextButton(onPressed: () => Navigator.pop(c, true), child: const Text('开始'))]));
     if (yes == true && mounted) await _load(restart: true);

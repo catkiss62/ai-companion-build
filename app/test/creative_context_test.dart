@@ -109,7 +109,8 @@ void main() {
     expect(await CreativePlay.chatContext(db,userMessageId:'old'),isNot(contains('"score":42')));
   });
   test('large public and DOM data remain bounded without exposing sealed choices', () async {
-    await save({'points':50,'history':List.generate(50,(i)=>{'n':i,'text':'长'*2000})});
+    // Valid saved state near the public-data limit, larger than the snapshot projection.
+    await save({'points':50,'history':List.generate(20,(i)=>{'n':i,'text':'长'*500})});
     final snapshot=await play.captureSnapshot(observation:{'text':'雪'*12000});
     expect(snapshot.data['public_state']['points'],50);
     expect(utf8.encode(jsonEncode(snapshot.data)).length,lessThanOrEqualTo(CreativeContract.maxSnapshotBytes));

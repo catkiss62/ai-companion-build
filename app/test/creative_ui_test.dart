@@ -33,10 +33,10 @@ void main() {
       child:Column(children:[CreativeChatBubble(message:user),CreativeChatBubble(message:assistant)])))));
     final aligns=tester.widgetList<Align>(find.descendant(of:find.byType(CreativeChatBubble),matching:find.byType(Align))).toList();
     expect(aligns.first.alignment,Alignment.centerRight);expect(aligns.last.alignment,Alignment.centerLeft);
-    final rich=tester.widget<RichText>(find.descendant(of:find.byType(ActionTintText),matching:find.byType(RichText)).first);
+    final rich=tester.widget<SelectableText>(find.descendant(of:find.byType(ActionTintText),matching:find.byType(SelectableText)).first);
     final colors=<Color?>[];
     void walk(InlineSpan span) {if(span is TextSpan){colors.add(span.style?.color);for(final child in span.children??<InlineSpan>[])walk(child);}}
-    walk(rich.text);expect(colors,contains(chatDialoguePink));
+    walk(rich.textSpan!);expect(colors,contains(chatDialoguePink));
   });
   testWidgets('keyboard moves chat without resizing or recreating the native-page child', (tester) async {
     const page=ColoredBox(key:ValueKey('page'),color:Colors.blue);
