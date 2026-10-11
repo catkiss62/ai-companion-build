@@ -1,3 +1,4 @@
+import '../creative/creative_contract.dart';
 import '../creative/creative_store.dart';
 import '../autonomy/public_web_read_service.dart';
 import '../autonomy/web_page_evidence.dart';
@@ -96,6 +97,7 @@ class AgentToolRunner {
       final definition = AgentToolRegistry.byId(call.toolId);
       final explicitUserWrite =
           ((deepThinking && call.toolId == AgentToolRegistry.creativeCommission.id) ||
+                  call.toolId == AgentToolRegistry.creativeStop.id ||
                   call.toolId == AgentToolRegistry.attachmentSave.id ||
                   call.toolId == AgentToolRegistry.imageFindAndSave.id ||
                   call.toolId == AgentToolRegistry.stickerSend.id ||
@@ -318,6 +320,21 @@ class AgentToolRunner {
     String latestUserText = '',
   }) async {
     cancellationToken?.throwIfCancelled();
+    if (call.toolId == AgentToolRegistry.creativeStop.id) {
+      final quote = call.arguments['request_quote'] ?? '';
+      if (quote.isEmpty || !latestUserText.contains(quote)) throw const FormatException('缺少本轮停止请求');
+      final store = CreativeStore(db);
+      final id = call.arguments['work_id'] ?? '';
+      final works = (await store.list()).where((w) => CreativeContract.active.contains(w['status']) && (id.isEmpty || w['id'] == id)).toList();
+      if (works.length != 1) return AgentToolResult(toolId: call.toolId, status: AgentToolStatus.noResult,
+        displayText: '需要明确要停止的作品', promptData: works.isEmpty ? '没有匹配的制作任务；没有修改任何状态。' : '有多个制作任务，请确认作品 ID：${works.map((w) => '${w['id']} ${w['title']}').join('；')}');
+      await store.stop(works.single['id'] as String);
+      final stopped = await store.get(works.single['id'] as String);
+      final ok = stopped['status'] == 'paused';
+      return AgentToolResult(toolId: call.toolId, status: ok ? AgentToolStatus.succeeded : AgentToolStatus.blocked,
+        displayText: ok ? '作品制作已暂停' : '作品状态已变化',
+        promptData: ok ? '已暂停指定作品制作；保留草稿，不自动恢复。' : '暂停未提交，不得声称已经停止。');
+    }
     if (call.toolId == AgentToolRegistry.creativeCommission.id) {
       final work = await CreativeStore(db).commission(
         deepThinking: deepThinking, requestId: toolChainScopeId,

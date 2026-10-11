@@ -7,6 +7,12 @@ import 'agent_tool.dart';
 class AgentToolRegistry {
   const AgentToolRegistry._();
 
+  static const creativeStop = AgentToolDefinition(
+    id: 'creative_work.stop', title: '暂停作品制作',
+    description: '用户本轮明确要求停止制作时暂停已有作品任务；不开始、重做或修改作品。',
+    risk: AgentToolRisk.proposal, executable: true,
+    userTurnAvailable: true, autonomousAvailable: false,
+  );
   static const creativeCommission = AgentToolDefinition(
     id: 'creative_work.commission', title: '委托制作小作品',
     description: '仅在本轮深度思考中明确要求制作或修改时，将 HTML 小作品委托交给后台。闲聊、评价、设想不执行。',
@@ -260,6 +266,7 @@ class AgentToolRegistry {
 
   static const all = <AgentToolDefinition>[
     creativeCommission,
+    creativeStop,
     publicWebSearch,
     publicWebRead,
     publicWebDiscovery,

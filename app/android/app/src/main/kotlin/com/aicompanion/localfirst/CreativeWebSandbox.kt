@@ -33,7 +33,7 @@ object CreativeWebSandbox {
     fun document(html: String, state: String, preview: Boolean): String {
         require(html.toByteArray().size <= MAX_HTML) { "作品文件过大" }
         val initial = JSONObject.quote(state).replace("<", "\\u003c")
-        val prefix = """<meta http-equiv="Content-Security-Policy" content="$POLICY"><meta name="viewport" content="width=device-width,initial-scale=1"><script>
+        val prefix = """<meta http-equiv="Content-Security-Policy" content="$POLICY"><meta name="viewport" content="width=device-width,initial-scale=1"><link rel="icon" href="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7"><script>
         (()=>{const pending=new Map();let sequence=0;
         const initial=JSON.parse($initial);
         const post=(kind,data)=>{const id=String(++sequence);return new Promise((resolve,reject)=>{
@@ -129,7 +129,7 @@ class CreativePreview(private val context: Context) {
                 if (bitmap != null) {
                     val colors = mutableSetOf<Int>()
                     for (y in 0 until bitmap.height step 12) for (x in 0 until bitmap.width step 12) colors.add(bitmap.getPixel(x,y))
-                    if (colors.size < 3) errors.add("截图没有可确认的画面内容")
+                    if (colors.size < 2) errors.add("截图没有可确认的画面内容")
                     else {
                         val root = File(context.cacheDir,"creative_previews").apply { mkdirs() }
                         root.listFiles()?.filter { System.currentTimeMillis()-it.lastModified()>86_400_000 }?.forEach { it.delete() }

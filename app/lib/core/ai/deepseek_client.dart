@@ -217,7 +217,6 @@ class DeepSeekClient {
       'at': DateTime.now().millisecondsSinceEpoch, 'model': effectiveModel,
       'endpoint': endpoint, 'lane': usageLane};
     final billable = !provider.isGeminiRelay;
-    if (billable) await _cost(costAttempt);
     var runtimeGateAborted = false;
     var gateCheckRunning = false;
     Timer? runtimeGateTimer;
@@ -252,6 +251,7 @@ class DeepSeekClient {
 
     try {
       cancellationToken?.throwIfCancelled();
+      if (billable) await _cost(costAttempt);
       final response = await streamClient
           .send(request)
           .timeout(requestTimeout);
@@ -386,7 +386,6 @@ class DeepSeekClient {
       'at': DateTime.now().millisecondsSinceEpoch, 'model': effectiveModel,
       'endpoint': endpoint, 'lane': usageLane};
     final billable = !provider.isGeminiRelay;
-    if (billable) await _cost(costAttempt);
     var runtimeGateAborted = false;
     var gateCheckRunning = false;
     Timer? runtimeGateTimer;
@@ -419,6 +418,7 @@ class DeepSeekClient {
     }
     try {
       cancellationToken?.throwIfCancelled();
+      if (billable) await _cost(costAttempt);
       final response = await requestClient
           .post(
             Uri.parse(endpoint),

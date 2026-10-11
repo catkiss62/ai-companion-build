@@ -32,6 +32,12 @@ void main() {
       expect(plan.calls.isNotEmpty, deep);
     }
   });
+  test('ordinary chat may stop a work without gaining commission capability', () {
+    final tools = jsonEncode(AgentToolPlanner.nativeToolDefinitionsFor('先暂停作品制作'));
+    expect(tools, contains('creative_work_stop'));
+    expect(tools, isNot(contains('creative_work_commission')));
+    expect(AgentToolPlanner.nativeToolDefinitionsFor('这个作品很好看'), isEmpty);
+  });
   test('commission is idempotent, gated at request time, paused on import', () async {
     final store = CreativeStore(db);
     Future<Map<String, dynamic>> make(bool deep) => store.commission(deepThinking: deep,
@@ -60,7 +66,7 @@ void main() {
       jsonClientFactory: () => MockClient((request) async {
         choices++;
         expect(request.body, isNot(contains('playerChoice')));
-        return http.Response(jsonEncode({'choices': [{'message': {'content': jsonEncode({'choice': '石头'})}}]}), 200);
+        return http.Response(jsonEncode({'choices': [{'message': {'content': jsonEncode({'choice': '石头'})}}]}), 200, headers: {'content-type': 'application/json; charset=utf-8'});
       })));
     await play.open();
     final decision = jsonEncode({'kind': 'choose', 'data': {'turn': 't1', 'options': ['石头', '剪刀', '布']}});
@@ -97,7 +103,7 @@ void main() {
         return http.Response(jsonEncode({'choices': [{'message': {'content': jsonEncode({
           'title': '灯', 'intro': '点亮一下', 'html': '<button id="light">$calls</button>',
           'checks': [{'selector': '#light', 'text': '$calls'}],
-        })}}]}), 200);
+        })}}]}), 200, headers: {'content-type': 'application/json; charset=utf-8'});
       })));
     var previews = 0;
     TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger.setMockMethodCallHandler(
