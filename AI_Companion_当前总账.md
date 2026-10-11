@@ -1,6 +1,6 @@
 # AI Companion · 当前总账
 
-更新时间：2026-10-11（+340 IMPLEMENTATION IN PROGRESS / CI PENDING / APK PENDING / TRUE DEVICE PENDING；+339 DEVICE REPORTED GENERATION FAILURE；+338 CI PASSED / APK READY / TRUE DEVICE PENDING；+337 CI PASSED / APK READY / TRUE DEVICE PENDING；+336 CI PASSED / APK READY / TRUE DEVICE PENDING；+335 CI PASSED / APK READY / TRUE DEVICE PENDING；+334 CI PASSED / APK READY / TRUE DEVICE PENDING；+333 CI PASSED / APK READY / TRUE DEVICE PENDING；+332 CI PASSED / APK READY / USER EAR PLACEMENT ACCEPTED；+329 CI PASSED / APK READY / TRUE DEVICE PENDING；+328 CI PASSED / APK READY / TRUE DEVICE PENDING；+327 CI PASSED / APK READY / TRUE DEVICE PENDING；+326 CI PASSED / APK READY / TRUE DEVICE PENDING；+325 CI PASSED / APK READY / TRUE DEVICE PENDING；+324 CI PASSED / APK READY / TRUE DEVICE PENDING；+323 CI PASSED / APK READY / TRUE DEVICE PENDING；+322 CI PASSED / APK READY / TRUE DEVICE PENDING；+321 CI PASSED / APK READY / TRUE DEVICE PENDING；+320 CI PASSED / APK READY / TRUE DEVICE PENDING；+319 CI PASSED / APK READY / TRUE DEVICE PENDING；+318 USER DEVICE ACCEPTED；+317 CI PASSED / APK READY / TRUE DEVICE PENDING；+316 CI PASSED / APK READY / TRUE DEVICE PENDING；+315 CI PASSED / APK READY / TRUE DEVICE PENDING；+314 CI PASSED / APK READY / TRUE DEVICE PENDING；+313 CI PASSED / APK READY / TRUE DEVICE PENDING；+312 CI PASSED / APK READY / TRUE DEVICE PENDING；+311 CI PASSED / APK READY / TRUE DEVICE PENDING；+310 CI PASSED / APK READY / TRUE DEVICE PENDING；+309 CI PASSED / APK READY / TRUE DEVICE PENDING；+308 CI PASSED / APK READY / TRUE DEVICE PENDING；+307 CI PASSED / APK READY / USER DEVICE ACCEPTED；+306 CI PASSED / APK READY / TRUE DEVICE PENDING；+305 CI PASSED / APK READY / DEVICE REPORTED REPLY STALL；+304 CI PASSED / APK READY / TRUE DEVICE PENDING；+303 CI PASSED / APK READY / TRUE DEVICE PENDING；+302 CI PASSED / APK READY / TRUE DEVICE PENDING；+301 CI PASSED / APK READY / TRUE DEVICE PENDING；+300 CI PASSED / APK READY / TRUE DEVICE PENDING；+299 CI PASSED / APK READY / TRUE DEVICE PENDING；+298 CI PASSED / APK READY / TRUE DEVICE PENDING；+297 CI PASSED / APK READY / TRUE DEVICE PENDING；+295 恢复真机成功、背景回归 PARTIAL；+293 DEVICE VISUAL BASELINE）
+更新时间：2026-10-11（+340 CI PASSED / APK READY / TRUE DEVICE PENDING；+339 DEVICE REPORTED GENERATION FAILURE；+338 CI PASSED / APK READY / TRUE DEVICE PENDING；+337 CI PASSED / APK READY / TRUE DEVICE PENDING；+336 CI PASSED / APK READY / TRUE DEVICE PENDING；+335 CI PASSED / APK READY / TRUE DEVICE PENDING；+334 CI PASSED / APK READY / TRUE DEVICE PENDING；+333 CI PASSED / APK READY / TRUE DEVICE PENDING；+332 CI PASSED / APK READY / USER EAR PLACEMENT ACCEPTED；+329 CI PASSED / APK READY / TRUE DEVICE PENDING；+328 CI PASSED / APK READY / TRUE DEVICE PENDING；+327 CI PASSED / APK READY / TRUE DEVICE PENDING；+326 CI PASSED / APK READY / TRUE DEVICE PENDING；+325 CI PASSED / APK READY / TRUE DEVICE PENDING；+324 CI PASSED / APK READY / TRUE DEVICE PENDING；+323 CI PASSED / APK READY / TRUE DEVICE PENDING；+322 CI PASSED / APK READY / TRUE DEVICE PENDING；+321 CI PASSED / APK READY / TRUE DEVICE PENDING；+320 CI PASSED / APK READY / TRUE DEVICE PENDING；+319 CI PASSED / APK READY / TRUE DEVICE PENDING；+318 USER DEVICE ACCEPTED；+317 CI PASSED / APK READY / TRUE DEVICE PENDING；+316 CI PASSED / APK READY / TRUE DEVICE PENDING；+315 CI PASSED / APK READY / TRUE DEVICE PENDING；+314 CI PASSED / APK READY / TRUE DEVICE PENDING；+313 CI PASSED / APK READY / TRUE DEVICE PENDING；+312 CI PASSED / APK READY / TRUE DEVICE PENDING；+311 CI PASSED / APK READY / TRUE DEVICE PENDING；+310 CI PASSED / APK READY / TRUE DEVICE PENDING；+309 CI PASSED / APK READY / TRUE DEVICE PENDING；+308 CI PASSED / APK READY / TRUE DEVICE PENDING；+307 CI PASSED / APK READY / USER DEVICE ACCEPTED；+306 CI PASSED / APK READY / TRUE DEVICE PENDING；+305 CI PASSED / APK READY / DEVICE REPORTED REPLY STALL；+304 CI PASSED / APK READY / TRUE DEVICE PENDING；+303 CI PASSED / APK READY / TRUE DEVICE PENDING；+302 CI PASSED / APK READY / TRUE DEVICE PENDING；+301 CI PASSED / APK READY / TRUE DEVICE PENDING；+300 CI PASSED / APK READY / TRUE DEVICE PENDING；+299 CI PASSED / APK READY / TRUE DEVICE PENDING；+298 CI PASSED / APK READY / TRUE DEVICE PENDING；+297 CI PASSED / APK READY / TRUE DEVICE PENDING；+295 恢复真机成功、背景回归 PARTIAL；+293 DEVICE VISUAL BASELINE）
 
 > 本文件是唯一的当前接班入口，继续采用“总账 v2”。顶部是快速接班索引；标记后的正式记录按版本持续追加，不设总容量上限。
 >
@@ -8,11 +8,11 @@
 
 
 
-## 当前任务 · +340 独立小作品工作 Agent（CI PENDING / APK PENDING）
+## 当前交付 · +340 独立小作品工作 Agent（CI PASSED / APK READY / TRUE DEVICE PENDING）
 
-2026-10-11 21:18用户确认沿用同一个DeepSeek账号/Key并授权修改。目标0.42.96+340，agent/v04296-creative-agent；方案与验收 app/docs/CREATIVE_AGENT_v0.42.96.md。用独立工程上下文及原生工具循环替换整份JSON生成；原始委托保留，逐步文件/待执行调用持久化，真实试玩及保存重开检查，错误反馈修复与有界恢复。聊天可并行；普通聊天不增加逐轮Agent，不开自主制作。+339真机已报告生成解析失败且无有效草稿，旧“草稿已保留”文案不实；不能把32K截断当已证实原因。初版专项38143793457成功，后续互动/恢复增强待完整CI；没有声称真实DeepSeek语义或用户手机通过。基线与详细记录见文末。
+2026-10-11 21:18用户确认沿用同一个DeepSeek账号/Key并授权修改。目标0.42.96+340，agent/v04296-creative-agent；方案与验收 app/docs/CREATIVE_AGENT_v0.42.96.md。用独立工程上下文及原生工具循环替换整份JSON生成；原始委托保留，逐步文件/待执行调用持久化，真实试玩及保存重开检查，错误反馈修复与有界恢复。聊天可并行；普通聊天不增加逐轮Agent，不开自主制作。+339真机已报告生成解析失败且无有效草稿，旧“草稿已保留”文案不实；不能把32K截断当已证实原因。最终源码9d14f090/同树ac7155d，完整38144993526、稳定性38144993568、专项38144993613通过：1512全量Flutter、561稳定性、71专项、Android15/8原生35/6项。已交付[同签名未发布+340 APK](https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-5eee2ece789c78bfe42c)。旧失败任务开启深度思考后可在作品集点“继续制作”。真实DeepSeek语义与用户手机仍待验，完整证据见文末。
 
-## 当前交付 · +339 小作品第一批与梦境恢复（CI PASSED / APK READY / TRUE DEVICE PENDING）
+## 前次交付 · +339 小作品第一批与梦境恢复（CI PASSED / APK READY / DEVICE REPORTED GENERATION FAILURE）
 
 2026-10-11 用户授权第一批及梦境修查。0.42.95+339，分支 `agent/v04295-creative-workspace`，最终源码370b9e9（本地e849199同树8fe40a1）。独立DeepSeek工作模型/思考力度、余额右侧今日费用估算；仅发送时深度思考开启的明确委托可启动/修改制作；后台HTML生成与实际预览、作品集/聊天卡片、App内互动、草稿/版本/同局隐蔽选择完整存档。普通聊天可停止，关闭深度思考不取消已有授权；不增逐轮Agent，自主灵感与创作仍是第二批。梦境区分聊天抢占/进程中断与接口失败，保留来源和提交围栏，下次空闲短退避重试。完整38131888279、专项38131888224成功：150源码、1497全量Flutter、546专项、34项Android15及5项Android8原生通过。同签名未发布APK已就绪；下载、SHA、失败路线与边界见文末和 `app/docs/CREATIVE_WORKSPACE_v0.42.95.md`。真实模型作品质量、手机锁屏耗电与长期梦境效果仍待用户真机验证。
 
@@ -3367,3 +3367,30 @@ CI于北京时间2026-10-11约03:11完成，06:00复核交付。保持draft，�
 后台实际WebView返回JS/DOM错误、页面文本、元素与choose/reveal/save/reload证据；涉及真实伴侣选择的委托不能改成本地模式，必须完成互动、保存、重开检查才提交。已验证hash在文件/计划修改或导入后失效。工作区随存档保存，原成品与游玩旧版不被半成品覆盖。未注入全部人设/梦境/近期聊天，未更改正文通道、Cedar、Jev、Live2D、桌宠或+339梦境机制。自主创作与梦境动机仍后续讨论。
 
 诊断新增creativeAgent，含execution_id、trigger_source、continuation_owner、phase、planning_rounds、tool_calls、committed_mutations、continuation_requested、terminal、preempt、late_write与usage_lane；逐轮记录finish_reason、输出长度、用量和失败类别，不带用户原文、源码、思考或Key。尚未取得实际DeepSeek本次端到端生成和HyperOS长期后台证据，不外推为真机通过。
+
+
+### +340 最终候选专项与原生证据
+
+源码9d14f090af1d1227612ff87ec109a1bcb4844fa6、本地a90a677同树ac7155d93a518f38845bb46b0638ce66f2054d3f。作品/工作Agent/梦境/配置专项38144993613通过71项，其中新工作Agent17项；稳定性38144993568通过561项。完整38144993526的Android15/API35原生35项及Android8/API26原生6项均通过，已进入APK构建；最终签名/源码门/全量Flutter以完整构建结果为准。
+
+失败路线：此前207bcdf4完整38144511218只在Android8旧StageVisibility触摸发生INJECT_EVENTS权限异常，作品预览5项及Android15原生35项通过，APK未构建；最终候选保留同一舞台生产代码、真实输入测试和断言，重新执行后6项通过，不把偶发CI焦点问题推断为用户手机故障。没有删门或添加测试权限绕过。
+
+追加存档修正：长原始委托/说明与180KB封面可能使元数据超过旧300KB导入门，限制引用2000字符、保持原话12000字符并将元数据上限调整到400KB；游玩状态仍300KB。新增长委托与179900字节封面存档往返测试通过。用户备份/诊断未提交，未使用其中Key调用真实API。
+
+
+## +340 最终 CI 与未发布 APK 交付
+
+状态：CI PASSED / APK READY / TRUE DEVICE PENDING。2026-10-11 22:19（Asia/Shanghai）完成产物复核；用户此前已授权，不新增Key要求，不再次要求制作确认。版本0.42.96+340，分支agent/v04296-creative-agent。
+
+- 构建源码 `9d14f090af1d1227612ff87ec109a1bcb4844fa6`，本地 `a90a677`，同树 `ac7155d93a518f38845bb46b0638ce66f2054d3f`。后续只更新交付总账与任务文档，不改APK源码。初版0b24b986/ce75c55、扩展207bcdf4/441a30f及存档补正9d14f090/a90a677链路完整保留。
+- [完整Actions38144993526](https://github.com/catkiss62/ai-companion-build/actions/runs/38144993526)，13:53:46—14:19:16 UTC成功：150项现行源码回归、1512项全量Flutter、35项Android15/API35原生、6项Android8/API26原生，Kotlin、APK资源完整性和签名校验全部通过。分析保留既有info/warnings，无error。
+- [稳定性38144993568](https://github.com/catkiss62/ai-companion-build/actions/runs/38144993568)通过561项；[功能专项38144993613](https://github.com/catkiss62/ai-companion-build/actions/runs/38144993613)通过71项，其中17项新增工作Agent行为测试，覆盖分片工具/实际反馈修复/聊天租约并行/双执行者/断流/截断/临时失败/配置失败/工具检查点重放/停止删除围栏/旧验证拒绝/互动不可降级/长原话大封面存档。
+- [同签名未发布+340 APK](https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-5eee2ece789c78bfe42c)，Draft Release `409698018`，tag `v0.42.96-creative-agent-test`，目标9d14f090。APK资产630933103：`AI-Companion-v0.42.96-340-Creative-Agent-APK.apk`，736945441 bytes；SHA文件630933104、成功CI Monitor630933118；Actions APK artifact11704283946。
+- APK SHA-256：`593df757b49316a41715ed56595b5cb0f9623f2e49a76d6c729ce377d760171f`。构建sha256sum与上传资产digest一致。
+- 实际签名SHA-256：`30:5E:B3:D8:09:83:B9:63:C6:48:18:DD:F1:AD:56:1F:27:9D:E6:D4:7B:3E:D2:C7:81:AD:A4:48:C7:C2:51:48`，与原测试包相同，可覆盖安装。保持draft，未合并main。
+
+交付：主角色明确委托工程工作；同一Key、独立上下文与流式工具循环，逐步读写/局部修改/后台实际试玩/反馈修复/验证后提交。工作与聊天并行，后台不占手机画面；保存完整响应和工具游标后执行，断流不执行残缺调用，进程恢复接续，失败有界退避。主角色原话与简述保留，不给工程上下文灌入整套人设/梦境/近期聊天。工作文件、成品、检查点、游玩状态随备份导入，导入任务暂停；旧失败作品开启深度思考后在作品集“继续制作”即可使用新引擎。
+
+真机边界：未使用用户Key进行真实DeepSeek本次创作验收，不保证模型作品品质或所有语义；CI互动选择是受控模拟，WebView执行/保存重开是实际原生测试。用户手机后台持续性、耗电仍待体验，Android强停期间不能运行。连续失败或24轮自动模型上限会暂停，不无限付费重试。+339梦境抢占/中断恢复回归通过并保留，自主创作动机/灵感/分享仍第二批。下一步接收用户继续原猜拳任务的真实效果；如仍中断，用新增脱敏creativeAgent步骤证据定位，不再凭缺失finish_reason猜测。
+
+失败路线和存档修正见上节及app/docs/CREATIVE_AGENT_v0.42.96.md。未删除既有回归门，冻结归档未改，私密备份/诊断未上传。

@@ -1,6 +1,6 @@
 # 小作品工作 Agent · v0.42.96+340
 
-状态：DESIGNED / IMPLEMENTING。基线 +339，远端总账 23ddda9d90f7c35091fdf47897402646e0230131，本地同树 9705d0ad9fa790e9393de337c6e998533ed08cec。分支 agent/v04296-creative-agent。
+状态：IMPLEMENTED / CI PASSED / APK READY / TRUE DEVICE PENDING。基线 +339，远端总账 23ddda9d90f7c35091fdf47897402646e0230131，本地同树 9705d0ad9fa790e9393de337c6e998533ed08cec。分支 agent/v04296-creative-agent。
 
 ## 授权与范围
 
@@ -32,3 +32,28 @@
 ## 实施与验证记录
 
 - 开始：已核对 +339 源码和远端同树，工作区干净。沿用现有 GitHub Actions 编译环境；本地 Flutter 初始化曾被自动审批拒绝，不重试该路径。
+
+- 原生回归第一轮：源码207bcdf4、完整Actions38144511218在Android8旧StageVisibilitySmokeTest真实触摸时出现INJECT_EVENTS输入焦点权限错误；该轮作品预览5项与Android15全套35项通过，APK构建未启动。没有删测试、改断言或宣称Android8通过。最终候选随后重新执行全部原生门并通过。
+- 存档边界追加：委托引用限制2000字符、完整原话12000字符；作品元数据上限400 KB（游玩状态仍300 KB），避免原话/说明/180 KB封面同时存在时旧300 KB导入门拒绝自己的存档。新增实际大小封面+长原话往返测试。
+- 候选源码9d14f090af1d1227612ff87ec109a1bcb4844fa6，本地a90a677，同树ac7155d93a518f38845bb46b0638ce66f2054d3f。专项Actions38144993613通过71项作品/工作Agent/梦境/配置测试（其中17项新工作Agent测试）；现有分析info/warnings保留，零error。稳定性Actions38144993568已通过561项；完整Actions38144993526最终通过，交付证据见下。
+- 最终候选Android8/API26 job114486392674完整通过6项（1项舞台真实触摸+5项作品预览），未修改StageVisibility测试或生产舞台逻辑；上一轮输入注入失败保留为偶发测试环境证据，不能推断为用户设备故障。
+- 最终候选Android15/API35 job114486392706完整通过35项；无Activity私有显示、息屏、互动桥、猜拳保存/重开及既有原生链路通过。build-apk job114487568365最终通过；测试页不等于真实模型作品。
+
+
+## 升级后的使用与真机观察
+
+- 同签名覆盖安装后沿用原DeepSeek Key、工作模型与思考力度。旧失败作品可在开启聊天深度思考后，从作品集菜单选择“继续制作”；旧版卡片通过原消息定位原始委托。
+- 初次体验建议沿用原任务“给我做一个我们能一起玩的猜拳小游戏”。观察制作/试玩/修复进度，期间继续聊天或切换其他App；成品出现后打开试玩。
+- 猜拳应先封存她的选择，再让玩家选择；完成一局后关闭作品再打开，核对分数和本局状态。试玩桥在CI使用模拟选择，真实DeepSeek的选项、作品品质与语义理解仍需手机验证。
+- Android强行停止期间不运行。恢复执行环境后可接续保存的文件/工具；已主动暂停或导入的工作仍等待明确继续。连续失败/自动运行上限暂停有可见说明，不无限重复付费调用。
+
+
+## 最终 CI 与未发布 APK（2026-10-11 22:19 Asia/Shanghai）
+
+- 构建源码 `9d14f090af1d1227612ff87ec109a1bcb4844fa6`，本地 `a90a677`，同树 `ac7155d93a518f38845bb46b0638ce66f2054d3f`。后续文档提交不改构建源码。
+- [完整Actions38144993526](https://github.com/catkiss62/ai-companion-build/actions/runs/38144993526)于13:53:46—14:19:16 UTC通过：150项源码回归、1512项全量Flutter、35项Android15与6项Android8原生，以及Kotlin、APK资源与固定签名检查。静态分析仍有既有info/warnings，无error。
+- [稳定性38144993568](https://github.com/catkiss62/ai-companion-build/actions/runs/38144993568)561项通过；[功能专项38144993613](https://github.com/catkiss62/ai-companion-build/actions/runs/38144993613)71项通过，其中17项新工作Agent回归。
+- [同签名未发布测试APK](https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-5eee2ece789c78bfe42c)：Draft Release409698018，tag `v0.42.96-creative-agent-test`，目标9d14f090。APK资产630933103，文件 `AI-Companion-v0.42.96-340-Creative-Agent-APK.apk`，736945441 bytes；SHA资产630933104，成功CI Monitor630933118；Actions APK artifact11704283946。
+- APK SHA-256：`593df757b49316a41715ed56595b5cb0f9623f2e49a76d6c729ce377d760171f`。已核对构建输出与GitHub上传digest一致。
+- 签名SHA-256：`30:5E:B3:D8:09:83:B9:63:C6:48:18:DD:F1:AD:56:1F:27:9D:E6:D4:7B:3E:D2:C7:81:AD:A4:48:C7:C2:51:48`，与原测试包一致。
+- 仅推送任务分支与未发布测试包；未合并main。私密备份/诊断未入库，未用其中Key调用模型。真实DeepSeek创作品质、手机长期后台与耗电仍待真机；自主灵感/梦境创作动机仍后续批次。
