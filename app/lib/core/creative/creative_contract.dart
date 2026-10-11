@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'package:crypto/crypto.dart';
 import 'creative_workspace.dart';
+import 'creative_autonomy_policy.dart';
 
 /// Portable, self-contained works. No network credentials or host file paths.
 class CreativeContract {
@@ -62,6 +63,19 @@ class CreativeContract {
       if (!key.startsWith('creative_')) continue;
       final value = row['value'];
       if (value is! String) throw const FormatException('作品存档损坏');
+      if (key == CreativeAutonomyPolicy.enabledKey) {
+        if (!{'', '0', '1'}.contains(value)) throw const FormatException('自主创作开关无效');
+        continue;
+      }
+      if (key == CreativeAutonomyPolicy.stateKey) {
+        final state = decode(value);
+        CreativeAutonomyPolicy.validateState(state);
+        if (state.isNotEmpty) rows[i] = {...row, 'value': jsonEncode({...state, 'suspended': true})};
+        continue;
+      }
+      if (key == CreativeAutonomyPolicy.lease || key == CreativeAutonomyPolicy.attemptKey) {
+        rows[i] = {...row, 'value': ''}; continue;
+      }
       if (key.startsWith(chatPrefix)) {
         if (value.isNotEmpty) validateSnapshot(decode(value));
         continue;
@@ -69,7 +83,9 @@ class CreativeContract {
       if (key.startsWith(receiptPrefix)) {
         final receipt = decode(value);
         if (utf8.encode(value).length > 1000 || receipt['work_id'] is! String ||
-            receipt['version'] is! String || receipt['message_id'] != key.substring(receiptPrefix.length)) {
+            receipt['version'] is! String ||
+            (receipt.containsKey('request_id') && receipt['request_id'] is! String) ||
+            (receipt.containsKey('completed') && receipt['completed'] is! bool) || receipt['message_id'] != key.substring(receiptPrefix.length)) {
           throw const FormatException('作品交付引用无效');
         }
         continue;
@@ -120,6 +136,7 @@ class CreativeContract {
         final data = decode(value);
         if (data['schema'] != 1) throw const FormatException('不支持的作品版本');
         if (key.startsWith(metaPrefix)) {
+          CreativeAutonomyPolicy.validateWork(data);
           if (data['id'] != key.substring(metaPrefix.length) || data['updated'] is! int ||
               !{...active, 'paused', 'failed', 'ready', 'deleted'}.contains(data['status'])) {
             throw const FormatException('作品目录损坏');
@@ -134,6 +151,11 @@ class CreativeContract {
         } else if (data['version'] is! String || data['turns'] is! Map || data['reports'] is! List) {
           throw const FormatException('作品游玩状态损坏');
         }
+        if (key.startsWith(metaPrefix) && CreativeAutonomyPolicy.autonomous(data) &&
+            data['visibility'] == 'private' && data['preempt'] != 'self_retired') {
+          data['preempt'] = 'import';
+          rows[i] = {...row, 'value': jsonEncode(data)};
+        }
         if (key.startsWith(metaPrefix) && active.contains(data['status'])) {
           data['status'] = 'paused';
           data['note'] = '从存档恢复；等待你继续';
@@ -143,6 +165,17 @@ class CreativeContract {
         }
       } else if (key == 'creative_worker_lease_until' || key == 'creative_delivery_lease_until') {
         rows[i] = {...row, 'value': ''};
+      }
+    }
+    final values = <String, String>{for (final r in rows.whereType<Map>())
+      if (r['key'] is String && r['value'] is String) r['key'] as String: r['value'] as String};
+    for (final entry in values.entries.where((e) => e.key.startsWith(metaPrefix))) {
+      final work = decode(entry.value);
+      if (!CreativeAutonomyPolicy.autonomous(work) || work['status'] == 'deleted') continue;
+      for (final version in <Object?>[work['current'], work['draft'], ...(work['versions'] as List? ?? [])]) {
+        if (version is String && version.isNotEmpty && !values.containsKey('$sourcePrefix$version')) {
+          throw const FormatException('自主作品源码缺失，未恢复存档');
+        }
       }
     }
   }

@@ -3,6 +3,8 @@ import '../database/app_database.dart';
 import '../database/brain_work_fence.dart';
 import 'creative_contract.dart';
 import 'creative_workspace.dart';
+import 'creative_autonomy_policy.dart';
+import 'creative_share.dart';
 
 class CreativeStore {
   CreativeStore(this.db);
@@ -10,7 +12,7 @@ class CreativeStore {
   static String key(String id) => '${CreativeContract.metaPrefix}$id';
   Future<Map<String, dynamic>> get(String id) async => CreativeContract.decode(await db.getSetting(key(id)));
 
-  Future<List<Map<String, dynamic>>> list({bool pendingOnly = false}) async {
+  Future<List<Map<String, dynamic>>> list({bool pendingOnly = false, bool includePrivate = false}) async {
     final handle = await db.database;
     final keys = await handle.query('settings', columns: ['key'],
         where: pendingOnly ? 'key LIKE ? AND (value LIKE ? OR value LIKE ? OR value LIKE ?)' : 'key LIKE ?',
@@ -19,6 +21,7 @@ class CreativeStore {
     for (final row in keys) {
       final work = CreativeContract.decode(await db.getSetting(row['key'] as String));
       if (work.isNotEmpty && work['status'] != 'deleted' &&
+          (includePrivate || CreativeAutonomyPolicy.visible(work)) &&
           (!pendingOnly || CreativeContract.active.contains(work['status']))) works.add(work);
     }
     works.sort((a, b) => (b['updated'] as int).compareTo(a['updated'] as int));
@@ -29,12 +32,17 @@ class CreativeStore {
     final receipt = CreativeContract.decode(await db.getSetting('${CreativeContract.receiptPrefix}$messageId'));
     if (receipt.isNotEmpty) {
       final work = await get(receipt['work_id'] as String);
-      if (work.isEmpty || work['status'] == 'deleted') return [];
-      return [{...work, 'card_kind': receipt['kind'], 'delivered_version': receipt['version']}];
+      if (!CreativeAutonomyPolicy.visible(work)) return [];
+      final completed = receipt['completed'] == true ||
+          (work['request_id'] is String && receipt['request_id'] == work['request_id'] && work['completed_request'] == work['request_id']) ||
+          (!receipt.containsKey('request_id') && work['message_id'] == messageId && work['status'] == 'ready');
+      return [{...work, 'card_kind': receipt['kind'], 'delivered_version': receipt['version'],
+        'record_completed': completed}];
     }
     // Legacy cards retain their existing association without inventing messages.
     return (await list()).where((w) => w['message_id'] == messageId || w['completion_message_id'] == messageId)
-        .map((w) => {...w, 'card_kind': w['completion_message_id'] == messageId ? 'delivered' : 'progress'}).toList();
+        .map((w) => {...w, 'card_kind': w['completion_message_id'] == messageId ? 'delivered' : 'progress',
+          'record_completed': w['status'] == 'ready'}).toList();
   }
 
   Future<bool> write(Map<String, dynamic> before, Map<String, dynamic> after,
@@ -57,14 +65,15 @@ class CreativeStore {
     final id = workId.isEmpty ? CreativeContract.hash(requestId).substring(0, 24) : workId;
     final before = await get(id);
     if (before['request_id'] == requestId) return before;
-    if (workId.isNotEmpty && (before.isEmpty || before['status'] == 'deleted')) {
+    if (workId.isNotEmpty && !CreativeAutonomyPolicy.visible(before)) {
       throw const FormatException('找不到要修改的作品');
     }
     if (CreativeContract.active.contains(before['status'])) {
       throw const FormatException('这件作品正在制作，请先停止或等它完成');
     }
     final after = <String, dynamic>{...before,
-      'schema': 1, 'id': id, 'request_id': requestId, 'message_id': messageId,
+      'schema': 1, 'id': id, 'origin': 'commission', 'visibility': 'shared',
+      'request_id': requestId, 'message_id': messageId,
       'user_message_id': userMessageId, 'request_quote': CreativeContract.clip(requestQuote, 2000),
       'original_request': CreativeContract.clip(latestText, 12000),
       'interaction': {'companion', 'local'}.contains(interaction) ? interaction : 'unspecified',
@@ -91,20 +100,28 @@ class CreativeStore {
       }
     }
     after.remove('completion_message_id');
+    after.remove('completed_request');
+    after.remove('completed_at');
+    final previousReceiptKey = '${CreativeContract.receiptPrefix}${before['message_id']}';
+    final previousReceipt = CreativeContract.decode(await db.getSetting(previousReceiptKey));
     if (!await write(before, after, extra: {CreativeWorkspace.key(id): nextWorkspace,
       '${CreativeContract.noticePrefix}$id': '',
-      if (before['message_id'] is String && before['message_id'] != messageId)
-        '${CreativeContract.receiptPrefix}${before['message_id']}': jsonEncode({'message_id': before['message_id'],
-          'work_id': id, 'version': '', 'kind': 'progress'}),
+      if (before['message_id'] is String && (before['message_id'] as String).isNotEmpty && before['message_id'] != messageId)
+        previousReceiptKey: jsonEncode({...previousReceipt, 'message_id': before['message_id'],
+          'work_id': id, 'version': previousReceipt['version'] ?? before['current'] ?? '', 'kind': 'progress',
+          'request_id': before['request_id'],
+          'completed': previousReceipt['completed'] == true ||
+            (before['request_id'] is String && before['completed_request'] == before['request_id']) || before['status'] == 'ready'}),
       if (before['completion_message_id'] is String)
         '${CreativeContract.receiptPrefix}${before['completion_message_id']}': jsonEncode({'message_id': before['completion_message_id'],
           'work_id': id, 'version': before['current'] ?? '', 'kind': 'delivered'}),
       '${CreativeContract.receiptPrefix}$messageId': jsonEncode({'message_id': messageId,
-        'work_id': id, 'version': '', 'kind': 'progress'})})) throw const BrainWorkInvalidated();
+        'work_id': id, 'version': '', 'kind': 'progress', 'request_id': requestId, 'completed': false})})) throw const BrainWorkInvalidated();
     return after;
   }
 
   Future<String> originalRequest(Map<String, dynamic> work) async {
+    if (CreativeAutonomyPolicy.autonomous(work)) return '';
     final saved = (work['original_request'] ?? work['request_quote']) as String? ?? '';
     if (saved.isNotEmpty) return saved;
     // +339 cards can reference the assistant message rather than the user.
@@ -122,13 +139,14 @@ class CreativeStore {
 
   Future<void> stop(String id) async {
     final before = await get(id);
-    if (before.isEmpty) return;
+    if (!CreativeAutonomyPolicy.visible(before)) return;
     await write(before, {...before, 'status': 'paused', 'note': '已暂停', 'preempt': 'user_stop'});
   }
 
-  Future<void> resume(String id) async {
+  Future<void> resume(String id, {bool privatePermission = false}) async {
     final before = await get(id);
-    if (!{'paused', 'failed'}.contains(before['status'])) return;
+    if ((!privatePermission && !CreativeAutonomyPolicy.visible(before)) ||
+        !{'paused', 'failed'}.contains(before['status'])) return;
     final agent = CreativeContract.decode(await db.getSetting(CreativeWorkspace.key(id)));
     if (agent.isNotEmpty) { agent['failures'] = 0; agent['next_at'] = 0; }
     await write(before, {...before, 'status': 'queued', 'attempts': 0, 'retry_at': 0, 'preempt': '',
@@ -140,13 +158,77 @@ class CreativeStore {
 
   Future<void> delete(String id) async {
     final before = await get(id);
-    if (before.isEmpty) return;
+    if (!CreativeAutonomyPolicy.visible(before)) return;
     final stateKey = '${CreativeContract.playPrefix}$id';
     await write(before, {'schema': 1, 'id': id, 'status': 'deleted',
       'request_id': before['request_id'], 'message_id': before['message_id'],
       'updated': DateTime.now().millisecondsSinceEpoch}, extra: {stateKey: '', CreativeWorkspace.key(id): '',
         '${CreativeContract.noticePrefix}$id': '', '${CreativeContract.playTracePrefix}$id': ''});
     await collectUnusedSources();
+  }
+
+
+  Future<void> setAutonomyEnabled(bool enabled) async {
+    // Compare-and-swap keeps rapid overlapping toggles from sharing an epoch.
+    while (true) {
+      final raw = await db.getSetting(CreativeAutonomyPolicy.epochKey) ?? '';
+      final epoch = int.tryParse(raw) ?? 0;
+      final now = DateTime.now().millisecondsSinceEpoch;
+      if (await db.setSettingsAtomically({CreativeAutonomyPolicy.enabledKey: enabled ? '1' : '0',
+        CreativeAutonomyPolicy.epochKey: '${now > epoch ? now : epoch + 1}'},
+        expectedSettings: {CreativeAutonomyPolicy.epochKey: raw})) return;
+    }
+  }
+
+  Future<void> resumeAutonomous() async {
+    if (await db.getSetting(CreativeAutonomyPolicy.enabledKey) != '1') return;
+    final state = CreativeContract.decode(await db.getSetting(CreativeAutonomyPolicy.stateKey));
+    if (state.isNotEmpty) {
+      CreativeAutonomyPolicy.validateState(state);
+      await db.setSettingsAtomically({CreativeAutonomyPolicy.stateKey: jsonEncode({...state, 'suspended': false}),
+        CreativeAutonomyPolicy.attemptKey: ''});
+    }
+    for (final work in await list(includePrivate: true)) {
+      if (!CreativeAutonomyPolicy.autonomous(work) || work['preempt'] == 'self_retired') continue;
+      if (work['status'] == 'ready' && work['preempt'] == 'import') {
+        await write(work, {...work, 'preempt': '', 'share_after': 0});
+      } else if (work['status'] == 'paused' || work['status'] == 'failed') {
+        await resume(work['id'] as String, privatePermission: true);
+      }
+    }
+  }
+
+  /// Only called by the private inspiration owner after grounded review.
+  Map<String, dynamic> autonomousWork(Map<String, dynamic> idea, DateTime at,
+      {required String model, required String effort}) {
+    final request = 'autonomous:${idea['id']}';
+    final id = CreativeContract.hash(request).substring(0, 24);
+    return {'schema': 1, 'id': id, 'origin': 'autonomous', 'visibility': 'private',
+      'idea_id': idea['id'], 'request_id': request, 'message_id': '', 'original_request': '',
+      'motive': idea['motive'], 'brief': idea['brief'], 'evidence': idea['evidence'],
+      'interaction': 'unspecified', 'title': '小作品', 'intro': '', 'status': 'queued',
+      'attempts': 0, 'updated': at.millisecondsSinceEpoch, 'model': model, 'effort': effort,
+      'note': '等待空闲制作', 'draft': '', 'errors': <Object?>[], 'retry_at': 0,
+      'agent_step': 0, 'agent_trace': <Object?>[], 'model_turns': 0, 'tool_calls': 0,
+      'committed_mutations': 0, 'late_result_dropped': 0, 'preempt': '', 'versions': <String>[]};
+  }
+
+  Future<List<Map<String, dynamic>>> shareCandidates(DateTime now) async {
+    if (await db.getSetting(CreativeAutonomyPolicy.enabledKey) != '1') return [];
+    return (await list(includePrivate: true)).where((w) => CreativeShare.eligible(w, now)).take(2).toList();
+  }
+
+  Future<CreativeShare?> claimShare(String id, DateTime now) async {
+    if (await db.getSetting(CreativeAutonomyPolicy.enabledKey) != '1') return null;
+    final work = await get(id);
+    if (!CreativeShare.eligible(work, now)) return null;
+    final fence = await db.captureBrainWorkFence(settingKeys: [
+      CreativeAutonomyPolicy.enabledKey, CreativeAutonomyPolicy.epochKey]);
+    if (fence == null || fence.expectedSettings[CreativeAutonomyPolicy.enabledKey] != '1') return null;
+    // WAIT and failed writing leave it private; don't buy the same decision on every heartbeat.
+    final next = {...work, 'share_after': now.add(const Duration(hours: 2)).millisecondsSinceEpoch};
+    if (!await write(work, next, fence: fence)) return null;
+    return CreativeShare(next, fence.expectedSettings[CreativeAutonomyPolicy.epochKey] ?? '');
   }
 
   static const requestContract = '深度思考只决定本轮能否接受新的制作或修改委托。'

@@ -1,4 +1,6 @@
 import '../creative/creative_contract.dart';
+import '../creative/creative_autonomy_policy.dart';
+import '../creative/creative_share.dart';
 import '../phone/calendar_reminder_state.dart';
 import '../desire/daily_wake_store.dart';
 import '../mcp/cedar_wake_policy.dart';
@@ -7046,7 +7048,7 @@ class AppDatabase {
           '${CreativeContract.metaPrefix}${creativeContext['work_id']}'));
         final play = CreativeContract.decode(await BrainWorkFence.value(txn,
           '${CreativeContract.playPrefix}${creativeContext['work_id']}'));
-        if (work.isEmpty || work['status'] == 'deleted' ||
+        if (!CreativeAutonomyPolicy.visible(work) ||
             play['version'] != creativeContext['version'] || play['session_id'] != creativeContext['session_id']) {
           throw const BrainWorkInvalidated();
         }
@@ -8198,6 +8200,7 @@ class AppDatabase {
     required DateTime evaluationStartedAt,
     BrainWorkFence? workFence,
     DeepReflectionContext? reflectionInvitation,
+    CreativeShare? creativeShare,
     String? proactiveTriggerReason,
     bool enforceProactiveBudget = false,
     bool proactiveGameShare = false,
@@ -8212,6 +8215,7 @@ class AppDatabase {
     return db.transaction<String?>((txn) async {
       if (workFence != null && !await workFence.matches(txn)) return 'work_fence';
       if (reflectionInvitation != null && !await DeepReflectionStore.current(txn, reflectionInvitation)) return 'reflection_changed';
+      if (creativeShare != null && !await creativeShare.current(txn)) return 'creative_share_changed';
       final settingsRows = await txn.query(
         'settings',
         columns: ['key', 'value'],
@@ -8296,6 +8300,7 @@ class AppDatabase {
           'created_at': sentAt.millisecondsSinceEpoch,
         });
       }
+      if (creativeShare != null) await creativeShare.commit(txn, message.id, message.createdAt);
       await DeepReflectionStore.commit(txn, context: reflectionInvitation,
         replyId: message.id, visibleReply: message.content, now: message.createdAt,
         invitation: true, roleplay: WorldBookTurnContext.decode(message.worldBookContextJson).hasRoleplay);

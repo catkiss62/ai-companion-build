@@ -15,6 +15,7 @@ import '../models/chat_segment.dart';
 import '../platform/android_bridge.dart';
 import '../storage/secure_config.dart';
 import 'creative_contract.dart';
+import 'creative_autonomy_policy.dart';
 import 'creative_store.dart';
 
 /// The publication transaction creates this outbox. A separate lease owns its
@@ -49,7 +50,8 @@ class CreativeDelivery {
       expectedSettings: {key(id): jsonEncode(notice), CreativeStore.key(id): jsonEncode(work)}, workFence: fence);
   }
 
-  static bool _sameWork(Map work, Map notice) => work['status'] == 'ready' &&
+  static bool _sameWork(Map work, Map notice) => CreativeAutonomyPolicy.visible(work) &&
+      !CreativeAutonomyPolicy.autonomous(work) && work['status'] == 'ready' &&
       work['request_id'] == notice['request_id'] && work['current'] == notice['version'];
 
   static Future<String> _latestUser(DatabaseExecutor sql) async {

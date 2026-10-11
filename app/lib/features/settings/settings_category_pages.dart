@@ -1,3 +1,5 @@
+import '../../core/creative/creative_store.dart';
+import '../../core/creative/creative_autonomy_policy.dart';
 import 'dart:async';
 import 'dart:convert';
 
@@ -60,6 +62,7 @@ class _ModelNetworkSettingsPageState
   ChatApiProvider _chatProvider = ChatApiProvider.deepSeek;
   DeepSeekModelProfile _model = DeepSeekModelProfile.pro;
   ReasoningEffort _effort = ReasoningEffort.high;
+  bool _creativeAutonomy = false;
   bool _publicWeb = true;
   bool _agnesCompaction = true;
   bool _loading = true;
@@ -186,6 +189,7 @@ class _ModelNetworkSettingsPageState
     _jevEnabled = await _secure.readJevEnabled();
     final activeModel = await _db.getSetting('model');
     final storedDeepSeekModel = await _db.getSetting('deepseek_model');
+    _creativeAutonomy = await _db.getSetting(CreativeAutonomyPolicy.enabledKey) == '1';
     _workModel.text = await _db.getSetting('creative_work_model') ?? 'deepseek-flash';
     _workEffort = ReasoningEffort.fromApiName(await _db.getSetting('creative_work_effort') ?? 'max');
     final storedModel = DeepSeekModelProfile.fromApiName(
@@ -843,6 +847,19 @@ class _ModelNetworkSettingsPageState
                         if (mounted) setState(() => _status = '工作模型已保存，对下一次委托生效');
                       }), child: const Text('保存工作模型')),
                       _sectionFeedback('work'),
+                      SwitchListTile(contentPadding: EdgeInsets.zero,
+                        title: const Text('自主创作'),
+                        subtitle: const Text('空闲时酝酿和制作，想分享时再送给你。关闭会暂停自主制作与分享，保留成果。'),
+                        value: _creativeAutonomy,
+                        onChanged: (value) async {
+                          await CreativeStore(_db).setAutonomyEnabled(value);
+                          if (mounted) setState(() => _creativeAutonomy = value);
+                        }),
+                      TextButton(onPressed: !_creativeAutonomy ? null : () => _sectionAction('work', () async {
+                        await CreativeStore(_db).resumeAutonomous();
+                        if (mounted) setState(() => _status = '已允许暂停的自主创作在空闲时继续');
+                      }), child: const Text('继续暂停的自主创作')),
+
                     ],
                   ),
                   _SettingsSectionCard(

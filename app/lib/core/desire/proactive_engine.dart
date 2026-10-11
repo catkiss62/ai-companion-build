@@ -1,3 +1,5 @@
+import '../creative/creative_inspiration_engine.dart';
+import '../creative/creative_store.dart';
 import '../phone/calendar_reminder_state.dart';
 import '../self/dream_engine.dart';
 import 'proactive_delivery_budget.dart';
@@ -347,6 +349,7 @@ class ProactiveEngine {
     await thoughtLifecycle.advance(forceForDebug: forceForDebug);
     await WishEngine(db).maybeRefresh();
     await DreamEngine(db).maybeDream();
+    try { await CreativeInspirationEngine(db).maybeThink(); } catch (_) { /* Optional private work cannot block the heartbeat. */ }
     await DeepReflectionEngine(db).maybePrepare();
 
     final perceptionSnapshot = await perception.capture(
@@ -546,6 +549,11 @@ class ProactiveEngine {
         unifiedCandidates.add(DesireIntent(drive: DriveKey.reflection, score: .61,
           reason: reflection.topic['question'] as String, wantAction: 'share_thought',
           reasonSource: 'deep_reflection:${reflection.topic['id']}'));
+      }
+      for (final work in await CreativeStore(db).shareCandidates(evaluationStartedAt)) {
+        unifiedCandidates.add(DesireIntent(drive: DriveKey.curiosity, score: .56,
+          reason: '有一件已检查完成的私存小作品，可以考虑是否分享', wantAction: 'share_thought',
+          reasonSource: 'creative_share:${work['id']}'));
       }
       final liveWishes = await WishStore(db).load();
       for (final wish in liveWishes.where((w) => w.mayContact(evaluationStartedAt))) {
@@ -1363,18 +1371,26 @@ class ProactiveEngine {
     if (selectedReflectionId.isNotEmpty && reflectionInvitation == null) {
       return const ProactiveDecision(sent: false, reason: '深层议题已搁置或仍在冷却');
     }
+    final selectedCreativeId = intent.reasonSource.startsWith('creative_share:')
+        ? intent.reasonSource.substring('creative_share:'.length) : '';
+    final creativeShare = selectedCreativeId.isEmpty ? null
+        : await CreativeStore(db).claimShare(selectedCreativeId, evaluationStartedAt);
+    if (selectedCreativeId.isNotEmpty && creativeShare == null) {
+      return const ProactiveDecision(sent: false, reason: '作品已变化或仍在私存冷却');
+    }
     final selectedWishId = intent.reasonSource.startsWith('wish:')
         ? intent.reasonSource.substring(5) : '';
     if (selectedWishId.isNotEmpty &&
         !await WishStore(db).claimContact(selectedWishId, evaluationStartedAt)) {
       return const ProactiveDecision(sent: false, reason: '愿望表达已冷却或暂停');
     }
-    final wishDeliveryFence = selectedWishId.isEmpty && reflectionInvitation == null ? null
+    final wishDeliveryFence = selectedWishId.isEmpty && reflectionInvitation == null && creativeShare == null ? null
         : await db.captureBrainWorkFence(settingKeys: [
+            if (creativeShare != null) ...creativeShare.expected.keys,
             if (selectedWishId.isNotEmpty) ...[WishStore.stateKey, WishStore.enabledKey],
             if (reflectionInvitation != null) ...[DeepReflectionStore.stateKey, DeepReflectionStore.enabledKey, DeepReflectionStore.resetKey],
           ]);
-    if ((selectedWishId.isNotEmpty || reflectionInvitation != null) && wishDeliveryFence == null) {
+    if ((selectedWishId.isNotEmpty || reflectionInvitation != null || creativeShare != null) && wishDeliveryFence == null) {
       return const ProactiveDecision(sent: false, reason: '愿望表达状态已变化');
     }
     final recent = await db.recentMessagesForPrompt(limit: 28);
@@ -1397,6 +1413,7 @@ class ProactiveEngine {
       freshTopicSourceOnly: startsFreshTopic,
     );
     final context = promptBuild.messages.toList(growable: true);
+    if (creativeShare != null) context.add({'role': 'system', 'content': creativeShare.prompt});
     if (reflectionInvitation != null) {
       context.add({'role': 'system', 'content': reflectionInvitation.invitation});
     }
@@ -1533,7 +1550,7 @@ ${startsFreshTopic ? '本类型属于新话题通道：ANSWERED CHAT HISTORY 已
     try {
       stickerCandidates = await stickerService.replyCandidates(
         seed: evaluationStartedAt.toIso8601String(), context: intent.reason,
-        eligible: !isCedarGameShare && webShareCandidateId == null && selectedWishId.isEmpty && reflectionInvitation == null,
+        eligible: !isCedarGameShare && webShareCandidateId == null && selectedWishId.isEmpty && reflectionInvitation == null && creativeShare == null,
       );
     } catch (_) { /* Optional expression assets. */ }
     final stickerPrompt = StickerExpressionService.replyChoicePrompt(stickerCandidates);
@@ -2101,6 +2118,7 @@ ${PromptBuilder.visibleChineseGenerationReminder(proactive: true)}
       evaluationStartedAt: evaluationStartedAt,
       workFence: wishDeliveryFence,
       reflectionInvitation: reflectionInvitation,
+      creativeShare: creativeShare,
       proactiveTriggerReason: '${isCedarGameShare ? gameSharePrefix : ''}'
           '${isImmediateCedarShare ? 'immediate:' : ''}${intent.drive.name}:${intent.reason}',
       enforceProactiveBudget: !forceForDebug,

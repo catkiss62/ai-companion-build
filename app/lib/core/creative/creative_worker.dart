@@ -10,6 +10,7 @@ import '../database/brain_work_fence.dart';
 import '../diagnostics/model_usage_telemetry.dart';
 import '../storage/secure_config.dart';
 import 'creative_contract.dart';
+import 'creative_autonomy_policy.dart';
 import 'creative_delivery.dart';
 import 'creative_store.dart';
 import 'creative_workspace.dart';
@@ -48,8 +49,11 @@ class CreativeWorker {
   Future<void> runOnce() async {
     if (!await db.brainWorkAllowed()) return;
     final store = CreativeStore(db);
-    final candidates = (await store.list(pendingOnly: true)).reversed.where(
+    final candidates = (await store.list(pendingOnly: true, includePrivate: true)).reversed.where(
         (w) => (w['retry_at'] as num? ?? 0) <= now().millisecondsSinceEpoch).toList();
+    final autonomousIdle = await CreativeAutonomyPolicy.idle(await db.database, now());
+    candidates.removeWhere((w) => CreativeAutonomyPolicy.autonomous(w) && !autonomousIdle);
+    candidates.sort((a, b) => (CreativeAutonomyPolicy.autonomous(a) ? 1 : 0).compareTo(CreativeAutonomyPolicy.autonomous(b) ? 1 : 0));
     if (candidates.isEmpty ||
         !await db.tryAcquireLocalLease(lease, holdFor: const Duration(seconds: 90))) return;
     DeepSeekClient? client;
@@ -64,14 +68,19 @@ class CreativeWorker {
     try {
       var work = await store.get(candidates.first['id'] as String);
       if (!CreativeContract.active.contains(work['status'])) return;
-      final fence = await db.captureBrainWorkFence(leaseKey: lease);
-      if (fence == null) return;
+      final captured = await db.captureBrainWorkFence(leaseKey: lease, settingKeys: [
+        if (CreativeAutonomyPolicy.autonomous(work)) ...[CreativeAutonomyPolicy.enabledKey, CreativeAutonomyPolicy.epochKey]]);
+      if (captured == null) return;
+      final fence = CreativeAutonomyPolicy.autonomous(work)
+          ? CreativeAutonomyFence(captured, now) : captured;
       final id = work['id'] as String;
       var agent = CreativeContract.decode(await db.getSetting(CreativeWorkspace.key(id)));
       Future<bool> current() async => await db.brainWorkFenceCurrent(fence) &&
-          jsonEncode(await store.get(id)) == jsonEncode(work);
+          jsonEncode(await store.get(id)) == jsonEncode(work) &&
+          (!CreativeAutonomyPolicy.autonomous(work) || await CreativeAutonomyPolicy.idle(await db.database, now(), grace: false));
       Future<void> checkpoint(Map<String, dynamic> patch,
           {Map<String, String> extra = const {}}) async {
+        if (!await current()) throw const BrainWorkInvalidated();
         CreativeWorkspace.validate(agent, id);
         final after = {...work, ...patch,
           'trigger_source': triggerSource,
@@ -293,14 +302,22 @@ class CreativeWorker {
                   throw const FormatException('尚未验证真实伴侣互动路径');
                 }
                 final versions = <String>{hash, ...(work['versions'] as List? ?? []).whereType<String>()}.take(3).toList();
-                patch.addAll({'current': hash, 'draft': '', 'versions': versions,
-                  'completion_message_id': CreativeContract.completionMessageId(id, work['request_id'] as String, hash),
-                  'status': 'ready', 'note': '做好了，可以打开试玩',
+                final autonomous = CreativeAutonomyPolicy.autonomous(work);
+                patch.addAll({'completed_request': work['request_id'], 'completed_at': now().millisecondsSinceEpoch,
+                  'current': hash, 'draft': '', 'versions': versions,
+                  if (!autonomous) 'completion_message_id': CreativeContract.completionMessageId(id, work['request_id'] as String, hash),
+                  'status': 'ready', 'note': autonomous ? '作品已私下保存' : '做好了，可以打开试玩',
                   'cover': verified['cover'] ?? '', 'errors': <Object?>[],
                   'updated': now().millisecondsSinceEpoch, 'retry_at': 0});
                 extra['${CreativeContract.sourcePrefix}$hash'] = html;
-                extra[CreativeDelivery.key(id)] = jsonEncode(CreativeDelivery.pending(work, hash, verified, now().millisecondsSinceEpoch));
-                result = {'ok': true, 'published': true, 'hash': hash};
+                if (!autonomous) {
+                  extra[CreativeDelivery.key(id)] = jsonEncode(CreativeDelivery.pending(work, hash, verified, now().millisecondsSinceEpoch));
+                  final messageId = work['message_id'] as String? ?? '';
+                  if (messageId.isNotEmpty) extra['${CreativeContract.receiptPrefix}$messageId'] = jsonEncode({
+                    'message_id': messageId, 'work_id': id, 'version': hash, 'kind': 'progress',
+                    'request_id': work['request_id'], 'completed': true, 'completed_at': now().millisecondsSinceEpoch});
+                }
+                result = {'ok': true, 'published': !autonomous, 'saved_private': autonomous, 'hash': hash};
                 published = true;
               default:
                 throw const FormatException('未知工具，请使用工作区提供的工具');

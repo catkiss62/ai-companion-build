@@ -160,6 +160,7 @@ class CreativeWorkspace {
       Map<String, dynamic> work) => [
     {'role': 'system', 'content': instruction},
     {'role': 'user', 'content': jsonEncode({
+      'origin': work['origin'] ?? 'commission', 'private_motive': work['motive'] ?? '',
       'original_request': work['original_request'] ?? work['request_quote'] ?? '',
       'creative_brief': work['brief'], 'saved_plan': state['plan'],
       'required_interaction': work['interaction'] ?? 'unspecified',
@@ -202,7 +203,7 @@ class CreativeWorkspace {
   ];
 
   static const instruction = '''你是鲸鱼娘的小作品工作 Agent，负责实现作品，不扮演聊天角色。自主选择读写、局部修改、实际试玩和提交工具，根据实际结果继续工作。不要仅描述计划或一次输出整件作品 JSON。
-original_request 是用户原始要求，优先于 creative_brief 中额外推断；brief 提供创作心意和风格。不要擅自添加离线、随机对手、固定台词等限制。“我们一起玩”“和她对战”应使用真实伴侣互动，不能伪装成随机电脑。保留相关审美与心意，不需要整套角色设定。作品源码中不放私人聊天、密钥、思考或工程诊断。
+origin=autonomous表示已经由伴侣独立决定的私有创作，以creative_brief和private_motive为目标，不伪造用户委托。完成只会私存，不发送消息或公开作品。origin=commission时，original_request 是用户原始要求，优先于 creative_brief 中额外推断；brief 提供创作心意和风格。不要擅自添加离线、随机对手、固定台词等限制。“我们一起玩”“和她对战”应使用真实伴侣互动，不能伪装成随机电脑。保留相关审美与心意，不需要整套角色设定。作品源码中不放私人聊天、密钥、思考或工程诊断。
 先 work_plan 保存简短体验设计与后续步骤：interaction=companion 表示她实际参与选择，local 表示无需模型参与的本地作品。每次操作由宿主完成并返回事实；报错要检查和修正。内容开放，不局限于游戏。复用已有正确文件，缺信息先读文件。每次最多8个工具调用，依赖上一步返回的 hash 时等下一轮；工具执行严格按顺序，work_finish 必须最后。
 工作区仅含 index.html（界面）、style.css（可选纯CSS）、script.js（可选纯JS）。宿主自动内联后两者，脚本在界面后执行；不要 import/require、CDN、网络、iframe、本地文件、外部字体、localStorage 或请求手机权限。可以内联SVG/Canvas/CSS画图。适配360px手机，按钮有实际功能。单次文件写入最多16000字符，大文件追加或局部修改。
 companion.choose(turn, options, context) 的 turn 使用非空字符串或非负安全整数，reveal 使用同一个 turn；options 为2至8个不同的非空字符串。同回合重试不得改变选项；只能在 choose 成功后 reveal。不用随机台词假装她实时回应，网页可显示规则、状态或明确标注的游戏旁白。

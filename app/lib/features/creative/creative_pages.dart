@@ -6,6 +6,7 @@ import 'package:flutter/services.dart';
 import '../../core/database/app_database.dart';
 import '../../core/creative/creative_contract.dart';
 import '../../core/creative/creative_store.dart';
+import '../../core/creative/creative_autonomy_policy.dart';
 import '../../core/creative/creative_play.dart';
 import '../../core/creative/creative_delivery.dart';
 import '../../core/platform/android_bridge.dart';
@@ -55,7 +56,7 @@ class _CreativeCardsState extends State<CreativeCards> {
         if ((await CreativeDelivery(AppDatabase.instance).read(item['id'] as String))['status'] == 'paused') paused.add(item['id'] as String);
       }
       // Worker checkpoints do not invalidate card layout or decode its cover.
-      final next = jsonEncode([items.map((w) => {for (final k in ['id','title','intro','note','status','current','cover','card_kind']) k:w[k]}).toList(), paused.toList()]);
+      final next = jsonEncode([items.map((w) => {for (final k in ['id','title','intro','note','status','current','cover','card_kind','record_completed']) k:w[k]}).toList(), paused.toList()]);
       if (mounted && (loading || next != fingerprint)) setState(() {
         works = items; fingerprint = next; pausedNotices..clear()..addAll(paused); loading = false;
       });
@@ -90,6 +91,7 @@ class _CreativeCardsState extends State<CreativeCards> {
         if (value == 'retry_notice') { await CreativeDelivery(AppDatabase.instance).retry(id); await AndroidBridge.instance.wakeBackgroundBrain(reason: 'creative_delivery'); }
         if (value == 'edit') await _edit(work);
         if (value == 'export') {
+          if (!CreativeAutonomyPolicy.visible(await store.get(id))) return;
           final html = await AppDatabase.instance.getSetting('${CreativeContract.sourcePrefix}${work['current']}');
           if (html != null) await AndroidBridge.instance.savePromptPack(content: html, suggestedName: 'work_$id.html');
         }
@@ -153,11 +155,14 @@ class _CreativeWorkCardState extends State<CreativeWorkCard> {
     return Card(margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 6), clipBehavior: Clip.antiAlias,
       child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
         ListTile(title: Text(work['title'] as String? ?? '小作品'), onTap: _toggle,
-          trailing: Icon(expanded ? Icons.expand_less : Icons.expand_more)),
+          trailing: Row(mainAxisSize: MainAxisSize.min, children: [
+            if (progress && work['record_completed'] == true) ...[
+              Text('已完成', style: Theme.of(context).textTheme.labelMedium), const SizedBox(width: 6)],
+            Icon(expanded ? Icons.expand_less : Icons.expand_more)])),
         if (expanded) ...[
           if (!progress && cover != null) Image.memory(cover!, height: 130, fit: BoxFit.cover),
           Padding(padding: const EdgeInsets.fromLTRB(16, 0, 16, 8), child: Text(progress
-            ? '制作记录 · ${work['status'] == 'ready' ? '已完成' : work['note'] ?? '等待制作'}'
+            ? '制作记录 · ${work['record_completed'] == true ? '已完成' : work['note'] ?? '等待制作'}'
             : '${work['intro'] ?? ''}\n${work['note'] ?? ''}'.trim())),
           Padding(padding: const EdgeInsets.fromLTRB(16, 0, 8, 8), child: Row(children: [
             if (!progress && widget.onOpen != null) Expanded(child: FilledButton.tonalIcon(
