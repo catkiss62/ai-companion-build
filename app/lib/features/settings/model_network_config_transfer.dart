@@ -121,6 +121,11 @@ class ModelNetworkConfigTransfer {
         throw FormatException('$key 开关值无效');
       }
     }
+    if (settings['creative_work_model']!.trim().isEmpty) settings['creative_work_model'] = 'deepseek-flash';
+    if (settings['creative_work_effort']!.trim().isEmpty) settings['creative_work_effort'] = 'max';
+    if (!const <String>['low', 'medium', 'high', 'max'].contains(settings['creative_work_effort'])) {
+      throw const FormatException('工作思考档位无效');
+    }
     final effort = settings['reasoning_effort']!;
     if (effort.isNotEmpty &&
         !const <String>['low', 'medium', 'high', 'max'].contains(effort)) {

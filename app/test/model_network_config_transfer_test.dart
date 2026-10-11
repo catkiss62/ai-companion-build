@@ -29,6 +29,17 @@ void main() {
     expect(decoded.secure['jev_api_key'], 'secret');
     expect(decoded.settings.keys, containsAll(ModelNetworkConfigTransfer.settingKeys));
     expect(decoded.secure, isNot(contains('cedar_toy_token')));
+    expect(decoded.settings['creative_work_model'], 'deepseek-flash');
+    expect(decoded.settings['creative_work_effort'], 'max');
+  });
+
+  test('legacy model files retain the maximum work default', () {
+    final payload = validPayload();
+    (payload['settings'] as Map).remove('creative_work_model');
+    (payload['settings'] as Map).remove('creative_work_effort');
+    final decoded = ModelNetworkConfigTransfer.parse(jsonEncode(payload));
+    expect(decoded.settings['creative_work_model'], 'deepseek-flash');
+    expect(decoded.settings['creative_work_effort'], 'max');
   });
 
   test('truncated or unrelated files cannot partially overwrite configuration', () {
