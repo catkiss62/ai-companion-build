@@ -77,14 +77,18 @@ void main() {
     expect((await play.read())['public'],isEmpty);
   });
   test('static descriptions and observed text are scoped to the message; long-open pages work', () async {
-    await play.event(version,jsonEncode({'kind':'describe','data':{'kind':'static','content':'树下有一封可展开的信',
-      'effects':'雪花缓慢落下，点击点亮星星','resettable':false}}));
+    await Future.wait([
+      play.event(version,jsonEncode({'kind':'describe','data':{'kind':'static','content':'树下有一封可展开的信',
+        'effects':'雪花缓慢落下，点击点亮星星','resettable':false}})),
+      play.event(version,jsonEncode({'kind':'save','data':{'star_lit':true}})),
+    ]);
     await db.setSetting('creative_focus_v1',jsonEncode({'id':id,'at':1}));
     final snapshot=await play.captureSnapshot(observation:{'text':'圣诞快乐','animations':[{'name':'snowfall','duration':'8s'}]});
     await send('card',snapshot);
     final detail=await CreativePlay.chatContext(db,userMessageId:'card');
     expect(detail,contains('雪花缓慢落下'));
     expect(detail,contains('snowfall'));
+    expect(detail,contains('"star_lit":true'));
     expect(detail,contains('不是实时看屏幕'));
     expect(await CreativePlay.chatContext(db),isEmpty);
     expect(await store.chatContext(),isNot(contains('snowfall')));

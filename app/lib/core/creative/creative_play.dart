@@ -24,6 +24,7 @@ class CreativePlay {
   final String workId;
   BrainWorkFence? _sessionFence;
   String? _sessionId;
+  Future<void> _publicWrites = Future<void>.value();
   String get stateKey => '${CreativeContract.playPrefix}$workId';
   Future<Map<String, dynamic>> read() async => CreativeContract.decode(await db.getSetting(stateKey));
 
@@ -52,7 +53,21 @@ class CreativePlay {
     return next;
   }
 
-  Future<Object?> event(String version, String raw, {String? sessionId}) async {
+  Future<Object?> event(String version, String raw, {String? sessionId}) {
+    if (utf8.encode(raw).length > 65536) return Future<Object?>.error(const FormatException('互动数据过大'));
+    // Pages may describe themselves and save progress in the same JS turn.
+    // Serialize short mutations, and let choose start after prior writes only.
+    // A model request must never hold this queue or block ordinary public saves.
+    final observedSession = sessionId ?? _sessionId;
+    final kind = CreativeContract.decode(raw)['kind'];
+    final task = _publicWrites.then((_) => _tracedEvent(version, raw, observedSession));
+    if (kind != 'choose') {
+      _publicWrites = task.then<void>((_) {}, onError: (Object _, StackTrace __) {});
+    }
+    return task;
+  }
+
+  Future<Object?> _tracedEvent(String version, String raw, String? sessionId) async {
     if (utf8.encode(raw).length > 65536) throw const FormatException('互动数据过大');
     final work = await CreativeStore(db).get(workId);
     final fence = _sessionFence;
@@ -64,7 +79,7 @@ class CreativePlay {
     try {
       final proposed = CreativeContract.decode(raw)['kind'];
       if ({'save', 'report', 'describe', 'choose', 'reveal'}.contains(proposed)) kind = proposed as String;
-      return await _event(version, raw, sessionId ?? _sessionId, (value) {
+      return await _event(version, raw, sessionId, (value) {
         stage = value;
         if (value == 'model') modelCalled = true;
       });
