@@ -210,7 +210,12 @@ class CreativePlay {
       if (remaining <= 0 || depth > 6) return '…';
       if (v is Map) {
         final result = <String, Object?>{};
-        for (final e in v.entries.take(32)) {
+        // Keep small totals/phase flags even when an earlier board or history is large.
+        final entries = [
+          ...v.entries.where((e) => e.value is! Map && e.value is! List),
+          ...v.entries.where((e) => e.value is Map || e.value is List),
+        ];
+        for (final e in entries.take(32)) {
           if (remaining <= 0) { result['__truncated__'] = true; break; }
           final key = CreativeContract.clip(e.key, 80); remaining -= key.length + 5;
           result[key] = visit(e.value, depth + 1);

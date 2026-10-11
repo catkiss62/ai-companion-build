@@ -110,7 +110,7 @@ void main() {
   });
   test('large public and DOM data remain bounded without exposing sealed choices', () async {
     // Valid saved state near the public-data limit, larger than the snapshot projection.
-    await save({'points':50,'history':List.generate(20,(i)=>{'n':i,'text':'长'*500})});
+    await save({'history':List.generate(20,(i)=>{'n':i,'text':'长'*500}),'points':50});
     final snapshot=await play.captureSnapshot(observation:{'text':'雪'*12000});
     expect(snapshot.data['public_state']['points'],50);
     expect(utf8.encode(jsonEncode(snapshot.data)).length,lessThanOrEqualTo(CreativeContract.maxSnapshotBytes));
