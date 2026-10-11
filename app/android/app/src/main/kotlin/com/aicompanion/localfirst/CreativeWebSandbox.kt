@@ -111,6 +111,10 @@ class CreativePreview(private val context: Context) {
             if (stop != null) { done(mapOf("ok" to false,"errors" to listOf("预览正在使用"))); return@post }
             val errors = mutableListOf<String>()
             val checked = mutableListOf<String>()
+            var pageText = ""
+            var elements = emptyList<Map<String,String>>()
+            var chooseCount = 0
+            var revealCount = 0
             var finished = false
             var page: WebView? = null
             var presentation: Presentation? = null
@@ -141,7 +145,8 @@ class CreativePreview(private val context: Context) {
                 page?.let { (it.parent as? ViewGroup)?.removeView(it); it.stopLoading(); it.destroy() }
                 presentation?.dismiss(); display?.release(); reader?.close(); frame?.recycle()
                 stop = null
-                done(mapOf("ok" to (loaded && errors.isEmpty()),"errors" to errors.distinct(),"checks" to checked,"screenshot" to screenshot,"display" to "private_virtual"))
+                done(mapOf("ok" to (loaded && errors.isEmpty()),"errors" to errors.distinct(),"checks" to checked,"screenshot" to screenshot,"display" to "private_virtual",
+                    "page_text" to pageText, "elements" to elements, "choose_count" to chooseCount, "reveal_count" to revealCount))
             }
             stop = { finish("预览已取消或超时") }
             handler.postDelayed(timeout,20_000)
@@ -165,6 +170,7 @@ class CreativePreview(private val context: Context) {
                 requireNotNull(display) { "此设备无法建立独立预览" }
                 presentation=Presentation(context,display!!.display)
                 val previewChoices = mutableMapOf<String,String>()
+                val previewPlayers = mutableMapOf<String,String>()
                 page=CreativeWebSandbox.create(presentation!!.context,{ raw ->
                     val message=runCatching { JSONObject(raw) }.getOrNull() ?: return@create
                     val id=message.optString("id")
@@ -175,13 +181,22 @@ class CreativePreview(private val context: Context) {
                             val turn=data.optString("turn")
                             val choice=data.optJSONArray("options")?.optString(0) ?: ""
                             if (turn.isBlank() || choice.isBlank()) CreativeWebSandbox.reply(page!!,id,null,"无效预览回合")
-                            else { previewChoices.putIfAbsent(turn,choice); CreativeWebSandbox.reply(page!!,id,mapOf("committed" to true,"preview" to true)) }
+                            else {
+                                if (!previewChoices.containsKey(turn)) chooseCount++
+                                previewChoices.putIfAbsent(turn,choice)
+                                CreativeWebSandbox.reply(page!!,id,mapOf("committed" to true,"preview" to true))
+                            }
                         }
                         "reveal" -> {
                             val data=message.optJSONObject("data") ?: JSONObject()
                             val choice=previewChoices[data.optString("turn")]
                             if (choice==null) CreativeWebSandbox.reply(page!!,id,null,"还没有出招")
-                            else CreativeWebSandbox.reply(page!!,id,mapOf("choice" to choice,"playerChoice" to data.optString("playerChoice"),"preview" to true))
+                            else {
+                                val turn=data.optString("turn")
+                                if (!previewPlayers.containsKey(turn)) revealCount++
+                                previewPlayers.putIfAbsent(turn,data.optString("playerChoice"))
+                                CreativeWebSandbox.reply(page!!,id,mapOf("choice" to choice,"playerChoice" to previewPlayers[turn],"preview" to true))
+                            }
                         }
                         else -> CreativeWebSandbox.reply(page!!,id,null,"未知作品接口")
                     }
@@ -192,12 +207,18 @@ class CreativePreview(private val context: Context) {
                 fun inspect(index: Int) {
                     if (finished) return
                     if (index >= checks.size) {
-                        page!!.evaluateJavascript("JSON.stringify({text:document.body.innerText.slice(0,300),nodes:document.body.children.length,errors:window.__workErrors||[]})") { value ->
+                        page!!.evaluateJavascript("JSON.stringify({text:document.body.innerText.slice(0,1800),nodes:document.body.children.length,errors:window.__workErrors||[],elements:Array.from(document.querySelectorAll('button,input,[id]')).slice(0,24).map(n=>({tag:n.tagName,id:n.id,text:(n.textContent||'').slice(0,100)}))})") { value ->
                             if (finished) return@evaluateJavascript
                             runCatching {
                                 val decoded=JSONArray("[$value]").getString(0)
                                 val data=JSONObject(decoded)
                                 loaded=data.optInt("nodes")>1 && (data.optString("text").isNotBlank() || html.contains("canvas"))
+                                pageText=data.optString("text")
+                                val nodes=data.optJSONArray("elements") ?: JSONArray()
+                                elements=(0 until nodes.length()).map { i ->
+                                    val node=nodes.optJSONObject(i) ?: JSONObject()
+                                    mapOf("tag" to node.optString("tag"), "id" to node.optString("id"), "text" to node.optString("text"))
+                                }
                                 val js=data.optJSONArray("errors") ?: JSONArray()
                                 for(i in 0 until js.length()) errors.add(js.getString(i))
                             }.onFailure { errors.add("未收到网页检查结果") }
@@ -212,10 +233,18 @@ class CreativePreview(private val context: Context) {
                     page!!.evaluateJavascript("(()=>{try{const s=$click;if(s){const n=document.querySelector(s);if(!n)return 'missing_click';n.click();}return 'clicked';}catch(e){return String(e)}})()") { value ->
                         if(finished)return@evaluateJavascript
                         if(value!="\"clicked\"") errors.add("交互检查${index+1}: $value")
-                        handler.postDelayed({ if(!finished) page!!.evaluateJavascript("(()=>{try{const s=$selector;if(!s)return true;const n=document.querySelector(s);return !!n&&n.textContent.includes($text);}catch(e){return false}})()") { answer ->
-                            if(answer=="true") checked.add("step:${index+1}") else errors.add("交互检查${index+1}未通过")
-                            inspect(index+1)
-                        } },250)
+                        fun verify(remaining: Int) {
+                            if(finished)return
+                            page!!.evaluateJavascript("(()=>{try{const s=$selector;if(!s)return true;const n=document.querySelector(s);return !!n&&n.textContent.includes($text);}catch(e){return false}})()") { answer ->
+                                if(finished)return@evaluateJavascript
+                                if(answer!="true" && remaining>0) handler.postDelayed({ verify(remaining-1) },250)
+                                else {
+                                    if(answer=="true") checked.add("step:${index+1}") else errors.add("交互检查${index+1}未通过：${step["selector"]} 应包含 ${step["text"]}")
+                                    inspect(index+1)
+                                }
+                            }
+                        }
+                        handler.postDelayed({ verify(7) },250)
                     }
                 }
                 handler.postDelayed({ inspect(0) },1500)

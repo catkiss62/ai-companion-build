@@ -1,4 +1,5 @@
 import '../self/dream_store.dart';
+import '../creative/creative_store.dart';
 import '../desire/daily_wake_store.dart';
 import '../mood/mood_service.dart';
 import 'dart:convert';
@@ -620,6 +621,7 @@ class PreflightDiagnosticsService {
       report['modelUsage'] = _modelUsageSummary(
         await db.getSetting('deepseek_usage_telemetry_v1') ?? '',
       );
+      report['creativeAgent'] = await CreativeStore(db).diagnostics();
       report['finalReplyRouting'] = {
         'configuredProvider': (await SecureConfig.instance.readChatProvider()).storageValue,
         'policy': 'second_channel_for_body_and_semantic_repair; fallback_only_after_channel_failure',

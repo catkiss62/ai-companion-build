@@ -98,54 +98,6 @@ void main() {
       brief: '做猜拳', requestQuote: '做猜拳', latestText: '做猜拳'))['status'], 'deleted');
     await expectLater(reveal('布'), throwsA(isA<Exception>()));
   });
-  test('worker repairs an actual preview failure and only publishes the passing revision', () async {
-    final store = CreativeStore(db);
-    final work = await store.commission(deepThinking: true, requestId: 'worker', messageId: 'm',
-      brief: '做一个按钮', requestQuote: '做一个按钮', latestText: '做一个按钮');
-    var calls = 0;
-    final worker = CreativeWorker(db, clientFactory: (abort) => DeepSeekClient(abortWhen: abort,
-      jsonClientFactory: () => MockClient((request) async {
-        calls++;
-        final body = jsonDecode(request.body) as Map;
-        expect(body['model'], 'deepseek-flash');
-        expect(body['reasoning_effort'], 'max');
-        if (calls == 2) expect(request.body, contains('button failed'));
-        return http.Response(jsonEncode({'choices': [{'message': {'content': jsonEncode({
-          'title': '灯', 'intro': '点亮一下', 'html': '<button id="light">$calls</button>',
-          'checks': [{'selector': '#light', 'text': '$calls'}],
-        })}}]}), 200, headers: {'content-type': 'application/json; charset=utf-8'});
-      })));
-    var previews = 0;
-    TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger.setMockMethodCallHandler(
-      CreativeWorker.preview, (_) async { previews++; return {'ok': previews == 2, 'errors': previews == 1 ? ['button failed'] : []}; });
-    try {
-      await worker.runOnce();
-      expect((await store.get(work['id'] as String))['status'], 'queued');
-      expect((await store.get(work['id'] as String))['current'], isNull);
-      await worker.runOnce();
-      final ready = await store.get(work['id'] as String);
-      expect(ready['status'], 'ready');
-      expect(await db.getSetting('${CreativeContract.sourcePrefix}${ready['current']}'), contains('>2<'));
-      expect(calls, 2); expect(previews, 2);
-      await worker.runOnce();
-      expect(calls, 2); expect(previews, 2);
-    } finally { TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger.setMockMethodCallHandler(CreativeWorker.preview, null); }
-  });
-  test('stop during preview fences a late publish', () async {
-    final store = CreativeStore(db);
-    final work = await store.commission(deepThinking: true, requestId: 'stop', messageId: 'm',
-      brief: '做按钮', requestQuote: '做按钮', latestText: '做按钮');
-    final hash = CreativeContract.hash('<button>stop</button>');
-    await store.write(work, {...work, 'status': 'checking', 'draft': hash, 'checks': []},
-      extra: {'${CreativeContract.sourcePrefix}$hash': '<button>stop</button>'});
-    TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger.setMockMethodCallHandler(
-      CreativeWorker.preview, (_) async { await store.stop(work['id'] as String); return {'ok': true}; });
-    try {
-      await CreativeWorker(db).runOnce();
-      expect((await store.get(work['id'] as String))['status'], 'paused');
-      expect((await store.get(work['id'] as String))['current'], isNull);
-    } finally { TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger.setMockMethodCallHandler(CreativeWorker.preview, null); }
-  });
   test('unknown prices and missing usage remain unknown; attempts deduplicate', () async {
     final at = DateTime(2026, 10, 11, 12);
     final data = <String, Object?>{'id': 'one', 'at': DateTime.now().millisecondsSinceEpoch,

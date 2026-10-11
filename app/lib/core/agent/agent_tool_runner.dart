@@ -339,6 +339,7 @@ class AgentToolRunner {
       final work = await CreativeStore(db).commission(
         deepThinking: deepThinking, requestId: toolChainScopeId,
         messageId: assistantMessageId.isEmpty ? userMessageId : assistantMessageId,
+        userMessageId: userMessageId,
         brief: call.arguments['brief'] ?? '', requestQuote: call.arguments['request_quote'] ?? '',
         latestText: latestUserText, workId: call.arguments['work_id'] ?? '',
       );
