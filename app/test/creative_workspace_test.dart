@@ -67,13 +67,13 @@ void main() {
   });
   test('unknown prices and missing usage remain unknown; attempts deduplicate', () async {
     final at = DateTime(2026, 10, 11, 12);
-    final data = <String, Object?>{'id': 'one', 'at': at.millisecondsSinceEpoch,
+    final data = <String, Object?>{'id': 'one', 'at': DateTime.now().millisecondsSinceEpoch,
       'model': 'deepseek-flash', 'endpoint': 'https://api.deepseek.com/chat/completions', 'lane': 'creative_build'};
     expect(DailySpend.estimate(data), isNull);
     await DailySpend.record(db, data);
-    expect((await DailySpend.today(db, now: at)).label, '今日：—');
+    expect((await DailySpend.today(db)).label, '今日：—');
     final used = {...data, 'usage': {'prompt_cache_hit_tokens': 1000000, 'prompt_cache_miss_tokens': 1000000, 'completion_tokens': 1000000}};
-    expect(DailySpend.estimate(used), closeTo(5.02, 0.000001));
+    expect(DailySpend.estimate({...used, 'at': at.millisecondsSinceEpoch}), closeTo(5.02, 0.000001));
     // Use current-day records for retention, while testing the price on Sunday.
     final current = {...used, 'at': DateTime.now().millisecondsSinceEpoch};
     await DailySpend.record(db, current); await DailySpend.record(db, current);

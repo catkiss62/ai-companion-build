@@ -142,11 +142,13 @@ class _CreativePlayerPageState extends State<CreativePlayerPage> {
   }
   Future<void> _created(int id) async {
     final current = MethodChannel('ai_companion/creative_player/$id');
+    final viewVersion = version;
+    channel?.setMethodCallHandler(null);
     channel = current;
     current.setMethodCallHandler((call) async {
-      if (!mounted) throw PlatformException(code: 'closed', message: '作品已关闭');
+      if (!mounted || channel != current) throw PlatformException(code: 'closed', message: '作品已关闭');
       if (call.method == 'event') {
-        try { return await play.event(version, call.arguments as String); }
+        try { return await play.event(viewVersion, call.arguments as String); }
         catch (e) { throw PlatformException(code: 'work_event', message: e.toString()); }
       }
       if (call.method == 'error') { setState(() => error = CreativeContract.clip(call.arguments, 160)); }

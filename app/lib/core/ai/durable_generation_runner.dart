@@ -558,8 +558,10 @@ class DurableGenerationRunner {
         specialStyleKeyOverride: generationSpecialStyleKey,
         conversationInitiativeOverride: conversationPlan,
       );
+      final creativeContext = await CreativePlay.chatContext(db);
       final baseRequestMessages = <Map<String, Object?>>[
         ...promptBuild.messages,
+        if (creativeContext.isNotEmpty) {'role': 'system', 'content': creativeContext},
         if (cedarSkillActive)
           <String, Object?>{
             'role': 'system',
@@ -919,7 +921,6 @@ class DurableGenerationRunner {
         }
       }
 
-      final creativeContext = await CreativePlay.chatContext(db);
       List<StickerReplyCandidate> stickerCandidates = const [];
       try {
         stickerCandidates = await stickerService.replyCandidates(
@@ -937,7 +938,6 @@ class DurableGenerationRunner {
         List<DeepSeekToolCall> toolCalls,
         String finishReason,
       })> generateFinal(List<Map<String, Object?>> messages) async {
-        if (creativeContext.isNotEmpty) messages = [...messages, {'role': 'system', 'content': creativeContext}];
         if (stickerPrompt.isNotEmpty) messages = [
           ...messages, {'role': 'system', 'content': stickerPrompt},
         ];

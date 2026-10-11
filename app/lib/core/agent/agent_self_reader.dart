@@ -110,6 +110,8 @@ class AgentSelfReader {
   static const buildLabel = 'v0.42.58+302';
 
   static const systemFacts = <AgentSystemFact>[
+    AgentSystemFact(id: 'creative_workspace', title: '小作品与作品集', status: 'implemented',
+      detail: '本轮开启深度思考且用户明确委托时，可后台制作、实际预览和修复本地 HTML 小作品；聊天作品卡与作品集可打开游玩。互动可通过受限桥接真实选择与揭晓；源码、版本和游玩进度随存档保存。普通聊天不委托制作，自主创作尚未接入。'),
     AgentSystemFact(
       id: 'local_continuity',
       title: '本地连续性',

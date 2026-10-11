@@ -1092,15 +1092,16 @@ class SystemBridge(
         result: MethodChannel.Result,
     ) {
         if (!beginPromptDocumentOperation("save", content, result)) return
+        val htmlSource = suggestedName.endsWith(".html")
         val safeStem = suggestedName
-            .removeSuffix(".json")
+            .removeSuffix(".json").removeSuffix(".html")
             .replace(Regex("[^A-Za-z0-9._-]"), "_")
             .take(88)
             .ifBlank { "ai_companion_six_rules" }
         val intent = Intent(Intent.ACTION_CREATE_DOCUMENT).apply {
             addCategory(Intent.CATEGORY_OPENABLE)
-            type = "application/json"
-            putExtra(Intent.EXTRA_TITLE, "$safeStem.json")
+            type = if (htmlSource) "text/html" else "application/json"
+            putExtra(Intent.EXTRA_TITLE, safeStem + if (htmlSource) ".html" else ".json")
         }
         beginDirectPickerOverlayGuard("prompt_pack_save_picker")
         runCatching { activity.startActivityForResult(intent, REQUEST_PROMPT_SAVE) }

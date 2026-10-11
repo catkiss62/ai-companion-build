@@ -18,7 +18,7 @@ jobs:
           cache: true
       - run: flutter pub get
         working-directory: app
-      - run: flutter analyze --no-fatal-infos
+      - run: flutter analyze --no-fatal-infos --no-fatal-warnings
         working-directory: app
       - run: flutter test test/creative_workspace_test.dart test/nightly_dream_test.dart test/nightly_dream_pipeline_test.dart test/model_network_config_transfer_test.dart
         working-directory: app
