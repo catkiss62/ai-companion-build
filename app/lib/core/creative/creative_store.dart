@@ -53,7 +53,7 @@ class CreativeStore {
     }
     final after = <String, dynamic>{...before,
       'schema': 1, 'id': id, 'request_id': requestId, 'message_id': messageId,
-      'user_message_id': userMessageId, 'request_quote': requestQuote,
+      'user_message_id': userMessageId, 'request_quote': CreativeContract.clip(requestQuote, 2000),
       'original_request': CreativeContract.clip(latestText, 12000),
       'interaction': {'companion', 'local'}.contains(interaction) ? interaction : 'unspecified',
       'brief': CreativeContract.clip(brief, 8000), 'title': before['title'] ?? '新的小作品',

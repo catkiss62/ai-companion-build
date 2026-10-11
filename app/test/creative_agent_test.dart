@@ -295,6 +295,18 @@ void main() {
     expect(await store.originalRequest({'message_id': 'old-card'}), '旧的原始要求');
   });
 
+  test('long commission plus a real-size thumbnail remains importable', () async {
+    final text = List.filled(12000, '图').join();
+    final meta = await store.commission(deepThinking: true, requestId: 'large', messageId: 'large-message',
+      brief: text, requestQuote: '图', latestText: text);
+    final id = meta['id'] as String;
+    await store.write(meta, {...meta, 'cover': base64Encode(List.filled(179900, 0))});
+    final backup = await db.exportAll();
+    await db.importAll(Map<String, dynamic>.from(backup));
+    expect((await store.get(id))['original_request'], text);
+    expect((await store.get(id))['status'], 'paused');
+  });
+
   test('a delegated companion requirement cannot be downgraded to a local opponent', () async {
     final meta = await store.commission(deepThinking: true, requestId: 'shared', messageId: 'message',
       requestQuote: '我们一起玩', latestText: '我们一起玩', brief: '制作游戏', interaction: 'companion');

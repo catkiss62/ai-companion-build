@@ -55,7 +55,10 @@ class CreativeContract {
         validateHtml(value);
         if (key != '$sourcePrefix${hash(value)}') throw const FormatException('作品校验失败');
       } else if (key.startsWith(metaPrefix) || key.startsWith(playPrefix)) {
-        if (utf8.encode(value).length > 300000) throw const FormatException('作品状态过大');
+        // Metadata now includes the original commission and bounded execution
+        // trace in addition to the existing thumbnail; play-state stays small.
+        final maxBytes = key.startsWith(metaPrefix) ? 400000 : 300000;
+        if (utf8.encode(value).length > maxBytes) throw const FormatException('作品状态过大');
         final data = decode(value);
         if (data['schema'] != 1) throw const FormatException('不支持的作品版本');
         if (key.startsWith(metaPrefix)) {
