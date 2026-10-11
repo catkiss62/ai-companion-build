@@ -10,9 +10,9 @@
 
 
 
-## 当前任务 · +343 自主创作（专项通过／完整构建中）
+## 当前交付 · +343 自主创作
 
-0.42.99+343，agent/v04299-creative-autonomy。本窗口已授权后续推送/构建。c93ac15专项38175815166通过：50项存档恢复、99项创作/梦境/配置回归及分析。私有构思/制作/普通额度分享和完成标记已实现；完整构建待验，APK未就绪。详情app/docs/CREATIVE_AUTONOMY_v0.42.99.md。
+CI PASSED / APK READY / TRUE DEVICE PENDING。0.42.99+343，agent/v04299-creative-autonomy，源码c1fcd1d。完整38177100613、稳定性38177100712通过：150源码、1559全量Flutter、50存档专项、608稳定性、Android15/8原生39/10。自主创作默认关闭，私存后可选择普通额度分享；已完成标记按次委托保留。下载/SHA/恢复规则见app/docs/CREATIVE_AUTONOMY_v0.42.99.md。
 
 ## 当前交付 · +342 作品上下文与交付体验
 
@@ -3553,3 +3553,32 @@ c93ac15 / 38175815166：Flutter分析、50项存档恢复专项、99项创作/�
 ## 2026-10-12 · +343 完整构建版本守卫修正
 
 d45ec55：稳定性38176072698共608项通过；完整38176072690的Android15/8原生39/10项通过。完整构建在第143/150源码门禁validate_v04268_deep_web.py失败，原因是升版时遗漏该脚本第二处双引号版本白名单，工作流的严格grep版本核验不在旧名单。已追加0.42.99+343，未放松grep核验；本地复核第143至148项均通过。第149/150的保护文件及完整桌宠资源仍交CI校验。没有产生成功APK，继续完整重跑。
+
+## 2026-10-12 · +343 自主创作最终交付
+
+状态：CI PASSED / APK READY / TRUE DEVICE PENDING。版本0.42.99+343；分支agent/v04299-creative-autonomy；最终功能/构建源码c1fcd1da35ac56fb9ba8bb3edf649e67f0210427，tree242a2181592fb125c71321fd90cfe4cfc2aa4ac9。后续本条为文档交付记录，不修改运行代码。
+
+按用户要求，先通过38175815166的50项存档恢复专项及99项原创作/梦境/配置回归，再启用APK构建。最终完整38177100613成功：150源码守卫、Kotlin单元测试、Flutter分析、1559全量Flutter、打包前50项存档恢复复核、Android15原生39项及Android8原生10项通过。最终稳定性38177100712的608项通过。APK内容、桌宠修订帧、Genie/语音、塔罗、星谷、房间深度资源及持久私测签名检查通过；不是REDMI真机体验通过。
+
+交付功能：独立自主创作开关默认关闭；同一人格根据有来源经历私下构思，可不产出/保留/放弃；工作Agent空闲制作与检查点续做；成品先私存，由她决定是否分享，走普通主动额度；制作记录箭头旁增加按request保存的已完成标记。开关入口：模型与联网→工作模型→自主创作。明确委托深度授权和原后台制作规则保持。
+
+存档：构思/来源/私有源码/草稿版本/工作文件/工具游标/分享回执均保存；导入验证在替换数据前完成，导入后构思和在制任务暂停、私存成品不自动分享、已分享不重发、已放弃不复活，旧作品仍可见。需要继续时点继续暂停的自主创作。
+
+APK：AI-Companion-v0.42.99-343-Creative-Autonomy-APK.apk，737021985字节。SHA-256：ec3c7dc66b236c837946db8ece8a2b6c606ed9328496b448867210886e271f71。签名SHA-256：305eb3d80983b963c64818ddf1ad561f279de6d47b3ed2c781ada448c7c25148。Draft Release409936705，asset631909266；tag v0.42.99-creative-autonomy-test；未发布。
+
+下载：https://github.com/catkiss62/ai-companion-build/releases/download/untagged-9f03f054131bee2c5e68/AI-Companion-v0.42.99-343-Creative-Autonomy-APK.apk
+发布页：https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-9f03f054131bee2c5e68
+完整CI：https://github.com/catkiss62/ai-companion-build/actions/runs/38177100613
+备用Actions artifact11716966875（729844463字节，至2026-10-25），artifact ZIP SHA-256：2e946aabff3695c87058cf52b1b0adae4c072f43e757920d0989ed8466538962。
+
+下载通道说明：尝试取回Actions安装包ZIP时工具明确拒绝超过536870912字节；不是构建/签名失败。本轮不声称已上传对话附件，交付上面的GitHub APK直链和未发布页面（需要仓库账号登录）。Release资产digest与CI APK SHA一致。
+
+本轮中途失败保留：首次专项旧制作卡完成文字兼容失败，已修且专项全绿；首次完整构建遗漏一处版本白名单，已修且150守卫全绿。本窗口后续GitHub推送和APK构建均已获用户持续授权，勿重复询问。
+
+### 完整构建阶段快速索引原文
+
+## 当前任务 · +343 自主创作（专项通过／完整构建中）
+
+0.42.99+343，agent/v04299-creative-autonomy。本窗口已授权后续推送/构建。c93ac15专项38175815166通过：50项存档恢复、99项创作/梦境/配置回归及分析。私有构思/制作/普通额度分享和完成标记已实现；完整构建待验，APK未就绪。详情app/docs/CREATIVE_AUTONOMY_v0.42.99.md。
+
+本轮最终状态以上方交付证据为准。

@@ -1,8 +1,8 @@
 # +343 自主创作 · 实施与验证记录
 
-2026-10-12。状态：IMPLEMENTED / ARCHIVE AND CREATIVE CI PASSED / FULL CI PENDING / APK NOT BUILT / TRUE DEVICE PENDING。
+2026-10-12。状态：CI PASSED / APK READY / TRUE DEVICE PENDING。
 
-用户已批准实施，并要求先检查存档导入导出与还原，再构建 APK。基线为 `3514200d93ad8ee4fbb6556984bb1d743facc4d2`（+342），本地分支为 `agent/v04299-creative-autonomy`。尚未升级 pubspec 的 `0.42.98+342`；`0.42.99+343` 是待验证后构建的目标。
+用户已批准实施，并要求先检查存档导入导出与还原，再构建 APK。基线为 `3514200d93ad8ee4fbb6556984bb1d743facc4d2`（+342），本地分支为 `agent/v04299-creative-autonomy`。最终版本为 `0.42.99+343`，源码 `c1fcd1da35ac56fb9ba8bb3edf649e67f0210427`。存档专项先通过，再完成APK构建。
 
 ## 已实现的代码
 
@@ -31,24 +31,24 @@
 - 人工复核数据库本次小范围差异：私有作品上下文守卫、可选的自主分享事务参数／核验／提交。按该已审查差异更新 `validate_v04280_connection_retirement.py` 的数据库保护摘要，其余受保护文件未改。
 - 误运行旧的 `validate_current_conversation_foundation.py` 在旧版 `personality_base_key=neutral` 断言失败；复核 +342 基线同样不含此旧断言目标。没有将它算作通过，也未为迁就旧脚本改动人格默认值。
 
-**已编写、未执行：**
+**应用回归覆盖（最终已全部执行通过）：**
 
 `test/creative_autonomy_test.dart` 共 19 项行为／界面测试，覆盖默认关闭、未授权请求、私有构思往返、开关反转取消、私有完成、聊天抢占、预览中抢占、在制检查点恢复、已完成私存恢复、放弃状态恢复、原子分享与额度、迟到分享取消、破损源码／状态拒绝、旧存档兼容、每次委托完成回执及折叠卡标记。
 
-专门的存档先行 CI 步骤同时运行上述文件，以及 `sqlite_settings_backup_v04255_test.dart`、`portable_snapshot_v04256_test.dart`、`snapshot_directory_swap_test.dart`、`snapshot_process_recovery_test.dart`；随后运行原有创作、梦境、配置迁移回归。当前运行环境没有 Flutter／Dart，不能以本地 SQL 检查替代这些应用测试。
+专门的存档先行 CI 步骤同时运行上述文件，以及 `sqlite_settings_backup_v04255_test.dart`、`portable_snapshot_v04256_test.dart`、`snapshot_directory_swap_test.dart`、`snapshot_process_recovery_test.dart`；随后运行原有创作、梦境、配置迁移回归。本地没有 Flutter／Dart，上述应用测试均在 CI 执行；结果见最终交付节。
 
-## 当前阻塞与后续顺序
+## 早期阻塞及计划记录（现已解除并完成）
 
 两次向原仓库推送均被自动审批拒绝，理由是用户尚未明确授权将新源码提交到该 GitHub 目标。已核实目标是原公开仓库 `https://github.com/catkiss62/ai-companion-build`，当前连接有 push 权限；差异只有本轮源码、合成测试、文档和 CI 配置，没有用户存档或凭据。没有换用其他写入方式绕过拒绝。
 
-需要用户明确授权将当前分支推送到上述仓库。解锁后：
+当时需要明确的推送授权；现已取得并完成以下顺序：
 
 1. 推送并运行存档专项与创作回归，处理编译和行为失败，直到通过。
 2. 再更新版本、历史版本白名单及 APK 工作流；完整构建仍先运行测试，再生成安装包。
 3. 验证完整 CI、原生测试、资源和原签名，记录下载地址、提交、SHA-256 与准确测试结果。
 4. 更新唯一总账，交付 APK；真实设备的后台手感、实际调用费用和分享自然度仍需真机验证。
 
-本记录不代表 CI PASSED、APK READY 或 TRUE DEVICE PASSED。
+以上为阶段过程；最终 CI/APK 证据见下方交付节，真机体验仍待验证。
 
 ## 2026-10-12 05:11 授权更新
 
@@ -65,3 +65,16 @@ c93ac15 / 38175815166：分析通过、存档恢复50项通过、原创作/梦�
 ## 完整构建第一次结果
 
 d45ec55：稳定性38176072698的608项通过；Android15/8原生39/10项通过。38176072690在源码第143项因遗漏第二处双引号版本白名单失败；补入+343并本地验证第143至148项通过，检查约束保留。APK尚未生成，继续完整CI。
+
+## 最终交付
+
+- 版本：0.42.99+343；源码c1fcd1d；完整CI [38177100613](https://github.com/catkiss62/ai-companion-build/actions/runs/38177100613)成功。
+- 150源码守卫、Kotlin单元测试、Flutter分析、1559全量Flutter、打包前50项存档恢复测试通过。Android15/8原生39/10项通过；稳定性38177100712共608项通过。此前存档先行专项38175815166的50+99项通过。
+- 同一持久私测签名，包内桌宠/Live2D/Genie/塔罗/星谷/房间资源验证通过。真机后台体验、花费和分享自然度仍待验证。
+- 自主创作默认关闭；在“模型与联网→工作模型→自主创作”开启。完整存档导入后点“继续暂停的自主创作”才继续；已放弃和已分享作品不会复活或重发。
+
+[下载APK](https://github.com/catkiss62/ai-companion-build/releases/download/untagged-9f03f054131bee2c5e68/AI-Companion-v0.42.99-343-Creative-Autonomy-APK.apk) · [未发布测试页](https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-9f03f054131bee2c5e68)。需登录仓库账号。APK737021985字节，Release409936705/asset631909266。
+
+APK SHA-256：`ec3c7dc66b236c837946db8ece8a2b6c606ed9328496b448867210886e271f71`。签名SHA-256：`305eb3d80983b963c64818ddf1ad561f279de6d47b3ed2c781ada448c7c25148`。
+
+Actions ZIP artifact11716966875；当前对话取回工具单次限制512MiB，包超过该限制，未伪称生成本地附件。直接通过GitHub下载APK；Release资产digest与CI APK校验值一致。唯一总账已同步完整交付及中途失败修正记录。
