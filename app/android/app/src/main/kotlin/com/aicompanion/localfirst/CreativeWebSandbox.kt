@@ -55,14 +55,29 @@ object CreativeWebSandbox {
           if(typeof value==='number'&&Number.isSafeInteger(value)&&value>=0)return String(value);
           throw new Error('回合编号需要非空字符串或安全整数');};
         const post=(kind,data)=>{const id=String(++sequence);return new Promise((resolve,reject)=>{
-          pending.set(id,{resolve,reject});NativeWork.postMessage(JSON.stringify({id,kind,data}));
+          pending.set(id,{resolve,reject,kind});NativeWork.postMessage(JSON.stringify({id,kind,data}));
         });};
         window.__workReply=(id,value,error)=>{const p=pending.get(id);if(!p)return;pending.delete(id);error?p.reject(new Error(error)):p.resolve(value);};
         window.companion=Object.freeze({preview:$preview,initialState:initial,
           saveState:(value)=>post('save',value),
           choose:async(turn,options,context)=>post('choose',{turn:turnId(turn),options,context}),
           reveal:async(turn,playerChoice)=>post('reveal',{turn:turnId(turn),playerChoice}),
-          report:(event)=>post('report',event)});
+          report:(event)=>post('report',event),describe:(value)=>post('describe',value)});
+        window.__workObserve=async(token)=>{
+          const writing=()=>Array.from(pending.values()).some(p=>p.kind!=='choose');
+          const end=Date.now()+1500;
+          while(writing()&&Date.now()<end)await new Promise(r=>setTimeout(r,16));
+          const visible=e=>{const s=getComputedStyle(e);return s.display!=='none'&&s.visibility!=='hidden'&&e.getClientRects().length>0};
+          const nodes=Array.from(document.querySelectorAll('body *')).slice(0,600).filter(visible);
+          const animated=nodes.filter(e=>getComputedStyle(e).animationName!=='none').slice(0,12).map(e=>{
+            const s=getComputedStyle(e);return {element:(e.id||e.tagName).slice(0,100),name:s.animationName.slice(0,160),duration:s.animationDuration.slice(0,100),state:s.animationPlayState};});
+          const data={text:(document.body.innerText||'').slice(0,4000),title:document.title.slice(0,200),
+            appearance:{background:getComputedStyle(document.body).backgroundColor,color:getComputedStyle(document.body).color},
+            animations:animated,canvas_count:nodes.filter(e=>e.tagName==='CANVAS').length,
+            images:nodes.filter(e=>e.tagName==='IMG').slice(0,12).map(e=>({alt:(e.alt||'').slice(0,200),loaded:e.complete&&e.naturalWidth>0})),
+            pending_writes:writing(),observed_at:Date.now()};
+          NativeWork.postMessage(JSON.stringify({id:token,kind:'observation',data}));
+        };
         window.__workErrors=[];window.addEventListener('error',e=>window.__workErrors.push(String(e.message).slice(0,300)));
         window.addEventListener('unhandledrejection',e=>window.__workErrors.push(String(e.reason).slice(0,300)));
         })();</script>"""
@@ -207,7 +222,7 @@ class CreativePreview(private val context: Context) {
                                 CreativeWebSandbox.reply(page!!,id,true)
                             }
                         }
-                        "report" -> CreativeWebSandbox.reply(page!!,id,true)
+                        "report", "describe" -> CreativeWebSandbox.reply(page!!,id,true)
                         "choose" -> {
                             val data=message.optJSONObject("data") ?: JSONObject()
                             val turn=CreativeWebSandbox.turnId(data.opt("turn"))

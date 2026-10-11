@@ -32,11 +32,22 @@ class CreativeBridge(context: Context, engine: FlutterEngine) {
                     val data = args as? Map<*, *> ?: emptyMap<String, Any>()
                     val playerChannel = MethodChannel(messenger, "ai_companion/creative_player/$viewId")
                     var disposed = false
+                    var observation: MethodChannel.Result? = null
+                    var observationToken = ""
+                    val handler = android.os.Handler(android.os.Looper.getMainLooper())
+                    val timeout = Runnable { observation?.error("observation_timeout", "页面状态读取超时", null); observation = null }
                     lateinit var page: android.webkit.WebView
-                    page = CreativeWebSandbox.create(context, { raw ->
+                    page = CreativeWebSandbox.create(context, onMessage@{ raw ->
                         if (!disposed) try {
                             val event = JSONObject(raw)
                             val id = event.getString("id")
+                            if (event.optString("kind") == "observation") {
+                                if (id == observationToken) {
+                                    val result = observation; observation = null; handler.removeCallbacks(timeout)
+                                    result?.success(event.optJSONObject("data")?.toString() ?: "{}")
+                                }
+                                return@onMessage
+                            }
                             playerChannel.invokeMethod("event", raw, object : MethodChannel.Result {
                                 override fun success(value: Any?) { if (!disposed) CreativeWebSandbox.reply(page,id,value) }
                                 override fun error(code: String, message: String?, details: Any?) {
@@ -54,12 +65,20 @@ class CreativeBridge(context: Context, engine: FlutterEngine) {
                                     "text/html", "UTF-8", null)
                                 result.success(null)
                             } catch (_: Exception) { result.error("invalid_work", "作品无法打开", null) }
+                        } else if (call.method == "observe" && !disposed) {
+                            if (observation != null) result.error("busy", "正在读取页面", null)
+                            else {
+                                observation = result; observationToken = java.util.UUID.randomUUID().toString()
+                                handler.postDelayed(timeout, 3000)
+                                page.evaluateJavascript("window.__workObserve(" + JSONObject.quote(observationToken) + ")", null)
+                            }
                         } else result.notImplemented()
                     }
                     return object : PlatformView {
                         override fun getView(): View = page
                         override fun dispose() {
                             disposed = true; playerChannel.setMethodCallHandler(null)
+                            handler.removeCallbacks(timeout); observation?.error("closed", "作品已关闭", null); observation = null
                             page.stopLoading(); page.removeJavascriptInterface("NativeWork"); page.destroy()
                         }
                     }
