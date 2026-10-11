@@ -44,6 +44,7 @@ class MainActivity : FlutterActivity() {
 
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
+        CreativeBridge(this, flutterEngine)
         bridge = SystemBridge(this, flutterEngine)
         ttsBridge = NativeTtsBridge(this, flutterEngine)
         emotionSoundBridge = EmotionSoundBridge(this, flutterEngine)

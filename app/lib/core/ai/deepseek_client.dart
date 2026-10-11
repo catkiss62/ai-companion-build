@@ -1,3 +1,4 @@
+import 'package:uuid/uuid.dart';
 import 'dart:async';
 import 'dart:convert';
 
@@ -128,6 +129,11 @@ class DeepSeekPromptSegmentShape {
 }
 
 class DeepSeekClient {
+  static Future<void> Function(Map<String, Object?> attempt)? costRecorder;
+  static Future<void> _cost(Map<String, Object?> attempt) async {
+    try { await costRecorder?.call(attempt); } catch (_) { /* Never fail a reply. */ }
+  }
+
   DeepSeekClient({
     http.Client? client,
     http.Client Function()? streamClientFactory,
@@ -207,6 +213,11 @@ class DeepSeekClient {
     final streamClient = _streamClientFactory();
     _streamClients.add(streamClient);
     final usageClock = Stopwatch()..start();
+    final costAttempt = <String, Object?>{'id': const Uuid().v4(),
+      'at': DateTime.now().millisecondsSinceEpoch, 'model': effectiveModel,
+      'endpoint': endpoint, 'lane': usageLane};
+    final billable = !provider.isGeminiRelay;
+    if (billable) await _cost(costAttempt);
     var runtimeGateAborted = false;
     var gateCheckRunning = false;
     Timer? runtimeGateTimer;
@@ -285,6 +296,7 @@ class DeepSeekClient {
               // Accounting is diagnostic-only and must never fail a reply.
             }
           }
+          if (billable && json['usage'] is Map) await _cost({...costAttempt, 'usage': json['usage']});
           final choices = json['choices'] as List?;
           if (choices == null || choices.isEmpty) return null;
           final first = choices.first as Map<String, dynamic>;
@@ -370,6 +382,11 @@ class DeepSeekClient {
     final ownsClient = cancellationToken != null || abortWhen != null;
     final requestClient = ownsClient ? _jsonClientFactory() : _client;
     final usageClock = Stopwatch()..start();
+    final costAttempt = <String, Object?>{'id': const Uuid().v4(),
+      'at': DateTime.now().millisecondsSinceEpoch, 'model': effectiveModel,
+      'endpoint': endpoint, 'lane': usageLane};
+    final billable = !provider.isGeminiRelay;
+    if (billable) await _cost(costAttempt);
     var runtimeGateAborted = false;
     var gateCheckRunning = false;
     Timer? runtimeGateTimer;
@@ -441,6 +458,7 @@ class DeepSeekClient {
       } on FormatException {
         throw const MalformedJsonCompletionException();
       }
+      if (billable) await _cost({...costAttempt, 'usage': root['usage']});
       final choices = root['choices'];
       final usage = _usageEvent(
         root['usage'],

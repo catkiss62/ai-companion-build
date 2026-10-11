@@ -1,0 +1,24 @@
+name: Creative workspace validation
+on:
+  push:
+    branches: [agent/v04295-creative-workspace]
+    paths: ['app/lib/**', 'app/test/**', '.github/workflows/creative-validation.yml']
+  workflow_dispatch:
+concurrency:
+  group: creative-validation-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  flutter:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.44.9'
+          cache: true
+      - run: flutter pub get
+        working-directory: app
+      - run: flutter analyze --no-fatal-infos
+        working-directory: app
+      - run: flutter test test/creative_workspace_test.dart test/nightly_dream_test.dart test/nightly_dream_pipeline_test.dart test/model_network_config_transfer_test.dart
+        working-directory: app

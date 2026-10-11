@@ -15,6 +15,7 @@ class ModelNetworkConfigTransfer {
 
   static const settingKeys = <String>[
     'model', 'deepseek_model', 'reasoning_effort',
+    'creative_work_model', 'creative_work_effort',
     'public_web_discovery_enabled', 'public_web_extra_sources',
     'agnes_web_compaction_enabled', 'weather_api_host', 'weather_city',
     'weather_enabled',
@@ -91,7 +92,11 @@ class ModelNetworkConfigTransfer {
       throw const FormatException('这不是受支持的模型与联网配置文件');
     }
     final credentials = _validatedMap(data['secure'], secureKeys);
-    final settings = _validatedMap(data['settings'], settingKeys);
+    final rawSettings = data['settings'];
+    final settings = _validatedMap(rawSettings is Map ? {
+      'creative_work_model': 'deepseek-flash', 'creative_work_effort': 'max',
+      ...rawSettings,
+    } : rawSettings, settingKeys);
     if (!ChatApiProvider.values.any((provider) =>
         provider.storageValue == credentials['chat_provider'])) {
       throw const FormatException('最终回复提供商无效');

@@ -2312,6 +2312,7 @@ class OverlayBubbleService : Service() {
             loader.ensureInitializationComplete(applicationContext, null)
             val createdEngine = FlutterEngine(applicationContext)
             engine = createdEngine
+            CreativeBridge(applicationContext, createdEngine)
             backgroundSystemBridge = BackgroundSystemBridge(applicationContext, createdEngine)
             backgroundTtsBridge = NativeTtsBridge(applicationContext, createdEngine)
             backgroundEmotionSoundBridge =

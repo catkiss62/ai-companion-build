@@ -1,3 +1,5 @@
+import '../creative/creative_pages.dart';
+import '../creative/balance_with_spend.dart';
 import 'chat_tail_follower.dart';
 import '../../widgets/caicai_stage_viewport.dart';
 import '../../widgets/room_depth_background.dart';
@@ -1287,6 +1289,8 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
                               }
                             : null,
                       ),
+                    if (!item.isInterruption && controller.toolOutcomesForMessage(item.message!.id).any((o) => o.toolId == 'creative_work.commission'))
+                      CreativeCards(chat: controller, messageId: item.message!.id),
                   ],
                 );
               }
@@ -1655,17 +1659,16 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
                         ],
                       ),
                       const SizedBox(height: 18),
-                      FutureBuilder<String>(
-                        future: balance,
-                        builder: (_, snapshot) => Text(
-                          snapshot.data ?? 'DeepSeek 余额：查询中…',
-                        ),
-                      ),
+                      BalanceWithSpend(balance: balance),
                       const SizedBox(height: 8),
                       if (_relationshipAge != null) ...[
                         _RelationshipDaysCard(age: _relationshipAge!),
                         const SizedBox(height: 8),
                       ],
+                      ListTile(
+                        leading: const Icon(Icons.auto_awesome_outlined), title: const Text('作品集'),
+                        onTap: () async { Navigator.pop(dialogContext); await Navigator.of(pageContext).push(MaterialPageRoute(builder: (_) => CreativePortfolioPage(chat: controller))); },
+                      ),
                       ListTile(
                         contentPadding: EdgeInsets.zero,
                         leading: const Icon(Icons.phone_iphone_rounded),
@@ -2177,17 +2180,16 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
                     ],
                   ),
                   const SizedBox(height: 14),
-                  FutureBuilder<String>(
-                    future: balance,
-                    builder: (_, snapshot) => Text(
-                      snapshot.data ?? 'DeepSeek 余额：查询中…',
-                    ),
-                  ),
+                  BalanceWithSpend(balance: balance),
                   const SizedBox(height: 8),
                   if (_relationshipAge != null) ...[
                     _RelationshipDaysCard(age: _relationshipAge!),
                     const SizedBox(height: 8),
                   ],
+                  _QuickPanelTile(
+                    icon: Icons.auto_awesome_outlined, title: '作品集', subtitle: '打开小作品，继续一起玩。',
+                    onTap: () async { Navigator.pop(dialogContext); await Navigator.of(pageContext).push(MaterialPageRoute(builder: (_) => CreativePortfolioPage(chat: controller))); },
+                  ),
                   _QuickPanelTile(
                     icon: Icons.phone_iphone_rounded,
                     title: '查手机',

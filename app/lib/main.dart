@@ -1,3 +1,4 @@
+import 'core/diagnostics/daily_spend.dart';
 import 'core/desire/daily_wake_store.dart';
 import 'core/diagnostics/unhandled_error_recorder.dart';
 import 'dart:async';
@@ -22,6 +23,7 @@ Future<void> companionBackgroundMain() =>
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
+  DailySpend.install(AppDatabase.instance);
   UnhandledErrorRecorder(runtime: 'foreground').install();
   ErrorWidget.builder = (details) => _FatalFlutterError(details: details);
   runApp(const _StartupRecoveryRoot());

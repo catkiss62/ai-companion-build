@@ -1,3 +1,4 @@
+import '../creative/creative_contract.dart';
 import '../phone/calendar_reminder_state.dart';
 import '../desire/daily_wake_store.dart';
 import '../mcp/cedar_wake_policy.dart';
@@ -19446,6 +19447,7 @@ class AppDatabase {
       throw FormatException('不支持的状态包版本 $version');
     }
     final rawTables = Map<String, dynamic>.from(backup['tables'] as Map);
+    CreativeContract.normalizeImport(rawTables);
     if (version < 44) {
       rawTables['personality_learning_evidence_revisions'] = const <Object?>[];
       _normalizeV44SelfReviewImport(rawTables);

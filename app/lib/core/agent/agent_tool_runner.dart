@@ -1,3 +1,4 @@
+import '../creative/creative_store.dart';
 import '../autonomy/public_web_read_service.dart';
 import '../autonomy/web_page_evidence.dart';
 import 'dart:convert';
@@ -78,6 +79,7 @@ class AgentToolRunner {
     String userMessageId = '',
     String assistantMessageId = '',
     String latestUserText = '',
+    bool deepThinking = false,
     int callIndexOffset = 0,
     int maxCalls = AgentTaskLoopPolicy.maxCallsPerRound,
   }) async {
@@ -93,7 +95,8 @@ class AgentToolRunner {
       cancellationToken?.throwIfCancelled();
       final definition = AgentToolRegistry.byId(call.toolId);
       final explicitUserWrite =
-          (call.toolId == AgentToolRegistry.attachmentSave.id ||
+          ((deepThinking && call.toolId == AgentToolRegistry.creativeCommission.id) ||
+                  call.toolId == AgentToolRegistry.attachmentSave.id ||
                   call.toolId == AgentToolRegistry.imageFindAndSave.id ||
                   call.toolId == AgentToolRegistry.stickerSend.id ||
                   call.toolId == AgentToolRegistry.webImageSend.id ||
@@ -200,6 +203,7 @@ class AgentToolRunner {
           call,
           cancellationToken,
           origin: origin,
+          deepThinking: deepThinking,
           userMessageId: userMessageId,
           assistantMessageId: assistantMessageId,
           latestUserText: latestUserText,
@@ -306,6 +310,7 @@ class AgentToolRunner {
     AgentToolCall call,
     GenerationCancellationToken? cancellationToken, {
     required AgentToolOrigin origin,
+    bool deepThinking = false,
     String userMessageId = '',
     String userTurnEventId = '',
     String toolChainScopeId = '',
@@ -313,6 +318,18 @@ class AgentToolRunner {
     String latestUserText = '',
   }) async {
     cancellationToken?.throwIfCancelled();
+    if (call.toolId == AgentToolRegistry.creativeCommission.id) {
+      final work = await CreativeStore(db).commission(
+        deepThinking: deepThinking, requestId: toolChainScopeId,
+        messageId: assistantMessageId.isEmpty ? userMessageId : assistantMessageId,
+        brief: call.arguments['brief'] ?? '', requestQuote: call.arguments['request_quote'] ?? '',
+        latestText: latestUserText, workId: call.arguments['work_id'] ?? '',
+      );
+      try { await android.wakeBackgroundBrain(reason: 'creative_commission'); } catch (_) {}
+      return AgentToolResult(toolId: call.toolId, status: AgentToolStatus.succeeded,
+        displayText: '作品已交给后台制作', resultCount: 1,
+        promptData: '只建立了制作任务，尚未完成。作品 ID：${work['id']}；状态：${work['status']}。聊天中的作品卡会随进度更新；用户可继续聊天。');
+    }
     if (call.toolId == AgentToolRegistry.publicWebSearch.id) {
       return _searchWeb(
         call.arguments['query'] ?? '',

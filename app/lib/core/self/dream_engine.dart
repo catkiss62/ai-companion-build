@@ -63,6 +63,8 @@ class DreamEngine {
     if (await db.getSetting(DreamStore.enabledKey) == '0' ||
         !await DreamStore.idle(await db.database, instant, manual: manual))
       return false;
+    final interruptedProcess = DreamContract.decode(await db.getSetting(DreamStore.diagnosticKey))['status'] == 'preparing' &&
+        !await db.isLocalLeaseHeld(DreamStore.leaseKey);
     if (!await db.tryAcquireLocalLease(
       DreamStore.leaseKey,
       holdFor: const Duration(minutes: 4),
@@ -92,10 +94,9 @@ class DreamEngine {
         await db.getSetting(DreamStore.attemptKey),
       );
       final sameAttemptDay = attempt['day'] == day;
-      final attempts = sameAttemptDay
-          ? DreamContract.number(attempt['count'])
-          : 0;
-      if (!manual &&
+      final previousAttempts = sameAttemptDay ? DreamContract.number(attempt['count']) : 0;
+      final attempts = interruptedProcess ? (previousAttempts - 1).clamp(0, 1000).toInt() : previousAttempts;
+      if (!manual && !interruptedProcess &&
           sameAttemptDay &&
           instant.millisecondsSinceEpoch <
               DreamContract.number(attempt['retry_at']))
@@ -122,7 +123,19 @@ class DreamEngine {
         'source_count': material.sources.length,
         'has_backlog': material.hasBacklog,
         'bootstrap': material.bootstrap,
+        'recovered_after_process_interruption': interruptedProcess,
       };
+      Future<void> preempted(String reason) async {
+        // Drop only transient busy checks for diagnostics, never the owning
+        // lease or restore/transfer identity. No dream insight is written here.
+        final diagnosticFence = BrainWorkFence(identity: fence.identity,
+          leaseKey: fence.leaseKey, leaseToken: fence.leaseToken);
+        await db.setSettingsAtomically({
+          DreamStore.attemptKey: jsonEncode({'day': day, 'count': attempts,
+            'retry_at': instant.add(const Duration(minutes: 2)).millisecondsSinceEpoch}),
+          DreamStore.diagnosticKey: jsonEncode({...diagnostic, 'status': reason}),
+        }, workFence: diagnosticFence, expectedSettings: {DreamStore.stateKey: raw});
+      }
       Map<String, dynamic>? payload = {'changes': <Object?>[]};
       if (needsReview) {
         if (!await db.setSettingsAtomically(
@@ -178,6 +191,11 @@ class DreamEngine {
           payload = null;
         }
       }
+      if (!await db.brainWorkFenceCurrent(fence) ||
+          !await DreamStore.idle(await db.database, DateTime.now(), manual: true)) {
+        await preempted('preempted_by_activity');
+        return false;
+      }
       final next = DreamContract.apply(
         payload: payload,
         state: state,
@@ -208,7 +226,7 @@ class DreamEngine {
           DreamContract.records(next['history'])
               .where((i) => i['retired_at'] == instant.millisecondsSinceEpoch)
               .length;
-      return await store.commit(
+      final committed = await store.commit(
         next: next,
         expectedRaw: raw,
         stamp: material.stamp,
@@ -222,6 +240,8 @@ class DreamEngine {
           'changed_count': changed,
         },
       );
+      if (!committed) await preempted('evidence_changed_before_commit');
+      return committed;
     } catch (_) {
       // Best effort maintenance must never block the normal heartbeat. The
       // durable attempt and unchanged cursor allow a later bounded retry.

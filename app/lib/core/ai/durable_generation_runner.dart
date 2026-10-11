@@ -1,3 +1,4 @@
+import '../creative/creative_play.dart';
 import '../reflection/deep_reflection_contract.dart';
 import 'generation_lease_guard.dart';
 import 'dart:async';
@@ -430,6 +431,7 @@ class DurableGenerationRunner {
           userMessageId: user.id,
           assistantMessageId: job.assistantMessageId,
           latestUserText: user.content,
+          deepThinking: job.deepThinking,
         );
         agentToolResults.addAll(localResults);
         agentToolCalls += localResults.length;
@@ -917,6 +919,7 @@ class DurableGenerationRunner {
         }
       }
 
+      final creativeContext = await CreativePlay.chatContext(db);
       List<StickerReplyCandidate> stickerCandidates = const [];
       try {
         stickerCandidates = await stickerService.replyCandidates(
@@ -934,6 +937,7 @@ class DurableGenerationRunner {
         List<DeepSeekToolCall> toolCalls,
         String finishReason,
       })> generateFinal(List<Map<String, Object?>> messages) async {
+        if (creativeContext.isNotEmpty) messages = [...messages, {'role': 'system', 'content': creativeContext}];
         if (stickerPrompt.isNotEmpty) messages = [
           ...messages, {'role': 'system', 'content': stickerPrompt},
         ];
@@ -1235,6 +1239,7 @@ $finalGenerationReminder
         final nativePlan = AgentToolPlanner.fromNativeToolCalls(
           generated.toolCalls,
           latestUserText: user.content,
+          deepThinking: job.deepThinking,
           cedarStageToolIds: cedarStageToolIds(),
           cedarSessionActive: cedarLoopEngaged(),
           cedarBlindPlay: cedarBlindPlay(),
@@ -1316,6 +1321,7 @@ $finalGenerationReminder
           userMessageId: user.id,
           assistantMessageId: job.assistantMessageId,
           latestUserText: user.content,
+          deepThinking: job.deepThinking,
           callIndexOffset: agentToolCalls,
           maxCalls: callsAllowed,
         );

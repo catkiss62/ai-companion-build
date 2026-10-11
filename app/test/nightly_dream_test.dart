@@ -423,6 +423,26 @@ void main() {
         );
       },
     );
+    test('chat preemption retries at the next idle opportunity without API backoff', () async {
+      await seed();
+      final first = engine(reviewer: (_) async {
+        await db.tryAcquireLocalLease('chat_turn_lease');
+        return payload();
+      });
+      expect(await first.maybeDream(now: night), isFalse);
+      final attempt = DreamContract.decode(await db.getSetting(DreamStore.attemptKey));
+      expect(attempt['count'], 0);
+      expect(DreamContract.decode(await db.getSetting(DreamStore.diagnosticKey))['status'], 'preempted_by_activity');
+      await db.releaseLocalLease('chat_turn_lease');
+      expect(await engine().maybeDream(now: night.add(const Duration(minutes: 3))), isTrue);
+    });
+    test('process loss does not retain a network-failure backoff', () async {
+      await seed();
+      await db.setSetting(DreamStore.diagnosticKey, jsonEncode({'status': 'preparing'}));
+      await db.setSetting(DreamStore.attemptKey, jsonEncode({'day': DreamContract.day(night), 'count': 1,
+        'retry_at': night.add(const Duration(hours: 1)).millisecondsSinceEpoch}));
+      expect(await engine().maybeDream(now: night), isTrue);
+    });
     test('busy chat defers without spending the daily opportunity', () async {
       await seed();
       await db.tryAcquireLocalLease('chat_turn_lease');

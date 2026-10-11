@@ -1,3 +1,5 @@
+import 'core/diagnostics/daily_spend.dart';
+import 'core/creative/creative_worker.dart';
 import 'core/desire/daily_wake_store.dart';
 import 'core/diagnostics/unhandled_error_recorder.dart';
 import 'dart:async';
@@ -25,6 +27,7 @@ import 'core/sync/snapshot_restore_coordinator.dart';
 @pragma('vm:entry-point')
 Future<void> companionBackgroundMain() async {
   WidgetsFlutterBinding.ensureInitialized();
+  DailySpend.install(AppDatabase.instance);
   UnhandledErrorRecorder(runtime: 'background').install();
   final db = AppDatabase.instance;
   await SnapshotRestoreCoordinator(db, PortableCompanionStorage()).ensureRecovered();
@@ -65,6 +68,14 @@ Future<void> companionBackgroundMain() async {
     memoryExtractor: memoryExtractor,
     proactive: proactive,
   );
+  final creative = CreativeWorker(db);
+  var creativeRunning = false;
+  Timer.periodic(const Duration(seconds: 15), (_) async {
+    if (creativeRunning) return;
+    creativeRunning = true;
+    try { await creative.runOnce(); } catch (_) {}
+    finally { creativeRunning = false; }
+  });
   final wakeGate = _WakeGate();
   final chatCommands = BackgroundChatCommandServer(
     db: db,

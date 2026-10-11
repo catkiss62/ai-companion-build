@@ -93,7 +93,7 @@ object CreativeWebSandbox {
     }
 
     fun reply(view: WebView, id: String, value: Any?, error: String? = null) {
-        val encoded = if (value == null) "null" else JSONObject.wrap(value).toString()
+        val encoded = org.json.JSONArray().put(value).toString().let { it.substring(1,it.length-1) }
         view.evaluateJavascript("window.__workReply(${JSONObject.quote(id)},$encoded,${error?.let(JSONObject::quote) ?: "null"})", null)
     }
 }

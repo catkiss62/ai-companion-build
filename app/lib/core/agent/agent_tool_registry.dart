@@ -7,6 +7,13 @@ import 'agent_tool.dart';
 class AgentToolRegistry {
   const AgentToolRegistry._();
 
+  static const creativeCommission = AgentToolDefinition(
+    id: 'creative_work.commission', title: '委托制作小作品',
+    description: '仅在本轮深度思考中明确要求制作或修改时，将 HTML 小作品委托交给后台。闲聊、评价、设想不执行。',
+    risk: AgentToolRisk.proposal, executable: true,
+    userTurnAvailable: true, autonomousAvailable: false,
+  );
+
   static const publicWebSearch = AgentToolDefinition(
     id: 'public_web.search',
     title: '搜索公开网页',
@@ -252,6 +259,7 @@ class AgentToolRegistry {
   );
 
   static const all = <AgentToolDefinition>[
+    creativeCommission,
     publicWebSearch,
     publicWebRead,
     publicWebDiscovery,

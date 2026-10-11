@@ -39,6 +39,8 @@ class _ModelNetworkSettingsPageState
   final _deepSeekKey = TextEditingController();
   final _deepSeekEndpoint = TextEditingController();
   final _customDeepSeekModel = TextEditingController();
+  final _workModel = TextEditingController(text: 'deepseek-flash');
+  ReasoningEffort _workEffort = ReasoningEffort.max;
   final _aiWangYouApiKey = TextEditingController();
   final _aiWangYouEndpoint = TextEditingController();
   final _aiWangYouModel = TextEditingController();
@@ -184,6 +186,8 @@ class _ModelNetworkSettingsPageState
     _jevEnabled = await _secure.readJevEnabled();
     final activeModel = await _db.getSetting('model');
     final storedDeepSeekModel = await _db.getSetting('deepseek_model');
+    _workModel.text = await _db.getSetting('creative_work_model') ?? 'deepseek-flash';
+    _workEffort = ReasoningEffort.fromApiName(await _db.getSetting('creative_work_effort') ?? 'max');
     final storedModel = DeepSeekModelProfile.fromApiName(
       storedDeepSeekModel ??
           (activeModel == ChatApiProvider.aiWangYouModel
@@ -638,6 +642,7 @@ class _ModelNetworkSettingsPageState
     _deepSeekKey.dispose();
     _deepSeekEndpoint.dispose();
     _customDeepSeekModel.dispose();
+    _workModel.dispose();
     _aiWangYouApiKey.dispose();
     _aiWangYouEndpoint.dispose();
     _aiWangYouModel.dispose();
@@ -817,6 +822,27 @@ class _ModelNetworkSettingsPageState
                         testing: _testingChat,
                       ),
                       _sectionFeedback('chat'),
+                    ],
+                  ),
+                  _SettingsSectionCard(
+                    title: '工作模型',
+                    subtitle: '专门制作小作品，复用上面的 DeepSeek Key 和地址。聊天模型不受影响。',
+                    children: [
+                      TextField(controller: _workModel, decoration: const InputDecoration(labelText: '模型名称', hintText: 'deepseek-flash')),
+                      const SizedBox(height: 12),
+                      DropdownButtonFormField<ReasoningEffort>(
+                        initialValue: _workEffort,
+                        decoration: const InputDecoration(labelText: '工作思考力度'),
+                        items: ReasoningEffort.values.map((e) => DropdownMenuItem(value: e, child: Text(e.label))).toList(),
+                        onChanged: (value) { if (value != null) setState(() => _workEffort = value); },
+                      ),
+                      TextButton(onPressed: () => _sectionAction('work', () async {
+                        final model = _workModel.text.trim();
+                        if (model.isEmpty || model.length > 120) { setState(() => _status = '请输入有效的模型名称'); return; }
+                        await _db.setSettingsAtomically({'creative_work_model': model, 'creative_work_effort': _workEffort.apiName});
+                        if (mounted) setState(() => _status = '工作模型已保存，对下一次委托生效');
+                      }), child: const Text('保存工作模型')),
+                      _sectionFeedback('work'),
                     ],
                   ),
                   _SettingsSectionCard(
