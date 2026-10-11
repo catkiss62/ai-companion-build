@@ -1,6 +1,6 @@
 # 小作品真实互动与完成回报 · v0.42.97+341
 
-状态：IMPLEMENTED / CI PENDING。基线+340远端22b1daf547da0e4e3828909e4e1588c8eea7de58，本地974c73e，同树340da8c7580f9fcf3b3a07c59d20b01e059d23cc；分支agent/v04297-creative-play-delivery。
+状态：CI PASSED / APK READY / TRUE DEVICE PENDING。基线+340远端22b1daf547da0e4e3828909e4e1588c8eea7de58，本地974c73e，同树340da8c7580f9fcf3b3a07c59d20b01e059d23cc；分支agent/v04297-creative-play-delivery。
 
 ## 授权与证据
 
@@ -32,3 +32,20 @@
 协议已统一；既有数字回合可直接使用；预览拒绝重复/非字符串选项和同回合换选项。完成事件在 work_finish 发布事务中写入；独立轮询、最多3次生成尝试、聊天打断后短退避并刷新正文，生成检查点与消息/回执原子提交。第二通道正常只调用正文一次，故障按已有策略使用 DeepSeek 正文兜底；无规划调用、无固定台词、不占日常主动配额。失败可在作品菜单“重试完成提示”。+340已完成作品不批量补发历史完成消息。
 
 已补受控 HTTP/SQLite/原生 WebView 回归。18项版本门槛扩展和150项正式清单结构检查本地通过；完整执行仅以本次 CI 结果为准。首次本地脚本误从workflow历史注释提取了19项旧脚本，其中12项因历史版本假设或缺少CI资源失败；这些不是当前150项正式清单的结果，不更改旧断言也不据此宣称通过。
+
+## 已通过的送测结果
+
+- APK源码远端ea3325cfb73c209eb2c051580cbd6133ad2e233d，本地14af520cf3b3d94b299dc473d923560aa2445bb9，同树3829ab2b0c5078e69bb02340d5471732c3c7f1ab。
+- 小作品专项Actions38152645530通过87项；稳定性Actions38152645509通过577项。新增16项Flutter行为回归，另将既有封存/揭晓测试改为数字编号与字符串编号混用的旧作品形式。
+- 完整Actions38152645513的Android8原生9项、Android15原生38项均通过；包括真实WebView数字回合、非法选项/编号、不可更换同局选项和首次揭晓固定。完整APK构建与发布到私有Draft已完成，见下方最终交付。
+- 静态分析通过，无error；既有及局部单行if风格info/warnings仍存在，不冒充零告警。没有调用用户真实模型Key进行在线陪玩；原生测试为真实WebView，模型响应为受控HTTP。
+
+## +341 最终交付（2026-10-12 北京时间）
+
+- [完整Actions38152645513](https://github.com/catkiss62/ai-companion-build/actions/runs/38152645513)通过：150项正式源码回归、1528项全量Flutter、38项Android15及9项Android8原生，以及Kotlin、完整资源和签名检查。
+- [稳定性38152645509](https://github.com/catkiss62/ai-companion-build/actions/runs/38152645509)通过577项；[小作品专项38152645530](https://github.com/catkiss62/ai-companion-build/actions/runs/38152645530)通过87项。
+- [同签名测试APK下载页](https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-a1fb59d73f62b552c35c)：Draft Release409771672，tag `v0.42.97-creative-play-delivery-test`，目标ea3325cf。APK资产631175213，文件 `AI-Companion-v0.42.97-341-Creative-Play-Delivery-APK.apk`，736970829 bytes；SHA资产631175210，成功CI Monitor631175212；Actions APK artifact11707479123。
+- APK SHA-256：`388c466a46ade46490dba491143cb80e312d0e56126301fe7ba94df2c00a238f`。构建输出与GitHub上传digest一致。
+- 签名SHA-256：`30:5E:B3:D8:09:83:B9:63:C6:48:18:DD:F1:AD:56:1F:27:9D:E6:D4:7B:3E:D2:C7:81:AD:A4:48:C7:C2:51:48`，实际apksigner验证与原测试包一致；可覆盖安装。未合并main、未正式发布。
+- 使用边界：原猜拳作品不必重做；直接重新打开即可使用新接口。已有制作/暂停任务的继续不再要求聊天深度思考；新委托和新修改仍需要。完成正文只针对新版新完成的作品，不批量补发旧作品；连续失败后可在作品菜单重试完成提示，不影响成品打开。
+- 真机尚待用户验证：真实DeepSeek出招、其手机后台长期运行、实际第二通道语气与送达时机。受控模型响应不等同真实模型语义质量通过；代码开关与保存/导入边界已有上述回归证据。
