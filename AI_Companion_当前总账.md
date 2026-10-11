@@ -1,6 +1,6 @@
 # AI Companion · 当前总账
 
-更新时间：2026-10-11（+339 IMPLEMENTED / CI IN PROGRESS；+338 CI PASSED / APK READY / TRUE DEVICE PENDING；+337 CI PASSED / APK READY / TRUE DEVICE PENDING；+336 CI PASSED / APK READY / TRUE DEVICE PENDING；+335 CI PASSED / APK READY / TRUE DEVICE PENDING；+334 CI PASSED / APK READY / TRUE DEVICE PENDING；+333 CI PASSED / APK READY / TRUE DEVICE PENDING；+332 CI PASSED / APK READY / USER EAR PLACEMENT ACCEPTED；+329 CI PASSED / APK READY / TRUE DEVICE PENDING；+328 CI PASSED / APK READY / TRUE DEVICE PENDING；+327 CI PASSED / APK READY / TRUE DEVICE PENDING；+326 CI PASSED / APK READY / TRUE DEVICE PENDING；+325 CI PASSED / APK READY / TRUE DEVICE PENDING；+324 CI PASSED / APK READY / TRUE DEVICE PENDING；+323 CI PASSED / APK READY / TRUE DEVICE PENDING；+322 CI PASSED / APK READY / TRUE DEVICE PENDING；+321 CI PASSED / APK READY / TRUE DEVICE PENDING；+320 CI PASSED / APK READY / TRUE DEVICE PENDING；+319 CI PASSED / APK READY / TRUE DEVICE PENDING；+318 USER DEVICE ACCEPTED；+317 CI PASSED / APK READY / TRUE DEVICE PENDING；+316 CI PASSED / APK READY / TRUE DEVICE PENDING；+315 CI PASSED / APK READY / TRUE DEVICE PENDING；+314 CI PASSED / APK READY / TRUE DEVICE PENDING；+313 CI PASSED / APK READY / TRUE DEVICE PENDING；+312 CI PASSED / APK READY / TRUE DEVICE PENDING；+311 CI PASSED / APK READY / TRUE DEVICE PENDING；+310 CI PASSED / APK READY / TRUE DEVICE PENDING；+309 CI PASSED / APK READY / TRUE DEVICE PENDING；+308 CI PASSED / APK READY / TRUE DEVICE PENDING；+307 CI PASSED / APK READY / USER DEVICE ACCEPTED；+306 CI PASSED / APK READY / TRUE DEVICE PENDING；+305 CI PASSED / APK READY / DEVICE REPORTED REPLY STALL；+304 CI PASSED / APK READY / TRUE DEVICE PENDING；+303 CI PASSED / APK READY / TRUE DEVICE PENDING；+302 CI PASSED / APK READY / TRUE DEVICE PENDING；+301 CI PASSED / APK READY / TRUE DEVICE PENDING；+300 CI PASSED / APK READY / TRUE DEVICE PENDING；+299 CI PASSED / APK READY / TRUE DEVICE PENDING；+298 CI PASSED / APK READY / TRUE DEVICE PENDING；+297 CI PASSED / APK READY / TRUE DEVICE PENDING；+295 恢复真机成功、背景回归 PARTIAL；+293 DEVICE VISUAL BASELINE）
+更新时间：2026-10-11（+339 CI PASSED / APK READY / TRUE DEVICE PENDING；+338 CI PASSED / APK READY / TRUE DEVICE PENDING；+337 CI PASSED / APK READY / TRUE DEVICE PENDING；+336 CI PASSED / APK READY / TRUE DEVICE PENDING；+335 CI PASSED / APK READY / TRUE DEVICE PENDING；+334 CI PASSED / APK READY / TRUE DEVICE PENDING；+333 CI PASSED / APK READY / TRUE DEVICE PENDING；+332 CI PASSED / APK READY / USER EAR PLACEMENT ACCEPTED；+329 CI PASSED / APK READY / TRUE DEVICE PENDING；+328 CI PASSED / APK READY / TRUE DEVICE PENDING；+327 CI PASSED / APK READY / TRUE DEVICE PENDING；+326 CI PASSED / APK READY / TRUE DEVICE PENDING；+325 CI PASSED / APK READY / TRUE DEVICE PENDING；+324 CI PASSED / APK READY / TRUE DEVICE PENDING；+323 CI PASSED / APK READY / TRUE DEVICE PENDING；+322 CI PASSED / APK READY / TRUE DEVICE PENDING；+321 CI PASSED / APK READY / TRUE DEVICE PENDING；+320 CI PASSED / APK READY / TRUE DEVICE PENDING；+319 CI PASSED / APK READY / TRUE DEVICE PENDING；+318 USER DEVICE ACCEPTED；+317 CI PASSED / APK READY / TRUE DEVICE PENDING；+316 CI PASSED / APK READY / TRUE DEVICE PENDING；+315 CI PASSED / APK READY / TRUE DEVICE PENDING；+314 CI PASSED / APK READY / TRUE DEVICE PENDING；+313 CI PASSED / APK READY / TRUE DEVICE PENDING；+312 CI PASSED / APK READY / TRUE DEVICE PENDING；+311 CI PASSED / APK READY / TRUE DEVICE PENDING；+310 CI PASSED / APK READY / TRUE DEVICE PENDING；+309 CI PASSED / APK READY / TRUE DEVICE PENDING；+308 CI PASSED / APK READY / TRUE DEVICE PENDING；+307 CI PASSED / APK READY / USER DEVICE ACCEPTED；+306 CI PASSED / APK READY / TRUE DEVICE PENDING；+305 CI PASSED / APK READY / DEVICE REPORTED REPLY STALL；+304 CI PASSED / APK READY / TRUE DEVICE PENDING；+303 CI PASSED / APK READY / TRUE DEVICE PENDING；+302 CI PASSED / APK READY / TRUE DEVICE PENDING；+301 CI PASSED / APK READY / TRUE DEVICE PENDING；+300 CI PASSED / APK READY / TRUE DEVICE PENDING；+299 CI PASSED / APK READY / TRUE DEVICE PENDING；+298 CI PASSED / APK READY / TRUE DEVICE PENDING；+297 CI PASSED / APK READY / TRUE DEVICE PENDING；+295 恢复真机成功、背景回归 PARTIAL；+293 DEVICE VISUAL BASELINE）
 
 > 本文件是唯一的当前接班入口，继续采用“总账 v2”。顶部是快速接班索引；标记后的正式记录按版本持续追加，不设总容量上限。
 >
@@ -8,9 +8,9 @@
 
 
 
-## 当前任务 · +339 小作品第一批与梦境恢复（IMPLEMENTED / CI IN PROGRESS）
+## 当前交付 · +339 小作品第一批与梦境恢复（CI PASSED / APK READY / TRUE DEVICE PENDING）
 
-2026-10-11 17:03 用户授权实施。基线 +338/f424213（构建源码cce1c35），开发分支 `agent/v04295-creative-workspace`，目标0.42.95+339。范围：聊天模型下独立DeepSeek工作模型名称/思考力度（沿用连接）；余额右侧同色今日用量估算；仅深度思考下明确委托可制作/实质修改；后台作品制作、真实运行检查、App内作品页与双方互动、左侧作品集、草稿/成品/必要素材/游玩状态完整备份恢复。普通聊天不增加逐轮Agent，不把未授权委托转换为自主创作；自主灵感/空闲构思/分享第二批再接。梦境先查清抢占/失败/提交失效，保留来源、聊天优先、每日成功与恢复围栏，修正有证据的运行问题。详细范围、过程与验证入口：`app/docs/CREATIVE_WORKSPACE_v0.42.95.md`。后台无主屏运行与实际截图已在 Android 8/15 通过。当前功能专项56项、稳定性546项通过；完整构建38130800732的34项Android15/5项Android8原生测试通过，打包在旧检查脚本未纳入+339版本时停止，现补齐版本白名单与已审查的作品导入前校验哈希。完整APK仍待成功、未真机验收。
+2026-10-11 用户授权第一批及梦境修查。0.42.95+339，分支 `agent/v04295-creative-workspace`，最终源码370b9e9（本地e849199同树8fe40a1）。独立DeepSeek工作模型/思考力度、余额右侧今日费用估算；仅发送时深度思考开启的明确委托可启动/修改制作；后台HTML生成与实际预览、作品集/聊天卡片、App内互动、草稿/版本/同局隐蔽选择完整存档。普通聊天可停止，关闭深度思考不取消已有授权；不增逐轮Agent，自主灵感与创作仍是第二批。梦境区分聊天抢占/进程中断与接口失败，保留来源和提交围栏，下次空闲短退避重试。完整38131888279、专项38131888224成功：150源码、1497全量Flutter、546专项、34项Android15及5项Android8原生通过。同签名未发布APK已就绪；下载、SHA、失败路线与边界见文末和 `app/docs/CREATIVE_WORKSPACE_v0.42.95.md`。真实模型作品质量、手机锁屏耗电与长期梦境效果仍待用户真机验证。
 
 ## 当前交付 · +338 游戏意图连续性（CI PASSED / APK READY / TRUE DEVICE PENDING）
 
@@ -3331,3 +3331,24 @@ CI于北京时间2026-10-11约03:11完成，06:00复核交付。保持draft，�
 2026-10-07 14:22 用户要求核对上下文后完成其余修改和 APK。分支 agent/v04279-wish-chat-fixes，基线+322，目标0.42.79+323。范围见 app/docs/WISH_CHAT_FIXES_v0.42.79.md：仅 Jev 游戏授权同方向合并，愿望既有评估允许有证据的自主暂放/放下和主观向往满足，最终消息布局收敛滚动。自主性浅约束明确不做；人设、梦境、愿望生成、桌宠和 Live2D 保持；不新增逐轮规划、不改游戏分享次数。不新建第三总账。追加正常形态历史污染修正（仅实时形态事实，不改性格/气焰规则）。14:40:57主进程crash有记录但无堆栈，根因未定，不猜修。首轮新恢复测试夹具冲突已修。完整Actions37583889573第二次尝试与专项37583889487通过；1402项全量Flutter、402项专项、18项Android原生及现行源码/资源门通过。同签名未发布APK已就绪，最终下载页与哈希见文末+323交付记录；真机效果待用户验证。
 
 > +323 失败路线：愿望恢复测试夹具冲突已修；随后原生星谷长按DOM等待超时，同源码重跑18/18通过，未删断言或改星谷。详细记录见app/docs/WISH_CHAT_FIXES_v0.42.79.md；不能与用户14:40闪退混为一谈。
+
+
+## +339 最终 CI 与未发布 APK 交付（2026-10-11）
+
+状态：CI PASSED / APK READY / TRUE DEVICE PENDING。用户已授权第一批，不再次要求确认，不合并 main、不发布正式版本。
+
+- 版本：0.42.95+339；分支 `agent/v04295-creative-workspace`。构建源码 `370b9e99538dc516ab66dc6268d6bcf7aefbc40f`，本地同树提交 `e849199`，tree `8fe40a18a9e41b9a60e97c4b91e01774510558de`。后续只有交付文档及真实预览截图归档，不改变构建源码。
+- 完整构建：[38131888279](https://github.com/catkiss62/ai-companion-build/actions/runs/38131888279)，2026-10-11 10:25:19—10:49:32 UTC，全部成功。150项源码回归、1497项全量Flutter、Kotlin回归、APK资源完整性与签名检查通过；静态分析保留既有info/warnings，不存在编译error。
+- 稳定性专项：[38131888224](https://github.com/catkiss62/ai-companion-build/actions/runs/38131888224)，546项通过。功能专项5285186的56项作品/梦境/配置测试通过；此后的功能源码未改，仅测试截图留存与现有回归门版本适配。
+- Android15原生34项及Android8原生5项全部通过，包含后台无Activity实际页面、Canvas/按钮、脚本错误、桥接对象、息屏不抢屏。真实预览帧已存 `app/docs/creative-workspace-preview.png`，这是自动测试页，不冒充模型创作成品。
+- [同签名未发布+339 APK下载页](https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-0765977fd54d004bef58)，Draft Release `409574305`，tag `v0.42.95-creative-workspace-test`，目标源码370b9e9。APK资产630487874：`AI-Companion-v0.42.95-339-Creative-Workspace-APK.apk`，736,913,481 bytes。SHA文件630487878、成功CI Monitor630487888；APK Actions artifact11699941773。
+- APK SHA-256：`3385397495d67ad303bbc7277849275c3acd826554466bc808d5d893720a25b8`。已与构建sha256sum及GitHub上传资产digest核对一致。
+- 实际APK签名SHA-256：`30:5E:B3:D8:09:83:B9:63:C6:48:18:DD:F1:AD:56:1F:27:9D:E6:D4:7B:3E:D2:C7:81:AD:A4:48:C7:C2:51:48`，与原测试签名一致。
+
+交付行为：工作模型名称/力度复用DeepSeek连接；今日为本App请求费用估算，未知价/用量不装成零。作品后台完成真实检查再发表，最多三轮检查修复；作品页可和原聊天继续互动，猜拳先封存后揭晓、同回合不重选；备份包含源码/必要内联素材/草稿/版本/游玩与隐蔽选择，导入进行中作品转为暂停，停止/删除/恢复后的旧结果不可回写。持续离开App依赖既有后台陪伴服务与系统调度，强停后保存检查点再恢复，不承诺永续后台。
+
+梦境修复：聊天/活动抢占不累计为接口失败，下一次满足空闲条件使用短退避重试；进程消失留下的preparing不再按网络失败等待30分钟。消息/来源变化不提交旧见解；真正接口失败仍保留指数退避；每日最多一次成功与恢复/所有权围栏保留。没有增加节日必做、虚构梦境事实或每轮规划。
+
+失败路线完整保留在任务文档：本地Flutter启动路径被自动审批拒绝后改用现有CI；类型化存档列表/中文模拟响应编码/旧WebView favicon/JSON对象桥接/UTP清理截图目录均已定位修复并留测试。最后完整构建38130800732只在旧版本白名单停止，新增+339白名单且审查数据库两行导入入口后更新哈希；未删除回归门或放宽存档安全断言。索引容量通过同总账原文转存处理，冻结归档未变。
+
+待验证边界：真实DeepSeek生成作品的品质、厂商手机长期锁屏/耗电、日累计与真实账户对账、长期梦境效果。自主灵感/空闲构思/自主制作与分享仍第二批，不得把本批的明确委托误记为自主创作完成。
