@@ -9,6 +9,9 @@ class CreativeContract {
   static const playPrefix = 'creative_play_v1:';
   static const noticePrefix = 'creative_notice_v1:';
   static const playTracePrefix = 'creative_interaction_trace_v1:';
+  static const chatPrefix = 'creative_chat_snapshot_v1:';
+  static const receiptPrefix = 'creative_receipt_v1:';
+  static const maxSnapshotBytes = 48000;
   static const maxHtmlBytes = 800000;
   static const active = {'queued', 'building', 'checking'};
   static Map<String, dynamic> decode(String? raw) =>
@@ -37,6 +40,15 @@ class CreativeContract {
     }
   }
 
+  static void validateSnapshot(Map<String, dynamic> snapshot) {
+    if (snapshot['schema'] != 1 || snapshot['work_id'] is! String ||
+        snapshot['version'] is! String || snapshot['session_id'] is! String ||
+        snapshot['captured_at'] is! int ||
+        utf8.encode(jsonEncode(snapshot)).length > maxSnapshotBytes) {
+      throw const FormatException('作品对话状态无效');
+    }
+  }
+
   /// Runs before import mutates the database. Restoring never commissions work.
   static void normalizeImport(Map<String, dynamic> tables) {
     final rawRows = tables['settings'];
@@ -50,6 +62,19 @@ class CreativeContract {
       if (!key.startsWith('creative_')) continue;
       final value = row['value'];
       if (value is! String) throw const FormatException('作品存档损坏');
+      if (key.startsWith(chatPrefix)) {
+        if (value.isNotEmpty) validateSnapshot(decode(value));
+        continue;
+      }
+      if (key.startsWith(receiptPrefix)) {
+        final receipt = decode(value);
+        if (utf8.encode(value).length > 1000 || receipt['work_id'] is! String ||
+            receipt['version'] is! String || receipt['message_id'] != key.substring(receiptPrefix.length)) {
+          throw const FormatException('作品交付引用无效');
+        }
+        continue;
+      }
+      if (key == 'creative_ui_trace_v1') { rows[i] = {...row, 'value': ''}; continue; }
       if (key == 'creative_focus_v1') { rows[i] = {...row, 'value': ''}; continue; }
       if (key.startsWith(noticePrefix)) {
         if (value.isEmpty) continue;

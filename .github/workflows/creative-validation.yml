@@ -1,7 +1,7 @@
 name: Creative workspace validation
 on:
   push:
-    branches: [agent/v04295-creative-workspace, agent/v04296-creative-agent, agent/v04297-creative-play-delivery]
+    branches: [agent/v04295-creative-workspace, agent/v04296-creative-agent, agent/v04297-creative-play-delivery, agent/v04298-creative-context-ui]
     paths: ['app/lib/**', 'app/test/**', '.github/workflows/creative-validation.yml']
   workflow_dispatch:
 concurrency:
@@ -20,5 +20,5 @@ jobs:
         working-directory: app
       - run: flutter analyze --no-fatal-infos --no-fatal-warnings
         working-directory: app
-      - run: flutter test test/creative_workspace_test.dart test/creative_agent_test.dart test/creative_delivery_test.dart test/nightly_dream_test.dart test/nightly_dream_pipeline_test.dart test/model_network_config_transfer_test.dart
+      - run: flutter test test/creative_workspace_test.dart test/creative_agent_test.dart test/creative_delivery_test.dart test/creative_context_test.dart test/creative_ui_test.dart test/nightly_dream_test.dart test/nightly_dream_pipeline_test.dart test/model_network_config_transfer_test.dart
         working-directory: app

@@ -195,6 +195,9 @@ class CreativeDelivery {
         final committed = await sql.transaction((txn) async {
           if (!await guarded().matches(txn) || !await _idle(txn) || notice['user_id'] != await _latestUser(txn)) return false;
           await txn.insert('messages', message.toDb(), conflictAlgorithm: ConflictAlgorithm.ignore);
+          await txn.insert('settings', {'key': '${CreativeContract.receiptPrefix}$messageId',
+            'value': jsonEncode({'message_id': messageId, 'work_id': id, 'version': notice['version'], 'kind': 'delivered'})},
+            conflictAlgorithm: ConflictAlgorithm.replace);
           await txn.insert('settings', {'key': key(id), 'value': jsonEncode({...notice,
             'status': 'delivered', 'phase': 'delivered', 'text': '', 'delivered_at': now().millisecondsSinceEpoch})},
             conflictAlgorithm: ConflictAlgorithm.replace);

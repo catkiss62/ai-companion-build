@@ -7003,7 +7003,10 @@ class AppDatabase {
     required String reasoningEffort,
     bool thinking = true,
     bool deepThinking = false,
+    Map<String, dynamic>? creativeContext,
+    BrainWorkFence? creativeFence,
   }) async {
+    if (creativeContext != null) CreativeContract.validateSnapshot(creativeContext);
     if (user.attachments.any((item) => item.messageId != user.id)) {
       throw StateError('user_attachment_message_mismatch');
     }
@@ -7036,6 +7039,26 @@ class AppDatabase {
       );
       if (blocking.isNotEmpty) {
         throw StateError('上一轮 AI 回复仍在生成或等待恢复。');
+      }
+      if (creativeContext != null) {
+        if (creativeFence == null || !await creativeFence.matches(txn)) throw const BrainWorkInvalidated();
+        final work = CreativeContract.decode(await BrainWorkFence.value(txn,
+          '${CreativeContract.metaPrefix}${creativeContext['work_id']}'));
+        final play = CreativeContract.decode(await BrainWorkFence.value(txn,
+          '${CreativeContract.playPrefix}${creativeContext['work_id']}'));
+        if (work.isEmpty || work['status'] == 'deleted' ||
+            play['version'] != creativeContext['version'] || play['session_id'] != creativeContext['session_id']) {
+          throw const BrainWorkInvalidated();
+        }
+        await txn.insert('settings', {'key': '${CreativeContract.chatPrefix}${user.id}',
+          'value': jsonEncode(creativeContext)}, conflictAlgorithm: ConflictAlgorithm.replace);
+        final old = (await txn.query('settings', columns: ['key', 'value'],
+          where: 'key LIKE ?', whereArgs: ['${CreativeContract.chatPrefix}%'])).toList();
+        old.sort((a, b) => (CreativeContract.decode(b['value'] as String)['captured_at'] as int)
+            .compareTo(CreativeContract.decode(a['value'] as String)['captured_at'] as int));
+        for (final row in old.skip(8)) {
+          await txn.delete('settings', where: 'key = ?', whereArgs: [row['key']]);
+        }
       }
       await txn.insert(
         'messages',

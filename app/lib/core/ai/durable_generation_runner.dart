@@ -559,7 +559,7 @@ class DurableGenerationRunner {
         specialStyleKeyOverride: generationSpecialStyleKey,
         conversationInitiativeOverride: conversationPlan,
       );
-      final creativeContext = await CreativePlay.chatContext(db);
+      final creativeContext = await CreativePlay.chatContext(db, userMessageId: job.userMessageId);
       final creativeWorkContext = await CreativeStore(db).chatContext();
       final baseRequestMessages = <Map<String, Object?>>[
         ...promptBuild.messages,

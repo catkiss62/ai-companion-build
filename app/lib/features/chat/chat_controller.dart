@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:io';
+import '../../core/creative/creative_play.dart';
 
 import 'package:flutter/foundation.dart';
 import 'package:path/path.dart' as p;
@@ -1089,6 +1090,7 @@ class ChatController extends ChangeNotifier {
     String? requestedMessageId,
     StickerPackMeta? userStickerPack,
     StickerRecord? userSticker,
+    CreativeChatSnapshot? workContext,
   }) async {
     final text = raw.trim();
     final turnDeepThinking = deepThinking;
@@ -1221,6 +1223,8 @@ class ChatController extends ChangeNotifier {
         reasoningEffort: effort.apiName,
         thinking: true,
         deepThinking: turnDeepThinking,
+        creativeContext: workContext?.data,
+        creativeFence: workContext?.fence,
       );
       durableTurnCreated = true;
       _activeGenerationJobId = job.id;

@@ -73,6 +73,9 @@ void main() {
     expect(messages.single['id'], (await store.get(id))['completion_message_id']);
     expect(messages.single['content'], '小灯做好了，点一下就能亮起来。');
     expect((await notice())['status'], 'delivered');
+    final deliveredId = messages.single['id'] as String;
+    expect((await store.forMessage(deliveredId)).single['card_kind'], 'delivered');
+    expect((await db.getSetting('${CreativeContract.receiptPrefix}$deliveredId'))!.length, lessThan(1000));
     final sql = await db.database;
     expect(await sql.query('messages', where: "role='user'"), hasLength(1));
     expect(await sql.query('proactive_history'), isEmpty);

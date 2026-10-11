@@ -139,4 +139,39 @@ class CreativePreviewSmokeTest {
             assertEquals(result.toString(),true,result["ok"])
         } finally { ui.executeShellCommand("input keyevent KEYCODE_WAKEUP").close() }
     }
+    @Test fun observationWaitsForPublicWritesAndReadsActualTextAndAnimation() {
+        val instrumentation = InstrumentationRegistry.getInstrumentation()
+        val latch = CountDownLatch(1)
+        var observed: JSONObject? = null
+        lateinit var page: android.webkit.WebView
+        instrumentation.runOnMainSync {
+            page = CreativeWebSandbox.create(context, { raw ->
+                val event = JSONObject(raw)
+                if (event.optString("kind") == "observation") {
+                    observed = event.getJSONObject("data"); latch.countDown()
+                } else {
+                    android.os.Handler(android.os.Looper.getMainLooper()).postDelayed({
+                        CreativeWebSandbox.reply(page,event.getString("id"),true)
+                    },100)
+                }
+            }, { latch.countDown() })
+            val source = """<style>@keyframes snowfall{from{opacity:1}to{opacity:.5}}#snow{animation:snowfall 8s infinite}</style>
+              <h1 id="snow">圣诞快乐</h1><p id="progress">尚未保存</p><canvas width="20" height="20"></canvas>
+              <script>companion.describe({kind:'static',content:'一封贺卡',effects:'雪花',resettable:false});
+              companion.saveState({opened:true}).then(()=>document.getElementById('progress').textContent='已经保存');
+              window.__workObserve('observation-test');</script>"""
+            page.loadDataWithBaseURL(CreativeWebSandbox.ORIGIN,CreativeWebSandbox.document(source,"{}",false),"text/html","UTF-8",null)
+        }
+        try {
+            assertTrue("observation timeout",latch.await(8,TimeUnit.SECONDS))
+            val result = requireNotNull(observed)
+            assertFalse(result.getBoolean("pending_writes"))
+            assertTrue(result.getString("text").contains("已经保存"))
+            assertTrue(result.getString("text").contains("圣诞快乐"))
+            assertTrue(result.getJSONArray("animations").toString().contains("snowfall"))
+            assertEquals(1,result.getInt("canvas_count"))
+            assertFalse(result.toString().contains("NativeWork"))
+        } finally { instrumentation.runOnMainSync { page.destroy() } }
+    }
+
 }

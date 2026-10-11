@@ -25,6 +25,18 @@ class CreativeStore {
     return works;
   }
 
+  Future<List<Map<String, dynamic>>> forMessage(String messageId) async {
+    final receipt = CreativeContract.decode(await db.getSetting('${CreativeContract.receiptPrefix}$messageId'));
+    if (receipt.isNotEmpty) {
+      final work = await get(receipt['work_id'] as String);
+      if (work.isEmpty || work['status'] == 'deleted') return [];
+      return [{...work, 'card_kind': receipt['kind'], 'delivered_version': receipt['version']}];
+    }
+    // Legacy cards retain their existing association without inventing messages.
+    return (await list()).where((w) => w['message_id'] == messageId || w['completion_message_id'] == messageId)
+        .map((w) => {...w, 'card_kind': w['completion_message_id'] == messageId ? 'delivered' : 'progress'}).toList();
+  }
+
   Future<bool> write(Map<String, dynamic> before, Map<String, dynamic> after,
       {Map<String, String> extra = const {}, BrainWorkFence? fence}) async {
     final owned = fence ?? await db.captureBrainWorkFence();
@@ -80,7 +92,15 @@ class CreativeStore {
     }
     after.remove('completion_message_id');
     if (!await write(before, after, extra: {CreativeWorkspace.key(id): nextWorkspace,
-      '${CreativeContract.noticePrefix}$id': ''})) throw const BrainWorkInvalidated();
+      '${CreativeContract.noticePrefix}$id': '',
+      if (before['message_id'] is String && before['message_id'] != messageId)
+        '${CreativeContract.receiptPrefix}${before['message_id']}': jsonEncode({'message_id': before['message_id'],
+          'work_id': id, 'version': '', 'kind': 'progress'}),
+      if (before['completion_message_id'] is String)
+        '${CreativeContract.receiptPrefix}${before['completion_message_id']}': jsonEncode({'message_id': before['completion_message_id'],
+          'work_id': id, 'version': before['current'] ?? '', 'kind': 'delivered'}),
+      '${CreativeContract.receiptPrefix}$messageId': jsonEncode({'message_id': messageId,
+        'work_id': id, 'version': '', 'kind': 'progress'})})) throw const BrainWorkInvalidated();
     return after;
   }
 
@@ -165,6 +185,7 @@ class CreativeStore {
     }
     return {'feature': 'creative_work', 'worker': 'tool_agent_v1',
       'completion_delivery': delivery, 'interaction_events': play,
+      'ui': CreativeContract.decode(await db.getSetting('creative_ui_trace_v1')),
       'continuation_owner': 'creative_worker_lease_until', 'usage_lane': 'creative_build',
       'works': works.take(20).map((work) => {
       'id': work['id'], 'status': work['status'], 'attempts': work['attempts'],
