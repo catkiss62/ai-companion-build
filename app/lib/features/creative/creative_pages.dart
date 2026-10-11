@@ -152,17 +152,19 @@ class _CreativeWorkCardState extends State<CreativeWorkCard> {
   Widget build(BuildContext context) {
     final work = widget.work;
     final progress = work['card_kind'] == 'progress';
+    final completed = work['record_completed'] is bool
+        ? work['record_completed'] as bool : work['status'] == 'ready';
     return Card(margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 6), clipBehavior: Clip.antiAlias,
       child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
         ListTile(title: Text(work['title'] as String? ?? '小作品'), onTap: _toggle,
           trailing: Row(mainAxisSize: MainAxisSize.min, children: [
-            if (progress && work['record_completed'] == true) ...[
+            if (progress && completed) ...[
               Text('已完成', style: Theme.of(context).textTheme.labelMedium), const SizedBox(width: 6)],
             Icon(expanded ? Icons.expand_less : Icons.expand_more)])),
         if (expanded) ...[
           if (!progress && cover != null) Image.memory(cover!, height: 130, fit: BoxFit.cover),
           Padding(padding: const EdgeInsets.fromLTRB(16, 0, 16, 8), child: Text(progress
-            ? '制作记录 · ${work['record_completed'] == true ? '已完成' : work['note'] ?? '等待制作'}'
+            ? '制作记录 · ${completed ? '已完成' : work['note'] ?? '等待制作'}'
             : '${work['intro'] ?? ''}\n${work['note'] ?? ''}'.trim())),
           Padding(padding: const EdgeInsets.fromLTRB(16, 0, 8, 8), child: Row(children: [
             if (!progress && widget.onOpen != null) Expanded(child: FilledButton.tonalIcon(

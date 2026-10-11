@@ -301,5 +301,10 @@ void main() {
       work: const {'id': 'w', 'title': '作品', 'card_kind': 'progress', 'record_completed': true},
     ))));
     expect(find.text('已完成'), findsOneWidget); expect(find.textContaining('制作记录'), findsNothing);
+    await tester.pumpWidget(MaterialApp(home: Scaffold(body: CreativeWorkCard(
+      work: const {'id': 'w', 'title': '作品', 'card_kind': 'progress',
+        'status': 'ready', 'record_completed': false},
+    ))));
+    expect(find.text('已完成'), findsNothing);
   });
 }
