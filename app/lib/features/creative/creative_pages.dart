@@ -35,7 +35,9 @@ class _CreativeCardsState extends State<CreativeCards> {
   @override
   void initState() {
     super.initState(); _load();
-    timer = Timer.periodic(const Duration(seconds: 4), (_) => _load());
+    timer = Timer.periodic(const Duration(seconds: 4), (_) {
+      if (mounted && ModalRoute.of(context)?.isCurrent != false) _load();
+    });
   }
   Future<void> _load() async {
     final items = await store.list();

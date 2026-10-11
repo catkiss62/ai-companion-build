@@ -9,10 +9,11 @@ class CreativeStore {
   static String key(String id) => '${CreativeContract.metaPrefix}$id';
   Future<Map<String, dynamic>> get(String id) async => CreativeContract.decode(await db.getSetting(key(id)));
 
-  Future<List<Map<String, dynamic>>> list() async {
+  Future<List<Map<String, dynamic>>> list({bool pendingOnly = false}) async {
     final handle = await db.database;
     final keys = await handle.query('settings', columns: ['key'],
-        where: 'key LIKE ?', whereArgs: ['${CreativeContract.metaPrefix}%']);
+        where: pendingOnly ? 'key LIKE ? AND (value LIKE ? OR value LIKE ? OR value LIKE ?)' : 'key LIKE ?',
+        whereArgs: ['${CreativeContract.metaPrefix}%', if (pendingOnly) ...['%"status":"queued"%', '%"status":"building"%', '%"status":"checking"%']]);
     final works = <Map<String, dynamic>>[];
     for (final row in keys) {
       final work = CreativeContract.decode(await db.getSetting(row['key'] as String));

@@ -68,14 +68,7 @@ Future<void> companionBackgroundMain() async {
     memoryExtractor: memoryExtractor,
     proactive: proactive,
   );
-  final creative = CreativeWorker(db);
-  var creativeRunning = false;
-  Timer.periodic(const Duration(seconds: 15), (_) async {
-    if (creativeRunning) return;
-    creativeRunning = true;
-    try { await creative.runOnce(); } catch (_) {}
-    finally { creativeRunning = false; }
-  });
+  CreativeWorker.startPolling(db);
   final wakeGate = _WakeGate();
   final chatCommands = BackgroundChatCommandServer(
     db: db,

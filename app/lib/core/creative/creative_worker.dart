@@ -1,3 +1,4 @@
+import 'dart:async';
 import '../rules/rule_layer_service.dart';
 import '../self/dream_store.dart';
 import 'dart:convert';
@@ -17,15 +18,25 @@ class CreativeWorker {
   static const lease = 'creative_worker_lease_until';
   static const preview = MethodChannel('ai_companion/creative_preview');
 
+  static Timer startPolling(AppDatabase db) {
+    var running = false;
+    final worker = CreativeWorker(db);
+    return Timer.periodic(const Duration(seconds: 15), (_) async {
+      if (running) return;
+      running = true;
+      try { await worker.runOnce(); } catch (_) {} finally { running = false; }
+    });
+  }
+
   /// One durable step at a time. No global maintenance/chat lease is held.
   Future<void> runOnce() async {
     if (!await db.brainWorkAllowed() || await db.isLocalLeaseHeld('chat_turn_lease')) return;
+    final store = CreativeStore(db);
+    final works = await store.list(pendingOnly: true);
+    if (works.isEmpty) return;
     if (!await db.tryAcquireLocalLease(lease, holdFor: const Duration(minutes: 5))) return;
     DeepSeekClient? client;
     try {
-      final store = CreativeStore(db);
-      final works = (await store.list()).where((w) => CreativeContract.active.contains(w['status']));
-      if (works.isEmpty) return;
       var work = works.last;
       final fence = await db.captureBrainWorkFence(leaseKey: lease);
       if (fence == null) return;

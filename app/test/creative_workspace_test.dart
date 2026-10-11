@@ -83,6 +83,10 @@ void main() {
     await db.importAll(Map<String, dynamic>.from(backup));
     expect(((await play.read())['turns'] as Map)['t1']['choice'], '石头');
     expect(await db.getSetting('${CreativeContract.sourcePrefix}$hash'), html);
+    await db.setSetting('runtime_state_epoch_v1', 'restored');
+    await expectLater(play.event(hash, jsonEncode({'kind': 'save', 'data': {'stale': true}})), throwsA(isA<Exception>()));
+    expect((await play.read())['public'], isEmpty);
+    await play.open();
     await store.delete(id);
     expect((await store.commission(deepThinking: true, requestId: 'r', messageId: 'm',
       brief: '做猜拳', requestQuote: '做猜拳', latestText: '做猜拳'))['status'], 'deleted');

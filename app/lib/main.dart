@@ -1,3 +1,4 @@
+import 'core/creative/creative_worker.dart';
 import 'core/diagnostics/daily_spend.dart';
 import 'core/desire/daily_wake_store.dart';
 import 'core/diagnostics/unhandled_error_recorder.dart';
@@ -43,6 +44,11 @@ class _StartupRecoveryRootState extends State<_StartupRecoveryRoot> {
     const _StartupStep('检查本机身份', _StartupStepState.pending),
     const _StartupStep('进入主界面', _StartupStepState.pending),
   ];
+
+  Timer? _creativeTimer;
+
+  @override
+  void dispose() { _creativeTimer?.cancel(); super.dispose(); }
 
   bool _running = false;
   bool _ready = false;
@@ -91,6 +97,7 @@ class _StartupRecoveryRootState extends State<_StartupRecoveryRoot> {
       await Future<void>.delayed(const Duration(milliseconds: 250));
       _markDone(3);
       if (!mounted) return;
+      if (Platform.isAndroid) _creativeTimer ??= CreativeWorker.startPolling(AppDatabase.instance);
       setState(() {
         _ready = true;
         _running = false;

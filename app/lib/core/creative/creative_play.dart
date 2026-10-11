@@ -14,6 +14,7 @@ class CreativePlay {
   final DeepSeekClient Function(Future<bool> Function() abort)? clientFactory;
   final AppDatabase db;
   final String workId;
+  BrainWorkFence? _sessionFence;
   String get stateKey => '${CreativeContract.playPrefix}$workId';
   Future<Map<String, dynamic>> read() async => CreativeContract.decode(await db.getSetting(stateKey));
 
@@ -30,11 +31,14 @@ class CreativePlay {
       workFence: fence, expectedSettings: {stateKey: before.isEmpty ? '' : jsonEncode(before)})) {
       throw const BrainWorkInvalidated();
     }
+    _sessionFence = fence;
     return next;
   }
 
   Future<Object?> event(String version, String raw) async {
     if (utf8.encode(raw).length > 65536) throw const FormatException('互动数据过大');
+    final sessionFence = _sessionFence;
+    if (sessionFence == null || !await db.brainWorkFenceCurrent(sessionFence)) throw const BrainWorkInvalidated();
     final event = CreativeContract.decode(raw);
     final before = await read();
     final work = await CreativeStore(db).get(workId);
