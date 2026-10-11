@@ -1,6 +1,6 @@
 # +343 自主创作 · 实施与验证记录
 
-2026-10-12。状态：IMPLEMENTED LOCALLY / FLUTTER TESTS PENDING / CI PENDING / APK NOT BUILT / TRUE DEVICE PENDING。
+2026-10-12。状态：IMPLEMENTED / ARCHIVE AND CREATIVE CI PASSED / FULL CI PENDING / APK NOT BUILT / TRUE DEVICE PENDING。
 
 用户已批准实施，并要求先检查存档导入导出与还原，再构建 APK。基线为 `3514200d93ad8ee4fbb6556984bb1d743facc4d2`（+342），本地分支为 `agent/v04299-creative-autonomy`。尚未升级 pubspec 的 `0.42.98+342`；`0.42.99+343` 是待验证后构建的目标。
 
@@ -57,3 +57,7 @@
 ## 首次CI结果与修正
 
 38175492549（e24f1e6）：Flutter分析与50项存档专项通过；原创作/梦境/配置回归98通过、1失败。旧UI夹具缺少record_completed字段，导致展开完成文字丢失。已补字段缺失时的旧ready兼容，显式false不被当前ready覆盖；重新验证后再启用APK构建。
+
+## 存档先行门禁通过
+
+c93ac15 / 38175815166：分析通过、存档恢复50项通过、原创作/梦境/配置99项通过。至此升级0.42.99+343并启用完整构建及稳定性CI；打包前重复执行存档门禁。完整CI、APK与真机仍待结果。此前“未升版/尚未执行”段落为历史阶段记录，以本节和最新总账为准。
