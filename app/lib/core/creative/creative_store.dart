@@ -37,7 +37,7 @@ class CreativeStore {
   Future<Map<String, dynamic>> commission({required bool deepThinking,
       required String requestId, required String messageId, required String brief,
       required String requestQuote, required String latestText, String workId = '',
-      String userMessageId = ''}) async {
+      String userMessageId = '', String interaction = 'unspecified'}) async {
     if (!deepThinking || requestId.isEmpty || messageId.isEmpty ||
         requestQuote.trim().isEmpty || !latestText.contains(requestQuote) || brief.trim().isEmpty) {
       throw const FormatException('本轮未授权制作；需要在深度思考中明确委托');
@@ -55,18 +55,30 @@ class CreativeStore {
       'schema': 1, 'id': id, 'request_id': requestId, 'message_id': messageId,
       'user_message_id': userMessageId, 'request_quote': requestQuote,
       'original_request': CreativeContract.clip(latestText, 12000),
+      'interaction': {'companion', 'local'}.contains(interaction) ? interaction : 'unspecified',
       'brief': CreativeContract.clip(brief, 8000), 'title': before['title'] ?? '新的小作品',
       'intro': before['intro'] ?? '', 'status': 'queued', 'attempts': 0,
       'updated': DateTime.now().millisecondsSinceEpoch,
       'model': await db.getSetting('creative_work_model') ?? 'deepseek-flash',
       'effort': await db.getSetting('creative_work_effort') ?? 'max',
-      'note': '等待后台制作', 'draft': '', 'errors': <Object?>[],
+      'note': '等待后台制作', 'draft': workId.isEmpty ? '' : before['draft'] ?? '', 'errors': <Object?>[],
       'retry_at': 0, 'agent_step': 0, 'agent_trace': <Object?>[],
+      'model_turns': 0, 'tool_calls': 0, 'committed_mutations': 0, 'late_result_dropped': 0, 'preempt': '',
       'versions': before['versions'] ?? <Object?>[],
     };
-    // A new commission is a new execution context, while a user's explicit
-    // resume below retains the old files and pending tool receipts.
-    if (!await write(before, after, extra: {CreativeWorkspace.key(id): ''})) throw const BrainWorkInvalidated();
+    // A revision gets a fresh execution context but keeps the actual project.
+    // Explicit resume below also retains pending tool receipts.
+    var nextWorkspace = '';
+    if (workId.isNotEmpty) {
+      final previous = CreativeContract.decode(await db.getSetting(CreativeWorkspace.key(id)));
+      if (previous.isNotEmpty) {
+        final next = CreativeWorkspace.create(id, requestId);
+        next['files'] = CreativeWorkspace.files(previous);
+        CreativeWorkspace.validate(next, id);
+        nextWorkspace = jsonEncode(next);
+      }
+    }
+    if (!await write(before, after, extra: {CreativeWorkspace.key(id): nextWorkspace})) throw const BrainWorkInvalidated();
     return after;
   }
 
@@ -89,7 +101,7 @@ class CreativeStore {
   Future<void> stop(String id) async {
     final before = await get(id);
     if (before.isEmpty) return;
-    await write(before, {...before, 'status': 'paused', 'note': '已暂停'});
+    await write(before, {...before, 'status': 'paused', 'note': '已暂停', 'preempt': 'user_stop'});
   }
 
   Future<void> resume(String id, {required bool deepThinking}) async {
@@ -98,7 +110,7 @@ class CreativeStore {
     if (!{'paused', 'failed'}.contains(before['status'])) return;
     final agent = CreativeContract.decode(await db.getSetting(CreativeWorkspace.key(id)));
     if (agent.isNotEmpty) { agent['failures'] = 0; agent['next_at'] = 0; }
-    await write(before, {...before, 'status': 'queued', 'attempts': 0, 'retry_at': 0,
+    await write(before, {...before, 'status': 'queued', 'attempts': 0, 'retry_at': 0, 'preempt': '',
       'model': await db.getSetting('creative_work_model') ?? before['model'] ?? 'deepseek-flash',
       'effort': await db.getSetting('creative_work_effort') ?? before['effort'] ?? 'max',
       'updated': DateTime.now().millisecondsSinceEpoch, 'note': '等待继续制作'},
@@ -117,8 +129,16 @@ class CreativeStore {
 
   Future<Map<String, Object?>> diagnostics() async {
     final works = await list();
-    return {'worker': 'tool_agent_v1', 'works': works.take(20).map((work) => {
+    return {'feature': 'creative_work', 'worker': 'tool_agent_v1',
+      'continuation_owner': 'creative_worker_lease_until', 'usage_lane': 'creative_build',
+      'works': works.take(20).map((work) => {
       'id': work['id'], 'status': work['status'], 'attempts': work['attempts'],
+      'execution_id': work['request_id'], 'trigger_source': work['trigger_source'],
+      'phase': work['status'], 'planning_rounds': work['model_turns'],
+      'tool_calls': work['tool_calls'], 'committed_mutations': work['committed_mutations'],
+      'continuation_requested': CreativeContract.active.contains(work['status']),
+      'terminal': !CreativeContract.active.contains(work['status']),
+      'preempt': work['preempt'], 'late_write': work['late_result_dropped'],
       'agent_step': work['agent_step'], 'retry_at': work['retry_at'],
       'has_draft': (work['draft'] as String? ?? '').isNotEmpty,
       'has_published': (work['current'] as String? ?? '').isNotEmpty,

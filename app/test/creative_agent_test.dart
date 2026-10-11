@@ -1,5 +1,5 @@
 import 'dart:convert';
-import 'package:flutter/services.dart';
+import 'dart:async';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
@@ -134,6 +134,23 @@ void main() {
     await runtime.runOnce(); expect((await store.get(id))['status'], 'ready');
   });
 
+  test('foreground and background runners cannot request the same commission twice', () async {
+    final id = await commission();
+    final started = Completer<void>();
+    final release = Completer<void>();
+    final first = worker((_, request) async {
+      started.complete(); await release.future;
+      return response(sse([plan(), write(repaired)]));
+    });
+    final second = worker((_, request) async { fail('second loop stole the live lease'); });
+    final running = first.runOnce();
+    await started.future;
+    await second.runOnce();
+    release.complete(); await running;
+    expect(requests.length, 1);
+    expect(CreativeWorkspace.files(await state(id))['index.html'], repaired);
+  });
+
   test('length never executes a seemingly complete tool; existing files survive', () async {
     final id = await commission();
     final runtime = worker((n, request) async {
@@ -245,7 +262,8 @@ void main() {
     var previews = 0;
     TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger.setMockMethodCallHandler(
       CreativeWorker.preview, (_) async { previews++; return {'ok': true, 'errors': [],
-        'choose_count': previews == 1 ? 0 : 1, 'reveal_count': previews == 1 ? 0 : 1}; });
+        'choose_count': previews == 1 ? 0 : 1, 'reveal_count': previews == 1 ? 0 : 1,
+        'save_count': previews == 1 ? 0 : 1, 'reload_count': previews == 1 ? 0 : 1}; });
     final runtime = worker((n, request) async => response(sse(n == 1
         ? [plan(interaction: 'companion'), write(repaired), previewCall(), call('work_finish', {})]
         : [previewCall(), call('work_finish', {})])));
@@ -275,6 +293,16 @@ void main() {
     await handle.insert('messages', {'id': 'old-user', 'role': 'user', 'content': '旧的原始要求', 'created_at': 10});
     await handle.insert('messages', {'id': 'old-card', 'role': 'assistant', 'content': '开始制作', 'created_at': 20});
     expect(await store.originalRequest({'message_id': 'old-card'}), '旧的原始要求');
+  });
+
+  test('a delegated companion requirement cannot be downgraded to a local opponent', () async {
+    final meta = await store.commission(deepThinking: true, requestId: 'shared', messageId: 'message',
+      requestQuote: '我们一起玩', latestText: '我们一起玩', brief: '制作游戏', interaction: 'companion');
+    final id = meta['id'] as String;
+    final runtime = worker((_, request) async => response(sse([plan(), write(repaired), previewCall(), call('work_finish', {})])));
+    await runtime.runOnce();
+    expect((await store.get(id))['current'], isNull);
+    expect(jsonEncode((await state(id))['feedback']), contains('不能改成本地随机对手'));
   });
 
   test('workspace rejects stale edits and unexpected paths and bundles separate assets', () {

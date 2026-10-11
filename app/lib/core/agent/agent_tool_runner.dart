@@ -340,6 +340,7 @@ class AgentToolRunner {
         deepThinking: deepThinking, requestId: toolChainScopeId,
         messageId: assistantMessageId.isEmpty ? userMessageId : assistantMessageId,
         userMessageId: userMessageId,
+        interaction: call.arguments['interaction'] ?? 'unspecified',
         brief: call.arguments['brief'] ?? '', requestQuote: call.arguments['request_quote'] ?? '',
         latestText: latestUserText, workId: call.arguments['work_id'] ?? '',
       );

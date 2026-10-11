@@ -68,7 +68,7 @@ Future<void> companionBackgroundMain() async {
     memoryExtractor: memoryExtractor,
     proactive: proactive,
   );
-  CreativeWorker.startPolling(db);
+  CreativeWorker.startPolling(db, triggerSource: 'background_poll');
   final wakeGate = _WakeGate();
   final chatCommands = BackgroundChatCommandServer(
     db: db,

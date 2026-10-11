@@ -468,6 +468,7 @@ class AgentToolPlanner {
       required.add('request_quote');
     } else if (tool.id == AgentToolRegistry.creativeCommission.id) {
       properties['brief'] = const {'type': 'string', 'description': '给独立工作 Agent 的简短创作说明：用户要求、你的具体心意、相关风格与体验。原始委托由宿主另行保留；不擅自添加离线、随机对手或固定台词等限制。“我们一起玩”要保留她真实参与。不要传整套人设、梦境或私人聊天原文。'};
+      properties['interaction'] = const {'type': 'string', 'enum': ['companion', 'local', 'unspecified'], 'description': '用户要求与你一起玩、由你实际参与选择时选 companion；明确不需要你参与的本地作品选 local；不确定选 unspecified。不要把一起玩改成随机电脑。'};
       properties['request_quote'] = const {'type': 'string', 'description': '逐字引用最新一条用户消息中明确要求制作/修改的部分；假设、讨论、转述和单纯反馈不算委托。'};
       properties['work_id'] = const {'type': 'string', 'description': '修改既有作品时填写真实作品 ID；新作品留空，不猜 ID。'};
       required.addAll(['brief', 'request_quote']);

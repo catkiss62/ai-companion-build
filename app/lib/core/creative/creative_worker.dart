@@ -14,19 +14,20 @@ import 'creative_store.dart';
 import 'creative_workspace.dart';
 
 class CreativeWorker {
-  CreativeWorker(this.db, {this.clientFactory, DateTime Function()? now})
+  CreativeWorker(this.db, {this.clientFactory, DateTime Function()? now, this.triggerSource = 'direct'})
       : now = now ?? DateTime.now;
   final DeepSeekClient Function(Future<bool> Function() abort)? clientFactory;
   final DateTime Function() now;
+  final String triggerSource;
   final AppDatabase db;
   static const lease = 'creative_worker_lease_until';
   static const preview = MethodChannel('ai_companion/creative_preview');
   static const maxModelTurns = 24;
   static const maxFailures = 6;
 
-  static Timer startPolling(AppDatabase db) {
+  static Timer startPolling(AppDatabase db, {String triggerSource = 'foreground_poll'}) {
     var running = false;
-    final worker = CreativeWorker(db);
+    final worker = CreativeWorker(db, triggerSource: triggerSource);
     return Timer.periodic(const Duration(seconds: 5), (_) async {
       if (running) return;
       running = true;
@@ -42,8 +43,16 @@ class CreativeWorker {
     final candidates = (await store.list(pendingOnly: true)).reversed.where(
         (w) => (w['retry_at'] as num? ?? 0) <= now().millisecondsSinceEpoch).toList();
     if (candidates.isEmpty ||
-        !await db.tryAcquireLocalLease(lease, holdFor: const Duration(minutes: 6))) return;
+        !await db.tryAcquireLocalLease(lease, holdFor: const Duration(seconds: 90))) return;
     DeepSeekClient? client;
+    var renewing = false;
+    final heartbeat = Timer.periodic(const Duration(seconds: 25), (_) async {
+      if (renewing) return;
+      renewing = true;
+      try {
+        if (!await db.renewLocalLease(lease, holdFor: const Duration(seconds: 90))) client?.close();
+      } catch (_) { client?.close(); } finally { renewing = false; }
+    });
     try {
       var work = await store.get(candidates.first['id'] as String);
       if (!CreativeContract.active.contains(work['status'])) return;
@@ -57,11 +66,21 @@ class CreativeWorker {
           {Map<String, String> extra = const {}}) async {
         CreativeWorkspace.validate(agent, id);
         final after = {...work, ...patch,
+          'trigger_source': triggerSource,
           'agent_step': (work['agent_step'] as num? ?? 0).toInt() + 1};
         if (!await store.write(work, after, fence: fence, extra: {
           ...extra, CreativeWorkspace.key(id): jsonEncode(agent),
         })) throw const BrainWorkInvalidated();
         work = after;
+      }
+      Future<void> recordRejectedResult() async {
+        // Record a rejected late result only within the same state generation
+        // and commission. Never write a breadcrumb into an imported/new task.
+        if (!await db.brainWorkFenceCurrent(fence)) return;
+        final latest = await store.get(id);
+        if (latest['request_id'] != work['request_id']) return;
+        await store.write(latest, {...latest,
+          'late_result_dropped': (latest['late_result_dropped'] as num? ?? 0).toInt() + 1}, fence: fence);
       }
       void feedback(Map<String, Object?> receipt) {
         agent['feedback'] = [...(agent['feedback'] as List? ?? []), receipt]
@@ -104,6 +123,7 @@ class CreativeWorker {
           CreativeWorkspace.compact(agent);
           agent['request_inflight'] = true;
           await checkpoint({'status': 'building', 'attempts': attempts + 1,
+            'model_turns': (work['model_turns'] as num? ?? 0).toInt() + 1,
             'note': CreativeWorkspace.files(agent).isEmpty ? '正在构思和制作' : '正在继续制作与检查', 'retry_at': 0});
           client = clientFactory?.call(() async => !await current()) ?? DeepSeekClient(
             abortWhen: () async => !await current(),
@@ -130,7 +150,7 @@ class CreativeWorker {
               reasoningCharacters += delta.reasoning.length;
               for (final call in delta.toolCallDeltas) { argumentCharacters += call.argumentsFragment.length; }
               if (delta.finishReason != null) finishReason = delta.finishReason!;
-              if (contentCharacters + reasoningCharacters + argumentCharacters > 600000 || calls.length > 8) {
+              if (contentCharacters + reasoningCharacters + argumentCharacters > 350000 || calls.length > 8) {
                 throw const _CreativeResponseError('response_too_large');
               }
             }
@@ -191,6 +211,9 @@ class CreativeWorker {
                     !{'companion', 'local'}.contains(args['interaction'])) {
                   throw const FormatException('计划需要 title、intro、plan 和 interaction(companion/local)');
                 }
+                if (work['interaction'] == 'companion' && args['interaction'] != 'companion') {
+                  throw const FormatException('委托要求伴侣实际参与，不能改成本地随机对手');
+                }
                 agent['plan'] = {'plan': CreativeContract.clip(args['plan'], 2400), 'interaction': args['interaction']};
                 agent['verification'] = <String, Object?>{};
                 patch.addAll({'title': CreativeContract.clip(args['title'], 60),
@@ -220,11 +243,16 @@ class CreativeWorker {
                 if (!await current()) throw const BrainWorkInvalidated();
                 final errors = (observed?['errors'] as List? ?? ['未收到试玩结果'])
                     .map((e) => CreativeContract.clip(e, 300)).take(12).toList();
-                final companion = (agent['plan'] as Map?)?['interaction'] == 'companion';
+                final companion = work['interaction'] == 'companion' || (agent['plan'] as Map?)?['interaction'] == 'companion';
                 final choices = (observed?['choose_count'] as num? ?? 0).toInt();
                 final reveals = (observed?['reveal_count'] as num? ?? 0).toInt();
+                final saves = (observed?['save_count'] as num? ?? 0).toInt();
+                final reloads = (observed?['reload_count'] as num? ?? 0).toInt();
                 if (companion && (choices < 1 || reveals < 1)) {
                   errors.add('互动作品需要实际完成 companion.choose 和 reveal 的试玩回合，不能只检查标题或随机对手');
+                }
+                if (companion && (saves < 1 || reloads < 1)) {
+                  errors.add('互动作品需要实际 saveState，并用 reload 检查重新打开后的进度');
                 }
                 final ok = observed?['ok'] == true && errors.isEmpty;
                 var cover = '';
@@ -234,9 +262,11 @@ class CreativeWorker {
                   if (await file.exists() && await file.length() < 180000) cover = base64Encode(await file.readAsBytes());
                 }
                 agent['verification'] = {'hash': hash, 'ok': ok, 'checks': checks,
-                  'choose_count': choices, 'reveal_count': reveals, 'cover': cover};
+                  'choose_count': choices, 'reveal_count': reveals, 'save_count': saves,
+                  'reload_count': reloads, 'cover': cover};
                 result = {'ok': ok, 'hash': hash, 'errors': errors,
                   'choose_count': choices, 'reveal_count': reveals,
+                  'save_count': saves, 'reload_count': reloads,
                   'page_text': CreativeContract.clip(observed?['page_text'], 1800),
                   'elements': CreativeContract.clip(jsonEncode(observed?['elements'] ?? []), 3000)};
                 patch.addAll({'errors': errors, 'note': ok ? '试玩通过，正在完成作品' : '试玩发现问题，正在修复'});
@@ -249,8 +279,9 @@ class CreativeWorker {
                 if (plan['interaction'] == null || verified['ok'] != true || verified['hash'] != hash) {
                   throw const FormatException('请先明确体验计划，并对当前版本完成 work_preview；修改后的版本需要重新试玩');
                 }
-                if (plan['interaction'] == 'companion' &&
-                    ((verified['choose_count'] as num? ?? 0) < 1 || (verified['reveal_count'] as num? ?? 0) < 1)) {
+                if ((work['interaction'] == 'companion' || plan['interaction'] == 'companion') &&
+                    ((verified['choose_count'] as num? ?? 0) < 1 || (verified['reveal_count'] as num? ?? 0) < 1 ||
+                     (verified['save_count'] as num? ?? 0) < 1 || (verified['reload_count'] as num? ?? 0) < 1)) {
                   throw const FormatException('尚未验证真实伴侣互动路径');
                 }
                 final versions = <String>{hash, ...(work['versions'] as List? ?? []).whereType<String>()}.take(3).toList();
@@ -292,8 +323,14 @@ class CreativeWorker {
           if (!published && failures >= maxFailures) {
             patch.addAll({'status': 'paused', 'note': _savedNote(agent, '连续修复未完成，已暂停'), 'retry_at': 0});
           }
-          patch['agent_trace'] = traces({'kind': 'tool', 'tool': name, 'ok': result['ok'] == true,
+          patch['agent_trace'] = traces({'kind': 'tool', 'tool':
+            {'work_plan','work_read','work_write','work_patch','work_preview','work_finish'}.contains(name) ? name : 'unknown',
+            'ok': result['ok'] == true,
             'files': CreativeWorkspace.files(agent).length});
+          patch['tool_calls'] = (work['tool_calls'] as num? ?? 0).toInt() + 1;
+          if (result['ok'] == true && {'work_write', 'work_patch', 'work_finish'}.contains(name)) {
+            patch['committed_mutations'] = (work['committed_mutations'] as num? ?? 0).toInt() + 1;
+          }
           // File effects, tool receipt and cursor are one transaction. Replaying
           // after a process exit cannot append the same chunk twice.
           await checkpoint(patch, extra: extra);
@@ -305,9 +342,10 @@ class CreativeWorker {
         await store.collectUnusedSources();
       } on BrainWorkInvalidated {
         // Stop/delete/import wins. An old loop must not write a failure over it.
+        await recordRejectedResult();
       } catch (error) {
         client?.close();
-        if (!await current()) return;
+        if (!await current()) { await recordRejectedResult(); return; }
         if (agent.isEmpty) return;
         agent['request_inflight'] = false;
         final failures = (agent['failures'] as num? ?? 0).toInt() + 1;
@@ -325,7 +363,7 @@ class CreativeWorker {
             : '上一步未完整完成（$code）；保留已有文件，请检查并从现有进度继续。';
         agent['recovery'] = reason;
         feedback({'kind': 'recovery', 'code': code, 'message': reason});
-        final delay = error is _CreativeResponseError ? 5 : (15 * (1 << (failures - 1).clamp(0, 4)));
+        final delay = error is _CreativeResponseError ? 5 : (15 * (1 << (failures - 1).clamp(0, 4).toInt()));
         await checkpoint({'status': pause ? 'paused' : 'queued',
           'note': configuration ? _savedNote(agent, 'DeepSeek 配置或余额需要处理') :
               infrastructure ? _savedNote(agent, '后台试玩暂不可用') :
@@ -341,6 +379,7 @@ class CreativeWorker {
           })});
       }
     } finally {
+      heartbeat.cancel();
       client?.close();
       await db.releaseLocalLease(lease);
     }
@@ -360,6 +399,8 @@ class CreativeWorker {
         throw const FormatException('每项检查需要 selector 和 text，可选 click');
       }
       final check = <String, String>{for (final k in ['click', 'selector', 'text']) k: item[k] as String? ?? ''};
+      if (item['reload'] != null && item['reload'] is! bool) throw const FormatException('reload 必须为布尔值');
+      if (item['reload'] == true) check['reload'] = 'true';
       if (check.values.any((v) => v.length > 300)) throw const FormatException('检查内容超过 300 字符');
       return check;
     }).toList();

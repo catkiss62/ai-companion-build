@@ -77,6 +77,7 @@ class CreativeContract {
           data['status'] = 'paused';
           data['note'] = '从存档恢复；等待你继续';
           data['retry_at'] = 0;
+          data['preempt'] = 'import';
           rows[i] = {...row, 'value': jsonEncode(data)};
         }
       } else if (key == 'creative_worker_lease_until') {

@@ -115,6 +115,9 @@ class CreativePreview(private val context: Context) {
             var elements = emptyList<Map<String,String>>()
             var chooseCount = 0
             var revealCount = 0
+            var saveCount = 0
+            var reloadCount = 0
+            var previewState = "{}"
             var finished = false
             var page: WebView? = null
             var presentation: Presentation? = null
@@ -146,7 +149,8 @@ class CreativePreview(private val context: Context) {
                 presentation?.dismiss(); display?.release(); reader?.close(); frame?.recycle()
                 stop = null
                 done(mapOf("ok" to (loaded && errors.isEmpty()),"errors" to errors.distinct(),"checks" to checked,"screenshot" to screenshot,"display" to "private_virtual",
-                    "page_text" to pageText, "elements" to elements, "choose_count" to chooseCount, "reveal_count" to revealCount))
+                    "page_text" to pageText, "elements" to elements, "choose_count" to chooseCount, "reveal_count" to revealCount,
+                    "save_count" to saveCount, "reload_count" to reloadCount))
             }
             stop = { finish("预览已取消或超时") }
             handler.postDelayed(timeout,20_000)
@@ -175,7 +179,16 @@ class CreativePreview(private val context: Context) {
                     val message=runCatching { JSONObject(raw) }.getOrNull() ?: return@create
                     val id=message.optString("id")
                     when(message.optString("kind")) {
-                        "save", "report" -> CreativeWebSandbox.reply(page!!,id,true)
+                        "save" -> {
+                            val value=message.opt("data")
+                            if (value.toString().toByteArray().size>40_000) CreativeWebSandbox.reply(page!!,id,null,"游玩进度过大")
+                            else {
+                                previewState=JSONArray().put(value).toString().let { it.substring(1,it.length-1) }
+                                saveCount++
+                                CreativeWebSandbox.reply(page!!,id,true)
+                            }
+                        }
+                        "report" -> CreativeWebSandbox.reply(page!!,id,true)
                         "choose" -> {
                             val data=message.optJSONObject("data") ?: JSONObject()
                             val turn=data.optString("turn")
@@ -227,9 +240,15 @@ class CreativePreview(private val context: Context) {
                         return
                     }
                     val step=checks[index]
+                    if (step["reload"]=="true") {
+                        reloadCount++
+                        page!!.loadDataWithBaseURL(CreativeWebSandbox.ORIGIN,CreativeWebSandbox.document(html,previewState,true),"text/html","UTF-8",null)
+                    }
                     val click=JSONObject.quote(step["click"].orEmpty())
                     val selector=JSONObject.quote(step["selector"].orEmpty())
                     val text=JSONObject.quote(step["text"].orEmpty())
+                    fun interact() {
+                    if(finished)return
                     page!!.evaluateJavascript("(()=>{try{const s=$click;if(s){const n=document.querySelector(s);if(!n)return 'missing_click';n.click();}return 'clicked';}catch(e){return String(e)}})()") { value ->
                         if(finished)return@evaluateJavascript
                         if(value!="\"clicked\"") errors.add("交互检查${index+1}: $value")
@@ -246,6 +265,8 @@ class CreativePreview(private val context: Context) {
                         }
                         handler.postDelayed({ verify(7) },250)
                     }
+                    }
+                    if (step["reload"]=="true") handler.postDelayed({ interact() },500) else interact()
                 }
                 handler.postDelayed({ inspect(0) },1500)
             } catch(error: Exception) { finish("独立预览不可用：${error.javaClass.simpleName}") }
