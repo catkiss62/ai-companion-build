@@ -1,3 +1,9 @@
+import 'dart:async';
+import 'package:flutter/services.dart';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+import 'package:http/http.dart' as http;
+import 'package:http/testing.dart';
+import 'package:ai_companion_localfirst/core/creative/creative_worker.dart';
 import 'dart:convert';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
@@ -13,7 +19,8 @@ void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
   sqfliteFfiInit();
   late AppDatabase db;
-  setUp(() async { db = await AppDatabase.createForTesting(databaseFactoryFfi); });
+  setUp(() async { db = await AppDatabase.createForTesting(databaseFactoryFfi);
+    FlutterSecureStorage.setMockInitialValues({'deepseek_api_key': 'test-only'}); });
   tearDown(() async { await db.closeForTesting(); });
   test('normal chat cannot advertise or parse a creation call', () {
     const text = '给我做一个猜拳小游戏';
@@ -48,10 +55,18 @@ void main() {
     final hash = CreativeContract.hash(html);
     await store.write(work, {...work, 'current': hash, 'status': 'ready', 'versions': [hash]},
       extra: {'${CreativeContract.sourcePrefix}$hash': html});
-    final play = CreativePlay(db, id);
-    final state = await play.open();
-    await db.setSetting(play.stateKey, jsonEncode({...state, 'turns': {'t1': {
-      'choice': '石头', 'options': ['石头', '剪刀', '布'], 'at': 1}}}));
+    var choices = 0;
+    final play = CreativePlay(db, id, clientFactory: (abort) => DeepSeekClient(abortWhen: abort,
+      jsonClientFactory: () => MockClient((request) async {
+        choices++;
+        expect(request.body, isNot(contains('playerChoice')));
+        return http.Response(jsonEncode({'choices': [{'message': {'content': jsonEncode({'choice': '石头'})}}]}), 200);
+      })));
+    await play.open();
+    final decision = jsonEncode({'kind': 'choose', 'data': {'turn': 't1', 'options': ['石头', '剪刀', '布']}});
+    expect(await play.event(hash, decision), {'committed': true});
+    expect(await play.event(hash, decision), {'committed': true});
+    expect(choices, 1);
     expect((await play.open())['public'], isEmpty);
     expect(await CreativePlay.chatContext(db), isNot(contains('石头')));
     Future<Object?> reveal(String choice) => play.event(hash, jsonEncode({'kind': 'reveal',
@@ -63,7 +78,55 @@ void main() {
     expect(((await play.read())['turns'] as Map)['t1']['choice'], '石头');
     expect(await db.getSetting('${CreativeContract.sourcePrefix}$hash'), html);
     await store.delete(id);
+    expect((await store.commission(deepThinking: true, requestId: 'r', messageId: 'm',
+      brief: '做猜拳', requestQuote: '做猜拳', latestText: '做猜拳'))['status'], 'deleted');
     await expectLater(reveal('布'), throwsA(isA<Exception>()));
+  });
+  test('worker repairs an actual preview failure and only publishes the passing revision', () async {
+    final store = CreativeStore(db);
+    final work = await store.commission(deepThinking: true, requestId: 'worker', messageId: 'm',
+      brief: '做一个按钮', requestQuote: '做一个按钮', latestText: '做一个按钮');
+    var calls = 0;
+    final worker = CreativeWorker(db, clientFactory: (abort) => DeepSeekClient(abortWhen: abort,
+      jsonClientFactory: () => MockClient((request) async {
+        calls++;
+        final body = jsonDecode(request.body) as Map;
+        expect(body['model'], 'deepseek-flash');
+        expect(body['reasoning_effort'], 'max');
+        if (calls == 2) expect(request.body, contains('button failed'));
+        return http.Response(jsonEncode({'choices': [{'message': {'content': jsonEncode({
+          'title': '灯', 'intro': '点亮一下', 'html': '<button id="light">$calls</button>',
+          'checks': [{'selector': '#light', 'text': '$calls'}],
+        })}}]}), 200);
+      })));
+    var previews = 0;
+    TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger.setMockMethodCallHandler(
+      CreativeWorker.preview, (_) async { previews++; return {'ok': previews == 2, 'errors': previews == 1 ? ['button failed'] : []}; });
+    try {
+      await worker.runOnce();
+      expect((await store.get(work['id'] as String))['status'], 'queued');
+      expect((await store.get(work['id'] as String))['current'], isNull);
+      await worker.runOnce();
+      final ready = await store.get(work['id'] as String);
+      expect(ready['status'], 'ready');
+      expect(await db.getSetting('${CreativeContract.sourcePrefix}${ready['current']}'), contains('>2<'));
+      expect(calls, 2); expect(previews, 2);
+    } finally { TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger.setMockMethodCallHandler(CreativeWorker.preview, null); }
+  });
+  test('stop during preview fences a late publish', () async {
+    final store = CreativeStore(db);
+    final work = await store.commission(deepThinking: true, requestId: 'stop', messageId: 'm',
+      brief: '做按钮', requestQuote: '做按钮', latestText: '做按钮');
+    final hash = CreativeContract.hash('<button>stop</button>');
+    await store.write(work, {...work, 'status': 'checking', 'draft': hash, 'checks': []},
+      extra: {'${CreativeContract.sourcePrefix}$hash': '<button>stop</button>'});
+    TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger.setMockMethodCallHandler(
+      CreativeWorker.preview, (_) async { await store.stop(work['id'] as String); return {'ok': true}; });
+    try {
+      await CreativeWorker(db).runOnce();
+      expect((await store.get(work['id'] as String))['status'], 'paused');
+      expect((await store.get(work['id'] as String))['current'], isNull);
+    } finally { TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger.setMockMethodCallHandler(CreativeWorker.preview, null); }
   });
   test('unknown prices and missing usage remain unknown; attempts deduplicate', () async {
     final at = DateTime(2026, 10, 11, 12);

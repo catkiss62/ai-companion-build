@@ -26,4 +26,10 @@ elif [ "${test_status}" -eq 0 ]; then
   echo 'Reminder render PNG missing after successful native tests.' >&2
   exit 1
 fi
+if ! adb pull /sdcard/Android/data/com.catkiss.senlive2dcompanion.smoke/files/creative-preview.png "${preview_dir}/creative-preview.png"; then
+  if [ "${test_status}" -eq 0 ]; then
+    echo 'Creative preview PNG missing after successful native tests.' >&2
+    exit 1
+  fi
+fi
 exit "${test_status}"

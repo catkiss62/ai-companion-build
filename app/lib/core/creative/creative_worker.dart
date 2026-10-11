@@ -1,3 +1,5 @@
+import '../rules/rule_layer_service.dart';
+import '../self/dream_store.dart';
 import 'dart:convert';
 import 'dart:io';
 import 'package:flutter/services.dart';
@@ -9,7 +11,8 @@ import 'creative_contract.dart';
 import 'creative_store.dart';
 
 class CreativeWorker {
-  CreativeWorker(this.db);
+  CreativeWorker(this.db, {this.clientFactory});
+  final DeepSeekClient Function(Future<bool> Function() abort)? clientFactory;
   final AppDatabase db;
   static const lease = 'creative_worker_lease_until';
   static const preview = MethodChannel('ai_companion/creative_preview');
@@ -32,7 +35,8 @@ class CreativeWorker {
         return ok;
       }
       bool current = true;
-      client = DeepSeekClient(abortWhen: () async {
+      final makeClient = clientFactory ?? ((Future<bool> Function() abort) => DeepSeekClient(abortWhen: abort));
+      client = makeClient(() async {
         current = await db.brainWorkFenceCurrent(fence) &&
             jsonEncode(await store.get(work['id'] as String)) == jsonEncode(work);
         return !current;
@@ -52,7 +56,9 @@ class CreativeWorker {
           if (!await checkpoint({...work, 'status': 'building', 'attempts': attempts + 1,
               'note': attempts == 0 ? '正在制作' : '根据试玩结果修改'})) return;
           final recent = await db.recentMessagesForPrompt(limit: 16);
-          final rules = await db.listRuleLayers();
+          final rules = await RuleLayerService(db).resolve(latestUserText: work['brief'] as String,
+            session: null, references: const [], nsfwActive: false, nsfwReferenceActive: false);
+          final understanding = await DreamStore(db).prompt(freshSourceOnly: false, roleplay: false);
           final source = (work['draft'] as String? ?? '').isNotEmpty ? work['draft'] : work['current'];
           final oldHtml = source is String && source.isNotEmpty
               ? await db.getSetting('${CreativeContract.sourcePrefix}$source') : null;
@@ -66,7 +72,8 @@ class CreativeWorker {
               {'role': 'system', 'content': CreativeContract.instruction},
               {'role': 'user', 'content': jsonEncode({
                 'commission': work['brief'],
-                'character_context': CreativeContract.clip(rules.map((r) => r.content).join('\n'), 10000),
+                'character_context': CreativeContract.clip('${rules.personalityExecutionAnchor}\n${rules.layers.map((r) => '${r.title}: ${CreativeContract.clip(r.content, 1800)}').join('\n')}', 12000),
+                'self_understanding': CreativeContract.clip(understanding, 3000),
                 'conversation': recent.map((m) => {'role': m.role, 'content': CreativeContract.clip(m.content, 1000)}).toList(),
                 'previous_html': oldHtml, 'previous_errors': work['errors'],
               })},

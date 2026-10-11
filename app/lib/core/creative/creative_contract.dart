@@ -24,8 +24,10 @@ class CreativeContract {
 
   /// Runs before import mutates the database. Restoring never commissions work.
   static void normalizeImport(Map<String, dynamic> tables) {
-    final rows = tables['settings'];
-    if (rows is! List) return;
+    final rawRows = tables['settings'];
+    if (rawRows is! List) return;
+    final rows = <Object?>[...rawRows];
+    tables['settings'] = rows;
     for (var i = 0; i < rows.length; i++) {
       final row = rows[i];
       if (row is! Map || row['key'] is! String) continue;

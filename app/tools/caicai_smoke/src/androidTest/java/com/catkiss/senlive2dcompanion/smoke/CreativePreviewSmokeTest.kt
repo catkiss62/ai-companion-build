@@ -34,6 +34,15 @@ class CreativePreviewSmokeTest {
         assertTrue(screenshot.length()>1000)
         screenshot.copyTo(File(context.getExternalFilesDir(null),"creative-preview.png"),overwrite=true)
     }
+    @Test fun previewBridgeUsesValidSimulatedChoices() {
+        val source=html+"""<script>document.getElementById('light').onclick=async()=>{
+          await companion.choose('round1',['rock','paper','scissors'],'preview');
+          const r=await companion.reveal('round1','scissors');
+          document.getElementById('state').textContent=r.preview && r.choice==='rock' && r.playerChoice==='scissors' ? '亮了' : 'wrong';
+        };</script>"""
+        val result=check(source)
+        assertEquals(result.toString(),true,result["ok"])
+    }
     @Test fun reportsActualScriptFailure() {
         val result=check(html+"<script>throw new Error('deliberate-preview-error')</script>")
         assertEquals(false,result["ok"])

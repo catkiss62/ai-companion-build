@@ -164,13 +164,25 @@ class CreativePreview(private val context: Context) {
                     DisplayManager.VIRTUAL_DISPLAY_FLAG_OWN_CONTENT_ONLY or DisplayManager.VIRTUAL_DISPLAY_FLAG_PRESENTATION)
                 requireNotNull(display) { "此设备无法建立独立预览" }
                 presentation=Presentation(context,display!!.display)
+                val previewChoices = mutableMapOf<String,String>()
                 page=CreativeWebSandbox.create(presentation!!.context,{ raw ->
                     val message=runCatching { JSONObject(raw) }.getOrNull() ?: return@create
                     val id=message.optString("id")
                     when(message.optString("kind")) {
                         "save", "report" -> CreativeWebSandbox.reply(page!!,id,true)
-                        "choose" -> CreativeWebSandbox.reply(page!!,id,mapOf("committed" to true,"preview" to true))
-                        "reveal" -> CreativeWebSandbox.reply(page!!,id,mapOf("choice" to "preview","preview" to true))
+                        "choose" -> {
+                            val data=message.optJSONObject("data") ?: JSONObject()
+                            val turn=data.optString("turn")
+                            val choice=data.optJSONArray("options")?.optString(0) ?: ""
+                            if (turn.isBlank() || choice.isBlank()) CreativeWebSandbox.reply(page!!,id,null,"无效预览回合")
+                            else { previewChoices.putIfAbsent(turn,choice); CreativeWebSandbox.reply(page!!,id,mapOf("committed" to true,"preview" to true)) }
+                        }
+                        "reveal" -> {
+                            val data=message.optJSONObject("data") ?: JSONObject()
+                            val choice=previewChoices[data.optString("turn")]
+                            if (choice==null) CreativeWebSandbox.reply(page!!,id,null,"还没有出招")
+                            else CreativeWebSandbox.reply(page!!,id,mapOf("choice" to choice,"playerChoice" to data.optString("playerChoice"),"preview" to true))
+                        }
                         else -> CreativeWebSandbox.reply(page!!,id,null,"未知作品接口")
                     }
                 }, { errors.add(it) })

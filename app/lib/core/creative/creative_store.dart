@@ -80,6 +80,7 @@ class CreativeStore {
     if (before.isEmpty) return;
     final stateKey = '${CreativeContract.playPrefix}$id';
     await write(before, {'schema': 1, 'id': id, 'status': 'deleted',
+      'request_id': before['request_id'], 'message_id': before['message_id'],
       'updated': DateTime.now().millisecondsSinceEpoch}, extra: {stateKey: ''});
     await collectUnusedSources();
   }
