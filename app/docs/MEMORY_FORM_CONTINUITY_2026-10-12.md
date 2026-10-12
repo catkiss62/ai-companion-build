@@ -1,6 +1,6 @@
 # +347 发言形态、记忆纠错与共同成长
 
-状态：DESIGNED / IMPLEMENTED / CI PENDING / TRUE DEVICE PENDING。
+状态：DESIGNED / IMPLEMENTED / CI PASSED / APK READY / TRUE DEVICE PENDING。
 基线：0.42.102+346，agent/v042102-token-creative-audit，f89a01e7c9f02cdfad41120bdbbeb5fb5e808925。
 本轮分支：agent/v042103-memory-form-continuity；目标 0.42.103+347。
 
@@ -87,6 +87,20 @@
 
 - 第二轮完整 CI 38277734357（ef0ce09d）：150源码门、Node桥、Kotlin、Flutter分析、Android15 40项/Android8 11项均通过；全量Flutter 1748通过/1失败，失败为新增主动测试在同一实例仍持有本地token时期待二次租约获取成功。产品防重入行为正确；修正测试为先证明未释放不可重入，再真实释放旧owner、获取新owner，验证迟到旧fence不得续新owner而新fence可续。产品代码不改、不删除断言，修订后完整重跑。未产出APK。
 
-## 最终交付
+## 最终交付 · 2026-10-13（北京时间）
 
-实现已推送 a57128a，完整 CI 38258953458 已启动，APK 待完成。真实设备验证由用户后续反馈确认。
+CI PASSED / APK READY / TRUE DEVICE PENDING。0.42.103+347，agent/v042103-memory-form-continuity；APK源码 46b25908c59530b551467f120b1e6ae7e191bd25，树 b5d753c748be572cef5f4b70b25259fe49abcbc3。完整构建38280555539 / build114918842273全部成功。
+
+- 150源码门、Node创作桥、Kotlin与Flutter分析通过。
+- Flutter全量1749项、打包前存档/作品恢复160项通过。
+- Android15原生40项、Android8原生11项通过，0跳过/0失败。
+- APK编译、包内固定资源及持久签名核验、Actions和Draft Release上传成功。
+- 最终修复提交只修正新增测试对租约防重入的错误前提；产品代码与1748项先前通过的实现相同。保留前两轮失败记录，未跳过任何门。
+
+APK：https://github.com/catkiss62/ai-companion-build/releases/download/untagged-c6bbb71e9472b2c70446/AI-Companion-v0.42.103-347-Memory-Form-Continuity-APK.apk
+发布页：https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-c6bbb71e9472b2c70446
+CI：https://github.com/catkiss62/ai-companion-build/actions/runs/38280555539
+
+Release410672300，APK资产634437461，737074801 bytes（约737.1 MB）。APK SHA256：f3186d727ab3eaf36604e16a6417742f3a2c3b7d4064d75f69046e808a9ec7b7。签名SHA256：305eb3d80983b963c64818ddf1ad561f279de6d47b3ed2c781ada448c7c25148，与+346一致。Release仍为未发布私测Draft；未公开发布。
+
+消息形态、记忆修订、共用成长与主动重试四项均已实现和验证；旧消息缺证据仍为unknown，不回填或批改用户旧记忆。未上传用户私有诊断/存档。后续文档提交只回写交付记录，不改变APK源码。真实设备体验与长期表现仍待用户反馈，不能从CI推定TRUE DEVICE PASSED。
