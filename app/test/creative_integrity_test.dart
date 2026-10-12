@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:io';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
@@ -10,6 +11,9 @@ import 'package:ai_companion_localfirst/core/creative/creative_contract.dart';
 import 'package:ai_companion_localfirst/core/creative/creative_play.dart';
 import 'package:ai_companion_localfirst/core/creative/creative_store.dart';
 import 'package:ai_companion_localfirst/core/database/app_database.dart';
+import 'package:ai_companion_localfirst/core/storage/portable_companion_storage.dart';
+import 'package:ai_companion_localfirst/core/storage/snapshot_restore_journal.dart';
+import 'package:ai_companion_localfirst/core/sync/snapshot_restore_coordinator.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
@@ -179,7 +183,24 @@ void main() {
       if (interruption == 'restart') {
         await play.open(restart: true);
       } else if (interruption == 'restore') {
-        await db.importAll(await backup());
+        // Bare importAll is a low-level state copy and preserves the archive's
+        // identity. Actual restores install a fresh epoch through this owner.
+        // Exercise that production path rather than manually changing a fence.
+        final archive = await backup();
+        final priorEpoch = await db.getSetting('runtime_state_epoch_v1');
+        final root = await Directory.systemTemp.createTemp('creative-restore-');
+        try {
+          final coordinator = SnapshotRestoreCoordinator(db, PortableCompanionStorage(),
+            journal: SnapshotRestoreJournal(root));
+          final outcome = await coordinator.install(
+            prepare: (_) async => SnapshotInstallPlan([]),
+            commitDatabase: (runtime) => db.importAll(archive, runtimeSettingOverrides: runtime));
+          expect(outcome.recoveryPending, false);
+          expect(await db.getSetting('runtime_state_epoch_v1'), isNot(priorEpoch));
+          expect(await db.brainWorkAllowed(), true);
+        } finally {
+          await root.delete(recursive: true);
+        }
       } else if (interruption == 'delete') {
         await store.delete(id);
       } else {
