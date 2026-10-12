@@ -86,3 +86,8 @@
 独立复核确认：工具失败回执与游标原子保存，pending不被压缩，下一assistant轮隔离旧失败；生产恢复三条install路径均传新runtime epoch；导出settings与消息/任务处于同一事务。Node页面桥序列化、UTF-8超限、派发失败、挂起出招/公开保存回归本地通过。
 
 完成通知沿用既有普通聊天闲置条件；沉浸房间使用独立租约，是否要抑制委托完成通知属于尚未明确的产品时机，本次不擅改。自动测试不能保证真实模型生成作品的所有玩法、页面视觉及真机WebView表现；不宣称已经真机通过。
+
+
+### 首轮全量CI与资源准备修正
+
+作品源码caf45dc，Actions38206248081：分析（507项非致命提示）与Node桥通过，全量1690通过/1失败。唯一失败为既有chat_emotion_effect_layer_test无法加载assets/lingchat/effects/happy.webp；本轮token/作品/存档测试均通过。仅验证工作流原未执行正式构建使用的固定版本LingChat资源恢复，现补同一fetch_lingchat_visual_assets.sh（固定commit与SHA校验），不跳过测试、不生成替代占位图、不改应用源码。补齐后重跑全量，首轮不得记为全部通过。
