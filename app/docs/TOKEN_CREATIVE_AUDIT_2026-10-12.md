@@ -1,6 +1,8 @@
 # 输出预算与作品分批审计 · 2026-10-12
 
-## 范围与状态
+最新交付：**0.42.102+346，CI PASSED / APK READY / TRUE DEVICE PENDING**。同签名测试安装包已构建并上传，[下载APK](https://github.com/catkiss62/ai-companion-build/releases/download/untagged-2815f53d81b3eff7db2c/AI-Companion-v0.42.102-346-Token-Creative-Audit-APK.apk)；[完整CI](https://github.com/catkiss62/ai-companion-build/actions/runs/38209334768)成功，150源码门、1691全量及160打包前存档/作品回归、Android15/8通过。下方保留审计与构建阶段记录。
+
+## 审计阶段范围与状态
 
 基线 0.42.101+345 / beaf9ea；工作分支 `agent/v042102-token-creative-audit`，暂不升版、不构建APK。用户要求先修主动正文1800/700和余额两位显示并推送，再依次进行token和作品审计，不能两批混做。
 
@@ -93,7 +95,7 @@
 作品源码caf45dc，Actions38206248081：分析（507项非致命提示）与Node桥通过，全量1690通过/1失败。唯一失败为既有chat_emotion_effect_layer_test无法加载assets/lingchat/effects/happy.webp；本轮token/作品/存档测试均通过。仅验证工作流原未执行正式构建使用的固定版本LingChat资源恢复，现补同一fetch_lingchat_visual_assets.sh（固定commit与SHA校验），不跳过测试、不生成替代占位图、不改应用源码。补齐后重跑全量，首轮不得记为全部通过。
 
 
-## 最终状态
+## 审计阶段最终状态
 
 2026-10-12，IMPLEMENTED / PUSHED / CI PASSED / NO NEW APK / TRUE DEVICE PENDING。分支agent/v042102-token-creative-audit，应用源码caf45dc，资源验证工作流676ab8c。最终Actions[38206694467](https://github.com/catkiss62/ai-companion-build/actions/runs/38206694467)成功：固定版本资源恢复、Flutter analyze（506项非致命提示，非零提示）、Node页面桥回归及**1691项全量Flutter测试**通过，包括本轮token、作品、实际恢复协调器、延迟快照往返用例。首轮1690/1及资源修正记录保留，不将其冒记为全绿。
 
@@ -108,3 +110,20 @@
 ### 首轮完整构建与过期源码规则
 
 69842b2 / 38208184449：Android15（40项）和Android8原生通过；同树38208184481的1691全量Flutter/Node桥通过。完整构建在47/150的validate_v0390_immersive_room.py失败，旧规则仍要求正文固定maxTokens:6000，与本批解除额外正文预算的实现冲突。修正该规则为读取实际streamChat请求参数并要求不附加cap，同时保留无结束信号、异常结束及续写/草稿保护校验；本地该守卫通过。余下104项本地静态检查中52项通过，52项因稀疏工作区缺少原生/资源/归档或kotlinc而未完成，无其他可执行断言失败；完整执行以重跑CI为准，不把本地缺依赖记作通过。原始用户档与应用功能源码未改。
+
+
+## 最终APK交付 · 0.42.102+346
+
+2026-10-12，CI PASSED / APK READY / TRUE DEVICE PENDING。源码**2ab7d633c1dec87aad1799fb23ffeec01925589c**，分支agent/v042102-token-creative-audit。完整Actions38209334768 / job114681208254成功：150项源码/资源门、Kotlin单元测试、Flutter分析（506项非致命提示）、Node桥、**1691项全量Flutter测试**和打包前**160项存档/作品专项**通过。Android15 job114679790218为40项、Android8 job114679790255为11项通过。同树仅验证38209334745的1691项也通过。
+
+安装包已构建、签名、资源检查及上传；Release410218649是Draft未发布，target_commitish与APK源码一致。
+
+- [下载同签名APK](https://github.com/catkiss62/ai-companion-build/releases/download/untagged-2815f53d81b3eff7db2c/AI-Companion-v0.42.102-346-Token-Creative-Audit-APK.apk)
+- [未发布Release](https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-2815f53d81b3eff7db2c)
+- [完整CI](https://github.com/catkiss62/ai-companion-build/actions/runs/38209334768)
+- 文件AI-Companion-v0.42.102-346-Token-Creative-Audit-APK.apk，737051121 bytes，资产632860385。
+- APK SHA-256：`f904466b5a59bb2e18658f15cb98b45c6e5425324f51c818cf8b90cc1349c0d1`，CI文件哈希与Release资产digest一致。
+- 签名SHA-256：`305eb3d80983b963c64818ddf1ad561f279de6d47b3ed2c781ada448c7c25148`，通过既有签名身份校验。
+- Actions备用artifact11729288908，729873781 bytes，至2026-10-26；ZIP SHA-256：`f69a48d5b1d406df238d43d3ee27a720d0f03233459cc709823595e4f7ceefc1`。
+
+修复项：主动正文两通道预算和失败分类、余额两位显示、输出预算与JSON截断校验/记忆有限重试、输入候选准入，及本记录8类作品问题。总账同步，首轮过期6000静态规则失败与修正保留；不跳过验证，应用功能源码未因构建再扩展。用户原始存档/诊断未改、未上传，旧记忆未批量修订。本次为自动构建验证与安装包交付，真实手机体验等待用户验证。
