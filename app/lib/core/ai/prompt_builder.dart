@@ -1,5 +1,7 @@
 import 'dart:convert';
 import '../creative/creative_store.dart';
+import '../creative/creative_facts.dart';
+import '../creative/creative_play_evidence.dart';
 import 'autonomous_expression_choice.dart';
 import '../phone/calendar_reminder_state.dart';
 import '../self/dream_store.dart';
@@ -60,11 +62,13 @@ class PromptBuildResult {
     required this.messages,
     required this.worldBookContext,
     this.deepReflection,
+    this.creativePlayEvidence = const CreativePlayEvidence(),
   });
 
   final List<Map<String, Object?>> messages;
   final WorldBookTurnContext worldBookContext;
   final DeepReflectionContext? deepReflection;
+  final CreativePlayEvidence creativePlayEvidence;
 }
 
 class PromptBuilder {
@@ -456,9 +460,11 @@ class PromptBuilder {
         : await RememberedUserFactsStore(db).load();
     // Fresh-topic generation still verifies its selected source against local
     // facts, but never receives unrelated works as extra conversation material.
-    final creativeFacts = !worldBookContext.hasRoleplay
-        ? await CreativeStore(db).chatContext(query: memoryQuery,
-            userMessageId: latestUserMessageId, relevantOnly: freshTopicSourceOnly) : '';
+    final creativeRead = !worldBookContext.hasRoleplay
+        ? await CreativeFacts(db).read(query: memoryQuery,
+            userMessageId: latestUserMessageId, relevantOnly: freshTopicSourceOnly)
+        : const CreativeFactRead('', CreativePlayEvidence());
+    final creativeFacts = creativeRead.prompt.isEmpty ? '' : '${CreativeStore.requestContract}\n${creativeRead.prompt}';
     final messages = <Map<String, Object?>>[
       {
         'role': 'system',
@@ -632,6 +638,7 @@ ANSWERED_HISTORY_ONLY = true
       messages: List<Map<String, Object?>>.unmodifiable(messages),
       worldBookContext: worldBookContext,
       deepReflection: deepReflection,
+      creativePlayEvidence: creativeRead.playEvidence,
     );
   }
 

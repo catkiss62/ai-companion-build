@@ -2,6 +2,13 @@ import 'dart:convert';
 import '../database/app_database.dart';
 import 'creative_autonomy_policy.dart';
 import 'creative_contract.dart';
+import 'creative_play_evidence.dart';
+
+class CreativeFactRead {
+  const CreativeFactRead(this.prompt, this.playEvidence);
+  final String prompt;
+  final CreativePlayEvidence playEvidence;
+}
 
 /// Read-only facts shared by chat, proactive generation and experience extraction.
 /// No HTML, page details, hidden choices or private works enter this projection.
@@ -53,16 +60,22 @@ class CreativeFacts {
     return score;
   }
 
-  Future<String> prompt({String query = '', String userMessageId = '', bool relevantOnly = false}) async {
+  Future<String> prompt({String query = '', String userMessageId = '', bool relevantOnly = false}) async =>
+      (await read(query: query, userMessageId: userMessageId, relevantOnly: relevantOnly)).prompt;
+
+  Future<CreativeFactRead> read({String query = '', String userMessageId = '', bool relevantOnly = false}) async {
     final sql = await db.database;
+    final playedWorks = <String, int>{};
+    int? scopedAt;
     // Read metadata and use/delivery records from one database snapshot.
     final projection = await sql.transaction((txn) async {
       var preferredWorkId = '';
+      Map<String, dynamic> snapshot = {};
       if (userMessageId.isNotEmpty) {
         final snapshotRows = await txn.query('settings', columns: ['value'],
             where: 'key = ?', whereArgs: ['${CreativeContract.chatPrefix}$userMessageId'], limit: 1);
         if (snapshotRows.isNotEmpty) {
-          final snapshot = CreativeContract.decode(snapshotRows.single['value'] as String?);
+          snapshot = CreativeContract.decode(snapshotRows.single['value'] as String?);
           if (snapshot.isNotEmpty) {
             CreativeContract.validateSnapshot(snapshot);
             preferredWorkId = snapshot['work_id'] as String;
@@ -106,6 +119,19 @@ class CreativeFacts {
         final hasSave = public is Map ? public.isNotEmpty : public is List ? public.isNotEmpty : false;
         final hasReveal = (play['turns'] is Map ? (play['turns'] as Map).values : const [])
             .whereType<Map>().any((t) => t['playerChoice'] != null);
+        final title = _text(work['title'], 120);
+        if (published && hasReveal) {
+          final times = (play['turns'] as Map).values.whereType<Map>()
+              .where((t) => t['playerChoice'] != null)
+              .map((t) => (t['revealed_at'] ?? t['at']) is num
+                  ? ((t['revealed_at'] ?? t['at']) as num).toInt() : 0);
+          playedWorks[title] = times.fold<int>(0, (a, b) => a > b ? a : b);
+        }
+        if (id == preferredWorkId && (snapshot['revealed_total'] as num? ?? 0) > 0) {
+          final latest = snapshot['latest_revealed'];
+          scopedAt = latest is Map && latest['revealed_at'] is num
+              ? (latest['revealed_at'] as num).toInt() : 0;
+        }
         facts.add({
           'id': id, 'title': _text(work['title'], 120),
           'status': work['status'], 'note': _text(work['note'], 240),
@@ -123,7 +149,13 @@ class CreativeFacts {
       }
       return {'visible_count': visibleCount, 'omitted_count': visibleCount - facts.length, 'works': facts};
     });
-    if (relevantOnly && (projection['works'] as List).isEmpty) return '';
-    return '$authority\n${jsonEncode(projection)}';
+    // One related played work can ground pronouns in a selected proactive
+    // source. The unrelated ordinary catalog never creates that scope.
+    if (relevantOnly && (projection['works'] as List).length == 1 && playedWorks.length == 1) {
+      scopedAt = playedWorks.values.single;
+    }
+    final evidence = CreativePlayEvidence(works: Map.unmodifiable(playedWorks), scopedAt: scopedAt);
+    return CreativeFactRead(relevantOnly && (projection['works'] as List).isEmpty
+        ? '' : '$authority\n${jsonEncode(projection)}', evidence);
   }
 }

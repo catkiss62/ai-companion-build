@@ -23,5 +23,5 @@ jobs:
       - name: Verify private creation and full backup roundtrip before APK
         run: flutter test test/creative_facts_test.dart test/creative_autonomy_test.dart test/sqlite_settings_backup_v04255_test.dart test/portable_snapshot_v04256_test.dart test/snapshot_directory_swap_test.dart test/snapshot_process_recovery_test.dart
         working-directory: app
-      - run: flutter test test/creative_workspace_test.dart test/creative_agent_test.dart test/creative_delivery_test.dart test/creative_context_test.dart test/creative_ui_test.dart test/nightly_dream_test.dart test/nightly_dream_pipeline_test.dart test/model_network_config_transfer_test.dart
+      - run: flutter test test/creative_workspace_test.dart test/creative_agent_test.dart test/creative_delivery_test.dart test/creative_context_test.dart test/creative_ui_test.dart test/nightly_dream_test.dart test/nightly_dream_pipeline_test.dart test/model_network_config_transfer_test.dart test/operational_claim_grounding_guard_test.dart
         working-directory: app

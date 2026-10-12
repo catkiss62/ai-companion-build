@@ -15,6 +15,7 @@ import 'package:ai_companion_localfirst/core/creative/creative_store.dart';
 import 'package:ai_companion_localfirst/core/database/app_database.dart';
 import 'package:ai_companion_localfirst/core/desire/desire_engine.dart';
 import 'package:ai_companion_localfirst/core/models/chat_message.dart';
+import 'package:ai_companion_localfirst/core/grounding/operational_claim_grounding_guard.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
@@ -201,5 +202,61 @@ void main() {
     fact = (projection(await store.chatContext())['works'] as List).single;
     expect(fact.containsKey('use_evidence'), false);
     expect(fact['current_request_completed'], true);
+  });
+
+  test('outbound guard accepts proven local play, without granting external operations or false recency', () async {
+    final w = await work('星光迷宫'); await played(w);
+    final read = await CreativeFacts(db).read(query: '星光迷宫还没玩过', relevantOnly: true);
+    bool allowed(String text) => OperationalClaimGroundingGuard.evaluate(
+        text: text, creativePlayEvidence: read.playEvidence).allowed;
+    expect(allowed('昨晚这局我赢了。'), true);
+    expect(allowed('我刚刚玩了一局游戏。'), false); // Recorded interaction is old.
+    expect(allowed('我正在游戏里玩。'), false); // A record is not live activity.
+    expect(allowed('我刚才钓了一条鱼。'), false);
+    expect(allowed('我在游戏厅玩了一局游戏。'), false);
+    expect(allowed('我已经成功调用MCP了。'), false);
+    expect(OperationalClaimGroundingGuard.removeUnsupportedSentences(
+      text: '昨晚这局我赢了。', creativePlayEvidence: read.playEvidence), '昨晚这局我赢了。');
+    final unrelated = await CreativeFacts(db).read(query: '陌生的竞技赛事', relevantOnly: true);
+    expect(OperationalClaimGroundingGuard.evaluate(text: '这局我赢了。',
+      creativePlayEvidence: unrelated.playEvidence).allowed, false);
+    final catalog = await CreativeFacts(db).read();
+    expect(OperationalClaimGroundingGuard.evaluate(text: '这局我赢了。',
+      creativePlayEvidence: catalog.playEvidence).allowed, false);
+    expect(OperationalClaimGroundingGuard.evaluate(text: '之前玩了星光迷宫这个游戏。',
+      creativePlayEvidence: catalog.playEvidence).allowed, true);
+  });
+
+  test('guard uses revealed timestamps and never accepts a future timestamp as just now', () async {
+    final w = await work('星光迷宫'); await played(w);
+    final now = DateTime.now();
+    final key = '${CreativeContract.playPrefix}${w['id']}';
+    final state = CreativeContract.decode(await db.getSetting(key));
+    for (final offset in [-1000, 1000]) {
+      state['turns']['1']['revealed_at'] = now.millisecondsSinceEpoch + offset;
+      await db.setSetting(key, jsonEncode(state));
+      final read = await CreativeFacts(db).read(query: '星光迷宫', relevantOnly: true);
+      expect(OperationalClaimGroundingGuard.evaluate(text: '刚刚玩了一局游戏。',
+        creativePlayEvidence: read.playEvidence, now: now).allowed, offset < 0);
+    }
+  });
+
+  test('real fresh-topic prompt carries typed play proof; private work and empty new round do not', () async {
+    final w = await work('星光迷宫'); await played(w);
+    final built = await PromptBuilder(db).buildChatPrompt(latestUserText: '',
+      retrievalQuery: '星光迷宫没做好，想继续玩', recent: const [], desire: await db.loadDesire(),
+      thoughts: const [], mode: PromptGenerationMode.proactive, freshTopicSourceOnly: true);
+    expect(OperationalClaimGroundingGuard.evaluate(text: '昨晚这局我赢了。',
+      creativePlayEvidence: built.creativePlayEvidence).allowed, true);
+    final play = CreativePlay(db, w['id'] as String); await play.open(restart: true);
+    final snap = await play.captureSnapshot();
+    await db.setSetting('${CreativeContract.chatPrefix}new-round', jsonEncode(snap.data));
+    final newRound = await CreativeFacts(db).read(userMessageId: 'new-round');
+    expect(newRound.playEvidence.supports('这局我赢了。'), false);
+    await store.write(await store.get(w['id'] as String), {...w, 'origin': 'autonomous',
+      'visibility': 'private', 'idea_id': 'idea', 'motive': 'gift'});
+    final private = await CreativeFacts(db).read(query: '星光迷宫', userMessageId: 'new-round', relevantOnly: true);
+    expect(private.playEvidence.works, isEmpty);
+    expect(private.playEvidence.scopedAt, isNull);
   });
 }

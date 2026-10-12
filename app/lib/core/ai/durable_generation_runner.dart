@@ -1,4 +1,6 @@
 import '../creative/creative_play.dart';
+import '../creative/creative_facts.dart';
+import '../creative/creative_play_evidence.dart';
 import '../reflection/deep_reflection_contract.dart';
 import 'generation_lease_guard.dart';
 import 'dart:async';
@@ -274,6 +276,7 @@ class DurableGenerationRunner {
     var lastFenceCheck = DateTime.fromMillisecondsSinceEpoch(0);
     var generationSpecialStyleTrialId = '';
     var generationSpecialStyleKey = '';
+    var creativePlayEvidence = const CreativePlayEvidence();
     final preparedAgentAttachments = <MessageAttachment>[];
     final preparedAgentMediaUsageKeys = <String>[];
     final visibleTranscript = VisibleReasoningTranscript();
@@ -559,6 +562,7 @@ class DurableGenerationRunner {
         conversationInitiativeOverride: conversationPlan,
       );
       final creativeContext = await CreativePlay.chatContext(db, userMessageId: job.userMessageId);
+      creativePlayEvidence = promptBuild.creativePlayEvidence;
       final baseRequestMessages = <Map<String, Object?>>[
         ...promptBuild.messages,
         if (creativeContext.isNotEmpty) {'role': 'system', 'content': creativeContext},
@@ -1592,6 +1596,7 @@ $finalGenerationReminder
         // claim. Only the message the user will actually receive is guarded.
         text: finalContent,
         currentToolResults: agentToolResults,
+        creativePlayEvidence: creativePlayEvidence,
       );
       var repetitionGuard = RecentReplyRepetitionGuard.evaluate(
         text: finalContent,
@@ -1670,6 +1675,7 @@ $finalGenerationReminder
           operationGuard = OperationalClaimGroundingGuard.evaluate(
             text: finalContent,
             currentToolResults: agentToolResults,
+            creativePlayEvidence: creativePlayEvidence,
           );
           repetitionGuard = RecentReplyRepetitionGuard.evaluate(
             text: finalContent,
@@ -1963,6 +1969,7 @@ $finalGenerationReminder
       final envelope = EmotionEnvelope.parse(e.content);
       final visible = OperationalClaimGroundingGuard.removeUnsupportedSentences(
         text: envelope.visibleText,
+        creativePlayEvidence: creativePlayEvidence,
       );
       if (visible.isEmpty) {
         final failed = await db.failGenerationJob(
@@ -2093,8 +2100,10 @@ $finalGenerationReminder
       );
     }
     final envelope = EmotionEnvelope.parse(job.partialContent);
+    final creativeRead = await CreativeFacts(db).read(query: user.promptContent, userMessageId: user.id);
     final visible = OperationalClaimGroundingGuard.removeUnsupportedSentences(
       text: envelope.visibleText,
+      creativePlayEvidence: creativeRead.playEvidence,
     );
     if (visible.isEmpty) {
       await db.failGenerationJob(

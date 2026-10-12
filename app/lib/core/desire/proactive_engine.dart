@@ -1799,6 +1799,7 @@ ${startsFreshTopic ? '本类型属于新话题通道：ANSWERED CHAT HISTORY 已
       publicWebOutcomeAvailable: webShareCandidateId != null,
       cedarOutcomeAvailable: isCedarGameShare,
       cedarOutcomeAt: cedarOutcomeAt,
+      creativePlayEvidence: promptBuild.creativePlayEvidence,
       now: evaluationStartedAt,
     );
     var repetitionGuard = RecentReplyRepetitionGuard.evaluate(
@@ -1954,6 +1955,7 @@ ${PromptBuilder.visibleChineseGenerationReminder(proactive: true)}
         publicWebOutcomeAvailable: webShareCandidateId != null,
         cedarOutcomeAvailable: isCedarGameShare,
         cedarOutcomeAt: cedarOutcomeAt,
+        creativePlayEvidence: promptBuild.creativePlayEvidence,
         now: evaluationStartedAt,
       );
       repetitionGuard = RecentReplyRepetitionGuard.evaluate(
@@ -1989,6 +1991,7 @@ ${PromptBuilder.visibleChineseGenerationReminder(proactive: true)}
         publicWebOutcomeAvailable: webShareCandidateId != null,
         cedarOutcomeAvailable: isCedarGameShare,
         cedarOutcomeAt: cedarOutcomeAt,
+        creativePlayEvidence: promptBuild.creativePlayEvidence,
         now: evaluationStartedAt,
       );
       if (salvaged.isEmpty) {

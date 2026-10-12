@@ -1,5 +1,6 @@
 import '../agent/agent_tool.dart';
 import '../agent/agent_tool_text_envelope.dart';
+import '../creative/creative_play_evidence.dart';
 
 class OperationalClaimGroundingResult {
   const OperationalClaimGroundingResult({
@@ -135,6 +136,7 @@ class OperationalClaimGroundingGuard {
     bool publicWebOutcomeAvailable = false,
     bool cedarOutcomeAvailable = false,
     DateTime? cedarOutcomeAt,
+    CreativePlayEvidence creativePlayEvidence = const CreativePlayEvidence(),
     DateTime? now,
   }) {
     if (_machineProtocol.hasMatch(text) ||
@@ -243,7 +245,8 @@ class OperationalClaimGroundingGuard {
       final cedarPlayClaim = _cedarPlayClaim.hasMatch(sentence);
       if (cedarPlayClaim &&
           _cedarImmediateTimeAnchor.hasMatch(sentence) &&
-          !cedarEvidenceIsRecent) {
+          !cedarEvidenceIsRecent &&
+          !creativePlayEvidence.supports(sentence, recent: true, now: now)) {
         return const OperationalClaimGroundingResult(
           allowed: false,
           reason: 'stale_cedar_event_presented_as_recent',
@@ -253,7 +256,8 @@ class OperationalClaimGroundingGuard {
       if (cedarPlayClaim &&
           !cedarOutcomeAvailable &&
           cedarOutcomeAt == null &&
-          !hasCurrentCedarOutcome) {
+          !hasCurrentCedarOutcome &&
+          !creativePlayEvidence.supports(sentence)) {
         return const OperationalClaimGroundingResult(
           allowed: false,
           reason: 'ungrounded_cedar_toy_play',
@@ -334,6 +338,7 @@ class OperationalClaimGroundingGuard {
     bool publicWebOutcomeAvailable = false,
     bool cedarOutcomeAvailable = false,
     DateTime? cedarOutcomeAt,
+    CreativePlayEvidence creativePlayEvidence = const CreativePlayEvidence(),
     DateTime? now,
   }) {
     return _sentences(text)
@@ -344,6 +349,7 @@ class OperationalClaimGroundingGuard {
             publicWebOutcomeAvailable: publicWebOutcomeAvailable,
             cedarOutcomeAvailable: cedarOutcomeAvailable,
             cedarOutcomeAt: cedarOutcomeAt,
+            creativePlayEvidence: creativePlayEvidence,
             now: now,
           ).allowed,
         )
