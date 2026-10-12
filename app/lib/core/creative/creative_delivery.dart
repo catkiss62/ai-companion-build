@@ -153,7 +153,9 @@ class CreativeDelivery {
             await for (final delta in client!.streamChat(
               apiKey: apiKey, endpoint: second ? await config.readFinalReplyEndpoint() : await config.readEndpoint(),
               requestProvider: second ? provider : null, modelName: second ? modelName : null,
-              model: model, effort: ReasoningEffort.high, thinking: second, maxTokens: 2000,
+              // Delivery is visible dialogue, with provider-default output
+              // limits like ordinary chat; the body-size safeguard stays below.
+              model: model, effort: ReasoningEffort.high, thinking: second,
               requestTimeout: const Duration(seconds: 60), messages: messages,
               usageLane: second ? 'creative_completion_final' : 'creative_completion', usageExecutionId: '${notice['request_id']}:${notice['attempts']}',
             )) {
@@ -163,8 +165,10 @@ class CreativeDelivery {
               if (delta.finishReason != null) finish = delta.finishReason!;
             }
             final body = buffer.toString().trim();
-            if (!done || body.isEmpty || body == 'WAIT' || FinalReplyFailurePolicy.isIncompleteFinishReason(finish) ||
-                FinalReplyFailurePolicy.hasStrongIncompleteStructure(body)) throw const EmptyFinalReplyException();
+            final failure = FinalReplyFailurePolicy.incompleteResponseFailure(
+              sawTerminalSignal: done, finishReason: finish, content: body);
+            if (failure != null) throw failure;
+            if (body.isEmpty || body == 'WAIT') throw const EmptyFinalReplyException();
             return body;
           }
           if (provider.isGeminiRelay) {

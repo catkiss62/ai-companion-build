@@ -2,6 +2,7 @@ import '../models/chat_message.dart';
 import '../database/app_database.dart';
 import '../models/memory_item.dart';
 import '../models/personality_learning.dart';
+import '../models/unfinished_thread.dart';
 import 'memory_context.dart';
 import 'memory_grounding_policy.dart';
 import 'memory_retrieval_policy.dart';
@@ -71,13 +72,9 @@ class MemoryBrain {
             !m.createdAt.isBefore(summary.fromAt) && !m.createdAt.isAfter(summary.toAt)))
         .toList(growable: false);
 
-    final threads = (await db.activeUnfinishedThreads(limit: 12))
-        .where((thread) => MemoryRetrievalPolicy.hasDirectTextEvidence(
-              query,
-              '${thread.title} ${thread.detail} ${thread.topicKey}',
-            ))
-        .take(3)
-        .toList(growable: false);
+    final threads = query.trim().isEmpty
+        ? const <UnfinishedThread>[]
+        : await db.relevantActiveUnfinishedThreads(query, limit: 3);
 
     return MemoryContext(
       stableUser: stableUser,

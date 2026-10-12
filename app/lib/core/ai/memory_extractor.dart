@@ -167,7 +167,7 @@ class MemoryExtractor {
             job.id,
             runToken: job.runToken,
             error: e.toString(),
-            recoverable: _isRecoverablePostTurnError(e),
+            recoverable: _isRecoverablePostTurnError(e, attempts: job.attempts),
           );
         }
       }
@@ -339,7 +339,7 @@ ${previousAssistant.content}
           model: DeepSeekModelProfile.flash,
           endpoint: endpoint,
           thinking: false,
-          maxTokens: 1700,
+          maxTokens: 4096,
           usageLane: 'memory_extraction',
           messages: [
           {'role': 'system', 'content': '$creativeFacts\n$creativeSnapshot\n'
@@ -1540,7 +1540,14 @@ AI 主动消息：${outbound?.content ?? '(消息正文不可用)'}
     // This post-turn pass continues recording facts and actual experiences.
   }
 
-  bool _isRecoverablePostTurnError(Object error) {
+  bool _isRecoverablePostTurnError(Object error, {required int attempts}) {
+    // A truncated/empty model proposal has not been checkpointed or applied.
+    // Retry only within this small bound: the legacy network-error policy can
+    // be unlimited, so malformed JSON must not inherit indefinite retries.
+    if (error is EmptyJsonCompletionException ||
+        error is MalformedJsonCompletionException) {
+      return attempts < 3;
+    }
     if (error is _RetryablePostTurnException) return true;
     final text = error.toString().toLowerCase();
     return text.contains('timeout') ||

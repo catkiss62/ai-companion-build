@@ -1,7 +1,55 @@
+import 'dart:convert';
+
+import 'package:ai_companion_localfirst/core/ai/deepseek_client.dart';
 import 'package:ai_companion_localfirst/core/ai/reasoning_translation_service.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:http/http.dart' as http;
+import 'package:http/testing.dart';
 
 void main() {
+  http.Response translationResponse({String finish = 'stop'}) => http.Response(
+    jsonEncode({'choices': [{'finish_reason': finish, 'message': {
+      'content': jsonEncode({'translation': '完整中文译文。'})}}]}), 200,
+    headers: {'content-type': 'application/json; charset=utf-8'});
+
+  test('reasoning translation preserves long input without the old output ceiling', () async {
+    for (final length in <int>[20, 500, 3000, 3001]) {
+      final source = List.filled(length, 'a').join();
+      final client = DeepSeekClient(client: MockClient((request) async {
+        final body = jsonDecode(request.body) as Map;
+        if (length == 3001) {
+          expect(body.containsKey('max_tokens'), false);
+        } else {
+          expect(body['max_tokens'], (length * 2).clamp(800, 6000));
+        }
+        final input = jsonDecode((body['messages'] as List).last['content'] as String) as Map;
+        expect(input['source_reasoning'], source);
+        return translationResponse();
+      }));
+      try {
+        expect(await DeepSeekReasoningTranslationGateway(client: client).translate(
+          apiKey: 'test-key', endpoint: 'https://api.deepseek.com/chat/completions', reasoning: source),
+          '完整中文译文。');
+      } finally { client.close(); }
+    }
+  });
+
+  test('valid JSON marked truncated never becomes a cached reasoning translation', () async {
+    final cache = _MemoryCache();
+    final client = DeepSeekClient(client: MockClient((_) async => translationResponse(finish: 'length')));
+    try {
+      final service = ReasoningTranslationService(cache: cache,
+        gateway: DeepSeekReasoningTranslationGateway(client: client),
+        apiKeyLoader: () async => 'test-key',
+        endpointLoader: () async => 'https://api.deepseek.com/chat/completions');
+      await expectLater(service.translate(scope: ReasoningTranslationScope.chat,
+        messageId: 'length', reasoning: 'This complete English reasoning must not be cached when translation is truncated.'),
+        throwsA(isA<MalformedJsonCompletionException>()));
+      expect(cache.saved, 0);
+      expect(cache.values, isEmpty);
+    } finally { client.close(); }
+  });
+
   group('ReasoningTranslationPolicy', () {
     test('offers translation for English and English-dominant reasoning', () {
       expect(

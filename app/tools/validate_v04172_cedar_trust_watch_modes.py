@@ -44,7 +44,7 @@ require(
     "mode == CedarParticipationMode.solo",
     '_judgeOutcome',
     'thinking: false',
-    'maxTokens: 512',
+    '_cleanRoomDialogue(content)',
     'directWhenWatched: true',
     "error.code == 'network_or_timeout'",
     "CedarAutonomyProgress('write_outcome_sync')",

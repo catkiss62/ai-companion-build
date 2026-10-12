@@ -363,7 +363,9 @@ class DeepSeekClient {
     String? modelName,
     bool thinking = false,
     ReasoningEffort effort = ReasoningEffort.high,
-    int maxTokens = 1400,
+    // Short non-thinking JSON calls keep the existing default. Complex
+    // reasoning or long translations may explicitly defer to the provider.
+    int? maxTokens = 1400,
     GenerationCancellationToken? cancellationToken,
     Duration requestTimeout = const Duration(seconds: 120),
     String usageLane = 'unclassified',
@@ -434,7 +436,7 @@ class DeepSeekClient {
                 effort: effort,
                 modelName: effectiveModel,
               ),
-              'max_tokens': maxTokens,
+              if (maxTokens != null) 'max_tokens': maxTokens,
               'response_format': {'type': 'json_object'},
               'stream': false,
             }),
@@ -486,6 +488,13 @@ class DeepSeekClient {
         throw const MalformedJsonCompletionException();
       }
       final first = firstRaw.cast<String, dynamic>();
+      final finishReason = first['finish_reason']?.toString().trim() ?? '';
+      // A syntactically valid object may still contain an incomplete result.
+      // Some compatible endpoints omit finish_reason; keep those compatible,
+      // but never cache or apply a result explicitly marked as interrupted.
+      if (finishReason.isNotEmpty && finishReason.toLowerCase() != 'stop') {
+        throw IncompleteJsonCompletionException(finishReason);
+      }
       final messageRaw = first['message'];
       if (messageRaw is! Map) {
         throw const MalformedJsonCompletionException();
@@ -654,6 +663,14 @@ class MalformedJsonCompletionException implements Exception {
 
   @override
   String toString() => 'malformed_json_completion_content';
+}
+
+class IncompleteJsonCompletionException extends MalformedJsonCompletionException {
+  const IncompleteJsonCompletionException(this.finishReason);
+  final String finishReason;
+
+  @override
+  String toString() => 'incomplete_json_completion:$finishReason';
 }
 
 class DeepSeekException implements Exception {

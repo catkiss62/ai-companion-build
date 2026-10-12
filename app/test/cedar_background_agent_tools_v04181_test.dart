@@ -15,7 +15,7 @@ import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 
-String _toolResponse(Map<String, Object?> arguments) {
+String _toolResponse(Map<String, Object?> arguments, {String? finishReason = 'tool_calls', bool done = true}) {
   final event = jsonEncode(<String, Object?>{
     'choices': <Object?>[
       <String, Object?>{
@@ -32,11 +32,11 @@ String _toolResponse(Map<String, Object?> arguments) {
             },
           ],
         },
-        'finish_reason': 'tool_calls',
+        'finish_reason': finishReason,
       },
     ],
   });
-  return 'data: $event\n\ndata: [DONE]\n\n';
+  return 'data: $event\n\n${done ? 'data: [DONE]\n\n' : ''}';
 }
 
 Map<String, Object?> _decision({
@@ -203,7 +203,82 @@ void main() {
     expect((requestBodies.last['messages'] as List), hasLength(2));
     expect(requestBodies.first['thinking'], {'type': 'enabled'});
     expect(requestBodies.last['thinking'], {'type': 'disabled'});
+    expect(requestBodies.first.containsKey('max_tokens'), isFalse);
+    expect(requestBodies.last['max_tokens'], 1400);
     client.close();
+  });
+
+  test('length-limited parseable tool arguments are replanned before returning a move', () async {
+    final requests = <Map<String, dynamic>>[];
+    final retries = <Object>[];
+    final client = DeepSeekClient(streamClientFactory: () => MockClient((request) async {
+      requests.add(jsonDecode(request.body) as Map<String, dynamic>);
+      final first = requests.length == 1;
+      return http.Response(_toolResponse(_decision(params: {
+        'room_id': 'ROOM', 'revision': 4, 'move': {'row': first ? 7 : 8, 'col': 7},
+      }), finishReason: first ? 'length' : 'tool_calls'), 200,
+        headers: {'content-type': 'text/event-stream'});
+    }));
+    try {
+      final result = await CedarAgentActionPlanner(ai: client,
+        onRetry: (error) async => retries.add(error)).decide(
+        apiKey: 'test', endpoint: DeepSeekClient.defaultEndpoint, gameId: 'duel',
+        instruction: '只推进 duel', acceptsAction: (action) => action == 'move');
+      expect(requests, hasLength(2));
+      expect((result.params['move'] as Map)['row'], 8);
+      expect(retries.single, isA<CedarAgentActionPlanningException>().having(
+        (error) => error.category, 'category', 'incomplete_tool_call'));
+      expect(requests.first.containsKey('max_tokens'), false);
+      expect(requests.last['thinking'], {'type': 'disabled'});
+    } finally { client.close(); }
+  });
+
+  test('two incomplete tool decisions never return an executable move', () async {
+    var calls = 0;
+    final client = DeepSeekClient(streamClientFactory: () => MockClient((request) async {
+      calls++;
+      return http.Response(_toolResponse(_decision(), finishReason: 'length'), 200,
+        headers: {'content-type': 'text/event-stream'});
+    }));
+    try {
+      await expectLater(CedarAgentActionPlanner(ai: client).decide(
+        apiKey: 'test', endpoint: DeepSeekClient.defaultEndpoint, gameId: 'duel',
+        instruction: '只推进 duel', acceptsAction: (action) => action == 'move'),
+        throwsA(isA<CedarAgentActionPlanningException>().having(
+          (error) => error.category, 'category', 'incomplete_tool_call')));
+      expect(calls, 2);
+    } finally { client.close(); }
+  });
+
+  for (final finishReason in <String?>['tool_calls', null]) {
+    test('native tool call accepts ${finishReason ?? '[DONE]'} as a successful terminal', () async {
+      final client = DeepSeekClient(streamClientFactory: () => MockClient((request) async =>
+        http.Response(_toolResponse(_decision(), finishReason: finishReason,
+          done: finishReason == null), 200, headers: {'content-type': 'text/event-stream'})));
+      try {
+        final result = await CedarAgentActionPlanner(ai: client).decide(
+          apiKey: 'test', endpoint: DeepSeekClient.defaultEndpoint, gameId: 'duel',
+          instruction: '只推进 duel', acceptsAction: (action) => action == 'move');
+        expect(result.action, 'move');
+      } finally { client.close(); }
+    });
+  }
+
+  test('parseable tool call without any terminal never returns an executable move', () async {
+    var calls = 0;
+    final client = DeepSeekClient(streamClientFactory: () => MockClient((request) async {
+      calls++;
+      return http.Response(_toolResponse(_decision(), finishReason: null, done: false), 200,
+        headers: {'content-type': 'text/event-stream'});
+    }));
+    try {
+      await expectLater(CedarAgentActionPlanner(ai: client).decide(
+        apiKey: 'test', endpoint: DeepSeekClient.defaultEndpoint, gameId: 'duel',
+        instruction: '只推进 duel', acceptsAction: (action) => action == 'move'),
+        throwsA(isA<CedarAgentActionPlanningException>().having(
+          (error) => error.category, 'category', 'incomplete_tool_call')));
+      expect(calls, 2);
+    } finally { client.close(); }
   });
 
   test('wrong game id is rejected and corrected without free JSON fallback',

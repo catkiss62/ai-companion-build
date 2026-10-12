@@ -587,7 +587,8 @@ class ImmersiveRoomController extends ChangeNotifier {
       requestProvider: requestProvider,
       modelName: modelName,
       thinking: true,
-      maxTokens: 6000,
+      // Narrative and reasoning share the output budget. Keep provider defaults
+      // like ordinary chat; existing partial-draft/continuation rules still apply.
       cancellationToken: cancellation,
       usageLane: 'immersive_reply',
     )) {
@@ -1298,6 +1299,7 @@ class ImmersiveRoomController extends ChangeNotifier {
         model: model,
         endpoint: endpoint,
         thinking: false,
+        // This is a bounded JSON compaction task, not the visible narrative.
         maxTokens: 1600,
         usageLane: 'immersive_summary',
         messages: [

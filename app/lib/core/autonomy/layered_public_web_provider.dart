@@ -797,7 +797,6 @@ class AgnesWebCompactor {
 【公开正文开始】
 $material
 【公开正文结束】''',
-      maxTokens: 1400,
     );
     return raw == null ? null : _parsePageSummary(raw);
   }
@@ -815,7 +814,6 @@ $material
 来源域名：${_bounded(source, 160)}
 返回严格 JSON：{"reader_summary":"给用户看的清楚中文概要","key_points":["可复核要点"],"uncertainties":["限制或不确定性"],"topic_tags":["主题标签"],"event_date":"YYYY-MM-DD或空","publication_date":"YYYY-MM-DD或空"}。
 ${jsonEncode(partials.map((item) => item.toJson()).toList(growable: false))}''',
-      maxTokens: 1600,
     );
     return raw == null ? null : _parsePageSummary(raw);
   }
@@ -885,7 +883,6 @@ ${jsonEncode(partials.map((item) => item.toJson()).toList(growable: false))}''',
       '每条用简洁中文提炼事实、保留不确定性，不评价用户、不决定是否分享，'
       '每条不超过 180 个汉字。\n' +
           jsonEncode(payload),
-      maxTokens: 900,
     );
     if (response == null) {
       lastFailureReason = 'no_valid_response';
@@ -947,7 +944,7 @@ ${jsonEncode(partials.map((item) => item.toJson()).toList(growable: false))}''',
         maxTokens: 120,
       );
 
-  Future<String?> _complete(String prompt, {required int maxTokens}) async {
+  Future<String?> _complete(String prompt, {int? maxTokens}) async {
     final uri = Uri.tryParse(endpoint.trim());
     if (uri == null || uri.scheme != 'https' || !uri.hasAuthority) return null;
     try {
@@ -970,7 +967,7 @@ ${jsonEncode(partials.map((item) => item.toJson()).toList(growable: false))}''',
                 {'role': 'user', 'content': prompt},
               ],
               'temperature': 0.1,
-              'max_tokens': maxTokens,
+              if (maxTokens != null) 'max_tokens': maxTokens,
             }),
           )
           .timeout(const Duration(seconds: 30));
@@ -979,7 +976,12 @@ ${jsonEncode(partials.map((item) => item.toJson()).toList(growable: false))}''',
       if (decoded is! Map || decoded['choices'] is! List) return null;
       final choices = decoded['choices'] as List;
       if (choices.isEmpty || choices.first is! Map) return null;
-      final message = (choices.first as Map)['message'];
+      final choice = choices.first as Map;
+      final finishReason = choice['finish_reason']?.toString().trim() ?? '';
+      // Older relays omit this field. An explicit incomplete ending must
+      // never promote a partial page summary to verified reading evidence.
+      if (finishReason.isNotEmpty && finishReason != 'stop') return null;
+      final message = choice['message'];
       if (message is! Map) return null;
       final content = message['content']?.toString().trim() ?? '';
       return content.isEmpty ? null : content;

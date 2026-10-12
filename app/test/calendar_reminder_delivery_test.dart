@@ -3,6 +3,8 @@ import 'dart:convert';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+import 'package:http/http.dart' as http;
+import 'package:http/testing.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 import 'package:ai_companion_localfirst/core/database/app_database.dart';
 import 'package:ai_companion_localfirst/core/models/chat_message.dart';
@@ -10,6 +12,9 @@ import 'package:ai_companion_localfirst/core/phone/calendar_reminder_followup.da
 import 'package:ai_companion_localfirst/core/phone/calendar_reminder_state.dart';
 import 'package:ai_companion_localfirst/core/phone/calendar_reminder_store.dart';
 import 'package:ai_companion_localfirst/core/ai/prompt_builder.dart';
+import 'package:ai_companion_localfirst/core/ai/chat_api_provider.dart';
+import 'package:ai_companion_localfirst/core/ai/deepseek_client.dart';
+import 'package:ai_companion_localfirst/core/storage/secure_config.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();sqfliteFfiInit();
@@ -55,6 +60,31 @@ void main() {
     snapshot['sequence']=(snapshot['sequence'] as int)+1;
   }
   ChatMessage reply(String id,DateTime now) => ChatMessage(id:id,role:'assistant',content:'聊天',createdAt:now,isProactive:true);
+
+  test('reminder uses provider output budget and diagnoses length before fallback', () async {
+    FlutterSecureStorage.setMockInitialValues({'deepseek_api_key': 'test-deepseek'});
+    await SecureConfig.instance.writeChatProvider(ChatApiProvider.aiWangYouGemini);
+    await SecureConfig.instance.writeAiWangYouApiKey('test-final');
+    await SecureConfig.instance.writeAiWangYouEndpoint('https://writer.invalid/v1/chat/completions');
+    var calls = 0;
+    await CalendarReminderFollowup(db, clientFactory: (abort) => DeepSeekClient(
+      abortWhen: abort,
+      streamClientFactory: () => MockClient((request) async {
+        calls++;
+        final body = jsonDecode(request.body) as Map;
+        expect(body.containsKey('max_tokens'), false);
+        final second = request.url.host == 'writer.invalid';
+        return http.Response(
+          'data: ${jsonEncode({'choices': [{'delta': {'content': second ? '「该' : '该出发啦。'}, 'finish_reason': second ? 'length' : 'stop'}]})}\n\n'
+          'data: [DONE]\n\n', 200,
+          headers: {'content-type': 'text/event-stream; charset=utf-8'});
+      }),
+    )).deliverOne();
+    expect(calls, 2);
+    expect(await db.getSetting('calendar_last_final_provider_notice'), contains('达到输出上限'));
+    expect((await db.messageById('calendar-reminder:${event['occurrence']}'))!.content, '该出发啦。');
+    expect(notifications, 1);
+  });
 
   test('reminder persists emotion separately and displays clean dialogue everywhere', () async {
     await CalendarReminderFollowup(db, generator: (messages, current, id) async =>

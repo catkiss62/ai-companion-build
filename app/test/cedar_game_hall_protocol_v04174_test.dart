@@ -306,11 +306,11 @@ void main() {
     );
 
     expect(callCount, 2);
-    expect(retryErrors.single, isA<EmptyJsonCompletionException>());
+    expect(retryErrors.single, isA<IncompleteJsonCompletionException>());
     expect(result['action'], 'move');
     expect(requests.first['thinking'], {'type': 'enabled'});
     expect(requests.first['reasoning_effort'], 'high');
-    expect(requests.first['max_tokens'], 2400);
+    expect(requests.first.containsKey('max_tokens'), isFalse);
     expect((requests.first['messages'] as List), hasLength(1));
     expect(requests.last['thinking'], {'type': 'disabled'});
     expect(requests.last.containsKey('reasoning_effort'), isFalse);

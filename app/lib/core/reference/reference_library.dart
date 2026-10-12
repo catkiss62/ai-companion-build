@@ -38,20 +38,27 @@ class ReferenceLibrary {
         prompt: '',
       );
     }
-    final all = await db.worldBookBehaviorDocuments(limit: 160);
-    final selected = <ReferenceDocument>[];
-    for (final item in all) {
-      if (!item.enabled || !_scopeMatches(item.scope, scope)) continue;
-      final modeActive = switch (item.activationMode) {
-        'always' => true,
-        'manual' => item.manualActive,
-        _ => _keywordMatch(item, query),
-      };
-      if (!modeActive) continue;
-      if (!await _probabilityAllows(item, turnKey)) continue;
-      selected.add(item);
-      if (selected.length >= limit) break;
+    final selectedIds = <String>[];
+    const pageSize = 64;
+    for (var offset = 0; selectedIds.length < limit; offset += pageSize) {
+      final page = await db.worldBookBehaviorMetadataPage(
+        offset: offset, limit: pageSize,
+      );
+      for (final item in page) {
+        if (!item.enabled || !_scopeMatches(item.scope, scope)) continue;
+        final modeActive = switch (item.activationMode) {
+          'always' => true,
+          'manual' => item.manualActive,
+          _ => _keywordMatch(item, query),
+        };
+        if (!modeActive) continue;
+        if (!await _probabilityAllows(item, turnKey)) continue;
+        selectedIds.add(item.id);
+        if (selectedIds.length >= limit) break;
+      }
+      if (page.length < pageSize) break;
     }
+    final selected = await db.referenceDocumentsByIds(selectedIds);
     if (selected.isEmpty) {
       return const WorldBookPromptBundle(
         documents: <ReferenceDocument>[],

@@ -24,11 +24,13 @@ typedef CalendarReminderGenerator = Future<({String text, String model})?> Funct
 /// A started occurrence owns at most one generated reminder. Confirmation and
 /// timeout are durable facts; they never create another conversation turn.
 class CalendarReminderFollowup {
-  CalendarReminderFollowup(this.db, {AndroidBridge? android, this.generator})
+  CalendarReminderFollowup(this.db, {AndroidBridge? android, this.generator,
+    this.clientFactory})
       : android = android ?? AndroidBridge.instance;
   final AppDatabase db;
   final AndroidBridge android;
   final CalendarReminderGenerator? generator;
+  final DeepSeekClient Function(Future<bool> Function() abort)? clientFactory;
 
   Future<void> deliverOne() async {
     final sql = await db.database;
@@ -125,7 +127,7 @@ class CalendarReminderFollowup {
       final finalKey = (await config.readFinalReplyApiKey())?.trim() ?? '';
       final finalEndpoint = await config.readFinalReplyEndpoint();
       final finalName = await config.readFinalReplyModel();
-      final client = DeepSeekClient(
+      final client = clientFactory?.call(() async => !await current()) ?? DeepSeekClient(
         abortWhen: () async => !await current(),
         onUsage: (event) => ModelUsageTelemetry.record(db, event),
       );
@@ -150,7 +152,8 @@ class CalendarReminderFollowup {
             effort: ReasoningEffort.high,
             messages: messages,
             thinking: true,
-            maxTokens: 500,
+            // A short reminder still shares its output budget with reasoning.
+            // As in ordinary chat, let the provider limit this visible reply.
             usageLane: finalChannel ? 'calendar_reminder_final' : 'calendar_reminder',
             usageExecutionId: occurrence,
           )) {
@@ -159,11 +162,10 @@ class CalendarReminderFollowup {
             if (delta.finishReason != null) finish = delta.finishReason!;
           }
           final content = buffer.toString().trim();
-          if (!done || content.isEmpty ||
-              FinalReplyFailurePolicy.isIncompleteFinishReason(finish) ||
-              FinalReplyFailurePolicy.hasStrongIncompleteStructure(content)) {
-            return null;
-          }
+          final failure = FinalReplyFailurePolicy.incompleteResponseFailure(
+            sawTerminalSignal: done, finishReason: finish, content: content);
+          if (failure != null) throw failure;
+          if (content.isEmpty) return null;
           return content;
         }
 

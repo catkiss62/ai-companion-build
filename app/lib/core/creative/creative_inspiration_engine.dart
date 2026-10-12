@@ -43,7 +43,7 @@ hold允许改已有未开工构思；start只开一个新作品，不能重复�
       return await client.jsonCompletion(apiKey: key, endpoint: await config.readEndpoint(),
         model: DeepSeekModelProfile.fromApiName(await db.getSetting('deepseek_model')),
         effort: ReasoningEffort.fromApiName(await db.getSetting('reasoning_effort')),
-        thinking: true, maxTokens: 2500, requestTimeout: const Duration(seconds: 90),
+        thinking: true, maxTokens: null, requestTimeout: const Duration(seconds: 90),
         usageLane: 'creative_inspiration', usageExecutionId: 'inspiration:${material['fingerprint']}',
         messages: [{'role': 'system', 'content': instruction},
           {'role': 'user', 'content': jsonEncode(material)}]);

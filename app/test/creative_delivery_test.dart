@@ -62,6 +62,7 @@ void main() {
       final body = jsonDecode(request.body) as Map;
       expect(body['model'], 'custom-final-writer');
       expect(body.containsKey('tools'), false);
+      expect(body.containsKey('max_tokens'), false);
       expect(request.body, contains('已完成作品的交付正文'));
       expect(request.body, contains('小灯'));
       expect(request.body, isNot(contains('PRIVATE_SOURCE_NOT_FOR_FINAL_WRITER')));
@@ -170,10 +171,27 @@ void main() {
       if (request.url.host == 'writer.invalid') return http.Response('unavailable', 503);
       expect(request.headers['Authorization'], 'Bearer test-deepseek');
       expect((jsonDecode(request.body) as Map).containsKey('tools'), false);
+      expect((jsonDecode(request.body) as Map).containsKey('max_tokens'), false);
       return answer();
     }).runOnce();
     expect(calls, 2); expect(await delivered(), hasLength(1));
     expect((await notice())['provider_failure'], isNotEmpty);
+  });
+
+  test('a provider output limit is diagnosed before fallback delivery', () async {
+    await runner((request) async {
+      expect((jsonDecode(request.body) as Map).containsKey('max_tokens'), false);
+      if (request.url.host == 'writer.invalid') {
+        return http.Response(
+          'data: ${jsonEncode({'choices': [{'delta': {'content': '「还没说完'}, 'finish_reason': 'length'}]})}\n\n'
+          'data: [DONE]\n\n', 200,
+          headers: {'content-type': 'text/event-stream; charset=utf-8'});
+      }
+      return answer();
+    }).runOnce();
+    expect(calls, 2);
+    expect((await notice())['provider_failure'], '达到输出上限');
+    expect((await delivered()).single['content'], '小灯做好了，点一下就能亮起来。');
   });
 
   test('pre-upgrade ready works receive no retroactive completion spam', () async {

@@ -98,7 +98,7 @@ class CedarJsonDecisionRetryPolicy {
   static ReasoningEffort effortForAttempt(int attempt) =>
       attempt <= 1 ? ReasoningEffort.high : ReasoningEffort.low;
 
-  static int maxTokensForAttempt(int attempt) => attempt <= 1 ? 2400 : 1400;
+  static int? maxTokensForAttempt(int attempt) => attempt <= 1 ? null : 1400;
 
   static List<Map<String, Object?>> messagesForAttempt({
     required int attempt,
@@ -307,13 +307,14 @@ class CedarAgentActionPlanner {
 
     (parameters['required'] as List).add('share_previous_outcome');
     final accumulator = AgentNativeToolCallAccumulator();
+    var completed = false;
     await for (final delta in ai.streamChat(
       apiKey: apiKey,
       model: DeepSeekModelProfile.flash,
       endpoint: endpoint,
       thinking: thinking,
       effort: thinking ? ReasoningEffort.high : ReasoningEffort.low,
-      maxTokens: thinking ? 2400 : 1400,
+      maxTokens: thinking ? null : 1400,
       tools: <Map<String, Object?>>[tool],
       // Match the foreground Agent request contract. DeepSeek's documented
       // function-calling flow lets the model select the supplied tool with
@@ -329,7 +330,21 @@ class CedarAgentActionPlanner {
           <String, Object?>{'role': 'user', 'content': correction},
       ],
     )) {
+      final finishReason = delta.finishReason?.trim().toLowerCase() ?? '';
+      if (finishReason.isNotEmpty &&
+          finishReason != 'stop' &&
+          finishReason != 'tool_calls') {
+        // Parseable arguments do not make a length-limited or filtered
+        // decision complete. Replan before any remote game action runs.
+        throw const CedarAgentActionPlanningException('incomplete_tool_call');
+      }
+      if (delta.done || finishReason == 'stop' || finishReason == 'tool_calls') {
+        completed = true;
+      }
       accumulator.addAll(delta.toolCallDeltas);
+    }
+    if (!completed) {
+      throw const CedarAgentActionPlanningException('incomplete_tool_call');
     }
     if (accumulator.length != 1) {
       throw const CedarAgentActionPlanningException('missing_tool_call');
@@ -2277,7 +2292,6 @@ game=${session.gameId}
         requestProvider: gemini ? finalProvider : null,
         modelName: gemini ? finalModel : null,
         thinking: false,
-        maxTokens: 512,
         cancellationToken: cancellationToken,
         requestTimeout: const Duration(seconds: 30),
         usageLane: gemini ? 'cedar_room_final_reply' : 'cedar_room_dialogue',

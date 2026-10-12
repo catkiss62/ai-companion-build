@@ -37,7 +37,7 @@ require(
     "lib/core/mcp/cedar_toy_autonomy_engine.dart",
     "class CedarJsonDecisionExecutor",
     "thinkingForAttempt",
-    "attempt <= 1 ? 2400 : 1400",
+    "attempt <= 1 ? null : 1400",
     "static String errorCategory",
     "上一次没有产生可解析正文",
     "class CedarRoomActionPayload",

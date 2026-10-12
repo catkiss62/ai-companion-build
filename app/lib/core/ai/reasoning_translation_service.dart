@@ -155,7 +155,11 @@ class DeepSeekReasoningTranslationGateway
     required String endpoint,
     required String reasoning,
   }) async {
-    final maxTokens = (reasoning.runes.length * 2).clamp(800, 6000).toInt();
+    final estimatedTokens = reasoning.runes.length * 2;
+    // Short, non-thinking JSON translations keep their budget. Long source
+    // text must not be forced into an arbitrary 6000-token translation ceiling.
+    final int? maxTokens = estimatedTokens > 6000
+        ? null : estimatedTokens.clamp(800, 6000).toInt();
     final result = await _client.jsonCompletion(
       apiKey: apiKey,
       endpoint: endpoint,

@@ -160,7 +160,9 @@ class QwenVisionClient {
               },
             ],
             'response_format': {'type': 'json_object'},
-            'max_tokens': 900,
+            // Observation text, visible text and album/match fields share
+            // one JSON response; leave room for it to close completely.
+            'max_tokens': 4096,
             'temperature': 0.1,
             'stream': false,
           }),
@@ -179,6 +181,10 @@ class QwenVisionClient {
       throw const FormatException('千问视觉返回中没有 choices');
     }
     final choice = (choices.first as Map).cast<String, dynamic>();
+    final finishReason = choice['finish_reason']?.toString().trim() ?? '';
+    if (finishReason.isNotEmpty && finishReason != 'stop') {
+      throw FormatException('千问视觉输出未完整结束：$finishReason');
+    }
     final message = (choice['message'] as Map?)?.cast<String, dynamic>();
     final raw = message?['content']?.toString().trim() ?? '';
     if (raw.isEmpty) throw const FormatException('千问视觉没有返回观察结果');

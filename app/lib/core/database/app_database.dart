@@ -15086,6 +15086,41 @@ class AppDatabase {
     return rows.map(UnfinishedThread.fromDb).toList();
   }
 
+  /// Apply the existing direct-evidence rule before the prompt result limit.
+  /// Walk bounded pages so unrelated high-priority threads cannot hide an
+  /// explicitly recalled older thread as the local collection grows.
+  Future<List<UnfinishedThread>> relevantActiveUnfinishedThreads(
+    String query, {
+    int limit = 3,
+  }) async {
+    if (limit <= 0) return const [];
+    if (query.trim().isEmpty) return activeUnfinishedThreads(limit: limit);
+    if (MemoryRetrievalPolicy.tokensFor(query).isEmpty) return const [];
+    final db = await database;
+    final selected = <UnfinishedThread>[];
+    const pageSize = 64;
+    for (var offset = 0; ; offset += pageSize) {
+      final rows = await db.query(
+        'unfinished_threads',
+        where: 'status = ?',
+        whereArgs: const ['active'],
+        orderBy: 'importance DESC, updated_at DESC',
+        limit: pageSize,
+        offset: offset,
+      );
+      for (final row in rows) {
+        final item = UnfinishedThread.fromDb(row);
+        if (!MemoryRetrievalPolicy.hasDirectTextEvidence(
+          query,
+          '${item.title} ${item.detail} ${item.topicKey}',
+        )) continue;
+        selected.add(item);
+        if (selected.length >= limit) return selected;
+      }
+      if (rows.length < pageSize) return selected;
+    }
+  }
+
   Future<UnfinishedThread?> unfinishedThreadById(String id) async {
     final db = await database;
     final rows = await db.query('unfinished_threads', where: 'id = ?', whereArgs: [id], limit: 1);
@@ -16480,6 +16515,28 @@ class AppDatabase {
           : "entry_type = 'behavior'",
       orderBy: 'priority DESC, updated_at DESC',
       limit: limit,
+    );
+    return rows.map(ReferenceDocument.fromDb).toList(growable: false);
+  }
+
+  /// Prompt activation scans metadata in priority order; raw bodies are loaded
+  /// only for the small selected set after scope and activation checks.
+  Future<List<ReferenceDocument>> worldBookBehaviorMetadataPage({
+    int offset = 0,
+    int limit = 64,
+  }) async {
+    final db = await database;
+    final rows = await db.query(
+      'reference_documents',
+      columns: const [
+        'id', 'name', 'kind', 'aliases', 'enabled', 'entry_type',
+        'activation_mode', 'priority', 'activation_probability', 'scope',
+        'manual_active', 'exclusive_group', 'builtin', 'created_at', 'updated_at',
+      ],
+      where: "entry_type = 'behavior' AND enabled = 1",
+      orderBy: 'priority DESC, updated_at DESC',
+      limit: limit,
+      offset: offset,
     );
     return rows.map(ReferenceDocument.fromDb).toList(growable: false);
   }

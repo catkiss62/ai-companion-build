@@ -1048,7 +1048,7 @@ class AgentToolRunner {
         endpoint: await secureConfig.readEndpoint(),
         thinking: true,
         effort: ReasoningEffort.high,
-        maxTokens: 420,
+        maxTokens: null,
         cancellationToken: cancellationToken,
         requestTimeout: const Duration(seconds: 20),
         usageLane: 'cedar_outcome',

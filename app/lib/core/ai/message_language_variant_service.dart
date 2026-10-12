@@ -64,6 +64,12 @@ class DeepSeekMessageLanguageVariantGateway
     }
     final targetName =
         target == ChatLanguage.japanese ? '自然日语' : '自然英语';
+    final estimatedTokens = source.fold<int>(
+          0, (sum, item) => sum + item.text.runes.length) * 3;
+    // Retain the small JSON task budget, but do not force long translations
+    // under the old ceiling or crop the submitted source to fit it.
+    final int? maxTokens = estimatedTokens > 5000
+        ? null : estimatedTokens.clamp(500, 5000).toInt();
     Object? lastError;
     for (var attempt = 1; attempt <= 2; attempt++) {
       try {
@@ -73,11 +79,7 @@ class DeepSeekMessageLanguageVariantGateway
           model: DeepSeekModelProfile.flash,
           thinking: false,
           effort: ReasoningEffort.high,
-          maxTokens:
-              (source.fold<int>(0, (sum, item) => sum + item.text.runes.length) *
-                      3)
-                  .clamp(500, 5000)
-                  .toInt(),
+          maxTokens: maxTokens,
           usageLane: 'message_translation',
           messages: <Map<String, Object?>>[
             {

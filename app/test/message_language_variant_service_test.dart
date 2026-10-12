@@ -1,10 +1,44 @@
+import 'dart:convert';
+
+import 'package:ai_companion_localfirst/core/ai/deepseek_client.dart';
 import 'package:ai_companion_localfirst/core/ai/message_language_variant_service.dart';
 import 'package:ai_companion_localfirst/core/models/chat_language_variant.dart';
 import 'package:ai_companion_localfirst/core/models/chat_message.dart';
 import 'package:ai_companion_localfirst/core/models/chat_segment.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:http/http.dart' as http;
+import 'package:http/testing.dart';
 
 void main() {
+  http.Response translationResponse(List<String> translated, {String finish = 'stop'}) =>
+      http.Response(jsonEncode({'choices': [{'finish_reason': finish, 'message': {
+        'content': jsonEncode({'segments': [for (final text in translated) {'kind': 'dialogue', 'text': text}]})}}]}),
+        200, headers: {'content-type': 'application/json; charset=utf-8'});
+
+  test('translation budgets short JSON tasks but preserves long complete input', () async {
+    for (final length in <int>[10, 400, 1666, 1667]) {
+      final source = [ChatSegment(kind: ChatSegmentKind.dialogue,
+        text: List.filled(length, '字').join())];
+      final client = DeepSeekClient(client: MockClient((request) async {
+        final body = jsonDecode(request.body) as Map;
+        if (length == 1667) {
+          expect(body.containsKey('max_tokens'), false);
+        } else {
+          expect(body['max_tokens'], (length * 3).clamp(500, 5000));
+        }
+        final input = jsonDecode((body['messages'] as List).last['content'] as String) as Map;
+        expect((input['source_segments'] as List).single['text'], source.single.text);
+        return translationResponse(['Complete translated text.']);
+      }));
+      try {
+        final translated = await DeepSeekMessageLanguageVariantGateway(client: client).translate(
+          apiKey: 'test-key', endpoint: 'https://api.deepseek.com/chat/completions',
+          source: source, target: ChatLanguage.english);
+        expect(translated.single.text, 'Complete translated text.');
+      } finally { client.close(); }
+    }
+  });
+
   ChatMessage sourceMessage() => ChatMessage(
         id: 'assistant-1',
         role: 'assistant',
@@ -15,6 +49,26 @@ void main() {
           ChatSegment(kind: ChatSegmentKind.dialogue, text: '我在这里。'),
         ],
       );
+
+  test('valid JSON marked truncated never becomes a cached language variant', () async {
+    final store = _MemoryVariantStore(sourceMessage());
+    var calls = 0;
+    final client = DeepSeekClient(client: MockClient((_) async {
+      calls++;
+      return translationResponse(['Partial action.', 'Partial dialogue.'], finish: 'length');
+    }));
+    try {
+      final service = MessageLanguageVariantService(
+        store: store, gateway: DeepSeekMessageLanguageVariantGateway(client: client),
+        apiKeyLoader: () async => 'test-key',
+        endpointLoader: () async => 'https://api.deepseek.com/chat/completions');
+      await expectLater(service.ensure(message: sourceMessage(), language: ChatLanguage.english),
+        throwsA(isA<MessageLanguageVariantException>()));
+      expect(calls, 2);
+      expect(store.saves, 0);
+      expect(store.message.languageVariants, isEmpty);
+    } finally { client.close(); }
+  });
 
   test('one selected language is generated once and then reused from cache',
       () async {
