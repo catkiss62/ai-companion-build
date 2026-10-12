@@ -326,6 +326,11 @@ void main() {
     final oldFence = (await db.captureBrainWorkFence(leaseKey: 'proactive_lease_until'))!;
     await db.setSetting('proactive_lease_until',
       '${oldFence.leaseToken}|${DateTime.now().millisecondsSinceEpoch - 1}');
+    // TTL expiry does not release this isolate's logical ownership. Model a
+    // cancelled/released request whose delayed stream resumes after a new
+    // request has acquired a fresh lease on the same database instance.
+    expect(await db.tryAcquireProactiveLease(), isFalse);
+    await db.releaseLocalLease('proactive_lease_until');
     expect(await db.tryAcquireProactiveLease(), isTrue);
     final replacement = await db.getSetting('proactive_lease_until');
     final newFence = (await db.captureBrainWorkFence(leaseKey: 'proactive_lease_until'))!;
