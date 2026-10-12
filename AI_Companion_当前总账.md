@@ -10,6 +10,10 @@
 
 
 
+## 当前任务 · +348 系统逻辑修复（实施中）
+
+2026-10-13用户授权两遍审查后的分组修改，正确性/稳定性优先，可补同链新漏洞；每组实现后独立复审与针对性测试，最终统一APK。分支agent/v042104-system-logic-hardening，基线+347远端27074962fc04a181411367106814db2146684d83与本地同树。36项审查记录按六组推进，当前G1梦境/备份媒体实现，后续组先对齐任务身份、取消提交及来源版本契约。详情app/docs/SYSTEM_LOGIC_HARDENING_2026-10-13.md。DESIGNED / G1 IMPLEMENTING / VALIDATION PENDING / NO NEW APK；不将旧版通过计入本轮。用户私有原档未改、不上传；保留已约定体验与同签名测试发布边界。
+
 ## 当前交付 · +347 发言形态、记忆纠错与共同成长
 
 CI PASSED / APK READY / TRUE DEVICE PENDING。0.42.103+347，agent/v042103-memory-form-continuity，APK源码 46b25908c59530b551467f120b1e6ae7e191bd25。完整38280555539 / build114918842273成功：150源码门、Node桥、Kotlin、Flutter分析、1749全量Flutter、160打包前存档/作品回归及Android15/8的40/11项全部通过。同签名未发布APK已上传，737074801 bytes；Release410672300 / APK资产634437461。

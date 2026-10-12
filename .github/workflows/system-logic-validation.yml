@@ -1,0 +1,39 @@
+name: System logic hardening validation (no APK)
+on:
+  push:
+    branches: [agent/v042104-system-logic-hardening]
+    paths:
+      - 'app/lib/**'
+      - 'app/test/**'
+      - 'app/tools/**'
+      - 'app/android/**'
+      - '.github/workflows/system-logic-validation.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: system-logic-validation-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  flutter:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.44.9'
+          cache: true
+      - name: Restore pinned presentation assets required by widget tests
+        run: bash tools/fetch_lingchat_visual_assets.sh
+        working-directory: app
+      - run: flutter pub get
+        working-directory: app
+      - name: Analyze all Dart sources
+        run: flutter analyze --no-fatal-infos --no-fatal-warnings
+        working-directory: app
+      - name: Creative page bridge failure recovery
+        run: node app/tools/test_creative_bridge.mjs
+      - name: Full Flutter regression suite
+        run: flutter test
+        working-directory: app
