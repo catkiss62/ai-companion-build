@@ -1,5 +1,4 @@
 import '../creative/creative_play.dart';
-import '../creative/creative_store.dart';
 import '../reflection/deep_reflection_contract.dart';
 import 'generation_lease_guard.dart';
 import 'dart:async';
@@ -560,10 +559,8 @@ class DurableGenerationRunner {
         conversationInitiativeOverride: conversationPlan,
       );
       final creativeContext = await CreativePlay.chatContext(db, userMessageId: job.userMessageId);
-      final creativeWorkContext = await CreativeStore(db).chatContext();
       final baseRequestMessages = <Map<String, Object?>>[
         ...promptBuild.messages,
-        {'role': 'system', 'content': creativeWorkContext},
         if (creativeContext.isNotEmpty) {'role': 'system', 'content': creativeContext},
         {'role': 'system', 'content': job.deepThinking
           ? '小作品只有本轮明确委托才可调用制作工具；开关、反馈或设想不等于委托。工具只登记任务，完成由作品卡的真实状态决定。'
@@ -1654,7 +1651,7 @@ $finalGenerationReminder
 当前用户消息仍是前文最后一条真实 role=user 消息。
 必须重新回答当前用户消息，不能改成与问题无关的事实声明，也不能原样重复最近已经发送过的回复。
 所有“看过/查过/读取过系统、看见屏幕、调用/保存/修改/设置完成”的可核验操作报告，只能来自本轮匹配的真实成功工具结果。失败、无结果或阻止必须照实说；一次读取绝不能扩写成“一下午/半天/几小时”。没有结果时说尚未执行，或改为“我在想这件事”等真实主观体验。
-旧对话里的游戏场景和未完成事项不证明游戏仍在运行。没有本轮 Cedar 成功结果时，不得声称正在钓鱼、挂着鱼漂、漂没动或图鉴刚才没涨；应说还没有实际去玩，或只表达想玩的念头。
+旧对话里的游戏场景和未完成事项不证明游戏仍在运行。没有本轮 Cedar 成功结果时，不得声称正在钓鱼、挂着鱼漂、漂没动或图鉴刚才没涨；可以表达想玩的念头，但不能因此否认已证实的历史游玩。自制作品完成与交互以本地作品事实为准，不要求 Cedar 结果。
 真实上下文、Memory、Thought 或 Self Experience 可以说成“想起/又琢磨过某件具体的事”，但不能包装成并未发生的“翻了聊天记录/从头到尾看了一遍”。
 只修正事实，不修改语气、称呼、问题、动作、性格或自然停顿。
 $finalGenerationReminder

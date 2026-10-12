@@ -44,7 +44,8 @@ require(
     "lib/core/desire/proactive_engine.dart",
     "pendingGameThreadContract",
     "当前没有该游戏的 Cedar Outcome",
-    "尚未实际去玩",
+    "不能因此否认已证实的历史游玩",
+    "自制作品完成与交互以本地作品事实为准",
     "removeUnsupportedSentences",
     "return blockGrounding(operationGuard.reason)",
 )

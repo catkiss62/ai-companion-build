@@ -1,4 +1,5 @@
 import 'dart:convert';
+import '../creative/creative_store.dart';
 import 'autonomous_expression_choice.dart';
 import '../phone/calendar_reminder_state.dart';
 import '../self/dream_store.dart';
@@ -453,6 +454,11 @@ class PromptBuilder {
     final userFacts = worldBookContext.hasRoleplay
         ? const RememberedUserFacts([])
         : await RememberedUserFactsStore(db).load();
+    // Fresh-topic generation still verifies its selected source against local
+    // facts, but never receives unrelated works as extra conversation material.
+    final creativeFacts = !worldBookContext.hasRoleplay
+        ? await CreativeStore(db).chatContext(query: memoryQuery,
+            userMessageId: latestUserMessageId, relevantOnly: freshTopicSourceOnly) : '';
     final messages = <Map<String, Object?>>[
       {
         'role': 'system',
@@ -473,6 +479,7 @@ class PromptBuilder {
 $roleplayContinuity''',
         },
       {'role': 'system', 'content': context.toString().trim()},
+      if (creativeFacts.isNotEmpty) {'role': 'system', 'content': creativeFacts},
       if (!worldBookContext.hasRoleplay && !freshTopicSourceOnly &&
           FestivalContext.forPrompt(instant).isNotEmpty)
         {'role': 'system', 'content': FestivalContext.forPrompt(instant)},

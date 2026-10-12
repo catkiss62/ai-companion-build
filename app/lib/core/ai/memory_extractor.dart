@@ -14,6 +14,8 @@ import '../models/desire_state.dart';
 import '../models/proactive_feedback.dart';
 import '../models/proactive_topic_feedback_policy.dart';
 import '../models/post_turn_job.dart';
+import '../creative/creative_store.dart';
+import '../creative/creative_play.dart';
 import '../models/personality_learning.dart';
 import '../models/world_book_turn_context.dart';
 import '../personality/personality_catalog.dart';
@@ -329,6 +331,9 @@ ${previousAssistant.content}
       if (job != null && job.resultJson.trim().isNotEmpty) {
         result = Map<String, dynamic>.from(jsonDecode(job.resultJson) as Map);
       } else {
+        final creativeFacts = await CreativeStore(db).chatContext(
+            query: '${user.promptContent}\n${assistant.content}', userMessageId: user.id);
+        final creativeSnapshot = await CreativePlay.chatContext(db, userMessageId: user.id);
         result = await client.jsonCompletion(
           apiKey: apiKey,
           model: DeepSeekModelProfile.flash,
@@ -337,6 +342,10 @@ ${previousAssistant.content}
           maxTokens: 1700,
           usageLane: 'memory_extraction',
           messages: [
+          {'role': 'system', 'content': '$creativeFacts\n$creativeSnapshot\n'
+              '整理本轮确实触及的作品经历时，以上本地记录优先于旧记忆、旧念头和旧未完成事项的进度推测。'
+              '不得仅因没有完成正文就写成尚未制作，不把已有实际交互改写为口头模拟。'
+              '制作状态属于作品事实，不要扩写成新的系统能力或永久人格；不相关作品不新增记忆或待办。'},
           {
             'role': 'system',
             'content': '''
