@@ -1,6 +1,6 @@
 # 作品事实同步 · v0.42.100+344
 
-状态：IMPLEMENTED / CI PENDING。基线 +343 / 71f5a46，分支 agent/v042100-creative-facts。用户已授权本窗口 GitHub 推送与 APK 构建，要求存档验证先于打包。
+状态：CI PASSED / APK READY / TRUE DEVICE PENDING。基线 +343 / 71f5a46，分支 agent/v042100-creative-facts。用户已授权本窗口 GitHub 推送与 APK 构建，要求存档验证先于打包。
 
 ## 问题与范围
 
@@ -38,3 +38,19 @@
 ### 构建版本检查修正
 
 完整38190499529在18/150源码门失败：追加版本时，7个使用完整版本分支的正则误写为裸100\+344，缺少0.42.前缀。已修正全部7处，并用AST逐一检查正式validation_suite中14个对+343有效的锚定版本正则，确认全部接受+344；原同功能断言未放宽。独立的短版本组及明确版本列表不受影响。应用代码仍为fbce9c6，最终打包以包含该构建修正的新提交为准。
+
+
+## 最终交付
+
+2026-10-12 09:45 北京时间。版本 **0.42.100+344**，分支 `agent/v042100-creative-facts`。最终 APK 源码 **5ccf04959c084a0646c59a52f16e110cf92fb15f**，树 `81e304ace0a289449eb52e934854565f23ca1de2`；后续仅补交付文档。完整构建 [38191386396](https://github.com/catkiss62/ai-companion-build/actions/runs/38191386396) 全部成功：150 源码门、Kotlin 单测、Flutter 分析、**1571 项全量 Flutter 测试**，打包前再次通过 **62 项存档及事实测试**。最终稳定性 38191386423 / job114624689249：**620 项通过**。Android15 job114624710446、Android8 job114624710461成功。作品专项38190499541的62项存档与事实测试、119项作品及操作校验回归同样通过，后续仅修改构建版本检查。
+
+修复：普通/主动/记忆共用可见作品事实；相关旧作品优先与目录省略提示；已有发布版本和当前修改分离；制作完成和完成正文分离；消息绑定快照进入经验整理；实际作品游玩证据接入发送前及修正后校验；旧时间、新局、私存、未揭晓与外部工具操作边界保留。无批量旧记忆修订、无数据库结构/存档协议变化、无新增逐轮模型调用。用户原始存档未修改、未上传仓库。
+
+- [下载同签名 APK](https://github.com/catkiss62/ai-companion-build/releases/download/untagged-25ccfb683f1fa2df85da/AI-Companion-v0.42.100-344-Creative-Facts-APK.apk)
+- [未发布 Release](https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-25ccfb683f1fa2df85da)：410032293，tag `v0.42.100-creative-facts-test`，APK资产632333581。
+- 文件：`AI-Companion-v0.42.100-344-Creative-Facts-APK.apk`，737028729 bytes。
+- APK SHA256：`687d688d161802b79ca2c3f9bde96ffed7295011af702dd77e1765c9016909ef`，CI 与 Release digest 一致。
+- 签名 SHA256：`305eb3d80983b963c64818ddf1ad561f279de6d47b3ed2c781ada448c7c25148`，同既有私测签名。
+- Actions APK artifact11721324910，729850200 bytes，ZIP SHA256 `ea72905e48113067eb553f22ebf3f692d776f61b548aee0312f7432ac4de000c`；2026-10-26到期。超过当前取回工具512MiB上限，直接交付GitHub APK下载，不声称生成本地附件。
+
+Genie/OpenJTalk、桌宠帧、塔罗、星谷及页面资源校验通过。以上是自动验证结果；实际模型表达与用户设备上的体验仍待真机观察，不承诺所有自然语言错误绝不再发生。旧错误由用户口头纠正，正常新回合的记忆整理继续工作。
