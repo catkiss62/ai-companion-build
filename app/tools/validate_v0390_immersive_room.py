@@ -58,13 +58,19 @@ assert "ImmersiveRoomLobbyPage" in chat
 controller = read("lib/core/immersive/immersive_room_controller.dart")
 for token in (
     "client.streamChat(",
-    "maxTokens: 6000",
     "ImmersivePromptBuilder.continuationMessages",
     "repository.endRoomLocally(roomId)",
     "showStreamingDraft",
     "原始记录仍完整保留",
 ):
     assert token in controller, token
+# Visible prose follows ordinary-chat output budgeting after the +346 audit.
+# Keep the stream completion and continuation safeguards while rejecting a
+# reintroduced artificial cap on this request (summary budgets are separate).
+stream_args = controller.split("await for (final delta in client.streamChat(", 1)[1].split(")) {", 1)[0]
+assert "maxTokens:" not in stream_args
+assert "sawTerminalSignal" in controller
+assert "FinalReplyFailurePolicy.isIncompleteFinishReason(finishReason)" in controller
 archive_worker = read("lib/core/immersive/immersive_archive_worker.dart")
 assert "repository.endRoom(" in archive_worker
 assert "expectedArchiveJob: raw" in archive_worker
