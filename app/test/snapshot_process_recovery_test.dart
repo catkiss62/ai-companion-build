@@ -6,6 +6,7 @@ import 'package:ai_companion_localfirst/core/storage/portable_companion_storage.
 import 'package:ai_companion_localfirst/core/storage/snapshot_restore_journal.dart';
 import 'package:ai_companion_localfirst/core/sync/snapshot_restore_coordinator.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:flutter/services.dart';
 import 'package:path/path.dart' as p;
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 
@@ -23,9 +24,17 @@ class _Preferences extends PortableCompanionStorage {
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
   sqfliteFfiInit();
+  const channel = MethodChannel('ai_companion/system');
+  setUp(() {
+    TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+        .setMockMethodCallHandler(channel, (call) async =>
+            call.method == 'runtimeProcessEpoch' ? 'restarted-native-process' : null);
+  });
+  tearDown(() => TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+      .setMockMethodCallHandler(channel, null));
   const committedCuts = {'afterDatabase', 'duringCleanup', 'afterConsistentMarker'};
   for (final cut in [
-    'afterJournal', 'afterFirstRename', 'afterFirstTree', 'partialPreferences',
+    'afterBackupFreeze', 'duringPrepare', 'beforeJournal', 'afterJournal', 'afterFirstRename', 'afterFirstTree', 'partialPreferences',
     'insideDatabase', 'duringRollback', ...committedCuts,
   ]) {
     test('SIGKILL at $cut recovers a coherent state on next process start', () async {

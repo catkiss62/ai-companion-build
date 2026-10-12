@@ -1,3 +1,4 @@
+import '../storage/pending_media_owner.dart';
 import '../creative/creative_play.dart';
 import '../creative/creative_facts.dart';
 import '../creative/creative_play_evidence.dart';
@@ -272,6 +273,15 @@ class DurableGenerationRunner {
       );
     }
 
+    final originalAttempt = await db.captureGenerationAttemptFence(job);
+    if (originalAttempt == null) {
+      cancellationFenceTimer.cancel();
+      await db.suspendGenerationJob(job.id,
+        runToken: job.runToken, reason: 'attempt_fence_unavailable');
+      return const GenerationRunResult(status: 'suspended');
+    }
+    final pendingMediaOwner = PendingMediaOwner.generation(originalAttempt);
+
     var lastCheckpoint = DateTime.now();
     var charsAtCheckpoint = 0;
     var lastFenceCheck = DateTime.fromMillisecondsSinceEpoch(0);
@@ -433,6 +443,7 @@ class DurableGenerationRunner {
           onActivity: emitToolActivity,
           cancellationToken: effectiveCancellation,
           eventScopeId: job.id,
+          pendingMediaOwner: pendingMediaOwner,
           userMessageId: user.id,
           assistantMessageId: job.assistantMessageId,
           latestUserText: user.content,
@@ -1332,6 +1343,7 @@ $finalGenerationReminder
           onActivity: emitToolActivity,
           cancellationToken: effectiveCancellation,
           eventScopeId: job.id,
+          pendingMediaOwner: pendingMediaOwner,
           userMessageId: user.id,
           assistantMessageId: job.assistantMessageId,
           latestUserText: user.content,
@@ -1804,7 +1816,8 @@ $finalGenerationReminder
       if (baseAssistant.attachments.isEmpty) {
         try {
           selectedSticker = await stickerService.prepareReplyChoice(
-            messageId: baseAssistant.id, choice: stickerChoice, candidates: stickerCandidates);
+            messageId: baseAssistant.id, choice: stickerChoice, candidates: stickerCandidates,
+            pendingOwner: pendingMediaOwner);
         } catch (_) { /* Keep the actual generated text when the asset fails. */ }
       }
       final assistantAttachments = <MessageAttachment>[
@@ -1859,6 +1872,7 @@ $finalGenerationReminder
           jobId: job.id,
           runToken: job.runToken,
           assistant: assistant,
+          pendingMediaOwner: pendingMediaOwner,
           somaticEvents: assistantSomaticEvents,
           playfulActivity: selfActivity ?? PlayfulSelfActivity.none,
           deepReflection: promptBuild.deepReflection,
@@ -2071,6 +2085,7 @@ $finalGenerationReminder
       );
     } finally {
       cancellationFenceTimer.cancel();
+      try { await db.releasePendingMedia(pendingMediaOwner); } catch (_) {}
       if (!agentAttachmentsCommitted) {
         for (final attachment in preparedAgentAttachments) {
           try {

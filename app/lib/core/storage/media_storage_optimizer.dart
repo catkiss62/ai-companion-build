@@ -60,8 +60,8 @@ class MediaStorageOptimizer {
     MediaBlobStorage? blobStorage,
   })  : db = db ?? AppDatabase.instance,
         blobStorage = blobStorage ?? MediaBlobStorage(db: db),
-        attachmentStorage = attachmentStorage ?? MessageAttachmentStorage(),
-        albumStorage = albumStorage ?? CompanionAlbumStorage();
+        attachmentStorage = attachmentStorage ?? MessageAttachmentStorage(db: db),
+        albumStorage = albumStorage ?? CompanionAlbumStorage(db: db);
 
   final AppDatabase db;
   final MessageAttachmentStorage attachmentStorage;
@@ -168,20 +168,8 @@ class MediaStorageOptimizer {
       }
       await blobStorage.deleteBlobFiles(orphan);
     }
-    final liveAttachments = await db.allMessageAttachments();
-    deleted += await attachmentStorage.pruneUnreferencedFiles(
-      liveAttachments.expand((item) => <String>[
-        item.originalPath,
-        item.thumbnailPath,
-      ]),
-    );
-    final liveAlbum = await db.allCompanionAlbumItemsForMediaMigration();
-    deleted += await albumStorage.pruneUnreferencedFiles(
-      liveAlbum.expand((item) => <String>[
-        item.originalPath,
-        item.thumbnailPath,
-      ]),
-    );
+    deleted += await attachmentStorage.pruneUnreferencedFiles(db: db);
+    deleted += await albumStorage.pruneUnreferencedFiles(db: db);
     final referenced = (await db.allMediaBlobs())
         .expand((blob) => <String>[blob.originalPath, blob.thumbnailPath]);
     deleted += await blobStorage.pruneUnreferencedFiles(referenced);

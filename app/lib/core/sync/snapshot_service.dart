@@ -12,6 +12,7 @@ import '../mcp/cedar_play_session_policy.dart';
 import '../storage/companion_album_storage.dart';
 import '../storage/message_attachment_storage.dart';
 import '../storage/media_blob_storage.dart';
+import '../storage/shared_media_lock.dart';
 import '../storage/snapshot_state_decoder.dart';
 import '../storage/portable_companion_storage.dart';
 import 'transfer_identity.dart';
@@ -57,6 +58,8 @@ class SnapshotMetadata {
     required this.protocolVersion,
     this.archiveKind = SnapshotArchiveKind.takeover,
     this.legacy = false,
+    this.missingAttachmentFiles = 0,
+    this.missingAlbumFiles = 0,
   });
 
   final String snapshotId;
@@ -71,6 +74,11 @@ class SnapshotMetadata {
   final int protocolVersion;
   final SnapshotArchiveKind archiveKind;
   final bool legacy;
+  final int missingAttachmentFiles;
+  final int missingAlbumFiles;
+  int get missingLegacyMediaFiles => missingAttachmentFiles + missingAlbumFiles;
+  String get missingMediaWarning => missingLegacyMediaFiles == 0 ? '' :
+      '备份源中已有 $missingLegacyMediaFiles 个旧图片文件缺失（聊天附件 $missingAttachmentFiles，相册 $missingAlbumFiles；原图与缩略图分别计数），这份备份无法恢复这些文件；其余数据已保留。';
 
   bool get hasCompleteArchiveState => protocolVersion >= 4;
   bool get isBackup => archiveKind == SnapshotArchiveKind.backup;
@@ -165,8 +173,8 @@ class SnapshotService {
     MediaBlobStorage? blobStorage,
     PortableCompanionStorage? portableStorage,
     SnapshotArchiveLimits archiveLimits = const SnapshotArchiveLimits(),
-  }) : attachmentStorage = attachmentStorage ?? MessageAttachmentStorage(),
-       albumStorage = albumStorage ?? CompanionAlbumStorage(),
+  }) : attachmentStorage = attachmentStorage ?? MessageAttachmentStorage(db: db),
+       albumStorage = albumStorage ?? CompanionAlbumStorage(db: db),
        blobStorage = blobStorage ?? MediaBlobStorage(db: db),
        portableStorage = portableStorage ?? PortableCompanionStorage(),
        _archiveLimits = archiveLimits;
@@ -188,7 +196,12 @@ class SnapshotService {
   Future<SnapshotBundle> exportBackupBundle() =>
       _exportBundle(SnapshotArchiveKind.backup);
 
-  Future<SnapshotBundle> _exportBundle(SnapshotArchiveKind archiveKind) async {
+  // Lock order is media -> restore lease (restore only). Keep DB owners and
+  // their bytes stable until all files are copied, including a running optimizer.
+  Future<SnapshotBundle> _exportBundle(SnapshotArchiveKind archiveKind) =>
+      SharedMediaLock.run(() => _exportBundleLocked(archiveKind), db: db);
+
+  Future<SnapshotBundle> _exportBundleLocked(SnapshotArchiveKind archiveKind) async {
     // Counts are derived from live owner rows. Rebuild before freezing/export
     // so protocol 6 never serializes stale ownership metadata.
     await db.rebuildMediaBlobRefCounts();
@@ -264,15 +277,7 @@ class SnapshotService {
       final attachmentFiles = <String, String>{};
       final missingAttachmentFiles = <String>[];
       var attachmentBytes = 0;
-      final attachments = await db.allMessageAttachments();
-      final paths = <String>{
-        for (final attachment in attachments) ...[
-          if (!MediaBlobStorage.isMediaReference(attachment.originalPath))
-            attachment.originalPath,
-          if (!MediaBlobStorage.isMediaReference(attachment.thumbnailPath))
-            attachment.thumbnailPath,
-        ],
-      };
+      final paths = _expectedAttachmentPaths(exported);
       for (final rawPath in paths) {
         final relative = MessageAttachmentStorage.requireSafeRelativePath(rawPath);
         final source = await attachmentStorage.fileFor(relative);
@@ -333,6 +338,9 @@ class SnapshotService {
       if (missingMediaFiles.isNotEmpty) {
         throw StateError('共享媒体文件不完整，已拒绝生成可能破图的状态包。');
       }
+      _requireCompleteMediaDeclaration(paths, attachmentFiles.keys, missingAttachmentFiles);
+      _requireCompleteMediaDeclaration(_expectedAlbumPaths(exported), albumFiles.keys, missingAlbumFiles);
+      _requireCompleteMediaDeclaration(_expectedMediaPaths(exported), mediaFiles.keys, missingMediaFiles);
       final manifest = {
         'format': 'ai-companion-snapshot-zip',
           'protocol_version': 7,
@@ -439,6 +447,8 @@ class SnapshotService {
           createdAt: now,
             protocolVersion: 7,
           archiveKind: archiveKind,
+          missingAttachmentFiles: missingAttachmentFiles.length,
+          missingAlbumFiles: missingAlbumFiles.length,
         ),
         );
       } finally {
@@ -453,6 +463,17 @@ class SnapshotService {
     } finally {
       if (nativeSnapshot != null)
         await portableStorage.native.finish(nativeSnapshot, commit: true);
+    }
+  }
+
+  static void _requireCompleteMediaDeclaration(Set<String> expected,
+      Iterable<String> includedPaths, Iterable<String> missingPaths) {
+    final included = includedPaths.toSet();
+    final missing = missingPaths.toSet();
+    final declared = included.union(missing);
+    if (included.intersection(missing).isNotEmpty ||
+        declared.length != expected.length || !declared.containsAll(expected)) {
+      throw StateError('媒体清单与导出数据库记录不一致，已拒绝生成状态包。');
     }
   }
 
@@ -1031,6 +1052,8 @@ class SnapshotService {
             createdAt: createdAt,
             protocolVersion: protocolVersion,
             archiveKind: archiveKind,
+            missingAttachmentFiles: (manifest['missing_attachment_files'] as List? ?? const []).toSet().length,
+            missingAlbumFiles: (manifest['missing_album_files'] as List? ?? const []).toSet().length,
           ),
           backup,
           target,

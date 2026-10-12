@@ -46,6 +46,7 @@ import '../../core/presentation/generation_presentation_policy.dart';
 import '../../core/relationship/relationship_assimilator.dart';
 import '../../core/storage/secure_config.dart';
 import '../../core/storage/message_attachment_storage.dart';
+import '../../core/storage/shared_media_lock.dart';
 import '../../core/storage/companion_album_storage.dart';
 import '../../core/stickers/sticker_pack.dart';
 import '../../core/stickers/sticker_pack_storage.dart';
@@ -81,7 +82,7 @@ class ChatController extends ChangeNotifier {
         visionClient = visionClient ?? QwenVisionClient(),
         secureConfig = secureConfig ?? SecureConfig.instance,
         android = android ?? AndroidBridge.instance,
-        attachmentStorage = attachmentStorage ?? MessageAttachmentStorage() {
+        attachmentStorage = attachmentStorage ?? MessageAttachmentStorage(db: db) {
     desireEngine = DesireEngine(this.db);
     thoughtLifecycle = ThoughtLifecycleEngine(db: this.db);
     thoughtConsolidation = ThoughtConsolidationEngine(this.db);
@@ -411,13 +412,7 @@ class ChatController extends ChangeNotifier {
 
   Future<void> _pruneOrphanAttachmentFiles() async {
     try {
-      final attachments = await db.allMessageAttachments();
-      await attachmentStorage.pruneUnreferencedFiles({
-        for (final attachment in attachments) ...[
-          attachment.originalPath,
-          attachment.thumbnailPath,
-        ],
-      });
+      await attachmentStorage.pruneUnreferencedFiles(db: db);
     } catch (_) {
       // File reconciliation is best-effort and must never block chat startup.
     }
@@ -635,46 +630,50 @@ class ChatController extends ChangeNotifier {
         height: draft.height,
         now: commitStarted,
       );
-      try {
-        committed = await attachmentStorage.commitDraft(
-          draft,
-          messageId: messageId,
+      final deviceId = await db.ensureDeviceId();
+      final message = await SharedMediaLock.run(() async {
+        try {
+          committed = await attachmentStorage.commitDraft(
+            draft,
+            messageId: messageId,
+          );
+          await AttachmentPipelineTelemetry.record(
+            db,
+            stage: 'commit',
+            outcome: 'completed',
+            source: draft.source,
+            duration: DateTime.now().difference(commitStarted),
+            byteSize: draft.byteSize,
+            width: draft.width,
+            height: draft.height,
+          );
+        } catch (commitError) {
+          await AttachmentPipelineTelemetry.record(
+            db,
+            stage: 'commit',
+            outcome: 'failed',
+            source: draft.source,
+            duration: DateTime.now().difference(commitStarted),
+            byteSize: draft.byteSize,
+            width: draft.width,
+            height: draft.height,
+            error: commitError,
+          );
+          rethrow;
+        }
+        final message = ChatMessage(
+          id: messageId,
+          role: 'user',
+          content: caption.trim(),
+          createdAt: DateTime.now(),
+          deviceId: deviceId,
+          attachments: [committed!],
+          expectsReply: false,
         );
-        await AttachmentPipelineTelemetry.record(
-          db,
-          stage: 'commit',
-          outcome: 'completed',
-          source: draft.source,
-          duration: DateTime.now().difference(commitStarted),
-          byteSize: draft.byteSize,
-          width: draft.width,
-          height: draft.height,
-        );
-      } catch (commitError) {
-        await AttachmentPipelineTelemetry.record(
-          db,
-          stage: 'commit',
-          outcome: 'failed',
-          source: draft.source,
-          duration: DateTime.now().difference(commitStarted),
-          byteSize: draft.byteSize,
-          width: draft.width,
-          height: draft.height,
-          error: commitError,
-        );
-        rethrow;
-      }
-      final message = ChatMessage(
-        id: messageId,
-        role: 'user',
-        content: caption.trim(),
-        createdAt: DateTime.now(),
-        deviceId: await db.ensureDeviceId(),
-        attachments: [committed],
-        expectsReply: false,
-      );
-      await db.insertMessageWithAttachments(message, [committed],
-        deepThinking: turnDeepThinking);
+        await db.insertMessageWithAttachments(message, [committed!],
+          deepThinking: turnDeepThinking);
+        return message;
+      }, db: db);
       messages = [...messages, message];
       _safeNotify();
       unawaited(_analyzeImageMessage(message.id));
@@ -682,7 +681,7 @@ class ChatController extends ChangeNotifier {
     } catch (exception) {
       if (committed != null) {
         try {
-          await attachmentStorage.deleteAttachmentFiles(committed);
+          await attachmentStorage.deleteAttachmentFiles(committed!);
         } catch (_) {}
       } else {
         try {
@@ -815,7 +814,7 @@ class ChatController extends ChangeNotifier {
       // fence its late result before it can recreate a reply or surface an
       // error for a message the user has already removed.
       if (_discardedImageMessageIds.contains(messageId)) return;
-      await CompanionAlbumStorage().requireContentSha256(
+      await CompanionAlbumStorage(db: db).requireContentSha256(
         thumbnail,
         observation.inputContentSha256,
       );
@@ -947,7 +946,7 @@ class ChatController extends ChangeNotifier {
     required MessageAttachment attachment,
     required File thumbnail,
     required QwenVisionObservation observation,
-  }) async {
+  }) => SharedMediaLock.run(() async {
     final started = DateTime.now();
     final candidateId = _uuid.v4();
     final begun = await db.beginCompanionAlbumCandidate(
@@ -981,7 +980,7 @@ class ChatController extends ChangeNotifier {
         originalSha = attachment.blobId;
         originalByteSize = attachment.byteSize;
       } else {
-        final stored = await CompanionAlbumStorage().saveThumbnail(
+        final stored = await CompanionAlbumStorage(db: db).saveThumbnail(
           id: candidateId,
           source: thumbnail,
           expectedContentSha256: observation.inputContentSha256,
@@ -990,7 +989,7 @@ class ChatController extends ChangeNotifier {
         contentSha = stored.contentSha256;
         final originalFile =
             await attachmentStorage.fileFor(attachment.originalPath);
-        final original = await CompanionAlbumStorage().saveOriginal(
+        final original = await CompanionAlbumStorage(db: db).saveOriginal(
           id: candidateId,
           source: originalFile,
           extension: p.extension(attachment.originalPath),
@@ -1025,10 +1024,10 @@ class ChatController extends ChangeNotifier {
       recognizedAt: DateTime.now(),
     );
     if (!completed && path.isNotEmpty) {
-      await CompanionAlbumStorage().deleteThumbnail(path);
+      await CompanionAlbumStorage(db: db).deleteThumbnail(path);
     }
     if (!completed && originalPath.isNotEmpty) {
-      await CompanionAlbumStorage().deleteFile(originalPath);
+      await CompanionAlbumStorage(db: db).deleteFile(originalPath);
     }
     final outcome =
         await db.companionAlbumCandidateOutcomeCategory(candidateId);
@@ -1043,7 +1042,7 @@ class ChatController extends ChangeNotifier {
       latencyBucket:
           ProviderHealth.latencyBucket(DateTime.now().difference(started)),
     ));
-  }
+  }, db: db);
 
   Future<void> discardPreparedImage(PreparedImageAttachment draft) async {
     await attachmentStorage.discardDraft(draft);
@@ -1193,40 +1192,51 @@ class ChatController extends ChangeNotifier {
       final userId = stableMessageId != null && stableMessageId.isNotEmpty
             ? stableMessageId
             : _uuid.v4();
-      if (hasSticker) {
-        final selectedPack = userStickerPack!;
-        final selectedRecord = userSticker!;
-        final committed = await StickerPackStorage(db: db).prepareAttachment(
-          pack: selectedPack, record: selectedRecord, messageId: userId,
-          source: 'user_sticker:${selectedRecord.packId}', attachments: attachmentStorage,
+      final deviceId = await db.ensureDeviceId();
+      Future<({ChatMessage user, GenerationJob job})> commitUserTurn() async {
+        if (hasSticker) {
+          final selectedPack = userStickerPack!;
+          final selectedRecord = userSticker!;
+          final committed = await StickerPackStorage(db: db).prepareAttachment(
+            pack: selectedPack, record: selectedRecord, messageId: userId,
+            source: 'user_sticker:${selectedRecord.packId}', attachments: attachmentStorage,
+          );
+          preparedUserStickerAttachment = committed.copyWith(
+            visionStatus: MessageAttachment.visionCompletedStatus,
+            visionSummary: selectedRecord.caption,
+            visionModel: 'sticker_index',
+            visionUpdatedAt: DateTime.now(),
+          );
+        }
+        final user = ChatMessage(
+          id: userId,
+          role: 'user',
+          content: text,
+          createdAt: DateTime.now(),
+          deviceId: deviceId,
+          attachments: preparedUserStickerAttachment == null
+              ? const <MessageAttachment>[]
+              : <MessageAttachment>[preparedUserStickerAttachment!],
         );
-        preparedUserStickerAttachment = committed.copyWith(
-          visionStatus: MessageAttachment.visionCompletedStatus,
-          visionSummary: selectedRecord.caption,
-          visionModel: 'sticker_index',
-          visionUpdatedAt: DateTime.now(),
+        final job = await db.createGenerationTurn(
+          user: user,
+          assistantMessageId: _uuid.v4(),
+          model: model.apiName,
+          reasoningEffort: effort.apiName,
+          thinking: true,
+          deepThinking: turnDeepThinking,
+          creativeContext: workContext?.data,
+          creativeFence: workContext?.fence,
         );
+        return (user: user, job: job);
       }
-      final user = ChatMessage(
-        id: userId,
-        role: 'user',
-        content: text,
-        createdAt: DateTime.now(),
-        deviceId: await db.ensureDeviceId(),
-        attachments: preparedUserStickerAttachment == null
-            ? const <MessageAttachment>[]
-            : <MessageAttachment>[preparedUserStickerAttachment],
-      );
-      final job = await db.createGenerationTurn(
-        user: user,
-        assistantMessageId: _uuid.v4(),
-        model: model.apiName,
-        reasoningEffort: effort.apiName,
-        thinking: true,
-        deepThinking: turnDeepThinking,
-        creativeContext: workContext?.data,
-        creativeFence: workContext?.fence,
-      );
+      // Preparing a sticker can create a new shared thumbnail. Keep its owner
+      // transaction in the same lock, then release before enrichment/LLM work.
+      final committedTurn = hasSticker
+          ? await SharedMediaLock.run(commitUserTurn, db: db)
+          : await commitUserTurn();
+      final user = committedTurn.user;
+      final job = committedTurn.job;
       durableTurnCreated = true;
       _activeGenerationJobId = job.id;
       _activeGenerationAssistantMessageId = job.assistantMessageId;
@@ -1270,7 +1280,7 @@ class ChatController extends ChangeNotifier {
       if (!durableTurnCreated && preparedUserStickerAttachment != null) {
         try {
           await attachmentStorage.deleteAttachmentFiles(
-            preparedUserStickerAttachment,
+            preparedUserStickerAttachment!,
           );
         } catch (_) {}
       }

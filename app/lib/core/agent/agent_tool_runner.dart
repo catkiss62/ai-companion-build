@@ -1,3 +1,4 @@
+import '../storage/pending_media_owner.dart';
 import '../creative/creative_contract.dart';
 import '../creative/creative_store.dart';
 import '../autonomy/public_web_read_service.dart';
@@ -83,6 +84,7 @@ class AgentToolRunner {
     bool deepThinking = false,
     int callIndexOffset = 0,
     int maxCalls = AgentTaskLoopPolicy.maxCallsPerRound,
+    PendingMediaOwner? pendingMediaOwner,
   }) async {
     final results = <AgentToolResult>[];
     final boundedMaxCalls = maxCalls
@@ -217,6 +219,7 @@ class AgentToolRunner {
                   callIndex: callIndex,
                 ),
           toolChainScopeId: eventScopeId,
+          pendingMediaOwner: pendingMediaOwner,
         );
         results.add(result);
         await _note(
@@ -318,6 +321,7 @@ class AgentToolRunner {
     String toolChainScopeId = '',
     String assistantMessageId = '',
     String latestUserText = '',
+    PendingMediaOwner? pendingMediaOwner,
   }) async {
     cancellationToken?.throwIfCancelled();
     if (call.toolId == AgentToolRegistry.creativeStop.id) {
@@ -404,6 +408,7 @@ class AgentToolRunner {
         origin: origin,
         assistantMessageId: assistantMessageId,
         latestUserText: latestUserText,
+        pendingMediaOwner: pendingMediaOwner,
       );
     }
     if (call.toolId == AgentToolRegistry.cedarToyTimedPlay.id) {
@@ -426,6 +431,7 @@ class AgentToolRunner {
       return _sendSticker(
         call.arguments['intent'] ?? '',
         assistantMessageId: assistantMessageId,
+        pendingMediaOwner: pendingMediaOwner,
       );
     }
     if (call.toolId == AgentToolRegistry.webImageSend.id) {
@@ -433,12 +439,14 @@ class AgentToolRunner {
         call.arguments['query'] ?? '',
         cancellationToken,
         assistantMessageId: assistantMessageId,
+        pendingMediaOwner: pendingMediaOwner,
       );
     }
     if (call.toolId == AgentToolRegistry.albumImageSend.id) {
       return _sendAlbumImage(
         call.arguments['query'] ?? '',
         assistantMessageId: assistantMessageId,
+        pendingMediaOwner: pendingMediaOwner,
       );
     }
     if (call.toolId == AgentToolRegistry.screenObservation.id) {
@@ -691,6 +699,7 @@ class AgentToolRunner {
     required AgentToolOrigin origin,
     required String assistantMessageId,
     required String latestUserText,
+    PendingMediaOwner? pendingMediaOwner,
   }) async {
     final game = _safeCedarIdentifier(arguments['game'] ?? '');
     final action = _safeCedarIdentifier(arguments['action'] ?? '');
@@ -955,9 +964,10 @@ class AgentToolRunner {
         outcome: outcome,
         assistantMessageId: assistantMessageId,
         cancellationToken: cancellationToken,
+        pendingMediaOwner: pendingMediaOwner,
       );
       if (cancellationToken?.isCancelled == true) {
-        final storage = MessageAttachmentStorage();
+        final storage = MessageAttachmentStorage(db: db);
         for (final attachment in attachments) {
           try {
             await storage.deleteAttachmentFiles(attachment);
@@ -974,7 +984,7 @@ class AgentToolRunner {
           executionId: executionId,
         );
         if (!attached) {
-          final storage = MessageAttachmentStorage();
+          final storage = MessageAttachmentStorage(db: db);
           for (final attachment in attachments) {
             try {
               await storage.deleteAttachmentFiles(attachment);
@@ -1119,10 +1129,11 @@ ${CedarToyClient.redactSecrets(outcome.text)}''',
     required McpToolOutcome outcome,
     required String assistantMessageId,
     GenerationCancellationToken? cancellationToken,
+    PendingMediaOwner? pendingMediaOwner,
   }) async {
     if (assistantMessageId.trim().isEmpty) return const <MessageAttachment>[];
     final result = <MessageAttachment>[];
-    final storage = MessageAttachmentStorage();
+    final storage = MessageAttachmentStorage(db: db);
     try {
       for (final image in outcome.images
           .take(CedarOutcomeMediaBridge.maxAttachmentsPerOutcome)) {
@@ -1138,6 +1149,7 @@ ${CedarToyClient.redactSecrets(outcome.text)}''',
           final committed = await storage.commitDraft(
             draft,
             messageId: assistantMessageId,
+            pendingOwner: pendingMediaOwner,
           );
           if (cancellationToken?.isCancelled == true) {
             await storage.deleteAttachmentFiles(committed);
@@ -1206,6 +1218,7 @@ ${CedarToyClient.redactSecrets(outcome.text)}''',
               committed = await storage.commitDraft(
                 draft,
                 messageId: assistantMessageId,
+                pendingOwner: pendingMediaOwner,
               );
               draft = null;
               cancellationToken?.throwIfCancelled();
@@ -1348,6 +1361,7 @@ ${CedarToyClient.redactSecrets(outcome.text)}''',
   Future<AgentToolResult> _sendSticker(
     String intent, {
     required String assistantMessageId,
+    PendingMediaOwner? pendingMediaOwner,
   }) async {
     if (assistantMessageId.trim().isEmpty) {
       return const AgentToolResult(
@@ -1362,6 +1376,7 @@ ${CedarToyClient.redactSecrets(outcome.text)}''',
         .prepareForExplicitAgentRequest(
           messageId: assistantMessageId,
           intent: intent,
+          pendingOwner: pendingMediaOwner,
         );
     if (selected == null) {
       return const AgentToolResult(
@@ -1392,6 +1407,7 @@ ${CedarToyClient.redactSecrets(outcome.text)}''',
     String query,
     GenerationCancellationToken? cancellationToken, {
     required String assistantMessageId,
+    PendingMediaOwner? pendingMediaOwner,
   }) async {
     final normalized = query.trim();
     if (assistantMessageId.trim().isEmpty ||
@@ -1449,7 +1465,8 @@ ${CedarToyClient.redactSecrets(outcome.text)}''',
         promptData: '公开搜索已执行，但没有带安全图片地址的候选；本轮没有发图。',
       );
     }
-    final service = AssistantImageAttachmentService(config: secureConfig);
+    final service = AssistantImageAttachmentService(config: secureConfig,
+      attachmentStorage: MessageAttachmentStorage(db: db));
     try {
       for (final candidate in candidates) {
         cancellationToken?.throwIfCancelled();
@@ -1458,6 +1475,7 @@ ${CedarToyClient.redactSecrets(outcome.text)}''',
             candidate: candidate,
             requestedSubject: normalized,
             messageId: assistantMessageId,
+            pendingOwner: pendingMediaOwner,
           );
           if (prepared == null) continue;
           return AgentToolResult(
@@ -1501,6 +1519,7 @@ ${CedarToyClient.redactSecrets(outcome.text)}''',
   Future<AgentToolResult> _sendAlbumImage(
     String query, {
     required String assistantMessageId,
+    PendingMediaOwner? pendingMediaOwner,
   }) async {
     final normalized = query.trim();
     if (assistantMessageId.trim().isEmpty || normalized.isEmpty) {
@@ -1544,11 +1563,13 @@ ${CedarToyClient.redactSecrets(outcome.text)}''',
         errorCode: 'ambiguous_album_match',
       );
     }
-    final service = AssistantImageAttachmentService(config: secureConfig);
+    final service = AssistantImageAttachmentService(config: secureConfig,
+      attachmentStorage: MessageAttachmentStorage(db: db));
     try {
       final prepared = await service.prepareAlbumItem(
         item: selected!,
         messageId: assistantMessageId,
+        pendingOwner: pendingMediaOwner,
       );
       return AgentToolResult(
         toolId: AgentToolRegistry.albumImageSend.id,

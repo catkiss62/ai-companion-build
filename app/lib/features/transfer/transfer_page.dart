@@ -220,6 +220,7 @@ class _TransferPageState extends State<TransferPage> {
       allowLegacy: allowLegacy,
     );
     if (result.recoveryPending) throw const SnapshotRecoveryRequired();
+    if (result.metadata.missingMediaWarning.isNotEmpty) _append(result.metadata.missingMediaWarning);
     if (result.completionWarning.isNotEmpty) _append(result.completionWarning);
     final pending = await db.pendingImportedTransfer();
     if (result.duplicate && pending?.snapshotId != result.metadata.snapshotId) {
@@ -464,7 +465,8 @@ class _TransferPageState extends State<TransferPage> {
             content: Text(
               '继续会用备份里的聊天、记忆、联网记录、浏览器和私人相册完整替换本机当前关系数据。'
               '\n\n${sameInstallation ? '这是本机创建的备份；恢复成功后本机仍是当前主设备，可以继续正常使用。' : '这份备份来自另一台设备；恢复后本机先保持待机，确认原设备已停用后才能手动接管。'}'
-              '\n\n当前本机数据不会与备份自动合并。',
+              '\n\n当前本机数据不会与备份自动合并。'
+              '${metadata.missingMediaWarning.isEmpty ? '' : '\n\n${metadata.missingMediaWarning}'}',
             ),
             actions: [
               TextButton(
@@ -523,9 +525,10 @@ class _TransferPageState extends State<TransferPage> {
       }
       final bytes = (saved['bytes'] as num?)?.toInt() ?? 0;
       _append(
-        '备份文件已保存，兼容性与完整性自动检查通过（'
+        '备份文件已保存，文件格式与传输校验通过（'
         '${(bytes / (1024 * 1024)).toStringAsFixed(1)} MiB）。'
-        '以后恢复时直接选择这个 .aibackup 文件即可；本机仍可继续正常使用。',
+        '以后恢复时直接选择这个 .aibackup 文件即可；本机仍可继续正常使用。'
+        '${bundle.metadata.missingMediaWarning.isEmpty ? '' : '\n${bundle.metadata.missingMediaWarning}'}',
       );
     } catch (e) {
       _append('保存备份失败：$e。本机数据和主设备状态没有改变。');
@@ -591,6 +594,7 @@ class _TransferPageState extends State<TransferPage> {
         _append(result.completionWarning);
         return;
       }
+      if (result.metadata.missingMediaWarning.isNotEmpty) _append(result.metadata.missingMediaWarning);
       if (result.completionWarning.isNotEmpty) _append(result.completionWarning);
       if (result.requiresManualTakeover) {
         if (mounted) setState(() => importedStandby = true);

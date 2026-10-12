@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
@@ -5,6 +6,8 @@ import 'package:archive/archive_io.dart';
 import 'package:crypto/crypto.dart';
 import 'package:ai_companion_localfirst/core/stickers/sticker_pack_storage.dart';
 import 'package:ai_companion_localfirst/core/storage/message_attachment_storage.dart';
+import 'package:ai_companion_localfirst/core/storage/media_storage_optimizer.dart';
+import 'package:ai_companion_localfirst/core/models/message_attachment.dart';
 import 'package:ai_companion_localfirst/core/database/app_database.dart';
 import 'package:ai_companion_localfirst/core/mcp/cedar_play_session_policy.dart';
 import 'package:ai_companion_localfirst/core/mcp/cedar_timed_play_task.dart';
@@ -94,6 +97,19 @@ class _Native extends NativePortableBackend {
       failFinishOnce = false;
       throw StateError('simulated failure after database commit');
     }
+  }
+}
+
+class _ExportBarrier extends PortableCompanionStorage {
+  _ExportBarrier({required super.native, required super.secure});
+  final captured = Completer<void>();
+  final release = Completer<void>();
+  @override
+  Future<PortableExport> exportTo(Directory directory, NativePortableSnapshot snapshot) async {
+    // Production exportAll has already completed when this method is called.
+    captured.complete();
+    await release.future;
+    return super.exportTo(directory, snapshot);
   }
 }
 
@@ -595,6 +611,86 @@ void main() {
     await service.restoreBackupBundle(old.filePath);
     expect(await (await stickers.fileFor(pack, record)).readAsBytes(), before);
     expect(await db.allMediaBlobs(), isEmpty);
+  });
+
+  Future<void> legacyMediaFixture({bool missing = false}) async {
+    final attachment = MessageAttachment(id: 'legacy-image', messageId: 'legacy-message',
+      kind: 'image', originalPath: 'originals/legacy.jpg', thumbnailPath: 'thumbnails/legacy.png',
+      mimeType: 'image/jpeg', byteSize: 4, width: 2, height: 2, source: 'fixture', createdAt: DateTime(2026));
+    await db.setSetting('transfer_lock', '0');
+    await db.insertMessageWithAttachments(ChatMessage(id: attachment.messageId, role: 'user',
+      content: 'fixture', createdAt: DateTime(2026)), [attachment]);
+    await db.setSetting('transfer_lock', '1');
+    final sql = await db.database;
+    await sql.insert('companion_album_candidates', {
+      'id': 'legacy-album', 'source_kind': 'fixture', 'source_id': 'legacy-album',
+      'lifecycle_state': 'saved', 'created_at': 1, 'updated_at': 1,
+      'original_path': 'originals/album.jpg', 'thumbnail_path': 'thumbnails/album.png',
+    });
+    if (!missing) {
+      for (final path in ['chat_attachments/originals/legacy.jpg', 'chat_attachments/thumbnails/legacy.png',
+        'companion_album/originals/album.jpg', 'companion_album/thumbnails/album.png']) {
+        final file = File(p.join(root.path, 'support', path));
+        await file.parent.create(recursive: true);
+        await file.writeAsBytes([1, 2, 3, 4]);
+      }
+    }
+  }
+
+  test('optimizer cannot change owners or bytes after exportAll until archive is complete', () async {
+    await legacyMediaFixture();
+    final barrier = _ExportBarrier(native: native, secure: secure);
+    final exporter = SnapshotService(db, portableStorage: barrier);
+    final exporting = exporter.exportBackupBundle();
+    await barrier.captured.future;
+    var optimized = false;
+    final optimizing = MediaStorageOptimizer(db: db).optimize().then((value) {
+      optimized = true;
+      return value;
+    });
+    await Future<void>.delayed(Duration.zero);
+    expect(optimized, isFalse);
+    expect((await db.allMessageAttachments()).single.blobId, isEmpty);
+    barrier.release.complete();
+    final bundle = await exporting;
+    expect(await exporter.inspectBundle(bundle.filePath), isA<SnapshotMetadata>());
+    expect(bundle.metadata.missingLegacyMediaFiles, 0);
+    final archive = await decode(bundle.filePath);
+    expect((object(archive, 'manifest.json')['attachment_files'] as Map).length, 2);
+    expect((object(archive, 'manifest.json')['album_files'] as Map).length, 2);
+    await optimizing;
+    expect((await db.allMessageAttachments()).single.blobId, isNotEmpty);
+    expect(await File(p.join(root.path, 'support/chat_attachments/originals/legacy.jpg')).exists(), isFalse);
+    // Export after the migration must use the new shared owners and pass the
+    // same semantic import validator, not just ZIP CRC verification.
+    final next = await service.exportBackupBundle();
+    expect((await service.inspectBundle(next.filePath)).missingLegacyMediaFiles, 0);
+    final nextManifest = object(await decode(next.filePath), 'manifest.json');
+    expect(nextManifest['attachment_files'], isEmpty);
+    expect(nextManifest['album_files'], isEmpty);
+    expect(nextManifest['media_files'], isNotEmpty);
+  });
+
+  test('known missing legacy files are accurately reported through export inspect and restore', () async {
+    await legacyMediaFixture(missing: true);
+    final bundle = await service.exportBackupBundle();
+    expect(bundle.metadata.missingAttachmentFiles, 2);
+    expect(bundle.metadata.missingAlbumFiles, 2);
+    final inspected = await service.inspectBundle(bundle.filePath);
+    expect(inspected.missingLegacyMediaFiles, 4);
+    expect(inspected.missingMediaWarning, contains('4 个旧图片文件缺失'));
+    final restored = await service.restoreBackupBundle(bundle.filePath);
+    expect(restored!.metadata.missingLegacyMediaFiles, 4);
+    expect((await db.allMessageAttachments()).single.originalPath, 'originals/legacy.jpg');
+  });
+
+  test('missing shared bytes are rejected instead of being downgraded to a legacy warning', () async {
+    await legacyMediaFixture();
+    await MediaStorageOptimizer(db: db).optimize();
+    final blobs = await db.allMediaBlobs();
+    final missing = File(p.join(root.path, 'support/media_blobs', blobs.first.originalPath));
+    await missing.delete();
+    await expectLater(service.exportBackupBundle(), throwsStateError);
   });
 
   for (final capacity in <String, SnapshotArchiveLimits>{

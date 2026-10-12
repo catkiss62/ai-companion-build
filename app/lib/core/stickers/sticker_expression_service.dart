@@ -1,3 +1,4 @@
+import '../storage/pending_media_owner.dart';
 import 'dart:convert';
 
 import 'package:crypto/crypto.dart';
@@ -33,7 +34,7 @@ class StickerExpressionService {
     MessageAttachmentStorage? attachmentStorage,
   })  : db = db ?? AppDatabase.instance,
         packStorage = packStorage ?? StickerPackStorage(db: db),
-        attachmentStorage = attachmentStorage ?? MessageAttachmentStorage();
+        attachmentStorage = attachmentStorage ?? MessageAttachmentStorage(db: db);
 
   final AppDatabase db;
   final StickerPackStorage packStorage;
@@ -90,13 +91,14 @@ class StickerExpressionService {
     required String messageId,
     required StickerReplyChoice choice,
     required List<StickerReplyCandidate> candidates,
+    PendingMediaOwner? pendingOwner,
   }) async {
     final selected = candidates.where((item) => item.id == choice.id).firstOrNull;
     if (selected == null || choice.mode == 'none') return null;
     final record = selected.record;
     final committed = await packStorage.prepareAttachment(pack: selected.pack,
       record: record, messageId: messageId, source: 'assistant_sticker:${record.packId}',
-      attachments: attachmentStorage);
+      attachments: attachmentStorage, pendingOwner: pendingOwner);
     return SelectedStickerAttachment(record: record, attachment: committed.copyWith(
       visionStatus: MessageAttachment.visionCompletedStatus, visionSummary: record.caption,
       visionModel: 'sticker_index', visionUpdatedAt: DateTime.now()));
@@ -105,6 +107,7 @@ class StickerExpressionService {
   Future<SelectedStickerAttachment?> prepareForExplicitAgentRequest({
     required String messageId,
     required String intent,
+    PendingMediaOwner? pendingOwner,
   }) async {
     final enabledIds = await packStorage.enabledPackIds();
     final packs = (await packStorage.scanPacks())
@@ -159,7 +162,7 @@ class StickerExpressionService {
     final record = finalists[index.clamp(0, finalists.length - 1).toInt()];
     final committed = await packStorage.prepareAttachment(pack: selectedPack,
       record: record, messageId: messageId, source: 'assistant_sticker:${record.packId}',
-      attachments: attachmentStorage);
+      attachments: attachmentStorage, pendingOwner: pendingOwner);
     return SelectedStickerAttachment(
       record: record,
       attachment: committed.copyWith(

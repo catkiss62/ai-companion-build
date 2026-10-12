@@ -13,6 +13,7 @@ import 'album_perceptual_hash.dart';
 import '../storage/companion_album_storage.dart';
 import '../storage/message_attachment_storage.dart';
 import '../storage/media_blob_storage.dart';
+import '../storage/shared_media_lock.dart';
 import '../storage/secure_config.dart';
 import 'simulated_phone_policy.dart';
 
@@ -29,8 +30,8 @@ class CompanionAlbumDiscoveryEngine {
     http.Client? client,
   })  : config = config ?? SecureConfig.instance,
         vision = vision ?? QwenVisionClient(),
-        albumStorage = albumStorage ?? CompanionAlbumStorage(),
-        attachmentStorage = attachmentStorage ?? MessageAttachmentStorage(),
+        albumStorage = albumStorage ?? CompanionAlbumStorage(db: db),
+        attachmentStorage = attachmentStorage ?? MessageAttachmentStorage(db: db),
         _client = client ?? http.Client();
 
   final AppDatabase db;
@@ -240,79 +241,76 @@ class CompanionAlbumDiscoveryEngine {
               observation.requestMatchConfidence >= 0.72);
       final shouldSave = requestMatches && (observation.albumSave || forceSave);
       if (shouldSave) {
+        perceptualHash = await AlbumPerceptualHash.fromFile(draft.thumbnailFile);
+      }
+      final preparedDraft = draft;
+      final completed = await SharedMediaLock.run(() async {
+        if (shouldSave) {
+          stage = 'local_write';
+          final blob = await attachmentStorage.blobStorage.store(
+            original: preparedDraft.originalFile,
+            thumbnail: preparedDraft.thumbnailFile,
+            mimeType: preparedDraft.mimeType,
+            width: preparedDraft.width,
+            height: preparedDraft.height,
+            createdAt: preparedDraft.createdAt,
+          );
+          await db.registerMediaBlob(blob);
+          final canonical = await db.mediaBlobById(blob.id);
+          if (canonical == null) {
+            throw StateError('media_blob_registration_failed');
+          }
+          // A noncanonical thumbnail can still belong to a different blob or
+          // sticker. Only full ownership reconciliation may delete loose bytes.
+          savedBlobId = canonical.id;
+          savedPath =
+              MediaBlobStorage.toReferencePath(canonical.thumbnailPath);
+          contentSha = canonical.thumbnailSha256;
+          savedOriginalPath =
+              MediaBlobStorage.toReferencePath(canonical.originalPath);
+          originalSha = canonical.originalSha256;
+          originalByteSize = canonical.byteSize;
+        }
         stage = 'local_write';
-        final blob = await attachmentStorage.blobStorage.store(
-          original: draft.originalFile,
-          thumbnail: draft.thumbnailFile,
-          mimeType: draft.mimeType,
-          width: draft.width,
-          height: draft.height,
-          createdAt: draft.createdAt,
+        final completed = await db.completeCompanionAlbumCandidate(
+          id: candidateId,
+          save: shouldSave,
+          visionSummary: observation.summary,
+          visionModel: observation.model,
+          aiReason: forceSave
+              ? requestMatches
+                  ? '用户明确要求保存，且视觉像素与找图目标相符。'
+                  : '视觉像素与用户找图目标不符：${observation.requestMismatchReason}'
+              : observation.albumReason,
+          category: observation.albumCategory,
+          tags: observation.albumTags,
+          thumbnailPath: savedPath,
+          originalPath: savedOriginalPath,
+          originalContentSha256: originalSha,
+          originalMimeType: preparedDraft.mimeType,
+          originalByteSize: originalByteSize,
+          contentSha256: contentSha,
+          perceptualHash: perceptualHash,
+          visualFingerprint: observation.aestheticTags.join('|'),
+          width: preparedDraft.width,
+          height: preparedDraft.height,
+          recognizedAt: DateTime.now(),
+          blobId: savedBlobId,
         );
-        await db.registerMediaBlob(blob);
-        final canonical = await db.mediaBlobById(blob.id);
-        if (canonical == null) {
-          throw StateError('media_blob_registration_failed');
+        if (!completed && savedPath.isNotEmpty) {
+          await albumStorage.deleteThumbnail(savedPath);
         }
-        for (final extra in <String>{blob.originalPath, blob.thumbnailPath}
-            .difference(<String>{
-          canonical.originalPath,
-          canonical.thumbnailPath,
-        })) {
-          final file = await attachmentStorage.blobStorage.fileFor(extra);
-          if (await file.exists()) await file.delete();
+        if (!completed && savedOriginalPath.isNotEmpty) {
+          await albumStorage.deleteFile(savedOriginalPath);
         }
-        savedBlobId = canonical.id;
-        savedPath =
-            MediaBlobStorage.toReferencePath(canonical.thumbnailPath);
-        contentSha = canonical.thumbnailSha256;
-        savedOriginalPath =
-            MediaBlobStorage.toReferencePath(canonical.originalPath);
-        originalSha = canonical.originalSha256;
-        originalByteSize = canonical.byteSize;
-        stage = 'image_processing';
-        perceptualHash = await AlbumPerceptualHash.fromFile(
-          draft.thumbnailFile,
-        );
-      }
-      stage = 'local_write';
-      final completed = await db.completeCompanionAlbumCandidate(
-        id: candidateId,
-        save: shouldSave,
-        visionSummary: observation.summary,
-        visionModel: observation.model,
-        aiReason: forceSave
-            ? requestMatches
-                ? '用户明确要求保存，且视觉像素与找图目标相符。'
-                : '视觉像素与用户找图目标不符：${observation.requestMismatchReason}'
-            : observation.albumReason,
-        category: observation.albumCategory,
-        tags: observation.albumTags,
-        thumbnailPath: savedPath,
-        originalPath: savedOriginalPath,
-        originalContentSha256: originalSha,
-        originalMimeType: draft.mimeType,
-        originalByteSize: originalByteSize,
-        contentSha256: contentSha,
-        perceptualHash: perceptualHash,
-        visualFingerprint: observation.aestheticTags.join('|'),
-        width: draft.width,
-        height: draft.height,
-        recognizedAt: DateTime.now(),
-        blobId: savedBlobId,
-      );
-      if (!completed && savedPath.isNotEmpty) {
-        await albumStorage.deleteThumbnail(savedPath);
-      }
-      if (!completed && savedOriginalPath.isNotEmpty) {
-        await albumStorage.deleteFile(savedOriginalPath);
-      }
-      if (!completed && savedBlobId.isNotEmpty) {
-        final orphan = await db.removeUnreferencedMediaBlob(savedBlobId);
-        if (orphan != null) {
-          await attachmentStorage.blobStorage.deleteBlobFiles(orphan);
+        if (!completed && savedBlobId.isNotEmpty) {
+          final orphan = await db.removeUnreferencedMediaBlob(savedBlobId);
+          if (orphan != null) {
+            await attachmentStorage.blobStorage.deleteBlobFiles(orphan);
+          }
         }
-      }
+        return completed;
+      }, db: db);
       final outcome =
           await db.companionAlbumCandidateOutcomeCategory(candidateId);
       await db.recordProviderHealthEvent(ProviderHealthEvent(
@@ -330,16 +328,18 @@ class CompanionAlbumDiscoveryEngine {
       if (!requestMatches) return 'request_mismatch';
       return shouldSave && completed ? 'saved' : 'rejected';
     } catch (error) {
-      if (savedPath.isNotEmpty) await albumStorage.deleteThumbnail(savedPath);
-      if (savedOriginalPath.isNotEmpty) {
-        await albumStorage.deleteFile(savedOriginalPath);
-      }
-      if (savedBlobId.isNotEmpty) {
-        final orphan = await db.removeUnreferencedMediaBlob(savedBlobId);
-        if (orphan != null) {
-          await attachmentStorage.blobStorage.deleteBlobFiles(orphan);
+      await SharedMediaLock.run(() async {
+        if (savedPath.isNotEmpty) await albumStorage.deleteThumbnail(savedPath);
+        if (savedOriginalPath.isNotEmpty) {
+          await albumStorage.deleteFile(savedOriginalPath);
         }
-      }
+        if (savedBlobId.isNotEmpty) {
+          final orphan = await db.removeUnreferencedMediaBlob(savedBlobId);
+          if (orphan != null) {
+            await attachmentStorage.blobStorage.deleteBlobFiles(orphan);
+          }
+        }
+      }, db: db);
       await db.expireCompanionAlbumCandidate(candidateId, error.toString());
       final category = stage == 'download'
           ? 'download'

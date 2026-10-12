@@ -1,3 +1,4 @@
+import '../storage/pending_media_owner.dart';
 import 'dart:io';
 
 import 'package:http/http.dart' as http;
@@ -51,6 +52,7 @@ class AssistantImageAttachmentService {
     required PublicWebCandidateDraft candidate,
     required String requestedSubject,
     required String messageId,
+    PendingMediaOwner? pendingOwner,
   }) async {
     final apiKey = (await config.readVisionApiKey())?.trim() ?? '';
     if (apiKey.isEmpty) throw const VisionProviderNotConfigured();
@@ -87,6 +89,7 @@ class AssistantImageAttachmentService {
       final committed = await attachmentStorage.commitDraft(
         draft,
         messageId: messageId,
+        pendingOwner: pendingOwner,
       );
       draft = null;
       return PreparedAssistantImage(
@@ -110,6 +113,7 @@ class AssistantImageAttachmentService {
   Future<PreparedAssistantImage> prepareAlbumItem({
     required CompanionAlbumItem item,
     required String messageId,
+    PendingMediaOwner? pendingOwner,
   }) async {
     if (item.nsfw || item.lifecycle != CompanionAlbumItem.saved) {
       throw StateError('album_item_not_sendable');
@@ -128,6 +132,7 @@ class AssistantImageAttachmentService {
       final committed = await attachmentStorage.commitDraft(
         draft,
         messageId: messageId,
+        pendingOwner: pendingOwner,
       );
       return PreparedAssistantImage(
         attachment: committed.copyWith(

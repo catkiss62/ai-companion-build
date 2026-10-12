@@ -1,3 +1,4 @@
+import 'pending_media_owner.dart';
 import 'dart:io';
 import 'dart:typed_data';
 import 'dart:ui' as ui;
@@ -39,9 +40,9 @@ class PreparedImageAttachment {
 }
 
 class MessageAttachmentStorage {
-  MessageAttachmentStorage({Uuid? uuid, MediaBlobStorage? blobStorage})
+  MessageAttachmentStorage({Uuid? uuid, MediaBlobStorage? blobStorage, AppDatabase? db})
       : _uuid = uuid ?? const Uuid(),
-        blobStorage = blobStorage ?? MediaBlobStorage();
+        blobStorage = blobStorage ?? MediaBlobStorage(db: db);
 
   static const int maxImageBytes = 25 * 1024 * 1024;
   static const int thumbnailLongestEdge = 1000;
@@ -148,7 +149,7 @@ class MessageAttachmentStorage {
 
   Future<MessageAttachment> referenceSharedImage(File original, {
     required String messageId, required String source, required AppDatabase database,
-    MediaBlobStorage? sharedStorage,
+    MediaBlobStorage? sharedStorage, PendingMediaOwner? pendingOwner,
   }) => SharedMediaLock.run(() async {
     final hash = await MediaBlobStorage.contentSha256(original);
     var blob = await database.mediaBlobById(hash);
@@ -172,21 +173,25 @@ class MessageAttachmentStorage {
       blob = await database.mediaBlobById(blob.id);
       if (blob == null) throw StateError('media_blob_registration_failed');
     }
-    return MessageAttachment(id: _uuid.v4(), messageId: messageId,
+    final attachment = MessageAttachment(id: _uuid.v4(), messageId: messageId,
       kind: MessageAttachment.imageKind,
       originalPath: MediaBlobStorage.toReferencePath(blob.originalPath),
       thumbnailPath: MediaBlobStorage.toReferencePath(blob.thumbnailPath),
       mimeType: blob.mimeType, byteSize: blob.byteSize, width: blob.width,
       height: blob.height, source: source, createdAt: DateTime.now(), blobId: blob.id);
+    if (pendingOwner != null) await database.reservePendingMedia(pendingOwner, attachment);
+    return attachment;
   }, db: database);
 
   Future<MessageAttachment> commitDraft(
     PreparedImageAttachment draft, {
     required String messageId,
-  }) => SharedMediaLock.run(() => _commitDraft(draft, messageId: messageId));
+    PendingMediaOwner? pendingOwner,
+  }) => SharedMediaLock.run(() => _commitDraft(draft, messageId: messageId, pendingOwner: pendingOwner), db: blobStorage.db);
 
   Future<MessageAttachment> _commitDraft(PreparedImageAttachment draft, {
     required String messageId,
+    PendingMediaOwner? pendingOwner,
   }) async {
     try {
       final blob = await blobStorage.store(
@@ -197,18 +202,12 @@ class MessageAttachmentStorage {
         height: draft.height,
         createdAt: draft.createdAt,
       );
-      await AppDatabase.instance.registerMediaBlob(blob);
-      final canonical = await AppDatabase.instance.mediaBlobById(blob.id);
+      await blobStorage.db.registerMediaBlob(blob);
+      final canonical = await blobStorage.db.mediaBlobById(blob.id);
       if (canonical == null) throw StateError('media_blob_registration_failed');
-      for (final extra in <String>{blob.originalPath, blob.thumbnailPath}
-          .difference(<String>{
-        canonical.originalPath,
-        canonical.thumbnailPath,
-      })) {
-        final file = await blobStorage.fileFor(extra);
-        if (await file.exists()) await file.delete();
-      }
-      return MessageAttachment(
+      // A noncanonical thumbnail/extension may belong to another blob or
+      // sticker. The full ownership reconciler, not this sender, reclaims it.
+      final attachment = MessageAttachment(
         id: draft.id,
         messageId: messageId,
         kind: MessageAttachment.imageKind,
@@ -222,6 +221,8 @@ class MessageAttachmentStorage {
         createdAt: draft.createdAt,
         blobId: canonical.id,
       );
+      if (pendingOwner != null) await blobStorage.db.reservePendingMedia(pendingOwner, attachment);
+      return attachment;
     } finally {
       final draftDirectory = draft.originalFile.parent;
       if (await draftDirectory.exists()) {
@@ -235,34 +236,26 @@ class MessageAttachmentStorage {
     if (await directory.exists()) await directory.delete(recursive: true);
   }
 
-  Future<void> deleteAttachmentFiles(MessageAttachment attachment) async {
+  Future<void> deleteAttachmentFiles(MessageAttachment attachment) =>
+      SharedMediaLock.run(() async {
+    final db = blobStorage.db;
     if (attachment.blobId.isNotEmpty) {
-      final orphan = await AppDatabase.instance.removeUnreferencedMediaBlob(
-        attachment.blobId,
-      );
-      if (orphan != null) {
-        await blobStorage.deleteBlobFiles(orphan);
-      } else if (await AppDatabase.instance.mediaBlobById(attachment.blobId) ==
-          null) {
-        // A failed insert can leave newly written content-addressed files with
-        // no DB row. No registered owner can reference them, so cleanup is safe.
-        for (final relative in <String>{
-          attachment.originalPath,
-          attachment.thumbnailPath,
-        }) {
-          if (!MediaBlobStorage.isMediaReference(relative)) continue;
-          final file = await fileFor(relative);
-          if (await file.exists()) await file.delete();
-        }
-      }
+      final orphan = await db.removeUnreferencedMediaBlob(attachment.blobId);
+      if (orphan != null) await blobStorage.deleteBlobFiles(orphan);
+      // If the row is already absent, leave loose files for the full ownership
+      // reconciler. A thumbnail may still be shared by another blob or sticker.
       return;
     }
+    final referenced = <String>{
+      for (final owner in await db.allMessageAttachments())
+        ...[owner.originalPath, owner.thumbnailPath],
+    };
     for (final relative in [attachment.originalPath, attachment.thumbnailPath]) {
-      if (MediaBlobStorage.isMediaReference(relative)) continue;
+      if (MediaBlobStorage.isMediaReference(relative) || referenced.contains(relative)) continue;
       final file = await fileFor(relative);
       if (await file.exists()) await file.delete();
     }
-  }
+  }, db: blobStorage.db);
 
   Future<File> fileFor(String relativePath) async {
     if (MediaBlobStorage.isMediaReference(relativePath)) {
@@ -338,8 +331,11 @@ class MessageAttachmentStorage {
     );
   }
 
-  Future<int> pruneUnreferencedFiles(Iterable<String> referencedPaths) async {
-    final referenced = referencedPaths
+  // Query owners after taking the same lock as restore/optimization. A caller's
+  // pre-lock snapshot can refer to a completely different restored database.
+  Future<int> pruneUnreferencedFiles({required AppDatabase db}) => SharedMediaLock.run(() async {
+    final owners = await db.allMessageAttachments();
+    final referenced = owners.expand((item) => [item.originalPath, item.thumbnailPath])
         .where((path) => !MediaBlobStorage.isMediaReference(path))
         .map(requireSafeRelativePath)
         .toSet();
@@ -358,7 +354,7 @@ class MessageAttachmentStorage {
       }
     }
     return deleted;
-  }
+  }, db: db);
 
   static String requireSafeRelativePath(String value) {
     final normalized = value.replaceAll('\\', '/');

@@ -4,6 +4,8 @@ import 'package:crypto/crypto.dart';
 import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
 
+import '../database/app_database.dart';
+import 'shared_media_lock.dart';
 import 'snapshot_directory_swap.dart';
 import 'media_blob_storage.dart';
 
@@ -31,8 +33,8 @@ class StoredAlbumOriginal {
 
 /// Owns exact local originals plus bounded, EXIF-free display/vision previews.
 class CompanionAlbumStorage {
-  CompanionAlbumStorage({MediaBlobStorage? blobStorage})
-      : blobStorage = blobStorage ?? MediaBlobStorage();
+  CompanionAlbumStorage({MediaBlobStorage? blobStorage, AppDatabase? db})
+      : blobStorage = blobStorage ?? MediaBlobStorage(db: db);
 
   static const String rootFolderName = 'companion_album';
   final MediaBlobStorage blobStorage;
@@ -167,18 +169,24 @@ class CompanionAlbumStorage {
     );
   }
 
-  Future<void> deleteFile(String relativePath) async {
+  Future<void> deleteFile(String relativePath) => SharedMediaLock.run(() async {
     if (relativePath.trim().isEmpty) return;
     if (MediaBlobStorage.isMediaReference(relativePath)) return;
+    // A delayed cleanup may follow a restore that reintroduced the same path.
+    final owners = await blobStorage.db.allCompanionAlbumItemsForMediaMigration();
+    if (owners.any((item) => item.originalPath == relativePath ||
+        item.thumbnailPath == relativePath)) return;
     final file = await fileFor(relativePath);
     if (await file.exists()) await file.delete();
-  }
-
+  }, db: blobStorage.db);
 
   Future<void> deleteThumbnail(String relativePath) => deleteFile(relativePath);
 
-  Future<int> pruneUnreferencedFiles(Iterable<String> referencedPaths) async {
-    final referenced = referencedPaths
+  Future<int> pruneUnreferencedFiles({required AppDatabase db}) => SharedMediaLock.run(() async {
+    // Display pagination is not the ownership set. Include saved and retained
+    // soft-deleted items, however large the album is.
+    final owners = await db.allCompanionAlbumItemsForMediaMigration();
+    final referenced = owners.expand((item) => [item.originalPath, item.thumbnailPath])
         .where((value) => value.trim().isNotEmpty)
         .where((value) => !MediaBlobStorage.isMediaReference(value))
         .map(requireSafeRelativePath)
@@ -198,7 +206,7 @@ class CompanionAlbumStorage {
       }
     }
     return removed;
-  }
+  }, db: db);
 
   static String requireSafeRelativePath(String value) {
     final normalized = value.replaceAll('\\', '/');

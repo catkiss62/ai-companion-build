@@ -1,3 +1,5 @@
+import '../storage/pending_media_owner.dart';
+import 'generation_attempt_fence.dart';
 import '../creative/creative_contract.dart';
 import '../creative/creative_autonomy_policy.dart';
 import '../creative/creative_share.dart';
@@ -1888,6 +1890,13 @@ class AppDatabase {
     // Additive schema-61 metadata: legacy rows retain unknown defaults.
     await ensureFormContextColumns(db);
     await ensureMemoryRevisionColumns(db);
+    // Local execution ownership is additive and deliberately absent from backups.
+    if ((await db.rawQuery('PRAGMA table_info(media_blobs)')).isNotEmpty) {
+      await db.execute('CREATE TABLE IF NOT EXISTS pending_media_owners ('
+        'attachment_id TEXT PRIMARY KEY, blob_id TEXT NOT NULL, message_id TEXT NOT NULL, '
+        'owner_key TEXT NOT NULL, owner_json TEXT NOT NULL)');
+      await db.execute('CREATE INDEX IF NOT EXISTS idx_pending_media_blob ON pending_media_owners(blob_id)');
+    }
   }
 
   Future<void> ensureMemoryRevisionColumns(Database db) async {
@@ -4924,6 +4933,44 @@ class AppDatabase {
     });
   }
 
+  /// Startup recovery only: the caller holds SharedMediaLock and has verified
+  /// that no restore journal exists. A native process identity is required;
+  /// a Dart host fallback cannot prove that another engine is dead.
+  Future<bool> recoverAbandonedBackupFreeze() async {
+    String processEpoch;
+    try {
+      processEpoch = (await AndroidBridge.instance.runtimeProcessEpoch()).trim();
+    } catch (_) {
+      return false;
+    }
+    if (processEpoch.isEmpty) return false;
+    final db = await database;
+    return db.transaction<bool>((txn) async {
+      final rows = await txn.query('settings',
+          columns: const ['key', 'value'],
+          where: 'key IN (?, ?, ?, ?, ?)',
+          whereArgs: const ['transfer_lock', 'transfer_lock_owner',
+            'pending_outbound_snapshot_id', 'pending_import_snapshot_id',
+            'snapshot_recovery_pending_v1']);
+      final settings = <String, String>{
+        for (final row in rows) row['key'] as String: row['value'] as String? ?? '',
+      };
+      final owner = settings['transfer_lock_owner'] ?? '';
+      final match = RegExp(r'^(.+):(backup_export|backup_restore):([a-zA-Z0-9-]+)$')
+          .firstMatch(owner);
+      if (settings['transfer_lock'] != '1' || match == null ||
+          match.group(1) == processEpoch || match.group(1)!.startsWith('dart-') ||
+          (settings['pending_outbound_snapshot_id'] ?? '').isNotEmpty ||
+          (settings['pending_import_snapshot_id'] ?? '').isNotEmpty ||
+          (settings['snapshot_recovery_pending_v1'] ?? '').isNotEmpty) return false;
+      for (final entry in const {'transfer_lock': '0', 'transfer_lock_owner': ''}.entries) {
+        await txn.insert('settings', {'key': entry.key, 'value': entry.value},
+            conflictAlgorithm: ConflictAlgorithm.replace);
+      }
+      return true;
+    });
+  }
+
   /// Reserve a monotonically increasing state generation for one frozen
   /// outbound takeover snapshot. `transfer_lock=1` is mandatory so no writer
   /// can create state after the generation is reserved but before export.
@@ -5323,6 +5370,9 @@ class AppDatabase {
       'WHERE id = ?',
       <Object?>[blobId],
     );
+    await executor.delete('pending_media_owners',
+      where: 'attachment_id = ? AND message_id = ?',
+      whereArgs: [attachment.id, attachment.messageId]);
   }
 
   static String _mediaBlobRelativePath(String referencePath) {
@@ -6309,12 +6359,61 @@ class AppDatabase {
     return rows.isEmpty ? null : MediaBlob.fromDb(rows.first);
   }
 
+  /// Call while the same SharedMediaLock still covers file registration.
+  Future<void> reservePendingMedia(PendingMediaOwner owner, MessageAttachment attachment) async {
+    final handle = await database;
+    await handle.transaction((txn) async {
+      if (attachment.messageId != owner.messageId || attachment.blobId.isEmpty ||
+          !await owner.matches(txn)) throw const BrainWorkInvalidated();
+      final blob = await txn.query('media_blobs', columns: ['id'],
+        where: 'id = ?', whereArgs: [attachment.blobId], limit: 1);
+      if (blob.isEmpty) throw StateError('pending_media_blob_missing');
+      await txn.insert('pending_media_owners', {
+        'attachment_id': attachment.id, 'blob_id': attachment.blobId,
+        'message_id': owner.messageId, 'owner_key': owner.key,
+        'owner_json': jsonEncode(owner.toJson()),
+      }, conflictAlgorithm: ConflictAlgorithm.abort);
+    });
+  }
+
+  Future<void> releasePendingMedia(PendingMediaOwner owner) async {
+    final handle = await database;
+    await handle.delete('pending_media_owners', where: 'owner_key = ?', whereArgs: [owner.key]);
+  }
+
+  Future<void> _pruneInvalidPendingMediaOwners(DatabaseExecutor txn) async {
+    for (final row in await txn.query('pending_media_owners')) {
+      PendingMediaOwner? owner;
+      try { owner = PendingMediaOwner.decode(
+        Map<String, dynamic>.from(jsonDecode(row['owner_json'] as String) as Map)); } catch (_) {}
+      if (owner == null || owner.key != row['owner_key'] || !await owner.retainsOwnership(txn)) {
+        await txn.delete('pending_media_owners', where: 'attachment_id = ? AND owner_key = ?',
+          whereArgs: [row['attachment_id'], row['owner_key']]);
+      }
+    }
+  }
+
+  Future<bool> _pendingMediaCanCommit(DatabaseExecutor txn, PendingMediaOwner owner,
+      List<MessageAttachment> attachments, String messageId) async {
+    if (owner.messageId != messageId || !await owner.matches(txn)) return false;
+    for (final attachment in attachments) {
+      if (attachment.blobId.isEmpty) continue;
+      final rows = await txn.query('pending_media_owners', columns: ['attachment_id'],
+        where: 'attachment_id = ? AND blob_id = ? AND message_id = ? AND owner_key = ?',
+        whereArgs: [attachment.id, attachment.blobId, messageId, owner.key], limit: 1);
+      if (rows.isEmpty) return false;
+    }
+    return true;
+  }
+
   Future<MediaBlob?> removeUnreferencedMediaBlob(String id) async {
     final db = await database;
     return db.transaction<MediaBlob?>((txn) async {
+      await _pruneInvalidPendingMediaOwners(txn);
       final rows = await txn.query(
         'media_blobs',
-        where: 'id = ? AND message_ref_count = 0 AND album_ref_count = 0',
+        where: 'id = ? AND message_ref_count = 0 AND album_ref_count = 0 AND '
+            'NOT EXISTS (SELECT 1 FROM pending_media_owners p WHERE p.blob_id = media_blobs.id)',
         whereArgs: <Object?>[id],
         limit: 1,
       );
@@ -6329,10 +6428,12 @@ class AppDatabase {
   Future<List<MediaBlob>> takeUnreferencedMediaBlobs() async {
     final db = await database;
     return db.transaction<List<MediaBlob>>((txn) async {
+      await _pruneInvalidPendingMediaOwners(txn);
       await _rebuildMediaBlobRefCountsInTransaction(txn);
       final rows = await txn.query(
         'media_blobs',
-        where: 'message_ref_count = 0 AND album_ref_count = 0',
+        where: 'message_ref_count = 0 AND album_ref_count = 0 AND '
+            'NOT EXISTS (SELECT 1 FROM pending_media_owners p WHERE p.blob_id = media_blobs.id)',
       );
       if (rows.isEmpty) return const <MediaBlob>[];
       final ids = rows.map((row) => row['id'] as String).toList(growable: false);
@@ -6476,9 +6577,11 @@ class AppDatabase {
           .toList(growable: false);
       if (safeIds.isEmpty) return const <MediaBlob>[];
       final placeholders = List.filled(safeIds.length, '?').join(',');
+      await _pruneInvalidPendingMediaOwners(txn);
       final allowedRows = await txn.query(
         'media_blobs',
-        where: 'id IN ($placeholders) AND album_ref_count = 0',
+        where: 'id IN ($placeholders) AND album_ref_count = 0 AND '
+            'NOT EXISTS (SELECT 1 FROM pending_media_owners p WHERE p.blob_id = media_blobs.id)',
         whereArgs: safeIds,
       );
       final allowed = allowedRows.map((row) => row['id'] as String).toList();
@@ -8003,6 +8106,7 @@ class AppDatabase {
     required String jobId,
     required String runToken,
     required ChatMessage assistant,
+    PendingMediaOwner? pendingMediaOwner,
     PlayfulSelfActivity? playfulActivity,
     DeepReflectionContext? deepReflection,
     DeepReflectionUpdate? reflectionUpdate,
@@ -8049,6 +8153,8 @@ class AppDatabase {
       }
       if (job.status != 'running') return false;
       if (assistant.id != job.assistantMessageId) return false;
+      if (pendingMediaOwner != null && !await _pendingMediaCanCommit(
+          txn, pendingMediaOwner, assistant.attachments, assistant.id)) return false;
       if (somaticEvents.any(
         (event) =>
             event.turnId != assistant.id ||
@@ -8313,6 +8419,7 @@ class AppDatabase {
   /// Returns null on success, otherwise a compact reason key.
   Future<String?> commitProactiveMessageIfCurrent({
     required ChatMessage message,
+    PendingMediaOwner? pendingMediaOwner,
     required DateTime evaluationStartedAt,
     BrainWorkFence? workFence,
     DeepReflectionContext? reflectionInvitation,
@@ -8391,6 +8498,9 @@ class AppDatabase {
         final blocked = budget.blockReason(gameShare: proactiveGameShare);
         if (blocked != null) return blocked;
       }
+
+      if (pendingMediaOwner != null && !await _pendingMediaCanCommit(
+          txn, pendingMediaOwner, message.attachments, message.id)) return 'pending_media_stale';
 
       await txn.insert(
         'messages',
@@ -18727,6 +18837,7 @@ class AppDatabase {
   Future<bool> tryAcquireLocalLease(
     String key, {
     Duration holdFor = const Duration(seconds: 120),
+    bool requireProcessExitBeforeSteal = false,
   }) async {
     // Do not let this isolate re-acquire a lease it still logically owns, even
     // after the database TTL expires. Without this guard, an overlapping task
@@ -18753,7 +18864,16 @@ class AppDatabase {
         // A live lease from this process protects the other FlutterEngine. A
         // lease from an older process is orphan evidence and may be reclaimed
         // immediately instead of blocking chat for the old three-minute TTL.
-        if (until > now && heldByCurrentProcess) return false;
+        if (requireProcessExitBeforeSteal && raw.isNotEmpty && raw != '0') {
+          // File installs cannot be preempted merely because a Dart timer was
+          // suspended. Only a proven different native process may take over.
+          final held = RegExp(r'^(.+):[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}\|[0-9]+$').firstMatch(raw);
+          final heldEpoch = held?.group(1) ?? '';
+          if (heldEpoch.isEmpty || ownerEpoch.startsWith('dart-') ||
+              heldEpoch.startsWith('dart-') || heldEpoch == ownerEpoch) return false;
+        } else if (until > now && heldByCurrentProcess) {
+          return false;
+        }
         await txn.insert(
           'settings',
           {
@@ -18900,6 +19020,16 @@ class AppDatabase {
       );
       return await fence.matches(txn) ? fence : null;
     });
+  }
+
+  Future<GenerationAttemptFence?> captureGenerationAttemptFence(GenerationJob job) async {
+    final brainFence = await captureBrainWorkFence();
+    if (brainFence == null) return null;
+    final attempt = GenerationAttemptFence(jobId: job.id, runToken: job.runToken,
+      userMessageId: job.userMessageId, assistantMessageId: job.assistantMessageId,
+      brainFence: brainFence);
+    final handle = await database;
+    return await handle.transaction((txn) => attempt.matches(txn)) ? attempt : null;
   }
 
   Future<bool> brainWorkFenceCurrent(BrainWorkFence fence) async {
@@ -19864,6 +19994,7 @@ class AppDatabase {
         'desire_state',
         'settings',
       ];
+      await txn.delete('pending_media_owners');
       for (final table in ordered) {
         await txn.delete(table);
         final rows = (rawTables[table] as List?) ?? const [];

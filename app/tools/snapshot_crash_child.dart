@@ -27,27 +27,32 @@ Future<void> main(List<String> args) async {
     {'key': key, 'value': value}, conflictAlgorithm: ConflictAlgorithm.replace,
   ).then((_) {});
   await setting('fixture_state', 'old');
-  await setting('snapshot_recovery_pending_v1', 'restore-test');
+  await setting('snapshot_recovery_pending_v1', '');
+  await setting('active_brain', '1');
+  await setting('transfer_lock', '1');
+  const freezeOwner = 'dead-process:backup_restore:fixture';
+  await setting('transfer_lock_owner', freezeOwner);
   await setting('snapshot_restore_lease_v1', 'dead-process:lease|9999999999999');
   final source = await Directory(p.join(root.path, 'source')).create();
   await File(p.join(source.path, 'data')).writeAsString('new', flush: true);
+  final prefs = File(p.join(root.path, 'preferences.json'));
+  await prefs.writeAsString('{"stage":"old","config":"old"}', flush: true);
+  final existing = await Directory(p.join(root.path, 'existing')).create();
+  await File(p.join(existing.path, 'data')).writeAsString('old', flush: true);
+  await checkpoint('afterBackupFreeze');
   final plans = <PreparedDirectorySwap>[];
   for (final name in ['existing', 'previously_absent']) {
     final target = Directory(p.join(root.path, name));
-    if (name == 'existing') {
-      await target.create();
-      await File(p.join(target.path, 'data')).writeAsString('old', flush: true);
-    }
     plans.add(await PreparedDirectorySwap.prepare(
       sourceDirectory: source, targetDirectory: target,
       expectedPaths: ['data'], validatePath: (value) => value, token: 'restore-test',
     ));
+    if (name == 'existing') await checkpoint('duringPrepare');
   }
-  final prefs = File(p.join(root.path, 'preferences.json'));
-  await prefs.writeAsString('{"stage":"old","config":"old"}', flush: true);
+  await checkpoint('beforeJournal');
   final log = SnapshotRestoreJournal(root);
   final record = <String, dynamic>{
-    'version': 1, 'id': 'restore-test', 'freezeOwner': '',
+    'version': 1, 'id': 'restore-test', 'freezeOwner': freezeOwner,
     'swaps': plans.map((plan) => plan.recoveryRecord).toList(),
     'portable': {
       'previousPreferences': {'stage': 'old', 'config': 'old'},
@@ -56,6 +61,7 @@ Future<void> main(List<String> args) async {
   };
   await log.write(record);
   await checkpoint('afterJournal');
+  await setting('snapshot_recovery_pending_v1', 'restore-test');
   await plans.first.activate(afterPreviousMoved: () => checkpoint('afterFirstRename'));
   await checkpoint('afterFirstTree');
   await plans.last.activate();
@@ -72,6 +78,10 @@ Future<void> main(List<String> args) async {
     await txn.insert('settings', {'key': 'fixture_state', 'value': 'new'},
         conflictAlgorithm: ConflictAlgorithm.replace);
     await txn.insert('settings', {'key': 'snapshot_restore_commit_v1', 'value': 'restore-test'},
+        conflictAlgorithm: ConflictAlgorithm.replace);
+    await txn.insert('settings', {'key': 'transfer_lock', 'value': '0'},
+        conflictAlgorithm: ConflictAlgorithm.replace);
+    await txn.insert('settings', {'key': 'transfer_lock_owner', 'value': ''},
         conflictAlgorithm: ConflictAlgorithm.replace);
     await checkpoint('insideDatabase');
   });

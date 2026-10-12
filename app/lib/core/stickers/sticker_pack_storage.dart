@@ -1,3 +1,4 @@
+import '../storage/pending_media_owner.dart';
 import 'dart:convert';
 import 'dart:io';
 
@@ -619,12 +620,13 @@ class StickerPackStorage {
   /// Never routes an installed sticker through the external-picture draft.
   Future<MessageAttachment> prepareAttachment({required StickerPackMeta pack,
     required StickerRecord record, required String messageId,
-    required String source, required MessageAttachmentStorage attachments}) =>
+    required String source, required MessageAttachmentStorage attachments,
+    PendingMediaOwner? pendingOwner}) =>
       SharedMediaLock.run(() async {
         if (pack.id != record.packId) throw const FormatException('表情包归属不一致');
         await _sharePack(pack);
         return attachments.referenceSharedImage(await fileFor(pack, record),
-          messageId: messageId, source: source, database: db,
+          messageId: messageId, source: source, database: db, pendingOwner: pendingOwner,
           sharedStorage: MediaBlobStorage(db: db, stickerFiles: await _sharedFiles()));
       }, db: db);
 

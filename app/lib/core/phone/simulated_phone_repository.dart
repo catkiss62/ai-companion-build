@@ -14,6 +14,7 @@ import '../models/message_attachment.dart';
 import '../storage/companion_album_storage.dart';
 import '../storage/media_blob_storage.dart';
 import '../storage/message_attachment_storage.dart';
+import '../storage/shared_media_lock.dart';
 import '../models/emotion_episode.dart';
 import 'simulated_cart_generator.dart';
 import 'simulated_diary_generator.dart';
@@ -336,20 +337,13 @@ class SimulatedPhoneRepository {
   Future<void> deleteAlbumItem(String id) async {
     final paths = await db.deleteCompanionAlbumItem(id);
     for (final path in paths) {
-      await CompanionAlbumStorage().deleteFile(path);
+      await CompanionAlbumStorage(db: db).deleteFile(path);
     }
     await _collectUnreferencedMediaBlobs();
   }
 
-  Future<int> clearAlbumCache() async {
-    final items = await db.companionAlbumItems(limit: 500);
-    return CompanionAlbumStorage().pruneUnreferencedFiles(
-      items.expand((item) => <String>[
-            item.thumbnailPath,
-            if (item.originalPath.isNotEmpty) item.originalPath,
-          ]),
-    );
-  }
+  Future<int> clearAlbumCache() =>
+      CompanionAlbumStorage(db: db).pruneUnreferencedFiles(db: db);
 
   Future<int> maintainAlbum({DateTime? now}) async {
     const lease = 'simulated_phone_media_lease_until';
@@ -361,7 +355,7 @@ class SimulatedPhoneRepository {
     await _recoverUserMessageAlbumOriginals();
     final duePaths = await db.purgeDueCompanionAlbumDeletes(now: now);
     final retiredNsfwPaths = await db.retireLegacyNsfwAlbumItems();
-    final storage = CompanionAlbumStorage();
+    final storage = CompanionAlbumStorage(db: db);
     var removed = 0;
     for (final path in [...duePaths, ...retiredNsfwPaths]) {
       if (path.isEmpty) continue;
@@ -377,22 +371,22 @@ class SimulatedPhoneRepository {
     }
   }
 
-  Future<int> _collectUnreferencedMediaBlobs() async {
-    final storage = MediaBlobStorage();
+  Future<int> _collectUnreferencedMediaBlobs() => SharedMediaLock.run(() async {
+    final storage = MediaBlobStorage(db: db);
     final orphans = await db.takeUnreferencedMediaBlobs();
     for (final blob in orphans) {
       await storage.deleteBlobFiles(blob);
     }
     return orphans.length;
-  }
+  }, db: db);
 
-  Future<void> _recoverUserMessageAlbumOriginals() async {
+  Future<void> _recoverUserMessageAlbumOriginals() => SharedMediaLock.run(() async {
     final items = await db.companionAlbumItems(limit: 500);
     final attachments = <String, MessageAttachment>{
       for (final attachment in await db.allMessageAttachments())
         attachment.id: attachment,
     };
-    final storage = CompanionAlbumStorage();
+    final storage = CompanionAlbumStorage(db: db);
     final attachmentStorage = MessageAttachmentStorage();
     for (final item in items) {
       if (item.hasOriginal || item.sourceKind != 'user_message') continue;
@@ -416,7 +410,7 @@ class SimulatedPhoneRepository {
         // Legacy recovery is best-effort; the thumbnail remains usable.
       }
     }
-  }
+  }, db: db);
 
   Future<void> refreshIfDue({DateTime? now}) async {
     final current = (now ?? DateTime.now()).toLocal();

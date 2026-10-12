@@ -1,3 +1,4 @@
+import '../storage/pending_media_owner.dart';
 import '../creative/creative_inspiration_engine.dart';
 import '../creative/creative_store.dart';
 import '../phone/calendar_reminder_state.dart';
@@ -397,6 +398,7 @@ class ProactiveEngine {
     if (!leaseAcquired) {
       return const ProactiveDecision(sent: false, reason: '主动心跳正在由另一引擎处理');
     }
+    PendingMediaOwner? pendingMediaOwner;
     final evaluationStartedAt = DateTime.now();
     final heartbeatKey = evaluationStartedAt.microsecondsSinceEpoch.toString();
 
@@ -2105,6 +2107,8 @@ ${PromptBuilder.visibleChineseGenerationReminder(proactive: true)}
       await noteGeneration('preempted', reasonTag: 'cedar_share_round_interval');
       return const ProactiveDecision(sent: false, reason: 'cedar_share_round_interval');
     }
+    final mediaOwner = PendingMediaOwner.proactive(messageId: messageId, fence: wishDeliveryFence);
+    pendingMediaOwner = mediaOwner;
     final proactiveAttachments = <MessageAttachment>[];
     if (isCedarGameShare) {
       final activityState = await CedarToyActivityStore(db).loadState();
@@ -2116,7 +2120,7 @@ ${PromptBuilder.visibleChineseGenerationReminder(proactive: true)}
           .firstOrNull;
       if (event != null && event.imageMimeType.startsWith('image/')) {
         try {
-          final storage = MessageAttachmentStorage();
+          final storage = MessageAttachmentStorage(db: db);
           final draft = await storage.prepareImageBytes(
             bytes: base64Decode(event.imageData),
             source: 'assistant_mcp_image:cedar:${session!.gameId}',
@@ -2125,6 +2129,7 @@ ${PromptBuilder.visibleChineseGenerationReminder(proactive: true)}
           final attachment = await storage.commitDraft(
             draft,
             messageId: messageId,
+            pendingOwner: mediaOwner,
           );
           proactiveAttachments.add(attachment.copyWith(
             visionStatus: MessageAttachment.visionCompletedStatus,
@@ -2140,7 +2145,8 @@ ${PromptBuilder.visibleChineseGenerationReminder(proactive: true)}
     SelectedStickerAttachment? selectedSticker;
     try {
       selectedSticker = await stickerService.prepareReplyChoice(
-        messageId: messageId, choice: stickerChoice, candidates: stickerCandidates);
+        messageId: messageId, choice: stickerChoice, candidates: stickerCandidates,
+        pendingOwner: mediaOwner);
       if (selectedSticker != null) proactiveAttachments.add(selectedSticker.attachment);
     } catch (_) { /* Preserve generated text if an image cannot be prepared. */ }
     final visibleText = selectedSticker != null && stickerChoice.stickerOnly ? '' : text;
@@ -2169,6 +2175,7 @@ ${PromptBuilder.visibleChineseGenerationReminder(proactive: true)}
     final commitBlock = await db.commitProactiveMessageIfCurrent(
       message: message,
       evaluationStartedAt: evaluationStartedAt,
+      pendingMediaOwner: mediaOwner,
       workFence: wishDeliveryFence,
       reflectionInvitation: reflectionInvitation,
       creativeShare: creativeShare,
@@ -2181,8 +2188,9 @@ ${PromptBuilder.visibleChineseGenerationReminder(proactive: true)}
           ? intentThought!.source.substring('mcp/cedar_game:'.length).split(':').first : null,
     );
     if (commitBlock != null) {
+      await db.releasePendingMedia(mediaOwner);
       for (final attachment in proactiveAttachments) {
-        await MessageAttachmentStorage().deleteAttachmentFiles(attachment);
+        await MessageAttachmentStorage(db: db).deleteAttachmentFiles(attachment);
       }
       final userPreempted = commitBlock == 'chat_turn' || commitBlock == 'new_user';
       await db.addProactiveHistory(
@@ -2384,6 +2392,10 @@ ${PromptBuilder.visibleChineseGenerationReminder(proactive: true)}
       deliveryStyle: deliveryStyle,
     );
     } finally {
+      final owner = pendingMediaOwner;
+      if (owner != null) {
+        try { await db.releasePendingMedia(owner); } catch (_) {}
+      }
       await db.releaseProactiveLease();
     }
   }

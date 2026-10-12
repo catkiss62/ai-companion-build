@@ -89,6 +89,9 @@ class SnapshotRestoreCoordinator {
       if ((await db.getSetting(pendingKey) ?? '').isNotEmpty) {
         throw const SnapshotRecoveryRequired();
       }
+      // The media lock excludes journal creation/prepare in another engine.
+      // Only a proven old-process ordinary backup may be unfrozen here.
+      await db.recoverAbandonedBackupFreeze();
       return true;
     }
     if (!await db.tryAcquireLocalLease(leaseKey,
