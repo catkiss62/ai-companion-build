@@ -425,7 +425,7 @@
 
 # Historical +314: Build AI Companion v0.42.70+314 APK (Wish Lifecycle) | AI-Companion-v0.42.70-314-Wish-Lifecycle-APK | v0.42.70-wish-lifecycle-test | .ci/v04270-monitor.txt
 # Historical +323: Build AI Companion v0.42.79+323 APK (Wish Chat Fixes) | AI-Companion-v0.42.79-323-Wish-Chat-Fixes-APK | v0.42.79-wish-chat-fixes-test | .ci/v04279-monitor.txt
-name: Build AI Companion v0.42.101+345 APK (Creative Audit)
+name: Build AI Companion v0.42.102+346 APK (Token and Creative Audit)
 
 # BUILD INPUTS: The 96-clip source ZIP is private Draft Release asset 591363139
 # (release 397377805), fetched and SHA-256 checked below. The persistent
@@ -550,6 +550,7 @@ on:
       - agent/v04299-creative-autonomy
       - agent/v042100-creative-facts
       - agent/v042101-creative-audit
+      - agent/v042102-token-creative-audit
       - agent/v04214-visible-process-fate-wheel
       - maintenance/repository-governance-20260919
   workflow_dispatch:
@@ -1054,7 +1055,7 @@ jobs:
         run: |
           set -euo pipefail
           test -f app/pubspec.yaml
-          grep -Fqx 'version: 0.42.101+345' app/pubspec.yaml
+          grep -Fqx 'version: 0.42.102+346' app/pubspec.yaml
           grep -Fqx '  static const int schemaVersion = 61;' app/lib/core/database/app_database.dart
           test -d app/lib
           test -d app/android
@@ -1068,7 +1069,7 @@ jobs:
           test -f app/android/app/src/main/jniLibs/arm64-v8a/libc++_shared.so
           test ! -d app/android/app/src/main/assets/tts_models
           test ! -d app/android/app/src/main/assets/legacy_tts
-          echo 'Building v0.42.101+345 Creative lifecycle, balance and archive integrity.'
+          echo 'Building v0.42.102+346 Token budgets, two-decimal balance and creative lifecycle.'
 
       - name: Generate complete pet clips from pinned Draft Release asset
         timeout-minutes: 15
@@ -1250,7 +1251,7 @@ jobs:
 
       - name: Verify creative archive and restore before packaging
         working-directory: app
-        run: flutter test test/memory_browse_pagination_test.dart test/memory_page_pagination_test.dart test/creative_inspiration_lifecycle_test.dart test/memory_capacity_recall_test.dart test/creative_integrity_test.dart test/daily_balance_spend_test.dart test/snapshot_archive_limits_test.dart test/creative_facts_test.dart test/creative_autonomy_test.dart test/sqlite_settings_backup_v04255_test.dart test/portable_snapshot_v04256_test.dart test/snapshot_directory_swap_test.dart test/snapshot_process_recovery_test.dart
+        run: flutter test test/memory_browse_pagination_test.dart test/memory_page_pagination_test.dart test/creative_inspiration_lifecycle_test.dart test/memory_capacity_recall_test.dart test/creative_integrity_test.dart test/daily_balance_spend_test.dart test/snapshot_archive_limits_test.dart test/creative_facts_test.dart test/creative_autonomy_test.dart test/sqlite_settings_backup_v04255_test.dart test/portable_snapshot_v04256_test.dart test/snapshot_directory_swap_test.dart test/snapshot_process_recovery_test.dart test/creative_snapshot_retention_test.dart test/creative_agent_test.dart test/creative_context_test.dart
 
       - name: Build release APK
         working-directory: app
@@ -1700,26 +1701,26 @@ jobs:
           APK='app/build/app/outputs/flutter-apk/app-release.apk'
           sha256sum "$APK" | tee app/app-release.apk.sha256
 
-      - name: Upload v0.42.101+345 APK as workflow artifact
+      - name: Upload v0.42.102+346 APK as workflow artifact
         uses: actions/upload-artifact@v4
         with:
-          name: AI-Companion-v0.42.101-345-Creative-Audit-APK
+          name: AI-Companion-v0.42.102-346-Token-Creative-Audit-APK
           path: |
             app/build/app/outputs/flutter-apk/app-release.apk
             app/app-release.apk.sha256
           if-no-files-found: error
           retention-days: 14
 
-      - name: Upload v0.42.101+345 APK to draft release
+      - name: Upload v0.42.102+346 APK to draft release
         shell: bash
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
-          TAG='v0.42.101-creative-audit-test'
-          APK_NAME='AI-Companion-v0.42.101-345-Creative-Audit-APK.apk'
+          TAG='v0.42.102-token-creative-audit-test'
+          APK_NAME='AI-Companion-v0.42.102-346-Token-Creative-Audit-APK.apk'
           SHA_NAME="${APK_NAME}.sha256"
-          CI_NAME='AI-Companion-v0.42.101-345-Creative-Audit-CI-Monitor.txt'
+          CI_NAME='AI-Companion-v0.42.102-346-Token-Creative-Audit-CI-Monitor.txt'
           cp app/build/app/outputs/flutter-apk/app-release.apk "app/${APK_NAME}"
           sed "s#app/build/app/outputs/flutter-apk/app-release.apk#${APK_NAME}#" \
             app/app-release.apk.sha256 > "app/${SHA_NAME}"
@@ -1736,14 +1737,14 @@ jobs:
               --repo "${GITHUB_REPOSITORY}" \
               --target "${GITHUB_SHA}" \
               --draft \
-              --title 'AI Companion v0.42.101+345 Creative lifecycle, balance and archive integrity' \
-              --notes 'Creative lifecycle and archive integrity audit; daily spend measured from balance readings with recharge handling; complete backup capacity checks. Archive-first verification; same-signature unpublished test build. Existing memories and original backups are not rewritten.'
+              --title 'AI Companion v0.42.102+346 Token budgets, two-decimal balance and creative lifecycle' \
+              --notes 'Proactive and visible reply budgets corrected; balance displays two decimals; token input/output and creative lifecycle audits completed. Archive-first verification; same-signature unpublished test build. Original backups and existing memories are not rewritten.'
           else
             gh release edit "${TAG}" \
               --repo "${GITHUB_REPOSITORY}" \
               --target "${GITHUB_SHA}" \
-              --title 'AI Companion v0.42.101+345 Creative lifecycle, balance and archive integrity' \
-              --notes 'Creative lifecycle and archive integrity audit; daily spend measured from balance readings with recharge handling; complete backup capacity checks. Archive-first verification; same-signature unpublished test build. Existing memories and original backups are not rewritten.'
+              --title 'AI Companion v0.42.102+346 Token budgets, two-decimal balance and creative lifecycle' \
+              --notes 'Proactive and visible reply budgets corrected; balance displays two decimals; token input/output and creative lifecycle audits completed. Archive-first verification; same-signature unpublished test build. Original backups and existing memories are not rewritten.'
           fi
           RELEASE_URL="$(gh release view "${TAG}" --repo "${GITHUB_REPOSITORY}" --json url --jq '.url')"
           echo "release_url=${RELEASE_URL}" >> "app/${CI_NAME}"
@@ -1763,19 +1764,19 @@ jobs:
           done
           test "${upload_ok}" = '1'
           MONITOR_BRANCH='ci-monitor-v0345'
-          MONITOR_PATH='.ci/v04291-monitor.txt'
+          MONITOR_PATH='.ci/v042102-monitor.txt'
           MONITOR_CONTENT_FILE="$(mktemp)"
           base64 -w0 "app/${CI_NAME}" > "${MONITOR_CONTENT_FILE}"
           MONITOR_SHA="$(gh api "/repos/${GITHUB_REPOSITORY}/contents/${MONITOR_PATH}?ref=${MONITOR_BRANCH}" --jq '.sha' 2>/dev/null || true)"
           if test -n "${MONITOR_SHA}"; then
             gh api --method PUT "/repos/${GITHUB_REPOSITORY}/contents/${MONITOR_PATH}" \
-              -f message='Update v0.42.88 CI success monitor' \
+              -f message='Update v0.42.102 CI success monitor' \
               -F "content=@${MONITOR_CONTENT_FILE}" \
               -f branch="${MONITOR_BRANCH}" \
               -f sha="${MONITOR_SHA}" >/dev/null
           else
             gh api --method PUT "/repos/${GITHUB_REPOSITORY}/contents/${MONITOR_PATH}" \
-              -f message='Create v0.42.88 CI success monitor' \
+              -f message='Create v0.42.102 CI success monitor' \
               -F "content=@${MONITOR_CONTENT_FILE}" \
               -f branch="${MONITOR_BRANCH}" >/dev/null
           fi
@@ -1797,8 +1798,8 @@ jobs:
           BUILD_RESULT: ${{ needs.build-apk.result }}
         run: |
           set -uo pipefail
-          TAG='v0.42.101-creative-audit-test'
-          CI_NAME='AI-Companion-v0.42.101-345-Creative-Audit-CI-Monitor.txt'
+          TAG='v0.42.102-token-creative-audit-test'
+          CI_NAME='AI-Companion-v0.42.102-346-Token-Creative-Audit-CI-Monitor.txt'
           REPORT="${RUNNER_TEMP}/${CI_NAME}"
           JOBS_JSON="${RUNNER_TEMP}/jobs.json"
           {
@@ -1839,7 +1840,7 @@ jobs:
               --repo "${GITHUB_REPOSITORY}" \
               --target "${GITHUB_SHA}" \
               --draft \
-              --title 'AI Companion v0.42.101+345 Creative lifecycle, balance and archive integrity' \
+              --title 'AI Companion v0.42.102+346 Token budgets, two-decimal balance and creative lifecycle' \
               --notes 'Unpublished Draft failure diagnostics for memory continuity and optional expression semantics. No user content, keys, backups or device diagnostics are included.'
           fi
           RELEASE_URL="$(gh release view "${TAG}" --repo "${GITHUB_REPOSITORY}" --json url --jq '.url')"
@@ -1849,7 +1850,7 @@ jobs:
             --clobber \
             --repo "${GITHUB_REPOSITORY}"
           MONITOR_BRANCH='ci-monitor-v0345'
-          MONITOR_PATH='.ci/v04291-monitor.txt'
+          MONITOR_PATH='.ci/v042102-monitor.txt'
           MONITOR_CONTENT_FILE="$(mktemp)"
           base64 -w0 "${REPORT}" > "${MONITOR_CONTENT_FILE}"
           MONITOR_SHA="$(gh api "/repos/${GITHUB_REPOSITORY}/contents/${MONITOR_PATH}?ref=${MONITOR_BRANCH}" --jq '.sha' 2>/dev/null || true)"

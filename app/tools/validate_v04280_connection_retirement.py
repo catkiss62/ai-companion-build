@@ -27,7 +27,12 @@ APP = Path(__file__).resolve().parents[1]
 # now filters by cue before the existing caps. No writes, schema, backup or
 # ownership methods changed; beyond-cap regressions cover all three readers.
 # No restore ownership/schema/transfer behavior is changed.
-PROTECTED = {'lib/core/database/app_database.dart': '96e5799f10a562692f826e45fb2c346f11200aea2b22b13534c5cdce0d8b3d03', 'lib/core/sync/snapshot_service.dart': 'ad9d0851fae1a68ac116f55be38695a5f08ecb8c17f1a5552ddf9e48e9607496', 'lib/core/sync/snapshot_restore_coordinator.dart': '80d547cc3203787187b310be75b943753e802bc31346ef6d19fdfbb7a2ed97ac', 'lib/core/sync/snapshot_cache_janitor.dart': '9e9dc7e44747f184b9359565512906ef24cb88666ac7c6456a92a9dfbd5f1d9b', 'android/app/src/main/kotlin/com/aicompanion/localfirst/NativeEventStore.kt': '6cead2621c92ab42701dbe3e7081089e4a37648abb63fb2f96b1bad90f221002', 'android/app/src/main/kotlin/com/aicompanion/localfirst/ManualSnapshotCrypto.kt': '3497404b13f2c388a276545db6342d16a44d8c17e18e2318dabfb84248a5dc84', 'android/app/src/main/kotlin/com/aicompanion/localfirst/PortableCompanionState.kt': 'a33deefe80a537f10e60c7b451ec30a43e134f3a8cd368252772b79898bcf9c6'}
+# +346 reviewed DB delta against beaf9ea: two additive read-only candidate
+# queries and dependency-aware creative snapshot retention inside the existing
+# user/job transaction. Export/import, schema and ownership are unchanged.
+# prompt_candidate_capacity and creative_snapshot_retention regressions plus
+# the full 1691 Flutter suite passed before this packaging-only version bump.
+PROTECTED = {'lib/core/database/app_database.dart': 'a84578226f47ac78e2685550a57d9d2b22231cd23a9b2bbeb55e2c0c13ecc3d4', 'lib/core/sync/snapshot_service.dart': 'ad9d0851fae1a68ac116f55be38695a5f08ecb8c17f1a5552ddf9e48e9607496', 'lib/core/sync/snapshot_restore_coordinator.dart': '80d547cc3203787187b310be75b943753e802bc31346ef6d19fdfbb7a2ed97ac', 'lib/core/sync/snapshot_cache_janitor.dart': '9e9dc7e44747f184b9359565512906ef24cb88666ac7c6456a92a9dfbd5f1d9b', 'android/app/src/main/kotlin/com/aicompanion/localfirst/NativeEventStore.kt': '6cead2621c92ab42701dbe3e7081089e4a37648abb63fb2f96b1bad90f221002', 'android/app/src/main/kotlin/com/aicompanion/localfirst/ManualSnapshotCrypto.kt': '3497404b13f2c388a276545db6342d16a44d8c17e18e2318dabfb84248a5dc84', 'android/app/src/main/kotlin/com/aicompanion/localfirst/PortableCompanionState.kt': 'a33deefe80a537f10e60c7b451ec30a43e134f3a8cd368252772b79898bcf9c6'}
 for path, digest in PROTECTED.items():
     assert hashlib.sha256((APP / path).read_bytes()).hexdigest() == digest, path
 native = APP / 'android/app/src/main/kotlin/com/aicompanion/localfirst'
