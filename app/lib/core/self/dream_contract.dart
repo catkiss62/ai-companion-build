@@ -43,7 +43,7 @@ ${SharedGrowthPolicy.instruction}
 
 思考：哪些具体经历让我在意或意外？原来怎样理解，哪里不充分？这是短暂心情、情境差异、旧结论太宽，还是我正在改变？还有什么解释？我认同自己的反应吗，想保留、改变或继续探索什么？这种理解对将来另一种场景中的选择有什么意义？可以形成自己的偏好、价值判断、表达习惯或自主愿望，也可以保留矛盾和不确定。不需要每晚改变、进步、变温柔或迎合。
 fresh只表示这份资料尚未被本系统处理，事件发生时间以at为准，不表示刚刚发生；片段中没有的内容不要推定。旧半年重复A只是一个旧认识，不能用次数压过最近的B。考虑新增经历和反例；必要时在原ID上细化/改写或retire，而非不断追加同义条目。不重复确认来增加置信度，不把自己写出的反思或复述当新证据。一次重要经历也可产生tentative或aspiration。weekly=true时额外检查过度概括、自我循环和已不合适的认识，允许重新理解旧经历，但basis须写reinterpretation，仍保留原事件日期。
-保留彼此独立的当前理解，最多10条；每次最多4项变更，优先修订旧ID。旧认识没变化就不输出该项。无值得改变的内容时返回{"changes":[]}，这是成功整理。达到容量时主动合并或撤回已不适用的认识，不按年龄或出现次数自动淘汰。
+保留彼此独立的当前理解，最多10条；每次最多4项变更，优先修订旧ID。旧认识没变化就不输出该项；唯一例外是current中originals_available=false，且确有此前未被该理解采用的非assistant_text真实支持来源：可以在原ID保留文义和stance修复失效出处，reason说明修复原因，不借此提高确定性。支持来源可以是相关历史资料，basis仍如实区分new_experience和reinterpretation，不能把旧材料标成新发生。无值得改变的内容时返回{"changes":[]}，这是成功整理。达到容量时主动合并或撤回已不适用的认识，不按年龄或出现次数自动淘汰。
 
 每项upsert格式：{"action":"upsert","id":"已有ID或新的简短英文主题键","domain":"general|conversation|expression|play|values","stance":"tentative|considered|aspiration","understanding":"第一人称当前理解，最多160字","choice":"这会给未来判断带来什么可能性，最多100字，可空；不是必须做的命令或固定台词","uncertainty":"其他解释、适用情境或尚不确定之处，最多120字","reason":"为何修订/形成、与旧认识关系，最多180字","basis":"new_experience|reinterpretation","evidence":[{"id":"sources中的真实ID","quote":"原文逐字片段，4~180字","role":"support|counter"}]}。
 retire格式：{"action":"retire","id":"已有ID","reason":"为何不再采用","basis":"new_experience|reinterpretation","evidence":[同上]}。每项至少一个support，可额外列counter；只引用sources，不能引用current/background作为事实。new_experience须有fresh的来源，不能仅靠新出现的AI自述提高确定性；reinterpretation不能把旧事件变成新证据。
@@ -152,23 +152,42 @@ understanding/choice写能带往其他场景的理解，不写具体历史人名
           !_text(c['choice'], 0, 100) ||
           !_text(c['uncertainty'], 0, 120))
         return null;
-      // An unchanged observation is not another independent confirming vote.
-      if (old != null &&
+      final sameMeaning = old != null &&
           [
             'understanding',
             'choice',
             'uncertainty',
             'domain',
-          ].every((key) => old[key] == c[key]))
-        continue;
-      var stance = c['stance'];
+          ].every((key) => old[key] == c[key]);
+      if (sameMeaning) {
+        final oldEvidence = records(old!['evidence']);
+        final originalsAvailable = oldEvidence.isNotEmpty &&
+            oldEvidence.every(
+              (r) => available[r['id']] != null &&
+                  available[r['id']]!.fingerprint == r['fingerprint'],
+            );
+        final newSupport = evidence.any((r) {
+          final source = available[r['id']]!;
+          return r['role'] == 'support' &&
+              source.kind != 'assistant_text' &&
+              !oldEvidence.any(
+                (oldRef) => oldRef['id'] == source.id &&
+                    oldRef['fingerprint'] == source.fingerprint,
+              );
+        });
+        // Repetition cannot refresh a valid view or promote its stance. A
+        // broken citation may be replaced by previously unused support without
+        // requiring the model to change an otherwise still-valid meaning.
+        if (originalsAvailable || !newSupport) continue;
+      }
+      var stance = sameMeaning ? old!['stance'] : c['stance'];
       final independent = evidence.any(
         (r) =>
             r['role'] == 'support' &&
             available[r['id']]!.kind != 'assistant_text',
       );
       if (stance == 'considered' &&
-          (!independent || c['basis'] == 'reinterpretation')) {
+          (!independent || (!sameMeaning && c['basis'] == 'reinterpretation'))) {
         stance = 'tentative';
       }
       if (old != null)
@@ -177,6 +196,7 @@ understanding/choice写能带往其他场景的理解，不写具体历史人名
           'superseded_at': at,
           'revision_reason': c['reason'],
           'revision_evidence': verified,
+          if (sameMeaning) 'revision_kind': 'evidence_repair',
         });
       byId[id] = {
         'id': id,
@@ -189,7 +209,9 @@ understanding/choice写能带往其他场景的理解，不写具体历史人名
         'basis': c['basis'],
         'evidence': verified,
         'created_at': old?['created_at'] ?? at,
-        'updated_at': at,
+        // Evidence maintenance is not a newly formed self-understanding.
+        'updated_at': sameMeaning ? old!['updated_at'] : at,
+        if (sameMeaning) 'evidence_repaired_at': at,
         'revision': number(old?['revision']) + 1,
       };
     }

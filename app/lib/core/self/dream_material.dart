@@ -45,13 +45,7 @@ class DreamMaterial {
     }
     final rows = await handle.query(
       'messages',
-      columns: [
-        'id',
-        'role',
-        'content',
-        'created_at',
-        'worldbook_context_json',
-      ],
+      columns: DreamStore.chatColumns,
       where:
           '(created_at > ? OR (created_at = ? AND id > ?)) AND created_at <= ?',
       whereArgs: [chatAt, chatAt, chatId, now.millisecondsSinceEpoch],
@@ -110,13 +104,7 @@ class DreamMaterial {
     if (weekly || query.isNotEmpty) {
       final recent = await handle.query(
         'messages',
-        columns: [
-          'id',
-          'role',
-          'content',
-          'created_at',
-          'worldbook_context_json',
-        ],
+        columns: DreamStore.chatColumns,
         where: 'created_at >= ? AND created_at <= ?',
         whereArgs: [
           reset > recentFloor ? reset : recentFloor,
