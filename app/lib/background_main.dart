@@ -1,4 +1,5 @@
 import 'core/diagnostics/daily_spend.dart';
+import 'core/ai/deepseek_balance.dart';
 import 'core/creative/creative_worker.dart';
 import 'core/desire/daily_wake_store.dart';
 import 'core/diagnostics/unhandled_error_recorder.dart';
@@ -31,6 +32,7 @@ Future<void> companionBackgroundMain() async {
   UnhandledErrorRecorder(runtime: 'background').install();
   final db = AppDatabase.instance;
   await SnapshotRestoreCoordinator(db, PortableCompanionStorage()).ensureRecovered();
+  DeepSeekBalance.installDailySampling(db);
   if (Platform.isAndroid) {
     try { await CalendarReminderStore(db).sync(); } catch (_) {}
   }

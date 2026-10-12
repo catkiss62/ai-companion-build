@@ -101,6 +101,52 @@ void main() {
     }
   });
 
+  test('autonomous share is a delivered announcement and survives archive restore', () async {
+    final w = await work('树叶小灯');
+    await store.write(w, {...w, 'origin': 'autonomous', 'visibility': 'private',
+      'idea_id': 'leaf-idea', 'motive': '想留下这个颜色'});
+    await store.setAutonomyEnabled(true);
+    final now = DateTime.now();
+    final share = await store.claimShare(w['id'] as String, now);
+    expect(share, isNotNull);
+    expect(projection(await store.chatContext())['visible_count'], 0);
+    expect(await db.commitProactiveMessageIfCurrent(
+      message: ChatMessage(id: 'leaf-gift', role: 'assistant', content: '给你做了一盏树叶小灯。',
+        createdAt: now, isProactive: true), evaluationStartedAt: now, creativeShare: share), isNull);
+    expect(await db.getSetting(CreativeDelivery.key(w['id'] as String)), '');
+    var fact = (projection(await store.chatContext())['works'] as List).single;
+    expect(fact['announcement'], 'delivered');
+    expect(fact['current_request_completed'], true);
+    await db.importAll(Map<String, dynamic>.from(await db.exportAll()));
+    fact = (projection(await store.chatContext())['works'] as List).single;
+    expect(fact['announcement'], 'delivered');
+    expect(await store.shareCandidates(now.add(const Duration(days: 1))), isEmpty);
+  });
+
+  test('announcement receipt requires the same work request version and actual assistant message', () async {
+    final w = await work('云朵灯');
+    await store.write(w, {...w, 'completion_message_id': 'gift-message'});
+    final receipt = {'message_id': 'gift-message', 'work_id': w['id'],
+      'request_id': w['request_id'], 'version': w['current'], 'kind': 'delivered'};
+    final receiptKey = '${CreativeContract.receiptPrefix}gift-message';
+    Future<Object?> announcement() async =>
+        (projection(await store.chatContext())['works'] as List).single['announcement'];
+    await db.setSetting(receiptKey, jsonEncode(receipt));
+    expect(await announcement(), 'not_recorded'); // Receipt without its message.
+    await db.insertMessage(ChatMessage(id: 'gift-message', role: 'user',
+      content: '这是用户的文字', createdAt: DateTime.now()));
+    expect(await announcement(), 'not_recorded');
+    await (await db.database).update('messages', {'role': 'assistant'},
+      where: 'id = ?', whereArgs: ['gift-message']);
+    expect(await announcement(), 'delivered');
+    for (final field in ['message_id', 'work_id', 'request_id', 'version', 'kind']) {
+      await db.setSetting(receiptKey, jsonEncode({...receipt, field: 'stale'}));
+      expect(await announcement(), 'not_recorded', reason: field);
+    }
+    await db.setSetting(receiptKey, '');
+    expect(await announcement(), 'not_recorded'); // Metadata ID alone is not evidence.
+  });
+
   test('private and deleted works never enter facts, including related-source lookup', () async {
     final hidden = await work('PRIVATE_GIFT');
     await store.write(hidden, {...hidden, 'origin': 'autonomous', 'visibility': 'private',

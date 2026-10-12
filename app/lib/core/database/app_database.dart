@@ -9369,12 +9369,11 @@ class AppDatabase {
     String query, {
     int limit = 14,
   }) async {
-    final db = await database;
-    final rows = await db.query(
-      'memory_items',
-      where: 'status = ?',
-      whereArgs: const ['active'],
-      orderBy: 'pinned DESC, importance DESC, confidence DESC, updated_at DESC',
+    final rows = await _lexicalRecallRows(
+      'memory_items', 'status = ?', const ['active'],
+      ConversationRecallPolicy.searchTerms(query),
+      "content || ' ' || tags || ' ' || subject_key || ' ' || topic_key",
+      'pinned DESC, importance DESC, confidence DESC, updated_at DESC',
       limit: 220,
     );
     final scored = <({MemoryItem item, double score})>[];
@@ -9410,12 +9409,12 @@ class AppDatabase {
     String query, {
     int limit = 3,
   }) async {
-    final db = await database;
-    final rows = await db.query(
-      'memory_items',
-      where: 'status = ? AND semantic_type = ? AND retention_score >= ?',
-      whereArgs: const ['active', 'inference', 0.18],
-      orderBy: 'importance DESC, confidence DESC, updated_at DESC',
+    final rows = await _lexicalRecallRows(
+      'memory_items', 'status = ? AND semantic_type = ? AND retention_score >= ?',
+      const ['active', 'inference', 0.18],
+      ConversationRecallPolicy.searchTerms(query),
+      "content || ' ' || tags || ' ' || subject_key || ' ' || topic_key",
+      'importance DESC, confidence DESC, updated_at DESC',
       limit: 120,
     );
     final scored = <({MemoryItem item, double score})>[];
@@ -9445,12 +9444,12 @@ class AppDatabase {
     String query, {
     int limit = 3,
   }) async {
-    final db = await database;
-    final rows = await db.query(
-      'memory_items',
-      where: 'status = ? AND semantic_type = ? AND subject_key <> ?',
-      whereArgs: const ['superseded', 'current_fact', ''],
-      orderBy: 'updated_at DESC',
+    final rows = await _lexicalRecallRows(
+      'memory_items', 'status = ? AND semantic_type = ? AND subject_key <> ?',
+      const ['superseded', 'current_fact', ''],
+      ConversationRecallPolicy.searchTerms(query),
+      "content || ' ' || tags || ' ' || subject_key || ' ' || topic_key",
+      'updated_at DESC',
       limit: 140,
     );
     final scored = <({MemoryItem item, double score})>[];

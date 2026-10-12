@@ -41,12 +41,16 @@ for token in (
 ):
     assert token in export, token
 assert "encoder.addDirectory(" not in export
+limits = read("lib/core/sync/snapshot_archive_limits.dart")
+assert "this.maxArchiveEntries = 200000" in limits
+assert "count > maxArchiveEntries" in limits
+assert "_archiveLimits.validatePayload(" in export
+assert "_archiveLimits.validateArchiveBytes(await File(zipPath).length())" in export
 
 reader = snapshot.split("Future<_ValidatedSnapshot> _readValidatedBundle", 1)[1]
 for token in (
     "final directoryEntries = <String>[]",
-    "const maxArchiveEntries = 200000",
-    "seen.length > maxArchiveEntries",
+    "_archiveLimits.validateEntryCount(seen.length)",
     "const legacyDirectoryEntries = <String>{",
     "if (!legacyDirectoryEntries.contains(name))",
     "name.contains('\\\\')",

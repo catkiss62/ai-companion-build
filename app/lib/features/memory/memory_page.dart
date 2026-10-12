@@ -10,16 +10,23 @@ import '../../core/relationship/relationship_age.dart';
 import 'remembered_user_facts_page.dart';
 
 class MemoryPage extends StatefulWidget {
-  const MemoryPage({super.key});
+  const MemoryPage({super.key, this.database});
+
+  final AppDatabase? database;
 
   @override
   State<MemoryPage> createState() => _MemoryPageState();
 }
 
 class _MemoryPageState extends State<MemoryPage> {
-  final db = AppDatabase.instance;
+  late final db = widget.database ?? AppDatabase.instance;
+  late final browser = MemoryBrowseRepository(db);
   List<MemoryItem> items = const [];
   bool loading = true;
+  bool loadingMore = false;
+  bool loadFailed = false;
+  bool loadMoreFailed = false;
+  MemoryBrowseCursor? nextCursor;
   RelationshipAge? relationshipAge;
   String kind = 'all';
   String status = 'active';
@@ -59,20 +66,69 @@ class _MemoryPageState extends State<MemoryPage> {
   }
 
   Future<void> _load() async {
+    if (!mounted) return;
+    searchDelay?.cancel();
     final generation = ++loadGeneration;
-    if (mounted) setState(() => loading = true);
-    final loadedItems = await db.listMemories(
-      kind: kind,
-      status: status,
-      query: searchController.text,
-    );
-    final loadedAge = await db.relationshipAge();
-    if (!mounted || generation != loadGeneration) return;
     setState(() {
-      items = loadedItems;
-      relationshipAge = loadedAge;
-      loading = false;
+      loading = true;
+      loadingMore = false;
+      loadFailed = false;
+      loadMoreFailed = false;
+      nextCursor = null;
     });
+    try {
+      final page = await browser.page(
+        kind: kind,
+        status: status,
+        query: searchController.text,
+      );
+      final loadedAge = await db.relationshipAge();
+      if (!mounted || generation != loadGeneration) return;
+      setState(() {
+        items = page.items;
+        nextCursor = page.nextCursor;
+        relationshipAge = loadedAge;
+        loading = false;
+      });
+    } catch (_) {
+      if (!mounted || generation != loadGeneration) return;
+      setState(() {
+        loading = false;
+        loadFailed = true;
+      });
+    }
+  }
+
+  Future<void> _loadMore() async {
+    final cursor = nextCursor;
+    if (loading || loadingMore || cursor == null) return;
+    final generation = loadGeneration;
+    setState(() {
+      loadingMore = true;
+      loadMoreFailed = false;
+    });
+    try {
+      final page = await browser.page(
+        kind: kind,
+        status: status,
+        query: searchController.text,
+        after: cursor,
+      );
+      if (!mounted || generation != loadGeneration) return;
+      setState(() {
+        // A background edit may move an already-visible row past the cursor.
+        final existingIds = items.map((item) => item.id).toSet();
+        items = [...items, ...page.items.where((item) => existingIds.add(item.id))];
+        nextCursor = page.nextCursor;
+        loadingMore = false;
+      });
+    } catch (_) {
+      if (!mounted || generation != loadGeneration) return;
+      setState(() {
+        loadingMore = false;
+        loadMoreFailed = true;
+      });
+    }
   }
 
   String _date(DateTime value) {
@@ -397,7 +453,13 @@ class _MemoryPageState extends State<MemoryPage> {
               ),
               onChanged: (_) {
                 searchDelay?.cancel();
-                setState(() {});
+                // Invalidate in-flight pages immediately, including the debounce
+                // interval before the next query actually starts.
+                ++loadGeneration;
+                setState(() {
+                  loading = true;
+                  loadingMore = false;
+                });
                 searchDelay = Timer(const Duration(milliseconds: 220), _load);
               },
             ),
@@ -415,15 +477,43 @@ class _MemoryPageState extends State<MemoryPage> {
           Expanded(
             child: loading
                 ? const Center(child: CircularProgressIndicator())
+                : loadFailed
+                    ? Center(
+                        child: TextButton(
+                          onPressed: _load,
+                          child: const Text('记忆读取失败，点击重试'),
+                        ),
+                      )
                 : items.isEmpty
                     ? const Center(child: Text('当前没有对应记忆。'))
                     : RefreshIndicator(
                         onRefresh: _load,
                         child: ListView.separated(
                           padding: const EdgeInsets.fromLTRB(12, 4, 12, 20),
-                          itemCount: items.length,
+                          itemCount: items.length + 1,
                           separatorBuilder: (_, __) => const Divider(height: 1),
                           itemBuilder: (context, index) {
+                            if (index == items.length) {
+                              return Padding(
+                                padding: const EdgeInsets.symmetric(vertical: 12),
+                                child: Column(
+                                  children: [
+                                    Text(nextCursor == null
+                                        ? '已显示全部 ${items.length} 条记忆'
+                                        : '已加载 ${items.length} 条记忆'),
+                                    if (nextCursor != null)
+                                      TextButton(
+                                        onPressed: loadingMore ? null : _loadMore,
+                                        child: Text(loadingMore
+                                            ? '正在加载…'
+                                            : loadMoreFailed
+                                                ? '加载失败，点击重试'
+                                                : '加载更多'),
+                                      ),
+                                  ],
+                                ),
+                              );
+                            }
                             final item = items[index];
                             return ListTile(
                               contentPadding: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),

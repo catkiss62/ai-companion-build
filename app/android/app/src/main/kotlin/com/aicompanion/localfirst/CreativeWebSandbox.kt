@@ -55,7 +55,11 @@ object CreativeWebSandbox {
           if(typeof value==='number'&&Number.isSafeInteger(value)&&value>=0)return String(value);
           throw new Error('回合编号需要非空字符串或安全整数');};
         const post=(kind,data)=>{const id=String(++sequence);return new Promise((resolve,reject)=>{
-          pending.set(id,{resolve,reject,kind});NativeWork.postMessage(JSON.stringify({id,kind,data}));
+          try {
+            const raw=JSON.stringify({id,kind,data});
+            if(new Blob([raw]).size>65536)throw new Error('互动数据过大');
+            pending.set(id,{resolve,reject,kind});NativeWork.postMessage(raw);
+          } catch(error) {pending.delete(id);reject(error);}
         });};
         window.__workReply=(id,value,error)=>{const p=pending.get(id);if(!p)return;pending.delete(id);error?p.reject(new Error(error)):p.resolve(value);};
         window.companion=Object.freeze({preview:$preview,initialState:initial,

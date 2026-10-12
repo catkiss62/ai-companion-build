@@ -104,9 +104,14 @@ class CreativeFacts {
       for (final work in works.take(limit)) {
         final id = work['id'] as String;
         final version = _text(work['current'], 64);
+        final completionMessageId = work['completion_message_id'] is String
+            ? work['completion_message_id'] as String : '';
+        final relatedKeys = [
+          '${CreativeContract.playPrefix}$id', '${CreativeContract.noticePrefix}$id',
+          if (completionMessageId.isNotEmpty) '${CreativeContract.receiptPrefix}$completionMessageId',
+        ];
         final related = await txn.query('settings', columns: ['key', 'value'],
-            where: 'key IN (?, ?)', whereArgs: [
-              '${CreativeContract.playPrefix}$id', '${CreativeContract.noticePrefix}$id']);
+            where: 'key IN (${List.filled(relatedKeys.length, '?').join(', ')})', whereArgs: relatedKeys);
         final records = {for (final r in related) r['key']:
           CreativeContract.decode(r['value'] as String?)};
         final play = records['${CreativeContract.playPrefix}$id'] ?? <String, dynamic>{};
@@ -115,6 +120,15 @@ class CreativeFacts {
         final requestCompleted = published && (work['completed_request'] == work['request_id'] &&
             work['request_id'] is String || work['status'] == 'ready');
         final sameNotice = published && notice['request_id'] == work['request_id'] && notice['version'] == version;
+        // Autonomous gifts publish through the proactive message transaction,
+        // without a commission notice. A matching receipt and an actual
+        // assistant message prove delivery; a stale metadata ID alone cannot.
+        final receipt = records['${CreativeContract.receiptPrefix}$completionMessageId'] ?? <String, dynamic>{};
+        final delivered = published && completionMessageId.isNotEmpty &&
+            receipt['kind'] == 'delivered' && receipt['message_id'] == completionMessageId &&
+            receipt['work_id'] == id && receipt['request_id'] == work['request_id'] &&
+            receipt['version'] == version && (await txn.query('messages', columns: ['id'],
+                where: 'id = ? AND role = ?', whereArgs: [completionMessageId, 'assistant'], limit: 1)).isNotEmpty;
         final public = play['public'];
         final hasSave = public is Map ? public.isNotEmpty : public is List ? public.isNotEmpty : false;
         final hasReveal = (play['turns'] is Map ? (play['turns'] as Map).values : const [])
@@ -139,7 +153,7 @@ class CreativeFacts {
           'updated': work['updated'], 'has_published': published,
           'current_request_completed': requestCompleted,
           'completed_at': work['completed_at'],
-          'announcement': sameNotice ? notice['status'] : 'not_recorded',
+          'announcement': delivered ? 'delivered' : sameNotice ? notice['status'] : 'not_recorded',
           if (published && play['version'] is String && (hasSave || hasReveal))
             'use_evidence': {
               'version_scope': play['version'] == version ? 'published_version' : 'earlier_version',

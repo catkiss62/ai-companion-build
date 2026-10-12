@@ -30,9 +30,12 @@ class CreativePlay {
   Future<Map<String, dynamic>> read() async => CreativeContract.decode(await db.getSetting(stateKey));
 
   Future<Map<String, dynamic>> open({bool restart = false}) async {
+    final fence = await db.captureBrainWorkFence();
+    if (fence == null) throw const BrainWorkInvalidated();
     final work = await CreativeStore(db).get(workId);
     final before = await read();
-    if (!CreativeAutonomyPolicy.visible(work) || work['current'] is! String) throw const FormatException('作品尚未完成');
+    if (!CreativeAutonomyPolicy.visible(work) || work['current'] is! String ||
+        (work['current'] as String).isEmpty) throw const FormatException('作品尚未完成');
     final fresh = before.isEmpty || restart;
     final next = fresh ? <String, dynamic>{
       'schema': 1, 'version': work['current'], 'public': {}, 'turns': {}, 'reports': [],
@@ -43,10 +46,15 @@ class CreativePlay {
       'session_id': before['session_id'] ?? const Uuid().v4(),
       'started_at': before['started_at'] ?? DateTime.now().millisecondsSinceEpoch,
     };
-    final fence = await db.captureBrainWorkFence();
-    if (fence == null || !await db.setSettingsAtomically({stateKey: jsonEncode(next),
+    final sourceKey = '${CreativeContract.sourcePrefix}${next['version']}';
+    final source = await db.getSetting(sourceKey);
+    if (source == null || source.isEmpty || CreativeContract.hash(source) != next['version']) {
+      throw const FormatException('找不到完整的作品源码');
+    }
+    if (!await db.setSettingsAtomically({stateKey: jsonEncode(next),
       'creative_focus_v1': jsonEncode({'id': workId, 'at': DateTime.now().millisecondsSinceEpoch})},
-      workFence: fence, expectedSettings: {stateKey: before.isEmpty ? '' : jsonEncode(before)})) {
+      workFence: fence, expectedSettings: {stateKey: before.isEmpty ? '' : jsonEncode(before),
+        CreativeStore.key(workId): jsonEncode(work), sourceKey: source})) {
       throw const BrainWorkInvalidated();
     }
     _sessionFence = fence;
@@ -115,8 +123,10 @@ class CreativePlay {
     final event = CreativeContract.decode(raw);
     final before = await read();
     final work = await CreativeStore(db).get(workId);
-    final fence = await db.captureBrainWorkFence();
-    if (fence == null || !CreativeAutonomyPolicy.visible(work) || before['version'] != version || before['session_id'] != sessionId) {
+    // Keep the page's original state identity across all awaits. Recapturing a
+    // fence here could adopt an import that happened after the first check.
+    final fence = sessionFence;
+    if (!CreativeAutonomyPolicy.visible(work) || before['version'] != version || before['session_id'] != sessionId) {
       throw const BrainWorkInvalidated();
     }
     final data = event['data'];
@@ -186,8 +196,15 @@ class CreativePlay {
     if (!await db.tryAcquireLocalLease(lease, holdFor: const Duration(seconds: 90))) throw const FormatException('她正在出招，请稍等');
     final makeClient = clientFactory ?? ((Future<bool> Function() abort) => DeepSeekClient(
       abortWhen: abort, onUsage: (event) => ModelUsageTelemetry.record(db, event)));
-    final client = makeClient(() async =>
-      !await db.brainWorkFenceCurrent(fence) || jsonEncode(await read()) != jsonEncode(before));
+    Future<bool> choiceCurrent() async {
+      if (!await db.brainWorkFenceCurrent(fence)) return false;
+      final currentWork = await CreativeStore(db).get(workId);
+      if (currentWork['id'] != workId || !CreativeAutonomyPolicy.visible(currentWork)) return false;
+      final latest = await read();
+      return latest['version'] == version && latest['session_id'] == sessionId &&
+          !(latest['turns'] as Map? ?? {}).containsKey(turn);
+    }
+    final client = makeClient(() async => !await choiceCurrent());
     try {
       final apiKey = await SecureConfig.instance.readApiKey();
       if (apiKey == null || apiKey.isEmpty) throw const FormatException('需要 DeepSeek API');
@@ -213,8 +230,34 @@ class CreativePlay {
         ]);
       if (!options.contains(choice['choice'])) throw const FormatException('她没有给出有效选择，请重试');
       stage('commit');
-      turns[turn] = {'options': options, 'choice': choice['choice'], 'at': instant};
-      await save({...before, 'turns': turns});
+      // Public saves/descriptions may proceed during the paid model request.
+      // Merge the sealed turn into their latest state on the same short-write
+      // queue; never replace them with the pre-request snapshot.
+      final commit = _publicWrites.then((_) async {
+        final sql = await db.database;
+        await sql.transaction((txn) async {
+          if (!await fence.matches(txn)) throw const BrainWorkInvalidated();
+          // A background revision can change title/progress/current while this
+          // page deliberately keeps its old version. Only visibility/deletion
+          // changes revoke that page; its own session/version remain fenced.
+          final currentWork = CreativeContract.decode(await BrainWorkFence.value(txn, CreativeStore.key(workId)));
+          if (currentWork['id'] != workId || !CreativeAutonomyPolicy.visible(currentWork)) throw const BrainWorkInvalidated();
+          final latest = CreativeContract.decode(await BrainWorkFence.value(txn, stateKey));
+          final latestTurns = Map<String, dynamic>.from(latest['turns'] as Map? ?? {});
+          if (latest['version'] != version || latest['session_id'] != sessionId || latestTurns.containsKey(turn)) {
+            throw const BrainWorkInvalidated();
+          }
+          if (latestTurns.length >= 200) throw const FormatException('本次游玩已保存 200 回合，请从菜单开始新一局');
+          latestTurns[turn] = {'options': options, 'choice': choice['choice'], 'at': instant};
+          final next = {...latest, 'turns': latestTurns,
+            'revision': (latest['revision'] as num? ?? 0).toInt() + 1,
+            'updated_at': DateTime.now().millisecondsSinceEpoch};
+          if (utf8.encode(jsonEncode(next)).length > 250000) throw const FormatException('游玩存档已满');
+          await txn.update('settings', {'value': jsonEncode(next)}, where: 'key = ?', whereArgs: [stateKey]);
+        });
+      });
+      _publicWrites = commit.then<void>((_) {}, onError: (Object _, StackTrace __) {});
+      await commit;
       return {'committed': true};
     } finally { client.close(); await db.releaseLocalLease(lease); }
   }

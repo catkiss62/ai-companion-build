@@ -13,6 +13,7 @@ import 'package:ai_companion_localfirst/core/models/chat_message.dart';
 import 'package:ai_companion_localfirst/core/storage/portable_companion_storage.dart';
 import 'package:ai_companion_localfirst/core/storage/secure_config.dart';
 import 'package:ai_companion_localfirst/core/sync/snapshot_service.dart';
+import 'package:ai_companion_localfirst/core/sync/snapshot_archive_limits.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:path/path.dart' as p;
@@ -595,6 +596,32 @@ void main() {
     expect(await (await stickers.fileFor(pack, record)).readAsBytes(), before);
     expect(await db.allMediaBlobs(), isEmpty);
   });
+
+  for (final capacity in <String, SnapshotArchiveLimits>{
+    'state': const SnapshotArchiveLimits(maxStateBytes: 1),
+    'manifest': const SnapshotArchiveLimits(maxManifestBytes: 1),
+    'entry count': const SnapshotArchiveLimits(maxArchiveEntries: 1),
+    'expanded bytes': const SnapshotArchiveLimits(maxExpandedBytes: 1),
+    'ZIP bytes': const SnapshotArchiveLimits(maxArchiveBytes: 1),
+  }.entries) {
+    test('export rejects ${capacity.key} overflow and leaves source state intact', () async {
+      await db.setSetting('capacity_test_kept', '完整的记忆与作品🙂');
+      final bounded = SnapshotService(db, portableStorage: portable,
+        archiveLimits: capacity.value);
+      await expectLater(bounded.exportBackupBundle(), throwsFormatException);
+      expect(await db.getSetting('capacity_test_kept'), '完整的记忆与作品🙂');
+      expect(await db.getSetting('active_brain'), '1');
+      expect(native.busy, isFalse);
+      expect(await Directory(p.join(root.path, 'temp')).list().toList(), isEmpty);
+
+      // The same bound rejects a valid default-sized archive before restore.
+      // A failed export must also leave the ordinary exporter usable.
+      final bundle = await service.exportBackupBundle();
+      await expectLater(bounded.inspectBundle(bundle.filePath), throwsFormatException);
+      expect(await service.inspectBundle(bundle.filePath), isA<SnapshotMetadata>());
+      expect(await db.getSetting('capacity_test_kept'), '完整的记忆与作品🙂');
+    });
+  }
 
 }
 

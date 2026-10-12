@@ -147,6 +147,13 @@ class CreativeContract {
               throw const FormatException('作品版本引用无效');
             }
           }
+          if (data.containsKey('versions') && (data['versions'] is! List ||
+              (data['versions'] as List).any((v) => v is! String || !RegExp(r'^[a-f0-9]{64}$').hasMatch(v)))) {
+            throw const FormatException('作品历史版本引用无效');
+          }
+          if (data['status'] == 'ready' && (data['current'] is! String || (data['current'] as String).isEmpty)) {
+            throw const FormatException('已完成作品缺少版本引用');
+          }
           if (data['cover'] != null) base64Decode(data['cover'] as String);
         } else if (data['version'] is! String || data['turns'] is! Map || data['reports'] is! List) {
           throw const FormatException('作品游玩状态损坏');
@@ -171,11 +178,22 @@ class CreativeContract {
       if (r['key'] is String && r['value'] is String) r['key'] as String: r['value'] as String};
     for (final entry in values.entries.where((e) => e.key.startsWith(metaPrefix))) {
       final work = decode(entry.value);
-      if (!CreativeAutonomyPolicy.autonomous(work) || work['status'] == 'deleted') continue;
+      if (work['status'] == 'deleted') continue;
       for (final version in <Object?>[work['current'], work['draft'], ...(work['versions'] as List? ?? [])]) {
         if (version is String && version.isNotEmpty && !values.containsKey('$sourcePrefix$version')) {
-          throw const FormatException('自主作品源码缺失，未恢复存档');
+          throw const FormatException('作品源码缺失，未恢复存档');
         }
+      }
+    }
+    // An open game can intentionally stay on an older version after a revision.
+    // Its source is part of the saved progress even if no longer in versions.
+    // Historical message snapshots/receipts need no source: they are immutable
+    // evidence, not a playable session, and only three published versions remain.
+    for (final entry in values.entries.where((e) => e.key.startsWith(playPrefix) && e.value.isNotEmpty)) {
+      final version = decode(entry.value)['version'];
+      if (version is! String || !RegExp(r'^[a-f0-9]{64}$').hasMatch(version) ||
+          !values.containsKey('$sourcePrefix$version')) {
+        throw const FormatException('游玩进度对应的作品源码缺失，未恢复存档');
       }
     }
   }

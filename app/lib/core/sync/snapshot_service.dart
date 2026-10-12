@@ -16,6 +16,7 @@ import '../storage/snapshot_state_decoder.dart';
 import '../storage/portable_companion_storage.dart';
 import 'transfer_identity.dart';
 import 'snapshot_restore_coordinator.dart';
+import 'snapshot_archive_limits.dart';
 
 enum SnapshotArchiveKind {
   takeover('takeover'),
@@ -163,16 +164,19 @@ class SnapshotService {
     CompanionAlbumStorage? albumStorage,
     MediaBlobStorage? blobStorage,
     PortableCompanionStorage? portableStorage,
+    SnapshotArchiveLimits archiveLimits = const SnapshotArchiveLimits(),
   }) : attachmentStorage = attachmentStorage ?? MessageAttachmentStorage(),
        albumStorage = albumStorage ?? CompanionAlbumStorage(),
        blobStorage = blobStorage ?? MediaBlobStorage(db: db),
-       portableStorage = portableStorage ?? PortableCompanionStorage();
+       portableStorage = portableStorage ?? PortableCompanionStorage(),
+       _archiveLimits = archiveLimits;
 
   final AppDatabase db;
   final MessageAttachmentStorage attachmentStorage;
   final CompanionAlbumStorage albumStorage;
   final MediaBlobStorage blobStorage;
   final PortableCompanionStorage portableStorage;
+  final SnapshotArchiveLimits _archiveLimits;
   final Uuid _uuid = const Uuid();
 
   SnapshotRestoreCoordinator get _restoreCoordinator =>
@@ -233,6 +237,7 @@ class SnapshotService {
         );
         exported['portable_state'] = portable.state;
         final jsonBytes = utf8.encode(jsonEncode(exported));
+        _archiveLimits.validateStateBytes(jsonBytes.length);
         final digest = sha256.convert(jsonBytes).toString();
         final pendingSnapshotId =
             _settingFromBackup(exported, 'pending_outbound_snapshot_id');
@@ -328,10 +333,6 @@ class SnapshotService {
       if (missingMediaFiles.isNotEmpty) {
         throw StateError('共享媒体文件不完整，已拒绝生成可能破图的状态包。');
       }
-        if (attachmentBytes + albumBytes + mediaBytes + portable.bytes >
-            8 * 1024 * 1024 * 1024) {
-          throw const FormatException('存档文件超过容量限制');
-        }
       final manifest = {
         'format': 'ai-companion-snapshot-zip',
           'protocol_version': 7,
@@ -359,10 +360,19 @@ class SnapshotService {
         'encryption': archiveKind.manifestEncryption,
         'zip_layout': 'files_only',
       };
-      await manifestFile.writeAsString(
+      final manifestBytes = utf8.encode(
         const JsonEncoder.withIndent('  ').convert(manifest),
-        flush: true,
       );
+      final bundledBytes = attachmentBytes + albumBytes + mediaBytes + portable.bytes;
+      _archiveLimits.validatePayload(
+        stateBytes: jsonBytes.length,
+        manifestBytes: manifestBytes.length,
+        bundledFileBytes: bundledBytes,
+        expandedBytes: jsonBytes.length + manifestBytes.length + bundledBytes,
+        entryCount: 2 + attachmentFiles.length + albumFiles.length +
+            mediaFiles.length + portable.hashes.length,
+      );
+      await manifestFile.writeAsBytes(manifestBytes, flush: true);
 
       final encoder = ZipFileEncoder();
       try {
@@ -406,6 +416,7 @@ class SnapshotService {
             );
           }
         await encoder.close();
+        _archiveLimits.validateArchiveBytes(await File(zipPath).length());
       } catch (_) {
         try {
           await encoder.close();
@@ -767,10 +778,7 @@ class SnapshotService {
     if (!await source.exists()) {
       throw const FormatException('状态包文件不存在');
     }
-    const maxArchiveBytes = 8 * 1024 * 1024 * 1024;
-    if (await source.length() > maxArchiveBytes) {
-      throw const FormatException('状态包异常过大，已拒绝导入');
-    }
+    _archiveLimits.validateArchiveBytes(await source.length());
 
     final temp = await getTemporaryDirectory();
     final target = Directory(p.join(
@@ -785,11 +793,6 @@ class SnapshotService {
     try {
       input = InputFileStream(zipPath);
       archive = ZipDecoder().decodeStream(input);
-      const maxStateBytes = 480 * 1024 * 1024;
-      const maxManifestBytes = 1024 * 1024;
-      const maxBundledFileBytes = 8 * 1024 * 1024 * 1024;
-      const maxExpandedBytes = 9 * 1024 * 1024 * 1024;
-      const maxArchiveEntries = 200000;
       final seen = <String>{};
       var stateSize = 0;
       var manifestSize = 0;
@@ -863,9 +866,7 @@ class SnapshotService {
         if (!seen.add(name)) {
           throw FormatException('状态包包含重复文件：$name');
         }
-        if (seen.length > maxArchiveEntries) {
-          throw const FormatException('状态包文件数量异常过多');
-        }
+        _archiveLimits.validateEntryCount(seen.length);
         final size = entry.size;
         if (size < 0) throw const FormatException('状态包文件大小异常');
         totalExpanded += size;
@@ -879,17 +880,13 @@ class SnapshotService {
       if (!seen.contains('state.json') || !seen.contains('manifest.json')) {
         throw const FormatException('状态包必须包含 state.json 与 manifest.json');
       }
-      if (stateSize <= 0 || stateSize > maxStateBytes) {
-        throw const FormatException('state.json 大小异常');
-      }
-      if (manifestSize <= 0 || manifestSize > maxManifestBytes) {
-        throw const FormatException('manifest.json 大小异常');
-      }
-      if (attachmentSize + albumSize + mediaSize + portableSize >
-              maxBundledFileBytes ||
-          totalExpanded > maxExpandedBytes) {
-        throw const FormatException('状态包解压后大小异常');
-      }
+      _archiveLimits.validatePayload(
+        stateBytes: stateSize,
+        manifestBytes: manifestSize,
+        bundledFileBytes: attachmentSize + albumSize + mediaSize + portableSize,
+        expandedBytes: totalExpanded,
+        entryCount: seen.length,
+      );
 
       await extractArchiveToDisk(archive, target.path);
       final stateFile = File(p.join(target.path, 'state.json'));
@@ -925,7 +922,7 @@ class SnapshotService {
       }
       final decodedState = await decodeSnapshotState(stateFile.path,
         expectedHash: manifest['state_sha256']?.toString() ?? '',
-        maxBytes: maxStateBytes,
+        maxBytes: _archiveLimits.maxStateBytes,
         declaredBytes: (manifest['state_bytes'] as num?)?.toInt(),
       );
       final actual = decodedState.hash;

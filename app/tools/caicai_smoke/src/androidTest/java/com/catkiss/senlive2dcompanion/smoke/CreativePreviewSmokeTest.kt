@@ -174,4 +174,40 @@ class CreativePreviewSmokeTest {
         } finally { instrumentation.runOnMainSync { page.destroy() } }
     }
 
+    @Test fun failedBridgeWritesDoNotBlockLaterSavingOrObservation() {
+        val instrumentation = InstrumentationRegistry.getInstrumentation()
+        val latch = CountDownLatch(1)
+        var observed: JSONObject? = null
+        var nativeSaves = 0
+        lateinit var page: android.webkit.WebView
+        instrumentation.runOnMainSync {
+            page = CreativeWebSandbox.create(context, { raw ->
+                val event = JSONObject(raw)
+                when (event.optString("kind")) {
+                    "observation" -> { observed = event.getJSONObject("data"); latch.countDown() }
+                    "save" -> { nativeSaves++; CreativeWebSandbox.reply(page,event.getString("id"),true) }
+                    else -> CreativeWebSandbox.reply(page,event.getString("id"),null,"save failed")
+                }
+            }, { latch.countDown() })
+            val source = """<h1 id="result">等待保存</h1><script>(async()=>{
+              let denied=0;async function bad(action){try{await action()}catch(e){denied++}}
+              const cyclic={};cyclic.self=cyclic;
+              await bad(()=>companion.saveState(cyclic));
+              await bad(()=>companion.saveState('雪'.repeat(24000)));
+              await bad(()=>companion.report({text:'rejected by host'}));
+              await companion.saveState({round:1});
+              document.getElementById('result').textContent=denied===3?'继续保存成功':'wrong '+denied;
+              await window.__workObserve('failure-recovery');
+            })();</script>"""
+            page.loadDataWithBaseURL(CreativeWebSandbox.ORIGIN,CreativeWebSandbox.document(source,"{}",false),"text/html","UTF-8",null)
+        }
+        try {
+            assertTrue("observation timeout",latch.await(8,TimeUnit.SECONDS))
+            val result = requireNotNull(observed)
+            assertFalse(result.getBoolean("pending_writes"))
+            assertTrue(result.getString("text").contains("继续保存成功"))
+            assertEquals(1,nativeSaves)
+        } finally { instrumentation.runOnMainSync { page.destroy() } }
+    }
+
 }

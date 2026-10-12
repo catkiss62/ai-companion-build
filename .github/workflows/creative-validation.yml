@@ -1,7 +1,7 @@
 name: Creative workspace validation
 on:
   push:
-    branches: [agent/v04295-creative-workspace, agent/v04296-creative-agent, agent/v04297-creative-play-delivery, agent/v04298-creative-context-ui, agent/v04299-creative-autonomy, agent/v042100-creative-facts]
+    branches: [agent/v04295-creative-workspace, agent/v04296-creative-agent, agent/v04297-creative-play-delivery, agent/v04298-creative-context-ui, agent/v04299-creative-autonomy, agent/v042100-creative-facts, agent/v042101-creative-audit]
     paths: ['app/lib/**', 'app/test/**', '.github/workflows/creative-validation.yml']
   workflow_dispatch:
 concurrency:
@@ -16,12 +16,14 @@ jobs:
         with:
           flutter-version: '3.44.9'
           cache: true
+      - name: Creative page bridge failure recovery
+        run: node app/tools/test_creative_bridge.mjs
       - run: flutter pub get
         working-directory: app
       - run: flutter analyze --no-fatal-infos --no-fatal-warnings
         working-directory: app
       - name: Verify private creation and full backup roundtrip before APK
-        run: flutter test test/creative_facts_test.dart test/creative_autonomy_test.dart test/sqlite_settings_backup_v04255_test.dart test/portable_snapshot_v04256_test.dart test/snapshot_directory_swap_test.dart test/snapshot_process_recovery_test.dart
+        run: flutter test test/memory_browse_pagination_test.dart test/memory_page_pagination_test.dart test/creative_inspiration_lifecycle_test.dart test/memory_capacity_recall_test.dart test/creative_integrity_test.dart test/daily_balance_spend_test.dart test/snapshot_archive_limits_test.dart test/creative_facts_test.dart test/creative_autonomy_test.dart test/sqlite_settings_backup_v04255_test.dart test/portable_snapshot_v04256_test.dart test/snapshot_directory_swap_test.dart test/snapshot_process_recovery_test.dart
         working-directory: app
       - run: flutter test test/creative_workspace_test.dart test/creative_agent_test.dart test/creative_delivery_test.dart test/creative_context_test.dart test/creative_ui_test.dart test/nightly_dream_test.dart test/nightly_dream_pipeline_test.dart test/model_network_config_transfer_test.dart test/operational_claim_grounding_guard_test.dart
         working-directory: app

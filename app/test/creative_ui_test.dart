@@ -6,6 +6,28 @@ import 'package:ai_companion_localfirst/core/models/chat_message.dart';
 import 'package:ai_companion_localfirst/widgets/action_tint_text.dart';
 
 void main() {
+  testWidgets('a static work can switch versions without enabling progress reset', (tester) async {
+    var switched = 0;
+    await tester.pumpWidget(MaterialApp(home: Scaffold(appBar: AppBar(actions: [
+      CreativePlayerMenu(onSwitchVersion: () => switched++),
+    ]))));
+    await tester.tap(find.byTooltip('作品选项')); await tester.pumpAndSettle();
+    expect(find.text('切换到最新版本'), findsOneWidget);
+    expect(find.text('重新开始／重置进度'), findsNothing);
+    await tester.tap(find.text('切换到最新版本')); await tester.pumpAndSettle();
+    expect(switched, 1);
+  });
+  testWidgets('a saved game exposes reset separately from a version update', (tester) async {
+    var reset = 0, switched = 0;
+    await tester.pumpWidget(MaterialApp(home: Scaffold(appBar: AppBar(actions: [
+      CreativePlayerMenu(onReset: () => reset++, onSwitchVersion: () => switched++),
+    ]))));
+    await tester.tap(find.byTooltip('作品选项')); await tester.pumpAndSettle();
+    expect(find.text('切换到最新版本'), findsOneWidget);
+    expect(find.text('重新开始／重置进度'), findsOneWidget);
+    await tester.tap(find.text('重新开始／重置进度')); await tester.pumpAndSettle();
+    expect(reset, 1); expect(switched, 0);
+  });
   testWidgets('work card is title-only until expanded; collapse removes details and cover', (tester) async {
     var opened=0;
     await tester.pumpWidget(MaterialApp(home:Scaffold(body:CreativeWorkCard(

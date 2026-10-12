@@ -1,4 +1,5 @@
 import 'core/creative/creative_worker.dart';
+import 'core/ai/deepseek_balance.dart';
 import 'core/diagnostics/daily_spend.dart';
 import 'core/desire/daily_wake_store.dart';
 import 'core/diagnostics/unhandled_error_recorder.dart';
@@ -97,6 +98,7 @@ class _StartupRecoveryRootState extends State<_StartupRecoveryRoot> {
       await Future<void>.delayed(const Duration(milliseconds: 250));
       _markDone(3);
       if (!mounted) return;
+      DeepSeekBalance.installDailySampling(AppDatabase.instance);
       if (Platform.isAndroid) _creativeTimer ??= CreativeWorker.startPolling(AppDatabase.instance);
       setState(() {
         _ready = true;
