@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 
 import '../../core/database/app_database.dart';
 import '../../core/memory/memory_browse_repository.dart';
+import '../../core/memory/memory_revision.dart';
 import '../../core/models/memory_item.dart';
 import '../../core/platform/memory_galaxy.dart';
 import '../../core/relationship/relationship_age.dart';
@@ -44,7 +45,12 @@ class _MemoryPageState extends State<MemoryPage> {
   };
 
   static String semanticLabel(MemoryItem item) {
-    if (item.status == 'superseded') return '历史版本';
+    if (item.status == 'superseded') return switch (item.supersessionReason) {
+      'correction' => '已纠正的旧说法',
+      'change' => '后来改变的历史版本',
+      'confirmation' => '已被澄清的旧推断',
+      _ => '历史版本（原因未知）',
+    };
     return switch (item.semanticType) {
       'inference' => '不确定推断',
       'shared_experience' => '共同经历',
@@ -191,6 +197,11 @@ class _MemoryPageState extends State<MemoryPage> {
                         '语义：${semanticLabel(item)} · 版本 v${item.factVersion} · 证据 ${item.evidenceCount} 次',
                         style: Theme.of(context).textTheme.bodySmall,
                       ),
+                      ExpansionTile(
+                        tilePadding: EdgeInsets.zero,
+                        title: const Text('发生时的形态与来源'),
+                        children: [Text(MemorySourceContext.format(item.sourceContextJson))],
+                      ),
                       if (evidence.isNotEmpty) ...[
                         const SizedBox(height: 8),
                         ExpansionTile(
@@ -204,7 +215,8 @@ class _MemoryPageState extends State<MemoryPage> {
                               dense: true,
                               contentPadding: const EdgeInsets.only(left: 8, right: 4),
                               title: Text(text),
-                              subtitle: Text('来源：${row['source']} · $relation'),
+                              subtitle: Text('来源：${row['source']} · $relation\n'
+                                  '${MemorySourceContext.format(row['source_context_json'] as String? ?? '')}'),
                             );
                           }).toList(),
                         ),

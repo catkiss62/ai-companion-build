@@ -97,6 +97,7 @@ class PlayfulFormState {
     this.event = '',
     this.eventTurn = '',
     this.updatedAt = 0,
+    this.lastTransitionJson = '',
   });
 
   static const settingKey = 'playful_form_state_v1';
@@ -128,6 +129,7 @@ class PlayfulFormState {
   final String event;
   final String eventTurn;
   final int updatedAt;
+  final String lastTransitionJson;
 
   static PlayfulFormState decode(String? raw) {
     try {
@@ -158,6 +160,7 @@ class PlayfulFormState {
         event: data['event']?.toString() ?? '',
         eventTurn: data['eventTurn']?.toString() ?? '',
         updatedAt: (data['updatedAt'] as num?)?.toInt() ?? 0,
+        lastTransitionJson: data['lastTransitionJson'] as String? ?? '',
       );
     } catch (_) {
       return const PlayfulFormState();
@@ -188,6 +191,7 @@ class PlayfulFormState {
         'event': event,
         'eventTurn': eventTurn,
         'updatedAt': updatedAt,
+        'lastTransitionJson': lastTransitionJson,
       });
 
   PlayfulFormState advance(
@@ -241,6 +245,7 @@ class PlayfulFormState {
           ? turn
           : '',
       updatedAt: now.millisecondsSinceEpoch,
+      lastTransitionJson: lastTransitionJson,
     );
   }
 
@@ -261,14 +266,16 @@ class PlayfulFormState {
       event: beforeEvent,
       eventTurn: beforeEventTurn,
       updatedAt: beforeUpdatedAt,
+      lastTransitionJson: lastTransitionJson,
     );
   }
 
   PlayfulFormState onAssistantTurn(
     PlayfulSelfActivity activity,
     String assistantTurn,
-    DateTime now,
-  ) {
+    DateTime now, {
+    DateTime? generationStartedAt,
+  }) {
     if (!pendingTurn || assistantTurn.isEmpty || lastAssistantTurn == assistantTurn) return this;
     // One clamp and one form decision after both participants and the fixed
     // per-turn cooling have contributed. A pending Stop rolls back all of it.
@@ -299,6 +306,14 @@ class PlayfulFormState {
       event: event,
       eventTurn: eventTurn,
       updatedAt: now.millisecondsSinceEpoch,
+      lastTransitionJson: nextForm == qForm ? lastTransitionJson : jsonEncode({
+        'from': qForm ? 'q' : 'normal', 'to': nextForm ? 'q' : 'normal',
+        'at': nextForm ? (generationStartedAt?.millisecondsSinceEpoch ??
+            (updatedAt > 0 ? updatedAt : now.millisecondsSinceEpoch))
+            : now.millisecondsSinceEpoch,
+        'source': nextForm ? 'reply_generation' : 'reply_settlement',
+        'turn': assistantTurn,
+      }),
     );
   }
 
@@ -314,6 +329,12 @@ class PlayfulFormState {
         event: kindle ? 'forehead' : 'comfort',
         eventTurn: '',
         updatedAt: now.millisecondsSinceEpoch,
+        lastTransitionJson: kindle == qForm ? lastTransitionJson : jsonEncode({
+          'from': qForm ? 'q' : 'normal', 'to': kindle ? 'q' : 'normal',
+          'at': now.millisecondsSinceEpoch,
+          'source': kindle ? 'manual_forehead' : 'manual_comfort',
+          'manual_revision': manualRevision + 1,
+        }),
       );
 
   PlayfulFormState withLock(bool value) {
@@ -392,10 +413,12 @@ class PlayfulFormStore {
   static Future<void> settleInTransaction(DatabaseExecutor txn, {
     required String userTurn, required String assistantTurn,
     required PlayfulSelfActivity activity, required DateTime now,
+    DateTime? generationStartedAt,
   }) async {
     final current = await readInTransaction(txn);
     if (!current.pendingTurn || current.lastTurn != userTurn) return;
-    final next = current.onAssistantTurn(activity, assistantTurn, now);
+    final next = current.onAssistantTurn(activity, assistantTurn, now,
+        generationStartedAt: generationStartedAt);
     if (identical(next, current)) return;
     final before = current.rollbackTurn(userTurn);
     await writeInTransaction(txn, next);
@@ -444,7 +467,14 @@ class PlayfulFormStore {
         as Map<String, dynamic>;
     // A lock taken after the old reply must keep the form the user locked,
     // even when undoing that reply would otherwise cross a form boundary.
-    if (current.locked) restored['qForm'] = current.qForm;
+    if (current.locked) {
+      restored['qForm'] = current.qForm;
+      if (current.qForm != before.qForm) {
+        // The user kept this form locked while removing its original reply.
+        // Its precise transition provenance is no longer a committed source.
+        restored['lastTransitionJson'] = '';
+      }
+    }
     await writeInTransaction(txn, PlayfulFormState.decode(jsonEncode(restored)));
     await txn.delete('settings', where: 'key = ?', whereArgs: const [settlementKey]);
   }

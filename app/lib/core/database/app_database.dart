@@ -9,6 +9,7 @@ import '../reflection/deep_reflection_store.dart';
 import '../reflection/deep_reflection_contract.dart';
 import '../mood/mood_store.dart';
 import '../memory/conversation_recall_policy.dart';
+import '../memory/memory_revision.dart';
 import '../models/world_book_turn_context.dart';
 import 'dart:convert';
 import 'dart:math';
@@ -29,6 +30,7 @@ import '../desire/desire_core_policy.dart';
 import '../desire/interaction_reciprocity_policy.dart';
 import '../models/chat_message.dart';
 import '../personality/playful_form_state.dart';
+import '../personality/form_context_snapshot.dart';
 import '../models/chat_language_variant.dart';
 import '../models/companion_album.dart';
 import '../platform/android_bridge.dart';
@@ -1845,6 +1847,27 @@ class AppDatabase {
 
   // Additive columns intentionally keep schema 61 readable by the rollback APK.
   // Called once per open and after restoring a backup, never per chat query.
+  /// Additive source metadata. Missing legacy values deliberately mean unknown.
+  /// Called by schema initialization/upgrade; safe for partial recovery probes.
+  Future<void> ensureFormContextColumns(Database db) async {
+    for (final table in const ['messages', 'immersive_messages', 'generation_jobs']) {
+      final columns = (await db.rawQuery('PRAGMA table_info($table)'))
+          .map((row) => row['name']).toSet();
+      if (columns.isNotEmpty && !columns.contains('form_context_json')) {
+        await db.execute("ALTER TABLE $table ADD COLUMN form_context_json TEXT NOT NULL DEFAULT ''");
+      }
+    }
+  }
+
+  Future<Map<String, Object?>> _userMessageWithFormContext(
+      DatabaseExecutor txn, ChatMessage message) async {
+    if (!message.isUser || message.formContext.isKnown) return message.toDb();
+    final snapshot = FormContextSnapshot.capture(
+      await PlayfulFormStore.readInTransaction(txn),
+      now: DateTime.now(), kind: 'user_received');
+    return {...message.toDb(), 'form_context_json': snapshot.encode()};
+  }
+
   Future<void> _ensureDeepWebColumns(Database db) async {
     for (final entry in const <String, Map<String, String>>{
       'generation_jobs': {'deep_thinking': 'INTEGER NOT NULL DEFAULT 0'},
@@ -1861,6 +1884,31 @@ class AppDatabase {
           await db.execute('ALTER TABLE ${entry.key} ADD COLUMN ${column.key} ${column.value}');
         }
       }
+    }
+    // Additive schema-61 metadata: legacy rows retain unknown defaults.
+    await ensureFormContextColumns(db);
+    await ensureMemoryRevisionColumns(db);
+  }
+
+  Future<void> ensureMemoryRevisionColumns(Database db) async {
+    final columns = (await db.rawQuery('PRAGMA table_info(memory_items)'))
+        .map((row) => row['name']).toSet();
+    if (columns.isEmpty) return;
+    for (final column in const <String, String>{
+      'supersession_reason': "TEXT NOT NULL DEFAULT 'unknown'",
+      'revision_of': "TEXT NOT NULL DEFAULT ''",
+      'source_user_message_id': "TEXT NOT NULL DEFAULT ''",
+      'source_assistant_message_id': "TEXT NOT NULL DEFAULT ''",
+      'source_context_json': "TEXT NOT NULL DEFAULT ''",
+    }.entries) {
+      if (!columns.contains(column.key)) {
+        await db.execute('ALTER TABLE memory_items ADD COLUMN ${column.key} ${column.value}');
+      }
+    }
+    final evidenceColumns = (await db.rawQuery('PRAGMA table_info(memory_evidence)'))
+        .map((row) => row['name']).toSet();
+    if (evidenceColumns.isNotEmpty && !evidenceColumns.contains('source_context_json')) {
+      await db.execute("ALTER TABLE memory_evidence ADD COLUMN source_context_json TEXT NOT NULL DEFAULT ''");
     }
   }
 
@@ -5365,7 +5413,7 @@ class AppDatabase {
       }
       await txn.insert(
         'messages',
-        {...message.toDb(), 'deep_thinking': deepThinking ? 1 : 0},
+        {...(await _userMessageWithFormContext(txn, message)), 'deep_thinking': deepThinking ? 1 : 0},
         conflictAlgorithm: ConflictAlgorithm.abort,
       );
       await _insertLanguageVariants(txn, message);
@@ -6174,6 +6222,7 @@ class AppDatabase {
         'deep_thinking': attachmentRows.first['deep_thinking'] ?? 0,
         'partial_reasoning': '',
         'partial_content': '',
+        'form_context_json': '',
         'run_token': '',
         'device_id': deviceId,
         'created_at': now,
@@ -7079,7 +7128,7 @@ class AppDatabase {
       }
       await txn.insert(
         'messages',
-        user.toDb(),
+        await _userMessageWithFormContext(txn, user),
         conflictAlgorithm: ConflictAlgorithm.abort,
       );
       for (final attachment in user.attachments) {
@@ -7102,6 +7151,7 @@ class AppDatabase {
         'deep_thinking': deepThinking ? 1 : 0,
         'partial_reasoning': '',
         'partial_content': '',
+        'form_context_json': '',
         'run_token': '',
         'device_id': user.deviceId,
         'created_at': now,
@@ -7286,6 +7336,7 @@ class AppDatabase {
             'status': 'cancelled_by_user',
             'partial_reasoning': '',
             'partial_content': '',
+            'form_context_json': '',
             'run_token': '',
             'next_retry_at': null,
             'last_error': '',
@@ -7376,6 +7427,7 @@ class AppDatabase {
           'status': 'interrupted',
           'partial_reasoning': '',
           'partial_content': '',
+          'form_context_json': '',
           'run_token': '',
           'next_retry_at': null,
           'last_error': compactReason,
@@ -7661,6 +7713,7 @@ class AppDatabase {
           'next_retry_at': null,
           'partial_reasoning': '',
           'partial_content': '',
+          'form_context_json': '',
           'run_token': runToken,
           'last_error': '',
           'resume_reason': resumeReason,
@@ -7676,6 +7729,31 @@ class AppDatabase {
         limit: 1,
       );
       return GenerationJob.fromDb(updated.first);
+    });
+  }
+
+  /// Persist the immutable request context before any provider output. A stale
+  /// runner cannot overwrite the context belonging to a newer attempt.
+  Future<bool> captureGenerationFormContext(String id, {
+    required String runToken, required FormContextSnapshot snapshot,
+  }) async {
+    final handle = await database;
+    return handle.transaction((txn) async {
+      final rows = await txn.query('generation_jobs', columns: ['status', 'run_token', 'user_message_id'],
+        where: 'id = ?', whereArgs: [id], limit: 1);
+      if (rows.isEmpty) return false;
+      final row = rows.first;
+      if (runToken.isEmpty || row['status'] != 'running' || row['run_token'] != runToken) {
+        // Stop may finish while a slow prompt is still collecting context.
+        // Its late provisional form must not survive the already-won Stop.
+        if (const ['cancelled_by_user', 'cancelled', 'interrupted', 'failed'].contains(row['status'])) {
+          await _rollbackPlayfulFormTurn(txn, row['user_message_id'] as String);
+        }
+        return false;
+      }
+      return await txn.update('generation_jobs', {'form_context_json': snapshot.encode()},
+        where: 'id = ? AND status = ? AND run_token = ?',
+        whereArgs: [id, 'running', runToken]) == 1;
     });
   }
 
@@ -7777,6 +7855,7 @@ class AppDatabase {
         'status': 'pending',
         'partial_reasoning': '',
         'partial_content': '',
+        'form_context_json': '',
         'run_token': '',
         'next_retry_at': null,
         'last_error': '',
@@ -7890,6 +7969,7 @@ class AppDatabase {
           'attempts': 0,
           'partial_reasoning': '',
           'partial_content': '',
+          'form_context_json': '',
           'run_token': '',
           'started_at': null,
           'completed_at': null,
@@ -8031,6 +8111,7 @@ class AppDatabase {
           'status': 'completed',
           'partial_reasoning': assistant.reasoningContent,
           'partial_content': assistant.content,
+          'form_context_json': assistant.formContextJson,
           'completed_at': now,
           'last_checkpoint_at': now,
           'updated_at': now,
@@ -8067,9 +8148,28 @@ class AppDatabase {
         replyId: assistant.id, now: assistant.createdAt,
         roleplay: WorldBookTurnContext.decode(assistant.worldBookContextJson).hasRoleplay);
       if (playfulActivity != null) {
+        final beforeForm = await PlayfulFormStore.readInTransaction(txn);
+        final settlementTime = DateTime.now();
+        final snapshot = assistant.formContext;
         await PlayfulFormStore.settleInTransaction(txn,
           userTurn: job.userMessageId, assistantTurn: assistant.id,
-          activity: playfulActivity, now: assistant.createdAt);
+          activity: playfulActivity, now: settlementTime,
+          generationStartedAt: snapshot.isKnown && snapshot.capturedAt > 0 &&
+              snapshot.manualRevision == beforeForm.manualRevision
+              ? DateTime.fromMillisecondsSinceEpoch(snapshot.capturedAt) : null);
+        final afterForm = await PlayfulFormStore.readInTransaction(txn);
+        if (snapshot.isKnown && beforeForm.pendingTurn &&
+            beforeForm.lastTurn == job.userMessageId &&
+            beforeForm.manualRevision == snapshot.manualRevision &&
+            (beforeForm.promptQForm ? 'q' : 'normal') == snapshot.form &&
+            afterForm.lastAssistantTurn == assistant.id) {
+          // Appending a post-reply outcome never relabels the generated reply.
+          final settled = snapshot.settled(afterForm, settlementTime).encode();
+          await txn.update('messages', {'form_context_json': settled},
+            where: 'id = ?', whereArgs: [assistant.id]);
+          await txn.update('generation_jobs', {'form_context_json': settled},
+            where: 'id = ?', whereArgs: [job.id]);
+        }
       }
       await _recordPersonalityTrialReplyInTransaction(txn, now);
       return true;
@@ -8129,6 +8229,7 @@ class AppDatabase {
         whereArgs: [id, 'running', runToken],
       );
       if (changed == 0) return null;
+      if (!canRetry) await _rollbackPlayfulFormTurn(txn, job.userMessageId);
       final updated = await txn.query(
         'generation_jobs',
         where: 'id = ?',
@@ -8673,7 +8774,9 @@ class AppDatabase {
     return DateTime.fromMillisecondsSinceEpoch(rows.first['created_at'] as int);
   }
 
-  Future<void> insertMemory({
+  /// True means the proposal was accepted (including an idempotent replay).
+  /// Rejected targeted proposals never fall through to duplicate/auto writes.
+  Future<bool> insertMemory({
     required String kind,
     required String content,
     required double importance,
@@ -8695,10 +8798,16 @@ class AppDatabase {
     double? spontaneousSalience,
     String evidenceMode = 'auto',
     String? targetMemoryId,
+    MemoryRevisionSnapshot? expectedTarget,
+    String revisionKind = '',
+    String userEvidenceQuote = '',
+    String sourceUserMessageId = '',
+    String sourceAssistantMessageId = '',
+    String sourceContextJson = '',
     Transaction? transaction,
   }) async {
     final normalized = content.trim();
-    if (normalized.isEmpty) return;
+    if (normalized.isEmpty) return false;
     final normalizedSubject = subjectKey.trim().toLowerCase();
     final normalizedTopic = TopicAssociationPolicy.resolve(
       explicit: topicKey,
@@ -8717,7 +8826,8 @@ class AppDatabase {
     final normalizedTemporal =
         MemoryGroundingPolicy.normalizeTemporalScope(temporalScope);
     const semanticTypes = {'current_fact', 'inference', 'shared_experience'};
-    const evidenceModes = {'auto', 'append', 'reinforce', 'replace'};
+    const evidenceModes = {'auto', 'append', 'reinforce', 'replace', 'correct'};
+    if (!evidenceModes.contains(evidenceMode)) return false;
     var semantic = semanticTypes.contains(semanticType) ? semanticType : 'current_fact';
     final mode = evidenceModes.contains(evidenceMode) ? evidenceMode : 'auto';
     if (kind == 'shared_experience') semantic = 'shared_experience';
@@ -8737,7 +8847,7 @@ class AppDatabase {
       return shared / min(left.length, right.length);
     }
 
-    Future<void> writeMemory(Transaction txn) async {
+    Future<bool> writeMemory(Transaction txn) async {
       Future<MemoryLifecycleProfile> lifecycleFor({
         required String lifecycleKind,
         required String lifecycleSemantic,
@@ -8793,6 +8903,7 @@ class AppDatabase {
           'confidence': confidence.clamp(0.0, 1.0),
           'relation': relation,
           'observed_at': now,
+          'source_context_json': sourceContextJson,
         });
         return true;
       }
@@ -8879,7 +8990,7 @@ class AppDatabase {
           whereArgs: [source],
           limit: 1,
         );
-        if (alreadyApplied.isNotEmpty) return;
+        if (alreadyApplied.isNotEmpty) return true;
         final legacyApplied = await txn.query(
           'memory_items',
           columns: ['id'],
@@ -8887,30 +8998,90 @@ class AppDatabase {
           whereArgs: [source],
           limit: 1,
         );
-        if (legacyApplied.isNotEmpty) return;
+        if (legacyApplied.isNotEmpty) return true;
+      }
+
+      final isRevision = mode == 'correct' || mode == 'replace';
+      if (!isRevision && revisionKind.isNotEmpty &&
+          !(mode == 'append' && revisionKind == 'context')) return false;
+      MemoryItem? revisionTarget;
+      if (isRevision) {
+        final targetId = targetMemoryId?.trim() ?? '';
+        final expectedKind = mode == 'correct' ? 'correction' : 'change';
+        if (targetId.isEmpty || expectedTarget == null ||
+            expectedTarget.id != targetId || revisionKind != expectedKind ||
+            userEvidenceQuote.trim().isEmpty || sourceUserMessageId.isEmpty ||
+            sourceAssistantMessageId.isEmpty) return false;
+        // A cached proposal may be replayed after its transaction committed.
+        // Only this exact accepted revision is idempotent, never a new target.
+        final applied = await txn.query('memory_items', columns: ['id'],
+            where: 'revision_of = ? AND source = ? AND content = ?',
+            whereArgs: [targetId, source, normalized], limit: 1);
+        if (applied.isNotEmpty) return true;
+        final targetRows = await txn.query('memory_items',
+            where: 'id = ?', whereArgs: [targetId], limit: 1);
+        if (targetRows.isEmpty) return false;
+        final target = MemoryItem.fromDb(targetRows.single);
+        if (!target.isActive || target.pinned || !expectedTarget.matches(target) ||
+            (target.content == normalized && !(target.isInference && semantic == 'current_fact')) ||
+            target.kind != kind || target.subjectKey != normalizedSubject ||
+            (target.isSharedExperience && semantic != 'shared_experience') ||
+            (!target.isSharedExperience && semantic != 'current_fact') ||
+            (mode == 'replace' && target.isSharedExperience)) return false;
+        final users = await txn.query('messages', where: 'id = ? AND role = ?',
+            whereArgs: [sourceUserMessageId, 'user'], limit: 1);
+        final assistants = await txn.query('messages', where: 'id = ? AND role = ?',
+            whereArgs: [sourceAssistantMessageId, 'assistant'], limit: 1);
+        if (users.isEmpty || assistants.isEmpty) return false;
+        final user = ChatMessage.fromDb(users.single);
+        final assistant = ChatMessage.fromDb(assistants.single);
+        if (!user.promptContent.contains(userEvidenceQuote.trim()) ||
+            user.createdAt.isAfter(assistant.createdAt) ||
+            WorldBookTurnContext.decode(user.worldBookContextJson).hasRoleplay ||
+            WorldBookTurnContext.decode(assistant.worldBookContextJson).hasRoleplay) return false;
+        // Bind evidence to the actual queued/generation turn when available.
+        final pairRows = await txn.rawQuery(
+          'SELECT user_message_id FROM post_turn_jobs WHERE assistant_message_id = ? '
+          'UNION SELECT user_message_id FROM generation_jobs WHERE assistant_message_id = ?',
+          [sourceAssistantMessageId, sourceAssistantMessageId]);
+        if (pairRows.any((row) => row['user_message_id'] != sourceUserMessageId)) return false;
+        if (normalizedSubject.isNotEmpty && semantic == 'current_fact') {
+          final otherCurrent = await txn.query('memory_items', columns: ['id'],
+              where: "kind = ? AND subject_key = ? AND status = 'active' "
+                  "AND semantic_type = 'current_fact' AND id <> ?",
+              whereArgs: [kind, normalizedSubject, targetId], limit: 1);
+          if (otherCurrent.isNotEmpty) return false;
+        }
+        revisionTarget = target;
       }
 
       // Explicit reinforce from the extractor is the main paraphrase-merge
       // path. It preserves the canonical memory text while storing the new
       // wording as durable evidence in memory_evidence.
-      if (mode == 'reinforce' && targetMemoryId != null && targetMemoryId.trim().isNotEmpty) {
+      if (mode == 'reinforce') {
+        final targetId = targetMemoryId?.trim() ?? '';
+        if (targetId.isEmpty || expectedTarget == null || revisionKind.isNotEmpty) return false;
         final targetRows = await txn.query(
-          'memory_items',
-          where: 'id = ? AND status = ?',
-          whereArgs: [targetMemoryId.trim(), 'active'],
-          limit: 1,
+          'memory_items', where: 'id = ? AND status = ?',
+          whereArgs: [targetId, 'active'], limit: 1,
         );
-        if (targetRows.isNotEmpty) {
-          final target = MemoryItem.fromDb(targetRows.first);
-          final subjectCompatible = normalizedSubject.isNotEmpty &&
-              target.subjectKey.isNotEmpty &&
-              normalizedSubject == target.subjectKey;
-          final wordingCompatible = evidenceSimilarity(normalized, target.content) >= 0.48;
-          if (target.kind == kind && (subjectCompatible || wordingCompatible)) {
-            await reinforce(target, relation: 'reinforced');
-            return;
-          }
-        }
+        if (targetRows.isEmpty) return false;
+        final target = MemoryItem.fromDb(targetRows.first);
+        // Same-source replay is harmless, but no stale proposal can add fresh
+        // evidence to an edited/replaced target or promote an inference.
+        if (target.source == source) return true;
+        final alreadyReinforced = await txn.query('memory_evidence', columns: ['id'],
+            where: 'memory_id = ? AND source = ? AND evidence_text = ? AND relation = ?',
+            whereArgs: [target.id, source, normalized, 'reinforced'], limit: 1);
+        if (alreadyReinforced.isNotEmpty) return true;
+        if (!expectedTarget.matches(target) || target.semanticType != semantic ||
+            target.kind != kind) return false;
+        final subjectCompatible = normalizedSubject.isNotEmpty &&
+            normalizedSubject == target.subjectKey;
+        final wordingCompatible = evidenceSimilarity(normalized, target.content) >= 0.48;
+        if (!subjectCompatible && !wordingCompatible) return false;
+        await reinforce(target, relation: 'reinforced');
+        return true;
       }
 
       // Exact duplicate remains a deterministic local fallback even when the
@@ -8921,74 +9092,58 @@ class AppDatabase {
         whereArgs: [kind, normalized, 'active'],
         limit: 1,
       );
-      if (duplicate.isNotEmpty) {
+      if (!isRevision && duplicate.isNotEmpty) {
         final existing = MemoryItem.fromDb(duplicate.first);
         if (!(existing.isInference && semantic == 'current_fact')) {
           await reinforce(existing, relation: 'reinforced');
-          return;
+          return true;
         }
-        // The exact wording may have started life as a tentative inference.
-        // Once the same proposition is explicitly confirmed, create a current
-        // fact version below and supersede the old inference instead of trapping
-        // it forever in the uncertain layer.
+        // Confirmation also needs an explicit, version-bound target. A plain
+        // duplicate/append cannot leave both an old inference and a current
+        // fact alive or silently upgrade the old inference's confidence.
+        return false;
       }
 
       final id = _uuid.v4();
       var factVersion = 1;
 
-      if (semantic == 'current_fact' && normalizedSubject.isNotEmpty) {
-        final sameSubject = await txn.query(
-          'memory_items',
-          where: 'kind = ? AND subject_key = ? AND status = ?',
-          whereArgs: [kind, normalizedSubject, 'active'],
-        );
-        final conflicts = sameSubject
-            .where((row) => (row['semantic_type'] as String? ?? 'current_fact') == 'current_fact')
-            .toList(growable: false);
-
-        // Any user-pinned interpretation of this subject is authoritative until
-        // the user edits/unpins it. Automatic extraction must not fork around it.
-        if (sameSubject.any((row) => (row['pinned'] as int? ?? 0) == 1)) return;
-
-        if (mode == 'append' && conflicts.isNotEmpty) {
-          // Two simultaneous "current" values for one subject are ambiguous.
-          // Preserve the new proposal as an inference instead of corrupting the
-          // current-fact invariant.
+      if (revisionTarget != null) {
+        factVersion = revisionTarget.factVersion + 1;
+        await txn.update('memory_items', {
+          'status': 'superseded', 'superseded_by': id,
+          'supersession_reason': revisionTarget.isInference && revisionKind == 'change'
+              ? 'confirmation' : revisionKind,
+          'attention_state': 'closed', 'recall_policy': 'contextual',
+          'spontaneous_salience': 0.0,
+          'lifecycle_source': 'memory_revision', 'lifecycle_updated_at': now,
+          'retention_checked_at': now, 'updated_at': now,
+        }, where: 'id = ?', whereArgs: [revisionTarget.id]);
+        await recordEvidence(memoryId: revisionTarget.id,
+            evidenceText: userEvidenceQuote.trim(), relation: '${revisionKind}_to:$id');
+      } else if (semantic == 'current_fact' && normalizedSubject.isNotEmpty) {
+        final sameSubject = await txn.query('memory_items',
+            where: 'kind = ? AND subject_key = ? AND status = ?',
+            whereArgs: [kind, normalizedSubject, 'active']);
+        if (sameSubject.any((row) => (row['pinned'] as int? ?? 0) == 1)) return false;
+        if (sameSubject.any((row) => row['semantic_type'] == 'current_fact')) {
+          // Append/auto cannot silently perform a destructive revision. A
+          // different context needs its own qualified subject, or stays uncertain.
           semantic = 'inference';
-        } else {
-          final versionRows = await txn.rawQuery(
-            'SELECT MAX(fact_version) AS max_version FROM memory_items WHERE kind = ? AND subject_key = ?',
-            [kind, normalizedSubject],
-          );
-          final maxVersion = (versionRows.first['max_version'] as num?)?.toInt() ?? 0;
-          factVersion = maxVersion + 1;
-
-          for (final row in sameSubject) {
-            await txn.update(
-              'memory_items',
-              {
-                'status': 'superseded',
-                'superseded_by': id,
-                'attention_state': 'closed',
-                'recall_policy': 'contextual',
-                'spontaneous_salience': 0.0,
-                'lifecycle_source': 'superseded_v49',
-                'lifecycle_updated_at': now,
-                'updated_at': now,
-              },
-              where: 'id = ?',
-              whereArgs: [row['id']],
-            );
-          }
         }
       }
 
       // Inference and shared-experience rows intentionally coexist. They can be
       // reinforced later, but never automatically replace a current fact.
+      final storedActor = normalizedActor == 'unknown' && revisionTarget != null
+          ? revisionTarget.actorKey : normalizedActor;
+      final storedOwner = normalizedOwner == 'unknown' && revisionTarget != null
+          ? revisionTarget.ownerKey : normalizedOwner;
+      final storedTemporal = normalizedTemporal == 'unknown' && revisionTarget != null
+          ? revisionTarget.temporalScope : normalizedTemporal;
       final lifecycle = await lifecycleFor(
         lifecycleKind: kind,
         lifecycleSemantic: semantic,
-        lifecycleTemporal: normalizedTemporal,
+        lifecycleTemporal: storedTemporal,
         lifecycleContent: normalized,
         lifecycleImportance: importance,
       );
@@ -8998,13 +9153,20 @@ class AppDatabase {
         'content': normalized,
         'importance': importance.clamp(0.0, 1.0),
         'confidence': confidence.clamp(0.0, 1.0),
-        'tags': tags.take(12).join('|'),
+        'tags': (tags.isEmpty && revisionTarget != null ? revisionTarget.tags : tags).take(12).join('|'),
         'source': source,
         'status': 'active',
         'subject_key': normalizedSubject,
-        'topic_key': normalizedTopic,
+        'topic_key': normalizedTopic.isEmpty && revisionTarget != null
+            ? revisionTarget.topicKey : normalizedTopic,
         'pinned': pinned ? 1 : 0,
         'superseded_by': null,
+        'supersession_reason': 'unknown',
+        'revision_of': revisionTarget?.id ?? '',
+        'source_user_message_id': sourceUserMessageId,
+        'source_assistant_message_id': sourceAssistantMessageId,
+        'source_context_json': revisionTarget == null ? sourceContextJson :
+            MemorySourceContext.preserveOrigin(sourceContextJson, revisionTarget.sourceContextJson),
         'created_at': now,
         'updated_at': now,
         'last_recalled_at': null,
@@ -9014,11 +9176,13 @@ class AppDatabase {
         'retention_score': 1.0,
         'retention_checked_at': now,
         'semantic_type': semantic,
-        'actor_key': normalizedActor,
-        'relation_key': normalizedRelation,
-        'object_key': normalizedObject,
-        'owner_key': normalizedOwner,
-        'temporal_scope': normalizedTemporal,
+        'actor_key': storedActor,
+        'relation_key': normalizedRelation.isEmpty && revisionTarget != null
+            ? revisionTarget.relationKey : normalizedRelation,
+        'object_key': normalizedObject.isEmpty && revisionTarget != null
+            ? revisionTarget.objectKey : normalizedObject,
+        'owner_key': storedOwner,
+        'temporal_scope': storedTemporal,
         'fact_state': lifecycle.factState,
         'attention_state': lifecycle.attentionState,
         'recall_policy': lifecycle.recallPolicy,
@@ -9032,15 +9196,15 @@ class AppDatabase {
       });
       await recordEvidence(
         memoryId: id,
-        evidenceText: normalized,
-        relation: mode == 'replace' ? 'replaced' : 'created',
+        evidenceText: isRevision ? userEvidenceQuote.trim() : normalized,
+        relation: isRevision ? '${revisionKind}_from:${revisionTarget!.id}' : 'created',
       );
+      return true;
     }
     if (transaction != null) {
-      await writeMemory(transaction);
-    } else {
-      await db.transaction(writeMemory);
+      return writeMemory(transaction);
     }
+    return db.transaction(writeMemory);
   }
 
   Future<List<MemoryItem>> memoriesByKind(
@@ -9108,29 +9272,82 @@ class AppDatabase {
   Future<List<ChatMessage>> recallExperienceSources(List<MemoryItem> seeds, {
     DateTime? before,
   }) async {
+    final db = await database;
     final result = <ChatMessage>[];
     final seen = <String>{};
     var chars = 0;
+    final sources = <MemoryItem>[];
     for (final seed in seeds.where((m) => m.isSharedExperience && m.isActive).take(2)) {
-      final match = RegExp(r'^conversation_turn:([^|]+)$').firstMatch(seed.source);
-      if (match == null) continue; // Do not reconnect special-style provenance.
-      final user = await messageById(match.group(1)!);
-      if (user == null || !user.isUser || seen.contains(user.id) ||
+      sources.add(seed);
+      // Preserve the original experience as well as the correction turn.
+      // A revision chain is explicit provenance, never inferred chronology.
+      var previousId = seed.revisionOf;
+      final visited = <String>{seed.id};
+      for (var depth = 0; depth < 4 && previousId.isNotEmpty; depth++) {
+        if (!visited.add(previousId)) break;
+        final rows = await db.query('memory_items', where: 'id = ?',
+            whereArgs: [previousId], limit: 1);
+        if (rows.isEmpty) break;
+        final previous = MemoryItem.fromDb(rows.single);
+        if (!previous.isSharedExperience) break;
+        sources.add(previous);
+        previousId = previous.revisionOf;
+      }
+    }
+    for (final seed in sources) {
+      if (result.length >= 4) break;
+      // Special-style provenance remains isolated exactly as before.
+      if (seed.source.contains('|special_style:')) continue;
+      var userId = seed.sourceUserMessageId;
+      var assistantId = seed.sourceAssistantMessageId;
+      var legacyAdjacentPair = false;
+      if (userId.isEmpty || assistantId.isEmpty) {
+        final match = RegExp(r'^conversation_turn:([^|]+)$').firstMatch(seed.source);
+        if (match == null) continue;
+        final legacy = await messageById(match.group(1)!);
+        if (legacy == null) continue;
+        final pairs = await db.rawQuery(
+          'SELECT user_message_id, assistant_message_id FROM post_turn_jobs '
+          'WHERE user_message_id = ? OR assistant_message_id = ? '
+          'UNION SELECT user_message_id, assistant_message_id FROM generation_jobs '
+          'WHERE user_message_id = ? OR assistant_message_id = ?',
+          [legacy.id, legacy.id, legacy.id, legacy.id]);
+        if (pairs.length == 1) {
+          userId = pairs.single['user_message_id'] as String;
+          assistantId = pairs.single['assistant_message_id'] as String;
+        } else if (pairs.isEmpty && legacy.isUser) {
+          // Older user-bound records predate durable pairing. Retain the
+          // established adjacent complete-turn fallback only for those rows.
+          final next = await messagesAfter(legacy.createdAt, limit: 1);
+          if (next.isEmpty || !next.single.isAssistant) continue;
+          userId = legacy.id;
+          assistantId = next.single.id;
+          legacyAdjacentPair = true;
+        } else {
+          continue; // Never guess a preceding user for an assistant-only source.
+        }
+      }
+      final user = await messageById(userId);
+      final assistant = await messageById(assistantId);
+      if (user == null || !user.isUser || assistant == null || !assistant.isAssistant ||
+          assistant.isProactive || seen.contains(user.id) ||
+          assistant.createdAt.isBefore(user.createdAt) ||
+          (legacyAdjacentPair &&
+              assistant.createdAt.difference(user.createdAt) > const Duration(minutes: 30)) ||
           WorldBookTurnContext.decode(user.worldBookContextJson).hasRoleplay ||
-          (before != null && !user.createdAt.isBefore(before))) continue;
-      final next = await messagesAfter(user.createdAt, limit: 1);
-      if (next.isEmpty || !next.first.isAssistant || next.first.isProactive ||
-          next.first.createdAt.difference(user.createdAt) > const Duration(minutes: 30) ||
-          WorldBookTurnContext.decode(next.first.worldBookContextJson).hasRoleplay ||
-          (before != null && !next.first.createdAt.isBefore(before))) continue;
-      final pair = [user, next.first];
+          WorldBookTurnContext.decode(assistant.worldBookContextJson).hasRoleplay ||
+          (before != null && (!user.createdAt.isBefore(before) ||
+              !assistant.createdAt.isBefore(before)))) continue;
+      final pair = [user, assistant];
       if (!MemoryRetrievalPolicy.hasDirectTextEvidence(seed.content,
           pair.map((m) => m.promptContent).join(' '))) continue;
       final size = pair.fold<int>(0, (sum, m) => sum + m.promptContent.length);
-      if (chars + size > 2400) continue; // Omit whole turns, never distort quotes.
-      result.addAll(pair); seen.add(user.id); chars += size;
+      if (chars + size > 2400) continue;
+      result.addAll(pair);
+      seen.add(user.id);
+      chars += size;
     }
-    result.sort((a,b) => a.createdAt.compareTo(b.createdAt));
+    result.sort((a, b) => a.createdAt.compareTo(b.createdAt));
     return result;
   }
 
@@ -9460,7 +9677,8 @@ class AppDatabase {
     int limit = 3,
   }) async {
     final rows = await _lexicalRecallRows(
-      'memory_items', 'status = ? AND semantic_type = ? AND subject_key <> ?',
+      'memory_items', "status = ? AND ((semantic_type = ? AND subject_key <> ?) "
+          "OR supersession_reason = 'correction')",
       const ['superseded', 'current_fact', ''],
       ConversationRecallPolicy.searchTerms(query),
       "content || ' ' || tags || ' ' || subject_key || ' ' || topic_key",
@@ -16081,6 +16299,7 @@ class AppDatabase {
   Future<bool> updateMemoryRetentionIfUnchanged({
     required String id,
     required DateTime expectedCheckedAt,
+    DateTime? expectedUpdatedAt,
     required double retentionScore,
     required DateTime checkedAt,
     String? status,
@@ -16093,8 +16312,11 @@ class AppDatabase {
         'retention_checked_at': checkedAt.millisecondsSinceEpoch,
         if (status != null) 'status': status,
       },
-      where: 'id = ? AND COALESCE(retention_checked_at, updated_at) = ?',
-      whereArgs: [id, expectedCheckedAt.millisecondsSinceEpoch],
+      where: "id = ? AND status = 'active' AND pinned = 0 "
+          'AND COALESCE(retention_checked_at, updated_at) = ?'
+          '${expectedUpdatedAt == null ? '' : ' AND updated_at = ?'}',
+      whereArgs: [id, expectedCheckedAt.millisecondsSinceEpoch,
+        if (expectedUpdatedAt != null) expectedUpdatedAt.millisecondsSinceEpoch],
     );
     return changed == 1;
   }
@@ -18573,12 +18795,16 @@ class AppDatabase {
   Future<bool> renewLocalLease(
     String key, {
     Duration holdFor = const Duration(seconds: 120),
+    BrainWorkFence? workFence,
   }) async {
     final token = _ownedLeaseTokens[key];
     if (token == null || token.isEmpty) return false;
     final db = await database;
     final now = DateTime.now().millisecondsSinceEpoch;
     return db.transaction<bool>((txn) async {
+      // A long-running caller must not revive an expired lease, or renew a
+      // replacement owner acquired by this same database instance.
+      if (workFence != null && !await workFence.matches(txn)) return false;
       final rows = await txn.query(
         'settings',
         columns: ['value'],
@@ -18850,6 +19076,10 @@ class AppDatabase {
     return {
       'memories': await count('memory_items', 'status = ?', ['active']),
       'memory_evidence': await count('memory_evidence'),
+      'memory_corrections': await count('memory_items', 'supersession_reason = ?', ['correction']),
+      'memory_changes': await count('memory_items', 'supersession_reason = ?', ['change']),
+      'memory_revision_rejected': int.tryParse(await getSetting('memory_revision_rejected_count') ?? '') ?? 0,
+      'memory_revision_missing_snapshot': int.tryParse(await getSetting('memory_revision_missing_snapshot_count') ?? '') ?? 0,
       'summaries': await count('conversation_summaries'),
       'threads': await count('unfinished_threads', 'status = ?', ['active']),
       'thoughts': await count('thoughts'),

@@ -182,7 +182,8 @@ class CreativeDelivery {
           if (text.isEmpty) text = await request(false);
           // Persist the body before delivery. A restart can commit it without
           // buying another answer, provided the user's conversation is unchanged.
-          await save({'text': text, 'model': modelName, 'phase': 'generated'});
+          await save({'text': text, 'model': modelName, 'phase': 'generated',
+            'form_context_json': built.formContext.encode()});
         }
         if (!await _idle(sql)) return;
         if (notice['user_id'] != await _latestUser(sql)) { await deferForChat(); return; }
@@ -193,6 +194,7 @@ class CreativeDelivery {
           visibleText: visible, envelopeStatus: envelope.status);
         final messageId = CreativeContract.completionMessageId(id, notice['request_id'] as String, notice['version'] as String);
         final message = ChatMessage(id: messageId, role: 'assistant', content: visible,
+          formContextJson: notice['form_context_json'] as String? ?? '',
           model: notice['model'] as String?, createdAt: now(), isProactive: true,
           proactiveIntent: 'creative_ready', proactiveDelivery: 'normal', expectsReply: false,
           deviceId: await db.ensureDeviceId(), segments: ChatSegmentCodec.parseAssistantText(visible),

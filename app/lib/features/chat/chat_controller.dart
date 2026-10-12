@@ -445,6 +445,7 @@ class ChatController extends ChangeNotifier {
     incompleteReplyDraft = ChatMessage(
       id: job.assistantMessageId,
       role: 'assistant',
+      formContextJson: job.formContextJson,
       content: EmotionEnvelope.streamingVisible(job.partialContent),
       reasoningContent: job.partialReasoning,
       model: job.model,

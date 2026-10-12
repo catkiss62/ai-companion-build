@@ -27,6 +27,7 @@ class DreamStore {
     'content',
     'created_at',
     'worldbook_context_json',
+    'form_context_json',
   ];
   static const webColumns = [
     'id',
@@ -60,6 +61,7 @@ class DreamStore {
     return DreamSource(
       id: 'chat:${row['id']}',
       kind: role == 'user' ? 'user_text' : 'assistant_text',
+      formContextJson: row['form_context_json'] as String? ?? '',
       text: text,
       at: DreamContract.number(row['created_at']),
       fresh: fresh,

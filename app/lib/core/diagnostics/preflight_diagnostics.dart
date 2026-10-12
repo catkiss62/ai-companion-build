@@ -629,6 +629,8 @@ class PreflightDiagnosticsService {
         'lastProactiveNotice': await db.getSetting('proactive_last_final_provider_notice') ?? '',
         'lastProactiveFailure': _safeJsonObject(
           await db.getSetting('proactive_last_final_failure_v1') ?? '{}'),
+        'lastProactiveAttempts': _safeJsonObject(
+          await db.getSetting('proactive_last_final_attempts_v1') ?? '{}'),
         'lastRoomNotice': await db.getSetting('cedar_room_last_final_provider_notice') ?? '',
         'lastCalendarNotice': await db.getSetting('calendar_last_final_provider_notice') ?? '',
       };

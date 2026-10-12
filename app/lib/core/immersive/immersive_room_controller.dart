@@ -17,6 +17,7 @@ import '../models/chat_language_variant.dart';
 import '../models/chat_segment.dart';
 import '../models/generation_job.dart';
 import '../models/immersive_room.dart';
+import '../personality/form_context_snapshot.dart';
 import '../personality/playful_form_state.dart';
 import '../somatic/somatic_engine.dart';
 import '../storage/secure_config.dart';
@@ -81,13 +82,16 @@ class ImmersiveRoomController extends ChangeNotifier {
   late final TtsPlaybackQueue ttsPlayback;
 
   ImmersiveFormSnapshot? _entryForm;
+  FormContextSnapshot _entryFormContext = const FormContextSnapshot();
   Future<ImmersiveFormSnapshot>? _entryFormLoading;
   ImmersiveFormSnapshot get formSnapshot =>
       _entryForm ?? const ImmersiveFormSnapshot();
   Future<ImmersiveFormSnapshot> _captureEntryForm() =>
       _entryFormLoading ??= (() async {
-        final snapshot = ImmersiveFormSnapshot.capture(
-          await PlayfulFormStore(db).load());
+        final state = await PlayfulFormStore(db).load();
+        final snapshot = ImmersiveFormSnapshot.capture(state);
+        _entryFormContext = FormContextSnapshot.capture(
+          state, now: DateTime.now(), kind: 'room_entry');
         _entryForm = snapshot;
         return snapshot;
       })();
@@ -236,6 +240,7 @@ class ImmersiveRoomController extends ChangeNotifier {
       roomId: roomId,
       role: 'user',
       content: text,
+      formContextJson: _entryFormContext.encode(),
     );
     // Immersive turns share the same internal body channel as ordinary chat.
     // The room remains fictional, but a user-authored touch must not vanish
@@ -364,6 +369,7 @@ class ImmersiveRoomController extends ChangeNotifier {
         role: 'assistant',
         content: streamingContent,
         reasoningContent: _allStreamingReasoning,
+        formContextJson: _entryFormContext.encode(),
       );
       committed = true;
 
@@ -638,6 +644,7 @@ class ImmersiveRoomController extends ChangeNotifier {
       content: trimmed,
       reasoningContent: reasoning.trim(),
       createdAt: createdAt,
+      formContextJson: _entryFormContext.encode(),
     );
     await _writeRoomSetting(
       _pendingReplySettingKey,
@@ -647,6 +654,7 @@ class ImmersiveRoomController extends ChangeNotifier {
         'content': trimmed,
         'reasoning': reasoning.trim(),
         'created_at': createdAt.millisecondsSinceEpoch,
+        'form_context_json': incompleteReplyDraft!.formContextJson,
       }),
     );
   }
@@ -667,6 +675,7 @@ class ImmersiveRoomController extends ChangeNotifier {
         role: 'assistant',
         content: content,
         reasoningContent: data['reasoning']?.toString().trim() ?? '',
+        formContextJson: data['form_context_json'] as String? ?? '',
         createdAt: DateTime.fromMillisecondsSinceEpoch(
           (data['created_at'] as num?)?.toInt() ??
               DateTime.now().millisecondsSinceEpoch,
@@ -714,6 +723,9 @@ class ImmersiveRoomController extends ChangeNotifier {
         role: 'assistant',
         content: draft.content,
         reasoningContent: draft.reasoningContent,
+        // A restored draft belongs to its original entry. Missing legacy
+        // metadata remains unknown even if the current entry form is known.
+        formContextJson: draft.formContextJson,
       );
 
       await _clearIncompleteReplyDraft();
@@ -877,6 +889,7 @@ class ImmersiveRoomController extends ChangeNotifier {
         role: 'assistant',
         content: streamingContent,
         reasoningContent: _allStreamingReasoning,
+        formContextJson: _entryFormContext.encode(),
       );
 
       messages = await repository.messagesForRoom(roomId);
@@ -1305,7 +1318,7 @@ class ImmersiveRoomController extends ChangeNotifier {
         messages: [
           {
             'role': 'system',
-            'content': '''只输出 JSON：{"rolling_summary":"按事件顺序合并旧摘要与新增剧情，去掉重复感官和重复动作，保留变化、承诺与未完成事件","scene_ledger":"当前地点、时间、人物、姿势、衣物、接触点、阶段、身体状态、未完成事件"}。不得把虚构房间写成现实事实。摘要和现场账提及用户时统一写“用户”，不得写成“他”；不得替用户新增台词、主动动作、内心、态度、同意、意图或决定。可以记录用户明确输入的事实，以及原文已经出现的生理和被动身体反馈。''',
+            'content': '''只输出 JSON：{"rolling_summary":"按事件顺序合并旧摘要与新增剧情，去掉重复感官和重复动作，保留变化、承诺与未完成事件","scene_ledger":"当前地点、时间、人物、姿势、衣物、接触点、阶段、身体状态、未完成事件"}。不得把虚构房间写成现实事实。摘要和现场账提及用户时统一写“用户”，不得写成“他”；不得替用户新增台词、主动动作、内心、态度、同意、意图或决定。可以记录用户明确输入的事实，以及原文已经出现的生理和被动身体反馈。当时形态标签只说明该条历史发生时的情境，未知不可倒推；两种形态属于同一人，经历与成长共用，不将一次变身提炼为永久人格。''',
           },
           {
             'role': 'user',
@@ -1340,16 +1353,18 @@ ${_summaryTranscript(source, maxCharacters: 22000)}''',
     final selected = <ImmersiveMessage>[];
     var used = 0;
     for (final message in source.reversed) {
-      if (used + message.content.length > maxCharacters && selected.isNotEmpty) {
+      final cost = message.content.length + message.historicalFormLabel.length + 10;
+      if (used + cost > maxCharacters && selected.isNotEmpty) {
         break;
       }
       selected.add(message);
-      used += message.content.length;
+      used += cost;
     }
     return selected.reversed
         .map(
           (message) =>
-              '${message.isUser ? '用户输入' : 'AI正文'}：${message.content}',
+              '${message.isUser ? '用户输入' : 'AI正文'}'
+              '〔${message.historicalFormLabel}〕：${message.content}',
         )
         .join('\n\n');
   }

@@ -1,5 +1,6 @@
 import 'chat_language_variant.dart';
 import 'chat_segment.dart';
+import '../personality/form_context_snapshot.dart';
 
 class ImmersiveRoom {
   const ImmersiveRoom({
@@ -84,6 +85,7 @@ class ImmersiveMessage {
     required this.content,
     required this.reasoningContent,
     required this.createdAt,
+    this.formContextJson = '',
     this.languageVariants = const <ChatLanguage, ChatLanguageVariant>{},
   });
 
@@ -93,7 +95,12 @@ class ImmersiveMessage {
   final String content;
   final String reasoningContent;
   final DateTime createdAt;
+  final String formContextJson;
   final Map<ChatLanguage, ChatLanguageVariant> languageVariants;
+
+  FormContextSnapshot get formContext =>
+      FormContextSnapshot.decode(formContextJson);
+  String get historicalFormLabel => formContext.historicalLabel;
 
   bool get isUser => role == 'user';
   bool get isAssistant => role == 'assistant';
@@ -118,6 +125,7 @@ class ImmersiveMessage {
         content: content,
         reasoningContent: reasoningContent,
         createdAt: createdAt,
+        formContextJson: formContextJson,
         languageVariants: languageVariants ?? this.languageVariants,
       );
 
@@ -128,6 +136,7 @@ class ImmersiveMessage {
         role: row['role'] as String,
         content: row['content'] as String? ?? '',
         reasoningContent: row['reasoning_content'] as String? ?? '',
+        formContextJson: row['form_context_json'] as String? ?? '',
         createdAt: DateTime.fromMillisecondsSinceEpoch(
           (row['created_at'] as num).toInt(),
         ),

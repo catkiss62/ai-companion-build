@@ -1,4 +1,5 @@
 import '../emotion/emotion_contract.dart';
+import '../personality/form_context_snapshot.dart';
 import 'message_attachment.dart';
 import 'chat_segment.dart';
 import 'chat_language_variant.dart';
@@ -26,6 +27,7 @@ class ChatMessage {
     this.emotionTop3Json = '',
     this.emotionSource = '',
     this.worldBookContextJson = '',
+    this.formContextJson = '',
   });
 
   final String id;
@@ -50,6 +52,9 @@ class ChatMessage {
   final String emotionSource;
   /// Machine-only provenance. It is never rendered or injected as self-story.
   final String worldBookContextJson;
+  final String formContextJson;
+  FormContextSnapshot get formContext => FormContextSnapshot.decode(formContextJson);
+  String get historicalFormLabel => formContext.historicalLabel;
 
   CompanionEmotion get companionEmotion => emotionKey.isEmpty
       ? CompanionEmotion.calm
@@ -136,6 +141,7 @@ class ChatMessage {
     String? emotionTop3Json,
     String? emotionSource,
     String? worldBookContextJson,
+    String? formContextJson,
   }) {
     return ChatMessage(
       id: id,
@@ -160,6 +166,7 @@ class ChatMessage {
       emotionSource: emotionSource ?? this.emotionSource,
       worldBookContextJson:
           worldBookContextJson ?? this.worldBookContextJson,
+      formContextJson: formContextJson ?? this.formContextJson,
     );
   }
 
@@ -183,6 +190,7 @@ class ChatMessage {
         'emotion_top3_json': emotionTop3Json,
         'emotion_source': emotionSource,
         'worldbook_context_json': worldBookContextJson,
+        'form_context_json': formContextJson,
       };
 
   Map<String, Object?> toJson() => {
@@ -215,6 +223,7 @@ class ChatMessage {
         'emotion_top3_json': emotionTop3Json,
         'emotion_source': emotionSource,
         'worldbook_context_json': worldBookContextJson,
+        'form_context_json': formContextJson,
       };
 
   factory ChatMessage.fromDb(
@@ -248,6 +257,7 @@ class ChatMessage {
       emotionTop3Json: row['emotion_top3_json'] as String? ?? '',
       emotionSource: row['emotion_source'] as String? ?? '',
       worldBookContextJson: row['worldbook_context_json'] as String? ?? '',
+      formContextJson: row['form_context_json'] as String? ?? '',
     );
   }
 }

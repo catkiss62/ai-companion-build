@@ -1,4 +1,5 @@
 import '../models/memory_item.dart';
+import 'memory_revision.dart';
 
 /// Bounded entity/time grounding for durable memories.
 ///
@@ -105,6 +106,16 @@ class MemoryGroundingPolicy {
     DateTime? now,
   }) {
     final instant = now ?? DateTime.now();
+    final revision = item.isHistorical
+        ? switch (item.supersessionReason) {
+            'correction' => 'superseded=correction; 这是已纠正的旧说法，只证明曾这样记过，不证明过去成立，禁止作为当前事实',
+            'change' => 'superseded=change; 事实后来改变，只能按过去的限定时间理解，禁止作为当前事实',
+            'confirmation' => 'superseded=confirmation; 这是后来得到确认或澄清的旧推断，不证明旧推断过去已成立',
+            _ => 'superseded=unknown; 旧版本已失效，替代原因未知，不能推断过去成立或作为当前事实',
+          }
+        : item.revisionOf.isNotEmpty
+            ? 'revision_of=${item.revisionOf}; 当前有效修订优先于来源原话和旧摘要中的冲突说法'
+            : '';
     final scope = effectiveTemporalScope(item);
     final actor = effectiveActor(item);
     final owner = effectiveOwner(item);
@@ -142,9 +153,9 @@ class MemoryGroundingPolicy {
       _ =>
         'time_unknown; ${_evidenceAge(item.lastEvidenceAt, instant)}; 不得猜测当前状态',
     };
-    return '[MEMORY_GROUNDING $entity; lifecycle=$lifecycle; '
+    return '[MEMORY_GROUNDING $entity; ${revision.isEmpty ? '' : '$revision; '}lifecycle=$lifecycle; '
         'attention=${item.attentionState}; recall=${item.recallPolicy}; '
-        'temporal=$temporal] ${item.content}';
+        'temporal=$temporal; ${MemorySourceContext.format(item.sourceContextJson)}] ${item.content}';
   }
 
   static String threadTemporalNote(DateTime updatedAt, {DateTime? now}) =>

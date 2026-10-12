@@ -37,6 +37,7 @@ import '../models/desire_state.dart';
 import '../models/generation_job.dart';
 import '../models/message_attachment.dart';
 import '../personality/playful_form_state.dart';
+import '../personality/form_context_snapshot.dart';
 import '../mcp/cedar_agent_loop_policy.dart';
 import '../mcp/cedar_game_protocol.dart';
 import '../mcp/cedar_toy_arcade_skill.dart';
@@ -277,6 +278,7 @@ class DurableGenerationRunner {
     var generationSpecialStyleTrialId = '';
     var generationSpecialStyleKey = '';
     var creativePlayEvidence = const CreativePlayEvidence();
+    var generationFormContext = const FormContextSnapshot();
     final preparedAgentAttachments = <MessageAttachment>[];
     final preparedAgentMediaUsageKeys = <String>[];
     final visibleTranscript = VisibleReasoningTranscript();
@@ -561,6 +563,11 @@ class DurableGenerationRunner {
         specialStyleKeyOverride: generationSpecialStyleKey,
         conversationInitiativeOverride: conversationPlan,
       );
+      generationFormContext = promptBuild.formContext;
+      if (!await db.captureGenerationFormContext(job.id,
+          runToken: job.runToken, snapshot: generationFormContext)) {
+        return const GenerationRunResult(status: 'suspended');
+      }
       final creativeContext = await CreativePlay.chatContext(db, userMessageId: job.userMessageId);
       creativePlayEvidence = promptBuild.creativePlayEvidence;
       final baseRequestMessages = <Map<String, Object?>>[
@@ -1789,6 +1796,7 @@ $finalGenerationReminder
         emotionTop3Json: companionEmotion.top3Json,
         emotionSource: companionEmotion.source,
         worldBookContextJson: promptBuild.worldBookContext.encode(),
+        formContextJson: generationFormContext.encode(),
         attachments: preparedAgentAttachments,
       );
       final stickerChoice = StickerReplyChoice.parse(generated.content);
@@ -1992,6 +2000,7 @@ $finalGenerationReminder
       final draft = ChatMessage(
         id: job.assistantMessageId,
         role: 'assistant',
+        formContextJson: generationFormContext.encode(),
         content: visible,
         reasoningContent: preserveProviderReasoning(e.reasoning),
         model: finalTextFromGemini
@@ -2125,6 +2134,7 @@ $finalGenerationReminder
     final assistant = ChatMessage(
       id: job.assistantMessageId,
       role: 'assistant',
+      formContextJson: job.formContextJson,
       content: visible,
       reasoningContent: preserveProviderReasoning(job.partialReasoning),
       model: job.model,

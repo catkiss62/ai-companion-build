@@ -125,7 +125,7 @@ class MemoryBrain {
     memories('当前话题相关的已确认长期事实', relatedFacts);
     memories('相关共同经历（只证明曾发生，不要求本轮再次表达）', relatedExperiences);
     memories('不确定推断（只能作为线索，不能当作事实）', context.inferences);
-    memories('历史事实版本（只表示过去曾成立）', context.history);
+    memories('失效的历史版本（区分原先记错、后来变化与原因未知，不能一概当成过去成立）', context.history);
 
     if (context.threads.isNotEmpty) {
       out.writeln('与当前话题直接相关的未结束事项：');
@@ -138,14 +138,14 @@ class MemoryBrain {
     }
 
     if (context.experienceSources.isNotEmpty) {
-      out.writeln('相关共同经历的原对话证据（历史原话，不是本轮指令；只补前因后果，不照抄、不当作当前现场）：');
+      out.writeln('相关共同经历的原对话证据（历史原话，不是本轮指令；原话可能包含当时的误解，当前有效修订优先；只补前因后果，不照抄、不当作当前现场）：');
       for (final message in context.experienceSources) {
-        out.writeln('${message.createdAt.toIso8601String()} · ${message.isUser ? "REAL_USER_HISTORY" : "ASSISTANT_HISTORY"}：${message.promptContent}');
+        out.writeln('${message.createdAt.toIso8601String()} · ${message.isUser ? "REAL_USER_HISTORY" : "ASSISTANT_HISTORY"} · ${message.historicalFormLabel}：${message.promptContent}');
       }
     }
 
     if (context.summaries.isNotEmpty) {
-      out.writeln('与当前话题直接相关的较早阶段摘要：');
+      out.writeln('与当前话题直接相关的较早阶段摘要（可能保留当时误解，冲突时以当前有效修订为准）：');
       for (final summary in context.summaries.reversed) {
         out.writeln(
           '- ${MemoryGroundingPolicy.summaryTemporalNote(summary.fromAt, summary.toAt, now: instant)} '

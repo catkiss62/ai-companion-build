@@ -21,6 +21,7 @@ class GenerationJob {
     this.nextRetryAt,
     this.lastError = '',
     this.resumeReason = '',
+    this.formContextJson = '',
   });
 
   final String id;
@@ -44,6 +45,7 @@ class GenerationJob {
   final DateTime? nextRetryAt;
   final String lastError;
   final String resumeReason;
+  final String formContextJson;
 
   bool get isTerminal =>
       status == 'completed' ||
@@ -76,6 +78,7 @@ class GenerationJob {
         nextRetryAt: _date(row['next_retry_at']),
         lastError: row['last_error'] as String? ?? '',
         resumeReason: row['resume_reason'] as String? ?? '',
+        formContextJson: row['form_context_json'] as String? ?? '',
       );
 
   static DateTime? _date(Object? value) {

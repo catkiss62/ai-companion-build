@@ -176,19 +176,21 @@ reasoning_content 直接写AI角色第一人称的即时内心，落在当前感
     var used = 0;
     final selected = <ImmersiveMessage>[];
     for (final message in history.reversed) {
-      if (used + message.content.length > characterBudget && selected.isNotEmpty) {
+      final cost = message.content.length + message.historicalFormLabel.length + 9;
+      if (used + cost > characterBudget && selected.isNotEmpty) {
         break;
       }
       selected.add(message);
-      used += message.content.length;
+      used += cost;
     }
     return selected.reversed
         .map(
           (message) => <String, Object?>{
             'role': message.role,
-            'content': ImmersiveSceneAdvance.isMarker(message.content)
+            'content': '【历史记录·${message.historicalFormLabel}】\n'
+                '${ImmersiveSceneAdvance.isMarker(message.content)
                 ? ImmersiveSceneAdvance.instruction
-                : message.content,
+                : message.content}',
           },
         )
         .toList(growable: false);

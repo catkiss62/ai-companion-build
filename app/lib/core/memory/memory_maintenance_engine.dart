@@ -109,6 +109,7 @@ class MemoryMaintenanceEngine {
         final changed = await db.updateMemoryRetentionIfUnchanged(
           id: item.id,
           expectedCheckedAt: checkedAt,
+          expectedUpdatedAt: item.updatedAt,
           retentionScore: retention,
           checkedAt: now,
           status: canArchive ? 'archived' : null,

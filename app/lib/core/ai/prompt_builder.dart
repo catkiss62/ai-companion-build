@@ -47,6 +47,7 @@ import '../perception/current_device_context_refresher.dart';
 import '../perception/festival_context.dart';
 import '../perception/weather_context.dart';
 import '../personality/playful_form_state.dart';
+import '../personality/form_context_snapshot.dart';
 import '../platform/android_bridge.dart';
 import '../relationship/relationship_age.dart';
 import '../relationship/relationship_brain.dart';
@@ -62,12 +63,14 @@ class PromptBuildResult {
     required this.messages,
     required this.worldBookContext,
     this.deepReflection,
+    this.formContext = const FormContextSnapshot(),
     this.creativePlayEvidence = const CreativePlayEvidence(),
   });
 
   final List<Map<String, Object?>> messages;
   final WorldBookTurnContext worldBookContext;
   final DeepReflectionContext? deepReflection;
+  final FormContextSnapshot formContext;
   final CreativePlayEvidence creativePlayEvidence;
 }
 
@@ -277,6 +280,8 @@ class PromptBuilder {
           formTurn,
           opportunity: playfulInitiativeOpportunity,
         );
+    final formContext = FormContextSnapshot.capture(form,
+        now: DateTime.now(), kind: 'generation', generation: true);
     final playfulFormSection = form.promptForTurn(
           mode == PromptGenerationMode.userTurn ? formTurn : '',
         ) +
@@ -556,6 +561,8 @@ ANSWERED_HISTORY_ONLY = true
       });
     } else {
       final history = PromptHistoryPolicy.userTurnHistory(promptRecent);
+      messages.add({'role': 'system',
+        'content': PromptHistoryPolicy.formContextTranscript(promptRecent)});
       final lifecycleTurnContract =
           _memoryLifecycleTurnContract(latestUserText);
       if (history.isEmpty) {
@@ -634,9 +641,17 @@ ANSWERED_HISTORY_ONLY = true
       }
     }
     form.anchorCurrentForm(messages);
+    if (formContext.transitionLabel.isNotEmpty) {
+      final index = messages.isNotEmpty && messages.last['role'] == 'user'
+          ? messages.length - 1 : messages.length;
+      messages.insert(index, {'role': 'system',
+        'content': '【形态衔接事实】${formContext.transitionLabel}。'
+          '恢复前后的经历属于同一人；历史形态只说明当时情境，不是另一套记忆或偏好，也不要求播报变身。'});
+    }
     return PromptBuildResult(
       messages: List<Map<String, Object?>>.unmodifiable(messages),
       worldBookContext: worldBookContext,
+      formContext: formContext,
       deepReflection: deepReflection,
       creativePlayEvidence: creativeRead.playEvidence,
     );

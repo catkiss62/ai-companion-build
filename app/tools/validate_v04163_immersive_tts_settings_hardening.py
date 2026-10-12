@@ -41,11 +41,23 @@ def main() -> None:
     require(proactive, "secureConfig.readApiKey()", "secureConfig.readEndpoint()")
     # +262: the DeepSeek key remains mandatory for internal work and fallback;
     # +285: the configured second channel owns the first draft and semantic repairs;
-    # only a real request failure opens the fallback path.
+    # +347: one retry stays in that channel before fallback. The extracted
+    # candidate helper never delivers messages or charges proactive quota.
     require(proactive, "secureConfig.readFinalReplyApiKey()",
             "secureConfig.readFinalReplyEndpoint()",
             "FinalReplyRoute(secondChannelEnabled: finalProvider.isGeminiRelay)",
-            "if (finalRoute.useSecondChannel)", "finalRoute.recordFailure(error)", "return request(gemini: false)")
+            "ProactiveFinalReplyRetry.generate<_ProactiveGenerationCandidate>",
+            "canContinue: proactiveRequestAllowed",
+            "request: ({required bool secondChannel}) => request(gemini: secondChannel)")
+    retry = read("lib/core/desire/proactive_final_reply_retry.dart")
+    require(retry, "if (route.useSecondChannel)",
+            "attempt <= FinalReplyFailurePolicy.maxGeminiAttempts",
+            "route.recordFailure(failures.last)",
+            "request(secondChannel: false)",
+            "on GenerationSuspendedByRuntimeGateException",
+            "on GenerationCancelledByUserException")
+    assert "FinalReplyFailurePolicy.isTransient" not in retry
+    assert "commitProactiveMessageIfCurrent" not in retry
 
     queue = read("lib/core/tts/tts_playback_queue.dart")
     processor = read("lib/core/tts/tts_text_processor.dart")

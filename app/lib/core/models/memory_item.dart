@@ -14,6 +14,11 @@ class MemoryItem {
     this.topicKey = '',
     this.pinned = false,
     this.supersededBy,
+    this.supersessionReason = 'unknown',
+    this.revisionOf = '',
+    this.sourceUserMessageId = '',
+    this.sourceAssistantMessageId = '',
+    this.sourceContextJson = '',
     this.lastRecalledAt,
     this.recallCount = 0,
     this.lastExpressedAt,
@@ -51,6 +56,11 @@ class MemoryItem {
   final String topicKey;
   final bool pinned;
   final String? supersededBy;
+  final String supersessionReason;
+  final String revisionOf;
+  final String sourceUserMessageId;
+  final String sourceAssistantMessageId;
+  final String sourceContextJson;
   final DateTime createdAt;
   final DateTime updatedAt;
   final DateTime? lastRecalledAt;
@@ -100,6 +110,11 @@ class MemoryItem {
       topicKey: row['topic_key'] as String? ?? '',
       pinned: (row['pinned'] as int? ?? 0) == 1,
       supersededBy: row['superseded_by'] as String?,
+      supersessionReason: row['supersession_reason'] as String? ?? 'unknown',
+      revisionOf: row['revision_of'] as String? ?? '',
+      sourceUserMessageId: row['source_user_message_id'] as String? ?? '',
+      sourceAssistantMessageId: row['source_assistant_message_id'] as String? ?? '',
+      sourceContextJson: row['source_context_json'] as String? ?? '',
       createdAt: createdAt,
       updatedAt: row['updated_at'] == null
           ? createdAt

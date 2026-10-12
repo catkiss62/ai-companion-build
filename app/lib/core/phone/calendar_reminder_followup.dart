@@ -101,6 +101,7 @@ class CalendarReminderFollowup {
       if (!await current()) return;
       final committed = await db.insertBackgroundMessage(ChatMessage(id:messageId,role:'assistant',
           content:visible,model:generated.model,createdAt:DateTime.now(),isProactive:true,
+          formContextJson:built.formContext.encode(),
           proactiveIntent:'calendar_reminder',proactiveDelivery:'normal',deviceId:await db.ensureDeviceId(),
           emotionRawTag:emotion.rawTag,emotionKey:emotion.key,emotionLabel:emotion.label,
           emotionConfidence:emotion.confidence,emotionTop3Json:emotion.top3Json,emotionSource:emotion.source,

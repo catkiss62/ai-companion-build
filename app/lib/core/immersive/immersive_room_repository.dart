@@ -330,6 +330,7 @@ class ImmersiveRoomRepository {
     required String role,
     required String content,
     String reasoningContent = '',
+    String formContextJson = '',
   }) async {
     final now = DateTime.now().millisecondsSinceEpoch;
     final message = ImmersiveMessage(
@@ -338,6 +339,7 @@ class ImmersiveRoomRepository {
       role: role,
       content: content.trim(),
       reasoningContent: reasoningContent.trim(),
+      formContextJson: formContextJson,
       createdAt: DateTime.fromMillisecondsSinceEpoch(now),
     );
     await _write((txn) async {
@@ -350,6 +352,7 @@ class ImmersiveRoomRepository {
         'role': role,
         'content': message.content,
         'reasoning_content': message.reasoningContent,
+        'form_context_json': message.formContextJson,
         'created_at': now,
       });
       await txn.update(
@@ -525,7 +528,8 @@ class ImmersiveRoomRepository {
       final clipped = text.length <= remaining
           ? text
           : '${text.substring(0, remaining)}…';
-      buffer.writeln('${message.isUser ? '用户输入' : 'AI正文'}：$clipped');
+      buffer.writeln('${message.isUser ? '用户输入' : 'AI正文'}'
+          '〔${message.historicalFormLabel}〕：$clipped');
       used += clipped.length;
     }
     return buffer.toString().trim();

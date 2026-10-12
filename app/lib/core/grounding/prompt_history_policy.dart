@@ -29,6 +29,45 @@ class PromptHistoryPolicy {
         .toList(growable: false);
   }
 
+  static String formContextTranscript(List<ChatMessage> recent) {
+    // Use precisely the same filtering/order as userTurnHistory. IDs and dates
+    // are absent from that raw transcript, so its 1-based positions are the
+    // unambiguous, compact correspondence (system instructions are not counted).
+    final history = recent.where((message) => !message.isAssistant ||
+        !isLegacyCannedPersonaReply(message.promptContent)).toList();
+    String name(String form) => switch (form) {
+      'normal' => '正常本体', 'q' => '小豆丁', _ => '未知',
+    };
+    bool hasSettlement(ChatMessage message) {
+      final snapshot = message.formContext;
+      return snapshot.isKnown && snapshot.afterForm.isNotEmpty &&
+          snapshot.afterForm != snapshot.form && snapshot.settledAt > 0;
+    }
+    final lines = <String>[];
+    for (var first = 0; first < history.length;) {
+      final message = history[first];
+      final snapshot = message.formContext;
+      if (hasSettlement(message)) {
+        lines.add('第${first + 1}条（${message.isUser ? '用户发言' : 'AI回复'}）：'
+          '${name(snapshot.form)}；回复提交结算于'
+          '${DateTime.fromMillisecondsSinceEpoch(snapshot.settledAt).toIso8601String()}'
+          '后为${name(snapshot.afterForm)}');
+        first++;
+        continue;
+      }
+      var last = first;
+      while (last + 1 < history.length && !hasSettlement(history[last + 1]) &&
+          history[last + 1].formContext.form == snapshot.form) {
+        last++;
+      }
+      lines.add('第${first + 1}${last == first ? '' : '–${last + 1}'}条：${name(snapshot.form)}');
+      first = last + 1;
+    }
+    return '【原始发言的形态来源】按下方原始对话消息1..N的顺序对应，不计system提示。'
+        '用户发言与AI回复分别保存各自发生时快照；未知表示未保存，勿从措辞或现在状态推断。'
+        '历史形态不替代当前形态。\n${lines.join('\n')}';
+  }
+
   static Map<String, Object?> proactiveHistoryTranscript(
     List<ChatMessage> recent,
   ) {
@@ -62,7 +101,7 @@ class PromptHistoryPolicy {
           : message.isProactive
               ? 'ASSISTANT_PROACTIVE_HISTORY'
               : 'ASSISTANT_HISTORY';
-      buffer.writeln('--- $timestamp · $label ---');
+      buffer.writeln('--- $timestamp · $label · ${message.historicalFormLabel} ---');
       buffer.writeln(message.promptContent.trim());
     }
 

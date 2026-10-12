@@ -3,6 +3,7 @@ import '../creative/creative_store.dart';
 import '../phone/calendar_reminder_state.dart';
 import '../self/dream_engine.dart';
 import 'proactive_delivery_budget.dart';
+import 'proactive_final_reply_retry.dart';
 import '../reflection/deep_reflection_engine.dart';
 import '../reflection/deep_reflection_store.dart';
 import '../wishes/wish_engine.dart';
@@ -21,7 +22,6 @@ import 'package:uuid/uuid.dart';
 
 import '../ai/deepseek_client.dart';
 import '../ai/final_reply_failure_policy.dart';
-import '../ai/generation_cancellation.dart';
 import '../ai/model_profile.dart';
 import '../ai/prompt_builder.dart';
 import '../autonomy/public_web_discovery_engine.dart';
@@ -1384,14 +1384,14 @@ class ProactiveEngine {
         !await WishStore(db).claimContact(selectedWishId, evaluationStartedAt)) {
       return const ProactiveDecision(sent: false, reason: '愿望表达已冷却或暂停');
     }
-    final wishDeliveryFence = selectedWishId.isEmpty && reflectionInvitation == null && creativeShare == null ? null
-        : await db.captureBrainWorkFence(settingKeys: [
+    final wishDeliveryFence = await db.captureBrainWorkFence(
+          leaseKey: 'proactive_lease_until', settingKeys: [
             if (creativeShare != null) ...creativeShare.expected.keys,
             if (selectedWishId.isNotEmpty) ...[WishStore.stateKey, WishStore.enabledKey],
             if (reflectionInvitation != null) ...[DeepReflectionStore.stateKey, DeepReflectionStore.enabledKey, DeepReflectionStore.resetKey],
           ]);
-    if ((selectedWishId.isNotEmpty || reflectionInvitation != null || creativeShare != null) && wishDeliveryFence == null) {
-      return const ProactiveDecision(sent: false, reason: '愿望表达状态已变化');
+    if (wishDeliveryFence == null) {
+      return const ProactiveDecision(sent: false, reason: '主动任务的写入权限或来源状态已变化');
     }
     final recent = await db.recentMessagesForPrompt(limit: 28);
     final startsFreshTopic =
@@ -1545,6 +1545,15 @@ ${startsFreshTopic ? '本类型属于新话题通道：ANSWERED CHAT HISTORY 已
     final lastGroundedUserText = lastGroundedUser?.content ?? '';
     var lastProactiveLeaseRefresh = DateTime.now();
 
+    Future<bool> proactiveRequestAllowed() async {
+      if (!await db.brainWorkFenceCurrent(wishDeliveryFence) ||
+          await db.isLocalLeaseHeld('chat_turn_lease') ||
+          await db.blockingGenerationJob() != null ||
+          await android.isImmersiveChatPageVisible()) return false;
+      final lastUserAt = await db.lastUserMessageAt();
+      return lastUserAt == null || !lastUserAt.isAfter(evaluationStartedAt);
+    }
+
     final stickerService = StickerExpressionService(db: db);
     List<StickerReplyCandidate> stickerCandidates = const [];
     try {
@@ -1555,10 +1564,14 @@ ${startsFreshTopic ? '本类型属于新话题通道：ANSWERED CHAT HISTORY 已
     } catch (_) { /* Optional expression assets. */ }
     final stickerPrompt = StickerExpressionService.replyChoicePrompt(stickerCandidates);
     if (stickerPrompt.isNotEmpty) context.add({'role': 'system', 'content': stickerPrompt});
+    var finalCandidateOrdinal = 0;
+    var finalSecondChannelAttempts = 0;
+    final finalFailureCategories = <String>[];
 
     Future<_ProactiveGenerationCandidate?> generateCandidate(
       List<Map<String, Object?>> promptMessages,
     ) async {
+      finalCandidateOrdinal++;
       // All source, grounding and style context is already in promptMessages.
       // Gemini owns one correction after a successful first answer. Only an
       // unavailable or unusable second channel falls back to DeepSeek.
@@ -1587,6 +1600,7 @@ ${startsFreshTopic ? '本类型属于新话题通道：ANSWERED CHAT HISTORY 已
             final renewed = await db.renewLocalLease(
               'proactive_lease_until',
               holdFor: const Duration(minutes: 5),
+              workFence: wishDeliveryFence,
             );
             if (!renewed) return null;
             lastProactiveLeaseRefresh = DateTime.now();
@@ -1604,13 +1618,27 @@ ${startsFreshTopic ? '本类型属于新话题通道：ANSWERED CHAT HISTORY 已
         );
       }
 
-      if (finalRoute.useSecondChannel) {
-        try {
-          if (finalApiKey.isEmpty) {
-            throw const FormatException('missing_gemini_final_reply_key');
-          }
-          final result = await request(gemini: true);
-          if (result == null) return null;
+      Future<void> noteAttempts(int attempts, List<Object> failures,
+          {required String outcome}) async {
+        finalSecondChannelAttempts += attempts;
+        finalFailureCategories.addAll(failures.map(FinalReplyFailurePolicy.userCategory));
+        await db.setSetting('proactive_last_final_attempts_v1', jsonEncode({
+          'at': DateTime.now().millisecondsSinceEpoch,
+          'execution_id': heartbeatKey,
+          'candidate_ordinal': finalCandidateOrdinal,
+          'attempts': attempts,
+          'total_attempts': finalSecondChannelAttempts,
+          'outcome': outcome,
+          'failure_categories': finalFailureCategories,
+        }));
+      }
+
+      final generated = await ProactiveFinalReplyRetry.generate<_ProactiveGenerationCandidate>(
+        route: finalRoute,
+        secondChannelConfigured: finalApiKey.isNotEmpty,
+        canContinue: proactiveRequestAllowed,
+        request: ({required bool secondChannel}) => request(gemini: secondChannel),
+        validateSecondChannel: (result) {
           final failure = FinalReplyFailurePolicy.incompleteResponseFailure(
             sawTerminalSignal: result.sawTerminalSignal,
             finishReason: result.finishReason,
@@ -1619,21 +1647,14 @@ ${startsFreshTopic ? '本类型属于新话题通道：ANSWERED CHAT HISTORY 已
           );
           if (failure != null) throw failure;
           if (result.content.isEmpty) throw const EmptyFinalReplyException();
-          visibleModelName = finalModelName.isEmpty
-              ? finalProvider.effectiveModel(model)
-              : finalModelName;
-          await db.setSetting('proactive_last_final_provider_notice', '');
-          await db.setSetting('proactive_last_final_failure_v1', '{}');
-          return result;
-        } on GenerationSuspendedByRuntimeGateException {
-          rethrow;
-        } on GenerationCancelledByUserException {
-          rethrow;
-        } catch (error) {
-          finalRoute.recordFailure(error);
+        },
+        onFallback: (attempts, failures) async {
+          final error = failures.last;
+          await noteAttempts(attempts, failures, outcome: 'deepseek_fallback');
           await db.setSetting('proactive_last_final_failure_v1', jsonEncode({
             'at': DateTime.now().millisecondsSinceEpoch,
             'execution_id': heartbeatKey,
+            'attempts': attempts,
             'code': error is GenerationStreamIncompleteException
                 ? error.diagnosticCode : 'request_failure',
             'category': FinalReplyFailurePolicy.userCategory(error),
@@ -1644,11 +1665,22 @@ ${startsFreshTopic ? '本类型属于新话题通道：ANSWERED CHAT HISTORY 已
             },
           }));
           await db.setSetting('proactive_last_final_provider_notice',
-              '主动消息第二通道失败（${FinalReplyFailurePolicy.userCategory(error)}），本轮由 DeepSeek 兜底。');
-        }
+              attempts == 0 ? '主动消息第二通道未配置 Key，本轮由 DeepSeek 兜底。'
+              : '主动消息第二通道连续 $attempts 次失败（${FinalReplyFailurePolicy.userCategory(error)}），本轮由 DeepSeek 兜底。');
+        },
+      );
+      if (generated == null) return null;
+      if (generated.usedSecondChannel) {
+        visibleModelName = finalModelName.isEmpty
+            ? finalProvider.effectiveModel(model) : finalModelName;
+        await db.setSetting('proactive_last_final_provider_notice', '');
+        await db.setSetting('proactive_last_final_failure_v1', '{}');
+        await noteAttempts(generated.secondChannelAttempts, generated.failures,
+            outcome: 'second_channel_success');
+      } else {
+        visibleModelName = model.apiName;
       }
-      visibleModelName = model.apiName;
-      return request(gemini: false);
+      return generated.candidate;
     }
 
     Future<void> noteGroundingRetry(String reason) async {
@@ -2132,6 +2164,7 @@ ${PromptBuilder.visibleChineseGenerationReminder(proactive: true)}
       emotionTop3Json: companionEmotion.top3Json,
       emotionSource: companionEmotion.source,
       worldBookContextJson: promptBuild.worldBookContext.encode(),
+      formContextJson: promptBuild.formContext.encode(),
     );
     final commitBlock = await db.commitProactiveMessageIfCurrent(
       message: message,
