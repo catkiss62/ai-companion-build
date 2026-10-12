@@ -10,6 +10,12 @@
 
 
 
+## 当前完成 · 主动/余额修复与token、作品分批审计（2026-10-12）
+
+IMPLEMENTED / PUSHED / CI PASSED / NO NEW APK / TRUE DEVICE PENDING。agent/v042102-token-creative-audit；初始主动1800/700解除与余额两位86834db先推送，38204573313的42项通过；token批d8ebd6b/38205367984的42+137通过后才开始作品。作品8类确定修复源码caf45dc，资源验证workflow676ab8c；最终38206694467成功：固定资源恢复、分析（506非致命提示）、Node桥及1691全量Flutter通过。首轮1690/1失败仅旧表情测试缺happy.webp，已补正式构建同款固定资源步骤后重跑，不跳过测试。
+
+作品修复覆盖同批失败假完成、互动约定继承、版本说明隔离、揭晓顺序、构思提交队列/名额复查、重复分类未授权隔离、未完成任务快照依赖及排队保存后的捕获。独立复核和真实SQLite/HTTP/恢复协调器回归已通过；详见app/docs/TOKEN_CREATIVE_AUDIT_2026-10-12.md。当前版本仍0.42.101+345，没有构建/发布新APK；用户私有原档未改、未上传，旧记忆未批改。后续从本分支继续，不要从+345旧分支遗漏本轮源码。用户授权推送已持续生效，本轮按最新要求暂缓APK。
+
 ## 当前任务 · 首轮1690通过／资源步骤修正后重验（2026-10-12）
 
 作品源码caf45dc已推送。38206248081分析与Node桥通过，全量1690通过/1失败；唯一失败是原有表情widget测试缺happy.webp，非本轮token/作品用例失败。仅验证workflow补正式构建同款固定版本LingChat资源恢复（校验commit/SHA），不跳过测试，不造占位图，不修改应用代码，等待重跑全量。无APK。
@@ -3657,3 +3663,12 @@ CI PASSED / APK READY / TRUE DEVICE PENDING。0.42.100+344，agent/v042100-creat
 
 下载：https://github.com/catkiss62/ai-companion-build/releases/download/untagged-5b361dbb307f1e1fbbfb/AI-Companion-v0.42.101-345-Creative-Audit-APK.apk
 Release410080224，APK资产632470930，737044625 bytes；SHA256 60e7acd03d8fc9c9d2c45cc30e11689b5f8dfe0971dc868801c04db40886c000，与CI一致。签名305eb3d80983b963c64818ddf1ad561f279de6d47b3ed2c781ada448c7c25148，同既有私测签名。真机待验。
+
+
+## 2026-10-12 分批审计正式完成记录
+
+## 当前完成 · 主动/余额修复与token、作品分批审计（2026-10-12）
+
+IMPLEMENTED / PUSHED / CI PASSED / NO NEW APK / TRUE DEVICE PENDING。agent/v042102-token-creative-audit；初始主动1800/700解除与余额两位86834db先推送，38204573313的42项通过；token批d8ebd6b/38205367984的42+137通过后才开始作品。作品8类确定修复源码caf45dc，资源验证workflow676ab8c；最终38206694467成功：固定资源恢复、分析（506非致命提示）、Node桥及1691全量Flutter通过。首轮1690/1失败仅旧表情测试缺happy.webp，已补正式构建同款固定资源步骤后重跑，不跳过测试。
+
+作品修复覆盖同批失败假完成、互动约定继承、版本说明隔离、揭晓顺序、构思提交队列/名额复查、重复分类未授权隔离、未完成任务快照依赖及排队保存后的捕获。独立复核和真实SQLite/HTTP/恢复协调器回归已通过；详见app/docs/TOKEN_CREATIVE_AUDIT_2026-10-12.md。当前版本仍0.42.101+345，没有构建/发布新APK；用户私有原档未改、未上传，旧记忆未批改。后续从本分支继续，不要从+345旧分支遗漏本轮源码。用户授权推送已持续生效，本轮按最新要求暂缓APK。
