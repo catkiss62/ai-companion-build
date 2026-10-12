@@ -84,6 +84,80 @@ void main() {
     expect(works.where((w) => w['status'] == 'queued'), hasLength(1));
   });
 
+  test('resuming a commission during inspiration keeps the user task ahead of new private work', () async {
+    final commission = await store.commission(deepThinking: true, requestId: 'paused-commission',
+      messageId: 'commission-card', brief: '做一盏灯', requestQuote: '做一盏灯', latestText: '做一盏灯');
+    await store.stop(commission['id'] as String);
+    final engine = CreativeInspirationEngine(db, reviewer: (input) async {
+      await store.resume(commission['id'] as String);
+      return start(input);
+    });
+    expect(await engine.maybeThink(now: clock, manual: true), false);
+    final works = await store.list(includePrivate: true);
+    expect(works, hasLength(1));
+    expect(works.single['id'], commission['id']);
+    expect(works.single['status'], 'queued');
+    expect(CreativeContract.decode(await db.getSetting(CreativeAutonomyPolicy.stateKey)), isEmpty);
+  });
+
+  test('private-work capacity is checked again when an inspiration result commits', () async {
+    for (var i = 0; i < CreativeAutonomyPolicy.maxPrivateWorks - 1; i++) {
+      await privateWork('existing-$i');
+    }
+    final engine = CreativeInspirationEngine(db, reviewer: (input) async {
+      await privateWork('last-slot');
+      return start(input);
+    });
+    expect(await engine.maybeThink(now: clock, manual: true), false);
+    final works = await store.list(includePrivate: true);
+    expect(works, hasLength(CreativeAutonomyPolicy.maxPrivateWorks));
+    expect(works.every((work) => work['status'] == 'ready'), true);
+    expect(CreativeContract.decode(await db.getSetting(CreativeAutonomyPolicy.stateKey)), isEmpty);
+  });
+
+  for (final reversed in [false, true]) {
+    test('conflicting request classification remains blocked in ${reversed ? 'reverse' : 'forward'} order', () async {
+      String sourceId = '';
+      final engine = CreativeInspirationEngine(db, reviewer: (input) async {
+        final result = start(input);
+        sourceId = ((input['sources'] as List).first as Map)['id'] as String;
+        final classifications = [
+          {'id': sourceId, 'kind': 'unapproved_request'},
+          {'id': sourceId, 'kind': 'experience'},
+        ];
+        return {...result, 'classification': reversed ? classifications.reversed.toList() : classifications};
+      });
+      expect(await engine.maybeThink(now: clock, manual: true), false);
+      expect(await store.list(includePrivate: true), isEmpty);
+      final state = CreativeContract.decode(await db.getSetting(CreativeAutonomyPolicy.stateKey));
+      expect(state['blocked_sources'], hasLength(1));
+      expect(state['ideas'], isEmpty);
+      final next = CreativeInspirationEngine(db, reviewer: (_) async {
+        fail('the rejected source must not be reclassified on the next review');
+      });
+      expect(await next.maybeThink(now: clock.add(const Duration(hours: 7)), manual: true), false);
+    });
+  }
+
+  test('equal classification duplicates are compatible but conflicting non-request rows cannot start work', () async {
+    final uncertain = CreativeInspirationEngine(db, reviewer: (input) async {
+      final result = start(input);
+      final source = ((input['sources'] as List).first as Map)['id'];
+      return {...result, 'classification': [
+        {'id': source, 'kind': 'other'}, {'id': source, 'kind': 'experience'},
+      ]};
+    });
+    expect(await uncertain.maybeThink(now: clock, manual: true), false);
+    expect(await store.list(includePrivate: true), isEmpty);
+    final repeated = CreativeInspirationEngine(db, reviewer: (input) async {
+      final result = start(input);
+      final row = (result['classification'] as List).single;
+      return {...result, 'classification': [row, row]};
+    });
+    expect(await repeated.maybeThink(now: clock, manual: true), true);
+    expect(await store.list(includePrivate: true), hasLength(1));
+  });
+
   test('retirement cannot target a shared gift or a commissioned work', () async {
     final shared = await privateWork('shared-idea', shared: true);
     final commission = await store.commission(deepThinking: true, requestId: 'commission',

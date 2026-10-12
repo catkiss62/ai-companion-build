@@ -20,26 +20,8 @@ jobs:
         working-directory: app
       - run: flutter analyze --no-fatal-infos --no-fatal-warnings
         working-directory: app
-      - name: Reply routing, failure classification and balance precision
-        run: flutter test test/final_reply_failure_policy_test.dart test/final_reply_route_v04241_test.dart test/daily_balance_spend_test.dart test/creative_facts_test.dart
-        working-directory: app
-      - name: Output budgets, truncation and bounded maintenance retry
-        run: >-
-          flutter test
-          test/json_completion_limits_test.dart
-          test/deepseek_temperature_test.dart
-          test/calendar_reminder_delivery_test.dart
-          test/creative_delivery_test.dart
-          test/message_language_variant_service_test.dart
-          test/reasoning_translation_service_test.dart
-          test/immersive_message_language_variant_test.dart
-          test/cedar_background_agent_tools_v04181_test.dart
-          test/cedar_game_hall_protocol_v04174_test.dart
-          test/memory_json_budget_retry_test.dart
-          test/post_turn_job_v12_test.dart
-          test/vision_web_output_budget_test.dart
-          test/image_vision_test.dart
-          test/layered_public_web_provider_v0349_test.dart
-          test/nightly_dream_pipeline_test.dart
-          test/prompt_candidate_capacity_test.dart
+      - name: Creative page bridge failure recovery
+        run: node app/tools/test_creative_bridge.mjs
+      - name: Full Flutter regression suite including token, creative and restore paths
+        run: flutter test
         working-directory: app

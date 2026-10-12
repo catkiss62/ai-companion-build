@@ -72,12 +72,22 @@ class CreativeStore {
     if (CreativeContract.active.contains(before['status'])) {
       throw const FormatException('这件作品正在制作，请先停止或等它完成');
     }
+    final previous = workId.isEmpty ? <String, dynamic>{}
+        : CreativeContract.decode(await db.getSetting(CreativeWorkspace.key(id)));
+    final previousPlan = previous['plan'] as Map? ?? const {};
+    final inheritedInteraction = {'companion', 'local'}.contains(before['interaction'])
+        ? before['interaction'] : previousPlan['interaction'];
+    // A colour/text revision does not revoke the established participation
+    // contract. An explicit new local/companion request can still replace it.
+    final effectiveInteraction = {'companion', 'local'}.contains(interaction)
+        ? interaction : {'companion', 'local'}.contains(inheritedInteraction)
+            ? inheritedInteraction : 'unspecified';
     final after = <String, dynamic>{...before,
       'schema': 1, 'id': id, 'origin': 'commission', 'visibility': 'shared',
       'request_id': requestId, 'message_id': messageId,
       'user_message_id': userMessageId, 'request_quote': CreativeContract.clip(requestQuote, 2000),
       'original_request': CreativeContract.clip(latestText, 12000),
-      'interaction': {'companion', 'local'}.contains(interaction) ? interaction : 'unspecified',
+      'interaction': effectiveInteraction,
       'brief': CreativeContract.clip(brief, 8000), 'title': before['title'] ?? '新的小作品',
       'intro': before['intro'] ?? '', 'status': 'queued', 'attempts': 0,
       'updated': DateTime.now().millisecondsSinceEpoch,
@@ -92,7 +102,6 @@ class CreativeStore {
     // Explicit resume below also retains pending tool receipts.
     var nextWorkspace = '';
     if (workId.isNotEmpty) {
-      final previous = CreativeContract.decode(await db.getSetting(CreativeWorkspace.key(id)));
       if (previous.isNotEmpty) {
         final next = CreativeWorkspace.create(id, requestId);
         next['files'] = CreativeWorkspace.files(previous);

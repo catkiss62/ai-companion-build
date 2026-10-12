@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'dart:async';
+import 'dart:io';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
@@ -11,6 +12,9 @@ import 'package:ai_companion_localfirst/core/creative/creative_store.dart';
 import 'package:ai_companion_localfirst/core/creative/creative_worker.dart';
 import 'package:ai_companion_localfirst/core/creative/creative_workspace.dart';
 import 'package:ai_companion_localfirst/core/database/app_database.dart';
+import 'package:ai_companion_localfirst/core/storage/portable_companion_storage.dart';
+import 'package:ai_companion_localfirst/core/storage/snapshot_restore_journal.dart';
+import 'package:ai_companion_localfirst/core/sync/snapshot_restore_coordinator.dart';
 
 Map<String, dynamic> call(String name, Object args, {String id = ''}) => {
   'id': id.isEmpty ? 'c_$name' : id, 'name': name,
@@ -286,6 +290,46 @@ void main() {
     expect(await db.getSetting(CreativeWorkspace.key(id)), '');
   });
 
+  test('a real restore fences the old worker even after the same commission resumes', () async {
+    final id = await commission();
+    final started = Completer<void>();
+    final result = Completer<http.Response>();
+    final runtime = worker((_, __) { started.complete(); return result.future; });
+    final running = runtime.runOnce();
+    await started.future;
+    final archive = Map<String, dynamic>.from(await db.exportAll());
+    final epoch = await db.getSetting('runtime_state_epoch_v1');
+    final root = await Directory.systemTemp.createTemp('creative-worker-restore-');
+    try {
+      final coordinator = SnapshotRestoreCoordinator(db, PortableCompanionStorage(),
+        journal: SnapshotRestoreJournal(root));
+      final outcome = await coordinator.install(
+        prepare: (_) async => SnapshotInstallPlan([]),
+        commitDatabase: (runtimeSettings) => db.importAll(archive, runtimeSettingOverrides: runtimeSettings));
+      expect(outcome.recoveryPending, false);
+      expect(await db.getSetting('runtime_state_epoch_v1'), isNot(epoch));
+      expect((await store.get(id))['status'], 'paused');
+      await store.resume(id);
+      final resumed = jsonEncode(await store.get(id));
+      result.complete(response(sse([plan(), write(repaired), previewCall(), call('work_finish', {})])));
+      await running;
+      expect(jsonEncode(await store.get(id)), resumed);
+      expect(CreativeWorkspace.files(await state(id)), isEmpty);
+      expect(await db.getSetting('${CreativeContract.noticePrefix}$id'), '');
+      await worker((_, __) async => response(sse([
+        plan(), write(repaired), previewCall(), call('work_finish', {}),
+      ]))).runOnce();
+      expect((await store.get(id))['status'], 'ready');
+      expect(requests, hasLength(2));
+    } finally {
+      if (!result.isCompleted) {
+        result.complete(response(sse([])));
+        await running;
+      }
+      await root.delete(recursive: true);
+    }
+  });
+
   test('file changed after preview cannot publish the old verification', () async {
     final id = await commission();
     final runtime = worker((_, request) async => response(sse([
@@ -296,6 +340,91 @@ void main() {
     expect((await store.get(id))['current'], isNull);
     expect(CreativeWorkspace.files(await state(id))['index.html'], broken);
     expect(jsonEncode((await state(id))['feedback']), contains('重新试玩'));
+  });
+
+  test('failed revision cannot finish the old source in the same batch; next turn can repair', () async {
+    final id = await commission();
+    const changed = '<button id="light">蓝色灯</button><p id="state">亮了</p>';
+    final runtime = worker((n, _) async => response(sse(n == 1
+      ? [plan(), write(repaired), previewCall(), call('work_finish', {})]
+      : n == 2 ? [plan(), call('work_patch', {'path': 'index.html',
+          'expected_hash': CreativeContract.hash(repaired), 'old_text': '不存在的按钮', 'new_text': '蓝色灯'}),
+          previewCall(), call('work_finish', {})]
+        : [call('work_patch', {'path': 'index.html', 'expected_hash': CreativeContract.hash(repaired),
+            'old_text': '点亮', 'new_text': '蓝色灯'}), previewCall(), call('work_finish', {})])));
+    await runtime.runOnce();
+    final oldHash = (await store.get(id))['current'];
+    await store.commission(deepThinking: true, requestId: 'revision', messageId: 'revision-card',
+      workId: id, brief: '修改按钮', requestQuote: '修改按钮', latestText: '修改按钮');
+    await runtime.runOnce();
+    final failed = await store.get(id);
+    expect(failed['current'], oldHash);
+    expect(failed['completed_request'], isNull);
+    expect(failed['status'], isNot('ready'));
+    expect(await db.getSetting('${CreativeContract.noticePrefix}$id'), '');
+    expect(jsonEncode((await state(id))['feedback']), contains('本批次有工具失败'));
+    await runtime.runOnce();
+    final ready = await store.get(id);
+    expect(ready['status'], 'ready');
+    expect(ready['completed_request'], 'revision');
+    expect(ready['current'], CreativeContract.hash(changed));
+    expect(await db.getSetting('${CreativeContract.sourcePrefix}$oldHash'), repaired);
+    expect(requests, hasLength(3));
+  });
+
+  test('revision metadata is published with its verified version, not during planning', () async {
+    final id = await commission();
+    final runtime = worker((n, _) async => response(sse(n == 1
+      ? [plan(), write(repaired), previewCall(), call('work_finish', {})]
+      : n == 2 ? [call('work_plan', {'title': '新版蓝灯', 'intro': '新的蓝色灯光',
+          'plan': '调整灯光颜色', 'interaction': 'local'})]
+        : [call('work_patch', {'path': 'index.html', 'expected_hash': CreativeContract.hash(repaired),
+            'old_text': '点亮', 'new_text': '点亮蓝灯'}), previewCall(), call('work_finish', {})])));
+    await runtime.runOnce();
+    final before = await store.get(id);
+    await store.commission(deepThinking: true, requestId: 'revision', messageId: 'revision-card',
+      workId: id, brief: '改成蓝灯', requestQuote: '改成蓝灯', latestText: '改成蓝灯');
+    await runtime.runOnce();
+    final planned = await store.get(id);
+    expect(planned['title'], before['title']);
+    expect(planned['intro'], before['intro']);
+    expect(planned['current'], before['current']);
+    expect((await state(id))['plan']['title'], '新版蓝灯');
+    await store.stop(id);
+    expect((await store.get(id))['title'], before['title']);
+    await store.resume(id);
+    await runtime.runOnce();
+    final after = await store.get(id);
+    expect(after['status'], 'ready');
+    expect(after['title'], '新版蓝灯');
+    expect(after['intro'], '新的蓝色灯光');
+    expect(after['current'], isNot(before['current']));
+  });
+
+  test('imported pending failure receipts still block finish after a successful preview', () async {
+    final id = await commission();
+    final meta = await store.get(id);
+    final agent = CreativeWorkspace.create(id, meta['request_id'] as String, html: repaired);
+    agent['plan'] = {'interaction': 'local', 'plan': '修改颜色'};
+    final pending = [call('work_patch', {'path': 'index.html', 'expected_hash': CreativeContract.hash(repaired),
+      'old_text': '不存在', 'new_text': '蓝色'}), previewCall(), call('work_finish', {})];
+    agent['pending'] = pending;
+    agent['next_tool'] = 1;
+    agent['history'] = [
+      {'role': 'assistant', 'content': '', 'tool_calls': pending.map((c) => {
+        'id': c['id'], 'type': 'function', 'function': {'name': c['name'], 'arguments': c['arguments']}}).toList()},
+      {'role': 'tool', 'tool_call_id': pending.first['id'], 'content': '{"ok":false,"error":"原文没有找到"}'},
+    ];
+    await store.write(meta, {...meta, 'status': 'building'},
+      extra: {CreativeWorkspace.key(id): jsonEncode(agent)});
+    await db.importAll(Map<String, dynamic>.from(await db.exportAll()));
+    expect((await store.get(id))['status'], 'paused');
+    await store.resume(id);
+    await worker((_, __) async { fail('durable pending tools must resume without regenerating'); }).runOnce();
+    expect((await store.get(id))['current'], isNull);
+    expect((await state(id))['verification']['ok'], true);
+    expect(jsonEncode((await state(id))['feedback']), contains('本批次有工具失败'));
+    expect(requests, isEmpty);
   });
 
   test('companion works require actual choose and reveal receipts, not just a passing title check', () async {
@@ -356,6 +485,53 @@ void main() {
     await runtime.runOnce();
     expect((await store.get(id))['current'], isNull);
     expect(jsonEncode((await state(id))['feedback']), contains('不能改成本地随机对手'));
+  });
+
+  for (final legacyInteraction in [false, true]) {
+    test('revision inherits ${legacyInteraction ? 'legacy workspace' : 'published'} companion participation', () async {
+      final id = await commission();
+      TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger.setMockMethodCallHandler(
+        CreativeWorker.preview, (_) async => {'ok': true, 'errors': [],
+          'choose_count': 1, 'reveal_count': 1, 'save_count': 1, 'reload_count': 1});
+      final runtime = worker((n, _) async => response(sse(n == 1
+        ? [plan(interaction: 'companion'), write(repaired), previewCall(), call('work_finish', {})]
+        : [plan(), previewCall(), call('work_finish', {})])));
+      await runtime.runOnce();
+      var old = await store.get(id);
+      final oldHash = old['current'];
+      expect(old['interaction'], 'companion');
+      if (legacyInteraction) {
+        await store.write(old, {...old, 'interaction': 'unspecified'});
+      }
+      final revision = await store.commission(deepThinking: true, requestId: 'revision', messageId: 'revision-card',
+        workId: id, brief: '修改颜色', requestQuote: '修改颜色', latestText: '修改颜色');
+      expect(revision['interaction'], 'companion');
+      await runtime.runOnce();
+      expect((await store.get(id))['current'], oldHash);
+      expect((await store.get(id))['completed_request'], isNull);
+      expect(jsonEncode((await state(id))['feedback']), contains('不能改成本地随机对手'));
+    });
+  }
+
+  test('explicit local revision can change the previous companion contract', () async {
+    final id = await commission();
+    var previews = 0;
+    TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger.setMockMethodCallHandler(
+      CreativeWorker.preview, (_) async => {'ok': true, 'errors': [],
+        'choose_count': previews++ == 0 ? 1 : 0, 'reveal_count': previews == 1 ? 1 : 0,
+        'save_count': previews == 1 ? 1 : 0, 'reload_count': previews == 1 ? 1 : 0});
+    final runtime = worker((n, _) async => response(sse(n == 1
+      ? [plan(interaction: 'companion'), write(repaired), previewCall(), call('work_finish', {})]
+      : [plan(), previewCall(), call('work_finish', {})])));
+    await runtime.runOnce();
+    final revision = await store.commission(deepThinking: true, requestId: 'revision', messageId: 'revision-card',
+      workId: id, brief: '改成单人本地作品', requestQuote: '改成单人本地作品', latestText: '改成单人本地作品',
+      interaction: 'local');
+    expect(revision['interaction'], 'local');
+    await runtime.runOnce();
+    expect((await store.get(id))['status'], 'ready');
+    expect((await store.get(id))['completed_request'], 'revision');
+    expect((await state(id))['verification']['choose_count'], 0);
   });
 
   test('workspace rejects stale edits and unexpected paths and bundles separate assets', () {

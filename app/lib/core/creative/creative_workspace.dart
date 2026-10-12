@@ -156,6 +156,20 @@ class CreativeWorkspace {
     }
   }
 
+  /// Pending tool exchanges are never compacted. Their durable receipts also
+  /// cover pre-upgrade/imported checkpoints that have no separate failure flag.
+  /// Only inspect this assistant's batch: tool IDs may repeat on a later turn.
+  static bool pendingHasFailure(Map<String, dynamic> state) {
+    if ((state['pending'] as List? ?? []).isEmpty) return false;
+    for (final entry in (state['history'] as List? ?? []).reversed) {
+      if (entry is! Map) continue;
+      if (entry['role'] == 'assistant') break;
+      if (entry['role'] != 'tool' || entry['content'] is! String) continue;
+      if (CreativeContract.decode(entry['content'] as String)['ok'] == false) return true;
+    }
+    return false;
+  }
+
   static List<Map<String, Object?>> messages(Map<String, dynamic> state,
       Map<String, dynamic> work) => [
     {'role': 'system', 'content': instruction},

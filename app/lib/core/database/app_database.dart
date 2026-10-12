@@ -7058,7 +7058,22 @@ class AppDatabase {
           where: 'key LIKE ?', whereArgs: ['${CreativeContract.chatPrefix}%'])).toList();
         old.sort((a, b) => (CreativeContract.decode(b['value'] as String)['captured_at'] as int)
             .compareTo(CreativeContract.decode(a['value'] as String)['captured_at'] as int));
-        for (final row in old.skip(8)) {
+        // Delayed generation and memory extraction still need the immutable
+        // send-time page state. Prune only unreferenced snapshots; a backlog
+        // must not silently turn an old game turn into today's work facts.
+        final referenced = await txn.rawQuery('''
+          SELECT user_message_id FROM post_turn_jobs
+          WHERE status IN ('pending','running','retry_wait','failed')
+          UNION SELECT user_message_id FROM generation_jobs
+          WHERE status IN ('pending','running','retry_wait','awaiting_confirmation','failed')
+        ''');
+        final protectedKeys = <String>{
+          '${CreativeContract.chatPrefix}${user.id}',
+          for (final row in referenced)
+            '${CreativeContract.chatPrefix}${row['user_message_id']}',
+        };
+        final unreferenced = old.where((row) => !protectedKeys.contains(row['key']));
+        for (final row in unreferenced.skip(8)) {
           await txn.delete('settings', where: 'key = ?', whereArgs: [row['key']]);
         }
       }

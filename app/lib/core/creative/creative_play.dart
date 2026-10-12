@@ -46,6 +46,21 @@ class CreativePlay {
       'session_id': before['session_id'] ?? const Uuid().v4(),
       'started_at': before['started_at'] ?? DateTime.now().millisecondsSinceEpoch,
     };
+    final boundMetadata = next['work_metadata'];
+    if (boundMetadata is! Map || boundMetadata['version'] != next['version']) {
+      // A legacy session may be on an older release, or its directory may
+      // already contain an unfinished revision's plan. Do not label either
+      // description as the content of that running page.
+      if (next['version'] == work['current'] && work['status'] == 'ready') {
+        next['work_metadata'] = {
+          'version': next['version'],
+          'title': CreativeContract.clip(work['title'], 120),
+          'intro': CreativeContract.clip(work['intro'], 600),
+        };
+      } else {
+        next.remove('work_metadata');
+      }
+    }
     final sourceKey = '${CreativeContract.sourcePrefix}${next['version']}';
     final source = await db.getSetting(sourceKey);
     if (source == null || source.isEmpty || CreativeContract.hash(source) != next['version']) {
@@ -173,6 +188,7 @@ class CreativePlay {
         throw const FormatException('无效的玩家选择');
       }
       final committed = {...entry, 'playerChoice': entry['playerChoice'] ?? playerChoice,
+        if (entry['playerChoice'] == null) 'reveal_order': _revealedTurns(turns).length + 1,
         'revealed_at': entry['revealed_at'] ?? DateTime.now().millisecondsSinceEpoch};
       turns[turn] = committed;
       await save({...before, 'turns': turns});
@@ -208,7 +224,8 @@ class CreativePlay {
     try {
       final apiKey = await SecureConfig.instance.readApiKey();
       if (apiKey == null || apiKey.isEmpty) throw const FormatException('需要 DeepSeek API');
-      final rules = await RuleLayerService(db).resolve(latestUserText: work['title'] as String? ?? '',
+      final metadata = _sessionMetadata(before, work);
+      final rules = await RuleLayerService(db).resolve(latestUserText: metadata['title'] as String,
         session: null, references: const [], nsfwActive: false, nsfwReferenceActive: false);
       final conversation = await db.recentMessagesForPrompt(limit: 10);
       stage('model');
@@ -223,9 +240,10 @@ class CreativePlay {
           {'role': 'user', 'content': jsonEncode({
             'character': CreativeContract.clip('${rules.personalityExecutionAnchor}\n${rules.layers.map((r) => '${r.title}: ${CreativeContract.clip(r.content, 1000)}').join('\n')}', 8000),
             'conversation': conversation.map((m) => {'role': m.role, 'content': CreativeContract.clip(m.content, 600)}).toList(),
-            'work': work['title'], 'options': options,
+            'work': metadata['title'], 'work_metadata_source': metadata['metadata_source'],
+            'options': options,
             'game_context': CreativeContract.clip(data['context'], 1200),
-            'previous_revealed': turns.values.whereType<Map>().where((t) => t['playerChoice'] != null).toList().reversed.take(6).toList(),
+            'previous_revealed': _revealedTurns(turns).reversed.take(6).map((e) => e.value).toList(),
           })},
         ]);
       if (!options.contains(choice['choice'])) throw const FormatException('她没有给出有效选择，请重试');
@@ -262,6 +280,39 @@ class CreativePlay {
     } finally { client.close(); await db.releaseLocalLease(lease); }
   }
 
+  static Map<String, dynamic> _sessionMetadata(Map state, Map work) {
+    final metadata = state['work_metadata'];
+    if (metadata is Map && metadata['version'] == state['version']) {
+      return {'title': CreativeContract.clip(metadata['title'], 120),
+        'intro': CreativeContract.clip(metadata['intro'], 600), 'metadata_source': 'session_version'};
+    }
+    return {'title': '小作品', 'intro': '', 'metadata_source': 'catalog_only',
+      'catalog_title': CreativeContract.clip(work['title'], 120)};
+  }
+
+  // Choosing and revealing are separate operations. Turn insertion order is
+  // not reveal order; a page may reveal an earlier sealed turn later. New
+  // records have an explicit order, including same-millisecond reveals. Old
+  // records precede them and retain timestamp order with stable tie-breaking.
+  static List<MapEntry<String, dynamic>> _revealedTurns(Map<String, dynamic> turns) {
+    final entries = turns.entries.where((e) => e.value is Map &&
+        (e.value as Map)['playerChoice'] != null).toList();
+    final indexed = entries.asMap().entries.toList();
+    int order(Map value) => (value['reveal_order'] as num? ?? 0).toInt();
+    int time(Map value) => (value['revealed_at'] as num? ?? value['at'] as num? ?? 0).toInt();
+    indexed.sort((a, b) {
+      final left = a.value.value as Map, right = b.value.value as Map;
+      final leftOrder = order(left), rightOrder = order(right);
+      final byOrder = leftOrder > 0 && rightOrder > 0
+          ? leftOrder.compareTo(rightOrder)
+          : (leftOrder > 0 ? 1 : 0).compareTo(rightOrder > 0 ? 1 : 0);
+      if (byOrder != 0) return byOrder;
+      final byTime = time(left).compareTo(time(right));
+      return byTime != 0 ? byTime : a.key.compareTo(b.key);
+    });
+    return indexed.map((e) => e.value).toList(growable: false);
+  }
+
   // This bounded projection deliberately never copies unrevealed turns.
   static Object? bounded(Object? value, {int characters = 4000}) {
     var remaining = characters;
@@ -291,24 +342,31 @@ class CreativePlay {
 
   Future<CreativeChatSnapshot> captureSnapshot({Map<String, dynamic> observation = const {}}) async {
     final fence = _sessionFence;
-    if (fence == null || !await db.brainWorkFenceCurrent(fence)) throw const BrainWorkInvalidated();
-    final work = await CreativeStore(db).get(workId);
-    final state = await read();
-    if (work.isEmpty || !CreativeAutonomyPolicy.visible(work) || state['session_id'] != _sessionId) {
+    final session = _sessionId;
+    if (fence == null || session == null) throw const BrainWorkInvalidated();
+    // DOM observation can fail or time out. The host's already queued public
+    // mutations still have to settle before their state is captured. Pending
+    // paid choices are deliberately outside this short-write queue.
+    await _publicWrites;
+    if (_sessionFence != fence || _sessionId != session || !await db.brainWorkFenceCurrent(fence)) {
       throw const BrainWorkInvalidated();
     }
-    final revealed = (state['turns'] as Map? ?? {}).entries.where((e) => e.value is Map &&
-        (e.value as Map)['playerChoice'] != null).map((e) {
+    final work = await CreativeStore(db).get(workId);
+    final state = await read();
+    if (work.isEmpty || !CreativeAutonomyPolicy.visible(work) || state['session_id'] != session) {
+      throw const BrainWorkInvalidated();
+    }
+    final revealed = _revealedTurns(Map<String, dynamic>.from(state['turns'] as Map? ?? {})).map((e) {
       final t = e.value as Map;
       return <String, dynamic>{'turn_id': e.key, 'companion_choice': t['choice'],
         'player_choice': t['playerChoice'], 'revealed_at': t['revealed_at'] ?? t['at']};
     }).toList();
     final recent = revealed.reversed.take(8).toList().reversed.toList();
     final data = <String, dynamic>{
-      'schema': 1, 'work_id': workId, 'version': state['version'], 'session_id': _sessionId,
+      'schema': 1, 'work_id': workId, 'version': state['version'], 'session_id': session,
       'captured_at': DateTime.now().millisecondsSinceEpoch, 'revision': state['revision'] ?? 0,
       'session_started_at': state['started_at'], 'reset_count': state['reset_count'] ?? 0,
-      'title': CreativeContract.clip(work['title'], 120), 'intro': CreativeContract.clip(work['intro'], 600),
+      ..._sessionMetadata(state, work),
       'description_from_work': bounded(state['description'], characters: 2400),
       'public_state': bounded(state['public']), 'public_saved_at': state['saved_at'],
       'public_timestamp_unknown': !state.containsKey('saved_at'),
@@ -321,6 +379,9 @@ class CreativePlay {
       'page_observation': bounded(observation, characters: 5500),
     };
     CreativeContract.validateSnapshot(data);
+    if (_sessionFence != fence || _sessionId != session || !await db.brainWorkFenceCurrent(fence)) {
+      throw const BrainWorkInvalidated();
+    }
     return CreativeChatSnapshot(data, fence);
   }
 
@@ -339,6 +400,7 @@ class CreativePlay {
         'recent_revealed仅为近期窗口，不能当累计比分；revealed_total=0表示本会话尚无已揭晓回合。'
         'public_state_may_lag=true时公开进度可能尚未结算，不能冒认旧分数就是最新总分。'
         'description_from_work是作品提供的内容/效果说明；page_observation是页面文字和可观察属性，不能据此声称看清Canvas像素、图片全部细节或未公开内容。'
+        'metadata_source=catalog_only时尚无本版本绑定说明；catalog_title只是当前目录名称，不能据此推断旧页面内容。'
         '尚未揭晓的选择不提供。自然回应用户，不逐项汇报状态。'
         '${current['session_id'] != data['session_id'] ? '发送后作品已开始新会话；此快照仅对应用户发送时的上一会话，不能冒充新局当前事实。' : ''}'
         '${jsonEncode(data)}';

@@ -231,10 +231,15 @@ class CreativeWorker {
                 if (work['interaction'] == 'companion' && args['interaction'] != 'companion') {
                   throw const FormatException('委托要求伴侣实际参与，不能改成本地随机对手');
                 }
-                agent['plan'] = {'plan': CreativeContract.clip(args['plan'], 2400), 'interaction': args['interaction']};
+                agent['plan'] = {'plan': CreativeContract.clip(args['plan'], 2400), 'interaction': args['interaction'],
+                  'title': CreativeContract.clip(args['title'], 60), 'intro': CreativeContract.clip(args['intro'], 180)};
                 agent['verification'] = <String, Object?>{};
-                patch.addAll({'title': CreativeContract.clip(args['title'], 60),
-                  'intro': CreativeContract.clip(args['intro'], 180), 'note': '正在实现作品构思'});
+                // A playable current version keeps its own published metadata
+                // until the replacement passes preview and is committed.
+                if ((work['current'] as String? ?? '').isEmpty) {
+                  patch.addAll({'title': agent['plan']['title'], 'intro': agent['plan']['intro']});
+                }
+                patch['note'] = '正在实现作品构思';
                 result = {'ok': true, 'saved_plan': agent['plan']};
               case 'work_read':
                 result = {'ok': true, ...CreativeWorkspace.read(agent, args)};
@@ -289,6 +294,9 @@ class CreativeWorker {
                 patch.addAll({'errors': errors, 'note': ok ? '试玩通过，正在完成作品' : '试玩发现问题，正在修复'});
               case 'work_finish':
                 if (i != pending.length - 1) throw const FormatException('work_finish 必须是本轮最后一个调用');
+                if (CreativeWorkspace.pendingHasFailure(agent)) {
+                  throw const FormatException('本批次有工具失败；请先读取失败反馈，下一轮修正或确认现有文件后重新试玩和提交');
+                }
                 final html = CreativeWorkspace.assemble(agent);
                 final hash = CreativeContract.hash(html);
                 final verified = agent['verification'] as Map? ?? {};
@@ -305,6 +313,8 @@ class CreativeWorker {
                 final autonomous = CreativeAutonomyPolicy.autonomous(work);
                 patch.addAll({'completed_request': work['request_id'], 'completed_at': now().millisecondsSinceEpoch,
                   'current': hash, 'draft': '', 'versions': versions,
+                  'interaction': plan['interaction'],
+                  'title': plan['title'] ?? work['title'], 'intro': plan['intro'] ?? work['intro'],
                   if (!autonomous) 'completion_message_id': CreativeContract.completionMessageId(id, work['request_id'] as String, hash),
                   'status': 'ready', 'note': autonomous ? '作品已私下保存' : '做好了，可以打开试玩',
                   'cover': verified['cover'] ?? '', 'errors': <Object?>[],

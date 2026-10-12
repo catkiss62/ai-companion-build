@@ -115,7 +115,16 @@ hold允许改已有未开工构思；start只开一个新作品，不能重复�
           !await CreativeAutonomyPolicy.idle(sql, instant, grace: false)) return false;
       final kinds = <String, String>{};
       for (final c in (result['classification'] as List? ?? []).whereType<Map>()) {
-        if (c['id'] is String && c['kind'] is String) kinds[c['id'] as String] = c['kind'] as String;
+        if (c['id'] is! String || c['kind'] is! String) continue;
+        final id = c['id'] as String;
+        final kind = c['kind'] as String;
+        final previous = kinds[id];
+        // A duplicate row must not erase a request classification. Equal
+        // duplicates are harmless; conflicting experience/other claims are
+        // uncertain material and cannot grant autonomous creation permission.
+        kinds[id] = previous == 'unapproved_request' || kind == 'unapproved_request'
+            ? 'unapproved_request'
+            : previous != null && previous != kind ? 'other' : kind;
       }
       for (final s in selected) {
         if (kinds[s.id] == 'unapproved_request') blocked.add(s.fingerprint);
@@ -180,6 +189,19 @@ hold允许改已有未开工构思；start只开一个新作品，不能重复�
             await DreamStore.messageStamp(txn) != material.stamp) return false;
         final live = await DreamStore.originals(txn, selected.map((s) => s.id));
         if (selected.any((s) => live[s.id]?.fingerprint != s.fingerprint)) return false;
+        if (newWork != null) {
+          // Resuming a commission from the works UI need not create a chat
+          // message or hold the chat lease. Recheck the queue at commit time
+          // so an older inspiration result cannot compete with that request.
+          final rows = await txn.query('settings', columns: ['value'],
+            where: 'key LIKE ?', whereArgs: ['${CreativeContract.metaPrefix}%']);
+          final currentWorks = rows.map((row) => CreativeContract.decode(row['value'] as String?))
+            .where((work) => work.isNotEmpty && work['status'] != 'deleted').toList();
+          if (currentWorks.any((work) => CreativeContract.active.contains(work['status'])) ||
+              currentWorks.where((work) => CreativeAutonomyPolicy.autonomous(work) &&
+                work['visibility'] == 'private' && work['preempt'] != 'self_retired').length >=
+                  CreativeAutonomyPolicy.maxPrivateWorks) return false;
+        }
         if (newWork != null && (await BrainWorkFence.value(txn, CreativeStore.key(newWork!['id'] as String))).isNotEmpty) return false;
         if (retiredWork != null && await BrainWorkFence.value(txn, CreativeStore.key(retiredWork!['id'] as String)) != jsonEncode(retiredWork)) return false;
         for (final entry in <String, String>{CreativeAutonomyPolicy.stateKey: jsonEncode(next),

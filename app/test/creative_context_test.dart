@@ -22,7 +22,8 @@ void main() {
       brief: '作品', requestQuote: '作品', latestText: '作品');
     id = w['id'] as String;
     version = CreativeContract.hash('<p>公开作品</p>');
-    await store.write(w, {...w, 'current': version, 'versions': [version], 'status': 'ready'},
+    await store.write(w, {...w, 'current': version, 'versions': [version], 'status': 'ready',
+      'title': '原版游戏', 'intro': '原版的作品说明'},
       extra: {'${CreativeContract.sourcePrefix}$version': '<p>公开作品</p>'});
     play = CreativePlay(db, id); await play.open();
   });
@@ -33,6 +34,89 @@ void main() {
       assistantMessageId: 'a:$messageId', model: 'deepseek-flash', reasoningEffort: 'max',
       creativeContext: snapshot.data, creativeFence: snapshot.fence);
   }
+  test('snapshot with unavailable observation waits for already queued public save', () async {
+    var saveSettled = false;
+    final pending = save({'round': 7, 'phase': 'settled'}).then((_) => saveSettled = true);
+    final snapshot = await play.captureSnapshot(observation: {'available': false});
+    expect(saveSettled, isTrue);
+    expect(snapshot.data['public_state'], {'round': 7, 'phase': 'settled'});
+    await pending;
+  });
+  test('failed queued save does not poison later snapshot or adopt its rejected data', () async {
+    final pending = save({'oversized': 'x' * 45000});
+    final rejected = expectLater(pending, throwsFormatException);
+    final snapshot = await play.captureSnapshot(observation: {'available': false});
+    await rejected;
+    expect(snapshot.data['public_state'], isEmpty);
+    await save({'round': 1});
+    expect((await play.captureSnapshot()).data['public_state'], {'round': 1});
+  });
+  test('running version keeps bound metadata through revision, reopen and newer release', () async {
+    final work = await store.get(id);
+    await store.write(work, {...work, 'status': 'building', 'title': '新版游戏',
+      'intro': '新版的作品说明'});
+    var snapshot = await play.captureSnapshot();
+    expect(snapshot.data['title'], '原版游戏');
+    expect(snapshot.data['intro'], '原版的作品说明');
+    expect(snapshot.data['metadata_source'], 'session_version');
+
+    const html = '<p>新版本</p>';
+    final nextVersion = CreativeContract.hash(html);
+    final revision = await store.get(id);
+    await store.write(revision, {...revision, 'status': 'ready',
+      'current': nextVersion, 'versions': [nextVersion, version]},
+      extra: {'${CreativeContract.sourcePrefix}$nextVersion': html});
+    await play.open();
+    snapshot = await play.captureSnapshot();
+    expect(snapshot.data['version'], version);
+    expect(snapshot.data['title'], '原版游戏');
+    expect(snapshot.data['intro'], '原版的作品说明');
+    final archive = await db.exportAll();
+    await db.importAll(Map<String, dynamic>.from(archive));
+    final restored = CreativePlay(db, id);
+    await restored.open();
+    expect((await restored.captureSnapshot()).data['title'], '原版游戏');
+    await restored.open(restart: true);
+    snapshot = await restored.captureSnapshot();
+    expect(snapshot.data['version'], nextVersion);
+    expect(snapshot.data['title'], '新版游戏');
+    expect(snapshot.data['intro'], '新版的作品说明');
+  });
+  test('legacy unbound session never adopts metadata from an unfinished or newer version', () async {
+    final state = await play.read();
+    state.remove('work_metadata');
+    await db.setSetting(play.stateKey, jsonEncode(state));
+    final work = await store.get(id);
+    await store.write(work, {...work, 'status': 'building', 'title': '修改方案标题',
+      'intro': '尚未实现的新版内容'});
+    await play.open();
+    var snapshot = await play.captureSnapshot();
+    expect(snapshot.data['metadata_source'], 'catalog_only');
+    expect(snapshot.data['catalog_title'], '修改方案标题');
+    expect(snapshot.data['intro'], isEmpty);
+    expect(snapshot.data['title'], isNot('修改方案标题'));
+
+    const html = '<p>更新</p>';
+    final newer = CreativeContract.hash(html);
+    final revision = await store.get(id);
+    await store.write(revision, {...revision, 'status': 'ready', 'current': newer,
+      'versions': [newer, version]}, extra: {'${CreativeContract.sourcePrefix}$newer': html});
+    await play.open();
+    snapshot = await play.captureSnapshot();
+    expect(snapshot.data['version'], version);
+    expect(snapshot.data['metadata_source'], 'catalog_only');
+    expect(snapshot.data['intro'], isEmpty);
+  });
+  test('legacy current ready version can bind its existing published metadata', () async {
+    final state = await play.read();
+    state.remove('work_metadata');
+    await db.setSetting(play.stateKey, jsonEncode(state));
+    await play.open();
+    final snapshot = await play.captureSnapshot();
+    expect(snapshot.data['metadata_source'], 'session_version');
+    expect(snapshot.data['title'], '原版游戏');
+    expect(snapshot.data['intro'], '原版的作品说明');
+  });
   test('seventh result retains totals and IDs; ordinary chat never inherits open-page scope', () async {
     final before = await play.read();
     final turns = <String,Object?>{for(var i=1;i<=9;i++) '$i': {'choice':'paper','playerChoice':'rock','at':i}};
@@ -62,6 +146,48 @@ void main() {
     expect(snap.data['public_state']['her'],4);
     expect(snap.data['revealed_total'],7);
     expect(snap.data['latest_revealed']['turn_id'],'7');
+  });
+  test('reverse reveals and repeated reveal retain actual order even at the same millisecond', () async {
+    final state = await play.read();
+    await db.setSetting(play.stateKey, jsonEncode({...state, 'turns': {
+      'first': {'options': ['rock', 'paper'], 'choice': 'paper', 'at': 1},
+      'second': {'options': ['rock', 'paper'], 'choice': 'rock', 'at': 2},
+      'secret': {'options': ['rock', 'paper'], 'choice': 'sealed-value', 'at': 3},
+    }}));
+    Future<Object?> reveal(String turn, String player) => play.event(version,
+      jsonEncode({'kind': 'reveal', 'data': {'turn': turn, 'playerChoice': player}}));
+    await reveal('second', 'paper');
+    await reveal('first', 'rock');
+    final revealed = await play.read();
+    final turns = revealed['turns'] as Map;
+    expect(turns['second']['reveal_order'], 1);
+    expect(turns['first']['reveal_order'], 2);
+    turns['first']['revealed_at'] = 100;
+    turns['second']['revealed_at'] = 100;
+    await db.setSetting(play.stateKey, jsonEncode({...revealed,
+      'turns': turns, 'saved_at': 99}));
+    expect(await reveal('second', 'rock'), {'choice': 'rock', 'playerChoice': 'paper'});
+
+    final snapshot = await play.captureSnapshot();
+    expect(snapshot.data['latest_revealed']['turn_id'], 'first');
+    expect((snapshot.data['recent_revealed'] as List).map((t) => t['turn_id']),
+      ['second', 'first']);
+    expect(snapshot.data['public_state_may_lag'], isTrue);
+    expect(snapshot.data['revealed_total'], 2);
+    expect(jsonEncode(snapshot.data), isNot(contains('sealed-value')));
+  });
+  test('legacy reveals use reveal time with choice-time fallback and stable ties', () async {
+    final state = await play.read();
+    await db.setSetting(play.stateKey, jsonEncode({...state, 'turns': {
+      'first': {'choice': 'paper', 'playerChoice': 'rock', 'at': 1, 'revealed_at': 40},
+      'second': {'choice': 'paper', 'playerChoice': 'rock', 'at': 2, 'revealed_at': 30},
+      'older': {'choice': 'paper', 'playerChoice': 'rock', 'at': 20},
+      'tied': {'choice': 'paper', 'playerChoice': 'rock', 'at': 20},
+    }}));
+    final snapshot = await play.captureSnapshot();
+    expect((snapshot.data['recent_revealed'] as List).map((t) => t['turn_id']),
+      ['older', 'tied', 'second', 'first']);
+    expect(snapshot.data['latest_revealed']['turn_id'], 'first');
   });
   test('new sessions isolate old callbacks and reset progress, reopening keeps it', () async {
     await save({'board':['x','o'], 'next_actor':'companion'});

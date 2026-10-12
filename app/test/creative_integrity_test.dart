@@ -129,6 +129,9 @@ void main() {
     await event(play, 'describe', {'kind': 'game', 'content': '正在选择', 'resettable': true});
     await event(play, 'save', {'score': 9, 'phase': 'waiting'});
     await event(play, 'reveal', {'turn': 'previous', 'playerChoice': '剪刀'});
+    final duringChoice = await play.captureSnapshot().timeout(const Duration(seconds: 2));
+    expect(duringChoice.data['public_state']['score'], 9);
+    expect(duringChoice.data['revealed_total'], 1);
     expect(await abortGate(), false);
     result.complete(response());
     expect(await pending, {'committed': true});
@@ -169,6 +172,35 @@ void main() {
     expect(state['version'], version);
     expect(state['turns']['new']['choice'], '石头');
     expect((await store.get(id))['current'], oldVersion);
+  });
+
+  test('next paid choice receives actual reveal order and no still-sealed choice', () async {
+    Map? input;
+    final play = CreativePlay(db, id, clientFactory: (abort) => DeepSeekClient(
+      abortWhen: abort, jsonClientFactory: () => MockClient((request) async {
+        final body = jsonDecode(request.body) as Map;
+        input = jsonDecode((body['messages'] as List).last['content'] as String) as Map;
+        return response();
+      })));
+    final initial = await play.open();
+    await db.setSetting(play.stateKey, jsonEncode({...initial, 'turns': {
+      'first': {'options': options, 'choice': '石头', 'at': 1},
+      'second': {'options': options, 'choice': '布', 'at': 2},
+      'hidden': {'options': options, 'choice': 'sealed-value', 'at': 3},
+    }}));
+    await event(play, 'reveal', {'turn': 'second', 'playerChoice': '石头'});
+    await event(play, 'reveal', {'turn': 'first', 'playerChoice': '布'});
+    final work = await store.get(id);
+    await store.write(work, {...work, 'status': 'building', 'title': '新版计划标题',
+      'intro': '尚未发布的新内容'});
+    expect(await event(play, 'choose', {'turn': 'next', 'options': options}),
+      {'committed': true});
+    expect(input!['work'], initial['work_metadata']['title']);
+    expect(input!['work'], isNot('新版计划标题'));
+    final previous = input!['previous_revealed'] as List;
+    expect(previous.map((turn) => turn['choice']), ['石头', '布']);
+    expect(previous.map((turn) => turn['playerChoice']), ['布', '石头']);
+    expect(jsonEncode(previous), isNot(contains('sealed-value')));
   });
 
   for (final interruption in ['restart', 'restore', 'delete', 'same-turn']) {
