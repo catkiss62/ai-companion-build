@@ -238,6 +238,10 @@ void main() {
       final read = await CreativeFacts(db).read(query: '星光迷宫', relevantOnly: true);
       expect(OperationalClaimGroundingGuard.evaluate(text: '刚刚玩了一局游戏。',
         creativePlayEvidence: read.playEvidence, now: now).allowed, offset < 0);
+      for (final external in ['我刚才钓了一条鱼。', '我现在就进去开局。']) {
+        expect(OperationalClaimGroundingGuard.evaluate(text: external,
+          creativePlayEvidence: read.playEvidence, now: now).allowed, false);
+      }
     }
   });
 
