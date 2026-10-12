@@ -1,6 +1,6 @@
 # 作品、余额与存档容量审计 · v0.42.101+345
 
-状态：IMPLEMENTED / CI PENDING / APK PENDING / TRUE DEVICE PENDING。基线 +344 / 50bf83d，分支 agent/v042101-creative-audit。用户已授权推送与 APK 构建，存档验证必须先于打包。
+状态：CI PASSED / APK READY / TRUE DEVICE PENDING。基线 +344 / 50bf83d，分支 agent/v042101-creative-audit。用户已授权推送与 APK 构建，存档验证必须先于打包。
 
 ## 本批范围
 
@@ -61,3 +61,24 @@ Node桥失败恢复回归本地通过，版本正则接受+345，diff空白检�
 ### 首轮CI与恢复用例修正
 
 源码1d32d173，作品专项38195539632的存档组109通过/1失败，稳定性38195539573为669通过/1失败；相同失败来自新用例直接调用低层importAll，没有模拟生产恢复owner更换runtime_state_epoch_v1。实际SnapshotRestoreCoordinator.install会在导入事务中提交新epoch。本次仅修测试为真实coordinator恢复，额外断言恢复完成、epoch已变化、brain重新允许运行，再要求旧出招结果拒绝；未放宽生产保护或删除断言。首轮不作为交付通过结果，重新CI。
+
+
+## 最终交付
+
+2026-10-12 10:54 北京时间。版本 **0.42.101+345**，分支 `agent/v042101-creative-audit`。最终APK源码 **91d35f74c54687286bdda838376eab9828477dbf**，树 `4a0821f69258c3fcd3ac058d53be33b7aa9e3a5f`；之后仅补文档。
+
+- 完整构建 [38195809568](https://github.com/catkiss62/ai-companion-build/actions/runs/38195809568) 成功，打包job114639447718。150项源码门、Node桥回归、Kotlin单测、Flutter分析、**1621项全量Flutter测试**通过；APK打包之前再次通过**110项存档/恢复/新增边界测试**。
+- 作品专项38195809580 / job114638062974：110项存档组与121项作品/原操作校验回归通过。
+- 稳定性38195809539 / job114638062909：**670项通过**。
+- Android15 job114638153102与Android8 job114638153059成功，包含新页面桥失败恢复smoke。分析使用项目既有非致命提示策略，499项提示，不声称零提示。
+- Genie/OpenJTalk、桌宠帧、塔罗、星谷、页面等资源检查通过，签名与既有私测版相同；以上为自动化结果，真机体验待用户验证。
+
+[下载同签名APK](https://github.com/catkiss62/ai-companion-build/releases/download/untagged-5b361dbb307f1e1fbbfb/AI-Companion-v0.42.101-345-Creative-Audit-APK.apk)
+
+[未发布Release](https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-5b361dbb307f1e1fbbfb)：410080224，tag `v0.42.101-creative-audit-test`，目标源码91d35f74。APK资产632470930，文件 `AI-Companion-v0.42.101-345-Creative-Audit-APK.apk`，737,044,625 bytes。
+
+- APK SHA256：`60e7acd03d8fc9c9d2c45cc30e11689b5f8dfe0971dc868801c04db40886c000`，CI与Release资产digest匹配。
+- 签名 SHA256：`305eb3d80983b963c64818ddf1ad561f279de6d47b3ed2c781ada448c7c25148`。
+- Actions artifact11724181129，729,864,626 bytes，ZIP SHA256 `000e2e5e81110f715427181b637be5e24d87c4fc98e87f0683ebf64dd5ec815f`，2026-10-26到期。交付GitHub直接下载，不声称已生成本地APK附件。
+
+本批不改写用户原始存档或既有记忆，不删除图片/缩略图/聊天思考，不新增逐轮模型调用。余额午夜采样受进程、网络与系统调度约束，离线时从当日首次成功读数起算并明确显示；充值与消费夹在两次读数之间时允许少计。存档容量检查拒绝超限而非截断；记忆无应用级条数硬限，设备空间与备份保护仍客观存在。
