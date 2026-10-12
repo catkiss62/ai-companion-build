@@ -16,18 +16,45 @@ class EmptyFinalReplyException
   String toString() => '第二通道没有返回正文';
 }
 
+enum GenerationIncompleteReason {
+  outputLimit,
+  abnormalFinishReason,
+  incompleteStructure,
+  missingTerminalSignal,
+}
+
 class GenerationStreamIncompleteException
     implements Exception, TransientFinalReplyFailure {
   const GenerationStreamIncompleteException({
     this.reasoning = '',
     this.content = '',
+    this.reason = GenerationIncompleteReason.missingTerminalSignal,
+    this.finishReason = '',
   });
 
   final String reasoning;
   final String content;
+  final GenerationIncompleteReason reason;
+  final String finishReason;
+
+  String get diagnosticCode => switch (reason) {
+        GenerationIncompleteReason.outputLimit => 'output_limit',
+        GenerationIncompleteReason.abnormalFinishReason =>
+          'abnormal_finish_reason',
+        GenerationIncompleteReason.incompleteStructure => 'incomplete_structure',
+        GenerationIncompleteReason.missingTerminalSignal =>
+          'missing_terminal_signal',
+      };
 
   @override
-  String toString() => '聊天模型的流式连接在收到完成标记前结束';
+  String toString() => switch (reason) {
+        GenerationIncompleteReason.outputLimit => '聊天模型达到输出上限，回复未完成',
+        GenerationIncompleteReason.abnormalFinishReason =>
+          '聊天模型异常结束（$finishReason）',
+        GenerationIncompleteReason.incompleteStructure => '聊天模型返回的对白结构不完整',
+        GenerationIncompleteReason.missingTerminalSignal =>
+          '聊天模型的流式响应在收到完成标记前结束',
+      };
 }
 
 /// Cost-aware policy for the optional second final-reply lane.
@@ -49,6 +76,37 @@ class FinalReplyFailurePolicy {
         reason == 'safety' ||
         reason == 'error' ||
         reason == 'stream_incomplete';
+  }
+
+  /// Preserve the existing completion gate while distinguishing what actually
+  /// failed. A provider's explicit terminal reason takes precedence over a
+  /// missing marker or an unfinished quote; neither proves a network failure.
+  static GenerationStreamIncompleteException? incompleteResponseFailure({
+    required bool sawTerminalSignal,
+    String finishReason = '',
+    String reasoning = '',
+    String content = '',
+  }) {
+    final normalized = finishReason.trim().toLowerCase();
+    GenerationIncompleteReason? reason;
+    if (normalized == 'length') {
+      reason = GenerationIncompleteReason.outputLimit;
+    } else if (normalized == 'stream_incomplete') {
+      reason = GenerationIncompleteReason.missingTerminalSignal;
+    } else if (isIncompleteFinishReason(normalized)) {
+      reason = GenerationIncompleteReason.abnormalFinishReason;
+    } else if (!sawTerminalSignal) {
+      reason = GenerationIncompleteReason.missingTerminalSignal;
+    } else if (hasStrongIncompleteStructure(content)) {
+      reason = GenerationIncompleteReason.incompleteStructure;
+    }
+    if (reason == null) return null;
+    return GenerationStreamIncompleteException(
+      reasoning: reasoning,
+      content: content,
+      reason: reason,
+      finishReason: finishReason,
+    );
   }
 
   /// A provider may incorrectly report `stop` after cutting a structured
@@ -88,7 +146,15 @@ class FinalReplyFailurePolicy {
     if (error is SocketException || error is http.ClientException) {
       return '连接中断';
     }
-    if (error is GenerationStreamIncompleteException) return '流式连接中断';
+    if (error is GenerationStreamIncompleteException) {
+      return switch (error.reason) {
+        GenerationIncompleteReason.outputLimit => '达到输出上限',
+        GenerationIncompleteReason.abnormalFinishReason =>
+          '模型异常结束（${error.finishReason.trim()}）',
+        GenerationIncompleteReason.incompleteStructure => '对白结构不完整',
+        GenerationIncompleteReason.missingTerminalSignal => '未收到流式完成标记',
+      };
+    }
     if (error is DeepSeekException) {
       if (error.statusCode == 429) return '服务繁忙（429）';
       if (error.statusCode >= 500) return '中转服务异常（${error.statusCode}）';

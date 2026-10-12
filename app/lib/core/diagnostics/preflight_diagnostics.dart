@@ -627,6 +627,8 @@ class PreflightDiagnosticsService {
         'policy': 'second_channel_for_body_and_semantic_repair; fallback_only_after_channel_failure',
         // These are last notices, not evidence that every earlier turn used a provider.
         'lastProactiveNotice': await db.getSetting('proactive_last_final_provider_notice') ?? '',
+        'lastProactiveFailure': _safeJsonObject(
+          await db.getSetting('proactive_last_final_failure_v1') ?? '{}'),
         'lastRoomNotice': await db.getSetting('cedar_room_last_final_provider_notice') ?? '',
         'lastCalendarNotice': await db.getSetting('calendar_last_final_provider_notice') ?? '',
       };

@@ -1,0 +1,25 @@
+name: Token and creative audit validation (no APK)
+on:
+  push:
+    branches: [agent/v042102-token-creative-audit]
+    paths: ['app/lib/**', 'app/test/**', 'app/tools/**', '.github/workflows/token-creative-audit.yml']
+  workflow_dispatch:
+concurrency:
+  group: token-creative-audit-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  flutter:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.44.9'
+          cache: true
+      - run: flutter pub get
+        working-directory: app
+      - run: flutter analyze --no-fatal-infos --no-fatal-warnings
+        working-directory: app
+      - name: Reply routing, failure classification and balance precision
+        run: flutter test test/final_reply_failure_policy_test.dart test/final_reply_route_v04241_test.dart test/daily_balance_spend_test.dart test/creative_facts_test.dart
+        working-directory: app

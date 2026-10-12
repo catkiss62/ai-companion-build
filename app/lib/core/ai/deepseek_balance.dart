@@ -80,10 +80,9 @@ class DeepSeekBalance {
       for (final item in decoded['balance_infos'] as List) {
         if (item is! Map) continue;
         final currency = item['currency']?.toString() ?? '';
-        final total = item['total_balance']?.toString() ?? '';
         final amount = DailyBalanceSpend.parseAmount(item['total_balance']);
         if (amount != null && (currency == 'CNY' || currency == 'USD')) {
-          amounts.add('${currency == 'CNY' ? '¥' : '\$'}$total');
+          amounts.add('${currency == 'CNY' ? '¥' : '\$'}${(amount / DailyBalanceSpend.scale).toStringAsFixed(2)}');
           balances[currency] = amount;
         }
       }

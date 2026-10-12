@@ -159,7 +159,7 @@ void main() {
     Future<String> fetch() => DeepSeekBalance.display(db: db,
       clientFactory: clientFactory, keyReader: () async => 'test-only-key',
       clock: () => at.add(Duration(minutes: minutes)));
-    expect(await fetch(), 'DeepSeek 余额：¥5');
+    expect(await fetch(), 'DeepSeek 余额：¥5.00');
     expect((await today()).label, '今日：-¥0.00');
     minutes++;
     response = http.Response('{"balance_infos":[{"currency":"CNY","total_balance":"4.5"}]}', 200);

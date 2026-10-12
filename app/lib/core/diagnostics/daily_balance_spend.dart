@@ -114,7 +114,7 @@ class DailyBalanceSpend {
       if (item is! Map || item['day'] != day(now ?? DateTime.now()) ||
           item['spent'] is! int || item['last'] is! int) continue;
       parts.add('-${_money(currency, item['spent'] as int)}');
-      amounts.add(_money(currency, item['last'] as int, digits: 4));
+      amounts.add(_money(currency, item['last'] as int));
       details.add('$currency：${_clock(item['started_at'])} 起算，'
         '${_clock(item['read_at'])} 最近读取；累计约 ${_money(currency, item['spent'] as int, digits: 4)}。');
     }

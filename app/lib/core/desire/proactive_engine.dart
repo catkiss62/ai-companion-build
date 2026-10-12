@@ -1576,7 +1576,9 @@ ${startsFreshTopic ? '本类型属于新话题通道：ANSWERED CHAT HISTORY 已
           requestProvider: gemini ? finalProvider : null,
           modelName: gemini ? finalModelName : null,
           thinking: true,
-          maxTokens: gemini ? 1800 : 700,
+          // Visible replies use the provider default, like ordinary chat.
+          // Keep prose concise through the prompt, not a shared hard cap that
+          // can exhaust the model's generation budget before it finishes.
           usageLane: gemini ? 'proactive_final_reply' : 'proactive',
           usageExecutionId: heartbeatKey,
         )) {
@@ -1609,16 +1611,19 @@ ${startsFreshTopic ? '本类型属于新话题通道：ANSWERED CHAT HISTORY 已
           }
           final result = await request(gemini: true);
           if (result == null) return null;
-          if (!result.sawTerminalSignal ||
-              FinalReplyFailurePolicy.isIncompleteFinishReason(result.finishReason) ||
-              FinalReplyFailurePolicy.hasStrongIncompleteStructure(result.content)) {
-            throw const GenerationStreamIncompleteException();
-          }
+          final failure = FinalReplyFailurePolicy.incompleteResponseFailure(
+            sawTerminalSignal: result.sawTerminalSignal,
+            finishReason: result.finishReason,
+            reasoning: result.reasoning,
+            content: result.content,
+          );
+          if (failure != null) throw failure;
           if (result.content.isEmpty) throw const EmptyFinalReplyException();
           visibleModelName = finalModelName.isEmpty
               ? finalProvider.effectiveModel(model)
               : finalModelName;
           await db.setSetting('proactive_last_final_provider_notice', '');
+          await db.setSetting('proactive_last_final_failure_v1', '{}');
           return result;
         } on GenerationSuspendedByRuntimeGateException {
           rethrow;
@@ -1626,6 +1631,18 @@ ${startsFreshTopic ? '本类型属于新话题通道：ANSWERED CHAT HISTORY 已
           rethrow;
         } catch (error) {
           finalRoute.recordFailure(error);
+          await db.setSetting('proactive_last_final_failure_v1', jsonEncode({
+            'at': DateTime.now().millisecondsSinceEpoch,
+            'execution_id': heartbeatKey,
+            'code': error is GenerationStreamIncompleteException
+                ? error.diagnosticCode : 'request_failure',
+            'category': FinalReplyFailurePolicy.userCategory(error),
+            if (error is GenerationStreamIncompleteException) ...{
+              'finish_reason': error.finishReason,
+              'content_characters': error.content.runes.length,
+              'reasoning_characters': error.reasoning.runes.length,
+            },
+          }));
           await db.setSetting('proactive_last_final_provider_notice',
               '主动消息第二通道失败（${FinalReplyFailurePolicy.userCategory(error)}），本轮由 DeepSeek 兜底。');
         }
