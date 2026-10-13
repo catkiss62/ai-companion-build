@@ -84,8 +84,8 @@ for token in (
     "偶尔斗嘴，经常互相对骂",
     "same-subject target omission can only rejoin after semantic review",
     "explicit unrelated preference cannot pass without semantic review",
-    "short explicit unrelated preference is rejected before API review",
-    "short agreement never reaches isolated semantic review",
+    "short explicit unrelated preference remains unaccepted pending target review",
+    "short agreement needs actual preceding expression in semantic review",
     "嗯嗯，没错！嘿嘿",
     "true-device pacing reply cannot borrow the AI context target",
 ):
