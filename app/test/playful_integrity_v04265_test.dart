@@ -136,13 +136,16 @@ void main() {
             return http.Response(jsonEncode({'answers': picks.map((key, value) => MapEntry(key,
               {'type': 'choice', 'choice': value, 'confidence': 1.0, 'probabilities': {value: 1.0}}))}), 200);
           }));
+        final current = ChatMessage(id: 'manual-$manual', role: 'user',
+          content: '就是在逗你', createdAt: now.add(const Duration(seconds: 1)));
+        await db.insertMessage(current); // Route replay is bound to a real durable source.
         final router = NsfwContextRouter(db: db, client: DeepSeekClient(), jevGateway: gateway);
         final result = await router.decide(apiKey: 'unused', endpoint: 'https://invalid.example',
-          turnId: 'manual-$manual', latestUserText: '就是在逗你', recent: [prior]);
+          turnId: current.id, latestUserText: current.content, recent: [prior, current]);
         expect(result.active, manual == 'on'); expect(result.referenceActive, isFalse);
         expect(result.playfulInteraction, PlayfulInteraction.mutual); expect(calls, 1);
         final replay = await router.decide(apiKey: 'unused', endpoint: 'https://invalid.example',
-          turnId: 'manual-$manual', latestUserText: '就是在逗你', recent: [prior]);
+          turnId: current.id, latestUserText: current.content, recent: [prior, current]);
         expect(replay.playfulInteraction, PlayfulInteraction.mutual); expect(calls, 1);
       });
     }

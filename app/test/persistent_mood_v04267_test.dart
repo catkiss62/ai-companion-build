@@ -209,6 +209,7 @@ void main() {
           content: '合成暖心互动',
           createdAt: at,
         );
+        await db.insertMessage(user); // Replay requires this original persisted source.
         final gateway = JevDecisionGateway(
           enabledReader: () async => true,
           keyReader: () async => 'test',

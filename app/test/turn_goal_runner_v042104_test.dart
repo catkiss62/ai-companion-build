@@ -217,9 +217,10 @@ void main() {
         expect((params['arguments'] as Map)['action'], 'cast');
         playCalls++;
         final outcome = {'status': 'playing', 'next_actor': 'companion', 'result': '真实钓到一条鱼。'};
-        return http.Response(jsonEncode({'jsonrpc': '2.0', 'id': body['id'], 'result': {
+        return http.Response.bytes(utf8.encode(jsonEncode({'jsonrpc': '2.0', 'id': body['id'], 'result': {
           'isError': false, 'structuredContent': outcome,
-          'content': [{'type': 'text', 'text': jsonEncode(outcome)}]}}), 200);
+          'content': [{'type': 'text', 'text': jsonEncode(outcome)}]}})), 200,
+          headers: {'content-type': 'application/json; charset=utf-8'});
       });
       final client = DeepSeekClient(streamClientFactory: () => MockClient((request) async {
         final body = jsonDecode(request.body) as Map;
@@ -235,6 +236,15 @@ void main() {
             expect(receipt?.committed, isTrue);
             expect(receipt?.result['operation'], 'resume');
             await activity.pause();
+          }
+          if (!resumes && plans == 2) {
+            final played = await activity.loadSession('fishing');
+            final outcomes = await db.recentAgentToolOutcomeRecords(limit: 8);
+            final diagnostic = outcomes.map((o) => '${o.toolId}:${o.status.name}:${o.displayText}').join(', ');
+            expect(outcomes.where((o) => o.toolId == 'cedar_toy.play' && o.status.name == 'succeeded'), hasLength(1),
+              reason: diagnostic);
+            expect(played?.lastAction, 'cast', reason: diagnostic);
+            expect(played?.lastOutcome, contains('真实钓到一条鱼'), reason: diagnostic);
           }
           if ((succeeds && plans == (resumes ? 1 : 2)) ||
               (scenario == 'resume_then_pause' && plans == 1)) {

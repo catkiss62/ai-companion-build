@@ -43,7 +43,8 @@ void main() {
   setUp(() async {
     db = await AppDatabase.createForTesting(databaseFactoryFfi);
     writerCalls = 0;
-    retryClock = DateTime.now();
+    // Retry deadlines are persisted as epoch milliseconds.
+    retryClock = DateTime.utc(2026, 10, 13, 12);
     http.Client writer() => MockClient((_) async {
       writerCalls++;
       return http.Response('unexpected writer request', 500);

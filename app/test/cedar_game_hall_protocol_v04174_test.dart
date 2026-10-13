@@ -1,6 +1,7 @@
 import 'dart:convert';
 
 import 'package:ai_companion_localfirst/core/agent/agent_tool_planner.dart';
+import 'package:ai_companion_localfirst/core/agent/turn_task_intent.dart';
 import 'package:ai_companion_localfirst/core/agent/agent_tool_registry.dart';
 import 'package:ai_companion_localfirst/core/agent/agent_task_loop.dart';
 import 'package:ai_companion_localfirst/core/ai/deepseek_client.dart';
@@ -467,16 +468,33 @@ void main() {
     expect(restored.adviceNotes, <String>['可以先守中间']);
   });
 
-  test('temporary absence routes to local session release, not remote leave', () {
-    final pause = AgentToolPlanner.routeLocally('我暂时要忙，你自己玩下别的吧');
-    expect(pause?.calls.single.toolId,
-        AgentToolRegistry.cedarToyManageActivity.id);
-    expect(pause?.calls.single.arguments['operation'], 'pause_and_release');
-
-    final resume = AgentToolPlanner.routeLocally('回来继续这局游戏吧');
-    expect(resume?.calls.single.toolId,
-        AgentToolRegistry.cedarToyManageActivity.id);
-    expect(resume?.calls.single.arguments['operation'], 'resume');
+  test('semantic temporary absence selects exact local control, without keyword authorization', () {
+    final session = CedarGameSession(id: 'duel-session', gameId: 'duel',
+      gameTitle: '双弈', guide: 'move and state', guideComplete: true,
+      mode: CedarParticipationMode.multiplayer, phase: CedarActivityPhase.active,
+      updatedAt: DateTime.fromMillisecondsSinceEpoch(1));
+    final state = CedarToyActivityState(activeGameId: 'duel', sessions: {'duel': session},
+      updatedAt: DateTime.fromMillisecondsSinceEpoch(1));
+    for (final request in [
+      ('我暂时要忙，你自己玩下别的吧', 'pause_and_release'),
+      ('回来继续这局游戏吧', 'resume'),
+    ]) {
+      // The same raw words alone must no longer execute a local mutation.
+      expect(AgentToolPlanner.routeLocally(request.$1), isNull);
+      final intent = TurnTaskQuestionSet(userText: request.$1, state: state, works: const [])
+        .interpret({'task_game': request.$2, 'task_game_target': 'g0', 'task_creative': 'none'});
+      final goal = intent.goals('user').single;
+      expect(goal.target, {'game_id': 'duel', 'session_id': 'duel-session', 'operation': request.$2});
+      final plan = AgentToolPlanner.fromNativeToolCalls([
+        DeepSeekToolCall(id: 'local-control', name: 'cedar_toy_manage_activity',
+          arguments: jsonEncode({'game': intent.gameId, 'operation': intent.gameAction})),
+      ], latestUserText: request.$1,
+        cedarStageToolIds: const {'cedar_toy.manage_activity'},
+        semanticTaskToolIds: const {'cedar_toy.manage_activity'});
+      expect(plan.calls.single.toolId, AgentToolRegistry.cedarToyManageActivity.id);
+      expect(plan.calls.single.arguments['operation'], request.$2);
+      expect(plan.calls.single.arguments['game'], 'duel');
+    }
   });
 
   test('released paused session remains recoverable without active game', () {
