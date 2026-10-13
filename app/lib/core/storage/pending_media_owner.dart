@@ -1,6 +1,7 @@
 import 'package:sqflite/sqflite.dart';
 
 import '../database/brain_work_fence.dart';
+import '../database/conversation_source_store.dart';
 import '../database/generation_attempt_fence.dart';
 
 /// Temporary file ownership, not a sent attachment or a replayable media task.
@@ -53,21 +54,22 @@ class PendingMediaOwner {
   }
 
   Map<String, Object?> toJson() => {
-    'schema': 1,
+    'schema': 2,
     'message_id': messageId,
     'identity': fence.identity,
     'expected_settings': fence.expectedSettings,
     'lease_key': fence.leaseKey,
     'lease_token': fence.leaseToken,
     if (attempt != null) ...{'job_id': attempt!.jobId, 'run_token': attempt!.runToken,
-      'user_message_id': attempt!.userMessageId},
+      'user_message_id': attempt!.userMessageId,
+      'user_source': attempt!.userSource?.toJson()},
   };
 
   static PendingMediaOwner? decode(Map<String, dynamic> value) {
     try {
       // Pending owners are local and disposable. Future attempt fields can
       // bump this version instead of silently weakening an older fence.
-      if (value['schema'] != 1) return null;
+      if (value['schema'] != 2) return null;
       final identity = Map<String, String>.from(value['identity'] as Map);
       final expectedSettings = Map<String, String>.from(value['expected_settings'] as Map);
       if (!identity.keys.toSet().containsAll(
@@ -78,10 +80,13 @@ class PendingMediaOwner {
       final message = value['message_id'] as String;
       if (message.isEmpty) return null;
       if (value['job_id'] is String) {
+        final source = ConversationSourceStamp.fromJson(value['user_source']);
+        if (source == null || source.id != value['user_message_id'] ||
+            source.role != 'user') return null;
         return PendingMediaOwner.generation(GenerationAttemptFence(
           jobId: value['job_id'] as String, runToken: value['run_token'] as String,
           userMessageId: value['user_message_id'] as String,
-          assistantMessageId: message, brainFence: fence));
+          assistantMessageId: message, brainFence: fence, userSource: source));
       }
       if (value['job_id'] != null || fence.leaseKey != 'proactive_lease_until' ||
           fence.leaseToken?.isNotEmpty != true) return null;

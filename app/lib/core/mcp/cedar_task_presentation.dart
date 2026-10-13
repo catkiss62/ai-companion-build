@@ -1,4 +1,5 @@
 import '../database/app_database.dart';
+import '../agent/turn_execution_store.dart';
 import 'cedar_play_session_policy.dart';
 import 'cedar_timed_play_task.dart';
 import 'cedar_toy_activity.dart';
@@ -26,12 +27,23 @@ class CedarTaskPresentation {
     required bool chatBusy,
     required DateTime now,
     Map<String, dynamic>? diagnostic,
+    LocalEffectReceipt? pendingReceipt,
   }) {
     bool matches(Map<String, dynamic>? task) => task != null &&
         task['gameId'] == gameId && (session == null || task['sessionId'] == session.id);
-    if (matches(pending)) {
-      return CedarTaskPresentation('已登记 · 待启动',
-          '计划${pending!['minutes']}分钟；本轮回复完成后才开始计时。');
+    if (matches(pending) && pendingReceipt?.result.containsKey('activationState') != true) {
+      final ticket = pending!['commitTicket'];
+      final committed = pendingReceipt?.committed == true && ticket is Map &&
+          pendingReceipt!.effectId == pending['effectId'] &&
+          pendingReceipt.payloadHash == pending['payloadHash'] &&
+          pendingReceipt.result['stageHash'] == pending['stageHash'] &&
+          CedarTimedPlayTaskStore.stageHash(pending) == pending['stageHash'] &&
+          ticket['effectId'] == pendingReceipt.effectId &&
+          ticket['messageId'] == pendingReceipt.messageId &&
+          ticket['messageHash'] == pendingReceipt.messageHash &&
+          ticket['messageRevision'] == pendingReceipt.messageRevision;
+      return CedarTaskPresentation(committed ? '已登记 · 待启动' : '待回复提交',
+          '计划${pending['minutes']}分钟；${committed ? '已接受任务，等待执行器启动。' : '本轮回复尚未正式提交，计时未开始。'}');
     }
     if (matches(active)) {
       final task = active!;
@@ -82,8 +94,11 @@ class CedarTaskPresentation {
   static Future<CedarTaskPresentation?> load(AppDatabase db,
       CedarGameSession session, {DateTime? now}) async {
     final tasks = CedarTimedPlayTaskStore(db);
+    final pending = CedarTimedPlayTaskStore.decode(await db.getSetting(CedarTimedPlayTaskStore.pendingKey));
     return project(gameId: session.gameId, session: session,
-        pending: CedarTimedPlayTaskStore.decode(await db.getSetting(CedarTimedPlayTaskStore.pendingKey)),
+        pending: pending,
+        pendingReceipt: pending == null ? null : await TurnExecutionStore(db).readEffect(
+            pending['turnId']?.toString() ?? '', TurnEffectSlot.cedarTimedRegistration),
         active: await tasks.active(), clock: await CedarPlaySessionStore(db).load(),
         reports: await tasks.pendingReports(), brainAllowed: await db.brainWorkAllowed(),
         diagnostic: CedarTimedPlayTaskStore.decode(await db.getSetting(CedarTimedPlayTaskStore.diagnosticKey)),

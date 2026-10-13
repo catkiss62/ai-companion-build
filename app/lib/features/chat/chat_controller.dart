@@ -1541,6 +1541,9 @@ class ChatController extends ChangeNotifier {
       _safeNotify();
       return;
     }
+    final cancellation = GenerationCancellationToken();
+    _activeGenerationCancellation = cancellation;
+    _activeGenerationJobId = jobId;
     sending = true;
     error = null;
     _safeNotify();
@@ -1549,7 +1552,7 @@ class ChatController extends ChangeNotifier {
       final user = before == null
           ? null
           : await db.messageById(before.userMessageId);
-      final result = await generationRunner.confirmIncompleteDraft(jobId);
+      final result = await generationRunner.confirmIncompleteDraft(jobId, cancellationToken: cancellation);
       if (result.completed) {
         incompleteReplyDraft = null;
         incompleteReplyJobId = null;
@@ -1562,10 +1565,18 @@ class ChatController extends ChangeNotifier {
           );
         }
       } else {
-        error = result.error?.toString() ?? '确认这条回复失败，请再试一次。';
+        error = result.status == 'cancelled_by_user' ? null :
+            result.error?.toString() ?? result.notice ?? '确认这条回复失败，请再试一次。';
         await _restoreIncompleteReplyDraft();
       }
+    } on GenerationCancelledByUserException {
+      await db.cancelGenerationJobByUser(jobId);
+      await _restoreIncompleteReplyDraft();
     } finally {
+      if (identical(_activeGenerationCancellation, cancellation)) {
+        _activeGenerationCancellation = null;
+        _activeGenerationJobId = null;
+      }
       sending = false;
       await db.releaseLocalLease('chat_turn_lease');
       _safeNotify();

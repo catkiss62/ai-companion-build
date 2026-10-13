@@ -1,5 +1,9 @@
+import '../models/immersive_room.dart';
+import '../agent/turn_execution_store.dart';
+import '../mcp/cedar_timed_play_task.dart';
 import '../storage/pending_media_owner.dart';
 import 'generation_attempt_fence.dart';
+import 'conversation_source_store.dart';
 import '../creative/creative_contract.dart';
 import '../creative/creative_autonomy_policy.dart';
 import '../creative/creative_share.dart';
@@ -1890,6 +1894,7 @@ class AppDatabase {
     // Additive schema-61 metadata: legacy rows retain unknown defaults.
     await ensureFormContextColumns(db);
     await ensureMemoryRevisionColumns(db);
+    await db.transaction(ConversationSourceStore.ensureSchema);
     // Local execution ownership is additive and deliberately absent from backups.
     if ((await db.rawQuery('PRAGMA table_info(media_blobs)')).isNotEmpty) {
       await db.execute('CREATE TABLE IF NOT EXISTS pending_media_owners ('
@@ -5279,14 +5284,23 @@ class AppDatabase {
     });
   }
 
+  Future<void> _captureUserTurnControlContext(DatabaseExecutor txn, ChatMessage message) async {
+    if (!message.isUser) return;
+    await txn.insert('settings', {'key': '${TurnExecutionStore.turnContextPrefix}${message.id}',
+      'value': jsonEncode({'schema': 1, 'turn_id': message.id,
+        'user_control_revision': await BrainWorkFence.value(txn, 'cedar_toy_user_control_revision_v1')})},
+      conflictAlgorithm: ConflictAlgorithm.ignore);
+  }
+
   Future<void> insertMessage(ChatMessage message) async {
     final db = await database;
     await db.transaction((txn) async {
-      await txn.insert(
-        'messages',
+      await ConversationSourceStore.insertMessage(
+        txn,
         message.toDb(),
         conflictAlgorithm: ConflictAlgorithm.replace,
       );
+      await _captureUserTurnControlContext(txn, message);
       await _insertLanguageVariants(txn, message);
     });
   }
@@ -5310,7 +5324,7 @@ class AppDatabase {
       final exists = await txn.query('messages', columns: ['id'],
           where: 'id = ?', whereArgs: [message.id], limit: 1);
       if (exists.isNotEmpty) return true;
-      await txn.insert('messages', message.toDb());
+      await ConversationSourceStore.insertMessage(txn, message.toDb());
       await _insertLanguageVariants(txn, message);
       return true;
     });
@@ -5461,11 +5475,12 @@ class AppDatabase {
       if (settings['active_brain'] == '0') {
         throw StateError('当前设备不是 Active Brain。');
       }
-      await txn.insert(
-        'messages',
+      await ConversationSourceStore.insertMessage(
+        txn,
         {...(await _userMessageWithFormContext(txn, message)), 'deep_thinking': deepThinking ? 1 : 0},
         conflictAlgorithm: ConflictAlgorithm.abort,
       );
+      await _captureUserTurnControlContext(txn, message);
       await _insertLanguageVariants(txn, message);
       for (final attachment in attachments) {
         await txn.insert(
@@ -5494,7 +5509,8 @@ class AppDatabase {
   Future<bool> markAttachmentVisionAnalyzing(String attachmentId) async {
     final db = await database;
     final now = DateTime.now().millisecondsSinceEpoch;
-    final changed = await db.rawUpdate(
+    return db.transaction((txn) async {
+    final changed = await txn.rawUpdate(
       '''
       UPDATE message_attachments
       SET vision_status = ?, vision_error = '',
@@ -5508,7 +5524,14 @@ class AppDatabase {
         MessageAttachment.imageKind,
       ],
     );
+    if (changed == 1) {
+      final owners = await txn.query('message_attachments', columns: ['message_id'],
+        where: 'id = ?', whereArgs: [attachmentId], limit: 1);
+      if (owners.isNotEmpty) await ConversationSourceStore.sourceChanged(txn,
+        owners.single['message_id'] as String);
+    }
     return changed == 1;
+    });
   }
 
   Future<void> failAttachmentVision(
@@ -5517,7 +5540,8 @@ class AppDatabase {
   ) async {
     final db = await database;
     final safeError = error.trim();
-    await db.update(
+    await db.transaction((txn) async {
+    final changed = await txn.update(
       'message_attachments',
       {
         'vision_status': MessageAttachment.visionFailedStatus,
@@ -5529,6 +5553,13 @@ class AppDatabase {
       where: "id = ? AND vision_status = 'analyzing'",
       whereArgs: [attachmentId],
     );
+    if (changed == 1) {
+      final owners = await txn.query('message_attachments', columns: ['message_id'],
+        where: 'id = ?', whereArgs: [attachmentId], limit: 1);
+      if (owners.isNotEmpty) await ConversationSourceStore.sourceChanged(txn,
+        owners.single['message_id'] as String);
+    }
+    });
   }
 
   Future<bool> recordProviderHealthEvent(ProviderHealthEvent event) async {
@@ -6260,6 +6291,7 @@ class AppDatabase {
         where: 'id = ?',
         whereArgs: [messageId],
       );
+      await ConversationSourceStore.sourceChanged(txn, messageId);
       await txn.insert('generation_jobs', {
         'id': jobId,
         'user_message_id': messageId,
@@ -6464,8 +6496,11 @@ class AppDatabase {
       );
       final originalReference = 'media/${blob.originalPath}';
       final thumbnailReference = 'media/${blob.thumbnailPath}';
+      final changedSources = <String>{};
       for (final id in messageIds) {
-        await txn.update(
+        final before = await txn.query('message_attachments', columns: ['message_id'],
+          where: "id = ? AND blob_id = ''", whereArgs: [id], limit: 1);
+        final changed = await txn.update(
           'message_attachments',
           <String, Object?>{
             'blob_id': blob.id,
@@ -6475,6 +6510,10 @@ class AppDatabase {
           where: "id = ? AND blob_id = ''",
           whereArgs: <Object?>[id],
         );
+        if (changed > 0 && before.isNotEmpty) changedSources.add(before.single['message_id'] as String);
+      }
+      for (final sourceId in changedSources) {
+        await ConversationSourceStore.sourceChanged(txn, sourceId);
       }
       for (final id in albumIds) {
         await txn.update(
@@ -6625,6 +6664,7 @@ class AppDatabase {
             whereArgs: <Object?>[messageId],
           );
         }
+        await ConversationSourceStore.sourceChanged(txn, messageId);
       }
       await _rebuildMediaBlobRefCountsInTransaction(txn);
       final orphanRows = await txn.query(
@@ -7229,8 +7269,8 @@ class AppDatabase {
           await txn.delete('settings', where: 'key = ?', whereArgs: [row['key']]);
         }
       }
-      await txn.insert(
-        'messages',
+      await ConversationSourceStore.insertMessage(
+        txn,
         await _userMessageWithFormContext(txn, user),
         conflictAlgorithm: ConflictAlgorithm.abort,
       );
@@ -7242,6 +7282,7 @@ class AppDatabase {
         );
         await _retainMessageMediaBlob(txn, attachment);
       }
+      await _captureUserTurnControlContext(txn, user);
       await txn.insert('generation_jobs', {
         'id': jobId,
         'user_message_id': user.id,
@@ -7622,6 +7663,7 @@ class AppDatabase {
     required String roomId,
     required String messageId,
     BrainWorkFence? workFence,
+    ImmersiveMessage? expectedSourceUser,
   }) async {
     final db = await database;
     final now = DateTime.now().millisecondsSinceEpoch;
@@ -7629,6 +7671,23 @@ class AppDatabase {
       if (!await BrainWorkFence.workAllowed(txn) ||
           (workFence != null && !await workFence.matches(txn))) {
         throw const BrainWorkInvalidated();
+      }
+      if (expectedSourceUser != null) {
+        final source = expectedSourceUser;
+        final rooms = await txn.query('immersive_rooms', columns: ['id'],
+          where: "id = ? AND status != 'ended'", whereArgs: [roomId], limit: 1);
+        final latest = await txn.query('immersive_messages', where: 'room_id = ?',
+          whereArgs: [roomId], orderBy: 'created_at DESC, rowid DESC', limit: 1);
+        final expected = <String, Object?>{'id': source.id, 'room_id': source.roomId,
+          'role': source.role, 'content': source.content, 'reasoning_content': source.reasoningContent,
+          'form_context_json': source.formContextJson, 'created_at': source.createdAt.millisecondsSinceEpoch};
+        const fields = ['id', 'room_id', 'role', 'content', 'reasoning_content', 'form_context_json', 'created_at'];
+        if (source.id != messageId || source.roomId != roomId || !source.isUser ||
+            rooms.isEmpty || latest.isEmpty ||
+            fields.any((key) => (const ['reasoning_content', 'form_context_json'].contains(key)
+              ? latest.single[key] ?? '' : latest.single[key]) != expected[key])) {
+          throw const BrainWorkInvalidated();
+        }
       }
       final rows = await txn.query(
         'immersive_messages',
@@ -8086,6 +8145,7 @@ class AppDatabase {
         whereArgs: [job.id, 'completed'],
       );
       if (changed != 1) throw StateError('completed_reply_restart_lost');
+      await ConversationSourceStore.sourceChanged(txn, job.userMessageId);
       await _rebuildSomaticAggregates(
         txn,
         DateTime.fromMillisecondsSinceEpoch(now),
@@ -8107,6 +8167,9 @@ class AppDatabase {
     required String runToken,
     required ChatMessage assistant,
     PendingMediaOwner? pendingMediaOwner,
+    GenerationAttemptFence? generationAttempt,
+    TurnCommitEvidence turnCommitEvidence = const TurnCommitEvidence(),
+    bool Function()? isCancelled,
     PlayfulSelfActivity? playfulActivity,
     DeepReflectionContext? deepReflection,
     DeepReflectionUpdate? reflectionUpdate,
@@ -8152,6 +8215,12 @@ class AppDatabase {
         return existing.isNotEmpty;
       }
       if (job.status != 'running') return false;
+      final originalAttempt = generationAttempt ?? pendingMediaOwner?.attempt;
+      requireTurnNotCancelled(isCancelled);
+      if (originalAttempt != null && (originalAttempt.jobId != jobId ||
+          originalAttempt.runToken != runToken || !await originalAttempt.matches(txn))) return false;
+      if (originalAttempt == null && (turnCommitEvidence.timedEffectIds.isNotEmpty ||
+          turnCommitEvidence.deliveries.isNotEmpty)) return false;
       if (assistant.id != job.assistantMessageId) return false;
       if (pendingMediaOwner != null && !await _pendingMediaCanCommit(
           txn, pendingMediaOwner, assistant.attachments, assistant.id)) return false;
@@ -8171,8 +8240,8 @@ class AppDatabase {
         limit: 1,
       );
       if (existing.isEmpty) {
-        await txn.insert(
-          'messages',
+        await ConversationSourceStore.insertMessage(
+          txn,
           assistant.toDb(),
           conflictAlgorithm: ConflictAlgorithm.abort,
         );
@@ -8210,28 +8279,6 @@ class AppDatabase {
           },
           conflictAlgorithm: ConflictAlgorithm.ignore,
         );
-      }
-      final completed = await txn.update(
-        'generation_jobs',
-        {
-          'status': 'completed',
-          'partial_reasoning': assistant.reasoningContent,
-          'partial_content': assistant.content,
-          'form_context_json': assistant.formContextJson,
-          'completed_at': now,
-          'last_checkpoint_at': now,
-          'updated_at': now,
-          'next_retry_at': null,
-          'last_error': '',
-        },
-        where: 'id = ? AND status = ? AND run_token = ?',
-        whereArgs: [jobId, 'running', runToken],
-      );
-      if (completed != 1) {
-        // Throwing rolls back the assistant/post-turn inserts in this same
-        // SQLite transaction. Returning false here would incorrectly leave a
-        // visible assistant message without a completed generation job.
-        throw StateError('generation_commit_ownership_lost');
       }
       // The reply, completed job and AI-to-self pulse share this transaction:
       // cancellation, stale writers and failed retries therefore cannot leave
@@ -8278,6 +8325,50 @@ class AppDatabase {
         }
       }
       await _recordPersonalityTrialReplyInTransaction(txn, now);
+      final finalMessage = (await txn.query('messages',
+        where: 'id = ?', whereArgs: [assistant.id], limit: 1)).single;
+      if (finalMessage['content'] != assistant.content) {
+        throw const TurnCommitRejected('message_content_changed_before_commit');
+      }
+      final finalSource = await ConversationSourceStore.captureMessage(txn, assistant.id);
+      if (finalSource == null) throw StateError('missing_committed_message_source');
+      if (originalAttempt != null && !await CedarTimedPlayTaskStore.commitStagedInTransaction(txn,
+          attempt: originalAttempt, evidence: turnCommitEvidence,
+          messageId: assistant.id, messageHash: finalSource.contentHash,
+          messageRevision: finalSource.revision, isCancelled: isCancelled)) {
+        throw const TurnCommitRejected('timed_goal_changed_before_commit');
+      }
+      for (final claim in turnCommitEvidence.deliveries) {
+        await TurnExecutionStore.writeDeliveryInTransaction(txn, CedarDeliveryReceipt(
+          claim: claim, messageId: assistant.id, messageHash: finalSource.contentHash,
+          messageRevision: finalSource.revision, committedAt: now));
+      }
+      requireTurnNotCancelled(isCancelled);
+      final completed = await txn.update(
+        'generation_jobs',
+        {
+          'status': 'completed',
+          'partial_reasoning': assistant.reasoningContent,
+          'partial_content': assistant.content,
+          'form_context_json': finalMessage['form_context_json'] ?? '',
+          'completed_at': now,
+          'last_checkpoint_at': now,
+          'updated_at': now,
+          'next_retry_at': null,
+          'last_error': '',
+        },
+        where: 'id = ? AND status = ? AND run_token = ?',
+        whereArgs: [jobId, 'running', runToken],
+      );
+      if (completed != 1) {
+        // Throwing rolls back the assistant/post-turn inserts in this same
+        // SQLite transaction. Returning false here would incorrectly leave a
+        // visible assistant message without a completed generation job.
+        throw StateError('generation_commit_ownership_lost');
+      }
+      // The old user row has just acquired a committed paired provenance.
+      await ConversationSourceStore.sourceChanged(txn, job.userMessageId);
+      requireTurnNotCancelled(isCancelled);
       return true;
     });
   }
@@ -8420,6 +8511,7 @@ class AppDatabase {
   Future<String?> commitProactiveMessageIfCurrent({
     required ChatMessage message,
     PendingMediaOwner? pendingMediaOwner,
+    List<CedarDeliveryClaim> cedarDeliveries = const [],
     required DateTime evaluationStartedAt,
     BrainWorkFence? workFence,
     DeepReflectionContext? reflectionInvitation,
@@ -8502,11 +8594,8 @@ class AppDatabase {
       if (pendingMediaOwner != null && !await _pendingMediaCanCommit(
           txn, pendingMediaOwner, message.attachments, message.id)) return 'pending_media_stale';
 
-      await txn.insert(
-        'messages',
-        message.toDb(),
-        conflictAlgorithm: ConflictAlgorithm.abort,
-      );
+      await ConversationSourceStore.insertMessage(txn, message.toDb(),
+        conflictAlgorithm: ConflictAlgorithm.abort);
       await _insertLanguageVariants(txn, message);
       for (final attachment in message.attachments) {
         await txn.insert(
@@ -8530,7 +8619,36 @@ class AppDatabase {
       await DeepReflectionStore.commit(txn, context: reflectionInvitation,
         replyId: message.id, visibleReply: message.content, now: message.createdAt,
         invitation: true, roleplay: WorldBookTurnContext.decode(message.worldBookContextJson).hasRoleplay);
+      if (cedarDeliveries.isNotEmpty) {
+        final source = await ConversationSourceStore.captureMessage(txn, message.id);
+        if (source == null) throw StateError('missing_proactive_message_source');
+        for (final claim in cedarDeliveries) {
+          await TurnExecutionStore.writeDeliveryInTransaction(txn, CedarDeliveryReceipt(
+            claim: claim, messageId: message.id, messageHash: source.contentHash,
+            messageRevision: source.revision, committedAt: sentAt.millisecondsSinceEpoch));
+        }
+      }
       return null;
+    });
+  }
+
+  /// Backfill proof for an already committed Cedar share, without sending a
+  /// second message. The verifier must have inspected this exact source stamp.
+  Future<bool> recordCedarDeliveryProofIfCurrent({
+    required ConversationSourceStamp source,
+    required List<CedarDeliveryClaim> claims,
+    required BrainWorkFence workFence,
+  }) async {
+    if (source.role != 'assistant' || claims.isEmpty) return false;
+    final handle = await database;
+    return handle.transaction((txn) async {
+      if (!await workFence.matches(txn) || !await source.matches(txn)) return false;
+      for (final claim in claims) {
+        await TurnExecutionStore.writeDeliveryInTransaction(txn, CedarDeliveryReceipt(
+          claim: claim, messageId: source.id, messageHash: source.contentHash,
+          messageRevision: source.revision, committedAt: DateTime.now().millisecondsSinceEpoch));
+      }
+      return true;
     });
   }
 
@@ -19025,11 +19143,15 @@ class AppDatabase {
   Future<GenerationAttemptFence?> captureGenerationAttemptFence(GenerationJob job) async {
     final brainFence = await captureBrainWorkFence();
     if (brainFence == null) return null;
-    final attempt = GenerationAttemptFence(jobId: job.id, runToken: job.runToken,
-      userMessageId: job.userMessageId, assistantMessageId: job.assistantMessageId,
-      brainFence: brainFence);
     final handle = await database;
-    return await handle.transaction((txn) => attempt.matches(txn)) ? attempt : null;
+    return handle.transaction((txn) async {
+      final userSource = await ConversationSourceStore.captureMessage(txn, job.userMessageId);
+      if (userSource == null || userSource.role != 'user') return null;
+      final attempt = GenerationAttemptFence(jobId: job.id, runToken: job.runToken,
+        userMessageId: job.userMessageId, assistantMessageId: job.assistantMessageId,
+        brainFence: brainFence, userSource: userSource);
+      return await attempt.matches(txn) ? attempt : null;
+    });
   }
 
   Future<bool> brainWorkFenceCurrent(BrainWorkFence fence) async {
@@ -20372,6 +20494,11 @@ class AppDatabase {
           conflictAlgorithm: ConflictAlgorithm.ignore,
         );
       }
+      if (runtimeSettingOverrides.containsKey(CedarTimedPlayTaskStore.pendingKey) &&
+          runtimeSettingOverrides[CedarTimedPlayTaskStore.pendingKey] == '') {
+        await CedarTimedPlayTaskStore.cancelPendingInTransaction(txn,
+          reason: 'restored_before_activation', now: DateTime.now());
+      }
       for (final entry in runtimeSettingOverrides.entries) {
         await txn.insert(
           'settings',
@@ -20437,6 +20564,9 @@ class AppDatabase {
         whereArgs: const ['behavior', '造梗能力', '造梗|玩梗'],
       );
       await _rebuildMediaBlobRefCountsInTransaction(txn);
+      // Import preserves source order and the consumed high-water mark as one
+      // snapshot; legacy backfill must be part of that same transaction.
+      await ConversationSourceStore.initializeSequences(txn);
     });
     await _createV61AiInterestConsumptionTables(await database);
     await _ensureDeepWebColumns(await database);

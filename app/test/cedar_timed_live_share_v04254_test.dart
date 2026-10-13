@@ -1,3 +1,4 @@
+import 'support/cedar_task_fixture.dart';
 import 'dart:convert';
 
 import 'package:ai_companion_localfirst/core/agent/agent_tool.dart';
@@ -90,7 +91,7 @@ void main() {
   test('stopped or failed reply cannot activate a staged task', () async {
     final session = await guide(db);
     final tasks = CedarTimedPlayTaskStore(db);
-    await tasks.stage(
+    await stageCedarTask(db,
       turnId: 'user',
       assistantId: 'missing-reply',
       session: session,
@@ -103,20 +104,9 @@ void main() {
 
   Future<void> start({int minutes = 30}) async {
     final session = await guide(db);
-    await CedarTimedPlayTaskStore(db).stage(
-      turnId: 'user',
-      assistantId: 'reply',
-      session: session,
-      minutes: minutes,
-    );
-    await db.insertMessage(
-      ChatMessage(
-        id: 'reply',
-        role: 'assistant',
-        content: '好，我去玩一会儿，结束后告诉你。',
-        createdAt: DateTime.now(),
-      ),
-    );
+    final staged = await stageCedarTask(db, turnId: 'user', assistantId: 'reply',
+        session: session, minutes: minutes);
+    expect(await commitCedarTask(db, staged), isTrue);
     await CedarTimedPlayTaskStore(db).activateCommitted(turnId: 'user');
   }
 
@@ -153,14 +143,8 @@ void main() {
     expect(report['usedMs'], lessThan(1800000));
     final thoughtId = (await tasks.queueReport())!;
     expect((await db.thoughtById(thoughtId))!.lifecycleState, 'task_report');
-    await db.insertMessage(
-      ChatMessage(
-        id: 'cedar-share:$thoughtId',
-        role: 'assistant',
-        content: '找到出口了，这局提前结束。',
-        createdAt: DateTime.now(),
-      ),
-    );
+    await commitCedarDelivery(db, CedarTimedPlayTaskStore.reportClaim(report),
+        messageId: 'cedar-share:$thoughtId', content: '找到出口了，这局提前结束。');
     await tasks.queueReport(); // Recovery after commit, before acknowledgement.
     expect(await tasks.pendingReports(), isEmpty);
   });
@@ -170,7 +154,7 @@ void main() {
     () async {
       await start();
       final tasks = CedarTimedPlayTaskStore(db);
-      await tasks.stage(
+      await stageCedarTask(db,
         turnId: 'another',
         assistantId: 'not-committed',
         session: (await CedarToyActivityStore(db).load())!,

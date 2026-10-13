@@ -15,7 +15,8 @@ assert 'ProactiveDeliveryBudget.read' in engine and 'budget.blockReason' in engi
 assert 'nightContactContract' in engine and '$nightContactContract' in engine
 assert 'enforceProactiveBudget: !forceForDebug' in engine
 commit = db.split('Future<String?> commitProactiveMessageIfCurrent', 1)[1].split('Future<ChatMessage?> messageById', 1)[0]
-assert commit.index('ProactiveDeliveryBudget.read(txn, sentAt)') < commit.index("await txn.insert(\n        'messages',")
+assert commit.index('ProactiveDeliveryBudget.read(txn, sentAt)') < commit.index('await ConversationSourceStore.insertMessage(')
+assert 'txn,' in commit.split('await ConversationSourceStore.insertMessage(', 1)[1].split(');', 1)[0]
 assert "txn.insert('proactive_history'" in commit and "'decision': 'sent'" in commit
 assert 'proactive_window_changed' in commit and 'budget.blockReason' in commit
 assert "'proactiveContact': proactiveBudget.toJson()" in db

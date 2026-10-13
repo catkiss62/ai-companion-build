@@ -27,7 +27,26 @@ Map<String, dynamic> write(String html, {String before = '', String path = 'inde
     call('work_write', {'path': path, 'content': html, 'expected_hash': before, 'mode': mode});
 Map<String, dynamic> previewCall() => call('work_preview', {
   'checks': [{'click': '#light', 'selector': '#state', 'text': '亮了'}],
+  'restore_assertions': [{'selector': '#state', 'property': 'text', 'state_path': 'score'}],
 });
+// Native-shaped observations for worker admission tests only. Actual save /
+// cold-reload JavaScript behavior is tested by CreativePreviewSmokeTest.
+Map<String, Object?> nativePreviewResult(Object? arguments,
+    [Map<String, Object?> overrides = const {}]) {
+  final args = arguments as Map;
+  final saves = (overrides['save_count'] as int?) ?? 0;
+  final restore = args['require_restore'] == true || saves > 0;
+  final assertions = (args['restore_assertions'] as List? ?? []).length;
+  return {'ok': true, 'errors': [], 'page_text': '亮了', 'elements': [],
+    'choose_count': 0, 'reveal_count': 0, 'save_count': saves, 'reload_count': restore ? 1 : 0,
+    'proof_version': 2, 'source_hash': CreativeContract.hash(args['html'] as String),
+    'restore_required': restore, 'restore_verified': restore && saves > 0,
+    'baseline_verified': restore, 'checkpoint_verified': restore && saves > 0,
+    'save_seq': saves, 'reload_generation': restore ? 2 : 0,
+    'assertion_count': assertions, 'changed_count': restore ? assertions : 0,
+    'restored_count': restore ? assertions : 0, 'proof_phase': restore ? 'restored' : 'stateless',
+    ...overrides};
+}
 String sse(List<Map<String, dynamic>> calls, {String? finish = 'tool_calls', bool done = true}) {
   String event(Object delta, {String? reason}) => 'data: ${jsonEncode({'choices': [{'delta': delta, if (reason != null) 'finish_reason': reason}]})}\n\n';
   final out = StringBuffer(event({'reasoning_content': '检查已有文件，按实际结果修复。'}));
@@ -62,7 +81,7 @@ void main() {
     requests.clear(); clock = DateTime(2026, 10, 11, 12);
     FlutterSecureStorage.setMockInitialValues({'deepseek_api_key': 'test-key-only'});
     TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger.setMockMethodCallHandler(
-      CreativeWorker.preview, (_) async => {'ok': true, 'errors': [], 'page_text': '亮了', 'elements': []});
+      CreativeWorker.preview, (method) async => nativePreviewResult(method.arguments));
   });
   tearDown(() async {
     TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger.setMockMethodCallHandler(CreativeWorker.preview, null);
@@ -94,7 +113,8 @@ void main() {
         previews++;
         final args = method.arguments as Map;
         expect(args['html'], previews == 1 ? broken : repaired);
-        return {'ok': previews > 1, 'errors': previews == 1 ? ['button failed'] : [], 'page_text': '按钮实际文字'};
+        return nativePreviewResult(method.arguments, {'ok': previews > 1,
+          'errors': previews == 1 ? ['button failed'] : [], 'page_text': '按钮实际文字'});
       });
     final runtime = worker((n, request) async {
       expect(request.body, isNot(contains('PRIVATE_DREAM')));
@@ -266,9 +286,9 @@ void main() {
     final id = await commission();
     var stopped = false;
     TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger.setMockMethodCallHandler(
-      CreativeWorker.preview, (_) async {
+      CreativeWorker.preview, (method) async {
         if (!stopped) { stopped = true; await store.stop(id); }
-        return {'ok': true, 'errors': []};
+        return nativePreviewResult(method.arguments);
       });
     final runtime = worker((_, request) async => response(sse([plan(), write(repaired), previewCall(), call('work_finish', {})])));
     await runtime.runOnce();
@@ -431,9 +451,9 @@ void main() {
     final id = await commission(request: '做一个我们一起玩的猜拳');
     var previews = 0;
     TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger.setMockMethodCallHandler(
-      CreativeWorker.preview, (_) async { previews++; return {'ok': true, 'errors': [],
+      CreativeWorker.preview, (method) async { previews++; return nativePreviewResult(method.arguments, {'ok': true, 'errors': [],
         'choose_count': previews == 1 ? 0 : 1, 'reveal_count': previews == 1 ? 0 : 1,
-        'save_count': previews == 1 ? 0 : 1, 'reload_count': previews == 1 ? 0 : 1}; });
+        'save_count': previews == 1 ? 0 : 1, 'reload_count': previews == 1 ? 0 : 1}); });
     final runtime = worker((n, request) async => response(sse(n == 1
         ? [plan(interaction: 'companion'), write(repaired), previewCall(), call('work_finish', {})]
         : [previewCall(), call('work_finish', {})])));
@@ -491,8 +511,8 @@ void main() {
     test('revision inherits ${legacyInteraction ? 'legacy workspace' : 'published'} companion participation', () async {
       final id = await commission();
       TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger.setMockMethodCallHandler(
-        CreativeWorker.preview, (_) async => {'ok': true, 'errors': [],
-          'choose_count': 1, 'reveal_count': 1, 'save_count': 1, 'reload_count': 1});
+        CreativeWorker.preview, (method) async => nativePreviewResult(method.arguments, {'ok': true, 'errors': [],
+          'choose_count': 1, 'reveal_count': 1, 'save_count': 1, 'reload_count': 1}));
       final runtime = worker((n, _) async => response(sse(n == 1
         ? [plan(interaction: 'companion'), write(repaired), previewCall(), call('work_finish', {})]
         : [plan(), previewCall(), call('work_finish', {})])));
@@ -517,9 +537,9 @@ void main() {
     final id = await commission();
     var previews = 0;
     TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger.setMockMethodCallHandler(
-      CreativeWorker.preview, (_) async => {'ok': true, 'errors': [],
+      CreativeWorker.preview, (method) async => nativePreviewResult(method.arguments, {'ok': true, 'errors': [],
         'choose_count': previews++ == 0 ? 1 : 0, 'reveal_count': previews == 1 ? 1 : 0,
-        'save_count': previews == 1 ? 1 : 0, 'reload_count': previews == 1 ? 1 : 0});
+        'save_count': previews == 1 ? 1 : 0, 'reload_count': previews == 1 ? 1 : 0}));
     final runtime = worker((n, _) async => response(sse(n == 1
       ? [plan(interaction: 'companion'), write(repaired), previewCall(), call('work_finish', {})]
       : [plan(), previewCall(), call('work_finish', {})])));

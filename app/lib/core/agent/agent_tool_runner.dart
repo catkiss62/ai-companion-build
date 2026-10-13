@@ -1,5 +1,7 @@
+import '../creative/creative_control.dart';
+import '../database/generation_attempt_fence.dart';
+import 'turn_execution_store.dart';
 import '../storage/pending_media_owner.dart';
-import '../creative/creative_contract.dart';
 import '../creative/creative_store.dart';
 import '../autonomy/public_web_read_service.dart';
 import '../autonomy/web_page_evidence.dart';
@@ -24,7 +26,6 @@ import '../mcp/cedar_toy_client.dart';
 import '../mcp/cedar_toy_activity.dart';
 import '../mcp/cedar_live_share_policy.dart';
 import '../mcp/cedar_timed_play_task.dart';
-import '../mcp/cedar_play_session_policy.dart';
 import '../mcp/cedar_agent_loop_policy.dart';
 import '../mcp/cedar_game_protocol.dart';
 import '../mcp/cedar_play_outcome_bookkeeper.dart';
@@ -60,6 +61,7 @@ class AgentToolRunner {
     required this.android,
     SecureConfig? secureConfig,
     DeepSeekClient? ai,
+    this.cedarClientFactory,
   })  : secureConfig = secureConfig ?? SecureConfig.instance,
         _ai = ai ?? DeepSeekClient();
 
@@ -67,6 +69,7 @@ class AgentToolRunner {
   final AndroidBridge android;
   final SecureConfig secureConfig;
   final DeepSeekClient _ai;
+  final CedarToyClient Function(String token)? cedarClientFactory;
   final Set<String> _memoryExpansionScopes = {};
   final Map<String, PublicWebCandidateDraft> _webPages = {};
   final Map<String, String> _cedarGameListsByScope = <String, String>{};
@@ -324,34 +327,64 @@ class AgentToolRunner {
     PendingMediaOwner? pendingMediaOwner,
   }) async {
     cancellationToken?.throwIfCancelled();
+    final attempt = pendingMediaOwner?.attempt;
     if (call.toolId == AgentToolRegistry.creativeStop.id) {
-      final quote = call.arguments['request_quote'] ?? '';
-      if (quote.isEmpty || !latestUserText.contains(quote)) throw const FormatException('缺少本轮停止请求');
-      final store = CreativeStore(db);
-      final id = call.arguments['work_id'] ?? '';
-      final works = (await store.list()).where((w) => CreativeContract.active.contains(w['status']) && (id.isEmpty || w['id'] == id)).toList();
-      if (works.length != 1) return AgentToolResult(toolId: call.toolId, status: AgentToolStatus.noResult,
-        displayText: '需要明确要停止的作品', promptData: works.isEmpty ? '没有匹配的制作任务；没有修改任何状态。' : '有多个制作任务，请确认作品 ID：${works.map((w) => '${w['id']} ${w['title']}').join('；')}');
-      await store.stop(works.single['id'] as String);
-      final stopped = await store.get(works.single['id'] as String);
-      final ok = stopped['status'] == 'paused';
+      final goals = attempt == null ? const <TurnTaskGoal>[] : await TurnExecutionStore(db).goals(attempt);
+      final goal = goals.where((g) => g.slot == TurnEffectSlot.creativeControl && g.authorized).firstOrNull;
+      final id = goal?.target['work_id'] ?? '';
+      final requestId = goal?.target['request_id'] ?? '';
+      final requested = call.arguments['work_id'] ?? '';
+      if (attempt == null || id.isEmpty || requestId.isEmpty || (requested.isNotEmpty && requested != id)) {
+        return AgentToolResult(toolId: call.toolId, status: AgentToolStatus.blocked,
+          displayText: '需要明确要停止的作品', promptData: '没有匹配的本轮语义授权及精确作品任务；没有修改任何状态。');
+      }
+      final result = await CreativeStore(db).stopTarget(CreativeControlTarget(
+        workId: id, requestId: requestId, brainFence: attempt.brainFence),
+        attemptFence: attempt, isCancelled: () => cancellationToken?.isCancelled == true);
+      final ok = result.applied || result.status == CreativeControlStatus.alreadyPaused ||
+          result.status == CreativeControlStatus.replayed || result.status == CreativeControlStatus.alreadyFinished;
       return AgentToolResult(toolId: call.toolId, status: ok ? AgentToolStatus.succeeded : AgentToolStatus.blocked,
-        displayText: ok ? '作品制作已暂停' : '作品状态已变化',
-        promptData: ok ? '已暂停指定作品制作；保留草稿，不自动恢复。' : '暂停未提交，不得声称已经停止。');
+        displayText: result.explanation, resultCount: ok ? 1 : 0,
+        promptData: '${result.explanation}；真实当前作品状态：${result.work['status'] ?? '未知'}。'
+          'replayed仅说明同一请求此前已处理，不能宣称刚刚再次暂停；没有创建新委托。',
+        submittedArguments: {'work_id': id, 'request_id': requestId, 'operation': 'stop'});
     }
     if (call.toolId == AgentToolRegistry.creativeCommission.id) {
-      final work = await CreativeStore(db).commission(
-        deepThinking: deepThinking, requestId: toolChainScopeId,
+      if (attempt == null) return AgentToolResult(toolId: call.toolId, status: AgentToolStatus.blocked,
+        displayText: '制作请求已失效', promptData: '没有有效的原始运行身份；没有登记作品。');
+      final goals = await TurnExecutionStore(db).goals(attempt);
+      final goal = goals.where((g) => g.slot == TurnEffectSlot.creativeCommission && g.authorized).firstOrNull;
+      if (goal == null) return AgentToolResult(toolId: call.toolId, status: AgentToolStatus.blocked,
+        displayText: '本轮尚未授权制作', promptData: '本轮没有明确制作目标；没有登记作品。');
+      final targetWork = goal.target['work_id'] ?? '';
+      final targetKind = goal.target['target_kind'];
+      if ((targetKind != 'new_work' && targetKind != 'existing') ||
+          call.arguments['target_kind'] != targetKind ||
+          (targetKind == 'existing' && (targetWork.isEmpty || (goal.target['request_id'] ?? '').isEmpty)) ||
+          (targetKind == 'new_work' && targetWork.isNotEmpty) ||
+          (call.arguments['work_id'] ?? '') != targetWork) {
+        return AgentToolResult(toolId: call.toolId, status: AgentToolStatus.blocked,
+          displayText: '作品目标不一致', promptData: '工具请求与本轮明确作品目标不一致；没有登记或修改作品。');
+      }
+      final result = await CreativeStore(db).commissionResult(
+        deepThinking: deepThinking, requestId: turnEffectId(attempt.userMessageId, TurnEffectSlot.creativeCommission),
+        attemptFence: attempt, isCancelled: () => cancellationToken?.isCancelled == true,
         messageId: assistantMessageId.isEmpty ? userMessageId : assistantMessageId,
         userMessageId: userMessageId,
         interaction: call.arguments['interaction'] ?? 'unspecified',
         brief: call.arguments['brief'] ?? '', requestQuote: call.arguments['request_quote'] ?? '',
-        latestText: latestUserText, workId: call.arguments['work_id'] ?? '',
+        latestText: latestUserText, workId: targetWork,
+        expectedRequestId: goal.target['request_id'],
       );
-      try { await android.wakeBackgroundBrain(reason: 'creative_commission'); } catch (_) {}
-      return AgentToolResult(toolId: call.toolId, status: AgentToolStatus.succeeded,
-        displayText: '作品已交给后台制作', resultCount: 1,
-        promptData: '只建立了制作任务，尚未完成。作品 ID：${work['id']}；状态：${work['status']}。聊天中的作品卡会随进度更新；用户可继续聊天。');
+      if (result.accepted) { try { await android.wakeBackgroundBrain(reason: 'creative_commission'); } catch (_) {} }
+      return AgentToolResult(toolId: call.toolId,
+        status: result.isSuccess ? AgentToolStatus.succeeded : AgentToolStatus.blocked,
+        displayText: result.accepted ? '作品已交给后台制作' : result.replayed ? '此前制作委托已登记' : '本次制作委托未登记',
+        resultCount: result.isSuccess ? 1 : 0,
+        promptData: result.isSuccess ? '制作委托${result.replayed ? '此前已经' : '已经'}登记，'
+          '并非作品已经完成。作品 ID：${result.work['id']}；真实当前状态：${result.work['status']}。'
+          '同一轮只接受一个制作委托；若用户提出多件作品，如实说明尚未登记的部分。'
+          : '没有登记新的制作委托：${result.status.name}。已有事实未更改，不得声称新作品已开始。');
     }
     if (call.toolId == AgentToolRegistry.publicWebSearch.id) {
       return _searchWeb(
@@ -413,10 +446,11 @@ class AgentToolRunner {
     }
     if (call.toolId == AgentToolRegistry.cedarToyTimedPlay.id) {
       return _stageTimedCedarPlay(call.arguments, userMessageId: userMessageId,
-        assistantMessageId: assistantMessageId, latestUserText: latestUserText);
+        assistantMessageId: assistantMessageId, latestUserText: latestUserText,
+        attempt: attempt, cancellationToken: cancellationToken);
     }
     if (call.toolId == AgentToolRegistry.cedarToyManageActivity.id) {
-      return _manageCedarActivity(call.arguments);
+      return _manageCedarActivity(call.arguments, attempt: attempt, cancellationToken: cancellationToken);
     }
     if (call.toolId == AgentToolRegistry.attachmentSave.id) {
       return _confirmAttachmentSaved(userMessageId);
@@ -460,7 +494,7 @@ class AgentToolRunner {
     final token = (await secureConfig.readCedarToyToken())?.trim() ?? '';
     if (token.isEmpty) return null;
     try {
-      return CedarToyClient(token: token);
+      return cedarClientFactory?.call(token) ?? CedarToyClient(token: token);
     } catch (_) {
       return null;
     }
@@ -468,13 +502,14 @@ class AgentToolRunner {
 
   Future<AgentToolResult> _stageTimedCedarPlay(Map<String, String> arguments,
       {required String userMessageId, required String assistantMessageId,
-      required String latestUserText}) async {
+      required String latestUserText, GenerationAttemptFence? attempt,
+      GenerationCancellationToken? cancellationToken}) async {
     final game = _safeCedarIdentifier(arguments['game'] ?? '');
     final minutes = CedarTimedPlayTaskStore.durationMinutes(
       arguments['duration_text'] ?? '', latestUserText);
     final state = await CedarToyActivityStore(db).loadState();
     final session = state.activeSession;
-    if (minutes == null || session == null || session.gameId != game ||
+    if (attempt == null || minutes == null || session == null || session.gameId != game ||
         !session.guideComplete || !session.phase.continuable ||
         session.mode.requiresInvitation || state.execution != null ||
         userMessageId.isEmpty || assistantMessageId.isEmpty ||
@@ -490,96 +525,56 @@ class AgentToolRunner {
         promptData: '已有多份用户指定任务结果尚未交付，本次没有新增任务。',
         errorCode: 'cedar_timed_report_backlog');
     }
-    await CedarTimedPlayTaskStore(db).stage(turnId: userMessageId,
-      assistantId: assistantMessageId, session: session, minutes: minutes);
+    final effectId = turnEffectId(userMessageId, TurnEffectSlot.cedarTimedRegistration);
+    final admission = await CedarTimedPlayTaskStore(db).stage(turnId: userMessageId,
+      assistantId: assistantMessageId, session: session, minutes: minutes,
+      attemptFence: attempt, goalId: effectId, effectId: effectId,
+      isCancelled: () => cancellationToken?.isCancelled == true);
+    if (admission.state != LocalEffectAdmissionState.create && admission.state != LocalEffectAdmissionState.replay) {
+      return AgentToolResult(toolId: 'cedar_toy.start_timed_play', status: AgentToolStatus.blocked,
+        displayText: '尚未登记持续游玩任务', promptData: '登记未成功：${admission.state.name}。不得声称已经开始计时。');
+    }
+    if (admission.receipt?.committed == true) {
+      final receipt = admission.receipt!;
+      final active = await CedarTimedPlayTaskStore(db).active();
+      final state = active?['id'] == receipt.result['taskId'] ? 'active'
+          : receipt.result['activationState']?.toString() ?? 'accepted_pending_activation';
+      return AgentToolResult(toolId: 'cedar_toy.start_timed_play', status: AgentToolStatus.succeeded,
+        displayText: '此前定时任务已登记',
+        promptData: '这是同一用户请求此前接受的$minutes分钟任务，当前记录状态：$state。'
+          '本次没有新登记、充值时长或重启任务；若已停止或结束，重生成回复不会重新开始。',
+        submittedArguments: {'game': game, 'duration_minutes': minutes});
+    }
     return AgentToolResult(toolId: 'cedar_toy.start_timed_play',
-      status: AgentToolStatus.succeeded, displayText: '已登记$minutes分钟游玩任务',
-      promptData: '指定${session.displayName}的$minutes分钟有效游玩任务已登记；本轮回复正式提交后会立即交给已有后台执行器，不等待Desire抽选。到时停止这次任务并回报；提前结束/游戏限制/等待用户也如实回报。当前没有因本工具产生游戏动作或结果，不可声称已玩完。',
+      status: AgentToolStatus.succeeded, displayText: '已准备$minutes分钟游玩任务，等待回复提交',
+      promptData: '指定${session.displayName}的$minutes分钟游玩任务已准备，但登记尚未成立、计时尚未开始；本轮回复正式提交时才会原子登记并交给已有后台执行器，不等待Desire抽选。到时停止这次任务并回报；提前结束/游戏限制/等待用户也如实回报。当前没有因本工具产生游戏动作或结果，不可声称已玩完。',
       submittedArguments: {'game': game, 'duration_minutes': minutes});
   }
 
-  Future<AgentToolResult> _manageCedarActivity(
-    Map<String, String> arguments,
-  ) async {
-    final operation = arguments['operation']?.trim() ?? '';
-    final game = _safeCedarIdentifier(arguments['game'] ?? '');
-    final store = CedarToyActivityStore(db);
-    final before = await store.loadState();
-    if (before.sessions.isEmpty) {
-      return const AgentToolResult(
-        toolId: 'cedar_toy.manage_activity',
-        status: AgentToolStatus.noResult,
-        displayText: '没有可管理的游戏活动',
-        promptData: '本机没有 Cedar session；没有暂停、暂离或恢复任何远端游戏。',
-        errorCode: 'cedar_session_missing',
-      );
+  Future<AgentToolResult> _manageCedarActivity(Map<String, String> arguments,
+      {GenerationAttemptFence? attempt, GenerationCancellationToken? cancellationToken}) async {
+    final goals = attempt == null ? const <TurnTaskGoal>[] : await TurnExecutionStore(db).goals(attempt);
+    final goal = goals.where((g) => g.slot == TurnEffectSlot.cedarControl && g.authorized).firstOrNull;
+    final operation = goal?.target['operation'] ?? '';
+    final game = goal?.target['game_id'] ?? '';
+    final session = goal?.target['session_id'] ?? '';
+    final requestedGame = arguments['game'] ?? '';
+    if (attempt == null || game.isEmpty || session.isEmpty || operation.isEmpty ||
+        arguments['operation'] != operation || (requestedGame.isNotEmpty && requestedGame != game)) {
+      return const AgentToolResult(toolId: 'cedar_toy.manage_activity', status: AgentToolStatus.blocked,
+        displayText: '游戏控制目标不明确', promptData: '本轮没有匹配的明确语义授权和原游戏session；没有暂停或恢复任何游戏。');
     }
-    if (operation != 'resume' && before.activeSession == null) {
-      return const AgentToolResult(
-        toolId: 'cedar_toy.manage_activity',
-        status: AgentToolStatus.noResult,
-        displayText: '当前没有正在活动的游戏',
-        promptData: '旧游戏 session 仍保留，但当前没有 active session；本机没有执行暂停或暂离。',
-        errorCode: 'cedar_active_session_missing',
-      );
-    }
-    switch (operation) {
-      case 'pause':
-        await db.setSetting(CedarTimedPlayTaskStore.pendingKey, '');
-        await CedarPlaySessionStore(db).end('user_pause');
-        await store.pause();
-        break;
-      case 'pause_and_release':
-        await db.setSetting(CedarTimedPlayTaskStore.pendingKey, '');
-        await CedarPlaySessionStore(db).end('user_pause');
-        await store.pauseAndRelease();
-        break;
-      case 'resume':
-        await store.resumeGame(game);
-        break;
-      default:
-        return const AgentToolResult(
-          toolId: 'cedar_toy.manage_activity',
-          status: AgentToolStatus.blocked,
-          displayText: '无法识别游戏活动操作',
-          promptData: '本机没有执行活动管理；operation 必须是 pause、pause_and_release 或 resume。',
-          errorCode: 'invalid_cedar_activity_operation',
-        );
-    }
-    final after = await store.loadState();
-    final target = operation == 'resume' && game.isNotEmpty
-        ? after.sessions[game]
-        : after.activeSession;
-    final label = switch (operation) {
-      'pause' => '已暂停当前游戏活动',
-      'pause_and_release' => '已暂离当前游戏并保留存档',
-      _ => target == null ? '没有找到可恢复的游戏' : '已恢复 ${target.displayName}',
-    };
-    final succeeded = operation != 'resume' ||
-        (target != null && after.activeGameId == target.gameId);
-    if (succeeded && operation != 'pause') {
-      try {
-        await android.wakeBackgroundBrain(reason: 'cedar_activity_$operation');
-      } catch (_) {
-        // The durable session remains authoritative if the native wake hint
-        // is temporarily unavailable.
-      }
-    }
-    return AgentToolResult(
-      toolId: AgentToolRegistry.cedarToyManageActivity.id,
-      status:
-          succeeded ? AgentToolStatus.succeeded : AgentToolStatus.noResult,
-      displayText: label,
-      promptData: succeeded
-          ? '$label；这是本机 session 生命周期操作，没有调用远端 leave/resign、没有认输、没有删除或覆盖存档。'
-          : '没有找到指定的可恢复 session；没有调用远端动作。',
-      resultCount: succeeded ? 1 : 0,
-      errorCode: succeeded ? '' : 'cedar_resume_target_missing',
-      submittedArguments: <String, Object?>{
-        'operation': operation,
-        if (game.isNotEmpty) 'game': game,
-      },
-    );
+    final result = await CedarToyActivityStore(db).applyControl(operation: operation,
+      gameId: game, sessionId: session, attemptFence: attempt,
+      isCancelled: () => cancellationToken?.isCancelled == true);
+    final ok = result.state == LocalEffectAdmissionState.create || result.state == LocalEffectAdmissionState.replay;
+    final current = (await CedarToyActivityStore(db).loadState()).sessions[game];
+    return AgentToolResult(toolId: 'cedar_toy.manage_activity',
+      status: ok ? AgentToolStatus.succeeded : AgentToolStatus.blocked,
+      displayText: ok ? '游戏控制请求已处理' : '游戏控制未提交', resultCount: ok ? 1 : 0,
+      promptData: '请求 $operation：${result.state.name}；当前游戏 $game 状态 ${current?.phase.key ?? '未知'}。'
+        'replay只代表原请求此前已处理，不代表又执行了一次。没有调用远端leave/resign或删除存档。',
+      submittedArguments: {'operation': operation, 'game': game, 'session_id': session});
   }
 
   Future<AgentToolResult> _cedarListGames(

@@ -1,4 +1,8 @@
 import '../storage/pending_media_owner.dart';
+import '../agent/turn_execution_contract.dart';
+import '../database/conversation_source_store.dart';
+import '../mcp/cedar_delivery_verifier.dart';
+import '../mcp/cedar_delivery_attempt_store.dart';
 import '../creative/creative_inspiration_engine.dart';
 import '../creative/creative_store.dart';
 import '../phone/calendar_reminder_state.dart';
@@ -146,6 +150,15 @@ String _visibleProactiveReasoning(String raw) {
   return raw.trim();
 }
 
+class _CedarSharePlan {
+  const _CedarSharePlan({required this.claims, required this.messageId,
+    this.message, this.deferred = false});
+  final List<CedarDeliveryClaim> claims;
+  final String messageId;
+  final ChatMessage? message;
+  final bool deferred;
+}
+
 class ProactiveEngine {
   ProactiveEngine({
     required this.db,
@@ -155,10 +168,14 @@ class ProactiveEngine {
     SecureConfig? secureConfig,
     TtsService? ttsService,
     EmotionSoundService? emotionSoundService,
+    CedarDeliveryVerifier? cedarDeliveryVerifier,
+    CedarDeliveryAttemptStore? cedarDeliveryAttempts,
     Random? random,
   })  : secureConfig = secureConfig ?? SecureConfig.instance,
         _ttsOverride = ttsService,
         _emotionSoundOverride = emotionSoundService,
+        cedarDeliveryVerifier = cedarDeliveryVerifier ?? CedarDeliveryVerifier(),
+        cedarDeliveryAttempts = cedarDeliveryAttempts ?? CedarDeliveryAttemptStore(db),
         _random = random ?? Random();
 
   final AppDatabase db;
@@ -168,6 +185,8 @@ class ProactiveEngine {
   final SecureConfig secureConfig;
   final TtsService? _ttsOverride;
   final EmotionSoundService? _emotionSoundOverride;
+  final CedarDeliveryVerifier cedarDeliveryVerifier;
+  final CedarDeliveryAttemptStore cedarDeliveryAttempts;
   final Random _random;
   final Uuid _uuid = Uuid();
 
@@ -244,6 +263,107 @@ class ProactiveEngine {
   Future<void> deferCedarCheckpointAfterCompetition({required DateTime now}) =>
       cedarToyAutonomy.deferCheckpointAfterCompetition(now: now);
 
+  Future<List<CedarDeliveryClaim>> _pendingCedarClaims(CompanionThought? thought, {String? thoughtId}) async {
+    final id = thoughtId ?? thought?.id ?? '';
+    if (id.startsWith('cedar-report:')) {
+      final reportId = id.substring('cedar-report:'.length);
+      final report = (await CedarTimedPlayTaskStore(db).pendingReports())
+          .where((item) => item['id'] == reportId).firstOrNull;
+      if (report == null) return const [];
+      final claim = CedarTimedPlayTaskStore.reportClaim(report);
+      // A malformed legacy result is still pending responsibility. Returning
+      // no candidates would incorrectly settle its thought and share queue.
+      return [claim];
+    }
+    if (thought == null) return const [];
+    final state = await CedarToyActivityStore(db).loadState();
+    return [for (final session in state.sessions.values)
+      if (session.hasPendingTerminalDelivery && thought.source ==
+          'mcp/cedar_game:${session.gameId}:${session.pendingTerminalKey}')
+        CedarToyActivityStore.terminalClaim(session)];
+  }
+
+  Future<_CedarSharePlan> _planCedarShare(CompanionThought? thought, {required String thoughtId}) async {
+    final claims = await _pendingCedarClaims(thought, thoughtId: thoughtId);
+    final canonicalId = 'cedar-share:$thoughtId';
+    if (claims.isEmpty) return _CedarSharePlan(claims: claims,
+      messageId: canonicalId, message: await db.messageById(canonicalId));
+    if (claims.any((claim) => !claim.valid)) {
+      return _CedarSharePlan(claims: claims, messageId: canonicalId, deferred: true);
+    }
+    final memo = await cedarDeliveryAttempts.read(claims);
+    final nextId = CedarDeliveryAttemptStore.successorId(thoughtId, claims);
+    // A commit that won before a crash always recovers this same fixed ID.
+    final successor = await db.messageById(nextId);
+    final canonical = successor ?? await db.messageById(canonicalId);
+    if (canonical != null) {
+      final source = await ConversationSourceStore.captureMessage(await db.database, canonical.id);
+      if (source != null && memo?.declinedFor(source) == true) {
+        return _CedarSharePlan(claims: claims, messageId: nextId,
+          // Never create a third message if a saved successor was later edited.
+          message: successor, deferred: successor != null || memo!.deferred(cedarDeliveryAttempts.clock()));
+      }
+      return _CedarSharePlan(claims: claims, messageId: canonical.id, message: canonical,
+        deferred: source != null && memo?.matches(source) == true &&
+          memo!.deferred(cedarDeliveryAttempts.clock()));
+    }
+    return _CedarSharePlan(claims: claims, messageId: canonicalId,
+      deferred: memo?.deferred(cedarDeliveryAttempts.clock()) == true);
+  }
+
+  /// The stores re-read the current result and the committed message proof in
+  /// their own acknowledgement transactions. Message existence is insufficient.
+  Future<bool> _acknowledgeCedarShare(CompanionThought? thought, {String? thoughtId}) async {
+    final claims = await _pendingCedarClaims(thought, thoughtId: thoughtId);
+    for (final claim in claims) {
+      final acknowledged = claim.kind == CedarDeliveryKind.timedReport
+          ? await CedarTimedPlayTaskStore(db).acknowledge(claim.reportId)
+          : await CedarToyActivityStore(db).markTerminalDelivered(
+              gameId: claim.gameId, sessionId: claim.sessionId,
+              terminalKey: claim.terminalKey);
+      if (!acknowledged) return false;
+    }
+    return true;
+  }
+
+  Future<bool> _recoverCedarDelivery(CompanionThought? thought, String messageId, {required String thoughtId}) async {
+    if (await _acknowledgeCedarShare(thought, thoughtId: thoughtId)) return true;
+    if (!await db.tryAcquireProactiveLease(holdFor: const Duration(minutes: 1))) return false;
+    try {
+      final fence = await db.captureBrainWorkFence(leaseKey: 'proactive_lease_until');
+      if (fence == null) return false;
+      // Another heartbeat may have finished verification after our outer
+      // queue read but before this lease was acquired. Recheck due/memo here.
+      final currentPlan = await _planCedarShare(thought, thoughtId: thoughtId);
+      if (currentPlan.deferred || currentPlan.messageId != messageId || currentPlan.message == null) return false;
+      final claims = currentPlan.claims;
+      if (claims.isEmpty) return true;
+      final sql = await db.database;
+      // Body and identity must be from one snapshot. Reading a body before an
+      // await, then stamping a replacement, could certify the wrong reply.
+      final saved = await sql.transaction<({ConversationSourceStamp source, String text})?>((txn) async {
+        if (!await fence.matches(txn)) return null;
+        final source = await ConversationSourceStore.captureMessage(txn, messageId);
+        if (source == null || source.role != 'assistant') return null;
+        final rows = await txn.query('messages', columns: ['content'],
+          where: 'id = ?', whereArgs: [messageId], limit: 1);
+        return rows.isEmpty ? null : (source: source, text: rows.single['content'] as String? ?? '');
+      });
+      if (saved == null) return false;
+      final verified = await cedarDeliveryVerifier.verify(visibleText: saved.text, candidates: claims);
+      if (verified.verified.length != claims.length) {
+        await cedarDeliveryAttempts.recordFailure(claims: claims, declined: verified.declined,
+          fence: fence, source: saved.source);
+        return false;
+      }
+      if (!await db.recordCedarDeliveryProofIfCurrent(
+          source: saved.source, claims: verified.verified, workFence: fence)) return false;
+      return await _acknowledgeCedarShare(thought, thoughtId: thoughtId);
+    } finally {
+      await db.releaseProactiveLease();
+    }
+  }
+
   /// Eligible game progress uses the ordinary main-chat generation path.
   /// It still honors Active Brain, user-turn,
   /// immersive-page and writer-lease boundaries.
@@ -256,33 +376,49 @@ class ProactiveEngine {
     }
     final tasks = CedarTimedPlayTaskStore(db);
     await tasks.reconcile(DateTime.now());
-    final reportId = await tasks.queueReport();
+    final excludedReports = <String>{};
+    for (final report in await tasks.pendingReports()) {
+      final id = 'cedar-report:${report['id']}';
+      if ((await _planCedarShare(await db.thoughtById(id), thoughtId: id)).deferred) {
+        excludedReports.add(report['id'].toString());
+      }
+    }
+    final reportId = await tasks.queueReport(excludedReportIds: excludedReports);
     final store = CedarToyActivityStore(db);
     final queue = await store.pendingDirectShares();
     if (reportId != null) { queue.remove(reportId); queue.insert(0, reportId); }
-    if (queue.isEmpty) {
-      return const ProactiveDecision(sent: false, reason: 'no_pending_cedar_share');
+    String? selectedId;
+    _CedarSharePlan? selectedPlan;
+    for (final id in queue) {
+      final plan = await _planCedarShare(await db.thoughtById(id), thoughtId: id);
+      if (!plan.deferred) { selectedId = id; selectedPlan = plan; break; }
     }
-    final thoughtId = queue.first;
-    final committedShare = await db.messageById('cedar-share:$thoughtId');
+    if (selectedId == null) {
+      return ProactiveDecision(sent: false, reason: queue.isEmpty && excludedReports.isEmpty
+        ? 'no_pending_cedar_share' : 'cedar_share_delivery_deferred');
+    }
+    final thoughtId = selectedId;
+    final deliveryPlan = selectedPlan!;
+    final committedShare = deliveryPlan.message;
     if (committedShare != null) {
-      await CedarLiveSharePolicy(db).noteDelivered(thoughtId);
       final savedThought = await db.thoughtById(thoughtId);
+      if (!await _recoverCedarDelivery(savedThought, committedShare.id, thoughtId: thoughtId)) {
+        return const ProactiveDecision(sent: false, reason: 'cedar_share_delivery_unverified');
+      }
+      await CedarLiveSharePolicy(db).noteDelivered(thoughtId, messageId: committedShare.id);
       if (savedThought != null && savedThought.lastActedAt == null) {
         await thoughtLifecycle.markActed(thought: savedThought, messageId: committedShare.id);
       }
       await store.removeDirectShare(thoughtId);
-      if (thoughtId.startsWith('cedar-report:')) {
-        await tasks.acknowledge(thoughtId.substring('cedar-report:'.length));
-      }
       return const ProactiveDecision(sent: false, reason: 'cedar_share_already_committed');
     }
     final thought = await db.thoughtById(thoughtId);
     if (thought == null ||
         !thought.source.startsWith('mcp/cedar_game:') ||
-        thought.actionCount > 0 || thought.lastActedAt != null ||
-        (!thoughtId.startsWith('cedar-report:') &&
-          !const <String>{'active', 'fixation'}.contains(thought.lifecycleState))) {
+        (deliveryPlan.claims.isEmpty &&
+          (thought.actionCount > 0 || thought.lastActedAt != null ||
+            (!thoughtId.startsWith('cedar-report:') &&
+              !const <String>{'active', 'fixation'}.contains(thought.lifecycleState))))) {
       await store.removeDirectShare(thoughtId);
       return const ProactiveDecision(sent: false, reason: 'stale_cedar_share_removed');
     }
@@ -298,11 +434,8 @@ class ProactiveEngine {
       forceForDebug: true,
       forcedThoughtIdForDebug: thoughtId,
     );
-    if (decision.sent) {
+    if (decision.sent && await _acknowledgeCedarShare(thought)) {
       await store.removeDirectShare(thoughtId);
-      if (thoughtId.startsWith('cedar-report:')) {
-        await tasks.acknowledge(thoughtId.substring('cedar-report:'.length));
-      }
     }
     return decision;
   }
@@ -1191,6 +1324,12 @@ class ProactiveEngine {
         : max(0, evaluationStartedAt.difference(lastUser).inMinutes);
     final isCedarGameShare = selectedSourceType == 'mcp' &&
         (intentThought?.source.startsWith('mcp/cedar_game:') ?? false);
+    final cedarPlan = isCedarGameShare
+        ? await _planCedarShare(intentThought, thoughtId: intentThought!.id) : null;
+    if (cedarPlan != null && cedarPlan.claims.isNotEmpty &&
+        (cedarPlan.deferred || cedarPlan.message != null)) {
+      return const ProactiveDecision(sent: false, reason: 'cedar_share_delivery_deferred');
+    }
     final cedarOutcomeAt = isCedarGameShare
         ? CedarGameThoughtPolicy.evidenceAt(intentThought!)
         : null;
@@ -2100,8 +2239,8 @@ ${PromptBuilder.visibleChineseGenerationReminder(proactive: true)}
     unawaited(
       VisibleReasoningLanguageTelemetry.note(db, visibleReasoning),
     );
-    final messageId = isImmediateCedarShare
-        ? 'cedar-share:${intentThought!.id}' : _uuid.v4();
+    final messageId = cedarPlan?.claims.isNotEmpty == true ? cedarPlan!.messageId
+        : isImmediateCedarShare ? 'cedar-share:${intentThought!.id}' : _uuid.v4();
     if (isCedarGameShare && !await CedarLiveSharePolicy(db)
         .deliveryAllowed(intentThought!.id, intentThought.source)) {
       await noteGeneration('preempted', reasonTag: 'cedar_share_round_interval');
@@ -2172,11 +2311,29 @@ ${PromptBuilder.visibleChineseGenerationReminder(proactive: true)}
       worldBookContextJson: promptBuild.worldBookContext.encode(),
       formContextJson: promptBuild.formContext.encode(),
     );
+    // Only this selected result's responsibility may be certified. A normal
+    // proactive message or process update has no extra semantic request.
+    final cedarCandidates = cedarPlan?.claims ?? const <CedarDeliveryClaim>[];
+    final cedarDeliveries = await cedarDeliveryVerifier.verify(
+      visibleText: message.content, candidates: cedarCandidates);
+    final cedarSuccessor = cedarCandidates.isNotEmpty && message.id ==
+        CedarDeliveryAttemptStore.successorId(intentThought!.id, cedarCandidates);
+    if (!cedarDeliveries.allowsNewMessage(successor: cedarSuccessor, claimCount: cedarCandidates.length)) {
+      await cedarDeliveryAttempts.recordFailure(claims: cedarCandidates,
+        declined: cedarDeliveries.declined, fence: wishDeliveryFence);
+      await db.releasePendingMedia(mediaOwner);
+      for (final attachment in proactiveAttachments) {
+        await MessageAttachmentStorage(db: db).deleteAttachmentFiles(attachment);
+      }
+      await noteGeneration('guard_blocked', reasonTag: 'cedar_delivery_unverified');
+      return const ProactiveDecision(sent: false, reason: 'cedar_share_delivery_unverified');
+    }
     final commitBlock = await db.commitProactiveMessageIfCurrent(
       message: message,
       evaluationStartedAt: evaluationStartedAt,
       pendingMediaOwner: mediaOwner,
       workFence: wishDeliveryFence,
+      cedarDeliveries: cedarDeliveries.verified,
       reflectionInvitation: reflectionInvitation,
       creativeShare: creativeShare,
       proactiveTriggerReason: '${isCedarGameShare ? gameSharePrefix : ''}'
@@ -2211,6 +2368,13 @@ ${PromptBuilder.visibleChineseGenerationReminder(proactive: true)}
         deliveryStyle: deliveryStyle,
       );
     }
+    if (cedarCandidates.isNotEmpty && cedarDeliveries.verified.length != cedarCandidates.length) {
+      // Optional verifier failure may keep the first natural message. It is
+      // still unproved responsibility, and later checks inspect this saved body.
+      final source = await ConversationSourceStore.captureMessage(await db.database, message.id);
+      if (source != null) await cedarDeliveryAttempts.recordFailure(claims: cedarCandidates,
+        declined: false, fence: wishDeliveryFence, source: source);
+    }
     if (selectedWishId.isNotEmpty) {
       await WishStore(db).noteExpressed(selectedWishId, DateTime.now());
     }
@@ -2218,7 +2382,8 @@ ${PromptBuilder.visibleChineseGenerationReminder(proactive: true)}
       try { await stickerService.markUsed(selectedSticker.record); }
       catch (_) { /* A committed message remains delivered if usage tracking fails. */ }
     }
-    if (isCedarGameShare) {
+    final cedarSettled = !isCedarGameShare || await _acknowledgeCedarShare(intentThought!);
+    if (isCedarGameShare && cedarSettled) {
       await CedarLiveSharePolicy(db).noteDelivered(
         intentThought!.id,
         messageId: message.id,
@@ -2231,24 +2396,8 @@ ${PromptBuilder.visibleChineseGenerationReminder(proactive: true)}
       message.content,
       now: message.createdAt,
     );
-    if (intentThought != null) {
+    if (intentThought != null && cedarSettled) {
       await thoughtLifecycle.markActed(thought: intentThought, messageId: message.id);
-      final prefix = 'mcp/cedar_game:';
-      if (intentThought.source.startsWith(prefix)) {
-        final store = CedarToyActivityStore(db);
-        final cedarState = await store.loadState();
-        for (final session in cedarState.sessions.values) {
-          if (session.hasPendingTerminalDelivery &&
-              intentThought.source ==
-                  '$prefix${session.gameId}:${session.pendingTerminalKey}') {
-            await store.markTerminalDelivered(
-              gameId: session.gameId,
-              terminalKey: session.pendingTerminalKey,
-            );
-            break;
-          }
-        }
-      }
     }
     final now = DateTime.now();
     if (linkedThread != null &&

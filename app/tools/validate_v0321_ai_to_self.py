@@ -49,9 +49,15 @@ method_start = db.index("Future<bool> completeGenerationJobIfCurrent")
 method_end = db.index("Future<GenerationJob?> failGenerationJob", method_start)
 method = db[method_start:method_end]
 completion_check = method.index("if (completed != 1)")
-pulse_write = method.index("_recordSomaticEventsInTransaction", completion_check)
-return_true = method.index("return true;", pulse_write)
-if not (completion_check < pulse_write < return_true):
-    raise SystemExit("ERROR: somatic pulse is not fenced after durable completion")
+pulse_write = method.index("_recordSomaticEventsInTransaction")
+return_true = method.index("return true;", completion_check)
+# +348 finalizes the job after the timer/message proof has been captured. The
+# pulse may precede that final CAS, but remains in its transaction and must roll
+# back on lost ownership or cancellation; returning false after writes is unsafe.
+assert method.index("return db.transaction<bool>") < pulse_write < return_true
+ownership_failure = method[completion_check:return_true]
+assert "throw StateError('generation_commit_ownership_lost')" in ownership_failure
+assert "return false;" not in ownership_failure
+assert "requireTurnNotCancelled(isCancelled);" in ownership_failure
 
 print("v0.32.1 AI-to-self somatic contract validated.")

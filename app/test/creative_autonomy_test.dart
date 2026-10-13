@@ -30,7 +30,7 @@ void main() {
     store = CreativeStore(db); clock = DateTime(2026, 10, 12, 12);
     FlutterSecureStorage.setMockInitialValues({'deepseek_api_key': 'test-key-only'});
     TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger.setMockMethodCallHandler(
-      CreativeWorker.preview, (_) async => {'ok': true, 'errors': [], 'page_text': '亮了', 'elements': []});
+      CreativeWorker.preview, (method) async => fixture.nativePreviewResult(method.arguments));
   });
   tearDown(() async {
     TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger.setMockMethodCallHandler(CreativeWorker.preview, null);
@@ -148,9 +148,9 @@ void main() {
   test('chat starting during preview keeps the last checkpoint and prevents private finish', () async {
     final w = await privateWork(); final id = w['id'] as String;
     TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger.setMockMethodCallHandler(
-      CreativeWorker.preview, (_) async {
+      CreativeWorker.preview, (method) async {
         await db.tryAcquireLocalLease('chat_turn_lease');
-        return {'ok': true, 'errors': [], 'page_text': '亮了', 'elements': []};
+        return fixture.nativePreviewResult(method.arguments);
       });
     await worker([fixture.plan(), fixture.write(fixture.repaired), fixture.previewCall(), fixture.call('work_finish', {})]).runOnce();
     final paused = await store.get(id);

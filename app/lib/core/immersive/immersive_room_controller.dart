@@ -40,9 +40,10 @@ class ImmersiveRoomController extends ChangeNotifier {
     DeepSeekClient? client,
     SecureConfig? secureConfig,
     MessageLanguageVariantGateway? languageVariantGateway,
+    ImmersiveRoomRepository? roomRepository,
   })  : db = db ?? AppDatabase.instance,
         secureConfig = secureConfig ?? SecureConfig.instance {
-    repository = ImmersiveRoomRepository(this.db);
+    repository = roomRepository ?? ImmersiveRoomRepository(this.db);
     this.client = client ?? DeepSeekClient(abortWhen: () async {
       final fence = repository.stateFence;
       return fence == null ? !await this.db.brainWorkAllowed()
@@ -110,6 +111,8 @@ class ImmersiveRoomController extends ChangeNotifier {
   String? notice;
   ImmersiveMessage? incompleteReplyDraft;
   String? incompleteReplyUserMessageId;
+  ImmersiveMessage? _incompleteReplySourceUser;
+  String? _incompleteReplyRaw;
   GenerationCancellationToken? _cancellation;
   bool _streamingDraftVisible = false;
   bool _lastFinalReplyUsedFallback = false;
@@ -177,6 +180,17 @@ class ImmersiveRoomController extends ChangeNotifier {
     return false;
   }
 
+  Future<BrainWorkFence> _captureTurnFence() async {
+    final entry = repository.stateFence;
+    final held = await db.captureBrainWorkFence(leaseKey: 'immersive_room_lease');
+    if (entry == null || held == null) throw const BrainWorkInvalidated();
+    // Keep the entry's original identity even if a restore happened while the
+    // lease snapshot was being read. Only the owned lease token is adopted.
+    return BrainWorkFence(identity: Map.unmodifiable(entry.identity),
+        expectedSettings: Map.unmodifiable(entry.expectedSettings),
+        leaseKey: held.leaseKey, leaseToken: held.leaseToken);
+  }
+
   Future<void> _writeRoomSetting(String key, String value) async {
     final fence = repository.stateFence;
     if (fence == null || !await db.setSettingsAtomically(
@@ -234,6 +248,7 @@ class ImmersiveRoomController extends ChangeNotifier {
     }
 
     try {
+    final workFence = await _captureTurnFence();
     final historyBeforeTurn = List<ImmersiveMessage>.from(messages);
     await ttsPlayback.stop();
     final user = await repository.addMessage(
@@ -364,9 +379,11 @@ class ImmersiveRoomController extends ChangeNotifier {
       }
       await _finishStreamingSpeech();
       cancellation.throwIfCancelled();
-      final assistant = await repository.addMessage(
+      final assistant = await repository.addAssistantReply(
         roomId: roomId,
-        role: 'assistant',
+        sourceUser: user,
+        cancellation: cancellation,
+        workFence: workFence,
         content: streamingContent,
         reasoningContent: _allStreamingReasoning,
         formContextJson: _entryFormContext.encode(),
@@ -420,36 +437,23 @@ class ImmersiveRoomController extends ChangeNotifier {
         model: profile,
       ));
     } on _ImmersiveIncompleteReply catch (incomplete) {
-      await _abortStreamingSpeech();
-      await _saveIncompleteReplyDraft(
-        userMessageId: user.id,
-        content: incomplete.content,
-        reasoning: incomplete.reasoning,
-      );
-      notice = '第二通道回复已截断。当前文字尚未进入房间上下文或摘要，请选择“重新生成”或“保留这段回复”。';
-      error = null;
+      await _preserveIncompleteReply(user: user, cancellation: cancellation,
+        workFence: workFence, content: incomplete.content, reasoning: incomplete.reasoning,
+        message: '第二通道回复已截断。当前文字尚未进入房间上下文或摘要，请选择“重新生成”或“保留这段回复”。');
     } on GenerationCancelledByUserException {
-      await _abortStreamingSpeech();
-      if (!committed) {
-        await repository.interruptUserMessageForDisplay(
-          roomId: roomId,
-          messageId: user.id,
-        );
-      }
-      messages = await repository.messagesForRoom(roomId);
-      interruptions = await repository.interruptionsForRoom(roomId);
-      error = null;
-    } catch (exception) {
+      if (!committed) await _finishStoppedTurn(user, workFence);
+    } on BrainWorkInvalidated catch (invalidated) {
       if (!committed) await _abortStreamingSpeech();
-      if (!committed && streamingContent.trim().isNotEmpty) {
-        await _saveIncompleteReplyDraft(
-          userMessageId: user.id,
-          content: streamingContent,
-          reasoning: _allStreamingReasoning,
-        );
-        notice = '回复已截断。当前文字尚未进入房间上下文或摘要，请选择“重新生成”或“保留这段回复”。';
-        error = null;
+      error = invalidated.toString();
+    } catch (exception) {
+      if (!committed && cancellation.isCancelled) {
+        await _finishStoppedTurn(user, workFence);
+      } else if (!committed && streamingContent.trim().isNotEmpty) {
+        await _preserveIncompleteReply(user: user, cancellation: cancellation,
+          workFence: workFence, content: streamingContent, reasoning: _allStreamingReasoning,
+          message: '回复已截断。当前文字尚未进入房间上下文或摘要，请选择“重新生成”或“保留这段回复”。');
       } else {
+        if (!committed) await _abortStreamingSpeech();
         error = '这一轮没有完整结束：$exception';
       }
     } finally {
@@ -628,16 +632,56 @@ class ImmersiveRoomController extends ChangeNotifier {
     return finishReason;
   }
 
+  Future<void> _finishStoppedTurn(ImmersiveMessage user, BrainWorkFence workFence) async {
+    await _abortStreamingSpeech();
+    try {
+      await repository.interruptUserMessageForDisplay(
+          roomId: roomId, messageId: user.id, workFence: workFence,
+          expectedSourceUser: user);
+      messages = await repository.messagesForRoom(roomId);
+      interruptions = await repository.interruptionsForRoom(roomId);
+      error = null;
+    } on BrainWorkInvalidated catch (invalidated) {
+      // An obsolete room attempt may not remove a restored/replaced user turn.
+      error = invalidated.toString();
+    }
+  }
+
+  Future<void> _preserveIncompleteReply({
+    required ImmersiveMessage user,
+    required GenerationCancellationToken cancellation,
+    required BrainWorkFence workFence,
+    required String content,
+    required String reasoning,
+    required String message,
+  }) async {
+    try {
+      await _abortStreamingSpeech();
+      await _saveIncompleteReplyDraft(sourceUser: user,
+          cancellation: cancellation, workFence: workFence,
+          content: content, reasoning: reasoning);
+      notice = message;
+      error = null;
+    } on GenerationCancelledByUserException {
+      await _finishStoppedTurn(user, workFence);
+    } on BrainWorkInvalidated catch (invalidated) {
+      // A rejected assistant cannot re-enter the same room as a new draft.
+      error = invalidated.toString();
+    }
+  }
+
   Future<void> _saveIncompleteReplyDraft({
-    required String userMessageId,
+    required ImmersiveMessage sourceUser,
+    required GenerationCancellationToken cancellation,
+    required BrainWorkFence workFence,
     required String content,
     required String reasoning,
   }) async {
     final trimmed = content.trim();
     if (trimmed.isEmpty) return;
     final createdAt = DateTime.now();
-    incompleteReplyUserMessageId = userMessageId;
-    incompleteReplyDraft = ImmersiveMessage(
+    final userMessageId = sourceUser.id;
+    final draft = ImmersiveMessage(
       id: 'pending:$roomId:$userMessageId',
       roomId: roomId,
       role: 'assistant',
@@ -646,18 +690,29 @@ class ImmersiveRoomController extends ChangeNotifier {
       createdAt: createdAt,
       formContextJson: _entryFormContext.encode(),
     );
-    await _writeRoomSetting(
-      _pendingReplySettingKey,
-      jsonEncode(<String, Object?>{
+    final raw = jsonEncode(<String, Object?>{
         'room_id': roomId,
         'user_message_id': userMessageId,
+        'source_user': _sourceUserSnapshot(sourceUser),
         'content': trimmed,
         'reasoning': reasoning.trim(),
         'created_at': createdAt.millisecondsSinceEpoch,
-        'form_context_json': incompleteReplyDraft!.formContextJson,
-      }),
-    );
+        'form_context_json': draft.formContextJson,
+      });
+    await repository.saveIncompleteReply(roomId: roomId, sourceUser: sourceUser,
+        cancellation: cancellation, workFence: workFence, rawDraft: raw);
+    incompleteReplyUserMessageId = userMessageId;
+    _incompleteReplySourceUser = sourceUser;
+    incompleteReplyDraft = draft;
+    _incompleteReplyRaw = raw;
   }
+
+  static Map<String, Object?> _sourceUserSnapshot(ImmersiveMessage user) => {
+    'id': user.id, 'room_id': user.roomId, 'role': user.role,
+    'content': user.content, 'reasoning_content': user.reasoningContent,
+    'form_context_json': user.formContextJson,
+    'created_at': user.createdAt.millisecondsSinceEpoch,
+  };
 
   Future<void> _restoreIncompleteReplyDraft() async {
     final raw = await db.getSetting(_pendingReplySettingKey);
@@ -669,6 +724,23 @@ class ImmersiveRoomController extends ChangeNotifier {
       final userMessageId = data['user_message_id']?.toString() ?? '';
       if (content.isEmpty || userMessageId.isEmpty) return;
       incompleteReplyUserMessageId = userMessageId;
+      _incompleteReplyRaw = raw;
+      final source = data['source_user'];
+      if (source is Map) {
+        _incompleteReplySourceUser = ImmersiveMessage.fromDb(
+            Map<String, Object?>.from(source));
+      } else {
+        // Legacy drafts carry only a user ID. The visible draft is explicitly
+        // confirmed now; this snapshot protects this confirmation's wait, and
+        // is not proof of the source content at the historical generation.
+        _incompleteReplySourceUser = messages.where((message) =>
+            message.id == userMessageId && message.isUser).firstOrNull;
+      }
+      if (_incompleteReplySourceUser?.id != userMessageId ||
+          _incompleteReplySourceUser?.roomId != roomId ||
+          _incompleteReplySourceUser?.isUser != true) {
+        _incompleteReplySourceUser = null;
+      }
       incompleteReplyDraft = ImmersiveMessage(
         id: 'pending:$roomId:$userMessageId',
         roomId: roomId,
@@ -692,6 +764,8 @@ class ImmersiveRoomController extends ChangeNotifier {
   Future<void> _clearIncompleteReplyDraft() async {
     incompleteReplyDraft = null;
     incompleteReplyUserMessageId = null;
+    _incompleteReplySourceUser = null;
+    _incompleteReplyRaw = null;
     await _writeRoomSetting(_pendingReplySettingKey, '');
   }
 
@@ -699,6 +773,13 @@ class ImmersiveRoomController extends ChangeNotifier {
     if (!await _canWrite()) return;
     final draft = incompleteReplyDraft;
     if (draft == null || sending) return;
+    final sourceUser = _incompleteReplySourceUser;
+    final expectedDraft = _incompleteReplyRaw;
+    if (sourceUser == null || expectedDraft == null) {
+      error = '找不到这份草稿对应的用户消息，请重新打开房间后再确认。';
+      _safeNotify();
+      return;
+    }
     final internalApiKey = (await secureConfig.readApiKey())?.trim() ?? '';
     if (internalApiKey.isEmpty) {
       error = '确认后需要启动正常的房间整理，请先填写 DeepSeek API Key。';
@@ -714,13 +795,19 @@ class ImmersiveRoomController extends ChangeNotifier {
       _safeNotify();
       return;
     }
+    final cancellation = GenerationCancellationToken();
+    _cancellation = cancellation;
     sending = true;
     error = null;
     _safeNotify();
     try {
-      final assistant = await repository.addMessage(
+      final workFence = await _captureTurnFence();
+      final assistant = await repository.addAssistantReply(
         roomId: roomId,
-        role: 'assistant',
+        sourceUser: sourceUser,
+        cancellation: cancellation,
+        workFence: workFence,
+        expectedDraft: expectedDraft,
         content: draft.content,
         reasoningContent: draft.reasoningContent,
         // A restored draft belongs to its original entry. Missing legacy
@@ -728,7 +815,11 @@ class ImmersiveRoomController extends ChangeNotifier {
         formContextJson: draft.formContextJson,
       );
 
-      await _clearIncompleteReplyDraft();
+      // The durable draft was consumed with the assistant transaction.
+      incompleteReplyDraft = null;
+      incompleteReplyUserMessageId = null;
+      _incompleteReplySourceUser = null;
+      _incompleteReplyRaw = null;
       messages = await repository.messagesForRoom(roomId);
       room = await repository.roomById(roomId);
       notice = '已确认截断回复；它现在会进入房间上下文与后续摘要。';
@@ -747,10 +838,14 @@ class ImmersiveRoomController extends ChangeNotifier {
                 ChatLanguage.chinese;
         unawaited(speakMessage(assistant, language: language));
       }
+    } on GenerationCancelledByUserException {
+      // Stopping confirmation keeps the previously visible draft and user turn.
+      error = null;
     } catch (exception) {
       error = '确认这条回复失败：$exception';
     } finally {
       sending = false;
+      if (identical(_cancellation, cancellation)) _cancellation = null;
       await db.releaseLocalLease('immersive_room_lease');
       _safeNotify();
     }
@@ -758,28 +853,24 @@ class ImmersiveRoomController extends ChangeNotifier {
 
   Future<void> regenerateIncompleteReply({bool leaseAlreadyHeld = false}) async {
     if (!await _canWrite()) {
-      if (leaseAlreadyHeld) await db.releaseLocalLease('immersive_room_lease');
       return;
     }
     final userMessageId = incompleteReplyUserMessageId;
     if (userMessageId == null || sending || room?.isEnded == true) {
-      if (leaseAlreadyHeld) await db.releaseLocalLease('immersive_room_lease');
       return;
     }
-    final user = messages.cast<ImmersiveMessage?>().firstWhere(
+    final user = _incompleteReplySourceUser ?? messages.cast<ImmersiveMessage?>().firstWhere(
           (item) => item?.id == userMessageId && item!.isUser,
           orElse: () => null,
         );
     if (user == null) {
       error = '找不到这份草稿对应的用户消息。';
-      if (leaseAlreadyHeld) await db.releaseLocalLease('immersive_room_lease');
       _safeNotify();
       return;
     }
     final internalApiKey = (await secureConfig.readApiKey())?.trim() ?? '';
     if (internalApiKey.isEmpty) {
       error = '请先填写必填的 DeepSeek API Key。';
-      if (leaseAlreadyHeld) await db.releaseLocalLease('immersive_room_lease');
       _safeNotify();
       return;
     }
@@ -794,6 +885,7 @@ class ImmersiveRoomController extends ChangeNotifier {
       return;
     }
     try {
+    final workFence = await _captureTurnFence();
     await _clearIncompleteReplyDraft();
     await ttsPlayback.stop();
     sending = true;
@@ -809,6 +901,7 @@ class ImmersiveRoomController extends ChangeNotifier {
     _cancellation = cancellation;
     _streamingDraftVisible = true;
     _safeNotify();
+    var committed = false;
     try {
       final internalEndpoint = await secureConfig.readEndpoint();
       final finalProvider = await secureConfig.readChatProvider();
@@ -884,13 +977,16 @@ class ImmersiveRoomController extends ChangeNotifier {
       }
       await _finishStreamingSpeech();
       cancellation.throwIfCancelled();
-      final assistant = await repository.addMessage(
+      await repository.addAssistantReply(
         roomId: roomId,
-        role: 'assistant',
+        sourceUser: user,
+        cancellation: cancellation,
+        workFence: workFence,
         content: streamingContent,
         reasoningContent: _allStreamingReasoning,
         formContextJson: _entryFormContext.encode(),
       );
+      committed = true;
 
       messages = await repository.messagesForRoom(roomId);
       room = await repository.roomById(roomId);
@@ -900,33 +996,23 @@ class ImmersiveRoomController extends ChangeNotifier {
         model: profile,
       ));
     } on _ImmersiveIncompleteReply catch (incomplete) {
-      await _abortStreamingSpeech();
-      await _saveIncompleteReplyDraft(
-        userMessageId: user.id,
-        content: incomplete.content,
-        reasoning: incomplete.reasoning,
-      );
-      notice = '第二通道回复已截断。当前文字尚未进入房间上下文或摘要，请选择“重新生成”或“保留这段回复”。';
+      await _preserveIncompleteReply(user: user, cancellation: cancellation,
+        workFence: workFence, content: incomplete.content, reasoning: incomplete.reasoning,
+        message: '第二通道回复已截断。当前文字尚未进入房间上下文或摘要，请选择“重新生成”或“保留这段回复”。');
     } on GenerationCancelledByUserException {
-      await _abortStreamingSpeech();
-      await repository.interruptUserMessageForDisplay(
-        roomId: roomId,
-        messageId: user.id,
-      );
-      messages = await repository.messagesForRoom(roomId);
-      interruptions = await repository.interruptionsForRoom(roomId);
-      await _clearIncompleteReplyDraft();
-      error = null;
+      if (!committed) await _finishStoppedTurn(user, workFence);
+    } on BrainWorkInvalidated catch (invalidated) {
+      if (!committed) await _abortStreamingSpeech();
+      error = invalidated.toString();
     } catch (exception) {
-      await _abortStreamingSpeech();
-      if (streamingContent.trim().isNotEmpty) {
-        await _saveIncompleteReplyDraft(
-          userMessageId: user.id,
-          content: streamingContent,
-          reasoning: _allStreamingReasoning,
-        );
-        notice = '回复再次异常中断并已截断。当前文字尚未进入房间上下文或摘要，请选择“重新生成”或“保留这段回复”。';
+      if (!committed && cancellation.isCancelled) {
+        await _finishStoppedTurn(user, workFence);
+      } else if (!committed && streamingContent.trim().isNotEmpty) {
+        await _preserveIncompleteReply(user: user, cancellation: cancellation,
+          workFence: workFence, content: streamingContent, reasoning: _allStreamingReasoning,
+          message: '回复再次异常中断并已截断。当前文字尚未进入房间上下文或摘要，请选择“重新生成”或“保留这段回复”。');
       } else {
+        if (!committed) await _abortStreamingSpeech();
         error = '重新生成失败：$exception';
       }
     } finally {
@@ -945,7 +1031,9 @@ class ImmersiveRoomController extends ChangeNotifier {
       error = '重新生成未能开始: $exception';
       _safeNotify();
     } finally {
-      await db.releaseLocalLease('immersive_room_lease');
+      // A delegated regeneration borrows its caller's lease. Releasing it here
+      // would let a new owner enter before the caller's own finally releases.
+      if (!leaseAlreadyHeld) await db.releaseLocalLease('immersive_room_lease');
     }
   }
 

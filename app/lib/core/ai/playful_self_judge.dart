@@ -1,3 +1,4 @@
+import '../agent/turn_execution_contract.dart';
 import 'dart:convert';
 
 import '../personality/playful_form_state.dart';
@@ -41,6 +42,8 @@ class PlayfulSelfJudge {
     required String userText,
     required String assistantText,
     String recentContext = '',
+    List<CedarDeliveryClaim> deliveryCandidates = const [],
+    void Function(List<CedarDeliveryClaim>)? onDeliveryVerified,
     GenerationCancellationToken? cancellationToken,
   }) async {
     if (assistantText.trim().isEmpty) return PlayfulSelfActivity.none;
@@ -51,18 +54,29 @@ class PlayfulSelfJudge {
       'recent_context': recent,
       'latest_user_text': _bounded(userText, 900),
       'assistant_reply': _bounded(assistantText, 1500),
+      if (deliveryCandidates.isNotEmpty) 'delivery_reply_full': assistantText,
+      if (deliveryCandidates.isNotEmpty) 'delivery_candidates': [for (final c in deliveryCandidates) c.toJson()],
     };
-    final jev = await jevGateway.choose(
+    final decisions = await jevGateway.chooseMany(
       state: state,
-      instruction: 'Judge only the assistant_reply that was actually '
+      questions: {
+        'route': const JevChoiceQuestion('Judge only the assistant_reply that was actually '
           'generated. Use latest_user_text and recent_context to tell '
           'an original playful challenge from merely mirroring the user. '
           'Do not score an intention or prompt, and do not treat affection, '
-          'embarrassment, intimate narration or helpful answers as teasing.',
-      options: options,
+          'embarrassment, intimate narration or helpful answers as teasing.', options),
+        for (var i = 0; i < deliveryCandidates.length; i++) 'delivery_$i': JevChoiceQuestion(
+          'Does delivery_reply_full actually tell the user the factual result/ending of delivery_candidates[$i]? '
+          'yes only when the specific result is conveyed, not just promising later, mentioning a game, '
+          'starting play, or discussing another result. Unknown or incomplete evidence is no.',
+          const {'yes': 'The exact factual result is visibly delivered', 'no': 'Not delivered'}, optional: true),
+      },
       cancellationToken: cancellationToken,
       usageLane: 'chat_playful_self',
     );
+    onDeliveryVerified?.call([for (var i = 0; i < deliveryCandidates.length; i++)
+      if (decisions?['delivery_$i'] == 'yes') deliveryCandidates[i]]);
+    final jev = decisions?['route'];
     final selected = PlayfulSelfActivity.parse(jev);
     if (selected != null) return selected;
     cancellationToken?.throwIfCancelled();

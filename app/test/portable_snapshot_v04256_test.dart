@@ -1,3 +1,4 @@
+import 'support/cedar_task_fixture.dart';
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
@@ -245,10 +246,10 @@ void main() {
     await db.setSetting('transfer_lock', '0');
     final session = await CedarToyActivityStore(db).recordGuide(
         gameId: 'white_room', guide: '单人游戏。explore 探索。');
-    await db.insertMessage(ChatMessage(id: 'task-reply', role: 'assistant',
-        content: '好，我去玩。', createdAt: DateTime.now()));
     final tasks = CedarTimedPlayTaskStore(db);
-    await tasks.stage(turnId: 'backup', assistantId: 'task-reply', session: session, minutes: 20);
+    final staged = await stageCedarTask(db, turnId: 'backup', assistantId: 'task-reply',
+        session: session, minutes: 20);
+    expect(await commitCedarTask(db, staged), isTrue);
     await tasks.activateCommitted(turnId: 'backup');
     final periods = CedarPlaySessionStore(db);
     final period = (await periods.load())!;
@@ -274,6 +275,41 @@ void main() {
     expect(await tasks.pendingReports(), isEmpty);
     expect(native.restoredModels, false);
   });
+
+  for (final accepted in [false, true]) {
+    test('formal backup restore ends ${accepted ? 'accepted' : 'uncommitted'} registration before activation', () async {
+      await fixture();
+      await db.setSetting('transfer_lock', '0');
+      final session = await CedarToyActivityStore(db).recordGuide(
+          gameId: 'white_room', guide: '单人游戏。explore 探索。');
+      final staged = await stageCedarTask(db, turnId: 'pending-backup', assistantId: 'pending-reply',
+          session: session, minutes: 20);
+      if (accepted) expect(await commitCedarTask(db, staged), isTrue);
+      await db.setSetting('transfer_lock', '1');
+      final pendingBefore = await db.getSetting(CedarTimedPlayTaskStore.pendingKey);
+      final bundle = await service.exportBackupBundle();
+      final exported = object(await decode(bundle.filePath), 'state.json');
+      final settings = (exported['tables']['settings'] as List).cast<Map>();
+      expect(settings.singleWhere((row) => row['key'] == CedarTimedPlayTaskStore.pendingKey)['value'], pendingBefore);
+      expect(settings.singleWhere((row) => row['key'] == CedarTimedPlayTaskStore.leaseKey)['value'], '0');
+      expect(await db.getSetting(CedarTimedPlayTaskStore.pendingKey), pendingBefore);
+      expect(await CedarTimedPlayTaskStore(db).pendingReports(), isEmpty);
+      await service.restoreBackupBundle(bundle.filePath);
+      final tasks = CedarTimedPlayTaskStore(db);
+      expect(await db.getSetting(CedarTimedPlayTaskStore.pendingKey), '');
+      await tasks.activateCommitted();
+      expect(await tasks.active(), isNull);
+      expect(await CedarPlaySessionStore(db).load(), isNull);
+      final reports = await tasks.pendingReports();
+      if (accepted) {
+        expect(reports.single['reason'], 'restored_before_activation');
+        expect(reports.single['usedMs'], 0);
+        expect(reports.single['outcomes'], isEmpty);
+      } else {
+        expect(reports, isEmpty);
+      }
+    });
+  }
 
   test('legacy full v7 backup still restores models stickers facts and non-secret settings', () async {
     await fixture();

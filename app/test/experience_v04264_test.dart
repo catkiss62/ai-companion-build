@@ -1,3 +1,4 @@
+import 'support/cedar_task_fixture.dart';
 import 'dart:async';
 import 'dart:convert';
 
@@ -157,12 +158,13 @@ void main() {
     final store = CedarToyActivityStore(db);
     final session = await store.recordGuide(gameId: 'white_room', guide: '单人游戏。start 开始；explore 探索。');
     final tasks = CedarTimedPlayTaskStore(db);
-    await tasks.stage(turnId: 'turn', assistantId: 'reply', session: session, minutes: 20);
+    final staged = await stageCedarTask(db, turnId: 'turn', assistantId: 'reply', session: session, minutes: 20);
     final raw = await db.getSetting(CedarTimedPlayTaskStore.pendingKey);
-    expect((await CedarTaskPresentation.load(db, session))!.label, contains('已登记'));
+    expect((await CedarTaskPresentation.load(db, session))!.label, '待回复提交');
     expect(await tasks.active(), isNull);
     expect(await db.getSetting(CedarTimedPlayTaskStore.pendingKey), raw);
-    await db.insertMessage(ChatMessage(id: 'reply', role: 'assistant', content: '好', createdAt: DateTime.now()));
+    expect(await commitCedarTask(db, staged), isTrue);
+    expect((await CedarTaskPresentation.load(db, session))!.label, '已登记 · 待启动');
     await tasks.activateCommitted();
     final active = (await tasks.active())!;
     final period = (await CedarPlaySessionStore(db).load())!;
@@ -179,7 +181,9 @@ void main() {
     final paused = (await store.load())!;
     expect((await CedarTaskPresentation.load(db, paused))!.label, contains('已结束'));
     expect((await CedarTaskPresentation.load(db, paused))!.detail, isNot(contains('有效剩余')));
-    await tasks.acknowledge(active['id'].toString());
+    await commitCedarDelivery(db, CedarTimedPlayTaskStore.reportClaim((await tasks.pendingReports()).single),
+        messageId: 'timed-report');
+    expect(await tasks.acknowledge(active['id'].toString()), isTrue);
     expect((await CedarTaskPresentation.load(db, paused))!.label, '上一时长任务已结束');
     await store.resume();
     await tasks.reconcile(DateTime.now());
@@ -191,9 +195,10 @@ void main() {
     final store = CedarToyActivityStore(db);
     final session = await store.recordGuide(gameId: 'white_room', guide: '单人游戏。start 开始；explore 探索。');
     final tasks = CedarTimedPlayTaskStore(db);
-    await tasks.stage(turnId: 'late', assistantId: 'late-reply', session: session, minutes: 20);
+    final staged = await stageCedarTask(db, turnId: 'late', assistantId: 'late-reply', session: session, minutes: 20);
     await store.pause();
-    await db.insertMessage(ChatMessage(id: 'late-reply', role: 'assistant', content: '好', createdAt: DateTime.now()));
+    expect(await commitCedarTask(db, staged), isFalse);
+    await db.insertMessage(ChatMessage(id: 'late-reply', role: 'assistant', content: '另一个旧回复', createdAt: DateTime.now()));
     await store.resume();
     await tasks.activateCommitted();
     expect(await tasks.active(), isNull);

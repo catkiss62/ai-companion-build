@@ -111,7 +111,8 @@ def main() -> None:
     require(
         attachment_storage,
         "final blob = await blobStorage.store(",
-        "final canonical = await AppDatabase.instance.mediaBlobById(blob.id);",
+        "final canonical = await blobStorage.db.mediaBlobById(blob.id);",
+        "if (canonical == null) throw StateError('media_blob_registration_failed');",
         "blobId: canonical.id",
     )
 

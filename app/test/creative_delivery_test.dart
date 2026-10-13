@@ -120,11 +120,10 @@ void main() {
     expect(calls, 1); expect(await delivered(), hasLength(1));
   });
 
-  for (final change in ['delete', 'import', 'revision', 'stop']) {
+  for (final change in ['delete', 'import', 'revision']) {
     test('$change during generation rejects old completion', () async {
       await runner((_) async {
         if (change == 'delete') await store.delete(id);
-        if (change == 'stop') await store.stop(id);
         if (change == 'import') {
           final backup = await db.exportAll();
           await db.importAll(Map<String, dynamic>.from(backup));
@@ -137,6 +136,16 @@ void main() {
       if (change == 'import') expect((await notice())['status'], 'cancelled');
     });
   }
+
+  test('a stale Stop menu cannot demote a ready work or cancel its real completion', () async {
+    await runner((_) async {
+      await store.stop(id);
+      expect((await store.get(id))['status'], 'ready');
+      return answer();
+    }).runOnce();
+    expect(await delivered(), hasLength(1));
+    expect((await store.get(id))['status'], 'ready');
+  });
 
   test('new user turn preempts stale wording, then generates after conversation settles', () async {
     final runtime = runner((_) async {

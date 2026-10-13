@@ -12,7 +12,8 @@ engine = read('lib/core/desire/proactive_engine.dart')
 assert 'wakeAt: budget.wakeAt' in engine and 'cedarShareThoughtId:' in engine
 assert 'enforceProactiveBudget: !forceForDebug' in engine
 commit = read('lib/core/database/app_database.dart').split('Future<String?> commitProactiveMessageIfCurrent', 1)[1]
-assert commit.index("return 'cedar_share_before_wake'") < commit.index("await txn.insert(\n        'messages',")
+assert commit.index("return 'cedar_share_before_wake'") < commit.index('await ConversationSourceStore.insertMessage(')
+assert 'txn,' in commit.split('await ConversationSourceStore.insertMessage(', 1)[1].split(');', 1)[0]
 assert 'DailyWakeStore.keyFor(sentAt) != DailyWakeStore.keyFor(evaluationStartedAt)' in commit
 assert 'CedarWakePolicy.delay' in read('lib/core/mcp/cedar_live_share_policy.dart')
 assert 'localNow.hour < 7' not in read('lib/core/mcp/cedar_toy_autonomy_engine.dart')

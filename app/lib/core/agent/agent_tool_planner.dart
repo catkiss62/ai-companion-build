@@ -56,35 +56,6 @@ class AgentToolPlanner {
     if (_looksLikeMetaToolTalk(text)) return null;
     final cedarBlindPlay = CedarToyArcadeSkill.requestsBlindPlay(text);
 
-    final pausesCedar = RegExp(
-      r'((暂停|暂离|先不玩|先别玩|停一下|歇一下).{0,16}(游戏|下棋|这局|对局|双弈))|'
-      r'((游戏|下棋|这局|对局|双弈).{0,16}(暂停|暂离|先不玩|先别玩|停一下|歇一下))|'
-      r'(我.{0,12}(忙|有事).{0,24}你.{0,12}玩.{0,8}别的)',
-      caseSensitive: false,
-    ).hasMatch(text);
-    final resumesCedar = RegExp(
-      r'((继续|恢复|接着|回来).{0,16}(游戏|下棋|这局|对局|双弈))|'
-      r'((游戏|下棋|这局|对局|双弈).{0,16}(继续|恢复|接着))',
-      caseSensitive: false,
-    ).hasMatch(text);
-    if (pausesCedar || resumesCedar) {
-      final release = RegExp(r'(暂离|玩.{0,8}别的|我.{0,12}(忙|有事))')
-          .hasMatch(text);
-      return AgentToolPlan(calls: <AgentToolCall>[
-        AgentToolCall(
-          toolId: AgentToolRegistry.cedarToyManageActivity.id,
-          arguments: <String, String>{
-            'operation': resumesCedar
-                ? 'resume'
-                : release
-                    ? 'pause_and_release'
-                    : 'pause',
-          },
-          reasonTag: 'explicit_request',
-        ),
-      ]);
-    }
-
     if (_isExplicitAlbumImageSend(text)) {
       return AgentToolPlan(calls: [
         AgentToolCall(
@@ -316,17 +287,22 @@ class AgentToolPlanner {
     bool cedarBlindPlay = false,
     bool webSearchRequested = false,
     bool deepThinking = false,
+    Set<String>? semanticTaskToolIds,
   }) {
     // Routing may legitimately return an immutable empty set (for example,
     // media-only user turns have an empty text body). Cedar stage narrowing
     // mutates this collection, so take ownership at the mutation boundary.
     final toolIds = <String>{..._routeToolIds(text)};
     if (webSearchRequested) toolIds.add(AgentToolRegistry.publicWebSearch.id);
-    if (_creativeStopRequested(text)) toolIds.add('creative_work.stop');
+    if (semanticTaskToolIds != null) {
+      toolIds..removeAll({'creative_work.stop', 'creative_work.commission'})
+        ..addAll(semanticTaskToolIds.where((id) => id.startsWith('creative_work.')));
+    } else if (_creativeStopRequested(text)) { toolIds.add('creative_work.stop'); }
     if (deepThinking) {
       // Creation is available only here; actual commission still needs a current explicit request.
       toolIds.addAll({'public_web.search', 'public_web.read', 'memory.search',
-        'rules.read', 'system_self.read', 'creative_work.commission'});
+        'rules.read', 'system_self.read',
+        if (semanticTaskToolIds == null || semanticTaskToolIds.contains('creative_work.commission')) 'creative_work.commission'});
     }
     if (toolIds.contains('public_web.search')) toolIds.add('public_web.read');
     const cedarIds = <String>{
@@ -370,6 +346,7 @@ class AgentToolPlanner {
     bool cedarBlindPlay = false,
     int maxCalls = AgentTaskLoopPolicy.maxCallsPerRound,
     Set<String> excludedCallFingerprints = const <String>{},
+    Set<String>? semanticTaskToolIds,
   }) {
     final calls = <AgentToolCall>[];
     final seen = <String>{};
@@ -378,7 +355,10 @@ class AgentToolPlanner {
     // result itself.
     final allowedForCurrentText = <String>{..._routeToolIds(latestUserText)};
     if (deepThinking) allowedForCurrentText.add('creative_work.commission');
-    if (_creativeStopRequested(latestUserText)) allowedForCurrentText.add('creative_work.stop');
+    if (semanticTaskToolIds != null) {
+      allowedForCurrentText..removeAll({'creative_work.stop', 'creative_work.commission'})
+        ..addAll(semanticTaskToolIds);
+    } else if (_creativeStopRequested(latestUserText)) { allowedForCurrentText.add('creative_work.stop'); }
     if (cedarSessionActive) {
       allowedForCurrentText.addAll(const <String>{
         'cedar_toy.list_games',
@@ -395,6 +375,8 @@ class AgentToolPlanner {
       if (calls.length >= boundedMaxCalls) break;
       final toolId = _toolIdByNativeName[native.name];
       if (toolId == null) continue;
+      if (semanticTaskToolIds != null && toolId.startsWith('creative_work.') &&
+          !semanticTaskToolIds.contains(toolId)) continue;
       if (toolId.startsWith('cedar_toy.') && cedarStageToolIds != null &&
           !cedarStageToolIds.contains(toolId)) continue;
       // Pixel capture requires an unmistakable local user command. A model
@@ -467,11 +449,13 @@ class AgentToolPlanner {
       properties['request_quote'] = const {'type': 'string', 'description': '逐字引用本轮明确要求停止制作的原话；讨论、转述不执行。'};
       required.add('request_quote');
     } else if (tool.id == AgentToolRegistry.creativeCommission.id) {
+      properties['target_kind'] = const {'type': 'string', 'enum': ['new_work', 'existing'],
+        'description': '明确新作选new_work；修改既有作品选existing并填真实work_id。指代不明不可冒充新建。'};
       properties['brief'] = const {'type': 'string', 'description': '给独立工作 Agent 的简短创作说明：用户要求、你的具体心意、相关风格与体验。原始委托由宿主另行保留；不擅自添加离线、随机对手或固定台词等限制。“我们一起玩”要保留她真实参与。不要传整套人设、梦境或私人聊天原文。'};
       properties['interaction'] = const {'type': 'string', 'enum': ['companion', 'local', 'unspecified'], 'description': '用户要求与你一起玩、由你实际参与选择时选 companion；明确不需要你参与的本地作品选 local；不确定选 unspecified。不要把一起玩改成随机电脑。'};
       properties['request_quote'] = const {'type': 'string', 'description': '逐字引用最新一条用户消息中明确要求制作/修改的部分；假设、讨论、转述和单纯反馈不算委托。'};
       properties['work_id'] = const {'type': 'string', 'description': '修改既有作品时填写真实作品 ID；新作品留空，不猜 ID。'};
-      required.addAll(['brief', 'request_quote']);
+      required.addAll(['brief', 'request_quote', 'target_kind']);
     } else if (tool.id == AgentToolRegistry.publicWebSearch.id) {
       properties['query'] = const <String, Object?>{
         'type': 'string',

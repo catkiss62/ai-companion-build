@@ -1,16 +1,18 @@
 import 'package:sqflite/sqflite.dart';
 
 import 'brain_work_fence.dart';
+import 'conversation_source_store.dart';
 
 /// The original attempt, captured before asynchronous work, never a freshly
 /// read replacement token. Check in the transaction that creates the effect.
 class GenerationAttemptFence {
   const GenerationAttemptFence({required this.jobId, required this.runToken,
     required this.userMessageId, required this.assistantMessageId,
-    required this.brainFence});
+    required this.brainFence, this.userSource});
 
   final String jobId, runToken, userMessageId, assistantMessageId;
   final BrainWorkFence brainFence;
+  final ConversationSourceStamp? userSource;
 
   Future<bool> matches(DatabaseExecutor txn) async {
     if (runToken.isEmpty || !await brainFence.matches(txn)) return false;
@@ -27,6 +29,9 @@ class GenerationAttemptFence {
         AND g.user_message_id = ? AND g.assistant_message_id = ? AND u.role = 'user'
       LIMIT 1
     ''', [jobId, runToken, userMessageId, assistantMessageId]);
-    return rows.isNotEmpty;
+    if (rows.isEmpty) return false;
+    final source = userSource;
+    return source == null || (source.id == userMessageId &&
+        source.role == 'user' && await source.matches(txn));
   }
 }

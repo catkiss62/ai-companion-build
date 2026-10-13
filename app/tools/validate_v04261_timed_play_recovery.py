@@ -30,10 +30,20 @@ assert 'await CedarPlaySessionStore(db).pause(DateTime.now());' in snapshot
 log = read('lib/core/mcp/cedar_play_transition_log.dart')
 assert 'entries.length > 32' in log and "'contentIncluded': false" in log
 assert 'timedTaskTransitions' in read('lib/core/diagnostics/preflight_diagnostics.dart')
-# Existing manual controls and report generation continue using their original
-# prompt and tool contract; provenance belongs only to diagnostics.
+# Manual control now changes the activity, clock, pending registration and
+# ended report in one transaction. It must not perform several independent
+# runner writes, which could let an old registration restart after Stop.
 runner = read('lib/core/agent/agent_tool_runner.dart')
-assert runner.count("await CedarPlaySessionStore(db).end('user_pause')") == 2
+assert 'CedarToyActivityStore(db).applyControl(' in runner
+activity = read('lib/core/mcp/cedar_toy_activity.dart')
+control = activity.split('Future<LocalEffectAdmission> applyControl(', 1)[1].split('Future<void>', 1)[0]
+for token in ('handle.transaction', 'fence.matches(txn)',
+              'originalUserControlRevisionInTransaction',
+              'CedarTimedPlayTaskStore.cancelPendingInTransaction(txn,',
+              'CedarTimedPlayTaskStore.finishInTransaction(txn,',
+              'requireTurnNotCancelled(isCancelled)', 'userControlRevisionKey: _uuid.v4()'):
+    assert token in control, token
+assert 'userControlRevision' in task and "'cancelledReason'" in task
 assert "await CedarPlaySessionStore(db).end('user_pause')" in clock
 assert 'CedarPlayTransitionLog' not in read('lib/core/desire/proactive_engine.dart')
 assert re.search(r'^version: 0.42.(?:61\+305|62\+306|63\+307|64\+308|65\+309|66\+310|67\+311|68\+312|69\+313|70\+314|71\+315|72\+316|73\+317|74\+318|75\+319|76\+320|77\+321|78\+322|79\+323|80\+324|81\+325|82\+326|83\+327|84\+328|85\+329|86\+330|87\+331|88\+332|89\+333|90\+334|91\+335|92\+336|93\+337|94\+338|95\+339|96\+340|97\+341|98\+342|99\+343|100\+344|101\+345|102\+346|103\+347)$', read('pubspec.yaml'), re.M)

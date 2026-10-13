@@ -14,6 +14,7 @@ import 'creative_autonomy_policy.dart';
 import 'creative_delivery.dart';
 import 'creative_store.dart';
 import 'creative_workspace.dart';
+import 'creative_preview_proof.dart';
 
 class CreativeWorker {
   CreativeWorker(this.db, {this.clientFactory, DateTime Function()? now, this.triggerSource = 'direct'})
@@ -255,17 +256,19 @@ class CreativeWorker {
                 }
               case 'work_preview':
                 final checks = _checks(args['checks']);
+                final restoreAssertions = CreativePreviewProof.assertions(args['restore_assertions']);
                 final html = CreativeWorkspace.assemble(agent);
                 final hash = CreativeContract.hash(html);
+                final companion = work['interaction'] == 'companion' || (agent['plan'] as Map?)?['interaction'] == 'companion';
                 await checkpoint({'status': 'checking', 'note': '正在后台试玩', 'draft': hash},
                   extra: {'${CreativeContract.sourcePrefix}$hash': html});
                 final observed = await preview.invokeMapMethod<String, dynamic>('preview', {
-                  'html': html, 'checks': checks,
+                  'html': html, 'checks': checks, 'restore_assertions': restoreAssertions,
+                  'require_restore': companion,
                 }).timeout(const Duration(seconds: 30));
                 if (!await current()) throw const BrainWorkInvalidated();
                 final errors = (observed?['errors'] as List? ?? ['未收到试玩结果'])
                     .map((e) => CreativeContract.clip(e, 300)).take(12).toList();
-                final companion = work['interaction'] == 'companion' || (agent['plan'] as Map?)?['interaction'] == 'companion';
                 final choices = (observed?['choose_count'] as num? ?? 0).toInt();
                 final reveals = (observed?['reveal_count'] as num? ?? 0).toInt();
                 final saves = (observed?['save_count'] as num? ?? 0).toInt();
@@ -273,9 +276,8 @@ class CreativeWorker {
                 if (companion && (choices < 1 || reveals < 1)) {
                   errors.add('互动作品需要实际完成 companion.choose 和 reveal 的试玩回合，不能只检查标题或随机对手');
                 }
-                if (companion && (saves < 1 || reloads < 1)) {
-                  errors.add('互动作品需要实际 saveState，并用 reload 检查重新打开后的进度');
-                }
+                errors.addAll(CreativePreviewProof.errors(observed, sourceHash: hash,
+                  companion: companion, assertionCount: restoreAssertions.length));
                 final ok = observed?['ok'] == true && errors.isEmpty;
                 var cover = '';
                 final path = observed?['screenshot'];
@@ -284,9 +286,11 @@ class CreativeWorker {
                   if (await file.exists() && await file.length() < 180000) cover = base64Encode(await file.readAsBytes());
                 }
                 agent['verification'] = {'hash': hash, 'ok': ok, 'checks': checks,
+                  'restore_assertions': restoreAssertions, ...CreativePreviewProof.project(observed),
                   'choose_count': choices, 'reveal_count': reveals, 'save_count': saves,
                   'reload_count': reloads, 'cover': cover};
                 result = {'ok': ok, 'hash': hash, 'errors': errors,
+                  ...CreativePreviewProof.project(observed),
                   'choose_count': choices, 'reveal_count': reveals,
                   'save_count': saves, 'reload_count': reloads,
                   'page_text': CreativeContract.clip(observed?['page_text'], 1800),
@@ -304,6 +308,10 @@ class CreativeWorker {
                 if (plan['interaction'] == null || verified['ok'] != true || verified['hash'] != hash) {
                   throw const FormatException('请先明确体验计划，并对当前版本完成 work_preview；修改后的版本需要重新试玩');
                 }
+                final proofErrors = CreativePreviewProof.errors(verified, sourceHash: hash,
+                  companion: work['interaction'] == 'companion' || plan['interaction'] == 'companion',
+                  assertionCount: CreativePreviewProof.assertions(verified['restore_assertions']).length);
+                if (proofErrors.isNotEmpty) throw FormatException(proofErrors.first);
                 if ((work['interaction'] == 'companion' || plan['interaction'] == 'companion') &&
                     ((verified['choose_count'] as num? ?? 0) < 1 || (verified['reveal_count'] as num? ?? 0) < 1 ||
                      (verified['save_count'] as num? ?? 0) < 1 || (verified['reload_count'] as num? ?? 0) < 1)) {

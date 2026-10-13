@@ -58,6 +58,8 @@ void main() {
     final assistant = (await db.messageById('reply'))!;
     expect(assistant.formContext.form, 'q');
     expect(assistant.formContext.afterForm, 'q');
+    expect((await db.generationJobById(job.id))!.formContextJson,
+      assistant.formContextJson);
     final transition = jsonDecode((await forms.load()).lastTransitionJson) as Map;
     expect(transition['from'], 'normal');
     expect(transition['to'], 'q');
@@ -72,6 +74,13 @@ void main() {
     expect(assistant.formContext.form, 'q');
     expect(assistant.formContext.afterForm, 'normal');
     expect(assistant.formContext.settledAt, greaterThan(0));
+    // The final job CAS must not overwrite the already settled snapshot with
+    // the pre-commit generation form; recovery reads the job as well as history.
+    final completed = (await db.generationJobById(job.id))!;
+    expect(completed.status, 'completed');
+    expect(completed.formContextJson, assistant.formContextJson);
+    expect(FormContextSnapshot.decode(completed.formContextJson).afterForm,
+      'normal');
     expect(assistant.historicalFormLabel, contains('回复提交结算后'));
     expect((await forms.load()).qForm, false);
     final next = FormContextSnapshot.capture(await forms.load(),

@@ -6,6 +6,7 @@ import '../ai/final_reply_failure_policy.dart';
 import '../ai/model_profile.dart';
 import '../ai/prompt_builder.dart';
 import '../database/app_database.dart';
+import '../database/conversation_source_store.dart';
 import '../database/brain_work_fence.dart';
 import '../diagnostics/model_usage_telemetry.dart';
 import '../emotion/emotion_classifier_service.dart';
@@ -17,6 +18,7 @@ import '../storage/secure_config.dart';
 import 'creative_contract.dart';
 import 'creative_autonomy_policy.dart';
 import 'creative_store.dart';
+import 'creative_preview_proof.dart';
 
 /// The publication transaction creates this outbox. A separate lease owns its
 /// final-writer request and atomic message receipt; it never drives creation.
@@ -33,7 +35,7 @@ class CreativeDelivery {
     'schema': 1, 'id': work['id'], 'request_id': work['request_id'], 'version': version,
     'status': 'pending', 'phase': 'pending', 'at': at, 'attempts': 0, 'failures': 0, 'next_at': 0,
     'text': '', 'model': '', 'model_calls': 0, 'preempt': '', 'late_write': 0,
-    'proof': {for (final field in ['choose_count', 'reveal_count', 'save_count', 'reload_count'])
+    'proof': {...CreativePreviewProof.project(verified), for (final field in ['choose_count', 'reveal_count', 'save_count', 'reload_count'])
       field: verified[field] ?? 0, 'checks': (verified['checks'] as List? ?? []).length},
   };
 
@@ -202,7 +204,7 @@ class CreativeDelivery {
           emotionConfidence: emotion.confidence, emotionTop3Json: emotion.top3Json, emotionSource: emotion.source);
         final committed = await sql.transaction((txn) async {
           if (!await guarded().matches(txn) || !await _idle(txn) || notice['user_id'] != await _latestUser(txn)) return false;
-          await txn.insert('messages', message.toDb(), conflictAlgorithm: ConflictAlgorithm.ignore);
+          await ConversationSourceStore.insertMessage(txn, message.toDb(), conflictAlgorithm: ConflictAlgorithm.ignore);
           await txn.insert('settings', {'key': '${CreativeContract.receiptPrefix}$messageId',
             'value': jsonEncode({'message_id': messageId, 'work_id': id, 'version': notice['version'], 'kind': 'delivered'})},
             conflictAlgorithm: ConflictAlgorithm.replace);

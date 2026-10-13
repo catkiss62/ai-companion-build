@@ -6,6 +6,7 @@ import 'package:flutter/services.dart';
 import '../../core/database/app_database.dart';
 import '../../core/creative/creative_contract.dart';
 import '../../core/creative/creative_store.dart';
+import '../../core/creative/creative_control.dart';
 import '../../core/creative/creative_autonomy_policy.dart';
 import '../../core/creative/creative_play.dart';
 import '../../core/creative/creative_delivery.dart';
@@ -33,8 +34,10 @@ class CreativeCards extends StatefulWidget {
 }
 
 class _CreativeCardsState extends State<CreativeCards> {
-  final store = CreativeStore(AppDatabase.instance);
+  late final store = CreativeStore(widget.chat.db);
   List<Map<String, dynamic>> works = [];
+  Map<String, CreativeControlTarget> controlTargets = {};
+  final Map<String, CreativeControlTarget?> openedTargets = {};
   final Set<String> pausedNotices = {};
   Timer? timer;
   bool loading = true, fetching = false;
@@ -50,15 +53,25 @@ class _CreativeCardsState extends State<CreativeCards> {
     if (fetching) return;
     fetching = true;
     try {
+      final fence = await widget.chat.db.captureBrainWorkFence();
       final items = widget.messageId == null ? await store.list() : await store.forMessage(widget.messageId!);
+      if (fence != null && !await widget.chat.db.brainWorkFenceCurrent(fence)) return;
+      final targets = <String, CreativeControlTarget>{};
+      for (final item in items) {
+        if (fence != null && item['id'] is String && item['request_id'] is String) {
+          targets[item['id'] as String] = CreativeControlTarget(workId: item['id'] as String,
+            requestId: item['request_id'] as String, brainFence: fence);
+        }
+      }
       final paused = <String>{};
       for (final item in items) {
-        if ((await CreativeDelivery(AppDatabase.instance).read(item['id'] as String))['status'] == 'paused') paused.add(item['id'] as String);
+        if ((await CreativeDelivery(widget.chat.db).read(item['id'] as String))['status'] == 'paused') paused.add(item['id'] as String);
       }
       // Worker checkpoints do not invalidate card layout or decode its cover.
-      final next = jsonEncode([items.map((w) => {for (final k in ['id','title','intro','note','status','current','cover','card_kind','record_completed']) k:w[k]}).toList(), paused.toList()]);
+      final next = jsonEncode([items.map((w) => {for (final k in ['id','request_id','title','intro','note','status','current','cover','card_kind','record_completed']) k:w[k]}).toList(), paused.toList(), fence?.identity]);
       if (mounted && (loading || next != fingerprint)) setState(() {
-        works = items; fingerprint = next; pausedNotices..clear()..addAll(paused); loading = false;
+        works = items; controlTargets = targets; fingerprint = next;
+        pausedNotices..clear()..addAll(paused); loading = false;
       });
     } catch (_) { if (mounted && loading) setState(() => loading = false); }
     finally { fetching = false; }
@@ -81,18 +94,33 @@ class _CreativeCardsState extends State<CreativeCards> {
   }
   Widget _card(Map<String, dynamic> work) {
     final id = work['id'] as String;
+    // Capture on menu open: PopupMenuButton can read a newer onSelected
+    // callback after an in-flight card refresh rebuilds this widget.
+    final target = controlTargets[id];
     final playable = (work['current'] as String? ?? '').isNotEmpty;
     return CreativeWorkCard(key: ValueKey(id), work: work,
       onOpen: playable ? () { FocusManager.instance.primaryFocus?.unfocus(); Navigator.push(context,
         MaterialPageRoute(builder: (_) => CreativePlayerPage(work: work, chat: widget.chat))); } : null,
-      menu: PopupMenuButton<String>(onSelected: (value) => _action(() async {
-        if (value == 'stop') await store.stop(id);
-        if (value == 'resume') { await store.resume(id); await AndroidBridge.instance.wakeBackgroundBrain(reason: 'creative_resume'); }
-        if (value == 'retry_notice') { await CreativeDelivery(AppDatabase.instance).retry(id); await AndroidBridge.instance.wakeBackgroundBrain(reason: 'creative_delivery'); }
+      menu: PopupMenuButton<String>(
+        onOpened: () { openedTargets[id] = target; },
+        onCanceled: () { openedTargets.remove(id); },
+        onSelected: (value) {
+        final target = openedTargets.remove(id);
+        _action(() async {
+        if ({'stop', 'resume', 'delete'}.contains(value) && target == null) {
+          throw const FormatException('当前作品状态暂不可修改，请刷新后重试');
+        }
+        CreativeControlResult? control;
+        if (value == 'stop') control = await store.stopTarget(target!);
+        if (value == 'resume') {
+          control = await store.resumeTarget(target!);
+          if (control.applied) await AndroidBridge.instance.wakeBackgroundBrain(reason: 'creative_resume');
+        }
+        if (value == 'retry_notice') { await CreativeDelivery(widget.chat.db).retry(id); await AndroidBridge.instance.wakeBackgroundBrain(reason: 'creative_delivery'); }
         if (value == 'edit') await _edit(work);
         if (value == 'export') {
           if (!CreativeAutonomyPolicy.visible(await store.get(id))) return;
-          final html = await AppDatabase.instance.getSetting('${CreativeContract.sourcePrefix}${work['current']}');
+          final html = await widget.chat.db.getSetting('${CreativeContract.sourcePrefix}${work['current']}');
           if (html != null) await AndroidBridge.instance.savePromptPack(content: html, suggestedName: 'work_$id.html');
         }
         if (value == 'delete') {
@@ -100,9 +128,13 @@ class _CreativeCardsState extends State<CreativeCards> {
             title: const Text('删除这件作品？'), content: const Text('将同时删除它的草稿与游玩进度。'),
             actions: [TextButton(onPressed: () => Navigator.pop(c, false), child: const Text('取消')),
               TextButton(onPressed: () => Navigator.pop(c, true), child: const Text('删除'))]));
-          if (yes == true) await store.delete(id);
+          if (yes == true) control = await store.deleteTarget(target!);
         }
-      }), itemBuilder: (_) => [
+        if (control != null && !control.applied && mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(control.explanation)));
+        }
+        });
+      }, itemBuilder: (_) => [
         if (CreativeContract.active.contains(work['status'])) const PopupMenuItem(value: 'stop', child: Text('暂停制作')),
         if ({'paused', 'failed'}.contains(work['status'])) const PopupMenuItem(value: 'resume', child: Text('继续制作')),
         if (pausedNotices.contains(id)) const PopupMenuItem(value: 'retry_notice', child: Text('重试完成提示')),

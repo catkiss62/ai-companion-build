@@ -1,3 +1,5 @@
+import 'turn_execution_contract.dart';
+import 'turn_goal_verification.dart';
 import 'agent_tool.dart';
 import 'agent_tool_registry.dart';
 
@@ -33,6 +35,7 @@ class AgentTaskVerification {
     required this.noResultCount,
     required this.failureCount,
     required this.blockedCount,
+    this.missingGoals = const [],
   });
 
   final AgentTaskVerificationState state;
@@ -41,12 +44,14 @@ class AgentTaskVerification {
   final int noResultCount;
   final int failureCount;
   final int blockedCount;
+  final List<TurnTaskGoal> missingGoals;
 
   bool get completionSupported => state == AgentTaskVerificationState.supported;
 
   String renderForFinalPrompt() => '''
 【Agent v2 本地终态核验】
 state=${state.key}，calls=$callCount，succeeded=$successCount，no_result=$noResultCount，failed=$failureCount，blocked=$blockedCount。
+${TurnGoalVerification.describe(missingGoals)}
 只有 succeeded 的真实 Outcome 能支持对应操作已经完成；no_result 只支持“查过但没找到”，failed/blocked 只支持如实说明失败或受阻。partially_supported 必须分别说清完成与未完成的部分；budget_exhausted/invalid_plan 表示工具循环已经关闭，不能继续假装执行。不要在正文里复述这些字段、规划轮次或调用日志。
 '''.trim();
 }
@@ -114,6 +119,8 @@ no_result、failed、blocked 不是成功；可以据此改用当前最小工具
     List<AgentToolResult> results, {
     bool budgetExhausted = false,
     bool invalidPlan = false,
+    List<TurnTaskGoal> goals = const [],
+    Iterable<LocalEffectReceipt> receipts = const [],
   }) {
     var succeeded = 0;
     var noResult = 0;
@@ -142,11 +149,14 @@ no_result、failed、blocked 不是成功；可以据此改用当前最小工具
           break;
       }
     }
+    final missingGoals = TurnGoalVerification.missing(goals, results, receipts);
     final state = invalidPlan
         ? AgentTaskVerificationState.invalidPlan
         : budgetExhausted
             ? AgentTaskVerificationState.budgetExhausted
-            : results.isEmpty
+            : missingGoals.isNotEmpty
+                ? succeeded > 0 ? AgentTaskVerificationState.partiallySupported : AgentTaskVerificationState.blocked
+                : results.isEmpty
                 ? AgentTaskVerificationState.directAnswer
                 : succeeded == results.length
                     ? AgentTaskVerificationState.supported
@@ -164,6 +174,7 @@ no_result、failed、blocked 不是成功；可以据此改用当前最小工具
       noResultCount: noResult,
       failureCount: failed,
       blockedCount: blocked,
+      missingGoals: missingGoals,
     );
   }
 }

@@ -246,7 +246,7 @@ void main() {
       {'pending_media_source_fixture': 'original-source'});
     expect(PendingMediaOwner.decode({...encoded, 'expected_settings': {'x': 1}}), isNull);
     expect(PendingMediaOwner.decode({...encoded}..remove('expected_settings')), isNull);
-    expect(PendingMediaOwner.decode({...encoded, 'schema': 2}), isNull);
+    expect(PendingMediaOwner.decode({...encoded, 'schema': 999}), isNull);
     final image = await prepare(pin);
     await db.setSetting('pending_media_source_fixture', 'replaced-source');
     await MediaStorageOptimizer(db: db).optimize();

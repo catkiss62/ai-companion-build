@@ -1,3 +1,7 @@
+import '../mcp/cedar_toy_client.dart';
+import '../creative/creative_store.dart';
+import '../agent/turn_execution_store.dart';
+import '../agent/turn_goal_verification.dart';
 import '../storage/pending_media_owner.dart';
 import '../creative/creative_play.dart';
 import '../creative/creative_facts.dart';
@@ -126,7 +130,10 @@ class DurableGenerationRunner {
     SecureConfig? secureConfig,
     EmotionClassifierService? emotionClassifier,
     StickerExpressionService? stickerService,
-  })  : stickerService = stickerService ?? StickerExpressionService(db: db),
+    PlayfulSelfJudge? selfJudge,
+    CedarToyClient Function(String token)? cedarClientFactory,
+  })  : selfJudge = selfJudge ?? PlayfulSelfJudge(client: client),
+        stickerService = stickerService ?? StickerExpressionService(db: db),
         secureConfig = secureConfig ?? SecureConfig.instance,
         emotionClassifier =
             emotionClassifier ?? EmotionClassifierService.instance,
@@ -138,8 +145,10 @@ class DurableGenerationRunner {
           android: AndroidBridge.instance,
           secureConfig: secureConfig ?? SecureConfig.instance,
           ai: client,
+          cedarClientFactory: cedarClientFactory,
         );
 
+  final PlayfulSelfJudge selfJudge;
   final StickerExpressionService stickerService;
   final AppDatabase db;
   final DeepSeekClient client;
@@ -346,6 +355,7 @@ class DurableGenerationRunner {
           ((await secureConfig.readCedarToyToken())?.trim().isNotEmpty ?? false);
       final historicalWebCandidates = await db.activePublicWebKnowledgeContext(
         query: user.promptContent);
+      final creativeTargetSnapshot = await CreativeStore(db).list();
       final nsfwRoute = await nsfwRouter.decide(
         apiKey: apiKey,
         endpoint: endpoint,
@@ -357,6 +367,38 @@ class DurableGenerationRunner {
         cancellationToken: effectiveCancellation,
       );
       onNsfwRoute?.call(nsfwRoute);
+      final executionStore = TurnExecutionStore(db);
+      final taskIntent = nsfwRoute.taskIntent;
+      final originalUserControlRevision = await executionStore.originalUserControlRevision(user.id);
+      var turnGoals = await executionStore.goals(originalAttempt);
+      if (turnGoals.isEmpty && taskIntent.available) {
+        turnGoals = taskIntent.goals(user.id).map((g) => g.slot != TurnEffectSlot.cedarTimedRegistration ? g :
+          TurnTaskGoal(turnId: g.turnId, slot: g.slot, description: g.description, authorized: g.authorized,
+            target: {...g.target, if (originalUserControlRevision != null) 'user_control_revision': originalUserControlRevision},
+            durationText: g.durationText, minutes: g.minutes)).toList();
+        if (!await executionStore.saveGoals(originalAttempt, turnGoals,
+            isCancelled: () => effectiveCancellation.isCancelled)) {
+          return const GenerationRunResult(status: 'suspended');
+        }
+      }
+      final localReceipts = <LocalEffectReceipt>[];
+      Future<void> refreshReceipts() async {
+        localReceipts.clear();
+        for (final goal in turnGoals) {
+          final receipt = await executionStore.readEffect(user.id, goal.slot);
+          if (receipt != null && (receipt.committed || (receipt.runToken == originalAttempt.runToken &&
+              !receipt.result.containsKey('cancelledReason')))) {
+            localReceipts.add(receipt);
+          }
+        }
+      }
+      await refreshReceipts();
+      Set<String>? semanticTaskToolIds() => !taskIntent.available ? null : {
+        if (taskIntent.creativeAction == 'commission' && job.deepThinking) 'creative_work.commission',
+        if (taskIntent.creativeAction == 'stop') 'creative_work.stop',
+        if (taskIntent.gameControl) 'cedar_toy.manage_activity',
+      };
+
       await _publishToolRuntime(
         phase: 'thinking',
         statusText: '',
@@ -470,7 +512,14 @@ class DurableGenerationRunner {
         cedarPlayProtocol = await cedarActivityStore.loadPlayProtocol();
       }
 
-      if (localPlan != null) await runLocalPlan(localPlan);
+      if (taskIntent.gameControl) {
+        localPlan = AgentToolPlan(calls: [AgentToolCall(toolId: 'cedar_toy.manage_activity',
+          arguments: {'operation': taskIntent.gameAction, 'game': taskIntent.gameId}, reasonTag: 'explicit_request')]);
+      } else if (taskIntent.creativeAction == 'stop') {
+        localPlan = AgentToolPlan(calls: [AgentToolCall(toolId: 'creative_work.stop',
+          arguments: {'work_id': taskIntent.workId}, reasonTag: 'explicit_request')]);
+      }
+      if (localPlan != null) { await runLocalPlan(localPlan); await refreshReceipts(); }
       // Legacy special-style snapshots stay in the schema only for backup
       // compatibility. New ordinary-chat roleplay provenance comes from the
       // prompt's world-book context.
@@ -519,7 +568,10 @@ class DurableGenerationRunner {
       // A valid semantic acceptance does not expire after a local time window.
       // If Jev is offline, only the old narrow candidates reach the on-demand
       // DeepSeek tool planner.
-      final cedarSemantic = nsfwRoute.cedarIntent;
+      final cedarSemantic = taskIntent.available
+          ? (taskIntent.gameAction == 'play' || (taskIntent.gameAction == 'resume' &&
+              turnGoals.any((g) => g.slot == TurnEffectSlot.cedarTimedRegistration))) ? 'act_now' : 'chat'
+          : nsfwRoute.cedarIntent;
       final cedarDirectRequest = CedarSemanticRoutePolicy.directRequest(
         configured: cedarConfigured, explicitRequest: cedarExplicitRequest,
         intent: cedarSemantic,
@@ -533,26 +585,47 @@ class DurableGenerationRunner {
       final cedarSkillActive =
           (cedarDirectRequest || cedarSessionActive || cedarContextAvailable) &&
           cedarConfigured;
+      if (!taskIntent.available && cedarSkillActive && CedarTimedPlayTaskStore.hasDuration(user.content) &&
+          !turnGoals.any((g) => g.slot == TurnEffectSlot.cedarTimedRegistration)) {
+        // A duration-shaped candidate is only an unresolved requirement. It
+        // cannot grant a timer; the existing semantic planner must select the
+        // timed tool with a verbatim valid duration before authorization.
+        turnGoals = [...turnGoals, TurnTaskGoal(turnId: user.id,
+          slot: TurnEffectSlot.cedarTimedRegistration, authorized: false,
+          description: '确认持续游玩时长并登记对应任务',
+          target: {if (originalUserControlRevision != null) 'user_control_revision': originalUserControlRevision})];
+        if (!await executionStore.saveGoals(originalAttempt, turnGoals,
+            isCancelled: () => effectiveCancellation.isCancelled)) return const GenerationRunResult(status: 'suspended');
+      }
       final cedarContextOnly = cedarContextAvailable &&
           !cedarDirectRequest &&
           !cedarSessionActive;
       final cedarPromptSession = cedarSession;
       final cedarConversationGameId = cedarSkillActive
-          ? CedarConversationTarget.recentGameId(
+          ? taskIntent.gameId.isNotEmpty ? taskIntent.gameId : CedarConversationTarget.recentGameId(
               latestUserText: user.content,
               now: user.createdAt,
               previous: previous,
               catalog: cedarCatalog,
             )
           : '';
-      final cedarTerminalGameId =
-          cedarPromptSession?.hasPendingTerminalDelivery == true
-              ? cedarPromptSession!.gameId
-              : '';
-      final cedarTerminalKey =
-          cedarPromptSession?.hasPendingTerminalDelivery == true
-              ? cedarPromptSession!.pendingTerminalKey
-              : '';
+      final deliveryCandidates = <CedarDeliveryClaim>[
+        if (cedarSkillActive && cedarPromptSession?.hasPendingTerminalDelivery == true)
+          CedarToyActivityStore.terminalClaim(cedarPromptSession!),
+      ];
+      if (taskIntent.gameAction == 'report') {
+        for (final session in cedarState.sessions.values.where((s) => s.hasPendingTerminalDelivery &&
+            (taskIntent.gameId.isEmpty || s.gameId == taskIntent.gameId)).take(4)) {
+          final claim = CedarToyActivityStore.terminalClaim(session);
+          if (!deliveryCandidates.any((c) => c.resultId == claim.resultId)) deliveryCandidates.add(claim);
+        }
+        for (final report in (await CedarTimedPlayTaskStore(db).pendingReports()).take(4)) {
+          final claim = CedarTimedPlayTaskStore.reportClaim(report);
+          if (claim.valid && (taskIntent.gameId.isEmpty || claim.gameId == taskIntent.gameId)) {
+            deliveryCandidates.add(claim);
+          }
+        }
+      }
       // Deliberate teasing and intense fluster are judged in the existing
       // short batch. State owns consecutive stimuli; no extra breakthrough call.
       final breakthrough = nsfwRoute.playfulFlustered;
@@ -583,6 +656,9 @@ class DurableGenerationRunner {
       creativePlayEvidence = promptBuild.creativePlayEvidence;
       final baseRequestMessages = <Map<String, Object?>>[
         ...promptBuild.messages,
+        if (taskIntent.gameAction == 'report') {'role': 'system', 'content':
+          '【用户本轮询问的已发生游戏结果】${deliveryCandidates.isEmpty ? '当前没有待交付的终局或定时任务报告；不得猜测结果。' : jsonEncode(deliveryCandidates.map((c) => c.toJson()).toList())}'
+          '只可据这些真实记录回答；旧结果不冒充刚刚发生，是否有开始新游戏是另一项权限。'},
         if (creativeContext.isNotEmpty) {'role': 'system', 'content': creativeContext},
         {'role': 'system', 'content': job.deepThinking
           ? '小作品只有本轮明确委托才可调用制作工具；开关、反馈或设想不等于委托。工具只登记任务，完成由作品卡的真实状态决定。'
@@ -1049,12 +1125,15 @@ class DurableGenerationRunner {
       }
 
       Set<String> cedarStageToolIds() {
-        if (CedarTimedPlayTaskStore.hasDuration(user.content) &&
-            agentToolResults.any((result) => result.succeeded &&
-              result.toolId == 'cedar_toy.play' &&
-              !CedarPlatformActionPolicy.isReadOnly(
-                result.submittedArguments['action']?.toString() ?? ''))) {
-          return const {'cedar_toy.start_timed_play'};
+        if (agentToolResults.any(TurnGoalVerification.foregroundWrite)) {
+          final needsTimer = TurnGoalVerification.missing(turnGoals, agentToolResults, localReceipts)
+            .any((goal) => goal.slot == TurnEffectSlot.cedarTimedRegistration);
+          return needsTimer ? const {'cedar_toy.start_timed_play'} : const <String>{};
+        }
+        if (taskIntent.available && taskIntent.gameAction != 'play') {
+          return {if (taskIntent.gameControl) 'cedar_toy.manage_activity',
+            if (taskIntent.gameAction == 'resume' && turnGoals.any((g) =>
+                g.slot == TurnEffectSlot.cedarTimedRegistration)) 'cedar_toy.start_timed_play'};
         }
         return CedarToyArcadeSkill.toolIdsForUserTurn(
           configured: cedarConfigured,
@@ -1111,6 +1190,7 @@ class DurableGenerationRunner {
             cedarBlindPlay: cedarBlindPlay(),
             webSearchRequested: contextualWebSearch,
             deepThinking: job.deepThinking,
+            semanticTaskToolIds: semanticTaskToolIds(),
           );
 
       var taskToolDefinitions = currentTaskToolDefinitions();
@@ -1122,6 +1202,7 @@ class DurableGenerationRunner {
       ) {
         final verification = AgentTaskLoopPolicy.verify(
           agentToolResults,
+          goals: turnGoals, receipts: localReceipts,
           budgetExhausted: agentLoopBudgetExhausted,
           invalidPlan: agentLoopInvalidPlan,
         );
@@ -1158,7 +1239,8 @@ $finalGenerationReminder
       }
 
       final localPlanClosesLoop = localPlan != null &&
-          (AgentTaskLoopPolicy.containsProposal(localPlan) ||
+          ((AgentTaskLoopPolicy.containsProposal(localPlan) &&
+              TurnGoalVerification.missing(turnGoals, agentToolResults, localReceipts).isEmpty) ||
               AgentTaskLoopPolicy.hasCommitPendingMedia(agentToolResults));
       var toolsOpen = taskToolDefinitions.isNotEmpty &&
           !localPlanClosesLoop &&
@@ -1169,10 +1251,10 @@ $finalGenerationReminder
               ...baseRequestMessages,
               <String, Object?>{
                 'role': 'system',
-                'content': taskPlanningInstruction(),
+                'content': '${taskPlanningInstruction()}\n${TurnGoalVerification.describe(TurnGoalVerification.missing(turnGoals, agentToolResults, localReceipts))}',
               },
             ]
-          : localPlan == null
+          : localPlan == null && turnGoals.isEmpty
               ? baseRequestMessages
               : finalizationMessages(baseRequestMessages);
       if (toolsOpen) agentPlanningRounds++;
@@ -1200,7 +1282,8 @@ $finalGenerationReminder
       if (toolsOpen &&
           generated.toolCalls.isEmpty &&
           CedarAgentLoopPolicy.shouldRetryInitialNoCall(
-            cedarRequested: cedarDirectRequest || cedarSessionActive,
+            cedarRequested: cedarDirectRequest || cedarSessionActive ||
+                TurnGoalVerification.missing(turnGoals, agentToolResults, localReceipts).isNotEmpty,
             retryUsed: cedarNoCallRetryUsed,
             remainingCalls: allowedTaskCalls(),
           )) {
@@ -1231,7 +1314,8 @@ $finalGenerationReminder
       }
       if (toolsOpen && generated.toolCalls.isEmpty) {
         toolsOpen = false;
-        if (finalProvider.isGeminiRelay || job.deepThinking) {
+        if (finalProvider.isGeminiRelay || job.deepThinking ||
+            TurnGoalVerification.missing(turnGoals, agentToolResults, localReceipts).isNotEmpty) {
           finalRequestMessages = finalizationMessages(finalRequestMessages);
           generated = await generateFinal(finalRequestMessages);
           effectiveCancellation.throwIfCancelled();
@@ -1270,6 +1354,7 @@ $finalGenerationReminder
           cedarBlindPlay: cedarBlindPlay(),
           maxCalls: callsAllowed,
           excludedCallFingerprints: executedToolFingerprints,
+          semanticTaskToolIds: semanticTaskToolIds(),
         );
         if (nativePlan.isEmpty) {
           agentLoopInvalidPlan = true;
@@ -1331,6 +1416,81 @@ $finalGenerationReminder
           break;
         }
 
+        var goalsChanged = false;
+        for (final call in nativePlan.calls) {
+          TurnEffectSlot? slot;
+          if (call.toolId == 'creative_work.commission') slot = TurnEffectSlot.creativeCommission;
+          if (call.toolId == 'creative_work.stop') slot = TurnEffectSlot.creativeControl;
+          if (call.toolId == 'cedar_toy.manage_activity') slot = TurnEffectSlot.cedarControl;
+          if (call.toolId == 'cedar_toy.start_timed_play') slot = TurnEffectSlot.cedarTimedRegistration;
+          if (call.toolId == 'cedar_toy.play') slot = TurnEffectSlot.cedarForegroundWrite;
+          if (slot == null) continue;
+          final existing = turnGoals.where((g) => g.slot == slot).firstOrNull;
+          final game = call.arguments['game'] ?? '';
+          if (existing != null && !existing.authorized && (!taskIntent.available || !taskIntent.durationResolved) &&
+              slot == TurnEffectSlot.cedarTimedRegistration) {
+            final duration = call.arguments['duration_text'] ?? '';
+            final minutes = CedarTimedPlayTaskStore.durationMinutes(duration, user.content);
+            if (minutes != null && game.isNotEmpty) {
+              turnGoals = [for (final g in turnGoals) if (g.id != existing.id) g else
+                TurnTaskGoal(turnId: g.turnId, slot: g.slot, description: '登记 $minutes 分钟持续游玩',
+                  target: {...g.target, 'game_id': game}, durationText: duration, minutes: minutes)];
+              goalsChanged = true;
+            }
+          } else if (existing != null && existing.target['game_id']?.isNotEmpty != true &&
+              game.isNotEmpty &&
+              (slot == TurnEffectSlot.cedarTimedRegistration || slot == TurnEffectSlot.cedarForegroundWrite) &&
+              (cedarState.sessions.containsKey(game) || CedarCatalogParser.parse(cedarCatalog).any((g) => g.id == game))) {
+            turnGoals = [for (final g in turnGoals) if (g.id != existing.id) g else
+              TurnTaskGoal(turnId: g.turnId, slot: g.slot, description: g.description,
+                authorized: g.authorized, target: {...g.target, 'game_id': game},
+                durationText: g.durationText, minutes: g.minutes)];
+            goalsChanged = true;
+          } else if (existing == null && !taskIntent.available) {
+            // The existing on-demand tool planner reads the real latest user
+            // and chooses this action; a keyword router cannot create goals.
+            final quote = call.arguments['request_quote'] ?? '';
+            final duration = call.arguments['duration_text'] ?? '';
+            final minutes = CedarTimedPlayTaskStore.durationMinutes(duration, user.content) ?? 0;
+            if (slot == TurnEffectSlot.creativeCommission &&
+                (quote.isEmpty || !user.content.contains(quote))) continue;
+            if (slot == TurnEffectSlot.cedarTimedRegistration && minutes == 0) continue;
+            final target = <String, String>{if (game.isNotEmpty) 'game_id': game,
+              if (slot == TurnEffectSlot.cedarTimedRegistration && originalUserControlRevision != null)
+                'user_control_revision': originalUserControlRevision};
+            if (slot == TurnEffectSlot.cedarControl) {
+              final targetSession = cedarState.sessions[game];
+              if (targetSession == null) continue;
+              target.addAll({'session_id': targetSession.id, 'operation': call.arguments['operation'] ?? ''});
+            }
+            if (slot == TurnEffectSlot.creativeControl) {
+              // The existing planner selected this concrete action. A text
+              // route only exposed it; it cannot itself authorize a stop.
+              final workId = call.arguments['work_id'] ?? '';
+              final work = creativeTargetSnapshot.where((w) => w['id'] == workId).firstOrNull;
+              if (quote.isEmpty || !user.content.contains(quote) || workId.isEmpty || work == null ||
+                  (work['request_id']?.toString() ?? '').isEmpty) continue;
+              target.addAll({'work_id': workId, 'request_id': work['request_id'].toString(), 'operation': 'stop'});
+            }
+            if (slot == TurnEffectSlot.creativeCommission) {
+              final workId = call.arguments['work_id'] ?? '';
+              final work = creativeTargetSnapshot.where((w) => w['id'] == workId).firstOrNull;
+              if (workId.isNotEmpty && (work == null || call.arguments['target_kind'] != 'existing')) continue;
+              if (workId.isEmpty && call.arguments['target_kind'] != 'new_work') continue;
+              target.addAll({'work_id': workId, 'request_id': work?['request_id']?.toString() ?? '',
+                'target_kind': workId.isEmpty ? 'new_work' : 'existing'});
+            }
+            turnGoals = [...turnGoals, TurnTaskGoal(turnId: user.id, slot: slot,
+              description: slot == TurnEffectSlot.cedarTimedRegistration ? '登记 $minutes 分钟定时游玩' : call.toolId,
+              target: target, durationText: duration, minutes: minutes)];
+            goalsChanged = true;
+          }
+        }
+        if (goalsChanged && !await executionStore.saveGoals(originalAttempt, turnGoals,
+            isCancelled: () => effectiveCancellation.isCancelled)) {
+          return const GenerationRunResult(status: 'suspended');
+        }
+
         final acceptedCalls = acceptedNativeCalls(
           nativePlan,
           generated.toolCalls,
@@ -1355,6 +1515,7 @@ $finalGenerationReminder
           throw const FormatException('工具调用与本地执行结果无法对应');
         }
         agentToolResults.addAll(roundResults);
+        await refreshReceipts();
         agentToolCalls += roundResults.length;
         executedToolFingerprints.addAll(
           nativePlan.calls.map(AgentTaskLoopPolicy.callFingerprint),
@@ -1438,9 +1599,14 @@ $finalGenerationReminder
           commitPendingMedia:
               AgentTaskLoopPolicy.hasCommitPendingMedia(roundResults),
           loopLimitReached: loopLimitReached,
-          timedTaskRequired: CedarTimedPlayTaskStore.hasDuration(user.content),
+          timedTaskRequired: turnGoals.any((g) => g.slot == TurnEffectSlot.cedarTimedRegistration),
         );
-        if (shouldFinalize) {
+        final pendingGoals = TurnGoalVerification.missing(turnGoals, agentToolResults, localReceipts);
+        final canCompleteMissingGoal = pendingGoals.isNotEmpty && !loopLimitReached &&
+            !AgentTaskLoopPolicy.hasCommitPendingMedia(roundResults) &&
+            pendingGoals.any((g) => g.slot != TurnEffectSlot.cedarForegroundWrite ||
+                !roundResults.any((r) => r.toolId == 'cedar_toy.play'));
+        if (shouldFinalize && !canCompleteMissingGoal) {
           if (loopLimitReached && !proposalExecuted) {
             agentLoopBudgetExhausted = true;
           }
@@ -1460,7 +1626,7 @@ $finalGenerationReminder
           ...history,
           <String, Object?>{
             'role': 'system',
-            'content': taskPlanningInstruction(),
+            'content': '${taskPlanningInstruction()}\n${TurnGoalVerification.describe(TurnGoalVerification.missing(turnGoals, agentToolResults, localReceipts))}',
           },
         ];
         agentPlanningRounds++;
@@ -1478,9 +1644,11 @@ $finalGenerationReminder
         final remainingAfterNoCall = allowedTaskCalls();
         if (generated.toolCalls.isEmpty &&
             CedarToyArcadeSkill.shouldReconsiderNoCall(
-              cedarEngaged: cedarLoopEngaged(),
+              cedarEngaged: cedarLoopEngaged() ||
+                  TurnGoalVerification.missing(turnGoals, agentToolResults, localReceipts).isNotEmpty,
               lastOutcomeRequestsContinuation:
-                  cedarRoundRequestsContinuation,
+                  cedarRoundRequestsContinuation ||
+                  TurnGoalVerification.missing(turnGoals, agentToolResults, localReceipts).isNotEmpty,
               retryUsed: cedarNoCallRetryUsed,
               remainingCalls: remainingAfterNoCall,
               completedPlanningRounds: agentPlanningRounds,
@@ -1541,6 +1709,7 @@ $finalGenerationReminder
 
       final agentTaskVerification = AgentTaskLoopPolicy.verify(
         agentToolResults,
+        goals: turnGoals, receipts: localReceipts,
         budgetExhausted: agentLoopBudgetExhausted,
         invalidPlan: agentLoopInvalidPlan,
       );
@@ -1838,13 +2007,21 @@ $finalGenerationReminder
       // Decide from the final visible message, after repair/sticker selection.
       // Only an unavailable or malformed Jev result uses DeepSeek Flash.
       // The decision has no effect unless this generation wins the commit.
+      if (agentToolResults.any((r) => r.toolId.startsWith('cedar_toy.')) &&
+          cedarSession?.hasPendingTerminalDelivery == true) {
+        final claim = CedarToyActivityStore.terminalClaim(cedarSession!);
+        if (!deliveryCandidates.any((c) => c.resultId == claim.resultId)) deliveryCandidates.add(claim);
+      }
+      var verifiedDeliveries = <CedarDeliveryClaim>[];
       PlayfulSelfActivity? selfActivity;
       try {
-        selfActivity = await PlayfulSelfJudge(client: client).classify(
+        selfActivity = await selfJudge.classify(
           apiKey: apiKey,
           endpoint: endpoint,
           userText: user.promptContent,
           assistantText: assistant.promptContent,
+          deliveryCandidates: deliveryCandidates,
+          onDeliveryVerified: (claims) => verifiedDeliveries = claims,
           recentContext: previous.reversed
               .take(4)
               .toList(growable: false)
@@ -1873,6 +2050,11 @@ $finalGenerationReminder
           runToken: job.runToken,
           assistant: assistant,
           pendingMediaOwner: pendingMediaOwner,
+          generationAttempt: originalAttempt,
+          isCancelled: () => effectiveCancellation.isCancelled,
+          turnCommitEvidence: TurnCommitEvidence(deliveries: verifiedDeliveries,
+            timedEffectIds: [for (final r in localReceipts)
+              if (r.slot == TurnEffectSlot.cedarTimedRegistration && !r.committed) r.effectId]),
           somaticEvents: assistantSomaticEvents,
           playfulActivity: selfActivity ?? PlayfulSelfActivity.none,
           deepReflection: promptBuild.deepReflection,
@@ -1927,16 +2109,15 @@ $finalGenerationReminder
           // optional local setting cannot be updated.
         }
       }
-      if (cedarTerminalGameId.isNotEmpty && cedarTerminalKey.isNotEmpty) {
+      for (final claim in verifiedDeliveries) {
         try {
-          await cedarActivityStore.markTerminalDelivered(
-            gameId: cedarTerminalGameId,
-            terminalKey: cedarTerminalKey,
-          );
-        } catch (_) {
-          // The visible reply is already durable. A failed acknowledgement
-          // stays pending and is safely retried on the next turn.
-        }
+          if (claim.kind == CedarDeliveryKind.timedReport) {
+            await CedarTimedPlayTaskStore(db).acknowledge(claim.reportId);
+          } else {
+            await cedarActivityStore.markTerminalDelivered(gameId: claim.gameId,
+              sessionId: claim.sessionId, terminalKey: claim.terminalKey);
+          }
+        } catch (_) { /* Exact committed proof remains available for retry. */ }
       }
       for (final usageKey in preparedAgentMediaUsageKeys.toSet()) {
         try {
@@ -1979,13 +2160,29 @@ $finalGenerationReminder
         }
       }
 
+      final timedGoals = turnGoals.where((g) => g.authorized &&
+        g.slot == TurnEffectSlot.cedarTimedRegistration).toList();
+      String? timedNotice;
+      if (timedGoals.isNotEmpty) {
+        final registered = await executionStore.readEffect(user.id, TurnEffectSlot.cedarTimedRegistration);
+        if (TurnGoalVerification.missing(timedGoals, const [],
+            registered?.committed == true ? [registered!] : const []).isNotEmpty) {
+          // Objective app status is independent of model wording. An already
+          // committed registration (pending activation or ended) remains a fact.
+          timedNotice = '本轮定时任务未登记，尚未开始计时。';
+        }
+      }
+      final completionNotices = [
+        if (providerNotice?.trim().isNotEmpty == true) providerNotice!,
+        if (timedNotice != null) timedNotice,
+      ];
       unawaited(MoeShadowCoordinator(db).observeCompletedTurn(assistant));
       return GenerationRunResult(
         status: 'completed',
         assistant: assistant,
         specialStyleTrialId: generationSpecialStyleTrialId,
         specialStyleKey: generationSpecialStyleKey,
-        notice: providerNotice,
+        notice: completionNotices.isEmpty ? null : completionNotices.join('\n'),
       );
     } on FinalReplyIncompleteException catch (e) {
       final envelope = EmotionEnvelope.parse(e.content);
@@ -2045,6 +2242,16 @@ $finalGenerationReminder
         assistant: draft,
         notice: '回复已截断。当前文字尚未进入上下文或记忆，请选择“重新生成”或“保留这段回复”。',
       );
+    } on TurnCommitRejected catch (e) {
+      await db.failGenerationJob(job.id, runToken: job.runToken, error: e.reason, recoverable: false);
+      return const GenerationRunResult(status: 'failed',
+        notice: '回复提交前游戏任务状态发生了变化，本次没有开始计时，请重新生成回复。');
+    } on TurnCommitCancelled {
+      if (effectiveCancellation.isCancelled) {
+        await db.cancelGenerationJobByUser(job.id);
+        return const GenerationRunResult(status: 'cancelled_by_user');
+      }
+      return const GenerationRunResult(status: 'suspended');
     } on GenerationCancelledByUserException catch (e) {
       if (runtimeOwnershipLost &&
           (await db.generationJobById(job.id))?.status != 'cancelled_by_user') {
@@ -2102,7 +2309,9 @@ $finalGenerationReminder
     }
   }
 
-  Future<GenerationRunResult> confirmIncompleteDraft(String jobId) async {
+  Future<GenerationRunResult> confirmIncompleteDraft(String jobId,
+      {GenerationCancellationToken? cancellationToken}) async {
+    if (cancellationToken?.isCancelled == true) return const GenerationRunResult(status: 'cancelled_by_user');
     final job = await db.claimGenerationDraftForConfirmation(jobId);
     if (job == null || job.partialContent.trim().isEmpty) {
       return const GenerationRunResult(
@@ -2122,6 +2331,19 @@ $finalGenerationReminder
         status: 'failed',
         error: '找不到这份草稿对应的用户消息。',
       );
+    }
+    final confirmationAttempt = await db.captureGenerationAttemptFence(job);
+    if (confirmationAttempt == null) return const GenerationRunResult(status: 'suspended');
+    final timerStore = CedarTimedPlayTaskStore(db);
+    final timedReceipt = await TurnExecutionStore(db).readEffect(user.id, TurnEffectSlot.cedarTimedRegistration);
+    final handoff = await timerStore.prepareConfirmationHandoff(confirmationAttempt);
+    final confirmationGoals = await TurnExecutionStore(db).goals(confirmationAttempt);
+    if (handoff == null && timedReceipt?.committed != true &&
+        (timedReceipt != null || confirmationGoals.any((g) => g.slot == TurnEffectSlot.cedarTimedRegistration))) {
+      await db.holdGenerationJobForUserDecision(job.id, runToken: job.runToken,
+        partialReasoning: job.partialReasoning, partialContent: job.partialContent);
+      return const GenerationRunResult(status: 'incomplete',
+        notice: '草稿中的定时任务已不能安全接续。尚未开始计时，请重新生成回复。');
     }
     final envelope = EmotionEnvelope.parse(job.partialContent);
     final creativeRead = await CreativeFacts(db).read(query: user.promptContent, userMessageId: user.id);
@@ -2165,15 +2387,28 @@ $finalGenerationReminder
       emotionSource: companionEmotion.source,
     );
     final recent = await db.recentMessages(limit: 6);
-    final activity = await PlayfulSelfJudge(client: client).classify(
+    PlayfulSelfActivity? activity;
+    try {
+      activity = await selfJudge.classify(
       apiKey: await secureConfig.readApiKey() ?? '',
       endpoint: await secureConfig.readEndpoint(),
       userText: user.promptContent, assistantText: assistant.promptContent,
+      cancellationToken: cancellationToken,
       recentContext: recent.where((m) => m.createdAt.isBefore(user.createdAt))
           .map((m) => '${m.role}: ${m.promptContent}').join('\n'),
     );
-    final committed = await db.completeGenerationJobIfCurrent(
+    } on GenerationCancelledByUserException {
+      await db.cancelGenerationJobByUser(job.id);
+      return const GenerationRunResult(status: 'cancelled_by_user');
+    }
+    late bool committed;
+    try {
+      committed = await db.completeGenerationJobIfCurrent(
       playfulActivity: activity ?? PlayfulSelfActivity.none,
+      generationAttempt: confirmationAttempt,
+      isCancelled: () => cancellationToken?.isCancelled == true,
+      turnCommitEvidence: TurnCommitEvidence(
+        timedEffectIds: handoff == null ? const [] : [handoff.effectId], timedHandoff: handoff),
       jobId: job.id,
       runToken: job.runToken,
       assistant: assistant,
@@ -2183,6 +2418,19 @@ $finalGenerationReminder
         now: assistant.createdAt,
       ),
     );
+    } on TurnCommitCancelled {
+      await db.cancelGenerationJobByUser(job.id);
+      return const GenerationRunResult(status: 'cancelled_by_user');
+    } on TurnCommitRejected {
+      await db.holdGenerationJobForUserDecision(job.id, runToken: job.runToken,
+        partialReasoning: job.partialReasoning, partialContent: job.partialContent);
+      return const GenerationRunResult(status: 'incomplete',
+        notice: '确认时游戏任务已发生变化，尚未开始计时，请重新生成回复。');
+    }
+    if (committed && handoff != null) {
+      await timerStore.activateCommitted(turnId: user.id, now: assistant.createdAt);
+      try { await AndroidBridge.instance.wakeBackgroundBrain(reason: 'cedar_confirmed_timed_task'); } catch (_) {}
+    }
     return committed
         ? GenerationRunResult(
             status: 'completed',

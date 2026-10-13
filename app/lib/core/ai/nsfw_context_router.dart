@@ -1,3 +1,6 @@
+import '../agent/turn_task_intent.dart';
+import '../creative/creative_store.dart';
+import '../database/conversation_source_store.dart';
 import '../autonomy/web_knowledge_selection.dart';
 import '../models/public_web_candidate.dart';
 import '../mood/mood_appraisal.dart';
@@ -25,6 +28,7 @@ class NsfwRouteDecision {
     this.cedarIntent,
     this.gameAttitude = 'none',
     this.historicalWebIds,
+    this.taskIntent = const TurnTaskIntent(),
   });
 
   final bool active;
@@ -38,6 +42,7 @@ class NsfwRouteDecision {
   final String? cedarIntent;
   final String gameAttitude;
   final List<String>? historicalWebIds;
+  final TurnTaskIntent taskIntent;
 }
 
 /// A small pre-generation model pass that decides which prompt layers the
@@ -64,12 +69,16 @@ class NsfwContextRouter {
     List<PublicWebContextItem> historicalWebCandidates = const [],
     GenerationCancellationToken? cancellationToken,
   }) async {
-    if ((await db.getSetting('nsfw_route_turn_id')) == turnId) {
+    final userSource = await ConversationSourceStore.captureMessage(await db.database, turnId);
+    final sourceKey = userSource == null ? '' : '${userSource.contentHash}:${userSource.revision}';
+    if (sourceKey.isNotEmpty && (await db.getSetting('nsfw_route_source_key_v2')) == sourceKey &&
+        (await db.getSetting('nsfw_route_turn_id')) == turnId) {
       return NsfwRouteDecision(
         active: (await db.getSetting('nsfw_active')) == '1',
         referenceActive:
             (await db.getSetting('nsfw_reference_active')) == '1',
         source: 'replay_${await db.getSetting('nsfw_route_source') ?? 'stored'}',
+        taskIntent: _readTaskIntent(await db.getSetting('route_task_intent_v1'), turnId, sourceKey),
         historicalWebIds: _readWebIds(await db.getSetting('route_web_ids_v1')),
         playfulInteraction: PlayfulInteraction.parse(
           await db.getSetting('playful_form_router_signal_v1'),
@@ -115,6 +124,9 @@ class NsfwContextRouter {
     final pendingCause = moodEnabled ? await mood.pendingCause(moodNow) : null;
     final causeMessage = pendingCause == null ? null
         : await db.messageById(pendingCause.id.replaceFirst('user:', ''));
+    final taskQuestions = TurnTaskQuestionSet(userText: latestUserText,
+      state: await CedarToyActivityStore(db).loadState(), works: await CreativeStore(db).list(),
+      catalog: await CedarToyActivityStore(db).loadCatalog());
     final jev = await jevGateway.chooseMany(
       state: <String, Object?>{
         'current_route': currentActive ? 'nsfw' : 'daily',
@@ -126,6 +138,7 @@ class NsfwContextRouter {
         if (historicalWebCandidates.isNotEmpty)
           'historical_web': WebKnowledgeSelection.describe(historicalWebCandidates),
         'active_game': attitudeGame,
+        ...taskQuestions.context,
         if (causeMessage != null) 'pending_cause': {
           'id': pendingCause!.id, 'user_evidence': causeMessage.promptContent.length > 500
               ? causeMessage.promptContent.substring(0, 500) : causeMessage.promptContent,
@@ -134,6 +147,7 @@ class NsfwContextRouter {
       },
       questions: <String, JevChoiceQuestion>{
         ...WebKnowledgeSelection.questions(historicalWebCandidates),
+        ...taskQuestions.questions,
         if (moodEnabled) ...MoodAppraisal.questions,
         'mode': JevChoiceQuestion(
           'Which descriptive prompt depth fits latest_user_text in '
@@ -234,9 +248,10 @@ class NsfwContextRouter {
         initiativeOpportunity: jev['initiative'] == 'open',
         gameAttitude: jev['game_attitude'] ?? 'none',
         cedarIntent: jev['cedar'],
+        taskIntent: taskQuestions.interpret(jev),
         historicalWebIds: WebKnowledgeSelection.selected(historicalWebCandidates, jev),
       );
-      await _persist(decision, turnId: turnId, consumeManualOverride: manualRoute);
+      await _persist(decision, turnId: turnId, sourceKey: sourceKey, consumeManualOverride: manualRoute);
       return decision;
     }
 
@@ -355,7 +370,7 @@ $latestUserText''',
             gameAttitude: gameAttitude,
           ),
       };
-      await _persist(decision, turnId: turnId,
+      await _persist(decision, turnId: turnId, sourceKey: sourceKey,
           consumeManualOverride: manualRoute);
       return decision;
     } on GenerationCancelledByUserException {
@@ -374,10 +389,19 @@ $latestUserText''',
             ? (manual == 'on' ? 'manual_on' : 'manual_off')
             : 'fallback_daily',
       );
-      await _persist(fallback, turnId: turnId,
+      await _persist(fallback, turnId: turnId, sourceKey: sourceKey,
           consumeManualOverride: manualRoute);
       return fallback;
     }
+  }
+
+  static TurnTaskIntent _readTaskIntent(String? raw, String turnId, String sourceKey) {
+    try {
+      final envelope = jsonDecode(raw ?? 'null');
+      if (envelope is! Map || envelope['turn_id'] != turnId || envelope['source_key'] != sourceKey) return const TurnTaskIntent();
+      return TurnTaskIntent.fromJson(envelope['intent']);
+    }
+    catch (_) { return const TurnTaskIntent(); }
   }
 
   static List<String>? _readWebIds(String? raw) {
@@ -390,6 +414,7 @@ $latestUserText''',
   Future<void> _persist(
     NsfwRouteDecision decision, {
     required String turnId,
+    required String sourceKey,
     bool consumeManualOverride = false,
   }) async {
     await db.setSetting('nsfw_active', decision.active ? '1' : '0');
@@ -406,6 +431,8 @@ $latestUserText''',
     await db.setSetting('cedar_route_intent_v1', decision.cedarIntent ?? '');
     await db.setSetting('cedar_game_attitude_route_signal', decision.gameAttitude);
     await db.setSetting('route_web_ids_v1', jsonEncode(decision.historicalWebIds));
+    await db.setSetting('route_task_intent_v1', jsonEncode({'turn_id': turnId, 'source_key': sourceKey, 'intent': decision.taskIntent.toJson()}));
+    await db.setSetting('nsfw_route_source_key_v2', sourceKey);
     await db.setSetting('nsfw_route_turn_id', turnId);
     if (consumeManualOverride) {
       await db.setSetting('nsfw_manual_override', '');

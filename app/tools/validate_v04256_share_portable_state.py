@@ -49,14 +49,15 @@ for secret in ('_apiKeyName','_cedarToyTokenName','_openRouterApiKeyName','_weat
                '_visionApiKeyName','_agnesApiKeyName','_tavilyApiKeyName','_aiWangYouApiKeyName'):
     assert secret not in allow,secret
 assert '_storage.readAll(' not in secure
-# Every durable user table remains covered. The six exceptions are transient
+# Every durable user table remains covered. The seven exceptions are transient
 # migration/runtime/diagnostic tables and must never confer device ownership.
 database=read('lib/core/database/app_database.dart')
 created=set(re.findall(r'CREATE TABLE(?: IF NOT EXISTS)? (\w+)',database))
 export=database.split('Future<Map<String, Object?>> exportAll()',1)[1].split('// Read the whole',1)[0]
 exported=set(re.findall(r"'([a-z_]+)'",export.split('const tables',1)[1]))
 assert created-exported=={'maintenance_runs','memory_retrieval_audit','messages_v20',
-                         'proactive_policy_events','provider_health_events','transfer_receipts'}
+                         'proactive_policy_events','provider_health_events','transfer_receipts',
+                         'pending_media_owners'}
 pat=read('android/app/src/main/java/com/catkiss/senlive2dcompanion/CaicaiHeadPat.java')
 assert 'EASTER_EGG_SECONDS = 2.8f' in pat and 'age < EASTER_EGG_SECONDS) return false' in pat
 host=read('android/app/src/main/kotlin/com/catkiss/senlive2dcompanion/CaicaiPlatformView.kt')

@@ -1,3 +1,4 @@
+import 'support/cedar_task_fixture.dart';
 import 'dart:convert';
 import 'dart:io';
 
@@ -7,7 +8,6 @@ import 'package:ai_companion_localfirst/core/mcp/cedar_play_transition_log.dart'
 import 'package:ai_companion_localfirst/core/mcp/cedar_timed_play_task.dart';
 import 'package:ai_companion_localfirst/core/mcp/cedar_toy_activity.dart';
 import 'package:ai_companion_localfirst/core/mcp/mcp_protocol.dart';
-import 'package:ai_companion_localfirst/core/models/chat_message.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
@@ -38,16 +38,10 @@ void main() {
     final target = database ?? db;
     final session = await CedarToyActivityStore(target).recordGuide(
         gameId: 'white_room', guide: '单人游戏。start 开始；explore 探索。');
-    await target.insertMessage(ChatMessage(id: 'reply-$turn', role: 'assistant',
-        content: '好，我去玩一会儿。', createdAt: at ?? base));
     final tasks = CedarTimedPlayTaskStore(target);
-    await tasks.stage(turnId: turn, assistantId: 'reply-$turn',
-        session: session, minutes: minutes);
-    // Keep the test's clock deterministic without bypassing committed admission.
-    final raw = CedarTimedPlayTaskStore.decode(
-        await target.getSetting(CedarTimedPlayTaskStore.pendingKey))!;
-    await target.setSetting(CedarTimedPlayTaskStore.pendingKey,
-        jsonEncode({...raw, 'requestedAt': (at ?? base).millisecondsSinceEpoch}));
+    final staged = await stageCedarTask(target, turnId: turn, assistantId: 'reply-$turn',
+        session: session, minutes: minutes, now: at ?? base);
+    expect(await commitCedarTask(target, staged), isTrue);
     await tasks.activateCommitted(turnId: turn, now: at ?? base);
   }
 

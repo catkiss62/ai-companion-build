@@ -231,6 +231,12 @@ class JevDecisionGateway {
           ('immersive_playful_route', 'initiative') => 'closed',
           ('chat_intimacy_route', 'cedar') => 'chat',
           ('chat_intimacy_route', 'game_attitude') => 'none',
+          ('chat_intimacy_route', 'task_game') ||
+          ('chat_intimacy_route', 'task_creative') ||
+          ('chat_intimacy_route', 'task_game_target') ||
+          ('chat_intimacy_route', 'task_duration') => 'none',
+          ('chat_intimacy_route', 'task_work_target') => 'unresolved',
+          ('chat_playful_self', final question) when question.startsWith('delivery_') => 'no',
           ('chat_playful_self', 'route') => 'none',
           ('playful_breakthrough', 'route') => 'wait',
           ('cedar_context_intent', 'route') => 'chat',

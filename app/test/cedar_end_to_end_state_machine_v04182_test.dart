@@ -1,3 +1,4 @@
+import 'support/cedar_task_fixture.dart';
 import 'package:ai_companion_localfirst/core/desire/daily_wake_store.dart';
 import 'dart:convert';
 
@@ -229,6 +230,10 @@ void main() {
         ),
         isFalse,
       );
+      expect(await store.markTerminalDelivered(gameId: 'duel',
+          terminalKey: finished.pendingTerminalKey), isFalse);
+      await commitCedarDelivery(db, CedarToyActivityStore.terminalClaim(finished),
+          messageId: 'terminal-reply');
       expect(
         await store.markTerminalDelivered(
           gameId: 'duel',

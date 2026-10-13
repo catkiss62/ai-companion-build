@@ -1579,6 +1579,12 @@ class SnapshotService {
       'recovery_orchestrator_state': 'idle',
       'recovery_orchestrator_last_wake_reason': 'backup_export',
     };
+    // Keep the pending envelope until import can check its committed receipt.
+    // Import consumes it in the database transaction: accepted-but-not-active
+    // work gets a zero-duration report; an uncommitted stage grants nothing.
+    // Runtime leases/grants are still normalized, and the import override
+    // below still clears pending rather than restoring execution authority.
+    replacements.remove('cedar_timed_play_pending_v1');
     final normalizedRows = <Map<String, Object?>>[];
     final seen = <String>{};
     for (final raw in rows) {

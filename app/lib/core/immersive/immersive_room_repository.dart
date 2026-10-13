@@ -1,8 +1,10 @@
 import 'dart:convert';
+import 'package:flutter/foundation.dart';
 import 'package:uuid/uuid.dart';
 import 'package:sqflite/sqflite.dart';
 
 import '../database/app_database.dart';
+import '../ai/generation_cancellation.dart';
 import '../database/brain_work_fence.dart';
 import '../models/immersive_room.dart';
 import '../models/generation_job.dart';
@@ -13,7 +15,14 @@ import '../rules/rule_layer_content_immersive.dart';
 import 'immersive_shared_memory_policy.dart';
 
 class ImmersiveRoomRepository {
-  ImmersiveRoomRepository(this.db);
+  ImmersiveRoomRepository(this.db, {this.beforeAssistantCommit, this.beforeDraftCommit});
+
+  /// Blocks/throws only at the last transaction await for deterministic races.
+  /// Production callers leave this unset; it cannot bypass admission checks.
+  @visibleForTesting
+  final Future<void> Function(Transaction txn)? beforeAssistantCommit;
+  @visibleForTesting
+  final Future<void> Function(Transaction txn)? beforeDraftCommit;
 
   final AppDatabase db;
   final Uuid _uuid = Uuid();
@@ -21,10 +30,12 @@ class ImmersiveRoomRepository {
   static String archiveKey(String roomId) => '$archivePrefix$roomId';
   BrainWorkFence? stateFence;
 
-  Future<T> _write<T>(Future<T> Function(Transaction) action) async {
+  Future<T> _write<T>(Future<T> Function(Transaction) action, {
+    BrainWorkFence? workFence,
+  }) async {
+    final fence = workFence ?? stateFence;
     final database = await db.database;
     return database.transaction((txn) async {
-      final fence = stateFence;
       if (fence == null ? !await BrainWorkFence.workAllowed(txn)
           : !await fence.matches(txn)) throw const BrainWorkInvalidated();
       return action(txn);
@@ -319,11 +330,35 @@ class ImmersiveRoomRepository {
   Future<InterruptedTurnDisplay?> interruptUserMessageForDisplay({
     required String roomId,
     required String messageId,
+    BrainWorkFence? workFence,
+    ImmersiveMessage? expectedSourceUser,
   }) => db.interruptImmersiveUserMessageForDisplay(
         roomId: roomId,
         messageId: messageId,
-        workFence: stateFence,
+        workFence: workFence ?? stateFence,
+        expectedSourceUser: expectedSourceUser,
       );
+
+  /// Assistant admission is tied to the original user snapshot and cancellation
+  /// signal. The final synchronous check is the local commit decision point.
+  Future<ImmersiveMessage> addAssistantReply({
+    required String roomId,
+    required ImmersiveMessage sourceUser,
+    required GenerationCancellationToken cancellation,
+    required BrainWorkFence workFence,
+    required String content,
+    String reasoningContent = '',
+    String formContextJson = '',
+    String? expectedDraft,
+  }) {
+    if (!sourceUser.isUser || sourceUser.roomId != roomId) {
+      throw const BrainWorkInvalidated();
+    }
+    return _addMessage(roomId: roomId, role: 'assistant', content: content,
+        reasoningContent: reasoningContent, formContextJson: formContextJson,
+        sourceUser: sourceUser, cancellation: cancellation,
+        expectedDraft: expectedDraft, workFence: workFence);
+  }
 
   Future<ImmersiveMessage> addMessage({
     required String roomId,
@@ -331,6 +366,19 @@ class ImmersiveRoomRepository {
     required String content,
     String reasoningContent = '',
     String formContextJson = '',
+  }) => _addMessage(roomId: roomId, role: role, content: content,
+      reasoningContent: reasoningContent, formContextJson: formContextJson);
+
+  Future<ImmersiveMessage> _addMessage({
+    required String roomId,
+    required String role,
+    required String content,
+    String reasoningContent = '',
+    String formContextJson = '',
+    ImmersiveMessage? sourceUser,
+    GenerationCancellationToken? cancellation,
+    BrainWorkFence? workFence,
+    String? expectedDraft,
   }) async {
     final now = DateTime.now().millisecondsSinceEpoch;
     final message = ImmersiveMessage(
@@ -343,9 +391,19 @@ class ImmersiveRoomRepository {
       createdAt: DateTime.fromMillisecondsSinceEpoch(now),
     );
     await _write((txn) async {
+      cancellation?.throwIfCancelled();
       final open = await txn.query('immersive_rooms', columns: ['id'],
           where: "id = ? AND status != 'ended'", whereArgs: [roomId], limit: 1);
       if (open.isEmpty) throw const BrainWorkInvalidated();
+      if (sourceUser != null) {
+        await _requireReplySource(txn, roomId, sourceUser);
+      }
+      final draftKey = 'immersive_pending_reply_${Uri.encodeComponent(roomId)}';
+      if (expectedDraft != null &&
+          await BrainWorkFence.value(txn, draftKey) != expectedDraft) {
+        throw const BrainWorkInvalidated();
+      }
+      cancellation?.throwIfCancelled();
       await txn.insert('immersive_messages', {
         'id': message.id,
         'room_id': roomId,
@@ -361,9 +419,57 @@ class ImmersiveRoomRepository {
         where: "id = ? AND status != 'ended'",
         whereArgs: [roomId],
       );
-    });
+      if (expectedDraft != null) {
+        await txn.insert('settings', {'key': draftKey, 'value': ''},
+            conflictAlgorithm: ConflictAlgorithm.replace);
+      }
+      if (sourceUser != null && beforeAssistantCommit != null) {
+        await beforeAssistantCommit!(txn);
+      }
+      // Throwing inside the callback rolls back message, room and draft. A
+      // false return after insert would still COMMIT them. No awaits follow.
+      cancellation?.throwIfCancelled();
+    }, workFence: workFence);
     return message;
   }
+
+  Future<void> saveIncompleteReply({
+    required String roomId,
+    required ImmersiveMessage sourceUser,
+    required GenerationCancellationToken cancellation,
+    required BrainWorkFence workFence,
+    required String rawDraft,
+  }) => _write((txn) async {
+    cancellation.throwIfCancelled();
+    await _requireReplySource(txn, roomId, sourceUser);
+    cancellation.throwIfCancelled();
+    await txn.insert('settings', {
+      'key': 'immersive_pending_reply_${Uri.encodeComponent(roomId)}',
+      'value': rawDraft,
+    }, conflictAlgorithm: ConflictAlgorithm.replace);
+    if (beforeDraftCommit != null) await beforeDraftCommit!(txn);
+    cancellation.throwIfCancelled();
+  }, workFence: workFence);
+
+  static Future<void> _requireReplySource(Transaction txn, String roomId,
+      ImmersiveMessage source) async {
+    final room = await txn.query('immersive_rooms', columns: ['id'],
+        where: "id = ? AND status != 'ended'", whereArgs: [roomId], limit: 1);
+    final latest = await txn.query('immersive_messages',
+        where: 'room_id = ?', whereArgs: [roomId],
+        orderBy: 'created_at DESC, rowid DESC', limit: 1);
+    if (room.isEmpty || !source.isUser || source.roomId != roomId ||
+        latest.isEmpty || !_sameSource(latest.single, source)) {
+      throw const BrainWorkInvalidated();
+    }
+  }
+
+  static bool _sameSource(Map<String, Object?> row, ImmersiveMessage source) =>
+      row['id'] == source.id && row['room_id'] == source.roomId &&
+      row['role'] == 'user' && row['content'] == source.content &&
+      (row['reasoning_content'] ?? '') == source.reasoningContent &&
+      (row['form_context_json'] ?? '') == source.formContextJson &&
+      row['created_at'] == source.createdAt.millisecondsSinceEpoch;
 
   /// Deletes a completed assistant reply only when it is still the newest
   /// room message and directly follows a user turn. This keeps regeneration

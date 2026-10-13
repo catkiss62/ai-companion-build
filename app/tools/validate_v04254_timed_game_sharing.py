@@ -5,13 +5,23 @@ def read(name):
     return (app / name).read_text()
 
 task = read('lib/core/mcp/cedar_timed_play_task.dart')
-for token in ('activateCommitted', 'messageById(assistantId)',
+for token in ('activateCommitted', 'commitStagedInTransaction',
               'setSettingsAtomically', 'runtime_interrupted', 'changed_game',
               'budget_complete', 'pendingReports', 'cedar-share:',
               "lifecycleState: 'task_report'", 'contentIncluded',
               'CedarToyAutonomyEngine.continueDue'):
     assert token in task, token
 assert 'Timer.periodic' not in task and 'client.play(' not in task
+# A stable assistant ID can be reused by a later reply. Only the exact
+# committed registration ticket grants activation, never message existence.
+activation = task.split('Future<void> _activateCommitted(', 1)[1].split('Future<void> recordProgress(', 1)[0]
+for token in ('handle.transaction', 'fence.matches(txn)', 'receipt.committed',
+              "ticket['effectId'] != receipt.effectId",
+              "ticket['messageHash'] != receipt.messageHash",
+              "ticket['messageRevision'] != receipt.messageRevision",
+              "stageHash(pending) != pending['stageHash']"):
+    assert token in activation, token
+assert 'messageById(assistantId)' not in activation
 registry = read('lib/core/agent/agent_tool_registry.dart')
 entry = registry.split('static const cedarToyTimedPlay', 1)[1].split(');', 1)[0]
 assert 'autonomousAvailable: false' in entry
@@ -19,6 +29,10 @@ runner = read('lib/core/agent/agent_tool_runner.dart')
 assert 'durationMinutes(' in runner and 'userMessageId.isEmpty' in runner
 generation = read('lib/core/ai/durable_generation_runner.dart')
 assert generation.index('activateCommitted(turnId: user.id') > generation.index('if (!committed)')
+database = read('lib/core/database/app_database.dart')
+commit = database.split('Future<bool> completeGenerationJobIfCurrent(', 1)[1].split('Future<GenerationJob?> failGenerationJob(', 1)[0]
+assert 'CedarTimedPlayTaskStore.commitStagedInTransaction(txn,' in commit
+assert "throw const TurnCommitRejected('timed_goal_changed_before_commit')" in commit
 engine = read('lib/core/mcp/cedar_toy_autonomy_engine.dart')
 for token in ('share_previous_outcome', 'planningContext(session, now)',
               'share: decision.sharePreviousOutcome', 'timed_task_complete',
@@ -30,7 +44,8 @@ for token in ('isResultSnapshot', 'isReadOnly', "state['evaluated']",
     assert token in share, token
 assert 'completeJson(' not in share and 'streamChat(' not in share
 proactive = read('lib/core/desire/proactive_engine.dart')
-assert 'queueReport()' in proactive and 'tasks.acknowledge' in proactive
+assert 'queueReport(' in proactive
+assert 'CedarTimedPlayTaskStore(db).acknowledge(claim.reportId)' in proactive
 assert "'cedar-share:${intentThought!.id}'" in proactive
 assert 'queuedCedarShares.contains(thought.id)' in proactive
 # Older unsolicited memories retain the original limits. The direct queue
