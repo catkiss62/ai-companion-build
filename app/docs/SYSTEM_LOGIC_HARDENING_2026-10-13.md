@@ -117,3 +117,5 @@ G6：同步 PlaybackIntent 在翻译/情绪/设置前建立，Stop/新播放使�
 白名单修正版远端 `5a81240c4468d1130f4268a27dd47d617badfc31`，与本地 `45fd435` 同树 `170ea290e0dbbc49123aa5cd5ad3f78e26f37843`；统一重跑 `38372415648`，结果待确认。
 
 统一第二轮 `38372415648`：Android 15/8、150 源码门、Node、Kotlin 和 Flutter 分析通过；全量 Flutter 2143 通过、19 失败，未开始 APK。修正 raw import 的运行 epoch 与导入工作租约、限定资格重排仅影响真实对话角色；更新同毫秒/缺失原始消息/TTS 默认关闭等夹具，以及 G4 短反馈可申请审核、G5 同正文重插版本失效的旧断言。先在 `agent/v042104-regression-fixes` 跑失败链针对性回归，再统一完整构建，未跳过完整验收。
+
+针对性 `38376352689`：分析/Node 通过，231 Flutter 用例通过，仅 1 个审核 fixture 的无泛型 Map.addAll 运行时类型异常；诊断为 reviewer unavailable。改为显式 `Map<String,dynamic>` 后重跑。产品恢复/来源/偏好/播放用例已通过该轮，完整 APK 仍待后续统一构建。

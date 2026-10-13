@@ -283,10 +283,10 @@ void main() {
     final engine = DeepReflectionEngine(db, reviewer: (_) async {
       calls++;
       if (calls == 1) return topic();
-      final next = topic();
-      (next['topic'] as Map).addAll({'question': '新的经历怎样改变对不确定的理解？',
+      final next = Map<String, dynamic>.from(topic()['topic'] as Map);
+      next.addAll({'question': '新的经历怎样改变对不确定的理解？',
         'new_angle': '这次加入了先尝试再解释的新认识', 'source_id': 'chat:new-source'});
-      return next;
+      return {'topic': next};
     });
     expect(await engine.maybePrepare(now: now), isTrue);
     final state = jsonDecode((await db.getSetting(DeepReflectionStore.stateKey))!) as Map;
