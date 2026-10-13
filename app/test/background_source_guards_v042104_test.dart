@@ -107,10 +107,9 @@ void main() {
   }
 
   test('durable RP pair outside candidate window excludes unmarked user text and photo', () async {
-    final created = await db.createGenerationTurn(user: user(), assistantMessageId: 'paired',
+    final created = await db.createGenerationTurn(user: user().copyWith(attachments: [photo()]), assistantMessageId: 'paired',
       model: 'deepseek-flash', reasoningEffort: 'high');
     final job = (await db.claimGenerationJob(created.id))!;
-    await db.insertMessageWithAttachments(user(), [photo()]);
     expect(await db.completeGenerationJobIfCurrent(jobId: job.id, runToken: job.runToken,
       assistant: ChatMessage(id: 'paired', role: 'assistant', content: '角色扮演里的回答',
         worldBookContextJson: rp(), createdAt: now.subtract(const Duration(days: 15)))), isTrue);
@@ -300,7 +299,8 @@ void main() {
     expect(await engine.maybePrepare(now: now.add(const Duration(days: 2))), isFalse);
     expect(calls, 1);
     expect(await db.getSetting(DeepReflectionStore.stateKey), pausedRaw);
-    expect(await engine.maybePrepare(now: now.add(const Duration(days: 3, hours: 1))), isTrue);
+    expect(await engine.maybePrepare(now: now.add(const Duration(days: 3, hours: 1))), isTrue,
+      reason: 'calls=$calls diagnostic=${await db.getSetting(DeepReflectionStore.diagnosticKey)} sources=${await engine.collect(now.add(const Duration(days: 3, hours: 1)))}');
     expect(calls, 2);
     final saved = jsonDecode((await db.getSetting(DeepReflectionStore.stateKey))!) as Map;
     expect(saved['topic']['source_id'], 'chat:new-source');

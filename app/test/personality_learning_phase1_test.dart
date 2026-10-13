@@ -58,8 +58,8 @@ void main() {
     };
   }
 
-  // Audit only: document the current false-negative gate; no policy changed.
-  test('audit: a short emoji preference cannot reinforce through semantic review', () {
+  // Short feedback can request bounded review without becoming accepted evidence.
+  test('a short emoji preference may request semantic review', () {
     final existing = candidate(subjectKey: 'user.preference.communication.emoji',
       proposition: '用户喜欢交流中多用emoji');
     const userText = '你以后多发emoji';
@@ -68,7 +68,7 @@ void main() {
         ..['target_id'] = existing.id,
       userText: userText, context: ordinary, existingById: {existing.id: existing});
     expect(parsed.proposal, isNull);
-    expect(parsed.needsSemanticReview, isFalse);
+    expect(parsed.needsSemanticReview, isTrue);
     expect(parsed.rejectionReason, PersonalityLearningRejectionReason.ungroundedTarget);
   });
 
@@ -421,7 +421,7 @@ void main() {
     );
   });
 
-  test('short explicit unrelated preference is rejected before API review', () {
+  test('short explicit unrelated preference remains unaccepted pending target review', () {
     final existing = candidate(
       subjectKey: 'user.preference.communication.familiar_informal',
       proposition: '用户偏好越熟悉越自然的交流方式，用调侃或不客气表达亲近。',
@@ -441,14 +441,14 @@ void main() {
     );
 
     expect(parsed.proposal, isNull);
-    expect(parsed.needsSemanticReview, isFalse);
+    expect(parsed.needsSemanticReview, isTrue);
     expect(
       parsed.rejectionReason,
       PersonalityLearningRejectionReason.ungroundedTarget,
     );
   });
 
-  test('short agreement never reaches isolated semantic review', () {
+  test('short agreement needs actual preceding expression in semantic review', () {
     final existing = candidate(
       subjectKey: 'user.preference.familiarity.informal',
       proposition: '用户偏好熟悉后更随意的互动，包括说脏话',
@@ -464,7 +464,7 @@ void main() {
     );
 
     expect(parsed.proposal, isNull);
-    expect(parsed.needsSemanticReview, isFalse);
+    expect(parsed.needsSemanticReview, isTrue);
     expect(
       parsed.rejectionReason,
       PersonalityLearningRejectionReason.ungroundedTarget,

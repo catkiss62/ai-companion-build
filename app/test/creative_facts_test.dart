@@ -188,7 +188,7 @@ void main() {
     final play = CreativePlay(db, w['id'] as String); await play.open();
     final snap = await play.captureSnapshot();
     final user = ChatMessage(id: 'inside', role: 'user', content: '这局结束啦', createdAt: DateTime.now());
-    final assistant = ChatMessage(id: 'answer', role: 'assistant', content: '下次再一起玩。', createdAt: DateTime.now());
+    final assistant = ChatMessage(id: 'answer', role: 'assistant', content: '下次再一起玩。', createdAt: user.createdAt.add(const Duration(milliseconds: 1)));
     await db.setSetting('${CreativeContract.chatPrefix}${user.id}', jsonEncode(snap.data));
     for (var i = 0; i < 6; i++) { await work('新任务$i', ready: false, updated: 100 + i); }
     await db.insertMessage(user); await db.insertMessage(assistant);
@@ -210,8 +210,12 @@ void main() {
     expect(requests.single, isNot(contains('SEALED_SECRET')));
     expect(await db.getSetting('last_memory_error'), '');
     requests.clear();
-    await extractor.extractFromTurn(user: ChatMessage(id: 'outside', role: 'user',
-      content: '星光迷宫很好玩', createdAt: DateTime.now()), assistant: assistant);
+    final outside = ChatMessage(id: 'outside', role: 'user',
+      content: '星光迷宫很好玩', createdAt: DateTime.now());
+    final outsideAnswer = ChatMessage(id: 'outside-answer', role: 'assistant',
+      content: assistant.content, createdAt: outside.createdAt.add(const Duration(milliseconds: 1)));
+    await db.insertMessage(outside); await db.insertMessage(outsideAnswer);
+    await extractor.extractFromTurn(user: outside, assistant: outsideAnswer);
     expect(requests, hasLength(1));
     expect(requests.single, contains('星光迷宫'));
     expect(requests.single, isNot(contains('PAGE_DETAIL_SECRET')));

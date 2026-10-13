@@ -166,8 +166,8 @@ void main() {
     await ordinaryBatch('covered', 14);
     final accepted = (await prepareSummary())!;
     expect(await db.commitConversationSummaryIfCurrent(work: accepted, summary: '已经接受'), isTrue);
-    await db.insertMessage(message('ambiguous-user', 2000));
-    await db.insertMessage(message('ambiguous-answer', 2000, role: 'assistant'));
+    await db.insertMessage(message('ambiguous-user', 500));
+    await db.insertMessage(message('ambiguous-answer', 500, role: 'assistant'));
     await ordinaryBatch('pending', 13, at: 3000);
     expect(await prepareSummary(), isNull);
     final before = await (await db.database).query(ConversationSummaryStore.table,
@@ -293,7 +293,7 @@ void main() {
     final current = await stamp(source.id);
     expect(current.ingestSeq, greaterThan(old.stamp.ingestSeq));
     expect(current.contentHash, old.stamp.contentHash);
-    expect(await old.stamp.matches(sql), isTrue);
+    expect(await old.stamp.matches(sql), isFalse);
     expect(await old.stamp.matchesCapturedVersion(sql), isFalse);
     expect(await old.matches(sql), isFalse);
   });

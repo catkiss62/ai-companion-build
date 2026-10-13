@@ -422,9 +422,9 @@ class ConversationSourceStore {
         if (job[key] is String) ids.add(job[key] as String);
       }
     }
-    if (row['is_proactive'] != 1) {
+    if (row['is_proactive'] != 1 && const {'user', 'assistant'}.contains(row['role'])) {
       final bucket = await db.query('messages', columns: ['id'],
-        where: 'created_at = ? AND is_proactive = 0', whereArgs: [row['created_at']]);
+        where: "created_at = ? AND is_proactive = 0 AND role IN ('user','assistant')", whereArgs: [row['created_at']]);
       ids.addAll(bucket.map((r) => r['id'] as String));
       for (final before in const [true, false]) {
         final peer = await db.rawQuery('SELECT id FROM messages WHERE is_proactive = 0 '

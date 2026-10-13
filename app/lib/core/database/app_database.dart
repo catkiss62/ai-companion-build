@@ -20717,6 +20717,26 @@ class AppDatabase {
         await CedarTimedPlayTaskStore.cancelPendingInTransaction(txn,
           reason: 'restored_before_activation', now: DateTime.now());
       }
+      // Restoring data cannot restore the source process's worker leases.
+      // Keep this host's in-memory owners until their old finally blocks settle;
+      // explicit target-host overrides are applied after clearing imported leases.
+      for (final key in const [
+        'snapshot_restore_lease_v1', 'shared_media_files_lease_v1',
+        'immersive_room_lease', 'proactive_lease_until',
+        'memory_maintenance_lease_until', 'relationship_assimilation_lease_until',
+        'deferred_followup_lease_until', 'self_drive_lease_until',
+        'companion_wish_review_lease_until', 'deep_reflection_prepare_lease_until',
+        'thought_lifecycle_lease_until', 'thought_consolidation_lease_until',
+        'ai_self_reflection_lease_until', 'conversation_summary_lease_until',
+        'long_running_maintenance_lease', 'post_turn_memory_lease', 'chat_turn_lease',
+        'cedar_toy_action_lease_until', 'cedar_timed_play_task_lease_v1',
+        'recovery_orchestrator_lease_until', 'calendar_reminder_followup_lease_until',
+        'immersive_archive_lease_until', 'simulated_phone_refresh_lease_until',
+        'simulated_phone_media_lease_until',
+      ]) {
+        await txn.insert('settings', {'key': key, 'value': '0'},
+          conflictAlgorithm: ConflictAlgorithm.replace);
+      }
       for (final entry in runtimeSettingOverrides.entries) {
         await txn.insert(
           'settings',
@@ -20724,6 +20744,14 @@ class AppDatabase {
           conflictAlgorithm: ConflictAlgorithm.replace,
         );
       }
+
+      // Every successful restore creates a new write boundary even when all
+      // imported messages are identical. The formal restore coordinator may
+      // supply its unique recovery ID so its activation receipt stays bound.
+      final suppliedEpoch = runtimeSettingOverrides['runtime_state_epoch_v1'];
+      await txn.insert('settings', {'key': 'runtime_state_epoch_v1',
+        'value': suppliedEpoch != null && suppliedEpoch.isNotEmpty
+            ? suppliedEpoch : _uuid.v4()}, conflictAlgorithm: ConflictAlgorithm.replace);
 
       // Current-state awareness from the source device is useful briefly after
       // takeover, but must not masquerade as the target device's live state.

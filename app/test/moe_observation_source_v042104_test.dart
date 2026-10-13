@@ -287,7 +287,11 @@ void main() {
     await db.insertMessage(assistant);
     final incomplete = (await ConversationSourceStore.qualifyMessage(await db.database, assistant.id))!;
     expect(incomplete.reason, 'incomplete_durable_turn');
-    await commit('after-waiting', time: at.add(const Duration(minutes: 1)));
+    // A later standalone committed reply can exist while this durable job is
+    // pending; the production writer correctly forbids a second active job.
+    await db.insertMessage(ChatMessage(id: 'a-after-waiting', role: 'assistant',
+      isProactive: true, content: '稍后提交的独立回复', emotionKey: 'playful',
+      createdAt: at.add(const Duration(minutes: 1))));
     await MoeShadowCoordinator(db).reconcileRecentCommittedTurns();
     expect(await cursor(), lessThan(incomplete.stamp.ingestSeq));
     expect(await events(), isEmpty);

@@ -23,7 +23,7 @@ void main() {
     await db.insertMessage(ChatMessage(id: 'user', role: 'user',
       content: '今天看到了漂亮的落叶。', createdAt: now));
     await db.insertMessage(ChatMessage(id: 'assistant', role: 'assistant',
-      content: '那个颜色很适合秋天。', createdAt: now));
+      content: '那个颜色很适合秋天。', createdAt: now.add(const Duration(milliseconds: 1))));
     await db.enqueuePostTurnJob(userMessageId: 'user', assistantMessageId: 'assistant');
   });
 

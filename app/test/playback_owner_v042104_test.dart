@@ -19,6 +19,7 @@ void main() {
   const channel = MethodChannel('ai_companion/tts');
   setUp(() async {
     db = await AppDatabase.createForTesting(databaseFactoryFfi);
+    await db.setSetting('tts_enabled', '1');
     current = 0; calls.clear();
     TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger.setMockMethodCallHandler(channel, (call) async {
       calls.add(call);
