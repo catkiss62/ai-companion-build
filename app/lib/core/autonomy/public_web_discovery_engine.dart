@@ -174,7 +174,7 @@ class PublicWebDiscoveryEngine {
           const AiInterestEvidencePolicy().freshnessAt(at, instant) >= .25;
       }).map((row) => row['label'] as String? ?? '');
       final preferences = await sql.query('memory_items', columns: ['content'],
-        where: "kind = 'preference' AND status = 'active' AND confidence >= 0.7",
+        where: "kind = 'preference' AND status = 'active' AND source_valid = 1 AND confidence >= 0.7",
         orderBy: 'updated_at DESC', limit: 24);
       final recent = await db.recentMessages(limit: 32);
       topic = RecentWebTopics.choose(fallback: topic, now: instant,

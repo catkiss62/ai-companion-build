@@ -2,6 +2,7 @@ import '../agent/agent_tool.dart';
 import '../ai/deepseek_client.dart';
 import '../ai/generation_cancellation.dart';
 import '../database/app_database.dart';
+import '../database/brain_work_fence.dart';
 import '../desire/desire_engine.dart';
 import '../models/desire_state.dart';
 import '../models/public_web_candidate.dart';
@@ -24,11 +25,13 @@ class PublicWebReadService {
     SecureConfig? secureConfig,
     this.ai,
     this.reader,
+    this.workFence,
   }) : secureConfig = secureConfig ?? SecureConfig.instance;
   final AppDatabase db;
   final SecureConfig secureConfig;
   final DeepSeekClient? ai;
   final WebCandidateReader? reader;
+  final BrainWorkFence? workFence;
 
   static bool usable(PublicWebCandidateDraft page) =>
       page.isVerifiedRead &&
@@ -85,7 +88,9 @@ class PublicWebReadService {
     GenerationCancellationToken? cancellation,
     DateTime? now,
   }) async {
-    final source = await db.publicWebCandidateForRefresh(id);
+    if (workFence != null && !await db.brainWorkFenceCurrent(workFence!)) return false;
+    final snapshot = await db.publicWebCandidateReadSnapshot(id);
+    final source = snapshot?.draft;
     if (source == null ||
         const {
           'user_deleted',
@@ -120,6 +125,11 @@ class PublicWebReadService {
       id,
       refreshed,
       expectedContentSha: source.contentSha256,
+      expectedMaterialHash: workFence == null ? null : snapshot!.materialHash,
+      expectedReadState: workFence == null ? null : source.readState,
+      expectedSemanticState: workFence == null ? null : source.semanticState,
+      expectedLifecycleState: workFence == null ? null : source.appraisalState,
+      workFence: workFence,
     );
   }
 
@@ -164,8 +174,9 @@ class PublicWebReadService {
       rethrow;
     } finally {
       try {
-        await db.setSetting('web_prompt_read_timing_v1',
-          '${DateTime.now().millisecondsSinceEpoch}|${pages.length}|${ready.length}|${clock.elapsedMilliseconds}');
+        await db.setSettingsAtomically({'web_prompt_read_timing_v1':
+          '${DateTime.now().millisecondsSinceEpoch}|${pages.length}|${ready.length}|${clock.elapsedMilliseconds}'},
+          workFence: workFence);
       } catch (_) { /* Timing never changes reply outcome. */ }
     }
   }

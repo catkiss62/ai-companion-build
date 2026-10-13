@@ -74,15 +74,16 @@ class DeepReflectionStore {
 
   Future<DeepReflectionContext?> claimInvitation(
     String id,
-    DateTime now,
-  ) async {
+    DateTime now, {
+    BrainWorkFence? workFence,
+  }) async {
+    final fence = workFence == null
+        ? await db.captureBrainWorkFence(settingKeys: [enabledKey, resetKey])
+        : await db.extendBrainWorkFence(workFence, settingKeys: [enabledKey, resetKey]);
+    if (fence == null) return null;
     final context = await this.context(now: now, invite: true);
     if (context == null || context.topic['id'] != id) return null;
-    final fence = await db.captureBrainWorkFence(
-      settingKeys: [enabledKey, resetKey],
-    );
-    if (fence == null ||
-        fence.expectedSettings[enabledKey] == '0' ||
+    if (fence.expectedSettings[enabledKey] == '0' ||
         fence.expectedSettings[resetKey] != context.reset)
       return null;
     final last = await db.getSetting(contactKey) ?? '';

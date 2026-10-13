@@ -22,6 +22,7 @@ class GenerationJob {
     this.lastError = '',
     this.resumeReason = '',
     this.formContextJson = '',
+    this.assistantSourceRevision = 0,
   });
 
   final String id;
@@ -46,6 +47,7 @@ class GenerationJob {
   final String lastError;
   final String resumeReason;
   final String formContextJson;
+  final int assistantSourceRevision;
 
   bool get isTerminal =>
       status == 'completed' ||
@@ -58,6 +60,7 @@ class GenerationJob {
 
   factory GenerationJob.fromDb(Map<String, Object?> row) => GenerationJob(
         id: row['id'] as String,
+        assistantSourceRevision: (row['assistant_source_revision'] as num?)?.toInt() ?? 0,
         userMessageId: row['user_message_id'] as String,
         assistantMessageId: row['assistant_message_id'] as String,
         status: row['status'] as String? ?? 'pending',

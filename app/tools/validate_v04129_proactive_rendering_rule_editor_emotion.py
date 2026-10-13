@@ -83,11 +83,11 @@ assert "（暂无正文）" in editor
 
 for token in (
     "EmotionSoundService? emotionSoundService",
-    "final emotionLeadIn = emotionSounds.play(visual)",
-    "leadIn: emotionLeadIn",
+    "leadInFactory: (intent) => emotionSounds.play(visual, intent: intent)",
+    "leadIn: leadIn",
 ):
     assert token in (proactive + chat_controller), token
-for token in ("Future<void>? leadIn", "leadIn: leadIn"):
+for token in ("Future<void>? leadIn", "leadIn: preparedLeadIn"):
     assert token in tts, token
 assert "if (asset == null" in emotion_sound
 assert "emotion_sound_enabled" in emotion_sound

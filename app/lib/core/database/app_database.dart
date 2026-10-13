@@ -1,9 +1,12 @@
+import 'derived_source_store.dart';
+import '../memory/personality_learning_lifecycle.dart';
 import '../models/immersive_room.dart';
 import '../agent/turn_execution_store.dart';
 import '../mcp/cedar_timed_play_task.dart';
 import '../storage/pending_media_owner.dart';
 import 'generation_attempt_fence.dart';
 import 'conversation_source_store.dart';
+import 'conversation_summary_store.dart';
 import '../creative/creative_contract.dart';
 import '../creative/creative_autonomy_policy.dart';
 import '../creative/creative_share.dart';
@@ -44,6 +47,10 @@ import '../models/emotion_episode.dart';
 import '../models/autonomous_action.dart';
 import '../models/public_web_candidate.dart';
 import '../autonomy/ai_interest_evidence_policy.dart';
+import '../autonomy/public_web_share_contract.dart';
+import '../autonomy/public_web_share_policy.dart';
+import '../desire/thought_feed_policy.dart';
+import '../desire/thought_similarity.dart';
 import '../autonomy/ai_interest_consumption_policy.dart';
 import '../models/message_attachment.dart';
 import '../models/media_blob.dart';
@@ -1876,9 +1883,17 @@ class AppDatabase {
 
   Future<void> _ensureDeepWebColumns(Database db) async {
     for (final entry in const <String, Map<String, String>>{
-      'generation_jobs': {'deep_thinking': 'INTEGER NOT NULL DEFAULT 0'},
-      'messages': {'deep_thinking': 'INTEGER NOT NULL DEFAULT 0'},
-      'public_web_candidates': {'page_body': "TEXT NOT NULL DEFAULT ''"},
+      'generation_jobs': {'deep_thinking': 'INTEGER NOT NULL DEFAULT 0', 'assistant_source_revision': 'INTEGER NOT NULL DEFAULT 0'},
+      'messages': {'deep_thinking': 'INTEGER NOT NULL DEFAULT 0', 'source_revision': 'INTEGER NOT NULL DEFAULT 0'},
+      'memory_items': {'source_valid': 'INTEGER NOT NULL DEFAULT 1'},
+      'memory_evidence': {'source_valid': 'INTEGER NOT NULL DEFAULT 1'},
+      'conversation_summaries': {'source_valid': 'INTEGER NOT NULL DEFAULT 1'},
+      'personality_learning_candidates': {'lifecycle_json': "TEXT NOT NULL DEFAULT ''"},
+      'personality_learning_evidence': {'lifecycle_json': "TEXT NOT NULL DEFAULT ''", 'source_stamp_json': "TEXT NOT NULL DEFAULT ''", 'context_stamp_json': "TEXT NOT NULL DEFAULT ''", 'source_valid': 'INTEGER NOT NULL DEFAULT 1'},
+      'public_web_candidates': {'page_body': "TEXT NOT NULL DEFAULT ''",
+        'share_stage_token': "TEXT NOT NULL DEFAULT ''",
+        'share_stage_until': 'INTEGER NOT NULL DEFAULT 0',
+        'shared_message_id': "TEXT NOT NULL DEFAULT ''"},
     }.entries) {
       final columns = (await db.rawQuery('PRAGMA table_info(${entry.key})'))
           .map((row) => row['name']).toSet();
@@ -1894,7 +1909,15 @@ class AppDatabase {
     // Additive schema-61 metadata: legacy rows retain unknown defaults.
     await ensureFormContextColumns(db);
     await ensureMemoryRevisionColumns(db);
-    await db.transaction(ConversationSourceStore.ensureSchema);
+    await db.transaction((txn) async {
+      await DerivedSourceStore.ensureSchema(txn);
+      await ConversationSourceStore.ensureSchema(txn);
+      await ConversationSummaryStore.ensureSchema(txn);
+      if ((await txn.rawQuery('PRAGMA table_info(personality_learning_candidates)')).isNotEmpty) {
+        final legacy = await txn.query('personality_learning_candidates', columns: ['id'], where: "lifecycle_json = ''");
+        for (final row in legacy) await _recomputePersonalityLearningCandidate(txn, row['id'] as String, DateTime.now().millisecondsSinceEpoch);
+      }
+    });
     // Local execution ownership is additive and deliberately absent from backups.
     if ((await db.rawQuery('PRAGMA table_info(media_blobs)')).isNotEmpty) {
       await db.execute('CREATE TABLE IF NOT EXISTS pending_media_owners ('
@@ -1914,6 +1937,7 @@ class AppDatabase {
       'source_user_message_id': "TEXT NOT NULL DEFAULT ''",
       'source_assistant_message_id': "TEXT NOT NULL DEFAULT ''",
       'source_context_json': "TEXT NOT NULL DEFAULT ''",
+      'evidence_time_known': 'INTEGER NOT NULL DEFAULT 0',
     }.entries) {
       if (!columns.contains(column.key)) {
         await db.execute('ALTER TABLE memory_items ADD COLUMN ${column.key} ${column.value}');
@@ -1923,6 +1947,9 @@ class AppDatabase {
         .map((row) => row['name']).toSet();
     if (evidenceColumns.isNotEmpty && !evidenceColumns.contains('source_context_json')) {
       await db.execute("ALTER TABLE memory_evidence ADD COLUMN source_context_json TEXT NOT NULL DEFAULT ''");
+    }
+    if (evidenceColumns.isNotEmpty && !evidenceColumns.contains('source_observed_at')) {
+      await db.execute('ALTER TABLE memory_evidence ADD COLUMN source_observed_at INTEGER');
     }
   }
 
@@ -2754,7 +2781,21 @@ class AppDatabase {
     }
   }
 
+  Future<void> _ensureLearningLifecycleColumns(DatabaseExecutor txn) async {
+    for (final entry in const <String, Map<String, String>>{
+      'personality_learning_candidates': {'lifecycle_json': "TEXT NOT NULL DEFAULT ''"},
+      'personality_learning_evidence': {'lifecycle_json': "TEXT NOT NULL DEFAULT ''", 'source_stamp_json': "TEXT NOT NULL DEFAULT ''", 'context_stamp_json': "TEXT NOT NULL DEFAULT ''", 'source_valid': 'INTEGER NOT NULL DEFAULT 1'},
+    }.entries) {
+      final columns = (await txn.rawQuery('PRAGMA table_info(${entry.key})')).map((row) => row['name']).toSet();
+      if (columns.isEmpty) continue;
+      for (final column in entry.value.entries) {
+        if (!columns.contains(column.key)) await txn.execute('ALTER TABLE ${entry.key} ADD COLUMN ${column.key} ${column.value}');
+      }
+    }
+  }
+
   Future<void> _stabilizeV44Data(DatabaseExecutor txn) async {
+    await _ensureLearningLifecycleColumns(txn);
     final nowMs = DateTime.now().millisecondsSinceEpoch;
 
     // One logical source may have accumulated many active envelopes because
@@ -2890,63 +2931,10 @@ class AppDatabase {
       );
       return;
     }
-    var supportScore = 0.0;
-    var contradictionScore = 0.0;
-    var supportCount = 0;
-    var contradictionCount = 0;
-    for (final row in rows) {
-      final weight = (row['weight'] as num?)?.toDouble() ?? 0.0;
-      if (row['polarity'] == 'contradict') {
-        contradictionScore += weight;
-        contradictionCount += 1;
-      } else {
-        supportScore += weight;
-        supportCount += 1;
-      }
-    }
-    final latest = rows.first;
-    final maturity = PersonalityLearningMaturityPolicy.evaluate(
-      supportScore: supportScore,
-      contradictionScore: contradictionScore,
-      supportCount: supportCount,
-      contradictionCount: contradictionCount,
-      latestPolarity:
-          PersonalityLearningPolarity.parse(latest['polarity'] as String?) ??
-              PersonalityLearningPolarity.support,
-      latestKind: PersonalityLearningEvidenceKind.parse(
-            latest['evidence_kind'] as String?,
-          ) ??
-          PersonalityLearningEvidenceKind.explicitPreference,
-    );
-    final firstObserved = rows
-        .map((row) => (row['observed_at'] as num?)?.toInt() ?? nowMs)
-        .reduce(min);
-    final lastObserved =
-        (latest['observed_at'] as num?)?.toInt() ?? nowMs;
-    await txn.update(
-      'personality_learning_candidates',
-      {
-        'status': maturity.status.key,
-        'confidence': maturity.confidence,
-        'support_count': supportCount,
-        'contradiction_count': contradictionCount,
-        'support_score': supportScore,
-        'contradiction_score': contradictionScore,
-        'first_observed_at': firstObserved,
-        'last_observed_at': lastObserved,
-        'established_at': maturity.status ==
-                PersonalityLearningStatus.established
-            ? lastObserved
-            : null,
-        'contradicted_at': maturity.status ==
-                PersonalityLearningStatus.contradicted
-            ? lastObserved
-            : null,
-        'updated_at': nowMs,
-      },
-      where: 'id = ?',
-      whereArgs: [candidateId],
-    );
+    final aggregate = PersonalityLearningLifecycle.reduce(rows);
+    await txn.update('personality_learning_candidates', {
+      ...aggregate, 'updated_at': nowMs,
+    }, where: 'id = ?', whereArgs: [candidateId]);
   }
 
 
@@ -5562,11 +5550,9 @@ class AppDatabase {
     });
   }
 
-  Future<bool> recordProviderHealthEvent(ProviderHealthEvent event) async {
-    try {
-      final db = await database;
+  Future<void> _recordProviderHealthEventTxn(DatabaseExecutor txn, ProviderHealthEvent event) async {
       final createdAt = (event.createdAt ?? DateTime.now()).millisecondsSinceEpoch;
-      await db.insert('provider_health_events', {
+      await txn.insert('provider_health_events', {
         'id': _uuid.v4(),
         'lane': ProviderHealth.safeLane(event.lane),
         'context': ProviderHealth.safeContext(event.context),
@@ -5586,18 +5572,24 @@ class AppDatabase {
         'latency_bucket': ProviderHealth.safeLatencyBucket(event.latencyBucket),
         'created_at': createdAt,
       });
-      await db.delete(
+      await txn.delete(
         'provider_health_events',
         where: 'created_at < ?',
         whereArgs: [createdAt - const Duration(days: 14).inMilliseconds],
       );
-      await db.rawDelete('''
+      await txn.rawDelete('''
         DELETE FROM provider_health_events
         WHERE id NOT IN (
           SELECT id FROM provider_health_events
           ORDER BY created_at DESC LIMIT 500
         )
       ''');
+  }
+
+  Future<bool> recordProviderHealthEvent(ProviderHealthEvent event) async {
+    try {
+      final db = await database;
+      await _recordProviderHealthEventTxn(db, event);
       return true;
     } catch (_) {
       // Observability must never change the provider's user-visible behavior.
@@ -6360,6 +6352,7 @@ class AppDatabase {
           );
         }
       }
+      await ConversationSourceStore.sourceWillBeDeleted(txn, messageId);
       await txn.delete('messages', where: 'id = ?', whereArgs: [messageId]);
       return rows.map(MessageAttachment.fromDb).toList(growable: false);
     });
@@ -7527,6 +7520,7 @@ class AppDatabase {
           whereArgs: [userMessageId],
         );
         await _rollbackPlayfulFormTurn(txn, userMessageId);
+        await ConversationSourceStore.sourceWillBeDeleted(txn, userMessageId);
         await txn.delete(
           'messages',
           where: 'id = ? AND role = ?',
@@ -7590,6 +7584,7 @@ class AppDatabase {
           whereArgs: [userMessageId],
         );
         await _rollbackPlayfulFormTurn(txn, userMessageId);
+        await ConversationSourceStore.sourceWillBeDeleted(txn, userMessageId);
         await txn.delete(
           'messages',
           where: 'id = ? AND role = ?',
@@ -8106,6 +8101,11 @@ class AppDatabase {
           );
         }
       }
+      final oldSource = await ConversationSourceStore.captureMessage(txn, assistantMessageId);
+      if (oldSource != null) {
+        final affected = await DerivedSourceStore.revoke(txn, assistantMessageId, oldSource.revision);
+        for (final candidate in affected) await _recomputePersonalityLearningCandidate(txn, candidate, now);
+      }
       await MoodStore.removeTurn(txn, replyId: assistantMessageId);
       await DeepReflectionStore.undo(txn, replyId: assistantMessageId);
       await PlayfulFormStore.undoReplyInTransaction(txn, assistantMessageId);
@@ -8119,6 +8119,7 @@ class AppDatabase {
         where: 'turn_id = ?',
         whereArgs: [assistantMessageId],
       );
+      await ConversationSourceStore.sourceWillBeDeleted(txn, assistantMessageId);
       await txn.delete(
         'messages',
         where: 'id = ? AND role = ?',
@@ -8139,13 +8140,14 @@ class AppDatabase {
           'next_retry_at': null,
           'last_error': '',
           'resume_reason': 'user_regenerated_completed_reply',
+          'assistant_source_revision': ((jobs.first['assistant_source_revision'] as num?)?.toInt() ?? oldSource?.revision ?? 0) + 1,
           'updated_at': now,
         },
         where: 'id = ? AND status = ?',
         whereArgs: [job.id, 'completed'],
       );
       if (changed != 1) throw StateError('completed_reply_restart_lost');
-      await ConversationSourceStore.sourceChanged(txn, job.userMessageId);
+      await ConversationSourceStore.sourceChanged(txn, job.userMessageId, qualificationChanged: true);
       await _rebuildSomaticAggregates(
         txn,
         DateTime.fromMillisecondsSinceEpoch(now),
@@ -8174,13 +8176,15 @@ class AppDatabase {
     DeepReflectionContext? deepReflection,
     DeepReflectionUpdate? reflectionUpdate,
     List<SomaticEvent> somaticEvents = const <SomaticEvent>[],
+    void Function(ConversationSourceStamp)? onCommittedSource,
   }) async {
     if (assistant.attachments.any((item) => item.messageId != assistant.id)) {
       throw StateError('assistant_attachment_message_mismatch');
     }
     final db = await database;
     final now = DateTime.now().millisecondsSinceEpoch;
-    return db.transaction<bool>((txn) async {
+    ConversationSourceStamp? committedSource;
+    final accepted = await db.transaction<bool>((txn) async {
       final settingsRows = await txn.query(
         'settings',
         columns: ['key', 'value'],
@@ -8242,7 +8246,7 @@ class AppDatabase {
       if (existing.isEmpty) {
         await ConversationSourceStore.insertMessage(
           txn,
-          assistant.toDb(),
+          {...assistant.toDb(), 'source_revision': (jobs.first['assistant_source_revision'] as num?)?.toInt() ?? 0},
           conflictAlgorithm: ConflictAlgorithm.abort,
         );
         await _insertLanguageVariants(txn, assistant);
@@ -8367,10 +8371,14 @@ class AppDatabase {
         throw StateError('generation_commit_ownership_lost');
       }
       // The old user row has just acquired a committed paired provenance.
-      await ConversationSourceStore.sourceChanged(txn, job.userMessageId);
+      await ConversationSourceStore.sourceChanged(txn, job.userMessageId, qualificationChanged: true);
+      requireTurnNotCancelled(isCancelled);
+      committedSource = await ConversationSourceStore.captureMessage(txn, assistant.id);
       requireTurnNotCancelled(isCancelled);
       return true;
     });
+    if (accepted && committedSource != null) onCommittedSource?.call(committedSource!);
+    return accepted;
   }
 
   Future<GenerationJob?> failGenerationJob(
@@ -8514,6 +8522,8 @@ class AppDatabase {
     List<CedarDeliveryClaim> cedarDeliveries = const [],
     required DateTime evaluationStartedAt,
     BrainWorkFence? workFence,
+    List<PublicWebSourceStamp> publicWebSources = const [],
+    ExpectedPublicWebShare? expectedPublicWebShare,
     DeepReflectionContext? reflectionInvitation,
     CreativeShare? creativeShare,
     String? proactiveTriggerReason,
@@ -8529,6 +8539,19 @@ class AppDatabase {
     final db = await database;
     return db.transaction<String?>((txn) async {
       if (workFence != null && !await workFence.matches(txn)) return 'work_fence';
+      final webNow = DateTime.now();
+      if (expectedPublicWebShare != null) {
+        final delivered = await txn.query('public_web_candidates', columns: ['shared_message_id'],
+          where: 'id = ?', whereArgs: [expectedPublicWebShare.candidateId], limit: 1);
+        if (delivered.isNotEmpty && (delivered.single['shared_message_id'] as String? ?? '').isNotEmpty) {
+          return 'public_web_already_committed';
+        }
+        if (workFence == null || !await expectedPublicWebShare.matches(txn, now: webNow)) return 'public_web_changed';
+      }
+      for (final source in publicWebSources) {
+        if (workFence == null || !await source.matches(txn, now: webNow)) return 'public_web_source_changed';
+      }
+
       if (reflectionInvitation != null && !await DeepReflectionStore.current(txn, reflectionInvitation)) return 'reflection_changed';
       if (creativeShare != null && !await creativeShare.current(txn)) return 'creative_share_changed';
       final settingsRows = await txn.query(
@@ -8627,6 +8650,11 @@ class AppDatabase {
             claim: claim, messageId: message.id, messageHash: source.contentHash,
             messageRevision: source.revision, committedAt: sentAt.millisecondsSinceEpoch));
         }
+      }
+      if (expectedPublicWebShare != null) {
+        if (!await _markPublicWebShareOutcomeTxn(txn, expectedPublicWebShare.candidateId,
+            outcome: 'shared', instant: sentAt, messageId: message.id)) throw StateError('public_web_commit_lost');
+        await _commitPublicWebThoughtTxn(txn, expectedPublicWebShare, message.id, sentAt);
       }
       return null;
     });
@@ -9032,6 +9060,8 @@ class AppDatabase {
     String sourceUserMessageId = '',
     String sourceAssistantMessageId = '',
     String sourceContextJson = '',
+    DateTime? sourceObservedAt,
+    LocalSourceGuard? sourceGuard,
     Transaction? transaction,
   }) async {
     final normalized = content.trim();
@@ -9076,6 +9106,7 @@ class AppDatabase {
     }
 
     Future<bool> writeMemory(Transaction txn) async {
+      if (sourceGuard != null && !await sourceGuard(txn)) return false;
       Future<MemoryLifecycleProfile> lifecycleFor({
         required String lifecycleKind,
         required String lifecycleSemantic,
@@ -9123,16 +9154,30 @@ class AppDatabase {
           limit: 1,
         );
         if (already.isNotEmpty) return false;
+        final evidenceId = _uuid.v4();
         await txn.insert('memory_evidence', {
-          'id': _uuid.v4(),
+          'id': evidenceId,
           'memory_id': memoryId,
           'source': source,
           'evidence_text': evidenceText,
           'confidence': confidence.clamp(0.0, 1.0),
           'relation': relation,
           'observed_at': now,
+          'source_observed_at': sourceObservedAt?.millisecondsSinceEpoch,
           'source_context_json': sourceContextJson,
         });
+        final contextData = MemorySourceContext.decode(sourceContextJson);
+        final dependency = contextData['dependency'] as String? ?? 'joint_basis';
+        if (sourceUserMessageId.isNotEmpty) {
+          final user = await ConversationSourceStore.captureMessage(txn, sourceUserMessageId);
+          if (user != null) await DerivedSourceStore.link(txn, kind: 'memory_evidence', ownerId: evidenceId,
+            sourceId: user.id, revision: user.revision, hash: user.contentHash, role: 'user_basis');
+        }
+        if (dependency != 'user_basis' && sourceAssistantMessageId.isNotEmpty) {
+          final assistant = await ConversationSourceStore.captureMessage(txn, sourceAssistantMessageId);
+          if (assistant != null) await DerivedSourceStore.link(txn, kind: 'memory_evidence', ownerId: evidenceId,
+            sourceId: assistant.id, revision: assistant.revision, hash: assistant.contentHash, role: dependency);
+        }
         return true;
       }
 
@@ -9191,7 +9236,15 @@ class AppDatabase {
               'temporal_scope': normalizedTemporal,
             if (pinned) 'pinned': 1,
             'evidence_count': existing.evidenceCount + 1,
-            'last_evidence_at': now,
+            if (sourceObservedAt != null) ...{
+              'evidence_time_known': 1,
+              'first_observed_at': existing.evidenceTimeKnown
+                  ? min(existing.firstObservedAt.millisecondsSinceEpoch, sourceObservedAt.millisecondsSinceEpoch)
+                  : sourceObservedAt.millisecondsSinceEpoch,
+              'last_evidence_at': existing.evidenceTimeKnown
+                  ? max(existing.lastEvidenceAt.millisecondsSinceEpoch, sourceObservedAt.millisecondsSinceEpoch)
+                  : sourceObservedAt.millisecondsSinceEpoch,
+            } else if (!existing.evidenceTimeKnown) 'last_evidence_at': now,
             'retention_score': (existing.retentionScore + 0.10).clamp(0.0, 1.0),
             'retention_checked_at': now,
             if (lifecycle != null) 'fact_state': lifecycle.factState,
@@ -9418,8 +9471,9 @@ class AppDatabase {
         'lifecycle_source': lifecycle.source,
         'lifecycle_updated_at': now,
         'evidence_count': 1,
-        'first_observed_at': now,
-        'last_evidence_at': now,
+        'first_observed_at': sourceObservedAt?.millisecondsSinceEpoch ?? now,
+        'last_evidence_at': sourceObservedAt?.millisecondsSinceEpoch ?? now,
+        'evidence_time_known': sourceObservedAt == null ? 0 : 1,
         'fact_version': factVersion,
       });
       await recordEvidence(
@@ -9448,7 +9502,7 @@ class AppDatabase {
       orderBy: 'pinned DESC, importance DESC, retention_score DESC, confidence DESC, updated_at DESC',
       limit: limit,
     );
-    return rows.map(MemoryItem.fromDb).toList();
+    return rows.where((row) => row['source_valid'] != 0).map(MemoryItem.fromDb).toList();
   }
 
   Future<List<MemoryItem>> memoryInferencesByKind(
@@ -9463,7 +9517,7 @@ class AppDatabase {
       orderBy: 'importance DESC, confidence DESC, updated_at DESC',
       limit: limit,
     );
-    return rows.map(MemoryItem.fromDb).toList();
+    return rows.where((row) => row['source_valid'] != 0).map(MemoryItem.fromDb).toList();
   }
 
   // Filter by the cue before applying a candidate cap. Importance alone must
@@ -9486,7 +9540,7 @@ class AppDatabase {
     DateTime? before, int limit = 2,
   }) async {
     final rows = await _lexicalRecallRows('conversation_summaries',
-        before == null ? '1 = 1' : 'to_at < ?',
+        before == null ? 'source_valid = 1' : 'source_valid = 1 AND to_at < ?',
         [if (before != null) before.millisecondsSinceEpoch],
         ConversationRecallPolicy.searchTerms(query), "summary || ' ' || key_points",
         'to_at DESC', limit: 100);
@@ -9642,7 +9696,7 @@ class AppDatabase {
             whereArgs: seedTopics.toList(),
             orderBy: 'importance DESC, updated_at DESC', limit: 60)
         : rows;
-    final associationPool = associationRows.map(MemoryItem.fromDb)
+    final associationPool = associationRows.where((row) => row['source_valid'] != 0).map(MemoryItem.fromDb)
         .where((item) => !directlyConsideredIds.contains(item.id)).toList(growable: false);
     final associatedSelected = TopicAssociationPolicy.selectAssociated(
       directSeeds: directSelected,
@@ -9976,13 +10030,14 @@ class AppDatabase {
     final db = await database;
     final rows = await db.query(
       'personality_learning_candidates',
-      where: 'status = ? AND context_key = ? AND contradiction_count = 0',
+      where: 'status = ? AND context_key = ?',
       whereArgs: const ['established', 'ordinary'],
       orderBy: 'confidence DESC, support_count DESC, updated_at DESC',
       limit: limit.clamp(1, 100).toInt(),
     );
     return rows
         .map(PersonalityLearningCandidate.fromDb)
+        .where((candidate) => !candidate.blockedByConflict)
         .toList(growable: false);
   }
 
@@ -10082,6 +10137,10 @@ class AppDatabase {
     required String sourceMessageId,
     required String assistantMessageId,
     required DateTime observedAt,
+    ConversationSourceStamp? userSource,
+    ConversationSourceStamp? previousAssistantSource,
+    String? expectedTargetToken,
+    List<String> resolvesBarrierIds = const [],
   }) async {
     if (sourceMessageId.trim().isEmpty ||
         !context.allowsScope(proposal.scope)) {
@@ -10090,6 +10149,9 @@ class AppDatabase {
     final db = await database;
     final observedMs = observedAt.millisecondsSinceEpoch;
     return db.transaction<bool>((txn) async {
+      if (userSource != null && (userSource.id != sourceMessageId ||
+          !await userSource.matches(txn))) return false;
+      if (previousAssistantSource != null && !await previousAssistantSource.matches(txn)) return false;
       Map<String, Object?>? candidateRow;
       final targetId = proposal.targetCandidateId?.trim() ?? '';
       if (targetId.isNotEmpty) {
@@ -10106,6 +10168,9 @@ class AppDatabase {
             target.contextKey != context.contextKey) {
           return false;
         }
+        if (expectedTargetToken != null && target.reviewToken != expectedTargetToken) return false;
+        if (resolvesBarrierIds.isNotEmpty && (!target.blockedByConflict ||
+            !resolvesBarrierIds.toSet().containsAll(target.barrierIds))) return false;
         candidateRow = targetRows.first;
       } else {
         final matching = await txn.query(
@@ -10161,8 +10226,9 @@ class AppDatabase {
       );
       if (replay.isNotEmpty) return false;
 
+      final evidenceId = _uuid.v4();
       await txn.insert('personality_learning_evidence', {
-        'id': _uuid.v4(),
+        'id': evidenceId,
         'candidate_id': candidateId,
         'source_message_id': sourceMessageId,
         'context_assistant_message_id': assistantMessageId,
@@ -10176,55 +10242,18 @@ class AppDatabase {
         'trial_id': context.trialId,
         'trial_key': context.trialKey,
         'observed_at': observedMs,
+        'source_stamp_json': userSource == null ? '' : jsonEncode(userSource.toJson()),
+        'context_stamp_json': previousAssistantSource == null ? '' : jsonEncode(previousAssistantSource.toJson()),
+        'lifecycle_json': jsonEncode({'contract': 1, 'source_seq': userSource?.ingestSeq ?? 0,
+          'resolves': resolvesBarrierIds}),
       });
 
-      final aggregate = (await txn.rawQuery('''
-        SELECT
-          SUM(CASE WHEN polarity = 'support' THEN weight ELSE 0 END) AS support_score,
-          SUM(CASE WHEN polarity = 'contradict' THEN weight ELSE 0 END) AS contradiction_score,
-          SUM(CASE WHEN polarity = 'support' THEN 1 ELSE 0 END) AS support_count,
-          SUM(CASE WHEN polarity = 'contradict' THEN 1 ELSE 0 END) AS contradiction_count
-        FROM personality_learning_evidence
-        WHERE candidate_id = ?
-      ''', [candidateId])).first;
-      final supportScore =
-          (aggregate['support_score'] as num?)?.toDouble() ?? 0.0;
-      final contradictionScore =
-          (aggregate['contradiction_score'] as num?)?.toDouble() ?? 0.0;
-      final supportCount =
-          (aggregate['support_count'] as num?)?.toInt() ?? 0;
-      final contradictionCount =
-          (aggregate['contradiction_count'] as num?)?.toInt() ?? 0;
-      final maturity = PersonalityLearningMaturityPolicy.evaluate(
-        supportScore: supportScore,
-        contradictionScore: contradictionScore,
-        supportCount: supportCount,
-        contradictionCount: contradictionCount,
-        latestPolarity: proposal.polarity,
-        latestKind: proposal.evidenceKind,
-      );
-      await txn.update(
-        'personality_learning_candidates',
-        {
-          'status': maturity.status.key,
-          'confidence': maturity.confidence,
-          'support_count': supportCount,
-          'contradiction_count': contradictionCount,
-          'support_score': supportScore,
-          'contradiction_score': contradictionScore,
-          'last_observed_at': observedMs,
-          if (maturity.status == PersonalityLearningStatus.established &&
-              candidateRow?['established_at'] == null)
-            'established_at': observedMs,
-          'contradicted_at':
-              maturity.status == PersonalityLearningStatus.contradicted
-                  ? observedMs
-                  : null,
-          'updated_at': observedMs,
-        },
-        where: 'id = ?',
-        whereArgs: [candidateId],
-      );
+      if (previousAssistantSource != null) await DerivedSourceStore.link(txn, kind: 'personality_evidence',
+        ownerId: evidenceId, sourceId: previousAssistantSource.id, revision: previousAssistantSource.revision,
+        hash: previousAssistantSource.contentHash, role: 'interpretation_context');
+      await _recomputePersonalityLearningCandidate(txn, candidateId, DateTime.now().millisecondsSinceEpoch);
+      if (userSource != null && !await userSource.matches(txn)) throw StateError('personality_source_changed');
+      if (previousAssistantSource != null && !await previousAssistantSource.matches(txn)) throw StateError('personality_context_changed');
       await txn.insert(
         'settings',
         {
@@ -10421,7 +10450,11 @@ class AppDatabase {
   }
 
   Future<List<MemoryItem>> memoryCandidatesForSelfDrive({int limit = 24}) async {
-    final db = await database;
+    return memoryCandidatesForSelfDriveInTransaction(await database, limit: limit);
+  }
+
+  Future<List<MemoryItem>> memoryCandidatesForSelfDriveInTransaction(
+      DatabaseExecutor db, {int limit = 24}) async {
     final rows = await db.query(
       'memory_items',
       where: "status = ? AND retention_score >= ? "
@@ -10435,9 +10468,23 @@ class AppDatabase {
       limit: limit,
     );
     return rows
-        .map(MemoryItem.fromDb)
+        .where((row) => row['source_valid'] != 0).map(MemoryItem.fromDb)
         .where(MemoryLifecyclePolicy.eligibleForSpontaneousRecall)
         .toList(growable: false);
+  }
+
+  Future<bool> memorySourcesForSelfDriveMatch(DatabaseExecutor txn,
+      Iterable<MemoryRevisionSnapshot> sources) async {
+    for (final source in sources) {
+      final rows = await txn.query('memory_items', where: 'id = ?',
+        whereArgs: [source.id], limit: 1);
+      if (rows.isEmpty) return false;
+      final item = MemoryItem.fromDb(rows.single);
+      if (!source.matches(item) || item.retentionScore < 0.18 ||
+          !const {'current_fact', 'shared_experience'}.contains(item.semanticType) ||
+          !MemoryLifecyclePolicy.eligibleForSpontaneousRecall(item)) return false;
+    }
+    return true;
   }
 
   Future<MemoryItem?> memoryById(String id) async {
@@ -10769,7 +10816,7 @@ class AppDatabase {
       orderBy: 'importance DESC, updated_at DESC',
       limit: limit,
     );
-    return rows.map(MemoryItem.fromDb).toList();
+    return rows.where((row) => row['source_valid'] != 0).map(MemoryItem.fromDb).toList();
   }
 
   Future<void> updateMemoryItem({
@@ -12905,42 +12952,39 @@ class AppDatabase {
     });
   }
 
-  Future<PublicWebShareCandidate?> claimNextPublicWebCandidateForSharing({
-    DateTime? now,
+  Future<int> _recoverStalePublicWebShareStagesTxn(DatabaseExecutor txn, DateTime now) async {
+    return txn.rawUpdate("UPDATE public_web_candidates SET "
+      "lifecycle_state = CASE WHEN expires_at > ? THEN 'unread' ELSE 'reviewed' END, "
+      "share_stage_token = '', share_stage_until = 0, last_viewed_at = NULL "
+      "WHERE lifecycle_state = 'share_staging' AND (share_stage_token = '' OR share_stage_until <= ?)",
+      [now.millisecondsSinceEpoch, now.millisecondsSinceEpoch]);
+  }
+
+  Future<int> recoverStalePublicWebShareStages({DateTime? now, BrainWorkFence? workFence}) async {
+    final handle = await database;
+    return handle.transaction((txn) async {
+      if (!await BrainWorkFence.workAllowed(txn) ||
+          (workFence != null && !await workFence.matches(txn))) return 0;
+      return _recoverStalePublicWebShareStagesTxn(txn, now ?? DateTime.now());
+    });
+  }
+
+  Future<PublicWebShareStageLease?> claimNextPublicWebCandidateForSharing({
+    DateTime? now, required BrainWorkFence workFence,
   }) async {
     final db = await database;
-    final instant = now ?? DateTime.now();
-    final staleBefore =
-        instant.subtract(const Duration(minutes: 5)).millisecondsSinceEpoch;
     return db.transaction((txn) async {
-      await txn.update(
-        'public_web_candidates',
-        {
-          'lifecycle_state': 'unread',
-          'last_viewed_at': null,
-        },
-        where:
-            "lifecycle_state = 'share_staging' AND expires_at > ? AND COALESCE(last_viewed_at, 0) <= ?",
-        whereArgs: [instant.millisecondsSinceEpoch, staleBefore],
-      );
+      final instant = now ?? DateTime.now();
+      if (!await workFence.matches(txn)) return null;
+      await _recoverStalePublicWebShareStagesTxn(txn, instant);
       final ready = await txn.query(
-        'public_web_candidates',
-        columns: const ['id'],
+        'public_web_candidates', columns: ['id'],
         where: "lifecycle_state = 'share_ready' AND read_state = 'verified' AND semantic_state = 'valid' AND expires_at > ?",
-        whereArgs: [instant.millisecondsSinceEpoch],
-        limit: 1,
+        whereArgs: [instant.millisecondsSinceEpoch], limit: 1,
       );
       if (ready.isNotEmpty) return null;
-
       final rows = await txn.query(
         'public_web_candidates',
-        columns: const [
-          'id',
-          'drive_key',
-          'lifecycle_state',
-          'discovered_at',
-          'action_run_id',
-        ],
         where: "lifecycle_state = 'unread' AND read_state = 'verified' AND semantic_state = 'valid' AND share_score >= 0.68 AND expires_at > ?",
         whereArgs: [instant.millisecondsSinceEpoch],
         orderBy: 'discovered_at DESC',
@@ -12949,10 +12993,13 @@ class AppDatabase {
       if (rows.isEmpty) return null;
       final row = rows.first;
       final id = row['id'] as String;
+      final token = _uuid.v4();
+      final until = instant.add(const Duration(minutes: 5));
       final claimed = await txn.update(
         'public_web_candidates',
         {
           'lifecycle_state': 'share_staging',
+          'share_stage_token': token, 'share_stage_until': until.millisecondsSinceEpoch,
           'last_viewed_at': instant.millisecondsSinceEpoch,
         },
         where: "id = ? AND lifecycle_state = 'unread'",
@@ -12970,14 +13017,16 @@ class AppDatabase {
             "action_run_id = ? AND id != ? AND lifecycle_state = 'unread'",
         whereArgs: [row['action_run_id'], id],
       );
-      return PublicWebShareCandidate(
+      return PublicWebShareStageLease(stageToken: token, stageUntil: until,
+        workFence: workFence, originalMaterialHash: PublicWebSourceStamp.hashRow(row),
+        candidate: PublicWebShareCandidate(
         id: id,
         driveKey: row['drive_key'] as String? ?? 'curiosity',
         lifecycleState: 'share_staging',
         discoveredAt: DateTime.fromMillisecondsSinceEpoch(
           row['discovered_at'] as int? ?? instant.millisecondsSinceEpoch,
         ),
-      );
+      ));
     });
   }
 
@@ -12988,6 +13037,7 @@ class AppDatabase {
   }) async {
     final db = await database;
     final instant = now ?? DateTime.now();
+    await recoverStalePublicWebShareStages(now: instant);
     final ready = await activeReadyPublicWebShareCandidate(now: instant);
     if (ready != null) return null;
     final rows = await db.query(
@@ -13028,7 +13078,10 @@ class AppDatabase {
       limit: 1,
     );
     if (rows.isEmpty) return null;
-    final row = rows.single;
+    return _publicWebDraftFromRow(rows.single);
+  }
+
+  PublicWebCandidateDraft _publicWebDraftFromRow(Map<String, Object?> row) {
     List<String> strings(String key) {
       try {
         final value = jsonDecode(row[key]?.toString() ?? '[]');
@@ -13085,10 +13138,31 @@ class AppDatabase {
     );
   }
 
+  Future<({PublicWebCandidateDraft draft, String materialHash})?> publicWebCandidateReadSnapshot(String id) async {
+    final handle = await database;
+    return handle.transaction((txn) async {
+      final rows = await txn.query('public_web_candidates', where: 'id = ?', whereArgs: [id], limit: 1);
+      if (rows.isEmpty) return null;
+      return (draft: _publicWebDraftFromRow(rows.single), materialHash: PublicWebSourceStamp.hashRow(rows.single));
+    });
+  }
+
   Future<bool> cachePublicWebPromptRead(String id, PublicWebCandidateDraft page,
-      {required String expectedContentSha}) async {
+      {required String expectedContentSha, String? expectedMaterialHash, BrainWorkFence? workFence,
+      String? expectedReadState, String? expectedSemanticState, String? expectedLifecycleState}) async {
     final db = await database;
-    final changed = await db.update('public_web_candidates', {
+    return db.transaction((txn) async {
+      if (workFence != null && !await workFence.matches(txn)) return false;
+      if (expectedMaterialHash != null || expectedReadState != null ||
+          expectedSemanticState != null || expectedLifecycleState != null) {
+        final rows = await txn.query('public_web_candidates', where: 'id = ?', whereArgs: [id], limit: 1);
+        if (rows.isEmpty ||
+            (expectedMaterialHash != null && PublicWebSourceStamp.hashRow(rows.single) != expectedMaterialHash) ||
+            (expectedReadState != null && rows.single['read_state'] != expectedReadState) ||
+            (expectedSemanticState != null && rows.single['semantic_state'] != expectedSemanticState) ||
+            (expectedLifecycleState != null && rows.single['lifecycle_state'] != expectedLifecycleState)) return false;
+      }
+    final changed = await txn.update('public_web_candidates', {
       'summary': page.summary, 'page_body': page.pageBody,
       'read_state': page.readState, 'semantic_state': page.semanticState,
       'key_points_json': jsonEncode(page.keyPoints),
@@ -13099,17 +13173,21 @@ class AppDatabase {
     }, where: "id = ? AND content_sha256 = ? AND lifecycle_state NOT IN ('user_deleted','discarded','declined','share_staging')",
       whereArgs: [id, expectedContentSha]);
     return changed == 1;
+    });
   }
 
   Future<bool> completePublicWebShareRefresh(
-    String candidateId,
-    PublicWebCandidateDraft refreshed, {
+    PublicWebShareStageLease lease, {
+    required PublicWebCandidateDraft refreshed,
     required bool eligible,
     DateTime? now,
+    List<ProviderHealthEvent> providerHealthEvents = const [],
   }) async {
     final db = await database;
-    final instant = now ?? DateTime.now();
+    final candidateId = lease.id;
     return db.transaction<bool>((txn) async {
+      final instant = now ?? DateTime.now();
+      if (!await lease.matches(txn, now: instant, checkOriginalMaterial: true)) return false;
       final updated = await txn.update(
         'public_web_candidates',
         <String, Object?>{
@@ -13135,7 +13213,7 @@ class AppDatabase {
           'page_body': refreshed.pageBody,
           'read_at': refreshed.readAt?.millisecondsSinceEpoch,
           'search_query': refreshed.searchQuery,
-          if (!eligible) 'lifecycle_state': 'declined',
+          if (!eligible) ...{'lifecycle_state': 'declined', 'share_stage_token': '', 'share_stage_until': 0},
           'last_viewed_at': instant.millisecondsSinceEpoch,
         },
         where: "id = ? AND lifecycle_state = 'share_staging'",
@@ -13209,76 +13287,159 @@ class AppDatabase {
           ],
         );
       }
+      for (final event in providerHealthEvents) { await _recordProviderHealthEventTxn(txn, event); }
       return true;
     });
   }
 
-  Future<bool> completePublicWebCandidateShareStage(
-    String candidateId, {
-    required bool ready,
-    required String outcome,
-    DateTime? now,
+  Future<CompanionThought?> finishPublicWebShareStage(PublicWebShareStageLease lease, {DateTime? now}) async {
+    final handle = await database;
+    return handle.transaction((txn) async {
+      final instant = now ?? DateTime.now();
+      if (!await lease.matches(txn, now: instant)) return null;
+      final rows = await txn.query('public_web_candidates', where: 'id = ?', whereArgs: [lease.id], limit: 1);
+      final row = rows.single;
+      if (row['read_state'] != 'verified' || row['semantic_state'] != 'valid' ||
+          ((row['share_score'] as num?)?.toDouble() ?? 0) < .68) return null;
+      final source = PublicWebSharePolicy.source(lease.id);
+      final topic = PublicWebSharePolicy.topicKey(lease.id);
+      final drive = PublicWebSharePolicy.driveFromKey(row['drive_key'] as String? ?? 'curiosity');
+      const text = PublicWebSharePolicy.thoughtText;
+      final thoughts = (await txn.query('thoughts', orderBy: 'updated_at DESC', limit: 120))
+          .map(CompanionThought.fromDb);
+      CompanionThought? match;
+      var bestScore = 0.0;
+      for (final thought in thoughts) {
+        if (thought.driveKey != drive.name) continue;
+        if (thought.topicKey == topic) { match = thought; break; }
+        if (thought.topicKey.isNotEmpty) continue;
+        final score = ThoughtSimilarity.score(thought.text, text);
+        if (score >= .84 && score > bestScore) { match = thought; bestScore = score; }
+      }
+      // Preserve the existing feed/source policy: a different non-internal
+      // source cannot become this candidate's trusted delivery Thought.
+      if (match != null && match.source != 'internal' && match.source != source) return null;
+      final id = match?.id ?? _uuid.v4();
+      if (match == null) {
+        await txn.insert('thoughts', {'id': id, 'text': text, 'drive_key': drive.name,
+          'kind': 'flit', 'strength': ThoughtFeedPolicy.initialStrength(source: source, incomingStrength: .62),
+          'born_at': instant.millisecondsSinceEpoch, 'updated_at': instant.millisecondsSinceEpoch,
+          'fed_count': 0, 'source': source, 'last_fed_at': instant.millisecondsSinceEpoch,
+          'lifecycle_state': 'active', 'topic_key': topic});
+      } else {
+        final decision = ThoughtFeedPolicy.merge(existing: match, source: source, incomingStrength: .62);
+        await txn.update('thoughts', {'kind': decision.kind, 'strength': decision.strength,
+          'fed_count': decision.fedCount, 'lifecycle_state': decision.lifecycleState,
+          'last_fed_at': instant.millisecondsSinceEpoch, 'updated_at': instant.millisecondsSinceEpoch,
+          'source': match.source == 'internal' ? source : match.source,
+          'topic_key': match.topicKey.isEmpty ? topic : match.topicKey},
+          where: 'id = ?', whereArgs: [id]);
+      }
+      await txn.update('public_web_candidates', {'lifecycle_state': 'share_ready',
+        'share_stage_token': '', 'share_stage_until': 0, 'last_viewed_at': instant.millisecondsSinceEpoch},
+        where: 'id = ?', whereArgs: [lease.id]);
+      for (final entry in {'public_web_share_last_outcome': 'thought_created',
+        'public_web_share_last_at': '${instant.millisecondsSinceEpoch}',
+        'public_web_share_thought_created_at': '${instant.millisecondsSinceEpoch}'}.entries) {
+        await _setSettingInTransaction(txn, entry.key, entry.value, instant);
+      }
+      return CompanionThought.fromDb((await txn.query('thoughts', where: 'id = ?', whereArgs: [id], limit: 1)).single);
+    });
+  }
+
+  Future<bool> abortPublicWebShareStage(PublicWebShareStageLease lease, {
+    String outcome = 'retry', DateTime? now,
   }) async {
-    final db = await database;
-    final instant = now ?? DateTime.now();
-    return db.transaction((txn) async {
-      final nextLifecycle = ready ? 'share_ready' : 'declined';
-      final updated = await txn.update(
-        'public_web_candidates',
-        {
-          'lifecycle_state': nextLifecycle,
-          'last_viewed_at': instant.millisecondsSinceEpoch,
-        },
-        where: "id = ? AND lifecycle_state = 'share_staging'",
-        whereArgs: [candidateId],
-      );
-      if (updated != 1) return false;
-      if (!ready) {
-        await txn.update(
-          'thoughts',
-          {
-            'lifecycle_state': 'dormant',
-            'updated_at': instant.millisecondsSinceEpoch,
-          },
-          where: 'topic_key = ?',
-          whereArgs: ['public_web_candidate:${candidateId.toLowerCase()}'],
-        );
-      }
-      await _setSettingInTransaction(
-        txn,
-        'public_web_share_last_outcome',
-        outcome,
-        instant,
-      );
-      await _setSettingInTransaction(
-        txn,
-        'public_web_share_last_at',
-        instant.millisecondsSinceEpoch.toString(),
-        instant,
-      );
-      if (ready) {
-        await _setSettingInTransaction(
-          txn,
-          'public_web_share_thought_created_at',
-          instant.millisecondsSinceEpoch.toString(),
-          instant,
-        );
-      }
+    final handle = await database;
+    return handle.transaction((txn) async {
+      final instant = now ?? DateTime.now();
+      if (!await lease.matches(txn, now: instant, allowExpired: true)) return false;
+      await txn.rawUpdate("UPDATE public_web_candidates SET lifecycle_state = "
+        "CASE WHEN expires_at > ? THEN 'unread' ELSE 'reviewed' END, share_stage_token = '', share_stage_until = 0 "
+        "WHERE id = ?", [instant.millisecondsSinceEpoch, lease.id]);
+      await _setSettingInTransaction(txn, 'public_web_share_last_outcome', outcome, instant);
+      await _setSettingInTransaction(txn, 'public_web_share_last_at', '${instant.millisecondsSinceEpoch}', instant);
       return true;
     });
   }
 
-  Future<bool> markPublicWebCandidateShareOutcome(
-    String candidateId, {
-    required String outcome,
-    DateTime? now,
+  Future<PublicWebPromptBundle> publicWebPromptBundle({
+    required List<String> candidateIds, List<String> historicalKnowledgeIds = const [],
+    String? selectedShareCandidateId, String? selectedShareThoughtId, DateTime? now,
   }) async {
-    if (outcome != 'shared' && outcome != 'declined') {
-      throw ArgumentError.value(outcome, 'outcome');
-    }
-    final db = await database;
-    final instant = now ?? DateTime.now();
-    return db.transaction((txn) async {
+    final handle = await database;
+    return handle.transaction((txn) async {
+      final instant = now ?? DateTime.now();
+      final items = <PublicWebContextItem>[];
+      final knowledgeItems = <PublicWebContextItem>[];
+      final stamps = <PublicWebSourceStamp>[];
+      ExpectedPublicWebShare? expected;
+      for (final id in candidateIds.map((id) => id.trim().toLowerCase()).toSet().take(3)) {
+        final rows = await txn.query('public_web_candidates', where: 'id = ?', whereArgs: [id], limit: 1);
+        if (rows.isEmpty) continue;
+        final selected = id == selectedShareCandidateId;
+        final stamp = PublicWebSourceStamp.capture(rows.single, now: instant,
+          profile: selected ? PublicWebSourceProfile.share : PublicWebSourceProfile.candidateContext);
+        if (stamp == null) continue;
+        if (selected) {
+          if (selectedShareThoughtId == null) continue;
+          final share = ExpectedPublicWebShare(source: stamp, thoughtId: selectedShareThoughtId);
+          if (!await share.matches(txn, now: instant)) continue;
+          expected = share;
+        }
+        items.add(PublicWebSourceStamp.contextItem(rows.single)); stamps.add(stamp);
+      }
+      for (final id in historicalKnowledgeIds.map((id) => id.trim().toLowerCase()).toSet().take(3)) {
+        final rows = await txn.rawQuery("SELECT c.* FROM public_web_candidates c JOIN public_web_knowledge k "
+          "ON k.candidate_id=c.id WHERE c.id=? AND k.lifecycle_state='active' LIMIT 1", [id]);
+        if (rows.isEmpty) continue;
+        final stamp = PublicWebSourceStamp.capture(rows.single, now: instant,
+          profile: PublicWebSourceProfile.historicalKnowledge, knowledgeActive: true);
+        if (stamp == null) continue;
+        knowledgeItems.add(PublicWebSourceStamp.contextItem(rows.single)); stamps.add(stamp);
+      }
+      return PublicWebPromptBundle(items: items, knowledgeItems: knowledgeItems,
+        sourceStamps: stamps, expectedShare: expected);
+    });
+  }
+
+  Future<void> _commitPublicWebThoughtTxn(DatabaseExecutor txn, ExpectedPublicWebShare expected,
+      String messageId, DateTime instant) async {
+    final row = (await txn.query('thoughts', where: 'id = ?', whereArgs: [expected.thoughtId], limit: 1)).single;
+    final thought = CompanionThought.fromDb(row);
+    await txn.update('thoughts', {'lifecycle_state': 'acted', 'action_count': thought.actionCount + 1,
+      'last_acted_at': instant.millisecondsSinceEpoch, 'updated_at': instant.millisecondsSinceEpoch,
+      'residual_strength': (thought.strength * (thought.isFixation ? .82 : .68)).clamp(.12, .78).toDouble(),
+      'last_outbound_message_id': messageId, 'snoozed_until': null}, where: 'id = ?', whereArgs: [thought.id]);
+    await txn.insert('thought_lifecycle_events', {'id': _uuid.v4(), 'thought_id': thought.id,
+      'event_type': 'acted', 'message_id': messageId,
+      'detail': '这个念头已经转化为一次主动行动，等待用户回应。', 'created_at': instant.millisecondsSinceEpoch});
+  }
+
+  @Deprecated('Use the original PublicWebShareStageLease')
+  Future<bool> completePublicWebCandidateShareStage(String candidateId, {
+    required bool ready, required String outcome, DateTime? now,
+  }) async => false;
+
+  @Deprecated('Use guarded decline or atomic proactive delivery')
+  Future<bool> markPublicWebCandidateShareOutcome(String candidateId, {
+    required String outcome, DateTime? now,
+  }) async => false;
+
+  Future<bool> declinePublicWebShareIfCurrent(ExpectedPublicWebShare expected, {
+    required BrainWorkFence workFence, DateTime? now,
+  }) async {
+    final handle = await database;
+    return handle.transaction((txn) async {
+      final instant = now ?? DateTime.now();
+      if (!await workFence.matches(txn) || !await expected.matches(txn, now: instant)) return false;
+      return _markPublicWebShareOutcomeTxn(txn, expected.candidateId, outcome: 'declined', instant: instant);
+    });
+  }
+
+  Future<bool> _markPublicWebShareOutcomeTxn(DatabaseExecutor txn, String candidateId, {
+    required String outcome, required DateTime instant, String? messageId,
+  }) async {
       final evidenceRows = outcome == 'shared'
           ? await txn.rawQuery(
               '''
@@ -13302,6 +13463,8 @@ class AppDatabase {
         'public_web_candidates',
         {
           'lifecycle_state': outcome,
+          if (messageId != null) 'shared_message_id': messageId,
+          'share_stage_token': '', 'share_stage_until': 0,
           'last_viewed_at': instant.millisecondsSinceEpoch,
           'view_count': 1,
         },
@@ -13354,7 +13517,6 @@ class AppDatabase {
         }
       }
       return true;
-    });
   }
 
   Future<String> seedDiagnosticPublicWebShareCandidate({
@@ -15365,6 +15527,25 @@ class AppDatabase {
     });
   }
 
+  Future<ConversationSummaryWork?> prepareConversationSummary({
+    required BrainWorkFence workFence, int scanLimit = 256,
+    int batchLimit = 36, int minimumMessages = 14,
+  }) async {
+    final handle = await database;
+    return handle.transaction((txn) => ConversationSummaryStore.prepare(txn,
+      workFence: workFence, scanLimit: scanLimit, batchLimit: batchLimit,
+      minimumMessages: minimumMessages));
+  }
+
+  Future<bool> commitConversationSummaryIfCurrent({
+    required ConversationSummaryWork work, required String summary,
+    List<String> keyPoints = const [],
+  }) async {
+    final handle = await database;
+    return handle.transaction((txn) => ConversationSummaryStore.commit(txn,
+      work: work, summary: summary, keyPoints: keyPoints));
+  }
+
   Future<bool> insertConversationSummary({
     required DateTime fromAt,
     required DateTime toAt,
@@ -15397,6 +15578,7 @@ class AppDatabase {
     final db = await database;
     final rows = await db.query(
       'conversation_summaries',
+      where: 'source_valid = 1',
       orderBy: 'to_at DESC',
       limit: limit,
     );
@@ -16558,7 +16740,7 @@ class AppDatabase {
       orderBy: 'retention_checked_at ASC, updated_at ASC',
       limit: limit,
     );
-    return rows.map(MemoryItem.fromDb).toList();
+    return rows.where((row) => row['source_valid'] != 0).map(MemoryItem.fromDb).toList();
   }
 
   Future<void> insertReferenceItem({
@@ -18499,24 +18681,23 @@ class AppDatabase {
   }
 
   Future<int> pruneTerminalGenerationJobs() async {
-    final db = await database;
-    final completedCutoff = DateTime.now()
-        .subtract(const Duration(days: 30))
-        .millisecondsSinceEpoch;
-    final failedCutoff = DateTime.now()
-        .subtract(const Duration(days: 90))
-        .millisecondsSinceEpoch;
-    var removed = await db.delete(
-      'generation_jobs',
-      where: 'status = ? AND updated_at < ?',
-      whereArgs: ['completed', completedCutoff],
-    );
-    removed += await db.delete(
-      'generation_jobs',
-      where: "status IN ('failed','cancelled','cancelled_by_user') AND updated_at < ?",
-      whereArgs: [failedCutoff],
-    );
-    return removed;
+    final handle = await database;
+    final completedCutoff = DateTime.now().subtract(const Duration(days: 30)).millisecondsSinceEpoch;
+    final failedCutoff = DateTime.now().subtract(const Duration(days: 90)).millisecondsSinceEpoch;
+    return handle.transaction((txn) async {
+      const where = "(status = 'completed' AND updated_at < ?) OR "
+          "(status IN ('failed','cancelled','cancelled_by_user') AND updated_at < ?)";
+      final args = [completedCutoff, failedCutoff];
+      final jobs = await txn.query('generation_jobs',
+        columns: ['user_message_id', 'assistant_message_id'], where: where, whereArgs: args);
+      final ids = <String>{for (final job in jobs) ...[
+        job['user_message_id'] as String, job['assistant_message_id'] as String]};
+      final removed = await txn.delete('generation_jobs', where: where, whereArgs: args);
+      // Removing durable pairing changes fallback provenance even when message
+      // bodies survive. Re-evaluate each affected source exactly once.
+      for (final id in ids) { await ConversationSourceStore.sourceChanged(txn, id); }
+      return removed;
+    });
   }
 
   Future<void> addMaintenanceRun({
@@ -18836,8 +19017,8 @@ class AppDatabase {
     String expectedGuardValue = '',
     Map<String, String> expectedSettings = const {},
     BrainWorkFence? workFence,
+    LocalSourceGuard? sourceGuard,
   }) async {
-    if (values.isEmpty) return true;
     final db = await database;
     return db.transaction<bool>((txn) async {
       if (workFence != null && !await workFence.matches(txn)) return false;
@@ -18866,6 +19047,7 @@ class AppDatabase {
         );
         if (rows.first['matches'] != 1) return false;
       }
+      if (sourceGuard != null && !await sourceGuard(txn)) return false;
       for (final entry in values.entries) {
         await txn.insert(
           'settings',
@@ -19122,8 +19304,14 @@ class AppDatabase {
     Iterable<String> settingKeys = const [],
   }) async {
     final handle = await database;
-    return handle.transaction((txn) async {
-      final fence = BrainWorkFence(
+    return handle.transaction((txn) => captureBrainWorkFenceInTransaction(txn,
+      leaseKey: leaseKey, settingKeys: settingKeys));
+  }
+
+  Future<BrainWorkFence?> captureBrainWorkFenceInTransaction(DatabaseExecutor txn, {
+    String? leaseKey, Iterable<String> settingKeys = const [],
+  }) async {
+    final fence = BrainWorkFence(
         identity: {
           for (final key in const [
             'state_lineage_id', 'state_generation', 'runtime_state_epoch_v1',
@@ -19136,7 +19324,33 @@ class AppDatabase {
             key: await BrainWorkFence.value(txn, key),
         },
       );
-      return await fence.matches(txn) ? fence : null;
+    return await fence.matches(txn) ? fence : null;
+  }
+
+  Future<T?> readSourceSnapshot<T>({required BrainWorkFence workFence,
+    required Future<T> Function(DatabaseExecutor txn) read}) async {
+    final handle = await database;
+    return handle.transaction<T?>((txn) async {
+      if (!await workFence.matches(txn)) return null;
+      return read(txn);
+    });
+  }
+
+  Future<BrainWorkFence?> extendBrainWorkFence(BrainWorkFence original, {
+    Iterable<String> settingKeys = const [],
+  }) async {
+    final handle = await database;
+    return handle.transaction((txn) async {
+      if (!await original.matches(txn)) return null;
+      final settings = Map<String, String>.from(original.expectedSettings);
+      for (final key in settingKeys) {
+        if (!settings.containsKey(key) && !original.identity.containsKey(key)) {
+          settings[key] = await BrainWorkFence.value(txn, key);
+        }
+      }
+      return BrainWorkFence(identity: Map.unmodifiable(original.identity),
+        leaseKey: original.leaseKey, leaseToken: original.leaseToken,
+        expectedSettings: Map.unmodifiable(settings));
     });
   }
 
@@ -19939,6 +20153,8 @@ class AppDatabase {
       'self_experiences',
       'desire_events',
       'conversation_summaries',
+      'conversation_summary_sources',
+      'derived_source_links',
       'unfinished_threads',
       'thoughts',
       'desire_state',
@@ -20072,6 +20288,8 @@ class AppDatabase {
         'self_experiences',
         'desire_events',
         'conversation_summaries',
+        'conversation_summary_sources',
+        'derived_source_links',
         'unfinished_threads',
         'thoughts',
         'device_events',
@@ -20566,6 +20784,10 @@ class AppDatabase {
       await _rebuildMediaBlobRefCountsInTransaction(txn);
       // Import preserves source order and the consumed high-water mark as one
       // snapshot; legacy backfill must be part of that same transaction.
+      await txn.execute("UPDATE public_web_candidates SET "
+        "lifecycle_state = CASE WHEN lifecycle_state = 'share_staging' THEN "
+        "CASE WHEN expires_at > ${DateTime.now().millisecondsSinceEpoch} THEN 'unread' ELSE 'reviewed' END "
+        "ELSE lifecycle_state END, share_stage_token = '', share_stage_until = 0");
       await ConversationSourceStore.initializeSequences(txn);
     });
     await _createV61AiInterestConsumptionTables(await database);

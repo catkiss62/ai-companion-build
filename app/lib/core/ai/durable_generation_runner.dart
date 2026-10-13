@@ -1,3 +1,4 @@
+import '../database/conversation_source_store.dart';
 import '../mcp/cedar_toy_client.dart';
 import '../creative/creative_store.dart';
 import '../agent/turn_execution_store.dart';
@@ -1958,6 +1959,7 @@ $finalGenerationReminder
 
       final baseAssistant = ChatMessage(
         id: job.assistantMessageId,
+        sourceRevision: job.assistantSourceRevision,
         role: 'assistant',
         content: finalContent,
         reasoningContent: visibleReasoning,
@@ -2043,6 +2045,7 @@ $finalGenerationReminder
         text: assistant.content,
         now: assistant.createdAt,
       );
+      ConversationSourceStamp? committedMoeSource;
       bool committed;
       try {
         committed = await db.completeGenerationJobIfCurrent(
@@ -2051,6 +2054,7 @@ $finalGenerationReminder
           assistant: assistant,
           pendingMediaOwner: pendingMediaOwner,
           generationAttempt: originalAttempt,
+          onCommittedSource: (source) => committedMoeSource = source,
           isCancelled: () => effectiveCancellation.isCancelled,
           turnCommitEvidence: TurnCommitEvidence(deliveries: verifiedDeliveries,
             timedEffectIds: [for (final r in localReceipts)
@@ -2176,7 +2180,10 @@ $finalGenerationReminder
         if (providerNotice?.trim().isNotEmpty == true) providerNotice!,
         if (timedNotice != null) timedNotice,
       ];
-      unawaited(MoeShadowCoordinator(db).observeCompletedTurn(assistant));
+      if (committedMoeSource != null) {
+        unawaited(MoeShadowCoordinator(db).observeCompletedTurn(assistant,
+          originalFence: originalAttempt.brainFence, committedSource: committedMoeSource!).then<void>((_) {}));
+      }
       return GenerationRunResult(
         status: 'completed',
         assistant: assistant,
@@ -2210,6 +2217,7 @@ $finalGenerationReminder
       );
       final draft = ChatMessage(
         id: job.assistantMessageId,
+        sourceRevision: job.assistantSourceRevision,
         role: 'assistant',
         formContextJson: generationFormContext.encode(),
         content: visible,
@@ -2370,6 +2378,7 @@ $finalGenerationReminder
     );
     final assistant = ChatMessage(
       id: job.assistantMessageId,
+        sourceRevision: job.assistantSourceRevision,
       role: 'assistant',
       formContextJson: job.formContextJson,
       content: visible,

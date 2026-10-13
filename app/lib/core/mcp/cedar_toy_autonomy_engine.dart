@@ -1598,6 +1598,7 @@ $catalog''',
         params,
         cancellationToken: scope.cancellation,
       );
+      if (!outcome.isError) await store.resolveRemoteDispatch(gameId: session.gameId, executionId: scope.executionId, action: action, authoritative: true, params: params);
       if (outcome.isError) {
         await db.setSetting(
           'cedar_toy_last_observe_error_category',
@@ -1889,6 +1890,9 @@ $conversationContext''',
       if (await CedarWakePolicy.delay(await db.database, DateTime.now(), gameId: session.gameId) > Duration.zero) {
         return const CedarAutonomyProgress('night_sleep');
       }
+      if (!await store.admitRemoteDispatch(gameId: session.gameId, action: action, params: params, executionId: scope.executionId)) {
+        return const CedarAutonomyProgress('unresolved_write');
+      }
       outcome = await client.play(
         session.gameId,
         action,
@@ -1907,6 +1911,7 @@ $conversationContext''',
       }
       rethrow;
     }
+    await store.resolveRemoteDispatch(gameId: session.gameId, executionId: scope.executionId, action: action, authoritative: true, params: params);
     if (!outcome.isError &&
         !platformAction &&
         action == 'rooms' &&
@@ -2095,6 +2100,9 @@ $conversationContext''',
     required _CedarExecutionScope scope,
   }) async {
     scope.throwIfPreempted();
+    if ((await db.getSetting('${CedarToyActivityStore.uncertainWritePrefix}${session.gameId}') ?? '').isNotEmpty) {
+      return const CedarAutonomyProgress('unresolved_write');
+    }
     return _advanceSessionLocked(
       now: now,
       apiKey: apiKey,

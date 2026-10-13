@@ -1357,7 +1357,8 @@ class OverlayBubbleService : Service() {
                 override fun success(result: Any?) {
                     mainHandler.post {
                         if (epoch != ttsPollEpoch || !shouldPollTts()) return@post
-                        val map = result as? Map<*, *>
+                        val localPlayback = PlaybackSessionRegistry.snapshot()
+                        val map = if ((localPlayback["version"] as? Long ?: 0L) > 0L) localPlayback else result as? Map<*, *>
                         val phase = map?.get("phase") as? String ?: "idle"
                         val messageId = map?.get("message_id") as? String ?: ""
                         if (phase != overlayTtsPhase || messageId != overlayTtsMessageId) {
@@ -1485,7 +1486,10 @@ class OverlayBubbleService : Service() {
     private fun updatePetConversationCue() {
         val generationActive = chatSending || appGenerationActive
         val generationPhase = if (chatSending) overlayGenerationPhase else appGenerationPhase
-        val ttsPhase = when {
+        val authoritativePlayback = PlaybackSessionRegistry.snapshot()
+        val ttsPhase = if ((authoritativePlayback["version"] as? Long ?: 0L) > 0L) {
+            authoritativePlayback["phase"] as? String ?: "idle"
+        } else when {
             overlayTtsPhase == "playing" -> overlayTtsPhase
             appTtsPhase == "playing" -> appTtsPhase
             overlayTtsPhase == "synthesizing" -> overlayTtsPhase

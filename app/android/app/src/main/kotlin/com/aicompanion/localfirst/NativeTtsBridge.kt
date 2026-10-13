@@ -15,6 +15,7 @@ class NativeTtsBridge(
     context: Context,
     flutterEngine: FlutterEngine,
 ) {
+    private val hostId = java.util.UUID.randomUUID().toString()
     private val engine = NativeTtsEngine.shared(context.applicationContext)
 
     // Dart submits all sentence generation requests immediately, but the
@@ -38,29 +39,34 @@ class NativeTtsBridge(
                 result.error("tts_bridge_disposed", "TTS bridge is no longer attached to this FlutterEngine", null)
                 return@setMethodCallHandler
             }
+            val lease = call.argument<Number>("lease")?.toLong()
+            try {
             when (call.method) {
+                "claimPlayback" -> result.success(engine.claimPlayback(hostId, call.argument<String>("message_id").orEmpty()))
+                "playbackSnapshot" -> result.success(PlaybackSessionRegistry.snapshot())
                 "localStatus" -> result.success(engine.localStatus())
-                "status" -> submit(generationWorker, result, "tts_status_failed") {
+                "status" -> submit(generationWorker, result, "tts_status_failed", lease) {
                     engine.status()
                 }
-                "verifyArtifacts" -> submit(generationWorker, result, "tts_verify_failed") {
+                "verifyArtifacts" -> submit(generationWorker, result, "tts_verify_failed", lease) {
                     engine.verifyArtifacts()
                 }
-                "initialize" -> submit(generationWorker, result, "tts_init_failed") {
+                "initialize" -> submit(generationWorker, result, "tts_init_failed", lease) {
                     engine.initialize(call.argument<String>("language").orEmpty())
                 }
-                "prepareLanguage" -> submit(generationWorker, result, "tts_frontend_failed") {
+                "prepareLanguage" -> submit(generationWorker, result, "tts_frontend_failed", lease) {
                     engine.prepareLanguage(call.argument<String>("language").orEmpty())
                 }
-                "configureAutoAffinity" -> submit(generationWorker, result, "tts_runtime_config_failed") {
+                "configureAutoAffinity" -> submit(generationWorker, result, "tts_runtime_config_failed", lease) {
                     engine.configureAutoAffinity(
                         call.argument<Boolean>("enabled") == true,
+                        lease,
                     )
                 }
-                "diagnose" -> submit(generationWorker, result, "tts_diagnose_failed") {
+                "diagnose" -> submit(generationWorker, result, "tts_diagnose_failed", lease) {
                     engine.diagnose(call.argument<String>("language").orEmpty())
                 }
-                "importChineseRoberta" -> submit(generationWorker, result, "tts_import_failed") {
+                "importChineseRoberta" -> submit(generationWorker, result, "tts_import_failed", lease) {
                     engine.importChineseRoberta(call.argument<String>("path").orEmpty())
                 }
                 "generate" -> {
@@ -68,33 +74,30 @@ class NativeTtsBridge(
                     val language = call.argument<String>("language").orEmpty()
                     val voice = call.argument<String>("voice").orEmpty()
                     val segmentIndex = call.argument<Int>("segmentIndex") ?: -1
-                    val generation = engine.generationToken()
-                    submit(generationWorker, result, "tts_generate_failed") {
+                    val generation = lease ?: engine.generationToken()
+                    submit(generationWorker, result, "tts_generate_failed", lease) {
                         engine.generate(text, language, voice, segmentIndex, generation)
                     }
                 }
                 "beginAudioStream" -> {
-                    val generation = engine.generationToken()
-                    submit(playbackWorker, result, "tts_playback_begin_failed") {
+                    val generation = lease ?: engine.generationToken()
+                    submit(playbackWorker, result, "tts_playback_begin_failed", lease) {
                         engine.beginAudioStream(generation)
-                        null
                     }
                 }
                 "enqueueAudio" -> {
                     val audio = call.argument<ByteArray>("audioData") ?: byteArrayOf()
                     val speedMultiplier =
                         call.argument<Double>("speedMultiplier") ?: 1.0
-                    val generation = engine.generationToken()
-                    submit(playbackWorker, result, "tts_playback_enqueue_failed") {
+                    val generation = lease ?: engine.generationToken()
+                    submit(playbackWorker, result, "tts_playback_enqueue_failed", lease) {
                         engine.enqueueAudio(audio, speedMultiplier, generation)
-                        null
                     }
                 }
                 "finishAudioStream" -> {
-                    val generation = engine.generationToken()
-                    submit(playbackWorker, result, "tts_playback_finish_failed") {
+                    val generation = lease ?: engine.generationToken()
+                    submit(playbackWorker, result, "tts_playback_finish_failed", lease) {
                         engine.finishAudioStream(generation)
-                        null
                     }
                 }
                 // Backwards-compatible one-shot path. Normal app speech uses
@@ -102,37 +105,38 @@ class NativeTtsBridge(
                 // scheduler above.
                 "speak" -> {
                     val text = call.argument<String>("text").orEmpty()
-                    submit(playbackWorker, result, "tts_speak_failed") {
+                    submit(playbackWorker, result, "tts_speak_failed", lease) {
                         engine.speak(text)
                         null
                     }
                 }
                 "stop" -> {
-                    engine.stop()
+                    engine.stopPlayback(lease)
                     result.success(null)
                 }
                 "pause" -> {
-                    engine.pause()
+                    engine.controlPlayback(lease) { engine.pause() }
                     result.success(null)
                 }
                 "resume" -> {
-                    engine.resume()
+                    engine.controlPlayback(lease) { engine.resume() }
                     result.success(null)
                 }
-                "setSpeed" -> submit(generationWorker, result, "tts_speed_failed") {
-                    engine.setSpeed(call.argument<Double>("speed") ?: 1.0)
+                "setSpeed" -> submit(generationWorker, result, "tts_speed_failed", lease) {
+                    engine.controlPlayback(lease) { engine.setSpeed(call.argument<Double>("speed") ?: 1.0) }
                     null
                 }
                 "setPitch" -> {
-                    engine.setPitch(call.argument<Double>("pitch") ?: 1.0)
+                    engine.controlPlayback(lease) { engine.setPitch(call.argument<Double>("pitch") ?: 1.0) }
                     result.success(null)
                 }
                 "setVolume" -> {
-                    engine.setVolume(call.argument<Double>("volume") ?: 1.0)
+                    engine.controlPlayback(lease) { engine.setVolume(call.argument<Double>("volume") ?: 1.0) }
                     result.success(null)
                 }
                 else -> result.notImplemented()
             }
+            } catch (error: Throwable) { result.error("tts_owner_rejected", error.message, null) }
         }
     }
 
@@ -150,11 +154,17 @@ class NativeTtsBridge(
         worker: ThreadPoolExecutor,
         result: MethodChannel.Result,
         errorCode: String,
+        lease: Long? = null,
         block: () -> T,
     ) {
         try {
             worker.execute {
-                val response = runCatching(block)
+                val response = runCatching {
+                    engine.requirePlaybackOwner(lease)
+                    val value = block()
+                    engine.requirePlaybackOwner(lease)
+                    value
+                }
                 main.post {
                     if (disposed) return@post
                     response.fold(
@@ -173,6 +183,7 @@ class NativeTtsBridge(
     fun dispose() {
         if (disposed) return
         disposed = true
+        PlaybackSessionRegistry.ownsHost(hostId)?.let { engine.stopPlayback(it) }
         channel.setMethodCallHandler(null)
         // The native model/runtime is process-scoped and shared by MainActivity,
         // overlay and background FlutterEngines. Do not release it when only one

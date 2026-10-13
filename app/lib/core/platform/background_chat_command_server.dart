@@ -1,3 +1,4 @@
+import '../tts/native_tts_provider.dart';
 import 'dart:async';
 
 import 'package:flutter/services.dart';
@@ -114,6 +115,10 @@ class BackgroundChatCommandServer {
       case 'generationSnapshot':
         return (await _generationSnapshot()).toChannelMap();
       case 'ttsSnapshot':
+        try {
+          final native = await NativeTtsProvider.instance.playbackSnapshot();
+          if (native.containsKey('phase')) return native;
+        } catch (_) {}
         final state = _controller?.ttsState;
         return <String, Object>{
           'phase': state?.phase.name ?? 'idle',

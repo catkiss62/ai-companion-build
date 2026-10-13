@@ -55,23 +55,26 @@ class WavAudioPlayer {
         stream?.setPitch(pitch)
     }
 
-    fun beginStream(onStarted: () -> Unit = {}) {
+    fun beginStream(owner: Long? = null, onStarted: () -> Unit = {}) {
         stop()
-        val next = StreamSession(volume, speed, pitch, onStarted)
+        val next = StreamSession(volume, speed, pitch, owner, onStarted)
         synchronized(lock) { stream = next }
         next.start()
     }
 
-    fun enqueueStream(wavBytes: ByteArray, segmentSpeed: Float = speed) {
+    fun enqueueStream(wavBytes: ByteArray, segmentSpeed: Float = speed, owner: Long? = null): Boolean {
         val wav = parseWav(wavBytes)
         val current = synchronized(lock) { stream }
-            ?: error("TTS audio stream has not started")
+            ?: return false
+        if (owner != null && current.owner != owner) return false
         current.enqueue(wavBytes, wav, segmentSpeed.coerceIn(0.5f, 2f))
+        return true
     }
 
     /** Returns true only when AudioTrack actually started and drained. */
-    fun finishStream(): Boolean {
+    fun finishStream(owner: Long? = null): Boolean {
         val current = synchronized(lock) { stream } ?: return false
+        if (owner != null && current.owner != owner) return false
         return try {
             current.finishAndWait()
         } finally {
@@ -104,6 +107,7 @@ class WavAudioPlayer {
         initialVolume: Float,
         initialSpeed: Float,
         initialPitch: Float,
+        val owner: Long?,
         private val onStarted: () -> Unit,
     ) {
         private val queue = LinkedBlockingQueue<Command>()
@@ -122,7 +126,7 @@ class WavAudioPlayer {
         @Volatile private var currentSpeed = initialSpeed
         @Volatile private var currentPitch = initialPitch
         private var firstEnqueued = false
-        private val lipSync = CaicaiPcmLipSync()
+        private val lipSync = CaicaiPcmLipSync { owner == null || PlaybackSessionRegistry.validForTail(owner) }
 
         fun start() = thread.start()
 

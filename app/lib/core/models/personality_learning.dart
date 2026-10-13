@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 enum PersonalityLearningScope {
   userPreference('user_preference', 'user.preference'),
   relationshipPermission('relationship_permission', 'relationship.permission'),
@@ -151,6 +153,7 @@ class PersonalityLearningCandidate {
     required this.lastObservedAt,
     this.activationCount = 0,
     this.lastActivatedAt,
+    this.lifecycleJson = '',
   });
 
   final String id;
@@ -169,6 +172,16 @@ class PersonalityLearningCandidate {
   final DateTime lastObservedAt;
   final int activationCount;
   final DateTime? lastActivatedAt;
+  final String lifecycleJson;
+  Map<String, dynamic> get lifecycle {
+    try { final decoded = jsonDecode(lifecycleJson); return decoded is Map ? Map<String, dynamic>.from(decoded) : {}; }
+    catch (_) { return {}; }
+  }
+  bool get blockedByConflict => lifecycle.containsKey('blocked') ? lifecycle['blocked'] == true : contradictionCount > 0;
+  List<String> get barrierIds => (lifecycle['barriers'] as List?)?.whereType<String>().toList() ?? const [];
+  String get reviewToken => jsonEncode([id, scope.key, subjectKey, contextKey, proposition,
+    status.key, supportCount, contradictionCount, supportScore, contradictionScore,
+    lastObservedAt.millisecondsSinceEpoch, lifecycleJson]);
 
   factory PersonalityLearningCandidate.fromDb(Map<String, Object?> row) {
     final scope = PersonalityLearningScope.parse(row['scope'] as String?);
@@ -177,6 +190,7 @@ class PersonalityLearningCandidate {
     }
     return PersonalityLearningCandidate(
       id: row['id'] as String,
+      lifecycleJson: row['lifecycle_json'] as String? ?? '',
       scope: scope,
       subjectKey: row['subject_key'] as String? ?? '',
       topicKey: row['topic_key'] as String? ?? '',
@@ -377,9 +391,7 @@ class PersonalityLearningProposal {
                   ) >=
                   1;
         }).toList(growable: false);
-        if (matchingTargets.isEmpty ||
-            (matchingTargets.length == 1 &&
-                matchingTargets.single.id != target.id)) {
+        if (matchingTargets.length == 1 && matchingTargets.single.id != target.id) {
           return reject(
             PersonalityLearningRejectionReason.ungroundedTarget,
           );
@@ -700,40 +712,9 @@ class PersonalityLearningProposal {
     required String normalizedUser,
     required PersonalityLearningEvidenceKind evidenceKind,
   }) {
-    if (evidenceKind == PersonalityLearningEvidenceKind.directFeedback ||
-        evidenceKind == PersonalityLearningEvidenceKind.revealedChoice ||
-        normalizedUser.length < 12 ||
-        normalizedUser.length > 360 ||
-        _isContextOnlyPacingReply(normalizedUser)) {
-      return false;
-    }
-    return _containsAny(normalizedUser, const <String>[
-      '我喜欢',
-      '我更喜欢',
-      '我真的喜欢',
-      '我不喜欢',
-      '我讨厌',
-      '我希望',
-      '我想要',
-      '我不想',
-      '我宁愿',
-      '我接受',
-      '我不接受',
-      '我的偏好',
-      '我觉得',
-      '我认为',
-      '对我来说',
-      '这种感觉',
-      '才更好',
-      '更适合',
-      '我改一下',
-      '我修正',
-      '只限',
-      '只在',
-      '不应该',
-      '应该',
-      '不要',
-    ]);
+    return evidenceKind != PersonalityLearningEvidenceKind.revealedChoice &&
+        normalizedUser.length >= 2 && normalizedUser.length <= 360 &&
+        !_isContextOnlyPacingReply(normalizedUser);
   }
 
   static bool _isGroundedNewProposition({

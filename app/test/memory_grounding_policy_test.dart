@@ -12,6 +12,7 @@ MemoryItem _memory({
   String ownerKey = 'unknown',
   String temporalScope = 'unknown',
   DateTime? observedAt,
+  bool evidenceTimeKnown = false,
 }) {
   final time = observedAt ?? DateTime.utc(2026, 8, 31, 2);
   return MemoryItem(
@@ -22,6 +23,7 @@ MemoryItem _memory({
     createdAt: time,
     updatedAt: time,
     lastEvidenceAt: time,
+    evidenceTimeKnown: evidenceTimeKnown,
     semanticType: semanticType,
     actorKey: actorKey,
     relationKey: relationKey,
@@ -41,7 +43,8 @@ void main() {
     expect(rendered, contains('actor=user'));
     expect(rendered, contains('owner=ai'));
     expect(rendered, contains('temporal=last_known_ongoing'));
-    expect(rendered, contains('age_days=4'));
+    expect(rendered, contains('source_time_unknown'));
+    expect(rendered, isNot(contains('age_days=4')));
     expect(rendered, contains('current_status=unknown'));
     expect(rendered, contains('禁止改写成“现在/刚才仍在做”'));
     expect(rendered, contains('AI 的 Live2D 模型的呆毛'));
@@ -67,13 +70,20 @@ void main() {
 
   test('recalled thought preserves original evidence time', () {
     final rendered = MemoryGroundingPolicy.recalledThoughtText(
-      _memory(temporalScope: 'ongoing'),
+      _memory(temporalScope: 'ongoing', evidenceTimeKnown: true),
       now: DateTime.utc(2026, 9, 4, 17),
     );
 
     expect(rendered, contains('2026-08-31'));
     expect(rendered, contains('当前是否仍在继续未知'));
     expect(rendered, isNot(contains('刚才')));
+  });
+
+  test('verified event time retains age without claiming current activity', () {
+    final rendered = MemoryGroundingPolicy.formatForPrompt(
+      _memory(evidenceTimeKnown: true), now: DateTime.utc(2026, 9, 4, 17));
+    expect(rendered, contains('age_days=4'));
+    expect(rendered, contains('current_status=unknown'));
   });
 
   test('unresolved thread does not prove that old progress is current', () {

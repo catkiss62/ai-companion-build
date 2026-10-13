@@ -116,8 +116,8 @@ def main() -> None:
     require(
         queue,
         "unawaited(_generateAwaited",
-        "await service.beginPlayback();",
-        "await service.finishPlayback();",
+        "await session.service.beginPlayback();",
+        "await session.service.finishPlayback();",
     )
     require(
         queue_test,

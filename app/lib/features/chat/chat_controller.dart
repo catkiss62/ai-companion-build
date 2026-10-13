@@ -1332,6 +1332,7 @@ class ChatController extends ChangeNotifier {
     required ChatMessage user,
     required GenerationCancellationToken cancellation,
   }) async {
+    PlaybackIntent? playbackIntent;
     var emotionCueStarted = false;
     var emotionLeadIn = Future<void>.value();
 
@@ -1339,7 +1340,7 @@ class ChatController extends ChangeNotifier {
       if (emotionCueStarted) return emotionLeadIn;
       emotionCueStarted = true;
       final visual = ChatVisualResolver.resolveEmotionKey(emotionKey);
-      emotionLeadIn = emotionSounds.play(visual).then<void>((_) {});
+      emotionLeadIn = emotionSounds.play(visual, intent: playbackIntent).then<void>((_) {});
       return emotionLeadIn;
     }
 
@@ -1368,7 +1369,7 @@ class ChatController extends ChangeNotifier {
       cancellationToken: cancellation,
       onNsfwRoute: _applyNsfwRoute,
       onAgentToolActivity: _applyAgentToolActivity,
-      onEmotionCue: startEmotionCue,
+      onEmotionCue: (_) async {},
       onDelta: (delta) {
         if (cancellation.isCancelled) return;
         if (delta.reasoning.isNotEmpty) {
@@ -1404,6 +1405,8 @@ class ChatController extends ChangeNotifier {
       // The cue belongs to the visible reply, not to an early hidden
       // <emotion> envelope. Start it in the same UI commit that exposes the
       // body so slow final providers cannot play a sound seconds too early.
+      if (autoTts) playbackIntent = ttsPlayback.createIntent(ownerId: projectedAssistant.id,
+        formForPlayback: projectedAssistant.formContext.isKnown ? projectedAssistant.formContext.form == 'q' : null);
       startEmotionCue(projectedAssistant.emotionKey);
       _safeNotify();
 
@@ -1438,6 +1441,7 @@ class ChatController extends ChangeNotifier {
         unawaited(
           ttsPlayback.playText(
             speechText,
+            intent: playbackIntent,
             manual: false,
             ownerId: result.assistant!.id,
             emotion: _ttsEmotionCue(result.assistant!),
@@ -1823,7 +1827,7 @@ class ChatController extends ChangeNotifier {
     ChatLanguage language = ChatLanguage.chinese,
   }) async {
     if (!message.isAssistant) return;
-    await ttsPlayback.stop();
+    final playbackIntent = ttsPlayback.createIntent(ownerId: message.id);
     var projected = message;
     if (language != ChatLanguage.chinese &&
         !_hasPlausibleLanguageVariant(message, language)) {
@@ -1871,11 +1875,13 @@ class ChatController extends ChangeNotifier {
         rethrow;
       }
     }
+    if (!playbackIntent.valid) return;
     final content = projected.contentFor(language).trim();
     if (content.isEmpty) return;
     await db.setSetting('tts_language', language.key);
     await ttsPlayback.playText(
       content,
+      intent: playbackIntent,
       manual: true,
       ownerId: message.id,
       emotion: _ttsEmotionCue(message),
@@ -1914,7 +1920,11 @@ class ChatController extends ChangeNotifier {
     }
   }
 
-  Future<void> stopSpeech() => ttsPlayback.stop();
+  Future<void> stopSpeech() async {
+    final stopped = ttsPlayback.stop();
+    await emotionSounds.stop();
+    await stopped;
+  }
 
   bool _hasPlausibleLanguageVariant(
     ChatMessage message,
@@ -1942,11 +1952,14 @@ class ChatController extends ChangeNotifier {
     if (latest == null) return;
     final lastSpoken = await db.getSetting('last_proactive_spoken_message_id');
     if (lastSpoken == latest.id) return;
+    final playbackIntent = ttsPlayback.createIntent(ownerId: latest.id);
     await db.setSetting('last_proactive_spoken_message_id', latest.id);
+    if (!playbackIntent.valid) return;
     final visual = ChatVisualResolver.resolveEmotionKey(latest.emotionKey);
-    final emotionLeadIn = emotionSounds.play(visual).then<void>((_) {});
+    final emotionLeadIn = emotionSounds.play(visual, intent: playbackIntent).then<void>((_) {});
     await ttsPlayback.playText(
       latest.content,
+      intent: playbackIntent,
       manual: true,
       ownerId: latest.id,
       emotion: _ttsEmotionCue(latest),

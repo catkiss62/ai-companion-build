@@ -60,7 +60,8 @@ void main() {
     }
   });
   test('a newer intention or manual hold wins over the older decision', () {
-    for (final current in [wish.copyWith(updatedAt: at.add(const Duration(hours: 1))),
+    for (final current in [wish.copyWith(lastIntentionAt: at.add(const Duration(hours: 1)),
+        lastIntentionSource: 'newer-choice'),
       wish.copyWith(state: 'paused', manualHold: true)]) {
       expect(WishPolicy.apply(wishes: [current], payload: proposal(), evidence: [decision],
         catalogIds: {'white_room'}, now: at.add(const Duration(days: 1)),

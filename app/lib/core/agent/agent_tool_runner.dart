@@ -696,6 +696,21 @@ class AgentToolRunner {
     required String latestUserText,
     PendingMediaOwner? pendingMediaOwner,
   }) async {
+    final attempt = pendingMediaOwner?.attempt;
+    final effectStore = TurnExecutionStore(db);
+    AgentToolResult replay(Map<String, dynamic> receipt) {
+      final known = receipt['state'] == 'known';
+      return AgentToolResult(toolId: AgentToolRegistry.cedarToyPlay.id,
+        status: known && receipt['failed'] != true ? AgentToolStatus.succeeded : AgentToolStatus.blocked,
+        displayText: known ? '使用本次请求已有的游戏结果' : '本次游戏操作结果尚未确认',
+        promptData: known ? '这是同一用户请求已经收到的真实结果，重新生成没有再次执行游戏动作：${receipt['outcome'] ?? ''}' :
+          '同一用户请求已经登记发送或存在旧执行记录；结果可能已在远端发生，不能因重生成或等待一段时间而再次发送。尚未确认成功。',
+        errorCode: known ? '' : 'cedar_prior_dispatch_unresolved');
+    }
+    if (attempt != null) {
+      final previous = await effectStore.remoteEffect(attempt.userMessageId);
+      if (previous != null) return replay(previous);
+    }
     final game = _safeCedarIdentifier(arguments['game'] ?? '');
     final action = _safeCedarIdentifier(arguments['action'] ?? '');
     final activityStore = CedarToyActivityStore(db);
@@ -860,6 +875,8 @@ class AgentToolRunner {
         errorCode: 'cedar_action_in_progress',
       );
     }
+    final effectPayload = <String, Object?>{'game': game, 'action': action, 'params': params};
+    var receivedOutcome = false;
     late McpToolOutcome outcome;
     var verifiedNextActor = 'wait';
     var executionId = '';
@@ -868,6 +885,16 @@ class AgentToolRunner {
     try {
       executionId =
           await activityStore.beginExecution(gameId: game, action: action);
+      if (attempt != null) {
+        final existing = await effectStore.reserveRemoteEffect(attempt, effectPayload,
+          isCancelled: () => cancellationToken?.isCancelled == true);
+        if (existing != null) return replay(existing);
+      }
+      cancellationToken?.throwIfCancelled();
+      if (!await activityStore.admitRemoteDispatch(gameId: game, action: action, params: params, executionId: executionId)) {
+        return const AgentToolResult(toolId: 'cedar_toy.play', status: AgentToolStatus.blocked,
+          displayText: '上一项游戏操作仍待核对', promptData: '未确认的远端写入仍存在；没有发送新的写入。', errorCode: 'cedar_unresolved_write');
+      }
       try {
         outcome = await client.play(
           game,
@@ -897,6 +924,10 @@ class AgentToolRunner {
           continuationRecommended: error.code == 'network_or_timeout',
         );
       }
+      receivedOutcome = true;
+      await activityStore.resolveRemoteDispatch(gameId: game, executionId: executionId, action: action, authoritative: true, params: params);
+      if (attempt != null) await effectStore.completeRemoteEffect(attempt.userMessageId, effectPayload,
+        outcome: CedarToyClient.redactSecrets(outcome.text), failed: outcome.isError);
       final verification = outcome.isError || platformAction
           ? (nextActor: 'wait', shareLevel: 'quiet', resumeAfterSeconds: 0)
           : await _verifyCedarOutcome(
@@ -989,6 +1020,9 @@ class AgentToolRunner {
         }
       }
     } finally {
+      if (!receivedOutcome && executionId.isNotEmpty) {
+        try { await activityStore.markWriteOutcomeUncertain(gameId: game, action: action, params: params, executionId: executionId); } catch (_) {}
+      }
       try {
         if (executionId.isNotEmpty) {
           await activityStore.finishExecution(executionId: executionId);

@@ -495,12 +495,16 @@ class CreativeStore {
     return (await list(includePrivate: true)).where((w) => CreativeShare.eligible(w, now)).take(2).toList();
   }
 
-  Future<CreativeShare?> claimShare(String id, DateTime now) async {
+  Future<CreativeShare?> claimShare(String id, DateTime now, {BrainWorkFence? workFence}) async {
     if (await db.getSetting(CreativeAutonomyPolicy.enabledKey) != '1') return null;
     final work = await get(id);
     if (!CreativeShare.eligible(work, now)) return null;
-    final fence = await db.captureBrainWorkFence(settingKeys: [
-      CreativeAutonomyPolicy.enabledKey, CreativeAutonomyPolicy.epochKey]);
+    const settings = [CreativeAutonomyPolicy.enabledKey, CreativeAutonomyPolicy.epochKey];
+    // A proactive selection belongs to its original evaluation. Extending it
+    // keeps that reset/lease identity all the way into write's transaction.
+    final fence = workFence == null
+        ? await db.captureBrainWorkFence(settingKeys: settings)
+        : await db.extendBrainWorkFence(workFence, settingKeys: settings);
     if (fence == null || fence.expectedSettings[CreativeAutonomyPolicy.enabledKey] != '1') return null;
     // WAIT and failed writing leave it private; don't buy the same decision on every heartbeat.
     final next = {...work, 'share_after': now.add(const Duration(hours: 2)).millisecondsSinceEpoch};

@@ -18,9 +18,9 @@ class WishEvidenceWindow {
     final ranked = <({int index, int score})>[];
     for (var i = 0; i < chat.length; i++) {
       final e = chat[i];
-      if (e.kind != 'assistant_text' || !pending.any((w) => e.at.isAfter(w.updatedAt))) continue;
+      if (!pending.any((w) => w.acceptsIntentionAt(e.at))) continue;
       var overlap = 0;
-      for (final w in pending.where((w) => e.at.isAfter(w.updatedAt))) {
+      for (final w in pending.where((w) => w.acceptsIntentionAt(e.at))) {
         final target = '${w.goal} ${w.criterion}';
         for (var j = 0; j + 3 <= target.length; j++) {
           final part = target.substring(j, j + 3);

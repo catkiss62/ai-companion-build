@@ -41,8 +41,7 @@ class PersonalityLearningPromptPolicy {
           candidate.status == PersonalityLearningStatus.established &&
           candidate.confidence >= 0.82 &&
           candidate.supportCount >= 2 &&
-          candidate.contradictionCount == 0 &&
-          candidate.contradictionScore <= 0.01 &&
+          !candidate.blockedByConflict &&
           candidate.proposition.trim().isNotEmpty &&
           (candidate.scope == PersonalityLearningScope.userPreference ||
               candidate.scope == PersonalityLearningScope.relationshipPermission);

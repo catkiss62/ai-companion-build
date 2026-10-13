@@ -5,7 +5,12 @@ import '../ai/model_profile.dart';
 import '../database/app_database.dart';
 import '../mcp/cedar_game_protocol.dart';
 import '../mcp/cedar_toy_activity.dart';
-import '../models/world_book_turn_context.dart';
+import 'package:sqflite/sqflite.dart';
+import '../autonomy/public_web_share_contract.dart';
+import '../database/brain_work_fence.dart';
+import '../database/conversation_source_store.dart';
+import '../memory/memory_revision.dart';
+import '../models/thought.dart';
 import '../storage/secure_config.dart';
 import 'companion_wish.dart';
 import 'wish_store.dart';
@@ -91,7 +96,8 @@ expressed=true 仅 assistant_text 确实已经向用户说出了这一具体愿�
       await store.initialize();
       final fence = await db.captureBrainWorkFence(
         leaseKey: leaseKey,
-        settingKeys: [WishStore.enabledKey, 'chat_turn_lease'],
+        settingKeys: [WishStore.enabledKey, 'chat_turn_lease',
+          'conversation_context_reset_at', 'conversation_context_reset_count'],
       );
       if (fence == null ||
           fence.expectedSettings[WishStore.enabledKey] == '0' ||
@@ -112,11 +118,13 @@ expressed=true 仅 assistant_text 确实已经向用户说出了这一具体愿�
       if (instant.millisecondsSinceEpoch - lastAttempt <
           reviewGap.inMilliseconds)
         return false;
-      final evidence = await collect(instant, wishes: wishes);
+      final batch = await _collectSnapshot(instant, fence: fence, wishes: wishes, expectedWishRaw: raw);
+      if (batch == null) return false;
+      final evidence = batch.evidence;
       if (evidence.isEmpty) return false;
       final fingerprint = sha256
           .convert(
-            utf8.encode(jsonEncode({"contract":4,"wishes":wishes.map((w)=>w.toJson()).toList(),"sources":evidence.map((e) => e.toJson()).toList()})),
+            utf8.encode(jsonEncode({"contract":5,"wishes":wishes.map((w)=>w.toJson()).toList(),"sources":batch.manifest,"catalog":batch.catalog,"guides":batch.guides})),
           )
           .toString();
       if (await db.getSetting(fingerprintKey) == fingerprint) return false;
@@ -129,9 +137,7 @@ expressed=true 仅 assistant_text 确实已经向用户说出了这一具体愿�
       if (!canGenerate && !wishes.any((w) => w.active || w.state == 'expired' ||
             (w.state == 'paused' && !w.manualHold && !w.legacy)))
         return false;
-      final catalog = CedarCatalogParser.parse(
-        await db.getSetting(CedarToyActivityStore.catalogSettingKey) ?? '',
-      );
+
       // Claim the attempt before I/O. A crash, malformed answer or API error
       // cannot cause every subsequent heartbeat to retry or invent a fallback.
       if (!await db.setSettingsAtomically(
@@ -147,6 +153,7 @@ expressed=true 仅 assistant_text 确实已经向用户说出了这一具体愿�
         },
         expectedSettings: {WishStore.stateKey: raw},
         workFence: fence,
+        sourceGuard: batch.matches,
       ))
         return false;
       Map<String, dynamic>? payload;
@@ -158,12 +165,8 @@ expressed=true 仅 assistant_text 确实已经向用户说出了这一具体愿�
             ...wishes.where((w) => w.active),
             ...wishes.where((w) => !w.active).take(116),
           ].map((w) => w.toJson()).toList(),
-          'catalog': catalog
-              .map((e) => {'id': e.id, 'title': e.title})
-              .toList(),
-          'known_game_guides': (await CedarToyActivityStore(db).loadState()).sessions.values
-              .where((s) => s.guideComplete && s.guide.length <= 12000).take(2)
-              .map((s) => {'game':s.gameId, 'guide':s.guide}).toList(),
+          'catalog': batch.catalog,
+          'known_game_guides': batch.guides,
           'sources': evidence.map((e) => e.toJson()).toList(),
         });
       } catch (_) {
@@ -183,7 +186,7 @@ expressed=true 仅 assistant_text 确实已经向用户说出了这一具体愿�
         wishes: wishes,
         payload: payload,
         evidence: evidence,
-        catalogIds: catalog.map((e) => e.id).toSet(),
+        catalogIds: batch.catalog.map((e) => e['id'] as String).toSet(),
         now: instant,
         canGenerate: canGenerate,
         decisions: decisions,
@@ -192,6 +195,7 @@ expressed=true 仅 assistant_text 确实已经向用户说出了这一具体愿�
         updated,
         expected: raw,
         fence: fence,
+        sourceGuard: batch.matches,
         extra: {
           fingerprintKey: fingerprint,
           diagnosticKey: jsonEncode({
@@ -200,7 +204,7 @@ expressed=true 仅 assistant_text 确实已经向用户说出了这一具体愿�
             'added': updated.length - wishes.length,
             'active': updated.where((w) => w.active).length,
             'completed': updated.where((w) => w.state == 'completed').length,
-            'contract': 4, 'source_count': evidence.length,
+            'contract': 5, 'source_count': evidence.length,
             'decisions': decisions.take(16).toList(),
           }),
         },
@@ -214,125 +218,150 @@ expressed=true 仅 assistant_text 确实已经向用户说出了这一具体愿�
   }
 
   Future<List<WishEvidence>> collect(DateTime now, {List<CompanionWish> wishes = const []}) async {
+    final fence = await db.captureBrainWorkFence();
+    if (fence == null) return [];
+    return (await _collectSnapshot(now, fence: fence, wishes: wishes))?.evidence ?? [];
+  }
+
+  Future<_WishMaterialBatch?> _collectSnapshot(DateTime now, {
+    required BrainWorkFence fence, List<CompanionWish> wishes = const [],
+    String? expectedWishRaw,
+  }) => db.readSourceSnapshot<_WishMaterialBatch?>(workFence: fence, read: (txn) async {
+    if (expectedWishRaw != null &&
+        await BrainWorkFence.value(txn, WishStore.stateKey) != expectedWishRaw) return null;
     final result = <WishEvidence>[];
-    String clip(String s, int n) => s.length <= n ? s : s.substring(0, n);
-    final messages = await db.recentMessages(limit: wishes.isEmpty ? 64 : 256);
-    for (final m in messages) {
-      if (WorldBookTurnContext.decode(m.worldBookContextJson).hasRoleplay ||
-          m.createdAt.isAfter(now) ||
-          now.difference(m.createdAt) > const Duration(days: 14))
-        continue;
+    final guards = <String, LocalSourceGuard>{};
+    final stamps = <String, Object?>{};
+    String clip(String value, int limit) => value.length <= limit ? value : value.substring(0, limit);
+    void add(WishEvidence value, Object? stamp, LocalSourceGuard guard) {
+      result.add(value); stamps[value.id] = stamp; guards[value.id] = guard;
+    }
+    for (final material in await ConversationSourceStore.recentMaterials(txn,
+      limit: wishes.isEmpty ? 64 : 256,
+      notBefore: now.subtract(const Duration(days: 14)), notAfter: now)) {
+      final m = material.message, source = material.source;
+      if (!source.isOrdinary || source.stamp.ingestSeq <= 0) continue;
       if (m.content.trim().isNotEmpty && (m.isUser || m.isAssistant)) {
-        result.add(
-          WishEvidence(
-            id: 'chat:${m.id}',
-            kind: m.isUser ? 'user_text' : 'assistant_text',
-            text: clip(m.content, 650),
-            at: m.createdAt,
-          ),
-        );
+        add(WishEvidence(id: 'chat:${m.id}', kind: m.isUser ? 'user_text' : 'assistant_text',
+          text: clip(m.content, 650), at: m.createdAt), source.toJson(), source.matches);
       }
       if (m.isUser) {
-        for (final a in m.attachments.where(
-          (a) =>
-              a.isImage &&
-              a.visionCompleted &&
-              !a.source.startsWith('user_sticker:'),
-        )) {
-          result.add(
-            WishEvidence(
-              id: 'photo:${m.id}:${a.id}',
-              kind: 'user_photo',
-              text: clip('附言：${m.content}\n视觉识别：${a.visionSummary}', 1100),
-              at: m.createdAt,
-            ),
-          );
+        for (final a in m.attachments.where((a) => a.isImage && a.visionCompleted &&
+            !a.source.startsWith('user_sticker:'))) {
+          add(WishEvidence(id: 'photo:${m.id}:${a.id}', kind: 'user_photo',
+            text: clip('附言：${m.content}\n视觉识别：${a.visionSummary}', 1100), at: m.createdAt),
+            source.toJson(), source.matches);
         }
       }
     }
-    final games = await CedarToyActivityStore(db).loadState();
-    for (final s in games.sessions.values) {
-      for (final e in s.events.reversed.take(8)) {
-        if (now.difference(e.createdAt) > const Duration(days: 14)) continue;
-        result.add(
-          WishEvidence(
-            id: 'game:${s.gameId}:${e.id}',
-            gameId: s.gameId,
-            kind: e.kind == 'outcome' ? 'game_result' : 'game_context',
-            text: clip('${e.action}\nsubmitted_input=${e.inputJson}\n${e.summary}', 4000),
-            at: e.createdAt,
-          ),
-        );
+    final games = await CedarToyActivityStore.readStateInTransaction(txn);
+    Object gameStamp(String game, CedarGameEvent e) => [game, e.id, e.kind,
+      e.action, e.inputJson, e.summary, e.createdAt.millisecondsSinceEpoch];
+    for (final session in games.sessions.values) {
+      for (final e in session.events.reversed.take(8)) {
+        if (e.createdAt.isAfter(now) || now.difference(e.createdAt) > const Duration(days: 14)) continue;
+        final stamp = gameStamp(session.gameId, e);
+        add(WishEvidence(id: 'game:${session.gameId}:${e.id}', gameId: session.gameId,
+          kind: e.kind == 'outcome' ? 'game_result' : 'game_context',
+          text: clip('${e.action}\nsubmitted_input=${e.inputJson}\n${e.summary}', 4000), at: e.createdAt),
+          stamp, (handle) async {
+            final live = (await CedarToyActivityStore.readStateInTransaction(handle))
+                .sessions[session.gameId]?.events.where((v) => v.id == e.id);
+            return live != null && live.length == 1 &&
+                jsonEncode(gameStamp(session.gameId, live.single)) == jsonEncode(stamp);
+          });
       }
     }
-    final handle = await db.database;
-    final pages = await handle.query(
-      'public_web_candidates',
-      columns: ['id', 'title', 'summary', 'read_at'],
-      where:
-          "read_state = 'verified' AND semantic_state IN ('valid','history_only') AND lifecycle_state NOT IN ('discarded','declined','user_deleted') AND read_at > ?",
-      whereArgs: [
-        now.subtract(const Duration(days: 14)).millisecondsSinceEpoch,
-      ],
-      orderBy: 'read_at DESC',
-      limit: 6,
-    );
-    for (final p in pages) {
-      result.add(
-        WishEvidence(
-          id: 'web:${p['id']}',
-          kind: 'web_read',
-          text: clip('${p['title']}\n${p['summary']}', 650),
-          at: DateTime.fromMillisecondsSinceEpoch(
-            (p['read_at'] as num).toInt(),
-          ),
-        ),
-      );
+    final pages = await txn.query('public_web_candidates', where:
+      "read_state = 'verified' AND semantic_state IN ('valid','history_only') "
+      "AND lifecycle_state NOT IN ('discarded','declined','user_deleted') AND read_at > ? AND read_at <= ?",
+      whereArgs: [now.subtract(const Duration(days: 14)).millisecondsSinceEpoch, now.millisecondsSinceEpoch],
+      orderBy: 'read_at DESC', limit: 6);
+    for (final row in pages) {
+      final source = PublicWebSourceStamp.capture(row, profile: PublicWebSourceProfile.wish, now: now);
+      if (source == null) continue;
+      add(WishEvidence(id: 'web:${row['id']}', kind: 'web_read',
+        text: clip('${row['title']}\n${row['summary']}', 650),
+        at: DateTime.fromMillisecondsSinceEpoch((row['read_at'] as num).toInt())),
+        [source.materialHash, source.profile.name], source.matches);
     }
-    for (final t in (await db.activeThoughts(
-      limit: 8,
-    )).where((t) => t.canDriveIntentAt(now))) {
-      result.add(
-        WishEvidence(
-          id: 'thought:${t.id}',
-          kind: 'inspiration',
-          text: clip(t.text, 400),
-          at: t.bornAt,
-        ),
-      );
+    Object thoughtStamp(CompanionThought value) => [value.id, value.text, value.source,
+      value.driveKey, value.kind, value.topicKey, value.bornAt.millisecondsSinceEpoch];
+    final thoughts = await txn.query('thoughts',
+      where: "lifecycle_state IN ('active','fixation','acted','residual')",
+      orderBy: 'strength DESC, updated_at DESC', limit: 8);
+    for (final thought in thoughts.map(CompanionThought.fromDb).where((t) => t.canDriveIntentAt(now))) {
+      final stamp = thoughtStamp(thought);
+      add(WishEvidence(id: 'thought:${thought.id}', kind: 'inspiration',
+        text: clip(thought.text, 400), at: thought.bornAt), stamp, (handle) async {
+          final rows = await handle.query('thoughts', where: 'id = ?', whereArgs: [thought.id], limit: 1);
+          if (rows.isEmpty) return false;
+          final live = CompanionThought.fromDb(rows.single);
+          return live.canDriveIntentAt(DateTime.now()) &&
+              jsonEncode(thoughtStamp(live)) == jsonEncode(stamp);
+        });
     }
-    for (final m in await db.memoryCandidatesForSelfDrive(limit: 8)) {
-      result.add(
-        WishEvidence(
-          id: 'memory:${m.id}',
-          kind: 'inspiration',
-          text: clip(m.content, 400),
-          at: m.createdAt,
-        ),
-      );
+    for (final memory in await db.memoryCandidatesForSelfDriveInTransaction(txn, limit: 8)) {
+      final source = MemoryRevisionSnapshot.capture(memory);
+      add(WishEvidence(id: 'memory:${memory.id}', kind: 'inspiration',
+        text: clip(memory.content, 400),
+        at: memory.evidenceTimeKnown ? memory.lastEvidenceAt : memory.createdAt,
+        timeKnown: memory.evidenceTimeKnown), source.toJson(),
+        (handle) => db.memorySourcesForSelfDriveMatch(handle, [source]));
     }
-    // Keep several source kinds even during a busy conversation. Stable order
-    // makes an unchanged context a cache hit, including across process restart.
-    final bounded = <WishEvidence>[];
-    for (final kind in [
-      'user_photo',
-      'game_result',
-      'game_context',
-      'web_read',
-      'inspiration',
-    ]) {
-      final items =
-          result.where((e) => e.kind == kind && !e.at.isAfter(now)).toList()
-            ..sort((a, b) => b.at.compareTo(a.at));
-      bounded.addAll(items.take(kind.endsWith('_text') ? 16 : 10));
+    final selected = <WishEvidence>[];
+    for (final kind in ['user_photo', 'game_result', 'game_context', 'web_read', 'inspiration']) {
+      final items = result.where((e) => e.kind == kind && !e.at.isAfter(now)).toList()
+        ..sort((a, b) => b.at.compareTo(a.at));
+      selected.addAll(items.take(10));
     }
-    bounded.addAll(WishEvidenceWindow.select(result, wishes));
-    final receipts = WishGameEvidence.collect(await db.getSetting(WishGameEvidence.key) ?? '', wishes, now);
-    final receiptIds = receipts.map((e) => e.id).toSet();
-    bounded.removeWhere((e) => receiptIds.contains(e.id));
-    bounded.addAll(receipts);
-    bounded.sort((a, b) => a.id.compareTo(b.id));
-    return bounded;
+    selected.addAll(WishEvidenceWindow.select(result, wishes));
+    final receiptsRaw = await BrainWorkFence.value(txn, WishGameEvidence.key);
+    for (final receipt in WishGameEvidence.collect(receiptsRaw, wishes, now)) {
+      // Durable outcome receipts survive short activity-log rotation and reply
+      // regeneration. Their own identity, not a later assistant, is authority.
+      final rows = WishGameEvidence.decode(receiptsRaw).where((r) => r['id'] == receipt.id &&
+        wishes.any((w) => w.id == r['wish_id'] && w.active && !w.manualHold)).toList();
+      final stamp = jsonEncode(rows);
+      selected.removeWhere((e) => e.id == receipt.id);
+      selected.add(receipt);
+      stamps[receipt.id] = stamp;
+      guards[receipt.id] = (handle) async {
+        final live = WishGameEvidence.decode(await BrainWorkFence.value(handle, WishGameEvidence.key));
+        return rows.every((r) => live.any((v) => v['wish_id'] == r['wish_id'] &&
+          v['id'] == r['id'] && jsonEncode(v) == jsonEncode(r)));
+      };
+    }
+    selected.sort((a, b) => a.id.compareTo(b.id));
+    final catalogRaw = await BrainWorkFence.value(txn, CedarToyActivityStore.catalogSettingKey);
+    final catalog = CedarCatalogParser.parse(catalogRaw)
+        .map((e) => <String, Object?>{'id': e.id, 'title': e.title}).toList();
+    final guides = games.sessions.values.where((s) => s.guideComplete && s.guide.length <= 12000)
+        .take(2).map((s) => <String, Object?>{'game': s.gameId, 'guide': s.guide}).toList();
+    return _WishMaterialBatch(evidence: selected, catalog: catalog, guides: guides,
+      manifest: [for (final e in selected) [e.toJson(), stamps[e.id]]], guards: [
+        for (final e in selected) guards[e.id]!,
+        (handle) async => await BrainWorkFence.value(handle, CedarToyActivityStore.catalogSettingKey) == catalogRaw,
+        (handle) async {
+          final live = await CedarToyActivityStore.readStateInTransaction(handle);
+          return guides.every((g) => live.sessions[g['game']]?.guideComplete == true &&
+            live.sessions[g['game']]?.guide == g['guide']);
+        },
+      ]);
+  });
+
+}
+
+class _WishMaterialBatch {
+  const _WishMaterialBatch({required this.evidence, required this.catalog,
+    required this.guides, required this.manifest, required this.guards});
+  final List<WishEvidence> evidence;
+  final List<Map<String, Object?>> catalog, guides;
+  final List<Object?> manifest;
+  final List<LocalSourceGuard> guards;
+  Future<bool> matches(DatabaseExecutor txn) async {
+    for (final guard in guards) { if (!await guard(txn)) return false; }
+    return true;
   }
 }
 
@@ -422,14 +451,15 @@ class WishPolicy {
             (state != 'active' || w.state == 'paused') &&
             (state != 'active' || activeCount < 4) &&
             (w.deadline == null || now.isBefore(w.deadline!)) &&
-            e.at.isAfter(w.updatedAt) &&
+            w.acceptsIntentionAt(e.at) &&
             !w.evidenceIds.contains(e.id)) {
           if (w.active && state != 'active') activeCount--;
           if (!w.active && state == 'active') activeCount++;
           note('self_decision', applied: state);
           return w.copyWith(
             state: state, progress: reason, updatedAt: now,
-            manualHold: false, lastEvidenceAt: e.at,
+            manualHold: false, lastEvidenceAt: w.evidenceThrough(e.at),
+            lastIntentionAt: e.at, lastIntentionSource: e.id,
             evidenceIds: [...w.evidenceIds, e.id].reversed.take(12).toList().reversed.toList(),
             evidenceQuote: quote,
             expressedAt: u['expressed'] == true ? e.at : null,
@@ -437,13 +467,11 @@ class WishPolicy {
         }
         note(u['self_decision'] != true || u['speech_act'] != 'considered_decision' || reason.length < 4
             ? 'self_decision_fields_missing' : state == 'satisfied' && w.route != 'aspiration'
-            ? 'objective_goal_requires_release' : !e.at.isAfter(w.updatedAt)
-            ? 'decision_predates_update' : w.evidenceIds.contains(e.id)
+            ? 'objective_goal_requires_release' : !w.acceptsIntentionAt(e.at)
+            ? 'decision_predates_intention' : w.evidenceIds.contains(e.id)
             ? 'duplicate_evidence' : 'invalid_self_transition');
         return u['expressed'] == true ? w.copyWith(expressedAt: e.at) : w;
       }
-      // Self-paused wishes only resume through an explicit new self decision.
-      if (w.state == 'paused') return reject('self_resume_required');
       if (!const {'game_result', 'user_photo', 'user_text'}.contains(e.kind) ||
           (e.kind == 'game_result' && e.gameId != w.gameId))
         return reject('source_kind');
@@ -460,14 +488,23 @@ class WishPolicy {
       if (const {'paused', 'abandoned'}.contains(state) &&
           e.kind != 'user_text')
         return reject('user_decision_required');
+      final userDecision = const {'paused', 'abandoned'}.contains(state);
+      if (userDecision && !w.acceptsIntentionAt(e.at))
+        return reject('decision_predates_intention');
+      // Objective progress cannot resume a self-paused wish. A newer explicit
+      // user refusal can still put that wish on manual hold.
+      if (w.state == 'paused' && !userDecision)
+        return reject('self_resume_required');
       if (w.evidenceIds.contains(e.id)) return reject('duplicate_evidence');
       note('evidence_applied', applied: state);
       return w.copyWith(
         state: state,
         progress: text(u, 'progress', 240),
         updatedAt: now,
-        manualHold: const {'paused', 'abandoned'}.contains(state),
-        lastEvidenceAt: e.at,
+        manualHold: userDecision,
+        lastEvidenceAt: w.evidenceThrough(e.at),
+        lastIntentionAt: userDecision ? e.at : null,
+        lastIntentionSource: userDecision ? e.id : null,
         evidenceIds: [
           ...w.evidenceIds,
           e.id,
@@ -538,6 +575,8 @@ class WishPolicy {
             deadline: deadline,
             createdAt: now,
             updatedAt: now,
+            lastIntentionAt: now,
+            lastIntentionSource: 'wish_creation',
           ),
         );
       }

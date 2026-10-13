@@ -1,28 +1,24 @@
 # Build / 真机准备
 
-当前交付环境没有 Flutter SDK、Android SDK 或 ADB，所以本包没有声称“已编译通过”。先运行 `python tools/check_android_build_env.py` 可查看缺失工具。源代码按 Flutter 3.44.x / Dart 3.12.x 编写，Android 原生层按 Kotlin + Google Play services Nearby Connections 设计。
+当前版本、源码提交、实际 CI 与 APK 交付状态以仓库根目录 `AI_Companion_当前总账.md` 为准。修改中或单组测试通过不表示已生成 APK。
 
-## 在标准开发机上的顺序
+## 工具链与本地运行
 
-1. 安装当前 Flutter stable 与 Android SDK。
-2. 在项目根目录执行 `flutter pub get`。
-3. 如果 Gradle wrapper 文件缺失，用同版本 Flutter 新建一个临时 Android 项目，把标准 `android/gradlew`、`android/gradlew.bat`、`android/gradle/wrapper/gradle-wrapper.jar` 复制进本项目；不要覆盖本项目的 `AndroidManifest.xml`、Kotlin 源码和 Gradle 配置。
-4. 执行 `flutter doctor -v`。
-5. 连接一台 Android 真机，执行 `flutter run`。
-6. 按 `TEST_CHECKLIST.md` 完成权限和功能闭环。
+1. 使用工作流固定的 Flutter 3.44.9、Java 17 与 Android SDK；原生 NDK 为 27.2.12479018。先运行 `python tools/check_android_build_env.py` 和 `flutter doctor -v` 核对环境。
+2. 在 `app/` 执行 `flutter pub get`。按 `.github/workflows/build-apk.yml` 的固定版本及摘要恢复所需资源；完整 Genie 模型载荷来自已有私有 Draft，不能用任意替代资源冒充已验证载荷。
+3. 运行 `python3 tools/run_validation_suite.py`、工作流中的桥接/原生检查、`flutter analyze --no-fatal-infos --no-fatal-warnings` 与 `flutter test`。清单只读检查 `--check-only` 不等于执行全部源码门。
+4. 连接 ARM64 Android 真机，用 `flutter run` 开发；完整 APK 使用工作流中的 `flutter build apk --release --target-platform android-arm64`。仅在恢复了固定 JNI 载荷时沿工作流设置跳过重复原生编译。
+5. 按 `TEST_CHECKLIST.md` 和当前版本定向场景做真机检查；记录实际通过范围。CI 的受控模型和模拟器回归不能替代长期后台、音频观感等真机验证。
 
-## 注意
+## 测试 APK 签名与交付
 
-- `release` 当前临时使用 debug signing，仅用于原型。正式分发前必须换成私有 release keystore。
-- API Key 存在 Android secure storage，不写入 SQLite，也不会通过 Nearby 状态包迁移。手机和平板各配置一次即可。
-- API endpoint 同样存在 secure storage；如果两台设备使用同一反代/官方地址，各配置一次。
-- Nearby 状态 ZIP 目前依赖 Nearby 链路加密，并额外做 SHA-256 完整性验证；“手动文件导出”的独立 AES-GCM 加密安排在后续。
+CI 只恢复原有私测签名。签名 Draft、资产、密码或固定证书核验失败时停止，不自动生成替代身份。最终 APK 必须通过 `apksigner`，证书与既有交付一致，并实际核对包内包名、versionName 和 versionCode。
 
+本地未提供私有签名环境变量时，Gradle 保留 debug 签名以便开发；它不能作为同签名覆盖安装包交付。用户测试 APK 只上传未发布 Draft，附源码 SHA、CI、APK SHA-256 和证书指纹；既有公开 Release 不允许被此测试工作流覆盖。
 
-## v0.4 Native TTS
+## 数据与离线载荷
 
-- 本版已经包含来源 APK 的 TTS native/model/runtime 实体。
-- 当前仅打包 `arm64-v8a`，请优先使用真实 ARM64 Android 手机/平板测试。
-- 第一次“初始化模型”会把约百 MB 的模型从 assets 复制到应用私有目录，因此安装空间会明显大于 APK 本体。
-- 如果初始化失败，请保留设置页显示的最深层异常；优先排查 class/resource/native linker/model path，而不要修改 Companion Core。
-- compatibility runtime 通过 app 私有 code cache 动态加载；源码已将 runtime 文件在加载前设置只读。
+- API Key 和 endpoint 存在设备 secure storage，各设备单独配置，不将凭据写入 SQLite 或仓库。
+- Nearby 传输已经退休；当前迁移使用已实现的加密手动存档流程。备份协议与 schema 以实际源码及总账为准，升级版本不能自行跳过兼容验证。
+- APK 仅包含 `arm64-v8a` 原生载荷。初次初始化会将模型复制到应用私有目录，安装空间会大于 APK 本体。
+- 固定载荷的字节与资源完整性在打包后再次核验。初始化失败应保留设置页最深层错误用于定位 class/resource/native linker/model path，不随意更换已验证推理引擎。

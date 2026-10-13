@@ -40,7 +40,7 @@ for token in (
     "PersonalityLearningParseResult.reviewRequired",
     "semanticReviewApprovedTargetId",
     "PersonalityLearningSemanticReviewRequest",
-    "normalizedUser.length < 12",
+    "normalizedUser.length >= 2",
     "_isContextOnlyPacingReply(normalizedUser)",
     "PersonalityLearningEvidenceKind.revealedChoice",
 ):
@@ -65,7 +65,8 @@ review_start = extractor.index("你是人格学习证据的隔离语义复核器
 review_end = extractor.index("await _recordPersonalityLearningSemanticReview", review_start)
 review_block = extractor[review_start:review_end]
 assert "assistant.content" not in review_block
-assert "previousAssistant" not in review_block
+assert "'previous_assistant_message': previousAssistantText" in review_block
+assert "previousAssistantSource" in extractor
 assert "memoryCandidateContext" not in review_block
 assert "learningCandidateContext" not in review_block
 

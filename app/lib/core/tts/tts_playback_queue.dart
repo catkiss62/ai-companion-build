@@ -1,3 +1,5 @@
+export 'playback_intent.dart';
+import 'playback_intent.dart';
 import 'dart:async';
 import 'dart:typed_data';
 
@@ -61,6 +63,20 @@ class TtsPlaybackQueue {
   final void Function(TtsQueueState state)? onStateChanged;
 
   int _generation = 0;
+  PlaybackIntent? _intent;
+  PlaybackIntent createIntent({bool? formForPlayback, String? ownerId}) {
+    final stopped = _invalidateAndStop();
+    unawaited(stopped);
+    late PlaybackIntent intent;
+    final ready = service is TtsSessionFactory
+        ? (service as TtsSessionFactory).openPlaybackSession(qForm: formForPlayback, ownerId: ownerId)
+        : stopped.then((_) => service);
+    intent = PlaybackIntent(service: ready, isCurrent: () => identical(_intent, intent));
+    _intent = intent;
+    // A late claim may only release itself; it must never stop a newer owner.
+    unawaited(ready.then((owned) async { if (!intent.valid) await owned.stop(); }).catchError((Object _) {}));
+    return intent;
+  }
   _A2Session? _session;
   bool _streaming = false;
   bool _manual = false;
@@ -87,13 +103,19 @@ class TtsPlaybackQueue {
     TtsEmotionCue? emotion,
     Future<void>? leadIn,
     ChatLanguage language = ChatLanguage.chinese,
+    PlaybackIntent? intent,
+    bool? formForPlayback,
   }) async {
-    final stoppedAt = await _invalidateAndStop();
-    final voice = await service.resolveVoice(emotion);
-    if (_generation != stoppedAt) return;
-    _generation++;
+    final requested = intent ?? createIntent(formForPlayback: formForPlayback, ownerId: ownerId);
+    if (!requested.valid) return;
+    final activeService = await requested.service;
+    if (!requested.valid) return;
+    final voice = await activeService.resolveVoice(emotion);
+    if (!requested.valid) return;
     _session = _A2Session(
       token: _generation,
+      service: activeService,
+      intent: requested,
       manual: manual,
       ownerId: ownerId,
       emotion: emotion,
@@ -145,13 +167,19 @@ class TtsPlaybackQueue {
     TtsEmotionCue? emotion,
     Future<void>? leadIn,
     ChatLanguage language = ChatLanguage.chinese,
+    PlaybackIntent? intent,
+    bool? formForPlayback,
   }) async {
-    final stoppedAt = await _invalidateAndStop();
-    final voice = await service.resolveVoice(emotion);
-    if (_generation != stoppedAt) return;
-    _generation++;
+    final requested = intent ?? createIntent(formForPlayback: formForPlayback, ownerId: ownerId);
+    if (!requested.valid) return;
+    final activeService = await requested.service;
+    if (!requested.valid) return;
+    final voice = await activeService.resolveVoice(emotion);
+    if (!requested.valid) return;
     final session = _A2Session(
       token: _generation,
+      service: activeService,
+      intent: requested,
       manual: manual,
       ownerId: ownerId,
       emotion: emotion,
@@ -168,7 +196,7 @@ class TtsPlaybackQueue {
 
     // Full-message playback follows A2's processText order: speech-only text
     // cleanup/replacements happen before sentence splitting.
-    final prepared = await service.prepareUnits(
+    final prepared = await activeService.prepareUnits(
       text,
       manual: manual,
       language: language,
@@ -211,13 +239,18 @@ class TtsPlaybackQueue {
     _streaming = false;
     _manual = false;
     segmenter.reset();
+    final oldIntent = _intent;
+    _intent = null;
+    oldIntent?.cancel();
     final old = _session;
     _session = null;
     _current = '';
     if (old != null && !old.idle.isCompleted) old.idle.complete();
     _notify();
     try {
-      await service.stop();
+      if (old != null) { await old.service.stop(); }
+      else if (oldIntent != null) { await (await oldIntent.service).stop(); }
+      else if (service is! TtsSessionFactory) { await service.stop(); }
     } catch (_) {
       // Voice is optional. A native shutdown error must not poison chat.
     }
@@ -259,7 +292,7 @@ class TtsPlaybackQueue {
         TtsPreparedUnit? prepared;
         try {
           if (role == null) {
-            final text = await service.prepareText(
+            final text = await session.service.prepareText(
               packed.text,
               manual: manual,
               language: session.language,
@@ -271,7 +304,7 @@ class TtsPlaybackQueue {
               );
             }
           } else {
-            prepared = await service.prepareUnit(
+            prepared = await session.service.prepareUnit(
               packed.text,
               role: role,
               manual: manual,
@@ -353,7 +386,7 @@ class TtsPlaybackQueue {
     Uint8List? audio;
     try {
       final voice = session.voiceByIndex[index] ?? session.voice;
-      audio = await service.generatePrepared(
+      audio = await session.service.generatePrepared(
         text,
         emotion: session.emotion,
         language: session.language,
@@ -415,14 +448,14 @@ class TtsPlaybackQueue {
           if (!streamStarted) {
             await session.waitForLeadIn();
             if (!_isActive(session)) return;
-            await service.beginPlayback();
+            await session.service.beginPlayback();
             if (!_isActive(session)) return;
             streamStarted = true;
           }
           _current = text;
           _notify();
           final voice = session.voiceByIndex.remove(index) ?? session.voice;
-          await service.enqueuePlayback(
+          await session.service.enqueuePlayback(
             audio,
             speedMultiplier: voice == TtsVoiceMode.gentle ? 1.2 : 1.0,
           );
@@ -430,7 +463,7 @@ class TtsPlaybackQueue {
             session.audiblePlaybackStarted = true;
             _notify();
           }
-          session.completedPlaybackCount++;
+          if (!_isActive(session)) return;
         }
         if (!_isActive(session)) return;
         final allSubmitted = session.closed &&
@@ -439,7 +472,10 @@ class TtsPlaybackQueue {
             session.generating == 0 &&
             session.nextToPlay >= session.total;
         if (allSubmitted) {
-          if (streamStarted) await service.finishPlayback();
+          if (streamStarted) {
+            await session.service.finishPlayback();
+            if (_isActive(session)) session.completedPlaybackCount = session.nextToPlay;
+          }
           break;
         }
         await session.waitForReadyEntry();
@@ -447,7 +483,7 @@ class TtsPlaybackQueue {
     } catch (_) {
       // One failed native stream is optional and must not poison chat.
       try {
-        await service.stop();
+        if (_isActive(session)) await session.service.stop();
       } catch (_) {}
     } finally {
       if (_isActive(session)) {
@@ -470,12 +506,13 @@ class TtsPlaybackQueue {
         session.nextToPlay >= session.total;
     if (!done) return;
     session.idle.complete();
+    if (session.completedPlaybackCount == 0 && session.service is TtsPlaybackLeaseOwner) unawaited(session.service.stop().catchError((Object _) {}));
     _current = '';
     _notify();
   }
 
   bool _isActive(_A2Session session) =>
-      identical(_session, session) && session.token == _generation;
+      identical(_session, session) && session.token == _generation && session.intent.valid;
 
   void _notify() => onStateChanged?.call(state);
 }
@@ -489,8 +526,12 @@ class _A2Session {
     required this.leadIn,
     required this.language,
     required this.voice,
+    required this.service,
+    required this.intent,
   });
 
+  final TtsQueueService service;
+  final PlaybackIntent intent;
   final int token;
   final bool manual;
   final String? ownerId;
@@ -521,7 +562,7 @@ class _A2Session {
     _leadInConsumed = true;
     try {
       await Future.wait<void>(<Future<void>>[
-        if (leadIn != null) leadIn!,
+        if (leadIn != null) Future.any<void>([leadIn!, idle.future]),
       ]);
     } catch (_) {
       // A decorative cue failure never blocks companion speech.

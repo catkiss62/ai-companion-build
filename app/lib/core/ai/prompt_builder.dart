@@ -10,6 +10,7 @@ import '../reflection/deep_reflection_contract.dart';
 import '../reflection/deep_reflection_store.dart';
 import '../wishes/wish_store.dart';
 import '../autonomy/public_web_read_service.dart';
+import '../autonomy/public_web_share_contract.dart';
 import '../autonomy/web_page_evidence.dart';
 import 'generation_cancellation.dart';
 import '../mood/mood_service.dart';
@@ -19,6 +20,7 @@ import '../agent/agent_tool.dart';
 import '../autonomy/public_web_prompt_policy.dart';
 import 'dialogue_expression_plan.dart';
 import '../database/app_database.dart';
+import '../database/brain_work_fence.dart';
 import '../desire/conversation_initiative_policy.dart';
 import '../desire/conversation_topic_policy.dart';
 import '../diagnostics/conversation_initiative_telemetry.dart';
@@ -65,6 +67,8 @@ class PromptBuildResult {
     this.deepReflection,
     this.formContext = const FormContextSnapshot(),
     this.creativePlayEvidence = const CreativePlayEvidence(),
+    this.publicWebSources = const [],
+    this.expectedPublicWebShare,
   });
 
   final List<Map<String, Object?>> messages;
@@ -72,12 +76,14 @@ class PromptBuildResult {
   final DeepReflectionContext? deepReflection;
   final FormContextSnapshot formContext;
   final CreativePlayEvidence creativePlayEvidence;
+  final List<PublicWebSourceStamp> publicWebSources;
+  final ExpectedPublicWebShare? expectedPublicWebShare;
 }
 
 class PromptBuilder {
   // Historical Phase 1 validator tokens: OBSERVATION ONLY;
   // Phase 2/3 尚未开启.
-  PromptBuilder(this.db)
+  PromptBuilder(this.db, {this.webReader})
       : memoryBrain = MemoryBrain(db),
         relationshipBrain = RelationshipBrain(db),
         referenceLibrary = ReferenceLibrary(db),
@@ -86,6 +92,7 @@ class PromptBuilder {
         emotionEpisodeEngine = EmotionEpisodeEngine(db);
 
   final AppDatabase db;
+  final WebCandidateReader? webReader;
   final MemoryBrain memoryBrain;
   final RelationshipBrain relationshipBrain;
   final ReferenceLibrary referenceLibrary;
@@ -127,6 +134,8 @@ class PromptBuilder {
     String? specialStyleKeyOverride,
     ConversationInitiativePlan? conversationInitiativeOverride,
     String? selectedPublicWebCandidateId,
+    String? selectedPublicWebThoughtId,
+    BrainWorkFence? webWorkFence,
     GenerationCancellationToken? webCancellationToken,
     bool freshTopicSourceOnly = false,
     List<String>? historicalWebIds,
@@ -346,25 +355,22 @@ class PromptBuilder {
             .toList();
     final allIds = <String>{...publicWebCandidateIds,
       ...historicalPublicKnowledge.map((page) => page.id)};
-    final readableWebIds = await PublicWebReadService(db).refreshIds(
+    final readableWebIds = await PublicWebReadService(db, reader: webReader, workFence: webWorkFence).refreshIds(
       allIds, query: query, cancellation: webCancellationToken,
       limit: 5, onActivity: onWebReadActivity);
-    final publicWeb = await db.publicWebContextByIds(
+    // Render and retain capabilities from the exact same transaction rows.
+    // Historical knowledge keeps its own active qualification, independent of
+    // the short candidate sharing expiry.
+    final webBundle = await db.publicWebPromptBundle(
       candidateIds: readableWebIds.where(publicWebCandidateIds.contains).toList(),
-      now: instant,
+      historicalKnowledgeIds: historicalPublicKnowledge.map((page) => page.id)
+          .where((id) => !publicWebCandidateIds.contains(id) && readableWebIds.contains(id)).toList(),
+      selectedShareCandidateId: mode == PromptGenerationMode.proactive
+          ? selectedPublicWebCandidateId : null,
+      selectedShareThoughtId: selectedPublicWebThoughtId,
     );
-    final publicKnowledge = <PublicWebContextItem>[];
-    for (final old in historicalPublicKnowledge) {
-      if (publicWebCandidateIds.contains(old.id) || !readableWebIds.contains(old.id)) continue;
-      final page = await db.publicWebCandidateForRefresh(old.id);
-      if (page != null && PublicWebReadService.usable(page)) {
-        publicKnowledge.add(PublicWebContextItem(id: old.id, title: page.title,
-          summary: page.summary, url: page.url, sourceDomain: page.sourceDomain,
-          provider: page.provider, discoveredAt: page.discoveredAt,
-          safetyState: page.safetyState, keyPoints: page.keyPoints,
-          uncertainties: page.uncertainties, readAt: page.readAt, pageBody: page.pageBody));
-      }
-    }
+    final publicWeb = webBundle.items;
+    final publicKnowledge = webBundle.knowledgeItems;
     if (conversationInitiative != null) {
       await ConversationInitiativeTelemetry.recordPlan(
         db,
@@ -654,6 +660,8 @@ ANSWERED_HISTORY_ONLY = true
       formContext: formContext,
       deepReflection: deepReflection,
       creativePlayEvidence: creativeRead.playEvidence,
+      publicWebSources: webBundle.sourceStamps,
+      expectedPublicWebShare: webBundle.expectedShare,
     );
   }
 

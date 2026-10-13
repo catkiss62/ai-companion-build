@@ -2,6 +2,8 @@ import 'dart:async';
 import 'dart:convert';
 
 import '../database/app_database.dart';
+import '../database/conversation_source_store.dart';
+import '../database/brain_work_fence.dart';
 import '../continuity/daily_continuity_engine.dart';
 import '../desire/desire_core_policy.dart';
 import '../desire/desire_engine.dart';
@@ -21,7 +23,6 @@ import '../models/world_book_turn_context.dart';
 import '../personality/personality_catalog.dart';
 import '../storage/secure_config.dart';
 import '../relationship/relationship_assimilator.dart';
-import '../reference/world_book_history_policy.dart';
 import '../memory/memory_maintenance_engine.dart';
 import '../memory/memory_grounding_policy.dart';
 import '../memory/memory_lifecycle_policy.dart';
@@ -223,6 +224,33 @@ class MemoryExtractor {
       await db.setSetting('last_memory_error', '');
       return;
     }
+    // New work fixes both actual prompt objects and their original capabilities
+    // in one read before any API/configuration/context await. Legacy checkpoint
+    // replay does not manufacture new source metadata.
+    var originalMaterials = <ConversationSourceMaterial>[];
+    BrainWorkFence? originalTimeFence;
+    final originalTimeSources = <String, Object?>{};
+    if (job == null || job.resultJson.trim().isEmpty) {
+      await (await db.database).transaction((txn) async {
+        originalTimeFence = await db.captureBrainWorkFenceInTransaction(txn,
+          settingKeys: const ['conversation_context_reset_at', 'conversation_context_reset_count']);
+        if (originalTimeFence == null) return;
+        final collected = <ConversationSourceMaterial>[];
+        for (final input in [user, assistant]) {
+          final material = await ConversationSourceStore.captureMaterial(txn, input.id);
+          if (material == null || !material.source.isOrdinary || material.source.stamp.revision != input.sourceRevision ||
+              ConversationSourceStore.messageHash(input) != material.source.stamp.contentHash) return;
+          collected.add(material);
+        }
+        originalMaterials = collected;
+      });
+      if (originalMaterials.length != 2) throw const _RetryablePostTurnException('post_turn_source_changed');
+      user = originalMaterials[0].message;
+      assistant = originalMaterials[1].message;
+      for (final material in originalMaterials) {
+        originalTimeSources[material.message.role] = material.source.toJson();
+      }
+    }
     // Retrieval and visible expression are separate durable cursors. A
     // roleplay answer is rejected above so it cannot reinforce an ordinary
     // memory merely by repeating it in character.
@@ -333,6 +361,17 @@ ${previousAssistant.content}
       if (job != null && job.resultJson.trim().isNotEmpty) {
         result = Map<String, dynamic>.from(jsonDecode(job.resultJson) as Map);
       } else {
+        // Revalidate the original snapshot after configuration/context reads;
+        // never capture fresh authority for an old input at this point.
+        final capturedTimeFence = originalTimeFence;
+        final stillCurrent = capturedTimeFence == null ? false :
+            await db.readSourceSnapshot(workFence: capturedTimeFence, read: (txn) async {
+              for (final source in originalMaterials) {
+                if (!await source.source.matches(txn)) return false;
+              }
+              return true;
+            });
+        if (stillCurrent != true) throw const _RetryablePostTurnException('post_turn_source_changed');
         final localMemorySnapshots = {
           for (final memory in memoryCandidates)
             memory.id: MemoryRevisionSnapshot.capture(memory).toJson(),
@@ -499,6 +538,7 @@ AI（${assistant.historicalFormLabel}）：${assistant.content}
         // to the pre-request local read, including on durable worker replay.
         result['_local_memory_revision_snapshots_v1'] = localMemorySnapshots;
         result['_local_memory_source_context_v1'] = MemorySourceContext.capture(user, assistant);
+        result['_local_memory_time_sources_v1'] = originalTimeSources;
         if (job != null) {
           final saved = await db.checkpointPostTurnProposal(
             id: job.id,
@@ -529,6 +569,8 @@ AI（${assistant.historicalFormLabel}）：${assistant.content}
           assistant.id,
           userMessageId: user.id,
           localSnapshots: result['_local_memory_revision_snapshots_v1'],
+          localTimeSources: result['_local_memory_time_sources_v1'],
+          requireTimeSources: result.containsKey('_local_memory_time_sources_v1'),
           sourceContextJson: result['_local_memory_source_context_v1'] as String? ??
               MemorySourceContext.capture(user, assistant),
           userText: user.promptContent,
@@ -557,6 +599,7 @@ AI（${assistant.historicalFormLabel}）：${assistant.content}
             user: user,
             assistant: assistant,
             previousAssistantText: previousAssistant?.content ?? '',
+            previousAssistant: previousAssistant,
             context: learningContext,
             existingCandidates: learningCandidates,
             apiKey: apiKey,
@@ -673,6 +716,7 @@ AI（${assistant.historicalFormLabel}）：${assistant.content}
     required ChatMessage user,
     required ChatMessage assistant,
     required String previousAssistantText,
+    ChatMessage? previousAssistant,
     required PersonalityLearningContext context,
     required List<PersonalityLearningCandidate> existingCandidates,
     required String apiKey,
@@ -681,6 +725,15 @@ AI（${assistant.historicalFormLabel}）：${assistant.content}
   }) async {
     final rawSignals = extractionResult['learning_signals'];
     if (rawSignals is! List) return;
+    final handle = await db.database;
+    final capturedUser = await ConversationSourceStore.captureMessage(handle, user.id);
+    if (capturedUser == null || capturedUser.revision != user.sourceRevision || capturedUser.contentHash != ConversationSourceStore.messageHash(user)) {
+      throw const _RetryablePostTurnException('personality_source_changed');
+    }
+    final previousSource = previousAssistant == null ? null : await ConversationSourceStore.captureMessage(handle, previousAssistant.id);
+    if (previousAssistant != null && (previousSource == null || previousSource.revision != previousAssistant.sourceRevision || previousSource.contentHash != ConversationSourceStore.messageHash(previousAssistant))) {
+      throw const _RetryablePostTurnException('personality_context_changed');
+    }
     final existingById = <String, PersonalityLearningCandidate>{
       for (final candidate in existingCandidates) candidate.id: candidate,
     };
@@ -697,12 +750,23 @@ AI（${assistant.historicalFormLabel}）：${assistant.content}
         previousAssistantText: previousAssistantText,
       );
       PersonalityLearningRejectionReason? semanticRejection;
-      final reviewRequest = parsed.semanticReview;
+      var resolvedBarrierIds = <String>[];
+      var reviewRequest = parsed.semanticReview;
+      final proposed = parsed.proposal;
+      final target = proposed?.targetCandidateId == null ? null : existingById[proposed!.targetCandidateId];
+      if (reviewRequest == null && proposed != null && target?.blockedByConflict == true &&
+          proposed.polarity == PersonalityLearningPolarity.support && proposed.evidenceKind.isExplicit) {
+        reviewRequest = PersonalityLearningSemanticReviewRequest(target: target!, proposedPolarity: proposed.polarity,
+          evidenceKind: proposed.evidenceKind, evidenceQuote: proposed.evidenceText);
+      }
       if (reviewRequest != null) {
         final review = await _resolvePersonalityLearningSemanticReview(
           extractionResult: extractionResult,
           signalIndex: signalIndex,
           userText: user.promptContent,
+          previousAssistantText: previousAssistantText,
+          userSource: capturedUser,
+          previousAssistantSource: previousSource,
           request: reviewRequest,
           apiKey: apiKey,
           endpoint: endpoint,
@@ -710,6 +774,7 @@ AI（${assistant.historicalFormLabel}）：${assistant.content}
           observedAt: user.createdAt,
         );
         if (review.approved) {
+          resolvedBarrierIds = review.resolvedBarrierIds;
           parsed = PersonalityLearningProposal.parseDetailed(
             raw: raw,
             userText: user.promptContent,
@@ -719,6 +784,9 @@ AI（${assistant.historicalFormLabel}）：${assistant.content}
             semanticReviewApprovedTargetId: reviewRequest.target.id,
           );
         } else {
+          if (parsed.proposal != null && reviewRequest.target.blockedByConflict) {
+            parsed = PersonalityLearningParseResult.rejected(review.rejectionReason);
+          }
           semanticRejection = review.rejectionReason;
         }
       }
@@ -737,6 +805,10 @@ AI（${assistant.historicalFormLabel}）：${assistant.content}
         sourceMessageId: user.id,
         assistantMessageId: assistant.id,
         observedAt: user.createdAt,
+        userSource: capturedUser,
+        previousAssistantSource: proposal.evidenceKind == PersonalityLearningEvidenceKind.directFeedback ? previousSource : null,
+        expectedTargetToken: proposal.targetCandidateId == null ? null : existingById[proposal.targetCandidateId]?.reviewToken,
+        resolvesBarrierIds: resolvedBarrierIds,
       );
     }
     if (rejected <= 0) return;
@@ -763,6 +835,9 @@ AI（${assistant.historicalFormLabel}）：${assistant.content}
     required Map<String, dynamic> extractionResult,
     required int signalIndex,
     required String userText,
+    required String previousAssistantText,
+    required ConversationSourceStamp userSource,
+    ConversationSourceStamp? previousAssistantSource,
     required PersonalityLearningSemanticReviewRequest request,
     required String apiKey,
     required String endpoint,
@@ -770,18 +845,21 @@ AI（${assistant.historicalFormLabel}）：${assistant.content}
     required DateTime observedAt,
   }) async {
     const cacheKey = 'personality_learning_semantic_reviews';
+    final cacheIdentity = jsonEncode([2, userSource.toJson(),
+      request.evidenceKind == PersonalityLearningEvidenceKind.directFeedback ? previousAssistantSource?.toJson() : null,
+      request.target.reviewToken, request.evidenceQuote, request.proposedPolarity.key, request.evidenceKind.key]);
     Map<String, dynamic>? cached;
     for (final item
         in (extractionResult[cacheKey] as List?)?.whereType<Map>() ??
             const <Map>[]) {
       final normalized = item.cast<String, dynamic>();
       if ((normalized['signal_index'] as num?)?.toInt() == signalIndex &&
-          normalized['target_id'] == request.target.id) {
+          normalized['target_id'] == request.target.id && normalized['identity'] == cacheIdentity) {
         cached = normalized;
         break;
       }
     }
-    if (cached != null) {
+    if (cached != null && (cached['relation'] != 'unavailable' || (cached['attempts'] as num? ?? 0).toInt() >= 2)) {
       return _PersonalityLearningSemanticReview.fromCache(
         cached,
         expected: request.proposedPolarity,
@@ -791,6 +869,10 @@ AI（${assistant.historicalFormLabel}）：${assistant.content}
     await _guardPostTurnJob(job);
     var relation = 'unavailable';
     var confidence = 0.0;
+    var resolvesConflict = false;
+    final barrierRows = request.target.barrierIds.isEmpty ? const <Map<String, Object?>>[] : await (await db.database).query(
+      'personality_learning_evidence', where: 'candidate_id = ? AND polarity = ?',
+      whereArgs: [request.target.id, 'contradict']);
     try {
       final result = await client.jsonCompletion(
         apiKey: apiKey,
@@ -812,13 +894,16 @@ AI（${assistant.historicalFormLabel}）：${assistant.content}
 4. unrelated：谈论不同主题、不同偏好、相邻但不同的维度，或只是“慢慢来/不急/嗯嗯/没错”等节奏与附和。彼此相容或同属 communication/relationship 不等于同一命题；“熟悉后不客套/斗嘴粗口”“更口语化/少解释”“AI 可按自己的意愿和状态行动”必须判为不同命题。
 5. ambiguous：证据不足、依赖缺失上下文、只是暗示，或无法高置信区分。
 6. 精确性优先；拿不准必须返回 ambiguous，绝不能因主题大致相近就返回 support。
-7. 只输出严格 JSON：{"relation":"support|contradict|unrelated|ambiguous","confidence":0.0}
+7. 有未解反证时，只有当前原话明确重新允许同一命题、同一范围，并与全部反证相容，才能 resolves_conflicts=true；一次性允许、条件变化或普通附和必须为 false。
+8. 只输出严格 JSON：{"relation":"support|contradict|unrelated|ambiguous","confidence":0.0,"resolves_conflicts":false}
 '''.trim(),
           },
           {
             'role': 'user',
             'content': jsonEncode({
               'current_user_message': userText,
+              'previous_assistant_message': previousAssistantText,
+              'open_conflicts': barrierRows.where((row) => request.target.barrierIds.contains(row['id'])).map((row) => {'id': row['id'], 'quote': row['evidence_text']}).toList(),
               'evidence_quote': request.evidenceQuote,
               'proposed_polarity': request.proposedPolarity.key,
               'evidence_kind': request.evidenceKind.key,
@@ -840,6 +925,8 @@ AI（${assistant.historicalFormLabel}）：${assistant.content}
           .clamp(0.0, 1.0)
           .toDouble();
       if (confidence < 0.86) relation = 'ambiguous';
+      resolvesConflict = result['resolves_conflicts'] == true && relation == 'support' && confidence >= .86;
+      if (request.target.blockedByConflict && request.proposedPolarity == PersonalityLearningPolarity.support && !resolvesConflict) relation = 'ambiguous';
     } catch (error) {
       if (error is _PostTurnOwnershipLost) rethrow;
       relation = 'unavailable';
@@ -848,6 +935,9 @@ AI（${assistant.historicalFormLabel}）：${assistant.content}
 
     final entry = <String, dynamic>{
       'signal_index': signalIndex,
+      'identity': cacheIdentity,
+      'attempts': ((cached?['attempts'] as num?)?.toInt() ?? 0) + 1,
+      'resolves': resolvesConflict ? request.target.barrierIds : const <String>[],
       'target_id': request.target.id,
       'relation': relation,
       'confidence': confidence,
@@ -857,6 +947,7 @@ AI（${assistant.historicalFormLabel}）：${assistant.content}
             .map((item) => Map<String, dynamic>.from(item))
             .toList(growable: true) ??
         <Map<String, dynamic>>[];
+    reviews.removeWhere((row) => row['identity'] == cacheIdentity && row['signal_index'] == signalIndex);
     reviews.add(entry);
     extractionResult[cacheKey] = reviews;
     if (job != null) {
@@ -867,6 +958,7 @@ AI（${assistant.historicalFormLabel}）：${assistant.content}
       );
       if (!saved) throw const _PostTurnOwnershipLost();
     }
+    if (relation == 'unavailable' && (entry['attempts'] as int) < 2) throw const _RetryablePostTurnException('personality_review_unavailable');
     await _recordPersonalityLearningSemanticReview(
       relation: relation,
       observedAt: observedAt,
@@ -1173,12 +1265,22 @@ AI 主动消息：${outbound?.content ?? '(消息正文不可用)'}
     required String userText,
     required String userMessageId,
     required Object? localSnapshots,
+    Object? localTimeSources,
+    bool requireTimeSources = false,
     String sourceContextJson = '',
     required bool knowledgeReferenceActive,
     String specialStyleTrialId = '',
     String specialStyleKey = '',
   }) async {
     if (rawMemories is! List) return;
+    final timeSources = localTimeSources is Map ? localTimeSources : const {};
+    final userSource = QualifiedConversationSource.fromJson(timeSources['user']);
+    final assistantSource = QualifiedConversationSource.fromJson(timeSources['assistant']);
+    final timeKnown = userSource?.isOrdinary == true && assistantSource?.isOrdinary == true &&
+        userSource!.stamp.id == userMessageId && assistantSource!.stamp.id == sourceMessageId;
+    // An invalid capability from this format is rejected. Only truly older
+    // checkpoints with no time-source field retain explicit unknown time.
+    if (requireTimeSources && !timeKnown) return;
     const kinds = {'user_profile', 'shared_experience', 'ai_self', 'preference'};
     final snapshots = <String, MemoryRevisionSnapshot>{};
     if (localSnapshots is Map) {
@@ -1317,7 +1419,7 @@ AI 主动消息：${outbound?.content ?? '(消息正文不可用)'}
         importance: importance,
         confidence: confidence,
         tags: tags,
-        source: 'conversation_turn:$sourceMessageId${hasSpecialStyle ? '|special_style:${style.key}|trial:$specialStyleTrialId' : ''}',
+        source: 'conversation_turn:$sourceMessageId@r${assistantSource?.stamp.revision ?? 0}${hasSpecialStyle ? '|special_style:${style.key}|trial:$specialStyleTrialId' : ''}',
         subjectKey: subjectKey,
         topicKey: topicKey,
         semanticType: semantic,
@@ -1338,7 +1440,19 @@ AI 主动消息：${outbound?.content ?? '(消息正文不可用)'}
         userEvidenceQuote: item['user_evidence_quote'] as String? ?? '',
         sourceUserMessageId: userMessageId,
         sourceAssistantMessageId: sourceMessageId,
-        sourceContextJson: sourceContextJson,
+        sourceContextJson: jsonEncode({...MemorySourceContext.decode(sourceContextJson),
+          'dependency': const {'user_profile','preference'}.contains(kind) &&
+              (item['user_evidence_quote'] as String? ?? '').length >= 2 &&
+              userText.contains(item['user_evidence_quote'] as String) ? 'user_basis' :
+              kind == 'ai_self' ? 'assistant_basis' : 'joint_basis'}),
+        sourceObservedAt: !timeKnown ? null : kind == 'ai_self'
+            ? assistantSource!.stamp.observedAt
+            : kind == 'shared_experience'
+                ? (userSource!.stamp.observedAt.isAfter(assistantSource!.stamp.observedAt)
+                    ? userSource.stamp.observedAt : assistantSource.stamp.observedAt)
+                : userSource!.stamp.observedAt,
+        sourceGuard: !timeKnown ? null : (txn) async =>
+            await userSource!.matches(txn) && await assistantSource!.matches(txn),
       );
       if (!accepted) rejected++;
     }
@@ -1633,7 +1747,7 @@ AI 主动消息：${outbound?.content ?? '(消息正文不可用)'}
     if (!await db.brainWorkAllowed()) return;
     await memoryMaintenance.maybeRun();
     if (!await db.brainWorkAllowed()) return;
-    await _consolidateIfNeeded(apiKey: apiKey, endpoint: endpoint);
+    await consolidateIfNeeded(apiKey: apiKey, endpoint: endpoint);
     if (!await db.brainWorkAllowed()) return;
     // Nightly Dream owns reflective self-integration on the idle heartbeat.
     // This post-turn pass continues recording facts and actual experiences.
@@ -1664,7 +1778,7 @@ AI 主动消息：${outbound?.content ?? '(消息正文不可用)'}
         text.contains('api_key');
   }
 
-  Future<void> _consolidateIfNeeded({
+  Future<void> consolidateIfNeeded({
     required String apiKey,
     required String endpoint,
   }) async {
@@ -1677,16 +1791,17 @@ AI 主动消息：${outbound?.content ?? '(消息正文不可用)'}
     if (!acquired) return;
     try {
       if (!await db.brainWorkAllowed()) return;
-      final pending = WorldBookHistoryPolicy.withoutRoleplayTurns(
-        await db.pendingMessagesForSummary(limit: 36),
-      );
-      if (pending.length < 14) return;
-
-      // Summaries deliberately contain only final user/assistant text, never old
-      // reasoning_content. They are navigation memory, not a replacement for raw chat.
-      final transcript = pending.map((m) {
+      final fence = await db.captureBrainWorkFence(
+        leaseKey: 'conversation_summary_lease_until',
+        settingKeys: const ['conversation_context_reset_at', 'conversation_context_reset_count']);
+      if (fence == null) return;
+      final work = await db.prepareConversationSummary(workFence: fence);
+      if (work == null) return;
+      // Event time is descriptive; scanning uses durable ingestion order.
+      final transcript = work.materials.map((material) {
+        final m = material.message;
         final who = m.isUser ? '用户' : 'AI';
-        return '$who：${m.promptContent}';
+        return '[${m.createdAt.toIso8601String()}] $who：${m.promptContent}';
       }).join('\n');
 
       final result = await client.jsonCompletion(
@@ -1714,6 +1829,7 @@ JSON 格式：
           !await db.renewLocalLease(
             'conversation_summary_lease_until',
             holdFor: const Duration(minutes: 8),
+            workFence: fence,
           )) {
         return;
       }
@@ -1726,9 +1842,8 @@ JSON 格式：
               .take(12)
               .toList() ??
           const <String>[];
-      await db.insertConversationSummary(
-        fromAt: pending.first.createdAt,
-        toAt: pending.last.createdAt,
+      await db.commitConversationSummaryIfCurrent(
+        work: work,
         summary: summary,
         keyPoints: points,
       );
@@ -1763,8 +1878,10 @@ class _PersonalityLearningSemanticReview {
   const _PersonalityLearningSemanticReview({
     required this.approved,
     required this.rejectionReason,
+    this.resolvedBarrierIds = const [],
   });
 
+  final List<String> resolvedBarrierIds;
   final bool approved;
   final PersonalityLearningRejectionReason rejectionReason;
 
@@ -1777,8 +1894,9 @@ class _PersonalityLearningSemanticReview {
         .clamp(0.0, 1.0)
         .toDouble();
     if (relation == expected.key && confidence >= 0.86) {
-      return const _PersonalityLearningSemanticReview(
+      return _PersonalityLearningSemanticReview(
         approved: true,
+        resolvedBarrierIds: (raw['resolves'] as List?)?.whereType<String>().toList() ?? const [],
         rejectionReason:
             PersonalityLearningRejectionReason.semanticReviewAmbiguous,
       );

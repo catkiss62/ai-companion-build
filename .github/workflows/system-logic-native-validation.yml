@@ -1,12 +1,5 @@
 name: System logic native validation (no APK)
 on:
-  push:
-    branches: [agent/v042104-system-logic-hardening]
-    paths:
-      - 'app/android/**'
-      - 'app/tools/caicai_smoke/**'
-      - 'app/tools/run_native_smoke_v04257.sh'
-      - '.github/workflows/system-logic-native-validation.yml'
   workflow_dispatch:
 permissions:
   contents: read

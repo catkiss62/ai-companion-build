@@ -1,6 +1,7 @@
 import 'dart:convert';
 import '../database/app_database.dart';
 import '../database/brain_work_fence.dart';
+import '../database/conversation_source_store.dart';
 import 'companion_wish.dart';
 
 class WishStore {
@@ -31,6 +32,7 @@ class WishStore {
     required String expected,
     required BrainWorkFence fence,
     Map<String, String> extra = const {},
+    LocalSourceGuard? sourceGuard,
   }) {
     // One transaction owns the truth and every UI projection. No partial
     // completed/active moves, including across process death and restore.
@@ -59,6 +61,7 @@ class WishStore {
       },
       expectedSettings: {stateKey: expected},
       workFence: fence,
+      sourceGuard: sourceGuard,
     );
   }
 
@@ -95,10 +98,13 @@ class WishStore {
 
   Future<bool> update(
     String id,
-    CompanionWish Function(CompanionWish) change,
-  ) async {
+    CompanionWish Function(CompanionWish) change, {
+    BrainWorkFence? workFence,
+  }) async {
     if (await db.getSetting(enabledKey) == '0') return false;
-    final fence = await db.captureBrainWorkFence(settingKeys: [enabledKey]);
+    final fence = workFence == null
+        ? await db.captureBrainWorkFence(settingKeys: [enabledKey])
+        : await db.extendBrainWorkFence(workFence, settingKeys: [enabledKey]);
     if (fence == null || fence.expectedSettings[enabledKey] == '0')
       return false;
     final raw = await db.getSetting(stateKey) ?? '';
@@ -130,17 +136,23 @@ class WishStore {
       state: state,
       manualHold: state != 'active',
       updatedAt: instant,
+      lastIntentionAt: instant,
+      lastIntentionSource: 'local_user',
+      // The UI action wins even after clock rollback. Preserve the previous
+      // comparison floor without pretending it was this action's event time.
+      intentionNotBeforeAt: wish.intentionBoundary.isAfter(instant)
+          ? wish.intentionBoundary : instant,
     );
     return save(items, expected: raw, fence: fence);
   }
 
-  Future<bool> claimContact(String id, DateTime now) async {
+  Future<bool> claimContact(String id, DateTime now, {BrainWorkFence? workFence}) async {
     var accepted = false;
     final saved = await update(id, (w) {
       if (!w.mayContact(now)) return w;
       accepted = true;
       return w.copyWith(contactAttemptAt: now);
-    });
+    }, workFence: workFence);
     return saved && accepted;
   }
 

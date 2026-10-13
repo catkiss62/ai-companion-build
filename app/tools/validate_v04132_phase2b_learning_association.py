@@ -66,7 +66,7 @@ for token in (
 
 for token in (
     "PersonalityLearningStatus.established",
-    "candidate.contradictionCount == 0",
+    "!candidate.blockedByConflict",
     "candidate.contextKey == 'ordinary'",
     "selected.take(limit.clamp(0, 2).toInt())",
     "低权重倾向",

@@ -23,6 +23,9 @@ class CompanionWish {
     this.contactAttemptAt,
     this.actionAttemptAt,
     this.lastEvidenceAt,
+    this.lastIntentionAt,
+    this.lastIntentionSource = '',
+    this.intentionNotBeforeAt,
     this.deadline,
     this.manualHold = false,
     this.legacy = false,
@@ -38,7 +41,7 @@ class CompanionWish {
       gameId,
       nextStep,
       progress;
-  final String baseline, evidenceQuote;
+  final String baseline, evidenceQuote, lastIntentionSource;
   final double interest;
   final List<String> sourceIds, evidenceIds;
   final DateTime createdAt, updatedAt;
@@ -46,11 +49,28 @@ class CompanionWish {
       contactAttemptAt,
       actionAttemptAt,
       lastEvidenceAt,
+      lastIntentionAt,
+      intentionNotBeforeAt,
       deadline;
   final bool manualHold, legacy;
   bool get active => state == 'active';
   bool get terminal =>
       const {'completed', 'satisfied', 'abandoned', 'expired'}.contains(state);
+
+  /// Older wishes did not separate intention from processing time. Their
+  /// creation/evidence dates are a conservative lower bound, not a recovered
+  /// intention timestamp. In particular updatedAt is never an intention clock.
+  DateTime get intentionBoundary {
+    final evidence = lastEvidenceAt;
+    final knownOrLegacy = lastIntentionAt ?? intentionNotBeforeAt ??
+        (evidence != null && evidence.isAfter(createdAt) ? evidence : createdAt);
+    final floor = intentionNotBeforeAt;
+    return floor != null && floor.isAfter(knownOrLegacy) ? floor : knownOrLegacy;
+  }
+  bool acceptsIntentionAt(DateTime eventAt) => eventAt.isAfter(intentionBoundary);
+  DateTime evidenceThrough(DateTime eventAt) =>
+      lastEvidenceAt != null && lastEvidenceAt!.isAfter(eventAt)
+          ? lastEvidenceAt! : eventAt;
   double priority(DateTime now) =>
       interest *
       pow(
@@ -80,6 +100,9 @@ class CompanionWish {
     DateTime? contactAttemptAt,
     DateTime? actionAttemptAt,
     DateTime? lastEvidenceAt,
+    DateTime? lastIntentionAt,
+    String? lastIntentionSource,
+    DateTime? intentionNotBeforeAt,
     List<String>? evidenceIds,
     String? evidenceQuote,
     bool? manualHold,
@@ -104,6 +127,12 @@ class CompanionWish {
     contactAttemptAt: contactAttemptAt ?? this.contactAttemptAt,
     actionAttemptAt: actionAttemptAt ?? this.actionAttemptAt,
     lastEvidenceAt: lastEvidenceAt ?? this.lastEvidenceAt,
+    lastIntentionAt: lastIntentionAt ?? this.lastIntentionAt,
+    lastIntentionSource: lastIntentionSource ?? this.lastIntentionSource,
+    // Freeze an old record's compatibility bound before any new objective
+    // evidence changes lastEvidenceAt. Its true intention time stays unknown.
+    intentionNotBeforeAt: intentionNotBeforeAt ?? this.intentionNotBeforeAt ??
+        (this.lastIntentionAt == null ? intentionBoundary : null),
     deadline: deadline,
     manualHold: manualHold ?? this.manualHold,
     legacy: legacy,
@@ -131,6 +160,9 @@ class CompanionWish {
     'contact_attempt_at': contactAttemptAt?.millisecondsSinceEpoch,
     'action_attempt_at': actionAttemptAt?.millisecondsSinceEpoch,
     'last_evidence_at': lastEvidenceAt?.millisecondsSinceEpoch,
+    'last_intention_at': lastIntentionAt?.millisecondsSinceEpoch,
+    'last_intention_source': lastIntentionSource,
+    'intention_not_before_at': intentionNotBeforeAt?.millisecondsSinceEpoch,
     'deadline': deadline?.millisecondsSinceEpoch,
     'manual_hold': manualHold,
     'legacy': legacy,
@@ -163,6 +195,9 @@ class CompanionWish {
       contactAttemptAt: date('contact_attempt_at'),
       actionAttemptAt: date('action_attempt_at'),
       lastEvidenceAt: date('last_evidence_at'),
+      lastIntentionAt: date('last_intention_at'),
+      lastIntentionSource: text('last_intention_source'),
+      intentionNotBeforeAt: date('intention_not_before_at'),
       deadline: date('deadline'),
       manualHold: m['manual_hold'] == true,
       legacy: m['legacy'] == true,
@@ -204,14 +239,18 @@ class WishEvidence {
     required this.text,
     required this.at,
     this.gameId = '',
+    this.timeKnown = true,
   });
   final String id, kind, text, gameId;
   final DateTime at;
+  final bool timeKnown;
   Map<String, Object?> toJson() => {
     'id': id,
     'kind': kind,
     'text': text,
-    'at': at.toIso8601String(),
+    'at': timeKnown ? at.toIso8601String() : null,
+    'event_time_known': timeKnown,
+    if (!timeKnown) 'recorded_at': at.toIso8601String(),
     'game_id': gameId,
   };
 }

@@ -54,7 +54,7 @@ return_true = method.index("return true;", completion_check)
 # +348 finalizes the job after the timer/message proof has been captured. The
 # pulse may precede that final CAS, but remains in its transaction and must roll
 # back on lost ownership or cancellation; returning false after writes is unsafe.
-assert method.index("return db.transaction<bool>") < pulse_write < return_true
+assert method.index("final accepted = await db.transaction<bool>") < pulse_write < return_true
 ownership_failure = method[completion_check:return_true]
 assert "throw StateError('generation_commit_ownership_lost')" in ownership_failure
 assert "return false;" not in ownership_failure

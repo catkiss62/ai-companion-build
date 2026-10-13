@@ -135,7 +135,7 @@ assert "interSentenceGap" not in queue
 for token in (
     "fun beginStream(",
     "fun enqueueStream(",
-    "fun finishStream()",
+    "fun finishStream(owner: Long? = null)",
     "wav.sampleRate * bytesPerFrame",
     'Thread(::runWriter, "Genie-TTS-stream-player")',
     "PlaybackParams()",

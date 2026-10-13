@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:sqflite/sqflite.dart';
 
 import '../domain/moe_models.dart';
+import '../domain/moe_observation.dart';
 import 'moe_repository.dart';
 
 /// SQLite adapter owned by the Moe module.
@@ -206,6 +207,44 @@ class SqliteMoeRepository implements MoeRepository {
     });
   }
 
+  /// Validate the original observation and write its event, state and scan
+  /// decision together. Callbacks only use this executor, never nested DB work.
+  Future<MoeObservationResult> commitObservation({
+    MoeObservedEvent? event,
+    required MoeStateSnapshot Function(MoeStateSnapshot previous) advance,
+    required Future<bool> Function(DatabaseExecutor txn) validate,
+    required Future<void> Function(DatabaseExecutor txn, MoeStateSnapshot? state) writeAccepted,
+    required bool Function() isCurrent,
+  }) async {
+    final db = await _databaseProvider();
+    try {
+      return await db.transaction((txn) async {
+        if (!isCurrent() || !await validate(txn)) return const MoeObservationResult(MoeObservationStatus.rejected);
+        MoeStateSnapshot? state;
+        var status = MoeObservationStatus.excluded;
+        if (event != null) {
+          final existing = await txn.query('moe_events', columns: ['idempotency_key'],
+            where: 'idempotency_key = ?', whereArgs: [event.idempotencyKey], limit: 1);
+          state = await _loadStateFrom(txn, event.occurredAt);
+          if (existing.isEmpty) {
+            await txn.insert('moe_events', _eventRow(event));
+            state = advance(state);
+            await _saveStateTo(txn, state);
+            status = MoeObservationStatus.accepted;
+          } else {
+            status = MoeObservationStatus.alreadyApplied;
+          }
+        }
+        await writeAccepted(txn, state);
+        // Timeout/Stop while the mutation was queued must roll back all writes.
+        if (!isCurrent()) throw const _MoeObservationExpired();
+        return MoeObservationResult(status);
+      });
+    } on _MoeObservationExpired {
+      return const MoeObservationResult(MoeObservationStatus.rejected);
+    }
+  }
+
   @override
   Future<void> setExpressionMode(MoeExpressionMode mode) async {
     final db = await _databaseProvider();
@@ -225,3 +264,7 @@ class SqliteMoeRepository implements MoeRepository {
 }
 
 int mathMax(int a, int b) => a > b ? a : b;
+
+class _MoeObservationExpired implements Exception {
+  const _MoeObservationExpired();
+}

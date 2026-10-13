@@ -31,6 +31,8 @@ class MemoryRevisionSnapshot {
         item.source, item.sourceUserMessageId, item.sourceAssistantMessageId,
         item.sourceContextJson, item.factState, item.attentionState,
         item.recallPolicy, item.spontaneousSalience,
+        item.sourceValid, item.evidenceTimeKnown, item.firstObservedAt.millisecondsSinceEpoch,
+        item.lastEvidenceAt.millisecondsSinceEpoch, item.createdAt.millisecondsSinceEpoch,
       ]))).toString();
 
   bool matches(MemoryItem item) => id == item.id && token == _token(item);

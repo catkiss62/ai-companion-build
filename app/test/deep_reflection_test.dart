@@ -444,21 +444,31 @@ void main() {
           return release.future;
         },
       ).maybePrepare(now: at);
-      await entered.future;
-      await db.setSetting(DeepReflectionStore.resetKey, 'changed');
-      release.complete({
-        'topic': {
-          'question': '解释不了的选择怎样才算理解？',
-          'prior_view': '原本以为需要解释',
-          'tension': '允许不确定改变了理解',
-          'why_user': '想听用户的不同视角',
-          'source_id': 'chat:source',
-          'source_quote': '可以保留不确定',
-          'suitable': true,
-        },
-      });
-      expect(await work, isFalse);
-      expect(await db.getSetting(DeepReflectionStore.stateKey), isNull);
+      var failed = false;
+      try {
+        await Future.any<void>([entered.future, work.then<void>((_) {
+          if (!entered.isCompleted) throw StateError('Preparation ended before reviewer');
+        })]).timeout(const Duration(seconds: 10));
+        await db.setSetting(DeepReflectionStore.resetKey, 'changed');
+        release.complete({
+          'topic': {
+            'question': '解释不了的选择怎样才算理解？',
+            'prior_view': '原本以为需要解释',
+            'tension': '允许不确定改变了理解',
+            'why_user': '想听用户的不同视角',
+            'source_id': 'chat:source',
+            'source_quote': '可以保留不确定',
+            'suitable': true,
+          },
+        });
+        expect(await work.timeout(const Duration(seconds: 10)), isFalse);
+        expect(await db.getSetting(DeepReflectionStore.stateKey), isNull);
+      } catch (_) { failed = true; rethrow; }
+      finally {
+        if (!release.isCompleted) release.complete(null);
+        try { await work.timeout(const Duration(seconds: 10)); }
+        catch (_) { if (!failed) rethrow; }
+      }
     });
     test(
       'generation requires verifiable new inspiration instead of stock questions',

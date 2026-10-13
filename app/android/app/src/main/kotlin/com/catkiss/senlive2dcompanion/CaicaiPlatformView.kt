@@ -47,6 +47,7 @@ internal class CaicaiPlatformView(
     }
     private val companion = CaicaiCompanionView(context)
     private val channel = MethodChannel(messenger, "ai_companion/caicai_live2d/view/$viewId")
+    private var motionEpoch = 0L
     private val executionId = "caicai-$viewId-${android.os.SystemClock.uptimeMillis()}"
     private var disposed = false
     @Volatile private var renderStatus = "created"
@@ -119,6 +120,7 @@ internal class CaicaiPlatformView(
     override fun getView(): View = root
 
     override fun dispose() {
+        motionEpoch++
         if (disposed) return
         disposed = true
         CaicaiDiagnostics.record(app, "lifecycle_terminal", org.json.JSONObject(state()).toString())
@@ -138,7 +140,15 @@ internal class CaicaiPlatformView(
 
     override fun onMethodCall(call: MethodCall, result: MethodChannel.Result) {
         if (disposed) return result.error("caicai_view_disposed", "Live2D view released", null)
+        val scoped = (call.arguments as? Map<*, *>)?.get("_motion_owner") as? Map<*, *>
+        if (scoped != null && (scoped["execution_id"] != executionId || (scoped["epoch"] as? Number)?.toLong() != motionEpoch)) {
+            result.success(false); return
+        }
         when (call.method) {
+            "claimMotion" -> {
+                motionEpoch++; companion.stopConversationPlan()
+                result.success(mapOf("execution_id" to executionId, "epoch" to motionEpoch))
+            }
             "start" -> { loadCurrentModel(); result.success(state()) }
             "getState" -> result.success(state())
             "setBackground" -> {
@@ -275,7 +285,7 @@ internal class CaicaiPlatformView(
             }
             "adjustStage" -> { stageAdjustment = call.arguments == true; result.success(true) }
             "resetPresets" -> { companion.clearParameterPlan(); companion.setSmallForm(smallForm); result.success(true) }
-            "stopMotion" -> { companion.stopConversationPlan(); result.success(true) }
+            "stopMotion" -> { motionEpoch++; companion.stopConversationPlan(); result.success(true) }
             "motionPlan" -> {
                 val args = call.arguments as? Map<*, *>
                 val plan = org.json.JSONArray(args?.get("frames") as? List<*> ?: emptyList<Any>()).toString()
@@ -304,6 +314,7 @@ internal class CaicaiPlatformView(
         }
     }
     fun hostPause() {
+        motionEpoch++
         if (!hostActive) return
         CaicaiDiagnostics.record(app, "host_pause")
         hostActive = false
@@ -341,6 +352,7 @@ internal class CaicaiPlatformView(
     )
 
     private fun loadCurrentModel() {
+        motionEpoch++
         if (disposed) return
         val models = repository.currentModels()
         if (!models.available) {

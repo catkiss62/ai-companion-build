@@ -137,21 +137,24 @@ class MemoryGroundingPolicy {
       'ongoing' => 'fact_state=last_known_ongoing; current_status=unknown',
       _ => 'fact_state=unknown',
     };
+    final evidenceAge = item.evidenceTimeKnown
+        ? _evidenceAge(item.lastEvidenceAt, instant)
+        : 'source_time_unknown; 旧记录未保存可证来源事件时间，不以存储时间推断“最近/刚才”';
     final temporal = switch ((item.factState, scope)) {
       ('completed', _) =>
-        'historical_completed; ${_evidenceAge(item.lastEvidenceAt, instant)}',
+        'historical_completed; $evidenceAge',
       ('cancelled', _) =>
-        'historical_cancelled; ${_evidenceAge(item.lastEvidenceAt, instant)}',
+        'historical_cancelled; $evidenceAge',
       (_, 'ongoing') =>
-        'last_known_ongoing; ${_evidenceAge(item.lastEvidenceAt, instant)}; current_status=unknown; 禁止改写成“现在/刚才仍在做”',
+        'last_known_ongoing; $evidenceAge; current_status=unknown; 禁止改写成“现在/刚才仍在做”',
       (_, 'scheduled') =>
-        'last_known_plan; ${_evidenceAge(item.lastEvidenceAt, instant)}; current_status=unknown; 计划不等于已经执行',
+        'last_known_plan; $evidenceAge; current_status=unknown; 计划不等于已经执行',
       (_, 'event') =>
-        'historical_event; ${_evidenceAge(item.lastEvidenceAt, instant)}',
+        'historical_event; $evidenceAge',
       (_, 'stable') =>
-        'stable_fact; last_confirmed=${_date(item.lastEvidenceAt)}',
+        'stable_fact; ${item.evidenceTimeKnown ? 'last_confirmed=${_date(item.lastEvidenceAt)}' : evidenceAge}',
       _ =>
-        'time_unknown; ${_evidenceAge(item.lastEvidenceAt, instant)}; 不得猜测当前状态',
+        'time_unknown; $evidenceAge; 不得猜测当前状态',
     };
     return '[MEMORY_GROUNDING $entity; ${revision.isEmpty ? '' : '$revision; '}lifecycle=$lifecycle; '
         'attention=${item.attentionState}; recall=${item.recallPolicy}; '
@@ -176,7 +179,10 @@ class MemoryGroundingPolicy {
     final stateBoundary = scope == 'ongoing' || scope == 'scheduled'
         ? '；这是当时最后确认的状态，当前是否仍在继续未知'
         : '';
-    return '我现在想起一条在 ${_date(item.lastEvidenceAt)}（${_humanAge(item.lastEvidenceAt, instant)}）留下的长期记忆$stateBoundary：'
+    final when = item.evidenceTimeKnown
+        ? '在 ${_date(item.lastEvidenceAt)}（${_humanAge(item.lastEvidenceAt, instant)}）留下的'
+        : '来源事件时间未知的';
+    return '我现在想起一条${when}长期记忆$stateBoundary：'
         '${item.content}';
   }
 

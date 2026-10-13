@@ -1217,6 +1217,38 @@ class CedarToyActivityStore {
     }
   }
 
+  static const uncertainWritePrefix = 'cedar_unresolved_write_v1:';
+  Future<bool> admitRemoteDispatch({required String gameId, required String action,
+    required Map<String, Object?> params, required String executionId}) async {
+    if (CedarPlatformActionPolicy.isReadOnly(action)) return true;
+    final handle = await db.database;
+    return handle.transaction((txn) async {
+      if (await BrainWorkFence.value(txn, executionFenceSettingKey) != executionId) return false;
+      final key = '$uncertainWritePrefix$gameId';
+      if ((await BrainWorkFence.value(txn, key)).isNotEmpty) return false;
+      await txn.insert('settings', {'key': key, 'value': jsonEncode({'schema': 1,
+        'execution_id': executionId, 'action': action, 'params': params, 'state': 'dispatching'})});
+      return true;
+    });
+  }
+  Future<void> resolveRemoteDispatch({required String gameId, required String executionId,
+    required String action, required bool authoritative, Map<String, Object?> params = const {}}) async {
+    if (!authoritative) return;
+    final handle = await db.database;
+    await handle.transaction((txn) async {
+      final key = '$uncertainWritePrefix$gameId';
+      final raw = await BrainWorkFence.value(txn, key);
+      Map data = const {};
+      try { final decoded = jsonDecode(raw); if (decoded is Map) data = decoded; } catch (_) {}
+      final oldParams = data['params'] is Map ? data['params'] as Map : const {};
+      final room = oldParams['room_id']?.toString() ?? '';
+      final sameStateQuery = const {'state','status'}.contains(action) && room.isNotEmpty && params['room_id']?.toString() == room;
+      if (data['execution_id'] == executionId || sameStateQuery) {
+        await txn.delete('settings', where: 'key = ? AND value = ?', whereArgs: [key, raw]);
+      }
+    });
+  }
+
   Future<void> markWriteOutcomeUncertain({
     required String gameId,
     required String action,
@@ -1247,7 +1279,7 @@ class CedarToyActivityStore {
               },
               waitScope: 'write_reconcile_once',
             );
-    } else if (session.hasContinuationCall) {
+    } else if (session.hasContinuationCall && CedarPlatformActionPolicy.isReadOnly(session.continuationAction)) {
       reconciliation = _savedContinuation(session);
     }
     final canSynchronize = reconciliation != null;
@@ -1256,14 +1288,14 @@ class CedarToyActivityStore {
       kind: 'write_outcome_uncertain',
       summary: canSynchronize
           ? '本机未收到这次操作的完整回包，先按 Cedar 已给的查询指令同步真实远端状态，不盲目重放。'
-          : '本机未收到这次操作的完整回包，暂缓后继续。',
+          : '本机未收到这次操作的完整回包，暂停自动写入，等待可靠的远端状态。',
       createdAt: now,
       action: action,
     );
     final next = session.copyWith(
       phase: canSynchronize
           ? CedarActivityPhase.waitingRemote
-          : session.phase,
+          : CedarActivityPhase.paused,
       nextActor: canSynchronize ? 'wait' : session.nextActor,
       waitingReason: canSynchronize
           ? '正在从 Cedar 同步已提交动作的真实结果'

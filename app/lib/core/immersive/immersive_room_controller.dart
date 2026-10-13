@@ -118,6 +118,7 @@ class ImmersiveRoomController extends ChangeNotifier {
   bool _lastFinalReplyUsedFallback = false;
   final TtsStructuredStreamParser _streamSpeechParser =
       TtsStructuredStreamParser();
+  PlaybackIntent? _streamSpeechIntent;
   bool _streamSpeechEligible = false;
   bool _streamSpeechStarted = false;
   String? _streamSpeechOwnerId;
@@ -419,12 +420,13 @@ class ImmersiveRoomController extends ChangeNotifier {
               )
           ? selectedLanguage
           : ChatLanguage.chinese;
-      if (!_streamSpeechStarted &&
+      if ((_streamSpeechIntent?.valid ?? false) && !_streamSpeechStarted &&
           (await db.getSetting('tts_enabled')) != '0' &&
           (await db.getSetting('auto_tts')) != '0') {
         final emotion = await _ttsEmotionCueFor(assistant);
         unawaited(ttsPlayback.playText(
           projectedAssistant.contentFor(speechLanguage),
+          intent: _streamSpeechIntent,
           manual: false,
           ownerId: assistant.id,
           emotion: emotion,
@@ -1127,7 +1129,7 @@ class ImmersiveRoomController extends ChangeNotifier {
     ChatLanguage language = ChatLanguage.chinese,
   }) async {
     if (!message.isAssistant || message.content.trim().isEmpty) return;
-    await ttsPlayback.stop();
+    final playbackIntent = ttsPlayback.createIntent(ownerId: message.id);
     var projected = message;
     if (language != ChatLanguage.chinese &&
         !_hasPlausibleLanguageVariant(message, language)) {
@@ -1161,6 +1163,7 @@ class ImmersiveRoomController extends ChangeNotifier {
         projected = await ensureLanguageVariant(message, language);
       }
     }
+    if (!playbackIntent.valid) return;
     final speechSegments = projected.segmentsFor(language);
     final content = (speechSegments.isNotEmpty
             ? ChatSegmentCodec.immersiveDisplayText(speechSegments)
@@ -1171,6 +1174,7 @@ class ImmersiveRoomController extends ChangeNotifier {
     final emotion = await _ttsEmotionCueFor(message);
     await ttsPlayback.playText(
       content,
+      intent: playbackIntent,
       manual: true,
       ownerId: message.id,
       emotion: emotion,
@@ -1231,29 +1235,36 @@ class ImmersiveRoomController extends ChangeNotifier {
   }
 
   Future<void> _configureStreamingSpeech({required String ownerId}) async {
+    _streamSpeechIntent = ttsPlayback.createIntent(ownerId: ownerId,
+      formForPlayback: _entryFormContext.isKnown ? _entryFormContext.form == 'q' : null);
     _streamSpeechParser.reset();
     _streamSpeechStarted = false;
     _streamSpeechOwnerId = ownerId;
     final language =
         ChatLanguage.tryParse(await db.getSetting('tts_language')) ??
             ChatLanguage.chinese;
-    _streamSpeechEligible = language == ChatLanguage.chinese &&
-        (await db.getSetting('tts_enabled')) != '0' &&
+    final enabled = (await db.getSetting('tts_enabled')) != '0' &&
         (await db.getSetting('auto_tts')) != '0';
+    _streamSpeechEligible = language == ChatLanguage.chinese && enabled && (_streamSpeechIntent?.valid ?? false);
+    if (!enabled) { _streamSpeechIntent?.cancel(); await ttsPlayback.stop(); }
   }
 
   Future<void> _consumeStreamingSpeech(String delta) async {
-    if (!_streamSpeechEligible || delta.isEmpty) return;
+    final intent = _streamSpeechIntent;
+    if (!_streamSpeechEligible || intent == null || !intent.valid || delta.isEmpty) return;
     final units = _streamSpeechParser.add(delta);
     if (units.isEmpty) return;
     if (!_streamSpeechStarted) {
       final emotion = await _ttsEmotionCueForText(streamingContent);
+      if (!intent.valid) return;
       await ttsPlayback.beginStream(
+        intent: intent,
         manual: false,
         ownerId: _streamSpeechOwnerId,
         emotion: emotion,
         language: ChatLanguage.chinese,
       );
+      if (!intent.valid) return;
       _streamSpeechStarted = true;
     }
     for (final unit in units) {
@@ -1262,16 +1273,20 @@ class ImmersiveRoomController extends ChangeNotifier {
   }
 
   Future<void> _finishStreamingSpeech() async {
-    if (!_streamSpeechEligible) return;
+    final intent = _streamSpeechIntent;
+    if (!_streamSpeechEligible || intent == null || !intent.valid) return;
     final tail = _streamSpeechParser.finish();
     if (tail.isNotEmpty && !_streamSpeechStarted) {
       final emotion = await _ttsEmotionCueForText(streamingContent);
+      if (!intent.valid) return;
       await ttsPlayback.beginStream(
+        intent: intent,
         manual: false,
         ownerId: _streamSpeechOwnerId,
         emotion: emotion,
         language: ChatLanguage.chinese,
       );
+      if (!intent.valid) return;
       _streamSpeechStarted = true;
     }
     for (final unit in tail) {
@@ -1283,12 +1298,14 @@ class ImmersiveRoomController extends ChangeNotifier {
   Future<void> _abortStreamingSpeech() async {
     _streamSpeechParser.reset();
     _streamSpeechEligible = false;
-    if (_streamSpeechStarted) await ttsPlayback.stop();
+    _streamSpeechIntent?.cancel();
+    await ttsPlayback.stop();
+    _streamSpeechIntent = null;
     _streamSpeechStarted = false;
     _streamSpeechOwnerId = null;
   }
 
-  Future<void> stopSpeech() => ttsPlayback.stop();
+  Future<void> stopSpeech() => _abortStreamingSpeech();
 
   Future<void> setNsfwActive(bool active) async {
     final current = room;

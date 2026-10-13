@@ -1,5 +1,6 @@
 import '../ai/deepseek_client.dart';
 import '../database/app_database.dart';
+import '../database/brain_work_fence.dart';
 import '../diagnostics/provider_health.dart';
 import '../desire/desire_engine.dart';
 import '../models/desire_state.dart';
@@ -10,6 +11,8 @@ import 'layered_public_web_provider.dart';
 import 'public_web_appraisal_policy.dart';
 import 'public_web_deepseek_appraiser.dart';
 import 'public_web_share_policy.dart';
+import 'public_web_share_contract.dart';
+import 'public_web_read_service.dart';
 
 class PublicWebShareStageResult {
   const PublicWebShareStageResult({
@@ -42,6 +45,7 @@ class PublicWebShareCoordinator {
     SecureConfig? secureConfig,
     this.refreshBeforeShare = false,
     this.ai,
+    this.reader,
   }) : secureConfig = secureConfig ?? SecureConfig.instance;
 
   final AppDatabase db;
@@ -49,85 +53,55 @@ class PublicWebShareCoordinator {
   final SecureConfig secureConfig;
   final bool refreshBeforeShare;
   final DeepSeekClient? ai;
+  final WebCandidateReader? reader;
 
   Future<PublicWebShareStageResult> stageNextCandidate({
     DateTime? now,
+    BrainWorkFence? workFence,
   }) async {
     final instant = now ?? DateTime.now();
-    final claimed = await db.claimNextPublicWebCandidateForSharing(now: instant);
-    if (claimed == null) {
-      return const PublicWebShareStageResult(state: 'none');
-    }
-    if (refreshBeforeShare) {
-      final refreshed = await _refreshClaimedCandidate(claimed, instant);
-      if (!refreshed) {
-        return PublicWebShareStageResult(
-          state: 'refresh_declined',
-          candidateId: claimed.id,
-        );
-      }
-    }
-    final source = PublicWebSharePolicy.source(claimed.id);
-    final topicKey = PublicWebSharePolicy.topicKey(claimed.id);
+    // Diagnostics may enter without the proactive lease; they still retain one
+    // original reset/brain capability for the entire asynchronous stage.
+    final fence = workFence ?? await db.captureBrainWorkFence(settingKeys: const [
+      'conversation_context_reset_at', 'conversation_context_reset_count',
+    ]);
+    if (fence == null) return const PublicWebShareStageResult(state: 'ownership_lost');
+    final claimed = await db.claimNextPublicWebCandidateForSharing(
+      now: instant, workFence: fence);
+    if (claimed == null) return const PublicWebShareStageResult(state: 'none');
     try {
-      await desire.feedThought(
-        text: PublicWebSharePolicy.thoughtText,
-        drive: PublicWebSharePolicy.driveFromKey(claimed.driveKey),
-        incomingStrength: 0.62,
-        source: source,
-        topicKey: topicKey,
-      );
-      final thought = await db.thoughtBySource(source);
-      if (thought == null) {
-        await db.completePublicWebCandidateShareStage(
-          claimed.id,
-          ready: false,
-          outcome: 'thought_missing',
-          now: instant,
-        );
-        return PublicWebShareStageResult(
-          state: 'thought_missing',
-          candidateId: claimed.id,
-        );
+      if (refreshBeforeShare && !await _refreshClaimedCandidate(claimed, instant)) {
+        // The refresh can have declined the owned candidate, or lost ownership.
+        // Releasing only this token cannot undo another worker's progress.
+        await db.abortPublicWebShareStage(claimed, outcome: 'refresh_declined');
+        return PublicWebShareStageResult(state: 'refresh_declined', candidateId: claimed.id);
       }
-      final completed = await db.completePublicWebCandidateShareStage(
-        claimed.id,
-        ready: true,
-        outcome: 'thought_created',
-        now: instant,
-      );
-      if (!completed) {
-        return PublicWebShareStageResult(
-          state: 'ownership_lost',
-          candidateId: claimed.id,
-          thoughtId: thought.id,
-        );
-      }
+      final thought = await db.finishPublicWebShareStage(claimed);
       return PublicWebShareStageResult(
-        state: PublicWebSharePolicy.readyLifecycle,
-        candidateId: claimed.id,
-        thoughtId: thought.id,
-      );
+        state: thought == null ? 'ownership_lost' : PublicWebSharePolicy.readyLifecycle,
+        candidateId: claimed.id, thoughtId: thought?.id);
     } catch (_) {
-      await db.completePublicWebCandidateShareStage(
-        claimed.id,
-        ready: false,
-        outcome: 'thought_error',
-        now: instant,
-      );
-      return PublicWebShareStageResult(
-        state: 'thought_error',
-        candidateId: claimed.id,
-      );
+      await db.abortPublicWebShareStage(claimed, outcome: 'stage_error');
+      return PublicWebShareStageResult(state: 'stage_error', candidateId: claimed.id);
     }
   }
 
   Future<bool> _refreshClaimedCandidate(
-    PublicWebShareCandidate claimed,
+    PublicWebShareStageLease claimed,
     DateTime instant,
   ) async {
     final original = await db.publicWebCandidateForRefresh(claimed.id);
     if (original == null) return false;
+    if (reader != null) {
+      final refreshed = await reader!(original,
+        original.searchQuery.isEmpty ? original.title : original.searchQuery, null);
+      final eligible = refreshed.isVerifiedRead && refreshed.semanticState == 'valid' &&
+          refreshed.shareScore >= 0.68 &&
+          refreshed.appraisalState == PublicWebAppraisalPolicy.shareCandidate;
+      return await db.completePublicWebShareRefresh(claimed,
+        refreshed: refreshed, eligible: eligible) && eligible;
+    }
+    final healthEvents = <ProviderHealthEvent>[];
     final provider = LayeredPublicWebProvider(
       tavilyApiKey: await secureConfig.readTavilyApiKey() ?? '',
       agnesApiKey: await secureConfig.readAgnesApiKey() ?? '',
@@ -147,7 +121,7 @@ class PublicWebShareCoordinator {
     final extracted = reread.readState == 'extracted' ||
         reread.readState == 'summary_failed' ||
         reread.readState == 'verified';
-    await db.recordProviderHealthEvent(ProviderHealthEvent(
+    healthEvents.add(ProviderHealthEvent(
       lane: 'extraction',
       context: 'share_refresh',
       primaryProvider: 'tavily',
@@ -163,7 +137,7 @@ class PublicWebShareCoordinator {
     final compacted = reread.isVerifiedRead;
     final compactionNotConfigured =
         reread.appraisalReason == 'agnes_not_configured';
-    await db.recordProviderHealthEvent(ProviderHealthEvent(
+    healthEvents.add(ProviderHealthEvent(
       lane: 'compaction',
       context: 'share_refresh',
       primaryProvider: 'agnes',
@@ -218,7 +192,7 @@ class PublicWebShareCoordinator {
         current.appraisalReason == 'deepseek_not_configured' ||
         current.appraisalReason == 'invalid_items' ||
         current.appraisalReason == 'empty_items');
-    await db.recordProviderHealthEvent(ProviderHealthEvent(
+    healthEvents.add(ProviderHealthEvent(
       lane: 'appraisal',
       context: 'share_refresh',
       primaryProvider: 'deepseek',
@@ -246,10 +220,10 @@ class PublicWebShareCoordinator {
         current.shareScore >= 0.68 &&
         current.appraisalState == PublicWebAppraisalPolicy.shareCandidate;
     return db.completePublicWebShareRefresh(
-      claimed.id,
-      current,
+      claimed,
+      refreshed: current,
       eligible: eligible,
-      now: instant,
+      providerHealthEvents: healthEvents,
     ).then((owned) => owned && eligible);
   }
 
@@ -324,17 +298,7 @@ class PublicWebShareCoordinator {
           ? PublicWebSharePolicy.candidateIdFromTopic(thought!.topicKey)
           : null;
 
-  Future<void> markShared(String candidateId, {DateTime? now}) =>
-      db.markPublicWebCandidateShareOutcome(
-        candidateId,
-        outcome: PublicWebSharePolicy.sharedLifecycle,
-        now: now,
-      );
-
-  Future<void> markDeclined(String candidateId, {DateTime? now}) =>
-      db.markPublicWebCandidateShareOutcome(
-        candidateId,
-        outcome: PublicWebSharePolicy.declinedLifecycle,
-        now: now,
-      );
+  Future<bool> markDeclined(ExpectedPublicWebShare expected, {
+    required BrainWorkFence workFence, DateTime? now,
+  }) => db.declinePublicWebShareIfCurrent(expected, workFence: workFence, now: now);
 }

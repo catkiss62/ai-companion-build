@@ -1,3 +1,4 @@
+import 'playback_intent.dart';
 import 'dart:typed_data';
 
 import '../database/app_database.dart';
@@ -11,7 +12,7 @@ import 'tts_queue_service.dart';
 import 'tts_text_processor.dart';
 import 'tts_voice_profile.dart';
 
-class TtsService implements TtsQueueService {
+class TtsService implements TtsQueueService, TtsSessionFactory, TtsPlaybackLeaseOwner {
   TtsService({
     AppDatabase? db,
     TtsProvider? provider,
@@ -26,6 +27,17 @@ class TtsService implements TtsQueueService {
   final TtsTextProcessor processor;
   final Future<bool> Function()? qFormOverride;
   bool? _appliedAutoAffinity;
+  @override
+  int? get playbackLease => provider is NativeTtsProvider ? (provider as NativeTtsProvider).playbackLease : null;
+  @override
+  Future<TtsQueueService> openPlaybackSession({bool? qForm, String? ownerId}) async {
+    final owned = provider is NativeTtsProvider ? await (provider as NativeTtsProvider).claimPlayback(ownerId: ownerId) : provider;
+    try {
+      final frozen = qForm ?? (qFormOverride != null ? await qFormOverride!() : (await PlayfulFormStore(db).load()).qForm);
+      return TtsService(db: db, provider: owned, processor: processor, qFormOverride: () async => frozen);
+    } catch (_) { await owned.stop(); rethrow; }
+  }
+
 
   /// Read-only settings and quick preflight must not bind the ONNX process.
   Future<TtsStatus> localStatus() => provider is NativeTtsProvider
@@ -309,13 +321,19 @@ class TtsService implements TtsQueueService {
     TtsEmotionCue? emotion,
     String? ownerId,
     ChatLanguage language = ChatLanguage.chinese,
+    bool? formForPlayback,
+    Future<void> Function(PlaybackIntent)? leadInFactory,
   }) async {
     final queue = TtsPlaybackQueue(service: this);
     try {
+      final intent = queue.createIntent(formForPlayback: formForPlayback, ownerId: ownerId);
+      final preparedLeadIn = leadInFactory?.call(intent) ?? leadIn;
       await queue.playText(
         visibleText,
+        formForPlayback: formForPlayback,
+        intent: intent,
         manual: manual,
-        leadIn: leadIn,
+        leadIn: preparedLeadIn,
         emotion: emotion,
         ownerId: ownerId,
         language: language,

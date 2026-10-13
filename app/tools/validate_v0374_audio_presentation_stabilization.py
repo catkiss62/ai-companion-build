@@ -19,7 +19,7 @@ sound = read("lib/core/tts/emotion_sound_service.dart")
 assert "ai_companion/emotion_sound" in sound
 assert "NativeTtsProvider" not in sound
 assert "auto_tts" not in sound
-assert "await player.play(base64Encode(bytes))" in sound
+assert "await owned.play(base64Encode(bytes))" in sound
 
 bridge = read(
     "android/app/src/main/kotlin/com/aicompanion/localfirst/EmotionSoundBridge.kt"
@@ -50,9 +50,9 @@ assert "latinWords >= 6" not in runner
 
 controller = read("lib/features/chat/chat_controller.dart")
 for token in (
-    "onEmotionCue: startEmotionCue",
+    "startEmotionCue(projectedAssistant.emotionKey)",
     "leadIn: leadIn",
-    "emotionSounds.play(visual)",
+    "emotionSounds.play(visual, intent: playbackIntent)",
     "Future.wait<void>",
 ):
     assert token in controller, token

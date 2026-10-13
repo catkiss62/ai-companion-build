@@ -28,6 +28,7 @@ class ChatMessage {
     this.emotionSource = '',
     this.worldBookContextJson = '',
     this.formContextJson = '',
+    this.sourceRevision = 0,
   });
 
   final String id;
@@ -53,6 +54,7 @@ class ChatMessage {
   /// Machine-only provenance. It is never rendered or injected as self-story.
   final String worldBookContextJson;
   final String formContextJson;
+  final int sourceRevision;
   FormContextSnapshot get formContext => FormContextSnapshot.decode(formContextJson);
   String get historicalFormLabel => formContext.historicalLabel;
 
@@ -142,6 +144,7 @@ class ChatMessage {
     String? emotionSource,
     String? worldBookContextJson,
     String? formContextJson,
+    int? sourceRevision,
   }) {
     return ChatMessage(
       id: id,
@@ -167,6 +170,7 @@ class ChatMessage {
       worldBookContextJson:
           worldBookContextJson ?? this.worldBookContextJson,
       formContextJson: formContextJson ?? this.formContextJson,
+      sourceRevision: sourceRevision ?? this.sourceRevision,
     );
   }
 
@@ -191,6 +195,7 @@ class ChatMessage {
         'emotion_source': emotionSource,
         'worldbook_context_json': worldBookContextJson,
         'form_context_json': formContextJson,
+        'source_revision': sourceRevision,
       };
 
   Map<String, Object?> toJson() => {
@@ -234,6 +239,7 @@ class ChatMessage {
   }) {
     return ChatMessage(
       id: row['id'] as String,
+      sourceRevision: (row['source_revision'] as num?)?.toInt() ?? 0,
       role: row['role'] as String,
       content: (row['content'] as String?) ?? '',
       reasoningContent: (row['reasoning_content'] as String?) ?? '',

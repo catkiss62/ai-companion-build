@@ -1,10 +1,16 @@
 import '../self/dream_store.dart';
 import 'dart:convert';
 import 'package:crypto/crypto.dart';
+import 'package:flutter/foundation.dart';
 import '../ai/deepseek_client.dart';
 import '../ai/model_profile.dart';
 import '../database/app_database.dart';
-import '../models/world_book_turn_context.dart';
+import 'package:sqflite/sqflite.dart';
+import '../autonomy/public_web_share_contract.dart';
+import '../database/brain_work_fence.dart';
+import '../database/conversation_source_store.dart';
+import '../memory/memory_revision.dart';
+import '../self/dream_contract.dart';
 import '../storage/secure_config.dart';
 import 'deep_reflection_store.dart';
 
@@ -14,13 +20,18 @@ typedef ReflectionReviewer =
 /// A bounded, low-frequency preparation pass on the existing heartbeat.
 /// It never sends a message, calls tools, or promotes a tentative self-view.
 class DeepReflectionEngine {
-  DeepReflectionEngine(this.db, {ReflectionReviewer? reviewer})
+  DeepReflectionEngine(this.db, {ReflectionReviewer? reviewer, this.beforeCommit})
     : reviewer = reviewer ?? _review;
   final AppDatabase db;
   final ReflectionReviewer reviewer;
+  @visibleForTesting
+  final Future<void> Function()? beforeCommit;
   static const leaseKey = 'deep_reflection_prepare_lease_until';
   static const attemptKey = 'deep_reflection_prepare_attempt_v1';
-  static const sourcesKey = 'deep_reflection_source_fingerprint_v1';
+  // v1 was written before the model returned and cannot prove completion.
+  static const legacySourcesKey = 'deep_reflection_source_fingerprint_v1';
+  static const sourcesKey = 'deep_reflection_source_fingerprint_v2';
+  static const attemptStateKey = 'deep_reflection_prepare_receipt_v2';
   static const reviewGap = Duration(hours: 12);
   static const generationGap = Duration(days: 3);
 
@@ -59,52 +70,114 @@ current_self_understanding仅供参考她目前的理解，不是新的事件或
   }
 
   Future<List<Map<String, Object?>>> collect(DateTime now) async {
-    final result = <Map<String, Object?>>[];
-    final reset = await db.conversationContextResetAt();
-    String clip(String s) => s.length <= 600 ? s : s.substring(0, 600);
-    for (final m in await db.recentMessages(limit: 40)) {
-      if (WorldBookTurnContext.decode(m.worldBookContextJson).hasRoleplay ||
-          (!m.isUser && !m.isAssistant) ||
-          m.content.trim().isEmpty ||
-          now.difference(m.createdAt) > const Duration(days: 14) ||
-          (reset != null && !m.createdAt.isAfter(reset)))
-        continue;
-      result.add({
-        'id': 'chat:${m.id}',
-        'kind': m.isUser ? 'user_text' : 'assistant_text',
-        'text': clip(m.content),
-        'at': m.createdAt.millisecondsSinceEpoch,
-      });
-    }
-    for (final m in await db.memoryCandidatesForSelfDrive(limit: 6)) {
-      result.add({
-        'id': 'memory:${m.id}',
-        'kind': 'memory_inspiration',
-        'text': clip(m.content),
-        'at': m.createdAt.millisecondsSinceEpoch,
-      });
-    }
-    final handle = await db.database;
-    for (final p in await handle.query(
-      'public_web_candidates',
-      columns: ['id', 'title', 'summary', 'read_at'],
-      where:
-          "read_state = 'verified' AND semantic_state = 'valid' AND lifecycle_state NOT IN ('discarded','declined','user_deleted') AND read_at > ?",
-      whereArgs: [
-        now.subtract(const Duration(days: 14)).millisecondsSinceEpoch,
-      ],
-      orderBy: 'read_at DESC',
-      limit: 4,
-    )) {
-      result.add({
-        'id': 'web:${p['id']}',
-        'kind': 'read_material',
-        'text': clip('${p['title']}\n${p['summary']}'),
-        'at': p['read_at'],
-      });
-    }
-    return result;
+    final fence = await db.captureBrainWorkFence(settingKeys: [DeepReflectionStore.resetKey]);
+    if (fence == null) return [];
+    return (await _collectSnapshot(now, fence: fence))?.sources ?? [];
   }
+
+  Future<_ReflectionMaterialBatch?> _collectSnapshot(DateTime now, {
+    required BrainWorkFence fence, String? expectedStateRaw,
+  }) => db.readSourceSnapshot<_ReflectionMaterialBatch?>(workFence: fence, read: (txn) async {
+    if (expectedStateRaw != null &&
+        await BrainWorkFence.value(txn, DeepReflectionStore.stateKey) != expectedStateRaw) return null;
+    final sources = <Map<String, Object?>>[];
+    final manifest = <Object?>[];
+    final guards = <LocalSourceGuard>[];
+    final reset = int.tryParse(await BrainWorkFence.value(txn, DeepReflectionStore.resetKey)) ?? 0;
+    String clip(String value) => value.length <= 600 ? value : value.substring(0, 600);
+    for (final material in await ConversationSourceStore.recentMaterials(txn,
+      limit: 40, notBefore: now.subtract(const Duration(days: 14)), notAfter: now)) {
+      final m = material.message, source = material.source;
+      if (!source.isOrdinary || source.stamp.ingestSeq <= 0 ||
+          (!m.isUser && !m.isAssistant) || m.content.trim().isEmpty ||
+          m.createdAt.millisecondsSinceEpoch <= reset) continue;
+      sources.add({'id': 'chat:${m.id}', 'kind': m.isUser ? 'user_text' : 'assistant_text',
+        'text': clip(m.content), 'at': m.createdAt.millisecondsSinceEpoch,
+        'event_time_known': true});
+      manifest.add(source.toJson()); guards.add(source.matches);
+    }
+    for (final memory in await db.memoryCandidatesForSelfDriveInTransaction(txn, limit: 6)) {
+      if (memory.evidenceTimeKnown && memory.lastEvidenceAt.isAfter(now)) continue;
+      final source = MemoryRevisionSnapshot.capture(memory);
+      sources.add({'id': 'memory:${memory.id}', 'kind': 'memory_inspiration',
+        'text': clip(memory.content),
+        'at': memory.evidenceTimeKnown ? memory.lastEvidenceAt.millisecondsSinceEpoch : null,
+        'event_time_known': memory.evidenceTimeKnown,
+        if (!memory.evidenceTimeKnown) 'recorded_at': memory.createdAt.millisecondsSinceEpoch});
+      manifest.add(source.toJson());
+      guards.add((handle) => db.memorySourcesForSelfDriveMatch(handle, [source]));
+    }
+    final rows = await txn.query('public_web_candidates', where:
+      "read_state = 'verified' AND semantic_state = 'valid' "
+      "AND lifecycle_state NOT IN ('discarded','declined','user_deleted') AND read_at > ? AND read_at <= ?",
+      whereArgs: [now.subtract(const Duration(days: 14)).millisecondsSinceEpoch, now.millisecondsSinceEpoch],
+      orderBy: 'read_at DESC', limit: 4);
+    for (final row in rows) {
+      final source = PublicWebSourceStamp.capture(row, profile: PublicWebSourceProfile.reflection, now: now);
+      if (source == null) continue;
+      sources.add({'id': 'web:${row['id']}', 'kind': 'read_material',
+        'text': clip('${row['title']}\n${row['summary']}'), 'at': row['read_at'],
+        'event_time_known': true});
+      manifest.add([source.id, source.materialHash, source.profile.name]);
+      guards.add(source.matches);
+    }
+    // Reuse Dream's established hash and qualification. Its historical self
+    // understanding is not governed by a candidate's short sharing expiry.
+    final dreamEnabled = await BrainWorkFence.value(txn, DreamStore.enabledKey);
+    final dreamRaw = await BrainWorkFence.value(txn, DreamStore.stateKey);
+    final insights = DreamContract.records(DreamContract.decode(dreamRaw)['insights']);
+    final refs = insights.expand((i) => DreamContract.records(i['evidence'])).toList();
+    final originals = await DreamStore.originals(txn, refs.map((r) => DreamContract.string(r['id'])));
+    final qualified = <String, QualifiedConversationSource>{};
+    for (final id in originals.keys.where((id) => id.startsWith('chat:'))) {
+      final material = await ConversationSourceStore.captureMaterial(txn, id.substring(5));
+      if (material != null && material.source.isOrdinary && material.source.stamp.ingestSeq > 0) {
+        qualified[id] = material.source;
+      }
+    }
+    final used = dreamEnabled == '0' ? <Map<String, dynamic>>[] : insights.where((insight) {
+      final evidence = DreamContract.records(insight['evidence']);
+      return evidence.isNotEmpty && evidence.every((r) {
+        final id = r['id'], fingerprint = r['fingerprint'];
+        if (id is! String || id.isEmpty || fingerprint is! String || fingerprint.isEmpty)
+          return false;
+        final original = originals[id];
+        return original != null && original.fingerprint == fingerprint &&
+            (!id.startsWith('chat:') || qualified.containsKey(id));
+      });
+    }).take(DreamContract.maxInsights).toList();
+    final usedRefs = used.expand((i) => DreamContract.records(i['evidence'])).toList();
+    for (final id in usedRefs.map((r) => r['id'] as String).toSet()) {
+      if (qualified.containsKey(id)) {
+        final source = qualified[id]!;
+        manifest.add(source.toJson()); guards.add(source.matches);
+      } else if (id.startsWith('web:')) {
+        final webRows = await txn.query('public_web_candidates', where: 'id = ?',
+          whereArgs: [id.substring(4)], limit: 1);
+        if (webRows.isEmpty) return null;
+        // Full semantic hash augments, without changing, Dream's persisted
+        // evidence fingerprint and original read/semantic/lifecycle policy.
+        final hash = PublicWebSourceStamp.hashRow(webRows.single);
+        manifest.add([id, hash]);
+        guards.add((handle) async {
+          final live = await handle.query('public_web_candidates', where: 'id = ?',
+            whereArgs: [id.substring(4)], limit: 1);
+          return live.isNotEmpty && PublicWebSourceStamp.hashRow(live.single) == hash;
+        });
+      }
+    }
+    guards.add((handle) async {
+      if (await BrainWorkFence.value(handle, DreamStore.enabledKey) != dreamEnabled ||
+          await BrainWorkFence.value(handle, DreamStore.stateKey) != dreamRaw) return false;
+      final live = await DreamStore.originals(handle, usedRefs.map((r) => r['id'] as String));
+      return usedRefs.every((r) => live[r['id']]?.fingerprint == r['fingerprint']);
+    });
+    final dreamPrompt = DreamContract.prompt(used);
+    manifest.add({'dream_state_hash': sha256.convert(utf8.encode(dreamRaw)).toString(),
+      'dream_enabled': dreamEnabled, 'prompt': dreamPrompt});
+    return _ReflectionMaterialBatch(sources: sources, dreamPrompt: dreamPrompt,
+      manifest: manifest, guards: guards);
+  });
 
   Future<bool> maybePrepare({DateTime? now}) async {
     final instant = now ?? DateTime.now();
@@ -124,6 +197,7 @@ current_self_understanding仅供参考她目前的理解，不是新的事件或
         settingKeys: [
           DeepReflectionStore.enabledKey,
           DeepReflectionStore.resetKey,
+          'conversation_context_reset_count',
           'chat_turn_lease',
         ],
       );
@@ -149,21 +223,27 @@ current_self_understanding仅供参考她目前的理解，不是新的事件或
           millis - lastUpdate < const Duration(days: 7).inMilliseconds)
         return false;
       if (millis - lastCreated < generationGap.inMilliseconds) return false;
-      final sources = await collect(instant);
+      final batch = await _collectSnapshot(instant, fence: fence, expectedStateRaw: raw);
+      if (batch == null) return false;
+      final sources = batch.sources;
       // New evidence is required even after the timer expires. Do not recycle
       // an unanswered question just because the heartbeat ran again.
       if (sources.isEmpty ||
           !sources.any((s) => (s['at'] as num? ?? 0) > lastUpdate))
         return false;
       final fingerprint = sha256
-          .convert(utf8.encode(jsonEncode(sources)))
+          .convert(utf8.encode(jsonEncode({'contract': 2, 'sources': batch.manifest, 'state': raw})))
           .toString();
       if (await db.getSetting(sourcesKey) == fingerprint) return false;
-      final execution = 'reflection:$millis';
+      final execution = 'reflection:$millis:${DateTime.now().microsecondsSinceEpoch}';
+      final attemptReceipt = <String, Object?>{'contract': 2, 'execution_id': execution,
+        'fingerprint': fingerprint, 'started_at': millis,
+        'next_eligible_at': millis + reviewGap.inMilliseconds, 'phase': 'preparing'};
+      final attemptRecord = jsonEncode(attemptReceipt);
       if (!await db.setSettingsAtomically(
         {
           attemptKey: '$millis',
-          sourcesKey: fingerprint,
+          attemptStateKey: attemptRecord,
           DeepReflectionStore.diagnosticKey: jsonEncode(
             DeepReflectionStore.diagnostic(
               executionId: execution,
@@ -174,13 +254,14 @@ current_self_understanding仅供参考她目前的理解，不是新的事件或
         },
         expectedSettings: {DeepReflectionStore.stateKey: raw},
         workFence: fence,
+        sourceGuard: batch.matches,
       ))
         return false;
       Map<String, dynamic>? payload;
       try {
         payload = await reviewer({
           'sources': sources,
-          'current_self_understanding': await DreamStore(db).prompt(),
+          'current_self_understanding': batch.dreamPrompt,
           'current': current,
           'history': state['history'] ?? [],
           'now': instant.toIso8601String(),
@@ -198,21 +279,24 @@ current_self_understanding仅供参考她目前的理解，不是新的事件或
         instant,
         fence.expectedSettings[DeepReflectionStore.resetKey] ?? '',
       );
+      final validNoTopic = payload != null && payload.containsKey('topic') && payload['topic'] == null;
+      final completed = validNoTopic || topic != null;
+      final phase = payload == null ? 'unavailable' : completed
+          ? (topic == null ? 'no_topic' : 'ready') : 'invalid';
       final next = <String, String>{
+        if (completed) sourcesKey: fingerprint,
+        attemptStateKey: jsonEncode({...attemptReceipt, 'phase': phase}),
         DeepReflectionStore.diagnosticKey: jsonEncode(
           DeepReflectionStore.diagnostic(
             executionId: execution,
             source: 'heartbeat',
-            phase: payload == null
-                ? 'unavailable'
-                : topic == null
-                ? 'no_topic'
-                : 'ready',
+            phase: phase,
             committed: topic == null ? 0 : 1,
           ),
         ),
       };
       if (topic != null) {
+        topic['source_manifest'] = batch.manifest;
         final history = (state['history'] as List? ?? [])
             .whereType<Map>()
             .toList();
@@ -228,10 +312,14 @@ current_self_understanding仅供参考她目前的理解，不是新的事件或
           'history': history.take(12).toList(),
         });
       }
+      await beforeCommit?.call();
       final saved = await db.setSettingsAtomically(
         next,
-        expectedSettings: {DeepReflectionStore.stateKey: raw},
+        expectedSettings: {DeepReflectionStore.stateKey: raw, attemptStateKey: attemptRecord},
         workFence: fence,
+        sourceGuard: (txn) async => await batch.matches(txn) &&
+            (await txn.query('interaction_sessions', columns: ['id'],
+              where: "status = 'active'", limit: 1)).isEmpty,
       );
       return saved && topic != null;
     } catch (_) {
@@ -270,6 +358,7 @@ current_self_understanding仅供参考她目前的理解，不是新的事件或
       (s) =>
           s['id'] == t['source_id'] &&
           (s['text'] as String).contains(t['source_quote'] as String) &&
+          (s['at'] as num? ?? 0) <= now.millisecondsSinceEpoch &&
           (s['at'] as num? ?? 0) > (current['updated_at'] as num? ?? 0),
     );
     if (matching.isEmpty) return null;
@@ -295,5 +384,18 @@ current_self_understanding仅供参考她目前的理解，不是新的事件或
       'source_id': t['source_id'],
       'source_quote': t['source_quote'],
     };
+  }
+}
+
+class _ReflectionMaterialBatch {
+  const _ReflectionMaterialBatch({required this.sources, required this.dreamPrompt,
+    required this.manifest, required this.guards});
+  final List<Map<String, Object?>> sources;
+  final String dreamPrompt;
+  final List<Object?> manifest;
+  final List<LocalSourceGuard> guards;
+  Future<bool> matches(DatabaseExecutor txn) async {
+    for (final guard in guards) { if (!await guard(txn)) return false; }
+    return true;
   }
 }

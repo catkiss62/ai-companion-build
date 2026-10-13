@@ -10,7 +10,7 @@ import kotlin.math.sqrt
 
 /** Envelope indexed by the actual AudioTrack playback head, including speed changes.
  * No second player, resampling, or changes to the PCM sent to the speaker. */
-internal class CaicaiPcmLipSync {
+internal class CaicaiPcmLipSync(private val valid: () -> Boolean = { true }) {
     private data class Block(val start: Long, val end: Long, val value: Float)
     private val blocks = ArrayDeque<Block>()
     private val handler = Handler(Looper.getMainLooper())
@@ -18,7 +18,7 @@ internal class CaicaiPcmLipSync {
     private var target: AudioTrack? = null
     private val tick = object : Runnable {
         override fun run() {
-            if (stopped) return
+            if (stopped || !valid()) return
             val track = target ?: return
             val playing = runCatching { track.playState == AudioTrack.PLAYSTATE_PLAYING }.getOrDefault(false)
             val head = runCatching { track.playbackHeadPosition.toLong() and 0xffff_ffffL }.getOrDefault(0L)
@@ -67,6 +67,6 @@ internal class CaicaiPcmLipSync {
         stopped = true
         handler.removeCallbacks(tick)
         synchronized(blocks) { blocks.clear() }
-        handler.post { CaicaiRuntime.speechAmplitude(0f) }
+        handler.post { if (valid()) CaicaiRuntime.speechAmplitude(0f) }
     }
 }

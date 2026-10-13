@@ -140,11 +140,12 @@ class DreamMaterial {
         'kind',
         'content',
         'first_observed_at',
+        'evidence_time_known',
         'created_at',
         'semantic_type',
       ],
       where:
-          "status = 'active' AND kind IN ('ai_self','shared_experience','preference')",
+          "status = 'active' AND source_valid = 1 AND kind IN ('ai_self','shared_experience','preference')",
       orderBy: 'updated_at DESC',
       limit: 100,
     )) {
@@ -156,7 +157,8 @@ class DreamMaterial {
         'kind': 'prior_memory_interpretation',
         'memory_kind': row['kind'],
         'text': DreamStore.clip(text, 400),
-        'original_record_at': row['first_observed_at'] ?? row['created_at'],
+        'original_record_at': row['evidence_time_known'] == 1 ? row['first_observed_at'] : null,
+        'source_time_known': row['evidence_time_known'] == 1,
         'evidence_allowed': false,
       });
       if (background.length >= 16) break;

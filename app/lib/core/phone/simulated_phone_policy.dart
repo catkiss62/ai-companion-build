@@ -43,9 +43,10 @@ class SimulatedPhonePolicy {
     return DateTime(local.year, local.month, local.day);
   }
 
-  static String previousLocalDay(DateTime value) => localDay(
-        localDayStart(value).subtract(const Duration(days: 1)),
-      );
+  static String previousLocalDay(DateTime value) {
+    final local = value.toLocal();
+    return localDay(DateTime(local.year, local.month, local.day - 1));
+  }
 
   static int stableIndex(String key, int length, {int salt = 0}) {
     if (length <= 0) return 0;

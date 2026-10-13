@@ -18,6 +18,9 @@ class EmotionSoundBridge(
     context: Context,
     flutterEngine: FlutterEngine,
 ) {
+    private val hostId = java.util.UUID.randomUUID().toString()
+    private var cueLease = -1L
+    private var parentLease: Long? = null
     private val appContext = context.applicationContext
     private val main = Handler(Looper.getMainLooper())
     private val ioWorker = Executors.newSingleThreadExecutor { runnable ->
@@ -38,7 +41,17 @@ class EmotionSoundBridge(
                 return@setMethodCallHandler
             }
             when (call.method) {
+                "claimCue" -> {
+                    val parent = call.argument<Number>("playbackLease")?.toLong()
+                    val claimed = runCatching { PlaybackSessionRegistry.claimCue(hostId, parent) {
+                        requestToken++; stopCurrent(completePending = true)
+                    } }
+                    claimed.fold(onSuccess = { result.success(it) }, onFailure = { result.error("stale_cue", it.message, null) })
+                }
                 "play" -> {
+                    cueLease = call.argument<Number>("cueLease")?.toLong() ?: PlaybackSessionRegistry.claimCue(hostId, null) { requestToken++; stopCurrent(completePending = true) }
+                    parentLease = call.argument<Number>("playbackLease")?.toLong()
+                    if (!PlaybackSessionRegistry.currentCue(cueLease, parentLease)) { result.error("stale_cue", "Cue no longer owns playback", null); return@setMethodCallHandler }
                     val encoded = call.argument<String>("audioData").orEmpty()
                     val volume = (call.argument<Number>("volume")?.toFloat() ?: 1f)
                         .coerceIn(0f, 1f)
@@ -49,8 +62,7 @@ class EmotionSoundBridge(
                     }
                 }
                 "stop" -> {
-                    requestToken++
-                    stopCurrent(completePending = true)
+                    PlaybackSessionRegistry.stopCue(hostId, call.argument<Number>("cueLease")?.toLong())
                     result.success(null)
                 }
                 else -> result.notImplemented()
@@ -77,7 +89,7 @@ class EmotionSoundBridge(
                         }
                 }
                 main.post {
-                    if (disposed || token != requestToken) {
+                    if (disposed || token != requestToken || !PlaybackSessionRegistry.currentCue(cueLease, parentLease)) {
                         prepared.getOrNull()?.delete()
                         return@post
                     }
@@ -117,7 +129,8 @@ class EmotionSoundBridge(
         runCatching {
             next.setDataSource(file.absolutePath)
             next.setOnPreparedListener { ready ->
-                if (!disposed && token == requestToken) ready.start()
+                if (!disposed && token == requestToken && PlaybackSessionRegistry.currentCue(cueLease, parentLease)) ready.start()
+                else finish(token, "stale_cue", "Cue was cancelled")
             }
             next.prepareAsync()
         }.onFailure {
@@ -157,6 +170,7 @@ class EmotionSoundBridge(
 
     fun dispose() {
         if (disposed) return
+        PlaybackSessionRegistry.stopCue(hostId, cueLease)
         disposed = true
         requestToken++
         stopCurrent(completePending = true)

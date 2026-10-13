@@ -23,4 +23,4 @@ Pull-request synchronizations that change only the evergreen ledger, repository 
 
 ## Current test build
 
-v0.42.53+297 freezes the immersive entry form, adds the separate emotion overlay, gives sustained solo play one Desire competition, and includes editable everyday facts and the circular image bubble. See the current ledger for CI status and device checks.
+The [current ledger](AI_Companion_当前总账.md) records the latest delivered APK, exact source and CI evidence, and remaining device checks. Work in progress is listed separately from delivered builds.

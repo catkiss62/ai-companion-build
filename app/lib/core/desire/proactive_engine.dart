@@ -171,6 +171,7 @@ class ProactiveEngine {
     CedarDeliveryVerifier? cedarDeliveryVerifier,
     CedarDeliveryAttemptStore? cedarDeliveryAttempts,
     Random? random,
+    this.webReader,
   })  : secureConfig = secureConfig ?? SecureConfig.instance,
         _ttsOverride = ttsService,
         _emotionSoundOverride = emotionSoundService,
@@ -188,6 +189,7 @@ class ProactiveEngine {
   final CedarDeliveryVerifier cedarDeliveryVerifier;
   final CedarDeliveryAttemptStore cedarDeliveryAttempts;
   final Random _random;
+  final WebCandidateReader? webReader;
   final Uuid _uuid = Uuid();
 
   late final TtsService tts = _ttsOverride ?? TtsService(db: db);
@@ -237,6 +239,7 @@ class ProactiveEngine {
         desire: desireEngine,
         secureConfig: secureConfig,
         refreshBeforeShare: true,
+        reader: webReader,
         ai: ai,
       );
   late final CedarToyAutonomyEngine cedarToyAutonomy =
@@ -517,11 +520,6 @@ class ProactiveEngine {
     if ((await db.getSetting('transfer_lock')) == '1') {
       return const ProactiveDecision(sent: false, reason: '设备转移锁定中');
     }
-    final forcedShare = forcedThoughtIdForDebug == null ? null : await db.thoughtById(forcedThoughtIdForDebug);
-    final directGameShare = forceForDebug && (forcedShare?.source.startsWith('mcp/cedar_game:') ?? false);
-    if (!directGameShare && (await CalendarReminderStateStore.read(await db.database, android: android)).ordinaryPaused(DateTime.now())) {
-      return const ProactiveDecision(sent: false, reason: 'calendar_reminder_quiet');
-    }
     // Debug/forced evaluation may bypass the probability gate, never the
     // cross-engine writer lease. Otherwise a debug tap could race the real
     // background heartbeat and emit duplicate messages.
@@ -559,6 +557,21 @@ class ProactiveEngine {
     }
 
     try {
+      // Fix the original context boundary before any scene/thought/material
+      // read. Later source predicates extend this capability; they never adopt
+      // a newer reset or device identity for older input.
+      final evaluationFence = await db.captureBrainWorkFence(
+        leaseKey: 'proactive_lease_until', settingKeys: const [
+          'conversation_context_reset_at', 'conversation_context_reset_count',
+        ]);
+      if (evaluationFence == null) {
+        return const ProactiveDecision(sent: false, reason: '主动任务的写入权限已变化');
+      }
+      final forcedShare = forcedThoughtIdForDebug == null ? null : await db.thoughtById(forcedThoughtIdForDebug);
+      final directGameShare = forceForDebug && (forcedShare?.source.startsWith('mcp/cedar_game:') ?? false);
+      if (!directGameShare && (await CalendarReminderStateStore.read(await db.database, android: android)).ordinaryPaused(DateTime.now())) {
+        return const ProactiveDecision(sent: false, reason: 'calendar_reminder_quiet');
+      }
       if (!await db.brainWorkAllowed()) {
         return const ProactiveDecision(sent: false, reason: '当前设备不是可运行的 Active Brain');
       }
@@ -1197,7 +1210,7 @@ class ProactiveEngine {
       }
       if (intent.wantAction == 'prepare_public_web_share') {
         final staged = await publicWebSharing.stageNextCandidate(
-          now: evaluationStartedAt,
+          now: evaluationStartedAt, workFence: evaluationFence,
         );
         if (!staged.ready || staged.thoughtId == null) {
           await db.finishAutonomousBehavior(
@@ -1254,7 +1267,8 @@ class ProactiveEngine {
         final sourceMemory = await db.memoryById(
           intentThought.source.substring(prefix.length),
         );
-        intentMemoryEvidenceAt = sourceMemory?.lastEvidenceAt;
+        intentMemoryEvidenceAt = sourceMemory?.evidenceTimeKnown == true
+            ? sourceMemory!.lastEvidenceAt : null;
       }
     }
     final selectedSourceType = selection?.sourceType ??
@@ -1499,7 +1513,7 @@ class ProactiveEngine {
     }
 
     if (webShareCandidateId != null && !await PublicWebReadService(db,
-        secureConfig: secureConfig, ai: ai).refreshForUse(webShareCandidateId)) {
+        secureConfig: secureConfig, ai: ai, reader: webReader, workFence: evaluationFence).refreshForUse(webShareCandidateId)) {
       await noteGeneration('source_read_failed', reasonTag: 'web_source_unavailable');
       return ProactiveDecision(sent: false, reason: '网页原文暂时不可用',
         gateScore: gateScore, intentKind: intentKind, deliveryStyle: deliveryStyle);
@@ -1508,25 +1522,25 @@ class ProactiveEngine {
     final selectedReflectionId = intent.reasonSource.startsWith('deep_reflection:')
         ? intent.reasonSource.substring('deep_reflection:'.length) : '';
     final reflectionInvitation = selectedReflectionId.isEmpty ? null
-        : await DeepReflectionStore(db).claimInvitation(selectedReflectionId, evaluationStartedAt);
+        : await DeepReflectionStore(db).claimInvitation(selectedReflectionId, evaluationStartedAt, workFence: evaluationFence);
     if (selectedReflectionId.isNotEmpty && reflectionInvitation == null) {
       return const ProactiveDecision(sent: false, reason: '深层议题已搁置或仍在冷却');
     }
     final selectedCreativeId = intent.reasonSource.startsWith('creative_share:')
         ? intent.reasonSource.substring('creative_share:'.length) : '';
     final creativeShare = selectedCreativeId.isEmpty ? null
-        : await CreativeStore(db).claimShare(selectedCreativeId, evaluationStartedAt);
+        : await CreativeStore(db).claimShare(selectedCreativeId, evaluationStartedAt, workFence: evaluationFence);
     if (selectedCreativeId.isNotEmpty && creativeShare == null) {
       return const ProactiveDecision(sent: false, reason: '作品已变化或仍在私存冷却');
     }
     final selectedWishId = intent.reasonSource.startsWith('wish:')
         ? intent.reasonSource.substring(5) : '';
     if (selectedWishId.isNotEmpty &&
-        !await WishStore(db).claimContact(selectedWishId, evaluationStartedAt)) {
+        !await WishStore(db).claimContact(selectedWishId, evaluationStartedAt, workFence: evaluationFence)) {
       return const ProactiveDecision(sent: false, reason: '愿望表达已冷却或暂停');
     }
-    final wishDeliveryFence = await db.captureBrainWorkFence(
-          leaseKey: 'proactive_lease_until', settingKeys: [
+    final wishDeliveryFence = await db.extendBrainWorkFence(
+          evaluationFence, settingKeys: [
             if (creativeShare != null) ...creativeShare.expected.keys,
             if (selectedWishId.isNotEmpty) ...[WishStore.stateKey, WishStore.enabledKey],
             if (reflectionInvitation != null) ...[DeepReflectionStore.stateKey, DeepReflectionStore.enabledKey, DeepReflectionStore.resetKey],
@@ -1540,7 +1554,7 @@ class ProactiveEngine {
     final promptHistory = startsFreshTopic
         ? const <ChatMessage>[]
         : recent;
-    final prompt = PromptBuilder(db);
+    final prompt = PromptBuilder(db, webReader: webReader);
     final promptBuild = await prompt.buildChatPrompt(
       latestUserText: '',
       retrievalQuery: intent.reason,
@@ -1551,8 +1565,13 @@ class ProactiveEngine {
       now: evaluationStartedAt,
       groundingOverride: proactiveGrounding,
       selectedPublicWebCandidateId: webShareCandidateId,
+      selectedPublicWebThoughtId: webShareCandidateId == null ? null : intentThought?.id,
+      webWorkFence: wishDeliveryFence,
       freshTopicSourceOnly: startsFreshTopic,
     );
+    if (webShareCandidateId != null && promptBuild.expectedPublicWebShare == null) {
+      return const ProactiveDecision(sent: false, reason: '网页分享来源或线索状态已变化');
+    }
     final context = promptBuild.messages.toList(growable: true);
     if (creativeShare != null) context.add({'role': 'system', 'content': creativeShare.prompt});
     if (reflectionInvitation != null) {
@@ -1933,7 +1952,8 @@ ${startsFreshTopic ? '本类型属于新话题通道：ANSWERED CHAT HISTORY 已
 
     if (isWait(candidate)) {
       if (webShareCandidateId != null) {
-        await publicWebSharing.markDeclined(webShareCandidateId);
+        await publicWebSharing.markDeclined(promptBuild.expectedPublicWebShare!,
+            workFence: wishDeliveryFence);
       }
       await noteGeneration(
         webShareCandidateId != null
@@ -2086,7 +2106,8 @@ ${PromptBuilder.visibleChineseGenerationReminder(proactive: true)}
       groundingRepairApplied = true;
       if (isWait(candidate)) {
         if (webShareCandidateId != null) {
-          await publicWebSharing.markDeclined(webShareCandidateId);
+          await publicWebSharing.markDeclined(promptBuild.expectedPublicWebShare!,
+            workFence: wishDeliveryFence);
         }
         await noteGeneration(
           webShareCandidateId != null
@@ -2334,6 +2355,8 @@ ${PromptBuilder.visibleChineseGenerationReminder(proactive: true)}
       pendingMediaOwner: mediaOwner,
       workFence: wishDeliveryFence,
       cedarDeliveries: cedarDeliveries.verified,
+      publicWebSources: promptBuild.publicWebSources,
+      expectedPublicWebShare: promptBuild.expectedPublicWebShare,
       reflectionInvitation: reflectionInvitation,
       creativeShare: creativeShare,
       proactiveTriggerReason: '${isCedarGameShare ? gameSharePrefix : ''}'
@@ -2389,14 +2412,11 @@ ${PromptBuilder.visibleChineseGenerationReminder(proactive: true)}
         messageId: message.id,
       );
     }
-    if (webShareCandidateId != null) {
-      await publicWebSharing.markShared(webShareCandidateId);
-    }
     await db.markRecentlyInjectedMemoriesExpressed(
       message.content,
       now: message.createdAt,
     );
-    if (intentThought != null && cedarSettled) {
+    if (intentThought != null && cedarSettled && webShareCandidateId == null) {
       await thoughtLifecycle.markActed(thought: intentThought, messageId: message.id);
     }
     final now = DateTime.now();
@@ -2514,11 +2534,11 @@ ${PromptBuilder.visibleChineseGenerationReminder(proactive: true)}
       // Background FlutterEngine owns a NativeTtsBridge only for this explicit
       // user-selected policy.
       final visual = ChatVisualResolver.resolveEmotionKey(message.emotionKey);
-      final emotionLeadIn = emotionSounds.play(visual).then<void>((_) {});
       unawaited(tts.speak(
         text,
         manual: true,
-        leadIn: emotionLeadIn,
+        leadInFactory: (intent) => emotionSounds.play(visual, intent: intent).then<void>((_) {}),
+        formForPlayback: message.formContext.isKnown ? message.formContext.form == 'q' : null,
         emotion: TtsEmotionCue(
           key: message.emotionKey,
           label: message.emotionLabel,

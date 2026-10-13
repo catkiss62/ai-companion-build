@@ -17,6 +17,23 @@ class NativeTtsEngine private constructor(context: Context) {
     @Volatile private var volume = 1.0
     @Volatile private var speechGeneration = 0L
 
+    fun requirePlaybackOwner(lease: Long?) {
+        if (lease != null) check(lease == generationToken()) { "stale_playback_owner" }
+    }
+    @Synchronized fun claimPlayback(host: String, messageId: String): Long {
+        stop()
+        PlaybackSessionRegistry.claim(speechGeneration, host, messageId)
+        return speechGeneration
+    }
+    @Synchronized fun stopPlayback(lease: Long?) {
+        if (lease != null && lease != speechGeneration) return
+        stop()
+    }
+    @Synchronized fun controlPlayback(lease: Long?, action: () -> Unit) {
+        requirePlaybackOwner(lease)
+        action()
+    }
+
     fun status(): Map<String, Any> = try {
         client.status().toMutableMap().apply {
             this["processIsolation"] = "private_process"
@@ -60,10 +77,13 @@ class NativeTtsEngine private constructor(context: Context) {
         }
     }
 
-    fun configureAutoAffinity(enabled: Boolean): Map<String, Any> {
+    fun configureAutoAffinity(enabled: Boolean, generation: Long? = null): Map<String, Any> {
         val current = runCatching { client.status() }.getOrNull()
         if (current?.get("autoAffinityEnabled") == enabled) return current
-        stop()
+        synchronized(this) {
+            requirePlaybackOwner(generation)
+            if (generation == null) stop() else player.stop()
+        }
         return client.configureAutoAffinity(enabled)
     }
 
@@ -194,16 +214,18 @@ class NativeTtsEngine private constructor(context: Context) {
         }
     }
 
-    fun beginAudioStream(generation: Long = generationToken()) {
-        if (generation != generationToken()) return
+    @Synchronized fun beginAudioStream(generation: Long = generationToken()): Boolean {
+        if (generation != generationToken()) return false
         if (SystemAudioPolicy.isSilentOrVibrate(appContext)) {
             player.stop()
-            return
+            return false
         }
         player.setSpeed(speed.toFloat())
         player.setPitch(pitch.toFloat())
         player.setVolume(volume.toFloat())
-        player.beginStream {
+        player.beginStream(owner = generation) {
+            if (generation != generationToken()) return@beginStream
+            PlaybackSessionRegistry.phase(generation, "playing")
             RuntimeDiagnosticStore.record(
                 appContext,
                 category = "tts",
@@ -212,30 +234,34 @@ class NativeTtsEngine private constructor(context: Context) {
                 durable = true,
             )
         }
+        return true
     }
 
     fun enqueueAudio(
         wav: ByteArray,
         speedMultiplier: Double = 1.0,
         generation: Long = generationToken(),
-    ) {
-        if (wav.isEmpty() || generation != generationToken()) return
-        player.enqueueStream(
+    ): Boolean {
+        if (wav.isEmpty() || generation != generationToken()) return false
+        return player.enqueueStream(
             wav,
             (speed * speedMultiplier).coerceIn(0.5, 2.0).toFloat(),
+            owner = generation,
         )
     }
 
-    fun finishAudioStream(generation: Long = generationToken()) {
-        if (generation != generationToken()) return
-        val played = player.finishStream()
-        if (!played || generation != generationToken()) return
+    fun finishAudioStream(generation: Long = generationToken()): Boolean {
+        if (generation != generationToken()) return false
+        val played = player.finishStream(owner = generation)
+        if (!played || generation != generationToken()) return false
         RuntimeDiagnosticStore.record(
             appContext,
             category = "tts",
             phase = "audio_complete",
             metadata = mapOf("stage" to "audio_complete"),
         )
+        PlaybackSessionRegistry.phase(generation, "idle")
+        return true
     }
 
     fun speak(text: String) {
@@ -247,8 +273,9 @@ class NativeTtsEngine private constructor(context: Context) {
         finishAudioStream(generation)
     }
 
-    fun stop() {
-        synchronized(this) { speechGeneration += 1L }
+    @Synchronized fun stop() {
+        PlaybackSessionRegistry.invalidate(speechGeneration)
+        speechGeneration += 1L
         client.stop()
         player.stop()
     }

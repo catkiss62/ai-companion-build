@@ -15,6 +15,42 @@ export 'turn_execution_contract.dart';
 class TurnExecutionStore {
   TurnExecutionStore(this.db);
   final AppDatabase db;
+  static const remoteEffectPrefix = 'agent_remote_effect_v1:';
+  Future<Map<String, dynamic>?> remoteEffect(String turnId) async {
+    final raw = _decode(await BrainWorkFence.value(await db.database, '$remoteEffectPrefix$turnId'));
+    return raw is Map ? Map<String, dynamic>.from(raw) : null;
+  }
+  Future<Map<String, dynamic>?> reserveRemoteEffect(GenerationAttemptFence attempt, Object payload,
+      {bool Function()? isCancelled}) async {
+    final handle = await db.database;
+    return handle.transaction((txn) async {
+      requireTurnNotCancelled(isCancelled);
+      final key = '$remoteEffectPrefix${attempt.userMessageId}';
+      final raw = _decode(await BrainWorkFence.value(txn, key));
+      if (raw is Map) return Map<String, dynamic>.from(raw);
+      if (!await attempt.matches(txn)) return {'state': 'stale'};
+      final legacy = await txn.query('agent_tool_outcomes', columns: ['id'],
+        where: 'id LIKE ? AND tool_id = ? AND status IN (?, ?, ?)',
+        whereArgs: ['user_turn:${attempt.jobId}:cedar_toy.play:%', 'cedar_toy.play', 'succeeded', 'failed', 'stopped'], limit: 1);
+      final record = <String, dynamic>{'schema': 1, 'turn_id': attempt.userMessageId,
+        'payload_hash': turnPayloadHash(payload), 'state': legacy.isEmpty ? 'dispatching' : 'legacy_unknown',
+        'created_at': DateTime.now().millisecondsSinceEpoch};
+      await txn.insert('settings', {'key': key, 'value': jsonEncode(record)});
+      requireTurnNotCancelled(isCancelled);
+      return legacy.isEmpty ? null : record;
+    });
+  }
+  Future<void> completeRemoteEffect(String turnId, Object payload, {
+    required String outcome, required bool failed}) async {
+    final handle = await db.database;
+    await handle.transaction((txn) async {
+      final key = '$remoteEffectPrefix$turnId';
+      final raw = _decode(await BrainWorkFence.value(txn, key));
+      if (raw is! Map || raw['payload_hash'] != turnPayloadHash(payload) || raw['state'] != 'dispatching') return;
+      await txn.insert('settings', {'key': key, 'value': jsonEncode({...raw,
+        'state': 'known', 'outcome': outcome, 'failed': failed})}, conflictAlgorithm: ConflictAlgorithm.replace);
+    });
+  }
   static const effectPrefix = 'agent_effect_receipt_v1:';
   static const turnContextPrefix = 'agent_turn_context_v1:';
   static const goalPrefix = 'agent_turn_contract_v1:';

@@ -41,6 +41,8 @@ class MemoryItem {
     DateTime? firstObservedAt,
     DateTime? lastEvidenceAt,
     this.factVersion = 1,
+    this.evidenceTimeKnown = false,
+    this.sourceValid = true,
   })  : firstObservedAt = firstObservedAt ?? createdAt,
         lastEvidenceAt = lastEvidenceAt ?? updatedAt;
 
@@ -85,10 +87,14 @@ class MemoryItem {
   final DateTime firstObservedAt;
   final DateTime lastEvidenceAt;
   final int factVersion;
+  /// first/last describe provable source events only when true. Legacy values
+  /// remain available for retention compatibility, never asserted as events.
+  final bool evidenceTimeKnown;
+  final bool sourceValid;
 
-  bool get isActive => status == 'active';
-  bool get isCurrentFact => semanticType == 'current_fact' && status == 'active';
-  bool get isInference => semanticType == 'inference' && status == 'active';
+  bool get isActive => sourceValid && status == 'active';
+  bool get isCurrentFact => sourceValid && semanticType == 'current_fact' && status == 'active';
+  bool get isInference => sourceValid && semanticType == 'inference' && status == 'active';
   bool get isSharedExperience => semanticType == 'shared_experience';
   bool get isHistorical => status == 'superseded';
 
@@ -162,6 +168,8 @@ class MemoryItem {
               : DateTime.fromMillisecondsSinceEpoch(row['updated_at'] as int))
           : DateTime.fromMillisecondsSinceEpoch(row['last_evidence_at'] as int),
       factVersion: row['fact_version'] as int? ?? 1,
+      evidenceTimeKnown: row['evidence_time_known'] == 1,
+      sourceValid: row['source_valid'] != 0,
     );
   }
 }
