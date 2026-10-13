@@ -141,15 +141,27 @@ void main() {
       final release = Completer<void>();
       final run = engine(verifier((_) async {
         entered.complete();
-        await release.future;
+        await release.future.timeout(_barrierTimeout);
         return decision('yes');
       })).deliverPendingCedarShareIfAny();
-      await entered.future;
-      if (change == 'body') await db.insertMessage(message.copyWith(content: '换了一条无关正文'));
-      if (change == 'epoch') await db.setSetting('runtime_state_epoch_v1', 'different-runtime');
-      if (change == 'result') await db.setSetting(CedarTimedPlayTaskStore.reportsKey,
-        jsonEncode([{...report, 'outcomes': ['胜利']} ]));
-      release.complete();
+      var bodyFailed = false;
+      try {
+        await _waitForBarrier(entered.future, run);
+        if (change == 'body') await db.insertMessage(message.copyWith(content: '换了一条无关正文'));
+        if (change == 'epoch') await db.setSetting('runtime_state_epoch_v1', 'different-runtime');
+        if (change == 'result') await db.setSetting(CedarTimedPlayTaskStore.reportsKey,
+          jsonEncode([{...report, 'outcomes': ['胜利']} ]));
+      } catch (_) {
+        bodyFailed = true;
+        rethrow;
+      } finally {
+        if (!release.isCompleted) release.complete();
+        try {
+          await run.timeout(_barrierTimeout);
+        } catch (_) {
+          if (!bodyFailed) rethrow;
+        }
+      }
       final result = await run;
       expect(result.reason, 'cedar_share_delivery_unverified');
       expect(await CedarTimedPlayTaskStore(db).pendingReports(), hasLength(1));
@@ -165,6 +177,9 @@ void main() {
 
   test('a malformed legacy report remains pending rather than becoming an empty responsibility', () async {
     await seedReport();
+    // The legacy thought already existed before its stored report became bad.
+    expect(await CedarTimedPlayTaskStore(db).queueReport(), thoughtId);
+    expect(await db.thoughtById(thoughtId), isNotNull);
     await db.setSetting(CedarTimedPlayTaskStore.reportsKey,
       jsonEncode([{...report, 'sessionId': ''}]));
     var calls = 0;
@@ -204,10 +219,21 @@ void main() {
       final delayed = ProactiveEngine(db: db, desireEngine: DesireEngine(db), ai: ai,
         android: AndroidBridge.instance, cedarDeliveryVerifier: service,
         cedarDeliveryAttempts: paused).deliverPendingCedarShareIfAny();
-      await paused.entered.future;
-      await engine(service).deliverPendingCedarShareIfAny();
-      paused.release.complete();
-      await delayed;
+      var bodyFailed = false;
+      try {
+        await _waitForBarrier(paused.entered.future, delayed);
+        await engine(service).deliverPendingCedarShareIfAny().timeout(_barrierTimeout);
+      } catch (_) {
+        bodyFailed = true;
+        rethrow;
+      } finally {
+        if (!paused.release.isCompleted) paused.release.complete();
+        try {
+          await delayed.timeout(_barrierTimeout);
+        } catch (_) {
+          if (!bodyFailed) rethrow;
+        }
+      }
       expect(calls, 1);
       expect(await CedarTimedPlayTaskStore(db).pendingReports(), hasLength(1));
       expect(await messageCount(), 1);
@@ -493,6 +519,18 @@ void main() {
   });
 }
 
+const _barrierTimeout = Duration(seconds: 10);
+
+// If the real operation fails or returns before reaching the awaited point,
+// surface that outcome immediately instead of waiting on an orphaned latch.
+Future<void> _waitForBarrier<T>(Future<void> entered, Future<T> operation) =>
+    Future.any<void>([
+      entered,
+      operation.then<void>((_) {
+        throw StateError('Operation completed before reaching the test barrier');
+      }),
+    ]).timeout(_barrierTimeout);
+
 // A spy only at the expensive writer boundary. The test above exercises real
 // report selection, persistent cooldown, legacy lifecycle and draft admission;
 // it does not claim to execute the full model-generation pipeline.
@@ -524,7 +562,7 @@ class _PausingAttemptStore extends CedarDeliveryAttemptStore {
     // snapshot while another real engine records a no/unavailable and releases.
     if (++reads == 2) {
       entered.complete();
-      await release.future;
+      await release.future.timeout(_barrierTimeout);
     }
     return captured;
   }

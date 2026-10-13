@@ -14,6 +14,26 @@ import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 
 import 'support/cedar_task_fixture.dart';
 
+const _barrierTimeout = Duration(seconds: 30);
+
+Future<void> _waitForBarrier<T>(
+  Future<void> entered,
+  Future<T> operation,
+) => Future.any<void>([
+  entered,
+  operation.then<void>((_) {
+    throw StateError('Operation completed before reaching its test barrier');
+  }),
+]).timeout(_barrierTimeout);
+
+// Observe errors immediately and drain after releasing the gate. The test body
+// separately awaits the original operation so its failures still fail the test.
+Future<void> _drainForCleanup<T>(Future<T> operation) async {
+  try {
+    await operation.timeout(_barrierTimeout);
+  } catch (_) { /* Preserve the original test failure during cleanup. */ }
+}
+
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
   sqfliteFfiInit();
@@ -34,7 +54,7 @@ void main() {
       final release = epochRelease;
       if (release != null) {
         if (!epochEntered!.isCompleted) epochEntered!.complete();
-        await release.future;
+        await release.future.timeout(_barrierTimeout);
       }
       return 'timed-test-runtime';
     });
@@ -44,9 +64,12 @@ void main() {
   });
   tearDown(() async {
     if (epochRelease != null && !epochRelease!.isCompleted) epochRelease!.complete();
-    await db.closeForTesting();
-    TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
-        .setMockMethodCallHandler(channel, null);
+    try {
+      await db.closeForTesting().timeout(_barrierTimeout);
+    } finally {
+      TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+          .setMockMethodCallHandler(channel, null);
+    }
   });
 
   Future<StagedCedarTask> stage([String turn = 'first']) async {
@@ -304,21 +327,30 @@ void main() {
     final holder = handle.transaction((txn) async {
       await txn.rawQuery('SELECT 1');
       entered.complete();
-      await release.future;
+      await release.future.timeout(_barrierTimeout);
     });
-    await entered.future;
-    var cancelled = false;
-    final commit = commitCedarTask(db, staged, isCancelled: () => cancelled);
-    cancelled = true;
-    release.complete();
-    await holder;
-    expect(await commit, isFalse);
-    expect(await db.messageById('reply-first'), isNull);
-    expect((await receipt('first'))!.state, LocalEffectState.staged);
-    expect(CedarTimedPlayTaskStore.decode(await db.getSetting(
-        CedarTimedPlayTaskStore.pendingKey))!['commitTicket'], isNull);
-    final jobs = await handle.query('post_turn_jobs');
-    expect(jobs, isEmpty);
+    final holderCleanup = _drainForCleanup(holder);
+    Future<void>? commitCleanup;
+    try {
+      await _waitForBarrier(entered.future, holder);
+      var cancelled = false;
+      final commit = commitCedarTask(db, staged, isCancelled: () => cancelled);
+      commitCleanup = _drainForCleanup(commit);
+      cancelled = true;
+      release.complete();
+      await holder.timeout(_barrierTimeout);
+      expect(await commit.timeout(_barrierTimeout), isFalse);
+      expect(await db.messageById('reply-first'), isNull);
+      expect((await receipt('first'))!.state, LocalEffectState.staged);
+      expect(CedarTimedPlayTaskStore.decode(await db.getSetting(
+          CedarTimedPlayTaskStore.pendingKey))!['commitTicket'], isNull);
+      final jobs = await handle.query('post_turn_jobs');
+      expect(jobs, isEmpty);
+    } finally {
+      if (!release.isCompleted) release.complete();
+      await holderCleanup;
+      if (commitCleanup != null) await commitCleanup;
+    }
   });
 
   test('explicit incomplete confirmation hands off only the original staged facts', () async {
@@ -392,22 +424,29 @@ void main() {
       epochEntered = Completer<void>();
       epochRelease = Completer<void>();
       final activating = tasks.activateCommitted(now: at);
-      await epochEntered!.future;
-      expect(await db.isLocalLeaseHeld(CedarTimedPlayTaskStore.leaseKey), isTrue);
-      if (control == 'pause') {
-        await activity.pauseAndRelease();
-      } else {
-        await db.setSetting('cedar_toy_enabled', '0');
-        await activity.suspendForSwitch();
+      final activatingCleanup = _drainForCleanup(activating);
+      try {
+        await _waitForBarrier(epochEntered!.future, activating);
+        expect(await db.isLocalLeaseHeld(CedarTimedPlayTaskStore.leaseKey)
+            .timeout(_barrierTimeout), isTrue);
+        if (control == 'pause') {
+          await activity.pauseAndRelease().timeout(_barrierTimeout);
+        } else {
+          await db.setSetting('cedar_toy_enabled', '0').timeout(_barrierTimeout);
+          await activity.suspendForSwitch().timeout(_barrierTimeout);
+        }
+        epochRelease!.complete();
+        await activating.timeout(_barrierTimeout);
+        expect(await tasks.active(), isNull);
+        expect(await CedarPlaySessionStore(db).load(), isNull);
+        expect((await activity.loadSession('white_room'))!.phase, CedarActivityPhase.paused);
+        expect((await tasks.pendingReports()).single['usedMs'], 0);
+        expect((await receipt('first'))!.result['activationState'], 'ended');
+        expect((await CedarTaskPresentation.load(db, (await activity.loadSession('white_room'))!))!.label, isNot(contains('待启动')));
+      } finally {
+        if (!epochRelease!.isCompleted) epochRelease!.complete();
+        await activatingCleanup;
       }
-      epochRelease!.complete();
-      await activating;
-      expect(await tasks.active(), isNull);
-      expect(await CedarPlaySessionStore(db).load(), isNull);
-      expect((await activity.loadSession('white_room'))!.phase, CedarActivityPhase.paused);
-      expect((await tasks.pendingReports()).single['usedMs'], 0);
-      expect((await receipt('first'))!.result['activationState'], 'ended');
-      expect((await CedarTaskPresentation.load(db, (await activity.loadSession('white_room'))!))!.label, isNot(contains('待启动')));
     });
   }
 
@@ -504,16 +543,25 @@ void main() {
     final release = Completer<void>();
     final holder = handle.transaction((txn) async {
       entered.complete();
-      await release.future;
+      await release.future.timeout(_barrierTimeout);
       await CedarTimedPlayTaskStore.finishInTransaction(txn, next,
           usedMs: 0, reason: 'cannot_start', now: at);
     });
-    await entered.future;
-    final ack = tasks.acknowledge(report['id'] as String);
-    release.complete();
-    await holder;
-    expect(await ack, isTrue);
-    expect((await tasks.pendingReports()).single['id'], 'cedar-task:other');
+    final holderCleanup = _drainForCleanup(holder);
+    Future<void>? ackCleanup;
+    try {
+      await _waitForBarrier(entered.future, holder);
+      final ack = tasks.acknowledge(report['id'] as String);
+      ackCleanup = _drainForCleanup(ack);
+      release.complete();
+      await holder.timeout(_barrierTimeout);
+      expect(await ack.timeout(_barrierTimeout), isTrue);
+      expect((await tasks.pendingReports()).single['id'], 'cedar-task:other');
+    } finally {
+      if (!release.isCompleted) release.complete();
+      await holderCleanup;
+      if (ackCleanup != null) await ackCleanup;
+    }
   });
 
   test('temporarily excluded report stays pending while the next report is selected', () async {

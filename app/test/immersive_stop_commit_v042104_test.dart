@@ -14,6 +14,35 @@ import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 
+const _barrierTimeout = Duration(seconds: 10);
+
+/// A failed or prematurely completed operation cannot leave the test waiting
+/// for a signal it will never emit. Errors from either future still fail the test.
+Future<void> _waitForBarrier(
+    Future<void> signal, Future<void> operation, String phase) async {
+  await Future.any<void>([
+    signal,
+    operation.then<void>((_) {
+      throw StateError('$phase: operation completed before reaching the barrier');
+    }),
+  ]).timeout(_barrierTimeout);
+}
+
+/// Call only after releasing the gate, including from finally. Observe both
+/// futures together so one failure cannot skip cleanup of the other operation.
+/// A secondary cleanup error must not replace an already propagating body error.
+Future<void> _settleBarrierOperations(Future<void> operation,
+    {Future<void>? blocker, bool preservePrimaryError = false}) async {
+  try {
+    await Future.wait<void>([
+      if (blocker != null) blocker,
+      operation,
+    ]).timeout(_barrierTimeout);
+  } catch (_) {
+    if (!preservePrimaryError) rethrow;
+  }
+}
+
 class _ReplyClient extends DeepSeekClient {
   _ReplyClient({this.truncate = false});
   final bool truncate;
@@ -175,7 +204,7 @@ void main() {
                 expect((await txn.query('settings', where: 'key = ?', whereArgs: [draftKey()])).single['value'], '');
               }
               entered.complete();
-              await release.future;
+              await release.future.timeout(_barrierTimeout);
             }
           : null);
         observed.beforeSubmission = () async {
@@ -184,22 +213,22 @@ void main() {
             blocking = sql.transaction((txn) async {
               await txn.update('immersive_rooms', {'updated_at': 42}, where: 'id = ?', whereArgs: [room.id]);
               entered.complete();
-              await release.future;
+              await release.future.timeout(_barrierTimeout);
             });
-            await entered.future;
+            await _waitForBarrier(entered.future, blocking!, 'SQLite predecessor');
           } else {
             await roomMarker();
           }
         };
         final controller = await controllerFor(observed);
         final pending = start(controller, path);
+        var bodyFailed = false;
         try {
-          await observed.submitted.future.timeout(const Duration(seconds: 10));
-          await entered.future.timeout(const Duration(seconds: 10));
-          await controller.stop(); // synchronously signals; DB queue is still held
+          await _waitForBarrier(observed.submitted.future, pending, 'assistant submission');
+          await _waitForBarrier(entered.future, pending, 'transaction writes');
+          await controller.stop().timeout(_barrierTimeout); // synchronously signals; DB queue is still held
           release.complete();
-          if (blocking != null) await blocking;
-          await pending;
+          await _settleBarrierOperations(pending, blocker: blocking);
           final messages = await repository.messagesForRoom(room.id);
           expect(messages.where((message) => message.isAssistant).map((message) => message.id), [prior.id]);
           expect((await repository.roomById(room.id))!.updatedAt.millisecondsSinceEpoch, 42);
@@ -214,10 +243,13 @@ void main() {
             expect(await db.getSetting(draftKey()) ?? '', '');
           }
           expect(controller.error, isNull);
+        } catch (_) {
+          bodyFailed = true;
+          rethrow;
         } finally {
           if (!release.isCompleted) release.complete();
-          if (blocking != null) await blocking;
-          await pending;
+          await _settleBarrierOperations(pending, blocker: blocking,
+            preservePrimaryError: bodyFailed);
         }
       });
     }
@@ -227,24 +259,29 @@ void main() {
       final release = Completer<void>();
       final observed = _ObservedRepository(db)..afterCommit = () async {
         committed.complete();
-        await release.future;
+        await release.future.timeout(_barrierTimeout);
       };
       final controller = await controllerFor(observed);
       final pending = start(controller, path);
+      var bodyFailed = false;
       try {
-        await committed.future.timeout(const Duration(seconds: 10));
-        await controller.stop();
+        await _waitForBarrier(committed.future, pending, 'assistant committed');
+        await controller.stop().timeout(_barrierTimeout);
         release.complete();
-        await pending;
+        await _settleBarrierOperations(pending);
         final messages = await repository.messagesForRoom(room.id);
         expect(messages.where((message) => message.isUser), hasLength(1));
         expect(messages.where((message) => message.isAssistant), hasLength(1));
         expect(await repository.interruptionsForRoom(room.id), isEmpty);
         expect(await db.getSetting(draftKey()) ?? '', '');
         expect(controller.error, isNull);
+      } catch (_) {
+        bodyFailed = true;
+        rethrow;
       } finally {
         if (!release.isCompleted) release.complete();
-        await pending;
+        await _settleBarrierOperations(pending,
+          preservePrimaryError: bodyFailed);
       }
     });
   }
@@ -322,16 +359,16 @@ void main() {
             ? (txn) async {
                 expect((await txn.query('settings', where: 'key = ?', whereArgs: [draftKey()])).single['value'], isNotEmpty);
                 entered.complete();
-                await release.future;
+                await release.future.timeout(_barrierTimeout);
               }
             : null);
           observed.beforeDraftSubmission = () async {
             if (cut == 'queued') {
               blocking = (await db.database).transaction((txn) async {
                 entered.complete();
-                await release.future;
+                await release.future.timeout(_barrierTimeout);
               });
-              await entered.future;
+              await _waitForBarrier(entered.future, blocking!, 'SQLite predecessor');
             }
           };
           final controller = ImmersiveRoomController(roomId: room.id, db: db,
@@ -339,22 +376,25 @@ void main() {
           controllers.add(controller);
           await controller.initialize();
           final pending = start(controller, path);
+          var bodyFailed = false;
           try {
-            await observed.draftSubmitted.future.timeout(const Duration(seconds: 10));
-            await entered.future.timeout(const Duration(seconds: 10));
-            await controller.stop();
+            await _waitForBarrier(observed.draftSubmitted.future, pending, 'draft submission');
+            await _waitForBarrier(entered.future, pending, 'transaction writes');
+            await controller.stop().timeout(_barrierTimeout);
             release.complete();
-            if (blocking != null) await blocking;
-            await pending;
+            await _settleBarrierOperations(pending, blocker: blocking);
             expect(await db.getSetting(draftKey()) ?? '', '');
             expect(controller.incompleteReplyDraft, isNull);
             expect(await repository.messagesForRoom(room.id), isEmpty);
             expect(await repository.interruptionsForRoom(room.id), hasLength(1));
             expect(controller.error, isNull);
+          } catch (_) {
+            bodyFailed = true;
+            rethrow;
           } finally {
             if (!release.isCompleted) release.complete();
-            if (blocking != null) await blocking;
-            await pending;
+            await _settleBarrierOperations(pending, blocker: blocking,
+              preservePrimaryError: bodyFailed);
           }
         });
       }
@@ -414,9 +454,9 @@ void main() {
               expectedMessages = await txn.query('immersive_messages',
                 where: 'room_id = ?', whereArgs: [room.id], orderBy: 'id ASC');
               entered.complete();
-              await release.future;
+              await release.future.timeout(_barrierTimeout);
             });
-            await entered.future;
+            await _waitForBarrier(entered.future, blocking!, 'SQLite predecessor');
           }
           if (phase == 'assistant') {
             observed.beforeSubmission = holdChangedSource;
@@ -425,13 +465,14 @@ void main() {
           }
           final controller = await controllerFor(observed, truncate: phase == 'draft');
           final pending = start(controller, path);
+          var bodyFailed = false;
           try {
-            await (phase == 'assistant' ? observed.submitted.future : observed.draftSubmitted.future)
-                .timeout(const Duration(seconds: 10));
-            await controller.stop();
+            await _waitForBarrier(
+              phase == 'assistant' ? observed.submitted.future : observed.draftSubmitted.future,
+              pending, '$phase submission');
+            await controller.stop().timeout(_barrierTimeout);
             release.complete();
-            await blocking;
-            await pending;
+            await _settleBarrierOperations(pending, blocker: blocking);
             expect(await (await db.database).query('immersive_messages',
               where: 'room_id = ?', whereArgs: [room.id], orderBy: 'id ASC'), expectedMessages);
             expect(await repository.interruptionsForRoom(room.id), isEmpty);
@@ -439,10 +480,13 @@ void main() {
             expect(await db.getSetting(draftKey()) ?? '', '');
             expect(controller.incompleteReplyDraft, isNull);
             expect(controller.error, isNotNull);
+          } catch (_) {
+            bodyFailed = true;
+            rethrow;
           } finally {
             if (!release.isCompleted) release.complete();
-            if (blocking != null) await blocking;
-            await pending;
+            await _settleBarrierOperations(pending, blocker: blocking,
+              preservePrimaryError: bodyFailed);
           }
         });
       }
@@ -470,9 +514,9 @@ void main() {
               await txn.update('immersive_rooms', {'updated_at': 42},
                 where: 'id = ?', whereArgs: [room.id]);
               entered.complete();
-              await release.future;
+              await release.future.timeout(_barrierTimeout);
             });
-            await entered.future;
+            await _waitForBarrier(entered.future, blocking!, 'SQLite predecessor');
           }
           if (phase == 'assistant') {
             observed.beforeSubmission = holdChangedLease;
@@ -481,12 +525,13 @@ void main() {
           }
           final controller = await controllerFor(observed, truncate: phase == 'draft');
           final pending = start(controller, path);
+          var bodyFailed = false;
           try {
-            await (phase == 'assistant' ? observed.submitted.future : observed.draftSubmitted.future)
-                .timeout(const Duration(seconds: 10));
+            await _waitForBarrier(
+              phase == 'assistant' ? observed.submitted.future : observed.draftSubmitted.future,
+              pending, '$phase submission');
             release.complete();
-            await blocking;
-            await pending;
+            await _settleBarrierOperations(pending, blocker: blocking);
             final messages = await repository.messagesForRoom(room.id);
             expect(messages.where((message) => message.isUser), hasLength(1));
             expect(messages.where((message) => message.isAssistant), isEmpty);
@@ -495,10 +540,13 @@ void main() {
             expect(await db.getSetting(draftKey()) ?? '', path == 'confirm' ? initialDraft : '');
             expect(controller.incompleteReplyDraft, path == 'confirm' ? isNotNull : isNull);
             expect(controller.error, isNotNull);
+          } catch (_) {
+            bodyFailed = true;
+            rethrow;
           } finally {
             if (!release.isCompleted) release.complete();
-            if (blocking != null) await blocking;
-            await pending;
+            await _settleBarrierOperations(pending, blocker: blocking,
+              preservePrimaryError: bodyFailed);
           }
         });
       }

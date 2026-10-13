@@ -86,27 +86,71 @@ void main() {
         latestUserText: text, pendingMediaOwner: includeOwner ? PendingMediaOwner.generation(attempt) : null,
         cancellationToken: cancellation, onActivity: onActivity);
 
+  Future<T> bounded<T>(Future<T> operation, String phase) => operation.timeout(
+    const Duration(seconds: 10),
+    onTimeout: () => throw TimeoutException('Creative control test timed out: $phase'));
+  Future<T> observed<T>(Future<T> operation) {
+    // Install an error listener immediately while another queued operation is
+    // awaited. The original future still throws when the body/cleanup awaits it.
+    unawaited(operation.then<void>((_) {}, onError: (Object _, StackTrace __) {}));
+    return operation;
+  }
+  Future<void> waitForBarrier<T>(Completer<void> entered,
+      Future<T> operation, String phase) => bounded(Future.any<void>([
+        entered.future,
+        operation.then<void>((_) {
+          if (!entered.isCompleted) {
+            throw StateError('$phase completed before entering its expected barrier');
+          }
+        }),
+      ]), '$phase barrier');
+  Future<void> releaseAndDrain(Completer<void> release,
+      Iterable<Future<dynamic>> operations, String phase,
+      {required bool bodyFailed}) async {
+    if (!release.isCompleted) release.complete();
+    // Await every started operation even when one fails, so the real SQLite
+    // transaction cannot remain blocked while tearDown tries to close it.
+    try {
+      await bounded(Future.wait<void>(operations.map((operation) =>
+        operation.then<void>((_) {}))), '$phase cleanup');
+    } catch (_) {
+      // Keep the original assertion/SQL error and its stack if the body failed.
+      // A cleanup-only failure must still fail the test.
+      if (!bodyFailed) rethrow;
+    }
+  }
+
   test('card target survives a worker checkpoint queued before Stop; late checkpoint cannot undo Stop', () async {
     final before = await seeded();
     final target = (await store.captureControlTarget(before))!;
     final handle = await db.database;
     final entered = Completer<void>(), release = Completer<void>();
-    final checkpoint = handle.transaction((txn) async {
+    final checkpoint = observed(handle.transaction((txn) async {
       entered.complete(); await release.future;
       await txn.update('settings', {'value': jsonEncode({...before, 'status': 'building', 'agent_step': 9})},
         where: 'key = ?', whereArgs: [CreativeStore.key(target.workId)]);
-    });
-    await entered.future;
-    final stop = store.stopTarget(target);
-    await Future<void>.delayed(Duration.zero);
-    release.complete(); await checkpoint;
-    expect((await stop).status, CreativeControlStatus.applied);
-    expect((await store.get(target.workId))['agent_step'], 9);
-    expect((await store.get(target.workId))['status'], 'paused');
-    expect(await store.write(before, {...before, 'status': 'building', 'agent_step': 10}), isFalse);
-    expect((await store.resumeTarget(target)).applied, isTrue);
-    expect(await store.write(before, {...before, 'status': 'ready'}), isFalse);
-    expect((await store.get(target.workId))['status'], 'queued');
+    }));
+    Future<CreativeControlResult>? stop;
+    var bodyFailed = false;
+    try {
+      await waitForBarrier(entered, checkpoint, 'worker checkpoint');
+      stop = observed(store.stopTarget(target));
+      await Future<void>.delayed(Duration.zero);
+      release.complete(); await bounded(checkpoint, 'worker checkpoint commit');
+      expect((await bounded(stop, 'queued card Stop')).status, CreativeControlStatus.applied);
+      expect((await store.get(target.workId))['agent_step'], 9);
+      expect((await store.get(target.workId))['status'], 'paused');
+      expect(await store.write(before, {...before, 'status': 'building', 'agent_step': 10}), isFalse);
+      expect((await store.resumeTarget(target)).applied, isTrue);
+      expect(await store.write(before, {...before, 'status': 'ready'}), isFalse);
+      expect((await store.get(target.workId))['status'], 'queued');
+    } catch (_) {
+      bodyFailed = true;
+      rethrow;
+    } finally {
+      await releaseAndDrain(release, [checkpoint, if (stop != null) stop],
+        'worker checkpoint', bodyFailed: bodyFailed);
+    }
   });
 
   test('Delete reads latest checkpoint in its transaction and late worker cannot recreate sources', () async {
@@ -155,18 +199,31 @@ void main() {
     final job = await start(); final attempt = (await db.captureGenerationAttemptFence(job))!;
     final handle = await db.database;
     final entered = Completer<void>(), release = Completer<void>();
-    final blocker = handle.transaction((txn) async { entered.complete(); await release.future; });
-    await entered.future;
+    final blocker = observed(handle.transaction((txn) async { entered.complete(); await release.future; }));
     var cancelled = false;
-    final registration = register(attempt, isCancelled: () => cancelled);
-    await Future<void>.delayed(Duration.zero);
-    cancelled = true;
-    final stop = db.cancelGenerationJobByUser(job.id);
-    release.complete(); await blocker; await stop;
-    expect((await registration).status, CreativeCommissionStatus.staleAttempt);
-    expect(await store.list(), isEmpty);
-    expect(await TurnExecutionStore(db).readEffect(attempt.userMessageId, TurnEffectSlot.creativeCommission), isNull);
-    expect(await db.getSetting('${CreativeContract.receiptPrefix}${attempt.assistantMessageId}'), isNull);
+    Future<CreativeCommissionResult>? registration;
+    Future<bool>? stop;
+    var bodyFailed = false;
+    try {
+      await waitForBarrier(entered, blocker, 'queued registration blocker');
+      registration = observed(register(attempt, isCancelled: () => cancelled));
+      await Future<void>.delayed(Duration.zero);
+      cancelled = true;
+      stop = observed(db.cancelGenerationJobByUser(job.id));
+      release.complete(); await bounded(blocker, 'queued registration unblock');
+      await bounded(stop, 'queued registration durable Stop');
+      expect((await bounded(registration, 'queued registration result')).status, CreativeCommissionStatus.staleAttempt);
+      expect(await store.list(), isEmpty);
+      expect(await TurnExecutionStore(db).readEffect(attempt.userMessageId, TurnEffectSlot.creativeCommission), isNull);
+      expect(await db.getSetting('${CreativeContract.receiptPrefix}${attempt.assistantMessageId}'), isNull);
+    } catch (_) {
+      bodyFailed = true;
+      rethrow;
+    } finally {
+      cancelled = true;
+      await releaseAndDrain(release, [blocker, if (registration != null) registration,
+        if (stop != null) stop], 'queued registration', bodyFailed: bodyFailed);
+    }
   });
 
   test('Stop after tentative commission writes rolls back work, workspace, card and effect together', () async {
@@ -182,18 +239,29 @@ void main() {
         whereArgs: [TurnExecutionStore.effectKey(attempt.userMessageId, TurnEffectSlot.creativeCommission)]), hasLength(1));
       entered.complete(); await release.future;
     });
-    final registration = register(attempt, isCancelled: () => cancelled);
-    await entered.future;
-    cancelled = true;
-    final stop = db.cancelGenerationJobByUser(job.id);
-    release.complete();
-    expect((await registration).status, CreativeCommissionStatus.staleAttempt);
-    await stop;
-    expect(await store.list(), isEmpty);
-    final handle = await db.database;
-    expect(await handle.query('settings', where: 'key LIKE ?', whereArgs: ['${CreativeWorkspace.prefix}%']), isEmpty);
-    expect(await db.getSetting('${CreativeContract.receiptPrefix}${attempt.assistantMessageId}'), isNull);
-    expect(await TurnExecutionStore(db).readEffect(attempt.userMessageId, TurnEffectSlot.creativeCommission), isNull);
+    final registration = observed(register(attempt, isCancelled: () => cancelled));
+    Future<bool>? stop;
+    var bodyFailed = false;
+    try {
+      await waitForBarrier(entered, registration, 'tentative commission writes');
+      cancelled = true;
+      stop = observed(db.cancelGenerationJobByUser(job.id));
+      release.complete();
+      expect((await bounded(registration, 'tentative commission rollback')).status, CreativeCommissionStatus.staleAttempt);
+      await bounded(stop, 'tentative commission durable Stop');
+      expect(await store.list(), isEmpty);
+      final handle = await db.database;
+      expect(await handle.query('settings', where: 'key LIKE ?', whereArgs: ['${CreativeWorkspace.prefix}%']), isEmpty);
+      expect(await db.getSetting('${CreativeContract.receiptPrefix}${attempt.assistantMessageId}'), isNull);
+      expect(await TurnExecutionStore(db).readEffect(attempt.userMessageId, TurnEffectSlot.creativeCommission), isNull);
+    } catch (_) {
+      bodyFailed = true;
+      rethrow;
+    } finally {
+      cancelled = true;
+      await releaseAndDrain(release, [registration, if (stop != null) stop],
+        'tentative commission', bodyFailed: bodyFailed);
+    }
   });
 
   test('chat Stop after tentative work-control writes rolls back both pause and control receipt', () async {
@@ -209,15 +277,26 @@ void main() {
         turnId: attempt.userMessageId, slot: TurnEffectSlot.creativeControl), isNotNull);
       entered.complete(); await release.future;
     });
-    final pause = store.stopTarget(target, attemptFence: attempt, isCancelled: () => cancelled);
-    await entered.future;
-    cancelled = true;
-    final stop = db.cancelGenerationJobByUser(job.id);
-    release.complete();
-    expect((await pause).status, CreativeControlStatus.staleTarget);
-    await stop;
-    expect(await store.get(target.workId), before);
-    expect(await TurnExecutionStore(db).readEffect(attempt.userMessageId, TurnEffectSlot.creativeControl), isNull);
+    final pause = observed(store.stopTarget(target, attemptFence: attempt, isCancelled: () => cancelled));
+    Future<bool>? stop;
+    var bodyFailed = false;
+    try {
+      await waitForBarrier(entered, pause, 'tentative control writes');
+      cancelled = true;
+      stop = observed(db.cancelGenerationJobByUser(job.id));
+      release.complete();
+      expect((await bounded(pause, 'tentative control rollback')).status, CreativeControlStatus.staleTarget);
+      await bounded(stop, 'tentative control durable Stop');
+      expect(await store.get(target.workId), before);
+      expect(await TurnExecutionStore(db).readEffect(attempt.userMessageId, TurnEffectSlot.creativeControl), isNull);
+    } catch (_) {
+      bodyFailed = true;
+      rethrow;
+    } finally {
+      cancelled = true;
+      await releaseAndDrain(release, [pause, if (stop != null) stop],
+        'tentative control', bodyFailed: bodyFailed);
+    }
   });
 
   test('same turn replays exactly once, different full brief, interaction or target conflicts', () async {
@@ -378,21 +457,34 @@ void main() {
     await goal(attempt, TurnEffectSlot.creativeCommission);
     final entered = Completer<void>(), release = Completer<void>();
     final handle = await db.database;
-    final blocker = handle.transaction((txn) async { entered.complete(); await release.future; });
-    await entered.future;
+    final blocker = observed(handle.transaction((txn) async { entered.complete(); await release.future; }));
     final cancellation = GenerationCancellationToken();
-    final running = run(attempt, cancellation: cancellation).catchError((Object error) {
-      if (error is GenerationCancelledByUserException) return <AgentToolResult>[];
-      throw error;
-    });
-    await Future<void>.delayed(Duration.zero);
-    cancellation.cancel();
-    final stopped = db.cancelGenerationJobByUser(job.id);
-    release.complete(); await blocker; await stopped;
-    // The public runner may report cancelled or propagate its cancellation.
-    await running;
-    expect(await store.list(), isEmpty);
-    expect(await TurnExecutionStore(db).readEffect(attempt.userMessageId, TurnEffectSlot.creativeCommission), isNull);
+    Future<List<AgentToolResult>>? running;
+    Future<bool>? stopped;
+    var bodyFailed = false;
+    try {
+      await waitForBarrier(entered, blocker, 'real Agent queued blocker');
+      running = observed(run(attempt, cancellation: cancellation).catchError((Object error) {
+        if (error is GenerationCancelledByUserException) return <AgentToolResult>[];
+        throw error;
+      }));
+      await Future<void>.delayed(Duration.zero);
+      cancellation.cancel();
+      stopped = observed(db.cancelGenerationJobByUser(job.id));
+      release.complete(); await bounded(blocker, 'real Agent unblock');
+      await bounded(stopped, 'real Agent durable Stop');
+      // The public runner may report cancelled or propagate its cancellation.
+      await bounded(running, 'real Agent cancelled result');
+      expect(await store.list(), isEmpty);
+      expect(await TurnExecutionStore(db).readEffect(attempt.userMessageId, TurnEffectSlot.creativeCommission), isNull);
+    } catch (_) {
+      bodyFailed = true;
+      rethrow;
+    } finally {
+      cancellation.cancel();
+      await releaseAndDrain(release, [blocker, if (running != null) running,
+        if (stopped != null) stopped], 'real Agent queued work', bodyFailed: bodyFailed);
+    }
   });
 
   test('real Agent accepted commission keeps building after chat Stop, with one stable receipt', () async {

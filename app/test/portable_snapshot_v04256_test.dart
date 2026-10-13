@@ -25,6 +25,26 @@ import 'package:path_provider_platform_interface/path_provider_platform_interfac
 import 'package:sqflite/sqflite.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 
+const _barrierTimeout = Duration(seconds: 30);
+
+Future<void> _waitForBarrier<T>(
+  Future<void> entered,
+  Future<T> operation,
+) => Future.any<void>([
+  entered,
+  operation.then<void>((_) {
+    throw StateError('Operation completed before reaching its test barrier');
+  }),
+]).timeout(_barrierTimeout);
+
+// Cleanup observes failures immediately; the body still awaits each original
+// operation and retains its assertions, so cleanup cannot turn a failure green.
+Future<void> _drainForCleanup<T>(Future<T> operation) async {
+  try {
+    await operation.timeout(_barrierTimeout);
+  } catch (_) { /* Preserve the original test failure during cleanup. */ }
+}
+
 class _Paths extends PathProviderPlatform {
   _Paths(this.root);
   final Directory root;
@@ -109,7 +129,7 @@ class _ExportBarrier extends PortableCompanionStorage {
   Future<PortableExport> exportTo(Directory directory, NativePortableSnapshot snapshot) async {
     // Production exportAll has already completed when this method is called.
     captured.complete();
-    await release.future;
+    await release.future.timeout(_barrierTimeout);
     return super.exportTo(directory, snapshot);
   }
 }
@@ -151,7 +171,7 @@ void main() {
   });
   tearDown(() async {
     PathProviderPlatform.instance = previousPaths;
-    await db.closeForTesting();
+    await db.closeForTesting().timeout(_barrierTimeout);
     await root.delete(recursive: true);
   });
   Future<void> fixture() async {
@@ -678,33 +698,42 @@ void main() {
     final barrier = _ExportBarrier(native: native, secure: secure);
     final exporter = SnapshotService(db, portableStorage: barrier);
     final exporting = exporter.exportBackupBundle();
-    await barrier.captured.future;
-    var optimized = false;
-    final optimizing = MediaStorageOptimizer(db: db).optimize().then((value) {
-      optimized = true;
-      return value;
-    });
-    await Future<void>.delayed(Duration.zero);
-    expect(optimized, isFalse);
-    expect((await db.allMessageAttachments()).single.blobId, isEmpty);
-    barrier.release.complete();
-    final bundle = await exporting;
-    expect(await exporter.inspectBundle(bundle.filePath), isA<SnapshotMetadata>());
-    expect(bundle.metadata.missingLegacyMediaFiles, 0);
-    final archive = await decode(bundle.filePath);
-    expect((object(archive, 'manifest.json')['attachment_files'] as Map).length, 2);
-    expect((object(archive, 'manifest.json')['album_files'] as Map).length, 2);
-    await optimizing;
-    expect((await db.allMessageAttachments()).single.blobId, isNotEmpty);
-    expect(await File(p.join(root.path, 'support/chat_attachments/originals/legacy.jpg')).exists(), isFalse);
-    // Export after the migration must use the new shared owners and pass the
-    // same semantic import validator, not just ZIP CRC verification.
-    final next = await service.exportBackupBundle();
-    expect((await service.inspectBundle(next.filePath)).missingLegacyMediaFiles, 0);
-    final nextManifest = object(await decode(next.filePath), 'manifest.json');
-    expect(nextManifest['attachment_files'], isEmpty);
-    expect(nextManifest['album_files'], isEmpty);
-    expect(nextManifest['media_files'], isNotEmpty);
+    final exportingCleanup = _drainForCleanup(exporting);
+    Future<void>? optimizingCleanup;
+    try {
+      await _waitForBarrier(barrier.captured.future, exporting);
+      var optimized = false;
+      final optimizing = MediaStorageOptimizer(db: db).optimize().then((value) {
+        optimized = true;
+        return value;
+      });
+      optimizingCleanup = _drainForCleanup(optimizing);
+      await Future<void>.delayed(Duration.zero);
+      expect(optimized, isFalse);
+      expect((await db.allMessageAttachments().timeout(_barrierTimeout)).single.blobId, isEmpty);
+      barrier.release.complete();
+      final bundle = await exporting.timeout(_barrierTimeout);
+      expect(await exporter.inspectBundle(bundle.filePath), isA<SnapshotMetadata>());
+      expect(bundle.metadata.missingLegacyMediaFiles, 0);
+      final archive = await decode(bundle.filePath);
+      expect((object(archive, 'manifest.json')['attachment_files'] as Map).length, 2);
+      expect((object(archive, 'manifest.json')['album_files'] as Map).length, 2);
+      await optimizing.timeout(_barrierTimeout);
+      expect((await db.allMessageAttachments()).single.blobId, isNotEmpty);
+      expect(await File(p.join(root.path, 'support/chat_attachments/originals/legacy.jpg')).exists(), isFalse);
+      // Export after the migration must use the new shared owners and pass the
+      // same semantic import validator, not just ZIP CRC verification.
+      final next = await service.exportBackupBundle();
+      expect((await service.inspectBundle(next.filePath)).missingLegacyMediaFiles, 0);
+      final nextManifest = object(await decode(next.filePath), 'manifest.json');
+      expect(nextManifest['attachment_files'], isEmpty);
+      expect(nextManifest['album_files'], isEmpty);
+      expect(nextManifest['media_files'], isNotEmpty);
+    } finally {
+      if (!barrier.release.isCompleted) barrier.release.complete();
+      await exportingCleanup;
+      if (optimizingCleanup != null) await optimizingCleanup;
+    }
   });
 
   test('known missing legacy files are accurately reported through export inspect and restore', () async {

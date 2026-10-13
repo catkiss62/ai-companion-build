@@ -147,11 +147,32 @@ void main() {
       await release.future;
       requireTurnNotCancelled(() => token.isCancelled);
     });
-    final assertion = expectLater(transaction, throwsA(isA<TurnCommitCancelled>()));
-    await written.future;
-    token.cancel();
-    release.complete();
-    await assertion;
+    // Observe failures immediately, while retaining the actual transaction
+    // error for the rollback assertion after the gate has been released.
+    final outcome = transaction.then<Object?>((_) => null,
+      onError: (Object error, StackTrace stack) => error);
+    Object? transactionError;
+    var bodyFailed = false;
+    try {
+      await Future.any<void>([
+        written.future,
+        transaction.then<void>((_) => throw StateError(
+          'Transaction completed before the tentative-write barrier')),
+      ]).timeout(const Duration(seconds: 10));
+      token.cancel();
+    } catch (_) {
+      bodyFailed = true;
+      rethrow;
+    } finally {
+      token.cancel();
+      if (!release.isCompleted) release.complete();
+      try {
+        transactionError = await outcome.timeout(const Duration(seconds: 10));
+      } catch (_) {
+        if (!bodyFailed) rethrow;
+      }
+    }
+    expect(transactionError, isA<TurnCommitCancelled>());
     expect(await db.getSetting('synthetic-work'), isNull);
     expect(await store.readEffect(attempt.userMessageId, slot), isNull);
     expect(await attempt.matches(sql), isTrue);

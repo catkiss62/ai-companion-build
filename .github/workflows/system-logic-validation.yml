@@ -35,5 +35,5 @@ jobs:
       - name: Creative page bridge failure recovery
         run: node app/tools/test_creative_bridge.mjs
       - name: Full Flutter regression suite
-        run: flutter test
+        run: flutter test --timeout 60s --reporter expanded
         working-directory: app
