@@ -1072,7 +1072,7 @@ jobs:
           test -f app/android/app/src/main/jniLibs/arm64-v8a/libc++_shared.so
           test ! -d app/android/app/src/main/assets/tts_models
           test ! -d app/android/app/src/main/assets/legacy_tts
-          echo 'Building v0.42.104+348 Message form provenance, memory revision and proactive retry.'
+          echo 'Building v0.42.104+348 System Logic Hardening.'
 
       - name: Generate complete pet clips from pinned Draft Release asset
         timeout-minutes: 15
@@ -1750,15 +1750,15 @@ jobs:
               --repo "${GITHUB_REPOSITORY}" \
               --target "${GITHUB_SHA}" \
               --draft \
-              --title 'AI Companion v0.42.104+348 Message form provenance, memory revision and proactive retry' \
-              --notes 'Message-time form snapshots and shared growth context; evidence-backed memory revisions with source continuity; one proactive second-channel retry before fallback. Same-signature unpublished test build; legacy unknown form metadata remains unknown.'
+              --title 'AI Companion v0.42.104+348 System Logic Hardening' \
+              --notes 'Six-group hardening of media ownership, task commits, source continuity, learning conflicts, regeneration effects and playback ownership. Same-signature unpublished test build; true-device and Astra review remain pending.'
           else
             test "$(gh release view "${TAG}" --repo "${GITHUB_REPOSITORY}" --json isDraft --jq '.isDraft')" = true
             gh release edit "${TAG}" \
               --repo "${GITHUB_REPOSITORY}" \
               --target "${GITHUB_SHA}" \
-              --title 'AI Companion v0.42.104+348 Message form provenance, memory revision and proactive retry' \
-              --notes 'Message-time form snapshots and shared growth context; evidence-backed memory revisions with source continuity; one proactive second-channel retry before fallback. Same-signature unpublished test build; legacy unknown form metadata remains unknown.'
+              --title 'AI Companion v0.42.104+348 System Logic Hardening' \
+              --notes 'Six-group hardening of media ownership, task commits, source continuity, learning conflicts, regeneration effects and playback ownership. Same-signature unpublished test build; true-device and Astra review remain pending.'
           fi
           test "$(gh release view "${TAG}" --repo "${GITHUB_REPOSITORY}" --json isDraft --jq '.isDraft')" = true || exit 1
           RELEASE_URL="$(gh release view "${TAG}" --repo "${GITHUB_REPOSITORY}" --json url --jq '.url')"
@@ -1855,8 +1855,8 @@ jobs:
               --repo "${GITHUB_REPOSITORY}" \
               --target "${GITHUB_SHA}" \
               --draft \
-              --title 'AI Companion v0.42.104+348 Message form provenance, memory revision and proactive retry' \
-              --notes 'Unpublished Draft failure diagnostics for memory continuity and optional expression semantics. No user content, keys, backups or device diagnostics are included.'
+              --title 'AI Companion v0.42.104+348 System Logic Hardening' \
+              --notes 'Unpublished Draft failure diagnostics for six-group system logic hardening. No user content, keys, backups or device diagnostics are included.'
           fi
           test "$(gh release view "${TAG}" --repo "${GITHUB_REPOSITORY}" --json isDraft --jq '.isDraft')" = true || exit 1
           RELEASE_URL="$(gh release view "${TAG}" --repo "${GITHUB_REPOSITORY}" --json url --jq '.url')"
