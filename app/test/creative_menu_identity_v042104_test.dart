@@ -68,7 +68,8 @@ void main() {
           expect(tester.widget<CreativeWorkCard>(find.byType(CreativeWorkCard))
             .work['request_id'], 'original');
           await tester.tap(find.byType(PopupMenuButton<String>));
-          await tester.pumpAndSettle(timeout: const Duration(seconds: 2));
+          await tester.pumpAndSettle(const Duration(milliseconds: 100),
+            EnginePhase.sendSemanticsUpdate, const Duration(seconds: 2));
           expect(find.text(action), findsOneWidget);
           release.complete(); await bounded(blocked, 'SQLite blocker release');
           await waitFor(tester, find.text('新版作品'));
@@ -77,11 +78,13 @@ void main() {
             .work['request_id'], 'replacement');
           expect(find.text(action), findsOneWidget);
           await tester.tap(find.text(action));
-          await tester.pumpAndSettle(timeout: const Duration(seconds: 2));
+          await tester.pumpAndSettle(const Duration(milliseconds: 100),
+            EnginePhase.sendSemanticsUpdate, const Duration(seconds: 2));
           if (action == '删除作品') {
             expect(find.text('删除这件作品？'), findsOneWidget);
             await tester.tap(find.text('删除'));
-            await tester.pumpAndSettle(timeout: const Duration(seconds: 2));
+            await tester.pumpAndSettle(const Duration(milliseconds: 100),
+              EnginePhase.sendSemanticsUpdate, const Duration(seconds: 2));
           }
           await waitFor(tester, find.text('作品或当前任务已变化，请刷新后重试'));
           final after = await bounded(store.get(id), 'read surviving commission');
