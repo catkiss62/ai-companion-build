@@ -20,7 +20,9 @@ class CreativeBridge(context: Context, engine: FlutterEngine) {
                 "preview" -> {
                     val html = call.argument<String>("html") ?: ""
                     val checks = call.argument<List<Map<String, String>>>("checks") ?: emptyList()
-                    preview.run(html, checks.take(6)) { result.success(it) }
+                    val assertions = call.argument<List<Map<String, String>>>("restore_assertions") ?: emptyList()
+                    val requireRestore = call.argument<Boolean>("require_restore") ?: false
+                    preview.run(html, checks, assertions, requireRestore) { result.success(it) }
                 }
                 "cancel" -> { preview.cancel(); result.success(null) }
                 else -> result.notImplemented()

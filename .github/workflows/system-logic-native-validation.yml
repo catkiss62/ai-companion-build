@@ -1,0 +1,79 @@
+name: System logic native validation (no APK)
+on:
+  push:
+    branches: [agent/v042104-system-logic-hardening]
+    paths:
+      - 'app/android/**'
+      - 'app/tools/caicai_smoke/**'
+      - 'app/tools/run_native_smoke_v04257.sh'
+      - '.github/workflows/system-logic-native-validation.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: system-logic-native-validation-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  caicai-native-smoke:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - name: Enable emulator acceleration
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+      - name: Android native constructor, lifecycle and import transactions
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          # API 29 image intermittently crashes in ART JIT debug-info XZ compression
+          # (libartbase Hc4_MatchFinder_GetMatches), before assertions can complete.
+          api-level: 35
+          arch: x86_64
+          target: google_apis
+          disable-animations: true
+          emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none
+          # Wrapper runs: cd app/android && chmod +x gradlew && ./gradlew -p ../tools/caicai_smoke connectedDebugAndroidTest --stacktrace
+          # Its exit status is preserved while pulling the real render preview.
+          script: bash app/tools/run_native_smoke_v04257.sh
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: logic-native-smoke-results
+          path: app/tools/caicai_smoke/build/outputs/androidTest-results/
+          retention-days: 14
+
+  caicai-android8-smoke:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - name: Enable emulator acceleration
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+      - name: Android 8 surface visibility lifecycle
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 26
+          arch: x86_64
+          target: google_apis
+          disable-animations: true
+          emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim
+          script: chmod +x app/android/gradlew && cd app/android && ./gradlew -p ../tools/caicai_smoke connectedDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.class=com.catkiss.senlive2dcompanion.smoke.StageVisibilitySmokeTest,com.catkiss.senlive2dcompanion.smoke.CreativePreviewSmokeTest --stacktrace
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: logic-android8-surface-results
+          path: app/tools/caicai_smoke/build/outputs/androidTest-results/
+

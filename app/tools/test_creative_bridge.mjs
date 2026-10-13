@@ -11,7 +11,8 @@ const events = [];
 let rejectNative = false;
 const window = {addEventListener() {}};
 const context = vm.createContext({window, Blob, setTimeout,
-  document: {body: {innerText: ''}, title: '', querySelectorAll: () => []},
+  document: {body: {innerText: '', children: []}, title: '', readyState: 'complete', querySelectorAll: () => [],
+    querySelector: (selector) => selector === '#score' ? {textContent: '1', value: 'one', checked: true} : null},
   getComputedStyle: () => ({backgroundColor: 'white', color: 'black'}),
   NativeWork: {postMessage(raw) {
     if (rejectNative) throw new Error('native unavailable');
@@ -54,4 +55,20 @@ window.__workReply(choiceEvent.id, {committed: true}, null);
 assert.equal((await choosing).committed, true);
 window.__workReply(savedEvent.id, null, 'late duplicate');
 assert.equal((await observation()).pending_writes, false);
-console.log('Creative bridge: serialization, UTF-8 size, dispatch, host rejection, pending choice and save recovery passed.');
+
+// This exercises the shipped read-only inspection bridge, not native restore proof.
+const assertions = [{selector: '#score', property: 'text'}, {selector: '#score', property: 'value'},
+  {selector: '#score', property: 'checked'}, {selector: '#missing', property: 'text'}];
+const inspect = () => JSON.parse(window.__workInspect(assertions));
+assert.deepEqual(inspect().values, [{value: '1'}, {value: 'one'}, {value: true}, {error: 'missing_element'}]);
+assert.equal(inspect().ready, true);
+assert.equal(Object.getOwnPropertyDescriptor(window, '__workInspect').writable, false,
+  'a generated page cannot replace the host inspection function with a success fixture');
+const pendingSave = api.saveState({score: 1});
+const pendingSaveEvent = events.pop();
+assert.equal(inspect().pending_writes, true, 'host checkpoint must wait for the actual public save acknowledgement');
+window.__workReply(pendingSaveEvent.id, true, null);
+await pendingSave;
+assert.equal(inspect().pending_writes, false);
+assert.equal(Object.hasOwn(inspect(), 'state'), false, 'inspection does not export the initial or saved state');
+console.log('Creative bridge: serialization, UTF-8 size, dispatch, host rejection, pending choice/save recovery and bounded DOM inspection passed.');
