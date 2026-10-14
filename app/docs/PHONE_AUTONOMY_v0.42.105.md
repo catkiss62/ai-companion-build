@@ -12,4 +12,13 @@
 
 ## 验证与交付
 
-新回归：phone_history_v042105_test.dart、wish_mechanism_v042105_test.dart、autonomous_duration_v042105_test.dart；同时运行原相关规划/愿望/限时恢复/游戏状态机测试、分析与完整构建流水线。当前CI PENDING / APK PENDING / TRUE DEVICE PENDING。保留现有签名，仅Draft测试交付，不合并main。
+新回归：phone_history_v042105_test.dart、wish_mechanism_v042105_test.dart、autonomous_duration_v042105_test.dart；同时运行原相关规划/愿望/限时恢复/游戏状态机测试、分析与完整构建流水线。当前CI PASSED / APK READY / TRUE DEVICE PENDING。保留现有签名，仅Draft测试交付，不合并main。
+
+
+最终APK源码a007ff6c07cef9aaf78134bb64ffaaf9d30e911e / 本地c49ee45，同树f9a4a760478c380d4649989562e1eda4b2e21d9b。相关326项通过；完整Actions38507884891 / build115670888972成功：150源码门、2177全量Flutter、168打包前回归、Kotlin与Dart分析、Android15/8的52/22项通过。23个发布身份隔离案例通过。
+
+全量发现的既有夜间兼容失败已修复：明确接受的用户限时任务沿用起床前许可，不再被合成作息疲劳再次挡住；真实存储疲劳与睡眠负债限制保留，自主夜间限制不变。修正已进入专项和最终全量回归。
+
+Release412300639保持Draft；APK资产639178518，737290325 bytes；SHA-256 90a6a98d6defd4e604e1c066098e65e88c336fb214db4bc1c41e09c092f2eb13；证书305eb3d80983b963c64818ddf1ad561f279de6d47b3ed2c781ada448c7c25148与+348一致。
+
+[下载测试APK](https://github.com/catkiss62/ai-companion-build/releases/download/untagged-11e8873e3655e7ada534/AI-Companion-v0.42.105-349-Phone-Autonomy-Continuity-APK.apk)。整体Astra审查与真机验收待后续；只完成用户要求的正常审查和测试。完整交付证据与中间失败原因已记入AI_Companion_当前总账.md。
