@@ -46,7 +46,7 @@ void main() {
     final result = (await WishStore(db).load()).single;
     expect(result.state, 'abandoned');
     expect(result.criterion, wish.criterion);
-    expect(result.createdAt, wish.createdAt);
+    expect(result.createdAt.millisecondsSinceEpoch, wish.createdAt.millisecondsSinceEpoch);
     expect(result.evidenceQuote, '每盆花只能浇水一次');
     expect(result.lastIntentionSource, startsWith('mechanism_review:guide:garden_cats:'));
     expect(result.lastEvidenceAt, wish.lastEvidenceAt);

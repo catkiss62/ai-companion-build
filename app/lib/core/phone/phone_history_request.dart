@@ -51,7 +51,8 @@ class PhoneHistoryRequest {
     // Quoted topic names are useful search terms. Generic questions list the
     // latest real records instead of searching for their own wording.
     final quoted = RegExp(r'[“「"]([^”」"]{2,100})[”」"]').firstMatch(text);
+    final namedTopic = RegExp(r'(?:有没有|关于|关键词[是：:]?)([^，。？！?]{2,100})').firstMatch(text);
     return PhoneHistoryRequest(section: section, subject: subject, activity: activity,
-      query: quoted?.group(1) ?? '', detailed: RegExp(r'(解读|解释|读一下|念一下)').hasMatch(text));
+      query: quoted?.group(1) ?? namedTopic?.group(1)?.trim() ?? '', detailed: RegExp(r'(解读|解释|读一下|念一下|查看|看看)').hasMatch(text));
   }
 }
