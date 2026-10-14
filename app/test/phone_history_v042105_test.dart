@@ -32,6 +32,13 @@ void main() {
     }
   });
 
+  test('explicit image sending retains priority when request also says take a look', () {
+    final text = '把你相册里那张海边照片发给我看看';
+    expect(AgentToolPlanner.routeLocally(text)!.calls.single.toolId, 'image.album_send');
+    expect(AgentToolPlanner.nativeToolDefinitionsFor(text)
+      .map((d) => (d['function'] as Map)['name']), contains('image_album_send'));
+  });
+
   Future<void> entry(String key, String id, String kind, {String state = 'active'}) async {
     await db.setSetting(key, jsonEncode([SimulatedPhoneEntry(id: id, kind: kind,
       title: '真实标题$id', body: '保存的正文$id', localDay: '2026-10-14',

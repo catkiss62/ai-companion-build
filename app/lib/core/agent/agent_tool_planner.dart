@@ -55,7 +55,7 @@ class AgentToolPlanner {
       ]);
     }
     final phoneHistory = PhoneHistoryRequest.parse(text);
-    if (phoneHistory != null) {
+    if (phoneHistory != null && !_isExplicitAlbumImageSend(text)) {
       return AgentToolPlan(calls: [AgentToolCall(
         toolId: phoneHistory.detailed ? AgentToolRegistry.phoneRead.id : AgentToolRegistry.phoneSearch.id,
         arguments: phoneHistory.arguments, reasonTag: 'own_phone_history',
@@ -849,7 +849,7 @@ class AgentToolPlanner {
   static Set<String> _routeToolIds(String rawText) {
     final text = rawText.replaceAll(RegExp(r'\s+'), ' ').trim().toLowerCase();
     if (text.isEmpty) return const <String>{};
-    if (PhoneHistoryRequest.parse(rawText) != null) {
+    if (PhoneHistoryRequest.parse(rawText) != null && !_isExplicitAlbumImageSend(text)) {
       return {AgentToolRegistry.phoneSearch.id, AgentToolRegistry.phoneRead.id};
     }
     // The broad topic words below are only capability candidates. They must
