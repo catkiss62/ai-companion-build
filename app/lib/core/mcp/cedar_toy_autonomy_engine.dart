@@ -1209,8 +1209,7 @@ class CedarToyAutonomyEngine {
   }
 
   Future<CedarAutonomyProgress> beginPlaySession({required DateTime now,
-      required bool resume, int minutes = 30, bool selfReset = false}) async {
-    if (minutes != 10 && minutes != 30) return const CedarAutonomyProgress('invalid_autonomous_duration');
+      required bool resume}) async {
     final originalFence = await db.captureBrainWorkFence(settingKeys: [
       'cedar_toy_user_control_revision_v1', CedarTimedPlayTaskStore.activeKey,
     ]);
@@ -1234,7 +1233,7 @@ class CedarToyAutonomyEngine {
       initialRaw = '';
     }
     final progress = resume
-        ? await resumeCheckpoint(now: now, selfReset: selfReset)
+        ? await resumeCheckpoint(now: now, selfReset: false)
         : await this.progress(now: now);
     final snapshot = await db.readSourceSnapshot(workFence: originalFence, read: (txn) async => (
       session: (await CedarToyActivityStore.readStateInTransaction(txn)).activeSession,
@@ -1253,7 +1252,7 @@ class CedarToyAutonomyEngine {
           store: CedarToyActivityStore(db), sustained: true)).allowed) {
       final started = DateTime.now();
       await periods.save(CedarPlaySession(gameId: session.gameId,
-        startedAt: started, lastTickAt: started, limitMs: minutes * 60000),
+        startedAt: started, lastTickAt: started),
         expectedRaw: snapshot.periodRaw, workFence: originalFence,
         expectedSettings: {CedarToyActivityStore.stateSettingKey: snapshot.stateRaw});
     }

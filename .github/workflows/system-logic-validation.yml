@@ -1,7 +1,7 @@
 name: System logic hardening validation (no APK)
 on:
   push:
-    branches: [agent/v042105-regression-fixes]
+    branches: [agent/v042106-regression-fixes]
   workflow_dispatch:
 permissions:
   contents: read

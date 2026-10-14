@@ -7,6 +7,8 @@ import 'package:ai_companion_localfirst/core/database/app_database.dart';
 import 'package:ai_companion_localfirst/core/ai/deepseek_client.dart';
 import 'package:ai_companion_localfirst/core/storage/secure_config.dart';
 import 'package:ai_companion_localfirst/core/mcp/cedar_play_session_policy.dart';
+import 'package:ai_companion_localfirst/core/mcp/cedar_solo_episode_policy.dart';
+import 'package:ai_companion_localfirst/core/mcp/cedar_timed_play_task.dart';
 import 'package:ai_companion_localfirst/core/mcp/cedar_toy_activity.dart';
 import 'package:ai_companion_localfirst/core/mcp/cedar_toy_autonomy_engine.dart';
 import 'package:ai_companion_localfirst/core/mcp/cedar_toy_client.dart';
@@ -45,7 +47,7 @@ void main() {
   });
   tearDown(() => db.closeForTesting());
 
-  for (final minutes in [10, 30]) {
+  for (final minutes in [30]) {
     test('$minutes-minute window expires before an extra game/model request', () async {
       final periods = CedarPlaySessionStore(db);
       expect(await periods.save(CedarPlaySession(gameId: 'garden_cats', startedAt: base,
@@ -63,9 +65,9 @@ void main() {
   test('repeat autonomous entry retains the original clock and remaining budget', () async {
     final periods = CedarPlaySessionStore(db);
     await periods.save(CedarPlaySession(gameId: 'garden_cats', startedAt: base,
-      lastTickAt: base, usedMs: 240000, limitMs: 600000));
+      lastTickAt: base, usedMs: 240000));
     final before = await db.getSetting(CedarPlaySessionStore.key);
-    expect((await engine.beginPlaySession(now: base, resume: true, minutes: 30)).state,
+    expect((await engine.beginPlaySession(now: base, resume: true)).state,
       'autonomous_session_already_active');
     expect(await db.getSetting(CedarPlaySessionStore.key), before);
     expect(requests, 0);
@@ -77,7 +79,7 @@ void main() {
     await periods.save(CedarPlaySession(gameId: 'garden_cats', startedAt: base, lastTickAt: base));
     final old = (await periods.load())!;
     await periods.end('old_done', expectedClockId: old.clockId);
-    await periods.save(CedarPlaySession(gameId: 'garden_cats', startedAt: base, lastTickAt: base, limitMs: 600000));
+    await periods.save(CedarPlaySession(gameId: 'garden_cats', startedAt: base, lastTickAt: base));
     final newer = await db.getSetting(CedarPlaySessionStore.key);
     expect(await periods.end('late_end', expectedClockId: old.clockId), false);
     expect(await periods.save(old.tick(base.add(const Duration(seconds: 30)))), false);
@@ -87,15 +89,47 @@ void main() {
   });
 
   test('active observed time includes cadence but suspension and pauses do not', () {
-    var clock = CedarPlaySession(gameId: 'garden_cats', startedAt: base, lastTickAt: base, limitMs: 600000);
+    var clock = CedarPlaySession(gameId: 'garden_cats', startedAt: base, lastTickAt: base);
     for (var i = 1; i <= 4; i++) clock = clock.tick(base.add(Duration(seconds: i * 128)));
     expect(clock.usedMs, 512000);
-    expect(clock.tick(base.add(const Duration(seconds: 640))).usedMs, 600000);
+    expect(clock.tick(base.add(const Duration(seconds: 640))).usedMs, 640000);
     expect(clock.tick(base.add(const Duration(hours: 1))).usedMs, 512000);
     final paused = clock.tick(base.add(const Duration(seconds: 513)), pause: true);
     expect(paused.tick(base.add(const Duration(seconds: 540))).usedMs, paused.usedMs);
-    expect(CedarPlaySessionStore.autonomousMinutes(sustained: false), 10);
-    expect(CedarPlaySessionStore.autonomousMinutes(sustained: true), 30);
+    expect(clock.limitMs, CedarPlaySession.budgetMs);
+  });
+
+
+  test('three state changes return to competition without a fourth request or new clock', () async {
+    await db.setSetting(CedarToyAutonomyEngine.soloEpisodeKey, jsonEncode(CedarSoloEpisodeState(
+      gameId: 'garden_cats', startedAt: base, stateChangeCount: 3).toJson()));
+    final before = (await CedarToyActivityStore(db).load())!.events.length;
+    expect((await engine.continueDue(now: base.add(const Duration(seconds: 2)))).state, 'episode_checkpoint');
+    expect(requests, 0);
+    expect((await CedarToyActivityStore(db).load())!.events.length, before);
+    expect(await CedarPlaySessionStore(db).load(), isNull);
+  });
+
+  test('old autonomous ten-minute grant is inactive but explicit user ten-minute task is supported', () async {
+    final periods = CedarPlaySessionStore(db);
+    final old = CedarPlaySession(gameId: 'garden_cats', startedAt: base, lastTickAt: base, limitMs: 600000);
+    final raw = await periods.encoded(old);
+    await db.setSetting(CedarPlaySessionStore.key, raw);
+    expect(CedarPlaySession.decode(raw), isNull);
+    expect(await periods.load(), isNull);
+    expect(await periods.save(old), false);
+    await db.setSetting(CedarToyAutonomyEngine.soloEpisodeKey, jsonEncode(CedarSoloEpisodeState(
+      gameId: 'garden_cats', startedAt: base, stateChangeCount: 3).toJson()));
+    expect((await engine.continueDue(now: base.add(const Duration(seconds: 2)))).state, 'episode_checkpoint');
+    expect(requests, 0);
+    expect(await db.getSetting(CedarPlaySessionStore.key), raw, reason: 'no automatic refill to 30 minutes');
+    final session = (await CedarToyActivityStore(db).load())!;
+    await db.setSetting(CedarTimedPlayTaskStore.activeKey, jsonEncode({'id': 'user-ten',
+      'gameId': session.gameId, 'sessionId': session.id, 'minutes': 10,
+      'startedAt': base.millisecondsSinceEpoch, 'usedMs': 0}));
+    expect(await periods.save(CedarPlaySession(gameId: session.gameId, startedAt: base,
+      lastTickAt: base, taskId: 'user-ten', limitMs: 600000)), true);
+    expect((await periods.load())!.limitMs, 600000);
   });
 
   test('explicit night task keeps wake exemption while real fatigue still stops play', () {

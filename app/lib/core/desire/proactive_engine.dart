@@ -1119,13 +1119,15 @@ class ProactiveEngine {
         'self_reset_and_resume',
       }.contains(intent.wantAction)) {
         try {
-          final progress = await cedarToyAutonomy.beginPlaySession(
-            now: evaluationStartedAt,
-            resume: intent.wantAction != 'play_game' && intent.wantAction != 'play_game_session',
-            selfReset: intent.wantAction == 'self_reset_and_resume',
-            minutes: CedarPlaySessionStore.autonomousMinutes(sustained:
-              intent.wantAction == 'play_game_session' || intent.wantAction == 'resume_game_session'),
-          );
+          final progress = intent.wantAction == 'play_game_session' || intent.wantAction == 'resume_game_session'
+              ? await cedarToyAutonomy.beginPlaySession(now: evaluationStartedAt,
+                  resume: intent.wantAction == 'resume_game_session')
+              : intent.wantAction == 'play_game'
+              ? await cedarToyAutonomy.progress(now: evaluationStartedAt)
+              : await cedarToyAutonomy.resumeCheckpoint(
+                  now: evaluationStartedAt,
+                  selfReset: intent.wantAction == 'self_reset_and_resume',
+                );
           final progressIsWait = const <String>{
                 'not_due',
                 'no_continuation',

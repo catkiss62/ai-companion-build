@@ -73,7 +73,7 @@ class CedarPlaySession {
     try {
       final d = jsonDecode(raw ?? '');
       if (d is! Map || d['gameId'] is! String) return null;
-      return CedarPlaySession(
+      final state = CedarPlaySession(
         gameId: d['gameId'] as String,
         startedAt: DateTime.fromMillisecondsSinceEpoch(
           (d['startedAt'] as num).toInt(),
@@ -90,6 +90,10 @@ class CedarPlaySession {
             .clamp(60000, budgetMs).toInt(),
         clockId: d['clockId']?.toString() ?? '',
       );
+      // +350 restores the original three-action/30-minute choice. A +349
+      // autonomous ten-minute grant cannot survive upgrade or restore; explicit
+      // user timed tasks still retain their independently requested duration.
+      return state.taskId.isEmpty && state.limitMs != budgetMs ? null : state;
     } catch (_) {
       return null;
     }
@@ -128,6 +132,7 @@ class CedarPlaySessionStore {
         'clockId': state.clockId.isEmpty ? const Uuid().v4() : state.clockId});
   Future<bool> save(CedarPlaySession state, {String? expectedRaw,
       Map<String, String> expectedSettings = const {}, BrainWorkFence? workFence}) async {
+    if (state.taskId.isEmpty && state.limitMs != CedarPlaySession.budgetMs) return false;
     final raw = await db.getSetting(key) ?? '';
     if (expectedRaw != null && raw != expectedRaw) return false;
     final taskRaw = await db.getSetting(CedarTimedPlayTaskStore.activeKey) ?? '';
@@ -186,7 +191,6 @@ class CedarPlaySessionStore {
     required double saturation,
   }) => interest >= 0.58 && fatigue < 0.66 && saturation < 0.16;
 
-  static int autonomousMinutes({required bool sustained}) => sustained ? 30 : 10;
 }
 
 /// A bounded, game-specific conversational preference; repeated yes never stacks.
