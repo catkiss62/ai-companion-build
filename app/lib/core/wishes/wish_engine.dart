@@ -73,6 +73,7 @@ source_ids 引用实际灵感来源，game baseline 来自给定游戏真实结�
 updates 只评估给定愿望的资料；旧创建的愿望也须评估。按来源使用完整格式：
 客观结果或用户决定：{id,state,progress,evidence_id,quote,confidence,same_target,observed,expressed}。
 她自己的处置：{id,state,progress,evidence_id,quote,confidence,same_target,self_decision:true,speech_act:"considered_decision",reason,expressed}。三个自主处置字段必填，不能只写state。
+机制处置：{id,state:"paused"或"abandoned",evidence_id,quote,confidence,same_target:true,self_decision:true,speech_act:"mechanism_review",reason,mechanic_incompatible:true,permanent_constraint:true,temporary_block:false}。只针对原有 game 愿望：完整已知指南或真实游戏结果明确说明原 criterion 依赖的机制不存在、不可重复或无法达到时，可自行暂停/放下，保留原条件和历史，不需要先在聊天编造一段决定。引用该游戏的 game_guide/game_result 原文，confidence 至少0.90，reason 解释明确规则怎样与原条件冲突。缺少资料、指南没提、临时冷却、缺钱、未解锁、参数错误、网络错误或一次失败都不是永久不兼容；不因此处置。不把状态查询次数当成长阶段，不为完成而放宽原目标，不将处置标completed/satisfied。game_guide 只是约束资料，不能作为新愿望的经历来源。用户手动暂停/放下仍不能自动改变。
 无变化就不写 update。state 可 active/paused/abandoned/completed/satisfied，各状态遵守下面的来源规则。用户拒绝/暂停时可以暂停或放弃；手动暂停绝不自动复活。尊重用户不想做，不劝说、不催。
 完成必须是 created_at 之后的实际结果，匹配原 criterion 的对象、归属、时间和范围。quote 必须逐字来自指定资料并足够说明结果。observed=true 仅已发生结果；用户计划、答应、假设、愿望、工具尝试、读指南、助手自述都不是完成。证据不够保持 active，progress 只记已知进展/障碍，禁止写已经实现。不得修改 criterion 降低标准。aspiration 不按客观 completed 完成，可依下述规则主观满足。
 自主处置：可以根据她对已有具体愿望的认真表达，提出 self_decision=true 的 active/paused/abandoned/satisfied 更新。必须引用 assistant_text，reason（4~240字）解释意愿变化，speech_act=considered_decision；玩笑、撒娇、假设、引用、角色扮演或随口宣称完成不算处置决定。没有明确意愿变化则不更新，也不为了展示自主性频繁改变。用户手动暂停/放下不可自行恢复。
@@ -167,7 +168,10 @@ expressed=true 仅 assistant_text 确实已经向用户说出了这一具体愿�
           ].map((w) => w.toJson()).toList(),
           'catalog': batch.catalog,
           'known_game_guides': batch.guides,
-          'sources': evidence.map((e) => e.toJson()).toList(),
+          'sources': evidence.map((e) => e.kind == 'game_guide' ? <String, Object?>{
+            'id': e.id, 'kind': e.kind, 'game_id': e.gameId,
+            'text_location': 'known_game_guides', 'event_time_known': false,
+          } : e.toJson()).toList(),
         });
       } catch (_) {
         payload = null;
@@ -332,20 +336,46 @@ expressed=true 仅 assistant_text 确实已经向用户说出了这一具体愿�
           v['id'] == r['id'] && jsonEncode(v) == jsonEncode(r)));
       };
     }
+    final guides = <Map<String, Object?>>[];
+    final wishGames = wishes.where((w) => w.active && w.route == 'game').map((w) => w.gameId).toSet();
+    final guideSessions = games.sessions.values.where((s) => s.guideComplete &&
+        s.guide.isNotEmpty && s.guide.length <= 12000).toList()
+      ..sort((a, b) => (wishGames.contains(b.gameId) ? 1 : 0).compareTo(wishGames.contains(a.gameId) ? 1 : 0));
+    for (final session in guideSessions.take(2)) {
+      final original = session.guide;
+      var guideText = original;
+      try {
+        final decoded = jsonDecode(original);
+        if (decoded is Map && decoded['guide'] is String) guideText = decoded['guide'] as String;
+      } catch (_) { /* A plain-text complete guide is already readable. */ }
+      final id = 'guide:${session.gameId}:${sha256.convert(utf8.encode(original)).toString()}';
+      guides.add({'game': session.gameId, 'guide': guideText, 'evidence_id': id});
+      if (wishes.any((w) => w.active && !w.manualHold && !w.legacy &&
+          w.route == 'game' && w.gameId == session.gameId)) {
+        selected.add(WishEvidence(id: id, kind: 'game_guide', gameId: session.gameId,
+          text: guideText, at: DateTime.fromMillisecondsSinceEpoch(0), timeKnown: false));
+        stamps[id] = [session.gameId, original, true];
+        guards[id] = (handle) async {
+          final live = (await CedarToyActivityStore.readStateInTransaction(handle)).sessions[session.gameId];
+          return live?.guideComplete == true && live?.guide == original;
+        };
+      }
+    }
     selected.sort((a, b) => a.id.compareTo(b.id));
     final catalogRaw = await BrainWorkFence.value(txn, CedarToyActivityStore.catalogSettingKey);
     final catalog = CedarCatalogParser.parse(catalogRaw)
         .map((e) => <String, Object?>{'id': e.id, 'title': e.title}).toList();
-    final guides = games.sessions.values.where((s) => s.guideComplete && s.guide.length <= 12000)
-        .take(2).map((s) => <String, Object?>{'game': s.gameId, 'guide': s.guide}).toList();
     return _WishMaterialBatch(evidence: selected, catalog: catalog, guides: guides,
       manifest: [for (final e in selected) [e.toJson(), stamps[e.id]]], guards: [
         for (final e in selected) guards[e.id]!,
         (handle) async => await BrainWorkFence.value(handle, CedarToyActivityStore.catalogSettingKey) == catalogRaw,
         (handle) async {
           final live = await CedarToyActivityStore.readStateInTransaction(handle);
-          return guides.every((g) => live.sessions[g['game']]?.guideComplete == true &&
-            live.sessions[g['game']]?.guide == g['guide']);
+          return guides.every((g) {
+            final session = live.sessions[g['game']];
+            return session?.guideComplete == true &&
+                'guide:${g['game']}:${sha256.convert(utf8.encode(session!.guide)).toString()}' == g['evidence_id'];
+          });
         },
       ]);
   });
@@ -434,6 +464,26 @@ class WishPolicy {
       final e = byId[u['evidence_id']];
       final quote = text(u, 'quote', 1200);
       if (e == null) return reject('missing_source');
+      if (u['speech_act'] == 'mechanism_review') {
+        final state = text(u, 'state', 20), reason = text(u, 'reason', 240);
+        if (w.route != 'game' || !w.active || w.gameId != e.gameId ||
+            !const {'game_guide', 'game_result'}.contains(e.kind) ||
+            !const {'paused', 'abandoned'}.contains(state) ||
+            u['self_decision'] != true || u['same_target'] != true ||
+            u['mechanic_incompatible'] != true || u['permanent_constraint'] != true ||
+            u['temporary_block'] != false || u['confidence'] is! num ||
+            (u['confidence'] as num) < .90 || reason.length < 6 ||
+            quote.length < 6 || !e.text.contains(quote) || e.at.isAfter(now) ||
+            (e.kind == 'game_result' && !e.at.isAfter(w.createdAt)) ||
+            w.evidenceIds.contains(e.id)) return reject('mechanism_evidence_required');
+        activeCount--;
+        note('mechanism_decision', applied: state);
+        return w.copyWith(state: state, progress: reason, updatedAt: now,
+          lastEvidenceAt: e.timeKnown ? w.evidenceThrough(e.at) : null,
+          lastIntentionAt: now, lastIntentionSource: 'mechanism_review:${e.id}',
+          evidenceIds: [...w.evidenceIds, e.id].reversed.take(12).toList().reversed.toList(),
+          evidenceQuote: quote);
+      }
       if (!e.at.isAfter(w.createdAt) || e.at.isAfter(now) ||
           (w.deadline != null && e.at.isAfter(w.deadline!))) return reject('source_time');
       if (quote.length < 3 || !e.text.contains(quote)) return reject('quote_mismatch');
@@ -525,6 +575,7 @@ class WishPolicy {
           (draft['source_ids'] is List ? draft['source_ids'] as List : [])
               .whereType<String>()
               .where(byId.containsKey)
+              .where((id) => byId[id]!.kind != 'game_guide')
               .toSet()
               .take(4)
               .toList();

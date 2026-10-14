@@ -13803,7 +13803,7 @@ class AppDatabase {
       SELECT v.id, v.title, v.summary, v.url, v.source_domain, v.provider,
              v.discovered_at, v.action_run_id, v.read_state,
              v.semantic_state, v.key_points_json, v.topic_tags_json, v.read_at,
-             v.search_query
+             v.search_query, v.origin
       FROM companion_browser_visits v
       LEFT JOIN autonomous_action_runs a ON a.id = v.action_run_id
       WHERE v.discovered_at >= ?

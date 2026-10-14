@@ -2,6 +2,7 @@ import 'dart:convert';
 
 import '../ai/deepseek_client.dart';
 import '../mcp/cedar_toy_arcade_skill.dart';
+import '../phone/phone_history_request.dart';
 import 'agent_task_loop.dart';
 import 'agent_tool.dart';
 import 'agent_tool_registry.dart';
@@ -52,6 +53,13 @@ class AgentToolPlanner {
           reasonTag: 'explicit_system_command',
         ),
       ]);
+    }
+    final phoneHistory = PhoneHistoryRequest.parse(text);
+    if (phoneHistory != null) {
+      return AgentToolPlan(calls: [AgentToolCall(
+        toolId: phoneHistory.detailed ? AgentToolRegistry.phoneRead.id : AgentToolRegistry.phoneSearch.id,
+        arguments: phoneHistory.arguments, reasonTag: 'own_phone_history',
+      )]);
     }
     if (_looksLikeMetaToolTalk(text)) return null;
     final cedarBlindPlay = CedarToyArcadeSkill.requestsBlindPlay(text);
@@ -495,12 +503,16 @@ class AgentToolPlanner {
         'description': '要在查手机已有内容中寻找的关键词；不填写时列出所选栏目最近内容。',
       };
       properties['section'] = _phoneSectionProperty;
+      properties['subject'] = _phoneSubjectProperty;
+      properties['activity'] = _phoneActivityProperty;
     } else if (tool.id == AgentToolRegistry.phoneRead.id) {
       properties['handle'] = const <String, Object?>{
         'type': 'string',
         'description': 'phone.search 返回的精确条目句柄；没有句柄时可改用 section 和 query。',
       };
       properties['section'] = _phoneSectionProperty;
+      properties['subject'] = _phoneSubjectProperty;
+      properties['activity'] = _phoneActivityProperty;
       properties['query'] = const <String, Object?>{
         'type': 'string',
         'description': '没有句柄时用于选取最近匹配条目的关键词。',
@@ -795,6 +807,14 @@ class AgentToolPlanner {
   static String _bounded(String value, int limit) =>
       value.length <= limit ? value : value.substring(0, limit);
 
+  static const Map<String, Object?> _phoneSubjectProperty = {
+    'type': 'string', 'enum': ['all', 'self', 'user'],
+    'description': '塔罗抽给谁：self=她自己，user=用户，all=都读取。',
+  };
+  static const Map<String, Object?> _phoneActivityProperty = {
+    'type': 'string', 'enum': ['all', 'writing'],
+    'description': 'writing 只检索她写入的日记和随笔；all 按栏目检索。',
+  };
   static const Map<String, Object?> _phoneSectionProperty = <String, Object?>{
     'type': 'string',
     'enum': <String>[
@@ -829,6 +849,9 @@ class AgentToolPlanner {
   static Set<String> _routeToolIds(String rawText) {
     final text = rawText.replaceAll(RegExp(r'\s+'), ' ').trim().toLowerCase();
     if (text.isEmpty) return const <String>{};
+    if (PhoneHistoryRequest.parse(rawText) != null) {
+      return {AgentToolRegistry.phoneSearch.id, AgentToolRegistry.phoneRead.id};
+    }
     // The broad topic words below are only capability candidates. They must
     // not start a separate DeepSeek planning round just because an ordinary
     // reply mentions a memory, photo, diary, game or the weather. Clear local

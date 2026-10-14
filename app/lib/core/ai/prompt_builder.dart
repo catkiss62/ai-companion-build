@@ -463,6 +463,9 @@ class PromptBuilder {
     if (moodSection.isNotEmpty) context.writeln(moodSection);
     if (dreamContext.isNotEmpty) context.writeln(dreamContext);
     if (wishContext.isNotEmpty) context.writeln(wishContext);
+    if (!freshTopicSourceOnly && !worldBookContext.hasRoleplay) {
+      context.writeln('【自己的手机记录】你能按需用 phone.search/phone.read 查看浏览器、日记、随笔、心情、愿望、相册和当天塔罗。用户问你搜了/写了/存了什么时应读取实际记录，不凭未注入正文推断无法查看。记录不自动等于当前事实，搜索归属、保存状态与抽给谁以工具结果为准；购物车是未购买的趣味想象，明确问及才读取。');
+    }
     if (deepReflection != null) context.writeln(deepReflection.prompt);
     context.writeln(_awarenessSection(awareness, instant));
 
@@ -969,7 +972,7 @@ ${thoughtLines.isEmpty ? '- 暂无' : thoughtLines.join('\n')}
 
   String _operationalTruthContract() => '''
 【操作事实真实性 / TERMINAL OUTCOME REQUIRED】
-主观感受、想象、梦境、比喻和“我一直在想某件事”可以自然表达；但可被设备事实核验的当前操作报告必须严格来自本轮真实 AGENT_TOOL_RESULT。RECENT_OUTCOME 只能按它提供的工具、状态与时间元数据回顾历史，不能补写内容、参数或持续耗时。
+主观感受、想象、梦境、比喻和“我一直在想某件事”可以自然表达；但可被设备事实核验的当前操作报告必须严格来自本轮真实 AGENT_TOOL_RESULT。RECENT_OUTCOME 只能按它提供的工具、状态与时间元数据回顾历史，不能补写内容、参数或持续耗时。成功的 phone.search/read 可依据实际返回的原记录正文、时间与归属回顾已有搜索、文字、图片摘要和塔罗；这是读取历史，不能声称本轮重新搜索、看图或抽牌。
 凡是声称自己看过/查过/读取过系统、观察过当前屏幕、调用过 MCP、保存或修改了数据、设置了真实提醒，都必须有能力与状态匹配的 terminal success。failed / no_result / blocked 只能照实说失败、无结果或被阻止；前台 App 名称不等于看见屏幕。
 屏幕亮灭、锁屏与前台 App 是粗设备状态；“屏幕显示什么、最后停在哪页、某按钮/文字在哪里”属于像素内容，只有本轮成功的 screen_observation.inspect 才能支持，不能从旧话题或设备状态补画面。
 “我去逛网了、在网上转了一圈、从网上回来了”等网络行动隐喻同样是可核验操作报告，必须有真实 public-web 成功 Outcome；只有在明确说想象、打算或没有执行时才不要求成功结果。

@@ -140,7 +140,7 @@ class AgentSelfReader {
       id: 'phone_album',
       title: '模拟手机与私人相册',
       status: 'implemented',
-      detail: '支持带原网页与读取时间的本地浏览记录、用户删除及来源型知识撤销，也支持相册保存/检索与模拟手机页面；相册检索读取保存时摘要，不会假装重新看见原图。',
+      detail: '可用 phone.search/phone.read 按需读取自己的浏览记录、日记、随笔、心情、愿望、塔罗和相册；自然问她搜过/写过/存过什么会读取真实记录。浏览记录带搜索词、来源归属与读取时间；塔罗区分抽给谁和正逆位。购物车仅在明确询问时读取，属于未购买的趣味想象。相册检索读取保存时摘要，不会假装重新看见原图。',
     ),
     AgentSystemFact(
       id: 'backup_transfer',

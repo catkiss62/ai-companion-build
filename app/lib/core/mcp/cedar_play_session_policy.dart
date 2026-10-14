@@ -4,6 +4,7 @@ import 'dart:math' as math;
 import 'package:uuid/uuid.dart';
 
 import '../database/app_database.dart';
+import '../database/brain_work_fence.dart';
 import '../platform/android_bridge.dart';
 import 'cedar_timed_play_task.dart';
 import 'cedar_toy_activity.dart';
@@ -44,7 +45,7 @@ class CedarPlaySession {
   CedarPlaySession tick(DateTime now, {bool pause = false}) {
     final gap = now.difference(lastTickAt).inMilliseconds;
     // Long gaps are unobserved process suspension, never effective play.
-    final observedGap = taskId.isEmpty ? 120000 : observedTaskGap.inMilliseconds;
+    final observedGap = observedTaskGap.inMilliseconds;
     final addition = !paused && gap > 0 && gap <= observedGap ? gap : 0;
     return CedarPlaySession(
       gameId: gameId,
@@ -126,7 +127,7 @@ class CedarPlaySessionStore {
       jsonEncode({...state.toJson(), 'processEpoch': await _epoch(),
         'clockId': state.clockId.isEmpty ? const Uuid().v4() : state.clockId});
   Future<bool> save(CedarPlaySession state, {String? expectedRaw,
-      Map<String, String> expectedSettings = const {}}) async {
+      Map<String, String> expectedSettings = const {}, BrainWorkFence? workFence}) async {
     final raw = await db.getSetting(key) ?? '';
     if (expectedRaw != null && raw != expectedRaw) return false;
     final taskRaw = await db.getSetting(CedarTimedPlayTaskStore.activeKey) ?? '';
@@ -142,12 +143,20 @@ class CedarPlaySessionStore {
       key: await encoded(state),
       if (task != null && task['id'] == state.taskId)
         CedarTimedPlayTaskStore.activeKey: jsonEncode({...task, 'usedMs': state.usedMs}),
-    }, expectedSettings: {...expectedSettings,
+    }, workFence: workFence, expectedSettings: {...expectedSettings,
       key: raw, CedarTimedPlayTaskStore.activeKey: taskRaw});
   }
-  Future<bool> end(String reason) async {
+  Future<bool> end(String reason, {String? expectedClockId, String? expectedRaw,
+    BrainWorkFence? workFence}) async {
     final raw = await db.getSetting(key) ?? '';
+    if (expectedRaw != null && expectedRaw != raw) return false;
     final state = CedarPlaySession.decode(raw);
+    if (expectedClockId != null && state?.clockId != expectedClockId) return false;
+    if (workFence != null) {
+      if (state?.taskId.isNotEmpty == true) return false;
+      return db.setSettingsAtomically({key: '', 'cedar_toy_play_session_end_reason': reason},
+        workFence: workFence, expectedSettings: {key: raw});
+    }
     final tasks = CedarTimedPlayTaskStore(db);
     final task = await tasks.active();
     if (task != null && (state == null || task['id'] == state.taskId)) {
@@ -164,7 +173,7 @@ class CedarPlaySessionStore {
     final state = await load();
     if (state != null) {
       if (state.taskId.isEmpty && !state.validAt(now, state.gameId)) {
-        await end('expired');
+        await end('expired', expectedClockId: state.clockId);
         return;
       }
       await save(state.tick(now, pause: true));
@@ -176,6 +185,8 @@ class CedarPlaySessionStore {
     required double fatigue,
     required double saturation,
   }) => interest >= 0.58 && fatigue < 0.66 && saturation < 0.16;
+
+  static int autonomousMinutes({required bool sustained}) => sustained ? 30 : 10;
 }
 
 /// A bounded, game-specific conversational preference; repeated yes never stacks.

@@ -16,6 +16,7 @@ import '../agent/agent_native_tool_accumulator.dart';
 import '../agent/agent_tool.dart';
 import '../agent/agent_tool_text_envelope.dart';
 import '../database/app_database.dart';
+import '../database/brain_work_fence.dart';
 import '../desire/desire_core_policy.dart';
 import '../desire/desire_satisfaction_ledger.dart';
 import '../desire/fatigue_affect_controller.dart';
@@ -1205,26 +1206,53 @@ class CedarToyAutonomyEngine {
   }
 
   Future<CedarAutonomyProgress> beginPlaySession({required DateTime now,
-      required bool resume}) async {
+      required bool resume, int minutes = 30, bool selfReset = false}) async {
+    if (minutes != 10 && minutes != 30) return const CedarAutonomyProgress('invalid_autonomous_duration');
+    final originalFence = await db.captureBrainWorkFence(settingKeys: [
+      'cedar_toy_user_control_revision_v1', CedarTimedPlayTaskStore.activeKey,
+    ]);
+    if (originalFence == null) return const CedarAutonomyProgress('brain_work_blocked');
     if (await CedarTimedPlayTaskStore(db).active() != null) {
       return const CedarAutonomyProgress('user_task_active');
     }
+    final periods = CedarPlaySessionStore(db);
+    var initialRaw = await db.getSetting(CedarPlaySessionStore.key) ?? '';
+    final existing = await periods.load();
+    final activeGame = (await CedarToyActivityStore(db).load())?.gameId;
+    if (existing != null && activeGame == existing.gameId && existing.validAt(now, existing.gameId)) {
+      return const CedarAutonomyProgress('autonomous_session_already_active');
+    }
+    final oldClock = CedarPlaySession.decode(initialRaw);
+    if (oldClock != null && oldClock.taskId.isEmpty) {
+      if (!await periods.end('fresh_desire_selection', expectedRaw: initialRaw,
+          expectedClockId: oldClock.clockId, workFence: originalFence)) {
+        return const CedarAutonomyProgress('play_clock_changed');
+      }
+      initialRaw = '';
+    }
     final progress = resume
-        ? await resumeCheckpoint(now: now, selfReset: false)
+        ? await resumeCheckpoint(now: now, selfReset: selfReset)
         : await this.progress(now: now);
-    if (!await db.brainWorkAllowed() ||
-        await db.isLocalLeaseHeld('chat_turn_lease')) return progress;
-    final session = await CedarToyActivityStore(db).load();
+    final snapshot = await db.readSourceSnapshot(workFence: originalFence, read: (txn) async => (
+      session: (await CedarToyActivityStore.readStateInTransaction(txn)).activeSession,
+      stateRaw: await BrainWorkFence.value(txn, CedarToyActivityStore.stateSettingKey),
+      periodRaw: await BrainWorkFence.value(txn, CedarPlaySessionStore.key),
+    ));
+    if (snapshot == null || await db.isLocalLeaseHeld('chat_turn_lease') ||
+        (snapshot.periodRaw != initialRaw && snapshot.periodRaw.isNotEmpty)) return progress;
+    final session = snapshot.session;
     if (session != null && session.needsContinuation &&
         !_isRealtimeCommitment(session) &&
         const {'played_one_step', 'guide_ready', 'queued_guide_ready',
-          'write_outcome_sync'}.contains(progress.state) &&
+          'write_outcome_sync', 'self_reset_succeeded'}.contains(progress.state) &&
         !(await _currentSoloEpisode(session: session, now: now)).antiAddictionPresent &&
         (await _optionalContinuationGate(now: DateTime.now(), session: session,
           store: CedarToyActivityStore(db), sustained: true)).allowed) {
       final started = DateTime.now();
-      await CedarPlaySessionStore(db).save(CedarPlaySession(gameId: session.gameId,
-        startedAt: started, lastTickAt: started));
+      await periods.save(CedarPlaySession(gameId: session.gameId,
+        startedAt: started, lastTickAt: started, limitMs: minutes * 60000),
+        expectedRaw: snapshot.periodRaw, workFence: originalFence,
+        expectedSettings: {CedarToyActivityStore.stateSettingKey: snapshot.stateRaw});
     }
     return progress;
   }
@@ -1234,6 +1262,10 @@ class CedarToyAutonomyEngine {
     bool episodeAuthorized = false,
   }) async {
     await CedarTimedPlayTaskStore(db).reconcile(now);
+    final clockFence = await db.captureBrainWorkFence(settingKeys: [
+      'cedar_toy_user_control_revision_v1',
+    ]);
+    if (clockFence == null) return const CedarAutonomyProgress('brain_work_blocked');
     final delay = await continuationDelay(now: now);
     if (delay == null) return const CedarAutonomyProgress('no_continuation');
     if (delay > Duration.zero) return const CedarAutonomyProgress('not_due');
@@ -1289,19 +1321,35 @@ class CedarToyAutonomyEngine {
     final playPeriods = CedarPlaySessionStore(db);
     var period = await playPeriods.load();
     if (period != null && !period.validAt(now, session.gameId)) {
-      await playPeriods.end('expired_or_changed_game'); period = null;
+      final ended = await playPeriods.end('expired_or_changed_game', expectedClockId: period.clockId,
+        workFence: period.taskId.isEmpty ? clockFence : null);
+      if (!ended) return const CedarAutonomyProgress('play_clock_changed');
+      if (period.taskId.isEmpty && period.gameId == session.gameId && !realtimeCommitment) {
+        await store.deferContinuation(gameId: session.gameId, delay: const Duration(minutes: 8));
+        return const CedarAutonomyProgress('autonomous_session_complete');
+      }
+      period = null;
     }
     if (period != null) {
       period = period.tick(now);
       if (!period.validAt(now, session.gameId)) {
         final timed = period.taskId.isNotEmpty;
-      await playPeriods.save(period);
-      await playPeriods.end('budget_complete'); period = null;
+      if (!await playPeriods.save(period, workFence: clockFence)) return const CedarAutonomyProgress('play_clock_changed');
+      final ended = await playPeriods.end('budget_complete', expectedClockId: period.clockId,
+        workFence: period.taskId.isEmpty ? clockFence : null);
+      if (!ended) return const CedarAutonomyProgress('play_clock_changed');
+      period = null;
       if (timed) {
         await store.pauseAndRelease(source: 'budget_complete');
         return const CedarAutonomyProgress('timed_task_complete');
       }
-      } else { await playPeriods.save(period); }
+      if (!realtimeCommitment) {
+        await store.deferContinuation(gameId: session.gameId, delay: const Duration(minutes: 8));
+        return const CedarAutonomyProgress('autonomous_session_complete');
+      }
+      } else if (!await playPeriods.save(period, workFence: clockFence)) {
+        return const CedarAutonomyProgress('play_clock_changed');
+      }
     }
     var sustained = period != null && !realtimeCommitment;
     if (!realtimeCommitment) {
@@ -1311,7 +1359,7 @@ class CedarToyAutonomyEngine {
       );
       await _saveSoloEpisode(episode);
       if (episode.antiAddictionPresent && sustained) {
-        await playPeriods.end('anti_addiction'); sustained = false;
+        await playPeriods.end('anti_addiction', expectedClockId: period?.clockId); sustained = false;
       }
       if (!episodeAuthorized && !sustained && episode.checkpointPending) {
         // Leave the due clock intact until this wake's Desire competition has
@@ -1346,7 +1394,7 @@ class CedarToyAutonomyEngine {
         sustained: sustained,
       );
       if (!gate.allowed) {
-        if (sustained) await playPeriods.end(gate.reason);
+        if (sustained) await playPeriods.end(gate.reason, expectedClockId: period?.clockId);
         await store.deferContinuation(
           gameId: session.gameId,
           delay: gate.delay,
@@ -1395,6 +1443,7 @@ class CedarToyAutonomyEngine {
           final saved = await playPeriods.load();
           final finishedAt = DateTime.now();
           scope.throwIfPreempted();
+          if (saved?.clockId != period?.clockId) return step;
           if (period?.taskId.isNotEmpty == true) {
             // The durable task owns completion. A lost clock or temporary
             // server wait is not permission to turn it into a local Stop.
@@ -1404,7 +1453,7 @@ class CedarToyAutonomyEngine {
               !saved.validAt(finishedAt, after.gameId)) {
             if (saved != null) await playPeriods.save(saved.tick(finishedAt));
             await playPeriods.end(after?.phase == CedarActivityPhase.completed
-                ? 'game_finished' : 'finished_or_budget_complete');
+                ? 'game_finished' : 'finished_or_budget_complete', expectedClockId: period?.clockId);
           } else {
             await playPeriods.save(saved.tick(finishedAt));
             // recordPlay already scheduled the ordinary two-minute step gap

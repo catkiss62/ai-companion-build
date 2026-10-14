@@ -58,10 +58,11 @@ void main() {
     expect(timed.tick(base.add(const Duration(minutes: 20))).usedMs, 0);
   });
 
-  test('ordinary Desire grants keep their original suspension and expiry rules', () {
+  test('ordinary Desire grants count cadence requests and exclude suspended time', () {
     final ordinary = CedarPlaySession(gameId: 'white_room', startedAt: base,
         lastTickAt: base);
-    expect(ordinary.tick(base.add(const Duration(seconds: 128))).usedMs, 0);
+    expect(ordinary.tick(base.add(const Duration(seconds: 128))).usedMs, 128000);
+    expect(ordinary.tick(base.add(const Duration(minutes: 20))).usedMs, 0);
     expect(ordinary.validAt(base.add(const Duration(days: 1)), 'white_room'), false);
     final task = CedarPlaySession(gameId: 'white_room', startedAt: base,
         lastTickAt: base, taskId: 'committed');

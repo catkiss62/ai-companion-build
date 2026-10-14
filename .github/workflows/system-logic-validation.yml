@@ -1,7 +1,7 @@
 name: System logic hardening validation (no APK)
 on:
   push:
-    branches: [agent/v042104-regression-fixes]
+    branches: [agent/v042105-regression-fixes]
   workflow_dispatch:
 permissions:
   contents: read
@@ -31,6 +31,14 @@ jobs:
       - name: Focused source and background regression suite
         run: >-
           flutter test --timeout 60s --reporter expanded
+          test/phone_history_v042105_test.dart
+          test/wish_mechanism_v042105_test.dart
+          test/autonomous_duration_v042105_test.dart
+          test/agent_tool_planner_fast_route_test.dart
+          test/wish_self_disposition_test.dart
+          test/cedar_timed_recovery_v04261_test.dart
+          test/cedar_timed_live_share_v04254_test.dart
+          test/cedar_end_to_end_state_machine_v04182_test.dart
           test/g3_source_pipeline_test.dart
           test/g3_source_summary_counterexamples_test.dart
           test/background_source_guards_v042104_test.dart

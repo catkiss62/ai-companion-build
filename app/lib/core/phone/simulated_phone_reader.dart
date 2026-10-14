@@ -9,6 +9,7 @@ class SimulatedPhoneReadItem {
     required this.body,
     required this.createdAt,
     this.source = '',
+    this.facts = const {},
   });
 
   final String handle;
@@ -17,6 +18,7 @@ class SimulatedPhoneReadItem {
   final String body;
   final DateTime createdAt;
   final String source;
+  final Map<String, Object?> facts;
 }
 
 /// Side-effect-free read adapter for the companion's simulated phone.
@@ -28,16 +30,20 @@ class SimulatedPhoneReader {
   Future<List<SimulatedPhoneReadItem>> search(
     String query, {
     String section = 'all',
+    String subject = 'all',
+    String activity = 'all',
     int limit = 6,
   }) async {
     final snapshot = await SimulatedPhoneRepository(db).readOnlySnapshot();
     if (!snapshot.enabled) return const [];
     final normalizedSection = _normalizeSection(section);
-    final candidates = _items(snapshot)
+    final candidates = _items(snapshot, includeCart: normalizedSection == 'cart')
         .where(
           (item) =>
               normalizedSection == 'all' || item.section == normalizedSection,
         )
+        .where((item) => subject == 'all' || item.section != 'tarot' || item.facts['subject'] == subject)
+        .where((item) => activity != 'writing' || const {'diary', 'note'}.contains(item.section))
         .toList(growable: false);
     final needle = _semanticQuery(query);
     final matched = needle.isEmpty
@@ -55,21 +61,24 @@ class SimulatedPhoneReader {
     String handle = '',
     String section = 'all',
     String query = '',
+    String subject = 'all',
+    String activity = 'all',
   }) async {
     final normalizedHandle = handle.trim();
     if (normalizedHandle.isNotEmpty) {
       final snapshot = await SimulatedPhoneRepository(db).readOnlySnapshot();
       if (!snapshot.enabled) return null;
-      for (final item in _items(snapshot)) {
-        if (item.handle == normalizedHandle) return item;
+      for (final item in _items(snapshot, includeCart: normalizedHandle.startsWith('phone:cart:'))) {
+        if (item.handle == normalizedHandle &&
+            (subject == 'all' || item.section != 'tarot' || item.facts['subject'] == subject)) return item;
       }
       return null;
     }
-    final matches = await search(query, section: section, limit: 1);
+    final matches = await search(query, section: section, subject: subject, activity: activity, limit: 1);
     return matches.isEmpty ? null : matches.first;
   }
 
-  static List<SimulatedPhoneReadItem> _items(SimulatedPhoneSnapshot snapshot) {
+  static List<SimulatedPhoneReadItem> _items(SimulatedPhoneSnapshot snapshot, {bool includeCart = false}) {
     final result = <SimulatedPhoneReadItem>[];
     void addEntries(String section, Iterable<SimulatedPhoneEntry> entries) {
       for (final entry in entries) {
@@ -77,9 +86,18 @@ class SimulatedPhoneReader {
           handle: 'phone:$section:${entry.id}',
           section: section,
           title: entry.title,
-          body: entry.body,
+          body: section == 'tarot' ? [entry.body,
+            if (entry.metadata['closing'] is String) '已有解读：${entry.metadata['closing']}'].join('\n') : entry.body,
           createdAt: entry.createdAt,
           source: entry.provenance,
+          facts: {
+            'record_source': entry.provenance, 'record_state': entry.state,
+            if (section == 'cart') ...{'fictional': true, 'purchased': false,
+              'price_unit': 'virtual_token', 'real_item_or_capability': false},
+            if (section == 'tarot') ...{'subject': entry.state, 'card_name': entry.title,
+              'reversed': entry.metadata['reversed'] is bool ? entry.metadata['reversed'] : null,
+              'card_index': entry.metadata['card_index'], 'new_draw_performed': false},
+          },
         ));
       }
     }
@@ -92,7 +110,8 @@ class SimulatedPhoneReader {
       'wish',
       snapshot.completedWishes,
     );
-    addEntries('cart', snapshot.cart);
+    addEntries('wish', snapshot.archivedWishes);
+    if (includeCart) addEntries('cart', snapshot.cart);
     final tarotSelf = snapshot.tarotSelf;
     final tarotUser = snapshot.tarotUser;
     if (tarotSelf != null) addEntries('tarot', [tarotSelf]);
@@ -106,6 +125,9 @@ class SimulatedPhoneReader {
         body: '${item.summary}\n收藏理由：${item.reason}'.trim(),
         createdAt: item.savedAt ?? item.createdAt,
         source: item.sourceDomain,
+        facts: {'source_kind': item.sourceKind, 'lifecycle': item.lifecycle,
+          'saved_at': item.savedAt?.millisecondsSinceEpoch,
+          'original_available': item.hasOriginal, 'image_reobserved': false},
       ));
     }
     for (final item in snapshot.browserVisits) {
@@ -122,6 +144,12 @@ class SimulatedPhoneReader {
         ].where((value) => value.trim().isNotEmpty).join('\n'),
         createdAt: item.discoveredAt,
         source: '${item.domain} ${item.url}'.trim(),
+        facts: {'origin': item.origin, 'search_query': item.searchQuery,
+          'action_run_id': item.actionRunId, 'read_state': item.readState,
+          'read_at': item.readAt?.millisecondsSinceEpoch,
+          'self_search_evidence': const {'autonomous', 'agent_tool', 'user_turn'}.contains(item.origin) &&
+              item.actionRunId.isNotEmpty && item.searchQuery.isNotEmpty,
+          'new_search_performed': false},
       ));
     }
     return result;

@@ -178,6 +178,7 @@ class CompanionBrowserVisit {
     this.topicTags = const <String>[],
     this.readAt,
     this.searchQuery = '',
+    this.origin = 'unknown',
   });
 
   final String id;
@@ -194,6 +195,7 @@ class CompanionBrowserVisit {
   final List<String> topicTags;
   final DateTime? readAt;
   final String searchQuery;
+  final String origin;
 
   bool get isLegacyUnverified => readState == 'legacy_unverified';
 
@@ -230,6 +232,7 @@ class CompanionBrowserVisit {
             ? null
             : DateTime.fromMillisecondsSinceEpoch(rawReadAt),
         searchQuery: row['search_query'] as String? ?? '',
+        origin: row['origin'] as String? ?? 'unknown',
       );
   }
 }
