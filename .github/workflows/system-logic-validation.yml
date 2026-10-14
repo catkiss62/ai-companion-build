@@ -34,6 +34,7 @@ jobs:
           test/phone_history_v042105_test.dart
           test/wish_mechanism_v042105_test.dart
           test/autonomous_duration_v042105_test.dart
+          test/cedar_cadence_regression_v04259_test.dart
           test/agent_tool_planner_fast_route_test.dart
           test/wish_self_disposition_test.dart
           test/cedar_timed_recovery_v04261_test.dart

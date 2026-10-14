@@ -462,7 +462,10 @@ class CedarContinuationGatePolicy {
     final localNow = now.toLocal();
     final fatigue = max(
       storedFatigue.clamp(0.0, 1.0).toDouble(),
-      DesireCorePolicy.circadianFatigueFloor(localNow, wakeAt: wakeAt),
+      // Explicit requested play has the existing before-wake exemption. Keep
+      // real stored fatigue and sleep debt, but do not reapply the sleep clock
+      // as synthetic fatigue immediately after granting that exemption.
+      userRequested ? 0.0 : DesireCorePolicy.circadianFatigueFloor(localNow, wakeAt: wakeAt),
     );
     final restScore = DesireCorePolicy.fatigueRestScore(
       fatigue,

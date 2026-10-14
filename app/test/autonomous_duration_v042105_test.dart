@@ -97,4 +97,15 @@ void main() {
     expect(CedarPlaySessionStore.autonomousMinutes(sustained: false), 10);
     expect(CedarPlaySessionStore.autonomousMinutes(sustained: true), 30);
   });
+
+  test('explicit night task keeps wake exemption while real fatigue still stops play', () {
+    final night = DateTime(2026, 10, 14, 3);
+    CedarContinuationGateDecision gate({bool requested = false, double fatigue = .2}) =>
+      CedarContinuationGatePolicy.evaluate(now: night, storedFatigue: fatigue,
+        curiosity: .6, reflection: .5, strongestGameThought: .5,
+        activelyWatched: false, sustained: true, userRequested: requested);
+    expect(gate().reason, 'night_sleep');
+    expect(gate(requested: true).allowed, true);
+    expect(gate(requested: true, fatigue: .9).reason, 'fatigue_rest');
+  });
 }
