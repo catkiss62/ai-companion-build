@@ -1,0 +1,7 @@
+status=success
+run_id=38511927400
+run_url=https://github.com/catkiss62/ai-companion-build/actions/runs/38511927400
+head_sha=7587b6115dd5ea0a111a69a6cc86cfc874c235cb
+signer_sha256=30:5E:B3:D8:09:83:B9:63:C6:48:18:DD:F1:AD:56:1F:27:9D:E6:D4:7B:3E:D2:C7:81:AD:A4:48:C7:C2:51:48
+1bf59a21d901a97e39e866709ec7c5eeca4939291b76cf915d5d461db5352ef3  AI-Companion-v0.42.106-350-Original-Arcade-Modes-APK.apk
+release_url=https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-55ff52cf3685d6f2081a
