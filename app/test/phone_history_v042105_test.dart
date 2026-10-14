@@ -34,9 +34,9 @@ void main() {
 
   test('explicit image sending retains priority when request also says take a look', () {
     final text = '把你相册里那张海边照片发给我看看';
-    expect(AgentToolPlanner.routeLocally(text)!.calls.single.toolId, 'image.album_send');
+    expect(AgentToolPlanner.routeLocally(text)!.calls.single.toolId, 'album.image_send');
     expect(AgentToolPlanner.nativeToolDefinitionsFor(text)
-      .map((d) => (d['function'] as Map)['name']), contains('image_album_send'));
+      .map((d) => (d['function'] as Map)['name']), contains('album_image_send'));
   });
 
   Future<void> entry(String key, String id, String kind, {String state = 'active'}) async {
