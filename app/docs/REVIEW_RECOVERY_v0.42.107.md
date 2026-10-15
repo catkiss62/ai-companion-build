@@ -1,5 +1,7 @@
 # v0.42.107+351 审查问题修复
 
+当前状态（2026-10-16）：CI PASSED / APK READY / TRUE DEVICE PENDING。已推送、完成构建和上传，最终证据见末节。
+
 2026-10-15。基线 +350（本地29ab9d7 / 远端a1ae173c，同树f5502e63）。用户已授权修复审查确认的四项问题并推送、构建；声音并发疑点仍仅记录，不在本轮修改范围。
 
 - R1：只读游戏查询不占远端写入记录；同轮写操作采用有序、参数校验的持久记录。重生成只回放原写入序列，不追加新动作；回放保留提交参数与续接信息。尚未发送的保留位撤销，已发送但结果未知的记录保留。带message的查询属于写入。
@@ -9,7 +11,7 @@
 
 游戏厅保持用户指定的三次操作/30分钟方式；手机记录、塔罗、购物车隔离和愿望处置保持+350行为。没有增加模型调用入口或修改模型路由。
 
-验证：本地146/150源码门通过；剩余4项依赖素材或Kotlin工具。发布身份23项、Node作品桥验证通过，git diff --check通过。Dart/Flutter SDK本地不可用，运行时回归尚未执行，待CI。新用例app/test/review_recovery_v042107_test.dart，配合既有regeneration_effects、游戏状态机、来源管道及摘要反例。发布身份23项本地通过。当前未真机验收，未声明APK已完成。
+实施时本地验证（2026-10-15，历史状态）：本地146/150源码门通过；剩余4项依赖素材或Kotlin工具。发布身份23项、Node作品桥验证通过，git diff --check通过。Dart/Flutter SDK本地不可用，运行时回归尚未执行，待CI。新用例app/test/review_recovery_v042107_test.dart，配合既有regeneration_effects、游戏状态机、来源管道及摘要反例。发布身份23项本地通过。当前未真机验收，未声明APK已完成。
 
 ## 推送受阻（2026-10-15）
 
@@ -24,3 +26,14 @@
 ## 定向CI通过（2026-10-16）
 
 远端9a873385与本地933a192同树2f887fc2；定向Actions38788284618（job116605876719）success，Dart分析、作品桥及定向Flutter回归通过。完整构建分支列表现补入agent/v042107-review-recovery后触发，APK与真机验收仍待实际完成。
+
+
+## 最终构建与交付（2026-10-16）
+
+完整Actions38804515309（build116664760271）及最终定向38804515305成功。150源码门、23发布身份、作品桥、Kotlin、Dart分析、2193全量Flutter和168打包前回归通过；342定向回归及Android15/8的52/22原生检查通过。分析保留既有非致命info/warning策略，未宣称零警告。APK源码7dc1c72dac4214885fc5a8d1e3ee6d57d9a85ada / tree6fb2572c84f6e022b70ab8356ad0284a2c556472，与本地c70967a同树；交付回填仅文档。
+
+APK：com.aicompanion.localfirst，0.42.107+351，737297105 bytes。SHA256：5124997e576a87d5f904ea4dda6e1bb33efc122c5d752f59584cbaf12b983988。签名SHA256：305eb3d80983b963c64818ddf1ad561f279de6d47b3ed2c781ada448c7c25148，与原私测签名一致，可覆盖安装。PNG/桌宠完整资源、Genie、塔罗、星谷、背景资源均已通过APK内验证。
+
+[下载测试APK](https://github.com/catkiss62/ai-companion-build/releases/download/untagged-6cd92b79333909e93b87/AI-Companion-v0.42.107-351-Review-Recovery-APK.apk)。Release414281284保持draft，APK资产645187207，checksum645187214，CI monitor645187216。构建地址：https://github.com/catkiss62/ai-companion-build/actions/runs/38804515309 。
+
+四项修复已实现并CI通过；手机真机仍待验，声音并发疑点未扩大修改。推送授权、缺凭证与完整构建分支入口补齐过程保留在本文件和唯一总账中。
