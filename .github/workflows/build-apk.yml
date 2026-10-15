@@ -555,6 +555,7 @@ on:
       - agent/v042102-token-creative-audit
       - agent/v042103-memory-form-continuity
       - agent/v042106-restore-arcade-modes
+      - agent/v042107-review-recovery
       - agent/v04214-visible-process-fate-wheel
       - maintenance/repository-governance-20260919
   workflow_dispatch:
