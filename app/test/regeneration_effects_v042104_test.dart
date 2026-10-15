@@ -59,6 +59,6 @@ void main() {
     expect(await store.reserveRemoteEffect(attempt, const {'action': 'play'}), isNull);
     final repeated = await store.reserveRemoteEffect(attempt, const {'action': 'play'});
     expect(repeated!['state'], 'dispatching');
-    expect((await store.reserveRemoteEffect(attempt, const {'action': 'different'}))!['state'], 'dispatching');
+    expect((await store.reserveRemoteEffect(attempt, const {'action': 'different'}))!['state'], 'conflict');
   });
 }

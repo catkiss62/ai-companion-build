@@ -1220,7 +1220,7 @@ class CedarToyActivityStore {
   static const uncertainWritePrefix = 'cedar_unresolved_write_v1:';
   Future<bool> admitRemoteDispatch({required String gameId, required String action,
     required Map<String, Object?> params, required String executionId}) async {
-    if (CedarPlatformActionPolicy.isReadOnly(action)) return true;
+    if (CedarPlatformActionPolicy.isReadOnlyCall(action, params)) return true;
     final handle = await db.database;
     return handle.transaction((txn) async {
       if (await BrainWorkFence.value(txn, executionFenceSettingKey) != executionId) return false;
@@ -1232,18 +1232,35 @@ class CedarToyActivityStore {
     });
   }
   Future<void> resolveRemoteDispatch({required String gameId, required String executionId,
-    required String action, required bool authoritative, Map<String, Object?> params = const {}}) async {
-    if (!authoritative) return;
+    required String action, required bool authoritative, Map<String, Object?> params = const {},
+    McpToolOutcome? outcome}) async {
+    if (!authoritative || outcome == null) return;
     final handle = await db.database;
     await handle.transaction((txn) async {
+      // A late query cannot release another execution's outstanding write.
+      if (await BrainWorkFence.value(txn, executionFenceSettingKey) != executionId) return;
       final key = '$uncertainWritePrefix$gameId';
       final raw = await BrainWorkFence.value(txn, key);
       Map data = const {};
       try { final decoded = jsonDecode(raw); if (decoded is Map) data = decoded; } catch (_) {}
+      if (data.isEmpty) return;
       final oldParams = data['params'] is Map ? data['params'] as Map : const {};
-      final room = oldParams['room_id']?.toString() ?? '';
-      final sameStateQuery = const {'state','status'}.contains(action) && room.isNotEmpty && params['room_id']?.toString() == room;
-      if (data['execution_id'] == executionId || sameStateQuery) {
+      var sameTarget = true;
+      // Transport revision/wait flags change when polling. Save/room identity
+      // does not: a different save must never resolve this write.
+      for (final name in const ['room_id', 'slot', 'slot_id', 'save_id', 'session_id', 'world_id']) {
+        final expected = oldParams[name]?.toString() ?? '';
+        if (expected.isNotEmpty && params[name]?.toString() != expected) sameTarget = false;
+      }
+      final isState = const {'state', 'status', 'observe', 'look'}.contains(action) &&
+          CedarPlatformActionPolicy.isReadOnlyCall(action, params);
+      // A successful snapshot establishes the current state for a fresh plan;
+      // it never converts the original turn's unknown receipt into success.
+      // A rooms list alone cannot release a write: read that room's state first.
+      final sameStateQuery = isState && sameTarget && !outcome.isError;
+      final ownResponse = data['execution_id'] == executionId &&
+          data['action'] == action && !CedarPlatformActionPolicy.isReadOnlyCall(action, params);
+      if (ownResponse || sameStateQuery) {
         await txn.delete('settings', where: 'key = ? AND value = ?', whereArgs: [key, raw]);
       }
     });
@@ -1255,6 +1272,7 @@ class CedarToyActivityStore {
     Map<String, Object?> params = const <String, Object?>{},
     String executionId = '',
   }) async {
+    if (CedarPlatformActionPolicy.isReadOnlyCall(action, params)) return;
     final state = await loadState();
     final session = state.sessions[gameId];
     if (session == null) return;
@@ -1279,8 +1297,33 @@ class CedarToyActivityStore {
               },
               waitScope: 'write_reconcile_once',
             );
-    } else if (session.hasContinuationCall && CedarPlatformActionPolicy.isReadOnly(session.continuationAction)) {
-      reconciliation = _savedContinuation(session);
+    } else if (session.hasContinuationCall && const {'state', 'status', 'observe', 'look', 'rooms'}.contains(session.continuationAction)) {
+      final saved = _savedContinuation(session);
+      if (saved != null) {
+        final safeParams = Map<String, Object?>.from(saved.params)..remove('message');
+        final sameTarget = const ['room_id', 'slot', 'slot_id', 'save_id', 'session_id', 'world_id']
+            .every((name) => params[name] == null || params[name].toString().isEmpty ||
+                params[name].toString() == safeParams[name]?.toString());
+        if (sameTarget) reconciliation = McpContinuationCall(game: gameId,
+            action: saved.action, params: safeParams, waitScope: 'write_reconcile_once');
+      }
+    }
+    if (reconciliation == null) {
+      for (final query in const ['state', 'status', 'look']) {
+        if (!RegExp('(?<![A-Za-z0-9_])$query(?![A-Za-z0-9_])').hasMatch(session.guide)) continue;
+        final queryParams = <String, Object?>{
+          for (final name in const ['room_id', 'slot', 'slot_id', 'save_id', 'session_id', 'world_id'])
+            if (params.containsKey(name)) name: params[name],
+        };
+        final missing = CedarExecutableCallPolicy.missingExplicitRequiredFields(
+          action: query, params: queryParams, guide: session.guide,
+          playProtocol: await loadPlayProtocol());
+        if (missing.isEmpty) {
+          reconciliation = McpContinuationCall(game: gameId, action: query,
+            params: queryParams, waitScope: 'write_reconcile_once');
+          break;
+        }
+      }
     }
     final canSynchronize = reconciliation != null;
     final event = CedarGameEvent(

@@ -36,6 +36,10 @@ abstract final class DerivedSourceStore {
         await txn.update('memory_evidence', {'source_valid': 0}, where: 'id = ?', whereArgs: [id]);
       } else if (kind == 'summary') {
         await txn.update('conversation_summaries', {'source_valid': 0}, where: 'id = ?', whereArgs: [id]);
+        if (tables.contains('conversation_summary_sources')) {
+          await txn.rawUpdate("UPDATE conversation_summary_sources SET state = 'pending', covered_batch_hash = '' "
+            "WHERE covered_batch_hash IN (SELECT source_batch_hash FROM conversation_summaries WHERE id = ? AND source_batch_hash <> '')", [id]);
+        }
       } else if (kind == 'personality_evidence') {
         final rows = await txn.query('personality_learning_evidence', columns: ['candidate_id'], where: 'id = ?', whereArgs: [id]);
         candidates.addAll(rows.map((r) => r['candidate_id'] as String));

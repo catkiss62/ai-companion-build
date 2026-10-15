@@ -70,6 +70,7 @@ class AgentToolRunner {
   final SecureConfig secureConfig;
   final DeepSeekClient _ai;
   final CedarToyClient Function(String token)? cedarClientFactory;
+  final Map<String, int> _cedarWriteIndices = {};
   final Set<String> _memoryExpansionScopes = {};
   final Map<String, PublicWebCandidateDraft> _webPages = {};
   final Map<String, String> _cedarGameListsByScope = <String, String>{};
@@ -707,11 +708,11 @@ class AgentToolRunner {
         displayText: known ? '使用本次请求已有的游戏结果' : '本次游戏操作结果尚未确认',
         promptData: known ? '这是同一用户请求已经收到的真实结果，重新生成没有再次执行游戏动作：${receipt['outcome'] ?? ''}' :
           '同一用户请求已经登记发送或存在旧执行记录；结果可能已在远端发生，不能因重生成或等待一段时间而再次发送。尚未确认成功。',
+        continuationRecommended: known && receipt['continuation_recommended'] == true,
+        resultCount: known ? 1 : 0,
+        submittedArguments: known && receipt['submitted_arguments'] is Map
+            ? Map<String, Object?>.from(receipt['submitted_arguments'] as Map) : const {},
         errorCode: known ? '' : 'cedar_prior_dispatch_unresolved');
-    }
-    if (attempt != null) {
-      final previous = await effectStore.remoteEffect(attempt.userMessageId);
-      if (previous != null) return replay(previous);
     }
     final game = _safeCedarIdentifier(arguments['game'] ?? '');
     final action = _safeCedarIdentifier(arguments['action'] ?? '');
@@ -878,6 +879,11 @@ class AgentToolRunner {
       );
     }
     final effectPayload = <String, Object?>{'game': game, 'action': action, 'params': params};
+    final isWrite = !CedarPlatformActionPolicy.isReadOnlyCall(action, params);
+    final writeScope = attempt == null ? '' : '${attempt.userMessageId}:${attempt.runToken}';
+    final effectIndex = _cedarWriteIndices[writeScope] ?? 0;
+    var reserved = false;
+    var dispatched = false;
     var receivedOutcome = false;
     late McpToolOutcome outcome;
     var verifiedNextActor = 'wait';
@@ -885,12 +891,15 @@ class AgentToolRunner {
     var recordedEventId = '';
     var attachments = const <MessageAttachment>[];
     try {
+      if (attempt != null && !isWrite) await effectStore.initializeRemoteReads(attempt);
       executionId =
           await activityStore.beginExecution(gameId: game, action: action);
-      if (attempt != null) {
-        final existing = await effectStore.reserveRemoteEffect(attempt, effectPayload,
+      if (attempt != null && isWrite) {
+        _cedarWriteIndices[writeScope] = effectIndex + 1;
+        final existing = await effectStore.reserveRemoteEffect(attempt, effectPayload, effectIndex: effectIndex,
           isCancelled: () => cancellationToken?.isCancelled == true);
         if (existing != null) return replay(existing);
+        reserved = true;
       }
       cancellationToken?.throwIfCancelled();
       if (!await activityStore.admitRemoteDispatch(gameId: game, action: action, params: params, executionId: executionId)) {
@@ -898,6 +907,7 @@ class AgentToolRunner {
           displayText: '上一项游戏操作仍待核对', promptData: '未确认的远端写入仍存在；没有发送新的写入。', errorCode: 'cedar_unresolved_write');
       }
       try {
+        dispatched = true;
         outcome = await client.play(
           game,
           action,
@@ -927,9 +937,9 @@ class AgentToolRunner {
         );
       }
       receivedOutcome = true;
-      await activityStore.resolveRemoteDispatch(gameId: game, executionId: executionId, action: action, authoritative: true, params: params);
-      if (attempt != null) await effectStore.completeRemoteEffect(attempt.userMessageId, effectPayload,
-        outcome: CedarToyClient.redactSecrets(outcome.text), failed: outcome.isError);
+      await activityStore.resolveRemoteDispatch(gameId: game, executionId: executionId, action: action, authoritative: true, params: params, outcome: outcome);
+      if (attempt != null && isWrite) await effectStore.completeRemoteEffect(attempt.userMessageId, effectPayload,
+        effectIndex: effectIndex, outcome: CedarToyClient.redactSecrets(outcome.text), failed: outcome.isError);
       final verification = outcome.isError || platformAction
           ? (nextActor: 'wait', shareLevel: 'quiet', resumeAfterSeconds: 0)
           : await _verifyCedarOutcome(
@@ -942,6 +952,9 @@ class AgentToolRunner {
       verifiedNextActor = platformAction
           ? (persisted?.nextActor ?? 'wait')
           : verification.nextActor;
+      if (attempt != null && isWrite) await effectStore.completeRemoteEffect(attempt.userMessageId, effectPayload,
+        effectIndex: effectIndex, outcome: CedarToyClient.redactSecrets(outcome.text), failed: outcome.isError,
+        nextActor: verifiedNextActor, continuationRecommended: verifiedNextActor == 'companion');
       if (platformAction && persisted != null) {
         final recorded = await activityStore.recordPlatformAction(
           gameId: game,
@@ -1022,10 +1035,14 @@ class AgentToolRunner {
         }
       }
     } finally {
-      if (!receivedOutcome && executionId.isNotEmpty) {
-        try { await activityStore.markWriteOutcomeUncertain(gameId: game, action: action, params: params, executionId: executionId); } catch (_) {}
-      }
       try {
+        if (reserved && !dispatched && attempt != null) {
+          await effectStore.releaseUnsentRemoteEffect(attempt, effectPayload, effectIndex: effectIndex);
+          _cedarWriteIndices[writeScope] = effectIndex;
+        }
+        if (dispatched && !receivedOutcome && isWrite && executionId.isNotEmpty) {
+          try { await activityStore.markWriteOutcomeUncertain(gameId: game, action: action, params: params, executionId: executionId); } catch (_) {}
+        }
         if (executionId.isNotEmpty) {
           await activityStore.finishExecution(executionId: executionId);
         }

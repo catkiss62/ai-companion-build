@@ -86,6 +86,11 @@ class ConversationSummaryStore {
     // A corrupt imported future cursor must not hide all real sources.
     if (scanSeq > maximum && maximum > 0) scanSeq = 0;
     final limit = scanLimit.clamp(1, 256).toInt();
+    // Repair coverage left by earlier versions too, without rewinding ingest
+    // clocks or rescanning all history. The normal qualifier rechecks each row.
+    await txn.rawUpdate("UPDATE $table SET state = 'pending', covered_batch_hash = '' "
+      "WHERE message_id IN (SELECT c.message_id FROM $table c JOIN conversation_summaries s "
+      "ON s.source_batch_hash = c.covered_batch_hash WHERE c.state = 'covered' AND s.source_valid = 0 LIMIT ?)", [limit]);
     await txn.rawDelete('DELETE FROM $table WHERE message_id IN (SELECT s.message_id FROM $table s '
       'LEFT JOIN messages m ON m.id=s.message_id WHERE m.id IS NULL LIMIT ?)', [limit]);
     final scan = await ConversationSourceStore.scanAfter(txn, afterSeq: scanSeq, limit: limit);
@@ -150,7 +155,7 @@ class ConversationSummaryStore {
       if (rows.isEmpty || rows.single['state'] != 'pending' ||
           rows.single['source_json'] != jsonEncode(material.source.toJson())) return false;
     }
-    final existing = await txn.query('conversation_summaries', columns: ['id'],
+    final existing = await txn.query('conversation_summaries', columns: ['id', 'source_valid'],
       where: 'source_batch_hash = ?', whereArgs: [work.batchHash], limit: 1);
     final summaryId = existing.isEmpty ? _uuid.v4() : existing.single['id'] as String;
     if (existing.isEmpty) await txn.insert('conversation_summaries', {
@@ -160,6 +165,16 @@ class ConversationSummaryStore {
       'created_at': DateTime.now().millisecondsSinceEpoch, 'source_batch_hash': work.batchHash,
       'source_manifest_json': jsonEncode(work.materials.map((m) => m.source.toJson()).toList()),
     });
+    if (existing.isNotEmpty && existing.single['source_valid'] == 0) {
+      // Every source above was requalified and revision-checked. Repair an
+      // imported invalid batch without marking an invisible summary covered.
+      await txn.update('conversation_summaries', {'summary': summary.trim(),
+        'key_points': keyPoints.take(12).join('|'), 'source_valid': 1,
+        'created_at': DateTime.now().millisecondsSinceEpoch},
+        where: 'id = ?', whereArgs: [summaryId]);
+      await txn.delete('derived_source_links', where: 'owner_kind = ? AND owner_id = ?',
+        whereArgs: ['summary', summaryId]);
+    }
     for (final material in work.materials) {
       await DerivedSourceStore.link(txn, kind: 'summary', ownerId: summaryId,
         sourceId: material.source.stamp.id, revision: material.source.stamp.revision,

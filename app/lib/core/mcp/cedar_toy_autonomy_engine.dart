@@ -1600,7 +1600,7 @@ $catalog''',
     required CedarGameSession session,
     required _CedarExecutionScope scope,
   }) async {
-    final action = _identifier(session.continuationAction);
+    var action = _identifier(session.continuationAction);
     // This exact action and parameter object came from Cedar's signed Outcome.
     // Requiring a compact human guide to repeat it can strand a valid room.
     if (!CedarServerContinuationPolicy.authorizesExactAction(
@@ -1629,7 +1629,8 @@ $catalog''',
     }
     var roomMessage = '';
     try {
-      if (session.hasPendingRoomMessage &&
+      if (session.continuationWaitScope != 'write_reconcile_once' &&
+          session.hasPendingRoomMessage &&
           _guideSupportsParameter(session.guide, action, 'message')) {
         roomMessage = await _composeRoomDialogue(
           apiKey: apiKey,
@@ -1643,13 +1644,36 @@ $catalog''',
         params = CedarRoomActionPayload.withMessage(params, roomMessage);
       }
       scope.throwIfPreempted();
-      final outcome = await client.play(
+      var outcome = await client.play(
         session.gameId,
         action,
         params,
         cancellationToken: scope.cancellation,
       );
-      if (!outcome.isError) await store.resolveRemoteDispatch(gameId: session.gameId, executionId: scope.executionId, action: action, authoritative: true, params: params);
+      if (!outcome.isError && action == 'rooms' &&
+          session.continuationWaitScope == 'write_reconcile_once') {
+        final room = CedarExecutableCallPolicy.uniqueTransportValue(
+            key: 'room_id', structuredContent: outcome.structuredContent, text: outcome.text);
+        final stateParams = CedarExecutableCallPolicy.hydrateTransportParams(
+            planned: <String, Object?>{'room_id': room, 'full_state': true, 'wait': false},
+            continuationParamsJson: '', lastOutcome: outcome.text);
+        final missing = CedarExecutableCallPolicy.missingExplicitRequiredFields(
+            action: 'state', params: stateParams,
+            guide: '${session.guide}\n${CedarPlayerProtocolContract.actionSignaturesFor(session.gameId)}',
+            playProtocol: await store.loadPlayProtocol());
+        if (room.isEmpty || !_containsIdentifier(session.guide, 'state') || missing.isNotEmpty) {
+          await store.deferContinuation(gameId: session.gameId,
+              delay: const Duration(minutes: 2), executionId: scope.executionId);
+          return const CedarAutonomyProgress('write_reconciliation_target_unknown');
+        }
+        action = 'state';
+        params = stateParams;
+        await store.updateExecutionAction(executionId: scope.executionId, action: action);
+        scope.throwIfPreempted();
+        outcome = await client.play(session.gameId, action, params,
+            cancellationToken: scope.cancellation);
+      }
+      if (!outcome.isError) await store.resolveRemoteDispatch(gameId: session.gameId, executionId: scope.executionId, action: action, authoritative: true, params: params, outcome: outcome);
       if (outcome.isError) {
         await db.setSetting(
           'cedar_toy_last_observe_error_category',
@@ -1962,7 +1986,7 @@ $conversationContext''',
       }
       rethrow;
     }
-    await store.resolveRemoteDispatch(gameId: session.gameId, executionId: scope.executionId, action: action, authoritative: true, params: params);
+    await store.resolveRemoteDispatch(gameId: session.gameId, executionId: scope.executionId, action: action, authoritative: true, params: params, outcome: outcome);
     if (!outcome.isError &&
         !platformAction &&
         action == 'rooms' &&

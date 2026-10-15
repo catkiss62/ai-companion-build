@@ -1,7 +1,7 @@
 name: System logic hardening validation (no APK)
 on:
   push:
-    branches: [agent/v042106-regression-fixes]
+    branches: [agent/v042107-review-recovery]
   workflow_dispatch:
 permissions:
   contents: read
@@ -52,6 +52,7 @@ jobs:
           test/wish_source_clock_v042104_test.dart
           test/learning_lifecycle_v042104_test.dart
           test/regeneration_effects_v042104_test.dart
+          test/review_recovery_v042107_test.dart
           test/playback_owner_v042104_test.dart
           test/personality_learning_phase1_test.dart
           test/memory_json_budget_retry_test.dart

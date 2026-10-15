@@ -88,6 +88,9 @@ class CedarPlatformActionPolicy {
         'announcements',
       }.contains(action);
 
+  static bool isReadOnlyCall(String action, Map<String, Object?> params) =>
+      isReadOnly(action) && (params['message']?.toString().trim().isEmpty ?? true);
+
   /// Reading a completed result is a snapshot, not a new shareable outcome.
   static bool isResultSnapshot(String action) =>
       action == 'get_result' || action.endsWith('_get_result');

@@ -9355,7 +9355,7 @@ class AppDatabase {
             where: 'memory_id = ? AND source = ? AND evidence_text = ? AND relation = ?',
             whereArgs: [target.id, source, normalized, 'reinforced'], limit: 1);
         if (alreadyReinforced.isNotEmpty) return true;
-        if (!expectedTarget.matches(target) || target.semanticType != semantic ||
+        if (!target.isActive || !expectedTarget.matches(target) || target.semanticType != semantic ||
             target.kind != kind) return false;
         final subjectCompatible = normalizedSubject.isNotEmpty &&
             normalizedSubject == target.subjectKey;
@@ -9369,7 +9369,7 @@ class AppDatabase {
       // extraction model did not emit an explicit reinforce target.
       final duplicate = await txn.query(
         'memory_items',
-        where: 'kind = ? AND content = ? AND status = ?',
+        where: 'kind = ? AND content = ? AND status = ? AND source_valid = 1',
         whereArgs: [kind, normalized, 'active'],
         limit: 1,
       );
@@ -9403,7 +9403,7 @@ class AppDatabase {
             evidenceText: userEvidenceQuote.trim(), relation: '${revisionKind}_to:$id');
       } else if (semantic == 'current_fact' && normalizedSubject.isNotEmpty) {
         final sameSubject = await txn.query('memory_items',
-            where: 'kind = ? AND subject_key = ? AND status = ?',
+            where: 'kind = ? AND subject_key = ? AND status = ? AND source_valid = 1',
             whereArgs: [kind, normalizedSubject, 'active']);
         if (sameSubject.any((row) => (row['pinned'] as int? ?? 0) == 1)) return false;
         if (sameSubject.any((row) => row['semantic_type'] == 'current_fact')) {

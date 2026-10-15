@@ -16,39 +16,107 @@ class TurnExecutionStore {
   TurnExecutionStore(this.db);
   final AppDatabase db;
   static const remoteEffectPrefix = 'agent_remote_effect_v1:';
-  Future<Map<String, dynamic>?> remoteEffect(String turnId) async {
-    final raw = _decode(await BrainWorkFence.value(await db.database, '$remoteEffectPrefix$turnId'));
-    return raw is Map ? Map<String, dynamic>.from(raw) : null;
+  static const remoteJournalPrefix = 'agent_remote_effect_v2:';
+
+  Future<Map<String, dynamic>?> remoteEffect(String turnId, {int effectIndex = 0}) async {
+    final handle = await db.database;
+    final journal = _decode(await BrainWorkFence.value(handle, '$remoteJournalPrefix$turnId'));
+    if (journal is List && effectIndex >= 0 && effectIndex < journal.length && journal[effectIndex] is Map) {
+      return Map<String, dynamic>.from(journal[effectIndex] as Map);
+    }
+    final legacy = _decode(await BrainWorkFence.value(handle, '$remoteEffectPrefix$turnId'));
+    return legacy is Map ? Map<String, dynamic>.from(legacy) : null;
   }
+
+  Future<void> initializeRemoteReads(GenerationAttemptFence attempt) async {
+    final handle = await db.database;
+    await handle.transaction((txn) async {
+      final key = '$remoteJournalPrefix${attempt.userMessageId}';
+      if ((await BrainWorkFence.value(txn, key)).isNotEmpty ||
+          (await BrainWorkFence.value(txn, '$remoteEffectPrefix${attempt.userMessageId}')).isNotEmpty ||
+          !await attempt.matches(txn)) return;
+      final old = await txn.query('agent_tool_outcomes', columns: ['id'],
+        where: 'id LIKE ? AND tool_id = ? AND status IN (?, ?, ?)',
+        whereArgs: ['user_turn:${attempt.jobId}:cedar_toy.play:%', 'cedar_toy.play', 'succeeded', 'failed', 'stopped'], limit: 1);
+      if (old.isEmpty) await txn.insert('settings', {'key': key, 'value': '[]'});
+    });
+  }
+
+  /// Only writes occupy ordered slots. Reads and model call IDs are not action
+  /// identity. A new generation may replay this sequence, never extend it.
   Future<Map<String, dynamic>?> reserveRemoteEffect(GenerationAttemptFence attempt, Object payload,
-      {bool Function()? isCancelled}) async {
+      {int effectIndex = 0, bool Function()? isCancelled}) async {
     final handle = await db.database;
     return handle.transaction((txn) async {
       requireTurnNotCancelled(isCancelled);
-      final key = '$remoteEffectPrefix${attempt.userMessageId}';
+      final key = '$remoteJournalPrefix${attempt.userMessageId}';
       final raw = _decode(await BrainWorkFence.value(txn, key));
-      if (raw is Map) return Map<String, dynamic>.from(raw);
+      if (raw != null && raw is! List) return {'state': 'conflict'};
+      final journal = raw is List ? List<Object?>.from(raw) : <Object?>[];
+      final legacy = _decode(await BrainWorkFence.value(txn, '$remoteEffectPrefix${attempt.userMessageId}'));
+      if (legacy is Map) {
+        return {...Map<String, dynamic>.from(legacy),
+          if (legacy['payload_hash'] != turnPayloadHash(payload)) 'state': 'conflict'};
+      }
+      if (effectIndex < 0 || effectIndex > journal.length) return {'state': 'conflict'};
+      if (effectIndex < journal.length) {
+        final receipt = journal[effectIndex];
+        if (receipt is! Map) return {'state': 'conflict'};
+        return {...Map<String, dynamic>.from(receipt),
+          if (receipt['payload_hash'] != turnPayloadHash(payload)) 'state': 'conflict'};
+      }
+      if (journal.any((r) => r is! Map || r['state'] != 'known')) return {'state': 'dispatching'};
+      if (journal.any((r) => (r as Map)['run_token'] != attempt.runToken)) return {'state': 'prior_run_complete'};
       if (!await attempt.matches(txn)) return {'state': 'stale'};
-      final legacy = await txn.query('agent_tool_outcomes', columns: ['id'],
-        where: 'id LIKE ? AND tool_id = ? AND status IN (?, ?, ?)',
-        whereArgs: ['user_turn:${attempt.jobId}:cedar_toy.play:%', 'cedar_toy.play', 'succeeded', 'failed', 'stopped'], limit: 1);
-      final record = <String, dynamic>{'schema': 1, 'turn_id': attempt.userMessageId,
-        'payload_hash': turnPayloadHash(payload), 'state': legacy.isEmpty ? 'dispatching' : 'legacy_unknown',
-        'created_at': DateTime.now().millisecondsSinceEpoch};
-      await txn.insert('settings', {'key': key, 'value': jsonEncode(record)});
+      if (raw == null) {
+        final legacyOutcomes = await txn.query('agent_tool_outcomes', columns: ['id'],
+          where: 'id LIKE ? AND tool_id = ? AND status IN (?, ?, ?)',
+          whereArgs: ['user_turn:${attempt.jobId}:cedar_toy.play:%', 'cedar_toy.play', 'succeeded', 'failed', 'stopped'], limit: 1);
+        // Old outcomes cannot prove whether the operation was read-only.
+        if (legacyOutcomes.isNotEmpty) return {'state': 'legacy_unknown'};
+      }
+      journal.add({'schema': 2, 'turn_id': attempt.userMessageId, 'run_token': attempt.runToken,
+        'payload_hash': turnPayloadHash(payload), 'submitted_arguments': payload,
+        'state': 'dispatching', 'created_at': DateTime.now().millisecondsSinceEpoch});
+      await txn.insert('settings', {'key': key, 'value': jsonEncode(journal)}, conflictAlgorithm: ConflictAlgorithm.replace);
       requireTurnNotCancelled(isCancelled);
-      return legacy.isEmpty ? null : record;
+      return null;
     });
   }
+
   Future<void> completeRemoteEffect(String turnId, Object payload, {
-    required String outcome, required bool failed}) async {
+    required String outcome, required bool failed, int effectIndex = 0,
+    String nextActor = 'wait', bool continuationRecommended = false,
+  }) async {
     final handle = await db.database;
     await handle.transaction((txn) async {
-      final key = '$remoteEffectPrefix$turnId';
+      final key = '$remoteJournalPrefix$turnId';
       final raw = _decode(await BrainWorkFence.value(txn, key));
-      if (raw is! Map || raw['payload_hash'] != turnPayloadHash(payload) || raw['state'] != 'dispatching') return;
-      await txn.insert('settings', {'key': key, 'value': jsonEncode({...raw,
-        'state': 'known', 'outcome': outcome, 'failed': failed})}, conflictAlgorithm: ConflictAlgorithm.replace);
+      if (raw is! List || effectIndex < 0 || effectIndex >= raw.length) return;
+      final receipt = raw[effectIndex];
+      if (receipt is! Map || receipt['payload_hash'] != turnPayloadHash(payload) || !const {'dispatching', 'known'}.contains(receipt['state'])) return;
+      raw[effectIndex] = {...receipt, 'state': 'known', 'outcome': outcome, 'failed': failed,
+        'next_actor': nextActor, 'continuation_recommended': continuationRecommended};
+      await txn.insert('settings', {'key': key, 'value': jsonEncode(raw)}, conflictAlgorithm: ConflictAlgorithm.replace);
+    });
+  }
+
+  /// Roll back only a reservation that never reached the network. Unknown
+  /// remote effects, and receipts owned by other attempts, remain durable.
+  Future<void> releaseUnsentRemoteEffect(GenerationAttemptFence attempt,
+      Object payload, {required int effectIndex}) async {
+    final handle = await db.database;
+    await handle.transaction((txn) async {
+      final key = '$remoteJournalPrefix${attempt.userMessageId}';
+      final raw = _decode(await BrainWorkFence.value(txn, key));
+      if (raw is! List || effectIndex != raw.length - 1) return;
+      final receipt = raw.last;
+      if (receipt is! Map || receipt['state'] != 'dispatching' ||
+          receipt['run_token'] != attempt.runToken ||
+          receipt['payload_hash'] != turnPayloadHash(payload)) return;
+      raw.removeLast();
+      await txn.insert('settings', {'key': key, 'value': jsonEncode(raw)},
+          conflictAlgorithm: ConflictAlgorithm.replace);
     });
   }
   static const effectPrefix = 'agent_effect_receipt_v1:';
