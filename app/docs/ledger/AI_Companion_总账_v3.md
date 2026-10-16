@@ -254,3 +254,26 @@
 - 单独一手使用记录：https://agent.csdn.net/6a8128ae662f9a54cb9d5d43.html ，日期2026-07-15；作者主要测英文AI资讯、中文科技热点及结构化输出，自己对游戏等垂直深度仍持保留。只能作为资讯/中文能力线索，不足以证明娱乐素材更多。
 - 其他概览、宣传转述与旧功能矩阵不作性能证据；尤其已有功能表含Tavily无MCP等不准确/过时项，未据此做选型。
 - 本轮判断：AnySearch可保留为中文内容补充候选；当前没有找到足够透明、专门衡量娱乐性的一手横测。若后续用户授权实测，应以她实际会搜的同一组关键词，对比有趣细节、社区经验、话题差异、可读取正文和配图，而非总准确率或专业问答胜率。只讨论，未接入/替换，CI和APK不变。
+
+
+### 2026-10-16：新增连续普通聊天的网页预读/注入断链（READ-ONLY / SOURCE BUG CONFIRMED）
+
+#### 开始前范围与决定
+
+用户决定搜索服务保持现状；不实施AnySearch接入。用户提供新的+352存档/诊断，询问正常连续聊天为何出现网页活动但未使用资料，是否普通聊天不能以网页为话题。本轮只做定点诊断与方案说明，未获实施App修复指令。与此前“单次预读后没讲允许、取消后可再选”的判断区分，以新增证据检查实际数据流。
+
+#### 新证据与根因
+
+- 最后两轮均为正常completed、各1次生成，没有取消；话题计划均选public_web_candidate、自我分享分支，最终均记录planned_bid_not_expressed/source_thought_expressed=false。不能再把本例归因为中断重试，也不能归为普通聊天禁止联网话题。
+- 与前次存档对照：这次选中的另一个已分享历史网页完成了read_at刷新；后一轮同页核验为requested=1、ready=1、18ms。工具活动public_web.read同时包含网络读取与本地缓存资格核验，不能将每次提示都计成新关键词搜索。最后两轮Agent结果未新增新搜图或新web.search执行记录。
+- 该历史网页当前lifecycle=shared、read_state=verified、semantic_state=valid、尚未过期、page_body=1139字符，并有active public_web_knowledge；关联的旧网页念头仍active、正文为通用“发现公开资料，先判断是否值得分享”，未实际包含该页具体主题。
+- 源码断点：PublicWebPromptPolicy.candidateIds把选中网页Thought映射到candidateIds；PromptBuilder在资格分流前对其refreshIds。刷新成功后，publicWebPromptBundle将该项按PublicWebSourceProfile.candidateContext捕获；PublicWebSourceStamp.eligible明确排除shared/share_staging，故正文被丢弃。
+- 历史路径也未兜住：PromptBuilder.historicalKnowledgeIds显式排除已存在于publicWebCandidateIds的ID；即便同页仍是active历史知识，也不能从historicalKnowledge路径进入本轮网页材料。结果是同一个ID先被允许读取，后因错误消费者身份无法注入；模型得到的选中念头提示仍泛化，并非拿到该次核验正文后主动放弃表达。
+- 未表达的念头保留active本身合理，但在断链未修时可反复选中并重复预读/核验。先前“到了/就是”误记acted是另一独立问题，本例两轮结算反而正确记录未表达；不能把两个根因混为一个。
+- 普通聊天已有公开网页/历史知识上下文通道，允许合适时使用来源；不存在“只有主动消息才可聊网页”的总开关。本例确有读取后丢失正文的工程证据，不应靠强制正文必须分享、取消shared保护或停止念头选择掩盖。
+
+#### 建议边界与当前状态
+
+窄修方向仅讨论：在读取前按实际消费者资格统一分流；已分享来源只有仍具active历史知识资格时才按historicalKnowledge提供，不能冒充新候选；没有任何合法消费路径的ID不应预读。保留删除、撤回、过期、语义核验与写入所有权保护；允许模型有资料后仍自然接当前话题，不要求每次读完必须讲。修复时另需覆盖“selected Thought与active历史知识同ID、shared候选、缓存命中、正常两轮未表达、禁止复活已删除来源”等实际回归场景。
+
+本轮无App/存档修改，无新测试、CI或APK。已追加脱敏结论；仍待用户选择实施范围。此前不改预读时机的决定不等于拒绝修复本次新确认的资格/注入断链。
