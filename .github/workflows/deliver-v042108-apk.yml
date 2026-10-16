@@ -1,0 +1,65 @@
+name: Deliver verified v0.42.108 APK
+on:
+  push:
+    branches: [delivery/v042108-apk]
+    paths: [.github/workflows/deliver-v042108-apk.yml]
+  workflow_dispatch:
+permissions:
+  actions: read
+  contents: read
+jobs:
+  split-verified-apk:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Download the already verified original APK
+        uses: actions/download-artifact@v4
+        with:
+          artifact-ids: '12027283042'
+          github-token: ${{ github.token }}
+          run-id: '38854149803'
+          path: original
+          merge-multiple: true
+      - name: Verify original checksum and split only for transfer
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          import hashlib, json
+          from pathlib import Path
+          matches = list(Path('original').rglob('app-release.apk'))
+          assert len(matches) == 1, matches
+          apk = matches[0]
+          expected = 'e81f8767b358f17c9584edd539f0d247e4283eb084f8009ce3abb78fd8139dca'
+          digest = hashlib.file_digest(apk.open('rb'), 'sha256').hexdigest()
+          assert digest == expected, (digest, expected)
+          parts = []
+          with apk.open('rb') as source:
+              for index in range(2):
+                  data = source.read(400 * 1024 * 1024)
+                  assert data
+                  out = Path(f'transfer-{index + 1}')
+                  out.mkdir()
+                  target = out / f'AI-Companion-v0.42.108-352.apk.part{index + 1}'
+                  target.write_bytes(data)
+                  parts.append({'filename': target.name, 'size': len(data), 'sha256': hashlib.sha256(data).hexdigest()})
+              assert not source.read(1), 'unexpected third part'
+          metadata = {'source_run_id': 38854149803, 'source_commit': '64b477ae565aa49411d226dfd642e2983b0b65ec', 'source_artifact_id': 12027283042, 'apk_size': apk.stat().st_size, 'apk_sha256': expected, 'parts': parts}
+          Path('transfer-1/transfer-manifest.json').write_text(json.dumps(metadata, indent=2) + '\n')
+          print(json.dumps(metadata, indent=2))
+          PY
+      - name: Upload transfer part 1
+        uses: actions/upload-artifact@v4
+        with:
+          name: AI-Companion-v0.42.108-352-Transfer-1
+          path: transfer-1/
+          compression-level: 0
+          retention-days: 7
+          if-no-files-found: error
+      - name: Upload transfer part 2
+        uses: actions/upload-artifact@v4
+        with:
+          name: AI-Companion-v0.42.108-352-Transfer-2
+          path: transfer-2/
+          compression-level: 0
+          retention-days: 7
+          if-no-files-found: error
