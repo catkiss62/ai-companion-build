@@ -26,26 +26,28 @@ void main() {
   });
   test('all frame questions share one Jev request and failure has no second call', () async {
     var calls = 0;
+    Map? sent;
     final gateway = JevDecisionGateway(enabledReader: () async => true,
       keyReader: () async => 'test-key', clientFactory: () => MockClient((request) async {
         calls++;
-        final body = jsonDecode(request.body) as Map;
-        final questions = body['questions'] as Map;
-        expect(questions.keys, containsAll(['f0_head','f1_head','f2_head','f3_head','face_use','face','wink_use','wink','action','emotion','tempo','f0_intensity','f3_root']));
-        final face = questions['face'] as Map;
-        final wink = questions['wink'] as Map;
-        expect((face['criteria'] as Map).keys, unorderedEquals(CaicaiMotionPlanner.overlayFaces));
-        expect((wink['criteria'] as Map).keys, unorderedEquals(CaicaiMotionPlanner.winks));
-        for (final family in ['face', 'wink']) {
-          expect((questions['${family}_use']['criteria'] as Map).keys,
-            unorderedEquals(['yes', 'no']));
-          expect((questions[family]['criteria'] as Map).containsKey('无'), isFalse);
-        }
+        sent = jsonDecode(request.body) as Map;
         return http.Response('{}', 503);
       }));
     expect(await CaicaiMotionPlanner(gateway: gateway).plan(user: '看看左边', reply: '好呀',
       emotion: 'normal', parameters: {'ParamAngleX3': {'min': -30, 'max': 30}}), isNull);
     expect(calls, 1);
+    // Keep request assertions outside the gateway's transport-error catch.
+    final questions = sent!['questions'] as Map;
+    expect(questions.keys, containsAll(['f0_head','f1_head','f2_head','f3_head','face_use','face','wink_use','wink','action','emotion','tempo','f0_intensity','f3_root']));
+    final face = questions['face'] as Map;
+    final wink = questions['wink'] as Map;
+    expect((face['criteria'] as Map).keys, unorderedEquals(CaicaiMotionPlanner.overlayFaces));
+    expect((wink['criteria'] as Map).keys, unorderedEquals(CaicaiMotionPlanner.winks));
+    for (final family in ['face', 'wink']) {
+      expect((questions['${family}_use']['criteria'] as Map).keys,
+        unorderedEquals(['yes', 'no']));
+      expect((questions[family]['criteria'] as Map).containsKey('无'), isFalse);
+    }
   });
   test('tongue releases while the slower body X remains continuous', () {
     final plan = CaicaiMotionPlanner.buildPlan({'f0_body':'左移重心','f0_mouth':'吐舌'}, {
