@@ -46,7 +46,12 @@ APP = Path(__file__).resolve().parents[1]
 # Database diff against +351 is exactly those two lines; restore/export,
 # schema and ownership methods are unchanged. SQLite migration regressions
 # cover preserved custom bodies/controls and one-shot behavior (392 focused tests passed).
-PROTECTED = {'lib/core/database/app_database.dart': '33414e0853d41f3c3a23ac510e53b3088f415b0f6cf42a215b2d57bfd54af09f', 'lib/core/sync/snapshot_service.dart': 'b149d23582191f4b7c6a4dcff44d2b244e5e2fba76e6f74656634e8b3ccdd975', 'lib/core/sync/snapshot_restore_coordinator.dart': '2a3fd1c8237774aa9c2d0e88e7d4dba28cea732388b495761403119be78d886d', 'lib/core/sync/snapshot_cache_janitor.dart': '9e9dc7e44747f184b9359565512906ef24cb88666ac7c6456a92a9dfbd5f1d9b', 'android/app/src/main/kotlin/com/aicompanion/localfirst/NativeEventStore.kt': '6cead2621c92ab42701dbe3e7081089e4a37648abb63fb2f96b1bad90f221002', 'android/app/src/main/kotlin/com/aicompanion/localfirst/ManualSnapshotCrypto.kt': '3497404b13f2c388a276545db6342d16a44d8c17e18e2318dabfb84248a5dc84', 'android/app/src/main/kotlin/com/aicompanion/localfirst/PortableCompanionState.kt': 'a33deefe80a537f10e60c7b451ec30a43e134f3a8cd368252772b79898bcf9c6'}
+# +354: optional source-identity isolation for exact memory duplicates, enabled
+# only by the source-bound game-arrangement writer. The reviewed DB diff is
+# one default-false argument, scoped duplicate selection and one stored marker.
+# Restore/export/schema/ownership code is unchanged. Cross-save, ordinary
+# reinforcement and actual export/import regressions passed in the 468-test suite.
+PROTECTED = {'lib/core/database/app_database.dart': 'e274187b22dfb064b387da61cadb33342aebb198028fe7ada644dd26f22608f5', 'lib/core/sync/snapshot_service.dart': 'b149d23582191f4b7c6a4dcff44d2b244e5e2fba76e6f74656634e8b3ccdd975', 'lib/core/sync/snapshot_restore_coordinator.dart': '2a3fd1c8237774aa9c2d0e88e7d4dba28cea732388b495761403119be78d886d', 'lib/core/sync/snapshot_cache_janitor.dart': '9e9dc7e44747f184b9359565512906ef24cb88666ac7c6456a92a9dfbd5f1d9b', 'android/app/src/main/kotlin/com/aicompanion/localfirst/NativeEventStore.kt': '6cead2621c92ab42701dbe3e7081089e4a37648abb63fb2f96b1bad90f221002', 'android/app/src/main/kotlin/com/aicompanion/localfirst/ManualSnapshotCrypto.kt': '3497404b13f2c388a276545db6342d16a44d8c17e18e2318dabfb84248a5dc84', 'android/app/src/main/kotlin/com/aicompanion/localfirst/PortableCompanionState.kt': 'a33deefe80a537f10e60c7b451ec30a43e134f3a8cd368252772b79898bcf9c6'}
 for path, digest in PROTECTED.items():
     assert hashlib.sha256((APP / path).read_bytes()).hexdigest() == digest, path
 native = APP / 'android/app/src/main/kotlin/com/aicompanion/localfirst'
