@@ -1753,14 +1753,14 @@ jobs:
               --target "${GITHUB_SHA}" \
               --draft \
               --title 'AI Companion v0.42.108+352 JEV Expression' \
-              --notes 'Separate face/wink use decisions from conditional preset selection in the same Jev request. Allow natural light-to-strong overlay semantics without quotas or confidence thresholds. Retain four-beat motion, nineteen emotions, authored presets and native release. Same-signature unpublished test build; true-device verification remains pending.'
+              --notes 'Separate face/wink use decisions from conditional preset selection in the same Jev request. Allow natural light-to-strong overlay semantics without quotas or confidence thresholds. Retain four-beat motion, nineteen emotions, authored presets and native release. Ship the user-approved spoken dialogue default with exact-old-default migration preserving custom edits. Same-signature unpublished test build; true-device verification remains pending.'
           else
             test "$(gh release view "${TAG}" --repo "${GITHUB_REPOSITORY}" --json isDraft --jq '.isDraft')" = true
             gh release edit "${TAG}" \
               --repo "${GITHUB_REPOSITORY}" \
               --target "${GITHUB_SHA}" \
               --title 'AI Companion v0.42.108+352 JEV Expression' \
-              --notes 'Separate face/wink use decisions from conditional preset selection in the same Jev request. Allow natural light-to-strong overlay semantics without quotas or confidence thresholds. Retain four-beat motion, nineteen emotions, authored presets and native release. Same-signature unpublished test build; true-device verification remains pending.'
+              --notes 'Separate face/wink use decisions from conditional preset selection in the same Jev request. Allow natural light-to-strong overlay semantics without quotas or confidence thresholds. Retain four-beat motion, nineteen emotions, authored presets and native release. Ship the user-approved spoken dialogue default with exact-old-default migration preserving custom edits. Same-signature unpublished test build; true-device verification remains pending.'
           fi
           test "$(gh release view "${TAG}" --repo "${GITHUB_REPOSITORY}" --json isDraft --jq '.isDraft')" = true || exit 1
           RELEASE_URL="$(gh release view "${TAG}" --repo "${GITHUB_REPOSITORY}" --json url --jq '.url')"

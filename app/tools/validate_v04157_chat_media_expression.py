@@ -33,7 +33,7 @@ assert "worldbook_natural_user_default_v04157_applied" in database
 assert "399dbcade44c15ce4af3f215df27ed193de04991644371dbbd79f2caabed8f11" in database
 assert "13189a1fcb24f10eb071f455356ffd902d3eafa1abb8466a28580b768bf9a393" in database
 assert "'raw_content': worldBookNaturalDialogueV04157" in database
-assert "content: worldBookNaturalDialogueV04157" in read(
+assert "content: worldBookSpokenDialogueV042108" in read(
     "lib/core/reference/world_book_presets.dart"
 )
 

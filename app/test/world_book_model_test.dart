@@ -57,12 +57,12 @@ void main() {
     expect(daily.content, contains('【动作与神态】'));
     expect(
       byId['builtin.worldbook.natural_dialogue']!.content,
-      contains('# 自然对话总则'),
+      contains('# 对白的口语表达'),
     );
     expect(byId['builtin.worldbook.natural_dialogue']!.priority, 1000);
     expect(
       byId['builtin.worldbook.natural_dialogue']!.content,
-      startsWith('# 自然对话总则'),
+      startsWith('# 对白的口语表达'),
     );
     final inference = byId['builtin.worldbook.inference_engine']!;
     expect(inference.priority, 950);

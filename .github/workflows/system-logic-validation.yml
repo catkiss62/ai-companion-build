@@ -54,6 +54,8 @@ jobs:
           test/regeneration_effects_v042104_test.dart
           test/review_recovery_v042107_test.dart
           test/caicai_motion_planner_test.dart
+          test/spoken_dialogue_default_v042108_test.dart
+          test/world_book_model_test.dart
           test/caicai_live2d_stage_test.dart
           test/jev_decision_gateway_test.dart
           test/memory_continuity_v04266_test.dart

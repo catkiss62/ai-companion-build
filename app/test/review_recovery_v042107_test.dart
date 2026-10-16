@@ -226,6 +226,12 @@ void main() {
       await db.setSetting('cedar_toy_enabled', '1');
       await db.setSetting(CedarToyAutonomyEngine.enabledKey, '1');
       await activity.recordGuide(gameId: 'duel', guide: 'actions: new rooms state move');
+      // This is a user-accepted shared room, not optional solo play. Without
+      // that fixture, the existing wake guard blocks this test before 08:00
+      // on the CI runner, before reconciliation is reached at all.
+      await activity.recordPlay(gameId: 'duel', action: 'state', outcome: snapshot(),
+        mode: CedarParticipationMode.coPlay, nextActor: 'companion',
+        shareLevel: 'none', invitationApproved: true);
       final write = await activity.beginExecution(gameId: 'duel', action: 'new');
       expect(await activity.admitRemoteDispatch(gameId: 'duel', action: 'new', params: {}, executionId: write), isTrue);
       await activity.markWriteOutcomeUncertain(gameId: 'duel', action: 'new', executionId: write);

@@ -1,6 +1,7 @@
 import '../rules/rule_layer_content_v04125.dart';
 import 'world_book_content_v04155_user.dart';
 import 'world_book_content_v04156_user.dart';
+import 'world_book_spoken_dialogue_v042108.dart';
 
 class WorldBookPreset {
   const WorldBookPreset({
@@ -299,7 +300,7 @@ const worldBookSystemPresets = <WorldBookPreset>[
     id: 'builtin.worldbook.natural_dialogue',
     name: '角色表达自然化',
     aliases: ['自然'],
-    content: worldBookNaturalDialogueV04157,
+    content: worldBookSpokenDialogueV042108,
     activationMode: 'always',
     priority: 1000,
   ),
