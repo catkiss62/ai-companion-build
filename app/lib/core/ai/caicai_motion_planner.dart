@@ -44,19 +44,19 @@ class CaicaiMotionPlanner {
     'wink','wink吐舌','比耶wink吐舌'];
   static const faceMeanings = <String, String>{
     '无': '不使用额外原装表情。',
-    '1爱心': '明显心动、喜爱或亲昵。',
-    '1生气': '明显气鼓鼓、佯怒或抗议。',
-    '1红脸': '明显害羞、浪漫表达或难为情时可以使用；轻微害羞不必使用。',
-    '1钱钱': '明显财迷式的兴奋。',
-    '1黑脸': '明显无语、阴沉或被噎住。',
-    '1星星眼': '明显惊喜、赞叹或期待。',
-    '1流泪': '明显难过、委屈或感动。',
+    '1爱心': '心动、喜爱或亲昵；温柔的喜欢也可表达，不限于强烈告白。',
+    '1生气': '气鼓鼓、佯怒或抗议；轻轻赌气和认真生气都可，按本轮语气判断。',
+    '1红脸': '害羞、浪漫或难为情；轻微脸热也可自然表达，不必等到强烈害羞。',
+    '1钱钱': '财迷式的开心、对钱或收益的兴奋；不把一般开心当作财迷。',
+    '1黑脸': '无语、被噎住或阴沉；轻度无奈也可，不把普通平静当作黑脸。',
+    '1星星眼': '惊喜、赞叹、好奇的期待；小小的兴奋也可自然表达。',
+    '1流泪': '难过、委屈或感动到想哭；需要有泪意，不把所有低落都演成哭。',
     'wink': '轻度：轻巧眨眼、俏皮或默契。',
     'wink吐舌': '中度：眨眼加吐舌，更淘气。',
     '比耶wink吐舌': '程度更强：比耶加吐舌加眨眼，更夸张的得意、庆祝或卖萌。',
   };
-  static const overlayFaces = ['无','1爱心','1生气','1红脸','1钱钱','1黑脸','1星星眼','1流泪'];
-  static const winks = ['无','wink','wink吐舌','比耶wink吐舌'];
+  static const overlayFaces = ['1爱心','1生气','1红脸','1钱钱','1黑脸','1星星眼','1流泪'];
+  static const winks = ['wink','wink吐舌','比耶wink吐舌'];
   static const actions = ['无','2奶茶','2插手','2比耶','2点单','2菜单','2餐盘左','2餐盘右'];
 
   Future<Map<String, Object?>?> plan({required String user, required String reply,
@@ -92,15 +92,29 @@ class CaicaiMotionPlanner {
     }
     questions['tempo'] = JevChoiceQuestion('整段表演节奏，默认明快；兴奋或俏皮可用快拍，安静时舒展。',
       {'舒展':'每拍1.10秒', '明快':'每拍0.95秒', '俏皮快拍':'每拍0.82秒'});
+    questions['face_use'] = JevChoiceQuestion(
+      '只判断本轮是否适合使用七种原装叠加表情中的一种，不在这里选择具体类型。'
+      '七种含义：心动亲昵、气鼓鼓或抗议、害羞脸热、财迷、无语、惊喜期待、难过委屈或感动到有泪意。'
+      '依据实际回复语气与动作描写，轻微、中等或强烈的自然反应都可使用，不必等情绪强烈；'
+      '但中性或没有相符反应时不用，不为增加频率而强选，也不要把轻微情绪自动夸张。'
+      '这是独立附加层，可与19种情绪、五官、wink和道具同时使用；已有其他层不是不用的理由。'
+      '普通形态和小豆丁使用同样的资格，只看本轮语义。',
+      {'yes': '有相符的自然反应，使用七种叠加表情中的一种。', 'no': '中性或没有相符反应，不使用七种叠加表情。'});
     questions['face'] = JevChoiceQuestion(
-      '选择七个原装叠加表情之一，或无。情绪不明显时选无。这是独立于情绪和五官动作的附加表现：'
-      '可以与情绪驱动的脸部变化、眉眼嘴型、wink及道具动作同时使用。'
-      '已经选择情绪或五官动作，不是放弃此层的理由；依据实际语气选择，不设使用次数，不为变化而强选。',
+      '假设本轮要使用七种叠加表情，从七种中选与实际回复最贴合的一种；这里只判断类型，不判断用不用。'
+      '按实际语义选择，不因为有该类型题就必须播放；是否播放由独立的face_use判断决定。',
       {for (final name in overlayFaces) name: faceMeanings[name]!});
+    questions['wink_use'] = JevChoiceQuestion(
+      '只判断本轮是否适合使用wink家族，不在这里选择具体类型。'
+      '轻巧俏皮、默契、淘气、得意或庆祝时都可自然使用；不要求强烈情绪，不设次数或频率。'
+      '中性、无关或不合实际语气时不用。可与七种叠加表情、19种情绪和道具同时使用；'
+      '已有其他层不是不用的理由。普通形态和小豆丁使用同样的资格，只看本轮语义。',
+      {'yes': '本轮有适合眨眼类预设的俏皮或默契等反应。', 'no': '本轮不适合眨眼类预设。'});
     questions['wink'] = JevChoiceQuestion(
-      '独立选择俏皮动作或无，可与七个叠加表情和情绪同时使用。'
+      '假设本轮要使用wink家族，从三种中选择符合实际语气和程度的一种；这里只判断类型，不判断用不用。'
+      '不因候选有更夸张的预设就自动选强度最高的；是否播放由独立的wink_use判断决定。'
       'wink、wink吐舌、比耶wink吐舌是完整原装预设，后者自带比耶手势；'
-      '已有完整wink时不必再用四拍眼睛动作重复强调。无关语境选无。',
+      '已有完整wink时不必再用四拍眼睛动作重复强调。',
       {for (final name in winks) name: faceMeanings[name]!});
     questions['action'] = JevChoiceQuestion('选择与本轮明确动作或场景有关的原装动作；无关时选无。', {for (final x in actions) x: x});
     questions['emotion'] = JevChoiceQuestion(
@@ -154,8 +168,10 @@ class CaicaiMotionPlanner {
       }
     }
     return {'frames': frames,
-      'face': faces.contains(answers['face']) && answers['face'] != '无' ? answers['face'] : '',
-      'wink': winks.contains(answers['wink']) && answers['wink'] != '无' ? answers['wink'] : '',
+      // Type questions always have a winner, even for neutral replies. Only an
+      // explicit valid use decision may enable it; missing gates fail closed.
+      'face': answers['face_use'] == 'yes' && overlayFaces.contains(answers['face']) ? answers['face'] : '',
+      'wink': answers['wink_use'] == 'yes' && winks.contains(answers['wink']) ? answers['wink'] : '',
       'action': actions.contains(answers['action']) && answers['action'] != '无' ? answers['action'] : '',
       'emotion': answers['emotion'] == 'normal' || EmotionCatalog.labelsByKey.containsKey(answers['emotion'])
           ? CaicaiLive2DService.nativeEmotionId(answers['emotion']!) : ''};

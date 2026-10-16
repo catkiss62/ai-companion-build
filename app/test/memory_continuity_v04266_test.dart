@@ -77,14 +77,14 @@ void main() {
   test('face hints are optional and the three authored winks remain distinct', () {
     final hints = CaicaiMotionPlanner.faceMeanings;
     expect(hints.keys.toSet(), CaicaiMotionPlanner.faces.toSet());
-    expect(hints['1红脸'], '明显害羞、浪漫表达或难为情时可以使用；轻微害羞不必使用。');
+    expect(hints['1红脸'], contains('轻微脸热也可自然表达'));
     expect(hints['1红脸'], isNot(contains('夸奖')));
     expect(hints['wink'], contains('轻度'));
     expect(hints['wink吐舌'], contains('中度'));
     expect(hints['比耶wink吐舌'], contains('程度更强'));
     expect(CaicaiMotionPlanner.buildPlan({'face': '无', 'emotion': 'shy', 'action': '2点单'}, {})['face'], '');
     for (final face in ['wink', 'wink吐舌', '比耶wink吐舌']) {
-      expect(CaicaiMotionPlanner.buildPlan({'face': face}, {})['face'], face);
+      expect(CaicaiMotionPlanner.buildPlan({'wink_use': 'yes', 'wink': face}, {})['wink'], face);
     }
   });
 
