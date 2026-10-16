@@ -98,7 +98,7 @@ class CedarGameArrangementStore {
 游戏口头安排：在同一次整理中返回 game_arrangements 数组，和 memories 分开处理。
 只保留对真实游戏有后续意义的明确打算/双方约定/用户要求，包括 AI 自己明确提出的计划；玩笑、摆姿态、假设、已发生操作的复述不创建安排。
 从【真实游戏与既有安排】选择真实 scope_id，不能猜游戏、存档或盆号；模糊的“正中间”保留为想法，不捏造坐标。
-每项字段：action=remember/update/cancel，scope_id，topic_key（稳定短主题），text（具体安排），condition（等待用户/条件等，可空），completion_basis=action/state（亲自操作选action，只查看或等待某状态选state），actor=user/ai/shared（谁提出/持有约定），executor=ai/user/shared/unknown（谁执行目标），user_quote，assistant_quote，target_id（update/cancel必须为既有ID）。
+每项字段：action=remember/update/cancel，scope_id，topic_key（稳定英文小写主题，1～60字符，只用a-z、0-9、下划线、点或连字符），text（具体安排），condition（等待用户/条件等，可空），completion_basis=action/state（亲自操作选action，只查看或等待某状态选state），actor=user/ai/shared（谁提出/持有约定），executor=ai/user/shared/unknown（谁执行目标），user_quote，assistant_quote，target_id（update/cancel必须为既有ID）。
 user安排须逐字user_quote；ai自己的打算须逐字assistant_quote；shared双方约定须两边逐字引文。用户要求只能由用户的新明确说法取消或改约；AI可以调整自己的计划。一次明确同意发生了，不代表未来游戏操作已经完成。结合当时已有真实进度区分操作复述和新计划，已经做过的操作不重复变成待做；明确约定下一次再做仍可保留。游戏安排不重复写入 threads/thoughts，也不因此安排定时跟进；另有需要讨论的具体问题才单独记录。
 只处理本轮真实新增/改约，不从旧经历、旧操作补造约定；每轮最多2项。不要在 memories 重复创建或修改系统标记的游戏安排。没有适合内容返回 []。''';
 
