@@ -11,6 +11,7 @@ import '../reflection/deep_reflection_store.dart';
 import '../wishes/wish_store.dart';
 import '../autonomy/public_web_read_service.dart';
 import '../autonomy/public_web_share_contract.dart';
+import '../autonomy/public_web_share_policy.dart';
 import '../autonomy/web_page_evidence.dart';
 import 'generation_cancellation.dart';
 import '../mood/mood_service.dart';
@@ -69,6 +70,7 @@ class PromptBuildResult {
     this.creativePlayEvidence = const CreativePlayEvidence(),
     this.publicWebSources = const [],
     this.expectedPublicWebShare,
+    this.selectedThoughtEvidence,
   });
 
   final List<Map<String, Object?>> messages;
@@ -78,6 +80,7 @@ class PromptBuildResult {
   final CreativePlayEvidence creativePlayEvidence;
   final List<PublicWebSourceStamp> publicWebSources;
   final ExpectedPublicWebShare? expectedPublicWebShare;
+  final Map<String, Object?>? selectedThoughtEvidence;
 }
 
 class PromptBuilder {
@@ -353,21 +356,16 @@ class PromptBuilder {
         : (await db.activePublicWebKnowledgeContext(query: query))
             .where((page) => historicalWebIds == null || historicalWebIds.contains(page.id))
             .toList();
-    final allIds = <String>{...publicWebCandidateIds,
-      ...historicalPublicKnowledge.map((page) => page.id)};
-    final readableWebIds = await PublicWebReadService(db, reader: webReader, workFence: webWorkFence).refreshIds(
-      allIds, query: query, cancellation: webCancellationToken,
-      limit: 5, onActivity: onWebReadActivity);
-    // Render and retain capabilities from the exact same transaction rows.
-    // Historical knowledge keeps its own active qualification, independent of
-    // the short candidate sharing expiry.
-    final webBundle = await db.publicWebPromptBundle(
-      candidateIds: readableWebIds.where(publicWebCandidateIds.contains).toList(),
+    final webBundle = await PublicWebReadService(db, reader: webReader,
+        workFence: webWorkFence).preparePromptBundle(
+      candidateIds: publicWebCandidateIds,
       historicalKnowledgeIds: historicalPublicKnowledge.map((page) => page.id)
-          .where((id) => !publicWebCandidateIds.contains(id) && readableWebIds.contains(id)).toList(),
+          .toList(),
       selectedShareCandidateId: mode == PromptGenerationMode.proactive
           ? selectedPublicWebCandidateId : null,
       selectedShareThoughtId: selectedPublicWebThoughtId,
+      query: query, cancellation: webCancellationToken,
+      onActivity: onWebReadActivity,
     );
     final publicWeb = webBundle.items;
     final publicKnowledge = webBundle.knowledgeItems;
@@ -665,6 +663,7 @@ ANSWERED_HISTORY_ONLY = true
       creativePlayEvidence: creativeRead.playEvidence,
       publicWebSources: webBundle.sourceStamps,
       expectedPublicWebShare: webBundle.expectedShare,
+      selectedThoughtEvidence: _thoughtExpressionEvidence(selectedConversationThought, webBundle),
     );
   }
 
@@ -836,6 +835,24 @@ ${lines.join('\n')}
 这些条目来自曾经真实 Extract 并整理过的公开网页，只是可复核的外部知识，不是用户原话、AI 亲历、Memory、AI Self 或永久兴趣。相关时可以引用并保留来源与读取时间；时效性问题应重新联网，不能把旧读取说成刚刚查过。
 ${lines.join('\n')}
 '''.trim();
+  }
+
+  Map<String, Object?>? _thoughtExpressionEvidence(
+    CompanionThought? thought, PublicWebPromptBundle bundle,
+  ) {
+    if (thought == null) return null;
+    if (!PublicWebSharePolicy.isCandidateThought(thought)) {
+      return {'kind': thought.provenance.key, 'thought': _webData(thought.text, 1200)};
+    }
+    final id = PublicWebSharePolicy.candidateIdFromTopic(thought.topicKey);
+    final page = [...bundle.items, ...bundle.knowledgeItems]
+        .where((page) => page.id == id).firstOrNull;
+    // A generic "I found something" Thought is not evidence of which page
+    // was expressed, especially if that source never entered this prompt.
+    if (page == null) return null;
+    return {'kind': 'public_web', 'title': _webData(page.title, 180),
+      'summary': _webData(page.summary, 800),
+      'key_points': page.keyPoints.map((point) => _webData(point, 240)).take(6).toList()};
   }
 
   String _selectedConversationThoughtSection(

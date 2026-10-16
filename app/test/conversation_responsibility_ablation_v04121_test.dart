@@ -99,6 +99,7 @@ void main() {
     test('matching information request can become an acted Thought', () {
       final verification = ConversationOutcomeVerifier.verify(
         finalText: '「项目构建具体卡在哪个步骤？」',
+        sourceExpressionConfirmed: true,
         plan: _plan(ConversationSpeechAct.ask, askAuthorized: true),
         sourceThought: _thought(),
       );

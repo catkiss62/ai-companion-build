@@ -9,6 +9,7 @@ import '../models/public_web_candidate.dart';
 import '../storage/secure_config.dart';
 import 'layered_public_web_provider.dart';
 import 'public_web_deepseek_appraiser.dart';
+import 'public_web_share_contract.dart';
 import 'web_page_evidence.dart';
 
 typedef WebCandidateReader =
@@ -37,6 +38,87 @@ class PublicWebReadService {
       page.isVerifiedRead &&
       WebPageEvidence.rejection(page.pageBody) == null &&
       (page.semanticState == 'valid' || page.semanticState == 'history_only');
+
+  /// Reading and prompt capture use the same consumer identity. A selected
+  /// old Thought may refer to active historical knowledge, never to a new
+  /// share simply because its page was selected again.
+  Future<PublicWebPromptBundle> preparePromptBundle({
+    Iterable<String> candidateIds = const [],
+    Iterable<String> historicalKnowledgeIds = const [],
+    String? selectedShareCandidateId,
+    String? selectedShareThoughtId,
+    String query = '',
+    GenerationCancellationToken? cancellation,
+    int limit = 5,
+    void Function(AgentToolActivity)? onActivity,
+  }) async {
+    cancellation?.throwIfCancelled();
+    if (workFence != null && !await db.brainWorkFenceCurrent(workFence!)) {
+      return const PublicWebPromptBundle();
+    }
+    final candidates = candidateIds.map((id) => id.trim().toLowerCase())
+        .where((id) => id.isNotEmpty).toSet();
+    final historical = historicalKnowledgeIds.map((id) => id.trim().toLowerCase())
+        .where((id) => id.isNotEmpty).toSet();
+    final shareId = selectedShareCandidateId?.trim().toLowerCase();
+    final handle = await db.database;
+    final selection = await handle.transaction((txn) async {
+      final candidateReads = <String>[], historicalReads = <String>[];
+      final now = DateTime.now();
+      for (final id in <String>{...candidates, ...historical}) {
+        if (candidateReads.length + historicalReads.length >= limit.clamp(1, 5)) break;
+        final rows = await txn.query('public_web_candidates',
+            where: 'id = ?', whereArgs: [id], limit: 1);
+        if (rows.isEmpty) continue;
+        final row = rows.single;
+        if (id == shareId) {
+          // An explicit new-share request must not fall back to history and
+          // accidentally deliver the same share twice.
+          if (selectedShareThoughtId != null && PublicWebSourceStamp.preparationEligible(
+              row, PublicWebSourceProfile.share, now)) {
+            final thoughts = await txn.query('thoughts',
+                where: 'id = ? AND source = ? AND topic_key = ?',
+                whereArgs: [selectedShareThoughtId, 'public_web_candidate:$id',
+                  'public_web_candidate:$id'], limit: 1);
+            if (thoughts.isNotEmpty &&
+                const {'active', 'fixation'}.contains(thoughts.single['lifecycle_state']) &&
+                ((thoughts.single['snoozed_until'] as num?)?.toInt() ?? 0) <= now.millisecondsSinceEpoch) {
+              candidateReads.add(id);
+            }
+          }
+          continue;
+        }
+        if (candidates.contains(id) && PublicWebSourceStamp.preparationEligible(
+            row, PublicWebSourceProfile.candidateContext, now)) {
+          candidateReads.add(id);
+          continue;
+        }
+        final activeKnowledge = (await txn.query('public_web_knowledge',
+            columns: ['candidate_id'], where: "candidate_id = ? AND lifecycle_state = 'active'",
+            whereArgs: [id], limit: 1)).isNotEmpty;
+        if (PublicWebSourceStamp.preparationEligible(row,
+            PublicWebSourceProfile.historicalKnowledge, now, knowledgeActive: activeKnowledge)) {
+          historicalReads.add(id);
+        }
+      }
+      return (candidateReads, historicalReads);
+    });
+    final ready = (await refreshIds([...selection.$1, ...selection.$2],
+        query: query, cancellation: cancellation, limit: limit,
+        onActivity: onActivity)).toSet();
+    cancellation?.throwIfCancelled();
+    if (workFence != null && !await db.brainWorkFenceCurrent(workFence!)) {
+      return const PublicWebPromptBundle();
+    }
+    // The transaction rechecks current lifecycle/material/knowledge state.
+    // A delete, revocation or competing share while reading stays excluded.
+    return db.publicWebPromptBundle(
+      candidateIds: selection.$1.where(ready.contains).toList(),
+      historicalKnowledgeIds: selection.$2.where(ready.contains).toList(),
+      selectedShareCandidateId: shareId,
+      selectedShareThoughtId: selectedShareThoughtId,
+    );
+  }
 
   Future<PublicWebCandidateDraft> read(
     PublicWebCandidateDraft source, {

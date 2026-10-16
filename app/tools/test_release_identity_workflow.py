@@ -50,8 +50,8 @@ elif name == 'apksigner':
     print('Signer #1 certificate SHA-256 digest: ' + actual.replace(':', '').lower())
 elif name == 'aapt':
     package = 'wrong.package' if scenario == 'wrong_package' else 'com.aicompanion.localfirst'
-    version = '0.42.103' if scenario == 'wrong_version' else '0.42.108'
-    code = '347' if scenario == 'wrong_code' else '352'
+    version = '0.42.103' if scenario == 'wrong_version' else '0.42.109'
+    code = '347' if scenario == 'wrong_code' else '353'
     print(f"package: name='{package}' versionCode='{code}' versionName='{version}'")
 elif name == 'gh':
     if args[:2] == ['release', 'view']:
@@ -107,7 +107,7 @@ def run(script, scenario, expect_success, kind):
         apk = base / 'app/build/app/outputs/flutter-apk/app-release.apk'
         apk.parent.mkdir(parents=True)
         apk.write_bytes(b'synthetic APK')
-        (base / 'app/pubspec.yaml').write_text('version: 0.42.108+352\n')
+        (base / 'app/pubspec.yaml').write_text('version: 0.42.109+353\n')
         (base / 'app/app-release.apk.sha256').write_text('fixture  app/build/app/outputs/flutter-apk/app-release.apk\n')
         env = {**os.environ, 'PATH': str(binary) + os.pathsep + os.environ['PATH'],
                'CASE': scenario, 'CERT': CERT, 'OTHER': OTHER,

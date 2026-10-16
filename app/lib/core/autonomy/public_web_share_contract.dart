@@ -35,22 +35,17 @@ class PublicWebSourceStamp {
     'uncertainties': strings(row['uncertainties_json']),
   });
 
-  static bool eligible(Map<String, Object?> row, PublicWebSourceProfile profile,
+  /// Select the legal consumer before spending work on a read. Material
+  /// validation still belongs to [eligible] after the read has completed.
+  static bool preparationEligible(Map<String, Object?> row,
+      PublicWebSourceProfile profile,
       DateTime now, {bool knowledgeActive = false}) {
-    if ((row['id'] as String? ?? '').isEmpty || row['read_state'] != 'verified') return false;
+    if ((row['id'] as String? ?? '').isEmpty) return false;
     final lifecycle = row['lifecycle_state'] as String? ?? '';
     if (const {'discarded', 'declined', 'user_deleted'}.contains(lifecycle)) return false;
-    final semantic = row['semantic_state'];
-    if (profile == PublicWebSourceProfile.share || profile == PublicWebSourceProfile.reflection) {
-      if (semantic != 'valid') return false;
-    } else if (semantic != 'valid' && semantic != 'history_only') { return false; }
     final recentReading = profile == PublicWebSourceProfile.wish ||
         profile == PublicWebSourceProfile.reflection;
-    if (recentReading) {
-      final readAt = (row['read_at'] as num?)?.toInt();
-      if (readAt == null || readAt > now.millisecondsSinceEpoch ||
-          readAt < now.subtract(const Duration(days: 14)).millisecondsSinceEpoch) return false;
-    } else if (profile != PublicWebSourceProfile.historicalKnowledge &&
+    if (!recentReading && profile != PublicWebSourceProfile.historicalKnowledge &&
         ((row['expires_at'] as num?)?.toInt() ?? 0) <= now.millisecondsSinceEpoch) return false;
     if (profile == PublicWebSourceProfile.share && (lifecycle != 'share_ready' ||
         ((row['share_score'] as num?)?.toDouble() ?? 0) < .68)) return false;
@@ -58,6 +53,22 @@ class PublicWebSourceStamp {
         const {'shared', 'share_staging'}.contains(lifecycle)) return false;
     if (profile == PublicWebSourceProfile.historicalKnowledge &&
         (!knowledgeActive || lifecycle == 'share_staging')) return false;
+    return true;
+  }
+
+  static bool eligible(Map<String, Object?> row, PublicWebSourceProfile profile,
+      DateTime now, {bool knowledgeActive = false}) {
+    if (!preparationEligible(row, profile, now, knowledgeActive: knowledgeActive) ||
+        row['read_state'] != 'verified') return false;
+    final semantic = row['semantic_state'];
+    if (profile == PublicWebSourceProfile.share || profile == PublicWebSourceProfile.reflection) {
+      if (semantic != 'valid') return false;
+    } else if (semantic != 'valid' && semantic != 'history_only') { return false; }
+    if (profile == PublicWebSourceProfile.wish || profile == PublicWebSourceProfile.reflection) {
+      final readAt = (row['read_at'] as num?)?.toInt();
+      if (readAt == null || readAt > now.millisecondsSinceEpoch ||
+          readAt < now.subtract(const Duration(days: 14)).millisecondsSinceEpoch) return false;
+    }
     if (const {PublicWebSourceProfile.share, PublicWebSourceProfile.candidateContext,
         PublicWebSourceProfile.historicalKnowledge}.contains(profile) &&
         WebPageEvidence.rejection(row['page_body'] as String? ?? '') != null) return false;

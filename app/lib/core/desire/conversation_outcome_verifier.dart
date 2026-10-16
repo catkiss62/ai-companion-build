@@ -120,41 +120,19 @@ class ConversationOutcomeVerifier {
     '对我来说',
     '我的看法',
   };
-  static const _genericPhrases = <String>{
-    '我想知道',
-    '我很好奇',
-    '想知道',
-    '好奇',
-    '想问',
-    '不明白',
-    '不知道',
-    '为什么',
-    '怎么回事',
-    '发生了什么',
-    '究竟',
-    '到底',
-    '最近',
-    '现在',
-    '刚才',
-    '这个',
-    '那个',
-    '事情',
-    '一下',
-    '继续',
-    '用户',
-  };
-
   static ConversationExpressionVerification verify({
     required String finalText,
     required ConversationInitiativePlan plan,
     CompanionThought? sourceThought,
+    bool sourceExpressionConfirmed = false,
   }) {
     final question = InformationSeekingQuestionGuard.evaluate(
       text: finalText,
       askAuthorized: plan.askAuthorized,
     );
-    final sourceMatched = sourceThought != null &&
-        _semanticallyMatches(sourceThought.text, finalText);
+    // Only a semantic check of this final visible reply can settle a Thought.
+    // A proposed topic, generic source text or character overlap is not proof.
+    final sourceMatched = sourceThought != null && sourceExpressionConfirmed;
     final plannedActExpressed = switch (plan.speechAct) {
       ConversationSpeechAct.ask => question.hasInformationRequest,
       ConversationSpeechAct.selfShare => sourceThought == null
@@ -205,45 +183,4 @@ class ConversationOutcomeVerifier {
   static bool _containsAny(String text, Set<String> markers) =>
       markers.any(text.contains);
 
-  static bool _semanticallyMatches(String source, String output) {
-    final sourceNormalized = _semanticText(source);
-    final outputNormalized = _semanticText(output);
-    if (sourceNormalized.length < 2 || outputNormalized.length < 2) {
-      return false;
-    }
-    final sourceThree = _hanNgrams(sourceNormalized, 3);
-    final outputThree = _hanNgrams(outputNormalized, 3);
-    if (sourceThree.intersection(outputThree).isNotEmpty) return true;
-    final sourceTwo = _hanNgrams(sourceNormalized, 2);
-    final outputTwo = _hanNgrams(outputNormalized, 2);
-    if (sourceTwo.intersection(outputTwo).length >= 2) return true;
-    final sourceWords = _asciiWords(sourceNormalized);
-    final outputWords = _asciiWords(outputNormalized);
-    return sourceWords.intersection(outputWords).isNotEmpty;
-  }
-
-  static String _semanticText(String value) {
-    var normalized = value.toLowerCase();
-    for (final phrase in _genericPhrases) {
-      normalized = normalized.replaceAll(phrase, '');
-    }
-    return normalized.replaceAll(RegExp(r'[^a-z0-9\u4e00-\u9fff]+'), '');
-  }
-
-  static Set<String> _hanNgrams(String value, int width) {
-    final result = <String>{};
-    for (final match in RegExp(r'[\u4e00-\u9fff]+').allMatches(value)) {
-      final run = match.group(0)!;
-      if (run.length < width) continue;
-      for (var index = 0; index <= run.length - width; index += 1) {
-        result.add(run.substring(index, index + width));
-      }
-    }
-    return result;
-  }
-
-  static Set<String> _asciiWords(String value) => RegExp(r'[a-z0-9]{3,}')
-      .allMatches(value)
-      .map((match) => match.group(0)!)
-      .toSet();
 }

@@ -2015,6 +2015,7 @@ $finalGenerationReminder
         if (!deliveryCandidates.any((c) => c.resultId == claim.resultId)) deliveryCandidates.add(claim);
       }
       var verifiedDeliveries = <CedarDeliveryClaim>[];
+      var sourceExpressionConfirmed = false;
       PlayfulSelfActivity? selfActivity;
       try {
         selfActivity = await selfJudge.classify(
@@ -2024,6 +2025,8 @@ $finalGenerationReminder
           assistantText: assistant.promptContent,
           deliveryCandidates: deliveryCandidates,
           onDeliveryVerified: (claims) => verifiedDeliveries = claims,
+          thoughtCandidate: promptBuild.selectedThoughtEvidence,
+          onThoughtExpressionVerified: (confirmed) => sourceExpressionConfirmed = confirmed,
           recentContext: previous.reversed
               .take(4)
               .toList(growable: false)
@@ -2038,6 +2041,12 @@ $finalGenerationReminder
       } catch (_) {
         // Optional heat accounting must not invalidate a natural reply.
       }
+      expressionVerification = ConversationOutcomeVerifier.verify(
+        finalText: assistant.promptContent,
+        plan: conversationPlan,
+        sourceThought: sourceConversationThought,
+        sourceExpressionConfirmed: sourceExpressionConfirmed,
+      );
       // Detection is pure; persistence happens only after the winning
       // durable commit below.
       final assistantSomaticEvents = somaticEngine.assistantCommitEvents(
