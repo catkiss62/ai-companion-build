@@ -362,8 +362,18 @@ class CedarAgentActionPlanner {
     DeepSeekToolCall call, {
     required String expectedGameId,
   }) {
+    // Local review metadata must never consume one of the six executable
+    // argument slots, regardless of JSON property order.
+    var executableCall = call;
+    try {
+      final decoded = jsonDecode(call.arguments);
+      if (decoded is Map && decoded.containsKey('arrangement_reviews_json')) {
+        final business = Map<String, dynamic>.from(decoded)..remove('arrangement_reviews_json');
+        executableCall = DeepSeekToolCall(id: call.id, name: call.name, arguments: jsonEncode(business));
+      }
+    } catch (_) { /* Preserve malformed-call rejection in the normal parser. */ }
     final plan = AgentToolPlanner.fromNativeToolCalls(
-      <DeepSeekToolCall>[call],
+      <DeepSeekToolCall>[executableCall],
       origin: AgentToolOrigin.autonomous,
       latestUserText: '继续当前 Cedar 游戏',
       cedarSessionActive: true,

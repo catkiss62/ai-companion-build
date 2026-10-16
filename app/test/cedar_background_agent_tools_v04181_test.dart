@@ -120,15 +120,18 @@ void main() {
     expect(missing, contains('game_type'));
   });
 
-  test('background action accepts a native play call with empty model body',
+  for (final reviewFirst in [true, false]) {
+  test('background action accepts a native play call with empty model body; reviewFirst=$reviewFirst',
       () async {
     Map<String, dynamic>? requestBody;
     final client = DeepSeekClient(
       streamClientFactory: () => MockClient((request) async {
         requestBody = jsonDecode(request.body) as Map<String, dynamic>;
         return http.Response(
-          _toolResponse({..._decision(), 'share_previous_outcome': true,
-            'arrangement_reviews_json':jsonEncode([{'id':'plan-one','event_id':'event-one'}])}),
+          _toolResponse({
+            if (reviewFirst) 'arrangement_reviews_json':jsonEncode([{'id':'plan-one','event_id':'event-one'}]),
+            ..._decision(), 'share_previous_outcome': true,
+            if (!reviewFirst) 'arrangement_reviews_json':jsonEncode([{'id':'plan-one','event_id':'event-one'}])}),
           200,
           headers: const {'content-type': 'text/event-stream'},
         );
@@ -159,6 +162,8 @@ void main() {
     );
     client.close();
   });
+
+  }
 
   test('repeated read-only state is rejected then replanned as a move',
       () async {

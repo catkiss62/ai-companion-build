@@ -16,6 +16,8 @@ assert 'arrangement_save_epochs' in activity
 assert 'arrangementStore.captureReview(session)' in planner
 assert 'await arrangementStore.completeReviewed(arrangements, decision.arrangementReviews)' in planner
 assert '_parseArrangementReviews(call.arguments)' in planner
+assert "..remove('arrangement_reviews_json')" in planner
+assert '<DeepSeekToolCall>[executableCall]' in planner
 assert "usageLane: 'cedar_background_plan'" in planner
 assert 'cedar_game_arrangements_v042110_test.dart' in (root.parent/'.github/workflows/system-logic-validation.yml').read_text()
 assert 'game_arrangement' not in read('lib/core/database/app_database.dart') # generic source isolation, no game-specific table
