@@ -18,5 +18,8 @@ assert 'await arrangementStore.completeReviewed(arrangements, decision.arrangeme
 assert '_parseArrangementReviews(call.arguments)' in planner
 assert "usageLane: 'cedar_background_plan'" in planner
 assert 'cedar_game_arrangements_v042110_test.dart' in (root.parent/'.github/workflows/system-logic-validation.yml').read_text()
-assert 'game_arrangement' not in read('lib/core/database/app_database.dart') # existing schema, no second memory table
+assert 'game_arrangement' not in read('lib/core/database/app_database.dart') # generic source isolation, no game-specific table
+assert 'isolateSourceIdentity:true' in store
+assert 'source_bound_identity_v1' in read('lib/core/database/app_database.dart')
+assert "'lifecycle_source':'game_arrangement_source_v1'" in store
 print('game arrangements: original sources, captured game/save, late real result and existing-request wiring passed')

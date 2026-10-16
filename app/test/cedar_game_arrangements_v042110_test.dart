@@ -157,9 +157,36 @@ void main() {
     final bundle=await review();
     expect(await store.completeReviewed(bundle,[{'id':bundle.items.single.id,'event_id':'new-plant'}]),1);
     expect((await item()).factState,'completed');
+    expect((await item()).content,startsWith('已履行'));
     expect((await review()).items,isEmpty);
     expect(await apply([p]),0);
     expect(await (await db.database).query('memory_items'),hasLength(1));
+  });
+
+  test('a real read result may settle an explicit viewing goal',() async {
+    assistant=assistant.copyWith(content:'下次我去看看盆3的花开了没有。');
+    await (await db.database).update('messages',assistant.toDb(),where:'id = ?',whereArgs:[assistant.id]);
+    sources['assistant']=(await ConversationSourceStore.qualifyMessage(await db.database,assistant.id))!.toJson();
+    final p=proposal()..['text']='下次查看盆3是否开花。'..['completion_basis']='state';
+    expect(await apply([p]),1);
+    session=session.copyWith(events:[...session.events,event('new-view',action:'status')]);await saveSession(session);
+    final bundle=await review();
+    expect(await store.completeReviewed(bundle,[{'id':bundle.items.single.id,'event_id':'new-view'}]),1);
+    expect((await item()).content,startsWith('已履行'));
+  });
+
+  test('identical wording in another save stays separate from this arrangement',() async {
+    expect(await apply([proposal()]),1);
+    session=session.copyWith(events:[...session.events,event('slot-two',slot:2,at:origin.subtract(const Duration(minutes:1)))]);
+    await saveSession(session);
+    context=(await store.captureExtraction(context.fence,assistant.createdAt))!;
+    expect(await apply([proposal()]),1);
+    expect((await review()).items,hasLength(1));
+    expect(await (await db.database).query('memory_items'),hasLength(2));
+    await db.insertMemory(kind:'shared_experience',content:proposal()['text'] as String,importance:.6,
+      source:'ordinary-memory',factState:'completed');
+    expect((await review()).items,hasLength(1),reason:'ordinary exact-text reinforcement cannot settle a game goal');
+    expect(await (await db.database).query('memory_items'),hasLength(3));
   });
 
   test('an operation before the spoken plan cannot count as its fulfillment',() async {
@@ -168,10 +195,12 @@ void main() {
     expect((await item()).factState,'ongoing');
   });
 
-  for(final kind in ['failed','business-failed','unknown','read-only']) {
+  for(final kind in ['failed','business-failed','unknown','read-only','empty-result']) {
     test('$kind result does not falsely complete the plan',() async {
       expect(await apply([proposal()]),1);
-      final e=event('invalid-result',failed:kind=='failed',success:kind!='business-failed',action:kind=='read-only'?'status':'cmd');
+      final e=kind=='empty-result'?CedarGameEvent(id:'invalid-result',kind:'outcome',summary:'远端没有返回可展示的内容。',
+        createdAt:DateTime.now(),action:'cmd',inputJson:jsonEncode({'slot':1,'command':'plant daisy 3'})):
+        event('invalid-result',failed:kind=='failed',success:kind!='business-failed',action:kind=='read-only'?'status':'cmd');
       session=session.copyWith(events:[...session.events,e]);await saveSession(session);
       final bundle=await review();
       expect(await store.completeReviewed(bundle,[{'id':bundle.items.single.id,'event_id':kind=='unknown'?'missing-event':e.id}]),0);

@@ -9055,6 +9055,7 @@ class AppDatabase {
     String? recallPolicy,
     double? spontaneousSalience,
     String evidenceMode = 'auto',
+    bool isolateSourceIdentity = false,
     String? targetMemoryId,
     MemoryRevisionSnapshot? expectedTarget,
     String revisionKind = '',
@@ -9368,11 +9369,16 @@ class AppDatabase {
       }
 
       // Exact duplicate remains a deterministic local fallback even when the
-      // extraction model did not emit an explicit reinforce target.
+      // extraction model did not emit an explicit reinforce target. Source-bound
+      // identities may share wording across saves and must not merge each other
+      // or be rewritten by an ordinary exact-text reinforcement.
       final duplicate = await txn.query(
         'memory_items',
-        where: 'kind = ? AND content = ? AND status = ? AND source_valid = 1',
-        whereArgs: [kind, normalized, 'active'],
+        where: 'kind = ? AND content = ? AND status = ? AND source_valid = 1 '
+          'AND (tags NOT LIKE ? OR (source = ? AND subject_key = ?))'
+          '${isolateSourceIdentity ? ' AND source = ? AND subject_key = ?' : ''}',
+        whereArgs: [kind, normalized, 'active', '%source_bound_identity_v1%', source, normalizedSubject,
+          if (isolateSourceIdentity) ...[source, normalizedSubject]],
         limit: 1,
       );
       if (!isRevision && duplicate.isNotEmpty) {
@@ -9436,7 +9442,8 @@ class AppDatabase {
         'content': normalized,
         'importance': importance.clamp(0.0, 1.0),
         'confidence': confidence.clamp(0.0, 1.0),
-        'tags': (tags.isEmpty && revisionTarget != null ? revisionTarget.tags : tags).take(12).join('|'),
+        'tags': <String>{if (isolateSourceIdentity) 'source_bound_identity_v1',
+          ...(tags.isEmpty && revisionTarget != null ? revisionTarget.tags : tags)}.take(12).join('|'),
         'source': source,
         'status': 'active',
         'subject_key': normalizedSubject,

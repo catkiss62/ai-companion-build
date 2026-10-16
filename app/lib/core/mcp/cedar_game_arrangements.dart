@@ -196,7 +196,7 @@ user安排须逐字user_quote；ai自己的打算须逐字assistant_quote；shar
             whereArgs:['game_arrangement:${assistant.id}@r${a.stamp.revision}','game_plan.${scope.id.substring(0,12)}.$topic'],limit:1)).isNotEmpty)continue;
           if((await _items(txn)).any((m)=>metadata(m)['scope_id']==scope.id && m.subjectKey=='game_plan.${scope.id.substring(0,12)}.$topic'))continue;
           final inserted=await db.insertMemory(kind:'shared_experience',content:text,importance:.64,confidence:.9,
-            tags:const [tag],source:'game_arrangement:${assistant.id}@r${a.stamp.revision}',
+            isolateSourceIdentity:true,tags:const [tag],source:'game_arrangement:${assistant.id}@r${a.stamp.revision}',
             subjectKey:'game_plan.${scope.id.substring(0,12)}.$topic',topicKey:'game_plan.${scope.game}',
             semanticType:'shared_experience',actorKey:actor as String,ownerKey:actor,
             relationKey:'plans',objectKey:'game.${scope.game}.slot_${scope.slot}',temporalScope:'scheduled',
@@ -205,6 +205,12 @@ user安排须逐字user_quote；ai自己的打算须逐字assistant_quote；shar
             sourceContextJson:jsonEncode({...MemorySourceContext.decode(MemorySourceContext.capture(user,assistant)),metadataKey:meta}),
             sourceObservedAt:formedAt,sourceGuard:(_) async=>await fence.matches(txn)&&await u.matches(txn)&&await a.matches(txn),transaction:txn);
           if(inserted) {
+            // Generic prose completion checks cannot settle a future goal such
+            // as ‘种下后完成’. Only the real-result review below can do that.
+            await txn.update('memory_items',{'fact_state':'ongoing','attention_state':'snoozed',
+              'recall_policy':'contextual','spontaneous_salience':0.0,'lifecycle_source':'game_arrangement_source_v1'},
+              where:'source = ? AND subject_key = ?',
+              whereArgs:['game_arrangement:${assistant.id}@r${a.stamp.revision}','game_plan.${scope.id.substring(0,12)}.$topic']);
             await txn.insert('settings',{'key':receipt,'value':'1'},conflictAlgorithm:ConflictAlgorithm.replace);
             accepted++;
           }
@@ -212,7 +218,7 @@ user安排须逐字user_quote；ai自己的打算须逐字assistant_quote；shar
           final cancelled=action=='cancel';
           // The original source remains part of the authority chain after a change.
           meta['origin_sources']=metadata(old)['origin_sources'] ?? {'user_source':metadata(old)['user_source'],'assistant_source':metadata(old)['assistant_source']};
-          await txn.update('memory_items',{'content':cancelled?old.content:text,
+          await txn.update('memory_items',{'content':cancelled?'已取消的游戏安排：${old.content}':text,
             'source_context_json':jsonEncode({...MemorySourceContext.decode(old.sourceContextJson),metadataKey:meta}),
             'fact_state':cancelled?'cancelled':'ongoing','attention_state':cancelled?'closed':'snoozed',
             'actor_key':authority,'owner_key':authority,'fact_version':old.factVersion+1,'updated_at':DateTime.now().millisecondsSinceEpoch},where:'id = ?',whereArgs:[old.id]);
@@ -224,7 +230,7 @@ user安排须逐字user_quote；ai自己的打算须逐字assistant_quote；shar
   }
 
   static bool successfulReceipt(CedarGameEvent event) {
-    if(event.kind!='outcome'||event.summary.trim().isEmpty||
+    if(event.kind!='outcome'||event.summary.trim().isEmpty||event.summary=='远端没有返回可展示的内容。'||
       CedarPlatformActionPolicy.isPlatformAction(event.action)||CedarSaveSlotPolicy.isNewOrResetAction(event.action))return false;
     return CedarGameResultPolicy.succeeded(event.summary);
   }
@@ -274,7 +280,7 @@ user安排须逐字user_quote；ai自己的打算须逐字assistant_quote；shar
         final data=MemorySourceContext.decode(current.sourceContextJson);
         data[metadataKey]={...metadata(current),'completion':{'kind':'verified_game_result','event_id':event.id,
           'at':event.createdAt.millisecondsSinceEpoch,'action':event.action,'input':event.inputJson,'result':event.summary}};
-        await txn.update('memory_items',{'fact_state':'completed','attention_state':'closed',
+        await txn.update('memory_items',{'content':'已履行此前的游戏安排：${current.content}','fact_state':'completed','attention_state':'closed',
           'source_context_json':jsonEncode(data),'updated_at':DateTime.now().millisecondsSinceEpoch,
           'fact_version':current.factVersion+1},where:'id = ?',whereArgs:[current.id]);count++;
       }
