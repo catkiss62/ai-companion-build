@@ -21,6 +21,9 @@ Future<void> migrateSpokenDialogueDefaultV042108(Database db) async {
       '0af88f096e3b50d4d1c10574982400c18d17465d02a1202259a42fcc9a4d8697',
       '399dbcade44c15ce4af3f215df27ed193de04991644371dbbd79f2caabed8f11',
       '13189a1fcb24f10eb071f455356ffd902d3eafa1abb8466a28580b768bf9a393',
+      // Prior approved spoken draft: user requested 本鱼 -> 我 in one example.
+      'c0340214e87ce075427bf3e7a3ecbfb6db8bf9508a8a63692ed91387b9031005',
+      'a295a008653cb2234f5182aca27f02ca0f75895914a214f9ce6cfd3d99f8e721',
     };
     final rows = await txn.query('reference_documents',
       columns: ['id', 'raw_content'],

@@ -1,3 +1,6 @@
+import 'dart:convert';
+
+import 'package:crypto/crypto.dart';
 import 'package:ai_companion_localfirst/core/database/spoken_dialogue_default_migration.dart';
 import 'package:ai_companion_localfirst/core/reference/world_book_content_v04156_user.dart';
 import 'package:ai_companion_localfirst/core/reference/world_book_presets.dart';
@@ -35,6 +38,8 @@ void main() {
     expect(preset.name, '角色表达自然化');
     expect(preset.content, worldBookSpokenDialogueV042108);
     expect(preset.content, startsWith('# 对白的口语表达'));
+    expect(preset.content, contains('既然靠垫已经就绪，那我就勉为其难去验收一下弹性。'));
+    expect(preset.content, isNot(contains('本鱼')));
     expect(preset.priority, 1000);
     expect(preset.activationMode, 'always');
     expect(preset.scope, 'all');
@@ -61,6 +66,26 @@ void main() {
     final before = await db.query('reference_documents', orderBy: 'id');
     await migrateSpokenDialogueDefaultV042108(db);
     expect(await db.query('reference_documents', orderBy: 'id'), before);
+  });
+
+  test('the exact previous spoken draft receives the requested first-person correction', () async {
+    final previous = worldBookSpokenDialogueV042108.replaceFirst(
+      '既然靠垫已经就绪，那我就勉为其难去验收一下弹性。',
+      '既然靠垫已经就绪，那本鱼就勉为其难去验收一下弹性。');
+    // Pin the whole earlier draft, so this fixture cannot silently change
+    // along with the new default in a future edit.
+    expect(sha256.convert(utf8.encode(previous)).toString(),
+      'c0340214e87ce075427bf3e7a3ecbfb6db8bf9508a8a63692ed91387b9031005');
+    await insert('previous-draft', previous);
+    await insert('previous-draft-newline', '$previous\n');
+    await migrateSpokenDialogueDefaultV042108(db);
+    for (final id in ['previous-draft', 'previous-draft-newline']) {
+      final updated = await row(id);
+      expect(updated['raw_content'], worldBookSpokenDialogueV042108);
+      expect(updated['enabled'], 0);
+      expect(updated['priority'], 432);
+      expect(updated['scope'], 'chat');
+    }
   });
 
   test('migration marker preserves later user edits and never recreates a row', () async {
