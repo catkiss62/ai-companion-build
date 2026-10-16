@@ -49,6 +49,8 @@ jobs:
           test/proactive_source_fence_g3_test.dart
           test/public_web_atomic_delivery_g3_review_test.dart
           test/public_web_share_g3_test.dart
+          test/cedar_game_arrangements_v042110_test.dart
+          test/cedar_background_agent_tools_v04181_test.dart
           test/web_prompt_history_v042109_test.dart
           test/thought_expression_v042109_test.dart
           test/conversation_responsibility_ablation_v04121_test.dart

@@ -167,3 +167,4 @@ tools/validate_v04275_daily_wake.py
 tools/validate_v04280_connection_retirement.py
 
 tools/validate_v04290_pet_retouched_assets.py
+tools/validate_v042110_game_arrangements.py

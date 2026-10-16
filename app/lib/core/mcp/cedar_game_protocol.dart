@@ -500,3 +500,21 @@ class CedarGameAdvicePolicy {
         : '${clean.substring(0, maxNoteChars)}…';
   }
 }
+
+
+/// MCP transport success can still contain an explicit business failure.
+class CedarGameResultPolicy {
+  static bool succeeded(String text) {
+    var raw=text.trim();
+    const marker='[MCP_STRUCTURED_CONTENT]';
+    if(raw.contains(marker))raw=raw.substring(raw.lastIndexOf(marker)+marker.length).trim();
+    if(raw.isEmpty)return false;
+    if(!raw.startsWith('{')&&!raw.startsWith('['))return true;
+    try {
+      final v=jsonDecode(raw);
+      if(v is! Map)return false;
+      return v['ok']!=false&&v['success']!=false&&
+        (v['error']==null||v['error']==false||v['error']=='');
+    } catch(_){return false;}
+  }
+}

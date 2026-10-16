@@ -37,6 +37,7 @@ import 'cedar_play_transition_log.dart';
 import 'cedar_timed_play_task.dart';
 import 'cedar_live_share_policy.dart';
 import 'cedar_conversation_context.dart';
+import 'cedar_game_arrangements.dart';
 import 'mcp_protocol.dart';
 import 'mcp_http_client.dart';
 import 'mcp_turn_state_resolver.dart';
@@ -180,6 +181,7 @@ class CedarAgentActionDecision {
     required this.mode,
     required this.invitationApproved,
     this.sharePreviousOutcome = false,
+    this.arrangementReviews = const [],
   });
 
   final String gameId;
@@ -188,6 +190,7 @@ class CedarAgentActionDecision {
   final CedarParticipationMode mode;
   final bool invitationApproved;
   final bool sharePreviousOutcome;
+  final List<Object?> arrangementReviews;
 }
 
 class CedarAgentActionPlanningException implements Exception {
@@ -306,6 +309,8 @@ class CedarAgentActionPlanner {
       'description': '只判断已落库的前面游戏进展是否有值得分享的新内容；无新发现、重复小收益或仍有待发分享则false。当前准备执行的动作不算结果。',
     };
 
+    properties['arrangement_reviews_json'] = const <String, Object?>{
+      'type':'string','description':'仅核对已提供的口头安排和已落库真实结果；确定完成时填 JSON 数组 [{id,event_id}]，否则 []。不包括这次准备执行的动作。'};
     (parameters['required'] as List).add('share_previous_outcome');
     final accumulator = AgentNativeToolCallAccumulator();
     var completed = false;
@@ -400,7 +405,17 @@ class CedarAgentActionPlanner {
       mode: mode,
       invitationApproved: invitationApproved,
       sharePreviousOutcome: arguments['share_previous_outcome'] == 'true',
+      arrangementReviews: _parseArrangementReviews(call.arguments),
     );
+  }
+
+  static List<Object?> _parseArrangementReviews(String rawCall) {
+    try {
+      final call=jsonDecode(rawCall);
+      final raw=call is Map?call['arrangement_reviews_json']:null;
+      if(raw is! String||raw.length>2400)return const [];
+      final value=jsonDecode(raw); return value is List?value.take(4).toList():const [];
+    } catch(_){return const [];}
   }
 
   static bool _isRetryable(Object error) =>
@@ -1760,6 +1775,8 @@ $catalog''',
     final dreamContext = await DreamStore(db).prompt(game: true);
     final wishContext = await WishStore(db).prompt(gameId: session.gameId, now: now);
     final conversationContext = await CedarConversationContext.load(db, now);
+    final arrangementStore = CedarGameArrangementStore(db);
+    final arrangements = await arrangementStore.captureReview(session);
     final decision = await CedarAgentActionPlanner(
       ai: ai,
       onRetry: (error) => _recordAgentActionRetry(error),
@@ -1814,8 +1831,11 @@ ${store.promptContext(session, state: state, playProtocol: playProtocol)}
 $shareContext
 $dreamContext
 $wishContext
-$conversationContext''',
+$conversationContext
+${arrangements.prompt}''',
     );
+    scope.throwIfPreempted();
+    await arrangementStore.completeReviewed(arrangements, decision.arrangementReviews);
     scope.throwIfPreempted();
     // Participation is session identity. Once established, do not let a fresh
     // planner pass reinterpret a solo game as co-play (or the reverse).

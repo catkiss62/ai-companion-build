@@ -212,6 +212,7 @@ class CedarGameSession {
     this.seenRoomMessageKeys = const <String>[],
     this.ownRoomAliases = const <String>[],
     this.adviceNotes = const <String>[],
+    this.arrangementSaveEpochs = const <String, String>{},
     this.pendingTerminalKey = '',
     this.pendingTerminalSummary = '',
     this.pauseSource = '',
@@ -247,6 +248,7 @@ class CedarGameSession {
   final List<String> seenRoomMessageKeys;
   final List<String> ownRoomAliases;
   final List<String> adviceNotes;
+  final Map<String, String> arrangementSaveEpochs;
   final String pendingTerminalKey;
   final String pendingTerminalSummary;
   final String pauseSource;
@@ -312,6 +314,7 @@ class CedarGameSession {
     List<String>? seenRoomMessageKeys,
     List<String>? ownRoomAliases,
     List<String>? adviceNotes,
+    Map<String, String>? arrangementSaveEpochs,
     String? pendingTerminalKey,
     String? pendingTerminalSummary,
     bool clearPendingTerminal = false,
@@ -351,6 +354,7 @@ class CedarGameSession {
             seenRoomMessageKeys ?? this.seenRoomMessageKeys,
         ownRoomAliases: ownRoomAliases ?? this.ownRoomAliases,
         adviceNotes: adviceNotes ?? this.adviceNotes,
+        arrangementSaveEpochs: arrangementSaveEpochs ?? this.arrangementSaveEpochs,
         pendingTerminalKey: clearPendingTerminal
             ? ''
             : pendingTerminalKey ?? this.pendingTerminalKey,
@@ -384,6 +388,7 @@ class CedarGameSession {
         'seen_room_message_keys': seenRoomMessageKeys,
         'own_room_aliases': ownRoomAliases,
         'advice_notes': adviceNotes,
+        'arrangement_save_epochs': arrangementSaveEpochs,
         'pending_terminal_key': pendingTerminalKey,
         'pending_terminal_summary': pendingTerminalSummary,
         'pause_source': pauseSource,
@@ -427,6 +432,9 @@ class CedarGameSession {
               ?.map((item) => item.toString())
               .toList(growable: false) ??
             const <String>[],
+      arrangementSaveEpochs: (json['arrangement_save_epochs'] is Map)
+          ? (json['arrangement_save_epochs'] as Map).map((k,v)=>MapEntry(k.toString(),v.toString()))
+          : const <String, String>{},
       adviceNotes: (json['advice_notes'] as List?)
               ?.map((item) => item.toString())
               .where((item) => item.trim().isNotEmpty)
@@ -1536,7 +1544,16 @@ class CedarToyActivityStore {
             maxEventSummaryChars,
           )
         : '';
+    final arrangementEpochs = Map<String, String>.from(existing.arrangementSaveEpochs);
+    final resetSuccessful = !outcome.isError && CedarGameResultPolicy.succeeded(fullText);
+    if (resetSuccessful && RegExp(r'(?:^|[_.:-])(new|reset|import)$', caseSensitive: false).hasMatch(action)) {
+      final rawSlot = submittedParams['slot'] ?? 1;
+      final slot = CedarSaveSlotPolicy.supportsFiveSlots(existing.guide)
+          ? (rawSlot is num && rawSlot == rawSlot.toInt() && rawSlot >= 1 && rawSlot <= 5 ? '${rawSlot.toInt()}' : '') : 'session';
+      if (slot.isNotEmpty) arrangementEpochs[slot] = event.id;
+    }
     final next = existing.copyWith(
+      arrangementSaveEpochs: arrangementEpochs,
       mode: mode,
       // An explicit MCP error means this action did not succeed; it is a
       // recoverable service result, not proof that the durable game ended.

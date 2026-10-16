@@ -127,7 +127,8 @@ void main() {
       streamClientFactory: () => MockClient((request) async {
         requestBody = jsonDecode(request.body) as Map<String, dynamic>;
         return http.Response(
-          _toolResponse({..._decision(), 'share_previous_outcome': true}),
+          _toolResponse({..._decision(), 'share_previous_outcome': true,
+            'arrangement_reviews_json':jsonEncode([{'id':'plan-one','event_id':'event-one'}])}),
           200,
           headers: const {'content-type': 'text/event-stream'},
         );
@@ -143,6 +144,8 @@ void main() {
     );
 
     expect(result.sharePreviousOutcome, isTrue);
+    expect(result.arrangementReviews,[{'id':'plan-one','event_id':'event-one'}]);
+    expect(result.params,isNot(contains('arrangement_reviews_json')));
     expect(result.gameId, 'duel');
     expect(result.action, 'move');
     expect(result.mode, CedarParticipationMode.multiplayer);
