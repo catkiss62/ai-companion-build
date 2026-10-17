@@ -134,7 +134,8 @@ void main() {
       if(invalid=='quote')p['assistant_quote']='我从未说过的计划';
       if(invalid=='role')p['actor']='external';
       if(invalid=='completion')p['action']='complete';
-      expect(await apply([p]),0);expect(await (await db.database).query('memory_items'),isEmpty);
+      expect(await apply([p]),0);expect(await store.notes(),isEmpty);
+      expect(await (await db.database).query('memory_items'),isEmpty);
     });
   }
 
@@ -225,7 +226,7 @@ void main() {
     expect(await store.completeReviewed(bundle,[{'id':bundle.items.single.id,'event_id':'new-plant'}]),0);
   });
 
-  test('stop, slot change and changed memory invalidate an in-flight completion',() async {
+  test('stop and user deletion invalidate an in-flight completion',() async {
     expect(await apply([proposal()]),1);
     session=session.copyWith(events:[...session.events,event('new-plant')]);await saveSession(session);
     final bundle=await review();
@@ -247,7 +248,7 @@ void main() {
     final fence=(await db.captureBrainWorkFence())!;
     context=(await store.captureExtraction(fence,assistant.createdAt))!;
     expect(await apply([proposal(operation:'cancel',target:old.id)]),0);
-    expect(await apply([proposal(actor:'user',operation:'cancel',target:old.id)]),1);
+    expect(await apply([proposal(actor:'user',operation:'cancel')]),1);
     expect((await item()).factState,'cancelled');expect((await review()).items,isEmpty);
   });
 
@@ -323,6 +324,14 @@ void main() {
       source:'game_arrangement:invalid',tags:const [CedarGameArrangementStore.tag],factState:'ongoing',
       sourceContextJson:jsonEncode({CedarGameArrangementStore.metadataKey:{'version':1}}));
     expect(await store.migrateLegacy(),0);expect(await store.notes(),isEmpty);
+  });
+
+  test('user deletion works while paused but honors exclusive restore ownership',() async {
+    expect(await apply([proposal()]),1);final note=await item();
+    await db.setSetting('active_brain','0');await db.setSetting('transfer_lock','1');
+    expect(await store.deleteNote(note.id),isFalse);
+    await db.setSetting('transfer_lock','0');
+    expect(await store.deleteNote(note.id),isTrue);expect(await store.notes(),isEmpty);
   });
 
 }

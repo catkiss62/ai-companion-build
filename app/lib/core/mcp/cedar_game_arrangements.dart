@@ -135,8 +135,10 @@ user安排须逐字user_quote，ai计划须逐字assistant_quote，shared须双�
   Future<List<CedarGameNote>> _items(DatabaseExecutor txn) async {
     final rows=await txn.query('settings',columns:['value'],where:'key >= ? AND key < ?',
       whereArgs:[notePrefix,'$notePrefix\uffff']);
-    return [for(final row in rows) if(_json(row['value'] as String)['id'] is String)
+    final notes=[for(final row in rows) if(_json(row['value'] as String)['id'] is String)
       CedarGameNote(_json(row['value'] as String))];
+    notes.sort((a,b)=>((b.metadata['formed_at'] as num?)??0).compareTo((a.metadata['formed_at'] as num?)??0));
+    return notes;
   }
   Future<CedarGameNote?> _get(DatabaseExecutor txn,String id) async {
     final data=_json(await BrainWorkFence.value(txn,'$notePrefix$id'));
@@ -184,7 +186,10 @@ user安排须逐字user_quote，ai计划须逐字assistant_quote，shared须双�
   Future<bool> deleteNote(String id) async {
     final sql=await db.database;
     return sql.transaction((txn) async {
-      if(!await BrainWorkFence.workAllowed(txn))return false;
+      // A user can delete while the companion is paused; transfer/recovery
+      // still owns the database exclusively.
+      if(await BrainWorkFence.value(txn,'transfer_lock')=='1'||
+        (await BrainWorkFence.value(txn,'snapshot_recovery_pending_v1')).isNotEmpty)return false;
       final note=await _get(txn,id);
       if(note==null)return false;
       // Tombstone blocks cached extraction and legacy migration resurrection.

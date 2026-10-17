@@ -167,7 +167,7 @@ class _CedarToySettingsPageState extends State<CedarToySettingsPage> {
     await showDialog<void>(context: context, builder: (dialogContext) =>
       StatefulBuilder(builder: (context, refresh) => AlertDialog(
         title: const Text('游戏记事本'),
-        content: SizedBox(width: 420, child: notes.isEmpty
+        content: SizedBox(width: 420, height: notes.isEmpty ? 72 : 360, child: notes.isEmpty
           ? const Text('暂无游戏约定。聊天中明确的游戏计划和偏好会记在这里。')
           : ListView(shrinkWrap: true, children: [
               const Text('待办会保留到实际完成或取消；持续偏好保持有效。'),
