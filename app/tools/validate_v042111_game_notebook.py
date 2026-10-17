@@ -7,7 +7,7 @@ extract=read('lib/core/ai/memory_extractor.dart')
 db=read('lib/core/database/app_database.dart')
 for token in ('migrateLegacy()', 'deleteNote(String id)', "'state':'deleted'", "'lifetime':'once'",
               'item.persistent', 'current.snapshot!=item.snapshot', 'verified_game_result',
-              "'state':'completed'", 'scope.matchesSession', 'origin_sources', 'fence.matches(txn)'):
+              "'state':'completed'", 'scope.matchesSession', 'origin_sources', 'fence.matches(txn)', 'deletionRevisionKey'):
     assert token in store, token
 assert 'actual_progress_before_reply' not in store
 assert 'db.insertMemory(' not in store

@@ -108,6 +108,7 @@ class CedarGameArrangementStore {
   static const tag = 'cedar_game_arrangement_v1'; // +354 migration identity.
   static const metadataKey = 'cedar_game_arrangement_v1';
   static const notePrefix = 'cedar_game_notebook_v1:';
+  static const deletionRevisionKey = 'cedar_game_notebook_delete_revision_v1';
   static const instruction = '''
 游戏记事本：在同一次整理中返回 game_arrangements 数组，和 memories 分开处理。只根据【刚发生的对话】提取本轮明确新增/改约/取消的游戏打算、双方约定或用户要求，包括AI明确提出的计划和持续游戏偏好/限制。玩笑、假设、已发生操作的复述不创建待办；不从旧经历补造约定，不猜坐标、存档或盆号。
 每项字段：action=remember/update/cancel，game（本轮明确提及的游戏名称或ID，没有则空字符串；手机只在能唯一匹配真实当前存档时接受），topic_key（稳定英文小写主题，1～60字符，a-z、0-9、下划线、点、连字符），text（具体内容），condition（条件，可空），lifetime=once/persistent（一次目标/持续偏好或限制），completion_basis=action/state，actor=user/ai/shared，executor=ai/user/shared/unknown，user_quote，assistant_quote。改约/取消复用同一具体主题；无法确定对应哪条不猜测。
@@ -194,6 +195,8 @@ user安排须逐字user_quote，ai计划须逐字assistant_quote，shared须双�
       if(note==null)return false;
       // Tombstone blocks cached extraction and legacy migration resurrection.
       await _put(txn,CedarGameNote({'id':id,'state':'deleted','version':(note.data['version'] as num? ?? 0).toInt()+1}));
+      final revision=int.tryParse(await BrainWorkFence.value(txn,deletionRevisionKey))??0;
+      await txn.insert('settings',{'key':deletionRevisionKey,'value':'${revision+1}'},conflictAlgorithm:ConflictAlgorithm.replace);
       return true;
     });
   }
@@ -208,7 +211,9 @@ user安排须逐字user_quote，ai计划须逐字assistant_quote，shared须双�
         if(item.factState=='ongoing'&&scopes.any((s)=>item.metadata['scope_id']==s.id)&&await _validMetadata(txn,item.metadata))items.add(item);
       }
       final active=scopes.where((s)=>s.game==state.activeGameId).firstOrNull;
-      return CedarArrangementExtraction(scopes,items,fence,activeScopeId:active?.id??'');
+      final noteFence=BrainWorkFence(identity:fence.identity,leaseKey:fence.leaseKey,leaseToken:fence.leaseToken,
+        expectedSettings:{...fence.expectedSettings,deletionRevisionKey:await BrainWorkFence.value(txn,deletionRevisionKey)});
+      return CedarArrangementExtraction(scopes,items,noteFence,activeScopeId:active?.id??'');
     });
   }
 
@@ -294,7 +299,7 @@ user安排须逐字user_quote，ai计划须逐字assistant_quote，shared须双�
   Future<CedarArrangementReviewBundle> captureReview(CedarGameSession session) async {
     await migrateLegacy();
     final fence=await db.captureBrainWorkFence(settingKeys:const ['conversation_context_reset_at','conversation_context_reset_count',
-      CedarToyActivityStore.controlRevisionKey,CedarToyActivityStore.userControlRevisionKey]);
+      CedarToyActivityStore.controlRevisionKey,CedarToyActivityStore.userControlRevisionKey,deletionRevisionKey]);
     if(fence==null)return const CedarArrangementReviewBundle();
     return await db.readSourceSnapshot(workFence:fence,read:(txn) async {
       final state=await _state(txn);

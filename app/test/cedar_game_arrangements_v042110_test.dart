@@ -334,4 +334,18 @@ void main() {
     expect(await store.deleteNote(note.id),isTrue);expect(await store.notes(),isEmpty);
   });
 
+  test('deleting a note rejects an already captured newer-turn remember proposal',() async {
+    expect(await apply([proposal()]),1);final old=await item();
+    user=ChatMessage(id:'pending-user',role:'user',content:'下次再种雏菊。',createdAt:origin.add(const Duration(minutes:3)));
+    assistant=ChatMessage(id:'pending-ai',role:'assistant',content:'好，下次我再去种雏菊。',createdAt:origin.add(const Duration(minutes:3,seconds:1)));
+    await db.insertMessage(user);await db.insertMessage(assistant);
+    final sql=await db.database;
+    sources={'user':(await ConversationSourceStore.qualifyMessage(sql,user.id))!.toJson(),
+      'assistant':(await ConversationSourceStore.qualifyMessage(sql,assistant.id))!.toJson()};
+    context=(await store.captureExtraction((await db.captureBrainWorkFence())!,assistant.createdAt))!;
+    await store.deleteNote(old.id);
+    expect(await apply([proposal()]),0,reason:'new source IDs cannot bypass a user deletion during the provider wait');
+    expect(await store.notes(),isEmpty);
+  });
+
 }
