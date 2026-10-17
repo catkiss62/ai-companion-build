@@ -1,744 +1,516 @@
 status=failure
 build_result=cancelled
-run_id=39048809917
-run_url=https://github.com/catkiss62/ai-companion-build/actions/runs/39048809917
-head_sha=e9962f964d1cefcf8a731cba3d9d75ca1d365f4a
+run_id=39048918670
+run_url=https://github.com/catkiss62/ai-companion-build/actions/runs/39048918670
+head_sha=71102fccf02a676d8f994fbfec97fff12d3eea9a
 
 === failed or cancelled job logs ===
 
---- job=caicai-android8-smoke conclusion=cancelled id=117442974276 ---
-﻿2026-10-17T16:18:36.8054600Z Current runner version: '2.337.0'
-2026-10-17T16:18:36.8089529Z ##[group]Runner Image Provisioner
-2026-10-17T16:18:36.8090948Z Hosted Compute Agent
-2026-10-17T16:18:36.8092320Z Version: 20261012.601
-2026-10-17T16:18:36.8093427Z Commit: f3dc54e1fb89da6852db922499a0233137369e1d
-2026-10-17T16:18:36.8094654Z Build Date: 2026-10-12T17:48:21Z
-2026-10-17T16:18:36.8095833Z Worker ID: {8c0012ba-865f-4def-9d82-2bcedbbb1240}
-2026-10-17T16:18:36.8097061Z Region: eastus2
-2026-10-17T16:18:36.8097946Z Cloud: Azure
-2026-10-17T16:18:36.8098930Z ##[endgroup]
-2026-10-17T16:18:36.8101892Z ##[group]Operating System
-2026-10-17T16:18:36.8103174Z Ubuntu
-2026-10-17T16:18:36.8104082Z 24.04.5
-2026-10-17T16:18:36.8105018Z LTS
-2026-10-17T16:18:36.8105849Z ##[endgroup]
-2026-10-17T16:18:36.8106794Z ##[group]Runner Image
-2026-10-17T16:18:36.8108462Z Image: ubuntu-24.04
-2026-10-17T16:18:36.8109398Z Version: 20261012.334.1
-2026-10-17T16:18:36.8112099Z Included Software: https://github.com/actions/runner-images/blob/ubuntu24/20261012.334/images/ubuntu/Ubuntu2404-Readme.md
-2026-10-17T16:18:36.8114770Z Image Release: https://github.com/actions/runner-images/releases/tag/ubuntu24%2F20261012.334
-2026-10-17T16:18:36.8116581Z ##[endgroup]
-2026-10-17T16:18:36.8118538Z ##[group]GITHUB_TOKEN Permissions
-2026-10-17T16:18:36.8121822Z Actions: read
-2026-10-17T16:18:36.8122770Z Contents: write
-2026-10-17T16:18:36.8123794Z Metadata: read
-2026-10-17T16:18:36.8124713Z ##[endgroup]
-2026-10-17T16:18:36.8127865Z Secret source: Actions
-2026-10-17T16:18:36.8129451Z Cache mode: write
-2026-10-17T16:18:36.8131049Z Prepare workflow directory
-2026-10-17T16:18:36.8617333Z Prepare all required actions
-2026-10-17T16:18:36.8689150Z Getting action download info
-2026-10-17T16:18:37.0524075Z Download action repository 'actions/checkout@v4' (SHA:11d5960a326750d5838078e36cf38b85af677262)
-2026-10-17T16:18:37.1629089Z Download action repository 'actions/setup-java@v4' (SHA:cf277c60eb25467037889841efdb72551f06f6c3)
-2026-10-17T16:18:37.4537063Z Download action repository 'reactivecircus/android-emulator-runner@v2' (SHA:a421e43855164a8197daf9d8d40fe71c6996bb0d)
-2026-10-17T16:18:37.6513968Z Download action repository 'actions/upload-artifact@v4' (SHA:ea165f8d65b6e75b540449e92b4886f43607fa02)
-2026-10-17T16:18:37.8929809Z Complete job name: caicai-android8-smoke
-2026-10-17T16:18:37.9835381Z ##[group]Run actions/checkout@v4
-2026-10-17T16:18:37.9836881Z with:
-2026-10-17T16:18:37.9837940Z   repository: catkiss62/ai-companion-build
-2026-10-17T16:18:37.9846810Z   token: ***
-2026-10-17T16:18:37.9847700Z   ssh-strict: true
-2026-10-17T16:18:37.9848703Z   ssh-user: git
-2026-10-17T16:18:37.9849611Z   persist-credentials: true
-2026-10-17T16:18:37.9850660Z   clean: true
-2026-10-17T16:18:37.9851837Z   sparse-checkout-cone-mode: true
-2026-10-17T16:18:37.9852930Z   fetch-depth: 1
-2026-10-17T16:18:37.9853920Z   fetch-tags: false
-2026-10-17T16:18:37.9854840Z   show-progress: true
-2026-10-17T16:18:37.9855772Z   lfs: false
-2026-10-17T16:18:37.9856710Z   submodules: false
-2026-10-17T16:18:37.9857650Z   set-safe-directory: true
-2026-10-17T16:18:37.9858777Z   allow-unsafe-pr-checkout: false
-2026-10-17T16:18:37.9860219Z ##[endgroup]
-2026-10-17T16:18:38.0904263Z Syncing repository: catkiss62/ai-companion-build
-2026-10-17T16:18:38.0908635Z ##[group]Getting Git version info
-2026-10-17T16:18:38.0911859Z Working directory is '/home/runner/work/ai-companion-build/ai-companion-build'
-2026-10-17T16:18:38.0915636Z [command]/usr/bin/git version
-2026-10-17T16:18:38.0982138Z git version 2.55.0
-2026-10-17T16:18:38.1016633Z ##[endgroup]
-2026-10-17T16:18:38.1027890Z Temporarily overriding HOME='/home/runner/work/_temp/1f1d68a9-789a-40ee-b1a3-69b30c95e2fa' before making global git config changes
-2026-10-17T16:18:38.1033202Z Adding repository directory to the temporary git global config as a safe directory
-2026-10-17T16:18:38.1039976Z [command]/usr/bin/git config --global --add safe.directory /home/runner/work/ai-companion-build/ai-companion-build
-2026-10-17T16:18:38.1088866Z Deleting the contents of '/home/runner/work/ai-companion-build/ai-companion-build'
-2026-10-17T16:18:38.1093919Z ##[group]Initializing the repository
-2026-10-17T16:18:38.1097899Z [command]/usr/bin/git init /home/runner/work/ai-companion-build/ai-companion-build
-2026-10-17T16:18:38.1231994Z hint: Using 'master' as the name for the initial branch. This default branch name
-2026-10-17T16:18:38.1235525Z hint: will change to "main" in Git 3.0. To configure the initial branch name
-2026-10-17T16:18:38.1238935Z hint: to use in all of your new repositories, which will suppress this warning,
-2026-10-17T16:18:38.1241832Z hint: call:
-2026-10-17T16:18:38.1243163Z hint:
-2026-10-17T16:18:38.1244968Z hint: 	git config --global init.defaultBranch <name>
-2026-10-17T16:18:38.1247083Z hint:
-2026-10-17T16:18:38.1249020Z hint: Names commonly chosen instead of 'master' are 'main', 'trunk' and
-2026-10-17T16:18:38.1252317Z hint: 'development'. The just-created branch can be renamed via this command:
-2026-10-17T16:18:38.1255243Z hint:
-2026-10-17T16:18:38.1256719Z hint: 	git branch -m <name>
-2026-10-17T16:18:38.1258350Z hint:
-2026-10-17T16:18:38.1260543Z hint: Disable this message with "git config set advice.defaultBranchName false"
-2026-10-17T16:18:38.1264734Z Initialized empty Git repository in /home/runner/work/ai-companion-build/ai-companion-build/.git/
-2026-10-17T16:18:38.1270951Z [command]/usr/bin/git remote add origin https://github.com/catkiss62/ai-companion-build
-2026-10-17T16:18:38.1302283Z ##[endgroup]
-2026-10-17T16:18:38.1304793Z ##[group]Disabling automatic garbage collection
-2026-10-17T16:18:38.1307117Z [command]/usr/bin/git config --local gc.auto 0
-2026-10-17T16:18:38.1339897Z ##[endgroup]
-2026-10-17T16:18:38.1342346Z ##[group]Setting up auth
-2026-10-17T16:18:38.1346666Z [command]/usr/bin/git config --local --name-only --get-regexp core\.sshCommand
-2026-10-17T16:18:38.1776697Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'core\.sshCommand' && git config --local --unset-all 'core.sshCommand' || :"
-2026-10-17T16:18:38.1783464Z [command]/usr/bin/git config --local --name-only --get-regexp http\.https\:\/\/github\.com\/\.extraheader
-2026-10-17T16:18:38.1821770Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'http\.https\:\/\/github\.com\/\.extraheader' && git config --local --unset-all 'http.https://github.com/.extraheader' || :"
-2026-10-17T16:18:38.2046824Z [command]/usr/bin/git config --local --name-only --get-regexp ^includeIf\.gitdir:
-2026-10-17T16:18:38.2083258Z [command]/usr/bin/git submodule foreach --recursive git config --local --show-origin --name-only --get-regexp remote.origin.url
-2026-10-17T16:18:38.2306502Z [command]/usr/bin/git config --local http.https://github.com/.extraheader AUTHORIZATION: basic ***
-2026-10-17T16:18:38.2347052Z ##[endgroup]
-2026-10-17T16:18:38.2348804Z ##[group]Fetching the repository
-2026-10-17T16:18:38.2357807Z [command]/usr/bin/git -c protocol.version=2 fetch --no-tags --prune --no-recurse-submodules --depth=1 origin +e9962f964d1cefcf8a731cba3d9d75ca1d365f4a:refs/remotes/origin/agent/v042107-review-recovery
-2026-10-17T16:18:40.8500185Z From https://github.com/catkiss62/ai-companion-build
-2026-10-17T16:18:40.8569916Z  * [new ref]         e9962f964d1cefcf8a731cba3d9d75ca1d365f4a -> origin/agent/v042107-review-recovery
-2026-10-17T16:18:40.8579566Z ##[endgroup]
-2026-10-17T16:18:40.8580330Z ##[group]Determining the checkout info
-2026-10-17T16:18:40.8581131Z ##[endgroup]
-2026-10-17T16:18:40.8596840Z [command]/usr/bin/git sparse-checkout disable
-2026-10-17T16:18:40.8597835Z [command]/usr/bin/git config --local --unset-all extensions.worktreeConfig
-2026-10-17T16:18:40.8609588Z ##[group]Checking out the ref
-2026-10-17T16:18:40.8614975Z [command]/usr/bin/git checkout --progress --force -B agent/v042107-review-recovery refs/remotes/origin/agent/v042107-review-recovery
-2026-10-17T16:18:41.2611029Z Switched to a new branch 'agent/v042107-review-recovery'
-2026-10-17T16:18:41.2616621Z branch 'agent/v042107-review-recovery' set up to track 'origin/agent/v042107-review-recovery'.
-2026-10-17T16:18:41.2645451Z ##[endgroup]
-2026-10-17T16:18:41.2696054Z [command]/usr/bin/git log -1 --format=%H
-2026-10-17T16:18:41.2722530Z e9962f964d1cefcf8a731cba3d9d75ca1d365f4a
-2026-10-17T16:18:41.3032662Z ##[group]Run actions/setup-java@v4
-2026-10-17T16:18:41.3033008Z with:
-2026-10-17T16:18:41.3033214Z   distribution: temurin
-2026-10-17T16:18:41.3033450Z   java-version: 17
-2026-10-17T16:18:41.3033670Z   java-package: jdk
-2026-10-17T16:18:41.3033900Z   check-latest: false
-2026-10-17T16:18:41.3034113Z   server-id: github
-2026-10-17T16:18:41.3034330Z   server-username: GITHUB_ACTOR
-2026-10-17T16:18:41.3034587Z   server-password: GITHUB_TOKEN
-2026-10-17T16:18:41.3034835Z   overwrite-settings: true
-2026-10-17T16:18:41.3035064Z   job-status: success
-2026-10-17T16:18:41.3037502Z   token: ***
-2026-10-17T16:18:41.3037718Z ##[endgroup]
-2026-10-17T16:18:41.4695599Z ##[warning]setup-java v4 is deprecated and will no longer receive updates. Please migrate to actions/setup-java@v5.
-2026-10-17T16:18:41.4708182Z ##[group]Installed distributions
-2026-10-17T16:18:41.4959560Z Resolved Java 17.0.20+1 from tool-cache
-2026-10-17T16:18:41.4970627Z (node:2323) [DEP0040] DeprecationWarning: The `punycode` module is deprecated. Please use a userland alternative instead.
-2026-10-17T16:18:41.4971610Z (Use `node --trace-deprecation ...` to show where the warning was created)
-2026-10-17T16:18:41.4972073Z Setting Java 17.0.20+1 as the default
-2026-10-17T16:18:41.4974870Z Creating toolchains.xml for JDK version 17 from temurin
-2026-10-17T16:18:41.5049441Z Writing to /home/runner/.m2/toolchains.xml
-2026-10-17T16:18:41.5049951Z 
-2026-10-17T16:18:41.5050153Z Java configuration:
-2026-10-17T16:18:41.5050582Z   Distribution: temurin
-2026-10-17T16:18:41.5050991Z   Version: 17.0.20+1
-2026-10-17T16:18:41.5051624Z   Path: /opt/hostedtoolcache/Java_Temurin-Hotspot_jdk/17.0.20-1/x64
-2026-10-17T16:18:41.5052213Z 
-2026-10-17T16:18:41.5052698Z ##[endgroup]
-2026-10-17T16:18:41.5068798Z Creating settings.xml with server-id: github
-2026-10-17T16:18:41.5098510Z Writing to /home/runner/.m2/settings.xml
-2026-10-17T16:18:41.5262468Z ##[group]Run echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
-2026-10-17T16:18:41.5263426Z [36;1mecho 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules[0m
-2026-10-17T16:18:41.5264055Z [36;1msudo udevadm control --reload-rules[0m
-2026-10-17T16:18:41.5264380Z [36;1msudo udevadm trigger --name-match=kvm[0m
-2026-10-17T16:18:41.5588602Z shell: /usr/bin/bash -e {0}
-2026-10-17T16:18:41.5588947Z env:
-2026-10-17T16:18:41.5589293Z   JAVA_HOME: /opt/hostedtoolcache/Java_Temurin-Hotspot_jdk/17.0.20-1/x64
-2026-10-17T16:18:41.5589828Z   JAVA_HOME_17_X64: /opt/hostedtoolcache/Java_Temurin-Hotspot_jdk/17.0.20-1/x64
-2026-10-17T16:18:41.5590225Z ##[endgroup]
-2026-10-17T16:18:41.5768379Z KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"
-2026-10-17T16:18:41.6172770Z ##[group]Run reactivecircus/android-emulator-runner@v2
-2026-10-17T16:18:41.6173168Z with:
-2026-10-17T16:18:41.6173367Z   api-level: 26
-2026-10-17T16:18:41.6173575Z   arch: x86_64
-2026-10-17T16:18:41.6173774Z   target: google_apis
-2026-10-17T16:18:41.6174007Z   disable-animations: true
-2026-10-17T16:18:41.6174396Z   emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim
-2026-10-17T16:18:41.6175926Z   script: chmod +x app/android/gradlew && cd app/android && ./gradlew -p ../tools/caicai_smoke connectedDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.class=com.catkiss.senlive2dcompanion.smoke.StageVisibilitySmokeTest,com.catkiss.senlive2dcompanion.smoke.CreativePreviewSmokeTest --stacktrace
-2026-10-17T16:18:41.6177288Z   cores: 2
-2026-10-17T16:18:41.6177483Z   avd-name: test
-2026-10-17T16:18:41.6177696Z   force-avd-creation: true
-2026-10-17T16:18:41.6177943Z   emulator-boot-timeout: 600
-2026-10-17T16:18:41.6178187Z   emulator-port: 5554
-2026-10-17T16:18:41.6178448Z   disable-spellchecker: false
-2026-10-17T16:18:41.6178891Z   disable-linux-hw-accel: auto
-2026-10-17T16:18:41.6179146Z   enable-hw-keyboard: false
-2026-10-17T16:18:41.6179378Z   channel: stable
-2026-10-17T16:18:41.6179573Z env:
-2026-10-17T16:18:41.6179872Z   JAVA_HOME: /opt/hostedtoolcache/Java_Temurin-Hotspot_jdk/17.0.20-1/x64
-2026-10-17T16:18:41.6180356Z   JAVA_HOME_17_X64: /opt/hostedtoolcache/Java_Temurin-Hotspot_jdk/17.0.20-1/x64
-2026-10-17T16:18:41.6180736Z ##[endgroup]
-2026-10-17T16:18:41.6726668Z ##[group]Configure emulator
-2026-10-17T16:18:41.6728915Z API level: 26
-2026-10-17T16:18:41.6729316Z System image API level: 26
-2026-10-17T16:18:41.6729870Z target: google_apis
-2026-10-17T16:18:41.6730561Z CPU architecture: x86_64
-2026-10-17T16:18:41.6731116Z Hardware profile: 
-2026-10-17T16:18:41.6731810Z Cores: 2
-2026-10-17T16:18:41.6732311Z RAM size: 
-2026-10-17T16:18:41.6732788Z Heap size: 
-2026-10-17T16:18:41.6734261Z SD card path or size: 
-2026-10-17T16:18:41.6735403Z Disk size: 
-2026-10-17T16:18:41.6736011Z AVD name: test
-2026-10-17T16:18:41.6736601Z force avd creation: true
-2026-10-17T16:18:41.6737097Z Emulator boot timeout: 600
-2026-10-17T16:18:41.6737881Z emulator port: 5554
-2026-10-17T16:18:41.6738524Z emulator options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim
-2026-10-17T16:18:41.6739236Z disable animations: true
-2026-10-17T16:18:41.6739655Z disable spellchecker: false
-2026-10-17T16:18:41.6740149Z disable Linux hardware acceleration: false
-2026-10-17T16:18:41.6740654Z enable hardware keyboard: false
-2026-10-17T16:18:41.6741178Z Channel: 0 (stable)
-2026-10-17T16:18:41.6743172Z Script:
-2026-10-17T16:18:41.6744723Z chmod +x app/android/gradlew && cd app/android && ./gradlew -p ../tools/caicai_smoke connectedDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.class=com.catkiss.senlive2dcompanion.smoke.StageVisibilitySmokeTest,com.catkiss.senlive2dcompanion.smoke.CreativePreviewSmokeTest --stacktrace
-2026-10-17T16:18:41.6746268Z Pre emulator launch script:
-2026-10-17T16:18:41.6747079Z ##[endgroup]
-2026-10-17T16:18:41.6747712Z ##[group]Install Android SDK
-2026-10-17T16:18:41.6921693Z [command]/usr/bin/sh -c \yes | sdkmanager --licenses > /dev/null
-2026-10-17T16:18:49.5817439Z Installing latest build tools, platform tools, and platform.
-2026-10-17T16:18:49.5832821Z [command]/usr/bin/sh -c \sdkmanager --install 'build-tools;37.0.0' platform-tools 'platforms;android-26'> /dev/null
-2026-10-17T16:18:55.5922157Z Installing latest emulator.
-2026-10-17T16:18:55.5936191Z [command]/usr/bin/sh -c \sdkmanager --install emulator --channel=0 > /dev/null
-2026-10-17T16:19:03.7289984Z Installing system images.
-2026-10-17T16:19:03.7306755Z [command]/usr/bin/sh -c \sdkmanager --install 'system-images;android-26;google_apis;x86_64' --channel=0 > /dev/null
-2026-10-17T16:19:26.9211998Z ##[endgroup]
-2026-10-17T16:19:26.9213006Z ##[group]Create AVD
-2026-10-17T16:19:26.9213778Z Creating AVD.
-2026-10-17T16:19:26.9232806Z [command]/usr/bin/sh -c \echo no | avdmanager create avd --force -n test --package 'system-images;android-26;google_apis;x86_64'
-2026-10-17T16:19:27.7342935Z Loading local repository...                                                     
-2026-10-17T16:19:27.7346309Z [=========                              ] 25% Loading local repository...       
-2026-10-17T16:19:27.7347172Z [=========                              ] 25% Fetch remote repository...        
-2026-10-17T16:19:27.7347965Z [=======================================] 100% Fetch remote repository...       
-2026-10-17T16:19:27.9123084Z Auto-selecting single ABI x86_64
-2026-10-17T16:19:28.1583425Z Do you wish to create a custom hardware profile? [no] [command]/usr/bin/sh -c \printf 'hw.cpu.ncore=2\n' >> /home/runner/.android/avd/test.avd/config.ini
-2026-10-17T16:19:28.1604632Z ##[endgroup]
-2026-10-17T16:19:28.1606560Z ##[group]Launch Emulator
-2026-10-17T16:19:28.1606968Z Starting emulator.
-2026-10-17T16:19:28.1622856Z [command]/usr/bin/sh -c \/usr/local/lib/android/sdk/emulator/emulator -port 5554 -avd test -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim &
-2026-10-17T16:19:28.1739196Z INFO         | Android emulator version 37.2.12.0 (build_id 16428233) (CL:N/A)
-2026-10-17T16:19:28.1739904Z INFO         | Graphics backend: gfxstream
-2026-10-17T16:19:28.1740447Z INFO         | Found systemPath /usr/local/lib/android/sdk/system-images/android-26/google_apis/x86_64/
-2026-10-17T16:19:28.7090676Z INFO         | Saving last run QEMU version for the AVD to 2
-2026-10-17T16:19:28.7091545Z INFO         | Increasing RAM size to 1536MB
-2026-10-17T16:19:28.7092153Z ##############################################################################
-2026-10-17T16:19:28.7092835Z ##                        WARNING - ACTION REQUIRED                         ##
-2026-10-17T16:19:28.7093669Z ##  Consider using the '-metrics-collection' flag to help improve the       ##
-2026-10-17T16:19:28.7094565Z ##  emulator by sending anonymized usage data. Or use the '-no-metrics'     ##
-2026-10-17T16:19:28.7095497Z ##  flag to bypass this warning and turn off the metrics collection.        ##
-2026-10-17T16:19:28.7096336Z ##  In a future release this warning will turn into a one-time blocking     ##
-2026-10-17T16:19:28.7097155Z ##  prompt to ask for explicit user input regarding metrics collection.     ##
-2026-10-17T16:19:28.7097843Z ##                                                                          ##
-2026-10-17T16:19:28.7098407Z ##  Please see '-help-metrics-collection' for more details. You can use     ##
-2026-10-17T16:19:28.7098907Z ##  '-metrics-to-file' or '-metrics-to-console' flags to see what type of   ##
-2026-10-17T16:19:28.7099406Z ##  data is being collected by emulator as part of usage statistics.        ##
-2026-10-17T16:19:28.7099821Z ##############################################################################
-2026-10-17T16:19:28.7100158Z INFO         | Guest GLES Driver: Auto (ext controls)
-2026-10-17T16:19:28.7100612Z INFO         | emuglConfig_init: vulkan_mode_selected:swiftshader gles_mode_selected:swiftshader
-2026-10-17T16:19:28.7101075Z INFO         | Checking system compatibility:
-2026-10-17T16:19:28.7101668Z INFO         |   Checking: hasSufficientDiskSpace
-2026-10-17T16:19:28.7102155Z INFO         |      Ok: Disk space requirements to run avd: `test` are met
-2026-10-17T16:19:28.7102539Z INFO         |   Checking: hasSufficientHwGpu
-2026-10-17T16:19:28.7102897Z INFO         |      Ok: Hardware GPU compatibility checks are not required
-2026-10-17T16:19:28.7103256Z INFO         |   Checking: hasSufficientSystem
-2026-10-17T16:19:28.7103594Z INFO         |      Ok: System requirements to run avd: `test` are met
-2026-10-17T16:19:28.7104405Z WARNING      | Feature QuickbootFileBacked is disabled due to stability issues, if you really want that, the environment variable ANDROID_EMU_FORCE_QUICKBOOT_FILE_BACKED need to set to 1
-2026-10-17T16:19:28.7105244Z WARNING      | FeatureControl is requesting a non existing feature.
-2026-10-17T16:19:28.7105641Z ERROR        | Unable to connect to adb daemon on port: 5037
-2026-10-17T16:19:28.7106748Z INFO         | Storing crashdata in: /tmp/android-runner/emu-crash-37.2.12.db, detection is enabled for process: 2659
-2026-10-17T16:19:28.7107384Z INFO         | Initializing gfxstream backend
-2026-10-17T16:19:28.7107707Z INFO         | startOpenglesRendererImpl: gpu info
-2026-10-17T16:19:28.7108000Z INFO         | 
-2026-10-17T16:19:28.7108267Z INFO         | SharedLibrary::open for [libX11]
-2026-10-17T16:19:28.7108607Z WARNING      | Could not open libX11.so, try libX11.so.6
-2026-10-17T16:19:28.7108952Z INFO         | SharedLibrary::open for [libX11.so.6]
-2026-10-17T16:19:28.7109277Z INFO         | SharedLibrary::open for [libX11-xcb]
-2026-10-17T16:19:28.7109638Z WARNING      | Could not open libX11-xcb.so, try libX11-xcb.so.1
-2026-10-17T16:19:28.7110016Z INFO         | SharedLibrary::open for [libX11-xcb.so.1]
-2026-10-17T16:19:28.7110676Z INFO         | Graphics Adapter Vendor Google (Google Inc.)
-2026-10-17T16:19:28.7111669Z INFO         | Graphics Adapter Android Emulator OpenGL ES Translator (Google SwiftShader)
-2026-10-17T16:19:28.7112614Z INFO         | Graphics API Version OpenGL ES 3.0 (OpenGL ES 3.0 SwiftShader 4.0.0.1)
-2026-10-17T16:19:28.7116826Z INFO         | Graphics API Extensions GL_OES_EGL_sync GL_OES_EGL_image GL_OES_EGL_image_external GL_OES_depth24 GL_OES_depth32 GL_OES_element_index_uint GL_OES_texture_float GL_OES_texture_float_linear GL_OES_compressed_paletted_texture GL_OES_compressed_ETC1_RGB8_texture GL_OES_depth_texture GL_OES_texture_half_float GL_OES_texture_half_float_linear GL_OES_packed_depth_stencil GL_OES_vertex_half_float GL_OES_standard_derivatives GL_OES_texture_npot GL_OES_rgb8_rgba8 GL_EXT_color_buffer_float GL_EXT_color_buffer_half_float GL_EXT_texture_format_BGRA8888 GL_APPLE_texture_format_BGRA8888 
-2026-10-17T16:19:28.7120527Z INFO         | Graphics Device Extensions N/A
-2026-10-17T16:19:28.7121064Z INFO         | Verified boot params were not found.
-2026-10-17T16:19:28.7121841Z INFO         | Userspace boot properties:
-2026-10-17T16:19:28.7122347Z INFO         |   android.bootanim=0
-2026-10-17T16:19:28.7122788Z INFO         |   android.qemud=1
-2026-10-17T16:19:28.7123525Z INFO         |   androidboot.android_dt_dir=/sys/bus/platform/devices/ANDR0001:00/properties/android/
-2026-10-17T16:19:28.7124333Z INFO         |   androidboot.hardware=ranchu
-2026-10-17T16:19:28.7124882Z INFO         |   androidboot.serialno=EMULATOR37X2X12X0
-2026-10-17T16:19:28.7125390Z INFO         |   qemu=1
-2026-10-17T16:19:28.7125757Z INFO         |   qemu.avd_name=test
-2026-10-17T16:19:28.7126203Z INFO         |   qemu.camera_hq_edge_processing=0
-2026-10-17T16:19:28.7126697Z INFO         |   qemu.dalvik.vm.heapsize=384m
-2026-10-17T16:19:28.7127178Z INFO         |   qemu.encrypt=1
-2026-10-17T16:19:28.7127593Z INFO         |   qemu.gles=1
-2026-10-17T16:19:28.7128014Z INFO         |   qemu.gltransport=pipe
-2026-10-17T16:19:28.7128552Z INFO         |   qemu.gltransport.drawFlushInterval=800
-2026-10-17T16:19:28.7129128Z INFO         |   qemu.opengles.version=196608
-2026-10-17T16:19:28.7263373Z WARNING: cannnot unmap ptr 0x7f3b62601000 as it is in the protected range from 0x7f3b02600000 to 0x7f3b62800000
-2026-10-17T16:19:28.7337255Z INFO         |   qemu.settings.system.screen_off_timeout=2147483647
-2026-10-17T16:19:28.7339102Z INFO         |   qemu.skin=320x640
-2026-10-17T16:19:28.7339743Z INFO         |   qemu.uirenderer=skiagl
-2026-10-17T16:19:28.7340403Z INFO         |   qemu.vsync=60
-2026-10-17T16:19:28.7340988Z INFO         |   qemu.wifi=1
-2026-10-17T16:19:28.7341856Z INFO         | Monitoring duration of emulator setup.
-2026-10-17T16:19:28.7418453Z INFO         | Setting display: 0 configuration to: 320x640, dpi: 160x160 
-2026-10-17T16:19:28.7422558Z INFO         | setDisplayActiveConfig: id:0, 320x640
-2026-10-17T16:19:28.7423528Z INFO         | emulatorSetupEnvironment: Environment scene is not required
-2026-10-17T16:19:28.7464258Z INFO         | Loading snapshot 'default_boot'...
-2026-10-17T16:19:28.7472840Z WARNING      | Failed to process .ini file /home/runner/.android/emu-update-last-check.ini for reading.
-2026-10-17T16:19:28.7596513Z WARNING      | Device 'cache' does not have the requested snapshot 'default_boot'
-2026-10-17T16:19:28.7605174Z 
-2026-10-17T16:19:28.7605720Z WARNING      | Failed to load snapshot 'default_boot'
-2026-10-17T16:19:28.7607111Z USER_INFO    | The emulator is performing a cold boot without a saved state because there's no snapshot and you have configured it not to save on exit.
-2026-10-17T16:19:28.8462811Z WARNING      | Failed to process .ini file /home/runner/.android/emu-update-last-check.ini for reading.
-2026-10-17T16:19:38.1679748Z [command]/usr/local/lib/android/sdk/platform-tools/adb -s emulator-5554 shell getprop sys.boot_completed
-2026-10-17T16:19:38.1710140Z * daemon not running; starting now at tcp:5037
-2026-10-17T16:19:38.3102272Z * daemon started successfully
-2026-10-17T16:19:38.3112650Z The process '/usr/local/lib/android/sdk/platform-tools/adb' failed with exit code 1
-2026-10-17T16:19:38.3113614Z adb: device offline
-2026-10-17T16:19:40.3145489Z [command]/usr/local/lib/android/sdk/platform-tools/adb -s emulator-5554 shell getprop sys.boot_completed
-2026-10-17T16:19:40.3239572Z 
-2026-10-17T16:19:42.3296036Z [command]/usr/local/lib/android/sdk/platform-tools/adb -s emulator-5554 shell getprop sys.boot_completed
-2026-10-17T16:19:42.3401956Z 
-2026-10-17T16:19:43.4612771Z ##[error]The operation was canceled.
-2026-10-17T16:19:43.4748830Z ##[group]Run actions/upload-artifact@v4
-2026-10-17T16:19:43.4749391Z with:
-2026-10-17T16:19:43.4749781Z   name: android8-surface-results
-2026-10-17T16:19:43.4750449Z   path: app/tools/caicai_smoke/build/outputs/androidTest-results/
-2026-10-17T16:19:43.4751149Z   if-no-files-found: warn
-2026-10-17T16:19:43.4751785Z   compression-level: 6
-2026-10-17T16:19:43.4752207Z   overwrite: false
-2026-10-17T16:19:43.4752622Z   include-hidden-files: false
-2026-10-17T16:19:43.4753069Z env:
-2026-10-17T16:19:43.4753626Z   JAVA_HOME: /opt/hostedtoolcache/Java_Temurin-Hotspot_jdk/17.0.20-1/x64
-2026-10-17T16:19:43.4754583Z   JAVA_HOME_17_X64: /opt/hostedtoolcache/Java_Temurin-Hotspot_jdk/17.0.20-1/x64
-2026-10-17T16:19:43.4755399Z   ANDROID_AVD_HOME: /home/runner/.android/avd
-2026-10-17T16:19:43.4755932Z ##[endgroup]
-2026-10-17T16:19:43.6598091Z (node:2754) [DEP0040] DeprecationWarning: The `punycode` module is deprecated. Please use a userland alternative instead.
-2026-10-17T16:19:43.6622697Z (Use `node --trace-deprecation ...` to show where the warning was created)
-2026-10-17T16:19:43.6734912Z ##[warning]No files were found with the provided path: app/tools/caicai_smoke/build/outputs/androidTest-results/. No artifacts will be uploaded.
-2026-10-17T16:19:43.7125926Z Post job cleanup.
-2026-10-17T16:19:43.9220427Z (node:2766) [DEP0040] DeprecationWarning: The `punycode` module is deprecated. Please use a userland alternative instead.
-2026-10-17T16:19:43.9222067Z (Use `node --trace-deprecation ...` to show where the warning was created)
-2026-10-17T16:19:43.9565254Z Post job cleanup.
-2026-10-17T16:19:44.0513788Z [command]/usr/bin/git version
-2026-10-17T16:19:44.0559904Z git version 2.55.0
-2026-10-17T16:19:44.0603066Z Temporarily overriding HOME='/home/runner/work/_temp/e55bd66a-6576-43da-a414-3d0ff7fb3162' before making global git config changes
-2026-10-17T16:19:44.0604793Z Adding repository directory to the temporary git global config as a safe directory
-2026-10-17T16:19:44.0612548Z [command]/usr/bin/git config --global --add safe.directory /home/runner/work/ai-companion-build/ai-companion-build
-2026-10-17T16:19:44.0667471Z [command]/usr/bin/git config --local --name-only --get-regexp core\.sshCommand
-2026-10-17T16:19:44.0706624Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'core\.sshCommand' && git config --local --unset-all 'core.sshCommand' || :"
-2026-10-17T16:19:44.1039158Z [command]/usr/bin/git config --local --name-only --get-regexp http\.https\:\/\/github\.com\/\.extraheader
-2026-10-17T16:19:44.1062883Z http.https://github.com/.extraheader
-2026-10-17T16:19:44.1083351Z [command]/usr/bin/git config --local --unset-all http.https://github.com/.extraheader
-2026-10-17T16:19:44.1113744Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'http\.https\:\/\/github\.com\/\.extraheader' && git config --local --unset-all 'http.https://github.com/.extraheader' || :"
-2026-10-17T16:19:44.1365151Z [command]/usr/bin/git config --local --name-only --get-regexp ^includeIf\.gitdir:
-2026-10-17T16:19:44.1404031Z [command]/usr/bin/git submodule foreach --recursive git config --local --show-origin --name-only --get-regexp remote.origin.url
-2026-10-17T16:19:44.1974141Z Cleaning up orphan processes
-2026-10-17T16:19:44.2337358Z Terminate orphan process: pid (2659) (qemu-system-x86_64-headless)
-2026-10-17T16:19:44.2483409Z Terminate orphan process: pid (2663) (crashpad_handler)
-2026-10-17T16:19:44.2576326Z Terminate orphan process: pid (2734) (adb)
-2026-10-17T16:19:44.2585160Z ##[warning]Node.js 20 is deprecated. The following actions target Node.js 20 but are being forced to run on Node.js 24: actions/checkout@v4, actions/setup-java@v4, actions/upload-artifact@v4. For more information see: https://github.blog/changelog/2025-09-19-deprecation-of-node-20-on-github-actions-runners/
+--- job=caicai-android8-smoke conclusion=cancelled id=117443277769 ---
+﻿2026-10-17T16:20:03.4204591Z Current runner version: '2.337.0'
+2026-10-17T16:20:03.4222927Z ##[group]Runner Image Provisioner
+2026-10-17T16:20:03.4223553Z Hosted Compute Agent
+2026-10-17T16:20:03.4223928Z Version: 20261012.601
+2026-10-17T16:20:03.4224331Z Commit: f3dc54e1fb89da6852db922499a0233137369e1d
+2026-10-17T16:20:03.4224817Z Build Date: 2026-10-12T17:48:21Z
+2026-10-17T16:20:03.4225260Z Worker ID: {d6cbd268-0552-439b-aed4-92b4bff38479}
+2026-10-17T16:20:03.4225707Z Region: westus3
+2026-10-17T16:20:03.4226056Z Cloud: Azure
+2026-10-17T16:20:03.4226385Z ##[endgroup]
+2026-10-17T16:20:03.4227262Z ##[group]Operating System
+2026-10-17T16:20:03.4227655Z Ubuntu
+2026-10-17T16:20:03.4227966Z 24.04.5
+2026-10-17T16:20:03.4228335Z LTS
+2026-10-17T16:20:03.4228685Z ##[endgroup]
+2026-10-17T16:20:03.4229082Z ##[group]Runner Image
+2026-10-17T16:20:03.4229452Z Image: ubuntu-24.04
+2026-10-17T16:20:03.4230037Z Version: 20261012.334.1
+2026-10-17T16:20:03.4230857Z Included Software: https://github.com/actions/runner-images/blob/ubuntu24/20261012.334/images/ubuntu/Ubuntu2404-Readme.md
+2026-10-17T16:20:03.4232080Z Image Release: https://github.com/actions/runner-images/releases/tag/ubuntu24%2F20261012.334
+2026-10-17T16:20:03.4232636Z ##[endgroup]
+2026-10-17T16:20:03.4233360Z ##[group]GITHUB_TOKEN Permissions
+2026-10-17T16:20:03.4234804Z Actions: read
+2026-10-17T16:20:03.4235143Z Contents: write
+2026-10-17T16:20:03.4235575Z Metadata: read
+2026-10-17T16:20:03.4235920Z ##[endgroup]
+2026-10-17T16:20:03.4237333Z Secret source: Actions
+2026-10-17T16:20:03.4237900Z Cache mode: write
+2026-10-17T16:20:03.4238382Z Prepare workflow directory
+2026-10-17T16:20:03.4444839Z Prepare all required actions
+2026-10-17T16:20:03.4476255Z Getting action download info
+2026-10-17T16:20:03.7509515Z Download action repository 'actions/checkout@v4' (SHA:11d5960a326750d5838078e36cf38b85af677262)
+2026-10-17T16:20:03.8218531Z Download action repository 'actions/setup-java@v4' (SHA:cf277c60eb25467037889841efdb72551f06f6c3)
+2026-10-17T16:20:04.6791663Z Download action repository 'reactivecircus/android-emulator-runner@v2' (SHA:a421e43855164a8197daf9d8d40fe71c6996bb0d)
+2026-10-17T16:20:05.1855130Z Download action repository 'actions/upload-artifact@v4' (SHA:ea165f8d65b6e75b540449e92b4886f43607fa02)
+2026-10-17T16:20:05.3794295Z Complete job name: caicai-android8-smoke
+2026-10-17T16:20:05.4256268Z ##[group]Run actions/checkout@v4
+2026-10-17T16:20:05.4256850Z with:
+2026-10-17T16:20:05.4257206Z   repository: catkiss62/ai-companion-build
+2026-10-17T16:20:05.4259843Z   token: ***
+2026-10-17T16:20:05.4260193Z   ssh-strict: true
+2026-10-17T16:20:05.4260508Z   ssh-user: git
+2026-10-17T16:20:05.4260907Z   persist-credentials: true
+2026-10-17T16:20:05.4261250Z   clean: true
+2026-10-17T16:20:05.4261555Z   sparse-checkout-cone-mode: true
+2026-10-17T16:20:05.4261959Z   fetch-depth: 1
+2026-10-17T16:20:05.4262275Z   fetch-tags: false
+2026-10-17T16:20:05.4262616Z   show-progress: true
+2026-10-17T16:20:05.4262975Z   lfs: false
+2026-10-17T16:20:05.4263266Z   submodules: false
+2026-10-17T16:20:05.4263622Z   set-safe-directory: true
+2026-10-17T16:20:05.4263995Z   allow-unsafe-pr-checkout: false
+2026-10-17T16:20:05.4264492Z ##[endgroup]
+2026-10-17T16:20:05.4910526Z Syncing repository: catkiss62/ai-companion-build
+2026-10-17T16:20:05.4912424Z ##[group]Getting Git version info
+2026-10-17T16:20:05.4913438Z Working directory is '/home/runner/work/ai-companion-build/ai-companion-build'
+2026-10-17T16:20:05.4914803Z [command]/usr/bin/git version
+2026-10-17T16:20:05.4955726Z git version 2.55.0
+2026-10-17T16:20:05.4972004Z ##[endgroup]
+2026-10-17T16:20:05.4984162Z Temporarily overriding HOME='/home/runner/work/_temp/37df54a5-2f67-4761-8094-4ae350918619' before making global git config changes
+2026-10-17T16:20:05.4985539Z Adding repository directory to the temporary git global config as a safe directory
+2026-10-17T16:20:05.4988118Z [command]/usr/bin/git config --global --add safe.directory /home/runner/work/ai-companion-build/ai-companion-build
+2026-10-17T16:20:05.5033780Z Deleting the contents of '/home/runner/work/ai-companion-build/ai-companion-build'
+2026-10-17T16:20:05.5040238Z ##[group]Initializing the repository
+2026-10-17T16:20:05.5041620Z [command]/usr/bin/git init /home/runner/work/ai-companion-build/ai-companion-build
+2026-10-17T16:20:05.5126038Z hint: Using 'master' as the name for the initial branch. This default branch name
+2026-10-17T16:20:05.5126912Z hint: will change to "main" in Git 3.0. To configure the initial branch name
+2026-10-17T16:20:05.5127669Z hint: to use in all of your new repositories, which will suppress this warning,
+2026-10-17T16:20:05.5128230Z hint: call:
+2026-10-17T16:20:05.5128862Z hint:
+2026-10-17T16:20:05.5129434Z hint: 	git config --global init.defaultBranch <name>
+2026-10-17T16:20:05.5130320Z hint:
+2026-10-17T16:20:05.5131000Z hint: Names commonly chosen instead of 'master' are 'main', 'trunk' and
+2026-10-17T16:20:05.5132007Z hint: 'development'. The just-created branch can be renamed via this command:
+2026-10-17T16:20:05.5132821Z hint:
+2026-10-17T16:20:05.5133211Z hint: 	git branch -m <name>
+2026-10-17T16:20:05.5133846Z hint:
+2026-10-17T16:20:05.5134373Z hint: Disable this message with "git config set advice.defaultBranchName false"
+2026-10-17T16:20:05.5135512Z Initialized empty Git repository in /home/runner/work/ai-companion-build/ai-companion-build/.git/
+2026-10-17T16:20:05.5142346Z [command]/usr/bin/git remote add origin https://github.com/catkiss62/ai-companion-build
+2026-10-17T16:20:05.5187919Z ##[endgroup]
+2026-10-17T16:20:05.5188958Z ##[group]Disabling automatic garbage collection
+2026-10-17T16:20:05.5190646Z [command]/usr/bin/git config --local gc.auto 0
+2026-10-17T16:20:05.5223320Z ##[endgroup]
+2026-10-17T16:20:05.5224314Z ##[group]Setting up auth
+2026-10-17T16:20:05.5228130Z [command]/usr/bin/git config --local --name-only --get-regexp core\.sshCommand
+2026-10-17T16:20:05.5257819Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'core\.sshCommand' && git config --local --unset-all 'core.sshCommand' || :"
+2026-10-17T16:20:05.5543953Z [command]/usr/bin/git config --local --name-only --get-regexp http\.https\:\/\/github\.com\/\.extraheader
+2026-10-17T16:20:05.5573595Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'http\.https\:\/\/github\.com\/\.extraheader' && git config --local --unset-all 'http.https://github.com/.extraheader' || :"
+2026-10-17T16:20:05.5740242Z [command]/usr/bin/git config --local --name-only --get-regexp ^includeIf\.gitdir:
+2026-10-17T16:20:05.5768277Z [command]/usr/bin/git submodule foreach --recursive git config --local --show-origin --name-only --get-regexp remote.origin.url
+2026-10-17T16:20:05.5933872Z [command]/usr/bin/git config --local http.https://github.com/.extraheader AUTHORIZATION: basic ***
+2026-10-17T16:20:05.5965798Z ##[endgroup]
+2026-10-17T16:20:05.5966471Z ##[group]Fetching the repository
+2026-10-17T16:20:05.5971892Z [command]/usr/bin/git -c protocol.version=2 fetch --no-tags --prune --no-recurse-submodules --depth=1 origin +71102fccf02a676d8f994fbfec97fff12d3eea9a:refs/remotes/origin/agent/v042107-review-recovery
+2026-10-17T16:20:09.5137835Z From https://github.com/catkiss62/ai-companion-build
+2026-10-17T16:20:09.5138646Z  * [new ref]         71102fccf02a676d8f994fbfec97fff12d3eea9a -> origin/agent/v042107-review-recovery
+2026-10-17T16:20:09.5141462Z ##[endgroup]
+2026-10-17T16:20:09.5352085Z ##[group]Determining the checkout info
+2026-10-17T16:20:09.5376074Z ##[endgroup]
+2026-10-17T16:20:09.5376677Z [command]/usr/bin/git sparse-checkout disable
+2026-10-17T16:20:09.5381713Z [command]/usr/bin/git config --local --unset-all extensions.worktreeConfig
+2026-10-17T16:20:09.5483982Z ##[group]Checking out the ref
+2026-10-17T16:20:09.5497036Z [command]/usr/bin/git checkout --progress --force -B agent/v042107-review-recovery refs/remotes/origin/agent/v042107-review-recovery
+2026-10-17T16:20:09.8678467Z Switched to a new branch 'agent/v042107-review-recovery'
+2026-10-17T16:20:09.8682599Z branch 'agent/v042107-review-recovery' set up to track 'origin/agent/v042107-review-recovery'.
+2026-10-17T16:20:09.8713302Z ##[endgroup]
+2026-10-17T16:20:09.8756190Z [command]/usr/bin/git log -1 --format=%H
+2026-10-17T16:20:09.8780254Z 71102fccf02a676d8f994fbfec97fff12d3eea9a
+2026-10-17T16:20:09.8992670Z ##[group]Run actions/setup-java@v4
+2026-10-17T16:20:09.8992868Z with:
+2026-10-17T16:20:09.8992989Z   distribution: temurin
+2026-10-17T16:20:09.8993117Z   java-version: 17
+2026-10-17T16:20:09.8993241Z   java-package: jdk
+2026-10-17T16:20:09.8993369Z   check-latest: false
+2026-10-17T16:20:09.8993489Z   server-id: github
+2026-10-17T16:20:09.8993622Z   server-username: GITHUB_ACTOR
+2026-10-17T16:20:09.8993770Z   server-password: GITHUB_TOKEN
+2026-10-17T16:20:09.8993912Z   overwrite-settings: true
+2026-10-17T16:20:09.8994047Z   job-status: success
+2026-10-17T16:20:09.8995310Z   token: ***
+2026-10-17T16:20:09.8995429Z ##[endgroup]
+2026-10-17T16:20:10.0115939Z ##[warning]setup-java v4 is deprecated and will no longer receive updates. Please migrate to actions/setup-java@v5.
+2026-10-17T16:20:10.0121138Z ##[group]Installed distributions
+2026-10-17T16:20:10.0297258Z Resolved Java 17.0.20+1 from tool-cache
+2026-10-17T16:20:10.0297607Z Setting Java 17.0.20+1 as the default
+2026-10-17T16:20:10.0305394Z (node:2100) [DEP0040] DeprecationWarning: The `punycode` module is deprecated. Please use a userland alternative instead.
+2026-10-17T16:20:10.0306058Z (Use `node --trace-deprecation ...` to show where the warning was created)
+2026-10-17T16:20:10.0307877Z Creating toolchains.xml for JDK version 17 from temurin
+2026-10-17T16:20:10.0353768Z Writing to /home/runner/.m2/toolchains.xml
+2026-10-17T16:20:10.0354037Z 
+2026-10-17T16:20:10.0354128Z Java configuration:
+2026-10-17T16:20:10.0354332Z   Distribution: temurin
+2026-10-17T16:20:10.0354537Z   Version: 17.0.20+1
+2026-10-17T16:20:10.0356159Z   Path: /opt/hostedtoolcache/Java_Temurin-Hotspot_jdk/17.0.20-1/x64
+2026-10-17T16:20:10.0356421Z 
+2026-10-17T16:20:10.0357330Z ##[endgroup]
+2026-10-17T16:20:10.0372771Z Creating settings.xml with server-id: github
+2026-10-17T16:20:10.0391997Z Writing to /home/runner/.m2/settings.xml
+2026-10-17T16:20:10.0542558Z ##[group]Run echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+2026-10-17T16:20:10.0543873Z [36;1mecho 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules[0m
+2026-10-17T16:20:10.0544472Z [36;1msudo udevadm control --reload-rules[0m
+2026-10-17T16:20:10.0544764Z [36;1msudo udevadm trigger --name-match=kvm[0m
+2026-10-17T16:20:10.0800576Z shell: /usr/bin/bash -e {0}
+2026-10-17T16:20:10.0800811Z env:
+2026-10-17T16:20:10.0801018Z   JAVA_HOME: /opt/hostedtoolcache/Java_Temurin-Hotspot_jdk/17.0.20-1/x64
+2026-10-17T16:20:10.0801304Z   JAVA_HOME_17_X64: /opt/hostedtoolcache/Java_Temurin-Hotspot_jdk/17.0.20-1/x64
+2026-10-17T16:20:10.0801527Z ##[endgroup]
+2026-10-17T16:20:10.0947895Z KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"
+2026-10-17T16:20:10.1238423Z ##[group]Run reactivecircus/android-emulator-runner@v2
+2026-10-17T16:20:10.1238650Z with:
+2026-10-17T16:20:10.1238764Z   api-level: 26
+2026-10-17T16:20:10.1238876Z   arch: x86_64
+2026-10-17T16:20:10.1238988Z   target: google_apis
+2026-10-17T16:20:10.1239113Z   disable-animations: true
+2026-10-17T16:20:10.1239332Z   emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim
+2026-10-17T16:20:10.1240211Z   script: chmod +x app/android/gradlew && cd app/android && ./gradlew -p ../tools/caicai_smoke connectedDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.class=com.catkiss.senlive2dcompanion.smoke.StageVisibilitySmokeTest,com.catkiss.senlive2dcompanion.smoke.CreativePreviewSmokeTest --stacktrace
+2026-10-17T16:20:10.1240933Z   cores: 2
+2026-10-17T16:20:10.1241041Z   avd-name: test
+2026-10-17T16:20:10.1241163Z   force-avd-creation: true
+2026-10-17T16:20:10.1241298Z   emulator-boot-timeout: 600
+2026-10-17T16:20:10.1241432Z   emulator-port: 5554
+2026-10-17T16:20:10.1241584Z   disable-spellchecker: false
+2026-10-17T16:20:10.1241857Z   disable-linux-hw-accel: auto
+2026-10-17T16:20:10.1241994Z   enable-hw-keyboard: false
+2026-10-17T16:20:10.1242123Z   channel: stable
+2026-10-17T16:20:10.1242233Z env:
+2026-10-17T16:20:10.1242396Z   JAVA_HOME: /opt/hostedtoolcache/Java_Temurin-Hotspot_jdk/17.0.20-1/x64
+2026-10-17T16:20:10.1242655Z   JAVA_HOME_17_X64: /opt/hostedtoolcache/Java_Temurin-Hotspot_jdk/17.0.20-1/x64
+2026-10-17T16:20:10.1242858Z ##[endgroup]
+2026-10-17T16:20:10.1617977Z ##[group]Configure emulator
+2026-10-17T16:20:10.1618386Z API level: 26
+2026-10-17T16:20:10.1618587Z System image API level: 26
+2026-10-17T16:20:10.1618790Z target: google_apis
+2026-10-17T16:20:10.1618988Z CPU architecture: x86_64
+2026-10-17T16:20:10.1619199Z Hardware profile: 
+2026-10-17T16:20:10.1619396Z Cores: 2
+2026-10-17T16:20:10.1619830Z RAM size: 
+2026-10-17T16:20:10.1620019Z Heap size: 
+2026-10-17T16:20:10.1620211Z SD card path or size: 
+2026-10-17T16:20:10.1620729Z Disk size: 
+2026-10-17T16:20:10.1621000Z AVD name: test
+2026-10-17T16:20:10.1621217Z force avd creation: true
+2026-10-17T16:20:10.1621439Z Emulator boot timeout: 600
+2026-10-17T16:20:10.1621682Z emulator port: 5554
+2026-10-17T16:20:10.1622002Z emulator options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim
+2026-10-17T16:20:10.1622339Z disable animations: true
+2026-10-17T16:20:10.1622540Z disable spellchecker: false
+2026-10-17T16:20:10.1622796Z disable Linux hardware acceleration: false
+2026-10-17T16:20:10.1623078Z enable hardware keyboard: false
+2026-10-17T16:20:10.1623423Z Channel: 0 (stable)
+2026-10-17T16:20:10.1623609Z Script:
+2026-10-17T16:20:10.1624671Z chmod +x app/android/gradlew && cd app/android && ./gradlew -p ../tools/caicai_smoke connectedDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.class=com.catkiss.senlive2dcompanion.smoke.StageVisibilitySmokeTest,com.catkiss.senlive2dcompanion.smoke.CreativePreviewSmokeTest --stacktrace
+2026-10-17T16:20:10.1625775Z Pre emulator launch script:
+2026-10-17T16:20:10.1626145Z ##[endgroup]
+2026-10-17T16:20:10.1626441Z ##[group]Install Android SDK
+2026-10-17T16:20:10.1779219Z [command]/usr/bin/sh -c \yes | sdkmanager --licenses > /dev/null
+2026-10-17T16:20:15.4223060Z Installing latest build tools, platform tools, and platform.
+2026-10-17T16:20:15.4230352Z [command]/usr/bin/sh -c \sdkmanager --install 'build-tools;37.0.0' platform-tools 'platforms;android-26'> /dev/null
+2026-10-17T16:20:19.1182695Z Installing latest emulator.
+2026-10-17T16:20:19.1189503Z [command]/usr/bin/sh -c \sdkmanager --install emulator --channel=0 > /dev/null
+2026-10-17T16:20:29.5337574Z Installing system images.
+2026-10-17T16:20:29.5344989Z [command]/usr/bin/sh -c \sdkmanager --install 'system-images;android-26;google_apis;x86_64' --channel=0 > /dev/null
+2026-10-17T16:21:05.7907559Z ##[endgroup]
+2026-10-17T16:21:05.7908388Z ##[group]Create AVD
+2026-10-17T16:21:05.7909104Z Creating AVD.
+2026-10-17T16:21:05.7919117Z [command]/usr/bin/sh -c \echo no | avdmanager create avd --force -n test --package 'system-images;android-26;google_apis;x86_64'
+2026-10-17T16:21:06.2705287Z Loading local repository...                                                     
+2026-10-17T16:21:06.2705720Z [=========                              ] 25% Loading local repository...       
+2026-10-17T16:21:06.2706070Z [=========                              ] 25% Fetch remote repository...        
+2026-10-17T16:21:06.2706402Z [=======================================] 100% Fetch remote repository...       
+2026-10-17T16:21:06.4136085Z Auto-selecting single ABI x86_64
+2026-10-17T16:21:06.6050684Z Do you wish to create a custom hardware profile? [no] [command]/usr/bin/sh -c \printf 'hw.cpu.ncore=2\n' >> /home/runner/.android/avd/test.avd/config.ini
+2026-10-17T16:21:06.6068963Z ##[endgroup]
+2026-10-17T16:21:06.6071093Z ##[group]Launch Emulator
+2026-10-17T16:21:06.6072564Z Starting emulator.
+2026-10-17T16:21:06.6087042Z [command]/usr/bin/sh -c \/usr/local/lib/android/sdk/emulator/emulator -port 5554 -avd test -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim &
+2026-10-17T16:21:06.6168266Z INFO         | Android emulator version 37.2.12.0 (build_id 16428233) (CL:N/A)
+2026-10-17T16:21:06.6168626Z INFO         | Graphics backend: gfxstream
+2026-10-17T16:21:06.6169088Z INFO         | Found systemPath /usr/local/lib/android/sdk/system-images/android-26/google_apis/x86_64/
+2026-10-17T16:21:06.8591297Z ##[error]The operation was canceled.
+2026-10-17T16:21:06.8628396Z ##[group]Run actions/upload-artifact@v4
+2026-10-17T16:21:06.8628554Z with:
+2026-10-17T16:21:06.8628674Z   name: android8-surface-results
+2026-10-17T16:21:06.8628865Z   path: app/tools/caicai_smoke/build/outputs/androidTest-results/
+2026-10-17T16:21:06.8629060Z   if-no-files-found: warn
+2026-10-17T16:21:06.8629191Z   compression-level: 6
+2026-10-17T16:21:06.8629310Z   overwrite: false
+2026-10-17T16:21:06.8629432Z   include-hidden-files: false
+2026-10-17T16:21:06.8629567Z env:
+2026-10-17T16:21:06.8629918Z   JAVA_HOME: /opt/hostedtoolcache/Java_Temurin-Hotspot_jdk/17.0.20-1/x64
+2026-10-17T16:21:06.8630179Z   JAVA_HOME_17_X64: /opt/hostedtoolcache/Java_Temurin-Hotspot_jdk/17.0.20-1/x64
+2026-10-17T16:21:06.8630410Z   ANDROID_AVD_HOME: /home/runner/.android/avd
+2026-10-17T16:21:06.8630563Z ##[endgroup]
+2026-10-17T16:21:06.9641634Z (node:2457) [DEP0040] DeprecationWarning: The `punycode` module is deprecated. Please use a userland alternative instead.
+2026-10-17T16:21:06.9642342Z (Use `node --trace-deprecation ...` to show where the warning was created)
+2026-10-17T16:21:06.9654108Z ##[warning]No files were found with the provided path: app/tools/caicai_smoke/build/outputs/androidTest-results/. No artifacts will be uploaded.
+2026-10-17T16:21:06.9835852Z Post job cleanup.
+2026-10-17T16:21:07.0776720Z (node:2469) [DEP0040] DeprecationWarning: The `punycode` module is deprecated. Please use a userland alternative instead.
+2026-10-17T16:21:07.0777525Z (Use `node --trace-deprecation ...` to show where the warning was created)
+2026-10-17T16:21:07.1062288Z Post job cleanup.
+2026-10-17T16:21:07.1760641Z [command]/usr/bin/git version
+2026-10-17T16:21:07.1778509Z git version 2.55.0
+2026-10-17T16:21:07.1803338Z Temporarily overriding HOME='/home/runner/work/_temp/8a3bf9bb-d4a7-4dfc-b914-2d107cbaa463' before making global git config changes
+2026-10-17T16:21:07.1804234Z Adding repository directory to the temporary git global config as a safe directory
+2026-10-17T16:21:07.1807416Z [command]/usr/bin/git config --global --add safe.directory /home/runner/work/ai-companion-build/ai-companion-build
+2026-10-17T16:21:07.1857914Z [command]/usr/bin/git config --local --name-only --get-regexp core\.sshCommand
+2026-10-17T16:21:07.1894825Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'core\.sshCommand' && git config --local --unset-all 'core.sshCommand' || :"
+2026-10-17T16:21:07.2110204Z [command]/usr/bin/git config --local --name-only --get-regexp http\.https\:\/\/github\.com\/\.extraheader
+2026-10-17T16:21:07.2128031Z http.https://github.com/.extraheader
+2026-10-17T16:21:07.2141078Z [command]/usr/bin/git config --local --unset-all http.https://github.com/.extraheader
+2026-10-17T16:21:07.2173453Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'http\.https\:\/\/github\.com\/\.extraheader' && git config --local --unset-all 'http.https://github.com/.extraheader' || :"
+2026-10-17T16:21:07.2421701Z [command]/usr/bin/git config --local --name-only --get-regexp ^includeIf\.gitdir:
+2026-10-17T16:21:07.2455279Z [command]/usr/bin/git submodule foreach --recursive git config --local --show-origin --name-only --get-regexp remote.origin.url
+2026-10-17T16:21:07.2775955Z Cleaning up orphan processes
+2026-10-17T16:21:07.2907485Z ##[warning]Node.js 20 is deprecated. The following actions target Node.js 20 but are being forced to run on Node.js 24: actions/checkout@v4, actions/setup-java@v4, actions/upload-artifact@v4. For more information see: https://github.blog/changelog/2025-09-19-deprecation-of-node-20-on-github-actions-runners/
 
---- job=caicai-native-smoke conclusion=cancelled id=117442974280 ---
-﻿2026-10-17T16:18:36.7757766Z Current runner version: '2.337.0'
-2026-10-17T16:18:36.7785758Z ##[group]Runner Image Provisioner
-2026-10-17T16:18:36.7786823Z Hosted Compute Agent
-2026-10-17T16:18:36.7787433Z Version: 20261012.601
-2026-10-17T16:18:36.7788112Z Commit: f3dc54e1fb89da6852db922499a0233137369e1d
-2026-10-17T16:18:36.7788878Z Build Date: 2026-10-12T17:48:21Z
-2026-10-17T16:18:36.7789590Z Worker ID: {d20ae354-f80f-4236-aaa0-261e5fcc7979}
-2026-10-17T16:18:36.7790446Z Region: eastus2
-2026-10-17T16:18:36.7791059Z Cloud: Azure
-2026-10-17T16:18:36.7791637Z ##[endgroup]
-2026-10-17T16:18:36.7793252Z ##[group]Operating System
-2026-10-17T16:18:36.7793911Z Ubuntu
-2026-10-17T16:18:36.7794807Z 24.04.5
-2026-10-17T16:18:36.7795335Z LTS
-2026-10-17T16:18:36.7795830Z ##[endgroup]
-2026-10-17T16:18:36.7796463Z ##[group]Runner Image
-2026-10-17T16:18:36.7797151Z Image: ubuntu-24.04
-2026-10-17T16:18:36.7797771Z Version: 20261012.334.1
-2026-10-17T16:18:36.7799069Z Included Software: https://github.com/actions/runner-images/blob/ubuntu24/20261012.334/images/ubuntu/Ubuntu2404-Readme.md
-2026-10-17T16:18:36.7801141Z Image Release: https://github.com/actions/runner-images/releases/tag/ubuntu24%2F20261012.334
-2026-10-17T16:18:36.7802172Z ##[endgroup]
-2026-10-17T16:18:36.7803485Z ##[group]GITHUB_TOKEN Permissions
-2026-10-17T16:18:36.7805874Z Actions: read
-2026-10-17T16:18:36.7806598Z Contents: write
-2026-10-17T16:18:36.7807181Z Metadata: read
-2026-10-17T16:18:36.7807860Z ##[endgroup]
-2026-10-17T16:18:36.7810087Z Secret source: Actions
-2026-10-17T16:18:36.7811097Z Cache mode: write
-2026-10-17T16:18:36.7812216Z Prepare workflow directory
-2026-10-17T16:18:36.8167406Z Prepare all required actions
-2026-10-17T16:18:36.8217580Z Getting action download info
-2026-10-17T16:18:37.0850527Z Download action repository 'actions/checkout@v4' (SHA:11d5960a326750d5838078e36cf38b85af677262)
-2026-10-17T16:18:37.2030488Z Download action repository 'actions/setup-java@v4' (SHA:cf277c60eb25467037889841efdb72551f06f6c3)
-2026-10-17T16:18:37.5328400Z Download action repository 'reactivecircus/android-emulator-runner@v2' (SHA:a421e43855164a8197daf9d8d40fe71c6996bb0d)
-2026-10-17T16:18:37.7412039Z Download action repository 'actions/upload-artifact@v4' (SHA:ea165f8d65b6e75b540449e92b4886f43607fa02)
-2026-10-17T16:18:37.9969109Z Complete job name: caicai-native-smoke
-2026-10-17T16:18:38.0940912Z ##[group]Run actions/checkout@v4
-2026-10-17T16:18:38.0942620Z with:
-2026-10-17T16:18:38.0943692Z   repository: catkiss62/ai-companion-build
-2026-10-17T16:18:38.0954327Z   token: ***
-2026-10-17T16:18:38.0955443Z   ssh-strict: true
-2026-10-17T16:18:38.0956528Z   ssh-user: git
-2026-10-17T16:18:38.0957623Z   persist-credentials: true
-2026-10-17T16:18:38.0958746Z   clean: true
-2026-10-17T16:18:38.0959836Z   sparse-checkout-cone-mode: true
-2026-10-17T16:18:38.0961042Z   fetch-depth: 1
-2026-10-17T16:18:38.0962144Z   fetch-tags: false
-2026-10-17T16:18:38.0963253Z   show-progress: true
-2026-10-17T16:18:38.0964474Z   lfs: false
-2026-10-17T16:18:38.0965518Z   submodules: false
-2026-10-17T16:18:38.0966572Z   set-safe-directory: true
-2026-10-17T16:18:38.0967779Z   allow-unsafe-pr-checkout: false
-2026-10-17T16:18:38.0969543Z ##[endgroup]
-2026-10-17T16:18:38.2104640Z Syncing repository: catkiss62/ai-companion-build
-2026-10-17T16:18:38.2108615Z ##[group]Getting Git version info
-2026-10-17T16:18:38.2111347Z Working directory is '/home/runner/work/ai-companion-build/ai-companion-build'
-2026-10-17T16:18:38.2114886Z [command]/usr/bin/git version
-2026-10-17T16:18:38.2197356Z git version 2.55.0
-2026-10-17T16:18:38.2226833Z ##[endgroup]
-2026-10-17T16:18:38.2243610Z Temporarily overriding HOME='/home/runner/work/_temp/7014f29d-19e5-4611-a4d0-72c5c26d4ba6' before making global git config changes
-2026-10-17T16:18:38.2249691Z Adding repository directory to the temporary git global config as a safe directory
-2026-10-17T16:18:38.2255795Z [command]/usr/bin/git config --global --add safe.directory /home/runner/work/ai-companion-build/ai-companion-build
-2026-10-17T16:18:38.2318936Z Deleting the contents of '/home/runner/work/ai-companion-build/ai-companion-build'
-2026-10-17T16:18:38.2325261Z ##[group]Initializing the repository
-2026-10-17T16:18:38.2330854Z [command]/usr/bin/git init /home/runner/work/ai-companion-build/ai-companion-build
-2026-10-17T16:18:38.2478404Z hint: Using 'master' as the name for the initial branch. This default branch name
-2026-10-17T16:18:38.2484508Z hint: will change to "main" in Git 3.0. To configure the initial branch name
-2026-10-17T16:18:38.2488230Z hint: to use in all of your new repositories, which will suppress this warning,
-2026-10-17T16:18:38.2491104Z hint: call:
-2026-10-17T16:18:38.2492086Z hint:
-2026-10-17T16:18:38.2493391Z hint: 	git config --global init.defaultBranch <name>
-2026-10-17T16:18:38.2495276Z hint:
-2026-10-17T16:18:38.2496744Z hint: Names commonly chosen instead of 'master' are 'main', 'trunk' and
-2026-10-17T16:18:38.2498939Z hint: 'development'. The just-created branch can be renamed via this command:
-2026-10-17T16:18:38.2500574Z hint:
-2026-10-17T16:18:38.2501558Z hint: 	git branch -m <name>
-2026-10-17T16:18:38.2502715Z hint:
-2026-10-17T16:18:38.2519839Z hint: Disable this message with "git config set advice.defaultBranchName false"
-2026-10-17T16:18:38.2522725Z Initialized empty Git repository in /home/runner/work/ai-companion-build/ai-companion-build/.git/
-2026-10-17T16:18:38.2529513Z [command]/usr/bin/git remote add origin https://github.com/catkiss62/ai-companion-build
-2026-10-17T16:18:38.2607503Z ##[endgroup]
-2026-10-17T16:18:38.2610725Z ##[group]Disabling automatic garbage collection
-2026-10-17T16:18:38.2613695Z [command]/usr/bin/git config --local gc.auto 0
-2026-10-17T16:18:38.2655444Z ##[endgroup]
-2026-10-17T16:18:38.2657535Z ##[group]Setting up auth
-2026-10-17T16:18:38.2665196Z [command]/usr/bin/git config --local --name-only --get-regexp core\.sshCommand
-2026-10-17T16:18:38.2703076Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'core\.sshCommand' && git config --local --unset-all 'core.sshCommand' || :"
-2026-10-17T16:18:38.3127722Z [command]/usr/bin/git config --local --name-only --get-regexp http\.https\:\/\/github\.com\/\.extraheader
-2026-10-17T16:18:38.3170992Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'http\.https\:\/\/github\.com\/\.extraheader' && git config --local --unset-all 'http.https://github.com/.extraheader' || :"
-2026-10-17T16:18:38.3400916Z [command]/usr/bin/git config --local --name-only --get-regexp ^includeIf\.gitdir:
-2026-10-17T16:18:38.3445417Z [command]/usr/bin/git submodule foreach --recursive git config --local --show-origin --name-only --get-regexp remote.origin.url
-2026-10-17T16:18:38.3683723Z [command]/usr/bin/git config --local http.https://github.com/.extraheader AUTHORIZATION: basic ***
-2026-10-17T16:18:38.3728150Z ##[endgroup]
-2026-10-17T16:18:38.3730036Z ##[group]Fetching the repository
-2026-10-17T16:18:38.3740074Z [command]/usr/bin/git -c protocol.version=2 fetch --no-tags --prune --no-recurse-submodules --depth=1 origin +e9962f964d1cefcf8a731cba3d9d75ca1d365f4a:refs/remotes/origin/agent/v042107-review-recovery
-2026-10-17T16:18:40.9647385Z From https://github.com/catkiss62/ai-companion-build
-2026-10-17T16:18:40.9649532Z  * [new ref]         e9962f964d1cefcf8a731cba3d9d75ca1d365f4a -> origin/agent/v042107-review-recovery
-2026-10-17T16:18:40.9732427Z ##[endgroup]
-2026-10-17T16:18:40.9733387Z ##[group]Determining the checkout info
-2026-10-17T16:18:40.9734516Z ##[endgroup]
-2026-10-17T16:18:40.9735104Z [command]/usr/bin/git sparse-checkout disable
-2026-10-17T16:18:40.9736587Z [command]/usr/bin/git config --local --unset-all extensions.worktreeConfig
-2026-10-17T16:18:40.9767948Z ##[group]Checking out the ref
-2026-10-17T16:18:40.9774496Z [command]/usr/bin/git checkout --progress --force -B agent/v042107-review-recovery refs/remotes/origin/agent/v042107-review-recovery
-2026-10-17T16:18:41.3740841Z Switched to a new branch 'agent/v042107-review-recovery'
-2026-10-17T16:18:41.3744968Z branch 'agent/v042107-review-recovery' set up to track 'origin/agent/v042107-review-recovery'.
-2026-10-17T16:18:41.3774310Z ##[endgroup]
-2026-10-17T16:18:41.3827014Z [command]/usr/bin/git log -1 --format=%H
-2026-10-17T16:18:41.3857121Z e9962f964d1cefcf8a731cba3d9d75ca1d365f4a
-2026-10-17T16:18:41.4163915Z ##[group]Run actions/setup-java@v4
-2026-10-17T16:18:41.4164605Z with:
-2026-10-17T16:18:41.4164816Z   distribution: temurin
-2026-10-17T16:18:41.4165050Z   java-version: 17
-2026-10-17T16:18:41.4165261Z   java-package: jdk
-2026-10-17T16:18:41.4165486Z   check-latest: false
-2026-10-17T16:18:41.4165708Z   server-id: github
-2026-10-17T16:18:41.4165924Z   server-username: GITHUB_ACTOR
-2026-10-17T16:18:41.4166191Z   server-password: GITHUB_TOKEN
-2026-10-17T16:18:41.4166437Z   overwrite-settings: true
-2026-10-17T16:18:41.4166667Z   job-status: success
-2026-10-17T16:18:41.4169349Z   token: ***
-2026-10-17T16:18:41.4169564Z ##[endgroup]
-2026-10-17T16:18:41.5976125Z ##[warning]setup-java v4 is deprecated and will no longer receive updates. Please migrate to actions/setup-java@v5.
-2026-10-17T16:18:41.5983846Z ##[group]Installed distributions
-2026-10-17T16:18:41.6300349Z Resolved Java 17.0.20+1 from tool-cache
-2026-10-17T16:18:41.6301023Z Setting Java 17.0.20+1 as the default
-2026-10-17T16:18:41.6312198Z (node:2306) [DEP0040] DeprecationWarning: The `punycode` module is deprecated. Please use a userland alternative instead.
-2026-10-17T16:18:41.6313238Z (Use `node --trace-deprecation ...` to show where the warning was created)
-2026-10-17T16:18:41.6316524Z Creating toolchains.xml for JDK version 17 from temurin
-2026-10-17T16:18:41.6393097Z Writing to /home/runner/.m2/toolchains.xml
-2026-10-17T16:18:41.6393530Z 
-2026-10-17T16:18:41.6393708Z Java configuration:
-2026-10-17T16:18:41.6394323Z   Distribution: temurin
-2026-10-17T16:18:41.6394736Z   Version: 17.0.20+1
-2026-10-17T16:18:41.6395317Z   Path: /opt/hostedtoolcache/Java_Temurin-Hotspot_jdk/17.0.20-1/x64
-2026-10-17T16:18:41.6395826Z 
-2026-10-17T16:18:41.6396362Z ##[endgroup]
-2026-10-17T16:18:41.6416558Z Creating settings.xml with server-id: github
-2026-10-17T16:18:41.6417733Z Writing to /home/runner/.m2/settings.xml
-2026-10-17T16:18:41.6638048Z ##[group]Run echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
-2026-10-17T16:18:41.6639579Z [36;1mecho 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules[0m
-2026-10-17T16:18:41.6640553Z [36;1msudo udevadm control --reload-rules[0m
-2026-10-17T16:18:41.6641089Z [36;1msudo udevadm trigger --name-match=kvm[0m
-2026-10-17T16:18:41.6984341Z shell: /usr/bin/bash -e {0}
-2026-10-17T16:18:41.6984709Z env:
-2026-10-17T16:18:41.6985325Z   JAVA_HOME: /opt/hostedtoolcache/Java_Temurin-Hotspot_jdk/17.0.20-1/x64
-2026-10-17T16:18:41.6985925Z   JAVA_HOME_17_X64: /opt/hostedtoolcache/Java_Temurin-Hotspot_jdk/17.0.20-1/x64
-2026-10-17T16:18:41.6986543Z ##[endgroup]
-2026-10-17T16:18:41.7176066Z KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"
-2026-10-17T16:18:41.7614318Z ##[group]Run reactivecircus/android-emulator-runner@v2
-2026-10-17T16:18:41.7614713Z with:
-2026-10-17T16:18:41.7614912Z   api-level: 35
-2026-10-17T16:18:41.7615114Z   arch: x86_64
-2026-10-17T16:18:41.7615319Z   target: google_apis
-2026-10-17T16:18:41.7615549Z   disable-animations: true
-2026-10-17T16:18:41.7616019Z   emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none
-2026-10-17T16:18:41.7616531Z   script: bash app/tools/run_native_smoke_v04257.sh
-2026-10-17T16:18:41.7616829Z   cores: 2
-2026-10-17T16:18:41.7617018Z   avd-name: test
-2026-10-17T16:18:41.7617228Z   force-avd-creation: true
-2026-10-17T16:18:41.7617472Z   emulator-boot-timeout: 600
-2026-10-17T16:18:41.7617715Z   emulator-port: 5554
-2026-10-17T16:18:41.7617942Z   disable-spellchecker: false
-2026-10-17T16:18:41.7618191Z   disable-linux-hw-accel: auto
-2026-10-17T16:18:41.7618435Z   enable-hw-keyboard: false
-2026-10-17T16:18:41.7618671Z   channel: stable
-2026-10-17T16:18:41.7618895Z env:
-2026-10-17T16:18:41.7619197Z   JAVA_HOME: /opt/hostedtoolcache/Java_Temurin-Hotspot_jdk/17.0.20-1/x64
-2026-10-17T16:18:41.7619878Z   JAVA_HOME_17_X64: /opt/hostedtoolcache/Java_Temurin-Hotspot_jdk/17.0.20-1/x64
-2026-10-17T16:18:41.7620262Z ##[endgroup]
-2026-10-17T16:18:41.8202138Z ##[group]Configure emulator
-2026-10-17T16:18:41.8204801Z API level: 35
-2026-10-17T16:18:41.8205220Z System image API level: 35
-2026-10-17T16:18:41.8205667Z target: google_apis
-2026-10-17T16:18:41.8206484Z CPU architecture: x86_64
-2026-10-17T16:18:41.8206959Z Hardware profile: 
-2026-10-17T16:18:41.8207430Z Cores: 2
-2026-10-17T16:18:41.8207977Z RAM size: 
-2026-10-17T16:18:41.8208474Z Heap size: 
-2026-10-17T16:18:41.8209641Z SD card path or size: 
-2026-10-17T16:18:41.8211187Z Disk size: 
-2026-10-17T16:18:41.8211742Z AVD name: test
-2026-10-17T16:18:41.8212506Z force avd creation: true
-2026-10-17T16:18:41.8213397Z Emulator boot timeout: 600
-2026-10-17T16:18:41.8214384Z emulator port: 5554
-2026-10-17T16:18:41.8215496Z emulator options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none
-2026-10-17T16:18:41.8216691Z disable animations: true
-2026-10-17T16:18:41.8217341Z disable spellchecker: false
-2026-10-17T16:18:41.8218047Z disable Linux hardware acceleration: false
-2026-10-17T16:18:41.8218859Z enable hardware keyboard: false
-2026-10-17T16:18:41.8219498Z Channel: 0 (stable)
-2026-10-17T16:18:41.8219959Z Script:
-2026-10-17T16:18:41.8220465Z bash app/tools/run_native_smoke_v04257.sh
-2026-10-17T16:18:41.8221201Z Pre emulator launch script:
-2026-10-17T16:18:41.8222190Z ##[endgroup]
-2026-10-17T16:18:41.8222929Z ##[group]Install Android SDK
-2026-10-17T16:18:41.8289957Z [command]/usr/bin/sh -c \yes | sdkmanager --licenses > /dev/null
-2026-10-17T16:18:47.7368448Z Installing latest build tools, platform tools, and platform.
-2026-10-17T16:18:47.7383637Z [command]/usr/bin/sh -c \sdkmanager --install 'build-tools;37.0.0' platform-tools 'platforms;android-35'> /dev/null
-2026-10-17T16:18:49.4019443Z Installing latest emulator.
-2026-10-17T16:18:49.4034531Z [command]/usr/bin/sh -c \sdkmanager --install emulator --channel=0 > /dev/null
-2026-10-17T16:18:58.1422410Z Installing system images.
-2026-10-17T16:18:58.1439401Z [command]/usr/bin/sh -c \sdkmanager --install 'system-images;android-35;google_apis;x86_64' --channel=0 > /dev/null
-2026-10-17T16:19:23.0167477Z ##[endgroup]
-2026-10-17T16:19:23.0168332Z ##[group]Create AVD
-2026-10-17T16:19:23.0168968Z Creating AVD.
-2026-10-17T16:19:23.0189431Z [command]/usr/bin/sh -c \echo no | avdmanager create avd --force -n test --package 'system-images;android-35;google_apis;x86_64'
-2026-10-17T16:19:23.8090482Z Loading local repository...                                                     
-2026-10-17T16:19:23.8097074Z [=========                              ] 25% Loading local repository...       
-2026-10-17T16:19:23.8097518Z [=========                              ] 25% Fetch remote repository...        
-2026-10-17T16:19:23.8098322Z [=======================================] 100% Fetch remote repository...       
-2026-10-17T16:19:24.0113368Z Auto-selecting single ABI x86_64
-2026-10-17T16:19:24.0812156Z Do you wish to create a custom hardware profile? [no] [command]/usr/bin/sh -c \printf 'hw.cpu.ncore=2\n' >> /home/runner/.android/avd/test.avd/config.ini
-2026-10-17T16:19:24.0834163Z ##[endgroup]
-2026-10-17T16:19:24.0836368Z ##[group]Launch Emulator
-2026-10-17T16:19:24.0836722Z Starting emulator.
-2026-10-17T16:19:24.0851234Z [command]/usr/bin/sh -c \/usr/local/lib/android/sdk/emulator/emulator -port 5554 -avd test -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none &
-2026-10-17T16:19:24.0966827Z INFO         | Android emulator version 37.2.12.0 (build_id 16428233) (CL:N/A)
-2026-10-17T16:19:24.0967804Z INFO         | Graphics backend: gfxstream
-2026-10-17T16:19:24.0968708Z INFO         | Found systemPath /usr/local/lib/android/sdk/system-images/android-35/google_apis/x86_64/
-2026-10-17T16:19:24.1457519Z INFO         | Saving last run QEMU version for the AVD to 2
-2026-10-17T16:19:24.1458277Z INFO         | Increasing RAM size to 2560MB
-2026-10-17T16:19:24.1459194Z ##############################################################################
-2026-10-17T16:19:24.1459893Z ##                        WARNING - ACTION REQUIRED                         ##
-2026-10-17T16:19:24.1460706Z ##  Consider using the '-metrics-collection' flag to help improve the       ##
-2026-10-17T16:19:24.1461620Z ##  emulator by sending anonymized usage data. Or use the '-no-metrics'     ##
-2026-10-17T16:19:24.1462564Z ##  flag to bypass this warning and turn off the metrics collection.        ##
-2026-10-17T16:19:24.1463437Z ##  In a future release this warning will turn into a one-time blocking     ##
-2026-10-17T16:19:24.1464609Z ##  prompt to ask for explicit user input regarding metrics collection.     ##
-2026-10-17T16:19:24.1465368Z ##                                                                          ##
-2026-10-17T16:19:24.1466215Z ##  Please see '-help-metrics-collection' for more details. You can use     ##
-2026-10-17T16:19:24.1467128Z ##  '-metrics-to-file' or '-metrics-to-console' flags to see what type of   ##
-2026-10-17T16:19:24.1468028Z ##  data is being collected by emulator as part of usage statistics.        ##
-2026-10-17T16:19:24.1468771Z ##############################################################################
-2026-10-17T16:19:24.1469374Z INFO         | Guest GLES Driver: Auto (ext controls)
-2026-10-17T16:19:24.1470197Z INFO         | emuglConfig_init: vulkan_mode_selected:swiftshader gles_mode_selected:swiftshader
-2026-10-17T16:19:24.1471038Z INFO         | Checking system compatibility:
-2026-10-17T16:19:24.1471600Z INFO         |   Checking: hasSufficientDiskSpace
-2026-10-17T16:19:24.1472248Z INFO         |      Ok: Disk space requirements to run avd: `test` are met
-2026-10-17T16:19:24.1472906Z INFO         |   Checking: hasSufficientHwGpu
-2026-10-17T16:19:24.1473543Z INFO         |      Ok: Hardware GPU compatibility checks are not required
-2026-10-17T16:19:24.1474532Z INFO         |   Checking: hasSufficientSystem
-2026-10-17T16:19:24.1475165Z INFO         |      Ok: System requirements to run avd: `test` are met
-2026-10-17T16:19:24.1476622Z WARNING      | Feature QuickbootFileBacked is disabled due to stability issues, if you really want that, the environment variable ANDROID_EMU_FORCE_QUICKBOOT_FILE_BACKED need to set to 1
-2026-10-17T16:19:25.3567624Z ERROR        | Unable to connect to adb daemon on port: 5037
-2026-10-17T16:19:25.3569235Z INFO         | Storing crashdata in: /tmp/android-runner/emu-crash-37.2.12.db, detection is enabled for process: 2635
-2026-10-17T16:19:25.3570275Z INFO         | Initializing gfxstream backend
-2026-10-17T16:19:25.3583711Z INFO         | startOpenglesRendererImpl: gpu info
-2026-10-17T16:19:25.3584704Z INFO         | 
-2026-10-17T16:19:25.3588103Z INFO         | initIcdPaths: ICD set to 'swiftshader', using Swiftshader ICD
-2026-10-17T16:19:25.3589829Z INFO         | Setting ICD filenames for the loader = /usr/local/lib/android/sdk/emulator/lib64/vulkan/vk_swiftshader_icd.json
-2026-10-17T16:19:25.3591515Z INFO         | SharedLibrary::open for [/usr/local/lib/android/sdk/emulator/qemu/linux-x86_64/lib64/vulkan/libvulkan.so]
-2026-10-17T16:19:25.3593029Z INFO         | SharedLibrary::open for [/usr/local/lib/android/sdk/emulator/qemu/linux-x86_64/lib64/vulkan/libvulkan.so.1]
-2026-10-17T16:19:25.3594713Z INFO         | SharedLibrary::open for [/usr/local/lib/android/sdk/emulator/lib64/vulkan/libvulkan.so]
-2026-10-17T16:19:25.3595867Z INFO         | Added library: /usr/local/lib/android/sdk/emulator/lib64/vulkan/libvulkan.so
-2026-10-17T16:19:25.3659166Z INFO         | Selecting Vulkan device: SwiftShader Device (Subzero), Version: 1.3.0
-2026-10-17T16:19:25.3660084Z INFO         | Using Vulkan externalMemoryMode: OpaqueFd for VkEmulation
-2026-10-17T16:19:25.3739250Z INFO         | Format VK_FORMAT_G10X6_B10X6R10X6_2PLANE_422_UNORM_3PACK16 does not support YCbCr sampler conversion
-2026-10-17T16:19:25.3770052Z INFO         | SharedLibrary::open for [libX11]
-2026-10-17T16:19:25.3773705Z WARNING      | Could not open libX11.so, try libX11.so.6
-2026-10-17T16:19:25.3774918Z INFO         | SharedLibrary::open for [libX11.so.6]
-2026-10-17T16:19:25.3775482Z INFO         | SharedLibrary::open for [libX11-xcb]
-2026-10-17T16:19:25.3776000Z WARNING      | Could not open libX11-xcb.so, try libX11-xcb.so.1
-2026-10-17T16:19:25.3776523Z INFO         | SharedLibrary::open for [libX11-xcb.so.1]
-2026-10-17T16:19:25.3828392Z INFO         | Initializing VkEmulation features:
-2026-10-17T16:19:25.3828997Z INFO         |     glInteropSupported: false
-2026-10-17T16:19:25.3829509Z INFO         |     useDeferredCommands: true
-2026-10-17T16:19:25.3829849Z INFO         |     createResourceWithRequirements: true
-2026-10-17T16:19:25.3830189Z INFO         |     useVulkanComposition: false
-2026-10-17T16:19:25.3830502Z INFO         |     useVulkanNativeSwapchain: false
-2026-10-17T16:19:25.3830815Z INFO         |     enable guestRenderDoc: false
-2026-10-17T16:19:25.3831136Z INFO         |     ASTC LDR emulation mode: Gpu
-2026-10-17T16:19:25.3831438Z INFO         |     enable ETC2 emulation: true
-2026-10-17T16:19:25.3831731Z INFO         |     enable Ycbcr emulation: false
-2026-10-17T16:19:25.3832022Z INFO         |     guestVulkanOnly: false
-2026-10-17T16:19:25.3832327Z INFO         |     useDedicatedAllocations: false
-2026-10-17T16:19:25.3832642Z INFO         |     guestVulkanMaxApiVersion: 1.3.0
-2026-10-17T16:19:25.3832977Z INFO         |     enableProtectedMemoryEmulation: false
-2026-10-17T16:19:25.3852393Z INFO         | Graphics Adapter Vendor Google (Google Inc.)
-2026-10-17T16:19:25.3853255Z INFO         | Graphics Adapter Android Emulator OpenGL ES Translator (Google SwiftShader)
-2026-10-17T16:19:25.3854372Z INFO         | Graphics API Version OpenGL ES 3.0 (OpenGL ES 3.0 SwiftShader 4.0.0.1)
-2026-10-17T16:19:25.3858620Z INFO         | Graphics API Extensions GL_OES_EGL_sync GL_OES_EGL_image GL_OES_EGL_image_external GL_OES_depth24 GL_OES_depth32 GL_OES_element_index_uint GL_OES_texture_float GL_OES_texture_float_linear GL_OES_compressed_paletted_texture GL_OES_compressed_ETC1_RGB8_texture GL_OES_depth_texture GL_OES_texture_half_float GL_OES_texture_half_float_linear GL_OES_packed_depth_stencil GL_OES_vertex_half_float GL_OES_standard_derivatives GL_OES_texture_npot GL_OES_rgb8_rgba8 GL_EXT_color_buffer_float GL_EXT_color_buffer_half_float GL_EXT_texture_format_BGRA8888 GL_APPLE_texture_format_BGRA8888 
-2026-10-17T16:19:25.3862378Z INFO         | Graphics Device Extensions N/A
-2026-10-17T16:19:25.3862742Z INFO         | Disabling sparse binding feature support
-2026-10-17T16:19:25.3909964Z INFO         | Sending adb public key [QAAAAD/dsdFBbZ3pZzK1t8tqk+b/K6mI3fPnGHKfSJv78ADScV6ugvEBbW+MMPLjACFTj1tT/mN3i8aXxETvFG+n6glTjoo0nfs1ZZ+poP06bXctgSD5NJsdsFN6+p1CzkfDThGLhaVSLmVha5me6r1QmpLqD/0q63xptEUzQ+i8fVjSjPJsUXcxdCgPL2ozgJOwSkUdAC0OjrEbeXUoVnBSCM20/toy4lR1ZII/5FO+eaeX+eC8sV1frkCOZ0lKBUc+HcOMILWQapfUkZ/TUY3Vk8mH2dgdNEZQ0X+49LW0mwxBYyJ94Mb9YK6bLevhTOH+gVY+5959rYqcWOJUAnxdWnlX1TbeQh95fQDR4icl7A9EHItz5eHCOYplyxshfVIT8dnEzlzNIgB44rJppfrnBmnKaqGN4zvz7PGMUblSmNgtoG+5jP9m1gXXqU+d3u/lOSqjv9opIj6kohxzbOUFuSyurdllod3J10o4w31W/Etm8QckJGsC38OpSEpjzpn0TBrHhjryukZXzCPAJjjyO1ID5fpFACoW7EgPpclcMHBAwx1VvzDy8MQ30/MjOLS5R2KTC23Z93hVZ/amgvgWj6aBtd4GWmLAsXXeVdVXErk+Fy6eu3jRYB5TYFGqxtdrG3ReJ09gULiaHEJwtNdIULls12T+Svf9TAkfKfo8f7Jx6BO6TgEAAQA= runner@unknown]
-2026-10-17T16:19:25.3916345Z INFO         | Userspace boot properties:
-2026-10-17T16:19:25.3916975Z INFO         |   androidboot.boot_devices=pci0000:00/0000:00:03.0 pci0000:00/0000:00:06.0
-2026-10-17T16:19:25.3917766Z INFO         |   androidboot.dalvik.vm.heapsize=576m
-2026-10-17T16:19:25.3918274Z INFO         |   androidboot.debug.hwui.renderer=skiagl
-2026-10-17T16:19:25.3918742Z INFO         |   androidboot.debug.sf.nobootanimation=1
-2026-10-17T16:19:25.3919180Z INFO         |   androidboot.hardware=ranchu
-2026-10-17T16:19:25.3919618Z INFO         |   androidboot.hardware.gltransport=pipe
-2026-10-17T16:19:25.3920062Z INFO         |   androidboot.hardware.vulkan=ranchu
-2026-10-17T16:19:25.3920490Z INFO         |   androidboot.logcat=*:V
-2026-10-17T16:19:25.3921163Z INFO         |   androidboot.opengles.version=196608
-2026-10-17T16:19:25.3921581Z INFO         |   androidboot.qemu=1
-2026-10-17T16:19:25.3925772Z INFO         |   androidboot.qemu.adb.pubkey=QAAAAD/dsdFBbZ3pZzK1t8tqk+b/K6mI3fPnGHKfSJv78ADScV6ugvEBbW+MMPLjACFTj1tT/mN3i8aXxETvFG+n6glTjoo0nfs1ZZ+poP06bXctgSD5NJsdsFN6+p1CzkfDThGLhaVSLmVha5me6r1QmpLqD/0q63xptEUzQ+i8fVjSjPJsUXcxdCgPL2ozgJOwSkUdAC0OjrEbeXUoVnBSCM20/toy4lR1ZII/5FO+eaeX+eC8sV1frkCOZ0lKBUc+HcOMILWQapfUkZ/TUY3Vk8mH2dgdNEZQ0X+49LW0mwxBYyJ94Mb9YK6bLevhTOH+gVY+5959rYqcWOJUAnxdWnlX1TbeQh95fQDR4icl7A9EHItz5eHCOYplyxshfVIT8dnEzlzNIgB44rJppfrnBmnKaqGN4zvz7PGMUblSmNgtoG+5jP9m1gXXqU+d3u/lOSqjv9opIj6kohxzbOUFuSyurdllod3J10o4w31W/Etm8QckJGsC38OpSEpjzpn0TBrHhjryukZXzCPAJjjyO1ID5fpFACoW7EgPpclcMHBAwx1VvzDy8MQ30/MjOLS5R2KTC23Z93hVZ/amgvgWj6aBtd4GWmLAsXXeVdVXErk+Fy6eu3jRYB5TYFGqxtdrG3ReJ09gULiaHEJwtNdIULls12T+Svf9TAkfKfo8f7Jx6BO6TgEAAQA= runner@unknown
-2026-10-17T16:19:25.3929467Z INFO         |   androidboot.qemu.avd_name=test
-2026-10-17T16:19:25.3930234Z INFO         |   androidboot.qemu.camera_hq_edge_processing=0
-2026-10-17T16:19:25.3930850Z INFO         |   androidboot.qemu.camera_protocol_ver=1
-2026-10-17T16:19:25.3931288Z INFO         |   androidboot.qemu.cpuvulkan.version=4206592
-2026-10-17T16:19:25.3931680Z INFO         |   androidboot.qemu.gltransport.drawFlushInterval=800
-2026-10-17T16:19:25.3932097Z INFO         |   androidboot.qemu.gltransport.name=pipe
-2026-10-17T16:19:25.3932443Z INFO         |   androidboot.qemu.hwcodec.avcdec=2
-2026-10-17T16:19:25.3932769Z INFO         |   androidboot.qemu.hwcodec.hevcdec=2
-2026-10-17T16:19:25.3933096Z INFO         |   androidboot.qemu.hwcodec.vpxdec=2
-2026-10-17T16:19:25.3933518Z INFO         |   androidboot.qemu.settings.system.screen_off_timeout=2147483647
-2026-10-17T16:19:25.3933927Z INFO         |   androidboot.qemu.skin=320x640
-2026-10-17T16:19:25.3934503Z INFO         |   androidboot.qemu.virtiowifi=1
-2026-10-17T16:19:25.3934866Z INFO         |   androidboot.qemu.vsync=60
-2026-10-17T16:19:25.3935183Z INFO         |   androidboot.serialno=EMULATOR37X2X12X0
-2026-10-17T16:19:25.3935681Z INFO         |   androidboot.vbmeta.digest=b3271ba499104f4631ae3723913d5c12574e01715fce5b82d60beed097ead264
-2026-10-17T16:19:25.3936182Z INFO         |   androidboot.vbmeta.hash_alg=sha256
-2026-10-17T16:19:25.3936494Z INFO         |   androidboot.vbmeta.size=6720
-2026-10-17T16:19:25.3936797Z INFO         |   androidboot.veritymode=enforcing
-2026-10-17T16:19:25.4109999Z WARNING: cannnot unmap ptr 0x7fd462e01000 as it is in the protected range from 0x7fd3c2e00000 to 0x7fd463000000
-2026-10-17T16:19:25.4266491Z INFO         | Monitoring duration of emulator setup.
-2026-10-17T16:19:26.4407238Z INFO         | Successfully initialized netsim WiFi
-2026-10-17T16:19:26.4407996Z INFO         | Activated packet streamer for bluetooth emulation
-2026-10-17T16:19:26.4466244Z INFO         | Setting display: 0 configuration to: 320x640, dpi: 160x160 
-2026-10-17T16:19:26.4467320Z INFO         | setDisplayActiveConfig: id:0, 320x640
-2026-10-17T16:19:26.4468000Z INFO         | emulatorSetupEnvironment: Environment scene is not required
-2026-10-17T16:19:26.4545004Z INFO         | Loading snapshot 'default_boot'...
-2026-10-17T16:19:26.4546189Z WARNING      | Failed to process .ini file /home/runner/.android/emu-update-last-check.ini for reading.
-2026-10-17T16:19:26.4677889Z WARNING      | Device 'cache' does not have the requested snapshot 'default_boot'
-2026-10-17T16:19:26.4678512Z 
-2026-10-17T16:19:26.4678737Z WARNING      | Failed to load snapshot 'default_boot'
-2026-10-17T16:19:26.4679900Z USER_INFO    | The emulator is performing a cold boot without a saved state because there's no snapshot and you have configured it not to save on exit.
-2026-10-17T16:19:26.5523137Z WARNING      | Failed to process .ini file /home/runner/.android/emu-update-last-check.ini for reading.
-2026-10-17T16:19:34.0932026Z [command]/usr/local/lib/android/sdk/platform-tools/adb -s emulator-5554 shell getprop sys.boot_completed
-2026-10-17T16:19:34.0969736Z * daemon not running; starting now at tcp:5037
-2026-10-17T16:19:34.6501433Z * daemon started successfully
-2026-10-17T16:19:34.6509117Z adb: device offline
-2026-10-17T16:19:34.6521941Z The process '/usr/local/lib/android/sdk/platform-tools/adb' failed with exit code 1
-2026-10-17T16:19:36.6565317Z [command]/usr/local/lib/android/sdk/platform-tools/adb -s emulator-5554 shell getprop sys.boot_completed
-2026-10-17T16:19:36.6621815Z adb: device offline
-2026-10-17T16:19:36.6633264Z The process '/usr/local/lib/android/sdk/platform-tools/adb' failed with exit code 1
-2026-10-17T16:19:38.6655923Z [command]/usr/local/lib/android/sdk/platform-tools/adb -s emulator-5554 shell getprop sys.boot_completed
-2026-10-17T16:19:38.6899215Z 
-2026-10-17T16:19:40.6985533Z [command]/usr/local/lib/android/sdk/platform-tools/adb -s emulator-5554 shell getprop sys.boot_completed
-2026-10-17T16:19:40.7311563Z 
-2026-10-17T16:19:42.7386642Z [command]/usr/local/lib/android/sdk/platform-tools/adb -s emulator-5554 shell getprop sys.boot_completed
-2026-10-17T16:19:42.7637443Z 
-2026-10-17T16:19:43.4707500Z ##[error]The operation was canceled.
-2026-10-17T16:19:43.4798256Z ##[group]Run actions/upload-artifact@v4
-2026-10-17T16:19:43.4798752Z with:
-2026-10-17T16:19:43.4799120Z   name: Caicai-v04243-native-smoke-results
-2026-10-17T16:19:43.4799759Z   path: app/tools/caicai_smoke/build/outputs/androidTest-results/
-2026-10-17T16:19:43.4800379Z   retention-days: 14
-2026-10-17T16:19:43.4800748Z   if-no-files-found: warn
-2026-10-17T16:19:43.4801139Z   compression-level: 6
-2026-10-17T16:19:43.4801506Z   overwrite: false
-2026-10-17T16:19:43.4801867Z   include-hidden-files: false
-2026-10-17T16:19:43.4802263Z env:
-2026-10-17T16:19:43.4802752Z   JAVA_HOME: /opt/hostedtoolcache/Java_Temurin-Hotspot_jdk/17.0.20-1/x64
-2026-10-17T16:19:43.4803605Z   JAVA_HOME_17_X64: /opt/hostedtoolcache/Java_Temurin-Hotspot_jdk/17.0.20-1/x64
-2026-10-17T16:19:43.4804578Z   ANDROID_AVD_HOME: /home/runner/.android/avd
-2026-10-17T16:19:43.4805061Z ##[endgroup]
-2026-10-17T16:19:43.8185382Z (node:2773) [DEP0040] DeprecationWarning: The `punycode` module is deprecated. Please use a userland alternative instead.
-2026-10-17T16:19:43.8201571Z (Use `node --trace-deprecation ...` to show where the warning was created)
-2026-10-17T16:19:43.8366928Z ##[warning]No files were found with the provided path: app/tools/caicai_smoke/build/outputs/androidTest-results/. No artifacts will be uploaded.
-2026-10-17T16:19:43.8754434Z Post job cleanup.
-2026-10-17T16:19:44.1025703Z (node:2785) [DEP0040] DeprecationWarning: The `punycode` module is deprecated. Please use a userland alternative instead.
-2026-10-17T16:19:44.1055017Z (Use `node --trace-deprecation ...` to show where the warning was created)
-2026-10-17T16:19:44.1583576Z Post job cleanup.
-2026-10-17T16:19:44.3527990Z [command]/usr/bin/git version
-2026-10-17T16:19:44.3615935Z git version 2.55.0
-2026-10-17T16:19:44.3756877Z Temporarily overriding HOME='/home/runner/work/_temp/acc6ab52-5295-43bb-a206-d43da2bf3582' before making global git config changes
-2026-10-17T16:19:44.3773023Z Adding repository directory to the temporary git global config as a safe directory
-2026-10-17T16:19:44.3778665Z [command]/usr/bin/git config --global --add safe.directory /home/runner/work/ai-companion-build/ai-companion-build
-2026-10-17T16:19:44.3897336Z [command]/usr/bin/git config --local --name-only --get-regexp core\.sshCommand
-2026-10-17T16:19:44.4059772Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'core\.sshCommand' && git config --local --unset-all 'core.sshCommand' || :"
-2026-10-17T16:19:44.4945183Z [command]/usr/bin/git config --local --name-only --get-regexp http\.https\:\/\/github\.com\/\.extraheader
-2026-10-17T16:19:44.5038726Z http.https://github.com/.extraheader
-2026-10-17T16:19:44.5131708Z [command]/usr/bin/git config --local --unset-all http.https://github.com/.extraheader
-2026-10-17T16:19:44.5237051Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'http\.https\:\/\/github\.com\/\.extraheader' && git config --local --unset-all 'http.https://github.com/.extraheader' || :"
-2026-10-17T16:19:44.5725078Z [command]/usr/bin/git config --local --name-only --get-regexp ^includeIf\.gitdir:
-2026-10-17T16:19:44.5799905Z [command]/usr/bin/git submodule foreach --recursive git config --local --show-origin --name-only --get-regexp remote.origin.url
-2026-10-17T16:19:44.6478111Z Cleaning up orphan processes
-2026-10-17T16:19:44.7139561Z Terminate orphan process: pid (2635) (qemu-system-x86_64-headless)
-2026-10-17T16:19:44.7268113Z Terminate orphan process: pid (2639) (crashpad_handler)
-2026-10-17T16:19:44.7462943Z Terminate orphan process: pid (2701) (netsimd)
-2026-10-17T16:19:44.7559113Z Terminate orphan process: pid (2738) (adb)
-2026-10-17T16:19:44.7572064Z ##[warning]Node.js 20 is deprecated. The following actions target Node.js 20 but are being forced to run on Node.js 24: actions/checkout@v4, actions/setup-java@v4, actions/upload-artifact@v4. For more information see: https://github.blog/changelog/2025-09-19-deprecation-of-node-20-on-github-actions-runners/
+--- job=caicai-native-smoke conclusion=cancelled id=117443278566 ---
+﻿2026-10-17T16:20:04.5476436Z Current runner version: '2.337.0'
+2026-10-17T16:20:04.5498471Z ##[group]Runner Image Provisioner
+2026-10-17T16:20:04.5499239Z Hosted Compute Agent
+2026-10-17T16:20:04.5499743Z Version: 20261012.601
+2026-10-17T16:20:04.5500295Z Commit: f3dc54e1fb89da6852db922499a0233137369e1d
+2026-10-17T16:20:04.5500959Z Build Date: 2026-10-12T17:48:21Z
+2026-10-17T16:20:04.5501509Z Worker ID: {b21b61ca-eab5-479f-9a27-6249194ac268}
+2026-10-17T16:20:04.5502116Z Region: mexicocentral
+2026-10-17T16:20:04.5502610Z Cloud: Azure
+2026-10-17T16:20:04.5503088Z ##[endgroup]
+2026-10-17T16:20:04.5504292Z ##[group]Operating System
+2026-10-17T16:20:04.5504809Z Ubuntu
+2026-10-17T16:20:04.5505226Z 24.04.5
+2026-10-17T16:20:04.5505720Z LTS
+2026-10-17T16:20:04.5506179Z ##[endgroup]
+2026-10-17T16:20:04.5506782Z ##[group]Runner Image
+2026-10-17T16:20:04.5507299Z Image: ubuntu-24.04
+2026-10-17T16:20:04.5507886Z Version: 20261012.334.1
+2026-10-17T16:20:04.5509013Z Included Software: https://github.com/actions/runner-images/blob/ubuntu24/20261012.334/images/ubuntu/Ubuntu2404-Readme.md
+2026-10-17T16:20:04.5510603Z Image Release: https://github.com/actions/runner-images/releases/tag/ubuntu24%2F20261012.334
+2026-10-17T16:20:04.5511381Z ##[endgroup]
+2026-10-17T16:20:04.5512341Z ##[group]GITHUB_TOKEN Permissions
+2026-10-17T16:20:04.5514128Z Actions: read
+2026-10-17T16:20:04.5514606Z Contents: write
+2026-10-17T16:20:04.5515153Z Metadata: read
+2026-10-17T16:20:04.5515607Z ##[endgroup]
+2026-10-17T16:20:04.5517378Z Secret source: Actions
+2026-10-17T16:20:04.5518384Z Cache mode: write
+2026-10-17T16:20:04.5518985Z Prepare workflow directory
+2026-10-17T16:20:04.5794706Z Prepare all required actions
+2026-10-17T16:20:04.5848993Z Getting action download info
+2026-10-17T16:20:04.8992000Z Download action repository 'actions/checkout@v4' (SHA:11d5960a326750d5838078e36cf38b85af677262)
+2026-10-17T16:20:05.0398529Z Download action repository 'actions/setup-java@v4' (SHA:cf277c60eb25467037889841efdb72551f06f6c3)
+2026-10-17T16:20:06.0741724Z Download action repository 'reactivecircus/android-emulator-runner@v2' (SHA:a421e43855164a8197daf9d8d40fe71c6996bb0d)
+2026-10-17T16:20:06.6570523Z Download action repository 'actions/upload-artifact@v4' (SHA:ea165f8d65b6e75b540449e92b4886f43607fa02)
+2026-10-17T16:20:06.9009947Z Complete job name: caicai-native-smoke
+2026-10-17T16:20:06.9656786Z ##[group]Run actions/checkout@v4
+2026-10-17T16:20:06.9657986Z with:
+2026-10-17T16:20:06.9658687Z   repository: catkiss62/ai-companion-build
+2026-10-17T16:20:06.9661824Z   token: ***
+2026-10-17T16:20:06.9662498Z   ssh-strict: true
+2026-10-17T16:20:06.9663275Z   ssh-user: git
+2026-10-17T16:20:06.9663958Z   persist-credentials: true
+2026-10-17T16:20:06.9664645Z   clean: true
+2026-10-17T16:20:06.9665385Z   sparse-checkout-cone-mode: true
+2026-10-17T16:20:06.9666102Z   fetch-depth: 1
+2026-10-17T16:20:06.9666822Z   fetch-tags: false
+2026-10-17T16:20:06.9667611Z   show-progress: true
+2026-10-17T16:20:06.9668296Z   lfs: false
+2026-10-17T16:20:06.9668986Z   submodules: false
+2026-10-17T16:20:06.9669669Z   set-safe-directory: true
+2026-10-17T16:20:06.9670494Z   allow-unsafe-pr-checkout: false
+2026-10-17T16:20:06.9671448Z ##[endgroup]
+2026-10-17T16:20:07.0520435Z Syncing repository: catkiss62/ai-companion-build
+2026-10-17T16:20:07.0522533Z ##[group]Getting Git version info
+2026-10-17T16:20:07.0523667Z Working directory is '/home/runner/work/ai-companion-build/ai-companion-build'
+2026-10-17T16:20:07.0525277Z [command]/usr/bin/git version
+2026-10-17T16:20:07.0561356Z git version 2.55.0
+2026-10-17T16:20:07.0579506Z ##[endgroup]
+2026-10-17T16:20:07.0592842Z Temporarily overriding HOME='/home/runner/work/_temp/119f8c18-fa21-4613-a33b-d18127d0fd3f' before making global git config changes
+2026-10-17T16:20:07.0595001Z Adding repository directory to the temporary git global config as a safe directory
+2026-10-17T16:20:07.0598173Z [command]/usr/bin/git config --global --add safe.directory /home/runner/work/ai-companion-build/ai-companion-build
+2026-10-17T16:20:07.0642602Z Deleting the contents of '/home/runner/work/ai-companion-build/ai-companion-build'
+2026-10-17T16:20:07.0653599Z ##[group]Initializing the repository
+2026-10-17T16:20:07.0655010Z [command]/usr/bin/git init /home/runner/work/ai-companion-build/ai-companion-build
+2026-10-17T16:20:07.0782571Z hint: Using 'master' as the name for the initial branch. This default branch name
+2026-10-17T16:20:07.0784658Z hint: will change to "main" in Git 3.0. To configure the initial branch name
+2026-10-17T16:20:07.0788075Z hint: to use in all of your new repositories, which will suppress this warning,
+2026-10-17T16:20:07.0789457Z hint: call:
+2026-10-17T16:20:07.0790603Z hint:
+2026-10-17T16:20:07.0792109Z hint: 	git config --global init.defaultBranch <name>
+2026-10-17T16:20:07.0794413Z hint:
+2026-10-17T16:20:07.0796036Z hint: Names commonly chosen instead of 'master' are 'main', 'trunk' and
+2026-10-17T16:20:07.0797196Z hint: 'development'. The just-created branch can be renamed via this command:
+2026-10-17T16:20:07.0798258Z hint:
+2026-10-17T16:20:07.0799006Z hint: 	git branch -m <name>
+2026-10-17T16:20:07.0799890Z hint:
+2026-10-17T16:20:07.0801177Z hint: Disable this message with "git config set advice.defaultBranchName false"
+2026-10-17T16:20:07.0802601Z Initialized empty Git repository in /home/runner/work/ai-companion-build/ai-companion-build/.git/
+2026-10-17T16:20:07.0805090Z [command]/usr/bin/git remote add origin https://github.com/catkiss62/ai-companion-build
+2026-10-17T16:20:07.0841515Z ##[endgroup]
+2026-10-17T16:20:07.0843096Z ##[group]Disabling automatic garbage collection
+2026-10-17T16:20:07.0844644Z [command]/usr/bin/git config --local gc.auto 0
+2026-10-17T16:20:07.0873610Z ##[endgroup]
+2026-10-17T16:20:07.0875254Z ##[group]Setting up auth
+2026-10-17T16:20:07.0880138Z [command]/usr/bin/git config --local --name-only --get-regexp core\.sshCommand
+2026-10-17T16:20:07.0907022Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'core\.sshCommand' && git config --local --unset-all 'core.sshCommand' || :"
+2026-10-17T16:20:07.1258103Z [command]/usr/bin/git config --local --name-only --get-regexp http\.https\:\/\/github\.com\/\.extraheader
+2026-10-17T16:20:07.1291077Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'http\.https\:\/\/github\.com\/\.extraheader' && git config --local --unset-all 'http.https://github.com/.extraheader' || :"
+2026-10-17T16:20:07.1496134Z [command]/usr/bin/git config --local --name-only --get-regexp ^includeIf\.gitdir:
+2026-10-17T16:20:07.1526656Z [command]/usr/bin/git submodule foreach --recursive git config --local --show-origin --name-only --get-regexp remote.origin.url
+2026-10-17T16:20:07.1754149Z [command]/usr/bin/git config --local http.https://github.com/.extraheader AUTHORIZATION: basic ***
+2026-10-17T16:20:07.1839960Z ##[endgroup]
+2026-10-17T16:20:07.1842626Z ##[group]Fetching the repository
+2026-10-17T16:20:07.1859611Z [command]/usr/bin/git -c protocol.version=2 fetch --no-tags --prune --no-recurse-submodules --depth=1 origin +71102fccf02a676d8f994fbfec97fff12d3eea9a:refs/remotes/origin/agent/v042107-review-recovery
+2026-10-17T16:20:11.4222942Z From https://github.com/catkiss62/ai-companion-build
+2026-10-17T16:20:11.4288551Z  * [new ref]         71102fccf02a676d8f994fbfec97fff12d3eea9a -> origin/agent/v042107-review-recovery
+2026-10-17T16:20:11.4290691Z ##[endgroup]
+2026-10-17T16:20:11.4291219Z ##[group]Determining the checkout info
+2026-10-17T16:20:11.4291715Z ##[endgroup]
+2026-10-17T16:20:11.4292064Z [command]/usr/bin/git sparse-checkout disable
+2026-10-17T16:20:11.4306214Z [command]/usr/bin/git config --local --unset-all extensions.worktreeConfig
+2026-10-17T16:20:11.4337778Z ##[group]Checking out the ref
+2026-10-17T16:20:11.4341818Z [command]/usr/bin/git checkout --progress --force -B agent/v042107-review-recovery refs/remotes/origin/agent/v042107-review-recovery
+2026-10-17T16:20:11.7586570Z Switched to a new branch 'agent/v042107-review-recovery'
+2026-10-17T16:20:11.7590793Z branch 'agent/v042107-review-recovery' set up to track 'origin/agent/v042107-review-recovery'.
+2026-10-17T16:20:11.7614588Z ##[endgroup]
+2026-10-17T16:20:11.7655889Z [command]/usr/bin/git log -1 --format=%H
+2026-10-17T16:20:11.7678788Z 71102fccf02a676d8f994fbfec97fff12d3eea9a
+2026-10-17T16:20:11.7920238Z ##[group]Run actions/setup-java@v4
+2026-10-17T16:20:11.7920511Z with:
+2026-10-17T16:20:11.7920690Z   distribution: temurin
+2026-10-17T16:20:11.7920874Z   java-version: 17
+2026-10-17T16:20:11.7921050Z   java-package: jdk
+2026-10-17T16:20:11.7921232Z   check-latest: false
+2026-10-17T16:20:11.7921407Z   server-id: github
+2026-10-17T16:20:11.7921583Z   server-username: GITHUB_ACTOR
+2026-10-17T16:20:11.7921796Z   server-password: GITHUB_TOKEN
+2026-10-17T16:20:11.7921999Z   overwrite-settings: true
+2026-10-17T16:20:11.7922188Z   job-status: success
+2026-10-17T16:20:11.7924396Z   token: ***
+2026-10-17T16:20:11.7924577Z ##[endgroup]
+2026-10-17T16:20:11.9282852Z ##[warning]setup-java v4 is deprecated and will no longer receive updates. Please migrate to actions/setup-java@v5.
+2026-10-17T16:20:11.9289882Z ##[group]Installed distributions
+2026-10-17T16:20:11.9434720Z Resolved Java 17.0.20+1 from tool-cache
+2026-10-17T16:20:11.9435163Z Setting Java 17.0.20+1 as the default
+2026-10-17T16:20:11.9444398Z (node:2089) [DEP0040] DeprecationWarning: The `punycode` module is deprecated. Please use a userland alternative instead.
+2026-10-17T16:20:11.9445252Z (Use `node --trace-deprecation ...` to show where the warning was created)
+2026-10-17T16:20:11.9446799Z Creating toolchains.xml for JDK version 17 from temurin
+2026-10-17T16:20:11.9503428Z Writing to /home/runner/.m2/toolchains.xml
+2026-10-17T16:20:11.9503795Z 
+2026-10-17T16:20:11.9503918Z Java configuration:
+2026-10-17T16:20:11.9504193Z   Distribution: temurin
+2026-10-17T16:20:11.9504482Z   Version: 17.0.20+1
+2026-10-17T16:20:11.9504880Z   Path: /opt/hostedtoolcache/Java_Temurin-Hotspot_jdk/17.0.20-1/x64
+2026-10-17T16:20:11.9505228Z 
+2026-10-17T16:20:11.9505585Z ##[endgroup]
+2026-10-17T16:20:11.9520800Z Creating settings.xml with server-id: github
+2026-10-17T16:20:11.9548178Z Writing to /home/runner/.m2/settings.xml
+2026-10-17T16:20:11.9700424Z ##[group]Run echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+2026-10-17T16:20:11.9701164Z [36;1mecho 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules[0m
+2026-10-17T16:20:11.9701623Z [36;1msudo udevadm control --reload-rules[0m
+2026-10-17T16:20:11.9701895Z [36;1msudo udevadm trigger --name-match=kvm[0m
+2026-10-17T16:20:11.9935751Z shell: /usr/bin/bash -e {0}
+2026-10-17T16:20:11.9936052Z env:
+2026-10-17T16:20:11.9936327Z   JAVA_HOME: /opt/hostedtoolcache/Java_Temurin-Hotspot_jdk/17.0.20-1/x64
+2026-10-17T16:20:11.9936731Z   JAVA_HOME_17_X64: /opt/hostedtoolcache/Java_Temurin-Hotspot_jdk/17.0.20-1/x64
+2026-10-17T16:20:11.9937039Z ##[endgroup]
+2026-10-17T16:20:12.0091827Z KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"
+2026-10-17T16:20:12.0441163Z ##[group]Run reactivecircus/android-emulator-runner@v2
+2026-10-17T16:20:12.0441474Z with:
+2026-10-17T16:20:12.0441640Z   api-level: 35
+2026-10-17T16:20:12.0441811Z   arch: x86_64
+2026-10-17T16:20:12.0441975Z   target: google_apis
+2026-10-17T16:20:12.0442163Z   disable-animations: true
+2026-10-17T16:20:12.0442525Z   emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none
+2026-10-17T16:20:12.0442921Z   script: bash app/tools/run_native_smoke_v04257.sh
+2026-10-17T16:20:12.0443162Z   cores: 2
+2026-10-17T16:20:12.0443320Z   avd-name: test
+2026-10-17T16:20:12.0443498Z   force-avd-creation: true
+2026-10-17T16:20:12.0443694Z   emulator-boot-timeout: 600
+2026-10-17T16:20:12.0443888Z   emulator-port: 5554
+2026-10-17T16:20:12.0444076Z   disable-spellchecker: false
+2026-10-17T16:20:12.0444282Z   disable-linux-hw-accel: auto
+2026-10-17T16:20:12.0444480Z   enable-hw-keyboard: false
+2026-10-17T16:20:12.0444672Z   channel: stable
+2026-10-17T16:20:12.0444872Z env:
+2026-10-17T16:20:12.0445118Z   JAVA_HOME: /opt/hostedtoolcache/Java_Temurin-Hotspot_jdk/17.0.20-1/x64
+2026-10-17T16:20:12.0445652Z   JAVA_HOME_17_X64: /opt/hostedtoolcache/Java_Temurin-Hotspot_jdk/17.0.20-1/x64
+2026-10-17T16:20:12.0445948Z ##[endgroup]
+2026-10-17T16:20:12.0916725Z ##[group]Configure emulator
+2026-10-17T16:20:12.0917992Z API level: 35
+2026-10-17T16:20:12.0918441Z System image API level: 35
+2026-10-17T16:20:12.0918798Z target: google_apis
+2026-10-17T16:20:12.0919314Z CPU architecture: x86_64
+2026-10-17T16:20:12.0919669Z Hardware profile: 
+2026-10-17T16:20:12.0921963Z Cores: 2
+2026-10-17T16:20:12.0922191Z RAM size: 
+2026-10-17T16:20:12.0922423Z Heap size: 
+2026-10-17T16:20:12.0922684Z SD card path or size: 
+2026-10-17T16:20:12.0922965Z Disk size: 
+2026-10-17T16:20:12.0923205Z AVD name: test
+2026-10-17T16:20:12.0923461Z force avd creation: true
+2026-10-17T16:20:12.0923761Z Emulator boot timeout: 600
+2026-10-17T16:20:12.0924047Z emulator port: 5554
+2026-10-17T16:20:12.0928328Z emulator options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none
+2026-10-17T16:20:12.0928739Z disable animations: true
+2026-10-17T16:20:12.0928940Z disable spellchecker: false
+2026-10-17T16:20:12.0929198Z disable Linux hardware acceleration: false
+2026-10-17T16:20:12.0929441Z enable hardware keyboard: false
+2026-10-17T16:20:12.0929640Z Channel: 0 (stable)
+2026-10-17T16:20:12.0929810Z Script:
+2026-10-17T16:20:12.0930000Z bash app/tools/run_native_smoke_v04257.sh
+2026-10-17T16:20:12.0930244Z Pre emulator launch script:
+2026-10-17T16:20:12.0930632Z ##[endgroup]
+2026-10-17T16:20:12.0930922Z ##[group]Install Android SDK
+2026-10-17T16:20:12.4787668Z [command]/usr/bin/sh -c \yes | sdkmanager --licenses > /dev/null
+2026-10-17T16:20:16.7480934Z Installing latest build tools, platform tools, and platform.
+2026-10-17T16:20:16.7491513Z [command]/usr/bin/sh -c \sdkmanager --install 'build-tools;37.0.0' platform-tools 'platforms;android-35'> /dev/null
+2026-10-17T16:20:17.9756299Z Installing latest emulator.
+2026-10-17T16:20:17.9768819Z [command]/usr/bin/sh -c \sdkmanager --install emulator --channel=0 > /dev/null
+2026-10-17T16:20:29.1175663Z Installing system images.
+2026-10-17T16:20:29.1186502Z [command]/usr/bin/sh -c \sdkmanager --install 'system-images;android-35;google_apis;x86_64' --channel=0 > /dev/null
+2026-10-17T16:21:06.9265889Z ##[error]The operation was canceled.
+2026-10-17T16:21:06.9553543Z ##[group]Run actions/upload-artifact@v4
+2026-10-17T16:21:06.9553793Z with:
+2026-10-17T16:21:06.9553988Z   name: Caicai-v04243-native-smoke-results
+2026-10-17T16:21:06.9554284Z   path: app/tools/caicai_smoke/build/outputs/androidTest-results/
+2026-10-17T16:21:06.9554564Z   retention-days: 14
+2026-10-17T16:21:06.9554745Z   if-no-files-found: warn
+2026-10-17T16:21:06.9554942Z   compression-level: 6
+2026-10-17T16:21:06.9555124Z   overwrite: false
+2026-10-17T16:21:06.9555303Z   include-hidden-files: false
+2026-10-17T16:21:06.9555496Z env:
+2026-10-17T16:21:06.9555739Z   JAVA_HOME: /opt/hostedtoolcache/Java_Temurin-Hotspot_jdk/17.0.20-1/x64
+2026-10-17T16:21:06.9556147Z   JAVA_HOME_17_X64: /opt/hostedtoolcache/Java_Temurin-Hotspot_jdk/17.0.20-1/x64
+2026-10-17T16:21:06.9556470Z   ANDROID_AVD_HOME: /home/runner/.android/avd
+2026-10-17T16:21:06.9556703Z ##[endgroup]
+2026-10-17T16:21:07.0886232Z (node:2361) [DEP0040] DeprecationWarning: The `punycode` module is deprecated. Please use a userland alternative instead.
+2026-10-17T16:21:07.0886821Z (Use `node --trace-deprecation ...` to show where the warning was created)
+2026-10-17T16:21:07.0920986Z ##[warning]No files were found with the provided path: app/tools/caicai_smoke/build/outputs/androidTest-results/. No artifacts will be uploaded.
+2026-10-17T16:21:07.1659449Z Post job cleanup.
+2026-10-17T16:21:07.2943244Z (node:2374) [DEP0040] DeprecationWarning: The `punycode` module is deprecated. Please use a userland alternative instead.
+2026-10-17T16:21:07.2944175Z (Use `node --trace-deprecation ...` to show where the warning was created)
+2026-10-17T16:21:07.3144616Z Post job cleanup.
+2026-10-17T16:21:07.3961021Z [command]/usr/bin/git version
+2026-10-17T16:21:07.4001543Z git version 2.55.0
+2026-10-17T16:21:07.4035842Z Temporarily overriding HOME='/home/runner/work/_temp/e40332e1-7cd1-46a7-84d6-f4d7da36a9ea' before making global git config changes
+2026-10-17T16:21:07.4048637Z Adding repository directory to the temporary git global config as a safe directory
+2026-10-17T16:21:07.4050064Z [command]/usr/bin/git config --global --add safe.directory /home/runner/work/ai-companion-build/ai-companion-build
+2026-10-17T16:21:07.4088916Z [command]/usr/bin/git config --local --name-only --get-regexp core\.sshCommand
+2026-10-17T16:21:07.4127197Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'core\.sshCommand' && git config --local --unset-all 'core.sshCommand' || :"
+2026-10-17T16:21:07.4387420Z [command]/usr/bin/git config --local --name-only --get-regexp http\.https\:\/\/github\.com\/\.extraheader
+2026-10-17T16:21:07.4416053Z http.https://github.com/.extraheader
+2026-10-17T16:21:07.4429793Z [command]/usr/bin/git config --local --unset-all http.https://github.com/.extraheader
+2026-10-17T16:21:07.4466625Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'http\.https\:\/\/github\.com\/\.extraheader' && git config --local --unset-all 'http.https://github.com/.extraheader' || :"
+2026-10-17T16:21:07.4750951Z [command]/usr/bin/git config --local --name-only --get-regexp ^includeIf\.gitdir:
+2026-10-17T16:21:07.4788449Z [command]/usr/bin/git submodule foreach --recursive git config --local --show-origin --name-only --get-regexp remote.origin.url
+2026-10-17T16:21:07.5145264Z Cleaning up orphan processes
+2026-10-17T16:21:07.5384533Z Terminate orphan process: pid (2305) (sh)
+2026-10-17T16:21:07.5453187Z Terminate orphan process: pid (2306) (java)
+2026-10-17T16:21:07.5460408Z ##[warning]Node.js 20 is deprecated. The following actions target Node.js 20 but are being forced to run on Node.js 24: actions/checkout@v4, actions/setup-java@v4, actions/upload-artifact@v4. For more information see: https://github.blog/changelog/2025-09-19-deprecation-of-node-20-on-github-actions-runners/
 
---- job=build-apk conclusion=cancelled id=117443226505 ---
+--- job=build-apk conclusion=cancelled id=117443591735 ---
 Unable to download this completed job log.
 ﻿<?xml version="1.0" encoding="utf-8"?><Error><Code>BlobNotFound</Code><Message>The specified blob does not exist.
-RequestId:2e147e08-301e-0102-5953-5eeea1000000
-Time:2026-10-17T16:19:50.5463964Z</Message></Error>gh: HTTP 404
+RequestId:37d5367f-601e-00c6-6353-5efaf9000000
+Time:2026-10-17T16:21:15.6978472Z</Message></Error>gh: HTTP 404
 release_url=https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-c376fa497480f64e9fdb
