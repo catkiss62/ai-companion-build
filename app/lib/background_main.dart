@@ -13,6 +13,7 @@ import 'core/ai/durable_generation_recovery.dart';
 import 'core/ai/durable_generation_runner.dart';
 import 'core/ai/memory_extractor.dart';
 import 'core/database/app_database.dart';
+import 'core/mcp/cedar_game_arrangements.dart';
 import 'core/phone/calendar_reminder_store.dart';
 import 'core/desire/desire_engine.dart';
 import 'core/desire/proactive_engine.dart';
@@ -32,6 +33,7 @@ Future<void> companionBackgroundMain() async {
   UnhandledErrorRecorder(runtime: 'background').install();
   final db = AppDatabase.instance;
   await SnapshotRestoreCoordinator(db, PortableCompanionStorage()).ensureRecovered();
+  await CedarGameArrangementStore(db).migrateLegacy();
   DeepSeekBalance.installDailySampling(db);
   if (Platform.isAndroid) {
     try { await CalendarReminderStore(db).sync(); } catch (_) {}

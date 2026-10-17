@@ -279,7 +279,7 @@ class MemoryExtractor {
           : activeThreads
               .map((e) => '- id=${e.id} | topic_key=${e.topicKey} | ${e.title}：${e.detail}')
               .join('\n');
-      final thoughtContext = jsonEncode((await db.activeThoughts(limit: 8))
+      final thoughtContext = jsonEncode((await db.postTurnThoughtCandidates(limit: 8))
           .map((t) => {'drive': t.driveKey, 'topic_key': t.topicKey,
             'text': t.text.length > 400 ? t.text.substring(0, 400) : t.text}).toList());
       final proactiveFeedback = await db.proactiveFeedbackForUserResponse(user.id);
@@ -487,6 +487,7 @@ thread action：open / update / resolve / dismiss。update/resolve/dismiss 已�
 
 必须输出严格 JSON，例如：
 {
+  "game_arrangements":[],
   "memories":[{"kind":"user_profile","semantic":"current_fact","action":"replace","revision_kind":"change","target_id":"已有记忆ID或空字符串","subject_key":"user.device_evening","topic_key":"user.device_evening","actor":"user","relation":"uses","object":"user.device.android_tablet","owner":"user","temporal_scope":"stable","fact_state":"stable","attention_state":"closed","recall_policy":"contextual","spontaneous_salience":0.0,"content":"用户通常晚上会换到自己的安卓平板继续聊天","user_evidence_quote":"用户本轮原话中的逐字证据；未使用 knowledge 时可留空","importance":0.72,"confidence":0.93,"tags":["设备","习惯"]}],
   "thoughts":[{"drive":"attachment","topic_key":"user.return_tonight","text":"你刚才主动回来继续和我聊了","strength":0.28,"continuity":"revised"}],
   "threads":[{"action":"open","thread_id":"","topic_key":"user.return_tonight","title":"等用户今晚回来","detail":"用户说晚些时候会回来继续聊","importance":0.66}],
@@ -503,9 +504,6 @@ thread action：open / update / resolve / dismiss。update/resolve/dismiss 已�
           {
             'role': 'user',
             'content': '''
-【真实游戏与既有安排】
-${gameArrangements?.prompt ?? '无可绑定的真实游戏存档，不创建游戏安排。'}
-
 【当前未完成话题】
 $threadContext
 

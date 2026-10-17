@@ -10993,6 +10993,18 @@ class AppDatabase {
     return rows.map(CompanionThought.fromDb).toList();
   }
 
+  // External evidence identities cannot be revised as ordinary chat topics.
+  static const postTurnThoughtSourceWhere =
+      "source NOT LIKE 'mcp/%' AND source NOT LIKE 'public_web_candidate:%'";
+
+  Future<List<CompanionThought>> postTurnThoughtCandidates({int limit = 8}) async {
+    final sql = await database;
+    final rows = await sql.query('thoughts',
+      where: "lifecycle_state IN ('active','fixation','acted','residual') AND $postTurnThoughtSourceWhere",
+      orderBy: 'strength DESC, updated_at DESC', limit: limit);
+    return rows.map(CompanionThought.fromDb).toList();
+  }
+
   /// Metadata-only Thought read for redacted diagnostics. The SQL substitutes
   /// an empty text value so the private Thought body is never read from disk.
   Future<List<CompanionThought>> activeThoughtMetadata({int limit = 40}) async {
@@ -11591,7 +11603,7 @@ class AppDatabase {
       if (normalizedTopic.isNotEmpty) {
         matches = await txn.query(
           'thoughts',
-          where: 'drive_key = ? AND topic_key = ?',
+          where: 'drive_key = ? AND topic_key = ? AND $postTurnThoughtSourceWhere',
           whereArgs: [drive.name, normalizedTopic],
           orderBy: 'updated_at DESC',
           limit: 1,
@@ -11599,7 +11611,7 @@ class AppDatabase {
       } else {
         matches = await txn.query(
           'thoughts',
-          where: 'drive_key = ? AND text = ?',
+          where: 'drive_key = ? AND text = ? AND $postTurnThoughtSourceWhere',
           whereArgs: [drive.name, normalizedText],
           orderBy: 'updated_at DESC',
           limit: 1,

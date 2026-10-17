@@ -55,55 +55,67 @@ class CedarArrangementScope {
       (value.arrangementSaveEpochs[slot] ?? 'legacy:${value.id}:$slot') == epoch;
 }
 
+/// Separate from ordinary memories/Thoughts. One bounded settings row per note
+/// participates in the existing full archive; a deleted row retains a tombstone.
+class CedarGameNote {
+  CedarGameNote(this.data);
+  final Map<String, dynamic> data;
+  String get id => data['id'] as String;
+  String get content => data['text'] as String? ?? '';
+  String get actorKey => data['actor'] as String? ?? 'ai';
+  String get factState => data['state'] as String? ?? 'ongoing';
+  String get topic => data['topic'] as String? ?? '';
+  bool get persistent => data['lifetime'] == 'persistent';
+  String get snapshot => _digest(data);
+  Map<String, dynamic> get metadata => _map(data['metadata']);
+}
+
 class CedarArrangementExtraction {
-  const CedarArrangementExtraction(this.scopes, this.items, this.fence, [this.facts = const []]);
+  const CedarArrangementExtraction(this.scopes, this.items, this.fence, {this.activeScopeId = ''});
   final List<CedarArrangementScope> scopes;
-  final List<MemoryItem> items;
+  final List<CedarGameNote> items;
   final BrainWorkFence fence;
-  final List<Map<String,Object?>> facts;
-  Map<String, Object?> toJson() => {'version': 1, 'scopes': scopes.map((s)=>s.toJson()).toList(),
-    'targets': {for(final m in items) m.id: {'snapshot': MemoryRevisionSnapshot.capture(m).toJson(),
-      'metadata': CedarGameArrangementStore.metadata(m)}},
+  final String activeScopeId;
+  // Local capability only: never injected as historical game context in chat.
+  Map<String, Object?> toJson() => {'version': 2, 'scopes': scopes.map((s)=>s.toJson()).toList(),
+    'active_scope_id':activeScopeId,
+    'targets': {for(final m in items) m.id: m.snapshot},
     'fence': {'identity': fence.identity, 'settings': fence.expectedSettings}};
-  String get prompt => jsonEncode({'actual_progress_before_reply':facts,'scopes': scopes.map((s)=>s.toJson()).toList(),
-    'existing': items.map((m)=>{'id':m.id,'text':m.content,
-      'metadata':CedarGameArrangementStore.metadata(m)}).toList()});
 }
 
 class CedarArrangementReviewBundle {
   const CedarArrangementReviewBundle({this.scope, this.items = const [], this.events = const [], this.fence});
   final CedarArrangementScope? scope;
-  final List<MemoryItem> items;
+  final List<CedarGameNote> items;
   final List<CedarGameEvent> events;
   final BrainWorkFence? fence;
-  String get prompt => items.isEmpty ? '' : '''【本存档仍有效的口头安排 · 可调整的游戏参考】
+  String get prompt => items.isEmpty ? '' : '''【本存档游戏记事本 · 待办与持续偏好】
 ${jsonEncode({'scope':scope!.toJson(),'arrangements':items.map((m)=>{'id':m.id,'text':m.content,
-  'condition':CedarGameArrangementStore.metadata(m)['condition'],'completion_basis':CedarGameArrangementStore.metadata(m)['completion_basis'],'actor':m.actorKey,'executor':CedarGameArrangementStore.metadata(m)['executor']}).toList(),
+  'lifetime':m.persistent?'persistent':'once','condition':m.metadata['condition'],
+  'completion_basis':m.metadata['completion_basis'],'actor':m.actorKey,'executor':m.metadata['executor']}).toList(),
   'actual_results':events.map((e)=>{'event_id':e.id,'at':e.createdAt.millisecondsSinceEpoch,
     'action':e.action,'input':e.inputJson,'result':_text(e.summary,1200),'actor':'companion'}).toList()})}
 结合真实局面考虑这些安排，不因它们存在就重复购买、重开或强行执行；用户停止/邀请/存档权限始终优先。
+读取、进入游戏、准备执行或被中断都不算完成。persistent为持续偏好/限制，一次遵守不能清除；once才可核验归档。
 已有真实成功结果确实实现某个具体目标时，才在 arrangement_reviews_json 填入 [{"id":"该安排ID","event_id":"对应已发生结果ID"}]。
 核对结果是否晚于该安排、对象和条件是否相同；失败、提到游戏、未来打算和当前准备执行的动作都不是完成证据。只读结果可以证明确实查看或所见状态，不能证明亲自种植、购买或共同游玩；action类目标必须有对应真实写操作。
 用户让留给自己操作的安排不能由助手擅自操作冒充履约。不确定时返回空数组，保留安排供以后参考。''';
 }
 
-/// Reuses normal source-bound Memory rows and the existing extraction/planning
-/// requests. Deleting a memory immediately removes it from game planning too.
 class CedarGameArrangementStore {
   CedarGameArrangementStore(this.db);
   final AppDatabase db;
-  static const tag = 'cedar_game_arrangement_v1';
+  static const tag = 'cedar_game_arrangement_v1'; // +354 migration identity.
   static const metadataKey = 'cedar_game_arrangement_v1';
+  static const notePrefix = 'cedar_game_notebook_v1:';
   static const instruction = '''
-游戏口头安排：在同一次整理中返回 game_arrangements 数组，和 memories 分开处理。
-只保留对真实游戏有后续意义的明确打算/双方约定/用户要求，包括 AI 自己明确提出的计划；玩笑、摆姿态、假设、已发生操作的复述不创建安排。
-从【真实游戏与既有安排】选择真实 scope_id，不能猜游戏、存档或盆号；模糊的“正中间”保留为想法，不捏造坐标。
-每项字段：action=remember/update/cancel，scope_id，topic_key（稳定英文小写主题，1～60字符，只用a-z、0-9、下划线、点或连字符），text（具体安排），condition（等待用户/条件等，可空），completion_basis=action/state（亲自操作选action，只查看或等待某状态选state），actor=user/ai/shared（谁提出/持有约定），executor=ai/user/shared/unknown（谁执行目标），user_quote，assistant_quote，target_id（update/cancel必须为既有ID）。
-user安排须逐字user_quote；ai自己的打算须逐字assistant_quote；shared双方约定须两边逐字引文。用户要求只能由用户的新明确说法取消或改约；AI可以调整自己的计划。一次明确同意发生了，不代表未来游戏操作已经完成。结合当时已有真实进度区分操作复述和新计划，已经做过的操作不重复变成待做；明确约定下一次再做仍可保留。游戏安排不重复写入 threads/thoughts，也不因此安排定时跟进；另有需要讨论的具体问题才单独记录。
-只处理本轮真实新增/改约，不从旧经历、旧操作补造约定；每轮最多2项。不要在 memories 重复创建或修改系统标记的游戏安排。没有适合内容返回 []。''';
+游戏记事本：在同一次整理中返回 game_arrangements 数组，和 memories 分开处理。只根据【刚发生的对话】提取本轮明确新增/改约/取消的游戏打算、双方约定或用户要求，包括AI明确提出的计划和持续游戏偏好/限制。玩笑、假设、已发生操作的复述不创建待办；不从旧经历补造约定，不猜坐标、存档或盆号。
+每项字段：action=remember/update/cancel，game（本轮明确提及的游戏名称或ID，没有则空字符串；手机只在能唯一匹配真实当前存档时接受），topic_key（稳定英文小写主题，1～60字符，a-z、0-9、下划线、点、连字符），text（具体内容），condition（条件，可空），lifetime=once/persistent（一次目标/持续偏好或限制），completion_basis=action/state，actor=user/ai/shared，executor=ai/user/shared/unknown，user_quote，assistant_quote。改约/取消复用同一具体主题；无法确定对应哪条不猜测。
+user安排须逐字user_quote，ai计划须逐字assistant_quote，shared须双方逐字引文；用户要求只能由用户新明确说法取消或改约。明确同意不代表未来操作已完成。本轮明确约定下一次再做可保留。游戏安排不重复写入 memories/threads/thoughts，不因此定时跟进；另有本轮真正想讨论的问题才单独记念头。每轮最多2项，没有适合内容返回 []。
+''';
 
-  static Map<String, dynamic> metadata(MemoryItem item) =>
-      _map(MemorySourceContext.decode(item.sourceContextJson)[metadataKey]);
+  static Map<String, dynamic> metadata(Object item) => item is CedarGameNote ? item.metadata :
+      item is MemoryItem ? _map(MemorySourceContext.decode(item.sourceContextJson)[metadataKey]) : {};
   static bool isArrangement(MemoryItem item) => item.tags.contains(tag) && metadata(item)['version'] == 1;
   static BrainWorkFence? _fence(Object? raw) {
     final m=_map(raw), a=_map(_map(raw)['identity']), b=_map(_map(raw)['settings']);
@@ -112,36 +124,88 @@ user安排须逐字user_quote；ai自己的打算须逐字assistant_quote；shar
   }
   Future<CedarToyActivityState> _state(DatabaseExecutor txn) async =>
       CedarToyActivityState.fromJson(_json(await BrainWorkFence.value(txn,CedarToyActivityStore.stateSettingKey)));
-  Future<bool> _validSource(DatabaseExecutor txn, MemoryItem item) async {
-    if (!isArrangement(item) || !item.sourceValid || item.status != 'active') return false;
-    final m=metadata(item);
-    final u=QualifiedConversationSource.fromJson(m['user_source']);
-    final a=QualifiedConversationSource.fromJson(m['assistant_source']);
+  Future<bool> _validMetadata(DatabaseExecutor txn, Map<String,dynamic> m) async {
+    final u=QualifiedConversationSource.fromJson(m['user_source']), a=QualifiedConversationSource.fromJson(m['assistant_source']);
     if(u?.isOrdinary!=true||a?.isOrdinary!=true||!await u!.matches(txn)||!await a!.matches(txn))return false;
     final origin=_map(m['origin_sources']);
     if(origin.isEmpty)return true;
     final ou=QualifiedConversationSource.fromJson(origin['user_source']), oa=QualifiedConversationSource.fromJson(origin['assistant_source']);
     return ou?.isOrdinary==true&&oa?.isOrdinary==true&&await ou!.matches(txn)&&await oa!.matches(txn);
   }
-  Future<List<MemoryItem>> _items(DatabaseExecutor txn) async =>
-      (await txn.query('memory_items',where:"status = 'active' AND source_valid = 1 AND fact_state = 'ongoing' AND tags LIKE ?",
-        whereArgs:['%$tag%'],orderBy:'updated_at DESC',limit:40)).map(MemoryItem.fromDb).toList();
+  Future<List<CedarGameNote>> _items(DatabaseExecutor txn) async {
+    final rows=await txn.query('settings',columns:['value'],where:'key >= ? AND key < ?',
+      whereArgs:[notePrefix,'$notePrefix\uffff']);
+    return [for(final row in rows) if(_json(row['value'] as String)['id'] is String)
+      CedarGameNote(_json(row['value'] as String))];
+  }
+  Future<CedarGameNote?> _get(DatabaseExecutor txn,String id) async {
+    final data=_json(await BrainWorkFence.value(txn,'$notePrefix$id'));
+    return data['id']==id?CedarGameNote(data):null;
+  }
+  Future<void> _put(DatabaseExecutor txn,CedarGameNote note) => txn.insert('settings',
+    {'key':'$notePrefix${note.id}','value':jsonEncode(note.data)},conflictAlgorithm:ConflictAlgorithm.replace).then((_){});
 
-  Future<CedarArrangementExtraction?> captureExtraction(BrainWorkFence fence, DateTime at) =>
-    db.readSourceSnapshot(workFence:fence,read:(txn) async {
+  /// Safe on foreground/background reads and after importing an older archive.
+  /// Never synthesizes notes from old game Outcomes or already deleted memories.
+  Future<int> migrateLegacy() async {
+    final sql=await db.database;
+    return sql.transaction((txn) async {
+      if(!await BrainWorkFence.workAllowed(txn))return 0;
+      final rows=await txn.query('memory_items',where:"status = 'active' AND tags LIKE ?",whereArgs:['%$tag%']);
+      var count=0;
+      for(final row in rows) {
+        final old=MemoryItem.fromDb(row);
+        if(!isArrangement(old))continue;
+        if(old.sourceValid&&await _validMetadata(txn,metadata(old))&&await _get(txn,old.id)==null) {
+          await _put(txn,CedarGameNote({'id':old.id,'text':old.content,'actor':old.actorKey,
+            'state':old.factState,'topic':old.subjectKey.split('.').skip(2).join('.'),
+            'lifetime':'once','metadata':metadata(old),'version':old.factVersion,'legacy':true}));
+          count++;
+        }
+        // Archive the original instead of rewriting its fact/completion claims.
+        await txn.update('memory_items',{'status':'archived','lifecycle_source':'game_notebook_migration_v1'},
+          where:'id = ?',whereArgs:[old.id]);
+      }
+      return count;
+    });
+  }
+  Future<List<CedarGameNote>> notes({bool includeArchived=false}) async {
+    await migrateLegacy();
+    final sql=await db.database;
+    return sql.transaction((txn) async {
+      final out=<CedarGameNote>[];
+      for(final note in await _items(txn)) {
+        if(note.factState=='deleted'||(!includeArchived&&note.factState!='ongoing'))continue;
+        if(await _validMetadata(txn,note.metadata))out.add(note);
+      }
+      return out;
+    });
+  }
+  Future<bool> deleteNote(String id) async {
+    final sql=await db.database;
+    return sql.transaction((txn) async {
+      if(!await BrainWorkFence.workAllowed(txn))return false;
+      final note=await _get(txn,id);
+      if(note==null)return false;
+      // Tombstone blocks cached extraction and legacy migration resurrection.
+      await _put(txn,CedarGameNote({'id':id,'state':'deleted','version':(note.data['version'] as num? ?? 0).toInt()+1}));
+      return true;
+    });
+  }
+
+  Future<CedarArrangementExtraction?> captureExtraction(BrainWorkFence fence, DateTime at) async {
+    await migrateLegacy();
+    return db.readSourceSnapshot(workFence:fence,read:(txn) async {
       final state=await _state(txn);
       final scopes=state.sessions.values.map((s)=>CedarArrangementScope.current(s,at:at)).whereType<CedarArrangementScope>().toList();
-      final items=<MemoryItem>[];
+      final items=<CedarGameNote>[];
       for(final item in await _items(txn)) {
-        if(items.length>=8)break;
-        if(scopes.any((s)=>metadata(item)['scope_id']==s.id) && await _validSource(txn,item))items.add(item);
+        if(item.factState=='ongoing'&&scopes.any((s)=>item.metadata['scope_id']==s.id)&&await _validMetadata(txn,item.metadata))items.add(item);
       }
-      final facts=<Map<String,Object?>>[for(final s in state.sessions.values)
-        for(final e in s.events) if(e.kind=='outcome'&&!e.createdAt.isAfter(at)&&CedarGameResultPolicy.succeeded(e.summary))
-          {'game':s.gameId,'at':e.createdAt.millisecondsSinceEpoch,'action':e.action,'input':e.inputJson,'result':_text(e.summary,600)}]
-        ..sort((a,b)=>(b['at'] as int).compareTo(a['at'] as int));
-      return CedarArrangementExtraction(scopes,items,fence,facts.take(4).toList());
+      final active=scopes.where((s)=>s.game==state.activeGameId).firstOrNull;
+      return CedarArrangementExtraction(scopes,items,fence,activeScopeId:active?.id??'');
     });
+  }
 
   Future<int> applyExtraction(Object? proposals, {required Object? localContext,
     required Object? localTimeSources, required ChatMessage user, required ChatMessage assistant, bool knowledgeReferenceActive = false}) async {
@@ -149,7 +213,7 @@ user安排须逐字user_quote；ai自己的打算须逐字assistant_quote；shar
     final local=_map(localContext), sources=_map(localTimeSources);
     final fence=_fence(local['fence']);
     final u=QualifiedConversationSource.fromJson(sources['user']), a=QualifiedConversationSource.fromJson(sources['assistant']);
-    if(local['version']!=1 || fence==null || u==null || a==null || !u.isOrdinary || !a.isOrdinary ||
+    if(local['version']!=2 || fence==null || u==null || a==null || !u.isOrdinary || !a.isOrdinary ||
       u.stamp.id!=user.id || a.stamp.id!=assistant.id ||
       ConversationSourceStore.messageHash(user)!=u.stamp.contentHash || ConversationSourceStore.messageHash(assistant)!=a.stamp.contentHash)return 0;
     final scopes=[for(final r in local['scopes'] is List ? local['scopes'] as List : const [])
@@ -162,68 +226,56 @@ user安排须逐字user_quote；ai自己的打算须逐字assistant_quote；shar
       for(final raw in proposals.take(2)) {
         final p=_map(raw), action=p['action'], actor=p['actor'];
         if(!const {'remember','update','cancel'}.contains(action) || !const {'user','ai','shared'}.contains(actor))continue;
-        final scope=scopes.where((s)=>s.id==p['scope_id']).firstOrNull;
-        if(scope==null || live.sessions[scope.game]==null || !scope.matchesSession(live.sessions[scope.game]!))continue;
+        final named=_text(p['game'],100).toLowerCase();
+        // Name must itself occur in the current source pair; an empty name is
+        // only bound to the captured active save, never to the last arbitrary game.
+        if(named.isNotEmpty&&!('${user.content}\n${assistant.content}'.toLowerCase().contains(named)))continue;
+        final candidates=scopes.where((s)=>p['scope_id']!=null ? s.id==p['scope_id'] :
+          named.isEmpty?s.id==local['active_scope_id']:s.game.toLowerCase()==named||s.title.toLowerCase()==named).toList();
+        if(candidates.length!=1)continue;
+        final scope=candidates.single;
+        if(live.sessions[scope.game]==null || !scope.matchesSession(live.sessions[scope.game]!))continue;
         final uq=_text(p['user_quote'],500), aq=_text(p['assistant_quote'],500);
-        final userProof=uq.length>=2 && user.content.contains(uq);
-        final aiProof=aq.length>=2 && assistant.content.contains(aq);
+        final userProof=uq.length>=2 && user.content.contains(uq), aiProof=aq.length>=2 && assistant.content.contains(aq);
         if(knowledgeReferenceActive&&!userProof)continue;
         if((actor=='user'&&!userProof)||(actor=='ai'&&!aiProof)||(actor=='shared'&&(!userProof||!aiProof)))continue;
-        final target=_text(p['target_id'],100), captured=_map(targets[target]);
-        MemoryItem? old;
+        final text=_text(p['text'],700), condition=_text(p['condition'],300), topic=_text(p['topic_key'],60).toLowerCase();
+        if(text.isEmpty||!RegExp(r'^[a-z0-9_.-]{1,60}$').hasMatch(topic))continue;
+        final all=await _items(txn);
+        final same=all.where((m)=>m.factState=='ongoing'&&m.metadata['scope_id']==scope.id&&m.topic==topic).toList();
+        final target=_text(p['target_id'],100);
+        CedarGameNote? old;
         if(action!='remember') {
-          final snapshot=MemoryRevisionSnapshot.decode(captured['snapshot']);
-          final rows=await txn.query('memory_items',where:'id = ?',whereArgs:[target],limit:1);
-          if(snapshot==null||rows.isEmpty)continue;
-          old=MemoryItem.fromDb(rows.single);
-          if(old.pinned||old.factState!='ongoing'||!snapshot.matches(old)||!await _validSource(txn,old)||metadata(old)['scope_id']!=scope.id)continue;
+          final choices=target.isNotEmpty?all.where((m)=>m.id==target).toList():same;
+          if(choices.length!=1)continue;
+          old=choices.single;
+          if(old.factState!='ongoing'||targets[old.id]!=old.snapshot||!await _validMetadata(txn,old.metadata)||old.metadata['scope_id']!=scope.id)continue;
           if(old.actorKey!='ai'&&!userProof)continue;
           final changeAt=old.actorKey=='ai'?a.stamp.observedAt:u.stamp.observedAt;
-          if(changeAt.millisecondsSinceEpoch<=((metadata(old)['formed_at'] as num?)?.toInt()??changeAt.millisecondsSinceEpoch))continue;
-        } else if(target.isNotEmpty) { continue; }
-        final text=_text(p['text'],700), condition=_text(p['condition'],300);
-        final topic=_text(p['topic_key'],60).toLowerCase();
-        if(text.isEmpty||!RegExp(r'^[a-z0-9_.-]{1,60}$').hasMatch(topic))continue;
+          if(changeAt.millisecondsSinceEpoch<=((old.metadata['formed_at'] as num?)?.toInt()??changeAt.millisecondsSinceEpoch))continue;
+        } else if(target.isNotEmpty||same.isNotEmpty) {continue;}
         final authority=old!=null&&old.actorKey!='ai'?old.actorKey:actor;
         final formedAt=authority=='user'?u.stamp.observedAt:a.stamp.observedAt;
         final meta=<String,Object?>{'version':1,'scope_id':scope.id,'scope':scope.toJson(),
-          'condition':condition,'completion_basis':p['completion_basis']=='state'?'state':'action','executor':const {'ai','user','shared'}.contains(p['executor'])?p['executor']:'unknown','formed_at':formedAt.millisecondsSinceEpoch,
-          'user_source':u.toJson(),'assistant_source':a.toJson()};
+          'condition':condition,'completion_basis':p['completion_basis']=='state'?'state':'action',
+          'executor':const {'ai','user','shared'}.contains(p['executor'])?p['executor']:'unknown',
+          'formed_at':formedAt.millisecondsSinceEpoch,'user_source':u.toJson(),'assistant_source':a.toJson()};
         if(old==null) {
           final receipt='cedar_game_arrangement_applied_v1:${_digest([assistant.id,a.stamp.revision,scope.id,topic])}';
           if((await BrainWorkFence.value(txn,receipt)).isNotEmpty)continue;
-          if((await txn.query('memory_items',columns:['id'],where:'source = ? AND subject_key = ?',
-            whereArgs:['game_arrangement:${assistant.id}@r${a.stamp.revision}','game_plan.${scope.id.substring(0,12)}.$topic'],limit:1)).isNotEmpty)continue;
-          if((await _items(txn)).any((m)=>metadata(m)['scope_id']==scope.id && m.subjectKey=='game_plan.${scope.id.substring(0,12)}.$topic'))continue;
-          final inserted=await db.insertMemory(kind:'shared_experience',content:text,importance:.64,confidence:.9,
-            isolateSourceIdentity:true,tags:const [tag],source:'game_arrangement:${assistant.id}@r${a.stamp.revision}',
-            subjectKey:'game_plan.${scope.id.substring(0,12)}.$topic',topicKey:'game_plan.${scope.game}',
-            semanticType:'shared_experience',actorKey:actor as String,ownerKey:actor,
-            relationKey:'plans',objectKey:'game.${scope.game}.slot_${scope.slot}',temporalScope:'scheduled',
-            factState:'ongoing',attentionState:'snoozed',recallPolicy:'contextual',spontaneousSalience:0,
-            sourceUserMessageId:user.id,sourceAssistantMessageId:assistant.id,
-            sourceContextJson:jsonEncode({...MemorySourceContext.decode(MemorySourceContext.capture(user,assistant)),metadataKey:meta}),
-            sourceObservedAt:formedAt,sourceGuard:(_) async=>await fence.matches(txn)&&await u.matches(txn)&&await a.matches(txn),transaction:txn);
-          if(inserted) {
-            // Generic prose completion checks cannot settle a future goal such
-            // as ‘种下后完成’. Only the real-result review below can do that.
-            await txn.update('memory_items',{'fact_state':'ongoing','attention_state':'snoozed',
-              'recall_policy':'contextual','spontaneous_salience':0.0,'lifecycle_source':'game_arrangement_source_v1'},
-              where:'source = ? AND subject_key = ?',
-              whereArgs:['game_arrangement:${assistant.id}@r${a.stamp.revision}','game_plan.${scope.id.substring(0,12)}.$topic']);
-            await txn.insert('settings',{'key':receipt,'value':'1'},conflictAlgorithm:ConflictAlgorithm.replace);
-            accepted++;
-          }
+          final id=_digest([assistant.id,a.stamp.revision,scope.id,topic]);
+          if(await _get(txn,id)!=null)continue;
+          await _put(txn,CedarGameNote({'id':id,'text':text,'actor':actor,'topic':topic,'state':'ongoing',
+            'lifetime':p['lifetime']=='persistent'?'persistent':'once','metadata':meta,'version':1}));
+          await txn.insert('settings',{'key':receipt,'value':'1'},conflictAlgorithm:ConflictAlgorithm.replace);
         } else {
-          final cancelled=action=='cancel';
-          // The original source remains part of the authority chain after a change.
-          meta['origin_sources']=metadata(old)['origin_sources'] ?? {'user_source':metadata(old)['user_source'],'assistant_source':metadata(old)['assistant_source']};
-          await txn.update('memory_items',{'content':cancelled?'已取消的游戏安排：${old.content}':text,
-            'source_context_json':jsonEncode({...MemorySourceContext.decode(old.sourceContextJson),metadataKey:meta}),
-            'fact_state':cancelled?'cancelled':'ongoing','attention_state':cancelled?'closed':'snoozed',
-            'actor_key':authority,'owner_key':authority,'fact_version':old.factVersion+1,'updated_at':DateTime.now().millisecondsSinceEpoch},where:'id = ?',whereArgs:[old.id]);
-          accepted++;
+          meta['origin_sources']=old.metadata['origin_sources']??{'user_source':old.metadata['user_source'],'assistant_source':old.metadata['assistant_source']};
+          await _put(txn,CedarGameNote({...old.data,'text':action=='cancel'?old.content:text,
+            'state':action=='cancel'?'cancelled':'ongoing','actor':authority,'metadata':meta,
+            'lifetime':p['lifetime']=='persistent'?'persistent':p['lifetime']=='once'?'once':old.data['lifetime'],
+            'version':(old.data['version'] as num).toInt()+1}));
         }
+        accepted++;
       }
       return accepted;
     });
@@ -234,8 +286,8 @@ user安排须逐字user_quote；ai自己的打算须逐字assistant_quote；shar
       CedarPlatformActionPolicy.isPlatformAction(event.action)||CedarSaveSlotPolicy.isNewOrResetAction(event.action))return false;
     return CedarGameResultPolicy.succeeded(event.summary);
   }
-
   Future<CedarArrangementReviewBundle> captureReview(CedarGameSession session) async {
+    await migrateLegacy();
     final fence=await db.captureBrainWorkFence(settingKeys:const ['conversation_context_reset_at','conversation_context_reset_count',
       CedarToyActivityStore.controlRevisionKey,CedarToyActivityStore.userControlRevisionKey]);
     if(fence==null)return const CedarArrangementReviewBundle();
@@ -244,14 +296,13 @@ user安排须逐字user_quote；ai自己的打算须逐字assistant_quote；shar
       final live=state.activeGameId==session.gameId?state.sessions[session.gameId]:null;
       final scope=live==null?null:CedarArrangementScope.current(live);
       if(live==null||scope==null||live.id!=session.id)return const CedarArrangementReviewBundle();
-      final items=<MemoryItem>[];
+      final items=<CedarGameNote>[];
       for(final m in await _items(txn)) {
-        if(items.length>=4)break;
-        if(metadata(m)['scope_id']==scope.id&&await _validSource(txn,m))items.add(m);
+        if(m.factState=='ongoing'&&m.metadata['scope_id']==scope.id&&await _validMetadata(txn,m.metadata))items.add(m);
       }
       final events=live.events.where(successfulReceipt).where((e)=>CedarArrangementScope.slotFor(live,_json(e.inputJson))==scope.slot)
         .toList()..sort((a,b)=>b.createdAt.compareTo(a.createdAt));
-      return CedarArrangementReviewBundle(scope:scope,items:items,events:events.take(8).toList(),fence:fence);
+      return CedarArrangementReviewBundle(scope:scope,items:items.take(8).toList(),events:events.take(8).toList(),fence:fence);
     }) ?? const CedarArrangementReviewBundle();
   }
   Future<int> completeReviewed(CedarArrangementReviewBundle bundle, Object? reviews) async {
@@ -259,30 +310,28 @@ user安排须逐字user_quote；ai自己的打算须逐字assistant_quote；shar
     final sql=await db.database;
     return sql.transaction((txn) async {
       if(!await bundle.fence!.matches(txn))return 0;
-      final live=(await _state(txn)).sessions[bundle.scope!.game];
-      if(live==null||CedarArrangementScope.current(live)?.id!=bundle.scope!.id)return 0;
+      final state=await _state(txn);
+      final live=state.sessions[bundle.scope!.game];
+      if(state.activeGameId!=bundle.scope!.game||live==null||CedarArrangementScope.current(live)?.id!=bundle.scope!.id)return 0;
       var count=0;
-      for(final raw in reviews.take(4)) {
+      for(final raw in reviews.take(8)) {
         final p=_map(raw), item=bundle.items.where((m)=>m.id==p['id']).firstOrNull;
         final event=bundle.events.where((e)=>e.id==p['event_id']).firstOrNull;
-        if(item==null||event==null||item.pinned||!const {'ai','shared'}.contains(metadata(item)['executor'])||
-          (metadata(item)['executor']=='shared'&&(!live.mode.supportsSharedParticipation||!live.invitationApproved))||event.createdAt.millisecondsSinceEpoch<=((metadata(item)['formed_at'] as num?)?.toInt()??event.createdAt.millisecondsSinceEpoch))continue;
+        if(item==null||item.persistent||event==null||!const {'ai','shared'}.contains(item.metadata['executor'])||
+          (item.metadata['executor']=='shared'&&(!live.mode.supportsSharedParticipation||!live.invitationApproved))||
+          event.createdAt.millisecondsSinceEpoch<=((item.metadata['formed_at'] as num?)?.toInt()??event.createdAt.millisecondsSinceEpoch))continue;
         final currentEvent=live.events.where((e)=>e.id==event.id).firstOrNull;
         if(currentEvent==null||!successfulReceipt(currentEvent)||_digest(currentEvent.toJson())!=_digest(event.toJson()))continue;
         final command=_json(currentEvent.inputJson)['command'];
         final inner=command is String?command.trim().split(RegExp(r'\s+')).first:'';
-        if(metadata(item)['completion_basis']!='state'&&(CedarPlatformActionPolicy.isReadOnly(currentEvent.action)||
+        if(item.metadata['completion_basis']!='state'&&(CedarPlatformActionPolicy.isReadOnly(currentEvent.action)||
           (currentEvent.action=='cmd'&&CedarPlatformActionPolicy.isReadOnly(inner))))continue;
-        final rows=await txn.query('memory_items',where:'id = ?',whereArgs:[item.id],limit:1);
-        if(rows.isEmpty)continue;
-        final current=MemoryItem.fromDb(rows.single);
-        if(current.factState!='ongoing'||!MemoryRevisionSnapshot.capture(item).matches(current)||!await _validSource(txn,current))continue;
-        final data=MemorySourceContext.decode(current.sourceContextJson);
-        data[metadataKey]={...metadata(current),'completion':{'kind':'verified_game_result','event_id':event.id,
-          'at':event.createdAt.millisecondsSinceEpoch,'action':event.action,'input':event.inputJson,'result':event.summary}};
-        await txn.update('memory_items',{'content':'已履行此前的游戏安排：${current.content}','fact_state':'completed','attention_state':'closed',
-          'source_context_json':jsonEncode(data),'updated_at':DateTime.now().millisecondsSinceEpoch,
-          'fact_version':current.factVersion+1},where:'id = ?',whereArgs:[current.id]);count++;
+        final current=await _get(txn,item.id);
+        if(current==null||current.factState!='ongoing'||current.snapshot!=item.snapshot||!await _validMetadata(txn,current.metadata))continue;
+        await _put(txn,CedarGameNote({...current.data,'state':'completed','metadata':{...current.metadata,
+          'completion':{'kind':'verified_game_result','event_id':event.id,'at':event.createdAt.millisecondsSinceEpoch,
+            'action':event.action,'input':event.inputJson,'result':event.summary}},'version':(current.data['version'] as num).toInt()+1}));
+        count++;
       }
       return count;
     });

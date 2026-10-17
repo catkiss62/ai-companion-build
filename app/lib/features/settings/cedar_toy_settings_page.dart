@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 
 import '../../core/database/app_database.dart';
 import '../../core/mcp/cedar_toy_activity.dart';
+import '../../core/mcp/cedar_game_arrangements.dart';
 import '../../core/mcp/cedar_toy_client.dart';
 import '../../core/mcp/cedar_toy_autonomy_engine.dart';
 import '../../core/platform/android_bridge.dart';
@@ -159,6 +160,34 @@ class _CedarToySettingsPageState extends State<CedarToySettingsPage> {
         } catch (_) {}
       });
 
+  Future<void> _showNotebook() async {
+    final store = CedarGameArrangementStore(_db);
+    var notes = await store.notes(includeArchived: true);
+    if (!mounted) return;
+    await showDialog<void>(context: context, builder: (dialogContext) =>
+      StatefulBuilder(builder: (context, refresh) => AlertDialog(
+        title: const Text('游戏记事本'),
+        content: SizedBox(width: 420, child: notes.isEmpty
+          ? const Text('暂无游戏约定。聊天中明确的游戏计划和偏好会记在这里。')
+          : ListView(shrinkWrap: true, children: [
+              const Text('待办会保留到实际完成或取消；持续偏好保持有效。'),
+              ...notes.map((note) => ListTile(
+                contentPadding: EdgeInsets.zero,
+                title: Text(note.content),
+                subtitle: Text('${note.metadata['scope']?['title'] ?? ''} · '
+                  '${note.factState == 'completed' ? '已完成' : note.factState == 'cancelled' ? '已取消' : note.persistent ? '持续偏好' : '待完成'}'),
+                trailing: IconButton(tooltip: '删除', icon: const Icon(Icons.delete_outline),
+                  onPressed: () async {
+                    if (!await store.deleteNote(note.id)) return;
+                    notes = await store.notes(includeArchived: true);
+                    if (context.mounted) refresh(() {});
+                  }),
+              )),
+            ])),
+        actions: [TextButton(onPressed: () => Navigator.of(dialogContext).pop(), child: const Text('关闭'))],
+      )));
+  }
+
   @override
   Widget build(BuildContext context) => Scaffold(
         appBar: AppBar(title: const Text('Cedar Toy 游戏厅')),
@@ -208,6 +237,13 @@ class _CedarToySettingsPageState extends State<CedarToySettingsPage> {
                               value ? '1' : '0',
                             );
                           },
+                  ),
+                  ListTile(
+                    contentPadding: EdgeInsets.zero,
+                    leading: const Icon(Icons.menu_book_outlined),
+                    title: const Text('游戏记事本'),
+                    subtitle: const Text('查看待办、持续偏好与已归档约定，也可以删除。'),
+                    onTap: _busy ? null : _showNotebook,
                   ),
                   const Card(
                     child: ListTile(

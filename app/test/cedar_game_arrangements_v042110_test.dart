@@ -13,7 +13,7 @@ import 'package:ai_companion_localfirst/core/mcp/cedar_game_protocol.dart';
 import 'package:ai_companion_localfirst/core/mcp/cedar_toy_activity.dart';
 import 'package:ai_companion_localfirst/core/mcp/mcp_protocol.dart';
 import 'package:ai_companion_localfirst/core/models/chat_message.dart';
-import 'package:ai_companion_localfirst/core/models/memory_item.dart';
+import 'package:ai_companion_localfirst/core/models/desire_state.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 
@@ -37,10 +37,9 @@ void main() {
       String action='cmd',DateTime? at,String command='plant daisy 3'}) => CedarGameEvent(
     id:id,kind:failed?'failure':'outcome',summary:jsonEncode({'ok':success,'message':'在盆3种下了雏菊'}),
     createdAt:at??DateTime.now(),action:action,inputJson:jsonEncode({'slot':slot,'command':command}));
-  Future<MemoryItem> item() async => MemoryItem.fromDb((await (await db.database).query('memory_items',
-    where:'source LIKE ?',whereArgs:['game_arrangement:%'],orderBy:'created_at DESC')).first);
+  Future<CedarGameNote> item() async => (await store.notes(includeArchived:true)).last;
   Map<String,Object?> proposal({String actor='ai',String operation='remember',String target='',String? scope}) => {
-    'action':operation,'scope_id':scope??context.scopes.single.id,'topic_key':'daisy.planting',
+    'action':operation,if(scope!=null)'scope_id':scope,'game':'','topic_key':'daisy.planting',
     'text':'下次把雏菊种在盆3，实际种下后完成。','condition':'下次玩同一存档时',
     'actor':actor,'executor':'ai','target_id':target,
     'assistant_quote':actor=='user'?'':assistant.content,'user_quote':actor=='ai'?'':user.content};
@@ -71,7 +70,13 @@ void main() {
   });
   tearDown(() async => db.closeForTesting());
 
-  test('real memory extraction carries the game scope in one existing request',() async {
+  test('ordinary extraction uses one existing request without historical game progress',() async {
+    final previous=proposal()..['text']='历史记事本正文不应注入普通提取';
+    expect(await apply([previous]),1);
+    await db.upsertThought(id:'old-outcome',text:'旧工具结果正文不可修订',drive:DriveKey.curiosity,
+      kind:'fixation',strength:.99,source:'mcp/cedar_game:garden:old',topicKey:'cedar_game:garden');
+    await db.upsertThought(id:'ordinary',text:'普通聊天可延续的疑问',drive:DriveKey.curiosity,
+      kind:'flit',strength:.3,source:'conversation_turn:earlier',topicKey:'ordinary.question');
     var calls=0;Map<String,dynamic>? sent;
     final client=DeepSeekClient(client:MockClient((request) async {
       calls++;sent=jsonDecode(request.body) as Map<String,dynamic>;
@@ -83,7 +88,12 @@ void main() {
     try {
       await MemoryExtractor(db:db,client:client,desireEngine:DesireEngine(db)).extractFromTurn(user:user,assistant:assistant);
       expect(calls,1);
-      expect(jsonEncode(sent!['messages']),contains(context.scopes.single.id));
+      expect(jsonEncode(sent!['messages']),isNot(contains(context.scopes.single.id)));
+      expect(jsonEncode(sent!['messages']),isNot(contains('actual_progress_before_reply')));
+      expect(jsonEncode(sent!['messages']),isNot(contains('old-play')));
+      expect(jsonEncode(sent!['messages']),isNot(contains('历史记事本正文不应注入普通提取')));
+      expect(jsonEncode(sent!['messages']),isNot(contains('旧工具结果正文不可修订')));
+      expect(jsonEncode(sent!['messages']),contains('普通聊天可延续的疑问'));
       expect((await review()).items,hasLength(1));
     } finally {client.close();}
   });
@@ -93,17 +103,18 @@ void main() {
     final before=await item();
     final archive=Map<String,dynamic>.from(await db.exportAll());
     await db.importAll(archive);
-    expect((await item()).sourceContextJson,before.sourceContextJson);
+    expect((await item()).snapshot,before.snapshot);
     expect((await review()).items,hasLength(1));
   });
 
-  test('AI own plan survives a full chat window and remains a normal deletable memory',() async {
+  test('AI plan survives the chat window in a separate deletable notebook',() async {
     expect(await apply([proposal()]),1);
     for(var n=0;n<15;n++) await db.insertMessage(ChatMessage(id:'later-$n',role:'user',content:'今天的生活闲聊$n',createdAt:DateTime.now()));
     final bundle=await review();expect(bundle.items,hasLength(1));
     expect(bundle.prompt,contains('下次把雏菊种在盆3'));
     expect((await item()).factState,'ongoing');
-    await (await db.database).delete('memory_items',where:'id = ?',whereArgs:[(await item()).id]);
+    expect(await (await db.database).query('memory_items'),isEmpty);
+    await store.deleteNote((await item()).id);
     expect((await review()).items,isEmpty);
     expect(await apply([proposal()]),0,reason:'a replay must honor manual deletion');
     expect(await (await db.database).query('unfinished_threads'),isEmpty);
@@ -157,10 +168,9 @@ void main() {
     final bundle=await review();
     expect(await store.completeReviewed(bundle,[{'id':bundle.items.single.id,'event_id':'new-plant'}]),1);
     expect((await item()).factState,'completed');
-    expect((await item()).content,startsWith('已履行'));
     expect((await review()).items,isEmpty);
     expect(await apply([p]),0);
-    expect(await (await db.database).query('memory_items'),hasLength(1));
+    expect(await (await db.database).query('memory_items'),isEmpty);
   });
 
   test('a real read result may settle an explicit viewing goal',() async {
@@ -172,7 +182,7 @@ void main() {
     session=session.copyWith(events:[...session.events,event('new-view',action:'status')]);await saveSession(session);
     final bundle=await review();
     expect(await store.completeReviewed(bundle,[{'id':bundle.items.single.id,'event_id':'new-view'}]),1);
-    expect((await item()).content,startsWith('已履行'));
+    expect((await item()).factState,'completed');
   });
 
   test('identical wording in another save stays separate from this arrangement',() async {
@@ -182,11 +192,12 @@ void main() {
     context=(await store.captureExtraction(context.fence,assistant.createdAt))!;
     expect(await apply([proposal()]),1);
     expect((await review()).items,hasLength(1));
-    expect(await (await db.database).query('memory_items'),hasLength(2));
+    expect(await store.notes(),hasLength(2));
+    expect(await (await db.database).query('memory_items'),isEmpty);
     await db.insertMemory(kind:'shared_experience',content:proposal()['text'] as String,importance:.6,
       source:'ordinary-memory',factState:'completed');
     expect((await review()).items,hasLength(1),reason:'ordinary exact-text reinforcement cannot settle a game goal');
-    expect(await (await db.database).query('memory_items'),hasLength(3));
+    expect(await (await db.database).query('memory_items'),hasLength(1));
   });
 
   test('an operation before the spoken plan cannot count as its fulfillment',() async {
@@ -221,7 +232,7 @@ void main() {
     await db.setSetting(CedarToyActivityStore.userControlRevisionKey,'new-stop');
     expect(await store.completeReviewed(bundle,[{'id':bundle.items.single.id,'event_id':'new-plant'}]),0);
     final fresh=await review();
-    await (await db.database).update('memory_items',{'content':'已经改约的另一件事'},where:'id = ?',whereArgs:[fresh.items.single.id]);
+    await store.deleteNote(fresh.items.single.id);
     expect(await store.completeReviewed(fresh,[{'id':fresh.items.single.id,'event_id':'new-plant'}]),0);
   });
 
@@ -259,6 +270,59 @@ void main() {
     expect(failed.arrangementSaveEpochs,isEmpty);
     expect(CedarGameArrangementStore.successfulReceipt(failed.events.last),isFalse);
     expect((await store.captureReview(failed)).items,hasLength(1));
+  });
+
+  test('reading, entering again and an empty review never settle a note',() async {
+    expect(await apply([proposal()]),1);
+    final first=await item();
+    final a=await review();final b=await review();
+    expect(a.items.single.snapshot,b.items.single.snapshot);
+    expect(await store.completeReviewed(b,[]),0);
+    expect((await item()).snapshot,first.snapshot);
+  });
+
+  test('persistent preferences survive a real successful operation',() async {
+    final p=proposal()..['lifetime']='persistent';expect(await apply([p]),1);
+    session=session.copyWith(events:[...session.events,event('new-plant')]);await saveSession(session);
+    final bundle=await review();
+    expect(bundle.prompt,contains('persistent'));
+    expect(await store.completeReviewed(bundle,[{'id':bundle.items.single.id,'event_id':'new-plant'}]),0);
+    expect((await item()).factState,'ongoing');
+  });
+
+  test('a game name absent from this actual source pair cannot route a notebook write',() async {
+    final p=proposal()..['game']='garden_cat';expect(await apply([p]),0);
+    await saveSession(session,active:'no-current-game');
+    context=(await store.captureExtraction(context.fence,assistant.createdAt))!;
+    expect(await apply([proposal()]),0);
+  });
+
+  test('legacy arrangements migrate once, archive ordinary rows and retain deletion',() async {
+    final meta={'version':1,'scope_id':context.scopes.single.id,'scope':context.scopes.single.toJson(),
+      'condition':'下次','executor':'ai','completion_basis':'action',
+      'formed_at':assistant.createdAt.millisecondsSinceEpoch,'user_source':sources['user'],
+      'assistant_source':sources['assistant']};
+    await db.insertMemory(kind:'shared_experience',content:'旧版尚未执行的约定',importance:.6,
+      source:'game_arrangement:legacy',subjectKey:'game_plan.scope.daisy.planting',
+      factState:'ongoing',tags:const [CedarGameArrangementStore.tag],
+      sourceContextJson:jsonEncode({CedarGameArrangementStore.metadataKey:meta}));
+    expect(await store.migrateLegacy(),1);
+    expect(await store.migrateLegacy(),0);
+    final old=(await (await db.database).query('memory_items')).single;
+    expect(old['status'],'archived');
+    expect((await review()).items,hasLength(1));
+    final note=await item();expect(note.topic,'daisy.planting');
+    await store.deleteNote(note.id);
+    // Even if an old row is reactivated, a tombstone must not resurrect it.
+    await (await db.database).update('memory_items',{'status':'active'},where:'id = ?',whereArgs:[note.id]);
+    expect(await store.migrateLegacy(),0);expect((await review()).items,isEmpty);
+  });
+
+  test('invalidated legacy sources never create a notebook entry',() async {
+    await db.insertMemory(kind:'shared_experience',content:'无效旧约定',importance:.6,
+      source:'game_arrangement:invalid',tags:const [CedarGameArrangementStore.tag],factState:'ongoing',
+      sourceContextJson:jsonEncode({CedarGameArrangementStore.metadataKey:{'version':1}}));
+    expect(await store.migrateLegacy(),0);expect(await store.notes(),isEmpty);
   });
 
 }
