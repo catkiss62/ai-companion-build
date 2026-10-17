@@ -252,10 +252,18 @@ user安排须逐字user_quote，ai计划须逐字assistant_quote，shared须双�
         final text=_text(p['text'],700), condition=_text(p['condition'],300), topic=_text(p['topic_key'],60).toLowerCase();
         if(text.isEmpty||!RegExp(r'^[a-z0-9_.-]{1,60}$').hasMatch(topic))continue;
         final all=await _items(txn);
-        final same=all.where((m)=>m.factState=='ongoing'&&m.metadata['scope_id']==scope.id&&m.topic==topic).toList();
+        final same=<CedarGameNote>[];
+        for(final note in all) {
+          if(note.factState=='ongoing'&&note.metadata['scope_id']==scope.id&&note.topic==topic&&
+            await _validMetadata(txn,note.metadata))same.add(note);
+        }
         final target=_text(p['target_id'],100);
         CedarGameNote? old;
-        if(action!='remember') {
+        // Chat receives no historical notebook body. A new source may describe
+        // the same plan as `remember`; bind a unique current topic as an update
+        // with exactly the same captured-version/authority checks.
+        final operation=action=='remember'&&target.isEmpty&&same.length==1?'update':action;
+        if(operation!='remember') {
           final choices=target.isNotEmpty?all.where((m)=>m.id==target).toList():same;
           if(choices.length!=1)continue;
           old=choices.single;
@@ -280,8 +288,8 @@ user安排须逐字user_quote，ai计划须逐字assistant_quote，shared须双�
           await txn.insert('settings',{'key':receipt,'value':'1'},conflictAlgorithm:ConflictAlgorithm.replace);
         } else {
           meta['origin_sources']=old.metadata['origin_sources']??{'user_source':old.metadata['user_source'],'assistant_source':old.metadata['assistant_source']};
-          await _put(txn,CedarGameNote({...old.data,'text':action=='cancel'?old.content:text,
-            'state':action=='cancel'?'cancelled':'ongoing','actor':authority,'metadata':meta,
+          await _put(txn,CedarGameNote({...old.data,'text':operation=='cancel'?old.content:text,
+            'state':operation=='cancel'?'cancelled':'ongoing','actor':authority,'metadata':meta,
             'lifetime':p['lifetime']=='persistent'?'persistent':p['lifetime']=='once'?'once':old.data['lifetime'],
             'version':(old.data['version'] as num).toInt()+1}));
         }

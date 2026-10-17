@@ -348,4 +348,23 @@ void main() {
     expect(await store.notes(),isEmpty);
   });
 
+  for(final edited in [false,true]) {
+    test('new source can ${edited ? 'replace a revoked source' : 'revise a unique topic'} without historical notebook injection',() async {
+      expect(await apply([proposal()]),1);final old=await item();
+      if(edited)await (await db.database).update('messages',{'content':'已编辑的旧来源'},where:'id = ?',whereArgs:[assistant.id]);
+      user=ChatMessage(id:'revise-user',role:'user',content:'改成把雏菊种在盆4吧。',createdAt:origin.add(const Duration(minutes:4)));
+      assistant=ChatMessage(id:'revise-ai',role:'assistant',content:'好，改成下次种在盆4。',createdAt:origin.add(const Duration(minutes:4,seconds:1)));
+      await db.insertMessage(user);await db.insertMessage(assistant);
+      final sql=await db.database;
+      sources={'user':(await ConversationSourceStore.qualifyMessage(sql,user.id))!.toJson(),
+        'assistant':(await ConversationSourceStore.qualifyMessage(sql,assistant.id))!.toJson()};
+      context=(await store.captureExtraction((await db.captureBrainWorkFence())!,assistant.createdAt))!;
+      final p=proposal(actor:'shared')..['text']='下次改为在盆4种雏菊。';
+      expect(await apply([p]),1);
+      final active=await store.notes();expect(active,hasLength(1));
+      expect(active.single.content,contains('盆4'));
+      expect(active.single.id,edited?isNot(old.id):old.id);
+    });
+  }
+
 }
