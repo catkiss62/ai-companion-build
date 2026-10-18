@@ -1605,7 +1605,7 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
     await showGeneralDialog<void>(
       context: context,
       barrierDismissible: true,
-      barrierLabel: '关闭 LittleWhale 面板',
+      barrierLabel: '关闭 小鲸鱼 面板',
       barrierColor: Colors.black54,
       transitionDuration: const Duration(milliseconds: 220),
       pageBuilder: (dialogContext, _, __) => StatefulBuilder(
@@ -1643,7 +1643,7 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
                                 Text(
-                                  'LittleWhale',
+                                  '小鲸鱼',
                                   style: TextStyle(
                                     color: Colors.white,
                                     fontSize: 20,
@@ -2146,7 +2146,7 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
     await showGeneralDialog<void>(
       context: context,
       barrierDismissible: true,
-      barrierLabel: '关闭 LittleWhale 面板',
+      barrierLabel: '关闭 小鲸鱼 面板',
       barrierColor: Colors.black54,
       transitionDuration: const Duration(milliseconds: 220),
       pageBuilder: (dialogContext, _, __) => SafeArea(
@@ -2177,7 +2177,7 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Text(
-                              'LittleWhale',
+                              '小鲸鱼',
                               style: TextStyle(
                                 color: Colors.white,
                                 fontSize: 20,
@@ -2456,7 +2456,7 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
                         ),
                         const SizedBox(width: 9),
                         const Text(
-                          'LittleWhale',
+                          '小鲸鱼',
                           style: TextStyle(
                             color: Colors.white,
                             fontWeight: FontWeight.w700,

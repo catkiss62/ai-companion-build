@@ -4718,6 +4718,7 @@ class AppDatabase {
     }
     await migrateSpokenDialogueDefaultV042108(db);
     await migrateNaturalChatV042115(db);
+    await migrateNaturalChatV042116(db);
     // Exact-value migration only: preserve every custom alias edit while also
     // accepting the user's literal slash spelling in the reviewed default.
     await db.update(
