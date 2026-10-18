@@ -532,6 +532,8 @@ $learningContextDescription
 【既有人格学习候选】
 $learningCandidateContext
 
+${gameArrangements?.referencePrompt('${user.promptContent}\n${assistant.content}') ?? ''}
+
 【刚发生的对话】
 用户（${user.historicalFormLabel}）：${user.promptContent}
 AI（${assistant.historicalFormLabel}）：${assistant.content}

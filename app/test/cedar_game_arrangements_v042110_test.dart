@@ -70,8 +70,8 @@ void main() {
   });
   tearDown(() async => db.closeForTesting());
 
-  test('ordinary extraction uses one existing request without historical game progress',() async {
-    final previous=proposal()..['text']='历史记事本正文不应注入普通提取';
+  test('ordinary extraction reuses one request with an isolated notebook target index and no game progress',() async {
+    final previous=proposal()..['text']='下次雏菊种到盆3（旧安排）';
     expect(await apply([previous]),1);
     await db.upsertThought(id:'old-outcome',text:'旧工具结果正文不可修订',drive:DriveKey.curiosity,
       kind:'fixation',strength:.99,source:'mcp/cedar_game:garden:old',topicKey:'cedar_game:garden');
@@ -91,7 +91,9 @@ void main() {
       expect(jsonEncode(sent!['messages']),isNot(contains(context.scopes.single.id)));
       expect(jsonEncode(sent!['messages']),isNot(contains('actual_progress_before_reply')));
       expect(jsonEncode(sent!['messages']),isNot(contains('old-play')));
-      expect(jsonEncode(sent!['messages']),isNot(contains('历史记事本正文不应注入普通提取')));
+      expect(jsonEncode(sent!['messages']),contains('游戏记事本目标索引'));
+      expect(jsonEncode(sent!['messages']),contains('严禁由此生成 memories/threads/thoughts'));
+      expect(jsonEncode(sent!['messages']),contains((await item()).id));
       expect(jsonEncode(sent!['messages']),isNot(contains('旧工具结果正文不可修订')));
       expect(jsonEncode(sent!['messages']),contains('普通聊天可延续的疑问'));
       expect((await review()).items,hasLength(1));
@@ -366,5 +368,113 @@ void main() {
       expect(active.single.id,edited?isNot(old.id):old.id);
     });
   }
+
+  Future<void> nextTurn(String text) async {
+    final at=origin.add(const Duration(minutes:10));
+    user=ChatMessage(id:'revision-user',role:'user',content:text,createdAt:at);
+    assistant=ChatMessage(id:'revision-ai',role:'assistant',content:'好，按你这次说的来。',createdAt:at.add(const Duration(seconds:1)));
+    await db.insertMessage(user);await db.insertMessage(assistant);
+    final sql=await db.database;
+    sources={'user':(await ConversationSourceStore.qualifyMessage(sql,user.id))!.toJson(),
+      'assistant':(await ConversationSourceStore.qualifyMessage(sql,assistant.id))!.toJson()};
+    context=(await store.captureExtraction((await db.captureBrainWorkFence())!,assistant.createdAt))!;
+  }
+
+  test('target index lets cancellation bind despite an independently regenerated topic',() async {
+    expect(await apply([proposal(actor:'user')]),1);final old=await item();
+    await nextTurn('上次种雏菊那个约定取消，不用种了。');
+    final index=context.referencePrompt(user.content);
+    expect(index,contains(old.id));expect(index,contains(old.content));
+    expect(index,isNot(contains('old-play')));
+    expect(context.referencePrompt('今天吃了好吃的披萨。'),isEmpty);
+    final cancel=proposal(actor:'user',operation:'cancel',target:old.id)..['topic_key']='flower.cancel';
+    expect(await apply([cancel]),1);
+    expect((await item()).factState,'cancelled');expect((await item()).topic,old.topic);
+  });
+
+  test('remember with an existing target revises once without duplicating a renamed topic',() async {
+    expect(await apply([proposal(actor:'user')]),1);final old=await item();
+    await nextTurn('上次那个种雏菊计划改成盆4。');
+    final change=proposal(actor:'user',target:old.id)..['topic_key']='flower.pot4'..['text']='下次改种到盆4。';
+    expect(await apply([change]),1);
+    final all=await store.notes();expect(all,hasLength(1));
+    expect(all.single.id,old.id);expect(all.single.topic,old.topic);expect(all.single.content,contains('盆4'));
+    final forged=proposal(actor:'user',operation:'cancel',target:'not-a-captured-id');
+    expect(await apply([forged]),0);
+  });
+
+  Future<void> seedNotebook({required int pending,required int persistent}) async {
+    expect(await apply([proposal()]),1);final base=await item();
+    for(var n=1;n<pending+persistent;n++) {
+      final id='fixture-${n.toString().padLeft(3,'0')}';
+      await db.setSetting('${CedarGameArrangementStore.notePrefix}$id',jsonEncode({...base.data,
+        'id':id,'topic':'fixture.$n','text':'独立安排$n','lifetime':n<pending?'once':'persistent',
+        'metadata':{...base.metadata,'formed_at':origin.add(Duration(minutes:n)).millisecondsSinceEpoch}}));
+    }
+  }
+
+  test('eight newer persistent preferences cannot exclude an older pending task',() async {
+    await seedNotebook(pending:1,persistent:8);
+    final bundle=await review();
+    expect(bundle.items.where((m)=>m.persistent),hasLength(8));
+    expect(bundle.items.where((m)=>!m.persistent),hasLength(1));
+    expect(bundle.prompt,contains('下次把雏菊种在盆3'));
+  });
+
+  test('pending rotation covers more than one page while every restriction stays visible',() async {
+    await seedNotebook(pending:20,persistent:2);
+    final seen=<String>{};
+    for(var n=0;n<3;n++) {
+      final bundle=await review();
+      expect(bundle.items.where((m)=>m.persistent),hasLength(2));
+      expect(bundle.items.where((m)=>!m.persistent),hasLength(8));
+      seen.addAll(bundle.items.where((m)=>!m.persistent).map((m)=>m.id));
+    }
+    expect(seen,hasLength(20));
+    expect((await store.notes()).every((m)=>m.factState=='ongoing'),isTrue);
+  });
+
+  for(final mutation in ['delete','update','cancel']) {
+    test('$mutation after planning rejects actual dispatch admission without a write receipt',() async {
+      expect(await apply([proposal(actor:'user')]),1);final old=await item();
+      final bundle=await review();
+      const execution='notebook-dispatch';
+      await db.setSetting(CedarToyActivityStore.executionFenceSettingKey,execution);
+      if(mutation=='delete') {
+        expect(await store.deleteNote(old.id),isTrue);
+      } else {
+        await nextTurn(mutation=='cancel'?'取消上次的种花约定。':'上次种花改到盆4。');
+        expect(await apply([proposal(actor:'user',operation:mutation,target:old.id)]),1);
+      }
+      final activity=CedarToyActivityStore(db);
+      expect(await activity.admitRemoteDispatch(gameId:session.gameId,action:'cmd',
+        params:{'command':'plant daisy 3'},executionId:execution,planningFence:bundle.fence),isFalse);
+      expect(await db.getSetting('${CedarToyActivityStore.uncertainWritePrefix}${session.gameId}'),isNull);
+      expect(await activity.admitRemoteDispatch(gameId:session.gameId,action:'state',
+        params:{},executionId:execution,planningFence:bundle.fence),isFalse);
+      // A fresh independent planning snapshot may proceed normally.
+      final fresh=await review();
+      expect(await activity.admitRemoteDispatch(gameId:session.gameId,action:'state',
+        params:{},executionId:execution,planningFence:fresh.fence),isTrue);
+    });
+  }
+
+  test('reviewing fulfillment does not invalidate its own otherwise current next action',() async {
+    expect(await apply([proposal()]),1);
+    session=session.copyWith(events:[...session.events,event('fulfilled')]);await saveSession(session);
+    final bundle=await review();
+    expect(await store.completeReviewed(bundle,[{'id':bundle.items.single.id,'event_id':'fulfilled'}]),1);
+    await db.setSetting(CedarToyActivityStore.executionFenceSettingKey,'current');
+    expect(await CedarToyActivityStore(db).admitRemoteDispatch(gameId:session.gameId,
+      action:'cmd',params:{'command':'water 3'},executionId:'current',planningFence:bundle.fence),isTrue);
+  });
+
+  test('first game action has a control fence even before a successful game event exists',() async {
+    session=session.copyWith(events:[]);await saveSession(session);
+    final bundle=await review();expect(bundle.items,isEmpty);expect(bundle.fence,isNotNull);
+    await db.setSetting(CedarToyActivityStore.executionFenceSettingKey,'first');
+    expect(await CedarToyActivityStore(db).admitRemoteDispatch(gameId:session.gameId,
+      action:'state',params:{},executionId:'first',planningFence:bundle.fence),isTrue);
+  });
 
 }

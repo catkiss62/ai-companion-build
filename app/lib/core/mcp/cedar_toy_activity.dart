@@ -1227,11 +1227,13 @@ class CedarToyActivityStore {
 
   static const uncertainWritePrefix = 'cedar_unresolved_write_v1:';
   Future<bool> admitRemoteDispatch({required String gameId, required String action,
-    required Map<String, Object?> params, required String executionId}) async {
-    if (CedarPlatformActionPolicy.isReadOnlyCall(action, params)) return true;
+    required Map<String, Object?> params, required String executionId,
+    BrainWorkFence? planningFence}) async {
     final handle = await db.database;
     return handle.transaction((txn) async {
+      if (planningFence!=null&&!await planningFence.matches(txn)) return false;
       if (await BrainWorkFence.value(txn, executionFenceSettingKey) != executionId) return false;
+      if (CedarPlatformActionPolicy.isReadOnlyCall(action, params)) return true;
       final key = '$uncertainWritePrefix$gameId';
       if ((await BrainWorkFence.value(txn, key)).isNotEmpty) return false;
       await txn.insert('settings', {'key': key, 'value': jsonEncode({'schema': 1,

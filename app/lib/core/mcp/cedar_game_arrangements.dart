@@ -76,6 +76,38 @@ class CedarArrangementExtraction {
   final List<CedarGameNote> items;
   final BrainWorkFence fence;
   final String activeScopeId;
+  /// A target lookup index only. It contains no game Outcomes and must not
+  /// become evidence for ordinary memories, Thoughts or unfinished threads.
+  String referencePrompt(String query) {
+    if (items.isEmpty) return '';
+    Set<String> tokens(String text) {
+      final normalized=text.toLowerCase();
+      return {for(final m in RegExp(r'[a-z0-9]+|[\u3400-\u9fff]{2}').allMatches(normalized)) m[0]!,
+        for(var i=0;i+1<normalized.length;i++)
+          if(RegExp(r'^[\u3400-\u9fff]{2}$').hasMatch(normalized.substring(i,i+2))) normalized.substring(i,i+2)};
+    }
+    final words=tokens(query);
+    final revisionCue=const ['取消','改成','改到','不用','不种','不弄','不要','上次','那个','约定','计划','记住'].any(query.contains);
+    final candidates=items.where((m)=>m.metadata['scope_id']==activeScopeId ||
+      scopes.any((scope)=>scope.id==m.metadata['scope_id'] &&
+        (query.toLowerCase().contains(scope.game.toLowerCase()) || query.contains(scope.title)))).toList();
+    int score(CedarGameNote note) => tokens(note.content).intersection(words).length;
+    if(!revisionCue)candidates.removeWhere((note)=>score(note)==0);
+    if(candidates.isEmpty)return '';
+    candidates.sort((a,b) {
+      final compared=score(b).compareTo(score(a));
+      return compared!=0?compared:((b.metadata['formed_at'] as num?)??0).compareTo((a.metadata['formed_at'] as num?)??0);
+    });
+    final index={'truncated':candidates.length>16,'items':candidates.take(16).map((m)=>{
+      'id':m.id,'game':_map(m.metadata['scope'])['title'],'slot':_map(m.metadata['scope'])['slot'],
+      'topic_key':m.topic,'text':m.content,'lifetime':m.persistent?'persistent':'once'}).toList()};
+    return '【游戏记事本目标索引 · 仅匹配 game_arrangements.target_id】\n'
+      '以下是旧笔记数据，不是本轮新增事实或要求。只用来找到本轮明确触及的原条目；'
+      '严禁由此生成 memories/threads/thoughts/关系事件/欲望变化。'
+      '同一计划的改约、取消或再次提及使用 target_id，无须重造原英文主题。'
+      '多个可能目标时不要猜；索引未列全且无法确定目标时不新增替代条目。\n'
+      '${jsonEncode(index)}';
+  }
   // Local capability only: never injected as historical game context in chat.
   Map<String, Object?> toJson() => {'version': 2, 'scopes': scopes.map((s)=>s.toJson()).toList(),
     'active_scope_id':activeScopeId,
@@ -109,9 +141,10 @@ class CedarGameArrangementStore {
   static const metadataKey = 'cedar_game_arrangement_v1';
   static const notePrefix = 'cedar_game_notebook_v1:';
   static const deletionRevisionKey = 'cedar_game_notebook_delete_revision_v1';
+  static const planningRevisionKey = 'cedar_game_notebook_planning_revision_v1';
   static const instruction = '''
 游戏记事本：在同一次整理中返回 game_arrangements 数组，和 memories 分开处理。只根据【刚发生的对话】提取本轮明确新增/改约/取消的游戏打算、双方约定或用户要求，包括AI明确提出的计划和持续游戏偏好/限制。玩笑、假设、已发生操作的复述不创建待办；不从旧经历补造约定，不猜坐标、存档或盆号。
-每项字段：action=remember/update/cancel，game（本轮明确提及的游戏名称或ID，没有则空字符串；手机只在能唯一匹配真实当前存档时接受），topic_key（稳定英文小写主题，1～60字符，a-z、0-9、下划线、点、连字符），text（具体内容），condition（条件，可空），lifetime=once/persistent（一次目标/持续偏好或限制），completion_basis=action/state，actor=user/ai/shared，executor=ai/user/shared/unknown，user_quote，assistant_quote。改约/取消复用同一具体主题；无法确定对应哪条不猜测。
+每项字段：action=remember/update/cancel，target_id（改约、取消或同一计划再次提及时复用目标索引中的ID；新计划为空），game（本轮明确提及的游戏名称或ID，没有则空字符串；手机只在能唯一匹配真实当前存档时接受），topic_key（稳定英文小写主题，1～60字符，a-z、0-9、下划线、点、连字符），text（具体内容），condition（条件，可空），lifetime=once/persistent（一次目标/持续偏好或限制），completion_basis=action/state，actor=user/ai/shared，executor=ai/user/shared/unknown，user_quote，assistant_quote。改约/取消优先绑定原条目target_id；topic_key只给新计划命名，旧主题无需重新猜测。无法确定对应哪条不猜测。
 user安排须逐字user_quote，ai计划须逐字assistant_quote，shared须双方逐字引文；用户要求只能由用户新明确说法取消或改约。明确同意不代表未来操作已完成。本轮明确约定下一次再做可保留。游戏安排不重复写入 memories/threads/thoughts，不因此定时跟进；另有本轮真正想讨论的问题才单独记念头。每轮最多2项，没有适合内容返回 []。
 ''';
 
@@ -148,6 +181,11 @@ user安排须逐字user_quote，ai计划须逐字assistant_quote，shared须双�
   Future<void> _put(DatabaseExecutor txn,CedarGameNote note) => txn.insert('settings',
     {'key':'$notePrefix${note.id}','value':jsonEncode(note.data)},conflictAlgorithm:ConflictAlgorithm.replace).then((_){});
 
+  Future<void> _advancePlanningRevision(DatabaseExecutor txn) async {
+    final revision=int.tryParse(await BrainWorkFence.value(txn,planningRevisionKey))??0;
+    await txn.insert('settings',{'key':planningRevisionKey,'value':'${revision+1}'},conflictAlgorithm:ConflictAlgorithm.replace);
+  }
+
   /// Safe on foreground/background reads and after importing an older archive.
   /// Never synthesizes notes from old game Outcomes or already deleted memories.
   Future<int> migrateLegacy() async {
@@ -169,6 +207,7 @@ user安排须逐字user_quote，ai计划须逐字assistant_quote，shared须双�
         await txn.update('memory_items',{'status':'archived','lifecycle_source':'game_notebook_migration_v1'},
           where:'id = ?',whereArgs:[old.id]);
       }
+      if(count>0)await _advancePlanningRevision(txn);
       return count;
     });
   }
@@ -197,6 +236,7 @@ user安排须逐字user_quote，ai计划须逐字assistant_quote，shared须双�
       await _put(txn,CedarGameNote({'id':id,'state':'deleted','version':(note.data['version'] as num? ?? 0).toInt()+1}));
       final revision=int.tryParse(await BrainWorkFence.value(txn,deletionRevisionKey))??0;
       await txn.insert('settings',{'key':deletionRevisionKey,'value':'${revision+1}'},conflictAlgorithm:ConflictAlgorithm.replace);
+      await _advancePlanningRevision(txn);
       return true;
     });
   }
@@ -262,7 +302,7 @@ user安排须逐字user_quote，ai计划须逐字assistant_quote，shared须双�
         // Chat receives no historical notebook body. A new source may describe
         // the same plan as `remember`; bind a unique current topic as an update
         // with exactly the same captured-version/authority checks.
-        final operation=action=='remember'&&target.isEmpty&&same.length==1?'update':action;
+        final operation=action=='remember'&&(target.isNotEmpty||same.length==1)?'update':action;
         if(operation!='remember') {
           final choices=target.isNotEmpty?all.where((m)=>m.id==target).toList():same;
           if(choices.length!=1)continue;
@@ -295,6 +335,7 @@ user安排须逐字user_quote，ai计划须逐字assistant_quote，shared须双�
         }
         accepted++;
       }
+      if(accepted>0)await _advancePlanningRevision(txn);
       return accepted;
     });
   }
@@ -307,20 +348,31 @@ user安排须逐字user_quote，ai计划须逐字assistant_quote，shared须双�
   Future<CedarArrangementReviewBundle> captureReview(CedarGameSession session) async {
     await migrateLegacy();
     final fence=await db.captureBrainWorkFence(settingKeys:const ['conversation_context_reset_at','conversation_context_reset_count',
-      CedarToyActivityStore.controlRevisionKey,CedarToyActivityStore.userControlRevisionKey,deletionRevisionKey]);
+      CedarToyActivityStore.controlRevisionKey,CedarToyActivityStore.userControlRevisionKey,deletionRevisionKey,planningRevisionKey]);
     if(fence==null)return const CedarArrangementReviewBundle();
     return await db.readSourceSnapshot(workFence:fence,read:(txn) async {
       final state=await _state(txn);
       final live=state.activeGameId==session.gameId?state.sessions[session.gameId]:null;
       final scope=live==null?null:CedarArrangementScope.current(live);
-      if(live==null||scope==null||live.id!=session.id)return const CedarArrangementReviewBundle();
+      if(live==null||live.id!=session.id)return const CedarArrangementReviewBundle();
+      if(scope==null)return CedarArrangementReviewBundle(fence:fence);
       final items=<CedarGameNote>[];
       for(final m in await _items(txn)) {
         if(m.factState=='ongoing'&&m.metadata['scope_id']==scope.id&&await _validMetadata(txn,m.metadata))items.add(m);
       }
       final events=live.events.where(successfulReceipt).where((e)=>CedarArrangementScope.slotFor(live,_json(e.inputJson))==scope.slot)
         .toList()..sort((a,b)=>b.createdAt.compareTo(a.createdAt));
-      return CedarArrangementReviewBundle(scope:scope,items:items.take(8).toList(),events:events.take(8).toList(),fence:fence);
+      // Persistent restrictions are always visible. One-shot tasks have their
+      // own rotating budget, so neither newer tasks nor preferences starve them.
+      final pending=items.where((m)=>!m.persistent).toList()..sort((a,b)=>a.id.compareTo(b.id));
+      final cursorKey='cedar_game_notebook_cursor_v1:${scope.id}';
+      final cursor=await BrainWorkFence.value(txn,cursorKey);
+      var start=pending.indexWhere((m)=>m.id==cursor);
+      if(start<0)start=0;
+      final selected=[for(var n=0;n<pending.length&&n<8;n++)pending[(start+n)%pending.length]];
+      if(pending.isNotEmpty)await txn.insert('settings',{'key':cursorKey,
+        'value':pending[(start+selected.length)%pending.length].id},conflictAlgorithm:ConflictAlgorithm.replace);
+      return CedarArrangementReviewBundle(scope:scope,items:[...items.where((m)=>m.persistent),...selected],events:events.take(8).toList(),fence:fence);
     }) ?? const CedarArrangementReviewBundle();
   }
   Future<int> completeReviewed(CedarArrangementReviewBundle bundle, Object? reviews) async {

@@ -1787,6 +1787,7 @@ $catalog''',
     final conversationContext = await CedarConversationContext.load(db, now);
     final arrangementStore = CedarGameArrangementStore(db);
     final arrangements = await arrangementStore.captureReview(session);
+    if(arrangements.fence==null)return const CedarAutonomyProgress('notebook_snapshot_unavailable');
     final decision = await CedarAgentActionPlanner(
       ai: ai,
       onRetry: (error) => _recordAgentActionRetry(error),
@@ -1995,8 +1996,8 @@ ${arrangements.prompt}''',
       if (await CedarWakePolicy.delay(await db.database, DateTime.now(), gameId: session.gameId) > Duration.zero) {
         return const CedarAutonomyProgress('night_sleep');
       }
-      if (!await store.admitRemoteDispatch(gameId: session.gameId, action: action, params: params, executionId: scope.executionId)) {
-        return const CedarAutonomyProgress('unresolved_write');
+      if (!await store.admitRemoteDispatch(gameId: session.gameId, action: action, params: params, executionId: scope.executionId, planningFence: arrangements.fence)) {
+        return const CedarAutonomyProgress('planning_or_write_fenced');
       }
       outcome = await client.play(
         session.gameId,
