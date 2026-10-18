@@ -164,7 +164,13 @@ void main(){
     for(final r in requests) {
       expect(r.body,contains('PRIVATE_MEMORY_MUST_NOT_ENTER'));
       expect(r.body,isNot(contains('PRIVATE_CHAT_MUST_NOT_ENTER')));
-      expect(r.body,isNot(contains('71')));
+      final prompt=((jsonDecode(r.body) as Map)['messages'] as List)
+        .map((m)=>(m as Map)['content']).join('\n');
+      // The number 71 may legitimately occur in a timestamp. Check private
+      // state fields instead of banning a coincidental numeric substring.
+      for(final field in ['"heat"','"qForm"','playful_form_state_v1']) {
+        expect(prompt,isNot(contains(field)));
+      }
     }
   });
 
