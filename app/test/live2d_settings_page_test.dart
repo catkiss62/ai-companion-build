@@ -78,7 +78,11 @@ void main() {
       await db.closeForTesting();
     });
     await tester.pumpWidget(MaterialApp(home: Live2DSettingsPage(database: db)));
-    await Future<void>.delayed(const Duration(milliseconds: 50));
+    for(var attempt=0;attempt<100&&find.text('启用菜菜 Live2D').evaluate().isEmpty;attempt++) {
+      await Future<void>.delayed(const Duration(milliseconds:20));
+      await tester.pump();
+    }
+    expect(find.text('启用菜菜 Live2D'),findsOneWidget);
     await tester.pumpAndSettle();
     final delete = find.text('删除导入模型');
     await tester.scrollUntilVisible(delete, 500);
@@ -89,9 +93,18 @@ void main() {
     expect(await db.getSetting('chat_portrait_mode'), 'caicai_live2d');
     await tester.tap(delete); await tester.pumpAndSettle();
     await tester.tap(find.text('确认删除'));
-    await Future<void>.delayed(const Duration(milliseconds: 50));
+    await tester.pump();
+    // Dialog animations settling does not imply that the real SQLite write,
+    // native deletion callbacks and settings reload have finished. Wait for
+    // their observable completion, retaining a bounded timeout and assertions.
+    final tile=find.ancestor(of:delete,matching:find.byType(ListTile));
+    for(var attempt=0;attempt<100&&(deletions==0||tester.widget<ListTile>(tile).onTap==null);attempt++) {
+      await Future<void>.delayed(const Duration(milliseconds:20));
+      await tester.pump();
+    }
     await tester.pumpAndSettle();
     expect(deletions, 1);
+    expect(tester.widget<ListTile>(tile).onTap,isNotNull);
     expect(await db.getSetting('chat_portrait_mode'), 'static');
     });
   });
