@@ -16,7 +16,8 @@ import 'package:ai_companion_localfirst/core/reference/world_book_natural_chat_v
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();sqfliteFfiInit();
   late AppDatabase db;
-  setUp(() async {db=await AppDatabase.createForTesting(databaseFactoryFfi);});
+  setUp(() async {db=await AppDatabase.createForTesting(databaseFactoryFfi);
+    await migrateNaturalChatV042115(await db.database);});
   tearDown(()async{await db.closeForTesting();});
   Future<ModelDialogueRoom> seed({String title='花园讨论',List<String> texts=const ['留一个空盆','我觉得应该多种花'],bool ended=true}) async {
     final repo=ModelDialogueRepository(db);
@@ -115,13 +116,21 @@ void main() {
     final reader=RoomHistoryReader(db,generateDetail:(r,old,source,cancelled)async{calls++;return '$old 第$calls批已整理';});
     final before=jsonEncode(await (await db.database).query('memory_items'));
     var r=await reader.read({'kind':'model_dialogue','view':'detail'});expect(body(r)['complete'],false);
-    r=await reader.read({'kind':'model_dialogue','view':'detail'});expect(body(r)['complete'],true);
+    final cursor=body(r)['next_cursor'] as String;expect(cursor,isNotEmpty);
+    r=await reader.read({'kind':'model_dialogue','view':'detail','cursor':cursor});expect(body(r)['complete'],true);
     await reader.read({'kind':'model_dialogue','view':'detail'});expect(calls,2);
     expect(jsonEncode(await (await db.database).query('memory_items')),before);
   });
   test('deletion while detailed summary is generating rejects late writes and results',()async{
     final room=await seed();final reader=RoomHistoryReader(db,generateDetail:(r,old,source,cancelled)async{
       await ModelDialogueRepository(db).delete(room.id);return '不得写入';
+    });
+    await expectLater(reader.read({'kind':'model_dialogue','view':'detail'}),throwsA(isA<BrainWorkInvalidated>()));
+    expect(await db.getSetting('${RoomHistoryReader.cachePrefix}model_dialogue:${room.id}'),isNull);
+  });
+  test('restore during detail generation rejects its late cache and result',()async{
+    final room=await seed();final reader=RoomHistoryReader(db,generateDetail:(r,old,source,cancelled)async{
+      await db.setSetting('runtime_state_epoch_v1','restored-runtime');return '旧运行结果';
     });
     await expectLater(reader.read({'kind':'model_dialogue','view':'detail'}),throwsA(isA<BrainWorkInvalidated>()));
     expect(await db.getSetting('${RoomHistoryReader.cachePrefix}model_dialogue:${room.id}'),isNull);

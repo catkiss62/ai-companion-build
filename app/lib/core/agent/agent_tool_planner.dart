@@ -318,6 +318,7 @@ class AgentToolPlanner {
         if (semanticTaskToolIds == null || semanticTaskToolIds.contains('creative_work.commission')) 'creative_work.commission'});
     }
     if (toolIds.contains('public_web.search')) toolIds.add('public_web.read');
+    if (toolIds.contains('memory.search')) toolIds.addAll({'room_history.search','room_history.read'});
     const cedarIds = <String>{
       'cedar_toy.list_games',
       'cedar_toy.get_guide',
@@ -508,8 +509,8 @@ class AgentToolPlanner {
       if(tool.id==AgentToolRegistry.roomHistoryRead.id) {
         properties['handle']=const {'type':'string','description':'搜索或读取返回的精确房间句柄，原样使用。'};
         properties['view']=const {'type':'string','enum':['summary','detail','transcript'],
-          'description':'先摘要，需要完整事件整理选detail，逐字核对选transcript。detail若complete=false可再次读取以整理后文。'};
-        properties['cursor']=const {'type':'string','description':'transcript返回的next_cursor，原样续读；清空从头或按query定位。'};
+          'description':'先摘要，需要完整事件整理选detail，逐字核对选transcript。detail若complete=false可携带next_cursor再次读取以整理后文。'};
+        properties['cursor']=const {'type':'string','description':'detail或transcript返回的next_cursor，保持相同view原样续读；清空可重新读取。'};
       }
     } else if (tool.id == AgentToolRegistry.phoneSearch.id) {
       properties['query'] = const <String, Object?>{
