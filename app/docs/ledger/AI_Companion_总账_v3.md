@@ -508,3 +508,5 @@
 
 - 修正提交dc8356220224d23db1b346dd2d4730c1c9aeacb7；定向39097192861已通过Dart分析，功能回归515通过/11失败。失败均依赖带中文的模拟HTTP成功响应：测试http.Response默认Latin-1，在构造响应时中文无法编码，实际未向流解析器交付成功SSE；取消最终提交用例因未进入提交阶段而超时。独立utf8.encode流、同模型错误重试和其余隔离回归通过。不能把该轮写成全测通过。
 - 两个新测试文件统一以UTF-8、显式text/event-stream charset创建模拟响应，继续保留原成功正文、真实HTTP参数、模型身份、取消和公共状态断言；生产协议与重试逻辑不因夹具错误改动。重新运行定向和完整CI，最终UI预览与APK待完成。
+
+- 编码夹具提交24d0f31a9f7275eee5e9bac9ccbdb3abdc1665dd的第三轮定向39097481361在分析阶段指出当前http.Response无encoding命名参数；改用Response.bytes(utf8.encode(body), status)与显式charset，避免依赖不存在的构造参数。此轮未运行测试，完整构建由新提交替代。

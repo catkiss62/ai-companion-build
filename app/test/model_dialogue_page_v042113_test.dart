@@ -18,8 +18,8 @@ const _config=ModelDialogueConfiguration(
   ModelDialogueEndpoint(speaker:'deepseek',endpoint:'https://ds.example/chat',model:'deepseek-test',apiKey:'test'),
   ModelDialogueEndpoint(speaker:'gemini',endpoint:'https://gm.example/chat',model:'gemini-test',apiKey:'test'));
 // SSE is UTF-8 on the wire; http.Response otherwise defaults to Latin-1.
-http.Response _response(String body,int status) => http.Response(body,status,
-  encoding:utf8,headers:const {'content-type':'text/event-stream; charset=utf-8'});
+http.Response _response(String body,int status) => http.Response.bytes(utf8.encode(body),status,
+  headers:const {'content-type':'text/event-stream; charset=utf-8'});
 
 void main(){
   TestWidgetsFlutterBinding.ensureInitialized();sqfliteFfiInit();
