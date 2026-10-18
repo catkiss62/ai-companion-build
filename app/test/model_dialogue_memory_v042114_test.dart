@@ -8,6 +8,7 @@ import 'package:ai_companion_localfirst/core/model_dialogue/model_dialogue_conte
 import 'package:ai_companion_localfirst/core/model_dialogue/model_dialogue_models.dart';
 import 'package:ai_companion_localfirst/core/model_dialogue/model_dialogue_repository.dart';
 import 'package:ai_companion_localfirst/core/memory/memory_revision.dart';
+import 'package:ai_companion_localfirst/core/memory/memory_brain.dart';
 import 'package:ai_companion_localfirst/core/model_dialogue/model_dialogue_prompt.dart';
 import 'package:ai_companion_localfirst/core/ai/generation_cancellation.dart';
 
@@ -106,6 +107,17 @@ void main() {
       if (change == 'chat') await db.releaseLocalLease('chat_turn_lease');
     });
   }
+
+  test('ordinary chat recalls model discussion without describing it as a joint user experience', () async {
+    await ended();
+    await ModelDialogueArchiveWorker(db, generate: (r, m, f) async => result()).drainOne();
+    final brain = MemoryBrain(db);
+    final context = await brain.buildContext('模型对谈 花园布置');
+    final prompt = brain.formatForPrompt(context);
+    expect(prompt, contains('模型对谈经历（两个模型交换观点'));
+    expect(prompt, contains('用户是否参与以记录为准'));
+    expect(prompt, isNot(contains('相关共同经历（只证明曾发生')));
+  });
 
   test('a summary cannot invent a viewpoint for a participant who never spoke', () async {
     final room = await create(); await turn(room); await repository.end(room.id);

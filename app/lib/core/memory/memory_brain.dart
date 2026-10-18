@@ -118,12 +118,15 @@ class MemoryBrain {
     memories('与当前话题直接相关的 AI Self', context.aiSelf);
     memories('与当前话题直接相关的互动偏好/边界', context.preferences);
 
-    final relatedExperiences =
-        context.relevant.where((item) => item.isSharedExperience).toList();
+    final modelDialogues = context.relevant
+        .where((item) => item.source.startsWith('model_dialogue:')).toList();
+    final relatedExperiences = context.relevant
+        .where((item) => item.isSharedExperience && !item.source.startsWith('model_dialogue:')).toList();
     final relatedFacts =
         context.relevant.where((item) => !item.isSharedExperience).toList();
     memories('当前话题相关的已确认长期事实', relatedFacts);
     memories('相关共同经历（只证明曾发生，不要求本轮再次表达）', relatedExperiences);
+    memories('模型对谈经历（两个模型交换观点；用户是否参与以记录为准，不当作与用户共同作出的决定）', modelDialogues);
     memories('不确定推断（只能作为线索，不能当作事实）', context.inferences);
     memories('失效的历史版本（区分原先记错、后来变化与原因未知，不能一概当成过去成立）', context.history);
 
