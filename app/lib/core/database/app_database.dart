@@ -30,6 +30,7 @@ import 'package:uuid/uuid.dart';
 
 import 'sqlite_settings_reader.dart';
 import 'spoken_dialogue_default_migration.dart';
+import 'natural_chat_migration.dart';
 import 'brain_work_fence.dart';
 
 import '../emotion/emotion_contract.dart';
@@ -4716,6 +4717,7 @@ class AppDatabase {
       await setSetting('worldbook_natural_user_default_v04157_applied', '1');
     }
     await migrateSpokenDialogueDefaultV042108(db);
+    await migrateNaturalChatV042115(db);
     // Exact-value migration only: preserve every custom alias edit while also
     // accepting the user's literal slash spelling in the reviewed default.
     await db.update(

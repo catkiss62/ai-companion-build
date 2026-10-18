@@ -3,6 +3,8 @@
 from pathlib import Path
 import hashlib
 APP = Path(__file__).resolve().parents[1]
+# +359 reviewed DB delta: import and invoke the one-time natural-chat worldbook migration;
+# no schema, restore, transaction ownership or transfer changes.
 # Reviewed +323 restore core. +328 adds only reminder import and two message-commit guards
 # in app_database.dart. +332 only extends PortableCompanionState field bounds with
 # rightEarX/rightEarY/rightEarRotation; transactional restore/ownership is unchanged.
@@ -58,7 +60,7 @@ APP = Path(__file__).resolve().parents[1]
 # when explicitly requested; one new archive lease is reset by existing import
 # and snapshot normalization. Schema/transfer ownership/rollback are unchanged.
 # Actual archive restore/stale-write tests and the original restore suite apply.
-PROTECTED = {'lib/core/database/app_database.dart': '82a41213903f3534b20c169de559f7c4af84da066374b76192b3b15ca473de07', 'lib/core/sync/snapshot_service.dart': '7ee93b5b6727b8af1d863918f7a55a892c88e18aee514d36d87551173675e4d5', 'lib/core/sync/snapshot_restore_coordinator.dart': '2a3fd1c8237774aa9c2d0e88e7d4dba28cea732388b495761403119be78d886d', 'lib/core/sync/snapshot_cache_janitor.dart': '9e9dc7e44747f184b9359565512906ef24cb88666ac7c6456a92a9dfbd5f1d9b', 'android/app/src/main/kotlin/com/aicompanion/localfirst/NativeEventStore.kt': '6cead2621c92ab42701dbe3e7081089e4a37648abb63fb2f96b1bad90f221002', 'android/app/src/main/kotlin/com/aicompanion/localfirst/ManualSnapshotCrypto.kt': '3497404b13f2c388a276545db6342d16a44d8c17e18e2318dabfb84248a5dc84', 'android/app/src/main/kotlin/com/aicompanion/localfirst/PortableCompanionState.kt': 'a33deefe80a537f10e60c7b451ec30a43e134f3a8cd368252772b79898bcf9c6'}
+PROTECTED = {'lib/core/database/app_database.dart': '47c8736be3a8e5c8bd0d8379557b97d4c8d059c09cc627e7ceae544bb99cd285', 'lib/core/sync/snapshot_service.dart': '7ee93b5b6727b8af1d863918f7a55a892c88e18aee514d36d87551173675e4d5', 'lib/core/sync/snapshot_restore_coordinator.dart': '2a3fd1c8237774aa9c2d0e88e7d4dba28cea732388b495761403119be78d886d', 'lib/core/sync/snapshot_cache_janitor.dart': '9e9dc7e44747f184b9359565512906ef24cb88666ac7c6456a92a9dfbd5f1d9b', 'android/app/src/main/kotlin/com/aicompanion/localfirst/NativeEventStore.kt': '6cead2621c92ab42701dbe3e7081089e4a37648abb63fb2f96b1bad90f221002', 'android/app/src/main/kotlin/com/aicompanion/localfirst/ManualSnapshotCrypto.kt': '3497404b13f2c388a276545db6342d16a44d8c17e18e2318dabfb84248a5dc84', 'android/app/src/main/kotlin/com/aicompanion/localfirst/PortableCompanionState.kt': 'a33deefe80a537f10e60c7b451ec30a43e134f3a8cd368252772b79898bcf9c6'}
 for path, digest in PROTECTED.items():
     assert hashlib.sha256((APP / path).read_bytes()).hexdigest() == digest, path
 native = APP / 'android/app/src/main/kotlin/com/aicompanion/localfirst'

@@ -3,6 +3,7 @@ import 'dart:convert';
 import '../ai/deepseek_client.dart';
 import '../mcp/cedar_toy_arcade_skill.dart';
 import '../phone/phone_history_request.dart';
+import '../history/room_history_request.dart';
 import 'agent_task_loop.dart';
 import 'agent_tool.dart';
 import 'agent_tool_registry.dart';
@@ -54,6 +55,10 @@ class AgentToolPlanner {
         ),
       ]);
     }
+    final roomHistory=RoomHistoryRequest.parse(text);
+    if(roomHistory!=null) return AgentToolPlan(calls:[AgentToolCall(
+      toolId:AgentToolRegistry.roomHistoryRead.id,arguments:roomHistory.arguments,
+      reasonTag:'room_history_recall')]);
     final phoneHistory = PhoneHistoryRequest.parse(text);
     if (phoneHistory != null && !_isExplicitAlbumImageSend(text)) {
       return AgentToolPlan(calls: [AgentToolCall(
@@ -309,7 +314,7 @@ class AgentToolPlanner {
     if (deepThinking) {
       // Creation is available only here; actual commission still needs a current explicit request.
       toolIds.addAll({'public_web.search', 'public_web.read', 'memory.search',
-        'rules.read', 'system_self.read',
+        'rules.read', 'system_self.read', 'room_history.search', 'room_history.read',
         if (semanticTaskToolIds == null || semanticTaskToolIds.contains('creative_work.commission')) 'creative_work.commission'});
     }
     if (toolIds.contains('public_web.search')) toolIds.add('public_web.read');
@@ -497,6 +502,15 @@ class AgentToolPlanner {
         'enum': <String>['facts', 'outcomes', 'growth', 'all'],
         'description': 'facts=当前能力，outcomes=近期真实工具结果，growth=人格学习观察层的无正文状态元数据，all=全部读取。',
       };
+    } else if (tool.id == AgentToolRegistry.roomHistorySearch.id || tool.id == AgentToolRegistry.roomHistoryRead.id) {
+      properties['kind']=const {'type':'string','enum':['all','model_dialogue','immersive']};
+      properties['query']=const {'type':'string','description':'具体话题或房间标题关键词；不填则查最近结束的房间。原文模式可按关键词定位并返回前后文。'};
+      if(tool.id==AgentToolRegistry.roomHistoryRead.id) {
+        properties['handle']=const {'type':'string','description':'搜索或读取返回的精确房间句柄，原样使用。'};
+        properties['view']=const {'type':'string','enum':['summary','detail','transcript'],
+          'description':'先摘要，需要完整事件整理选detail，逐字核对选transcript。detail若complete=false可再次读取以整理后文。'};
+        properties['cursor']=const {'type':'string','description':'transcript返回的next_cursor，原样续读；清空从头或按query定位。'};
+      }
     } else if (tool.id == AgentToolRegistry.phoneSearch.id) {
       properties['query'] = const <String, Object?>{
         'type': 'string',
@@ -618,6 +632,8 @@ class AgentToolPlanner {
       'system_self.read' =>
         '仅在用户询问你当前真实能力、用户为你实现过什么、人格学习/成长观察层状态、近期真实工具/自主行动结果或 MCP 行动历史时调用。'
         '普通闲聊不调用；本工具不能读取聊天/规则正文、密钥、日志或未实现能力。',
+      'room_history.search' => '仅在当前问题需要回看模型对谈或沉浸房间时调用，按标题或关键词查找已经结束的房间。普通闲聊和讨论功能设计时不调用。',
+      'room_history.read' => '按需读取模型对谈或沉浸房间的summary、detail或transcript，保留发言归属和虚构场景边界。具体说过什么先核对原文；只读到局部就明确局部。没有句柄时可按kind和query选最近匹配房间。',
       'phone.search' =>
         '仅在用户要求你查看自己 App 内“查手机”的内容，或回答明确依赖这些内容时调用。只读现有投影，不刷新、不生成、不标记已读。',
       'phone.read' =>
@@ -765,6 +781,8 @@ class AgentToolPlanner {
     'album.search': 'album_search',
     'device_context.read': 'device_context_read',
     'system_self.read': 'system_self_read',
+    'room_history.search':'room_history_search',
+    'room_history.read':'room_history_read',
     'phone.search': 'phone_search',
     'phone.read': 'phone_read',
     'screen_observation.inspect': 'screen_observation_inspect',
@@ -789,6 +807,8 @@ class AgentToolPlanner {
     'album_search': 'album.search',
     'device_context_read': 'device_context.read',
     'system_self_read': 'system_self.read',
+    'room_history_search':'room_history.search',
+    'room_history_read':'room_history.read',
     'phone_search': 'phone.search',
     'phone_read': 'phone.read',
     'screen_observation_inspect': 'screen_observation.inspect',
@@ -849,6 +869,7 @@ class AgentToolPlanner {
   static Set<String> _routeToolIds(String rawText) {
     final text = rawText.replaceAll(RegExp(r'\s+'), ' ').trim().toLowerCase();
     if (text.isEmpty) return const <String>{};
+    if (RoomHistoryRequest.parse(rawText)!=null) return {AgentToolRegistry.roomHistorySearch.id,AgentToolRegistry.roomHistoryRead.id};
     if (PhoneHistoryRequest.parse(rawText) != null && !_isExplicitAlbumImageSend(text)) {
       return {AgentToolRegistry.phoneSearch.id, AgentToolRegistry.phoneRead.id};
     }

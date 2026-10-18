@@ -209,6 +209,7 @@ class ModelDialogueRepository {
       if(!await _manualAllowed(txn))return false;
       final room=await _room(txn,id);if(room==null||room.deleted)return false;
       await txn.delete('settings',where:'key = ?',whereArgs:['$archivePrefix$id']);
+      await txn.delete('settings',where:'key = ?',whereArgs:['room_history_detail_v1:model_dialogue:$id']);
       final prefix='$messagePrefix$id:';
       await txn.delete('settings',where:'key >= ? AND key < ?',whereArgs:[prefix,'$prefix\uffff']);
       await _save(txn,{'version':1,'id':id,'title':'','status':'deleted','revision':room.revision+1});

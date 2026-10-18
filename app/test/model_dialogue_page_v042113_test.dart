@@ -54,6 +54,33 @@ void main(){
     });
   });
 
+  testWidgets('creation requires enabled second channel and shows a popup', (tester) async {
+    await tester.runAsync(() async {
+      await tester.pumpWidget(MaterialApp(home:ModelDialogueLobbyPage(repository:repository,
+        configurationLoader:() async=>ModelDialogueConfiguration(_config.deepSeek,_config.gemini,secondChannelEnabled:false))));
+      await waitFor(tester,find.text('创建房间'));
+      await tester.tap(find.text('创建房间'));await tester.pump();
+      await waitFor(tester,find.text('暂时无法创建'));
+      expect(find.textContaining('开启双通道'),findsOneWidget);
+      expect(await repository.listRooms(),isEmpty);
+      await tester.pumpWidget(const SizedBox());
+    });
+  });
+  testWidgets('creation rechecks second channel after the form is confirmed', (tester) async {
+    await tester.runAsync(() async {
+      var enabled=true;
+      await tester.pumpWidget(MaterialApp(home:ModelDialogueLobbyPage(repository:repository,
+        configurationLoader:() async=>ModelDialogueConfiguration(_config.deepSeek,_config.gemini,secondChannelEnabled:enabled))));
+      await waitFor(tester,find.text('创建房间'));
+      await tester.tap(find.text('创建房间'));await tester.pump();
+      await waitFor(tester,find.text('创建对谈房间'));
+      enabled=false;await tester.tap(find.text('创建'));await tester.pump();
+      await waitFor(tester,find.textContaining('开启双通道'));
+      expect(await repository.listRooms(),isEmpty);
+      await tester.pumpWidget(const SizedBox());
+    });
+  });
+
   testWidgets('room renders three speakers, streams body only and uses the supplied background', (tester) async {
     await tester.runAsync(() async {
       final room=await seed();
@@ -77,6 +104,15 @@ void main(){
       await waitFor(tester,find.text('也许可以先从我们注意到的细节说起。'));
       await waitFor(tester,find.text('继续对谈'));
       expect(calls,2);expect(find.text('DeepSeek'),findsOneWidget);expect(find.text('Gemini'),findsOneWidget);
+      final geminiAvatar=find.byWidgetPredicate((w)=>w is CircleAvatar && w.backgroundImage is AssetImage &&
+        (w.backgroundImage as AssetImage).assetName==modelDialogueGeminiAvatar);
+      expect(tester.getCenter(geminiAvatar).dx,greaterThan(tester.getCenter(find.text('Gemini')).dx));
+      expect(find.byIcon(Icons.info_outline),findsNothing);
+      final panel=find.byKey(const ValueKey('model-dialogue-panel'));
+      expect(tester.widget<ColoredBox>(panel).color,Colors.white.withValues(alpha:.18));
+      final beforeHeight=tester.getSize(panel).height;
+      await tester.drag(find.byKey(const ValueKey('model-dialogue-drag')),const Offset(0,80));await tester.pump();
+      expect(tester.getSize(panel).height,lessThan(beforeHeight));
       expect(find.text('我也想听听另一种理解。'),findsOneWidget);
       expect(find.textContaining('"action"'),findsNothing);expect(tester.takeException(),isNull);
       final imageWidget=tester.widget<Image>(find.byType(Image).first);

@@ -21,5 +21,5 @@ for path in ('lib/main.dart', 'lib/background_main.dart'):
 assert '游戏记事本' in read('lib/features/settings/cedar_toy_settings_page.dart')
 workflow=(root.parent/'.github/workflows/system-logic-validation.yml').read_text()
 assert 'post_turn_thought_source_v042111_test.dart' in workflow
-assert any(f'version: {v}' in read('pubspec.yaml') for v in ('0.42.111+355','0.42.112+356', '0.42.113+357', '0.42.114+358'))
+assert any(f'version: {v}' in read('pubspec.yaml') for v in ('0.42.111+355','0.42.112+356', '0.42.113+357', '0.42.114+358', '0.42.115+359'))
 print('independent game notebook, archived migration, read/completion separation and ordinary source boundary wired')

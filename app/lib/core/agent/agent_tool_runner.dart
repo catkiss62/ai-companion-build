@@ -42,6 +42,7 @@ import '../models/public_web_candidate.dart';
 import '../phone/companion_album_search_policy.dart';
 import '../phone/companion_album_discovery_engine.dart';
 import '../phone/simulated_phone_reader.dart';
+import '../history/room_history_reader.dart';
 import '../perception/current_device_context_refresher.dart';
 import '../platform/android_bridge.dart';
 import '../storage/secure_config.dart';
@@ -414,6 +415,12 @@ class AgentToolRunner {
     }
     if (call.toolId == AgentToolRegistry.systemSelfRead.id) {
       return _readSystemSelf(call.arguments['scope'] ?? 'all');
+    }
+    if(call.toolId==AgentToolRegistry.roomHistorySearch.id) {
+      return RoomHistoryReader(db).search(call.arguments);
+    }
+    if(call.toolId==AgentToolRegistry.roomHistoryRead.id) {
+      return RoomHistoryReader(db).read(call.arguments,cancellation:cancellationToken);
     }
     if (call.toolId == AgentToolRegistry.phoneSearch.id) {
       return _searchPhone(

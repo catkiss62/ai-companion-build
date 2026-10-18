@@ -31,7 +31,12 @@ class ModelDialogueEndpoint {
       room.participant(speaker)['endpoint_hash']==fingerprint;
 }
 class ModelDialogueConfiguration {
-  const ModelDialogueConfiguration(this.deepSeek,this.gemini);
+  const ModelDialogueConfiguration(this.deepSeek,this.gemini,{this.secondChannelEnabled=true});
+  final bool secondChannelEnabled;
+  void validateForCreation() {
+    if (!secondChannelEnabled) throw const ModelDialogueConfigurationError('请先在模型设置中开启双通道，再创建模型对谈房间。');
+    validate();
+  }
   final ModelDialogueEndpoint deepSeek,gemini;
   ModelDialogueEndpoint forSpeaker(String speaker) => speaker=='deepseek'?deepSeek:gemini;
   void validate() {
@@ -47,7 +52,8 @@ class ModelDialogueConfiguration {
         model:DeepSeekModelProfile.fromApiName(await db.getSetting('model')).apiName,
         apiKey:(await secure.readDeepSeekApiKey())??'',effort:effort),
       ModelDialogueEndpoint(speaker:'gemini',endpoint:await secure.readAiWangYouEndpoint(),
-        model:await secure.readAiWangYouModel(),apiKey:(await secure.readAiWangYouApiKey())??'',effort:effort));
+        model:await secure.readAiWangYouModel(),apiKey:(await secure.readAiWangYouApiKey())??'',effort:effort),
+      secondChannelEnabled:(await secure.readChatProvider()).isGeminiRelay);
   }
 }
 class ModelDialogueConfigurationError implements Exception {

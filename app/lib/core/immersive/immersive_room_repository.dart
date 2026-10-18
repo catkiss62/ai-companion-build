@@ -207,6 +207,7 @@ class ImmersiveRoomRepository {
   Future<void> deleteRoom(String id) async {
     await _write((txn) async {
       await txn.delete('settings', where: 'key = ?', whereArgs: [archiveKey(id)]);
+      await txn.delete('settings', where: 'key = ?', whereArgs: ['room_history_detail_v1:immersive:$id']);
       await txn.delete(
         'immersive_messages',
         where: 'room_id = ?',

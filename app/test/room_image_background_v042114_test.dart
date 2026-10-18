@@ -15,8 +15,8 @@ void main() {
         await tester.pumpAndSettle();
         final image = tester.widget<Image>(find.byType(Image));
         expect((image.image as AssetImage).assetName, immersiveRoomBackground);
-        expect(image.fit, BoxFit.fill);
-        expect(tester.getSize(find.byType(Image)), size);
+        expect(image.fit, BoxFit.contain);
+        expect(tester.getSize(find.byType(Image)), Size(size.width,size.width*2048/1000));
         expect(tester.takeException(), isNull);
       }
       await render(0); await render(240);

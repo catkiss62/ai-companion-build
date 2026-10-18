@@ -48,6 +48,24 @@ class _ModelDialogueLobbyPageState extends State<ModelDialogueLobbyPage> {
   }
   Future<void> _create() async {
     if(_creating)return;
+    setState(()=>_creating=true);
+    ModelDialogueConfiguration configuration;
+    try {
+      configuration=await (widget.configurationLoader?.call()??ModelDialogueConfiguration.load(repository.db));
+      configuration.validateForCreation();
+    } on ModelDialogueConfigurationError catch(e) {
+      if(mounted) {
+        setState(()=>_creating=false);
+        await showDialog<void>(context:context,builder:(dialog)=>AlertDialog(
+          title:const Text('暂时无法创建'),content:Text(e.message),
+          actions:[TextButton(onPressed:()=>Navigator.pop(dialog),child:const Text('知道了'))]));
+      }
+      return;
+    } catch(_) {
+      if(mounted)setState(()=>_creating=false);
+      _showError('暂时无法读取模型设置，请稍后重试。');return;
+    }
+    if(!mounted)return;
     final title=TextEditingController(text:'新的模型对谈');
     final topic=TextEditingController();var first='deepseek';
     try {
@@ -68,8 +86,8 @@ class _ModelDialogueLobbyPageState extends State<ModelDialogueLobbyPage> {
             FilledButton(onPressed:()=>Navigator.pop(dialog,true),child:const Text('创建'))])));
       if(approved!=true||!mounted)return;
       setState(()=>_creating=true);
-      final configuration=await (widget.configurationLoader?.call()??ModelDialogueConfiguration.load(repository.db));
-      configuration.validate();
+      configuration=await (widget.configurationLoader?.call()??ModelDialogueConfiguration.load(repository.db));
+      configuration.validateForCreation();
       final room=await repository.create(title:title.text,topic:topic.text,
         participants:configuration.snapshot,firstSpeaker:first);
       if(mounted)await _open(room);
@@ -124,7 +142,7 @@ class _ModelDialogueLobbyPageState extends State<ModelDialogueLobbyPage> {
 }
 
 Widget _glass({required Widget child})=>DecoratedBox(decoration:BoxDecoration(
-  color:Colors.white.withValues(alpha:.9),borderRadius:BorderRadius.circular(16),
+  color:Colors.white.withValues(alpha:.45),borderRadius:BorderRadius.circular(16),
   border:Border.all(color:Colors.white.withValues(alpha:.6))),child:child);
 
 Future<bool> _confirmDelete(BuildContext context,String title) async =>
@@ -149,10 +167,15 @@ class _ModelDialogueRoomPageState extends State<ModelDialogueRoomPage> with Widg
   final input=TextEditingController();
   final scroll=ScrollController();
   bool _follow=true,_scrollScheduled=false,_archiveStarted=false;
+  double _panelFraction=.72;
+  Future<void> _loadPanel() async {
+    final value=double.tryParse(await repository.db.getSetting('model_dialogue_panel_fraction')??'');
+    if(mounted&&value!=null)setState(()=>_panelFraction=value.clamp(.42,.94).toDouble());
+  }
   @override void initState(){
     super.initState();WidgetsBinding.instance.addObserver(this);
     unawaited(AndroidBridge.instance.setImmersiveChatPageVisible(true));
-    controller.addListener(_changed);unawaited(controller.initialize());
+    controller.addListener(_changed);unawaited(controller.initialize());unawaited(_loadPanel());
   }
   @override void didChangeAppLifecycleState(AppLifecycleState state) {
     if(state!=AppLifecycleState.resumed)unawaited(controller.pause());
@@ -209,18 +232,24 @@ class _ModelDialogueRoomPageState extends State<ModelDialogueRoomPage> with Widg
       actions:[TextButton(onPressed:()=>Navigator.pop(dialog),child:const Text('知道了'))]));
   }
   @override Widget build(BuildContext context)=>WillPopScope(onWillPop:_leave,child:Scaffold(
-    appBar:AppBar(title:Text(controller.room?.title??'模型对谈',overflow:TextOverflow.ellipsis,
+    backgroundColor:Colors.black,
+    appBar:AppBar(backgroundColor:Colors.black,foregroundColor:Colors.white,title:Text(controller.room?.title??'模型对谈',overflow:TextOverflow.ellipsis,
       style:const TextStyle(fontSize:16)),actions:[PopupMenuButton<String>(onSelected:_menu,itemBuilder:(_)=>[
         const PopupMenuItem(value:'info',child:Text('本场模型')),
         if(controller.room?.ended!=true)const PopupMenuItem(value:'leave',child:Text('暂时离开')),
         if(controller.room?.ended!=true)const PopupMenuItem(value:'end',child:Text('结束本场')),
         const PopupMenuItem(value:'delete',child:Text('删除房间'))])]),
     body:_DialogueBackdrop(child:SafeArea(top:false,child:controller.loading?
-      const Center(child:CircularProgressIndicator()):LayoutBuilder(builder:(context,size)=>Column(children:[
+      const Center(child:CircularProgressIndicator()):LayoutBuilder(builder:(context,size) {
+      final panelHeight=size.maxHeight*_panelFraction;
+      return Stack(fit:StackFit.expand,children:[
+        Positioned(left:0,right:0,bottom:0,height:panelHeight,
+          child:ColoredBox(key:const ValueKey('model-dialogue-panel'),
+            color:Colors.white.withValues(alpha:.18),child:Column(children:[
         if(controller.room?.topic.isNotEmpty==true)Container(width:double.infinity,
-          color:const Color(0xCC102B48),padding:const EdgeInsets.symmetric(horizontal:14,vertical:7),
+          color:Colors.white.withValues(alpha:.30),padding:const EdgeInsets.symmetric(horizontal:14,vertical:7),
           child:Text(controller.room!.topic,maxLines:2,overflow:TextOverflow.ellipsis,
-            style:const TextStyle(color:Colors.white,fontSize:12))),
+            style:const TextStyle(color:_ink,fontSize:12))),
         Expanded(child:NotificationListener<UserScrollNotification>(onNotification:(event){
           if(scroll.hasClients)_follow=scroll.position.maxScrollExtent-scroll.offset<40;return false;
         },child:ListView(controller:scroll,padding:const EdgeInsets.symmetric(horizontal:12,vertical:14),children:[
@@ -234,55 +263,71 @@ class _ModelDialogueRoomPageState extends State<ModelDialogueRoomPage> with Widg
           if(controller.busy&&controller.attempt>0)_bubble(controller.speaking.isEmpty?(controller.room?.nextSpeaker??'deepseek'):controller.speaking,
             controller.preview.isEmpty?'正在回应…':controller.preview,streaming:true),
         ]))),
-        ConstrainedBox(constraints:BoxConstraints(maxHeight:size.maxHeight*.55),
+        ConstrainedBox(constraints:BoxConstraints(maxHeight:panelHeight*.55),
           child:SingleChildScrollView(child:_footer())),
-      ]))))));
+      ]))),
+        Positioned(left:0,right:0,bottom:panelHeight-13,child:Center(child:GestureDetector(
+          key:const ValueKey('model-dialogue-drag'),behavior:HitTestBehavior.opaque,
+          onVerticalDragUpdate:(details)=>setState(()=>_panelFraction=
+            (_panelFraction-details.delta.dy/size.maxHeight).clamp(.42,.94).toDouble()),
+          onVerticalDragEnd:(_)=>repository.db.setSetting('model_dialogue_panel_fraction',_panelFraction.toStringAsFixed(3)),
+          child:Container(width:84,height:26,alignment:Alignment.center,
+            decoration:BoxDecoration(color:Colors.white.withValues(alpha:.55),borderRadius:BorderRadius.circular(999)),
+            child:const Icon(Icons.drag_handle_rounded,color:_ink,size:20)),
+        ))),
+      ]);
+    })))));
 
   Widget _bubble(String speaker,String text,{String model='',bool streaming=false}) {
     final color=speaker=='deepseek'?_blue:speaker=='gemini'?_purple:const Color(0xFF9B4971);
     return Align(alignment:speaker=='deepseek'?Alignment.centerLeft:speaker=='gemini'?Alignment.centerRight:Alignment.center,
       child:FractionallySizedBox(widthFactor:speaker=='user' ? 0.94 : 0.9,child:Container(
         margin:const EdgeInsets.only(bottom:12),padding:const EdgeInsets.all(13),
-        decoration:BoxDecoration(color:(speaker=='user'?const Color(0xFFFFF0F6):Colors.white).withValues(alpha:.68),
+        decoration:BoxDecoration(color:(speaker=='user'?const Color(0xFFFFF0F6):Colors.white).withValues(alpha:.42),
           borderRadius:BorderRadius.circular(15),border:Border.all(color:color.withValues(alpha:.3))),
         child:Column(crossAxisAlignment:CrossAxisAlignment.start,children:[
-          Row(children:[CircleAvatar(radius:16,backgroundColor:color,
-            backgroundImage:speaker=='user'?null:AssetImage(speaker=='deepseek'?modelDialogueDeepSeekAvatar:modelDialogueGeminiAvatar),
-            child:speaker=='user'?const Text('你',style:TextStyle(fontSize:11,color:Colors.white)):null),
-            const SizedBox(width:7),Expanded(child:Text('${modelDialogueLabel(speaker)}${streaming?' · 生成中':''}',
+          Row(children:[
+            if(speaker!='gemini') ...[_avatar(speaker,color),const SizedBox(width:7)],
+            Expanded(child:Text('${modelDialogueLabel(speaker)}${streaming?' · 生成中':''}',
+              textAlign:speaker=='gemini'?TextAlign.right:TextAlign.left,
               style:TextStyle(color:color,fontWeight:FontWeight.w700,fontSize:12))),
-            if(model.isNotEmpty)Tooltip(message:model,child:Icon(Icons.info_outline,size:15,color:color))]),
+            if(speaker=='gemini') ...[const SizedBox(width:7),_avatar(speaker,color)],
+          ]),
           const SizedBox(height:8),SelectableText(text,style:const TextStyle(color:_ink,fontSize:15,height:1.55)),
         ]))));
   }
+  Widget _avatar(String speaker,Color color)=>CircleAvatar(
+    radius:16,backgroundColor:color,
+    backgroundImage:speaker=='user'?null:AssetImage(speaker=='deepseek'?modelDialogueDeepSeekAvatar:modelDialogueGeminiAvatar),
+    child:speaker=='user'?const Text('你',style:TextStyle(fontSize:11,color:Colors.white)):null);
   Widget _footer() {
     final room=controller.room;
-    return Container(width:double.infinity,color:const Color(0xEB102B48),padding:const EdgeInsets.fromLTRB(12,9,12,12),
+    return Container(width:double.infinity,color:Colors.white.withValues(alpha:.22),padding:const EdgeInsets.fromLTRB(12,9,12,12),
       child:Column(mainAxisSize:MainAxisSize.min,crossAxisAlignment:CrossAxisAlignment.start,children:[
         if(controller.error.isNotEmpty)Padding(padding:const EdgeInsets.only(bottom:8),
-          child:Text(controller.error,style:const TextStyle(color:Color(0xFFFFC5CA),fontSize:13))),
+          child:Text(controller.error,style:const TextStyle(color:Color(0xFF8B2635),fontSize:13))),
         if(controller.notice.isNotEmpty)Padding(padding:const EdgeInsets.only(bottom:6),
-          child:Text(controller.notice,style:const TextStyle(color:Colors.white70,fontSize:12))),
+          child:Text(controller.notice,style:const TextStyle(color:_ink,fontSize:12))),
         if(room?.ended==true)Padding(padding:const EdgeInsets.all(6),
           child:Text(room!.archiveState=='pending'?'本场已结束，记录保留；摘要待整理，网络恢复后重试。':
             room.archiveState=='remembered'?'本场已结束，已保留一条对谈经历。':'本场已结束，记录可回看。',
-            style:const TextStyle(color:Colors.white))),
+            style:const TextStyle(color:_ink))),
         if(room!=null&&!room.ended) ...[
           if(room.closingSpeaker.isNotEmpty)Padding(padding:const EdgeInsets.only(bottom:6),child:Text(
             '${modelDialogueLabel(room.closingSpeaker)} 准备结束，可再继续一次收尾；你也可以插话。',
-            style:const TextStyle(color:Colors.white70,fontSize:12))),
+            style:const TextStyle(color:_ink,fontSize:12))),
           Row(children:[Expanded(child:TextField(controller:input,enabled:!controller.busy,
-            minLines:1,maxLines:3,maxLength:6000,style:const TextStyle(color:Colors.white,fontSize:14),
-            decoration:InputDecoration(hintText:'插一句（可选）',hintStyle:const TextStyle(color:Colors.white60),
+            minLines:1,maxLines:3,maxLength:6000,style:const TextStyle(color:_ink,fontSize:14),
+            decoration:InputDecoration(hintText:'插一句（可选）',hintStyle:const TextStyle(color:_ink),
               counterText:'',isDense:true,filled:true,fillColor:Colors.white.withValues(alpha:.08),
               border:OutlineInputBorder(borderRadius:BorderRadius.circular(12))),
             onSubmitted:(_)=>unawaited(_send()))),
             IconButton(tooltip:'发送',onPressed:controller.busy?null:_send,
-              color:Colors.white,disabledColor:Colors.white30,icon:const Icon(Icons.send_rounded))]),
+              color:_ink,disabledColor:Colors.white30,icon:const Icon(Icons.send_rounded))]),
           const SizedBox(height:8),
           Row(children:[
             if(controller.busy)OutlinedButton.icon(onPressed:()=>controller.pause(),
-              style:OutlinedButton.styleFrom(foregroundColor:const Color(0xFFFFD1DA)),
+              style:OutlinedButton.styleFrom(foregroundColor:const Color(0xFF8B2635)),
               icon:const Icon(Icons.stop_rounded,size:18),label:const Text('停止'))
             else FilledButton.icon(onPressed:(){_follow=true;unawaited(controller.advance().then((_) {}));},
               icon:const Icon(Icons.play_arrow_rounded,size:18),
@@ -290,7 +335,7 @@ class _ModelDialogueRoomPageState extends State<ModelDialogueRoomPage> with Widg
             const SizedBox(width:10),Expanded(child:Text(controller.busy?
               controller.attempt==0?'准备对谈…':'${modelDialogueLabel(controller.speaking.isEmpty?room.nextSpeaker:controller.speaking)} · 请求 ${controller.attempt}/2':
               '下一位：${modelDialogueLabel(room.nextSpeaker)}',maxLines:2,overflow:TextOverflow.ellipsis,
-              style:const TextStyle(color:Colors.white70,fontSize:12))),
+              style:const TextStyle(color:_ink,fontSize:12))),
           ]),
         ],
       ]));

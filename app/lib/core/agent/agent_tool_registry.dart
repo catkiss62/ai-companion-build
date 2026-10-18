@@ -92,6 +92,16 @@ class AgentToolRegistry {
     userTurnAvailable: true,
     autonomousAvailable: false,
   );
+  static const roomHistorySearch = AgentToolDefinition(
+    id:'room_history.search',title:'查找房间历史',
+    description:'只读查找已结束的模型对谈或沉浸房间，返回带来源的目录和摘要。',
+    risk:AgentToolRisk.readOnly,executable:true,userTurnAvailable:true,autonomousAvailable:false,
+  );
+  static const roomHistoryRead = AgentToolDefinition(
+    id:'room_history.read',title:'回看房间记录',
+    description:'按句柄读取房间摘要、按需详细整理或有界分页原文；不写公共记忆。',
+    risk:AgentToolRisk.readOnly,executable:true,userTurnAvailable:true,autonomousAvailable:false,
+  );
   static const phoneSearch = AgentToolDefinition(
     id: 'phone.search',
     title: '搜索自己的手机',
@@ -275,6 +285,8 @@ class AgentToolRegistry {
     albumSearch,
     deviceContextRead,
     systemSelfRead,
+    roomHistorySearch,
+    roomHistoryRead,
     phoneSearch,
     phoneRead,
     attachmentSave,
