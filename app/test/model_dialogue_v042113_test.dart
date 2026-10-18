@@ -284,6 +284,29 @@ void main(){
     expect(c.room!.requestId,isEmpty);expect(c.room!.status,'paused');expect(calls,0);
   });
 
+  test('process restart with an unexpired old lease resumes without duplicating accepted user text',() async {
+    final room=await create();
+    final old=await ticket(room);
+    await repository.cancelTicket(old);
+    final withUser=await repository.begin(roomId:room.id,fence:old.fence,userText:'已经收下的插话');
+    await db.releaseLocalLease('chat_turn_lease');
+    await db.setSetting('chat_turn_lease','dead-process:00000000-0000-0000-0000-000000000000|${DateTime.now().add(const Duration(minutes:3)).millisecondsSinceEpoch}');
+    var calls=0;
+    final c=await controller(room,gateway((_) async {calls++;return _response(frame('恢复后的回答'),200);}));
+    expect(c.room!.requestId,withUser.requestId); // initialize must not steal a live TTL.
+    await c.advance();
+    expect(calls,1);expect(c.error,isEmpty);
+    expect(c.messages.map((m)=>m.speaker),['user','deepseek']);
+    expect(await repository.commit(withUser,const ModelDialogueOutput('旧进程迟到','continue'),GenerationCancellationToken()),isFalse);
+  });
+
+  test('begin cannot replace an active request under the same exclusive lease',() async {
+    final room=await create();final active=await ticket(room);
+    await expectLater(repository.begin(roomId:room.id,fence:active.fence),throwsStateError);
+    expect(await repository.isCurrent(active),isTrue);
+    await repository.cancelTicket(active);await db.releaseLocalLease('chat_turn_lease');
+  });
+
   test('JSON preview never reveals routing fields or broken Unicode escapes',(){
     const text='你好\n"小鲸鱼" 🐳';final raw=jsonEncode({'text':text,'action':'close'});
     expect(ModelDialogueOutput.preview(raw),text);expect(ModelDialogueOutput.parse(raw).action,'close');

@@ -88,7 +88,11 @@ class MemorySourceContext {
     if (data['scene'] == 'model_dialogue') {
       final at = data['created_at'];
       final time = at is num ? DateTime.fromMillisecondsSinceEpoch(at.toInt()).toIso8601String() : '时间未知';
-      return '模型对谈经历；$time；DeepSeek/Gemini观点分别归属，用户原话单独标记，讨论不是实际执行';
+      final first=data['first_message_at'],last=data['last_message_at'];
+      final range=first is num&&last is num
+        ? '实际发言：${DateTime.fromMillisecondsSinceEpoch(first.toInt()).toIso8601String()} 至 ${DateTime.fromMillisecondsSinceEpoch(last.toInt()).toIso8601String()}'
+        : '旧整理记录时间：$time；实际发言时间未保存，不据此推断今天或昨天';
+      return '模型对谈经历；$range；DeepSeek/Gemini观点分别归属，用户原话单独标记，讨论不是实际执行';
     }
     String pair(Object? value) {
       final pair = value is Map ? value : const <String, Object?>{};

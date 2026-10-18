@@ -51,6 +51,7 @@ jobs:
           test/public_web_share_g3_test.dart
           test/room_history_v042115_test.dart
           test/natural_chat_refresh_v042116_test.dart
+          test/model_dialogue_recovery_v042117_test.dart
           test/model_dialogue_memory_v042114_test.dart
           test/room_image_background_v042114_test.dart
           test/model_dialogue_v042113_test.dart

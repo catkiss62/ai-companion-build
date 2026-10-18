@@ -6,6 +6,7 @@ import '../database/app_database.dart';
 import '../database/brain_work_fence.dart';
 import '../database/sqlite_settings_reader.dart';
 import 'model_dialogue_models.dart';
+import 'model_dialogue_time.dart';
 
 class ModelDialogueTicket {
   const ModelDialogueTicket({required this.room,required this.history,
@@ -90,9 +91,15 @@ class ModelDialogueRepository {
     if(userText.length>6000)throw const FormatException('user_text_too_long');
     final sql=await db.database;
     return sql.transaction((txn) async {
-      if(!await fence.matches(txn))throw const BrainWorkInvalidated();
+      if(fence.leaseKey!='chat_turn_lease'||!await fence.matches(txn))throw const BrainWorkInvalidated();
       final room=await _room(txn,roomId);
-      if(room==null||room.deleted||room.ended||room.requestId.isNotEmpty)throw StateError('room_not_ready');
+      if(room==null||room.deleted||room.ended)throw StateError('room_not_ready');
+      // The exclusive lease proves that an earlier request with a different
+      // lease token can no longer commit, even when its old TTL has not elapsed
+      // after a process restart. Reusing the same lease is never a recovery.
+      if(room.requestId.isNotEmpty&&room.data['request_lease_token']==fence.leaseToken) {
+        throw StateError('room_not_ready');
+      }
       final data=Map<String,dynamic>.from(room.data);
       if(memoryContext!=null) {
         data['memory_context']=memoryContext;
@@ -109,7 +116,8 @@ class ModelDialogueRepository {
         data['closing_speaker']='';
       }
       final requestId=_uuid.v4();
-      data.addAll({'request_id':requestId,'next_speaker':speaker,'sequence':sequence,'status':'active',
+      data.addAll({'request_id':requestId,'request_lease_token':fence.leaseToken,
+        'next_speaker':speaker,'sequence':sequence,'status':'active',
         'revision':room.revision+1,'updated_at':DateTime.now().millisecondsSinceEpoch});
       await _save(txn,data);
       return ModelDialogueTicket(room:ModelDialogueRoom(data),history:await _messages(txn,roomId),
@@ -152,6 +160,7 @@ class ModelDialogueRepository {
     final now=DateTime.now().millisecondsSinceEpoch;
     data['ended_at']=now;
     final history=await _messages(txn,data['id'] as String);
+    data.addAll(ModelDialogueTime.range(history));
     if(!history.any((m)=>modelDialogueSpeakers.contains(m.speaker))) {
       data['archive_state']='skipped';return;
     }

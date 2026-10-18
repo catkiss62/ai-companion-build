@@ -11,6 +11,7 @@ import '../database/sqlite_settings_reader.dart';
 import '../diagnostics/model_usage_telemetry.dart';
 import '../model_dialogue/model_dialogue_models.dart';
 import '../model_dialogue/model_dialogue_repository.dart';
+import '../model_dialogue/model_dialogue_time.dart';
 import '../storage/secure_config.dart';
 import '../agent/agent_tool.dart';
 
@@ -68,7 +69,12 @@ class RoomHistoryReader {
             'text':m.text,'time':m.createdAt,'model':m.model});
         }
       }
-      return RoomHistoryRecord(kind,id,room.title,'话题：${room.topic}\n${room.archiveSummary}',list,
+      final times=messages?ModelDialogueTime.rangeOfTimes(list.map((m)=>m['time'] as int)):room.data;
+      return RoomHistoryRecord(kind,id,room.title,'话题：${room.topic}\n'
+        '实际发言：${ModelDialogueTime.format((times['first_message_at'] as num?)?.toInt()??0)} 至 '
+        '${ModelDialogueTime.format((times['last_message_at'] as num?)?.toInt()??0)}；'
+        '关闭时间：${ModelDialogueTime.format((room.data['ended_at'] as num?)?.toInt()??0)}（不代表发言发生于此时）。\n'
+        '${room.archiveSummary}${room.archiveState=='pending'?'\n本场自动整理尚未完成，不能把现有摘要当成完整记录。':''}',list,
         (room.data['ended_at'] as num?)?.toInt()??room.updatedAt);
     }
     if(kind!='immersive')return null;

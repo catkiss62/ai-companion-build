@@ -283,7 +283,7 @@ class _ModelDialogueRoomPageState extends State<ModelDialogueRoomPage> with Widg
     return Align(alignment:speaker=='deepseek'?Alignment.centerLeft:speaker=='gemini'?Alignment.centerRight:Alignment.center,
       child:FractionallySizedBox(widthFactor:speaker=='user' ? 0.94 : 0.9,child:Container(
         margin:const EdgeInsets.only(bottom:12),padding:const EdgeInsets.all(13),
-        decoration:BoxDecoration(color:(speaker=='user'?const Color(0xFFFFF0F6):Colors.white).withValues(alpha:.50),
+        decoration:BoxDecoration(color:(speaker=='user'?const Color(0xFFFFF0F6):Colors.white).withValues(alpha:.55),
           borderRadius:BorderRadius.circular(15),border:Border.all(color:color.withValues(alpha:.3))),
         child:Column(crossAxisAlignment:CrossAxisAlignment.start,children:[
           Row(children:[

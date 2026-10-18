@@ -110,6 +110,8 @@ void main(){
       expect(find.byIcon(Icons.info_outline),findsNothing);
       final panel=find.byKey(const ValueKey('model-dialogue-panel'));
       expect(tester.widget<ColoredBox>(panel).color,Colors.white.withValues(alpha:.18));
+      expect(find.byWidgetPredicate((w)=>w is Container&&w.decoration is BoxDecoration&&
+        (w.decoration as BoxDecoration).color==Colors.white.withValues(alpha:.55)),findsWidgets);
       final beforeHeight=tester.getSize(panel).height;
       await tester.drag(find.byKey(const ValueKey('model-dialogue-drag')),const Offset(0,80));await tester.pump();
       expect(tester.getSize(panel).height,lessThan(beforeHeight));

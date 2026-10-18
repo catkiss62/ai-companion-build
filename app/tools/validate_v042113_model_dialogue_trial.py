@@ -17,7 +17,7 @@ assert 'SqliteSettingsReader.read' in repo and 'ticket.fence.matches(txn)' in re
 assert 'room.requestId!=ticket.requestId' in repo
 assert 'cancellation.isCancelled' in repo and 'beforeCommit' in repo
 assert "'model_dialogue_room_v1:'" in repo and "'model_dialogue_message_v1:'" in repo
-assert 'import' not in prompt.replace("import 'dart:convert';",'').replace("import 'model_dialogue_models.dart';",'')
+assert 'import' not in prompt.replace("import 'dart:convert';",'').replace("import 'model_dialogue_models.dart';",'').replace("import 'model_dialogue_time.dart';",'')
 assert 'attempt<=2' in gateway and gateway.count('client.streamChat(')==1
 for name in ('endpoint.apiKey','endpoint.endpoint','endpoint.model','endpoint.provider'):
     assert name in gateway,name
@@ -35,6 +35,6 @@ assert chat.count("title: '模型对谈'")==1
 workflow=(root.parent/'.github/workflows/system-logic-validation.yml').read_text()
 for test in ('model_dialogue_v042113_test.dart','model_dialogue_page_v042113_test.dart'):
     assert test in workflow
-assert any(v in read('pubspec.yaml') for v in ('version: 0.42.114+358','version: 0.42.115+359', 'version: 0.42.116+360'))
+assert any(v in read('pubspec.yaml') for v in ('version: 0.42.114+358','version: 0.42.115+359', 'version: 0.42.116+360', 'version: 0.42.117+361'))
 assert '    - assets/model_dialogue/' in read('pubspec.yaml')
 print('isolated model dialogue, fixed same-model retry, lifecycle fences and exact background wired')
