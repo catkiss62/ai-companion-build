@@ -64,7 +64,7 @@ void main() {
     final memory = (await memories()).single;
     expect(memory['source'], 'model_dialogue:${room.id}'); expect(memory['kind'], 'shared_experience');
     expect(memory['evidence_count'], 1); expect(memory['content'], contains('Gemini一侧的观点'));
-    expect(memory['content'], contains('真实用户在本场的原话')); expect(memory['content'], contains('未作外部核验'));
+    expect(memory['content'], contains('真实用户在本场的原话')); expect(memory['content'], contains('不代表永久偏好、现实事实'));
     expect(MemorySourceContext.format(memory['source_context_json'] as String), contains('模型对谈经历'));
     expect((await repository.roomById(room.id))!.archiveState, 'remembered');
     expect(await db.getSetting('${ModelDialogueRepository.archivePrefix}${room.id}'), isNull);
@@ -106,6 +106,14 @@ void main() {
       if (change == 'chat') await db.releaseLocalLease('chat_turn_lease');
     });
   }
+
+  test('a summary cannot invent a viewpoint for a participant who never spoke', () async {
+    final room = await create(); await turn(room); await repository.end(room.id);
+    await ModelDialogueArchiveWorker(db, generate: (r, m, f) async => result()).drainOne();
+    expect(await memories(), isEmpty);
+    expect((await repository.roomById(room.id))!.archiveState, 'pending');
+    expect(await db.getSetting('${ModelDialogueRepository.archivePrefix}${room.id}'), isNotNull);
+  });
 
   test('empty rooms and old ended trial rooms do not create retrospective memory jobs', () async {
     final empty = await create(); await repository.end(empty.id);

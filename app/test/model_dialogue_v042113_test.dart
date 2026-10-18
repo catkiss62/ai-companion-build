@@ -284,6 +284,7 @@ void main(){
     final result=ModelDialoguePrompt.build(room,[const ModelDialogueMessage(id:'m',roomId:'r',sequence:1,
       speaker:'gemini',text:'我刚才提出的观点',model:'gemini-test',createdAt:1)],'gemini');
     expect(result.where((m)=>m['role']=='assistant').single['content'],contains('"text"'));
-    expect(jsonEncode(result),contains('共同的轻量角色背景')); // participant identity is explicit in the prompt.
+    expect(jsonEncode(result),contains('双方共享的小鲸鱼背景记忆'));
+    expect(jsonEncode(result),contains('共同角色背景')); // participant identity is explicit in the prompt.
   });
 }

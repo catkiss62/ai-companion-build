@@ -1705,7 +1705,7 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
                         contentPadding: EdgeInsets.zero,
                         leading: const Icon(Icons.forum_outlined),
                         title: const Text('模型对谈'),
-                        subtitle: const Text('两种模型独立试聊，可旁观或插话。'),
+                        subtitle: const Text('两种模型交换想法，可旁观或插话。'),
                         trailing: const Icon(Icons.chevron_right_rounded),
                         onTap: () async {
                           FocusManager.instance.primaryFocus?.unfocus();
@@ -2232,7 +2232,7 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
                   _QuickPanelTile(
                     icon: Icons.forum_outlined,
                     title: '模型对谈',
-                    subtitle: '两种模型独立试聊，可旁观或插话。',
+                    subtitle: '两种模型交换想法，可旁观或插话。',
                     onTap: () async {
                       FocusManager.instance.primaryFocus?.unfocus();
                       Navigator.pop(dialogContext);
