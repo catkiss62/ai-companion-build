@@ -17,6 +17,10 @@ import 'package:ai_companion_localfirst/features/model_dialogue/model_dialogue_p
 const _config=ModelDialogueConfiguration(
   ModelDialogueEndpoint(speaker:'deepseek',endpoint:'https://ds.example/chat',model:'deepseek-test',apiKey:'test'),
   ModelDialogueEndpoint(speaker:'gemini',endpoint:'https://gm.example/chat',model:'gemini-test',apiKey:'test'));
+// SSE is UTF-8 on the wire; http.Response otherwise defaults to Latin-1.
+http.Response _response(String body,int status) => http.Response(body,status,
+  encoding:utf8,headers:const {'content-type':'text/event-stream; charset=utf-8'});
+
 void main(){
   TestWidgetsFlutterBinding.ensureInitialized();sqfliteFfiInit();
   late AppDatabase db;late ModelDialogueRepository repository;
@@ -53,7 +57,7 @@ void main(){
       var calls=0;
       final gateway=ModelDialogueGateway(DeepSeekClient(streamClientFactory:()=>MockClient((request) async {
         calls++;final text=calls==1?'我想聊聊：同一段经历为什么会有不同理解。':'也许可以先从我们注意到的细节说起。';
-        return http.Response('data: ${jsonEncode({'choices':[{'delta':{'content':jsonEncode({'text':text,'action':'continue'})},'finish_reason':'stop'}]})}\n\ndata: [DONE]\n\n',200);
+        return _response('data: ${jsonEncode({'choices':[{'delta':{'content':jsonEncode({'text':text,'action':'continue'})},'finish_reason':'stop'}]})}\n\ndata: [DONE]\n\n',200);
       })),retryDelay:Duration.zero);
       final capture=GlobalKey();
       tester.view.physicalSize=const Size(390,844);tester.view.devicePixelRatio=1;

@@ -30,6 +30,10 @@ class _StreamClient extends http.BaseClient {
   @override void close(){if(!frames.isClosed)unawaited(frames.close());}
 }
 
+// SSE is UTF-8 on the wire; http.Response otherwise defaults to Latin-1.
+http.Response _response(String body,int status) => http.Response(body,status,
+  encoding:utf8,headers:const {'content-type':'text/event-stream; charset=utf-8'});
+
 void main(){
   TestWidgetsFlutterBinding.ensureInitialized();sqfliteFfiInit();
   late AppDatabase db;
@@ -65,7 +69,7 @@ void main(){
 
   test('one click calls one distinct model; user and peers retain their source roles',() async {
     final room=await create(topic:'聊聊有意思的问题');final requests=<http.Request>[];
-    final c=await controller(room,gateway((r) async {requests.add(r);return http.Response(frame('回应${requests.length}'),200);}));
+    final c=await controller(room,gateway((r) async {requests.add(r);return _response(frame('回应${requests.length}'),200);}));
     expect(requests,isEmpty);
     await c.advance();expect(requests,hasLength(1));
     expect(c.messages.single.speaker,'deepseek');expect(c.room!.nextSpeaker,'gemini');
@@ -83,7 +87,7 @@ void main(){
   for(final speaker in modelDialogueSpeakers) {
     test('$speaker retries the same model twice and never invokes the other endpoint',() async {
       final room=await create(first:speaker);final requests=<http.Request>[];
-      final c=await controller(room,gateway((r) async {requests.add(r);return http.Response('private-server-error',503);}));
+      final c=await controller(room,gateway((r) async {requests.add(r);return _response('private-server-error',503);}));
       await c.advance(userText:'请谈一谈。');
       expect(requests,hasLength(2));
       for(final request in requests) {
@@ -100,7 +104,7 @@ void main(){
     test('$speaker successful retry commits only one reply without duplicating user text',() async {
       var calls=0;
       final c=await controller(await create(first:speaker),gateway((r) async {
-        calls++;return calls==1?http.Response('error',400):http.Response(frame('重试后的真实回复'),200);
+        calls++;return calls==1?_response('error',400):_response(frame('重试后的真实回复'),200);
       }));
       expect(await c.advance(userText:'讨论这个吧。'),isTrue);
       expect(calls,2);expect(c.error,isEmpty);
@@ -112,7 +116,7 @@ void main(){
   test('separate manual retry resumes the failed participant and does not reinsert the user',() async {
     var healthy=false;
     final c=await controller(await create(first:'gemini'),gateway((_) async =>
-      healthy?http.Response(frame('恢复后回应'),200):http.Response('failed',500)));
+      healthy?_response(frame('恢复后回应'),200):_response('failed',500)));
     await c.advance(userText:'这条只说一次。');healthy=true;await c.advance();
     expect(c.messages.map((m)=>m.speaker),['user','gemini']);
     expect(c.room!.nextSpeaker,'deepseek');expect(c.error,isEmpty);
@@ -127,7 +131,7 @@ void main(){
     var calls=0;final room=await create();
     final changed=ModelDialogueConfiguration(const ModelDialogueEndpoint(speaker:'deepseek',
       endpoint:'https://ds.example/chat/completions',model:'deepseek-different',apiKey:'test'),configuration.gemini);
-    final c=await controller(room,gateway((r) async {calls++;return http.Response(frame('不应调用'),200);}),loader:() async=>changed);
+    final c=await controller(room,gateway((r) async {calls++;return _response(frame('不应调用'),200);}),loader:() async=>changed);
     await c.advance();expect(calls,0);expect(c.error,contains('配置已变化'));
     expect(c.messages,isEmpty);
   });
@@ -141,7 +145,7 @@ void main(){
     final before=await publicState();
     final requests=<http.Request>[];
     final c=await controller(await create(topic:'只聊本场'),gateway((r) async {
-      requests.add(r);return http.Response(frame('本场的一个想法'),200);
+      requests.add(r);return _response(frame('本场的一个想法'),200);
     }));
     await c.advance(userText:'我加入讨论。');await c.advance();await c.end();
     expect(await publicState(),before);
@@ -154,23 +158,23 @@ void main(){
 
   test('close allows only one peer closing turn; end needs no artificial goodbye',() async {
     var calls=0;final c=await controller(await create(),gateway((_) async {
-      calls++;return http.Response(frame(calls==1?'今天先聊到这儿。':'嗯，回头再聊。',action:calls==1?'close':'continue'),200);
+      calls++;return _response(frame(calls==1?'今天先聊到这儿。':'嗯，回头再聊。',action:calls==1?'close':'continue'),200);
     }));
     await c.advance();expect(c.room!.ended,isFalse);expect(c.room!.closingSpeaker,'deepseek');
     await c.advance();expect(c.room!.ended,isTrue);await c.advance();expect(calls,2);
-    final end=await controller(await create(),gateway((_) async=>http.Response(frame('',action:'end'),200)));
+    final end=await controller(await create(),gateway((_) async=>_response(frame('',action:'end'),200)));
     await end.advance();expect(end.room!.ended,isTrue);expect(end.messages,isEmpty);
   });
   test('human interjection can open a new thread before the final closing turn',() async {
     var calls=0;final c=await controller(await create(),gateway((_) async {
-      calls++;return http.Response(frame('发言$calls',action:calls==1?'close':'continue'),200);
+      calls++;return _response(frame('发言$calls',action:calls==1?'close':'continue'),200);
     }));
     await c.advance();await c.advance(userText:'等一下，我想再问一个问题。');
     expect(c.room!.ended,isFalse);expect(c.room!.closingSpeaker,isEmpty);
     expect(c.messages.map((m)=>m.speaker),['deepseek','user','gemini']);
   });
   test('an addressed user turn routes to the named participant without a planner call',() async {
-    final c=await controller(await create(),gateway((_) async=>http.Response(frame('回答'),200)));
+    final c=await controller(await create(),gateway((_) async=>_response(frame('回答'),200)));
     await c.advance(userText:'Gemini，你怎么看？');expect(c.messages.last.speaker,'gemini');
     expect(c.room!.nextSpeaker,'deepseek');
   });
@@ -182,14 +186,14 @@ void main(){
         final data=failure=='invalid_json'?'data: ${jsonEncode({'choices':[{'delta':{'content':'不是JSON'},'finish_reason':'stop'}]})}\n\n':
           failure=='missing_terminal'?'data: ${jsonEncode({'choices':[{'delta':{'content':jsonEncode({'text':'未完成','action':'continue'})}}]})}\n\n':
           frame('截断片段',finish:'length');
-        return http.Response(data,200);
+        return _response(data,200);
       }));
       await c.advance();expect(calls,2);expect(c.messages,isEmpty);
       expect(c.room!.nextSpeaker,'deepseek');expect(c.error,isNotEmpty);expect(c.preview,isEmpty);
     });
   }
   test('an explicit stop finish is a valid terminal signal even without a DONE frame',() async {
-    final c=await controller(await create(),gateway((_) async=>http.Response(frame('完整回应',done:false),200)));
+    final c=await controller(await create(),gateway((_) async=>_response(frame('完整回应',done:false),200)));
     await c.advance();expect(c.error,isEmpty);expect(c.messages.single.text,'完整回应');
   });
 
@@ -206,7 +210,7 @@ void main(){
   });
   test('stopping during configuration loading does not submit a request or a user turn',() async {
     final gate=Completer<ModelDialogueConfiguration>();var calls=0;
-    final c=await controller(await create(),gateway((_) async {calls++;return http.Response(frame('不应发生'),200);}),loader:()=>gate.future);
+    final c=await controller(await create(),gateway((_) async {calls++;return _response(frame('不应发生'),200);}),loader:()=>gate.future);
     final pending=c.advance(userText:'还没提交');await c.pause();gate.complete(configuration);
     expect(await pending,isFalse);expect(calls,0);expect(c.messages,isEmpty);
   });
@@ -214,7 +218,7 @@ void main(){
   test('cancel at the final SQLite boundary cannot commit an already generated reply',() async {
     final entered=Completer<void>(),release=Completer<void>();
     final store=ModelDialogueRepository(db,beforeCommit:() async {entered.complete();await release.future;});
-    final c=await controller(await create(),gateway((_) async=>http.Response(frame('已经生成但不该落库'),200)),store:store);
+    final c=await controller(await create(),gateway((_) async=>_response(frame('已经生成但不该落库'),200)),store:store);
     final pending=c.advance();await entered.future.timeout(const Duration(seconds:5));
     final stopped=c.pause();release.complete();await Future.wait<void>([pending.then((_) {}),stopped]);
     expect(c.messages,isEmpty);expect(c.room!.requestId,isEmpty);
@@ -251,20 +255,20 @@ void main(){
     });
   }
   test('backup round-trip preserves private trial rooms without adding public memories',() async {
-    final c=await controller(await create(),gateway((_) async=>http.Response(frame('仅本场记录'),200)));
+    final c=await controller(await create(),gateway((_) async=>_response(frame('仅本场记录'),200)));
     await c.advance(userText:'一次参与');final before=c.messages.map((m)=>m.toJson()).toList();
     final public=await publicState();final archive=Map<String,dynamic>.from(await db.exportAll());
     await db.importAll(archive);
     expect((await repository.messagesForRoom(c.roomId)).map((m)=>m.toJson()).toList(),before);
     final restoredPublic=await publicState();
     for(final table in ['messages','memory_items','thoughts','relationship_events']) {expect(restoredPublic[table],public[table]);}
-    final reopened=await controller((await repository.roomById(c.roomId))!,gateway((_) async=>http.Response(frame('续聊'),200)));
+    final reopened=await controller((await repository.roomById(c.roomId))!,gateway((_) async=>_response(frame('续聊'),200)));
     expect(reopened.messages,hasLength(2));expect(reopened.room!.requestId,isEmpty);
     await reopened.advance();expect(reopened.messages.last.speaker,'gemini');
   });
   test('orphaned generation is paused on reopen and never automatically requested again',() async {
     final room=await create();await ticket(room);await db.releaseLocalLease('chat_turn_lease');
-    var calls=0;final c=await controller(room,gateway((_) async {calls++;return http.Response(frame('以后再说'),200);}));
+    var calls=0;final c=await controller(room,gateway((_) async {calls++;return _response(frame('以后再说'),200);}));
     expect(c.room!.requestId,isEmpty);expect(c.room!.status,'paused');expect(calls,0);
   });
 
