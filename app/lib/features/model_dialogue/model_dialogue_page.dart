@@ -212,7 +212,7 @@ class _ModelDialogueRoomPageState extends State<ModelDialogueRoomPage> with Widg
           if(controller.messages.isEmpty&&!controller.busy)_glass(child:const Padding(padding:EdgeInsets.all(16),
             child:Text('准备好就开始。话题为空时，由先发言的一方自己找个话头。',style:TextStyle(color:_ink,height:1.5)))),
           ...controller.messages.map((m)=>_bubble(m.speaker,m.text,model:m.model)),
-          if(controller.busy)_bubble(controller.speaking.isEmpty?(controller.room?.nextSpeaker??'deepseek'):controller.speaking,
+          if(controller.busy&&controller.attempt>0)_bubble(controller.speaking.isEmpty?(controller.room?.nextSpeaker??'deepseek'):controller.speaking,
             controller.preview.isEmpty?'正在回应…':controller.preview,streaming:true),
         ]))),
         ConstrainedBox(constraints:BoxConstraints(maxHeight:size.maxHeight*.55),
@@ -222,7 +222,7 @@ class _ModelDialogueRoomPageState extends State<ModelDialogueRoomPage> with Widg
   Widget _bubble(String speaker,String text,{String model='',bool streaming=false}) {
     final color=speaker=='deepseek'?_blue:speaker=='gemini'?_purple:const Color(0xFF9B4971);
     return Align(alignment:speaker=='deepseek'?Alignment.centerLeft:speaker=='gemini'?Alignment.centerRight:Alignment.center,
-      child:FractionallySizedBox(widthFactor:speaker=='user'?.94:.9,child:Container(
+      child:FractionallySizedBox(widthFactor:speaker=='user' ? 0.94 : 0.9,child:Container(
         margin:const EdgeInsets.only(bottom:12),padding:const EdgeInsets.all(13),
         decoration:BoxDecoration(color:(speaker=='user'?const Color(0xFFFFF0F6):Colors.white).withValues(alpha:.92),
           borderRadius:BorderRadius.circular(15),border:Border.all(color:color.withValues(alpha:.3))),
@@ -266,7 +266,7 @@ class _ModelDialogueRoomPageState extends State<ModelDialogueRoomPage> with Widg
               icon:const Icon(Icons.play_arrow_rounded,size:18),
               label:Text(controller.error.isNotEmpty?'重试本方':controller.messages.isEmpty?'开始对谈':room.closingSpeaker.isNotEmpty?'继续收尾':'继续对谈')),
             const SizedBox(width:10),Expanded(child:Text(controller.busy?
-              '${modelDialogueLabel(controller.speaking.isEmpty?room.nextSpeaker:controller.speaking)} · 请求 ${controller.attempt==0?1:controller.attempt}/2':
+              controller.attempt==0?'准备对谈…':'${modelDialogueLabel(controller.speaking.isEmpty?room.nextSpeaker:controller.speaking)} · 请求 ${controller.attempt}/2':
               '下一位：${modelDialogueLabel(room.nextSpeaker)}',maxLines:2,overflow:TextOverflow.ellipsis,
               style:const TextStyle(color:Colors.white70,fontSize:12))),
           ]),

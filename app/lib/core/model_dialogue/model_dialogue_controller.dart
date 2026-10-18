@@ -49,7 +49,7 @@ class ModelDialogueController extends ChangeNotifier {
   /// Return true once user text has been durably accepted, even if HTTP fails.
   Future<bool> advance({String userText=''}) async {
     if(_disposed||busy||loading||room==null||room!.ended)return false;
-    busy=true;preview='';error='';notice='';attempt=0;
+    busy=true;preview='';speaking='';error='';notice='';attempt=0;
     final cancellation=GenerationCancellationToken();_cancellation=cancellation;
     var accepted=false,leased=false;
     _notify();
@@ -119,15 +119,17 @@ class ModelDialogueController extends ChangeNotifier {
     _cancellation?.cancel();
     _renewTimer?.cancel();
     final ticket=_ticket;
-    if(ticket!=null)await repository.cancelTicket(ticket);
+    if(ticket!=null){try{await repository.cancelTicket(ticket);}catch(_) {}}
     if(busy)notice='已停止，未完成的模型输出未加入对谈。';
     _notify();
   }
   Future<bool> end() async {
     await pause();
-    final result=await repository.end(roomId);
-    if(!result)error='当前正在备份或恢复，暂时无法结束房间。';
-    await reload();return result;
+    try {
+      final result=await repository.end(roomId);
+      if(!result)error='当前正在备份或恢复，暂时无法结束房间。';
+      await reload();return result;
+    } catch(_) {error='当前状态暂时无法结束房间，请重新打开后再试。';_notify();return false;}
   }
   @override void dispose() {
     _disposed=true;_cancellation?.cancel();_renewTimer?.cancel();_previewTimer?.cancel();
