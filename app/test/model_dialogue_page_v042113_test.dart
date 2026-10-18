@@ -67,9 +67,12 @@ void main(){
       await waitFor(tester,find.text('开始对谈'));
       await tester.tap(find.text('开始对谈'));await tester.pump();
       await waitFor(tester,find.text('我想聊聊：同一段经历为什么会有不同理解。'));
+      // A visible streamed draft is not yet committed; sending is disabled until idle.
+      await waitFor(tester,find.text('继续对谈'));
       await tester.enterText(find.byType(TextField),'我也想听听另一种理解。');
       await tester.tap(find.byTooltip('发送'));await tester.pump();
       await waitFor(tester,find.text('也许可以先从我们注意到的细节说起。'));
+      await waitFor(tester,find.text('继续对谈'));
       expect(calls,2);expect(find.text('DeepSeek'),findsOneWidget);expect(find.text('Gemini'),findsOneWidget);
       expect(find.text('我也想听听另一种理解。'),findsOneWidget);
       expect(find.textContaining('"action"'),findsNothing);expect(tester.takeException(),isNull);
