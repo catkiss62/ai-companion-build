@@ -23,7 +23,7 @@ import '../../core/presentation/generation_presentation_policy.dart';
 import '../../core/tts/tts_playback_queue.dart';
 import '../../widgets/action_tint_text.dart';
 import '../../widgets/active_trial_capsule.dart';
-import '../../widgets/chat_portrait_stage.dart';
+import '../../widgets/room_image_background.dart';
 import '../../widgets/reasoning_panel.dart';
 import '../../widgets/companion_bottom_navigation.dart';
 import '../chat/chat_timestamp_formatter.dart';
@@ -390,10 +390,6 @@ class _ImmersiveRoomPageState extends State<ImmersiveRoomPage> {
   ChatDialogueColorOption _dialogueColor = ChatDialogueColorOption.purple;
   double _panelOpacity = 0.75;
   double _panelFraction = 0.62;
-  ChatPortraitSet _portraitSet = ChatPortraitSet.largeWhale;
-  double _portraitScale = ChatPortraitTransform.defaults.scale;
-  Offset _portraitOffset = ChatPortraitTransform.defaults.offset;
-  String _backgroundMode = 'auto';
   bool _followLatest = true;
   bool _advancing = false;
   bool _programmaticScroll = false;
@@ -493,53 +489,6 @@ class _ImmersiveRoomPageState extends State<ImmersiveRoomPage> {
     final dialogueColor = ChatDialogueColorOption.fromSetting(
       await db.getSetting(ChatDialogueColorOption.settingKey),
     );
-    final backgroundMode =
-        await db.getSetting('chat_background_mode') ?? 'auto';
-    final portraitSet = chatPortraitSetFromKey(
-      await db.getSetting('chat_portrait_set'),
-    );
-    final defaults = ChatPortraitTransform.defaultsFor(portraitSet);
-    final legacyScale = portraitSet == ChatPortraitSet.smallWhale
-        ? await db.getSetting('chat_portrait_scale')
-        : null;
-    final legacyX = portraitSet == ChatPortraitSet.smallWhale
-        ? await db.getSetting('chat_portrait_offset_x')
-        : null;
-    final legacyY = portraitSet == ChatPortraitSet.smallWhale
-        ? await db.getSetting('chat_portrait_offset_y')
-        : null;
-    final scale = (double.tryParse(
-              await db.getSetting(
-                    'chat_portrait_scale_${portraitSet.key}',
-                  ) ??
-                  legacyScale ??
-                  '',
-            ) ??
-            defaults.scale)
-        .clamp(0.85, 1.80)
-        .toDouble();
-    final offset = Offset(
-      (double.tryParse(
-                await db.getSetting(
-                      'chat_portrait_offset_x_${portraitSet.key}',
-                    ) ??
-                    legacyX ??
-                    '',
-              ) ??
-              defaults.offset.dx)
-          .clamp(-0.45, 0.45)
-          .toDouble(),
-      (double.tryParse(
-                await db.getSetting(
-                      'chat_portrait_offset_y_${portraitSet.key}',
-                    ) ??
-                    legacyY ??
-                    '',
-              ) ??
-              defaults.offset.dy)
-          .clamp(-0.35, 0.35)
-          .toDouble(),
-    );
     if (!mounted) return;
     setState(() {
       _visualStageEnabled = visualStageEnabled;
@@ -548,21 +497,11 @@ class _ImmersiveRoomPageState extends State<ImmersiveRoomPage> {
       _panelOpacity = panelOpacity;
       _panelFraction = panelFraction;
       _dialogueColor = dialogueColor;
-      _backgroundMode = backgroundMode;
-      _portraitSet = portraitSet;
-      _portraitScale = scale;
-      _portraitOffset = offset;
       _visualSettingsLoaded = true;
     });
     _scheduleFollowLatest();
   }
 
-  bool get _useNightBackground {
-    if (_backgroundMode == 'night') return true;
-    if (_backgroundMode == 'day') return false;
-    final hour = DateTime.now().hour;
-    return hour < 6 || hour >= 18;
-  }
 
   Future<bool> _leave() async {
     if (controller.sending || controller.ending) {
@@ -1186,34 +1125,7 @@ class _ImmersiveRoomPageState extends State<ImmersiveRoomPage> {
                   return Stack(
                     fit: StackFit.expand,
                     children: [
-                      if (_visualStageEnabled) ...[
-                        Image.asset(
-                          _useNightBackground
-                              ? 'assets/lingchat/background/night.webp'
-                              : 'assets/lingchat/background/day.webp',
-                          fit: BoxFit.cover,
-                          alignment: Alignment.center,
-                        ),
-                        Positioned.fill(
-                          child: IgnorePointer(
-                            child: ChatPortraitStage(
-                              emotion: ChatVisualResolver.resolveEmotionKey(
-                                'affection',
-                              ),
-                              qForm: controller.formSnapshot.qForm,
-                              portraitSet: controller.formSnapshot.qForm
-                                  ? ChatPortraitSet.smallWhale
-                                  : _portraitSet,
-                              transform: ChatPortraitTransform(
-                                scale: _portraitScale,
-                                offset: _portraitOffset,
-                              ),
-                              showEffect: false,
-                              animate: controller.formSnapshot.qForm,
-                            ),
-                          ),
-                        ),
-                      ],
+                      if (_visualStageEnabled) const RoomImageBackground(),
                       Positioned(
                         left: 0,
                         right: 0,

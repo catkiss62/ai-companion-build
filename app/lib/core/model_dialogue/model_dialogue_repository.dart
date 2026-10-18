@@ -18,12 +18,13 @@ class ModelDialogueTicket {
 }
 
 /// One bounded row per room/message in settings: included by the existing full
-/// archive, never visible to ordinary messages, memory extraction or archives.
+/// archive. Only the explicit end-of-room worker may publish an experience.
 class ModelDialogueRepository {
   ModelDialogueRepository(this.db,{this.beforeCommit});
   final AppDatabase db;
   final Future<void> Function()? beforeCommit;
   static const roomPrefix='model_dialogue_room_v1:';
+  static const archivePrefix='model_dialogue_archive_pending:';
   static const messagePrefix='model_dialogue_message_v1:';
   static const _uuid=Uuid();
 
@@ -77,15 +78,15 @@ class ModelDialogueRepository {
     return sql.transaction((txn) async {
       if(!await BrainWorkFence.workAllowed(txn))throw const BrainWorkInvalidated();
       final now=DateTime.now().millisecondsSinceEpoch;
-      final data=<String,dynamic>{'version':1,'id':_uuid.v4(),'title':title.trim().isEmpty?'新的模型试聊':title.trim(),
-        'topic':topic.trim(),'status':'paused','participants':participants,'next_speaker':firstSpeaker,
+      final data=<String,dynamic>{'version':1,'id':_uuid.v4(),'title':title.trim().isEmpty?'新的模型对谈':title.trim(),
+        'topic':topic.trim(),'memory_policy':2,'status':'paused','participants':participants,'next_speaker':firstSpeaker,
         'closing_speaker':'','request_id':'','revision':1,'sequence':0,'created_at':now,'updated_at':now};
       await _save(txn,data);return ModelDialogueRoom(data);
     });
   }
 
   Future<ModelDialogueTicket> begin({required String roomId,required BrainWorkFence fence,
-    String userText=''}) async {
+    String userText='',String? memoryContext}) async {
     if(userText.length>6000)throw const FormatException('user_text_too_long');
     final sql=await db.database;
     return sql.transaction((txn) async {
@@ -93,6 +94,10 @@ class ModelDialogueRepository {
       final room=await _room(txn,roomId);
       if(room==null||room.deleted||room.ended||room.requestId.isNotEmpty)throw StateError('room_not_ready');
       final data=Map<String,dynamic>.from(room.data);
+      if(memoryContext!=null) {
+        data['memory_context']=memoryContext;
+        data['memory_policy']=2;
+      }
       var sequence=room.sequence;
       var speaker=room.nextSpeaker;
       if(userText.trim().isNotEmpty) {
@@ -137,8 +142,23 @@ class ModelDialogueRepository {
         'status':end?'ended':'paused','next_speaker':otherModelDialogueSpeaker(ticket.speaker),
         'closing_speaker':output.action=='close'?ticket.speaker:ticket.room.closingSpeaker,
         'ended_by':end?ticket.speaker:'','updated_at':DateTime.now().millisecondsSinceEpoch});
+      if(end)await _queueArchive(txn,data);
       await _save(txn,data);return true;
     });
+  }
+
+  Future<void> _queueArchive(DatabaseExecutor txn,Map<String,dynamic> data) async {
+    if(data['memory_policy']!=2||data['ended_at']!=null)return;
+    final now=DateTime.now().millisecondsSinceEpoch;
+    data['ended_at']=now;
+    final history=await _messages(txn,data['id'] as String);
+    if(!history.any((m)=>modelDialogueSpeakers.contains(m.speaker))) {
+      data['archive_state']='skipped';return;
+    }
+    data['archive_state']='pending';
+    await txn.insert('settings',{'key':'$archivePrefix${data['id']}',
+      'value':jsonEncode({'roomId':data['id'],'endedAt':now,'sequence':data['sequence'],
+        'attempts':0,'nextAttemptAt':0})},conflictAlgorithm:ConflictAlgorithm.replace);
   }
 
   /// Cancellation is compare-and-set: an old page must never pause a newer turn.
@@ -177,8 +197,10 @@ class ModelDialogueRepository {
     return sql.transaction((txn) async {
       if(!await _manualAllowed(txn))return false;
       final room=await _room(txn,id);if(room==null||room.deleted)return false;
-      await _save(txn,{...change(room),'revision':room.revision+1,
-        'updated_at':DateTime.now().millisecondsSinceEpoch});return true;
+      final data={...change(room),'revision':room.revision+1,
+        'updated_at':DateTime.now().millisecondsSinceEpoch};
+      if(data['status']=='ended'&&!room.ended)await _queueArchive(txn,data);
+      await _save(txn,data);return true;
     });
   }
   Future<bool> delete(String id) async {
@@ -186,6 +208,7 @@ class ModelDialogueRepository {
     return sql.transaction((txn) async {
       if(!await _manualAllowed(txn))return false;
       final room=await _room(txn,id);if(room==null||room.deleted)return false;
+      await txn.delete('settings',where:'key = ?',whereArgs:['$archivePrefix$id']);
       final prefix='$messagePrefix$id:';
       await txn.delete('settings',where:'key >= ? AND key < ?',whereArgs:[prefix,'$prefix\uffff']);
       await _save(txn,{'version':1,'id':id,'title':'','status':'deleted','revision':room.revision+1});

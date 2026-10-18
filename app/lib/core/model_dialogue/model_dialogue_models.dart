@@ -13,6 +13,10 @@ class ModelDialogueRoom {
   String get title => data['title'] as String;
   String get topic => data['topic'] as String? ?? '';
   String get status => data['status'] as String? ?? 'paused';
+  String get memoryContext => data['memory_context'] as String? ?? '';
+  String get archiveState => data['archive_state'] as String? ?? '';
+  String get archiveSummary => data['archive_summary'] as String? ?? '';
+  bool get memoryEnabled => data['memory_policy'] == 2;
   bool get ended => status == 'ended';
   bool get deleted => status == 'deleted';
   String get nextSpeaker => data['next_speaker'] as String? ?? 'deepseek';

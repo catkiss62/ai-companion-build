@@ -85,6 +85,11 @@ class MemorySourceContext {
   static String format(String raw) {
     final data = decode(raw);
     if (data.isEmpty) return '来源时间与形态未知（旧记录未保存，不推断）';
+    if (data['scene'] == 'model_dialogue') {
+      final at = data['created_at'];
+      final time = at is num ? DateTime.fromMillisecondsSinceEpoch(at.toInt()).toIso8601String() : '时间未知';
+      return '模型对谈经历；$time；DeepSeek/Gemini观点分别归属，用户原话单独标记，讨论不是实际执行';
+    }
     String pair(Object? value) {
       final pair = value is Map ? value : const <String, Object?>{};
       if (pair.isEmpty) return '时间与形态未知（旧记录未保存，不推断）';

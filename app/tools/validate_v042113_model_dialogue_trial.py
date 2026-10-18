@@ -6,10 +6,11 @@ read=lambda p:(root/p).read_text()
 core=[read('lib/core/model_dialogue/'+name+'.dart') for name in (
     'model_dialogue_models','model_dialogue_repository','model_dialogue_prompt',
     'model_dialogue_gateway','model_dialogue_controller')]
+# +358 authorizes shared memory and explicit end-of-room archiving. Participant
+# gateway isolation remains mandatory; ordinary extraction/worldbooks stay out.
 for s in core:
-    for forbidden in ('import \'../memory/', 'import \'../relationship/',
-                      'import \'../personality/', 'import \'../immersive/',
-                      'insertMemory(', 'applyPostTurnThought', 'jsonCompletion('):
+    for forbidden in ("import '../relationship/", "import '../personality/",
+                      "import '../immersive/", 'applyPostTurnThought', 'jsonCompletion('):
         assert forbidden not in s,forbidden
 repo,prompt,gateway,controller=core[1:]
 assert 'SqliteSettingsReader.read' in repo and 'ticket.fence.matches(txn)' in repo
@@ -29,11 +30,11 @@ assert 'setImmersiveChatPageVisible(true)' in page and 'setImmersiveChatPageVisi
 assert "'assets/model_dialogue/background.jpg'" in page
 assert sha256((root/'assets/model_dialogue/background.jpg').read_bytes()).hexdigest()=='2108cb1b63383f26dd5414a805c1bace8fd72d37790cbbb885d55f194da75e63'
 chat=read('lib/features/chat/chat_page.dart')
-assert chat.count("title: const Text('模型对话室（试用）')")==1
-assert chat.count("title: '模型对话室（试用）'")==1
+assert chat.count("title: const Text('模型对谈')")==1
+assert chat.count("title: '模型对谈'")==1
 workflow=(root.parent/'.github/workflows/system-logic-validation.yml').read_text()
 for test in ('model_dialogue_v042113_test.dart','model_dialogue_page_v042113_test.dart'):
     assert test in workflow
-assert 'version: 0.42.113+357' in read('pubspec.yaml')
+assert 'version: 0.42.114+358' in read('pubspec.yaml')
 assert '    - assets/model_dialogue/' in read('pubspec.yaml')
 print('isolated model dialogue, fixed same-model retry, lifecycle fences and exact background wired')

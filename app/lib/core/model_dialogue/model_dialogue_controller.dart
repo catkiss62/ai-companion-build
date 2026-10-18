@@ -5,6 +5,7 @@ import '../ai/generation_cancellation.dart';
 import '../database/brain_work_fence.dart';
 import '../diagnostics/model_usage_telemetry.dart';
 import 'model_dialogue_gateway.dart';
+import 'model_dialogue_context.dart';
 import 'model_dialogue_models.dart';
 import 'model_dialogue_prompt.dart';
 import 'model_dialogue_repository.dart';
@@ -41,7 +42,7 @@ class ModelDialogueController extends ChangeNotifier {
   Future<void> reload() async {
     room=await repository.roomById(roomId);
     messages=room==null?const []:await repository.messagesForRoom(roomId);
-    if(room==null)error='这个试聊房间不存在或已删除。';
+    if(room==null)error='这个对谈房间不存在或已删除。';
     _notify();
   }
 
@@ -59,7 +60,7 @@ class ModelDialogueController extends ChangeNotifier {
       if(current==null||current.ended)throw StateError('room_not_ready');
       for(final speaker in modelDialogueSpeakers) {
         if(!config.forSpeaker(speaker).matches(current)) {
-          throw const ModelDialogueConfigurationError('这个房间的模型或接口配置已变化，请新建房间试聊。');
+          throw const ModelDialogueConfigurationError('这个房间的模型或接口配置已变化，请新建房间对谈。');
         }
       }
       leased=await repository.db.tryAcquireLocalLease('chat_turn_lease',holdFor:const Duration(minutes:3));
@@ -67,7 +68,11 @@ class ModelDialogueController extends ChangeNotifier {
       if(!leased)throw const ModelDialogueConfigurationError('其他聊天正在生成，请稍后再继续。');
       final fence=await repository.db.captureBrainWorkFence(leaseKey:'chat_turn_lease');
       cancellation.throwIfCancelled();if(fence==null)throw const BrainWorkInvalidated();
-      final ticket=await repository.begin(roomId:roomId,fence:fence,userText:userText);
+      final background=current.memoryContext.isEmpty||userText.trim().isNotEmpty
+          ? await ModelDialogueContext(repository.db).build('${current.topic}\n$userText')
+          : null;
+      cancellation.throwIfCancelled();
+      final ticket=await repository.begin(roomId:roomId,fence:fence,userText:userText,memoryContext:background);
       _ticket=ticket;accepted=true;
       room=ticket.room;messages=ticket.history;speaking=ticket.speaker;
       cancellation.throwIfCancelled();_notify();
@@ -103,7 +108,7 @@ class ModelDialogueController extends ChangeNotifier {
     } on ModelDialogueConfigurationError catch(e){error=e.message;}
       on ModelDialogueRequestFailure catch(e){error=e.toString();}
       on FormatException {error='输入过长或房间参数无效，请检查后再试。';}
-      catch(_){error='本次试聊未完成，请重新打开房间后重试。';}
+      catch(_){error='本次对谈未完成，请重新打开房间后重试。';}
     finally {
       _renewTimer?.cancel();_renewTimer=null;
       _previewTimer?.cancel();_previewTimer=null;

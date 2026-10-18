@@ -9646,6 +9646,7 @@ class AppDatabase {
     String query, {
     int limit = 12,
     String retrievalMode = 'userTurn',
+    bool recordRecall = true,
     DateTime? now,
   }) async {
     final db = await database;
@@ -9677,7 +9678,7 @@ class AppDatabase {
         query: query,
         item: item,
         now: instant,
-        enforceCooldown: !explicitRecall,
+        enforceCooldown: recordRecall && !explicitRecall,
       );
       if (!decision.direct) {
         blockedNoDirect += 1;
@@ -9711,14 +9712,14 @@ class AppDatabase {
       directSeeds: directSelected,
       candidates: associationPool,
       limit: min(3, max(0, limit - directSelected.length)),
-      blocked: (item) => _memoryAssociationCooldownBlocked(item, instant),
+      blocked: (item) => recordRecall && _memoryAssociationCooldownBlocked(item, instant),
     );
     final selected = <MemoryItem>[
       ...directSelected,
       ...associatedSelected,
     ];
 
-    await db.transaction((txn) async {
+    if (recordRecall) await db.transaction((txn) async {
       for (final item in selected) {
         await txn.update(
           'memory_items',
@@ -20752,7 +20753,8 @@ class AppDatabase {
         'long_running_maintenance_lease', 'post_turn_memory_lease', 'chat_turn_lease',
         'cedar_toy_action_lease_until', 'cedar_timed_play_task_lease_v1',
         'recovery_orchestrator_lease_until', 'calendar_reminder_followup_lease_until',
-        'immersive_archive_lease_until', 'simulated_phone_refresh_lease_until',
+        'immersive_archive_lease_until', 'model_dialogue_archive_lease_until',
+        'simulated_phone_refresh_lease_until',
         'simulated_phone_media_lease_until',
       ]) {
         await txn.insert('settings', {'key': key, 'value': '0'},

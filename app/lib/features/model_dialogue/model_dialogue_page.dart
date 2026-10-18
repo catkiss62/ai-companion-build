@@ -2,18 +2,21 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import '../../core/database/app_database.dart';
 import '../../core/model_dialogue/model_dialogue_controller.dart';
+import '../../core/model_dialogue/model_dialogue_archive_worker.dart';
 import '../../core/model_dialogue/model_dialogue_gateway.dart';
 import '../../core/model_dialogue/model_dialogue_models.dart';
 import '../../core/model_dialogue/model_dialogue_repository.dart';
 import '../../core/platform/android_bridge.dart';
 
 const modelDialogueBackground='assets/model_dialogue/background.jpg';
+const modelDialogueDeepSeekAvatar='assets/model_dialogue/deepseek.jpg';
+const modelDialogueGeminiAvatar='assets/model_dialogue/gemini.jpg';
 const _ink=Color(0xFF173452);
 const _blue=Color(0xFF24649D);
 const _purple=Color(0xFF7257A5);
 
-class _TrialBackdrop extends StatelessWidget {
-  const _TrialBackdrop({required this.child});
+class _DialogueBackdrop extends StatelessWidget {
+  const _DialogueBackdrop({required this.child});
   final Widget child;
   @override Widget build(BuildContext context)=>Stack(fit:StackFit.expand,children:[
     Image.asset(modelDialogueBackground,fit:BoxFit.cover,alignment:Alignment.topCenter),
@@ -45,11 +48,11 @@ class _ModelDialogueLobbyPageState extends State<ModelDialogueLobbyPage> {
   }
   Future<void> _create() async {
     if(_creating)return;
-    final title=TextEditingController(text:'新的模型试聊');
+    final title=TextEditingController(text:'新的模型对谈');
     final topic=TextEditingController();var first='deepseek';
     try {
       final approved=await showDialog<bool>(context:context,builder:(dialog)=>StatefulBuilder(
-        builder:(context,update)=>AlertDialog(title:const Text('创建试聊房间'),
+        builder:(context,update)=>AlertDialog(title:const Text('创建对谈房间'),
           content:SingleChildScrollView(child:Column(mainAxisSize:MainAxisSize.min,children:[
             TextField(controller:title,maxLength:40,decoration:const InputDecoration(labelText:'房间名称')),
             TextField(controller:topic,minLines:2,maxLines:5,maxLength:2000,
@@ -60,7 +63,7 @@ class _ModelDialogueLobbyPageState extends State<ModelDialogueLobbyPage> {
                 DropdownMenuItem(value:'gemini',child:Text('Gemini'))],
               onChanged:(value)=>update(()=>first=value??'deepseek')),
             const SizedBox(height:12),
-            const Text('使用已配置的两方模型。仅保存本场记录，不接入公共记忆。',style:TextStyle(fontSize:12)),
+            const Text('使用已配置的两方模型。共享小鲸鱼已有记忆；结束后选择性保留对谈经历。',style:TextStyle(fontSize:12)),
           ])),actions:[TextButton(onPressed:()=>Navigator.pop(dialog,false),child:const Text('取消')),
             FilledButton(onPressed:()=>Navigator.pop(dialog,true),child:const Text('创建'))])));
       if(approved!=true||!mounted)return;
@@ -97,26 +100,27 @@ class _ModelDialogueLobbyPageState extends State<ModelDialogueLobbyPage> {
     if(mounted)await _load();
   }
   @override Widget build(BuildContext context)=>Scaffold(
-    appBar:AppBar(title:const Text('模型对话室 · 试用')),
+    backgroundColor:Colors.black,
+    appBar:AppBar(backgroundColor:Colors.black,foregroundColor:Colors.white,title:const Text('模型对谈')),
     floatingActionButton:FloatingActionButton.extended(onPressed:_creating?null:_create,
       icon:const Icon(Icons.add),label:Text(_creating?'创建中':'创建房间')),
-    body:_TrialBackdrop(child:SafeArea(child:_loading?const Center(child:CircularProgressIndicator()):
+    body:SafeArea(child:_loading?const Center(child:CircularProgressIndicator()):
       RefreshIndicator(onRefresh:_load,child:ListView(padding:const EdgeInsets.fromLTRB(16,16,16,100),children:[
-        _glass(child:const Padding(padding:EdgeInsets.all(14),child:Text(
-          '让 DeepSeek 和 Gemini 直接聊一会儿。\n你可以旁观、插话，也可以暂离后再继续。',
-          style:TextStyle(color:_ink,height:1.5)))),
-        if(_error.isNotEmpty)Padding(padding:const EdgeInsets.all(12),child:Text(_error)),
-        if(_rooms.isEmpty)Padding(padding:const EdgeInsets.only(top:26),child:_glass(
-          child:const Padding(padding:EdgeInsets.all(20),child:Text('还没有试聊房间。',style:TextStyle(color:_ink))))),
-        ..._rooms.map((room)=>Padding(padding:const EdgeInsets.only(top:12),child:_glass(child:ListTile(
-          title:Text(room.title,style:const TextStyle(color:_ink,fontWeight:FontWeight.w600)),
+        const Padding(padding:EdgeInsets.all(14),child:Text(
+          '让 DeepSeek 和 Gemini 交换想法。\n你可以旁观、插话，也可以暂离后再继续。',
+          style:TextStyle(color:Colors.white70,height:1.5))),
+        if(_error.isNotEmpty)Padding(padding:const EdgeInsets.all(12),child:Text(_error,style:const TextStyle(color:Colors.white70))),
+        if(_rooms.isEmpty)const Padding(padding:EdgeInsets.all(20),child:Text('还没有对谈房间。',style:TextStyle(color:Colors.white70))),
+        ..._rooms.map((room)=>Padding(padding:const EdgeInsets.only(top:12),child:Card(
+          color:const Color(0xFF19191D),child:ListTile(
+          title:Text(room.title,style:const TextStyle(color:Colors.white,fontWeight:FontWeight.w600)),
           subtitle:Text('${room.ended?'已结束 · 可回看':'暂离后可继续'}${room.topic.isEmpty?'':'\n${room.topic}'}',
-            maxLines:3,overflow:TextOverflow.ellipsis,style:const TextStyle(color:Color(0xFF52687F))),
-          leading:Icon(room.ended?Icons.forum_outlined:Icons.chat_bubble_outline,color:_blue),
-          trailing:PopupMenuButton<String>(onSelected:(value)=>_manage(room,value),itemBuilder:(_)=>const [
+            maxLines:3,overflow:TextOverflow.ellipsis,style:const TextStyle(color:Colors.white60)),
+          leading:Icon(room.ended?Icons.forum_outlined:Icons.chat_bubble_outline,color:const Color(0xFFB99BE7)),
+          trailing:PopupMenuButton<String>(iconColor:Colors.white70,onSelected:(value)=>_manage(room,value),itemBuilder:(_)=>const [
             PopupMenuItem(value:'rename',child:Text('修改名称')),PopupMenuItem(value:'delete',child:Text('删除房间'))]),
           onTap:()=>_open(room))))),
-      ])))));
+      ]))));
 }
 
 Widget _glass({required Widget child})=>DecoratedBox(decoration:BoxDecoration(
@@ -125,7 +129,7 @@ Widget _glass({required Widget child})=>DecoratedBox(decoration:BoxDecoration(
 
 Future<bool> _confirmDelete(BuildContext context,String title) async =>
     await showDialog<bool>(context:context,builder:(dialog)=>AlertDialog(
-      title:const Text('删除这个试聊房间？'),content:Text('“$title”的本场记录将被删除。'),
+      title:const Text('删除这个对谈房间？'),content:Text('“$title”的本场记录将被删除。'),
       actions:[TextButton(onPressed:()=>Navigator.pop(dialog,false),child:const Text('取消')),
         FilledButton(onPressed:()=>Navigator.pop(dialog,true),child:const Text('删除'))]))??false;
 
@@ -144,7 +148,7 @@ class _ModelDialogueRoomPageState extends State<ModelDialogueRoomPage> with Widg
     configurationLoader:widget.configurationLoader,gateway:widget.gateway);
   final input=TextEditingController();
   final scroll=ScrollController();
-  bool _follow=true,_scrollScheduled=false;
+  bool _follow=true,_scrollScheduled=false,_archiveStarted=false;
   @override void initState(){
     super.initState();WidgetsBinding.instance.addObserver(this);
     unawaited(AndroidBridge.instance.setImmersiveChatPageVisible(true));
@@ -155,12 +159,23 @@ class _ModelDialogueRoomPageState extends State<ModelDialogueRoomPage> with Widg
   }
   void _changed(){
     if(!mounted)return;setState((){});
+    final room=controller.room;
+    if(room?.ended==true&&room!.archiveState=='pending'&&!_archiveStarted) {
+      _archiveStarted=true;
+      unawaited(_archive(room.id));
+    }
     if(!_follow||_scrollScheduled)return;
     _scrollScheduled=true;
     WidgetsBinding.instance.addPostFrameCallback((_){
       _scrollScheduled=false;
       if(mounted&&_follow&&scroll.hasClients)scroll.jumpTo(scroll.position.maxScrollExtent);
     });
+  }
+  Future<void> _archive(String id) async {
+    try {
+      await ModelDialogueArchiveWorker(repository.db).drainOne(roomId:id);
+      if(mounted)await controller.reload();
+    } catch(_) {} // Original records and the durable retry job remain available.
   }
   @override void dispose(){
     WidgetsBinding.instance.removeObserver(this);
@@ -179,7 +194,7 @@ class _ModelDialogueRoomPageState extends State<ModelDialogueRoomPage> with Widg
     if(action=='leave') {await _leave();if(mounted)Navigator.pop(context);}
     if(action=='end') {
       final approved=await showDialog<bool>(context:context,builder:(dialog)=>AlertDialog(
-        title:const Text('结束这场试聊？'),content:const Text('保留本场记录供回看，结束后不再继续生成。'),
+        title:const Text('结束这场对谈？'),content:const Text('保留本场记录供回看，结束后不再继续生成，并整理本场值得保留的讨论经历。'),
         actions:[TextButton(onPressed:()=>Navigator.pop(dialog,false),child:const Text('取消')),
           FilledButton(onPressed:()=>Navigator.pop(dialog,true),child:const Text('结束'))]));
       if(approved==true)await controller.end();
@@ -190,17 +205,17 @@ class _ModelDialogueRoomPageState extends State<ModelDialogueRoomPage> with Widg
       else if(mounted)ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content:Text('当前状态暂时无法删除。')));
     }
     if(action=='info'&&mounted)await showDialog<void>(context:context,builder:(dialog)=>AlertDialog(
-      title:const Text('本场模型'),content:Text('DeepSeek\n${room.modelName('deepseek')}\n\nGemini\n${room.modelName('gemini')}\n\n仅使用本场对话记录，不接入公共记忆。'),
+      title:const Text('本场模型'),content:Text('DeepSeek\n${room.modelName('deepseek')}\n\nGemini\n${room.modelName('gemini')}\n\n共享小鲸鱼已有记忆；结束后按发言者整理，选择性保留讨论经历。'),
       actions:[TextButton(onPressed:()=>Navigator.pop(dialog),child:const Text('知道了'))]));
   }
   @override Widget build(BuildContext context)=>WillPopScope(onWillPop:_leave,child:Scaffold(
-    appBar:AppBar(title:Text(controller.room?.title??'模型试聊',overflow:TextOverflow.ellipsis,
+    appBar:AppBar(title:Text(controller.room?.title??'模型对谈',overflow:TextOverflow.ellipsis,
       style:const TextStyle(fontSize:16)),actions:[PopupMenuButton<String>(onSelected:_menu,itemBuilder:(_)=>[
         const PopupMenuItem(value:'info',child:Text('本场模型')),
         if(controller.room?.ended!=true)const PopupMenuItem(value:'leave',child:Text('暂时离开')),
         if(controller.room?.ended!=true)const PopupMenuItem(value:'end',child:Text('结束本场')),
         const PopupMenuItem(value:'delete',child:Text('删除房间'))])]),
-    body:_TrialBackdrop(child:SafeArea(top:false,child:controller.loading?
+    body:_DialogueBackdrop(child:SafeArea(top:false,child:controller.loading?
       const Center(child:CircularProgressIndicator()):LayoutBuilder(builder:(context,size)=>Column(children:[
         if(controller.room?.topic.isNotEmpty==true)Container(width:double.infinity,
           color:const Color(0xCC102B48),padding:const EdgeInsets.symmetric(horizontal:14,vertical:7),
@@ -211,6 +226,10 @@ class _ModelDialogueRoomPageState extends State<ModelDialogueRoomPage> with Widg
         },child:ListView(controller:scroll,padding:const EdgeInsets.symmetric(horizontal:12,vertical:14),children:[
           if(controller.messages.isEmpty&&!controller.busy)_glass(child:const Padding(padding:EdgeInsets.all(16),
             child:Text('准备好就开始。话题为空时，由先发言的一方自己找个话头。',style:TextStyle(color:_ink,height:1.5)))),
+          if(controller.room?.archiveSummary.isNotEmpty==true)_glass(child:ExpansionTile(
+            title:const Text('本场对谈摘要',style:TextStyle(color:_ink)),
+            childrenPadding:const EdgeInsets.all(14),children:[SelectableText(controller.room!.archiveSummary,
+              style:const TextStyle(color:_ink,height:1.5))])),
           ...controller.messages.map((m)=>_bubble(m.speaker,m.text,model:m.model)),
           if(controller.busy&&controller.attempt>0)_bubble(controller.speaking.isEmpty?(controller.room?.nextSpeaker??'deepseek'):controller.speaking,
             controller.preview.isEmpty?'正在回应…':controller.preview,streaming:true),
@@ -224,11 +243,12 @@ class _ModelDialogueRoomPageState extends State<ModelDialogueRoomPage> with Widg
     return Align(alignment:speaker=='deepseek'?Alignment.centerLeft:speaker=='gemini'?Alignment.centerRight:Alignment.center,
       child:FractionallySizedBox(widthFactor:speaker=='user' ? 0.94 : 0.9,child:Container(
         margin:const EdgeInsets.only(bottom:12),padding:const EdgeInsets.all(13),
-        decoration:BoxDecoration(color:(speaker=='user'?const Color(0xFFFFF0F6):Colors.white).withValues(alpha:.92),
+        decoration:BoxDecoration(color:(speaker=='user'?const Color(0xFFFFF0F6):Colors.white).withValues(alpha:.68),
           borderRadius:BorderRadius.circular(15),border:Border.all(color:color.withValues(alpha:.3))),
         child:Column(crossAxisAlignment:CrossAxisAlignment.start,children:[
-          Row(children:[CircleAvatar(radius:12,backgroundColor:color,child:Text(
-            speaker=='deepseek'?'D':speaker=='gemini'?'G':'你',style:const TextStyle(fontSize:11,color:Colors.white))),
+          Row(children:[CircleAvatar(radius:16,backgroundColor:color,
+            backgroundImage:speaker=='user'?null:AssetImage(speaker=='deepseek'?modelDialogueDeepSeekAvatar:modelDialogueGeminiAvatar),
+            child:speaker=='user'?const Text('你',style:TextStyle(fontSize:11,color:Colors.white)):null),
             const SizedBox(width:7),Expanded(child:Text('${modelDialogueLabel(speaker)}${streaming?' · 生成中':''}',
               style:TextStyle(color:color,fontWeight:FontWeight.w700,fontSize:12))),
             if(model.isNotEmpty)Tooltip(message:model,child:Icon(Icons.info_outline,size:15,color:color))]),
@@ -243,8 +263,10 @@ class _ModelDialogueRoomPageState extends State<ModelDialogueRoomPage> with Widg
           child:Text(controller.error,style:const TextStyle(color:Color(0xFFFFC5CA),fontSize:13))),
         if(controller.notice.isNotEmpty)Padding(padding:const EdgeInsets.only(bottom:6),
           child:Text(controller.notice,style:const TextStyle(color:Colors.white70,fontSize:12))),
-        if(room?.ended==true)const Padding(padding:EdgeInsets.all(6),
-          child:Text('本场已结束，记录可回看。',style:TextStyle(color:Colors.white))),
+        if(room?.ended==true)Padding(padding:const EdgeInsets.all(6),
+          child:Text(room!.archiveState=='pending'?'本场已结束，记录保留；摘要待整理，网络恢复后重试。':
+            room.archiveState=='remembered'?'本场已结束，已保留一条对谈经历。':'本场已结束，记录可回看。',
+            style:const TextStyle(color:Colors.white))),
         if(room!=null&&!room.ended) ...[
           if(room.closingSpeaker.isNotEmpty)Padding(padding:const EdgeInsets.only(bottom:6),child:Text(
             '${modelDialogueLabel(room.closingSpeaker)} 准备结束，可再继续一次收尾；你也可以插话。',

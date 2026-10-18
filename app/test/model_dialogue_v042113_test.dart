@@ -136,7 +136,7 @@ void main(){
     expect(c.messages,isEmpty);
   });
 
-  test('trial leaves ordinary chat, memory, desires, relationship and form state byte-identical',() async {
+  test('memory reads leave ordinary chat, memory evidence, desires, relationship and form state byte-identical',() async {
     final sql=await db.database;
     await sql.insert('memory_items',{'id':'private-memory','kind':'ai_self','content':'PRIVATE_MEMORY_MUST_NOT_ENTER',
       'created_at':1,'updated_at':1,'importance':.9});
@@ -150,7 +150,7 @@ void main(){
     await c.advance(userText:'我加入讨论。');await c.advance();await c.end();
     expect(await publicState(),before);
     for(final r in requests) {
-      expect(r.body,isNot(contains('PRIVATE_MEMORY_MUST_NOT_ENTER')));
+      expect(r.body,contains('PRIVATE_MEMORY_MUST_NOT_ENTER'));
       expect(r.body,isNot(contains('PRIVATE_CHAT_MUST_NOT_ENTER')));
       expect(r.body,isNot(contains('71')));
     }

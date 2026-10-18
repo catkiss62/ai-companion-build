@@ -38,7 +38,10 @@ void main(){
     await tester.runAsync(() async {
       await tester.pumpWidget(MaterialApp(home:ModelDialogueLobbyPage(repository:repository,
         configurationLoader:() async=>_config)));
-      await waitFor(tester,find.text('还没有试聊房间。'));
+      await waitFor(tester,find.text('还没有对谈房间。'));
+      expect(tester.widget<Scaffold>(find.byType(Scaffold).first).backgroundColor,Colors.black);
+      expect(find.byType(Image),findsNothing);
+      expect(find.textContaining('试用'),findsNothing);
       await tester.tap(find.text('创建房间'));await tester.pumpAndSettle();
       await tester.enterText(find.byType(TextField).at(0),'我的试聊');
       await tester.enterText(find.byType(TextField).at(1),'');
@@ -78,6 +81,9 @@ void main(){
       expect(find.textContaining('"action"'),findsNothing);expect(tester.takeException(),isNull);
       final imageWidget=tester.widget<Image>(find.byType(Image).first);
       expect((imageWidget.image as AssetImage).assetName,modelDialogueBackground);
+      final avatars=tester.widgetList<CircleAvatar>(find.byType(CircleAvatar)).toList();
+      expect(avatars.map((a)=>(a.backgroundImage as AssetImage?)?.assetName),
+        containsAll([modelDialogueDeepSeekAvatar,modelDialogueGeminiAvatar]));
       await tester.pumpAndSettle();
       final boundary=capture.currentContext!.findRenderObject()! as RenderRepaintBoundary;
       final image=await boundary.toImage(pixelRatio:1);
