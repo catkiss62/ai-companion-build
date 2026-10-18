@@ -91,7 +91,8 @@ void main() {
     final reader=RoomHistoryReader(db);var result=await reader.read({'kind':'model_dialogue','view':'transcript'});
     var b=body(result);var end=0;var total=0;final h=handle(result);
     for(var i=0;i<10;i++) {
-      expect(b['start'],end);expect((b['text'] as String).length,lessThanOrEqualTo(6500));
+      expect(b['start'],end);expect((b['start_message'] as Map)['speaker'],isNotEmpty);
+      expect((b['text'] as String).length,lessThanOrEqualTo(6500));
       total+=(b['text'] as String).length;end=b['end'] as int;
       if(b['more']==false)break;
       result=await reader.read({'handle':h,'view':'transcript','cursor':b['next_cursor'] as String});b=body(result);
@@ -113,7 +114,7 @@ void main() {
   });
   test('details progressively cover long rooms, cache results and do not write memories',()async{
     await seed(texts:['字'*20000]);var calls=0;
-    final reader=RoomHistoryReader(db,generateDetail:(r,old,source,cancelled)async{calls++;return '$old 第$calls批已整理';});
+    final reader=RoomHistoryReader(db,generateDetail:(r,old,source,cancelled)async{expect(source,contains('本批起点消息：'));expect(source,contains('DeepSeek'));calls++;return '$old 第$calls批已整理';});
     final before=jsonEncode(await (await db.database).query('memory_items'));
     var r=await reader.read({'kind':'model_dialogue','view':'detail'});expect(body(r)['complete'],false);
     final cursor=body(r)['next_cursor'] as String;expect(cursor,isNotEmpty);
