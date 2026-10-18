@@ -30,6 +30,23 @@ class _StreamClient extends http.BaseClient {
   @override void close(){if(!frames.isClosed)unawaited(frames.close());}
 }
 
+class _ReloadBarrierRepository extends ModelDialogueRepository {
+  _ReloadBarrierRepository(super.db);
+  final entered=Completer<void>(),release=Completer<void>();
+  bool hold=false;
+  @override Future<bool> commit(ModelDialogueTicket ticket,ModelDialogueOutput output,
+      GenerationCancellationToken cancellation) async {
+    final saved=await super.commit(ticket,output,cancellation);
+    if(saved)hold=true;
+    return saved;
+  }
+  @override Future<List<ModelDialogueMessage>> messagesForRoom(String id) async {
+    final history=await super.messagesForRoom(id);
+    if(hold){hold=false;entered.complete();await release.future;}
+    return history;
+  }
+}
+
 // SSE is UTF-8 on the wire; http.Response otherwise defaults to Latin-1.
 http.Response _response(String body,int status) => http.Response.bytes(utf8.encode(body),status,
   headers:const {'content-type':'text/event-stream; charset=utf-8'});
@@ -248,6 +265,18 @@ void main(){
     final pending=c.advance();await sent.future;expect(await c.advance(),isFalse);
     frames.add(utf8.encode(frame('只有一条')));await frames.close();await pending;
     expect(calls,1);expect(c.messages,hasLength(1));
+  });
+
+  test('committed history finishes reloading before another turn becomes available',() async {
+    final store=_ReloadBarrierRepository(db);var calls=0;
+    final c=await controller(await create(),gateway((_) async {
+      calls++;return _response(frame('已保存的完整回复'),200);
+    }),store:store);
+    final running=c.advance();await store.entered.future;
+    expect(c.busy,isTrue);expect(await c.advance(),isFalse);expect(calls,1);
+    await c.pause();expect(c.notice,isEmpty); // Completed output is not a stopped draft.
+    store.release.complete();await running;
+    expect(c.busy,isFalse);expect(c.messages.single.text,'已保存的完整回复');
   });
 
   Future<ModelDialogueTicket> ticket(ModelDialogueRoom room) async {

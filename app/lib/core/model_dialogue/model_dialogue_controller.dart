@@ -116,8 +116,12 @@ class ModelDialogueController extends ChangeNotifier {
       final ticket=_ticket;_ticket=null;
       if(ticket!=null) {try{await repository.cancelTicket(ticket);}catch(_) {}}
       if(leased) {try{await repository.db.releaseLocalLease('chat_turn_lease');}catch(_) {}}
-      _cancellation=null;preview='';busy=false;attempt=0;
-      if(!_disposed){try{await reload();}catch(_){error='房间暂时无法读取，请重新打开。';}_notify();}
+      _cancellation=null;preview='';attempt=0;
+      // Keep the turn exclusive until its committed history has been reloaded.
+      // An already scheduled preview frame may rebuild while SQLite is still
+      // reading; it must not expose an enabled Continue button with old data.
+      if(!_disposed){try{await reload();}catch(_){error='房间暂时无法读取，请重新打开。';}}
+      busy=false;_notify();
     }
     return accepted;
   }
@@ -126,7 +130,7 @@ class ModelDialogueController extends ChangeNotifier {
     _renewTimer?.cancel();
     final ticket=_ticket;
     if(ticket!=null){try{await repository.cancelTicket(ticket);}catch(_) {}}
-    if(busy)notice='已停止，未完成的模型输出未加入对谈。';
+    if(busy&&_cancellation!=null)notice='已停止，未完成的模型输出未加入对谈。';
     _notify();
   }
   Future<bool> end() async {
