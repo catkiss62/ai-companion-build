@@ -13,7 +13,8 @@ for removed in ("PlayfulTurnJudge", "PlayfulSelfJudge", "PlayfulBreakthroughJudg
 assert controller.count("PlayfulFormStore(db).load()") == 1
 assert "_entryFormLoading ??=" in controller and "qFormOverride:" in controller
 assert "formSnapshot.prompt" in prompt and "PlayfulFormStore" not in prompt
-assert "PlayfulHeatGauge" not in page and "formSnapshot.qForm" in page
+assert "PlayfulHeatGauge" not in page and "RoomImageBackground" in page
+assert "formSnapshot: await _captureEntryForm()" in controller
 for preserved in ("confirmIncompleteReply", "regenerate", "cancellation.throwIfCancelled()"):
     assert preserved in controller, preserved
 assert "qFormOverride != null" in read("lib/core/tts/tts_service.dart")
