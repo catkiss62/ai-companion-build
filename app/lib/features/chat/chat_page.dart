@@ -53,6 +53,7 @@ import '../phone/calendar_reminder_page.dart';
 import '../memory/remembered_user_facts_page.dart';
 import '../../core/phone/calendar_reminder_followup.dart';
 import '../immersive/immersive_room_page.dart';
+import '../model_dialogue/model_dialogue_page.dart';
 import 'chat_quick_settings_pages.dart';
 import 'cedar_toy_activity_window.dart';
 
@@ -1702,6 +1703,19 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
                       ),
                       ListTile(
                         contentPadding: EdgeInsets.zero,
+                        leading: const Icon(Icons.forum_outlined),
+                        title: const Text('模型对话室（试用）'),
+                        subtitle: const Text('两种模型独立试聊，可旁观或插话。'),
+                        trailing: const Icon(Icons.chevron_right_rounded),
+                        onTap: () async {
+                          FocusManager.instance.primaryFocus?.unfocus();
+                          Navigator.pop(dialogContext);
+                          await Navigator.of(pageContext).push(MaterialPageRoute(
+                            builder: (_) => const ModelDialogueLobbyPage()));
+                        },
+                      ),
+                      ListTile(
+                        contentPadding: EdgeInsets.zero,
                         leading: const Icon(Icons.sports_esports_rounded),
                         title: const Text('游戏厅活动窗'),
                         subtitle: const Text('查看她正在玩的内容，可拖动、缩放或最小化。'),
@@ -2213,6 +2227,17 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
                           ),
                         ),
                       );
+                    },
+                  ),
+                  _QuickPanelTile(
+                    icon: Icons.forum_outlined,
+                    title: '模型对话室（试用）',
+                    subtitle: '两种模型独立试聊，可旁观或插话。',
+                    onTap: () async {
+                      FocusManager.instance.primaryFocus?.unfocus();
+                      Navigator.pop(dialogContext);
+                      await Navigator.of(pageContext).push(MaterialPageRoute(
+                        builder: (_) => const ModelDialogueLobbyPage()));
                     },
                   ),
                   _QuickPanelTile(
