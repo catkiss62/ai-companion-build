@@ -1,0 +1,7 @@
+status=success
+run_id=39086474239
+run_url=https://github.com/catkiss62/ai-companion-build/actions/runs/39086474239
+head_sha=ee7e228483f2b3a8cdbf59b5957476d229bbef32
+signer_sha256=30:5E:B3:D8:09:83:B9:63:C6:48:18:DD:F1:AD:56:1F:27:9D:E6:D4:7B:3E:D2:C7:81:AD:A4:48:C7:C2:51:48
+9bc3b587b66977f9f607387b48c19e8bf8c1171ac116ecb566b8e65f1d735d17  AI-Companion-v0.42.112-356-Game-Notebook-Fix-APK.apk
+release_url=https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-954d0775c2d6221485eb
