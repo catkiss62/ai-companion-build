@@ -68,9 +68,10 @@ class ModelDialogueController extends ChangeNotifier {
       if(!leased)throw const ModelDialogueConfigurationError('其他聊天正在生成，请稍后再继续。');
       final fence=await repository.db.captureBrainWorkFence(leaseKey:'chat_turn_lease');
       cancellation.throwIfCancelled();if(fence==null)throw const BrainWorkInvalidated();
-      final background=current.memoryContext.isEmpty||userText.trim().isNotEmpty
-          ? await ModelDialogueContext(repository.db).build('${current.topic}\n$userText')
-          : null;
+      final recent=messages.reversed.take(2).toList().reversed.map((m)=>
+        m.text.length>1800?m.text.substring(0,1800):m.text).join('\n');
+      final background=await ModelDialogueContext(repository.db).build(
+        '${current.topic}\n$userText\n$recent');
       cancellation.throwIfCancelled();
       final ticket=await repository.begin(roomId:roomId,fence:fence,userText:userText,memoryContext:background);
       _ticket=ticket;accepted=true;

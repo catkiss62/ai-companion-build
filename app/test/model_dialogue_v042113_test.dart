@@ -84,6 +84,18 @@ void main(){
     expect(jsonEncode(c.room!.data),isNot(contains('test-only')));
   });
 
+  test('free opening refreshes related memories when the peer introduces a concrete topic',() async {
+    await db.insertMemory(kind:'shared_experience',content:'曾在花园种过一盆雏菊',importance:.8);
+    final requests=<http.Request>[];
+    final c=await controller(await create(topic:''),gateway((r) async {
+      requests.add(r);return _response(frame(requests.length==1?'想聊聊花园里那盆雏菊。':'记得那次种花。'),200);
+    }));
+    await c.advance();await c.advance();
+    expect(requests,hasLength(2));
+    expect(requests.first.body,isNot(contains('曾在花园种过一盆雏菊')));
+    expect(requests.last.body,contains('曾在花园种过一盆雏菊'));
+  });
+
   for(final speaker in modelDialogueSpeakers) {
     test('$speaker retries the same model twice and never invokes the other endpoint',() async {
       final room=await create(first:speaker);final requests=<http.Request>[];
