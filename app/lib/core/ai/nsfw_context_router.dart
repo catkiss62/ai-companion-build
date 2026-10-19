@@ -82,7 +82,7 @@ class NsfwContextRouter {
             (await db.getSetting('nsfw_reference_active')) == '1',
         source: 'replay_${await db.getSetting('nsfw_route_source') ?? 'stored'}',
         taskIntent: _readTaskIntent(await db.getSetting('route_task_intent_v1'), turnId, sourceKey),
-        toolRoute: _readToolRoute(await db.getSetting('route_tool_intent_v1')),
+        toolRoute: _readToolRoute(await db.getSetting('route_tool_intent_v1'), turnId, sourceKey),
         historicalWebIds: _readWebIds(await db.getSetting('route_web_ids_v1')),
         playfulInteraction: PlayfulInteraction.parse(
           await db.getSetting('playful_form_router_signal_v1'),
@@ -409,8 +409,12 @@ $latestUserText''',
     }
   }
 
-  static SemanticToolRoute _readToolRoute(String? raw) {
-    try { return SemanticToolRoute.decode(jsonDecode(raw ?? '{}')); }
+  static SemanticToolRoute _readToolRoute(String? raw, String turnId, String sourceKey) {
+    try {
+      final saved = jsonDecode(raw ?? '{}');
+      if (saved is! Map || saved['turn_id'] != turnId || saved['source_key'] != sourceKey) return const SemanticToolRoute();
+      return SemanticToolRoute.decode(saved['route']);
+    }
     catch (_) { return const SemanticToolRoute(); }
   }
 
@@ -450,7 +454,7 @@ $latestUserText''',
     await db.setSetting('cedar_route_intent_v1', decision.cedarIntent ?? '');
     await db.setSetting('cedar_game_attitude_route_signal', decision.gameAttitude);
     await db.setSetting('route_web_ids_v1', jsonEncode(decision.historicalWebIds));
-    await db.setSetting('route_tool_intent_v1', jsonEncode(decision.toolRoute.toJson()));
+    await db.setSetting('route_tool_intent_v1', jsonEncode({'turn_id': turnId, 'source_key': sourceKey, 'route': decision.toolRoute.toJson()}));
     await db.setSetting('route_task_intent_v1', jsonEncode({'turn_id': turnId, 'source_key': sourceKey, 'intent': decision.taskIntent.toJson()}));
     await db.setSetting('nsfw_route_source_key_v2', sourceKey);
     await db.setSetting('nsfw_route_turn_id', turnId);

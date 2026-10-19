@@ -80,8 +80,8 @@ class SemanticToolQuestions {
     final kind = answers?['tool_route'] ?? 'none';
     final target = rooms[answers?['tool_room_target']];
     final view = answers?['tool_room_view'] ?? 'summary';
-    return SemanticToolRoute(kind: kind, roomId: kind == 'room' ? target?['id'] as String? ?? '' : '',
-      roomKind: kind == 'room' ? target?['kind'] as String? ?? '' : '',
+    return SemanticToolRoute(kind: kind, roomId: kind == 'room' ? (target?['id'] as String? ?? '') : '',
+      roomKind: kind == 'room' ? (target?['kind'] as String? ?? '') : '',
       view: const {'summary','detail','transcript'}.contains(view) ? view : 'summary',
       phoneSection: answers?['tool_phone_section'] ?? 'all');
   }
