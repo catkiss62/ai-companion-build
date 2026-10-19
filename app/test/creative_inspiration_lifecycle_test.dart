@@ -1,3 +1,4 @@
+import 'package:ai_companion_localfirst/core/models/chat_message.dart';
 import 'dart:convert';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
@@ -20,10 +21,8 @@ void main() {
     store = CreativeStore(db);
     clock = DateTime(2026, 10, 12, 12);
     await store.setAutonomyEnabled(true);
-    await (await db.database).insert('messages', {
-      'id': 'source', 'role': 'user', 'content': '今天看到金色的树叶，觉得特别好看',
-      'created_at': clock.subtract(const Duration(hours: 1)).millisecondsSinceEpoch,
-    });
+    await db.insertMessage(ChatMessage(id:'source',role:'user',content:'今天看到金色的树叶，觉得特别好看',
+      createdAt:clock.subtract(const Duration(hours: 1))));
   });
   tearDown(() async => db.closeForTesting());
 
@@ -73,10 +72,8 @@ void main() {
     expect(retired['current'], old['current']);
     expect(await db.getSetting('${CreativeContract.sourcePrefix}${old['current']}'), html);
 
-    await (await db.database).insert('messages', {
-      'id': 'new-source', 'role': 'user', 'content': '又看到一片红色的叶子',
-      'created_at': clock.add(const Duration(minutes: 1)).millisecondsSinceEpoch,
-    });
+    await db.insertMessage(ChatMessage(id:'new-source',role:'user',content:'又看到一片红色的叶子',
+      createdAt:clock.add(const Duration(minutes: 1))));
     expect(await CreativeInspirationEngine(db, reviewer: (input) async => start(input))
       .maybeThink(now: clock.add(const Duration(minutes: 2)), manual: true), true);
     final works = await store.list(includePrivate: true);

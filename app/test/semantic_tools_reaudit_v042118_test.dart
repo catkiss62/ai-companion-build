@@ -68,6 +68,20 @@ void main() {
     final replay=await router.decide(apiKey:'test',endpoint:'https://test.invalid/chat/completions',turnId:'request',latestUserText:args.content,recent:[args]);
     expect(replay.toolRoute.roomId,r.id);expect(shortCalls,1);
   });
+  test('existing source-bound task decision survives tool-route upgrade without a second classifier',()async{
+    final at=DateTime.now();await message('old-task',at);
+    final source=(await ConversationSourceStore.captureMessage(await db.database,'old-task'))!;
+    final sourceKey='${source.contentHash}:${source.revision}';
+    await db.setSetting('nsfw_route_turn_id','old-task');await db.setSetting('nsfw_route_source_key_v2',sourceKey);
+    await db.setSetting('route_task_intent_v1',jsonEncode({'turn_id':'old-task','source_key':sourceKey,
+      'intent':{'available':true,'game_action':'pause','game_id':'garden','session_id':'existing-session'}}));
+    var calls=0;
+    final gateway=JevDecisionGateway(enabledReader:()async{calls++;return false;});
+    final result=await NsfwContextRouter(db:db,client:DeepSeekClient(),jevGateway:gateway).decide(
+      apiKey:'test',endpoint:'https://test.invalid/chat/completions',turnId:'old-task',latestUserText:'先停一下',recent:const []);
+    expect(result.taskIntent.gameAction,'pause');expect(result.taskIntent.gameId,'garden');expect(calls,0);
+    expect(result.toolRoute.kind,'none');
+  });
   test('chat/ambiguous selection never reads a room simply because one exists',()async{
     await room();final q=await SemanticToolQuestions.load(db);
     expect(q.interpret({'tool_route':'none','tool_room_target':'r0'}).directPlan,isNull);
@@ -113,6 +127,12 @@ void main() {
     final next=await DreamMaterial.collect(db,{'cursor':first.cursor,'insights':[{'evidence':[{'id':source.id,'fingerprint':source.fingerprint}]}]},now,weekly:false);
     expect(next.sources.where((s)=>s.fresh),isEmpty);
     expect(next.cursor['chat_seq'],greaterThan(first.cursor['chat_seq'] as int));
+  });
+  test('source sequence cannot reuse an already consumed creative material position',()async{
+    await db.setSetting('creative_inspiration_v1',jsonEncode({'cursor':{'chat_seq':200}}));
+    await message('after-restore',DateTime.now());
+    final source=await ConversationSourceStore.captureMessage(await db.database,'after-restore');
+    expect(source!.ingestSeq,greaterThan(200));
   });
   test('message quota feedback and ordinary thought action commit together',()async{
     final sql=await db.database;final now=DateTime.now();

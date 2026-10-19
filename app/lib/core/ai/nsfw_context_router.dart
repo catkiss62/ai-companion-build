@@ -73,7 +73,7 @@ class NsfwContextRouter {
     GenerationCancellationToken? cancellationToken,
   }) async {
     final userSource = await ConversationSourceStore.captureMessage(await db.database, turnId);
-    final sourceKey = userSource == null ? '' : '${userSource.contentHash}:${userSource.revision}:tools-v1';
+    final sourceKey = userSource == null ? '' : '${userSource.contentHash}:${userSource.revision}';
     if (sourceKey.isNotEmpty && (await db.getSetting('nsfw_route_source_key_v2')) == sourceKey &&
         (await db.getSetting('nsfw_route_turn_id')) == turnId) {
       return NsfwRouteDecision(
