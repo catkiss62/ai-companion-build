@@ -1715,14 +1715,14 @@ jobs:
           supplied = {
               'assets/model_dialogue/deepseek.jpg': '40714757bca99567520eacf5f812bac2865209f19eab1c54078e7266397ea443',
               'assets/model_dialogue/gemini.jpg': 'd8e8ae374de32884c6d302d736f02d0ba2ab231a6c82f391c267943a19f97408',
-              'assets/immersive/background.jpg': '02b457c67a5fb9a232f5d88b2c8b4db1ab4897f85c8caf90dfed6547bf5b02cd',
+              'assets/immersive/background.jpg': '0a73f68a69fc8e748ed2d789876c75d7ff21a9d3701da36fbcb3696fa071cabc',
           }
           with ZipFile('app/build/app/outputs/flutter-apk/app-release.apk') as z:
               for path, expected in supplied.items():
                   original = Path('app', path).read_bytes()
                   assert sha256(original).hexdigest() == expected
                   assert z.read('assets/flutter_assets/' + path) == original
-          print('All three supplied +358 images packaged byte-for-byte.')
+          print('Supplied avatars and current immersive background packaged byte-for-byte.')
           PY_DEPTH
 
       - name: Create APK checksum
