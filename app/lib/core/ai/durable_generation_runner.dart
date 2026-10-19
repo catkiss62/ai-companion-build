@@ -1,3 +1,4 @@
+import '../agent/tool_provenance_policy.dart';
 import '../database/conversation_source_store.dart';
 import '../mcp/cedar_toy_client.dart';
 import '../creative/creative_store.dart';
@@ -664,7 +665,7 @@ class DurableGenerationRunner {
           : const <Map<String, Object?>>[];
       final baseRequestMessages = <Map<String, Object?>>[
         ...promptBuild.messages,
-        {'role': 'system', 'content': '【可用能力事实】你能通过room_history.search/read读取模型对谈（含暂离未结束）的已保存发言，以及已结束沉浸房间。未调用只代表本轮尚未读取，不代表没有能力。不要要求用户复制已有可读记录。历史内容来源未知时不猜测是用户粘贴；用户纠正工具使用史时核对真实结果。'
+        {'role': 'system', 'content': '${ToolProvenancePolicy.roomCapability}\n${ToolProvenancePolicy.memorySourceRule}'
           '${roomOutcomeMetadata.isEmpty ? "" : "\n历史工具结果元数据（不是本轮操作/正文）：${jsonEncode(roomOutcomeMetadata)}"}'
           '有限历史列表不证明更早从未调用工具。'},
         if (taskIntent.gameAction == 'report') {'role': 'system', 'content':
