@@ -1,6 +1,6 @@
 # +362 JEV工具语义入口与复查修复
 
-状态：已写实现与针对性回归；CI及真机待验。基线应用3a6ea84/+361，目标0.42.118+362。
+状态：IMPLEMENTED / CI PASSED / APK READY / TRUE DEVICE PENDING。应用91437635，0.42.118+362；基线3a6ea84/+361。
 
 ## 用户决定
 
@@ -28,3 +28,12 @@
 19:57追加：沉浸房间背景替换为用户新1000x2048原始JPEG（467877 bytes），哈希0a73f68a69fc8e748ed2d789876c75d7ff21a9d3701da36fbcb3696fa071cabc，不改模型对谈背景；CI原字节核验同步。完整构建曾因模型对谈验证器版本白名单漏加+362而失败，已修正并保留原断言。
 
 全量失败复核：+362曾修改全局路由源键导致原游戏语义任务缓存不命中，已恢复稳定键，新增工具决策仅在独立信封中绑定来源，不重分类旧任务。旧缓存兼容与原游戏/混合目标用例纳入定向。CreativeInspiration复用DreamMaterial，其材料游标纳入序号分配上界；作品测试改用真实消息入库分配序号，行为断言不放宽。前轮2360通过/8失败明确保留，不能按定向通过交付。
+
+
+## 最终验证与交付
+
+源码91437635/tree8a60833a。最终616项定向（39252268859）、2370全量Flutter及168打包前恢复（39252268776）、154源码门、23发布身份、Node/Kotlin/Dart分析、Android8/15全部通过。真实付费模型和真机表现未验。原签名SHA256 305eb3d80983b963c64818ddf1ad561f279de6d47b3ed2c781ada448c7c25148；APK SHA256 7c2f7fee4c82ddc81ae2062a38cecc7b0fe4ba7c8704296e623efffe5f50efb0。
+
+下载：https://github.com/catkiss62/ai-companion-build/releases/download/untagged-5108253b6b3a4242fcb9/AI-Companion-v0.42.118-362-Semantic-Tools-Reaudit-APK.apk
+
+全部失败/修订路线见总账“+362”记录，最终通过不覆盖早期失败。Android8保留，结束协议保持。新背景原字节进入APK。文档交付不触发重复构建。
