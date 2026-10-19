@@ -454,7 +454,7 @@ class DurableGenerationRunner {
               (CedarToyArcadeSkill.requestsNaturalPlay(user.content) &&
                   !RegExp(r'以后|有空|改天|哪天|下次|可以考虑')
                       .hasMatch(user.content)));
-      var localPlan = AgentToolPlanner.routeLocally(user.content);
+      var localPlan = nsfwRoute.toolRoute.directPlan ?? AgentToolPlanner.routeLocally(user.content);
       // Explicit screen inspection remains local; other deep turns start with DS.
       if (job.deepThinking &&
           !(localPlan?.calls.any((call) => call.toolId == 'screen_observation.inspect') ?? false)) {
@@ -655,8 +655,18 @@ class DurableGenerationRunner {
       }
       final creativeContext = await CreativePlay.chatContext(db, userMessageId: job.userMessageId);
       creativePlayEvidence = promptBuild.creativePlayEvidence;
+      final roomOutcomeMetadata = const {'room','system','memory'}.contains(nsfwRoute.toolRoute.kind) ||
+          (localPlan?.calls.any((c) => c.toolId.startsWith('room_history.')) ?? false)
+          ? (await db.recentAgentToolOutcomes(limit: 20)).where((r) =>
+              (r['tool_id'] as String? ?? '').startsWith('room_history.')).map((r) => {
+                'tool': r['tool_id'], 'status': r['status'], 'finished_at': r['finished_at'],
+                'result_count': r['result_count']}).toList()
+          : const <Map<String, Object?>>[];
       final baseRequestMessages = <Map<String, Object?>>[
         ...promptBuild.messages,
+        {'role': 'system', 'content': '【可用能力事实】你能通过room_history.search/read读取模型对谈（含暂离未结束）的已保存发言，以及已结束沉浸房间。未调用只代表本轮尚未读取，不代表没有能力。不要要求用户复制已有可读记录。历史内容来源未知时不猜测是用户粘贴；用户纠正工具使用史时核对真实结果。'
+          '${roomOutcomeMetadata.isEmpty ? "" : "\n历史工具结果元数据（不是本轮操作/正文）：${jsonEncode(roomOutcomeMetadata)}"}'
+          '有限历史列表不证明更早从未调用工具。'},
         if (taskIntent.gameAction == 'report') {'role': 'system', 'content':
           '【用户本轮询问的已发生游戏结果】${deliveryCandidates.isEmpty ? '当前没有待交付的终局或定时任务报告；不得猜测结果。' : jsonEncode(deliveryCandidates.map((c) => c.toJson()).toList())}'
           '只可据这些真实记录回答；旧结果不冒充刚刚发生，是否有开始新游戏是另一项权限。'},
@@ -1192,6 +1202,7 @@ class DurableGenerationRunner {
             webSearchRequested: contextualWebSearch,
             deepThinking: job.deepThinking,
             semanticTaskToolIds: semanticTaskToolIds(),
+            semanticToolIds: nsfwRoute.toolRoute.toolIds,
           );
 
       var taskToolDefinitions = currentTaskToolDefinitions();
@@ -1240,7 +1251,9 @@ $finalGenerationReminder
       }
 
       final localPlanClosesLoop = localPlan != null &&
-          ((AgentTaskLoopPolicy.containsProposal(localPlan) &&
+          ((localPlan.calls.every((c) => c.toolId == 'room_history.read') &&
+              agentToolResults.any((r) => r.toolId == 'room_history.read' && r.status == AgentToolStatus.succeeded)) ||
+           (AgentTaskLoopPolicy.containsProposal(localPlan) &&
               TurnGoalVerification.missing(turnGoals, agentToolResults, localReceipts).isEmpty) ||
               AgentTaskLoopPolicy.hasCommitPendingMedia(agentToolResults));
       var toolsOpen = taskToolDefinitions.isNotEmpty &&

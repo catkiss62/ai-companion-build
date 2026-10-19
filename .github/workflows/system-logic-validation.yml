@@ -52,6 +52,7 @@ jobs:
           test/room_history_v042115_test.dart
           test/natural_chat_refresh_v042116_test.dart
           test/model_dialogue_recovery_v042117_test.dart
+          test/semantic_tools_reaudit_v042118_test.dart
           test/live2d_settings_page_test.dart
           test/model_dialogue_memory_v042114_test.dart
           test/room_image_background_v042114_test.dart

@@ -94,7 +94,7 @@ class AgentToolRegistry {
   );
   static const roomHistorySearch = AgentToolDefinition(
     id:'room_history.search',title:'查找房间历史',
-    description:'只读查找已结束的模型对谈或沉浸房间，返回带来源的目录和摘要。',
+    description:'只读查找模型对谈（含暂离未结束）或已结束沉浸房间，返回带来源的目录和摘要。',
     risk:AgentToolRisk.readOnly,executable:true,userTurnAvailable:true,autonomousAvailable:false,
   );
   static const roomHistoryRead = AgentToolDefinition(

@@ -1,3 +1,4 @@
+import '../agent/semantic_tool_route.dart';
 import '../agent/turn_task_intent.dart';
 import '../creative/creative_store.dart';
 import '../database/conversation_source_store.dart';
@@ -29,6 +30,7 @@ class NsfwRouteDecision {
     this.gameAttitude = 'none',
     this.historicalWebIds,
     this.taskIntent = const TurnTaskIntent(),
+    this.toolRoute = const SemanticToolRoute(),
   });
 
   final bool active;
@@ -43,6 +45,7 @@ class NsfwRouteDecision {
   final String gameAttitude;
   final List<String>? historicalWebIds;
   final TurnTaskIntent taskIntent;
+  final SemanticToolRoute toolRoute;
 }
 
 /// A small pre-generation model pass that decides which prompt layers the
@@ -70,7 +73,7 @@ class NsfwContextRouter {
     GenerationCancellationToken? cancellationToken,
   }) async {
     final userSource = await ConversationSourceStore.captureMessage(await db.database, turnId);
-    final sourceKey = userSource == null ? '' : '${userSource.contentHash}:${userSource.revision}';
+    final sourceKey = userSource == null ? '' : '${userSource.contentHash}:${userSource.revision}:tools-v1';
     if (sourceKey.isNotEmpty && (await db.getSetting('nsfw_route_source_key_v2')) == sourceKey &&
         (await db.getSetting('nsfw_route_turn_id')) == turnId) {
       return NsfwRouteDecision(
@@ -79,6 +82,7 @@ class NsfwContextRouter {
             (await db.getSetting('nsfw_reference_active')) == '1',
         source: 'replay_${await db.getSetting('nsfw_route_source') ?? 'stored'}',
         taskIntent: _readTaskIntent(await db.getSetting('route_task_intent_v1'), turnId, sourceKey),
+        toolRoute: _readToolRoute(await db.getSetting('route_tool_intent_v1')),
         historicalWebIds: _readWebIds(await db.getSetting('route_web_ids_v1')),
         playfulInteraction: PlayfulInteraction.parse(
           await db.getSetting('playful_form_router_signal_v1'),
@@ -127,6 +131,7 @@ class NsfwContextRouter {
     final taskQuestions = TurnTaskQuestionSet(userText: latestUserText,
       state: await CedarToyActivityStore(db).loadState(), works: await CreativeStore(db).list(),
       catalog: await CedarToyActivityStore(db).loadCatalog());
+    final toolQuestions = await SemanticToolQuestions.load(db);
     final jev = await jevGateway.chooseMany(
       state: <String, Object?>{
         'current_route': currentActive ? 'nsfw' : 'daily',
@@ -139,6 +144,7 @@ class NsfwContextRouter {
           'historical_web': WebKnowledgeSelection.describe(historicalWebCandidates),
         'active_game': attitudeGame,
         ...taskQuestions.context,
+        ...toolQuestions.context,
         if (causeMessage != null) 'pending_cause': {
           'id': pendingCause!.id, 'user_evidence': causeMessage.promptContent.length > 500
               ? causeMessage.promptContent.substring(0, 500) : causeMessage.promptContent,
@@ -148,6 +154,7 @@ class NsfwContextRouter {
       questions: <String, JevChoiceQuestion>{
         ...WebKnowledgeSelection.questions(historicalWebCandidates),
         ...taskQuestions.questions,
+        ...toolQuestions.questions,
         if (moodEnabled) ...MoodAppraisal.questions,
         'mode': JevChoiceQuestion(
           'Which descriptive prompt depth fits latest_user_text in '
@@ -249,6 +256,7 @@ class NsfwContextRouter {
         gameAttitude: jev['game_attitude'] ?? 'none',
         cedarIntent: jev['cedar'],
         taskIntent: taskQuestions.interpret(jev),
+        toolRoute: toolQuestions.interpret(jev),
         historicalWebIds: WebKnowledgeSelection.selected(historicalWebCandidates, jev),
       );
       await _persist(decision, turnId: turnId, sourceKey: sourceKey, consumeManualOverride: manualRoute);
@@ -263,7 +271,7 @@ class NsfwContextRouter {
         model: DeepSeekModelProfile.flash,
         effort: ReasoningEffort.high,
         thinking: false,
-        maxTokens: moodEnabled ? 260 : 180,
+        maxTokens: moodEnabled ? 420 : 340,
         cancellationToken: cancellationToken,
         usageLane: 'chat_intimacy_route',
         messages: <Map<String, Object?>>[
@@ -292,6 +300,9 @@ strong: clearly strong deliberate playful provocation, including an initial chal
 Do not treat a request for technical help, genuine distress, or conflict as banter.
 Judge FLUSTERED independently: yes only for clear intense flustered embarrassment in the actual exchange, not mild shyness or routine affection. Judge INITIATIVE independently: open means a small self-started playful challenge could fit naturally now; closed means this message needs a direct response or offers no natural opening. This field only permits a possible optional nudge and does not grant heat points. Also judge game_attitude: encourage means optional autonomous game exploration when free; pause means set autonomous gaming aside; none covers direct act-now requests, ordinary game talk, quotes, different named games and unrelated messages. Permission such as 你可以自己玩玩 or 有空自己去玩吧 is encouragement unless immediate action is clearly requested in context. If CEDAR_CONFIGURED is false, game_attitude must be none. Return the independent fields in one JSON object.''',
           },
+          { 'role': 'system', 'content': 'Also return tool_route, tool_room_target, and tool_room_view in the SAME JSON. '
+            'Judge these independently from intimacy. Questions: ${jsonEncode(toolQuestions.questions.map((k,v)=>MapEntry(k, {"instruction":v.instruction,"options":v.options})))} '
+            'Available room metadata: ${jsonEncode(toolQuestions.context)}' },
           if (moodEnabled) {
             'role': 'system',
             'content': 'Also include mood_event, mood_impact and mood_certainty (clear or uncertain) '
@@ -347,6 +358,7 @@ $latestUserText''',
             referenceActive: true,
             source: 'auto_reference',
             playfulInteraction: interaction,
+            toolRoute: toolQuestions.interpret(result.map((k,v)=>MapEntry(k,v.toString()))),
             playfulFlustered: result['flustered'] == 'yes',
             initiativeOpportunity: initiativeOpportunity,
             gameAttitude: gameAttitude,
@@ -356,6 +368,7 @@ $latestUserText''',
             referenceActive: false,
             source: manualRoute ? 'manual_on' : 'auto_nsfw',
             playfulInteraction: interaction,
+            toolRoute: toolQuestions.interpret(result.map((k,v)=>MapEntry(k,v.toString()))),
             playfulFlustered: result['flustered'] == 'yes',
             initiativeOpportunity: initiativeOpportunity,
             gameAttitude: gameAttitude,
@@ -365,6 +378,7 @@ $latestUserText''',
             referenceActive: false,
             source: manualRoute ? 'manual_off' : 'auto_daily',
             playfulInteraction: interaction,
+            toolRoute: toolQuestions.interpret(result.map((k,v)=>MapEntry(k,v.toString()))),
             playfulFlustered: result['flustered'] == 'yes',
             initiativeOpportunity: initiativeOpportunity,
             gameAttitude: gameAttitude,
@@ -393,6 +407,11 @@ $latestUserText''',
           consumeManualOverride: manualRoute);
       return fallback;
     }
+  }
+
+  static SemanticToolRoute _readToolRoute(String? raw) {
+    try { return SemanticToolRoute.decode(jsonDecode(raw ?? '{}')); }
+    catch (_) { return const SemanticToolRoute(); }
   }
 
   static TurnTaskIntent _readTaskIntent(String? raw, String turnId, String sourceKey) {
@@ -431,6 +450,7 @@ $latestUserText''',
     await db.setSetting('cedar_route_intent_v1', decision.cedarIntent ?? '');
     await db.setSetting('cedar_game_attitude_route_signal', decision.gameAttitude);
     await db.setSetting('route_web_ids_v1', jsonEncode(decision.historicalWebIds));
+    await db.setSetting('route_tool_intent_v1', jsonEncode(decision.toolRoute.toJson()));
     await db.setSetting('route_task_intent_v1', jsonEncode({'turn_id': turnId, 'source_key': sourceKey, 'intent': decision.taskIntent.toJson()}));
     await db.setSetting('nsfw_route_source_key_v2', sourceKey);
     await db.setSetting('nsfw_route_turn_id', turnId);

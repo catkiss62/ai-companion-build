@@ -1,3 +1,4 @@
+import '../database/conversation_source_store.dart';
 import '../database/app_database.dart';
 import '../memory/memory_retrieval_policy.dart';
 import '../reflection/deep_reflection_store.dart';
@@ -43,31 +44,54 @@ class DreamMaterial {
       chatAt = reset > recentFloor ? reset : recentFloor;
       chatId = '';
     }
-    final rows = await handle.query(
-      'messages',
-      columns: DreamStore.chatColumns,
-      where:
-          '(created_at > ? OR (created_at = ? AND id > ?)) AND created_at <= ?',
-      whereArgs: [chatAt, chatAt, chatId, now.millisecondsSinceEpoch],
-      orderBy: bootstrap
-          ? 'created_at DESC, id DESC'
-          : 'created_at ASC, id ASC',
-      limit: bootstrap ? 120 : 240,
-    );
+    var chatSeq = DreamContract.number(cursor['chat_seq']);
+    if (!bootstrap && !cursor.containsKey('chat_seq')) {
+      // Bridge an existing cursor through its actual last-consumed row. This
+      // preserves source order even when later insertions have earlier times.
+      final anchor = await handle.query('messages', columns: ['source_ingest_seq'],
+        where: 'id = ?', whereArgs: [chatId], limit: 1);
+      if (anchor.isNotEmpty) chatSeq = DreamContract.number(anchor.single['source_ingest_seq']);
+      else {
+        // A deleted legacy anchor cannot prove ingestion order. Keep the old
+        // coverage boundary conservatively; do not reabsorb all old history.
+        final next = await handle.rawQuery('SELECT MIN(source_ingest_seq) AS seq FROM messages '
+          'WHERE created_at > ? OR (created_at = ? AND id > ?)', [chatAt,chatAt,chatId]);
+        final first = DreamContract.number(next.single['seq']);
+        if (first > 0) chatSeq = first - 1;
+        else {
+          final high = await handle.rawQuery('SELECT MAX(source_ingest_seq) AS seq FROM messages');
+          chatSeq = DreamContract.number(high.single['seq']);
+        }
+      }
+    }
+    final rows = await handle.query('messages', columns: DreamStore.chatColumns,
+      where: bootstrap ? 'created_at >= ? AND created_at <= ?' : 'source_ingest_seq > ?',
+      whereArgs: bootstrap ? [chatAt, now.millisecondsSinceEpoch] : [chatSeq],
+      orderBy: bootstrap ? 'source_ingest_seq DESC' : 'source_ingest_seq ASC',
+      limit: bootstrap ? 120 : 240);
+    if (bootstrap && rows.isEmpty) {
+      final high = await handle.rawQuery('SELECT MAX(source_ingest_seq) AS seq FROM messages');
+      chatSeq = DreamContract.number(high.single['seq']);
+    }
     final ordered = bootstrap ? rows.reversed.toList() : rows;
     final excluded = await DreamStore.roleplayUsers(handle, ordered);
+    final usedEvidence = DreamContract.records(state['insights'])
+      .expand((i) => DreamContract.records(i['evidence'])).toList();
     final sources = <DreamSource>[];
     var chars = 0;
     var consumed = 0;
     for (final row in ordered) {
-      final source = excluded.contains(row['id'])
-          ? null
-          : DreamStore.chatSource(row, fresh: true);
-      if (source != null && chars + source.text.length > 64000) break;
-      if (source != null) {
-        sources.add(source);
-        chars += source.text.length;
+      final qualified = await ConversationSourceStore.qualifyMessage(handle, row['id'] as String);
+      var source = excluded.contains(row['id']) || qualified?.isOrdinary != true ||
+          DreamContract.number(row['created_at']) < reset
+          ? null : DreamStore.chatSource(row, fresh: true);
+      final candidate = source;
+      if (candidate != null && usedEvidence.any((e) => e['id'] == candidate.id && e['fingerprint'] == candidate.fingerprint)) {
+        source = DreamStore.chatSource(row); // unchanged representative evidence is not a new vote
       }
+      if (source != null && chars + source.text.length > 64000) break;
+      if (source != null) { sources.add(source); chars += source.text.length; }
+      chatSeq = DreamContract.number(row['source_ingest_seq']);
       chatAt = DreamContract.number(row['created_at']);
       chatId = DreamContract.string(row['id']);
       consumed++;
@@ -120,9 +144,7 @@ class DreamMaterial {
         final source = DreamStore.chatSource(row);
         if (source == null || knownIds.contains(source.id)) continue;
         // Never put not-yet-processed backlog in the old/context bucket.
-        if (source.at > chatAt ||
-            (source.at == chatAt &&
-                source.id.substring(5).compareTo(chatId) > 0))
+        if (DreamContract.number(row['source_ingest_seq']) > chatSeq)
           continue;
         if (!weekly &&
             !MemoryRetrievalPolicy.hasDirectTextEvidence(query, source.text))
@@ -178,6 +200,7 @@ class DreamMaterial {
       cursor: {
         'chat_at': chatAt,
         'chat_id': chatId,
+        'chat_seq': chatSeq,
         'web_at': webAt,
         'web_id': webId,
       },

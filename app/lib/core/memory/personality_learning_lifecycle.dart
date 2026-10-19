@@ -18,8 +18,12 @@ abstract final class PersonalityLearningLifecycle {
       final bm = metadata(b['lifecycle_json']);
       final as = (am['source_seq'] as num?)?.toInt() ?? 0;
       final bs = (bm['source_seq'] as num?)?.toInt() ?? 0;
-      final order = as > 0 && bs > 0
-          ? as.compareTo(bs)
+      // Legacy evidence predates the sequence contract. Keep one stable
+      // partition order, rather than choosing a different clock for each pair.
+      // Resolving legacy boundaries still requires a strictly later event below.
+      final order = (as > 0) != (bs > 0)
+          ? (as > 0 ? 1 : -1)
+          : as > 0 ? as.compareTo(bs)
           : ((a['observed_at'] as num?)?.toInt() ?? 0)
               .compareTo((b['observed_at'] as num?)?.toInt() ?? 0);
       if (order != 0) return order;

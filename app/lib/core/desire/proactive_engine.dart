@@ -2355,6 +2355,15 @@ ${PromptBuilder.visibleChineseGenerationReminder(proactive: true)}
     }
     final commitBlock = await db.commitProactiveMessageIfCurrent(
       message: message,
+      actedThoughtId: !isCedarGameShare ? intentThought?.id : null,
+      feedback: {
+        'thought_id': intent.thoughtId,
+        'topic_key': ProactiveSelectionPolicy.canonicalTopic(intentThought?.topicKey ?? '', reasonSource: intent.reasonSource),
+        'thread_id': linkedThread?.id,
+        'context_hour_bucket': rhythmContext.hourBucket,
+        'context_activity': rhythmContext.activityContext,
+        'context_busy': rhythmContext.busyScore,
+      },
       evaluationStartedAt: evaluationStartedAt,
       pendingMediaOwner: mediaOwner,
       workFence: wishDeliveryFence,
@@ -2420,7 +2429,7 @@ ${PromptBuilder.visibleChineseGenerationReminder(proactive: true)}
       message.content,
       now: message.createdAt,
     );
-    if (intentThought != null && cedarSettled && webShareCandidateId == null) {
+    if (isCedarGameShare && intentThought != null && cedarSettled && webShareCandidateId == null) {
       await thoughtLifecycle.markActed(thought: intentThought, messageId: message.id);
     }
     final now = DateTime.now();
@@ -2430,16 +2439,6 @@ ${PromptBuilder.visibleChineseGenerationReminder(proactive: true)}
         linkedThread.followupSeededAt != null) {
       await db.markUnfinishedThreadFollowupSent(linkedThread.id);
     }
-    await rhythm.registerSent(
-      message: message,
-      thoughtId: intent.thoughtId,
-      topicKey: ProactiveSelectionPolicy.canonicalTopic(
-        intentThought?.topicKey ?? '',
-        reasonSource: intent.reasonSource,
-      ),
-      threadId: linkedThread?.id,
-      context: rhythmContext,
-    );
     // Sending the message itself releases some tension, but user response is
     // what can truly settle the originating thought later.
     final fatigueBeforeSend = snapshot.drives[DriveKey.fatigue] ?? 0.0;

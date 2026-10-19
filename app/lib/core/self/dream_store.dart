@@ -28,6 +28,7 @@ class DreamStore {
     'created_at',
     'worldbook_context_json',
     'form_context_json',
+    'source_ingest_seq',
   ];
   static const webColumns = [
     'id',
@@ -254,7 +255,8 @@ class DreamStore {
       orderBy: 'created_at DESC, id DESC',
       limit: 1,
     );
-    return sha256.convert(utf8.encode(jsonEncode([count, rows]))).toString();
+    final seq = Sqflite.firstIntValue(await handle.rawQuery('SELECT MAX(source_ingest_seq) FROM messages')) ?? 0;
+    return sha256.convert(utf8.encode(jsonEncode([count, rows, seq]))).toString();
   }
 
   Future<bool> commit({

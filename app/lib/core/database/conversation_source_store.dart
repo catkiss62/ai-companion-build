@@ -340,8 +340,8 @@ class ConversationSourceStore {
 
   static Future<int> _consumedSequenceCeiling(DatabaseExecutor db) async {
     final rows = await db.query('settings', columns: ['key', 'value'],
-      where: 'key IN (?, ?, ?)', whereArgs: [legacySummaryCoveredKey,
-        'conversation_summary_scan_state_v1', 'moe_shadow_scan_v1']);
+      where: 'key IN (?, ?, ?, ?)', whereArgs: [legacySummaryCoveredKey,
+        'conversation_summary_scan_state_v1', 'moe_shadow_scan_v1', 'nightly_dream_state_v1']);
     var maximum = 0;
     void include(Object? value) { if (value is int && value > maximum) maximum = value; }
     for (final row in rows) {
@@ -350,6 +350,7 @@ class ConversationSourceStore {
       try {
         final value = jsonDecode(raw);
         if (value is! Map) continue;
+        if (row['key'] == 'nightly_dream_state_v1' && value['cursor'] is Map) include(value['cursor']['chat_seq']);
         if (row['key'] == 'conversation_summary_scan_state_v1') include(value['scan_seq']);
         if (row['key'] == 'moe_shadow_scan_v1' && value['schema'] == 1) {
           include(value['after_seq']); include(value['legacy_ceiling']);

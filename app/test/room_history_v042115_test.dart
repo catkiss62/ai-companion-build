@@ -78,13 +78,13 @@ void main() {
     expect(result.status,AgentToolStatus.succeeded);expect(result.resultCount,1);
     expect((await RoomHistoryReader(db).search({'query':'不存在的内容'})).status,AgentToolStatus.noResult);
   });
-  test('active and deleted rooms are not exposed and stale handles fail',()async{
+  test('paused rooms are readable while deleted rooms and stale handles fail',()async{
     final r=await seed();final reader=RoomHistoryReader(db);
     final h=handle(await reader.read({'kind':'model_dialogue'}));
     await ModelDialogueRepository(db).delete(r.id);
     expect((await reader.read({'handle':h})).status,AgentToolStatus.noResult);
     await seed(ended:false);
-    expect((await reader.search({})).status,AgentToolStatus.noResult);
+    expect((await reader.search({})).status,AgentToolStatus.succeeded);
   });
   test('long transcript pagination covers every character exactly once',()async{
     await seed(texts:List.generate(5,(i)=>'$i${'字'*4100}'));

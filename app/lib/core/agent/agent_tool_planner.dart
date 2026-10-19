@@ -301,11 +301,13 @@ class AgentToolPlanner {
     bool webSearchRequested = false,
     bool deepThinking = false,
     Set<String>? semanticTaskToolIds,
+    Set<String> semanticToolIds = const {},
   }) {
     // Routing may legitimately return an immutable empty set (for example,
     // media-only user turns have an empty text body). Cedar stage narrowing
     // mutates this collection, so take ownership at the mutation boundary.
     final toolIds = <String>{..._routeToolIds(text)};
+    toolIds.addAll(semanticToolIds);
     if (webSearchRequested) toolIds.add(AgentToolRegistry.publicWebSearch.id);
     if (semanticTaskToolIds != null) {
       toolIds..removeAll({'creative_work.stop', 'creative_work.commission'})
@@ -505,8 +507,9 @@ class AgentToolPlanner {
       };
     } else if (tool.id == AgentToolRegistry.roomHistorySearch.id || tool.id == AgentToolRegistry.roomHistoryRead.id) {
       properties['kind']=const {'type':'string','enum':['all','model_dialogue','immersive']};
-      properties['query']=const {'type':'string','description':'具体话题或房间标题关键词；不填则查最近结束的房间。原文模式可按关键词定位并返回前后文。'};
+      properties['query']=const {'type':'string','description':'具体话题或房间标题关键词；不填则查最近的房间。原文模式可按关键词定位并返回前后文。'};
       if(tool.id==AgentToolRegistry.roomHistoryRead.id) {
+        properties['room_id']=const {'type':'string','description':'已提供的真实房间ID，与kind一起使用，不可编造。'};
         properties['handle']=const {'type':'string','description':'搜索或读取返回的精确房间句柄，原样使用。'};
         properties['view']=const {'type':'string','enum':['summary','detail','transcript'],
           'description':'先摘要，需要完整事件整理选detail，逐字核对选transcript。detail若complete=false可携带next_cursor再次读取以整理后文。'};
@@ -633,7 +636,7 @@ class AgentToolPlanner {
       'system_self.read' =>
         '仅在用户询问你当前真实能力、用户为你实现过什么、人格学习/成长观察层状态、近期真实工具/自主行动结果或 MCP 行动历史时调用。'
         '普通闲聊不调用；本工具不能读取聊天/规则正文、密钥、日志或未实现能力。',
-      'room_history.search' => '仅在当前问题需要回看模型对谈或沉浸房间时调用，按标题或关键词查找已经结束的房间。普通闲聊和讨论功能设计时不调用。',
+      'room_history.search' => '仅在当前问题需要回看模型对谈或沉浸房间时调用，按标题或关键词查找模型对谈（包括暂离未结束）或已结束沉浸房间。普通闲聊和讨论功能设计时不调用。',
       'room_history.read' => '按需读取模型对谈或沉浸房间的summary、detail或transcript，保留发言归属和虚构场景边界。具体说过什么先核对原文；只读到局部就明确局部。没有句柄时可按kind和query选最近匹配房间。',
       'phone.search' =>
         '仅在用户要求你查看自己 App 内“查手机”的内容，或回答明确依赖这些内容时调用。只读现有投影，不刷新、不生成、不标记已读。',

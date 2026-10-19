@@ -23,6 +23,7 @@ class ModelDialogueArchiveWorker {
   final AppDatabase db;
   final ModelDialogueArchiveGenerator? generate;
   static const leaseKey = 'model_dialogue_archive_lease_until';
+  static const scanKey = 'model_dialogue_archive_scan_after_v1';
 
   Future<void> drainOne({String? roomId, DateTime? now}) async {
     final at = now ?? DateTime.now();
@@ -32,12 +33,21 @@ class ModelDialogueArchiveWorker {
     try {
       final sql = await db.database;
       final prefix = ModelDialogueRepository.archivePrefix;
-      final rows = await sql.query('settings', columns: ['key'],
-          where: roomId == null ? 'key >= ? AND key < ?' : 'key = ?',
-          whereArgs: roomId == null ? [prefix, '$prefix\uffff'] : ['$prefix$roomId'],
+      final after = roomId == null ? await db.getSetting(scanKey) ?? '' : '';
+      var rows = await sql.query('settings', columns: ['key'],
+          where: roomId == null ? 'key >= ? AND key < ? AND key > ?' : 'key = ?',
+          whereArgs: roomId == null ? [prefix, '$prefix\uffff', after] : ['$prefix$roomId'],
           orderBy: 'key', limit: 64);
+      if (roomId == null && rows.isEmpty && after.isNotEmpty) {
+        rows = await sql.query('settings', columns: ['key'],
+          where: 'key >= ? AND key < ?', whereArgs: [prefix, '$prefix\uffff'],
+          orderBy: 'key', limit: 64);
+      }
       for (final row in rows) {
         final key = row['key'] as String;
+        // Advance even over malformed/backing-off jobs. Each drain is bounded
+        // but subsequent drains eventually visit every pending room.
+        if (roomId == null) await db.setSetting(scanKey, key);
         final raw = await SqliteSettingsReader.read(sql, key) ?? '';
         Map<String, dynamic> job;
         try { job = Map<String, dynamic>.from(jsonDecode(raw) as Map); }

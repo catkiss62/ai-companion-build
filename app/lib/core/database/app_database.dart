@@ -8536,6 +8536,8 @@ class AppDatabase {
     bool proactiveGameShare = false,
     String? cedarShareThoughtId,
     String? cedarShareGameId,
+    String? actedThoughtId,
+    Map<String, Object?>? feedback,
     DateTime? deliveryAt,
   }) async {
     if (message.attachments.any((item) => item.messageId != message.id)) {
@@ -8642,6 +8644,22 @@ class AppDatabase {
           'message_id': message.id,
           'created_at': sentAt.millisecondsSinceEpoch,
         });
+      }
+      if (feedback != null) {
+        await txn.insert('proactive_feedback', {
+          'id': _uuid.v4(), 'proactive_message_id': message.id,
+          'thought_id': feedback['thought_id'], 'topic_key': feedback['topic_key'] ?? '',
+          'thread_id': feedback['thread_id'], 'intent_kind': message.proactiveIntent,
+          'delivery_style': message.proactiveDelivery, 'sent_at': message.createdAt.millisecondsSinceEpoch,
+          'context_hour_bucket': feedback['context_hour_bucket'] ?? '',
+          'context_activity': feedback['context_activity'] ?? 'unknown',
+          'context_busy': feedback['context_busy'] ?? 0.0,
+          'response_bucket': 'pending', 'user_text_length': 0,
+          'created_at': sentAt.millisecondsSinceEpoch,
+        }, conflictAlgorithm: ConflictAlgorithm.ignore);
+      }
+      if (actedThoughtId != null && expectedPublicWebShare == null) {
+        await _markProactiveThoughtActedTxn(txn, actedThoughtId, message.id, message.createdAt);
       }
       if (creativeShare != null) await creativeShare.commit(txn, message.id, message.createdAt);
       await DeepReflectionStore.commit(txn, context: reflectionInvitation,
@@ -13430,8 +13448,18 @@ class AppDatabase {
 
   Future<void> _commitPublicWebThoughtTxn(DatabaseExecutor txn, ExpectedPublicWebShare expected,
       String messageId, DateTime instant) async {
-    final row = (await txn.query('thoughts', where: 'id = ?', whereArgs: [expected.thoughtId], limit: 1)).single;
-    final thought = CompanionThought.fromDb(row);
+    await _markProactiveThoughtActedTxn(txn, expected.thoughtId, messageId, instant);
+  }
+
+  Future<void> _markProactiveThoughtActedTxn(DatabaseExecutor txn, String thoughtId,
+      String messageId, DateTime instant) async {
+    final events = await txn.query('thought_lifecycle_events', columns: ['id'],
+      where: 'thought_id = ? AND event_type = ? AND message_id = ?',
+      whereArgs: [thoughtId, 'acted', messageId], limit: 1);
+    if (events.isNotEmpty) return;
+    final rows = await txn.query('thoughts', where: 'id = ?', whereArgs: [thoughtId], limit: 1);
+    if (rows.isEmpty) return;
+    final thought = CompanionThought.fromDb(rows.single);
     await txn.update('thoughts', {'lifecycle_state': 'acted', 'action_count': thought.actionCount + 1,
       'last_acted_at': instant.millisecondsSinceEpoch, 'updated_at': instant.millisecondsSinceEpoch,
       'residual_strength': (thought.strength * (thought.isFixation ? .82 : .68)).clamp(.12, .78).toDouble(),

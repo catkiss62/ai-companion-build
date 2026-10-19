@@ -111,7 +111,7 @@ class AgentSelfReader {
 
   static const systemFacts = <AgentSystemFact>[
     AgentSystemFact(id:'room_history',title:'房间历史回看',status:'implemented_bounded',
-      detail:'已结束的模型对谈和沉浸房间可用room_history.search/read查摘要、按需详细整理和分页原文。只有相关问题才读取，未读部分不可补猜。模型对谈观点保留发言者，沉浸剧情保留虚构边界，读取不写公共记忆或成长。'),
+      detail:'模型对谈（含暂离未结束）和已结束沉浸房间可用room_history.search/read查摘要、按需详细整理和分页原文。只有相关问题才读取，未读部分不可补猜。模型对谈观点保留发言者，沉浸剧情保留虚构边界，读取不写公共记忆或成长。'),
     AgentSystemFact(id: 'creative_workspace', title: '小作品与作品集', status: 'implemented',
       detail: '本轮开启深度思考且用户明确委托时，可后台制作、实际预览和修复本地 HTML 小作品；聊天作品卡与作品集可打开游玩。互动可通过受限桥接真实选择与揭晓；源码、版本和游玩进度随存档保存。深度思考只是新委托入口，关闭开关不会停止已登记的工作；已有任务可直接继续，使用独立工作模型和思考力度。普通聊天不新建委托，自主创作尚未接入。'),
     AgentSystemFact(
