@@ -1251,7 +1251,7 @@ $finalGenerationReminder
       }
 
       final localPlanClosesLoop = localPlan != null &&
-          ((localPlan.calls.every((c) => c.toolId == 'room_history.read') &&
+          ((localPlan.calls.every((c) => c.toolId == 'room_history.read' && (c.arguments['view'] ?? 'summary') == 'summary') &&
               agentToolResults.any((r) => r.toolId == 'room_history.read' && r.status == AgentToolStatus.succeeded)) ||
            (AgentTaskLoopPolicy.containsProposal(localPlan) &&
               TurnGoalVerification.missing(turnGoals, agentToolResults, localReceipts).isEmpty) ||

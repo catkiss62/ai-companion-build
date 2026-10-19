@@ -70,13 +70,17 @@ class RoomHistoryReader {
         }
       }
       final times=messages?ModelDialogueTime.rangeOfTimes(list.map((m)=>m['time'] as int)):room.data;
+      final excerpt=list.reversed.take(3).toList().reversed.map((m) {
+        final text=m['text'] as String;
+        return RoomHistoryRecord.entry({...m, 'text':text.length>1200?'〔本条末尾片段〕${text.substring(text.length-1200)}':text});
+      }).join('\n\n');
       return RoomHistoryRecord(kind,id,room.title,'话题：${room.topic}\n'
         '实际发言：${ModelDialogueTime.format((times['first_message_at'] as num?)?.toInt()??0)} 至 '
         '${ModelDialogueTime.format((times['last_message_at'] as num?)?.toInt()??0)}；'
         '关闭时间：${ModelDialogueTime.format((room.data['ended_at'] as num?)?.toInt()??0)}（不代表发言发生于此时）。\n'
         '状态：${room.ended ? "已结束" : "进行中/暂离，尚未结束；只读已提交发言，不含生成草稿"}。\n'
         '${room.archiveSummary}${room.archiveState=='pending'?'\n本场自动整理尚未完成，不能把现有摘要当成完整记录。':''}'
-        '${!room.ended && messages ? "\n当前已提交原文（末尾片段）：\n${clip(list.reversed.take(4).toList().reversed.map(RoomHistoryRecord.entry).join("\n\n"),4500)}" : ""}',list,
+        '${(!room.ended || room.archiveSummary.isEmpty) && messages ? "\n当前已提交原文（末尾片段）：\n$excerpt" : ""}',list,
         (room.data['ended_at'] as num?)?.toInt()??room.updatedAt);
     }
     if(kind!='immersive')return null;

@@ -56,7 +56,7 @@ void main() {
           final options=(e.value as Map)['criteria'];
           final keys=(options as Map).keys.cast<String>().toList();
           final selected=switch(e.key){'tool_route'=>'room','tool_room_target'=>'r0',_=>keys.first};
-          answers[e.key as String]={'type':'choice','choice':selected,'probabilities':{for(final k in keys)k:k==selected?1.0:0.0}};
+          answers[e.key as String]={'type':'choice','choice':selected,'confidence':1.0,'probabilities':{for(final k in keys)k:k==selected?1.0:0.0}};
         }
         return http.Response(jsonEncode({'answers':answers}),200);
       }));
@@ -104,6 +104,15 @@ void main() {
     final next=await DreamMaterial.collect(db,{'cursor':first.cursor},now,weekly:false);
     expect(next.sources.where((s)=>s.fresh).map((s)=>s.id),contains('chat:a'));
     final source=await ConversationSourceStore.captureMessage(sql,'a');expect(source!.observedAt.millisecondsSinceEpoch,now.subtract(const Duration(hours:1)).millisecondsSinceEpoch);
+  });
+  test('requeued unchanged representative evidence is not counted as a new dream vote',()async{
+    final now=DateTime.now();await message('known',now.subtract(const Duration(hours:1)));
+    final first=await DreamMaterial.collect(db,{},now,weekly:false);
+    final source=first.sources.single;final sql=await db.database;
+    await sql.update('messages',{'source_ingest_seq':(first.cursor['chat_seq'] as int)+1},where:'id = ?',whereArgs:['known']);
+    final next=await DreamMaterial.collect(db,{'cursor':first.cursor,'insights':[{'evidence':[{'id':source.id,'fingerprint':source.fingerprint}]}]},now,weekly:false);
+    expect(next.sources.where((s)=>s.fresh),isEmpty);
+    expect(next.cursor['chat_seq'],greaterThan(first.cursor['chat_seq'] as int));
   });
   test('message quota feedback and ordinary thought action commit together',()async{
     final sql=await db.database;final now=DateTime.now();
