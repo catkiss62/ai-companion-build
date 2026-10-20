@@ -186,7 +186,8 @@ class CaicaiChatMotion {
       if (ours && lease != _observedLease) {
         _observedLease = lease; _lastHead = -1; _spokenEmotion = _baseEmotion;
       }
-      if (ours && state['phase'] == 'playing') _audioSeen = true;
+      if (ours && state['phase'] == 'playing' &&
+          state['spoken_fingerprint'] == _fingerprint) _audioSeen = true;
       final head = (state['playhead'] as num?)?.toInt() ?? -1;
       if (head != _lastHead) { _lastHead = head; _lastAdvance = _clock.elapsedMilliseconds; }
       final playing = ours && state['phase'] == 'playing' && state['playing'] == true &&

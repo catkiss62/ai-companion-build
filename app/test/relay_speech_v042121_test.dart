@@ -30,13 +30,12 @@ void main() {
     test('real client enables bounded completion only for $kind', () async {
       final transport = _OpenClient();
       final usage = <DeepSeekUsageEvent>[];
-      final client = DeepSeekClient(streamClientFactory: () => transport,
+      final client = DeepSeekClient(streamClientFactory: () => transport, relayTailGrace: grace,
         onUsage: (event) async { usage.add(event); });
       final result = client.streamChat(apiKey: 'test', model: DeepSeekModelProfile.flash,
         effort: ReasoningEffort.low, messages: const [{'role': 'user', 'content': '测试'}],
         requestProvider: kind == 'deepseek' ? ChatApiProvider.deepSeek : ChatApiProvider.aiWangYouGemini,
-        usageLane: kind == 'relay-internal' ? 'agent_tool_planning' : 'final_reply',
-        relayTailGrace: grace).toList();
+        usageLane: kind == 'relay-internal' ? 'agent_tool_planning' : 'final_reply').toList();
       transport.add(event(content: '完整正文', finish: 'stop'));
       transport.add('data: {"choices":[],"usage":{"prompt_tokens":21,"completion_tokens":3}}');
       await Future<void>.delayed(const Duration(milliseconds: 40));

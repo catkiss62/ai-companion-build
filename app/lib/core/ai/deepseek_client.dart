@@ -143,6 +143,7 @@ class DeepSeekClient {
     http.Client Function()? jsonClientFactory,
     Future<bool> Function()? abortWhen,
     Future<void> Function(DeepSeekUsageEvent event)? onUsage,
+    this.relayTailGrace = const Duration(seconds: 2),
   })  : _client = client ?? http.Client(),
         _streamClientFactory = streamClientFactory ?? http.Client.new,
         _jsonClientFactory = jsonClientFactory ?? http.Client.new,
@@ -152,6 +153,7 @@ class DeepSeekClient {
   static const String defaultEndpoint = 'https://api.deepseek.com/chat/completions';
 
   final http.Client _client;
+  final Duration relayTailGrace;
   final http.Client Function() _streamClientFactory;
   final http.Client Function() _jsonClientFactory;
   final Future<bool> Function()? _abortWhen;
@@ -174,7 +176,6 @@ class DeepSeekClient {
     Duration requestTimeout = const Duration(seconds: 120),
     String usageLane = 'unclassified',
     String usageExecutionId = '',
-    Duration relayTailGrace = const Duration(seconds: 2),
   }) async* {
     final provider = requestProvider ?? ChatApiProvider.fromEndpoint(endpoint);
     // Historical validator token: provider.effectiveModel(model)

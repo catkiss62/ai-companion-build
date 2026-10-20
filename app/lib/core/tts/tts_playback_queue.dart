@@ -461,12 +461,12 @@ class TtsPlaybackQueue {
           final offset = session.presentationOffsets.remove(index);
           if (activeService is TtsPresentationQueueService && offset != null &&
               session.presentationFingerprint.isNotEmpty) {
-            await activeService.enqueuePresented(audio,
+            await (activeService as TtsPresentationQueueService).enqueuePresented(audio,
               speedMultiplier: voice == TtsVoiceMode.gentle ? 1.2 : 1.0,
               textStart: offset, textLength: SpokenTextIndex.normalize(text).length,
               fingerprint: session.presentationFingerprint, language: session.language.key);
           } else {
-            await activeService.enqueuePlayback(audio,
+            await session.service.enqueuePlayback(audio,
               speedMultiplier: voice == TtsVoiceMode.gentle ? 1.2 : 1.0);
           }
           if (!session.audiblePlaybackStarted) {
