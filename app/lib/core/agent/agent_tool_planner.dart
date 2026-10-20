@@ -300,7 +300,18 @@ class AgentToolPlanner {
     final explicit = local?.calls.any((c)=>c.reasonTag == 'explicit_system_command' ||
         c.toolId == 'screen_observation.inspect') ?? false;
     if (explicit) return local;
-    if (!semantic.available) return semantic.directPlan ?? local;
+    if (!semantic.available) {
+      final fallback = semantic.directPlan ?? local;
+      // A failed classifier supplies no evidence that a date/reference means
+      // "latest". Discover real targets before allowing the normal planner to read.
+      if (fallback != null && fallback.calls.every((c)=>c.toolId == 'room_history.read' &&
+          (c.arguments['room_id']??'').isEmpty && (c.arguments['handle']??'').isEmpty)) {
+        return AgentToolPlan(calls:[for(final c in fallback.calls) AgentToolCall(
+          toolId:'room_history.search',arguments:{'kind':c.arguments['kind']??'all',
+            if((c.arguments['query']??'').isNotEmpty)'query':c.arguments['query']!},reasonTag:'room_history_discovery')]);
+      }
+      return fallback;
+    }
     if (semantic.directPlan != null) return semantic.directPlan;
     // Keep existing explicit write gates. A valid semantic no/ambiguous read
     // must not be overwritten by an old lexical "latest room" shortcut.

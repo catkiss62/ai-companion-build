@@ -128,6 +128,7 @@ void main() {
     expect(plan.calls.single.toolId,'room_history.search');
     final no=q.interpret({'tool_route':'none','tool_room_target':'r0'});
     expect(AgentToolPlanner.routeForTurn('昨天模型对谈说了什么？',no),isNull);
+    expect(AgentToolPlanner.routeForTurn('昨天模型对谈说了什么？',const SemanticToolRoute())!.calls.single.toolId,'room_history.search');
     expect(AgentToolPlanner.nativeToolDefinitionsFor('昨天模型对谈说了什么？',
       semanticReadAuthoritative:no.available,semanticToolIds:no.toolIds),isEmpty);
     final blocked=await RoomHistoryReader(db).read({'kind':'model_dialogue','require_target':'1'});
@@ -172,7 +173,7 @@ void main() {
     expect(old.available,true);expect(old.singleRead,false);expect(old.roomId,'a');
   });
 
-  for(final scenario in ['multi','long_multi','single','no_tool','ambiguous']) {
+  for(final scenario in ['multi','long_multi','single','no_tool','ambiguous','unavailable']) {
     test('real runner preserves semantic routing and remaining reads: $scenario',()async{
       final files=await Directory.systemTemp.createTemp('semantic-runner-');
       final oldPaths=PathProviderPlatform.instance;PathProviderPlatform.instance=_Paths(files.path);
@@ -184,7 +185,8 @@ void main() {
       final token=GenerationCancellationToken();var planning=0;
       final a=await room('甲讨论',DateTime.now().millisecondsSinceEpoch);
       final b=await room('乙讨论',DateTime.now().millisecondsSinceEpoch);
-      final route=scenario=='long_multi' ? const SemanticToolRoute(kind:'mixed',available:true,multiStep:true)
+      final route=scenario=='unavailable' ? const SemanticToolRoute()
+        : scenario=='long_multi' ? const SemanticToolRoute(kind:'mixed',available:true,multiStep:true)
         : scenario=='no_tool' ? const SemanticToolRoute(available:true)
         : scenario=='ambiguous' ? const SemanticToolRoute(kind:'room',available:true,targetUncertain:true,singleRead:true)
         : SemanticToolRoute(kind:'room',available:true,roomId:a.id,roomKind:'model_dialogue',singleRead:scenario=='single');
@@ -206,7 +208,7 @@ void main() {
               'function':{'name':'room_history_read','arguments':jsonEncode({'kind':'model_dialogue','room_id':b.id,'view':'summary'})}}]},finish:'tool_calls');
             expect(jsonEncode(body['messages']),contains('甲讨论 的已保存原文'));
             expect(jsonEncode(body['messages']),contains('乙讨论 的已保存原文'));
-          } else if(scenario=='ambiguous') {
+          } else if(scenario=='ambiguous'||scenario=='unavailable') {
             expect(jsonEncode(body['messages']),contains('房间记录目录'));
           } else {fail('$scenario must not open a planner');}
         }
@@ -224,11 +226,11 @@ void main() {
         final result=await DurableGenerationRunner(db:db,client:client,secureConfig:secure).run(job,cancellationToken:token)
           .timeout(const Duration(seconds:20));
         expect(result.status,'completed',reason:result.error?.toString());
-        expect(planning,scenario=='long_multi'?5:scenario=='multi'?2:scenario=='ambiguous'?1:0);
+        expect(planning,scenario=='long_multi'?5:scenario=='multi'?2:scenario=='ambiguous'||scenario=='unavailable'?1:0);
         final records=await db.recentAgentToolOutcomeRecords(limit:20);
         final reads=records.where((r)=>r.toolId=='room_history.read').toList();
         expect(reads,hasLength(scenario=='multi'||scenario=='long_multi'?2:scenario=='single'?1:0));
-        if(scenario=='ambiguous')expect(records.any((r)=>r.toolId=='room_history.search'),true);
+        if(scenario=='ambiguous'||scenario=='unavailable')expect(records.any((r)=>r.toolId=='room_history.search'),true);
         expect(await db.messageById('reply'),isNotNull);
       } finally {
         token.cancel();client.close();await db.releaseLocalLease('chat_turn_lease');

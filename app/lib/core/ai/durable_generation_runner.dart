@@ -494,7 +494,7 @@ class DurableGenerationRunner {
           userMessageId: user.id,
           assistantMessageId: job.assistantMessageId,
           latestUserText: user.content,
-          requireExplicitRoomTarget: nsfwRoute.toolRoute.available,
+          requireExplicitRoomTarget: true,
           deferredToolIds: deferredToolIds,
           deepThinking: job.deepThinking,
         );
@@ -1537,7 +1537,7 @@ $finalGenerationReminder
           userMessageId: user.id,
           assistantMessageId: job.assistantMessageId,
           latestUserText: user.content,
-          requireExplicitRoomTarget: nsfwRoute.toolRoute.available,
+          requireExplicitRoomTarget: true,
           deferredToolIds: deferredToolIds,
           deepThinking: job.deepThinking,
           callIndexOffset: agentToolCalls,

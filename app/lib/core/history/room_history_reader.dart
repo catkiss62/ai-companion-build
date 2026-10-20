@@ -159,7 +159,7 @@ class RoomHistoryReader {
     if(rooms==null||rooms.isEmpty)return _empty('room_history.search','没有找到匹配的房间');
     return AgentToolResult(toolId:'room_history.search',status:AgentToolStatus.succeeded,
       displayText:'找到 ${rooms.length} 场房间记录',resultCount:rooms.length,
-      promptData:'【房间记录目录，只读】\n$contract\n'+rooms.map((r)=>jsonEncode({
+      promptData:'【房间记录目录，只读】\n当前本地时间：${ModelDialogueTime.format(DateTime.now().millisecondsSinceEpoch)}。\n$contract\n'+rooms.map((r)=>jsonEncode({
         'handle':_handle(r,fence),'kind':r.kind,'title':clip(r.title,120),'ended_at':r.endedAt,
         'first_message_at':r.firstMessageAt,'last_message_at':r.lastMessageAt,
         'actual_message_time':'${ModelDialogueTime.format(r.firstMessageAt)} 至 ${ModelDialogueTime.format(r.lastMessageAt)}',
