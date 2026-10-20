@@ -10,6 +10,18 @@ import 'package:ai_companion_localfirst/core/models/chat_language_variant.dart';
 import 'package:ai_companion_localfirst/core/tts/genie_fixed_text_segmenter.dart';
 import 'package:ai_companion_localfirst/core/tts/tts_voice_profile.dart';
 import 'package:ai_companion_localfirst/core/tts/tts_text_processor.dart';
+import 'package:ai_companion_localfirst/core/tts/spoken_text_index.dart';
+
+class _PresentedQueueService extends _FakeQueueService implements TtsPresentationQueueService {
+  final metadata = <Map<String, Object>>[];
+  @override
+  Future<void> enqueuePresented(Uint8List wavBytes, {required double speedMultiplier,
+    required int textStart, required int textLength, required String fingerprint,
+    required String language}) async {
+    metadata.add({'start': textStart, 'length': textLength, 'fingerprint': fingerprint, 'language': language});
+    await enqueuePlayback(wavBytes, speedMultiplier: speedMultiplier);
+  }
+}
 
 class _FakeQueueService implements TtsQueueService {
   final prepared = <String>[];
@@ -124,6 +136,22 @@ class _FakeQueueService implements TtsQueueService {
 Future<void> _turn() => Future<void>.delayed(Duration.zero);
 
 void main() {
+  test('presentation offsets retain failed speech and use actual prepared text', () async {
+    final fake = _PresentedQueueService()
+      ..failFirstGeneration = true
+      ..preparedUnitsOverride = const [
+        TtsPreparedUnit(text: '失败段。', role: TtsSpeechRole.dialogue),
+        TtsPreparedUnit(text: '成功段。', role: TtsSpeechRole.dialogue),
+      ];
+    final queue = TtsPlaybackQueue(service: fake);
+    await queue.playText('替换之前的原始文字');
+    await queue.waitUntilIdle();
+    expect(fake.metadata, hasLength(1));
+    expect(fake.metadata.single['start'], 3);
+    expect(fake.metadata.single['length'], 3);
+    expect(fake.metadata.single['fingerprint'], SpokenTextIndex.fingerprint('失败段。成功段。'));
+    expect(fake.playbackBeginCount, 1); expect(fake.playbackFinishCount, 1);
+  });
   test('A2 generates later sentences while the first sentence is playing', () async {
     final fake = _FakeQueueService()..firstPlaybackGate = Completer<void>();
     final queue = TtsPlaybackQueue(

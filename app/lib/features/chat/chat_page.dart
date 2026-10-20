@@ -131,6 +131,7 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
       ProactiveFrequencyPolicy.defaultMode;
   TtsReadingScope _ttsReadingScope = TtsReadingScope.dialogueOnly;
   final Set<String> _knownMessageIds = <String>{};
+  String? _caicaiPresentationKey;
   String? _animatedMessageId;
   bool _initializingMessages = true;
   String _lastPresentedAssistantId = '';
@@ -196,6 +197,12 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
       }
     }
     _knownMessageIds.addAll(controller.messages.map((message) => message.id));
+    for (final message in controller.messages.reversed) {
+      if (message.isAssistant) {
+        _caicaiPresentationKey = '${message.id}:${message.sourceRevision}:${message.content.hashCode}';
+        break;
+      }
+    }
     if (_typewriterEnabled && unseenAssistant != null) {
       // A non-empty cursor proves this answer was committed after the last
       // completed App presentation. Resume it once, including ordinary turns
@@ -289,11 +296,21 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
       }
     }
     if (discoveredUser) unawaited(_caicaiMotion.stop());
-    if (discoveredAssistant && _caicaiEnabled && _visualStageEnabled && widget.active) {
+    _caicaiMotion.playbackChanged(ownerId: controller.ttsState.ownerId,
+      running: controller.ttsState.running);
+    if (!_caicaiEnabled || !_visualStageEnabled || !widget.active || !_appResumed) {
+      unawaited(_caicaiMotion.stop());
+    } else if (!discoveredUser && controller.messages.any((m) => m.isAssistant)) {
       final reply = controller.messages.where((m) => m.isAssistant).last;
       final users = controller.messages.where((m) => m.isUser);
-      unawaited(_caicaiMotion.present(id: reply.id, user: users.isEmpty ? '' : users.last.content,
-        reply: reply.content, emotion: _currentEmotion.key));
+      final key = '${reply.id}:${reply.sourceRevision}:${reply.content.hashCode}';
+      if (discoveredAssistant || key != _caicaiPresentationKey) {
+        _caicaiPresentationKey = key;
+        unawaited(_caicaiMotion.present(id: reply.id, user: users.isEmpty ? '' : users.last.content,
+          reply: reply.content, emotion: _currentEmotion.key, revision: reply.sourceRevision));
+      } else if (controller.ttsState.running && controller.ttsState.ownerId == reply.id) {
+        unawaited(_caicaiMotion.resume(id: reply.id, reply: reply.content, revision: reply.sourceRevision));
+      }
     }
     setState(() {});
     if (discoveredUser || generationEnded) unawaited(_refreshPlayfulForm());

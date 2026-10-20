@@ -569,6 +569,12 @@ final class SenRenderer implements GLSurfaceView.Renderer {
         catch (org.json.JSONException error) { listener.onStatus("动作计划格式错误：" + error.getMessage()); }
     }
     void stopConversationPlan() { if(model!=null) model.stopConversationPlan(); }
+    void speechPerformance(String key, String emotion, String frames) {
+        if (model == null) return;
+        try { model.speechPerformance(key, emotion, frames); }
+        catch (JSONException ignored) { model.releaseSpeechPerformance(); }
+    }
+    void releaseSpeechPerformance() { if(model!=null) model.releaseSpeechPerformance(); }
     void clearParameterPlan() { if (model != null) model.clearParameterPlan(); }
 
     // END AI_COMPANION_HOST_EXTENSION

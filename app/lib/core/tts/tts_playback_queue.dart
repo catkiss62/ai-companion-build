@@ -11,6 +11,7 @@ import 'tts_queued_segment_packer.dart';
 import '../models/chat_language_variant.dart';
 import 'tts_acoustic_segmenter.dart';
 import 'tts_text_processor.dart';
+import 'spoken_text_index.dart';
 import 'tts_voice_profile.dart';
 
 enum TtsPlaybackPhase { idle, synthesizing, playing }
@@ -208,6 +209,7 @@ class TtsPlaybackQueue {
       return;
     }
 
+    session.presentationFingerprint = SpokenTextIndex.fingerprint(prepared.map((u) => u.text).join());
     for (final unit in prepared) {
       final chunks = segment
           ? GenieFixedTextSegmenter.splitFirstImmediate(unit.text, language)
@@ -455,10 +457,18 @@ class TtsPlaybackQueue {
           _current = text;
           _notify();
           final voice = session.voiceByIndex.remove(index) ?? session.voice;
-          await session.service.enqueuePlayback(
-            audio,
-            speedMultiplier: voice == TtsVoiceMode.gentle ? 1.2 : 1.0,
-          );
+          final activeService = session.service;
+          final offset = session.presentationOffsets.remove(index);
+          if (activeService is TtsPresentationQueueService && offset != null &&
+              session.presentationFingerprint.isNotEmpty) {
+            await activeService.enqueuePresented(audio,
+              speedMultiplier: voice == TtsVoiceMode.gentle ? 1.2 : 1.0,
+              textStart: offset, textLength: SpokenTextIndex.normalize(text).length,
+              fingerprint: session.presentationFingerprint, language: session.language.key);
+          } else {
+            await activeService.enqueuePlayback(audio,
+              speedMultiplier: voice == TtsVoiceMode.gentle ? 1.2 : 1.0);
+          }
           if (!session.audiblePlaybackStarted) {
             session.audiblePlaybackStarted = true;
             _notify();
@@ -543,6 +553,9 @@ class _A2Session {
   final Map<int, Uint8List?> ready = <int, Uint8List?>{};
   final Map<int, String> textByIndex = <int, String>{};
   final Map<int, TtsVoiceMode> voiceByIndex = <int, TtsVoiceMode>{};
+  final Map<int, int> presentationOffsets = <int, int>{};
+  String presentationFingerprint = '';
+  int presentationCharacters = 0;
 
   final List<_RawUnit> rawPending = <_RawUnit>[];
   bool rawWorkerActive = false;
@@ -572,6 +585,10 @@ class _A2Session {
   int reserve(String text, {TtsVoiceMode? voice}) {
     final index = total++;
     textByIndex[index] = text;
+    if (presentationFingerprint.isNotEmpty) {
+      presentationOffsets[index] = presentationCharacters;
+      presentationCharacters += SpokenTextIndex.normalize(text).length;
+    }
     if (voice != null) voiceByIndex[index] = voice;
     return index;
   }

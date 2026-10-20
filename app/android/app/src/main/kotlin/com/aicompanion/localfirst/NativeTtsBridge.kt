@@ -43,7 +43,7 @@ class NativeTtsBridge(
             try {
             when (call.method) {
                 "claimPlayback" -> result.success(engine.claimPlayback(hostId, call.argument<String>("message_id").orEmpty()))
-                "playbackSnapshot" -> result.success(PlaybackSessionRegistry.snapshot())
+                "playbackSnapshot" -> result.success(engine.playbackSnapshot())
                 "localStatus" -> result.success(engine.localStatus())
                 "status" -> submit(generationWorker, result, "tts_status_failed", lease) {
                     engine.status()
@@ -91,7 +91,8 @@ class NativeTtsBridge(
                         call.argument<Double>("speedMultiplier") ?: 1.0
                     val generation = lease ?: engine.generationToken()
                     submit(playbackWorker, result, "tts_playback_enqueue_failed", lease) {
-                        engine.enqueueAudio(audio, speedMultiplier, generation)
+                        engine.enqueueAudio(audio, speedMultiplier, generation,
+                            call.argument<Map<String, Any>>("presentation"))
                     }
                 }
                 "finishAudioStream" -> {

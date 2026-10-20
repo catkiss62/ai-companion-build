@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'generation_cancellation.dart';
+import 'speech_performance_plan.dart';
 import 'jev_decision_gateway.dart';
 import '../emotion/emotion_contract.dart';
 import '../../widgets/caicai_live2d_stage.dart';
@@ -61,6 +62,7 @@ class CaicaiMotionPlanner {
 
   Future<Map<String, Object?>?> plan({required String user, required String reply,
       required String emotion, required Map<String, dynamic> parameters,
+      String spokenText = '',
       GenerationCancellationToken? cancellationToken}) async {
     if (parameters.isEmpty) return null;
     final questions = <String, JevChoiceQuestion>{};
@@ -122,13 +124,30 @@ class CaicaiMotionPlanner {
       '选择对话结束后持续显示的聊天情绪。以实际回复语气为准；没有明显情绪选正常，不要为了变化而强选。',
       {'normal': '正常', for (final x in EmotionCatalog.labelsByKey.entries) x.key: x.value},
     );
+    final speech = SpeechPerformancePlan.candidates(spokenText);
+    for (var i = 0; i < speech.length; i++) {
+      questions['speech${i}_emotion'] = JevChoiceQuestion(
+        '实际朗读的第${i + 1}段：${speech[i].text}。选择该段的临时表演情绪；'
+        '允许延续，同一情绪不必切回正常。不要为变化而强选；与原先四拍是不同播放阶段。',
+        {'keep': '延续本轮已有情绪', 'normal': '自然平静', for (final e in EmotionCatalog.labelsByKey.entries) e.key: e.value},
+        optional: true);
+      questions['speech${i}_delivery'] = JevChoiceQuestion(
+        '实际朗读的第${i + 1}段：${speech[i].text}。选择适合本段的小幅表达动作，'
+        '无独立强调可以自然说话；无需每段都做动作。回程由本地处理，不用再安排回落段。',
+        SpeechPerformancePlan.deliveries, optional: true);
+    }
     final answers = await gateway.chooseMany(state: {
       'user': user, 'reply': reply, 'emotion': emotion,
       'parameter_contract': parameters,
+      if (speech.isNotEmpty) 'speech_stage': {
+        'spokenText': spokenText,
+        'note': 'Extra speech-stage cues begin at real audio playback, AFTER the existing immediate four beats. Do not change the original four-beat performance to fill speech duration.',
+      },
       'schedule': '4 beats; tempo chooses interval 0.82/0.95/1.10s; choose visible semantic pose changes on multiple beats; intensity scales head/body/root only; each beat can have its own emphasis and root action; root x is fraction of model width and tilt is screen rotation degrees about lower legs; Cubism head values are parameter units, NOT physical angles; authored presets above motion; mouth opening belongs to audio',
     }, questions: questions, usageLane: 'caicai_speaking_motion', cancellationToken: cancellationToken);
     if (answers == null) return null;
-    return buildPlan(answers, parameters);
+    return {...buildPlan(answers, parameters),
+      'speech': SpeechPerformancePlan.decode(speech, answers, {'normal', ...EmotionCatalog.labelsByKey.keys})};
   }
 
   static Map<String, Object?> buildPlan(Map<String, String> answers, Map<String, dynamic> parameters) {

@@ -6,6 +6,27 @@ import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 
 void main() {
+  test('speech candidates share the old batch with no more than sixteen optional questions', () async {
+    var calls = 0;
+    Map? sent;
+    final gateway = JevDecisionGateway(enabledReader: () async => true,
+      keyReader: () async => 'test', clientFactory: () => MockClient((request) async {
+        calls++; sent = jsonDecode(request.body) as Map;
+        return http.Response('{}', 503);
+      }));
+    final parameters = <String, dynamic>{
+      for (final channel in CaicaiMotionPlanner.channels.values)
+        for (final targets in channel.values)
+          for (final id in targets.keys) id: {'min': -30, 'max': 30},
+    };
+    await CaicaiMotionPlanner(gateway: gateway).plan(user: '你好', reply: '长正文', emotion: 'normal',
+      spokenText: List.filled(30, '这是一段需要覆盖后半段的较长语音。').join(), parameters: parameters);
+    final questions = sent!['questions'] as Map;
+    expect(calls, 1); expect(questions.length, lessThanOrEqualTo(55));
+    expect(questions.keys.where((k) => k.toString().startsWith('speech')), hasLength(16));
+    expect(questions, containsPair('f0_head', anything));
+    expect(questions, containsPair('f3_root', anything));
+  });
   test('native limits clamp motion and unsupported channels never enter plan', () {
     final plan = CaicaiMotionPlanner.buildPlan({
       'f0_head': '左侧头', 'f0_mouth': '撅嘴', 'f1_head': '自然待机',

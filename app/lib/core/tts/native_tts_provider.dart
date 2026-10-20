@@ -141,6 +141,14 @@ class NativeTtsProvider implements TtsProvider {
   Future<void> finishAudioStream() =>
       _invoke<void>('finishAudioStream');
 
+  Future<void> enqueuePresentedAudio(Uint8List wavBytes, {required double speedMultiplier,
+    required int textStart, required int textLength, required String fingerprint,
+    required String language}) => _invoke<void>('enqueueAudio', {
+      'audioData': wavBytes, 'speedMultiplier': speedMultiplier,
+      'presentation': {'textStart': textStart, 'textLength': textLength,
+        'fingerprint': fingerprint, 'language': language},
+    });
+
   @override
   Future<void> stop() => _invoke<void>('stop');
 

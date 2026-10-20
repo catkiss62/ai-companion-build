@@ -12,7 +12,7 @@ import 'tts_queue_service.dart';
 import 'tts_text_processor.dart';
 import 'tts_voice_profile.dart';
 
-class TtsService implements TtsQueueService, TtsSessionFactory, TtsPlaybackLeaseOwner {
+class TtsService implements TtsQueueService, TtsSessionFactory, TtsPlaybackLeaseOwner, TtsPresentationQueueService {
   TtsService({
     AppDatabase? db,
     TtsProvider? provider,
@@ -311,6 +311,19 @@ class TtsService implements TtsQueueService, TtsSessionFactory, TtsPlaybackLease
 
   @override
   Future<void> finishPlayback() => provider.finishAudioStream();
+
+  @override
+  Future<void> enqueuePresented(Uint8List wavBytes, {required double speedMultiplier,
+    required int textStart, required int textLength, required String fingerprint,
+    required String language}) async {
+    final native = provider;
+    if (native is NativeTtsProvider) {
+      await native.enqueuePresentedAudio(wavBytes, speedMultiplier: speedMultiplier,
+        textStart: textStart, textLength: textLength, fingerprint: fingerprint, language: language);
+    } else {
+      await enqueuePlayback(wavBytes, speedMultiplier: speedMultiplier);
+    }
+  }
 
   /// One-shot convenience used by proactive speech. It deliberately routes
   /// through the same A2 scheduler as chat, never through the old serial path.

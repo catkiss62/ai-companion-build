@@ -3,6 +3,13 @@ import 'dart:typed_data';
 import 'tts_provider.dart';
 import '../models/chat_language_variant.dart';
 import 'tts_voice_profile.dart';
+
+/// Optional display metadata; it never changes PCM or scheduling.
+abstract interface class TtsPresentationQueueService {
+  Future<void> enqueuePresented(Uint8List wavBytes, {required double speedMultiplier,
+    required int textStart, required int textLength, required String fingerprint,
+    required String language});
+}
 import 'tts_text_processor.dart';
 
 /// Narrow interface used by the A2 speech scheduler so queue/cancel behavior

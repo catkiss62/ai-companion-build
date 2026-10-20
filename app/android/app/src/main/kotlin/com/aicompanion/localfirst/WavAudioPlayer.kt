@@ -21,6 +21,7 @@ class WavAudioPlayer {
             val bytes: ByteArray,
             val wav: WavInfo,
             val speed: Float,
+            val presentation: Map<*, *>? = null,
         ) : Command
         data object Finish : Command
         data object Cancel : Command
@@ -62,12 +63,13 @@ class WavAudioPlayer {
         next.start()
     }
 
-    fun enqueueStream(wavBytes: ByteArray, segmentSpeed: Float = speed, owner: Long? = null): Boolean {
+    fun enqueueStream(wavBytes: ByteArray, segmentSpeed: Float = speed, owner: Long? = null,
+        presentation: Map<*, *>? = null): Boolean {
         val wav = parseWav(wavBytes)
         val current = synchronized(lock) { stream }
             ?: return false
         if (owner != null && current.owner != owner) return false
-        current.enqueue(wavBytes, wav, segmentSpeed.coerceIn(0.5f, 2f))
+        current.enqueue(wavBytes, wav, segmentSpeed.coerceIn(0.5f, 2f), presentation)
         return true
     }
 
@@ -91,6 +93,9 @@ class WavAudioPlayer {
     }
 
     fun pause() = stream?.pause()
+
+    fun presentationSnapshot(): Map<String, Any> = synchronized(lock) { stream }?.presentationSnapshot()
+        ?: emptyMap()
 
     fun resume() = stream?.resume()
 
@@ -126,6 +131,7 @@ class WavAudioPlayer {
         @Volatile private var currentSpeed = initialSpeed
         @Volatile private var currentPitch = initialPitch
         private var firstEnqueued = false
+        private val presentation = SpeechPlaybackTimeline()
         private val lipSync = CaicaiPcmLipSync { owner == null || PlaybackSessionRegistry.validForTail(owner) }
 
         fun start() = thread.start()
@@ -146,12 +152,12 @@ class WavAudioPlayer {
             track?.let(::applyPlaybackParams)
         }
 
-        fun enqueue(bytes: ByteArray, wav: WavInfo, speed: Float) {
+        fun enqueue(bytes: ByteArray, wav: WavInfo, speed: Float, metadata: Map<*, *>? = null) {
             check(!cancelled) { "TTS audio stream has stopped" }
             val isFirst = synchronized(this) {
                 (!firstEnqueued).also { firstEnqueued = true }
             }
-            queue.put(Command.Audio(bytes, wav, speed))
+            queue.put(Command.Audio(bytes, wav, speed, metadata))
             if (isFirst) {
                 started.await()
                 failure?.let { throw it }
@@ -164,6 +170,18 @@ class WavAudioPlayer {
             completed.await()
             failure?.let { throw it }
             return playbackStarted && !cancelled
+        }
+
+        fun presentationSnapshot(): Map<String, Any> {
+            val activeTrack = track ?: return emptyMap()
+            return runCatching {
+                val head = playbackHeadFrames(activeTrack)
+                mapOf<String, Any>("playback_lease" to (owner ?: -1L),
+                    "playhead" to head,
+                    "playing" to (playbackStarted && !cancelled &&
+                        activeTrack.playState == AudioTrack.PLAYSTATE_PLAYING),
+                    "audible" to (currentVolume > 0)) + presentation.sample(head)
+            }.getOrDefault(emptyMap())
         }
 
         fun cancel() {
@@ -229,6 +247,8 @@ class WavAudioPlayer {
                             }
                             lipSync.append(command.bytes, wav.dataOffset, wav.dataSize,
                                 wav.sampleRate, wav.channels, wav.bitsPerSample, wav.audioFormat, framesWritten)
+                            presentation.append(framesWritten,
+                                (wav.dataSize / wav.bytesPerFrame).toLong(), command.presentation)
                             val bytesPerFrame = wav.bytesPerFrame
                             var offset = wav.dataOffset
                             if (!playbackStarted) {

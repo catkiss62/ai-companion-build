@@ -241,13 +241,28 @@ class NativeTtsEngine private constructor(context: Context) {
         wav: ByteArray,
         speedMultiplier: Double = 1.0,
         generation: Long = generationToken(),
+        presentation: Map<*, *>? = null,
     ): Boolean {
         if (wav.isEmpty() || generation != generationToken()) return false
         return player.enqueueStream(
             wav,
             (speed * speedMultiplier).coerceIn(0.5, 2.0).toFloat(),
             owner = generation,
+            presentation = presentation,
         )
+    }
+
+    fun playbackSnapshot(): Map<String, Any> {
+        val identity = PlaybackSessionRegistry.snapshot()
+        val progress = player.presentationSnapshot()
+        val current = PlaybackSessionRegistry.snapshot()
+        if (identity["version"] != current["version"] ||
+            progress["playback_lease"] != current["lease"]) return current
+        val media = appContext.getSystemService(android.media.AudioManager::class.java)
+        val audible = progress["audible"] == true &&
+            media.getStreamVolume(android.media.AudioManager.STREAM_MUSIC) > 0 &&
+            !media.isStreamMute(android.media.AudioManager.STREAM_MUSIC)
+        return current + progress + mapOf("audible" to audible)
     }
 
     fun finishAudioStream(generation: Long = generationToken()): Boolean {

@@ -47,7 +47,8 @@ internal class CaicaiPlatformView(
     }
     private val companion = CaicaiCompanionView(context)
     private val channel = MethodChannel(messenger, "ai_companion/caicai_live2d/view/$viewId")
-    private var motionEpoch = 0L
+    @Volatile private var motionEpoch = 0L
+    @Volatile private var speechLease = -1L
     private val executionId = "caicai-$viewId-${android.os.SystemClock.uptimeMillis()}"
     private var disposed = false
     @Volatile private var renderStatus = "created"
@@ -145,6 +146,29 @@ internal class CaicaiPlatformView(
             result.success(false); return
         }
         when (call.method) {
+            "speechCue" -> {
+                val args = call.arguments as? Map<*, *> ?: return result.success(false)
+                val lease = (args["lease"] as? Number)?.toLong() ?: return result.success(false)
+                if (scoped == null || !hostActive || !stageVisible ||
+                    !com.aicompanion.localfirst.PlaybackSessionRegistry.current(lease)) return result.success(false)
+                speechLease = lease
+                val epoch = motionEpoch
+                val frames = org.json.JSONArray(args["frames"] as? List<*> ?: emptyList<Any>()).toString()
+                companion.speechPerformance(args["cue"]?.toString().orEmpty(),
+                    args["emotion"]?.toString() ?: "normal", frames) {
+                    !disposed && motionEpoch == epoch && speechLease == lease &&
+                        com.aicompanion.localfirst.PlaybackSessionRegistry.current(lease)
+                }
+                result.success(true)
+            }
+            "stopSpeechMotion" -> {
+                val args = call.arguments as? Map<*, *> ?: return result.success(false)
+                val lease = (args["lease"] as? Number)?.toLong() ?: return result.success(false)
+                if (scoped == null || speechLease != lease) return result.success(false)
+                val epoch = motionEpoch
+                companion.releaseSpeechPerformance { !disposed && motionEpoch == epoch && speechLease == lease }
+                result.success(true)
+            }
             "claimMotion" -> {
                 motionEpoch++; companion.stopConversationPlan()
                 result.success(mapOf("execution_id" to executionId, "epoch" to motionEpoch))

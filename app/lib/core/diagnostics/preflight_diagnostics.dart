@@ -660,6 +660,7 @@ class PreflightDiagnosticsService {
         'lastTakeoverAt': lastTakeoverAt,
         'postTurnJobs': jobs,
         'generationRequest': await _generationRequestState(),
+        'proactiveRequest': await _generationRequestState(setting: 'proactive_request_timing_v1'),
         'webPromptReadTiming': await _webPromptReadTiming(),
         'backupRestoreTiming': {
           for (final entry in _safeJsonObject(await db.getSetting('backup_restore_timing_v1') ?? '').entries)
@@ -2063,15 +2064,16 @@ class PreflightDiagnosticsService {
     };
   }
 
-  Future<Map<String, Object?>> _generationRequestState() async {
+  Future<Map<String, Object?>> _generationRequestState({String setting = 'generation_request_state_v1'}) async {
     try {
-      final value = jsonDecode(await db.getSetting('generation_request_state_v1') ?? '{}');
+      final value = jsonDecode(await db.getSetting(setting) ?? '{}');
       if (value is! Map) return const {};
       return {
-        for (final key in ['lane', 'provider', 'phase', 'errorType'])
+        for (final key in ['lane', 'provider', 'phase', 'errorType', 'streamEndReason'])
           key: value[key]?.toString().substring(0,
               min(96, value[key]?.toString().length ?? 0)) ?? '',
-        for (final key in ['startedAt', 'updatedAt', 'firstProgressMs', 'firstContentMs', 'elapsedMs'])
+        for (final key in ['startedAt', 'updatedAt', 'firstProgressMs', 'firstContentMs', 'elapsedMs',
+          'terminalSignalMs', 'streamEndedMs', 'tailWaitMs', 'postStreamMs'])
           key: value[key] is num ? value[key] : 0,
         'contentIncluded': false,
       };

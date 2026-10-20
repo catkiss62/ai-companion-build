@@ -295,6 +295,7 @@ class DurableGenerationRunner {
 
     var lastCheckpoint = DateTime.now();
     var charsAtCheckpoint = 0;
+    Future<void> Function()? recordCommitTiming;
     var lastFenceCheck = DateTime.fromMillisecondsSinceEpoch(0);
     var generationSpecialStyleTrialId = '';
     var generationSpecialStyleKey = '';
@@ -757,6 +758,10 @@ class DurableGenerationRunner {
         charsAtCheckpoint = 0;
         lastCheckpoint = DateTime.now();
         final requestStartedAt = DateTime.now().millisecondsSinceEpoch;
+        final requestClock = Stopwatch()..start();
+        int? terminalSignalMs;
+        int? streamEndedMs;
+        var streamEndReason = 'transport_eof';
         var requestProgressSeen = false;
         int? firstProgressAt;
         int? firstContentAt;
@@ -770,6 +775,13 @@ class DurableGenerationRunner {
               'startedAt': requestStartedAt,
               if (firstProgressAt != null) 'firstProgressMs': firstProgressAt! - requestStartedAt,
               if (firstContentAt != null) 'firstContentMs': firstContentAt! - requestStartedAt,
+              if (terminalSignalMs != null) 'terminalSignalMs': terminalSignalMs,
+              if (streamEndedMs != null) 'streamEndedMs': streamEndedMs,
+              if (terminalSignalMs != null && streamEndedMs != null)
+                'tailWaitMs': streamEndedMs! - terminalSignalMs!,
+              if (phase == 'committed' && streamEndedMs != null)
+                'postStreamMs': requestClock.elapsedMilliseconds - streamEndedMs!,
+              'streamEndReason': streamEndReason,
               'elapsedMs': DateTime.now().millisecondsSinceEpoch - requestStartedAt,
               'updatedAt': DateTime.now().millisecondsSinceEpoch,
               'errorType': error?.runtimeType.toString() ?? '',
@@ -825,7 +837,9 @@ class DurableGenerationRunner {
 
             if (delta.done || delta.finishReason != null) {
               sawTerminalSignal = true;
+              terminalSignalMs ??= requestClock.elapsedMilliseconds;
             }
+            if (delta.streamEndReason.isNotEmpty) streamEndReason = delta.streamEndReason;
             if (delta.finishReason != null) finishReason = delta.finishReason!;
             if (delta.reasoning.isNotEmpty) {
               reasoning += delta.reasoning;
@@ -916,7 +930,11 @@ class DurableGenerationRunner {
               charsAtCheckpoint = chars;
             }
           }
+          streamEndedMs = requestClock.elapsedMilliseconds;
           await recordRequest('stream_ended');
+          if (usageLane != 'agent_tool_planning') {
+            recordCommitTiming = () => recordRequest('committed');
+          }
         } catch (error) {
           await recordRequest('failed', error);
           rethrow;
@@ -2117,6 +2135,7 @@ $finalGenerationReminder
         return const GenerationRunResult(status: 'suspended');
       }
       agentAttachmentsCommitted = true;
+      await recordCommitTiming?.call();
       try {
         await CedarTimedPlayTaskStore(db).activateCommitted(turnId: user.id,
           now: assistant.createdAt);

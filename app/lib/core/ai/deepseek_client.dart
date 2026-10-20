@@ -9,6 +9,7 @@ import 'chat_api_provider.dart';
 import 'generation_cancellation.dart';
 import 'model_profile.dart';
 import 'final_reply_route.dart';
+import 'relay_text_tail_guard.dart';
 
 class DeepSeekToolCallDelta {
   const DeepSeekToolCallDelta({
@@ -52,6 +53,7 @@ class DeepSeekDelta {
     this.done = false,
     this.finishReason,
     this.toolCallDeltas = const <DeepSeekToolCallDelta>[],
+    this.streamEndReason = '',
   });
 
   final String reasoning;
@@ -59,6 +61,7 @@ class DeepSeekDelta {
   final bool done;
   final String? finishReason;
   final List<DeepSeekToolCallDelta> toolCallDeltas;
+  final String streamEndReason;
 }
 
 class DeepSeekUsageEvent {
@@ -171,6 +174,7 @@ class DeepSeekClient {
     Duration requestTimeout = const Duration(seconds: 120),
     String usageLane = 'unclassified',
     String usageExecutionId = '',
+    Duration relayTailGrace = const Duration(seconds: 2),
   }) async* {
     final provider = requestProvider ?? ChatApiProvider.fromEndpoint(endpoint);
     // Historical validator token: provider.effectiveModel(model)
@@ -266,16 +270,26 @@ class DeepSeekClient {
       // A transform can cancel its upstream immediately on timeout. An inner
       // async* generator filtering endless keepalives would delay cancellation
       // until its next yield, recreating the very hang this deadline prevents.
-      final deltas = response.stream
+      var tailDeadline = false;
+      Stream<String> lines = response.stream
           .transform(utf8.decoder)
-          .transform(const LineSplitter())
+          .transform(const LineSplitter());
+      if (provider.isGeminiRelay && canonicalTools.isEmpty &&
+          const {'final_reply', 'proactive_final_reply'}.contains(usageLane)) {
+        lines = RelayTextTailGuard(grace: relayTailGrace).bind(lines, onDeadline: () {
+          tailDeadline = true;
+          streamClient.close();
+        });
+      }
+      final deltas = lines
           .asyncMap<DeepSeekDelta?>((rawLine) async {
           cancellationToken?.throwIfCancelled();
           final line = rawLine.trim();
           if (line.isEmpty || !line.startsWith('data:')) return null;
           final payload = line.substring(5).trim();
           if (payload == '[DONE]') {
-            return const DeepSeekDelta(done: true);
+            return DeepSeekDelta(done: true, streamEndReason:
+                tailDeadline ? 'relay_tail_deadline' : 'done');
           }
           final json = jsonDecode(payload) as Map<String, dynamic>;
           final usage = _usageEvent(

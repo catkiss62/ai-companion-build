@@ -408,6 +408,26 @@ final class SenLive2DModel extends CubismUserModel {
     private final CaicaiRootTiltSmoother rootTiltSmoother = new CaicaiRootTiltSmoother();
     private final CaicaiHeadPat caicaiPat = new CaicaiHeadPat();
     private final CaicaiEmotionLease caicaiEmotion = new CaicaiEmotionLease();
+    private final CaicaiParameterPlan speechParameterPlan = new CaicaiParameterPlan();
+    private String speechKey = "", speechEmotion = "";
+    private long speechDeadlineNanos;
+    void speechPerformance(String key, String emotion, String frames) throws JSONException {
+        if (caicaiPat.active() || manualPlan && System.nanoTime() < planPresetDeadlineNanos) {
+            releaseSpeechPerformance(); return;
+        }
+        if (!key.equals(speechKey)) {
+            speechKey = key;
+            if (new JSONArray(frames).length() == 0) speechParameterPlan.release();
+            else speechParameterPlan.replace(frames, caicaiTarget());
+        }
+        speechEmotion = emotion;
+        speechDeadlineNanos = System.nanoTime() + 800_000_000L;
+    }
+    void releaseSpeechPerformance() {
+        if (speechDeadlineNanos > System.nanoTime()) speechDeadlineNanos = System.nanoTime();
+        speechParameterPlan.release();
+        speechKey = "";
+    }
     private final CaicaiHeadPose headIntent = new CaicaiHeadPose();
     private boolean collectingHead;
     void presentCaicaiEmotion(String id,String emotion) {
@@ -437,7 +457,7 @@ final class SenLive2DModel extends CubismUserModel {
     void resizeRenderTarget(int width,int height) {
         if (getRenderer()!=null) getRenderer().setRenderTargetSize(width,height);
     }
-    void tuneMotion(float gain,float speed) { motionTempo=speed; rootTiltSmoother.tune(gain,speed); caicaiIdle.tune(gain,speed); parameterPlan.setGain(gain); parameterPlan.setSpeed(speed); }
+    void tuneMotion(float gain,float speed) { motionTempo=speed; rootTiltSmoother.tune(gain,speed); caicaiIdle.tune(gain,speed); parameterPlan.setGain(gain); parameterPlan.setSpeed(speed); speechParameterPlan.setGain(gain); speechParameterPlan.setSpeed(speed); }
     private void applyRootDrawTransform() {
         if(rootDrawTransform!=null) applyClipTransform(drawMvpMatrix,rootDrawTransform);
     }
@@ -477,6 +497,7 @@ final class SenLive2DModel extends CubismUserModel {
     }
 
     void playTimedPreset(String name) {
+        speechParameterPlan.clear(); speechDeadlineNanos = 0; speechEmotion = "";
         clearParameterPlan();
         if (!maidPresetValues.containsKey(name) && !isWinkPreset(name)) return;
         startMaidPreset(name);
@@ -485,7 +506,7 @@ final class SenLive2DModel extends CubismUserModel {
         planPresetDeadlineNanos = System.nanoTime() + 4_120_000_000L;
     }
 
-    void stopConversationPlan() { if(!manualPlan) clearParameterPlan(); }
+    void stopConversationPlan() { releaseSpeechPerformance(); if(!manualPlan) clearParameterPlan(); }
     void clearParameterPlan() {
         parameterPlan.clear();
         rootX=0; rootTilt=0;
@@ -525,7 +546,13 @@ final class SenLive2DModel extends CubismUserModel {
     private void applyCaicaiIdle(float delta) {
         headIntent.begin(); collectingHead=delta>0;
         caicaiIdle.update(delta, caicaiTarget());
-        caicaiFace.update(caicaiEmotion.emotion(), delta, caicaiTarget(), caicaiEmotion.weight(System.nanoTime()));
+        long now = System.nanoTime();
+        float speechWeight = speechEmotion.isEmpty() ? 0 : Math.max(0f,
+            Math.min(1f, (speechDeadlineNanos + 350_000_000L - now) / 350_000_000f));
+        if (now > speechDeadlineNanos) speechParameterPlan.release();
+        float baseWeight = caicaiEmotion.weight(now);
+        caicaiFace.update(speechWeight > 0 ? speechEmotion : caicaiEmotion.emotion(),
+            delta, caicaiTarget(), speechWeight + baseWeight * (1 - speechWeight));
     }
     void setCaicaiLook(boolean active, float x, float y) { caicaiIdle.look(active, x, y); }
     private void applyParameterPlan(float delta) {
@@ -539,6 +566,9 @@ final class SenLive2DModel extends CubismUserModel {
             }
         }
         parameterPlan.apply(delta, caicaiTarget());
+        if (caicaiPat.active() || manualPlan) {
+            speechParameterPlan.clear(); speechDeadlineNanos = 0; speechEmotion = "";
+        } else speechParameterPlan.apply(delta, caicaiTarget());
         if (delta > 0) caicaiIdle.applyAttention(caicaiTarget(),caicaiPat.followWeight());
         caicaiPat.apply(delta,caicaiTarget());
     }

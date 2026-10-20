@@ -1744,6 +1744,11 @@ ${startsFreshTopic ? '本类型属于新话题通道：ANSWERED CHAT HISTORY 已
       // Gemini owns one correction after a successful first answer. Only an
       // unavailable or unusable second channel falls back to DeepSeek.
       Future<_ProactiveGenerationCandidate?> request({required bool gemini}) async {
+        final clock = Stopwatch()..start();
+        final startedAt = DateTime.now().millisecondsSinceEpoch;
+        int? firstContentMs;
+        int? terminalSignalMs;
+        var streamEndReason = 'transport_eof';
         final reasoning = StringBuffer();
         final content = StringBuffer();
         var finishReason = '';
@@ -1775,9 +1780,24 @@ ${startsFreshTopic ? '本类型属于新话题通道：ANSWERED CHAT HISTORY 已
           }
           reasoning.write(delta.reasoning);
           content.write(delta.content);
+          if (delta.content.isNotEmpty) firstContentMs ??= clock.elapsedMilliseconds;
+          if (delta.done || delta.finishReason != null) terminalSignalMs ??= clock.elapsedMilliseconds;
+          if (delta.streamEndReason.isNotEmpty) streamEndReason = delta.streamEndReason;
           if (delta.done || delta.finishReason != null) sawTerminalSignal = true;
           if (delta.finishReason != null) finishReason = delta.finishReason!;
         }
+        try {
+          await db.setSetting('proactive_request_timing_v1', jsonEncode({
+            'lane': gemini ? 'proactive_final_reply' : 'proactive',
+            'provider': gemini ? finalProvider.name : 'deepSeek',
+            'startedAt': startedAt, 'updatedAt': DateTime.now().millisecondsSinceEpoch,
+            'phase': 'stream_ended', 'firstContentMs': firstContentMs,
+            'terminalSignalMs': terminalSignalMs, 'streamEndedMs': clock.elapsedMilliseconds,
+            if (terminalSignalMs != null) 'tailWaitMs': clock.elapsedMilliseconds - terminalSignalMs,
+            'elapsedMs': clock.elapsedMilliseconds, 'streamEndReason': streamEndReason,
+            'candidateOrdinal': finalCandidateOrdinal, 'contentIncluded': false,
+          }));
+        } catch (_) { /* Timing never changes a successful candidate. */ }
         return _ProactiveGenerationCandidate(
           reasoning: reasoning.toString().trim(),
           content: content.toString().trim(),

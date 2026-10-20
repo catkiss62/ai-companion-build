@@ -28,6 +28,22 @@ final class CaicaiParameterPlan {
     void setSpeed(float value) { speed=value; }
     void setGain(float value) { gain=value; }
     void clear() { frames.clear(); previous.clear(); elapsed = 0f; }
+    void captureInitial(Target target) {
+        for (Frame frame : frames) for (String id : frame.values.keySet())
+            if (target.accepts(id)) previous.put(id, target.current(id));
+    }
+    void replace(String json, Target target) throws JSONException {
+        Set<String> oldChannels = new HashSet<>(previous.keySet());
+        start(json);
+        captureInitial(target);
+        for (String id : oldChannels) if (target.accepts(id)) previous.put(id, target.current(id));
+    }
+    void release() {
+        if (frames.isEmpty()) return;
+        float end = 0f;
+        for (Frame frame : frames) end = Math.max(end, frame.time + frame.duration);
+        if (elapsed <= end) elapsed = end + .001f;
+    }
     void start(String json) throws JSONException {
         clear();
         JSONArray input = new JSONArray(json);
