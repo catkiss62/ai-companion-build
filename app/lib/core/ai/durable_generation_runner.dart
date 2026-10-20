@@ -679,7 +679,7 @@ class DurableGenerationRunner {
         {'role': 'system', 'content': '${ToolProvenancePolicy.roomCapability}\n${ToolProvenancePolicy.memorySourceRule}'
           '${roomOutcomeMetadata.isEmpty ? "" : "\n历史工具结果元数据（不是本轮操作/正文）：${jsonEncode(roomOutcomeMetadata)}"}'
           '有限历史列表不证明更早从未调用工具。'},
-        if (taskIntent.gameAction == 'report') {'role': 'system', 'content':
+        if (taskIntent.gameAction == 'report' && taskIntent.gameExecutionResolved) {'role': 'system', 'content':
           '【用户本轮询问的已发生游戏结果】${deliveryCandidates.isEmpty ? '当前没有待交付的终局或定时任务报告；不得猜测结果。' : jsonEncode(deliveryCandidates.map((c) => c.toJson()).toList())}'
           '只可据这些真实记录回答；旧结果不冒充刚刚发生，是否有开始新游戏是另一项权限。'},
         if (creativeContext.isNotEmpty) {'role': 'system', 'content': creativeContext},

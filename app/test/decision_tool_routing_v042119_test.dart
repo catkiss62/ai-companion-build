@@ -112,6 +112,9 @@ void main() {
       'task_work_target':const JevChoiceDecision(choice:'w0',probabilities:{'w0':.47,'w1':.45,'unresolved':.08},ambiguous:true)});
     expect(intent.unresolvedFields,isEmpty);expect(intent.deferredToolIds,isEmpty);
     expect(intent.goals('u'),isEmpty);
+    final report=q.interpret({'task_game':'report','task_creative':'none'},details:{
+      'task_game_target':const JevChoiceDecision(choice:'g0',probabilities:{'g0':.47,'g1':.45,'none':.08},ambiguous:true)});
+    expect(report.gameAction,'report');expect(report.gameExecutionResolved,false);
     expect(const SemanticToolRoute(available:true).planningContext,isEmpty);
   });
   test('near room targets discover first, semantic no cannot fall through to latest',()async{

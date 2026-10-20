@@ -129,7 +129,7 @@ class TurnTaskQuestionSet {
     final game = games[answers['task_game_target']];
     final work = workTargets[answers['task_work_target']];
     bool relevant(String key) => key == 'task_game' || key == 'task_creative' ||
-      key == 'task_game_target' && const {'play','pause','pause_and_release','resume'}.contains(answers['task_game']) ||
+      key == 'task_game_target' && const {'play','pause','pause_and_release','resume','report'}.contains(answers['task_game']) ||
       key == 'task_duration' && const {'play','resume'}.contains(answers['task_game']) ||
       key == 'task_work_target' && const {'commission','stop'}.contains(answers['task_creative']);
     final unresolved = details.entries.where((e)=>e.value.ambiguous && relevant(e.key)).map((e)=>e.key).toSet();
