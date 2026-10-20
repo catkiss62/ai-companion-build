@@ -115,7 +115,8 @@ class MemoryBrain {
     }
 
     memories('与当前话题直接相关的用户稳定资料', context.stableUser);
-    memories('与当前话题直接相关的 AI Self', context.aiSelf);
+    memories('与当前话题相关的自我资料与可修订理解', context.aiSelf);
+    if (context.aiSelf.isNotEmpty) out.writeln('自我表达观察可提供参考；当时这样说过，不代表现在必须沿用，也不需要用相同口气证明自己。');
     memories('与当前话题直接相关的互动偏好/边界', context.preferences);
 
     final modelDialogues = context.relevant

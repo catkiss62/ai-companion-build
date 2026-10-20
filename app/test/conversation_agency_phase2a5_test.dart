@@ -215,7 +215,8 @@ void main() {
     );
     final prompt = plan.promptSection();
 
-    expect(prompt, contains('按本轮主动作实际行动'));
+    expect(prompt, contains('不是本轮必须完成的表达步骤'));
+    expect(prompt, isNot(contains('按本轮主动作实际行动')));
     expect(prompt, contains('追问授权=无'));
     expect(prompt, contains('用户换题时直接跟随'));
     expect(prompt, isNot(contains('隐藏思考链')));

@@ -186,6 +186,7 @@ expressed=true 仅 assistant_text 确实已经向用户说出了这一具体愿�
         return false;
       }
       final decisions = <Map<String, Object?>>[];
+      final proposalDiagnostic = <String, Object?>{};
       final updated = WishPolicy.apply(
         wishes: wishes,
         payload: payload,
@@ -194,6 +195,7 @@ expressed=true 仅 assistant_text 确实已经向用户说出了这一具体愿�
         now: instant,
         canGenerate: canGenerate,
         decisions: decisions,
+        proposalDiagnostic: proposalDiagnostic,
       );
       return store.save(
         updated,
@@ -209,7 +211,11 @@ expressed=true 仅 assistant_text 确实已经向用户说出了这一具体愿�
             'active': updated.where((w) => w.active).length,
             'completed': updated.where((w) => w.state == 'completed').length,
             'contract': 5, 'source_count': evidence.length,
+            'can_generate': canGenerate,
+            'generation_gate': canGenerate ? 'open' :
+                (wishes.where((w) => w.active).length >= 4 ? 'capacity' : 'cooldown'),
             'decisions': decisions.take(16).toList(),
+            'new_proposal': proposalDiagnostic,
           }),
         },
       );
@@ -428,6 +434,7 @@ class WishPolicy {
     required DateTime now,
     required bool canGenerate,
     List<Map<String, Object?>>? decisions,
+    Map<String, Object?>? proposalDiagnostic,
   }) {
     final byId = {for (final e in evidence) e.id: e};
     final changes = {
@@ -563,6 +570,15 @@ class WishPolicy {
       );
     }).toList();
     final draft = payload['new_wish'];
+    void proposalDecision(String reason, {String route = ''}) {
+      proposalDiagnostic?.addAll({'reason': reason,
+        if (const {'game', 'user', 'aspiration'}.contains(route)) 'route': route});
+    }
+    if (draft == null) { proposalDecision('not_proposed'); }
+    else if (!canGenerate) { proposalDecision('generation_not_allowed'); }
+    else if (result.where((w) => w.active).length >= 4) { proposalDecision('capacity'); }
+    else if (draft is! Map) { proposalDecision('invalid_format'); }
+
     if (canGenerate &&
         result.where((w) => w.active).length < 4 &&
         draft is Map) {
@@ -589,6 +605,13 @@ class WishPolicy {
                       kind == 'game_result') ||
                   (route == 'user' &&
                       const {'user_photo', 'user_text'}.contains(kind))));
+      final rejection = goal.length < 6 || reason.length < 4 ? 'invalid_fields'
+          : !const {'game', 'user', 'aspiration'}.contains(route) ? 'invalid_route'
+          : sources.isEmpty ? 'missing_source'
+          : !compatible ? 'incompatible_completion'
+          : deadlineText.isNotEmpty && (deadline == null || !deadline.isAfter(now)) ? 'invalid_deadline'
+          : wishes.any((w) => duplicates(goal, w.goal)) ? 'duplicate' : 'accepted';
+      proposalDecision(rejection, route: route);
       if (goal.length >= 6 &&
           reason.length >= 4 &&
           sources.isNotEmpty &&

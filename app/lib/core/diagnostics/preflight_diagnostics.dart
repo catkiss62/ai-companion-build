@@ -1105,6 +1105,12 @@ class PreflightDiagnosticsService {
         'deepReflection': _safeJsonObject(
           await db.getSetting('deep_reflection_last_execution_v1') ?? '{}',
         ),
+        'backgroundRecall': _safeJsonObject(
+          await db.getSetting('background_recall_diagnostic_v1') ?? '{}',
+        ),
+        'memoryPromptAdmission': _safeJsonObject(
+          await db.getSetting('memory_prompt_admission_v042120') ?? '{}',
+        ),
         'wishLifecycle': _safeJsonObject(
           await db.getSetting('companion_wish_last_review_v2') ?? '{}',
         ),

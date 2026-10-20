@@ -19,6 +19,7 @@ import '../reflection/deep_reflection_contract.dart';
 import '../mood/mood_store.dart';
 import '../memory/conversation_recall_policy.dart';
 import '../memory/memory_revision.dart';
+import '../memory/background_recall_store.dart';
 import '../models/world_book_turn_context.dart';
 import 'dart:convert';
 import 'dart:math';
@@ -4717,6 +4718,7 @@ class AppDatabase {
       await setSetting('worldbook_natural_user_default_v04157_applied', '1');
     }
     await migrateSpokenDialogueDefaultV042108(db);
+    await migrateSpokenDialogueDefaultV042120(db);
     await migrateNaturalChatV042115(db);
     await migrateNaturalChatV042116(db);
     // Exact-value migration only: preserve every custom alias edit while also
@@ -8180,6 +8182,7 @@ class AppDatabase {
     PlayfulSelfActivity? playfulActivity,
     DeepReflectionContext? deepReflection,
     DeepReflectionUpdate? reflectionUpdate,
+    BackgroundRecallSelection? backgroundRecall,
     List<SomaticEvent> somaticEvents = const <SomaticEvent>[],
     void Function(ConversationSourceStamp)? onCommittedSource,
   }) async {
@@ -8231,6 +8234,7 @@ class AppDatabase {
       if (originalAttempt == null && (turnCommitEvidence.timedEffectIds.isNotEmpty ||
           turnCommitEvidence.deliveries.isNotEmpty)) return false;
       if (assistant.id != job.assistantMessageId) return false;
+      if (backgroundRecall != null && !await backgroundRecall.matches(txn, DateTime.now())) return false;
       if (pendingMediaOwner != null && !await _pendingMediaCanCommit(
           txn, pendingMediaOwner, assistant.attachments, assistant.id)) return false;
       if (somaticEvents.any(
@@ -8378,6 +8382,9 @@ class AppDatabase {
       // The old user row has just acquired a committed paired provenance.
       await ConversationSourceStore.sourceChanged(txn, job.userMessageId, qualificationChanged: true);
       requireTurnNotCancelled(isCancelled);
+      if (backgroundRecall != null) {
+        await BackgroundRecallStore.consume(txn, backgroundRecall, assistant.id, assistant.content, assistant.createdAt);
+      }
       committedSource = await ConversationSourceStore.captureMessage(txn, assistant.id);
       requireTurnNotCancelled(isCancelled);
       return true;
@@ -8530,6 +8537,7 @@ class AppDatabase {
     List<PublicWebSourceStamp> publicWebSources = const [],
     ExpectedPublicWebShare? expectedPublicWebShare,
     DeepReflectionContext? reflectionInvitation,
+    BackgroundRecallSelection? backgroundRecall,
     CreativeShare? creativeShare,
     String? proactiveTriggerReason,
     bool enforceProactiveBudget = false,
@@ -8546,6 +8554,7 @@ class AppDatabase {
     final db = await database;
     return db.transaction<String?>((txn) async {
       if (workFence != null && !await workFence.matches(txn)) return 'work_fence';
+      if (backgroundRecall != null && !await backgroundRecall.matches(txn, DateTime.now())) return 'background_recall_changed';
       final webNow = DateTime.now();
       if (expectedPublicWebShare != null) {
         final delivered = await txn.query('public_web_candidates', columns: ['shared_message_id'],
@@ -8660,6 +8669,9 @@ class AppDatabase {
       }
       if (actedThoughtId != null && expectedPublicWebShare == null) {
         await _markProactiveThoughtActedTxn(txn, actedThoughtId, message.id, message.createdAt);
+      }
+      if (backgroundRecall != null) {
+        await BackgroundRecallStore.consume(txn, backgroundRecall, message.id, message.content, message.createdAt);
       }
       if (creativeShare != null) await creativeShare.commit(txn, message.id, message.createdAt);
       await DeepReflectionStore.commit(txn, context: reflectionInvitation,

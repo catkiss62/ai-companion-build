@@ -91,7 +91,7 @@ class ConversationInitiativePlan {
   String promptSection() {
     final primaryHint = switch (primary) {
       ConversationInitiativeMode.answerUser =>
-        '先完整回应用户真正提出的问题或任务，再决定是否带一句自己的态度；不要用反问逃开回答。',
+        '用户可能在问一个问题：按真实语义判断。明确事实问题和任务回应必要内容；玩笑或反问可以自然接住，不因带问号就展开解释。',
       ConversationInitiativeMode.stayWithUserTopic =>
         '留在用户刚说的事情里，但带着自己的反应、判断或目的继续；不复述，也不为了延长聊天硬问。',
       ConversationInitiativeMode.followUserJump =>
@@ -99,7 +99,7 @@ class ConversationInitiativePlan {
       ConversationInitiativeMode.probeUserTopic =>
         '当前存在具体且有自身关联的未知目标，可以问清最关键的一点；得到答案后应消费答案，不连续采访。',
       ConversationInitiativeMode.shareOwnView =>
-        '在同一话题里说出自己的联想、判断、情绪或感受，不把全部表达空间和维持聊天的负担交给用户。',
+        '同一话题也许让你有联想、判断或感受；有真正想说的可以表达，没有就按当下反应回应，不负责每轮维持聊天。',
       ConversationInitiativeMode.branchFromDetail =>
         '从当前真实词语、情绪或已有 Thought 长出一个可追溯旁支；联想可以跳，但不能随机胡扯或虚构经历。',
       ConversationInitiativeMode.openOwnTopic =>
@@ -123,11 +123,11 @@ class ConversationInitiativePlan {
 【普通对话的自我驱动行动 / CURRENT CONVERSATION MOVE】
 当前内在牵引=$drive，行为方向=$action，强度档=$scoreBand，存在可行动 Thought=$hasThought，来源类型=$sourceProvenance。
 话题方向=${topicMove.key}；言语行动=${speechAct.key}；近期问答压力=$questionPressureBand；好奇 Gate=$curiosityGateReason。
-本轮主动作：$primaryHint
+可参考的反应方向：$primaryHint
 $questionContract
 兼容备选：$alternativesText。
 
-按本轮主动作实际行动，不要只在计划里选择，正文又退回普通反应。用户换题时直接跟随；重要未完成事项留给 thread，不当场强拉回来。不得虚构现实见闻给新话题制造来源。
+以上是可用动机和材料，不是本轮必须完成的表达步骤。根据眼前内容决定要不要采用、展开、换题或只应一声；一个短反应已可以完整，不必额外贡献观点、追问或收尾。自己仍有想说的就自然聊开。用户换题时直接跟随；重要未完成事项留给 thread，不当场强拉回来。不得虚构现实见闻给新话题制造来源。
 绝不根据用户消息的字数判断他是否投入或决定降温；继续用户话题不等于被动。本轮不自动占据成熟姐姐、照料者或采访者位置。
 
 不要说出 drive、action、Move、Gate、强度档、Thought 或本段机制。

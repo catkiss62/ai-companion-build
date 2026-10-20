@@ -47,7 +47,7 @@ for token in (
 
 presets = read("lib/core/reference/world_book_presets.dart")
 for token in (
-    "content: worldBookSpokenDialogueV042108",
+    "content: worldBookSpokenDialogueV042120",
     "name: '推演思维引擎'",
     "content: worldBookInferenceEngineV04156",
     "priority: 950",

@@ -54,6 +54,7 @@ jobs:
           test/model_dialogue_recovery_v042117_test.dart
           test/semantic_tools_reaudit_v042118_test.dart
           test/decision_tool_routing_v042119_test.dart
+          test/natural_expression_memory_v042120_test.dart
           test/jev_decision_gateway_test.dart
           test/playful_integrity_v04265_test.dart
           test/creative_inspiration_lifecycle_test.dart

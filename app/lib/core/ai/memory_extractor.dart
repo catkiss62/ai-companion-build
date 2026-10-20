@@ -1,3 +1,5 @@
+import '../memory/self_understanding_policy.dart';
+import '../memory/background_recall_store.dart';
 import '../agent/tool_provenance_policy.dart';
 import 'dart:async';
 import 'dart:convert';
@@ -274,6 +276,9 @@ class MemoryExtractor {
 
     try {
       await _guardPostTurnJob(job);
+      final recallReceipts = BackgroundRecallStore.records(BackgroundRecallStore.decode(
+        await db.getSetting(BackgroundRecallStore.stateKey) ?? '')['receipts']);
+      final usedBackgroundRecall = recallReceipts.any((r) => r['assistant_id'] == assistant.id);
       final activeThreads = await db.activeUnfinishedThreads(limit: 8);
       final threadContext = activeThreads.isEmpty
           ? '当前没有未完成话题。'
@@ -395,6 +400,8 @@ ${previousAssistant.content}
           maxTokens: 4096,
           usageLane: 'memory_extraction',
           messages: [
+          if (usedBackgroundRecall) {'role': 'system', 'content':
+            '本轮AI正文使用过后台旧经历上下文。AI重新提起不证明旧事件再次发生、用户重新确认或性格得到新证据。仅凭AI复述不得新增/强化该旧经历、人格或待办；本轮真实用户新表达仍按其内容独立整理。'},
           {'role': 'system', 'content':'${ToolProvenancePolicy.roomCapability}\n${ToolProvenancePolicy.memorySourceRule}\n'
             '历史房间工具结果元数据（只证明列出的调用，不证明其他调用从未发生）：${jsonEncode(roomOutcomes)}'},
           {'role': 'system', 'content': '$creativeFacts\n$creativeSnapshot\n'
@@ -1416,7 +1423,9 @@ AI 主动消息：${outbound?.content ?? '(消息正文不可用)'}
       const actions = {'append', 'reinforce', 'replace', 'correct'};
       final proposedSemantic = item['semantic'] as String? ??
           (kind == 'shared_experience' ? 'shared_experience' : 'current_fact');
-      final semantic = hasSpecialStyle && kind == 'shared_experience'
+      final semantic = SelfUnderstandingPolicy.isExpressionSubject(kind, subjectKey) && !revision
+          ? 'inference'
+          : hasSpecialStyle && kind == 'shared_experience'
           ? 'shared_experience'
           : semantics.contains(proposedSemantic)
           ? proposedSemantic

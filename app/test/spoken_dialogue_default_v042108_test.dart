@@ -5,6 +5,7 @@ import 'package:ai_companion_localfirst/core/database/spoken_dialogue_default_mi
 import 'package:ai_companion_localfirst/core/reference/world_book_content_v04156_user.dart';
 import 'package:ai_companion_localfirst/core/reference/world_book_presets.dart';
 import 'package:ai_companion_localfirst/core/reference/world_book_spoken_dialogue_v042108.dart';
+import 'package:ai_companion_localfirst/core/reference/world_book_spoken_dialogue_v042120.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 
@@ -36,9 +37,10 @@ void main() {
     final preset = worldBookSystemPresets.singleWhere(
       (p) => p.id == 'builtin.worldbook.natural_dialogue');
     expect(preset.name, '角色表达自然化');
-    expect(preset.content, worldBookSpokenDialogueV042108);
+    expect(preset.content, worldBookSpokenDialogueV042120);
     expect(preset.content, startsWith('# 对白的口语表达'));
-    expect(preset.content, contains('既然靠垫已经就绪，那我就勉为其难去验收一下弹性。'));
+    expect(preset.content, isNot(contains('靠垫')));
+    expect(preset.content, contains('半句话，也可以是完整回应'));
     expect(preset.content, isNot(contains('本鱼')));
     expect(preset.priority, 1000);
     expect(preset.activationMode, 'always');

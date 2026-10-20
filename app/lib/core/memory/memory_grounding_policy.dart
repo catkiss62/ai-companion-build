@@ -1,3 +1,4 @@
+import 'self_understanding_policy.dart';
 import '../models/memory_item.dart';
 import 'memory_revision.dart';
 
@@ -116,7 +117,8 @@ class MemoryGroundingPolicy {
         : item.revisionOf.isNotEmpty
             ? 'revision_of=${item.revisionOf}; 当前有效修订优先于来源原话和旧摘要中的冲突说法'
             : '';
-    final scope = effectiveTemporalScope(item);
+    final observation = SelfUnderstandingPolicy.isExpressionObservation(item);
+    final scope = observation ? 'observation' : effectiveTemporalScope(item);
     final actor = effectiveActor(item);
     final owner = effectiveOwner(item);
     final relation = normalizeEntityKey(item.relationKey, fallback: 'unspecified');
@@ -133,7 +135,7 @@ class MemoryGroundingPolicy {
         'fact_state=completed; 已完成，只能作为历史或共同经历，不得继续当作待办',
       'cancelled' =>
         'fact_state=cancelled; 已取消，不得继续追问或描述为已完成',
-      'stable' => 'fact_state=stable',
+      'stable' => observation ? 'fact_state=observed_tendency; 只描述过去情境中的表达，可修订，不要求本轮重演' : 'fact_state=stable',
       'ongoing' => 'fact_state=last_known_ongoing; current_status=unknown',
       _ => 'fact_state=unknown',
     };
@@ -151,6 +153,7 @@ class MemoryGroundingPolicy {
         'last_known_plan; $evidenceAge; current_status=unknown; 计划不等于已经执行',
       (_, 'event') =>
         'historical_event; $evidenceAge',
+      (_, 'observation') => 'contextual_self_observation; $evidenceAge; 不是固定人格或每轮说话顺序',
       (_, 'stable') =>
         'stable_fact; ${item.evidenceTimeKnown ? 'last_confirmed=${_date(item.lastEvidenceAt)}' : evidenceAge}',
       _ =>
@@ -175,6 +178,9 @@ class MemoryGroundingPolicy {
 
   static String recalledThoughtText(MemoryItem item, {DateTime? now}) {
     final instant = now ?? DateTime.now();
+    if (SelfUnderstandingPolicy.isExpressionObservation(item)) {
+      return '想起过去特定情境里的表达观察：${item.content}。这是可修订的旧理解，不要求本轮采用同一句式或态度，也不证明永久性格。';
+    }
     final scope = effectiveTemporalScope(item);
     final stateBoundary = scope == 'ongoing' || scope == 'scheduled'
         ? '；这是当时最后确认的状态，当前是否仍在继续未知'

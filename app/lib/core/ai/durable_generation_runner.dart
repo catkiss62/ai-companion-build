@@ -2102,6 +2102,7 @@ $finalGenerationReminder
           somaticEvents: assistantSomaticEvents,
           playfulActivity: selfActivity ?? PlayfulSelfActivity.none,
           deepReflection: promptBuild.deepReflection,
+          backgroundRecall: promptBuild.backgroundRecall,
           reflectionUpdate: DeepReflectionUpdate.parse(generated.content),
         );
       } catch (_) {

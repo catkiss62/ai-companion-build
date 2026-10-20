@@ -31,6 +31,7 @@ import '../grounding/grounding_snapshot.dart';
 import '../grounding/prompt_history_policy.dart';
 import '../continuity/daily_continuity_presentation.dart';
 import '../memory/memory_brain.dart';
+import '../memory/background_recall_store.dart';
 import '../memory/memory_grounding_policy.dart';
 import '../memory/memory_lifecycle_policy.dart';
 import '../memory/personality_learning_prompt_policy.dart';
@@ -71,6 +72,8 @@ class PromptBuildResult {
     this.publicWebSources = const [],
     this.expectedPublicWebShare,
     this.selectedThoughtEvidence,
+    this.ordinaryActionActive = false,
+    this.backgroundRecall,
   });
 
   final List<Map<String, Object?>> messages;
@@ -81,6 +84,8 @@ class PromptBuildResult {
   final List<PublicWebSourceStamp> publicWebSources;
   final ExpectedPublicWebShare? expectedPublicWebShare;
   final Map<String, Object?>? selectedThoughtEvidence;
+  final bool ordinaryActionActive;
+  final BackgroundRecallSelection? backgroundRecall;
 }
 
 class PromptBuilder {
@@ -249,6 +254,9 @@ class PromptBuilder {
         ? await DeepReflectionStore(db).context(now: instant) : null;
     final wishContext = !freshTopicSourceOnly && !worldBookContext.hasRoleplay
         ? await WishStore(db).prompt(now: instant, includeCompleted: true) : '';
+    final backgroundRecall = !freshTopicSourceOnly && !worldBookContext.hasRoleplay && nsfwActive != true &&
+        DialogueExpressionPlan.select(latestUserText: latestUserText).mode == DialogueResponseMode.casual
+        ? await BackgroundRecallStore(db).select(now: instant) : null;
     final dreamContext = await DreamStore(db).prompt(
       freshSourceOnly: freshTopicSourceOnly, roleplay: worldBookContext.hasRoleplay);
     final dailyContinuity = freshTopicSourceOnly
@@ -460,6 +468,16 @@ class PromptBuilder {
     context.writeln(emotionEpisodeSection);
     if (moodSection.isNotEmpty) context.writeln(moodSection);
     if (dreamContext.isNotEmpty) context.writeln(dreamContext);
+    if (backgroundRecall != null) context.writeln(backgroundRecall.prompt(instant));
+    try {
+      await db.setSetting('memory_prompt_admission_v042120', jsonEncode({
+        'at': instant.millisecondsSinceEpoch,
+        'provided_to_prompt': !freshTopicSourceOnly,
+        'ai_self_count': memoryContext?.aiSelf.length ?? 0,
+        'related_count': memoryContext?.relevant.length ?? 0,
+      }));
+    } catch (_) { /* Optional count-only telemetry cannot block a reply. */ }
+
     if (wishContext.isNotEmpty) context.writeln(wishContext);
     if (!freshTopicSourceOnly && !worldBookContext.hasRoleplay) {
       context.writeln('【自己的手机记录】你能按需用 phone.search/phone.read 查看浏览器、日记、随笔、心情、愿望、相册和当天塔罗。用户问你搜了/写了/存了什么时应读取实际记录，不凭未注入正文推断无法查看。记录不自动等于当前事实，搜索归属、保存状态与抽给谁以工具结果为准；购物车是未购买的趣味想象，明确问及才读取。');
@@ -664,6 +682,8 @@ ANSWERED_HISTORY_ONLY = true
       publicWebSources: webBundle.sourceStamps,
       expectedPublicWebShare: webBundle.expectedShare,
       selectedThoughtEvidence: _thoughtExpressionEvidence(selectedConversationThought, webBundle),
+      ordinaryActionActive: ordinaryActionExperimentActive,
+      backgroundRecall: backgroundRecall,
     );
   }
 
@@ -738,7 +758,7 @@ ${capabilityPersonaContract()}
 可见 reasoning 与最终正文使用自然简体中文；代码、命令、路径、变量名和专名可保留原文。reasoning_content 是女性小鲸鱼此刻没打算说出口的心里话：直接用“我”想、用“你”想对方，允许片段、跳念、改口或没想完；不要写“用户说了什么，所以我应该怎样回复”，不写规则检查、候选台词或生成计划。复杂任务直接推演证据、代码、因果和不确定处。
 ${proactive ? '若决定不发送，只输出 WAIT。否则' : ''}最终 content 第一行先输出且只输出一次 <emotion>标签</emotion>，再换行写正文。没有清晰情绪色彩时用“正常”；“平静”只用于明确安静、放松、沉着或闭目缓和的状态；“调皮”只用于本轮真的发生逗弄、故意曲解、恶作剧或小挑战，普通活泼、游戏操作和轻松聊天不自动算调皮。标签不要写进 reasoning，也不要在正文解释。
 
-${proactive ? (ordinaryActionExperimentActive == true ? '主动消息若发送，最终正文只允许两种可见段：可选的自身动作/神态必须独占一行并写成（动作），真正说出口的内容必须独占一行并写成「对白」，且至少有一段对白。除这两种段落外，不要输出无括号旁白、私下心声或裸露自然语言；不要替对方行动。' : '主动消息若发送，最终正文只允许真正说出口的「对白」，且至少有一段；不要输出无括号旁白、私下心声或裸露自然语言。') : (ordinaryActionExperimentActive == true ? '当前世界书启用了动作神态：按该模块写一个简短的自身动作/神态；生成源必须把动作独占一行并写成（动作），界面会隐藏括号；对白独占一行并使用「」；不要替对方行动。' : '')}
+${proactive ? (ordinaryActionExperimentActive == true ? '主动消息若发送，最终正文只允许两种可见段：默认加入一个简短的自身动作/神态，必须独占一行并写成（动作），真正说出口的内容必须独占一行并写成「对白」，且至少有一段对白。除这两种段落外，不要输出无括号旁白、私下心声或裸露自然语言；不要替对方行动。' : '主动消息若发送，最终正文只允许真正说出口的「对白」，且至少有一段；不要输出无括号旁白、私下心声或裸露自然语言。') : (ordinaryActionExperimentActive == true ? '当前世界书启用了动作神态：按该模块写一个简短的自身动作/神态；生成源必须把动作独占一行并写成（动作），界面会隐藏括号；对白独占一行并使用「」；不要替对方行动。' : '')}
 用户是男性。reasoning 与动作叙述提及用户时使用“你”、名字或昵称，不要把用户写成第三人称“她”或“他”。
 消息的说话者只由消息 role 决定：role=assistant 的历史是“我以前说过的话”，role=user 的历史才是“你以前说过的话”。句子内部出现“我/你”不能反转说话者、动作发起者、愿望或提议的归属；如果此前是我提出、你随后追问，之后不能回忆成由你提出。引用用户原话时不改写引用，也不得把用户明确写出的名词擅自替换成另一个词再宣称是用户口误。偶发口误不会被系统强制中断。
 '''.trim();

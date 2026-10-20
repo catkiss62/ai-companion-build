@@ -4,6 +4,7 @@ import 'package:crypto/crypto.dart';
 import 'package:sqflite/sqflite.dart';
 
 import '../reference/world_book_spoken_dialogue_v042108.dart';
+import '../reference/world_book_spoken_dialogue_v042120.dart';
 
 const spokenDialogueDefaultMarkerV042108 =
     'worldbook_spoken_dialogue_default_v042108_applied';
@@ -42,5 +43,31 @@ Future<void> migrateSpokenDialogueDefaultV042108(Database db) async {
     await txn.insert('settings', {
       'key': spokenDialogueDefaultMarkerV042108, 'value': '1',
     }, conflictAlgorithm: ConflictAlgorithm.replace);
+  });
+}
+
+
+const spokenDialogueDefaultMarkerV042120 =
+    'worldbook_spoken_dialogue_default_v042120_applied';
+Future<void> migrateSpokenDialogueDefaultV042120(Database db) async {
+  await db.transaction((txn) async {
+    final marker = await txn.query('settings', columns: ['value'],
+      where: 'key = ?', whereArgs: [spokenDialogueDefaultMarkerV042120]);
+    if (marker.isNotEmpty && marker.first['value'] == '1') return;
+    final known = {worldBookSpokenDialogueV042108.trim(),
+      worldBookSpokenDialogueV042108.replaceFirst('# 对白', '## 对白').trim()};
+    final rows = await txn.query('reference_documents',
+      columns: ['id', 'raw_content'], where: 'entry_type = ? AND name = ?',
+      whereArgs: ['behavior', '角色表达自然化']);
+    for (final row in rows) {
+      final raw = row['raw_content'] as String? ?? '';
+      if (!known.contains(raw.trim())) continue;
+      await txn.update('reference_documents', {
+        'raw_content': worldBookSpokenDialogueV042120,
+        'updated_at': DateTime.now().millisecondsSinceEpoch,
+      }, where: 'id = ? AND raw_content = ?', whereArgs: [row['id'], raw]);
+    }
+    await txn.insert('settings', {'key': spokenDialogueDefaultMarkerV042120,
+      'value': '1'}, conflictAlgorithm: ConflictAlgorithm.replace);
   });
 }

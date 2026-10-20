@@ -7,6 +7,7 @@ import '../creative/creative_inspiration_engine.dart';
 import '../creative/creative_store.dart';
 import '../phone/calendar_reminder_state.dart';
 import '../self/dream_engine.dart';
+import '../memory/background_recall_store.dart';
 import 'proactive_delivery_budget.dart';
 import 'proactive_final_reply_retry.dart';
 import '../reflection/deep_reflection_engine.dart';
@@ -482,6 +483,7 @@ class ProactiveEngine {
     await longMaintenance.maybeRun();
     await deferredFollowup.seedDue();
     await selfDrive.maybeGenerate();
+    try { await BackgroundRecallStore(db).prepare(); } catch (_) { /* Optional local background. */ }
     await thoughtConsolidation.maybeRun();
     await thoughtLifecycle.advance(forceForDebug: forceForDebug);
     await WishEngine(db).maybeRefresh();
@@ -1685,6 +1687,7 @@ ${selection != null && selection.rawRepetitionPenalty > 0 ? '近期同类主动�
 过去主动消息样本：${rhythmProfile.sampleCount}；当前主题历史样本：${rhythmProfile.topicSampleCount}；同类主动意图样本：${rhythmProfile.intentSampleCount}。当前粗粒度时间段=${rhythmProfile.currentHourBucket}，活动情境=${rhythmProfile.currentActivityContext}。这些只作为轻量节奏参考，不要向用户提及统计。
 真实时间间隔：距离最近用户消息约 $idleMinutes 分钟；距离上一条主动消息${proactiveGap == null ? '没有可用记录' : '约 ${max(0, proactiveGap.inMinutes)} 分钟'}。这是程序计算的事实：不得把 2 分钟说成睡醒、把 10 分钟说成半小时，也不得用文学夸张改写短时间间隔。
 ${ProactivePresentationPolicy.promptHint(intentKind, deliveryStyle)}
+想联系是动机，不等于已经有具体话题。优先从本轮真实念头、兴趣或资料找一个此刻在意的着眼点；有好奇心但没有具体对象时，不必用“你在干嘛/刷到什么/忙不忙”假装已经有新问题。也可以直接表达想念、轻问近况或等待，不为凑话题编造见闻，不按介绍—解释—提问的步骤表演。
 ${startsFreshTopic ? '本类型属于新话题通道：ANSWERED CHAT HISTORY 已从写作上下文移除；旧 Memory、关系事件、近日连续性和既有知识正文也不注入。不要自行召回旧事填空，只使用本轮选中来源或此刻自己的新问题；没有具体内容就输出 WAIT。' : ''}
 严格服从前文可编辑的【CURRENT TURN CONTRACT】与 REALITY GROUNDING；结构化运行数据不是用户发言。
 '''.trim(),
@@ -1693,6 +1696,7 @@ ${startsFreshTopic ? '本类型属于新话题通道：ANSWERED CHAT HISTORY 已
       'role': 'system',
       'content': PromptBuilder.visibleChineseGenerationReminder(
         proactive: true,
+        ordinaryActionExperimentActive: promptBuild.ordinaryActionActive,
       ),
     });
 
@@ -2075,7 +2079,7 @@ CURRENT_USER_TURN = NONE。最后一条真实用户消息已经回答完毕，�
 主动候选没有新的用户轮工具结果。不得声称自己刚刚读取过成长/系统、看过当前屏幕、调用过 MCP、保存/修改过数据或设置过提醒，也不得编造“一下午/半天/几小时”的操作历史；真实公开网页发现只能按本轮 Grounding 提供的 Outcome 表达。
 未完成的游戏事项和旧聊天场景不等于游戏正在运行。没有当前 Cedar Outcome 时，不得声称正在钓鱼、挂着鱼漂、漂没动、图鉴刚才没涨；可以表达想去玩的念头，但不能因此否认已证实的历史游玩。自制作品完成与交互以本地作品事实为准，不要求 Cedar 结果。
 只修正事实前提，不为了整齐、礼貌或所谓正确文风改写她的口气；没有值得说的就输出 WAIT。
-${PromptBuilder.visibleChineseGenerationReminder(proactive: true)}
+${PromptBuilder.visibleChineseGenerationReminder(proactive: true, ordinaryActionExperimentActive: promptBuild.ordinaryActionActive)}
 '''.trim(),
         },
       ];
@@ -2369,6 +2373,7 @@ ${PromptBuilder.visibleChineseGenerationReminder(proactive: true)}
       workFence: wishDeliveryFence,
       cedarDeliveries: cedarDeliveries.verified,
       publicWebSources: promptBuild.publicWebSources,
+      backgroundRecall: promptBuild.backgroundRecall,
       expectedPublicWebShare: promptBuild.expectedPublicWebShare,
       reflectionInvitation: reflectionInvitation,
       creativeShare: creativeShare,
