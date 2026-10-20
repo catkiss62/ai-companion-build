@@ -31,6 +31,7 @@ class CedarDeliveryVerifier {
     // structural no, not service unavailability, including sticker-only replies.
     if (visibleText.trim().isEmpty) return const CedarDeliveryVerification(declined: true);
     try {
+      final details = <String,JevChoiceDecision>{};
       final decisions = await gateway.chooseMany(
         state: {'final_visible_reply': visibleText,
           'delivery_candidates': [for (final claim in candidates) claim.toJson()]},
@@ -51,13 +52,14 @@ class CedarDeliveryVerifier {
                 (probabilities['yes'] ?? 0) > (probabilities['no'] ?? 0) ? 'yes' : 'no'),
         },
         usageLane: 'cedar_proactive_delivery',
+        decisionDetails: details,
         cancellationToken: cancellationToken,
       );
       return CedarDeliveryVerification(
         verified: [for (var i = 0; i < candidates.length; i++)
-          if (decisions?['delivery_$i'] == 'yes') candidates[i]],
+          if (decisions?['delivery_$i'] == 'yes' && details['delivery_$i']?.ambiguous != true) candidates[i]],
         declined: List.generate(candidates.length, (i) => i)
-            .any((i) => decisions?['delivery_$i'] == 'no'),
+            .any((i) => decisions?['delivery_$i'] == 'no' && details['delivery_$i']?.ambiguous != true),
       );
     } on GenerationCancelledByUserException {
       rethrow;

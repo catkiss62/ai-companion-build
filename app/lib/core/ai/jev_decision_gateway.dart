@@ -38,8 +38,6 @@ class JevDecisionGateway {
     final ranked = groups.entries.toList()
       ..sort((a, b) => b.value.compareTo(a.value));
     if (ranked.isEmpty) return 'chat';
-    if (ranked.length > 1 &&
-        ranked[0].value - ranked[1].value <= 0.10 + 1e-9) return 'chat';
     if (ranked.first.key != 'execute') return ranked.first.key;
     final labels = distribution.entries
         .where((entry) => execution.contains(entry.key)).toList()
@@ -68,11 +66,33 @@ class JevDecisionGateway {
     }
     final ranked = groups.entries.toList()..sort((a, b) => b.value.compareTo(a.value));
     if (ranked.isEmpty) return neutral;
-    if (ranked.length > 1 && ranked[0].value - ranked[1].value <= 0.10 + 1e-9) return neutral;
     if (ranked.first.key != 'play') return ranked.first.key;
     final levels = distribution.entries.where((e) => positive.contains(e.key)).toList()
       ..sort((a, b) => b.value.compareTo(a.value));
     return levels.first.key;
+  }
+
+  static bool ambiguousChoice(String lane, String question,
+      Map<String, double> probabilities) {
+    final cedar = lane == 'chat_intimacy_route' && question == 'cedar';
+    final user = (lane == 'chat_intimacy_route' || lane == 'immersive_playful_route') && question == 'interaction';
+    final self = lane == 'chat_playful_self' && question == 'route';
+    final peers = cedar ? const {'act_now', 'accept'}
+        : user ? const {'light', 'mutual', 'strong'}
+        : self ? const {'playful', 'strong'} : const <String>{};
+    final groups = <String, double>{};
+    for (final e in probabilities.entries) {
+      final key = peers.contains(e.key) ? '__same_direction' : e.key;
+      groups[key] = (groups[key] ?? 0) + e.value;
+    }
+    final ranked = groups.values.toList()..sort((a,b)=>b.compareTo(a));
+    if (ranked.isEmpty) return true;
+    final reported = probabilities.values.fold<double>(0, (a,b)=>a+b);
+    // Sparse responses remain usable. Unreported mass is an upper bound on a
+    // competing direction, never evidence for a fabricated neutral answer.
+    final missing = reported < 1 ? 1 - reported : 0.0;
+    final runnerUp = ranked.length > 1 && ranked[1] > missing ? ranked[1] : missing;
+    return ranked.first - runnerUp <= .10 + 1e-9;
   }
 
   Future<String?> choose({
@@ -81,6 +101,7 @@ class JevDecisionGateway {
     required Map<String, String> options,
     GenerationCancellationToken? cancellationToken,
     String usageLane = 'jev_short_route',
+    Map<String, JevChoiceDecision>? decisionDetails,
   }) async {
     final results = await chooseMany(
       state: state,
@@ -89,6 +110,7 @@ class JevDecisionGateway {
       },
       cancellationToken: cancellationToken,
       usageLane: usageLane,
+      decisionDetails: decisionDetails,
     );
     return results?['route'];
   }
@@ -98,7 +120,9 @@ class JevDecisionGateway {
     required Map<String, JevChoiceQuestion> questions,
     GenerationCancellationToken? cancellationToken,
     String usageLane = 'jev_short_route',
+    Map<String, JevChoiceDecision>? decisionDetails,
   }) async {
+    decisionDetails?.clear();
     cancellationToken?.throwIfCancelled();
     final started = Stopwatch()..start();
     String key;
@@ -171,7 +195,8 @@ class JevDecisionGateway {
       }
       final results = <String, String>{};
       final answerTrace = <String, Object?>{};
-      var closeDecisions = false;
+      final details = <String, JevChoiceDecision>{};
+      var uncertainDecisions = false;
       questionLoop: for (final entry in questions.entries) {
         final category = switch (entry.key) {
           'mode' => 'mode',
@@ -223,32 +248,19 @@ class JevDecisionGateway {
           ..sort((a, b) => b.value.compareTo(a.value));
         final close = ranked.length > 1 &&
             ranked[0].value - ranked[1].value <= 0.10 + 1e-9;
-        final neutral = switch ((usageLane, entry.key)) {
-          ('chat_intimacy_route', 'interaction') ||
-          ('immersive_playful_route', 'interaction') => 'ordinary',
-          ('chat_intimacy_route', 'flustered') => 'no',
-          ('chat_intimacy_route', 'initiative') ||
-          ('immersive_playful_route', 'initiative') => 'closed',
-          ('chat_intimacy_route', 'cedar') => 'chat',
-          ('chat_intimacy_route', 'game_attitude') => 'none',
-          ('chat_intimacy_route', 'task_game') ||
-          ('chat_intimacy_route', 'task_creative') ||
-          ('chat_intimacy_route', 'task_game_target') ||
-          ('chat_intimacy_route', 'task_duration') => 'none',
-          ('chat_intimacy_route', 'task_work_target') => 'unresolved',
-          ('chat_playful_self', final question) when question.startsWith('delivery_') => 'no',
-          ('chat_playful_self', 'route') => 'none',
-          ('playful_breakthrough', 'route') => 'wait',
-          ('cedar_context_intent', 'route') => 'chat',
-          _ => null,
-        };
         final highest = ranked.first.key;
         final cedarGrouped = resolveCedarGroup(usageLane, entry.key, distribution);
         final grouped = cedarGrouped ??
             resolvePlayfulGroup(usageLane, entry.key, distribution);
-        var applied = grouped ?? (close && neutral != null ? neutral : highest);
-        applied = entry.value.resolve?.call(distribution) ?? applied;
-        closeDecisions = closeDecisions || (applied == neutral && applied != highest);
+        final semanticChoice = grouped ?? highest;
+        // Domain evidence policies (e.g. memory injury admission) remain separate
+        // from classification. No generic close-race rule may invent a third label.
+        final applied = entry.value.resolve?.call(distribution) ?? semanticChoice;
+        final decision = JevChoiceDecision(choice: semanticChoice,
+          probabilities: Map.unmodifiable(distribution),
+          ambiguous: ambiguousChoice(usageLane, entry.key, distribution));
+        details[entry.key] = decision;
+        uncertainDecisions = uncertainDecisions || decision.ambiguous;
         results[entry.key] = applied;
         answerTrace[entry.key] = <String, Object?>{
           'choice': selected,
@@ -258,13 +270,17 @@ class JevDecisionGateway {
           'probabilities_complete':
               distribution.length == entry.value.options.length,
           'close': close,
+          'semantic_choice': semanticChoice,
+          'ambiguous': decision.ambiguous,
           'applied': applied,
+          if (entry.value.resolve != null) 'consumer_evidence_policy': true,
           if (grouped != null) 'decision_policy': cedarGrouped != null
               ? 'cedar_authorization_group_v1' : 'playful_semantic_groups_v2',
         };
       }
+      decisionDetails?.addAll(details);
       await _record(usageLane,
-          closeDecisions ? 'used_neutral_close_probability' : 'used', started,
+          uncertainDecisions ? 'used_with_uncertainty' : 'used', started,
           usage: decoded['usage'], request: requestTrace, answers: answerTrace);
       return results;
     } on GenerationCancelledByUserException {
@@ -321,4 +337,14 @@ class JevChoiceQuestion {
   final bool optional;
   final String instruction;
   final Map<String, String> options;
+}
+
+/// Semantic winner and uncertainty are distinct. Callers may defer an action
+/// without pretending a low-probability none/chat option won the classification.
+class JevChoiceDecision {
+  const JevChoiceDecision({required this.choice, required this.probabilities,
+    required this.ambiguous});
+  final String choice;
+  final Map<String, double> probabilities;
+  final bool ambiguous;
 }

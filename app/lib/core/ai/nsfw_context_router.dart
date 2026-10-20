@@ -27,6 +27,8 @@ class NsfwRouteDecision {
     this.playfulFlustered = false,
     this.initiativeOpportunity = false,
     this.cedarIntent,
+    this.cedarCertain = true,
+    this.gameAttitudeCertain = true,
     this.gameAttitude = 'none',
     this.historicalWebIds,
     this.taskIntent = const TurnTaskIntent(),
@@ -42,6 +44,7 @@ class NsfwRouteDecision {
   final bool initiativeOpportunity;
   /// Null when Jev was unavailable; otherwise a closed-set game intent.
   final String? cedarIntent;
+  final bool cedarCertain, gameAttitudeCertain;
   final String gameAttitude;
   final List<String>? historicalWebIds;
   final TurnTaskIntent taskIntent;
@@ -90,6 +93,8 @@ class NsfwContextRouter {
         playfulFlustered: (await db.getSetting('playful_flustered_v2')) == '1',
         initiativeOpportunity:
             (await db.getSetting('playful_form_initiative_open_v1')) == '1',
+        cedarCertain: (await db.getSetting('cedar_route_certain_v1')) != '0',
+        gameAttitudeCertain: (await db.getSetting('cedar_game_attitude_certain_v1')) != '0',
         cedarIntent: switch (await db.getSetting('cedar_route_intent_v1')) {
           '' || null => null,
           final value => value,
@@ -132,6 +137,7 @@ class NsfwContextRouter {
       state: await CedarToyActivityStore(db).loadState(), works: await CreativeStore(db).list(),
       catalog: await CedarToyActivityStore(db).loadCatalog());
     final toolQuestions = await SemanticToolQuestions.load(db);
+    final details = <String, JevChoiceDecision>{};
     final jev = await jevGateway.chooseMany(
       state: <String, Object?>{
         'current_route': currentActive ? 'nsfw' : 'daily',
@@ -240,6 +246,7 @@ class NsfwContextRouter {
       },
       cancellationToken: cancellationToken,
       usageLane: 'chat_intimacy_route',
+      decisionDetails: details,
     );
     cancellationToken?.throwIfCancelled();
     await mood.stage(moodEnabled ? MoodAppraisal.event(answers: jev,
@@ -255,8 +262,10 @@ class NsfwContextRouter {
         initiativeOpportunity: jev['initiative'] == 'open',
         gameAttitude: jev['game_attitude'] ?? 'none',
         cedarIntent: jev['cedar'],
-        taskIntent: taskQuestions.interpret(jev),
-        toolRoute: toolQuestions.interpret(jev),
+        cedarCertain: details['cedar']?.ambiguous != true,
+        gameAttitudeCertain: details['game_attitude']?.ambiguous != true,
+        taskIntent: taskQuestions.interpret(jev, details: details),
+        toolRoute: toolQuestions.interpret(jev, details: details),
         historicalWebIds: WebKnowledgeSelection.selected(historicalWebCandidates, jev),
       );
       await _persist(decision, turnId: turnId, sourceKey: sourceKey, consumeManualOverride: manualRoute);
@@ -300,7 +309,7 @@ strong: clearly strong deliberate playful provocation, including an initial chal
 Do not treat a request for technical help, genuine distress, or conflict as banter.
 Judge FLUSTERED independently: yes only for clear intense flustered embarrassment in the actual exchange, not mild shyness or routine affection. Judge INITIATIVE independently: open means a small self-started playful challenge could fit naturally now; closed means this message needs a direct response or offers no natural opening. This field only permits a possible optional nudge and does not grant heat points. Also judge game_attitude: encourage means optional autonomous game exploration when free; pause means set autonomous gaming aside; none covers direct act-now requests, ordinary game talk, quotes, different named games and unrelated messages. Permission such as 你可以自己玩玩 or 有空自己去玩吧 is encouragement unless immediate action is clearly requested in context. If CEDAR_CONFIGURED is false, game_attitude must be none. Return the independent fields in one JSON object.''',
           },
-          { 'role': 'system', 'content': 'Also return tool_route, tool_room_target, and tool_room_view in the SAME JSON. '
+          { 'role': 'system', 'content': 'Also return tool_route, tool_room_target, tool_room_view, tool_scope, and tool_room_period in the SAME JSON. '
             'Judge these independently from intimacy. Questions: ${jsonEncode(toolQuestions.questions.map((k,v)=>MapEntry(k, {"instruction":v.instruction,"options":v.options})))} '
             'Available room metadata: ${jsonEncode(toolQuestions.context)}' },
           if (moodEnabled) {
@@ -452,6 +461,8 @@ $latestUserText''',
     await db.setSetting('playful_form_initiative_open_v1',
         decision.initiativeOpportunity ? '1' : '0');
     await db.setSetting('cedar_route_intent_v1', decision.cedarIntent ?? '');
+    await db.setSetting('cedar_route_certain_v1', decision.cedarCertain ? '1' : '0');
+    await db.setSetting('cedar_game_attitude_certain_v1', decision.gameAttitudeCertain ? '1' : '0');
     await db.setSetting('cedar_game_attitude_route_signal', decision.gameAttitude);
     await db.setSetting('route_web_ids_v1', jsonEncode(decision.historicalWebIds));
     await db.setSetting('route_tool_intent_v1', jsonEncode({'turn_id': turnId, 'source_key': sourceKey, 'route': decision.toolRoute.toJson()}));

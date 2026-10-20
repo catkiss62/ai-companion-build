@@ -29,11 +29,11 @@ void main() {
     expect(JevDecisionGateway.resolvePlayfulGroup('chat_playful_self', 'route',
       {'none': .03, 'playful': .49, 'strong': .48, 'settle': 0}), 'playful');
   });
-  test('uncertainty across play versus ordinary remains neutral', () {
+  test('uncertainty across play versus ordinary retains the winner', () {
     expect(JevDecisionGateway.resolvePlayfulGroup('chat_intimacy_route', 'interaction',
-      {'ordinary': .45, 'mutual': .50, 'strong': .05}), 'ordinary');
+      {'ordinary': .45, 'mutual': .50, 'strong': .05}), 'mutual');
     expect(JevDecisionGateway.resolvePlayfulGroup('chat_playful_self', 'route',
-      {'none': .48, 'playful': .50, 'strong': .02}), 'none');
+      {'none': .48, 'playful': .50, 'strong': .02}), 'playful');
   });
   test('last-three pattern transforms on second full-meter stimulus', () {
     final first = finish(const PlayfulFormState(heat: 100), PlayfulInteraction.light, '1', self: PlayfulSelfActivity.strong);

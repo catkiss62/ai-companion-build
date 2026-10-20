@@ -17,6 +17,7 @@ class CedarContextIntentJudge {
     required String activeGameTitle,
     GenerationCancellationToken? cancellationToken,
   }) async {
+    final details = <String, JevChoiceDecision>{};
     final result = await gateway.choose(
       state: <String, String>{
         'active_game': activeGameTitle,
@@ -41,7 +42,8 @@ class CedarContextIntentJudge {
       },
       cancellationToken: cancellationToken,
       usageLane: 'cedar_context_intent',
+      decisionDetails: details,
     );
-    return result != 'chat';
+    return details['route']?.ambiguous != true && result != 'chat';
   }
 }

@@ -34,7 +34,7 @@ void main() {
   }
   test('semantic reference selects only supplied room, reads paused words without archiving',()async{
     final r=await room(); final q=await SemanticToolQuestions.load(db);
-    final route=q.interpret({'tool_route':'room','tool_room_target':'r0','tool_room_view':'summary'});
+    final route=q.interpret({'tool_route':'room','tool_room_target':'r0','tool_room_view':'summary','tool_scope':'single'});
     expect(route.roomId,r.id);expect(route.directPlan,isNotNull);
     final before=jsonEncode(await (await db.database).query('memory_items'));
     final result=await RoomHistoryReader(db).read(route.directPlan!.calls.single.arguments);

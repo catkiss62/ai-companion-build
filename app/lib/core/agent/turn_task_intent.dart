@@ -9,7 +9,15 @@ import 'turn_execution_contract.dart';
 class TurnTaskIntent {
   const TurnTaskIntent({this.available = false, this.gameAction = 'none',
     this.gameId = '', this.sessionId = '', this.durationText = '', this.minutes = 0, this.durationResolved = true,
-    this.creativeAction = 'none', this.workId = '', this.requestId = '', this.workTargetKind = 'unresolved'});
+    this.unresolvedFields = const {}, this.creativeAction = 'none', this.workId = '', this.requestId = '', this.workTargetKind = 'unresolved'});
+  final Set<String> unresolvedFields;
+  bool get gameExecutionResolved => !unresolvedFields.any((k)=>const {'task_game','task_game_target'}.contains(k));
+  bool get creativeExecutionResolved => !unresolvedFields.any((k)=>const {'task_creative','task_work_target'}.contains(k));
+  Set<String> get deferredToolIds => {
+    if (!gameExecutionResolved) ...{'cedar_toy.play','cedar_toy.manage_activity','cedar_toy.start_timed_play'},
+    if (unresolvedFields.contains('task_duration')) 'cedar_toy.start_timed_play',
+    if (!creativeExecutionResolved) ...{'creative_work.commission','creative_work.stop'},
+  };
   final bool available;
   final bool durationResolved;
   final String gameAction, gameId, sessionId, durationText;
@@ -18,10 +26,11 @@ class TurnTaskIntent {
   bool get gameControl => const {'pause', 'pause_and_release', 'resume'}.contains(gameAction);
   Map<String, Object?> toJson() => {'available': available, 'game_action': gameAction,
     'game_id': gameId, 'session_id': sessionId, 'duration_text': durationText,
-    'minutes': minutes, 'duration_resolved': durationResolved, 'creative_action': creativeAction, 'work_id': workId, 'request_id': requestId, 'work_target_kind': workTargetKind};
+    'minutes': minutes, 'duration_resolved': durationResolved, 'creative_action': creativeAction, 'work_id': workId, 'request_id': requestId, 'work_target_kind': workTargetKind, 'unresolved_fields': unresolvedFields.toList()};
   static TurnTaskIntent fromJson(Object? raw) {
     if (raw is! Map) return const TurnTaskIntent();
     return TurnTaskIntent(available: raw['available'] == true,
+      unresolvedFields: (raw['unresolved_fields'] as List?)?.whereType<String>().toSet() ?? const {},
       gameAction: raw['game_action'] as String? ?? 'none', gameId: raw['game_id'] as String? ?? '',
       sessionId: raw['session_id'] as String? ?? '', durationText: raw['duration_text'] as String? ?? '',
       minutes: (raw['minutes'] as num?)?.toInt() ?? 0,
@@ -32,20 +41,20 @@ class TurnTaskIntent {
   }
   List<TurnTaskGoal> goals(String turnId) => [
     if (gameAction == 'play') TurnTaskGoal(turnId: turnId,
-      slot: TurnEffectSlot.cedarForegroundWrite, description: '本轮进入或推进真实游戏',
+      slot: TurnEffectSlot.cedarForegroundWrite, authorized: gameExecutionResolved, description: '本轮进入或推进真实游戏',
       target: {if (gameId.isNotEmpty) 'game_id': gameId}),
     if (const {'play', 'resume'}.contains(gameAction) && (minutes > 0 || !durationResolved)) TurnTaskGoal(turnId: turnId,
-      slot: TurnEffectSlot.cedarTimedRegistration, authorized: durationResolved,
+      slot: TurnEffectSlot.cedarTimedRegistration, authorized: durationResolved && gameExecutionResolved,
       description: durationResolved ? '登记持续游玩 $minutes 分钟并在结束后汇报' : '确认持续游玩时长并登记对应任务',
       target: {if (gameId.isNotEmpty) 'game_id': gameId}, durationText: durationText, minutes: minutes),
-    if (gameControl) TurnTaskGoal(turnId: turnId, slot: TurnEffectSlot.cedarControl,
+    if (gameControl) TurnTaskGoal(turnId: turnId, slot: TurnEffectSlot.cedarControl, authorized: gameExecutionResolved,
       description: '按本轮请求 $gameAction 指定游戏', target: {
         'game_id': gameId, 'session_id': sessionId, 'operation': gameAction}),
     if (creativeAction == 'commission') TurnTaskGoal(turnId: turnId,
-      slot: TurnEffectSlot.creativeCommission, description: '登记本轮作品制作委托',
+      slot: TurnEffectSlot.creativeCommission, authorized: creativeExecutionResolved, description: '登记本轮作品制作委托',
       target: {'work_id': workId, 'request_id': requestId, 'target_kind': workTargetKind}),
     if (creativeAction == 'stop') TurnTaskGoal(turnId: turnId,
-      slot: TurnEffectSlot.creativeControl, description: '停止指定作品的本次制作',
+      slot: TurnEffectSlot.creativeControl, authorized: creativeExecutionResolved, description: '停止指定作品的本次制作',
       target: {'work_id': workId, 'request_id': requestId, 'operation': 'stop'}),
   ];
 }
@@ -115,15 +124,16 @@ class TurnTaskQuestionSet {
       {'unresolved': 'No unique existing target, ambiguous modification, or no task',
        'new_work': 'Explicitly make a new work, not a reference to an existing one', for (final e in workTargets.entries) e.key: '${e.value['title']} (${e.value['status']})'}, optional: true),
   };
-  TurnTaskIntent interpret(Map<String, String>? answers) {
+  TurnTaskIntent interpret(Map<String, String>? answers, {Map<String, JevChoiceDecision> details = const {}}) {
     if (answers == null || !answers.containsKey('task_game') || !answers.containsKey('task_creative')) return const TurnTaskIntent();
     final game = games[answers['task_game_target']];
     final work = workTargets[answers['task_work_target']];
-    final duration = durations[answers['task_duration']] ?? '';
-    return TurnTaskIntent(available: true, gameAction: answers['task_game'] ?? 'none',
+    final unresolved = details.entries.where((e)=>e.key.startsWith('task_') && e.value.ambiguous).map((e)=>e.key).toSet();
+    final duration = unresolved.contains('task_duration') ? '' : durations[answers['task_duration']] ?? '';
+    return TurnTaskIntent(available: true, unresolvedFields: unresolved, gameAction: answers['task_game'] ?? 'none',
       gameId: game?.id ?? '', sessionId: game?.sessionId ?? '', durationText: duration,
       minutes: CedarTimedPlayTaskStore.durationMinutes(duration, userText) ?? 0,
-      durationResolved: durations.isEmpty || answers['task_duration'] == 'none' || durations.containsKey(answers['task_duration']),
+      durationResolved: !unresolved.contains('task_duration') && (durations.isEmpty || answers['task_duration'] == 'none' || durations.containsKey(answers['task_duration'])),
       creativeAction: answers['task_creative'] ?? 'none',
       workId: work?['id']?.toString() ?? '', requestId: work?['request_id']?.toString() ?? '',
       workTargetKind: work != null ? 'existing' : answers['task_work_target'] == 'new_work' ? 'new_work' : 'unresolved');

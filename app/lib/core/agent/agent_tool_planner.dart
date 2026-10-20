@@ -1,3 +1,4 @@
+import 'semantic_tool_route.dart';
 import 'dart:convert';
 
 import '../ai/deepseek_client.dart';
@@ -294,6 +295,19 @@ class AgentToolPlanner {
   /// CHAT_LIGHT returns no tool schema. Task-like turns receive only the small
   /// capability subset relevant to their wording, so companionship does not
   /// inherit planning/reporting pressure from a permanent toolbox prompt.
+  static AgentToolPlan? routeForTurn(String text, SemanticToolRoute semantic) {
+    final local = routeLocally(text);
+    final explicit = local?.calls.any((c)=>c.reasonTag == 'explicit_system_command' ||
+        c.toolId == 'screen_observation.inspect') ?? false;
+    if (explicit) return local;
+    if (!semantic.available) return semantic.directPlan ?? local;
+    if (semantic.directPlan != null) return semantic.directPlan;
+    // Keep existing explicit write gates. A valid semantic no/ambiguous read
+    // must not be overwritten by an old lexical "latest room" shortcut.
+    if (local?.calls.any((c)=>AgentToolRegistry.byId(c.toolId)?.risk != AgentToolRisk.readOnly) == true) return local;
+    return semantic.discoveryPlan;
+  }
+
   static List<Map<String, Object?>> nativeToolDefinitionsFor(
     String text, {
     Set<String>? cedarStageToolIds,
@@ -302,11 +316,15 @@ class AgentToolPlanner {
     bool deepThinking = false,
     Set<String>? semanticTaskToolIds,
     Set<String> semanticToolIds = const {},
+    bool semanticReadAuthoritative = false,
   }) {
     // Routing may legitimately return an immutable empty set (for example,
     // media-only user turns have an empty text body). Cedar stage narrowing
     // mutates this collection, so take ownership at the mutation boundary.
     final toolIds = <String>{..._routeToolIds(text)};
+    if (semanticReadAuthoritative && !text.trimLeft().startsWith('【检查系统】')) {
+      toolIds.removeWhere((id)=>AgentToolRegistry.byId(id)?.risk == AgentToolRisk.readOnly);
+    }
     toolIds.addAll(semanticToolIds);
     if (webSearchRequested) toolIds.add(AgentToolRegistry.publicWebSearch.id);
     if (semanticTaskToolIds != null) {
@@ -508,6 +526,10 @@ class AgentToolPlanner {
     } else if (tool.id == AgentToolRegistry.roomHistorySearch.id || tool.id == AgentToolRegistry.roomHistoryRead.id) {
       properties['kind']=const {'type':'string','enum':['all','model_dialogue','immersive']};
       properties['query']=const {'type':'string','description':'具体话题或房间标题关键词；不填则查最近的房间。原文模式可按关键词定位并返回前后文。'};
+      if(tool.id==AgentToolRegistry.roomHistorySearch.id) {
+        properties['date_from']=const {'type':'string','description':'实际发言时间范围起点（含），ISO8601本地时间或带时区；不是房间更新时间。'};
+        properties['date_to']=const {'type':'string','description':'实际发言时间范围终点（不含），ISO8601时间；昨天指本地昨天0点至今天0点。'};
+      }
       if(tool.id==AgentToolRegistry.roomHistoryRead.id) {
         properties['room_id']=const {'type':'string','description':'已提供的真实房间ID，与kind一起使用，不可编造。'};
         properties['handle']=const {'type':'string','description':'搜索或读取返回的精确房间句柄，原样使用。'};
@@ -637,7 +659,7 @@ class AgentToolPlanner {
         '仅在用户询问你当前真实能力、用户为你实现过什么、人格学习/成长观察层状态、近期真实工具/自主行动结果或 MCP 行动历史时调用。'
         '普通闲聊不调用；本工具不能读取聊天/规则正文、密钥、日志或未实现能力。',
       'room_history.search' => '仅在当前问题需要回看模型对谈或沉浸房间时调用，按标题或关键词查找模型对谈（包括暂离未结束）或已结束沉浸房间。普通闲聊和讨论功能设计时不调用。',
-      'room_history.read' => '按需读取模型对谈或沉浸房间的summary、detail或transcript，保留发言归属和虚构场景边界。具体说过什么先核对原文；只读到局部就明确局部。没有句柄时可按kind和query选最近匹配房间。',
+      'room_history.read' => '按需读取模型对谈或沉浸房间的summary、detail或transcript，保留发言归属和虚构场景边界。具体说过什么先核对原文；只读到局部就明确局部。目标不明确时先search定位，使用返回的真实句柄或room_id；不能把歧义或日期要求默认成最新房间。',
       'phone.search' =>
         '仅在用户要求你查看自己 App 内“查手机”的内容，或回答明确依赖这些内容时调用。只读现有投影，不刷新、不生成、不标记已读。',
       'phone.read' =>

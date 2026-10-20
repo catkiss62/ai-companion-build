@@ -62,6 +62,7 @@ class PlayfulSelfJudge {
       if (thoughtCandidate != null) 'thought_candidate': thoughtCandidate,
       if (thoughtCandidate != null) 'thought_reply_full': assistantText,
     };
+    final details = <String, JevChoiceDecision>{};
     final decisions = await jevGateway.chooseMany(
       state: state,
       questions: {
@@ -87,10 +88,11 @@ class PlayfulSelfJudge {
       },
       cancellationToken: cancellationToken,
       usageLane: 'chat_playful_self',
+      decisionDetails: details,
     );
     onDeliveryVerified?.call([for (var i = 0; i < deliveryCandidates.length; i++)
-      if (decisions?['delivery_$i'] == 'yes') deliveryCandidates[i]]);
-    onThoughtExpressionVerified?.call(decisions?['thought_expressed'] == 'yes');
+      if (decisions?['delivery_$i'] == 'yes' && details['delivery_$i']?.ambiguous != true) deliveryCandidates[i]]);
+    onThoughtExpressionVerified?.call(decisions?['thought_expressed'] == 'yes' && details['thought_expressed']?.ambiguous != true);
     final jev = decisions?['route'];
     final selected = PlayfulSelfActivity.parse(jev);
     if (selected != null) return selected;

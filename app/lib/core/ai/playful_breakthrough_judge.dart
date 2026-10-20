@@ -39,6 +39,7 @@ class PlayfulBreakthroughJudge {
     final latest = userText.length > 1100
         ? userText.substring(userText.length - 1100)
         : userText;
+    final details = <String, JevChoiceDecision>{};
     final jev = await jevGateway.choose(
       state: {'recent_context': recent, 'latest_user_text': latest,
         'current_form': 'normal', 'heat': 100},
@@ -49,7 +50,10 @@ class PlayfulBreakthroughJudge {
       },
       cancellationToken: cancellationToken,
       usageLane: 'playful_breakthrough',
+      decisionDetails: details,
     );
+    // Hold the current form on uncertainty; the semantic winner stays intact.
+    if (details['route']?.ambiguous == true) return false;
     if (jev == 'breakthrough') return true;
     if (jev == 'wait') return false;
     cancellationToken?.throwIfCancelled();

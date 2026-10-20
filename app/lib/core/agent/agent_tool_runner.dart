@@ -87,6 +87,8 @@ class AgentToolRunner {
     String assistantMessageId = '',
     String latestUserText = '',
     bool deepThinking = false,
+    bool requireExplicitRoomTarget = false,
+    Set<String> deferredToolIds = const {},
     int callIndexOffset = 0,
     int maxCalls = AgentTaskLoopPolicy.maxCallsPerRound,
     PendingMediaOwner? pendingMediaOwner,
@@ -128,12 +130,14 @@ class AgentToolRunner {
       if (definition == null ||
           !definition.executable ||
           !availableForOrigin ||
-          !writeAuthorized) {
+          !writeAuthorized || deferredToolIds.contains(call.toolId)) {
         final result = AgentToolResult(
           toolId: call.toolId,
           status: AgentToolStatus.blocked,
           displayText: '工具未获准执行',
-          promptData: '该工具没有执行；不得声称已经获得结果。',
+          promptData: deferredToolIds.contains(call.toolId)
+              ? '本轮动作或目标仍有歧义，此操作暂未执行。先确认真实需求，不得声称完成或把不确定说成用户没有需求。'
+              : '该工具没有执行；不得声称已经获得结果。',
           errorCode: 'registry_blocked',
         );
         results.add(result);
@@ -216,6 +220,7 @@ class AgentToolRunner {
           userMessageId: userMessageId,
           assistantMessageId: assistantMessageId,
           latestUserText: latestUserText,
+          requireExplicitRoomTarget: requireExplicitRoomTarget,
           userTurnEventId: eventScopeId.trim().isEmpty
               ? ''
               : _eventId(
@@ -321,6 +326,7 @@ class AgentToolRunner {
     GenerationCancellationToken? cancellationToken, {
     required AgentToolOrigin origin,
     bool deepThinking = false,
+    bool requireExplicitRoomTarget = false,
     String userMessageId = '',
     String userTurnEventId = '',
     String toolChainScopeId = '',
@@ -420,7 +426,7 @@ class AgentToolRunner {
       return RoomHistoryReader(db).search(call.arguments);
     }
     if(call.toolId==AgentToolRegistry.roomHistoryRead.id) {
-      return RoomHistoryReader(db).read(call.arguments,cancellation:cancellationToken);
+      return RoomHistoryReader(db).read({...call.arguments,if(requireExplicitRoomTarget) 'require_target':'1'},cancellation:cancellationToken);
     }
     if (call.toolId == AgentToolRegistry.phoneSearch.id) {
       return _searchPhone(

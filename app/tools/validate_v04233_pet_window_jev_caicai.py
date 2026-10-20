@@ -54,7 +54,8 @@ assert '"start" -> { loadCurrentModel()' in caicai
 assert "stale_surface_ready_ignored" in caicai
 
 assert "confidenceFloor" not in jev and "highest_probability_choice" in jev
-assert "used_neutral_close_probability" in jev
+assert "used_with_uncertainty" in jev and "semantic_choice" in jev
+assert "close && neutral" not in jev
 assert "contextualDecisionCandidate" in cedar
 assert "previousAssistantText" in cedar and "activeGameTitle" in cedar
 # The older contextual-only Jev gate was replaced by one question in the

@@ -72,7 +72,7 @@ void main() {
     expect(uncertain, <String, String>{'route': 'daily'});
   });
 
-  test('close playful options become neutral without discarding other answers',
+  test('close answers preserve semantic winners without discarding other answers',
       () async {
     final result = await gateway(200, <String, Object?>{
       'answers': <String, Object?>{
@@ -101,11 +101,11 @@ void main() {
       }),
     });
     expect(result, <String, String>{
-      'mode': 'daily', 'interaction': 'ordinary', 'initiative': 'closed',
+      'mode': 'daily', 'interaction': 'mutual', 'initiative': 'open',
     });
   });
 
-  test('a close game decision does not open Cedar planning', () async {
+  test('a close game decision preserves its semantic winner', () async {
     final result = await gateway(200, <String, Object?>{
       'answers': <String, Object?>{
         'cedar': <String, Object?>{
@@ -119,7 +119,7 @@ void main() {
         questions: const {'cedar': JevChoiceQuestion('game', {
           'act_now': 'act', 'accept': 'accept', 'defer': 'defer', 'chat': 'chat',
         })});
-    expect(result?['cedar'], 'chat');
+    expect(result?['cedar'], 'act_now');
   });
 
   test('recorded half-hour invitation keeps its shared authorization', () async {
@@ -145,7 +145,7 @@ void main() {
     expect(JevDecisionGateway.resolveCedarGroup('chat_intimacy_route', 'cedar',
         {'act_now': .1, 'accept': .1, 'defer': .7, 'chat': .1}), 'defer');
     expect(JevDecisionGateway.resolveCedarGroup('chat_intimacy_route', 'cedar',
-        {'act_now': .25, 'accept': .26, 'defer': .49}), 'chat');
+        {'act_now': .25, 'accept': .26, 'defer': .49}), 'accept');
     expect(JevDecisionGateway.resolveCedarGroup('chat_intimacy_route', 'cedar',
         {'accept': .7}), 'accept');
     expect(JevDecisionGateway.resolveCedarGroup('chat_intimacy_route', 'cedar',

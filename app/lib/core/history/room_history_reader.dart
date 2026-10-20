@@ -16,10 +16,10 @@ import '../storage/secure_config.dart';
 import '../agent/agent_tool.dart';
 
 class RoomHistoryRecord {
-  const RoomHistoryRecord(this.kind,this.id,this.title,this.summary,this.messages,this.endedAt);
+  const RoomHistoryRecord(this.kind,this.id,this.title,this.summary,this.messages,this.endedAt,{this.firstMessageAt=0,this.lastMessageAt=0});
   final String kind,id,title,summary;
   final List<Map<String,Object?>> messages;
-  final int endedAt;
+  final int endedAt, firstMessageAt, lastMessageAt;
   String get label => kind=='model_dialogue'?'模型对谈':'沉浸房间';
   static String entry(Map<String,Object?> m)=>
     '[${m['id']} | ${m['speaker']} | ${m['time']} | 形态=${m['form']??'未知'}]\n${m['text']}';
@@ -55,21 +55,25 @@ class RoomHistoryReader {
   }
   static String hash(Object value)=>sha256.convert(utf8.encode(jsonEncode(value))).toString();
 
-  Future<RoomHistoryRecord?> _room(DatabaseExecutor tx,String kind,String id,{bool messages=true}) async {
+  Future<RoomHistoryRecord?> _room(DatabaseExecutor tx,String kind,String id,{bool messages=true,bool timeMetadata=false}) async {
     if(kind=='model_dialogue') {
       final room=ModelDialogueRoom.decode(await SqliteSettingsReader.read(tx,'${ModelDialogueRepository.roomPrefix}$id'));
       if(room==null||room.deleted)return null;
       final list=<Map<String,Object?>>[];
-      if(messages) {
+      final messageTimes=<int>[];
+      if(messages || timeMetadata) {
         final prefix='${ModelDialogueRepository.messagePrefix}$id:';
         final rows=await tx.query('settings',columns:['key'],where:'key >= ? AND key < ?',whereArgs:[prefix,'$prefix\uffff'],orderBy:'key');
         for(final row in rows) {
           final m=ModelDialogueMessage.decode(await SqliteSettingsReader.read(tx,row['key'] as String));
-          if(m!=null&&m.roomId==id)list.add({'id':m.id,'speaker':m.speaker=='user'?'用户':modelDialogueLabel(m.speaker),
-            'text':m.text,'time':m.createdAt,'model':m.model});
+          if(m!=null&&m.roomId==id) {
+            messageTimes.add(m.createdAt);
+            if(messages)list.add({'id':m.id,'speaker':m.speaker=='user'?'用户':modelDialogueLabel(m.speaker),
+              'text':m.text,'time':m.createdAt,'model':m.model});
+          }
         }
       }
-      final times=messages?ModelDialogueTime.rangeOfTimes(list.map((m)=>m['time'] as int)):room.data;
+      final times=ModelDialogueTime.rangeOfTimes(messageTimes);
       final excerpt=list.reversed.take(3).toList().reversed.map((m) {
         final text=m['text'] as String;
         return RoomHistoryRecord.entry({...m, 'text':text.length>1200?'〔本条末尾片段〕${text.substring(text.length-1200)}':text});
@@ -81,7 +85,8 @@ class RoomHistoryReader {
         '状态：${room.ended ? "已结束" : "进行中/暂离，尚未结束；只读已提交发言，不含生成草稿"}。\n'
         '${room.archiveSummary}${room.archiveState=='pending'?'\n本场自动整理尚未完成，不能把现有摘要当成完整记录。':''}'
         '${(!room.ended || room.archiveSummary.isEmpty) && messages ? "\n当前已提交原文（末尾片段）：\n$excerpt" : ""}',list,
-        (room.data['ended_at'] as num?)?.toInt()??room.updatedAt);
+        (room.data['ended_at'] as num?)?.toInt()??room.updatedAt,
+        firstMessageAt:(times['first_message_at'] as int?)??0,lastMessageAt:(times['last_message_at'] as int?)??0);
     }
     if(kind!='immersive')return null;
     final rows=await tx.query('immersive_rooms',where:'id = ? AND status = ?',whereArgs:[id,'ended'],limit:1);
@@ -89,24 +94,27 @@ class RoomHistoryReader {
     final r=rows.first;
     final list=messages?await tx.query('immersive_messages',
       columns:['id','role','content','created_at','form_context_json'],where:'room_id = ?',whereArgs:[id],orderBy:'created_at ASC, id ASC'):<Map<String,Object?>>[];
+    final timeRows = await tx.rawQuery('SELECT MIN(created_at) AS first_at, MAX(created_at) AS last_at FROM immersive_messages WHERE room_id = ?', [id]);
     return RoomHistoryRecord(kind,id,r['title'] as String? ??'',
       '剧情摘要：${r['rolling_summary']??''}\n结束现场：${r['scene_ledger']??''}',
       [for(final m in list){'id':m['id'],'speaker':m['role']=='user'?'用户':'小鲸鱼',
         'text':m['content'],'time':m['created_at'],'form':_form(m['form_context_json'])}],
-      (r['ended_at'] as num?)?.toInt()??0);
+      (r['ended_at'] as num?)?.toInt()??0,
+      firstMessageAt:(timeRows.single['first_at'] as num?)?.toInt()??0,
+      lastMessageAt:(timeRows.single['last_at'] as num?)?.toInt()??0);
   }
   static String _form(Object? raw) {
     try {final m=jsonDecode(raw?.toString()??'') as Map;return switch(m['form']){'q'=>'小豆丁','normal'=>'普通',_=>'未知'};}
     catch(_){return '未知';}
   }
-  Future<List<RoomHistoryRecord>> _find(DatabaseExecutor tx,String kind,String query) async {
+  Future<List<RoomHistoryRecord>> _find(DatabaseExecutor tx,String kind,String query,{int? from,int? to}) async {
     final candidates=<RoomHistoryRecord>[];
     if(kind=='all'||kind=='model_dialogue') {
       const p=ModelDialogueRepository.roomPrefix;
       final rows=await tx.query('settings',columns:['key'],where:'key >= ? AND key < ?',whereArgs:[p,'$p\uffff']);
       for(final row in rows) {
         final id=(row['key'] as String).substring(p.length);
-        final r=await _room(tx,'model_dialogue',id,messages:false);if(r!=null)candidates.add(r);
+        final r=await _room(tx,'model_dialogue',id,messages:false,timeMetadata:true);if(r!=null)candidates.add(r);
       }
     }
     if(kind=='all'||kind=='immersive') {
@@ -115,6 +123,8 @@ class RoomHistoryReader {
         final r=await _room(tx,'immersive',row['id'] as String,messages:false);if(r!=null)candidates.add(r);
       }
     }
+    candidates.removeWhere((r)=>(from!=null && (r.lastMessageAt<=0 || r.lastMessageAt<from)) ||
+        (to!=null && (r.firstMessageAt<=0 || r.firstMessageAt>=to)));
     candidates.sort((a,b)=>b.endedAt.compareTo(a.endedAt));
     if(query.isEmpty)return candidates.take(6).toList();
     final q=query.toLowerCase();
@@ -136,13 +146,20 @@ class RoomHistoryReader {
     final fence=await db.captureBrainWorkFence();
     if(fence==null)return _empty('room_history.search','当前状态不允许读取');
     final kind=_kind(args['kind']);final query=clip(args['query']?.trim()??'',160);
-    final rooms=await db.readSourceSnapshot(workFence:fence,read:(tx)=>_find(tx,kind,query));
+    final fromRaw=args['date_from']??'',toRaw=args['date_to']??'';
+    final from=DateTime.tryParse(fromRaw),to=DateTime.tryParse(toRaw);
+    if ((fromRaw.isNotEmpty&&from==null)||(toRaw.isNotEmpty&&to==null)||
+        (from!=null&&to!=null&&!from.isBefore(to))) return _empty('room_history.search','日期范围无效，请核对本地时间');
+    final rooms=await db.readSourceSnapshot(workFence:fence,read:(tx)=>_find(tx,kind,query,
+      from:from?.millisecondsSinceEpoch,to:to?.millisecondsSinceEpoch));
     if(rooms==null||rooms.isEmpty)return _empty('room_history.search','没有找到匹配的房间');
     return AgentToolResult(toolId:'room_history.search',status:AgentToolStatus.succeeded,
       displayText:'找到 ${rooms.length} 场房间记录',resultCount:rooms.length,
       promptData:'【房间记录目录，只读】\n$contract\n'+rooms.map((r)=>jsonEncode({
         'handle':_handle(r,fence),'kind':r.kind,'title':clip(r.title,120),'ended_at':r.endedAt,
-        'summary_preview':clip(r.summary,650)})).join('\n')+
+        'first_message_at':r.firstMessageAt,'last_message_at':r.lastMessageAt,
+        'actual_message_time':'${ModelDialogueTime.format(r.firstMessageAt)} 至 ${ModelDialogueTime.format(r.lastMessageAt)}',
+        'closed_or_updated_time':ModelDialogueTime.format(r.endedAt),'summary_preview':clip(r.summary,650)})).join('\n')+
         '\n使用room_history.read按handle读取summary、detail或transcript。需要具体原话时查原文，不凭摘要补写。');
   }
   Future<AgentToolResult> read(Map<String,String> args,{GenerationCancellationToken? cancellation}) async {
@@ -158,6 +175,7 @@ class RoomHistoryReader {
         kind=h['kind'] as String;id=h['id'] as String;
       }catch(_){return _empty(tool,'记录句柄无效，请重新搜索');}
     } else if(id.isEmpty) {
+      if(args['require_target']=='1')return _empty(tool,'房间目标尚未确定，请先搜索目录并按真实句柄或room_id读取，不能默认最新房间');
       final rooms=await db.readSourceSnapshot(workFence:fence,read:(tx)=>_find(tx,kind,clip(args['query']?.trim()??'',160)));
       if(rooms==null||rooms.isEmpty)return _empty(tool,'没有找到匹配的房间');
       // An unqualified request explicitly means the latest room; a named

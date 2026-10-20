@@ -371,6 +371,9 @@ class DurableGenerationRunner {
       onNsfwRoute?.call(nsfwRoute);
       final executionStore = TurnExecutionStore(db);
       final taskIntent = nsfwRoute.taskIntent;
+      final deferredToolIds = <String>{...taskIntent.deferredToolIds,
+        if (!taskIntent.available && !nsfwRoute.cedarCertain)
+          ...{'cedar_toy.play','cedar_toy.manage_activity','cedar_toy.start_timed_play'}};
       final originalUserControlRevision = await executionStore.originalUserControlRevision(user.id);
       var turnGoals = await executionStore.goals(originalAttempt);
       if (turnGoals.isEmpty && taskIntent.available) {
@@ -455,7 +458,7 @@ class DurableGenerationRunner {
               (CedarToyArcadeSkill.requestsNaturalPlay(user.content) &&
                   !RegExp(r'以后|有空|改天|哪天|下次|可以考虑')
                       .hasMatch(user.content)));
-      var localPlan = nsfwRoute.toolRoute.directPlan ?? AgentToolPlanner.routeLocally(user.content);
+      var localPlan = AgentToolPlanner.routeForTurn(user.content, nsfwRoute.toolRoute);
       // Explicit screen inspection remains local; other deep turns start with DS.
       if (job.deepThinking &&
           !(localPlan?.calls.any((call) => call.toolId == 'screen_observation.inspect') ?? false)) {
@@ -491,6 +494,8 @@ class DurableGenerationRunner {
           userMessageId: user.id,
           assistantMessageId: job.assistantMessageId,
           latestUserText: user.content,
+          requireExplicitRoomTarget: nsfwRoute.toolRoute.available,
+          deferredToolIds: deferredToolIds,
           deepThinking: job.deepThinking,
         );
         agentToolResults.addAll(localResults);
@@ -514,10 +519,10 @@ class DurableGenerationRunner {
         cedarPlayProtocol = await cedarActivityStore.loadPlayProtocol();
       }
 
-      if (taskIntent.gameControl) {
+      if (taskIntent.gameControl && taskIntent.gameExecutionResolved) {
         localPlan = AgentToolPlan(calls: [AgentToolCall(toolId: 'cedar_toy.manage_activity',
           arguments: {'operation': taskIntent.gameAction, 'game': taskIntent.gameId}, reasonTag: 'explicit_request')]);
-      } else if (taskIntent.creativeAction == 'stop') {
+      } else if (taskIntent.creativeAction == 'stop' && taskIntent.creativeExecutionResolved) {
         localPlan = AgentToolPlan(calls: [AgentToolCall(toolId: 'creative_work.stop',
           arguments: {'work_id': taskIntent.workId}, reasonTag: 'explicit_request')]);
       }
@@ -562,7 +567,7 @@ class DurableGenerationRunner {
       // Solo game progression still belongs to the background clock. A recent
       // dialogue merely lets the model interpret a short user reply with Cedar
       // tools available; it does not itself advance the session.
-      final cedarSessionActive = cedarState.hasUserTurnContinuation &&
+      final cedarSessionActive = nsfwRoute.cedarCertain && taskIntent.gameExecutionResolved && cedarState.hasUserTurnContinuation &&
           (nsfwRoute.cedarIntent == null ||
               nsfwRoute.cedarIntent == 'act_now' ||
               nsfwRoute.cedarIntent == 'accept');
@@ -570,7 +575,9 @@ class DurableGenerationRunner {
       // A valid semantic acceptance does not expire after a local time window.
       // If Jev is offline, only the old narrow candidates reach the on-demand
       // DeepSeek tool planner.
-      final cedarSemantic = taskIntent.available
+      final cedarSemantic = taskIntent.available && !taskIntent.gameExecutionResolved
+          ? 'uncertain' : !taskIntent.available && !nsfwRoute.cedarCertain
+          ? 'uncertain' : taskIntent.available
           ? (taskIntent.gameAction == 'play' || (taskIntent.gameAction == 'resume' &&
               turnGoals.any((g) => g.slot == TurnEffectSlot.cedarTimedRegistration))) ? 'act_now' : 'chat'
           : nsfwRoute.cedarIntent;
@@ -664,6 +671,10 @@ class DurableGenerationRunner {
                 'result_count': r['result_count']}).toList()
           : const <Map<String, Object?>>[];
       final baseRequestMessages = <Map<String, Object?>>[
+        if (nsfwRoute.toolRoute.planningContext.isNotEmpty)
+          {'role':'system','content':nsfwRoute.toolRoute.planningContext},
+        if (deferredToolIds.isNotEmpty)
+          {'role':'system','content':'本轮部分操作或目标尚未确定，相关写操作已暂缓。请只针对未确定之处自然确认；保留已有明确需求，不得说用户没有提出请求或操作已完成。'},
         ...promptBuild.messages,
         {'role': 'system', 'content': '${ToolProvenancePolicy.roomCapability}\n${ToolProvenancePolicy.memorySourceRule}'
           '${roomOutcomeMetadata.isEmpty ? "" : "\n历史工具结果元数据（不是本轮操作/正文）：${jsonEncode(roomOutcomeMetadata)}"}'
@@ -1204,7 +1215,9 @@ class DurableGenerationRunner {
             deepThinking: job.deepThinking,
             semanticTaskToolIds: semanticTaskToolIds(),
             semanticToolIds: nsfwRoute.toolRoute.toolIds,
-          );
+            semanticReadAuthoritative: nsfwRoute.toolRoute.available,
+          ).where((d)=>!deferredToolIds.any((id)=>
+              (d['function'] as Map?)?['name'] == AgentToolPlanner.nativeNameForToolId(id))).toList();
 
       var taskToolDefinitions = currentTaskToolDefinitions();
       final agentTaskAttempted =
@@ -1252,11 +1265,13 @@ $finalGenerationReminder
       }
 
       final localPlanClosesLoop = localPlan != null &&
-          ((localPlan.calls.every((c) => c.toolId == 'room_history.read' && (c.arguments['view'] ?? 'summary') == 'summary') &&
-              agentToolResults.any((r) => r.toolId == 'room_history.read' && r.status == AgentToolStatus.succeeded)) ||
+          ((nsfwRoute.toolRoute.canFinishAfterSummary(
+              succeeded: localPlan.calls.every((c)=>c.toolId == 'room_history.read') &&
+                  agentToolResults.any((r)=>r.toolId == 'room_history.read' && r.status == AgentToolStatus.succeeded),
+              otherGoalsPending: TurnGoalVerification.missing(turnGoals,agentToolResults,localReceipts).isNotEmpty)) ||
            (AgentTaskLoopPolicy.containsProposal(localPlan) &&
-              TurnGoalVerification.missing(turnGoals, agentToolResults, localReceipts).isEmpty) ||
-              AgentTaskLoopPolicy.hasCommitPendingMedia(agentToolResults));
+              TurnGoalVerification.missing(turnGoals,agentToolResults,localReceipts).isEmpty) ||
+           AgentTaskLoopPolicy.hasCommitPendingMedia(agentToolResults));
       var toolsOpen = taskToolDefinitions.isNotEmpty &&
           !localPlanClosesLoop &&
           allowedTaskCalls() > 0;
@@ -1522,6 +1537,8 @@ $finalGenerationReminder
           userMessageId: user.id,
           assistantMessageId: job.assistantMessageId,
           latestUserText: user.content,
+          requireExplicitRoomTarget: nsfwRoute.toolRoute.available,
+          deferredToolIds: deferredToolIds,
           deepThinking: job.deepThinking,
           callIndexOffset: agentToolCalls,
           maxCalls: callsAllowed,

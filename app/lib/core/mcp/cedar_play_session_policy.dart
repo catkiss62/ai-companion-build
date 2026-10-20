@@ -244,6 +244,7 @@ class CedarGameAttitudeStore {
       CedarGameAttitude.decode(await db.getSetting(key));
   Future<void> commit({required String turnId, required DateTime now}) async {
     if (await db.getSetting('nsfw_route_turn_id') != turnId) return;
+    if (await db.getSetting('cedar_game_attitude_certain_v1') == '0') return;
     final signal = await db.getSetting('cedar_game_attitude_route_signal');
     if (signal != 'encourage' && signal != 'pause') return;
     if ((await load())?.turn == turnId) return;
