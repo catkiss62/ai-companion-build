@@ -1,6 +1,6 @@
 # +363 JEV决策与工具执行修复
 
-状态：实现完成；前候选b6948161的652项定向通过，完整CI因版本白名单失败，Android8清理/版本门修订后待新候选验证。目标0.42.119+363；基准+362应用91437635。用户授权本轮第2、3项，并于10月20日18:33追加允许安全移除Android8专项优化。主动消息在途竞态、人设、普通聊天非空协议及对谈收尾不变。
+状态：IMPLEMENTED / CI PASSED / APK READY / TRUE DEVICE PENDING。最终0.42.119+363，应用8bb8abf0（本地7f73d1f同树99fe8bb9），652定向/2383全量/154源码门/52 Android15及APK核验均通过。用户授权本轮第2、3项，并于10月20日18:33追加安全移除Android8专项优化。主动消息在途竞态、人设、普通聊天非空协议及对谈收尾不变。
 
 ## 实现
 
@@ -17,7 +17,7 @@
 
 新增decision_tool_routing_v042119_test.dart：旧问题多个入口47/45/8保留赢家与不确定；同向分组/稀疏概率；任务原始意图与写操作暂缓；房间歧义先目录、语义no不读最新、真实日期及范围外候选；真实DurableGenerationRunner的多房间连续读取、单次快速读取、不调用工具、歧义仅查目录。既有JEV/玩闹测试按已批准语义更新，没有删除相关断言。
 
-本地无Flutter/Dart SDK，Flutter分析和行为回归须以CI为准。23项隔离发布身份测试通过，Python语法和diff检查通过。模型对谈资源/Android原生目录在本地稀疏检出，相关源码守卫不能记为本地通过。最终CI仍需完整运行Android8/15、源码门、全量Flutter、打包前存档恢复与原签名APK核验。实际JEV准确率及设备效果待真机，不用模拟概率测试代替。
+本地无Flutter/Dart SDK，Flutter分析和行为回归须以CI为准。23项隔离发布身份测试通过，Python语法和diff检查通过。模型对谈资源/Android原生目录在本地稀疏检出，相关源码守卫不能记为本地通过。按追加清理决定，最终CI保留Android15、源码门、全量Flutter、打包前存档恢复与原签名APK核验，Android8专项不再运行。实际JEV准确率及设备效果待真机，不用模拟概率测试代替。
 
 第二轮8d46696c定向649项、Dart分析及Node桥通过。首轮两处可空表达式括号缺失导致分析失败，记录不覆盖。后续日期边界复核补充：区间内必须实际存在消息，不能因前天与今天两端发言就匹配昨天；跨日目标需先目录定位，日期范围以UTC绝对边界持久保存。该追加由最终CI重新验证。
 
@@ -26,3 +26,24 @@
 用户18:33允许确认边界后清理，否则延后。核对+338实施记录及当前调用后，移除CaicaiStageVisibility唯一API26/27分支及Build依赖，删除已无用途的surface参数并同步生产/测试调用；共享root.alpha路径与GL暂停/恢复、释放/销毁逻辑保持。两份工作流移除独立Android8烟测job和构建依赖，Android15继续跑整组测试；StageVisibility保留真实GL首帧、5次alpha隐藏/恢复、同surface及Activity前后台验证，移除专属旧系统断言和触摸注入代码。不修改minSdk或其他通用Android兼容分支；这是删除专项优化，不宣称从全部Android代码中移除旧系统支持。
 
 完整39407589216/build118580091037失败在154门中的validate_v04256_share_portable_state版本白名单漏加119+363，尚未执行全量Flutter或产APK；Android8/15在旧候选均成功。已按当前154门清单核对同式版本条件，同时补齐v04256/v04260/v04261三个白名单，其他行为断言不变。新候选须重跑Android15、全部源码门/Flutter/打包前恢复及APK核验，652项旧候选定向不代替新候选验证。
+
+新候选8bb8abf0（本地7f73d1f同树99fe8bb9）定向39409643053/flutter118583945749已success；本地23项隔离发布身份回归及冻结总账历史检查通过。完整39409643084/Android15原生118583992666仍运行，APK待验证。
+
+最终候选8bb8abf0的定向652项、Android15原生52项（零失败/零跳过）、154源码门、工具桥/Kotlin/Dart分析及全量Flutter、打包前存档恢复步骤均已success。完整39409643084/build118586087841进入release APK构建，APK本体/版本/资源/签名及上传尚待核验；实际全量计数以完成日志为准。
+
+## 2026-10-20 · +363 最终交付
+
+最终应用源码8bb8abf0f10bc0babff9266da3301d76e2e8c318，tree99fe8bb91b522266ce69d028f1b74f15dec55e6b（本地7f73d1f37bf3c40223e1bed8372a0e38f70c6af2同树）。App0.42.119+363、schema61、Snapshot protocol7，数据库及存档协议本轮未变；接班快照原protocol6为文档旧值，本次按snapshot_service.dart实际导出/校验上限更正为7。
+
+定向Actions39409643053/flutter118583945749成功，10:44:43Z为02:42 +652 All tests passed。完整Actions39409643084/build118586087841成功：154/154源码门、23发布身份、Node桥、Kotlin、Dart分析通过；11:05:47Z为07:52 +2383 All tests passed，11:06:58Z为168 tests passed（打包前存档恢复）。Android15/API35原生118583992666为52/52成功，0失败/0跳过。Android8专项分支和两处独立job已按最新授权移除，不再将旧候选Android8通过算作本轮测试。分析保留既有707条非fatal warning/info，不称零告警；定向/全量/恢复有重叠，覆盖数不相加。前候选版本门失败记录保留。
+
+APK下载：https://github.com/catkiss62/ai-companion-build/releases/download/untagged-77508e8530aa62494ab9/AI-Companion-v0.42.119-363-JEV-Tool-Routing-APK.apk
+文件AI-Companion-v0.42.119-363-JEV-Tool-Routing-APK.apk，738840722 bytes。
+SHA256：01ebdf52f6c4b3f6cfa4eab01089719b02575e89904269c7daa05cd5c97bf293
+签名SHA256：30:5E:B3:D8:09:83:B9:63:C6:48:18:DD:F1:AD:56:1F:27:9D:E6:D4:7B:3E:D2:C7:81:AD:A4:48:C7:C2:51:48。
+
+实际APK包名com.aicompanion.localfirst、版本0.42.119+363，与测试源码一致；原签名、全部资源/固定TTS载荷校验和上传均success。Release418249294保持draft，APK asset659099620，线上digest与CI sha256及ci-monitor-v0345/.ci/v042119-monitor.txt逐一相同；monitor记录最终源码8bb8abf0和success。未合并main、未正式发布，保持原签名可覆盖安装。
+
+交付修复：JEV公共近概率不再强制选低概率第三项，保留语义赢家并独立处理犹豫；相关任务执行不确定时暂缓，原始意图/概率可追溯。工具语义no及不可用降级均不能默读最新，歧义先目录/明确ID；相对日期按实际发言定位，跨日无发言不能虚匹配；单次摘要快捷完成受严格条件，多步骤保留其余目标并获5轮规划，普通闲聊不新增完整Agent。Android8独立优化已移除，现代共享alpha路径与暂停/释放保留。
+
+人设/世界书、普通聊天非空协议、主动消息在途竞态、对谈close/end均未改；前版暂停读取/来源纠错、气泡60%及沉浸原图继续保留（原图SHA256 0a73f68a69fc8e748ed2d789876c75d7ff21a9d3701da36fbcb3696fa071cabc，包内字节核验通过）。真实JEV语义准确率、长期对话/手机效果待用户观察，未调用真实付费模型、未把模拟器或回归等同真机验收。
