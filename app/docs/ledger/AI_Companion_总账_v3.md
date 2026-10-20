@@ -1079,3 +1079,16 @@ SHA256：65275a5aede7a3e833acc222729c15342664cb2dfd3cb9b0ff0ef16359a872f4。
 ## 2026-10-21 · 第二通道小优化与SoulLink连续表演核对（开始，仅分析）
 
 用户决定第二通道仅做明显值得优化的项目，先扩展核对参考仓库nanlingyin/soullink-emotion-sdk是否更新、是否依据当前说话内容划分情绪/动作阶段。本轮先只读分析，不修改应用代码、世界书、存档或版本，不构建APK；B站PC阅读器与同步继续后置。对照基线v0.42.120+364，开发分支agent/v042107-review-recovery、HEAD1afda622、应用993a4471。先读当前接班快照、5个提交及最新Actions摘要，再定点查当前动作规划/触发/原生参数计划和上游相关源码。当前执行环境不可用，使用已连接GitHub只读源码；不冒充运行测试或观看用户所指视频。上轮诊断统计结论来自用户提供的接续上下文，本轮不重复解包或把其记录为新验证。
+
+
+### 2026-10-21 · 核对结果与候选修改（分析完成，未实施）
+
+上游公开状态：main HEAD02cd75ac0a085a87d84d1a885f1b33eca8742d53，最后提交2026-09-21，package.json为0.2.0-beta.1。公开release/0.2.0-beta.1和work/model-audit-service-demo-20260930无更新实现；8月18日已有capability-aware speech performance，9月21日整合发布。此前项目未钉死SoulLink源码版本，仅借鉴合同/思路，不能把整份SDK称作已移植，也不能断言所有这些能力都是接入后新更新。
+
+直接证据：scripts/conversation-service.mjs:394–450以预计语音时长及1/2/4Hz生成时间点，把assistantReply按字符比例切为approximateSpeech，在用户消息、最近6条历史和全局台词上下文中逐时点选择头部/表情/视线/手势。文档docs/jev-conversation.md明确整段TTS和JEV准备后播放、根据实际音频重排动作、共享AudioContext时钟；不是逐词对齐/实时流式生成。Engine另有VAD连续情绪、保留/自然衰减，以及只接收emotion/semanticCues/deliveryHints的本地SpeechPerformancePlanner；本地层本身不自动理解原台词。上述路线必须分开说明，不把自然回落全部解释成新语义判断。已检索的代码未找到用户描述的“害羞心动·自然说话/傲娇嘴硬·害羞回避”等完整标签；未观看该视频，不能认定其与公开版本完全相同或保证移植后相同观感。
+
+本项目定点复核：app/lib/core/ai/caicai_motion_planner.dart每轮一次chooseMany，已有四拍独立头/身/眼/眉/嘴型/视线/整模及幅度，但只有全局一次持续emotion、face/wink/action选择；固定起意/强调/反应/收势和0.82/0.95/1.10s间隔，没有每拍台词绑定/语音时长/播放时钟。caicai_chat_motion.dart在计划返回后直接下发motionPlan；chat_page.dart:291–296发现助手消息后触发，无TTS播放进度参数。CaicaiParameterPlan.java按渲染delta和全局速度推进，返回当前idle有平滑，不等于已同步台词。结论：语义感知已有，台词对应、分段情绪和语音同步仍缺；只增加帧数/幅度不足以补齐。
+
+候选下一步（仍待后续任务实施）：第二通道仅对已确认finish_reason后不结束连接的有界收尾兼容及分段计时做窄修，不能见到任意finish_reason就无条件截断工具/多choice/usage事件；保留本地事实/完全重复检查。Live2D优先复用现有渲染/配件和JEV批量入口，将真实台词片段、各段情绪/局部动作、自然回落和播放进度建立对应；不硬性每句变情绪、不注入固定傲娇人设，不照搬整段音频/多轮动作请求后才能播放的等待。优先评估同批分段决策，新增问题/token/延迟需实测，不承诺零新增成本；取消/新回复替换/切页/手动预设/摸头/口型归属保留。TTS分段/队列时钟和无语音时的节奏仍需实施前定点设计，不能把当前分析当作完成方案或已修复。
+
+状态：READ-ONLY ANALYSIS COMPLETE；只更新唯一总账，应用仍v0.42.120+364、993a4471，未修改应用/世界书/存档、未新增CI/APK/真机验证。公开源码依据：https://github.com/nanlingyin/soullink-emotion-sdk/blob/02cd75ac0a085a87d84d1a885f1b33eca8742d53/scripts/conversation-service.mjs 、同版本docs/jev-conversation.md及packages/engine/src/speech/SpeechPerformancePlanner.ts。本轮未上传用户备份、诊断正文或密钥。
