@@ -105,6 +105,15 @@ void main() {
     await CedarGameAttitudeStore(db).commit(turnId:'u',now:DateTime.now());
     expect(await CedarGameAttitudeStore(db).load(),isNull);
   });
+  test('irrelevant target uncertainty cannot turn ordinary chat into a task',()async{
+    final q=TurnTaskQuestionSet(userText:'今天好累',state:await CedarToyActivityStore(db).loadState(),works:const []);
+    final intent=q.interpret({'task_game':'none','task_creative':'none'},details:{
+      'task_game_target':const JevChoiceDecision(choice:'g0',probabilities:{'g0':.47,'g1':.45,'none':.08},ambiguous:true),
+      'task_work_target':const JevChoiceDecision(choice:'w0',probabilities:{'w0':.47,'w1':.45,'unresolved':.08},ambiguous:true)});
+    expect(intent.unresolvedFields,isEmpty);expect(intent.deferredToolIds,isEmpty);
+    expect(intent.goals('u'),isEmpty);
+    expect(const SemanticToolRoute(available:true).planningContext,isEmpty);
+  });
   test('near room targets discover first, semantic no cannot fall through to latest',()async{
     final a=await room('甲',DateTime.now().millisecondsSinceEpoch);
     await room('乙',DateTime.now().millisecondsSinceEpoch);
@@ -178,6 +187,7 @@ void main() {
         : SemanticToolRoute(kind:'room',available:true,roomId:a.id,roomKind:'model_dialogue',singleRead:scenario=='single');
       final client=DeepSeekClient(streamClientFactory:()=>MockClient((request)async{
         final body=jsonDecode(request.body) as Map;
+        if(scenario=='no_tool')expect(jsonEncode(body['messages']),isNot(contains('【本轮工具需求】')));
         if((body['tools'] as List?)?.isNotEmpty==true){
           planning++;
           if(scenario=='long_multi' && planning<=4) {

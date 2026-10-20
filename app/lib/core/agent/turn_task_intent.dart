@@ -128,7 +128,11 @@ class TurnTaskQuestionSet {
     if (answers == null || !answers.containsKey('task_game') || !answers.containsKey('task_creative')) return const TurnTaskIntent();
     final game = games[answers['task_game_target']];
     final work = workTargets[answers['task_work_target']];
-    final unresolved = details.entries.where((e)=>e.key.startsWith('task_') && e.value.ambiguous).map((e)=>e.key).toSet();
+    bool relevant(String key) => key == 'task_game' || key == 'task_creative' ||
+      key == 'task_game_target' && const {'play','pause','pause_and_release','resume'}.contains(answers['task_game']) ||
+      key == 'task_duration' && const {'play','resume'}.contains(answers['task_game']) ||
+      key == 'task_work_target' && const {'commission','stop'}.contains(answers['task_creative']);
+    final unresolved = details.entries.where((e)=>e.value.ambiguous && relevant(e.key)).map((e)=>e.key).toSet();
     final duration = unresolved.contains('task_duration') ? '' : durations[answers['task_duration']] ?? '';
     return TurnTaskIntent(available: true, unresolvedFields: unresolved, gameAction: answers['task_game'] ?? 'none',
       gameId: game?.id ?? '', sessionId: game?.sessionId ?? '', durationText: duration,

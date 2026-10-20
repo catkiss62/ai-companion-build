@@ -674,7 +674,7 @@ class DurableGenerationRunner {
         if (nsfwRoute.toolRoute.planningContext.isNotEmpty)
           {'role':'system','content':nsfwRoute.toolRoute.planningContext},
         if (deferredToolIds.isNotEmpty)
-          {'role':'system','content':'本轮部分操作或目标尚未确定，相关写操作已暂缓。请只针对未确定之处自然确认；保留已有明确需求，不得说用户没有提出请求或操作已完成。'},
+          {'role':'system','content':'本轮部分操作或目标尚未确定，相关写操作已暂缓。若当前请求确实需要这些操作，请定位或确认未确定之处；不额外给闲聊制造任务。保留已有明确需求，不得说用户没有提出请求或操作已完成。'},
         ...promptBuild.messages,
         {'role': 'system', 'content': '${ToolProvenancePolicy.roomCapability}\n${ToolProvenancePolicy.memorySourceRule}'
           '${roomOutcomeMetadata.isEmpty ? "" : "\n历史工具结果元数据（不是本轮操作/正文）：${jsonEncode(roomOutcomeMetadata)}"}'

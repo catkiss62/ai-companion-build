@@ -67,7 +67,7 @@ class SemanticToolRoute {
   bool canFinishAfterSummary({required bool succeeded, required bool otherGoalsPending}) =>
       available && singleRead && !uncertain && !targetUncertain && kind == 'room' &&
       view == 'summary' && roomId.isNotEmpty && succeeded && !otherGoalsPending;
-  String get planningContext => !available ? '' :
+  String get planningContext => !available || !needsTools ? '' :
     '【本轮工具需求】分类=$kind；判断${uncertain ? "仍有歧义" : "有效"}；'
     '${singleRead ? "仅一次明确读取" : "可能有多步骤或待定位的要求，某个工具成功不代表整轮完成"}。'
     '${targetUncertain ? "房间目标未唯一确定：先查目录，结合真实时间和标题定位；仍有歧义就询问，不可默认最新房间。" : ""}'
