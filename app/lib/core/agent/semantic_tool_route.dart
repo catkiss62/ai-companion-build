@@ -10,17 +10,17 @@ class SemanticToolRoute {
   const SemanticToolRoute({this.kind = 'none', this.roomId = '',
     this.roomKind = '', this.view = 'summary', this.phoneSection = 'all',
     this.available = false, this.uncertain = false, this.targetUncertain = false,
-    this.singleRead = false, this.candidateKinds = const {},
+    this.singleRead = false, this.multiStep = false, this.candidateKinds = const {},
     this.dateFrom = '', this.dateTo = ''});
   final String kind, roomId, roomKind, view, phoneSection, dateFrom, dateTo;
-  final bool available, uncertain, targetUncertain, singleRead;
+  final bool available, uncertain, targetUncertain, singleRead, multiStep;
   final Set<String> candidateKinds;
   static const kinds = {'none','room','phone','web','memory','system','rules','album','device','mixed'};
   static const readKinds = {'room','phone','web','memory','system','rules','album','device'};
   Map<String, Object?> toJson() => {'kind':kind, 'room_id':roomId,
     'room_kind':roomKind, 'view':view, 'phone_section':phoneSection,
     'available':available, 'uncertain':uncertain, 'target_uncertain':targetUncertain,
-    'single_read':singleRead, 'candidate_kinds':candidateKinds.toList(),
+    'single_read':singleRead,'multi_step':multiStep, 'candidate_kinds':candidateKinds.toList(),
     'date_from':dateFrom, 'date_to':dateTo};
   static SemanticToolRoute decode(Object? value) {
     if (value is! Map || !kinds.contains(value['kind'])) return const SemanticToolRoute();
@@ -28,7 +28,7 @@ class SemanticToolRoute {
       roomId:value['room_id'] as String? ?? '', roomKind:value['room_kind'] as String? ?? '',
       view:value['view'] as String? ?? 'summary', phoneSection:value['phone_section'] as String? ?? 'all',
       available:value['available'] == true || !value.containsKey('available') && readKinds.contains(value['kind']), uncertain:value['uncertain'] == true,
-      targetUncertain:value['target_uncertain'] == true || value['kind']=='room' && (value['room_id'] as String? ?? '').isEmpty, singleRead:value['single_read'] == true,
+      targetUncertain:value['target_uncertain'] == true || value['kind']=='room' && (value['room_id'] as String? ?? '').isEmpty, singleRead:value['single_read'] == true, multiStep:value['multi_step'] == true || value['kind']=='mixed',
       candidateKinds:(value['candidate_kinds'] as List?)?.whereType<String>().where(readKinds.contains).toSet() ?? const {},
       dateFrom:value['date_from'] as String? ?? '', dateTo:value['date_to'] as String? ?? '');
   }
@@ -53,7 +53,7 @@ class SemanticToolRoute {
     if(dateTo.isNotEmpty) 'date_to':dateTo,
   };
   AgentToolPlan? get directPlan {
-    if (kind == 'room' && !uncertain && !targetUncertain && singleRead &&
+    if (kind == 'room' && !uncertain && !targetUncertain &&
         roomId.isNotEmpty && const {'model_dialogue','immersive'}.contains(roomKind)) {
       return AgentToolPlan(calls:[AgentToolCall(toolId:'room_history.read',
         arguments:{'kind':roomKind,'room_id':roomId,'view':view},reasonTag:'semantic_room_recall')]);
@@ -63,6 +63,7 @@ class SemanticToolRoute {
   AgentToolPlan? get discoveryPlan => kind == 'room' && targetUncertain && !uncertain
       ? AgentToolPlan(calls:[AgentToolCall(toolId:'room_history.search',
           arguments:{'kind':'all',...timeFilter},reasonTag:'semantic_room_discovery')]) : null;
+  int planningRounds(int ordinaryLimit) => multiStep ? 5 : ordinaryLimit;
   bool canFinishAfterSummary({required bool succeeded, required bool otherGoalsPending}) =>
       available && singleRead && !uncertain && !targetUncertain && kind == 'room' &&
       view == 'summary' && roomId.isNotEmpty && succeeded && !otherGoalsPending;
@@ -154,10 +155,11 @@ class SemanticToolQuestions {
     // A multi-day span does not prove a message exists on an intervening day.
     // Resolve it with an actual timestamp-filtered directory search first.
     final wrongDay = from != null && (actualFirst < from.millisecondsSinceEpoch || actualLast >= to!.millisecondsSinceEpoch || actualFirst <= 0);
-    final single = answers?['tool_scope'] == 'single' && details['tool_scope']?.ambiguous != true;
+    final single = answers?['tool_scope'] == 'single' && details['tool_scope']?.ambiguous != true && details['tool_room_view']?.ambiguous != true;
     final view = answers?['tool_room_view'] ?? 'summary';
     return SemanticToolRoute(kind:available ? kind : 'none',available:available,uncertain:uncertain,
       targetUncertain:targetUncertain || kind == 'room' && wrongDay,singleRead:single,
+      multiStep:kind == 'mixed' || answers?['tool_scope']=='multi' && details['tool_scope']?.ambiguous != true,
       candidateKinds:candidates,
       roomId:kind == 'room' && !targetUncertain && !wrongDay ? (target?['id'] as String? ?? '') : '',
       roomKind:kind == 'room' ? (target?['kind'] as String? ?? '') : '',

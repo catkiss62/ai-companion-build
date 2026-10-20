@@ -96,6 +96,8 @@ void main() {
       toolId:'cedar_toy.manage_activity',arguments:const {'operation':'pause'},reasonTag:'explicit_request')]),
       userMessageId:'u',deferredToolIds:intent.deferredToolIds);
     expect(outcomes.single.status,AgentToolStatus.blocked);
+    expect(outcomes.single.errorCode,'registry_blocked');
+    expect(outcomes.single.promptData,contains('仍有歧义'));
     expect(await CedarToyActivityStore(db).load(),isNull);
     await db.setSetting('nsfw_route_turn_id','u');
     await db.setSetting('cedar_game_attitude_route_signal','encourage');
@@ -158,7 +160,7 @@ void main() {
     expect(old.available,true);expect(old.singleRead,false);expect(old.roomId,'a');
   });
 
-  for(final scenario in ['multi','single','no_tool','ambiguous']) {
+  for(final scenario in ['multi','long_multi','single','no_tool','ambiguous']) {
     test('real runner preserves semantic routing and remaining reads: $scenario',()async{
       final files=await Directory.systemTemp.createTemp('semantic-runner-');
       final oldPaths=PathProviderPlatform.instance;PathProviderPlatform.instance=_Paths(files.path);
@@ -170,16 +172,25 @@ void main() {
       final token=GenerationCancellationToken();var planning=0;
       final a=await room('甲讨论',DateTime.now().millisecondsSinceEpoch);
       final b=await room('乙讨论',DateTime.now().millisecondsSinceEpoch);
-      final route=scenario=='no_tool' ? const SemanticToolRoute(available:true)
+      final route=scenario=='long_multi' ? const SemanticToolRoute(kind:'mixed',available:true,multiStep:true)
+        : scenario=='no_tool' ? const SemanticToolRoute(available:true)
         : scenario=='ambiguous' ? const SemanticToolRoute(kind:'room',available:true,targetUncertain:true,singleRead:true)
         : SemanticToolRoute(kind:'room',available:true,roomId:a.id,roomKind:'model_dialogue',singleRead:scenario=='single');
       final client=DeepSeekClient(streamClientFactory:()=>MockClient((request)async{
         final body=jsonDecode(request.body) as Map;
         if((body['tools'] as List?)?.isNotEmpty==true){
           planning++;
-          if(scenario=='multi') {
-            if(planning<=2)return _response({'tool_calls':[{'index':0,'id':'read-$planning','type':'function',
-              'function':{'name':'room_history_read','arguments':jsonEncode({'kind':'model_dialogue','room_id':planning==1?a.id:b.id,'view':'summary'})}}]},finish:'tool_calls');
+          if(scenario=='long_multi' && planning<=4) {
+            final search=planning==1||planning==3;
+            return _response({'tool_calls':[{'index':0,'id':'step-$planning','type':'function',
+              'function':{'name':search?'room_history_search':'room_history_read',
+                'arguments':jsonEncode(search?{'kind':'model_dialogue','query':planning==1?'甲讨论':'乙讨论'}
+                  :{'kind':'model_dialogue','room_id':planning==2?a.id:b.id,'view':'summary'})}}]},finish:'tool_calls');
+          }
+          if(scenario=='multi' || scenario=='long_multi') {
+            expect(jsonEncode(body['messages']),contains('甲讨论 的已保存原文'));
+            if(scenario=='multi' && planning==1)return _response({'tool_calls':[{'index':0,'id':'read-$planning','type':'function',
+              'function':{'name':'room_history_read','arguments':jsonEncode({'kind':'model_dialogue','room_id':b.id,'view':'summary'})}}]},finish:'tool_calls');
             expect(jsonEncode(body['messages']),contains('甲讨论 的已保存原文'));
             expect(jsonEncode(body['messages']),contains('乙讨论 的已保存原文'));
           } else if(scenario=='ambiguous') {
@@ -191,7 +202,7 @@ void main() {
       try {
         await db.tryAcquireLocalLease('chat_turn_lease');
         final job=await db.createGenerationTurn(user:ChatMessage(id:'user',role:'user',
-          content:scenario=='multi'?'比较甲讨论和乙讨论，再给我看法':'昨天模型对谈说了什么？',createdAt:DateTime.now()),
+          content:scenario=='multi'||scenario=='long_multi'?'比较甲讨论和乙讨论，再给我看法':'昨天模型对谈说了什么？',createdAt:DateTime.now()),
           assistantMessageId:'reply',model:'deepseek-flash',reasoningEffort:'high');
         final source=(await ConversationSourceStore.captureMessage(await db.database,'user'))!;
         final key='${source.contentHash}:${source.revision}';
@@ -200,10 +211,10 @@ void main() {
         final result=await DurableGenerationRunner(db:db,client:client,secureConfig:secure).run(job,cancellationToken:token)
           .timeout(const Duration(seconds:20));
         expect(result.status,'completed',reason:result.error?.toString());
-        expect(planning,scenario=='multi'?3:scenario=='ambiguous'?1:0);
+        expect(planning,scenario=='long_multi'?5:scenario=='multi'?2:scenario=='ambiguous'?1:0);
         final records=await db.recentAgentToolOutcomeRecords(limit:20);
         final reads=records.where((r)=>r.toolId=='room_history.read').toList();
-        expect(reads,hasLength(scenario=='multi'?2:scenario=='single'?1:0));
+        expect(reads,hasLength(scenario=='multi'||scenario=='long_multi'?2:scenario=='single'?1:0));
         if(scenario=='ambiguous')expect(records.any((r)=>r.toolId=='room_history.search'),true);
         expect(await db.messageById('reply'),isNotNull);
       } finally {

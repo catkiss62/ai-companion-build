@@ -1180,7 +1180,7 @@ class DurableGenerationRunner {
           ? CedarToyArcadeSkill.contextualPlanningRounds
           : cedarLoopEngaged()
               ? CedarToyArcadeSkill.maxPlanningRounds
-              : job.deepThinking ? 5 : AgentTaskLoopPolicy.maxPlanningRounds;
+              : job.deepThinking ? 5 : nsfwRoute.toolRoute.planningRounds(AgentTaskLoopPolicy.maxPlanningRounds);
 
       int toolCallLimit() => cedarContextOnly
           ? CedarToyArcadeSkill.contextualToolCalls
