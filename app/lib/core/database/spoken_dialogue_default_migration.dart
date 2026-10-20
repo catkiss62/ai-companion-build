@@ -56,6 +56,9 @@ Future<void> migrateSpokenDialogueDefaultV042120(Database db) async {
     if (marker.isNotEmpty && marker.first['value'] == '1') return;
     final known = {worldBookSpokenDialogueV042108.trim(),
       worldBookSpokenDialogueV042108.replaceFirst('# 对白', '## 对白').trim()};
+    // Previously approved installed draft: old example wording plus heading.
+    known.addAll(known.map((body) => body.replaceFirst(
+      '那我就勉为其难', '那本鱼就勉为其难')).toList());
     final rows = await txn.query('reference_documents',
       columns: ['id', 'raw_content'], where: 'entry_type = ? AND name = ?',
       whereArgs: ['behavior', '角色表达自然化']);

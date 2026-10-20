@@ -201,6 +201,22 @@ void main() {
     expect((await sql.query('reference_documents', where: 'id = ?', whereArgs: ['reviewed'])).single['raw_content'], '升级后修改');
   });
 
+  test('approved installed heading and older example variant upgrades in place', () async {
+    final sql = await db.database;
+    final installed = worldBookSpokenDialogueV042108
+      .replaceFirst('# 对白', '## 对白')
+      .replaceFirst('那我就勉为其难', '那本鱼就勉为其难');
+    await sql.insert('reference_documents', {'id': 'installed-variant',
+      'name': '角色表达自然化', 'entry_type': 'behavior', 'kind': 'character',
+      'raw_content': installed, 'priority': 1000, 'created_at': 1, 'updated_at': 1});
+    await db.setSetting(spokenDialogueDefaultMarkerV042120, '0');
+    await migrateSpokenDialogueDefaultV042120(sql);
+    final row = (await sql.query('reference_documents', where: 'id = ?',
+      whereArgs: ['installed-variant'])).single;
+    expect(row['raw_content'], worldBookSpokenDialogueV042120);
+    expect(row['id'], 'installed-variant'); expect(row['priority'], 1000);
+  });
+
   test('new wish diagnostics distinguish missing and invalid proposal without altering saved wishes', () {
     for (final entry in <String, Object?>{'not_proposed': null, 'invalid_format': 'bad',
       'invalid_fields': {'goal': '太短', 'route': 'user'}}.entries) {
