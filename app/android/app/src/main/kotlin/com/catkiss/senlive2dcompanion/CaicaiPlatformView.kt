@@ -172,9 +172,7 @@ internal class CaicaiPlatformView(
                 if (stageVisible != visible) {
                     CaicaiDiagnostics.record(app, "stage_visibility", "visible=$visible")
                     stageVisible = visible
-                    // Direct Hybrid Composition owns a real Android surface:
-                    // hide its last buffer while another Flutter tab is shown.
-                    CaicaiStageVisibility.apply(root, companion, visible)
+                    CaicaiStageVisibility.apply(root, visible)
                     if (hostActive) {
                         if (visible) companion.onHostResume() else companion.onHostPause()
                     }

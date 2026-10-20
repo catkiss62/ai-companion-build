@@ -2,10 +2,7 @@ package com.catkiss.senlive2dcompanion.smoke
 
 import android.opengl.GLSurfaceView
 import android.opengl.GLES20
-import android.os.Build
 import android.view.View
-import android.view.MotionEvent
-import android.os.SystemClock
 import android.widget.Button
 import android.widget.FrameLayout
 import androidx.test.core.app.ActivityScenario
@@ -22,7 +19,7 @@ import javax.microedition.khronos.opengles.GL10
 
 @RunWith(AndroidJUnit4::class)
 class StageVisibilitySmokeTest {
-    @Test fun oldSurfaceHidesAndRestoresWithoutReplacingView() {
+    @Test fun stageAlphaRestoresWithoutReplacingSurface() {
         ActivityScenario.launch(StageVisibilitySmokeActivity::class.java).use { scenario ->
             lateinit var stage: FrameLayout
             lateinit var surface: GLSurfaceView
@@ -50,28 +47,16 @@ class StageVisibilitySmokeTest {
             assertTrue("GL surface must render before hiding", rendered.await(10, TimeUnit.SECONDS))
             repeat(5) {
                 scenario.onActivity {
-                    CaicaiStageVisibility.apply(stage, surface, false)
+                    CaicaiStageVisibility.apply(stage, false)
                     surface.onPause()
-                    if (Build.VERSION.SDK_INT in 26..27) {
-                        assertEquals(View.INVISIBLE, surface.visibility)
-                        assertFalse(stage.isShown)
-                    }
+                    assertEquals(0f, stage.alpha)
+                    assertEquals(View.VISIBLE, surface.visibility)
+                    assertSame(stage, surface.parent)
                 }
                 InstrumentationRegistry.getInstrumentation().waitForIdleSync()
-                if (Build.VERSION.SDK_INT in 26..27) {
-                    val center = IntArray(2)
-                    scenario.onActivity { button.getLocationOnScreen(center); center[0] += button.width / 2; center[1] += button.height / 2 }
-                    val stamp = SystemClock.uptimeMillis()
-                    for (action in listOf(MotionEvent.ACTION_DOWN, MotionEvent.ACTION_UP)) {
-                        val event = MotionEvent.obtain(stamp, SystemClock.uptimeMillis(), action, center[0].toFloat(), center[1].toFloat(), 0)
-                        InstrumentationRegistry.getInstrumentation().sendPointerSync(event)
-                        event.recycle()
-                    }
-                    InstrumentationRegistry.getInstrumentation().waitForIdleSync()
-                }
                 scenario.onActivity {
-                    if (Build.VERSION.SDK_INT !in 26..27) assertTrue(button.performClick())
-                    CaicaiStageVisibility.apply(stage, surface, true)
+                    assertTrue(button.performClick())
+                    CaicaiStageVisibility.apply(stage, true)
                     surface.onResume()
                     assertEquals(View.VISIBLE, surface.visibility)
                     assertEquals(1f, stage.alpha)
