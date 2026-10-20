@@ -1092,3 +1092,8 @@ SHA256：65275a5aede7a3e833acc222729c15342664cb2dfd3cb9b0ff0ef16359a872f4。
 候选下一步（仍待后续任务实施）：第二通道仅对已确认finish_reason后不结束连接的有界收尾兼容及分段计时做窄修，不能见到任意finish_reason就无条件截断工具/多choice/usage事件；保留本地事实/完全重复检查。Live2D优先复用现有渲染/配件和JEV批量入口，将真实台词片段、各段情绪/局部动作、自然回落和播放进度建立对应；不硬性每句变情绪、不注入固定傲娇人设，不照搬整段音频/多轮动作请求后才能播放的等待。优先评估同批分段决策，新增问题/token/延迟需实测，不承诺零新增成本；取消/新回复替换/切页/手动预设/摸头/口型归属保留。TTS分段/队列时钟和无语音时的节奏仍需实施前定点设计，不能把当前分析当作完成方案或已修复。
 
 状态：READ-ONLY ANALYSIS COMPLETE；只更新唯一总账，应用仍v0.42.120+364、993a4471，未修改应用/世界书/存档、未新增CI/APK/真机验证。公开源码依据：https://github.com/nanlingyin/soullink-emotion-sdk/blob/02cd75ac0a085a87d84d1a885f1b33eca8742d53/scripts/conversation-service.mjs 、同版本docs/jev-conversation.md及packages/engine/src/speech/SpeechPerformancePlanner.ts。本轮未上传用户备份、诊断正文或密钥。
+
+
+## 2026-10-21 · 第二通道窄修与语音阶段Live2D表演方案（开始，仅编写方案）
+
+用户明确保留回复出现时的现有四拍动作：内置TTS需要合成等待，现有动作先承接文字；语音真正播放后新增对应动作表情，须处理静音、取消与中断。第二通道只纳入最有价值的小优化，避免扩大链路改动。本轮只核对接口和编写方案，不修改应用代码/世界书/存档/版本，不构建或运行付费模型。基线远端HEAD886fb0ac、应用v0.42.120+364/993a4471；本地稀疏工作区仍是+363且总账已有未提交修改，保留该状态，远端当前总账为唯一方案记录基础，不用旧本地覆盖远端。后续方案入口拟为app/docs/SECOND_CHANNEL_SPEECH_PERFORMANCE_PLAN_2026-10-21.md。
