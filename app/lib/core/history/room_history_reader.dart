@@ -16,10 +16,11 @@ import '../storage/secure_config.dart';
 import '../agent/agent_tool.dart';
 
 class RoomHistoryRecord {
-  const RoomHistoryRecord(this.kind,this.id,this.title,this.summary,this.messages,this.endedAt,{this.firstMessageAt=0,this.lastMessageAt=0});
+  const RoomHistoryRecord(this.kind,this.id,this.title,this.summary,this.messages,this.endedAt,{this.firstMessageAt=0,this.lastMessageAt=0,this.messageTimes=const []});
   final String kind,id,title,summary;
   final List<Map<String,Object?>> messages;
   final int endedAt, firstMessageAt, lastMessageAt;
+  final List<int> messageTimes;
   String get label => kind=='model_dialogue'?'模型对谈':'沉浸房间';
   static String entry(Map<String,Object?> m)=>
     '[${m['id']} | ${m['speaker']} | ${m['time']} | 形态=${m['form']??'未知'}]\n${m['text']}';
@@ -86,7 +87,7 @@ class RoomHistoryReader {
         '${room.archiveSummary}${room.archiveState=='pending'?'\n本场自动整理尚未完成，不能把现有摘要当成完整记录。':''}'
         '${(!room.ended || room.archiveSummary.isEmpty) && messages ? "\n当前已提交原文（末尾片段）：\n$excerpt" : ""}',list,
         (room.data['ended_at'] as num?)?.toInt()??room.updatedAt,
-        firstMessageAt:(times['first_message_at'] as int?)??0,lastMessageAt:(times['last_message_at'] as int?)??0);
+        firstMessageAt:(times['first_message_at'] as int?)??0,lastMessageAt:(times['last_message_at'] as int?)??0,messageTimes:messageTimes);
     }
     if(kind!='immersive')return null;
     final rows=await tx.query('immersive_rooms',where:'id = ? AND status = ?',whereArgs:[id,'ended'],limit:1);
@@ -95,13 +96,16 @@ class RoomHistoryReader {
     final list=messages?await tx.query('immersive_messages',
       columns:['id','role','content','created_at','form_context_json'],where:'room_id = ?',whereArgs:[id],orderBy:'created_at ASC, id ASC'):<Map<String,Object?>>[];
     final timeRows = await tx.rawQuery('SELECT MIN(created_at) AS first_at, MAX(created_at) AS last_at FROM immersive_messages WHERE room_id = ?', [id]);
+    final timeValues = messages ? list.map((m)=>(m['created_at'] as num).toInt()).toList()
+        : timeMetadata ? (await tx.query('immersive_messages',columns:['created_at'],where:'room_id = ?',whereArgs:[id]))
+            .map((m)=>(m['created_at'] as num).toInt()).toList() : <int>[];
     return RoomHistoryRecord(kind,id,r['title'] as String? ??'',
       '剧情摘要：${r['rolling_summary']??''}\n结束现场：${r['scene_ledger']??''}',
       [for(final m in list){'id':m['id'],'speaker':m['role']=='user'?'用户':'小鲸鱼',
         'text':m['content'],'time':m['created_at'],'form':_form(m['form_context_json'])}],
       (r['ended_at'] as num?)?.toInt()??0,
       firstMessageAt:(timeRows.single['first_at'] as num?)?.toInt()??0,
-      lastMessageAt:(timeRows.single['last_at'] as num?)?.toInt()??0);
+      lastMessageAt:(timeRows.single['last_at'] as num?)?.toInt()??0,messageTimes:timeValues);
   }
   static String _form(Object? raw) {
     try {final m=jsonDecode(raw?.toString()??'') as Map;return switch(m['form']){'q'=>'小豆丁','normal'=>'普通',_=>'未知'};}
@@ -120,11 +124,11 @@ class RoomHistoryReader {
     if(kind=='all'||kind=='immersive') {
       final rows=await tx.query('immersive_rooms',columns:['id'],where:'status = ?',whereArgs:['ended']);
       for(final row in rows) {
-        final r=await _room(tx,'immersive',row['id'] as String,messages:false);if(r!=null)candidates.add(r);
+        final r=await _room(tx,'immersive',row['id'] as String,messages:false,timeMetadata:true);if(r!=null)candidates.add(r);
       }
     }
-    candidates.removeWhere((r)=>(from!=null && (r.lastMessageAt<=0 || r.lastMessageAt<from)) ||
-        (to!=null && (r.firstMessageAt<=0 || r.firstMessageAt>=to)));
+    if (from!=null || to!=null) candidates.removeWhere((r)=>!r.messageTimes.any((t)=>
+        t>0 && (from==null || t>=from) && (to==null || t<to)));
     candidates.sort((a,b)=>b.endedAt.compareTo(a.endedAt));
     if(query.isEmpty)return candidates.take(6).toList();
     final q=query.toLowerCase();

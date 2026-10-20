@@ -23,7 +23,7 @@ class SemanticToolRoute {
     'single_read':singleRead, 'candidate_kinds':candidateKinds.toList(),
     'date_from':dateFrom, 'date_to':dateTo};
   static SemanticToolRoute decode(Object? value) {
-    if (value is! Map) return const SemanticToolRoute();
+    if (value is! Map || !kinds.contains(value['kind'])) return const SemanticToolRoute();
     return SemanticToolRoute(kind:value['kind'] as String? ?? 'none',
       roomId:value['room_id'] as String? ?? '', roomKind:value['room_kind'] as String? ?? '',
       view:value['view'] as String? ?? 'summary', phoneSection:value['phone_section'] as String? ?? 'all',
@@ -70,7 +70,7 @@ class SemanticToolRoute {
     '【本轮工具需求】分类=$kind；判断${uncertain ? "仍有歧义" : "有效"}；'
     '${singleRead ? "仅一次明确读取" : "可能有多步骤或待定位的要求，某个工具成功不代表整轮完成"}。'
     '${targetUncertain ? "房间目标未唯一确定：先查目录，结合真实时间和标题定位；仍有歧义就询问，不可默认最新房间。" : ""}'
-    '${dateFrom.isNotEmpty ? "实际发言日期范围（含起点、不含终点）：$dateFrom 至 $dateTo。" : ""}'
+    '${dateFrom.isNotEmpty ? "实际发言日期范围（含起点、不含终点）：$dateFrom 至 $dateTo。跨天记录需核对该日期原文，不能混入其他日发言。" : ""}'
     '${roomId.isNotEmpty ? "已定位的房间：kind=$roomKind room_id=$roomId。" : ""}'
     '保留用户要求的后续查证、比较和其他目标；未完成不得声称完成。';
 }
@@ -151,7 +151,9 @@ class SemanticToolQuestions {
     final to = from == null ? null : DateTime(from.year,from.month,from.day+1);
     final actualFirst = (target?['first_message_at'] as num?)?.toInt() ?? 0;
     final actualLast = (target?['last_message_at'] as num?)?.toInt() ?? 0;
-    final wrongDay = from != null && (actualFirst >= to!.millisecondsSinceEpoch || actualLast < from.millisecondsSinceEpoch || actualFirst <= 0);
+    // A multi-day span does not prove a message exists on an intervening day.
+    // Resolve it with an actual timestamp-filtered directory search first.
+    final wrongDay = from != null && (actualFirst < from.millisecondsSinceEpoch || actualLast >= to!.millisecondsSinceEpoch || actualFirst <= 0);
     final single = answers?['tool_scope'] == 'single' && details['tool_scope']?.ambiguous != true;
     final view = answers?['tool_room_view'] ?? 'summary';
     return SemanticToolRoute(kind:available ? kind : 'none',available:available,uncertain:uncertain,
@@ -160,6 +162,6 @@ class SemanticToolQuestions {
       roomId:kind == 'room' && !targetUncertain && !wrongDay ? (target?['id'] as String? ?? '') : '',
       roomKind:kind == 'room' ? (target?['kind'] as String? ?? '') : '',
       view:const {'summary','detail','transcript'}.contains(view) ? view : 'summary',
-      dateFrom:from?.toIso8601String() ?? '',dateTo:to?.toIso8601String() ?? '');
+      dateFrom:from?.toUtc().toIso8601String() ?? '',dateTo:to?.toUtc().toIso8601String() ?? '');
   }
 }

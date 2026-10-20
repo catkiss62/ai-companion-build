@@ -128,13 +128,19 @@ void main() {
     await db.setSetting('${ModelDialogueRepository.roomPrefix}${old.id}',jsonEncode({...old.data,
       'updated_at':DateTime(2026,10,19,14).millisecondsSinceEpoch}));
     for(var i=0;i<7;i++)await room('今日$i',DateTime(2026,10,20,12,i).millisecondsSinceEpoch,ended:true);
+    final gap=await room('跨日但昨日无发言',DateTime(2026,10,18,14).millisecondsSinceEpoch,ended:true);
+    await db.setSetting('${ModelDialogueRepository.messagePrefix}${gap.id}:0000000002',jsonEncode(
+      ModelDialogueMessage(id:'gap-today',roomId:gap.id,sequence:2,speaker:'gemini',text:'今天继续',model:'fixture',
+        createdAt:DateTime(2026,10,20,14).millisecondsSinceEpoch).toJson()));
     final q=await SemanticToolQuestions.load(db,now:now);
     expect(q.context['current_local_time'],contains('2026-10-20'));
     expect(q.rooms.values.any((r)=>r['id']==old.id),false);
     final route=q.interpret({'tool_route':'room','tool_room_target':'none','tool_scope':'single','tool_room_period':'yesterday'});
+    expect(DateTime.parse(route.dateFrom).millisecondsSinceEpoch,DateTime(2026,10,19).millisecondsSinceEpoch);
     final result=await RoomHistoryReader(db).search(route.discoveryPlan!.calls.single.arguments);
     expect(result.status,AgentToolStatus.succeeded);expect(result.resultCount,1);
     expect(result.promptData,contains('昨日那一场'));expect(result.promptData,isNot(contains('今日0')));
+    expect(result.promptData,isNot(contains('跨日但昨日无发言')));
     expect(result.promptData,contains('2026-10-19'));
     final wrong=q.interpret({'tool_route':'room','tool_room_target':'r0','tool_scope':'single','tool_room_period':'yesterday'});
     expect(wrong.directPlan,isNull);expect(wrong.targetUncertain,true);
