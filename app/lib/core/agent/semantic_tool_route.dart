@@ -157,8 +157,8 @@ class SemanticToolQuestions {
     return SemanticToolRoute(kind:available ? kind : 'none',available:available,uncertain:uncertain,
       targetUncertain:targetUncertain || kind == 'room' && wrongDay,singleRead:single,
       candidateKinds:candidates,
-      roomId:kind == 'room' && !targetUncertain && !wrongDay ? target?['id'] as String? ?? '' : '',
-      roomKind:kind == 'room' ? target?['kind'] as String? ?? '' : '',
+      roomId:kind == 'room' && !targetUncertain && !wrongDay ? (target?['id'] as String? ?? '') : '',
+      roomKind:kind == 'room' ? (target?['kind'] as String? ?? '') : '',
       view:const {'summary','detail','transcript'}.contains(view) ? view : 'summary',
       dateFrom:from?.toIso8601String() ?? '',dateTo:to?.toIso8601String() ?? '');
   }
