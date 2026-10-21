@@ -1,6 +1,6 @@
 # v0.42.124+368 · 语音原装表情、独立房间模型及悬浮历史
 
-状态：IMPLEMENTING / CI PENDING / NO NEW APK。用户已授权把七种原装表情、三种wink及所有道具纳入TTS阶段，并开始本批修改。继续使用公开仓库agent/v042107-review-recovery与原测试签名；不合并main、不正式发布。已交付+367仍为9d473e3构建的产物，不能当作本批已验收。
+状态：IMPLEMENTED / CI PASSED / APK READY / TRUE DEVICE PENDING。用户已授权把七种原装表情、三种wink及所有道具纳入TTS阶段，并开始本批修改。继续使用公开仓库agent/v042107-review-recovery与原测试签名；不合并main、不正式发布。上一批+367为9d473e3构建的产物；本批交付身份与最终验证见文末。
 
 ## 本批实现
 
@@ -16,7 +16,7 @@
 
 仍每轮一次JEV，不为音频播放/每段/恢复增加请求。为各段独立的face_use/face、wink_use/wink、action增加五道可选题，保留原emotion/delivery两题；最多8段、56道可选语音题，合并原39题最多95题（旧上限55）。没有改变JEV全局8秒超时或增加重试；单次输入/输出及费用可能随题数增加，真实延迟与选择自然度待安装后观察。未调用真实付费模型验证，不把mock判断的选择频率当真实JEV效果。
 
-新增题目通过索引引用同一份speech_stage.spans，不在每道题重复整段正文。仅动作判断上下文限长：用户2000字符、回复4000字符、每个语音段500字符，过长时保留头尾；真实朗读正文、进度与指纹均不截断。
+新增题目通过索引引用同一份speech_stage.spans，不在每道题重复整段正文。仅动作判断上下文按用户2000字符、回复4000字符、每个语音段500字符的预算保留头尾，另加省略标记；真实朗读正文、进度与指纹均不截断。
 
 ## 验证安排及待验
 
@@ -28,3 +28,20 @@
 本地无Flutter/Dart/Android SDK，新增运行检查由本批CI完成。已通过相关源码门、Python语法及diff检查；最终源码SHA、实际通过数量、失败经过及APK校验以本文件后续交付记录和唯一总账为准。
 
 异常主动正文过滤、每轮JEV工具审核、人格/成长/主动门槛不在本批；上一批+366/+367的修复保持。用户附件、原始诊断、私密对话和API凭据不上传。
+
+## 本批验证经过
+
+- 5e67642首候选：专项39611407653在分析阶段发现动态模型对谈新测试漏导入ModelDialogueRepository（两处undefined），4958808补齐；未改产品行为。该轮完整39611407719随后取消，不记为通过。
+- 4958808：专项39611785452分析0 error，定向849通过/5失败。新JEV mock漏confidence、菜单异步读取未完成即断言（两种配置各一项）、把重新生成的120-token内部判断计入最终正文，以及旧检查要求普通wink保留“轻度”标识。0ec0008补字段/等待读取/独立核验内部第一通道请求，并保留轻度标识；未放宽实际模型、语音资格或来源断言。中间Android15通过54项；完整39611784108随后取消，不作最终APK成功证据。
+- 0ec0008：专项39612991173分析0 error，定向852通过/2失败。剩余为mock响应未声明UTF-8无法正确解析中文，以及配置落盘后测试未刷新新帧。57371f9明确UTF-8，将候选完整性断言移出网关catch，并补测试帧；未改网关或产品生成逻辑。
+- 57371f9：专项39613938371通过854项、Android15通过54项，但完整39613938909在源码门2/154因Caicai指纹漏登记停止，未生成APK。核对去除既有host扩展后的差异仅为本次嘴形/退出保护过滤，原几何和配件数学未改。7a323b0按既有约定登记独立host语音lease文件，并将完整校验的26文件指纹更新为c631e3c9cdc9a018571bbe4bdebbce39a88830c5a587cfc8dd60a5db40e0d4f6；框架/资源pin和新增5项JVM测试保留。本地逐项预检137门通过，原生pin修正后通过，缺资源或kotlinc项由下列完整CI完成。
+
+## 最终交付 · 2026-10-21（Asia/Shanghai）
+
+- 版本v0.42.124+368；构建源码7a323b0d32d4c39e22c351e19c1c2d0a55ed2a47，tree 5f0bcd2be3fb51c9160823387000b1b035e3a77c。后续交付文档收尾不改变此APK源码身份。
+- 完整CI [39615993684](https://github.com/catkiss62/ai-companion-build/actions/runs/39615993684) / build119280234403成功：154源码门、Kotlin/原生单元检查、2489全量Flutter测试、168打包前归档恢复检查通过；Android15原生119277110762通过54项。专项 [39615993663](https://github.com/catkiss62/ai-companion-build/actions/runs/39615993663) / flutter119277064066通过854项。专项/恢复/全量有重叠，不相加。Dart分析0 error、738非fatal（61 warning / 677 info），不宣称零告警。
+- APK 738919562 bytes，SHA256 7feb06f085b8e97afdf0be726225beb51ea76dda0212d2fb1b91a0e24f7dbef5；包名com.aicompanion.localfirst，versionName0.42.124 / versionCode368；签名SHA256 305eb3d80983b963c64818ddf1ad561f279de6d47b3ed2c781ada448c7c25148，与此前测试身份一致。包内TTS、完整宠物/原图与修图、Cubism/私有模型边界、塔罗、离线星空和房间深度资源均通过现有完整核验。
+- [下载APK](https://github.com/catkiss62/ai-companion-build/releases/download/untagged-6e2ad1c5dff66b83dc1a/AI-Companion-v0.42.124-368-Speech-Presets-Room-Models-APK.apk)；[测试草稿页](https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-6e2ad1c5dff66b83dc1a)。Release419619914，APK asset662838521已uploaded；目标commit与构建源码一致，asset digest与CI sha256sum一致。未正式发布Release、未合并main。
+- ci-monitor-v0345分支的.ci/v042120-monitor.txt已核对status=success、run_id39615993684、head_sha7a323b0d32d4c39e22c351e19c1c2d0a55ed2a47及本APK校验值；本批CI-Monitor.txt也已随测试草稿上传。下载链接已给用户。
+
+真机待验：冷启动/应用重开直接打开悬浮历史的实际服务路径；真实JEV选择自然度、延迟与成本；实际TTS的表情/道具兼容叠加和短wink体感；停止/静音/触摸/跨页面的模型表现。本批没有调用真实付费模型；原生无Flutter挂载宿主不替代完整手机服务验收。此前上游异常正文问题按用户决定不改，用户附件、私密对话和API凭据未上传。

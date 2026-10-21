@@ -6,8 +6,8 @@
 
 ## 当前接班快照
 
-- 新批次v0.42.124+368实施/验证中：用户已授权TTS纳入七种原装表情、三wink及道具，并与动态模型对谈、悬浮首次历史、沉浸独立模型选择合并构建。入口app/docs/SPEECH_PRESETS_ROOM_MODELS_v0.42.124.md；新增运行检查尚待本批CI，不冒充包含于已交付+367。其余旧段按历史阅读，账末为准。
-- 最新交付：v0.42.123+367，源码9d473e3f03a0468a9a0769fd25fb021c06160114 / tree b4c177d8e9a489d6c2a3336e8ec93ce5fec6cc0d；完整39587274817成功（154源码门、Kotlin、2470 Flutter、168打包前恢复、52 Android15原生），专项39587274796通过835项；0 error、729非fatal分析项。APK已备妥且已给用户下载链接，原签名/包名/版本/资源核验通过；SHA256 3dd7f0d0da6f0e3ed6c97153ef600980917e942a773935d15ed490ebe111215a，738896454 bytes。真机待验。其后模型对谈动态第二通道及TTS动作单一为新任务，不在该APK中；账末记录为准。
+- 最新交付：v0.42.124+368，源码7a323b0d32d4c39e22c351e19c1c2d0a55ed2a47 / tree5f0bcd2be3fb51c9160823387000b1b035e3a77c；完整39615993684成功（154源码门、Kotlin、2489 Flutter、168归档恢复、54 Android15原生），专项39615993663通过854项。分析0 error、738非fatal（61 warning/677 info）。APK已上传并给用户链接；本批原装TTS层/短wink、独立沉浸模型、动态对谈和悬浮首次历史均包含，真机待验。入口app/docs/SPEECH_PRESETS_ROOM_MODELS_v0.42.124.md；账末为准。
+- 此前交付：v0.42.123+367，源码9d473e3f03a0468a9a0769fd25fb021c06160114 / tree b4c177d8e9a489d6c2a3336e8ec93ce5fec6cc0d；完整39587274817成功（154源码门、Kotlin、2470 Flutter、168打包前恢复、52 Android15原生），专项39587274796通过835项；0 error、729非fatal分析项。APK已备妥且已给用户下载链接，原签名/包名/版本/资源核验通过；SHA256 3dd7f0d0da6f0e3ed6c97153ef600980917e942a773935d15ed490ebe111215a，738896454 bytes。真机待验。该APK不包含后续+368任务；当前以本账首条和账末为准。
 - 仓库：catkiss62/ai-companion-build；开发分支：agent/v042107-review-recovery。用户10月20日23:39已有授权，且2026-10-21在本窗口直接确认允许公开推送本轮代码、测试、总账与CI/测试APK；不合并main、不正式发布。
 - 前一已交付基线：v0.42.121+365，schema61 / Snapshot protocol7不变。最终构建源码c3bec538048ab2b8b4bd24f0d3343eedc0fa96a6，tree dd22540c1b9bcd38a316b19ead774e26b98a9a39；之后0ebd67c等仅为交付文档。+364基线993a4471/tree8ea373e0保留为对照。
 - +365保留背景A–F：闲聊行动参考化并允许短答收住；普通/主动统一默认一个动作及首发/修正提示；精简口语世界书；表达主题AI Self按有情境、可修订观察解释；后台真实经历的短期回忆上下文；主动选题具体材料及愿望新提议判因诊断。保留成长，不增加性格轮换、固定吐槽/造梗配额或强制扩话。
@@ -1379,3 +1379,15 @@ TTS汇总最近15次有效动作判断（非15条独立对话）：13次wink_use
 语音阶段逐段独立选择原装face/wink/action，资格与类型独立，允许叠加；保留开场四拍及真实可听进度门，失效/静音/停止/旧owner/触摸/手动预设有归属地释放。原生语音预设屏蔽嘴形/张嘴/歪嘴/撅嘴及生气闭嘴守卫，PCM口型和开场嘴形保留，OUT吐舌作为原装强调保留。wink含过渡1.2/1.6/2.0秒，独立到期且心跳不延长同cue，不截断七表情/道具；“俏皮”左右眉眼不改。朗读手势补语义与校准头身配合，不强制轮换或每段动作。仍每轮一次JEV，但每段增5道原装层可选题，总上限95（39+8×7），费用/延迟以真机观察，未改8秒全局超时或增加重试，未调用付费模型。
 
 新增Dart HTTP/界面/语音分层、JVM所有权与时间、Android真实WindowManager首次附着/后台前后就绪/持久历史新宿主检查；具体入口SPEECH_PRESETS_ROOM_MODELS_v0.42.124.md。当前环境无Flutter/Android SDK，尚不能声称运行通过，相关源码门/版本精确追加/Python语法/diff本地检查已过，接下来由本批CI给实际结论。异常正文、人设/Agent权限/JEV工具路由/主动门槛未改，附件和凭据不公开。
+
+## 2026-10-21 · +368最终交付：语音原装层、独立房间模型与悬浮历史
+
+状态IMPLEMENTED / CI PASSED / APK READY / TRUE DEVICE PENDING。构建源码7a323b0d32d4c39e22c351e19c1c2d0a55ed2a47，tree5f0bcd2be3fb51c9160823387000b1b035e3a77c，版本v0.42.124+368，schema61 / Snapshot protocol7保持。七原装表情、三wink、七道具动作进入真实语音阶段独立判断与持有，兼容项叠加，PCM嘴形/开场四拍/手动持有保护保留；普通/吐舌/比耶吐舌wink含过渡1.2/1.6/2秒。沉浸默认第一通道，独立选择首/二/作品配置并记录实际最终模型来源；动态对谈支持GLM等完整可变模型；悬浮历史等待挂载/后台就绪补读，旧响应隔离。异常正文过滤、人格/Agent、JEV工具政策及主动门槛未改。
+
+完整39615993684 / build119280234403成功：154源码门、Kotlin/原生单元检查、2489全量Flutter、168打包前归档恢复；Android15原生119277110762通过54项。专项39615993663 / flutter119277064066通过854项。分析0 error、738非fatal（61 warning/677 info）；重叠检查不相加，不写零告警。
+
+中途5e67642漏测试Repository导入；4958808定向849通过/5失败（confidence、菜单异步两项、内部判断计数、轻度语义）；0ec0008定向852通过/2失败（UTF-8与落盘后刷新帧）；57371f9定向854通过/原生54通过，但源码pin未登记导致完整流程停止。7a323b0补host登记及审查后的26文件指纹，未删门/改几何，并完成上述全部新CI。详细失败和验证记录见SPEECH_PRESETS_ROOM_MODELS_v0.42.124.md。
+
+APK 738919562 bytes，SHA256 7feb06f085b8e97afdf0be726225beb51ea76dda0212d2fb1b91a0e24f7dbef5；包名com.aicompanion.localfirst，versionName0.42.124 / versionCode368；签名SHA256 305eb3d80983b963c64818ddf1ad561f279de6d47b3ed2c781ada448c7c25148，与原测试身份一致。完整包内资源核验通过。测试草稿Release419619914、asset662838521；下载https://github.com/catkiss62/ai-companion-build/releases/download/untagged-6e2ad1c5dff66b83dc1a/AI-Companion-v0.42.124-368-Speech-Presets-Room-Models-APK.apk ，草稿页https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-6e2ad1c5dff66b83dc1a 。Release目标commit/asset digest与本源码及CI校验一致；ci-monitor-v0345的.ci/v042120-monitor.txt已核对本run/head/success/checksum。下载链接已给用户。
+
+源码、测试、总账沿用已有公开推送/CI/测试APK授权，仍在agent/v042107-review-recovery；未合并main、未正式发布，用户附件/诊断原文/私密对话/凭据未上传。真机仍需观察完整悬浮服务路径、真实JEV语义/延迟/费用、TTS自然度与停止/静音/触摸回收、长模型名使用体感；mock和无Flutter宿主不等于手机验收。交付文档收尾用[skip ci]，不重打同一APK。
