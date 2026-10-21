@@ -3006,20 +3006,26 @@ class OverlayBubbleService : Service() {
         val height: Int,
     )
 
-    private fun bindThumbnail(image: ImageView, path: String) {
+    private fun bindThumbnail(image: ImageView, path: String, attempt: Int = 0) {
         val file = File(path)
         val key = "$path:${file.lastModified()}:${file.length()}"
         image.tag = key
-        thumbnailCache.get(key)?.let { image.setImageBitmap(it); return }
+        thumbnailCache.get(key)?.let {
+            image.setImageBitmap(it)
+            image.visibility = View.VISIBLE
+            return
+        }
+        // Preserve the old missing-image behavior while decoding asynchronously.
+        image.visibility = View.GONE
         val target = ThumbnailTarget(WeakReference(image), lifetime.windowEpoch)
         pendingThumbnails[key]?.let { it.add(target); return }
         pendingThumbnails[key] = mutableListOf(target)
         runCatching {
             thumbnailExecutor.execute {
-                val bitmap = runCatching {
+                val bitmap = runCatching decode@{
                     val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
                     BitmapFactory.decodeFile(path, bounds)
-                    if (bounds.outWidth <= 0 || bounds.outHeight <= 0) return@runCatching null
+                    if (bounds.outWidth <= 0 || bounds.outHeight <= 0) return@decode null
                     var sample = 2
                     while (bounds.outWidth / sample > 512 || bounds.outHeight / sample > 512) sample *= 2
                     BitmapFactory.decodeFile(path, BitmapFactory.Options().apply { inSampleSize = sample })
@@ -3033,12 +3039,26 @@ class OverlayBubbleService : Service() {
                             val view = waiting.view.get() ?: continue
                             if (isCurrentChatWindow(waiting.epoch) && view.isAttachedToWindow && view.tag == key) {
                                 view.setImageBitmap(bitmap)
+                                view.visibility = View.VISIBLE
                             }
                         }
                     }
                 }
             }
-        }.onFailure { pendingThumbnails.remove(key) }
+        }.onFailure {
+            pendingThumbnails.remove(key)
+            // A full bounded queue should not permanently strand a valid image.
+            // Retry only this still-current View, at most four times.
+            if (attempt < 4 && lifetime.alive) {
+                mainHandler.postDelayed({
+                    val view = target.view.get()
+                    if (view != null && isCurrentChatWindow(target.epoch) &&
+                        view.isAttachedToWindow && view.tag == key) {
+                        bindThumbnail(view, path, attempt + 1)
+                    }
+                }, 250L * (attempt + 1))
+            }
+        }
     }
 
     private inner class NativeChatAdapter : BaseAdapter() {
