@@ -90,9 +90,19 @@ void main() {
       final expected = source == ImmersiveModelSource.first ? 'first-configured'
           : source == ImmersiveModelSource.second ? '[A]glm-5.3-flash-1' : 'work-configured';
       final requests = <Map>[];
+      final internalRequests = <Map>[];
       var truncate = true;
       final client = DeepSeekClient(streamClientFactory:()=>MockClient((request) async {
-        final body = jsonDecode(request.body) as Map; requests.add(body);
+        final body = jsonDecode(request.body) as Map;
+        // Regeneration can run the existing short first-channel route check.
+        // Verify it separately from the selected final prose request.
+        if (body['max_tokens'] == 120) {
+          internalRequests.add({'model':body['model'],'host':request.url.host,
+            'authorization':request.headers['authorization']});
+          return http.Response.bytes(utf8.encode('data: ${jsonEncode({'choices':[{'delta':{'content':jsonEncode({'mode':'daily','climax_event':'none'})},'finish_reason':'stop'}]})}\n\ndata: [DONE]\n\n'),200,
+            headers:const {'content-type':'text/event-stream; charset=utf-8'});
+        }
+        requests.add(body);
         expect(body['model'],expected);
         expect(request.url.host,source == ImmersiveModelSource.second ? 'second.example':'first.example');
         expect(request.headers['authorization'],source == ImmersiveModelSource.second ? 'Bearer second-key':'Bearer first-key');
@@ -118,6 +128,10 @@ void main() {
           expect(requests,hasLength(1));
         }
         expect(controller.error,isNull);
+        for(final internal in internalRequests) {
+          expect(internal,{'model':'first-configured','host':'first.example',
+            'authorization':'Bearer first-key'});
+        }
         expect((await repository.messagesForRoom(room.id)).where((m)=>m.isAssistant),hasLength(1));
         expect(await secure.readChatProvider(),isNotNull);
         expect(await db.getSetting('deepseek_model'),'first-configured');

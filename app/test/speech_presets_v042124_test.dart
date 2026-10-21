@@ -30,7 +30,7 @@ void main() {
           final choice = name.endsWith('_face_use') ? 'yes' : name.endsWith('_wink_use') ? 'yes'
               : name.endsWith('_face') ? '1红脸' : name.endsWith('_wink') ? 'wink吐舌'
               : name.endsWith('_action') ? '2奶茶' : options.first;
-          answers[name] = {'type':'choice','choice':choice,
+          answers[name] = {'type':'choice','choice':choice,'confidence':1.0,
             'probabilities':{for(final option in options) option:option==choice?1.0:0.0}};
         }
         return http.Response(jsonEncode({'answers':answers}),200);

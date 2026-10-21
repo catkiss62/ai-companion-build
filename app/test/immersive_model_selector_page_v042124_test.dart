@@ -32,7 +32,12 @@ void main() {
           }
           expect(find.text('新建房间'),findsOneWidget);
           expect(tester.takeException(),isNull);
-          await tester.tap(find.text('first-model'));await tester.pumpAndSettle();
+          await tester.tap(find.text('first-model'));
+          // The menu reloads persisted choices before opening its route.
+          for(var i=0;i<100&&find.text('沉浸房间模型').evaluate().isEmpty;i++) {
+            await Future<void>.delayed(const Duration(milliseconds:20));await tester.pump();
+          }
+          await tester.pumpAndSettle();
           expect(find.text('第一通道'),findsOneWidget);
           expect(find.text('第二通道'),configured?findsOneWidget:findsNothing);
           expect(find.text('作品模型'),configured?findsOneWidget:findsNothing);
@@ -40,6 +45,9 @@ void main() {
             expect(find.text(longModel),findsOneWidget);
             await tester.ensureVisible(find.text(longModel));await tester.tap(find.text(longModel));
             await tester.pumpAndSettle();
+            for(var i=0;i<100&&await db.getSetting(ImmersiveModelSelection.settingKey)!='second';i++) {
+              await Future<void>.delayed(const Duration(milliseconds:20));await tester.pump();
+            }
             expect(await db.getSetting(ImmersiveModelSelection.settingKey),'second');
             expect(find.text(longModel),findsOneWidget);
           }
