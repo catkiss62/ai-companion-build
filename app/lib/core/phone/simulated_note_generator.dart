@@ -76,6 +76,7 @@ class SimulatedNoteQuality {
 
 class DeepSeekSimulatedNoteGenerator implements SimulatedNoteGenerator {
   DeepSeekSimulatedNoteGenerator({
+    required this.modelLoader,
     SecureConfig? secureConfig,
     DeepSeekClient Function()? clientFactory,
   })  : _secureConfig = secureConfig ?? SecureConfig.instance,
@@ -83,6 +84,7 @@ class DeepSeekSimulatedNoteGenerator implements SimulatedNoteGenerator {
 
   final SecureConfig _secureConfig;
   final DeepSeekClient Function() _clientFactory;
+  final Future<DeepSeekModelProfile> Function() modelLoader;
 
   @override
   Future<SimulatedNoteDraft?> generate({
@@ -96,7 +98,7 @@ class DeepSeekSimulatedNoteGenerator implements SimulatedNoteGenerator {
       final payload = await client.jsonCompletion(
         apiKey: apiKey,
         endpoint: await _secureConfig.readEndpoint(),
-        model: DeepSeekModelProfile.flash,
+        model: await modelLoader(),
         thinking: false,
         maxTokens: 360,
         usageLane: 'simulated_note',

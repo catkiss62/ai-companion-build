@@ -38,7 +38,7 @@ for token in (
     "latinWords >= 8",
     "latinLetters > chineseCount * 2",
     "sourceSha256",
-    "DeepSeekModelProfile.flash",
+    "model: model",
     "thinking: false",
     "effort: ReasoningEffort.high",
     "SecureConfig.instance.readApiKey",

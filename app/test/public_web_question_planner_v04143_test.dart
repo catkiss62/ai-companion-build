@@ -1,3 +1,4 @@
+import 'package:ai_companion_localfirst/core/ai/model_profile.dart';
 import 'dart:convert';
 
 import 'package:ai_companion_localfirst/core/ai/deepseek_client.dart';
@@ -86,7 +87,7 @@ void main() {
         );
       }),
     );
-    final plan = await DeepSeekPublicWebQuestionPlanner(
+    final plan = await DeepSeekPublicWebQuestionPlanner(model: DeepSeekModelProfile.flash,
       apiKey: 'test',
       endpoint: 'https://api.deepseek.com/chat/completions',
       client: client,

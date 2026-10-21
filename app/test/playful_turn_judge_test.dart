@@ -1,3 +1,4 @@
+import 'package:ai_companion_localfirst/core/ai/model_profile.dart';
 import 'dart:convert';
 
 import 'package:ai_companion_localfirst/core/ai/deepseek_client.dart';
@@ -39,7 +40,7 @@ void main() {
       fallbackClassifier: (_, __) async =>
           const PlayfulTurnDecision(PlayfulInteraction.strong, false),
     );
-    final decision = await judge.decide(
+    final decision = await judge.decide(model: DeepSeekModelProfile.flash,
       apiKey: 'deepseek-key',
       endpoint: 'https://api.deepseek.com/chat/completions',
       userText: '你好',
@@ -60,7 +61,7 @@ void main() {
         return const PlayfulTurnDecision(PlayfulInteraction.ordinary, false);
       },
     );
-    final result = await judge.decide(
+    final result = await judge.decide(model: DeepSeekModelProfile.flash,
       apiKey: 'deepseek-key',
       endpoint: 'https://api.deepseek.com/chat/completions',
       userText: '平常聊天',

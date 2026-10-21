@@ -1,3 +1,5 @@
+import 'final_reply_control.dart';
+import 'first_channel_model.dart';
 import '../agent/tool_provenance_policy.dart';
 import '../database/conversation_source_store.dart';
 import '../mcp/cedar_toy_client.dart';
@@ -168,6 +170,7 @@ class DurableGenerationRunner {
     void Function(AgentToolActivity activity)? onAgentToolActivity,
     void Function(String emotionKey)? onEmotionCue,
     GenerationCancellationToken? cancellationToken,
+    FinalReplyControl? replyControl,
   }) async {
     // Historical validator compatibility: cancellationToken: cancellationToken
     // Historical validator compatibility: cancellationToken?.throwIfCancelled()
@@ -190,12 +193,19 @@ class DurableGenerationRunner {
     final apiKey = await secureConfig.readApiKey();
     final endpoint = await secureConfig.readEndpoint();
     final finalProvider = await secureConfig.readChatProvider();
+    final takeover = replyControl ?? FinalReplyControl();
+    if (await db.getSetting(FinalReplyControl.settingKey) == requested.id) {
+      takeover.requestDeepSeek();
+    }
     final finalRoute = FinalReplyRoute(secondChannelEnabled: finalProvider.isGeminiRelay);
     final configuredFinalApiKey =
         (await secureConfig.readFinalReplyApiKey())?.trim() ?? '';
     final configuredFinalEndpoint =
         await secureConfig.readFinalReplyEndpoint();
     final configuredFinalModel = await secureConfig.readFinalReplyModel();
+    final firstModel = requested.model.trim().isEmpty
+        ? await FirstChannelModel.read(db)
+        : DeepSeekModelProfile.fromApiName(requested.model);
     var finalTextFromGemini = false;
     if (cancellationToken?.isCancelled ?? false) {
       await db.cancelGenerationJobByUser(requested.id);
@@ -251,6 +261,9 @@ class DurableGenerationRunner {
         cancellationFenceCheckRunning = true;
         unawaited(() async {
           try {
+            if (await db.getSetting(FinalReplyControl.settingKey) == job.id) {
+              takeover.requestDeepSeek();
+            }
             final state = await generationLeaseGuard.check();
             if (state == GenerationFenceState.cancelled) {
               effectiveCancellation.cancel();
@@ -747,6 +760,7 @@ class DurableGenerationRunner {
         String usageLane = 'user_chat',
         ChatApiProvider? requestProvider,
         String? requestModelName,
+        GenerationCancellationToken? requestCancellation,
       }) async {
         var reasoning = '';
         var content = '';
@@ -793,7 +807,7 @@ class DurableGenerationRunner {
         try {
           await for (final delta in client.streamChat(
             apiKey: requestApiKey,
-            model: DeepSeekModelProfile.fromApiName(job.model),
+            model: firstModel,
             effort: ReasoningEffort.fromApiName(job.reasoningEffort),
             messages: messages,
             endpoint: requestEndpoint,
@@ -801,7 +815,7 @@ class DurableGenerationRunner {
             modelName: requestModelName,
             thinking: job.thinking,
             tools: tools,
-            cancellationToken: effectiveCancellation,
+            cancellationToken: requestCancellation ?? effectiveCancellation,
             usageLane: usageLane,
             usageExecutionId: job.id,
           )) {
@@ -811,6 +825,7 @@ class DurableGenerationRunner {
               await recordRequest('receiving');
             }
             effectiveCancellation.throwIfCancelled();
+            requestCancellation?.throwIfCancelled();
             if (!await db.brainWorkAllowed()) {
               throw const GenerationSuspendedException('设备正在转移或已经下线');
             }
@@ -1083,8 +1098,9 @@ class DurableGenerationRunner {
         if (stickerPrompt.isNotEmpty) messages = [
           ...messages, {'role': 'system', 'content': stickerPrompt},
         ];
-        if (!finalRoute.useSecondChannel) {
+        if (takeover.requested || !finalRoute.useSecondChannel) {
           finalTextFromGemini = false;
+          if (takeover.requested) providerNotice = '本轮已按你的选择使用 DeepSeek 回复。';
           return generateCheckedDeepSeek(messages);
         }
         Object? lastError;
@@ -1102,12 +1118,15 @@ class DurableGenerationRunner {
                 requestEndpoint: configuredFinalEndpoint,
                 requestProvider: finalProvider,
                 requestModelName: configuredFinalModel,
+                requestCancellation: takeover.secondChannelToken(effectiveCancellation),
                 emitDeltas: false,
                 // Do not leak reasoning from a failed paid attempt. Publish the
                 // single accepted summary only after the response is complete.
                 publishReasoning: false,
                 usageLane: 'final_reply',
               );
+              effectiveCancellation.throwIfCancelled();
+              if (takeover.requested) break;
               if (result.content.isEmpty) {
                 throw const EmptyFinalReplyException();
               }
@@ -1130,8 +1149,11 @@ class DurableGenerationRunner {
               providerNotice = null;
               return result;
             } on FinalReplyIncompleteException {
+              if (takeover.requested) break;
               rethrow;
             } on GenerationStreamIncompleteException catch (error) {
+              effectiveCancellation.throwIfCancelled();
+              if (takeover.requested) break;
               if (error.content.isNotEmpty) {
                 throw FinalReplyIncompleteException(
                   reasoning: error.reasoning,
@@ -1141,6 +1163,8 @@ class DurableGenerationRunner {
               }
               lastError = error;
             } catch (error) {
+              effectiveCancellation.throwIfCancelled();
+              if (takeover.requested) break;
               if (error is GenerationCancelledByUserException ||
                   error is GenerationSuspendedByRuntimeGateException ||
                   error is GenerationSuspendedException) {
@@ -1152,11 +1176,20 @@ class DurableGenerationRunner {
                 !FinalReplyFailurePolicy.isTransient(lastError!)) {
               break;
             }
-            await Future<void>.delayed(FinalReplyFailurePolicy.retryDelay);
+            await Future.any<void>([
+              Future<void>.delayed(FinalReplyFailurePolicy.retryDelay),
+              takeover.whenRequested, effectiveCancellation.whenCancelled,
+            ]);
+            if (takeover.requested) break;
             effectiveCancellation.throwIfCancelled();
           }
         } else {
           lastError = const FormatException('missing_gemini_final_reply_key');
+        }
+        if (takeover.requested) {
+          finalTextFromGemini = false;
+          providerNotice = '本轮已按你的选择使用 DeepSeek 回复。';
+          return generateCheckedDeepSeek(messages);
         }
         finalRoute.recordFailure(lastError!);
         providerNotice =
@@ -1741,6 +1774,17 @@ $finalGenerationReminder
         effectiveCancellation.throwIfCancelled();
       }
 
+      final toolAttachmentCount = preparedAgentAttachments.length;
+      while (true) {
+        if (takeover.requested && finalTextFromGemini) {
+          while (preparedAgentAttachments.length > toolAttachmentCount) {
+            final discarded = preparedAgentAttachments.removeLast();
+            try { await stickerService.attachmentStorage.deleteAttachmentFiles(discarded); }
+            catch (_) { /* Startup pruning handles orphaned optional media. */ }
+          }
+          generated = await generateFinal(finalRequestMessages);
+          effectiveCancellation.throwIfCancelled();
+        }
       if (generated.content.isNotEmpty &&
           (FinalReplyFailurePolicy.isIncompleteFinishReason(
                 generated.finishReason,
@@ -1840,6 +1884,7 @@ $finalGenerationReminder
         text: finalContent,
         recentAssistantTexts: recentAssistantTexts,
       );
+      final initialCandidateFromGemini = finalTextFromGemini;
       final initialGenerated = generated;
       final initialEnvelope = envelope;
       final initialFinalContent = finalContent;
@@ -1926,7 +1971,8 @@ $finalGenerationReminder
             correctedRepeated: !repetitionGuard.allowed,
             preferCompletedCorrection: initialWasGemini && finalTextFromGemini,
           );
-          if (candidateSource == UserReplyCandidateSource.initial) {
+          if (candidateSource == UserReplyCandidateSource.initial &&
+              !(takeover.requested && initialWasGemini)) {
             finalTextFromGemini = initialWasGemini;
             if (initialWasGemini) providerNotice = '';
             generated = initialGenerated;
@@ -1941,6 +1987,7 @@ $finalGenerationReminder
               error is GenerationSuspendedException) {
             rethrow;
           }
+          if (takeover.requested && initialWasGemini) rethrow;
           // A failed optional repair must not erase a completed model answer.
           // Keep the original natural speech and expose only an ordinary UI
           // notice; do not insert local persona dialogue into chat/history/TTS.
@@ -1976,6 +2023,7 @@ $finalGenerationReminder
         // into silence if a provider returns an empty corrected body.
         ablationTransformation = 'grounded_reply_retry_degraded_pass';
         generated = initialGenerated;
+        finalTextFromGemini = initialCandidateFromGemini;
         envelope = initialEnvelope;
         finalContent = initialFinalContent;
       }
@@ -1991,18 +2039,6 @@ $finalGenerationReminder
       // Publish only the summary that belongs to the final accepted text;
       // otherwise a transient panel disappears when the committed message has
       // no provider summary. Never invent thoughts for an absent summary.
-      if (finalProvider.isGeminiRelay && finalReasoning.isNotEmpty) {
-        onDelta?.call(DeepSeekDelta(reasoning: '【最终回复】\n$finalReasoning'));
-        reasoningDeltaForwardedToSurface = onDelta != null;
-      }
-      unawaited(
-        VisibleReasoningLanguageTelemetry.note(
-          db,
-          visibleReasoning,
-          providerDeltaSeen: upstreamReasoningDeltaSeen,
-          forwardedToSurface: reasoningDeltaForwardedToSurface,
-        ),
-      );
       // DeepSeek already forwarded its live deltas; Gemini only forwards the
       // accepted candidate above, once, after optional repair.
 
@@ -2016,7 +2052,7 @@ $finalGenerationReminder
             ? (configuredFinalModel.isEmpty
                 ? ChatApiProvider.aiWangYouModel
                 : configuredFinalModel)
-            : job.model,
+            : firstModel.apiName,
         createdAt: DateTime.now(),
         deviceId: await db.ensureDeviceId(),
         segments: ChatSegmentCodec.parseAssistantText(finalContent),
@@ -2068,6 +2104,7 @@ $finalGenerationReminder
       PlayfulSelfActivity? selfActivity;
       try {
         selfActivity = await selfJudge.classify(
+          model: firstModel,
           apiKey: apiKey,
           endpoint: endpoint,
           userText: user.promptContent,
@@ -2105,6 +2142,7 @@ $finalGenerationReminder
       );
       ConversationSourceStamp? committedMoeSource;
       bool committed;
+      if (takeover.requested && finalTextFromGemini) continue;
       try {
         committed = await db.completeGenerationJobIfCurrent(
           jobId: job.id,
@@ -2113,7 +2151,10 @@ $finalGenerationReminder
           pendingMediaOwner: pendingMediaOwner,
           generationAttempt: originalAttempt,
           onCommittedSource: (source) => committedMoeSource = source,
-          isCancelled: () => effectiveCancellation.isCancelled,
+          secondChannelReply: finalTextFromGemini,
+          onCommitAccepted: takeover.seal,
+          isCancelled: () => effectiveCancellation.isCancelled ||
+              (takeover.requested && finalTextFromGemini),
           turnCommitEvidence: TurnCommitEvidence(deliveries: verifiedDeliveries,
             timedEffectIds: [for (final r in localReceipts)
               if (r.slot == TurnEffectSlot.cedarTimedRegistration && !r.committed) r.effectId]),
@@ -2123,7 +2164,13 @@ $finalGenerationReminder
           backgroundRecall: promptBuild.backgroundRecall,
           reflectionUpdate: DeepReflectionUpdate.parse(generated.content),
         );
-      } catch (_) {
+      } on TurnCommitCancelled {
+        if (!effectiveCancellation.isCancelled && finalTextFromGemini) {
+          if (await db.getSetting(FinalReplyControl.settingKey) == job.id) {
+            takeover.requestDeepSeek();
+          }
+          if (takeover.requested) continue;
+        }
         rethrow;
       }
       if (!committed) {
@@ -2135,6 +2182,27 @@ $finalGenerationReminder
         return const GenerationRunResult(status: 'suspended');
       }
       agentAttachmentsCommitted = true;
+      if (finalProvider.isGeminiRelay && finalReasoning.isNotEmpty) {
+        onDelta?.call(DeepSeekDelta(reasoning: '【最终回复】\n$finalReasoning'));
+        reasoningDeltaForwardedToSurface = onDelta != null;
+      }
+      unawaited(
+        VisibleReasoningLanguageTelemetry.note(
+          db,
+          visibleReasoning,
+          providerDeltaSeen: upstreamReasoningDeltaSeen,
+          forwardedToSurface: reasoningDeltaForwardedToSurface,
+        ),
+      );
+      try {
+        await db.setSetting('generation_final_route_v1', jsonEncode({
+          'jobId': job.id,
+          'reason': takeover.requested ? 'manual_deepseek'
+              : providerNotice != null ? 'api_failure_fallback'
+              : finalTextFromGemini ? 'second_channel' : 'first_channel',
+          'model': assistant.model, 'contentIncluded': false,
+        }));
+      } catch (_) { /* The reply is already committed. */ }
       await recordCommitTiming?.call();
       try {
         await CedarTimedPlayTaskStore(db).activateCommitted(turnId: user.id,
@@ -2251,7 +2319,9 @@ $finalGenerationReminder
         specialStyleKey: generationSpecialStyleKey,
         notice: completionNotices.isEmpty ? null : completionNotices.join('\n'),
       );
+      } // Final-expression retry after a manual takeover; tools stay completed.
     } on FinalReplyIncompleteException catch (e) {
+      takeover.seal();
       final envelope = EmotionEnvelope.parse(e.content);
       final visible = OperationalClaimGroundingGuard.removeUnsupportedSentences(
         text: envelope.visibleText,
@@ -2284,7 +2354,7 @@ $finalGenerationReminder
         reasoningContent: preserveProviderReasoning(e.reasoning),
         model: finalTextFromGemini
             ? (configuredFinalModel.isEmpty ? ChatApiProvider.aiWangYouModel : configuredFinalModel)
-            : job.model,
+            : firstModel.apiName,
         createdAt: DateTime.now(),
         deviceId: await db.ensureDeviceId(),
         segments: ChatSegmentCodec.parseAssistantText(visible),
@@ -2360,6 +2430,7 @@ $finalGenerationReminder
       );
     } finally {
       cancellationFenceTimer.cancel();
+      takeover.seal();
       try { await db.releasePendingMedia(pendingMediaOwner); } catch (_) {}
       if (!agentAttachmentsCommitted) {
         for (final attachment in preparedAgentAttachments) {
@@ -2443,7 +2514,7 @@ $finalGenerationReminder
       formContextJson: job.formContextJson,
       content: visible,
       reasoningContent: preserveProviderReasoning(job.partialReasoning),
-      model: job.model,
+      model: firstModel.apiName,
       createdAt: DateTime.now(),
       deviceId: await db.ensureDeviceId(),
       segments: ChatSegmentCodec.parseAssistantText(visible),
@@ -2459,6 +2530,7 @@ $finalGenerationReminder
     PlayfulSelfActivity? activity;
     try {
       activity = await selfJudge.classify(
+      model: await FirstChannelModel.read(db),
       apiKey: await secureConfig.readApiKey() ?? '',
       endpoint: await secureConfig.readEndpoint(),
       userText: user.promptContent, assistantText: assistant.promptContent,

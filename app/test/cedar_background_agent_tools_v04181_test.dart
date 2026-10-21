@@ -1,3 +1,4 @@
+import 'package:ai_companion_localfirst/core/ai/model_profile.dart';
 import 'dart:convert';
 
 import 'package:ai_companion_localfirst/core/ai/deepseek_client.dart';
@@ -138,7 +139,7 @@ void main() {
       }),
     );
 
-    final result = await CedarAgentActionPlanner(ai: client).decide(
+    final result = await CedarAgentActionPlanner(model: DeepSeekModelProfile.flash, ai: client).decide(
       apiKey: 'test',
       endpoint: DeepSeekClient.defaultEndpoint,
       gameId: 'duel',
@@ -193,7 +194,7 @@ void main() {
       }),
     );
 
-    final result = await CedarAgentActionPlanner(
+    final result = await CedarAgentActionPlanner(model: DeepSeekModelProfile.flash,
       ai: client,
       onRetry: (error) async => retries.add(error),
     ).decide(
@@ -228,7 +229,7 @@ void main() {
         headers: {'content-type': 'text/event-stream'});
     }));
     try {
-      final result = await CedarAgentActionPlanner(ai: client,
+      final result = await CedarAgentActionPlanner(model: DeepSeekModelProfile.flash, ai: client,
         onRetry: (error) async => retries.add(error)).decide(
         apiKey: 'test', endpoint: DeepSeekClient.defaultEndpoint, gameId: 'duel',
         instruction: '只推进 duel', acceptsAction: (action) => action == 'move');
@@ -249,7 +250,7 @@ void main() {
         headers: {'content-type': 'text/event-stream'});
     }));
     try {
-      await expectLater(CedarAgentActionPlanner(ai: client).decide(
+      await expectLater(CedarAgentActionPlanner(model: DeepSeekModelProfile.flash, ai: client).decide(
         apiKey: 'test', endpoint: DeepSeekClient.defaultEndpoint, gameId: 'duel',
         instruction: '只推进 duel', acceptsAction: (action) => action == 'move'),
         throwsA(isA<CedarAgentActionPlanningException>().having(
@@ -264,7 +265,7 @@ void main() {
         http.Response(_toolResponse(_decision(), finishReason: finishReason,
           done: finishReason == null), 200, headers: {'content-type': 'text/event-stream'})));
       try {
-        final result = await CedarAgentActionPlanner(ai: client).decide(
+        final result = await CedarAgentActionPlanner(model: DeepSeekModelProfile.flash, ai: client).decide(
           apiKey: 'test', endpoint: DeepSeekClient.defaultEndpoint, gameId: 'duel',
           instruction: '只推进 duel', acceptsAction: (action) => action == 'move');
         expect(result.action, 'move');
@@ -280,7 +281,7 @@ void main() {
         headers: {'content-type': 'text/event-stream'});
     }));
     try {
-      await expectLater(CedarAgentActionPlanner(ai: client).decide(
+      await expectLater(CedarAgentActionPlanner(model: DeepSeekModelProfile.flash, ai: client).decide(
         apiKey: 'test', endpoint: DeepSeekClient.defaultEndpoint, gameId: 'duel',
         instruction: '只推进 duel', acceptsAction: (action) => action == 'move'),
         throwsA(isA<CedarAgentActionPlanningException>().having(
@@ -303,7 +304,7 @@ void main() {
       }),
     );
 
-    final result = await CedarAgentActionPlanner(ai: client).decide(
+    final result = await CedarAgentActionPlanner(model: DeepSeekModelProfile.flash, ai: client).decide(
       apiKey: 'test',
       endpoint: DeepSeekClient.defaultEndpoint,
       gameId: 'duel',
@@ -330,7 +331,7 @@ void main() {
     );
 
     await expectLater(
-      CedarAgentActionPlanner(ai: client).decide(
+      CedarAgentActionPlanner(model: DeepSeekModelProfile.flash, ai: client).decide(
         apiKey: 'test',
         endpoint: DeepSeekClient.defaultEndpoint,
         gameId: 'duel',
@@ -366,7 +367,7 @@ void main() {
           )),
     );
 
-    final result = await CedarAgentActionPlanner(ai: client).decide(
+    final result = await CedarAgentActionPlanner(model: DeepSeekModelProfile.flash, ai: client).decide(
       apiKey: 'test',
       endpoint: DeepSeekClient.defaultEndpoint,
       gameId: 'duel',

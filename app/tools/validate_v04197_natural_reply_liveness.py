@@ -45,8 +45,8 @@ require(
     "User turns are reply-live",
 )
 runner = read("lib/core/ai/durable_generation_runner.dart")
-assert "if (!finalRoute.useSecondChannel)" in runner and "finalRoute.recordFailure(lastError!)" in runner, (
-    "DeepSeek repairs only after the configured final channel failed"
+assert "if (takeover.requested || !finalRoute.useSecondChannel)" in runner and "finalRoute.recordFailure(lastError!)" in runner, (
+    "DeepSeek repairs after a channel failure or explicit per-turn manual choice"
 )
 require(
     "lib/core/desire/proactive_engine.dart",

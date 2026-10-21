@@ -39,7 +39,7 @@ assert any(
 diary = read("lib/core/phone/simulated_diary_generator.dart")
 repository = read("lib/core/phone/simulated_phone_repository.dart")
 for token in (
-    "DeepSeekModelProfile.flash",
+    "modelLoader()",
     "SimulatedDiaryQuality.acceptable",
     "similarity(trimmed, recent) < 0.72",
     "不得补造用户说过的话",

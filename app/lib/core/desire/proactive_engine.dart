@@ -1,3 +1,4 @@
+import '../ai/first_channel_model.dart';
 import '../storage/pending_media_owner.dart';
 import '../agent/turn_execution_contract.dart';
 import '../database/conversation_source_store.dart';
@@ -1700,7 +1701,7 @@ ${startsFreshTopic ? '本类型属于新话题通道：ANSWERED CHAT HISTORY 已
       ),
     });
 
-    final model = DeepSeekModelProfile.flash;
+    final model = await FirstChannelModel.read(db);
     final finalProvider = await secureConfig.readChatProvider();
     final finalApiKey = (await secureConfig.readFinalReplyApiKey())?.trim() ?? '';
     final finalEndpoint = await secureConfig.readFinalReplyEndpoint();

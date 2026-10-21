@@ -37,6 +37,7 @@ class PlayfulSelfJudge {
   };
 
   Future<PlayfulSelfActivity?> classify({
+    required DeepSeekModelProfile model,
     required String apiKey,
     required String endpoint,
     required String userText,
@@ -108,7 +109,7 @@ class PlayfulSelfJudge {
       await for (final delta in client.streamChat(
         apiKey: apiKey,
         endpoint: endpoint,
-        model: DeepSeekModelProfile.flash,
+        model: model,
         effort: ReasoningEffort.high,
         thinking: false,
         maxTokens: thoughtCandidate == null ? 70 : 110,

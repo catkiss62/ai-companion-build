@@ -1,3 +1,4 @@
+import '../ai/first_channel_model.dart';
 import '../ai/deepseek_client.dart';
 import '../database/app_database.dart';
 import '../database/brain_work_fence.dart';
@@ -168,6 +169,7 @@ class PublicWebShareCoordinator {
       orElse: () => DriveKey.curiosity,
     );
     final appraiser = DeepSeekPublicWebAppraiser(
+      model: await FirstChannelModel.read(db),
       apiKey: await secureConfig.readApiKey() ?? '',
       endpoint: await secureConfig.readEndpoint(),
       client: ai,

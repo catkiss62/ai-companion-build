@@ -1,3 +1,4 @@
+import 'package:ai_companion_localfirst/core/ai/model_profile.dart';
 import 'dart:convert';
 
 import 'package:ai_companion_localfirst/core/ai/deepseek_client.dart';
@@ -62,7 +63,7 @@ void main() {
             }}), 200);
           })), fallbackClassifier: (_, __) async { fallbackCalls++; return PlayfulSelfActivity.strong; });
       final reply = '${List.filled(1700, 'a').join()} The tunes evolve over the years.';
-      final activity = await judge.classify(apiKey: 'test', endpoint: 'https://unused.invalid',
+      final activity = await judge.classify(model: DeepSeekModelProfile.flash, apiKey: 'test', endpoint: 'https://unused.invalid',
         userText: 'How interesting.', assistantText: reply, thoughtCandidate: candidate,
         onThoughtExpressionVerified: (value) => confirmed = value);
       // Assert outside the transport: gateway error handling must not hide a failed assertion.
@@ -92,7 +93,7 @@ void main() {
           return http.Response(jsonEncode({'answers': {'route': {
             'type': 'choice', 'choice': 'none', 'confidence': .8, 'probabilities': {'none': 1.0}}}}), 200);
         })));
-    expect(await judge.classify(apiKey: 'test', endpoint: 'https://unused.invalid', userText: 'Hi',
+    expect(await judge.classify(model: DeepSeekModelProfile.flash, apiKey: 'test', endpoint: 'https://unused.invalid', userText: 'Hi',
       assistantText: 'Hi there.', onThoughtExpressionVerified: (value) => confirmed = value), PlayfulSelfActivity.none);
     expect(confirmed, isFalse);
     expect(sent!['questions'], isNot(contains('thought_expressed')));
@@ -104,7 +105,7 @@ void main() {
     final judge = PlayfulSelfJudge(client: DeepSeekClient(),
       jevGateway: JevDecisionGateway(enabledReader: () async => false),
       fallbackClassifier: (_, __) async { fallbackCalls++; return PlayfulSelfActivity.none; });
-    await judge.classify(apiKey: 'test', endpoint: 'https://unused.invalid', userText: 'Hi', assistantText: 'Hi.',
+    await judge.classify(model: DeepSeekModelProfile.flash, apiKey: 'test', endpoint: 'https://unused.invalid', userText: 'Hi', assistantText: 'Hi.',
       thoughtCandidate: candidate, onThoughtExpressionVerified: (value) => confirmed = value);
     expect(fallbackCalls, 1);
     expect(confirmed, isFalse);

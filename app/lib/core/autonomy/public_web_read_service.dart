@@ -1,3 +1,4 @@
+import '../ai/first_channel_model.dart';
 import '../agent/agent_tool.dart';
 import '../ai/deepseek_client.dart';
 import '../ai/generation_cancellation.dart';
@@ -144,6 +145,7 @@ class PublicWebReadService {
     if (!page.isVerifiedRead) return page;
     final judged =
         await DeepSeekPublicWebAppraiser(
+          model: await FirstChannelModel.read(db),
           apiKey: await secureConfig.readApiKey() ?? '',
           endpoint: await secureConfig.readEndpoint(),
           client: ai,

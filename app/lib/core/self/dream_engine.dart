@@ -1,3 +1,5 @@
+import '../ai/first_channel_model.dart';
+import 'dream_review_diagnostic.dart';
 import 'dart:convert';
 import '../ai/deepseek_client.dart';
 import '../ai/model_profile.dart';
@@ -13,32 +15,29 @@ typedef DreamReviewer =
 
 /// Runs on the existing heartbeat, without messages, tools or Desire pulses.
 class DreamEngine {
-  DreamEngine(this.db, {this.reviewer, SecureConfig? secureConfig})
+  DreamEngine(this.db, {this.reviewer, SecureConfig? secureConfig, this.clientFactory})
     : secureConfig = secureConfig ?? SecureConfig.instance;
   final AppDatabase db;
   final DreamReviewer? reviewer;
   final SecureConfig secureConfig;
+  final DeepSeekClient Function(Future<bool> Function() abort)? clientFactory;
 
   Future<Map<String, dynamic>?> _review(
     Map<String, Object?> material,
     BrainWorkFence fence,
+    DeepSeekModelProfile reviewModel,
   ) async {
     final key = (await secureConfig.readApiKey())?.trim() ?? '';
     if (key.isEmpty) return null;
-    final client = DeepSeekClient(
-      abortWhen: () async =>
-          !await db.brainWorkFenceCurrent(fence) ||
-          !await DreamStore.idle(
-            await db.database,
-            DateTime.now(),
-            manual: true,
-          ),
-    );
+    Future<bool> abort() async =>
+        !await db.brainWorkFenceCurrent(fence) ||
+        !await DreamStore.idle(await db.database, DateTime.now(), manual: true);
+    final client = clientFactory?.call(abort) ?? DeepSeekClient(abortWhen: abort);
     try {
       return await client.jsonCompletion(
         apiKey: key,
         endpoint: await secureConfig.readEndpoint(),
-        model: DeepSeekModelProfile.pro,
+        model: reviewModel,
         thinking: true,
         effort: ReasoningEffort.high,
         maxTokens: 6000,
@@ -138,6 +137,8 @@ class DreamEngine {
       }
       Map<String, dynamic>? payload = {'changes': <Object?>[]};
       if (needsReview) {
+        final reviewModel = await FirstChannelModel.work(db);
+        diagnostic['model'] = reviewModel.apiName;
         if (!await db.setSettingsAtomically(
           {
             DreamStore.attemptKey: jsonEncode({
@@ -185,9 +186,10 @@ class DreamEngine {
         };
         try {
           payload = await (reviewer == null
-              ? _review(input, fence)
+              ? _review(input, fence, reviewModel)
               : reviewer!(input));
-        } catch (_) {
+        } catch (error) {
+          diagnostic.addAll(DreamReviewDiagnostic.failure(error));
           payload = null;
         }
       }
@@ -207,6 +209,8 @@ class DreamEngine {
           DreamStore.diagnosticKey: jsonEncode({
             ...diagnostic,
             'status': payload == null ? 'unavailable' : 'invalid_evidence',
+            if (payload == null && !diagnostic.containsKey('failure_category'))
+              'failure_category': 'unavailable',
           }),
         }, workFence: fence);
         return false;

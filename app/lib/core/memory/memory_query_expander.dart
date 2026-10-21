@@ -9,9 +9,9 @@ class MemoryQueryExpander {
   final DeepSeekClient client;
 
   Future<List<String>> expand(String query, {required String apiKey,
-    required String endpoint, GenerationCancellationToken? cancellationToken}) async {
+    required String endpoint, required DeepSeekModelProfile model, GenerationCancellationToken? cancellationToken}) async {
     final result = await client.jsonCompletion(
-      apiKey: apiKey, endpoint: endpoint, model: DeepSeekModelProfile.flash,
+      apiKey: apiKey, endpoint: endpoint, model: model,
       thinking: false, maxTokens: 260, requestTimeout: const Duration(seconds: 18),
       usageLane: 'explicit_memory_query_expansion', cancellationToken: cancellationToken,
       messages: [

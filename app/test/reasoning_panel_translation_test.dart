@@ -1,3 +1,4 @@
+import 'package:ai_companion_localfirst/core/ai/model_profile.dart';
 import 'package:ai_companion_localfirst/core/ai/reasoning_translation_service.dart';
 import 'package:ai_companion_localfirst/widgets/reasoning_panel.dart';
 import 'package:flutter/material.dart';
@@ -9,7 +10,7 @@ void main() {
 
   testWidgets('manual translation preserves original and reveals cached result',
       (tester) async {
-    final service = ReasoningTranslationService(
+    final service = ReasoningTranslationService(modelLoader: () async => DeepSeekModelProfile.flash,
       cache: _WidgetCache(),
       gateway: _WidgetGateway(),
       apiKeyLoader: () async => 'test-key',
@@ -100,6 +101,7 @@ class _WidgetCache implements ReasoningTranslationCache {
 class _WidgetGateway implements ReasoningTranslationGateway {
   @override
   Future<String> translate({
+    required DeepSeekModelProfile model,
     required String apiKey,
     required String endpoint,
     required String reasoning,

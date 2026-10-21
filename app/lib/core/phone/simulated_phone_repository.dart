@@ -1,3 +1,4 @@
+import '../ai/first_channel_model.dart';
 import '../wishes/wish_store.dart';
 import '../mood/mood_service.dart';
 import 'dart:convert';
@@ -147,12 +148,12 @@ class SimulatedPhoneRepository {
     SimulatedPhoneReflectionGenerator? reflectionGenerator,
     int Function(int upperBound)? noteIndexPicker,
   })  : _cartGenerator =
-            cartGenerator ?? DeepSeekSimulatedCartGenerator(),
+            cartGenerator ?? DeepSeekSimulatedCartGenerator(modelLoader: () => FirstChannelModel.read(db)),
         _diaryGenerator =
-            diaryGenerator ?? DeepSeekSimulatedDiaryGenerator(),
-        _noteGenerator = noteGenerator ?? DeepSeekSimulatedNoteGenerator(),
+            diaryGenerator ?? DeepSeekSimulatedDiaryGenerator(modelLoader: () => FirstChannelModel.read(db)),
+        _noteGenerator = noteGenerator ?? DeepSeekSimulatedNoteGenerator(modelLoader: () => FirstChannelModel.read(db)),
         _reflectionGenerator =
-            reflectionGenerator ?? SimulatedPhoneReflectionGenerator(),
+            reflectionGenerator ?? SimulatedPhoneReflectionGenerator(modelLoader: () => FirstChannelModel.read(db)),
         _noteIndexPicker = noteIndexPicker ?? Random.secure().nextInt;
 
   final AppDatabase db;

@@ -3590,7 +3590,8 @@ class _StreamingBubble extends StatelessWidget {
               streaming: true,
             ),
           ),
-        if (controller.agentActivity != null ||
+        if (controller.showManualReplyControl ||
+            controller.agentActivity != null ||
             content.isNotEmpty ||
             (controller.streamingReasoning.isEmpty &&
                 controller.agentActivity == null))
@@ -3615,13 +3616,28 @@ class _StreamingBubble extends StatelessWidget {
                   ],
                   SizedBox(key: bodyTailKey, height: 1),
                 ],
-                if (content.isEmpty &&
-                    controller.streamingReasoning.isEmpty &&
-                    controller.agentActivity == null)
-                  Text(
-                    controller.recoveringGeneration
-                        ? '正在结束上次中断的回复…'
-                        : '她正在准备回复…',
+                if (controller.showManualReplyControl ||
+                    (content.isEmpty && controller.streamingReasoning.isEmpty &&
+                        controller.agentActivity == null))
+                  Row(
+                    children: [
+                      Flexible(child: Text(controller.recoveringGeneration
+                          ? '正在结束上次中断的回复…' : '她正在准备回复…')),
+                      if (controller.showManualReplyControl) ...[
+                        const SizedBox(width: 8),
+                        TextButton(
+                          onPressed: controller.canUseDeepSeekForCurrentReply
+                              ? controller.useDeepSeekForCurrentReply : null,
+                          style: TextButton.styleFrom(
+                            visualDensity: VisualDensity.compact,
+                            minimumSize: Size.zero,
+                            padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
+                          ),
+                          child: Text(controller.manualDeepSeekSelected
+                              ? '已切换 DeepSeek' : '使用 DeepSeek 回复'),
+                        ),
+                      ],
+                    ],
                   ),
                 if (controller.activeGenerationTtsPhase !=
                     TtsPlaybackPhase.idle)

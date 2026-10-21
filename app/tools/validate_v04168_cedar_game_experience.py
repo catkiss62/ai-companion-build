@@ -42,7 +42,7 @@ require(
 require(
     "lib/core/mcp/cedar_toy_autonomy_engine.dart",
     "wantAction" if False else "CedarToyAutonomyEngine",
-    "DeepSeekModelProfile.flash",
+    "FirstChannelModel.read(db)",
     "jsonCompletion",
     "每次只推进一步",
     "mcp/cedar_game:",

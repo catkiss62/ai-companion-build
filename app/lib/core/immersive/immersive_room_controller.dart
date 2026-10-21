@@ -1,3 +1,4 @@
+import '../ai/first_channel_model.dart';
 import 'dart:async';
 import 'dart:convert';
 
@@ -55,6 +56,7 @@ class ImmersiveRoomController extends ChangeNotifier {
           DeepSeekMessageLanguageVariantGateway(client: this.client),
       apiKeyLoader: this.secureConfig.readApiKey,
       endpointLoader: this.secureConfig.readEndpoint,
+      modelLoader: () => FirstChannelModel.read(this.db),
     );
     promptBuilder = ImmersivePromptBuilder(this.db);
     nsfwRouter = ImmersiveNsfwRouter(this.client);
@@ -292,6 +294,7 @@ class ImmersiveRoomController extends ChangeNotifier {
           (await repository.inheritActiveSpecialStyleIfNeeded(roomId))!;
       room = routedRoom;
       final route = await nsfwRouter.decide(
+          model: await FirstChannelModel.read(db),
         apiKey: apiKey,
         endpoint: endpoint,
         room: routedRoom,
@@ -918,6 +921,7 @@ class ImmersiveRoomController extends ChangeNotifier {
           .where((item) => item.createdAt.isBefore(user.createdAt))
           .toList(growable: false);
       final route = await nsfwRouter.decide(
+          model: await FirstChannelModel.read(db),
         apiKey: internalApiKey,
         endpoint: internalEndpoint,
         room: routedRoom,
@@ -1141,6 +1145,7 @@ class ImmersiveRoomController extends ChangeNotifier {
           );
         }
         final translated = await languageVariantService.gateway.translate(
+          model: await FirstChannelModel.read(db),
           apiKey: apiKey,
           endpoint: await secureConfig.readEndpoint(),
           source: ChatSegmentCodec.parseAssistantText(message.content),

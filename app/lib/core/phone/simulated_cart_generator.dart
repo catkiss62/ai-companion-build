@@ -31,6 +31,7 @@ abstract interface class SimulatedCartGenerator {
 /// not read chat, Memory, Desire, personality-learning candidates or AI Self.
 class DeepSeekSimulatedCartGenerator implements SimulatedCartGenerator {
   DeepSeekSimulatedCartGenerator({
+    required this.modelLoader,
     SecureConfig? secureConfig,
     DeepSeekClient Function()? clientFactory,
   })  : _secureConfig = secureConfig ?? SecureConfig.instance,
@@ -38,6 +39,7 @@ class DeepSeekSimulatedCartGenerator implements SimulatedCartGenerator {
 
   final SecureConfig _secureConfig;
   final DeepSeekClient Function() _clientFactory;
+  final Future<DeepSeekModelProfile> Function() modelLoader;
 
   @override
   Future<List<SimulatedCartItem>> generate({
@@ -52,7 +54,7 @@ class DeepSeekSimulatedCartGenerator implements SimulatedCartGenerator {
       final payload = await client.jsonCompletion(
         apiKey: apiKey,
         endpoint: endpoint,
-        model: DeepSeekModelProfile.flash,
+        model: await modelLoader(),
         thinking: false,
         maxTokens: 1000,
         usageLane: 'simulated_cart',

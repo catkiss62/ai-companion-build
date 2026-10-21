@@ -1,3 +1,4 @@
+import '../ai/first_channel_model.dart';
 import '../creative/creative_control.dart';
 import '../database/generation_attempt_fence.dart';
 import 'turn_execution_store.dart';
@@ -1115,7 +1116,7 @@ class AgentToolRunner {
       final shareContext = await CedarLiveSharePolicy(db).recentShares();
       final judged = await _ai.jsonCompletion(
         apiKey: apiKey,
-        model: DeepSeekModelProfile.flash,
+        model: await FirstChannelModel.read(db),
         endpoint: await secureConfig.readEndpoint(),
         thinking: true,
         effort: ReasoningEffort.high,
@@ -2216,6 +2217,7 @@ Qwen 只读取去元数据后的有界缩略图；本地相册另外保留实际
       );
     }
     final appraised = await DeepSeekPublicWebAppraiser(
+      model: await FirstChannelModel.read(db),
       apiKey: await secureConfig.readApiKey() ?? '',
       endpoint: await secureConfig.readEndpoint(),
       client: _ai,
@@ -2345,6 +2347,7 @@ ${lines.join('\n')}
       if (apiKey.isNotEmpty) {
         try {
           final queries = await MemoryQueryExpander(_ai).expand(normalized,
+            model: await FirstChannelModel.read(db),
             apiKey: apiKey, endpoint: await secureConfig.readEndpoint(),
             cancellationToken: cancellationToken);
           if (queries.isNotEmpty) {

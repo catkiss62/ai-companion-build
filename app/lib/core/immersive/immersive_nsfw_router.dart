@@ -58,6 +58,7 @@ class ImmersiveNsfwRouter {
   final DeepSeekClient client;
 
   Future<ImmersiveNsfwDecision> decide({
+    required DeepSeekModelProfile model,
     required String apiKey,
     required String endpoint,
     required ImmersiveRoom room,
@@ -167,7 +168,7 @@ class ImmersiveNsfwRouter {
       await for (final delta in client.streamChat(
         apiKey: apiKey,
         endpoint: endpoint,
-        model: DeepSeekModelProfile.flash,
+        model: model,
         effort: ReasoningEffort.high,
         thinking: false,
         maxTokens: 120,

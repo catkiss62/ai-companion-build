@@ -1,3 +1,4 @@
+import 'package:ai_companion_localfirst/core/ai/model_profile.dart';
 import 'dart:convert';
 
 import 'package:ai_companion_localfirst/core/ai/deepseek_client.dart';
@@ -46,7 +47,7 @@ void main() {
         return PlayfulSelfActivity.strong;
       },
     );
-    final value = await judge.classify(
+    final value = await judge.classify(model: DeepSeekModelProfile.flash,
       apiKey: 'deepseek-key',
       endpoint: 'https://api.deepseek.com/chat/completions',
       userText: '你别吹牛了',
@@ -70,7 +71,7 @@ void main() {
       },
     );
     expect(
-      await judge.classify(
+      await judge.classify(model: DeepSeekModelProfile.flash,
         apiKey: 'deepseek-key',
         endpoint: 'https://api.deepseek.com/chat/completions',
         userText: '你别吹牛了',

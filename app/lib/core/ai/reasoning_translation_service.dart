@@ -1,3 +1,4 @@
+import 'first_channel_model.dart';
 import 'dart:convert';
 
 import 'package:crypto/crypto.dart';
@@ -136,6 +137,7 @@ class DatabaseReasoningTranslationCache implements ReasoningTranslationCache {
 
 abstract interface class ReasoningTranslationGateway {
   Future<String> translate({
+    required DeepSeekModelProfile model,
     required String apiKey,
     required String endpoint,
     required String reasoning,
@@ -151,6 +153,7 @@ class DeepSeekReasoningTranslationGateway
 
   @override
   Future<String> translate({
+    required DeepSeekModelProfile model,
     required String apiKey,
     required String endpoint,
     required String reasoning,
@@ -163,7 +166,7 @@ class DeepSeekReasoningTranslationGateway
     final result = await _client.jsonCompletion(
       apiKey: apiKey,
       endpoint: endpoint,
-      model: DeepSeekModelProfile.flash,
+      model: model,
       thinking: false,
       effort: ReasoningEffort.high,
       maxTokens: maxTokens,
@@ -213,11 +216,13 @@ class ReasoningTranslationService {
     ReasoningTranslationGateway? gateway,
     Future<String?> Function()? apiKeyLoader,
     Future<String> Function()? endpointLoader,
+    Future<DeepSeekModelProfile> Function()? modelLoader,
   })  : _cache =
             cache ?? DatabaseReasoningTranslationCache(AppDatabase.instance),
         _gateway = gateway ?? DeepSeekReasoningTranslationGateway(),
         _apiKeyLoader = apiKeyLoader ?? SecureConfig.instance.readApiKey,
-        _endpointLoader = endpointLoader ?? SecureConfig.instance.readEndpoint;
+        _endpointLoader = endpointLoader ?? SecureConfig.instance.readEndpoint,
+        _modelLoader = modelLoader ?? (() => FirstChannelModel.read(AppDatabase.instance));
 
   static final ReasoningTranslationService instance =
       ReasoningTranslationService();
@@ -226,6 +231,7 @@ class ReasoningTranslationService {
   final ReasoningTranslationGateway _gateway;
   final _ApiKeyLoader _apiKeyLoader;
   final _EndpointLoader _endpointLoader;
+  final Future<DeepSeekModelProfile> Function() _modelLoader;
   final Map<String, Future<ReasoningTranslationOutcome>> _inFlight =
       <String, Future<ReasoningTranslationOutcome>>{};
 
@@ -296,7 +302,9 @@ class ReasoningTranslationService {
       );
     }
     final endpoint = await _endpointLoader();
+    final model = await _modelLoader();
     final translated = await _gateway.translate(
+      model: model,
       apiKey: apiKey,
       endpoint: endpoint,
       reasoning: reasoning,
@@ -311,7 +319,7 @@ class ReasoningTranslationService {
       sourceSha256: sourceSha256,
       translatedText: translated,
       provider: 'deepseek',
-      model: DeepSeekModelProfile.flash.apiName,
+      model: model.apiName,
     );
     return ReasoningTranslationOutcome(
       translation: translated,

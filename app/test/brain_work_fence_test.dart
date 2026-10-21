@@ -1,3 +1,4 @@
+import 'package:ai_companion_localfirst/core/ai/model_profile.dart';
 import 'dart:async';
 
 import 'package:ai_companion_localfirst/core/database/app_database.dart';
@@ -12,6 +13,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 
 class _WaitingReflection extends SimulatedPhoneReflectionGenerator {
+  _WaitingReflection() : super(modelLoader: () async => DeepSeekModelProfile.flash);
   final started = Completer<void>();
   final result = Completer<({String self, String user})?>();
   @override

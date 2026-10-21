@@ -117,6 +117,36 @@ void main() {
       webReader: (page, _, __) async => page.copyWith(appraisalState: 'share_candidate', readAt: DateTime.now()));
   }
 
+  for (final mode in ['single', 'second_success', 'second_failure']) {
+    test('proactive real HTTP and committed model follow configured routes: $mode', () async {
+      await db.setSetting('deepseek_model', 'first-proactive-custom');
+      FlutterSecureStorage.setMockInitialValues({
+        'openrouter_jev_short_judgments_enabled': '0',
+        'chat_api_provider': mode == 'single' ? 'deepseek' : 'aiwangyou_gemini',
+        'aiwangyou_gemini_api_key': 'second-test',
+        'aiwangyou_final_reply_endpoint': 'https://relay.invalid/v1/chat/completions',
+        'aiwangyou_final_reply_model': 'second-proactive-custom',
+      });
+      final (_, thoughtId) = await seedReady();
+      final models = <String>[];
+      final e = engine(writer: (request) async {
+        final model = (jsonDecode(request.body) as Map)['model'] as String;
+        models.add(model);
+        if (model == 'second-proactive-custom' && mode == 'second_failure') {
+          return http.Response('upstream unavailable', 503);
+        }
+        return _answer(_reply);
+      });
+      final sent = await e.evaluate(forceForDebug: true, forcedThoughtIdForDebug: thoughtId);
+      expect(sent.sent, isTrue, reason: sent.reason);
+      final row = (await (await db.database).query('messages', where: 'is_proactive = 1')).single;
+      expect(row['model'], mode == 'second_success' ? 'second-proactive-custom' : 'first-proactive-custom');
+      expect(models, mode == 'single' ? ['first-proactive-custom']
+          : mode == 'second_success' ? ['second-proactive-custom']
+          : ['second-proactive-custom', 'second-proactive-custom', 'first-proactive-custom']);
+    });
+  }
+
   for (final point in ['before_late_fence', 'writer_wait', 'same_ms_count']) {
     test('real evaluate rejects reset at $point without consuming the ready source', () async {
       final (id, thoughtId) = await seedReady();

@@ -1,3 +1,4 @@
+import '../ai/first_channel_model.dart';
 import 'recent_web_topics.dart';
 import 'ai_interest_evidence_policy.dart';
 import '../mood/mood_service.dart';
@@ -259,6 +260,7 @@ class PublicWebDiscoveryEngine {
     await db.setSetting('public_web_last_recent_mode', recentMode ? '1' : '0');
     final planner = _questionPlannerOverride ??
         DeepSeekPublicWebQuestionPlanner(
+          model: await FirstChannelModel.read(db),
           apiKey: await secureConfig.readApiKey() ?? '',
           endpoint: await secureConfig.readEndpoint(),
           client: ai,
@@ -345,6 +347,7 @@ class PublicWebDiscoveryEngine {
       orderBy: 'COALESCE(last_viewed_at, discovered_at) DESC', limit: 20);
     final appraiser = _appraiserOverride ??
         DeepSeekPublicWebAppraiser(
+          model: await FirstChannelModel.read(db),
           apiKey: await secureConfig.readApiKey() ?? '',
           endpoint: await secureConfig.readEndpoint(),
           client: ai,

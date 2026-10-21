@@ -1,3 +1,4 @@
+import '../ai/first_channel_model.dart';
 import '../emotion/emotion_contract.dart';
 import '../emotion/emotion_classifier_service.dart';
 import '../ai/deepseek_client.dart';
@@ -133,7 +134,8 @@ class CalendarReminderFollowup {
         onUsage: (event) => ModelUsageTelemetry.record(db, event),
       );
       String? text;
-      String model = DeepSeekModelProfile.flash.apiName;
+      final firstModel = await FirstChannelModel.read(db);
+      String model = firstModel.apiName;
       try {
         Future<String?> request({required bool finalChannel}) async {
           if (!await current() ||
@@ -149,7 +151,7 @@ class CalendarReminderFollowup {
             endpoint: finalChannel ? finalEndpoint : await config.readEndpoint(),
             requestProvider: finalChannel ? provider : null,
             modelName: finalChannel ? finalName : null,
-            model: DeepSeekModelProfile.flash,
+            model: firstModel,
             effort: ReasoningEffort.high,
             messages: messages,
             thinking: true,
@@ -177,7 +179,7 @@ class CalendarReminderFollowup {
             if (text == null) throw const EmptyFinalReplyException();
             await db.setSettingsAtomically({'calendar_last_final_provider_notice': ''}, workFence: fence);
             if (text != null) model = finalName.isEmpty
-                ? provider.effectiveModel(DeepSeekModelProfile.flash)
+                ? provider.effectiveModel(firstModel)
                 : finalName;
           } catch (error) {
             finalRoute.recordFailure(error);

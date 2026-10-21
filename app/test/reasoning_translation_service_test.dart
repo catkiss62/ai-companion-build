@@ -1,3 +1,4 @@
+import 'package:ai_companion_localfirst/core/ai/model_profile.dart';
 import 'dart:convert';
 
 import 'package:ai_companion_localfirst/core/ai/deepseek_client.dart';
@@ -27,7 +28,7 @@ void main() {
         return translationResponse();
       }));
       try {
-        expect(await DeepSeekReasoningTranslationGateway(client: client).translate(
+        expect(await DeepSeekReasoningTranslationGateway(client: client).translate(model: DeepSeekModelProfile.flash,
           apiKey: 'test-key', endpoint: 'https://api.deepseek.com/chat/completions', reasoning: source),
           '完整中文译文。');
       } finally { client.close(); }
@@ -38,7 +39,7 @@ void main() {
     final cache = _MemoryCache();
     final client = DeepSeekClient(client: MockClient((_) async => translationResponse(finish: 'length')));
     try {
-      final service = ReasoningTranslationService(cache: cache,
+      final service = ReasoningTranslationService(modelLoader: () async => DeepSeekModelProfile.flash, cache: cache,
         gateway: DeepSeekReasoningTranslationGateway(client: client),
         apiKeyLoader: () async => 'test-key',
         endpointLoader: () async => 'https://api.deepseek.com/chat/completions');
@@ -102,7 +103,7 @@ void main() {
   test('successful translation is cached by source hash', () async {
     final cache = _MemoryCache();
     final gateway = _FakeGateway('这是忠实的中文翻译。');
-    final service = ReasoningTranslationService(
+    final service = ReasoningTranslationService(modelLoader: () async => DeepSeekModelProfile.flash,
       cache: cache,
       gateway: gateway,
       apiKeyLoader: () async => 'test-key',
@@ -132,7 +133,7 @@ void main() {
   test('changed source misses the old cache entry', () async {
     final cache = _MemoryCache();
     final gateway = _FakeGateway('翻译');
-    final service = ReasoningTranslationService(
+    final service = ReasoningTranslationService(modelLoader: () async => DeepSeekModelProfile.flash,
       cache: cache,
       gateway: gateway,
       apiKeyLoader: () async => 'test-key',
@@ -160,7 +161,7 @@ void main() {
       () async {
     final cache = _MemoryCache();
     final gateway = _FakeGateway('我会认真回答。');
-    final service = ReasoningTranslationService(
+    final service = ReasoningTranslationService(modelLoader: () async => DeepSeekModelProfile.flash,
       cache: cache,
       gateway: gateway,
       apiKeyLoader: () async => 'test-key',
@@ -186,7 +187,7 @@ void main() {
   test('missing API key and gateway failure never write a fake cache', () async {
     final missingKeyCache = _MemoryCache();
     final missingKeyGateway = _FakeGateway('不会被调用');
-    final missingKeyService = ReasoningTranslationService(
+    final missingKeyService = ReasoningTranslationService(modelLoader: () async => DeepSeekModelProfile.flash,
       cache: missingKeyCache,
       gateway: missingKeyGateway,
       apiKeyLoader: () async => '',
@@ -208,7 +209,7 @@ void main() {
 
     final failedCache = _MemoryCache();
     final failedGateway = _FakeGateway.failure(StateError('network failed'));
-    final failedService = ReasoningTranslationService(
+    final failedService = ReasoningTranslationService(modelLoader: () async => DeepSeekModelProfile.flash,
       cache: failedCache,
       gateway: failedGateway,
       apiKeyLoader: () async => 'test-key',
@@ -227,7 +228,7 @@ void main() {
 
   test('English output is rejected and never cached', () async {
     final cache = _MemoryCache();
-    final service = ReasoningTranslationService(
+    final service = ReasoningTranslationService(modelLoader: () async => DeepSeekModelProfile.flash,
       cache: cache,
       gateway: _FakeGateway('This was not translated at all.'),
       apiKeyLoader: () async => 'test-key',
@@ -291,6 +292,7 @@ class _FakeGateway implements ReasoningTranslationGateway {
 
   @override
   Future<String> translate({
+    required DeepSeekModelProfile model,
     required String apiKey,
     required String endpoint,
     required String reasoning,

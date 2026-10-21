@@ -1,3 +1,4 @@
+import 'package:ai_companion_localfirst/core/ai/model_profile.dart';
 import 'dart:convert';
 
 import 'package:ai_companion_localfirst/core/agent/agent_tool_planner.dart';
@@ -297,7 +298,7 @@ void main() {
       }),
     );
 
-    final result = await CedarJsonDecisionExecutor(
+    final result = await CedarJsonDecisionExecutor(model: DeepSeekModelProfile.flash,
       ai: client,
       onRetry: (error) async => retryErrors.add(error),
     ).decide(
@@ -334,7 +335,7 @@ void main() {
     );
 
     await expectLater(
-      CedarJsonDecisionExecutor(ai: client).decide(
+      CedarJsonDecisionExecutor(model: DeepSeekModelProfile.flash, ai: client).decide(
         apiKey: 'test',
         endpoint: DeepSeekClient.defaultEndpoint,
         instruction: '只返回 JSON',

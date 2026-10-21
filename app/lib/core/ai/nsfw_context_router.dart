@@ -1,3 +1,4 @@
+import 'first_channel_model.dart';
 import '../agent/semantic_tool_route.dart';
 import '../agent/turn_task_intent.dart';
 import '../creative/creative_store.dart';
@@ -277,7 +278,7 @@ class NsfwContextRouter {
       await for (final delta in client.streamChat(
         apiKey: apiKey,
         endpoint: endpoint,
-        model: DeepSeekModelProfile.flash,
+        model: await FirstChannelModel.read(db),
         effort: ReasoningEffort.high,
         thinking: false,
         maxTokens: moodEnabled ? 420 : 340,

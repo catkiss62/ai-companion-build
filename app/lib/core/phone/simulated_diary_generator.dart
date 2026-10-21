@@ -121,6 +121,7 @@ class SimulatedDiaryQuality {
 
 class DeepSeekSimulatedDiaryGenerator implements SimulatedDiaryGenerator {
   DeepSeekSimulatedDiaryGenerator({
+    required this.modelLoader,
     SecureConfig? secureConfig,
     DeepSeekClient Function()? clientFactory,
   })  : _secureConfig = secureConfig ?? SecureConfig.instance,
@@ -128,6 +129,7 @@ class DeepSeekSimulatedDiaryGenerator implements SimulatedDiaryGenerator {
 
   final SecureConfig _secureConfig;
   final DeepSeekClient Function() _clientFactory;
+  final Future<DeepSeekModelProfile> Function() modelLoader;
 
   @override
   Future<SimulatedDiaryDraft?> generate({
@@ -141,7 +143,7 @@ class DeepSeekSimulatedDiaryGenerator implements SimulatedDiaryGenerator {
       final payload = await client.jsonCompletion(
         apiKey: apiKey,
         endpoint: await _secureConfig.readEndpoint(),
-        model: DeepSeekModelProfile.flash,
+        model: await modelLoader(),
         thinking: false,
         maxTokens: 1100,
         usageLane: 'simulated_diary',

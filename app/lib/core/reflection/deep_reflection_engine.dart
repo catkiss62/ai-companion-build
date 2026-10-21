@@ -1,9 +1,9 @@
+import '../ai/first_channel_model.dart';
 import '../self/dream_store.dart';
 import 'dart:convert';
 import 'package:crypto/crypto.dart';
 import 'package:flutter/foundation.dart';
 import '../ai/deepseek_client.dart';
-import '../ai/model_profile.dart';
 import '../database/app_database.dart';
 import 'package:sqflite/sqflite.dart';
 import '../autonomy/public_web_share_contract.dart';
@@ -21,7 +21,7 @@ typedef ReflectionReviewer =
 /// It never sends a message, calls tools, or promotes a tentative self-view.
 class DeepReflectionEngine {
   DeepReflectionEngine(this.db, {ReflectionReviewer? reviewer, this.beforeCommit})
-    : reviewer = reviewer ?? _review;
+    : reviewer = reviewer ?? ((material) => _review(db, material));
   final AppDatabase db;
   final ReflectionReviewer reviewer;
   @visibleForTesting
@@ -43,6 +43,7 @@ current_self_understanding仅供参考她目前的理解，不是新的事件或
 格式 {"topic":null或{"question":"一个具体问题，6~160字","prior_view":"原先怎样理解，非稳定人格","tension":"什么具体经历使原看法不充分","why_user":"为什么想听用户的观点","source_id":"给定sources中的真实id","source_quote":"逐字摘录6字以上相关来源","new_angle":"有历史相似问题时说明新增的疑问/认识","suitable":true}}。不写声称长时间暗中思考的故事，不宣称拥有主观意识。''';
 
   static Future<Map<String, dynamic>?> _review(
+    AppDatabase db,
     Map<String, Object?> material,
   ) async {
     final config = SecureConfig.instance;
@@ -54,7 +55,7 @@ current_self_understanding仅供参考她目前的理解，不是新的事件或
           .jsonCompletion(
             apiKey: key,
             endpoint: await config.readEndpoint(),
-            model: DeepSeekModelProfile.flash,
+            model: await FirstChannelModel.read(db),
             thinking: false,
             maxTokens: 1000,
             usageLane: 'deep_reflection',

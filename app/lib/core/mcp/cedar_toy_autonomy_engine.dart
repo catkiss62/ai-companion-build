@@ -1,3 +1,4 @@
+import '../ai/first_channel_model.dart';
 import '../self/dream_store.dart';
 import '../desire/daily_wake_store.dart';
 import '../desire/daily_wake_schedule.dart';
@@ -118,8 +119,9 @@ class CedarJsonDecisionRetryPolicy {
 }
 
 class CedarJsonDecisionExecutor {
-  const CedarJsonDecisionExecutor({required this.ai, this.onRetry});
+  const CedarJsonDecisionExecutor({required this.model, required this.ai, this.onRetry});
 
+  final DeepSeekModelProfile model;
   final DeepSeekClient ai;
   final Future<void> Function(Object error)? onRetry;
 
@@ -138,7 +140,7 @@ class CedarJsonDecisionExecutor {
       try {
         final result = await ai.jsonCompletion(
           apiKey: apiKey,
-          model: DeepSeekModelProfile.flash,
+          model: model,
           endpoint: endpoint,
           thinking: CedarJsonDecisionRetryPolicy.thinkingForAttempt(attempt),
           effort: CedarJsonDecisionRetryPolicy.effortForAttempt(attempt),
@@ -207,10 +209,11 @@ class CedarAgentActionPlanningException implements Exception {
 /// bodies are deliberately ignored: an executable step must be represented by
 /// exactly one `cedar_toy.play` call.
 class CedarAgentActionPlanner {
-  const CedarAgentActionPlanner({required this.ai, this.onRetry});
+  const CedarAgentActionPlanner({required this.model, required this.ai, this.onRetry});
 
   static const maxAttempts = 2;
 
+  final DeepSeekModelProfile model;
   final DeepSeekClient ai;
   final Future<void> Function(Object error)? onRetry;
 
@@ -316,7 +319,7 @@ class CedarAgentActionPlanner {
     var completed = false;
     await for (final delta in ai.streamChat(
       apiKey: apiKey,
-      model: DeepSeekModelProfile.flash,
+      model: model,
       endpoint: endpoint,
       thinking: thinking,
       effort: thinking ? ReasoningEffort.high : ReasoningEffort.low,
@@ -1789,6 +1792,7 @@ $catalog''',
     final arrangements = await arrangementStore.captureReview(session);
     if(arrangements.fence==null)return const CedarAutonomyProgress('notebook_snapshot_unavailable');
     final decision = await CedarAgentActionPlanner(
+      model: await FirstChannelModel.read(db),
       ai: ai,
       onRetry: (error) => _recordAgentActionRetry(error),
     ).decide(
@@ -2391,7 +2395,7 @@ game=${session.gameId}
       var completed = false;
       await for (final delta in ai.streamChat(
         apiKey: gemini ? finalKey : apiKey,
-        model: DeepSeekModelProfile.flash,
+        model: await FirstChannelModel.read(db),
         effort: ReasoningEffort.low,
         messages: correction
             ? <Map<String, Object?>>[
@@ -2515,6 +2519,7 @@ game=${session.gameId}
     GenerationCancellationToken? cancellationToken,
   }) async {
     return CedarJsonDecisionExecutor(
+      model: await FirstChannelModel.read(db),
       ai: ai,
       onRetry: (error) async {
         final retryCount = int.tryParse(
@@ -2562,10 +2567,10 @@ game=${session.gameId}
     required String endpoint,
     required String instruction,
     GenerationCancellationToken? cancellationToken,
-  }) =>
+  }) async =>
       ai.jsonCompletion(
         apiKey: apiKey,
-        model: DeepSeekModelProfile.flash,
+        model: await FirstChannelModel.read(db),
         endpoint: endpoint,
         thinking: false,
         effort: ReasoningEffort.low,

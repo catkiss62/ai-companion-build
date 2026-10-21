@@ -1,3 +1,5 @@
+import '../../core/ai/final_reply_control.dart';
+import '../../core/ai/first_channel_model.dart';
 import 'dart:async';
 import 'dart:io';
 import '../../core/creative/creative_play.dart';
@@ -193,6 +195,10 @@ class ChatController extends ChangeNotifier {
   Timer? _petSpeechHeartbeat;
   bool _disposed = false;
   int _recoveryScheduleEpoch = 0;
+  bool _secondChannelEnabled = false;
+  FinalReplyControl? _activeReplyControl;
+  bool _externalDeepSeekSelected = false;
+  String? _externalReplyJobId;
   GenerationCancellationToken? _activeGenerationCancellation;
   String? _activeGenerationJobId;
   String? _activeGenerationAssistantMessageId;
@@ -204,6 +210,32 @@ class ChatController extends ChangeNotifier {
   String? get activeGenerationAssistantMessageId =>
       _activeGenerationAssistantMessageId ??
       _externalGenerationAssistantMessageId;
+
+  bool get showManualReplyControl => _secondChannelEnabled && generationActive &&
+      !cancellingGeneration;
+
+  bool get manualDeepSeekSelected =>
+      _activeReplyControl?.requested ?? _externalDeepSeekSelected;
+
+  bool get canUseDeepSeekForCurrentReply => showManualReplyControl &&
+      (_activeReplyControl?.accepting ?? !_externalDeepSeekSelected);
+
+  Future<void> useDeepSeekForCurrentReply() async {
+    if (!canUseDeepSeekForCurrentReply) return;
+    final control = _activeReplyControl;
+    if (control != null && !control.requestDeepSeek()) return;
+    _externalDeepSeekSelected = true;
+    _safeNotify();
+    final jobId = _activeGenerationJobId ?? _externalReplyJobId;
+    if (jobId != null) {
+      final accepted = await db.selectDeepSeekForGeneration(jobId);
+      if (!accepted && control == null) {
+        // A completed transaction wins over a click arriving afterwards.
+        _externalDeepSeekSelected = false;
+      }
+    }
+    _safeNotify();
+  }
 
   bool get generationActive => sending || externalGenerationActive;
 
@@ -349,7 +381,8 @@ class ChatController extends ChangeNotifier {
   Future<void> initialize() async {
     try {
       await db.ensureReady();
-      model = DeepSeekModelProfile.fromApiName(await db.getSetting('model'));
+      model = await FirstChannelModel.read(db);
+      _secondChannelEnabled = (await secureConfig.readChatProvider()).isGeminiRelay;
       effort = ReasoningEffort.fromApiName(await db.getSetting('reasoning_effort'));
       nsfwActive = (await db.getSetting('nsfw_active')) == '1';
       deepThinking = (await db.getSetting('deep_thinking_enabled')) == '1';
@@ -478,6 +511,12 @@ class ChatController extends ChangeNotifier {
         await db.failedGenerationNeedingAttention();
     var runtimeChanged = false;
     if (!sending) {
+      _secondChannelEnabled = (await secureConfig.readChatProvider()).isGeminiRelay;
+      final selected = job != null &&
+          await db.getSetting(FinalReplyControl.settingKey) == job.id;
+      runtimeChanged = _externalDeepSeekSelected != selected || _externalReplyJobId != job?.id;
+      _externalDeepSeekSelected = selected;
+      _externalReplyJobId = job?.id;
       final awaitingDecision = job?.status == 'awaiting_confirmation';
       if (awaitingDecision) await _restoreIncompleteReplyDraft();
       final nextActive = job != null && !awaitingDecision;
@@ -490,7 +529,7 @@ class ChatController extends ChangeNotifier {
       final statusText = nextActive
           ? (await db.getSetting('agent_tool_runtime_status_text') ?? '')
           : '';
-      runtimeChanged = externalGenerationActive != nextActive ||
+      runtimeChanged = runtimeChanged || externalGenerationActive != nextActive ||
           streamingReasoning != nextReasoning ||
           streamingContent != nextContent ||
           _externalGenerationAssistantMessageId != nextAssistantId ||
@@ -533,7 +572,7 @@ class ChatController extends ChangeNotifier {
 
   Future<void> setModel(DeepSeekModelProfile next) async {
     model = next;
-    await db.setSetting('model', next.apiName);
+    await db.setSettingsAtomically({'model': next.apiName, 'deepseek_model': next.apiName});
     _safeNotify();
   }
 
@@ -556,6 +595,8 @@ class ChatController extends ChangeNotifier {
 
   Future<void> _refreshChatRoutingSettings() async {
     nsfwActive = (await db.getSetting('nsfw_active')) == '1';
+    model = await FirstChannelModel.read(db);
+    _secondChannelEnabled = (await secureConfig.readChatProvider()).isGeminiRelay;
   }
 
   void _applyNsfwRoute(NsfwRouteDecision decision) {
@@ -1172,6 +1213,8 @@ class ChatController extends ChangeNotifier {
     agentActivity = null;
     agentActivities = <AgentToolActivity>[];
     final cancellation = GenerationCancellationToken();
+    _activeReplyControl = FinalReplyControl()..onChanged = _safeNotify;
+    _externalDeepSeekSelected = false;
     _activeGenerationCancellation = cancellation;
     _activeGenerationJobId = null;
     _safeNotify();
@@ -1239,6 +1282,9 @@ class ChatController extends ChangeNotifier {
       final job = committedTurn.job;
       durableTurnCreated = true;
       _activeGenerationJobId = job.id;
+      if (_activeReplyControl?.requested == true) {
+        await db.selectDeepSeekForGeneration(job.id);
+      }
       _activeGenerationAssistantMessageId = job.assistantMessageId;
       cancellation.throwIfCancelled();
       messages = [...messages, user];
@@ -1313,6 +1359,9 @@ class ChatController extends ChangeNotifier {
       agentActivity = null;
       agentActivities = <AgentToolActivity>[];
       if (identical(_activeGenerationCancellation, cancellation)) {
+        _activeReplyControl?.onChanged = null;
+        _activeReplyControl = null;
+        _externalDeepSeekSelected = false;
         _activeGenerationCancellation = null;
         _activeGenerationJobId = null;
         _activeGenerationAssistantMessageId = null;
@@ -1367,6 +1416,7 @@ class ChatController extends ChangeNotifier {
     final result = await generationRunner.run(
       job,
       cancellationToken: cancellation,
+      replyControl: _activeReplyControl,
       onNsfwRoute: _applyNsfwRoute,
       onAgentToolActivity: _applyAgentToolActivity,
       onEmotionCue: (_) async {},
@@ -1578,6 +1628,9 @@ class ChatController extends ChangeNotifier {
       await _restoreIncompleteReplyDraft();
     } finally {
       if (identical(_activeGenerationCancellation, cancellation)) {
+        _activeReplyControl?.onChanged = null;
+        _activeReplyControl = null;
+        _externalDeepSeekSelected = false;
         _activeGenerationCancellation = null;
         _activeGenerationJobId = null;
       }
@@ -1653,6 +1706,9 @@ class ChatController extends ChangeNotifier {
     agentActivities = <AgentToolActivity>[];
     error = null;
     final cancellation = GenerationCancellationToken();
+    _secondChannelEnabled = (await secureConfig.readChatProvider()).isGeminiRelay;
+    _activeReplyControl = FinalReplyControl()..onChanged = _safeNotify;
+    _externalDeepSeekSelected = false;
     _activeGenerationCancellation = cancellation;
     _activeGenerationJobId = job.id;
     _activeGenerationAssistantMessageId = job.assistantMessageId;
@@ -1693,6 +1749,9 @@ class ChatController extends ChangeNotifier {
       agentActivity = null;
       agentActivities = <AgentToolActivity>[];
       if (identical(_activeGenerationCancellation, cancellation)) {
+        _activeReplyControl?.onChanged = null;
+        _activeReplyControl = null;
+        _externalDeepSeekSelected = false;
         _activeGenerationCancellation = null;
         _activeGenerationJobId = null;
         _activeGenerationAssistantMessageId = null;
@@ -1840,6 +1899,7 @@ class ChatController extends ChangeNotifier {
             );
           }
           final translated = await languageVariantService.gateway.translate(
+            model: await FirstChannelModel.read(db),
             apiKey: apiKey,
             endpoint: await secureConfig.readEndpoint(),
             source: message.displaySegments,

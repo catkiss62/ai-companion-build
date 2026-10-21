@@ -1,7 +1,7 @@
+import '../ai/first_channel_model.dart';
 import 'dart:convert';
 import 'package:crypto/crypto.dart';
 import '../ai/deepseek_client.dart';
-import '../ai/model_profile.dart';
 import '../database/app_database.dart';
 import '../mcp/cedar_game_protocol.dart';
 import '../mcp/cedar_toy_activity.dart';
@@ -23,7 +23,7 @@ typedef WishReviewer =
 /// One bounded batch, on the existing heartbeat. No tool loop or final reply.
 class WishEngine {
   WishEngine(this.db, {WishReviewer? reviewer})
-    : reviewer = reviewer ?? _review;
+    : reviewer = reviewer ?? ((material) => _review(db, material));
   final AppDatabase db;
   final WishReviewer reviewer;
   static const leaseKey = 'companion_wish_review_lease_until';
@@ -35,6 +35,7 @@ class WishEngine {
   static const generationGap = Duration(hours: 12);
 
   static Future<Map<String, dynamic>?> _review(
+    AppDatabase db,
     Map<String, Object?> material,
   ) async {
     final config = SecureConfig.instance;
@@ -46,7 +47,7 @@ class WishEngine {
           .jsonCompletion(
             apiKey: key,
             endpoint: await config.readEndpoint(),
-            model: DeepSeekModelProfile.flash,
+            model: await FirstChannelModel.read(db),
             thinking: false,
             maxTokens: 1800,
             usageLane: 'companion_wish',

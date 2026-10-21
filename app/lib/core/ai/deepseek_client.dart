@@ -257,9 +257,9 @@ class DeepSeekClient {
     try {
       cancellationToken?.throwIfCancelled();
       if (billable) await _cost(costAttempt);
-      final response = await streamClient
-          .send(request)
-          .timeout(requestTimeout);
+      final response = await cancelWithToken(
+        streamClient.send(request).timeout(requestTimeout), cancellationToken,
+      );
       cancellationToken?.throwIfCancelled();
       if (response.statusCode < 200 || response.statusCode >= 300) {
         final body = await response.stream.bytesToString().timeout(requestTimeout);

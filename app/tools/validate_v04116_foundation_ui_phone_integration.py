@@ -55,7 +55,7 @@ for token in (
     "normal或playful",
     "recentTitles.take(36)",
     "鲸鱼娘",
-    "DeepSeekModelProfile.flash",
+    "modelLoader()",
     ".timeout(const Duration(seconds: 18))",
 ):
     assert token in cart_generator, token

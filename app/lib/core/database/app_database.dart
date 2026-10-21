@@ -1,3 +1,4 @@
+import '../ai/final_reply_control.dart';
 import 'derived_source_store.dart';
 import '../memory/personality_learning_lifecycle.dart';
 import '../models/immersive_room.dart';
@@ -8171,6 +8172,20 @@ class AppDatabase {
     return rows.isEmpty ? null : GenerationJob.fromDb(rows.first);
   }
 
+  /// The durable choice is scoped to this job and survives transport recovery.
+  Future<bool> selectDeepSeekForGeneration(String jobId) async {
+    final handle = await database;
+    return handle.transaction((txn) async {
+      final rows = await txn.query('generation_jobs', columns: ['status'],
+          where: 'id = ?', whereArgs: [jobId], limit: 1);
+      if (rows.isEmpty || !const {'pending', 'running', 'retry_wait', 'suspended'}
+          .contains(rows.first['status'])) return false;
+      await txn.insert('settings', {'key': FinalReplyControl.settingKey, 'value': jobId},
+          conflictAlgorithm: ConflictAlgorithm.replace);
+      return true;
+    });
+  }
+
   Future<bool> completeGenerationJobIfCurrent({
     required String jobId,
     required String runToken,
@@ -8179,6 +8194,8 @@ class AppDatabase {
     GenerationAttemptFence? generationAttempt,
     TurnCommitEvidence turnCommitEvidence = const TurnCommitEvidence(),
     bool Function()? isCancelled,
+    bool secondChannelReply = false,
+    void Function()? onCommitAccepted,
     PlayfulSelfActivity? playfulActivity,
     DeepReflectionContext? deepReflection,
     DeepReflectionUpdate? reflectionUpdate,
@@ -8228,6 +8245,13 @@ class AppDatabase {
       }
       if (job.status != 'running') return false;
       final originalAttempt = generationAttempt ?? pendingMediaOwner?.attempt;
+      if (secondChannelReply) {
+        final choice = await txn.query('settings', columns: ['value'],
+            where: 'key = ?', whereArgs: [FinalReplyControl.settingKey]);
+        if (choice.isNotEmpty && choice.first['value'] == jobId) {
+          throw const TurnCommitCancelled();
+        }
+      }
       requireTurnNotCancelled(isCancelled);
       if (originalAttempt != null && (originalAttempt.jobId != jobId ||
           originalAttempt.runToken != runToken || !await originalAttempt.matches(txn))) return false;
@@ -8387,6 +8411,7 @@ class AppDatabase {
       }
       committedSource = await ConversationSourceStore.captureMessage(txn, assistant.id);
       requireTurnNotCancelled(isCancelled);
+      onCommitAccepted?.call();
       return true;
     });
     if (accepted && committedSource != null) onCommittedSource?.call(committedSource!);

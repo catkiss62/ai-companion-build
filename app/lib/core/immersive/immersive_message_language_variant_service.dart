@@ -1,3 +1,4 @@
+import '../ai/model_profile.dart';
 import '../ai/message_language_variant_service.dart';
 import '../models/chat_language_variant.dart';
 import '../models/chat_segment.dart';
@@ -30,12 +31,14 @@ class ImmersiveMessageLanguageVariantService {
     required this.gateway,
     required this.apiKeyLoader,
     required this.endpointLoader,
+    required this.modelLoader,
   });
 
   final ImmersiveMessageLanguageVariantStore store;
   final MessageLanguageVariantGateway gateway;
   final Future<String?> Function() apiKeyLoader;
   final Future<String> Function() endpointLoader;
+  final Future<DeepSeekModelProfile> Function() modelLoader;
   final Map<String, Future<ChatLanguageVariant>> _inFlight =
       <String, Future<ChatLanguageVariant>>{};
 
@@ -86,6 +89,7 @@ class ImmersiveMessageLanguageVariantService {
       );
     }
     final translated = await gateway.translate(
+      model: await modelLoader(),
       apiKey: apiKey,
       endpoint: await endpointLoader(),
       source: source,

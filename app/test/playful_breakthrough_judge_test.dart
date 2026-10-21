@@ -1,3 +1,4 @@
+import 'package:ai_companion_localfirst/core/ai/model_profile.dart';
 import 'dart:convert';
 
 import 'package:ai_companion_localfirst/core/ai/deepseek_client.dart';
@@ -31,7 +32,7 @@ void main() {
     final judge = PlayfulBreakthroughJudge(DeepSeekClient(),
       jevGateway: gateway,
       fallbackClassifier: (_, __) async => false);
-    expect(await judge.decide(
+    expect(await judge.decide(model: DeepSeekModelProfile.flash,
       apiKey: 'ds-key', endpoint: 'https://api.deepseek.com/chat/completions',
       userText: '你这反应也太可爱了',
       recentContext: 'ASSISTANT: 我脸红了',
@@ -47,7 +48,7 @@ void main() {
         clientFactory: () => MockClient((_) async => http.Response('{}', 402)),
       ),
       fallbackClassifier: (_, __) async { fallbacks++; return false; });
-    expect(await judge.decide(
+    expect(await judge.decide(model: DeepSeekModelProfile.flash,
       apiKey: 'ds-key', endpoint: 'https://api.deepseek.com/chat/completions',
       userText: '早上好', recentContext: '',
     ), isFalse);

@@ -1,3 +1,4 @@
+import 'package:ai_companion_localfirst/core/ai/model_profile.dart';
 import 'dart:async';
 import 'dart:convert';
 import 'package:ai_companion_localfirst/core/agent/agent_tool.dart';
@@ -107,7 +108,7 @@ void main() {
       intentAction: 'discover_interest', interestKey: 'curiosity:recent_interest:ocean:recent7d',
       discoveredAt: current, expiresAt: current.add(const Duration(days: 2)),
       readState: 'verified', topicTags: tags[i]));
-    final result = await DeepSeekPublicWebAppraiser(apiKey: 'test',
+    final result = await DeepSeekPublicWebAppraiser(model: DeepSeekModelProfile.flash, apiKey: 'test',
       endpoint: 'https://api.deepseek.com/chat/completions', sharedHeadlines: ['同一事件已分享'],
       client: DeepSeekClient(client: MockClient((request) async {
         expect(request.body, contains('同一事件已分享'));

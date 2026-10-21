@@ -1,3 +1,4 @@
+import 'first_channel_model.dart';
 import 'dart:async';
 import 'dart:convert';
 
@@ -19,6 +20,7 @@ class MessageLanguageVariantException implements Exception {
 
 abstract interface class MessageLanguageVariantGateway {
   Future<List<ChatSegment>> translate({
+    required DeepSeekModelProfile model,
     required String apiKey,
     required String endpoint,
     required List<ChatSegment> source,
@@ -54,6 +56,7 @@ class DeepSeekMessageLanguageVariantGateway
 
   @override
   Future<List<ChatSegment>> translate({
+    required DeepSeekModelProfile model,
     required String apiKey,
     required String endpoint,
     required List<ChatSegment> source,
@@ -76,7 +79,7 @@ class DeepSeekMessageLanguageVariantGateway
         final result = await _client.jsonCompletion(
           apiKey: apiKey,
           endpoint: endpoint,
-          model: DeepSeekModelProfile.flash,
+          model: model,
           thinking: false,
           effort: ReasoningEffort.high,
           maxTokens: maxTokens,
@@ -165,6 +168,7 @@ class MessageLanguageVariantService {
     required this.gateway,
     required this.apiKeyLoader,
     required this.endpointLoader,
+    required this.modelLoader,
   });
 
   factory MessageLanguageVariantService.standard({
@@ -177,12 +181,14 @@ class MessageLanguageVariantService {
         gateway: DeepSeekMessageLanguageVariantGateway(client: client),
         apiKeyLoader: secureConfig.readApiKey,
         endpointLoader: secureConfig.readEndpoint,
+        modelLoader: () => FirstChannelModel.read(db),
       );
 
   final MessageLanguageVariantStore store;
   final MessageLanguageVariantGateway gateway;
   final Future<String?> Function() apiKeyLoader;
   final Future<String> Function() endpointLoader;
+  final Future<DeepSeekModelProfile> Function() modelLoader;
   final Map<String, Future<ChatLanguageVariant>> _inFlight =
       <String, Future<ChatLanguageVariant>>{};
 
@@ -232,6 +238,7 @@ class MessageLanguageVariantService {
       );
     }
     final translated = await gateway.translate(
+      model: await modelLoader(),
       apiKey: apiKey,
       endpoint: await endpointLoader(),
       source: source,

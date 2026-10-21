@@ -23,12 +23,14 @@ abstract class PublicWebCandidateAppraiser {
 
 class DeepSeekPublicWebAppraiser implements PublicWebCandidateAppraiser {
   DeepSeekPublicWebAppraiser({
+    required this.model,
     required this.apiKey,
     required this.endpoint,
     DeepSeekClient? client,
     this.sharedHeadlines = const [],
   }) : client = client ?? DeepSeekClient();
 
+  final DeepSeekModelProfile model;
   final String apiKey;
   final String endpoint;
   final DeepSeekClient client;
@@ -62,7 +64,7 @@ class DeepSeekPublicWebAppraiser implements PublicWebCandidateAppraiser {
       final result = await client.jsonCompletion(
         apiKey: apiKey,
         endpoint: endpoint,
-        model: DeepSeekModelProfile.flash,
+        model: model,
         thinking: false,
         maxTokens: 1400,
         cancellationToken: cancellationToken,

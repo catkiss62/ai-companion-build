@@ -1,3 +1,4 @@
+import 'first_channel_model.dart';
 import '../memory/self_understanding_policy.dart';
 import '../memory/background_recall_store.dart';
 import '../agent/tool_provenance_policy.dart';
@@ -33,7 +34,6 @@ import '../memory/memory_revision.dart';
 import '../memory/shared_growth_policy.dart';
 import '../mcp/cedar_game_arrangements.dart';
 import 'deepseek_client.dart';
-import 'model_profile.dart';
 
 /// One low-cost post-turn pass that turns a transient chat turn into durable
 /// local state: memories, thoughts, unfinished threads and small desire pulses.
@@ -394,7 +394,7 @@ ${previousAssistant.content}
               'result_count':r['result_count']}).toList();
         result = await client.jsonCompletion(
           apiKey: apiKey,
-          model: DeepSeekModelProfile.flash,
+          model: await FirstChannelModel.read(db),
           endpoint: endpoint,
           thinking: false,
           maxTokens: 4096,
@@ -904,7 +904,7 @@ AI（${assistant.historicalFormLabel}）：${assistant.content}
     try {
       final result = await client.jsonCompletion(
         apiKey: apiKey,
-        model: DeepSeekModelProfile.flash,
+        model: await FirstChannelModel.read(db),
         endpoint: endpoint,
         thinking: false,
         maxTokens: 320,
@@ -1837,7 +1837,7 @@ AI 主动消息：${outbound?.content ?? '(消息正文不可用)'}
 
       final result = await client.jsonCompletion(
         apiKey: apiKey,
-        model: DeepSeekModelProfile.flash,
+        model: await FirstChannelModel.read(db),
         endpoint: endpoint,
         thinking: false,
         maxTokens: 1100,

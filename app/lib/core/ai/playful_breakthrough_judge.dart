@@ -27,6 +27,7 @@ class PlayfulBreakthroughJudge {
       'situation and its accumulated intensity, not literal keywords.';
 
   Future<bool?> decide({
+    required DeepSeekModelProfile model,
     required String apiKey,
     required String endpoint,
     required String userText,
@@ -63,7 +64,7 @@ class PlayfulBreakthroughJudge {
       await for (final delta in client.streamChat(
         apiKey: apiKey,
         endpoint: endpoint,
-        model: DeepSeekModelProfile.flash,
+        model: model,
         effort: ReasoningEffort.high,
         thinking: false,
         maxTokens: 55,

@@ -1,3 +1,4 @@
+import 'package:ai_companion_localfirst/core/ai/model_profile.dart';
 import 'dart:convert';
 
 import 'package:ai_companion_localfirst/core/ai/deepseek_client.dart';
@@ -31,7 +32,7 @@ void main() {
         return translationResponse(['Complete translated text.']);
       }));
       try {
-        final translated = await DeepSeekMessageLanguageVariantGateway(client: client).translate(
+        final translated = await DeepSeekMessageLanguageVariantGateway(client: client).translate(model: DeepSeekModelProfile.flash,
           apiKey: 'test-key', endpoint: 'https://api.deepseek.com/chat/completions',
           source: source, target: ChatLanguage.english);
         expect(translated.single.text, 'Complete translated text.');
@@ -58,7 +59,7 @@ void main() {
       return translationResponse(['Partial action.', 'Partial dialogue.'], finish: 'length');
     }));
     try {
-      final service = MessageLanguageVariantService(
+      final service = MessageLanguageVariantService(modelLoader: () async => DeepSeekModelProfile.flash,
         store: store, gateway: DeepSeekMessageLanguageVariantGateway(client: client),
         apiKeyLoader: () async => 'test-key',
         endpointLoader: () async => 'https://api.deepseek.com/chat/completions');
@@ -74,7 +75,7 @@ void main() {
       () async {
     final store = _MemoryVariantStore(sourceMessage());
     final gateway = _FakeVariantGateway();
-    final service = MessageLanguageVariantService(
+    final service = MessageLanguageVariantService(modelLoader: () async => DeepSeekModelProfile.flash,
       store: store,
       gateway: gateway,
       apiKeyLoader: () async => 'key',
@@ -102,7 +103,7 @@ void main() {
   test('concurrent taps share one target-language request', () async {
     final store = _MemoryVariantStore(sourceMessage());
     final gateway = _FakeVariantGateway(delay: const Duration(milliseconds: 1));
-    final service = MessageLanguageVariantService(
+    final service = MessageLanguageVariantService(modelLoader: () async => DeepSeekModelProfile.flash,
       store: store,
       gateway: gateway,
       apiKeyLoader: () async => 'key',
@@ -127,7 +128,7 @@ void main() {
   test('missing credentials never writes a fake variant', () async {
     final store = _MemoryVariantStore(sourceMessage());
     final gateway = _FakeVariantGateway();
-    final service = MessageLanguageVariantService(
+    final service = MessageLanguageVariantService(modelLoader: () async => DeepSeekModelProfile.flash,
       store: store,
       gateway: gateway,
       apiKeyLoader: () async => '',
@@ -196,7 +197,7 @@ void main() {
     );
     final store = _MemoryVariantStore(stored);
     final gateway = _FakeVariantGateway();
-    final service = MessageLanguageVariantService(
+    final service = MessageLanguageVariantService(modelLoader: () async => DeepSeekModelProfile.flash,
       store: store,
       gateway: gateway,
       apiKeyLoader: () async => 'key',
@@ -243,6 +244,7 @@ class _FakeVariantGateway implements MessageLanguageVariantGateway {
 
   @override
   Future<List<ChatSegment>> translate({
+    required DeepSeekModelProfile model,
     required String apiKey,
     required String endpoint,
     required List<ChatSegment> source,

@@ -29,11 +29,13 @@ abstract class PublicWebQuestionPlanner {
 /// chat history, names, device data, memories, or role-play content.
 class DeepSeekPublicWebQuestionPlanner implements PublicWebQuestionPlanner {
   DeepSeekPublicWebQuestionPlanner({
+    required this.model,
     required this.apiKey,
     required this.endpoint,
     DeepSeekClient? client,
   }) : client = client ?? DeepSeekClient();
 
+  final DeepSeekModelProfile model;
   final String apiKey;
   final String endpoint;
   final DeepSeekClient client;
@@ -49,7 +51,7 @@ class DeepSeekPublicWebQuestionPlanner implements PublicWebQuestionPlanner {
       final result = await client.jsonCompletion(
         apiKey: apiKey,
         endpoint: endpoint,
-        model: DeepSeekModelProfile.flash,
+        model: model,
         thinking: false,
         maxTokens: 180,
         usageLane: 'web_question_plan',

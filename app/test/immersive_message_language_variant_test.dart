@@ -1,3 +1,4 @@
+import 'package:ai_companion_localfirst/core/ai/model_profile.dart';
 import 'package:ai_companion_localfirst/core/ai/message_language_variant_service.dart';
 import 'package:ai_companion_localfirst/core/immersive/immersive_message_language_variant_service.dart';
 import 'package:ai_companion_localfirst/core/models/chat_language_variant.dart';
@@ -18,7 +19,7 @@ void main() {
   test('immersive foreign projection is generated once and cached', () async {
     final store = _MemoryImmersiveStore(sourceMessage());
     final gateway = _FakeGateway();
-    final service = ImmersiveMessageLanguageVariantService(
+    final service = ImmersiveMessageLanguageVariantService(modelLoader: () async => DeepSeekModelProfile.flash,
       store: store,
       gateway: gateway,
       apiKeyLoader: () async => 'key',
@@ -46,7 +47,7 @@ void main() {
   test('concurrent immersive language requests share one translation', () async {
     final store = _MemoryImmersiveStore(sourceMessage());
     final gateway = _FakeGateway(delay: const Duration(milliseconds: 1));
-    final service = ImmersiveMessageLanguageVariantService(
+    final service = ImmersiveMessageLanguageVariantService(modelLoader: () async => DeepSeekModelProfile.flash,
       store: store,
       gateway: gateway,
       apiKeyLoader: () async => 'key',
@@ -110,7 +111,7 @@ void main() {
   test('missing key never saves a fake immersive projection', () async {
     final store = _MemoryImmersiveStore(sourceMessage());
     final gateway = _FakeGateway();
-    final service = ImmersiveMessageLanguageVariantService(
+    final service = ImmersiveMessageLanguageVariantService(modelLoader: () async => DeepSeekModelProfile.flash,
       store: store,
       gateway: gateway,
       apiKeyLoader: () async => '',
@@ -159,6 +160,7 @@ class _FakeGateway implements MessageLanguageVariantGateway {
 
   @override
   Future<List<ChatSegment>> translate({
+    required DeepSeekModelProfile model,
     required String apiKey,
     required String endpoint,
     required List<ChatSegment> source,

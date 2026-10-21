@@ -1,3 +1,4 @@
+import 'package:ai_companion_localfirst/core/ai/final_reply_control.dart';
 import 'support/cedar_task_fixture.dart';
 import 'dart:async';
 import 'dart:convert';
@@ -189,14 +190,20 @@ void main() {
       }
     });
   }
-  for (final scenario in ['play_no_timer', 'play_then_timer', 'missing_duration', 'missing_duration_then_timer', 'resume_timer', 'resume_then_pause']) {
-    test('production planner and MCP preserve timed goal: $scenario', () async {
+  for (final variant in ['play_no_timer', 'play_then_timer', 'missing_duration', 'missing_duration_then_timer', 'resume_timer', 'resume_then_pause', 'play_then_timer_manual']) {
+    final manual = variant.endsWith('_manual');
+    final scenario = manual ? 'play_then_timer' : variant;
+    final replyControl = FinalReplyControl();
+    test('production planner and MCP preserve timed goal: $variant', () async {
       final files = await Directory.systemTemp.createTemp('cedar-real-turn-');
       final originalPaths = PathProviderPlatform.instance;
       PathProviderPlatform.instance = _Paths(files.path);
       final db = await AppDatabase.createForTesting(databaseFactoryFfi);
       FlutterSecureStorage.setMockInitialValues({'deepseek_api_key': 'test',
-        'cedar_toy_token': 'ctai_v1_test', 'chat_api_provider': 'deepseek'});
+        'cedar_toy_token': 'ctai_v1_test',
+        'chat_api_provider': manual ? 'aiwangyou_gemini' : 'deepseek',
+        'aiwangyou_gemini_api_key': 'test-second',
+        'aiwangyou_final_reply_endpoint': 'https://relay.invalid/v1/chat/completions'});
       final secure = SecureConfig.forTesting(const FlutterSecureStorage());
       final cancellation = GenerationCancellationToken();
       final activity = CedarToyActivityStore(db);
@@ -224,6 +231,11 @@ void main() {
       });
       final client = DeepSeekClient(streamClientFactory: () => MockClient((request) async {
         final body = jsonDecode(request.body) as Map;
+        if (request.url.host == 'relay.invalid') {
+          expect(playCalls, 1); // External MCP write already completed.
+          replyControl.requestDeepSeek();
+          return _sse('迟到的第二通道');
+        }
         if ((body['tools'] as List?)?.isNotEmpty == true) {
           plans++;
           if (!resumes && plans == 1) return _toolSse('cedar_toy_play', {
@@ -300,9 +312,13 @@ void main() {
         final result = await DurableGenerationRunner(db: db, client: client, secureConfig: secure,
           cedarClientFactory: (token) => CedarToyClient(token: token,
             transport: McpHttpClient(endpoint: Uri.parse('https://example.invalid/mcp'), client: mcp)))
-          .run(job, cancellationToken: cancellation).timeout(const Duration(seconds: 20));
+          .run(job, cancellationToken: cancellation, replyControl: replyControl).timeout(const Duration(seconds: 20));
         expect(result.status, 'completed', reason: '${result.error}');
         expect(await db.messageById('reply'), isNotNull);
+        if (manual) {
+          expect(result.assistant!.model, 'deepseek-flash');
+          expect(result.notice, contains('按你的选择'));
+        }
         expect(playCalls, resumes ? 0 : 1); // Never perform a second foreground write to fill a timer goal.
         if (!resumes) expect((await activity.loadSession('fishing'))!.lastAction, 'cast');
         final receipt = await TurnExecutionStore(db).readEffect('user', TurnEffectSlot.cedarTimedRegistration);

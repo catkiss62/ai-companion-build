@@ -1,3 +1,4 @@
+import 'package:ai_companion_localfirst/core/ai/model_profile.dart';
 import 'dart:convert';
 
 import 'package:ai_companion_localfirst/core/ai/deepseek_client.dart';
@@ -75,7 +76,7 @@ void main() {
             },
           )),
     );
-    final result = await DeepSeekPublicWebAppraiser(
+    final result = await DeepSeekPublicWebAppraiser(model: DeepSeekModelProfile.flash,
       apiKey: 'test',
       endpoint: 'https://api.deepseek.com/chat/completions',
       client: client,
@@ -113,7 +114,7 @@ void main() {
             200,
           )),
     );
-    final result = await DeepSeekPublicWebAppraiser(
+    final result = await DeepSeekPublicWebAppraiser(model: DeepSeekModelProfile.flash,
       apiKey: 'test',
       endpoint: 'https://api.deepseek.com/chat/completions',
       client: client,
@@ -129,7 +130,7 @@ void main() {
   });
 
   test('an unread candidate cannot be promoted by appraisal', () async {
-    final result = await DeepSeekPublicWebAppraiser(
+    final result = await DeepSeekPublicWebAppraiser(model: DeepSeekModelProfile.flash,
       apiKey: '',
       endpoint: 'https://api.deepseek.com/chat/completions',
     ).appraise(

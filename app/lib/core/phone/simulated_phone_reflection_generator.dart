@@ -7,6 +7,7 @@ import '../storage/secure_config.dart';
 /// Presentation text only. Neither result is a new memory, emotion, or fact.
 class SimulatedPhoneReflectionGenerator {
   SimulatedPhoneReflectionGenerator({
+    required this.modelLoader,
     SecureConfig? config,
     DeepSeekClient Function()? clientFactory,
   })  : _config = config ?? SecureConfig.instance,
@@ -14,6 +15,7 @@ class SimulatedPhoneReflectionGenerator {
 
   final SecureConfig _config;
   final DeepSeekClient Function() _clientFactory;
+  final Future<DeepSeekModelProfile> Function() modelLoader;
 
   Future<({String title, String body})?> mood({
     required Map<String, Object?> evidence,
@@ -78,7 +80,7 @@ class SimulatedPhoneReflectionGenerator {
       return await client.jsonCompletion(
         apiKey: key,
         endpoint: await _config.readEndpoint(),
-        model: DeepSeekModelProfile.flash,
+        model: await modelLoader(),
         thinking: false,
         maxTokens: 420,
         usageLane: lane,

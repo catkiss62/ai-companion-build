@@ -25,6 +25,7 @@ class PlayfulTurnJudge {
   final Future<PlayfulTurnDecision> Function(String, String)? fallbackClassifier;
 
   Future<PlayfulTurnDecision> decide({
+    required DeepSeekModelProfile model,
     required String apiKey,
     required String endpoint,
     required String userText,
@@ -83,7 +84,7 @@ class PlayfulTurnJudge {
       await for (final delta in client.streamChat(
         apiKey: apiKey,
         endpoint: endpoint,
-        model: DeepSeekModelProfile.flash,
+        model: model,
         effort: ReasoningEffort.high,
         thinking: false,
         maxTokens: 95,

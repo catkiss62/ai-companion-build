@@ -1,3 +1,4 @@
+import 'package:ai_companion_localfirst/core/ai/model_profile.dart';
 import 'support/cedar_task_fixture.dart';
 import 'dart:convert';
 
@@ -302,7 +303,7 @@ void main() {
         }),
       );
       addTearDown(ai.close);
-      final decision = await CedarAgentActionPlanner(ai: ai).decide(
+      final decision = await CedarAgentActionPlanner(model: DeepSeekModelProfile.flash, ai: ai).decide(
         apiKey: 'test',
         endpoint: DeepSeekClient.defaultEndpoint,
         gameId: 'white_room',

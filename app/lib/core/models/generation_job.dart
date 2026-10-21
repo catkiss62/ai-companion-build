@@ -65,7 +65,7 @@ class GenerationJob {
         assistantMessageId: row['assistant_message_id'] as String,
         status: row['status'] as String? ?? 'pending',
         attempts: row['attempts'] as int? ?? 0,
-        model: row['model'] as String? ?? 'deepseek-v4-pro',
+        model: row['model'] as String? ?? '',
         reasoningEffort: row['reasoning_effort'] as String? ?? 'high',
         thinking: (row['thinking'] as int? ?? 1) != 0,
         deepThinking: (row['deep_thinking'] as int? ?? 0) == 1,

@@ -1,3 +1,4 @@
+import 'package:ai_companion_localfirst/core/ai/model_profile.dart';
 import 'dart:async';
 
 import 'package:ai_companion_localfirst/core/ai/deepseek_client.dart';
@@ -72,7 +73,7 @@ void main() {
     final token = GenerationCancellationToken();
     final blocker = _BlockingClient();
     final client = DeepSeekClient(jsonClientFactory: () => blocker);
-    final request = CedarJsonDecisionExecutor(ai: client).decide(
+    final request = CedarJsonDecisionExecutor(model: DeepSeekModelProfile.flash, ai: client).decide(
       apiKey: 'test',
       endpoint: DeepSeekClient.defaultEndpoint,
       instruction: 'only json',
@@ -99,7 +100,7 @@ void main() {
     );
     final token = GenerationCancellationToken();
 
-    final request = CedarJsonDecisionExecutor(ai: client).decide(
+    final request = CedarJsonDecisionExecutor(model: DeepSeekModelProfile.flash, ai: client).decide(
       apiKey: 'test',
       endpoint: DeepSeekClient.defaultEndpoint,
       instruction: 'only json',
