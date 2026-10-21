@@ -2514,7 +2514,7 @@ $finalGenerationReminder
       formContextJson: job.formContextJson,
       content: visible,
       reasoningContent: preserveProviderReasoning(job.partialReasoning),
-      model: firstModel.apiName,
+      model: job.model,
       createdAt: DateTime.now(),
       deviceId: await db.ensureDeviceId(),
       segments: ChatSegmentCodec.parseAssistantText(visible),

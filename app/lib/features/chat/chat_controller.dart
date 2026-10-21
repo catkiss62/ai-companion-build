@@ -212,7 +212,7 @@ class ChatController extends ChangeNotifier {
       _externalGenerationAssistantMessageId;
 
   bool get showManualReplyControl => _secondChannelEnabled && generationActive &&
-      !cancellingGeneration;
+      (_activeReplyControl != null || externalGenerationActive) && !cancellingGeneration;
 
   bool get manualDeepSeekSelected =>
       _activeReplyControl?.requested ?? _externalDeepSeekSelected;

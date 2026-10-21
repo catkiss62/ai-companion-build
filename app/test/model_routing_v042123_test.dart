@@ -76,7 +76,7 @@ void main() {
       var calls = 0;
       final engine = DreamEngine(db,
         secureConfig: SecureConfig.forTesting(const FlutterSecureStorage()),
-        clientFactory: (abort) => DeepSeekClient(abortWhen: abort, client: MockClient((request) async {
+        clientFactory: (abort) => DeepSeekClient(abortWhen: abort, jsonClientFactory: () => MockClient((request) async {
           calls++;
           final body = jsonDecode(request.body) as Map;
           expect(body['model'], work.isEmpty ? 'first-custom' : work);
@@ -99,7 +99,7 @@ void main() {
         content: '不用一直赶目标，停下来看看也很好。', createdAt: DateTime.now().subtract(const Duration(hours: 2))));
       final engine = DreamEngine(db,
         secureConfig: SecureConfig.forTesting(const FlutterSecureStorage()),
-        clientFactory: (abort) => DeepSeekClient(abortWhen: abort, client: MockClient((request) async {
+        clientFactory: (abort) => DeepSeekClient(abortWhen: abort, jsonClientFactory: () => MockClient((request) async {
           expect((jsonDecode(request.body) as Map)['model'], 'work-diagnostic');
           switch (category) {
             case 'http_error': return http.Response('PRIVATE_PROVIDER_BODY', 502);
