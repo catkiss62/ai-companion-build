@@ -6,6 +6,7 @@
 
 ## 当前接班快照
 
+- 最新交付：v0.42.123+367，源码9d473e3f03a0468a9a0769fd25fb021c06160114 / tree b4c177d8e9a489d6c2a3336e8ec93ce5fec6cc0d；完整39587274817成功（154源码门、Kotlin、2470 Flutter、168打包前恢复、52 Android15原生），专项39587274796通过835项；0 error、729非fatal分析项。APK已备妥且已给用户下载链接，原签名/包名/版本/资源核验通过；SHA256 3dd7f0d0da6f0e3ed6c97153ef600980917e942a773935d15ed490ebe111215a，738896454 bytes。真机待验。其后模型对谈动态第二通道及TTS动作单一为新任务，不在该APK中；账末记录为准。
 - 仓库：catkiss62/ai-companion-build；开发分支：agent/v042107-review-recovery。用户10月20日23:39已有授权，且2026-10-21在本窗口直接确认允许公开推送本轮代码、测试、总账与CI/测试APK；不合并main、不正式发布。
 - 前一已交付基线：v0.42.121+365，schema61 / Snapshot protocol7不变。最终构建源码c3bec538048ab2b8b4bd24f0d3343eedc0fa96a6，tree dd22540c1b9bcd38a316b19ead774e26b98a9a39；之后0ebd67c等仅为交付文档。+364基线993a4471/tree8ea373e0保留为对照。
 - +365保留背景A–F：闲聊行动参考化并允许短答收住；普通/主动统一默认一个动作及首发/修正提示；精简口语世界书；表达主题AI Self按有情境、可修订观察解释；后台真实经历的短期回忆上下文；主动选题具体材料及愿望新提议判因诊断。保留成长，不增加性格轮换、固定吐槽/造梗配额或强制扩话。
@@ -1335,3 +1336,14 @@ Actions备用产物：https://github.com/catkiss62/ai-companion-build/actions/ru
 
 
 +367完整CI首轮：32303717的专项39585317241/flutter119172958711通过835项，分析0 error、729非fatal（60 warning / 669 info）；完整39585317171/native119172953566通过Android15的52项。build119175613707前153源码门通过，第154门validate_v042113_model_dialogue_trial.py的另一条带version前缀精确白名单遗漏+367，流水线据此停止，未产出可交付APK。仅补精确version:0.42.123+367身份，保留其行为/资源断言；不改业务Dart代码，随后完整重跑。APK仍待构建，不能把835专项/52原生当全量通过。
+
+
+## 2026-10-21 · +367最终CI及同签名APK交付
+
+状态IMPLEMENTED / CI PASSED / APK READY / TRUE DEVICE PENDING。最终构建源码9d473e3f03a0468a9a0769fd25fb021c06160114，tree b4c177d8e9a489d6c2a3336e8ec93ce5fec6cc0d；公开分支agent/v042107-review-recovery。完整39587274817/build119181790786成功：154源码门、Kotlin、2470全量Flutter、168打包前归档/恢复通过；同次Android15原生119179231616通过52项。专项39587274796/flutter119179189205通过835项，与全量重叠不累加；分析0 error、729非fatal（60 warning/669 info）。最终原始日志已核实，旧失败经过保留，不用专项结果代替全量。
+
+APK 738896454 bytes，SHA256 `3dd7f0d0da6f0e3ed6c97153ef600980917e942a773935d15ed490ebe111215a`；线上asset662259802 digest、完整CI日志及ci-monitor-v0345/.ci/v042120-monitor.txt三者一致，monitor明确run39587274817/head9d473e3。包名com.aicompanion.localfirst、版本0.42.123+367、Genie/宠物/塔罗/记忆星河/房间等资源和原签名核验通过，证书SHA256 `305eb3d80983b963c64818ddf1ad561f279de6d47b3ed2c781ada448c7c25148`。继承+366的Live2D嘴形隔离、悬浮窗生命周期及图片缓存、气泡贴边和手机活动平衡修复；异常正文、主动内部封装、Jev工具策略、人格及Agent权限未改。
+
+已先给用户交付APK：https://github.com/catkiss62/ai-companion-build/releases/download/untagged-c873fb997371d507104e/AI-Companion-v0.42.123-367-Model-Routing-Manual-Fallback-APK.apk 。测试草稿 https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-c873fb997371d507104e ；完整CI https://github.com/catkiss62/ai-companion-build/actions/runs/39587274817 。仍为draft，无main合并/正式发布。此后仅文档收尾不重新构建同一APK。
+
+用户新11:39诊断原生版本+366，已配置第二通道[A]glm-5.3-flash-1。新增要求为模型对谈跟随第二通道且动态显示主流家族名称，以及分析TTS/Live2D连续大小眼及叠加动作不足。已完成旧APK故无需暂停旧CI；先交付旧APK再处理新任务，新项不冒充包含在+367中。未上传用户附件/私密对话/凭据，未调用真实付费模型。

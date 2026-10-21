@@ -1,6 +1,6 @@
-# 模型来源与本轮手动切换 · 完整修改方案（待讨论后实施）
+# 模型来源与本轮手动切换 · 完整修改方案及交付
 
-状态：IMPLEMENTING。用户已明确“异常不修改，修改列出的方案”。以已交付+366源码为基线实施下述三项；异常正文与Jev策略排除。当前候选v0.42.123+367，验证结果以后续交付记录为准。
+状态：IMPLEMENTED / CI PASSED / APK READY / TRUE DEVICE PENDING。用户已明确“异常不修改，修改列出的方案”。以已交付+366源码为基线实施下述三项；异常正文与Jev策略排除。v0.42.123+367已构建并交付，最终身份见文末。其后新增模型对谈动态身份和TTS动作讨论不在该APK内。
 
 ## 1. 通用DeepSeek调用跟随第一通道
 
@@ -60,3 +60,15 @@
 
 
 完整CI中间阻断：39585317171的Android15原生52项通过；build119175613707在第154个源码门因validate_v042113_model_dialogue_trial.py另一条带version前缀的精确白名单未加入+367而失败，前153门通过。现仅给该白名单加入精确的新版本身份，不放宽行为/资源断言；业务Dart代码保持已通过835专项的版本，完整流水线重跑后再交付。
+
+## +367最终交付（2026-10-21）
+
+最终构建源码9d473e3f03a0468a9a0769fd25fb021c06160114，tree b4c177d8e9a489d6c2a3336e8ec93ce5fec6cc0d。完整CI 39587274817/build119181790786成功：154源码门、Kotlin、2470全量Flutter、168打包前归档/恢复检查通过；同次Android15原生119179231616通过52项。专项39587274796/flutter119179189205通过835项。专项与全量存在重叠，不相加；Dart分析0 error、729非fatal（60 warning/669 info）。
+
+APK 738896454 bytes，SHA256 `3dd7f0d0da6f0e3ed6c97153ef600980917e942a773935d15ed490ebe111215a`；线上asset digest、构建日志和ci-monitor-v0345成功记录三者一致。包名com.aicompanion.localfirst、版本0.42.123+367、包内资源及原签名核验通过，证书SHA256 `305eb3d80983b963c64818ddf1ad561f279de6d47b3ed2c781ada448c7c25148`。测试Release仍为draft，未合并main或正式发布。
+
+- APK：https://github.com/catkiss62/ai-companion-build/releases/download/untagged-c873fb997371d507104e/AI-Companion-v0.42.123-367-Model-Routing-Manual-Fallback-APK.apk
+- 测试草稿：https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-c873fb997371d507104e
+- 完整CI：https://github.com/catkiss62/ai-companion-build/actions/runs/39587274817
+
+用户随后上传的11:39诊断来自+366，不是该候选的真机验证。本轮先按用户要求交付已完成APK，再检查新增两项；+367真机体验、真实中转站和梦境成功提交仍待观察。原有异常正文与Jev工具策略排除保持。
