@@ -29,13 +29,16 @@ void main() {
     return state;
   }
   for (final events in [false, true]) {
-    test('same 24 minutes, 90s and 4m cadence agree; UI events=$events', () {
-      final quick = simulate(90, 24 * 60, events: events);
-      final slow = simulate(240, 24 * 60, events: events);
-      expect(quick.score, closeTo(slow.score, 0.000001));
-      expect(quick.shouldFeedThought, slow.shouldFeedThought);
-      expect(quick.shouldFeedThought, isTrue);
-    });
+    for (final minutes in [12, 24, 36]) {
+      test('same $minutes minutes, 90s and 4m cadence agree; UI events=$events', () {
+        final quick = simulate(90, minutes * 60, events: events);
+        final slow = simulate(240, minutes * 60, events: events);
+        expect(quick.score, closeTo(slow.score, 0.000001));
+        expect(quick.shouldFeedThought, slow.shouldFeedThought);
+        final ready = minutes >= 36 || (events && minutes >= 24);
+        expect(quick.shouldFeedThought, ready);
+      });
+    }
   }
   test('switches and UI events share one supplement budget', () {
     final ui = step(0, 240, events: true);
