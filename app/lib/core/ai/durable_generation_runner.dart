@@ -2197,9 +2197,9 @@ $finalGenerationReminder
       try {
         await db.setSetting('generation_final_route_v1', jsonEncode({
           'jobId': job.id,
-          'reason': takeover.requested ? 'manual_deepseek'
-              : providerNotice != null ? 'api_failure_fallback'
-              : finalTextFromGemini ? 'second_channel' : 'first_channel',
+          'reason': finalTextFromGemini ? 'second_channel'
+              : takeover.requested ? 'manual_deepseek'
+              : finalProvider.isGeminiRelay ? 'api_failure_fallback' : 'first_channel',
           'model': assistant.model, 'contentIncluded': false,
         }));
       } catch (_) { /* The reply is already committed. */ }

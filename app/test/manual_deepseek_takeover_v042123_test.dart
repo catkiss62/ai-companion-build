@@ -66,7 +66,7 @@ void main() {
     client.close();
   });
   for (final scenario in ['before_final', 'durable_before_final', 'legacy_job', 'headers_pending', 'retry_wait',
-      'postprocessing', 'durable_choice', 'stop_after_choice', 'second_success', 'api_failure']) {
+      'postprocessing', 'durable_choice', 'stop_after_choice', 'second_success', 'second_repair_failure', 'api_failure']) {
     test('production runner per-turn choice: $scenario', () async {
       final root = await Directory.systemTemp.createTemp('manual-reply-');
       final paths = PathProviderPlatform.instance;
@@ -107,6 +107,9 @@ void main() {
             return http.Response('temporary', 503);
           }
           if (scenario == 'api_failure') return http.Response('unauthorized', 401);
+          if (scenario == 'second_repair_failure' && secondRequests > 1) {
+            return http.Response('repair unavailable', 400);
+          }
           return _sse('「今天的风看起来很轻。」');
         }
         if ((body['tools'] as List?)?.isNotEmpty == true) {
@@ -120,6 +123,7 @@ void main() {
         models.add(body['model'] as String);
         finalInputs.add(body['messages'] as List);
         firstFinals++;
+        if (scenario == 'second_repair_failure') return http.Response('first repair unavailable', 500);
         if (!firstFinalStarted.isCompleted) firstFinalStarted.complete();
         if (scenario == 'stop_after_choice') {
           await stop.whenCancelled;
@@ -140,6 +144,10 @@ void main() {
       try {
         await db.setSetting('deepseek_model', 'first-configured');
         await db.setSetting('nsfw_manual_override', 'off');
+        if (scenario == 'second_repair_failure') {
+          await db.insertMessage(ChatMessage(id: 'old', role: 'assistant',
+            content: '「今天的风看起来很轻。」', createdAt: DateTime.now().subtract(const Duration(minutes: 1))));
+        }
         await db.tryAcquireLocalLease('chat_turn_lease');
         final job = await db.createGenerationTurn(user: ChatMessage(id: 'user', role: 'user',
           content: '你想先做什么？', createdAt: DateTime.now()), assistantMessageId: 'reply',
@@ -179,12 +187,13 @@ void main() {
           expect(await db.messageById('reply'), isNull);
         } else {
           expect(result.status, 'completed', reason: '${result.error}');
-          final secondWon = scenario == 'second_success';
+          final secondWon = scenario == 'second_success' || scenario == 'second_repair_failure';
           expect(result.assistant!.model, secondWon ? 'second-custom' : 'first-configured');
           expect(result.assistant!.content, contains(secondWon ? '风' : '窗外'));
           final rows = await (await db.database).query('messages');
           expect(rows.where((r) => r['role'] == 'user'), hasLength(1));
-          expect(rows.where((r) => r['role'] == 'assistant'), hasLength(1));
+          expect(rows.where((r) => r['role'] == 'assistant'),
+            hasLength(scenario == 'second_repair_failure' ? 2 : 1));
           expect(await db.selectDeepSeekForGeneration(job.id), isFalse);
           expect(control.requestDeepSeek(), isFalse); // Committed result owns the turn.
           expect(await secure.readChatProvider(), isNotNull);
@@ -192,12 +201,12 @@ void main() {
           final route = jsonDecode((await db.getSetting('generation_final_route_v1'))!) as Map;
           expect(route['reason'], secondWon ? 'second_channel'
               : scenario == 'api_failure' ? 'api_failure_fallback' : 'manual_deepseek');
-          expect(firstFinals, secondWon ? 0 : 1);
+          expect(firstFinals, scenario == 'second_repair_failure' ? 1 : secondWon ? 0 : 1);
           if (const {'before_final', 'durable_before_final', 'legacy_job'}.contains(scenario)) {
             expect(secondRequests, 0);
           }
           if (scenario == 'retry_wait') expect(secondRequests, 1);
-          if (finalInputs.length > 1) {
+          if (finalInputs.length > 1 && scenario != 'second_repair_failure') {
             expect(finalInputs.last, finalInputs.first); // Same turn/context, no fake user.
           }
         }
