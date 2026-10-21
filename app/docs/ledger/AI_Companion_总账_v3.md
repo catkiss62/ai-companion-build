@@ -1347,3 +1347,14 @@ APK 738896454 bytes，SHA256 `3dd7f0d0da6f0e3ed6c97153ef600980917e942a773935d15e
 已先给用户交付APK：https://github.com/catkiss62/ai-companion-build/releases/download/untagged-c873fb997371d507104e/AI-Companion-v0.42.123-367-Model-Routing-Manual-Fallback-APK.apk 。测试草稿 https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-c873fb997371d507104e ；完整CI https://github.com/catkiss62/ai-companion-build/actions/runs/39587274817 。仍为draft，无main合并/正式发布。此后仅文档收尾不重新构建同一APK。
 
 用户新11:39诊断原生版本+366，已配置第二通道[A]glm-5.3-flash-1。新增要求为模型对谈跟随第二通道且动态显示主流家族名称，以及分析TTS/Live2D连续大小眼及叠加动作不足。已完成旧APK故无需暂停旧CI；先交付旧APK再处理新任务，新项不冒充包含在+367中。未上传用户附件/私密对话/凭据，未调用真实付费模型。
+
+
+## 2026-10-21 · 模型对谈动态第二通道及TTS动作复核（新批次）
+
+状态：模型对谈源码已改、Dart/Widget自动测试待跑；TTS仅分析和建议，未改；没有新APK。当前交付仍为9d473e3构建的+367，不把后续源码称为已打包。新增详情app/docs/MODEL_DIALOGUE_DYNAMIC_AND_TTS_REVIEW_2026-10-21.md。
+
+已确认为项目限制：ModelDialogueEndpoint以固定speaker=gemini要求模型名包含gemini，导致GLM在HTTP前失败。现去掉家族硬门，保持Key/URL/非空模型校验，按当前第二通道实际配置调用；[A]glm-5.3-flash-1显示GLM，家族识别只改显示、不改实际model，未知模型也能用。界面/提示/点名/错误/归档与头像同步动态。每次继续按当前配置保存本轮快照，同轮两次重试不换配置；历史消息保留实际model，旧Gemini房间换GLM后可继续，归档不改署旧发言。持久槽位和v1存档协议不迁移，原租约/停止/迟到回填/结束归档保护保留；第一通道读取规范设置。
+
+新增6个核心用例和1个GLM页面用例，覆盖mock真实请求model/鉴权、未知名称、配置读取、旧房间换模型及历史来源、点名、同轮快照与页面创建/头像；更新两个与用户新要求相冲突的旧断言，加入现有专项清单。本地模型对谈源码门（含背景原哈希）和总账交接检查、YAML解析、diff空白检查通过。此环境无Flutter/Dart SDK，新增Dart/Widget测试尚未执行；下一批定稿后升版本并跑专项及完整CI。以[skip ci]源码检查点保存，按用户先讨论再合并构建的安排暂不重打同版本包。
+
+TTS汇总最近15次有效动作判断（非15条独立对话）：13次wink_use=使用、13次face_use=不用；普通wink类型14次、吐舌1次；两段speech delivery各15次均hold。最后三次face均空、wink均启用，最后一次提交点单；计划有头身动作，未发现全局禁止叠加。判断词并非过短，wink资格宽、朗读手势偏保守；普通wink原生闭单侧眼约4.12秒才释放，playful持续表情本身亦左右笑眼不对称，均可强化大小眼观感。提交事件不能代替视觉验收，不宣称全部动作已证实正常。建议窄化wink语义、补朗读动作适用语义、拆短wink持续时间；俏皮眉眼是否改对称属风格选择。以上TTS项待继续讨论，未实施，不引入随机轮换/固定动作配额或异常正文/JEV工具策略改造。

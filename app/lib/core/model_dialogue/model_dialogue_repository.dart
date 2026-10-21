@@ -87,7 +87,7 @@ class ModelDialogueRepository {
   }
 
   Future<ModelDialogueTicket> begin({required String roomId,required BrainWorkFence fence,
-    String userText='',String? memoryContext}) async {
+    String userText='',String? memoryContext,Map<String,Object?>? participants}) async {
     if(userText.length>6000)throw const FormatException('user_text_too_long');
     final sql=await db.database;
     return sql.transaction((txn) async {
@@ -101,6 +101,10 @@ class ModelDialogueRepository {
         throw StateError('room_not_ready');
       }
       final data=Map<String,dynamic>.from(room.data);
+      // Freeze the current channel configuration for this request and its two
+      // attempts. Previously committed messages keep their own model field.
+      if(participants!=null)data['participants']=participants;
+      final turnRoom=ModelDialogueRoom(data);
       if(memoryContext!=null) {
         data['memory_context']=memoryContext;
         data['memory_policy']=2;
@@ -109,8 +113,12 @@ class ModelDialogueRepository {
       var speaker=room.nextSpeaker;
       if(userText.trim().isNotEmpty) {
         final text=userText.trim();
-        final addressed=RegExp(r'^\s*@?(deepseek|gemini)(?:\s|[，,:：、！!？?]|$)',caseSensitive:false).firstMatch(text);
-        if(addressed!=null)speaker=addressed[1]!.toLowerCase();
+        final addressed=modelDialogueSpeakers.where((slot) => RegExp(
+          '^\\s*@?${RegExp.escape(turnRoom.label(slot))}(?:\\s|[，,:：、！!？?]|\$)',
+          caseSensitive:false).hasMatch(text)).toList();
+        // A shared family name (e.g. two DeepSeek models) is ambiguous; keep
+        // the scheduled participant instead of silently choosing the left one.
+        if(addressed.length==1)speaker=addressed.single;
         await _add(txn,ModelDialogueMessage(id:_uuid.v4(),roomId:roomId,sequence:++sequence,
           speaker:'user',text:text,model:'',createdAt:DateTime.now().millisecondsSinceEpoch));
         data['closing_speaker']='';

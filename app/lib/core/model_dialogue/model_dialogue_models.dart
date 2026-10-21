@@ -1,9 +1,29 @@
 import 'dart:convert';
 
+// These are persisted channel slots, not model-family restrictions. Keep the
+// v1 keys so existing rooms, archive jobs and backups retain their identities.
 const modelDialogueSpeakers = ['deepseek', 'gemini'];
-String modelDialogueLabel(String speaker) => switch (speaker) {
-  'deepseek' => 'DeepSeek', 'gemini' => 'Gemini', _ => '你',
-};
+
+String modelDialogueLabel(String speaker, {String model = ''}) {
+  if (!modelDialogueSpeakers.contains(speaker)) return '你';
+  final name = model.trim();
+  if (name.isEmpty) return speaker == 'deepseek' ? 'DeepSeek' : 'Gemini';
+  // Relay prefixes/suffixes are presentation details. Never rewrite the model
+  // sent to the API, and never reject an unknown but configured model family.
+  final searchable = name.replaceFirst(RegExp(r'^(?:\[[^\]]*\]\s*)+'), '');
+  final family = RegExp(
+    r'(?:^|[^a-z0-9])(deepseek|gemini|glm|claude|chatgpt|gpt|qwen|qwq|kimi|moonshot|doubao|grok|llama|mistral|mixtral|minimax|hunyuan|ernie|step)(?=$|[^a-z])',
+    caseSensitive: false,
+  ).firstMatch(searchable)?[1]?.toLowerCase();
+  return const {
+    'deepseek': 'DeepSeek', 'gemini': 'Gemini', 'glm': 'GLM',
+    'claude': 'Claude', 'chatgpt': 'GPT', 'gpt': 'GPT',
+    'qwen': 'Qwen', 'qwq': 'Qwen', 'kimi': 'Kimi', 'moonshot': 'Kimi',
+    'doubao': 'Doubao', 'grok': 'Grok', 'llama': 'Llama',
+    'mistral': 'Mistral', 'mixtral': 'Mistral', 'minimax': 'MiniMax',
+    'hunyuan': 'Hunyuan', 'ernie': 'ERNIE', 'step': 'Step',
+  }[family] ?? name;
+}
 String otherModelDialogueSpeaker(String speaker) => speaker == 'deepseek' ? 'gemini' : 'deepseek';
 
 class ModelDialogueRoom {
@@ -28,6 +48,7 @@ class ModelDialogueRoom {
   Map<String, dynamic> participant(String speaker) =>
       Map<String, dynamic>.from((data['participants'] as Map?)?[speaker] as Map? ?? const {});
   String modelName(String speaker) => participant(speaker)['model'] as String? ?? '';
+  String label(String speaker) => modelDialogueLabel(speaker, model: modelName(speaker));
   static ModelDialogueRoom? decode(String? raw) {
     try {
       final m = Map<String, dynamic>.from(jsonDecode(raw ?? '') as Map);

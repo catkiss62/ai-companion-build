@@ -4,6 +4,7 @@ import 'package:crypto/crypto.dart';
 import '../ai/chat_api_provider.dart';
 import '../ai/deepseek_client.dart';
 import '../ai/generation_cancellation.dart';
+import '../ai/first_channel_model.dart';
 import '../ai/model_profile.dart';
 import '../database/app_database.dart';
 import '../storage/secure_config.dart';
@@ -14,18 +15,18 @@ class ModelDialogueEndpoint {
     required this.model,required this.apiKey,this.effort=ReasoningEffort.high});
   final String speaker,endpoint,model,apiKey;
   final ReasoningEffort effort;
+  String get label => modelDialogueLabel(speaker, model: model);
   ChatApiProvider get provider => speaker=='deepseek'?ChatApiProvider.deepSeek:ChatApiProvider.aiWangYouGemini;
   String get fingerprint => sha256.convert(utf8.encode('${provider.storageValue}\n$endpoint\n$model')).toString();
   Map<String,Object?> get snapshot => {'model':model,'endpoint_hash':fingerprint};
   void validate() {
     final uri=Uri.tryParse(endpoint);
-    if(apiKey.trim().isEmpty)throw ModelDialogueConfigurationError('${modelDialogueLabel(speaker)} API Key 尚未配置');
+    if (!modelDialogueSpeakers.contains(speaker)) throw const ModelDialogueConfigurationError('模型通道配置无效');
+    if(apiKey.trim().isEmpty)throw ModelDialogueConfigurationError('$label API Key 尚未配置');
     if(uri==null||!const {'http','https'}.contains(uri.scheme)||uri.host.isEmpty||uri.userInfo.isNotEmpty) {
-      throw ModelDialogueConfigurationError('${modelDialogueLabel(speaker)} 接口地址无效');
+      throw ModelDialogueConfigurationError('$label 接口地址无效');
     }
-    if(!model.toLowerCase().contains(speaker)) {
-      throw ModelDialogueConfigurationError('${modelDialogueLabel(speaker)} 一侧必须配置对应模型，当前为 $model');
-    }
+    if(model.trim().isEmpty) throw const ModelDialogueConfigurationError('请先填写通道使用的模型名称');
   }
   bool matches(ModelDialogueRoom room) => room.modelName(speaker)==model &&
       room.participant(speaker)['endpoint_hash']==fingerprint;
@@ -49,7 +50,7 @@ class ModelDialogueConfiguration {
     final effort=ReasoningEffort.fromApiName(await db.getSetting('reasoning_effort'));
     return ModelDialogueConfiguration(
       ModelDialogueEndpoint(speaker:'deepseek',endpoint:await secure.readDeepSeekEndpoint(),
-        model:DeepSeekModelProfile.fromApiName(await db.getSetting('model')).apiName,
+        model:(await FirstChannelModel.read(db)).apiName,
         apiKey:(await secure.readDeepSeekApiKey())??'',effort:effort),
       ModelDialogueEndpoint(speaker:'gemini',endpoint:await secure.readAiWangYouEndpoint(),
         model:await secure.readAiWangYouModel(),apiKey:(await secure.readAiWangYouApiKey())??'',effort:effort),
@@ -62,9 +63,9 @@ class ModelDialogueConfigurationError implements Exception {
   @override String toString()=>message;
 }
 class ModelDialogueRequestFailure implements Exception {
-  const ModelDialogueRequestFailure(this.speaker,this.category);
-  final String speaker,category;
-  @override String toString()=>'${modelDialogueLabel(speaker)} 两次请求均失败（$category）。可检查配置后重试。';
+  const ModelDialogueRequestFailure(this.speaker,this.category,{this.model=''});
+  final String speaker,category,model;
+  @override String toString()=>'${modelDialogueLabel(speaker,model:model)} 两次请求均失败（$category）。可检查配置后重试。';
 }
 
 /// A fixed endpoint/model/key snapshot is reused for both HTTP attempts. This
@@ -104,7 +105,7 @@ class ModelDialogueGateway {
     }
     final category=lastError is DeepSeekException?'HTTP ${lastError.statusCode}':
       lastError is TimeoutException?'请求超时':lastError is FormatException?'响应不完整或格式错误':'连接或接口异常';
-    onPreview('');throw ModelDialogueRequestFailure(endpoint.speaker,category);
+    onPreview('');throw ModelDialogueRequestFailure(endpoint.speaker,category,model:endpoint.model);
   }
   void close()=>client.close();
 }

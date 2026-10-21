@@ -66,6 +66,45 @@ void main(){
       await tester.pumpWidget(const SizedBox());
     });
   });
+
+  testWidgets('GLM creation, speaker choice and reply use the configured family', (tester) async {
+    await tester.runAsync(() async {
+      final glm=ModelDialogueConfiguration(_config.deepSeek,const ModelDialogueEndpoint(
+        speaker:'gemini',endpoint:'https://second.example/chat',model:'[A]glm-5.3-flash-1',apiKey:'test'));
+      await tester.pumpWidget(MaterialApp(home:ModelDialogueLobbyPage(repository:repository,
+        configurationLoader:() async=>glm)));
+      await waitFor(tester,find.text('还没有对谈房间。'));
+      expect(find.textContaining('让 DeepSeek 和 GLM'),findsOneWidget);
+      await tester.tap(find.text('创建房间'));await tester.pumpAndSettle();
+      expect(find.text('暂时无法创建'),findsNothing);
+      await tester.tap(find.byType(DropdownButtonFormField<String>));await tester.pumpAndSettle();
+      await tester.tap(find.text('GLM').last);await tester.pumpAndSettle();
+      await tester.tap(find.text('创建'));await tester.pump();
+      await waitFor(tester,find.text('开始对谈'));
+      final room=(await repository.listRooms()).single;
+      expect(room.nextSpeaker,'gemini');expect(room.label('gemini'),'GLM');
+      await tester.pumpWidget(const SizedBox());
+
+      final gateway=ModelDialogueGateway(DeepSeekClient(streamClientFactory:()=>MockClient((r) async {
+        expect((jsonDecode(r.body) as Map)['model'],'[A]glm-5.3-flash-1');
+        return _response('data: ${jsonEncode({'choices':[{'delta':{'content':jsonEncode({'text':'从新的角度看这件事。','action':'continue'})},'finish_reason':'stop'}]})}\n\ndata: [DONE]\n\n',200);
+      })),retryDelay:Duration.zero);
+      await tester.pumpWidget(MaterialApp(home:ModelDialogueRoomPage(roomId:room.id,
+        repository:repository,configurationLoader:() async=>glm,gateway:gateway)));
+      await waitFor(tester,find.text('开始对谈'));
+      await tester.tap(find.text('开始对谈'));await tester.pump();
+      await waitFor(tester,find.text('从新的角度看这件事。'));
+      for(var n=0;n<150&&find.text('继续对谈').evaluate().isEmpty;n++) {
+        await Future<void>.delayed(const Duration(milliseconds:20));await tester.pump();
+      }
+      expect(find.text('Gemini'),findsNothing);
+      expect(find.text('GLM'),findsWidgets);
+      final avatar=tester.widgetList<CircleAvatar>(find.byType(CircleAvatar)).single;
+      expect(avatar.backgroundImage,isNull);
+      expect(await repository.messagesForRoom(room.id),hasLength(1));
+      await tester.pumpWidget(const SizedBox());
+    });
+  });
   testWidgets('creation rechecks second channel after the form is confirmed', (tester) async {
     await tester.runAsync(() async {
       var enabled=true;

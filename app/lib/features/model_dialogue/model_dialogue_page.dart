@@ -34,13 +34,17 @@ class ModelDialogueLobbyPage extends StatefulWidget {
 class _ModelDialogueLobbyPageState extends State<ModelDialogueLobbyPage> {
   late final repository=widget.repository??ModelDialogueRepository(AppDatabase.instance);
   List<ModelDialogueRoom> _rooms=const [];
+  ModelDialogueConfiguration? _configuration;
   bool _loading=true,_creating=false;
   String _error='';
   @override void initState(){super.initState();unawaited(_load());}
   Future<void> _load() async {
     try {
       final rooms=await repository.listRooms();
-      if(mounted)setState((){_rooms=rooms;_loading=false;_error='';});
+      ModelDialogueConfiguration? configuration;
+      try {configuration=await (widget.configurationLoader?.call()??ModelDialogueConfiguration.load(repository.db));}
+      catch(_) { /* Configuration errors are shown when creating a room. */ }
+      if(mounted)setState((){_rooms=rooms;_configuration=configuration;_loading=false;_error='';});
     } catch(_) {if(mounted)setState((){_loading=false;_error='房间列表暂时无法读取。';});}
   }
   void _showError(String message) {
@@ -53,6 +57,7 @@ class _ModelDialogueLobbyPageState extends State<ModelDialogueLobbyPage> {
     try {
       configuration=await (widget.configurationLoader?.call()??ModelDialogueConfiguration.load(repository.db));
       configuration.validateForCreation();
+      if(mounted)setState(()=>_configuration=configuration);
     } on ModelDialogueConfigurationError catch(e) {
       if(mounted) {
         setState(()=>_creating=false);
@@ -77,8 +82,8 @@ class _ModelDialogueLobbyPageState extends State<ModelDialogueLobbyPage> {
               decoration:const InputDecoration(labelText:'话题（可选）',hintText:'留空，由先发言的一方自己开场。')),
             DropdownButtonFormField<String>(initialValue:first,isExpanded:true,
               decoration:const InputDecoration(labelText:'先发言的模型'),
-              items:const [DropdownMenuItem(value:'deepseek',child:Text('DeepSeek')),
-                DropdownMenuItem(value:'gemini',child:Text('Gemini'))],
+              items:[DropdownMenuItem(value:'deepseek',child:Text(configuration.deepSeek.label)),
+                DropdownMenuItem(value:'gemini',child:Text(configuration.gemini.label))],
               onChanged:(value)=>update(()=>first=value??'deepseek')),
             const SizedBox(height:12),
             const Text('使用已配置的两方模型。共享小鲸鱼已有记忆；结束后选择性保留对谈经历。',style:TextStyle(fontSize:12)),
@@ -124,9 +129,9 @@ class _ModelDialogueLobbyPageState extends State<ModelDialogueLobbyPage> {
       icon:const Icon(Icons.add),label:Text(_creating?'创建中':'创建房间')),
     body:SafeArea(child:_loading?const Center(child:CircularProgressIndicator()):
       RefreshIndicator(onRefresh:_load,child:ListView(padding:const EdgeInsets.fromLTRB(16,16,16,100),children:[
-        const Padding(padding:EdgeInsets.all(14),child:Text(
-          '让 DeepSeek 和 Gemini 交换想法。\n你可以旁观、插话，也可以暂离后再继续。',
-          style:TextStyle(color:Colors.white70,height:1.5))),
+        Padding(padding:const EdgeInsets.all(14),child:Text(
+          '${_configuration==null?'让已配置的两个模型交换想法。':'让 ${_configuration!.deepSeek.label} 和 ${_configuration!.gemini.label} 交换想法。'}\n你可以旁观、插话，也可以暂离后再继续。',
+          style:const TextStyle(color:Colors.white70,height:1.5))),
         if(_error.isNotEmpty)Padding(padding:const EdgeInsets.all(12),child:Text(_error,style:const TextStyle(color:Colors.white70))),
         if(_rooms.isEmpty)const Padding(padding:EdgeInsets.all(20),child:Text('还没有对谈房间。',style:TextStyle(color:Colors.white70))),
         ..._rooms.map((room)=>Padding(padding:const EdgeInsets.only(top:12),child:Card(
@@ -228,7 +233,7 @@ class _ModelDialogueRoomPageState extends State<ModelDialogueRoomPage> with Widg
       else if(mounted)ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content:Text('当前状态暂时无法删除。')));
     }
     if(action=='info'&&mounted)await showDialog<void>(context:context,builder:(dialog)=>AlertDialog(
-      title:const Text('本场模型'),content:Text('DeepSeek\n${room.modelName('deepseek')}\n\nGemini\n${room.modelName('gemini')}\n\n共享小鲸鱼已有记忆；结束后按发言者整理，选择性保留讨论经历。'),
+      title:const Text('本场模型'),content:Text('${room.label('deepseek')}\n${room.modelName('deepseek')}\n\n${room.label('gemini')}\n${room.modelName('gemini')}\n\n每次继续使用当前通道设置；历史发言保留当时模型来源。共享小鲸鱼已有记忆；结束后按发言者整理，选择性保留讨论经历。'),
       actions:[TextButton(onPressed:()=>Navigator.pop(dialog),child:const Text('知道了'))]));
   }
   @override Widget build(BuildContext context)=>WillPopScope(onWillPop:_leave,child:Scaffold(
@@ -280,6 +285,8 @@ class _ModelDialogueRoomPageState extends State<ModelDialogueRoomPage> with Widg
 
   Widget _bubble(String speaker,String text,{String model='',bool streaming=false}) {
     final color=speaker=='deepseek'?_blue:speaker=='gemini'?_purple:const Color(0xFF9B4971);
+    final actualModel=model.isNotEmpty?model:controller.room?.modelName(speaker)??'';
+    final label=modelDialogueLabel(speaker,model:actualModel);
     return Align(alignment:speaker=='deepseek'?Alignment.centerLeft:speaker=='gemini'?Alignment.centerRight:Alignment.center,
       child:FractionallySizedBox(widthFactor:speaker=='user' ? 0.94 : 0.9,child:Container(
         margin:const EdgeInsets.only(bottom:12),padding:const EdgeInsets.all(13),
@@ -287,19 +294,24 @@ class _ModelDialogueRoomPageState extends State<ModelDialogueRoomPage> with Widg
           borderRadius:BorderRadius.circular(15),border:Border.all(color:color.withValues(alpha:.3))),
         child:Column(crossAxisAlignment:CrossAxisAlignment.start,children:[
           Row(children:[
-            if(speaker!='gemini') ...[_avatar(speaker,color),const SizedBox(width:7)],
-            Expanded(child:Text('${modelDialogueLabel(speaker)}${streaming?' · 生成中':''}',
+            if(speaker!='gemini') ...[_avatar(speaker,color,label),const SizedBox(width:7)],
+            Expanded(child:Text('$label${streaming?' · 生成中':''}',maxLines:1,overflow:TextOverflow.ellipsis,
               textAlign:speaker=='gemini'?TextAlign.right:TextAlign.left,
               style:TextStyle(color:color,fontWeight:FontWeight.w700,fontSize:12))),
-            if(speaker=='gemini') ...[const SizedBox(width:7),_avatar(speaker,color)],
+            if(speaker=='gemini') ...[const SizedBox(width:7),_avatar(speaker,color,label)],
           ]),
           const SizedBox(height:8),SelectableText(text,style:const TextStyle(color:_ink,fontSize:15,height:1.55)),
         ]))));
   }
-  Widget _avatar(String speaker,Color color)=>CircleAvatar(
-    radius:16,backgroundColor:color,
-    backgroundImage:speaker=='user'?null:AssetImage(speaker=='deepseek'?modelDialogueDeepSeekAvatar:modelDialogueGeminiAvatar),
-    child:speaker=='user'?const Text('你',style:TextStyle(fontSize:11,color:Colors.white)):null);
+  Widget _avatar(String speaker,Color color,String label) {
+    final asset=speaker=='user'?null:label=='DeepSeek'?modelDialogueDeepSeekAvatar:
+      label=='Gemini'?modelDialogueGeminiAvatar:null;
+    return CircleAvatar(radius:16,backgroundColor:color,
+      backgroundImage:asset==null?null:AssetImage(asset),
+      child:asset==null?Padding(padding:const EdgeInsets.all(3),child:FittedBox(
+        child:Text(label.length>6?label.substring(0,6):label,
+          style:const TextStyle(fontSize:11,color:Colors.white)))):null);
+  }
   Widget _footer() {
     final room=controller.room;
     return Container(width:double.infinity,color:Colors.white.withValues(alpha:.22),padding:const EdgeInsets.fromLTRB(12,9,12,12),
@@ -314,7 +326,7 @@ class _ModelDialogueRoomPageState extends State<ModelDialogueRoomPage> with Widg
             style:const TextStyle(color:_ink))),
         if(room!=null&&!room.ended) ...[
           if(room.closingSpeaker.isNotEmpty)Padding(padding:const EdgeInsets.only(bottom:6),child:Text(
-            '${modelDialogueLabel(room.closingSpeaker)} 准备结束，可再继续一次收尾；你也可以插话。',
+            '${room.label(room.closingSpeaker)} 准备结束，可再继续一次收尾；你也可以插话。',
             style:const TextStyle(color:_ink,fontSize:12))),
           Row(children:[Expanded(child:TextField(controller:input,enabled:!controller.busy,
             minLines:1,maxLines:3,maxLength:6000,style:const TextStyle(color:_ink,fontSize:14),
@@ -333,8 +345,8 @@ class _ModelDialogueRoomPageState extends State<ModelDialogueRoomPage> with Widg
               icon:const Icon(Icons.play_arrow_rounded,size:18),
               label:Text(controller.error.isNotEmpty?'重试本方':controller.messages.isEmpty?'开始对谈':room.closingSpeaker.isNotEmpty?'继续收尾':'继续对谈')),
             const SizedBox(width:10),Expanded(child:Text(controller.busy?
-              controller.attempt==0?'准备对谈…':'${modelDialogueLabel(controller.speaking.isEmpty?room.nextSpeaker:controller.speaking)} · 请求 ${controller.attempt}/2':
-              '下一位：${modelDialogueLabel(room.nextSpeaker)}',maxLines:2,overflow:TextOverflow.ellipsis,
+              controller.attempt==0?'准备对谈…':'${room.label(controller.speaking.isEmpty?room.nextSpeaker:controller.speaking)} · 请求 ${controller.attempt}/2':
+              '下一位：${room.label(room.nextSpeaker)}',maxLines:2,overflow:TextOverflow.ellipsis,
               style:const TextStyle(color:_ink,fontSize:12))),
           ]),
         ],

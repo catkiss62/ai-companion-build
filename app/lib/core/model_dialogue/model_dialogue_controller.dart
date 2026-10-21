@@ -60,7 +60,7 @@ class ModelDialogueController extends ChangeNotifier {
       if(current==null||current.ended)throw StateError('room_not_ready');
       for(final speaker in modelDialogueSpeakers) {
         if(!config.forSpeaker(speaker).matches(current)) {
-          throw const ModelDialogueConfigurationError('这个房间的模型或接口配置已变化，请新建房间对谈。');
+          notice='本轮使用当前模型设置；历史发言保留原模型来源。';
         }
       }
       leased=await repository.db.tryAcquireLocalLease('chat_turn_lease',holdFor:const Duration(minutes:3));
@@ -73,7 +73,8 @@ class ModelDialogueController extends ChangeNotifier {
       final background=await ModelDialogueContext(repository.db).build(
         '${current.topic}\n$userText\n$recent');
       cancellation.throwIfCancelled();
-      final ticket=await repository.begin(roomId:roomId,fence:fence,userText:userText,memoryContext:background);
+      final ticket=await repository.begin(roomId:roomId,fence:fence,userText:userText,
+        memoryContext:background,participants:config.snapshot);
       _ticket=ticket;accepted=true;
       room=ticket.room;messages=ticket.history;speaking=ticket.speaker;
       cancellation.throwIfCancelled();_notify();

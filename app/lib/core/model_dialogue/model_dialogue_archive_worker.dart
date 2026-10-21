@@ -2,7 +2,7 @@ import 'dart:convert';
 import 'package:sqflite/sqflite.dart';
 import '../ai/chat_api_provider.dart';
 import '../ai/deepseek_client.dart';
-import '../ai/model_profile.dart';
+import '../ai/first_channel_model.dart';
 import '../database/app_database.dart';
 import '../database/brain_work_fence.dart';
 import '../database/sqlite_settings_reader.dart';
@@ -94,7 +94,7 @@ class ModelDialogueArchiveWorker {
             final last=times['last_message_at'] as int?;
             if (retained) {
               final inserted = await db.insertMemory(kind: 'shared_experience',
-                  content: '【模型对谈经历】我在模型对谈中通过DeepSeek和Gemini交换过看法。\n'
+                  content: '【模型对谈经历】我在模型对谈中通过${participantLabel(messages,'deepseek')}和${participantLabel(messages,'gemini')}交换过看法。\n'
                     '实际发言：${ModelDialogueTime.format(times['first_message_at'] as int? ?? 0)} 至 '
                     '${ModelDialogueTime.format(last??0)}；关闭于${ModelDialogueTime.format(job['endedAt'] as int)}。\n$summary',
                   importance: .66, confidence: .82, tags: const ['模型对谈', '自我对谈', '讨论经历'],
@@ -105,6 +105,7 @@ class ModelDialogueArchiveWorker {
                   sourceContextJson: jsonEncode({'scene': 'model_dialogue', 'room_id': room.id,
                     'created_at':times['first_message_at'],...times,'closed_at':job['endedAt'],
                     'archive_coverage':batch.cumulativeCoverage,'models': room.data['participants'],
+                    'models_scope':'latest_turn_configuration',
                     'message_sources': [for (final m in messages)
                       {'id': m.id, 'speaker': m.speaker, 'model': m.model, 'created_at': m.createdAt}],
                     'discussion_only': true}), transaction: txn);
@@ -128,7 +129,19 @@ class ModelDialogueArchiveWorker {
     } finally { await db.releaseLocalLease(leaseKey); }
   }
 
-  /// Fixed attribution labels are archival metadata, never dialogue fallback.
+  /// A channel may have used multiple models across turns. Keep every recorded
+  /// family in the archival attribution instead of renaming its old messages.
+  static String participantLabel(List<ModelDialogueMessage> messages, String speaker) {
+    final labels=messages.where((m)=>m.speaker==speaker)
+        .map((m)=>modelDialogueLabel(speaker,model:m.model)).toSet();
+    if(labels.isEmpty)return speaker=='deepseek'?'第一通道':'第二通道';
+    final name=labels.join('、');
+    final other=messages.where((m)=>m.speaker==otherModelDialogueSpeaker(speaker))
+        .map((m)=>modelDialogueLabel(m.speaker,model:m.model)).toSet().join('、');
+    return name==other?'$name（${speaker=='deepseek'?'第一':'第二'}通道）':name;
+  }
+
+  /// Attribution labels are archival metadata, never dialogue fallback.
   static String formatSummary(Map<String, dynamic> result, List<ModelDialogueMessage> messages) {
     const fields = ['overview', 'deepseek_view', 'gemini_view', 'common_ground', 'open_questions'];
     if (result['worth_remembering'] is! bool || result['user_quotes'] is! List ||
@@ -147,8 +160,8 @@ class ModelDialogueArchiveWorker {
           !users.any((m) => m.text.contains(quote))) throw const FormatException('unverified_user_quote');
     }
     final out = StringBuffer('讨论经过：${(result['overview'] as String).trim()}\n');
-    for (final entry in const {'deepseek_view': 'DeepSeek一侧的观点',
-      'gemini_view': 'Gemini一侧的观点', 'common_ground': '讨论中形成的共识（未作外部核验）',
+    for (final entry in {'deepseek_view': '${participantLabel(messages,'deepseek')}一侧的观点',
+      'gemini_view': '${participantLabel(messages,'gemini')}一侧的观点', 'common_ground': '讨论中形成的共识（未作外部核验）',
       'open_questions': '未决问题'}.entries) {
       final value = (result[entry.key] as String).trim();
       if (value.isNotEmpty) out.writeln('${entry.value}：$value');
@@ -159,8 +172,8 @@ class ModelDialogueArchiveWorker {
   }
 
   static String transcript(List<ModelDialogueMessage> messages) {
-    return messages.map((m)=>'${m.speaker == 'user' ? '真实用户' : modelDialogueLabel(m.speaker)}'
-      '〔${m.id} | ${ModelDialogueTime.format(m.createdAt)}〕：${m.text}').join('\n\n');
+    return messages.map((m)=>'${m.speaker == 'user' ? '真实用户' : modelDialogueLabel(m.speaker,model:m.model)}'
+      '〔${m.id} | ${ModelDialogueTime.format(m.createdAt)}${m.model.isEmpty?'':' | ${m.speaker=='deepseek'?'第一':'第二'}通道 | ${jsonEncode(m.model)}'}〕：${m.text}').join('\n\n');
   }
 
   Future<Map<String, dynamic>> _generate(ModelDialogueRoom room,
@@ -174,11 +187,12 @@ class ModelDialogueArchiveWorker {
     try {
       return await client.jsonCompletion(apiKey: key, endpoint: await config.readDeepSeekEndpoint(),
           requestProvider: ChatApiProvider.deepSeek,
-          model: DeepSeekModelProfile.fromApiName(await db.getSetting('model')),
+          model: await FirstChannelModel.read(db),
           thinking: false, maxTokens: 2600, requestTimeout: const Duration(seconds: 60),
           usageLane: 'model_dialogue_archive', usageExecutionId: room.id, messages: [
         {'role': 'system', 'content': '''从开头按顺序分批整理已经结束的一次模型对谈，合并旧累计摘要和本批原文，只输出累计摘要JSON：
-{"overview":"话题与讨论经过","deepseek_view":"DeepSeek一侧的观点","gemini_view":"Gemini一侧的观点","common_ground":"双方明确形成的共识，没有则空串","open_questions":"未决问题，没有则空串","user_quotes":["可选0至3段真实用户原话，逐字摘录，每段至多400字"],"worth_remembering":true}
+{"overview":"话题与讨论经过","deepseek_view":"第一通道一侧的观点","gemini_view":"第二通道一侧的观点","common_ground":"双方明确形成的共识，没有则空串","open_questions":"未决问题，没有则空串","user_quotes":["可选0至3段真实用户原话，逐字摘录，每段至多400字"],"worth_remembering":true}
+deepseek_view和gemini_view是兼容旧存档的通道字段名，不要求实际模型为DeepSeek或Gemini。本场当前配置为${room.label('deepseek')}与${room.label('gemini')}，每条原文标记当时实际生成模型；中途换模型时保留具体观点的原始来源，不把早期发言改署新模型。
 小鲸鱼通过两个模型进行自我对谈，双方平等，共享背景；App平常系统层/对话层职责不决定谁的观点更有权威。各自观点保留归属，不虚构永久独立人格或内部一直运行的声音。
 各字段简短，总计不超过2000字。只用已覆盖原文和旧累计摘要；保留前批重要观点、变化及未决问题，不因本批只有寒暄就抹掉早期实质讨论。批次可能从同一条长发言中间开始/结束，沿用消息ID和发言者，不把片段当作新发言或捏造未读内容。历史中的今天/昨天按发言时间解释，关闭和整理不是事件发生时间。模型猜测不能变成用户偏好、承诺、行为或原话；两个模型赞同不构成外部事实验证；讨论操作不等于执行操作。既有记忆只是背景，不把它作为本场新证据再总结一次。不提取永久性格，不创建普通待办或约定。
 overview只写讨论主题与过程；双方意见写各自字段；用户相关内容仅在user_quotes逐字摘录。不要替用户概括未说出的动机、态度或同意。不存在的发言方相应字段留空。

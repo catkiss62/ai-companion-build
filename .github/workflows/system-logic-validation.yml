@@ -76,6 +76,7 @@ jobs:
           test/model_dialogue_memory_v042114_test.dart
           test/room_image_background_v042114_test.dart
           test/model_dialogue_v042113_test.dart
+          test/model_dialogue_dynamic_channel_test.dart
           test/model_dialogue_page_v042113_test.dart
           test/cedar_game_arrangements_v042110_test.dart
           test/post_turn_thought_source_v042111_test.dart

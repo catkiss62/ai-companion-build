@@ -151,18 +151,20 @@ void main(){
     expect(c.room!.nextSpeaker,'deepseek');expect(c.error,isEmpty);
   });
 
-  test('same-family configuration is rejected rather than labelled as Gemini',() async {
-    final bad=ModelDialogueConfiguration(configuration.deepSeek,
+  test('second channel can use the same family without being labelled as Gemini',() async {
+    final selected=ModelDialogueConfiguration(configuration.deepSeek,
       ModelDialogueEndpoint(speaker:'gemini',endpoint:'https://gm.example/chat',model:'deepseek-test',apiKey:'test'));
-    expect(bad.validate,throwsA(isA<ModelDialogueConfigurationError>()));
+    expect(selected.validate,returnsNormally);
+    expect(selected.gemini.label,'DeepSeek');
   });
-  test('changing model settings cannot silently replace a room participant',() async {
+  test('next turn follows changed settings and records the actual participant',() async {
     var calls=0;final room=await create();
     final changed=ModelDialogueConfiguration(const ModelDialogueEndpoint(speaker:'deepseek',
       endpoint:'https://ds.example/chat/completions',model:'deepseek-different',apiKey:'test'),configuration.gemini);
     final c=await controller(room,gateway((r) async {calls++;return _response(frame('不应调用'),200);}),loader:() async=>changed);
-    await c.advance();expect(calls,0);expect(c.error,contains('配置已变化'));
-    expect(c.messages,isEmpty);
+    await c.advance();expect(calls,1);expect(c.error,isEmpty);
+    expect(c.notice,contains('历史发言保留原模型来源'));
+    expect(c.messages.single.model,'deepseek-different');
   });
 
   test('memory reads leave ordinary chat, memory evidence, desires, relationship and form state byte-identical',() async {
