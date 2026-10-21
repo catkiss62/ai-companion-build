@@ -4,9 +4,14 @@ import 'package:http/http.dart' as http;
 import '../ai/deepseek_client.dart';
 import '../ai/generation_cancellation.dart';
 
+class DreamReviewMissingApiKey implements Exception {
+  const DreamReviewMissingApiKey();
+}
+
 abstract final class DreamReviewDiagnostic {
   static Map<String, Object?> failure(Object error) {
     final category = switch (error) {
+      DreamReviewMissingApiKey() => 'missing_api_key',
       IncompleteJsonCompletionException() => error.finishReason == 'length'
           ? 'output_limit' : 'abnormal_finish',
       EmptyJsonCompletionException() => 'empty_body',

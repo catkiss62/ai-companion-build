@@ -1,3 +1,4 @@
+import 'package:ai_companion_localfirst/core/ai/model_profile.dart';
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
@@ -46,7 +47,25 @@ class _LateTransport extends http.BaseClient {
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
   sqfliteFfiInit();
-  for (final scenario in ['before_final', 'headers_pending', 'retry_wait',
+  test('manual choice aborts only the active second-channel transport before headers', () async {
+    final transport = _LateTransport();
+    final client = DeepSeekClient(streamClientFactory: () => transport);
+    final control = FinalReplyControl();
+    final wholeTurn = GenerationCancellationToken();
+    final request = client.streamChat(apiKey: 'test',
+      model: DeepSeekModelProfile.fromApiName('second-test'), effort: ReasoningEffort.high,
+      messages: const [{'role': 'user', 'content': '测试'}],
+      cancellationToken: control.secondChannelToken(wholeTurn)).toList();
+    final assertion = expectLater(request, throwsA(isA<GenerationCancelledByUserException>()));
+    await transport.started.future;
+    expect(control.requestDeepSeek(), isTrue);
+    await assertion.timeout(const Duration(seconds: 1));
+    expect(transport.closed, isTrue);
+    expect(wholeTurn.isCancelled, isFalse); // First-channel planning remains live.
+    transport.finish();
+    client.close();
+  });
+  for (final scenario in ['before_final', 'durable_before_final', 'legacy_job', 'headers_pending', 'retry_wait',
       'postprocessing', 'durable_choice', 'stop_after_choice', 'second_success', 'api_failure']) {
     test('production runner per-turn choice: $scenario', () async {
       final root = await Directory.systemTemp.createTemp('manual-reply-');
@@ -94,7 +113,10 @@ void main() {
           planningRequests++;
           return _sse('现有上下文足够。');
         }
-        if ((body['messages'] as List).length <= 3) return _sse('{}');
+        if (body.containsKey('max_tokens')) {
+          expect(body['model'], 'first-configured'); // Bounded routing utility.
+          return _sse('{}');
+        }
         models.add(body['model'] as String);
         finalInputs.add(body['messages'] as List);
         firstFinals++;
@@ -121,8 +143,11 @@ void main() {
         await db.tryAcquireLocalLease('chat_turn_lease');
         final job = await db.createGenerationTurn(user: ChatMessage(id: 'user', role: 'user',
           content: '你想先做什么？', createdAt: DateTime.now()), assistantMessageId: 'reply',
-          model: 'first-configured', reasoningEffort: 'high');
-        if (scenario == 'before_final') {
+          model: scenario == 'legacy_job' ? '' : 'first-configured', reasoningEffort: 'high');
+        if (scenario == 'durable_before_final') {
+          expect(await db.selectDeepSeekForGeneration(job.id), isTrue);
+        }
+        if (scenario == 'before_final' || scenario == 'legacy_job') {
           expect(control.requestDeepSeek(), isTrue);
           expect(control.requestDeepSeek(), isFalse);
         }
@@ -168,7 +193,9 @@ void main() {
           expect(route['reason'], secondWon ? 'second_channel'
               : scenario == 'api_failure' ? 'api_failure_fallback' : 'manual_deepseek');
           expect(firstFinals, secondWon ? 0 : 1);
-          if (scenario == 'before_final') expect(secondRequests, 0);
+          if (const {'before_final', 'durable_before_final', 'legacy_job'}.contains(scenario)) {
+            expect(secondRequests, 0);
+          }
           if (scenario == 'retry_wait') expect(secondRequests, 1);
           if (finalInputs.length > 1) {
             expect(finalInputs.last, finalInputs.first); // Same turn/context, no fake user.

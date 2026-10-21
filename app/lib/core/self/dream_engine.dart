@@ -28,7 +28,7 @@ class DreamEngine {
     DeepSeekModelProfile reviewModel,
   ) async {
     final key = (await secureConfig.readApiKey())?.trim() ?? '';
-    if (key.isEmpty) return null;
+    if (key.isEmpty) throw const DreamReviewMissingApiKey();
     Future<bool> abort() async =>
         !await db.brainWorkFenceCurrent(fence) ||
         !await DreamStore.idle(await db.database, DateTime.now(), manual: true);

@@ -91,10 +91,11 @@ void main() {
     });
   }
 
-  for (final category in ['http_error', 'timeout', 'connection_error', 'output_limit',
+  for (final category in ['missing_api_key', 'http_error', 'timeout', 'connection_error', 'output_limit',
       'abnormal_finish', 'empty_body', 'invalid_json', 'runtime_interrupted']) {
     test('dream records body-free $category without committing insight/day', () async {
       await db.setSetting('creative_work_model', 'work-diagnostic');
+      if (category == 'missing_api_key') FlutterSecureStorage.setMockInitialValues({});
       await db.insertMessage(ChatMessage(id: 'source', role: 'user',
         content: '不用一直赶目标，停下来看看也很好。', createdAt: DateTime.now().subtract(const Duration(hours: 2))));
       final engine = DreamEngine(db,
@@ -118,6 +119,9 @@ void main() {
       expect(diagnostic['model'], 'work-diagnostic');
       expect(diagnostic['failure_category'], category);
       expect(diagnostic['content_included'], isFalse);
+      final exported = await DreamStore(db).diagnostics();
+      expect(exported['last_failure_category'], category);
+      expect(exported['last_model'], 'work-diagnostic');
       expect(raw, isNot(contains('PRIVATE_')));
       expect(await db.getSetting(DreamStore.stateKey), anyOf(isNull, isEmpty));
       final attempt = jsonDecode((await db.getSetting(DreamStore.attemptKey))!) as Map;

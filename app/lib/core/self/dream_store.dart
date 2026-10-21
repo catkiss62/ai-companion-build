@@ -311,6 +311,12 @@ class DreamStore {
       'usable_insight_count': valid.length,
       'history_count': DreamContract.records(state['history']).length,
       'last_status': status,
+      'last_model': DreamContract.string(last['model']),
+      'last_failure_category': status == 'interrupted_or_preempted' ||
+              status == 'preempted_by_activity' ? 'runtime_interrupted'
+          : DreamContract.string(last['failure_category']),
+      'last_http_status': DreamContract.number(last['http_status']),
+      'content_included': false,
       'last_source_count': DreamContract.number(last['source_count']),
       'last_changed_count': DreamContract.number(last['changed_count']),
       'has_backlog': last['has_backlog'] == true,

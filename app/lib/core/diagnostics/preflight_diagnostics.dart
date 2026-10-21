@@ -660,6 +660,7 @@ class PreflightDiagnosticsService {
         'lastTakeoverAt': lastTakeoverAt,
         'postTurnJobs': jobs,
         'generationRequest': await _generationRequestState(),
+        'generationFinalRoute': await _generationFinalRoute(),
         'proactiveRequest': await _generationRequestState(setting: 'proactive_request_timing_v1'),
         'webPromptReadTiming': await _webPromptReadTiming(),
         'backupRestoreTiming': {
@@ -2062,6 +2063,19 @@ class PreflightDiagnosticsService {
         entry.value: int.tryParse(raw[entry.key]) ?? 0,
       'contentIncluded': false,
     };
+  }
+
+  Future<Map<String, Object?>> _generationFinalRoute() async {
+    try {
+      final value = jsonDecode(await db.getSetting('generation_final_route_v1') ?? '{}');
+      if (value is! Map) return const {};
+      return {
+        for (final key in ['jobId', 'reason', 'model'])
+          key: value[key]?.toString().substring(0,
+              min(160, value[key]?.toString().length ?? 0)) ?? '',
+        'contentIncluded': false,
+      };
+    } catch (_) { return const {}; }
   }
 
   Future<Map<String, Object?>> _generationRequestState({String setting = 'generation_request_state_v1'}) async {
