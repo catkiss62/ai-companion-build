@@ -86,6 +86,7 @@ class OverlayBubbleService : Service() {
     private var chatRemovalAttempts = 0
     private var chatHealthRecoveryAttempts = 0
     private var lastRenderedGeneration: List<Any?>? = null
+    private val historyRefresh = OverlayHistoryRefreshState()
     private val thumbnailCache = object : LruCache<String, Bitmap>(8 * 1024) {
         override fun sizeOf(key: String, value: Bitmap): Int =
             (value.allocationByteCount / 1024).coerceAtLeast(1)
@@ -768,6 +769,17 @@ class OverlayBubbleService : Service() {
                 false
             }
         }
+        val historyWindowEpoch = lifetime.windowEpoch
+        root.addOnAttachStateChangeListener(object : View.OnAttachStateChangeListener {
+            override fun onViewAttachedToWindow(view: View) {
+                mainHandler.post {
+                    if (chatRoot === root && isCurrentChatWindow(historyWindowEpoch)) {
+                        refreshOverlayMessages(opened = true, attempt = 0)
+                    }
+                }
+            }
+            override fun onViewDetachedFromWindow(view: View) = Unit
+        })
         val column = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
         }
@@ -1076,21 +1088,37 @@ class OverlayBubbleService : Service() {
 
     private fun refreshOverlayMessages(opened: Boolean, attempt: Int) {
         val epoch = lifetime.windowEpoch
-        if (!isCurrentChatWindow(epoch)) return
+        if (!lifetime.matches(epoch) || !chatExpanded || chatRemovalPending || chatRoot == null) return
+        if (chatRoot?.isAttachedToWindow != true || !backgroundBrainReady)
+            setChatStatus("正在读取聊天记录…")
+        val request = historyRefresh.request(epoch,
+            ready = chatRoot?.isAttachedToWindow == true && backgroundBrainReady,
+            opened = opened) ?: return
         val channel = backgroundCommands
         if (channel == null) {
+            historyRefresh.finish(request)
             retryRefresh(opened, attempt)
             return
         }
+        setChatStatus("正在读取聊天记录…")
+        // An unresponsive isolate must not leave this window permanently busy.
+        mainHandler.postDelayed({
+            if (isCurrentChatWindow(epoch) && historyRefresh.current(request)) {
+                historyRefresh.finish(request)
+                if (attempt < 8) retryRefresh(request.opened, attempt)
+                else setChatStatus("暂时没能读到聊天记录。", true)
+            }
+        }, 8_000L)
         channel.invokeMethod(
-            if (opened) "overlayOpened" else "loadRecentMessages",
-            if (opened) null else mapOf("limit" to OVERLAY_RECENT_LIMIT),
+            if (request.opened) "overlayOpened" else "loadRecentMessages",
+            if (request.opened) null else mapOf("limit" to OVERLAY_RECENT_LIMIT),
             object : MethodChannel.Result {
                 override fun success(result: Any?) {
                     mainHandler.post {
-                        if (!isCurrentChatWindow(epoch)) return@post
+                        if (!isCurrentChatWindow(epoch) || !historyRefresh.current(request)) return@post
 
                         val parsed = parseMessageList(result)
+                        val pending = historyRefresh.finish(request)
                         if (parsed != null) {
                             lastRenderedGeneration = null
                             loadedMessages = parsed.toMutableList()
@@ -1098,6 +1126,7 @@ class OverlayBubbleService : Service() {
                             chatLoadOlder?.visibility = if (parsed.size >= OVERLAY_RECENT_LIMIT) View.VISIBLE else View.GONE
                             scrollChatToBottom()
                             setChatStatus(null)
+                            if (pending) refreshOverlayMessages(opened = false, attempt = 0)
                         } else {
                             retryRefresh(opened, attempt)
                         }
@@ -1106,7 +1135,8 @@ class OverlayBubbleService : Service() {
 
                 override fun error(errorCode: String, errorMessage: String?, errorDetails: Any?) {
                     mainHandler.post {
-                        if (!isCurrentChatWindow(epoch)) return@post
+                        if (!isCurrentChatWindow(epoch) || !historyRefresh.current(request)) return@post
+                        historyRefresh.finish(request)
 
                         if (attempt < 8) retryRefresh(opened, attempt)
                         else setChatStatus("暂时没能读到聊天记录。", true)
@@ -1115,7 +1145,8 @@ class OverlayBubbleService : Service() {
 
                 override fun notImplemented() {
                     mainHandler.post {
-                        if (!isCurrentChatWindow(epoch)) return@post
+                        if (!isCurrentChatWindow(epoch) || !historyRefresh.current(request)) return@post
+                        historyRefresh.finish(request)
                         retryRefresh(opened, attempt)
                     }
                 }

@@ -30,6 +30,7 @@ import 'immersive_message_language_variant_service.dart';
 import 'immersive_nsfw_router.dart';
 import 'immersive_prompt_builder.dart';
 import 'immersive_room_repository.dart';
+import 'immersive_model_selection.dart';
 import 'immersive_scene_advance.dart';
 import 'immersive_form_snapshot.dart';
 import '../ai/final_reply_route.dart';
@@ -112,6 +113,7 @@ class ImmersiveRoomController extends ChangeNotifier {
   String? error;
   String? notice;
   ImmersiveMessage? incompleteReplyDraft;
+  Map<String, Object?>? _finalModelRoute;
   String? incompleteReplyUserMessageId;
   ImmersiveMessage? _incompleteReplySourceUser;
   String? _incompleteReplyRaw;
@@ -240,6 +242,14 @@ class ImmersiveRoomController extends ChangeNotifier {
       _safeNotify();
       return;
     }
+    ImmersiveModelChoice selectedModel;
+    try {
+      selectedModel = await ImmersiveModelSelection.resolve(db, secureConfig: secureConfig);
+    } catch (exception) {
+      error = '无法使用所选沉浸模型：$exception';
+      _safeNotify();
+      return;
+    }
     final ownsLease = await db.tryAcquireLocalLease(
       'immersive_room_lease',
       holdFor: const Duration(minutes: 10),
@@ -285,11 +295,11 @@ class ImmersiveRoomController extends ChangeNotifier {
     var committed = false;
     try {
       final endpoint = await secureConfig.readEndpoint();
-      final finalProvider = await secureConfig.readChatProvider();
-      final finalApiKey =
-          (await secureConfig.readFinalReplyApiKey())?.trim() ?? '';
-      final finalEndpoint = await secureConfig.readFinalReplyEndpoint();
-      final finalModelName = await secureConfig.readFinalReplyModel();
+
+      final finalProvider = selectedModel.provider;
+      final finalApiKey = selectedModel.apiKey;
+      final finalEndpoint = selectedModel.endpoint;
+      final finalModelName = selectedModel.model;
       final routedRoom =
           (await repository.inheritActiveSpecialStyleIfNeeded(roomId))!;
       room = routedRoom;
@@ -319,12 +329,10 @@ class ImmersiveRoomController extends ChangeNotifier {
         nsfwTurnDirective: route.turnDirective,
         formSnapshot: await _captureEntryForm(),
       );
-      final profile = DeepSeekModelProfile.fromApiName(
-        await db.getSetting('model'),
-      );
-      final effort = ReasoningEffort.fromApiName(
-        await db.getSetting('reasoning_effort'),
-      );
+      final profile = await FirstChannelModel.read(db);
+      final effort = selectedModel.effort;
+      _finalModelRoute = {'source': selectedModel.source.key, 'model': selectedModel.model,
+        'provider': selectedModel.provider.storageValue, 'reason': 'selected'};
       await _configureStreamingSpeech(ownerId: 'stream:${user.id}');
       final finishReason = await _streamFinalRequest(
         internalApiKey: apiKey,
@@ -364,8 +372,10 @@ class ImmersiveRoomController extends ChangeNotifier {
           finishReason,
         );
         await _streamRequest(
-          apiKey: apiKey,
-          endpoint: endpoint,
+          apiKey: finalApiKey,
+          endpoint: finalEndpoint,
+          requestProvider: finalProvider,
+          modelName: finalModelName,
           model: profile,
           effort: effort,
           request: ImmersivePromptBuilder.continuationMessages(
@@ -391,6 +401,7 @@ class ImmersiveRoomController extends ChangeNotifier {
         content: streamingContent,
         reasoningContent: _allStreamingReasoning,
         formContextJson: _entryFormContext.encode(),
+        modelRoute: _finalModelRoute,
       );
       committed = true;
 
@@ -501,8 +512,10 @@ class ImmersiveRoomController extends ChangeNotifier {
     final finalRoute = FinalReplyRoute(secondChannelEnabled: finalProvider.isGeminiRelay);
     if (!finalRoute.useSecondChannel) {
       return _streamRequest(
-        apiKey: internalApiKey,
-        endpoint: internalEndpoint,
+        apiKey: finalApiKey,
+        endpoint: finalEndpoint,
+        requestProvider: finalProvider,
+        modelName: finalModelName,
         model: model,
         effort: effort,
         request: request,
@@ -566,6 +579,8 @@ class ImmersiveRoomController extends ChangeNotifier {
     await _writeRoomSetting(_fallbackNoticeSettingKey, notice!);
     finalRoute.recordFailure(lastError!);
     _lastFinalReplyUsedFallback = true;
+    _finalModelRoute = {'source': 'first', 'model': model.apiName,
+      'provider': ChatApiProvider.deepSeek.storageValue, 'reason': 'second_channel_failure'};
     _safeNotify();
     return _streamRequest(
       apiKey: internalApiKey,
@@ -703,6 +718,7 @@ class ImmersiveRoomController extends ChangeNotifier {
         'reasoning': reasoning.trim(),
         'created_at': createdAt.millisecondsSinceEpoch,
         'form_context_json': draft.formContextJson,
+        if (_finalModelRoute != null) 'model_route': _finalModelRoute,
       });
     await repository.saveIncompleteReply(roomId: roomId, sourceUser: sourceUser,
         cancellation: cancellation, workFence: workFence, rawDraft: raw);
@@ -774,6 +790,14 @@ class ImmersiveRoomController extends ChangeNotifier {
     await _writeRoomSetting(_pendingReplySettingKey, '');
   }
 
+  Map<String, Object?>? _draftModelRoute(String raw) {
+    try {
+      final route = (jsonDecode(raw) as Map)['model_route'];
+      if (route is! Map || route['model'] is! String) return null;
+      return Map<String, Object?>.from(route);
+    } catch (_) { return null; }
+  }
+
   Future<void> confirmIncompleteReply() async {
     if (!await _canWrite()) return;
     final draft = incompleteReplyDraft;
@@ -813,6 +837,7 @@ class ImmersiveRoomController extends ChangeNotifier {
         cancellation: cancellation,
         workFence: workFence,
         expectedDraft: expectedDraft,
+        modelRoute: _draftModelRoute(expectedDraft),
         content: draft.content,
         reasoningContent: draft.reasoningContent,
         // A restored draft belongs to its original entry. Missing legacy
@@ -909,11 +934,11 @@ class ImmersiveRoomController extends ChangeNotifier {
     var committed = false;
     try {
       final internalEndpoint = await secureConfig.readEndpoint();
-      final finalProvider = await secureConfig.readChatProvider();
-      final finalApiKey =
-          (await secureConfig.readFinalReplyApiKey())?.trim() ?? '';
-      final finalEndpoint = await secureConfig.readFinalReplyEndpoint();
-      final finalModelName = await secureConfig.readFinalReplyModel();
+      final selectedModel = await ImmersiveModelSelection.resolve(db, secureConfig: secureConfig);
+      final finalProvider = selectedModel.provider;
+      final finalApiKey = selectedModel.apiKey;
+      final finalEndpoint = selectedModel.endpoint;
+      final finalModelName = selectedModel.model;
       final routedRoom =
           (await repository.inheritActiveSpecialStyleIfNeeded(roomId))!;
       room = routedRoom;
@@ -944,12 +969,10 @@ class ImmersiveRoomController extends ChangeNotifier {
         nsfwTurnDirective: route.turnDirective,
         formSnapshot: await _captureEntryForm(),
       );
-      final profile = DeepSeekModelProfile.fromApiName(
-        await db.getSetting('model'),
-      );
-      final effort = ReasoningEffort.fromApiName(
-        await db.getSetting('reasoning_effort'),
-      );
+      final profile = await FirstChannelModel.read(db);
+      final effort = selectedModel.effort;
+      _finalModelRoute = {'source': selectedModel.source.key, 'model': selectedModel.model,
+        'provider': selectedModel.provider.storageValue, 'reason': 'selected'};
       await _configureStreamingSpeech(ownerId: 'stream:${user.id}');
       final finishReason = await _streamFinalRequest(
         internalApiKey: internalApiKey,
@@ -991,6 +1014,7 @@ class ImmersiveRoomController extends ChangeNotifier {
         content: streamingContent,
         reasoningContent: _allStreamingReasoning,
         formContextJson: _entryFormContext.encode(),
+        modelRoute: _finalModelRoute,
       );
       committed = true;
 

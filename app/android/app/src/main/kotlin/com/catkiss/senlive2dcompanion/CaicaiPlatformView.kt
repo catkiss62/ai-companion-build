@@ -155,7 +155,9 @@ internal class CaicaiPlatformView(
                 val epoch = motionEpoch
                 val frames = org.json.JSONArray(args["frames"] as? List<*> ?: emptyList<Any>()).toString()
                 companion.speechPerformance(args["cue"]?.toString().orEmpty(),
-                    args["emotion"]?.toString() ?: "normal", frames) {
+                    args["emotion"]?.toString() ?: "normal", frames,
+                    args["face"]?.toString().orEmpty(), args["action"]?.toString().orEmpty(),
+                    args["wink"]?.toString().orEmpty(), args["animate"] == true) {
                     !disposed && motionEpoch == epoch && speechLease == lease &&
                         com.aicompanion.localfirst.PlaybackSessionRegistry.current(lease)
                 }

@@ -208,6 +208,9 @@ class ImmersiveRoomRepository {
     await _write((txn) async {
       await txn.delete('settings', where: 'key = ?', whereArgs: [archiveKey(id)]);
       await txn.delete('settings', where: 'key = ?', whereArgs: ['room_history_detail_v1:immersive:$id']);
+      final modelPrefix = 'immersive_message_model_v1:$id:';
+      await txn.delete('settings', where: 'key >= ? AND key < ?',
+          whereArgs: [modelPrefix, '$modelPrefix\uffff']);
       await txn.delete(
         'immersive_messages',
         where: 'room_id = ?',
@@ -351,6 +354,7 @@ class ImmersiveRoomRepository {
     String reasoningContent = '',
     String formContextJson = '',
     String? expectedDraft,
+    Map<String, Object?>? modelRoute,
   }) {
     if (!sourceUser.isUser || sourceUser.roomId != roomId) {
       throw const BrainWorkInvalidated();
@@ -358,7 +362,7 @@ class ImmersiveRoomRepository {
     return _addMessage(roomId: roomId, role: 'assistant', content: content,
         reasoningContent: reasoningContent, formContextJson: formContextJson,
         sourceUser: sourceUser, cancellation: cancellation,
-        expectedDraft: expectedDraft, workFence: workFence);
+        expectedDraft: expectedDraft, workFence: workFence, modelRoute: modelRoute);
   }
 
   Future<ImmersiveMessage> addMessage({
@@ -380,6 +384,7 @@ class ImmersiveRoomRepository {
     GenerationCancellationToken? cancellation,
     BrainWorkFence? workFence,
     String? expectedDraft,
+    Map<String, Object?>? modelRoute,
   }) async {
     final now = DateTime.now().millisecondsSinceEpoch;
     final message = ImmersiveMessage(
@@ -414,6 +419,13 @@ class ImmersiveRoomRepository {
         'form_context_json': message.formContextJson,
         'created_at': now,
       });
+      if (role == 'assistant' && modelRoute != null) {
+        await txn.insert('settings', {'key': 'immersive_message_model_v1:$roomId:${message.id}',
+          'value': jsonEncode({'room_id': roomId, 'message_id': message.id,
+            for (final key in const ['source','model','provider','reason'])
+              if (modelRoute[key] is String) key: modelRoute[key]})},
+          conflictAlgorithm: ConflictAlgorithm.replace);
+      }
       await txn.update(
         'immersive_rooms',
         {'status': 'active', 'updated_at': now},

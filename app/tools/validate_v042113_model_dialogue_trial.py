@@ -35,6 +35,6 @@ assert chat.count("title: '模型对谈'")==1
 workflow=(root.parent/'.github/workflows/system-logic-validation.yml').read_text()
 for test in ('model_dialogue_v042113_test.dart','model_dialogue_page_v042113_test.dart'):
     assert test in workflow
-assert any(v in read('pubspec.yaml') for v in ('version: 0.42.114+358','version: 0.42.115+359', 'version: 0.42.116+360', 'version: 0.42.117+361', 'version: 0.42.118+362', 'version: 0.42.119+363', 'version: 0.42.120+364', 'version: 0.42.121+365', 'version: 0.42.122+366', 'version: 0.42.123+367'))
+assert any(v in read('pubspec.yaml') for v in ('version: 0.42.114+358','version: 0.42.115+359', 'version: 0.42.116+360', 'version: 0.42.117+361', 'version: 0.42.118+362', 'version: 0.42.119+363', 'version: 0.42.120+364', 'version: 0.42.121+365', 'version: 0.42.122+366', 'version: 0.42.123+367', 'version: 0.42.124+368'))
 assert '    - assets/model_dialogue/' in read('pubspec.yaml')
 print('isolated model dialogue, fixed same-model retry, lifecycle fences and exact background wired')

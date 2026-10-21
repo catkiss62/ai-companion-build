@@ -10,6 +10,7 @@ import '../../core/ai/reasoning_translation_service.dart';
 import '../../core/database/app_database.dart';
 import '../../core/immersive/immersive_room_controller.dart';
 import '../../core/immersive/immersive_room_repository.dart';
+import '../../core/immersive/immersive_model_selection.dart';
 import '../../core/immersive/immersive_archive_worker.dart';
 import '../../core/immersive/immersive_scene_advance.dart';
 import '../../core/models/chat_language_variant.dart';
@@ -21,6 +22,7 @@ import '../../core/platform/android_bridge.dart';
 import '../../core/presentation/chat_visuals.dart';
 import '../../core/presentation/generation_presentation_policy.dart';
 import '../../core/tts/tts_playback_queue.dart';
+import '../../core/storage/secure_config.dart';
 import '../../widgets/action_tint_text.dart';
 import '../../widgets/active_trial_capsule.dart';
 import '../../widgets/room_image_background.dart';
@@ -31,9 +33,11 @@ import '../chat/chat_timestamp_formatter.dart';
 const immersiveRailPink = Color(0xFFF472B6);
 
 class ImmersiveRoomLobbyPage extends StatefulWidget {
-  const ImmersiveRoomLobbyPage({super.key, this.onSelectMainTab});
+  const ImmersiveRoomLobbyPage({super.key, this.onSelectMainTab, this.repository, this.secureConfig});
 
   final ValueChanged<int>? onSelectMainTab;
+  final ImmersiveRoomRepository? repository;
+  final SecureConfig? secureConfig;
 
   @override
   State<ImmersiveRoomLobbyPage> createState() =>
@@ -43,9 +47,11 @@ class ImmersiveRoomLobbyPage extends StatefulWidget {
 class _ImmersiveRoomLobbyPageState extends State<ImmersiveRoomLobbyPage> {
   static const _fateWheelChannel = MethodChannel('ai_companion/fate_wheel_native');
   late final ImmersiveRoomRepository repository =
-      ImmersiveRoomRepository(AppDatabase.instance);
+      widget.repository ?? ImmersiveRoomRepository(AppDatabase.instance);
   List<ImmersiveRoom> rooms = const [];
   bool loading = true;
+  List<ImmersiveModelChoice> _modelChoices = const [];
+  String _modelSource = ImmersiveModelSource.first.key;
 
   @override
   void initState() {
@@ -55,17 +61,55 @@ class _ImmersiveRoomLobbyPageState extends State<ImmersiveRoomLobbyPage> {
 
   Future<void> _load() async {
     final next = await repository.listRooms();
+    final choices = await ImmersiveModelSelection.options(repository.db, secureConfig: widget.secureConfig);
+    final source = await repository.db.getSetting(ImmersiveModelSelection.settingKey)
+        ?? ImmersiveModelSource.first.key;
     if (!mounted) return;
     setState(() {
       rooms = next;
+      _modelChoices = choices;
+      _modelSource = source;
       loading = false;
     });
     unawaited(_retryArchive());
   }
 
+  Future<void> _chooseModel() async {
+    final choices = await ImmersiveModelSelection.options(repository.db, secureConfig: widget.secureConfig);
+    if (!mounted) return;
+    final selected = await showModalBottomSheet<String>(context: context,
+      isScrollControlled: true, builder: (context) => SafeArea(child: SingleChildScrollView(
+        child: Padding(padding: const EdgeInsets.symmetric(vertical: 12), child: Column(
+          mainAxisSize: MainAxisSize.min, children: [
+            const ListTile(title: Text('沉浸房间模型'),
+              subtitle: Text('复用已有模型配置，下一次房间回复生效。')),
+            if (choices.isEmpty) const ListTile(title: Text('请先在模型设置中完成配置。')),
+            for (final choice in choices) ListTile(
+              title: Text(choice.model, softWrap: true),
+              subtitle: Text(choice.source.label),
+              trailing: choice.source.key == _modelSource ? const Icon(Icons.check) : null,
+              onTap: () => Navigator.pop(context, choice.source.key)),
+          ])))));
+    if (selected == null) return;
+    await repository.db.setSetting(ImmersiveModelSelection.settingKey, selected);
+    if (mounted) setState(() { _modelChoices = choices; _modelSource = selected; });
+  }
+
+  Widget _modelButton() {
+    final selected = _modelChoices.where((c) => c.source.key == _modelSource).firstOrNull;
+    return ConstrainedBox(constraints: BoxConstraints(
+      maxWidth: (MediaQuery.sizeOf(context).width - 170).clamp(90.0, 210.0).toDouble()),
+      child: TextButton(onPressed: loading ? null : _chooseModel,
+        child: Row(mainAxisSize: MainAxisSize.min, children: [
+          Flexible(child: Text(selected?.model ?? '选择模型', maxLines: 1,
+            overflow: TextOverflow.ellipsis)),
+          const Icon(Icons.expand_more, size: 18),
+        ])));
+  }
+
   Future<void> _retryArchive() async {
     try {
-      await ImmersiveArchiveWorker(AppDatabase.instance).drainOne();
+      await ImmersiveArchiveWorker(repository.db).drainOne();
       final next = await repository.listRooms();
       if (mounted) setState(() => rooms = next);
     } catch (_) {
@@ -255,11 +299,14 @@ class _ImmersiveRoomLobbyPageState extends State<ImmersiveRoomLobbyPage> {
           widget.onSelectMainTab?.call(value);
         },
       ),
-      floatingActionButton: FloatingActionButton.extended(
+      floatingActionButton: SizedBox(width: MediaQuery.sizeOf(context).width - 32,
+        child: Row(children: [
+        Expanded(child: Align(alignment: Alignment.centerRight, child: _modelButton())),
+        const SizedBox(width: 8), FloatingActionButton.extended(
         onPressed: loading ? null : _createRoom,
         icon: const Icon(Icons.add_rounded),
         label: const Text('新建房间'),
-      ),
+      )])),
       body: loading
           ? const Center(child: CircularProgressIndicator())
           : RefreshIndicator(

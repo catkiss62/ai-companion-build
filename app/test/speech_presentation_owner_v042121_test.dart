@@ -21,7 +21,8 @@ class _Planner extends CaicaiMotionPlanner {
     'frames': [{'time': 0, 'duration': .5, 'parameters': {'ParamAngleY2': 10}}],
     'emotion': 'playful',
     'speech': [
-      {'start': 0, 'end': 3, 'emotion': 'shy', 'delivery': 'nod'},
+      {'start': 0, 'end': 3, 'emotion': 'shy', 'delivery': 'nod',
+        'face': '1红脸', 'wink': 'wink吐舌', 'action': '2奶茶'},
       {'start': 3, 'end': 6, 'emotion': '', 'delivery': 'hold'},
     ],
   };
@@ -65,6 +66,10 @@ void main() {
     h.audio(); await tick();
     expect(h.cues, isNotEmpty); expect(h.cues.first['frames'], isNotEmpty);
     expect(h.cues.first['emotion'], 'shy');
+    expect(h.cues.first['face'], '1红脸');
+    expect(h.cues.first['wink'], 'wink吐舌');
+    expect(h.cues.first['action'], '2奶茶');
+    expect(h.cues.first['animate'], isTrue);
     expect(h.planner.calls, 1);
   });
   test('mute releases only owned speech, resume skips already used accents', () async {
@@ -75,6 +80,7 @@ void main() {
     h.audio(position: 2); final before = h.cues.length; await tick();
     expect(h.cues.length, greaterThan(before));
     expect(h.cues[before]['frames'], isEmpty);
+    expect(h.cues[before]['animate'], isFalse);
     expect(h.planner.calls, 1);
   });
   test('unmuting in a later hold inherits the skipped planned emotion', () async {

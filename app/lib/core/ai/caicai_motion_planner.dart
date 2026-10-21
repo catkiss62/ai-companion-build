@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'generation_cancellation.dart';
 import 'speech_performance_plan.dart';
+import 'caicai_preset_catalog.dart';
 import 'jev_decision_gateway.dart';
 import '../emotion/emotion_contract.dart';
 import '../../widgets/caicai_live2d_stage.dart';
@@ -41,24 +42,11 @@ class CaicaiMotionPlanner {
   };
   static const intensities = {'轻巧': .8, '鲜明': 1.0, '夸张': 1.12};
   static const tempos = {'舒展': 1.10, '明快': .95, '俏皮快拍': .82};
-  static const faces = ['无','1爱心','1生气','1红脸','1钱钱','1黑脸','1星星眼','1流泪',
-    'wink','wink吐舌','比耶wink吐舌'];
-  static const faceMeanings = <String, String>{
-    '无': '不使用额外原装表情。',
-    '1爱心': '爱心眼：心动、被撩到、看得入迷，或带一点迷恋意味的喜欢；轻微、含蓄的反应也可以使用，不要求强烈情绪或告白。普通开心、日常关心和礼貌温柔本身不足以使用；如果其中带有心动或着迷，也可以使用。',
-    '1生气': '气鼓鼓、佯怒或抗议；轻轻赌气和认真生气都可，按本轮语气判断。',
-    '1红脸': '害羞、浪漫或难为情；轻微脸热也可自然表达，不必等到强烈害羞。',
-    '1钱钱': '财迷式的开心、对钱或收益的兴奋；不把一般开心当作财迷。',
-    '1黑脸': '无语、被噎住或阴沉；轻度无奈也可，不把普通平静当作黑脸。',
-    '1星星眼': '惊喜、赞叹、好奇的期待；小小的兴奋也可自然表达。',
-    '1流泪': '难过、委屈或感动到想哭；需要有泪意，不把所有低落都演成哭。',
-    'wink': '轻度：轻巧眨眼、俏皮或默契。',
-    'wink吐舌': '中度：眨眼加吐舌，更淘气。',
-    '比耶wink吐舌': '程度更强：比耶加吐舌加眨眼，更夸张的得意、庆祝或卖萌。',
-  };
-  static const overlayFaces = ['1爱心','1生气','1红脸','1钱钱','1黑脸','1星星眼','1流泪'];
-  static const winks = ['wink','wink吐舌','比耶wink吐舌'];
-  static const actions = ['无','2奶茶','2插手','2比耶','2点单','2菜单','2餐盘左','2餐盘右'];
+  static const faces = CaicaiPresetCatalog.faces;
+  static const faceMeanings = CaicaiPresetCatalog.faceMeanings;
+  static const overlayFaces = CaicaiPresetCatalog.overlayFaces;
+  static const winks = CaicaiPresetCatalog.winks;
+  static const actions = CaicaiPresetCatalog.actions;
 
   Future<Map<String, Object?>?> plan({required String user, required String reply,
       required String emotion, required Map<String, dynamic> parameters,
@@ -109,10 +97,11 @@ class CaicaiMotionPlanner {
       {for (final name in overlayFaces) name: faceMeanings[name]!});
     questions['wink_use'] = JevChoiceQuestion(
       '只判断本轮是否适合使用wink家族，不在这里选择具体类型。'
-      '轻巧俏皮、默契、淘气、得意或庆祝时都可自然使用；不要求强烈情绪，不设次数或频率。'
+      '有意给对方眨眼示意、心照不宣、调侃中的一个明确强调点或文字明确描写wink时可用；'
+      '普通俏皮、开心、关心、得意或庆祝不自动等于需要眨眼，可以由眉眼、头身或道具表达。'
       '中性、无关或不合实际语气时不用。可与七种叠加表情、19种情绪和道具同时使用；'
       '已有其他层不是不用的理由。普通形态和小豆丁使用同样的资格，只看本轮语义。',
-      {'yes': '本轮有适合眨眼类预设的俏皮或默契等反应。', 'no': '本轮不适合眨眼类预设。'});
+      {'yes': '本轮有明确适合有意眨眼的示意或强调。', 'no': '本轮不适合眨眼类预设。'});
     questions['wink'] = JevChoiceQuestion(
       '假设本轮要使用wink家族，从三种中选择符合实际语气和程度的一种；这里只判断类型，不判断用不用。'
       '不因候选有更夸张的预设就自动选强度最高的；是否播放由独立的wink_use判断决定。'
@@ -127,20 +116,23 @@ class CaicaiMotionPlanner {
     final speech = SpeechPerformancePlan.candidates(spokenText);
     for (var i = 0; i < speech.length; i++) {
       questions['speech${i}_emotion'] = JevChoiceQuestion(
-        '实际朗读的第${i + 1}段：${speech[i].text}。选择该段的临时表演情绪；'
+        '参照speech_stage.spans第${i + 1}段text，选择该段的临时表演情绪；'
         '允许延续，同一情绪不必切回正常。不要为变化而强选；与原先四拍是不同播放阶段。',
         {'keep': '延续本轮已有情绪', 'normal': '自然平静', for (final e in EmotionCatalog.labelsByKey.entries) e.key: e.value},
         optional: true);
       questions['speech${i}_delivery'] = JevChoiceQuestion(
-        '实际朗读的第${i + 1}段：${speech[i].text}。选择适合本段的小幅表达动作，'
-        '无独立强调可以自然说话；无需每段都做动作。回程由本地处理，不用再安排回落段。',
+        '参照speech_stage.spans第${i + 1}段text，选择适合本段的表达动作，'
+        '认同、好奇、提醒、迟疑、打趣等都可用自然手势，不要求情绪强烈；平直叙述可自然说话。'
+        '同一情绪不等于固定同一手势，按本段语义选择，不为变化硬选。回程由本地处理。',
         SpeechPerformancePlan.deliveries, optional: true);
+      SpeechPerformancePlan.addPresetQuestions(questions, i);
     }
     final answers = await gateway.chooseMany(state: {
-      'user': user, 'reply': reply, 'emotion': emotion,
+      'user': planningText(user, 2000), 'reply': planningText(reply, 4000), 'emotion': emotion,
       'parameter_contract': parameters,
       if (speech.isNotEmpty) 'speech_stage': {
-        'spokenText': spokenText,
+        'spans': [for (var i = 0; i < speech.length; i++)
+          {'index': i + 1, 'text': planningText(speech[i].text, 500)}],
         'note': 'Extra speech-stage cues begin at real audio playback, AFTER the existing immediate four beats. Do not change the original four-beat performance to fill speech duration.',
       },
       'schedule': '4 beats; tempo chooses interval 0.82/0.95/1.10s; choose visible semantic pose changes on multiple beats; intensity scales head/body/root only; each beat can have its own emphasis and root action; root x is fraction of model width and tilt is screen rotation degrees about lower legs; Cubism head values are parameter units, NOT physical angles; authored presets above motion; mouth opening belongs to audio',
@@ -149,6 +141,11 @@ class CaicaiMotionPlanner {
     return {...buildPlan(answers, parameters),
       'speech': SpeechPerformancePlan.decode(speech, answers, {'normal', ...EmotionCatalog.labelsByKey.keys})};
   }
+
+  // This is bounded cosmetic context only. Actual audio text, fingerprints
+  // and the full span positions are unchanged; no chat context is rewritten.
+  static String planningText(String value, int limit) => value.length <= limit ? value
+      : '${value.substring(0, limit ~/ 2)}〔中段略〕${value.substring(value.length - limit ~/ 2)}';
 
   static Map<String, Object?> buildPlan(Map<String, String> answers, Map<String, dynamic> parameters) {
     final frames = <Map<String, Object?>>[];

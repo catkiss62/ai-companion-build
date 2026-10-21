@@ -6,7 +6,7 @@ import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 
 void main() {
-  test('speech candidates share the old batch with no more than sixteen optional questions', () async {
+  test('all speech layers share one batch with at most fifty-six optional questions', () async {
     var calls = 0;
     Map? sent;
     final gateway = JevDecisionGateway(enabledReader: () async => true,
@@ -22,8 +22,8 @@ void main() {
     await CaicaiMotionPlanner(gateway: gateway).plan(user: '你好', reply: '长正文', emotion: 'normal',
       spokenText: List.filled(30, '这是一段需要覆盖后半段的较长语音。').join(), parameters: parameters);
     final questions = sent!['questions'] as Map;
-    expect(calls, 1); expect(questions.length, lessThanOrEqualTo(55));
-    expect(questions.keys.where((k) => k.toString().startsWith('speech')), hasLength(16));
+    expect(calls, 1); expect(questions.length, lessThanOrEqualTo(95));
+    expect(questions.keys.where((k) => k.toString().startsWith('speech')), hasLength(56));
     expect(questions, containsPair('f0_head', anything));
     expect(questions, containsPair('f3_root', anything));
   });

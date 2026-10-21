@@ -403,6 +403,34 @@ final class SenLive2DModel extends CubismUserModel {
     private final CaicaiParameterPlan parameterPlan = new CaicaiParameterPlan();
     private final java.util.Set<String> planOwnedPresets = new java.util.HashSet<>();
     private long planPresetDeadlineNanos;
+    private long planWinkDeadlineNanos;
+    private final CaicaiSpeechPresetLease speechPresets = new CaicaiSpeechPresetLease();
+    private final java.util.Set<String> speechMouthMasks = new java.util.HashSet<>();
+    private final CaicaiSpeechPresetLease.Target speechPresetTarget = new CaicaiSpeechPresetLease.Target() {
+        public boolean acquire(String name) {
+            if (!maidPresetValues.containsKey(name) && !isWinkPreset(name)) return false;
+            for (String active : new java.util.ArrayList<>(activeExpressionNames)) {
+                if (!active.equals(name) && !maidPresetsConflict(name, active)) continue;
+                boolean speechPeace = active.equals("2比耶") && winkOwnsPeace
+                    && speechPresets.owns("比耶wink吐舌");
+                boolean openingPeace = active.equals("2比耶") && winkOwnsPeace
+                    && planOwnedPresets.contains("比耶wink吐舌");
+                if (!active.equals(name) && (speechPresets.owns(active) || speechPeace)) return false;
+                if (openingPeace) continue;
+                if (!planOwnedPresets.contains(active) && !speechPresets.owns(active)) return false;
+            }
+            for (String active : new java.util.ArrayList<>(planOwnedPresets)) {
+                if (active.equals(name) || maidPresetsConflict(name, active)) {
+                    planOwnedPresets.remove(active);
+                    if (!active.equals(name)) stopMaidPreset(active);
+                }
+            }
+            speechMouthMasks.add(name);
+            startMaidPreset(name);
+            return activeExpressionNames.contains(name);
+        }
+        public void release(String name) { stopMaidPreset(name); }
+    };
     private boolean manualPlan;
     private float rootX, rootTilt, motionTempo=1f;
     private final CaicaiRootTiltSmoother rootTiltSmoother = new CaicaiRootTiltSmoother();
@@ -412,6 +440,10 @@ final class SenLive2DModel extends CubismUserModel {
     private String speechKey = "", speechEmotion = "";
     private long speechDeadlineNanos;
     void speechPerformance(String key, String emotion, String frames) throws JSONException {
+        speechPerformance(key, emotion, frames, "", "", "", false);
+    }
+    void speechPerformance(String key, String emotion, String frames,
+            String face, String action, String wink, boolean animate) throws JSONException {
         if (caicaiPat.active() || manualPlan && System.nanoTime() < planPresetDeadlineNanos) {
             releaseSpeechPerformance(); return;
         }
@@ -420,10 +452,12 @@ final class SenLive2DModel extends CubismUserModel {
             if (new JSONArray(frames).length() == 0) speechParameterPlan.release();
             else speechParameterPlan.replace(frames, caicaiTarget());
         }
+        speechPresets.cue(key, face, wink, action, animate, System.nanoTime(), speechPresetTarget);
         speechEmotion = emotion;
         speechDeadlineNanos = System.nanoTime() + 800_000_000L;
     }
     void releaseSpeechPerformance() {
+        speechPresets.release(speechPresetTarget);
         if (speechDeadlineNanos > System.nanoTime()) speechDeadlineNanos = System.nanoTime();
         speechParameterPlan.release();
         speechKey = "";
@@ -494,16 +528,23 @@ final class SenLive2DModel extends CubismUserModel {
             if (!occupied) { startMaidPreset(name); planOwnedPresets.add(name); }
         }
         planPresetDeadlineNanos = System.nanoTime() + 4_120_000_000L; // .38s native release completes by 4.5s
+        planWinkDeadlineNanos = wink == null || wink.isEmpty() ? 0L
+            : System.nanoTime() + CaicaiSpeechPresetLease.releaseAfterNanos(wink);
     }
 
     void playTimedPreset(String name) {
+        releaseSpeechPerformance();
+        speechMouthMasks.clear();
         speechParameterPlan.clear(); speechDeadlineNanos = 0; speechEmotion = "";
         clearParameterPlan();
         if (!maidPresetValues.containsKey(name) && !isWinkPreset(name)) return;
         startMaidPreset(name);
         planOwnedPresets.add(name);
         manualPlan = true;
-        planPresetDeadlineNanos = System.nanoTime() + 4_120_000_000L;
+        planPresetDeadlineNanos = System.nanoTime() + (isWinkPreset(name)
+            ? CaicaiSpeechPresetLease.releaseAfterNanos(name) + 380_000_000L : 4_120_000_000L);
+        planWinkDeadlineNanos = isWinkPreset(name)
+            ? System.nanoTime() + CaicaiSpeechPresetLease.releaseAfterNanos(name) : 0L;
     }
 
     void stopConversationPlan() { releaseSpeechPerformance(); if(!manualPlan) clearParameterPlan(); }
@@ -513,6 +554,7 @@ final class SenLive2DModel extends CubismUserModel {
         for (String name : new java.util.ArrayList<>(planOwnedPresets)) stopMaidPreset(name);
         planOwnedPresets.clear();
         planPresetDeadlineNanos = 0L;
+        planWinkDeadlineNanos = 0L;
         manualPlan = false;
         if (activeExpressionNames.contains("变小") && !activeExpressionNames.contains("2插手")) startMaidPreset("2插手");
     }
@@ -549,13 +591,23 @@ final class SenLive2DModel extends CubismUserModel {
         long now = System.nanoTime();
         float speechWeight = speechEmotion.isEmpty() ? 0 : Math.max(0f,
             Math.min(1f, (speechDeadlineNanos + 350_000_000L - now) / 350_000_000f));
-        if (now > speechDeadlineNanos) speechParameterPlan.release();
+        if (now > speechDeadlineNanos) {
+            speechParameterPlan.release();
+            speechPresets.release(speechPresetTarget);
+        }
+        speechPresets.tick(now, speechPresetTarget);
         float baseWeight = caicaiEmotion.weight(now);
         caicaiFace.update(speechWeight > 0 ? speechEmotion : caicaiEmotion.emotion(),
             delta, caicaiTarget(), speechWeight + baseWeight * (1 - speechWeight), speechWeight <= 0);
     }
     void setCaicaiLook(boolean active, float x, float y) { caicaiIdle.look(active, x, y); }
     private void applyParameterPlan(float delta) {
+        if (planWinkDeadlineNanos > 0 && System.nanoTime() >= planWinkDeadlineNanos) {
+            planWinkDeadlineNanos = 0L;
+            for (String name : new java.util.ArrayList<>(planOwnedPresets)) {
+                if (isWinkPreset(name)) { planOwnedPresets.remove(name); stopMaidPreset(name); }
+            }
+        }
         if (planPresetDeadlineNanos > 0) {
             if (System.nanoTime() >= planPresetDeadlineNanos) {
                 planPresetDeadlineNanos = 0L;
@@ -567,6 +619,7 @@ final class SenLive2DModel extends CubismUserModel {
         }
         parameterPlan.apply(delta, caicaiTarget());
         if (caicaiPat.active() || manualPlan) {
+            releaseSpeechPerformance();
             speechParameterPlan.clear(); speechDeadlineNanos = 0; speechEmotion = "";
         } else speechParameterPlan.apply(delta, caicaiTarget());
         if (delta > 0) caicaiIdle.applyAttention(caicaiTarget(),caicaiPat.followWeight());
@@ -642,7 +695,7 @@ final class SenLive2DModel extends CubismUserModel {
         // The authored angry pose crossfades from the previous face for half a second. During
         // that transition, keep the mouth closed so an intermediate open-mouth keyform cannot
         // flash before the intended expression settles.
-        if (angryMouthGuardSeconds > 0f) {
+        if (angryMouthGuardSeconds > 0f && !speechMouthMasks.contains("1生气")) {
             setParameter("ParamMouthOpenY", 0f);
             angryMouthGuardSeconds = Math.max(0f, angryMouthGuardSeconds - frameDelta);
         }
@@ -1926,10 +1979,16 @@ final class SenLive2DModel extends CubismUserModel {
         for (Map.Entry<String, PresetBlend> entry : maidPresetBlends.entrySet()) {
             PresetBlend blend = entry.getValue();
             blend.advance(dt);
-            if (blend.weight < .00001f) continue;
+            if (blend.weight < .00001f) {
+                if (speechMouthMasks.remove(entry.getKey()) && "1生气".equals(entry.getKey())
+                        && !activeExpressionNames.contains("1生气")) angryMouthGuardSeconds = 0f;
+                continue;
+            }
             Map<String, Float> parameters = maidPresetValues.get(entry.getKey());
             if (parameters == null) continue;
             for (Map.Entry<String, Float> parameter : parameters.entrySet()) {
+                if (speechMouthMasks.contains(entry.getKey())
+                        && CaicaiSpeechPresetLease.mouthParameter(parameter.getKey())) continue;
                 additions.merge(parameter.getKey(), parameter.getValue() * blend.weight, Float::sum);
             }
         }
@@ -1937,7 +1996,7 @@ final class SenLive2DModel extends CubismUserModel {
             addParameter(entry.getKey(), entry.getValue());
         }
         float angry = maidBlend("1生气").weight;
-        if (angry > .00001f) setParameter("PUCKER", angry);
+        if (angry > .00001f && !speechMouthMasks.contains("1生气")) setParameter("PUCKER", angry);
         float small = maidBlend("变小").weight;
         if (small > .00001f) {
             int mouth = findParameterIndex("ParamMouthForm");

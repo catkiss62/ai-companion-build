@@ -99,7 +99,7 @@ def main() -> None:
     )
     require(
         immersive,
-        "readFinalReplyApiKey",
+        "ImmersiveModelSelection.resolve",
         "_streamFinalRequest",
         "immersive_pending_reply_",
         "regenerateIncompleteReply",
@@ -107,6 +107,10 @@ def main() -> None:
         "本轮已由 DeepSeek 兜底",
         "immersive_gemini_fallback_notice_",
     )
+    # +368: room body credentials come from the user's independent selection;
+    # the existing retry/draft/fallback contracts above remain mandatory.
+    require(read("lib/core/immersive/immersive_model_selection.dart"),
+        "readDeepSeekApiKey", "readAiWangYouApiKey", "readPortableSettings")
     require(
         immersive_page,
         "height: 28",

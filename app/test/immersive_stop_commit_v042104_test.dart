@@ -77,11 +77,12 @@ class _ObservedRepository extends ImmersiveRoomRepository {
     required GenerationCancellationToken cancellation, required BrainWorkFence workFence,
     required String content,
     String reasoningContent = '', String formContextJson = '', String? expectedDraft,
+    Map<String, Object?>? modelRoute,
   }) async {
     await beforeSubmission?.call();
     final pending = super.addAssistantReply(roomId: roomId, sourceUser: sourceUser,
       cancellation: cancellation, workFence: workFence, content: content, reasoningContent: reasoningContent,
-      formContextJson: formContextJson, expectedDraft: expectedDraft);
+      formContextJson: formContextJson, expectedDraft: expectedDraft, modelRoute: modelRoute);
     submitted.complete();
     final message = await pending;
     await afterCommit?.call();
@@ -347,8 +348,10 @@ void main() {
       for (final cut in ['queued', 'afterWrites']) {
         test('$path ${relay ? 'relay' : 'internal'} truncated catch: late Stop at draft $cut cannot save a new confirmable reply', () async {
           if (path == 'regenerate') await seedDraft();
+          await db.setSetting('immersive_model_source_v1', relay ? 'second' : 'first');
           FlutterSecureStorage.setMockInitialValues({
             'deepseek_api_key': 'fixture-key',
+            if (relay) 'aiwangyou_final_reply_model': 'gemini-fixture',
             if (relay) 'chat_api_provider': 'aiwangyou_gemini',
             if (relay) 'aiwangyou_gemini_api_key': 'fixture-relay-key',
           });

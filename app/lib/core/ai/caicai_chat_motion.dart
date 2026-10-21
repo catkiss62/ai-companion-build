@@ -223,6 +223,10 @@ class CaicaiChatMotion {
       final accepted = await _command('speechCue', {
         'lease': lease, 'cue': key, 'emotion': _spokenEmotion,
         'frames': animate ? SpeechPerformancePlan.frames(cue['delivery']?.toString() ?? 'hold', _parameters) : const [],
+        'animate': animate,
+        'face': cue['face']?.toString() ?? '',
+        'wink': cue['wink']?.toString() ?? '',
+        'action': cue['action']?.toString() ?? '',
         '_motion_owner': owner,
       });
       if (accepted == false && _current(token, owner)) await stop();

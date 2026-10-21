@@ -380,6 +380,12 @@ public final class CaicaiCompanionView extends GLSurfaceView implements SenCompa
             java.util.function.BooleanSupplier valid) {
         queueRenderer(() -> { if (valid.getAsBoolean()) renderer.speechPerformance(key, emotion, frames); });
     }
+    public void speechPerformance(String key, String emotion, String frames,
+            String face, String action, String wink, boolean animate,
+            java.util.function.BooleanSupplier valid) {
+        queueRenderer(() -> { if (valid.getAsBoolean())
+            renderer.speechPerformance(key, emotion, frames, face, action, wink, animate); });
+    }
     public void releaseSpeechPerformance(java.util.function.BooleanSupplier valid) {
         queueRenderer(() -> { if (valid.getAsBoolean()) renderer.releaseSpeechPerformance(); });
     }
