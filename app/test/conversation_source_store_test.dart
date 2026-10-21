@@ -281,7 +281,10 @@ void main() {
     expect((await capture('after-restore')).ingestSeq, greaterThan(high));
 
     final legacy = jsonDecode(jsonEncode(await db.exportAll())) as Map<String, dynamic>;
+    // This fixture predates source sequences and the history directory.
+    legacy.remove('conversation_history_catalog_version');
     final tables = legacy['tables'] as Map;
+    tables.remove('conversation_history_catalog');
     for (final row in tables['messages'] as List) { (row as Map).remove('source_ingest_seq'); }
     (tables['settings'] as List).removeWhere((row) =>
       (row as Map)['key'] == ConversationSourceStore.sequenceKey ||

@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:io';
 import 'package:ai_companion_localfirst/core/agent/agent_tool.dart';
 import 'package:ai_companion_localfirst/core/agent/agent_tool_planner.dart';
 import 'package:ai_companion_localfirst/core/agent/agent_tool_registry.dart';
@@ -251,7 +252,9 @@ void main() {
     final catalog=tables[ConversationHistoryCatalog.table] as List;
     expect(catalog,hasLength(1));
     expect((catalog.single as Map)['preview'],List.filled(96,'🐳').join());
-    final target=await AppDatabase.createForTesting(databaseFactoryFfi);
+    final targetDirectory=await Directory.systemTemp.createTemp('history-restore-');
+    final target=await AppDatabase.createForTesting(databaseFactoryFfi,
+      path:'${targetDirectory.path}/target.db');
     try {
       await target.importAll(backup);
       await target.setSetting('active_brain','1');
@@ -259,7 +262,10 @@ void main() {
       final exported=await target.exportAll();
       expect((exported['tables'] as Map)[ConversationHistoryCatalog.table],catalog);
       expect((await ConversationHistoryReader(target).read({'source_id':'unicode'})).promptData,contains(content));
-    } finally {await target.closeForTesting();}
+    } finally {
+      await target.closeForTesting();
+      await targetDirectory.delete(recursive:true);
+    }
   });
 
   test('legacy backups rebuild catalog from originals and never retain a foreign directory',() async {

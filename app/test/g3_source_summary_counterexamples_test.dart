@@ -193,6 +193,9 @@ void main() {
     final snapshot = await archive();
     final tables = snapshot['tables'] as Map;
     (tables['messages'] as List).removeWhere((row) => (row as Map)['id'] == highest.message.id);
+    // A synthetic deletion must keep the declared directory consistent too.
+    (tables['conversation_history_catalog'] as List).removeWhere((row) =>
+      (row as Map)['message_id'] == highest.message.id);
     (tables['settings'] as List).removeWhere((row) =>
       (row as Map)['key'] == ConversationSourceStore.sequenceKey);
     await db.importAll(snapshot);
