@@ -1092,6 +1092,10 @@ jobs:
           channel: stable
           flutter-version: '3.44.9'
 
+      - name: Install and verify the existing NDK revisions with fresh retries
+        timeout-minutes: 20
+        run: bash app/tools/bootstrap_ci_ndk.sh
+
       - name: Restore the existing persistent private test signing identity
         shell: bash
         env:
@@ -1176,6 +1180,7 @@ jobs:
           # python3 tools/validate_v0401_album_identity_closure.py
           # python3 tools/validate_v0405_album_image_binding.py
           python3 tools/test_release_identity_workflow.py
+          python3 tools/test_ci_ndk_bootstrap.py
           python3 tools/run_validation_suite.py
 
       - name: Apply reviewed legacy pet PNG revision after frozen-pack validation
