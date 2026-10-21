@@ -1131,3 +1131,17 @@ SHA256：65275a5aede7a3e833acc222729c15342664cb2dfd3cb9b0ff0ef16359a872f4。
 +365构建等待期间定点复核发现并修正“延续”情绪在跳段接入时的归属：如果计划前段选择害羞、后段选择延续，而前段因静音/计划晚到从未呈现，旧协调器只读取已经播过的情绪，会误用本轮起始表情。现从当前候选段向前解析计划内最近明确情绪，保持回落/延续不逐句归零；只遍历至多8段，不补演旧动作、不增加请求。新增静音跨段恢复回归，并给原有晚到接入回归增加情绪断言。此修订会以新源提交重新运行CI；d5ec4c72的在途结果不代替最终交付。
 
 +365发布说明同步为本轮实际的先行四拍保留、真实TTS语义表演、单次JEV最多55题与合格stop尾流2秒窄修；移除从+364继承的模型对谈修复文案。仅改测试草稿Release说明模板，未发布正式版。代码与测试到此冻结，后续只依据最终源CI结果处理必要失败。
+
+
+### 2026-10-21 · +365 实现、完整CI及同签名APK交付
+
+最终构建源提交c3bec538048ab2b8b4bd24f0d3343eedc0fa96a6，源树dd22540c1b9bcd38a316b19ead774e26b98a9a39；应用v0.42.121+365、schema61/快照7。完整CI https://github.com/catkiss62/ai-companion-build/actions/runs/39525024703 已success，原生job118977590708、打包job118979792793；最终定向CI https://github.com/catkiss62/ai-companion-build/actions/runs/39525024687 /job118977541682已success。本条后续提交仅补方案/总账并[skip ci]，APK仍对应上述构建源，不把文档提交冒充已构建源。
+
+实测自动结果：154项源码守卫通过；Kotlin所选单元测试通过（含新增SpeechPlaybackTimelineTest）；Dart分析0 error，727项非阻断提示（60 warning、667 info）；全量Flutter 2430通过，定向715通过，独立创作/存档恢复168通过；Android15模拟器原生构造、生命周期、导入等52通过。回归包含原四拍、真实播放匹配、静音/恢复/跨段情绪延续、停止/晚到、重播租约、失败音频段偏移、语义候选覆盖与同批55题上限；不同套件有重复覆盖。此前失败和中间候选保留为过程记录，不作为最终通过依据。
+
+行为交付：原有先行四拍继续承接TTS合成等待；新增语音层依真实AudioTrack播放帧、实际朗读指纹与消息/版本/模型/动作owner/音频lease匹配接入。短句少量候选、长回复最多8段，允许保持/无独立动作，回落本地完成；跳段的“延续”按计划前缀求最近明确情绪。播放/回落/恢复/重播不购新JEV，每轮仍一次原规划批次，题数上限39+2N=55；实际token/cost及延迟尚未用真实付费调用测量。PCM口型、TTS分段/预填充/推理调度沿旧实现。第二通道仅合格纯正文stop后的固定2秒尾流与必要计时，首输出等待、检查/重试/DS兜底未扩改；它不能解决中转排队和远端首输出慢。
+
+APK：https://github.com/catkiss62/ai-companion-build/releases/download/untagged-ff27c4175032add5b284/AI-Companion-v0.42.121-365-Relay-Tail-Speech-Performance-APK.apk
+测试草稿：https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-ff27c4175032add5b284（仍draft，未正式发布/合并main）。文件738883694字节；SHA-256 65e70b13d035516327289804813a1099fe08b8da929e8dc7050c021531fa3478。GitHub Release asset661021354的服务端digest与CI生成摘要、成功monitor一致，monitor源HEAD=c3bec538048ab2b8b4bd24f0d3343eedc0fa96a6；受本地执行环境离线限制，本轮没有另行下载整包后独立复算。包内实际元数据核对com.aicompanion.localfirst、0.42.121+365；apksigner核验原证书30:5E:B3:D8:09:83:B9:63:C6:48:18:DD:F1:AD:56:1F:27:9D:E6:D4:7B:3E:D2:C7:81:AD:A4:48:C7:C2:51:48，原签名保持。APK内Genie、宠物完整源/修订PNG、塔罗、离线Memory Galaxy和房间depth资源检查均通过。
+
+状态：IMPLEMENTED / CI PASSED / SAME-SIGNATURE DRAFT APK READY；真机视觉自然度、实际JEV用量/耗时及真实语音长回复效果待用户验证，未伪装成真机通过。语义对齐为真实音频段内字符比例估算，不宣称逐词/音素同步。方案第10节同步实际实现和验收。未上传用户私人备份、诊断正文或密钥，未改世界书/存档协议；B站PC方案等继续延期。旧本地工作区在掉线前只到6f49b3f/c738e610同树，后续恢复须先对齐远端再编辑，不能以旧本地覆盖本轮结果。
