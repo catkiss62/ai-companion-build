@@ -6,9 +6,9 @@
 
 ## 当前接班快照
 
-- 仓库：catkiss62/ai-companion-build；开发分支：agent/v042107-review-recovery。用户10月20日23:39明确授权公开推送本轮代码、测试、总账与CI/测试APK；不合并main、不正式发布。
-- App已交付：v0.42.121+365，schema61 / Snapshot protocol7不变。最终构建源码c3bec538048ab2b8b4bd24f0d3343eedc0fa96a6，tree dd22540c1b9bcd38a316b19ead774e26b98a9a39；之后0ebd67c等仅为交付文档。+364基线993a4471/tree8ea373e0保留为对照。
-- 已实现A–F：闲聊行动参考化并允许短答收住；普通/主动统一默认一个动作及首发/修正提示；精简口语世界书；表达主题AI Self按有情境、可修订观察解释；后台真实经历的短期回忆上下文；主动选题具体材料及愿望新提议判因诊断。保留成长，不增加性格轮换、固定吐槽/造梗配额或强制扩话。
+- 仓库：catkiss62/ai-companion-build；开发分支：agent/v042107-review-recovery。用户10月20日23:39已有授权，且2026-10-21在本窗口直接确认允许公开推送本轮代码、测试、总账与CI/测试APK；不合并main、不正式发布。
+- 前一已交付基线：v0.42.121+365，schema61 / Snapshot protocol7不变。最终构建源码c3bec538048ab2b8b4bd24f0d3343eedc0fa96a6，tree dd22540c1b9bcd38a316b19ead774e26b98a9a39；之后0ebd67c等仅为交付文档。+364基线993a4471/tree8ea373e0保留为对照。
+- +365保留背景A–F：闲聊行动参考化并允许短答收住；普通/主动统一默认一个动作及首发/修正提示；精简口语世界书；表达主题AI Self按有情境、可修订观察解释；后台真实经历的短期回忆上下文；主动选题具体材料及愿望新提议判因诊断。保留成长，不增加性格轮换、固定吐槽/造梗配额或强制扩话。
 - 升级/存档：新口语默认使用独立一次性标记，只替换精确已知旧默认（含已核实安装态变体），保留ID/开关/概率/自定义正文；不批改用户备份或历史AI Self。回忆不新增schema/快照协议，也不缓存私密正文或增加模型请求。
 - 回忆边界：复用现有心跳和开关，每日最多一批2条、24h失效、每轮最多1条、后台同条7天冷却；普通明确相关检索保持。按真实来源/版本/身份/删除更正校验，普通和主动成功提交原子消费，失败停止不消费；不自动产生话题、Thought、drive、任务或人格证据。
 - +365最终CI：完整39525024703/build118979792793成功，154源码门、Kotlin、2430全量Flutter、168打包前恢复和Android15原生118977590708的52项通过；定向39525024687/flutter118977541682通过715项。Dart分析0 error、727项非fatal提示（60 warning/667 info），不能写零告警；详见账末最终交付。
@@ -22,11 +22,13 @@
 
 - 本地恢复交接：2026-10-21环境恢复后已从+363对齐远端+365。旧HEAD 0dc9921及原有16个本地提交保留在checkpoint/v042119-recovered-20261021，36行未提交分析保留于stash26934ad7和checkpoints/recovered-workspace-20261021，且已确认原文完整存在于当前总账。不将旧工作区覆盖远端，不为文档收尾重打APK。
 
-- 2026-10-21最新只读检查：语音嘴形/悬浮聊天退出/圆球边界，见app/docs/LIVE2D_MOUTH_FLOATING_WINDOW_AUDIT_2026-10-21.md及账末。尚未实施新修复：未来仅隔离语音JEV嘴形，四拍嘴部和其他表情动作保留；浮窗存在生命周期/回收及高频重绘风险，缺手机崩溃堆栈；圆球已有边界吸附，旋转贴边待补。
+- 2026-10-21前序只读检查已在+366实施：语音仅隔离持续情绪嘴形，四拍/PCM及其他表情动作保留；浮窗生命周期/回收和高频重绘修复，普通球旋转贴边已补。原审查app/docs/LIVE2D_MOUTH_FLOATING_WINDOW_AUDIT_2026-10-21.md只代表当时状态；缺手机崩溃堆栈，不宣称已证实唯一退出根因。
 
-- 2026-10-21手机活动欲望复核完成（仅分析）：新活动证据/通知隔离仍有效；存在每次感知事件奖励封顶造成的频率依赖、另路每次+0.004好奇、同源长使用念头叠加及55分钟动量残留。按公式90秒/4分钟同样12分钟使用和8条/分钟留存无障碍事件，动量分别0.8507/0.3883；非真机发送结果。Live2D/悬浮窗仍按既有审查方案待实施，详见账末本轮完成记录。
+- 手机活动复核及+366实现：旧按次事件奖励存在采样频率依赖（前序公式示例12分钟0.8507/0.3883，仅静态分析）。现保留使用0.009/分钟，事件共用0.003/分钟补充预算及同曲线积分，去掉另路每次+0.004好奇；90秒/4分钟同证据分段回归通过。55分钟半衰期、12分钟念头冷却、长使用观察及原额度/发送门保留；实际平衡仍待真机。
 
-- +366本地实现完成，用户已在本窗口明确授权公开推送及CI/APK，正在核验并继续交付。语音嘴形/浮窗漏洞与性能/圆球旋转/手机活动归一已写，16项本地JVM和23身份检查通过；完整CI/APK/真机待验。专项及后续入口app/docs/OVERLAY_PRESENCE_FIX_v0.42.122.md。此前审批阻断经过保留，+365继续为已交付基线。
+- 本轮测试APK v0.42.122+366已备妥：最终源码7068d8cc964ca3510ce35163f75d61eb7f7f5329 / tree9eea87dea30f593def7d9ecc6dfca3ebffd2d257；完整39545604254/build119045000418成功，154源码门、Kotlin、2439全量Flutter、168打包前恢复、Android15的52项通过；专项39545604246的740项通过。分析0 error、727非fatal（60 warning/667 info）。状态IMPLEMENTED / CI PASSED / APK READY / TRUE DEVICE PENDING。
+
+- +366交付身份：738891150 bytes，SHA256 c06518dcf675425edccddf0b1cda2915c3e00f9bf9e753f6cea573f20c39ae07，原签名/包名/版本/包内资源核验通过；测试草稿https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-abffa19aa2da321fc89c 。源码及总账已在授权分支，未合并main或正式发布；实施、失败经过及待验入口app/docs/OVERLAY_PRESENCE_FIX_v0.42.122.md及账末最终交付。
 
 <!-- END QUICK HANDOFF INDEX -->
 
@@ -1235,3 +1237,24 @@ APK：https://github.com/catkiss62/ai-companion-build/releases/download/untagged
 
 
 +366图片异步加载末次复核：新缓存路径原本在解码失败时会保留180dp空白，队列拒绝后又可能因行复用不再重试，属于本次性能优化可能引入的显示回归。已改为缓存未命中先隐藏图片View，成功且窗口/View身份仍有效后显示；缺失/损坏图片保持原先不占位行为。队列满时对同一仍有效View最多4次退避重试，不扩大队列、不阻塞主线程。内层解码runCatching使用显式标签消除同名嵌套歧义。当前93d62844的Dart分析通过、定向仍在运行，最终将以含此修正的新候选完整验证；不将中途被替换候选当最终CI。
+
+
+## 2026-10-21 · +366 最终完整CI与同签名测试APK交付
+
+用户已在本窗口直接明确允许本轮代码、测试、总账公开推送到catkiss62/ai-companion-build的agent/v042107-review-recovery并运行CI/测试APK。最终构建源码7068d8cc964ca3510ce35163f75d61eb7f7f5329，tree9eea87dea30f593def7d9ecc6dfca3ebffd2d257；之后仅文档收尾，不以文档提交替代APK源码身份。版本0.42.122+366，schema61 / Snapshot protocol7保持。
+
+实际修改与边界：语音FaceMotion持续情绪层不再写ParamMouthForm/MOUTHX/SHRUG，PCM张合、原四拍mouth（含重叠/吐舌）和眉眼/头部动作保留。浮窗以Service实例及窗口代次约束IME、历史/翻译/图片等旧异步结果，销毁取消自身任务，移除失败保留root所有权且最多3次自动尝试，展开窗口detach有界恢复并保留草稿；诊断不含私密正文。140ms生成轮询及取消/提交语义保持，只在可见快照变化时刷新，复用不变行；8MiB LRU、单线程/24项后台队列/512边长解码，失败隐藏占位、队列满最多4次退避重试。普通球方向/比例在旋转及尺寸变化后重映射，缩入及桌宠规则保持。手机使用0.009/分钟不改，切换/无障碍共用0.003/分钟补充预算，区间证据按55分钟同曲线积分，就绪增量阈值按4分钟参考归一；删除每次感知独立+0.004好奇。12分钟念头冷却、35分钟长使用观察、原主动额度及发送门不改。
+
+最终专项39545604246/flutter119043050256成功，740项通过；完整39545604254/build119045000418成功，154源码门、Kotlin完整生产编译与相关单测、2439全量Flutter、168打包前存档/恢复检查通过。Android15原生119043328096实跑52项通过。分析0 error，727非fatal诊断（60 warning/667 info），不能写零告警。各测试组有重叠，不相加作独立总数。固定资源恢复、release构建、包内宠物/Genie/塔罗/Memory Galaxy/房间深度等检查及版本签名检查通过。本地16项JVM和23项隔离发布检查为补充；此前本地154门初轮135通过/19未完成的记录不删除，已由本轮完整CI154通过解决。
+
+APK：AI-Companion-v0.42.122-366-Overlay-Presence-Fix-APK.apk；738891150 bytes。CI checksum、成功monitor（ci-monitor-v0345/.ci/v042120-monitor.txt，head7068d8cc/run39545604254）及线上release asset digest均为c06518dcf675425edccddf0b1cda2915c3e00f9bf9e753f6cea573f20c39ae07。实际包名com.aicompanion.localfirst，0.42.122+366；原签名SHA256=305eb3d80983b963c64818ddf1ad561f279de6d47b3ed2c781ada448c7c25148，通过既有同签名覆盖安装身份门。
+
+测试草稿：https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-abffa19aa2da321fc89c
+APK下载：https://github.com/catkiss62/ai-companion-build/releases/download/untagged-abffa19aa2da321fc89c/AI-Companion-v0.42.122-366-Overlay-Presence-Fix-APK.apk
+完整CI：https://github.com/catkiss62/ai-companion-build/actions/runs/39545604254
+专项CI：https://github.com/catkiss62/ai-companion-build/actions/runs/39545604246
+Actions备用产物：https://github.com/catkiss62/ai-companion-build/actions/runs/39545604254/artifacts/12322147080 （2026-11-04到期）。测试草稿保留draft，需有权限的GitHub账号；不合并main、不正式发布。
+
+失败/恢复补记：d705fcab及93d62844中途候选由最终7068d8cc替换/取消，不将它们计为最终验证。最终缓存补丁修复本轮可能引入的解码失败空白与队列拒绝后不重试；测试就绪前提改为12/24/36分钟六组，策略阈值未为迎合测试降低。新会话恢复时旧functions.wait cell43已不存在，重新读取实际远端CI即确认成功，不是CI故障。GitHub附件下载工具因ZIP731705733 bytes超过512MiB而拒绝获取；不改变已成功构建/校验的APK，本次提供已核验草稿和Actions下载，不宣称另存了会话APK附件。
+
+实施文档app/docs/OVERLAY_PRESENCE_FIX_v0.42.122.md和本账快照同步到IMPLEMENTED / CI PASSED / APK READY / TRUE DEVICE PENDING；根目录v2入口继续冻结。未得到原手机崩溃堆栈，不宣称已证实唯一根因或真机问题全消失。语音嘴形自然度、浮窗反复关闭重开/IME/旋转/图片及退出复现、手机分享欲望的实际平衡均待真机观察；未调用真实付费模型。+365及更早待观察项保持。

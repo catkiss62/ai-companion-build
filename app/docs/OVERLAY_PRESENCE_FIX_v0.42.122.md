@@ -1,6 +1,6 @@
 # v0.42.122+366 语音、悬浮窗及手机活动修复
 
-状态：DESIGNED / IN PROGRESS；尚未CI或真机通过。
+状态：IMPLEMENTED / CI PASSED / APK READY / TRUE DEVICE PENDING。最终源码7068d8cc；完整CI及同签名测试APK已完成，真机观察待用户验收。
 基线：ac4ca898 / 已交付0.42.121+365，分支agent/v042107-review-recovery。
 
 ## 已确认范围
@@ -13,7 +13,7 @@
 
 ## 验证
 
-手机纯策略用相同12/24分钟证据在90秒/4分钟分段比较；覆盖无事件、事件密集、纯被动事件、reset/通知/零时间和既有独立念头。
+手机纯策略用相同12/24/36分钟证据在90秒/4分钟分段比较；覆盖无事件、事件密集、纯被动事件、reset/通知/零时间和既有独立念头。
 Live2D验证语音屏蔽嘴部写入而保留眉眼，默认四拍路径仍可写嘴；重叠/迟到/手动规则沿用原回归。
 窗口覆盖旧实例重启、IME关闭重开、移除失败/已detach恢复、不变快照、缓存上限和旧请求回填，圆球覆盖左右贴边旋转/自由位置/缩入。
 源码门、Dart分析/全量Flutter、Kotlin/Android15原生及同签名APK走现有CI；本地缺SDK时如实登记，不替代真机验收。
@@ -52,3 +52,25 @@ Live2D验证语音屏蔽嘴部写入而保留眉眼，默认四拍路径仍可�
 
 
 +366图片异步加载末次复核：新缓存路径原本在解码失败时会保留180dp空白，队列拒绝后又可能因行复用不再重试，属于本次性能优化可能引入的显示回归。已改为缓存未命中先隐藏图片View，成功且窗口/View身份仍有效后显示；缺失/损坏图片保持原先不占位行为。队列满时对同一仍有效View最多4次退避重试，不扩大队列、不阻塞主线程。内层解码runCatching使用显式标签消除同名嵌套歧义。当前93d62844的Dart分析通过、定向仍在运行，最终将以含此修正的新候选完整验证；不将中途被替换候选当最终CI。
+
+
+## 最终验证与测试APK交付（2026-10-21）
+
+最终构建源码：7068d8cc964ca3510ce35163f75d61eb7f7f5329；tree 9eea87dea30f593def7d9ecc6dfca3ebffd2d257。应用版本0.42.122+366，包名com.aicompanion.localfirst，schema61 / Snapshot protocol7不变。以下收尾只更新文档，不重打已核验APK。
+
+- 专项CI 39545604246 / flutter119043050256：740项通过。
+- 完整CI 39545604254 / build119045000418：154源码验证、Kotlin生产编译与单元测试、2439全量Flutter、168打包前存档/恢复测试通过，release APK构建及包内资源检查通过。
+- Android15原生119043328096：52项通过；不是手机真机验收。
+- Dart分析0 error，仍有727项非fatal诊断（60 warning / 667 info），不称零告警。上述测试有重叠，不累加成互不重叠的总数。
+- 原签名核验通过：305eb3d80983b963c64818ddf1ad561f279de6d47b3ed2c781ada448c7c25148；保留既有同签名覆盖安装路径。
+- APK：AI-Companion-v0.42.122-366-Overlay-Presence-Fix-APK.apk，738891150 bytes。CI、成功monitor及GitHub release asset digest一致：c06518dcf675425edccddf0b1cda2915c3e00f9bf9e753f6cea573f20c39ae07。
+- 测试草稿：https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-abffa19aa2da321fc89c
+- APK下载：https://github.com/catkiss62/ai-companion-build/releases/download/untagged-abffa19aa2da321fc89c/AI-Companion-v0.42.122-366-Overlay-Presence-Fix-APK.apk
+- 完整CI：https://github.com/catkiss62/ai-companion-build/actions/runs/39545604254
+- 备用Actions产物：https://github.com/catkiss62/ai-companion-build/actions/runs/39545604254/artifacts/12322147080（2026-11-04到期）。
+
+先前d705fcab、93d62844候选CI由后续修订替换/取消，不作为最终通过依据。图片解码失败隐藏占位、队列拒绝后有界重试已包含在上述最终源码和完整验证中。GitHub附件下载接口拒绝731705733-byte ZIP，原因是接口512MiB大小上限；这不是构建失败。本次交付使用已核验GitHub草稿/Actions链接，未宣称已在会话中另存APK附件。
+
+本次最终修改：语音持续情绪层嘴形隔离并保留原四拍及PCM张合；浮窗实例/窗口生命周期、IME和异步回填保护、移除失败保留所有权与有界恢复；可见列表去重及行复用、8MiB后台图片缓存；普通球旋转贴边重映射；手机活动事件加分按时间共享预算并去掉独立每次好奇奖励。没有改主动聊天次数、发送门和55分钟半衰期。
+
+唯一当前总账app/docs/ledger/AI_Companion_总账_v3.md同步更新；根目录v2入口保持冻结。仍为测试draft，不合并main、不正式发布。缺手机崩溃堆栈，只能确认修复代码中已发现的漏洞，不能宣称证实唯一崩溃根因。语音嘴形观感、浮窗关闭重开/键盘/旋转/图片的实际表现，以及手机使用时分享欲望的平衡仍待真机观察；未调用真实付费模型。
