@@ -31,6 +31,9 @@ jobs:
       - name: Focused source and background regression suite
         run: >-
           flutter test --timeout 60s --reporter expanded
+          test/phone_activity_balance_v042122_test.dart
+          test/phone_activity_evidence_v04273_test.dart
+          test/presence_intelligence_test.dart
           test/phone_history_v042105_test.dart
           test/wish_mechanism_v042105_test.dart
           test/autonomous_duration_v042105_test.dart

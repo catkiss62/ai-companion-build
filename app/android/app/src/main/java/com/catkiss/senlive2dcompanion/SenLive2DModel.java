@@ -552,7 +552,7 @@ final class SenLive2DModel extends CubismUserModel {
         if (now > speechDeadlineNanos) speechParameterPlan.release();
         float baseWeight = caicaiEmotion.weight(now);
         caicaiFace.update(speechWeight > 0 ? speechEmotion : caicaiEmotion.emotion(),
-            delta, caicaiTarget(), speechWeight + baseWeight * (1 - speechWeight));
+            delta, caicaiTarget(), speechWeight + baseWeight * (1 - speechWeight), speechWeight <= 0);
     }
     void setCaicaiLook(boolean active, float x, float y) { caicaiIdle.look(active, x, y); }
     private void applyParameterPlan(float delta) {

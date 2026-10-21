@@ -10,7 +10,9 @@ import android.content.IntentFilter
 import android.content.pm.ServiceInfo
 import android.content.res.Configuration
 import android.graphics.Color
+import android.graphics.Bitmap
 import android.graphics.BitmapFactory
+import android.util.LruCache
 import android.graphics.Paint
 import android.graphics.PixelFormat
 import android.graphics.Typeface
@@ -53,6 +55,11 @@ import io.flutter.FlutterInjector
 import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.embedding.engine.dart.DartExecutor
 import io.flutter.plugin.common.MethodChannel
+import java.io.File
+import java.lang.ref.WeakReference
+import java.util.concurrent.ArrayBlockingQueue
+import java.util.concurrent.ThreadPoolExecutor
+import java.util.concurrent.TimeUnit
 import java.text.SimpleDateFormat
 import java.util.Calendar
 import java.util.Date
@@ -74,6 +81,19 @@ import kotlin.math.hypot
  */
 class OverlayBubbleService : Service() {
     private lateinit var windowManager: WindowManager
+    private val lifetime = OverlayWindowSession()
+    private var chatRemovalPending = false
+    private var chatRemovalAttempts = 0
+    private var chatHealthRecoveryAttempts = 0
+    private var lastRenderedGeneration: List<Any?>? = null
+    private val thumbnailCache = object : LruCache<String, Bitmap>(8 * 1024) {
+        override fun sizeOf(key: String, value: Bitmap): Int =
+            (value.allocationByteCount / 1024).coerceAtLeast(1)
+    }
+    private data class ThumbnailTarget(val view: WeakReference<ImageView>, val epoch: Long)
+    private val pendingThumbnails = mutableMapOf<String, MutableList<ThumbnailTarget>>()
+    private val thumbnailExecutor = ThreadPoolExecutor(1, 1, 0L, TimeUnit.MILLISECONDS,
+        ArrayBlockingQueue<Runnable>(24), ThreadPoolExecutor.AbortPolicy())
 
     private var bubbleRoot: FrameLayout? = null
     private var badge: TextView? = null
@@ -468,6 +488,7 @@ class OverlayBubbleService : Service() {
 
     override fun onTrimMemory(level: Int) {
         super.onTrimMemory(level)
+        if (level >= ComponentCallbacks2.TRIM_MEMORY_RUNNING_LOW) thumbnailCache.evictAll()
         CompanionRuntimeState.noteTrimMemory(this, level)
         if (level >= ComponentCallbacks2.TRIM_MEMORY_RUNNING_LOW) {
             backgroundEngine?.let { engine ->
@@ -480,6 +501,7 @@ class OverlayBubbleService : Service() {
     override fun onConfigurationChanged(newConfig: Configuration) {
         super.onConfigurationChanged(newConfig)
         petOverlayWindow?.onConfigurationChanged() ?: bubbleRoot?.let { view ->
+            restoreNormalizedBubblePosition()
             clampBubbleToSafeArea()
             persistBubblePosition()
             updateBubbleLayout(view)
@@ -501,6 +523,11 @@ class OverlayBubbleService : Service() {
     }
 
     override fun onDestroy() {
+        lifetime.destroy()
+        mainHandler.removeCallbacksAndMessages(null)
+        thumbnailExecutor.shutdownNow()
+        pendingThumbnails.clear()
+        thumbnailCache.evictAll()
         mainHandler.removeCallbacks(permissionWatch)
         stopPetAutonomyPolling()
         unregisterDeviceStateReceiver()
@@ -615,7 +642,9 @@ class OverlayBubbleService : Service() {
             y = prefs.getInt(KEY_Y, defaultY)
         }
         attachDrag(container)
-        if (clampBubbleToSafeArea()) persistBubblePosition()
+        restoreNormalizedBubblePosition()
+        clampBubbleToSafeArea()
+        persistBubblePosition()
         return runCatching {
             bubbleRoot = container
             windowManager.addView(container, bubbleParams)
@@ -720,7 +749,13 @@ class OverlayBubbleService : Service() {
     }
 
     private fun createChatWindow(): Boolean {
-        if (chatRoot != null) return true
+        if (!lifetime.alive) return false
+        chatRoot?.let {
+            if (it.isAttachedToWindow && !chatRemovalPending) return true
+            if (!removeChatWindow()) return false
+        }
+        lifetime.invalidateWindow()
+        lastRenderedGeneration = null
         val root = FrameLayout(this).apply {
             background = rounded(Color.rgb(31, 30, 36), 22f)
             elevation = dp(16).toFloat()
@@ -804,8 +839,8 @@ class OverlayBubbleService : Service() {
             root.visibility = View.GONE
             true
         }.getOrElse { error ->
-            chatRoot = null
-            chatParams = null
+            logChatWindowFailure("add", error)
+            removeChatWindow()
             NativeEventStore.addDeviceEvent(
                 this,
                 source = "system",
@@ -861,7 +896,15 @@ class OverlayBubbleService : Service() {
                 }
                 false
             }
-            onImeBack = { mainHandler.postDelayed({ exitChatInputMode() }, 80L) }
+            onImeBack = {
+                val input = this
+                val epoch = lifetime.windowEpoch
+                mainHandler.postDelayed({
+                    if (isCurrentChatWindow(epoch) && chatInput === input && input.isAttachedToWindow) {
+                        exitChatInputMode()
+                    }
+                }, 80L)
+            }
         }
         row.addView(
             chatInput,
@@ -898,6 +941,11 @@ class OverlayBubbleService : Service() {
     }
 
     private fun showChatOverlay(reason: String) {
+        if (!lifetime.alive) return
+        if (reason != "detached_recovery") {
+            chatHealthRecoveryAttempts = 0
+            chatRemovalAttempts = 0
+        }
         val keyguard = getSystemService(KeyguardManager::class.java)
         if (keyguard.isDeviceLocked) {
             pendingShowAfterUnlock = true
@@ -926,6 +974,7 @@ class OverlayBubbleService : Service() {
         chatParams?.let { params ->
             params.flags = readModeFlags()
             runCatching { windowManager.updateViewLayout(chatRoot, params) }
+                .onFailure { logChatWindowFailure("show", it) }
         }
         keepPetAboveChat("chat_open")
         CompanionRuntimeState.setOverlayVisible(true)
@@ -973,10 +1022,17 @@ class OverlayBubbleService : Service() {
         chatInputMode = true
         params.flags = inputModeFlags()
         runCatching { windowManager.updateViewLayout(root, params) }
-        chatInput?.post {
-            chatInput?.requestFocus()
-            val imm = getSystemService(InputMethodManager::class.java)
-            imm.showSoftInput(chatInput, InputMethodManager.SHOW_IMPLICIT)
+            .onFailure { logChatWindowFailure("update", it) }
+        val input = chatInput ?: return
+        val epoch = lifetime.windowEpoch
+        input.post {
+            if (!isCurrentChatWindow(epoch) || chatInput !== input ||
+                !input.isAttachedToWindow || !chatInputMode) return@post
+            input.requestFocus()
+            runCatching {
+                getSystemService(InputMethodManager::class.java)
+                    .showSoftInput(input, InputMethodManager.SHOW_IMPLICIT)
+            }.onFailure { logChatWindowFailure("ime_show", it) }
             petOverlayWindow?.setVisible(true)
         }
     }
@@ -990,6 +1046,7 @@ class OverlayBubbleService : Service() {
             val params = chatParams ?: return
             params.flags = readModeFlags()
             runCatching { windowManager.updateViewLayout(root, params) }
+            .onFailure { logChatWindowFailure("update", it) }
             petOverlayWindow?.setVisible(true)
         }
     }
@@ -1018,6 +1075,8 @@ class OverlayBubbleService : Service() {
     }
 
     private fun refreshOverlayMessages(opened: Boolean, attempt: Int) {
+        val epoch = lifetime.windowEpoch
+        if (!isCurrentChatWindow(epoch)) return
         val channel = backgroundCommands
         if (channel == null) {
             retryRefresh(opened, attempt)
@@ -1029,8 +1088,11 @@ class OverlayBubbleService : Service() {
             object : MethodChannel.Result {
                 override fun success(result: Any?) {
                     mainHandler.post {
+                        if (!isCurrentChatWindow(epoch)) return@post
+
                         val parsed = parseMessageList(result)
                         if (parsed != null) {
+                            lastRenderedGeneration = null
                             loadedMessages = parsed.toMutableList()
                             chatAdapter?.notifyDataSetChanged()
                             chatLoadOlder?.visibility = if (parsed.size >= OVERLAY_RECENT_LIMIT) View.VISIBLE else View.GONE
@@ -1044,13 +1106,18 @@ class OverlayBubbleService : Service() {
 
                 override fun error(errorCode: String, errorMessage: String?, errorDetails: Any?) {
                     mainHandler.post {
+                        if (!isCurrentChatWindow(epoch)) return@post
+
                         if (attempt < 8) retryRefresh(opened, attempt)
                         else setChatStatus("暂时没能读到聊天记录。", true)
                     }
                 }
 
                 override fun notImplemented() {
-                    mainHandler.post { retryRefresh(opened, attempt) }
+                    mainHandler.post {
+                        if (!isCurrentChatWindow(epoch)) return@post
+                        retryRefresh(opened, attempt)
+                    }
                 }
             },
         )
@@ -1058,13 +1125,16 @@ class OverlayBubbleService : Service() {
 
     private fun retryRefresh(opened: Boolean, attempt: Int) {
         if (!chatExpanded || attempt >= 8) return
+        val epoch = lifetime.windowEpoch
         mainHandler.postDelayed(
-            { if (chatExpanded) refreshOverlayMessages(opened, attempt + 1) },
+            { if (isCurrentChatWindow(epoch)) refreshOverlayMessages(opened, attempt + 1) },
             180L + attempt * 120L,
         )
     }
 
     private fun loadOlderMessages() {
+        val epoch = lifetime.windowEpoch
+        if (!isCurrentChatWindow(epoch)) return
         if (loadedMessages.isEmpty()) return
         val oldest = loadedMessages.first().createdAt
         chatLoadOlder?.isEnabled = false
@@ -1074,6 +1144,8 @@ class OverlayBubbleService : Service() {
             object : MethodChannel.Result {
                 override fun success(result: Any?) {
                     mainHandler.post {
+                        if (!isCurrentChatWindow(epoch)) return@post
+
                         val older = parseMessageList(result).orEmpty()
                         if (older.isNotEmpty()) {
                             val seen = loadedMessages.mapTo(mutableSetOf()) { it.id }
@@ -1087,19 +1159,25 @@ class OverlayBubbleService : Service() {
                 }
                 override fun error(errorCode: String, errorMessage: String?, errorDetails: Any?) {
                     mainHandler.post {
+                        if (!isCurrentChatWindow(epoch)) return@post
+
                         chatLoadOlder?.isEnabled = true
                         setChatStatus("加载更早消息失败。", true)
                     }
                 }
                 override fun notImplemented() {
-                    mainHandler.post { chatLoadOlder?.isEnabled = true }
+                    mainHandler.post {
+                        if (!isCurrentChatWindow(epoch)) return@post
+                        chatLoadOlder?.isEnabled = true
+                    }
                 }
             },
         ) ?: run { chatLoadOlder?.isEnabled = true }
     }
 
     private fun sendFromOverlay() {
-        if (chatSending) return
+        if (chatSending || !isCurrentChatWindow(lifetime.windowEpoch)) return
+        val submittedWindowEpoch = lifetime.windowEpoch
         val text = chatInput?.text?.toString()?.trim().orEmpty()
         if (text.isEmpty()) return
         if (!backgroundBrainReady) {
@@ -1141,12 +1219,18 @@ class OverlayBubbleService : Service() {
             object : MethodChannel.Result {
                 override fun success(result: Any?) {
                     mainHandler.post {
+                        if (!lifetime.alive) return@post
                         overlaySubmitCommandPending = false
                         stopGenerationPolling()
                         setComposerGenerationState(sending = false)
+                        if (!isCurrentChatWindow(submittedWindowEpoch)) {
+                            if (chatExpanded) refreshOverlayMessages(opened = false, attempt = 0)
+                            return@post
+                        }
                         val map = result as? Map<*, *>
                         val messages = parseMessageList(map?.get("messages"))
                         if (messages != null) {
+                            lastRenderedGeneration = null
                             loadedMessages = messages.toMutableList()
                             chatAdapter?.notifyDataSetChanged()
                             scrollChatToBottom()
@@ -1172,9 +1256,14 @@ class OverlayBubbleService : Service() {
 
                 override fun error(errorCode: String, errorMessage: String?, errorDetails: Any?) {
                     mainHandler.post {
+                        if (!lifetime.alive) return@post
                         overlaySubmitCommandPending = false
                         stopGenerationPolling()
                         setComposerGenerationState(sending = false)
+                        if (!isCurrentChatWindow(submittedWindowEpoch)) {
+                            if (chatExpanded) refreshOverlayMessages(opened = false, attempt = 0)
+                            return@post
+                        }
                         setChatStatus("发送失败：${errorMessage ?: errorCode}", true)
                         refreshOverlayMessages(opened = false, attempt = 0)
                     }
@@ -1182,9 +1271,14 @@ class OverlayBubbleService : Service() {
 
                 override fun notImplemented() {
                     mainHandler.post {
+                        if (!lifetime.alive) return@post
                         overlaySubmitCommandPending = false
                         stopGenerationPolling()
                         setComposerGenerationState(sending = false)
+                        if (!isCurrentChatWindow(submittedWindowEpoch)) {
+                            if (chatExpanded) refreshOverlayMessages(opened = false, attempt = 0)
+                            return@post
+                        }
                         setChatStatus("她还在重新连接，请稍后再试。", true)
                         refreshOverlayMessages(opened = false, attempt = 0)
                     }
@@ -1202,6 +1296,7 @@ class OverlayBubbleService : Service() {
             // authorized screenshot. Generation continues in the background;
             // the normal companion notification announces the finished reply.
             mainHandler.post {
+                if (!lifetime.alive) return@post
                 collapseChatOverlay("one_time_screen_observation")
             }
         }
@@ -1221,6 +1316,7 @@ class OverlayBubbleService : Service() {
             object : MethodChannel.Result {
                 override fun success(result: Any?) {
                     mainHandler.post {
+                        if (!lifetime.alive) return@post
                         overlaySubmitCommandPending = false
                         stopGenerationPolling()
                         removeStreamingMessage()
@@ -1232,6 +1328,7 @@ class OverlayBubbleService : Service() {
 
                 override fun error(errorCode: String, errorMessage: String?, errorDetails: Any?) {
                     mainHandler.post {
+                        if (!lifetime.alive) return@post
                         setComposerGenerationState(sending = true)
                         setChatStatus("停止失败：${errorMessage ?: errorCode}", true)
                         beginGenerationPolling()
@@ -1240,6 +1337,7 @@ class OverlayBubbleService : Service() {
 
                 override fun notImplemented() {
                     mainHandler.post {
+                        if (!lifetime.alive) return@post
                         setComposerGenerationState(sending = true)
                         setChatStatus("当前后台还不支持停止，请稍后重试。", true)
                         beginGenerationPolling()
@@ -1298,6 +1396,7 @@ class OverlayBubbleService : Service() {
             object : MethodChannel.Result {
                 override fun success(result: Any?) {
                     mainHandler.post {
+                        if (!lifetime.alive) return@post
                         if (epoch != generationPollEpoch || !shouldPollGeneration()) {
                             return@post
                         }
@@ -1307,11 +1406,17 @@ class OverlayBubbleService : Service() {
                 }
 
                 override fun error(errorCode: String, errorMessage: String?, errorDetails: Any?) {
-                    mainHandler.post { scheduleGenerationPoll(epoch) }
+                    mainHandler.post {
+                        if (!lifetime.alive) return@post
+                        scheduleGenerationPoll(epoch)
+                    }
                 }
 
                 override fun notImplemented() {
-                    mainHandler.post { scheduleGenerationPoll(epoch) }
+                    mainHandler.post {
+                        if (!lifetime.alive) return@post
+                        scheduleGenerationPoll(epoch)
+                    }
                 }
             },
         )
@@ -1319,7 +1424,10 @@ class OverlayBubbleService : Service() {
 
     private fun scheduleGenerationPoll(epoch: Int) {
         if (epoch != generationPollEpoch || !shouldPollGeneration()) return
-        mainHandler.postDelayed({ pollGenerationState(epoch) }, GENERATION_POLL_MS)
+        mainHandler.postDelayed({
+            if (!lifetime.alive) return@postDelayed
+            pollGenerationState(epoch)
+        }, GENERATION_POLL_MS)
     }
 
     // Historical v0.35.8 validator token: (chatSending || appGenerationActive)
@@ -1356,6 +1464,7 @@ class OverlayBubbleService : Service() {
             object : MethodChannel.Result {
                 override fun success(result: Any?) {
                     mainHandler.post {
+                        if (!lifetime.alive) return@post
                         if (epoch != ttsPollEpoch || !shouldPollTts()) return@post
                         val localPlayback = PlaybackSessionRegistry.snapshot()
                         val map = if ((localPlayback["version"] as? Long ?: 0L) > 0L) localPlayback else result as? Map<*, *>
@@ -1372,11 +1481,17 @@ class OverlayBubbleService : Service() {
                 }
 
                 override fun error(errorCode: String, errorMessage: String?, errorDetails: Any?) {
-                    mainHandler.post { scheduleTtsPoll(epoch) }
+                    mainHandler.post {
+                        if (!lifetime.alive) return@post
+                        scheduleTtsPoll(epoch)
+                    }
                 }
 
                 override fun notImplemented() {
-                    mainHandler.post { scheduleTtsPoll(epoch) }
+                    mainHandler.post {
+                        if (!lifetime.alive) return@post
+                        scheduleTtsPoll(epoch)
+                    }
                 }
             },
         )
@@ -1384,7 +1499,10 @@ class OverlayBubbleService : Service() {
 
     private fun scheduleTtsPoll(epoch: Int) {
         if (epoch != ttsPollEpoch || !shouldPollTts()) return
-        mainHandler.postDelayed({ pollTtsState(epoch) }, TTS_POLL_MS)
+        mainHandler.postDelayed({
+            if (!lifetime.alive) return@postDelayed
+            pollTtsState(epoch)
+        }, TTS_POLL_MS)
     }
 
     private fun shouldPollTts(): Boolean = chatExpanded ||
@@ -1410,6 +1528,11 @@ class OverlayBubbleService : Service() {
         overlayGenerationPhase = phase
         updatePetConversationCue()
         streamingAssistantMessageId = map["assistant_message_id"] as? String ?: ""
+        val visible = listOf(sharedSending, composerSending, reasoning, content, phase,
+            statusText, streamingAssistantMessageId, lifetime.windowEpoch)
+        if (lastRenderedGeneration == visible) return
+        val streamingCreatedAt = loadedMessages.firstOrNull { it.id == STREAMING_MESSAGE_ID }?.createdAt
+            ?: System.currentTimeMillis()
         removeStreamingMessage(notify = false)
         if (sharedSending) {
             setChatStatus(statusText.takeIf { it.isNotBlank() } ?: when (phase) {
@@ -1423,19 +1546,21 @@ class OverlayBubbleService : Service() {
                     role = "assistant",
                     content = content,
                     reasoning = reasoning,
-                    createdAt = System.currentTimeMillis(),
+                    createdAt = streamingCreatedAt,
                     proactive = false,
                     proactiveIntent = "",
                     proactiveDelivery = "",
                 ),
             )
         }
+        lastRenderedGeneration = visible
         chatAdapter?.notifyDataSetChanged()
         scrollChatToBottom()
         if (!sharedSending) setChatStatus(null)
     }
 
     private fun removeStreamingMessage(notify: Boolean = true) {
+        lastRenderedGeneration = null
         val removed = loadedMessages.removeAll { it.id == STREAMING_MESSAGE_ID }
         if (removed && notify) chatAdapter?.notifyDataSetChanged()
     }
@@ -1460,10 +1585,16 @@ class OverlayBubbleService : Service() {
             object : MethodChannel.Result {
                 override fun success(result: Any?) = Unit
                 override fun error(errorCode: String, errorMessage: String?, errorDetails: Any?) {
-                    mainHandler.post { applyTtsState("idle", "") }
+                    mainHandler.post {
+                        if (!lifetime.alive) return@post
+                        applyTtsState("idle", "")
+                    }
                 }
                 override fun notImplemented() {
-                    mainHandler.post { applyTtsState("idle", "") }
+                    mainHandler.post {
+                        if (!lifetime.alive) return@post
+                        applyTtsState("idle", "")
+                    }
                 }
             },
         ) ?: applyTtsState("idle", "")
@@ -1512,7 +1643,7 @@ class OverlayBubbleService : Service() {
     }
 
     private fun beginPetAutonomyPolling() {
-        if (!running || petOverlayWindow == null || !backgroundBrainReady) return
+        if (!lifetime.alive || petOverlayWindow == null || !backgroundBrainReady) return
         val epoch = ++petAutonomyPollEpoch
         pollPetAutonomy(epoch)
     }
@@ -1531,6 +1662,7 @@ class OverlayBubbleService : Service() {
             object : MethodChannel.Result {
                 override fun success(result: Any?) {
                     mainHandler.post {
+                        if (!lifetime.alive) return@post
                         if (epoch != petAutonomyPollEpoch || !shouldPollPetAutonomy()) return@post
                         petOverlayWindow?.setAutonomySnapshot(result)
                         schedulePetAutonomyPoll(epoch)
@@ -1538,11 +1670,17 @@ class OverlayBubbleService : Service() {
                 }
 
                 override fun error(errorCode: String, errorMessage: String?, errorDetails: Any?) {
-                    mainHandler.post { schedulePetAutonomyPoll(epoch) }
+                    mainHandler.post {
+                        if (!lifetime.alive) return@post
+                        schedulePetAutonomyPoll(epoch)
+                    }
                 }
 
                 override fun notImplemented() {
-                    mainHandler.post { schedulePetAutonomyPoll(epoch) }
+                    mainHandler.post {
+                        if (!lifetime.alive) return@post
+                        schedulePetAutonomyPoll(epoch)
+                    }
                 }
             },
         )
@@ -1550,11 +1688,14 @@ class OverlayBubbleService : Service() {
 
     private fun schedulePetAutonomyPoll(epoch: Int) {
         if (epoch != petAutonomyPollEpoch || !shouldPollPetAutonomy()) return
-        mainHandler.postDelayed({ pollPetAutonomy(epoch) }, PET_AUTONOMY_POLL_MS)
+        mainHandler.postDelayed({
+            if (!lifetime.alive) return@postDelayed
+            pollPetAutonomy(epoch)
+        }, PET_AUTONOMY_POLL_MS)
     }
 
     private fun shouldPollPetAutonomy(): Boolean =
-        running && petOverlayWindow != null && backgroundBrainReady
+        lifetime.alive && petOverlayWindow != null && backgroundBrainReady
 
     private fun openFullApp(openChat: Boolean = false) {
         // Do not collapse/rebuild WindowManager immediately before launching the
@@ -1618,7 +1759,11 @@ class OverlayBubbleService : Service() {
 
     private fun scrollChatToBottom() {
         val count = loadedMessages.size
-        if (count > 0) chatList?.post { chatList?.setSelection(count - 1) }
+        val list = chatList ?: return
+        val epoch = lifetime.windowEpoch
+        if (count > 0) list.post {
+            if (isCurrentChatWindow(epoch) && chatList === list) list.setSelection(count - 1)
+        }
     }
 
     private fun parseMessageList(raw: Any?): List<NativeChatMessage>? {
@@ -1894,10 +2039,30 @@ class OverlayBubbleService : Service() {
             it.persistCurrentPosition()
             return
         }
+        val safe = bubbleSafeArea()
+        val position = OverlayBubblePosition.capture(bubbleParams.x, bubbleParams.y,
+            safe.left, safe.top, safe.right, safe.bottom, bubbleParams.width, bubbleParams.height,
+            isBubbleRetracted())
         getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit()
+            .putInt("bubble_dock_edge_v366", position.edge)
+            .putFloat("bubble_x_fraction_v366", position.xFraction)
+            .putFloat("bubble_y_fraction_v366", position.yFraction)
             .putInt(KEY_X, bubbleParams.x)
             .putInt(KEY_Y, bubbleParams.y)
             .apply()
+    }
+
+    private fun restoreNormalizedBubblePosition() {
+        val prefs = getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+        if (!prefs.contains("bubble_y_fraction_v366")) return
+        val safe = bubbleSafeArea()
+        val position = OverlayBubblePosition(prefs.getInt("bubble_dock_edge_v366", 0),
+            prefs.getFloat("bubble_x_fraction_v366", 0f),
+            prefs.getFloat("bubble_y_fraction_v366", 0f))
+        val (x, y) = position.place(safe.left, safe.top, safe.right, safe.bottom,
+            bubbleParams.width, bubbleParams.height)
+        bubbleParams.x = x
+        bubbleParams.y = y
     }
 
     private data class BubbleSafeArea(
@@ -1928,7 +2093,17 @@ class OverlayBubbleService : Service() {
         val width = resources.displayMetrics.widthPixels
         @Suppress("DEPRECATION")
         val height = resources.displayMetrics.heightPixels
-        return BubbleSafeArea(margin, margin, (width - margin).coerceAtLeast(margin), (height - margin).coerceAtLeast(margin))
+        @Suppress("DEPRECATION")
+        val insets = bubbleRoot?.rootWindowInsets
+        @Suppress("DEPRECATION")
+        val left = margin + (insets?.stableInsetLeft ?: 0)
+        @Suppress("DEPRECATION")
+        val top = margin + (insets?.stableInsetTop ?: 0)
+        @Suppress("DEPRECATION")
+        val right = width - margin - (insets?.stableInsetRight ?: 0)
+        @Suppress("DEPRECATION")
+        val bottom = height - margin - (insets?.stableInsetBottom ?: 0)
+        return BubbleSafeArea(left, top, right.coerceAtLeast(left), bottom.coerceAtLeast(top))
     }
 
     private fun clampBubbleToSafeArea(): Boolean {
@@ -1983,7 +2158,7 @@ class OverlayBubbleService : Service() {
             WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS
 
     private fun handleSystemCoverEntered(reason: String, detachBubble: Boolean) {
-        if (!running || !Settings.canDrawOverlays(this)) return
+        if (!lifetime.alive || !Settings.canDrawOverlays(this)) return
 
         // A new enter after exit_pending invalidates every callback belonging to
         // the earlier session. Repeated Accessibility events while the same
@@ -2042,7 +2217,7 @@ class OverlayBubbleService : Service() {
     }
 
     private fun handleSystemCoverExited(reason: String) {
-        if (!running || !Settings.canDrawOverlays(this)) return
+        if (!lifetime.alive || !Settings.canDrawOverlays(this)) return
         val sessionId = CompanionRuntimeState.currentOverlayCoverSessionId()
         if (sessionId <= 0 ||
             (!CompanionRuntimeState.isOverlaySystemCoverActive() &&
@@ -2071,6 +2246,7 @@ class OverlayBubbleService : Service() {
         ) return
         if (inputRecoveryInProgress) {
             mainHandler.postDelayed({
+                if (!lifetime.alive) return@postDelayed
                 scheduleCoverRecovery(sessionId, attempt, reason, delayMs)
             }, INPUT_RECOVERY_SETTLE_MS + 100L)
             return
@@ -2082,6 +2258,7 @@ class OverlayBubbleService : Service() {
         scheduledRecoveryAttempt = attempt
         CompanionRuntimeState.noteOverlayCoverRecoveryScheduled(sessionId, attempt, reason)
         mainHandler.postDelayed({
+            if (!lifetime.alive) return@postDelayed
             if (scheduledRecoverySessionId == sessionId && scheduledRecoveryAttempt == attempt) {
                 inputRecoveryScheduled = false
             }
@@ -2096,7 +2273,7 @@ class OverlayBubbleService : Service() {
                 // Never re-add an overlay beneath a still-active system picker.
                 return@postDelayed
             }
-            if (!running || !Settings.canDrawOverlays(this)) {
+            if (!lifetime.alive || !Settings.canDrawOverlays(this)) {
                 CompanionRuntimeState.noteOverlayCoverRecoveryFailed(
                     sessionId,
                     attempt,
@@ -2131,6 +2308,7 @@ class OverlayBubbleService : Service() {
             // only after one settle window; keep recoveryInProgress true so no
             // watchdog/Activity callback can start a competing rebuild.
             mainHandler.postDelayed({
+                if (!lifetime.alive) return@postDelayed
                 if (sessionId != CompanionRuntimeState.currentOverlayCoverSessionId()) {
                     inputRecoveryInProgress = false
                     CompanionRuntimeState.setOverlayRecoveryInProgress(false)
@@ -2180,6 +2358,7 @@ class OverlayBubbleService : Service() {
         }
         val retryDelay = COVER_RECOVERY_RETRY_DELAYS_MS[nextAttempt - 2]
         mainHandler.postDelayed({
+            if (!lifetime.alive) return@postDelayed
             scheduleCoverRecovery(sessionId, nextAttempt, "$reason:$failure", retryDelay)
         }, INPUT_RECOVERY_SETTLE_MS + 100L)
     }
@@ -2197,9 +2376,20 @@ class OverlayBubbleService : Service() {
     }
 
     private fun ensureOverlayHealth(reason: String, rebuildInputChannel: Boolean = false) {
-        if (!running || !Settings.canDrawOverlays(this)) return
+        if (!lifetime.alive || !Settings.canDrawOverlays(this)) return
         val keyguard = getSystemService(KeyguardManager::class.java)
         if (chatExpanded) {
+            if (chatRoot?.isAttachedToWindow != true && !keyguard.isDeviceLocked &&
+                chatHealthRecoveryAttempts < 3) {
+                chatHealthRecoveryAttempts++
+                val draft = chatInput?.text?.toString().orEmpty()
+                logChatWindowFailure("detached_recovery_$chatHealthRecoveryAttempts")
+                if (removeChatWindow()) {
+                    showChatOverlay("detached_recovery")
+                    chatInput?.setText(draft)
+                    chatInput?.setSelection(draft.length)
+                }
+            }
             updateOverlayTouchHealth()
             return
         }
@@ -2207,7 +2397,7 @@ class OverlayBubbleService : Service() {
         // A hidden TYPE_APPLICATION_OVERLAY chat window is unnecessary and on
         // some OEM builds can leave a stale input region. Remove it completely
         // whenever the UI is collapsed.
-        if (chatRoot != null) removeChatWindow()
+        if (chatRoot != null && !removeChatWindow()) return
 
         var repaired = false
         var bubble = bubbleRoot
@@ -2304,9 +2494,11 @@ class OverlayBubbleService : Service() {
         params.width = overlayChatWidth(width)
         params.height = overlayChatHeight(height)
         runCatching { windowManager.updateViewLayout(root, params) }
+            .onFailure { logChatWindowFailure("update", it) }
     }
 
     private fun startBackgroundBrain() {
+        if (!lifetime.alive) return
         if (backgroundEngine != null || backgroundEngineStarting) return
         backgroundEngineStarting = true
         var engine: FlutterEngine? = null
@@ -2332,7 +2524,7 @@ class OverlayBubbleService : Service() {
             commandChannel.setMethodCallHandler { call, result ->
                 when (call.method) {
                     "backgroundDartReady" -> {
-                        if (backgroundEngine === createdEngine && running) {
+                        if (backgroundEngine === createdEngine && lifetime.alive) {
                             backgroundBrainReady = true
                             CompanionRuntimeState.noteBackgroundBrainReady(this)
                             backgroundEngineStartAttempts = 0
@@ -2340,16 +2532,28 @@ class OverlayBubbleService : Service() {
                             brainWakeAttempt = 0
                             result.success(true)
                             if (petOverlayWindow != null) {
-                                mainHandler.post { beginPetAutonomyPolling() }
+                                mainHandler.post {
+                                    if (!lifetime.alive) return@post
+                                    beginPetAutonomyPolling()
+                                }
                             }
                             if (pendingBrainWakeReason != null) {
-                                mainHandler.postDelayed({ signalBackgroundBrainWake() }, 250L)
+                                mainHandler.postDelayed({
+                                    if (!lifetime.alive) return@postDelayed
+                                    signalBackgroundBrainWake()
+                                }, 250L)
                             }
                             if (pendingInlineReplies.isNotEmpty()) {
-                                mainHandler.postDelayed({ flushInlineReplies() }, 300L)
+                                mainHandler.postDelayed({
+                                    if (!lifetime.alive) return@postDelayed
+                                    flushInlineReplies()
+                                }, 300L)
                             }
                             if (chatExpanded) {
-                                mainHandler.post { refreshOverlayMessages(opened = true, attempt = 0) }
+                                mainHandler.post {
+                                    if (!lifetime.alive) return@post
+                                    refreshOverlayMessages(opened = true, attempt = 0)
+                                }
                             }
                         } else {
                             result.success(false)
@@ -2374,6 +2578,7 @@ class OverlayBubbleService : Service() {
             // installing handlers), do not leave a dead Engine looking healthy
             // forever. Recreate it with a bounded retry budget.
             mainHandler.postDelayed({
+                if (!lifetime.alive) return@postDelayed
                 restartBackgroundEngineIfUnready(createdEngine)
             }, BACKGROUND_READY_TIMEOUT_MS)
         } catch (error: Throwable) {
@@ -2409,7 +2614,7 @@ class OverlayBubbleService : Service() {
     }
 
     private fun restartBackgroundEngineIfUnready(expectedEngine: FlutterEngine) {
-        if (!running || backgroundEngine !== expectedEngine || backgroundBrainReady) return
+        if (!lifetime.alive || backgroundEngine !== expectedEngine || backgroundBrainReady) return
         NativeEventStore.addDeviceEvent(
             context = this,
             source = "system",
@@ -2435,7 +2640,7 @@ class OverlayBubbleService : Service() {
     }
 
     private fun scheduleBackgroundEngineRestart() {
-        if (!running || backgroundEngine != null || backgroundEngineRestartScheduled) return
+        if (!lifetime.alive || backgroundEngine != null || backgroundEngineRestartScheduled) return
         if (backgroundEngineStartAttempts >= 4) return
         backgroundEngineRestartScheduled = true
         val delay = when (backgroundEngineStartAttempts) {
@@ -2444,8 +2649,9 @@ class OverlayBubbleService : Service() {
             else -> 30_000L
         }
         mainHandler.postDelayed({
+            if (!lifetime.alive) return@postDelayed
             backgroundEngineRestartScheduled = false
-            if (!running) return@postDelayed
+            if (!lifetime.alive) return@postDelayed
             if (!CompanionRuntimeState.isOverlayUserEnabled(this)) return@postDelayed
             if (!Settings.canDrawOverlays(this)) return@postDelayed
             startBackgroundBrain()
@@ -2517,7 +2723,10 @@ class OverlayBubbleService : Service() {
             3 -> 30_000L
             else -> 60_000L
         }
-        mainHandler.postDelayed({ flushInlineReplies() }, delayMs)
+        mainHandler.postDelayed({
+            if (!lifetime.alive) return@postDelayed
+            flushInlineReplies()
+        }, delayMs)
     }
 
     private fun signalBackgroundBrainWake() {
@@ -2548,7 +2757,7 @@ class OverlayBubbleService : Service() {
     }
 
     private fun scheduleBackgroundWakeRetry() {
-        if (!running || pendingBrainWakeReason == null) return
+        if (!lifetime.alive || pendingBrainWakeReason == null) return
         if (brainWakeAttempt >= 4) {
             NativeEventStore.addDeviceEvent(
                 this,
@@ -2566,7 +2775,10 @@ class OverlayBubbleService : Service() {
             3 -> 2_500L
             else -> 5_000L
         }
-        mainHandler.postDelayed({ signalBackgroundBrainWake() }, delay)
+        mainHandler.postDelayed({
+            if (!lifetime.alive) return@postDelayed
+            signalBackgroundBrainWake()
+        }, delay)
     }
 
     private fun registerDeviceStateReceiver() {
@@ -2592,8 +2804,21 @@ class OverlayBubbleService : Service() {
         stateReceiverRegistered = false
     }
 
-    private fun removeChatWindow() {
-        chatRoot?.let { runCatching { windowManager.removeViewImmediate(it) } }
+    private fun isCurrentChatWindow(epoch: Long): Boolean =
+        lifetime.matches(epoch) && chatExpanded && !chatRemovalPending &&
+            chatRoot?.isAttachedToWindow == true
+
+    private fun logChatWindowFailure(stage: String, error: Throwable? = null) {
+        runCatching {
+            NativeEventStore.addDeviceEvent(this, source = "system",
+                eventType = "overlay_chat_window_failure", appPackage = packageName,
+                summary = "stage=$stage; window=${lifetime.windowEpoch}; " +
+                    "alive=${lifetime.alive}; attached=${chatRoot?.isAttachedToWindow}; " +
+                    "error=${error?.javaClass?.simpleName ?: "none"}")
+        }
+    }
+
+    private fun clearChatWindowReferences() {
         chatRoot = null
         chatList = null
         chatAdapter = null
@@ -2602,17 +2827,41 @@ class OverlayBubbleService : Service() {
         chatStatus = null
         chatLoadOlder = null
         chatParams = null
+        chatRemovalPending = false
+        chatRemovalAttempts = 0
+    }
+
+    private fun removeChatWindow(): Boolean {
+        lifetime.invalidateWindow()
+        lastRenderedGeneration = null
         chatExpanded = false
         CompanionRuntimeState.setOverlayChatExpanded(false)
         chatInputMode = false
-        if (!running || petOverlayWindow == null || !chatSending) stopGenerationPolling()
-        if (!running || petOverlayWindow == null ||
-            (overlayTtsPhase == "idle" && !chatSending)
-        ) {
-            stopTtsPolling()
+        val root = chatRoot
+        var removed = root == null || !root.isAttachedToWindow
+        if (!removed && (chatRemovalAttempts < 3 || !lifetime.alive)) {
+            chatRemovalAttempts++
+            runCatching { windowManager.removeViewImmediate(root) }
+                .onFailure { logChatWindowFailure("remove", it) }
+            removed = root?.isAttachedToWindow != true
         }
+        if (removed) clearChatWindowReferences() else {
+            // Retain a single owner and inert hidden surface for bounded retry.
+            chatRemovalPending = true
+            root?.visibility = View.GONE
+            chatInput?.clearFocus()
+            chatParams?.let { params ->
+                params.flags = readModeFlags() or WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE
+                runCatching { windowManager.updateViewLayout(root, params) }
+                    .onFailure { logChatWindowFailure("retire_layout", it) }
+            }
+        }
+        if (!lifetime.alive || petOverlayWindow == null || !chatSending) stopGenerationPolling()
+        if (!lifetime.alive || petOverlayWindow == null ||
+            (overlayTtsPhase == "idle" && !chatSending)) stopTtsPolling()
         updatePetConversationCue()
         updateOverlayTouchHealth()
+        return removed
     }
 
     private fun setUnread(count: Int) {
@@ -2757,6 +3006,41 @@ class OverlayBubbleService : Service() {
         val height: Int,
     )
 
+    private fun bindThumbnail(image: ImageView, path: String) {
+        val file = File(path)
+        val key = "$path:${file.lastModified()}:${file.length()}"
+        image.tag = key
+        thumbnailCache.get(key)?.let { image.setImageBitmap(it); return }
+        val target = ThumbnailTarget(WeakReference(image), lifetime.windowEpoch)
+        pendingThumbnails[key]?.let { it.add(target); return }
+        pendingThumbnails[key] = mutableListOf(target)
+        runCatching {
+            thumbnailExecutor.execute {
+                val bitmap = runCatching {
+                    val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
+                    BitmapFactory.decodeFile(path, bounds)
+                    if (bounds.outWidth <= 0 || bounds.outHeight <= 0) return@runCatching null
+                    var sample = 2
+                    while (bounds.outWidth / sample > 512 || bounds.outHeight / sample > 512) sample *= 2
+                    BitmapFactory.decodeFile(path, BitmapFactory.Options().apply { inSampleSize = sample })
+                }.getOrNull()
+                mainHandler.post {
+                    if (!lifetime.alive) return@post
+                    val targets = pendingThumbnails.remove(key).orEmpty()
+                    if (bitmap != null) {
+                        thumbnailCache.put(key, bitmap)
+                        for (waiting in targets) {
+                            val view = waiting.view.get() ?: continue
+                            if (isCurrentChatWindow(waiting.epoch) && view.isAttachedToWindow && view.tag == key) {
+                                view.setImageBitmap(bitmap)
+                            }
+                        }
+                    }
+                }
+            }
+        }.onFailure { pendingThumbnails.remove(key) }
+    }
+
     private inner class NativeChatAdapter : BaseAdapter() {
         private val expandedReasoning = mutableSetOf<String>()
         private val collapsedTools = mutableSetOf<String>()
@@ -2769,7 +3053,20 @@ class OverlayBubbleService : Service() {
 
         override fun getView(position: Int, convertView: View?, parent: ViewGroup?): View {
             val message = loadedMessages[position]
-            val outer = LinearLayout(this@OverlayBubbleService).apply {
+            val showDate = position == 0 || !sameLocalDay(message.createdAt,
+                loadedMessages[position - 1].createdAt)
+            val imageRevisions = message.attachments.filter { it.kind == "image" }.map {
+                val file = File(it.thumbnailPath)
+                "${file.lastModified()}:${file.length()}"
+            }
+            val binding = listOf(message, imageRevisions, showDate, expandedReasoning.contains(message.id),
+                collapsedTools.contains(message.id), translatingReasoning.contains(message.id),
+                reasoningTranslationErrors[message.id], overlayTtsPhase, overlayTtsMessageId,
+                streamingAssistantMessageId, dialogueTintColor(), screenBounds().first)
+            if (convertView is LinearLayout && convertView.tag == binding) return convertView
+            val outer = (convertView as? LinearLayout ?: LinearLayout(this@OverlayBubbleService)).apply {
+                removeAllViews()
+                tag = binding
                 orientation = LinearLayout.VERTICAL
                 gravity = when (message.role) {
                     "user", "interrupted_user" -> Gravity.END
@@ -2824,26 +3121,17 @@ class OverlayBubbleService : Service() {
                 setTextColor(Color.rgb(188, 169, 220))
             })
             message.attachments.filter { it.kind == "image" }.forEach { attachment ->
-                val bitmap = runCatching {
-                    BitmapFactory.decodeFile(
-                        attachment.thumbnailPath,
-                        BitmapFactory.Options().apply { inSampleSize = 2 },
-                    )
-                }.getOrNull()
-                if (bitmap != null) {
-                    bubble.addView(ImageView(this@OverlayBubbleService).apply {
-                        setImageBitmap(bitmap)
-                        scaleType = ImageView.ScaleType.CENTER_CROP
-                        adjustViewBounds = true
-                        contentDescription = "聊天图片"
-                    }, LinearLayout.LayoutParams(
-                        ViewGroup.LayoutParams.MATCH_PARENT,
-                        dp(180),
-                    ).apply {
-                        topMargin = dp(6)
-                        bottomMargin = dp(4)
-                    })
+                val image = ImageView(this@OverlayBubbleService).apply {
+                    scaleType = ImageView.ScaleType.CENTER_CROP
+                    adjustViewBounds = true
+                    contentDescription = "聊天图片"
                 }
+                bubble.addView(image, LinearLayout.LayoutParams(
+                    ViewGroup.LayoutParams.MATCH_PARENT, dp(180)).apply {
+                    topMargin = dp(6)
+                    bottomMargin = dp(4)
+                })
+                bindThumbnail(image, attachment.thumbnailPath)
             }
             if (message.role == "assistant" && message.reasoning.isNotBlank()) {
                 val live = message.id == STREAMING_MESSAGE_ID
@@ -3010,6 +3298,7 @@ class OverlayBubbleService : Service() {
         }
 
         private fun requestReasoningTranslation(messageId: String) {
+            val epoch = lifetime.windowEpoch
             if (!translatingReasoning.add(messageId)) return
             reasoningTranslationErrors.remove(messageId)
             notifyDataSetChanged()
@@ -3026,6 +3315,8 @@ class OverlayBubbleService : Service() {
                 object : MethodChannel.Result {
                     override fun success(result: Any?) {
                         mainHandler.post {
+                        if (!isCurrentChatWindow(epoch) || chatAdapter !== this@NativeChatAdapter) return@post
+
                             translatingReasoning.remove(messageId)
                             val map = result as? Map<*, *>
                             val translation = map?.get("translation") as? String ?: ""
@@ -3054,6 +3345,8 @@ class OverlayBubbleService : Service() {
                         errorDetails: Any?,
                     ) {
                         mainHandler.post {
+                        if (!isCurrentChatWindow(epoch) || chatAdapter !== this@NativeChatAdapter) return@post
+
                             translatingReasoning.remove(messageId)
                             reasoningTranslationErrors[messageId] =
                                 (errorMessage ?: errorCode).take(220)
@@ -3063,6 +3356,8 @@ class OverlayBubbleService : Service() {
 
                     override fun notImplemented() {
                         mainHandler.post {
+                        if (!isCurrentChatWindow(epoch) || chatAdapter !== this@NativeChatAdapter) return@post
+
                             translatingReasoning.remove(messageId)
                             reasoningTranslationErrors[messageId] =
                                 "后台翻译功能尚未就绪，请稍后重试。"
@@ -3196,7 +3491,7 @@ class OverlayBubbleService : Service() {
                 inputRecoveryInProgress || inputRecoveryScheduled
             ) return
             if (visibility != View.VISIBLE) {
-                if (!running || chatExpanded) return
+                if (!lifetime.alive || chatExpanded) return
                 val power = getSystemService(PowerManager::class.java)
                 val keyguard = getSystemService(KeyguardManager::class.java)
                 if (!power.isInteractive || keyguard.isDeviceLocked) return
@@ -3212,7 +3507,7 @@ class OverlayBubbleService : Service() {
             }
             if (!visibilityWasSuppressed) return
             visibilityWasSuppressed = false
-            if (!running || chatExpanded) return
+            if (!lifetime.alive || chatExpanded) return
             val keyguard = getSystemService(KeyguardManager::class.java)
             if (!keyguard.isDeviceLocked) {
                 handleSystemCoverExited("window_visibility_restored")

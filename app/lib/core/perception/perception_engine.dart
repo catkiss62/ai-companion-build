@@ -263,11 +263,8 @@ class PerceptionEngine {
       }
     }
 
-    // External text is never promoted into a durable Thought. Dense interface
-    // activity may nudge curiosity slightly, but only as a count.
-    if (!phoneEvidence.reset && phoneEvidence.accessibilityEvents >= 8) {
-      await desire.applyExperience({DriveKey.curiosity: 0.004});
-    }
+    // UI event counts already share Presence's time-normalized event budget.
+    // They must not also grant a separate curiosity pulse on every capture.
     if (newNotificationCount >= 4) {
       await desire.applyExperience({DriveKey.stress: 0.006});
     }

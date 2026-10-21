@@ -60,4 +60,34 @@ public class CaicaiPerformanceTest {
         for(int i=0;i<40;i++) { pose.values.clear(); face.update("normal",1f/30,pose); }
         assertEquals(0,pose.current("MOUTHX"),.01);
     }
+    @Test public void speechEmotionPreservesMouthAndPcmWhileBrowsStillMove() {
+        CaicaiFaceMotion face=new CaicaiFaceMotion(); Pose pose=new Pose();
+        pose.write("ParamMouthForm",.4f); pose.write("MOUTHX",-.3f);
+        pose.write("SHRUG",.6f); pose.write("ParamMouthOpenY",.75f);
+        for(int i=0;i<60;i++) face.update("flustered",1f/30,pose,1f,false);
+        assertEquals(.4f,pose.current("ParamMouthForm"),.0001f);
+        assertEquals(-.3f,pose.current("MOUTHX"),.0001f);
+        assertEquals(.6f,pose.current("SHRUG"),.0001f);
+        assertEquals(.75f,pose.current("ParamMouthOpenY"),.0001f);
+        assertTrue(pose.current("ParamBrowLY")>.8f);
+        assertTrue(pose.current("ParamAngleZ")>0);
+    }
+    @Test public void openingMouthPlanSurvivesOverlappingSpeechEmotion() throws Exception {
+        CaicaiFaceMotion face=new CaicaiFaceMotion(); Pose pose=new Pose();
+        CaicaiParameterPlan opening=new CaicaiParameterPlan();
+        opening.replace("[{\"time\":0,\"duration\":4,\"parameters\":{\"MOUTHX\":0.8,\"SHRUG\":0.25,\"OUT\":1}}]",pose);
+        for(int i=0;i<60;i++) {
+            opening.apply(1f/30,pose);
+            float mouth=pose.current("MOUTHX"), pucker=pose.current("SHRUG"), tongue=pose.current("OUT");
+            face.update("sad",1f/30,pose,1f,false);
+            assertEquals(mouth,pose.current("MOUTHX"),.0001f);
+            assertEquals(pucker,pose.current("SHRUG"),.0001f);
+            assertEquals(tongue,pose.current("OUT"),.0001f);
+        }
+        assertTrue(pose.current("MOUTHX")>.7f);
+        assertTrue(pose.current("OUT")>.9f);
+        for(int i=0;i<30;i++) face.update("confident",1f/30,pose,1f);
+        assertTrue(pose.current("MOUTHX")>.85f);
+    }
+
 }

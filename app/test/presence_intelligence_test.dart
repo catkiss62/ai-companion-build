@@ -12,7 +12,7 @@ void main() {
         evidence: PhoneActivityEvidence(
           reset: false,
           reason: "test",
-          activeMinutes: 3,
+          activeMinutes: 2,
           switches: 1,
           accessibilityEvents: 3,
         ),
@@ -33,7 +33,7 @@ void main() {
   test('repeated coarse activity accumulates gradually', () {
     var score = 0.0;
     PresenceMomentumResult? latest;
-    for (var i = 0; i < 4; i++) {
+    for (var i = 0; i < 12; i++) {
       latest = PresenceMomentumPolicy.advance(
         previousScore: score,
         elapsed: const Duration(minutes: 2),
@@ -42,7 +42,7 @@ void main() {
           evidence: PhoneActivityEvidence(
             reset: false,
             reason: "test",
-            activeMinutes: 3,
+            activeMinutes: 2,
             switches: 1,
             accessibilityEvents: 3,
           ),
@@ -98,7 +98,7 @@ void main() {
           evidence: PhoneActivityEvidence(
             reset: false,
             reason: "test",
-            activeMinutes: 3,
+            activeMinutes: 2,
             switches: 1,
             accessibilityEvents: 3,
           ),
