@@ -6,6 +6,8 @@
 
 ## 当前接班快照
 
+- 新批次v0.42.125+369实施/验证中：使用DS回复增加取消/确认回复弹窗及跨轮身份保护；沉浸操作组恢复底部；独立作品默认配置可选、同名不合并。存档只读核查，不改导出/保留策略，私有统计不公开。入口app/docs/UI_CONFIRMATION_LAYOUT_AND_BACKUP_AUDIT_v0.42.125.md；尚无本批新APK。
+
 - 最新交付：v0.42.124+368，源码7a323b0d32d4c39e22c351e19c1c2d0a55ed2a47 / tree5f0bcd2be3fb51c9160823387000b1b035e3a77c；完整39615993684成功（154源码门、Kotlin、2489 Flutter、168归档恢复、54 Android15原生），专项39615993663通过854项。分析0 error、738非fatal（61 warning/677 info）。APK已上传并给用户链接；本批原装TTS层/短wink、独立沉浸模型、动态对谈和悬浮首次历史均包含，真机待验。入口app/docs/SPEECH_PRESETS_ROOM_MODELS_v0.42.124.md；账末为准。
 - 此前交付：v0.42.123+367，源码9d473e3f03a0468a9a0769fd25fb021c06160114 / tree b4c177d8e9a489d6c2a3336e8ec93ce5fec6cc0d；完整39587274817成功（154源码门、Kotlin、2470 Flutter、168打包前恢复、52 Android15原生），专项39587274796通过835项；0 error、729非fatal分析项。APK已备妥且已给用户下载链接，原签名/包名/版本/资源核验通过；SHA256 3dd7f0d0da6f0e3ed6c97153ef600980917e942a773935d15ed490ebe111215a，738896454 bytes。真机待验。该APK不包含后续+368任务；当前以本账首条和账末为准。
 - 仓库：catkiss62/ai-companion-build；开发分支：agent/v042107-review-recovery。用户10月20日23:39已有授权，且2026-10-21在本窗口直接确认允许公开推送本轮代码、测试、总账与CI/测试APK；不合并main、不正式发布。
@@ -1391,3 +1393,9 @@ TTS汇总最近15次有效动作判断（非15条独立对话）：13次wink_use
 APK 738919562 bytes，SHA256 7feb06f085b8e97afdf0be726225beb51ea76dda0212d2fb1b91a0e24f7dbef5；包名com.aicompanion.localfirst，versionName0.42.124 / versionCode368；签名SHA256 305eb3d80983b963c64818ddf1ad561f279de6d47b3ed2c781ada448c7c25148，与原测试身份一致。完整包内资源核验通过。测试草稿Release419619914、asset662838521；下载https://github.com/catkiss62/ai-companion-build/releases/download/untagged-6e2ad1c5dff66b83dc1a/AI-Companion-v0.42.124-368-Speech-Presets-Room-Models-APK.apk ，草稿页https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-6e2ad1c5dff66b83dc1a 。Release目标commit/asset digest与本源码及CI校验一致；ci-monitor-v0345的.ci/v042120-monitor.txt已核对本run/head/success/checksum。下载链接已给用户。
 
 源码、测试、总账沿用已有公开推送/CI/测试APK授权，仍在agent/v042107-review-recovery；未合并main、未正式发布，用户附件/诊断原文/私密对话/凭据未上传。真机仍需观察完整悬浮服务路径、真实JEV语义/延迟/费用、TTS自然度与停止/静音/触摸回收、长模型名使用体感；mock和无Flutter宿主不等于手机验收。交付文档收尾用[skip ci]，不重打同一APK。
+
+## 2026-10-22 · +369确认接管与房间底部位置实施中
+
+用户要求DS按钮缩写并确认防误触、沉浸按钮恢复底部，作品来源即使与第一通道同名也保留；备份范围/增长只读核查。候选v0.42.125+369：确认绑定打开时回复，取消不切换、过期不影响新轮；收紧Align高度恢复底部锚点；作品选择读取现有默认模型/力度并按来源独立，未配置第二通道仍隐藏。新增异步确认与位置/默认来源回归，保留原工具/传输幂等保护；本地源码预检及新CI进行中，不能当作已经交付。
+
+存档源码与旧样本只读分析确认：聊天正式原文/reasoning与记忆/总结同时保存，媒体原图/缩略图、事件、生成任务、手机/作品状态、诊断等也占体积；回档样本不可直接当正常增长时间序列。用户私有统计只回复本人，不上传存档/正文/凭据/图片。导出导入、清理保留、原生渲染及schema61/Snapshot7未改，未正式发布或合并main；详细验证与最终APK身份待本批CI后补。

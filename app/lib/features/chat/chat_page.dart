@@ -45,6 +45,7 @@ import '../../widgets/chat_emotion_effect_layer.dart';
 import '../../widgets/caicai_live2d_stage.dart';
 import '../../widgets/playful_heat_gauge.dart';
 import 'chat_controller.dart';
+import 'manual_ds_reply_button.dart';
 import 'live2d_settings_page.dart';
 import 'chat_timestamp_formatter.dart';
 import '../reference/reference_library_page.dart';
@@ -3625,16 +3626,12 @@ class _StreamingBubble extends StatelessWidget {
                           ? '正在结束上次中断的回复…' : '她正在准备回复…')),
                       if (controller.showManualReplyControl) ...[
                         const SizedBox(width: 8),
-                        TextButton(
-                          onPressed: controller.canUseDeepSeekForCurrentReply
-                              ? controller.useDeepSeekForCurrentReply : null,
-                          style: TextButton.styleFrom(
-                            visualDensity: VisualDensity.compact,
-                            minimumSize: Size.zero,
-                            padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
-                          ),
-                          child: Text(controller.manualDeepSeekSelected
-                              ? '已切换 DeepSeek' : '使用 DeepSeek 回复'),
+                        ManualDsReplyButton(
+                          replyIdentity: controller.manualReplyIdentity,
+                          enabled: controller.canUseDeepSeekForCurrentReply,
+                          selected: controller.manualDeepSeekSelected,
+                          onConfirmed: (identity) => controller.useDeepSeekForCurrentReply(
+                            expectedReplyIdentity: identity),
                         ),
                       ],
                     ],

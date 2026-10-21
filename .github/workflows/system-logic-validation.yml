@@ -33,6 +33,7 @@ jobs:
           flutter test --timeout 60s --reporter expanded
           test/model_routing_v042123_test.dart
           test/manual_deepseek_takeover_v042123_test.dart
+          test/manual_ds_reply_confirmation_v042125_test.dart
           test/nightly_dream_test.dart
           test/nightly_dream_pipeline_test.dart
           test/proactive_source_fence_g3_test.dart

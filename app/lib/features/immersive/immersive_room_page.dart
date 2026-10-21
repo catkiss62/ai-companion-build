@@ -301,7 +301,8 @@ class _ImmersiveRoomLobbyPageState extends State<ImmersiveRoomLobbyPage> {
       ),
       floatingActionButton: SizedBox(width: MediaQuery.sizeOf(context).width - 32,
         child: Row(children: [
-        Expanded(child: Align(alignment: Alignment.centerRight, child: _modelButton())),
+        Expanded(child: Align(alignment: Alignment.centerRight, heightFactor: 1,
+          child: _modelButton())),
         const SizedBox(width: 8), FloatingActionButton.extended(
         onPressed: loading ? null : _createRoom,
         icon: const Icon(Icons.add_rounded),

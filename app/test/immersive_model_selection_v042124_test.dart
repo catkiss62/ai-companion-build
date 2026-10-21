@@ -25,12 +25,27 @@ void main() {
   });
   tearDown(() async => db.closeForTesting());
 
-  test('only genuinely configured choices appear; initial room model is first', () async {
+  test('default work config is visible while an unconfigured relay stays hidden', () async {
     final choices = await ImmersiveModelSelection.options(db, secureConfig:secure);
-    expect(choices.map((c)=>c.source), [ImmersiveModelSource.first]);
+    expect(choices.map((c)=>c.source), [ImmersiveModelSource.first, ImmersiveModelSource.work]);
     expect((await ImmersiveModelSelection.resolve(db, secureConfig:secure)).model,'first-configured');
-    // Neither the relay getter default nor the work UI placeholder is a saved choice.
+    expect(choices.last.model, 'deepseek-flash');
+    expect(choices.last.effort.apiName, 'max');
+    // A relay getter default is not a configured second channel.
     expect(await secure.readAiWangYouModel(),isNotEmpty);
+  });
+  test('default work source stays separate and follows a later saved work model', () async {
+    await db.setSetting('deepseek_model','deepseek-flash');
+    final choices = await ImmersiveModelSelection.options(db,secureConfig:secure);
+    expect(choices.map((c)=>c.model), ['deepseek-flash','deepseek-flash']);
+    expect(choices.map((c)=>c.source), [ImmersiveModelSource.first,ImmersiveModelSource.work]);
+    await db.setSetting(ImmersiveModelSelection.settingKey,'work');
+    expect((await ImmersiveModelSelection.resolve(db,secureConfig:secure)).model,'deepseek-flash');
+    await db.setSettingsAtomically({'creative_work_model':'new-work-model','creative_work_effort':'low'});
+    final selected = await ImmersiveModelSelection.resolve(db,secureConfig:secure);
+    expect(selected.model,'new-work-model');
+    expect(selected.effort.apiName,'low');
+    expect(await db.getSetting('deepseek_model'),'deepseek-flash');
   });
   test('same model names retain distinct sources and work effort', () async {
     await db.setSettingsAtomically({'creative_work_model':'first-configured','creative_work_effort':'max'});
@@ -39,8 +54,9 @@ void main() {
     expect(choices.last.effort.apiName,'max');
     expect(choices.last.apiKey,'first-key');
   });
-  test('removed selected configuration requires a new selection', () async {
+  test('removed selected credentials require a new selection', () async {
     await db.setSetting(ImmersiveModelSelection.settingKey,'work');
+    FlutterSecureStorage.setMockInitialValues({});
     await expectLater(ImmersiveModelSelection.resolve(db,secureConfig:secure),throwsFormatException);
     expect(await db.getSetting(ImmersiveModelSelection.settingKey),'work');
   });

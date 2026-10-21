@@ -31,7 +31,11 @@ abstract final class ImmersiveModelSelection {
     final secondKey = (await secure.readAiWangYouApiKey())?.trim() ?? '';
     final raw = await secure.readPortableSettings();
     final secondModel = raw['aiwangyou_final_reply_model']?.trim() ?? '';
-    final workModel = (await db.getSetting('creative_work_model'))?.trim() ?? '';
+    // The work settings page and commission store already use these defaults
+    // before the user saves a separate configuration. Keep that source visible.
+    final savedWorkModel = (await db.getSetting('creative_work_model'))?.trim() ?? '';
+    final workModel = savedWorkModel.isEmpty ? 'deepseek-flash' : savedWorkModel;
+    final savedWorkEffort = (await db.getSetting('creative_work_effort'))?.trim() ?? '';
     final firstModel = await FirstChannelModel.read(db);
     final effort = ReasoningEffort.fromApiName(await db.getSetting('reasoning_effort'));
     final firstEndpoint = await secure.readDeepSeekEndpoint();
@@ -44,7 +48,7 @@ abstract final class ImmersiveModelSelection {
       if (firstKey.isNotEmpty && workModel.isNotEmpty && workModel != '__custom__')
         ImmersiveModelChoice(source: ImmersiveModelSource.work, model: workModel,
           apiKey: firstKey, endpoint: firstEndpoint,
-          effort: ReasoningEffort.fromApiName(await db.getSetting('creative_work_effort'))),
+          effort: ReasoningEffort.fromApiName(savedWorkEffort.isEmpty ? 'max' : savedWorkEffort)),
     ];
   }
 

@@ -220,7 +220,10 @@ class ChatController extends ChangeNotifier {
   bool get canUseDeepSeekForCurrentReply => showManualReplyControl &&
       (_activeReplyControl?.accepting ?? !_externalDeepSeekSelected);
 
-  Future<void> useDeepSeekForCurrentReply() async {
+  Object? get manualReplyIdentity => _activeReplyControl ?? _externalReplyJobId;
+
+  Future<void> useDeepSeekForCurrentReply({Object? expectedReplyIdentity}) async {
+    if (expectedReplyIdentity != null && expectedReplyIdentity != manualReplyIdentity) return;
     if (!canUseDeepSeekForCurrentReply) return;
     final control = _activeReplyControl;
     if (control != null && !control.requestDeepSeek()) return;
