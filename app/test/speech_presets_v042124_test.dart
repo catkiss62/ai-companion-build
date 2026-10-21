@@ -10,19 +10,12 @@ import 'package:http/testing.dart';
 void main() {
   test('one real JEV request exposes every authored family per audio span', () async {
     var calls = 0;
+    Map? sent;
     final gateway = JevDecisionGateway(keyReader:() async=>'test', enabledReader:() async=>true,
       clientFactory:()=>MockClient((request) async {
         calls++;
-        final body = jsonDecode(request.body) as Map;
+        final body = jsonDecode(request.body) as Map;sent = body;
         final questions = body['questions'] as Map;
-        for(var i=0;i<2;i++) {
-          expect((questions['speech${i}_face']['criteria'] as Map).keys,
-            unorderedEquals(CaicaiPresetCatalog.overlayFaces));
-          expect((questions['speech${i}_wink']['criteria'] as Map).keys,
-            unorderedEquals(CaicaiPresetCatalog.winks));
-          expect((questions['speech${i}_action']['criteria'] as Map).keys,
-            unorderedEquals(CaicaiPresetCatalog.actions));
-        }
         final answers = <String,Object?>{};
         for(final e in questions.entries) {
           final options = ((e.value as Map)['criteria'] as Map).keys.cast<String>().toList();
@@ -33,11 +26,22 @@ void main() {
           answers[name] = {'type':'choice','choice':choice,'confidence':1.0,
             'probabilities':{for(final option in options) option:option==choice?1.0:0.0}};
         }
-        return http.Response(jsonEncode({'answers':answers}),200);
+        return http.Response(jsonEncode({'answers':answers}),200,
+          headers:const {'content-type':'application/json; charset=utf-8'});
       }));
     final plan = await CaicaiMotionPlanner(gateway:gateway).plan(user:'你好',reply:'前半句，后半句。',
       spokenText:'前半句，后半句。',emotion:'normal',parameters:{'ParamAngleY2':{'min':-30,'max':30}});
-    expect(calls,1);expect(plan,isNotNull);
+    expect(calls,1);
+    final questions = sent!['questions'] as Map;
+    for(var i=0;i<2;i++) {
+      expect((questions['speech${i}_face']['criteria'] as Map).keys,
+        unorderedEquals(CaicaiPresetCatalog.overlayFaces));
+      expect((questions['speech${i}_wink']['criteria'] as Map).keys,
+        unorderedEquals(CaicaiPresetCatalog.winks));
+      expect((questions['speech${i}_action']['criteria'] as Map).keys,
+        unorderedEquals(CaicaiPresetCatalog.actions));
+    }
+    expect(plan,isNotNull);
     final cues = plan!['speech'] as List;
     expect(cues,hasLength(2));
     for(final cue in cues) {

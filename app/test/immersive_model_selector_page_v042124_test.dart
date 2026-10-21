@@ -49,6 +49,8 @@ void main() {
               await Future<void>.delayed(const Duration(milliseconds:20));await tester.pump();
             }
             expect(await db.getSetting(ImmersiveModelSelection.settingKey),'second');
+            // Persisting the choice schedules a new button frame.
+            await tester.pumpAndSettle();
             expect(find.text(longModel),findsOneWidget);
           }
           expect(tester.takeException(),isNull);
