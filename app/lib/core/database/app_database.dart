@@ -8,6 +8,7 @@ import '../storage/pending_media_owner.dart';
 import 'generation_attempt_fence.dart';
 import 'conversation_source_store.dart';
 import 'conversation_summary_store.dart';
+import 'conversation_history_catalog.dart';
 import '../creative/creative_contract.dart';
 import '../creative/creative_autonomy_policy.dart';
 import '../creative/creative_share.dart';
@@ -1917,6 +1918,7 @@ class AppDatabase {
       await DerivedSourceStore.ensureSchema(txn);
       await ConversationSourceStore.ensureSchema(txn);
       await ConversationSummaryStore.ensureSchema(txn);
+      await ConversationHistoryCatalog.ensureSchema(txn);
       if ((await txn.rawQuery('PRAGMA table_info(personality_learning_candidates)')).isNotEmpty) {
         final legacy = await txn.query('personality_learning_candidates', columns: ['id'], where: "lifecycle_json = ''");
         for (final row in legacy) await _recomputePersonalityLearningCandidate(txn, row['id'] as String, DateTime.now().millisecondsSinceEpoch);
@@ -20244,6 +20246,7 @@ class AppDatabase {
       'desire_events',
       'conversation_summaries',
       'conversation_summary_sources',
+      'conversation_history_catalog',
       'derived_source_links',
       'unfinished_threads',
       'thoughts',
@@ -20292,6 +20295,7 @@ class AppDatabase {
     // Read the whole state inside one SQLite transaction so background
     // memory/perception writers cannot produce a cross-table torn snapshot.
     final data = await db.transaction<Map<String, Object?>>((txn) async {
+      await ConversationHistoryCatalog.ensureReady(txn);
       final result = <String, Object?>{};
       for (final table in tables) {
         if (table == 'settings') {
@@ -20313,6 +20317,7 @@ class AppDatabase {
     return {
       'format': 'ai-companion-localfirst',
       'schema_version': schemaVersion,
+      ConversationHistoryCatalog.versionKey: 1,
       'state_lineage_id': identity.lineageId,
       'state_generation': identity.generation,
       'source_device_id': identity.deviceId,
@@ -20334,6 +20339,7 @@ class AppDatabase {
       throw FormatException('不支持的状态包版本 $version');
     }
     final rawTables = Map<String, dynamic>.from(backup['tables'] as Map);
+    ConversationHistoryCatalog.validateArchive(backup, rawTables);
     CreativeContract.normalizeImport(rawTables);
     if (version < 44) {
       rawTables['personality_learning_evidence_revisions'] = const <Object?>[];
@@ -20379,6 +20385,7 @@ class AppDatabase {
         'desire_events',
         'conversation_summaries',
         'conversation_summary_sources',
+        'conversation_history_catalog',
         'derived_source_links',
         'unfinished_threads',
         'thoughts',
@@ -20908,6 +20915,8 @@ class AppDatabase {
         "CASE WHEN expires_at > ${DateTime.now().millisecondsSinceEpoch} THEN 'unread' ELSE 'reviewed' END "
         "ELSE lifecycle_state END, share_stage_token = '', share_stage_until = 0");
       await ConversationSourceStore.initializeSequences(txn);
+      // Metadata is always rechecked against restored canonical text.
+      await ConversationHistoryCatalog.rebuild(txn);
     });
     await _createV61AiInterestConsumptionTables(await database);
     await _ensureDeepWebColumns(await database);

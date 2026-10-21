@@ -65,6 +65,18 @@ class AgentToolRegistry {
     userTurnAvailable: true,
     autonomousAvailable: false,
   );
+  static const chatHistorySearch = AgentToolDefinition(
+    id: 'chat_history.search', title: '查找聊天原文目录',
+    description: '按原文关键词、实际发言日期或记忆ID查普通聊天目录，包含没有提炼成记忆的细节。',
+    risk: AgentToolRisk.readOnly, executable: true,
+    userTurnAvailable: true, autonomousAvailable: false,
+  );
+  static const chatHistoryRead = AgentToolDefinition(
+    id: 'chat_history.read', title: '按需追读聊天原文',
+    description: '按目录句柄、真实来源ID或分页游标读取历史原话和前后文，不新增记忆或行动许可。',
+    risk: AgentToolRisk.readOnly, executable: true,
+    userTurnAvailable: true, autonomousAvailable: false,
+  );
   static const albumSearch = AgentToolDefinition(
     id: 'album.search',
     title: '回想已存相册',
@@ -282,6 +294,8 @@ class AgentToolRegistry {
     publicWebDiscovery,
     rulesRead,
     memorySearch,
+    chatHistorySearch,
+    chatHistoryRead,
     albumSearch,
     deviceContextRead,
     systemSelfRead,

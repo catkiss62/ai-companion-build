@@ -1,3 +1,6 @@
+import 'package:ai_companion_localfirst/core/database/conversation_history_catalog.dart';
+import 'package:ai_companion_localfirst/core/history/conversation_history_reader.dart';
+import 'package:ai_companion_localfirst/core/agent/agent_tool.dart';
 import 'support/cedar_task_fixture.dart';
 import 'dart:async';
 import 'dart:convert';
@@ -218,6 +221,33 @@ void main() {
       );
   Future<void> writeArchive(Archive archive, String path) async =>
       File(path).writeAsBytes(ZipEncoder().encode(archive));
+
+  test('real ZIP backup carries the directory and restores originals with stale old handles rejected', () async {
+    await db.insertMessage(ChatMessage(id:'catalog-source',role:'user',
+      content:'完整存档中的蓝色贝壳细节',createdAt:DateTime.utc(2026,10,10)));
+    final bundle=await service.exportBackupBundle();
+    final archive=await decode(bundle.filePath);
+    final state=object(archive,'state.json');
+    expect(state[ConversationHistoryCatalog.versionKey],1);
+    expect((state['tables'] as Map)[ConversationHistoryCatalog.table],isNotEmpty);
+    await db.setSetting('transfer_lock','0');
+    final reader=ConversationHistoryReader(db);
+    final before=await reader.search({'query':'蓝色贝壳'});
+    final directory=jsonDecode(before.promptData.substring(before.promptData.indexOf('{')).split('\n').first) as Map;
+    final oldHandle=(directory['entries'] as List).first['handle'] as String;
+    await db.setSetting('transfer_lock','1');
+    await db.insertMessage(ChatMessage(id:'after-snapshot',role:'user',
+      content:'回档应移除的新内容',createdAt:DateTime.utc(2026,10,11)));
+    await service.restoreBackupBundle(bundle.filePath);
+    await db.setSetting('active_brain','1');
+    await db.setSetting('transfer_lock','0');
+    final restored=await (await db.database).query(ConversationHistoryCatalog.table);
+    expect(restored.map((r)=>r['message_id']),['catalog-source']);
+    expect((await reader.read({'handle':oldHandle})).status,AgentToolStatus.noResult);
+    final raw=await reader.read({'source_id':'catalog-source'});
+    expect(raw.status,AgentToolStatus.succeeded);
+    expect(raw.promptData,contains('蓝色贝壳细节'));
+  });
 
   // Construct the previous v7 payload independently of the new exporter, so
   // compatibility tests cannot silently follow its settings-only behavior.

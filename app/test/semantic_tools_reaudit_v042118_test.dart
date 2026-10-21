@@ -1,3 +1,4 @@
+import 'package:ai_companion_localfirst/core/history/conversation_history_reader.dart';
 import 'dart:convert';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
@@ -67,6 +68,43 @@ void main() {
     expect(first.toolRoute.roomId,r.id);expect(shortCalls,1);expect(fullCalls,0);
     final replay=await router.decide(apiKey:'test',endpoint:'https://test.invalid/chat/completions',turnId:'request',latestUserText:args.content,recent:[args]);
     expect(replay.toolRoute.roomId,r.id);expect(shortCalls,1);
+  });
+  test('chat directory and multiple original pages reuse one existing JEV route decision',() async {
+    final at=DateTime.now();
+    await db.insertMessage(ChatMessage(id:'old-original',role:'user',
+      content:List.filled(15000,'贝壳').join(),createdAt:at.subtract(const Duration(days:2))));
+    await message('history-request',at);
+    var calls=0;
+    final gateway=JevDecisionGateway(enabledReader:()async=>true,keyReader:()async=>'test',
+      clientFactory:()=>MockClient((request)async {
+        calls++;
+        final questions=(jsonDecode(request.body) as Map)['questions'] as Map;
+        final answers=<String,Object?>{};
+        for(final e in questions.entries) {
+          final keys=((e.value as Map)['criteria'] as Map).keys.cast<String>().toList();
+          final selected=switch(e.key){'tool_route'=>'memory','tool_scope'=>'multi',_=>keys.first};
+          answers[e.key as String]={'type':'choice','choice':selected,'confidence':1.0,
+            'probabilities':{for(final k in keys)k:k==selected?1.0:0.0}};
+        }
+        return http.Response(jsonEncode({'answers':answers}),200);
+      }));
+    final route=await NsfwContextRouter(db:db,client:DeepSeekClient(),jevGateway:gateway).decide(
+      apiKey:'test',endpoint:'https://test.invalid/chat/completions',turnId:'history-request',
+      latestUserText:'查一下以前贝壳那次的原话和具体细节',recent:const []);
+    expect(route.toolRoute.kind,'memory');
+    expect(route.toolRoute.toolIds,contains('chat_history.read'));
+    final reader=ConversationHistoryReader(db);
+    final found=await reader.search({'query':'贝壳'});
+    Map data(AgentToolResult r)=>jsonDecode(r.promptData.substring(r.promptData.indexOf('{')).split('\n').first) as Map;
+    var result=await reader.read({'handle':(data(found)['entries'] as List).first['handle'] as String});
+    var pages=0;
+    while((data(result)['next_cursor'] as String).isNotEmpty) {
+      result=await reader.read({'cursor':data(result)['next_cursor'] as String});
+      expect(result.status,AgentToolStatus.succeeded);
+      expect(++pages,lessThan(10));
+    }
+    expect(pages,greaterThan(1));
+    expect(calls,1);
   });
   test('existing source-bound task decision survives tool-route upgrade without a second classifier',()async{
     final at=DateTime.now();await message('old-task',at);

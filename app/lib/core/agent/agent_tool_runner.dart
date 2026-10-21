@@ -44,6 +44,7 @@ import '../phone/companion_album_search_policy.dart';
 import '../phone/companion_album_discovery_engine.dart';
 import '../phone/simulated_phone_reader.dart';
 import '../history/room_history_reader.dart';
+import '../history/conversation_history_reader.dart';
 import '../perception/current_device_context_refresher.dart';
 import '../platform/android_bridge.dart';
 import '../storage/secure_config.dart';
@@ -422,6 +423,12 @@ class AgentToolRunner {
     }
     if (call.toolId == AgentToolRegistry.systemSelfRead.id) {
       return _readSystemSelf(call.arguments['scope'] ?? 'all');
+    }
+    if (call.toolId == AgentToolRegistry.chatHistorySearch.id) {
+      return ConversationHistoryReader(db).search(call.arguments, cancellation:cancellationToken);
+    }
+    if (call.toolId == AgentToolRegistry.chatHistoryRead.id) {
+      return ConversationHistoryReader(db).read(call.arguments, cancellation:cancellationToken);
     }
     if(call.toolId==AgentToolRegistry.roomHistorySearch.id) {
       return RoomHistoryReader(db).search(call.arguments);
@@ -2363,6 +2370,11 @@ ${lines.join('\n')}
       }
     }
     cancellationToken?.throwIfCancelled();
+    final directory = await ConversationHistoryReader(db).memoryDirectory([
+      ...context.stableUser, ...context.aiSelf, ...context.preferences,
+      ...context.relevant, ...context.inferences, ...context.history,
+    ], context.summaries, cancellation:cancellationToken);
+    cancellationToken?.throwIfCancelled();
     final formatted = MemoryBrain(db).formatForPrompt(context);
     return AgentToolResult(
       toolId: AgentToolRegistry.memorySearch.id,
@@ -2371,7 +2383,7 @@ ${lines.join('\n')}
       promptData: '已真实检索本地记忆。只凭存储证据回答；未命中不代表没有发生或已删除，不必假装遗忘。'
           '记忆可能过时，历史版本不能冒充当前事实。'
           '${expanded ? "以下是同义检索候选，仍须对照用户原始问题核对人物、归属、时间与事件；歧义时确认，不能拼接成同一件事。" : ""}\n'
-          '${_bounded(formatted, 10000)}',
+          '$directory\n${_bounded(formatted, 8000)}',
       resultCount: context.stableUser.length + context.aiSelf.length +
           context.preferences.length + context.relevant.length +
           context.inferences.length + context.history.length +

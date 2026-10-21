@@ -6,6 +6,8 @@
 
 ## 当前接班快照
 
+- 新批次v0.42.126+370实施/验证中：普通聊天本地目录与按需原文追读复用现有记忆/JEV工具链；新存档保存目录，旧存档从原文补建；不加梦境随机回看，不逐页新增JEV。入口app/docs/CONVERSATION_HISTORY_DIRECTORY_v0.42.126.md；尚无本批APK。
+
 - 最新交付v0.42.125+369：构建42924e087e3e1be76b0079e2be925ad0c0da1760 / tree3a9220a5c8127af9ff200c9ce607238e13b7492d，完整39667162957成功（154源码门、Kotlin、2496全量Flutter、168归档恢复、54 Android15原生）；专项39667163000通过861项。0 error、739非fatal（61 warning/678 info）。DS确认接管、沉浸底部位置、独立同名作品选项已打包，存档只读；APK已先给链接，真机待验。入口app/docs/UI_CONFIRMATION_LAYOUT_AND_BACKUP_AUDIT_v0.42.125.md及账末。
 
 - 上一交付：v0.42.124+368，源码7a323b0d32d4c39e22c351e19c1c2d0a55ed2a47 / tree5f0bcd2be3fb51c9160823387000b1b035e3a77c；完整39615993684成功（154源码门、Kotlin、2489 Flutter、168归档恢复、54 Android15原生），专项39615993663通过854项。分析0 error、738非fatal（61 warning/677 info）。APK已上传并给用户链接；本批原装TTS层/短wink、独立沉浸模型、动态对谈和悬浮首次历史均包含，真机待验。入口app/docs/SPEECH_PRESETS_ROOM_MODELS_v0.42.124.md；账末为准。
@@ -1411,3 +1413,9 @@ APK 738919562 bytes，SHA256 7feb06f085b8e97afdf0be726225beb51ea76dda0212d2fb1b9
 APK 738917278 bytes，SHA256 `5d0d28b8e4d22e13aa6066c467dbad2fd42a905a6b292e63c8dbef8cb0f15766`；包名com.aicompanion.localfirst、versionName0.42.125 / versionCode369；原证书SHA256 `305eb3d80983b963c64818ddf1ad561f279de6d47b3ed2c781ada448c7c25148`。完整资源检查通过；Release419988272、asset663710022仍draft，目标commit、线上digest、CI校验和ci-monitor-v0345/.ci/v042120-monitor.txt的run/head/success/checksum一致。下载https://github.com/catkiss62/ai-companion-build/releases/download/untagged-a40582344e5e76ab4b9f/AI-Companion-v0.42.125-369-Reply-Confirmation-Room-Layout-APK.apk ；草稿https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-a40582344e5e76ab4b9f ；完整CI https://github.com/catkiss62/ai-companion-build/actions/runs/39667162957 。APK已先给用户，随后仅[skip ci]文档收尾，不重打相同APK。
 
 存档只读结论：完整已保留聊天原文/reasoning与整理记忆/总结同时导出，原图/PNG缩略图、事件、恢复检查点及手机/作品/诊断也占空间；部分辅助数据有既有维护上限。重复回档样本不能证明正常增长速率异常，本轮不改导入导出、保留、压缩或清理，不公开私有数量/正文/存档/图片/凭据。schema61/Snapshot7保持，未调用付费模型，未合并main或正式发布；真机按钮触感/底部位置与实际API效果待安装确认。
+
+## 2026-10-22 · +370普通聊天目录和原文追读实施中
+
+用户确认沿用现有记忆读取链并要求存档保存目录。新增本地派生目录、原文/日期/记忆出处查找与句柄分页读取；已有阶段摘要/来源清单复用，没有提取成记忆的正文细节也可定位。原文/角色/形态/日期与源版本有界读取，旧范围摘要不假配；不新增梦境随机复盘、自动规划或每页JEV判断。新元数据表及版本声明纳入快照，新存档缺失/不一致拒绝，旧存档本地补建，恢复事务内校正目录，schema61/Snapshot7和主数据所有权规则保持。
+
+新增SQLite、真实ZIP、单次JEV多页读取回归已写，待CI实际执行；本地版本白名单21文件追加、23签名工作流及4 NDK引导离线回归通过。源码预检135/154，其余主要资源/SDK缺失；唯一业务DB整文件指纹差异已逐行审查9行加法并更新，未删除保护。公开推送/CI/同签名测试APK沿用用户已有授权，私密附件/原文/凭据不公开，无main合并或正式发布，当前交付仍为+369，最终以新CI/账末为准。

@@ -36,7 +36,7 @@ class SemanticToolRoute {
     'room' => {'room_history.search','room_history.read'},
     'phone' => {'phone.search','phone.read'},
     'web' => {'public_web.search','public_web.read'},
-    'memory' => {'memory.search','room_history.search','room_history.read'},
+    'memory' => {'memory.search','room_history.search','room_history.read','chat_history.search','chat_history.read'},
     'system' => {'system_self.read'}, 'rules' => {'rules.read'},
     'album' => {'album.search'}, 'device' => {'device_context.read'}, _ => {},
   };
@@ -119,7 +119,7 @@ class SemanticToolQuestions {
       'mixed means multiple capability families are requested, e.g. read a room THEN verify it on the web. '
       'Never choose external web for local room records alone.',
       {'none':'No present tool need','room':'Read actual room records','phone':'Read own saved phone records',
-       'web':'External lookup now','memory':'Past conversation or stored memories','system':'Abilities or past tool outcomes',
+       'web':'External lookup now','memory':'Stored memories or ordinary chat originals; search directory and read details only when needed','system':'Abilities or past tool outcomes',
        'rules':'Configured rules','album':'Saved album images','device':'Actual device state','mixed':'Multiple capability families now'},optional:true),
     if(rooms.isNotEmpty) 'tool_room_target':JevChoiceQuestion(
       'Select a supplied room only for a real room-reading request and only when uniquely identifiable. '

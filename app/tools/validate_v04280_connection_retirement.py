@@ -1,5 +1,8 @@
 #!/usr/bin/env python3
 """Guard the removal boundary: retired transport absent, shared restore core unchanged."""
+# +370 reviewed: additive, rebuildable chat catalog; export includes metadata/version,
+# import validates before mutation and rebuilds in the existing restore transaction.
+# No source text deletion or restore ownership change; new ZIP/legacy/stale-read tests apply.
 from pathlib import Path
 import hashlib
 APP = Path(__file__).resolve().parents[1]
@@ -76,7 +79,7 @@ APP = Path(__file__).resolve().parents[1]
 # message transaction fence reject second-channel text after the user's choice.
 # No schema, restore/export, transfer or tool-authorization change. Production
 # runner takeover/stop/late-response regressions and full restore suite apply.
-PROTECTED = {'lib/core/database/app_database.dart': '3b2b725273626466afc92ac5c4a514917647df0a37456e256d7be3712364f68b', 'lib/core/sync/snapshot_service.dart': '7ee93b5b6727b8af1d863918f7a55a892c88e18aee514d36d87551173675e4d5', 'lib/core/sync/snapshot_restore_coordinator.dart': '2a3fd1c8237774aa9c2d0e88e7d4dba28cea732388b495761403119be78d886d', 'lib/core/sync/snapshot_cache_janitor.dart': '9e9dc7e44747f184b9359565512906ef24cb88666ac7c6456a92a9dfbd5f1d9b', 'android/app/src/main/kotlin/com/aicompanion/localfirst/NativeEventStore.kt': '6cead2621c92ab42701dbe3e7081089e4a37648abb63fb2f96b1bad90f221002', 'android/app/src/main/kotlin/com/aicompanion/localfirst/ManualSnapshotCrypto.kt': '3497404b13f2c388a276545db6342d16a44d8c17e18e2318dabfb84248a5dc84', 'android/app/src/main/kotlin/com/aicompanion/localfirst/PortableCompanionState.kt': 'a33deefe80a537f10e60c7b451ec30a43e134f3a8cd368252772b79898bcf9c6'}
+PROTECTED = {'lib/core/database/app_database.dart': 'bcfb05f3bd72d4efb2e322cc88a854a8df23c37f03726b12a0d56a75be5949d0', 'lib/core/sync/snapshot_service.dart': '7ee93b5b6727b8af1d863918f7a55a892c88e18aee514d36d87551173675e4d5', 'lib/core/sync/snapshot_restore_coordinator.dart': '2a3fd1c8237774aa9c2d0e88e7d4dba28cea732388b495761403119be78d886d', 'lib/core/sync/snapshot_cache_janitor.dart': '9e9dc7e44747f184b9359565512906ef24cb88666ac7c6456a92a9dfbd5f1d9b', 'android/app/src/main/kotlin/com/aicompanion/localfirst/NativeEventStore.kt': '6cead2621c92ab42701dbe3e7081089e4a37648abb63fb2f96b1bad90f221002', 'android/app/src/main/kotlin/com/aicompanion/localfirst/ManualSnapshotCrypto.kt': '3497404b13f2c388a276545db6342d16a44d8c17e18e2318dabfb84248a5dc84', 'android/app/src/main/kotlin/com/aicompanion/localfirst/PortableCompanionState.kt': 'a33deefe80a537f10e60c7b451ec30a43e134f3a8cd368252772b79898bcf9c6'}
 for path, digest in PROTECTED.items():
     assert hashlib.sha256((APP / path).read_bytes()).hexdigest() == digest, path
 native = APP / 'android/app/src/main/kotlin/com/aicompanion/localfirst'
