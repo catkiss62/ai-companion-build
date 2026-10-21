@@ -1,14 +1,14 @@
 # AI Companion · 总账 v3
 
-更新时间：2026-10-21（Asia/Shanghai）
+更新时间：2026-10-22（Asia/Shanghai）
 
 > 本文件是唯一可追加的当前总账。根目录 `AI_Companion_当前总账.md` 保留为永久入口和 v2 只读历史兼容载体；其旧任务、旧“当前”标题及旧协议均不覆盖本文件。日常只更新本文件，不重写 v2 历史。讨论、实现、自动验证、CI/APK、真机结果分别登记。
 
 ## 当前接班快照
 
-- 新批次v0.42.125+369实施/验证中：使用DS回复增加取消/确认回复弹窗及跨轮身份保护；沉浸操作组恢复底部；独立作品默认配置可选、同名不合并。存档只读核查，不改导出/保留策略，私有统计不公开。入口app/docs/UI_CONFIRMATION_LAYOUT_AND_BACKUP_AUDIT_v0.42.125.md；尚无本批新APK。
+- 最新交付v0.42.125+369：构建42924e087e3e1be76b0079e2be925ad0c0da1760 / tree3a9220a5c8127af9ff200c9ce607238e13b7492d，完整39667162957成功（154源码门、Kotlin、2496全量Flutter、168归档恢复、54 Android15原生）；专项39667163000通过861项。0 error、739非fatal（61 warning/678 info）。DS确认接管、沉浸底部位置、独立同名作品选项已打包，存档只读；APK已先给链接，真机待验。入口app/docs/UI_CONFIRMATION_LAYOUT_AND_BACKUP_AUDIT_v0.42.125.md及账末。
 
-- 最新交付：v0.42.124+368，源码7a323b0d32d4c39e22c351e19c1c2d0a55ed2a47 / tree5f0bcd2be3fb51c9160823387000b1b035e3a77c；完整39615993684成功（154源码门、Kotlin、2489 Flutter、168归档恢复、54 Android15原生），专项39615993663通过854项。分析0 error、738非fatal（61 warning/677 info）。APK已上传并给用户链接；本批原装TTS层/短wink、独立沉浸模型、动态对谈和悬浮首次历史均包含，真机待验。入口app/docs/SPEECH_PRESETS_ROOM_MODELS_v0.42.124.md；账末为准。
+- 上一交付：v0.42.124+368，源码7a323b0d32d4c39e22c351e19c1c2d0a55ed2a47 / tree5f0bcd2be3fb51c9160823387000b1b035e3a77c；完整39615993684成功（154源码门、Kotlin、2489 Flutter、168归档恢复、54 Android15原生），专项39615993663通过854项。分析0 error、738非fatal（61 warning/677 info）。APK已上传并给用户链接；本批原装TTS层/短wink、独立沉浸模型、动态对谈和悬浮首次历史均包含，真机待验。入口app/docs/SPEECH_PRESETS_ROOM_MODELS_v0.42.124.md；账末为准。
 - 此前交付：v0.42.123+367，源码9d473e3f03a0468a9a0769fd25fb021c06160114 / tree b4c177d8e9a489d6c2a3336e8ec93ce5fec6cc0d；完整39587274817成功（154源码门、Kotlin、2470 Flutter、168打包前恢复、52 Android15原生），专项39587274796通过835项；0 error、729非fatal分析项。APK已备妥且已给用户下载链接，原签名/包名/版本/资源核验通过；SHA256 3dd7f0d0da6f0e3ed6c97153ef600980917e942a773935d15ed490ebe111215a，738896454 bytes。真机待验。该APK不包含后续+368任务；当前以本账首条和账末为准。
 - 仓库：catkiss62/ai-companion-build；开发分支：agent/v042107-review-recovery。用户10月20日23:39已有授权，且2026-10-21在本窗口直接确认允许公开推送本轮代码、测试、总账与CI/测试APK；不合并main、不正式发布。
 - 前一已交付基线：v0.42.121+365，schema61 / Snapshot protocol7不变。最终构建源码c3bec538048ab2b8b4bd24f0d3343eedc0fa96a6，tree dd22540c1b9bcd38a316b19ead774e26b98a9a39；之后0ebd67c等仅为交付文档。+364基线993a4471/tree8ea373e0保留为对照。
@@ -1401,3 +1401,13 @@ APK 738919562 bytes，SHA256 7feb06f085b8e97afdf0be726225beb51ea76dda0212d2fb1b9
 存档源码与旧样本只读分析确认：聊天正式原文/reasoning与记忆/总结同时保存，媒体原图/缩略图、事件、生成任务、手机/作品状态、诊断等也占体积；回档样本不可直接当正常增长时间序列。用户私有统计只回复本人，不上传存档/正文/凭据/图片。导出导入、清理保留、原生渲染及schema61/Snapshot7未改，未正式发布或合并main；详细验证与最终APK身份待本批CI后补。
 
 +369构建环境阻断：0fa9c1f的专项861/原生54/154源码门已过，完整119443069914先因NDK27.2非ZIP失败；重跑119447792605装好27.2后又因28.2非ZIP失败，均在Kotlin前，未有新APK。新增仅CI的SDKmanager独立暂存、逐版本3次/每次180秒安装及revision/clang验证；不升级两NDK、不绕过既有检查。4项离线回归、23签名工作流和清单/总账检查通过，随后新候选重跑完整CI，最终交付身份待后补。用户私密数据继续不公开。
+
+## 2026-10-22 · +369完整CI、独立作品入口及同签名APK交付
+
+状态IMPLEMENTED / CI PASSED / APK READY / TRUE DEVICE PENDING。最终构建42924e087e3e1be76b0079e2be925ad0c0da1760，tree3a9220a5c8127af9ff200c9ce607238e13b7492d，版本0.42.125+369。使用DS回复复用原按钮颜色和紧凑布局，取消/确认回复的AlertDialog确认后才单轮接管，并绑定回复身份，旧轮/结束/已选/页面回收不接管新轮。沉浸模型/新建房间组恢复底部导航上方，补真实坐标回归；作品默认配置与设置页/创作默认对齐，按来源独立可选，同名不合并，保存新的作品模型后跟随，未新增API。继承+368动态对谈、原装语音层/短wink和悬浮首读保护。
+
+完整39667162957 / build119458502909成功：154源码门、23签名工作流隔离检查、4 NDK引导回归、Kotlin、2496全量Flutter、168打包前归档恢复；Android15原生119455177961通过54项。专项39667163000 / flutter119455134715通过861项，重叠不累加。分析0 error、739非fatal（61 warning/678 info），新确认控件包含1条括号风格info，不写零告警。0fa9c1f两次NDK非ZIP失败保留；42924e0为仅CI独立下载暂存/逐版本最多3次重试及版本/clang核验补丁，两版本真实CI均第二次成功，未改应用NDK或跳过任何原检查。
+
+APK 738917278 bytes，SHA256 `5d0d28b8e4d22e13aa6066c467dbad2fd42a905a6b292e63c8dbef8cb0f15766`；包名com.aicompanion.localfirst、versionName0.42.125 / versionCode369；原证书SHA256 `305eb3d80983b963c64818ddf1ad561f279de6d47b3ed2c781ada448c7c25148`。完整资源检查通过；Release419988272、asset663710022仍draft，目标commit、线上digest、CI校验和ci-monitor-v0345/.ci/v042120-monitor.txt的run/head/success/checksum一致。下载https://github.com/catkiss62/ai-companion-build/releases/download/untagged-a40582344e5e76ab4b9f/AI-Companion-v0.42.125-369-Reply-Confirmation-Room-Layout-APK.apk ；草稿https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-a40582344e5e76ab4b9f ；完整CI https://github.com/catkiss62/ai-companion-build/actions/runs/39667162957 。APK已先给用户，随后仅[skip ci]文档收尾，不重打相同APK。
+
+存档只读结论：完整已保留聊天原文/reasoning与整理记忆/总结同时导出，原图/PNG缩略图、事件、恢复检查点及手机/作品/诊断也占空间；部分辅助数据有既有维护上限。重复回档样本不能证明正常增长速率异常，本轮不改导入导出、保留、压缩或清理，不公开私有数量/正文/存档/图片/凭据。schema61/Snapshot7保持，未调用付费模型，未合并main或正式发布；真机按钮触感/底部位置与实际API效果待安装确认。

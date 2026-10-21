@@ -1,6 +1,6 @@
 # v0.42.125+369 · DS确认、房间底部操作与存档只读核查
 
-状态：IMPLEMENTING / CI PENDING / NO NEW APK。上一已交付为+368（构建7a323b0，文档收尾89efdfc）。本批继续使用agent/v042107-review-recovery与原测试签名；用户已有公开推送/CI/测试APK授权，不合并main或正式发布。
+状态：IMPLEMENTED / CI PASSED / APK READY / TRUE DEVICE PENDING。最终构建42924e087e3e1be76b0079e2be925ad0c0da1760，tree3a9220a5c8127af9ff200c9ce607238e13b7492d，v0.42.125+369。上一交付+368为7a323b0/89efdfc。本批继续使用agent/v042107-review-recovery与原测试签名；公开推送/CI/测试APK沿用用户已有授权，不合并main或正式发布。
 
 ## 修改范围
 
@@ -34,3 +34,17 @@
 第二次完整任务119447792605已装好NDK27.2.12479018，但随后NDK28.2.13676358再次因非ZIP安装包失败，仍未进入Flutter全量/打包。补CI依赖引导：保留两版本，SDKmanager逐个安装，每次独立SDK临时目录、最多3次且每次180秒，复用现有已接受许可证；仅在安装成功、source.properties版本精确一致且clang可运行后移动至最终目录，失败目录清理，不修改业务/Gradle NDK配置。不跳过Kotlin测试或任何原有源码/恢复/资源门。官方命令选项来源https://developer.android.com/tools/sdkmanager 。
 
 本地新增4项离线引导回归通过：下载失败后独立重试、持续失败三次后停止且无半成品、错误版本拒绝、已验证安装复用；临时目录回收与其他版本保留均受检。原23项签名工作流隔离用例、154清单完整性、总账交接和shell语法检查通过。新候选完整CI待运行，之前861专项的Dart源码保持一致，运行结果不冒充新APK。
+
+## 最终CI与交付（2026-10-22 Asia/Shanghai）
+
+最终源码42924e087e3e1be76b0079e2be925ad0c0da1760，tree3a9220a5c8127af9ff200c9ce607238e13b7492d。完整39667162957 / build119458502909成功：154源码门、23项签名工作流隔离用例、4项NDK引导回归、Kotlin、2496全量Flutter、168打包前归档恢复；Android15原生119455177961通过54项。专项39667163000 / flutter119455134715通过861项；与全量重叠不累加。Dart分析0 error、739非fatal（61 warning/678 info），包括前述新控件的1条括号风格info，不写零告警。
+
+两个NDK在本次真实CI中都于第二次独立暂存安装成功，并经版本/clang验证；重试实际生效，原有Kotlin与后续完整门没有跳过。0fa9c1f两次环境失败记录保留，上述成功结果来自42924e0的新完整流水线，不沿用失败候选代替全量。
+
+APK 738917278 bytes，SHA256 `5d0d28b8e4d22e13aa6066c467dbad2fd42a905a6b292e63c8dbef8cb0f15766`；包名com.aicompanion.localfirst，versionName0.42.125 / versionCode369，证书SHA256 `305eb3d80983b963c64818ddf1ad561f279de6d47b3ed2c781ada448c7c25148`，与既有测试签名一致。原装资源、语音/宠物/塔罗/记忆星河/房间及背景核验通过；schema61/Snapshot7保持。Release419988272、APK asset663710022仍draft，目标commit/asset digest/CI checksum及ci-monitor-v0345的.ci/v042120-monitor.txt的success、run/head/checksum一致，旧监控文件名不代表旧产物。
+
+下载：https://github.com/catkiss62/ai-companion-build/releases/download/untagged-a40582344e5e76ab4b9f/AI-Companion-v0.42.125-369-Reply-Confirmation-Room-Layout-APK.apk
+草稿：https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-a40582344e5e76ab4b9f
+完整CI：https://github.com/catkiss62/ai-companion-build/actions/runs/39667162957
+
+已先给用户下载链接，再以[skip ci]补最终文档，不重打同一APK。真机仍需安装确认按钮触感、底部布局/长名及实际API使用；自动检查不等于真机视觉验收。本轮存档只读，用户私有统计/原文/附件/凭据未公开，未调用真实付费模型。
