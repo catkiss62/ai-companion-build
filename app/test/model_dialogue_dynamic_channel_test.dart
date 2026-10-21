@@ -5,6 +5,7 @@ import 'package:ai_companion_localfirst/core/model_dialogue/model_dialogue_archi
 import 'package:ai_companion_localfirst/core/model_dialogue/model_dialogue_controller.dart';
 import 'package:ai_companion_localfirst/core/model_dialogue/model_dialogue_gateway.dart';
 import 'package:ai_companion_localfirst/core/model_dialogue/model_dialogue_models.dart';
+import 'package:ai_companion_localfirst/core/model_dialogue/model_dialogue_repository.dart';
 import 'package:ai_companion_localfirst/core/storage/secure_config.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:flutter_test/flutter_test.dart';
