@@ -77,6 +77,17 @@ void main() {
     expect(h.cues[before]['frames'], isEmpty);
     expect(h.planner.calls, 1);
   });
+  test('unmuting in a later hold inherits the skipped planned emotion', () async {
+    final h = _Harness(); addTearDown(h.motion.stop);
+    await h.present(); h.audio(audible: false); await tick();
+    expect(h.cues, isEmpty);
+    h.audio(position: 4); await tick();
+    expect(h.cues, isNotEmpty);
+    expect(h.cues.first['cue'], '1:1');
+    expect(h.cues.first['emotion'], 'shy');
+    expect(h.cues.first['frames'], isEmpty);
+    expect(h.planner.calls, 1);
+  });
   test('new lease replays the cue without purchasing another plan', () async {
     final h = _Harness(); addTearDown(h.motion.stop);
     await h.present(); h.audio(); await tick();
@@ -110,6 +121,7 @@ void main() {
     expect(h.commands.where((c) => c.$1 == 'motionPlan'), isEmpty);
     expect(h.cues.first['cue'], '1:1');
     expect(h.cues.first['frames'], isEmpty);
+    expect(h.cues.first['emotion'], 'shy');
   });
   test('TTS off preserves immediate plan and omits speech planning context', () async {
     final h = _Harness(); addTearDown(h.motion.stop);

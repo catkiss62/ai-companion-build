@@ -207,8 +207,15 @@ class CaicaiChatMotion {
       final cue = _speech[index];
       final key = '$lease:$index';
       final changed = key != _lastCueKey;
-      final emotion = cue['emotion']?.toString() ?? '';
-      if (emotion.isNotEmpty) _spokenEmotion = CaicaiLive2DService.nativeEmotionId(emotion);
+      // A late attach or muted interval may have skipped earlier cues. Resolve
+      // "keep" from the plan prefix, rather than only previously rendered cues.
+      _spokenEmotion = _baseEmotion;
+      for (var i = 0; i <= index; i++) {
+        final emotion = _speech[i]['emotion']?.toString() ?? '';
+        if (emotion.isNotEmpty) {
+          _spokenEmotion = CaicaiLive2DService.nativeEmotionId(emotion);
+        }
+      }
       _speechLease = lease;
       final start = (cue['start'] as num).toDouble(), end = (cue['end'] as num).toDouble();
       final animate = changed && position - start < ((end - start) * .25).clamp(3, 12);
