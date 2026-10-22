@@ -53,7 +53,8 @@ void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
   sqfliteFfiInit();
 
-  test('present optional invitation survives cached JEV play-vs-none ambiguity and actually starts a half-hour task', () async {
+  for(final accepts in [true,false]) {
+  test('present invitation supports a voluntary decision through cached JEV ambiguity: accepts=$accepts', () async {
     final root = await Directory.systemTemp.createTemp('timed-reply-pipeline-');
     final paths = PathProviderPlatform.instance;
     PathProviderPlatform.instance = _Paths(root.path);
@@ -81,6 +82,7 @@ void main() {
       final body = jsonDecode(request.body) as Map;
       if (body['tools'] is List && (body['tools'] as List).any((t) => ((t as Map)['function'] as Map)['name'] != 'agent_request')) {
         planningCalls++;
+        if(!accepts) return sse({'content':'这次我不想去玩，想休息。'},'stop');
         return sse({'tool_calls': [
           {'index': 0, 'id': 'timed', 'type': 'function', 'function': {
             'name': planningCalls==1?'cedar_toy_play':'cedar_toy_start_timed_play',
@@ -129,14 +131,20 @@ void main() {
       await finalStarted.future.timeout(const Duration(seconds: 15));
       final tasks = CedarTimedPlayTaskStore(db);
       expect(await tasks.active(), isNull);
-      expect(await db.getSetting(CedarTimedPlayTaskStore.pendingKey), contains('30'));
-      expect(game.plays,1);
-      finalResponse.complete(sse({'content': '好，我去白房间玩半小时，结束后回来告诉你。'}, 'stop'));
+      if(accepts) expect(await db.getSetting(CedarTimedPlayTaskStore.pendingKey), contains('30'));
+      else expect(await db.getSetting(CedarTimedPlayTaskStore.pendingKey), anyOf(isNull,isEmpty));
+      expect(game.plays,accepts?1:0);
+      finalResponse.complete(sse({'content': accepts?'好，我去白房间玩半小时，结束后回来告诉你。':'我现在想休息，先不去玩。'}, 'stop'));
       final result = await running.timeout(const Duration(seconds: 15));
       expect(result.status, 'completed', reason: '${result.error}');
       expect(await db.messageById('reply'), isNotNull);
-      expect((await tasks.active())?['minutes'], 30);
-      expect((await store.load())!.phase, isNot(CedarActivityPhase.paused));
+      if(accepts) {
+        expect((await tasks.active())?['minutes'],30);
+        expect((await store.load())!.phase,isNot(CedarActivityPhase.paused));
+      } else {
+        expect(await tasks.active(),isNull);expect(game.plays,0);
+        expect((await db.messageById('reply'))!.content,contains('想休息'));
+      }
       expect(planningCalls, 2);
       expect(finalCalls, 1);
     } finally {
@@ -156,4 +164,5 @@ void main() {
       await root.delete(recursive: true);
     }
   });
+  }
 }
