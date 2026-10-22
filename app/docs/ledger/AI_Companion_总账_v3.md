@@ -1,14 +1,14 @@
 # AI Companion · 总账 v3
 
-更新时间：2026-10-22（Asia/Shanghai）
+更新时间：2026-10-23（Asia/Shanghai）
 
 > 本文件是唯一可追加的当前总账。根目录 `AI_Companion_当前总账.md` 保留为永久入口和 v2 只读历史兼容载体；其旧任务、旧“当前”标题及旧协议均不覆盖本文件。日常只更新本文件，不重写 v2 历史。讨论、实现、自动验证、CI/APK、真机结果分别登记。
 
 ## 当前接班快照
 
-- 新批次v0.42.126+370实施/验证中：普通聊天本地目录与按需原文追读复用现有记忆/JEV工具链；新存档保存目录，旧存档从原文补建；不加梦境随机回看，不逐页新增JEV。入口app/docs/CONVERSATION_HISTORY_DIRECTORY_v0.42.126.md；尚无本批APK。
+- 最新交付v0.42.126+370：源码a17cc72d783df161a0aadf17785587bda072be89 / tree5e82940881d2322227b0a356fe4de44480882d6f；完整39680792562成功（154源码门、Kotlin、2516全量Flutter、169归档恢复、54 Android15原生），专项39680792554通过906项。分析0 error、768非fatal（61 warning/707 info）。普通聊天目录/按需原文追读复用现有记忆与单次JEV；新存档带目录、旧存档本地补建，真实ZIP往返通过。APK已先发用户，真机待验。入口app/docs/CONVERSATION_HISTORY_DIRECTORY_v0.42.126.md及账末。
 
-- 最新交付v0.42.125+369：构建42924e087e3e1be76b0079e2be925ad0c0da1760 / tree3a9220a5c8127af9ff200c9ce607238e13b7492d，完整39667162957成功（154源码门、Kotlin、2496全量Flutter、168归档恢复、54 Android15原生）；专项39667163000通过861项。0 error、739非fatal（61 warning/678 info）。DS确认接管、沉浸底部位置、独立同名作品选项已打包，存档只读；APK已先给链接，真机待验。入口app/docs/UI_CONFIRMATION_LAYOUT_AND_BACKUP_AUDIT_v0.42.125.md及账末。
+- 前一交付v0.42.125+369：构建42924e087e3e1be76b0079e2be925ad0c0da1760 / tree3a9220a5c8127af9ff200c9ce607238e13b7492d，完整39667162957成功（154源码门、Kotlin、2496全量Flutter、168归档恢复、54 Android15原生）；专项39667163000通过861项。0 error、739非fatal（61 warning/678 info）。DS确认接管、沉浸底部位置、独立同名作品选项已打包，存档只读；APK已先给链接，真机待验。入口app/docs/UI_CONFIRMATION_LAYOUT_AND_BACKUP_AUDIT_v0.42.125.md及账末。
 
 - 上一交付：v0.42.124+368，源码7a323b0d32d4c39e22c351e19c1c2d0a55ed2a47 / tree5f0bcd2be3fb51c9160823387000b1b035e3a77c；完整39615993684成功（154源码门、Kotlin、2489 Flutter、168归档恢复、54 Android15原生），专项39615993663通过854项。分析0 error、738非fatal（61 warning/677 info）。APK已上传并给用户链接；本批原装TTS层/短wink、独立沉浸模型、动态对谈和悬浮首次历史均包含，真机待验。入口app/docs/SPEECH_PRESETS_ROOM_MODELS_v0.42.124.md；账末为准。
 - 此前交付：v0.42.123+367，源码9d473e3f03a0468a9a0769fd25fb021c06160114 / tree b4c177d8e9a489d6c2a3336e8ec93ce5fec6cc0d；完整39587274817成功（154源码门、Kotlin、2470 Flutter、168打包前恢复、52 Android15原生），专项39587274796通过835项；0 error、729非fatal分析项。APK已备妥且已给用户下载链接，原签名/包名/版本/资源核验通过；SHA256 3dd7f0d0da6f0e3ed6c97153ef600980917e942a773935d15ed490ebe111215a，738896454 bytes。真机待验。该APK不包含后续+368任务；当前以本账首条和账末为准。
@@ -1421,3 +1421,15 @@ APK 738917278 bytes，SHA256 `5d0d28b8e4d22e13aa6066c467dbad2fd42a905a6b292e63c8
 新增SQLite、真实ZIP、单次JEV多页读取回归已写，待CI实际执行；本地版本白名单21文件追加、23签名工作流及4 NDK引导离线回归通过。源码预检135/154，其余主要资源/SDK缺失；唯一业务DB整文件指纹差异已逐行审查9行加法并更新，未删除保护。公开推送/CI/同签名测试APK沿用用户已有授权，私密附件/原文/凭据不公开，无main合并或正式发布，当前交付仍为+369，最终以新CI/账末为准。
 
 首轮专项39679785300 / 119498943308（e9686a0）：分析通过、904通过/2夹具失败（跨安装测试共用内存库；合成快照删除原文却未同步新目录）。修正为独立临时库/一致的合成删除；源序号旧版导入夹具显式省略当时不存在的目录域。生产校验保留，待重跑，不计为CI通过。
+
+## 2026-10-23 · +370目录、存档与同签名APK交付
+
+状态IMPLEMENTED / CI PASSED / APK READY / TRUE DEVICE PENDING。构建a17cc72d783df161a0aadf17785587bda072be89，tree5e82940881d2322227b0a356fe4de44480882d6f，版本0.42.126+370。普通记忆自动召回保持，通过既有memory工具族扩展普通聊天目录和按需原文读取；已知出处直接读，长文分页沿用同一JEV决定，不增加日常每轮规划或逐页判断。原文与角色/真实日期/形态/来源修订受校验，停止/删除/重生成/回档作废旧读取，不将历史当新指令或人格证据。
+
+新存档在同一快照保存完整轻量目录和原文；声明目录缺失/损坏/与原文不一致时在修改本地前拒绝。旧存档从保留原文本地补建，恢复时清除目标设备旧目录，真实ZIP往返、跨安装及旧版兼容通过。schema61/Snapshot7保持，原文不截断、不复制整份全文到目录；未增加梦境随机回顾，未调用付费模型或上传私有存档。
+
+最终完整39680792562 / build119505243219成功：154源码门、Kotlin、2516全量Flutter、169打包前恢复；Android15原生119502964453通过54项。专项39680792554 / 119502430427通过906项，重叠不累加。分析0 error，768非fatal（61 warning/707 info，新增29风格info）。首轮904/2夹具失败经过保留；原完整39679785212被新候选替代取消，无失败旧产物交付。23签名工作流与4 NDK离线用例为本地验证，最终以新CI为准。
+
+APK738949234 bytes，SHA256 `c9330314097e6a65e189a4cd73c8147ee73f8bc151ead49f6cf6404ad3d118f2`；com.aicompanion.localfirst / 0.42.126+370；原证书SHA256 `305eb3d80983b963c64818ddf1ad561f279de6d47b3ed2c781ada448c7c25148`。签名、版本、包内完整资源、Genie/桌宠/房间深度门成功。Release420084690、asset663938973仍draft，源码目标、线上digest、CI与ci-monitor-v0345/.ci/v042120-monitor.txt的run/head/success/checksum一致。
+
+APK已先发用户：https://github.com/catkiss62/ai-companion-build/releases/download/untagged-2abae09856ac768059a8/AI-Companion-v0.42.126-370-Conversation-History-Directory-APK.apk 。完整CI：https://github.com/catkiss62/ai-companion-build/actions/runs/39680792562 。随后仅总账/报告[skip ci]收尾，不再构建同一APK；未合并main或正式发布。真实模型追读准确性、手机大存档首次补建性能待真机，详细边界见app/docs/CONVERSATION_HISTORY_DIRECTORY_v0.42.126.md。

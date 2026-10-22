@@ -1,6 +1,6 @@
 # v0.42.126+370 · 普通聊天目录、按需追读及存档
 
-状态 IMPLEMENTING / CI PENDING / APK PENDING / TRUE DEVICE PENDING。基线为+369交付b604250（构建42924e0）。用户授权沿用公开分支agent/v042107-review-recovery、原测试签名和测试APK流程，不合并main或正式发布。
+状态 IMPLEMENTED / CI PASSED / APK READY / TRUE DEVICE PENDING。基线为+369交付b604250（构建42924e0）。用户授权沿用公开分支agent/v042107-review-recovery、原测试签名和测试APK流程，不合并main或正式发布。2026-10-23已先向用户发送新APK下载链接。
 
 ## 实现边界
 
@@ -24,3 +24,17 @@
 本地无Flutter/Dart/Android SDK；135/154源码预检通过，其他为未恢复资源/SDK及已审核DB指纹差异，已对DB限定9行增量登记新指纹。版本白名单只追加+370。23签名工作流和4 NDK安装离线用例通过，运行结果仍以新CI为准，不能当作已交付APK。最终构建身份、全部真实结果和任何失败将在后续补齐。
 
 首轮专项39679785300（源e9686a0，job119498943308）：Dart分析通过，904通过/2失败。失败均为测试夹具：跨安装恢复用例复用默认内存库导致建表冲突；历史高水位用例只从合成快照删除原文、未同步删除新声明目录中的对应条目，正确触发一致性拒绝。已分别改用独立临时数据库、同步合成目录条目；另将源序号旧版导入用例显式移除目录域声明与表，真实模拟没有目录的旧版存档。生产导入校验不放宽，待修正后重新运行。
+
+## 最终CI与交付（2026-10-23核验）
+
+最终构建源码a17cc72d783df161a0aadf17785587bda072be89，tree5e82940881d2322227b0a356fe4de44480882d6f；版本0.42.126+370。修正夹具后，专项39680792554 / job119502430427通过906项；完整39680792562 / build119505243219成功，154源码门、Kotlin、2516全量Flutter、169打包前归档恢复全部通过，Android15原生119502964453通过54项。专项与全量重叠，不累加。分析0 error，768非fatal（61 warning/707 info），比+369新增29条风格info，不能写零告警。首次完整39679785212在候选被替代后取消，无旧APK冒充新产物。
+
+真实ZIP保存目录/恢复原文、旧存档补建、目录损坏提前拒绝、Unicode分页、跨恢复句柄失效、现有单次JEV下多页读取均通过。23签名工作流及4 NDK引导离线用例为前述本地结果；新CI沿用现有NDK安装和全部原门，未用真实付费API或私有存档。
+
+APK为738949234 bytes，SHA256 `c9330314097e6a65e189a4cd73c8147ee73f8bc151ead49f6cf6404ad3d118f2`。包名com.aicompanion.localfirst、versionName0.42.126 / versionCode370，原证书SHA256 `305eb3d80983b963c64818ddf1ad561f279de6d47b3ed2c781ada448c7c25148`。包内完整资源/Genie/桌宠/房间深度资源与签名版本门均成功。Release420084690、asset663938973仍draft，目标源码、线上digest、CI校验和ci-monitor-v0345/.ci/v042120-monitor.txt中的run/head/success/checksum已交叉核对。
+
+下载：https://github.com/catkiss62/ai-companion-build/releases/download/untagged-2abae09856ac768059a8/AI-Companion-v0.42.126-370-Conversation-History-Directory-APK.apk
+
+CI：https://github.com/catkiss62/ai-companion-build/actions/runs/39680792562
+
+用户已先收到APK；随后只补总账与本报告，[skip ci]提交，不重打相同APK。真实模型是否按需正确追读、手机大存档首次补建耗时及日常体验仍待真机观察；自动验证不等同真机验收。
