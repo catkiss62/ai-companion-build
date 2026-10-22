@@ -35,7 +35,7 @@ void main() {
         final slow = simulate(240, minutes * 60, events: events);
         expect(quick.score, closeTo(slow.score, 0.000001));
         expect(quick.shouldFeedThought, slow.shouldFeedThought);
-        final ready = minutes >= 36 || (events && minutes >= 24);
+        final ready = events && minutes >= 36;
         expect(quick.shouldFeedThought, ready);
       });
     }

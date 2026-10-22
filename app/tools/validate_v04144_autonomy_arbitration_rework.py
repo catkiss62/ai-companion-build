@@ -53,8 +53,10 @@ assert "intent.wantAction == 'rest'" in engine
 
 assert "class PublicWebDiscoveryAvailability" in discovery
 assert "Future<PublicWebDiscoveryAvailability> availability" in discovery
-assert "capability.available ? 'discover_interest' : 'wait'" in engine
-assert "capability/public_web:" in engine
+assert "if (capability.available)" in engine
+assert "unifiedCandidates.add(routedDiscoveryIntent)" in engine
+assert "capability.available ? 'discover_interest' : 'wait'" not in engine
+assert "proactive_discovery_unavailable_v2" in engine
 assert "final discoveryScore = (discoverySource.score - 0.03)" in engine
 assert "sourceIntent: routedDiscoveryIntent" in engine
 assert "sourceIntentOverride: discoveryIntent" in engine

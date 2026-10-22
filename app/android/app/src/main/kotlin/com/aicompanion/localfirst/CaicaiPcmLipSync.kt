@@ -26,6 +26,7 @@ internal class CaicaiPcmLipSync(private val valid: () -> Boolean = { true }) {
                 while (blocks.isNotEmpty() && blocks.first().end <= head) blocks.removeFirst()
                 blocks.firstOrNull()?.takeIf { head >= it.start && playing }?.value ?: 0f
             }
+            CaicaiRuntime.speechPlayback(playing)
             CaicaiRuntime.speechAmplitude(value)
             handler.postDelayed(this, 40L)
         }
@@ -67,6 +68,6 @@ internal class CaicaiPcmLipSync(private val valid: () -> Boolean = { true }) {
         stopped = true
         handler.removeCallbacks(tick)
         synchronized(blocks) { blocks.clear() }
-        handler.post { if (valid()) CaicaiRuntime.speechAmplitude(0f) }
+        handler.post { if (valid()) { CaicaiRuntime.speechPlayback(false); CaicaiRuntime.speechAmplitude(0f) } }
     }
 }

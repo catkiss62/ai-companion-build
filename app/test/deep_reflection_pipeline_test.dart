@@ -67,7 +67,7 @@ void main() {
       final client = DeepSeekClient(
         streamClientFactory: () => MockClient((request) async {
           final body = jsonDecode(request.body) as Map;
-          if ((body['tools'] as List?)?.isNotEmpty == true) {
+          if ((body['tools'] as List?)?.any((t) => ((t as Map)['function'] as Map)['name'] != 'agent_request') == true) {
             plans++;
             return sse('现有上下文足够，无需工具。');
           }

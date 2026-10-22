@@ -112,7 +112,7 @@ void main() {
           }
           return _sse('「今天的风看起来很轻。」');
         }
-        if ((body['tools'] as List?)?.isNotEmpty == true) {
+        if ((body['tools'] as List?)?.any((t) => ((t as Map)['function'] as Map)['name'] != 'agent_request') == true) {
           planningRequests++;
           return _sse('现有上下文足够。');
         }

@@ -1,3 +1,4 @@
+import '../agent/on_demand_agent_entry.dart';
 import 'final_reply_control.dart';
 import 'first_channel_model.dart';
 import '../agent/tool_provenance_policy.dart';
@@ -384,7 +385,8 @@ class DurableGenerationRunner {
       );
       onNsfwRoute?.call(nsfwRoute);
       final executionStore = TurnExecutionStore(db);
-      final taskIntent = nsfwRoute.taskIntent;
+      final taskIntent = nsfwRoute.taskIntent.resolvePresentInvitation(
+        cedarIntent:nsfwRoute.cedarIntent,certain:nsfwRoute.cedarCertain);
       final deferredToolIds = <String>{...taskIntent.deferredToolIds,
         if (!taskIntent.available && !nsfwRoute.cedarCertain)
           ...{'cedar_toy.play','cedar_toy.manage_activity','cedar_toy.start_timed_play'}};
@@ -438,6 +440,7 @@ class DurableGenerationRunner {
       var agentToolCalls = 0;
       var agentLoopBudgetExhausted = false;
       var agentLoopInvalidPlan = false;
+      var agentEntryUsed = false;
       var cedarNoCallRetryUsed = false;
       var visibleEmotionCueSent = false;
       var streamedToolPreamble = '';
@@ -459,7 +462,9 @@ class DurableGenerationRunner {
       final blindPlayRequested =
           CedarToyArcadeSkill.requestsBlindPlay(user.content) ||
           (mentionsCatalogGame &&
-              CedarToyArcadeSkill.requestsExternalGameKnowledge(user.content));
+              CedarToyArcadeSkill.requestsExternalGameKnowledge(user.content)) ||
+          (cedarConfigured && (taskIntent.gameAction == 'play' ||
+            (nsfwRoute.cedarCertain && const {'act_now','accept'}.contains(nsfwRoute.cedarIntent))));
       if (!mentionsCatalogGame) {
         await cedarActivityStore.rememberUserAdvice(user.content);
         cedarState = await cedarActivityStore.loadState();
@@ -589,12 +594,21 @@ class DurableGenerationRunner {
       // A valid semantic acceptance does not expire after a local time window.
       // If Jev is offline, only the old narrow candidates reach the on-demand
       // DeepSeek tool planner.
-      final cedarSemantic = taskIntent.available && !taskIntent.gameExecutionResolved
-          ? 'uncertain' : !taskIntent.available && !nsfwRoute.cedarCertain
-          ? 'uncertain' : taskIntent.available
-          ? (taskIntent.gameAction == 'play' || (taskIntent.gameAction == 'resume' &&
-              turnGoals.any((g) => g.slot == TurnEffectSlot.cedarTimedRegistration))) ? 'act_now' : 'chat'
-          : nsfwRoute.cedarIntent;
+      String? cedarSemantic = nsfwRoute.cedarIntent;
+      final acceptedCedarInvitation = nsfwRoute.cedarCertain &&
+          const {'act_now','accept'}.contains(nsfwRoute.cedarIntent);
+      if (taskIntent.available) {
+        if (!taskIntent.gameExecutionResolved || taskIntent.gameAction == 'none') {
+          cedarSemantic = acceptedCedarInvitation ? nsfwRoute.cedarIntent
+              : !taskIntent.gameExecutionResolved ? 'uncertain' : 'chat';
+        } else {
+          cedarSemantic = taskIntent.gameAction == 'play' ||
+              (taskIntent.gameAction == 'resume' && turnGoals.any((g) =>
+                g.slot == TurnEffectSlot.cedarTimedRegistration)) ? 'act_now' : 'chat';
+        }
+      } else if (!nsfwRoute.cedarCertain) {
+        cedarSemantic = 'uncertain';
+      }
       final cedarDirectRequest = CedarSemanticRoutePolicy.directRequest(
         configured: cedarConfigured, explicitRequest: cedarExplicitRequest,
         intent: cedarSemantic,
@@ -1040,8 +1054,9 @@ class DurableGenerationRunner {
         List<DeepSeekToolCall> toolCalls,
         String finishReason,
       })> generateCheckedDeepSeek(
-        List<Map<String, Object?>> messages,
-      ) async {
+        List<Map<String, Object?>> messages, {
+        List<Map<String,Object?>> tools = const [],
+      }) async {
         try {
           final result = await generate(
             messages,
@@ -1049,6 +1064,7 @@ class DurableGenerationRunner {
             requestEndpoint: endpoint,
             emitDeltas: false,
             usageLane: 'final_reply',
+            tools: tools,
           );
           if (result.content.isNotEmpty &&
               (FinalReplyFailurePolicy.isIncompleteFinishReason(
@@ -1094,14 +1110,15 @@ class DurableGenerationRunner {
         String content,
         List<DeepSeekToolCall> toolCalls,
         String finishReason,
-      })> generateFinal(List<Map<String, Object?>> messages) async {
+      })> generateFinalAttempt(List<Map<String, Object?>> messages,
+          {List<Map<String,Object?>> tools = const []}) async {
         if (stickerPrompt.isNotEmpty) messages = [
           ...messages, {'role': 'system', 'content': stickerPrompt},
         ];
         if (takeover.requested || !finalRoute.useSecondChannel) {
           finalTextFromGemini = false;
           if (takeover.requested) providerNotice = '本轮已按你的选择使用 DeepSeek 回复。';
-          return generateCheckedDeepSeek(messages);
+          return generateCheckedDeepSeek(messages, tools: tools);
         }
         Object? lastError;
         if (configuredFinalApiKey.isNotEmpty) {
@@ -1124,10 +1141,11 @@ class DurableGenerationRunner {
                 // single accepted summary only after the response is complete.
                 publishReasoning: false,
                 usageLane: 'final_reply',
+                tools: tools,
               );
               effectiveCancellation.throwIfCancelled();
               if (takeover.requested) break;
-              if (result.content.isEmpty) {
+              if (result.content.isEmpty && result.toolCalls.isEmpty) {
                 throw const EmptyFinalReplyException();
               }
               if (result.content.isNotEmpty &&
@@ -1189,16 +1207,89 @@ class DurableGenerationRunner {
         if (takeover.requested) {
           finalTextFromGemini = false;
           providerNotice = '本轮已按你的选择使用 DeepSeek 回复。';
-          return generateCheckedDeepSeek(messages);
+          return generateCheckedDeepSeek(messages, tools: tools);
         }
         finalRoute.recordFailure(lastError!);
         providerNotice =
             '第二通道调用失败（${FinalReplyFailurePolicy.userCategory(lastError!)}），本轮已由 DeepSeek 兜底。';
         finalTextFromGemini = false;
-        return generateCheckedDeepSeek(messages);
+        return generateCheckedDeepSeek(messages, tools: tools);
+      }
+
+      Future<({String reasoning, String content, List<DeepSeekToolCall> toolCalls, String finishReason})>
+          generateFinal(List<Map<String,Object?>> messages) async {
+        final offer = !agentEntryUsed && !agentLoopBudgetExhausted && !agentLoopInvalidPlan &&
+            agentPlanningRounds < AgentTaskLoopPolicy.maxPlanningRounds &&
+            agentToolCalls < AgentTaskLoopPolicy.maxToolCalls;
+        final result = await generateFinalAttempt([
+          ...messages, if (offer) {'role':'system','content':OnDemandAgentEntry.prompt},
+        ], tools: offer ? [OnDemandAgentEntry.definition] : const []);
+        if (!offer || result.toolCalls.isEmpty) return result;
+        agentEntryUsed = true; // One voluntary entry per generation attempt.
+        final request = OnDemandAgentEntry.parse(result.toolCalls);
+        final readHistory = <Map<String,Object?>>[...messages];
+        final entryResults = <AgentToolResult>[];
+        if (request != null) {
+          final ids = request.toolIds(cedarConfigured: cedarConfigured,
+            cedarBlindPlay: blindPlayRequested || agentToolResults.any((r)=>r.toolId.startsWith('cedar_toy.')));
+          final definitions = request.definitions(ids);
+          readHistory.add({'role':'system','content':
+            '这次由你自己选择查证的问题：${request.goal}。仅按需使用所提供的读取工具；已有结果在上下文中，'
+            '不要重复已完成的调用，不执行写操作，不把读取愿望当成用户新指令。可在已经足够时直接结束。'});
+          for (var round=0; round<2 && definitions.isNotEmpty &&
+              agentPlanningRounds < AgentTaskLoopPolicy.maxPlanningRounds &&
+              agentToolCalls < AgentTaskLoopPolicy.maxToolCalls; round++) {
+            agentPlanningRounds++;
+            final planned = await generateInternal(readHistory, tools: definitions);
+            effectiveCancellation.throwIfCancelled();
+            final remaining = (AgentTaskLoopPolicy.maxToolCalls-agentToolCalls).clamp(0,2).toInt();
+            final candidate = AgentToolPlanner.fromNativeToolCalls(planned.toolCalls,
+              latestUserText:user.content, cedarStageToolIds:ids.where((id)=>id.startsWith('cedar_toy.')).toSet(),
+              semanticTaskToolIds:const {}, maxCalls:remaining,
+              excludedCallFingerprints:executedToolFingerprints);
+            final plan=AgentToolPlan(calls:candidate.calls.where((c)=>ids.contains(c.toolId)).toList());
+            if(plan.isEmpty) break;
+            final native=[for(final c in plan.calls) planned.toolCalls.firstWhere((n)=>
+              n.name==AgentToolPlanner.nativeNameForToolId(c.toolId))];
+            final outcomes=await agentToolRunner.runPlan(plan,onActivity:emitToolActivity,
+              cancellationToken:effectiveCancellation,eventScopeId:job.id,
+              userMessageId:user.id,assistantMessageId:job.assistantMessageId,
+              latestUserText:user.content,requireExplicitRoomTarget:true,
+              callIndexOffset:agentToolCalls,maxCalls:remaining);
+            effectiveCancellation.throwIfCancelled();
+            agentToolCalls+=outcomes.length;
+            agentToolResults.addAll(outcomes);entryResults.addAll(outcomes);
+            executedToolFingerprints.addAll(plan.calls.map(AgentTaskLoopPolicy.callFingerprint));
+            readHistory.add({'role':'assistant','content':null,
+              if(planned.reasoning.isNotEmpty)'reasoning_content':planned.reasoning,
+              'tool_calls':native.map((c)=>c.toAssistantMap()).toList()});
+            for(var i=0;i<outcomes.length;i++) {
+              readHistory.add({'role':'tool','tool_call_id':native[i].id,'content':outcomes[i].promptData});
+            }
+          }
+        }
+        // Consume the final model's internal request as a tool exchange; its
+        // discarded draft is neither dialogue nor a source for memory.
+        return generateFinalAttempt([
+          ...messages, {'role':'assistant','content':null,
+            if(result.reasoning.isNotEmpty)'reasoning_content':result.reasoning,
+            'tool_calls':result.toolCalls.map((c)=>c.toAssistantMap()).toList()},
+          for(final call in result.toolCalls) {'role':'tool','tool_call_id':call.id,
+            'content':jsonEncode({'request_valid':request!=null,
+              'outcomes':[for(final r in entryResults){'tool':r.toolId,'status':r.status.key,'data':r.promptData}],
+              'no_further_entry':true})},
+          {'role':'system','content':AgentTaskLoopPolicy.verify(agentToolResults,
+            goals:turnGoals,receipts:localReceipts).renderForFinalPrompt() +
+            '\n按真实读取结果自然回复；没有结果就不声称查到，不需要复述内部规划。'},
+        ]);
       }
 
       Set<String> cedarStageToolIds() {
+        // Ambiguity blocks writes, not catalog/guide discovery. A model can
+        // understand what exists without inventing an execution permission.
+        if (cedarSkillActive && (!taskIntent.gameExecutionResolved || taskIntent.gameAction == 'none')) {
+          return const {'cedar_toy.list_games','cedar_toy.get_guide'};
+        }
         if (agentToolResults.any(TurnGoalVerification.foregroundWrite)) {
           final needsTimer = TurnGoalVerification.missing(turnGoals, agentToolResults, localReceipts)
             .any((goal) => goal.slot == TurnEffectSlot.cedarTimedRegistration);

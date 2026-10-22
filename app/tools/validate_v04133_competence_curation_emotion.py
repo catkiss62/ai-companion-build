@@ -47,7 +47,7 @@ for token in (
     "跳脱一点",
     "猜谜",
     "题面没有直接暴露答案",
-    "不能只用角色语气认错后重复同一结构",
+    "是否认同评价、如何回应，由你自己的判断决定",
     "不要改写成标准助手答题模板",
 ):
     assert token in dialogue, token
@@ -58,7 +58,7 @@ assert "expressionChoice" in prompt
 assert prompt.count("'content': visibleChineseGenerationReminder(") == 3
 for token in (
     "【能力与人格边界】",
-    "不得降低事实判断、推理、任务质量、工具使用",
+    "决定承担的任务仍使用完整的事实判断、推理与工具能力",
     "普通闲聊不必表现成助手",
     "不要先生成一份中性助手答案",
     "不要把用户写成第三人称“她”或“他”",

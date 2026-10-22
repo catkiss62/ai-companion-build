@@ -55,7 +55,7 @@ class PresenceMomentumPolicy {
 
   static const halfLife = Duration(minutes: 55);
   static const eventBudgetPerMinute = 0.003;
-  static const meaningfulRatePerMinute = 0.035 / 4.0;
+  static const thoughtReadinessScore = 0.34;
 
   static PresenceMomentumResult advance({
     required double previousScore,
@@ -101,9 +101,10 @@ class PresenceMomentumPolicy {
         !fresh.reset &&
         impulse > 0 &&
         input.userIdleMinutes >= 5 &&
-        score >= 0.20 &&
-        ((interval > 0 && impulse / interval >= meaningfulRatePerMinute) ||
-            score >= 0.34);
+        // A rate threshold alone made even quiet 90s captures release thoughts
+        // around half an hour. Readiness must reflect accumulated presence,
+        // independent of how often Android reports the same ongoing activity.
+        score >= thoughtReadinessScore;
     final thoughtStrength = (0.14 + score * 0.34).clamp(0.16, 0.43).toDouble();
 
     return PresenceMomentumResult(

@@ -55,7 +55,7 @@ void main() {
             headers: {'content-type': 'text/event-stream; charset=utf-8'});
     final client = DeepSeekClient(streamClientFactory: () => MockClient((request) async {
       final body = jsonDecode(request.body) as Map;
-      if (body['tools'] is List && (body['tools'] as List).isNotEmpty) {
+      if (body['tools'] is List && (body['tools'] as List).any((t) => ((t as Map)['function'] as Map)['name'] != 'agent_request')) {
         planningCalls++;
         return sse({'tool_calls': [
           {'index': 0, 'id': 'timed', 'type': 'function', 'function': {

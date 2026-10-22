@@ -580,6 +580,7 @@ final class SenRenderer implements GLSurfaceView.Renderer {
         try { model.speechPerformance(key, emotion, frames, face, action, wink, animate); }
         catch (JSONException ignored) { model.releaseSpeechPerformance(); }
     }
+    void setSpeechPlayback(boolean playing) { if (model != null) model.setSpeechPlayback(playing); }
     void releaseSpeechPerformance() { if(model!=null) model.releaseSpeechPerformance(); }
     void clearParameterPlan() { if (model != null) model.clearParameterPlan(); }
 

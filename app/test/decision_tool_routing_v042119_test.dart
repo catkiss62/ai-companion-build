@@ -193,7 +193,7 @@ void main() {
       final client=DeepSeekClient(streamClientFactory:()=>MockClient((request)async{
         final body=jsonDecode(request.body) as Map;
         if(scenario=='no_tool')expect(jsonEncode(body['messages']),isNot(contains('【本轮工具需求】')));
-        if((body['tools'] as List?)?.isNotEmpty==true){
+        if((body['tools'] as List?)?.any((t) => ((t as Map)['function'] as Map)['name'] != 'agent_request')==true){
           planning++;
           if(scenario=='long_multi' && planning<=4) {
             final search=planning==1||planning==3;

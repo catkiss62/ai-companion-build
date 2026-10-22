@@ -34,6 +34,7 @@ import 'package:uuid/uuid.dart';
 import 'sqlite_settings_reader.dart';
 import 'spoken_dialogue_default_migration.dart';
 import 'natural_chat_migration.dart';
+import 'autonomy_prompt_revision.dart';
 import 'brain_work_fence.dart';
 
 import '../emotion/emotion_contract.dart';
@@ -4724,6 +4725,7 @@ class AppDatabase {
     await migrateSpokenDialogueDefaultV042120(db);
     await migrateNaturalChatV042115(db);
     await migrateNaturalChatV042116(db);
+    await migrateAutonomyPromptsV042127(db);
     // Exact-value migration only: preserve every custom alias edit while also
     // accepting the user's literal slash spelling in the reviewed default.
     await db.update(

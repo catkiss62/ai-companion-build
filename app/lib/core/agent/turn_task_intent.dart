@@ -11,6 +11,12 @@ class TurnTaskIntent {
     this.gameId = '', this.sessionId = '', this.durationText = '', this.minutes = 0, this.durationResolved = true,
     this.unresolvedFields = const {}, this.creativeAction = 'none', this.workId = '', this.requestId = '', this.workTargetKind = 'unresolved'});
   final Set<String> unresolvedFields;
+  TurnTaskIntent resolvePresentInvitation({required String? cedarIntent, required bool certain}) {
+    if (!available || gameAction != 'play' || !certain ||
+        !const {'act_now','accept'}.contains(cedarIntent) || !unresolvedFields.contains('task_game')) return this;
+    return TurnTaskIntent.fromJson({...toJson(),
+      'unresolved_fields':unresolvedFields.where((k)=>k!='task_game').toList()});
+  }
   bool get gameExecutionResolved => !unresolvedFields.any((k)=>const {'task_game','task_game_target'}.contains(k));
   bool get creativeExecutionResolved => !unresolvedFields.any((k)=>const {'task_creative','task_work_target'}.contains(k));
   Set<String> get deferredToolIds => {
@@ -65,9 +71,15 @@ class TurnTaskQuestionSet {
     for (final session in state.sessions.values.take(16)) {
       games['g${index++}'] = (id: session.gameId, title: session.displayName, sessionId: session.id, phase: session.phase.key);
     }
-    for (final entry in CedarCatalogParser.parse(catalog)) {
+    // Named targets come first if a future catalog exceeds the prompt bound.
+    // Do not truncate today's catalog at 48: that silently hides real games.
+    final entries = CedarCatalogParser.parse(catalog).toList();
+    bool mentioned(String id, String title) => userText.toLowerCase().contains(id.toLowerCase()) ||
+        userText.contains(title) || CedarCatalogParser.displayAliases(id).any(userText.contains);
+    entries.sort((a, b) => (mentioned(b.id, b.title) ? 1 : 0).compareTo(mentioned(a.id, a.title) ? 1 : 0));
+    for (final entry in entries) {
       if (games.values.any((g) => g.id == entry.id)) continue;
-      if (games.length >= 48) break;
+      if (games.length >= 256) break;
       games['g${index++}'] = (id: entry.id, title: entry.title, sessionId: '', phase: 'not_started');
     }
     index = 0;
@@ -90,7 +102,8 @@ class TurnTaskQuestionSet {
   final durations = <String, String>{};
   Map<String, Object?> get context => {
     'game_targets': {for (final e in games.entries) e.key: {
-      'game_id': e.value.id, 'title': e.value.title, 'session_id': e.value.sessionId,
+      'game_id': e.value.id, 'title': e.value.title,
+      'aliases': CedarCatalogParser.displayAliases(e.value.id), 'session_id': e.value.sessionId,
       'phase': e.value.phase, 'active': state.activeGameId == e.value.id}},
     'work_targets': {for (final e in workTargets.entries) e.key: {
       'id': e.value['id'], 'title': e.value['title'], 'status': e.value['status']}},
@@ -99,7 +112,10 @@ class TurnTaskQuestionSet {
     'task_game': const JevChoiceQuestion(
       'From latest_user_text and references in recent_context, select the present authorized game action. '
       'Respect negation, conditional/future requests, quotes, different games and user-only play. '
-      'none for discussion or optional free-time permission. Pause/resume must refer to a real game target.',
+      'none for discussion or optional free-time permission. '
+      'A present invitation such as 你现在想不想玩、要不要去玩半小时 can authorize play, '
+      'even when expressed as a question; distinguish it from a hypothetical future permission. '
+      'Pause/resume must refer to a real game target.',
       {'none': 'No present action', 'play': 'Enter or advance an actual game now',
        'pause': 'Pause the named/current game now', 'pause_and_release': 'Pause it and allow switching to other games now',
        'resume': 'Resume the specified paused game now',
@@ -107,7 +123,7 @@ class TurnTaskQuestionSet {
     if (games.isNotEmpty) 'task_game_target': JevChoiceQuestion(
       'Resolve the game actually targeted by this user request. Use current references only when unambiguous; '
       'never select the active game if the user names a different one. none for no matching or ambiguous target.',
-      {'none': 'No unique existing target', for (final e in games.entries) e.key: e.value.title}, optional: true),
+      {'none': 'No unique existing target', for (final e in games.entries) e.key: '${e.value.title} (${e.value.id}; ${CedarCatalogParser.displayAliases(e.value.id).join('/' )})'}, optional: true),
     if (durations.isNotEmpty) 'task_duration': JevChoiceQuestion(
       'Which literal duration is requested for the companion to actually keep playing now? '
       'none for quoted, hypothetical, future, user-only, negated or unrelated duration. This is separate from starting one move.',
@@ -133,6 +149,12 @@ class TurnTaskQuestionSet {
       key == 'task_duration' && const {'play','resume'}.contains(answers['task_game']) ||
       key == 'task_work_target' && const {'commission','stop'}.contains(answers['task_creative']);
     final unresolved = details.entries.where((e)=>e.value.ambiguous && relevant(e.key)).map((e)=>e.key).toSet();
+    // The same batch independently judges present invitation/acceptance.
+    // Agreement with a winning play action resolves play-vs-none uncertainty;
+    // it never resolves another target, duration or a contradictory stop.
+    if (answers['task_game'] == 'play' &&
+        const {'act_now','accept'}.contains(answers['cedar']) &&
+        details['cedar']?.ambiguous != true) unresolved.remove('task_game');
     final duration = unresolved.contains('task_duration') ? '' : durations[answers['task_duration']] ?? '';
     return TurnTaskIntent(available: true, unresolvedFields: unresolved, gameAction: answers['task_game'] ?? 'none',
       gameId: game?.id ?? '', sessionId: game?.sessionId ?? '', durationText: duration,

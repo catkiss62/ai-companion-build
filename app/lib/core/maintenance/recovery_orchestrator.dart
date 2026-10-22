@@ -264,9 +264,9 @@ class RecoveryOrchestrator {
         'episode_checkpoint',
         'anti_addiction_checkpoint',
       }.contains(cedarContinuationState);
-      final heartbeatDue = scheduledHeartbeatDue ||
-          reactiveHeartbeatDue ||
-          episodeCheckpointDue;
+      final decisionDue = BackgroundPresencePolicy.shouldEvaluateChoices(
+        scheduledHeartbeatDue: scheduledHeartbeatDue, episodeCheckpointDue: episodeCheckpointDue);
+      final heartbeatDue = decisionDue || reactiveHeartbeatDue;
       final perceptionMinInterval = reactiveHeartbeatDue
           ? BackgroundPresencePolicy.reactivePerceptionMinInterval
           : const Duration(minutes: 4);
@@ -282,7 +282,7 @@ class RecoveryOrchestrator {
             heartbeatDelay = _nextHeartbeat(snapshot, _random);
             await _storeNextHeartbeat(now.add(heartbeatDelay));
             proactiveReason = 'cedar_watched_share_sent';
-          } else if (blocking != null || !allowProactive ||
+          } else if (!decisionDue || blocking != null || !allowProactive ||
               (cedarDidWork && !cedarSustainedActive)) {
             final heartbeat = await proactive.maintainLocalStateOnly(
               perceptionMinInterval: perceptionMinInterval,
@@ -291,9 +291,13 @@ class RecoveryOrchestrator {
               heartbeatDelay = const Duration(seconds: 30);
             } else {
               heartbeatAdvanced = true;
-              heartbeatDelay = _nextHeartbeat(heartbeat.snapshot, _random);
-              await _storeNextHeartbeat(now.add(heartbeatDelay));
-              proactiveReason = blocking != null
+              // Reactive wakes update perception/inner life without rolling
+              // another choice or moving the existing ordinary decision clock.
+              heartbeatDelay = decisionDue
+                  ? _nextHeartbeat(heartbeat.snapshot, _random)
+                  : await _remainingHeartbeatDelay(now);
+              if (decisionDue) await _storeNextHeartbeat(now.add(heartbeatDelay));
+              proactiveReason = !decisionDue ? 'reactive_perception_only' : blocking != null
                   ? 'local_heartbeat_while_generation_waits'
                   : cedarDidWork
                       ? 'local_heartbeat_after_cedar_continuation'

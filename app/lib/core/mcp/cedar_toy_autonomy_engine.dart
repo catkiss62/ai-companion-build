@@ -712,15 +712,50 @@ class CedarToyAutonomyEngine {
   CedarToyClient _client(String token) =>
       _clientFactory?.call(token) ?? CedarToyClient(token: token);
 
+  /// Refresh only lightweight discovery metadata. No guide reads, model calls,
+  /// play steps or desires are created by this maintenance path.
+  Future<CedarAutonomyProgress> refreshCatalogIfDue(DateTime now) async {
+    final store = CedarToyActivityStore(db);
+    if (await db.getSetting('cedar_toy_enabled') == '0' ||
+        !await db.brainWorkAllowed() || await db.isLocalLeaseHeld('chat_turn_lease')) {
+      return const CedarAutonomyProgress('catalog_refresh_ineligible');
+    }
+    final saved = int.tryParse(await db.getSetting(CedarToyActivityStore.catalogUpdatedAtKey) ?? '') ?? 0;
+    final last = DateTime.fromMillisecondsSinceEpoch(saved);
+    if (saved > 0 && last.year == now.year && last.month == now.month && last.day == now.day &&
+        (await store.loadCatalog()).isNotEmpty) return const CedarAutonomyProgress('catalog_current');
+    const attemptKey = 'cedar_toy_catalog_refresh_attempt_at_v1';
+    final attempt = int.tryParse(await db.getSetting(attemptKey) ?? '') ?? 0;
+    if (attempt > 0 && now.millisecondsSinceEpoch >= attempt &&
+        now.millisecondsSinceEpoch - attempt < const Duration(hours: 1).inMilliseconds) {
+      return const CedarAutonomyProgress('catalog_refresh_backoff');
+    }
+    final token = await _readToken();
+    if (token.isEmpty) return const CedarAutonomyProgress('missing_config');
+    return _runExecution(store: store, gameId: 'catalog', action: '刷新游戏目录', now: now, body: (scope) async {
+      scope.throwIfPreempted();
+      await db.setSetting(attemptKey, now.millisecondsSinceEpoch.toString());
+      final outcome = await _client(token).listGames(cancellationToken: scope.cancellation);
+      scope.throwIfPreempted();
+      final text = CedarToyClient.redactSecrets(outcome.text);
+      if (outcome.isError || CedarCatalogParser.parse(text).isEmpty) {
+        return const CedarAutonomyProgress('catalog_refresh_failed_cached');
+      }
+      await store.saveCatalog(text, executionId: scope.executionId, now: now);
+      return const CedarAutonomyProgress('catalog_refreshed');
+    });
+  }
+
   Future<CedarAutonomyProgress> _runExecution({
     required CedarToyActivityStore store,
     required String gameId,
     required String action,
+    DateTime? now,
     required Future<CedarAutonomyProgress> Function(
       _CedarExecutionScope scope,
     ) body,
   }) async {
-    if (await CedarWakePolicy.delay(await db.database, DateTime.now(), gameId: gameId) > Duration.zero) {
+    if (await CedarWakePolicy.delay(await db.database, now ?? DateTime.now(), gameId: gameId) > Duration.zero) {
       return const CedarAutonomyProgress('night_sleep');
     }
     final acquired = await db.tryAcquireLocalLease(
@@ -1074,7 +1109,10 @@ class CedarToyAutonomyEngine {
     final reconsidered = await _considerOtherWish(now: now, session: session, episode: episode);
     if (reconsidered != null) return reconsidered;
     await _saveSoloEpisode(CedarSoloEpisodePolicy.resetForResume(episode, now));
-    await store.deferContinuation(gameId: session.gameId, delay: Duration.zero);
+    // The due timestamp and the immediate consumer must share one clock.
+    // A fresh wall-clock timestamp is later than this heartbeat's `now` and
+    // would keep every resumed checkpoint permanently in not_due.
+    await store.deferContinuation(gameId: session.gameId, delay: Duration.zero, now: now);
     final progress = await continueDue(now: now, episodeAuthorized: true);
     if (progress.state != 'played_one_step') {
       await _saveSoloEpisode(episode);

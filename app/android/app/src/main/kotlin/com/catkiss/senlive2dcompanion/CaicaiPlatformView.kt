@@ -496,6 +496,7 @@ internal class CaicaiPlatformView(
         CaicaiDiagnostics.record(app, "stage_preferences_restored", "execution_id=$executionId changed=$changed")
     }
 
+    fun speechPlayback(playing: Boolean) { if (!disposed) companion.setSpeechPlayback(playing) }
     fun speechAmplitude(value: Float) { if (!disposed) companion.setSpeechAmplitude(value) }
 
     override fun onStatus(status: String) {
@@ -582,6 +583,7 @@ object CaicaiRuntime {
     fun observeTouch(x: Float, y: Float) = active.get()?.observeTouch(x,y)
     fun hasActiveView(): Boolean = active.get() != null
     fun backgroundMotion(x: Float, y: Float, reset: Boolean = false) = active.get()?.backgroundMotion(x, y, reset)
+    fun speechPlayback(playing: Boolean) = active.get()?.speechPlayback(playing)
     fun speechAmplitude(value: Float) = active.get()?.speechAmplitude(value)
     fun control(method: String, arguments: Any?, result: MethodChannel.Result) {
         val view = active.get()

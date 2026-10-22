@@ -34,6 +34,9 @@ jobs:
           test/model_routing_v042123_test.dart
           test/manual_deepseek_takeover_v042123_test.dart
           test/manual_ds_reply_confirmation_v042125_test.dart
+          test/autonomy_game_repair_v042127_test.dart
+          test/on_demand_agent_v042127_test.dart
+          test/reactive_decision_clock_v042127_test.dart
           test/conversation_history_v042126_test.dart
           test/portable_snapshot_v04256_test.dart
           test/nightly_dream_test.dart

@@ -60,6 +60,8 @@ class CedarCatalogParser {
   /// by prefix matching; game existence still comes exclusively from catalog.
   static List<String> displayAliases(String gameId) => switch (gameId) {
         'eco' => const <String>['瓶中生态'],
+        'white_room' => const <String>['白房间'],
+        'fishing' => const <String>['钓鱼'],
         _ => const <String>[],
       };
 }

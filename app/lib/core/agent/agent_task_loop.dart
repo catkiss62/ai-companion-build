@@ -52,7 +52,7 @@ class AgentTaskVerification {
 【Agent v2 本地终态核验】
 state=${state.key}，calls=$callCount，succeeded=$successCount，no_result=$noResultCount，failed=$failureCount，blocked=$blockedCount。
 ${TurnGoalVerification.describe(missingGoals)}
-只有 succeeded 的真实 Outcome 能支持对应操作已经完成；no_result 只支持“查过但没找到”，failed/blocked 只支持如实说明失败或受阻。partially_supported 必须分别说清完成与未完成的部分；budget_exhausted/invalid_plan 表示工具循环已经关闭，不能继续假装执行。不要在正文里复述这些字段、规划轮次或调用日志。
+只有 succeeded 的真实 Outcome 能支持对应操作已经完成；no_result 只支持“查过但没找到”，failed/blocked 只支持如实说明失败或受阻。本地 blocked 不证明远端服务故障；没有实际 MCP Outcome 时不声称游戏后台报错。partially_supported 必须分别说清完成与未完成的部分；budget_exhausted/invalid_plan 表示工具循环已经关闭，不能继续假装执行。不要在正文里复述这些字段、规划轮次或调用日志。
 '''.trim();
 }
 

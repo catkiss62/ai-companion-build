@@ -690,6 +690,7 @@ class CedarToyActivityStore {
   static const sessionSettingKey = 'cedar_toy_activity_session_v1';
   static const stateSettingKey = 'cedar_toy_activity_state_v2';
   static const catalogSettingKey = 'cedar_toy_catalog_v1';
+  static const catalogUpdatedAtKey = 'cedar_toy_catalog_updated_at_v1';
   static const playProtocolSettingKey = 'cedar_toy_play_protocol_v2';
   static const realtimeDiagnosticsSettingKey =
       'cedar_toy_realtime_diagnostics_v1';
@@ -965,15 +966,18 @@ class CedarToyActivityStore {
   Future<void> saveCatalog(
     String catalog, {
     String executionId = '',
+    DateTime? now,
   }) async {
     final clean = catalog.trim();
     if (clean.isEmpty || clean.length > maxStoredTextChars) return;
     final catalogSaved = executionId.isEmpty
         ? await db.setSettingsAtomically(<String, String>{
             catalogSettingKey: clean,
+            catalogUpdatedAtKey: (now ?? DateTime.now()).millisecondsSinceEpoch.toString(),
           })
         : await db.setSettingsAtomically(
-            <String, String>{catalogSettingKey: clean},
+            <String, String>{catalogSettingKey: clean,
+              catalogUpdatedAtKey: (now ?? DateTime.now()).millisecondsSinceEpoch.toString()},
             guardKey: executionFenceSettingKey,
             expectedGuardValue: executionId,
           );
@@ -1206,19 +1210,20 @@ class CedarToyActivityStore {
     required String gameId,
     Duration delay = const Duration(seconds: 15),
     String executionId = '',
+    DateTime? now,
   }) async {
     final state = await loadState();
     final session = state.sessions[gameId];
     if (session == null || !session.needsContinuation) return;
-    final now = DateTime.now();
+    final instant = now ?? DateTime.now();
     final saved = await _saveState(state.copyWith(
       sessions: Map<String, CedarGameSession>.from(state.sessions)
         ..[gameId] = session.copyWith(
-          nextActionAt: now.add(delay),
-          updatedAt: now,
+          nextActionAt: instant.add(delay),
+          updatedAt: instant,
         ),
       clearExecution: true,
-      updatedAt: now,
+      updatedAt: instant,
     ), executionId: executionId);
     if (!saved && executionId.isNotEmpty) {
       throw const CedarExecutionPreemptedException('defer_fenced');

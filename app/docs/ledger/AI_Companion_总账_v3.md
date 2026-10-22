@@ -6,6 +6,7 @@
 
 ## 当前接班快照
 
+- 当前实施v0.42.127+371：游戏恢复时钟/目录别名/语义路由、感知与主动决定时钟分离、普通对话可选Agent读取入口、实际TTS嘴部所有权及默认退让提示清理。基线fd969411/+370；尚未新CI或APK，上一条已交付APK仍为+370。详见app/docs/AUTONOMY_GAME_REPAIR_v0.42.127.md。
 - 最新交付v0.42.126+370：源码a17cc72d783df161a0aadf17785587bda072be89 / tree5e82940881d2322227b0a356fe4de44480882d6f；完整39680792562成功（154源码门、Kotlin、2516全量Flutter、169归档恢复、54 Android15原生），专项39680792554通过906项。分析0 error、768非fatal（61 warning/707 info）。普通聊天目录/按需原文追读复用现有记忆与单次JEV；新存档带目录、旧存档本地补建，真实ZIP往返通过。APK已先发用户，真机待验。入口app/docs/CONVERSATION_HISTORY_DIRECTORY_v0.42.126.md及账末。
 
 - 前一交付v0.42.125+369：构建42924e087e3e1be76b0079e2be925ad0c0da1760 / tree3a9220a5c8127af9ff200c9ce607238e13b7492d，完整39667162957成功（154源码门、Kotlin、2496全量Flutter、168归档恢复、54 Android15原生）；专项39667163000通过861项。0 error、739非fatal（61 warning/678 info）。DS确认接管、沉浸底部位置、独立同名作品选项已打包，存档只读；APK已先给链接，真机待验。入口app/docs/UI_CONFIRMATION_LAYOUT_AND_BACKUP_AUDIT_v0.42.125.md及账末。
@@ -1433,3 +1434,16 @@ APK 738917278 bytes，SHA256 `5d0d28b8e4d22e13aa6066c467dbad2fd42a905a6b292e63c8
 APK738949234 bytes，SHA256 `c9330314097e6a65e189a4cd73c8147ee73f8bc151ead49f6cf6404ad3d118f2`；com.aicompanion.localfirst / 0.42.126+370；原证书SHA256 `305eb3d80983b963c64818ddf1ad561f279de6d47b3ed2c781ada448c7c25148`。签名、版本、包内完整资源、Genie/桌宠/房间深度门成功。Release420084690、asset663938973仍draft，源码目标、线上digest、CI与ci-monitor-v0345/.ci/v042120-monitor.txt的run/head/success/checksum一致。
 
 APK已先发用户：https://github.com/catkiss62/ai-companion-build/releases/download/untagged-2abae09856ac768059a8/AI-Companion-v0.42.126-370-Conversation-History-Directory-APK.apk 。完整CI：https://github.com/catkiss62/ai-companion-build/actions/runs/39680792562 。随后仅总账/报告[skip ci]收尾，不再构建同一APK；未合并main或正式发布。真实模型追读准确性、手机大存档首次补建性能待真机，详细边界见app/docs/CONVERSATION_HISTORY_DIRECTORY_v0.42.126.md。
+
+
+## 2026-10-23：+371 自主入口与游戏恢复（实施登记）
+
+用户明确授权汇总本窗口讨论后实施并统一构建，沿用公开分支及原签名测试APK授权。移除当前世界书和通用回应提示中的默认退让、默认认定用户评价正确及隐含无条件执行，不新增必须反抗、强制接梗或负面情绪配额；反八股、口语、AI身份、真实来源及实际权限保留。精确短语迁移在升级/恢复后执行一次，保留相邻自定义正文和条目控制。
+
+游戏检查点恢复共享同一个逻辑时间；轻量目录每日适宜机会软刷新、失败保留缓存并退避，统一白房间/钓鱼/瓶中生态别名，扩充原48条目标窗口并优先具名目标。同一JEV批次的明确即时邀请与play候选相互印证时只消解play-vs-none歧义，不消解目标或时长歧义；不确定写操作仍可读目录和指南，实际游戏请求不误走网页。保留三步/30分钟及已有游戏槽/前台优先。
+
+手机活动计分保留时间积分与共享事件预算，念头累计阈值改用已有0.34分支；90秒感知仅做本地状态，不重抽普通决定，也不推迟原7–24分钟决定时钟；游戏实时推进/明确检查点及直接分享保持。网页预算等技术不可用只过滤执行候选，不制造高分WAIT占据其他行为机会。
+
+最终正文模型在同一次请求中可选择agent_request；直接回复不新增DS请求或JEV。选用后至多两轮读取，复用现有调用总预算、执行器、去重和取消/来源栅栏；该入口只开放读取与游戏发现，真实游戏/创作/发送等仍走已有明确任务入口。没有结果时可自行选择诊断，不统一强制升级。TTS AudioTrack实际播放状态驱动短期嘴部所有权，覆盖安静音素、手动/持续表情及生气闭嘴；四拍开场及其他表情动作保留。
+
+本地没有Flutter/Dart/Android SDK，新增自动回归待CI实际执行。数据库受保护文件仅新增迁移import/调用两行，审查后更新该唯一指纹；其余保护文件、schema61/Snapshot7保持。私有存档/诊断/凭据未纳入提交，不运行真实付费模型。最终CI、APK身份和真机待验边界将补记。

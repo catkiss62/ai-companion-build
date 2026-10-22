@@ -43,11 +43,7 @@ class CedarConversationTarget {
                   .any(userText.contains));
       // Public short names are aliases of catalog entries, never additional
       // game IDs. They help disambiguate a request; DeepSeek still plans it.
-      final shortNames = switch (entry.id) {
-        'fishing' => const ['钓鱼'],
-        'white_room' => const ['白房间'],
-        _ => const <String>[],
-      };
+      final shortNames = CedarCatalogParser.displayAliases(entry.id);
       if (text.contains(entry.id.toLowerCase()) || titleMention ||
           shortNames.any(userText.contains)) matches.add(entry.id);
     }

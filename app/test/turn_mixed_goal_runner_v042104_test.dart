@@ -58,7 +58,7 @@ void main() {
         ? '暂停白色房间，把小灯作品改成蓝色。' : '暂停白色房间，那个小灯作品也先别做了。';
       final client = DeepSeekClient(streamClientFactory: () => MockClient((request) async {
         final body = jsonDecode(request.body) as Map;
-        if ((body['tools'] as List?)?.isNotEmpty == true) {
+        if ((body['tools'] as List?)?.any((t) => ((t as Map)['function'] as Map)['name'] != 'agent_request') == true) {
           planningCalls++;
           final name = 'creative_work_$creativeAction';
           expect(jsonEncode(body['tools']), contains(name));

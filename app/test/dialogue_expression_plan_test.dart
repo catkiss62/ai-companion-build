@@ -29,7 +29,7 @@ void main() {
         latestUserText: sample,
       );
       expect(plan.mode, DialogueResponseMode.feedback);
-      expect(plan.render(), contains('真实反馈'));
+      expect(plan.render(), contains('结合上下文'));
       expect(plan.render(), isNot(contains('强制')));
       expect(plan.render(), isNot(contains('造法')));
     }
@@ -41,7 +41,7 @@ void main() {
         latestUserText: sample,
       );
       expect(plan.mode, DialogueResponseMode.challenge);
-      expect(plan.render(), contains('内容质量与明确要求是硬标准'));
+      expect(plan.render(), contains('决定接受时认真完成内容要求'));
       expect(plan.render(), contains('题面没有直接暴露答案'));
     }
   });

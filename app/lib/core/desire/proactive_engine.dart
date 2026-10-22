@@ -478,6 +478,8 @@ class ProactiveEngine {
       // The in-memory selection boundary keeps the same correction as a
       // fallback. A derived-data repair must never suppress the heartbeat.
     }
+    try { await cedarToyAutonomy.refreshCatalogIfDue(DateTime.now()); }
+    catch (_) { /* Discovery maintenance preserves the previous catalog on failure. */ }
     await relationshipAssimilator.assimilatePending();
     await memoryMaintenance.maybeRun();
     await phase2bConsolidation.maybeRun();
@@ -744,20 +746,16 @@ class ProactiveEngine {
           sourceIntent: routedDiscoveryIntent,
           now: evaluationStartedAt,
         );
-        unifiedCandidates.add(
-          DesireIntent(
-            drive: discoverySource.drive,
-            score: discoveryScore,
-            reason: capability.available
-                ? '从自己此刻在意的东西形成一个可公开搜索的问题'
-                : '这个问题仍然想查，但公开资料能力暂时不可用，先把念头保留下来。',
-            wantAction: capability.available ? 'discover_interest' : 'wait',
-            thoughtId: discoverySource.thoughtId,
-            reasonSource: capability.available
-                ? discoverySource.reasonSource
-                : 'capability/public_web:${capability.reason}',
-          ),
-        );
+        // Tool availability filters an action; it does not manufacture a
+        // stronger wish to wait and steal attention from executable choices.
+        if (capability.available) {
+          unifiedCandidates.add(routedDiscoveryIntent);
+        } else {
+          await db.setSetting('proactive_discovery_unavailable_v2', jsonEncode({
+            'reason': capability.reason, 'at': evaluationStartedAt.millisecondsSinceEpoch,
+            'thought_retained': true,
+          }));
+        }
       }
       final pendingWebShare =
           await db.nextPublicWebCandidateForSharing(now: evaluationStartedAt);

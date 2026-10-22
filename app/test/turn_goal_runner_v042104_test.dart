@@ -64,7 +64,7 @@ void main() {
       var finalContainsMissingGoal = false;
       final client = DeepSeekClient(streamClientFactory: () => MockClient((request) async {
         final body = jsonDecode(request.body) as Map;
-        if ((body['tools'] as List?)?.isNotEmpty == true) {
+        if ((body['tools'] as List?)?.any((t) => ((t as Map)['function'] as Map)['name'] != 'agent_request') == true) {
           plans++;
           return _sse('「我可以陪你。」');
         }
@@ -236,7 +236,7 @@ void main() {
           replyControl.requestDeepSeek();
           return _sse('迟到的第二通道');
         }
-        if ((body['tools'] as List?)?.isNotEmpty == true) {
+        if ((body['tools'] as List?)?.any((t) => ((t as Map)['function'] as Map)['name'] != 'agent_request') == true) {
           plans++;
           if (!resumes && plans == 1) return _toolSse('cedar_toy_play', {
             'game': 'fishing', 'action': 'cast', 'params_json': '{}',

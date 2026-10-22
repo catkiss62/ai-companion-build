@@ -405,6 +405,7 @@ final class SenLive2DModel extends CubismUserModel {
     private long planPresetDeadlineNanos;
     private long planWinkDeadlineNanos;
     private final CaicaiSpeechPresetLease speechPresets = new CaicaiSpeechPresetLease();
+    private final CaicaiSpeechMouthOwner speechMouthOwner = new CaicaiSpeechMouthOwner();
     private final java.util.Set<String> speechMouthMasks = new java.util.HashSet<>();
     private final CaicaiSpeechPresetLease.Target speechPresetTarget = new CaicaiSpeechPresetLease.Target() {
         public boolean acquire(String name) {
@@ -626,6 +627,21 @@ final class SenLive2DModel extends CubismUserModel {
         caicaiPat.apply(delta,caicaiTarget());
     }
 
+    void setSpeechPlayback(boolean playing) {
+        speechMouthOwner.playback(playing, System.nanoTime());
+    }
+    private void applyAudioOwnedMouth() {
+        // Final source-independent ownership also covers existing manual faces
+        // and the angry transition guard. Before PCM starts, opening poses keep
+        // their four beats; silent phonemes during playback remain audio-owned.
+        if (compositeRole != CompositeModelRole.MAID_PRIMARY || !speechMouthOwner.active(System.nanoTime())) return;
+        setParameter("ParamMouthForm", 0f);
+        setParameter("MOUTHX", 0f);
+        setParameter("SHRUG", 0f);
+        setParameter("PUCKER", 0f);
+        setParameter("ParamMouthOpenY", lipSyncValue);
+    }
+
     void setSmallForm(boolean small) {
         if (activeExpressionNames.contains("变小") != small) setExpression("变小");
     }
@@ -707,6 +723,7 @@ final class SenLive2DModel extends CubismUserModel {
         if (!staticMode) updateLoadingSpinner(frameDelta);
         // Compare exactly the same final pose with and without the three authored small-form
         // deformers. Keeping the collar knot fixed makes both directions pivot about the neck.
+        applyAudioOwnedMouth(); // AI_COMPANION_HOST_PLAN_HOOK
         float[] neckWithoutSmall = evaluateNeckWithoutSmall();
         updateModelWithOutfitShapeLock();
         correctSmallFormNeck(neckWithoutSmall);
