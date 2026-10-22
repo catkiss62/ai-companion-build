@@ -295,11 +295,11 @@ public final class CaicaiCompanionView extends GLSurfaceView implements SenCompa
         queueRenderer(() -> renderer.playAction(actionId));
     }
 
-    @Override
     public void setSpeechPlayback(boolean playing) {
         queueRenderer(() -> renderer.setSpeechPlayback(playing));
     }
 
+    @Override
     public void setSpeechAmplitude(float amplitude) {
         queueRenderer(() -> renderer.setLipSyncValue(amplitude));
     }

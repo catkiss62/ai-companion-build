@@ -99,11 +99,12 @@ void main(){
   test('approved retreat clauses are removed without replacing surrounding custom rules or controls',()async{
     final sql=await db.database;
     await sql.delete('settings',where:'key = ?',whereArgs:[autonomyPromptRevisionMarker]);
-    final rows=await sql.query('reference_documents',where:'name = ?',whereArgs:['性格光谱']);
-    final id=rows.first['id'];
+    const id='fixture-personality-spectrum';
     const original='自定义前文。偶尔得意、顶嘴或短暂闹别扭；对方明确拒绝或话题转为认真时自然收住，保留口语。\n'
       '仍然接住对方真正说的事，认真场合收住脾气，不强行羞辱或替对方决定行动。\n自定义末尾。';
-    await sql.update('reference_documents',{'raw_content':original,'enabled':0,'activation_probability':37},where:'id = ?',whereArgs:[id]);
+    await sql.insert('reference_documents',{'id':id,'name':'性格光谱','kind':'character',
+      'aliases':'','raw_content':original,'enabled':0,'created_at':1,'updated_at':1,
+      'entry_type':'behavior','activation_mode':'always','activation_probability':37});
     await migrateAutonomyPromptsV042127(sql);
     final after=(await sql.query('reference_documents',where:'id = ?',whereArgs:[id])).single;
     expect(after['enabled'],0);expect(after['activation_probability'],37);

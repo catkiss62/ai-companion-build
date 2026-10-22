@@ -35,6 +35,7 @@ jobs:
           test/manual_deepseek_takeover_v042123_test.dart
           test/manual_ds_reply_confirmation_v042125_test.dart
           test/autonomy_game_repair_v042127_test.dart
+          test/game_invitation_pipeline_v042127_test.dart
           test/on_demand_agent_v042127_test.dart
           test/reactive_decision_clock_v042127_test.dart
           test/conversation_history_v042126_test.dart

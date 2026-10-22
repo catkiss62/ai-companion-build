@@ -38,8 +38,8 @@ void main() {
 
   test('competence is a floor while personality still chooses expression', () {
     final contract = PromptBuilder.capabilityPersonaContract();
-    expect(contract, contains('人格、情绪、关系与风格可以决定'));
-    expect(contract, contains('主观注意、态度、取舍、说多少和怎样表达'));
+    expect(contract, contains('人格、情绪、关系与风格可以影响'));
+    expect(contract, contains('主观注意、态度、取舍、是否接受请求、说多少和怎样表达'));
     expect(contract, contains('决定回答事实问题、接受任务'));
     expect(contract, isNot(contains('先做 DeepSeek')));
     expect(contract, isNot(contains('先做 Agent')));
