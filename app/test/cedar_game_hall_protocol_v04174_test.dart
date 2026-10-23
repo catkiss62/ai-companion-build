@@ -3,6 +3,7 @@ import 'dart:convert';
 
 import 'package:ai_companion_localfirst/core/agent/agent_tool_planner.dart';
 import 'package:ai_companion_localfirst/core/agent/turn_task_intent.dart';
+import 'package:ai_companion_localfirst/core/agent/turn_execution_contract.dart';
 import 'package:ai_companion_localfirst/core/agent/agent_tool_registry.dart';
 import 'package:ai_companion_localfirst/core/agent/agent_task_loop.dart';
 import 'package:ai_companion_localfirst/core/ai/deepseek_client.dart';
@@ -484,8 +485,13 @@ void main() {
       expect(AgentToolPlanner.routeLocally(request.$1), isNull);
       final intent = TurnTaskQuestionSet(userText: request.$1, state: state, works: const [])
         .interpret({'task_game': request.$2, 'task_game_target': 'g0', 'task_creative': 'none'});
-      final goal = intent.goals('user').single;
+      final goals = intent.goals('user');
+      final goal = goals.singleWhere((g) => g.slot == TurnEffectSlot.cedarControl);
       expect(goal.target, {'game_id': 'duel', 'session_id': 'duel-session', 'operation': request.$2});
+      expect(goals, hasLength(request.$2 == 'resume' ? 2 : 1));
+      if (request.$2 == 'resume') {
+        expect(goals.singleWhere((g) => g.slot == TurnEffectSlot.cedarForegroundWrite).target, {'game_id': 'duel'});
+      }
       final plan = AgentToolPlanner.fromNativeToolCalls([
         DeepSeekToolCall(id: 'local-control', name: 'cedar_toy_manage_activity',
           arguments: jsonEncode({'game': intent.gameId, 'operation': intent.gameAction})),

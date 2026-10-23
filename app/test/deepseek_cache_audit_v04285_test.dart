@@ -30,7 +30,7 @@ void main() {
     expect(audit['legacyUnlabelledCalls'], 1);
     expect(audit['cacheAccountingUnavailableCalls'], 2);
   });
-  test('stream audit observes full tool messages without changing transmitted messages', () async {
+  test('stream audit observes protocol-complete tool messages without mutating source messages', () async {
     final usage = <DeepSeekUsageEvent>[];
     final sent = <Map<String, dynamic>>[];
     final client = DeepSeekClient(
@@ -47,7 +47,8 @@ void main() {
       ];
       await client.streamChat(apiKey: 'test', model: DeepSeekModelProfile.flash,
         effort: ReasoningEffort.low, messages: messages).drain<void>();
-      expect(sent.last['messages'], messages);
+      expect(sent.last['messages'], [messages.first, {...messages[1], 'reasoning_content': ''}]);
+      expect(messages[1].containsKey('reasoning_content'), isFalse);
       expect(sent.last.containsKey('provider'), isFalse);
       expect(sent.last.containsKey('usage_latency_ms'), isFalse);
     }

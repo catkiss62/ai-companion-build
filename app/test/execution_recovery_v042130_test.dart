@@ -98,7 +98,7 @@ void main() {
     });
   }
   for(final cmd in ['status;serve cloud pour:plum_liqueur','serve cloud pour:plum_liqueur',
-      'unknown','status "unfinished','next','open']) {
+      'unknown','status "unfinished','next','open','?']) {
     test('mutation or unverified cmd $cmd remains a write',(){
       expect(CedarPlatformActionPolicy.isReadOnlyCall('cmd',{'command':cmd}),false);
     });

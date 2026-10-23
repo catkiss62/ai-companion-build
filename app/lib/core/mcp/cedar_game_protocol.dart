@@ -114,7 +114,8 @@ class CedarPlatformActionPolicy {
     pieces.add(command.substring(start).trim());
     return pieces.every((part) {
       final verb=RegExp(r'^([a-z_?]+)(?:\s|$)').firstMatch(part)?.group(1);
-      return const {'status','state','observe','look','inventory','help','?',
+      // A bare '?' can be intentional narrative input, not a help query.
+      return const {'status','state','observe','look','inventory','help',
         'view','viewer','archive','drinks','recipe','guests','ledger','memory','reviews'}.contains(verb);
     });
   }

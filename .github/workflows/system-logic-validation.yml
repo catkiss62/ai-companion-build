@@ -36,6 +36,9 @@ jobs:
           test/execution_recovery_v042130_test.dart
           test/failed_reply_ds_recovery_v042130_test.dart
           test/game_intent_pipeline_v042130_test.dart
+          test/deepseek_cache_audit_v04285_test.dart
+          test/game_intent_continuity_v04294_test.dart
+          test/cedar_game_hall_protocol_v04174_test.dart
           test/agent_game_repair_v042129_test.dart
           test/cedar_request_recovery_v042129_test.dart
           test/model_routing_v042123_test.dart
