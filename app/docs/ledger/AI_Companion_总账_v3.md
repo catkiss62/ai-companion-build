@@ -1492,3 +1492,8 @@ APK `738857882` bytes，SHA256 `5d20936c30e6ebfba21b9836ac979447368787487d1d3f2b
 APK已先发用户：https://github.com/catkiss62/ai-companion-build/releases/download/untagged-5c95fabe01d3a8227395/AI-Companion-v0.42.128-372-Logic-Repair-Room-Background-APK.apk 。完整CI：https://github.com/catkiss62/ai-companion-build/actions/runs/39913238563 。随后仅报告/总账 [skip ci] 收尾，不重打相同APK。仍在 agent/v042107-review-recovery；私有存档、诊断正文和凭据未上传，未调用付费模型。
 
 真机待验：至少一天手机使用下的主动频率分布、真实MCP与模型核对、背景选图/拖动体验、播放中迟挂载的口型效果。自动回归不代替真机和真实中转验收；沉浸显隐/主动提交的跨层竞态仍列为条件边界，本轮未扩大修改。已有身份/记忆不迁移改写，未增加每轮JEV或梦境随机追读。
+
+
+## 2026-10-23 · +373 游戏厅与真正按需 Agent（实施前登记）
+
+用户确认按本窗口方案修复游戏厅及优化 Agent。+372 新样本证实同一游戏的 play/resume 接近导致所有执行入口被关，目录/指南成功却口头承诺半小时，已结束旧任务仍显示且暂停游戏标活动中；游戏四轮规划又触发按需入口固定三轮门限。将统一20/40、深度30/60任务预算及真实结果驱动的循环/无进展退出、诊断及最终事实约束，保留普通聊天零额外规划、三步/30分钟、未知写不重放与用户控制。详见 AGENT_GAME_REPAIR_v0.42.129.md。当前仅实施登记，不宣称测试或新APK完成；私有附件不提交。

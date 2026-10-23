@@ -51,6 +51,7 @@ import '../storage/secure_config.dart';
 import '../storage/message_attachment_storage.dart';
 import '../stickers/sticker_expression_service.dart';
 import 'agent_self_reader.dart';
+import 'agent_runtime_diagnostic.dart';
 import 'agent_participation_consent.dart';
 import 'agent_task_loop.dart';
 import 'agent_tool.dart';
@@ -1820,6 +1821,11 @@ ${_bounded(observation.summary, 1800)}
       };
 
   Future<AgentToolResult> _readSystemSelf(String rawScope) async {
+    if(rawScope=='runtime') {
+      return AgentToolResult(toolId:AgentToolRegistry.systemSelfRead.id,
+        status:AgentToolStatus.succeeded,displayText:'已读取真实任务运行状态',resultCount:1,
+        promptData:jsonEncode(await AgentRuntimeDiagnostic.read(db)));
+    }
     final scope = AgentSelfReadScopeKey.fromArgument(rawScope);
     final result = await AgentSelfReader(db: db, android: android).read(scope);
     return AgentToolResult(

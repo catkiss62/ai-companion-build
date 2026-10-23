@@ -1,4 +1,5 @@
 import '../agent/agent_tool.dart';
+import '../agent/agent_task_loop.dart';
 import 'cedar_game_protocol.dart';
 
 /// One stopping contract for Cedar calls made from an ordinary user turn.
@@ -7,12 +8,12 @@ import 'cedar_game_protocol.dart';
 class CedarAgentLoopPolicy {
   const CedarAgentLoopPolicy._();
 
-  // Discovery may legitimately need list -> guide -> play. Ten full model
-  // turns, however, made one request as expensive as a long conversation.
-  // This remains an emergency ceiling, never a target for continuation.
+  // Discovery/recovery shares the full Agent task budget. Successful writes
+  // still hand off immediately to the background owner; the generous ceiling
+  // is an emergency bound, never a target or permission to play more steps.
   // Historical validator tokens: maxPlanningRounds = 10, maxToolCalls = 16.
-  static const int maxPlanningRounds = 6;
-  static const int maxToolCalls = 10;
+  static const int maxPlanningRounds = AgentTaskLoopPolicy.maxPlanningRounds;
+  static const int maxToolCalls = AgentTaskLoopPolicy.maxToolCalls;
 
   static bool isCedarResult(AgentToolResult result) =>
       result.toolId.startsWith('cedar_toy.');

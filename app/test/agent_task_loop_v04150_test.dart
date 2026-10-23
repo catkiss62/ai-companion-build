@@ -13,24 +13,24 @@ AgentToolResult result(AgentToolStatus status) => AgentToolResult(
     );
 
 void main() {
-  test('Agent v2 keeps three planning rounds and six total calls', () {
-    expect(AgentTaskLoopPolicy.maxPlanningRounds, 3);
-    expect(AgentTaskLoopPolicy.maxToolCalls, 6);
+  test('Agent uses one generous task budget with a small execution batch', () {
+    expect(AgentTaskLoopPolicy.maxPlanningRounds, 20);
+    expect(AgentTaskLoopPolicy.maxToolCalls, 40);
     expect(AgentTaskLoopPolicy.maxCallsPerRound, 2);
     expect(
       AgentTaskLoopPolicy.allowedCalls(planningRounds: 0, toolCalls: 0),
       2,
     );
     expect(
-      AgentTaskLoopPolicy.allowedCalls(planningRounds: 2, toolCalls: 5),
+      AgentTaskLoopPolicy.allowedCalls(planningRounds: 19, toolCalls: 39),
       1,
     );
     expect(
-      AgentTaskLoopPolicy.allowedCalls(planningRounds: 3, toolCalls: 5),
+      AgentTaskLoopPolicy.allowedCalls(planningRounds: 20, toolCalls: 39),
       0,
     );
     expect(
-      AgentTaskLoopPolicy.allowedCalls(planningRounds: 2, toolCalls: 6),
+      AgentTaskLoopPolicy.allowedCalls(planningRounds: 19, toolCalls: 40),
       0,
     );
   });
@@ -176,7 +176,7 @@ void main() {
       completedPlanningRounds: 1,
       completedToolCalls: 2,
     );
-    expect(prompt, contains('第 2/3 个规划回合'));
+    expect(prompt, contains('第 2/20 个规划回合'));
     expect(prompt, contains('不得原样重试同一工具和参数'));
     expect(prompt, contains('不要输出计划'));
     expect(prompt, isNot(contains('**')));

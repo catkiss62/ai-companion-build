@@ -51,8 +51,8 @@ assert any(
 )
 require(
     "lib/core/mcp/cedar_agent_loop_policy.dart",
-    "maxPlanningRounds = 6",
-    "maxToolCalls = 10",
+    "maxPlanningRounds = AgentTaskLoopPolicy.maxPlanningRounds",
+    "maxToolCalls = AgentTaskLoopPolicy.maxToolCalls",
     "committedMutation",
     "awaitingInvitation || waitingUser",
 )

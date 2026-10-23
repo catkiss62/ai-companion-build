@@ -1,4 +1,7 @@
 import '../agent/on_demand_agent_entry.dart';
+import '../agent/agent_progress_tracker.dart';
+import '../agent/agent_runtime_diagnostic.dart';
+import '../agent/agent_tool_registry.dart';
 import 'final_reply_control.dart';
 import 'first_channel_model.dart';
 import '../agent/tool_provenance_policy.dart';
@@ -440,7 +443,10 @@ class DurableGenerationRunner {
       var agentToolCalls = 0;
       var agentLoopBudgetExhausted = false;
       var agentLoopInvalidPlan = false;
-      var agentEntryUsed = false;
+      final agentProgress = AgentProgressTracker();
+      var readEpoch = 0;
+      int planningRoundLimit() => AgentTaskLoopPolicy.roundLimit(job.deepThinking);
+      int toolCallLimit() => AgentTaskLoopPolicy.callLimit(job.deepThinking);
       var cedarNoCallRetryUsed = false;
       var visibleEmotionCueSent = false;
       var streamedToolPreamble = '';
@@ -477,6 +483,35 @@ class DurableGenerationRunner {
               (CedarToyArcadeSkill.requestsNaturalPlay(user.content) &&
                   !RegExp(r'以后|有空|改天|哪天|下次|可以考虑')
                       .hasMatch(user.content)));
+      Future<List<AgentToolResult>> executeTaskPlan(AgentToolPlan plan, {required int maxCalls}) async {
+        final results = <AgentToolResult>[];
+        for(final call in plan.calls.take(maxCalls)) {
+          effectiveCancellation.throwIfCancelled();
+          final readOnly=AgentToolRegistry.byId(call.toolId)?.risk==AgentToolRisk.readOnly;
+          final stamp=readOnly ? await AgentProgressTracker.readState(db,call) : null;
+          final key=stamp==null ? null : '$readEpoch:$stamp';
+          final cached=key==null ? null : agentProgress.cached(call,key);
+          if(cached!=null) { results.add(cached); continue; }
+          final actual=await agentToolRunner.runPlan(AgentToolPlan(calls:[call]),
+            onActivity:emitToolActivity,cancellationToken:effectiveCancellation,eventScopeId:job.id,
+            pendingMediaOwner:pendingMediaOwner,userMessageId:user.id,assistantMessageId:job.assistantMessageId,
+            latestUserText:user.content,requireExplicitRoomTarget:true,deferredToolIds:deferredToolIds,
+            deepThinking:job.deepThinking,callIndexOffset: agentToolCalls,maxCalls:1);
+          agentToolCalls+=actual.length;
+          results.addAll(actual);
+          if(readOnly && actual.length==1 && key!=null) {
+            final after=await AgentProgressTracker.readState(db,call);
+            if(after!=null) agentProgress.rememberRead(call,'$readEpoch:$after',actual.single);
+          }
+          if(!readOnly) {
+            executedToolFingerprints.add(AgentTaskLoopPolicy.callFingerprint(call));
+            readEpoch++;
+          }
+        }
+        agentProgress.record(results);
+        return results;
+      }
+
       var localPlan = AgentToolPlanner.routeForTurn(user.content, nsfwRoute.toolRoute);
       // Explicit screen inspection remains local; other deep turns start with DS.
       if (job.deepThinking &&
@@ -504,26 +539,8 @@ class DurableGenerationRunner {
         // cache needs list -> guide bootstrap calls. Preserve model-loop room
         // for the actual guide-driven play decision.
         if (agentPlanningRounds == 0) agentPlanningRounds = 1;
-        final localResults = await agentToolRunner.runPlan(
-          plan,
-          onActivity: emitToolActivity,
-          cancellationToken: effectiveCancellation,
-          eventScopeId: job.id,
-          pendingMediaOwner: pendingMediaOwner,
-          userMessageId: user.id,
-          assistantMessageId: job.assistantMessageId,
-          latestUserText: user.content,
-          requireExplicitRoomTarget: true,
-          deferredToolIds: deferredToolIds,
-          deepThinking: job.deepThinking,
-        );
+        final localResults = await executeTaskPlan(plan,maxCalls:AgentTaskLoopPolicy.maxCallsPerRound);
         agentToolResults.addAll(localResults);
-        agentToolCalls += localResults.length;
-        executedToolFingerprints.addAll(
-          plan.calls
-              .take(localResults.length)
-              .map(AgentTaskLoopPolicy.callFingerprint),
-        );
         preparedAgentAttachments.addAll(
           localResults.expand((result) => result.attachments),
         );
@@ -634,9 +651,6 @@ class DurableGenerationRunner {
         if (!await executionStore.saveGoals(originalAttempt, turnGoals,
             isCancelled: () => effectiveCancellation.isCancelled)) return const GenerationRunResult(status: 'suspended');
       }
-      final cedarContextOnly = cedarContextAvailable &&
-          !cedarDirectRequest &&
-          !cedarSessionActive;
       final cedarPromptSession = cedarSession;
       final cedarConversationGameId = cedarSkillActive
           ? taskIntent.gameId.isNotEmpty ? taskIntent.gameId : CedarConversationTarget.recentGameId(
@@ -1219,70 +1233,90 @@ class DurableGenerationRunner {
 
       Future<({String reasoning, String content, List<DeepSeekToolCall> toolCalls, String finishReason})>
           generateFinal(List<Map<String,Object?>> messages) async {
-        final offer = !agentEntryUsed && !agentLoopBudgetExhausted && !agentLoopInvalidPlan &&
-            agentPlanningRounds < AgentTaskLoopPolicy.maxPlanningRounds &&
-            agentToolCalls < AgentTaskLoopPolicy.maxToolCalls;
-        final result = await generateFinalAttempt([
-          ...messages, if (offer) {'role':'system','content':OnDemandAgentEntry.prompt},
-        ], tools: offer ? [OnDemandAgentEntry.definition] : const []);
-        if (!offer || result.toolCalls.isEmpty) return result;
-        agentEntryUsed = true; // One voluntary entry per generation attempt.
-        final request = OnDemandAgentEntry.parse(result.toolCalls);
-        final readHistory = <Map<String,Object?>>[...messages];
-        final entryResults = <AgentToolResult>[];
-        if (request != null) {
-          final ids = request.toolIds(cedarConfigured: cedarConfigured,
-            cedarBlindPlay: blindPlayRequested || agentToolResults.any((r)=>r.toolId.startsWith('cedar_toy.')));
-          final definitions = request.definitions(ids);
-          readHistory.add({'role':'system','content':
-            '这次由你自己选择查证的问题：${request.goal}。仅按需使用所提供的读取工具；已有结果在上下文中，'
-            '不要重复已完成的调用，不执行写操作，不把读取愿望当成用户新指令。可在已经足够时直接结束。'});
-          for (var round=0; round<2 && definitions.isNotEmpty &&
-              agentPlanningRounds < AgentTaskLoopPolicy.maxPlanningRounds &&
-              agentToolCalls < AgentTaskLoopPolicy.maxToolCalls; round++) {
-            agentPlanningRounds++;
-            final planned = await generateInternal(readHistory, tools: definitions);
-            effectiveCancellation.throwIfCancelled();
-            final remaining = (AgentTaskLoopPolicy.maxToolCalls-agentToolCalls).clamp(0,2).toInt();
-            final candidate = AgentToolPlanner.fromNativeToolCalls(planned.toolCalls,
-              latestUserText:user.content, cedarStageToolIds:ids.where((id)=>id.startsWith('cedar_toy.')).toSet(),
-              semanticTaskToolIds:const {}, maxCalls:remaining,
-              excludedCallFingerprints:executedToolFingerprints);
-            final plan=AgentToolPlan(calls:candidate.calls.where((c)=>ids.contains(c.toolId)).toList());
-            if(plan.isEmpty) break;
-            final native=[for(final c in plan.calls) planned.toolCalls.firstWhere((n)=>
-              n.name==AgentToolPlanner.nativeNameForToolId(c.toolId))];
-            final outcomes=await agentToolRunner.runPlan(plan,onActivity:emitToolActivity,
-              cancellationToken:effectiveCancellation,eventScopeId:job.id,
-              userMessageId:user.id,assistantMessageId:job.assistantMessageId,
-              latestUserText:user.content,requireExplicitRoomTarget:true,
-              callIndexOffset:agentToolCalls,maxCalls:remaining);
-            effectiveCancellation.throwIfCancelled();
-            agentToolCalls+=outcomes.length;
-            agentToolResults.addAll(outcomes);entryResults.addAll(outcomes);
-            executedToolFingerprints.addAll(plan.calls.map(AgentTaskLoopPolicy.callFingerprint));
-            readHistory.add({'role':'assistant','content':null,
-              if(planned.reasoning.isNotEmpty)'reasoning_content':planned.reasoning,
-              'tool_calls':native.map((c)=>c.toAssistantMap()).toList()});
-            for(var i=0;i<outcomes.length;i++) {
-              readHistory.add({'role':'tool','tool_call_id':native[i].id,'content':outcomes[i].promptData});
+        final history=<Map<String,Object?>>[...messages];
+        final entryKeys=<String>{};
+        while(true) {
+          final offer=!agentProgress.stalled && agentPlanningRounds<planningRoundLimit() &&
+              agentToolCalls<toolCallLimit();
+          final result=await generateFinalAttempt([
+            ...history, if(offer) {'role':'system','content':OnDemandAgentEntry.prompt},
+          ],tools:offer ? [OnDemandAgentEntry.definition] : const []);
+          if(!offer || result.toolCalls.isEmpty) return result;
+          // Entry selection itself consumes model work. Switching families or
+          // re-entering cannot reset the unified task budget.
+          agentPlanningRounds++;
+          final request=OnDemandAgentEntry.parse(result.toolCalls);
+          final key=request==null ? '' : '${request.goal}|${(request.families.toList()..sort()).join(',')}|${agentProgress.revision}';
+          final entryResults=<AgentToolResult>[];
+          if(request!=null && entryKeys.add(key)) {
+            final reads=request.toolIds(cedarConfigured:cedarConfigured,
+              cedarBlindPlay:blindPlayRequested || agentToolResults.any((r)=>r.toolId.startsWith('cedar_toy.')));
+            final readHistory=<Map<String,Object?>>[...history,{'role':'system','content':
+              '你本次选择的目标：${request.goal}。按真实结果规划、执行、核对并调整路径，足够时直接结束。'
+              '本轮已有授权目标与读取结果应复用；读取不产生新的操作许可。'
+              '任务观察：${jsonEncode(await AgentRuntimeDiagnostic.read(db,turnId:user.id))}'}];
+            while(!agentProgress.stalled && agentPlanningRounds<planningRoundLimit() && agentToolCalls<toolCallLimit()) {
+              final ids=<String>{...reads};
+              // An optional entry can finish existing explicitly authorized
+              // goals through the SAME guarded executors. It cannot invent a
+              // goal, overwrite a save, or repeat a foreground mutation.
+              for(final goal in TurnGoalVerification.missing(turnGoals,agentToolResults,localReceipts).where((g)=>g.authorized)) {
+                if(goal.slot==TurnEffectSlot.cedarTimedRegistration) ids.add('cedar_toy.start_timed_play');
+                if(goal.slot==TurnEffectSlot.cedarForegroundWrite && !agentToolResults.any(TurnGoalVerification.foregroundWrite))
+                  ids.addAll({'cedar_toy.list_games','cedar_toy.get_guide','cedar_toy.play'});
+                if(goal.slot==TurnEffectSlot.cedarControl) ids.add('cedar_toy.manage_activity');
+                if(goal.slot==TurnEffectSlot.creativeCommission && job.deepThinking) ids.add('creative_work.commission');
+                if(goal.slot==TurnEffectSlot.creativeControl) ids.add('creative_work.stop');
+              }
+              ids.removeAll(deferredToolIds);
+              final definitions=request.definitions(ids);
+              if(definitions.isEmpty) break;
+              agentPlanningRounds++;
+              final planned=await generateInternal([...readHistory,{'role':'system','content':
+                '${agentProgress.prompt}\n剩余规划${planningRoundLimit()-agentPlanningRounds}回合，工具${toolCallLimit()-agentToolCalls}次。'}],tools:definitions);
+              effectiveCancellation.throwIfCancelled();
+              if(planned.toolCalls.isEmpty) break;
+              final candidate=AgentToolPlanner.fromNativeToolCalls(planned.toolCalls,
+                latestUserText:user.content,deepThinking:job.deepThinking,
+                cedarSessionActive:taskIntent.gameExecutionResolved && const {'play','resume'}.contains(taskIntent.gameAction),
+                cedarStageToolIds:ids.where((id)=>id.startsWith('cedar_toy.')).toSet(),
+                cedarBlindPlay:blindPlayRequested,
+                semanticTaskToolIds:ids.where((id)=>id.startsWith('creative_work.')).toSet(),
+                maxCalls:(toolCallLimit()-agentToolCalls).clamp(0,2).toInt(),
+                excludedCallFingerprints:executedToolFingerprints);
+              final plan=AgentToolPlan(calls:candidate.calls.where((c)=>ids.contains(c.toolId) &&
+                (!c.toolId.startsWith('cedar_toy.') || taskIntent.gameId.isEmpty || c.toolId=='cedar_toy.list_games' ||
+                  c.arguments['game']==taskIntent.gameId)).toList());
+              if(plan.isEmpty) { agentProgress.record(const []); break; }
+              final native=[for(final c in plan.calls) planned.toolCalls.firstWhere((n)=>
+                n.name==AgentToolPlanner.nativeNameForToolId(c.toolId))];
+              final outcomes=await executeTaskPlan(plan,maxCalls:2);
+              effectiveCancellation.throwIfCancelled();
+              agentToolResults.addAll(outcomes);entryResults.addAll(outcomes);
+              preparedAgentAttachments.addAll(outcomes.expand((r)=>r.attachments));
+              preparedAgentMediaUsageKeys.addAll(outcomes.expand((r)=>r.mediaUsageKeys));
+              await refreshReceipts();
+              cedarState=await cedarActivityStore.loadState();cedarSession=cedarState.activeSession;
+              readHistory.add({'role':'assistant','content':null,
+                if(planned.reasoning.isNotEmpty)'reasoning_content':planned.reasoning,
+                'tool_calls':native.map((c)=>c.toAssistantMap()).toList()});
+              for(var i=0;i<outcomes.length;i++) readHistory.add({'role':'tool','tool_call_id':native[i].id,'content':outcomes[i].promptData});
+              if(AgentTaskLoopPolicy.hasCommitPendingMedia(outcomes) ||
+                  outcomes.any((r)=>r.toolId=='cedar_toy.start_timed_play' && r.succeeded)) break;
             }
           }
-        }
-        // Consume the final model's internal request as a tool exchange; its
-        // discarded draft is neither dialogue nor a source for memory.
-        return generateFinalAttempt([
-          ...messages, {'role':'assistant','content':null,
+          if(entryResults.isEmpty) agentProgress.record(const []);
+          history.add({'role':'assistant','content':null,
             if(result.reasoning.isNotEmpty)'reasoning_content':result.reasoning,
-            'tool_calls':result.toolCalls.map((c)=>c.toAssistantMap()).toList()},
-          for(final call in result.toolCalls) {'role':'tool','tool_call_id':call.id,
-            'content':jsonEncode({'request_valid':request!=null,
-              'outcomes':[for(final r in entryResults){'tool':r.toolId,'status':r.status.key,'data':r.promptData}],
-              'no_further_entry':true})},
-          {'role':'system','content':AgentTaskLoopPolicy.verify(agentToolResults,
-            goals:turnGoals,receipts:localReceipts).renderForFinalPrompt() +
-            '\n按真实读取结果自然回复；没有结果就不声称查到，不需要复述内部规划。'},
-        ]);
+            'tool_calls':result.toolCalls.map((c)=>c.toAssistantMap()).toList()});
+          for(final call in result.toolCalls) history.add({'role':'tool','tool_call_id':call.id,
+            'content':jsonEncode({'request_valid':request!=null,'outcomes':[
+              for(final r in entryResults){'tool':r.toolId,'status':r.status.key,'data':r.promptData}],
+              'remaining_rounds':planningRoundLimit()-agentPlanningRounds,
+              'remaining_calls':toolCallLimit()-agentToolCalls})});
+          history.add({'role':'system','content':AgentTaskLoopPolicy.verify(agentToolResults,
+            goals:turnGoals,receipts:localReceipts).renderForFinalPrompt()+'\n${agentProgress.prompt}'});
+        }
       }
 
       Set<String> cedarStageToolIds() {
@@ -1319,18 +1353,6 @@ class DurableGenerationRunner {
           agentToolResults.any(
             (result) => result.toolId.startsWith('cedar_toy.'),
           );
-
-      int planningRoundLimit() => cedarContextOnly
-          ? CedarToyArcadeSkill.contextualPlanningRounds
-          : cedarLoopEngaged()
-              ? CedarToyArcadeSkill.maxPlanningRounds
-              : job.deepThinking ? 5 : nsfwRoute.toolRoute.planningRounds(AgentTaskLoopPolicy.maxPlanningRounds);
-
-      int toolCallLimit() => cedarContextOnly
-          ? CedarToyArcadeSkill.contextualToolCalls
-          : cedarLoopEngaged()
-              ? CedarToyArcadeSkill.maxToolCalls
-              : job.deepThinking ? 10 : AgentTaskLoopPolicy.maxToolCalls;
 
       int allowedTaskCalls() => AgentTaskLoopPolicy.allowedCalls(
             planningRounds: agentPlanningRounds,
@@ -1382,6 +1404,7 @@ class DurableGenerationRunner {
             'role': 'system',
             'content': '''
 ${verification.renderForFinalPrompt()}
+${agentProgress.prompt}
 
 【工具结果后的中文表达约束】
 工具循环已经结束。现在只用自然中文形成她自己的可见思考与最终正文；专业名词可保留英文。不得复述英文工具规划、参数、调用日志、轮次、预算或搜索步骤。
@@ -1425,7 +1448,7 @@ $finalGenerationReminder
               ...baseRequestMessages,
               <String, Object?>{
                 'role': 'system',
-                'content': '${taskPlanningInstruction()}\n${TurnGoalVerification.describe(TurnGoalVerification.missing(turnGoals, agentToolResults, localReceipts))}',
+                'content': '${taskPlanningInstruction()}\n${agentProgress.prompt}\n${TurnGoalVerification.describe(TurnGoalVerification.missing(turnGoals, agentToolResults, localReceipts))}',
               },
             ]
           : localPlan == null && turnGoals.isEmpty
@@ -1672,30 +1695,12 @@ $finalGenerationReminder
         if (acceptedCalls.length != nativePlan.calls.length) {
           throw const FormatException('工具调用与本地执行计划无法对应');
         }
-        final roundResults = await agentToolRunner.runPlan(
-          nativePlan,
-          onActivity: emitToolActivity,
-          cancellationToken: effectiveCancellation,
-          eventScopeId: job.id,
-          pendingMediaOwner: pendingMediaOwner,
-          userMessageId: user.id,
-          assistantMessageId: job.assistantMessageId,
-          latestUserText: user.content,
-          requireExplicitRoomTarget: true,
-          deferredToolIds: deferredToolIds,
-          deepThinking: job.deepThinking,
-          callIndexOffset: agentToolCalls,
-          maxCalls: callsAllowed,
-        );
+        final roundResults = await executeTaskPlan(nativePlan,maxCalls:callsAllowed);
         if (roundResults.length != acceptedCalls.length) {
           throw const FormatException('工具调用与本地执行结果无法对应');
         }
         agentToolResults.addAll(roundResults);
         await refreshReceipts();
-        agentToolCalls += roundResults.length;
-        executedToolFingerprints.addAll(
-          nativePlan.calls.map(AgentTaskLoopPolicy.callFingerprint),
-        );
         preparedAgentAttachments.addAll(
           roundResults.expand((result) => result.attachments),
         );
@@ -1764,7 +1769,7 @@ $finalGenerationReminder
         final proposalExecuted = AgentTaskLoopPolicy.containsProposal(
           nativePlan,
         );
-        final loopLimitReached =
+        final loopLimitReached = agentProgress.stalled ||
             agentPlanningRounds >= planningRoundLimit() ||
                 agentToolCalls >= toolCallLimit();
         // Historical validator label: cedarTurnHandedOff. The server-aware
@@ -1802,7 +1807,7 @@ $finalGenerationReminder
           ...history,
           <String, Object?>{
             'role': 'system',
-            'content': '${taskPlanningInstruction()}\n${TurnGoalVerification.describe(TurnGoalVerification.missing(turnGoals, agentToolResults, localReceipts))}',
+            'content': '${taskPlanningInstruction()}\n${agentProgress.prompt}\n${TurnGoalVerification.describe(TurnGoalVerification.missing(turnGoals, agentToolResults, localReceipts))}',
           },
         ];
         agentPlanningRounds++;
@@ -1894,7 +1899,7 @@ $finalGenerationReminder
         );
       }
 
-      final agentTaskVerification = AgentTaskLoopPolicy.verify(
+      var agentTaskVerification = AgentTaskLoopPolicy.verify(
         agentToolResults,
         goals: turnGoals, receipts: localReceipts,
         budgetExhausted: agentLoopBudgetExhausted,
@@ -1946,7 +1951,7 @@ $finalGenerationReminder
       String finalContent = visibleBody(envelope);
       // Tool planning may use DeepSeek, but its preamble is not second-channel
       // prose. Never splice that internal draft into a Gemini-mode reply.
-      if (!finalProvider.isGeminiRelay && streamedToolPreamble.isNotEmpty) {
+      if (!finalProvider.isGeminiRelay && streamedToolPreamble.isNotEmpty && turnGoals.isEmpty) {
         finalContent = '$streamedToolPreamble\n\n$finalContent'.trim();
       }
       final promptResponsibilityShape =
@@ -1971,6 +1976,7 @@ $finalGenerationReminder
         // claim. Only the message the user will actually receive is guarded.
         text: finalContent,
         currentToolResults: agentToolResults,
+        taskGoals: turnGoals, taskReceipts: localReceipts,
         creativePlayEvidence: creativePlayEvidence,
       );
       var repetitionGuard = RecentReplyRepetitionGuard.evaluate(
@@ -2031,6 +2037,8 @@ $finalGenerationReminder
 上一份正文不能提交，原因：$correctionReason。
 当前用户消息仍是前文最后一条真实 role=user 消息。
 必须重新回答当前用户消息，不能改成与问题无关的事实声明，也不能原样重复最近已经发送过的回复。
+${AgentTaskLoopPolicy.verify(agentToolResults,goals:turnGoals,receipts:localReceipts).renderForFinalPrompt()}
+任务观察：${jsonEncode(await AgentRuntimeDiagnostic.read(db,turnId:user.id))}
 所有“看过/查过/读取过系统、看见屏幕、调用/保存/修改/设置完成”的可核验操作报告，只能来自本轮匹配的真实成功工具结果。失败、无结果或阻止必须照实说；一次读取绝不能扩写成“一下午/半天/几小时”。没有结果时说尚未执行，或改为“我在想这件事”等真实主观体验。
 旧对话里的游戏场景和未完成事项不证明游戏仍在运行。没有本轮 Cedar 成功结果时，不得声称正在钓鱼、挂着鱼漂、漂没动或图鉴刚才没涨；可以表达想玩的念头，但不能因此否认已证实的历史游玩。自制作品完成与交互以本地作品事实为准，不要求 Cedar 结果。
 真实上下文、Memory、Thought 或 Self Experience 可以说成“想起/又琢磨过某件具体的事”，但不能包装成并未发生的“翻了聊天记录/从头到尾看了一遍”。
@@ -2051,6 +2059,7 @@ $finalGenerationReminder
           operationGuard = OperationalClaimGroundingGuard.evaluate(
             text: finalContent,
             currentToolResults: agentToolResults,
+        taskGoals: turnGoals, taskReceipts: localReceipts,
             creativePlayEvidence: creativePlayEvidence,
           );
           repetitionGuard = RecentReplyRepetitionGuard.evaluate(
@@ -2135,6 +2144,17 @@ $finalGenerationReminder
       // DeepSeek already forwarded its live deltas; Gemini only forwards the
       // accepted candidate above, once, after optional repair.
 
+      // Task execution claims require actual receipts even when the ordinary
+      // speech-quality policy permits a degraded natural answer.
+      final taskClaimCheck=OperationalClaimGroundingGuard.evaluate(text:finalContent,
+        currentToolResults:agentToolResults,taskGoals:turnGoals,taskReceipts:localReceipts,
+        creativePlayEvidence:creativePlayEvidence);
+      if(taskClaimCheck.reason=='unregistered_timed_task_promise') {
+        throw const FormatException('unregistered_timed_task_promise');
+      }
+      agentTaskVerification=AgentTaskLoopPolicy.verify(agentToolResults,
+        goals:turnGoals,receipts:localReceipts,budgetExhausted:agentLoopBudgetExhausted,
+        invalidPlan:agentLoopInvalidPlan);
       final baseAssistant = ChatMessage(
         id: job.assistantMessageId,
         sourceRevision: job.assistantSourceRevision,
@@ -2323,7 +2343,7 @@ $finalGenerationReminder
           callIndex: index,
         );
       }
-      if (agentTaskAttempted) {
+      if (agentTaskAttempted || agentPlanningRounds>0) {
         await _recordAgentLoopSummary(
           planningRounds: agentPlanningRounds,
           toolCalls: agentToolCalls,

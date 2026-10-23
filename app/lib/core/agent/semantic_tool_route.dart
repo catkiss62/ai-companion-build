@@ -63,7 +63,7 @@ class SemanticToolRoute {
   AgentToolPlan? get discoveryPlan => kind == 'room' && targetUncertain && !uncertain
       ? AgentToolPlan(calls:[AgentToolCall(toolId:'room_history.search',
           arguments:{'kind':'all',...timeFilter},reasonTag:'semantic_room_discovery')]) : null;
-  int planningRounds(int ordinaryLimit) => multiStep ? 5 : ordinaryLimit;
+  int planningRounds(int ordinaryLimit) => ordinaryLimit;
   bool canFinishAfterSummary({required bool succeeded, required bool otherGoalsPending}) =>
       available && singleRead && !uncertain && !targetUncertain && kind == 'room' &&
       view == 'summary' && roomId.isNotEmpty && succeeded && !otherGoalsPending;

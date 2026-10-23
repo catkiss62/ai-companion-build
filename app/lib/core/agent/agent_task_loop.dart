@@ -63,9 +63,14 @@ ${TurnGoalVerification.describe(missingGoals)}
 class AgentTaskLoopPolicy {
   const AgentTaskLoopPolicy._();
 
-  static const int maxPlanningRounds = 3;
-  static const int maxToolCalls = 6;
+  static const int maxPlanningRounds = 20;
+  static const int maxToolCalls = 40;
+  static const int deepMaxPlanningRounds = 30;
+  static const int deepMaxToolCalls = 60;
   static const int maxCallsPerRound = 2;
+
+  static int roundLimit(bool deep) => deep ? deepMaxPlanningRounds : maxPlanningRounds;
+  static int callLimit(bool deep) => deep ? deepMaxToolCalls : maxToolCalls;
 
   static int allowedCalls({
     required int planningRounds,

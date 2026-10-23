@@ -542,8 +542,8 @@ class AgentToolPlanner {
     } else if (tool.id == AgentToolRegistry.systemSelfRead.id) {
       properties['scope'] = const <String, Object?>{
         'type': 'string',
-        'enum': <String>['facts', 'outcomes', 'growth', 'all'],
-        'description': 'facts=当前能力，outcomes=近期真实工具结果，growth=人格学习观察层的无正文状态元数据，all=全部读取。',
+        'enum': <String>['facts', 'outcomes', 'growth', 'runtime', 'all'],
+        'description': 'facts=当前能力，outcomes=近期真实工具结果，runtime=任务登记、权限歧义、暂停和旧操作核对的真实状态；growth=成长元数据，all=能力/结果/成长。runtime不读取源码或密钥。',
       };
     } else if (tool.id == AgentToolRegistry.roomHistorySearch.id || tool.id == AgentToolRegistry.roomHistoryRead.id) {
       properties['kind']=const {'type':'string','enum':['all','model_dialogue','immersive']};

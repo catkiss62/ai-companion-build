@@ -12,7 +12,7 @@ class OnDemandAgentEntry {
   final String goal;
   final Set<String> families;
   static const name = 'agent_request';
-  static const prompt = '''你有可按需使用的 Agent 规划与读取能力。想到确实值得查证、追读记忆、了解游戏或核实刚才工具为什么没有结果时，可以调用 agent_request，再依据真实结果回复。是否使用由你判断；能直接聊就直接聊，不要求每轮调用，也不用向对方宣布启动 Agent。这个入口本身不执行游戏、创作、发送或设备操作；这些仍走已有真实权限与任务入口。''';
+  static const prompt = '''你有可按需使用的 Agent 能力。想到确实值得查证、追读记忆、了解游戏或核实刚才工具为什么没有结果时，可以调用 agent_request。启动后可根据真实结果多步规划、读取、调整路径与核验，直到足够回答或确实受阻；不必在一两次读取后提前放弃。是否使用由你判断；能直接聊就直接聊，不要求每轮调用，也不用宣布启动 Agent。游戏/创作/发送等实际操作继续使用本轮已有授权任务入口；读取本身不产生执行许可。排查任务时可用system_self.read(scope=runtime/outcomes)查看实际状态，不得从一次未执行推断网络或服务坏了。''';
   static const familiesToTools = <String, Set<String>>{
     'web': {'public_web.search','public_web.read'},
     'memory': {'memory.search','chat_history.search','chat_history.read'},

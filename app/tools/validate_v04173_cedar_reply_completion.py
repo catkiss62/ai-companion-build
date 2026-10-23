@@ -34,7 +34,7 @@ require(
     "immediateCedarEntry",
     "cedarStageToolIds()",
     "cedarLoopEngaged()",
-    "CedarToyArcadeSkill.maxPlanningRounds",
+    "AgentTaskLoopPolicy.roundLimit",
     "旧 session 仍保留可恢复",
     "cedarState = await cedarActivityStore.loadState()",
     "GenerationStreamIncompleteException catch (error)",

@@ -79,8 +79,8 @@ require(
 require(
     "lib/features/chat/cedar_toy_activity_window.dart",
     "游戏活动（",
-    "当前活动：",
-    "活动中",
+    "当前选中：",
+    "已暂停",
     "查看中",
     "恢复这个游戏存档",
 )

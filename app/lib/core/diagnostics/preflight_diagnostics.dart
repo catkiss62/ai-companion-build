@@ -1,3 +1,4 @@
+import '../agent/agent_task_loop.dart';
 import '../self/dream_store.dart';
 import '../creative/creative_store.dart';
 import '../desire/daily_wake_store.dart';
@@ -851,13 +852,13 @@ class PreflightDiagnosticsService {
               ) ??
               0,
           'loopMode': 'bounded_observe_act_verify_v2',
-          'maxPlanningRoundsPerTurn': 3,
+          'maxPlanningRoundsPerTurn': AgentTaskLoopPolicy.maxPlanningRounds,
           'deepThinkingEnabled': (await db.getSetting('deep_thinking_enabled')) == '1',
           'lastTurnDeepThinking': (await db.getSetting('agent_v2_last_deep_thinking')) == '1',
-          'deepMaxPlanningRounds': 5,
-          'deepMaxToolCalls': 10,
+          'deepMaxPlanningRounds': AgentTaskLoopPolicy.deepMaxPlanningRounds,
+          'deepMaxToolCalls': AgentTaskLoopPolicy.deepMaxToolCalls,
           'maxCallsPerPlanningRound': 2,
-          'maxCallsPerTurn': 6,
+          'maxCallsPerTurn': AgentTaskLoopPolicy.maxToolCalls,
           'v2TurnCount': int.tryParse(
                 await db.getSetting('agent_v2_turn_count') ?? '',
               ) ??

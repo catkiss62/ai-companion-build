@@ -1,4 +1,6 @@
 import '../agent/agent_tool.dart';
+import '../agent/turn_execution_contract.dart';
+import '../agent/turn_goal_verification.dart';
 import '../agent/agent_tool_text_envelope.dart';
 import '../creative/creative_play_evidence.dart';
 
@@ -138,7 +140,21 @@ class OperationalClaimGroundingGuard {
     DateTime? cedarOutcomeAt,
     CreativePlayEvidence creativePlayEvidence = const CreativePlayEvidence(),
     DateTime? now,
+    List<TurnTaskGoal> taskGoals = const [],
+    Iterable<LocalEffectReceipt> taskReceipts = const [],
   }) {
+    final missingTimer=TurnGoalVerification.missing(taskGoals,currentToolResults.toList(),taskReceipts)
+        .any((g)=>g.slot==TurnEffectSlot.cedarTimedRegistration);
+    if(missingTimer) {
+      for(final clause in _sentences(text)) {
+        if(RegExp(r'没|尚未|并未|不去|不玩|先不|不能|无法|等.{0,12}(登记|确认|恢复)|确认后|登记后|如果|打算|想去').hasMatch(clause)) continue;
+        if(RegExp(r'(这就|马上|现在就|已经).{0,10}(出发|去玩|开玩|开始玩|挂表|计时|开始)|'
+          r'(半(?:个)?小时|\d+分钟).{0,8}(后|到了|一到).{0,12}(汇报|回来|回报|收工|告诉你)').hasMatch(clause)) {
+          return const OperationalClaimGroundingResult(allowed:false,
+            reason:'unregistered_timed_task_promise',requiredToolId:'cedar_toy.start_timed_play');
+        }
+      }
+    }
     if (_machineProtocol.hasMatch(text) ||
         _machineProtocolJson.hasMatch(text) ||
         AgentToolTextEnvelope.looksLikeMachinePayload(text)) {

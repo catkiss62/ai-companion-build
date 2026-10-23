@@ -7,9 +7,10 @@ import 'cedar_toy_activity.dart';
 /// Read-only projection. Opening the activity window never grants play time
 /// or runs recovery, and an absent runtime clock is not a running game.
 class CedarTaskPresentation {
-  const CedarTaskPresentation(this.label, this.detail);
+  const CedarTaskPresentation(this.label, this.detail, {this.historical=false});
   final String label;
   final String detail;
+  final bool historical;
 
   static String duration(int milliseconds) {
     final seconds = (milliseconds.clamp(0, CedarPlaySession.budgetMs) / 1000).ceil();
@@ -87,10 +88,12 @@ class CedarTaskPresentation {
       return CedarTaskPresentation('已结束 · 待回报',
           '实际计时 ${duration((report['usedMs'] as num?)?.toInt() ?? 0)}；结果尚待送达。');
     }
+    // Delivered historical tasks belong to history, not the current timer.
+    // The last diagnostic survives indefinitely and is never a running task.
     if (diagnostic?['terminal'] == true && diagnostic?['game_id'] == gameId &&
         diagnostic?['session_id'] == session?.id) {
       return CedarTaskPresentation('上一时长任务已结束',
-          '实际计时 ${duration((diagnostic?['used_ms'] as num?)?.toInt() ?? 0)}；本次任务不再续计。');
+          '实际计时 ${duration((diagnostic?['used_ms'] as num?)?.toInt() ?? 0)}；本次任务不再续计。',historical:true);
     }
     return null;
   }

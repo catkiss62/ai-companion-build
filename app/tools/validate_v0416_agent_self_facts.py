@@ -115,7 +115,7 @@ for token in (
     "explicitSystemFacts",
     "'system_self.read': 'system_self_read'",
     "'system_self_read': 'system_self.read'",
-    "<String>['facts', 'outcomes', 'growth', 'all']"
+    "<String>['facts', 'outcomes', 'growth', 'runtime', 'all']"
     if agent_truth_or_newer
     else "['facts', 'outcomes', 'all']",
 ):

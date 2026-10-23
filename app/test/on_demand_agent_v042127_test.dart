@@ -72,7 +72,7 @@ void main(){
             if(action!='direct')return _reply(_call('agent_request',
               {'goal':'我想核实一下自己有哪些实际能力','families':['system']}),finish:'tool_calls');
           }else{
-            expect(names,isEmpty);expect(jsonEncode(body['messages']),contains('system_self.read'));
+            expect(names,everyElement('agent_request'));expect(jsonEncode(body['messages']),contains('system_self.read'));
             expect(jsonEncode(body['messages']),contains('outcomes'));
           }
           return _reply({'content':'「嗯，我知道了。」'});

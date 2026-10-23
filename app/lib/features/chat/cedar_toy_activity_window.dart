@@ -335,7 +335,7 @@ class _CedarToyActivityWindowState extends State<CedarToyActivityWindow> {
               subtitle: Text(
                 state.activeSession == null
                     ? '当前已暂离；可从旧存档恢复'
-                    : '当前活动：${state.activeSession!.displayName}',
+                    : '当前选中：${state.activeSession!.displayName} · ${state.activeSession!.phase.label}',
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
               ),
@@ -369,7 +369,7 @@ class _CedarToyActivityWindowState extends State<CedarToyActivityWindow> {
                       ),
                       subtitle: Text('${item.gameId} · ${item.phase.label}'),
                       trailing: item.gameId == state.activeGameId
-                          ? const Text('活动中')
+                          ? Text(item.phase == CedarActivityPhase.paused ? '已暂停' : item.phase.label)
                           : item.gameId == session.gameId
                               ? const Text('查看中')
                               : null,
@@ -408,13 +408,15 @@ class _CedarToyActivityWindowState extends State<CedarToyActivityWindow> {
             ),
           ),
         ],
-        if (_task != null) Card(
+        if (_task != null && !_task!.historical) Card(
           child: ListTile(
             leading: const Icon(Icons.timer_outlined),
             title: Text(_task!.label),
             subtitle: Text(_task!.detail),
           ),
         ),
+        if (_task == null || _task!.historical)
+          const Text('当前没有已登记的时长任务'),
         Wrap(
           spacing: 7,
           runSpacing: 7,
@@ -535,6 +537,11 @@ class _CedarToyActivityWindowState extends State<CedarToyActivityWindow> {
             label: const Text('恢复这个游戏存档'),
           ),
         ],
+        if (_task?.historical == true) ExpansionTile(
+          key:const ValueKey('cedar_previous_timed_task'),
+          title:Text(_task!.label),children:[Padding(
+            padding:const EdgeInsets.all(12),child:Text(_task!.detail))],
+        ),
         if (session.events.isNotEmpty) ...[
           const SizedBox(height: 10),
           Text('活动记录', style: Theme.of(context).textTheme.labelLarge),

@@ -10,13 +10,16 @@ class TurnTaskIntent {
   const TurnTaskIntent({this.available = false, this.gameAction = 'none',
     this.gameId = '', this.sessionId = '', this.durationText = '', this.minutes = 0, this.durationResolved = true,
     this.unresolvedFields = const {}, this.creativeAction = 'none', this.workId = '', this.requestId = '', this.workTargetKind = 'unresolved',
-    this.invitationCanResolveAction = false});
+    this.invitationCanResolveAction = false, this.actionResolution = '',
+    this.actionProbabilities = const {}});
   final Set<String> unresolvedFields;
   // Persist the reason for ambiguity. Legacy caches without this evidence
   // cannot turn a possible pause/stop into permission for a real game move.
   final bool invitationCanResolveAction;
+  final String actionResolution;
+  final Map<String, double> actionProbabilities;
   TurnTaskIntent resolvePresentInvitation({required String? cedarIntent, required bool certain}) {
-    if (!available || gameAction != 'play' || !certain || !invitationCanResolveAction ||
+    if (!available || !const {'play','resume'}.contains(gameAction) || !certain || !invitationCanResolveAction ||
         !const {'act_now','accept'}.contains(cedarIntent) || !unresolvedFields.contains('task_game')) return this;
     return TurnTaskIntent.fromJson({...toJson(),
       'unresolved_fields':unresolvedFields.where((k)=>k!='task_game').toList()});
@@ -37,11 +40,17 @@ class TurnTaskIntent {
   Map<String, Object?> toJson() => {'available': available, 'game_action': gameAction,
     'game_id': gameId, 'session_id': sessionId, 'duration_text': durationText,
     'minutes': minutes, 'duration_resolved': durationResolved, 'creative_action': creativeAction, 'work_id': workId, 'request_id': requestId, 'work_target_kind': workTargetKind, 'unresolved_fields': unresolvedFields.toList(),
-    'invitation_can_resolve_action':invitationCanResolveAction};
+    'invitation_can_resolve_action':invitationCanResolveAction,
+    'action_resolution':actionResolution, 'action_probabilities':actionProbabilities};
   static TurnTaskIntent fromJson(Object? raw) {
     if (raw is! Map) return const TurnTaskIntent();
     return TurnTaskIntent(available: raw['available'] == true,
       invitationCanResolveAction:raw['invitation_can_resolve_action']==true,
+      actionResolution:raw['action_resolution'] as String? ?? '',
+      actionProbabilities:raw['action_probabilities'] is Map
+          ? {for(final e in (raw['action_probabilities'] as Map).entries)
+              if(e.key is String && e.value is num) e.key as String:(e.value as num).toDouble()}
+          : const {},
       unresolvedFields: (raw['unresolved_fields'] as List?)?.whereType<String>().toSet() ?? const {},
       gameAction: raw['game_action'] as String? ?? 'none', gameId: raw['game_id'] as String? ?? '',
       sessionId: raw['session_id'] as String? ?? '', durationText: raw['duration_text'] as String? ?? '',
@@ -72,6 +81,23 @@ class TurnTaskIntent {
 }
 
 class TurnTaskQuestionSet {
+  /// Beginning and resuming the SAME paused save share permission to play.
+  /// No stop/target/duration uncertainty is erased. Sparse unreported mass is
+  /// an opposing upper bound rather than imaginary evidence for permission.
+  static bool sameTargetPlayResume(JevChoiceDecision? decision, {
+      required String phase, required String sessionId}) {
+    if(decision == null || !decision.ambiguous || sessionId.isEmpty ||
+        phase != 'paused' || !const {'play','resume'}.contains(decision.choice)) return false;
+    final p=decision.probabilities;
+    final execute=(p['play'] ?? 0)+(p['resume'] ?? 0);
+    if((p['play'] ?? 0)<=0 || (p['resume'] ?? 0)<=0) return false;
+    final total=p.values.fold<double>(0,(a,b)=>a+b);
+    var opposing=(1-total).clamp(0.0,1.0).toDouble();
+    for(final e in p.entries) {
+      if(!const {'play','resume'}.contains(e.key) && e.value>opposing) opposing=e.value;
+    }
+    return execute >= .65 && execute-opposing > .15;
+  }
   static bool invitationResolvesPlayNone(JevChoiceDecision? decision) {
     if(decision==null || decision.choice!='play' || !decision.ambiguous)return false;
     final p=decision.probabilities, play=p['play'] ?? 0, none=p['none'] ?? 0;
@@ -167,13 +193,17 @@ class TurnTaskQuestionSet {
     // The same batch independently judges present invitation/acceptance.
     // Agreement with a winning play action resolves play-vs-none uncertainty;
     // it never resolves another target, duration or a contradictory stop.
-    final reconcileAction=invitationResolvesPlayNone(details['task_game']);
-    if (answers['task_game'] == 'play' && reconcileAction &&
+    final resumeCompatible=game!=null && !unresolved.contains('task_game_target') &&
+      sameTargetPlayResume(details['task_game'],phase:game.phase,sessionId:game.sessionId);
+    final reconcileAction=invitationResolvesPlayNone(details['task_game']) || resumeCompatible;
+    if (const {'play','resume'}.contains(answers['task_game']) && reconcileAction &&
         const {'act_now','accept'}.contains(answers['cedar']) &&
         details['cedar']?.ambiguous == false) unresolved.remove('task_game');
     final duration = unresolved.contains('task_duration') ? '' : durations[answers['task_duration']] ?? '';
     return TurnTaskIntent(available: true, unresolvedFields: unresolved,
       invitationCanResolveAction:reconcileAction, gameAction: answers['task_game'] ?? 'none',
+      actionResolution:resumeCompatible ? 'same_target_play_resume' : reconcileAction ? 'play_none' : '',
+      actionProbabilities:details['task_game']?.probabilities ?? const {},
       gameId: game?.id ?? '', sessionId: game?.sessionId ?? '', durationText: duration,
       minutes: CedarTimedPlayTaskStore.durationMinutes(duration, userText) ?? 0,
       durationResolved: !unresolved.contains('task_duration') && (durations.isEmpty || answers['task_duration'] == 'none' || durations.containsKey(answers['task_duration'])),
