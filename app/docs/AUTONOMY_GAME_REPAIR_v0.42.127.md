@@ -1,6 +1,6 @@
 # v0.42.127+371 · 自主入口、游戏恢复与语音口型
 
-状态：主体已实现，CI修订验证中，尚无+371 APK。基线fd969411（应用+370）。沿用agent/v042107-review-recovery及原测试签名；一次统一构建，不合并main、不正式发布。
+状态：IMPLEMENTED / CI PASSED / APK READY / TRUE DEVICE PENDING。基线fd969411（应用+370）。沿用agent/v042107-review-recovery及原测试签名；一次统一构建，不合并main、不正式发布。
 
 ## 授权范围与实现顺序
 
@@ -18,7 +18,7 @@
 
 新增跨真实存储/调度的游戏恢复反例、歧义请求的只读发现/授权、目录长尾和别名、感知采样频率和发送机会、技术不可用候选、单/双通道选择Agent与取消重生成、TTS全局嘴部所有权、提示词升级/恢复幂等回归。运行现有源码门、全量Flutter、Kotlin/Android原生及打包前存档恢复。私有存档/对话/凭据不进入Git或付费API；本地SDK不足时明确记录，真实执行由CI完成。
 
-最终测试、提交、APK身份及待真机观察项完成后补齐。
+最终测试、源码、APK身份及真机待观察项见末节。
 
 
 ## 首轮实现与本地预检
@@ -34,3 +34,19 @@
 复核追加：a75ca311专项39853781903通过920项、0 error/779非fatal（61 warning/718 info）；Android15原生39853781945/120086599721的54项通过。继续核查发现游戏完成度复核提示把收到即时邀请写成必须执行，已改为以她决定接受为前提；真实结果和承诺必须一致的规则保留，追加拒绝邀请不游玩/不登记计时的实际runner回归。此修改属于同一轮去默认顺从，新的最终候选需重新验证。Android源码未再变化，前述54项证据仅对应已验证的相同原生树，不与后续全量重复累加。
 
 续接核查：a962ffcd专项39856021787通过921项；完整39856021724的Android15原生54项、154源码门、Kotlin与分析通过，但全量Flutter为2530通过/1失败，未打包。旧timed_reply_pipeline_v04262夹具仅写turn ID、不写当前原文source key，缓存的act_now实际被忽略；已先补真实原文版本键和确定性状态，并把旧链路加入专项。ef7b72ee专项39881831410仍为921通过/1失败，证明夹具并非唯一成因。进一步定位cedarStageToolIds把available=false时默认gameAction=none误当成明确不执行，覆盖了原有确定Cedar语义下的规划器回退。现仅在任务子判断确实available时应用none/歧义只读门；子判断缺失且Cedar不确定的写操作仍由既有deferredToolIds阻挡。暂停游戏集成回归同时覆盖确定可登记20分钟与不确定只读/不激活，保留全部提交前后断言。新候选需完整通过后交付，前一未交付构建被替代。
+
+## 2026-10-23 · +371最终验证与测试APK交付
+
+状态IMPLEMENTED / CI PASSED / APK READY / TRUE DEVICE PENDING。最终构建源码da1f3ef5f5a8c6c17c9295f4ab24cadbfad1267f，tree866496249de54daea5d4711895bf1d5f8139aa17，版本0.42.127+371；schema61 / Snapshot protocol7保持。游戏检查点同钟恢复、轻量目录软刷新/长尾别名、即时邀请语义与只读发现、旧任务子判断缺失的规划器回退均已实现；真实计时仅成功正文提交后激活，拒绝邀请不自动游玩。原有三步/30分钟、存档槽和前台优先保留。
+
+手机90秒感知不再重抽普通主动机会或推迟7–24分钟决定时钟，时间积分和事件预算保留；技术不可用候选不制造高分WAIT。普通正文在原请求中可选Agent，直接聊天不增加规划请求；入口只读取/发现，仍共享预算、取消与真实来源保护。实际TTS播放期间嘴部优先级覆盖生气及手动/持续表情，安静音素仍归语音；开场四拍及其他动作保留。一次性精确去除默认退让句与先验认定用户评价正确的回应指令，保留自定义相邻正文、开关/概率、反八股、口语与真实AI能力；不添加必须反抗或负面情绪脚本。
+
+完整39882604032 / build120185675400成功：154源码门、Kotlin/原生单元测试、2532全量Flutter、169打包前归档恢复；同轮Android15原生120183752498通过54项。专项39882603963 / flutter120183428194通过923项，含暂停续玩确定/不确定、自然半小时邀请接受/拒绝、按需Agent首/二通道及取消、反复感知不重抽、目录和迁移回归。分析0 error、781非fatal（61 warning/720 info），不能写零告警；专项、全量和恢复的重叠检查不累加。23签名工作流隔离用例已本地通过；本地无Flutter/Dart/Android SDK，实际Dart/原生结果均来自CI。
+
+失败与修订保留：dbef6bb首轮夹具/Java注解失败、a75ca311复核提示默认执行修订、a962ffcd全量2530通过/1失败、ef7b72ee补齐来源缓存后专项仍921通过/1失败均未交付APK。后两轮暴露available=false被当作明确none的真实回退漏洞，已用生产门修复及正反例验证；1f898f49/4abd024后续修订由本次da1f3ef统一替代，未用旧候选测试或旧产物冒充最终结果。
+
+APK738958202 bytes，SHA256 `d41fb463d7bae0e0d8ca12bfaeec863314c4748bc85d934aa3de3f5c5c7ed10e`；com.aicompanion.localfirst / versionName0.42.127 / versionCode371；原签名SHA256 `305eb3d80983b963c64818ddf1ad561f279de6d47b3ed2c781ada448c7c25148`。完整包内素材、Genie/桌宠/塔罗/记忆星空/房间深度与实际版本/证书检查通过。Release421193734、APK asset667655368仍draft；Release目标源码、线上asset digest、CI校验和ci-monitor-v0345/.ci/v042120-monitor.txt的run/head/success/checksum一致。
+
+APK已先发用户：https://github.com/catkiss62/ai-companion-build/releases/download/untagged-37d5c3011a59d49c84a3/AI-Companion-v0.42.127-371-Autonomy-Game-Repair-APK.apk 。完整CI：https://github.com/catkiss62/ai-companion-build/actions/runs/39882604032 。草稿页：https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-37d5c3011a59d49c84a3 。随后只做报告/总账[skip ci]收尾，不重打相同APK；仍在agent/v042107-review-recovery，不合并main、不正式发布，不上传私有存档/诊断正文/凭据，不调用付费模型。
+
+真机待验：连续使用手机至少一天的主动消息分布、实际游戏MCP与真实模型语义选择、普通/双通道按需规划自然度、TTS生气与静音/停止后的视觉口型。自动回归不代替真机或真实模型验收。旧主动基线+365 c3bec538048ab2b8b4bd24f0d3343eedc0fa96a6及+370仍可直接从Git对比。刷新正文的记忆撤销、已有中文思考/翻译、疑似中转异常均未改；未增加梦境随机追读。

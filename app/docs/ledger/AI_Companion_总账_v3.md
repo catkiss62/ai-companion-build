@@ -6,8 +6,8 @@
 
 ## 当前接班快照
 
-- 当前实施v0.42.127+371：游戏恢复时钟/目录别名/语义路由、感知与主动决定时钟分离、普通对话可选Agent读取入口、实际TTS嘴部所有权及默认退让提示清理。基线fd969411/+370；尚未新CI或APK，上一条已交付APK仍为+370。详见app/docs/AUTONOMY_GAME_REPAIR_v0.42.127.md。
-- 最新交付v0.42.126+370：源码a17cc72d783df161a0aadf17785587bda072be89 / tree5e82940881d2322227b0a356fe4de44480882d6f；完整39680792562成功（154源码门、Kotlin、2516全量Flutter、169归档恢复、54 Android15原生），专项39680792554通过906项。分析0 error、768非fatal（61 warning/707 info）。普通聊天目录/按需原文追读复用现有记忆与单次JEV；新存档带目录、旧存档本地补建，真实ZIP往返通过。APK已先发用户，真机待验。入口app/docs/CONVERSATION_HISTORY_DIRECTORY_v0.42.126.md及账末。
+- 最新交付v0.42.127+371：源码da1f3ef5f5a8c6c17c9295f4ab24cadbfad1267f / tree866496249de54daea5d4711895bf1d5f8139aa17；完整39882604032成功（154源码门、Kotlin、2532全量Flutter、169归档恢复、54 Android15原生），专项39882603963通过923项。分析0 error、781非fatal（61 warning/720 info）。游戏恢复/目录/语义回退、手机感知与主动决定分离、可选Agent读取、TTS嘴部优先及默认退让清理已打包。APK已先给用户，真机待验；入口app/docs/AUTONOMY_GAME_REPAIR_v0.42.127.md及账末。
+- 前次交付v0.42.126+370：源码a17cc72d783df161a0aadf17785587bda072be89 / tree5e82940881d2322227b0a356fe4de44480882d6f；完整39680792562成功（154源码门、Kotlin、2516全量Flutter、169归档恢复、54 Android15原生），专项39680792554通过906项。分析0 error、768非fatal（61 warning/707 info）。普通聊天目录/按需原文追读复用现有记忆与单次JEV；新存档带目录、旧存档本地补建，真实ZIP往返通过。APK已先发用户，真机待验。入口app/docs/CONVERSATION_HISTORY_DIRECTORY_v0.42.126.md及账末。
 
 - 前一交付v0.42.125+369：构建42924e087e3e1be76b0079e2be925ad0c0da1760 / tree3a9220a5c8127af9ff200c9ce607238e13b7492d，完整39667162957成功（154源码门、Kotlin、2496全量Flutter、168归档恢复、54 Android15原生）；专项39667163000通过861项。0 error、739非fatal（61 warning/678 info）。DS确认接管、沉浸底部位置、独立同名作品选项已打包，存档只读；APK已先给链接，真机待验。入口app/docs/UI_CONFIRMATION_LAYOUT_AND_BACKUP_AUDIT_v0.42.125.md及账末。
 
@@ -1455,3 +1455,19 @@ APK已先发用户：https://github.com/catkiss62/ai-companion-build/releases/do
 复核追加：a75ca311专项39853781903通过920项、0 error/779非fatal（61 warning/718 info）；Android15原生39853781945/120086599721的54项通过。继续核查发现游戏完成度复核提示把收到即时邀请写成必须执行，已改为以她决定接受为前提；真实结果和承诺必须一致的规则保留，追加拒绝邀请不游玩/不登记计时的实际runner回归。此修改属于同一轮去默认顺从，新的最终候选需重新验证。Android源码未再变化，前述54项证据仅对应已验证的相同原生树，不与后续全量重复累加。
 
 续接核查：a962ffcd专项39856021787通过921项；完整39856021724的Android15原生54项、154源码门、Kotlin与分析通过，但全量Flutter为2530通过/1失败，未打包。旧timed_reply_pipeline_v04262夹具仅写turn ID、不写当前原文source key，缓存的act_now实际被忽略；已先补真实原文版本键和确定性状态，并把旧链路加入专项。ef7b72ee专项39881831410仍为921通过/1失败，证明夹具并非唯一成因。进一步定位cedarStageToolIds把available=false时默认gameAction=none误当成明确不执行，覆盖了原有确定Cedar语义下的规划器回退。现仅在任务子判断确实available时应用none/歧义只读门；子判断缺失且Cedar不确定的写操作仍由既有deferredToolIds阻挡。暂停游戏集成回归同时覆盖确定可登记20分钟与不确定只读/不激活，保留全部提交前后断言。新候选需完整通过后交付，前一未交付构建被替代。
+
+## 2026-10-23 · +371最终验证与测试APK交付
+
+状态IMPLEMENTED / CI PASSED / APK READY / TRUE DEVICE PENDING。最终构建源码da1f3ef5f5a8c6c17c9295f4ab24cadbfad1267f，tree866496249de54daea5d4711895bf1d5f8139aa17，版本0.42.127+371；schema61 / Snapshot protocol7保持。游戏检查点同钟恢复、轻量目录软刷新/长尾别名、即时邀请语义与只读发现、旧任务子判断缺失的规划器回退均已实现；真实计时仅成功正文提交后激活，拒绝邀请不自动游玩。原有三步/30分钟、存档槽和前台优先保留。
+
+手机90秒感知不再重抽普通主动机会或推迟7–24分钟决定时钟，时间积分和事件预算保留；技术不可用候选不制造高分WAIT。普通正文在原请求中可选Agent，直接聊天不增加规划请求；入口只读取/发现，仍共享预算、取消与真实来源保护。实际TTS播放期间嘴部优先级覆盖生气及手动/持续表情，安静音素仍归语音；开场四拍及其他动作保留。一次性精确去除默认退让句与先验认定用户评价正确的回应指令，保留自定义相邻正文、开关/概率、反八股、口语与真实AI能力；不添加必须反抗或负面情绪脚本。
+
+完整39882604032 / build120185675400成功：154源码门、Kotlin/原生单元测试、2532全量Flutter、169打包前归档恢复；同轮Android15原生120183752498通过54项。专项39882603963 / flutter120183428194通过923项，含暂停续玩确定/不确定、自然半小时邀请接受/拒绝、按需Agent首/二通道及取消、反复感知不重抽、目录和迁移回归。分析0 error、781非fatal（61 warning/720 info），不能写零告警；专项、全量和恢复的重叠检查不累加。23签名工作流隔离用例已本地通过；本地无Flutter/Dart/Android SDK，实际Dart/原生结果均来自CI。
+
+失败与修订保留：dbef6bb首轮夹具/Java注解失败、a75ca311复核提示默认执行修订、a962ffcd全量2530通过/1失败、ef7b72ee补齐来源缓存后专项仍921通过/1失败均未交付APK。后两轮暴露available=false被当作明确none的真实回退漏洞，已用生产门修复及正反例验证；1f898f49/4abd024后续修订由本次da1f3ef统一替代，未用旧候选测试或旧产物冒充最终结果。
+
+APK738958202 bytes，SHA256 `d41fb463d7bae0e0d8ca12bfaeec863314c4748bc85d934aa3de3f5c5c7ed10e`；com.aicompanion.localfirst / versionName0.42.127 / versionCode371；原签名SHA256 `305eb3d80983b963c64818ddf1ad561f279de6d47b3ed2c781ada448c7c25148`。完整包内素材、Genie/桌宠/塔罗/记忆星空/房间深度与实际版本/证书检查通过。Release421193734、APK asset667655368仍draft；Release目标源码、线上asset digest、CI校验和ci-monitor-v0345/.ci/v042120-monitor.txt的run/head/success/checksum一致。
+
+APK已先发用户：https://github.com/catkiss62/ai-companion-build/releases/download/untagged-37d5c3011a59d49c84a3/AI-Companion-v0.42.127-371-Autonomy-Game-Repair-APK.apk 。完整CI：https://github.com/catkiss62/ai-companion-build/actions/runs/39882604032 。草稿页：https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-37d5c3011a59d49c84a3 。随后只做报告/总账[skip ci]收尾，不重打相同APK；仍在agent/v042107-review-recovery，不合并main、不正式发布，不上传私有存档/诊断正文/凭据，不调用付费模型。
+
+真机待验：连续使用手机至少一天的主动消息分布、实际游戏MCP与真实模型语义选择、普通/双通道按需规划自然度、TTS生气与静音/停止后的视觉口型。自动回归不代替真机或真实模型验收。旧主动基线+365 c3bec538048ab2b8b4bd24f0d3343eedc0fa96a6及+370仍可直接从Git对比。刷新正文的记忆撤销、已有中文思考/翻译、疑似中转异常均未改；未增加梦境随机追读。
