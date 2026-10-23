@@ -9,10 +9,14 @@ import 'turn_execution_contract.dart';
 class TurnTaskIntent {
   const TurnTaskIntent({this.available = false, this.gameAction = 'none',
     this.gameId = '', this.sessionId = '', this.durationText = '', this.minutes = 0, this.durationResolved = true,
-    this.unresolvedFields = const {}, this.creativeAction = 'none', this.workId = '', this.requestId = '', this.workTargetKind = 'unresolved'});
+    this.unresolvedFields = const {}, this.creativeAction = 'none', this.workId = '', this.requestId = '', this.workTargetKind = 'unresolved',
+    this.invitationCanResolveAction = false});
   final Set<String> unresolvedFields;
+  // Persist the reason for ambiguity. Legacy caches without this evidence
+  // cannot turn a possible pause/stop into permission for a real game move.
+  final bool invitationCanResolveAction;
   TurnTaskIntent resolvePresentInvitation({required String? cedarIntent, required bool certain}) {
-    if (!available || gameAction != 'play' || !certain ||
+    if (!available || gameAction != 'play' || !certain || !invitationCanResolveAction ||
         !const {'act_now','accept'}.contains(cedarIntent) || !unresolvedFields.contains('task_game')) return this;
     return TurnTaskIntent.fromJson({...toJson(),
       'unresolved_fields':unresolvedFields.where((k)=>k!='task_game').toList()});
@@ -32,10 +36,12 @@ class TurnTaskIntent {
   bool get gameControl => const {'pause', 'pause_and_release', 'resume'}.contains(gameAction);
   Map<String, Object?> toJson() => {'available': available, 'game_action': gameAction,
     'game_id': gameId, 'session_id': sessionId, 'duration_text': durationText,
-    'minutes': minutes, 'duration_resolved': durationResolved, 'creative_action': creativeAction, 'work_id': workId, 'request_id': requestId, 'work_target_kind': workTargetKind, 'unresolved_fields': unresolvedFields.toList()};
+    'minutes': minutes, 'duration_resolved': durationResolved, 'creative_action': creativeAction, 'work_id': workId, 'request_id': requestId, 'work_target_kind': workTargetKind, 'unresolved_fields': unresolvedFields.toList(),
+    'invitation_can_resolve_action':invitationCanResolveAction};
   static TurnTaskIntent fromJson(Object? raw) {
     if (raw is! Map) return const TurnTaskIntent();
     return TurnTaskIntent(available: raw['available'] == true,
+      invitationCanResolveAction:raw['invitation_can_resolve_action']==true,
       unresolvedFields: (raw['unresolved_fields'] as List?)?.whereType<String>().toSet() ?? const {},
       gameAction: raw['game_action'] as String? ?? 'none', gameId: raw['game_id'] as String? ?? '',
       sessionId: raw['session_id'] as String? ?? '', durationText: raw['duration_text'] as String? ?? '',
@@ -66,6 +72,15 @@ class TurnTaskIntent {
 }
 
 class TurnTaskQuestionSet {
+  static bool invitationResolvesPlayNone(JevChoiceDecision? decision) {
+    if(decision==null || decision.choice!='play' || !decision.ambiguous)return false;
+    final p=decision.probabilities, play=p['play'] ?? 0, none=p['none'] ?? 0;
+    if(play<=0 || none<=0)return false;
+    final total=p.values.fold<double>(0,(a,b)=>a+b);
+    if(1-total>=play-.10-1e-9)return false;
+    return p.entries.where((e)=>e.key!='play' && e.key!='none')
+        .every((e)=>e.value<play-.10-1e-9);
+  }
   TurnTaskQuestionSet({required this.userText, required this.state, required this.works, String catalog = ''}) {
     var index = 0;
     for (final session in state.sessions.values.take(16)) {
@@ -152,11 +167,13 @@ class TurnTaskQuestionSet {
     // The same batch independently judges present invitation/acceptance.
     // Agreement with a winning play action resolves play-vs-none uncertainty;
     // it never resolves another target, duration or a contradictory stop.
-    if (answers['task_game'] == 'play' &&
+    final reconcileAction=invitationResolvesPlayNone(details['task_game']);
+    if (answers['task_game'] == 'play' && reconcileAction &&
         const {'act_now','accept'}.contains(answers['cedar']) &&
-        details['cedar']?.ambiguous != true) unresolved.remove('task_game');
+        details['cedar']?.ambiguous == false) unresolved.remove('task_game');
     final duration = unresolved.contains('task_duration') ? '' : durations[answers['task_duration']] ?? '';
-    return TurnTaskIntent(available: true, unresolvedFields: unresolved, gameAction: answers['task_game'] ?? 'none',
+    return TurnTaskIntent(available: true, unresolvedFields: unresolved,
+      invitationCanResolveAction:reconcileAction, gameAction: answers['task_game'] ?? 'none',
       gameId: game?.id ?? '', sessionId: game?.sessionId ?? '', durationText: duration,
       minutes: CedarTimedPlayTaskStore.durationMinutes(duration, userText) ?? 0,
       durationResolved: !unresolved.contains('task_duration') && (durations.isEmpty || answers['task_duration'] == 'none' || durations.containsKey(answers['task_duration'])),

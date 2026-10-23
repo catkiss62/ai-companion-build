@@ -152,7 +152,7 @@ Widget _glass({required Widget child})=>DecoratedBox(decoration:BoxDecoration(
 
 Future<bool> _confirmDelete(BuildContext context,String title) async =>
     await showDialog<bool>(context:context,builder:(dialog)=>AlertDialog(
-      title:const Text('删除这个对谈房间？'),content:Text('“$title”的本场记录将被删除。'),
+      title:const Text('删除这个对谈房间？'),content:Text('“$title”的原文和房间摘要将被删除，未完成的整理也会取消。已经形成的长期记忆仍会保留。'),
       actions:[TextButton(onPressed:()=>Navigator.pop(dialog,false),child:const Text('取消')),
         FilledButton(onPressed:()=>Navigator.pop(dialog,true),child:const Text('删除'))]))??false;
 

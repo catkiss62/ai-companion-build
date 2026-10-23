@@ -334,7 +334,7 @@ void main() {
 
     expect(
       message.promptContent,
-      '[我发送了一张表情包：蹦蹦跳跳地从角落赶来]',
+      '[我发送了一张表情包；索引说明（图片内容或常见用法参考，具体含义结合当时语境）：蹦蹦跳跳地从角落赶来]',
     );
     expect(message.promptContent, isNot(contains('用户发送了一张图片')));
     expect(message.attachments.single.source, 'assistant_sticker:personal-001');
@@ -401,7 +401,7 @@ void main() {
         ),
       ],
     );
-    expect(message.promptContent, contains('[用户发送了一张表情包：'));
+    expect(message.promptContent, contains('[用户发送了一张表情包；索引说明'));
     expect(message.promptContent, contains('抱着枕头困困地说晚安'));
     expect(message.promptContent, isNot(contains('视觉模型观察')));
     expect(message.promptContent, contains('附言：晚安'));

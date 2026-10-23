@@ -1231,6 +1231,43 @@ class CedarToyActivityStore {
   }
 
   static const uncertainWritePrefix = 'cedar_unresolved_write_v1:';
+
+  Future<Map<String,dynamic>?> unresolvedWrite(String gameId) async {
+    final raw = await db.getSetting('$uncertainWritePrefix$gameId') ?? '';
+    if (raw.isEmpty) return null;
+    try {
+      final value=jsonDecode(raw);
+      if(value is Map)return Map<String,dynamic>.from(value);
+    } catch (_) { /* An unreadable marker is still a blocker, never permission. */ }
+    return const {'state':'invalid'};
+  }
+
+  /// Rebuild the missing read-only continuation after restart/restore. A local
+  /// Stop is deliberately not resumed here; only an active authorized session
+  /// enters this path. The original mutation is never resent.
+  Future<bool> recoverUnresolvedWrite({required String gameId,
+      required String executionId, required DateTime now}) async {
+    final pending=await unresolvedWrite(gameId);
+    if(pending==null)return true;
+    await markWriteOutcomeUncertain(gameId:gameId,
+      action:pending['action']?.toString() ?? 'unknown_write',
+      params:pending['params'] is Map ? Map<String,Object?>.from(pending['params'] as Map) : const {},
+      executionId:executionId,now:now);
+    final current=await loadSession(gameId);
+    return current?.continuationWaitScope=='write_reconcile_once';
+  }
+
+  Future<bool> recordReconciliationAttempt(String gameId,String executionId) async {
+    final key='$uncertainWritePrefix$gameId';
+    final raw=await db.getSetting(key) ?? '';
+    if(raw.isEmpty)return false;
+    final pending=await unresolvedWrite(gameId);
+    if(pending==null || pending['state']=='invalid')return false;
+    return db.setSettingsAtomically({key:jsonEncode({...pending,
+      'query_attempts':((pending['query_attempts'] as num?)?.toInt() ?? 0)+1})},
+      guardKey:executionFenceSettingKey,expectedGuardValue:executionId,
+      expectedSettings:{key:raw});
+  }
   Future<bool> admitRemoteDispatch({required String gameId, required String action,
     required Map<String, Object?> params, required String executionId,
     BrainWorkFence? planningFence}) async {
@@ -1286,12 +1323,13 @@ class CedarToyActivityStore {
     required String action,
     Map<String, Object?> params = const <String, Object?>{},
     String executionId = '',
+    DateTime? now,
   }) async {
     if (CedarPlatformActionPolicy.isReadOnlyCall(action, params)) return;
     final state = await loadState();
     final session = state.sessions[gameId];
     if (session == null) return;
-    final now = DateTime.now();
+    now ??= DateTime.now();
     McpContinuationCall? reconciliation;
     if (gameId == 'duel') {
       final roomId = params['room_id']?.toString().trim() ?? '';
@@ -1368,6 +1406,7 @@ class CedarToyActivityStore {
       continuationParamsJson:
           reconciliation == null ? null : jsonEncode(reconciliation.params),
       continuationWaitScope: reconciliation?.waitScope,
+      pauseSource: canSynchronize ? '' : 'write_outcome_uncertain',
       clearContinuation: reconciliation == null,
       events: _append(session.events, event),
     );

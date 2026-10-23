@@ -375,6 +375,7 @@ class ConversationHistoryReader {
     final next = end < text.length ? _token({'v':1,'k':kind,'id':id,'e':hash(fence.identity),
       'h':expected,'o':end,if(t?['f'] != null)'f':t!['f'],if(t?['t'] != null)'t':t!['t']}) : '';
     return AgentToolResult(toolId:tool,status:AgentToolStatus.succeeded,
+      historySources:[for(final source in scope.sources)source.source],
       displayText:'已读取历史聊天原文',resultCount:scope.sources.length,
       promptData:'【普通聊天历史原文】$contract\n' + jsonEncode({
         'title':scope.title,'start':offset,'end':end,'total_characters':text.length,

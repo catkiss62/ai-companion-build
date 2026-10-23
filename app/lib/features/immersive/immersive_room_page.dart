@@ -26,6 +26,8 @@ import '../../core/storage/secure_config.dart';
 import '../../widgets/action_tint_text.dart';
 import '../../widgets/active_trial_capsule.dart';
 import '../../widgets/room_image_background.dart';
+import '../../widgets/room_background_editor.dart';
+import '../../core/storage/room_background_storage.dart';
 import '../../widgets/reasoning_panel.dart';
 import '../../widgets/companion_bottom_navigation.dart';
 import '../chat/chat_timestamp_formatter.dart';
@@ -435,6 +437,7 @@ class _ImmersiveRoomPageState extends State<ImmersiveRoomPage> {
   final scroll = ScrollController();
   bool _visualStageEnabled = true;
   bool _visualSettingsLoaded = false;
+  RoomBackgroundSnapshot? _background;
   ChatDialogueColorOption _dialogueColor = ChatDialogueColorOption.purple;
   double _panelOpacity = 0.75;
   double _panelFraction = 0.62;
@@ -515,6 +518,7 @@ class _ImmersiveRoomPageState extends State<ImmersiveRoomPage> {
 
   Future<void> _loadVisualSettings() async {
     final db = AppDatabase.instance;
+    final background = await RoomBackgroundStorage(db).load();
     final visualStageEnabled =
         (await db.getSetting('chat_visual_stage_enabled')) != '0';
     final showForeignReplies =
@@ -539,6 +543,7 @@ class _ImmersiveRoomPageState extends State<ImmersiveRoomPage> {
     );
     if (!mounted) return;
     setState(() {
+      _background = background;
       _visualStageEnabled = visualStageEnabled;
       _showForeignReplies = showForeignReplies;
       _selectedLanguage = selectedLanguage;
@@ -1074,6 +1079,25 @@ class _ImmersiveRoomPageState extends State<ImmersiveRoomPage> {
     );
   }
 
+  Future<void> _editBackground() async {
+    inputFocus.unfocus();
+    final storage = RoomBackgroundStorage(AppDatabase.instance);
+    final initial = await storage.load();
+    if (!mounted) return;
+    final saved = await showDialog<bool>(context:context, barrierDismissible:false,
+      builder:(_)=>RoomBackgroundEditor(storage:storage,initial:initial));
+    if (saved == true && mounted) await _loadVisualSettings();
+  }
+
+  Widget _backgroundButton() => SizedBox(height:24,child:OutlinedButton(
+    onPressed:_visualSettingsLoaded ? _editBackground : null,
+    style:OutlinedButton.styleFrom(foregroundColor:Colors.white,
+      side:const BorderSide(color:Colors.white70),minimumSize:Size.zero,
+      shape:RoundedRectangleBorder(borderRadius:BorderRadius.circular(4)),
+      tapTargetSize:MaterialTapTargetSize.shrinkWrap,
+      padding:const EdgeInsets.symmetric(horizontal:7),
+      textStyle:Theme.of(context).textTheme.labelSmall),child:const Text('背景图')));
+
   @override
   Widget build(BuildContext context) {
     final room = controller.room;
@@ -1094,6 +1118,8 @@ class _ImmersiveRoomPageState extends State<ImmersiveRoomPage> {
             style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w700),
           ),
           actions: [
+            _backgroundButton(),
+            const SizedBox(width: 3),
             _languageSelector(),
             const SizedBox(width: 3),
             if (room != null) _nsfwButton(room),
@@ -1173,7 +1199,9 @@ class _ImmersiveRoomPageState extends State<ImmersiveRoomPage> {
                   return Stack(
                     fit: StackFit.expand,
                     children: [
-                      if (_visualStageEnabled) const RoomImageBackground(),
+                      if (_visualStageEnabled) RoomImageBackground(
+                        config:_background!.config,imageFile:_background!.file,
+                        aspectRatio:_background!.aspectRatio),
                       Positioned(
                         left: 0,
                         right: 0,

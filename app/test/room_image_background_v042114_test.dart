@@ -1,3 +1,4 @@
+import 'package:ai_companion_localfirst/core/models/room_background_config.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:ai_companion_localfirst/widgets/room_image_background.dart';
@@ -22,4 +23,19 @@ void main() {
       await render(0); await render(240);
     });
   }
+  testWidgets('free room geometry stays outside screen bounds across keyboard height changes',(tester) async {
+    tester.view.physicalSize=const Size(360,640);tester.view.devicePixelRatio=1;
+    addTearDown(tester.view.resetPhysicalSize);addTearDown(tester.view.resetDevicePixelRatio);
+    Future<Rect> render(double height) async {
+      await tester.pumpWidget(MaterialApp(home:Align(alignment:Alignment.topLeft,
+        child:SizedBox(width:360,height:height,child:const RoomImageBackground(
+          config:RoomBackgroundConfig(scale:2,x:-3,y:4))))));
+      await tester.pumpAndSettle();expect(tester.takeException(),isNull);
+      return tester.getRect(find.byType(Image));
+    }
+    final full=await render(640),keyboard=await render(360);
+    expect(full,keyboard);expect(full.width,720);expect(full.left,lessThan(-360));
+    expect(full.top,1440);
+  });
+
 }

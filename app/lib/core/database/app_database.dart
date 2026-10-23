@@ -1,3 +1,4 @@
+import '../models/room_background_config.dart';
 import '../ai/final_reply_control.dart';
 import 'derived_source_store.dart';
 import '../memory/personality_learning_lifecycle.dart';
@@ -6379,6 +6380,11 @@ class AppDatabase {
     return rows.map(MessageAttachment.fromDb).toList(growable: false);
   }
 
+  // Custom room artwork is a persistent settings owner, not disposable chat
+  // cache. Keep this predicate on every path that can remove shared bytes.
+  static String _backgroundOwnerGuard(String alias) =>
+      "NOT EXISTS (SELECT 1 FROM settings bg WHERE bg.key = '${RoomBackgroundConfig.blobKey}' AND bg.value = $alias.id)";
+
   Future<List<MediaBlob>> allMediaBlobs() async {
     final db = await database;
     final rows = await db.query('media_blobs', orderBy: 'created_at ASC, id ASC');
@@ -6450,7 +6456,7 @@ class AppDatabase {
       final rows = await txn.query(
         'media_blobs',
         where: 'id = ? AND message_ref_count = 0 AND album_ref_count = 0 AND '
-            'NOT EXISTS (SELECT 1 FROM pending_media_owners p WHERE p.blob_id = media_blobs.id)',
+            'NOT EXISTS (SELECT 1 FROM pending_media_owners p WHERE p.blob_id = media_blobs.id) AND ${_backgroundOwnerGuard('media_blobs')}',
         whereArgs: <Object?>[id],
         limit: 1,
       );
@@ -6470,7 +6476,7 @@ class AppDatabase {
       final rows = await txn.query(
         'media_blobs',
         where: 'message_ref_count = 0 AND album_ref_count = 0 AND '
-            'NOT EXISTS (SELECT 1 FROM pending_media_owners p WHERE p.blob_id = media_blobs.id)',
+            'NOT EXISTS (SELECT 1 FROM pending_media_owners p WHERE p.blob_id = media_blobs.id) AND ${_backgroundOwnerGuard('media_blobs')}',
       );
       if (rows.isEmpty) return const <MediaBlob>[];
       final ids = rows.map((row) => row['id'] as String).toList(growable: false);
@@ -6575,7 +6581,7 @@ class AppDatabase {
              GROUP_CONCAT(DISTINCT a.source) AS sources
       FROM media_blobs b
       JOIN message_attachments a ON a.blob_id = b.id
-      WHERE b.album_ref_count = 0
+      WHERE b.album_ref_count = 0 AND ${_backgroundOwnerGuard('b')}
       GROUP BY b.id
       ORDER BY last_used_at DESC, b.id ASC
     ''');
@@ -6625,7 +6631,7 @@ class AppDatabase {
       final allowedRows = await txn.query(
         'media_blobs',
         where: 'id IN ($placeholders) AND album_ref_count = 0 AND '
-            'NOT EXISTS (SELECT 1 FROM pending_media_owners p WHERE p.blob_id = media_blobs.id)',
+            'NOT EXISTS (SELECT 1 FROM pending_media_owners p WHERE p.blob_id = media_blobs.id) AND ${_backgroundOwnerGuard('media_blobs')}',
         whereArgs: safeIds,
       );
       final allowed = allowedRows.map((row) => row['id'] as String).toList();
@@ -8196,6 +8202,7 @@ class AppDatabase {
     required ChatMessage assistant,
     PendingMediaOwner? pendingMediaOwner,
     GenerationAttemptFence? generationAttempt,
+    List<QualifiedConversationSource> historySources = const [],
     TurnCommitEvidence turnCommitEvidence = const TurnCommitEvidence(),
     bool Function()? isCancelled,
     bool secondChannelReply = false,
@@ -8263,6 +8270,9 @@ class AppDatabase {
           turnCommitEvidence.deliveries.isNotEmpty)) return false;
       if (assistant.id != job.assistantMessageId) return false;
       if (backgroundRecall != null && !await backgroundRecall.matches(txn, DateTime.now())) return false;
+      for(final source in historySources) {
+        if(!source.isOrdinary || !await source.matches(txn))return false;
+      }
       if (pendingMediaOwner != null && !await _pendingMediaCanCommit(
           txn, pendingMediaOwner, assistant.attachments, assistant.id)) return false;
       if (somaticEvents.any(

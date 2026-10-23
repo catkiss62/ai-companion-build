@@ -45,7 +45,7 @@ for token in ("偶尔（12%）", "自然（24%）", "较多（42%）"):
 for token in (
     "ordinaryReplySemanticContext",
     "replyCandidates",
-    "不贴切就不用",
+    "也可不用图",
 ):
     assert token in sticker, token
 

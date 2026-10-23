@@ -32,7 +32,7 @@ internal class CaicaiPcmLipSync(private val valid: () -> Boolean = { true }) {
         }
     }
     fun append(bytes: ByteArray, offset: Int, count: Int, sampleRate: Int, channels: Int, bits: Int, format: Int, startFrame: Long) {
-        if (!CaicaiRuntime.hasActiveView() || stopped) return
+        if (stopped) return
         val bytesPerSample = bits / 8
         if (!(format == 1 && bits == 16 || format == 3 && bits == 32)) return
         val frameBytes = channels * bytesPerSample
@@ -60,7 +60,10 @@ internal class CaicaiPcmLipSync(private val valid: () -> Boolean = { true }) {
         synchronized(blocks) { blocks.addAll(pending) }
     }
     fun start(track: AudioTrack) {
-        if (stopped || !CaicaiRuntime.hasActiveView()) return
+        // Playback can begin before the renderer attaches (or while another
+        // page owns the screen). Keep the actual track/envelope alive so a
+        // later view immediately receives the current mouth ownership.
+        if (stopped) return
         target = track
         handler.post(tick)
     }

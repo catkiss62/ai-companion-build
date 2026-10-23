@@ -59,6 +59,12 @@ class CedarPlaySession {
     );
   }
 
+  /// A known execution blocker is not billable play, including the interval
+  /// since the last checkpoint. Resume starts a new observed interval.
+  CedarPlaySession blocked(DateTime now) => CedarPlaySession(gameId:gameId,
+    startedAt:startedAt,lastTickAt:now.isBefore(lastTickAt)?lastTickAt:now,
+    usedMs:usedMs,paused:true,taskId:taskId,limitMs:limitMs,clockId:clockId);
+
   Map<String, Object?> toJson() => {
     'gameId': gameId,
     'startedAt': startedAt.millisecondsSinceEpoch,
@@ -165,6 +171,7 @@ class CedarPlaySessionStore {
     final tasks = CedarTimedPlayTaskStore(db);
     final task = await tasks.active();
     if (task != null && (state == null || task['id'] == state.taskId)) {
+      if(reason=='budget_complete' && task['progressCount']==0)reason='no_progress';
       if (!await tasks.finish(task, usedMs: state?.usedMs ??
           (task['usedMs'] as num?)?.toInt() ?? 0, reason: reason,
           onlyIfActive: true)) return false;

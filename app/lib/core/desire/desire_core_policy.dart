@@ -109,7 +109,10 @@ class DesireCorePolicy {
     final elapsedMinutes = snapshot.lastTickAt == null
         ? unitMinutes
         : max(0.0, now.difference(snapshot.lastTickAt!).inSeconds / 60.0);
-    final scale = (elapsedMinutes / unitMinutes).clamp(0.15, 8.0).toDouble();
+    // Reactive phone wakes can be 90 s apart, or coincide with a chat tick.
+    // Natural evolution must never invent a minimum interval per invocation.
+    // Independent event pulses below still apply even when elapsed time is 0.
+    final scale = (elapsedMinutes / unitMinutes).clamp(0.0, 8.0).toDouble();
 
     final drives = Map<DriveKey, double>.from(snapshot.drives);
     final baselines = Map<DriveKey, double>.from(snapshot.baselines);

@@ -54,6 +54,10 @@ class CedarTaskPresentation {
       if (validClock && clock.usedMs > used) used = clock.usedMs;
       final remaining = (limit - used).clamp(0, limit.clamp(0, CedarPlaySession.budgetMs)).toInt();
       final timing = '有效剩余 ${duration(remaining)} · 已计时 ${duration(used)}';
+      if((task['blockReason']?.toString() ?? '').isNotEmpty || diagnostic?['phase']=='blocked') {
+        return CedarTaskPresentation('推进受阻 · 暂停计时',
+          '$timing\n正在核对旧操作或等待执行条件恢复；连续失败会如实结束并回报。');
+      }
       if (session?.phase == CedarActivityPhase.paused &&
           session?.pauseSource != 'remote_wait_unroutable') {
         return CedarTaskPresentation('已停止 · 待整理结果',

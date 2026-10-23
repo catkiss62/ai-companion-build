@@ -111,7 +111,7 @@ for token in (
     "ordinaryReplySemanticContext",
     "ordinaryReplyCandidateScore",
     "replyCandidates",
-    "不贴切就不用",
+    "也可不用图",
 ):
     assert token in sticker, token
 assert "latestUserText: user.content" in runner

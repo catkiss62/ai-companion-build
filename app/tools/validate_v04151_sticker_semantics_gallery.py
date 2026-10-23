@@ -44,7 +44,7 @@ require(
 )
 require(
     "lib/core/stickers/sticker_expression_service.dart",
-    "不贴切就不用",
+    "也可不用图",
     "semanticMatchScore",
 )
 require("test/sticker_expression_test.dart", "file_5447071", "file_5614628")

@@ -1,3 +1,5 @@
+import 'package:ai_companion_localfirst/core/models/room_background_config.dart';
+import 'package:ai_companion_localfirst/core/storage/room_background_storage.dart';
 import 'package:ai_companion_localfirst/core/database/conversation_history_catalog.dart';
 import 'package:ai_companion_localfirst/core/history/conversation_history_reader.dart';
 import 'package:ai_companion_localfirst/core/agent/agent_tool.dart';
@@ -813,6 +815,41 @@ void main() {
       expect(await db.getSetting('capacity_test_kept'), '完整的记忆与作品🙂');
     });
   }
+
+  test('immersive background image and offscreen geometry survive the real ZIP backup restore',() async {
+    await db.setSetting('transfer_lock','0');
+    final source=File(p.join(root.path,'picked-background.png'));
+    await source.writeAsBytes(base64Decode('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAusB9Wl2lGAAAAAASUVORK5CYII='));
+    final draft=PreparedImageAttachment(id:'room-background',originalFile:source,thumbnailFile:source,
+      originalExtension:'.png',mimeType:'image/png',byteSize:await source.length(),
+      width:1,height:1,source:'immersive_background',createdAt:DateTime.now());
+    final backgrounds=RoomBackgroundStorage(db);
+    const geometry=RoomBackgroundConfig(mode:'custom',scale:2.3,x:-2.4,y:3.7);
+    await backgrounds.save(await backgrounds.load(),geometry,image:draft);
+    final id=(await backgrounds.load()).blobId;
+    expect(await db.removeUnreferencedMediaBlob(id),isNull);
+    expect(await db.deleteMediaCacheBlobs({id}),isEmpty);
+    expect(await db.takeUnreferencedMediaBlobs(),isEmpty);
+    await db.setSetting('transfer_lock','1');
+    final bundle=await service.exportBackupBundle();
+    await source.delete(); // The picker path must not be required after Save.
+    await db.setSetting(RoomBackgroundConfig.settingKey,const RoomBackgroundConfig(mode:'none').encode());
+    await db.setSetting(RoomBackgroundConfig.blobKey,'');
+    await service.restoreBackupBundle(bundle.filePath);
+    await db.setSetting('active_brain','1');await db.setSetting('transfer_lock','0');
+    final restored=await backgrounds.load();
+    expect(restored.config.encode(),geometry.encode());expect(restored.blobId,id);
+    expect(await restored.file!.exists(),true);
+    expect(await restored.file!.readAsBytes(),base64Decode('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAusB9Wl2lGAAAAAASUVORK5CYII='));
+    final stale=await backgrounds.load();
+    await db.setSetting('runtime_state_epoch_v1','new-runtime-after-restore');
+    await expectLater(backgrounds.save(stale,const RoomBackgroundConfig(mode:'none')),throwsStateError);
+    expect((await backgrounds.load()).blobId,id);
+    await backgrounds.save(await backgrounds.load(),const RoomBackgroundConfig(mode:'none'));
+    expect((await backgrounds.load()).config.visible,false);
+    expect((await backgrounds.load()).blobId,isEmpty);
+    expect(await db.mediaBlobById(id),isNull);
+  });
 
 }
 

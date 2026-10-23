@@ -1098,7 +1098,8 @@ class DurableGenerationRunner {
       try {
         stickerCandidates = await stickerService.replyCandidates(
           seed: job.assistantMessageId, context: user.promptContent,
-          eligible: DialogueExpressionPlan.select(latestUserText: user.content).mode == DialogueResponseMode.casual,
+          // Response responsibility controls the text, not image eligibility.
+          eligible: true,
           allowBold: const {ConversationSpeechAct.tease, ConversationSpeechAct.seekAttention,
             ConversationSpeechAct.showNeed}.contains(conversationPlan.speechAct),
         );
@@ -2172,6 +2173,11 @@ $finalGenerationReminder
         ...baseAssistant.attachments,
         if (selectedSticker != null) selectedSticker.attachment,
       ];
+      if(assistantAttachments.isEmpty && baseAssistant.content.trim().isEmpty) {
+        // A pure-sticker choice is a real message only after its file exists.
+        // Use the ordinary failed/retry UI, never a blank bubble or canned chat.
+        throw const FormatException('表情包未能准备好，请重试');
+      }
       final stickerOnly = selectedSticker != null && stickerChoice.stickerOnly;
       // Share the existing transaction cleanup on every cancellation/failure.
       if (selectedSticker != null) preparedAgentAttachments.add(selectedSticker.attachment);
@@ -2242,6 +2248,7 @@ $finalGenerationReminder
           assistant: assistant,
           pendingMediaOwner: pendingMediaOwner,
           generationAttempt: originalAttempt,
+          historySources:[for(final result in agentToolResults)...result.historySources],
           onCommittedSource: (source) => committedMoeSource = source,
           secondChannelReply: finalTextFromGemini,
           onCommitAccepted: takeover.seal,

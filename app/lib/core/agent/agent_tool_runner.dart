@@ -569,9 +569,11 @@ class AgentToolRunner {
           '本次没有新登记、充值时长或重启任务；若已停止或结束，重生成回复不会重新开始。',
         submittedArguments: {'game': game, 'duration_minutes': minutes});
     }
+    final pendingWrite=await CedarToyActivityStore(db).unresolvedWrite(game);
     return AgentToolResult(toolId: 'cedar_toy.start_timed_play',
       status: AgentToolStatus.succeeded, displayText: '已准备$minutes分钟游玩任务，等待回复提交',
-      promptData: '指定${session.displayName}的$minutes分钟游玩任务已准备，但登记尚未成立、计时尚未开始；本轮回复正式提交时才会原子登记并交给已有后台执行器，不等待Desire抽选。到时停止这次任务并回报；提前结束/游戏限制/等待用户也如实回报。当前没有因本工具产生游戏动作或结果，不可声称已玩完。',
+      promptData: '指定${session.displayName}的$minutes分钟游玩任务已准备，但登记尚未成立、计时尚未开始；本轮回复正式提交时才会原子登记并交给已有后台执行器，不等待Desire抽选。到时停止这次任务并回报；提前结束/游戏限制/等待用户也如实回报。当前没有因本工具产生游戏动作或结果，不可声称已玩完。'
+        '${pendingWrite==null ? '' : '当前有旧操作等待核对，后台将先读取真实状态，核对受阻期间不计游玩时长。'}',
       submittedArguments: {'game': game, 'duration_minutes': minutes});
   }
 
@@ -924,8 +926,15 @@ class AgentToolRunner {
       }
       cancellationToken?.throwIfCancelled();
       if (!await activityStore.admitRemoteDispatch(gameId: game, action: action, params: params, executionId: executionId)) {
-        return const AgentToolResult(toolId: 'cedar_toy.play', status: AgentToolStatus.blocked,
-          displayText: '上一项游戏操作仍待核对', promptData: '未确认的远端写入仍存在；没有发送新的写入。', errorCode: 'cedar_unresolved_write');
+        final pending=await activityStore.unresolvedWrite(game);
+        final recovered=pending!=null && await activityStore.recoverUnresolvedWrite(
+          gameId:game,executionId:executionId,now:DateTime.now());
+        return AgentToolResult(toolId: 'cedar_toy.play', status: AgentToolStatus.blocked,
+          displayText: '上一项游戏操作仍待核对',
+          promptData: recovered
+            ? '已安排同一游戏、同一存档目标的只读状态核对；核对后须根据真实状态重新规划。没有发送新的写入，不得声称已推进。'
+            : '上一项远端写入未确认，目前没有可靠的核对入口。没有发送新的写入，不得重发原动作或声称已推进。',
+          continuationRecommended:recovered,errorCode: 'cedar_unresolved_write');
       }
       try {
         dispatched = true;

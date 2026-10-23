@@ -1,4 +1,5 @@
 import '../models/message_attachment.dart';
+import '../database/conversation_source_store.dart';
 
 enum AgentToolRisk { readOnly, proposal, privileged }
 
@@ -150,6 +151,7 @@ class AgentToolResult {
     this.terminalCommitPending = false,
     this.continuationRecommended = false,
     this.submittedArguments = const <String, Object?>{},
+    this.historySources = const <QualifiedConversationSource>[],
   });
 
   final String toolId;
@@ -173,6 +175,9 @@ class AgentToolResult {
   /// Sanitized arguments that actually crossed the executor boundary. These
   /// are final-expression grounding facts, never permission to replay a call.
   final Map<String, Object?> submittedArguments;
+  /// Read-only history dependencies, checked again in the final commit.
+  /// They never authorize actions or become fresh memory evidence.
+  final List<QualifiedConversationSource> historySources;
 
   bool get succeeded => status == AgentToolStatus.succeeded;
 }

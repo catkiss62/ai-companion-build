@@ -98,13 +98,13 @@ class ChatMessage {
         final meaning = item.visionSummary.trim();
         return meaning.isEmpty
             ? '[用户发送了一张表情包]'
-            : '[用户发送了一张表情包：$meaning]';
+            : '[用户发送了一张表情包；索引说明（图片内容或常见用法参考，不等于本次意图，可能是反讽、接梗或无明确意义）：$meaning]';
       }
       if (isAssistant && item.source.startsWith('assistant_sticker:')) {
         final meaning = item.visionSummary.trim();
         return meaning.isEmpty
             ? '[我发送了一张表情包]'
-            : '[我发送了一张表情包：$meaning]';
+            : '[我发送了一张表情包；索引说明（图片内容或常见用法参考，具体含义结合当时语境）：$meaning]';
       }
       if (isAssistant) {
         if (item.visionCompleted) {

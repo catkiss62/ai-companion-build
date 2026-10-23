@@ -238,14 +238,14 @@ void main() {
     expect((await CedarPlaySessionStore(db).load())!.paused, true);
   });
 
-  test('budget completes once on a checkpoint without another remote game move', () async {
+  test('empty budget ends once as no progress rather than completed play', () async {
     await start(minutes: 1);
     final tasks = CedarTimedPlayTaskStore(db);
     await tasks.reconcile(base.add(const Duration(seconds: 30)));
     await tasks.reconcile(base.add(const Duration(minutes: 1)));
     await tasks.reconcile(base.add(const Duration(minutes: 2)));
     expect(await tasks.active(), isNull);
-    expect((await tasks.pendingReports()).single['reason'], 'budget_complete');
+    expect((await tasks.pendingReports()).single['reason'], 'no_progress');
     expect((await tasks.pendingReports()).single['usedMs'], 60000);
     expect(await CedarToyActivityStore(db).load(), isNull);
   });

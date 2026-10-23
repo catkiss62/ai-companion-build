@@ -49,7 +49,7 @@ abstract final class CedarWakePolicy {
         values[CedarTimedPlayTaskStore.activeKey] as String?,
       );
       if (period != null &&
-          !period.paused &&
+          session.phase != CedarActivityPhase.paused &&
           period.taskId.isNotEmpty &&
           period.validAt(now, session.gameId) &&
           task?['id'] == period.taskId &&

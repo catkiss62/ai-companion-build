@@ -18,7 +18,7 @@ require(
     [
         "class DeepSeekPromptShape",
         "class DeepSeekPromptSegmentShape",
-        "final canonicalTools = _canonicalTools(tools)",
+        "final offeredTools = _canonicalTools(tools)",
         "required this.promptShape",
         "sha256.convert(utf8.encode(value))",
     ],

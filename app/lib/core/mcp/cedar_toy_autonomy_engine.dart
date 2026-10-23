@@ -636,7 +636,9 @@ class _CedarExecutionScope {
           final periods = CedarPlaySessionStore(db);
           final period = await periods.load();
           if (period != null && period.taskId.isNotEmpty) {
-            final tick = period.tick(DateTime.now());
+            final pending=await store.unresolvedWrite(period.gameId);
+            final blocked=pending!=null && pending['execution_id']!=executionId;
+            final tick = blocked ? period.blocked(DateTime.now()) : period.tick(DateTime.now());
             await periods.save(tick);
             if (tick.usedMs >= tick.limitMs) reason = 'timed_budget_complete';
           }
@@ -1334,13 +1336,29 @@ class CedarToyAutonomyEngine {
       'cedar_toy_user_control_revision_v1',
     ]);
     if (clockFence == null) return const CedarAutonomyProgress('brain_work_blocked');
+    final recovery = await _continueUnresolvedWrite(now:now,workFence:clockFence);
+    if (recovery != null) return recovery;
+    final acceptedTask=await CedarTimedPlayTaskStore(db).active();
+    if(acceptedTask!=null && ((await _readToken()).isEmpty || (await _readApiKey()).isEmpty)) {
+      await CedarTimedPlayTaskStore(db).noteBlocked(taskId:acceptedTask['id'].toString(),
+        reason:'missing_config',now:now,workFence:clockFence);
+      final activeSession=await CedarToyActivityStore(db).load();
+      if(activeSession!=null)await CedarToyActivityStore(db).deferContinuation(
+        gameId:activeSession.gameId,delay:const Duration(minutes:1),now:now);
+      return const CedarAutonomyProgress('missing_config');
+    }
     final delay = await continuationDelay(now: now);
     if (delay == null) return const CedarAutonomyProgress('no_continuation');
     if (delay > Duration.zero) return const CedarAutonomyProgress('not_due');
     final token = await _readToken();
     final apiKey = await _readApiKey();
     if (token.isEmpty || apiKey.isEmpty) {
-      await CedarPlaySessionStore(db).pause(now);
+      final task=await CedarTimedPlayTaskStore(db).active();
+      await CedarTimedPlayTaskStore(db).noteBlocked(taskId:task?['id']?.toString() ?? '',
+        reason:'missing_config',now:now,workFence:clockFence);
+      final session=await CedarToyActivityStore(db).load();
+      if(session!=null)await CedarToyActivityStore(db).deferContinuation(
+        gameId:session.gameId,delay:const Duration(minutes:1),now:now);
       return const CedarAutonomyProgress('missing_config');
     }
     final store = CedarToyActivityStore(db);
@@ -1533,8 +1551,86 @@ class CedarToyAutonomyEngine {
       },
     );
     if (progress.state.contains('preempted')) await playPeriods.pause(DateTime.now());
+    if(const {'execution_failed','play_failed','observe_failed','invalid_action_choice',
+        'notebook_snapshot_unavailable','planning_or_write_fenced'}.contains(progress.state)) {
+      await CedarTimedPlayTaskStore(db).noteBlocked(taskId:period?.taskId ?? '',
+        reason:progress.state,now:DateTime.now(),workFence:clockFence);
+    }
     if (period?.taskId.isNotEmpty == true) await CedarTimedPlayTaskStore(db).reconcile(DateTime.now());
     return progress;
+  }
+
+  /// Unknown writes survive restore intentionally, but their query route may
+  /// not. Repair that route before ordinary scheduling or any billable tick.
+  /// Three failed read attempts stop this task without repeating the mutation.
+  Future<CedarAutonomyProgress?> _continueUnresolvedWrite({required DateTime now,
+      required BrainWorkFence workFence}) async {
+    final store=CedarToyActivityStore(db);
+    final state=await store.loadState(), session=state.activeSession;
+    if(session==null || session.phase==CedarActivityPhase.paused ||
+        session.phase==CedarActivityPhase.awaitingInvitation || !session.guideComplete)return null;
+    final pending=await store.unresolvedWrite(session.gameId);
+    if(pending==null)return null;
+    final tasks=CedarTimedPlayTaskStore(db);
+    final task=await tasks.active();
+    final taskId=task?['id']?.toString() ?? '';
+    final period=await CedarPlaySessionStore(db).load();
+    if(period!=null)await CedarPlaySessionStore(db).save(period.blocked(now),workFence:workFence);
+    if(session.continuationWaitScope!='write_reconcile_once' || !session.hasContinuationCall) {
+      final restored=await _runExecution(store:store,gameId:session.gameId,action:'恢复状态核对',now:now,
+        body:(scope) async {
+          final routable=await store.recoverUnresolvedWrite(gameId:session.gameId,
+            executionId:scope.executionId,now:now);
+          return CedarAutonomyProgress(routable?'write_reconciliation_scheduled':'write_reconciliation_unavailable');
+        });
+      if(restored.state=='write_reconciliation_unavailable') {
+        if(taskId.isNotEmpty) {
+          await tasks.reconcile(now);
+        } else if(period!=null) {
+          await CedarPlaySessionStore(db).end('blocked_unresolved_write',
+            expectedClockId:period.clockId,workFence:workFence);
+        }
+      }
+      return restored;
+    }
+    if((pending['query_attempts'] as num? ?? 0)>=3) {
+      await tasks.noteBlocked(taskId:taskId,reason:'unresolved_write',now:now,workFence:workFence);
+      if(taskId.isEmpty) {
+        if(period!=null)await CedarPlaySessionStore(db).end('blocked_unresolved_write',
+          expectedClockId:period.clockId,workFence:workFence);
+        await store.pauseCompletedTask(sessionId:session.id,
+          source:'blocked_unresolved_write',expectedSettings:{...workFence.identity,
+            ...workFence.expectedSettings,CedarTimedPlayTaskStore.activeKey:''});
+      }
+      return const CedarAutonomyProgress('write_reconciliation_exhausted');
+    }
+    final token=await _readToken();
+    if(token.isEmpty) {
+      await tasks.noteBlocked(taskId:taskId,reason:'missing_config',now:now,workFence:workFence);
+      await store.deferContinuation(gameId:session.gameId,delay:const Duration(minutes:1),now:now);
+      return const CedarAutonomyProgress('missing_config');
+    }
+    final delay=await continuationDelay(now:now);
+    if(delay==null || delay>Duration.zero)return const CedarAutonomyProgress('not_due');
+    final result=await _runExecution(store:store,gameId:session.gameId,action:'核对真实状态',now:now,
+      body:(scope) async {
+        if(!await store.recordReconciliationAttempt(session.gameId,scope.executionId)) {
+          return const CedarAutonomyProgress('preempted_reconciliation');
+        }
+        final progress=await _observeSession(now:now,apiKey:'',endpoint:'',
+          client:_client(token),store:store,session:session,scope:scope);
+        scope.throwIfPreempted();
+        if(await store.unresolvedWrite(session.gameId)==null) {
+          await tasks.clearBlock(taskId,executionId:scope.executionId);
+          return const CedarAutonomyProgress('write_reconciled');
+        }
+        return progress;
+      });
+    if(!result.state.startsWith('preempted') && await store.unresolvedWrite(session.gameId)!=null) {
+      await tasks.noteBlocked(taskId:taskId,reason:'unresolved_write',now:DateTime.now(),workFence:workFence);
+    }
+    await tasks.reconcile(DateTime.now());
+    return result;
   }
 
   Future<CedarAutonomyProgress> progress({required DateTime now}) async {
@@ -1710,6 +1806,8 @@ $catalog''',
         params = CedarRoomActionPayload.withMessage(params, roomMessage);
       }
       scope.throwIfPreempted();
+      await CedarTimedPlayTaskStore(db).recordWork(gameId:session.gameId,
+        executionId:scope.executionId,toolCalls:1);
       var outcome = await client.play(
         session.gameId,
         action,
@@ -1736,10 +1834,11 @@ $catalog''',
         params = stateParams;
         await store.updateExecutionAction(executionId: scope.executionId, action: action);
         scope.throwIfPreempted();
+        await CedarTimedPlayTaskStore(db).recordWork(gameId:session.gameId,
+          executionId:scope.executionId,toolCalls:1);
         outcome = await client.play(session.gameId, action, params,
             cancellationToken: scope.cancellation);
       }
-      if (!outcome.isError) await store.resolveRemoteDispatch(gameId: session.gameId, executionId: scope.executionId, action: action, authoritative: true, params: params, outcome: outcome);
       if (outcome.isError) {
         await db.setSetting(
           'cedar_toy_last_observe_error_category',
@@ -1759,7 +1858,9 @@ $catalog''',
         action: action,
         outcome: outcome,
         mode: session.mode,
-        nextActor: resolved?.nextActor ?? 'wait',
+        nextActor: resolved?.nextActor ??
+            (session.continuationWaitScope=='write_reconcile_once' && session.mode==CedarParticipationMode.solo
+              ? 'companion' : 'wait'),
         shareLevel: 'quiet',
         invitationApproved:
             session.invitationApproved || session.hasContinuationCall,
@@ -1767,6 +1868,11 @@ $catalog''',
         executionId: scope.executionId,
         keepExecution: true,
       );
+      // Persist the authoritative snapshot before releasing the unknown-write
+      // guard. Preemption between these operations can only cause another
+      // harmless read, never a fresh mutation planned from the old snapshot.
+      await store.resolveRemoteDispatch(gameId:session.gameId,executionId:scope.executionId,
+        action:action,authoritative:true,params:params,outcome:outcome);
       await db.setSetting('cedar_toy_last_observe_error_category', '');
       await db.setSetting('cedar_toy_last_realtime_observe_error', '');
       return CedarAutonomyProgress(
@@ -1829,10 +1935,19 @@ $catalog''',
     final arrangementStore = CedarGameArrangementStore(db);
     final arrangements = await arrangementStore.captureReview(session);
     if(arrangements.fence==null)return const CedarAutonomyProgress('notebook_snapshot_unavailable');
+    final timed=await CedarTimedPlayTaskStore(db).active();
+    if(timed?['gameId']==session.gameId)await CedarTimedPlayTaskStore(db)
+        .clearBlock(timed!['id'].toString(),executionId:scope.executionId);
+    await CedarTimedPlayTaskStore(db).recordWork(gameId:session.gameId,
+      executionId:scope.executionId,planningRounds:1);
     final decision = await CedarAgentActionPlanner(
       model: await FirstChannelModel.read(db),
       ai: ai,
-      onRetry: (error) => _recordAgentActionRetry(error),
+      onRetry: (error) async {
+        await _recordAgentActionRetry(error);
+        await CedarTimedPlayTaskStore(db).recordWork(gameId:session.gameId,
+          executionId:scope.executionId,planningRounds:1);
+      },
     ).decide(
       apiKey: apiKey,
       endpoint: endpoint,
@@ -2041,6 +2156,8 @@ ${arrangements.prompt}''',
       if (!await store.admitRemoteDispatch(gameId: session.gameId, action: action, params: params, executionId: scope.executionId, planningFence: arrangements.fence)) {
         return const CedarAutonomyProgress('planning_or_write_fenced');
       }
+      await CedarTimedPlayTaskStore(db).recordWork(gameId:session.gameId,
+        executionId:scope.executionId,toolCalls:1);
       outcome = await client.play(
         session.gameId,
         action,
@@ -2113,6 +2230,8 @@ ${arrangements.prompt}''',
             action: 'state',
           );
           scope.throwIfPreempted();
+          await CedarTimedPlayTaskStore(db).recordWork(gameId:session.gameId,
+            executionId:scope.executionId,toolCalls:1);
           final stateOutcome = await client.play(
             session.gameId,
             'state',

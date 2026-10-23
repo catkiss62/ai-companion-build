@@ -10,6 +10,7 @@ import 'generation_cancellation.dart';
 import 'model_profile.dart';
 import 'final_reply_route.dart';
 import 'relay_text_tail_guard.dart';
+import 'optional_tool_compatibility.dart';
 
 class DeepSeekToolCallDelta {
   const DeepSeekToolCallDelta({
@@ -183,7 +184,12 @@ class DeepSeekClient {
       model,
       configuredModel: modelName,
     );
-    final canonicalTools = _canonicalTools(tools);
+    final offeredTools = _canonicalTools(tools);
+    final optionalEntry = OptionalToolCompatibility.isOptionalEntry(offeredTools);
+    // Hash configuration identity; API credentials never enter diagnostics.
+    final capabilityKey=sha256.convert(utf8.encode('$endpoint\u0000$effectiveModel\u0000${apiKey.trim()}')).toString();
+    final canonicalTools = optionalEntry && OptionalToolCompatibility.plainChat(capabilityKey)
+        ? const <Map<String,Object?>>[] : offeredTools;
     final requestMessages = provider.isGeminiRelay
         ? FinalReplyRoute.prepareMessages(messages) : messages;
     final promptShape = _promptShape(requestMessages, canonicalTools);
@@ -263,6 +269,19 @@ class DeepSeekClient {
       cancellationToken?.throwIfCancelled();
       if (response.statusCode < 200 || response.statusCode >= 300) {
         final body = await response.stream.bytesToString().timeout(requestTimeout);
+        if(optionalEntry && canonicalTools.isNotEmpty &&
+            OptionalToolCompatibility.explicitlyUnsupported(response.statusCode,body)) {
+          cancellationToken?.throwIfCancelled();
+          if(runtimeGateAborted)throw const GenerationSuspendedByRuntimeGateException();
+          OptionalToolCompatibility.remember(capabilityKey);
+          // No deltas have been published. One same-provider retry, with the
+          // optional entry removed, cannot duplicate a response or tool action.
+          yield* streamChat(apiKey:apiKey,model:model,effort:effort,messages:messages,
+            endpoint:endpoint,requestProvider:requestProvider,modelName:modelName,
+            thinking:thinking,maxTokens:maxTokens,cancellationToken:cancellationToken,
+            requestTimeout:requestTimeout,usageLane:usageLane,usageExecutionId:usageExecutionId);
+          return;
+        }
         throw DeepSeekException(response.statusCode, _extractError(body));
       }
 

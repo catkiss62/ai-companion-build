@@ -1,3 +1,4 @@
+import '../models/room_background_config.dart';
 import 'dart:convert';
 import 'dart:io';
 
@@ -1458,6 +1459,19 @@ class SnapshotService {
         throw const FormatException('共享媒体来源或哈希绑定无效');
       }
       blobs[id] = raw;
+    }
+
+    final background = RoomBackgroundConfig.decode(
+        _settingFromBackup(backup, RoomBackgroundConfig.settingKey));
+    final backgroundId = _settingFromBackup(backup, RoomBackgroundConfig.blobKey);
+    if (background.mode == 'custom') {
+      final blob = blobs[backgroundId];
+      if (blob == null || (blob['width'] as num? ?? 0) <= 0 ||
+          (blob['height'] as num? ?? 0) <= 0) {
+        throw const FormatException('沉浸背景缺少对应图片');
+      }
+    } else if (backgroundId.isNotEmpty) {
+      throw const FormatException('沉浸背景引用与显示设置不一致');
     }
 
     void validateOwnerRows(String tableName, {required bool album}) {

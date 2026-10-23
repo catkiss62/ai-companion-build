@@ -70,7 +70,7 @@ for token in (
     "Widget _nsfwButton(ImmersiveRoom room)",
     "正在根据当前房间剧情判定",
     "_scrollFrameScheduled",
-    "const RoomImageBackground()",
+    "RoomImageBackground(",
     "distance < 8",
 ):
     assert token in page, token

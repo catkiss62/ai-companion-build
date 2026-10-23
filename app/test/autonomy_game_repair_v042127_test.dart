@@ -81,14 +81,15 @@ void main(){
     expect(q.context.toString(),contains('白房间'));
     expect(q.questions['task_game_target']!.toString(),isNotEmpty);
     final task=q.interpret({'task_game':'play','task_game_target':target,'task_duration':'d0','task_creative':'none','cedar':'act_now'},
-      details:{'task_game':const JevChoiceDecision(choice:'play',probabilities:{'play':.51,'none':.43},ambiguous:true)});
+      details:{'task_game':const JevChoiceDecision(choice:'play',probabilities:{'play':.51,'none':.43},ambiguous:true),
+        'cedar':const JevChoiceDecision(choice:'act_now',probabilities:{'act_now':1},ambiguous:false)});
     expect(task.gameExecutionResolved,true);expect(task.minutes,30);
     expect(task.goals('u').every((g)=>g.authorized),true);
     expect(CedarCatalogParser.displayAliases('white_room'),contains('白房间'));
     expect(CedarConversationTarget.recentGameId(latestUserText:'白房间',now:DateTime.now(),previous:const [],catalog:catalog),'white_room');
   });
   test('cached invitation reconciliation cannot resolve targets, time or a stop',(){
-    final old=const TurnTaskIntent(available:true,gameAction:'play',gameId:'fishing',
+    final old=const TurnTaskIntent(available:true,gameAction:'play',gameId:'fishing',invitationCanResolveAction:true,
       unresolvedFields:{'task_game','task_game_target','task_duration'},durationResolved:false);
     final reconciled=old.resolvePresentInvitation(cedarIntent:'accept',certain:true);
     expect(reconciled.unresolvedFields,{'task_game_target','task_duration'});

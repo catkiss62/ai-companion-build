@@ -399,7 +399,8 @@ class CedarTimedPlayTaskStore {
               reason: 'replaced_by_user_task', now: at, onlyIfActive: true);
         }
         await CedarToyActivityStore.writeSettingsInTransaction(txn, {
-          activeKey: jsonEncode({...pending, 'startedAt': at.millisecondsSinceEpoch, 'usedMs': 0}),
+          activeKey: jsonEncode({...pending, 'startedAt': at.millisecondsSinceEpoch,
+            'usedMs': 0,'progressCount':0,'planningRounds':0,'toolCalls':0}),
           diagnosticKey: jsonEncode(diagnostic(pending, phase: 'active', terminal: false)),
           pendingKey: '', CedarPlaySessionStore.key: encodedPeriod,
           if (session!.phase == CedarActivityPhase.paused)
@@ -436,6 +437,72 @@ class CedarTimedPlayTaskStore {
     }
   }
 
+  Future<void> recordWork({required String gameId, required String executionId,
+      int planningRounds=0, int toolCalls=0}) async {
+    for(var retry=0;retry<3;retry++) {
+      final raw=await db.getSetting(activeKey) ?? '';
+      final task=decode(raw);
+      if(task==null || task['gameId']!=gameId)return;
+      if(!task.containsKey('planningRounds') || !task.containsKey('toolCalls'))return;
+      if(await db.setSettingsAtomically({activeKey:jsonEncode({...task,
+        'planningRounds':((task['planningRounds'] as num?)?.toInt() ?? 0)+planningRounds,
+        'toolCalls':((task['toolCalls'] as num?)?.toInt() ?? 0)+toolCalls})},
+        guardKey:CedarToyActivityStore.executionFenceSettingKey,expectedGuardValue:executionId,
+        expectedSettings:{activeKey:raw}))return;
+    }
+  }
+
+  Future<void> clearBlock(String taskId,{required String executionId}) async {
+    final raw=await db.getSetting(activeKey) ?? '';
+    final task=decode(raw);
+    if(task==null || task['id']!=taskId)return;
+    await db.setSettingsAtomically({activeKey:jsonEncode({...task,
+      'blockReason':'','blockAttempts':0})},expectedSettings:{activeKey:raw},
+      guardKey:CedarToyActivityStore.executionFenceSettingKey,expectedGuardValue:executionId);
+  }
+
+  /// Technical failure pauses the effective clock. Repeated failure becomes a
+  /// factual task report, not an endless "playing" state or invented dialogue.
+  Future<void> noteBlocked({required String taskId,required String reason,
+      required DateTime now,required BrainWorkFence workFence}) async {
+    if(taskId.isEmpty)return;
+    final periods=CedarPlaySessionStore(db);
+    final clock=await periods.load();
+    if(clock?.taskId==taskId)await periods.save(clock!.blocked(now),workFence:workFence);
+    for(var retry=0;retry<3;retry++) {
+      final raw=await db.getSetting(activeKey) ?? '';
+      final task=decode(raw);
+      if(task==null || task['id']!=taskId)return;
+      final attempts=task['blockReason']==reason
+          ? ((task['blockAttempts'] as num?)?.toInt() ?? 0)+1 : 1;
+      final next={...task,'blockReason':reason,'blockAttempts':attempts};
+      final nextRaw=jsonEncode(next);
+      if(!await db.setSettingsAtomically({activeKey:nextRaw},expectedSettings:{activeKey:raw},
+          workFence:workFence))continue;
+      if(attempts<3)return;
+      final control=await db.getSetting(CedarToyActivityStore.userControlRevisionKey) ?? '';
+      final execution=await db.getSetting(CedarToyActivityStore.executionFenceSettingKey) ?? '';
+      if(!await finish(next,usedMs:(next['usedMs'] as num?)?.toInt() ?? 0,
+          reason:'blocked_$reason',now:now,onlyIfActive:true,expectedSettings:{activeKey:nextRaw,
+            ...workFence.identity,...workFence.expectedSettings,
+            CedarToyActivityStore.userControlRevisionKey:control,
+            CedarToyActivityStore.executionFenceSettingKey:execution}))return;
+      final clockRaw=await db.getSetting(CedarPlaySessionStore.key) ?? '';
+      if(CedarPlaySession.decode(clockRaw)?.taskId==taskId) {
+        await db.setSettingsAtomically({CedarPlaySessionStore.key:'',
+          'cedar_toy_play_session_end_reason':'blocked_$reason'},workFence:workFence,
+          expectedSettings:{activeKey:'',CedarPlaySessionStore.key:clockRaw});
+      }
+      final state=await CedarToyActivityStore(db).loadState();
+      if(state.execution==null)await CedarToyActivityStore(db).pauseCompletedTask(
+        sessionId:task['sessionId'].toString(),source:'blocked_$reason',expectedSettings:{activeKey:'',
+          ...workFence.identity,...workFence.expectedSettings,
+          CedarToyActivityStore.userControlRevisionKey:control,
+          CedarToyActivityStore.executionFenceSettingKey:execution});
+      return;
+    }
+  }
+
   Future<bool> finish(
     Map<String, dynamic> task, {
     required int usedMs,
@@ -456,7 +523,8 @@ class CedarTimedPlayTaskStore {
           now: now ?? DateTime.now(), onlyIfActive: onlyIfActive);
     });
     if (!committed) return false;
-    await diagnose({...task, 'usedMs': usedMs}, phase: reason, terminal: true);
+    // The transaction already published the current counters and normalized
+    // zero-progress reason. Do not overwrite it with this older caller copy.
     await CedarPlayTransitionLog(db).record(source: 'task_finish', reason: reason,
         before: 'active', after: 'terminal', at: now);
     return true;
@@ -485,6 +553,17 @@ class CedarTimedPlayTaskStore {
     final existing = decode(await BrainWorkFence.value(txn, activeKey));
     if (onlyIfActive && existing?['id'] != task['id']) return false;
     final current = existing?['id'] == task['id'] ? existing! : task;
+    if(reason=='budget_complete' || reason=='no_progress') {
+      final state=await CedarToyActivityStore.readStateInTransaction(txn);
+      final session=state.sessions[current['gameId']];
+      final started=(current['startedAt'] as num?)?.toInt();
+      final hasOutcome=started!=null && session!=null && session.id==current['sessionId'] &&
+        session.events.any((e)=>e.kind=='outcome' && e.createdAt.millisecondsSinceEpoch>=started &&
+          !CedarPlatformActionPolicy.isReadOnly(e.action) &&
+          !CedarPlatformActionPolicy.isPlatformAction(e.action) && !CedarPlatformActionPolicy.isResultSnapshot(e.action));
+      reason=((current['progressCount'] as num?)?.toInt() ?? 0)>0 || hasOutcome
+          ? 'budget_complete' : 'no_progress';
+    }
     final reports = decodeReports(await BrainWorkFence.value(txn, reportsKey));
     if (!reports.any((entry) => entry['id'] == current['id'])) {
       final state = await CedarToyActivityStore.readStateInTransaction(txn);
@@ -494,6 +573,7 @@ class CedarTimedPlayTaskStore {
           ? session.events.where((event) => event.kind == 'outcome' &&
               event.createdAt.millisecondsSinceEpoch >= started &&
               !CedarPlatformActionPolicy.isReadOnly(event.action) &&
+              !CedarPlatformActionPolicy.isResultSnapshot(event.action) &&
               !CedarPlatformActionPolicy.isPlatformAction(event.action)).toList()
           : <CedarGameEvent>[];
       reports.add({
@@ -501,7 +581,9 @@ class CedarTimedPlayTaskStore {
         'usedMs': usedMs,
         'reason': reason,
         'finishedAt': now.millisecondsSinceEpoch,
-        'progressCount': started == null ? 0 : current['progressCount'] ?? events.length,
+        'progressCount': started == null ? 0 :
+            (((current['progressCount'] as num?)?.toInt() ?? 0)>events.length
+              ? current['progressCount'] : events.length),
         'outcomes': events.reversed.take(3).map((event) => {
           'action': event.action,
           'text': event.summary.substring(0, event.summary.length.clamp(0, 1500).toInt()),
@@ -586,7 +668,7 @@ class CedarTimedPlayTaskStore {
     if (limit < 60000 || limit > CedarPlaySession.budgetMs) {
       reason = 'cannot_start';
     } else if (used >= limit) {
-      reason = 'budget_complete';
+      reason = task['progressCount']==0 ? 'no_progress' : 'budget_complete';
     } else if (session == null || session.id != task['sessionId'] ||
         (state.activeGameId.isNotEmpty && state.activeGameId != session.gameId)) {
       reason = 'changed_game';
@@ -601,7 +683,8 @@ class CedarTimedPlayTaskStore {
         session.pauseSource != 'remote_wait_unroutable') {
       // Local Pause retains its existing Stop contract and neutral report.
       // It is never recovered as an accidental runtime interruption.
-      reason = 'finished_or_waiting_user';
+      reason = session.pauseSource=='write_outcome_uncertain'
+          ? 'blocked_unresolved_write' : 'finished_or_waiting_user';
     }
     if (reason != null) {
       if (!await db.brainWorkAllowed() || await db.isLocalLeaseHeld('chat_turn_lease')) return;
@@ -621,7 +704,9 @@ class CedarTimedPlayTaskStore {
       return;
     }
     final current = session!;
-    final waiting = !current.needsContinuation;
+    final unresolved = await db.getSetting('${CedarToyActivityStore.uncertainWritePrefix}${current.gameId}') ?? '';
+    final blocked = unresolved.isNotEmpty || (task['blockReason']?.toString() ?? '').isNotEmpty;
+    final waiting = !current.needsContinuation || blocked;
     if (period == null || period.taskId != task['id'] || period.gameId != current.gameId ||
         period.limitMs != limit || period.usedMs < used ||
         now.isBefore(period.lastTickAt.subtract(CedarPlaySession.observedTaskGap))) {
@@ -639,7 +724,8 @@ class CedarTimedPlayTaskStore {
       // Checkpoint even when the next two-minute game step is not due.
       // Waiting for a human or an unroutable server response pauses the clock
       // without inventing a terminal game result or a new move.
-      if (!await periods.save(period.tick(now, pause: waiting), expectedSettings: controls)) return;
+      if (!await periods.save(blocked ? period.blocked(now) : period.tick(now, pause: waiting),
+          expectedSettings: {...controls,'${CedarToyActivityStore.uncertainWritePrefix}${current.gameId}':unresolved})) return;
     }
     final saved = await periods.load();
     if (saved != null && saved.usedMs >= saved.limitMs) {
@@ -648,7 +734,7 @@ class CedarTimedPlayTaskStore {
       return;
     }
     await diagnose({...task, 'usedMs': saved?.usedMs ?? used},
-        phase: waiting ? 'waiting' : 'active', terminal: false);
+        phase: blocked ? 'blocked' : waiting ? 'waiting' : 'active', terminal: false);
   }
 
   Future<String?> queueReport({Set<String> excludedReportIds = const {}}) async {
@@ -681,7 +767,8 @@ class CedarTimedPlayTaskStore {
 
   static Map<String, dynamic> reportFields(Map<String, dynamic> task) => {
     for (final key in const ['id', 'turnId', 'gameId', 'sessionId', 'title', 'minutes',
-      'requestedAt', 'startedAt', 'usedMs', 'reason', 'finishedAt', 'progressCount', 'outcomes', 'terminalKey'])
+      'requestedAt', 'startedAt', 'usedMs', 'reason', 'finishedAt', 'progressCount', 'outcomes', 'terminalKey',
+      'blockReason','blockAttempts','planningRounds','toolCalls'])
       if (task.containsKey(key)) key: task[key],
   };
 
@@ -728,9 +815,12 @@ class CedarTimedPlayTaskStore {
       'trigger_source': 'committed_user_turn',
       'continuation_owner': 'CedarToyAutonomyEngine.continueDue',
       'phase': phase,
-      'planning_rounds': 0,
-      'tool_calls': 0,
-      'committed_mutations': 0,
+      'planning_rounds': task['planningRounds'],
+      'tool_calls': task['toolCalls'],
+      // Successful response != verified server state mutation.
+      'committed_mutations': null,
+      'recorded_progress_count': task['progressCount'],
+      'block_reason': task['blockReason'] ?? '',
       'continuation_requested': !terminal,
       'terminal': terminal,
       'preempt': phase == 'runtime_interrupted',

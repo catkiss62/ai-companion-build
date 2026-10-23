@@ -1977,7 +1977,8 @@ ${startsFreshTopic ? '本类型属于新话题通道：ANSWERED CHAT HISTORY 已
     var emotionEnvelope = EmotionEnvelope.parse(candidate.content);
     candidate = candidate.copyWith(content: emotionEnvelope.visibleText);
 
-    if (isWait(candidate)) {
+    if (isWait(candidate) && !(stickerChoice.stickerOnly &&
+        stickerCandidates.any((c)=>c.id==stickerChoice.id))) {
       if (webShareCandidateId != null) {
         await publicWebSharing.markDeclined(promptBuild.expectedPublicWebShare!,
             workFence: wishDeliveryFence);
@@ -2336,6 +2337,11 @@ ${PromptBuilder.visibleChineseGenerationReminder(proactive: true, ordinaryAction
         pendingOwner: mediaOwner);
       if (selectedSticker != null) proactiveAttachments.add(selectedSticker.attachment);
     } catch (_) { /* Preserve generated text if an image cannot be prepared. */ }
+    if(proactiveAttachments.isEmpty && text.trim().isEmpty) {
+      await db.releasePendingMedia(mediaOwner);
+      await noteGeneration('failed',reasonTag:'sticker_asset_unavailable');
+      return const ProactiveDecision(sent:false,reason:'表情包未能准备，本次未发送');
+    }
     final visibleText = selectedSticker != null && stickerChoice.stickerOnly ? '' : text;
     final message = ChatMessage(
       id: messageId,
