@@ -1748,14 +1748,14 @@ jobs:
               --target "${GITHUB_SHA}" \
               --draft \
               --title 'AI Companion v0.42.127+371 Autonomy Game Repair' \
-              --notes 'Adds a local ordinary-chat directory, memory and summary source links, and demand-driven paginated original-text reading in the existing tool route. New backups carry the directory; legacy backups rebuild it locally. Preserves ordinary recall and dream behavior. Same-signature unpublished test build; true-device validation pending.'
+              --notes 'Repairs game checkpoint and timed-play recovery, refreshes the lightweight game catalog, separates phone perception from ordinary proactive decisions, adds a voluntary read-only Agent entry, prioritizes actual TTS mouth motion, and removes default retreat clauses. Preserves existing permissions and backup compatibility. Same-signature unpublished test build; true-device validation pending.'
           else
             test "$(gh release view "${TAG}" --repo "${GITHUB_REPOSITORY}" --json isDraft --jq '.isDraft')" = true
             gh release edit "${TAG}" \
               --repo "${GITHUB_REPOSITORY}" \
               --target "${GITHUB_SHA}" \
               --title 'AI Companion v0.42.127+371 Autonomy Game Repair' \
-              --notes 'Adds a local ordinary-chat directory, memory and summary source links, and demand-driven paginated original-text reading in the existing tool route. New backups carry the directory; legacy backups rebuild it locally. Preserves ordinary recall and dream behavior. Same-signature unpublished test build; true-device validation pending.'
+              --notes 'Repairs game checkpoint and timed-play recovery, refreshes the lightweight game catalog, separates phone perception from ordinary proactive decisions, adds a voluntary read-only Agent entry, prioritizes actual TTS mouth motion, and removes default retreat clauses. Preserves existing permissions and backup compatibility. Same-signature unpublished test build; true-device validation pending.'
           fi
           test "$(gh release view "${TAG}" --repo "${GITHUB_REPOSITORY}" --json isDraft --jq '.isDraft')" = true || exit 1
           RELEASE_URL="$(gh release view "${TAG}" --repo "${GITHUB_REPOSITORY}" --json url --jq '.url')"
