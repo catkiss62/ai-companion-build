@@ -1750,14 +1750,14 @@ jobs:
               --target "${GITHUB_SHA}" \
               --draft \
               --title 'AI Companion v0.42.129+373 Agent and Game Repair' \
-              --notes 'Repairs unresolved game operations and blocked task accounting, real-time desire updates, sticker rotation and flexible expression, invitation ambiguity and optional-tool compatibility. Adds saved immersive background upload, free positioning, zoom, deletion and full backup restore; replaces the supplied default artwork. Validates history read dependencies at reply commit and keeps lip sync alive across late renderer attachment. Same-signature unpublished test build; true-device validation pending.'
+              --notes 'Repairs same-save play/resume ambiguity, real timed-task registration and historical activity display. Gives optional Agent entry a complete evidence-driven loop with unified 20/40 and deep 30/60 budgets, unchanged-state read reuse, stall detection and actual runtime diagnostics. Preserves game pacing, cancellation, transactional receipts and unknown-write reconciliation. Same-signature unpublished test build; true-device validation pending.'
           else
             test "$(gh release view "${TAG}" --repo "${GITHUB_REPOSITORY}" --json isDraft --jq '.isDraft')" = true
             gh release edit "${TAG}" \
               --repo "${GITHUB_REPOSITORY}" \
               --target "${GITHUB_SHA}" \
               --title 'AI Companion v0.42.129+373 Agent and Game Repair' \
-              --notes 'Repairs unresolved game operations and blocked task accounting, real-time desire updates, sticker rotation and flexible expression, invitation ambiguity and optional-tool compatibility. Adds saved immersive background upload, free positioning, zoom, deletion and full backup restore; replaces the supplied default artwork. Validates history read dependencies at reply commit and keeps lip sync alive across late renderer attachment. Same-signature unpublished test build; true-device validation pending.'
+              --notes 'Repairs same-save play/resume ambiguity, real timed-task registration and historical activity display. Gives optional Agent entry a complete evidence-driven loop with unified 20/40 and deep 30/60 budgets, unchanged-state read reuse, stall detection and actual runtime diagnostics. Preserves game pacing, cancellation, transactional receipts and unknown-write reconciliation. Same-signature unpublished test build; true-device validation pending.'
           fi
           test "$(gh release view "${TAG}" --repo "${GITHUB_REPOSITORY}" --json isDraft --jq '.isDraft')" = true || exit 1
           RELEASE_URL="$(gh release view "${TAG}" --repo "${GITHUB_REPOSITORY}" --json url --jq '.url')"

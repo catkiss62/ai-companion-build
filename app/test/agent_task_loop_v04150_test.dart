@@ -149,7 +149,7 @@ void main() {
     );
     expect(exhausted.state, AgentTaskVerificationState.budgetExhausted);
     expect(exhausted.completionSupported, isFalse);
-    expect(exhausted.renderForFinalPrompt(), contains('不能继续假装执行'));
+    expect(exhausted.renderForFinalPrompt(), contains('不支持假称完成'));
   });
 
   test('proposal tools remain distinguishable from read-only steps', () {

@@ -31,6 +31,7 @@ jobs:
       - name: Focused source and background regression suite
         run: >-
           flutter test --timeout 60s --reporter expanded
+          test/agent_task_loop_v04150_test.dart
           test/agent_game_repair_v042129_test.dart
           test/cedar_request_recovery_v042129_test.dart
           test/model_routing_v042123_test.dart
