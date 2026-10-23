@@ -24,8 +24,8 @@ require("lib/core/mcp/mcp_http_client.dart", "'version': '0.41.82'")
 require(
     "lib/core/mcp/cedar_agent_loop_policy.dart",
     "class CedarAgentLoopPolicy",
-    "maxPlanningRounds = 10",
-    "maxToolCalls = 16",
+    "static const int maxPlanningRounds = AgentTaskLoopPolicy.maxPlanningRounds;",
+    "static const int maxToolCalls = AgentTaskLoopPolicy.maxToolCalls;",
     "shouldRetryInitialNoCall",
     "shouldFinalizeRound",
     "class CedarServerContinuationPolicy",

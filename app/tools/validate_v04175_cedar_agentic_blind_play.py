@@ -56,8 +56,8 @@ require(
 )
 require(
     "lib/core/mcp/cedar_toy_arcade_skill.dart",
-    "static const maxPlanningRounds = 6",
-    "static const maxToolCalls = 10",
+    "static const maxPlanningRounds = CedarAgentLoopPolicy.maxPlanningRounds;",
+    "static const maxToolCalls = CedarAgentLoopPolicy.maxToolCalls;",
     "static const gatewayToolIds",
     "static const engagedToolIds",
     "if (!configured || (!skillActive && !hasCedarOutcome))",

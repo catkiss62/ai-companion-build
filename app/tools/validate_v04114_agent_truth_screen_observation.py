@@ -72,7 +72,7 @@ for token in (
     "AgentToolRegistry.screenObservation.id",
     "function selection is never treated as consent",
     ".where((tool) => tool.id != AgentToolRegistry.screenObservation.id)",
-    "<String>['facts', 'outcomes', 'growth', 'all']",
+    "<String>['facts', 'outcomes', 'growth', 'runtime', 'all']",
 ):
     assert token in planner, token
 

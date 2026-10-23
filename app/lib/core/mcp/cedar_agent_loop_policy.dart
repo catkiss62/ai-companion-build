@@ -11,7 +11,6 @@ class CedarAgentLoopPolicy {
   // Discovery/recovery shares the full Agent task budget. Successful writes
   // still hand off immediately to the background owner; the generous ceiling
   // is an emergency bound, never a target or permission to play more steps.
-  // Historical validator tokens: maxPlanningRounds = 10, maxToolCalls = 16.
   static const int maxPlanningRounds = AgentTaskLoopPolicy.maxPlanningRounds;
   static const int maxToolCalls = AgentTaskLoopPolicy.maxToolCalls;
 

@@ -4,8 +4,6 @@ import '../models/chat_message.dart';
 class CedarToyArcadeSkill {
   const CedarToyArcadeSkill._();
 
-  // Historical validator contracts: static const maxPlanningRounds = 6;
-  // Historical validator contracts: static const maxToolCalls = 10;
   static const maxPlanningRounds = CedarAgentLoopPolicy.maxPlanningRounds;
   static const maxToolCalls = CedarAgentLoopPolicy.maxToolCalls;
   // Context-only turns may need list -> guide -> play, but should never get
