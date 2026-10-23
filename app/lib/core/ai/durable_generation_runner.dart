@@ -502,10 +502,14 @@ class DurableGenerationRunner {
           results.addAll(actual);
           if(readOnly && actual.length==1 && key!=null) {
             final after=await AgentProgressTracker.readState(db,call);
-            if(after!=null) agentProgress.rememberRead(call,'$readEpoch:$after',actual.single);
+            if(after==stamp) agentProgress.rememberRead(call,'$readEpoch:$after',actual.single);
           }
           if(!readOnly) {
-            executedToolFingerprints.add(AgentTaskLoopPolicy.callFingerprint(call));
+            // Local controls/registration have durable per-goal receipts.
+            // A precondition block must remain retryable after new evidence;
+            // remote mutations keep their no-replay exclusion and journal.
+            if(!const {'cedar_toy.start_timed_play','cedar_toy.manage_activity'}.contains(call.toolId))
+              executedToolFingerprints.add(AgentTaskLoopPolicy.callFingerprint(call));
             readEpoch++;
           }
         }
@@ -1409,7 +1413,7 @@ ${verification.renderForFinalPrompt()}
 ${agentProgress.prompt}
 
 【工具结果后的中文表达约束】
-工具循环已经结束。现在只用自然中文形成她自己的可见思考与最终正文；专业名词可保留英文。不得复述英文工具规划、参数、调用日志、轮次、预算或搜索步骤。
+当前准备形成回复；若仍缺必要证据，可按需进入 Agent 核实。足够回复后用自然中文形成她自己的可见思考与最终正文；专业名词可保留英文。不得复述英文工具规划、参数、调用日志、轮次、预算或搜索步骤。
 若提到已经执行的动作、落子坐标、房间、身份或轮次，只能使用上方真实工具 Outcome 与“本机已实际提交的参数”，不得改写、换算或猜测。
 $finalGenerationReminder
 '''.trim(),

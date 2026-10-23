@@ -72,6 +72,10 @@ void main() {
         final names=[for(final t in body['tools'] as List? ?? [])((t as Map)['function'] as Map)['name']];
         if(names.any((n)=>n!='agent_request')) {
           plans++;
+          if(winner=='resume') {
+            expect(names,contains('cedar_toy_start_timed_play'));
+            return _reply(_call('cedar_toy_start_timed_play',{'game':'bar','duration_text':'半个小时'}),finish:'tool_calls');
+          }
           if(plans==1)return _reply(_call('cedar_toy_list_games',{}),finish:'tool_calls');
           if(plans==2)return _reply(_call('cedar_toy_get_guide',{'game':'bar'}),finish:'tool_calls');
           return _reply(_call('cedar_toy_start_timed_play',{'game':'bar','duration_text':'半个小时'}),finish:'tool_calls');

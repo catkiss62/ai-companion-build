@@ -151,7 +151,8 @@ class OperationalClaimGroundingGuard {
       for(final clause in _sentences(text)) {
         if(RegExp(r'没|尚未|并未|不去|不玩|先不|不能|无法|等.{0,12}(登记|确认|恢复)|确认后|登记后|如果|打算|想去').hasMatch(clause)) continue;
         if(RegExp(r'(这就|马上|现在就|已经).{0,10}(出发|去玩|开玩|开始玩|挂表|计时|开始)|'
-          r'(半(?:个)?小时|\d+分钟).{0,8}(后|到了|一到).{0,12}(汇报|回来|回报|收工|告诉你)').hasMatch(clause)) {
+          r'(任务|计时|倒计时).{0,4}(已经|已|正式)?(开始|启动|登记成功|登记好了)|'
+          r'(半(?:个)?小时|\d+分钟).{0,8}(后|到了|一到).{0,12}(汇报|回来|回报|收工|告诉你|见)').hasMatch(clause)) {
           return const OperationalClaimGroundingResult(allowed:false,
             reason:'unregistered_timed_task_promise',requiredToolId:'cedar_toy.start_timed_play');
         }
