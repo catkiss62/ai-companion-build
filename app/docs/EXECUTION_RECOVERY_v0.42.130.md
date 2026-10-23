@@ -1,6 +1,6 @@
 # v0.42.130+374 执行、回复恢复与主动话题连续性
 
-状态：第二候选专项1010项通过，完整CI/原生/APK待验证。基线 e0bdf8b（应用25f43c6，0.42.129+373）。用户2026-10-23明确授权将本轮前序问题一起修复。
+状态：IMPLEMENTED / CI PASSED / APK READY / TRUE DEVICE PENDING。最终应用源码12415d4，0.42.130+374；完整CI、专项和同签名APK均完成。基线 e0bdf8b（应用25f43c6，0.42.129+373）。用户2026-10-23明确授权将本轮前序问题一起修复。
 
 ## 范围与证据边界
 
@@ -32,3 +32,13 @@
 aacd9b3 第二候选专项 run40005095277 / job120590877652：Dart分析与页面桥检查成功，Flutter 1010项全部通过，包括上述新增用例及原有计时、恢复、房间、存档、来源保护回归。本地23项签名/发布流程隔离检查与连接退休边界检查再次通过。完整 run40005093336 仍在Android原生检查，尚未产出APK。
 
 第二候选完整CI随后通过154源码门、Kotlin及Android15原生54项；全量Flutter2599通过、3失败，APK未构建。两项旧断言尚未表达新增的必需reasoning_content字段和恢复后推进目标，更新为同时验证新协议及原始输入不变、原控制目标仍精确匹配。另一项揭示实际分类缺口：叙事游戏的单字符`?`不能全局当help只读，现将其保留为未知/可写输入，保留原真实输入和wish证据轮转断言；drinks/status/guests等确认查询保持只读。这三份旧回归加入专项，以防只在全量才发现。第三候选待重新CI，未交付APK。
+
+## 最终验证与交付（2026-10-24 Asia/Shanghai）
+
+最终源码12415d4add209ca6a375d6ff260e0d4333e13b1a，tree9061275d857967af73ab53ef3434f587dd29c5a9。完整CI40008358900成功：154源码守卫、Kotlin、2603全量Flutter、170归档/恢复、54 Android15原生；专项40008358901成功1044项。分析0 error、817非fatal（61 warning/756 info），不宣称零告警。最终无待修失败测试；本地23项发布身份隔离检查及diff检查通过。
+
+包名com.aicompanion.localfirst，versionName0.42.130 / versionCode374；原证书SHA256 305eb3d80983b963c64818ddf1ad561f279de6d47b3ed2c781ada448c7c25148。APK738880534 bytes，SHA256 9f899cee2d825965505756574b15dd7789bbdfbc0f42d11ce014313a8db67307；Release421998862 / asset670164287仍为draft，目标源码、线上asset digest、CI校验和及ci-monitor-v0345/.ci/v042120-monitor.txt的run/head/hash一致。签名、版本及包内资源验证通过。下载助手512MiB限制不能回传该739MB附件，已按既有方式先给用户草稿APK直链：
+
+https://github.com/catkiss62/ai-companion-build/releases/download/untagged-22e04403030127af9a7f/AI-Companion-v0.42.130-374-Execution-Recovery-APK.apk
+
+完整CI：https://github.com/catkiss62/ai-companion-build/actions/runs/40008358900 。随后仅本报告/总账[skip ci]收尾，不重新构建同一APK。仍需真机核对实际中转API的思考工具续接、失败DS接续、游戏真实动作与后续主动问题；自动测试使用真实本地链路和模拟HTTP/MCP，不冒充实际付费模型或线上游戏验收。原用户存档、诊断和凭据未上传或修改；schema61 / Snapshot protocol7保持。
