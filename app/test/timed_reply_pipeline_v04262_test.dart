@@ -31,7 +31,8 @@ void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
   sqfliteFfiInit();
 
-  test('paused game: native timed tool -> second-channel reply -> commit -> activation', () async {
+  for (final certain in [true, false]) {
+  test('paused game with legacy semantic decision: certain=$certain', () async {
     final root = await Directory.systemTemp.createTemp('timed-reply-pipeline-');
     final paths = PathProviderPlatform.instance;
     PathProviderPlatform.instance = _Paths(root.path);
@@ -58,6 +59,15 @@ void main() {
       final body = jsonDecode(request.body) as Map;
       if (body['tools'] is List && (body['tools'] as List).any((t) => ((t as Map)['function'] as Map)['name'] != 'agent_request')) {
         planningCalls++;
+        final names = (body['tools'] as List).map((t) => ((t as Map)['function'] as Map)['name']).toList();
+        if (!certain) {
+          expect(names, contains('cedar_toy_list_games'));
+          expect(names, isNot(contains('cedar_toy_start_timed_play')));
+          expect(names, isNot(contains('cedar_toy_play')));
+          expect(names, isNot(contains('cedar_toy_manage_activity')));
+          return sse({'content': '暂不执行，先确认游戏状态。'}, 'stop');
+        }
+        expect(names, contains('cedar_toy_start_timed_play'));
         return sse({'tool_calls': [
           {'index': 0, 'id': 'timed', 'type': 'function', 'function': {
             'name': 'cedar_toy_start_timed_play',
@@ -99,21 +109,25 @@ void main() {
           await db.database, 'user'))!;
       await db.setSetting('nsfw_route_source_key_v2',
           '${source.contentHash}:${source.revision}');
-      await db.setSetting('cedar_route_certain_v1', '1');
+      await db.setSetting('cedar_route_certain_v1', certain ? '1' : '0');
       final runner = DurableGenerationRunner(db: db, client: client, secureConfig: secure);
       running = runner.run(pending, cancellationToken: cancellation);
       await finalStarted.future.timeout(const Duration(seconds: 15));
       final tasks = CedarTimedPlayTaskStore(db);
       expect(await tasks.active(), isNull);
-      expect(await db.getSetting(CedarTimedPlayTaskStore.pendingKey), contains('20'));
+      expect(await db.getSetting(CedarTimedPlayTaskStore.pendingKey),
+          certain ? contains('20') : anyOf(isNull, isEmpty));
       expect((await store.load())!.phase, CedarActivityPhase.paused);
-      finalResponse.complete(sse({'content': '好，我去白色房间玩20分钟，结束后回来告诉你。'}, 'stop'));
+      finalResponse.complete(sse({'content': certain
+          ? '好，我去白色房间玩20分钟，结束后回来告诉你。'
+          : '我先确认一下目前的游戏状态。'}, 'stop'));
       final result = await running.timeout(const Duration(seconds: 15));
       expect(result.status, 'completed', reason: '${result.error}');
       expect(await db.messageById('reply'), isNotNull);
-      expect((await tasks.active())?['minutes'], 20);
-      expect((await store.load())!.phase, isNot(CedarActivityPhase.paused));
-      expect(planningCalls, 1);
+      expect((await tasks.active())?['minutes'], certain ? 20 : isNull);
+      expect((await store.load())!.phase,
+          certain ? isNot(CedarActivityPhase.paused) : CedarActivityPhase.paused);
+      expect(planningCalls, certain ? 1 : inInclusiveRange(1, 3));
       expect(finalCalls, 1);
     } finally {
       cancellation.cancel();
@@ -132,4 +146,5 @@ void main() {
       await root.delete(recursive: true);
     }
   });
+  }
 }

@@ -1287,7 +1287,8 @@ class DurableGenerationRunner {
       Set<String> cedarStageToolIds() {
         // Ambiguity blocks writes, not catalog/guide discovery. A model can
         // understand what exists without inventing an execution permission.
-        if (cedarSkillActive && (!taskIntent.gameExecutionResolved || taskIntent.gameAction == 'none')) {
+        if (cedarSkillActive && taskIntent.available &&
+            (!taskIntent.gameExecutionResolved || taskIntent.gameAction == 'none')) {
           return const {'cedar_toy.list_games','cedar_toy.get_guide'};
         }
         if (agentToolResults.any(TurnGoalVerification.foregroundWrite)) {
