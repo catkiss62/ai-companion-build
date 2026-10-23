@@ -17,5 +17,5 @@ assert "arrangements.fence==null" in engine
 admit=activity.split('Future<bool> admitRemoteDispatch(')[1].split('Future<void> resolveRemoteDispatch(')[0]
 assert admit.index('planningFence.matches(txn)') < admit.index('isReadOnlyCall') < admit.index("txn.insert('settings'")
 assert 'executionFenceSettingKey' in admit
-assert any(f'version: {v}' in read('pubspec.yaml') for v in ('0.42.112+356','0.42.113+357', '0.42.114+358', '0.42.115+359', '0.42.116+360', '0.42.117+361', '0.42.118+362', '0.42.119+363', '0.42.120+364', '0.42.121+365', '0.42.122+366', '0.42.123+367', '0.42.124+368', '0.42.125+369', '0.42.126+370', '0.42.127+371'))
+assert any(f'version: {v}' in read('pubspec.yaml') for v in ('0.42.112+356','0.42.113+357', '0.42.114+358', '0.42.115+359', '0.42.116+360', '0.42.117+361', '0.42.118+362', '0.42.119+363', '0.42.120+364', '0.42.121+365', '0.42.122+366', '0.42.123+367', '0.42.124+368', '0.42.125+369', '0.42.126+370', '0.42.127+371', '0.42.128+372'))
 print('notebook target IDs, independent pending rotation and atomic dispatch fence wired')
