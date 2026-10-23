@@ -48,11 +48,12 @@ void main() {
   });
 
   Future<CedarGameSession> start({String guide='单人游戏。action="status" 查询；action="cmd" 执行。',
-      String game='bar'}) async {
+      String game='bar',int priorQueryAttempts=0,String queryTaskId=''}) async {
     final session=await activity.recordGuide(gameId:game,guide:guide);
     // Anonymous equivalent of a restored in-flight dispatch with no next_call.
     await db.setSetting('${CedarToyActivityStore.uncertainWritePrefix}$game',jsonEncode({
       'schema':1,'execution_id':'dead-runtime','state':'dispatching','action':'cmd',
+      'query_attempts':priorQueryAttempts,'query_task_id':queryTaskId,
       'params':{'slot':1,'command':'old-mutation-do-not-repeat'}}));
     final staged=await stageCedarTask(db,session:session,turnId:'u',assistantId:'a',minutes:30);
     expect(await commitCedarTask(db,staged),true);
@@ -123,6 +124,19 @@ void main() {
     expect(await activity.unresolvedWrite('bar'),isNotNull);
     expect(await CedarPlaySessionStore(db).load(),isNull);
     await runner.continueDue(now:DateTime.now());expect(client.actions,hasLength(3));
+  });
+
+  test('a new committed task can query again after an older task exhausted its reads',() async {
+    await start(priorQueryAttempts:3,queryTaskId:'cedar-task:older-request');
+    final client=_Game()..fail=true;final runner=engine(client);
+    expect((await runner.continueDue(now:DateTime.now())).state,'write_reconciliation_scheduled');
+    await activity.deferContinuation(gameId:'bar',delay:Duration.zero,
+      now:DateTime.now().subtract(const Duration(seconds:1)));
+    await runner.continueDue(now:DateTime.now());
+    expect(client.actions,['status']);
+    final marker=(await activity.unresolvedWrite('bar'))!;
+    expect(marker['query_attempts'],1);expect(marker['query_task_id'],'cedar-task:u');
+    expect(await tasks.active(),isNotNull);
   });
 
   test('an unknown query protocol reports blockage without guessing a write or spending time',() async {

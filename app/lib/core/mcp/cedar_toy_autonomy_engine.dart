@@ -1593,7 +1593,10 @@ class CedarToyAutonomyEngine {
       }
       return restored;
     }
-    if((pending['query_attempts'] as num? ?? 0)>=3) {
+    // A new committed user task may try another bounded read. A completed
+    // task stays parked, and its old mutation is never replayed.
+    if((pending['query_task_id']?.toString() ?? '')==taskId &&
+        (pending['query_attempts'] as num? ?? 0)>=3) {
       await tasks.noteBlocked(taskId:taskId,reason:'unresolved_write',now:now,workFence:workFence);
       if(taskId.isEmpty) {
         if(period!=null)await CedarPlaySessionStore(db).end('blocked_unresolved_write',
@@ -1614,7 +1617,7 @@ class CedarToyAutonomyEngine {
     if(delay==null || delay>Duration.zero)return const CedarAutonomyProgress('not_due');
     final result=await _runExecution(store:store,gameId:session.gameId,action:'核对真实状态',now:now,
       body:(scope) async {
-        if(!await store.recordReconciliationAttempt(session.gameId,scope.executionId)) {
+        if(!await store.recordReconciliationAttempt(session.gameId,scope.executionId,taskId:taskId)) {
           return const CedarAutonomyProgress('preempted_reconciliation');
         }
         final progress=await _observeSession(now:now,apiKey:'',endpoint:'',

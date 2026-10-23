@@ -1257,14 +1257,16 @@ class CedarToyActivityStore {
     return current?.continuationWaitScope=='write_reconcile_once';
   }
 
-  Future<bool> recordReconciliationAttempt(String gameId,String executionId) async {
+  Future<bool> recordReconciliationAttempt(String gameId,String executionId,{String taskId=''}) async {
     final key='$uncertainWritePrefix$gameId';
     final raw=await db.getSetting(key) ?? '';
     if(raw.isEmpty)return false;
     final pending=await unresolvedWrite(gameId);
     if(pending==null || pending['state']=='invalid')return false;
+    final previous=(pending['query_task_id']?.toString() ?? '')==taskId
+        ? (pending['query_attempts'] as num?)?.toInt() ?? 0 : 0;
     return db.setSettingsAtomically({key:jsonEncode({...pending,
-      'query_attempts':((pending['query_attempts'] as num?)?.toInt() ?? 0)+1})},
+      'query_task_id':taskId,'query_attempts':previous+1})},
       guardKey:executionFenceSettingKey,expectedGuardValue:executionId,
       expectedSettings:{key:raw});
   }
