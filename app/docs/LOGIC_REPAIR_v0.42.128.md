@@ -14,9 +14,9 @@
 - [x] 对谈删除提示说明已有记忆保留；不修改已有身份/人设或记忆内容。
 - [x] 沉浸默认背景原样替换为用户 ds(1).jpg。
 - [x] 沉浸“背景图”小窗：上传、调整、删除、保存；允许屏外平移和自由缩放；图片/几何持久化及备份恢复。
-- [ ] 定向与全量验证；唯一总账 app/docs/ledger/AI_Companion_总账_v3.md 更新。
-- [x] 代码推送已有授权分支；当前应用提交 52511dbc7378cea84d640353da23cca2ac99f9f0。
-- [ ] 最终 APK 构建与交付，记录实际运行及限制。
+- [x] 定向、全量、存档专项与原生验证；唯一总账 app/docs/ledger/AI_Companion_总账_v3.md 更新。
+- [x] 代码推送已有授权分支；最终验证提交 9ba71053813b8e7ac2b36a1351b8940083b71ba8。
+- [x] 最终同签名测试 APK 构建、核验及交付，记录实际运行及限制。
 
 ## 保护约束
 
@@ -24,13 +24,23 @@
 
 ## 验证
 
-工作区起始无 Flutter/Dart/adb；执行结果来自本轮真实 CI，不使用历史 CI 代替。
+最终验证提交：9ba71053813b8e7ac2b36a1351b8940083b71ba8。应用源码、素材、Android 与测试同 52511dbc7378cea84d640353da23cca2ac99f9f0；后续增量为旧校验器的 +372 版本白名单与记录。以下均为本轮真实 CI 结果，本地无 Flutter/Dart/adb。
 
-- 应用提交：52511dbc7378cea84d640353da23cca2ac99f9f0。
-- [定向 CI 39911576802](https://github.com/catkiss62/ai-companion-build/actions/runs/39911576802)：Dart analyze、网页桥接及 944 项回归通过（job 120276024557）。包含未知写入恢复/阻塞计时/新任务读取重试额度、表情包两条入口、小图库、JEV 缓存、同模型可选工具兼容、原文来源最终事务、背景屏外几何与实际 ZIP 恢复。
-- [完整构建 CI 39911576810](https://github.com/catkiss62/ai-companion-build/actions/runs/39911576810)：Android 15 模拟器 54 项原生测试通过（job 120276022730）。完整流程在旧校验器版本白名单处停止，尚未生成 APK；已补齐本轮 +372 白名单，保留原有全部行为/资源断言，等待新一轮完整 CI。
+- [定向 CI 39913238549](https://github.com/catkiss62/ai-companion-build/actions/runs/39913238549)：Dart analyze、网页桥接与 944 项回归通过（job 120280817310）。包括游戏真实恢复链、失败止损/新任务重试额度、表情包两条入口、小图库、邀请缓存、同模型兼容、原文来源最终事务、屏外几何和真实 ZIP 背景恢复。
+- [完整 CI 39913238563](https://github.com/catkiss62/ai-companion-build/actions/runs/39913238563)：success。build job 120282710220 通过 154 源码门、Kotlin 回归、2553 全量 Flutter、170 打包前归档/恢复检查，以及实际 APK 签名/版本/完整资源核验。Android 15 模拟器 job 120280847352 通过 54 项原生测试。
+- Dart analyze 为 0 error、62 warning、736 info（798 非 fatal），并非零告警。定向/全量/专项有重叠，不累加为独立测试数。
+- 早期夹具接口、中文模拟 SSE 编码、旧邀请缓存/零进展断言及旧版本白名单的失败均已修订；最终结果使用 9ba7105，不使用失败或取消轮次的产物。
 
-## 实施记录（CI 待验证）
+## APK 交付
+
+- versionName 0.42.128 / versionCode 372，包名 com.aicompanion.localfirst；738857882 bytes。
+- APK SHA-256：`5d20936c30e6ebfba21b9836ac979447368787487d1d3f2b9ef38eb11c1b67f6`，CI 校验与线上 asset digest 一致。
+- 原签名 SHA-256：`305eb3d80983b963c64818ddf1ad561f279de6d47b3ed2c781ada448c7c25148`。
+- Draft release 421509050 / APK asset 668300842，目标提交与 CI 一致；未合并 main 或正式发布。
+- [下载 APK](https://github.com/catkiss62/ai-companion-build/releases/download/untagged-5c95fabe01d3a8227395/AI-Companion-v0.42.128-372-Logic-Repair-Room-Background-APK.apk)
+- 默认背景在实际 APK 内逐字节匹配用户原图 SHA-256 `df727d708ba26d08f4f34af7e80fc99e48df1fff3322c04bd58944b57d3dc9db`。自定义背景与几何真实 ZIP 恢复通过。
+
+## 实施与边界记录
 
 - 游戏核对恢复接入原后台执行器及前台明确游戏操作的阻塞返回；只查原目标，先保存状态后释放未知写入，同一任务三次查询失败生成受阻报告；后续新提交的明确用户任务可重新使用有限的只读核对额度。正常三步/30分钟、原记录和远端未知收据保持；已结束任务不会重启。
 - 技术阻塞冻结有效时钟；新任务统计实际规划及 MCP 调用，旧任务计数未统计为 null；服务端真实变更无法确认时不伪称 committed_mutations。零进展到期标为 no_progress，进展计数兼顾持久事件，避免中断窗口漏计。
@@ -42,3 +52,5 @@
 - 新增 logic_repair_v042128_test、cedar_blocked_recovery_v042128_test；扩充真实 ZIP 恢复和键盘/屏外位置测试。更新的旧用例仅调整已授权改变的语义断言；未跳过测试。
 - 受保护 DB/snapshot 指纹的已审查增量：来源复核、背景媒体所有权及备份绑定验证，schema61、Snapshot7、加密与恢复日志协议未改。
 - 本地逐门执行 154 门：136 通过，其余 18 项停在稀疏工作区缺少资源/原生源码或 kotlinc；未将缺失算作通过。已补齐旧校验器的 +372 版本白名单，更新合法变化对应语义/保护指纹断言；最终仍以完整环境 CI 为准。
+
+真机待验：持续使用手机一天后的主动频率分布、真实游戏服务核对、背景拖动/选图体验、真实中转兼容及 TTS 播放中挂载视觉效果。沉浸显隐与主动提交的跨层竞态仍保留待验证，本轮未做推测性改动。
