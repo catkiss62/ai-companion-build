@@ -130,15 +130,22 @@ class CedarPlatformActionPolicy {
   /// Explicit rejection evidence supports repairing arguments, never replaying
   /// an unknown write. A normal successful MCP envelope is not action success.
   static bool explicitlyRejected(String outcome) {
-    var text=outcome.trim();
-    try {
-      final raw=jsonDecode(text);
-      if(raw is Map && raw['text'] is String)text=raw['text'] as String;
-    } catch (_) { /* Plain-text MCP results are valid too. */ }
-    return RegExp(
+    final rejection = RegExp(
       r'^\s*(?:错误[:：]\s*)?(?:这杯目前调不出来|没有执行|尚未执行|未执行|参数无效|缺少必填|'
       r'unknown (?:command|recipe)|invalid (?:command|recipe|argument)|not enough (?:cash|funds))',
-      caseSensitive:false).hasMatch(text);
+      caseSensitive:false);
+    final text=outcome.trim();
+    if(rejection.hasMatch(text))return true;
+    // McpToolOutcome.text appends this envelope even when there are no text
+    // blocks. Decode that exact transport projection as well as plain JSON;
+    // do not search arbitrary NPC prose for a rejection substring.
+    const marker='[MCP_STRUCTURED_CONTENT]\n';
+    final markerAt=text.lastIndexOf(marker);
+    final encoded=markerAt<0 ? text : text.substring(markerAt+marker.length);
+    try {
+      final raw=jsonDecode(encoded);
+      return raw is Map && raw['text'] is String && rejection.hasMatch(raw['text'] as String);
+    } catch (_) { return false; }
   }
 
   /// Reading a completed result is a snapshot, not a new shareable outcome.

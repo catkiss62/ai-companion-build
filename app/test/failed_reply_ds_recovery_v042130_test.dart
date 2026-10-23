@@ -62,7 +62,9 @@ void main() {
       secureConfig:SecureConfig.forTesting(const FlutterSecureStorage()),externalRecoveryOrchestrator:true);
     try {
       await db.setSettingsAtomically({'tts_enabled':'0','auto_tts':'0','emotion_sound_enabled':'0',
-        'cedar_toy_enabled':'0'});
+        'cedar_toy_enabled':'0','post_turn_queue_enabled':'0',
+        'daily_continuity_enabled':'0','memory_fading_enabled':'0','memory_consolidation_enabled':'0',
+        'relationship_continuity_enabled':'0','personality_learning_enabled':'0'});
       final pending=await db.createGenerationTurn(user:ChatMessage(id:'u',role:'user',
         content:'继续说吧',createdAt:DateTime.now()),assistantMessageId:'a',
         model:'deepseek-flash',reasoningEffort:'high');

@@ -127,6 +127,16 @@ void main() {
     expect(OperationalClaimGroundingGuard.evaluate(text:'「这杯已经推到客人手边了。」',
       currentToolResults:[failed]).allowed,false);
   });
+  test('rejection checks decode real MCP projections but not dialogue mentioning a rejected action',(){
+    for(final blocks in [const <McpContentBlock>[],const [McpContentBlock(kind:McpContentKind.text,
+        text:'这杯目前调不出来。用 drinks 查看现有酒单。')]]) {
+      final outcome=McpToolOutcome(content:blocks,isError:false,structuredContent:{
+        'text':'这杯目前调不出来。用 drinks 查看现有酒单。','ok':true,'next_actor':'companion'});
+      expect(CedarPlatformActionPolicy.explicitlyRejected(outcome.text),true);
+    }
+    expect(CedarPlatformActionPolicy.explicitlyRejected(jsonEncode({
+      'text':'客人说：“这杯目前调不出来也没关系。”然后接过了饮料。'})),false);
+  });
   test('legacy known cmd read cannot block the next real write after regeneration',()async {
     await game();final attempt=await turn();final store=TurnExecutionStore(db);
     final payload={'game':'bar','action':'cmd','params':{'command':'drinks','slot':1}};

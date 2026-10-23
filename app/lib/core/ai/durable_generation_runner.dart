@@ -1390,10 +1390,14 @@ class DurableGenerationRunner {
         final gameResults=agentToolResults.where((r)=>r.toolId=='cedar_toy.play').toList();
         final continuing=gameResults.isNotEmpty && gameResults.last.continuationRecommended &&
             gameResults.last.goalSatisfied!=true;
-        if (!continuing && agentToolResults.any(TurnGoalVerification.foregroundWrite)) {
+        if (agentToolResults.any(TurnGoalVerification.foregroundWrite)) {
           final needsTimer = TurnGoalVerification.missing(turnGoals, agentToolResults, localReceipts)
             .any((goal) => goal.slot == TurnEffectSlot.cedarTimedRegistration);
-          return needsTimer ? const {'cedar_toy.start_timed_play'} : const <String>{};
+          // An explicit timed goal hands further moves to the background
+          // owner. Register that handoff before exposing another foreground
+          // move, even when the game says it is still the companion's turn.
+          if(needsTimer)return const {'cedar_toy.start_timed_play'};
+          if(!continuing)return const <String>{};
         }
         if (taskIntent.available && taskIntent.gameAction != 'play') {
           return {if (taskIntent.gameControl) 'cedar_toy.manage_activity',
