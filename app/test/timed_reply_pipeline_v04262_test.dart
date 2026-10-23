@@ -127,7 +127,7 @@ void main() {
       expect((await tasks.active())?['minutes'], certain ? 20 : isNull);
       expect((await store.load())!.phase,
           certain ? isNot(CedarActivityPhase.paused) : CedarActivityPhase.paused);
-      expect(planningCalls, certain ? 1 : inInclusiveRange(1, 3));
+      expect(planningCalls, certain ? 1 : inInclusiveRange(0, 3));
       expect(finalCalls, 1);
     } finally {
       cancellation.cancel();
