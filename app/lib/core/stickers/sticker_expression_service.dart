@@ -132,12 +132,13 @@ class StickerExpressionService {
     final start = (_unit('$messageId|agent-pack') * packs.length).floor();
     StickerPackMeta? selectedPack;
     List<StickerRecord> selectedPool = const <StickerRecord>[];
+    StickerPackMeta? reusablePack;
+    List<StickerRecord> reusablePool = const <StickerRecord>[];
     for (var offset = 0; offset < packs.length; offset++) {
       final pack = packs[(start + offset) % packs.length];
       final records = await packStorage.readRecords(pack);
       final pool = records.where((record) {
-        if (!StickerAgencyPolicy.isAssistantSelectable(record) ||
-            recent.contains(record.usageKey)) {
+        if (!StickerAgencyPolicy.isAssistantSelectable(record)) {
           return false;
         }
         if (record.toneScope == 'bold' && !allowBold) return false;
@@ -146,11 +147,24 @@ class StickerExpressionService {
         }
         return true;
       }).toList(growable: false);
-      if (pool.isNotEmpty) {
+      if (pool.isNotEmpty && reusablePack == null) {
+        reusablePack = pack;
+        reusablePool = pool;
+      }
+      final fresh = pool.where((record) => !recent.contains(record.usageKey)).toList();
+      if (fresh.isNotEmpty) {
         selectedPack = pack;
-        selectedPool = pool;
+        selectedPool = fresh;
         break;
       }
+    }
+    // Explicit Agent sends share the ordinary reply path's small-pool rule:
+    // prefer unused images across packs, then rotate old eligible material.
+    if (selectedPack == null && reusablePack != null) {
+      final order = recent.toList();
+      reusablePool.sort((a, b) => order.indexOf(b.usageKey).compareTo(order.indexOf(a.usageKey)));
+      selectedPack = reusablePack;
+      selectedPool = reusablePool.take(reusablePool.length > 1 ? reusablePool.length - 1 : 1).toList();
     }
     if (selectedPack == null || selectedPool.isEmpty) return null;
 

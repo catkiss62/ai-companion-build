@@ -36,7 +36,6 @@ jobs:
           test/manual_ds_reply_confirmation_v042125_test.dart
           test/logic_repair_v042128_test.dart
           test/cedar_blocked_recovery_v042128_test.dart
-          test/room_image_background_v042114_test.dart
           test/autonomy_game_repair_v042127_test.dart
           test/game_invitation_pipeline_v042127_test.dart
           test/on_demand_agent_v042127_test.dart

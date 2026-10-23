@@ -122,6 +122,7 @@ void main() {
       await db.setSetting('cedar_route_certain_v1','1');
       await db.setSetting('route_task_intent_v1',jsonEncode({'turn_id':'user','source_key':sourceKey,
         'intent':TurnTaskIntent(available:true,gameAction:'play',gameId:'white_room',sessionId:session.id,
+          invitationCanResolveAction:true,
           durationText:'半小时',minutes:30,unresolvedFields:const {'task_game'}).toJson()}));
       await db.setSetting('route_tool_intent_v1',jsonEncode({'turn_id':'user','source_key':sourceKey,
         'route':const SemanticToolRoute(available:true).toJson()}));

@@ -175,8 +175,10 @@ void main() {
     },
   );
 
-  test('budget completion parks only the authorized activity', () async {
+  for (final progressed in [false, true]) {
+  test('budget completion parks only the authorized activity: progressed=$progressed', () async {
     await start(minutes: 1);
+    if (progressed) await outcome(db, '已探索到下一个房间。');
     final store = CedarPlaySessionStore(db);
     final period = (await store.load())!;
     await store.save(
@@ -187,9 +189,11 @@ void main() {
     expect(await store.load(), isNull);
     expect(await CedarToyActivityStore(db).load(), isNull);
     final report = (await CedarTimedPlayTaskStore(db).pendingReports()).single;
-    expect(report['reason'], 'budget_complete');
+    expect(report['reason'], progressed ? 'budget_complete' : 'no_progress');
+    expect(report['progressCount'], progressed ? 1 : 0);
     expect(report['usedMs'], 60000);
   });
+  }
 
   test('restored process epoch rebuilds the remaining committed task budget', () async {
     await start();

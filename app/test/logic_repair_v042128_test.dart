@@ -16,6 +16,9 @@ import 'package:ai_companion_localfirst/core/desire/desire_core_policy.dart';
 import 'package:ai_companion_localfirst/core/history/conversation_history_reader.dart';
 import 'package:ai_companion_localfirst/core/models/chat_message.dart';
 import 'package:ai_companion_localfirst/core/models/desire_state.dart';
+import 'package:ai_companion_localfirst/core/models/message_attachment.dart';
+import 'package:ai_companion_localfirst/core/storage/message_attachment_storage.dart';
+import 'package:ai_companion_localfirst/core/storage/pending_media_owner.dart';
 import 'package:ai_companion_localfirst/core/stickers/sticker_expression_service.dart';
 import 'package:ai_companion_localfirst/core/stickers/sticker_pack.dart';
 import 'package:ai_companion_localfirst/core/stickers/sticker_pack_storage.dart';
@@ -30,6 +33,12 @@ class _SmallPack extends StickerPackStorage {
   @override Future<List<StickerPackMeta>> scanPacks() async=>[pack];
   @override Future<Set<String>> enabledPackIds() async=>{'fixture'};
   @override Future<List<StickerRecord>> readRecords(StickerPackMeta pack,{bool applyEdits=true}) async=>records;
+  @override Future<MessageAttachment> prepareAttachment({required StickerPackMeta pack,
+    required StickerRecord record,required String messageId,required String source,
+    required MessageAttachmentStorage attachments,PendingMediaOwner? pendingOwner}) async =>
+      MessageAttachment(id:record.usageKey,messageId:messageId,kind:'image',
+        originalPath:record.path,thumbnailPath:record.path,mimeType:'image/png',
+        byteSize:1,width:1,height:1,source:source,createdAt:DateTime.now());
 }
 
 String _sse(String text)=>'data: ${jsonEncode({'choices':[{'delta':{'content':text},'finish_reason':'stop'}]})}\n\ndata: [DONE]\n\n';
@@ -76,6 +85,14 @@ void main() {
     expect(await service.replyCandidates(seed:'off',context:'发个表情包'),isEmpty);
   });
 
+  test('explicit Agent sends also rotate an exhausted eligible pool',() async {
+    final service=StickerExpressionService(db:db,packStorage:_SmallPack(db));
+    for(final record in _SmallPack.records)await service.markUsed(record);
+    final selected=await service.prepareForExplicitAgentRequest(messageId:'answer',intent:'发个表情包');
+    expect(selected,isNotNull);
+    expect(selected!.record.usageKey,_SmallPack.records.first.usageKey);
+  });
+
   test('invitation reconciles only known play/none ambiguity, including after cache serialization',() {
     const compatible=JevChoiceDecision(choice:'play',probabilities:{'play':.51,'none':.43},ambiguous:true);
     const conflict=JevChoiceDecision(choice:'play',probabilities:{'play':.51,'pause':.48,'none':.01},ambiguous:true);
@@ -93,7 +110,8 @@ void main() {
     final ai=DeepSeekClient(streamClientFactory:()=>MockClient((request) async {
       final body=jsonDecode(request.body) as Map;bodies.add(body);
       if(body.containsKey('tools'))return http.Response('{"error":{"message":"tools are not supported by this model"}}',400);
-      return http.Response(_sse('正常回复'),200,headers:{'content-type':'text/event-stream'});
+      return http.Response.bytes(utf8.encode(_sse('正常回复')),200,
+        headers:{'content-type':'text/event-stream; charset=utf-8'});
     }));addTearDown(ai.close);
     Future<void> reply(String model) async {
       final deltas=await ai.streamChat(apiKey:'fixture-compat-key',model:DeepSeekModelProfile.flash,
