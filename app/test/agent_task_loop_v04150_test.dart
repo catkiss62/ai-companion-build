@@ -177,7 +177,9 @@ void main() {
       completedToolCalls: 2,
     );
     expect(prompt, contains('第 2/20 个规划回合'));
-    expect(prompt, contains('不得原样重试同一工具和参数'));
+    expect(prompt, contains('状态未变化时不得原样重试同一工具和参数'));
+    expect(prompt, contains('可以重新读取以核对新状态'));
+    expect(prompt, contains('未知结果的远端写入不得重放'));
     expect(prompt, contains('不要输出计划'));
     expect(prompt, isNot(contains('**')));
   });
