@@ -53,6 +53,10 @@ void main() {
     expect(blind.contains('public_web_search'), isFalse);
     expect(
       AgentTaskLoopPolicy.allowedCalls(planningRounds: 3, toolCalls: 4),
+      2,
+    );
+    expect(
+      AgentTaskLoopPolicy.allowedCalls(planningRounds: 20, toolCalls: 4),
       0,
     );
     expect(
