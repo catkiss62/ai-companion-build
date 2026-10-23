@@ -429,7 +429,7 @@ ${SharedGrowthPolicy.instruction}
 ${CedarGameArrangementStore.instruction}
 5. unfinished_threads 只记录确实需要以后继续的话题、承诺、等待结果或用户明确说“之后再说”的事项。每个长期主题尽量给稳定的 topic_key，例如 user.return_tonight / user.project.result；同一主题必须复用已有 topic_key。topic_key 要短、稳定、语义化，不要包含时间戳、随机数或消息 ID。
 5.1 可以保留双方真实感兴趣、以后仍值得发展的聊天线索，不限于待办；但不能因 AI 单方面想聊、用户只说“嗯”或 AI 复述旧事就创建。每轮最多新增两条这类线索，优先更新已有主题；detail 简要写清已聊到哪、新增了什么、还真正期待什么，区分谁的想法。没有真实悬念就不要留，已聊完就 resolve；普通兴趣线索不安排定时追问，不把它变成催问用户的任务。
-6. thoughts 也尽量给稳定 topic_key。若它来自某个未完成话题，复用该话题的 topic_key。念头正文必须反映本轮后的最新理解：用户已回答的问题不能继续写成尚未讨论或没有答案。喜欢回味一个共同经历不等于还有待解问题。游戏中不同问题使用各自稳定子主题，不把同一游戏的所有新进展反复强化为最早那个谜题。已有问题被回答时关闭对应 thread；若出现新问题，写清新问题及已知结论。每个thought附continuity：continued表示同一个具体未解意图得到新证据；revised表示理解/目标已经变化或只是回味；resolved表示原疑问已经得到回答。不能因同属一个游戏就使用continued。
+6. thoughts 也尽量给稳定 topic_key。使用具体问题或经历的主题，不用presence:phone_activity等感知来源作对话问题的主题。已解决主题只有相关新信息形成新疑问时才用revised明确说明变化；continued不重开已回答问题。若它来自某个未完成话题，复用该话题的 topic_key。念头正文必须反映本轮后的最新理解：用户已回答的问题不能继续写成尚未讨论或没有答案。喜欢回味一个共同经历不等于还有待解问题。游戏中不同问题使用各自稳定子主题，不把同一游戏的所有新进展反复强化为最早那个谜题。已有问题被回答时关闭对应 thread；若出现新问题，写清新问题及已知结论。每个thought附continuity：continued表示同一个具体未解意图得到新证据；revised表示理解/目标已经变化或只是回味；resolved表示原疑问已经得到回答。不能因同属一个游戏就使用continued。
 7. desire_pulses 只是这一轮尚未被其他结构表达的轻微、瞬时变化。普通聊天本身不默认增加 attachment；如果同一变化已经写进 relationship_events，不要再用 desire_pulses 重复计算。单轴建议 -0.02 到 0.02，全部轴绝对值之和不要超过 0.05。
 8. memory 必须区分 semantic：current_fact / inference / shared_experience。
    - current_fact：用户直接说明、明确更新，或已经有足够证据支持的当前事实/当前偏好/稳定 AI Self。

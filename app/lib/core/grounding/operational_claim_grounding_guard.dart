@@ -143,6 +143,18 @@ class OperationalClaimGroundingGuard {
     List<TurnTaskGoal> taskGoals = const [],
     Iterable<LocalEffectReceipt> taskReceipts = const [],
   }) {
+    final gameResults=currentToolResults.where((r)=>r.toolId=='cedar_toy.play').toList();
+    if(gameResults.any((r)=>r.goalSatisfied==false && r.status==AgentToolStatus.failed) &&
+        !gameResults.any(TurnGoalVerification.foregroundWrite)) {
+      for(final clause in _sentences(text)) {
+        if(_metaOrNegated.hasMatch(clause) || _cedarHistoricalAnchor.hasMatch(clause))continue;
+        if(RegExp(r'(已经|刚才|刚刚|这次).{0,24}(推到|送到|交到|递到|倒好|调好|招呼好|完成)|'
+          r'(这杯|那杯|欠.{0,8}杯).{0,12}(补上|还上|完成|好了)').hasMatch(clause)) {
+          return const OperationalClaimGroundingResult(allowed:false,
+            reason:'game_action_not_confirmed',requiredToolId:'cedar_toy.play');
+        }
+      }
+    }
     final missingTimer=TurnGoalVerification.missing(taskGoals,currentToolResults.toList(),taskReceipts)
         .any((g)=>g.slot==TurnEffectSlot.cedarTimedRegistration);
     final endedTimer=taskGoals.any((g)=>g.slot==TurnEffectSlot.cedarTimedRegistration &&

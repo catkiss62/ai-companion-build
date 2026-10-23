@@ -727,12 +727,15 @@ class AgentToolRunner {
     final effectStore = TurnExecutionStore(db);
     AgentToolResult replay(Map<String, dynamic> receipt) {
       final known = receipt['state'] == 'known';
+      final rejected = receipt['failed'] == true ||
+          CedarPlatformActionPolicy.explicitlyRejected(receipt['outcome']?.toString() ?? '');
       return AgentToolResult(toolId: AgentToolRegistry.cedarToyPlay.id,
-        status: known && receipt['failed'] != true ? AgentToolStatus.succeeded : AgentToolStatus.blocked,
+        status: known ? (rejected ? AgentToolStatus.failed : AgentToolStatus.succeeded) : AgentToolStatus.blocked,
         displayText: known ? '使用本次请求已有的游戏结果' : '本次游戏操作结果尚未确认',
         promptData: known ? '这是同一用户请求已经收到的真实结果，重新生成没有再次执行游戏动作：${receipt['outcome'] ?? ''}' :
-          '同一用户请求已经登记发送或存在旧执行记录；结果可能已在远端发生，不能因重生成或等待一段时间而再次发送。尚未确认成功。',
-        continuationRecommended: known && receipt['continuation_recommended'] == true,
+          '本次操作与已有执行记录不一致或仍待核对；没有发送新操作。沿用已知结果，未知发送先做只读状态核对，不把拦截当成成功。',
+        continuationRecommended: known && (rejected || receipt['continuation_recommended'] == true),
+        goalSatisfied: rejected ? false : receipt['goal_satisfied'] as bool?,
         resultCount: known ? 1 : 0,
         submittedArguments: known && receipt['submitted_arguments'] is Map
             ? Map<String, Object?>.from(receipt['submitted_arguments'] as Map) : const {},
@@ -905,12 +908,14 @@ class AgentToolRunner {
     final effectPayload = <String, Object?>{'game': game, 'action': action, 'params': params};
     final isWrite = !CedarPlatformActionPolicy.isReadOnlyCall(action, params);
     final writeScope = attempt == null ? '' : '${attempt.userMessageId}:${attempt.runToken}';
-    final effectIndex = _cedarWriteIndices[writeScope] ?? 0;
+    var effectIndex = _cedarWriteIndices[writeScope] ?? 0;
     var reserved = false;
     var dispatched = false;
     var receivedOutcome = false;
     late McpToolOutcome outcome;
     var verifiedNextActor = 'wait';
+    bool? verifiedGoalSatisfied;
+    bool? verifiedAccepted;
     var executionId = '';
     var recordedEventId = '';
     var attachments = const <MessageAttachment>[];
@@ -921,8 +926,13 @@ class AgentToolRunner {
       if (attempt != null && isWrite) {
         _cedarWriteIndices[writeScope] = effectIndex + 1;
         final existing = await effectStore.reserveRemoteEffect(attempt, effectPayload, effectIndex: effectIndex,
+          allowKnownContinuation: latestUserText.trim().isNotEmpty,
           isCancelled: () => cancellationToken?.isCancelled == true);
-        if (existing != null) return replay(existing);
+        if (existing != null && existing['state']!='reserved') return replay(existing);
+        if(existing?['state']=='reserved') {
+          effectIndex=existing!['effect_index'] as int;
+          _cedarWriteIndices[writeScope]=effectIndex+1;
+        }
         reserved = true;
       }
       cancellationToken?.throwIfCancelled();
@@ -968,23 +978,30 @@ class AgentToolRunner {
         );
       }
       receivedOutcome = true;
+      final rejected = outcome.isError || CedarPlatformActionPolicy.explicitlyRejected(outcome.text);
       await activityStore.resolveRemoteDispatch(gameId: game, executionId: executionId, action: action, authoritative: true, params: params, outcome: outcome);
       if (attempt != null && isWrite) await effectStore.completeRemoteEffect(attempt.userMessageId, effectPayload,
-        effectIndex: effectIndex, outcome: CedarToyClient.redactSecrets(outcome.text), failed: outcome.isError);
-      final verification = outcome.isError || platformAction
-          ? (nextActor: 'wait', shareLevel: 'quiet', resumeAfterSeconds: 0)
+        effectIndex: effectIndex, outcome: CedarToyClient.redactSecrets(outcome.text), failed: rejected);
+      final verification = rejected || platformAction
+          ? (nextActor: rejected ? 'companion' : 'wait', shareLevel: 'quiet', resumeAfterSeconds: 0,
+              accepted: rejected ? false : null, goalSatisfied: rejected ? false : null)
           : await _verifyCedarOutcome(
               game: game,
               guide: guide,
               action: action,
               outcome: outcome,
+              latestUserText: latestUserText,
+              params: params,
               cancellationToken: cancellationToken,
             );
       verifiedNextActor = platformAction
           ? (persisted?.nextActor ?? 'wait')
           : verification.nextActor;
+      verifiedGoalSatisfied = verification.goalSatisfied;
+      verifiedAccepted = verification.accepted;
       if (attempt != null && isWrite) await effectStore.completeRemoteEffect(attempt.userMessageId, effectPayload,
-        effectIndex: effectIndex, outcome: CedarToyClient.redactSecrets(outcome.text), failed: outcome.isError,
+        effectIndex: effectIndex, outcome: CedarToyClient.redactSecrets(outcome.text),
+        failed: rejected || verification.accepted == false, goalSatisfied: verifiedGoalSatisfied,
         nextActor: verifiedNextActor, continuationRecommended: verifiedNextActor == 'companion');
       if (platformAction && persisted != null) {
         final recorded = await activityStore.recordPlatformAction(
@@ -1012,7 +1029,7 @@ class AgentToolRunner {
           keepExecution: true,
         );
         recordedEventId = recorded.events.isEmpty ? '' : recorded.events.last.id;
-        await CedarPlayOutcomeBookkeeper(db).record(
+        if (!rejected && verification.accepted != false) await CedarPlayOutcomeBookkeeper(db).record(
           now: DateTime.now(),
           session: recorded,
           action: action,
@@ -1090,6 +1107,8 @@ class AgentToolRunner {
       outcome: outcome,
       attachments: attachments,
       verifiedNextActor: verifiedNextActor,
+      goalSatisfied: verifiedGoalSatisfied,
+      actionAccepted: verifiedAccepted,
       submittedArguments: <String, Object?>{
         'game': game,
         'action': action,
@@ -1098,12 +1117,14 @@ class AgentToolRunner {
     );
   }
 
-  Future<({String nextActor, String shareLevel, int resumeAfterSeconds})>
+  Future<({String nextActor, String shareLevel, int resumeAfterSeconds, bool? accepted, bool? goalSatisfied})>
       _verifyCedarOutcome({
     required String game,
     required String guide,
     required String action,
     required McpToolOutcome outcome,
+    String latestUserText = '',
+    Map<String,Object?> params = const {},
     GenerationCancellationToken? cancellationToken,
   }) async {
     final structured = _resolveMcpTurnState(outcome);
@@ -1118,6 +1139,7 @@ class AgentToolRunner {
         nextActor: structured.nextActor,
         shareLevel: 'quiet',
         resumeAfterSeconds: structuredResume ?? 0,
+        accepted: null, goalSatisfied: null,
       );
     }
     if (outcome.text.length > CedarToyActivityStore.maxGuidePromptChars) {
@@ -1125,6 +1147,7 @@ class AgentToolRunner {
         nextActor: structured?.nextActor ?? 'wait',
         shareLevel: 'quiet',
         resumeAfterSeconds: 0,
+        accepted: null, goalSatisfied: false,
       );
     }
     try {
@@ -1145,7 +1168,8 @@ class AgentToolRunner {
           <String, Object?>{
             'role': 'system',
             'content': '''你只核验一次真实 Cedar Toy play Outcome。依据完整指南、刚执行的 action 与真实 Outcome，只返回 JSON：
-{"next_actor":"companion|user|shared|wait|finished","share_level":"quiet|notable|required","resume_after_seconds":0}
+{"next_actor":"companion|user|shared|wait|finished","share_level":"quiet|notable|required","resume_after_seconds":0,"action_accepted":true,"goal_satisfied":false}
+action_accepted判断游戏是否实际接受本次动作，通信返回正常不等于动作成功。goal_satisfied只在用户本轮完整目标已有真实证据时为true，查询/恢复标志不等于完成。用户目标：$latestUserText；本机参数：${jsonEncode(params)}。
 不得规划下一动作，不得补写结果。需要用户决定/输入时为 user 或 shared；远端计时/其他玩家时为 wait；明确结束才为 finished。只有指南或 Outcome 明确给出等待/轮询时长时填写 15～3600 秒，否则为 0。
 ${CedarLiveSharePolicy.judgement}
 $shareContext
@@ -1162,6 +1186,8 @@ ${CedarToyClient.redactSecrets(outcome.text)}''',
       final share = judged['share_level']?.toString() ?? '';
       final rawResume = (judged['resume_after_seconds'] as num?)?.toInt() ?? 0;
       return (
+        accepted: judged['action_accepted'] as bool?,
+        goalSatisfied: judged['goal_satisfied'] as bool?,
         nextActor: structured?.nextActor ?? (const <String>{
           'companion',
           'user',
@@ -1185,6 +1211,7 @@ ${CedarToyClient.redactSecrets(outcome.text)}''',
         nextActor: structured?.nextActor ?? 'wait',
         shareLevel: 'quiet',
         resumeAfterSeconds: 0,
+        accepted: null, goalSatisfied: false,
       );
     }
   }
@@ -1359,6 +1386,8 @@ ${CedarToyClient.redactSecrets(outcome.text)}''',
     String machineAction = '',
     List<MessageAttachment> attachments = const <MessageAttachment>[],
     String verifiedNextActor = '',
+    bool? goalSatisfied,
+    bool? actionAccepted,
     Map<String, Object?> submittedArguments = const <String, Object?>{},
     bool playerGuide = false,
     String extraPromptData = '',
@@ -1368,7 +1397,7 @@ ${CedarToyClient.redactSecrets(outcome.text)}''',
     final safe = playerGuide
         ? CedarToyClient.playerSafeGuideOutcome(outcome)
         : CedarToyClient.redactSecrets(outcome.text.toString());
-    if (outcome.isError == true) {
+    if (outcome.isError == true || actionAccepted == false || CedarPlatformActionPolicy.explicitlyRejected(safe)) {
       return AgentToolResult(
         toolId: toolId,
         status: AgentToolStatus.failed,
@@ -1376,8 +1405,9 @@ ${CedarToyClient.redactSecrets(outcome.text)}''',
         promptData:
             'Cedar Toy 真实 $promptAction 远端返回失败：${_boundedCedar(safe)}；不得编造成功结果。',
         errorCode: 'cedar_remote_error',
-        continuationRecommended:
-            CedarPlatformActionPolicy.isReadOnly(promptAction),
+        continuationRecommended: true,
+        goalSatisfied: false,
+        submittedArguments: submittedArguments,
       );
     }
     if (safe.trim().isEmpty) {
@@ -1393,6 +1423,7 @@ ${CedarToyClient.redactSecrets(outcome.text)}''',
       toolId: toolId,
       status: AgentToolStatus.succeeded,
       displayText: '已取得 Cedar Toy 真实$action结果',
+      goalSatisfied: goalSatisfied,
       promptData: <String>[
         '【Cedar Toy 真实 $promptAction Outcome】',
         if (submittedArguments.isNotEmpty)

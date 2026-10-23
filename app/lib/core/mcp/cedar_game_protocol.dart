@@ -90,8 +90,56 @@ class CedarPlatformActionPolicy {
         'announcements',
       }.contains(action);
 
-  static bool isReadOnlyCall(String action, Map<String, Object?> params) =>
-      isReadOnly(action) && (params['message']?.toString().trim().isEmpty ?? true);
+  static bool isReadOnlyCall(String action, Map<String, Object?> params) {
+    if (params['message']?.toString().trim().isNotEmpty ?? false) return false;
+    if (isReadOnly(action)) return true;
+    if (action != 'cmd' || params['command'] is! String) return false;
+    final command = (params['command'] as String).trim();
+    if (command.isEmpty) return false;
+    // cmd is a transport envelope, not an action classification. Only known
+    // query verbs are read-only; a mixed batch or malformed quoting is a write.
+    final pieces = <String>[];
+    var start = 0;
+    String? quote;
+    var escaped = false;
+    for (var i=0;i<command.length;i++) {
+      final c=command[i];
+      if (escaped) { escaped=false; continue; }
+      if (c.codeUnitAt(0)==92) { escaped=true; continue; }
+      if (quote!=null) { if(c==quote)quote=null; continue; }
+      if (c=='"' || c=="'") { quote=c; continue; }
+      if(c==';' || c=='\n') { pieces.add(command.substring(start,i).trim());start=i+1; }
+    }
+    if(quote!=null || escaped)return false;
+    pieces.add(command.substring(start).trim());
+    return pieces.every((part) {
+      final verb=RegExp(r'^([a-z_?]+)(?:\s|$)').firstMatch(part)?.group(1);
+      return const {'status','state','observe','look','inventory','help','?',
+        'view','viewer','archive','drinks','recipe','guests','ledger','memory','reviews'}.contains(verb);
+    });
+  }
+
+  static bool isReadOnlyEvent(String action, String inputJson) {
+    try {
+      final raw=jsonDecode(inputJson);
+      if(raw is Map)return isReadOnlyCall(action,Map<String,Object?>.from(raw));
+    } catch (_) { /* Unknown payloads stay conservative. */ }
+    return isReadOnly(action);
+  }
+
+  /// Explicit rejection evidence supports repairing arguments, never replaying
+  /// an unknown write. A normal successful MCP envelope is not action success.
+  static bool explicitlyRejected(String outcome) {
+    var text=outcome.trim();
+    try {
+      final raw=jsonDecode(text);
+      if(raw is Map && raw['text'] is String)text=raw['text'] as String;
+    } catch (_) { /* Plain-text MCP results are valid too. */ }
+    return RegExp(
+      r'^\s*(?:错误[:：]\s*)?(?:这杯目前调不出来|没有执行|尚未执行|未执行|参数无效|缺少必填|'
+      r'unknown (?:command|recipe)|invalid (?:command|recipe|argument)|not enough (?:cash|funds))',
+      caseSensitive:false).hasMatch(text);
+  }
 
   /// Reading a completed result is a snapshot, not a new shareable outcome.
   static bool isResultSnapshot(String action) =>

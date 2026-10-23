@@ -199,6 +199,7 @@ class ChatController extends ChangeNotifier {
   FinalReplyControl? _activeReplyControl;
   bool _externalDeepSeekSelected = false;
   String? _externalReplyJobId;
+  bool failedReplyAvailable = false;
   GenerationCancellationToken? _activeGenerationCancellation;
   String? _activeGenerationJobId;
   String? _activeGenerationAssistantMessageId;
@@ -211,8 +212,8 @@ class ChatController extends ChangeNotifier {
       _activeGenerationAssistantMessageId ??
       _externalGenerationAssistantMessageId;
 
-  bool get showManualReplyControl => _secondChannelEnabled && generationActive &&
-      (_activeReplyControl != null || externalGenerationActive) && !cancellingGeneration;
+  bool get showManualReplyControl => _secondChannelEnabled && (generationActive || failedReplyAvailable) &&
+      (_activeReplyControl != null || externalGenerationActive || failedReplyAvailable) && !cancellingGeneration;
 
   bool get manualDeepSeekSelected =>
       _activeReplyControl?.requested ?? _externalDeepSeekSelected;
@@ -231,10 +232,23 @@ class ChatController extends ChangeNotifier {
     _safeNotify();
     final jobId = _activeGenerationJobId ?? _externalReplyJobId;
     if (jobId != null) {
-      final accepted = await db.selectDeepSeekForGeneration(jobId);
+      final wasFailed = failedReplyAvailable;
+      if (wasFailed && !await db.retryFailedGenerationJob(jobId, useDeepSeek:true)) {
+        _externalDeepSeekSelected = false;
+        error = '这条回复状态已变化，请稍后重试。';
+        _safeNotify();
+        return;
+      }
+      final accepted = wasFailed || await db.selectDeepSeekForGeneration(jobId);
       if (!accepted && control == null) {
         // A completed transaction wins over a click arriving afterwards.
         _externalDeepSeekSelected = false;
+      }
+      if (accepted && wasFailed) {
+        failedReplyAvailable = false;
+        error = null;
+        final job = await db.generationJobById(jobId);
+        if (job != null) await _runTrustedCurrentProcessGeneration(job, leaseAlreadyHeld: false);
       }
     }
     _safeNotify();
@@ -243,7 +257,7 @@ class ChatController extends ChangeNotifier {
   bool get generationActive => sending || externalGenerationActive;
 
   bool get showGenerationDraft => GenerationPresentationPolicy.showDraft(
-        generationActive: generationActive,
+        generationActive: generationActive || failedReplyAvailable,
         assistantMessageId: activeGenerationAssistantMessageId,
         committedMessageIds: messages.map((message) => message.id),
       );
@@ -522,7 +536,10 @@ class ChatController extends ChangeNotifier {
       _externalReplyJobId = job?.id;
       final awaitingDecision = job?.status == 'awaiting_confirmation';
       if (awaitingDecision) await _restoreIncompleteReplyDraft();
-      final nextActive = job != null && !awaitingDecision;
+      final nextFailed = job?.status == 'failed';
+      runtimeChanged = runtimeChanged || failedReplyAvailable != nextFailed;
+      failedReplyAvailable = nextFailed;
+      final nextActive = job != null && !awaitingDecision && !nextFailed;
       final nextReasoning = awaitingDecision ? '' : job?.partialReasoning ?? '';
       // Durable checkpoints may already contain the provider candidate body.
       // Ordinary chat must not expose it before the guarded final commit; the
@@ -1866,6 +1883,7 @@ class ChatController extends ChangeNotifier {
     final stopped = !await db.isLocalLeaseHeld('chat_turn_lease');
 
     externalGenerationActive = false;
+    failedReplyAvailable = false;
     _externalGenerationAssistantMessageId = null;
     if (!stopped) {
       error = '停止请求已经写入，但旧回复连接尚未退出；请稍候，不要立即恢复备份。';

@@ -7,6 +7,7 @@ import '../database/brain_work_fence.dart';
 import '../database/conversation_source_store.dart';
 import '../database/generation_attempt_fence.dart';
 import 'turn_execution_contract.dart';
+import '../mcp/cedar_game_protocol.dart';
 
 export 'turn_execution_contract.dart';
 
@@ -17,6 +18,14 @@ class TurnExecutionStore {
   final AppDatabase db;
   static const remoteEffectPrefix = 'agent_remote_effect_v1:';
   static const remoteJournalPrefix = 'agent_remote_effect_v2:';
+
+  Future<List<Map<String,dynamic>>> remoteHistory(String turnId) async {
+    final handle=await db.database;
+    final raw=_decode(await BrainWorkFence.value(handle,'$remoteJournalPrefix$turnId'));
+    if(raw is List)return raw.whereType<Map>().map((r)=>Map<String,dynamic>.from(r)).toList();
+    final legacy=await remoteEffect(turnId);
+    return legacy==null ? [] : [legacy];
+  }
 
   Future<Map<String, dynamic>?> remoteEffect(String turnId, {int effectIndex = 0}) async {
     final handle = await db.database;
@@ -45,7 +54,7 @@ class TurnExecutionStore {
   /// Only writes occupy ordered slots. Reads and model call IDs are not action
   /// identity. A new generation may replay this sequence, never extend it.
   Future<Map<String, dynamic>?> reserveRemoteEffect(GenerationAttemptFence attempt, Object payload,
-      {int effectIndex = 0, bool Function()? isCancelled}) async {
+      {int effectIndex = 0, bool allowKnownContinuation = false, bool Function()? isCancelled}) async {
     final handle = await db.database;
     return handle.transaction((txn) async {
       requireTurnNotCancelled(isCancelled);
@@ -53,15 +62,57 @@ class TurnExecutionStore {
       final raw = _decode(await BrainWorkFence.value(txn, key));
       if (raw != null && raw is! List) return {'state': 'conflict'};
       final journal = raw is List ? List<Object?>.from(raw) : <Object?>[];
+      // Earlier builds journaled cmd queries as writes. Remove only receipts
+      // whose complete submitted payload proves a read; unknown verbs remain.
+      final lengthBefore = journal.length;
+      journal.removeWhere((r) {
+        if (r is! Map || r['submitted_arguments'] is! Map) return false;
+        final p = r['submitted_arguments'] as Map;
+        return p['params'] is Map && CedarPlatformActionPolicy.isReadOnlyCall(
+          p['action']?.toString() ?? '', Map<String,Object?>.from(p['params'] as Map));
+      });
+      if(journal.length!=lengthBefore && await attempt.matches(txn)) {
+        await txn.insert('settings', {'key':key,'value':jsonEncode(journal)},
+          conflictAlgorithm:ConflictAlgorithm.replace);
+      }
       final legacy = _decode(await BrainWorkFence.value(txn, '$remoteEffectPrefix${attempt.userMessageId}'));
       if (legacy is Map) {
         return {...Map<String, dynamic>.from(legacy),
           if (legacy['payload_hash'] != turnPayloadHash(payload)) 'state': 'conflict'};
       }
+      final priorRun=journal.any((r)=>r is Map && r['run_token']!=attempt.runToken);
+      if(allowKnownContinuation && priorRun && journal.every((r)=>r is Map && r['state']=='known') &&
+          !(effectIndex<journal.length && CedarPlatformActionPolicy.explicitlyRejected(
+            (journal[effectIndex] as Map)['outcome']?.toString() ?? ''))) {
+        final hash=turnPayloadHash(payload);
+        for(final r in journal) {
+          if(r is Map && r['payload_hash']==hash)return Map<String,dynamic>.from(r);
+        }
+        if(journal.isNotEmpty && (journal.last as Map)['goal_satisfied']!=true && await attempt.matches(txn)) {
+          final index=journal.length;
+          journal.add({'schema':2,'turn_id':attempt.userMessageId,'run_token':attempt.runToken,
+            'payload_hash':hash,'submitted_arguments':payload,'state':'dispatching',
+            'created_at':DateTime.now().millisecondsSinceEpoch});
+          await txn.insert('settings',{'key':key,'value':jsonEncode(journal)},conflictAlgorithm:ConflictAlgorithm.replace);
+          return {'state':'reserved','effect_index':index};
+        }
+      }
       if (effectIndex < 0 || effectIndex > journal.length) return {'state': 'conflict'};
       if (effectIndex < journal.length) {
         final receipt = journal[effectIndex];
         if (receipt is! Map) return {'state': 'conflict'};
+        if (receipt['payload_hash'] != turnPayloadHash(payload) &&
+            receipt['state']=='known' &&
+            CedarPlatformActionPolicy.explicitlyRejected(receipt['outcome']?.toString() ?? '') &&
+            await attempt.matches(txn)) {
+          final previous=Map<String,dynamic>.from(receipt)..remove('prior_rejections');
+          journal[effectIndex]={'schema':2,'turn_id':attempt.userMessageId,'run_token':attempt.runToken,
+            'payload_hash':turnPayloadHash(payload),'submitted_arguments':payload,
+            'state':'dispatching','created_at':DateTime.now().millisecondsSinceEpoch,
+            'prior_rejections':[...(receipt['prior_rejections'] as List? ?? []),previous]};
+          await txn.insert('settings',{'key':key,'value':jsonEncode(journal)},conflictAlgorithm:ConflictAlgorithm.replace);
+          return null;
+        }
         return {...Map<String, dynamic>.from(receipt),
           if (receipt['payload_hash'] != turnPayloadHash(payload)) 'state': 'conflict'};
       }
@@ -87,6 +138,7 @@ class TurnExecutionStore {
   Future<void> completeRemoteEffect(String turnId, Object payload, {
     required String outcome, required bool failed, int effectIndex = 0,
     String nextActor = 'wait', bool continuationRecommended = false,
+    bool? goalSatisfied,
   }) async {
     final handle = await db.database;
     await handle.transaction((txn) async {
@@ -96,7 +148,8 @@ class TurnExecutionStore {
       final receipt = raw[effectIndex];
       if (receipt is! Map || receipt['payload_hash'] != turnPayloadHash(payload) || !const {'dispatching', 'known'}.contains(receipt['state'])) return;
       raw[effectIndex] = {...receipt, 'state': 'known', 'outcome': outcome, 'failed': failed,
-        'next_actor': nextActor, 'continuation_recommended': continuationRecommended};
+        'next_actor': nextActor, 'continuation_recommended': continuationRecommended,
+        if(goalSatisfied!=null)'goal_satisfied':goalSatisfied};
       await txn.insert('settings', {'key': key, 'value': jsonEncode(raw)}, conflictAlgorithm: ConflictAlgorithm.replace);
     });
   }

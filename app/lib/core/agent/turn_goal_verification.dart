@@ -8,8 +8,9 @@ class TurnGoalVerification {
     if (!result.succeeded || result.toolId != 'cedar_toy.play') return false;
     final action = result.submittedArguments['action']?.toString() ?? '';
     final params = result.submittedArguments['params'];
-    return action.isNotEmpty && (!CedarPlatformActionPolicy.isReadOnly(action) ||
-      (params is Map && params['message']?.toString().trim().isNotEmpty == true));
+    return action.isNotEmpty && result.goalSatisfied != false &&
+      !CedarPlatformActionPolicy.isReadOnlyCall(action,
+        params is Map ? Map<String,Object?>.from(params) : const {});
   }
   static List<TurnTaskGoal> missing(List<TurnTaskGoal> goals,
       List<AgentToolResult> results, Iterable<LocalEffectReceipt> receipts) {

@@ -3588,10 +3588,10 @@ class _StreamingBubble extends StatelessWidget {
             padding: const EdgeInsets.symmetric(horizontal: 5),
             child: ReasoningPanel(
               reasoning: controller.streamingReasoning,
-              streaming: true,
+              streaming: !controller.failedReplyAvailable,
             ),
           ),
-        if (controller.showManualReplyControl ||
+        if (controller.failedReplyAvailable || controller.showManualReplyControl ||
             controller.agentActivity != null ||
             content.isNotEmpty ||
             (controller.streamingReasoning.isEmpty &&
@@ -3617,13 +3617,16 @@ class _StreamingBubble extends StatelessWidget {
                   ],
                   SizedBox(key: bodyTailKey, height: 1),
                 ],
-                if (controller.showManualReplyControl ||
+                if (controller.failedReplyAvailable || controller.showManualReplyControl ||
                     (content.isEmpty && controller.streamingReasoning.isEmpty &&
                         controller.agentActivity == null))
                   Row(
                     children: [
-                      Flexible(child: Text(controller.recoveringGeneration
+                      Flexible(child: Text(controller.failedReplyAvailable
+                          ? '这次回复失败。' : controller.recoveringGeneration
                           ? '正在结束上次中断的回复…' : '她正在准备回复…')),
+                      if (controller.failedReplyAvailable) TextButton(
+                        onPressed: controller.cancelCurrentGeneration, child: const Text('放弃这次回复')),
                       if (controller.showManualReplyControl) ...[
                         const SizedBox(width: 8),
                         ManualDsReplyButton(

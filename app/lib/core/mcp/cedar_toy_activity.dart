@@ -1668,6 +1668,8 @@ class CedarToyActivityStore {
       completedPlayRounds:
           state.completedPlayRounds +
           (!outcome.isError &&
+                  !CedarPlatformActionPolicy.isReadOnlyCall(action, submittedParams) &&
+                  !CedarPlatformActionPolicy.explicitlyRejected(fullText) &&
                   CedarSoloEpisodePolicy.isStateChangingAction(action) &&
                   !CedarPlatformActionPolicy.isResultSnapshot(action) &&
                   !const {'wait', 'poll'}.contains(action)
@@ -1679,7 +1681,8 @@ class CedarToyActivityStore {
       updatedAt: now,
     );
     state = _withExtractedNotices(state, storedNext, onlyEvent: event);
-    final receipts = outcome.isError || CedarPlatformActionPolicy.isReadOnly(action) ||
+    final receipts = outcome.isError || CedarPlatformActionPolicy.isReadOnlyCall(action, submittedParams) ||
+        CedarPlatformActionPolicy.explicitlyRejected(fullText) ||
         CedarPlatformActionPolicy.isPlatformAction(action) ? null :
         WishGameEvidence.append(raw: await db.getSetting(WishGameEvidence.key) ?? '',
           wishes: await WishStore(db).load(), gameId: gameId, eventId: event.id,

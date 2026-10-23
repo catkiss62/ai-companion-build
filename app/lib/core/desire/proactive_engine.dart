@@ -1578,6 +1578,16 @@ class ProactiveEngine {
       return const ProactiveDecision(sent: false, reason: '网页分享来源或线索状态已变化');
     }
     final context = promptBuild.messages.toList(growable: true);
+    if (startsFreshTopic) {
+      final closed = await (await db.database).query('unfinished_threads',
+        columns: ['title', 'topic_key', 'resolved_at'],
+        where: 'status = ?', whereArgs: ['resolved'],
+        orderBy: 'resolved_at DESC', limit: 6);
+      if (closed.isNotEmpty) context.add({'role': 'system', 'content':
+        '【已解答主题·仅用于去除旧问题】${jsonEncode(closed)}'
+        '这些是已经得到解答的主题，不是新话题素材。若选中念头仍在索要其中同一问题的答案，'
+        '沿用已解答状态；没有相关新信息就不要再次追问。可以回味经历，或表达真正不同的新疑问。'});
+    }
     if (creativeShare != null) context.add({'role': 'system', 'content': creativeShare.prompt});
     if (reflectionInvitation != null) {
       context.add({'role': 'system', 'content': reflectionInvitation.invitation});

@@ -865,7 +865,7 @@ class CedarToyAutonomyEngine {
       now: now,
       outcomeTimes: session.events
           .where((event) => event.kind == 'outcome')
-          .where((event) => !CedarPlatformActionPolicy.isReadOnly(event.action))
+          .where((event) => !CedarPlatformActionPolicy.isReadOnlyEvent(event.action, event.inputJson))
           .map((event) => event.createdAt),
       notableTimes: session.events
           .where((event) => event.kind == 'outcome' && event.notable)
@@ -1028,7 +1028,7 @@ class CedarToyAutonomyEngine {
     }
     final outcomes = session.events
         .where((event) => event.kind == 'outcome')
-        .where((event) => !CedarPlatformActionPolicy.isReadOnly(event.action))
+        .where((event) => !CedarPlatformActionPolicy.isReadOnlyEvent(event.action, event.inputJson))
         .toList(growable: false);
     return GameEngagementPolicy.evaluate(
       now: now,
@@ -2318,7 +2318,8 @@ ${arrangements.prompt}''',
             executionId: scope.executionId,
             keepExecution: true,
           );
-    if (!platformAction && !CedarPlatformActionPolicy.isReadOnly(action)) {
+    if (!platformAction && !CedarPlatformActionPolicy.isReadOnlyCall(action, params) &&
+        !CedarPlatformActionPolicy.explicitlyRejected(outcome.text)) {
       for (final wish in (await WishStore(db).load()).where((w) =>
           w.route == 'game' && w.gameId == session.gameId && w.mayAct(now))) {
         await WishStore(db).noteAction(wish.id, now);

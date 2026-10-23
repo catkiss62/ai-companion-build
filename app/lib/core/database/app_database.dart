@@ -7379,7 +7379,7 @@ class AppDatabase {
     return rows.isEmpty ? null : GenerationJob.fromDb(rows.first);
   }
 
-  Future<bool> retryFailedGenerationJob(String id) async {
+  Future<bool> retryFailedGenerationJob(String id, {bool useDeepSeek = false}) async {
     final db = await database;
     final now = DateTime.now().millisecondsSinceEpoch;
     return db.transaction<bool>((txn) async {
@@ -7410,6 +7410,13 @@ class AppDatabase {
         [id],
       );
       if (assistant.isNotEmpty) return false;
+      if (useDeepSeek) {
+        final latest=await txn.rawQuery('''SELECT g.id FROM generation_jobs g
+          JOIN messages u ON u.id=g.user_message_id AND u.role='user'
+          WHERE g.id=? AND NOT EXISTS(SELECT 1 FROM messages newer
+            WHERE newer.role='user' AND newer.created_at>u.created_at)''',[id]);
+        if(latest.isEmpty)return false;
+      }
       final changed = await txn.update(
         'generation_jobs',
         {
@@ -7423,6 +7430,8 @@ class AppDatabase {
         where: 'id = ? AND status = ?',
         whereArgs: [id, 'failed'],
       );
+      if (changed==1 && useDeepSeek) await txn.insert('settings',
+        {'key':FinalReplyControl.settingKey,'value':id},conflictAlgorithm:ConflictAlgorithm.replace);
       return changed == 1;
     });
   }
@@ -11068,7 +11077,8 @@ class AppDatabase {
 
   // External evidence identities cannot be revised as ordinary chat topics.
   static const postTurnThoughtSourceWhere =
-      "source NOT LIKE 'mcp/%' AND source NOT LIKE 'public_web_candidate:%'";
+      "source NOT LIKE 'mcp/%' AND source NOT LIKE 'public_web_candidate:%' "
+      "AND source <> 'presence/phone_activity'";
 
   Future<List<CompanionThought>> postTurnThoughtCandidates({int limit = 8}) async {
     final sql = await database;
@@ -11655,7 +11665,12 @@ class AppDatabase {
     String continuity = 'continued',
   }) async {
     final normalizedText = text.trim();
-    final normalizedTopic = topicKey.trim().toLowerCase();
+    // Conversation evidence needs its own identity; it must never overwrite a
+    // generic sensor trigger and later reappear as a fresh phone observation.
+    final requestedTopic = topicKey.trim().toLowerCase();
+    final normalizedTopic = requestedTopic == 'presence:phone_activity'
+        ? ''
+        : requestedTopic;
     final normalizedEvidence = evidenceKey.trim();
     if (sourceMessageId.isEmpty || normalizedText.isEmpty || normalizedEvidence.isEmpty) {
       return false;
@@ -11673,6 +11688,12 @@ class AppDatabase {
       if (seen.isNotEmpty) return true;
 
       List<Map<String, Object?>> matches;
+      if (normalizedTopic.isNotEmpty && continuity == 'continued') {
+        final closed = await txn.query('unfinished_threads', columns: ['id'],
+          where: 'topic_key = ? AND status = ?',
+          whereArgs: [normalizedTopic, 'resolved'], limit: 1);
+        if (closed.isNotEmpty) return true;
+      }
       if (normalizedTopic.isNotEmpty) {
         matches = await txn.query(
           'thoughts',
@@ -11724,7 +11745,9 @@ class AppDatabase {
         final thought = CompanionThought.fromDb(matches.first);
         thoughtId = thought.id;
         final changedUnderstanding = continuity == 'revised' || continuity == 'resolved';
-        final settled = continuity == 'resolved';
+        final settled = continuity == 'resolved' ||
+            (continuity == 'continued' && thought.lifecycleState == 'dormant' &&
+                thought.lastSatisfiedAt != null);
         final fed = changedUnderstanding ? 1 : thought.fedCount + 1;
         final nextStrength = changedUnderstanding
             ? incomingStrength.clamp(0.0, 1.0).toDouble()
@@ -11747,9 +11770,9 @@ class AppDatabase {
             'updated_at': now,
             if (thought.topicKey.isEmpty && normalizedTopic.isNotEmpty)
               'topic_key': normalizedTopic,
-            // A new real conversation is authoritative enough to reopen a
-            // snoozed topic. This mirrors DesireEngine.feedThought behavior.
-            'snoozed_until': null,
+            // Reopening requires a revised relevant understanding, not just
+            // another conversation touching the broad topic.
+            'snoozed_until': continuity == 'revised' ? null : thought.snoozedUntil?.millisecondsSinceEpoch,
           },
           where: 'id = ?',
           whereArgs: [thought.id],

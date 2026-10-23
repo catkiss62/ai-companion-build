@@ -129,6 +129,7 @@ class PromptBuilder {
     required DesireSnapshot desire,
     required List<CompanionThought> thoughts,
     int memoryLimit = 8,
+    Set<String> excludedAssistantSources = const {},
     PromptGenerationMode mode = PromptGenerationMode.userTurn,
     String? retrievalQuery,
     DateTime? now,
@@ -180,6 +181,7 @@ class PromptBuilder {
             relevantLimit: memoryLimit,
             summaryBefore: recent.isEmpty ? null : recent.first.createdAt,
             retrievalMode: mode.name,
+            excludedAssistantSources: excludedAssistantSources,
           );
     final relationshipContext =
         freshTopicSourceOnly ? null : await relationshipBrain.buildContext();

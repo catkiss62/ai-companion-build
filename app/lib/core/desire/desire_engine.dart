@@ -331,7 +331,10 @@ class DesireEngine {
     );
     await db.upsertThought(
       id: match.id,
-      text: source == 'self_drive/thread' ? normalized : match.text,
+      // Presence is a new observation, not fresh evidence for an old question
+      // that a conversation extractor may have put into this broad carrier.
+      text: source == 'self_drive/thread' || source == 'presence/phone_activity'
+          ? normalized : match.text,
       drive: drive,
       kind: decision.kind,
       strength: decision.strength,

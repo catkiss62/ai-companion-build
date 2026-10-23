@@ -61,7 +61,7 @@ class TurnTaskIntent {
       workTargetKind: raw['work_target_kind'] as String? ?? 'unresolved');
   }
   List<TurnTaskGoal> goals(String turnId) => [
-    if (gameAction == 'play') TurnTaskGoal(turnId: turnId,
+    if (const {'play', 'resume'}.contains(gameAction)) TurnTaskGoal(turnId: turnId,
       slot: TurnEffectSlot.cedarForegroundWrite, authorized: gameExecutionResolved, description: '本轮进入或推进真实游戏',
       target: {if (gameId.isNotEmpty) 'game_id': gameId}),
     if (const {'play', 'resume'}.contains(gameAction) && (minutes > 0 || !durationResolved)) TurnTaskGoal(turnId: turnId,
@@ -81,6 +81,32 @@ class TurnTaskIntent {
 }
 
 class TurnTaskQuestionSet {
+  static bool needsReview(TurnTaskIntent intent, String? cedarIntent,
+      {required bool certain}) => intent.available && certain &&
+      ((intent.gameAction == 'none' && const {'act_now','accept'}.contains(cedarIntent)) ||
+       (const {'play','resume'}.contains(intent.gameAction) && const {'defer','chat'}.contains(cedarIntent)));
+
+  /// One joint answer owns authorization and action. A review cannot invent a
+  /// target or duration that is absent from the supplied real snapshot.
+  TurnTaskIntent reviewed(TurnTaskIntent previous, Map<String,dynamic> answer) {
+    final action = answer['task_game']?.toString() ?? '';
+    if (!questions['task_game']!.options.containsKey(action)) return previous;
+    final target = answer['task_game_target']?.toString() ?? '';
+    final duration = answer['task_duration']?.toString() ?? 'none';
+    final result = interpret({'task_game':action,'task_game_target':target,
+      'task_duration':duration,'task_creative':'none'});
+    final unresolved = <String>{
+      ...previous.unresolvedFields.where((k)=>!k.startsWith('task_game') && k!='task_duration'),
+      if(action!='none' && !games.containsKey(target)) 'task_game_target',
+      if(const {'play','resume'}.contains(action) && durations.isNotEmpty &&
+          !durations.containsKey(duration) && duration!='none') 'task_duration',
+    };
+    return TurnTaskIntent.fromJson({...previous.toJson(),
+      'game_action':result.gameAction,'game_id':result.gameId,'session_id':result.sessionId,
+      'minutes':result.minutes,'duration_text':result.durationText,
+      'duration_resolved':!unresolved.contains('task_duration'),
+      'unresolved_fields':unresolved.toList(),'action_resolution':'joint_agent_review'});
+  }
   /// Beginning and resuming the SAME paused save share permission to play.
   /// No stop/target/duration uncertainty is erased. Sparse unreported mass is
   /// an opposing upper bound rather than imaginary evidence for permission.

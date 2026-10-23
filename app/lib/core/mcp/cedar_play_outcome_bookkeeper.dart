@@ -78,7 +78,10 @@ class CedarPlayOutcomeBookkeeper {
     required CedarPlayBookkeepingOrigin origin,
   }) async {
     final successfulStateChange =
-        !outcome.isError && CedarSoloEpisodePolicy.isStateChangingAction(action);
+        !outcome.isError && !CedarPlatformActionPolicy.explicitlyRejected(outcome.text) &&
+        !CedarPlatformActionPolicy.isReadOnlyEvent(action,
+          session.events.isEmpty ? '' : session.events.last.inputJson) &&
+        CedarSoloEpisodePolicy.isStateChangingAction(action);
     final realtime = (session.mode.supportsSharedParticipation &&
             session.invitationApproved) ||
         session.hasPendingRoomMessage ||

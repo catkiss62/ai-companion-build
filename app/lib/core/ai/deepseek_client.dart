@@ -9,6 +9,7 @@ import 'chat_api_provider.dart';
 import 'generation_cancellation.dart';
 import 'model_profile.dart';
 import 'final_reply_route.dart';
+import 'thinking_tool_history.dart';
 import 'relay_text_tail_guard.dart';
 import 'optional_tool_compatibility.dart';
 
@@ -190,8 +191,9 @@ class DeepSeekClient {
     final capabilityKey=sha256.convert(utf8.encode('$endpoint\u0000$effectiveModel\u0000${apiKey.trim()}')).toString();
     final canonicalTools = optionalEntry && OptionalToolCompatibility.plainChat(capabilityKey)
         ? const <Map<String,Object?>>[] : offeredTools;
-    final requestMessages = provider.isGeminiRelay
-        ? FinalReplyRoute.prepareMessages(messages) : messages;
+    final requestMessages = ThinkingToolHistory.prepare(
+      provider.isGeminiRelay ? FinalReplyRoute.prepareMessages(messages) : messages,
+      thinking: thinking, toolsOffered: canonicalTools.isNotEmpty);
     final promptShape = _promptShape(requestMessages, canonicalTools);
     final request = http.Request('POST', Uri.parse(endpoint))
       ..headers.addAll({

@@ -20,13 +20,15 @@ class MemoryBrain {
     int relevantLimit = 8,
     DateTime? summaryBefore,
     String retrievalMode = 'userTurn',
+    Set<String> excludedAssistantSources = const {},
   }) async {
     final admitted = (await db.relevantMemories(
       query,
       limit: relevantLimit,
       retrievalMode: retrievalMode,
     ))
-        .where(_allowedDuringPersonalityLearningObservation)
+        .where((item)=>_allowedDuringPersonalityLearningObservation(item) &&
+          !excludedAssistantSources.contains(item.sourceAssistantMessageId))
         .toList(growable: false);
 
     // These headings remain useful to the model, but unlike the old policy
@@ -51,10 +53,12 @@ class MemoryBrain {
         .toList(growable: false);
 
     final inferences = (await db.relevantMemoryInferences(query, limit: 2))
-        .where(_allowedDuringPersonalityLearningObservation)
+        .where((item)=>_allowedDuringPersonalityLearningObservation(item) &&
+          !excludedAssistantSources.contains(item.sourceAssistantMessageId))
         .toList(growable: false);
     final history = (await db.relevantHistoricalMemories(query, limit: 2))
-        .where(_allowedDuringPersonalityLearningObservation)
+        .where((item)=>_allowedDuringPersonalityLearningObservation(item) &&
+          !excludedAssistantSources.contains(item.sourceAssistantMessageId))
         .toList(growable: false);
 
     final experienceSources = retrievalMode == 'proactive'

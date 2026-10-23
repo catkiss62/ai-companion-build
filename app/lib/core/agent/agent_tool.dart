@@ -152,6 +152,7 @@ class AgentToolResult {
     this.continuationRecommended = false,
     this.submittedArguments = const <String, Object?>{},
     this.historySources = const <QualifiedConversationSource>[],
+    this.goalSatisfied,
   });
 
   final String toolId;
@@ -160,6 +161,8 @@ class AgentToolResult {
   final String promptData;
   final int resultCount;
   final String errorCode;
+  /// Null is legacy/unknown, not proof that a multi-step user goal finished.
+  final bool? goalSatisfied;
   /// Files prepared by a real media tool for the current assistant message.
   /// They become visible only if the generation job commits atomically.
   final List<MessageAttachment> attachments;
