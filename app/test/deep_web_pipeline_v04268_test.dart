@@ -164,7 +164,7 @@ class _Stickers extends StickerExpressionService {
   static const record = StickerRecord(packId: 'test', path: 'smile.png', tag: 'happy', caption: '微笑着听对方说话', keywords: '听 开心', toneScope: 'general', intensity: 1, enabled: true);
   @override
   Future<List<StickerReplyCandidate>> replyCandidates({required String seed, required String context,
-    bool eligible = true, bool allowBold = false}) async => [const StickerReplyCandidate('s1', pack, record)];
+    bool eligible = true, bool allowBold = false, DateTime? now}) async => [const StickerReplyCandidate('s1', pack, record)];
   @override
   Future<SelectedStickerAttachment?> prepareReplyChoice({required String messageId,
     required StickerReplyChoice choice, required List<StickerReplyCandidate> candidates,
