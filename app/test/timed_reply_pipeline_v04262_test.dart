@@ -6,6 +6,7 @@ import 'package:ai_companion_localfirst/core/ai/deepseek_client.dart';
 import 'package:ai_companion_localfirst/core/ai/generation_cancellation.dart';
 import 'package:ai_companion_localfirst/core/ai/durable_generation_runner.dart';
 import 'package:ai_companion_localfirst/core/database/app_database.dart';
+import 'package:ai_companion_localfirst/core/database/conversation_source_store.dart';
 import 'package:ai_companion_localfirst/core/mcp/cedar_timed_play_task.dart';
 import 'package:ai_companion_localfirst/core/mcp/cedar_toy_activity.dart';
 import 'package:ai_companion_localfirst/core/models/chat_message.dart';
@@ -91,6 +92,14 @@ void main() {
         user: ChatMessage(id: 'user', role: 'user', content: '你现在去白色房间玩20分钟',
             createdAt: DateTime.now()),
         assistantMessageId: 'reply', model: 'deepseek-flash', reasoningEffort: 'high');
+      // Replay a real, current-source semantic decision. A turn ID alone is
+      // intentionally insufficient; otherwise the mock's empty fresh judgment
+      // silently replaces act_now and correctly defers the write operation.
+      final source = (await ConversationSourceStore.captureMessage(
+          await db.database, 'user'))!;
+      await db.setSetting('nsfw_route_source_key_v2',
+          '${source.contentHash}:${source.revision}');
+      await db.setSetting('cedar_route_certain_v1', '1');
       final runner = DurableGenerationRunner(db: db, client: client, secureConfig: secure);
       running = runner.run(pending, cancellationToken: cancellation);
       await finalStarted.future.timeout(const Duration(seconds: 15));
