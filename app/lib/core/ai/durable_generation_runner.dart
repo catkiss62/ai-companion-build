@@ -498,6 +498,7 @@ class DurableGenerationRunner {
             latestUserText:user.content,requireExplicitRoomTarget:true,deferredToolIds:deferredToolIds,
             deepThinking:job.deepThinking,callIndexOffset: agentToolCalls,maxCalls:1);
           agentToolCalls+=actual.length;
+          agentToolResults.addAll(actual);
           results.addAll(actual);
           if(readOnly && actual.length==1 && key!=null) {
             final after=await AgentProgressTracker.readState(db,call);
@@ -540,7 +541,6 @@ class DurableGenerationRunner {
         // for the actual guide-driven play decision.
         if (agentPlanningRounds == 0) agentPlanningRounds = 1;
         final localResults = await executeTaskPlan(plan,maxCalls:AgentTaskLoopPolicy.maxCallsPerRound);
-        agentToolResults.addAll(localResults);
         preparedAgentAttachments.addAll(
           localResults.expand((result) => result.attachments),
         );
@@ -651,6 +651,7 @@ class DurableGenerationRunner {
         if (!await executionStore.saveGoals(originalAttempt, turnGoals,
             isCancelled: () => effectiveCancellation.isCancelled)) return const GenerationRunResult(status: 'suspended');
       }
+      final cedarContextOnly = cedarContextAvailable && !cedarDirectRequest && !cedarSessionActive;
       final cedarPromptSession = cedarSession;
       final cedarConversationGameId = cedarSkillActive
           ? taskIntent.gameId.isNotEmpty ? taskIntent.gameId : CedarConversationTarget.recentGameId(
@@ -1292,7 +1293,8 @@ class DurableGenerationRunner {
                 n.name==AgentToolPlanner.nativeNameForToolId(c.toolId))];
               final outcomes=await executeTaskPlan(plan,maxCalls:2);
               effectiveCancellation.throwIfCancelled();
-              agentToolResults.addAll(outcomes);entryResults.addAll(outcomes);
+              entryResults.addAll(outcomes);
+              if(outcomes.isNotEmpty) agentLoopInvalidPlan=false;
               preparedAgentAttachments.addAll(outcomes.expand((r)=>r.attachments));
               preparedAgentMediaUsageKeys.addAll(outcomes.expand((r)=>r.mediaUsageKeys));
               await refreshReceipts();
@@ -1699,7 +1701,6 @@ $finalGenerationReminder
         if (roundResults.length != acceptedCalls.length) {
           throw const FormatException('工具调用与本地执行结果无法对应');
         }
-        agentToolResults.addAll(roundResults);
         await refreshReceipts();
         preparedAgentAttachments.addAll(
           roundResults.expand((result) => result.attachments),

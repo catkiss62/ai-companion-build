@@ -124,7 +124,7 @@ void main() {
           'game':'bar','action':'cmd','params_json':'{"slot":1,"command":"new-valid-step"}',
           'participation_mode':'solo','invitation_approved':false,'share_previous_outcome':false}),finish:'tool_calls')));
         try {
-          final engine=CedarToyAutonomyEngine(db:db,ai:backgroundAi,tokenReader:()async=>'ctai_v1_fixture',
+          final engine=CedarToyAutonomyEngine(db:db,ai:backgroundAi,secureConfig:SecureConfig.forTesting(const FlutterSecureStorage()),tokenReader:()async=>'ctai_v1_fixture',
             apiKeyReader:()async=>'fixture',endpointReader:()async=>DeepSeekClient.defaultEndpoint,clientFactory:(_)=>game);
           expect((await engine.continueDue(now:DateTime.now())).state,'write_reconciliation_scheduled');
           await activity.deferContinuation(gameId:'bar',delay:Duration.zero,now:DateTime.now().subtract(const Duration(seconds:1)));

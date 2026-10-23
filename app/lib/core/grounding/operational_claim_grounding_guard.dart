@@ -145,7 +145,9 @@ class OperationalClaimGroundingGuard {
   }) {
     final missingTimer=TurnGoalVerification.missing(taskGoals,currentToolResults.toList(),taskReceipts)
         .any((g)=>g.slot==TurnEffectSlot.cedarTimedRegistration);
-    if(missingTimer) {
+    final endedTimer=taskGoals.any((g)=>g.slot==TurnEffectSlot.cedarTimedRegistration &&
+      taskReceipts.any((r)=>r.turnId==g.turnId && r.slot==g.slot && r.result['activationState']=='ended'));
+    if(missingTimer || endedTimer) {
       for(final clause in _sentences(text)) {
         if(RegExp(r'没|尚未|并未|不去|不玩|先不|不能|无法|等.{0,12}(登记|确认|恢复)|确认后|登记后|如果|打算|想去').hasMatch(clause)) continue;
         if(RegExp(r'(这就|马上|现在就|已经).{0,10}(出发|去玩|开玩|开始玩|挂表|计时|开始)|'

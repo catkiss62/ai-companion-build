@@ -15,7 +15,8 @@ class AgentRuntimeDiagnostic {
     final sameTurn=turnId.isEmpty || raw['turn_id']==turnId;
     final intent=sameTurn && raw['intent'] is Map ? raw['intent'] as Map : const {};
     final state=await CedarToyActivityStore(db).loadState();
-    final game=intent['game_id']?.toString() ?? state.activeGameId;
+    final requestedGame=intent['game_id']?.toString() ?? '';
+    final game=requestedGame.isEmpty ? state.activeGameId : requestedGame;
     final session=state.sessions[game];
     final pending=game.isEmpty ? null : await CedarToyActivityStore(db).unresolvedWrite(game);
     final task=await CedarTimedPlayTaskStore(db).active();

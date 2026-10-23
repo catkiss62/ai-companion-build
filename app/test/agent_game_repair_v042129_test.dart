@@ -63,6 +63,11 @@ void main() {
     }
     expect(OperationalClaimGroundingGuard.evaluate(text:'「还没登记好，暂时没有开始计时。」',taskGoals:[goal]).allowed,true);
     expect(OperationalClaimGroundingGuard.evaluate(text:'「等确认后再开始。」',taskGoals:[goal]).allowed,true);
+    const ended=LocalEffectReceipt(turnId:'u',slot:TurnEffectSlot.cedarTimedRegistration,
+      payloadHash:'fixture',state:LocalEffectState.committed,result:{'gameId':'bar','minutes':30,'activationState':'ended'},
+      runToken:'old',createdAt:1);
+    expect(OperationalClaimGroundingGuard.evaluate(text:'「这就出发，半小时后回来汇报！」',
+      taskGoals:[goal],taskReceipts:[ended]).reason,'unregistered_timed_task_promise');
   });
 
   for(final second in [false,true]) {
@@ -117,7 +122,7 @@ void main() {
             if(scenario=='seven_reads' || scenario=='reenter') {
               expect(outcomes.where((r)=>r.toolId=='chat_history.read'),hasLength(7));expect(plans,greaterThan(6));
             }
-            if(scenario=='reenter')expect(finals,3);
+            if(scenario=='reenter') {expect(finals,3);expect(outcomes.where((r)=>r.toolId=='system_self.read'),hasLength(1));}
             if(scenario=='stalled') {expect(plans,4);expect(outcomes.where((r)=>r.toolId=='system_self.read'),hasLength(1));}
             if(scenario=='changed')expect(outcomes.where((r)=>r.toolId=='system_self.read'),hasLength(2));
           }
