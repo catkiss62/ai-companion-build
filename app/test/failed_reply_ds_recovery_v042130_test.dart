@@ -43,7 +43,8 @@ void main() {
     } finally {client.close();}
   });
 
-  test('failed 400 is not generating; confirmed DS selection runs the same request to completion',()async {
+  for (final status in ['failed', 'retry_wait', 'orphan_running']) {
+  test('$status resumes the same turn without waiting for old retry or checkpoint age',()async {
     final directory=await Directory.systemTemp.createTemp('failed-reply374-');
     final paths=PathProviderPlatform.instance;PathProviderPlatform.instance=_Paths(directory.path);
     final db=await AppDatabase.createForTesting(databaseFactoryFfi);
@@ -51,7 +52,7 @@ void main() {
       'chat_api_provider':'aiwangyou_gemini','aiwangyou_gemini_api_key':'second-fixture'});
     const channel=MethodChannel('ai_companion/system');
     final messenger=TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger;
-    messenger.setMockMethodCallHandler(channel,(_)async=>null);
+    messenger.setMockMethodCallHandler(channel,(c)async=>c.method=='runtimeProcessEpoch'?'new-process':null);
     var firstCalls=0,secondCalls=0;
     final client=DeepSeekClient(streamClientFactory:()=>MockClient((request)async {
       if(request.url.host.contains('aiwangyou'))secondCalls++;else firstCalls++;
@@ -69,13 +70,32 @@ void main() {
         content:'继续说吧',createdAt:DateTime.now()),assistantMessageId:'a',
         model:'deepseek-flash',reasoningEffort:'high');
       final claimed=(await db.claimGenerationJob(pending.id))!;
-      await db.failGenerationJob(pending.id,runToken:claimed.runToken,
-        error:'API 400: reasoning_content must be passed back',recoverable:false);
+      if (status != 'orphan_running') {
+        await db.failGenerationJob(pending.id,runToken:claimed.runToken,
+          error:'API 400: reasoning_content must be passed back',recoverable:status=='retry_wait');
+        if (status == 'retry_wait') {
+          await (await db.database).update('generation_jobs', {
+            'next_retry_at': DateTime.now().add(const Duration(hours:1)).millisecondsSinceEpoch,
+          }, where:'id = ?', whereArgs:[pending.id]);
+        }
+      } else {
+        await db.setSetting('chat_turn_lease',
+          'old-process:00000000-0000-0000-0000-000000000001|${DateTime.now().add(const Duration(minutes:2)).millisecondsSinceEpoch}');
+        expect(await db.nextGenerationRecoveryDelay(), Duration.zero);
+        // Keep both paid routes configured while explicitly testing recovery
+        // on the first channel to make assertions independent of routing.
+        await db.selectDeepSeekForGeneration(pending.id);
+      }
       await chat.syncExternalMessages();
-      expect(chat.generationActive,false);expect(chat.failedReplyAvailable,true);
+      expect(chat.generationActive,status!='failed');expect(chat.failedReplyAvailable,status=='failed');
       expect(chat.showManualReplyControl,true);expect(chat.canUseDeepSeekForCurrentReply,true);
-      await chat.useDeepSeekForCurrentReply(expectedReplyIdentity:chat.manualReplyIdentity)
-        .timeout(const Duration(seconds:30));
+      if (status == 'orphan_running') {
+        await chat.resumePendingGeneration().timeout(const Duration(seconds:30));
+      } else {
+        await chat.useDeepSeekForCurrentReply(expectedReplyIdentity:chat.manualReplyIdentity)
+          .timeout(const Duration(seconds:30));
+      }
+      expect(await db.isGenerationRunCurrent(pending.id,runToken:claimed.runToken),false);
       expect((await db.generationJobById(pending.id))!.status,'completed');
       expect((await db.messageById('a'))!.content,contains('接上了'));
       expect(firstCalls,greaterThan(0));expect(secondCalls,0);
@@ -86,4 +106,5 @@ void main() {
       await directory.delete(recursive:true);
     }
   });
+  }
 }

@@ -19,6 +19,8 @@ class OverlayGenerationSnapshot {
 
   String get phase {
     if (cancelling) return 'cancelling';
+    if (const {'pending', 'retry_wait', 'failed', 'awaiting_confirmation'}
+        .contains(runtimePhase)) return runtimePhase;
     if (!sending) return 'idle';
     if (runtimePhase == 'thinking' || runtimePhase == 'answering') {
       return runtimePhase;

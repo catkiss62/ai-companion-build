@@ -58,6 +58,14 @@ class GenerationJob {
 
   bool get isBlocking => !isTerminal;
 
+  String get waitingStatusText => switch (status) {
+    'retry_wait' => '回复中断，等待重试…',
+    'pending' => attempts > 0 ? '正在恢复上次回复…' : '等待开始回复…',
+    'failed' => '这次回复失败，请重试。',
+    'awaiting_confirmation' => '回复已截断，请到主聊天页处理。',
+    _ => '',
+  };
+
   factory GenerationJob.fromDb(Map<String, Object?> row) => GenerationJob(
         id: row['id'] as String,
         assistantSourceRevision: (row['assistant_source_revision'] as num?)?.toInt() ?? 0,

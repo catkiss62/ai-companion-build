@@ -34,6 +34,8 @@ jobs:
           test/agent_task_loop_v04150_test.dart
           test/deep_web_v04268_test.dart
           test/agent_protocol_v042131_test.dart
+          test/reply_recovery_v042132_test.dart
+          test/background_commit_v042132_test.dart
           test/execution_recovery_v042130_test.dart
           test/failed_reply_ds_recovery_v042130_test.dart
           test/game_intent_pipeline_v042130_test.dart

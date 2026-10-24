@@ -11,7 +11,8 @@ class BackgroundPresencePolicy {
   static const reactivePerceptionMinInterval = Duration(seconds: 90);
 
   static bool shouldEvaluateChoices({required bool scheduledHeartbeatDue,
-    required bool episodeCheckpointDue}) => scheduledHeartbeatDue || episodeCheckpointDue;
+    required bool episodeCheckpointDue, bool reactiveHeartbeatDue = false}) =>
+      scheduledHeartbeatDue || episodeCheckpointDue || reactiveHeartbeatDue;
 
   static bool isReactiveWakeReason(String wakeReason) =>
       wakeReason.trim().toLowerCase().startsWith(reactivePrefix);

@@ -54,8 +54,8 @@ class PresenceMomentumPolicy {
   const PresenceMomentumPolicy._();
 
   static const halfLife = Duration(minutes: 55);
-  static const eventBudgetPerMinute = 0.003;
-  static const thoughtReadinessScore = 0.34;
+  // Restore +365's event responsiveness with all three evidence rewards halved.
+  static const phoneActivityRewardScale = 0.5;
 
   static PresenceMomentumResult advance({
     required double previousScore,
@@ -71,28 +71,15 @@ class PresenceMomentumPolicy {
     if (input.screenInteractive && !fresh.reset) {
       // Only new evidence can add pressure. Notifications are not user actions.
       // Time-normalized activity replaces the flat bonus on every capture.
-      impulse += (fresh.activeMinutes * 0.009).clamp(0.0, 0.27);
-      final interval = max(elapsedMinutes, fresh.activeMinutes).clamp(0.0, 30.0);
-      // Switching and UI events describe the same interval. A faster capture
-      // cadence must not grant another full event reward on every wake.
-      final eventEvidence = max(0, fresh.switches) / 14.0 * 0.10 +
-          max(0, fresh.accessibilityEvents) / 12.0 * 0.10;
-      impulse += min(eventEvidence, interval * eventBudgetPerMinute);
+      impulse += (fresh.activeMinutes * 0.009).clamp(0.0, 0.27) * phoneActivityRewardScale;
+      impulse += (fresh.switches / 14.0 * 0.10).clamp(0.0, 0.10) * phoneActivityRewardScale;
+      impulse += (fresh.accessibilityEvents / 12.0 * 0.10).clamp(0.0, 0.10) * phoneActivityRewardScale;
     }
 
     // One capture should rarely be enough. Repeated evidence over several
     // reactive heartbeats is what gradually makes her more inclined to think
     // about/contact the user.
-    final interval = max(elapsedMinutes, fresh.activeMinutes)
-        .clamp(0.0, 30.0)
-        .toDouble();
-    // Integrate an interval's average evidence rate over the same decay curve.
-    // Uniform evidence split into 90s or 4m captures produces the same score.
-    final exponent = interval * ln2 / halfLife.inMinutes;
-    final retentionWeight = exponent > 0.000001
-        ? (1 - exp(-exponent)) / exponent
-        : 1.0;
-    final score = (retained + impulse * retentionWeight)
+    final score = (retained + impulse)
         .clamp(0.0, 0.88)
         .toDouble();
     final signalClass = _signalClass(input);
@@ -101,10 +88,8 @@ class PresenceMomentumPolicy {
         !fresh.reset &&
         impulse > 0 &&
         input.userIdleMinutes >= 5 &&
-        // A rate threshold alone made even quiet 90s captures release thoughts
-        // around half an hour. Readiness must reflect accumulated presence,
-        // independent of how often Android reports the same ongoing activity.
-        score >= thoughtReadinessScore;
+        score >= 0.20 &&
+        (impulse >= 0.035 || score >= 0.34);
     final thoughtStrength = (0.14 + score * 0.34).clamp(0.16, 0.43).toDouble();
 
     return PresenceMomentumResult(

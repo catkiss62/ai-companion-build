@@ -263,7 +263,10 @@ class PerceptionEngine {
       }
     }
 
-    // UI event counts already share Presence's time-normalized event budget.
+    // +365's separate event curiosity reward follows the same 50% scale.
+    if (!phoneEvidence.reset && phoneEvidence.accessibilityEvents >= 8) {
+      await desire.applyExperience({DriveKey.curiosity: 0.004 * PresenceMomentumPolicy.phoneActivityRewardScale});
+    }
     // They must not also grant a separate curiosity pulse on every capture.
     if (newNotificationCount >= 4) {
       await desire.applyExperience({DriveKey.stress: 0.006});

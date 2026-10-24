@@ -2199,7 +2199,6 @@ ${arrangements.prompt}''',
       rethrow;
     }
     outcome = CedarPlatformActionPolicy.normalizeOutcome(outcome);
-    await store.resolveRemoteDispatch(gameId: session.gameId, executionId: scope.executionId, action: action, authoritative: true, params: params, outcome: outcome);
     if (!outcome.isError &&
         !platformAction &&
         action == 'rooms' &&
@@ -2237,6 +2236,7 @@ ${arrangements.prompt}''',
           // replans from that authoritative state; multiple rooms are never
           // chosen locally.
           final roomsSession = await store.recordPlay(
+            submittedParams: params,
             gameId: session.gameId,
             action: action,
             outcome: outcome,
@@ -2248,6 +2248,9 @@ ${arrangements.prompt}''',
             executionId: scope.executionId,
             keepExecution: true,
           );
+          await store.resolveRemoteDispatch(gameId: session.gameId,
+            executionId: scope.executionId, action: action,
+            authoritative: true, params: params, outcome: outcome);
           await store.updateExecutionAction(
             executionId: scope.executionId,
             action: 'state',
@@ -2255,7 +2258,7 @@ ${arrangements.prompt}''',
           scope.throwIfPreempted();
           await CedarTimedPlayTaskStore(db).recordWork(gameId:session.gameId,
             executionId:scope.executionId,toolCalls:1);
-          final stateOutcome = await client.play(
+          var stateOutcome = await client.play(
             session.gameId,
             'state',
             stateParams,
@@ -2272,7 +2275,10 @@ ${arrangements.prompt}''',
                   outcome: stateOutcome,
                   cancellationToken: scope.cancellation,
                 );
+          stateOutcome = CedarPlatformActionPolicy.normalizeOutcome(
+            stateOutcome, accepted: stateVerification.accepted);
           final hydratedSession = await store.recordPlay(
+            submittedParams: stateParams,
             gameId: session.gameId,
             action: 'state',
             outcome: stateOutcome,
@@ -2339,6 +2345,11 @@ ${arrangements.prompt}''',
             executionId: scope.executionId,
             keepExecution: true,
           );
+    // A crash or preemption before recordPlay commits must leave the dispatch
+    // unresolved. A successor can then reconcile instead of replaying a move.
+    await store.resolveRemoteDispatch(gameId: session.gameId,
+      executionId: scope.executionId, action: action, authoritative: true,
+      params: params, outcome: outcome);
     if (!outcome.isError && !platformAction && !CedarPlatformActionPolicy.isReadOnlyCall(action, params) &&
         !CedarPlatformActionPolicy.explicitlyRejected(outcome.text)) {
       for (final wish in (await WishStore(db).load()).where((w) =>

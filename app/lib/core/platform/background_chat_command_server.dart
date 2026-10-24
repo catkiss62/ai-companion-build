@@ -261,14 +261,15 @@ class BackgroundChatCommandServer {
       );
     }
     return OverlayGenerationSnapshot(
-      sending: true,
+      sending: job.status != 'failed' && job.status != 'awaiting_confirmation',
       cancelling: false,
       reasoning: job.partialReasoning,
       content: '',
       assistantMessageId: job.assistantMessageId,
-      statusText:
+      statusText: job.waitingStatusText.isNotEmpty ? job.waitingStatusText :
           await db.getSetting('agent_tool_runtime_status_text') ?? '',
-      runtimePhase: await db.getSetting('agent_tool_runtime_phase') ?? '',
+      runtimePhase: job.waitingStatusText.isNotEmpty ? job.status :
+          await db.getSetting('agent_tool_runtime_phase') ?? '',
     );
   }
 

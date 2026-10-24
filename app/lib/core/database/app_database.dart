@@ -7829,11 +7829,14 @@ class AppDatabase {
       final at = DateTime.fromMillisecondsSinceEpoch(ms);
       return at.isAfter(now) ? at.difference(now) : Duration.zero;
     }
-    final updated = DateTime.fromMillisecondsSinceEpoch(
-      row['updated_at'] as int? ?? now.millisecondsSinceEpoch,
-    );
-    final staleAt = updated.add(const Duration(minutes: 2));
-    return staleAt.isAfter(now) ? staleAt.difference(now) : Duration.zero;
+    // The execution lease, not the age of a saved checkpoint, is the liveness
+    // evidence. A new process may reclaim an orphan immediately; a surviving
+    // engine must wait for the current process's short lease to expire.
+    final lease = await localLeaseDiagnostic('chat_turn_lease');
+    if (lease['held'] != true || lease['sameRuntime'] != true) {
+      return Duration.zero;
+    }
+    return Duration(milliseconds: lease['expiresInMs'] as int);
   }
 
   Future<GenerationJob?> claimGenerationJob(String id) async {
@@ -7879,7 +7882,15 @@ class AppDatabase {
       }
       if (current.status == 'running' &&
           DateTime.now().difference(current.updatedAt) < const Duration(minutes: 2)) {
-        return null;
+        final owned = _ownedLeaseTokens['chat_turn_lease'];
+        final lease = await txn.query('settings', columns: ['value'],
+          where: 'key = ?', whereArgs: const ['chat_turn_lease'], limit: 1);
+        final raw = lease.isEmpty ? '' : lease.first['value'] as String? ?? '';
+        // Only an exclusive, still-current owner may bypass the historical
+        // age gate. A stale callback cannot reclaim a successor's attempt.
+        if (owned == null || !raw.startsWith('$owned|') || _leaseUntil(raw) <= now) {
+          return null;
+        }
       }
       final resumeReason = current.status == 'running'
           ? 'stale_running_recovered'
@@ -8201,6 +8212,12 @@ class AppDatabase {
           .contains(rows.first['status'])) return false;
       await txn.insert('settings', {'key': FinalReplyControl.settingKey, 'value': jobId},
           conflictAlgorithm: ConflictAlgorithm.replace);
+      if (rows.first['status'] == 'retry_wait') {
+        await txn.update('generation_jobs', {
+          'status': 'pending', 'next_retry_at': null,
+          'updated_at': DateTime.now().millisecondsSinceEpoch,
+        }, where: 'id = ? AND status = ?', whereArgs: [jobId, 'retry_wait']);
+      }
       return true;
     });
   }

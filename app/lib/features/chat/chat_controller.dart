@@ -233,6 +233,7 @@ class ChatController extends ChangeNotifier {
     final jobId = _activeGenerationJobId ?? _externalReplyJobId;
     if (jobId != null) {
       final wasFailed = failedReplyAvailable;
+      final before = await db.generationJobById(jobId);
       if (wasFailed && !await db.retryFailedGenerationJob(jobId, useDeepSeek:true)) {
         _externalDeepSeekSelected = false;
         error = '这条回复状态已变化，请稍后重试。';
@@ -244,11 +245,13 @@ class ChatController extends ChangeNotifier {
         // A completed transaction wins over a click arriving afterwards.
         _externalDeepSeekSelected = false;
       }
-      if (accepted && wasFailed) {
+      if (accepted && control == null && (wasFailed || before?.status == 'retry_wait')) {
         failedReplyAvailable = false;
         error = null;
-        final job = await db.generationJobById(jobId);
-        if (job != null) await _runTrustedCurrentProcessGeneration(job, leaseAlreadyHeld: false);
+        // This is an explicit user action, not an automatic retry. Wake the
+        // same durable turn now; its existing tool receipts remain intact.
+        await resumePendingGeneration();
+        await syncExternalMessages();
       }
     }
     _safeNotify();
@@ -547,7 +550,8 @@ class ChatController extends ChangeNotifier {
       const nextContent = '';
       final nextAssistantId = awaitingDecision ? null : job?.assistantMessageId;
       final statusText = nextActive
-          ? (await db.getSetting('agent_tool_runtime_status_text') ?? '')
+          ? (job!.waitingStatusText.isNotEmpty ? job.waitingStatusText :
+              await db.getSetting('agent_tool_runtime_status_text') ?? '')
           : '';
       runtimeChanged = runtimeChanged || externalGenerationActive != nextActive ||
           streamingReasoning != nextReasoning ||
@@ -1785,7 +1789,7 @@ class ChatController extends ChangeNotifier {
   }
 
   Future<void> resumePendingGeneration() async {
-    if (_disposed || sending) return;
+    if (_disposed || sending || recoveringGeneration) return;
     if (!await db.brainWorkAllowed()) return;
 
     recoveringGeneration = true;
@@ -1842,6 +1846,13 @@ class ChatController extends ChangeNotifier {
     await Future<void>.delayed(bounded);
     if (_disposed || epoch != _recoveryScheduleEpoch) return;
     await resumePendingGeneration();
+  }
+
+  /// Opening/resuming full chat must also wake orphaned overlay work. Merely
+  /// projecting the durable running flag cannot restart a dead provider call.
+  void wakePendingGeneration() {
+    if (_disposed || sending || recoveringGeneration || externalRecoveryOrchestrator) return;
+    unawaited(_scheduleGenerationRecovery());
   }
 
   /// Stops the current reply as one operation: model stream, durable recovery,

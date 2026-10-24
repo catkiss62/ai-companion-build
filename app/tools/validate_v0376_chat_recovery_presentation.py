@@ -62,7 +62,7 @@ resume_end = controller.index("\n  Future<", resume_at + 20)
 resume_body = controller[resume_at:resume_end]
 assert "generationRecovery.recoverOne()" in resume_body
 assert "generationRunner.run" not in resume_body
-assert "正在结束上次中断的回复" in chat
+assert "正在恢复上次中断的回复" in chat
 assert "GenerationLeaseGuard(db, job)" in runner
 assert "const Duration(seconds: 30)" in read("lib/core/ai/generation_lease_guard.dart")
 assert "reasoning: delta.reasoning" in runner

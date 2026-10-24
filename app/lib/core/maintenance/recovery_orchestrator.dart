@@ -265,7 +265,8 @@ class RecoveryOrchestrator {
         'anti_addiction_checkpoint',
       }.contains(cedarContinuationState);
       final decisionDue = BackgroundPresencePolicy.shouldEvaluateChoices(
-        scheduledHeartbeatDue: scheduledHeartbeatDue, episodeCheckpointDue: episodeCheckpointDue);
+        scheduledHeartbeatDue: scheduledHeartbeatDue, episodeCheckpointDue: episodeCheckpointDue,
+        reactiveHeartbeatDue: reactiveHeartbeatDue);
       final heartbeatDue = decisionDue || reactiveHeartbeatDue;
       final perceptionMinInterval = reactiveHeartbeatDue
           ? BackgroundPresencePolicy.reactivePerceptionMinInterval

@@ -1587,7 +1587,7 @@ class OverlayBubbleService : Service() {
         lastRenderedGeneration = visible
         chatAdapter?.notifyDataSetChanged()
         scrollChatToBottom()
-        if (!sharedSending) setChatStatus(null)
+        if (!sharedSending) setChatStatus(statusText.takeIf { it.isNotBlank() })
     }
 
     private fun removeStreamingMessage(notify: Boolean = true) {

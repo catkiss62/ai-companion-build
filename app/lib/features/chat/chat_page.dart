@@ -605,6 +605,7 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
       unawaited(_refreshPlayfulForm());
       unawaited(controller.acknowledgeOverlayUnread());
       unawaited(controller.syncExternalMessages());
+      controller.wakePendingGeneration();
       unawaited(() async {
         await CalendarReminderFollowup(AppDatabase.instance).deliverOne();
         if (mounted) await controller.syncExternalMessages();
@@ -3624,7 +3625,7 @@ class _StreamingBubble extends StatelessWidget {
                     children: [
                       Flexible(child: Text(controller.failedReplyAvailable
                           ? '这次回复失败。' : controller.recoveringGeneration
-                          ? '正在结束上次中断的回复…' : '她正在准备回复…')),
+                          ? '正在恢复上次中断的回复…' : '她正在准备回复…')),
                       if (controller.failedReplyAvailable) TextButton(
                         onPressed: controller.cancelCurrentGeneration, child: const Text('放弃这次回复')),
                       if (controller.showManualReplyControl) ...[

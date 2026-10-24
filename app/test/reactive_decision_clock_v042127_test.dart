@@ -37,7 +37,7 @@ class _CountingProactive extends ProactiveEngine {
 }
 void main(){
   TestWidgetsFlutterBinding.ensureInitialized();sqfliteFfiInit();
-  test('real recovery cycles preserve the ordinary decision clock through repeated phone wakes',()async{
+  test('bounded phone wakes restore +365 decision opportunities',()async{
     final files=await Directory.systemTemp.createTemp('decision-clock-');
     final paths=PathProviderPlatform.instance;PathProviderPlatform.instance=_Paths(files.path);
     final messenger=TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger;
@@ -57,12 +57,12 @@ void main(){
       for(var i=0;i<4;i++){
         await db.setSetting('last_perception_capture_at',DateTime.now().subtract(const Duration(minutes:2)).millisecondsSinceEpoch.toString());
         final cycle=await orchestrator.runOnce(wakeReason:'signal:window_changed');
-        expect(cycle.proactiveReason,'reactive_perception_only');
-        expect(await db.getSetting(key),due,reason:'A sensor wake must not postpone the ordinary decision either');
+        expect(cycle.proactiveReason,'counted_decision');
+        expect(int.parse((await db.getSetting(key))!), greaterThan(DateTime.now().millisecondsSinceEpoch));
       }
-      expect(proactive.local,4);expect(proactive.decisions,0);
+      expect(proactive.local,0);expect(proactive.decisions,4);
       await db.setSetting(key,'0');await orchestrator.runOnce();
-      expect(proactive.decisions,1);expect(proactive.local,4);
+      expect(proactive.decisions,5);expect(proactive.local,0);
       expect(int.parse((await db.getSetting(key))!),greaterThan(DateTime.now().millisecondsSinceEpoch));
     }finally{
       client.close();await db.closeForTesting();messenger.setMockMethodCallHandler(channel,null);
