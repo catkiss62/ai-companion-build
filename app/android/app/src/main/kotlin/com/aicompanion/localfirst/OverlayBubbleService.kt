@@ -83,6 +83,8 @@ class OverlayBubbleService : Service() {
     private lateinit var windowManager: WindowManager
     private val lifetime = OverlayWindowSession()
     private val submissions = OverlaySubmissionState()
+    private val submissionLogExecutor = ThreadPoolExecutor(1, 1, 0L, TimeUnit.MILLISECONDS,
+        ArrayBlockingQueue<Runnable>(16), ThreadPoolExecutor.DiscardPolicy())
     private var chatRemovalPending = false
     private var chatRemovalAttempts = 0
     private var chatHealthRecoveryAttempts = 0
@@ -528,6 +530,7 @@ class OverlayBubbleService : Service() {
         lifetime.destroy()
         mainHandler.removeCallbacksAndMessages(null)
         thumbnailExecutor.shutdownNow()
+        submissionLogExecutor.shutdown()
         pendingThumbnails.clear()
         thumbnailCache.evictAll()
         mainHandler.removeCallbacks(permissionWatch)
@@ -2906,11 +2909,17 @@ class OverlayBubbleService : Service() {
     }
 
     private fun noteOverlaySubmission(stage: String, epoch: Long, error: String = "") {
-        runCatching {
-            NativeEventStore.addDeviceEvent(this, source = "system",
-                eventType = "overlay_chat_submission", appPackage = packageName,
-                summary = "stage=$stage; command=$epoch; window=${lifetime.windowEpoch}; " +
-                    "attached=${chatRoot?.isAttachedToWindow}; engine=${System.identityHashCode(backgroundEngine)}; error=$error")
+        // Capture identity on the UI thread, write only on the bounded worker.
+        // Database contention must never extend the send/IME critical path.
+        val app = applicationContext
+        val appPackage = packageName
+        val summary = "stage=$stage; command=$epoch; window=${lifetime.windowEpoch}; " +
+            "attached=${chatRoot?.isAttachedToWindow}; engine=${System.identityHashCode(backgroundEngine)}; error=$error"
+        submissionLogExecutor.execute {
+            runCatching {
+                NativeEventStore.addDeviceEvent(app, source = "system",
+                    eventType = "overlay_chat_submission", appPackage = appPackage, summary = summary)
+            }
         }
     }
 
