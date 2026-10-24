@@ -36,7 +36,11 @@ void main() {
           final navigation = tester.getRect(find.byType(CompanionBottomNavigation));
           expect(button.bottom, lessThanOrEqualTo(navigation.top));
           expect(button.bottom, greaterThanOrEqualTo(navigation.top - 48));
-          expect((tester.getCenter(find.text('first-model')).dy - button.center.dy).abs(), lessThan(12));
+          final model = tester.getRect(find.text('first-model'));
+          final background = tester.getRect(find.text('背景图'));
+          expect((model.center.dy - background.center.dy).abs(), lessThan(12));
+          expect(background.right, lessThan(model.left));
+          expect(model.bottom, lessThan(button.top));
           expect(tester.takeException(),isNull);
           await tester.tap(find.text('first-model'));
           // The menu reloads persisted choices before opening its route.
