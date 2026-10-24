@@ -12,7 +12,7 @@
 
 ## 建议阅读顺序
 
-1. [当前总账 v3](app/docs/ledger/AI_Companion_总账_v3.md) 的顶部接班快照，确认最新交付与待办。
+1. [当前总账 v3](app/docs/ledger/AI_Companion_总账_v3.md) 的顶部维护重点、收尾任务入口及接班快照，确认最新交付与待办。当前执行清单见[收尾修补与七类复查计划](app/docs/STABILITY_CLOSEOUT_PLAN_2026-10-25.md)。
 2. 根据下表进入相关源码，再追调用者、持久化与恢复路径。
 3. 阅读该功能测试及 [文档地图](app/docs/DOCUMENTATION_MAP.md)，按需检索历史设计。
 4. 修改后按 [构建说明](app/docs/BUILDING.md) 验证；清楚区分源码检查、自动测试、CI/APK 与真机证据。
@@ -57,6 +57,7 @@ rg -n '梦境|DreamEngine|FirstChannelModel.work' app/lib app/test
 
 ## 本轮未完成事项
 
+- [收尾修补与七类复查计划](app/docs/STABILITY_CLOSEOUT_PLAN_2026-10-25.md)：统一整理九项漏洞、三项模型/API设置、两项先验证边界和G1–G7复查顺序；当前为计划，运行修补与新检查尚未执行。共享同一个“她”，通过明确接口控制各模块修改范围。
 - [+377 后九类审查](app/docs/POST_377_AGENT_GAME_OVERLAY_AUDIT_2026-10-25.md)：发现与待修记录，尚未实施新一轮修复；两次手机退出仍缺设备堆栈，不能将逻辑漏洞当作已确认崩溃根因。
 - [模型配置与插件讨论](app/docs/MODEL_CONFIG_FOLLOWUPS_2026-10-25.md)：第一通道独立模型/力度、工作模型与凭据，以及梦境模型策略。用户最后取舍为稳定优先，保留 App 并改善内部模块；插件运行时/迁入 DSHA 均非当前推进目标，后文历史建议不得覆盖最新决定。
 
