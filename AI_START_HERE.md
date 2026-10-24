@@ -42,7 +42,7 @@
 - [dream_material.dart](app/lib/core/self/dream_material.dart)：来源快照、材料序列及关联证据。
 - [dream_store.dart](app/lib/core/self/dream_store.dart)：状态、来源核验、提交与诊断。
 - 调用入口：`app/lib/core/desire/proactive_engine.dart`；兼容包装：`app/lib/core/self/ai_self_reflection_engine.dart`。
-- 当前实现优先选用工作模型（`FirstChannelModel.work`），梦境请求固定 High。讨论过 Flash＋High 的独立默认策略，但尚未实施，不能据讨论修改现状描述。
+- 当前实现优先选用工作模型（`FirstChannelModel.work`），梦境请求固定 High。最新待办已确认：改为跟随第一聊天通道 DeepSeek 的模型与对应接口，不写死 Flash、不跟随工作模型或第二通道；本轮未要求另改梦境 High 力度，尚未实施。此前独立默认 Flash 的候选建议已被这项决定替代。
 - 历史设计：[NIGHTLY_DREAM_v0.42.78.md](app/docs/NIGHTLY_DREAM_v0.42.78.md)。其中早期 Pro 描述需结合当前路由源码读取。
 - 现有测试：[nightly_dream_test.dart](app/test/nightly_dream_test.dart)、[nightly_dream_pipeline_test.dart](app/test/nightly_dream_pipeline_test.dart)、[dream_source_continuity_test.dart](app/test/dream_source_continuity_test.dart)。
 
