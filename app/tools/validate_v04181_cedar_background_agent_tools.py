@@ -37,8 +37,8 @@ require(
     "missing_tool_call",
     "wrong_game",
     "non_executable_action",
-    "CedarPlatformActionPolicy.isReadOnly(session.lastAction)",
-    "CedarPlatformActionPolicy.isReadOnly(candidate)",
+    "session.repeatsUnchangedRead(candidate.action, hydrated)",
+    "session.repeatsUnchangedRead(action, params)",
     "_recordAgentActionRetry",
 )
 
@@ -48,6 +48,14 @@ advance = advance.split("Future<({String nextActor", 1)[0]
 assert "CedarAgentActionPlanner(" in advance
 assert "await _judge(" not in advance
 assert "client.play(" in advance
+assert "CedarPlatformActionPolicy.isReadOnly(candidate)" not in advance
+require("lib/core/mcp/cedar_toy_activity.dart",
+    "bool repeatsUnchangedRead(", "events.reversed",
+    "turnPayloadHash(input)==turnPayloadHash(params)")
+require("test/execution_recovery_v042130_test.dart",
+    "different necessary reads are allowed but alternating unchanged queries are not",
+    "session.repeatsUnchangedRead('cmd',{'command':'guests','slot':1}),false",
+    "session.repeatsUnchangedRead('cmd',{'command':'status','slot':1}),true")
 
 require(
     "lib/core/diagnostics/preflight_diagnostics.dart",
