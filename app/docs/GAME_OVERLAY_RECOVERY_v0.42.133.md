@@ -27,3 +27,21 @@
 第二候选696feb2专项40115512153分析通过，1086通过/2失败。新增状态证据、回执、长查询及悬浮提交/布局回归均已通过；两处失败为旧模型选择页用例仍要求模型与新建按钮同高，与窄屏两行的新布局冲突。修正为验证背景图和模型同排、背景位于模型左侧、新建在下排，保留新建按钮不被导航遮挡、长名称及真实选择保存检查。完整构建尚未完成，未交付该候选。候选a2fbac1补拒绝新发送时保留原生成活跃状态；应用代码在此后固定，更新布局断言的最终候选继续完整CI。
 
 发送阶段诊断使用独立有界后台队列写入，主线程只捕获不含正文的阶段/身份，避免诊断SQLite写入增加点击发送和收键盘时的等待。Service销毁后以applicationContext排空已提交记录；队列满时不阻塞发送。此项不增加用户可见功能或改变任务协议。
+
+## 最终候选专项结果
+最终候选e3a400c5be6d16419396a0c19c2d1e6ed99d0439（本地7ccaf530，同tree ff74bbb639ae2c16d2e7161c2cff6e8628f82b53）专项40116221345 / flutter120938219978成功，1088项测试全部通过。Dart分析0 error，834项非fatal（63 warning / 771 info），不记为零告警。完整APK流程40116221363 / build-apk120942003604成功；此前候选的APK不作为本次交付依据。
+
+## 最终交付
+状态：IMPLEMENTED / CI PASSED / APK READY / TRUE DEVICE PENDING。2026-10-25（Asia/Shanghai）已先向用户提供APK直链，随后仅补文档与总账，不重打相同源码的包。
+
+完整40116221363通过154项源码守卫、Node桥、Kotlin测试、2647项全量Flutter、170项打包前归档恢复；Android15原生120940396465的54项通过。Kotlin包含新增OverlaySubmissionStateTest三项命令/重试/草稿状态回归。专项40116221345的1088项通过，完整与专项分析均0 error / 63 warning / 771 info。未跳过失败守卫或将中间候选通过结果代替最终源码验证。
+
+APK为0.42.133+377 / com.aicompanion.localfirst，738895162 bytes；release422872231、APK asset672954280仍为draft，target_commitish匹配e3a400c5。CI、线上资产digest及ci-monitor-v0345成功monitor均为SHA256 `9ee3273fc5ca96cd3547b4cb0a3587aeaabab6d887af5ee6df9cf875e26acd9a`，monitor的run/head/signature同时匹配。原签名SHA256 `305eb3d80983b963c64818ddf1ad561f279de6d47b3ed2c781ada448c7c25148`；实际包名/版本、TTS、桌宠、塔罗、记忆星空及房间资源均通过包内核验。
+
+下载：https://github.com/catkiss62/ai-companion-build/releases/download/untagged-a7692e7ec5444c5a7358/AI-Companion-v0.42.133-377-Game-Overlay-Recovery-APK.apk
+
+完整CI：https://github.com/catkiss62/ai-companion-build/actions/runs/40116221363
+
+专项CI：https://github.com/catkiss62/ai-companion-build/actions/runs/40116221345
+
+仍需真机复测悬浮点击发送/收键盘、连续发送取消/换窗/引擎重建、退出后恢复，以及实际游戏服务的未知回包和界面显示。新增检查验证生产逻辑和模拟传输，不等于已使用真实付费API或证明当天两次退出的唯一根因。诊断不记录正文；未上传用户存档、私密正文或凭据。保留+376半额手机活动策略、游戏三步/30分钟、Agent权限/预算及schema61 / Snapshot7，不合并main或正式发布。
