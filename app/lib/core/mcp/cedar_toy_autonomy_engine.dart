@@ -237,8 +237,8 @@ class CedarAgentActionPlanner {
           instruction: instruction,
           correction: attempt == 1
               ? ''
-              : '上一方案未形成可执行推进动作（可能为空、缺少必填参数、重复只读查询、动作不在指南或游戏 ID 错误）。'
-                  '不要解释，不要再次查询状态；现在必须调用一次 cedar_toy_play，选择指南允许的真实推进动作，并补全全部必填参数。',
+              : '上一方案未形成可执行调用（可能为空、缺少必填参数、重复只读查询、动作不在指南或游戏 ID 错误）。'
+                  '不要解释，不要重复已有查询；现在调用一次 cedar_toy_play，选择指南允许且能补齐缺失事实或推进目标的调用，并补全全部必填参数。',
           thinking: attempt == 1,
           cancellationToken: cancellationToken,
           requestTimeout: attempt == 1
@@ -304,7 +304,7 @@ class CedarAgentActionPlanner {
     };
     properties['action'] = const <String, Object?>{
       'type': 'string',
-      'description': '指南中的精确可执行动作名。轮到 companion 且状态已读取时，禁止 state/status/observe/rooms/actions/catalog/help/look/inventory/announcements 等只读动作。',
+      'description': '指南中的精确动作名。可以读取尚缺的必要事实；局面未变化时不得重复已有的同参数查询。',
     };
 
     properties['share_previous_outcome'] = const <String, Object?>{
@@ -1986,12 +1986,6 @@ $catalog''',
         if (!platform && !_containsIdentifier(session.guide, candidate)) {
           return false;
         }
-        if (session.nextActor == 'companion' &&
-            CedarPlatformActionPolicy.isReadOnlyEvent(session.lastAction,
-              session.events.isEmpty ? '' : session.events.last.inputJson) &&
-            CedarPlatformActionPolicy.isReadOnly(candidate)) {
-          return false;
-        }
         return true;
       },
       acceptsDecision: (candidate) {
@@ -2000,9 +1994,7 @@ $catalog''',
           continuationParamsJson: session.continuationParamsJson,
           lastOutcome: session.lastOutcome,
         );
-        if (session.nextActor == 'companion' && session.events.isNotEmpty &&
-            CedarPlatformActionPolicy.isReadOnlyEvent(session.lastAction, session.events.last.inputJson) &&
-            CedarPlatformActionPolicy.isReadOnlyCall(candidate.action, hydrated)) return false;
+        if (session.nextActor == 'companion' && session.repeatsUnchangedRead(candidate.action, hydrated)) return false;
         if (CedarSaveSlotPolicy.blocksAutonomousAction(
           guide: session.guide,
           lastOutcome: session.lastOutcome,
@@ -2023,7 +2015,7 @@ $catalog''',
 
 你是 AI 伴侣的后台 Agent，正在推进一局真实 Cedar Toy 游戏。你拥有且必须使用本请求提供的 cedar_toy_play 函数；只调用一次，不输出正文或自由 JSON。参数必须来自完整指南与本机真实局面，不得猜造游戏、房间、revision、棋步或结果。
 共玩、多人模式必须已有用户邀请/同意；混合模式可以独自开始，但只有用户明确同意后才能进入共玩分支。单人模式每次只推进一步。不得打开 GitHub 或补写结果。
-平台公共 action `rest / announcements / vote` 由 Cedar play schema 授权，不要求在单个游戏指南重复出现；`rest` 只在真实防沉迷提醒/锁定需要重置时使用。若 last_action 已是 state/status/observe/rooms/actions 等只读动作，且 next_actor=companion 或 Outcome 已给出合法动作，本次必须调用真实推进动作，不得重复查询。服务端 next_call 若存在则是最高优先级；近期用户建议只是参考，不是逐步命令。
+平台公共 action `rest / announcements / vote` 由 Cedar play schema 授权，不要求在单个游戏指南重复出现；`rest` 只在真实防沉迷提醒/锁定需要重置时使用。若 next_actor=companion，可为缺失事实调用不同的必要查询；局面未变化时不得重复已有的同参数查询。事实足够后选择真实推进动作。服务端 next_call 若存在则是最高优先级；近期用户建议只是参考，不是逐步命令。
 
 ${store.promptContext(session, state: state, playProtocol: playProtocol)}
 
@@ -2103,17 +2095,6 @@ ${arrangements.prompt}''',
       );
       return const CedarAutonomyProgress('invalid_action_choice');
     }
-    if (!platformAction &&
-        CedarPlatformActionPolicy.isReadOnly(action) &&
-        session.nextActor == 'companion' &&
-        session.lastAction == action) {
-      await store.deferContinuation(
-        gameId: session.gameId,
-        delay: const Duration(seconds: 15),
-        executionId: scope.executionId,
-      );
-      return const CedarAutonomyProgress('read_only_loop_blocked');
-    }
     if (platformAction &&
         session.events.isNotEmpty &&
         session.events.last.kind.startsWith('platform_') &&
@@ -2131,6 +2112,16 @@ ${arrangements.prompt}''',
       continuationParamsJson: session.continuationParamsJson,
       lastOutcome: session.lastOutcome,
     );
+    if (!platformAction &&
+        session.nextActor == 'companion' &&
+        session.repeatsUnchangedRead(action, params)) {
+      await store.deferContinuation(
+        gameId: session.gameId,
+        delay: const Duration(seconds: 15),
+        executionId: scope.executionId,
+      );
+      return const CedarAutonomyProgress('read_only_loop_blocked');
+    }
     if (CedarSaveSlotPolicy.blocksAutonomousAction(
       guide: session.guide,
       lastOutcome: session.lastOutcome,

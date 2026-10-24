@@ -121,6 +121,21 @@ void main() {
     } finally {ai.close();}
   });
 
+  test('different necessary reads are allowed but alternating unchanged queries are not',() async {
+    await game(); final attempt=await turn(); final cedar=_Cedar(); final run=runner(cedar);
+    final activity=CedarToyActivityStore(db);
+    await command(run,attempt,'status');
+    var session=(await activity.loadSession('bar'))!;
+    expect(session.repeatsUnchangedRead('cmd',{'command':'status','slot':1}),true);
+    expect(session.repeatsUnchangedRead('cmd',{'command':'guests','slot':1}),false);
+    await command(run,attempt,'guests');
+    session=(await activity.loadSession('bar'))!;
+    expect(session.repeatsUnchangedRead('cmd',{'command':'status','slot':1}),true);
+    await command(run,attempt,'serve cloud pour:plum_liqueur');
+    session=(await activity.loadSession('bar'))!;
+    expect(session.repeatsUnchangedRead('cmd',{'command':'status','slot':1}),false);
+  });
+
   test('cmd queries do not consume the three-move solo checkpoint',() async {
     await game(); final attempt=await turn(); final cedar=_Cedar(); final run=runner(cedar);
     for (final query in ['status','guests','drinks']) {

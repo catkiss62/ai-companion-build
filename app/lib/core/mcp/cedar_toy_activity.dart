@@ -286,6 +286,25 @@ class CedarGameSession {
         nextActor: nextActor,
       );
   bool get needsContinuation => companionCanContinue || companionCanObserve;
+  /// New queries may supply missing facts. Only reuse evidence since the last
+  /// accepted mutation; failures never invalidate an already-read snapshot.
+  bool repeatsUnchangedRead(String action, Map<String,Object?> params) {
+    if (!CedarPlatformActionPolicy.isReadOnlyCall(action, params)) return false;
+    for (final event in events.reversed) {
+      if (event.kind != 'outcome') continue;
+      if (!CedarPlatformActionPolicy.isReadOnlyEvent(event.action, event.inputJson) &&
+          !CedarPlatformActionPolicy.isResultSnapshot(event.action)) break;
+      if (event.action != action) continue;
+      try {
+        final input=jsonDecode(event.inputJson);
+        if (input is Map && turnPayloadHash(input)==turnPayloadHash(params)) return true;
+      } catch (_) {
+        if (params.isEmpty && event.inputJson.isEmpty) return true;
+      }
+    }
+    return false;
+  }
+
   String get displayName => gameTitle.trim().isEmpty ? gameId : gameTitle;
 
   CedarGameSession copyWith({
