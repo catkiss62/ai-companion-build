@@ -28,6 +28,10 @@ class _Paths extends PathProviderPlatform {
 class _Game extends CedarToyClient {
   _Game():super(token:'ctai_v1_fixture');
   int writes=0;
+  @override Future<McpToolOutcome> getGuide(String game,{GenerationCancellationToken? cancellationToken}) async =>
+    const McpToolOutcome(content:[McpContentBlock(kind:McpContentKind.text,
+      text:'solo 单人。cmd command: status drinks guests serve')],isError:false);
+
   @override Future<McpToolOutcome> play(String game,String action,Map<String,Object?> params,
       {GenerationCancellationToken? cancellationToken})async {
     expect(game,'bar');expect(action,'cmd');expect(params['command'],'serve cloud pour:plum_liqueur');
@@ -43,7 +47,7 @@ http.Response _sse(Map<String,Object?> delta,{String finish='stop'})=>http.Respo
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();sqfliteFfiInit();
   for(final second in [false,true]) {
-    for(final scenario in ['conflict_timer','resume_step','future','chat']) {
+    for(final scenario in ['conflict_timer','resume_step','future','chat','guide_retry','truncated_plan']) {
       test('real ${second?'second':'first'} channel reconciles game intent: $scenario',()async {
         final files=await Directory.systemTemp.createTemp('game-intent374-');
         final paths=PathProviderPlatform.instance;PathProviderPlatform.instance=_Paths(files.path);
@@ -62,15 +66,17 @@ void main() {
           final names=[for(final t in body['tools'] as List? ?? [])((t as Map)['function'] as Map)['name']];
           if(names.any((n)=>n!='agent_request')) {
             plans++;
-            if(scenario=='conflict_timer' || scenario=='resume_step') {
-              final name=scenario=='conflict_timer'?'cedar_toy_start_timed_play':'cedar_toy_play';
+            if(const {'conflict_timer','resume_step','guide_retry','truncated_plan'}.contains(scenario)) {
+              final name=scenario=='conflict_timer'?'cedar_toy_start_timed_play':
+                scenario=='guide_retry' && plans==2?'cedar_toy_get_guide':'cedar_toy_play';
               expect(names,contains(name));
               final args=scenario=='conflict_timer'
                 ? <String,Object?>{'game':'bar','duration_text':'半小时'}
                 : <String,Object?>{'game':'bar','action':'cmd','params_json':jsonEncode({
                     'command':'serve cloud pour:plum_liqueur'}),'participation_mode':'solo'};
+              if(name=='cedar_toy_get_guide') {args.clear();args['game']='bar';}
               return _sse({'tool_calls':[{'index':0,'id':'call-$plans','type':'function',
-                'function':{'name':name,'arguments':jsonEncode(args)}}]},finish:'tool_calls');
+                'function':{'name':name,'arguments':jsonEncode(args)}}]},finish:scenario=='truncated_plan'?'length':'tool_calls');
             }
           }
           return _sse({'content':'「好，按当前情况来。」'});
@@ -88,11 +94,12 @@ void main() {
           final activity=CedarToyActivityStore(db);
           await activity.saveCatalog('bar·空杯俱乐部，单人酒馆游戏·tester');
           await activity.savePlayProtocol('play(game, action, params)');
-          final session=await activity.recordGuide(gameId:'bar',guide:'solo 单人。cmd command: status drinks guests serve');
+          final session=await activity.recordGuide(gameId:'bar',guide:scenario=='guide_retry'?'solo 单人。先取得完整指南。':'solo 单人。cmd command: status drinks guests serve');
           await activity.pause();
           final text=switch(scenario) {
             'conflict_timer'=>'现在去空杯俱乐部玩半小时。',
             'resume_step'=>'恢复空杯俱乐部，继续把客人招呼好。',
+            'guide_retry' || 'truncated_plan'=>'去空杯俱乐部把客人招呼好。',
             'future'=>'今天别去空杯俱乐部，明天有空再玩。',
             _=>'空杯俱乐部这个名字真好听。',
           };
@@ -101,8 +108,8 @@ void main() {
             assistantMessageId:'a',model:'deepseek-flash',reasoningEffort:'high');
           final source=(await ConversationSourceStore.captureMessage(await db.database,'u'))!;
           final key='${source.contentHash}:${source.revision}';
-          final intent=scenario=='resume_step'
-            ? TurnTaskIntent(available:true,gameAction:'resume',gameId:'bar',sessionId:session.id)
+          final intent=const {'resume_step','guide_retry','truncated_plan'}.contains(scenario)
+            ? TurnTaskIntent(available:true,gameAction:scenario=='resume_step'?'resume':'play',gameId:'bar',sessionId:session.id)
             : const TurnTaskIntent(available:true);
           await db.setSettingsAtomically({'nsfw_route_turn_id':'u','nsfw_route_source_key_v2':key,
             'cedar_route_intent_v1':scenario=='chat'?'chat':'act_now','cedar_route_certain_v1':'1',
@@ -110,12 +117,16 @@ void main() {
           final result=await DurableGenerationRunner(db:db,client:client,
             secureConfig:SecureConfig.forTesting(const FlutterSecureStorage()),cedarClientFactory:(_)=>game)
             .run(job,cancellationToken:cancellation).timeout(const Duration(seconds:30));
+          if(scenario=='truncated_plan') {
+            expect(game.writes,0);expect(result.status,isNot('completed'));return;
+          }
           expect(result.status,'completed',reason:result.error?.toString());
           expect(reviews,scenario=='conflict_timer' || scenario=='future'?1:0);
-          expect(game.writes,scenario=='resume_step'?1:0);
+          expect(game.writes,const {'resume_step','guide_retry'}.contains(scenario)?1:0);
           final timer=await CedarTimedPlayTaskStore(db).active();
           if(scenario=='conflict_timer') {expect(timer?['minutes'],30);expect(plans,1);}
-          else {expect(timer,isNull);if(scenario!='resume_step')expect(plans,0);}
+          else {expect(timer,isNull);if(!const {'resume_step','guide_retry'}.contains(scenario))expect(plans,0);
+            if(scenario=='guide_retry')expect(plans,3);}
         } finally {
           cancellation.cancel();client.close();await db.releaseLocalLease('chat_turn_lease');await db.closeForTesting();
           messenger.setMockMethodCallHandler(channel,null);PathProviderPlatform.instance=paths;await files.delete(recursive:true);

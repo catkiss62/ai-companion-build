@@ -448,21 +448,27 @@ class AgentToolPlanner {
       try {
         final decoded = jsonDecode(native.arguments);
         if (decoded is Map) {
-          for (final entry in decoded.entries.take(6)) {
+          final schema = _nativeDefinition(definition)['function'] as Map;
+          final properties = (schema['parameters'] as Map)['properties'] as Map;
+          for (final entry in decoded.entries.where((e) => properties.containsKey(e.key))) {
             final key = _bounded(entry.key.toString().trim(), 40);
             final rawValue = entry.value;
             final serialized = rawValue is Map || rawValue is List
                 ? jsonEncode(rawValue)
                 : rawValue?.toString() ?? '';
-            final value = _bounded(serialized.trim(), 500);
+            // Never cut JSON, identifiers, or user text into a different command.
+            final value = serialized.trim();
+            if (value.length > 64000) throw const FormatException('tool_argument_too_large');
             if (key.isNotEmpty && value.isNotEmpty) arguments[key] = value;
           }
         }
       } catch (_) {
+        arguments.clear();
         // The executor will return a bounded no-result/blocked response when a
         // required argument is absent. Never repair malformed arguments by guess.
       }
       final call = AgentToolCall(
+        nativeCallId: native.id,
         toolId: toolId,
         arguments: arguments,
         reasonTag: origin == AgentToolOrigin.autonomous

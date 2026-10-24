@@ -558,8 +558,15 @@ class DurableGenerationRunner {
             // Local controls/registration have durable per-goal receipts.
             // A precondition block must remain retryable after new evidence;
             // remote mutations keep their no-replay exclusion and journal.
-            if(!const {'cedar_toy.start_timed_play','cedar_toy.manage_activity'}.contains(call.toolId))
+            if(!const {'cedar_toy.play','cedar_toy.start_timed_play','cedar_toy.manage_activity'}.contains(call.toolId))
               executedToolFingerprints.add(AgentTaskLoopPolicy.callFingerprint(call));
+            if (call.toolId == 'cedar_toy.play' && actual.any((r) {
+              final args = r.submittedArguments;
+              final params = args['params'];
+              return r.succeeded && args['action'] is String &&
+                  !CedarPlatformActionPolicy.isReadOnlyCall(args['action'] as String,
+                    params is Map ? Map<String,Object?>.from(params) : const {});
+            })) executedToolFingerprints.add(AgentTaskLoopPolicy.callFingerprint(call));
             readEpoch++;
           }
         }
@@ -1063,12 +1070,17 @@ class DurableGenerationRunner {
             content: partialContent,
           );
         }
+        if (!toolCallAccumulator.isEmpty &&
+            finishReason != 'stop' && finishReason != 'tool_calls') {
+          throw const FormatException('incomplete_tool_plan');
+        }
         var toolCalls = toolCallAccumulator.build(limit: 2);
         var normalizedContent = content.trim();
         if (tools.isNotEmpty) {
           final textEnvelope = AgentToolTextEnvelope.parse(normalizedContent);
           if (toolCalls.isEmpty && textEnvelope.detected) {
-            if (!textEnvelope.valid || textEnvelope.calls.isEmpty) {
+            if ((finishReason != 'stop' && finishReason != 'tool_calls') ||
+                !textEnvelope.valid || textEnvelope.calls.isEmpty) {
               throw const FormatException('invalid_text_tool_envelope');
             }
             toolCalls = textEnvelope.calls.take(2).toList(growable: false);
@@ -1349,7 +1361,7 @@ class DurableGenerationRunner {
                   c.arguments['game']==taskIntent.gameId)).toList());
               if(plan.isEmpty) { agentProgress.record(const []); break; }
               final native=[for(final c in plan.calls) planned.toolCalls.firstWhere((n)=>
-                n.name==AgentToolPlanner.nativeNameForToolId(c.toolId))];
+                n.id==c.nativeCallId)];
               final outcomes=await executeTaskPlan(plan,maxCalls:2);
               effectiveCancellation.throwIfCancelled();
               entryResults.addAll(outcomes);
@@ -1494,7 +1506,7 @@ $finalGenerationReminder
         for (final call in plan.calls) {
           final nativeName = AgentToolPlanner.nativeNameForToolId(call.toolId);
           final index = remaining.indexWhere(
-            (candidate) => candidate.name == nativeName,
+            (candidate) => candidate.id == call.nativeCallId && candidate.name == nativeName,
           );
           if (index >= 0) accepted.add(remaining.removeAt(index));
         }

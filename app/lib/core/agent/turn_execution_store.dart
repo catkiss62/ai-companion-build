@@ -27,6 +27,30 @@ class TurnExecutionStore {
     return legacy==null ? [] : [legacy];
   }
 
+  /// A fresh same-target snapshot permits a NEW plan, not replay or success
+  /// attribution for the original unknown operation. Runs in the game fence.
+  static Future<void> reconcileRemoteInTransaction(DatabaseExecutor txn,
+      {required String turnId, required Object payload, required String snapshot}) async {
+    if (turnId.isEmpty) return;
+    final rows = await txn.query('settings', columns: ['key','value'],
+      where: 'key = ?', whereArgs: ['$remoteJournalPrefix$turnId']);
+    final hash = turnPayloadHash(payload);
+    for (final row in rows) {
+      final raw = _decode(row['value']?.toString() ?? '');
+      if (raw is! List) continue;
+      var changed = false;
+      for (var i=0; i<raw.length; i++) {
+        final receipt = raw[i];
+        if (receipt is! Map || receipt['state'] != 'dispatching' || receipt['payload_hash'] != hash) continue;
+        raw[i] = {...receipt, 'state':'reconciled', 'goal_satisfied':false,
+          'reconciliation_snapshot':snapshot, 'reconciled_at':DateTime.now().millisecondsSinceEpoch};
+        changed = true;
+      }
+      if (changed) await txn.update('settings', {'value':jsonEncode(raw)},
+        where:'key = ? AND value = ?', whereArgs:[row['key'],row['value']]);
+    }
+  }
+
   Future<Map<String, dynamic>?> remoteEffect(String turnId, {int effectIndex = 0}) async {
     final handle = await db.database;
     final journal = _decode(await BrainWorkFence.value(handle, '$remoteJournalPrefix$turnId'));
@@ -81,7 +105,8 @@ class TurnExecutionStore {
           if (legacy['payload_hash'] != turnPayloadHash(payload)) 'state': 'conflict'};
       }
       final priorRun=journal.any((r)=>r is Map && r['run_token']!=attempt.runToken);
-      if(allowKnownContinuation && priorRun && journal.every((r)=>r is Map && r['state']=='known') &&
+      if(allowKnownContinuation && (priorRun || journal.any((r)=>r is Map && r['state']=='reconciled')) &&
+          journal.every((r)=>r is Map && const {'known','reconciled'}.contains(r['state'])) &&
           !(effectIndex<journal.length && CedarPlatformActionPolicy.explicitlyRejected(
             (journal[effectIndex] as Map)['outcome']?.toString() ?? ''))) {
         final hash=turnPayloadHash(payload);
@@ -103,7 +128,7 @@ class TurnExecutionStore {
         if (receipt is! Map) return {'state': 'conflict'};
         if (receipt['payload_hash'] != turnPayloadHash(payload) &&
             receipt['state']=='known' &&
-            CedarPlatformActionPolicy.explicitlyRejected(receipt['outcome']?.toString() ?? '') &&
+            (receipt['failed']==true || CedarPlatformActionPolicy.explicitlyRejected(receipt['outcome']?.toString() ?? '')) &&
             await attempt.matches(txn)) {
           final previous=Map<String,dynamic>.from(receipt)..remove('prior_rejections');
           journal[effectIndex]={'schema':2,'turn_id':attempt.userMessageId,'run_token':attempt.runToken,

@@ -105,7 +105,7 @@ class CedarPlayOutcomeBookkeeper {
           state: current,
           now: now,
           action: action,
-          succeeded: !outcome.isError,
+          succeeded: successfulStateChange,
           antiAddiction: signal,
         );
         await saveSoloEpisode(next);

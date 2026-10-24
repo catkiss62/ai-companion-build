@@ -1539,3 +1539,10 @@ APK738880534 bytes，SHA256 `9f899cee2d825965505756574b15dd7789bbdfbc0f42d11ce01
 APK：https://github.com/catkiss62/ai-companion-build/releases/download/untagged-22e04403030127af9a7f/AI-Companion-v0.42.130-374-Execution-Recovery-APK.apk 。完整CI：https://github.com/catkiss62/ai-companion-build/actions/runs/40008358900 。草稿页：https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-22e04403030127af9a7f 。之后仅报告/本总账[skip ci]收尾，不重打相同APK；不合并main或正式发布。原工作区未提交内容保留；私有存档、诊断正文及凭据未上传，原附件未修改，未调用付费模型/真实MCP。
 
 真机待验：实际中转思考协议、400后DS接续、半小时游玩真实进度/修参、成功操作后中断不重复执行，以及日常手机活动下是否仍追问已答问题。上游真实能力与时序不能由模拟HTTP测试替代。
+
+## 2026-10-24 · 游戏厅与 Agent 跨入口审查修复（进行中）
+
+用户已授权执行 GAME_AGENT_AUDIT_v0.42.130.md 的八项修复。以 +374 为对照，先补回归并统一调用身份、完整参数、完整工具终止、未派发阻塞重试、动作事实记账、轮询消息防重及 cmd/同请求恢复。三步/30分钟、普通20/40与深度30/60预算不变；不新增每轮JEV。沿用既有分支公开推送/CI/同签名测试APK授权，不合并main、不正式发布。尚未验证，不提前标记完成。
+
+实现候选 +375：调用ID贯通过滤与回包，schema字段读取保留完整参数，异常finish_reason的工具计划禁止执行；Cedar本地blocked可重新规划，已确认写入仍去重；查询/拒绝不耗三步，失败统一投影进入活动记录与调度；cmd状态核对支持同目标，带turn_id的未知回执以reconciled允许新计划但不重放旧动作；带message的轮询走写入登记及未知结果核对。增加真实runner、SQLite回执、参数边界、后台轮询丢回包回归。
+本地实际154项源检查中136通过，18项受稀疏工作区缺资源/缺Kotlin工具链阻挡；未修改或跳过这些门，完整资源与Flutter验证交由CI执行。diff检查通过。新APK尚未生成，后续以CI实际结果收口。

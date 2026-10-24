@@ -124,11 +124,14 @@ class AgentToolCall {
     required this.toolId,
     required this.arguments,
     required this.reasonTag,
+    this.nativeCallId = '',
   });
 
   final String toolId;
   final Map<String, String> arguments;
   final String reasonTag;
+  /// Identity survives filtering; a name is not a call identity.
+  final String nativeCallId;
 }
 
 class AgentToolPlan {

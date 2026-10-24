@@ -1793,6 +1793,8 @@ $catalog''',
       return const CedarAutonomyProgress('invalid_continuation_params');
     }
     var roomMessage = '';
+    var dispatchedWrite = false;
+    var receivedOutcome = false;
     try {
       if (session.continuationWaitScope != 'write_reconcile_once' &&
           session.hasPendingRoomMessage &&
@@ -1811,12 +1813,19 @@ $catalog''',
       scope.throwIfPreempted();
       await CedarTimedPlayTaskStore(db).recordWork(gameId:session.gameId,
         executionId:scope.executionId,toolCalls:1);
+      if (!await store.admitRemoteDispatch(gameId:session.gameId, action:action,
+          params:params, executionId:scope.executionId)) {
+        return const CedarAutonomyProgress('unresolved_write');
+      }
+      dispatchedWrite = !CedarPlatformActionPolicy.isReadOnlyCall(action, params);
       var outcome = await client.play(
         session.gameId,
         action,
         params,
         cancellationToken: scope.cancellation,
       );
+      receivedOutcome = true;
+      outcome = CedarPlatformActionPolicy.normalizeOutcome(outcome);
       if (!outcome.isError && action == 'rooms' &&
           session.continuationWaitScope == 'write_reconcile_once') {
         final room = CedarExecutableCallPolicy.uniqueTransportValue(
@@ -1843,6 +1852,8 @@ $catalog''',
             cancellationToken: scope.cancellation);
       }
       if (outcome.isError) {
+        if (dispatchedWrite) await store.resolveRemoteDispatch(gameId:session.gameId,
+          executionId:scope.executionId, action:action, authoritative:true, params:params, outcome:outcome);
         await db.setSetting(
           'cedar_toy_last_observe_error_category',
           'mcp_outcome_error',
@@ -1857,6 +1868,7 @@ $catalog''',
       }
       final resolved = _resolveMcpTurnState(outcome);
       final updated = await store.recordPlay(
+        submittedParams: params,
         gameId: session.gameId,
         action: action,
         outcome: outcome,
@@ -1886,6 +1898,15 @@ $catalog''',
                 : 'remote_wait_renewed',
       );
     } catch (error) {
+      if (dispatchedWrite && !receivedOutcome) {
+        // A message-bearing poll is a write. Never renew it as an empty poll.
+        try { await store.markWriteOutcomeUncertain(gameId:session.gameId,
+          action:action, params:params, executionId:scope.executionId); } catch (_) {}
+        if (error is! GenerationCancelledByUserException && error is! CedarExecutionPreemptedException &&
+            error is! GenerationSuspendedByRuntimeGateException) {
+          return const CedarAutonomyProgress('write_outcome_sync');
+        }
+      }
       if (error is GenerationCancelledByUserException ||
           error is GenerationSuspendedByRuntimeGateException ||
           error is CedarExecutionPreemptedException) {
@@ -1963,7 +1984,8 @@ $catalog''',
           return false;
         }
         if (session.nextActor == 'companion' &&
-            CedarPlatformActionPolicy.isReadOnly(session.lastAction) &&
+            CedarPlatformActionPolicy.isReadOnlyEvent(session.lastAction,
+              session.events.isEmpty ? '' : session.events.last.inputJson) &&
             CedarPlatformActionPolicy.isReadOnly(candidate)) {
           return false;
         }
@@ -1975,6 +1997,9 @@ $catalog''',
           continuationParamsJson: session.continuationParamsJson,
           lastOutcome: session.lastOutcome,
         );
+        if (session.nextActor == 'companion' && session.events.isNotEmpty &&
+            CedarPlatformActionPolicy.isReadOnlyEvent(session.lastAction, session.events.last.inputJson) &&
+            CedarPlatformActionPolicy.isReadOnlyCall(candidate.action, hydrated)) return false;
         if (CedarSaveSlotPolicy.blocksAutonomousAction(
           guide: session.guide,
           lastOutcome: session.lastOutcome,
@@ -2179,6 +2204,7 @@ ${arrangements.prompt}''',
       }
       rethrow;
     }
+    outcome = CedarPlatformActionPolicy.normalizeOutcome(outcome);
     await store.resolveRemoteDispatch(gameId: session.gameId, executionId: scope.executionId, action: action, authoritative: true, params: params, outcome: outcome);
     if (!outcome.isError &&
         !platformAction &&
@@ -2242,7 +2268,7 @@ ${arrangements.prompt}''',
             cancellationToken: scope.cancellation,
           );
           final stateVerification = stateOutcome.isError
-              ? (nextActor: 'wait', shareLevel: 'quiet', resumeAfterSeconds: 0)
+              ? (nextActor: 'wait', shareLevel: 'quiet', resumeAfterSeconds: 0, accepted: null)
               : await _verifyOutcome(
                   apiKey: apiKey,
                   endpoint: endpoint,
@@ -2280,7 +2306,7 @@ ${arrangements.prompt}''',
       }
     }
     final verification = outcome.isError || platformAction
-        ? (nextActor: 'wait', shareLevel: 'quiet', resumeAfterSeconds: 0)
+        ? (nextActor: 'wait', shareLevel: 'quiet', resumeAfterSeconds: 0, accepted: null)
         : await _verifyOutcome(
             apiKey: apiKey,
             endpoint: endpoint,
@@ -2290,6 +2316,7 @@ ${arrangements.prompt}''',
             outcome: outcome,
             cancellationToken: scope.cancellation,
           );
+    outcome = CedarPlatformActionPolicy.normalizeOutcome(outcome, accepted: verification.accepted);
     // get_result repeats a stored outcome: keep it available for the game
     // state, but do not promote it into recent-progress or share candidates.
     final shareLevel = CedarPlatformActionPolicy.isResultSnapshot(action)
@@ -2318,7 +2345,7 @@ ${arrangements.prompt}''',
             executionId: scope.executionId,
             keepExecution: true,
           );
-    if (!platformAction && !CedarPlatformActionPolicy.isReadOnlyCall(action, params) &&
+    if (!outcome.isError && !platformAction && !CedarPlatformActionPolicy.isReadOnlyCall(action, params) &&
         !CedarPlatformActionPolicy.explicitlyRejected(outcome.text)) {
       for (final wish in (await WishStore(db).load()).where((w) =>
           w.route == 'game' && w.gameId == session.gameId && w.mayAct(now))) {
@@ -2393,7 +2420,7 @@ ${arrangements.prompt}''',
     return classifyRuntimeError(error);
   }
 
-  Future<({String nextActor, String shareLevel, int resumeAfterSeconds})>
+  Future<({String nextActor, String shareLevel, int resumeAfterSeconds, bool? accepted})>
       _verifyOutcome({
     required String apiKey,
     required String endpoint,
@@ -2412,6 +2439,7 @@ ${arrangements.prompt}''',
     // sit between a committed remote move and the local durable state update.
     if (structured != null) {
       return (
+        accepted: null,
         nextActor: structured.nextActor,
         shareLevel: 'quiet',
         resumeAfterSeconds: structuredResume ?? 0,
@@ -2419,6 +2447,7 @@ ${arrangements.prompt}''',
     }
     if (outcomeText.length > CedarToyActivityStore.maxGuidePromptChars) {
       return (
+        accepted: null,
         nextActor: structured?.nextActor ?? 'wait',
         shareLevel: 'quiet',
         resumeAfterSeconds: structuredResume ?? 0,
@@ -2438,8 +2467,8 @@ ${arrangements.prompt}''',
         endpoint: endpoint,
         cancellationToken: cancellationToken,
         instruction: '''你只分类一次真实 Cedar Toy play Outcome，只返回 JSON：
-{"next_actor":"companion|user|shared|wait|finished","share_level":"quiet|notable|required","resume_after_seconds":0}
-不得规划下一动作，不得补写结果。需要用户决定/输入时为 user 或 shared；远端计时/其他玩家时为 wait；明确结束才为 finished。只有 Outcome 明确给出等待/轮询时长时填写 15～3600 秒，否则为 0。
+{"next_actor":"companion|user|shared|wait|finished","share_level":"quiet|notable|required","resume_after_seconds":0,"action_accepted":true}
+action_accepted只判断服务是否实际接受本次动作，通信正常不等于成功。不得规划下一动作，不得补写结果。需要用户决定/输入时为 user 或 shared；远端计时/其他玩家时为 wait；明确结束才为 finished。只有 Outcome 明确给出等待/轮询时长时填写 15～3600 秒，否则为 0。
 前述历史资料与当前Outcome共同判断；间隔未到或已有待发分享时share_level=quiet。
 $shareContext
 game=${session.gameId}
@@ -2448,10 +2477,12 @@ action=$action
 【真实 Outcome】
 $outcomeText''',
       );
+      final accepted = judged['action_accepted'] is bool ? judged['action_accepted'] as bool : null;
       final actor = judged['next_actor']?.toString() ?? '';
       final share = judged['share_level']?.toString() ?? '';
       final rawResume = (judged['resume_after_seconds'] as num?)?.toInt() ?? 0;
       return (
+        accepted: accepted,
         nextActor: structured?.nextActor ?? (const <String>{
           'companion',
           'user',
@@ -2472,6 +2503,7 @@ $outcomeText''',
       // The remote write already completed. Persist its structured result
       // before honoring foreground preemption; never turn Stop into data loss.
       return (
+        accepted: null,
         nextActor: structured?.nextActor ??
             (mode == CedarParticipationMode.solo ? 'companion' : 'wait'),
         shareLevel: 'quiet',
@@ -2479,6 +2511,7 @@ $outcomeText''',
       );
     } on GenerationSuspendedByRuntimeGateException {
       return (
+        accepted: null,
         nextActor: structured?.nextActor ??
             (mode == CedarParticipationMode.solo ? 'companion' : 'wait'),
         shareLevel: 'quiet',
@@ -2486,6 +2519,7 @@ $outcomeText''',
       );
     } catch (_) {
       return (
+        accepted: null,
         nextActor: structured?.nextActor ??
             (mode == CedarParticipationMode.solo
                 ? 'companion'

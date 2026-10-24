@@ -936,7 +936,7 @@ class AgentToolRunner {
         reserved = true;
       }
       cancellationToken?.throwIfCancelled();
-      if (!await activityStore.admitRemoteDispatch(gameId: game, action: action, params: params, executionId: executionId)) {
+      if (!await activityStore.admitRemoteDispatch(gameId: game, action: action, params: params, executionId: executionId, turnId: attempt?.userMessageId ?? '')) {
         final pending=await activityStore.unresolvedWrite(game);
         final recovered=pending!=null && await activityStore.recoverUnresolvedWrite(
           gameId:game,executionId:executionId,now:DateTime.now());
@@ -978,8 +978,8 @@ class AgentToolRunner {
         );
       }
       receivedOutcome = true;
+      outcome = CedarPlatformActionPolicy.normalizeOutcome(outcome);
       final rejected = outcome.isError || CedarPlatformActionPolicy.explicitlyRejected(outcome.text);
-      await activityStore.resolveRemoteDispatch(gameId: game, executionId: executionId, action: action, authoritative: true, params: params, outcome: outcome);
       if (attempt != null && isWrite) await effectStore.completeRemoteEffect(attempt.userMessageId, effectPayload,
         effectIndex: effectIndex, outcome: CedarToyClient.redactSecrets(outcome.text), failed: rejected);
       final verification = rejected || platformAction
@@ -994,6 +994,7 @@ class AgentToolRunner {
               params: params,
               cancellationToken: cancellationToken,
             );
+      outcome = CedarPlatformActionPolicy.normalizeOutcome(outcome, accepted: verification.accepted);
       verifiedNextActor = platformAction
           ? (persisted?.nextActor ?? 'wait')
           : verification.nextActor;
@@ -1039,6 +1040,7 @@ class AgentToolRunner {
               : CedarPlayBookkeepingOrigin.userTurn,
         );
       }
+      await activityStore.resolveRemoteDispatch(gameId: game, executionId: executionId, action: action, authoritative: true, params: params, outcome: outcome);
       try {
         await android.wakeBackgroundBrain(reason: 'cedar_session_updated');
       } catch (_) {

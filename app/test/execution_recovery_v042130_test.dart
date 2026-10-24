@@ -1,4 +1,9 @@
 import 'dart:convert';
+import 'package:ai_companion_localfirst/core/ai/deepseek_client.dart';
+import 'package:ai_companion_localfirst/core/mcp/cedar_toy_autonomy_engine.dart';
+import 'package:ai_companion_localfirst/core/mcp/mcp_http_client.dart';
+import 'package:ai_companion_localfirst/core/storage/secure_config.dart';
+import 'package:ai_companion_localfirst/core/mcp/cedar_play_outcome_bookkeeper.dart';
 import 'package:ai_companion_localfirst/core/agent/agent_tool.dart';
 import 'package:ai_companion_localfirst/core/agent/agent_tool_runner.dart';
 import 'package:ai_companion_localfirst/core/agent/turn_execution_store.dart';
@@ -34,6 +39,17 @@ class _Cedar extends CedarToyClient {
     return McpToolOutcome(content:const [],isError:false,structuredContent:{
       'text':rejected ? '这杯目前调不出来。用 drinks 查看现有酒单。' : '真实结果：$command',
       'ok':true,'next_actor':'companion','your_turn':true});
+  }
+}
+
+class _LostRoomReply extends CedarToyClient {
+  _LostRoomReply():super(token:'ctai_v1_fixture');
+  final calls=<Map<String,Object?>>[];
+  @override Future<McpToolOutcome> play(String game,String action,Map<String,Object?> params,
+      {GenerationCancellationToken? cancellationToken}) async {
+    calls.add(Map<String,Object?>.from(params));
+    if(params['message'] != null) throw const McpHttpException('network_or_timeout');
+    return const McpToolOutcome(content:[],isError:false,structuredContent:{'ok':true,'next_actor':'wait'});
   }
 }
 
@@ -77,6 +93,71 @@ void main() {
         'participation_mode':'solo'})]),userMessageId:'u',assistantMessageId:'a',
       eventScopeId:'user_turn:${attempt.jobId}',callIndexOffset:index,
       latestUserText:'把客人招呼好',pendingMediaOwner:PendingMediaOwner.generation(attempt))).single;
+
+  test('message-bearing continuation lost reply never retries as ordinary read poll',() async {
+    final activity=CedarToyActivityStore(db); final cedar=_LostRoomReply(); final ai=DeepSeekClient();
+    await db.setSettingsAtomically({'active_brain':'1','transfer_lock':'0','cedar_toy_enabled':'1',
+      CedarToyAutonomyEngine.enabledKey:'1'});
+    await activity.recordGuide(gameId:'duel',guide:'state room_id wait message; move');
+    await activity.recordPlay(gameId:'duel',action:'state',mode:CedarParticipationMode.multiplayer,
+      nextActor:'wait',shareLevel:'quiet',invitationApproved:true,
+      outcome:const McpToolOutcome(content:[],isError:false,structuredContent:{
+        'next_actor':'wait','wait_scope':'current_request_only','next_call':{
+          'game':'duel','action':'state','params':{'room_id':'ROOM','wait':true,'message':'你好'}}}));
+    await activity.deferContinuation(gameId:'duel',delay:Duration.zero);
+    final engine=CedarToyAutonomyEngine(db:db,ai:ai,secureConfig:SecureConfig.instance,
+      tokenReader:()async=>'ctai_v1_fixture',apiKeyReader:()async=>'fixture',
+      endpointReader:()async=>DeepSeekClient.defaultEndpoint,clientFactory:(_)=>cedar);
+    try {
+      await engine.continueDue(now:DateTime.now().add(const Duration(seconds:1)));
+      expect(cedar.calls,hasLength(1));expect(cedar.calls.single['message'],'你好');
+      expect(await activity.unresolvedWrite('duel'),isNotNull);
+      final current=(await activity.loadSession('duel'))!;
+      expect(current.continuationWaitScope,'write_reconcile_once');
+      expect(jsonDecode(current.continuationParamsJson).containsKey('message'),false);
+      await activity.deferContinuation(gameId:'duel',delay:Duration.zero);
+      await engine.continueDue(now:DateTime.now().add(const Duration(seconds:1)));
+      expect(cedar.calls.where((c)=>c.containsKey('message')),hasLength(1));
+    } finally {ai.close();}
+  });
+
+  test('cmd queries do not consume the three-move solo checkpoint',() async {
+    await game(); final attempt=await turn(); final cedar=_Cedar(); final run=runner(cedar);
+    for (final query in ['status','guests','drinks']) {
+      expect((await command(run,attempt,query)).succeeded,true);
+    }
+    final episode=await CedarPlayOutcomeBookkeeper(db).loadSoloEpisode();
+    expect(episode?.stateChangeCount,0);
+    expect(episode?.checkpointPending,false);
+    expect((await CedarToyActivityStore(db).loadState()).completedPlayRounds,0);
+  });
+
+  test('normal-envelope rejection is failure throughout durable game state',() async {
+    await game(); final attempt=await turn(); final cedar=_Cedar();
+    expect((await command(runner(cedar),attempt,'serve wrong')).status,AgentToolStatus.failed);
+    final state=await CedarToyActivityStore(db).loadState();
+    expect(state.completedPlayRounds,0);
+    expect(state.sessions['bar']!.events.last.kind,'failure');
+    expect((await TurnExecutionStore(db).remoteHistory('u')).single['failed'],true);
+  });
+
+  test('same-target cmd reconciliation permits a new step but never replays unknown operation',() async {
+    await game(); final attempt=await turn(); final effects=TurnExecutionStore(db);
+    final activity=CedarToyActivityStore(db);
+    final payload={'game':'bar','action':'cmd','params':{'command':'serve cloud pour:plum_liqueur','slot':1}};
+    expect(await effects.reserveRemoteEffect(attempt,payload),isNull);
+    final id=await activity.beginExecution(gameId:'bar',action:'cmd');
+    expect(await activity.admitRemoteDispatch(gameId:'bar',action:'cmd',
+      params:Map<String,Object?>.from(payload['params'] as Map),executionId:id,turnId:'u'),true);
+    await activity.finishExecution(executionId:id);
+    final retry=await regenerate(attempt); final cedar=_Cedar(); final run=runner(cedar);
+    expect((await command(run,retry,'status')).succeeded,true);
+    expect(await activity.unresolvedWrite('bar'),isNull);
+    expect((await effects.remoteHistory('u')).single['state'],'reconciled');
+    expect((await command(run,retry,'serve cloud pour:plum_liqueur',index:1)).status,AgentToolStatus.blocked);
+    expect((await command(run,retry,'next',index:2)).succeeded,true);
+    expect(cedar.commands,['status','next']);
+  });
 
   test('thinking transport preserves raw reasoning and represents empty tool reasoning explicitly',(){
     final history=<Map<String,Object?>>[

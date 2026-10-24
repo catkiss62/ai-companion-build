@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'mcp_protocol.dart';
 
 class CedarCatalogEntry {
   const CedarCatalogEntry({
@@ -74,6 +75,24 @@ class CedarPlatformActionPolicy {
   const CedarPlatformActionPolicy._();
 
   static const actions = <String>{'rest', 'announcements', 'vote'};
+
+  /// Keep the original payload; normalize rejection once for every consumer.
+  static McpToolOutcome normalizeOutcome(McpToolOutcome outcome, {bool? accepted}) {
+    final data = outcome.structuredContent;
+    final rejected = accepted == false || outcome.isError ||
+        explicitlyRejected(outcome.text) ||
+        (data is Map && (data['action_accepted'] == false || data['success'] == false || data['ok'] == false));
+    return rejected && !outcome.isError
+        ? McpToolOutcome(content: outcome.content, structuredContent: outcome.structuredContent, isError: true)
+        : outcome;
+  }
+
+  static bool isStateQuery(String action, Map<String,Object?> params) {
+    if (!isReadOnlyCall(action, params)) return false;
+    if (const {'state','status','observe','look'}.contains(action)) return true;
+    return action == 'cmd' && const {'state','status','observe','look'}
+        .contains(params['command']?.toString().trim());
+  }
 
   static bool isPlatformAction(String action) => actions.contains(action);
 
