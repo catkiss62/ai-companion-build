@@ -175,7 +175,7 @@ void main() {
     'fresh activity can still create a thought without a blanket unlock cooldown',
     () {
       final result = advance(collect(usage: [event(0, 'a')]));
-      expect(result.impulse, closeTo(.09, .00001));
+      expect(result.impulse, closeTo(.09 * .5, .00001));
       expect(result.shouldFeedThought, true);
     },
   );

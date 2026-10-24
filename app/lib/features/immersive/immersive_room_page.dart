@@ -1112,14 +1112,14 @@ class _ImmersiveRoomPageState extends State<ImmersiveRoomPage> {
           onDestinationSelected: (value) => unawaited(_selectMainTab(value)),
         ),
         appBar: AppBar(
-          title: Text(
-            room?.title ?? '沉浸房间',
+          title: const Text(
+            '沉浸房间',
             overflow: TextOverflow.ellipsis,
-            style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w700),
+            style: TextStyle(fontSize: 14, fontWeight: FontWeight.w700),
           ),
           actions: [
             _backgroundButton(),
-            const SizedBox(width: 3),
+            const SizedBox(width: 5),
             _languageSelector(),
             const SizedBox(width: 3),
             if (room != null) _nsfwButton(room),

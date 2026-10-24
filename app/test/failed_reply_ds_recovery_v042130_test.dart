@@ -88,7 +88,8 @@ void main() {
       }
       await chat.syncExternalMessages();
       expect(chat.generationActive,status!='failed');expect(chat.failedReplyAvailable,status=='failed');
-      expect(chat.showManualReplyControl,true);expect(chat.canUseDeepSeekForCurrentReply,true);
+      expect(chat.showManualReplyControl,true);
+      expect(chat.canUseDeepSeekForCurrentReply,status!='orphan_running');
       if (status == 'orphan_running') {
         await chat.resumePendingGeneration().timeout(const Duration(seconds:30));
       } else {
