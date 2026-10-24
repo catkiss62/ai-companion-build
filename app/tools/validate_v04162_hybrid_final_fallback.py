@@ -113,9 +113,9 @@ def main() -> None:
         "readDeepSeekApiKey", "readAiWangYouApiKey", "readPortableSettings")
     require(
         immersive_page,
-        "height: 28",
-        "BoxConstraints.tightFor",
-        "height: 24",
+        "ImmersiveRoomAppBar(",
+        "minHeight: 40",
+        "height: 40",
         "重新生成这条回复？",
     )
     require(

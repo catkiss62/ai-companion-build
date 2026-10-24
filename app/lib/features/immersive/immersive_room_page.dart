@@ -1,3 +1,4 @@
+import '../../widgets/immersive_room_app_bar.dart';
 import 'dart:async';
 
 import 'package:flutter/material.dart';
@@ -423,9 +424,10 @@ class _ImmersiveRoomLobbyPageState extends State<ImmersiveRoomLobbyPage> {
 
 class ImmersiveRoomPage extends StatefulWidget {
   const ImmersiveRoomPage({super.key, required this.roomId,
-      this.onSelectMainTab});
+      this.onSelectMainTab, this.controller});
 
   final String roomId;
+  final ImmersiveRoomController? controller;
   final ValueChanged<int>? onSelectMainTab;
 
   @override
@@ -434,7 +436,7 @@ class ImmersiveRoomPage extends StatefulWidget {
 
 class _ImmersiveRoomPageState extends State<ImmersiveRoomPage> {
   late final ImmersiveRoomController controller =
-      ImmersiveRoomController(roomId: widget.roomId);
+      widget.controller ?? ImmersiveRoomController(roomId: widget.roomId);
   final input = TextEditingController();
   final inputFocus = FocusNode();
   final scroll = ScrollController();
@@ -481,8 +483,8 @@ class _ImmersiveRoomPageState extends State<ImmersiveRoomPage> {
   }
 
   Future<void> _refreshTrials() async {
-    final profile = await AppDatabase.instance.activePersonalityTrial();
-    final special = await AppDatabase.instance.activeSpecialStyleTrial();
+    final profile = await controller.db.activePersonalityTrial();
+    final special = await controller.db.activeSpecialStyleTrial();
     if (!mounted) return;
     setState(() {
       _personalityTrial = profile;
@@ -520,7 +522,7 @@ class _ImmersiveRoomPageState extends State<ImmersiveRoomPage> {
   }
 
   Future<void> _loadVisualSettings() async {
-    final db = AppDatabase.instance;
+    final db = controller.db;
     final background = await RoomBackgroundStorage(db).load();
     final visualStageEnabled =
         (await db.getSetting('chat_visual_stage_enabled')) != '0';
@@ -678,7 +680,7 @@ class _ImmersiveRoomPageState extends State<ImmersiveRoomPage> {
 
   Widget _languageSelector() => Center(
         child: SizedBox(
-          height: 28,
+          height: 44,
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
@@ -692,7 +694,7 @@ class _ImmersiveRoomPageState extends State<ImmersiveRoomPage> {
                       await controller.stopSpeech();
                       if (!mounted) return;
                       setState(() => _selectedLanguage = language);
-                      await AppDatabase.instance.setSetting(
+                      await controller.db.setSetting(
                         'tts_language',
                         language.key,
                       );
@@ -1055,7 +1057,7 @@ class _ImmersiveRoomPageState extends State<ImmersiveRoomPage> {
     return Tooltip(
       message: tooltip,
       child: SizedBox(
-        height: 24,
+        height: 40,
         child: OutlinedButton(
           onPressed: controller.sending ||
                   controller.ending ||
@@ -1095,17 +1097,11 @@ class _ImmersiveRoomPageState extends State<ImmersiveRoomPage> {
           immersive: true,
           onDestinationSelected: (value) => unawaited(_selectMainTab(value)),
         ),
-        appBar: AppBar(
-          title: const Text(
-            '沉浸房间',
-            overflow: TextOverflow.ellipsis,
-            style: TextStyle(fontSize: 14, fontWeight: FontWeight.w700),
-          ),
+        appBar: ImmersiveRoomAppBar(
+          compact: ImmersiveRoomAppBar.useCompact(MediaQuery.sizeOf(context).width,
+              MediaQuery.textScalerOf(context).scale(14)),
+          controls: [_languageSelector(), if (room != null) _nsfwButton(room)],
           actions: [
-            _languageSelector(),
-            const SizedBox(width: 3),
-            if (room != null) _nsfwButton(room),
-            if (room != null) const SizedBox(width: 4),
             if (room != null)
               PopupMenuButton<String>(
                 onSelected: (value) async {
@@ -1240,7 +1236,7 @@ class _ImmersiveRoomPageState extends State<ImmersiveRoomPage> {
                                 setState(() => _panelFraction = next);
                               },
                               onVerticalDragEnd: (_) =>
-                                  AppDatabase.instance.setSetting(
+                                  controller.db.setSetting(
                                 'immersive_panel_fraction',
                                 _panelFraction.toStringAsFixed(3),
                               ),
@@ -1443,10 +1439,7 @@ class _ImmersiveLanguageButton extends StatelessWidget {
           onTap: onPressed,
             child: AnimatedContainer(
               duration: const Duration(milliseconds: 120),
-              constraints: const BoxConstraints.tightFor(
-                width: 32,
-                height: 24,
-              ),
+              constraints: const BoxConstraints(minWidth: 32, minHeight: 40),
             alignment: Alignment.center,
             padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
             decoration: BoxDecoration(

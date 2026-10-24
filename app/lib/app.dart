@@ -8,6 +8,7 @@ import 'package:flutter_localizations/flutter_localizations.dart';
 
 import 'core/platform/android_bridge.dart';
 import 'core/presentation/app_theme.dart';
+import 'core/presentation/chat_route_observer.dart';
 import 'features/chat/chat_page.dart';
 import 'features/home/companion_home_page.dart';
 import 'features/inner/inner_page.dart';
@@ -28,6 +29,7 @@ class AiCompanionApp extends StatelessWidget {
     return MaterialApp(
       debugShowCheckedModeBanner: false,
       title: 'AI Companion',
+      navigatorObservers: [chatRouteObserver],
       locale: const Locale('zh', 'CN'),
       supportedLocales: const [
         Locale('zh', 'CN'),

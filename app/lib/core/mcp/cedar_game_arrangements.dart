@@ -37,17 +37,22 @@ class CedarArrangementScope {
     final slot = input['slot'] ?? 1; // Only this official five-slot contract defines default 1.
     return slot is num && slot == slot.toInt() && slot >= 1 && slot <= 5 ? '${slot.toInt()}' : '';
   }
+  static String slotForEvent(CedarGameSession session, CedarGameEvent event) {
+    if (!CedarSaveSlotPolicy.supportsFiveSlots(session.guide)) return 'session';
+    final input = event.submittedIdentity;
+    return input == null ? '' : slotFor(session, Map<String,dynamic>.from(input));
+  }
   static CedarArrangementScope? current(CedarGameSession session, {DateTime? at}) {
     final events = session.events.where((e) => e.kind == 'outcome' && CedarGameResultPolicy.succeeded(e.summary) && e.action.isNotEmpty &&
       !CedarPlatformActionPolicy.isPlatformAction(e.action)).toList()
       ..sort((a,b) => b.createdAt.compareTo(a.createdAt));
     final event = events.where((e) => at == null || !e.createdAt.isAfter(at)).firstOrNull;
     if (event == null) return null;
-    final slot = slotFor(session, _json(event.inputJson));
+    final slot = slotForEvent(session, event);
     if (slot.isEmpty) return null;
     // A delayed extractor cannot bind an old utterance to a later new/import.
     if (at != null && events.any((e) => e.createdAt.isAfter(at) &&
-        CedarSaveSlotPolicy.isNewOrResetAction(e.action) && slotFor(session, _json(e.inputJson)) == slot)) return null;
+        CedarSaveSlotPolicy.isNewOrResetAction(e.action) && (slotForEvent(session, e) == slot || slotForEvent(session, e).isEmpty))) return null;
     return CedarArrangementScope(session.gameId, session.displayName, session.id, slot,
       session.arrangementSaveEpochs[slot] ?? 'legacy:${session.id}:$slot');
   }
@@ -360,7 +365,7 @@ user安排须逐字user_quote，ai计划须逐字assistant_quote，shared须双�
       for(final m in await _items(txn)) {
         if(m.factState=='ongoing'&&m.metadata['scope_id']==scope.id&&await _validMetadata(txn,m.metadata))items.add(m);
       }
-      final events=live.events.where(successfulReceipt).where((e)=>CedarArrangementScope.slotFor(live,_json(e.inputJson))==scope.slot)
+      final events=live.events.where(successfulReceipt).where((e)=>CedarArrangementScope.slotForEvent(live,e)==scope.slot)
         .toList()..sort((a,b)=>b.createdAt.compareTo(a.createdAt));
       // Persistent restrictions are always visible. One-shot tasks have their
       // own rotating budget, so neither newer tasks nor preferences starve them.
@@ -392,10 +397,7 @@ user安排须逐字user_quote，ai计划须逐字assistant_quote，shared须双�
           event.createdAt.millisecondsSinceEpoch<=((item.metadata['formed_at'] as num?)?.toInt()??event.createdAt.millisecondsSinceEpoch))continue;
         final currentEvent=live.events.where((e)=>e.id==event.id).firstOrNull;
         if(currentEvent==null||!successfulReceipt(currentEvent)||_digest(currentEvent.toJson())!=_digest(event.toJson()))continue;
-        final command=_json(currentEvent.inputJson)['command'];
-        final inner=command is String?command.trim().split(RegExp(r'\s+')).first:'';
-        if(item.metadata['completion_basis']!='state'&&(CedarPlatformActionPolicy.isReadOnly(currentEvent.action)||
-          (currentEvent.action=='cmd'&&CedarPlatformActionPolicy.isReadOnly(inner))))continue;
+        if(item.metadata['completion_basis']!='state' && currentEvent.isReadOnly != false) continue;
         final current=await _get(txn,item.id);
         if(current==null||current.factState!='ongoing'||current.snapshot!=item.snapshot||!await _validMetadata(txn,current.metadata))continue;
         await _put(txn,CedarGameNote({...current.data,'state':'completed','metadata':{...current.metadata,

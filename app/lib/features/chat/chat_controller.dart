@@ -58,6 +58,7 @@ import '../../core/tts/tts_playback_queue.dart';
 import '../../core/tts/tts_policy.dart';
 import '../../core/tts/tts_provider.dart';
 import '../../core/tts/tts_service.dart';
+import '../../core/tts/proactive_speech_delivery.dart';
 
 class ChatController extends ChangeNotifier {
   static const _persistentFallbackNoticeKey =
@@ -149,6 +150,7 @@ class ChatController extends ChangeNotifier {
   late final TtsService ttsService;
   late final EmotionSoundService emotionSounds;
   late final TtsPlaybackQueue ttsPlayback;
+  late final proactiveSpeech = ProactiveSpeechDelivery(db);
   late final PerceptionEngine perceptionEngine;
   late final RelationshipAssimilator relationshipAssimilator;
   late final MemoryMaintenanceEngine memoryMaintenance;
@@ -257,7 +259,7 @@ class ChatController extends ChangeNotifier {
     _safeNotify();
   }
 
-  bool get generationActive => sending || externalGenerationActive;
+  bool get generationActive => sending || externalGenerationActive || cancellingGeneration;
 
   bool get showGenerationDraft => GenerationPresentationPolicy.showDraft(
         generationActive: generationActive || failedReplyAvailable,
@@ -402,8 +404,8 @@ class ChatController extends ChangeNotifier {
     try {
       await db.ensureReady();
       model = await FirstChannelModel.read(db);
+      effort = await FirstChannelModel.readEffort(db);
       _secondChannelEnabled = (await secureConfig.readChatProvider()).isGeminiRelay;
-      effort = ReasoningEffort.fromApiName(await db.getSetting('reasoning_effort'));
       nsfwActive = (await db.getSetting('nsfw_active')) == '1';
       deepThinking = (await db.getSetting('deep_thinking_enabled')) == '1';
       messages = await db.recentMessages(limit: 120);
@@ -602,7 +604,7 @@ class ChatController extends ChangeNotifier {
 
   Future<void> setEffort(ReasoningEffort next) async {
     effort = next;
-    await db.setSetting('reasoning_effort', next.apiName);
+    await db.setSetting('deepseek_reasoning_effort', next.apiName);
     _safeNotify();
   }
 
@@ -620,6 +622,7 @@ class ChatController extends ChangeNotifier {
   Future<void> _refreshChatRoutingSettings() async {
     nsfwActive = (await db.getSetting('nsfw_active')) == '1';
     model = await FirstChannelModel.read(db);
+    effort = await FirstChannelModel.readEffort(db);
     _secondChannelEnabled = (await secureConfig.readChatProvider()).isGeminiRelay;
   }
 
@@ -1156,6 +1159,8 @@ class ChatController extends ChangeNotifier {
     StickerPackMeta? userStickerPack,
     StickerRecord? userSticker,
     CreativeChatSnapshot? workContext,
+    void Function()? onAccepted,
+    bool Function()? submissionCancelled,
   }) async {
     final text = raw.trim();
     final turnDeepThinking = deepThinking;
@@ -1177,13 +1182,26 @@ class ChatController extends ChangeNotifier {
         messages = await db.recentMessages(limit: 160);
         _safeNotify();
         unawaited(_scheduleGenerationRecovery());
+        onAccepted?.call();
         return true;
       }
     }
 
-    if (generationActive || analyzingImage) return false;
-
+    if (submissionCancelled?.call() == true) return false;
+    if (_disposed || generationActive || analyzingImage || cancellingGeneration) return false;
+    final cancellation = GenerationCancellationToken();
+    void checkSubmission() {
+      if (submissionCancelled?.call() == true) cancellation.cancel();
+      cancellation.throwIfCancelled();
+    }
+    var leaseOwned = false;
+    _activeGenerationCancellation = cancellation;
+    _activeGenerationJobId = null;
+    sending = true;
+    _safeNotify();
+    try {
     await _stopTurnAudio();
+    checkSubmission();
     if ((await db.getSetting('transfer_lock')) == '1') {
       error = await _activeWriteFreezeMessage();
       _safeNotify();
@@ -1219,6 +1237,7 @@ class ChatController extends ChangeNotifier {
       return false;
     }
 
+    checkSubmission();
     final chatLease = await db.tryAcquireLocalLease(
       'chat_turn_lease',
       holdFor: const Duration(seconds: 30),
@@ -1229,16 +1248,15 @@ class ChatController extends ChangeNotifier {
       return false;
     }
 
+    leaseOwned = true;
     sending = true;
     nsfwRouting = (await db.getSetting('nsfw_manual_override') ?? '').isEmpty;
     _petGenerationActive = true;
     recoveringGeneration = false;
-    cancellingGeneration = false;
     streamingReasoning = '';
     streamingContent = '';
     agentActivity = null;
     agentActivities = <AgentToolActivity>[];
-    final cancellation = GenerationCancellationToken();
     _activeReplyControl = FinalReplyControl()..onChanged = _safeNotify;
     _externalDeepSeekSelected = false;
     _activeGenerationCancellation = cancellation;
@@ -1256,7 +1274,7 @@ class ChatController extends ChangeNotifier {
         throw StateError('她已经切换到另一台设备，这轮发送已取消。');
       }
 
-      cancellation.throwIfCancelled();
+      checkSubmission();
       await _refreshChatRoutingSettings();
       final userId = stableMessageId != null && stableMessageId.isNotEmpty
             ? stableMessageId
@@ -1287,6 +1305,7 @@ class ChatController extends ChangeNotifier {
               ? const <MessageAttachment>[]
               : <MessageAttachment>[preparedUserStickerAttachment!],
         );
+        checkSubmission();
         final job = await db.createGenerationTurn(
           user: user,
           assistantMessageId: _uuid.v4(),
@@ -1296,6 +1315,7 @@ class ChatController extends ChangeNotifier {
           deepThinking: turnDeepThinking,
           creativeContext: workContext?.data,
           creativeFence: workContext?.fence,
+          isCancelled: () => cancellation.isCancelled || submissionCancelled?.call() == true,
         );
         return (user: user, job: job);
       }
@@ -1308,11 +1328,12 @@ class ChatController extends ChangeNotifier {
       final job = committedTurn.job;
       durableTurnCreated = true;
       _activeGenerationJobId = job.id;
+      onAccepted?.call();
       if (_activeReplyControl?.requested == true) {
         await db.selectDeepSeekForGeneration(job.id);
       }
       _activeGenerationAssistantMessageId = job.assistantMessageId;
-      cancellation.throwIfCancelled();
+      checkSubmission();
       messages = [...messages, user];
       _safeNotify();
 
@@ -1321,19 +1342,19 @@ class ChatController extends ChangeNotifier {
       // recovery prioritizes producing the missing reply without duplicating
       // Desire pulses or other state mutations.
       await proactiveRhythm.captureUserResponse(user);
-      cancellation.throwIfCancelled();
+      checkSubmission();
       await thoughtLifecycle.advance();
-      cancellation.throwIfCancelled();
+      checkSubmission();
       await relationshipAssimilator.assimilatePending();
-      cancellation.throwIfCancelled();
+      checkSubmission();
       await memoryMaintenance.maybeRun();
-      cancellation.throwIfCancelled();
+      checkSubmission();
       await perceptionEngine.capture();
-      cancellation.throwIfCancelled();
+      checkSubmission();
       await desireEngine.tick(
         pulses: DesireCorePolicy.ordinaryConversationPulses,
       );
-      cancellation.throwIfCancelled();
+      checkSubmission();
 
       await _executeCurrentProcessGeneration(
         job: job,
@@ -1372,14 +1393,13 @@ class ChatController extends ChangeNotifier {
             await db.recentGenerationInterruptions(limit: 20);
         error = '这一轮没有被删除，已经转入自动恢复。';
       } else {
-        error = e.toString();
+        error = cancellation.isCancelled ? null : e.toString();
       }
     } finally {
       sending = false;
       nsfwRouting = false;
       _petGenerationActive = false;
       recoveringGeneration = false;
-      cancellingGeneration = false;
       streamingReasoning = '';
       streamingContent = '';
       agentActivity = null;
@@ -1393,6 +1413,7 @@ class ChatController extends ChangeNotifier {
         _activeGenerationAssistantMessageId = null;
       }
       await db.releaseLocalLease('chat_turn_lease');
+      leaseOwned = false;
       _safeNotify();
       _resumeUnfinishedVisionWhenIdle();
       if (durableTurnCreated && !cancellation.isCancelled) {
@@ -1400,6 +1421,22 @@ class ChatController extends ChangeNotifier {
       }
     }
     return durableTurnCreated;
+    } on GenerationCancelledByUserException {
+      return false;
+    } catch (e) {
+      error = e.toString();
+      return false;
+    } finally {
+      if (leaseOwned) await db.releaseLocalLease('chat_turn_lease');
+      if (identical(_activeGenerationCancellation, cancellation)) {
+        sending = false;
+        _petGenerationActive = false;
+        _activeGenerationCancellation = null;
+        _activeGenerationJobId = null;
+        _activeGenerationAssistantMessageId = null;
+        _safeNotify();
+      }
+    }
   }
 
   Future<void> _executeCurrentProcessGeneration({
@@ -1863,46 +1900,57 @@ class ChatController extends ChangeNotifier {
   /// until the foreground or background runner has released the durable chat
   /// lease; otherwise the UI can say "stopped" while backup and the next turn
   /// are still blocked by the old provider socket.
-  Future<void> cancelCurrentGeneration() async {
+  String? get generationJobId => _activeGenerationJobId ?? _externalReplyJobId ?? incompleteReplyJobId;
+  Object? get generationIdentity => _activeGenerationCancellation ?? generationJobId;
+
+  Future<void> cancelCurrentGeneration({String? targetJobId, Object? expectedIdentity}) async {
     if (_disposed || cancellingGeneration) return;
-    cancellingGeneration = true;
-    _petGenerationActive = false;
-    error = null;
-    _recoveryScheduleEpoch++;
-    final token = _activeGenerationCancellation;
+    if (expectedIdentity != null && expectedIdentity != generationIdentity) return;
+    final ownedJobId = generationJobId;
+    final jobId = targetJobId ?? ownedJobId;
+    final affectsLocal = targetJobId == null || targetJobId == ownedJobId;
+    // Capture before any audio/database wait; never discover a later task.
+    final token = affectsLocal ? _activeGenerationCancellation : null;
+    final leaseAtClick = db.getSetting('chat_turn_lease');
     token?.cancel();
-    streamingReasoning = '';
-    streamingContent = '';
-    agentActivity = null;
-    agentActivities = <AgentToolActivity>[];
+    cancellingGeneration = true;
+    if (affectsLocal) {
+      _petGenerationActive = false;
+      error = null;
+      _recoveryScheduleEpoch++;
+      streamingReasoning = '';
+      streamingContent = '';
+      agentActivity = null;
+      agentActivities = <AgentToolActivity>[];
+    }
     _safeNotify();
-
-    await _stopTurnAudio();
-    final jobId = _activeGenerationJobId ??
-        (await db.blockingGenerationJob())?.id ??
-        (await db.failedGenerationNeedingAttention())?.id;
-    if (jobId != null) {
-      await db.cancelGenerationJobByUser(jobId);
+    try {
+      if (jobId != null) await db.cancelGenerationJobByUser(jobId);
+      if (affectsLocal) await _stopTurnAudio();
+      final rawLease = await leaseAtClick ?? '';
+      final leaseToken = rawLease.contains('|') ? rawLease.split('|').first : '';
+      Future<bool> oldLeaseHeld() async {
+        if (leaseToken.isEmpty) return false;
+        final raw = await db.getSetting('chat_turn_lease') ?? '';
+        return raw.startsWith('$leaseToken|') && await db.isLocalLeaseHeld('chat_turn_lease');
+      }
+      final deadline = DateTime.now().add(const Duration(seconds: 5));
+      while (await oldLeaseHeld() && DateTime.now().isBefore(deadline)) {
+        await Future<void>.delayed(const Duration(milliseconds: 50));
+      }
+      final stopped = !await oldLeaseHeld();
       messages = await db.recentMessages(limit: 120);
-      generationInterruptions =
-          await db.recentGenerationInterruptions(limit: 20);
+      generationInterruptions = await db.recentGenerationInterruptions(limit: 20);
+      if (affectsLocal) {
+        externalGenerationActive = false;
+        failedReplyAvailable = false;
+        _externalGenerationAssistantMessageId = null;
+      }
+      if (!stopped) error = '停止请求已经写入，但旧回复连接尚未退出；请稍候，不要立即恢复备份。';
+    } finally {
+      cancellingGeneration = false;
+      _safeNotify();
     }
-
-    final deadline = DateTime.now().add(const Duration(seconds: 5));
-    while (await db.isLocalLeaseHeld('chat_turn_lease') &&
-        DateTime.now().isBefore(deadline)) {
-      await Future<void>.delayed(const Duration(milliseconds: 50));
-    }
-    final stopped = !await db.isLocalLeaseHeld('chat_turn_lease');
-
-    externalGenerationActive = false;
-    failedReplyAvailable = false;
-    _externalGenerationAssistantMessageId = null;
-    if (!stopped) {
-      error = '停止请求已经写入，但旧回复连接尚未退出；请稍候，不要立即恢复备份。';
-    }
-    cancellingGeneration = false;
-    _safeNotify();
   }
 
   TtsEmotionCue? _ttsEmotionCue(ChatMessage message) {
@@ -2015,9 +2063,9 @@ class ChatController extends ChangeNotifier {
   }
 
   Future<void> stopSpeech() async {
+    final consumed = proactiveSpeech.stopRequested();
     final stopped = ttsPlayback.stop();
-    await emotionSounds.stop();
-    await stopped;
+    await Future.wait([consumed, stopped, emotionSounds.stop()]);
   }
 
   bool _hasPlausibleLanguageVariant(
@@ -2029,12 +2077,15 @@ class ChatController extends ChangeNotifier {
         MessageLanguageVariantDecoder.isPlausibleVariant(variant, language);
   }
 
-  Future<void> onOverlayOpened() async {
+  Future<void> onOverlayOpened() => onChatOpened();
+
+  Future<void> onChatOpened({bool Function()? canStart}) async {
     final policy = ProactiveTtsPolicy.fromSetting(
       await db.getSetting('proactive_tts_policy'),
     );
     if (policy != ProactiveTtsPolicy.whenOverlayOpened) return;
     if ((await db.getSetting('tts_enabled')) == '0') return;
+    if (_disposed || generationActive || analyzingImage || canStart?.call() == false) return;
 
     ChatMessage? latest;
     for (final message in messages.reversed) {
@@ -2044,21 +2095,20 @@ class ChatController extends ChangeNotifier {
       }
     }
     if (latest == null) return;
-    final lastSpoken = await db.getSetting('last_proactive_spoken_message_id');
-    if (lastSpoken == latest.id) return;
-    final playbackIntent = ttsPlayback.createIntent(ownerId: latest.id);
-    await db.setSetting('last_proactive_spoken_message_id', latest.id);
-    if (!playbackIntent.valid) return;
-    final visual = ChatVisualResolver.resolveEmotionKey(latest.emotionKey);
-    final emotionLeadIn = emotionSounds.play(visual, intent: playbackIntent).then<void>((_) {});
-    await ttsPlayback.playText(
-      latest.content,
-      intent: playbackIntent,
-      manual: true,
-      ownerId: latest.id,
-      emotion: _ttsEmotionCue(latest),
-      leadIn: emotionLeadIn,
-    );
+    final message = latest;
+    await proactiveSpeech.deliver(message,
+      canStart: () => !_disposed && !generationActive && !analyzingImage &&
+          canStart?.call() != false && !ttsState.running,
+      play: () async {
+        final intent = ttsPlayback.createIntent(ownerId: message.id,
+          formForPlayback: message.formContext.isKnown ? message.formContext.form == 'q' : null);
+        final visual = ChatVisualResolver.resolveEmotionKey(message.emotionKey);
+        await ttsPlayback.playText(message.content, intent: intent,
+          manual: true, ownerId: message.id, emotion: _ttsEmotionCue(message),
+          leadIn: emotionSounds.play(visual, intent: intent).then<void>((_) {}));
+        await ttsPlayback.waitUntilIdle();
+        return intent.valid && ttsPlayback.playedAny;
+      });
   }
 
   @override

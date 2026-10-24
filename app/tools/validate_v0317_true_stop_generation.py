@@ -40,7 +40,7 @@ assert "status: 'cancelled_by_user'" in runner
 assert "cancellationToken?.throwIfCancelled()" in runner
 
 controller = read("lib/features/chat/chat_controller.dart")
-assert "Future<void> cancelCurrentGeneration()" in controller
+assert "Future<void> cancelCurrentGeneration({String? targetJobId, Object? expectedIdentity})" in controller
 assert "_activeGenerationCancellation" in controller
 assert "token?.cancel()" in controller
 assert "await _stopTurnAudio()" in controller

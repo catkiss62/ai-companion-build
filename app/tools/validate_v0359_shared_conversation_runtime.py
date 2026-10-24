@@ -61,7 +61,7 @@ for token in [
     "await db.blockingGenerationJob()",
     "await db.recentGenerationInterruptions(limit: 20)",
     "await _incrementOverlayUnread()",
-    "(await db.failedGenerationNeedingAttention())?.id",
+    "_externalReplyJobId ?? incompleteReplyJobId",
     "class ChatTimelineItem",
 ]:
     assert token in controller, token

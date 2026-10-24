@@ -95,6 +95,8 @@ class CedarGameEvent {
     this.action = '',
     this.inputJson = '',
     this.readOnly,
+    this.targetIdentity,
+    this.parameterFingerprint = '',
     this.contentKinds = const <String>[],
     this.viewerUrl = '',
     this.notable = false,
@@ -110,6 +112,19 @@ class CedarGameEvent {
   final String action;
   final String inputJson;
   final bool? readOnly;
+  final Map<String, Object?>? targetIdentity;
+  final String parameterFingerprint;
+  Map<String, Object?>? get submittedIdentity {
+    if (targetIdentity != null) return targetIdentity;
+    try { final value = jsonDecode(inputJson);
+      return value is Map ? Map<String, Object?>.from(value) : null;
+    } catch (_) { return null; }
+  }
+  static Map<String, Object?> captureTarget(Map<String, Object?> params) => {
+    for (final key in const ['slot','room_id','save_id','session_id','world_id'])
+      if (params.containsKey(key)) key: params[key] is num ? params[key] :
+        (params[key] is String && (params[key] as String).length <= 128 ? params[key] : ''),
+  };
 
   bool? get isReadOnly {
     if (readOnly != null) return readOnly;
@@ -142,6 +157,8 @@ class CedarGameEvent {
         action: action,
         inputJson: inputJson,
         readOnly: readOnly,
+        targetIdentity: targetIdentity,
+        parameterFingerprint: parameterFingerprint,
         contentKinds: <String>{...contentKinds, 'image'}.toList(growable: false),
         viewerUrl: viewerUrl,
         notable: notable,
@@ -160,6 +177,8 @@ class CedarGameEvent {
           action: action,
           inputJson: inputJson,
           readOnly: readOnly,
+        targetIdentity: targetIdentity,
+        parameterFingerprint: parameterFingerprint,
           contentKinds: contentKinds,
           viewerUrl: viewerUrl,
           notable: notable,
@@ -175,6 +194,8 @@ class CedarGameEvent {
         'action': action,
         'input_json': inputJson,
         if (readOnly != null) 'read_only': readOnly,
+        if (targetIdentity != null) 'target_identity': targetIdentity,
+        if (parameterFingerprint.isNotEmpty) 'parameter_fingerprint': parameterFingerprint,
         'content_kinds': contentKinds,
         'viewer_url': viewerUrl,
         'notable': notable,
@@ -193,6 +214,8 @@ class CedarGameEvent {
         action: json['action']?.toString() ?? '',
         inputJson: json['input_json']?.toString() ?? '',
         readOnly: json['read_only'] is bool ? json['read_only'] as bool : null,
+        targetIdentity: json['target_identity'] is Map ? captureTarget(Map<String,Object?>.from(json['target_identity'] as Map)) : null,
+        parameterFingerprint: json['parameter_fingerprint'] is String && RegExp(r'^[a-f0-9]{64}$').hasMatch(json['parameter_fingerprint'] as String) ? json['parameter_fingerprint'] as String : '',
         contentKinds: (json['content_kinds'] as List?)
                 ?.map((item) => item.toString())
                 .toList(growable: false) ??
@@ -311,9 +334,13 @@ class CedarGameSession {
     if (!CedarPlatformActionPolicy.isReadOnlyCall(action, params)) return false;
     for (final event in events.reversed) {
       if (event.kind != 'outcome') continue;
-      if (event.isReadOnly == false &&
+      if (event.isReadOnly != true &&
           !CedarPlatformActionPolicy.isResultSnapshot(event.action)) break;
       if (event.action != action) continue;
+      if (event.parameterFingerprint.isNotEmpty) {
+        if (event.parameterFingerprint == turnPayloadHash(params)) return true;
+        continue;
+      }
       try {
         final input=jsonDecode(event.inputJson);
         if (input is Map && turnPayloadHash(input)==turnPayloadHash(params)) return true;
@@ -1602,6 +1629,8 @@ class CedarToyActivityStore {
       action: action,
       inputJson: _bounded(CedarToyClient.redactSecrets(jsonEncode(submittedParams)), 2000),
       readOnly: CedarPlatformActionPolicy.isReadOnlyCall(action, submittedParams),
+      targetIdentity: CedarGameEvent.captureTarget(submittedParams),
+      parameterFingerprint: turnPayloadHash(submittedParams),
       contentKinds: outcome.content
           .map((item) => item.kind.name)
           .toSet()

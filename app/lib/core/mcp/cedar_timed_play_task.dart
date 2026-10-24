@@ -423,7 +423,7 @@ class CedarTimedPlayTaskStore {
   Future<void> recordProgress(CedarGameSession session) async {
     if (session.events.isEmpty) return;
     final event = session.events.last;
-    if (event.kind != 'outcome' || CedarPlatformActionPolicy.isReadOnly(event.action) ||
+    if (event.kind != 'outcome' || event.isReadOnly != false ||
         CedarPlatformActionPolicy.isResultSnapshot(event.action) ||
         CedarPlatformActionPolicy.isPlatformAction(event.action)) return;
     for (var retry = 0; retry < 3; retry++) {
@@ -559,7 +559,7 @@ class CedarTimedPlayTaskStore {
       final started=(current['startedAt'] as num?)?.toInt();
       final hasOutcome=started!=null && session!=null && session.id==current['sessionId'] &&
         session.events.any((e)=>e.kind=='outcome' && e.createdAt.millisecondsSinceEpoch>=started &&
-          !CedarPlatformActionPolicy.isReadOnly(e.action) &&
+          e.isReadOnly == false &&
           !CedarPlatformActionPolicy.isPlatformAction(e.action) && !CedarPlatformActionPolicy.isResultSnapshot(e.action));
       reason=((current['progressCount'] as num?)?.toInt() ?? 0)>0 || hasOutcome
           ? 'budget_complete' : 'no_progress';
@@ -572,7 +572,7 @@ class CedarTimedPlayTaskStore {
       final events = started != null && session != null && session.id == current['sessionId']
           ? session.events.where((event) => event.kind == 'outcome' &&
               event.createdAt.millisecondsSinceEpoch >= started &&
-              !CedarPlatformActionPolicy.isReadOnly(event.action) &&
+              event.isReadOnly == false &&
               !CedarPlatformActionPolicy.isResultSnapshot(event.action) &&
               !CedarPlatformActionPolicy.isPlatformAction(event.action)).toList()
           : <CedarGameEvent>[];

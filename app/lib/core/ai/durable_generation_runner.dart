@@ -211,6 +211,8 @@ class DurableGenerationRunner {
     final firstModel = requested.model.trim().isEmpty
         ? await FirstChannelModel.read(db)
         : DeepSeekModelProfile.fromApiName(requested.model);
+    final finalChannelEffort = ReasoningEffort.fromApiName(
+      await db.getSetting('generation_final_effort_v1:${requested.id}') ?? requested.reasoningEffort);
     var finalTextFromGemini = false;
     if (cancellationToken?.isCancelled ?? false) {
       await db.cancelGenerationJobByUser(requested.id);
@@ -858,6 +860,7 @@ class DurableGenerationRunner {
         String usageLane = 'user_chat',
         ChatApiProvider? requestProvider,
         String? requestModelName,
+        ReasoningEffort? requestEffort,
         GenerationCancellationToken? requestCancellation,
       }) async {
         var reasoning = '';
@@ -906,7 +909,7 @@ class DurableGenerationRunner {
           await for (final delta in client.streamChat(
             apiKey: requestApiKey,
             model: firstModel,
-            effort: ReasoningEffort.fromApiName(job.reasoningEffort),
+            effort: requestEffort ?? ChatApiProvider.deepSeek.normalizeEffort(ReasoningEffort.fromApiName(job.reasoningEffort)),
             messages: messages,
             endpoint: requestEndpoint,
             requestProvider: requestProvider,
@@ -1224,6 +1227,7 @@ class DurableGenerationRunner {
                 requestApiKey: configuredFinalApiKey,
                 requestEndpoint: configuredFinalEndpoint,
                 requestProvider: finalProvider,
+                requestEffort: finalProvider.normalizeEffort(finalChannelEffort),
                 requestModelName: configuredFinalModel,
                 requestCancellation: takeover.secondChannelToken(effectiveCancellation),
                 emitDeltas: false,
@@ -1688,7 +1692,10 @@ $finalGenerationReminder
           if (call.toolId == 'creative_work.stop') slot = TurnEffectSlot.creativeControl;
           if (call.toolId == 'cedar_toy.manage_activity') slot = TurnEffectSlot.cedarControl;
           if (call.toolId == 'cedar_toy.start_timed_play') slot = TurnEffectSlot.cedarTimedRegistration;
-          if (call.toolId == 'cedar_toy.play') slot = TurnEffectSlot.cedarForegroundWrite;
+          if (call.toolId == 'cedar_toy.play' && !CedarPlatformActionPolicy.isReadOnlyEvent(
+              call.arguments['action'] ?? '', call.arguments['params_json'] ?? '{}')) {
+            slot = TurnEffectSlot.cedarForegroundWrite;
+          }
           if (slot == null) continue;
           final existing = turnGoals.where((g) => g.slot == slot).firstOrNull;
           final game = call.arguments['game'] ?? '';

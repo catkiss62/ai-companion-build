@@ -137,7 +137,7 @@ class DreamEngine {
       }
       Map<String, dynamic>? payload = {'changes': <Object?>[]};
       if (needsReview) {
-        final reviewModel = await FirstChannelModel.work(db);
+        final reviewModel = await FirstChannelModel.read(db);
         diagnostic['model'] = reviewModel.apiName;
         if (!await db.setSettingsAtomically(
           {

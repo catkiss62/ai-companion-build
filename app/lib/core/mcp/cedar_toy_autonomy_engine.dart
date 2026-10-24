@@ -2057,9 +2057,9 @@ ${arrangements.prompt}''',
     // revoke an already-running session and strand its next_call.
     final serverSessionStarted = session.hasContinuationCall ||
         session.ownRoomAliases.isNotEmpty ||
-        (session.lastAction.isNotEmpty &&
-            !CedarPlatformActionPolicy.isReadOnly(session.lastAction) &&
-            !CedarPlatformActionPolicy.isPlatformAction(session.lastAction));
+        session.events.any((event) => event.kind == 'outcome' &&
+            event.isReadOnly == false && CedarGameResultPolicy.succeeded(event.summary) &&
+            !CedarPlatformActionPolicy.isPlatformAction(event.action));
     if (!platformAction &&
         mode.requiresInvitation &&
         !session.invitationApproved &&

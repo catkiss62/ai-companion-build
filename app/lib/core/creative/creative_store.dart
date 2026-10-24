@@ -409,7 +409,7 @@ class CreativeStore {
             }
             final model = await BrainWorkFence.value(txn, 'creative_work_model');
             final effort = await BrainWorkFence.value(txn, 'creative_work_effort');
-            after = {...before, 'status': 'queued', 'attempts': 0, 'retry_at': 0, 'preempt': '',
+            after = {...before, 'status': 'queued', 'attempts': 0, 'retry_at': 0, 'preempt': '', 'api_profile_id': '',
               'model': model.isNotEmpty ? model : before['model'] ?? 'deepseek-flash',
               'effort': effort.isNotEmpty ? effort : before['effort'] ?? 'max',
               'updated': DateTime.now().millisecondsSinceEpoch, 'note': '等待继续制作'};

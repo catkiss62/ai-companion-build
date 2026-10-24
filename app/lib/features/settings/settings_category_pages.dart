@@ -43,6 +43,10 @@ class _ModelNetworkSettingsPageState
   final _customDeepSeekModel = TextEditingController();
   final _workModel = TextEditingController(text: 'deepseek-flash');
   ReasoningEffort _workEffort = ReasoningEffort.max;
+  ReasoningEffort _firstEffort = ReasoningEffort.high;
+  bool _independentWorkApi = false;
+  final _workKey = TextEditingController();
+  final _workEndpoint = TextEditingController();
   final _aiWangYouApiKey = TextEditingController();
   final _aiWangYouEndpoint = TextEditingController();
   final _aiWangYouModel = TextEditingController();
@@ -67,6 +71,7 @@ class _ModelNetworkSettingsPageState
   bool _agnesCompaction = true;
   bool _loading = true;
   bool _testingChat = false;
+  bool _testingWork = false;
   bool _testingVision = false;
   bool _testingAgnes = false;
   bool _testingJev = false;
@@ -190,6 +195,12 @@ class _ModelNetworkSettingsPageState
     final activeModel = await _db.getSetting('model');
     final storedDeepSeekModel = await _db.getSetting('deepseek_model');
     _creativeAutonomy = await _db.getSetting(CreativeAutonomyPolicy.enabledKey) == '1';
+    final workApi = await _secure.readWorkConfiguration();
+    _independentWorkApi = workApi['mode'] == 'independent';
+    _workKey.text = workApi['key'] as String? ?? '';
+    _workEndpoint.text = workApi['endpoint'] as String? ?? SecureConfig.defaultEndpoint;
+    _firstEffort = ChatApiProvider.deepSeek.normalizeEffort(ReasoningEffort.fromApiName(
+      await _db.getSetting('deepseek_reasoning_effort') ?? await _db.getSetting('reasoning_effort')));
     _workModel.text = await _db.getSetting('creative_work_model') ?? 'deepseek-flash';
     _workEffort = ReasoningEffort.fromApiName(await _db.getSetting('creative_work_effort') ?? 'max');
     final storedModel = DeepSeekModelProfile.fromApiName(
@@ -268,12 +279,13 @@ class _ModelNetworkSettingsPageState
         await _secure.writeAiWangYouModel(_aiWangYouModel.text);
       }
       await _db.setSetting('deepseek_model', effectiveModel.apiName);
-      final normalizedEffort = _chatProvider.normalizeEffort(_effort);
+      final normalizedEffort = _chatProvider.isGeminiRelay ? _chatProvider.normalizeEffort(_effort) : ChatApiProvider.deepSeek.normalizeEffort(_firstEffort);
       // Generation jobs always persist the internal DeepSeek model. The
       // independently configured final-reply model stays device-local so
       // recovery and fallback never mistake it for the internal model.
       await _db.setSetting('model', effectiveModel.apiName);
-      await _db.setSetting('reasoning_effort', normalizedEffort.apiName);
+      await _db.setSettingsAtomically({'reasoning_effort': normalizedEffort.apiName,
+        'deepseek_reasoning_effort': ChatApiProvider.deepSeek.normalizeEffort(_firstEffort).apiName});
       await _secure.writeChatProvider(_chatProvider);
       await _db.wakeRetryableGenerationJobs();
       await _db.wakeRetryablePostTurnJobs();
@@ -641,12 +653,35 @@ class _ModelNetworkSettingsPageState
     }
   }
 
+  Future<void> _testWorkProfile() async {
+    if (_testingWork) return;
+    setState(() { _testingWork = true; _status = '正在测试已保存的工作接口…'; });
+    final client = DeepSeekClient();
+    try {
+      final connection = await _secure.workConnection();
+      if (connection == null || connection.apiKey.isEmpty) throw const FormatException('请先保存工作 API 配置');
+      final result = await client.jsonCompletion(apiKey: connection.apiKey, endpoint: connection.endpoint,
+        model: DeepSeekModelProfile.fromApiName(await _db.getSetting('creative_work_model')),
+        effort: ReasoningEffort.fromApiName(await _db.getSetting('creative_work_effort') ?? 'max'),
+        thinking: true, maxTokens: 512, requestTimeout: const Duration(seconds: 45),
+        messages: const [{'role':'user','content':'连接测试，只返回JSON：{"ok":true}'}]);
+      if (mounted) setState(() => _status = result['ok'] == true ? '工作接口连接通过；使用了少量 API 额度。' : '已连接，但未收到有效测试结果。');
+    } catch (error) {
+      if (mounted) setState(() => _status = '工作接口测试失败：$error');
+    } finally {
+      client.close();
+      if (mounted) setState(() => _testingWork = false);
+    }
+  }
+
   @override
   void dispose() {
     _deepSeekKey.dispose();
     _deepSeekEndpoint.dispose();
     _customDeepSeekModel.dispose();
     _workModel.dispose();
+    _workKey.dispose();
+    _workEndpoint.dispose();
     _aiWangYouApiKey.dispose();
     _aiWangYouEndpoint.dispose();
     _aiWangYouModel.dispose();
@@ -736,7 +771,7 @@ class _ModelNetworkSettingsPageState
                       DropdownButtonFormField<DeepSeekModelProfile>(
                         value: _model,
                         decoration: const InputDecoration(
-                          labelText: 'DeepSeek 内部模型',
+                          labelText: 'DeepSeek 内部模型（第一通道）',
                           border: OutlineInputBorder(),
                         ),
                         items: DeepSeekModelProfile.values
@@ -749,6 +784,14 @@ class _ModelNetworkSettingsPageState
                             .toList(growable: false),
                         onChanged: (value) =>
                             setState(() => _model = value ?? _model),
+                      ),
+                      const SizedBox(height: 12),
+                      DropdownButtonFormField<ReasoningEffort>(
+                        value: _firstEffort,
+                        decoration: const InputDecoration(labelText: '第一通道思考强度', border: OutlineInputBorder()),
+                        items: ChatApiProvider.deepSeek.reasoningEfforts.map((e) =>
+                          DropdownMenuItem(value: e, child: Text(e.label))).toList(),
+                        onChanged: (value) { if (value != null) setState(() => _firstEffort = value); },
                       ),
                       if (_model.isCustom) ...[
                         const SizedBox(height: 12),
@@ -802,10 +845,10 @@ class _ModelNetworkSettingsPageState
                         ),
                       ],
                       const SizedBox(height: 12),
-                      DropdownButtonFormField<ReasoningEffort>(
+                      if (_chatProvider.isGeminiRelay) DropdownButtonFormField<ReasoningEffort>(
                         value: _effort,
                         decoration: const InputDecoration(
-                          labelText: '思考强度',
+                          labelText: '第二通道思考强度',
                           border: OutlineInputBorder(),
                         ),
                         items: _chatProvider.reasoningEfforts
@@ -830,8 +873,21 @@ class _ModelNetworkSettingsPageState
                   ),
                   _SettingsSectionCard(
                     title: '工作模型',
-                    subtitle: '专门制作小作品，复用上面的 DeepSeek Key 和地址。聊天模型不受影响。',
+                    subtitle: '专门制作小作品。模型与力度独立；API 可跟随第一通道或单独配置。',
                     children: [
+                      SwitchListTile(contentPadding: EdgeInsets.zero,
+                        title: const Text('独立工作 API'),
+                        subtitle: const Text('关闭时跟随第一通道的 Key 和地址'),
+                        value: _independentWorkApi,
+                        onChanged: (value) => setState(() => _independentWorkApi = value)),
+                      if (_independentWorkApi) ...[
+                        TextField(controller: _workKey, obscureText: true,
+                          decoration: const InputDecoration(labelText: '工作 API Key')),
+                        const SizedBox(height: 12),
+                        TextField(controller: _workEndpoint,
+                          decoration: const InputDecoration(labelText: '工作 Chat Completions 地址')),
+                        const SizedBox(height: 12),
+                      ],
                       TextField(controller: _workModel, decoration: const InputDecoration(labelText: '模型名称', hintText: 'deepseek-flash')),
                       const SizedBox(height: 12),
                       DropdownButtonFormField<ReasoningEffort>(
@@ -843,9 +899,13 @@ class _ModelNetworkSettingsPageState
                       TextButton(onPressed: () => _sectionAction('work', () async {
                         final model = _workModel.text.trim();
                         if (model.isEmpty || model.length > 120) { setState(() => _status = '请输入有效的模型名称'); return; }
+                        await _secure.writeWorkConfiguration(independent: _independentWorkApi,
+                          apiKey: _workKey.text, endpoint: _workEndpoint.text);
                         await _db.setSettingsAtomically({'creative_work_model': model, 'creative_work_effort': _workEffort.apiName});
                         if (mounted) setState(() => _status = '工作模型已保存，对下一次委托生效');
                       }), child: const Text('保存工作模型')),
+                      TextButton(onPressed: _testingWork ? null : () => _sectionAction('work', _testWorkProfile),
+                        child: Text(_testingWork ? '正在测试…' : '测试已保存的工作接口')),
                       _sectionFeedback('work'),
                       SwitchListTile(contentPadding: EdgeInsets.zero,
                         title: const Text('自主创作'),

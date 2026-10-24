@@ -1,3 +1,5 @@
+import 'dart:convert';
+import 'package:crypto/crypto.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 
 import '../ai/chat_api_provider.dart';
@@ -146,6 +148,54 @@ class SecureConfig {
 
   /// Internal model lane. Jev may pre-classify the two opt-in short routes;
   /// all long judgments, maintenance, Agent and fallback remain DeepSeek.
+  static const workConnectionKey = 'creative_work_connection_v1';
+  static const _workArchivePrefix = 'creative_work_connection_snapshot_v1:';
+
+  Future<Map<String, dynamic>> readWorkConfiguration() async {
+    final raw = await _storage.read(key: workConnectionKey);
+    if (raw == null || raw.isEmpty) return {'mode': 'follow'};
+    final data = jsonDecode(raw);
+    if (data is! Map || !const {'follow','independent'}.contains(data['mode'])) {
+      throw const FormatException('工作接口配置无效，请重新保存');
+    }
+    return Map<String,dynamic>.from(data);
+  }
+
+  Future<void> writeWorkConfiguration({required bool independent, String apiKey = '', String endpoint = ''}) async {
+    final uri = Uri.tryParse(endpoint.trim());
+    if (independent && (apiKey.trim().isEmpty || uri == null || !uri.hasAuthority ||
+        !const {'http','https'}.contains(uri.scheme) || uri.userInfo.isNotEmpty)) {
+      throw const FormatException('独立工作接口需要有效的 Key 和 http(s) 地址');
+    }
+    await _storage.write(key: workConnectionKey, value: jsonEncode(independent
+      ? {'mode':'independent','key':apiKey.trim(),'endpoint':endpoint.trim()}
+      : {'mode':'follow'}));
+  }
+
+  /// A request uses one atomic credential/endpoint pair. Once captured, recovery
+  /// resolves the same device-local profile, never a different lane's key.
+  Future<({String apiKey, String endpoint, String id})?> workConnection({String profileId = ''}) async {
+    Map<String,dynamic> pair;
+    if (profileId.isNotEmpty) {
+      final raw = await _storage.read(key: '$_workArchivePrefix$profileId');
+      if (raw == null) return null;
+      pair = Map<String,dynamic>.from(jsonDecode(raw) as Map);
+    } else {
+      final config = await readWorkConfiguration();
+      pair = config['mode'] == 'independent'
+        ? {'key': config['key'], 'endpoint': config['endpoint']}
+        : {'key': await readApiKey() ?? '', 'endpoint': await readEndpoint()};
+    }
+    final key = pair['key'] as String? ?? '';
+    final endpoint = pair['endpoint'] as String? ?? '';
+    final id = sha256.convert(utf8.encode(jsonEncode([endpoint, key]))).toString();
+    if (profileId.isNotEmpty && id != profileId) return null;
+    if (profileId.isEmpty && key.isNotEmpty) {
+      await _storage.write(key: '$_workArchivePrefix$id', value: jsonEncode(pair));
+    }
+    return (apiKey:key, endpoint:endpoint, id:id);
+  }
+
   Future<String?> readApiKey() => readDeepSeekApiKey();
 
   Future<String?> readDeepSeekApiKey() => _storage.read(key: _apiKeyName);

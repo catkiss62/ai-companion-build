@@ -130,11 +130,18 @@ class CreativeWorker {
             await checkpoint({'status': 'paused', 'note': _savedNote(agent, '本次制作已到自动运行上限'), 'retry_at': 0});
             return;
           }
-          final apiKey = await SecureConfig.instance.readApiKey();
-          if (apiKey == null || apiKey.isEmpty) {
-            await checkpoint({'status': 'paused', 'note': '请先设置 DeepSeek API', 'retry_at': 0});
+          final connection = await SecureConfig.instance.workConnection(
+            profileId: work['api_profile_id'] as String? ?? '');
+          final apiKey = connection?.apiKey ?? '';
+          if (apiKey.isEmpty) {
+            await checkpoint({'status': 'paused', 'note': '请保存工作接口配置后手动继续制作', 'retry_at': 0});
             return;
           }
+          if ((work['api_profile_id'] as String? ?? '').isEmpty) {
+            await checkpoint({'api_profile_id': connection!.id});
+            if (!await current()) return;
+          }
+          final workEndpoint = connection!.endpoint;
           if (agent['request_inflight'] == true) {
             agent['recovery'] = '上次请求没有完整返回，未执行其不完整工具。请从现有文件继续，不要重写已完成的部分。';
           }
@@ -154,7 +161,7 @@ class CreativeWorker {
           final calls = AgentNativeToolCallAccumulator();
           Future<void> collect() async {
             await for (final delta in client!.streamChat(
-              apiKey: apiKey, endpoint: await SecureConfig.instance.readEndpoint(),
+              apiKey: apiKey, endpoint: workEndpoint,
               model: DeepSeekModelProfile.fromApiName(work['model'] as String?),
               effort: ReasoningEffort.fromApiName(work['effort'] as String?),
               thinking: true, maxTokens: agent['larger_output'] == true ? 128000 : 64000,

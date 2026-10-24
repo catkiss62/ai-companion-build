@@ -4726,6 +4726,7 @@ class AppDatabase {
     await migrateSpokenDialogueDefaultV042120(db);
     await migrateNaturalChatV042115(db);
     await migrateNaturalChatV042116(db);
+    await migrateNaturalChatV042134(db);
     await migrateAutonomyPromptsV042127(db);
     // Exact-value migration only: preserve every custom alias edit while also
     // accepting the user's literal slash spelling in the reviewed default.
@@ -6297,6 +6298,11 @@ class AppDatabase {
         whereArgs: [messageId],
       );
       await ConversationSourceStore.sourceChanged(txn, messageId);
+      final firstChannelEffort = await BrainWorkFence.value(txn, 'deepseek_reasoning_effort');
+      final finalChannelEffort = await BrainWorkFence.value(txn, 'reasoning_effort');
+      await txn.insert('settings', {'key': 'generation_final_effort_v1:$jobId',
+        'value': finalChannelEffort.isEmpty ? reasoningEffort : finalChannelEffort},
+        conflictAlgorithm: ConflictAlgorithm.replace);
       await txn.insert('generation_jobs', {
         'id': jobId,
         'user_message_id': messageId,
@@ -6304,7 +6310,7 @@ class AppDatabase {
         'status': 'pending',
         'attempts': 0,
         'model': model,
-        'reasoning_effort': reasoningEffort,
+        'reasoning_effort': firstChannelEffort.isEmpty ? reasoningEffort : firstChannelEffort,
         'thinking': thinking ? 1 : 0,
         'deep_thinking': attachmentRows.first['deep_thinking'] ?? 0,
         'partial_reasoning': '',
@@ -7210,6 +7216,7 @@ class AppDatabase {
     bool deepThinking = false,
     Map<String, dynamic>? creativeContext,
     BrainWorkFence? creativeFence,
+    bool Function()? isCancelled,
   }) async {
     if (creativeContext != null) CreativeContract.validateSnapshot(creativeContext);
     if (user.attachments.any((item) => item.messageId != user.id)) {
@@ -7219,6 +7226,7 @@ class AppDatabase {
     final now = DateTime.now().millisecondsSinceEpoch;
     final jobId = _uuid.v4();
     await db.transaction((txn) async {
+      requireTurnNotCancelled(isCancelled);
       final settingsRows = await txn.query(
         'settings',
         columns: ['key', 'value'],
@@ -7294,6 +7302,11 @@ class AppDatabase {
         await _retainMessageMediaBlob(txn, attachment);
       }
       await _captureUserTurnControlContext(txn, user);
+      final firstChannelEffort = await BrainWorkFence.value(txn, 'deepseek_reasoning_effort');
+      final finalChannelEffort = await BrainWorkFence.value(txn, 'reasoning_effort');
+      await txn.insert('settings', {'key': 'generation_final_effort_v1:$jobId',
+        'value': finalChannelEffort.isEmpty ? reasoningEffort : finalChannelEffort},
+        conflictAlgorithm: ConflictAlgorithm.replace);
       await txn.insert('generation_jobs', {
         'id': jobId,
         'user_message_id': user.id,
@@ -7301,7 +7314,7 @@ class AppDatabase {
         'status': 'pending',
         'attempts': 0,
         'model': model,
-        'reasoning_effort': reasoningEffort,
+        'reasoning_effort': firstChannelEffort.isEmpty ? reasoningEffort : firstChannelEffort,
         'thinking': thinking ? 1 : 0,
         'deep_thinking': deepThinking ? 1 : 0,
         'partial_reasoning': '',
@@ -7318,6 +7331,7 @@ class AppDatabase {
         'last_error': '',
         'resume_reason': '',
       });
+      requireTurnNotCancelled(isCancelled);
     });
     return (await generationJobById(jobId))!;
   }
@@ -18833,10 +18847,13 @@ class AppDatabase {
           "(status IN ('failed','cancelled','cancelled_by_user') AND updated_at < ?)";
       final args = [completedCutoff, failedCutoff];
       final jobs = await txn.query('generation_jobs',
-        columns: ['user_message_id', 'assistant_message_id'], where: where, whereArgs: args);
+        columns: ['id', 'user_message_id', 'assistant_message_id'], where: where, whereArgs: args);
       final ids = <String>{for (final job in jobs) ...[
         job['user_message_id'] as String, job['assistant_message_id'] as String]};
       final removed = await txn.delete('generation_jobs', where: where, whereArgs: args);
+      for (final job in jobs) {
+        await txn.delete('settings', where: 'key = ?', whereArgs: ['generation_final_effort_v1:${job['id']}']);
+      }
       // Removing durable pairing changes fallback provenance even when message
       // bodies survive. Re-evaluate each affected source exactly once.
       for (final id in ids) { await ConversationSourceStore.sourceChanged(txn, id); }
@@ -20871,6 +20888,7 @@ class AppDatabase {
       // explicit target-host overrides are applied after clearing imported leases.
       for (final key in const [
         'snapshot_restore_lease_v1', 'shared_media_files_lease_v1',
+        'proactive_tts_claim_v1',
         'immersive_room_lease', 'proactive_lease_until',
         'memory_maintenance_lease_until', 'relationship_assimilation_lease_until',
         'deferred_followup_lease_until', 'self_drive_lease_until',

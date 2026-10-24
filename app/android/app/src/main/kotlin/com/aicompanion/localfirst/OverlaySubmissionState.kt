@@ -9,6 +9,13 @@ class OverlaySubmissionState(private val newId: () -> String = { UUID.randomUUID
     private var current: Submission? = null
     private var retry: Submission? = null
     val retryText: String? get() = retry?.text
+    val activeRequestId: String? get() = current?.requestId
+
+    fun restore(requestId: String, text: String) {
+        if (requestId.isNotBlank() && text.isNotBlank() && current == null) {
+            retry = Submission(epoch, requestId, text)
+        }
+    }
 
     fun begin(text: String): Submission {
         val id = retry?.takeIf { it.text == text }?.requestId ?: newId()

@@ -35,6 +35,7 @@ import '../../core/models/proactive_frequency.dart';
 import '../../core/models/proactive_notification_settings.dart';
 import '../../core/presentation/chat_visuals.dart';
 import '../../core/presentation/generation_presentation_policy.dart';
+import '../../core/presentation/chat_route_observer.dart';
 import '../../core/relationship/relationship_age.dart';
 import '../../core/tts/tts_playback_queue.dart';
 import '../../core/tts/tts_text_processor.dart';
@@ -70,7 +71,7 @@ class ChatPage extends StatefulWidget {
   State<ChatPage> createState() => _ChatPageState();
 }
 
-class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
+class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver, RouteAware {
   final ChatController controller = ChatController();
   final TextEditingController input = TextEditingController();
   final FocusNode inputFocus = FocusNode();
@@ -86,6 +87,10 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
   int _externalSyncTicks = 0;
   bool _refreshingPlayfulForm = false;
   bool _appResumed = true;
+  ModalRoute<dynamic>? _observedRoute;
+  bool _routeVisible = true;
+  int _chatOpenEpoch = 0;
+  bool get _chatVisible => widget.active && _appResumed && _routeVisible;
   bool _pickingImage = false;
   bool _visualStageEnabled = true;
   bool _emotionAnimationEnabled = true;
@@ -161,12 +166,12 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
     if (!mounted) return;
     _initializingMessages = false;
     _onChanged();
+    unawaited(_onChatOpened());
     _scrollToLatest();
     await _recoverLostImage();
     if (!mounted) return;
     _externalSyncTimer = Timer.periodic(const Duration(milliseconds: 400), (_) {
-      if (_appResumed &&
-          widget.active &&
+      if (_chatVisible &&
           !controller.analyzingImage) {
         // Transfer lives on a separate route, so the chat tab can remain
         // mounted and active while a backup replaces its saved form.
@@ -177,6 +182,42 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
         }
       }
     });
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final route = ModalRoute.of(context);
+    if (route == _observedRoute) return;
+    chatRouteObserver.unsubscribe(this);
+    _observedRoute = route;
+    _routeVisible = route?.isCurrent ?? true;
+    if (route != null) chatRouteObserver.subscribe(this, route);
+  }
+
+  @override
+  void didPushNext() {
+    _routeVisible = false;
+    _chatOpenEpoch++;
+    unawaited(_caicaiMotion.stop());
+  }
+
+  @override
+  void didPopNext() {
+    _routeVisible = true;
+    unawaited(_onChatOpened());
+  }
+
+  Future<void> _onChatOpened() async {
+    final epoch = ++_chatOpenEpoch;
+    if (_initializingMessages || !_chatVisible) return;
+    try {
+      await controller.syncExternalMessages();
+      if (!mounted || !_chatVisible || epoch != _chatOpenEpoch) return;
+      await controller.onChatOpened(canStart: () => mounted && _chatVisible && epoch == _chatOpenEpoch);
+    } catch (_) {
+      // Opening a page must not fail when optional speech is unavailable.
+    }
   }
 
   Future<void> _restorePresentationCursor() async {
@@ -235,7 +276,10 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
   @override
   void didUpdateWidget(covariant ChatPage oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (oldWidget.active && !widget.active) unawaited(_caicaiMotion.stop());
+    if (oldWidget.active && !widget.active) {
+      _chatOpenEpoch++;
+      unawaited(_caicaiMotion.stop());
+    }
     if (!oldWidget.active && widget.active) {
       // A backup can replace the persisted form while this tab stays mounted.
       // Refresh it when the user returns, even if no new chat turn was added.
@@ -243,7 +287,7 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
       _scrollToLatest();
       unawaited(controller.acknowledgeOverlayUnread());
       if (!controller.analyzingImage) {
-        unawaited(controller.syncExternalMessages());
+        unawaited(_onChatOpened());
       }
     }
   }
@@ -299,7 +343,7 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
     if (discoveredUser) unawaited(_caicaiMotion.stop());
     _caicaiMotion.playbackChanged(ownerId: controller.ttsState.ownerId,
       running: controller.ttsState.running);
-    if (!_caicaiEnabled || !_visualStageEnabled || !widget.active || !_appResumed) {
+    if (!_caicaiEnabled || !_visualStageEnabled || !_chatVisible) {
       unawaited(_caicaiMotion.stop());
     } else if (!discoveredUser && controller.messages.any((m) => m.isAssistant)) {
       final reply = controller.messages.where((m) => m.isAssistant).last;
@@ -598,13 +642,15 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     _appResumed = state == AppLifecycleState.resumed;
-    if (!_appResumed) unawaited(_caicaiMotion.stop());
-    if (_appResumed &&
-        widget.active &&
+    if (!_appResumed) {
+      _chatOpenEpoch++;
+      unawaited(_caicaiMotion.stop());
+    }
+    if (_chatVisible &&
         !controller.analyzingImage) {
       unawaited(_refreshPlayfulForm());
       unawaited(controller.acknowledgeOverlayUnread());
-      unawaited(controller.syncExternalMessages());
+      unawaited(_onChatOpened());
       controller.wakePendingGeneration();
       unawaited(() async {
         await CalendarReminderFollowup(AppDatabase.instance).deliverOne();
@@ -615,6 +661,8 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
 
   @override
   void dispose() {
+    _chatOpenEpoch++;
+    chatRouteObserver.unsubscribe(this);
     WidgetsBinding.instance.removeObserver(this);
     _externalSyncTimer?.cancel();
     _composerToolsOverlay?.remove();

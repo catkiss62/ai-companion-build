@@ -30,11 +30,13 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 
 class _Cedar extends CedarToyClient {
-  _Cedar():super(token:'ctai_v1_fixture');
+  _Cedar({this.payload}):super(token:'ctai_v1_fixture');
+  final Object? payload;
   final commands=<String>[];
   @override Future<McpToolOutcome> play(String game,String action,Map<String,Object?> params,
       {GenerationCancellationToken? cancellationToken}) async {
     final command=params['command']?.toString() ?? action;commands.add(command);
+    if (payload != null) return McpToolOutcome(content: const [], isError: false, structuredContent: payload);
     final rejected=command.contains('wrong');
     return McpToolOutcome(content:const [],isError:false,structuredContent:{
       'text':rejected ? '这杯目前调不出来。用 drinks 查看现有酒单。' : '真实结果：$command',
@@ -155,6 +157,23 @@ void main() {
     expect(state.sessions['bar']!.events.last.kind,'failure');
     expect((await TurnExecutionStore(db).remoteHistory('u')).single['failed'],true);
   });
+
+  for (final payload in [
+    {'error': 'insufficient funds', 'next_actor': 'companion'},
+    {'data': {'ok': false, 'message': 'temporarily unavailable'}},
+    {'result': jsonEncode([{'accepted': false, 'inventory': []}])},
+    {'data': [{'errors': ['remote refusal'], 'next_actor': 'companion'}]},
+  ]) {
+    test('nested business refusal never becomes a committed Agent game effect: $payload', () async {
+      await game(); final attempt = await turn();
+      final result = await command(runner(_Cedar(payload: payload)), attempt, 'serve new');
+      expect(result.status, AgentToolStatus.failed);
+      final state = await CedarToyActivityStore(db).loadState();
+      expect(state.completedPlayRounds, 0);
+      expect(state.sessions['bar']!.events.last.kind, 'failure');
+      expect((await TurnExecutionStore(db).remoteHistory('u')).single['failed'], true);
+    });
+  }
 
   test('empty or other-slot snapshot cannot unlock an unknown write',() async {
     await game(); final activity=CedarToyActivityStore(db);

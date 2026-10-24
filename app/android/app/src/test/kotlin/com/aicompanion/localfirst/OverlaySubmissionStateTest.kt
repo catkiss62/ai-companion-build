@@ -4,6 +4,21 @@ import org.junit.Assert.*
 import org.junit.Test
 
 class OverlaySubmissionStateTest {
+    @Test fun processRestartAndLostAcceptanceReuseTheSameDurableIdentity() {
+        val before = OverlaySubmissionState { "persistent-id" }.begin("unsent draft")
+        val restored = OverlaySubmissionState { "must-not-be-used" }
+        restored.restore(before.requestId, before.text)
+        assertEquals(before.text, restored.retryText)
+        val after = restored.begin(before.text)
+        assertEquals(before.requestId, after.requestId)
+        assertEquals(after.requestId, restored.activeRequestId)
+        restored.finish(after, false)
+        val retry = restored.begin(before.text)
+        assertEquals(before.requestId, retry.requestId)
+        assertTrue(restored.finish(retry, true))
+        assertNull(restored.retryText)
+        assertNull(restored.activeRequestId)
+    }
     @Test fun lateSendCannotFinishCancelOrNewSend() {
         var next = 0
         val state = OverlaySubmissionState { "request-${++next}" }

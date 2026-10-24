@@ -23,7 +23,7 @@ for token in [
     "overlay_generation_snapshot.dart",
     "case 'generationSnapshot':",
     "case 'cancelGeneration':",
-    "await controller.cancelCurrentGeneration()",
+    "await controller.cancelCurrentGeneration(targetJobId: targetJob)",
     "_overlaySendEpoch",
     "streamingReasoning",
     "streamingContent",

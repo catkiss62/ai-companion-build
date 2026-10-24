@@ -71,6 +71,7 @@ import '../storage/secure_config.dart';
 import '../storage/message_attachment_storage.dart';
 import '../tts/tts_policy.dart';
 import '../tts/emotion_sound_service.dart';
+import '../tts/proactive_speech_delivery.dart';
 import '../tts/tts_provider.dart';
 import '../tts/tts_service.dart';
 import '../presentation/chat_visuals.dart';
@@ -2577,7 +2578,7 @@ ${PromptBuilder.visibleChineseGenerationReminder(proactive: true, ordinaryAction
       // Background FlutterEngine owns a NativeTtsBridge only for this explicit
       // user-selected policy.
       final visual = ChatVisualResolver.resolveEmotionKey(message.emotionKey);
-      unawaited(tts.speak(
+      unawaited(ProactiveSpeechDelivery(db).deliver(message, play: () => tts.speak(
         text,
         manual: true,
         leadInFactory: (intent) => emotionSounds.play(visual, intent: intent).then<void>((_) {}),
@@ -2589,11 +2590,7 @@ ${PromptBuilder.visibleChineseGenerationReminder(proactive: true, ordinaryAction
           source: message.emotionSource,
         ),
         ownerId: message.id,
-      ).then((ok) async {
-        if (ok) {
-          await db.setSetting('last_proactive_spoken_message_id', message.id);
-        }
-      }));
+      )));
     }
     return ProactiveDecision(
       sent: true,

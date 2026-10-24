@@ -5,6 +5,7 @@ class OverlayGenerationSnapshot {
     required this.reasoning,
     required this.content,
     this.assistantMessageId = '',
+    this.jobId = '',
     this.statusText = '',
     this.runtimePhase = '',
   });
@@ -14,6 +15,7 @@ class OverlayGenerationSnapshot {
   final String reasoning;
   final String content;
   final String assistantMessageId;
+  final String jobId;
   final String statusText;
   final String runtimePhase;
 
@@ -36,6 +38,7 @@ class OverlayGenerationSnapshot {
         'content': content,
         'phase': phase,
         'assistant_message_id': assistantMessageId,
+        'generation_job_id': jobId,
         'status_text': statusText,
       };
 }

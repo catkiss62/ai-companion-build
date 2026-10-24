@@ -57,6 +57,8 @@ import io.flutter.embedding.engine.dart.DartExecutor
 import io.flutter.plugin.common.MethodChannel
 import java.io.File
 import java.lang.ref.WeakReference
+import java.util.concurrent.Executors
+import org.json.JSONObject
 import java.util.concurrent.ArrayBlockingQueue
 import java.util.concurrent.ThreadPoolExecutor
 import java.util.concurrent.TimeUnit
@@ -83,6 +85,11 @@ class OverlayBubbleService : Service() {
     private lateinit var windowManager: WindowManager
     private val lifetime = OverlayWindowSession()
     private val submissions = OverlaySubmissionState()
+    private val submissionIo = Executors.newSingleThreadExecutor()
+    private var overlayMessageRevision = 0L
+    private var generationPollRequest = 0L
+    private var inlineReplyRequest = 0L
+    private val submissionPrefs by lazy { applicationContext.getSharedPreferences("overlay_pending_submission_v1", Context.MODE_PRIVATE) }
     private val submissionLogExecutor = ThreadPoolExecutor(1, 1, 0L, TimeUnit.MILLISECONDS,
         ArrayBlockingQueue<Runnable>(16), ThreadPoolExecutor.DiscardPolicy())
     private var chatRemovalPending = false
@@ -135,6 +142,7 @@ class OverlayBubbleService : Service() {
     private var appTtsUpdatedAtMs = 0L
     private var petTtsDiscoveryUntilMs = 0L
     private var streamingAssistantMessageId = ""
+    private var streamingGenerationJobId = ""
     private var pendingShowAfterUnlock = false
     private var loadedMessages = mutableListOf<NativeChatMessage>()
 
@@ -287,6 +295,17 @@ class OverlayBubbleService : Service() {
 
     override fun onCreate() {
         super.onCreate()
+        submissions.restore(submissionPrefs.getString("request_id", "").orEmpty(),
+            submissionPrefs.getString("text", "").orEmpty())
+        runCatching {
+            val rows = org.json.JSONArray(submissionPrefs.getString("notification_replies", "[]"))
+            for (i in 0 until rows.length()) {
+                val row = rows.getJSONObject(i)
+                pendingInlineReplies.add(PendingInlineReply(replyId = row.getString("id"),
+                    text = row.getString("text"), sourceMessageId = row.optString("source"),
+                    attempts = row.optInt("attempts", 0)))
+            }
+        }
         if (!CompanionRuntimeState.isOverlayUserEnabled(this) || !Settings.canDrawOverlays(this)) {
             destroyReason = "startup_precondition_failed"
             stopSelf()
@@ -395,6 +414,7 @@ class OverlayBubbleService : Service() {
                             sourceMessageId = sourceMessageId,
                         ),
                     )
+                    persistInlineReplies { flushInlineReplies() }
                 }
                 setUnread(0)
                 pendingBrainWakeReason = "notification_inline_reply"
@@ -588,6 +608,7 @@ class OverlayBubbleService : Service() {
             appPackage = packageName,
             summary = "常驻陪伴服务已停止：$destroyReason",
         )
+        submissionIo.shutdown()
         super.onDestroy()
     }
 
@@ -1093,6 +1114,7 @@ class OverlayBubbleService : Service() {
 
     private fun refreshOverlayMessages(opened: Boolean, attempt: Int) {
         val epoch = lifetime.windowEpoch
+        val messageRevision = overlayMessageRevision
         if (!lifetime.matches(epoch) || !chatExpanded || chatRemovalPending || chatRoot == null) return
         if (chatRoot?.isAttachedToWindow != true || !backgroundBrainReady)
             setChatStatus("正在读取聊天记录…")
@@ -1122,11 +1144,21 @@ class OverlayBubbleService : Service() {
                     mainHandler.post {
                         if (!isCurrentChatWindow(epoch) || !historyRefresh.current(request)) return@post
 
+                        if (messageRevision != overlayMessageRevision) {
+                            historyRefresh.finish(request)
+                            refreshOverlayMessages(opened = false, attempt = 0)
+                            return@post
+                        }
                         val parsed = parseMessageList(result)
                         val pending = historyRefresh.finish(request)
                         if (parsed != null) {
                             lastRenderedGeneration = null
+                            val optimistic = submissions.activeRequestId?.let { id ->
+                                loadedMessages.firstOrNull { it.id == id && it.role == "user" }
+                            }
                             loadedMessages = parsed.toMutableList()
+                            if (optimistic != null && loadedMessages.none { it.id == optimistic.id })
+                                loadedMessages.add(optimistic)
                             chatAdapter?.notifyDataSetChanged()
                             chatLoadOlder?.visibility = if (parsed.size >= OVERLAY_RECENT_LIMIT) View.VISIBLE else View.GONE
                             scrollChatToBottom()
@@ -1248,12 +1280,14 @@ class OverlayBubbleService : Service() {
             proactiveIntent = "",
             proactiveDelivery = "",
         )
+        overlayMessageRevision++
         loadedMessages.add(optimistic)
         chatAdapter?.notifyDataSetChanged()
         scrollChatToBottom()
         setChatStatus("她正在想…")
         beginGenerationPolling()
 
+        persistOverlayBeforeDispatch(submission, submittedEngine) {
         noteOverlaySubmission("dispatch", submission.epoch)
         channel.invokeMethod(
             "sendMessage",
@@ -1264,6 +1298,12 @@ class OverlayBubbleService : Service() {
                         if (!isCurrentSubmission(submission.epoch, submittedEngine)) return@post
                         val accepted = (result as? Map<*, *>)?.get("accepted") == true
                         submissions.finish(submission, accepted)
+                        overlayMessageRevision++
+                        if (accepted) {
+                            clearPersistedOverlay()
+                            pendingInlineReplies.removeAll { it.replyId == submission.requestId }
+                            persistInlineReplies {}
+                        }
                         noteOverlaySubmission(if (accepted) "accepted" else "rejected", submission.epoch)
                         if (!accepted) restoreOverlayDraft()
                         overlaySubmitCommandPending = false
@@ -1339,6 +1379,7 @@ class OverlayBubbleService : Service() {
                 }
             },
         )
+        }
         } catch (error: Exception) {
             if (isCurrentSubmission(submission.epoch, submittedEngine)) {
                 submissions.finish(submission, false)
@@ -1375,13 +1416,23 @@ class OverlayBubbleService : Service() {
         }
         val submittedEngine = backgroundEngine ?: return
         val commandEpoch = submissions.beginCancel()
+        clearPersistedOverlay()
+        mainHandler.postDelayed({
+            if (isCurrentSubmission(commandEpoch, submittedEngine) && overlayCancelling) {
+                submissions.finishCancel(commandEpoch)
+                overlaySubmitCommandPending = false
+                setComposerGenerationState(sending = true)
+                setChatStatus("停止状态尚未确认，正在重新核对…", true)
+                beginGenerationPolling()
+            }
+        }, 15_000L)
         noteOverlaySubmission("cancel", commandEpoch)
         setComposerGenerationState(sending = true, cancelling = true)
         setChatStatus("正在停止…")
         try {
         channel.invokeMethod(
             "cancelGeneration",
-            null,
+            mapOf("generation_job_id" to streamingGenerationJobId),
             object : MethodChannel.Result {
                 override fun success(result: Any?) {
                     mainHandler.post {
@@ -1474,13 +1525,27 @@ class OverlayBubbleService : Service() {
             scheduleGenerationPoll(epoch)
             return
         }
+        val request = ++generationPollRequest
+        var completed = false
+        mainHandler.postDelayed({
+            if (!completed && request == generationPollRequest && epoch == generationPollEpoch) {
+                completed = true
+                if (!overlaySubmitCommandPending) {
+                    appGenerationActive = false
+                    setComposerGenerationState(sending = false)
+                    setChatStatus("后台状态暂时无法确认，消息不会自动重发。", true)
+                } else scheduleGenerationPoll(epoch)
+            }
+        }, 6_000L)
+        try {
         channel.invokeMethod(
             "generationSnapshot",
             null,
             object : MethodChannel.Result {
                 override fun success(result: Any?) {
                     mainHandler.post {
-                        if (!lifetime.alive) return@post
+                        if (!lifetime.alive || completed || request != generationPollRequest) return@post
+                        completed = true
                         if (epoch != generationPollEpoch || !shouldPollGeneration()) {
                             return@post
                         }
@@ -1491,19 +1556,24 @@ class OverlayBubbleService : Service() {
 
                 override fun error(errorCode: String, errorMessage: String?, errorDetails: Any?) {
                     mainHandler.post {
-                        if (!lifetime.alive) return@post
+                        if (!lifetime.alive || completed || request != generationPollRequest) return@post
+                        completed = true
                         scheduleGenerationPoll(epoch)
                     }
                 }
 
                 override fun notImplemented() {
                     mainHandler.post {
-                        if (!lifetime.alive) return@post
+                        if (!lifetime.alive || completed || request != generationPollRequest) return@post
+                        completed = true
                         scheduleGenerationPoll(epoch)
                     }
                 }
             },
         )
+        } catch (error: Exception) {
+            if (!completed) { completed = true; scheduleGenerationPoll(epoch) }
+        }
     }
 
     private fun scheduleGenerationPoll(epoch: Int) {
@@ -1613,6 +1683,7 @@ class OverlayBubbleService : Service() {
         overlayGenerationPhase = phase
         updatePetConversationCue()
         streamingAssistantMessageId = map["assistant_message_id"] as? String ?: ""
+        streamingGenerationJobId = map["generation_job_id"] as? String ?: ""
         val visible = listOf(sharedSending, composerSending, reasoning, content, phase,
             statusText, streamingAssistantMessageId, lifetime.windowEpoch)
         if (lastRenderedGeneration == visible) return
@@ -2751,42 +2822,49 @@ class OverlayBubbleService : Service() {
     }
 
     private fun flushInlineReplies() {
-        if (inlineReplyInFlight || !backgroundBrainReady) return
-        val item = pendingInlineReplies.firstOrNull() ?: return
+        if (inlineReplyInFlight || !backgroundBrainReady || !lifetime.alive) return
+        val item = pendingInlineReplies.firstOrNull { it.attempts < INLINE_REPLY_MAX_ATTEMPTS } ?: return
         val channel = backgroundCommands ?: return
+        val engine = backgroundEngine ?: return
+        val request = ++inlineReplyRequest
         inlineReplyInFlight = true
-        channel.invokeMethod(
-            "notificationReply",
-            mapOf(
-                "text" to item.text,
-                "replyId" to item.replyId,
-                "sourceMessageId" to item.sourceMessageId,
-            ),
-            object : MethodChannel.Result {
-                override fun success(result: Any?) {
-                    inlineReplyInFlight = false
-                    val ok = (result as? Map<*, *>)?.get("ok") as? Boolean ?: true
-                    if (ok) {
-                        pendingInlineReplies.removeAll { it.replyId == item.replyId }
-                        if (chatExpanded) refreshOverlayMessages(opened = false, attempt = 0)
-                        flushInlineReplies()
-                        return
+        var completed = false
+        fun current() = lifetime.alive && backgroundEngine === engine && request == inlineReplyRequest && !completed
+        fun failed(error: String) {
+            if (!current()) return
+            completed = true
+            inlineReplyInFlight = false
+            retryOrDropInlineReply(item, error)
+        }
+        persistInlineReplies {
+            if (!current()) return@persistInlineReplies
+            mainHandler.postDelayed({ failed("acceptance confirmation timed out") }, 15_000L)
+            try {
+                channel.invokeMethod("notificationReply", mapOf(
+                    "text" to item.text, "replyId" to item.replyId,
+                    "sourceMessageId" to item.sourceMessageId), object : MethodChannel.Result {
+                    override fun success(result: Any?) {
+                        mainHandler.post {
+                            if (!current()) return@post
+                            if ((result as? Map<*, *>)?.get("accepted") == true) {
+                                completed = true
+                                inlineReplyInFlight = false
+                                pendingInlineReplies.removeAll { it.replyId == item.replyId }
+                                persistInlineReplies {}
+                                if (chatExpanded) refreshOverlayMessages(opened = false, attempt = 0)
+                                flushInlineReplies()
+                            } else failed((result as? Map<*, *>)?.get("error") as? String ?: "reply not accepted")
+                        }
                     }
-                    val error = (result as? Map<*, *>)?.get("error") as? String ?: "unknown"
-                    retryOrDropInlineReply(item, error)
-                }
-
-                override fun error(errorCode: String, errorMessage: String?, errorDetails: Any?) {
-                    inlineReplyInFlight = false
-                    retryOrDropInlineReply(item, "$errorCode: ${errorMessage ?: "unknown"}")
-                }
-
-                override fun notImplemented() {
-                    inlineReplyInFlight = false
-                    retryOrDropInlineReply(item, "background command not implemented")
-                }
-            },
-        )
+                    override fun error(errorCode: String, errorMessage: String?, errorDetails: Any?) {
+                        mainHandler.post { failed("$errorCode: ${errorMessage ?: "unknown"}") }
+                    }
+                    override fun notImplemented() {
+                        mainHandler.post { failed("background command not implemented") }
+                    }
+                })
+            } catch (error: Exception) { failed(error.javaClass.simpleName) }
+        }
     }
 
     private fun retryOrDropInlineReply(item: PendingInlineReply, error: String) {
@@ -2794,7 +2872,12 @@ class OverlayBubbleService : Service() {
         if (index < 0) return
         val nextAttempts = pendingInlineReplies[index].attempts + 1
         if (nextAttempts >= INLINE_REPLY_MAX_ATTEMPTS) {
-            pendingInlineReplies.removeAt(index)
+            pendingInlineReplies[index] = item.copy(attempts = nextAttempts)
+            persistInlineReplies {}
+            if (chatExpanded) {
+                restoreOverlayDraft()
+                setChatStatus("通知回复尚未发送，文本已保留，可在输入框重试。", true)
+            }
             NativeEventStore.addDeviceEvent(
                 context = this,
                 source = "system",
@@ -2899,8 +2982,76 @@ class OverlayBubbleService : Service() {
     private fun isCurrentSubmission(epoch: Long, engine: FlutterEngine): Boolean =
         lifetime.alive && backgroundEngine === engine && submissions.matches(epoch)
 
+    private fun clearPersistedOverlay() {
+        if (submissionIo.isShutdown) return
+        submissionIo.execute { submissionPrefs.edit().remove("request_id").remove("text").commit() }
+    }
+
+    private fun persistOverlayBeforeDispatch(
+        submission: OverlaySubmissionState.Submission,
+        engine: FlutterEngine,
+        dispatch: () -> Unit,
+    ) {
+        if (submissionIo.isShutdown) return
+        submissionIo.execute {
+            val saved = runCatching { submissionPrefs.edit()
+                .putString("request_id", submission.requestId).putString("text", submission.text).commit() }.getOrDefault(false)
+            mainHandler.post {
+                if (!isCurrentSubmission(submission.epoch, engine)) return@post
+                if (!saved) {
+                    submissions.finish(submission, false)
+                    overlaySubmitCommandPending = false
+                    restoreOverlayDraft()
+                    setComposerGenerationState(sending = false)
+                    setChatStatus("消息未能保存，草稿已保留，请重试。", true)
+                    return@post
+                }
+                try { dispatch() } catch (error: Exception) {
+                    if (isCurrentSubmission(submission.epoch, engine)) {
+                        submissions.finish(submission, false)
+                        overlaySubmitCommandPending = false
+                        restoreOverlayDraft()
+                        setComposerGenerationState(sending = false)
+                        noteOverlaySubmission("dispatch_exception", submission.epoch, error.javaClass.simpleName)
+                    }
+                }
+                mainHandler.postDelayed({
+                    if (isCurrentSubmission(submission.epoch, engine) && overlaySubmitCommandPending) {
+                        submissions.finish(submission, false)
+                        overlaySubmitCommandPending = false
+                        restoreOverlayDraft()
+                        setComposerGenerationState(sending = false)
+                        setChatStatus("发送状态尚未确认，草稿已保留；重试会核对同一条消息。", true)
+                        noteOverlaySubmission("acceptance_timeout", submission.epoch)
+                        beginGenerationPolling()
+                    }
+                }, 15_000L)
+            }
+        }
+    }
+
+    private fun persistInlineReplies(after: () -> Unit) {
+        if (submissionIo.isShutdown) return
+        val encoded = org.json.JSONArray()
+        pendingInlineReplies.forEach { item -> encoded.put(JSONObject().put("id", item.replyId)
+            .put("text", item.text).put("source", item.sourceMessageId).put("attempts", item.attempts)) }
+        submissionIo.execute {
+            val saved = runCatching { submissionPrefs.edit().putString("notification_replies", encoded.toString()).commit() }.getOrDefault(false)
+            mainHandler.post {
+                if (!lifetime.alive) return@post
+                if (saved) try { after() } catch (error: Exception) { inlineReplyInFlight = false }
+                else { inlineReplyInFlight = false; setChatStatus("通知回复尚未保存，请稍后重试。", true) }
+            }
+        }
+    }
+
     private fun restoreOverlayDraft() {
         val input = chatInput ?: return
+        if (submissions.retryText == null && input.text.isNullOrBlank()) {
+            pendingInlineReplies.firstOrNull { it.attempts >= INLINE_REPLY_MAX_ATTEMPTS }?.let {
+                submissions.restore(it.replyId, it.text)
+            }
+        }
         val draft = submissions.retryText ?: return
         if (input.text.isNullOrBlank()) {
             input.setText(draft)

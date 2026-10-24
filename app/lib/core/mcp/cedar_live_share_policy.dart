@@ -31,7 +31,7 @@ class CedarLiveSharePolicy {
       .where(
         (event) =>
             event.kind == 'outcome' &&
-            !CedarPlatformActionPolicy.isReadOnly(event.action) &&
+            event.isReadOnly == false &&
             !CedarPlatformActionPolicy.isPlatformAction(event.action) &&
             !CedarPlatformActionPolicy.isResultSnapshot(event.action) &&
             !const {'wait', 'poll'}.contains(event.action) &&

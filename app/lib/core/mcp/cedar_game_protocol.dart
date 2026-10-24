@@ -1,62 +1,97 @@
 import 'dart:convert';
 import 'mcp_protocol.dart';
 
+/// One bounded envelope traversal for business failures, identity and state.
+/// Inventory/entities are state data, not envelopes whose IDs identify a save.
+abstract final class CedarPayloadEnvelope {
+  static const wrappers = {'data', 'result', 'state', 'snapshot', 'structuredcontent', 'text'};
+  static List<Object?>? unpack(Object? value) {
+    final nodes = <Object?>[];
+    var remaining = 2048;
+    bool visit(Object? item, int depth) {
+      if (depth > 16 || --remaining < 0) return false;
+      if (item is String) {
+        final text = item.trim();
+        if (text.startsWith('{') || (text.startsWith('[') &&
+            RegExp(r'^\[\s*(?:[\{\[\"0-9-]|true|false|null|\])').hasMatch(text)) || text.startsWith('"')) {
+          try { return visit(jsonDecode(text), depth + 1); } catch (_) {
+            if (!text.startsWith('"')) return false;
+          }
+        }
+      }
+      nodes.add(item);
+      if (item is List) {
+        for (final child in item) { if (!visit(child, depth + 1)) return false; }
+      } else if (item is Map) {
+        for (final entry in item.entries) {
+          if (wrappers.contains(entry.key.toString().toLowerCase()) &&
+              !visit(entry.value, depth + 1)) return false;
+        }
+      }
+      return true;
+    }
+    return visit(value, 0) ? nodes : null;
+  }
+
+  static bool rejected(List<Object?> nodes) => nodes.any((value) {
+    if (value is String) return CedarPlatformActionPolicy.explicitlyRejected(value);
+    if (value is! Map) return false;
+    for (final entry in value.entries) {
+      final key = entry.key.toString().toLowerCase();
+      final v = entry.value;
+      if (const {'ok','success','accepted','action_accepted','ack','received'}.contains(key) && v == false) return true;
+      if (key == 'iserror' && v == true) return true;
+      if (const {'error','errors'}.contains(key) && v != null && v != false && v != 0 &&
+          (v is! String || v.trim().isNotEmpty) &&
+          (v is! List || v.isNotEmpty) && (v is! Map || v.isNotEmpty)) return true;
+      if (const {'message','text'}.contains(key) && v is String &&
+          CedarPlatformActionPolicy.explicitlyRejected(v)) return true;
+    }
+    return false;
+  });
+}
+
 /// A transport acknowledgement or an empty JSON wrapper is not a snapshot.
 /// Actual state fields may contain empty lists (an empty inventory is evidence).
 abstract final class CedarStateSnapshotPolicy {
   static const _identity = {'room_id', 'slot', 'slot_id', 'save_slot', 'save_id',
     'session_id', 'world_id', 'game', 'game_id'};
   static const _metadata = {'ok', 'success', 'accepted', 'ack', 'received', 'action_accepted', 'iserror',
-    'request_id', 'trace_id', 'status_code', 'code'};
-  static const _wrappers = {'data', 'result', 'state', 'snapshot', 'structuredcontent'};
-
+    'request_id', 'trace_id', 'status_code', 'code', 'error', 'errors', 'message', 'status'};
   static bool _ack(String value) => RegExp(
     r'^(?:ok|success|successful|accepted|ack|done|成功|收到|已收到|已受理|请求已接收)[\s.!。！]*$',
     caseSensitive: false).hasMatch(value.trim());
 
-  static bool _evidence(Object? value) {
-    if (value == null) return false;
-    if (value is String) {
-      final text = value.trim();
-      if (text.isEmpty || _ack(text)) return false;
-      try { return _evidence(jsonDecode(text)); } catch (_) { return true; }
-    }
-    if (value is List) return value.any(_evidence);
-    if (value is Map) {
-      for (final entry in value.entries) {
-        final key = entry.key.toString().toLowerCase();
-        if (_identity.contains(key) || _metadata.contains(key)) continue;
-        if (_wrappers.contains(key) || const {'text', 'message', 'status'}.contains(key)) {
-          if (_evidence(entry.value)) return true;
-        } else if (entry.value != null &&
-            (entry.value is! String || _evidence(entry.value))) {
-          return true;
-        }
-      }
-      return false;
-    }
-    return value is num;
-  }
-
   static bool accepts(McpToolOutcome outcome, Map<String, Object?> target) {
     if (CedarPlatformActionPolicy.normalizeOutcome(outcome).isError) return false;
-    bool identityMatches(Object? value) {
-      if (value is! Map) return true;
-      for (final group in const [
-        ['slot', 'slot_id', 'save_slot'], ['room_id'], ['save_id'], ['session_id'], ['world_id']]) {
-        final expected = group.where(target.containsKey).map((key) => target[key].toString()).toSet();
-        if (expected.isNotEmpty && group.any((key) => value.containsKey(key) &&
-            !expected.contains(value[key].toString()))) return false;
-      }
-      return _wrappers.every((key) => identityMatches(value[key]));
+    final nodes = <Object?>[];
+    for (final payload in [outcome.structuredContent,
+        ...outcome.content.where((b) => b.kind == McpContentKind.text).map((b) => b.text)]) {
+      final decoded = CedarPayloadEnvelope.unpack(payload);
+      if (decoded == null) return false;
+      nodes.addAll(decoded);
     }
-    if (!identityMatches(outcome.structuredContent)) return false;
-    var evidence = _evidence(outcome.structuredContent);
-    for (final block in outcome.content.where((block) => block.kind == McpContentKind.text)) {
-      Object? value = block.text;
-      try { value = jsonDecode(block.text); } catch (_) {}
-      if (!identityMatches(value)) return false;
-      evidence = _evidence(value) || evidence;
+    var evidence = false;
+    for (final value in nodes) {
+      if (value is Map) {
+        final normalized = {for (final e in value.entries) e.key.toString().toLowerCase(): e.value};
+        for (final group in const [
+          ['slot', 'slot_id', 'save_slot'], ['room_id'], ['save_id'], ['session_id'], ['world_id'], ['game','game_id']]) {
+          final expected = group.where(target.containsKey).map((key) => target[key].toString()).toSet();
+          if (expected.isNotEmpty && group.any((key) => normalized.containsKey(key) &&
+              !expected.contains(normalized[key].toString()))) return false;
+        }
+        for (final entry in normalized.entries) {
+          if (_identity.contains(entry.key) || _metadata.contains(entry.key) ||
+              CedarPayloadEnvelope.wrappers.contains(entry.key)) continue;
+          if (entry.value != null && (entry.value is! String ||
+              ((entry.value as String).trim().isNotEmpty && !_ack(entry.value as String)))) evidence = true;
+        }
+      } else if (value is String) {
+        if (value.trim().isNotEmpty && !_ack(value)) evidence = true;
+      } else if (value is num) {
+        evidence = true;
+      }
     }
     return evidence;
   }
@@ -139,10 +174,12 @@ class CedarPlatformActionPolicy {
 
   /// Keep the original payload; normalize rejection once for every consumer.
   static McpToolOutcome normalizeOutcome(McpToolOutcome outcome, {bool? accepted}) {
-    final data = outcome.structuredContent;
-    final rejected = accepted == false || outcome.isError ||
-        explicitlyRejected(outcome.text) ||
-        (data is Map && (data['action_accepted'] == false || data['success'] == false || data['ok'] == false));
+    final payloads = [outcome.structuredContent,
+      ...outcome.content.where((b) => b.kind == McpContentKind.text).map((b) => b.text)];
+    final rejected = accepted == false || outcome.isError || payloads.any((payload) {
+      final nodes = CedarPayloadEnvelope.unpack(payload);
+      return nodes == null || CedarPayloadEnvelope.rejected(nodes);
+    });
     return rejected && !outcome.isError
         ? McpToolOutcome(content: outcome.content, structuredContent: outcome.structuredContent, isError: true)
         : outcome;
@@ -649,10 +686,8 @@ class CedarGameResultPolicy {
     if(raw.isEmpty)return false;
     if(!raw.startsWith('{')&&!raw.startsWith('['))return true;
     try {
-      final v=jsonDecode(raw);
-      if(v is! Map)return false;
-      return v['ok']!=false&&v['success']!=false&&
-        (v['error']==null||v['error']==false||v['error']=='');
+      final nodes=CedarPayloadEnvelope.unpack(jsonDecode(raw));
+      return nodes != null && !CedarPayloadEnvelope.rejected(nodes);
     } catch(_){return false;}
   }
 }

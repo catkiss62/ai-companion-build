@@ -14,14 +14,14 @@ class ModelNetworkConfigTransfer {
   final SecureConfig secure;
 
   static const settingKeys = <String>[
-    'model', 'deepseek_model', 'reasoning_effort',
+    'model', 'deepseek_model', 'reasoning_effort', 'deepseek_reasoning_effort',
     'creative_work_model', 'creative_work_effort',
     'public_web_discovery_enabled', 'public_web_extra_sources',
     'agnes_web_compaction_enabled', 'weather_api_host', 'weather_city',
     'weather_enabled',
   ];
   static const secureKeys = <String>[
-    'chat_provider', 'deepseek_api_key', 'deepseek_endpoint',
+    'chat_provider', 'deepseek_api_key', 'deepseek_endpoint', 'work_connection',
     'final_api_key', 'final_endpoint', 'final_model',
     'vision_api_key', 'vision_endpoint', 'vision_model',
     'tavily_api_key', 'agnes_api_key', 'agnes_endpoint', 'agnes_model',
@@ -29,6 +29,7 @@ class ModelNetworkConfigTransfer {
   ];
 
   Future<Map<String, String>> _readSecure() async => <String, String>{
+    'work_connection': jsonEncode(await secure.readWorkConfiguration()),
     'chat_provider': (await secure.readChatProvider()).storageValue,
     'deepseek_api_key': await secure.readDeepSeekApiKey() ?? '',
     'deepseek_endpoint': await secure.readDeepSeekEndpoint(),
@@ -91,9 +92,18 @@ class ModelNetworkConfigTransfer {
         data['version'] != 1) {
       throw const FormatException('这不是受支持的模型与联网配置文件');
     }
-    final credentials = _validatedMap(data['secure'], secureKeys);
+    final rawSecure = data['secure'];
+    final credentials = _validatedMap(rawSecure is Map ? {'work_connection': '{\"mode\":\"follow\"}', ...rawSecure} : rawSecure, secureKeys);
+    final work = jsonDecode(credentials['work_connection']!);
+    if (work is! Map || !const {'follow','independent'}.contains(work['mode'])) throw const FormatException('工作 API 配置无效');
+    if (work['mode'] == 'independent') {
+      final uri = Uri.tryParse(work['endpoint'] is String ? work['endpoint'] as String : '');
+      if (work['key'] is! String || (work['key'] as String).trim().isEmpty || uri == null || !uri.hasAuthority ||
+          !const {'http','https'}.contains(uri.scheme) || uri.userInfo.isNotEmpty) throw const FormatException('工作 API 配置无效');
+    }
     final rawSettings = data['settings'];
     final settings = _validatedMap(rawSettings is Map ? {
+      'deepseek_reasoning_effort': rawSettings['reasoning_effort'] ?? 'high',
       'creative_work_model': 'deepseek-flash', 'creative_work_effort': 'max',
       ...rawSettings,
     } : rawSettings, settingKeys);
@@ -126,6 +136,8 @@ class ModelNetworkConfigTransfer {
     if (!const <String>['low', 'medium', 'high', 'max'].contains(settings['creative_work_effort'])) {
       throw const FormatException('工作思考档位无效');
     }
+    final firstEffort = settings['deepseek_reasoning_effort']!;
+    if (firstEffort.isNotEmpty && !const ['low','medium','high','max'].contains(firstEffort)) throw const FormatException('第一通道推理档位无效');
     final effort = settings['reasoning_effort']!;
     if (effort.isNotEmpty &&
         !const <String>['low', 'medium', 'high', 'max'].contains(effort)) {
@@ -141,6 +153,9 @@ class ModelNetworkConfigTransfer {
   }
 
   Future<void> _writeSecure(Map<String, String> values) async {
+    final work = jsonDecode(values['work_connection']!) as Map;
+    await secure.writeWorkConfiguration(independent: work['mode'] == 'independent',
+      apiKey: work['key'] as String? ?? '', endpoint: work['endpoint'] as String? ?? '');
     await secure.writeApiKey(values['deepseek_api_key']!);
     await secure.writeEndpoint(values['deepseek_endpoint']!);
     await secure.writeAiWangYouApiKey(values['final_api_key']!);

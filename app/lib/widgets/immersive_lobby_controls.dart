@@ -13,6 +13,11 @@ class ImmersiveLobbyControls extends StatelessWidget {
   @override
   Widget build(BuildContext context) => LayoutBuilder(builder: (context, constraints) {
     final background = OutlinedButton(onPressed: onBackground,
+      style: OutlinedButton.styleFrom(
+        minimumSize: const Size(0, 32),
+        padding: const EdgeInsets.symmetric(horizontal: 8),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
+      ),
       child: const Text('背景图'));
     final create = FloatingActionButton.extended(onPressed: onCreate,
       icon: const Icon(Icons.add_rounded), label: const Text('新建房间'));

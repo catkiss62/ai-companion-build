@@ -43,7 +43,8 @@ class CedarAgentLoopPolicy {
       if (!result.succeeded || result.toolId != 'cedar_toy.play') return false;
       final action = result.submittedArguments['action']?.toString() ?? '';
       return action.isNotEmpty &&
-          !CedarPlatformActionPolicy.isReadOnly(action);
+          !CedarPlatformActionPolicy.isReadOnlyCall(action,
+            result.submittedArguments['params'] is Map ? Map<String,Object?>.from(result.submittedArguments['params'] as Map) : const {});
     });
     if (cedar.any((result) => result.toolId == 'cedar_toy.start_timed_play')) return true;
     // One game mutation remains the foreground ceiling. Only local task
@@ -54,7 +55,10 @@ class CedarAgentLoopPolicy {
     // A successful play without a continuation signal means Cedar handed
     // control to the user/remote side or ended the activity. Failed writes and
     // non-recoverable local blocks also stop instead of replaying a side effect.
-    if (cedar.any((result) => result.toolId == 'cedar_toy.play')) return true;
+    if (cedar.any((result) => result.toolId == 'cedar_toy.play' &&
+        (!result.succeeded || !CedarPlatformActionPolicy.isReadOnlyCall(
+          result.submittedArguments['action']?.toString() ?? '',
+          result.submittedArguments['params'] is Map ? Map<String,Object?>.from(result.submittedArguments['params'] as Map) : const {})))) return true;
 
     // list/get_guide are discovery reads. Their executors normally mark them
     // for continuation; keep a defensive open-loop fallback for old/restored

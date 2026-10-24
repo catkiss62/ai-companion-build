@@ -68,7 +68,7 @@ void main() {
   });
 
   for (final work in ['work-custom', '']) {
-    test('dream HTTP uses work model or first-channel fallback: $work', () async {
+    test('dream HTTP follows first channel even with a different work model: $work', () async {
       await db.setSetting('deepseek_model', 'first-custom');
       await db.setSetting('creative_work_model', work);
       await db.insertMessage(ChatMessage(id: 'source', role: 'user',
@@ -79,7 +79,8 @@ void main() {
         clientFactory: (abort) => DeepSeekClient(abortWhen: abort, jsonClientFactory: () => MockClient((request) async {
           calls++;
           final body = jsonDecode(request.body) as Map;
-          expect(body['model'], work.isEmpty ? 'first-custom' : work);
+          expect(body['model'], 'first-custom');
+          expect(body['reasoning_effort'], 'high');
           expect(body['max_tokens'], 6000);
           expect(body['thinking'], {'type': 'enabled'});
           return _json('{"changes":[]}');
@@ -95,13 +96,14 @@ void main() {
       'abnormal_finish', 'empty_body', 'invalid_json', 'runtime_interrupted']) {
     test('dream records body-free $category without committing insight/day', () async {
       await db.setSetting('creative_work_model', 'work-diagnostic');
+      await db.setSetting('deepseek_model', 'first-diagnostic');
       if (category == 'missing_api_key') FlutterSecureStorage.setMockInitialValues({});
       await db.insertMessage(ChatMessage(id: 'source', role: 'user',
         content: '不用一直赶目标，停下来看看也很好。', createdAt: DateTime.now().subtract(const Duration(hours: 2))));
       final engine = DreamEngine(db,
         secureConfig: SecureConfig.forTesting(const FlutterSecureStorage()),
         clientFactory: (abort) => DeepSeekClient(abortWhen: abort, jsonClientFactory: () => MockClient((request) async {
-          expect((jsonDecode(request.body) as Map)['model'], 'work-diagnostic');
+          expect((jsonDecode(request.body) as Map)['model'], 'first-diagnostic');
           switch (category) {
             case 'http_error': return http.Response('PRIVATE_PROVIDER_BODY', 502);
             case 'timeout': throw TimeoutException('PRIVATE_TIMEOUT');
@@ -116,12 +118,12 @@ void main() {
       expect(await engine.maybeDream(manual: true), isFalse);
       final raw = (await db.getSetting(DreamStore.diagnosticKey))!;
       final diagnostic = jsonDecode(raw) as Map;
-      expect(diagnostic['model'], 'work-diagnostic');
+      expect(diagnostic['model'], 'first-diagnostic');
       expect(diagnostic['failure_category'], category);
       expect(diagnostic['content_included'], isFalse);
       final exported = await DreamStore(db).diagnostics();
       expect(exported['last_failure_category'], category);
-      expect(exported['last_model'], 'work-diagnostic');
+      expect(exported['last_model'], 'first-diagnostic');
       expect(raw, isNot(contains('PRIVATE_')));
       expect(await db.getSetting(DreamStore.stateKey), anyOf(isNull, isEmpty));
       final attempt = jsonDecode((await db.getSetting(DreamStore.attemptKey))!) as Map;

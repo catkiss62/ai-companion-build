@@ -51,6 +51,19 @@ class BackgroundChatCommandServer {
     unawaited(_announceReady());
   }
 
+  /// Acceptance completes at the durable user+job transaction, not at the
+  /// end of a possibly long model reply. Completion remains owned by controller.
+  Future<bool> _submit(ChatController controller, String text, String requestId, {bool Function()? isCancelled}) async {
+    final accepted = Completer<bool>();
+    unawaited(controller.sendText(text,
+      requestedMessageId: requestId.isEmpty ? null : requestId,
+      onAccepted: () { if (!accepted.isCompleted) accepted.complete(true); },
+      submissionCancelled: isCancelled,
+    ).then((value) { if (!accepted.isCompleted) accepted.complete(value); },
+      onError: (Object error, StackTrace stack) { if (!accepted.isCompleted) accepted.complete(false); }));
+    return accepted.future;
+  }
+
   Future<void> _announceReady() async {
     for (var attempt = 0; attempt < 4; attempt++) {
       try {
@@ -102,8 +115,8 @@ class BackgroundChatCommandServer {
           };
         }
         final requestId = _stringArg(call.arguments, 'request_id').trim();
-        final accepted = await controller.sendText(text,
-          requestedMessageId: requestId.isEmpty ? null : requestId);
+        final accepted = await _submit(controller, text, requestId,
+          isCancelled: () => sendEpoch != _overlaySendEpoch);
         if (accepted) onWake?.call('overlay_send');
         return <String, Object?>{
           'ok': accepted && controller.error == null,
@@ -133,8 +146,15 @@ class BackgroundChatCommandServer {
         return _petAutonomySnapshot();
       case 'cancelGeneration':
         _overlaySendEpoch++;
-        final controller = await _ensureController();
-        await controller.cancelCurrentGeneration();
+        final targetJob = _stringArg(call.arguments, 'generation_job_id').trim();
+        final current = _controller;
+        final identity = current?.generationIdentity;
+        if (targetJob.isNotEmpty) {
+          final controller = await _ensureController();
+          await controller.cancelCurrentGeneration(targetJobId: targetJob);
+        } else if (current != null && identity != null) {
+          await current.cancelCurrentGeneration(expectedIdentity: identity);
+        }
         return (await _generationSnapshot()).toChannelMap();
       case 'notificationReply':
         final text = _stringArg(call.arguments, 'text').trim();
@@ -146,17 +166,11 @@ class BackgroundChatCommandServer {
           };
         }
         final controller = await _ensureController();
-        if (controller.sending) {
-          return <String, Object?>{
-            'ok': false,
-            'error': '另一轮聊天仍在处理中，稍后重试快捷回复。',
-          };
-        }
-        await controller.sendText(text, requestedMessageId: replyId);
-        onWake?.call('notification_inline_reply');
+        final accepted = await _submit(controller, text, replyId);
+        if (accepted) onWake?.call('notification_inline_reply');
         return <String, Object?>{
-          'ok': controller.error == null,
-          'error': controller.error ?? '',
+          'ok': accepted, 'accepted': accepted, 'request_id': replyId,
+          'error': accepted ? '' : controller.error ?? '回复通道正忙，消息尚未接受。',
         };
       case 'speakMessage':
         final id = _stringArg(call.arguments, 'messageId');
@@ -242,7 +256,8 @@ class BackgroundChatCommandServer {
     if (controller?.sending == true) {
       return OverlayGenerationSnapshot(
         sending: true,
-        cancelling: controller!.cancellingGeneration,
+        jobId: controller!.generationJobId ?? '',
+        cancelling: controller.cancellingGeneration,
         reasoning: controller.streamingReasoning,
         content: controller.streamingContent,
         assistantMessageId:
@@ -266,6 +281,7 @@ class BackgroundChatCommandServer {
       );
     }
     return OverlayGenerationSnapshot(
+      jobId: job.id,
       sending: job.status != 'failed' && job.status != 'awaiting_confirmation',
       cancelling: false,
       reasoning: job.partialReasoning,
