@@ -563,7 +563,7 @@ class DurableGenerationRunner {
             if (call.toolId == 'cedar_toy.play' && actual.any((r) {
               final args = r.submittedArguments;
               final params = args['params'];
-              return r.succeeded && args['action'] is String &&
+              return (r.succeeded || r.status == AgentToolStatus.failed) && args['action'] is String &&
                   !CedarPlatformActionPolicy.isReadOnlyCall(args['action'] as String,
                     params is Map ? Map<String,Object?>.from(params) : const {});
             })) executedToolFingerprints.add(AgentTaskLoopPolicy.callFingerprint(call));
@@ -1070,7 +1070,7 @@ class DurableGenerationRunner {
             content: partialContent,
           );
         }
-        if (!toolCallAccumulator.isEmpty &&
+        if (!toolCallAccumulator.isEmpty && finishReason.isNotEmpty &&
             finishReason != 'stop' && finishReason != 'tool_calls') {
           throw const FormatException('incomplete_tool_plan');
         }
@@ -1079,7 +1079,7 @@ class DurableGenerationRunner {
         if (tools.isNotEmpty) {
           final textEnvelope = AgentToolTextEnvelope.parse(normalizedContent);
           if (toolCalls.isEmpty && textEnvelope.detected) {
-            if ((finishReason != 'stop' && finishReason != 'tool_calls') ||
+            if ((finishReason.isNotEmpty && finishReason != 'stop' && finishReason != 'tool_calls') ||
                 !textEnvelope.valid || textEnvelope.calls.isEmpty) {
               throw const FormatException('invalid_text_tool_envelope');
             }
@@ -1360,8 +1360,7 @@ class DurableGenerationRunner {
                 (!c.toolId.startsWith('cedar_toy.') || taskIntent.gameId.isEmpty || c.toolId=='cedar_toy.list_games' ||
                   c.arguments['game']==taskIntent.gameId)).toList());
               if(plan.isEmpty) { agentProgress.record(const []); break; }
-              final native=[for(final c in plan.calls) planned.toolCalls.firstWhere((n)=>
-                n.id==c.nativeCallId)];
+              final native=AgentToolPlanner.bindNativeCalls(plan, planned.toolCalls);
               final outcomes=await executeTaskPlan(plan,maxCalls:2);
               effectiveCancellation.throwIfCancelled();
               entryResults.addAll(outcomes);
@@ -1495,22 +1494,6 @@ $finalGenerationReminder
 '''.trim(),
           },
         ];
-      }
-
-      List<DeepSeekToolCall> acceptedNativeCalls(
-        AgentToolPlan plan,
-        List<DeepSeekToolCall> requested,
-      ) {
-        final accepted = <DeepSeekToolCall>[];
-        final remaining = requested.toList();
-        for (final call in plan.calls) {
-          final nativeName = AgentToolPlanner.nativeNameForToolId(call.toolId);
-          final index = remaining.indexWhere(
-            (candidate) => candidate.id == call.nativeCallId && candidate.name == nativeName,
-          );
-          if (index >= 0) accepted.add(remaining.removeAt(index));
-        }
-        return accepted;
       }
 
       final localPlanClosesLoop = localPlan != null &&
@@ -1770,7 +1753,7 @@ $finalGenerationReminder
           return const GenerationRunResult(status: 'suspended');
         }
 
-        final acceptedCalls = acceptedNativeCalls(
+        final acceptedCalls = AgentToolPlanner.bindNativeCalls(
           nativePlan,
           generated.toolCalls,
         );

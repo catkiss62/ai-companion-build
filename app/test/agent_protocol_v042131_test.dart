@@ -24,7 +24,15 @@ void main() {
     final plan=AgentToolPlanner.fromNativeToolCalls([first,second],latestUserText:'去游戏厅玩',
       cedarSessionActive:true,excludedCallFingerprints:{AgentTaskLoopPolicy.callFingerprint(original.calls.single)});
     expect(plan.calls.single.nativeCallId,'new');
+    expect(AgentToolPlanner.bindNativeCalls(plan,[first,second]).single,same(second));
+    expect(()=>AgentToolPlanner.bindNativeCalls(plan,[second,second]),throwsFormatException);
     expect(jsonDecode(plan.calls.single.arguments['params_json']!)['command'],'serve correct');
+  });
+  test('oversized input is explicit invalid plan data, never silently cut',(){
+    final plan=AgentToolPlanner.fromNativeToolCalls([native('large',List.filled(65000,'x').join())],
+      latestUserText:'去游戏厅玩',cedarSessionActive:true);
+    expect(plan.calls.single.validationError,'tool_argument_too_large');
+    expect(plan.calls.single.arguments,isEmpty);
   });
   test('state reconciliation accepts only exact read-only snapshot commands',(){
     expect(CedarPlatformActionPolicy.isStateQuery('cmd',{'command':'status','slot':1}),true);

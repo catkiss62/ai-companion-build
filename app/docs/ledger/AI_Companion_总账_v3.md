@@ -1546,3 +1546,5 @@ APK：https://github.com/catkiss62/ai-companion-build/releases/download/untagged
 
 实现候选 +375：调用ID贯通过滤与回包，schema字段读取保留完整参数，异常finish_reason的工具计划禁止执行；Cedar本地blocked可重新规划，已确认写入仍去重；查询/拒绝不耗三步，失败统一投影进入活动记录与调度；cmd状态核对支持同目标，带turn_id的未知回执以reconciled允许新计划但不重放旧动作；带message的轮询走写入登记及未知结果核对。增加真实runner、SQLite回执、参数边界、后台轮询丢回包回归。
 本地实际154项源检查中136通过，18项受稀疏工作区缺资源/缺Kotlin工具链阻挡；未修改或跳过这些门，完整资源与Flutter验证交由CI执行。diff检查通过。新APK尚未生成，后续以CI实际结果收口。
+
+首轮候选498fab0（专项40066378668）静态分析通过，1050测试通过/6失败。确认为schema字段过滤漏读后台share_previous_outcome（3例）、cmd恢复优先级误覆盖显式顶层status（2例），以及1条旧回执状态断言。修正元数据独立读取与真实协议优先级；旧测试继续严格验证未知动作没有重发，仅把已核对状态改为reconciled并增加不能声称目标成功的断言。新增DONE-only兼容、空/其他槽快照不能解锁、超限参数明确阻塞测试；共用精确call_id绑定。等待第二轮CI，不交付失败候选。

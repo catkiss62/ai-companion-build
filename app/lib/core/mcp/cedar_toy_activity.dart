@@ -1310,7 +1310,8 @@ class CedarToyActivityStore {
       // A successful snapshot establishes the current state for a fresh plan;
       // it never converts the original turn's unknown receipt into success.
       // A rooms list alone cannot release a write: read that room's state first.
-      final sameStateQuery = isState && sameTarget && !CedarPlatformActionPolicy.normalizeOutcome(outcome).isError;
+      final sameStateQuery = isState && sameTarget && outcome.text.trim().isNotEmpty &&
+          !CedarPlatformActionPolicy.normalizeOutcome(outcome).isError;
       final ownResponse = data['execution_id'] == executionId &&
           data['action'] == action && !CedarPlatformActionPolicy.isReadOnlyCall(action, params);
       if (sameStateQuery) {
@@ -1372,7 +1373,10 @@ class CedarToyActivityStore {
     if (reconciliation == null) {
       for (final query in const ['state', 'status', 'look']) {
         if (!RegExp('(?<![A-Za-z0-9_])$query(?![A-Za-z0-9_])').hasMatch(session.guide)) continue;
-        final viaCmd = action == 'cmd' && session.guide.contains('command');
+        // A documented top-level action wins over cmd verbs in the same guide.
+        final explicitAction = RegExp("action\\s*[:=]\\s*[\"'`]?${RegExp.escape(query)}(?![A-Za-z0-9_])",
+          caseSensitive:false).hasMatch(session.guide);
+        final viaCmd = !explicitAction && action == 'cmd' && session.guide.contains('command');
         final queryParams = <String, Object?>{
           if (viaCmd) 'command': query,
           for (final name in const ['room_id', 'slot', 'slot_id', 'save_id', 'session_id', 'world_id'])

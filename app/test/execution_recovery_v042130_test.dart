@@ -141,6 +141,21 @@ void main() {
     expect((await TurnExecutionStore(db).remoteHistory('u')).single['failed'],true);
   });
 
+  test('empty or other-slot snapshot cannot unlock an unknown write',() async {
+    await game(); final activity=CedarToyActivityStore(db);
+    final id=await activity.beginExecution(gameId:'bar',action:'cmd');
+    expect(await activity.admitRemoteDispatch(gameId:'bar',action:'cmd',
+      params:{'command':'serve x','slot':1},executionId:id),true);
+    await activity.resolveRemoteDispatch(gameId:'bar',executionId:id,action:'cmd',authoritative:true,
+      params:{'command':'status','slot':2},outcome:const McpToolOutcome(content:[],isError:false,
+        structuredContent:{'ok':true,'next_actor':'companion'}));
+    expect(await activity.unresolvedWrite('bar'),isNotNull);
+    await activity.resolveRemoteDispatch(gameId:'bar',executionId:id,action:'cmd',authoritative:true,
+      params:{'command':'status','slot':1},outcome:const McpToolOutcome(content:[],isError:false));
+    expect(await activity.unresolvedWrite('bar'),isNotNull);
+    await activity.finishExecution(executionId:id);
+  });
+
   test('same-target cmd reconciliation permits a new step but never replays unknown operation',() async {
     await game(); final attempt=await turn(); final effects=TurnExecutionStore(db);
     final activity=CedarToyActivityStore(db);

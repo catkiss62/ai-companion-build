@@ -129,7 +129,10 @@ void main() {
     final retry = await regenerate(attempt);
     expect((await play(runner(client), retry, 'water')).status, AgentToolStatus.blocked);
     expect(client.actions.where((a) => a == 'water'), hasLength(1));
-    expect((await TurnExecutionStore(db).remoteEffect('u'))!['state'], 'dispatching');
+    final reconciled=(await TurnExecutionStore(db).remoteEffect('u'))!;
+    expect(reconciled['state'], 'reconciled');
+    expect(reconciled['goal_satisfied'],false);
+    expect(reconciled.containsKey('outcome'),false);
   });
 
   test('ordered receipt rejects a changed action and preserves unknown writes', () async {

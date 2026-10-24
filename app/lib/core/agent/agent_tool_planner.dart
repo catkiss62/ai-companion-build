@@ -445,8 +445,10 @@ class AgentToolPlanner {
         continue;
       }
       final arguments = <String, String>{};
+      var validationError = '';
       try {
         final decoded = jsonDecode(native.arguments);
+        if (decoded is! Map) throw const FormatException('tool_arguments_not_object');
         if (decoded is Map) {
           final schema = _nativeDefinition(definition)['function'] as Map;
           final properties = (schema['parameters'] as Map)['properties'] as Map;
@@ -462,13 +464,16 @@ class AgentToolPlanner {
             if (key.isNotEmpty && value.isNotEmpty) arguments[key] = value;
           }
         }
-      } catch (_) {
+      } catch (error) {
+        validationError = error is FormatException && error.message == 'tool_argument_too_large'
+            ? 'tool_argument_too_large' : 'invalid_tool_arguments';
         arguments.clear();
         // The executor will return a bounded no-result/blocked response when a
         // required argument is absent. Never repair malformed arguments by guess.
       }
       final call = AgentToolCall(
         nativeCallId: native.id,
+        validationError: validationError,
         toolId: toolId,
         arguments: arguments,
         reasonTag: origin == AgentToolOrigin.autonomous
@@ -486,6 +491,20 @@ class AgentToolPlanner {
       calls.add(call);
     }
     return AgentToolPlan(calls: calls);
+  }
+
+  static List<DeepSeekToolCall> bindNativeCalls(AgentToolPlan plan,
+      List<DeepSeekToolCall> requested) {
+    final bound=<DeepSeekToolCall>[];
+    for (final call in plan.calls) {
+      final matches=requested.where((n)=>n.id==call.nativeCallId &&
+        n.name==nativeNameForToolId(call.toolId)).toList();
+      if (call.nativeCallId.isEmpty || matches.length!=1) {
+        throw const FormatException('ambiguous_native_tool_identity');
+      }
+      bound.add(matches.single);
+    }
+    return bound;
   }
 
   static String nativeNameForToolId(String toolId) =>

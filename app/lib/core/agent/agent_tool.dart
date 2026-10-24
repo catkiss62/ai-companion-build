@@ -125,6 +125,7 @@ class AgentToolCall {
     required this.arguments,
     required this.reasonTag,
     this.nativeCallId = '',
+    this.validationError = '',
   });
 
   final String toolId;
@@ -132,6 +133,7 @@ class AgentToolCall {
   final String reasonTag;
   /// Identity survives filtering; a name is not a call identity.
   final String nativeCallId;
+  final String validationError;
 }
 
 class AgentToolPlan {

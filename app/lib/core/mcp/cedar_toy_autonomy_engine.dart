@@ -368,8 +368,11 @@ class CedarAgentActionPlanner {
     // Local review metadata must never consume one of the six executable
     // argument slots, regardless of JSON property order.
     var executableCall = call;
+    var sharePreviousOutcome = false;
     try {
       final decoded = jsonDecode(call.arguments);
+      if (decoded is Map) sharePreviousOutcome = decoded['share_previous_outcome'] == true ||
+          decoded['share_previous_outcome'] == 'true';
       if (decoded is Map && decoded.containsKey('arrangement_reviews_json')) {
         final business = Map<String, dynamic>.from(decoded)..remove('arrangement_reviews_json');
         executableCall = DeepSeekToolCall(id: call.id, name: call.name, arguments: jsonEncode(business));
@@ -417,7 +420,7 @@ class CedarAgentActionPlanner {
       params: params,
       mode: mode,
       invitationApproved: invitationApproved,
-      sharePreviousOutcome: arguments['share_previous_outcome'] == 'true',
+      sharePreviousOutcome: sharePreviousOutcome,
       arrangementReviews: _parseArrangementReviews(call.arguments),
     );
   }

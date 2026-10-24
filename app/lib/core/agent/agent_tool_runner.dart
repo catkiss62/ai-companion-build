@@ -338,6 +338,12 @@ class AgentToolRunner {
     PendingMediaOwner? pendingMediaOwner,
   }) async {
     cancellationToken?.throwIfCancelled();
+    if (call.validationError.isNotEmpty) return AgentToolResult(
+      toolId:call.toolId,status:AgentToolStatus.blocked,displayText:'工具参数需要修正',
+      errorCode:call.validationError,continuationRecommended:true,
+      promptData:call.validationError == 'tool_argument_too_large'
+          ? '参数超过完整传输上限，未截断、未发送。缩短非必要文本后重新提交完整 JSON。'
+          : '参数必须是完整 JSON object，尚未发送。请修正格式后重新规划。');
     final attempt = pendingMediaOwner?.attempt;
     if (call.toolId == AgentToolRegistry.creativeStop.id) {
       final goals = attempt == null ? const <TurnTaskGoal>[] : await TurnExecutionStore(db).goals(attempt);
