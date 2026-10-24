@@ -6,7 +6,8 @@
 
 ## 当前接班快照
 
-- 最新交付v0.42.130+374：源码12415d4add209ca6a375d6ff260e0d4333e13b1a / tree9061275d857967af73ab53ef3434f587dd29c5a9；完整40008358900成功（154源码门、Kotlin、2603全量Flutter、170归档恢复、54 Android15原生），专项40008358901通过1044项。游戏冲突裁决/恢复推进、cmd查询与真实完成证据、操作恢复防重、思考协议400/失败DS接续、手机活动旧问题隔离、重生成自身旧记忆排除已打包。APK已先发用户，真机待验；入口app/docs/EXECUTION_RECOVERY_v0.42.130.md及账末。
+- 最新交付v0.42.131+375：源码3f3acae632e6db2c12a38b4bf5a58961d5960062 / tree853be751e693138d2862af03269e51e415693024；完整40089808903成功（154源码门、Kotlin、2620全量Flutter、170归档恢复、54 Android15原生），专项40089808894通过1061项。八项游戏厅/Agent/第二通道衔接修复完成；后台允许新的必要查询，阻止局面不变时重复旧查询。APK已先发用户，真机待验；入口app/docs/GAME_AGENT_AUDIT_v0.42.130.md及账末。
+- 前次交付v0.42.130+374：源码12415d4add209ca6a375d6ff260e0d4333e13b1a / tree9061275d857967af73ab53ef3434f587dd29c5a9；完整40008358900成功（154源码门、Kotlin、2603全量Flutter、170归档恢复、54 Android15原生），专项40008358901通过1044项。游戏冲突裁决/恢复推进、cmd查询与真实完成证据、操作恢复防重、思考协议400/失败DS接续、手机活动旧问题隔离、重生成自身旧记忆排除已打包。APK已先发用户，真机待验；入口app/docs/EXECUTION_RECOVERY_v0.42.130.md及账末。
 - 2026-10-23 用户授权 +374 集中修复（开始前登记）：基线 e0bdf8b / 已交付0.42.129+373。范围为游戏判断冲突与恢复后继续执行、cmd读写及真实完成证据、已知/失败/未知操作的恢复与防重、双模型工具思考协议、400失败呈现和DS重新接续、手机活动旧念头与已解答问题重复追问。保留普通闲聊按需Agent、20/40与30/60上限、自主三步/30分钟及主动额度；视频适配仍仅讨论，不纳入。使用独立工作树保留原工作区未提交内容；实现/验证/CI/APK分别记录，附件和凭据不入仓库。计划入口 app/docs/EXECUTION_RECOVERY_v0.42.130.md。
 - +374 首候选6165552已推送：专项CI分析通过、996测试通过/5失败，待修复MCP结构化拒绝投影、计时交接工具范围与DS测试DB收尾。完整CI在下载Android35模拟器系统镜像时失败，原生用例及APK未运行。第二候选补真实双通道四场景runner回归，继续验证；未交付新APK。详见上述计划入口首轮CI记录。
 - +374 第二候选aacd9b3：专项40005095277通过1010项；完整40005093336通过源码/Kotlin/Android15原生54项，Flutter2599通过/3失败。修正叙事游戏`?`误当只读而丢失真实输入证据的边界；两项旧断言改为验证新增思考协议字段及恢复后推进目标，同时保留原输入/精确控制目标断言。第三候选继续全量验证，APK尚未生成。Dart分析0error、817非fatal（61warning/756info），不记为零告警。
@@ -1558,3 +1559,19 @@ APK：https://github.com/catkiss62/ai-companion-build/releases/download/untagged
 第三候选专项40088691720 / job120856741693成功：1061测试全部通过，分析0error、62warning、764info；新增不同必要查询/交替重复旧查询/写后重读回归已通过。第三候选Android15原生job120856761844成功。完整构建40088691762 / build120858030822继续执行，APK暂未交付；源码保持4c56524。
 
 第三轮完整在源码门停止：validate_v04181_cedar_background_agent_tools.py仍强制旧isReadOnly(candidate)字面实现，与必要查询收窄冲突；不是运行测试失败。更新源码门为同时验证规划/实际执行使用精确查询证据、会话按完整参数比较、并保留新增不同查询/重复查询/写后重读运行回归。应用Dart代码保持第三候选一致，继续全量CI验证。
+
+最终验证候选3f3acae632e6db2c12a38b4bf5a58961d5960062 / tree853be751e693138d2862af03269e51e415693024已推送；相对4c56524仅源码门和总账变化，应用与测试字节一致。专项40089808894、完整40089808903执行中。完整构建不交付第三轮源码门失败结果，最终APK需匹配本候选。
+
+## 2026-10-24 · +375 游戏厅与 Agent 跨入口审查修复最终交付
+
+状态 IMPLEMENTED / CI PASSED / APK READY / TRUE DEVICE PENDING。应用源码3f3acae632e6db2c12a38b4bf5a58961d5960062，tree853be751e693138d2862af03269e51e415693024，对应本地2239a23；0.42.131+375，schema61 / Snapshot protocol7保持。
+
+完成：本地未派发阻塞允许补齐事实后重规划，已确认写入仍去重；三步检查点不把cmd查询和明确拒绝记成游玩；未知写入可按真实顶层或cmd协议核对，同请求带归属回执进入reconciled，不能将原动作改记成功或重放；带消息的轮询使用写入保护，丢回包后先核对；两个Agent入口共用精确call_id绑定；schema字段保留完整参数，超限明确阻塞；异常结束的工具计划不能执行，兼容DONE-only接口；失败事实贯通活动、进度、愿望与调度。后台防循环按真实历史和完整参数判断，允许不同必要查询，实际写入后允许重读。三步/30分钟及普通20/40、深度30/60预算保持，不增加每轮JEV/Agent请求。
+
+最终完整40089808903 / build120861192584成功：154源码门、Kotlin、2620全量Flutter、170归档恢复、Android15原生54项（job120860033829）。专项40089808894 / job120860011271成功1061项；分析0error、62warning、764info，不记零告警。首轮1050通过/6失败已修复；第三轮仅旧字面源码门冲突，更新为精确查询证据契约并保留运行回归，最终没有跳过检查。第二轮完整2619通过包只作中间验证，最终交付本候选。
+
+APK738885410 bytes，SHA256 `e3c80cada698ff081018569ca0d0a74dd22e7f6e5340e7c0b9afe5b2f34ca7df`；com.aicompanion.localfirst / versionName0.42.131 / versionCode375；原证书SHA256 `305eb3d80983b963c64818ddf1ad561f279de6d47b3ed2c781ada448c7c25148`。Release422545713 / APK asset672154350仍draft，target_commitish匹配源码；CI、release资产digest和ci-monitor-v0345的成功monitor三处hash/run/head/signature一致。最终包已先按草稿APK直链发用户，未下载为本地附件。
+
+APK：https://github.com/catkiss62/ai-companion-build/releases/download/untagged-33dc1ff71e46f85f7507/AI-Companion-v0.42.131-375-Agent-Game-Hardening-APK.apk 。完整CI：https://github.com/catkiss62/ai-companion-build/actions/runs/40089808903 。草稿页：https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-33dc1ff71e46f85f7507 。之后仅报告/总账[skip ci]收尾，不为相同应用源码重打APK，不合并main或正式发布。
+
+边界：验证使用真实生产代码/SQLite及模拟HTTP，不代表已用用户的付费模型或真实游戏服务验收；实际中转、手机并发时序仍需安装验证。缺少turn_id且无法确认归属的旧未知标记仍保守处理，不凭相同参数跨历史对话猜测解锁。私有存档/诊断/凭据未上传，原工作区未提交内容保留。

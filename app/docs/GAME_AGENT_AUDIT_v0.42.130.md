@@ -126,3 +126,15 @@ planner 可以过滤第一个同名调用（例如 fingerprint 已排除），�
 第二轮候选：远端242031b4434f3950bab75f270a90816c5c971dc8，tree ddad47c11171ba5b8a4261ffe5a455150c1d1a95；对应本地df54549。专项40086603993 / job120850722724：1060测试全部通过，分析0error、62warning、764info（非零告警）。完整构建40086603999仍在运行，暂不标记APK可用。
 
 兼容边界：有明确顶层action声明时恢复使用该声明，cmd-only游戏使用完整cmd参数；后台分享元数据独立读取，不混入可执行params；已核对的未知动作仍不写入成功Outcome，也不能重放原动作。旧存档中缺少turn_id的未知标记保持保守，不凭相同参数跨历史对话解锁。
+
+## 最终交付 v0.42.131+375
+
+状态：IMPLEMENTED / CI PASSED / APK READY / TRUE DEVICE PENDING。本文件前半部分保留+374审查发现；上述八项已实施，源码3f3acae632e6db2c12a38b4bf5a58961d5960062 / tree853be751e693138d2862af03269e51e415693024。
+
+最终完整40089808903 / build120861192584：154源码门、Kotlin、2620全量Flutter、170归档恢复、54 Android15原生全部通过；专项40089808894 / job120860011271通过1061项，分析0error/62warning/764info。前面的失败候选及修复经过保留在总账，不把更新旧源码断言描述为运行问题，也不把模拟HTTP说成真实API验收。
+
+后台只读循环最终改为按完整参数与真实会话事件判断：不同必要查询可执行，同一局面交替重复旧查询被拦截，真实写入后可重新读取。未改变三步/30分钟与Agent总预算。源码门同时要求规划与执行共用该证据判断，并保留实际SQLite运行回归。
+
+APK：https://github.com/catkiss62/ai-companion-build/releases/download/untagged-33dc1ff71e46f85f7507/AI-Companion-v0.42.131-375-Agent-Game-Hardening-APK.apk
+
+738885410 bytes；SHA256 `e3c80cada698ff081018569ca0d0a74dd22e7f6e5340e7c0b9afe5b2f34ca7df`。原签名证书已核对，release422545713 / asset672154350仍draft，target为上述源码。CI、release digest和成功monitor一致。代码、测试和当前总账推送既有授权分支，未合并main或正式发布。最后仅文档收口，不重构建相同APK。
