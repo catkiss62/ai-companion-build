@@ -115,8 +115,11 @@ class CedarGameEvent {
     if (readOnly != null) return readOnly;
     try {
       final value = jsonDecode(inputJson);
-      if (value is Map) return CedarPlatformActionPolicy.isReadOnlyCall(
-        action, Map<String, Object?>.from(value));
+      if (value is Map) {
+        if (action == 'cmd' && (value['command'] is! String ||
+            (value['command'] as String).trim().isEmpty)) return null;
+        return CedarPlatformActionPolicy.isReadOnlyCall(action, Map<String, Object?>.from(value));
+      }
     } catch (_) { /* Old truncated payloads cannot establish a write. */ }
     return CedarPlatformActionPolicy.isReadOnly(action) ? true : null;
   }

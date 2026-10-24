@@ -1160,7 +1160,7 @@ class ChatController extends ChangeNotifier {
     final text = raw.trim();
     final turnDeepThinking = deepThinking;
     final hasSticker = userStickerPack != null && userSticker != null;
-    if ((text.isEmpty && !hasSticker) || generationActive || analyzingImage) {
+    if (text.isEmpty && !hasSticker) {
       return false;
     }
     if ((userStickerPack == null) != (userSticker == null)) return false;
@@ -1180,6 +1180,8 @@ class ChatController extends ChangeNotifier {
         return true;
       }
     }
+
+    if (generationActive || analyzingImage) return false;
 
     await _stopTurnAudio();
     if ((await db.getSetting('transfer_lock')) == '1') {

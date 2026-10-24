@@ -30,8 +30,10 @@ void main() {
     return reply.future;
   }
 
-  for (final busy in [true, false]) {
-    test('native bridge reports actual acceptance and stable identity; busy=$busy', () async {
+  for (final scenario in ['busy_reject', 'existing_idle', 'existing_busy']) {
+    final busy = scenario != 'existing_idle';
+    final exists = scenario != 'busy_reject';
+    test('native bridge reports actual acceptance and stable identity; scenario=$scenario', () async {
       final db = await AppDatabase.createForTesting(databaseFactoryFfi);
       final chat = _Chat(db);
       messenger.setMockMethodCallHandler(channel, (_) async => true);
@@ -39,20 +41,21 @@ void main() {
       try {
         if (busy) {
           chat.sending = true;
-        } else {
+        }
+        if (exists) {
           await db.createGenerationTurn(user: ChatMessage(id: 'stable', role: 'user',
             content: '消息', createdAt: DateTime.now()), assistantMessageId: 'a',
             model: 'deepseek-flash', reasoningEffort: 'high');
         }
         BackgroundChatCommandServer(db: db, controller: chat).start();
         final result = await send('stable');
-        expect(result['accepted'], !busy);
-        expect(result['ok'], !busy);
+        expect(result['accepted'], exists);
+        expect(result['ok'], exists);
         expect(result['request_id'], 'stable');
-        if (busy) expect(result['error'], isNotEmpty);
+        if (!exists) expect(result['error'], isNotEmpty);
         final rows = await (await db.database).query('generation_jobs');
-        expect(rows.length, busy ? 0 : 1);
-        if (!busy) {
+        expect(rows.length, exists ? 1 : 0);
+        if (exists) {
           expect((await send('stable'))['accepted'], true);
           expect((await (await db.database).query('generation_jobs')).length, 1);
         }

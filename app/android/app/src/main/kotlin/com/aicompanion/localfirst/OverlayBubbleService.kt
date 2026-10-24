@@ -1265,7 +1265,9 @@ class OverlayBubbleService : Service() {
                         if (!accepted) restoreOverlayDraft()
                         overlaySubmitCommandPending = false
                         stopGenerationPolling()
-                        setComposerGenerationState(sending = false)
+                        val stillActive = accepted && (result as? Map<*, *>)?.get("generation_active") == true
+                        setComposerGenerationState(sending = stillActive)
+                        if (stillActive) beginGenerationPolling()
                         if (!isCurrentChatWindow(submittedWindowEpoch)) {
                             if (chatExpanded) refreshOverlayMessages(opened = false, attempt = 0)
                             return@post
@@ -1594,6 +1596,7 @@ class OverlayBubbleService : Service() {
 
     private fun applyGenerationSnapshot(result: Any?) {
         val map = result as? Map<*, *> ?: return
+        val wasSending = chatSending
         val sharedSending = map["sending"] == true
         // Historical v0.35.9 validator token: setComposerGenerationState(sending = sharedSending)
         val composerSending = sharedSending || overlaySubmitCommandPending
@@ -1636,6 +1639,7 @@ class OverlayBubbleService : Service() {
         chatAdapter?.notifyDataSetChanged()
         scrollChatToBottom()
         if (!sharedSending) setChatStatus(statusText.takeIf { it.isNotBlank() })
+        if (wasSending && !composerSending) refreshOverlayMessages(opened = false, attempt = 0)
     }
 
     private fun removeStreamingMessage(notify: Boolean = true) {
