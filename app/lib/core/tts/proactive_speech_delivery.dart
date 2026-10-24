@@ -22,6 +22,14 @@ class ProactiveSpeechDelivery {
     required Future<bool> Function() play,
     bool Function()? canStart,
   }) async {
+    try { await _deliver(message, play: play, canStart: canStart); }
+    catch (_) { /* Optional speech cannot fail an already delivered message. */ }
+  }
+
+  Future<void> _deliver(ChatMessage message, {
+    required Future<bool> Function() play,
+    bool Function()? canStart,
+  }) async {
     final token = const Uuid().v4();
     final sql = await db.database;
     final claimed = await sql.transaction((txn) async {
@@ -67,7 +75,7 @@ class ProactiveSpeechDelivery {
   /// consume a newer message, even if that message has claimed native audio.
   Future<void> stopRequested() {
     final token = _activeToken;
-    return token == null ? Future<void>.value() : _update(token, consumed: true);
+    return token == null ? Future<void>.value() : _update(token, consumed: true).catchError((Object _) {});
   }
 
   Future<void> _update(String token, {bool consumed = false, bool renew = false}) async {

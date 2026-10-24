@@ -207,6 +207,18 @@ void main() {
     await app.deliver(old, play: () async => throw StateError('stale message must not play'));
     expect(await db.getSetting(ProactiveSpeechDelivery.spokenKey), 'new');
   });
+  test('late old speech completion cannot replace the newer delivery record', () async {
+    final old = await proactive('old-inflight');
+    final first = ProactiveSpeechDelivery(db), second = ProactiveSpeechDelivery(db);
+    final entered = Completer<void>(), finished = Completer<bool>();
+    final running = first.deliver(old, play: () { entered.complete(); return finished.future; });
+    await entered.future;
+    final newer = await proactive('new-inflight', offset: 1);
+    await second.deliver(newer, play: () async => true);
+    finished.complete(true); await running;
+    expect(await db.getSetting(ProactiveSpeechDelivery.spokenKey), newer.id);
+  });
+
   test('hidden page and thrown preparation never consume a proactive message', () async {
     final message = await proactive('hidden');
     final speech = ProactiveSpeechDelivery(db);

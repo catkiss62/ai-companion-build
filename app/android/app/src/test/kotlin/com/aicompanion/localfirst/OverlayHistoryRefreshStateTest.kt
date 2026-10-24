@@ -4,6 +4,20 @@ import org.junit.Assert.*
 import org.junit.Test
 
 class OverlayHistoryRefreshStateTest {
+    @Test fun newlySubmittedAndThenAcceptedMessageInvalidatesOlderSnapshots() {
+        val state = OverlayHistoryRefreshState()
+        val beforeSend = state.request(1, ready = true, opened = false)!!
+        state.messagesChanged()
+        assertTrue(state.current(beforeSend))
+        assertFalse(state.mayApply(beforeSend))
+        assertTrue(state.finish(beforeSend))
+        val beforeAcceptance = state.request(1, ready = true, opened = false)!!
+        state.messagesChanged()
+        assertFalse(state.mayApply(beforeAcceptance))
+        state.finish(beforeAcceptance)
+        val committed = state.request(1, ready = true, opened = false)!!
+        assertTrue(state.mayApply(committed))
+    }
     @Test fun firstOpenWaitsForAttachmentWithoutASend() {
         val state = OverlayHistoryRefreshState()
         assertNull(state.request(1, ready = false, opened = true))

@@ -15,6 +15,9 @@ import 'package:ai_companion_localfirst/core/database/app_database.dart';
 import 'package:ai_companion_localfirst/core/database/conversation_source_store.dart';
 import 'package:ai_companion_localfirst/core/grounding/operational_claim_grounding_guard.dart';
 import 'package:ai_companion_localfirst/core/mcp/cedar_toy_activity.dart';
+import 'package:ai_companion_localfirst/core/mcp/cedar_toy_client.dart';
+import 'package:ai_companion_localfirst/core/mcp/mcp_protocol.dart';
+import 'package:ai_companion_localfirst/core/agent/turn_execution_store.dart';
 import 'package:ai_companion_localfirst/core/mcp/cedar_task_presentation.dart';
 import 'package:ai_companion_localfirst/core/models/chat_message.dart';
 import 'package:ai_companion_localfirst/core/storage/secure_config.dart';
@@ -36,6 +39,18 @@ http.Response reply(Map<String,Object?> delta,{String finish='stop'})=>http.Resp
   headers:{'content-type':'text/event-stream; charset=utf-8'});
 Map<String,Object?> call(String name,Map<String,Object?> args)=>{'tool_calls':[{
   'index':0,'id':'call-$name','type':'function','function':{'name':name,'arguments':jsonEncode(args)}}]};
+
+class _ReadGame extends CedarToyClient {
+  _ReadGame() : super(token: 'ctai_v1_fixture');
+  var reads = 0;
+  @override Future<McpToolOutcome> play(String game, String action, Map<String, Object?> params,
+      {GenerationCancellationToken? cancellationToken}) async {
+    expect(game, 'bar'); expect(action, 'cmd'); expect(params['command'], 'status');
+    reads++;
+    return const McpToolOutcome(content: [], isError: false, structuredContent: {
+      'slot': 4, 'balance': 0, 'inventory': [], 'next_actor': 'companion', 'participation_mode': 'solo'});
+  }
+}
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();sqfliteFfiInit();
@@ -69,6 +84,69 @@ void main() {
     expect(OperationalClaimGroundingGuard.evaluate(text:'「这就出发，半小时后回来汇报！」',
       taskGoals:[goal],taskReceipts:[ended]).reason,'unregistered_timed_task_promise');
   });
+
+  for (final second in [false, true]) {
+    test('real runner without task semantics keeps cmd status read-only and first/final efforts separate: $second', () async {
+      final files = await Directory.systemTemp.createTemp('read-only378-');
+      final previous = PathProviderPlatform.instance; PathProviderPlatform.instance = _Paths(files.path);
+      final db = await AppDatabase.createForTesting(databaseFactoryFfi);
+      const channel = MethodChannel('ai_companion/system');
+      final messenger = TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger;
+      messenger.setMockMethodCallHandler(channel, (_) async => null);
+      FlutterSecureStorage.setMockInitialValues({'deepseek_api_key': 'fixture', 'cedar_toy_token': 'ctai_v1_fixture',
+        'chat_api_provider': second ? 'aiwangyou_gemini' : 'deepseek', 'aiwangyou_gemini_api_key': 'fixture-final',
+        'aiwangyou_final_reply_endpoint': 'https://relay.invalid/v1/chat/completions'});
+      var plans = 0, finals = 0;
+      var missingWriteGoal = false;
+      final game = _ReadGame();
+      final client = DeepSeekClient(streamClientFactory: () => MockClient((request) async {
+        final body = jsonDecode(request.body) as Map;
+        final names = [for (final t in body['tools'] as List? ?? []) ((t as Map)['function'] as Map)['name']];
+        if (names.any((name) => name != 'agent_request')) {
+          plans++;
+          expect(body['reasoning_effort'], 'max');
+          if (plans == 1) return reply(call('cedar_toy_play', {'game': 'bar', 'action': 'cmd',
+            'params_json': '{"command":"status","slot":4}', 'participation_mode': 'solo'}), finish: 'tool_calls');
+          return reply({'content': '只读状态已经核实。'});
+        }
+        if (body.containsKey('max_tokens')) return reply({'content': '{}'});
+        finals++;
+        expect(body['reasoning_effort'], second ? 'low' : 'max');
+        missingWriteGoal = missingWriteGoal || jsonEncode(body['messages']).contains('本轮仍未获得执行证据的目标');
+        return reply({'content': '「余额为零，背包是空的。」'});
+      }), jsonClientFactory: () => MockClient((_) async => http.Response(
+        jsonEncode({'choices': [{'message': {'content': '{}'}, 'finish_reason': 'stop'}]}), 200)));
+      try {
+        await db.setSettingsAtomically({'cedar_toy_enabled': '1', 'deepseek_reasoning_effort': 'max', 'reasoning_effort': 'low'});
+        final activity = CedarToyActivityStore(db);
+        await activity.saveCatalog('bar·酒馆经营，单人·fixture');
+        await activity.recordGuide(gameId: 'bar', guide: '单人游戏，每游戏5槽，slot=1-5，cmd status查询，serve操作。');
+        await db.tryAcquireLocalLease('chat_turn_lease');
+        final job = await db.createGenerationTurn(user: ChatMessage(id: 'u', role: 'user',
+          content: '检查酒馆存档4当前状态，只读不要操作', createdAt: DateTime.now()),
+          assistantMessageId: 'a', model: 'fixture-first', reasoningEffort: 'high');
+        final source = (await ConversationSourceStore.captureMessage(await db.database, 'u'))!;
+        final key = '${source.contentHash}:${source.revision}';
+        await db.setSettingsAtomically({'nsfw_route_turn_id': 'u', 'nsfw_route_source_key_v2': key,
+          'cedar_route_intent_v1': 'act_now', 'cedar_route_certain_v1': '1',
+          'route_tool_intent_v1': jsonEncode({'turn_id': 'u', 'source_key': key,
+            'route': const SemanticToolRoute(available: true).toJson()}),
+          'route_task_intent_v1': jsonEncode({'turn_id': 'u', 'source_key': key,
+            'intent': const TurnTaskIntent(available: false).toJson()})});
+        final result = await DurableGenerationRunner(db: db, client: client, cedarClientFactory: (_) => game,
+          secureConfig: SecureConfig.forTesting(const FlutterSecureStorage())).run(job).timeout(const Duration(seconds: 30));
+        expect(result.status, 'completed', reason: result.error?.toString());
+        expect(game.reads, 1); expect(finals, 1); expect(missingWriteGoal, false);
+        final contract = await db.getSetting('${TurnExecutionStore.goalPrefix}u') ?? '';
+        expect(contract, isNot(contains('cedar.foreground_write')));
+        expect((await activity.loadState()).completedPlayRounds, 0);
+      } finally {
+        client.close(); await db.releaseLocalLease('chat_turn_lease'); await db.closeForTesting();
+        messenger.setMockMethodCallHandler(channel, null); PathProviderPlatform.instance = previous;
+        await files.delete(recursive: true);
+      }
+    });
+  }
 
   for(final second in [false,true]) {
     for(final scenario in ['seven_reads','reenter','stalled','changed','cancel']) {

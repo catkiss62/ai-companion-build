@@ -2,12 +2,19 @@ package com.aicompanion.localfirst
 
 /** A current window waiting for attachment/Dart is pending, not obsolete. */
 class OverlayHistoryRefreshState {
-    data class Request(val epoch: Long, val serial: Long, val opened: Boolean)
+    data class Request(val epoch: Long, val serial: Long, val opened: Boolean, val messageRevision: Long = 0)
     private var window = Long.MIN_VALUE
     private var serial = 0L
     private var loading = false
     private var pending = false
     private var pendingOpen = false
+    private var messageRevision = 0L
+
+    fun messagesChanged() {
+        messageRevision++
+        if (loading) pending = true
+    }
+    fun mayApply(request: Request): Boolean = current(request) && request.messageRevision == messageRevision
 
     fun request(epoch: Long, ready: Boolean, opened: Boolean): Request? {
         if (window != epoch) {
@@ -27,7 +34,7 @@ class OverlayHistoryRefreshState {
         if (!ready) return null
         loading = true
         pending = false
-        return Request(epoch, ++serial, pendingOpen).also { pendingOpen = false }
+        return Request(epoch, ++serial, pendingOpen, messageRevision).also { pendingOpen = false }
     }
 
     fun current(request: Request): Boolean =

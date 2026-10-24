@@ -86,7 +86,7 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver, RouteA
   Timer? _externalSyncTimer;
   int _externalSyncTicks = 0;
   bool _refreshingPlayfulForm = false;
-  bool _appResumed = true;
+  bool _appResumed = WidgetsBinding.instance.lifecycleState == AppLifecycleState.resumed;
   ModalRoute<dynamic>? _observedRoute;
   bool _routeVisible = true;
   int _chatOpenEpoch = 0;
@@ -197,6 +197,13 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver, RouteA
 
   @override
   void didPushNext() {
+    _routeVisible = false;
+    _chatOpenEpoch++;
+    unawaited(_caicaiMotion.stop());
+  }
+
+  @override
+  void didPop() {
     _routeVisible = false;
     _chatOpenEpoch++;
     unawaited(_caicaiMotion.stop());

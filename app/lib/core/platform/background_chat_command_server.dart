@@ -155,7 +155,7 @@ class BackgroundChatCommandServer {
         } else if (current != null && identity != null) {
           await current.cancelCurrentGeneration(expectedIdentity: identity);
         }
-        return (await _generationSnapshot()).toChannelMap();
+        return {...(await _generationSnapshot()).toChannelMap(), 'error': _controller?.error ?? ''};
       case 'notificationReply':
         final text = _stringArg(call.arguments, 'text').trim();
         final replyId = _stringArg(call.arguments, 'replyId').trim();

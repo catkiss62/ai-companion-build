@@ -86,7 +86,6 @@ class OverlayBubbleService : Service() {
     private val lifetime = OverlayWindowSession()
     private val submissions = OverlaySubmissionState()
     private val submissionIo = Executors.newSingleThreadExecutor()
-    private var overlayMessageRevision = 0L
     private var generationPollRequest = 0L
     private var inlineReplyRequest = 0L
     private val submissionPrefs by lazy { applicationContext.getSharedPreferences("overlay_pending_submission_v1", Context.MODE_PRIVATE) }
@@ -1114,7 +1113,6 @@ class OverlayBubbleService : Service() {
 
     private fun refreshOverlayMessages(opened: Boolean, attempt: Int) {
         val epoch = lifetime.windowEpoch
-        val messageRevision = overlayMessageRevision
         if (!lifetime.matches(epoch) || !chatExpanded || chatRemovalPending || chatRoot == null) return
         if (chatRoot?.isAttachedToWindow != true || !backgroundBrainReady)
             setChatStatus("正在读取聊天记录…")
@@ -1144,7 +1142,7 @@ class OverlayBubbleService : Service() {
                     mainHandler.post {
                         if (!isCurrentChatWindow(epoch) || !historyRefresh.current(request)) return@post
 
-                        if (messageRevision != overlayMessageRevision) {
+                        if (!historyRefresh.mayApply(request)) {
                             historyRefresh.finish(request)
                             refreshOverlayMessages(opened = false, attempt = 0)
                             return@post
@@ -1280,7 +1278,8 @@ class OverlayBubbleService : Service() {
             proactiveIntent = "",
             proactiveDelivery = "",
         )
-        overlayMessageRevision++
+        historyRefresh.messagesChanged()
+        streamingGenerationJobId = ""
         loadedMessages.add(optimistic)
         chatAdapter?.notifyDataSetChanged()
         scrollChatToBottom()
@@ -1298,7 +1297,7 @@ class OverlayBubbleService : Service() {
                         if (!isCurrentSubmission(submission.epoch, submittedEngine)) return@post
                         val accepted = (result as? Map<*, *>)?.get("accepted") == true
                         submissions.finish(submission, accepted)
-                        overlayMessageRevision++
+                        historyRefresh.messagesChanged()
                         if (accepted) {
                             clearPersistedOverlay()
                             pendingInlineReplies.removeAll { it.replyId == submission.requestId }
@@ -1441,8 +1440,13 @@ class OverlayBubbleService : Service() {
                         overlaySubmitCommandPending = false
                         stopGenerationPolling()
                         removeStreamingMessage()
-                        setComposerGenerationState(sending = false)
-                        setChatStatus("已停止这轮回复。")
+                        val map = result as? Map<*, *>
+                        val active = map?.get("sending") == true
+                        val error = map?.get("error") as? String ?: ""
+                        setComposerGenerationState(sending = active || error.isNotBlank())
+                        setChatStatus(error.takeIf { it.isNotBlank() } ?:
+                            if (active) "原回复已处理，正在同步当前任务…" else "已停止这轮回复。", error.isNotBlank())
+                        if (active || error.isNotBlank()) beginGenerationPolling()
                         refreshOverlayMessages(opened = false, attempt = 0)
                     }
                 }
