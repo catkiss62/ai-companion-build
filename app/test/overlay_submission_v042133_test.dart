@@ -52,6 +52,7 @@ void main() {
         expect(result['accepted'], exists);
         expect(result['ok'], exists);
         expect(result['request_id'], 'stable');
+        expect(result['generation_active'], true);
         if (!exists) expect(result['error'], isNotEmpty);
         final rows = await (await db.database).query('generation_jobs');
         expect(rows.length, exists ? 1 : 0);

@@ -109,7 +109,7 @@ class BackgroundChatCommandServer {
           'ok': accepted && controller.error == null,
           'accepted': accepted,
           'request_id': requestId,
-          'generation_active': await db.blockingGenerationJob() != null,
+          'generation_active': controller.generationActive || await db.blockingGenerationJob() != null,
           'cancelled': sendEpoch != _overlaySendEpoch,
           'error': controller.error ?? (accepted ? '' : '回复通道正忙，消息尚未发送，请重试。'),
           'notice': controller.notice ?? '',

@@ -1265,7 +1265,7 @@ class OverlayBubbleService : Service() {
                         if (!accepted) restoreOverlayDraft()
                         overlaySubmitCommandPending = false
                         stopGenerationPolling()
-                        val stillActive = accepted && (result as? Map<*, *>)?.get("generation_active") == true
+                        val stillActive = (result as? Map<*, *>)?.get("generation_active") == true
                         setComposerGenerationState(sending = stillActive)
                         if (stillActive) beginGenerationPolling()
                         if (!isCurrentChatWindow(submittedWindowEpoch)) {
