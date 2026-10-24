@@ -1,13 +1,7 @@
-status=failure
-build_result=cancelled
-run_id=40115512138
-run_url=https://github.com/catkiss62/ai-companion-build/actions/runs/40115512138
-head_sha=696feb23b0a4793ff2afe1af8263fe56df282638
-
-=== failed or cancelled job logs ===
-Unable to enumerate job logs; raw API response follows.
-{
-  "message": "Server Error"
-}
-gh: Server Error (HTTP 502)
-release_url=https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-0dc769c212036bf55c0d
+status=success
+run_id=40116221363
+run_url=https://github.com/catkiss62/ai-companion-build/actions/runs/40116221363
+head_sha=e3a400c5be6d16419396a0c19c2d1e6ed99d0439
+signer_sha256=30:5E:B3:D8:09:83:B9:63:C6:48:18:DD:F1:AD:56:1F:27:9D:E6:D4:7B:3E:D2:C7:81:AD:A4:48:C7:C2:51:48
+9ee3273fc5ca96cd3547b4cb0a3587aeaabab6d887af5ee6df9cf875e26acd9a  AI-Companion-v0.42.133-377-Game-Overlay-Recovery-APK.apk
+release_url=https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-a7692e7ec5444c5a7358
