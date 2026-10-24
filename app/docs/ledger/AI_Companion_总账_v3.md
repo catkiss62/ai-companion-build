@@ -6,6 +6,7 @@
 
 ## 当前接班快照
 
+- 最新交付v0.42.132+376：源码118e010af1ebe0495f632bbda78bb6ab154a7d59 / tree695f8b0d6e8b00ea203b29256b205001cfe263a8；完整40098613031成功（154源码门、Kotlin、2628全量Flutter、170归档恢复、54 Android15原生），专项40098613050通过1069项。回复中断接管/DS立即重试/等待失败显示、后台先保存后解保护及房间核验参数已修复；手机活动恢复+365相关机制，三项奖励50%；沉浸标题固定/间距5已打包。不增加Agent记事本。APK已发用户，真实手机与API待验；入口app/docs/REPLY_RECOVERY_PHONE_BALANCE_v0.42.132.md及账末。
 - 2026-10-24用户已决定不增加通用Agent工作记事本，授权继续+376并合入沉浸房间固定标题/间距5的小修改。首候选c426d1e：专项40097643933分析通过，1067通过/2失败（旧0.09分值断言及新orphan测试预选DS后按钮可再次选择的错误断言），Android15原生54项通过；完整40097643932尚未结束。两条断言已按真实新行为修正，保留恢复后同任务完成/路由/旧token失效检查；界面改动已实现，下一候选重跑CI，尚无+376交付APK。详情app/docs/REPLY_RECOVERY_PHONE_BALANCE_v0.42.132.md。
 - 2026-10-24用户要求暂停并补充讨论：+376候选已推送c426d1e（本地9f8e2850，同tree84a3bdef），专项40097643933分析通过/回归运行中，完整40097643932原生运行中，尚未交付。暂停后续实施，已启动CI自然继续。新增界面要求：沉浸房间页左上标题固定“沉浸房间”；背景图→中间距对齐EN→NSFW（现3px，后者语言右padding2+外间隔3=5px），待实施。Agent工作记事本当前仅分析：普通规划有聊天prompt及本轮工具历史，TurnExecutionStore持久化目标/回执，游戏有专用notebook；AgentProgressTracker为本轮内存，未见通用可自由写入且跨轮恢复的工作便签。不能仅凭模型自述看不到上下文断言根因；待讨论决定，不擅自增加跨轮自由笔记或模型请求。
 - 2026-10-24用户授权本轮合并实施（开始前登记，目标0.42.132+376）：基线+375；补普通后台游戏先保存核验结果后解除未知写保护，房间列表自动状态读取接入失败判定/提交参数；retry_wait手动DS立即唤醒同任务；浮窗失败/等待状态准确显示；修复浮窗回复中退出后主聊天接管，保留回执、取消和跨引擎排他栅栏。手机活动按+365相关计分/反应决策机制恢复，使用时长/切软件/界面事件三项均乘50%，保留后续无关修复、主动额度及游戏三步/30分钟。代码/测试/推送/CI/APK分阶段登记，现开始实现。
@@ -1579,3 +1580,22 @@ APK738885410 bytes，SHA256 `e3c80cada698ff081018569ca0d0a74dd22e7f6e5340e7c0b9a
 APK：https://github.com/catkiss62/ai-companion-build/releases/download/untagged-33dc1ff71e46f85f7507/AI-Companion-v0.42.131-375-Agent-Game-Hardening-APK.apk 。完整CI：https://github.com/catkiss62/ai-companion-build/actions/runs/40089808903 。草稿页：https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-33dc1ff71e46f85f7507 。之后仅报告/总账[skip ci]收尾，不为相同应用源码重打APK，不合并main或正式发布。
 
 边界：验证使用真实生产代码/SQLite及模拟HTTP，不代表已用用户的付费模型或真实游戏服务验收；实际中转、手机并发时序仍需安装验证。缺少turn_id且无法确认归属的旧未知标记仍保守处理，不凭相同参数跨历史对话猜测解锁。私有存档/诊断/凭据未上传，原工作区未提交内容保留。
+
+
+## 2026-10-24 · +376 最终交付（IMPLEMENTED / CI PASSED / APK READY / TRUE DEVICE PENDING）
+
+用户暂停补充界面并讨论Agent工作记录后，明确继续原修改并加入沉浸房间小调整；决定不另加通用Agent记事本。最终源码118e010af1ebe0495f632bbda78bb6ab154a7d59，本地5b36048d同tree695f8b0d6e8b00ea203b29256b205001cfe263a8，仍在授权分支agent/v042107-review-recovery，不合并main、不正式发布。
+
+实现：后台普通游玩先核验保存结果再解除未知写保护；rooms自动state查询保存提交参数并应用失败判断。回复恢复以有效排他执行锁为依据接管原任务，保留run token/取消/回执栅栏，主页面resumed唤醒恢复；retry_wait手动DS立即排队并尝试恢复，失败/等待/截断状态准确显示。手机使用时长/切App/UI事件恢复+365政策并各减半，另路事件好奇0.004→0.002，事件主动判断恢复，原90秒节流、额度、半衰期、近期聊天抑制及后续其他修复保留；已有分数沿原曲线衰减。沉浸房间固定标题，背景图→中间距5对齐EN→NSFW。无schema/快照协议变化，游戏三步/30分钟与Agent预算不变。
+
+失败与修正：本地136项可运行源码检查通过，18项因未展开资源/缺Kotlin工具链转完整CI验证。旧版本白名单、DB审查指纹和旧恢复提示断言按实际变更更新，未跳过资源/协议守卫。首候选c426d1e专项1067通过/2失败：旧手机奖励预期未减半、新orphan用例预选DS后还要求按钮能再次选择；修正两项断言，保留同任务完成、实际请求路由及旧run token失效检查，增加沉浸界面要求后以新源码完整重跑。首候选不是最终交付证据。
+
+最终验证：专项40098613050 / job120885968480成功，1069项通过；完整40098613031 / build120887617597成功，154源码守卫、Node桥、Kotlin、2628全量Flutter、170归档恢复通过；Android15 / job120886270450的54项通过。Dart分析0error、828非fatal提示，不记为零告警。新增生产runner确认未来一小时retry_wait的DS点击立即完成原任务、新进程刚退出的running任务可接管；真实SQLite确认活跃/过期/被替换执行锁、Stop和旧回执栅栏；后台引擎确认核验中被抢占仍保留未知保护、正常保存后解除及房间失败参数留存。
+
+APK：738885498 bytes（约739MB）；release422751817，asset672423219，target118e010af1ebe0495f632bbda78bb6ab154a7d59。CI与线上asset digest一致：42279ccbbbe6794b7f296f5a31efc35d20bb0d1e337138f5350e67a2331c4da5。签名SHA256：305eb3d80983b963c64818ddf1ad561f279de6d47b3ed2c781ada448c7c25148，与原私测一致；包名com.aicompanion.localfirst、0.42.132+376、资源清单均通过。APK已先发用户；未上传用户备份、私密正文或凭据。
+
+下载：https://github.com/catkiss62/ai-companion-build/releases/download/untagged-bf3ca40e01ded3c75fcb/AI-Companion-v0.42.132-376-Reply-Recovery-Phone-Balance-APK.apk
+完整CI：https://github.com/catkiss62/ai-companion-build/actions/runs/40098613031
+专项CI：https://github.com/catkiss62/ai-companion-build/actions/runs/40098613050
+
+真机待验：悬浮生成中真实进程退出/重开接管、主页面/浮窗等待与失败提示、真实中转API，以及手机半额计分的日常体感、沉浸标题和间距。没有本次闪退堆栈，不能宣称修复唯一崩溃根因；本轮交付覆盖退出后的恢复与显示。后续从实施文档和本节定位，不扩读历史总账。

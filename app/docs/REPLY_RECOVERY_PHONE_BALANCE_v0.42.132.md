@@ -21,3 +21,11 @@
 
 ## 首轮CI及修正
 首候选c426d1e：专项40097643933分析通过，1067通过/2失败；原生40097643932的54项通过，完整构建尚未结束。两处失败分别是旧手机时长奖励断言仍预期0.09（新值0.045），及新orphan测试在预选DS后仍要求按钮能再次选择；修正断言并保留同任务完成、请求路由和旧run token失效验证。其余后台提交顺序、抢占、房间失败参数和SQLite租约回归通过，不将首轮记为全部通过。加入界面调整后重新构建，首轮不交付。
+
+
+## 最终验证与交付
+最终源码118e010af1ebe0495f632bbda78bb6ab154a7d59，tree695f8b0d6e8b00ea203b29256b205001cfe263a8。专项40098613050通过1069项；完整40098613031通过154源码守卫、Kotlin、2628全量Flutter、170存档归档恢复及Android15原生54项。分析0error、828非fatal。首轮两项失败已修正并在最终源码验证；没有扩大Agent权限或预算。现有手机活动分继续按55分钟半衰期衰减，新三类奖励减半。
+
+APK已上传并先发用户，738885498bytes，SHA256 42279ccbbbe6794b7f296f5a31efc35d20bb0d1e337138f5350e67a2331c4da5。原签名305eb3d80983b963c64818ddf1ad561f279de6d47b3ed2c781ada448c7c25148、包名com.aicompanion.localfirst、版本0.42.132+376及资源均验证通过。真实手机、API和主动节奏仍待用户安装验证。
+
+[测试APK](https://github.com/catkiss62/ai-companion-build/releases/download/untagged-bf3ca40e01ded3c75fcb/AI-Companion-v0.42.132-376-Reply-Recovery-Phone-Balance-APK.apk)
