@@ -4,7 +4,9 @@ This directory contains the complete Flutter/Android application and is the repo
 
 ## Development entry points
 
-- Current project status and next work: [../AI_Companion_当前总账.md](../AI_Companion_当前总账.md). The default handoff stops at the ledger's preserved-history marker; old sections are read on demand for the module being changed.
+- AI handoff, branch selection and Chinese/English feature map: [../AI_START_HERE.md](../AI_START_HERE.md).
+- Current project status and next work: [docs/ledger/AI_Companion_总账_v3.md](docs/ledger/AI_Companion_总账_v3.md). Read the top handoff snapshot first; old sections are read on demand for the module being changed.
+- Permanent legacy ledger entry: [../AI_Companion_当前总账.md](../AI_Companion_当前总账.md) (v2 read-only history and redirect).
 - Documentation ownership and reading order: [docs/DOCUMENTATION_MAP.md](docs/DOCUMENTATION_MAP.md)
 - Build instructions: [docs/BUILDING.md](docs/BUILDING.md)
 - Test checklist: [docs/TEST_CHECKLIST.md](docs/TEST_CHECKLIST.md)
