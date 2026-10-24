@@ -1,6 +1,67 @@
 import 'dart:convert';
 import 'mcp_protocol.dart';
 
+/// A transport acknowledgement or an empty JSON wrapper is not a snapshot.
+/// Actual state fields may contain empty lists (an empty inventory is evidence).
+abstract final class CedarStateSnapshotPolicy {
+  static const _identity = {'room_id', 'slot', 'slot_id', 'save_slot', 'save_id',
+    'session_id', 'world_id', 'game', 'game_id'};
+  static const _metadata = {'ok', 'success', 'accepted', 'ack', 'received', 'action_accepted', 'iserror',
+    'request_id', 'trace_id', 'status_code', 'code'};
+  static const _wrappers = {'data', 'result', 'state', 'snapshot', 'structuredcontent'};
+
+  static bool _ack(String value) => RegExp(
+    r'^(?:ok|success|successful|accepted|ack|done|成功|收到|已收到|已受理|请求已接收)[\s.!。！]*$',
+    caseSensitive: false).hasMatch(value.trim());
+
+  static bool _evidence(Object? value) {
+    if (value == null) return false;
+    if (value is String) {
+      final text = value.trim();
+      if (text.isEmpty || _ack(text)) return false;
+      try { return _evidence(jsonDecode(text)); } catch (_) { return true; }
+    }
+    if (value is List) return value.any(_evidence);
+    if (value is Map) {
+      for (final entry in value.entries) {
+        final key = entry.key.toString().toLowerCase();
+        if (_identity.contains(key) || _metadata.contains(key)) continue;
+        if (_wrappers.contains(key) || const {'text', 'message', 'status'}.contains(key)) {
+          if (_evidence(entry.value)) return true;
+        } else if (entry.value != null &&
+            (entry.value is! String || _evidence(entry.value))) {
+          return true;
+        }
+      }
+      return false;
+    }
+    return value is num;
+  }
+
+  static bool accepts(McpToolOutcome outcome, Map<String, Object?> target) {
+    if (CedarPlatformActionPolicy.normalizeOutcome(outcome).isError) return false;
+    bool identityMatches(Object? value) {
+      if (value is! Map) return true;
+      for (final group in const [
+        ['slot', 'slot_id', 'save_slot'], ['room_id'], ['save_id'], ['session_id'], ['world_id']]) {
+        final expected = group.where(target.containsKey).map((key) => target[key].toString()).toSet();
+        if (expected.isNotEmpty && group.any((key) => value.containsKey(key) &&
+            !expected.contains(value[key].toString()))) return false;
+      }
+      return _wrappers.every((key) => identityMatches(value[key]));
+    }
+    if (!identityMatches(outcome.structuredContent)) return false;
+    var evidence = _evidence(outcome.structuredContent);
+    for (final block in outcome.content.where((block) => block.kind == McpContentKind.text)) {
+      Object? value = block.text;
+      try { value = jsonDecode(block.text); } catch (_) {}
+      if (!identityMatches(value)) return false;
+      evidence = _evidence(value) || evidence;
+    }
+    return evidence;
+  }
+}
+
 class CedarCatalogEntry {
   const CedarCatalogEntry({
     required this.id,

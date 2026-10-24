@@ -82,6 +82,7 @@ import kotlin.math.hypot
 class OverlayBubbleService : Service() {
     private lateinit var windowManager: WindowManager
     private val lifetime = OverlayWindowSession()
+    private val submissions = OverlaySubmissionState()
     private var chatRemovalPending = false
     private var chatRemovalAttempts = 0
     private var chatHealthRecoveryAttempts = 0
@@ -908,6 +909,7 @@ class OverlayBubbleService : Service() {
                 }
                 false
             }
+            submissions.retryText?.let { setText(it) }
             onImeBack = {
                 val input = this
                 val epoch = lifetime.windowEpoch
@@ -1223,13 +1225,18 @@ class OverlayBubbleService : Service() {
             setChatStatus("正在连接后台大脑…")
             return
         }
+        val submittedEngine = backgroundEngine ?: return
+        val submission = submissions.begin(text)
+        noteOverlaySubmission("start", submission.epoch)
+        try {
         hideKeyboard()
         exitChatInputMode()
+        noteOverlaySubmission("ime_closed", submission.epoch)
         overlaySubmitCommandPending = true
         setComposerGenerationState(sending = true)
         chatInput?.setText("")
         val optimistic = NativeChatMessage(
-            id = "local:${System.currentTimeMillis()}",
+            id = submission.requestId,
             role = "user",
             content = text,
             reasoning = "",
@@ -1244,13 +1251,18 @@ class OverlayBubbleService : Service() {
         setChatStatus("她正在想…")
         beginGenerationPolling()
 
+        noteOverlaySubmission("dispatch", submission.epoch)
         channel.invokeMethod(
             "sendMessage",
-            mapOf("text" to text),
+            mapOf("text" to text, "request_id" to submission.requestId),
             object : MethodChannel.Result {
                 override fun success(result: Any?) {
                     mainHandler.post {
-                        if (!lifetime.alive) return@post
+                        if (!isCurrentSubmission(submission.epoch, submittedEngine)) return@post
+                        val accepted = (result as? Map<*, *>)?.get("accepted") == true
+                        submissions.finish(submission, accepted)
+                        noteOverlaySubmission(if (accepted) "accepted" else "rejected", submission.epoch)
+                        if (!accepted) restoreOverlayDraft()
                         overlaySubmitCommandPending = false
                         stopGenerationPolling()
                         setComposerGenerationState(sending = false)
@@ -1287,7 +1299,10 @@ class OverlayBubbleService : Service() {
 
                 override fun error(errorCode: String, errorMessage: String?, errorDetails: Any?) {
                     mainHandler.post {
-                        if (!lifetime.alive) return@post
+                        if (!isCurrentSubmission(submission.epoch, submittedEngine)) return@post
+                        submissions.finish(submission, false)
+                        restoreOverlayDraft()
+                        noteOverlaySubmission("transport_failed", submission.epoch)
                         overlaySubmitCommandPending = false
                         stopGenerationPolling()
                         setComposerGenerationState(sending = false)
@@ -1302,7 +1317,10 @@ class OverlayBubbleService : Service() {
 
                 override fun notImplemented() {
                     mainHandler.post {
-                        if (!lifetime.alive) return@post
+                        if (!isCurrentSubmission(submission.epoch, submittedEngine)) return@post
+                        submissions.finish(submission, false)
+                        restoreOverlayDraft()
+                        noteOverlaySubmission("transport_failed", submission.epoch)
                         overlaySubmitCommandPending = false
                         stopGenerationPolling()
                         setComposerGenerationState(sending = false)
@@ -1316,6 +1334,17 @@ class OverlayBubbleService : Service() {
                 }
             },
         )
+        } catch (error: Exception) {
+            if (isCurrentSubmission(submission.epoch, submittedEngine)) {
+                submissions.finish(submission, false)
+                restoreOverlayDraft()
+                overlaySubmitCommandPending = false
+                stopGenerationPolling()
+                setComposerGenerationState(sending = false)
+                noteOverlaySubmission("submit_exception", submission.epoch, error.javaClass.simpleName)
+                setChatStatus("发送未确认，草稿已保留，请稍后重试。", true)
+            }
+        }
     }
 
     private fun requestScreenObservationFromOverlay() {
@@ -1339,15 +1368,20 @@ class OverlayBubbleService : Service() {
             setChatStatus("后台大脑尚未连接，暂时无法停止。", true)
             return
         }
+        val submittedEngine = backgroundEngine ?: return
+        val commandEpoch = submissions.beginCancel()
+        noteOverlaySubmission("cancel", commandEpoch)
         setComposerGenerationState(sending = true, cancelling = true)
         setChatStatus("正在停止…")
+        try {
         channel.invokeMethod(
             "cancelGeneration",
             null,
             object : MethodChannel.Result {
                 override fun success(result: Any?) {
                     mainHandler.post {
-                        if (!lifetime.alive) return@post
+                        if (!isCurrentSubmission(commandEpoch, submittedEngine)) return@post
+                        submissions.finishCancel(commandEpoch)
                         overlaySubmitCommandPending = false
                         stopGenerationPolling()
                         removeStreamingMessage()
@@ -1359,7 +1393,9 @@ class OverlayBubbleService : Service() {
 
                 override fun error(errorCode: String, errorMessage: String?, errorDetails: Any?) {
                     mainHandler.post {
-                        if (!lifetime.alive) return@post
+                        if (!isCurrentSubmission(commandEpoch, submittedEngine)) return@post
+                        submissions.finishCancel(commandEpoch)
+                        overlaySubmitCommandPending = false
                         setComposerGenerationState(sending = true)
                         setChatStatus("停止失败：${errorMessage ?: errorCode}", true)
                         beginGenerationPolling()
@@ -1368,7 +1404,9 @@ class OverlayBubbleService : Service() {
 
                 override fun notImplemented() {
                     mainHandler.post {
-                        if (!lifetime.alive) return@post
+                        if (!isCurrentSubmission(commandEpoch, submittedEngine)) return@post
+                        submissions.finishCancel(commandEpoch)
+                        overlaySubmitCommandPending = false
                         setComposerGenerationState(sending = true)
                         setChatStatus("当前后台还不支持停止，请稍后重试。", true)
                         beginGenerationPolling()
@@ -1376,6 +1414,16 @@ class OverlayBubbleService : Service() {
                 }
             },
         )
+        } catch (error: Exception) {
+            if (isCurrentSubmission(commandEpoch, submittedEngine)) {
+                submissions.finishCancel(commandEpoch)
+                overlaySubmitCommandPending = false
+                setComposerGenerationState(sending = true)
+                noteOverlaySubmission("cancel_exception", commandEpoch, error.javaClass.simpleName)
+                setChatStatus("停止请求未确认，请稍后重试。", true)
+                beginGenerationPolling()
+            }
+        }
     }
 
     private fun setComposerGenerationState(sending: Boolean, cancelling: Boolean = false) {
@@ -2661,6 +2709,12 @@ class OverlayBubbleService : Service() {
         backgroundEmotionSoundBridge = null
         backgroundSystemBridge?.dispose()
         backgroundSystemBridge = null
+        submissions.engineLost()
+        overlaySubmitCommandPending = false
+        stopGenerationPolling()
+        setComposerGenerationState(sending = false)
+        restoreOverlayDraft()
+        noteOverlaySubmission("engine_lost", 0)
         runCatching { expectedEngine.destroy() }
         backgroundEngine = null
         backgroundBrainReady = false
@@ -2833,6 +2887,27 @@ class OverlayBubbleService : Service() {
         if (!stateReceiverRegistered) return
         runCatching { unregisterReceiver(deviceStateReceiver) }
         stateReceiverRegistered = false
+    }
+
+    private fun isCurrentSubmission(epoch: Long, engine: FlutterEngine): Boolean =
+        lifetime.alive && backgroundEngine === engine && submissions.matches(epoch)
+
+    private fun restoreOverlayDraft() {
+        val input = chatInput ?: return
+        val draft = submissions.retryText ?: return
+        if (input.text.isNullOrBlank()) {
+            input.setText(draft)
+            input.setSelection(input.text.length)
+        }
+    }
+
+    private fun noteOverlaySubmission(stage: String, epoch: Long, error: String = "") {
+        runCatching {
+            NativeEventStore.addDeviceEvent(this, source = "system",
+                eventType = "overlay_chat_submission", appPackage = packageName,
+                summary = "stage=$stage; command=$epoch; window=${lifetime.windowEpoch}; " +
+                    "attached=${chatRoot?.isAttachedToWindow}; engine=${System.identityHashCode(backgroundEngine)}; error=$error")
+        }
     }
 
     private fun isCurrentChatWindow(epoch: Long): Boolean =

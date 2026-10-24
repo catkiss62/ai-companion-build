@@ -41,7 +41,9 @@ class TurnExecutionStore {
       var changed = false;
       for (var i=0; i<raw.length; i++) {
         final receipt = raw[i];
-        if (receipt is! Map || receipt['state'] != 'dispatching' || receipt['payload_hash'] != hash) continue;
+        if (receipt is! Map || receipt['payload_hash'] != hash ||
+            !(receipt['state'] == 'dispatching' ||
+              (receipt['state'] == 'known' && receipt['state_applied'] != true))) continue;
         raw[i] = {...receipt, 'state':'reconciled', 'goal_satisfied':false,
           'reconciliation_snapshot':snapshot, 'reconciled_at':DateTime.now().millisecondsSinceEpoch};
         changed = true;
@@ -164,6 +166,7 @@ class TurnExecutionStore {
     required String outcome, required bool failed, int effectIndex = 0,
     String nextActor = 'wait', bool continuationRecommended = false,
     bool? goalSatisfied,
+    bool stateApplied = true,
   }) async {
     final handle = await db.database;
     await handle.transaction((txn) async {
@@ -173,11 +176,18 @@ class TurnExecutionStore {
       final receipt = raw[effectIndex];
       if (receipt is! Map || receipt['payload_hash'] != turnPayloadHash(payload) || !const {'dispatching', 'known'}.contains(receipt['state'])) return;
       raw[effectIndex] = {...receipt, 'state': 'known', 'outcome': outcome, 'failed': failed,
+        'state_applied': stateApplied,
         'next_actor': nextActor, 'continuation_recommended': continuationRecommended,
         if(goalSatisfied!=null)'goal_satisfied':goalSatisfied};
       await txn.insert('settings', {'key': key, 'value': jsonEncode(raw)}, conflictAlgorithm: ConflictAlgorithm.replace);
     });
   }
+
+  /// Legacy known receipts were saved before clearing their dispatch guard.
+  /// A missing phase flag is trusted only if no unresolved dispatch remains.
+  static bool remoteResultApplied(Map receipt, {required bool unresolvedWrite}) =>
+      receipt['state'] == 'known' && (receipt['state_applied'] is bool
+        ? receipt['state_applied'] == true : !unresolvedWrite);
 
   /// Roll back only a reservation that never reached the network. Unknown
   /// remote effects, and receipts owned by other attempts, remain durable.

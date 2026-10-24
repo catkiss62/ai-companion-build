@@ -101,12 +101,16 @@ class BackgroundChatCommandServer {
             'messages': await _presentRecentMessages(8),
           };
         }
-        await controller.sendText(text);
-        onWake?.call('overlay_send');
+        final requestId = _stringArg(call.arguments, 'request_id').trim();
+        final accepted = await controller.sendText(text,
+          requestedMessageId: requestId.isEmpty ? null : requestId);
+        if (accepted) onWake?.call('overlay_send');
         return <String, Object?>{
-          'ok': controller.error == null,
+          'ok': accepted && controller.error == null,
+          'accepted': accepted,
+          'request_id': requestId,
           'cancelled': sendEpoch != _overlaySendEpoch,
-          'error': controller.error ?? '',
+          'error': controller.error ?? (accepted ? '' : '回复通道正忙，消息尚未发送，请重试。'),
           'notice': controller.notice ?? '',
           'notice_is_error':
               GenerationPresentationPolicy.isErrorNotice(controller.notice),

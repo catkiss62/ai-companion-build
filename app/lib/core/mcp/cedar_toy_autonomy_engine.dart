@@ -868,7 +868,7 @@ class CedarToyAutonomyEngine {
       now: now,
       outcomeTimes: session.events
           .where((event) => event.kind == 'outcome')
-          .where((event) => !CedarPlatformActionPolicy.isReadOnlyEvent(event.action, event.inputJson))
+          .where((event) => event.isReadOnly == false)
           .map((event) => event.createdAt),
       notableTimes: session.events
           .where((event) => event.kind == 'outcome' && event.notable)
@@ -1031,7 +1031,7 @@ class CedarToyAutonomyEngine {
     }
     final outcomes = session.events
         .where((event) => event.kind == 'outcome')
-        .where((event) => !CedarPlatformActionPolicy.isReadOnlyEvent(event.action, event.inputJson))
+        .where((event) => event.isReadOnly == false)
         .toList(growable: false);
     return GameEngagementPolicy.evaluate(
       now: now,

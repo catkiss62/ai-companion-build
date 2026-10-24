@@ -480,12 +480,15 @@ class DurableGenerationRunner {
         if(receipt['state']!='known' || receipt['submitted_arguments'] is! Map)continue;
         final args=Map<String,Object?>.from(receipt['submitted_arguments'] as Map);
         final outcome=receipt['outcome']?.toString() ?? '';
+        final applied = TurnExecutionStore.remoteResultApplied(receipt,
+          unresolvedWrite: await CedarToyActivityStore(db).unresolvedWrite(args['game']?.toString() ?? '') != null);
         final rejected=receipt['failed']==true || CedarPlatformActionPolicy.explicitlyRejected(outcome);
         agentToolResults.add(AgentToolResult(toolId:'cedar_toy.play',
-          status:rejected ? AgentToolStatus.failed : AgentToolStatus.succeeded,
-          displayText:'沿用已确认的游戏回执',promptData:outcome,
-          submittedArguments:args,goalSatisfied:rejected ? false : receipt['goal_satisfied'] as bool?,
-          continuationRecommended:receipt['continuation_recommended']==true,
+          status:rejected ? AgentToolStatus.failed : applied ? AgentToolStatus.succeeded : AgentToolStatus.blocked,
+          displayText:applied ? '沿用已确认的游戏回执' : '已有回包仍需核对局面',
+          promptData:applied ? outcome : '已收到回包，核验或状态保存未完成；只读核对后再判断目标，不重复原操作。\n$outcome',
+          submittedArguments:args,goalSatisfied:rejected || !applied ? false : receipt['goal_satisfied'] as bool?,
+          continuationRecommended:!applied || receipt['continuation_recommended']==true,
           errorCode:rejected ? 'cedar_remote_error' : ''));
       }
       final executedToolFingerprints = <String>{};

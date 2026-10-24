@@ -731,17 +731,22 @@ class AgentToolRunner {
   }) async {
     final attempt = pendingMediaOwner?.attempt;
     final effectStore = TurnExecutionStore(db);
-    AgentToolResult replay(Map<String, dynamic> receipt) {
+    Future<AgentToolResult> replay(Map<String, dynamic> receipt) async {
       final known = receipt['state'] == 'known';
+      final args = receipt['submitted_arguments'];
+      final applied = TurnExecutionStore.remoteResultApplied(receipt,
+        unresolvedWrite: await CedarToyActivityStore(db).unresolvedWrite(
+          args is Map ? args['game']?.toString() ?? '' : '') != null);
       final rejected = receipt['failed'] == true ||
           CedarPlatformActionPolicy.explicitlyRejected(receipt['outcome']?.toString() ?? '');
       return AgentToolResult(toolId: AgentToolRegistry.cedarToyPlay.id,
-        status: known ? (rejected ? AgentToolStatus.failed : AgentToolStatus.succeeded) : AgentToolStatus.blocked,
+        status: known && rejected ? AgentToolStatus.failed :
+          applied ? AgentToolStatus.succeeded : AgentToolStatus.blocked,
         displayText: known ? '使用本次请求已有的游戏结果' : '本次游戏操作结果尚未确认',
-        promptData: known ? '这是同一用户请求已经收到的真实结果，重新生成没有再次执行游戏动作：${receipt['outcome'] ?? ''}' :
+        promptData: known ? '${applied ? "这是同一用户请求已核验保存的结果" : "仅收到回包，核验或局面保存尚未完成；先只读核对，不算任务完成"}，没有再次执行游戏动作：${receipt['outcome'] ?? ''}' :
           '本次操作与已有执行记录不一致或仍待核对；没有发送新操作。沿用已知结果，未知发送先做只读状态核对，不把拦截当成成功。',
-        continuationRecommended: known && (rejected || receipt['continuation_recommended'] == true),
-        goalSatisfied: rejected ? false : receipt['goal_satisfied'] as bool?,
+        continuationRecommended: known && (!applied || rejected || receipt['continuation_recommended'] == true),
+        goalSatisfied: rejected || !applied ? false : receipt['goal_satisfied'] as bool?,
         resultCount: known ? 1 : 0,
         submittedArguments: known && receipt['submitted_arguments'] is Map
             ? Map<String, Object?>.from(receipt['submitted_arguments'] as Map) : const {},
@@ -987,7 +992,8 @@ class AgentToolRunner {
       outcome = CedarPlatformActionPolicy.normalizeOutcome(outcome);
       final rejected = outcome.isError || CedarPlatformActionPolicy.explicitlyRejected(outcome.text);
       if (attempt != null && isWrite) await effectStore.completeRemoteEffect(attempt.userMessageId, effectPayload,
-        effectIndex: effectIndex, outcome: CedarToyClient.redactSecrets(outcome.text), failed: rejected);
+        effectIndex: effectIndex, outcome: CedarToyClient.redactSecrets(outcome.text), failed: rejected,
+        stateApplied: false);
       final verification = rejected || platformAction
           ? (nextActor: rejected ? 'companion' : 'wait', shareLevel: 'quiet', resumeAfterSeconds: 0,
               accepted: rejected ? false : null, goalSatisfied: rejected ? false : null)
@@ -1009,7 +1015,8 @@ class AgentToolRunner {
       if (attempt != null && isWrite) await effectStore.completeRemoteEffect(attempt.userMessageId, effectPayload,
         effectIndex: effectIndex, outcome: CedarToyClient.redactSecrets(outcome.text),
         failed: rejected || verification.accepted == false, goalSatisfied: verifiedGoalSatisfied,
-        nextActor: verifiedNextActor, continuationRecommended: verifiedNextActor == 'companion');
+        nextActor: verifiedNextActor, continuationRecommended: verifiedNextActor == 'companion',
+        stateApplied: false);
       if (platformAction && persisted != null) {
         final recorded = await activityStore.recordPlatformAction(
           gameId: game,
@@ -1046,6 +1053,10 @@ class AgentToolRunner {
               : CedarPlayBookkeepingOrigin.userTurn,
         );
       }
+      if (attempt != null && isWrite) await effectStore.completeRemoteEffect(attempt.userMessageId, effectPayload,
+        effectIndex: effectIndex, outcome: CedarToyClient.redactSecrets(outcome.text),
+        failed: rejected || verification.accepted == false, goalSatisfied: verifiedGoalSatisfied,
+        nextActor: verifiedNextActor, continuationRecommended: verifiedNextActor == 'companion');
       await activityStore.resolveRemoteDispatch(gameId: game, executionId: executionId, action: action, authoritative: true, params: params, outcome: outcome);
       try {
         await android.wakeBackgroundBrain(reason: 'cedar_session_updated');

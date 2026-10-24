@@ -27,6 +27,7 @@ import '../../widgets/action_tint_text.dart';
 import '../../widgets/active_trial_capsule.dart';
 import '../../widgets/room_image_background.dart';
 import '../../widgets/room_background_editor.dart';
+import '../../widgets/immersive_lobby_controls.dart';
 import '../../core/storage/room_background_storage.dart';
 import '../../widgets/reasoning_panel.dart';
 import '../../widgets/companion_bottom_navigation.dart';
@@ -99,14 +100,20 @@ class _ImmersiveRoomLobbyPageState extends State<ImmersiveRoomLobbyPage> {
 
   Widget _modelButton() {
     final selected = _modelChoices.where((c) => c.source.key == _modelSource).firstOrNull;
-    return ConstrainedBox(constraints: BoxConstraints(
-      maxWidth: (MediaQuery.sizeOf(context).width - 170).clamp(90.0, 210.0).toDouble()),
-      child: TextButton(onPressed: loading ? null : _chooseModel,
+    return TextButton(onPressed: loading ? null : _chooseModel,
         child: Row(mainAxisSize: MainAxisSize.min, children: [
           Flexible(child: Text(selected?.model ?? '选择模型', maxLines: 1,
             overflow: TextOverflow.ellipsis)),
           const Icon(Icons.expand_more, size: 18),
-        ])));
+        ]));
+  }
+
+  Future<void> _editBackground() async {
+    final storage = RoomBackgroundStorage(repository.db);
+    final initial = await storage.load();
+    if (!mounted) return;
+    await showDialog<bool>(context: context, barrierDismissible: false,
+      builder: (_) => RoomBackgroundEditor(storage: storage, initial: initial));
   }
 
   Future<void> _retryArchive() async {
@@ -302,21 +309,17 @@ class _ImmersiveRoomLobbyPageState extends State<ImmersiveRoomLobbyPage> {
         },
       ),
       floatingActionButton: SizedBox(width: MediaQuery.sizeOf(context).width - 32,
-        child: Row(children: [
-        Expanded(child: Align(alignment: Alignment.centerRight, heightFactor: 1,
-          child: _modelButton())),
-        const SizedBox(width: 8), FloatingActionButton.extended(
-        onPressed: loading ? null : _createRoom,
-        icon: const Icon(Icons.add_rounded),
-        label: const Text('新建房间'),
-      )])),
+        child: ImmersiveLobbyControls(model: _modelButton(),
+          onBackground: loading ? null : _editBackground,
+          onCreate: loading ? null : _createRoom)),
       body: loading
           ? const Center(child: CircularProgressIndicator())
           : RefreshIndicator(
               onRefresh: _load,
               child: ListView(
                 physics: const AlwaysScrollableScrollPhysics(),
-                padding: const EdgeInsets.fromLTRB(14, 14, 14, 96),
+                padding: EdgeInsets.fromLTRB(14, 14, 14,
+                  ImmersiveLobbyControls.compact(context, MediaQuery.sizeOf(context).width - 32) ? 160 : 96),
                 children: [
                   Card(
                     child: Padding(
@@ -1079,25 +1082,6 @@ class _ImmersiveRoomPageState extends State<ImmersiveRoomPage> {
     );
   }
 
-  Future<void> _editBackground() async {
-    inputFocus.unfocus();
-    final storage = RoomBackgroundStorage(AppDatabase.instance);
-    final initial = await storage.load();
-    if (!mounted) return;
-    final saved = await showDialog<bool>(context:context, barrierDismissible:false,
-      builder:(_)=>RoomBackgroundEditor(storage:storage,initial:initial));
-    if (saved == true && mounted) await _loadVisualSettings();
-  }
-
-  Widget _backgroundButton() => SizedBox(height:24,child:OutlinedButton(
-    onPressed:_visualSettingsLoaded ? _editBackground : null,
-    style:OutlinedButton.styleFrom(foregroundColor:Colors.white,
-      side:const BorderSide(color:Colors.white70),minimumSize:Size.zero,
-      shape:RoundedRectangleBorder(borderRadius:BorderRadius.circular(4)),
-      tapTargetSize:MaterialTapTargetSize.shrinkWrap,
-      padding:const EdgeInsets.symmetric(horizontal:7),
-      textStyle:Theme.of(context).textTheme.labelSmall),child:const Text('背景图')));
-
   @override
   Widget build(BuildContext context) {
     final room = controller.room;
@@ -1118,8 +1102,6 @@ class _ImmersiveRoomPageState extends State<ImmersiveRoomPage> {
             style: TextStyle(fontSize: 14, fontWeight: FontWeight.w700),
           ),
           actions: [
-            _backgroundButton(),
-            const SizedBox(width: 5),
             _languageSelector(),
             const SizedBox(width: 3),
             if (room != null) _nsfwButton(room),

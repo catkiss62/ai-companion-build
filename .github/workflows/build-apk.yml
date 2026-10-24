@@ -433,7 +433,7 @@
 
 # Historical +314: Build AI Companion v0.42.70+314 APK (Wish Lifecycle) | AI-Companion-v0.42.70-314-Wish-Lifecycle-APK | v0.42.70-wish-lifecycle-test | .ci/v04270-monitor.txt
 # Historical +323: Build AI Companion v0.42.79+323 APK (Wish Chat Fixes) | AI-Companion-v0.42.79-323-Wish-Chat-Fixes-APK | v0.42.79-wish-chat-fixes-test | .ci/v04279-monitor.txt
-name: Build AI Companion v0.42.132+376 APK (Reply Recovery and Phone Balance)
+name: Build AI Companion v0.42.133+377 APK (Game and Overlay Recovery)
 
 # BUILD INPUTS: The 96-clip source ZIP is private Draft Release asset 591363139
 # (release 397377805), fetched and SHA-256 checked below. The persistent
@@ -1035,7 +1035,7 @@ jobs:
         run: |
           set -euo pipefail
           test -f app/pubspec.yaml
-          grep -Fqx 'version: 0.42.132+376' app/pubspec.yaml
+          grep -Fqx 'version: 0.42.133+377' app/pubspec.yaml
           grep -Fqx '  static const int schemaVersion = 61;' app/lib/core/database/app_database.dart
           test -d app/lib
           test -d app/android
@@ -1049,7 +1049,7 @@ jobs:
           test -f app/android/app/src/main/jniLibs/arm64-v8a/libc++_shared.so
           test ! -d app/android/app/src/main/assets/tts_models
           test ! -d app/android/app/src/main/assets/legacy_tts
-          echo 'Building v0.42.132+376 Reply Recovery and Phone Balance.'
+          echo 'Building v0.42.133+377 Game and Overlay Recovery.'
 
       - name: Generate complete pet clips from pinned Draft Release asset
         timeout-minutes: 15
@@ -1713,26 +1713,26 @@ jobs:
           APK='app/build/app/outputs/flutter-apk/app-release.apk'
           sha256sum "$APK" | tee app/app-release.apk.sha256
 
-      - name: Upload v0.42.132+376 APK as workflow artifact
+      - name: Upload v0.42.133+377 APK as workflow artifact
         uses: actions/upload-artifact@v4
         with:
-          name: AI-Companion-v0.42.132-376-Reply-Recovery-Phone-Balance-APK
+          name: AI-Companion-v0.42.133-377-Game-Overlay-Recovery-APK
           path: |
             app/build/app/outputs/flutter-apk/app-release.apk
             app/app-release.apk.sha256
           if-no-files-found: error
           retention-days: 14
 
-      - name: Upload v0.42.132+376 APK to draft release
+      - name: Upload v0.42.133+377 APK to draft release
         shell: bash
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
-          TAG='v0.42.132-reply-recovery-phone-balance-test'
-          APK_NAME='AI-Companion-v0.42.132-376-Reply-Recovery-Phone-Balance-APK.apk'
+          TAG='v0.42.133-game-overlay-recovery-test'
+          APK_NAME='AI-Companion-v0.42.133-377-Game-Overlay-Recovery-APK.apk'
           SHA_NAME="${APK_NAME}.sha256"
-          CI_NAME='AI-Companion-v0.42.132-376-Reply-Recovery-Phone-Balance-CI-Monitor.txt'
+          CI_NAME='AI-Companion-v0.42.133-377-Game-Overlay-Recovery-CI-Monitor.txt'
           cp app/build/app/outputs/flutter-apk/app-release.apk "app/${APK_NAME}"
           sed "s#app/build/app/outputs/flutter-apk/app-release.apk#${APK_NAME}#" \
             app/app-release.apk.sha256 > "app/${SHA_NAME}"
@@ -1749,15 +1749,15 @@ jobs:
               --repo "${GITHUB_REPOSITORY}" \
               --target "${GITHUB_SHA}" \
               --draft \
-              --title 'AI Companion v0.42.132+376 Reply Recovery and Phone Balance' \
-              --notes 'Repairs interrupted overlay reply recovery using exclusive live execution ownership, wakes manual DeepSeek retries immediately, accurately displays waiting and failed replies, persists background game outcomes before releasing unknown-write guards, and verifies hydrated room reads. Restores v365 phone-event decisions with usage, switching and UI rewards all halved. Preserves 3-step/30-minute pacing and Agent 20/40 and deep 30/60 budgets. Same-signature unpublished test build; true-device validation pending.'
+              --title 'AI Companion v0.42.133+377 Game and Overlay Recovery' \
+              --notes 'Requires substantive state evidence for reconciliation, tracks received versus applied game receipts, preserves action classifications in bounded history, fixes overlay acceptance and command ownership with draft recovery, and moves room background settings to the responsive lobby. Preserves 3-step/30-minute pacing and Agent 20/40 and deep 30/60 budgets. Same-signature unpublished test build; true-device validation pending.'
           else
             test "$(gh release view "${TAG}" --repo "${GITHUB_REPOSITORY}" --json isDraft --jq '.isDraft')" = true
             gh release edit "${TAG}" \
               --repo "${GITHUB_REPOSITORY}" \
               --target "${GITHUB_SHA}" \
-              --title 'AI Companion v0.42.132+376 Reply Recovery and Phone Balance' \
-              --notes 'Repairs interrupted overlay reply recovery using exclusive live execution ownership, wakes manual DeepSeek retries immediately, accurately displays waiting and failed replies, persists background game outcomes before releasing unknown-write guards, and verifies hydrated room reads. Restores v365 phone-event decisions with usage, switching and UI rewards all halved. Preserves 3-step/30-minute pacing and Agent 20/40 and deep 30/60 budgets. Same-signature unpublished test build; true-device validation pending.'
+              --title 'AI Companion v0.42.133+377 Game and Overlay Recovery' \
+              --notes 'Requires substantive state evidence for reconciliation, tracks received versus applied game receipts, preserves action classifications in bounded history, fixes overlay acceptance and command ownership with draft recovery, and moves room background settings to the responsive lobby. Preserves 3-step/30-minute pacing and Agent 20/40 and deep 30/60 budgets. Same-signature unpublished test build; true-device validation pending.'
           fi
           test "$(gh release view "${TAG}" --repo "${GITHUB_REPOSITORY}" --json isDraft --jq '.isDraft')" = true || exit 1
           RELEASE_URL="$(gh release view "${TAG}" --repo "${GITHUB_REPOSITORY}" --json url --jq '.url')"
@@ -1812,8 +1812,8 @@ jobs:
           BUILD_RESULT: ${{ needs.build-apk.result }}
         run: |
           set -uo pipefail
-          TAG='v0.42.132-reply-recovery-phone-balance-test'
-          CI_NAME='AI-Companion-v0.42.132-376-Reply-Recovery-Phone-Balance-CI-Monitor.txt'
+          TAG='v0.42.133-game-overlay-recovery-test'
+          CI_NAME='AI-Companion-v0.42.133-377-Game-Overlay-Recovery-CI-Monitor.txt'
           REPORT="${RUNNER_TEMP}/${CI_NAME}"
           JOBS_JSON="${RUNNER_TEMP}/jobs.json"
           {
@@ -1854,7 +1854,7 @@ jobs:
               --repo "${GITHUB_REPOSITORY}" \
               --target "${GITHUB_SHA}" \
               --draft \
-              --title 'AI Companion v0.42.132+376 Reply Recovery and Phone Balance' \
+              --title 'AI Companion v0.42.133+377 Game and Overlay Recovery' \
               --notes 'Unpublished Draft build diagnostics for conversation history directory and backup roundtrip. No user content, keys, backups or device diagnostics are included.'
           fi
           test "$(gh release view "${TAG}" --repo "${GITHUB_REPOSITORY}" --json isDraft --jq '.isDraft')" = true || exit 1

@@ -344,4 +344,86 @@ void main() {
       topicKey:'user.optimization',continuity:'revised');
     expect((await db.thoughtById('question'))!.lifecycleState,'active');
   });
+  for (final empty in [<String,Object?>{}, <Object?>[], '', true, {'ok':true}, {'status':'ok'}]) {
+    test('empty/ack structured state cannot resolve a real outstanding dispatch: $empty', () async {
+      await game(); final store=CedarToyActivityStore(db);
+      final id=await store.beginExecution(gameId:'bar',action:'cmd');
+      expect(await store.admitRemoteDispatch(gameId:'bar',action:'cmd',
+        params:{'command':'serve x','slot':1},executionId:id),true);
+      await store.resolveRemoteDispatch(gameId:'bar',executionId:id,action:'cmd',authoritative:true,
+        params:{'command':'status','slot':1},outcome:McpToolOutcome(content:[],isError:false,structuredContent:empty));
+      expect(await store.unresolvedWrite('bar'),isNotNull);
+      await store.resolveRemoteDispatch(gameId:'bar',executionId:id,action:'cmd',authoritative:true,
+        params:{'command':'status','slot':1},outcome:const McpToolOutcome(content:[],isError:false,
+          structuredContent:{'slot':2,'state':{'balance':0}}));
+      expect(await store.unresolvedWrite('bar'),isNotNull);
+      await store.resolveRemoteDispatch(gameId:'bar',executionId:id,action:'cmd',authoritative:true,
+        params:{'command':'status','slot':1},outcome:const McpToolOutcome(content:[],isError:false,
+          structuredContent:{'slot':1,'inventory':[]}));
+      expect(await store.unresolvedWrite('bar'),isNull);
+      await store.finishExecution(executionId:id);
+    });
+  }
+  test('received result interrupted before local snapshot cannot satisfy a goal or replay a mutation', () async {
+    await game();final attempt=await turn();final effects=TurnExecutionStore(db);
+    final activity=CedarToyActivityStore(db);
+    final payload={'game':'bar','action':'cmd','params':{'command':'serve old','slot':1}};
+    expect(await effects.reserveRemoteEffect(attempt,payload),isNull);
+    final id=await activity.beginExecution(gameId:'bar',action:'cmd');
+    await activity.admitRemoteDispatch(gameId:'bar',action:'cmd',
+      params:Map<String,Object?>.from(payload['params'] as Map),executionId:id,turnId:'u');
+    await effects.completeRemoteEffect('u',payload,outcome:'服务回包待核验',failed:false,stateApplied:false);
+    await activity.finishExecution(executionId:id);
+    final retry=await regenerate(attempt);final cedar=_Cedar();final run=runner(cedar);
+    final blocked=await command(run,retry,'serve old');
+    expect(blocked.status,AgentToolStatus.blocked);
+    expect(TurnGoalVerification.foregroundWrite(blocked),false);
+    expect(cedar.commands,isEmpty);
+    expect((await command(run,retry,'status',index:1)).succeeded,true);
+    expect((await effects.remoteHistory('u')).single['state'],'reconciled');
+    expect(await activity.unresolvedWrite('bar'),isNull);
+    expect((await command(run,retry,'serve old',index:2)).status,AgentToolStatus.blocked);
+    expect(cedar.commands,['status']);
+    expect((await command(run,retry,'serve new',index:3)).succeeded,true);
+    expect(cedar.commands,['status','serve new']);
+    expect((await effects.remoteHistory('u')).last['state_applied'],true);
+  });
+  test('long cmd read keeps exact classification across bounded event storage and JSON roundtrip', () async {
+    await game();final attempt=await turn();final cedar=_Cedar();
+    final query='help '+List.filled(2400,'x').join();
+    expect((await command(runner(cedar),attempt,query)).succeeded,true);
+    final session=(await CedarToyActivityStore(db).loadSession('bar'))!;
+    expect(session.events.last.inputJson.length,2001);
+    expect(session.events.last.isReadOnly,true);
+    expect(CedarGameEvent.fromJson(session.events.last.toJson()).isReadOnly,true);
+    expect((await CedarPlayOutcomeBookkeeper(db).loadSoloEpisode())?.stateChangeCount,0);
+    expect((await CedarToyActivityStore(db).loadState()).completedPlayRounds,0);
+    final legacy=CedarGameEvent(id:'legacy',kind:'outcome',summary:'old',createdAt:DateTime.now(),
+      action:'cmd',inputJson:'{"command":"cut');
+    expect(legacy.isReadOnly,isNull);
+  });
+
+  for (final pendingWrite in [false, true]) {
+    test('legacy receipt compatibility requires no outstanding state gap: pending=$pendingWrite', () async {
+      await game();final attempt=await turn();final effects=TurnExecutionStore(db);
+      final activity=CedarToyActivityStore(db);
+      final payload={'game':'bar','action':'cmd','params':{'command':'serve old','slot':1}};
+      await effects.reserveRemoteEffect(attempt,payload);
+      await effects.completeRemoteEffect('u',payload,outcome:'原结果',failed:false);
+      final receipt=(await effects.remoteHistory('u')).single..remove('state_applied');
+      await db.setSetting('${TurnExecutionStore.remoteJournalPrefix}u',jsonEncode([receipt]));
+      if (pendingWrite) {
+        final id=await activity.beginExecution(gameId:'bar',action:'cmd');
+        await activity.admitRemoteDispatch(gameId:'bar',action:'cmd',
+          params:Map<String,Object?>.from(payload['params'] as Map),executionId:id,turnId:'u');
+        await activity.finishExecution(executionId:id);
+      }
+      final cedar=_Cedar();
+      final result=await command(runner(cedar),attempt,'serve old');
+      expect(result.status,pendingWrite ? AgentToolStatus.blocked : AgentToolStatus.succeeded);
+      expect(TurnGoalVerification.foregroundWrite(result),!pendingWrite);
+      expect(cedar.commands,isEmpty);
+    });
+  }
+
 }

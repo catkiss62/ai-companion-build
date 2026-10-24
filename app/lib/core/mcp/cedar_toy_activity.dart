@@ -94,6 +94,7 @@ class CedarGameEvent {
     required this.createdAt,
     this.action = '',
     this.inputJson = '',
+    this.readOnly,
     this.contentKinds = const <String>[],
     this.viewerUrl = '',
     this.notable = false,
@@ -108,6 +109,17 @@ class CedarGameEvent {
   final DateTime createdAt;
   final String action;
   final String inputJson;
+  final bool? readOnly;
+
+  bool? get isReadOnly {
+    if (readOnly != null) return readOnly;
+    try {
+      final value = jsonDecode(inputJson);
+      if (value is Map) return CedarPlatformActionPolicy.isReadOnlyCall(
+        action, Map<String, Object?>.from(value));
+    } catch (_) { /* Old truncated payloads cannot establish a write. */ }
+    return CedarPlatformActionPolicy.isReadOnly(action) ? true : null;
+  }
   final List<String> contentKinds;
   final String viewerUrl;
   final bool notable;
@@ -126,6 +138,7 @@ class CedarGameEvent {
         createdAt: createdAt,
         action: action,
         inputJson: inputJson,
+        readOnly: readOnly,
         contentKinds: <String>{...contentKinds, 'image'}.toList(growable: false),
         viewerUrl: viewerUrl,
         notable: notable,
@@ -143,6 +156,7 @@ class CedarGameEvent {
           createdAt: createdAt,
           action: action,
           inputJson: inputJson,
+          readOnly: readOnly,
           contentKinds: contentKinds,
           viewerUrl: viewerUrl,
           notable: notable,
@@ -157,6 +171,7 @@ class CedarGameEvent {
         'created_at': createdAt.millisecondsSinceEpoch,
         'action': action,
         'input_json': inputJson,
+        if (readOnly != null) 'read_only': readOnly,
         'content_kinds': contentKinds,
         'viewer_url': viewerUrl,
         'notable': notable,
@@ -174,6 +189,7 @@ class CedarGameEvent {
         ),
         action: json['action']?.toString() ?? '',
         inputJson: json['input_json']?.toString() ?? '',
+        readOnly: json['read_only'] is bool ? json['read_only'] as bool : null,
         contentKinds: (json['content_kinds'] as List?)
                 ?.map((item) => item.toString())
                 .toList(growable: false) ??
@@ -292,7 +308,7 @@ class CedarGameSession {
     if (!CedarPlatformActionPolicy.isReadOnlyCall(action, params)) return false;
     for (final event in events.reversed) {
       if (event.kind != 'outcome') continue;
-      if (!CedarPlatformActionPolicy.isReadOnlyEvent(event.action, event.inputJson) &&
+      if (event.isReadOnly == false &&
           !CedarPlatformActionPolicy.isResultSnapshot(event.action)) break;
       if (event.action != action) continue;
       try {
@@ -1329,8 +1345,8 @@ class CedarToyActivityStore {
       // A successful snapshot establishes the current state for a fresh plan;
       // it never converts the original turn's unknown receipt into success.
       // A rooms list alone cannot release a write: read that room's state first.
-      final sameStateQuery = isState && sameTarget && outcome.text.trim().isNotEmpty &&
-          !CedarPlatformActionPolicy.normalizeOutcome(outcome).isError;
+      final sameStateQuery = isState && sameTarget &&
+          CedarStateSnapshotPolicy.accepts(outcome, params);
       final ownResponse = data['execution_id'] == executionId &&
           data['action'] == action && !CedarPlatformActionPolicy.isReadOnlyCall(action, params);
       if (sameStateQuery) {
@@ -1582,6 +1598,7 @@ class CedarToyActivityStore {
       createdAt: now,
       action: action,
       inputJson: _bounded(CedarToyClient.redactSecrets(jsonEncode(submittedParams)), 2000),
+      readOnly: CedarPlatformActionPolicy.isReadOnlyCall(action, submittedParams),
       contentKinds: outcome.content
           .map((item) => item.kind.name)
           .toSet()
