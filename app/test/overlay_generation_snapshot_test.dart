@@ -9,6 +9,7 @@ void main() {
       reasoning: '正在比较两种回答方式',
       content: '我觉得',
       assistantMessageId: 'assistant-1',
+      jobId: 'job-1',
       statusText: '正在搜索公开网页…',
     );
 
@@ -20,6 +21,7 @@ void main() {
       'content': '我觉得',
       'phase': 'answering',
       'assistant_message_id': 'assistant-1',
+      'generation_job_id': 'job-1',
       'status_text': '正在搜索公开网页…',
     });
   });

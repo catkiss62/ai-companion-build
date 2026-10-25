@@ -10,6 +10,7 @@ void main() {
     'secure': {
       for (final key in ModelNetworkConfigTransfer.secureKeys) key: '',
       'chat_provider': 'deepseek',
+      'work_connection': '{"mode":"follow"}',
       'deepseek_endpoint': 'https://example.test/v1/chat/completions',
       'final_endpoint': 'https://example.test/final',
       'vision_endpoint': 'https://example.test/vision',
@@ -35,11 +36,14 @@ void main() {
 
   test('legacy model files retain the maximum work default', () {
     final payload = validPayload();
+    (payload['secure'] as Map).remove('work_connection');
+    (payload['settings'] as Map).remove('deepseek_reasoning_effort');
     (payload['settings'] as Map).remove('creative_work_model');
     (payload['settings'] as Map).remove('creative_work_effort');
     final decoded = ModelNetworkConfigTransfer.parse(jsonEncode(payload));
     expect(decoded.settings['creative_work_model'], 'deepseek-flash');
     expect(decoded.settings['creative_work_effort'], 'max');
+    expect(jsonDecode(decoded.secure['work_connection']!), {'mode': 'follow'});
   });
 
   test('truncated or unrelated files cannot partially overwrite configuration', () {

@@ -258,13 +258,10 @@ void main() {
           .map(
             (event) => event.id != later.events.last.id
                 ? event
-                : CedarGameEvent(
-                    id: event.id,
-                    kind: event.kind,
-                    action: event.action,
-                    summary: event.summary,
-                    createdAt: cutoff.add(const Duration(seconds: 1)),
-                  ),
+                : CedarGameEvent.fromJson({
+                    ...event.toJson(),
+                    'created_at': cutoff.add(const Duration(seconds: 1)).millisecondsSinceEpoch,
+                  }),
           )
           .toList(),
     );

@@ -119,6 +119,8 @@ void main() {
   }
 
   test('daily batch expires and seven day cooldown does not reinforce an event', () async {
+    // The unchanged one-hour check must stay within a local calendar day.
+    now = DateTime(2026, 10, 15, 12);
     await seed('old'); await store.prepare(now: now);
     final raw = await db.getSetting(BackgroundRecallStore.stateKey);
     await store.prepare(now: now.add(const Duration(hours: 1)));
@@ -128,6 +130,17 @@ void main() {
     expect(await entries(), isEmpty);
     await store.prepare(now: now.add(const Duration(days: 8)));
     expect((await entries()).length, 1);
+    expect((await db.memoryById('old'))!.recallCount, 0);
+  });
+
+  test('crossing local midnight refreshes the batch while preserving cooldown', () async {
+    now = DateTime(2026, 10, 15, 23, 30);
+    await seed('old'); await store.prepare(now: now);
+    final before = BackgroundRecallStore.decode(await db.getSetting(BackgroundRecallStore.stateKey) ?? '');
+    await store.prepare(now: now.add(const Duration(hours: 1)));
+    final after = BackgroundRecallStore.decode(await db.getSetting(BackgroundRecallStore.stateKey) ?? '');
+    expect(after['day'], isNot(before['day']));
+    expect(await entries(), isEmpty);
     expect((await db.memoryById('old'))!.recallCount, 0);
   });
 

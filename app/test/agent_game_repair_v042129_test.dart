@@ -111,7 +111,14 @@ void main() {
         }
         if (body.containsKey('max_tokens')) return reply({'content': '{}'});
         finals++;
-        expect(body['reasoning_effort'], second ? 'low' : 'max');
+        if (second) {
+          expect(request.url.host, 'relay.invalid');
+          final google = (body['extra_body'] as Map)['google'] as Map;
+          expect((google['thinking_config'] as Map)['thinking_level'], 'low');
+          expect(body.containsKey('reasoning_effort'), false);
+        } else {
+          expect(body['reasoning_effort'], 'max');
+        }
         missingWriteGoal = missingWriteGoal || jsonEncode(body['messages']).contains('本轮仍未获得执行证据的目标');
         return reply({'content': '「余额为零，背包是空的。」'});
       }), jsonClientFactory: () => MockClient((_) async => http.Response(
