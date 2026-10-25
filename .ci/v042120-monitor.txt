@@ -1,7 +1,51 @@
-status=success
-run_id=40183369738
-run_url=https://github.com/catkiss62/ai-companion-build/actions/runs/40183369738
-head_sha=f2e67195bd128ce643a1f1c526c94db6b1b56c75
-signer_sha256=30:5E:B3:D8:09:83:B9:63:C6:48:18:DD:F1:AD:56:1F:27:9D:E6:D4:7B:3E:D2:C7:81:AD:A4:48:C7:C2:51:48
-550f42e400f75f542411f68fae14eab3961da36a2eba7b82efe298a5a939231d  AI-Companion-v0.42.135-379-QQ-Private-V1-APK.apk
+status=failure
+build_result=cancelled
+run_id=40197042097
+run_url=https://github.com/catkiss62/ai-companion-build/actions/runs/40197042097
+head_sha=0d87d5b0c8f0438bd70e114e5a987c3b5679f56a
+
+=== failed or cancelled job logs ===
+
+--- job=caicai-native-smoke conclusion=cancelled id=121180051875 ---
+﻿2026-10-25T13:19:07.7087078Z Current runner version: '2.338.0'
+2026-10-25T13:19:07.7113937Z ##[group]Runner Image Provisioner
+2026-10-25T13:19:07.7114906Z Hosted Compute Agent
+2026-10-25T13:19:07.7115548Z Version: 20261021.618
+2026-10-25T13:19:07.7116282Z Commit: 21505ad2541d5be6135ed84fc33697146cf75b8e
+2026-10-25T13:19:07.7117077Z Build Date: 2026-10-21T00:45:21Z
+2026-10-25T13:19:07.7117781Z Worker ID: {45ae2502-51d9-419e-85bb-d84eefa9e632}
+2026-10-25T13:19:07.7118515Z Region: westus
+2026-10-25T13:19:07.7119546Z Cloud: Azure
+2026-10-25T13:19:07.7120095Z ##[endgroup]
+2026-10-25T13:19:07.7121724Z ##[group]Operating System
+2026-10-25T13:19:07.7122366Z Ubuntu
+2026-10-25T13:19:07.7122871Z 26.04.1
+2026-10-25T13:19:07.7123505Z LTS
+2026-10-25T13:19:07.7124041Z ##[endgroup]
+2026-10-25T13:19:07.7124629Z ##[group]Runner Image
+2026-10-25T13:19:07.7125271Z Image: ubuntu-26.04
+2026-10-25T13:19:07.7125815Z Version: 20261012.163.1
+2026-10-25T13:19:07.7127186Z Included Software: https://github.com/actions/runner-images/blob/ubuntu26/20261012.163/images/ubuntu/Ubuntu2604-Readme.md
+2026-10-25T13:19:07.7129715Z Image Release: https://github.com/actions/runner-images/releases/tag/ubuntu26%2F20261012.163
+2026-10-25T13:19:07.7130707Z ##[endgroup]
+2026-10-25T13:19:07.7131950Z ##[group]GITHUB_TOKEN Permissions
+2026-10-25T13:19:07.7134257Z Actions: read
+2026-10-25T13:19:07.7134902Z Contents: write
+2026-10-25T13:19:07.7135553Z Metadata: read
+2026-10-25T13:19:07.7136087Z ##[endgroup]
+2026-10-25T13:19:07.7138331Z Secret source: Actions
+2026-10-25T13:19:07.7139571Z Cache mode: write
+2026-10-25T13:19:07.7140305Z Prepare workflow directory
+2026-10-25T13:19:07.7512609Z Prepare all required actions
+2026-10-25T13:19:07.7589048Z Getting action download info
+2026-10-25T13:19:08.1201350Z Download action repository 'actions/checkout@v4' (SHA:11d5960a326750d5838078e36cf38b85af677262)
+2026-10-25T13:19:08.2209654Z Download action repository 'actions/setup-java@v4' (SHA:cf277c60eb25467037889841efdb72551f06f6c3)
+2026-10-25T13:19:08.6131961Z Download action repository 'reactivecircus/android-emulator-runner@v2' (SHA:a421e43855164a8197daf9d8d40fe71c6996bb0d)
+2026-10-25T13:19:08.9188049Z ##[error]A task was canceled.
+
+--- job=build-apk conclusion=cancelled id=121180076832 ---
+Unable to download this completed job log.
+﻿<?xml version="1.0" encoding="utf-8"?><Error><Code>BlobNotFound</Code><Message>The specified blob does not exist.
+RequestId:81cf1042-e01e-0031-7583-64e319000000
+Time:2026-10-25T13:19:16.3336407Z</Message></Error>gh: HTTP 404
 release_url=https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-4a7f3e214b8fa4af0b61
