@@ -7,7 +7,7 @@
 用户希望先跑通本人私聊，QQ 接入应像插件一样独立维护。首版只读取已有记忆，不做 QQ 记忆提取、整理、写回或成长；群聊不接入。图片/语音/表情包先核对可行性，不要求首版完成。
 
 - `app/packages/qq_private_bridge` 是独立、无 Flutter/主数据库依赖的 Dart 子项目：HTTP/WebSocket 协议、只接 C2C 的事件边界、绑定、独立短期上下文、投递日志。
-- `app/lib/integrations/qq_private` 是宿主适配器。`QqReadOnlyContext` 返回已有记忆和表达规则快照，调用 `relevantMemories(recordRecall:false)`；不改变回忆次数/冷却，不调用主 ChatController、MemoryExtractor、Dream 或 Agent。
+- `app/lib/integrations/qq_private` 是宿主适配器。`QqReadOnlyContext` 返回已有记忆和表达规则快照，通过独立SQLite只读连接及共享MemoryRetrievalPolicy纯判定检索；不触发主数据库onOpen/迁移/修复，不保留跨存档替换的数据库句柄；不改变回忆次数/冷却，不调用主 ChatController、MemoryExtractor、Dream 或 Agent。
 - `app/lib/qq_private_main.dart` 只启动本入口，跟随当前正文提供商、模型/Key/endpoint/力度，不复制主 App 的主动调度。主 App 忙时新 QQ 生成等待；QQ 不占主聊天 lease，不提交主聊天记录。
 - Android `qq/QqPrivateService.kt` 是独立 opt-in 前台服务，无悬浮权限/悬浮窗口/屏幕控制/语音播放要求；关闭悬浮球不应关闭 QQ。无开机自启，强制停止/系统限制或断网不能保证在线。
 - 设置入口：更多→QQ 私聊·测试版。设备 secure storage 单独保存凭据与身份，不进入主 API 导出/存档。输入 AppID/Secret、启动后显示十分钟本地一次性绑定码，需在本人 QQ 私聊发送；不以首个来消息的人自动认主人。
@@ -43,3 +43,7 @@
 ## 首轮CI与修订
 
 首候选远端6ee0e84（本地a00903bc，同treeca8194f4）：专项40180984983的Dart分析通过，1144通过/2失败。HTTP协议回归被Flutter测试环境默认HTTP400覆盖阻断，改为向QqApi注入真实loopback HttpClient，不跳过或伪造协议测试；全库只读断言真实发现listRuleLayers()会更新rule_layers.updated_at，QQ适配器改成直接只读SELECT，不改原有App的规则修复行为。保留全库逐表比较断言。另补绑定身份按namespace独立保存，迟到旧绑定不能覆盖新配置，关闭时等待入站/落盘，后台未运行状态及MIT许可证随包注册。修订候选继续完整验证；不以首候选分析通过替代最终测试/构建。
+
+生产连接补充：QQ现在每次有限查询打开并关闭readOnly=true、singleInstance=false的SQLite连接，不调用AppDatabase的onOpen修复；避免只读查询之外的启动修复和存档替换后旧句柄。另补真实文件数据库只读打开/未迁移回归，并将QQ原生Service测试加入完整构建的Gradle过滤清单。
+
+第二候选远端dc4d5b48（本地e2a94794，同tree5c64d1bc）：专项40181472640分析通过，1146通过/1失败；真实HTTP、只读全库对比和迟到绑定回归已通过。失败为慢回复期间接收第二条消息的异步完成边界：测试在第一条内存状态已sent但落盘/队列尚未结束时立即断言第二条。改为等待完整送达结果，工作器同时改为持续取队头，第一条完成后立刻处理新入队，不依赖三秒轮询。完整构建40181472653以该候选为历史，不作为后续修订的完成证据。第三候选含生产SQLite只读打开、真实文件回归与原生测试过滤补充，继续CI。

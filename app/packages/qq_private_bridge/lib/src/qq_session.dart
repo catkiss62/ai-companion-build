@@ -144,7 +144,10 @@ class QqPrivateSession {
     if (_draining || _stopped) return;
     _draining = true;
     try {
-      for (final row in journal.rows.toList()) {
+      while (!_stopped) {
+        final pending = journal.rows.where((r) => const {'queued','generated'}.contains(r['state'])).toList();
+        if (pending.isEmpty) return;
+        final row = pending.first;
         if (_stopped) return;
         if (!const {'queued','generated'}.contains(row['state'])) continue;
         if (!await allowed()) { onStatus('brain_paused'); return; }

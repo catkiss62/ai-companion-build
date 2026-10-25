@@ -1203,6 +1203,7 @@ jobs:
         working-directory: app/android
         run: |
           ./gradlew :app:testDebugUnitTest \
+            --tests 'com.aicompanion.localfirst.qq.*Test' \
             --tests 'com.aicompanion.localfirst.pet.*Test' \
             --tests 'com.catkiss.senlive2dcompanion.Caicai*Test' \
             --tests 'com.aicompanion.localfirst.CalendarReminderScheduleTest' \

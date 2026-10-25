@@ -123,8 +123,7 @@ void main() {
     expect(journal.rows.length, 2);
     expect(jsonDecode(await journal.file.readAsString())['rows'].length, 2);
     first.complete('第一轮回复');
-    await until(() => journal.rows.first['state'] == 'sent');
-    await session.drain();
+    await until(() => journal.rows.every((r) => r['state'] == 'sent'));
     expect(journal.rows.last['state'], 'sent');
     expect(contexts.last, [{'role': 'user', 'content': '第一轮'}, {'role': 'assistant', 'content': '第一轮回复'}]);
   });
@@ -249,11 +248,32 @@ void main() {
           await sql.rawQuery('SELECT * FROM "${t['name']}"')};
       }
       final before = await snapshot();
-      final context = await QqReadOnlyContext(db).build('蓝色贝壳');
+      final context = await QqReadOnlyContext(sql).build('蓝色贝壳');
       expect(context, contains('喜欢蓝色贝壳'));
       expect(await snapshot(), before);
       await db.setSetting('active_brain', '0');
-      await expectLater(QqReadOnlyContext(db).build('贝壳'), throwsStateError);
+      await expectLater(QqReadOnlyContext(sql).build('贝壳'), throwsStateError);
     } finally { await db.closeForTesting(); }
+  });
+
+  test('production opening path reads a file without running main schema repair', () async {
+    final file = '${temporary.path}/main.db';
+    final db = await AppDatabase.createForTesting(databaseFactoryFfi, path: file);
+    final sql = await db.database;
+    await sql.insert('memory_items', {'id': 'readonly-file', 'kind': 'user_profile', 'content': '喜欢紫色珊瑚',
+      'importance': .9, 'confidence': .9, 'source': 'test', 'status': 'active',
+      'semantic_type': 'current_fact', 'subject_key': 'coral', 'tags': '珊瑚', 'created_at': 1, 'updated_at': 1});
+    final before = {for (final table in ['memory_items','rule_layers','settings','reference_documents'])
+      table: await sql.query(table)};
+    await db.closeForTesting();
+    final prompt = await QqReadOnlyContext.readAt(file, (context) => context.build('紫色珊瑚'), factory: databaseFactoryFfi);
+    expect(prompt, contains('喜欢紫色珊瑚'));
+    final check = await databaseFactoryFfi.openDatabase(file,
+      options: OpenDatabaseOptions(readOnly: true, singleInstance: false));
+    try {
+      for (final entry in before.entries) { expect(await check.query(entry.key), entry.value, reason: entry.key); }
+      await expectLater(check.update('memory_items', {'content': 'must not change'}), throwsA(anything));
+      expect(await check.query('memory_items'), before['memory_items']);
+    } finally { await check.close(); }
   });
 }

@@ -9,10 +9,8 @@ import 'package:path_provider/path_provider.dart';
 import 'package:qq_private_bridge/qq_private_bridge.dart';
 
 import 'core/ai/deepseek_client.dart';
-import 'core/ai/first_channel_model.dart';
 import 'core/ai/generation_cancellation.dart';
 import 'core/ai/model_profile.dart';
-import 'core/database/app_database.dart';
 import 'core/storage/secure_config.dart';
 import 'integrations/qq_private/qq_private_config.dart';
 import 'integrations/qq_private/qq_readonly_context.dart';
@@ -20,7 +18,6 @@ import 'integrations/qq_private/qq_readonly_context.dart';
 Future<void> runQqPrivateBackground() async {
   WidgetsFlutterBinding.ensureInitialized();
   const runtime = MethodChannel('ai_companion/qq_private_runtime');
-  final db = AppDatabase.instance;
   final secure = SecureConfig.instance;
   QqPrivateSession? session;
   QqGateway? gateway;
@@ -30,7 +27,8 @@ Future<void> runQqPrivateBackground() async {
     try { await runtime.invokeMethod<void>('status', {'kind': kind, 'code': code}); } catch (_) {}
   }
   Future<bool> allowed() async => !stopped &&
-    await runtime.invokeMethod<bool>('enabled') == true && await db.brainWorkAllowed();
+    await runtime.invokeMethod<bool>('enabled') == true &&
+    await QqReadOnlyContext.readMain((context) => context.allowed());
   runtime.setMethodCallHandler((call) async {
     if (call.method == 'shutdown') {
       stopped = true;
@@ -51,28 +49,34 @@ Future<void> runQqPrivateBackground() async {
     session = QqPrivateSession(journal: journal, owner: config.owner,
       pairCode: config.pairCode, pairExpires: DateTime.fromMillisecondsSinceEpoch(config.pairUntil),
       bindOwner: (owner) => QqPrivateConfig.bind(config.namespace, owner),
-      allowed: allowed, yieldToChat: () async => await db.blockingGenerationJob() != null,
+      allowed: allowed, yieldToChat: () => QqReadOnlyContext.readMain((context) => context.appBusy()),
       onStatus: (code) => unawaited(status('task', code)), send: api.send,
       generate: (text, history) async {
         if (!await allowed()) throw StateError('brain_paused');
-        final context = await QqReadOnlyContext(db).build(text);
+        final snapshot = await QqReadOnlyContext.readMain((context) async {
+          final primary = (await context.setting('deepseek_model'))?.trim() ?? '';
+          return (prompt: await context.build(text),
+            model: DeepSeekModelProfile.fromApiName(primary.isNotEmpty && primary != DeepSeekModelProfile.custom.apiName
+              ? primary : await context.setting('model')),
+            firstEffort: await context.setting('deepseek_reasoning_effort') ?? await context.setting('reasoning_effort'),
+            finalEffort: await context.setting('reasoning_effort'));
+        });
         final provider = await secure.readChatProvider();
         final key = await secure.readFinalReplyApiKey();
         if (key == null || key.isEmpty) throw StateError('chat_key_missing');
         final cancellation = GenerationCancellationToken();
         final reply = StringBuffer();
         String? finish;
-        final effort = ReasoningEffort.fromApiName(await db.getSetting(
-          provider.isGeminiRelay ? 'reasoning_effort' : 'deepseek_reasoning_effort') ?? 'high');
+        final effort = ReasoningEffort.fromApiName(provider.isGeminiRelay ? snapshot.finalEffort : snapshot.firstEffort);
         final deadline = Timer(const Duration(minutes: 3), cancellation.cancel);
         try {
           await for (final delta in modelClient.streamChat(apiKey: key,
-            model: await FirstChannelModel.read(db), effort: effort,
+            model: snapshot.model, effort: effort,
             endpoint: await secure.readFinalReplyEndpoint(), requestProvider: provider,
             modelName: provider.isGeminiRelay ? await secure.readFinalReplyModel() : null,
             maxTokens: 6000, cancellationToken: cancellation,
             requestTimeout: const Duration(minutes: 3), usageLane: 'qq_private_v1',
-            messages: [{'role': 'system', 'content': context}, ...history,
+            messages: [{'role': 'system', 'content': snapshot.prompt}, ...history,
               {'role': 'user', 'content': text}])) {
             reply.write(delta.content);
             if (delta.finishReason != null) finish = delta.finishReason;
