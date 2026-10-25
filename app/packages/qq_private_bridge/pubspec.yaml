@@ -1,0 +1,6 @@
+name: qq_private_bridge
+description: Isolated QQ private-message transport. Host provides read-only context and generation.
+version: 0.1.0
+publish_to: none
+environment:
+  sdk: '>=3.4.0 <4.0.0'

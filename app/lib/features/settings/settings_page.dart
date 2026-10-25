@@ -4,6 +4,7 @@ import 'capability_help_page.dart';
 import 'settings_category_pages.dart';
 import 'cedar_toy_settings_page.dart';
 import 'sticker_settings_page.dart';
+import 'qq_private_settings_page.dart';
 
 class SettingsPage extends StatelessWidget {
   const SettingsPage({super.key});
@@ -52,6 +53,12 @@ class SettingsPage extends StatelessWidget {
         title: 'Cedar Toy 游戏厅',
         subtitle: '小机账号、MCP Token、绑定码与连接测试',
         page: const CedarToySettingsPage(),
+      ),
+      _SettingsDomain(
+        icon: Icons.chat_bubble_outline,
+        title: 'QQ 私聊 · 测试版',
+        subtitle: '独立后台连接、绑定身份与只读记忆',
+        page: const QqPrivateSettingsPage(),
       ),
       _SettingsDomain(
         icon: Icons.devices_other_outlined,

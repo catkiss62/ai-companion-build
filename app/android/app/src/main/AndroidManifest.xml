@@ -68,6 +68,15 @@
             android:theme="@android:style/Theme.Material.NoActionBar" />
 
         <service
+            android:name=".qq.QqPrivateService"
+            android:exported="false"
+            android:foregroundServiceType="specialUse">
+            <property
+                android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
+                android:value="User-enabled persistent QQ private-message bot connection" />
+        </service>
+
+        <service
             android:name=".CalendarReminderRingingService"
             android:exported="false"
             android:foregroundServiceType="specialUse">

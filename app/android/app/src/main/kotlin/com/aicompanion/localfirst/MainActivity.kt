@@ -44,6 +44,7 @@ class MainActivity : FlutterActivity() {
 
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
+        com.aicompanion.localfirst.qq.QqPrivateBridge(this, flutterEngine)
         CreativeBridge(this, flutterEngine)
         bridge = SystemBridge(this, flutterEngine)
         ttsBridge = NativeTtsBridge(this, flutterEngine)

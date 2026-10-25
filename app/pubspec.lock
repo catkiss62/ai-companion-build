@@ -408,6 +408,13 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "0.6.0"
+  qq_private_bridge:
+    dependency: "direct main"
+    description:
+      path: "packages/qq_private_bridge"
+      relative: true
+    source: path
+    version: "0.1.0"
   sky_engine:
     dependency: transitive
     description: flutter

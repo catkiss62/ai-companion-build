@@ -36,6 +36,7 @@ jobs:
           test/agent_protocol_v042131_test.dart
           test/reply_recovery_v042132_test.dart
           test/overlay_submission_v042133_test.dart
+          test/qq_private_v042135_test.dart
           test/stability_repair_v042134_test.dart
           test/natural_chat_refresh_v042134_test.dart
           test/immersive_room_header_v042134_test.dart

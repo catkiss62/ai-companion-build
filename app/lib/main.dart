@@ -13,6 +13,7 @@ import 'core/presentation/app_theme.dart';
 
 import 'app.dart';
 import 'background_main.dart' as background_runtime;
+import 'qq_private_main.dart' as qq_private_runtime;
 import 'core/database/app_database.dart';
 import 'core/mcp/cedar_game_arrangements.dart';
 import 'core/phone/calendar_reminder_store.dart';
@@ -23,6 +24,10 @@ import 'core/sync/snapshot_restore_coordinator.dart';
 @pragma('vm:entry-point')
 Future<void> companionBackgroundMain() =>
     background_runtime.companionBackgroundMain();
+
+@pragma('vm:entry-point')
+Future<void> qqPrivateBackgroundMain() =>
+    qq_private_runtime.runQqPrivateBackground();
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
