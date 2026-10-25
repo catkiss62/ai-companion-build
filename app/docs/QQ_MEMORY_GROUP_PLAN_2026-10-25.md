@@ -272,3 +272,5 @@ App/QQ 的长期记忆通道共用现有旧行为/能力记忆准入语义；不
 - https://github.com/tencent-connect/bot-docs/blob/main/docs/develop/api-v2/server-inter/message/send-receive/rich-media.md
 
 因此先完成当前A0与QQ独立通道测试APK，再单独接表情媒体。发送前仍检查原绑定、存档、允许状态和图库版本；上传不等于已发送，超时不确定不盲目重发，不占用/污染主App回忆或表情使用统计。
+
+补查腾讯官方新SDK后更新媒体可行性：qqbot-agent-sdk的MediaUploader明确将本地文件走prepare→PUT parts→complete分片上传，URL走服务器拉取；dto.RichMediaMessage也含file_data。因此旧bot-docs“本地字段暂不支持”不能当作当前所有上传方式都不可用的结论。后续优先参考官方SDK的本地上传流程，原则上无需图床即可复用App本地图库；实际机器人权限、格式/动图、上传额度及投递仍需验收。官方实现：https://github.com/tencent-connect/qqbot-agent-sdk/blob/main/src/qqbot_agent_sdk/media_loader.py 。这一调查不改变当前APK先行、媒体独立接入的顺序。

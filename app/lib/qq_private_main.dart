@@ -68,6 +68,7 @@ Future<void> runQqPrivateBackground() async {
       pairCode: config.pairCode, pairExpires: DateTime.fromMillisecondsSinceEpoch(config.pairUntil),
       bindOwner: (owner) => QqPrivateConfig.bind(config.namespace, owner),
       contextIdentity: contextIdentity, captureReplyStamp: () => replyStamp,
+      historyContextIdentity: QqReadOnlyContext.historyIdentity,
       replyCurrent: (stamp) => QqReadOnlyContext.readMain((context) => context.matchesStamp(stamp)),
       allowed: allowed, yieldToChat: () => QqReadOnlyContext.readMain((context) => context.appBusy()),
       onStatus: (code) => unawaited(status('task', code)), send: api.send,

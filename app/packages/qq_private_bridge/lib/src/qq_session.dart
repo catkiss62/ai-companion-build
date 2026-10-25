@@ -61,7 +61,7 @@ class QqPrivateSession {
     required this.pairCode, required this.pairExpires, required this.bindOwner,
     required this.allowed, required this.yieldToChat, this.generate, this.generateWithContext,
     required this.send, required this.onStatus, this.contextIdentity,
-    this.captureReplyStamp, this.replyCurrent})
+    this.captureReplyStamp, this.replyCurrent, this.historyContextIdentity})
       : assert((generate != null) != (generateWithContext != null));
   final QqJournal journal;
   String owner;
@@ -77,6 +77,9 @@ class QqPrivateSession {
   final Future<String?> Function()? contextIdentity;
   final Object? Function()? captureReplyStamp;
   final Future<bool> Function(Object?)? replyCurrent;
+  /// Hosts may separate model configuration from the conversation scope.
+  /// The original full identity still fences queued work and every send.
+  final String Function(String)? historyContextIdentity;
   bool _stopped = false;
   bool _draining = false;
   Timer? _poll;
@@ -162,6 +165,10 @@ class QqPrivateSession {
   Future<void> _invalidate(Map<String, dynamic> row) async {
     row['state'] = 'context_invalidated'; await journal.save(); onStatus('context_invalidated');
   }
+  String? _historyIdentity(Map<String, dynamic> row) {
+    final identity = row['context_identity'];
+    return identity is String ? historyContextIdentity?.call(identity) ?? identity : null;
+  }
 
   Future<void> drain() async {
     if (_draining || _stopped) return;
@@ -185,7 +192,7 @@ class QqPrivateSession {
             if (await yieldToChat()) { onStatus('waiting_app_chat'); return; }
             final history = <Map<String, String>>[];
             for (final old in journal.rows.where((r) => r['state'] == 'sent' && r['fixed'] != true &&
-                (contextIdentity == null || r['context_identity'] == row['context_identity'])).toList().reversed.take(12).toList().reversed) {
+                (contextIdentity == null || _historyIdentity(r) == _historyIdentity(row))).toList().reversed.take(12).toList().reversed) {
               history.add({'role': 'user', 'content': old['user'] as String});
               history.add({'role': 'assistant', 'content': old['reply'] as String});
             }

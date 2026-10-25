@@ -38,6 +38,16 @@ class QqReadOnlyContext {
   }
 
   Future<bool> allowed() => BrainWorkFence.workAllowed(_sql);
+  /// Task identities also include the selected model lane. A lane switch
+  /// cancels old pending work, but does not erase same-save sent dialogue.
+  static String historyIdentity(String taskIdentity) {
+    try {
+      final decoded = jsonDecode(taskIdentity);
+      if (decoded is List && decoded.length == 2 && decoded.first is String &&
+          decoded.last is String) return decoded.first as String;
+    } catch (_) {}
+    return taskIdentity;
+  }
   Future<String> identity(String namespace, String owner) async => jsonEncode({
     'namespace': namespace, 'owner': owner,
     for (final key in const ['state_lineage_id', 'state_generation', 'runtime_state_epoch_v1',

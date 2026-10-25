@@ -228,6 +228,34 @@ void main() {
     }finally{await session.stop();await dir.delete(recursive:true);}
   });
 
+  test('QQ model switching preserves same-save history while excluding another save',()async{
+    final dir=await Directory.systemTemp.createTemp('qq-history-lane-');
+    final journal=QqJournal(File('${dir.path}/journal.json'));await journal.open();
+    final currentIdentity=jsonEncode(['save-A-owner','second']);
+    for(final entry in [('a1','save-A-owner','first','第一通道说过'),
+      ('b','save-B-owner','second','其他存档'),('a2','save-A-owner','second','第二通道说过')]){
+      journal.rows.add({'id':entry.$1,'user':entry.$4,'reply':'已送出的回复','fixed':false,
+        'state':'sent','context_identity':jsonEncode([entry.$2,entry.$3]),
+        'at':DateTime.now().millisecondsSinceEpoch,'sent':1});
+    }
+    List<Map<String,String>>? observed;
+    final session=QqPrivateSession(journal:journal,owner:'owner',pairCode:'',pairExpires:DateTime.now(),
+      bindOwner:(_)async{},allowed:()async=>true,yieldToChat:()async=>false,
+      contextIdentity:()async=>currentIdentity,historyContextIdentity:QqReadOnlyContext.historyIdentity,
+      onStatus:(_){},generateWithContext:(_,history,accepted)async{
+        expect(accepted,currentIdentity);observed=history;return '继续聊';
+      },send:(_,__,___,____)async{});
+    try{
+      await session.accept({'id':'new','author':{'user_openid':'owner'},'content':'继续',
+        'timestamp':DateTime.now().toUtc().toIso8601String(),'message_type':0});
+      final until=DateTime.now().add(const Duration(seconds:3));
+      while(journal.rows.last['state']!='sent'&&DateTime.now().isBefore(until)){
+        await Future<void>.delayed(const Duration(milliseconds:5));}
+      expect(journal.rows.last['state'],'sent');
+      expect(observed!.where((m)=>m['role']=='user').map((m)=>m['content']),['第一通道说过','第二通道说过']);
+    }finally{await session.stop();await dir.delete(recursive:true);}
+  });
+
   for(final scenario in ['paused','restored','partial']){
     test('R2 generated journal handles $scenario without reviving old work',()async{
       final dir=await Directory.systemTemp.createTemp('qq-generated-');
