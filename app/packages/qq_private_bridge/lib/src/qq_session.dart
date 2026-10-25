@@ -5,6 +5,8 @@ import 'dart:io';
 import 'qq_api.dart';
 
 typedef QqGenerate = Future<String> Function(String text, List<Map<String, String>> history);
+typedef QqGenerateWithContext = Future<String> Function(String text,
+    List<Map<String, String>> history, String? acceptedIdentity);
 
 /// A bounded, separate journal. Main-app memory/database is not a dependency.
 class QqJournal {
@@ -57,9 +59,10 @@ class QqJournal {
 class QqPrivateSession {
   QqPrivateSession({required this.journal, required this.owner,
     required this.pairCode, required this.pairExpires, required this.bindOwner,
-    required this.allowed, required this.yieldToChat, required this.generate,
+    required this.allowed, required this.yieldToChat, this.generate, this.generateWithContext,
     required this.send, required this.onStatus, this.contextIdentity,
-    this.captureReplyStamp, this.replyCurrent});
+    this.captureReplyStamp, this.replyCurrent})
+      : assert((generate != null) != (generateWithContext != null));
   final QqJournal journal;
   String owner;
   String pairCode;
@@ -67,7 +70,8 @@ class QqPrivateSession {
   final Future<void> Function(String) bindOwner;
   final Future<bool> Function() allowed;
   final Future<bool> Function() yieldToChat;
-  final QqGenerate generate;
+  final QqGenerate? generate;
+  final QqGenerateWithContext? generateWithContext;
   final Future<void> Function(String owner, String messageId, String text, int sequence) send;
   final void Function(String) onStatus;
   final Future<String?> Function()? contextIdentity;
@@ -186,7 +190,12 @@ class QqPrivateSession {
               history.add({'role': 'assistant', 'content': old['reply'] as String});
             }
             row['state'] = 'working'; await journal.save(); onStatus('generating');
-            final reply = (await generate(row['user'] as String, history)).trim();
+            // The host must validate this original identity before starting a
+            // model call. Reading a fresh identity inside the generator would
+            // reauthorize old work after a snapshot switch at this boundary.
+            final reply = (await (generateWithContext != null
+                ? generateWithContext!(row['user'] as String, history, row['context_identity'] as String?)
+                : generate!(row['user'] as String, history))).trim();
             if (_stopped) return;
             row['reply_stamp'] = captureReplyStamp?.call();
             if (!await _current(row, checkReply: true)) { await _invalidate(row); continue; }
@@ -214,6 +223,11 @@ class QqPrivateSession {
           if (invalidated) continue;
           row['state'] = 'sent'; await journal.save(); onStatus('reply_sent');
         } catch (error) {
+          // An uncertain outbound send stays uncertain even if its context
+          // changed meanwhile: invalidation must not hide delivery ambiguity.
+          if (!(error is QqApiException && error.uncertain) && !await _current(row)) {
+            await _invalidate(row); continue;
+          }
           row['state'] = error is QqApiException && error.uncertain ? 'send_uncertain' : 'failed';
           await journal.save();
           onStatus(row['state'] == 'send_uncertain' ? 'send_uncertain' : 'reply_failed');

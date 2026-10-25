@@ -28,6 +28,7 @@ class QqReplyGenerator {
       if (key == null || key.isEmpty) throw StateError('chat_key_missing');
       final endpoint = second ? await secure.readAiWangYouEndpoint() : await secure.readEndpoint();
       final modelName = second ? await secure.readAiWangYouModel() : null;
+      if (!await current()) throw StateError('context_invalidated');
       final cancellation = GenerationCancellationToken();
       // A provider can keep sending reasoning forever without hitting the
       // client's inter-delta timeout. Bound the whole attempt as well, and

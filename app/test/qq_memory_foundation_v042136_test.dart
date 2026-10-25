@@ -203,6 +203,31 @@ void main() {
     }finally{await session.stop();await dir.delete(recursive:true);}
   });
 
+  test('R2 forwards original identity across the pre-generation snapshot race',()async{
+    final dir=await Directory.systemTemp.createTemp('qq-start-race-');
+    final journal=QqJournal(File('${dir.path}/journal.json'));await journal.open();
+    var identity='A',generations=0,sends=0;
+    final session=QqPrivateSession(journal:journal,owner:'owner',pairCode:'',pairExpires:DateTime.now(),
+      bindOwner:(_)async{},allowed:()async=>true,yieldToChat:()async=>false,
+      contextIdentity:()async=>identity,
+      onStatus:(status){if(status=='generating')identity='B';},
+      generateWithContext:(_,history,accepted)async{
+        expect(accepted,'A');expect(identity,'B');
+        // The production host uses this accepted identity to refuse the
+        // newly read prompt before any provider request can be made.
+        if(identity!=accepted)throw StateError('context_invalidated');
+        generations++;return '不应生成';
+      },send:(_,__,___,____)async{sends++;});
+    try{
+      await session.accept({'id':'race','author':{'user_openid':'owner'},'content':'旧存档的问题',
+        'timestamp':DateTime.now().toUtc().toIso8601String(),'message_type':0});
+      final until=DateTime.now().add(const Duration(seconds:3));
+      while(journal.rows.single['state']!='context_invalidated'&&DateTime.now().isBefore(until)){
+        await Future<void>.delayed(const Duration(milliseconds:5));}
+      expect(journal.rows.single['state'],'context_invalidated');expect(generations,0);expect(sends,0);
+    }finally{await session.stop();await dir.delete(recursive:true);}
+  });
+
   for(final scenario in ['paused','restored','partial']){
     test('R2 generated journal handles $scenario without reviving old work',()async{
       final dir=await Directory.systemTemp.createTemp('qq-generated-');

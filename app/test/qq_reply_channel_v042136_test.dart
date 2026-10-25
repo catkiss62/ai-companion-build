@@ -12,9 +12,12 @@ import 'package:ai_companion_localfirst/integrations/qq_private/qq_private_confi
 import 'package:ai_companion_localfirst/integrations/qq_private/qq_reply_generator.dart';
 
 class _Config extends SecureConfig {
-  _Config():super.forTesting(const FlutterSecureStorage());
+  _Config({this.onEndpointRead}):super.forTesting(const FlutterSecureStorage());
+  final void Function()? onEndpointRead;
   @override Future<String?> readApiKey()async=>'first-key';
-  @override Future<String> readEndpoint()async=>'https://first.test/chat';
+  @override Future<String> readEndpoint()async{
+    onEndpointRead?.call();return 'https://first.test/chat';
+  }
   @override Future<String?> readAiWangYouApiKey()async=>'second-key';
   @override Future<String> readAiWangYouEndpoint()async=>'https://second.test/chat';
   @override Future<String> readAiWangYouModel()async=>'configurable-second-model';
@@ -68,6 +71,20 @@ void main(){
       }finally{client.close();}
     });
   }
+  test('QQ rechecks accepted context after awaiting secure configuration',()async{
+    var current=true,requests=0;
+    final client=DeepSeekClient(streamClientFactory:()=>MockClient((request)async{
+      requests++;return sse('不应请求模型');
+    }));
+    try{
+      final generator=QqReplyGenerator(client:client,
+        secure:_Config(onEndpointRead:(){current=false;}),current:()async=>current);
+      await expectLater(generator.generate(channel:'first',firstModel:DeepSeekModelProfile.flash,
+        firstEffort:ReasoningEffort.high,secondEffort:ReasoningEffort.high,
+        messages:const[{'role':'user','content':'旧存档的问题'}]),throwsA(anything));
+      expect(requests,0);
+    }finally{client.close();}
+  });
   test('QQ bounds a continuously progressing unfinished second reply before fallback',()async{
     var secondaryCalls=0;
     final client=DeepSeekClient(streamClientFactory:()=>MockClient.streaming((request,body)async{

@@ -71,7 +71,10 @@ Future<void> runQqPrivateBackground() async {
       replyCurrent: (stamp) => QqReadOnlyContext.readMain((context) => context.matchesStamp(stamp)),
       allowed: allowed, yieldToChat: () => QqReadOnlyContext.readMain((context) => context.appBusy()),
       onStatus: (code) => unawaited(status('task', code)), send: api.send,
-      generate: (text, history) async {
+      generateWithContext: (text, history, acceptedIdentity) async {
+        if (acceptedIdentity == null || await contextIdentity() != acceptedIdentity) {
+          throw StateError('context_invalidated');
+        }
         if (!await allowed()) throw StateError('brain_paused');
         replyStamp = null;
         final currentConfig = await QqPrivateConfig.read();
@@ -85,8 +88,9 @@ Future<void> runQqPrivateBackground() async {
             firstEffort: await context.setting('deepseek_reasoning_effort') ?? await context.setting('reasoning_effort'),
             finalEffort: await context.setting('reasoning_effort'));
         });
+        if (snapshot.identity != acceptedIdentity) throw StateError('context_invalidated');
         replyStamp = materialStamp;
-        activeReplyGuard = () async => await contextIdentity() == snapshot.identity &&
+        activeReplyGuard = () async => await contextIdentity() == acceptedIdentity &&
           await QqReadOnlyContext.readMain((context) => context.matchesStamp(materialStamp));
         try {
           final channel = currentConfig.replyChannel.isNotEmpty ? currentConfig.replyChannel :
