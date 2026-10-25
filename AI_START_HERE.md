@@ -7,7 +7,7 @@
 - 仓库：`catkiss62/ai-companion-build`。
 - 本轮开发分支：[agent/v042107-review-recovery](https://github.com/catkiss62/ai-companion-build/tree/agent/v042107-review-recovery)。开始工作时先读取这个分支的实际 HEAD，并与用户授权范围核对。
 - GitHub 默认分支是 `main`。2026-10-25 核查时，`main` 下的 `app/lib/core/self/dream_engine.dart` 返回 404，而上述开发分支存在该文件。默认分支与当前开发代码不能互相替代；尚不知道用户的 DSHA 当时读取了哪个分支。
-- 最新已交付运行版本为 `v0.42.133+377`，运行源码 `e3a400c5be6d16419396a0c19c2d1e6ed99d0439`。其后审查和讨论文档不代表新功能已经交付。
+- 最新测试包为 `v0.42.134+378`，运行源码 `4b90fc27cd1b83ab334c83618880f5d250d47a65`；完整CI40174768084与专项40174768071通过，原APK哈希/签名及交付证据见[实施记录](app/docs/STABILITY_REPAIRS_v0.42.134.md)。其后传输/文档提交没有改App运行代码，不能用分支HEAD替代APK源码。真机反馈待补。
 - 本轮允许在指定开发分支提交代码、测试和文档；未授权合并 `main` 或正式发布。
 
 ## 建议阅读顺序
@@ -42,7 +42,7 @@
 - [dream_material.dart](app/lib/core/self/dream_material.dart)：来源快照、材料序列及关联证据。
 - [dream_store.dart](app/lib/core/self/dream_store.dart)：状态、来源核验、提交与诊断。
 - 调用入口：`app/lib/core/desire/proactive_engine.dart`；兼容包装：`app/lib/core/self/ai_self_reflection_engine.dart`。
-- 当前实现优先选用工作模型（`FirstChannelModel.work`），梦境请求固定 High。最新待办已确认：改为跟随第一聊天通道 DeepSeek 的模型与对应接口，不写死 Flash、不跟随工作模型或第二通道；本轮未要求另改梦境 High 力度，尚未实施。此前独立默认 Flash 的候选建议已被这项决定替代。
+- +378候选已将梦境改为跟随第一聊天通道 DeepSeek 的模型及对应接口（`FirstChannelModel.read`），保留梦境专用 High，不继承工作模型/工作Key或第二通道，也不固定模型版本。模型路由与完整CI已通过，APK已构建校验，真机反馈待补。
 - 历史设计：[NIGHTLY_DREAM_v0.42.78.md](app/docs/NIGHTLY_DREAM_v0.42.78.md)。其中早期 Pro 描述需结合当前路由源码读取。
 - 现有测试：[nightly_dream_test.dart](app/test/nightly_dream_test.dart)、[nightly_dream_pipeline_test.dart](app/test/nightly_dream_pipeline_test.dart)、[dream_source_continuity_test.dart](app/test/dream_source_continuity_test.dart)。
 
@@ -55,10 +55,10 @@ rg -n '梦境|DreamEngine|FirstChannelModel.work' app/lib app/test
 
 仅能通过 GitHub 读取时，明确传入开发分支或具体提交的文件 URL。读取默认 README、默认分支或一个目录的结果，不能当作对当前完整开发树的搜索。
 
-## 本轮未完成事项
+## 后续检查与设备证据
 
-- [收尾修补与七类复查计划](app/docs/STABILITY_CLOSEOUT_PLAN_2026-10-25.md)：统一整理九项漏洞、三项模型/API设置、两项先验证边界和G1–G7复查顺序；当前为计划，运行修补与新检查尚未执行。共享同一个“她”，通过明确接口控制各模块修改范围。
-- [+377 后九类审查](app/docs/POST_377_AGENT_GAME_OVERLAY_AUDIT_2026-10-25.md)：发现与待修记录，尚未实施新一轮修复；两次手机退出仍缺设备堆栈，不能将逻辑漏洞当作已确认崩溃根因。
+- [收尾修补与七类复查计划](app/docs/STABILITY_CLOSEOUT_PLAN_2026-10-25.md)：统一整理九项漏洞、三项模型/API设置、两项先验证边界和G1–G7复查顺序；第一阶段+378修补与自动验证已完成，APK已取回；状态见[本轮实施记录](app/docs/STABILITY_REPAIRS_v0.42.134.md)。当前暂停等待真机反馈，G1–G7尚未开始。共享同一个“她”，通过明确接口控制各模块修改范围。
+- [+377 后九类审查](app/docs/POST_377_AGENT_GAME_OVERLAY_AUDIT_2026-10-25.md)：这是+377审查时的原始发现；F1–F9已进入+378候选，不再作为另一份未实施清单。两次手机退出仍缺设备堆栈，不能将逻辑修补当作已确认崩溃根因。
 - [模型配置与插件讨论](app/docs/MODEL_CONFIG_FOLLOWUPS_2026-10-25.md)：第一通道独立模型/力度、工作模型与凭据，以及梦境模型策略。用户最后取舍为稳定优先，保留 App 并改善内部模块；插件运行时/迁入 DSHA 均非当前推进目标，后文历史建议不得覆盖最新决定。
 
 接手时分别说明已定位、已理解、已修改、已验证到哪一步。没有相应 SDK、CI 或设备证据时，不声称已运行测试或解决真机问题。

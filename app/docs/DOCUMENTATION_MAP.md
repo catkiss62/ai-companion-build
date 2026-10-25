@@ -37,7 +37,7 @@
 
 ## 3. 当前专项文档
 
-- 当前收尾执行入口：[STABILITY_CLOSEOUT_PLAN_2026-10-25.md](STABILITY_CLOSEOUT_PLAN_2026-10-25.md)。统一九项确认漏洞、三项模型/API配置、两项先验证边界及原六类＋G7复查规划；尚未实施，不把计划计为修复或测试通过。
+- 当前收尾执行入口：[STABILITY_CLOSEOUT_PLAN_2026-10-25.md](STABILITY_CLOSEOUT_PLAN_2026-10-25.md)。统一九项确认漏洞、三项模型/API配置、两项先验证边界及原六类＋G7复查规划；实施与自动验证见[+378记录](STABILITY_REPAIRS_v0.42.134.md)；本阶段测试APK后暂停等待真机反馈，G1–G7尚未开展。
 - 模型与插件讨论历史：[MODEL_CONFIG_FOLLOWUPS_2026-10-25.md](MODEL_CONFIG_FOLLOWUPS_2026-10-25.md)。以最新明确决定为准，已被覆盖的插件化候选不重新立项。
 
 - `CREATIVE_CONTEXT_UI_v0.42.98.md`：+342作品会话/详情快照、输入法与轻量聊天、折叠和稳定交付引用。
