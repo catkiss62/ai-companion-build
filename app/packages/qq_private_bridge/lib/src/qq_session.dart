@@ -58,7 +58,8 @@ class QqPrivateSession {
   QqPrivateSession({required this.journal, required this.owner,
     required this.pairCode, required this.pairExpires, required this.bindOwner,
     required this.allowed, required this.yieldToChat, required this.generate,
-    required this.send, required this.onStatus});
+    required this.send, required this.onStatus, this.contextIdentity,
+    this.captureReplyStamp, this.replyCurrent});
   final QqJournal journal;
   String owner;
   String pairCode;
@@ -69,6 +70,9 @@ class QqPrivateSession {
   final QqGenerate generate;
   final Future<void> Function(String owner, String messageId, String text, int sequence) send;
   final void Function(String) onStatus;
+  final Future<String?> Function()? contextIdentity;
+  final Object? Function()? captureReplyStamp;
+  final Future<bool> Function(Object?)? replyCurrent;
   bool _stopped = false;
   bool _draining = false;
   Timer? _poll;
@@ -133,11 +137,26 @@ class QqPrivateSession {
 
   Future<void> _queue(String id, String text, {bool fixed = false}) async {
     if (journal.rows.any((r) => r['id'] == id)) return;
+    final identity = await contextIdentity?.call();
+    if (_stopped) return;
     journal.rows.add({'id': id, 'user': fixed ? '' : text, 'reply': fixed ? text : '',
       'fixed': fixed, 'state': fixed ? 'generated' : 'queued',
+      if (contextIdentity != null) 'context_identity': identity,
       'at': DateTime.now().millisecondsSinceEpoch, 'sent': 0});
     await journal.save();
     unawaited(drain());
+  }
+
+  Future<bool> _current(Map<String, dynamic> row, {bool checkReply = false}) async {
+    if (contextIdentity != null) {
+      final captured = row['context_identity'];
+      if (captured is! String || captured.isEmpty || await contextIdentity!() != captured) return false;
+    }
+    return !(checkReply && row['fixed'] != true && replyCurrent != null &&
+      !await replyCurrent!(row['reply_stamp']));
+  }
+  Future<void> _invalidate(Map<String, dynamic> row) async {
+    row['state'] = 'context_invalidated'; await journal.save(); onStatus('context_invalidated');
   }
 
   Future<void> drain() async {
@@ -150,6 +169,9 @@ class QqPrivateSession {
         final row = pending.first;
         if (_stopped) return;
         if (!const {'queued','generated'}.contains(row['state'])) continue;
+        if (!await _current(row, checkReply: row['state'] == 'generated')) {
+          await _invalidate(row); continue;
+        }
         if (!await allowed()) { onStatus('brain_paused'); return; }
         if (DateTime.now().millisecondsSinceEpoch - (row['at'] as int) > const Duration(minutes: 4).inMilliseconds) {
           row['state'] = 'message_expired'; await journal.save(); onStatus('message_expired'); continue;
@@ -158,29 +180,38 @@ class QqPrivateSession {
           if (row['state'] == 'queued') {
             if (await yieldToChat()) { onStatus('waiting_app_chat'); return; }
             final history = <Map<String, String>>[];
-            for (final old in journal.rows.where((r) => r['state'] == 'sent' && r['fixed'] != true).toList().reversed.take(12).toList().reversed) {
+            for (final old in journal.rows.where((r) => r['state'] == 'sent' && r['fixed'] != true &&
+                (contextIdentity == null || r['context_identity'] == row['context_identity'])).toList().reversed.take(12).toList().reversed) {
               history.add({'role': 'user', 'content': old['user'] as String});
               history.add({'role': 'assistant', 'content': old['reply'] as String});
             }
             row['state'] = 'working'; await journal.save(); onStatus('generating');
             final reply = (await generate(row['user'] as String, history)).trim();
             if (_stopped) return;
+            row['reply_stamp'] = captureReplyStamp?.call();
+            if (!await _current(row, checkReply: true)) { await _invalidate(row); continue; }
             if (reply.isEmpty) throw QqApiException('model_empty');
             if (reply.runes.length > 7200) throw QqApiException('model_too_long');
             row['reply'] = reply; row['state'] = 'generated'; await journal.save();
           }
           if (_stopped || !await allowed()) return;
+          if (!await _current(row, checkReply: true)) { await _invalidate(row); continue; }
           if (DateTime.now().millisecondsSinceEpoch - (row['at'] as int) > const Duration(minutes: 4).inMilliseconds) {
             row['state'] = 'message_expired'; await journal.save(); onStatus('message_expired'); continue;
           }
           final chunks = splitQqText(row['reply'] as String);
+          var invalidated = false;
           for (var i = (row['sent'] as int); i < chunks.length; i++) {
             if (_stopped || !await allowed()) return;
+            if (!await _current(row, checkReply: true)) {
+              await _invalidate(row); invalidated = true; break;
+            }
             row['state'] = 'sending'; await journal.save();
             await send(owner, row['id'] as String, chunks[i], i + 1);
             row['sent'] = i + 1;
             row['state'] = 'generated'; await journal.save();
           }
+          if (invalidated) continue;
           row['state'] = 'sent'; await journal.save(); onStatus('reply_sent');
         } catch (error) {
           row['state'] = error is QqApiException && error.uncertain ? 'send_uncertain' : 'failed';

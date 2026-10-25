@@ -17,6 +17,8 @@ database = read(APP / "lib/core/database/app_database.dart")
 learning = read(APP / "lib/core/models/personality_learning.dart")
 extractor = read(APP / "lib/core/ai/memory_extractor.dart")
 memory = read(APP / "lib/core/memory/memory_brain.dart")
+memory_admission = read(APP / "lib/core/memory/memory_admission_policy.dart")
+assert "MemoryAdmissionPolicy.forPrompt(item)" in memory
 relationship = read(APP / "lib/core/relationship/relationship_brain.dart")
 snapshot = read(APP / "lib/core/grounding/grounding_snapshot.dart")
 grounding_engine = read(APP / "lib/core/grounding/grounding_engine.dart")
@@ -77,7 +79,7 @@ for token in (
     "looksLikeBehavioralPreference",
     "isCapabilityImplementationClaim",
 ):
-    assert token in memory, token
+    assert token in memory_admission, token
 for token in (
     "looksLikeBehavioralPreference",
     "isCapabilityImplementationClaim",

@@ -1,7 +1,7 @@
 import '../models/chat_message.dart';
 import '../database/app_database.dart';
 import '../models/memory_item.dart';
-import '../models/personality_learning.dart';
+import 'memory_admission_policy.dart';
 import '../models/unfinished_thread.dart';
 import 'memory_context.dart';
 import 'memory_grounding_policy.dart';
@@ -26,6 +26,7 @@ class MemoryBrain {
       query,
       limit: relevantLimit,
       retrievalMode: retrievalMode,
+      promptAdmission: true,
     ))
         .where((item)=>_allowedDuringPersonalityLearningObservation(item) &&
           !excludedAssistantSources.contains(item.sourceAssistantMessageId))
@@ -93,16 +94,7 @@ class MemoryBrain {
     );
   }
 
-  bool _allowedDuringPersonalityLearningObservation(MemoryItem item) =>
-      !PersonalityLearningBoundaryPolicy.isBehavioralMemorySubject(
-        item.subjectKey,
-      ) &&
-      !PersonalityLearningBoundaryPolicy.looksLikeBehavioralPreference(
-        item.content,
-      ) &&
-      !PersonalityLearningBoundaryPolicy.isCapabilityImplementationClaim(
-        item.content,
-      );
+  bool _allowedDuringPersonalityLearningObservation(MemoryItem item) => MemoryAdmissionPolicy.forPrompt(item);
 
   String formatForPrompt(MemoryContext context, {DateTime? now}) {
     final instant = now ?? DateTime.now();

@@ -8,6 +8,7 @@ import 'dart:convert';
 import '../database/app_database.dart';
 import '../database/conversation_source_store.dart';
 import '../database/brain_work_fence.dart';
+import '../database/automatic_memory_permit.dart';
 import '../continuity/daily_continuity_engine.dart';
 import '../desire/desire_core_policy.dart';
 import '../desire/desire_engine.dart';
@@ -233,12 +234,14 @@ class MemoryExtractor {
     // replay does not manufacture new source metadata.
     var originalMaterials = <ConversationSourceMaterial>[];
     BrainWorkFence? originalTimeFence;
+    AutomaticMemoryPermit? automaticPermit;
     final originalTimeSources = <String, Object?>{};
     if (job == null || job.resultJson.trim().isEmpty) {
       await (await db.database).transaction((txn) async {
         originalTimeFence = await db.captureBrainWorkFenceInTransaction(txn,
           settingKeys: const ['conversation_context_reset_at', 'conversation_context_reset_count']);
         if (originalTimeFence == null) return;
+        automaticPermit = await AutomaticMemoryPermit.capture(txn, 'auto_memory');
         final collected = <ConversationSourceMaterial>[];
         for (final input in [user, assistant]) {
           final material = await ConversationSourceStore.captureMaterial(txn, input.id);
@@ -265,7 +268,7 @@ class MemoryExtractor {
     // The user-facing toggle controls durable memory extraction, not the
     // Desire response loop. The latter must keep working even when the user
     // chooses not to create model-written long-term memories.
-    final memoryEnabled = (await db.getSetting('auto_memory')) != '0';
+    var memoryEnabled = automaticPermit?.enabled ?? false;
     final apiKey = await secureConfig.readApiKey();
     final endpoint = await secureConfig.readEndpoint();
     final editableMemoryPolicy = await _editableMemoryPolicy();
@@ -562,6 +565,7 @@ AI（${assistant.historicalFormLabel}）：${assistant.content}
         result['_local_memory_revision_snapshots_v1'] = localMemorySnapshots;
         result['_local_memory_source_context_v1'] = MemorySourceContext.capture(user, assistant);
         result['_local_memory_time_sources_v1'] = originalTimeSources;
+        result['_local_automatic_memory_permit_v1'] = automaticPermit?.toJson();
         if (job != null) {
           final saved = await db.checkpointPostTurnProposal(
             id: job.id,
@@ -573,6 +577,9 @@ AI（${assistant.historicalFormLabel}）：${assistant.content}
       }
       await _guardPostTurnJob(job);
 
+      automaticPermit = AutomaticMemoryPermit.decode(result['_local_automatic_memory_permit_v1']);
+      memoryEnabled = automaticPermit != null && await automaticPermit!.matches(await db.database);
+      final permitForWrite = automaticPermit;
       final proactiveOutcome = _parseProactiveOutcome(
         proactiveFeedback,
         result['proactive_followup'],
@@ -604,6 +611,7 @@ AI（${assistant.historicalFormLabel}）：${assistant.content}
           userText: user.promptContent,
           knowledgeReferenceActive:
               worldBookContext.knowledgeSources.isNotEmpty,
+          automaticGuard: permitForWrite?.matches,
           specialStyleTrialId: specialStyleTrialId,
           specialStyleKey: specialStyleKey,
         );
@@ -1297,6 +1305,7 @@ AI 主动消息：${outbound?.content ?? '(消息正文不可用)'}
     bool requireTimeSources = false,
     String sourceContextJson = '',
     required bool knowledgeReferenceActive,
+    LocalSourceGuard? automaticGuard,
     String specialStyleTrialId = '',
     String specialStyleKey = '',
   }) async {
@@ -1482,8 +1491,9 @@ AI 主动消息：${outbound?.content ?? '(消息正文不可用)'}
                 ? (userSource!.stamp.observedAt.isAfter(assistantSource!.stamp.observedAt)
                     ? userSource.stamp.observedAt : assistantSource.stamp.observedAt)
                 : userSource!.stamp.observedAt,
-        sourceGuard: !timeKnown ? null : (txn) async =>
-            await userSource!.matches(txn) && await assistantSource!.matches(txn),
+        sourceGuard: !timeKnown && automaticGuard == null ? null : (txn) async =>
+            (automaticGuard == null || await automaticGuard(txn)) &&
+            (!timeKnown || await userSource!.matches(txn) && await assistantSource!.matches(txn)),
       );
       if (!accepted) rejected++;
     }
@@ -1824,8 +1834,9 @@ AI 主动消息：${outbound?.content ?? '(消息正文不可用)'}
       if (!await db.brainWorkAllowed()) return;
       final fence = await db.captureBrainWorkFence(
         leaseKey: 'conversation_summary_lease_until',
-        settingKeys: const ['conversation_context_reset_at', 'conversation_context_reset_count']);
-      if (fence == null) return;
+        settingKeys: const ['conversation_context_reset_at', 'conversation_context_reset_count',
+          'memory_consolidation_enabled', 'memory_consolidation_enabled_permit_version_v1']);
+      if (fence == null || fence.expectedSettings['memory_consolidation_enabled'] == '0') return;
       final work = await db.prepareConversationSummary(workFence: fence);
       if (work == null) return;
       // Event time is descriptive; scanning uses durable ingestion order.

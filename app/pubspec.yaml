@@ -124,7 +124,8 @@ publish_to: 'none'
 # Historical validator compatibility: version: 0.42.126+370
 # Historical validator compatibility: version: 0.42.131+375
 # Historical validator compatibility: version: 0.42.132+376
-version: 0.42.135+379
+# Historical verified baseline: version: 0.42.135+379
+version: 0.42.136+380
 
 environment:
   sdk: '>=3.12.0 <4.0.0'

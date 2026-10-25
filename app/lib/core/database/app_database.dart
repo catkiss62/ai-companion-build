@@ -1,3 +1,5 @@
+import '../memory/memory_admission_policy.dart';
+import 'automatic_memory_permit.dart';
 import '../models/room_background_config.dart';
 import '../ai/final_reply_control.dart';
 import 'derived_source_store.dart';
@@ -9296,16 +9298,10 @@ class AppDatabase {
         return true;
       }
 
-      Future<void> reinforce(MemoryItem existing, {required String relation}) async {
+      Future<bool> reinforce(MemoryItem existing, {required String relation}) async {
         if (source.startsWith('conversation_turn:') && existing.source == source) {
-          return;
+          return true;
         }
-        final isNewEvidence = await recordEvidence(
-          memoryId: existing.id,
-          evidenceText: normalized,
-          relation: relation,
-        );
-        if (!isNewEvidence) return;
         final mergedTags = <String>{...existing.tags, ...tags}.take(12).join('|');
         final hasLifecycleEvidence = factState != null ||
             attentionState != null ||
@@ -9325,6 +9321,12 @@ class AppDatabase {
                 source: 'conversation_evidence_v49',
               )
             : null;
+        final changesCurrent = lifecycle != null && (
+          lifecycle.factState != existing.factState || lifecycle.attentionState != existing.attentionState ||
+          lifecycle.recallPolicy != existing.recallPolicy || lifecycle.spontaneousSalience != existing.spontaneousSalience);
+        if (changesCurrent && !MemoryAdmissionPolicy.mayChangeCurrent(existing, sourceObservedAt)) return false;
+        final isNewEvidence = await recordEvidence(memoryId: existing.id, evidenceText: normalized, relation: relation);
+        if (!isNewEvidence) return true;
         await txn.update(
           'memory_items',
           {
@@ -9374,6 +9376,7 @@ class AppDatabase {
           where: 'id = ?',
           whereArgs: [existing.id],
         );
+        return true;
       }
 
       // A reflection slot and a durable post-turn proposal are idempotent.
@@ -9419,6 +9422,7 @@ class AppDatabase {
         if (targetRows.isEmpty) return false;
         final target = MemoryItem.fromDb(targetRows.single);
         if (!target.isActive || target.pinned || !expectedTarget.matches(target) ||
+            !MemoryAdmissionPolicy.mayChangeCurrent(target, sourceObservedAt) ||
             (target.content == normalized && !(target.isInference && semantic == 'current_fact')) ||
             target.kind != kind || target.subjectKey != normalizedSubject ||
             (target.isSharedExperience && semantic != 'shared_experience') ||
@@ -9476,8 +9480,7 @@ class AppDatabase {
             normalizedSubject == target.subjectKey;
         final wordingCompatible = evidenceSimilarity(normalized, target.content) >= 0.48;
         if (!subjectCompatible && !wordingCompatible) return false;
-        await reinforce(target, relation: 'reinforced');
-        return true;
+        return reinforce(target, relation: 'reinforced');
       }
 
       // Exact duplicate remains a deterministic local fallback even when the
@@ -9496,8 +9499,7 @@ class AppDatabase {
       if (!isRevision && duplicate.isNotEmpty) {
         final existing = MemoryItem.fromDb(duplicate.first);
         if (!(existing.isInference && semantic == 'current_fact')) {
-          await reinforce(existing, relation: 'reinforced');
-          return true;
+          return reinforce(existing, relation: 'reinforced');
         }
         // Confirmation also needs an explicit, version-bound target. A plain
         // duplicate/append cannot leave both an old inference and a current
@@ -9618,7 +9620,7 @@ class AppDatabase {
     final semantic = kind == 'shared_experience' ? 'shared_experience' : 'current_fact';
     final rows = await db.query(
       'memory_items',
-      where: 'kind = ? AND status = ? AND semantic_type = ? AND (retention_score >= ? OR pinned = 1)',
+      where: 'source_valid = 1 AND kind = ? AND status = ? AND semantic_type = ? AND (retention_score >= ? OR pinned = 1)',
       whereArgs: [kind, 'active', semantic, 0.14],
       orderBy: 'pinned DESC, importance DESC, retention_score DESC, confidence DESC, updated_at DESC',
       limit: limit,
@@ -9633,7 +9635,7 @@ class AppDatabase {
     final db = await database;
     final rows = await db.query(
       'memory_items',
-      where: 'kind = ? AND status = ? AND semantic_type = ? AND retention_score >= ?',
+      where: 'source_valid = 1 AND kind = ? AND status = ? AND semantic_type = ? AND retention_score >= ?',
       whereArgs: [kind, 'active', 'inference', 0.18],
       orderBy: 'importance DESC, confidence DESC, updated_at DESC',
       limit: limit,
@@ -9651,7 +9653,7 @@ class AppDatabase {
     final match = "$textColumn LIKE ? ESCAPE '\\'";
     final patterns = terms.map(ConversationRecallPolicy.likePattern).toList();
     return database.query(table,
-        where: '$baseWhere AND (${terms.map((_) => match).join(' OR ')})',
+        where: '$baseWhere${table == 'memory_items' ? ' AND source_valid = 1' : ''} AND (${terms.map((_) => match).join(' OR ')})',
         whereArgs: [...args, ...patterns, ...patterns],
         orderBy: '${terms.map((_) => '(CASE WHEN $match THEN 1 ELSE 0 END)').join(' + ')} DESC, $order',
         limit: limit);
@@ -9759,6 +9761,7 @@ class AppDatabase {
     int limit = 12,
     String retrievalMode = 'userTurn',
     bool recordRecall = true,
+    bool promptAdmission = false,
     DateTime? now,
   }) async {
     final db = await database;
@@ -9768,7 +9771,7 @@ class AppDatabase {
     final terms = ConversationRecallPolicy.searchTerms(query);
     final rows = proactive
         ? await db.query('memory_items',
-            where: "status = ? AND semantic_type IN ('current_fact','shared_experience') "
+            where: "source_valid = 1 AND status = ? AND semantic_type IN ('current_fact','shared_experience') "
                 "AND attention_state = 'closed' "
                 "AND recall_policy IN ('reminiscence','identity') AND spontaneous_salience >= ?",
             whereArgs: const ['active', 0.68],
@@ -9786,6 +9789,7 @@ class AppDatabase {
     final directlyConsideredIds = <String>{};
     for (final row in rows) {
       final item = MemoryItem.fromDb(row);
+      if (promptAdmission && !MemoryAdmissionPolicy.forPrompt(item)) continue;
       final decision = MemoryRetrievalPolicy.evaluate(
         query: query,
         item: item,
@@ -9813,13 +9817,13 @@ class AppDatabase {
         .toSet();
     final associationRows = !proactive && seedTopics.isNotEmpty
         ? await db.query('memory_items',
-            where: "status = 'active' AND semantic_type IN ('current_fact','shared_experience') "
+            where: "source_valid = 1 AND status = 'active' AND semantic_type IN ('current_fact','shared_experience') "
                 "AND topic_key IN (${List.filled(seedTopics.length, '?').join(',')})",
             whereArgs: seedTopics.toList(),
             orderBy: 'importance DESC, updated_at DESC', limit: 60)
         : rows;
     final associationPool = associationRows.where((row) => row['source_valid'] != 0).map(MemoryItem.fromDb)
-        .where((item) => !directlyConsideredIds.contains(item.id)).toList(growable: false);
+        .where((item) => (!promptAdmission || MemoryAdmissionPolicy.forPrompt(item)) && !directlyConsideredIds.contains(item.id)).toList(growable: false);
     final associatedSelected = TopicAssociationPolicy.selectAssociated(
       directSeeds: directSelected,
       candidates: associationPool,
@@ -10579,7 +10583,7 @@ class AppDatabase {
       DatabaseExecutor db, {int limit = 24}) async {
     final rows = await db.query(
       'memory_items',
-      where: "status = ? AND retention_score >= ? "
+      where: "source_valid = 1 AND status = ? AND retention_score >= ? "
           "AND semantic_type IN ('current_fact','shared_experience') "
           "AND attention_state = 'closed' "
           "AND recall_policy IN ('reminiscence','identity') "
@@ -10915,7 +10919,7 @@ class AppDatabase {
     int limit = 300,
   }) async {
     final db = await database;
-    final clauses = <String>['status = ?'];
+    final clauses = <String>['source_valid = 1', 'status = ?'];
     final args = <Object?>[status];
     if (kind != null && kind.isNotEmpty && kind != 'all') {
       clauses.add('kind = ?');
@@ -16893,7 +16897,7 @@ class AppDatabase {
     final db = await database;
     final rows = await db.query(
       'memory_items',
-      where: 'status = ? AND pinned = 0',
+      where: 'source_valid = 1 AND status = ? AND pinned = 0',
       whereArgs: ['active'],
       orderBy: 'retention_checked_at ASC, updated_at ASC',
       limit: limit,
@@ -19158,6 +19162,9 @@ class AppDatabase {
             rows.isEmpty ? '' : rows.first['value'] as String? ?? '';
         if (owner.isNotEmpty) return;
       }
+      if (AutomaticMemoryPermit.features.contains(key) && await BrainWorkFence.value(txn, key) != value) {
+        await txn.insert('settings', {'key': AutomaticMemoryPermit.versionKey(key), 'value': _uuid.v4()}, conflictAlgorithm: ConflictAlgorithm.replace);
+      }
       await txn.insert(
         'settings',
         {'key': key, 'value': value},
@@ -19210,6 +19217,9 @@ class AppDatabase {
       }
       if (sourceGuard != null && !await sourceGuard(txn)) return false;
       for (final entry in values.entries) {
+        if (AutomaticMemoryPermit.features.contains(entry.key) && await BrainWorkFence.value(txn, entry.key) != entry.value) {
+          await txn.insert('settings', {'key': AutomaticMemoryPermit.versionKey(entry.key), 'value': _uuid.v4()}, conflictAlgorithm: ConflictAlgorithm.replace);
+        }
         await txn.insert(
           'settings',
           <String, String>{'key': entry.key, 'value': entry.value},

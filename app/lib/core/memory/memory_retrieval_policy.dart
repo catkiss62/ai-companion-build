@@ -102,6 +102,11 @@ class MemoryRetrievalPolicy {
     DateTime? now,
     bool enforceCooldown = true,
   }) {
+    if (!item.sourceValid) {
+      return const MemoryRetrievalDecision(direct: false, strongEvidence: false,
+        cooldownBlocked: false, queryTokenCount: 0, memoryTokenCount: 0,
+        overlapCount: 0, score: 0, reason: 'source_withdrawn');
+    }
     final queryTokens = tokensFor(query);
     final memoryText =
         '${item.content} ${item.subjectKey} ${item.tags.join(' ')}';
