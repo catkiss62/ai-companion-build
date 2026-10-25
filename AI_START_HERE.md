@@ -58,7 +58,9 @@ rg -n '梦境|DreamEngine|FirstChannelModel.work' app/lib app/test
 
 ## 后续检查与设备证据
 
-- 最新第二轮只读复查新增[两项实现遗漏](app/docs/QQ_MEMORY_SECOND_REVIEW_2026-10-25.md)：R1部分App/QQ检索未排除source_valid=0，R2 QQ布尔allowed未固定生成时的存档epoch/绑定身份。R1有内存SQLite候选查询复核，R2为源码确认的竞态入口，均未真机复现/修复。总体方案新增A0先修，仍只更新文档，不改运行版本或启动CI/APK。
+- 最新第三轮只读复查见[R3 与 O1 补充](app/docs/QQ_MEMORY_THIRD_REVIEW_2026-10-25.md)：QQ 缺 App 已有的旧行为/能力记忆准入，A0 与 R1/R2 一起修；旧关键词未沿修订链取回新事实为 O1，在 A 统一检索时补齐。合成 SQLite 候选查询和源码复核，不是完整 Prompt/真机测试；仅文档，未修代码/启动 CI/APK。累计三项实现缺陷加一项召回优化，第一轮扩展适配不重复算旧漏洞。
+
+- 第二轮只读复查新增[两项实现遗漏](app/docs/QQ_MEMORY_SECOND_REVIEW_2026-10-25.md)：R1部分App/QQ检索未排除source_valid=0，R2 QQ布尔allowed未固定生成时的存档epoch/绑定身份。R1有内存SQLite候选查询复核，R2为源码确认的竞态入口，均未真机复现/修复。总体方案新增A0先修，仍只更新文档，不改运行版本或启动CI/APK。
 
 - 最新任务已先完成[App记忆兼容性只读审查](app/docs/QQ_MEMORY_COMPATIBILITY_REVIEW_2026-10-25.md)，再修订[QQ共享记忆、群聊与存档方案](app/docs/QQ_MEMORY_GROUP_PLAN_2026-10-25.md)。实际提取器联动欲望/关系，actor/owner非群权限，纠错/原文追读绑定主消息，回忆统计全局，后台梦境/反思存在直接读表；不能直接复用全流程或把群数据全塞旧表。方案采用统一逻辑检索、独立QQ来源/多人记录、范围/用途、受限纠错与独立消费回执，保留旧App行为。用户已报告[+379私聊](app/docs/QQ_PRIVATE_V1_2026-10-25.md)首轮成功；运行代码仍只读、不接群/媒体/主动QQ。主欲望单向、图片存描述、睡眠建议、能力内同级QQ总开关均保留。仅文档，未运行新Flutter/Android测试或启动CI/APK；G1–G7继续后移，未批准新代码实现。
 
