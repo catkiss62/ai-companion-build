@@ -49,7 +49,7 @@ jobs:
               # The successful source workflow above remains untouched.
               runs = api(f'/repos/{repo}/actions/runs?head_sha={after}&per_page=100')['workflow_runs']
               for run in runs:
-                  if run['path'] in {'.github/workflows/build-apk.yml', '.github/workflows/system-logic-validation.yml'} and run['status'] in {'queued','in_progress','waiting'}:
+                  if run['path'] in {'.github/workflows/build-apk.yml', '.github/workflows/system-logic-validation.yml'} and run['status'] in {'queued','in_progress','waiting','pending'}:
                       subprocess.run(['gh','api','-X','POST',f'/repos/{repo}/actions/runs/{run["id"]}/cancel'], check=True)
           with open(os.environ['GITHUB_ENV'], 'a') as out:
               out.write(f'SOURCE_RUN={request["run_id"]}\nSOURCE_ARTIFACT={request["artifact_name"]}\n')
