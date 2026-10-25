@@ -50,6 +50,8 @@ class QqJournal {
     _writes = result.catchError((Object _) {});
     return result;
   }
+
+  Future<void> flush() => _writes;
 }
 
 class QqPrivateSession {
@@ -187,7 +189,11 @@ class QqPrivateSession {
     } finally { _draining = false; }
   }
 
-  void stop() { _stopped = true; _poll?.cancel(); }
+  Future<void> stop() async {
+    _stopped = true; _poll?.cancel();
+    await _acceptTail;
+    await journal.flush();
+  }
 }
 
 List<String> splitQqText(String text) {

@@ -22,15 +22,19 @@ class QqPrivateConfig {
     final text = await _storage.read(key: _key);
     if (text == null) return const QqPrivateConfig();
     final raw = jsonDecode(text) as Map;
+    final namespace = raw['namespace'] as String? ?? '';
     return QqPrivateConfig(appId: raw['appId'] as String? ?? '', secret: raw['secret'] as String? ?? '',
-      owner: raw['owner'] as String? ?? '', pairCode: raw['pairCode'] as String? ?? '',
-      pairUntil: raw['pairUntil'] as int? ?? 0, namespace: raw['namespace'] as String? ?? '');
+      owner: namespace.isEmpty ? '' : await _storage.read(key: 'qq_private_owner_$namespace') ?? '',
+      pairCode: raw['pairCode'] as String? ?? '',
+      pairUntil: raw['pairUntil'] as int? ?? 0, namespace: namespace);
   }
 
   Future<void> save() => _storage.write(key: _key, value: jsonEncode({
-    'appId': appId, 'secret': secret, 'owner': owner, 'pairCode': pairCode,
+    'appId': appId, 'secret': secret, 'pairCode': pairCode,
     'pairUntil': pairUntil, 'namespace': namespace}));
 
-  QqPrivateConfig paired(String user) => QqPrivateConfig(appId: appId, secret: secret,
-    owner: user, namespace: namespace);
+  /// A late binding callback can only write the namespace it owns. It must
+  /// never overwrite newly saved credentials or a replacement binding.
+  static Future<void> bind(String namespace, String user) =>
+    _storage.write(key: 'qq_private_owner_$namespace', value: user);
 }

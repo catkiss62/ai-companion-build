@@ -120,7 +120,7 @@ class QqPrivateService : Service() {
         fun snapshot(context: Context): Map<String, Any> {
             val p = prefs(context)
             return mapOf("enabled" to enabled(context), "running" to (live != null),
-                "connection" to p.getString("connection", "stopped").orEmpty(),
+                "connection" to (if (enabled(context) && live == null) "not_running" else p.getString("connection", "stopped").orEmpty()),
                 "task" to p.getString("task", "idle").orEmpty())
         }
         fun start(context: Context) {

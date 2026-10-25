@@ -3,10 +3,12 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:qq_private_bridge/qq_private_bridge.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 import 'package:ai_companion_localfirst/core/database/app_database.dart';
 import 'package:ai_companion_localfirst/integrations/qq_private/qq_readonly_context.dart';
+import 'package:ai_companion_localfirst/integrations/qq_private/qq_private_config.dart';
 
 Future<void> until(bool Function() check) async {
   final deadline = DateTime.now().add(const Duration(seconds: 3));
@@ -23,6 +25,10 @@ class _GatewayApi extends QqApi {
   @override Future<String> gatewayUrl() async => url;
 }
 
+// Bypass only Flutter's HTTP-400 test override, so the protocol test exercises
+// the real loopback server rather than a fabricated success response.
+class _RealHttp extends HttpOverrides {}
+
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
   sqfliteFfiInit();
@@ -35,7 +41,7 @@ void main() {
     await journal.open();
   });
   tearDown(() async {
-    for (final session in sessions) { session.stop(); }
+    for (final session in sessions) { await session.stop(); }
     sessions.clear();
     await temporary.delete(recursive: true);
   });
@@ -151,7 +157,7 @@ void main() {
     await session.accept(event('unknown'));
     await until(() => journal.rows.single['state'] == 'send_uncertain');
     journal.rows.add({'id': 'killed', 'user': 'hi', 'reply': '', 'at': 1, 'state': 'working', 'sent': 0});
-    await journal.save(); session.stop();
+    await journal.save(); await session.stop();
     final restored = QqJournal(journal.file); await restored.open();
     journal = restored;
     var regenerated = 0;
@@ -165,6 +171,17 @@ void main() {
     final text = List.filled(3700, '🐳').join();
     final pieces = splitQqText(text);
     expect(pieces.map((s) => s.runes.length), [1800, 1800, 100]); expect(pieces.join(), text);
+  });
+
+  test('late pairing from retired namespace cannot replace new credentials or owner', () async {
+    FlutterSecureStorage.setMockInitialValues({});
+    await const QqPrivateConfig(appId: '100', secret: 'old', namespace: 'oldnamespace').save();
+    await const QqPrivateConfig(appId: '200', secret: 'new', namespace: 'newnamespace').save();
+    await QqPrivateConfig.bind('oldnamespace', 'old-owner');
+    final current = await QqPrivateConfig.read();
+    expect(current.appId, '200'); expect(current.secret, 'new'); expect(current.owner, '');
+    await QqPrivateConfig.bind('newnamespace', 'new-owner');
+    expect((await QqPrivateConfig.read()).owner, 'new-owner');
   });
 
   test('real HTTP adapter authenticates and requires a send receipt', () async {
@@ -183,7 +200,8 @@ void main() {
       await request.response.close();
     });
     final root = 'http://127.0.0.1:${server.port}';
-    final api = QqApi(appId: 'APP', secret: 'SECRET', apiBase: root, tokenBase: root);
+    final api = QqApi(appId: 'APP', secret: 'SECRET', apiBase: root, tokenBase: root,
+      client: _RealHttp().createHttpClient(null));
     try {
       await api.send('owner', 'original', 'hello', 2);
       expect(requests.first, {'appId': 'APP', 'clientSecret': 'SECRET'});

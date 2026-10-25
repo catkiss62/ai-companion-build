@@ -33,7 +33,9 @@ Future<void> runQqPrivateBackground() async {
     await runtime.invokeMethod<bool>('enabled') == true && await db.brainWorkAllowed();
   runtime.setMethodCallHandler((call) async {
     if (call.method == 'shutdown') {
-      stopped = true; session?.stop(); client?.close(); await gateway?.stop();
+      stopped = true;
+      final stoppedSession = session?.stop();
+      client?.close(); await gateway?.stop(); await stoppedSession;
     }
   });
   try {
@@ -48,7 +50,7 @@ Future<void> runQqPrivateBackground() async {
     client = modelClient;
     session = QqPrivateSession(journal: journal, owner: config.owner,
       pairCode: config.pairCode, pairExpires: DateTime.fromMillisecondsSinceEpoch(config.pairUntil),
-      bindOwner: (owner) => config.paired(owner).save(),
+      bindOwner: (owner) => QqPrivateConfig.bind(config.namespace, owner),
       allowed: allowed, yieldToChat: () async => await db.blockingGenerationJob() != null,
       onStatus: (code) => unawaited(status('task', code)), send: api.send,
       generate: (text, history) async {
@@ -89,6 +91,6 @@ Future<void> runQqPrivateBackground() async {
     await status('connection', 'startup_failed');
     try { await runtime.invokeMethod<void>('failed'); } catch (_) {}
   } finally {
-    session?.stop(); client?.close(); await gateway?.stop();
+    await session?.stop(); client?.close(); await gateway?.stop();
   }
 }

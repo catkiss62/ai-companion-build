@@ -92,6 +92,7 @@ class _QqPrivateSettingsPageState extends State<QqPrivateSettingsPage> {
     'stopped': '已关闭', 'starting': '正在启动', 'connecting': '连接中', 'online': '已连接',
     'reconnecting': '断线重连中', 'permission_error': '机器人权限不足，请检查腾讯平台配置',
     'credentials_error': '机器人凭据或访问权限无效，请关闭连接后检查',
+    'not_running': '后台服务未运行，请关闭连接后重新启动',
     'startup_failed': '启动失败，请检查配置后重新启动', 'idle': '等待消息', 'bound': '已完成绑定',
     'generating': '正在生成回复', 'reply_sent': '回复已送达', 'reply_failed': '本轮失败，请检查配置后重新发消息',
     'send_uncertain': '投递结果不确定；请先在 QQ 确认，系统不会自动重发',

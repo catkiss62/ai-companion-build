@@ -1,6 +1,7 @@
 import '../../core/ai/prompt_builder.dart';
 import '../../core/database/app_database.dart';
 import '../../core/memory/memory_grounding_policy.dart';
+import '../../core/models/rule_layer.dart';
 
 /// The only memory boundary exposed to QQ. It returns text snapshots, never
 /// database handles or write methods. No ChatController/Extractor/Dream calls.
@@ -18,7 +19,10 @@ class QqReadOnlyContext {
       '自然简短回应，不输出内部说明、工具标签、思考内容或分析段落。');
     out.writeln('当前本机时间：${DateTime.now().toIso8601String()}');
     if (await db.getSetting('rule_layers_enabled') != '0') {
-      for (final layer in await db.listRuleLayers()) {
+      // listRuleLayers() is a repairing getter: it may update a stored rule.
+      // QQ must observe the current snapshot without running that repair.
+      final rows = await (await db.database).query('rule_layers', orderBy: 'key ASC');
+      for (final layer in rows.map(RuleLayer.fromDb)) {
         if ((layer.enabled || layer.locked) && const {'always','daily'}.contains(layer.loadPolicy)) {
           out.writeln('${layer.title}\n${layer.content}');
         }
