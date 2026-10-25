@@ -1,0 +1,161 @@
+name: Export validated APK in small transfer parts
+on:
+  push:
+    branches: [agent/v042107-review-recovery]
+    paths:
+      - .github/workflows/export-validated-apk.yml
+      - .ci/export-validated-apk.json
+  workflow_dispatch:
+permissions:
+  contents: read
+  actions: write
+concurrency:
+  group: validated-apk-export-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  export:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - name: Verify successful source and artifact-only change
+        env:
+          GH_TOKEN: ${{ github.token }}
+          BEFORE_SHA: ${{ github.event.before }}
+          EVENT_NAME: ${{ github.event_name }}
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import json, os, re, subprocess
+          from pathlib import Path
+          def api(path):
+              return json.loads(subprocess.check_output(['gh', 'api', path]))
+          repo = os.environ['GITHUB_REPOSITORY']
+          request = json.loads(Path('.ci/export-validated-apk.json').read_text())
+          assert isinstance(request['run_id'], int)
+          assert re.fullmatch('[0-9a-f]{40}', request['head_sha'])
+          source = api(f'/repos/{repo}/actions/runs/{request["run_id"]}')
+          assert source['head_sha'] == request['head_sha']
+          assert source['status'] == 'completed' and source['conclusion'] == 'success'
+          assert source['path'] == '.github/workflows/build-apk.yml'
+          assert source['head_repository']['full_name'] == repo
+          if os.environ['EVENT_NAME'] == 'push':
+              before, after = os.environ['BEFORE_SHA'], os.environ['GITHUB_SHA']
+              diff = api(f'/repos/{repo}/compare/{before}...{after}')
+              files = [f['filename'] for f in diff['files']]
+              allowed = {'.github/workflows/export-validated-apk.yml', '.ci/export-validated-apk.json'}
+              assert files and set(files) <= allowed, 'Export commits may not contain App or other CI changes'
+              # Cancel only redundant checks of this transfer-only commit.
+              # The successful source workflow above remains untouched.
+              runs = api(f'/repos/{repo}/actions/runs?head_sha={after}&per_page=100')['workflow_runs']
+              for run in runs:
+                  if run['path'] in {'.github/workflows/build-apk.yml', '.github/workflows/system-logic-validation.yml'} and run['status'] in {'queued','in_progress','waiting'}:
+                      subprocess.run(['gh','api','-X','POST',f'/repos/{repo}/actions/runs/{run["id"]}/cancel'], check=True)
+          with open(os.environ['GITHUB_ENV'], 'a') as out:
+              out.write(f'SOURCE_RUN={request["run_id"]}\nSOURCE_ARTIFACT={request["artifact_name"]}\n')
+          print('Confirmed successful, same-repository build; App source is unchanged.')
+          PY
+      - uses: actions/download-artifact@v4
+        with:
+          github-token: ${{ github.token }}
+          run-id: ${{ env.SOURCE_RUN }}
+          name: ${{ env.SOURCE_ARTIFACT }}
+          path: verified-source
+      - name: Check original checksum and split identical APK bytes
+        run: |
+          python3 - <<'PY'
+          import hashlib, json
+          from pathlib import Path
+          request = json.loads(Path('.ci/export-validated-apk.json').read_text())
+          apks = list(Path('verified-source').rglob('app-release.apk'))
+          sums = list(Path('verified-source').rglob('app-release.apk.sha256'))
+          assert len(apks) == len(sums) == 1
+          apk = apks[0]
+          digest = hashlib.file_digest(apk.open('rb'), 'sha256').hexdigest()
+          assert digest == sums[0].read_text().split()[0]
+          target = Path('apk-parts'); target.mkdir()
+          parts = []
+          with apk.open('rb') as src:
+              for index in range(8):
+                  data = src.read(256 * 1024 * 1024)
+                  if not data: break
+                  name = f'apk.part{index:02d}'
+                  (target / name).write_bytes(data)
+                  parts.append({'file': name, 'bytes': len(data), 'sha256': hashlib.sha256(data).hexdigest()})
+              assert not src.read(1), 'APK exceeds bounded 2 GiB transfer capacity'
+          manifest = {**request, 'apk_bytes': apk.stat().st_size, 'apk_sha256': digest, 'parts': parts}
+          (target / 'manifest.json').write_text(json.dumps(manifest, indent=2) + '\n')
+          print(json.dumps({'bytes': manifest['apk_bytes'], 'sha256': digest, 'parts': len(parts)}))
+          PY
+      - uses: actions/upload-artifact@v4
+        if: ${{ hashFiles('apk-parts/apk.part00') != '' }}
+        with:
+          name: verified-apk-part-00
+          path: |
+            apk-parts/apk.part00
+            apk-parts/manifest.json
+          compression-level: 0
+          retention-days: 14
+      - uses: actions/upload-artifact@v4
+        if: ${{ hashFiles('apk-parts/apk.part01') != '' }}
+        with:
+          name: verified-apk-part-01
+          path: |
+            apk-parts/apk.part01
+            apk-parts/manifest.json
+          compression-level: 0
+          retention-days: 14
+      - uses: actions/upload-artifact@v4
+        if: ${{ hashFiles('apk-parts/apk.part02') != '' }}
+        with:
+          name: verified-apk-part-02
+          path: |
+            apk-parts/apk.part02
+            apk-parts/manifest.json
+          compression-level: 0
+          retention-days: 14
+      - uses: actions/upload-artifact@v4
+        if: ${{ hashFiles('apk-parts/apk.part03') != '' }}
+        with:
+          name: verified-apk-part-03
+          path: |
+            apk-parts/apk.part03
+            apk-parts/manifest.json
+          compression-level: 0
+          retention-days: 14
+      - uses: actions/upload-artifact@v4
+        if: ${{ hashFiles('apk-parts/apk.part04') != '' }}
+        with:
+          name: verified-apk-part-04
+          path: |
+            apk-parts/apk.part04
+            apk-parts/manifest.json
+          compression-level: 0
+          retention-days: 14
+      - uses: actions/upload-artifact@v4
+        if: ${{ hashFiles('apk-parts/apk.part05') != '' }}
+        with:
+          name: verified-apk-part-05
+          path: |
+            apk-parts/apk.part05
+            apk-parts/manifest.json
+          compression-level: 0
+          retention-days: 14
+      - uses: actions/upload-artifact@v4
+        if: ${{ hashFiles('apk-parts/apk.part06') != '' }}
+        with:
+          name: verified-apk-part-06
+          path: |
+            apk-parts/apk.part06
+            apk-parts/manifest.json
+          compression-level: 0
+          retention-days: 14
+      - uses: actions/upload-artifact@v4
+        if: ${{ hashFiles('apk-parts/apk.part07') != '' }}
+        with:
+          name: verified-apk-part-07
+          path: |
+            apk-parts/apk.part07
+            apk-parts/manifest.json
+          compression-level: 0
+          retention-days: 14
