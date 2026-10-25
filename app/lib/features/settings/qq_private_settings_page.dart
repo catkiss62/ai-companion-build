@@ -94,7 +94,7 @@ class _QqPrivateSettingsPageState extends State<QqPrivateSettingsPage> {
     'credentials_error': '机器人凭据或访问权限无效，请关闭连接后检查',
     'not_running': '后台服务未运行，请关闭连接后重新启动',
     'startup_failed': '启动失败，请检查配置后重新启动', 'idle': '等待消息', 'bound': '已完成绑定',
-    'generating': '正在生成回复', 'reply_sent': '回复已送达', 'reply_failed': '本轮失败，请检查配置后重新发消息',
+    'generating': '正在生成回复', 'reply_sent': 'QQ 已接收回复', 'reply_failed': '本轮失败，请检查配置后重新发消息',
     'send_uncertain': '投递结果不确定；请先在 QQ 确认，系统不会自动重发',
     'generation_interrupted': '生成被中断；本轮不会自动重复请求',
     'message_expired': '消息超过测试版处理时限，请重新发送', 'queue_full': '待处理消息较多，请稍后发送',
