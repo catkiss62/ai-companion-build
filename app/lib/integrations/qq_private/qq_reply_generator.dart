@@ -47,6 +47,9 @@ class QqReplyGenerator {
           text.write(delta.content);
           if (delta.finishReason != null) finish = delta.finishReason;
           if (text.length > 14000) throw StateError('reply_too_long');
+          // An explicit finish ends the reply even if a relay keeps its SSE
+          // connection open. Do not discard/retry already completed text.
+          if (finish != null) break;
         }
         if (finish != 'stop' || text.toString().trim().isEmpty) throw StateError('reply_incomplete');
         if (!await current()) throw StateError('context_invalidated');

@@ -106,6 +106,27 @@ void main(){
       expect(secondaryCalls,2);expect(output,'限时后完整兜底');
     }finally{client.close();}
   });
+  test('QQ accepts a completed reply without waiting for the relay to close SSE',()async{
+    var secondaryCalls=0,firstCalls=0;
+    final client=DeepSeekClient(streamClientFactory:()=>MockClient.streaming((request,body)async{
+      if(request.url.host=='second.test'){
+        secondaryCalls++;
+        return http.StreamedResponse(Stream<List<int>>.periodic(const Duration(milliseconds:10),(index)=>
+          utf8.encode('data: ${jsonEncode({'choices':[index==0
+            ? {'delta':{'content':'第二通道已经完成'},'finish_reason':'stop'}
+            : {'delta':{'reasoning_content':'连接仍未关闭'}}]})}\n\n')),200);
+      }
+      firstCalls++;return http.StreamedResponse(Stream.value(sse('不该兜底').bodyBytes),200);
+    }));
+    try{
+      final output=await QqReplyGenerator(client:client,secure:_Config(),current:()async=>true,
+        secondTimeout:const Duration(milliseconds:200),firstTimeout:const Duration(seconds:2))
+        .generate(channel:'second',firstModel:DeepSeekModelProfile.flash,
+          firstEffort:ReasoningEffort.high,secondEffort:ReasoningEffort.high,
+          messages:const[{'role':'user','content':'你好'}]);
+      expect(output,'第二通道已经完成');expect(secondaryCalls,1);expect(firstCalls,0);
+    }finally{client.close();}
+  });
   test('QQ channel persists independently and does not change App reply provider',()async{
     FlutterSecureStorage.setMockInitialValues({'chat_api_provider':'aiwangyou_gemini'});
     final config=const QqPrivateConfig(appId:'123',secret:'device-only',namespace:'binding',replyChannel:'first');
