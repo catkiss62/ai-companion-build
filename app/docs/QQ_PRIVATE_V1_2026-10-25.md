@@ -1,6 +1,18 @@
 # QQ 私聊首版：隔离接入、只读记忆
 
-状态：v0.42.135+379 候选已实现，尚未完成 CI/APK；未连接真实 QQ 账号，未调用真实付费模型。+378 仍是前次已交付包。七类大检查按用户最新决定后移；这不表示旧缺陷已经真机验收。
+状态：v0.42.135+379 已实现并完成完整 CI，原签名 APK 已取回、合并和校验。CI PASSED / APK READY / TRUE DEVICE PENDING / LIVE QQ PENDING。尚未连接真实 QQ 账号、运行手机实测或调用真实付费模型；自动通过不等于腾讯实网与 HyperOS 长期后台已验收。七类大检查按用户最新决定后移，旧偶发闪退仍保留设备取证。
+
+
+## 最终交付与证据
+
+- APK 运行源码：`f2e67195bd128ce643a1f1c526c94db6b1b56c75`，tree `1194d7d6255f87ce17974c02fa8ca5775a78ca49`。其后的导出提交 `0d87d5b0` 只改传输工作流/请求，未改 App 代码；文档提交亦不重建或重签。
+- [完整CI 40183369738](https://github.com/catkiss62/ai-companion-build/actions/runs/40183369738) 成功：154 项源码门、Kotlin（已包含QQ Service过滤项）、2707 项全量 Flutter、170 项存档/作品恢复、Android15基础原生回归、APK资源、原签名及实际包名/版本检查全部通过。构建 job `121140268089`，原生 job `121138943250`。
+- [专项CI 40183369812](https://github.com/catkiss62/ai-companion-build/actions/runs/40183369812) 成功：Dart分析无error、仍有866项非fatal提示；1148项专项通过，其中14项本轮QQ/只读边界测试。真实本地HTTP/WebSocket不等于真实腾讯服务器联调。
+- 原包：`com.aicompanion.localfirst`，`0.42.135+379`，738996466 bytes；APK SHA-256 `550f42e400f75f542411f68fae14eab3961da36a2eba7b82efe298a5a939231d`；既有签名证书 SHA-256 `305eb3d80983b963c64818ddf1ad561f279de6d47b3ed2c781ada448c7c25148`。
+- 原包保留在[未发布测试Draft 423295505](https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-4a7f3e214b8fa4af0b61)，[APK直链（需所有者登录）](https://github.com/catkiss62/ai-companion-build/releases/download/untagged-4a7f3e214b8fa4af0b61/AI-Companion-v0.42.135-379-QQ-Private-V1-APK.apk)。未合并main、未正式发布。
+- [导出40197042095](https://github.com/catkiss62/ai-companion-build/actions/runs/40197042095) 核验成功源运行后将原APK分为三段；下载后逐ZIP、逐段及整包SHA全部匹配，并通过APK ZIP完整性检查。因导出提交只包含传输文件而取消的重复CI不是应用CI失败。安装包超过512MiB单文件传输上限，分段仅用于取回，最终提供原始单一APK。
+
+首轮真机建议：更多→QQ私聊·测试版，填官方机器人AppID/Secret，腾讯平台选择WebSocket并允许本人使用；保存启动后用本人QQ发送一次性绑定命令，再发纯文字及与旧记忆相关的话题。关闭悬浮球后验证QQ仍连接；观察主App聊天、记忆和成长无新增QQ条目，最后关闭QQ连接。图片/语音/引用会收到首版未接入说明，不据此当作媒体已完成。切网/锁屏/系统回收、真实权限或API差异、语气及耗电留待真机反馈。
 
 ## 本轮授权与范围
 
@@ -40,7 +52,7 @@
 
 真机先检查：不用悬浮球启动连接→本人绑定→文字私聊→关联旧记忆→核对主聊天/记忆未写入→切 App/QQ及锁屏→断网重连→关闭连接。需要用户自己在设置中填入 QQ 凭据；不索取或提交凭据到仓库。真实腾讯权限/接口兼容、HyperOS保活、后台耗电和最终语气仍待真机，不因自动回归通过宣称已验收。
 
-## 首轮CI与修订
+## 历史候选与修订（不覆盖顶部最终交付）
 
 首候选远端6ee0e84（本地a00903bc，同treeca8194f4）：专项40180984983的Dart分析通过，1144通过/2失败。HTTP协议回归被Flutter测试环境默认HTTP400覆盖阻断，改为向QqApi注入真实loopback HttpClient，不跳过或伪造协议测试；全库只读断言真实发现listRuleLayers()会更新rule_layers.updated_at，QQ适配器改成直接只读SELECT，不改原有App的规则修复行为。保留全库逐表比较断言。另补绑定身份按namespace独立保存，迟到旧绑定不能覆盖新配置，关闭时等待入站/落盘，后台未运行状态及MIT许可证随包注册。修订候选继续完整验证；不以首候选分析通过替代最终测试/构建。
 

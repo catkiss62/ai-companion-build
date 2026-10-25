@@ -7,7 +7,7 @@
 - 仓库：`catkiss62/ai-companion-build`。
 - 本轮开发分支：[agent/v042107-review-recovery](https://github.com/catkiss62/ai-companion-build/tree/agent/v042107-review-recovery)。开始工作时先读取这个分支的实际 HEAD，并与用户授权范围核对。
 - GitHub 默认分支是 `main`。2026-10-25 核查时，`main` 下的 `app/lib/core/self/dream_engine.dart` 返回 404，而上述开发分支存在该文件。默认分支与当前开发代码不能互相替代；尚不知道用户的 DSHA 当时读取了哪个分支。
-- 最新测试包为 `v0.42.134+378`，运行源码 `4b90fc27cd1b83ab334c83618880f5d250d47a65`；完整CI40174768084与专项40174768071通过，原APK哈希/签名及交付证据见[实施记录](app/docs/STABILITY_REPAIRS_v0.42.134.md)。其后传输/文档提交没有改App运行代码，不能用分支HEAD替代APK源码。真机反馈待补。
+- 最新测试包为 `v0.42.135+379`，运行源码 `f2e67195bd128ce643a1f1c526c94db6b1b56c75`；完整CI40183369738通过154源码门、Kotlin、2707全量与170恢复测试，专项40183369812通过1148项，原APK/签名已校验，见[QQ私聊首版实施与交付](app/docs/QQ_PRIVATE_V1_2026-10-25.md)。本包继承+378收尾修补。后续传输/文档提交不改运行代码，不能用分支HEAD替代APK源码；真实QQ与真机待验。
 - 本轮允许在指定开发分支提交代码、测试和文档；未授权合并 `main` 或正式发布。
 
 ## 建议阅读顺序
@@ -25,6 +25,7 @@
 | --- | --- |
 | 梦境、夜间整理、自我理解 / Dream | `app/lib/core/self/dream_engine.dart`、`dream_contract.dart`、`dream_material.dart`、`dream_store.dart`、`dream_review_diagnostic.dart`（后四个同目录） |
 | 普通聊天、生成恢复 / Chat and recovery | `app/lib/features/chat/chat_controller.dart`；`app/lib/core/ai/durable_generation_runner.dart`、`durable_generation_recovery.dart` |
+| QQ本人私聊、独立接入 / QQ private | `app/packages/qq_private_bridge/`（独立Dart子项目）；`app/lib/integrations/qq_private/`（宿主只读适配）；`app/lib/qq_private_main.dart`；`app/android/app/src/main/kotlin/com/aicompanion/localfirst/qq/QqPrivateService.kt`；`app/lib/features/settings/qq_private_settings_page.dart` |
 | 模型、思考力度、凭据 / Model configuration | `app/lib/features/settings/settings_category_pages.dart`；`app/lib/core/ai/first_channel_model.dart`；`app/lib/core/storage/secure_config.dart` |
 | Agent 工具、执行记录、目标核验 | `app/lib/core/agent/agent_tool_runner.dart`、`turn_execution_store.dart`、`turn_goal_verification.dart` |
 | 游戏厅、自主陪玩、定时游戏 / Cedar arcade | `app/lib/core/mcp/cedar_toy_activity.dart`、`cedar_toy_autonomy_engine.dart`、`cedar_timed_play_task.dart`；继续追同目录的协议与核验文件 |
@@ -57,7 +58,7 @@ rg -n '梦境|DreamEngine|FirstChannelModel.work' app/lib app/test
 
 ## 后续检查与设备证据
 
-- 最新新增授权：先做[QQ本人私聊独立接入](app/docs/QQ_PRIVATE_V1_2026-10-25.md)，七类大检查后移。QQ独立子项目只读已有记忆，不提取/写回，不接群聊。v0.42.135+379为开发候选，尚无CI/APK；最近交付仍+378。
+- 最新新增授权：先做[QQ本人私聊独立接入](app/docs/QQ_PRIVATE_V1_2026-10-25.md)，七类大检查后移。QQ独立子项目只读已有记忆，不提取/写回，不接群聊。v0.42.135+379已完成CI及APK校验；真实QQ与真机待验，不按旧任务自动启动大检查。
 
 - [收尾修补与七类复查计划](app/docs/STABILITY_CLOSEOUT_PLAN_2026-10-25.md)：统一整理九项漏洞、三项模型/API设置、两项先验证边界和G1–G7复查顺序；第一阶段+378修补与自动验证已完成，APK已取回；状态见[本轮实施记录](app/docs/STABILITY_REPAIRS_v0.42.134.md)。当前暂停等待真机反馈，G1–G7尚未开始。共享同一个“她”，通过明确接口控制各模块修改范围。
 - [+377 后九类审查](app/docs/POST_377_AGENT_GAME_OVERLAY_AUDIT_2026-10-25.md)：这是+377审查时的原始发现；F1–F9已进入+378候选，不再作为另一份未实施清单。两次手机退出仍缺设备堆栈，不能将逻辑修补当作已确认崩溃根因。
