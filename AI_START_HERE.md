@@ -58,6 +58,8 @@ rg -n '梦境|DreamEngine|FirstChannelModel.work' app/lib app/test
 
 ## 后续检查与设备证据
 
+- 最新第二轮只读复查新增[两项实现遗漏](app/docs/QQ_MEMORY_SECOND_REVIEW_2026-10-25.md)：R1部分App/QQ检索未排除source_valid=0，R2 QQ布尔allowed未固定生成时的存档epoch/绑定身份。R1有内存SQLite候选查询复核，R2为源码确认的竞态入口，均未真机复现/修复。总体方案新增A0先修，仍只更新文档，不改运行版本或启动CI/APK。
+
 - 最新任务已先完成[App记忆兼容性只读审查](app/docs/QQ_MEMORY_COMPATIBILITY_REVIEW_2026-10-25.md)，再修订[QQ共享记忆、群聊与存档方案](app/docs/QQ_MEMORY_GROUP_PLAN_2026-10-25.md)。实际提取器联动欲望/关系，actor/owner非群权限，纠错/原文追读绑定主消息，回忆统计全局，后台梦境/反思存在直接读表；不能直接复用全流程或把群数据全塞旧表。方案采用统一逻辑检索、独立QQ来源/多人记录、范围/用途、受限纠错与独立消费回执，保留旧App行为。用户已报告[+379私聊](app/docs/QQ_PRIVATE_V1_2026-10-25.md)首轮成功；运行代码仍只读、不接群/媒体/主动QQ。主欲望单向、图片存描述、睡眠建议、能力内同级QQ总开关均保留。仅文档，未运行新Flutter/Android测试或启动CI/APK；G1–G7继续后移，未批准新代码实现。
 
 - [收尾修补与七类复查计划](app/docs/STABILITY_CLOSEOUT_PLAN_2026-10-25.md)：统一整理九项漏洞、三项模型/API设置、两项先验证边界和G1–G7复查顺序；第一阶段+378修补与自动验证已完成，APK已取回；状态见[本轮实施记录](app/docs/STABILITY_REPAIRS_v0.42.134.md)。当前暂停等待真机反馈，G1–G7尚未开始。共享同一个“她”，通过明确接口控制各模块修改范围。
