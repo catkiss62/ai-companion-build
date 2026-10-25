@@ -663,6 +663,16 @@ jobs:
             exit 0
           fi
 
+          # This one-file request only exports an already successful APK.
+          # Mixed App/workflow changes must still take the full-build path.
+          if test "$(wc -l < "${changed_files}")" -eq 1 &&
+             grep -Fqx '.ci/export-validated-apk.json' "${changed_files}"; then
+            echo 'run-full-build=false' >> "${GITHUB_OUTPUT}"
+            echo 'reason=validated_apk_transfer_only' >> "${GITHUB_OUTPUT}"
+            echo 'Validated APK transfer only; original source and APK are unchanged.' >> "${GITHUB_STEP_SUMMARY}"
+            exit 0
+          fi
+
           if grep -Fqx 'app/tools/reconcile_v04155_build199_ledger.py' "${changed_files}"; then
             while IFS= read -r changed_path; do
               case "${changed_path}" in

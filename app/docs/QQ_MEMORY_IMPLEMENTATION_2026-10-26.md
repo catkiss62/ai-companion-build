@@ -2,9 +2,9 @@
 
 日期：2026-10-26（Asia/Shanghai）。用户已授权按修补、定向回归、复查的顺序实施。基线 +379 / `f2e67195bd128ce643a1f1c526c94db6b1b56c75`，开始时开发分支文档 HEAD `833621f734bd3906cae85f360641f9343477b8b4`。仅推送 `agent/v042107-review-recovery`，不合并 main、不正式发布。
 
-## 当前候选
+## 当前交付
 
-`v0.42.136+380`：A0 R1–R5与用户追加的QQ独立回复通道。**当前源码已通过专项1177项及Android15原生54项；完整CI正在运行，尚未交付新APK。** A私人记忆写回、跨入口续聊、O1以及B–D群聊仍待后续实施；E黑话低优先。不得把本阶段称作全部QQ方案完成。
+`v0.42.136+380`：A0 R1–R5与用户追加的QQ独立回复通道。**已通过完整CI并取回原签名APK，版本/原包SHA及ZIP完整性已核验，可覆盖安装测试。** A私人记忆写回、跨入口续聊、O1以及B–D群聊仍待后续实施；E黑话低优先。不得把本阶段称作全部QQ方案完成。
 
 - R1：候选SQL在LIMIT前排source_valid=0，纯相关判定防御；保留合法历史。
 - R2：只读连接固定DEFERRED快照；队列/历史带存档、绑定、新上下文身份，生成回包和每段发送前检查；实际记忆及规则材料保存版本戳，撤销后拒绝旧回复。已生成的同档任务可等待冻结结束；生成中被中断不自动重复付费，跨档任务永久作废。
@@ -50,3 +50,16 @@
 运行候选ae561faf2ce8084baa519336c96894438c73f32a，tree23d118221178987fbc942a815f84e386690ef145。专项40230361080/job121280677703通过1177项，包含本轮新增29项；分析0 error、63 warning、823 info（非fatal提示886，不能写零告警）。完整40230361074的Android15原生job121280725483通过54项；build job121282294277已通过154源码门、开始Kotlin/全量Flutter/归档恢复和APK流程。尚无本轮最终APK或全量测试结论。
 
 本节及导航/总账提交只改文档、使用skip ci，不重启正在验证的运行候选，不改变APK源SHA。主源码仍只读QQ现有记忆；完整私人记忆写回、群聊及表情包媒体仍待后续，禁止群友暧昧/亲昵称呼作为群聊上线验收门记录在总体方案中。
+
+## 最终验证与交付（2026-10-26）
+
+- 版本：v0.42.136+380，包名com.aicompanion.localfirst。运行源码ae561faf2ce8084baa519336c96894438c73f32a，tree23d118221178987fbc942a815f84e386690ef145；后续文档/传输/CI范围修补不改App代码，不用分支HEAD替代APK源SHA。
+- [完整CI40230361074](https://github.com/catkiss62/ai-companion-build/actions/runs/40230361074)成功：154源码门、Kotlin、2736全量Flutter、170归档/作品恢复、Android15原生54项、实际包名/版本、原签名和完整资源载荷全部通过。build job121282294277；native job121280725483。
+- [专项40230361080](https://github.com/catkiss62/ai-companion-build/actions/runs/40230361080)通过1177项，含本轮新增29项。Dart分析0错误，63 warning/823 info共886条非fatal提示；不能称零告警。
+- 原APK739010754 bytes，SHA-256：ef21f99055701d0f7fba94bad7ea6fd3f874fa68ed0d2d4a319e2c11f2f9a3fb。既有签名证书SHA-256：305eb3d80983b963c64818ddf1ad561f279de6d47b3ed2c781ada448c7c25148。
+- 保留于[未发布Draft423636691](https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-a690f55bd94095e1d019)，[原APK（需所有者登录）](https://github.com/catkiss62/ai-companion-build/releases/download/untagged-a690f55bd94095e1d019/AI-Companion-v0.42.136-380-QQ-Memory-Foundation-APK.apk)。未合并main、未正式发布、未重签。
+- [分段导出40232676883](https://github.com/catkiss62/ai-companion-build/actions/runs/40232676883)成功，三段仅用于传输。逐ZIP摘要、逐段SHA、三个manifest一致性、合并整包大小/SHA及APK ZIP完整性全部核验通过；最终是单个原始APK。
+
+导出请求提交28a6a670仅改.ci/export-validated-apk.json，导出工作流验证成功源后自动取消冗余CI40232676872/40232676910；这不是运行源ae561faf的测试失败。但冗余取消任务把共享CI-Monitor标成cancelled，验收应读取上述成功源运行、原APK摘要及本记录，不能把该共享监控文件当作APK最终结论。后续CI范围修补仅对“恰好单文件.ci/export-validated-apk.json”跳过全量App重建，避免再次取消冗余构建并覆盖成功监控；已用实际生产shell脚本+受控GitHub文件列表验证5种情况（传输单文件跳过；混入App代码必须完整CI；普通文档跳过；App代码和其他.ci文件仍完整CI）。这是构建后元数据修补，不在已验证APK运行代码内；原有业务门未放宽。
+
+A0本阶段完成。按用户允许先交付当前APK：完整A私人记忆写回/跨入口/O1、B–D群聊/媒体/分享、App图库表情发送仍待后续；群友禁止暧昧/亲昵称呼为群聊上线前必做的核心限制。QQ仍只接本人纯文字、只读已有记忆，不把本包当作完整QQ方案。腾讯实网、长时后台及新切换/兜底真机行为待用户试用；不以Mock和模拟器替代真实权限/设备证据。
