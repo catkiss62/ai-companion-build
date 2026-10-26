@@ -1,3 +1,4 @@
+import '../database/qq_context_evidence.dart';
 import 'first_channel_model.dart';
 import '../memory/self_understanding_policy.dart';
 import '../memory/background_recall_store.dart';
@@ -258,6 +259,7 @@ class MemoryExtractor {
         originalTimeSources[material.message.role] = material.source.toJson();
       }
     }
+    final usedQqReference=await QqContextEvidence.usedBy(await db.database,assistant.id,assistant.sourceRevision);
     // Retrieval and visible expression are separate durable cursors. A
     // roleplay answer is rejected above so it cannot reinforce an ordinary
     // memory merely by repeating it in character.
@@ -282,6 +284,9 @@ class MemoryExtractor {
       final recallReceipts = BackgroundRecallStore.records(BackgroundRecallStore.decode(
         await db.getSetting(BackgroundRecallStore.stateKey) ?? '')['receipts']);
       final usedBackgroundRecall = recallReceipts.any((r) => r['assistant_id'] == assistant.id);
+      // QQ material stays external evidence; a new App statement can still be
+      // recorded as private user information using its own exact quote.
+
       final activeThreads = await db.activeUnfinishedThreads(limit: 8);
       final threadContext = activeThreads.isEmpty
           ? '当前没有未完成话题。'
@@ -534,6 +539,7 @@ $proactiveContext
 
 【上一条普通 AI 回复】
 $ordinaryDesireContext
+${usedQqReference?'本轮AI使用了QQ经历资料：群成员和群里事件不是用户本轮新事实或她的新人格证据。只依据当前App用户原话提取新的私人资料/偏好，不从转述创建AI Self、共同经历、性格学习或关系成长；欲望反应只依据用户本轮真实互动。':''}
 
 【相关既有长期记忆】
 $memoryCandidateContext
@@ -597,7 +603,7 @@ AI（${assistant.historicalFormLabel}）：${assistant.content}
         await CedarGameArrangementStore(db).applyExtraction(result['game_arrangements'],
           localContext: result['_local_game_arrangements_v1'],
           localTimeSources: result['_local_memory_time_sources_v1'], user: user, assistant: assistant,
-          knowledgeReferenceActive: worldBookContext.knowledgeSources.isNotEmpty);
+          knowledgeReferenceActive: worldBookContext.knowledgeSources.isNotEmpty || usedQqReference);
         await _guardPostTurnJob(job);
         await applyMemoryProposals(
           result['memories'],
@@ -610,7 +616,8 @@ AI（${assistant.historicalFormLabel}）：${assistant.content}
               MemorySourceContext.capture(user, assistant),
           userText: user.promptContent,
           knowledgeReferenceActive:
-              worldBookContext.knowledgeSources.isNotEmpty,
+              worldBookContext.knowledgeSources.isNotEmpty || usedQqReference,
+          externalQqReference:usedQqReference,
           automaticGuard: permitForWrite?.matches,
           specialStyleTrialId: specialStyleTrialId,
           specialStyleKey: specialStyleKey,
@@ -623,9 +630,9 @@ AI（${assistant.historicalFormLabel}）：${assistant.content}
           proactiveOutcome: proactiveOutcome?.outcome,
         );
         await _guardPostTurnJob(job);
-        await _applyThoughts(result['thoughts'], assistant.id);
+        if(!usedQqReference) await _applyThoughts(result['thoughts'], assistant.id);
         await _guardPostTurnJob(job);
-        await _applyRelationshipEvents(result['relationship_events'], user.id);
+        if(!usedQqReference) await _applyRelationshipEvents(result['relationship_events'], user.id);
         await _guardPostTurnJob(job);
         await _applySessionUpdate(result['session_update'], user.id);
         await _guardPostTurnJob(job);
@@ -1305,6 +1312,7 @@ AI 主动消息：${outbound?.content ?? '(消息正文不可用)'}
     bool requireTimeSources = false,
     String sourceContextJson = '',
     required bool knowledgeReferenceActive,
+    bool externalQqReference=false,
     LocalSourceGuard? automaticGuard,
     String specialStyleTrialId = '',
     String specialStyleKey = '',
@@ -1382,6 +1390,8 @@ AI 主动消息：${outbound?.content ?? '(消息正文不可用)'}
       }
       if ((item['subject_key'] as String? ?? '').startsWith('game_plan.')) { rejected++; continue; }
       final proposedKind = item['kind'] as String?;
+      if(externalQqReference && (!const {'user_profile','preference'}.contains(proposedKind) ||
+        (item['user_evidence_quote'] as String? ?? '').trim().length<4)) {rejected++;continue;}
       final proposedContent = item['content'] as String?;
       final style = PersonalityCatalog.special(specialStyleKey);
       final hasSpecialStyle = style.key.isNotEmpty;

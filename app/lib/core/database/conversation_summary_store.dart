@@ -59,7 +59,7 @@ class ConversationSummaryStore {
     final String state, reason;
     if (stamp.ingestSeq <= 0 || source.eligibility == ConversationSourceEligibility.unresolved) {
       state = 'deferred'; reason = source.reason;
-    } else if (!source.isOrdinary) {
+    } else if (!source.mayGrow) {
       state = 'excluded'; reason = source.reason;
     } else if (material.message.createdAt.isAfter(DateTime.now())) {
       state = 'deferred'; reason = 'future_event_time';
@@ -125,7 +125,7 @@ class ConversationSummaryStore {
       final material = await ConversationSourceStore.captureMaterial(txn, row['message_id'] as String);
       if (material == null) continue;
       await _classify(txn, material);
-      if (material.source.isOrdinary && material.source.stamp.ingestSeq > 0 &&
+      if (material.source.mayGrow && material.source.stamp.ingestSeq > 0 &&
           !material.message.createdAt.isAfter(DateTime.now()) && material.message.promptContent.trim().isNotEmpty) {
         materials.add(material);
         if (materials.length == batchSize) break;
@@ -149,7 +149,7 @@ class ConversationSummaryStore {
     if (summary.trim().isEmpty || !await work.workFence.matches(txn) ||
         await BrainWorkFence.value(txn, stateKey) != work.stateToken) return false;
     for (final material in work.materials) {
-      if (!material.source.isOrdinary || !await material.source.matches(txn)) return false;
+      if (!material.source.mayGrow || !await material.source.matches(txn)) return false;
       final rows = await txn.query(table, columns: ['state', 'source_json'],
         where: 'message_id = ?', whereArgs: [material.message.id], limit: 1);
       if (rows.isEmpty || rows.single['state'] != 'pending' ||

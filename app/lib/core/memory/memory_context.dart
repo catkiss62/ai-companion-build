@@ -1,3 +1,4 @@
+import '../database/qq_context_evidence.dart';
 import '../models/chat_message.dart';
 import '../models/conversation_summary.dart';
 import '../models/memory_item.dart';
@@ -14,6 +15,7 @@ class MemoryContext {
     required this.summaries,
     required this.threads,
     this.experienceSources = const [],
+    this.qqContext='',this.qqEvidence,
   });
 
   final List<MemoryItem> stableUser;
@@ -25,8 +27,10 @@ class MemoryContext {
   final List<ConversationSummary> summaries;
   final List<UnfinishedThread> threads;
   final List<ChatMessage> experienceSources;
+  final String qqContext;
+  final QqContextEvidence? qqEvidence;
 
   bool get isEmpty => stableUser.isEmpty && aiSelf.isEmpty && preferences.isEmpty &&
       relevant.isEmpty && inferences.isEmpty && history.isEmpty &&
-      summaries.isEmpty && threads.isEmpty && experienceSources.isEmpty;
+      summaries.isEmpty && threads.isEmpty && experienceSources.isEmpty && qqContext.isEmpty;
 }

@@ -1,3 +1,4 @@
+import '../database/qq_context_evidence.dart';
 import 'dart:convert';
 import '../creative/creative_store.dart';
 import '../creative/creative_facts.dart';
@@ -73,7 +74,7 @@ class PromptBuildResult {
     this.expectedPublicWebShare,
     this.selectedThoughtEvidence,
     this.ordinaryActionActive = false,
-    this.backgroundRecall,
+    this.backgroundRecall,this.qqEvidence,
   });
 
   final List<Map<String, Object?>> messages;
@@ -86,6 +87,7 @@ class PromptBuildResult {
   final Map<String, Object?>? selectedThoughtEvidence;
   final bool ordinaryActionActive;
   final BackgroundRecallSelection? backgroundRecall;
+  final QqContextEvidence? qqEvidence;
 }
 
 class PromptBuilder {
@@ -686,6 +688,7 @@ ANSWERED_HISTORY_ONLY = true
       selectedThoughtEvidence: _thoughtExpressionEvidence(selectedConversationThought, webBundle),
       ordinaryActionActive: ordinaryActionExperimentActive,
       backgroundRecall: backgroundRecall,
+      qqEvidence:memoryContext?.qqEvidence,
     );
   }
 

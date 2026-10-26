@@ -82,7 +82,7 @@ class DreamMaterial {
     var consumed = 0;
     for (final row in ordered) {
       final qualified = await ConversationSourceStore.qualifyMessage(handle, row['id'] as String);
-      var source = excluded.contains(row['id']) || qualified?.isOrdinary != true ||
+      var source = excluded.contains(row['id']) || qualified?.mayGrow != true ||
           DreamContract.number(row['created_at']) < reset
           ? null : DreamStore.chatSource(row, fresh: true);
       final candidate = source;

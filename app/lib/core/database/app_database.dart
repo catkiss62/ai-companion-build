@@ -1,5 +1,9 @@
 import '../memory/memory_admission_policy.dart';
 import 'automatic_memory_permit.dart';
+import 'qq_archive_schema.dart';
+import 'qq_context_evidence.dart';
+import 'qq_share_contract.dart';
+import '../memory/memory_successor_recall.dart';
 import '../models/room_background_config.dart';
 import '../ai/final_reply_control.dart';
 import 'derived_source_store.dart';
@@ -186,7 +190,8 @@ class AppDatabase {
   // Historical validator compatibility token: static const int schemaVersion = 58;
   // Historical validator compatibility token: static const int schemaVersion = 59;
   // Historical validator compatibility token: static const int schemaVersion = 60;
-  static const int schemaVersion = 61;
+  // Historical validator compatibility token: static const int schemaVersion = 61;
+  static const int schemaVersion = 62;
 
   Database? _db;
   Future<Database>? _opening;
@@ -1253,6 +1258,7 @@ class AppDatabase {
     if (oldVersion < 61) {
       await _createV61AiInterestConsumptionTables(db);
     }
+    if (oldVersion < 62) await QqArchiveSchema.create(db);
   }
 
   Future<void> _createSchema(Database db) async {
@@ -1452,6 +1458,7 @@ class AppDatabase {
     await _createV58MediaBlobTables(db);
     await _createV60ImmersiveLanguageColumns(db);
     await _createV61AiInterestConsumptionTables(db);
+    await QqArchiveSchema.create(db);
     await _seedRuleLayers(db);
 
     final initial = DesireSnapshot();
@@ -8253,6 +8260,7 @@ class AppDatabase {
     DeepReflectionContext? deepReflection,
     DeepReflectionUpdate? reflectionUpdate,
     BackgroundRecallSelection? backgroundRecall,
+    QqContextEvidence? qqEvidence,
     List<SomaticEvent> somaticEvents = const <SomaticEvent>[],
     void Function(ConversationSourceStamp)? onCommittedSource,
   }) async {
@@ -8312,6 +8320,7 @@ class AppDatabase {
           turnCommitEvidence.deliveries.isNotEmpty)) return false;
       if (assistant.id != job.assistantMessageId) return false;
       if (backgroundRecall != null && !await backgroundRecall.matches(txn, DateTime.now())) return false;
+      if(qqEvidence!=null && !await qqEvidence.matches(txn)) return false;
       for(final source in historySources) {
         if(!source.isOrdinary || !await source.matches(txn))return false;
       }
@@ -8462,6 +8471,10 @@ class AppDatabase {
       // The old user row has just acquired a committed paired provenance.
       await ConversationSourceStore.sourceChanged(txn, job.userMessageId, qualificationChanged: true);
       requireTurnNotCancelled(isCancelled);
+      if(qqEvidence!=null) {
+        final saved=(await txn.query('messages',columns:['source_revision'],where:'id=?',whereArgs:[assistant.id],limit:1)).single;
+        await qqEvidence.consume(txn,assistant.id,saved['source_revision'] as int,assistant.createdAt.millisecondsSinceEpoch);
+      }
       if (backgroundRecall != null) {
         await BackgroundRecallStore.consume(txn, backgroundRecall, assistant.id, assistant.content, assistant.createdAt);
       }
@@ -8619,7 +8632,9 @@ class AppDatabase {
     ExpectedPublicWebShare? expectedPublicWebShare,
     DeepReflectionContext? reflectionInvitation,
     BackgroundRecallSelection? backgroundRecall,
+    QqContextEvidence? qqEvidence,
     CreativeShare? creativeShare,
+    QqShareOffer? qqShare,
     String? proactiveTriggerReason,
     bool enforceProactiveBudget = false,
     bool proactiveGameShare = false,
@@ -8636,6 +8651,8 @@ class AppDatabase {
     return db.transaction<String?>((txn) async {
       if (workFence != null && !await workFence.matches(txn)) return 'work_fence';
       if (backgroundRecall != null && !await backgroundRecall.matches(txn, DateTime.now())) return 'background_recall_changed';
+      if(qqEvidence!=null && !await qqEvidence.matches(txn)) return 'qq_source_changed';
+      if(qqShare!=null && !await qqShare.matches(txn)) return 'qq_share_changed';
       final webNow = DateTime.now();
       if (expectedPublicWebShare != null) {
         final delivered = await txn.query('public_web_candidates', columns: ['shared_message_id'],
@@ -8751,6 +8768,11 @@ class AppDatabase {
       if (actedThoughtId != null && expectedPublicWebShare == null) {
         await _markProactiveThoughtActedTxn(txn, actedThoughtId, message.id, message.createdAt);
       }
+      if(qqEvidence!=null) {
+        final saved=(await txn.query('messages',columns:['source_revision'],where:'id=?',whereArgs:[message.id],limit:1)).single;
+        await qqEvidence.consume(txn,message.id,saved['source_revision'] as int,message.createdAt.millisecondsSinceEpoch);
+      }
+      if(qqShare!=null) await qqShare.delivered(txn,'app:${message.id}',message.createdAt.millisecondsSinceEpoch);
       if (backgroundRecall != null) {
         await BackgroundRecallStore.consume(txn, backgroundRecall, message.id, message.content, message.createdAt);
       }
@@ -9809,8 +9831,9 @@ class AppDatabase {
       scored.add((item: item, score: decision.score));
     }
     scored.sort((left, right) => right.score.compareTo(left.score));
-    final directSelected =
-        scored.take(limit).map((entry) => entry.item).toList(growable: false);
+    final successors=proactive?<MemoryItem>[]:await MemorySuccessorRecall.find(db,query);
+    final directSelected=<String,MemoryItem>{for(final item in successors)item.id:item,
+      for(final entry in scored)entry.item.id:entry.item}.values.take(limit).toList(growable:false);
     final seedTopics = directSelected
         .map((item) => item.topicKey)
         .where((topic) => topic.isNotEmpty)
@@ -20311,6 +20334,7 @@ class AppDatabase {
     final identity = await transferStateIdentity();
     final db = await database;
     const tables = [
+      ...QqArchiveSchema.tables,
       'messages',
       'message_language_variants',
       'media_blobs',
@@ -20378,7 +20402,7 @@ class AppDatabase {
       final result = <String, Object?>{};
       for (final table in tables) {
         if (table == 'settings') {
-          result[table] = await SqliteSettingsReader.readAll(txn);
+          result[table] = (await SqliteSettingsReader.readAll(txn)).where((r)=>!const {'qq_master_enabled_v2','qq_master_owner_v2'}.contains(r['key'])).toList();
         } else if (table == 'post_turn_jobs') {
           // Completed maintenance jobs are device-local bookkeeping; only carry
           // unfinished work across a phone/tablet Active Brain transfer.
@@ -20419,6 +20443,7 @@ class AppDatabase {
     }
     final rawTables = Map<String, dynamic>.from(backup['tables'] as Map);
     ConversationHistoryCatalog.validateArchive(backup, rawTables);
+    QqArchiveSchema.validate(rawTables, version: version);
     CreativeContract.normalizeImport(rawTables);
     if (version < 44) {
       rawTables['personality_learning_evidence_revisions'] = const <Object?>[];
@@ -20450,7 +20475,8 @@ class AppDatabase {
     final db = await database;
     await db.transaction((txn) async {
       const ordered = [
-        'messages',
+        ...QqArchiveSchema.tables,
+      'messages',
         'message_language_variants',
         'media_blobs',
         'message_attachments',
@@ -20511,6 +20537,7 @@ class AppDatabase {
         'settings',
       ];
       await txn.delete('pending_media_owners');
+      for(final table in QqArchiveSchema.tables.reversed) { await txn.delete(table); }
       for (final table in ordered) {
         await txn.delete(table);
         final rows = (rawTables[table] as List?) ?? const [];
@@ -20915,7 +20942,7 @@ class AppDatabase {
         await txn.insert('settings', {'key': key, 'value': '0'},
           conflictAlgorithm: ConflictAlgorithm.replace);
       }
-      for (final entry in runtimeSettingOverrides.entries) {
+      for (final entry in <String,String>{'runtime_state_epoch_v1':_uuid.v4(),...runtimeSettingOverrides}.entries) {
         await txn.insert(
           'settings',
           {'key': entry.key, 'value': entry.value},
@@ -20987,6 +21014,7 @@ class AppDatabase {
         where: 'builtin = 0 AND entry_type = ? AND name = ? AND aliases = ?',
         whereArgs: const ['behavior', '造梗能力', '造梗|玩梗'],
       );
+      await QqArchiveSchema.restored(txn);
       await _rebuildMediaBlobRefCountsInTransaction(txn);
       // Import preserves source order and the consumed high-water mark as one
       // snapshot; legacy backfill must be part of that same transaction.

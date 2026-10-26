@@ -4,12 +4,13 @@ import 'dart:io';
 
 import 'qq_api.dart';
 
-/// Event-driven C2C-only gateway. It never downloads media, reads memory, or
+/// Event-driven QQ gateway; group delivery is opt-in through a host callback. It never downloads media, reads memory, or
 /// drives a model. Those operations belong to the injected host/session.
 class QqGateway {
-  QqGateway(this.api, {required this.onMessage, required this.onStatus});
+  QqGateway(this.api, {required this.onMessage, required this.onStatus, this.onGroupMessage});
   final QqApi api;
   final Future<void> Function(Map<String, dynamic>) onMessage;
+  final Future<void> Function(Map<String, dynamic>)? onGroupMessage;
   final void Function(String) onStatus;
   WebSocket? _socket;
   Timer? _heartbeat;
@@ -77,6 +78,10 @@ class QqGateway {
                   // handler only durably queues: model generation never blocks
                   // heartbeats or reception of later QQ messages.
                   _events = _events.then((_) => onMessage(d));
+                  await _events;
+                }
+                if (const {'GROUP_AT_MESSAGE_CREATE','GROUP_MESSAGE_CREATE'}.contains(type) && d is Map<String,dynamic> && onGroupMessage != null) {
+                  _events = _events.then((_) => onGroupMessage!({...d, '_trusted_event_type': type}));
                   await _events;
                 }
                 if (payload['s'] is num) _sequence = (payload['s'] as num).toInt();

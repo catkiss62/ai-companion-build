@@ -5,6 +5,9 @@ import 'package:flutter/services.dart';
 
 import '../../integrations/qq_private/qq_private_config.dart';
 import '../../core/storage/secure_config.dart';
+import 'qq_groups_page.dart';
+import '../../core/database/app_database.dart';
+import '../../integrations/qq_private/qq_options.dart';
 
 class QqPrivateSettingsPage extends StatefulWidget {
   const QqPrivateSettingsPage({super.key});
@@ -59,12 +62,14 @@ class _QqPrivateSettingsPageState extends State<QqPrivateSettingsPage> {
     } finally { if (mounted) setState(() => _busy = false); }
   }
 
+  Future<void> _stop() async {await AppDatabase.instance.setSetting('qq_master_enabled_v2','0');await _channel.invokeMethod<void>('stop');}
+
   Future<void> _start() => _run(() async {
     final id = _appId.text.trim(), secret = _secret.text.trim();
     if (!RegExp(r'^\d{3,32}$').hasMatch(id) || secret.isEmpty || secret.length > 4096) {
       setState(() => _notice = '请填写机器人 AppID 和 AppSecret。'); return;
     }
-    await _channel.invokeMethod<void>('stop');
+    await _stop();
     var config = await QqPrivateConfig.read();
     if (config.appId != id || config.secret != secret || config.namespace.isEmpty) {
       config = QqPrivateConfig(appId: id, secret: secret, namespace: QqPrivateConfig.randomId(), replyChannel: _replyChannel);
@@ -75,6 +80,7 @@ class _QqPrivateSettingsPageState extends State<QqPrivateSettingsPage> {
         pairUntil: DateTime.now().add(const Duration(minutes: 10)).millisecondsSinceEpoch, replyChannel: _replyChannel);
     }
     await config.withReplyChannel(_replyChannel).save();
+    await (await QqOptions.read()).save();
     await _channel.invokeMethod<void>('start');
   });
 
@@ -86,7 +92,7 @@ class _QqPrivateSettingsPageState extends State<QqPrivateSettingsPage> {
         TextButton(onPressed: () => Navigator.pop(context, true), child: const Text('重新绑定'))]));
     if (accepted != true || !mounted) return;
     await _run(() async {
-      await _channel.invokeMethod<void>('stop');
+      await _stop();
       final current = await QqPrivateConfig.read();
       await QqPrivateConfig(appId: current.appId, secret: current.secret,
         namespace: QqPrivateConfig.randomId(), replyChannel: _replyChannel).save();
@@ -107,6 +113,12 @@ class _QqPrivateSettingsPageState extends State<QqPrivateSettingsPage> {
     'retrying_second': '正在重试第二通道', 'fallback_first': '第二通道失败，正在使用 DeepSeek 兜底',
     'message_expired': '消息超过测试版处理时限，请重新发送', 'queue_full': '待处理消息较多，请稍后发送',
     'waiting_app_chat': '等 App 当前聊天完成后再处理', 'brain_paused': '本机未启用或正在迁移，已暂停',
+    'group_discovered':'已发现群，请在群聊设置中开启', 'checking_group':'正在用第一通道小卡判断',
+    'watching':'已看过本批消息，继续旁听', 'resting':'正在休息，群消息只归档',
+    'address_rejected':'群聊称呼边界未通过，本批不发送', 'media_failed':'QQ图片发送失败',
+    'memory_failed':'QQ整理本轮失败，原文仍保留', 'archive_full':'QQ档案达到容量上限，请先导出或管理档案',
+    'group_owner_bound':'已确认群内本人身份', 'binding_request_expired':'身份申请已过期或已使用',
+    'legacy_history_failed':'旧版QQ短期记录未能导入，请保留原文件',
     'journal_error': 'QQ 本地投递记录异常，请关闭连接后重试',
   };
 
@@ -118,12 +130,12 @@ class _QqPrivateSettingsPageState extends State<QqPrivateSettingsPage> {
     final connected = _state['enabled'] == true;
     final paired = _config.owner.isNotEmpty;
     final codeValid = _config.pairCode.isNotEmpty && DateTime.now().millisecondsSinceEpoch < _config.pairUntil;
-    return Scaffold(appBar: AppBar(title: const Text('QQ 私聊 · 测试版')),
+    return Scaffold(appBar: AppBar(title: const Text('QQ 接入 · 测试版')),
       body: _loading ? const Center(child: CircularProgressIndicator()) : ListView(
         padding: const EdgeInsets.all(16), children: [
-          const Text('先与你在 QQ 上聊起来', style: TextStyle(fontSize: 20)),
+          const Text('QQ 陪伴连接', style: TextStyle(fontSize: 20)),
           const SizedBox(height: 8),
-          const Text('仅接收你绑定的私聊文字，可在下方独立选择回复通道。可以读取她已有的记忆；QQ 对话暂不写回 App 聊天、长期记忆或成长。群聊、其他用户和多媒体暂未接入。'),
+          const Text('本人私聊可读取已有记忆与近期App对话；QQ原文和整理笔记独立保存，App也可按需读取。支持图片观察及从App图库选择表情包。群聊需单独开启，仅使用本群与明确公开的资料，不改变主系统欲望或成长。'),
           const SizedBox(height: 16),
           DropdownButtonFormField<String>(initialValue: _replyChannel,
             key: ValueKey('qq-reply-$_replyChannel'),
@@ -140,6 +152,11 @@ class _QqPrivateSettingsPageState extends State<QqPrivateSettingsPage> {
             }),
           const SizedBox(height: 8),
           const Text('只影响 QQ 回复，使用对应通道当前设置的模型与接口。第二通道失败会重试一次，再由第一通道兜底。'),
+          const SizedBox(height: 12),
+          Wrap(spacing:12,runSpacing:8,children:[
+            OutlinedButton.icon(onPressed:()=>Navigator.of(context).push(MaterialPageRoute<void>(builder:(_)=>const QqGroupsPage())),icon:const Icon(Icons.groups_outlined),label:const Text('群聊与公开资料')),
+            OutlinedButton.icon(onPressed:()=>Navigator.of(context).push(MaterialPageRoute<void>(builder:(_)=>const QqArchivesPage())),icon:const Icon(Icons.history),label:const Text('QQ档案')),
+          ]),
           const SizedBox(height: 16),
           TextField(controller: _appId, enabled: !_busy && !connected,
             keyboardType: TextInputType.number, decoration: const InputDecoration(labelText: '机器人 AppID')),
@@ -151,7 +168,7 @@ class _QqPrivateSettingsPageState extends State<QqPrivateSettingsPage> {
               icon: Icon(_hideSecret ? Icons.visibility_off : Icons.visibility)))),
           const SizedBox(height: 16),
           Wrap(spacing: 12, runSpacing: 8, children: [
-            FilledButton(onPressed: _busy ? null : connected ? () => _run(() => _channel.invokeMethod<void>('stop')) : _start,
+            FilledButton(onPressed: _busy ? null : connected ? () => _run(_stop) : _start,
               child: Text(connected ? '关闭连接' : '保存并启动')),
             OutlinedButton(onPressed: _busy ? null : _unbind, child: const Text('重新绑定')),
           ]),

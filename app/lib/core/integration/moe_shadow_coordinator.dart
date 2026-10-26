@@ -73,7 +73,7 @@ class MoeShadowCoordinator {
         (cursor == null || await BrainWorkFence.value(txn, scanKey) == cursor.expected);
     Future<MoeObservationResult> work() async {
       final message = source.message;
-      final excluded = !message.isAssistant || source.qualified?.eligibility == ConversationSourceEligibility.roleplay ||
+      final excluded = !message.isAssistant || source.qualified?.reason=='qq_reference_assistant' || source.qualified?.eligibility == ConversationSourceEligibility.roleplay ||
           (cursor != null && (cursor.legacyCovers(source) ||
             // Legacy same-millisecond order cannot become reliable by waiting.
             // Its real qualification writers requeue it if the inputs change.

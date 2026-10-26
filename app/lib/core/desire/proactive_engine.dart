@@ -1,3 +1,4 @@
+import '../../integrations/qq_private/qq_share_store.dart';
 import '../ai/first_channel_model.dart';
 import '../storage/pending_media_owner.dart';
 import '../agent/turn_execution_contract.dart';
@@ -708,6 +709,10 @@ class ProactiveEngine {
         unifiedCandidates.add(DesireIntent(drive: DriveKey.curiosity, score: .56,
           reason: '有一件已检查完成的私存小作品，可以考虑是否分享', wantAction: 'share_thought',
           reasonSource: 'creative_share:${work['id']}'));
+      }
+      for(final share in await QqShareStore(db).candidates(evaluationStartedAt)) {
+        unifiedCandidates.add(DesireIntent(drive:DriveKey.curiosity,score:.54,reason:'有一段带来源的群聊见闻可以自然向本人分享',
+          wantAction:'share_thought',reasonSource:'qq_group_share:${share['id']}'));
       }
       final liveWishes = await WishStore(db).load();
       for (final wish in liveWishes.where((w) => w.mayContact(evaluationStartedAt))) {
@@ -1532,6 +1537,9 @@ class ProactiveEngine {
     if (selectedReflectionId.isNotEmpty && reflectionInvitation == null) {
       return const ProactiveDecision(sent: false, reason: '深层议题已搁置或仍在冷却');
     }
+    final selectedQqId=intent.reasonSource.startsWith('qq_group_share:')?intent.reasonSource.substring('qq_group_share:'.length):'';
+    final qqShare=selectedQqId.isEmpty?null:await QqShareStore(db).claim(selectedQqId,'app',evaluationStartedAt,fence:evaluationFence);
+    if(selectedQqId.isNotEmpty && qqShare==null) return const ProactiveDecision(sent:false,reason:'群聊分享来源或入口已变化');
     final selectedCreativeId = intent.reasonSource.startsWith('creative_share:')
         ? intent.reasonSource.substring('creative_share:'.length) : '';
     final creativeShare = selectedCreativeId.isEmpty ? null
@@ -1590,6 +1598,7 @@ class ProactiveEngine {
         '沿用已解答状态；没有相关新信息就不要再次追问。可以回味经历，或表达真正不同的新疑问。'});
     }
     if (creativeShare != null) context.add({'role': 'system', 'content': creativeShare.prompt});
+    if(qqShare!=null) context.add({'role':'system','content':qqShare.prompt});
     if (reflectionInvitation != null) {
       context.add({'role': 'system', 'content': reflectionInvitation.invitation});
     }
@@ -2410,6 +2419,8 @@ ${PromptBuilder.visibleChineseGenerationReminder(proactive: true, ordinaryAction
       cedarDeliveries: cedarDeliveries.verified,
       publicWebSources: promptBuild.publicWebSources,
       backgroundRecall: promptBuild.backgroundRecall,
+      qqEvidence:promptBuild.qqEvidence??qqShare?.evidence,
+      qqShare:qqShare,
       expectedPublicWebShare: promptBuild.expectedPublicWebShare,
       reflectionInvitation: reflectionInvitation,
       creativeShare: creativeShare,
@@ -2466,7 +2477,7 @@ ${PromptBuilder.visibleChineseGenerationReminder(proactive: true, ordinaryAction
         messageId: message.id,
       );
     }
-    await db.markRecentlyInjectedMemoriesExpressed(
+    if(qqShare==null) await db.markRecentlyInjectedMemoriesExpressed(
       message.content,
       now: message.createdAt,
     );
@@ -2483,14 +2494,14 @@ ${PromptBuilder.visibleChineseGenerationReminder(proactive: true, ordinaryAction
     // Sending the message itself releases some tension, but user response is
     // what can truly settle the originating thought later.
     final fatigueBeforeSend = snapshot.drives[DriveKey.fatigue] ?? 0.0;
-    final fatigueCost = await desireEngine.satisfyIntent(
+    final fatigueCost = qqShare!=null?0.0:await desireEngine.satisfyIntent(
       intent,
       intensity: 0.55,
       now: DateTime.now(),
       outboundEffort: true,
     );
     try {
-      await FatigueAffectController(db).recordAutonomousExertion(
+      if(qqShare==null) await FatigueAffectController(db).recordAutonomousExertion(
         bodyFatigue: fatigueBeforeSend,
         source: isCedarGameShare ? 'cedar_game_share' : 'proactive_message',
         now: message.createdAt,

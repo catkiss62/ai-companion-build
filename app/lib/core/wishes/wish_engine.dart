@@ -251,7 +251,7 @@ expressed=true 仅 assistant_text 确实已经向用户说出了这一具体愿�
       limit: wishes.isEmpty ? 64 : 256,
       notBefore: now.subtract(const Duration(days: 14)), notAfter: now)) {
       final m = material.message, source = material.source;
-      if (!source.isOrdinary || source.stamp.ingestSeq <= 0) continue;
+      if (!source.mayGrow || source.stamp.ingestSeq <= 0) continue;
       if (m.content.trim().isNotEmpty && (m.isUser || m.isAssistant)) {
         add(WishEvidence(id: 'chat:${m.id}', kind: m.isUser ? 'user_text' : 'assistant_text',
           text: clip(m.content, 650), at: m.createdAt), source.toJson(), source.matches);

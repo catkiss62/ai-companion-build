@@ -39,6 +39,8 @@ jobs:
           test/qq_private_v042135_test.dart
           test/qq_memory_foundation_v042136_test.dart
           test/qq_reply_channel_v042136_test.dart
+          test/qq_group_runtime_v042137_test.dart
+          test/qq_media_share_v042137_test.dart
           test/stability_repair_v042134_test.dart
           test/natural_chat_refresh_v042134_test.dart
           test/immersive_room_header_v042134_test.dart

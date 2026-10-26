@@ -89,7 +89,7 @@ current_self_understanding仅供参考她目前的理解，不是新的事件或
     for (final material in await ConversationSourceStore.recentMaterials(txn,
       limit: 40, notBefore: now.subtract(const Duration(days: 14)), notAfter: now)) {
       final m = material.message, source = material.source;
-      if (!source.isOrdinary || source.stamp.ingestSeq <= 0 ||
+      if (!source.mayGrow || source.stamp.ingestSeq <= 0 ||
           (!m.isUser && !m.isAssistant) || m.content.trim().isEmpty ||
           m.createdAt.millisecondsSinceEpoch <= reset) continue;
       sources.add({'id': 'chat:${m.id}', 'kind': m.isUser ? 'user_text' : 'assistant_text',
@@ -132,7 +132,7 @@ current_self_understanding仅供参考她目前的理解，不是新的事件或
     final qualified = <String, QualifiedConversationSource>{};
     for (final id in originals.keys.where((id) => id.startsWith('chat:'))) {
       final material = await ConversationSourceStore.captureMaterial(txn, id.substring(5));
-      if (material != null && material.source.isOrdinary && material.source.stamp.ingestSeq > 0) {
+      if (material != null && material.source.mayGrow && material.source.stamp.ingestSeq > 0) {
         qualified[id] = material.source;
       }
     }

@@ -1,116 +1,57 @@
 import 'dart:async';
-import 'dart:io';
-
-import 'package:crypto/crypto.dart';
 import 'dart:convert';
+import 'dart:io';
+import 'package:crypto/crypto.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter/widgets.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:qq_private_bridge/qq_private_bridge.dart';
-
-import 'core/ai/deepseek_client.dart';
-import 'core/ai/model_profile.dart';
+import 'core/database/app_database.dart';
 import 'core/storage/secure_config.dart';
 import 'integrations/qq_private/qq_private_config.dart';
 import 'integrations/qq_private/qq_readonly_context.dart';
-import 'integrations/qq_private/qq_reply_generator.dart';
+import 'integrations/qq_private/qq_runtime.dart';
+import 'integrations/qq_private/qq_store.dart';
 
 Future<void> runQqPrivateBackground() async {
   WidgetsFlutterBinding.ensureInitialized();
-  const runtime = MethodChannel('ai_companion/qq_private_runtime');
-  final secure = SecureConfig.instance;
-  QqPrivateSession? session;
-  QqGateway? gateway;
-  DeepSeekClient? client;
-  Future<bool> Function()? activeReplyGuard;
-  Object? replyStamp;
-  bool stopped = false;
-  Future<void> status(String kind, String code) async {
-    try { await runtime.invokeMethod<void>('status', {'kind': kind, 'code': code}); } catch (_) {}
+  const native=MethodChannel('ai_companion/qq_private_runtime');
+  QqRuntime? coordinator;QqGateway? gateway;var stopped=false;
+  final ownerToken=QqPrivateConfig.randomId();
+  Future<void> clearOwnedFlag() async {
+    await AppDatabase.instance.setSettingsAtomically({'qq_master_enabled_v2':'0'},expectedSettings:{'qq_master_owner_v2':ownerToken});
   }
-  Future<bool> allowed() async => !stopped &&
-    await runtime.invokeMethod<bool>('enabled') == true &&
-    await QqReadOnlyContext.readMain((context) => context.allowed());
-  runtime.setMethodCallHandler((call) async {
-    if (call.method == 'shutdown') {
-      stopped = true;
-      final stoppedSession = session?.stop();
-      client?.close(); await gateway?.stop(); await stoppedSession;
-    }
+  Future<void> status(String kind,String code) async {
+    try {await native.invokeMethod<void>('status',{'kind':kind,'code':code});} catch(_) {}
+  }
+  Future<bool> allowed() async=>!stopped && await native.invokeMethod<bool>('enabled')==true &&
+    await QqReadOnlyContext.readMain((ctx) async=>await ctx.allowed() && await ctx.setting('qq_master_enabled_v2')=='1');
+  native.setMethodCallHandler((call) async {
+    if(call.method=='shutdown') {stopped=true;await clearOwnedFlag();await coordinator?.stop();await gateway?.stop();}
   });
   try {
-    final config = await QqPrivateConfig.read();
-    if (config.appId.isEmpty || config.secret.isEmpty || config.namespace.isEmpty) throw StateError('config_missing');
-    Future<String?> contextIdentity() async {
-      final current = await QqPrivateConfig.read();
-      final owner = session?.owner ?? config.owner;
-      if (current.namespace != config.namespace || current.appId != config.appId ||
-          current.secret != config.secret || current.owner != owner) return null;
-      final identity = await QqReadOnlyContext.readMain((context) async =>
-        jsonEncode([await context.identity(config.namespace, owner), current.replyChannel]));
-      final after = await QqPrivateConfig.read();
-      return after.namespace == current.namespace && after.owner == owner &&
-        after.appId == current.appId && after.secret == current.secret &&
-        after.replyChannel == current.replyChannel ? identity : null;
-    }
-    final support = await getApplicationSupportDirectory();
-    final namespace = sha256.convert(utf8.encode('${config.appId}:${config.namespace}')).toString();
-    final journal = QqJournal(File('${support.path}/qq_private_v1/$namespace.json'));
-    await journal.open();
-    final api = QqApi(appId: config.appId, secret: config.secret);
-    final modelClient = DeepSeekClient(abortWhen: () async => !await allowed() ||
-      activeReplyGuard != null && !await activeReplyGuard!());
-    client = modelClient;
-    final generator = QqReplyGenerator(client: modelClient, secure: secure,
-      current: () async => await allowed() && activeReplyGuard != null && await activeReplyGuard!(),
-      onStatus: (code) => unawaited(status('task', code)));
-    session = QqPrivateSession(journal: journal, owner: config.owner,
-      pairCode: config.pairCode, pairExpires: DateTime.fromMillisecondsSinceEpoch(config.pairUntil),
-      bindOwner: (owner) => QqPrivateConfig.bind(config.namespace, owner),
-      contextIdentity: contextIdentity, captureReplyStamp: () => replyStamp,
-      historyContextIdentity: QqReadOnlyContext.historyIdentity,
-      replyCurrent: (stamp) => QqReadOnlyContext.readMain((context) => context.matchesStamp(stamp)),
-      allowed: allowed, yieldToChat: () => QqReadOnlyContext.readMain((context) => context.appBusy()),
-      onStatus: (code) => unawaited(status('task', code)), send: api.send,
-      generateWithContext: (text, history, acceptedIdentity) async {
-        if (acceptedIdentity == null || await contextIdentity() != acceptedIdentity) {
-          throw StateError('context_invalidated');
-        }
-        if (!await allowed()) throw StateError('brain_paused');
-        replyStamp = null;
-        final currentConfig = await QqPrivateConfig.read();
-        final materialStamp = <String, Object?>{};
-        final snapshot = await QqReadOnlyContext.readMain((context) async {
-          final primary = (await context.setting('deepseek_model'))?.trim() ?? '';
-          return (prompt: await context.build(text, stamp: materialStamp),
-            identity: jsonEncode([await context.identity(config.namespace, session?.owner ?? config.owner), currentConfig.replyChannel]),
-            model: DeepSeekModelProfile.fromApiName(primary.isNotEmpty && primary != DeepSeekModelProfile.custom.apiName
-              ? primary : await context.setting('model')),
-            firstEffort: await context.setting('deepseek_reasoning_effort') ?? await context.setting('reasoning_effort'),
-            finalEffort: await context.setting('reasoning_effort'));
-        });
-        if (snapshot.identity != acceptedIdentity) throw StateError('context_invalidated');
-        replyStamp = materialStamp;
-        activeReplyGuard = () async => await contextIdentity() == acceptedIdentity &&
-          await QqReadOnlyContext.readMain((context) => context.matchesStamp(materialStamp));
-        try {
-          final channel = currentConfig.replyChannel.isNotEmpty ? currentConfig.replyChannel :
-            (await secure.readChatProvider()).isGeminiRelay ? 'second' : 'first';
-          return await generator.generate(channel: channel, firstModel: snapshot.model,
-            firstEffort: ReasoningEffort.fromApiName(snapshot.firstEffort),
-            secondEffort: ReasoningEffort.fromApiName(snapshot.finalEffort),
-            messages: [{'role': 'system', 'content': snapshot.prompt}, ...history, {'role': 'user', 'content': text}]);
-        } finally { activeReplyGuard = null; }
-      });
-    gateway = QqGateway(api, onMessage: session.accept,
-      onStatus: (code) => unawaited(status('connection', code)));
-    if (stopped) { await gateway.stop(); return; }
-    session.start();
-    await gateway.run();
-  } catch (_) {
-    await status('connection', 'startup_failed');
-    try { await runtime.invokeMethod<void>('failed'); } catch (_) {}
-  } finally {
-    await session?.stop(); client?.close(); await gateway?.stop();
-  }
+    final c=await QqPrivateConfig.read();
+    if(c.appId.isEmpty || c.secret.isEmpty || c.namespace.isEmpty) throw StateError('config_missing');
+    final store=QqStore(AppDatabase.instance);
+    // Open/upgrade through the host before the protocol receives any handle.
+    await store.db.database;
+    if(stopped) return;
+    await store.db.setSettingsAtomically({'qq_master_enabled_v2':'1','qq_master_owner_v2':ownerToken});
+    final api=QqApi(appId:c.appId,secret:c.secret);
+    final runtime=QqRuntime(store:store,api:api,secure:SecureConfig.instance,config:c,allowed:allowed,
+      status:(code)=>unawaited(status('task',code)));
+    coordinator=runtime;
+    final support=await getApplicationSupportDirectory();
+    final namespace=sha256.convert(utf8.encode('${c.appId}:${c.namespace}')).toString();
+    final legacy=QqJournal(File('${support.path}/qq_private_v1/$namespace.json'));
+    try {await legacy.open();await runtime.importLegacy(legacy.rows);} catch(_) {await status('task','legacy_history_failed');}
+    gateway=QqGateway(api,onMessage:runtime.accept,
+      onGroupMessage:(event)=>runtime.accept(event,group:true),
+      onStatus:(code)=>unawaited(status('connection',code)));
+    if(stopped) {await runtime.stop();await gateway.stop();return;}
+    await runtime.start();await gateway.run();
+  } catch(_) {
+    await status('connection','startup_failed');
+    try {await native.invokeMethod<void>('failed');} catch(_) {}
+  } finally {try {await clearOwnedFlag();} catch(_) {} await coordinator?.stop();await gateway?.stop();native.setMethodCallHandler(null);}
 }

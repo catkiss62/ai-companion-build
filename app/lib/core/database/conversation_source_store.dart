@@ -1,4 +1,5 @@
 import 'derived_source_store.dart';
+import 'qq_context_evidence.dart';
 import 'dart:convert';
 
 import 'package:crypto/crypto.dart';
@@ -85,6 +86,7 @@ class QualifiedConversationSource {
   final String eligibilityToken, reason;
   final String? userMessageId, assistantMessageId;
   bool get isOrdinary => eligibility == ConversationSourceEligibility.ordinary;
+  bool get mayGrow => isOrdinary && reason!='qq_reference_assistant';
 
   Future<bool> matches(DatabaseExecutor db) async {
     if (!await stamp.matchesCapturedVersion(db)) return false;
@@ -298,6 +300,8 @@ class ConversationSourceStore {
         reason = 'vision_pending';
       }
     }
+    if(eligibility==ConversationSourceEligibility.ordinary && stamp.role=='assistant' &&
+        await QqContextEvidence.usedBy(db,stamp.id,stamp.revision)) reason='qq_reference_assistant';
     Object? provenance(Map<String, Object?>? m) => m == null ? null : [
       m['id'], m['role'], m['is_proactive'], _json(m['worldbook_context_json']),
       m['source_revision'] ?? 0,

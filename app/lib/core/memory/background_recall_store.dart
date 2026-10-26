@@ -76,7 +76,7 @@ class BackgroundRecallStore {
     final result = <QualifiedConversationSource>[];
     for (final id in ids) {
       final source = await ConversationSourceStore.qualifyMessage(txn, id);
-      if (source == null || !source.isOrdinary) return [];
+      if (source == null || !source.mayGrow) return [];
       if (item.sourceUserMessageId.isNotEmpty && item.sourceAssistantMessageId.isNotEmpty &&
           (source.userMessageId != item.sourceUserMessageId ||
            source.assistantMessageId != item.sourceAssistantMessageId)) return [];

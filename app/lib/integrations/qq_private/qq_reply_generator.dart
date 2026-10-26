@@ -21,7 +21,7 @@ class QqReplyGenerator {
 
   Future<String> generate({required String channel, required DeepSeekModelProfile firstModel,
     required ReasoningEffort firstEffort, required ReasoningEffort secondEffort,
-    required List<Map<String, Object?>> messages}) async {
+    required List<Map<String, Object?>> messages,String usageLane='qq_private_reply'}) async {
     Future<String> attempt(bool second) async {
       if (!await current()) throw StateError('context_invalidated');
       final key = second ? await secure.readAiWangYouApiKey() : await secure.readApiKey();
@@ -43,7 +43,7 @@ class QqReplyGenerator {
           requestProvider: second ? ChatApiProvider.aiWangYouGemini : ChatApiProvider.deepSeek,
           modelName: modelName, messages: messages, maxTokens: 6000,
           cancellationToken: cancellation,
-          requestTimeout: timeout, usageLane: 'qq_private_reply')) {
+          requestTimeout: timeout, usageLane: usageLane)) {
           text.write(delta.content);
           if (delta.finishReason != null) finish = delta.finishReason;
           if (text.length > 14000) throw StateError('reply_too_long');

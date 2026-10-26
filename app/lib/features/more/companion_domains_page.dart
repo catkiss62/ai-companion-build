@@ -6,6 +6,7 @@ import '../relationship/relationship_page.dart';
 import '../self/personality_appearance_page.dart';
 import '../settings/rule_layers_page.dart';
 import '../settings/cedar_toy_settings_page.dart';
+import '../settings/qq_private_settings_page.dart';
 
 class CompanionDomainPage extends StatelessWidget {
   const CompanionDomainPage({super.key});
@@ -78,6 +79,8 @@ class CapabilitiesDomainPage extends StatelessWidget {
             subtitle: '连接小机、测试游戏列表并管理绑定码',
             onTap: () => _push(context, const CedarToySettingsPage()),
           ),
+          _DomainEntry(icon:Icons.forum_outlined,title:'QQ 接入',subtitle:'独立连接、回复模型、群聊与档案；可在此关闭整个QQ接入',
+            onTap:()=>_push(context,const QqPrivateSettingsPage())),
         ],
       );
 }

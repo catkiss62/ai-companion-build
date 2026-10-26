@@ -10,6 +10,8 @@
 - 最新测试包为v0.42.136+380，运行源码ae561faf2ce8084baa519336c96894438c73f32a；完整CI40230361074通过154源码门、Kotlin、2736全量Flutter、170恢复与Android15原生54项，专项40230361080通过1177项。原签名APK已取回及校验；见[本阶段交付](app/docs/QQ_MEMORY_IMPLEMENTATION_2026-10-26.md)。A0 R1–R5与QQ独立通道选择已完成；QQ仍为本人纯文字只读，私人记忆写回/群聊/媒体后续。文档和传输提交不能替代APK源SHA，真实手机及腾讯权限待验。
 - 本轮允许在指定开发分支提交代码、测试和文档；未授权合并 `main` 或正式发布。
 
+当前实施：v0.42.137+381 / schema62 群聊、QQ档案与来源笔记、第一通道小卡、识图/表情包及本人分享候选；[本轮记录](app/docs/QQ_GROUP_IMPLEMENTATION_2026-10-26.md)。当前仅完成代码/本地预检，尚待新CI和APK，不用+380证据替代。用户已授权复查后推送/构建，七类大检查继续后移。
+
 ## 建议阅读顺序
 
 1. [当前总账 v3](app/docs/ledger/AI_Companion_总账_v3.md) 的顶部维护重点、收尾任务入口及接班快照，确认最新交付与待办。当前执行清单见[收尾修补与七类复查计划](app/docs/STABILITY_CLOSEOUT_PLAN_2026-10-25.md)。
@@ -25,7 +27,7 @@
 | --- | --- |
 | 梦境、夜间整理、自我理解 / Dream | `app/lib/core/self/dream_engine.dart`、`dream_contract.dart`、`dream_material.dart`、`dream_store.dart`、`dream_review_diagnostic.dart`（后四个同目录） |
 | 普通聊天、生成恢复 / Chat and recovery | `app/lib/features/chat/chat_controller.dart`；`app/lib/core/ai/durable_generation_runner.dart`、`durable_generation_recovery.dart` |
-| QQ本人私聊、独立接入 / QQ private | `app/packages/qq_private_bridge/`（独立Dart子项目）；`app/lib/integrations/qq_private/`（宿主只读适配）；`app/lib/qq_private_main.dart`；`app/android/app/src/main/kotlin/com/aicompanion/localfirst/qq/QqPrivateService.kt`；`app/lib/features/settings/qq_private_settings_page.dart` |
+| QQ本人私聊、独立接入 / QQ private | `app/packages/qq_private_bridge/`（独立Dart子项目）；`app/lib/integrations/qq_private/`（宿主档案、权限与模型适配）；`app/lib/qq_private_main.dart`；`app/android/app/src/main/kotlin/com/aicompanion/localfirst/qq/QqPrivateService.kt`；`app/lib/features/settings/qq_private_settings_page.dart` |
 | 模型、思考力度、凭据 / Model configuration | `app/lib/features/settings/settings_category_pages.dart`；`app/lib/core/ai/first_channel_model.dart`；`app/lib/core/storage/secure_config.dart` |
 | Agent 工具、执行记录、目标核验 | `app/lib/core/agent/agent_tool_runner.dart`、`turn_execution_store.dart`、`turn_goal_verification.dart` |
 | 游戏厅、自主陪玩、定时游戏 / Cedar arcade | `app/lib/core/mcp/cedar_toy_activity.dart`、`cedar_toy_autonomy_engine.dart`、`cedar_timed_play_task.dart`；继续追同目录的协议与核验文件 |

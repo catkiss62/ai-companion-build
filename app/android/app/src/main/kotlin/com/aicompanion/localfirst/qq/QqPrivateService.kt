@@ -31,7 +31,7 @@ class QqPrivateService : Service() {
         try {
             if (Build.VERSION.SDK_INT >= 26) {
                 getSystemService(NotificationManager::class.java).createNotificationChannel(
-                    NotificationChannel(CHANNEL, "QQ 私聊连接", NotificationManager.IMPORTANCE_LOW)
+                    NotificationChannel(CHANNEL, "QQ 陪伴连接", NotificationManager.IMPORTANCE_LOW)
                 )
             }
             val open = PendingIntent.getActivity(this, 0, Intent(this, MainActivity::class.java),
@@ -39,8 +39,8 @@ class QqPrivateService : Service() {
             val notification = (if (Build.VERSION.SDK_INT >= 26) Notification.Builder(this, CHANNEL)
                 else Notification.Builder(this))
                 .setSmallIcon(R.drawable.companion_launcher_icon)
-                .setContentTitle("Little Whale · QQ 私聊")
-                .setContentText("独立连接已开启，可在 App 设置中关闭")
+                .setContentTitle("Little Whale · QQ 连接")
+                .setContentText("独立连接已开启，可在 App 能力中关闭")
                 .setContentIntent(open).setOngoing(true).build()
             if (Build.VERSION.SDK_INT >= 34) startForeground(ID, notification, ServiceInfo.FOREGROUND_SERVICE_TYPE_SPECIAL_USE)
             else startForeground(ID, notification)

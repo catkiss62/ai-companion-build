@@ -1,3 +1,4 @@
+import '../database/qq_context_evidence.dart';
 import '../models/chat_message.dart';
 import '../database/app_database.dart';
 import '../models/memory_item.dart';
@@ -81,6 +82,7 @@ class MemoryBrain {
         ? const <UnfinishedThread>[]
         : await db.relevantActiveUnfinishedThreads(query, limit: 3);
 
+    final qq=retrievalMode=='proactive'?null:await (await db.database).transaction((txn)=>QqContextEvidence.read(txn,query));
     return MemoryContext(
       stableUser: stableUser,
       aiSelf: aiSelf,
@@ -91,6 +93,7 @@ class MemoryBrain {
       summaries: summaries,
       threads: threads,
       experienceSources: experienceSources,
+      qqContext:qq?.text??'',qqEvidence:qq?.evidence,
     );
   }
 
@@ -154,6 +157,7 @@ class MemoryBrain {
       }
     }
 
+    if(context.qqContext.isNotEmpty) out.writeln(context.qqContext);
     if (out.length == 0) {
       return '本地长期记忆：本轮没有通过直接相关准入的长期条目。';
     }
