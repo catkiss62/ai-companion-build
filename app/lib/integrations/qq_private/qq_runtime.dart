@@ -4,6 +4,8 @@ import 'package:qq_private_bridge/qq_private_bridge.dart';
 import '../../core/ai/chat_api_provider.dart';
 import '../../core/ai/deepseek_client.dart';
 import '../../core/ai/first_channel_model.dart';
+import '../../core/ai/generation_cancellation.dart';
+import '../../core/ai/jev_decision_gateway.dart';
 import '../../core/ai/model_profile.dart';
 import '../../core/database/brain_work_fence.dart';
 import '../../core/desire/daily_wake_store.dart';
@@ -11,7 +13,9 @@ import '../../core/stickers/sticker_expression_service.dart';
 import '../../core/stickers/sticker_reply_choice.dart';
 import '../../core/storage/secure_config.dart';
 import 'qq_archive_reader.dart';
+import 'qq_display_names.dart';
 import 'qq_group_judge.dart';
+import 'qq_group_participation.dart';
 import 'qq_group_binding.dart';
 import 'qq_options.dart';
 import 'qq_private_config.dart';
@@ -28,11 +32,13 @@ class QqRuntime {
   QqRuntime({required this.store,required this.api,required this.secure,required this.config,
     required this.allowed,required this.status,DateTime Function()? now,
     Future<QqPrivateConfig> Function()? configReader,Future<QqOptions> Function()? optionsReader,
-    DeepSeekClient Function(Future<bool> Function())? clientFactory,QqVision? vision,QqStickers? stickerService,this.privatePrompt,this.privateCurrent})
+    DeepSeekClient Function(Future<bool> Function())? clientFactory,QqVision? vision,QqStickers? stickerService,
+    JevDecisionGateway? groupDecisions,this.privatePrompt,this.privateCurrent})
     :now=now??DateTime.now,configReader=configReader??QqPrivateConfig.read,
      optionsReader=optionsReader??QqOptions.read,
      clientFactory=clientFactory??((abort)=>DeepSeekClient(abortWhen:abort)),vision=vision??QqVision(secure),
-     stickers=stickerService??QqStickers(store.db);
+     stickers=stickerService??QqStickers(store.db),groupDecisions=groupDecisions??JevDecisionGateway(
+       enabledReader:secure.readJevEnabled,keyReader:secure.readOpenRouterApiKey);
   final QqStore store;final QqApi api;final SecureConfig secure;final QqPrivateConfig config;
   final Future<bool> Function() allowed;
   final void Function(String) status;
@@ -41,6 +47,7 @@ class QqRuntime {
   final Future<QqOptions> Function() optionsReader;
   final DeepSeekClient Function(Future<bool> Function()) clientFactory;
   final QqVision vision;final QqStickers stickers;
+  final JevDecisionGateway groupDecisions;
   final Future<String> Function(String,Map<String,Object?>,String,int)? privatePrompt;
   final Future<bool> Function(Object?)? privateCurrent;
   final _timers=<String,Timer>{},_summaryTimers=<String,Timer>{};
@@ -48,6 +55,7 @@ class QqRuntime {
   final _enqueued=<String>{};final _imageUrls=<int,List<String>>{};
   Future<void> _acceptTail=Future.value(),_workTail=Future.value();
   DeepSeekClient? _activeClient;bool _stopped=false;
+  GenerationCancellationToken? _activeDecision;
   static String scope(QqPrivateConfig c)=>QqStore.hash([c.appId,c.namespace,c.owner]);
   static String policy(QqPrivateConfig c,QqOptions o)=>QqStore.hash([c.appId,c.namespace,c.owner,c.replyChannel,o.toJson()]);
   bool _sameDevice(QqPrivateConfig c)=>c.appId==config.appId && c.secret==config.secret && c.namespace==config.namespace;
@@ -141,6 +149,10 @@ class QqRuntime {
       observedAt:at.millisecondsSinceEpoch,receivedAt:now().millisecondsSinceEpoch,owner:group?o.ownerMembers[target]==sender:true,
       mentioned:mentioned,replyTo:QqArchiveReader.bound(quote,1024),images:urls.length,policy:policy(c,o));
     if(seq==null) return; // Platform duplicate is not a new message.
+    // Optional display labels cannot recognize an owner or block reception.
+    if(group && author['username'] is String) {
+      try {await store.write(fence,(txn)=>QqDisplayNames.write(txn,scope(c),group:target,member:sender,nickname:author['username'] as String));} catch(_) {}
+    }
     _imageUrls.putIfAbsent(seq,()=>urls); // URLs are volatile; never enter snapshots or prompts.
     final cid=QqStore.conversationId(scope(c),group?'group':'private',target);
     await _schedule(cid);
@@ -158,7 +170,9 @@ class QqRuntime {
       lastAt:DateTime.fromMillisecondsSinceEpoch(pending.last['received_at'] as int),now:now(),
       mentioned:pending.any((r)=>r['mentioned']==1));
     if(delay==null) return;
-    _timers[cid]=Timer(delay,()=>_enqueue(cid));
+    final sinceReply=now().millisecondsSinceEpoch-(c['last_reply_at'] as int);
+    final minimum=c['kind']=='group' && sinceReply>=0 && sinceReply<2000?Duration(milliseconds:2000-sinceReply):Duration.zero;
+    _timers[cid]=Timer(delay>minimum?delay:minimum,()=>_enqueue(cid));
   }
   void _enqueue(String cid) {
     if(_stopped || !_enqueued.add(cid)) return;
@@ -197,12 +211,8 @@ class QqRuntime {
       final mentioned=b.rows.any((r)=>r['mentioned']==1);
       if(b.group && (rest || !o.groups.contains(b.target))) {await store.mark(b,'watching');status(rest?'resting':'watching');return;}
       if(b.group) {
-        final projection=await driveProjection();
-        if(!mentioned && (projection['fatigue']??0)>=85) {await store.mark(b,'watching');status('resting');return;}
-        final last=b.conversation['last_reply_at'] as int;
-        final cooldown=mentioned?5000:90000;
         final count=await store.groupRepliesSince(now().subtract(const Duration(hours:1)).millisecondsSinceEpoch);
-        if(now().millisecondsSinceEpoch-last<cooldown || count>=(mentioned?120:30)) {await store.mark(b,'watching');status('watching');return;}
+        if(count>=120) {await store.mark(b,'rate_limited');status('group_rate_limited');return;}
       }
       final model=await FirstChannelModel.read(store.db);
       var viewed=0;
@@ -223,17 +233,28 @@ class QqRuntime {
           }
         }
       }
-      final reader=QqArchiveReader(await store.db.database);final judge=QqGroupJudge(client,secure);
+      final reader=QqArchiveReader(await store.db.database);final judge=QqGroupJudge(client,secure,decisions:groupDecisions);
       final reset=int.tryParse(fence.identity['conversation_context_reset_at']??'')??0;
       if(b.group) {
         final smallStamp=<Map<String,Object?>>[];
         final recent=await reader.groupContext(cid,through:b.through,stamp:smallStamp,limit:8,includeNotes:false,maxChars:6000,resetAt:reset);
         qqStamp=smallStamp;
         status('checking_group');
-        String decision;
+        String decision;final cancellation=GenerationCancellationToken();_activeDecision=cancellation;
         try {decision=await judge.decide(model:model,card:'${QqArchiveReader.bound(o.core,1400)}\nApp只读状态：${jsonEncode(await driveProjection())}\n她上次参与：${b.conversation['last_reply_at']}\n现在：${now().toIso8601String()}',
-          messages:recent,mentioned:mentioned,current:current);} catch(_) {if(!await current()) rethrow;decision=mentioned?'uncertain':'watch';}
+          messages:recent,mentioned:mentioned,current:current,cancellationToken:cancellation);
+        } catch(_) {if(!await current()) rethrow;decision=mentioned?'uncertain':'watch';}
+        finally {cancellation.cancel();if(identical(_activeDecision,cancellation)) _activeDecision=null;}
         if(decision=='watch') {await store.mark(b,'watching');status('watching');return;}
+        // Semantic attention is decided BEFORE ordinary participation limits.
+        // A real exchange can continue without repeated @ or a 90-second gap.
+        if(!QqGroupParticipation.addressed(decision,mentioned:mentioned)) {
+          final count=await store.groupRepliesSince(now().subtract(const Duration(hours:1)).millisecondsSinceEpoch);
+          final sinceReply=now().millisecondsSinceEpoch-(b.conversation['last_reply_at'] as int);
+          if(sinceReply>=0 && sinceReply<90000) {await store.mark(b,'cooldown');status('group_cooldown');return;}
+          if(count>=30) {await store.mark(b,'rate_limited');status('group_rate_limited');return;}
+          if(((await driveProjection())['fatigue']??0)>=85) {await store.mark(b,'low_energy');status('group_low_energy');return;}
+        }
       }
       String prompt;String data;
       if(b.group) {
@@ -409,7 +430,7 @@ class QqRuntime {
   }
   Future<void> stop() async {
     _stopped=true;for(final t in [..._timers.values,..._summaryTimers.values]) {t.cancel();}
-    _timers.clear();_summaryTimers.clear();_imageUrls.clear();_activeClient?.close();vision.close();
+    _timers.clear();_summaryTimers.clear();_imageUrls.clear();_activeDecision?.cancel();_activeClient?.close();vision.close();
     await _acceptTail;
     try {await _workTail.timeout(const Duration(seconds:2));} catch(_) {}
   }

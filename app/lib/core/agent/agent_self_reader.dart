@@ -107,7 +107,7 @@ class AgentSelfReader {
   // Historical validator token: v0.42.5+249
   // Historical validator token: v0.42.6+250
   // Historical validator token: buildLabel = 'v0.42.13+257'
-  static const buildLabel = 'v0.42.137+381';
+  static const buildLabel = 'v0.42.138+382';
 
   static const systemFacts = <AgentSystemFact>[
     AgentSystemFact(id:'room_history',title:'房间历史回看',status:'implemented_bounded',

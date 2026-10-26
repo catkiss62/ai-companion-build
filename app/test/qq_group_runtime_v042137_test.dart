@@ -12,6 +12,8 @@ import 'package:ai_companion_localfirst/core/stickers/sticker_expression_service
 import 'package:ai_companion_localfirst/core/stickers/sticker_pack.dart';
 import 'package:ai_companion_localfirst/integrations/qq_private/qq_stickers.dart';
 import 'package:ai_companion_localfirst/core/ai/deepseek_client.dart';
+import 'package:ai_companion_localfirst/core/ai/jev_decision_gateway.dart';
+import 'package:ai_companion_localfirst/integrations/qq_private/qq_display_names.dart';
 import 'package:ai_companion_localfirst/core/database/app_database.dart';
 import 'package:ai_companion_localfirst/core/database/qq_context_evidence.dart';
 import 'package:ai_companion_localfirst/core/database/conversation_source_store.dart';
@@ -74,10 +76,10 @@ void main(){
   TestWidgetsFlutterBinding.ensureInitialized();sqfliteFfiInit();
   late AppDatabase db;late QqStore store;late _Secure secure;late _Api api;late _Vision vision;
   late QqPrivateConfig config;late QqOptions options;late QqRuntime runtime;late DateTime clock;
-  late List<http.Request> requests;late List<String> statuses;
+  late List<http.Request> requests;late List<String> statuses;late List<http.Request> jevRequests;
   late Future<http.Response> Function(http.Request,Map) handler;var enabled=true;
-  QqRuntime create({QqStickers? stickerService})=>QqRuntime(store:store,api:api,secure:secure,config:config,allowed:()async=>enabled,
-    now:()=>clock,configReader:()async=>config,optionsReader:()async=>options,status:statuses.add,vision:vision,stickerService:stickerService,
+  QqRuntime create({QqStickers? stickerService,JevDecisionGateway? decisions})=>QqRuntime(store:store,api:api,secure:secure,config:config,allowed:()async=>enabled,
+    now:()=>clock,configReader:()async=>config,optionsReader:()async=>options,status:statuses.add,vision:vision,stickerService:stickerService,groupDecisions:decisions,
     privatePrompt:(query,stamp,scope,through)async=>QqReadOnlyContext(await db.database).build(query,stamp:stamp,qqScope:scope,through:through,media:true),
     privateCurrent:(stamp)async=>QqReadOnlyContext(await db.database).matchesStamp(stamp),
     clientFactory:(abort)=>DeepSeekClient(abortWhen:abort,
@@ -93,7 +95,7 @@ void main(){
   setUp(()async{
     FlutterSecureStorage.setMockInitialValues({});
     db=await AppDatabase.createForTesting(databaseFactoryFfi);store=QqStore(db);secure=_Secure();api=_Api();vision=_Vision(secure);
-    clock=DateTime(2026,10,26,12);requests=[];statuses=[];enabled=true;
+    clock=DateTime(2026,10,26,12);requests=[];statuses=[];jevRequests=[];enabled=true;
     config=const QqPrivateConfig(appId:'12345',secret:'fixture-not-a-secret',owner:'owner',namespace:'fixture-namespace',replyChannel:'first');
     options=const QqOptions(groups:{'group-a','group-b'},publicMemory:'公开：小鲸鱼喜欢有趣的群聊');
     await db.ensureStateLineageId();
@@ -107,10 +109,67 @@ void main(){
   test('batch policy uses count OR quiet OR max wait; no pending input means no timer',(){
     const p=QqGroupBatch();final t=DateTime(2026,1,1);
     expect(p.delay(pendingCount:0,firstAt:t,lastAt:t,now:t),isNull);
-    expect(p.delay(pendingCount:1,firstAt:t,lastAt:t,now:t),const Duration(seconds:15));
-    expect(p.delay(pendingCount:4,firstAt:t,lastAt:t,now:t),const Duration(seconds:2));
-    expect(p.delay(pendingCount:2,firstAt:t,lastAt:t.add(const Duration(seconds:59)),now:t.add(const Duration(seconds:60))),Duration.zero);
+    expect(p.delay(pendingCount:1,firstAt:t,lastAt:t,now:t),const Duration(milliseconds:1200));
+    expect(p.delay(pendingCount:4,firstAt:t,lastAt:t,now:t),const Duration(milliseconds:800));
+    expect(p.delay(pendingCount:2,firstAt:t,lastAt:t.add(const Duration(milliseconds:2900)),now:t.add(const Duration(seconds:3))),Duration.zero);
     expect(p.delay(pendingCount:1,firstAt:t,lastAt:t,now:t,mentioned:true),const Duration(seconds:1));
+  });
+  JevDecisionGateway gateway(Future<http.Response> Function(http.Request) respond)=>JevDecisionGateway(
+    enabledReader:()async=>true,keyReader:()async=>'fixture-jev',
+    clientFactory:()=>MockClient((r){jevRequests.add(r);return respond(r);}));
+  http.Response jevAnswer(Map<String,double> probabilities,{String choice='watch'})=>http.Response(jsonEncode({
+    'answers':{'participation':{'type':'choice','choice':choice,'confidence':probabilities[choice]??0,
+      'probabilities':probabilities}},'usage':{'input_tokens':500,'output_tokens':0,'cost':0.000021}}),200,
+    headers:{'content-type':'application/json; charset=utf-8'});
+  Future<void> useJev(JevDecisionGateway decisions)async{
+    await runtime.stop();vision=_Vision(secure);runtime=create(decisions:decisions);
+    handler=(r,b)async=>b['stream']==true?_sse('继续聊呀'):_json(b['max_tokens']==60?{'safe':true}:{'participation':'join'});
+  }
+  test('JEV close direct and continuing probabilities never invent low-probability watching',()async{
+    await useJev(gateway((r)async=>jevAnswer({'direct':.49,'continuing':.49,'join':.01,'watch':.01})));
+    await accept('jev-close','刚才你说的那件事呢');await runtime.process(cid());
+    expect(api.sent.single['text'],'继续聊呀');expect(jevRequests.length,1);
+    expect(requests.length,2); // Body + existing address guard, no DeepSeek participation.
+    final payload=jsonDecode(jevRequests.single.body) as Map;
+    expect(payload['model'],'typesafe/jev-1.13');expect((payload['questions'] as Map).length,1);
+    expect(jsonEncode(payload['state']),contains('刚才你说的那件事呢'));
+  });
+  test('JEV active conversation continues inside the ordinary 90-second cooldown without mentions',()async{
+    await useJev(gateway((r)async=>jevAnswer({'direct':.02,'continuing':.96,'join':.01,'watch':.01})));
+    await accept('active-1','你觉得呢');await runtime.process(cid());
+    clock=clock.add(const Duration(seconds:3));await accept('active-2','哈哈接着说');await runtime.process(cid());
+    expect(api.sent.length,2);expect(jevRequests.length,2);
+    expect(requests.where((r)=>jsonDecode(r.body)['max_tokens']==100),isEmpty);
+  });
+  test('ordinary JEV joins retain cooldown and consumed input is never reconsidered later',()async{
+    await useJev(gateway((r)async=>jevAnswer({'direct':.01,'continuing':.01,'join':.97,'watch':.01})));
+    await accept('ordinary-1','群友闲聊');await runtime.process(cid());
+    clock=clock.add(const Duration(seconds:3));await accept('ordinary-2','群友继续闲聊');await runtime.process(cid());
+    expect(api.sent.length,1);expect(jevRequests.length,2);expect(statuses,contains('group_cooldown'));
+    clock=clock.add(const Duration(minutes:5));await runtime.process(cid());
+    expect(jevRequests.length,2);expect(api.sent.length,1);expect(await store.pending(cid()),isEmpty);
+  });
+  test('a valid JEV watch performs no body or DeepSeek second vote and survives idle restart',()async{
+    final gate=gateway((r)async=>jevAnswer({'direct':.01,'continuing':.01,'join':.01,'watch':.97}));
+    await useJev(gate);await accept('jev-watch','路过');await runtime.process(cid());
+    expect(jevRequests.length,1);expect(requests,isEmpty);expect(api.sent,isEmpty);
+    clock=clock.add(const Duration(hours:5));await runtime.stop();vision=_Vision(secure);runtime=create(decisions:gate);
+    await runtime.start();await runtime.process(cid());expect(jevRequests.length,1);
+  });
+  test('a JEV transport failure uses one DeepSeek participation fallback',()async{
+    await useJev(gateway((r)async=>http.Response('fixture failure',503)));
+    await accept('jev-fallback','接个梗');await runtime.process(cid());
+    expect(jevRequests.length,1);expect(requests.length,3);expect(api.sent.single['text'],'继续聊呀');
+  });
+  test('input received during JEV waits for a new batch and withdrawn context sends nothing',()async{
+    final entered=Completer<void>(),release=Completer<void>();
+    await useJev(gateway((r)async{entered.complete();await release.future;
+      return jevAnswer({'direct':.97,'continuing':.01,'join':.01,'watch':.01});}));
+    await accept('jev-first','先问你');final work=runtime.process(cid());await entered.future;
+    await accept('jev-second','补充一句');
+    await db.setSetting('conversation_context_reset_at','1234');release.complete();await work;
+    expect(api.sent,isEmpty);expect(requests,isEmpty);expect(jevRequests.length,1);
+    expect((await store.pending(cid())).single['content'],'补充一句');
   });
   test('watch consumes once across empty ticks, five quiet hours and process restart',()async{
     await accept('1','哈哈哈');await runtime.process(cid());expect(requests.length,1);expect(api.sent,isEmpty);
@@ -238,6 +297,21 @@ void main(){
     await accept('pure','群友聊天');await runtime.process(cid());
     expect(await sql.query('desire_state'),before);expect(await sql.query('memory_items'),settingsBefore);
     expect(await sql.query('personality_learning_evidence'),isEmpty);expect(await sql.query('messages'),isEmpty);
+  });
+  test('platform nickname is Chinese display metadata and never grants ownership',()async{
+    final e=event('nickname','你好');(e['author'] as Map)['username']='群友小明';
+    await runtime.accept(e,group:true);
+    final names=await QqDisplayNames.read(await db.database,QqRuntime.scope(config));
+    expect(names.member('group-a','peer'),'群友小明');expect(options.ownerMembers,isEmpty);
+    expect((await store.pending(cid())).single['owner'],0);
+  });
+  test('production owner private reply includes the latest received group context',()async{
+    clock=DateTime.now();await accept('group-for-private','群友刚刚决定周末去看风铃');
+    await runtime.accept(event('private-followup','现在聊什么',group:false,sender:'owner'));
+    await runtime.process(cid('owner',false));
+    expect(api.sent,isNotEmpty);
+    final body=requests.singleWhere((r)=>jsonDecode(r.body)['stream']==true);
+    expect(body.body,contains('风铃'));expect(body.body,contains('GROUP_MEMBER_HISTORY'));
   });
   test('App and owner QQ can read latest group raw before long-memory extraction',()async{
     await accept('fresh','大家约好周六去看紫色珊瑚');

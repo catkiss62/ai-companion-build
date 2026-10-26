@@ -1,7 +1,7 @@
 /// Timers only consume existing pending input. They never manufacture input.
 class QqGroupBatch {
-  const QqGroupBatch({this.count=4,this.quiet=const Duration(seconds:15),
-    this.maxWait=const Duration(seconds:60),this.burstQuiet=const Duration(seconds:2)});
+  const QqGroupBatch({this.count=4,this.quiet=const Duration(milliseconds:1200),
+    this.maxWait=const Duration(seconds:3),this.burstQuiet=const Duration(milliseconds:800)});
   final int count;
   final Duration quiet,maxWait,burstQuiet;
   Duration? delay({required int pendingCount,required DateTime firstAt,

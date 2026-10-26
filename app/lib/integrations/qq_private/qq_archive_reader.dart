@@ -20,6 +20,20 @@ class QqArchiveReader {
       if(images.isNotEmpty)'images':[for(final image in images){'number':image['ordinal'],
         'observation':image['state']=='viewed'?image['description']:image['state']=='failed'?'[图片：识别失败]':'[图片：未查看]'}]});
   }
+  /// Human-readable App view; the separate model projection retains provenance.
+  Future<String> display(Map<String,Object?> row,{required String speaker}) async {
+    final at=DateTime.fromMillisecondsSinceEpoch(row['observed_at'] as int).toLocal();
+    String two(int value)=>value.toString().padLeft(2,'0');
+    final text='${row['content']}'.replaceAllMapped(RegExp(r'<@!?([^>]+)>'),
+      (m)=>m[1]=='all'?'@全体成员':'@群成员');
+    final out=StringBuffer('${at.year}/${two(at.month)}/${two(at.day)} ${two(at.hour)}:${two(at.minute)} · $speaker\n$text');
+    if(row['reply_to'] is String && (row['reply_to'] as String).isNotEmpty) out.write('\n[引用了前面的消息]');
+    final images=await sql.query('qq_images',where:'archive_seq=?',whereArgs:[row['seq']],orderBy:'ordinal');
+    for(final image in images) {
+      out.write('\n[图片] ${image['state']=='viewed'?image['description']:image['state']=='failed'?'识别失败':'未查看'}');
+    }
+    return out.toString();
+  }
   Future<String> groupContext(String cid,{required int through,List<Map<String,Object?>>? stamp,int limit=24,bool includeNotes=true,int maxChars=24000,int resetAt=0}) async {
     final rows=await sql.query('qq_archive',where:'conversation_id = ? AND seq <= ? AND observed_at >= ?',whereArgs:[cid,through,resetAt],orderBy:'seq DESC',limit:limit);
     final out=<String>[];
@@ -81,16 +95,20 @@ class QqArchiveReader {
     final args=<Object?>[resetAt,if(scope!=null)scope,if(through!=null)through];
     final common='a.observed_at >= ? ${scope==null?'':'AND c.scope = ?'} ${through==null?'':'AND a.seq <= ?'}';
     final recentArgs=<Object?>[resetAt>DateTime.now().subtract(const Duration(hours:2)).millisecondsSinceEpoch?resetAt:DateTime.now().subtract(const Duration(hours:2)).millisecondsSinceEpoch,if(scope!=null)scope,if(through!=null)through];
-    final recent=await sql.rawQuery('SELECT a.* FROM qq_archive a JOIN qq_conversations c ON c.id=a.conversation_id '
+    final groupMention=RegExp(r'(群里|群聊|群友|刚才群|在群|QQ群|QQ里的群|群的.*(消息|记录))',caseSensitive:false).hasMatch(query);
+    final privateMention=RegExp(r'(QQ私聊|QQ单聊|私聊记录)',caseSensitive:false).hasMatch(query);
+    final recent=groupMention?<Map<String,Object?>>[]:await sql.rawQuery('SELECT a.* FROM qq_archive a JOIN qq_conversations c ON c.id=a.conversation_id '
       "WHERE $common AND c.kind='private' ORDER BY a.observed_at DESC,a.seq DESC LIMIT 6",recentArgs);
-    final groupMention=RegExp(r'(群里|群聊|群友|刚才群|在群|QQ上)').hasMatch(query);
+    final recentGroups=privateMention?<Map<String,Object?>>[]:await sql.rawQuery(
+      'SELECT a.* FROM qq_archive a JOIN qq_conversations c ON c.id=a.conversation_id '
+      "WHERE $common AND c.kind='group' ORDER BY a.observed_at DESC,a.seq DESC LIMIT 6",recentArgs);
     final related=terms.isEmpty && !groupMention?<Map<String,Object?>>[]:await sql.rawQuery(
-      'SELECT a.* FROM qq_archive a JOIN qq_conversations c ON c.id=a.conversation_id WHERE $common '
+      'SELECT a.* FROM qq_archive a JOIN qq_conversations c ON c.id=a.conversation_id WHERE $common ${groupMention?"AND c.kind='group'":privateMention?"AND c.kind='private'":''} '
       '${groupMention?'':"AND (${List.filled(terms.length,"instr(lower(a.content || ' ' || COALESCE((SELECT group_concat(description,' ') FROM qq_images WHERE archive_seq=a.seq AND state='viewed'),'')), ?) > 0").join(' OR ')})"} '
       'ORDER BY a.observed_at DESC,a.seq DESC LIMIT 12',[...args,if(!groupMention)...terms.map((t)=>t.toLowerCase())]);
-    final rows=<int,Map<String,Object?>>{for(final row in [...recent,...related])row['seq'] as int:row};
+    final rows=<int,Map<String,Object?>>{for(final row in [...recent,...recentGroups,...related])row['seq'] as int:row};
     final notes=await sql.rawQuery('SELECT n.* FROM qq_notes n JOIN qq_conversations c ON c.id=n.conversation_id '
-      "WHERE n.valid=1 ${scope==null?'':'AND c.scope = ?'} ORDER BY n.created_at DESC LIMIT 30",[if(scope!=null)scope]);
+      "WHERE n.valid=1 ${groupMention?"AND c.kind='group'":privateMention?"AND c.kind='private'":''} ${scope==null?'':'AND c.scope = ?'} ORDER BY n.created_at DESC LIMIT 30",[if(scope!=null)scope]);
     final out=<String>[];
     for(final n in notes) {
       if(out.length>=4) break;

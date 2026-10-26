@@ -1,4 +1,7 @@
 import 'package:flutter/material.dart';
+import 'qq_group_identity_page.dart';
+import 'qq_group_name_dialog.dart';
+import '../../integrations/qq_private/qq_display_names.dart';
 import '../../core/database/app_database.dart';
 import '../../integrations/qq_private/qq_archive_reader.dart';
 import '../../integrations/qq_private/qq_group_binding.dart';
@@ -15,15 +18,16 @@ class _QqGroupsPageState extends State<QqGroupsPage> {
   final _core=TextEditingController(),_public=TextEditingController();
   QqOptions _options=const QqOptions();QqPrivateConfig _config=const QqPrivateConfig();
   List<Map<String,Object?>> _groups=[];List<Map<String,dynamic>> _requests=[];
-  bool _loading=true,_busy=false;String _notice='';
+  bool _loading=true,_busy=false;String _notice='';QqDisplayNames _names=QqDisplayNames();
   @override void initState(){super.initState();_load(initial:true);}
   Future<void> _load({bool initial=false}) async {
     try {
       final c=await QqPrivateConfig.read();final o=await QqOptions.read();
       final groups=(await QqStore(AppDatabase.instance).conversations(QqRuntime.scope(c))).where((g)=>g['kind']=='group').toList();
       final requests=await QqGroupBinding.requests(c);
+      final names=await QqDisplayNames.read(await AppDatabase.instance.database,QqRuntime.scope(c));
       if(!mounted) return;
-      setState((){_config=c;_options=o;_groups=groups;_requests=requests;_loading=false;
+      setState((){_config=c;_options=o;_names=names;_groups=groups;_requests=requests;_loading=false;
         if(initial){_core.text=o.core;_public.text=o.publicMemory;}});
     } catch(_){if(mounted) setState((){_loading=false;_notice='读取失败，请稍后刷新。';});}
   }
@@ -47,12 +51,17 @@ class _QqGroupsPageState extends State<QqGroupsPage> {
         const Text('群聊使用同一个小鲸鱼，但只读取本群资料和你在下面明确公开的内容。私人完整记忆不会注入群模型。群内称呼保持中性。'),
         const SizedBox(height:12),
         const Text('先把机器人加入群并 @ 一次，再刷新列表。未开启的群只登记入口，不读私人记忆或调用模型。普通消息旁听还需腾讯平台提供群全量消息权限；仅收到@时无法看到未投递的消息。'),
-        for(final g in _groups) SwitchListTile(contentPadding:EdgeInsets.zero,
-          title:Text('群 ${g['target']}'),subtitle:Text(_options.ownerMembers.containsKey(g['target'])?'已确认你在本群的身份':'尚未关联本人；任何昵称都不自动认主'),
+        for(final g in _groups) Column(children:[SwitchListTile(contentPadding:EdgeInsets.zero,
+          title:Text(_names.group(g['target'] as String)),subtitle:Text('群标识末六位 ${QqDisplayNames.shortId(g['target'] as String)} · ${_options.ownerMembers.containsKey(g['target'])?'已确认你在本群的身份':'尚未关联本人；昵称不自动认主'}'),
           value:_options.groups.contains(g['target']),onChanged:_busy?null:(enabled)=>_run(() async {
             final o=await QqOptions.read();final ids={...o.groups};enabled?ids.add(g['target'] as String):ids.remove(g['target']);await o.copy(groups:ids).save();})),
+          Align(alignment:Alignment.centerRight,child:TextButton(onPressed:_busy?null:()=>_run(() => editQqGroupName(context,_config,g['target'] as String)),child:const Text('群名称 / 备注'))),
+          Align(alignment:Alignment.centerRight,child:TextButton(onPressed:_busy?null:() async {
+            await Navigator.of(context).push(MaterialPageRoute<void>(builder:(_)=>QqGroupIdentityPage(config:_config,group:g['target'] as String)));
+            if(mounted) await _load();
+          },child:const Text('设置本群中的我')))]),
         if(_groups.isEmpty) const Padding(padding:EdgeInsets.symmetric(vertical:12),child:Text('还没有发现群。请先完成私聊绑定，再在群里 @ 机器人。')),
-        const Divider(),const Text('认主：在群里发送 /关联本人，再用已绑定私聊发送机器人给出的确认命令，也可以在此确认。公开申请不会直接获得本人身份。'),
+        const Divider(),const Text('认主可在上方选中自己的发言直接确认，不必公开发口令。也保留群里 /关联本人 → 已绑定私聊确认的方式。昵称和普通QQ号不直接授予本人身份。'),
         for(final r in _requests.where((r)=>r['consumed']!=true)) ListTile(contentPadding:EdgeInsets.zero,
           title:Text('待确认申请 ${r['code']}'),subtitle:Text('群 ${r['group']} · 成员 ${r['member']}'),
           trailing:TextButton(onPressed:_busy?null:()=>_confirm(r),child:const Text('核对并确认'))),
@@ -70,7 +79,7 @@ class _QqGroupsPageState extends State<QqGroupsPage> {
           value:_options.visionFallback,onChanged:_busy?null:(v)=>_run(() async {await (await QqOptions.read()).copy(visionFallback:v).save();})),
         SwitchListTile(contentPadding:EdgeInsets.zero,title:const Text('允许向本人分享群聊见闻'),subtitle:const Text('仅向你分享，仍受睡眠、节奏和防重复控制。'),
           value:_options.ownerShare,onChanged:_busy?null:(v)=>_run(() async {await (await QqOptions.read()).copy(ownerShare:v).save();})),
-        const SizedBox(height:12),const Text('仅群聊有第一通道小卡判断，决定参与后再使用你选择的正文通道；复读、玩梗和纯表情包也可参与。已看过的一批消息不因没有回复而重读。'),
+        const SizedBox(height:12),const Text('群聊优先用JEV快速判断，未启用或请求失败时第一通道兜底。每条新消息可触发，短时连发合并；正在和她聊天时可连续接话，普通加入保持较低频率。复读、玩梗和纯表情包也可参与，旁听过的消息不会反复读取。'),
         const SizedBox(height:12),const Text('夜间沿用共同起床边界：群里仍可接收归档，默认不识图、不主动接话，也不批量补看整夜图片。本人私聊保留回应。QQ不会增加主系统疲劳、压力或互动满足。'),
         if(_notice.isNotEmpty) Padding(padding:const EdgeInsets.only(top:12),child:Text(_notice)),
       ]));
@@ -81,10 +90,11 @@ class QqArchivesPage extends StatefulWidget {
   @override State<QqArchivesPage> createState()=>_QqArchivesPageState();
 }
 class _QqArchivesPageState extends State<QqArchivesPage> {
-  List<Map<String,Object?>>? _rows;String _notice='';
+  List<Map<String,Object?>>? _rows;String _notice='';final _names=<String,QqDisplayNames>{};
   @override void initState(){super.initState();_load();}
   Future<void> _load() async {
     try {final sql=await AppDatabase.instance.database;final rows=await sql.rawQuery('SELECT c.*,COUNT(a.seq) AS messages FROM qq_conversations c LEFT JOIN qq_archive a ON a.conversation_id=c.id GROUP BY c.id ORDER BY MAX(a.observed_at) DESC LIMIT 200');
+      for(final scope in rows.map((r)=>r['scope'] as String).toSet()) {_names[scope]=await QqDisplayNames.read(sql,scope);}
       if(mounted) setState(()=>_rows=rows);
     } catch(_){if(mounted) setState(()=>_notice='档案读取失败。');}
   }
@@ -92,14 +102,19 @@ class _QqArchivesPageState extends State<QqArchivesPage> {
     final sql=await AppDatabase.instance.database;
     final rows=await sql.query('qq_archive',where:'conversation_id=?',whereArgs:[c['id']],orderBy:'seq DESC',limit:100);
     final reader=QqArchiveReader(sql);final texts=<String>[];
-    for(final r in rows.reversed){texts.add(await reader.render(r));}
+    final names=_names[c['scope']]??QqDisplayNames();final unnamed=<String,int>{};
+    for(final r in rows.reversed){
+      final sender=r['sender'] as String;final speaker=r['role']=='assistant'?'小鲸鱼':r['owner']==1?'你':
+        names.member(c['target'] as String,sender)??'群成员${unnamed.putIfAbsent(sender,()=>unnamed.length+1)}';
+      texts.add(await reader.display(r,speaker:speaker));
+    }
     final notes=await sql.query('qq_notes',where:'conversation_id=? AND valid=1',whereArgs:[c['id']],orderBy:'created_at DESC',limit:10);
     if(!mounted) return;
-    await Navigator.of(context).push(MaterialPageRoute<void>(builder:(ctx)=>Scaffold(appBar:AppBar(title:Text(c['kind']=='group'?'群聊原文':'QQ私聊原文')),
+    await Navigator.of(context).push(MaterialPageRoute<void>(builder:(ctx)=>Scaffold(appBar:AppBar(title:Text(c['kind']=='group'?names.group(c['target'] as String):'与你的QQ私聊')),
       body:ListView(padding:const EdgeInsets.all(16),children:[
         const Text('最近100条原文；图片只保留文字观察和状态，不保存临时原图。更早原文仍在档案与备份中。'),
         for(final text in texts) Padding(padding:const EdgeInsets.symmetric(vertical:6),child:SelectableText(text)),
-        if(notes.isNotEmpty) const Divider(),for(final n in notes) Padding(padding:const EdgeInsets.symmetric(vertical:8),child:SelectableText('整理笔记：${n['content']}\n证据：${n['sources']}'))]))));
+        if(notes.isNotEmpty) const Divider(),for(final n in notes) Padding(padding:const EdgeInsets.symmetric(vertical:8),child:SelectableText('整理笔记：${n['content']}'))]))));
   }
   Future<void> _forget(Map<String,Object?> c) async {
     final yes=await showDialog<bool>(context:context,builder:(ctx)=>AlertDialog(title:const Text('删除这份QQ档案？'),
@@ -113,7 +128,7 @@ class _QqArchivesPageState extends State<QqArchivesPage> {
   @override Widget build(BuildContext context)=>Scaffold(appBar:AppBar(title:const Text('QQ 档案'),actions:[IconButton(onPressed:_load,icon:const Icon(Icons.refresh))]),
     body:_rows==null?Center(child:_notice.isEmpty?const CircularProgressIndicator():Text(_notice)):ListView(children:[
       const Padding(padding:EdgeInsets.all(16),child:Text('QQ原文、来源和整理笔记随App存档保存；机器人凭据、群公开授权和临时图片不随档案恢复。')),
-      for(final c in _rows!) ListTile(title:Text('${c['kind']=='group'?'群聊':'本人私聊'} · ${c['target']}'),subtitle:Text('${c['messages']} 条记录'),
+      for(final c in _rows!) ListTile(title:Text(c['kind']=='group'?(_names[c['scope']]??QqDisplayNames()).group(c['target'] as String):'与你的QQ私聊'),subtitle:Text('${c['messages']} 条记录${c['kind']=='group'?' · 群标识末六位 ${QqDisplayNames.shortId(c['target'] as String)}':''}'),
         onTap:()=>_open(c),trailing:IconButton(onPressed:()=>_forget(c),icon:const Icon(Icons.delete_outline))),
       if(_notice.isNotEmpty) Text(_notice)]));
 }
