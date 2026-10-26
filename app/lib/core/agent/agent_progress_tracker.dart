@@ -31,19 +31,19 @@ class AgentProgressTracker {
     }
     final tables=<String>[
       if(id=='rules.read') ...['rule_layers','reference_documents','reference_items'],
-      if(id=='memory.search') ...['memory_items','memory_evidence','unfinished_threads'],
+      if(id=='memory.search') ...['memory_items','memory_evidence','unfinished_threads','qq_archive','qq_images','qq_notes'],
       if(id.startsWith('phone.')) ...['thoughts','public_web_knowledge','companion_browser_visits','memory_items'],
       if(id=='album.search') 'companion_album_candidates',
     ];
     final sql=await db.database;
     final data=<Object?>[
       await sql.query('settings',columns:['key','value'],
-        where:"key IN ('state_generation','context_reset_at','cedar_toy_activity_state_v2','cedar_toy_catalog_updated_at_v1')",orderBy:'key'),
+        where:"key IN ('state_generation','conversation_context_reset_at','context_reset_at','cedar_toy_activity_state_v2','cedar_toy_catalog_updated_at_v1') OR key LIKE 'qq_display_names_v1:%'",orderBy:'key'),
     ];
     for(final table in tables) {
       final columns=(await sql.rawQuery('PRAGMA table_info($table)')).map((r)=>r['name']).toSet();
       final clock=columns.contains('updated_at') ? 'updated_at' : columns.contains('created_at') ? 'created_at' : 'rowid';
-      data.add(await sql.rawQuery('SELECT COUNT(*) AS n, MAX(rowid) AS r, MAX($clock) AS t FROM $table'));
+      data.add(await sql.rawQuery('SELECT COUNT(*) AS n, MAX(rowid) AS r, MAX($clock) AS t ${columns.contains('version')?', SUM(version) AS versions':''} FROM $table'));
     }
     return _digest(jsonEncode(data));
   }
@@ -51,7 +51,7 @@ class AgentProgressTracker {
   void rememberRead(AgentToolCall call, String state, AgentToolResult result) {
     // Original-history reads carry final-transaction source dependencies and
     // are always executed again rather than replaying potentially stale text.
-    if (result.historySources.isEmpty) _reads[_key(call, state)] = result;
+    if (result.historySources.isEmpty && result.qqEvidence==null) _reads[_key(call, state)] = result;
   }
 
   void record(List<AgentToolResult> results) {

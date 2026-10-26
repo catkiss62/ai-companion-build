@@ -107,9 +107,11 @@ class AgentSelfReader {
   // Historical validator token: v0.42.5+249
   // Historical validator token: v0.42.6+250
   // Historical validator token: buildLabel = 'v0.42.13+257'
-  static const buildLabel = 'v0.42.138+382';
+  static const buildLabel = 'v0.42.139+383';
 
   static const systemFacts = <AgentSystemFact>[
+    AgentSystemFact(id:'qq_history',title:'QQ历史档案读取',status:'implemented_bounded',
+      detail:'可用qq_history.search/read按中文群名定位已收到的QQ私聊/群聊档案并分页追读。连接关闭或读档暂停发送后仍可查询历史；未收到的QQ历史不在其中。群成员与本人分开，群名/昵称不认主。当前能力及真实查询结果优先于旧的接口未接通描述；只读取，不发送、不改记忆或欲望。'),
     AgentSystemFact(id:'room_history',title:'房间历史回看',status:'implemented_bounded',
       detail:'模型对谈（含暂离未结束）和已结束沉浸房间可用room_history.search/read查摘要、按需详细整理和分页原文。只有相关问题才读取，未读部分不可补猜。模型对谈观点保留发言者，沉浸剧情保留虚构边界，读取不写公共记忆或成长。'),
     AgentSystemFact(id: 'creative_workspace', title: '小作品与作品集', status: 'implemented',

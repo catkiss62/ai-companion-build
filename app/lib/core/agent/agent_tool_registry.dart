@@ -65,6 +65,16 @@ class AgentToolRegistry {
     userTurnAvailable: true,
     autonomousAvailable: false,
   );
+  static const qqHistorySearch = AgentToolDefinition(
+    id:'qq_history.search',title:'查找QQ档案与群记录',
+    description:'只读查询已归档QQ私聊/群聊目录；按中文群名定位，唯一目标可直接带回近期原文。连接关闭仍可查已有档案，不等于联网读取全部QQ。',
+    risk:AgentToolRisk.readOnly,executable:true,userTurnAvailable:true,autonomousAvailable:false,
+  );
+  static const qqHistoryRead = AgentToolDefinition(
+    id:'qq_history.read',title:'追读QQ档案原文',
+    description:'按QQ目录返回的真实会话ID、消息序号或分页位置追读原文；区分群友与本人，保留来源，不授予发送或认主权限。',
+    risk:AgentToolRisk.readOnly,executable:true,userTurnAvailable:true,autonomousAvailable:false,
+  );
   static const chatHistorySearch = AgentToolDefinition(
     id: 'chat_history.search', title: '查找聊天原文目录',
     description: '按原文关键词、实际发言日期或记忆ID查普通聊天目录，包含没有提炼成记忆的细节。',
@@ -294,6 +304,8 @@ class AgentToolRegistry {
     publicWebDiscovery,
     rulesRead,
     memorySearch,
+    qqHistorySearch,
+    qqHistoryRead,
     chatHistorySearch,
     chatHistoryRead,
     albumSearch,

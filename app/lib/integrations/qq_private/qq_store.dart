@@ -110,14 +110,18 @@ class QqStore {
     await txn.delete('qq_archive',where:'conversation_id=?',whereArgs:[cid]);
     await txn.rawUpdate('UPDATE qq_conversations SET checked_seq=0,summary_seq=0,summary_checked_seq=0,version=version+1 WHERE id=?',[cid]);
   });
-  Future<({List<Map<String,Object?>> rows,AutomaticMemoryPermit permit})?> claimSummary(BrainWorkFence fence,String cid,{required bool idle})=>write(fence,(txn) async {
+  Future<({List<Map<String,Object?>> rows,AutomaticMemoryPermit permit,String input,List<Map<String,Object?>> stamp})?> claimSummary(BrainWorkFence fence,String cid,{required bool idle})=>write(fence,(txn) async {
     final permit=await AutomaticMemoryPermit.capture(txn,'auto_memory');
     if(!permit.enabled) return null;
     final c=(await txn.query('qq_conversations',where:'id=?',whereArgs:[cid],limit:1)).single;
     final rows=await txn.query('qq_archive',where:'conversation_id=? AND seq>?',whereArgs:[cid,c['summary_checked_seq']],orderBy:'seq',limit:20);
     if(rows.isEmpty || !idle && rows.length<20) return null;
-    await txn.update('qq_conversations',{'summary_checked_seq':rows.last['seq']},where:'id=?',whereArgs:[cid]);
-    return (rows:rows,permit:permit);
+    final stamp=<Map<String,Object?>>[];
+    final page=await QqArchiveReader(txn).projectRows(rows,maxChars:27500,stamp:stamp,newestFirst:false);
+    if(page.count==0) return null;
+    final included=rows.take(page.count).toList();
+    await txn.update('qq_conversations',{'summary_checked_seq':included.last['seq']},where:'id=?',whereArgs:[cid]);
+    return (rows:included,permit:permit,input:page.text,stamp:stamp);
   });
   Future<bool> saveNote(BrainWorkFence fence,String cid,List<Map<String,Object?>> rows,List<Map<String,Object?>> stamp,
     AutomaticMemoryPermit permit,String content,String share,int now)=>write(fence,(txn) async {

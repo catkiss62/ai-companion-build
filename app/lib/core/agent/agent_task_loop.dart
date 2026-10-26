@@ -155,12 +155,22 @@ no_result、failed、blocked 不是成功；可以据此改用当前最小工具
       }
     }
     final missingGoals = TurnGoalVerification.missing(goals, results, receipts);
+    final qqResults=results.where((r)=>r.toolId.startsWith('qq_history.')).toList();
+    final pendingQq=<String>{};
+    for(final result in qqResults) {
+      pendingQq.removeAll((result.submittedArguments['qq_resolved_reads'] as List?)?.whereType<String>()??const <String>[]);
+      pendingQq.addAll((result.submittedArguments['qq_pending_reads'] as List?)?.whereType<String>()??const <String>[]);
+    }
+    final qqPending=qqResults.isNotEmpty && (qqResults.last.goalSatisfied==false ||
+      qqResults.any((r)=>r.submittedArguments['qq_complete_requested']==true) && pendingQq.isNotEmpty);
     final state = invalidPlan
         ? AgentTaskVerificationState.invalidPlan
         : budgetExhausted
             ? AgentTaskVerificationState.budgetExhausted
             : missingGoals.isNotEmpty
                 ? succeeded > 0 ? AgentTaskVerificationState.partiallySupported : AgentTaskVerificationState.blocked
+                : qqPending
+                    ? succeeded>0?AgentTaskVerificationState.partiallySupported:AgentTaskVerificationState.noResult
                 : results.isEmpty
                 ? AgentTaskVerificationState.directAnswer
                 : succeeded == results.length

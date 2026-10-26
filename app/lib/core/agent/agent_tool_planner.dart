@@ -1,4 +1,5 @@
 import 'semantic_tool_route.dart';
+import '../../integrations/qq_private/qq_history_catalog.dart';
 import 'dart:convert';
 
 import '../ai/deepseek_client.dart';
@@ -56,6 +57,8 @@ class AgentToolPlanner {
         ),
       ]);
     }
+    if(QqHistoryCatalog.request(text)) return AgentToolPlan(calls:[AgentToolCall(
+      toolId:'qq_history.search',arguments:{'query':text},reasonTag:'qq_history_recall')]);
     final roomHistory=RoomHistoryRequest.parse(text);
     if(roomHistory!=null) return AgentToolPlan(calls:[AgentToolCall(
       toolId:AgentToolRegistry.roomHistoryRead.id,arguments:roomHistory.arguments,
@@ -297,7 +300,7 @@ class AgentToolPlanner {
   /// inherit planning/reporting pressure from a permanent toolbox prompt.
   static AgentToolPlan? routeForTurn(String text, SemanticToolRoute semantic) {
     final local = routeLocally(text);
-    final explicit = local?.calls.any((c)=>c.reasonTag == 'explicit_system_command' ||
+    final explicit = local?.calls.any((c)=>c.reasonTag == 'explicit_system_command' || c.reasonTag=='qq_history_recall' ||
         c.toolId == 'screen_observation.inspect') ?? false;
     if (explicit) return local;
     if (!semantic.available) {
@@ -337,6 +340,7 @@ class AgentToolPlanner {
       toolIds.removeWhere((id)=>AgentToolRegistry.byId(id)?.risk == AgentToolRisk.readOnly);
     }
     toolIds.addAll(semanticToolIds);
+    if(QqHistoryCatalog.request(text)) toolIds.addAll({'qq_history.search','qq_history.read'});
     if (webSearchRequested) toolIds.add(AgentToolRegistry.publicWebSearch.id);
     if (semanticTaskToolIds != null) {
       toolIds..removeAll({'creative_work.stop', 'creative_work.commission'})
@@ -349,7 +353,7 @@ class AgentToolPlanner {
         if (semanticTaskToolIds == null || semanticTaskToolIds.contains('creative_work.commission')) 'creative_work.commission'});
     }
     if (toolIds.contains('public_web.search')) toolIds.add('public_web.read');
-    if (toolIds.contains('memory.search')) toolIds.addAll({'room_history.search','room_history.read','chat_history.search','chat_history.read'});
+    if (toolIds.contains('memory.search')) toolIds.addAll({'room_history.search','room_history.read','chat_history.search','chat_history.read','qq_history.search','qq_history.read'});
     const cedarIds = <String>{
       'cedar_toy.list_games',
       'cedar_toy.get_guide',
@@ -542,6 +546,16 @@ class AgentToolPlanner {
         'type': 'string',
         'description': '可选规则编号、标题或范围。',
       };
+    } else if (tool.id == AgentToolRegistry.qqHistorySearch.id) {
+      properties['query']=const {'type':'string','description':'本轮要查的QQ群名/上下文问题；保留群名，不猜平台ID。'};
+      properties['kind']=const {'type':'string','enum':['all','group','private']};
+      properties['keyword']=const {'type':'string','description':'可选，原文或图片文字观察中的具体短关键词；查旧细节时使用，不填整句问题。'};
+    } else if (tool.id == AgentToolRegistry.qqHistoryRead.id) {
+      properties['conversation_id']=const {'type':'string','description':'QQ目录提供的真实会话ID，不能用群名或QQ号代替。'};
+      properties['before_seq']=const {'type':'integer','minimum':1,'description':'目录返回的next_before_seq，用于继续读取更早原文。'};
+      properties['message_seq']=const {'type':'integer','minimum':1,'description':'原文给出的真实消息seq，用于追读一条长消息。'};
+      properties['char_offset']=const {'type':'integer','minimum':0,'description':'长消息返回的next_char_offset，按原样续读。'};
+      required.add('conversation_id');
     } else if (tool.id == AgentToolRegistry.memorySearch.id) {
       properties['query'] = const <String, Object?>{
         'type': 'string',
@@ -695,6 +709,8 @@ class AgentToolPlanner {
         '不要因为用户引用、复述、评价“搜索/上网”这个词而调用；否定、假设、闲聊和常识回答不调用。',
       'rules.read' =>
         '仅在用户要你真实读取当前规则、人设或提示词时调用；讨论“规则”这个词本身不调用。',
+      'qq_history.search' => '查QQ群聊/私聊档案时使用，群名先定位真实会话；目录未命中不能宣称没能力，歧义须先定位。普通闲聊/功能设计不调用。',
+      'qq_history.read' => '只用目录返回的会话ID追读，核对群名和说话者；按next_before_seq或seq/next_char_offset续读。局部不等于全部，不能借别群内容回答目标群。',
       'memory.search' =>
         '仅在用户要你查找过去对话/本地记忆，或当前回答确实需要核对长期记忆时调用。',
       'chat_history.search' => '仅当前回答确需核对普通聊天历史细节时使用。可从原文关键词、实际日期或memory_id定位，摘要未保留的细节也可查。只返回本页目录，歧义时继续缩小范围；功能讨论不调用。',
@@ -853,6 +869,8 @@ class AgentToolPlanner {
     'public_web.read': 'public_web_read',
     'rules.read': 'rules_read',
     'memory.search': 'memory_search',
+    'qq_history.search':'qq_history_search',
+    'qq_history.read':'qq_history_read',
     'chat_history.search': 'chat_history_search',
     'chat_history.read': 'chat_history_read',
     'album.search': 'album_search',
@@ -881,6 +899,8 @@ class AgentToolPlanner {
     'public_web_read': 'public_web.read',
     'rules_read': 'rules.read',
     'memory_search': 'memory.search',
+    'qq_history_search':'qq_history.search',
+    'qq_history_read':'qq_history.read',
     'chat_history_search': 'chat_history.search',
     'chat_history_read': 'chat_history.read',
     'album_search': 'album.search',
@@ -948,6 +968,7 @@ class AgentToolPlanner {
   static Set<String> _routeToolIds(String rawText) {
     final text = rawText.replaceAll(RegExp(r'\s+'), ' ').trim().toLowerCase();
     if (text.isEmpty) return const <String>{};
+    if(QqHistoryCatalog.request(rawText)) return {'qq_history.search','qq_history.read'};
     if (RoomHistoryRequest.parse(rawText)!=null) return {AgentToolRegistry.roomHistorySearch.id,AgentToolRegistry.roomHistoryRead.id};
     if (PhoneHistoryRequest.parse(rawText) != null && !_isExplicitAlbumImageSend(text)) {
       return {AgentToolRegistry.phoneSearch.id, AgentToolRegistry.phoneRead.id};

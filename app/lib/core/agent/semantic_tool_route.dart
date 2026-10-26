@@ -1,4 +1,5 @@
 import '../ai/jev_decision_gateway.dart';
+import '../../integrations/qq_private/qq_history_catalog.dart';
 import '../database/app_database.dart';
 import '../model_dialogue/model_dialogue_repository.dart';
 import '../model_dialogue/model_dialogue_time.dart';
@@ -15,8 +16,8 @@ class SemanticToolRoute {
   final String kind, roomId, roomKind, view, phoneSection, dateFrom, dateTo;
   final bool available, uncertain, targetUncertain, singleRead, multiStep;
   final Set<String> candidateKinds;
-  static const kinds = {'none','room','phone','web','memory','system','rules','album','device','mixed'};
-  static const readKinds = {'room','phone','web','memory','system','rules','album','device'};
+  static const kinds = {'none','qq','room','phone','web','memory','system','rules','album','device','mixed'};
+  static const readKinds = {'qq','room','phone','web','memory','system','rules','album','device'};
   Map<String, Object?> toJson() => {'kind':kind, 'room_id':roomId,
     'room_kind':roomKind, 'view':view, 'phone_section':phoneSection,
     'available':available, 'uncertain':uncertain, 'target_uncertain':targetUncertain,
@@ -33,10 +34,11 @@ class SemanticToolRoute {
       dateFrom:value['date_from'] as String? ?? '', dateTo:value['date_to'] as String? ?? '');
   }
   static Set<String> idsFor(String kind) => switch (kind) {
+    'qq'=>{'qq_history.search','qq_history.read'},
     'room' => {'room_history.search','room_history.read'},
     'phone' => {'phone.search','phone.read'},
     'web' => {'public_web.search','public_web.read'},
-    'memory' => {'memory.search','room_history.search','room_history.read','chat_history.search','chat_history.read'},
+    'memory' => {'memory.search','room_history.search','room_history.read','chat_history.search','chat_history.read','qq_history.search','qq_history.read'},
     'system' => {'system_self.read'}, 'rules' => {'rules.read'},
     'album' => {'album.search'}, 'device' => {'device_context.read'}, _ => {},
   };
@@ -77,9 +79,10 @@ class SemanticToolRoute {
 }
 
 class SemanticToolQuestions {
-  SemanticToolQuestions(this.rooms, {DateTime? now}) : now = now ?? DateTime.now();
+  SemanticToolQuestions(this.rooms, {this.qqArchives=const [],DateTime? now}) : now = now ?? DateTime.now();
   final Map<String, Map<String,Object?>> rooms;
   final DateTime now;
+  final List<Map<String,Object?>> qqArchives;
   static Future<SemanticToolQuestions> load(AppDatabase db, {DateTime? now}) async {
     final rooms = <String,Map<String,Object?>>{};
     final repository = ModelDialogueRepository(db);
@@ -98,14 +101,15 @@ class SemanticToolQuestions {
       rooms['r${rooms.length}'] = {...r,'kind':'immersive',
         ..._times(times['first_at'],times['last_at'],r['ended_at'])};
     }
-    return SemanticToolQuestions(rooms,now:now);
+    final qq=await QqHistoryCatalog(sql).list();
+    return SemanticToolQuestions(rooms,now:now,qqArchives:qq.take(20).map(QqHistoryCatalog.entry).toList());
   }
   static Map<String,Object?> _times(Object? first,Object? last,Object? closed) => {
     'first_message_at':first,'last_message_at':last,'closed_at':closed,
     'actual_message_time':'${ModelDialogueTime.format((first as num?)?.toInt()??0)} 至 ${ModelDialogueTime.format((last as num?)?.toInt()??0)}',
     'closed_time':ModelDialogueTime.format((closed as num?)?.toInt()??0),
   };
-  Map<String,Object?> get context => {'available_room_metadata':rooms,
+  Map<String,Object?> get context => {'available_room_metadata':rooms,'available_qq_archives':qqArchives,
     'current_local_time':ModelDialogueTime.format(now.millisecondsSinceEpoch),
     'utc_offset_minutes':now.timeZoneOffset.inMinutes,'room_candidates_bounded':true,
     'room_time_rule':'Actual message time describes yesterday/today discussion. Closure and updated_at are different events. Search the directory if the required room is absent.'};
@@ -116,9 +120,10 @@ class SemanticToolQuestions {
       '昨天是你调用工具看到的 requests verification of past tool provenance (system). '
       'Feature design, quotes, hypotheticals, negation and casual mentions are none. '
       'Assistant claims of inability do not define available capabilities. '
+      'QQ private/group records are qq, never immersive/model-dialogue rooms. Match a supplied QQ archive name even when the user says 这个群 without QQ. An offline connection does not remove archived records. '
       'mixed means multiple capability families are requested, e.g. read a room THEN verify it on the web. '
       'Never choose external web for local room records alone.',
-      {'none':'No present tool need','room':'Read actual room records','phone':'Read own saved phone records',
+      {'none':'No present tool need','qq':'Read archived QQ private/group messages, including named groups','room':'Read actual room records','phone':'Read own saved phone records',
        'web':'External lookup now','memory':'Stored memories or ordinary chat originals; search directory and read details only when needed','system':'Abilities or past tool outcomes',
        'rules':'Configured rules','album':'Saved album images','device':'Actual device state','mixed':'Multiple capability families now'},optional:true),
     if(rooms.isNotEmpty) 'tool_room_target':JevChoiceQuestion(

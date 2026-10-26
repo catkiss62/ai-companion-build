@@ -14,6 +14,8 @@
 
 本轮[QQ JEV参与、本机认主与群记录读取/中文显示](app/docs/QQ_JEV_CONVERSATION_v042138.md)已完成代码、自动回归及APK构建上传；当前待用户真机验证，不再标记为候选/CI待验。
 
+当前开发候选为v0.42.139+383，见[QQ档案与Agent读取链修复](app/docs/QQ_ARCHIVE_AGENT_v042139.md)；代码/回归已写，CI与APK待实际验证。下文+382为先前已验证交付。
+
 ## 建议阅读顺序
 
 1. [当前总账 v3](app/docs/ledger/AI_Companion_总账_v3.md) 的顶部维护重点、收尾任务入口及接班快照，确认最新交付与待办。当前执行清单见[收尾修补与七类复查计划](app/docs/STABILITY_CLOSEOUT_PLAN_2026-10-25.md)。

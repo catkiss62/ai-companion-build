@@ -1,4 +1,6 @@
 import '../ai/first_channel_model.dart';
+import '../../integrations/qq_private/qq_history_reader.dart';
+import '../../integrations/qq_private/qq_history_catalog.dart';
 import '../creative/creative_control.dart';
 import '../database/generation_attempt_fence.dart';
 import 'turn_execution_store.dart';
@@ -417,6 +419,7 @@ class AgentToolRunner {
     if (call.toolId == AgentToolRegistry.rulesRead.id) {
       return _readRules(call.arguments['scope'] ?? '');
     }
+    if(call.toolId.startsWith('qq_history.')) return _readQq(call,latestUserText,cancellationToken);
     if (call.toolId == AgentToolRegistry.memorySearch.id) {
       return _searchMemory(call.arguments['query'] ?? '', cancellationToken,
         allowExpansion: origin == AgentToolOrigin.userTurn,
@@ -2396,6 +2399,48 @@ ${lines.join('\n')}
     );
   }
 
+  Future<AgentToolResult> _readQq(AgentToolCall call,String latest,GenerationCancellationToken? cancellation) async {
+    cancellation?.throwIfCancelled();
+    final result=await (await db.database).transaction((txn) async {
+      final reader=QqHistoryReader(txn);
+      if(call.toolId=='qq_history.search') {
+        var query=call.arguments['query']??latest;var kind=call.arguments['kind']??'all';
+        final requestedKind=QqHistoryCatalog.kindFor(latest);
+        if(requestedKind!='all') {
+          if(kind!='all' && kind!=requestedKind) throw const FormatException('qq_target_kind');
+          kind=requestedKind;
+        }
+        final directory=await QqHistoryCatalog(txn).list();
+        final expected=QqHistoryCatalog.namedMatches(latest,directory);
+        if(expected.length==1) {
+          final asked=QqHistoryCatalog.namedMatches(query,directory);
+          if(asked.isNotEmpty && !asked.any((r)=>r['id']==expected.single['id'])) throw const FormatException('qq_target_mismatch');
+          query='${expected.single['name']}\n$query';
+        }
+        return reader.search(query,kind:kind,keyword:call.arguments['keyword']??'');
+      }
+      final cid=call.arguments['conversation_id']??'';
+      final matches=QqHistoryCatalog.namedMatches(latest,await QqHistoryCatalog(txn).list());
+      if(matches.length==1 && matches.single['id']!=cid) throw const FormatException('qq_target_mismatch');
+      final target=(await QqHistoryCatalog(txn).list()).where((r)=>r['id']==cid).firstOrNull;
+      final kind=QqHistoryCatalog.kindFor(latest);
+      if(target!=null && kind!='all' && target['kind']!=kind) throw const FormatException('qq_target_kind');
+      int? number(String key) {
+        final value=call.arguments[key];if(value==null) return null;
+        final parsed=int.tryParse(value);if(parsed==null) throw const FormatException('qq_cursor');return parsed;
+      }
+      return reader.read(cid,beforeSeq:number('before_seq'),messageSeq:number('message_seq'),offset:number('char_offset')??0);
+    });
+    cancellation?.throwIfCancelled();
+    final complete=result.resolved && !(result.more && RegExp(r'完整|全部|从头|通读').hasMatch(latest));
+    return AgentToolResult(toolId:call.toolId,status:result.count==0?AgentToolStatus.noResult:AgentToolStatus.succeeded,
+      displayText:result.resolved?'已读取QQ档案原文':'已查询QQ档案目录，目标仍需确认',
+      promptData:result.text,resultCount:result.count,goalSatisfied:complete,qqEvidence:result.evidence,
+      submittedArguments:{...call.arguments,if(result.conversation.isNotEmpty)'resolved_conversation':result.conversation,
+        'qq_complete_requested':RegExp(r'完整|全部|从头|通读').hasMatch(latest),
+        'qq_pending_reads':result.pendingReads,'qq_resolved_reads':result.resolvedReads});
+  }
+
   Future<AgentToolResult> _searchMemory(String query,
       GenerationCancellationToken? cancellationToken, {
       bool allowExpansion = false, String scope = '',
@@ -2441,6 +2486,7 @@ ${lines.join('\n')}
     ], context.summaries, cancellation:cancellationToken);
     cancellationToken?.throwIfCancelled();
     final formatted = MemoryBrain(db).formatForPrompt(context);
+    final ordinary=context.qqContext.isEmpty?formatted:formatted.replaceFirst(context.qqContext,'');
     return AgentToolResult(
       toolId: AgentToolRegistry.memorySearch.id,
       status: AgentToolStatus.succeeded,
@@ -2448,11 +2494,13 @@ ${lines.join('\n')}
       promptData: '已真实检索本地记忆。只凭存储证据回答；未命中不代表没有发生或已删除，不必假装遗忘。'
           '记忆可能过时，历史版本不能冒充当前事实。'
           '${expanded ? "以下是同义检索候选，仍须对照用户原始问题核对人物、归属、时间与事件；歧义时确认，不能拼接成同一件事。" : ""}\n'
-          '$directory\n${_bounded(formatted, 8000)}',
+          '$directory\n${_bounded(ordinary, 8000)}\n${context.qqContext}',
+      qqEvidence:context.qqEvidence,
       resultCount: context.stableUser.length + context.aiSelf.length +
           context.preferences.length + context.relevant.length +
           context.inferences.length + context.history.length +
-          context.summaries.length + context.threads.length,
+          context.summaries.length + context.threads.length +
+          (context.qqEvidence?.stamps.where((s)=>s['table']=='qq_archive' || s['table']=='qq_notes').length??0),
     );
   }
 

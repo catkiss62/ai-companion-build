@@ -1,5 +1,6 @@
 import '../models/message_attachment.dart';
 import '../database/conversation_source_store.dart';
+import '../database/qq_context_evidence.dart';
 
 enum AgentToolRisk { readOnly, proposal, privileged }
 
@@ -157,6 +158,7 @@ class AgentToolResult {
     this.continuationRecommended = false,
     this.submittedArguments = const <String, Object?>{},
     this.historySources = const <QualifiedConversationSource>[],
+    this.qqEvidence,
     this.goalSatisfied,
   });
 
@@ -186,6 +188,7 @@ class AgentToolResult {
   /// Read-only history dependencies, checked again in the final commit.
   /// They never authorize actions or become fresh memory evidence.
   final List<QualifiedConversationSource> historySources;
+  final QqContextEvidence? qqEvidence;
 
   bool get succeeded => status == AgentToolStatus.succeeded;
 }

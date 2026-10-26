@@ -8,15 +8,15 @@ class ImmersiveLobbyControls extends StatelessWidget {
   final VoidCallback? onCreate;
 
   static bool compact(BuildContext context, double width) =>
-      width < 380 || MediaQuery.textScalerOf(context).scale(14) > 17;
+      width < 300 || MediaQuery.textScalerOf(context).scale(14) > 17;
 
   @override
   Widget build(BuildContext context) => LayoutBuilder(builder: (context, constraints) {
     final background = OutlinedButton(onPressed: onBackground,
       style: OutlinedButton.styleFrom(
         minimumSize: const Size(0, 32),
-        padding: const EdgeInsets.symmetric(horizontal: 8),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
+        padding: const EdgeInsets.symmetric(horizontal: 12),
+        shape: const StadiumBorder(),
       ),
       child: const Text('背景图'));
     final create = FloatingActionButton.extended(onPressed: onCreate,

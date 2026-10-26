@@ -688,7 +688,8 @@ ANSWERED_HISTORY_ONLY = true
       selectedThoughtEvidence: _thoughtExpressionEvidence(selectedConversationThought, webBundle),
       ordinaryActionActive: ordinaryActionExperimentActive,
       backgroundRecall: backgroundRecall,
-      qqEvidence:memoryContext?.qqEvidence,
+      qqEvidence:QqContextEvidence.merge([memoryContext?.qqEvidence,
+        for(final result in agentToolResults)result.qqEvidence]),
     );
   }
 

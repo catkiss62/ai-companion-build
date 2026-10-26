@@ -12,7 +12,8 @@ import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized(); sqfliteFfiInit();
   for(final configured in [false,true]) {
-    testWidgets('small screen and large text show only configured model choices: $configured', (tester) async {
+    for(final scale in [1.0,1.6]) {
+    testWidgets('phone lobby preserves creation button and model choices: configured=$configured scale=$scale', (tester) async {
       await tester.runAsync(() async {
         final db = await AppDatabase.createForTesting(databaseFactoryFfi);
         final longModel = '[A]glm-5.3-flash-${List.filled(6,'long-model-').join()}1';
@@ -25,7 +26,7 @@ void main() {
         addTearDown(tester.view.resetPhysicalSize);addTearDown(tester.view.resetDevicePixelRatio);
         try {
           await tester.pumpWidget(MaterialApp(builder:(context,child)=>MediaQuery(
-            data:MediaQuery.of(context).copyWith(textScaler:const TextScaler.linear(1.6)),child:child!),
+            data:MediaQuery.of(context).copyWith(textScaler:TextScaler.linear(scale)),child:child!),
             home:ImmersiveRoomLobbyPage(repository:ImmersiveRoomRepository(db),
               secureConfig:SecureConfig.forTesting(const FlutterSecureStorage()))));
           for(var i=0;i<100&&find.text('first-model').evaluate().isEmpty;i++) {
@@ -40,7 +41,12 @@ void main() {
           final background = tester.getRect(find.text('背景图'));
           expect((model.center.dy - background.center.dy).abs(), lessThan(12));
           expect(background.right, lessThan(model.left));
-          expect(model.bottom, lessThan(button.top));
+          if(scale==1.0) {
+            expect((model.center.dy-button.center.dy).abs(),lessThan(12));
+            expect(model.right,lessThan(button.left));
+          } else {
+            expect(model.bottom, lessThan(button.top));
+          }
           expect(tester.takeException(),isNull);
           await tester.tap(find.text('first-model'));
           // The menu reloads persisted choices before opening its route.
@@ -64,6 +70,11 @@ void main() {
             expect(find.text(longModel),findsOneWidget);
             final after = tester.getRect(find.byType(FloatingActionButton));
             expect(after.bottom, greaterThanOrEqualTo(navigation.top - 48));
+            if(scale==1.0) {
+              final selected=tester.getRect(find.text(longModel));
+              expect((selected.center.dy-after.center.dy).abs(),lessThan(12));
+              expect(selected.right,lessThan(after.left));
+            }
           } else {
             expect(find.text('deepseek-flash'),findsOneWidget);
             await tester.tap(find.text('deepseek-flash'));
@@ -83,5 +94,6 @@ void main() {
         }
       });
     });
+    }
   }
 }
