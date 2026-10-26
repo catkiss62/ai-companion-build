@@ -181,12 +181,12 @@ void main(){
   test('memory search counts QQ originals and does not cache their mutable provenance',()async{
     await seed();final r=await tool('memory.search',{'query':question});
     expect(r.resultCount,greaterThan(0));expect(r.promptData,contains('铃兰'));expect(r.qqEvidence,isNotNull);
-    final tracker=AgentProgressTracker();const call=AgentToolCall(toolId:'memory.search',arguments:{'query':question});
+    final tracker=AgentProgressTracker();const call=AgentToolCall(toolId:'memory.search',arguments:{'query':question},reasonTag:'fixture');
     tracker.rememberRead(call,'unchanged-main-memory',r);expect(tracker.cached(call,'unchanged-main-memory'),isNull);
     await store.forget(await store.capture(),cid('a'));expect(await r.qqEvidence!.matches(await db.database),false);
   });
   test('a cached empty memory query is invalidated by newly arrived QQ input',()async{
-    const call=AgentToolCall(toolId:'memory.search',arguments:{'query':'群里刚才说什么'});
+    const call=AgentToolCall(toolId:'memory.search',arguments:{'query':'群里刚才说什么'},reasonTag:'fixture');
     final before=await AgentProgressTracker.readState(db,call);await seed();
     expect(await AgentProgressTracker.readState(db,call),isNot(before));
   });
