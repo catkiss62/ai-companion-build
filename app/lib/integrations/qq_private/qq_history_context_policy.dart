@@ -4,7 +4,8 @@ import '../../core/database/app_database.dart';
 /// This policy leaves reminiscence and genuine future requests available.
 abstract final class QqHistoryContextPolicy {
   static bool futureRequest(String text) => RegExp(
-    r'之后|以后|晚点|回头|明天|下次|待会|稍后|过会|记得|提醒|等.{0,16}(?:结果|回复|消息)').hasMatch(text);
+    r'之后|以后|晚点|回头|明天|下次|待会|稍后|过会|到时候|记得|提醒|等.{0,16}(?:结果|回复|消息)')
+      .hasMatch(text.replaceAll(RegExp(r'(?:我|还|你还?|是否|记不)记得'),''));
   static bool inventedFollowup(String title, String detail) =>
     RegExp(r'QQ|qq|群聊|群记录').hasMatch('$title $detail') &&
     RegExp(r'已能|已可|已经.{0,5}(?:查看|做好|接通|完成)|已完成').hasMatch(title) &&
@@ -18,7 +19,7 @@ abstract final class QqHistoryContextPolicy {
     final rows = await sql.rawQuery("SELECT t.topic_key,t.title,t.detail,m.content FROM unfinished_threads t "
       "LEFT JOIN messages m ON m.id=t.source_message_id WHERE t.status='active'");
     return {for (final row in rows)
-      if (inventedFollowup('${row['title']}', '${row['detail']}') && !futureRequest('${row['content'] ?? ''}')) '${row['topic_key']}'};
+      if ('${row['topic_key']??''}'.isNotEmpty && inventedFollowup('${row['title']}', '${row['detail']}') && !futureRequest('${row['content'] ?? ''}')) '${row['topic_key']}'};
   }
 
   static const proactiveBoundary = '【历史群聊的时间边界】历史对话、念头和摘要中的群聊内容属于当时见闻。'

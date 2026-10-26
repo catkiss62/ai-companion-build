@@ -123,13 +123,21 @@ void main() {
 
   test('schema62 source notes upgrade before restore; invalid sources remain rejected', () async {
     final seq = await add('source', DateTime(2026, 10, 2), '旧存档'); await note([seq], '旧摘要');
-    final raw = await db.exportAll(); final tables = (raw['tables'] as Map).cast<String, dynamic>();
+    // A saved archive is JSON, not a mutable view of sqflite's QueryRow.
+    final raw = jsonDecode(jsonEncode(await db.exportAll())) as Map;
+    final tables = (raw['tables'] as Map).cast<String, dynamic>();
     final existing=(tables['qq_notes'] as List).single as Map;
     final originalToken=QqArchiveReader.noteToken(existing.cast<String,Object?>());
     for (final n in tables['qq_notes'] as List) { for (final field in ['range_start', 'range_end', 'revision', 'edited_at']) { (n as Map).remove(field); } }
+    final restore=jsonDecode(jsonEncode(raw)) as Map<String,dynamic>;
+    restore['schema_version']=62;
     QqArchiveSchema.validate(tables, version: 62);
     expect(QqArchiveReader.noteToken(((tables['qq_notes'] as List).single as Map).cast<String,Object?>()),originalToken);
     expect((tables['qq_notes'] as List).single['range_start'], DateTime(2026, 10, 2).millisecondsSinceEpoch);
+    await db.importAll(restore);
+    final restored=(await (await db.database).query('qq_notes')).single;
+    expect(restored['content'],'旧摘要');
+    expect(QqArchiveReader.noteToken(restored),originalToken);
     (tables['qq_notes'] as List).single['sources'] = '[999999]';
     expect(() => QqArchiveSchema.validate(tables, version: 63), throwsFormatException);
   });
@@ -137,6 +145,7 @@ void main() {
   test('completed QQ lookup does not become an invented follow-up; real future requests survive', () async {
     const title = 'QQ群聊天记录已能查看', detail = '已看到了旧群聊；后续要不要在群里做什么仍未明确。';
     expect(QqHistoryContextPolicy.allowThread(title: title, detail: detail, userText: '记录做好了，你看一看？', qqReference: true), false);
+    expect(QqHistoryContextPolicy.allowThread(title: title, detail: detail, userText: '我记得已经接好了，你看一下旧记录', qqReference: true), false);
     expect(QqHistoryContextPolicy.allowThread(title: title, detail: '明天测试群功能', userText: '明天提醒我再测一次', qqReference: true), true);
     await db.insertMessage(ChatMessage(id: 'u', role: 'user', content: '记录做好了，你看一看？', createdAt: DateTime.now()));
     await db.upsertUnfinishedThread(title: title, detail: detail, importance: .6, sourceMessageId: 'u', topicKey: 'qq.lookup');
