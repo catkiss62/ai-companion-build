@@ -33,6 +33,10 @@ class QqSvgRendererTest {
             try {QqSvgRenderer.render(svg);fail("accepted unsupported input: ${svg.take(80)}")}catch(_:Exception) {}
         }
     }
+    @Test fun prettyPrintedContainersDoNotConsumeTheTextBudget() {
+        val svg="<svg>"+"\n    <circle cx='5' cy='5' r='2'/>".repeat(180)+"\n</svg>"
+        assertTrue(QqSvgRenderer.render(svg).isNotEmpty())
+    }
     @Test fun supportsRelativeCurvesButRejectsMissingAndJunkCoordinates() {
         assertTrue(QqSvgRenderer.render("<svg><path d='M 1 1 h 20 v 10 c 2 2 3 3 4 4 q 2 2 4 4 Z' fill='#abc'/></svg>").isNotEmpty())
         for(d in listOf("M 1", "M 0 0 L junk", "M 1e999 0", "M 0 0 Z 1 2")) {

@@ -17,7 +17,7 @@ class QqSketchChoice {
     final brief=match.group(2)!.trim();if(brief.isEmpty || brief.length>180)return null;
     return QqSketchChoice(brief,match.group(1)?.toLowerCase()=='only');
   }
-  static String visible(String raw)=>raw.replaceAll(_tag,'').trim();
+  static String visible(String raw)=>raw.replaceAll(_tag,'').replaceAll(RegExp(r'<qq_sketch\b[\s\S]*$',caseSensitive:false),'').trim();
 }
 class QqSketch {
   const QqSketch(this.svg,this.description,this.png);

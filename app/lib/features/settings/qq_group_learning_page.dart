@@ -12,12 +12,14 @@ class QqGroupLearningPage extends StatefulWidget {
 }
 class _QqGroupLearningPageState extends State<QqGroupLearningPage> {
   late final learning=QqGroupLearning(QqStore(widget.database??AppDatabase.instance));
-  List<Map<String,Object?>> _rows=[];bool _enabled=false,_loading=true,_busy=false;String _notice='';
+  List<Map<String,Object?>> _rows=[];bool _enabled=false,_loading=true,_busy=false,_more=false;String _notice='';
   @override void initState(){super.initState();_load();}
-  Future<void> _load() async {
-    try {final enabled=await learning.enabled(widget.cid),rows=await learning.profiles(widget.cid);
-      if(mounted)setState((){_enabled=enabled;_rows=rows;_loading=false;});}
+  Future<void> _load({bool more=false}) async {
+    if(mounted)setState(()=>_busy=true);
+    try {final enabled=await learning.enabled(widget.cid),rows=await learning.profiles(widget.cid,offset:more?_rows.length:0,limit:30);
+      if(mounted)setState((){_enabled=enabled;_rows=more?[..._rows,...rows]:rows;_more=rows.length==30;_loading=false;});}
     catch(_) {if(mounted)setState((){_loading=false;_notice='读取失败，请刷新重试。';});}
+    finally {if(mounted)setState(()=>_busy=false);}
   }
   Future<void> _run(Future<void> Function() action) async {
     if(_busy)return;setState((){_busy=true;_notice='';});
@@ -52,6 +54,7 @@ class _QqGroupLearningPageState extends State<QqGroupLearningPage> {
         Text(row['enabled']==0?'已停用':(row['edited_at'] as int)>0?'你修改的表达观察':'自动观察'),const SizedBox(height:8),SelectableText(row['content'] as String),
         Wrap(children:[TextButton(onPressed:_busy?null:()=>_sources(row),child:const Text('查看来源')),TextButton(onPressed:_busy?null:()=>_edit(row),child:const Text('编辑')),
           TextButton(onPressed:_busy?null:()=>_run(()=>learning.edit(row,enabled:row['enabled']==0)),child:Text(row['enabled']==0?'启用':'停用')),TextButton(onPressed:_busy?null:()=>_delete(row),child:const Text('删除'))])]))),
+      if(_more)TextButton(onPressed:_busy?null:()=>_load(more:true),child:const Text('加载更早表达观察')),
     ]));
 }
 class _ExpressionEditor extends StatefulWidget {

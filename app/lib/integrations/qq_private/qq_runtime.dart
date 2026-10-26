@@ -204,7 +204,7 @@ class QqRuntime {
     if(authority!=null && authority!=QqStore.hash(o.toJson()))return;
     final fence=await store.capture(conversationId:cid);final pending=await store.pending(cid);
     if(pending.isEmpty) return;
-    final b=await store.claim(fence,cid,pending.last['seq'] as int,now().millisecondsSinceEpoch,policy:policy(c,o));
+    final b=await store.claim(fence,cid,pending.last['seq'] as int,now().millisecondsSinceEpoch,policy:policy(c,o),authorityKey:QqShareStore.policyKey(c.namespace),authority:QqStore.hash(o.toJson()));
     if(b==null) return;
     List<Map<String,Object?>> qqStamp=[for(final r in b.rows){'table':'qq_archive','id':r['id'],'version':r['version']}];Map<String,Object?>? mainStamp;String? stickerStamp,styleStamp;
     Future<bool> current() async {
@@ -308,7 +308,7 @@ class QqRuntime {
       var parts=(sketchChoice?.only==true || choice.stickerOnly && selected!=null)?<String>[]:QqReplyParts.parse(StickerReplyChoice.visible(QqSketchChoice.visible(raw)));
       var text=parts.join('\n');
       if(b.group && text=='WAIT') {await store.mark(b,'watching');return;}
-      if(text.isEmpty && selected==null && sketchChoice==null || text.runes.length>5400) throw StateError('reply_invalid');
+      if(text.isEmpty && selected==null && sketchChoice==null) throw StateError('reply_invalid');
       QqReplyDelivery.validate(text,parts);
       var caption=selected?.record.caption??'';
       QqSketch? drawing;

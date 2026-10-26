@@ -78,7 +78,7 @@ internal object QqSvgRenderer {
                         stack.add(Frame(tag,a,style))
                         if(tag!="text" && tag!="g" && tag!="svg")draw(canvas,stack.last())
                     }
-                    XmlPullParser.TEXT -> {require(stack.isNotEmpty() || parser.text.isBlank());if(stack.isNotEmpty()) {require(stack.last().tag=="text" || parser.text.isBlank());stack.last().text.append(parser.text);require(stack.last().text.length<=400)}}
+                    XmlPullParser.TEXT -> {require(stack.isNotEmpty() || parser.text.isBlank());if(stack.isNotEmpty()) {if(stack.last().tag=="text") {stack.last().text.append(parser.text);require(stack.last().text.length<=400)} else require(parser.text.isBlank())}}
                     XmlPullParser.END_TAG -> {require(stack.isNotEmpty());val frame=stack.removeAt(stack.lastIndex);require(frame.tag==parser.name);if(frame.tag=="text")draw(canvas,frame);canvas.restore()}
                     XmlPullParser.DOCDECL, XmlPullParser.ENTITY_REF, XmlPullParser.PROCESSING_INSTRUCTION -> error("unsupported_xml")
                 }

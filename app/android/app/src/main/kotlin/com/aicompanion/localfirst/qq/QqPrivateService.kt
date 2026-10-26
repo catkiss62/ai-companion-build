@@ -72,10 +72,10 @@ class QqPrivateService : Service() {
                 ch.setMethodCallHandler { call, result ->
                     when (call.method) {
                         "status" -> {
-                            dartReady = true
+                            if (alive && engine === created) dartReady = true
                             val kind = call.argument<String>("kind")
                             val code = call.argument<String>("code").orEmpty()
-                            if (alive && (kind == "connection" || kind == "task") && code.matches(Regex("[a-z_]{1,48}"))) {
+                            if (alive && engine === created && (kind == "connection" || kind == "task") && code.matches(Regex("[a-z_]{1,48}"))) {
                                 writeStatus(kind!!, code)
                                 if (kind == "connection" && code == "online") failures = 0
                             }
@@ -83,7 +83,7 @@ class QqPrivateService : Service() {
                         }
                         "wakeOptions" -> { channel?.invokeMethod("optionsChanged",null);result.success(null) }
                         "renderSketch" -> { if (alive && engine === created && enabled(this)) QqSvgRenderer.reply(call.argument<String>("svg"), result) else result.error("stopped", "连接已关闭", null) }
-                        "enabled" -> result.success(alive && enabled(this))
+                        "enabled" -> result.success(alive && engine === created && enabled(this))
                         "failed" -> {
                             result.success(null)
                             // Ignore callbacks from an engine already replaced by the watchdog.
@@ -190,9 +190,10 @@ class QqPrivateService : Service() {
         fun setAutoReconnect(context: Context, value: Boolean) {
             prefs(context).edit().putBoolean("autoReconnect", value).apply()
             if (!value) live?.let { service ->
+                val wasRecovering = service.retryPending
                 service.recoveryGeneration++
                 service.retryPending = false
-                if (service.engine == null) {
+                if (wasRecovering || service.engine == null) {
                     prefs(context).edit().putBoolean("enabled", false).putString("connection", "stopped").apply()
                     service.stopSelf()
                 }

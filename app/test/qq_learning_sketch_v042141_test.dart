@@ -51,6 +51,13 @@ void main() {
     await add('two');await db.setSetting('conversation_context_reset_count','99');
     expect(await store.claim(await store.capture(conversationId:cid),cid,2,at,policy:'p'),isNull);
   });
+  test('pending option write cannot consume a fresh batch',() async {
+    await add('during-update');await db.setSetting('qq_options_policy_v2:fixture','updating:synthetic');
+    expect(await store.claim(await store.capture(conversationId:cid),cid,1,at,policy:'p',authorityKey:'qq_options_policy_v2:fixture',authority:'final'),isNull);
+    expect((await store.pending(cid)).length,1);
+    await db.setSetting('qq_options_policy_v2:fixture','final');
+    expect(await store.claim(await store.capture(conversationId:cid),cid,1,at,policy:'p',authorityKey:'qq_options_policy_v2:fixture',authority:'final'),isNotNull);
+  });
   test('deleting or forgetting recent raw cannot resurrect a replay',() async {
     final seq=(await add('platform-one'))!;await remove(seq);
     expect(await add('platform-one',when:at+1000),isNull);
@@ -102,6 +109,7 @@ void main() {
     final api=_Api();
     await expectLater(QqReplyDelivery(api,pause:(_)async{}).send(group:true,target:'a',messageId:'source',text:'',messages:['a'*1801,'b'*1801,'c'*1700],fileInfo:'',current:()async=>true,beforeSend:()async{},sent:(_,__,___)async{}),throwsFormatException);
     expect(api.sent,isEmpty);
+    expect(QqReplyDelivery.validate('',List.filled(3,'a'*1800)).length,3);
     await QqReplyDelivery(api,pause:(_)async{}).send(group:true,target:'a',messageId:'source',text:'',messages:['完整一条','补一句','最后一句'],fileInfo:'',current:()async=>true,beforeSend:()async{},sent:(_,__,___)async{});
     expect(api.sent,['完整一条','补一句','最后一句']);
   });

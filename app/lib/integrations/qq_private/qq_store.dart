@@ -75,7 +75,8 @@ class QqStore {
     "WHERE c.id=? AND a.seq>c.checked_seq AND a.role='user' ORDER BY a.seq LIMIT 40",[cid]);
   Future<List<Map<String,Object?>>> conversations(String scope) async=>(await db.database).query('qq_conversations',where:'scope = ?',whereArgs:[scope],orderBy:'rowid DESC',limit:200);
   Future<List<Map<String,Object?>>> images(int seq) async=>(await db.database).query('qq_images',where:'archive_seq = ?',whereArgs:[seq],orderBy:'ordinal');
-  Future<QqBatch?> claim(BrainWorkFence fence,String cid,int through,int now,{String policy=''})=>write(fence,(txn) async {
+  Future<QqBatch?> claim(BrainWorkFence fence,String cid,int through,int now,{String policy='',String authorityKey='',String authority=''})=>write(fence,(txn) async {
+    if(authorityKey.isNotEmpty) {final stored=await BrainWorkFence.value(txn,authorityKey);if(stored.isNotEmpty && stored!=authority)return null;}
     final c=(await txn.query('qq_conversations',where:'id = ?',whereArgs:[cid],limit:1)).single;
     final checked=c['checked_seq'] as int;
     if(through<=checked) return null;

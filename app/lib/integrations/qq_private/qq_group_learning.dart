@@ -18,7 +18,7 @@ class QqGroupLearning {
   static String epochKey(String cid)=>'qq_style_epoch_v1:$cid';
   static String cursorKey(String cid)=>'qq_style_cursor_v1:$cid';
   Future<bool> enabled(String cid) async=>await store.db.getSetting(enabledKey(cid))=='1';
-  Future<List<Map<String,Object?>>> profiles(String cid) async=>(await store.db.database).query('qq_styles',where:'conversation_id=?',whereArgs:[cid],orderBy:'edited_at DESC,created_at DESC',limit:100);
+  Future<List<Map<String,Object?>>> profiles(String cid,{int offset=0,int limit=100}) async=>(await store.db.database).query('qq_styles',where:'conversation_id=?',whereArgs:[cid],orderBy:'edited_at DESC,created_at DESC,id',limit:limit,offset:offset);
   Future<void> setEnabled(String cid,bool value) async {
     final fence=await store.capture(conversationId:cid);
     await store.write(fence,(txn) async {
@@ -52,7 +52,7 @@ class QqGroupLearning {
   Future<({String text,String stamp})> projection(String cid) async {
     final sql=await store.db.database;
     if(!await enabled(cid))return (text:'',stamp:QqStore.hash(['off',await store.db.getSetting(epochKey(cid))]));
-    final rows=await profiles(cid);final selected=<Map<String,Object?>>[];
+    final rows=await sql.query('qq_styles',where:'conversation_id=? AND enabled=1',whereArgs:[cid],orderBy:'edited_at DESC,created_at DESC,id',limit:100);final selected=<Map<String,Object?>>[];
     for(final row in rows.where((r)=>r['enabled']==1)) {
       if(await QqArchiveReader(sql).matches(jsonDecode(row['source_stamp'] as String)))selected.add(row);
       if(selected.length==4)break;
