@@ -82,7 +82,7 @@ void main(){
     expect((await QqPrivateConfig.read()).owner,'owner');
   });
   test('rebinding rejects stale local confirmations and removing one group preserves the others',()async{
-    await QqOptions(namespace:config.namespace,ownerMembers:const {group:member,'other':'OTHER_MEMBER_OPENID'}).save(db:db);
+    await QqOptions.update((fresh)=>fresh.copy(owners:const {group:member,'other':'OTHER_MEMBER_OPENID'}),namespace:config.namespace,db:db);
     expect(await QqGroupBinding.confirmLocal(config,group,null,db:db),true);
     expect((await QqOptions.read()).ownerMembers,{'other':'OTHER_MEMBER_OPENID'});
     await const QqPrivateConfig(appId:'12345',secret:'replacement',namespace:'replacement').save();

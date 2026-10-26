@@ -1,4 +1,6 @@
 import 'qq_archive_month_page.dart';
+import 'qq_group_learning_page.dart';
+import '../../integrations/qq_private/qq_sketch.dart';
 import 'package:flutter/material.dart';
 import 'qq_group_identity_page.dart';
 import 'qq_group_name_dialog.dart';
@@ -17,6 +19,7 @@ class QqGroupsPage extends StatefulWidget {
 }
 class _QqGroupsPageState extends State<QqGroupsPage> {
   final _core=TextEditingController(),_public=TextEditingController();
+  bool _autoSketch=true;
   QqOptions _options=const QqOptions();QqPrivateConfig _config=const QqPrivateConfig();
   List<Map<String,Object?>> _groups=[];List<Map<String,dynamic>> _requests=[];
   bool _loading=true,_busy=false;String _notice='';QqDisplayNames _names=QqDisplayNames();
@@ -24,11 +27,12 @@ class _QqGroupsPageState extends State<QqGroupsPage> {
   Future<void> _load({bool initial=false}) async {
     try {
       final c=await QqPrivateConfig.read();final o=await QqOptions.read();
+      final autoSketch=await AppDatabase.instance.getSetting(QqSketchService.autoKey)!='0';
       final groups=(await QqStore(AppDatabase.instance).conversations(QqRuntime.scope(c))).where((g)=>g['kind']=='group').toList();
       final requests=await QqGroupBinding.requests(c);
       final names=await QqDisplayNames.read(await AppDatabase.instance.database,QqRuntime.scope(c));
       if(!mounted) return;
-      setState((){_config=c;_options=o;_names=names;_groups=groups;_requests=requests;_loading=false;
+      setState((){_config=c;_options=o;_autoSketch=autoSketch;_names=names;_groups=groups;_requests=requests;_loading=false;
         if(initial){_core.text=o.core;_public.text=o.publicMemory;}});
     } catch(_){if(mounted) setState((){_loading=false;_notice='读取失败，请稍后刷新。';});}
   }
@@ -55,12 +59,13 @@ class _QqGroupsPageState extends State<QqGroupsPage> {
         for(final g in _groups) Column(children:[SwitchListTile(contentPadding:EdgeInsets.zero,
           title:Text(_names.group(g['target'] as String)),subtitle:Text('群标识末六位 ${QqDisplayNames.shortId(g['target'] as String)} · ${_options.ownerMembers.containsKey(g['target'])?'已确认你在本群的身份':'尚未关联本人；昵称不自动认主'}'),
           value:_options.groups.contains(g['target']),onChanged:_busy?null:(enabled)=>_run(() async {
-            final o=await QqOptions.read();final ids={...o.groups};enabled?ids.add(g['target'] as String):ids.remove(g['target']);await o.copy(groups:ids).save();})),
+            await QqOptions.update((fresh) {final ids={...fresh.groups};enabled?ids.add(g['target'] as String):ids.remove(g['target']);return fresh.copy(groups:ids);},namespace:_config.namespace);})),
           Align(alignment:Alignment.centerRight,child:TextButton(onPressed:_busy?null:()=>_run(() => editQqGroupName(context,_config,g['target'] as String)),child:const Text('群名称 / 备注'))),
           Align(alignment:Alignment.centerRight,child:TextButton(onPressed:_busy?null:() async {
             await Navigator.of(context).push(MaterialPageRoute<void>(builder:(_)=>QqGroupIdentityPage(config:_config,group:g['target'] as String)));
             if(mounted) await _load();
-          },child:const Text('设置本群中的我')))]),
+          },child:const Text('设置本群中的我'))),
+          Align(alignment:Alignment.centerRight,child:TextButton(onPressed:_busy?null:()=>Navigator.push(context,MaterialPageRoute<void>(builder:(_)=>QqGroupLearningPage(cid:g['id'] as String,title:_names.group(g['target'] as String)))),child:const Text('群聊表达学习')))]),
         if(_groups.isEmpty) const Padding(padding:EdgeInsets.symmetric(vertical:12),child:Text('还没有发现群。请先完成私聊绑定，再在群里 @ 机器人。')),
         const Divider(),const Text('认主可在上方选中自己的发言直接确认，不必公开发口令。也保留群里 /关联本人 → 已绑定私聊确认的方式。昵称和普通QQ号不直接授予本人身份。'),
         for(final r in _requests.where((r)=>r['consumed']!=true)) ListTile(contentPadding:EdgeInsets.zero,
@@ -73,13 +78,14 @@ class _QqGroupsPageState extends State<QqGroupsPage> {
         TextField(controller:_public,maxLines:7,maxLength:12000,decoration:const InputDecoration(labelText:'允许在群里表达的背景与共同记忆',
           helperText:'这里保存的内容会对已开启的群公开。留空也可聊天；私人完整记忆仍不会注入群模型。',helperMaxLines:3)),
         FilledButton(onPressed:_busy?null:()=>_run(() async {
-          final o=await QqOptions.read();await o.copy(core:_core.text.trim(),publicMemory:_public.text.trim()).save();
+          await QqOptions.update((fresh)=>fresh.copy(core:_core.text.trim(),publicMemory:_public.text.trim()),namespace:_config.namespace);
           if(mounted) setState(()=>_notice='公开资料已保存。');}),child:const Text('保存公开资料')),
         SwitchListTile(contentPadding:EdgeInsets.zero,title:const Text('QQ 识图失败时使用第一通道兜底'),
           subtitle:const Text('先使用App视觉模型，再尝试第一通道当前模型的真实图片输入。接口不支持图片时保留识别失败。'),
-          value:_options.visionFallback,onChanged:_busy?null:(v)=>_run(() async {await (await QqOptions.read()).copy(visionFallback:v).save();})),
+          value:_options.visionFallback,onChanged:_busy?null:(v)=>_run(() async {await QqOptions.update((fresh)=>fresh.copy(visionFallback:v),namespace:_config.namespace);})),
         SwitchListTile(contentPadding:EdgeInsets.zero,title:const Text('允许向本人分享群聊见闻'),subtitle:const Text('仅向你分享，仍受睡眠、节奏和防重复控制。'),
-          value:_options.ownerShare,onChanged:_busy?null:(v)=>_run(() async {await (await QqOptions.read()).copy(ownerShare:v).save();})),
+          value:_options.ownerShare,onChanged:_busy?null:(v)=>_run(() async {await QqOptions.update((fresh)=>fresh.copy(ownerShare:v),namespace:_config.namespace);})),
+        SwitchListTile(contentPadding:EdgeInsets.zero,title:const Text('允许偶尔主动发小涂鸦'),subtitle:const Text('低频群聊机会；明确请求画画仍可回应。跟随第一通道当前模型和思考力度，不使用作品流程。'),value:_autoSketch,onChanged:_busy?null:(v)=>_run(()=>AppDatabase.instance.setSetting(QqSketchService.autoKey,v?'1':'0'))),
         const SizedBox(height:12),const Text('群聊优先用JEV快速判断，未启用或请求失败时第一通道兜底。每条新消息可触发，短时连发合并；正在和她聊天时可连续接话，普通加入保持较低频率。复读、玩梗和纯表情包也可参与，旁听过的消息不会反复读取。'),
         const SizedBox(height:12),const Text('夜间沿用共同起床边界：群里仍可接收归档，默认不识图、不主动接话，也不批量补看整夜图片。本人私聊保留回应。QQ不会增加主系统疲劳、压力或互动满足。'),
         if(_notice.isNotEmpty) Padding(padding:const EdgeInsets.only(top:12),child:Text(_notice)),

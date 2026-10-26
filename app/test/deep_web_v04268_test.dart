@@ -323,7 +323,7 @@ void main() {
           'PRAGMA table_info(public_web_candidates)',
         )).map((r) => r['name']);
         expect(columns, contains('page_body'));
-        expect(AppDatabase.schemaVersion, 63);
+        expect(AppDatabase.schemaVersion, 64);
         expect((await sql.rawQuery("SELECT name FROM sqlite_master WHERE type='table' AND name='qq_archive'")).single['name'],'qq_archive');
       },
     );

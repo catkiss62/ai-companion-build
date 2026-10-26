@@ -24,6 +24,7 @@ class QqPrivateService : Service() {
     private var dartReady = false
     private var failures = 0
     private var retryPending = false
+    private var recoveryGeneration = 0L
 
     override fun onCreate() {
         super.onCreate()
@@ -80,6 +81,8 @@ class QqPrivateService : Service() {
                             }
                             result.success(null)
                         }
+                        "wakeOptions" -> { channel?.invokeMethod("optionsChanged",null);result.success(null) }
+                        "renderSketch" -> { if (alive && engine === created && enabled(this)) QqSvgRenderer.reply(call.argument<String>("svg"), result) else result.error("stopped", "连接已关闭", null) }
                         "enabled" -> result.success(alive && enabled(this))
                         "failed" -> {
                             result.success(null)
@@ -119,14 +122,17 @@ class QqPrivateService : Service() {
             return
         }
         retryPending = true
+        val generation = recoveryGeneration
         failures = (failures + 1).coerceAtMost(6)
         writeStatus("connection", "recovering")
         main.post {
-            if (!alive) return@post
+            if (!alive || generation != recoveryGeneration || !autoReconnect(this)) return@post
             disposeRuntime()
             main.postDelayed({
-                retryPending = false
-                if (alive && enabled(this)) launchRuntime()
+                if (generation == recoveryGeneration) {
+                    retryPending = false
+                    if (alive && enabled(this) && autoReconnect(this)) launchRuntime()
+                }
             }, QqRecoveryPolicy.retryDelay(failures))
         }
     }
@@ -136,9 +142,10 @@ class QqPrivateService : Service() {
             if (!alive) return
             if (autoReconnect(this@QqPrivateService) && enabled(this@QqPrivateService) && dartReady && !retryPending) {
                 val owned = engine
+                val generation = recoveryGeneration
                 var answered = false
                 val timeout = Runnable {
-                    if (!answered && alive && engine === owned && !retryPending) failed("runtime_unresponsive")
+                    if (!answered && alive && engine === owned && !retryPending && generation == recoveryGeneration && autoReconnect(this@QqPrivateService) && enabled(this@QqPrivateService)) failed("runtime_unresponsive")
                 }
                 // A round trip after wake-up avoids treating Android timer suspension as a dead isolate.
                 main.postDelayed(timeout, 10000)
@@ -164,6 +171,7 @@ class QqPrivateService : Service() {
     override fun onBind(intent: Intent?): IBinder? = null
 
     override fun onDestroy() {
+        recoveryGeneration++
         alive = false
         if (live === this) live = null
         disposeRuntime()
@@ -181,12 +189,22 @@ class QqPrivateService : Service() {
         fun autoReconnect(context: Context) = prefs(context).getBoolean("autoReconnect", false)
         fun setAutoReconnect(context: Context, value: Boolean) {
             prefs(context).edit().putBoolean("autoReconnect", value).apply()
+            if (!value) live?.let { service ->
+                service.recoveryGeneration++
+                service.retryPending = false
+                if (service.engine == null) {
+                    prefs(context).edit().putBoolean("enabled", false).putString("connection", "stopped").apply()
+                    service.stopSelf()
+                }
+            }
             if (value) maybeRecover(context)
         }
         fun maybeRecover(context: Context) {
             if (!autoReconnect(context) || !enabled(context) || live != null || prefs(context).getBoolean("blocked", false)) return
             try { launchService(context) } catch (_: Throwable) { /* Retry on the next visible App entry. */ }
         }
+        fun wakeOptions() {live?.channel?.invokeMethod("optionsChanged",null)}
+        fun wakeWork(cid: String) { if (cid.matches(Regex("[a-f0-9]{64}"))) live?.channel?.invokeMethod("maintenance", cid) }
         fun snapshot(context: Context): Map<String, Any> {
             val p = prefs(context)
             return mapOf("enabled" to enabled(context), "autoReconnect" to autoReconnect(context), "running" to (live != null),
@@ -207,6 +225,7 @@ class QqPrivateService : Service() {
             if (Build.VERSION.SDK_INT >= 26) context.startForegroundService(intent) else context.startService(intent)
         }
         fun stop(context: Context, done: () -> Unit) {
+            live?.let { it.recoveryGeneration++ }
             // Explicit close and snapshot restore revoke automatic connection consent too.
             prefs(context).edit().putBoolean("enabled", false).putBoolean("autoReconnect", false).putString("connection", "stopped").apply()
             val active = live
@@ -237,6 +256,9 @@ class QqPrivateBridge(context: Context, engine: FlutterEngine) {
         channel.setMethodCallHandler { call, result ->
             try {
                 when (call.method) {
+                    "renderSketch" -> QqSvgRenderer.reply(call.argument<String>("svg"),result)
+                    "wakeOptions" -> { QqPrivateService.wakeOptions();result.success(null) }
+                    "wakeWork" -> { QqPrivateService.wakeWork(call.argument<String>("cid").orEmpty()); result.success(null) }
                     "snapshot" -> result.success(QqPrivateService.snapshot(app))
                     "start" -> { QqPrivateService.start(app); result.success(null) }
                     "setAutoReconnect" -> { QqPrivateService.setAutoReconnect(app, call.argument<Boolean>("enabled") == true); result.success(null) }

@@ -46,9 +46,9 @@ abstract final class QqGroupBinding {
       } else if(!validManualMember(member)) {return false;}
     }
     if(!await _current(c)) return false;
-    final o=await QqOptions.read(namespace:c.namespace);final owners={...o.ownerMembers};
-    if(member==null) {owners.remove(group);} else {owners[group]=member;}
-    await o.copy(owners:owners).save(db:database);
+    await QqOptions.update((fresh) {final owners={...fresh.ownerMembers};
+      if(member==null) {owners.remove(group);} else {owners[group]=member;}
+      return fresh.copy(owners:owners);},namespace:c.namespace,db:database);
     return true;
   }
   static Future<List<Map<String,dynamic>>> requests(QqPrivateConfig c) async {
@@ -71,8 +71,7 @@ abstract final class QqGroupBinding {
     if(c.owner.isEmpty || fresh.owner!=c.owner || fresh.namespace!=c.namespace || fresh.appId!=c.appId) return false;
     final rows=await requests(c);final selected=rows.where((r)=>r['code']==code && r['consumed']!=true).firstOrNull;
     if(selected==null) return false;
-    final o=await QqOptions.read(namespace:c.namespace);
-    await o.copy(owners:{...o.ownerMembers,selected['group'] as String:selected['member'] as String}).save(db:db);
+    await QqOptions.update((fresh)=>fresh.copy(owners:{...fresh.ownerMembers,selected['group'] as String:selected['member'] as String}),namespace:c.namespace,db:db);
     selected['consumed']=true;await _storage.write(key:'${_key}_${c.namespace}',value:jsonEncode(rows));
     return true;
   }

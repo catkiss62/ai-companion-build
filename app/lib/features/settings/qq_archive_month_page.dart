@@ -1,4 +1,7 @@
 import 'dart:convert';
+import 'package:flutter/services.dart';
+import '../../integrations/qq_private/qq_work_queue.dart';
+import '../../integrations/qq_private/qq_sketch.dart';
 import 'package:flutter/material.dart';
 import '../../core/database/app_database.dart';
 import '../../integrations/qq_private/qq_archive_admin.dart';
@@ -27,6 +30,12 @@ class _QqArchiveConversationPageState extends State<QqArchiveConversationPage> {
     appBar: AppBar(title: Text(widget.title), actions: [IconButton(onPressed: _load, icon: const Icon(Icons.refresh))]),
     body: _months == null ? Center(child: _notice.isEmpty ? const CircularProgressIndicator() : Text(_notice)) : ListView(children: [
       const Padding(padding: EdgeInsets.all(16), child: Text('按自然月整理。本月和上个月保留为近期资料；历史月份仍可按需查询。跨月不清空聊天，不自动删除。\n原文、整理记忆和修改状态随App存档保存。')),
+      ListTile(leading:const Icon(Icons.replay),title:const Text('重试失败的记忆整理'),subtitle:const Text('只重试本会话已登记、三次失败的任务，不重新读取已整理或已删除的旧资料。'),onTap:() async {
+        try {final count=await QqWorkQueue.retrySummary(AppDatabase.instance,widget.conversation['id'] as String);
+          try {await const MethodChannel('ai_companion/qq_private_control').invokeMethod<void>('wakeWork',{'cid':widget.conversation['id']});}catch(_) {}
+          if(mounted)ScaffoldMessenger.of(context).showSnackBar(SnackBar(content:Text(count==0?'没有可重试的任务。':'已登记$count项，QQ连接开启后执行。')));
+        }catch(_) {if(mounted)ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content:Text('请先开启自动记忆，再重试。')));}
+      }),
       for (final month in _months!) ListTile(
         title: Text(month.label), subtitle: Text('${month.messages} 条原文 · ${month.recentAt(DateTime.now()) ? '近期资料' : '历史档案 · 仍可查询'}'),
         trailing: const Icon(Icons.chevron_right),
@@ -51,6 +60,7 @@ class QqArchiveMonthPage extends StatefulWidget {
 class _QqArchiveMonthPageState extends State<QqArchiveMonthPage> {
   final _messages = <Map<String, Object?>>[], _notes = <Map<String, Object?>>[];
   final _texts = <String, String>{};
+  final _sketches=<int,Map<String,Object?>>{};
   bool _loading = true, _busy = false, _moreMessages = false, _moreNotes = false;
   String _notice = '';
   String get cid => widget.conversation['id'] as String;
@@ -68,8 +78,11 @@ class _QqArchiveMonthPageState extends State<QqArchiveMonthPage> {
       final reader = QqArchiveReader(await AppDatabase.instance.database);
       final texts = <String, String>{};
       for (final row in messages) { texts[row['id'] as String] = await reader.display(row, speaker: speaker(row)); }
+      final sketches=messages.isEmpty?<Map<String,Object?>>[]:await (await AppDatabase.instance.database).query('qq_sketches',where:'archive_seq IN (${List.filled(messages.length,'?').join(',')})',whereArgs:[for(final r in messages)r['seq']]);
       if (!mounted) return;
       setState(() {
+        if(reset)_sketches.clear();
+        for(final sketch in sketches)_sketches[sketch['archive_seq'] as int]=sketch;
         if (reset) { _messages.clear(); _notes.clear(); _texts.clear(); }
         _messages.addAll(messages); _texts.addAll(texts);
         if (!notesOnly) _moreMessages = messages.length == 50;
@@ -80,6 +93,12 @@ class _QqArchiveMonthPageState extends State<QqArchiveMonthPage> {
     finally { if (mounted) setState(() => _busy = false); }
   }
 
+  Future<void> _preview(Map<String,Object?> sketch) async {
+    try {final png=await QqSketchService.preview(sketch['svg'] as String);if(png==null || !mounted)return;
+      await showDialog<void>(context:context,builder:(ctx)=>AlertDialog(title:const Text('小涂鸦 · 本机重绘预览'),content:SizedBox(width:480,child:SingleChildScrollView(child:Column(mainAxisSize:MainAxisSize.min,children:[
+        Image.memory(png),Text(sketch['description'] as String),ExpansionTile(title:const Text('SVG源文件'),children:[SelectableText(sketch['svg'] as String)])]))),actions:[TextButton(onPressed:()=>Navigator.pop(ctx),child:const Text('关闭'))]));
+    }catch(_) {if(mounted)setState(()=>_notice='这张涂鸦暂时无法预览，文字描述仍保留。');}
+  }
   Future<bool> _confirm(String title, String text) async => await showDialog<bool>(context: context, builder: (ctx) => AlertDialog(
     title: Text(title), content: Text(text), actions: [TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('取消')),
       FilledButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('确认'))])) ?? false;
@@ -154,7 +173,7 @@ class _QqArchiveMonthPageState extends State<QqArchiveMonthPage> {
       Expanded(child: TabBarView(children: [
         ListView(padding: const EdgeInsets.all(16), children: [
           const Text('每次加载50条，图片仅保留文字观察。月份不限制她按需查阅历史。'),
-          for (final row in _messages) Padding(padding: const EdgeInsets.symmetric(vertical: 8), child: SelectableText(_texts[row['id']] ?? '')),
+          for (final row in _messages) Padding(padding: const EdgeInsets.symmetric(vertical: 8), child:Column(crossAxisAlignment:CrossAxisAlignment.start,children:[SelectableText(_texts[row['id']] ?? ''),if(_sketches.containsKey(row['seq']))TextButton(onPressed:()=>_preview(_sketches[row['seq']]!),child:const Text('查看小涂鸦'))])),
           if (_messages.isEmpty) const Text('本月没有原文。'),
           if (_moreMessages) TextButton(onPressed: _busy ? null : () => _load(), child: const Text('加载更早原文'))]),
         ListView(padding: const EdgeInsets.all(16), children: [

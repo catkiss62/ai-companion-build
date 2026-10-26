@@ -4,6 +4,7 @@ import '../../core/database/app_database.dart';
 import '../../core/database/brain_work_fence.dart';
 import 'qq_archive_reader.dart';
 import 'qq_store.dart';
+import 'qq_work_queue.dart';
 
 /// Calendar buckets are a management view, never a new conversation or a
 /// retrieval cutoff. Historical months remain available until explicitly deleted.
@@ -116,10 +117,12 @@ class QqArchiveAdmin {
           rebuilds++;
         }
       }
+      await QqWorkQueue.removeSources(txn,cid,deleted);
       // Deliveries and observations must be removed before their source rows.
       for (var offset = 0; offset < victims.length; offset += 200) {
         final ids = victims.skip(offset).take(200).map((r) => r['seq']).toList();
         final slots = List.filled(ids.length, '?').join(',');
+        await txn.delete('qq_sketches',where:'archive_seq IN ($slots)',whereArgs:ids);
         await txn.delete('qq_images', where: 'archive_seq IN ($slots)', whereArgs: ids);
         await txn.delete('qq_deliveries', where: 'conversation_id=? AND through_seq IN ($slots)', whereArgs: [cid, ...ids]);
         await txn.delete('qq_archive', where: 'conversation_id=? AND seq IN ($slots)', whereArgs: [cid, ...ids]);

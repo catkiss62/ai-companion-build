@@ -10,11 +10,16 @@ class QqReplyDelivery {
   final Duration Function()? interval;
   static final _random = Random();
 
+  static List<String> validate(String text,List<String>? messages) {
+    final chunks=(messages??[if(text.isNotEmpty)text]).where((p)=>p.trim().isNotEmpty).toList();
+    if(chunks.length>3 || chunks.any((p)=>p.runes.length>1800) || chunks.fold<int>(0,(n,p)=>n+p.runes.length)>5400)throw const FormatException('qq_reply_parts_invalid');
+    return chunks;
+  }
   Future<void> send({required bool group, required String target, required String messageId,
     required String text, required String fileInfo, List<String>? messages, required Future<bool> Function() current,
     required Future<void> Function() beforeSend,
     required Future<void> Function(int sequence, String text, bool image) sent}) async {
-    final chunks = [for(final message in messages??[if(text.isNotEmpty)text]) ...splitQqText(message)];
+    final chunks=validate(text,messages);
     var sequence = 0, delivered = 0;
     Future<void> part(String content, String media) async {
       if (!await current()) throw StateError('context_invalidated');

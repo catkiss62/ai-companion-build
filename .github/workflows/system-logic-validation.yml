@@ -29,7 +29,7 @@ jobs:
       - name: Creative page bridge failure recovery
         run: node app/tools/test_creative_bridge.mjs
       - name: Changed QQ archives and game execution regression
-        run: flutter test --timeout 60s --reporter expanded test/qq_archives_v042140_test.dart test/game_execution_v042140_test.dart
+        run: flutter test --timeout 60s --reporter expanded test/qq_learning_sketch_v042141_test.dart test/qq_archives_v042140_test.dart test/game_execution_v042140_test.dart
         working-directory: app
       - name: Focused source and background regression suite
         run: >-

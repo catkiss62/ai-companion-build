@@ -1,6 +1,9 @@
 package com.aicompanion.localfirst.qq
 
 import android.app.Application
+import android.os.Looper
+import java.time.Duration
+import org.robolectric.annotation.LooperMode
 import org.junit.Assert.*
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -84,4 +87,37 @@ class QqPrivateServiceTest {
         assertEquals(30000L, QqRecoveryPolicy.retryDelay(2))
         assertEquals(300000L, QqRecoveryPolicy.retryDelay(20))
     }
+    private fun recoveredHost(): QqPrivateService {
+        val app:Application=RuntimeEnvironment.getApplication()
+        val p=app.getSharedPreferences("qq_private_service_v1",0);p.edit().clear().commit()
+        val service=Robolectric.buildService(QqPrivateService::class.java).create().get()
+        QqPrivateService::class.java.getDeclaredField("alive").apply {isAccessible=true}.setBoolean(service,true)
+        QqPrivateService::class.java.getDeclaredField("live").apply {isAccessible=true}.set(null,service)
+        p.edit().putBoolean("enabled",true).putBoolean("autoReconnect",true).commit()
+        return service
+    }
+    @Test @LooperMode(LooperMode.Mode.PAUSED)
+    fun uncheckingAutoReconnectCancelsAnAlreadyScheduledRetry() {
+        val app:Application=RuntimeEnvironment.getApplication();val service=recoveredHost()
+        QqPrivateService::class.java.getDeclaredMethod("failed",String::class.java).apply {isAccessible=true}.invoke(service,"runtime_unresponsive")
+        shadowOf(Looper.getMainLooper()).idle() // Dispose old runtime and schedule the delayed start.
+        QqPrivateService.setAutoReconnect(app,false)
+        shadowOf(Looper.getMainLooper()).idleFor(Duration.ofSeconds(31))
+        assertFalse(QqPrivateService.enabled(app))
+        assertEquals("stopped",QqPrivateService.snapshot(app)["connection"])
+        assertNull(QqPrivateService::class.java.getDeclaredField("engine").apply {isAccessible=true}.get(service))
+        service.onDestroy()
+    }
+    @Test @LooperMode(LooperMode.Mode.PAUSED)
+    fun uncheckingWhileWatchdogPingIsPendingCancelsItsTimeout() {
+        val app:Application=RuntimeEnvironment.getApplication();val service=recoveredHost()
+        QqPrivateService::class.java.getDeclaredField("dartReady").apply {isAccessible=true}.setBoolean(service,true)
+        (QqPrivateService::class.java.getDeclaredField("watchdog").apply {isAccessible=true}.get(service) as Runnable).run()
+        QqPrivateService.setAutoReconnect(app,false)
+        shadowOf(Looper.getMainLooper()).idleFor(Duration.ofSeconds(11))
+        assertFalse(QqPrivateService::class.java.getDeclaredField("retryPending").apply {isAccessible=true}.getBoolean(service))
+        assertEquals("stopped",QqPrivateService.snapshot(app)["connection"])
+        service.onDestroy()
+    }
+
 }

@@ -5,6 +5,7 @@ import '../../core/database/app_database.dart';
 import '../../core/database/brain_work_fence.dart';
 import '../../core/database/automatic_memory_permit.dart';
 import 'qq_archive_reader.dart';
+import 'qq_work_queue.dart';
 
 class QqBatch {
   QqBatch(this.id,this.conversation,this.rows,this.fence);
@@ -27,6 +28,13 @@ class QqStore {
   static String conversationId(String scope,String kind,String target)=>hash([scope,kind,target]);
   static const identityKeys=['state_lineage_id','state_generation','runtime_state_epoch_v1',
     'conversation_context_reset_at','conversation_context_reset_count','qq_context_policy_version_v1'];
+  /// Ingress ownership is stable across ordinary note edits. Output work still
+  /// captures the conversation epoch and is invalidated by derived-data edits.
+  static String ingressIdentity(BrainWorkFence fence)=>jsonEncode({for(final key in identityKeys)key:fence.identity[key]??''});
+  static bool acceptsIngress(String raw,BrainWorkFence fence) {
+    try {final value=jsonDecode(raw);return value is Map && identityKeys.every((key)=>(value[key]??'')==(fence.identity[key]??''));}
+    catch(_){return false;}
+  }
   Future<BrainWorkFence> capture({String? conversationId}) async =>(await db.database).transaction((txn) async=>BrainWorkFence(identity:{
     for(final key in [...identityKeys,if(conversationId!=null)'qq_archive_epoch_v1:$conversationId'])key:await BrainWorkFence.value(txn,key)}));
   Future<bool> current(BrainWorkFence fence) async=>fence.matches(await db.database);
@@ -48,11 +56,17 @@ class QqStore {
         }
         return null;
       }
+      if(role=='user') {
+        await txn.delete('qq_ingress',where:'expires_at<?',whereArgs:[receivedAt]);
+        if((await txn.query('qq_ingress',columns:['id'],where:'id=?',whereArgs:[id],limit:1)).isNotEmpty)return null;
+        await txn.insert('qq_ingress',{'id':id,'expires_at':receivedAt+const Duration(days:1).inMilliseconds});
+      }
       if((Sqflite.firstIntValue(await txn.rawQuery('SELECT COUNT(*) FROM qq_archive'))??0)>=250000) throw StateError('archive_full');
       await txn.insert('qq_conversations',{'id':cid,'scope':scope,'kind':kind,'target':target},conflictAlgorithm:ConflictAlgorithm.ignore);
+      await txn.rawInsert('INSERT OR IGNORE INTO settings(key,value) VALUES(?,?)',['qq_style_cursor_v1:$cid','0']);
       final seq=await txn.insert('qq_archive',{'id':id,'conversation_id':cid,'platform_id':platformId,'sender':sender,
         'owner':owner?1:0,'role':role,'content':QqArchiveReader.bound(text,16000),'observed_at':observedAt,'received_at':receivedAt,
-        'mentioned':mentioned?1:0,'reply_to':replyTo,'accepted_identity':jsonEncode(fence.identity),'accepted_policy':policy});
+        'mentioned':mentioned?1:0,'reply_to':replyTo,'accepted_identity':ingressIdentity(fence),'accepted_policy':policy});
       for(var i=0;i<images.clamp(0,8);i++) { await txn.insert('qq_images',{'id':'$id:$i','archive_seq':seq,'ordinal':i}); }
       return seq;
     });
@@ -66,7 +80,7 @@ class QqStore {
     final checked=c['checked_seq'] as int;
     if(through<=checked) return null;
     final rows=await txn.query('qq_archive',where:"conversation_id=? AND seq>? AND seq<=? AND role='user'",whereArgs:[cid,checked,through],orderBy:'seq');
-    final admitted=rows.where((r)=>r['accepted_identity']==jsonEncode(fence.identity) && r['accepted_policy']==policy).toList();
+    final admitted=rows.where((r)=>acceptsIngress(r['accepted_identity'] as String,fence) && r['accepted_policy']==policy).toList();
     if(admitted.isEmpty) { await txn.update('qq_conversations',{'checked_seq':through},where:'id=?',whereArgs:[cid]); return null; }
     final id=hash([cid,through]);
     await txn.update('qq_conversations',{'checked_seq':through},where:'id = ?',whereArgs:[cid]);
@@ -77,7 +91,7 @@ class QqStore {
     await txn.update('qq_deliveries',{'state':state,'updated_at':DateTime.now().millisecondsSinceEpoch,
       if(text!=null)'content':text,if(sticker!=null)'sticker_key':sticker},where:'id = ?',whereArgs:[b.id]);
   });
-  Future<void> sentPart(QqBatch b,int part,String text,String sticker,int now)=>write(b.fence,(txn) async {
+  Future<void> sentPart(QqBatch b,int part,String text,String sticker,int now,{String sketchSvg=''})=>write(b.fence,(txn) async {
     if(!await QqArchiveReader(txn).matches([for(final r in b.rows){'table':'qq_archive','id':r['id'],'version':r['version']}])) throw const BrainWorkInvalidated();
     await txn.insert('qq_archive',{'id':'reply:${b.id}:$part','conversation_id':b.cid,'platform_id':'',
       'sender':'assistant','role':'assistant','content':text,'observed_at':now,'received_at':now},conflictAlgorithm:ConflictAlgorithm.ignore);
@@ -85,6 +99,10 @@ class QqStore {
       final row=(await txn.query('qq_archive',columns:['seq'],where:'id = ?',whereArgs:['reply:${b.id}:$part'],limit:1)).single;
       await txn.insert('qq_images',{'id':'reply:${b.id}:$part:image','archive_seq':row['seq'],'ordinal':0,'state':'viewed',
         'description':sticker,'fingerprint':''},conflictAlgorithm:ConflictAlgorithm.ignore);
+    }
+    if(sketchSvg.isNotEmpty) {
+      final row=(await txn.query('qq_archive',columns:['seq'],where:'id=?',whereArgs:['reply:${b.id}:$part'],limit:1)).single;
+      await txn.insert('qq_sketches',{'id':'sketch:${b.id}:$part','archive_seq':row['seq'],'svg':sketchSvg,'description':sticker,'created_at':now},conflictAlgorithm:ConflictAlgorithm.ignore);
     }
     await txn.update('qq_conversations',{'last_reply_at':now},where:'id = ?',whereArgs:[b.cid]);
   });
@@ -101,42 +119,74 @@ class QqStore {
   Future<void> recover(BrainWorkFence fence)=>write(fence,(txn) async {
     await txn.execute("UPDATE qq_deliveries SET state=CASE WHEN state='sending' THEN 'send_uncertain' ELSE 'interrupted' END WHERE state IN ('checking','generating','generated','sending')");
     await txn.execute("UPDATE qq_shares SET state=CASE WHEN state='sending' THEN 'send_uncertain' ELSE 'interrupted' END WHERE state IN ('claimed','sending')");
+    final now=DateTime.now().millisecondsSinceEpoch;
+    await txn.rawUpdate("UPDATE qq_work_items SET state=CASE WHEN attempts>=3 THEN 'failed' ELSE 'pending' END,run_token='',next_at=MAX(next_at,?+120000),updated_at=? WHERE state='running'",[now,now]);
   });
   Future<void> forget(BrainWorkFence fence,String cid)=>write(fence,(txn) async {
     await txn.rawDelete('DELETE FROM qq_shares WHERE note_id IN (SELECT id FROM qq_notes WHERE conversation_id=?)',[cid]);
     await txn.delete('qq_notes',where:'conversation_id=?',whereArgs:[cid]);
     await txn.delete('qq_deliveries',where:'conversation_id=?',whereArgs:[cid]);
     await txn.rawDelete('DELETE FROM qq_images WHERE archive_seq IN (SELECT seq FROM qq_archive WHERE conversation_id=?)',[cid]);
+    await txn.delete('qq_work_items',where:'conversation_id=?',whereArgs:[cid]);
+    await txn.delete('qq_styles',where:'conversation_id=?',whereArgs:[cid]);
+    await txn.rawDelete('DELETE FROM qq_sketches WHERE archive_seq IN (SELECT seq FROM qq_archive WHERE conversation_id=?)',[cid]);
     await txn.delete('qq_archive',where:'conversation_id=?',whereArgs:[cid]);
     await txn.rawUpdate('UPDATE qq_conversations SET checked_seq=0,summary_seq=0,summary_checked_seq=0,version=version+1 WHERE id=?',[cid]);
     final epoch='qq_archive_epoch_v1:$cid';
     await txn.rawInsert('INSERT OR REPLACE INTO settings(key,value) VALUES(?,?)',[epoch,'${(int.tryParse(await BrainWorkFence.value(txn,epoch))??0)+1}']);
   });
-  Future<({List<Map<String,Object?>> rows,AutomaticMemoryPermit permit,String input,List<Map<String,Object?>> stamp,String repairId,int repairRevision,int conversationVersion})?> claimSummary(BrainWorkFence fence,String cid,{required bool idle})=>write(fence,(txn) async {
-    final permit=await AutomaticMemoryPermit.capture(txn,'auto_memory');
-    if(!permit.enabled) return null;
+  Future<({List<Map<String,Object?>> rows,AutomaticMemoryPermit permit,String input,List<Map<String,Object?>> stamp,String repairId,int repairRevision,int conversationVersion,String workId,String runToken})?> claimSummary(BrainWorkFence fence,String cid,{required bool idle,int? at})=>write(fence,(txn) async {
+    final now=at??DateTime.now().millisecondsSinceEpoch;
+    final active=await AutomaticMemoryPermit.capture(txn,'auto_memory');
+    if(!active.enabled) return null;
     final c=(await txn.query('qq_conversations',where:'id=?',whereArgs:[cid],limit:1)).single;
-    final repairs=await txn.query('qq_notes',where:'conversation_id=? AND valid=0',whereArgs:[cid],orderBy:'created_at,id',limit:1);
-    final repair=repairs.firstOrNull;
-    final ids=repair==null?<int>[]:(jsonDecode(repair['sources'] as String) as List).cast<int>();
-    final rows=await txn.query('qq_archive',where:repair==null?'conversation_id=? AND seq>?':
-      'conversation_id=? AND seq IN (${List.filled(ids.length,'?').join(',')})',
-      whereArgs:repair==null?[cid,c['summary_checked_seq']]:[cid,...ids],orderBy:'seq',limit:20);
-    if(rows.isEmpty || repair==null && !idle && rows.length<20) return null;
-    // Month boundaries affect storage only. Retrieval still spans months.
-    final first=DateTime.fromMillisecondsSinceEpoch(rows.first['observed_at'] as int);
-    final monthly=rows.takeWhile((r) {final at=DateTime.fromMillisecondsSinceEpoch(r['observed_at'] as int);
-      return at.year==first.year && at.month==first.month;}).toList();
-    final stamp=<Map<String,Object?>>[];
-    final page=await QqArchiveReader(txn).projectRows(monthly,maxChars:27500,stamp:stamp,newestFirst:false);
-    if(page.count==0) return null;
-    final included=monthly.take(page.count).toList();
-    if(repair==null) await txn.update('qq_conversations',{'summary_checked_seq':included.last['seq']},where:'id=?',whereArgs:[cid]);
-    return (rows:included,permit:permit,input:page.text,stamp:stamp,repairId:repair?['id'] as String? ?? '',
-      repairRevision:repair?['revision'] as int? ?? 0,conversationVersion:c['version'] as int);
+    var job=await QqWorkQueue.due(txn,cid,'summary',now);
+    Map<String,Object?>? repair;
+    List<Map<String,Object?>> rows;
+    AutomaticMemoryPermit permit=active;
+    if(job!=null) {
+      final meta=jsonDecode(job['permit'] as String) as Map;
+      final saved=AutomaticMemoryPermit.decode(meta['memory']);
+      if(saved==null || !await saved.matches(txn) || !acceptsIngress(job['identity'] as String,fence)) {
+        await QqWorkQueue.cancel(txn,job['id'] as String,now);return null;
+      }
+      permit=saved;
+      final repairId=meta['repairId'] as String? ?? '';
+      if(repairId.isNotEmpty) {
+        repair=(await txn.query('qq_notes',where:'id=? AND conversation_id=? AND valid=0 AND revision=?',whereArgs:[repairId,cid,meta['repairRevision']],limit:1)).firstOrNull;
+        if(repair==null) {await QqWorkQueue.cancel(txn,job['id'] as String,now);return null;}
+      }
+      final ids=(jsonDecode(job['sources'] as String) as List).cast<int>();
+      rows=await txn.query('qq_archive',where:'conversation_id=? AND seq IN (${List.filled(ids.length,'?').join(',')})',whereArgs:[cid,...ids],orderBy:'seq');
+      if(rows.length!=ids.length) {await QqWorkQueue.cancel(txn,job['id'] as String,now);return null;}
+    } else {
+      repair=(await txn.query('qq_notes',where:'conversation_id=? AND valid=0',whereArgs:[cid],orderBy:'created_at,id',limit:1)).firstOrNull;
+      final ids=repair==null?<int>[]:(jsonDecode(repair['sources'] as String) as List).cast<int>();
+      rows=await txn.query('qq_archive',where:repair==null?'conversation_id=? AND seq>?':'conversation_id=? AND seq IN (${List.filled(ids.length,'?').join(',')})',whereArgs:repair==null?[cid,c['summary_checked_seq']]:[cid,...ids],orderBy:'seq',limit:20);
+      if(rows.isEmpty || repair==null && !idle && rows.length<20) return null;
+      final first=DateTime.fromMillisecondsSinceEpoch(rows.first['observed_at'] as int);
+      rows=rows.takeWhile((r) {final d=DateTime.fromMillisecondsSinceEpoch(r['observed_at'] as int);return d.year==first.year && d.month==first.month;}).toList();
+    }
+    // Include whole messages. A partial display page is not proof that its
+    // hidden tail was summarized; one unusually long source remains intact.
+    final stamp=<Map<String,Object?>>[],included=<Map<String,Object?>>[],blocks=<String>[];
+    var length=0;
+    for(final row in rows) {
+      final proof=<Map<String,Object?>>[];
+      final block=await QqArchiveReader(txn).render(row,stamp:proof);
+      if(job==null && included.isNotEmpty && length+block.length>27500) break;
+      included.add(row);blocks.add(block);stamp.addAll(proof);length+=block.length;
+    }
+    if(included.isEmpty)return null;
+    final repairId=repair?['id'] as String? ?? '',revision=repair?['revision'] as int? ?? 0;
+    final id=job?['id'] as String? ?? await QqWorkQueue.register(txn,kind:'summary',cid:cid,sources:[for(final r in included)r['seq'] as int],identity:ingressIdentity(fence),permit:{'memory':permit.toJson(),'repairId':repairId,'repairRevision':revision},repair:'$repairId:$revision',now:now);
+    final token=await QqWorkQueue.begin(txn,id,now);if(token==null)return null;
+    if(job==null && repair==null)await txn.update('qq_conversations',{'summary_checked_seq':included.last['seq']},where:'id=?',whereArgs:[cid]);
+    return (rows:included,permit:permit,input:blocks.join('\n'),stamp:stamp,repairId:repairId,repairRevision:revision,conversationVersion:c['version'] as int,workId:id,runToken:token);
   });
   Future<bool> saveNote(BrainWorkFence fence,String cid,List<Map<String,Object?>> rows,List<Map<String,Object?>> stamp,
-    AutomaticMemoryPermit permit,String content,String share,int now,{String repairId='',int repairRevision=0,int? conversationVersion})=>write(fence,(txn) async {
+    AutomaticMemoryPermit permit,String content,String share,int now,{String repairId='',int repairRevision=0,int? conversationVersion,String workId='',String runToken=''})=>write(fence,(txn) async {
+    if(workId.isNotEmpty && !await QqWorkQueue.current(txn,workId,runToken))return false;
     if(!await permit.matches(txn) || !await QqArchiveReader(txn).matches(stamp)) return false;
     final c=(await txn.query('qq_conversations',where:'id=?',whereArgs:[cid],limit:1)).firstOrNull;
     if(c==null || conversationVersion!=null && c['version']!=conversationVersion) return false;
@@ -163,6 +213,7 @@ class QqStore {
         'content':QqArchiveReader.bound(share,1400),'updated_at':now},conflictAlgorithm:ConflictAlgorithm.ignore);
     }
     if(repairId.isEmpty) await txn.rawUpdate('UPDATE qq_conversations SET summary_seq=MAX(summary_seq,?) WHERE id=?',[through,cid]);
+    if(workId.isNotEmpty)await QqWorkQueue.complete(txn,workId,runToken,now);
     return true;
   });
 }

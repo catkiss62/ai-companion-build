@@ -332,7 +332,7 @@ void main(){
     final qq=await QqReadOnlyContext(sql).build('群里刚刚约了什么',qqScope:QqRuntime.scope(config),media:true);
     expect(qq,contains('紫色珊瑚'));expect(qq,contains('GROUP_MEMBER_HISTORY'));
   });
-  test('summary failure consumes source cursor once; new input is required for more work',()async{
+  test('summary failure registers bounded work; no immediate idle repeat',()async{
     await db.setSetting('auto_memory','1');await accept('summary','群里聊了猫');
     handler=(r,b)async=>http.Response('not available',503);
     await expectLater(runtime.summarize(cid(),idle:true),throwsA(anything));

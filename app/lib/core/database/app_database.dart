@@ -192,7 +192,8 @@ class AppDatabase {
   // Historical validator compatibility token: static const int schemaVersion = 60;
   // Historical validator compatibility token: static const int schemaVersion = 61;
   // Historical validator compatibility token: static const int schemaVersion = 62;
-  static const int schemaVersion = 63;
+  // Historical validator compatibility token: static const int schemaVersion = 63;
+  static const int schemaVersion = 64;
 
   Database? _db;
   Future<Database>? _opening;
@@ -1261,6 +1262,7 @@ class AppDatabase {
     }
     if (oldVersion < 62) await QqArchiveSchema.create(db);
     if (oldVersion < 63) await QqArchiveSchema.upgradeMonthly(db);
+    if (oldVersion < 64) await QqArchiveSchema.upgradeWork(db);
   }
 
   Future<void> _createSchema(Database db) async {

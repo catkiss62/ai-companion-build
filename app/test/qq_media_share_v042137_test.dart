@@ -94,7 +94,7 @@ void main(){
   });
   test('turning owner sharing off invalidates an already-generated offer',()async{
     final id=await note();final offer=(await QqShareStore(db).claim(id,'app',now))!;
-    await options.copy(ownerShare:false).save(db:db);
+    await QqOptions.update((fresh)=>fresh.copy(ownerShare:false),namespace:config.namespace,db:db);
     expect(await offer.matches(await db.database),false);expect(await QqShareStore(db).candidates(now),isEmpty);
   });
   test('App share and receipt commit atomically and preserve source identity',()async{

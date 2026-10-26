@@ -29,6 +29,8 @@ Future<void> runQqPrivateBackground() async {
   Future<bool> allowed() async=>!stopped && await native.invokeMethod<bool>('enabled')==true &&
     await QqReadOnlyContext.readMain((ctx) async=>await ctx.allowed() && await ctx.setting('qq_master_enabled_v2')=='1');
   native.setMethodCallHandler((call) async {
+    if(call.method=='maintenance' && call.arguments is String) {coordinator?.wakeWork(call.arguments as String);return null;}
+    if(call.method=='optionsChanged') {await coordinator?.optionsChanged();return null;}
     if(call.method=='ping') return !stopped;
     if(call.method=='shutdown') {stopped=true;await clearOwnedFlag();await coordinator?.stop();await gateway?.stop();}
   });
