@@ -142,7 +142,8 @@ void main(){
   test('first-channel vision fallback sends actual image input with thinking disabled',()async{
     final requests=<http.Request>[];
     final client=QwenVisionClient(client:QqNonThinkingVisionTransport(MockClient((r)async{
-      requests.add(r);return http.Response(jsonEncode({'choices':[{'message':{'content':jsonEncode({'summary':'一张测试图'})},'finish_reason':'stop'}]}),200);
+      requests.add(r);return http.Response(jsonEncode({'choices':[{'message':{'content':jsonEncode({'summary':'一张测试图'})},'finish_reason':'stop'}]}),200,
+        headers:{'content-type':'application/json; charset=utf-8'});
     })));
     try{
       await client.observeBytes(apiKey:'fixture',endpoint:'https://first.test/chat',model:'dynamic-first-model',imageBytes:Uint8List.fromList([1,2,3]));
