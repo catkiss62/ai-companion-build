@@ -7,14 +7,14 @@
 - 仓库：`catkiss62/ai-companion-build`。
 - 本轮开发分支：[agent/v042107-review-recovery](https://github.com/catkiss62/ai-companion-build/tree/agent/v042107-review-recovery)。开始工作时先读取这个分支的实际 HEAD，并与用户授权范围核对。
 - GitHub 默认分支是 `main`。2026-10-25 核查时，`main` 下的 `app/lib/core/self/dream_engine.dart` 返回 404，而上述开发分支存在该文件。默认分支与当前开发代码不能互相替代；尚不知道用户的 DSHA 当时读取了哪个分支。
-- 最新测试包为v0.42.138+382；完整CI[40301482531](https://github.com/catkiss62/ai-companion-build/actions/runs/40301482531)成功：154源码门、Kotlin、2802全量Flutter、170存档恢复和Android15原生54项均通过；专项[40301482530](https://github.com/catkiss62/ai-companion-build/actions/runs/40301482530)通过1247项，含本轮新增21项。运行源码e48b65cb2853fadb92a547ee01708d531e9e3a6a，tree87331fdc62a7c0b52eafb1c37b01c9bdb450abe3，schema62。原签名APK739124866字节，SHA256 d2a88f77911594e5b73f817933c7bd2f8e4e2b99052386049313c97da384ece1。Actions产物12643240003及未公开Draft Release424096675/资源677772506均已上传，元数据哈希一致。本轮按用户要求从GitHub下载，不经聊天传输，也不另做大型APK导出。+382尚无用户真机验证，不以自动测试替代真实模型语义/网络/后台结果。 见[本轮交付](app/docs/QQ_JEV_CONVERSATION_v042138.md)。
+- 前一版测试包为v0.42.138+382；完整CI[40301482531](https://github.com/catkiss62/ai-companion-build/actions/runs/40301482531)成功：154源码门、Kotlin、2802全量Flutter、170存档恢复和Android15原生54项均通过；专项[40301482530](https://github.com/catkiss62/ai-companion-build/actions/runs/40301482530)通过1247项，含本轮新增21项。运行源码e48b65cb2853fadb92a547ee01708d531e9e3a6a，tree87331fdc62a7c0b52eafb1c37b01c9bdb450abe3，schema62。原签名APK739124866字节，SHA256 d2a88f77911594e5b73f817933c7bd2f8e4e2b99052386049313c97da384ece1。Actions产物12643240003及未公开Draft Release424096675/资源677772506均已上传，元数据哈希一致。本轮按用户要求从GitHub下载，不经聊天传输，也不另做大型APK导出。+382尚无用户真机验证，不以自动测试替代真实模型语义/网络/后台结果。 见[本轮交付](app/docs/QQ_JEV_CONVERSATION_v042138.md)。
 - 本轮允许在指定开发分支提交代码、测试和文档；未授权合并 `main` 或正式发布。
 
 前一版+381的群聊已由用户报告跑通；构建与交付历史见[+381记录](app/docs/QQ_GROUP_IMPLEMENTATION_2026-10-26.md)。七类大检查继续后移。
 
 本轮[QQ JEV参与、本机认主与群记录读取/中文显示](app/docs/QQ_JEV_CONVERSATION_v042138.md)已完成代码、自动回归及APK构建上传；当前待用户真机验证，不再标记为候选/CI待验。
 
-当前开发候选为v0.42.139+383，见[QQ档案与Agent读取链修复](app/docs/QQ_ARCHIVE_AGENT_v042139.md)；代码/回归已写，CI与APK待实际验证。下文+382为先前已验证交付。
+当前交付为v0.42.139+383，见[QQ档案与Agent读取链修复](app/docs/QQ_ARCHIVE_AGENT_v042139.md)。运行源码46f938f827d914ce9602be0a3fe4645107903c4f；完整CI40327576862第2次成功（154源码门、Kotlin、2829全量Flutter、170存档恢复、Android15原生54项），专项40327577070通过1274项。原签名APK739151006字节，SHA256 e5dab2d111d69bc5a1f96bb8a73b094ae5ba7c7367fadcabe8d7faacbcf2480d；Actions产物12657186227及未公开Draft424251723/资源678335514均已上传，摘要一致。从GitHub下载，不经聊天传输；真实模型与手机表现待验。下文旧版本状态只描述各自时点。
 
 ## 建议阅读顺序
 
