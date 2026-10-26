@@ -8,7 +8,7 @@ abstract final class QqArchiveSchema {
     'qq_conversations':{'id','scope','kind','target','checked_seq','summary_checked_seq','summary_seq','last_reply_at','version'},
     'qq_archive':{'seq','id','conversation_id','platform_id','sender','owner','role','content','observed_at','received_at','mentioned','reply_to','accepted_identity','accepted_policy','version'},
     'qq_images':{'id','archive_seq','ordinal','state','description','fingerprint','version'},
-    'qq_notes':{'id','conversation_id','content','sources','source_stamp','through_seq','created_at','valid'},
+    'qq_notes':{'id','conversation_id','content','sources','source_stamp','through_seq','created_at','valid','range_start','range_end','revision','edited_at'},
     'qq_deliveries':{'id','conversation_id','through_seq','state','content','sticker_key','updated_at'},
     'qq_shares':{'id','note_id','state','destination','content','updated_at'},
     'qq_receipts':{'id','message_id','message_revision','source_stamp','created_at'},
@@ -35,7 +35,13 @@ abstract final class QqArchiveSchema {
     await sql.execute('''CREATE TABLE IF NOT EXISTS qq_notes (
       id TEXT PRIMARY KEY, conversation_id TEXT NOT NULL REFERENCES qq_conversations(id),
       content TEXT NOT NULL, sources TEXT NOT NULL, source_stamp TEXT NOT NULL,
-      through_seq INTEGER NOT NULL, created_at INTEGER NOT NULL, valid INTEGER NOT NULL DEFAULT 1)''');
+      through_seq INTEGER NOT NULL, created_at INTEGER NOT NULL, valid INTEGER NOT NULL DEFAULT 1,
+      range_start INTEGER NOT NULL DEFAULT 0, range_end INTEGER NOT NULL DEFAULT 0,
+      revision INTEGER NOT NULL DEFAULT 1, edited_at INTEGER NOT NULL DEFAULT 0)''');
+    // Existing schema62 tables get these columns in upgradeMonthly first.
+    if((await sql.rawQuery('PRAGMA table_info(qq_notes)')).any((r)=>r['name']=='range_start')) {
+      await sql.execute('CREATE INDEX IF NOT EXISTS qq_notes_range ON qq_notes(conversation_id,range_start,range_end)');
+    }
     await sql.execute('''CREATE TABLE IF NOT EXISTS qq_deliveries (
       id TEXT PRIMARY KEY, conversation_id TEXT NOT NULL REFERENCES qq_conversations(id),
       through_seq INTEGER NOT NULL, state TEXT NOT NULL, content TEXT NOT NULL DEFAULT '',
@@ -47,16 +53,38 @@ abstract final class QqArchiveSchema {
     await sql.execute('CREATE INDEX IF NOT EXISTS qq_receipts_message ON qq_receipts(message_id,message_revision)');
   }
 
+  /// Upgrade source ranges without rewriting summary text or its evidence.
+  static Future<void> upgradeMonthly(DatabaseExecutor sql) async {
+    final fields=(await sql.rawQuery('PRAGMA table_info(qq_notes)')).map((r)=>r['name']).toSet();
+    for(final field in ['range_start','range_end','revision','edited_at']) {
+      if(!fields.contains(field)) await sql.execute('ALTER TABLE qq_notes ADD COLUMN $field INTEGER NOT NULL DEFAULT ${field=='revision'?1:0}');
+    }
+    final notes=await sql.query('qq_notes',columns:['id','sources'],where:'range_start=0 AND range_end=0');
+    for(final note in notes) {
+      final ids=(jsonDecode(note['sources'] as String) as List).cast<int>();
+      if(ids.isEmpty) continue;
+      final range=(await sql.rawQuery('SELECT MIN(observed_at) AS first,MAX(observed_at) AS last FROM qq_archive WHERE seq IN (${List.filled(ids.length,'?').join(',')})',ids)).single;
+      await sql.update('qq_notes',{'range_start':range['first']??0,'range_end':range['last']??0},where:'id=?',whereArgs:[note['id']]);
+    }
+    await sql.execute('CREATE INDEX IF NOT EXISTS qq_notes_range ON qq_notes(conversation_id,range_start,range_end)');
+  }
+
   /// Complete structural/provenance validation BEFORE live-state replacement.
   static void validate(Map<String,dynamic> raw,{required int version}) {
     if(version<62) { for(final t in tables) { raw[t]=<Object?>[]; } return; }
     final conversations=<String,Map>{}; final seqs=<int,String>{}; final maxima=<String,int>{};
-    final noteIds=<String>{};
+    final noteIds=<String>{}; final observed=<int,int>{};
     for(final table in tables) {
       final rows=raw[table];
       if(rows is! List || rows.length>250000) throw const FormatException('QQ分区缺失或过大');
       final ids=<String>{};
       for(final row in rows) {
+        if(table=='qq_notes' && version<63 && row is Map) {
+          final sources=jsonDecode(row['sources'] as String);
+          final times=sources is List?sources.map((id)=>observed[id]).whereType<int>().toList():<int>[];
+          times.sort();
+          row.addAll({'range_start':times.isEmpty?0:times.first,'range_end':times.isEmpty?0:times.last,'revision':1,'edited_at':0});
+        }
         if(row is! Map || row.length!=columns[table]!.length || !row.keys.toSet().containsAll(columns[table]!) ||
             row['id'] is! String || (row['id'] as String).isEmpty || !ids.add(row['id'] as String) ||
             row.values.any((v)=>v is! String && v is! int) ||
@@ -88,12 +116,15 @@ abstract final class QqArchiveSchema {
             if(seq is! int || seq<=0 || seqs.containsKey(seq) || !const {'user','assistant'}.contains(row['role']) ||
                 row['observed_at'] is! int || row['received_at'] is! int || row['version'] is! int ||
                 !const {0,1}.contains(row['owner']) || !const {0,1}.contains(row['mentioned'])) throw const FormatException('QQ原文无效');
-            seqs[seq]=cid as String;
+            seqs[seq]=cid as String; observed[seq]=row['observed_at'] as int;
             if(seq>(maxima[cid]??0)) maxima[cid]=seq;
           } else if(table=='qq_notes') {
             final sources=jsonDecode(row['sources'] as String);
             if(sources is! List || sources.isEmpty || sources.length>80 || sources.any((s)=>s is! int || seqs[s]!=cid) ||
-                row['through_seq'] is! int || row['created_at'] is! int || !const {0,1}.contains(row['valid'])) throw const FormatException('QQ记忆证据无效');
+                row['through_seq'] is! int || seqs[row['through_seq']]!=cid || row['created_at'] is! int ||
+                row['revision'] is! int || (row['revision'] as int)<1 || row['edited_at'] is! int ||
+                row['range_start'] is! int || row['range_end'] is! int || (row['range_end'] as int)<(row['range_start'] as int) ||
+                !const {0,1}.contains(row['valid'])) throw const FormatException('QQ记忆证据无效');
             noteIds.add(row['id'] as String);
           } else if(row['through_seq'] is! int || seqs[row['through_seq']]!=cid) {
             throw const FormatException('QQ投递来源无效');

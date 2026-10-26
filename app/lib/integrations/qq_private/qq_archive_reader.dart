@@ -107,7 +107,7 @@ class QqArchiveReader {
     final summaries=<String>[];var noteChars=0;
     for(final n in notes) {
       if(!await noteCurrent(n)) continue;
-      final piece=jsonEncode({'source':'本群历史摘要','text':bound(n['content'] as String,900),'evidence':n['sources']});
+      final piece=jsonEncode({'source':'本群历史摘要','edited_by_owner':(n['edited_at'] as int? ?? 0)>0,'from':n['range_start'],'to':n['range_end'],'text':bound(n['content'] as String,900),'evidence':n['sources']});
       if(noteChars+piece.length>maxChars~/4) break;
       summaries.add(piece);noteChars+=piece.length+1;stamp?.add({'table':'qq_notes','id':n['id'],'token':noteToken(n)});
     }
@@ -123,7 +123,9 @@ class QqArchiveReader {
     } catch (_) { return false; }
   }
   static String noteToken(Map<String,Object?> note)=>sha256.convert(utf8.encode(jsonEncode([
-    note['content'],note['sources'],note['source_stamp'],note['valid']]))).toString();
+    note['content'],note['sources'],note['source_stamp'],note['valid'],
+    // Unedited schema62 evidence keeps its existing token after upgrade.
+    if((note['revision']??1)!=1 || (note['edited_at']??0)!=0) ...[note['revision']??1,note['edited_at']??0]]))).toString();
   Future<bool> matches(Object? raw) async {
     if(raw is! List || raw.length>300) return false;
     final expanded=<Map>[];
@@ -189,7 +191,7 @@ class QqArchiveReader {
       if(summaries.length>=3) break;
       if(!groupMention && !terms.any((t)=>'${n['content']}'.toLowerCase().contains(t.toLowerCase()))) continue;
       if(!await noteCurrent(n)) continue;
-      final piece=jsonEncode({'source':'QQ历史整理','conversation':n['conversation_id'],'text':bound(n['content'] as String,1000),'evidence':n['sources']});
+      final piece=jsonEncode({'source':'QQ历史整理','edited_by_owner':(n['edited_at'] as int? ?? 0)>0,'from':n['range_start'],'to':n['range_end'],'conversation':n['conversation_id'],'text':bound(n['content'] as String,1000),'evidence':n['sources']});
       summaries.add(piece);noteChars+=piece.length+1;stamp?.add({'table':'qq_notes','id':n['id'],'token':noteToken(n)});
     }
     final page=await projectRows(rows.values.toList(),maxChars:23000-noteChars,stamp:stamp);

@@ -113,6 +113,7 @@ class MainActivity : FlutterActivity() {
 
     override fun onResume() {
         super.onResume()
+        com.aicompanion.localfirst.qq.QqPrivateService.maybeRecover(this)
         roomDepthMotion?.onResume()
         val reminderHost = reminderCardHost ?: CalendarReminderCardHost(this, {
             CalendarReminderAlarm.state(this)

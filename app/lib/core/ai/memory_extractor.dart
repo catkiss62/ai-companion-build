@@ -1,3 +1,4 @@
+import '../../integrations/qq_private/qq_history_context_policy.dart';
 import '../database/qq_context_evidence.dart';
 import 'first_channel_model.dart';
 import '../memory/self_understanding_policy.dart';
@@ -539,7 +540,7 @@ $proactiveContext
 
 【上一条普通 AI 回复】
 $ordinaryDesireContext
-${usedQqReference?'本轮AI使用了QQ经历资料：群成员和群里事件不是用户本轮新事实或她的新人格证据。只依据当前App用户原话提取新的私人资料/偏好，不从转述创建AI Self、共同经历、性格学习或关系成长；欲望反应只依据用户本轮真实互动。':''}
+${usedQqReference?'本轮AI使用了QQ经历资料：查档和转述本身不创建未完成事项；只有当前用户明确要求之后继续处理时才能开线程。群成员和群里事件不是用户本轮新事实或她的新人格证据。只依据当前App用户原话提取新的私人资料/偏好，不从转述创建AI Self、共同经历、性格学习或关系成长；欲望反应只依据用户本轮真实互动。':''}
 
 【相关既有长期记忆】
 $memoryCandidateContext
@@ -628,6 +629,7 @@ AI（${assistant.historicalFormLabel}）：${assistant.content}
           user.id,
           proactiveFeedback: proactiveFeedback,
           proactiveOutcome: proactiveOutcome?.outcome,
+          userText:user.content,qqReference:usedQqReference,
         );
         await _guardPostTurnJob(job);
         if(!usedQqReference) await _applyThoughts(result['thoughts'], assistant.id);
@@ -1551,6 +1553,7 @@ AI 主动消息：${outbound?.content ?? '(消息正文不可用)'}
     String sourceMessageId, {
     ProactiveFeedback? proactiveFeedback,
     String? proactiveOutcome,
+    String userText='',bool qqReference=false,
   }) async {
     if (rawThreads is! List) return;
     final protectedThreadId = proactiveFeedback?.threadId?.trim();
@@ -1572,6 +1575,8 @@ AI 主动消息：${outbound?.content ?? '(消息正文不可用)'}
       if (action == null || title == null || title.trim().isEmpty) continue;
       final threadId = item['thread_id'] as String?;
       final topicKey = (item['topic_key'] as String? ?? '').trim().toLowerCase();
+      if(action!='resolve' && action!='dismiss' && !QqHistoryContextPolicy.allowThread(
+          title:title,detail:item['detail'] as String? ?? '',userText:userText,qqReference:qqReference)) continue;
       final sameProtectedThread = proactiveFeedback != null &&
           ((protectedThreadId != null &&
                   protectedThreadId.isNotEmpty &&

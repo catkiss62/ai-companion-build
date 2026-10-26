@@ -1753,6 +1753,7 @@ class CedarToyActivityStore {
           (!outcome.isError &&
                   !CedarPlatformActionPolicy.isReadOnlyCall(action, submittedParams) &&
                   !CedarPlatformActionPolicy.explicitlyRejected(fullText) &&
+                  !CedarActionFeedback.noProgress(fullText) &&
                   CedarSoloEpisodePolicy.isStateChangingAction(action) &&
                   !CedarPlatformActionPolicy.isResultSnapshot(action) &&
                   !const {'wait', 'poll'}.contains(action)

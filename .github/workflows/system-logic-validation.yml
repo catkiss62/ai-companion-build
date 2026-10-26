@@ -42,6 +42,8 @@ jobs:
           test/qq_group_runtime_v042137_test.dart
           test/qq_jev_identity_v042138_test.dart
           test/qq_archive_agent_v042139_test.dart
+          test/qq_archives_v042140_test.dart
+          test/game_execution_v042140_test.dart
           test/qq_media_share_v042137_test.dart
           test/agent_self_reader_v0416_test.dart
           test/stability_repair_v042134_test.dart

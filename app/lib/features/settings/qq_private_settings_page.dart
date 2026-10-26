@@ -64,11 +64,14 @@ class _QqPrivateSettingsPageState extends State<QqPrivateSettingsPage> {
 
   Future<void> _stop() async {await AppDatabase.instance.setSetting('qq_master_enabled_v2','0');await _channel.invokeMethod<void>('stop');}
 
-  Future<void> _start() => _run(() async {
+  Future<void> _start() => _run(() async { await _saveAndStart(); });
+
+  Future<bool> _saveAndStart({bool? autoReconnect}) async {
     final id = _appId.text.trim(), secret = _secret.text.trim();
     if (!RegExp(r'^\d{3,32}$').hasMatch(id) || secret.isEmpty || secret.length > 4096) {
-      setState(() => _notice = '请填写机器人 AppID 和 AppSecret。'); return;
+      setState(() => _notice = '请填写机器人 AppID 和 AppSecret。'); return false;
     }
+    final keepConnection=autoReconnect??_state['autoReconnect']==true;
     await _stop();
     var config = await QqPrivateConfig.read();
     if (config.appId != id || config.secret != secret || config.namespace.isEmpty) {
@@ -81,7 +84,14 @@ class _QqPrivateSettingsPageState extends State<QqPrivateSettingsPage> {
     }
     await config.withReplyChannel(_replyChannel).save();
     await (await QqOptions.read()).save();
+    await _channel.invokeMethod<void>('setAutoReconnect',{'enabled':keepConnection});
     await _channel.invokeMethod<void>('start');
+    return true;
+  }
+
+  Future<void> _setAutoReconnect(bool value) => _run(() async {
+    if(value && _state['enabled']!=true) {await _saveAndStart(autoReconnect:true);return;}
+    await _channel.invokeMethod<void>('setAutoReconnect',{'enabled':value});
   });
 
   Future<void> _unbind() async {
@@ -102,6 +112,8 @@ class _QqPrivateSettingsPageState extends State<QqPrivateSettingsPage> {
   static const _labels = {
     'stopped': '已关闭', 'starting': '正在启动', 'connecting': '连接中', 'online': '已连接',
     'reconnecting': '断线重连中', 'permission_error': '机器人权限不足，请检查腾讯平台配置',
+    'recovering': '后台运行异常，正在自动恢复连接',
+    'config_missing': '连接配置不完整，请填写后重新启动',
     'credentials_error': '机器人凭据或访问权限无效，请关闭连接后检查',
     'not_running': '后台服务未运行，请关闭连接后重新启动',
     'startup_failed': '启动失败，请检查配置后重新启动', 'idle': '等待消息', 'bound': '已完成绑定',
@@ -175,6 +187,10 @@ class _QqPrivateSettingsPageState extends State<QqPrivateSettingsPage> {
               child: Text(connected ? '关闭连接' : '保存并启动')),
             OutlinedButton(onPressed: _busy ? null : _unbind, child: const Text('重新绑定')),
           ]),
+          CheckboxListTile(contentPadding:EdgeInsets.zero,
+            title:const Text('自动保持 QQ 连接'),
+            subtitle:const Text('勾选后启动连接，并监测后台异常、自动重试。关闭连接或恢复存档会取消勾选；权限和凭据错误需先修正。'),
+            value:_state['autoReconnect']==true,onChanged:_busy?null:(value)=>unawaited(_setAutoReconnect(value==true))),
           const SizedBox(height: 12),
           Text('连接：${_labels[_state['connection']] ?? '未连接'}'),
           Text('处理：${_labels[_state['task']] ?? '等待消息'}'),
@@ -190,7 +206,7 @@ class _QqPrivateSettingsPageState extends State<QqPrivateSettingsPage> {
           const SizedBox(height: 16),
           const Text('接入步骤：在 QQ 开放平台创建或绑定机器人，选择 WebSocket，并将自己的 QQ 加入允许使用范围；填入上方凭据后启动，再私聊发送绑定命令。'),
           const SizedBox(height: 12),
-          const Text('连接独立于悬浮球，可正常使用手机和 QQ。请允许 App 后台运行；关机、断网、强制停止或系统省电限制可能导致延迟。首版没有开机自动启动。'),
+          const Text('连接独立于悬浮球，可正常使用手机和 QQ。请允许 App 后台运行。自动保持连接可恢复意外中断；系统强制停止、关机或禁止后台运行时，仍需重新打开 App。'),
           if (_notice.isNotEmpty) Padding(padding: const EdgeInsets.only(top: 12), child: Text(_notice)),
         ]));
   }

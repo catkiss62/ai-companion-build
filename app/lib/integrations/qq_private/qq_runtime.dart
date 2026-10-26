@@ -21,6 +21,8 @@ import 'qq_options.dart';
 import 'qq_private_config.dart';
 import 'qq_readonly_context.dart';
 import 'qq_reply_generator.dart';
+import 'qq_reply_delivery.dart';
+import 'qq_reply_parts.dart';
 import 'qq_stickers.dart';
 import 'qq_store.dart';
 import 'qq_share_store.dart';
@@ -87,7 +89,10 @@ class QqRuntime {
     if(!await _enabled() || !await store.current(fence)) {status('brain_paused');return;}
     await store.recover(fence);
     final c=await configReader();
-    for(final conversation in await store.conversations(scope(c))) {await _schedule(conversation['id'] as String);}
+    for(final conversation in await store.conversations(scope(c))) {
+      final cid=conversation['id'] as String;await _schedule(cid);
+      if((await (await store.db.database).query('qq_notes',columns:['id'],where:'conversation_id=? AND valid=0',whereArgs:[cid],limit:1)).isNotEmpty) _enqueueSummary(cid);
+    }
   }
   Future<void> accept(Map<String,dynamic> event,{bool group=false}) {
     final task=_acceptTail.then((_)=>_accept(event,group));
@@ -128,7 +133,7 @@ class QqRuntime {
       if(accepted && await _enabled()) {try {await api.send(c.owner,id,'已确认这个群中的本人身份。群聊参与仍需在App单独开启。',1);} catch(_){status('send_uncertain');}}
       status(accepted?'group_owner_bound':'binding_request_expired');return;
     }
-    final o=await optionsReader();final fence=await store.capture();
+    final o=await optionsReader();final fence=await store.capture(conversationId:QqStore.conversationId(scope(c),group?'group':'private',target));
     if(group && !o.groups.contains(target)) {
       await store.discover(fence,scope(c),'group',target);status('group_discovered');return;
     }
@@ -188,7 +193,7 @@ class QqRuntime {
     if(!await _enabled()) return;
     final c=await configReader();final o=await optionsReader();
     if(!_sameDevice(c) || c.owner.isEmpty) return;
-    final fence=await store.capture();final pending=await store.pending(cid);
+    final fence=await store.capture(conversationId:cid);final pending=await store.pending(cid);
     if(pending.isEmpty) return;
     final b=await store.claim(fence,cid,pending.last['seq'] as int,now().millisecondsSinceEpoch,policy:policy(c,o));
     if(b==null) return;
@@ -276,6 +281,7 @@ class QqRuntime {
       final candidates=await stickers.candidates(b.id,data);
       data+='\n【本批待回应的新消息序号】${b.rows.map((r)=>r['seq']).join(',')}；之前她已发出的内容仅作历史，不重复回答旧轮次。';
       prompt+='\n${StickerExpressionService.replyChoicePrompt(candidates)}';
+      prompt+='\n${QqReplyParts.prompt}';
       if(!await current()) throw StateError('context_invalidated');
       await store.mark(b,'generating');status('generating');
       final generator=QqReplyGenerator(client:client,secure:secure,current:current,onStatus:status);
@@ -284,7 +290,8 @@ class QqRuntime {
         secondEffort:ReasoningEffort.fromApiName(await store.db.getSetting('reasoning_effort')),
         messages:[{'role':'system','content':prompt},{'role':'user','content':data}],usageLane:b.group?'qq_group_reply':'qq_private_reply');
       final choice=StickerReplyChoice.parse(raw);final selected=candidates.where((x)=>x.id==choice.id).firstOrNull;
-      final text=choice.stickerOnly && selected!=null?'':StickerReplyChoice.visible(raw).trim();
+      final parts=choice.stickerOnly && selected!=null?<String>[]:QqReplyParts.parse(StickerReplyChoice.visible(raw));
+      final text=parts.join('\n');
       if(b.group && text=='WAIT') {await store.mark(b,'watching');return;}
       if(text.isEmpty && selected==null || text.runes.length>5400) throw StateError('reply_invalid');
       final caption=selected?.record.caption??'';
@@ -300,20 +307,12 @@ class QqRuntime {
           fileInfo=await api.uploadImage(group:b.group,target:b.target,bytes:bytes.bytes,filename:bytes.filename,current:current);
         } catch(_) {if(!await current()) rethrow;status('media_failed');if(text.isEmpty) {await store.mark(b,'media_failed');return;}}
       }
-      final chunks=text.isEmpty?<String>[]:splitQqText(text);
-      var sequence=0;var sentAny=false;
-      for(final chunk in chunks) {
-        if(!await current()) throw StateError('context_invalidated');
-        await store.mark(b,'sending');
-        await api.sendMessage(group:b.group,target:b.target,messageId:b.rows.last['platform_id'] as String,sequence:++sequence,text:chunk);
-        sentAny=true;await store.sentPart(b,sequence,chunk,'',now().millisecondsSinceEpoch);
-      }
-      if(fileInfo.isNotEmpty) {
-        if(!await current()) throw StateError('context_invalidated');
-        await store.mark(b,'sending');
-        await api.sendMessage(group:b.group,target:b.target,messageId:b.rows.last['platform_id'] as String,sequence:++sequence,fileInfo:fileInfo);
-        sentAny=true;await store.sentPart(b,sequence,'',caption,now().millisecondsSinceEpoch);
-      }
+      var sentAny=false;
+      await QqReplyDelivery(api).send(group:b.group,target:b.target,messageId:b.rows.last['platform_id'] as String,
+        text:text,messages:parts,fileInfo:fileInfo,current:current,beforeSend:()=>store.mark(b,'sending'),
+        sent:(sequence,content,image) async {
+          sentAny=true;await store.sentPart(b,sequence,content,image?caption:'',now().millisecondsSinceEpoch);
+        });
       await store.mark(b,sentAny?'sent':'media_failed',sticker:fileInfo.isEmpty?'':stickerKey);status(sentAny?'reply_sent':'media_failed');
     } catch(error) {
       final state=error is QqApiException && error.uncertain?'send_uncertain':await current()?'failed':'context_invalidated';
@@ -347,7 +346,7 @@ class QqRuntime {
   Future<void> summarize(String cid,{required bool idle}) async {
     if(!await _enabled()) return;
     final c=await configReader();final o=await optionsReader();if(!_sameDevice(c) || c.owner.isEmpty) return;
-    final fence=await store.capture();
+    final fence=await store.capture(conversationId:cid);
     final conversations=await store.conversations(scope(c));final conversation=conversations.where((x)=>x['id']==cid).firstOrNull;
     if(conversation==null) return;
     final claim=await store.claimSummary(fence,cid,idle:idle);if(claim==null) return;
@@ -370,8 +369,9 @@ class QqRuntime {
       if(!await current()) return;
       final content=result['memory'] is String?result['memory'] as String:'';
       final share=conversation['kind']=='group' && o.ownerShare && result['share'] is String?result['share'] as String:'';
-      final saved=await store.saveNote(fence,cid,claim.rows,stamp,claim.permit,content,share,now().millisecondsSinceEpoch);
-      if(saved && share.isNotEmpty && !_stopped) {
+      final saved=await store.saveNote(fence,cid,claim.rows,stamp,claim.permit,content,share,now().millisecondsSinceEpoch,repairId:claim.repairId,repairRevision:claim.repairRevision,conversationVersion:claim.conversationVersion);
+      if(saved && claim.repairId.isNotEmpty && !_stopped) _enqueueSummary(cid);
+      if(saved && claim.repairId.isEmpty && share.isNotEmpty && !_stopped) {
         _workTail=_workTail.then((_)=>shareToOwner()).catchError((Object _){status('share_failed');});
       }
     } finally {client.close();if(identical(_activeClient,client)) _activeClient=null;}

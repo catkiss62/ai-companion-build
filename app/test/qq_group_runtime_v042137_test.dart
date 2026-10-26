@@ -230,8 +230,20 @@ void main(){
     await runtime.stop();vision=_Vision(secure);runtime=create(stickerService:_Stickers(db));
     handler=(r,b)async=>b['stream']==true?_sse('突然路过\n<sticker_choice>with_text:s1</sticker_choice>'):_json(b['max_tokens']==60?{'safe':true}:{'participation':'join'});
     await accept('mixed-sticker','刚聊别的也能发图');await runtime.process(cid());
-    expect(api.uploads,1);expect(api.sent.length,2);expect(api.sent.first['text'],'突然路过');expect(api.sent.last['fileInfo'],'fixture-image-token');
+    expect(api.uploads,1);expect(api.sent.length,1);expect(api.sent.single['text'],'突然路过');expect(api.sent.single['fileInfo'],'fixture-image-token');
     expect(api.sent.map((m)=>m['text']).join(),isNot(contains('sticker_choice')));
+  });
+  test('one writer invocation chooses three complete messages and one reply turn',()async{
+    handler=(r,b)async=>b['stream']==true?_sse('来了\n<qq_next_message/>\n刚想说这个\n<qq_next_message/>\n笑死'):
+      _json(b['max_tokens']==60?{'safe':true}:{'participation':'join'});
+    await accept('three-parts','你也来聊聊');await runtime.process(cid());
+    expect(requests.where((r)=>jsonDecode(r.body)['stream']==true),hasLength(1));
+    expect(api.sent.map((m)=>m['text']),['来了','刚想说这个','笑死']);
+    expect(await store.groupRepliesSince(clock.subtract(const Duration(hours:1)).millisecondsSinceEpoch),1);
+    final sql=await db.database;
+    final replies=await sql.query('qq_archive',where:"role='assistant'",orderBy:'seq');
+    expect(replies.map((r)=>r['content']),['来了','刚想说这个','笑死']);
+    await runtime.process(cid());expect(api.sent,hasLength(3));
   });
   test('group model calls never receive main private material or another group',()async{
     final sql=await db.database;

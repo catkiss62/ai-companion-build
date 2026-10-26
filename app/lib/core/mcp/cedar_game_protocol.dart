@@ -51,6 +51,40 @@ abstract final class CedarPayloadEnvelope {
   });
 }
 
+/// Explicit service feedback only; never infer a failure from NPC flavour text.
+abstract final class CedarActionFeedback {
+  static String businessText(String input) {
+    const marker='[MCP_STRUCTURED_CONTENT]\n';
+    var text=input.trim();
+    if(text.contains(marker)) {
+      final at=text.lastIndexOf(marker);
+      final primary=businessText(text.substring(0,at));
+      final structured=businessText(text.substring(at+marker.length));
+      return primary.isEmpty?structured:primary==structured?primary:'$primary\n$structured';
+    }
+    for(var depth=0;depth<8;depth++) {
+      try {
+        final value=jsonDecode(text);
+        if(value is String){text=value.trim();continue;}
+        if(value is Map) {
+          final inner=value['text']??value['result']??value['data'];
+          if(inner is String){text=inner.trim();continue;}
+          if(inner is Map){text=jsonEncode(inner);continue;}
+        }
+      } catch(_) { /* Plain service text is the normal case. */ }
+      break;
+    }
+    return text;
+  }
+  static bool parameterError(String text)=>RegExp(
+    r'^\s*(?:错误[:：]\s*)?(?:这杯目前调不出来|未知(?:指令|命令|配方)|参数无效|缺少必填|unknown (?:command|recipe)|invalid (?:command|recipe|argument))',
+    caseSensitive:false,multiLine:true).hasMatch(businessText(text));
+  static bool gameRefusal(String text)=>RegExp(r'客人尚未购买，库存与资金都没有变化|^(?:答错了|猜错了|这步棋不合法)',multiLine:true).hasMatch(businessText(text));
+  static bool noProgress(String text)=>parameterError(text)||gameRefusal(text)||RegExp(
+    r'^\s*(?:还有客人在等酒|没有执行|尚未执行|未执行|动作未执行|局面没有变化|未发生变化)',
+    caseSensitive:false,multiLine:true).hasMatch(businessText(text));
+}
+
 /// A transport acknowledgement or an empty JSON wrapper is not a snapshot.
 /// Actual state fields may contain empty lists (an empty inventory is evidence).
 abstract final class CedarStateSnapshotPolicy {

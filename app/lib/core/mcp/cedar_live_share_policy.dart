@@ -5,6 +5,7 @@ import '../database/app_database.dart';
 import '../models/desire_state.dart';
 import 'cedar_game_protocol.dart';
 import 'cedar_toy_activity.dart';
+import 'cedar_timed_play_task.dart';
 
 /// Judgement piggybacks on the existing game planner. Round eligibility and
 /// delivery acknowledgements are local and require no additional model call.
@@ -32,6 +33,7 @@ class CedarLiveSharePolicy {
         (event) =>
             event.kind == 'outcome' &&
             event.isReadOnly == false &&
+            !CedarActionFeedback.noProgress(event.summary) &&
             !CedarPlatformActionPolicy.isPlatformAction(event.action) &&
             !CedarPlatformActionPolicy.isResultSnapshot(event.action) &&
             !const {'wait', 'poll'}.contains(event.action) &&
@@ -69,13 +71,29 @@ class CedarLiveSharePolicy {
     return value is Map ? value.cast<String, dynamic>() : {};
   }
 
-  Future<bool> intervalElapsed() async {
+  Future<bool> intervalElapsed({DateTime? now,CedarGameSession? session}) async {
     final store = CedarToyActivityStore(db);
     final rounds = (await store.loadState()).completedPlayRounds;
     final cadence = await _readMap(cadenceKey);
     final deliveredAt = (cadence['deliveredRound'] as num?)?.toInt() ?? 0;
-    return rounds - deliveredAt >=
-        (await store.currentViewingPace()).shareRounds;
+    return rounds - deliveredAt >= (await store.currentViewingPace()).shareRounds ||
+        await _timedNotableDue(session ?? (await store.loadState()).activeSession,now ?? DateTime.now());
+  }
+
+  Future<bool> _timedNotableDue(CedarGameSession? session,DateTime now) async {
+    if(session==null)return false;
+    final task=await CedarTimedPlayTaskStore(db).active();
+    if(task==null || task['sessionId']!=session.id)return false;
+    final cadence=await _readMap(cadenceKey);
+    final started=(task['startedAt'] as num?)?.toInt() ?? now.millisecondsSinceEpoch;
+    final delivered=(cadence['deliveredAt'] as num?)?.toInt() ?? 0;
+    final since=DateTime.fromMillisecondsSinceEpoch(started>delivered?started:delivered);
+    final state=await _state(session);
+    final fresh=evidence(session,now);
+    final through=fresh.indexWhere((e)=>e.id==state['sharedThrough']);
+    if(!fresh.skip(through+1).any((e)=>e.notable && !e.createdAt.isBefore(since)))return false;
+    final rounds=(await CedarToyActivityStore(db).currentViewingPace()).shareRounds;
+    return !now.isBefore(since) && now.difference(since)>=Duration(minutes:rounds*2);
   }
 
   static bool isResultReport(String thoughtId, String source) =>
@@ -91,7 +109,7 @@ class CedarLiveSharePolicy {
         gameId: gameId, thoughtId: thoughtId) > Duration.zero) return false;
     return isResultReport(thoughtId, source) ||
         (await db.getSetting('cedar_toy_game_share_enabled') != '0' &&
-            await intervalElapsed());
+            await intervalElapsed(session: gameId==null?null:await CedarToyActivityStore(db).loadSession(gameId),now:now));
   }
 
   String _freshText(List<CedarGameEvent> events, Map<String, dynamic> state) {
@@ -113,7 +131,7 @@ class CedarLiveSharePolicy {
     final recent = await recentShares();
     return '$judgement\n$recent\n【过程分享判断资料】${jsonEncode({
           'minimum_rounds': (await CedarToyActivityStore(db).currentViewingPace()).shareRounds,
-          'interval_elapsed': await intervalElapsed(),
+          'interval_elapsed': await intervalElapsed(session:session,now:now),
           'saved_outcomes': events.map((event) => {'id': event.id, 'action': event.action, 'at': event.createdAt.toIso8601String(), 'text': event.summary.substring(0, event.summary.length.clamp(0, 1000).toInt())}).toList(),
           'last_evaluated_event': state['evaluated'] ?? '',
           'already_shared_or_shown': state['shown'] ?? '',
@@ -158,6 +176,7 @@ class CedarLiveSharePolicy {
       await db.setSetting(
         cadenceKey,
         jsonEncode({
+          'deliveredAt': DateTime.now().millisecondsSinceEpoch,
           'deliveredRound': (await CedarToyActivityStore(
             db,
           ).loadState()).completedPlayRounds,
@@ -317,12 +336,13 @@ class CedarLiveSharePolicy {
     }
     // Do not mark evidence evaluated while its interval is closed: a notable
     // earlier discovery must still be available when five/ten rounds accrue.
-    if (!await intervalElapsed()) return;
+    if (!await intervalElapsed(session:session,now:now)) return;
+    final effectiveShare = share || await _timedNotableDue(session,now);
     final latest = events.last;
-    if (state['evaluated'] == latest.id && !share) return;
+    if (state['evaluated'] == latest.id && !effectiveShare) return;
     state['evaluated'] = latest.id;
     final text = _freshText(events, state);
-    if (!share || text.isEmpty || text == state['shown']) {
+    if (!effectiveShare || text.isEmpty || text == state['shown']) {
       await _save(session, state);
       return;
     }

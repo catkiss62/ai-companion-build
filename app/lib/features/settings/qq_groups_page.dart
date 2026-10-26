@@ -1,3 +1,4 @@
+import 'qq_archive_month_page.dart';
 import 'package:flutter/material.dart';
 import 'qq_group_identity_page.dart';
 import 'qq_group_name_dialog.dart';
@@ -99,22 +100,10 @@ class _QqArchivesPageState extends State<QqArchivesPage> {
     } catch(_){if(mounted) setState(()=>_notice='档案读取失败。');}
   }
   Future<void> _open(Map<String,Object?> c) async {
-    final sql=await AppDatabase.instance.database;
-    final rows=await sql.query('qq_archive',where:'conversation_id=?',whereArgs:[c['id']],orderBy:'seq DESC',limit:100);
-    final reader=QqArchiveReader(sql);final texts=<String>[];
-    final names=_names[c['scope']]??QqDisplayNames();final unnamed=<String,int>{};
-    for(final r in rows.reversed){
-      final sender=r['sender'] as String;final speaker=r['role']=='assistant'?'小鲸鱼':r['owner']==1?'你':
-        names.member(c['target'] as String,sender)??'群成员${unnamed.putIfAbsent(sender,()=>unnamed.length+1)}';
-      texts.add(await reader.display(r,speaker:speaker));
-    }
-    final notes=await sql.query('qq_notes',where:'conversation_id=? AND valid=1',whereArgs:[c['id']],orderBy:'created_at DESC',limit:10);
-    if(!mounted) return;
-    await Navigator.of(context).push(MaterialPageRoute<void>(builder:(ctx)=>Scaffold(appBar:AppBar(title:Text(c['kind']=='group'?names.group(c['target'] as String):'与你的QQ私聊')),
-      body:ListView(padding:const EdgeInsets.all(16),children:[
-        const Text('最近100条原文；图片只保留文字观察和状态，不保存临时原图。更早原文仍在档案与备份中。'),
-        for(final text in texts) Padding(padding:const EdgeInsets.symmetric(vertical:6),child:SelectableText(text)),
-        if(notes.isNotEmpty) const Divider(),for(final n in notes) Padding(padding:const EdgeInsets.symmetric(vertical:8),child:SelectableText('整理笔记：${n['content']}'))]))));
+    final names=_names[c['scope']]??QqDisplayNames();
+    await Navigator.push(context,MaterialPageRoute<void>(builder:(_)=>QqArchiveConversationPage(
+      conversation:c,title:c['kind']=='group'?names.group(c['target'] as String):'与你的QQ私聊',names:names)));
+    if(mounted) await _load();
   }
   Future<void> _forget(Map<String,Object?> c) async {
     final yes=await showDialog<bool>(context:context,builder:(ctx)=>AlertDialog(title:const Text('删除这份QQ档案？'),

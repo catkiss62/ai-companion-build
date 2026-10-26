@@ -17,6 +17,8 @@ Future<void> runQqPrivateBackground() async {
   WidgetsFlutterBinding.ensureInitialized();
   const native=MethodChannel('ai_companion/qq_private_runtime');
   QqRuntime? coordinator;QqGateway? gateway;var stopped=false;
+  var lastConnection='startup_failed';
+  String? failure;
   final ownerToken=QqPrivateConfig.randomId();
   Future<void> clearOwnedFlag() async {
     await AppDatabase.instance.setSettingsAtomically({'qq_master_enabled_v2':'0'},expectedSettings:{'qq_master_owner_v2':ownerToken});
@@ -27,11 +29,12 @@ Future<void> runQqPrivateBackground() async {
   Future<bool> allowed() async=>!stopped && await native.invokeMethod<bool>('enabled')==true &&
     await QqReadOnlyContext.readMain((ctx) async=>await ctx.allowed() && await ctx.setting('qq_master_enabled_v2')=='1');
   native.setMethodCallHandler((call) async {
+    if(call.method=='ping') return !stopped;
     if(call.method=='shutdown') {stopped=true;await clearOwnedFlag();await coordinator?.stop();await gateway?.stop();}
   });
   try {
     final c=await QqPrivateConfig.read();
-    if(c.appId.isEmpty || c.secret.isEmpty || c.namespace.isEmpty) throw StateError('config_missing');
+    if(c.appId.isEmpty || c.secret.isEmpty || c.namespace.isEmpty) {failure='config_missing';throw StateError('config_missing');}
     final store=QqStore(AppDatabase.instance);
     // Open/upgrade through the host before the protocol receives any handle.
     await store.db.database;
@@ -47,11 +50,18 @@ Future<void> runQqPrivateBackground() async {
     try {await legacy.open();await runtime.importLegacy(legacy.rows);} catch(_) {await status('task','legacy_history_failed');}
     gateway=QqGateway(api,onMessage:runtime.accept,
       onGroupMessage:(event)=>runtime.accept(event,group:true),
-      onStatus:(code)=>unawaited(status('connection',code)));
+      onStatus:(code) {lastConnection=code;unawaited(status('connection',code));});
     if(stopped) {await runtime.stop();await gateway.stop();return;}
     await runtime.start();await gateway.run();
   } catch(_) {
     await status('connection','startup_failed');
-    try {await native.invokeMethod<void>('failed');} catch(_) {}
-  } finally {try {await clearOwnedFlag();} catch(_) {} await coordinator?.stop();await gateway?.stop();native.setMethodCallHandler(null);}
+    failure??='startup_failed';
+  } finally {
+    try {await clearOwnedFlag();} catch(_) {}
+    await coordinator?.stop();await gateway?.stop();
+    if(!stopped) {
+      try {await native.invokeMethod<void>('failed',{'reason':failure??lastConnection});} catch(_) {}
+    }
+    native.setMethodCallHandler(null);
+  }
 }

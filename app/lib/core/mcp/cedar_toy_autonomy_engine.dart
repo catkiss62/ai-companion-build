@@ -37,6 +37,7 @@ import 'cedar_play_session_policy.dart';
 import 'cedar_play_transition_log.dart';
 import 'cedar_timed_play_task.dart';
 import 'cedar_live_share_policy.dart';
+import 'cedar_execution_repair.dart';
 import 'cedar_conversation_context.dart';
 import 'cedar_game_arrangements.dart';
 import 'mcp_protocol.dart';
@@ -224,10 +225,12 @@ class CedarAgentActionPlanner {
     required String instruction,
     required bool Function(String action) acceptsAction,
     bool Function(CedarAgentActionDecision decision)? acceptsDecision,
+    String Function(CedarAgentActionDecision decision)? decisionProblem,
     GenerationCancellationToken? cancellationToken,
     Duration requestTimeout = const Duration(seconds: 45),
   }) async {
     Object? lastError;
+    var problem = '';
     for (var attempt = 1; attempt <= maxAttempts; attempt++) {
       try {
         final call = await _requestToolCall(
@@ -238,7 +241,7 @@ class CedarAgentActionPlanner {
           correction: attempt == 1
               ? ''
               : '上一方案未形成可执行调用（可能为空、缺少必填参数、重复只读查询、动作不在指南或游戏 ID 错误）。'
-                  '不要解释，不要重复已有查询；现在调用一次 cedar_toy_play，选择指南允许且能补齐缺失事实或推进目标的调用，并补全全部必填参数。',
+                  '不要解释，不要重复已有查询；现在调用一次 cedar_toy_play，选择指南允许且能补齐缺失事实或推进目标的调用，并补全全部必填参数。$problem',
           thinking: attempt == 1,
           cancellationToken: cancellationToken,
           requestTimeout: attempt == 1
@@ -259,6 +262,8 @@ class CedarAgentActionPlanner {
             'missing_required_action_params',
           );
         }
+        problem = decisionProblem?.call(decision) ?? '';
+        if (problem.isNotEmpty) throw const CedarAgentActionPlanningException('ungrounded_parameters');
         return decision;
       } catch (error) {
         lastError = error;
@@ -1554,10 +1559,23 @@ class CedarToyAutonomyEngine {
       },
     );
     if (progress.state.contains('preempted')) await playPeriods.pause(DateTime.now());
-    if(const {'execution_failed','play_failed','observe_failed','invalid_action_choice',
+    if(const {'execution_failed','play_failed','parameter_rejected','observe_failed','invalid_action_choice',
         'notebook_snapshot_unavailable','planning_or_write_fenced'}.contains(progress.state)) {
       await CedarTimedPlayTaskStore(db).noteBlocked(taskId:period?.taskId ?? '',
         reason:progress.state,now:DateTime.now(),workFence:clockFence);
+    }
+    final taskAfter=await CedarTimedPlayTaskStore(db).active();
+    final afterSession=await store.load();
+    if(taskAfter!=null && afterSession?.id==taskAfter['sessionId'] &&
+        CedarExecutionRepair.parameterFailures(afterSession!,since:(taskAfter['startedAt'] as num?)?.toInt()??0).length>=3) {
+      final controls={...clockFence.identity,...clockFence.expectedSettings,
+        CedarToyActivityStore.executionFenceSettingKey:await db.getSetting(CedarToyActivityStore.executionFenceSettingKey)??''};
+      if(await CedarTimedPlayTaskStore(db).finish(taskAfter,usedMs:(taskAfter['usedMs'] as num?)?.toInt()??0,
+          reason:'blocked_invalid_parameters',onlyIfActive:true,expectedSettings:controls)) {
+        await playPeriods.end('blocked_invalid_parameters',expectedClockId:period?.clockId,workFence:clockFence);
+        await store.pauseCompletedTask(sessionId:taskAfter['sessionId'].toString(),source:'blocked_invalid_parameters',
+          expectedSettings:{...controls,CedarTimedPlayTaskStore.activeKey:''});
+      }
     }
     if (period?.taskId.isNotEmpty == true) await CedarTimedPlayTaskStore(db).reconcile(DateTime.now());
     return progress;
@@ -1962,9 +1980,6 @@ $catalog''',
     final arrangementStore = CedarGameArrangementStore(db);
     final arrangements = await arrangementStore.captureReview(session);
     if(arrangements.fence==null)return const CedarAutonomyProgress('notebook_snapshot_unavailable');
-    final timed=await CedarTimedPlayTaskStore(db).active();
-    if(timed?['gameId']==session.gameId)await CedarTimedPlayTaskStore(db)
-        .clearBlock(timed!['id'].toString(),executionId:scope.executionId);
     await CedarTimedPlayTaskStore(db).recordWork(gameId:session.gameId,
       executionId:scope.executionId,planningRounds:1);
     final decision = await CedarAgentActionPlanner(
@@ -2011,6 +2026,7 @@ $catalog''',
           playProtocol: playProtocol,
         ).isEmpty;
       },
+      decisionProblem:(candidate)=>CedarExecutionRepair.issue(session,candidate.action,candidate.params),
       instruction: '''${CedarToyArcadeSkill.prompt}
 
 你是 AI 伴侣的后台 Agent，正在推进一局真实 Cedar Toy 游戏。你拥有且必须使用本请求提供的 cedar_toy_play 函数；只调用一次，不输出正文或自由 JSON。参数必须来自完整指南与本机真实局面，不得猜造游戏、房间、revision、棋步或结果。
@@ -2020,6 +2036,7 @@ $catalog''',
 ${store.promptContext(session, state: state, playProtocol: playProtocol)}
 
 $shareContext
+${CedarExecutionRepair.prompt(session)}
 $dreamContext
 $wishContext
 $conversationContext
@@ -2382,8 +2399,11 @@ ${arrangements.prompt}''',
         directForProgress: true,
       );
     }
+    if ((!outcome.isError && !CedarActionFeedback.parameterError(outcome.text) || CedarActionFeedback.gameRefusal(outcome.text)) && timedTask?['gameId']==session.gameId) {
+      await CedarTimedPlayTaskStore(db).clearBlock(timedTask!['id'].toString(),executionId:scope.executionId);
+    }
     return CedarAutonomyProgress(
-      outcome.isError ? 'play_failed' : 'played_one_step',
+      CedarActionFeedback.parameterError(outcome.text) ? 'parameter_rejected' : CedarActionFeedback.gameRefusal(outcome.text) ? 'game_refused' : outcome.isError ? 'play_failed' : 'played_one_step',
       notable: shareLevel != 'quiet',
     );
   }
@@ -2474,7 +2494,7 @@ ${arrangements.prompt}''',
         instruction: '''你只分类一次真实 Cedar Toy play Outcome，只返回 JSON：
 {"next_actor":"companion|user|shared|wait|finished","share_level":"quiet|notable|required","resume_after_seconds":0,"action_accepted":true}
 action_accepted只判断服务是否实际接受本次动作，通信正常不等于成功。不得规划下一动作，不得补写结果。需要用户决定/输入时为 user 或 shared；远端计时/其他玩家时为 wait；明确结束才为 finished。只有 Outcome 明确给出等待/轮询时长时填写 15～3600 秒，否则为 0。
-前述历史资料与当前Outcome共同判断；间隔未到或已有待发分享时share_level=quiet。
+前述历史资料与当前Outcome共同判断内容是否值得分享；分享间隔由本机执行，不应把有趣的新结果因间隔未到改判成无趣。明确未执行/仅提示前置条件时action_accepted=false；客人拒绝等正常玩法结果如实判断，不编造推进。
 $shareContext
 game=${session.gameId}
 mode=${mode.key}

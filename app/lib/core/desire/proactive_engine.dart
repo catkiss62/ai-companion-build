@@ -1,3 +1,4 @@
+import '../../integrations/qq_private/qq_history_context_policy.dart';
 import '../../integrations/qq_private/qq_share_store.dart';
 import '../ai/first_channel_model.dart';
 import '../storage/pending_media_owner.dart';
@@ -656,7 +657,9 @@ class ProactiveEngine {
         );
       }
       final queuedCedarShares = (await CedarToyActivityStore(db).pendingDirectShares()).toSet();
+      final unsupportedQqTopics=await QqHistoryContextPolicy.unsupportedTopics(db);
       final thoughts = (await db.activeThoughts(limit: 40))
+          .where((thought)=>!thought.source.startsWith('self_drive/thread') || !unsupportedQqTopics.contains(thought.topicKey))
           .where((thought) => forceForDebug || !queuedCedarShares.contains(thought.id))
           .where(
             (thought) => ProactiveThoughtReadinessPolicy.isReady(
@@ -1587,6 +1590,7 @@ class ProactiveEngine {
       return const ProactiveDecision(sent: false, reason: '网页分享来源或线索状态已变化');
     }
     final context = promptBuild.messages.toList(growable: true);
+    context.add({'role':'system','content':QqHistoryContextPolicy.proactiveBoundary});
     if (startsFreshTopic) {
       final closed = await (await db.database).query('unfinished_threads',
         columns: ['title', 'topic_key', 'resolved_at'],

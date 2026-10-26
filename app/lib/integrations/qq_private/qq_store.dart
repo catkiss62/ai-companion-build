@@ -27,8 +27,8 @@ class QqStore {
   static String conversationId(String scope,String kind,String target)=>hash([scope,kind,target]);
   static const identityKeys=['state_lineage_id','state_generation','runtime_state_epoch_v1',
     'conversation_context_reset_at','conversation_context_reset_count','qq_context_policy_version_v1'];
-  Future<BrainWorkFence> capture() async =>(await db.database).transaction((txn) async=>BrainWorkFence(identity:{
-    for(final key in identityKeys)key:await BrainWorkFence.value(txn,key)}));
+  Future<BrainWorkFence> capture({String? conversationId}) async =>(await db.database).transaction((txn) async=>BrainWorkFence(identity:{
+    for(final key in [...identityKeys,if(conversationId!=null)'qq_archive_epoch_v1:$conversationId'])key:await BrainWorkFence.value(txn,key)}));
   Future<bool> current(BrainWorkFence fence) async=>fence.matches(await db.database);
   Future<T> write<T>(BrainWorkFence fence,Future<T> Function(Transaction) body) async=>
     (await db.database).transaction((txn) async {if(!await fence.matches(txn)) throw const BrainWorkInvalidated(); return body(txn);});
@@ -109,30 +109,60 @@ class QqStore {
     await txn.rawDelete('DELETE FROM qq_images WHERE archive_seq IN (SELECT seq FROM qq_archive WHERE conversation_id=?)',[cid]);
     await txn.delete('qq_archive',where:'conversation_id=?',whereArgs:[cid]);
     await txn.rawUpdate('UPDATE qq_conversations SET checked_seq=0,summary_seq=0,summary_checked_seq=0,version=version+1 WHERE id=?',[cid]);
+    final epoch='qq_archive_epoch_v1:$cid';
+    await txn.rawInsert('INSERT OR REPLACE INTO settings(key,value) VALUES(?,?)',[epoch,'${(int.tryParse(await BrainWorkFence.value(txn,epoch))??0)+1}']);
   });
-  Future<({List<Map<String,Object?>> rows,AutomaticMemoryPermit permit,String input,List<Map<String,Object?>> stamp})?> claimSummary(BrainWorkFence fence,String cid,{required bool idle})=>write(fence,(txn) async {
+  Future<({List<Map<String,Object?>> rows,AutomaticMemoryPermit permit,String input,List<Map<String,Object?>> stamp,String repairId,int repairRevision,int conversationVersion})?> claimSummary(BrainWorkFence fence,String cid,{required bool idle})=>write(fence,(txn) async {
     final permit=await AutomaticMemoryPermit.capture(txn,'auto_memory');
     if(!permit.enabled) return null;
     final c=(await txn.query('qq_conversations',where:'id=?',whereArgs:[cid],limit:1)).single;
-    final rows=await txn.query('qq_archive',where:'conversation_id=? AND seq>?',whereArgs:[cid,c['summary_checked_seq']],orderBy:'seq',limit:20);
-    if(rows.isEmpty || !idle && rows.length<20) return null;
+    final repairs=await txn.query('qq_notes',where:'conversation_id=? AND valid=0',whereArgs:[cid],orderBy:'created_at,id',limit:1);
+    final repair=repairs.firstOrNull;
+    final ids=repair==null?<int>[]:(jsonDecode(repair['sources'] as String) as List).cast<int>();
+    final rows=await txn.query('qq_archive',where:repair==null?'conversation_id=? AND seq>?':
+      'conversation_id=? AND seq IN (${List.filled(ids.length,'?').join(',')})',
+      whereArgs:repair==null?[cid,c['summary_checked_seq']]:[cid,...ids],orderBy:'seq',limit:20);
+    if(rows.isEmpty || repair==null && !idle && rows.length<20) return null;
+    // Month boundaries affect storage only. Retrieval still spans months.
+    final first=DateTime.fromMillisecondsSinceEpoch(rows.first['observed_at'] as int);
+    final monthly=rows.takeWhile((r) {final at=DateTime.fromMillisecondsSinceEpoch(r['observed_at'] as int);
+      return at.year==first.year && at.month==first.month;}).toList();
     final stamp=<Map<String,Object?>>[];
-    final page=await QqArchiveReader(txn).projectRows(rows,maxChars:27500,stamp:stamp,newestFirst:false);
+    final page=await QqArchiveReader(txn).projectRows(monthly,maxChars:27500,stamp:stamp,newestFirst:false);
     if(page.count==0) return null;
-    final included=rows.take(page.count).toList();
-    await txn.update('qq_conversations',{'summary_checked_seq':included.last['seq']},where:'id=?',whereArgs:[cid]);
-    return (rows:included,permit:permit,input:page.text,stamp:stamp);
+    final included=monthly.take(page.count).toList();
+    if(repair==null) await txn.update('qq_conversations',{'summary_checked_seq':included.last['seq']},where:'id=?',whereArgs:[cid]);
+    return (rows:included,permit:permit,input:page.text,stamp:stamp,repairId:repair?['id'] as String? ?? '',
+      repairRevision:repair?['revision'] as int? ?? 0,conversationVersion:c['version'] as int);
   });
   Future<bool> saveNote(BrainWorkFence fence,String cid,List<Map<String,Object?>> rows,List<Map<String,Object?>> stamp,
-    AutomaticMemoryPermit permit,String content,String share,int now)=>write(fence,(txn) async {
+    AutomaticMemoryPermit permit,String content,String share,int now,{String repairId='',int repairRevision=0,int? conversationVersion})=>write(fence,(txn) async {
     if(!await permit.matches(txn) || !await QqArchiveReader(txn).matches(stamp)) return false;
+    final c=(await txn.query('qq_conversations',where:'id=?',whereArgs:[cid],limit:1)).firstOrNull;
+    if(c==null || conversationVersion!=null && c['version']!=conversationVersion) return false;
     final through=rows.last['seq'] as int; final id=hash(['note',cid,through]);
-    if(content.trim().isNotEmpty) {
-      await txn.insert('qq_notes',{'id':id,'conversation_id':cid,'content':QqArchiveReader.bound(content,6000),
-        'sources':jsonEncode(rows.map((r)=>r['seq']).toList()),'source_stamp':jsonEncode(stamp),'through_seq':through,'created_at':now},conflictAlgorithm:ConflictAlgorithm.ignore);
-      if(share.trim().isNotEmpty) await txn.insert('qq_shares',{'id':id,'note_id':id,'state':'pending','content':QqArchiveReader.bound(share,1400),'updated_at':now},conflictAlgorithm:ConflictAlgorithm.ignore);
+    if(repairId.isNotEmpty) {
+      final repairs=await txn.query('qq_notes',where:'id=? AND conversation_id=? AND valid=0 AND revision=?',
+        whereArgs:[repairId,cid,repairRevision],limit:1);
+      if(repairs.isEmpty) return false;
+      final covered=rows.map((r)=>r['seq']).toSet();
+      final left=(jsonDecode(repairs.single['sources'] as String) as List).cast<int>().where((id)=>!covered.contains(id)).toList();
+      if(left.isEmpty) {await txn.delete('qq_notes',where:'id=?',whereArgs:[repairId]);}
+      else {
+        final range=(await txn.rawQuery('SELECT MIN(observed_at) AS first,MAX(observed_at) AS last FROM qq_archive WHERE conversation_id=? AND seq IN (${List.filled(left.length,'?').join(',')})',[cid,...left])).single;
+        await txn.update('qq_notes',{'sources':jsonEncode(left),'range_start':range['first'],'range_end':range['last'],
+          'through_seq':left.reduce((a,b)=>a>b?a:b),'revision':repairRevision+1},where:'id=?',whereArgs:[repairId]);
+      }
     }
-    await txn.update('qq_conversations',{'summary_seq':through},where:'id=?',whereArgs:[cid]);
+    if(content.trim().isNotEmpty) {
+      final times=rows.map((r)=>r['observed_at'] as int).toList()..sort();
+      await txn.insert('qq_notes',{'id':id,'conversation_id':cid,'content':QqArchiveReader.bound(content,6000),
+        'sources':jsonEncode(rows.map((r)=>r['seq']).toList()),'source_stamp':jsonEncode(stamp),'through_seq':through,'created_at':now,
+        'range_start':times.first,'range_end':times.last,'revision':repairId==id?repairRevision+1:1},conflictAlgorithm:ConflictAlgorithm.ignore);
+      if(repairId.isEmpty && share.trim().isNotEmpty) await txn.insert('qq_shares',{'id':id,'note_id':id,'state':'pending',
+        'content':QqArchiveReader.bound(share,1400),'updated_at':now},conflictAlgorithm:ConflictAlgorithm.ignore);
+    }
+    if(repairId.isEmpty) await txn.rawUpdate('UPDATE qq_conversations SET summary_seq=MAX(summary_seq,?) WHERE id=?',[through,cid]);
     return true;
   });
 }
