@@ -1,0 +1,7 @@
+status=success
+run_id=40301482531
+run_url=https://github.com/catkiss62/ai-companion-build/actions/runs/40301482531
+head_sha=e48b65cb2853fadb92a547ee01708d531e9e3a6a
+signer_sha256=30:5E:B3:D8:09:83:B9:63:C6:48:18:DD:F1:AD:56:1F:27:9D:E6:D4:7B:3E:D2:C7:81:AD:A4:48:C7:C2:51:48
+d2a88f77911594e5b73f817933c7bd2f8e4e2b99052386049313c97da384ece1  AI-Companion-v0.42.138-382-QQ-JEV-Conversation-APK.apk
+release_url=https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-32fe8d5f20baf0e5a6b8
