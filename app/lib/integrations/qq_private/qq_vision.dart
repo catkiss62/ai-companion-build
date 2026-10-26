@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:convert';
 import 'dart:io';
 import 'dart:typed_data';
 import 'dart:ui' as ui;
@@ -11,11 +12,12 @@ import '../../core/media/safe_public_image_downloader.dart';
 import '../../core/storage/secure_config.dart';
 
 class QqVision {
-  QqVision(this.secure,{http.Client? downloader,QwenVisionClient Function()? visionFactory})
-    : downloader=downloader??http.Client(),visionFactory=visionFactory??QwenVisionClient.new;
+  QqVision(this.secure,{http.Client? downloader,QwenVisionClient Function()? visionFactory,QwenVisionClient Function()? fallbackFactory})
+    : downloader=downloader??http.Client(),visionFactory=visionFactory??QwenVisionClient.new,
+      fallbackFactory=fallbackFactory??(()=>QwenVisionClient(client:QqNonThinkingVisionTransport()));
   final SecureConfig secure;
   final http.Client downloader;
-  final QwenVisionClient Function() visionFactory;
+  final QwenVisionClient Function() visionFactory,fallbackFactory;
   final Set<QwenVisionClient> _active={};
   bool _closed=false;
   Future<({String text,String fingerprint})> observe(String url,{required DeepSeekModelProfile firstModel,
@@ -51,7 +53,7 @@ class QqVision {
         final endpoint=first?await secure.readEndpoint():await secure.readVisionEndpoint();
         final model=first?firstModel.apiName:await secure.readVisionModel();
         if(!await valid()) throw StateError('context_invalidated');
-        final vision=visionFactory();_active.add(vision);
+        final vision=first?fallbackFactory():visionFactory();_active.add(vision);
         var checking=false;
         final timer=Timer.periodic(const Duration(milliseconds:500),(_) async {
           if(checking) return;checking=true;
@@ -78,4 +80,20 @@ class QqVision {
     await for(final file in root.list(followLinks:false)) {if(file is File) {try {await file.delete();} catch(_) {}}}
   }
   void close(){_closed=true;downloader.close();for(final v in _active.toList()) {v.close();}}
+}
+
+
+/// Scoped to the QQ first-channel fallback. Existing App/Qwen request shapes
+/// stay intact; the fallback must spend its budget on observing pixels.
+class QqNonThinkingVisionTransport extends http.BaseClient {
+  QqNonThinkingVisionTransport([http.Client? inner]):_inner=inner??http.Client();
+  final http.Client _inner;
+  @override Future<http.StreamedResponse> send(http.BaseRequest request) {
+    if(request is http.Request) {
+      final body=Map<String,dynamic>.from(jsonDecode(request.body) as Map);
+      body['thinking']={'type':'disabled'};request.body=jsonEncode(body);
+    }
+    return _inner.send(request);
+  }
+  @override void close()=>_inner.close();
 }

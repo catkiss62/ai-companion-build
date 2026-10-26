@@ -7,8 +7,11 @@ import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 import 'package:qq_private_bridge/qq_private_bridge.dart';
 import 'package:ai_companion_localfirst/core/database/app_database.dart';
+import 'package:http/http.dart' as http;
+import 'package:http/testing.dart';
+import 'package:ai_companion_localfirst/core/ai/qwen_vision_client.dart';
+import 'package:ai_companion_localfirst/integrations/qq_private/qq_vision.dart';
 import 'package:ai_companion_localfirst/core/database/automatic_memory_permit.dart';
-import 'package:ai_companion_localfirst/core/database/qq_share_contract.dart';
 import 'package:ai_companion_localfirst/core/models/chat_message.dart';
 import 'package:ai_companion_localfirst/integrations/qq_private/qq_archive_reader.dart';
 import 'package:ai_companion_localfirst/integrations/qq_private/qq_group_binding.dart';
@@ -127,7 +130,7 @@ void main(){
       else if(request.uri.path.endsWith('/upload_part_finish')){
         final p=jsonDecode(utf8.decode(body));final part=parts[(p['part_index'] as int)-1];expect(p['md5'],md5.convert(part).toString());expect(p['block_size'],part.length);result={};
       }else if(request.uri.path.endsWith('/files')){expect(jsonDecode(utf8.decode(body)),{'upload_id':'upload-fixture'});result={'file_info':'opaque-media-token'};}
-      else {fail('unexpected path ${request.uri.path}');result={};}
+      else {request.response.statusCode=404;result={'error':'unexpected_path'};}
       request.response.write(jsonEncode(result));await request.response.close();
     });
     final api=QqApi(appId:'12345',secret:'fixture-only',client:_CosLoopback(base),apiBase:base.toString(),tokenBase:base.toString());
@@ -135,6 +138,18 @@ void main(){
       expect(await api.uploadImage(group:true,target:'group',bytes:bytes,filename:'image.gif',current:()async=>true),'opaque-media-token');
       expect(parts.expand((p)=>p).toList(),bytes);expect(paths.where((p)=>p.endsWith('/messages')),isEmpty);
     }finally{api.close();await server.close(force:true);}
+  });
+  test('first-channel vision fallback sends actual image input with thinking disabled',()async{
+    final requests=<http.Request>[];
+    final client=QwenVisionClient(client:QqNonThinkingVisionTransport(MockClient((r)async{
+      requests.add(r);return http.Response(jsonEncode({'choices':[{'message':{'content':jsonEncode({'summary':'一张测试图'})},'finish_reason':'stop'}]}),200);
+    })));
+    try{
+      await client.observeBytes(apiKey:'fixture',endpoint:'https://first.test/chat',model:'dynamic-first-model',imageBytes:Uint8List.fromList([1,2,3]));
+      final body=jsonDecode(requests.single.body) as Map;
+      expect(body['thinking'],{'type':'disabled'});expect(body['model'],'dynamic-first-model');
+      expect(((body['messages'] as List).last['content'] as List).first['type'],'image_url');
+    }finally{client.close();}
   });
   test('media message uses QQ type 7 and image token, without leaking file bytes',()async{
     final server=await HttpServer.bind(InternetAddress.loopbackIPv4,0);final root='http://127.0.0.1:${server.port}';Map? message;

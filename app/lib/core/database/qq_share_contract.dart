@@ -1,7 +1,6 @@
 import 'package:sqflite/sqflite.dart';
 import 'brain_work_fence.dart';
 import 'qq_context_evidence.dart';
-import '../../integrations/qq_private/qq_archive_reader.dart';
 
 class QqShareOffer {
   const QqShareOffer({required this.id,required this.noteId,required this.noteToken,required this.content,

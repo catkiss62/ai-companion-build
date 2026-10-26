@@ -316,14 +316,15 @@ void main() {
       },
     );
     test(
-      'source table accepts original evidence without changing rollback schema',
+      'source table keeps original evidence with the additive QQ archive schema',
       () async {
         final sql = await db.database;
         final columns = (await sql.rawQuery(
           'PRAGMA table_info(public_web_candidates)',
         )).map((r) => r['name']);
         expect(columns, contains('page_body'));
-        expect(AppDatabase.schemaVersion, 61);
+        expect(AppDatabase.schemaVersion, 62);
+        expect((await sql.rawQuery("SELECT name FROM sqlite_master WHERE type='table' AND name='qq_archive'")).single['name'],'qq_archive');
       },
     );
   });

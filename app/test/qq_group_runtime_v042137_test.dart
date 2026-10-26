@@ -13,7 +13,6 @@ import 'package:ai_companion_localfirst/core/stickers/sticker_pack.dart';
 import 'package:ai_companion_localfirst/integrations/qq_private/qq_stickers.dart';
 import 'package:ai_companion_localfirst/core/ai/deepseek_client.dart';
 import 'package:ai_companion_localfirst/core/database/app_database.dart';
-import 'package:ai_companion_localfirst/core/database/automatic_memory_permit.dart';
 import 'package:ai_companion_localfirst/core/database/qq_context_evidence.dart';
 import 'package:ai_companion_localfirst/core/database/conversation_source_store.dart';
 import 'package:ai_companion_localfirst/core/memory/memory_brain.dart';
@@ -21,12 +20,10 @@ import 'package:ai_companion_localfirst/core/memory/memory_successor_recall.dart
 import 'package:ai_companion_localfirst/core/models/chat_message.dart';
 import 'package:ai_companion_localfirst/core/storage/secure_config.dart';
 import 'package:ai_companion_localfirst/integrations/qq_private/qq_archive_reader.dart';
-import 'package:ai_companion_localfirst/integrations/qq_private/qq_group_binding.dart';
 import 'package:ai_companion_localfirst/integrations/qq_private/qq_options.dart';
 import 'package:ai_companion_localfirst/integrations/qq_private/qq_private_config.dart';
 import 'package:ai_companion_localfirst/integrations/qq_private/qq_readonly_context.dart';
 import 'package:ai_companion_localfirst/integrations/qq_private/qq_runtime.dart';
-import 'package:ai_companion_localfirst/integrations/qq_private/qq_share_store.dart';
 import 'package:ai_companion_localfirst/integrations/qq_private/qq_store.dart';
 import 'package:ai_companion_localfirst/integrations/qq_private/qq_vision.dart';
 
