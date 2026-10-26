@@ -1,8 +1,8 @@
 # 文档地图
 
-当前开发候选：[QQ_JEV_CONVERSATION_v042138.md](QQ_JEV_CONVERSATION_v042138.md) — +382 JEV群聊判断、连续对话及App本机认主，CI待验；下方+381为最近完整交付。
+当前交付：[QQ_JEV_CONVERSATION_v042138.md](QQ_JEV_CONVERSATION_v042138.md) — +382 JEV群聊判断/连续对话、App本机认主、群记录读取补漏和中文档案/群名；完整CI及原签名APK已成功，真机待验。
 
-当前交付：[`QQ_GROUP_IMPLEMENTATION_2026-10-26.md`](QQ_GROUP_IMPLEMENTATION_2026-10-26.md) — v0.42.137+381群聊/共享档案、一次消费小卡、视觉与App图库媒体、认主/分享回执；完整CI及原签名APK均已验证取回，平台实网/长时后台待验。
+前一版交付：[`QQ_GROUP_IMPLEMENTATION_2026-10-26.md`](QQ_GROUP_IMPLEMENTATION_2026-10-26.md) — v0.42.137+381群聊/共享档案、一次消费小卡、视觉与App图库媒体、认主/分享回执；完整CI及原签名APK均已验证取回，平台实网/长时后台待验。
 
 > 目标：一个永久总账入口，少量按领域维护的当前契约；版本演化和退役材料由 Git 历史保存，不让多个旧状态同时参与 AI 检索。
 
