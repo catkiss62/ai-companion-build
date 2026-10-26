@@ -83,7 +83,7 @@ abstract final class QqArchiveSchema {
           final sources=jsonDecode(row['sources'] as String);
           final times=sources is List?sources.map((id)=>observed[id]).whereType<int>().toList():<int>[];
           times.sort();
-          row.addAll({'range_start':times.isEmpty?0:times.first,'range_end':times.isEmpty?0:times.last,'revision':1,'edited_at':0});
+          row.addAll(<String,dynamic>{'range_start':times.isEmpty?0:times.first,'range_end':times.isEmpty?0:times.last,'revision':1,'edited_at':0});
         }
         if(row is! Map || row.length!=columns[table]!.length || !row.keys.toSet().containsAll(columns[table]!) ||
             row['id'] is! String || (row['id'] as String).isEmpty || !ids.add(row['id'] as String) ||
