@@ -1,0 +1,55 @@
+{
+  "baseline": "v0.42.140+384 / runtime 20dba209",
+  "method": "shipped QQ DDL + synthetic SQLite state transitions; pure parser reproduction; native condition evaluation",
+  "full_dart_native_tests_run": false,
+  "schema_sha256": "42a1a00087cc789e65e93e33b27f12946efdf53c853f2bb4e273ca684e0eca26",
+  "results": [
+    {
+      "id": "R1",
+      "pending_before_edit": 1,
+      "admitted_after_edit": 0,
+      "pending_after_claim": 0,
+      "raw_retained": true
+    },
+    {
+      "id": "R2",
+      "deleted_event_reinserted": true,
+      "first_seq": 1,
+      "replay_seq": 2,
+      "admitted_again": true
+    },
+    {
+      "id": "R3",
+      "failed_sources_skipped": 3,
+      "after_new_input_next_claim": [
+        4
+      ],
+      "raw_count": 4,
+      "summary_seq": 0
+    },
+    {
+      "id": "O1",
+      "unprocessed_tail_after_one_20_row_claim": 1,
+      "normal_tail_auto_requeued": false
+    },
+    {
+      "id": "R4",
+      "revoked_owner_share_overwritten_by_older_binding_snapshot": true,
+      "other_interleaving_policy_secure_mismatch": true,
+      "evidence": "source-confirmed two writers + controlled state interleaving, no secure-storage runtime execution"
+    },
+    {
+      "id": "R5",
+      "chosen_messages": 3,
+      "accepted_runes": 5304,
+      "actual_text_sends": 5
+    },
+    {
+      "id": "R6",
+      "auto_reconnect_after_user_uncheck": false,
+      "old_retry_launch_condition": true,
+      "old_ping_timeout_failure_condition": true,
+      "evidence": "source condition evaluation only; no Android runtime execution"
+    }
+  ]
+}
