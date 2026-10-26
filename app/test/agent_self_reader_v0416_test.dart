@@ -1,4 +1,7 @@
+import 'dart:io';
+
 import 'package:ai_companion_localfirst/core/agent/agent_self_reader.dart';
+import 'package:ai_companion_localfirst/core/database/app_database.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 // Historical validator compatibility: build=v0.41.31+170 schema=45
@@ -25,7 +28,11 @@ void main() {
     // Historical validator token: build=v0.41.96+240 schema=61
     // Historical validator token: build=v0.41.98+242 schema=61
     // Historical validator token: build=v0.42.4+248 schema=61
-    expect(result.promptData, contains('build=v0.42.58+302 schema=61'));
+    final manifestVersion = RegExp(r'^version:\s*(\S+)\s*$', multiLine: true)
+        .firstMatch(File('pubspec.yaml').readAsStringSync())!.group(1)!;
+    expect(AgentSelfReader.buildLabel, 'v$manifestVersion');
+    expect(result.promptData,
+        contains('build=v$manifestVersion schema=${AppDatabase.schemaVersion}'));
     expect(result.promptData, contains('id=cedar_toy_mcp_v04167'));
     expect(result.promptData, contains('本轮真实执行的本地只读接口'));
     expect(result.promptData, contains('id=system_self.read status=executable'));
