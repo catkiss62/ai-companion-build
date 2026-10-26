@@ -147,6 +147,7 @@ void main() {
     expect(QqHistoryContextPolicy.allowThread(title: title, detail: detail, userText: '记录做好了，你看一看？', qqReference: true), false);
     expect(QqHistoryContextPolicy.allowThread(title: title, detail: detail, userText: '我记得已经接好了，你看一下旧记录', qqReference: true), false);
     expect(QqHistoryContextPolicy.allowThread(title: title, detail: '明天测试群功能', userText: '明天提醒我再测一次', qqReference: true), true);
+    expect(QqHistoryContextPolicy.allowThread(title:'制作生日贺卡',detail:'用户请求制作，仍在准备素材',userText:'帮我做一张生日贺卡',qqReference:true),true);
     await db.insertMessage(ChatMessage(id: 'u', role: 'user', content: '记录做好了，你看一看？', createdAt: DateTime.now()));
     await db.upsertUnfinishedThread(title: title, detail: detail, importance: .6, sourceMessageId: 'u', topicKey: 'qq.lookup');
     expect(await QqHistoryContextPolicy.unsupportedTopics(db), contains('qq.lookup'));

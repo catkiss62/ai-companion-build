@@ -12,7 +12,8 @@ abstract final class QqHistoryContextPolicy {
     RegExp(r'(?:后续|以后|要不要|是否).{0,30}(?:未明确|尚未明确|未决定|不确定)').hasMatch(detail);
 
   static bool allowThread({required String title, required String detail, required String userText, required bool qqReference}) =>
-    futureRequest(userText) || (!inventedFollowup(title, detail) && !qqReference);
+    futureRequest(userText) || (!inventedFollowup(title, detail) &&
+      (!qqReference || !RegExp(r'QQ|qq|群聊|群记录|群里').hasMatch('$title $detail')));
 
   static Future<Set<String>> unsupportedTopics(AppDatabase db) async {
     final sql = await db.database;
