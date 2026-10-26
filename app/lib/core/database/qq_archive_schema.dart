@@ -60,7 +60,8 @@ abstract final class QqArchiveSchema {
         if(row is! Map || row.length!=columns[table]!.length || !row.keys.toSet().containsAll(columns[table]!) ||
             row['id'] is! String || (row['id'] as String).isEmpty || !ids.add(row['id'] as String) ||
             row.values.any((v)=>v is! String && v is! int) ||
-            row.values.whereType<String>().any((v)=>v.length>24000)) throw const FormatException('QQ记录字段无效');
+            row.entries.any((e)=>e.value is String && (e.value as String).length>
+              (table=='qq_receipts' && e.key=='source_stamp'?256000:24000))) throw const FormatException('QQ记录字段无效');
         if(table=='qq_conversations') {
           if(!const {'private','group'}.contains(row['kind']) || row['scope'] is! String || row['target'] is! String ||
               ['checked_seq','summary_checked_seq','summary_seq','last_reply_at','version'].any((k)=>row[k] is! int || (row[k] as int)<0)) throw const FormatException('QQ会话无效');
@@ -71,6 +72,12 @@ abstract final class QqArchiveSchema {
               row['version'] is! int || (row['state']=='viewed' && '${row['description']}'.isEmpty)) throw const FormatException('QQ图片来源无效');
         } else if(table=='qq_receipts') {
           if(row['message_revision'] is! int || (row['message_revision'] as int)<0 || row['created_at'] is! int || row['message_id'] is! String) throw const FormatException('QQ消费记录无效');
+          final proof=jsonDecode(row['source_stamp'] as String);
+          if(proof is! List || proof.length>1200 || proof.any((s)=>s is! Map || s['id'] is! String ||
+            !const {'qq_archive','qq_images','qq_notes'}.contains(s['table']) ||
+            (s['table']=='qq_notes'?s['token'] is! String:s['version'] is! int || (s['version'] as int)<1))) {
+            throw const FormatException('QQ消费来源无效');
+          }
         } else if(table=='qq_shares') {
           if(!noteIds.contains(row['note_id'])) throw const FormatException('QQ分享来源缺失');
         } else {

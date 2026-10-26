@@ -2355,7 +2355,7 @@ $finalGenerationReminder
           playfulActivity: selfActivity ?? PlayfulSelfActivity.none,
           deepReflection: promptBuild.deepReflection,
           backgroundRecall: promptBuild.backgroundRecall,
-          qqEvidence:promptBuild.qqEvidence,
+          qqEvidence:PromptBuilder.qqEvidenceFor(promptBuild,agentToolResults),
           reflectionUpdate: DeepReflectionUpdate.parse(generated.content),
         );
       } on TurnCommitCancelled {

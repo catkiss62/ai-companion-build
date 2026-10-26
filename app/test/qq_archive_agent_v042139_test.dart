@@ -196,6 +196,15 @@ void main(){
     expect(jsonEncode(built.messages),contains('铃兰'));expect(built.qqEvidence,isNotNull);
     await store.forget(await store.capture(),cid('a'));expect(await built.qqEvidence!.matches(await db.database),false);
   });
+  test('QQ reads appended after initial planning still reach the final transaction evidence',()async{
+    await seed();
+    final early=await PromptBuilder(db).buildChatPrompt(latestUserText:'说说查到的结果',recent:const [],desire:DesireSnapshot(),thoughts:const []);
+    expect(early.qqEvidence,isNull);
+    final late=await tool('qq_history.search',{'query':question});
+    final winning=PromptBuilder.qqEvidenceFor(early,[late]);
+    expect(winning,isNotNull);expect(await winning!.matches(await db.database),true);
+    await store.forget(await store.capture(),cid('a'));expect(await winning.matches(await db.database),false);
+  });
   test('deleted Agent QQ source rejects the winning commit without a phantom message',()async{
     await seed();final r=await tool('qq_history.search',{'query':question});
     final user=ChatMessage(id:'u',role:'user',content:question,createdAt:DateTime.now());
@@ -219,6 +228,20 @@ void main(){
     await seed();final sql=await db.database;final a=await QqHistoryReader(sql).search(question);
     await db.setSetting('state_generation','99999');final b=await QqHistoryReader(sql).search(question);
     expect(await QqContextEvidence.merge([a.evidence,b.evidence])!.matches(sql),false);
+  });
+  test('a multi-page QQ receipt larger than the old field limit survives real backup restore',()async{
+    for(var n=0;n<240;n++) {await append('receipt$n','原文$n');}
+    final sql=await db.database;final rows=await sql.query('qq_archive');
+    final evidence=await QqContextEvidence.capture(sql,[for(final r in rows){'table':'qq_archive','id':r['id'],'version':r['version']}]);
+    final user=ChatMessage(id:'many-u',role:'user',content:'查阅完整原文',createdAt:DateTime.now());
+    final job=await db.createGenerationTurn(user:user,assistantMessageId:'many-a',model:'fixture',reasoningEffort:'high');
+    final running=(await db.claimGenerationJob(job.id))!;
+    expect(await db.completeGenerationJobIfCurrent(jobId:job.id,runToken:running.runToken,
+      assistant:ChatMessage(id:'many-a',role:'assistant',content:'已核对本机来源',createdAt:DateTime.now()),qqEvidence:evidence),true);
+    final receipt=(await sql.query('qq_receipts')).single;
+    expect((receipt['source_stamp'] as String).length,greaterThan(24000));
+    final backup=await db.exportAll();await db.importAll(Map<String,dynamic>.from(backup));
+    expect((await (await db.database).query('qq_receipts')).single['source_stamp'],receipt['source_stamp']);
   });
   test('real backup import preserves named App and private QQ reads while pausing live sends',()async{
     await seed();await db.setSetting('qq_master_enabled_v2','1');

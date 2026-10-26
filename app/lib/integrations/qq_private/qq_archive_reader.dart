@@ -82,7 +82,8 @@ class QqArchiveReader {
     if(newestFirst) {final chronological=blocks.reversed.toList();blocks..clear()..addAll(chronological);}
     partial=partial || blocks.length<rows.length;
     return (text:[...blocks,if(partial)jsonEncode({'source':'QQ读取范围','shown_messages':blocks.length,
-      'selected_messages':rows.length,'partial':true,'next_before_seq':oldest,
+      'selected_messages':rows.length,'partial':true,if(newestFirst)'next_before_seq':oldest,
+      if(!newestFirst)'next_after_seq':blocks.isEmpty?0:ordered[blocks.length-1]['seq'],
       'notice':'本次为局部原文，可按会话/消息序号继续追读，不代表已通读'})].join('\n'),count:blocks.length,oldest:oldest,partial:partial);
   }
   /// Human-readable App view; the separate model projection retains provenance.
