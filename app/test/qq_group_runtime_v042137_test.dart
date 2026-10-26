@@ -332,6 +332,13 @@ void main(){
     final qq=await QqReadOnlyContext(sql).build('群里刚刚约了什么',qqScope:QqRuntime.scope(config),media:true);
     expect(qq,contains('紫色珊瑚'));expect(qq,contains('GROUP_MEMBER_HISTORY'));
   });
+  test('restart recovery lets pending chat run before paid idle extraction',() async {
+    await db.setSetting('auto_memory','1');await accept('pending-restart','你觉得怎么样');
+    await runtime.start();await Future<void>.delayed(const Duration(milliseconds:20));
+    expect(requests,isEmpty);
+    await runtime.process(cid());
+    expect(requests,isNotEmpty);expect(requests.first.body,contains('participation'));
+  });
   test('summary failure registers bounded work; no immediate idle repeat',()async{
     await db.setSetting('auto_memory','1');await accept('summary','群里聊了猫');
     handler=(r,b)async=>http.Response('not available',503);

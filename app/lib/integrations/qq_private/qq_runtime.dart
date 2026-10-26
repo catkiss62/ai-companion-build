@@ -367,6 +367,13 @@ class QqRuntime {
   void _enqueueSummary(String cid,{bool idle=true}) {
     if(_stopped) return;
     _workTail=_workTail.then((_) async {
+      // Recovering an idle tail must not jump ahead of a newly arrived reply.
+      // The registered work remains durable; this is scheduling, not a reread.
+      if((await store.pending(cid)).isNotEmpty) {
+        _summaryTimers.remove(cid)?.cancel();
+        if(!_stopped)_summaryTimers[cid]=Timer(const Duration(minutes:5),()=>_enqueueSummary(cid));
+        return;
+      }
       try {await summarize(cid,idle:idle);} catch(_){status('memory_failed');}
       try {
         final c=await configReader(),o=await optionsReader();
