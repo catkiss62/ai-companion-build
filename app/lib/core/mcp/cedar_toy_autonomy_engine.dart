@@ -761,6 +761,7 @@ class CedarToyAutonomyEngine {
     required String gameId,
     required String action,
     DateTime? now,
+    BrainWorkFence? sourceFence,
     required Future<CedarAutonomyProgress> Function(
       _CedarExecutionScope scope,
     ) body,
@@ -776,7 +777,7 @@ class CedarToyAutonomyEngine {
     String executionId = '';
     _CedarExecutionScope? scope;
     try {
-      executionId = await store.beginExecution(gameId: gameId, action: action);
+      executionId = await store.beginExecution(gameId: gameId, action: action,workFence:sourceFence);
       scope = _CedarExecutionScope(
         db: db,
         store: store,
@@ -1658,6 +1659,9 @@ class CedarToyAutonomyEngine {
   }
 
   Future<CedarAutonomyProgress> progress({required DateTime now}) async {
+    final sourceFence=await db.captureBrainWorkFence(settingKeys:[
+      CedarToyActivityStore.userControlRevisionKey,'cedar_toy_enabled',enabledKey]);
+    if(sourceFence==null)return const CedarAutonomyProgress('brain_work_blocked');
     final availability = await this.availability(now: now);
     if (!availability.available) return CedarAutonomyProgress(availability.reason);
     final token = await _readToken();
@@ -1672,7 +1676,7 @@ class CedarToyAutonomyEngine {
     if(session?.isParkedUnresolvedWrite==true) {
       await store.releaseParkedUnresolvedWrite();
       session=await store.load();
-      if(session?.isParkedUnresolvedWrite==true)return const CedarAutonomyProgress('waiting');
+      if(session!=null)return const CedarAutonomyProgress('waiting');
     }
     if (session?.isUnroutableRemoteWait == true) {
       await store.parkUnroutableRemoteWait();
@@ -1692,6 +1696,7 @@ class CedarToyAutonomyEngine {
         gameId: 'catalog',
         action: '选择游戏',
         now: now,
+        sourceFence:sourceFence,
         body: (scope) async {
           final catalogOutcome = await client.listGames(
             cancellationToken: scope.cancellation,
@@ -1788,6 +1793,7 @@ $selectionCatalog''',
       store: store,
       gameId: activeSession.gameId,
       action: '规划下一步',
+      sourceFence:sourceFence,
       body: (scope) => _advanceSessionLocked(
         now: now,
         apiKey: apiKey,

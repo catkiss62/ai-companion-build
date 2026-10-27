@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -95,5 +96,15 @@ void main() {
     final result=await engine.progress(now:clock);
     expect(result.state,'guide_ready');expect((await store.load())!.phase,CedarActivityPhase.active);
     expect((await store.load())!.pauseSource,'');expect(game.plays,0);
+  });
+  test('Stop during fresh selection setup prevents a late catalog/model execution',()async {
+    final entered=Completer<void>(),release=Completer<void>();var reads=0;
+    final delayed=CedarToyAutonomyEngine(db:db,ai:ai,secureConfig:SecureConfig.instance,
+      tokenReader:()async {reads++;if(reads==2) {entered.complete();await release.future;}return 'synthetic';},
+      apiKeyReader:()async=>'synthetic',endpointReader:()async=>'https://fixture.invalid/chat',clientFactory:(_)=>game);
+    final work=delayed.progress(now:clock);await entered.future;
+    await store.pause();release.complete();
+    expect((await work).state,'preempted_selection_changed');expect(game.lists,0);expect(game.guides,isEmpty);expect(game.plays,0);
+    expect((await store.loadState()).execution,isNull);
   });
 }

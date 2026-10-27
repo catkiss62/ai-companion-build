@@ -1202,6 +1202,7 @@ class CedarToyActivityStore {
   Future<String> beginExecution({
     required String gameId,
     required String action,
+    BrainWorkFence? workFence,
   }) async {
     final state = await loadState();
     final now = DateTime.now();
@@ -1215,10 +1216,11 @@ class CedarToyActivityStore {
       ),
       updatedAt: now,
     );
-    await db.setSettingsAtomically(<String, String>{
+    final committed=await db.setSettingsAtomically(<String, String>{
       ...stateSettingValues(next),
       executionFenceSettingKey: executionId,
-    });
+    },workFence:workFence);
+    if(!committed)throw const CedarExecutionPreemptedException('selection_changed');
     return executionId;
   }
 
