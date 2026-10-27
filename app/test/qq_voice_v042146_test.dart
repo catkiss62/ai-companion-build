@@ -24,7 +24,7 @@ Uint8List wav({int rate=24000,int samples=100}) {
   data.setUint32(24,rate,Endian.little);data.setUint32(28,rate*2,Endian.little);
   data.setUint16(32,2,Endian.little);data.setUint16(34,16,Endian.little);
   b.setRange(36,40,ascii.encode('data'));data.setUint32(40,samples*2,Endian.little);
-  for(var i=44;i<b.length;i++)b[i]=i%256;
+  for(var i=44;i<b.length;i++){b[i]=i%256;}
   return b;
 }
 class _Api extends QqApi {
@@ -123,8 +123,8 @@ void main() {
       final api=_Api()..rejection=QqApiException(uncertain?'network':'http_415',uncertain:uncertain);
       final receipts=<String>[];
       final send=QqReplyDelivery(api,pause:(_)async{}).send(group:false,target:'owner',messageId:'m',text:'こんにちは',messages:[],fileInfo:'voice-token',
-        voiceText:'こんにちは',voiceLanguage:'ja',current:()async=>true,beforeSend:()async{},sent:(_,s,__)async{receipts.add(s);},
-        sentVoice:(_,s,__)async{receipts.add('voice:$s');});
+        voiceText:'こんにちは',voiceLanguage:'ja',current:()async=>true,beforeSend:()async{},sent:(_,s,_)async{receipts.add(s);},
+        sentVoice:(_,s,_)async{receipts.add('voice:$s');});
       try {if(uncertain){await expectLater(send,throwsA(isA<QqApiException>()));expect(api.sent.length,1);expect(receipts,isEmpty);}
         else{await send;expect(api.sent.length,2);expect(api.sent.last['text'],'こんにちは');expect(receipts,['こんにちは']);}}
       finally{api.close();}
@@ -156,7 +156,7 @@ void main() {
       expect(await reader.privateContext('日语语音',scope:scope),contains('おやすみなさい。'));
       final lookup=await QqHistoryReader(sql).search('QQ私聊',scope:scope,keyword:'日语');
       expect(lookup.text,contains('おやすみなさい。'));expect(await sql.query('qq_images'),isEmpty);
-      final participation=await reader.participationContext(cid,through:99999);
+      final participation=await reader.participationContext(cid,through:99999,stamp:[]);
       expect(participation,contains('outgoing_voice_languages'));expect(participation,contains('おやすみなさい。'));
     });
     test('portable restore retains only transcript metadata; deleting a month removes it',()async {

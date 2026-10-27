@@ -114,7 +114,7 @@ abstract final class QqVoiceWav {
       for(var offset=12;offset+8<=bytes.length;) {
         final length=data.getUint32(offset+4,Endian.little),end=offset+8+length;
         if(end>bytes.length)throw const QqOperationFailure('voice_audio');
-        if(tag(offset)=='fmt ' && length>=16)fmt=Uint8List.sublistView(bytes,offset+8,offset+24);
+        if(tag(offset)=='fmt ' && length>=16){fmt=Uint8List.sublistView(bytes,offset+8,offset+24);}
         if(tag(offset)=='data')body=Uint8List.sublistView(bytes,offset+8,end);
         offset=end+(length.isOdd?1:0);
       }

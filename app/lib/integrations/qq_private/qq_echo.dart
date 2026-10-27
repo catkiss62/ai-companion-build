@@ -49,8 +49,8 @@ class QqEchoService {
   void _prune(int now) {
     _images.removeWhere((_,i)=>i.at<now-window.inMilliseconds);
     _uploads.removeWhere((_,u)=>u.until<=now);
-    while(_images.length>128)_images.remove(_images.keys.first);
-    while(_uploads.length>32)_uploads.remove(_uploads.keys.first);
+    while(_images.length>128){_images.remove(_images.keys.first);}
+    while(_uploads.length>32){_uploads.remove(_uploads.keys.first);}
   }
   void remember(QqBatch b,Map<String,Object?> row,Map<String,Object?> image,
       Uint8List bytes,String mime,String hash,int now) {
