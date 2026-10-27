@@ -1,6 +1,6 @@
 # 文档地图
 
-当前修补：`PROACTIVE_PRESENTATION_QQ_IDENTITY_v042145.md`（+389，主动表达覆盖与QQ称呼来源；CI/APK待验证）。已交付+388见`QQ_CONTEXT_RECOVERY_v042144.md`。
+当前修补：`PROACTIVE_PRESENTATION_QQ_IDENTITY_v042145.md`（+389运行修补已推送；用户暂停APK，先讨论QQ语音/自主表达/远端用图）。已交付+388见`QQ_CONTEXT_RECOVERY_v042144.md`。
 
 当前交付：[QQ接话、媒体与游戏厅隔离修补](QQ_CONTEXT_RECOVERY_v042144.md) — +388/schema65，QQ群聊第一通道DeepSeek识图、约20轮上下文、自然插话、重复回复/媒体/候选与暂停游戏修补；完整CI40497868857及专项40497868900成功，全量2940项通过，原签名APK已核验，[下载](https://github.com/catkiss62/ai-companion-build/actions/runs/40497868857/artifacts/12732489372)。真机待验。
 
