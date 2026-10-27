@@ -1,0 +1,26 @@
+{
+  "method": "Source assertions plus Python async/SQLite/string control probes; NOT Dart/Flutter/phone tests",
+  "source": "758c64452791f150006dc497af65ab802fe1eb8b",
+  "credential_wait_after_revoke": [
+    {
+      "permission_at_actual_send": false
+    }
+  ],
+  "echo_optional_blocks_text": {
+    "first_image_ms": 0,
+    "second_image_ms": 179000,
+    "decision_ms": 181000,
+    "echo_expiry_ms": 180000,
+    "current_false_even_with_text_only": true
+  },
+  "confirmed_send_then_archive_failure": {
+    "runtime_state_if_other_context_current": "failed",
+    "failed_receipt_still_suppresses_echo": false,
+    "uncertain_receipt_suppresses_echo": true
+  },
+  "speech_alias_in_archive": {
+    "original": "我用 DeepSeek，注意 token。",
+    "canonical_voice_text_in_current_code": "我用 地铺C咳，注意 拖肯。",
+    "duplicate_filter_keeps_original_prefix": true
+  }
+}
