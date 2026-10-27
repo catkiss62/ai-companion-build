@@ -260,7 +260,7 @@ class QqRuntime {
           if(ordinal>=urls.length || viewed>=4) {await store.observation(fence,image['id'] as String,'skipped','','');continue;}
           viewed++;
           try {
-            final result=await vision.observe(urls[ordinal],firstModel:model,fallback:o.visionFallback,current:current,
+            final result=await vision.observe(urls[ordinal],firstModel:model,fallback:o.visionFallback,current:current,firstChannel:b.group,
               cached:(fp)=>store.cachedImage(cid,fp));
             await store.observation(fence,image['id'] as String,'viewed',result.text,result.fingerprint);
           } catch(error) {

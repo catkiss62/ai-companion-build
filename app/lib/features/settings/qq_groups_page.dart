@@ -80,8 +80,10 @@ class _QqGroupsPageState extends State<QqGroupsPage> {
         FilledButton(onPressed:_busy?null:()=>_run(() async {
           await QqOptions.update((fresh)=>fresh.copy(core:_core.text.trim(),publicMemory:_public.text.trim()),namespace:_config.namespace);
           if(mounted) setState(()=>_notice='公开资料已保存。');}),child:const Text('保存公开资料')),
-        SwitchListTile(contentPadding:EdgeInsets.zero,title:const Text('QQ 识图失败时使用第一通道兜底'),
-          subtitle:const Text('先使用App视觉模型，再尝试第一通道当前模型的真实图片输入。接口不支持图片时保留识别失败。'),
+        const ListTile(contentPadding:EdgeInsets.zero,title:Text('QQ群聊识图：第一通道 DeepSeek'),
+          subtitle:Text('跟随第一通道当前模型与接口；App内识图仍使用千问视觉。')),
+        SwitchListTile(contentPadding:EdgeInsets.zero,title:const Text('QQ 私聊识图失败时使用第一通道兜底'),
+          subtitle:const Text('仅QQ私聊：先使用App视觉模型，再尝试第一通道当前模型。群聊直接使用第一通道，不调用千问视觉。'),
           value:_options.visionFallback,onChanged:_busy?null:(v)=>_run(() async {await QqOptions.update((fresh)=>fresh.copy(visionFallback:v),namespace:_config.namespace);})),
         SwitchListTile(contentPadding:EdgeInsets.zero,title:const Text('允许向本人分享群聊见闻'),subtitle:const Text('仅向你分享，仍受睡眠、节奏和防重复控制。'),
           value:_options.ownerShare,onChanged:_busy?null:(v)=>_run(() async {await QqOptions.update((fresh)=>fresh.copy(ownerShare:v),namespace:_config.namespace);})),

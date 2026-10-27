@@ -23,7 +23,7 @@ class QqVision {
   static const maxDownloadBytes=12*1024*1024;
   bool _closed=false;
   Future<({String text,String fingerprint})> observe(String url,{required DeepSeekModelProfile firstModel,
-    required bool fallback,required Future<bool> Function() current,
+    required bool fallback,required Future<bool> Function() current,bool firstChannel=false,
     Future<String?> Function(String)? cached}) async {
     Future<bool> valid() async=>!_closed && await current();
     if(!await valid()) throw StateError('context_invalidated');
@@ -33,7 +33,8 @@ class QqVision {
       downloaded=await SafePublicImageDownloader.download(client:downloader,rawUrl:url,maxBytes:maxDownloadBytes,
         filePrefix:'qq',temporaryDirectory:root,totalTimeout:const Duration(seconds:20));
       final original=await downloaded.file.readAsBytes();
-      final fingerprint=sha256.convert(utf8.encode('${QqVisionFrames.cacheVersion}:${sha256.convert(original)}')).toString();
+      final route=firstChannel?'first:${firstModel.apiName}':'vision';
+      final fingerprint=sha256.convert(utf8.encode('${QqVisionFrames.cacheVersion}:$route:${sha256.convert(original)}')).toString();
       final prior=await cached?.call(fingerprint);
       if(prior!=null && prior.isNotEmpty && await valid()) return (text:prior,fingerprint:fingerprint);
       if(!await valid()) throw StateError('context_invalidated');
@@ -61,8 +62,8 @@ class QqVision {
       }
       QwenVisionObservation result;
       stage='primary';
-      try {result=await attempt(false);} catch(_) {
-        if(!fallback || !await valid()) rethrow;
+      try {result=await attempt(firstChannel);} catch(_) {
+        if(firstChannel || !fallback || !await valid()) rethrow;
         stage='fallback';
         result=await attempt(true);
       }
@@ -82,8 +83,8 @@ class QqVision {
 }
 
 
-/// Scoped to the QQ first-channel fallback. Existing App/Qwen request shapes
-/// stay intact; the fallback must spend its budget on observing pixels.
+/// Scoped to QQ first-channel image observation. App/Qwen request shapes stay
+/// intact; observation spends its output budget on describing the pixels.
 class QqNonThinkingVisionTransport extends http.BaseClient {
   QqNonThinkingVisionTransport([http.Client? inner]):_inner=inner??http.Client();
   final http.Client _inner;

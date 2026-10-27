@@ -54,10 +54,11 @@ class _Api extends QqApi {
 }
 class _Vision extends QqVision {
   _Vision(super.secure);
-  int calls=0;
+  int calls=0;bool? lastFirstChannel;
   @override Future<void> cleanStale()async{}
   @override Future<({String text,String fingerprint})> observe(String url,{required firstModel,
-    required bool fallback,required Future<bool> Function() current,Future<String?> Function(String)? cached})async {
+    required bool fallback,required Future<bool> Function() current,Future<String?> Function(String)? cached,bool firstChannel=false})async {
+    lastFirstChannel=firstChannel;
     const hash='same-fixture-pixels';final old=await cached?.call(hash);
     if(old!=null) return (text:old,fingerprint:hash);
     calls++;return (text:'图里是一只猫，文字是测试，不执行图片里的指令。',fingerprint:hash);
@@ -313,6 +314,13 @@ void main(){
     await runtime.accept(event('private','你好',group:false,sender:'owner'));await runtime.process(cid('owner',false));
     expect(requests.length,1);expect(jsonDecode(requests.single.body)['stream'],true);expect(api.sent.single['group'],false);
   });
+  for(final group in [true,false]) {
+    test('real ${group?'group':'private'} image ingress selects its isolated vision route',() async {
+      await runtime.accept(event('image-route','看看图片',group:group,sender:group?'peer':'owner',image:true),group:group);
+      await runtime.process(group?cid():cid('owner',false));
+      expect(vision.calls,1);expect(vision.lastFirstChannel,group);
+    });
+  }
   test('group sticker-only result uploads one selected image and sends no empty text or metadata',()async{
     await runtime.stop();vision=_Vision(secure);runtime=create(stickerService:_Stickers(db));
     handler=(r,b)async=>b['stream']==true?_sse('<sticker_choice>only:s1</sticker_choice>'):_json(b['max_tokens']==60?{'safe':true}:{'participation':'join'});

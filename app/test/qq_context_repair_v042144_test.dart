@@ -22,9 +22,9 @@ import 'package:ai_companion_localfirst/integrations/qq_private/qq_vision.dart';
 
 class _Secure extends SecureConfig {
   _Secure():super.forTesting(const FlutterSecureStorage());
-  @override Future<String?> readApiKey()async=>'synthetic';
+  @override Future<String?> readApiKey()async=>'synthetic-first';
   @override Future<String> readEndpoint()async=>'https://first.invalid/chat';
-  @override Future<String?> readVisionApiKey()async=>'synthetic';
+  @override Future<String?> readVisionApiKey()async=>'synthetic-vision';
   @override Future<String> readVisionEndpoint()async=>'https://vision.invalid/chat';
   @override Future<String> readVisionModel()async=>'configured-vision';
 }
@@ -104,6 +104,36 @@ void main() {
 
   final still=base64Decode('iVBORw0KGgoAAAANSUhEUgAAACAAAAAYCAIAAAAUMWhjAAAAJElEQVR4nGP8z0BbwERj80ctGLVg1IJRC0YtGLVg1IJRC6gEAPHIAS8Wxt4fAAAAAElFTkSuQmCC');
   http.Response observed()=>http.Response(jsonEncode({'choices':[{'message':{'content':jsonEncode({'summary':'合成图片可见'})},'finish_reason':'stop'}]}),200,headers:{'content-type':'application/json'});
+  for(final firstChannel in [true,false]) {
+    test('${firstChannel?'group first channel':'private App vision'} uses the selected key model and endpoint once',() async {
+      final requests=<http.Request>[];var primary=0,first=0;
+      final vision=QqVision(_Secure(),downloader:MockClient((r)async=>http.Response.bytes(still,200)),
+        visionFactory:()=>QwenVisionClient(client:MockClient((r)async {primary++;requests.add(r);return observed();})),
+        fallbackFactory:()=>QwenVisionClient(client:QqNonThinkingVisionTransport(MockClient((r)async {first++;requests.add(r);return observed();}))));
+      try {
+        await vision.observe('https://fixture.invalid/picture.png',firstModel:DeepSeekModelProfile.fromApiName('future-first-model'),
+          firstChannel:firstChannel,fallback:true,current:()async=>true);
+        expect(primary,firstChannel?0:1);expect(first,firstChannel?1:0);
+        final request=requests.single,body=jsonDecode(request.body) as Map;
+        expect(request.url.host,firstChannel?'first.invalid':'vision.invalid');
+        expect(request.headers['Authorization'],'Bearer ${firstChannel?'synthetic-first':'synthetic-vision'}');
+        expect(body['model'],firstChannel?'future-first-model':'configured-vision');
+        expect(jsonEncode(body['messages']),contains('data:image/'));
+        if(firstChannel)expect(body['thinking'],{'type':'disabled'});
+      } finally {vision.close();}
+    });
+  }
+  test('group first-channel failure does not invoke App Qwen even when private fallback is enabled',() async {
+    var qwen=0,first=0;
+    final vision=QqVision(_Secure(),downloader:MockClient((r)async=>http.Response.bytes(still,200)),
+      visionFactory:()=>QwenVisionClient(client:MockClient((r)async {qwen++;return observed();})),
+      fallbackFactory:()=>QwenVisionClient(client:MockClient((r)async {first++;return http.Response('synthetic failure',503);})));
+    try {
+      await expectLater(vision.observe('https://fixture.invalid/picture.png',firstModel:DeepSeekModelProfile.flash,
+        firstChannel:true,fallback:true,current:()async=>true),throwsA(isA<QqOperationFailure>().having((e)=>e.code,'reason','vision_primary_http_503')));
+      expect(first,1);expect(qwen,0);
+    } finally {vision.close();}
+  });
   test('download/decode/provider failures have separate safe reasons and clean temporary files',() async {
     for(final scenario in ['size','decode','provider']) {
       var calls=0;
