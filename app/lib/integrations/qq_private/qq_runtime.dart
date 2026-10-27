@@ -285,7 +285,7 @@ class QqRuntime {
           final sinceReply=now().millisecondsSinceEpoch-(b.conversation['last_reply_at'] as int);
           if(sinceReply>=0 && sinceReply<90000) {await store.mark(b,'cooldown');status('group_cooldown');return;}
           if(count>=30) {await store.mark(b,'rate_limited');status('group_rate_limited');return;}
-          if(((await driveProjection())['fatigue']??0)>=85) {await store.mark(b,'low_energy');status('group_low_energy');return;}
+          if(((await driveProjection())['fatigue']??0)>=.85) {await store.mark(b,'low_energy');status('group_low_energy');return;}
         }
       }
       String prompt;String data;

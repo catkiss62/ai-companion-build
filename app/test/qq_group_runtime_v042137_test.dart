@@ -20,6 +20,7 @@ import 'package:ai_companion_localfirst/core/database/conversation_source_store.
 import 'package:ai_companion_localfirst/core/memory/memory_brain.dart';
 import 'package:ai_companion_localfirst/core/memory/memory_successor_recall.dart';
 import 'package:ai_companion_localfirst/core/models/chat_message.dart';
+import 'package:ai_companion_localfirst/core/models/desire_state.dart';
 import 'package:ai_companion_localfirst/core/storage/secure_config.dart';
 import 'package:ai_companion_localfirst/integrations/qq_private/qq_archive_reader.dart';
 import 'package:ai_companion_localfirst/integrations/qq_private/qq_options.dart';
@@ -114,6 +115,16 @@ void main(){
     expect(p.delay(pendingCount:2,firstAt:t,lastAt:t.add(const Duration(milliseconds:2900)),now:t.add(const Duration(seconds:3))),Duration.zero);
     expect(p.delay(pendingCount:1,firstAt:t,lastAt:t,now:t,mentioned:true),const Duration(seconds:1));
   });
+  for(final sample in [(fatigue:.84,route:'join',sent:true),(fatigue:.85,route:'join',sent:false),
+      (fatigue:.9,route:'direct',sent:true),(fatigue:.9,route:'continuing',sent:true)]) {
+    test('QQ fatigue uses 0–1 units while addressed ${sample.route} keeps priority at ${sample.fatigue}',() async {
+      await db.saveDesire(DesireSnapshot(drives:{...DesireSnapshot.defaultDrives(),DriveKey.fatigue:sample.fatigue}));
+      handler=(r,b)async=>b['stream']==true?_sse('还在听'):_json(b['max_tokens']==60?{'safe':true}:{'participation':sample.route});
+      await accept('fatigue','群里说句话');await runtime.process(cid());
+      expect(api.sent.length,sample.sent?1:0);
+      expect(statuses.contains('group_low_energy'),!sample.sent);
+    });
+  }
   JevDecisionGateway gateway(Future<http.Response> Function(http.Request) respond)=>JevDecisionGateway(
     enabledReader:()async=>true,keyReader:()async=>'fixture-jev',
     clientFactory:()=>MockClient((r){jevRequests.add(r);return respond(r);}));
