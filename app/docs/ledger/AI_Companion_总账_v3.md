@@ -1,5 +1,7 @@
 # AI Companion · 总账 v3
 
+2026-10-27 最新只读复查：[+386转发来源与GIF识别方案](../QQ_FORWARD_PROVENANCE_REVIEW_2026-10-27.md)。确认P1转发/截图来源未与外层会话区分、P2新版103引用正文/附件未接收，二者尚待修补；合并转发不等同于103引用，不承诺官方接口能展开全部转发。合成源码/SQLite探针已核对，未收到本次原始平台事件，不冒充真机复现。GIF当前仅首帧，建议QQ独立有界抽帧拼图、一次识图；多图也可一次请求，拼图不自动等于省Token，实际延迟/费用待验证。仅研究/文档，不改运行代码、不出新APK；下方+386交付保持有效。
+
 2026-10-27 当前交付：v0.42.142+386 / schema64，[QQ边界修补与夜间主动联系](../QQ_NIGHT_RECOVERY_v042142.md)。F1错误业务JSON有界重试、F2队列异常恢复、F3旧观察与新学习批次隔离、QQ疲劳0–1单位修正及绘图等待让出前台均已实现；夜间保持休息优势到抽取起床时间，普通旧回忆不推动联系，强烈当前驱动/核验新事件竞争，原两次上限与授权任务保留。运行源码1330046de74a790ae671443a4108a2ec1ede6f0f，tree b37a16bb81ab5c6bc914edafdca8821fb82d58f5。完整CI[40441351357](https://github.com/catkiss62/ai-companion-build/actions/runs/40441351357)及专项[40441351370](https://github.com/catkiss62/ai-companion-build/actions/runs/40441351370)success：154源码门、Kotlin及Android15原生验证；第一组92、专项1280、全量2900、归档恢复170项分别通过，重叠不相加；分析0error、955非fatal。原签名APK739298814 bytes，SHA256 b54706abe0c4d345247ac07f21e8c9b5b4a3a0a0389c772829854e201cb10e33，与Release424985879 / asset680343334 digest一致；Actions artifact12708116721。用户从GitHub下载，不重复聊天导出。后续仅文档收口，不重构建相同APK；真实模型夜间频率与后台体验待安装观察。下方+385审查及旧起床表达建议为修复前历史，不覆盖本条。
 
 更新时间：2026-10-27（Asia/Shanghai）

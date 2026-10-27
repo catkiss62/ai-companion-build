@@ -1,0 +1,25 @@
+{
+  "source": "1330046de74a790ae671443a4108a2ec1ede6f0f",
+  "level": "frozen source assertions + actual SQLite schema/query with synthetic data",
+  "quote_fixture": {
+    "nested_text_present_upstream": true,
+    "nested_image_count": 1,
+    "current_kept_projection": {
+      "text": "你怎么看",
+      "reply_to": "",
+      "images": 0
+    }
+  },
+  "forward_screenshot_fixture": {
+    "archive_origin_fields": [],
+    "learning_eligible_rows": 12,
+    "forward_image_row_enters_learning_query": true,
+    "observation_rendered_under_outer_group_member": true
+  },
+  "limitations": [
+    "No actual user event inspected",
+    "No Dart/Flutter or paid-model calls",
+    "Does not claim the model actually learned or misremembered",
+    "Quote=103 is not asserted to be the merge-forward message type"
+  ]
+}

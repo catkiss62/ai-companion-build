@@ -1,5 +1,7 @@
 # 文档地图
 
+最新审查：[QQ转发来源与GIF方案](QQ_FORWARD_PROVENANCE_REVIEW_2026-10-27.md) — +386只读复查的两个待修根因、冻结合成探针及有界抽帧建议；不是新功能交付，不触发构建。
+
 当前交付：[+386 QQ与夜间修补](QQ_NIGHT_RECOVERY_v042142.md)，完整CI40441351357和专项40441351370成功；运行源码1330046de74a790ae671443a4108a2ec1ede6f0f，状态与下载见总账v3。
 
 当前交付：[QQ_ARCHIVE_AGENT_v042139.md](QQ_ARCHIVE_AGENT_v042139.md) — +383六组QQ/Agent读取链修复及沉浸布局；完整CI40327576862成功，2829全量Flutter/170存档恢复/54原生测试通过，原签名APK已上传GitHub，真机待验。
