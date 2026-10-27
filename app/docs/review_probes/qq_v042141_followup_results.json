@@ -1,0 +1,67 @@
+{
+  "F1_invalid_result_marked_complete": [
+    {
+      "input": {},
+      "notes": 0,
+      "work": "complete",
+      "summary_seq": 1
+    },
+    {
+      "input": {
+        "memory": null
+      },
+      "notes": 0,
+      "work": "complete",
+      "summary_seq": 1
+    },
+    {
+      "input": {
+        "memory": 7
+      },
+      "notes": 0,
+      "work": "complete",
+      "summary_seq": 1
+    },
+    {
+      "input": {
+        "memory": []
+      },
+      "notes": 0,
+      "work": "complete",
+      "summary_seq": 1
+    },
+    {
+      "input": {
+        "memory": ""
+      },
+      "notes": 0,
+      "work": "complete",
+      "summary_seq": 1
+    }
+  ],
+  "F2_rejected_tail_leaks_conversation_flag": {
+    "blocked": [
+      "conversation-A"
+    ],
+    "processed": [
+      "conversation-B"
+    ],
+    "secondAccepted": false
+  },
+  "F3_unrelated_style_batch_consumed": {
+    "new_batch_state": "cancelled",
+    "new_batch_sources": 12,
+    "eligible_sources_after_edit": 0
+  },
+  "O1_cross_conversation_queue_coupling": {
+    "duringDrawing": false,
+    "afterDrawing": true
+  },
+  "source_guards_sha256_normalized": {
+    "qq_runtime.dart": "17deba61edde6baaf284f3661f17f0950896b4d2c23344014522d1668c288073",
+    "qq_store.dart": "d8e95f8123be8cb3d887a8cdb7c13c065c9adeaf1dfe56d2d2763a7a93153407",
+    "qq_group_learning.dart": "785cae7980bdf01875f96d757103879272ad2debea386d451962e3b22507b312",
+    "qq_work_queue.dart": "0d0b9328ee25adc26226b1a8504299e3869747bd24baa5b8a55c2bf2756793f2"
+  },
+  "limits": "SQLite and async control-flow models only. Not a Flutter, Android or live QQ test; no evidence a particular phone experienced these injected faults."
+}
