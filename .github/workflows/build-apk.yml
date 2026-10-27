@@ -1,3 +1,4 @@
+# Historical +388: Build AI Companion v0.42.144+388 APK (QQ Context Recovery) | AI-Companion-v0.42.144-388-QQ-Context-Recovery-APK | v0.42.144-qq-context-recovery-test
 # Historical +385: Build AI Companion v0.42.141+385 APK (QQ Learning Sketch) | AI-Companion-v0.42.141-385-QQ-Learning-Sketch-APK | v0.42.141-qq-learning-sketch-test
 # Historical +379: Build AI Companion v0.42.135+379 APK (QQ Private V1) | AI-Companion-v0.42.135-379-QQ-Private-V1-APK | v0.42.135-qq-private-v1-test
 # Historical +377: Build AI Companion v0.42.133+377 APK (Game and Overlay Recovery) | AI-Companion-v0.42.133-377-Game-Overlay-Recovery-APK | v0.42.133-game-overlay-recovery-test
@@ -436,7 +437,7 @@
 
 # Historical +314: Build AI Companion v0.42.70+314 APK (Wish Lifecycle) | AI-Companion-v0.42.70-314-Wish-Lifecycle-APK | v0.42.70-wish-lifecycle-test | .ci/v04270-monitor.txt
 # Historical +323: Build AI Companion v0.42.79+323 APK (Wish Chat Fixes) | AI-Companion-v0.42.79-323-Wish-Chat-Fixes-APK | v0.42.79-wish-chat-fixes-test | .ci/v04279-monitor.txt
-name: Build AI Companion v0.42.144+388 APK (QQ Context Recovery)
+name: Build AI Companion v0.42.145+389 APK (Proactive Presentation and QQ Identity)
 
 # BUILD INPUTS: The 96-clip source ZIP is private Draft Release asset 591363139
 # (release 397377805), fetched and SHA-256 checked below. The persistent
@@ -1048,7 +1049,7 @@ jobs:
         run: |
           set -euo pipefail
           test -f app/pubspec.yaml
-          grep -Fqx 'version: 0.42.144+388' app/pubspec.yaml
+          grep -Fqx 'version: 0.42.145+389' app/pubspec.yaml
           grep -Fqx '  static const int schemaVersion = 65;' app/lib/core/database/app_database.dart
           test -d app/lib
           test -d app/android
@@ -1062,7 +1063,7 @@ jobs:
           test -f app/android/app/src/main/jniLibs/arm64-v8a/libc++_shared.so
           test ! -d app/android/app/src/main/assets/tts_models
           test ! -d app/android/app/src/main/assets/legacy_tts
-          echo 'Building v0.42.144+388 QQ Context Recovery.'
+          echo 'Building v0.42.145+389 Proactive Presentation and QQ Identity.'
 
       - name: Generate complete pet clips from pinned Draft Release asset
         timeout-minutes: 15
@@ -1727,26 +1728,26 @@ jobs:
           APK='app/build/app/outputs/flutter-apk/app-release.apk'
           sha256sum "$APK" | tee app/app-release.apk.sha256
 
-      - name: Upload v0.42.144+388 APK as workflow artifact
+      - name: Upload v0.42.145+389 APK as workflow artifact
         uses: actions/upload-artifact@v4
         with:
-          name: AI-Companion-v0.42.144-388-QQ-Context-Recovery-APK
+          name: AI-Companion-v0.42.145-389-Proactive-Presentation-Identity-APK
           path: |
             app/build/app/outputs/flutter-apk/app-release.apk
             app/app-release.apk.sha256
           if-no-files-found: error
           retention-days: 14
 
-      - name: Upload v0.42.144+388 APK to draft release
+      - name: Upload v0.42.145+389 APK to draft release
         shell: bash
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
-          TAG='v0.42.144-qq-context-recovery-test'
-          APK_NAME='AI-Companion-v0.42.144-388-QQ-Context-Recovery-APK.apk'
+          TAG='v0.42.145-proactive-presentation-identity-test'
+          APK_NAME='AI-Companion-v0.42.145-389-Proactive-Presentation-Identity-APK.apk'
           SHA_NAME="${APK_NAME}.sha256"
-          CI_NAME='AI-Companion-v0.42.144-388-QQ-Context-Recovery-CI-Monitor.txt'
+          CI_NAME='AI-Companion-v0.42.145-389-Proactive-Presentation-Identity-CI-Monitor.txt'
           cp app/build/app/outputs/flutter-apk/app-release.apk "app/${APK_NAME}"
           sed "s#app/build/app/outputs/flutter-apk/app-release.apk#${APK_NAME}#" \
             app/app-release.apk.sha256 > "app/${SHA_NAME}"
@@ -1763,15 +1764,15 @@ jobs:
               --repo "${GITHUB_REPOSITORY}" \
               --target "${GITHUB_SHA}" \
               --draft \
-              --title 'AI Companion v0.42.144+388 QQ Context Recovery' \
-              --notes 'QQ source provenance and GIF test build: preserve nested quote text/images as unverified material, keep forwarded/screenshot voices separate from current-group speech and expression learning, preserve source metadata through backup/restore. Bounded time-based GIF samples become one ordered image with explicit sampling/first-frame fallback labels and versioned caching. New-batch participation focus and per-group soft pacing; sticker invitations use current outer comments, while direct/continuing conversations remain free to respond. Existing owner boundaries, neutral group addressing, send cancellation, one-time consumption and night recovery remain. Original-signature unpublished test build; real QQ payload coverage, device performance and chat frequency still need observation.'
+              --title 'AI Companion v0.42.145+389 Proactive Presentation and QQ Identity' \
+              --notes 'Proactive presentation and QQ identity test build: skip automatic speech and emotion cues after newer dialogue; recheck shared delivery and save identity before preparation and playback; prevent stale Live2D plans or speech reattachment. Explicit manual history reading remains available. QQ model context now pairs existing display nicknames with stable speaker and host ownership markers; identical names never authorize ownership or private-memory access. Retains +388 DeepSeek group vision, balanced participation, bounded media handling, sticker coverage and isolated game recovery. Original-signature unpublished build; real device and model behavior remain subject to testing.'
           else
             test "$(gh release view "${TAG}" --repo "${GITHUB_REPOSITORY}" --json isDraft --jq '.isDraft')" = true
             gh release edit "${TAG}" \
               --repo "${GITHUB_REPOSITORY}" \
               --target "${GITHUB_SHA}" \
-              --title 'AI Companion v0.42.144+388 QQ Context Recovery' \
-              --notes 'QQ source provenance and GIF test build: preserve nested quote text/images as unverified material, keep forwarded/screenshot voices separate from current-group speech and expression learning, preserve source metadata through backup/restore. Bounded time-based GIF samples become one ordered image with explicit sampling/first-frame fallback labels and versioned caching. New-batch participation focus and per-group soft pacing; sticker invitations use current outer comments, while direct/continuing conversations remain free to respond. Existing owner boundaries, neutral group addressing, send cancellation, one-time consumption and night recovery remain. Original-signature unpublished test build; real QQ payload coverage, device performance and chat frequency still need observation.'
+              --title 'AI Companion v0.42.145+389 Proactive Presentation and QQ Identity' \
+              --notes 'Proactive presentation and QQ identity test build: skip automatic speech and emotion cues after newer dialogue; recheck shared delivery and save identity before preparation and playback; prevent stale Live2D plans or speech reattachment. Explicit manual history reading remains available. QQ model context now pairs existing display nicknames with stable speaker and host ownership markers; identical names never authorize ownership or private-memory access. Retains +388 DeepSeek group vision, balanced participation, bounded media handling, sticker coverage and isolated game recovery. Original-signature unpublished build; real device and model behavior remain subject to testing.'
           fi
           test "$(gh release view "${TAG}" --repo "${GITHUB_REPOSITORY}" --json isDraft --jq '.isDraft')" = true || exit 1
           RELEASE_URL="$(gh release view "${TAG}" --repo "${GITHUB_REPOSITORY}" --json url --jq '.url')"
@@ -1792,19 +1793,19 @@ jobs:
           done
           test "${upload_ok}" = '1'
           MONITOR_BRANCH='ci-monitor-v0345'
-          MONITOR_PATH='.ci/v042144-monitor.txt'
+          MONITOR_PATH='.ci/v042145-monitor.txt'
           MONITOR_CONTENT_FILE="$(mktemp)"
           base64 -w0 "app/${CI_NAME}" > "${MONITOR_CONTENT_FILE}"
           MONITOR_SHA="$(gh api "/repos/${GITHUB_REPOSITORY}/contents/${MONITOR_PATH}?ref=${MONITOR_BRANCH}" --jq '.sha' 2>/dev/null || true)"
           if test -n "${MONITOR_SHA}"; then
             gh api --method PUT "/repos/${GITHUB_REPOSITORY}/contents/${MONITOR_PATH}" \
-              -f message='Update v0.42.144 CI success monitor' \
+              -f message='Update v0.42.145 CI success monitor' \
               -F "content=@${MONITOR_CONTENT_FILE}" \
               -f branch="${MONITOR_BRANCH}" \
               -f sha="${MONITOR_SHA}" >/dev/null
           else
             gh api --method PUT "/repos/${GITHUB_REPOSITORY}/contents/${MONITOR_PATH}" \
-              -f message='Create v0.42.144 CI success monitor' \
+              -f message='Create v0.42.145 CI success monitor' \
               -F "content=@${MONITOR_CONTENT_FILE}" \
               -f branch="${MONITOR_BRANCH}" >/dev/null
           fi
@@ -1826,8 +1827,8 @@ jobs:
           BUILD_RESULT: ${{ needs.build-apk.result }}
         run: |
           set -uo pipefail
-          TAG='v0.42.144-qq-context-recovery-test'
-          CI_NAME='AI-Companion-v0.42.144-388-QQ-Context-Recovery-CI-Monitor.txt'
+          TAG='v0.42.145-proactive-presentation-identity-test'
+          CI_NAME='AI-Companion-v0.42.145-389-Proactive-Presentation-Identity-CI-Monitor.txt'
           REPORT="${RUNNER_TEMP}/${CI_NAME}"
           JOBS_JSON="${RUNNER_TEMP}/jobs.json"
           {
@@ -1868,7 +1869,7 @@ jobs:
               --repo "${GITHUB_REPOSITORY}" \
               --target "${GITHUB_SHA}" \
               --draft \
-              --title 'AI Companion v0.42.144+388 QQ Context Recovery' \
+              --title 'AI Companion v0.42.145+389 Proactive Presentation and QQ Identity' \
               --notes 'Unpublished Draft build diagnostics for QQ memory foundation and independent reply channels. No user content, keys, backups or device diagnostics are included.'
           fi
           test "$(gh release view "${TAG}" --repo "${GITHUB_REPOSITORY}" --json isDraft --jq '.isDraft')" = true || exit 1
@@ -1879,7 +1880,7 @@ jobs:
             --clobber \
             --repo "${GITHUB_REPOSITORY}"
           MONITOR_BRANCH='ci-monitor-v0345'
-          MONITOR_PATH='.ci/v042144-monitor.txt'
+          MONITOR_PATH='.ci/v042145-monitor.txt'
           MONITOR_CONTENT_FILE="$(mktemp)"
           base64 -w0 "${REPORT}" > "${MONITOR_CONTENT_FILE}"
           MONITOR_SHA="$(gh api "/repos/${GITHUB_REPOSITORY}/contents/${MONITOR_PATH}?ref=${MONITOR_BRANCH}" --jq '.sha' 2>/dev/null || true)"

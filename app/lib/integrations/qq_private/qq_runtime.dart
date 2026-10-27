@@ -287,7 +287,7 @@ class QqRuntime {
         String decision;final cancellation=GenerationCancellationToken();_activeDecision=cancellation;
         try {decision=await judge.decide(model:model,card:'${QqArchiveReader.bound(o.core,1400)}\nApp只读状态：${jsonEncode(await driveProjection())}\n她上次参与：${b.conversation['last_reply_at']}\n现在：${now().toIso8601String()}',
           messages:recent,mentioned:mentioned,newMessageSeqs:b.rows.map((r)=>r['seq'] as int).toList(),
-          newMessages:QqArchiveReader.participationFocus(b.rows),
+          newMessages:await reader.participationFocus(b.rows),
           recentParticipation:participation,current:current,cancellationToken:cancellation);
         } catch(_) {if(!await current()) rethrow;decision=mentioned?'uncertain':'watch';}
         finally {cancellation.cancel();if(identical(_activeDecision,cancellation)) _activeDecision=null;}

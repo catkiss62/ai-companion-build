@@ -73,14 +73,15 @@ class EmotionSoundService {
 
   Future<bool> play(ChatEmotionVisual emotion, {PlaybackIntent? intent}) async {
     final generation = ++_generation;
-    bool valid() => generation == _generation && (intent?.valid ?? true);
+    Future<bool> valid() async => generation == _generation &&
+        (intent == null || await intent.refresh()) && generation == _generation;
     EmotionSoundPlayer owned = player;
     try {
       if (player is NativeEmotionSoundPlayer) {
         final parent = intent == null ? null : await intent.lease;
-        if (!valid()) return false;
+        if (!await valid()) return false;
         owned = await (player as NativeEmotionSoundPlayer).claimCue(parentLease: parent);
-        if (!valid()) { await owned.stop(); return false; }
+        if (!await valid()) { await owned.stop(); return false; }
       }
       _activePlayer = owned;
     } catch (_) { return false; }
@@ -89,22 +90,22 @@ class EmotionSoundService {
         (await db.getSetting('emotion_sound_enabled')) != '1') {
       return false;
     }
-    if (!valid()) return false;
+    if (!await valid()) return false;
     try {
       final data = await (assetLoader ?? rootBundle.load)(asset);
-      if (!valid()) return false;
+      if (!await valid()) return false;
       final bytes =
           data.buffer.asUint8List(data.offsetInBytes, data.lengthInBytes);
       final volume =
           normalizedVolume(await db.getSetting('emotion_sound_volume'));
-      if (!valid()) return false;
+      if (!await valid()) return false;
       final configurable = owned is EmotionSoundVolumePlayer
           ? owned as EmotionSoundVolumePlayer
           : null;
       configurable?.setVolume(volume);
-      if (!valid()) return false;
+      if (!await valid()) return false;
       await owned.play(base64Encode(bytes));
-      return valid();
+      return await valid();
     } catch (_) {
       return false;
     }

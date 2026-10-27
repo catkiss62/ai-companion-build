@@ -65,14 +65,20 @@ class TtsPlaybackQueue {
 
   int _generation = 0;
   PlaybackIntent? _intent;
-  PlaybackIntent createIntent({bool? formForPlayback, String? ownerId}) {
+  PlaybackIntent createIntent({bool? formForPlayback, String? ownerId,
+      Future<bool> Function()? canContinue}) {
     final stopped = _invalidateAndStop();
     unawaited(stopped);
     late PlaybackIntent intent;
-    final ready = service is TtsSessionFactory
+    Future<TtsQueueService> open() => service is TtsSessionFactory
         ? (service as TtsSessionFactory).openPlaybackSession(qForm: formForPlayback, ownerId: ownerId)
         : stopped.then((_) => service);
-    intent = PlaybackIntent(service: ready, isCurrent: () => identical(_intent, intent));
+    final ready = canContinue == null ? open() : Future<void>.value().then((_) async {
+      if (!await intent.refresh()) throw StateError('playback_superseded');
+      return open();
+    });
+    intent = PlaybackIntent(service: ready, isCurrent: () => identical(_intent, intent),
+        canContinue: canContinue);
     _intent = intent;
     // A late claim may only release itself; it must never stop a newer owner.
     unawaited(ready.then((owned) async { if (!intent.valid) await owned.stop(); }).catchError((Object _) {}));
@@ -108,11 +114,11 @@ class TtsPlaybackQueue {
     bool? formForPlayback,
   }) async {
     final requested = intent ?? createIntent(formForPlayback: formForPlayback, ownerId: ownerId);
-    if (!requested.valid) return;
+    if (!await requested.refresh()) return;
     final activeService = await requested.service;
-    if (!requested.valid) return;
+    if (!await requested.refresh()) { await _releasePrepared(requested, activeService); return; }
     final voice = await activeService.resolveVoice(emotion);
-    if (!requested.valid) return;
+    if (!await requested.refresh()) { await _releasePrepared(requested, activeService); return; }
     _session = _A2Session(
       token: _generation,
       service: activeService,
@@ -172,11 +178,11 @@ class TtsPlaybackQueue {
     bool? formForPlayback,
   }) async {
     final requested = intent ?? createIntent(formForPlayback: formForPlayback, ownerId: ownerId);
-    if (!requested.valid) return;
+    if (!await requested.refresh()) return;
     final activeService = await requested.service;
-    if (!requested.valid) return;
+    if (!await requested.refresh()) { await _releasePrepared(requested, activeService); return; }
     final voice = await activeService.resolveVoice(emotion);
-    if (!requested.valid) return;
+    if (!await requested.refresh()) { await _releasePrepared(requested, activeService); return; }
     final session = _A2Session(
       token: _generation,
       service: activeService,
@@ -202,7 +208,7 @@ class TtsPlaybackQueue {
       manual: manual,
       language: language,
     );
-    if (!_isActive(session)) return;
+    if (!await _refreshSession(session)) return;
     if (prepared.isEmpty) {
       session.closed = true;
       _maybeComplete(session);
@@ -382,7 +388,7 @@ class TtsPlaybackQueue {
     int index,
     String text,
   ) async {
-    if (!_isActive(session)) return;
+    if (!await _refreshSession(session)) return;
     session.generating++;
     _notify();
     Uint8List? audio;
@@ -398,7 +404,7 @@ class TtsPlaybackQueue {
     } catch (_) {
       audio = null;
     } finally {
-      if (_isActive(session)) {
+      if (await _refreshSession(session)) {
         session.generating = (session.generating - 1).clamp(0, 1 << 30).toInt();
         _markGenerated(session, index, audio);
       }
@@ -449,11 +455,12 @@ class TtsPlaybackQueue {
           if (audio == null || audio.isEmpty) continue;
           if (!streamStarted) {
             await session.waitForLeadIn();
-            if (!_isActive(session)) return;
+            if (!await _refreshSession(session)) return;
             await session.service.beginPlayback();
-            if (!_isActive(session)) return;
+            if (!await _refreshSession(session)) return;
             streamStarted = true;
           }
+          if (!await _refreshSession(session)) return;
           _current = text;
           _notify();
           final voice = session.voiceByIndex.remove(index) ?? session.voice;
@@ -523,6 +530,22 @@ class TtsPlaybackQueue {
 
   bool _isActive(_A2Session session) =>
       identical(_session, session) && session.token == _generation && session.intent.valid;
+
+  Future<bool> _refreshSession(_A2Session session) async {
+    if (await session.intent.refresh() && _isActive(session)) return true;
+    if (identical(_session, session)) await _invalidateAndStop();
+    return false;
+  }
+
+  Future<void> _releasePrepared(PlaybackIntent requested, TtsQueueService owned) async {
+    // A stale preparation may only stop its own native lease. An unscoped
+    // service can be shared with a newer intent and must not receive old Stop.
+    if (owned is TtsPlaybackLeaseOwner && (owned as TtsPlaybackLeaseOwner).playbackLease != null) {
+      await owned.stop();
+    } else if (identical(_intent, requested)) {
+      await _invalidateAndStop();
+    }
+  }
 
   void _notify() => onStateChanged?.call(state);
 }

@@ -419,6 +419,10 @@ void main(){
     final names=await QqDisplayNames.read(await db.database,QqRuntime.scope(config));
     expect(names.member('group-a','peer'),'群友小明');expect(options.ownerMembers,isEmpty);
     expect((await store.pending(cid())).single['owner'],0);
+    await runtime.process(cid());
+    final decision=requests.singleWhere((r)=>jsonDecode(r.body)['stream']!=true);
+    expect(decision.body,contains('群友小明'));
+    expect(decision.body,contains('GROUP_MEMBER_HISTORY'));
   });
   test('production owner private reply includes the latest received group context',()async{
     clock=DateTime.now();await accept('group-for-private','群友刚刚决定周末去看风铃');

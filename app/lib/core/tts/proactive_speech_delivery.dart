@@ -3,11 +3,13 @@ import 'dart:convert';
 import 'package:sqflite/sqflite.dart';
 import 'package:uuid/uuid.dart';
 import '../database/app_database.dart';
+import '../database/brain_work_fence.dart';
 import '../models/chat_message.dart';
 
 /// A short, renewable claim shared by App and background Flutter engines.
 /// Claiming is not evidence of playback. Only completion or an explicit Stop
-/// consumes a message; preparation failure/preemption can retry on next open.
+/// consumes a message; failed preparation can retry while this is still the
+/// current dialogue head. Later dialogue always supersedes automatic speech.
 class ProactiveSpeechDelivery {
   ProactiveSpeechDelivery(this.db, {DateTime Function()? clock})
       : clock = clock ?? DateTime.now;
@@ -17,6 +19,33 @@ class ProactiveSpeechDelivery {
   static const spokenKey = 'last_proactive_spoken_message_id';
   static const lease = Duration(minutes: 2);
   String? _activeToken;
+  BrainWorkFence? _activeFence;
+
+  static Future<bool> _headMatches(DatabaseExecutor sql, ChatMessage message) async {
+    final latest = await sql.query('messages',
+        columns: ['id', 'source_revision', 'content', 'is_proactive'],
+        where: "role IN ('user', 'assistant')",
+        orderBy: 'created_at DESC, rowid DESC', limit: 1);
+    return latest.isNotEmpty && latest.single['id'] == message.id &&
+        latest.single['is_proactive'] == 1 &&
+        latest.single['source_revision'] == message.sourceRevision &&
+        latest.single['content'] == message.content;
+  }
+
+  /// Recheck after asynchronous preparation, not just on opening the surface.
+  /// A later user message or ordinary answer retires this automatic delivery.
+  Future<bool> canContinue(ChatMessage message) async {
+    final token = _activeToken;
+    final fence = _activeFence;
+    if (token == null || fence == null) return false;
+    final sql = await db.database;
+    return sql.transaction((txn) async {
+      final held = _decode(await _value(txn, claimKey));
+      return await fence.matches(txn) && held['token'] == token && held['message_id'] == message.id &&
+          ((held['until'] as num?)?.toInt() ?? 0) > clock().millisecondsSinceEpoch &&
+          await _headMatches(txn, message);
+    });
+  }
 
   Future<void> deliver(ChatMessage message, {
     required Future<bool> Function() play,
@@ -32,15 +61,15 @@ class ProactiveSpeechDelivery {
   }) async {
     final token = const Uuid().v4();
     final sql = await db.database;
+    BrainWorkFence? fence;
     final claimed = await sql.transaction((txn) async {
       if (canStart?.call() == false) return false;
       final spoken = await _value(txn, spokenKey);
       if (spoken == message.id) return false;
-      // A stale surface must not replay an older proactive message.
-      final latest = await txn.query('messages', columns: ['id'],
-          where: "role = 'assistant' AND is_proactive = 1",
-          orderBy: 'created_at DESC, rowid DESC', limit: 1);
-      if (latest.isEmpty || latest.single['id'] != message.id) return false;
+      // Latest proactive is insufficient: an ordinary turn may follow it.
+      if (!await _headMatches(txn, message)) return false;
+      fence = await db.captureBrainWorkFenceInTransaction(txn);
+      if (fence == null) return false;
       final held = _decode(await _value(txn, claimKey));
       if (held['message_id'] == message.id &&
           ((held['until'] as num?)?.toInt() ?? 0) > clock().millisecondsSinceEpoch) return false;
@@ -52,6 +81,7 @@ class ProactiveSpeechDelivery {
     });
     if (!claimed) return;
     _activeToken = token;
+    _activeFence = fence;
     var renewing = false;
     final heartbeat = Timer.periodic(const Duration(seconds: 30), (_) async {
       if (renewing) return;
@@ -60,14 +90,14 @@ class ProactiveSpeechDelivery {
       finally { renewing = false; }
     });
     try {
-      if (canStart?.call() == false) return;
+      if (canStart?.call() == false || !await canContinue(message)) return;
       if (await play()) await _update(token, consumed: true);
     } catch (_) {
       // Voice failure must never fail a delivered text message.
     } finally {
       heartbeat.cancel();
       try { await _update(token); } catch (_) {}
-      if (_activeToken == token) _activeToken = null;
+      if (_activeToken == token) { _activeToken = null; _activeFence = null; }
     }
   }
 

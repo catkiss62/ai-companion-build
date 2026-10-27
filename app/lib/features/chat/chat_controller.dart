@@ -2079,6 +2079,9 @@ class ChatController extends ChangeNotifier {
 
   Future<void> onOverlayOpened() => onChatOpened();
 
+  ChatMessage? get latestDialogueMessage => messages.reversed
+      .where((message) => message.isUser || message.isAssistant).firstOrNull;
+
   Future<void> onChatOpened({bool Function()? canStart}) async {
     final policy = ProactiveTtsPolicy.fromSetting(
       await db.getSetting('proactive_tts_policy'),
@@ -2087,20 +2090,16 @@ class ChatController extends ChangeNotifier {
     if ((await db.getSetting('tts_enabled')) == '0') return;
     if (_disposed || generationActive || analyzingImage || canStart?.call() == false) return;
 
-    ChatMessage? latest;
-    for (final message in messages.reversed) {
-      if (message.isAssistant && message.isProactive) {
-        latest = message;
-        break;
-      }
-    }
-    if (latest == null) return;
+    final latest = latestDialogueMessage;
+    if (latest == null || !latest.isAssistant || !latest.isProactive) return;
     final message = latest;
     await proactiveSpeech.deliver(message,
       canStart: () => !_disposed && !generationActive && !analyzingImage &&
           canStart?.call() != false && !ttsState.running,
       play: () async {
         final intent = ttsPlayback.createIntent(ownerId: message.id,
+          canContinue: () async => !_disposed && !generationActive && !analyzingImage &&
+              canStart?.call() != false && await proactiveSpeech.canContinue(message),
           formForPlayback: message.formContext.isKnown ? message.formContext.form == 'q' : null);
         final visual = ChatVisualResolver.resolveEmotionKey(message.emotionKey);
         await ttsPlayback.playText(message.content, intent: intent,

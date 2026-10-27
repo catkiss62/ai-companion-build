@@ -350,18 +350,26 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver, RouteA
     if (discoveredUser) unawaited(_caicaiMotion.stop());
     _caicaiMotion.playbackChanged(ownerId: controller.ttsState.ownerId,
       running: controller.ttsState.running);
-    if (!_caicaiEnabled || !_visualStageEnabled || !_chatVisible) {
+    final latestDialogue = controller.latestDialogueMessage;
+    if (!_caicaiEnabled || !_visualStageEnabled || !_chatVisible ||
+        latestDialogue == null || !latestDialogue.isAssistant) {
       unawaited(_caicaiMotion.stop());
-    } else if (!discoveredUser && controller.messages.any((m) => m.isAssistant)) {
-      final reply = controller.messages.where((m) => m.isAssistant).last;
+    } else if (!discoveredUser) {
+      final reply = latestDialogue;
+      bool current() => mounted && _chatVisible &&
+          controller.latestDialogueMessage?.id == reply.id &&
+          controller.latestDialogueMessage?.sourceRevision == reply.sourceRevision &&
+          controller.latestDialogueMessage?.content == reply.content;
       final users = controller.messages.where((m) => m.isUser);
       final key = '${reply.id}:${reply.sourceRevision}:${reply.content.hashCode}';
       if (discoveredAssistant || key != _caicaiPresentationKey) {
         _caicaiPresentationKey = key;
         unawaited(_caicaiMotion.present(id: reply.id, user: users.isEmpty ? '' : users.last.content,
-          reply: reply.content, emotion: _currentEmotion.key, revision: reply.sourceRevision));
+          reply: reply.content, emotion: _currentEmotion.key, revision: reply.sourceRevision,
+          canContinue: current));
       } else if (controller.ttsState.running && controller.ttsState.ownerId == reply.id) {
-        unawaited(_caicaiMotion.resume(id: reply.id, reply: reply.content, revision: reply.sourceRevision));
+        unawaited(_caicaiMotion.resume(id: reply.id, reply: reply.content, revision: reply.sourceRevision,
+          canContinue: current));
       }
     }
     setState(() {});

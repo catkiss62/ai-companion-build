@@ -15,12 +15,24 @@ class QqArchiveReader {
   final DatabaseExecutor sql;
   static String bound(String s,int n)=>s.length<=n?s:s.substring(0,n);
   final _descriptors=<String,Map<String,Object?>>{};
+  final _names=<String,QqDisplayNames>{};
   Future<Map<String,Object?>> descriptor(String cid) async {
     if(_descriptors.containsKey(cid)) return _descriptors[cid]!;
     final rows=await sql.query('qq_conversations',where:'id=?',whereArgs:[cid],limit:1);
     if(rows.isEmpty) return {};
     final row=rows.single;final names=await QqDisplayNames.read(sql,row['scope'] as String);
+    _names[row['scope'] as String]=names;
     return _descriptors[cid]={...row,'name':row['kind']=='group'?names.group(row['target'] as String):'本人QQ私聊'};
+  }
+  Future<Map<String,Object?>> _speaker(Map<String,Object?> row) async {
+    final d=await descriptor(row['conversation_id'] as String);
+    final assistant=row['role']=='assistant',owner=row['owner']==1;
+    final label=d['kind']=='group' && !assistant
+      ?_names[d['scope']]?.member(d['target'] as String,row['sender'] as String):null;
+    return {'speaker':assistant?'她':owner?'已确认本人':'群成员:${bound(row['sender'] as String,64)}',
+      'speaker_key':QqDisplayNames.memberKey(row['conversation_id'] as String,row['sender'] as String).substring(0,12),
+      'provenance_role':assistant?'ASSISTANT_HISTORY':owner?'REAL_USER_HISTORY':'GROUP_MEMBER_HISTORY',
+      if(label!=null && label.isNotEmpty)'display_name':QqDisplayNames.clean(label,80)};
   }
   static String _slice(String text,int start,int count) {
     var a=start.clamp(0,text.length).toInt(),b=(start+count).clamp(0,text.length).toInt();
@@ -31,6 +43,7 @@ class QqArchiveReader {
   Future<String> render(Map<String,Object?> row,{List<Map<String,Object?>>? stamp,int? maxChars,int offset=0,bool ownTextOnly=false}) async {
     final allImages=ownTextOnly?<Map<String,Object?>>[]:await sql.query('qq_images',where:'archive_seq=?',whereArgs:[row['seq']],orderBy:'ordinal');
     var images=allImages;final d=await descriptor(row['conversation_id'] as String);
+    final speaker=await _speaker(row);
     final material=QqMessageMaterial.fromRow(row);
     var materialTake=2000;
     final text=QqMessageText.project(row['content'] as String);
@@ -41,8 +54,7 @@ class QqArchiveReader {
       final chunk=_slice(text,start,take);final next=start+chunk.length;
       return {'source':'QQ','conversation':row['conversation_id'],'conversation_name':d['name'],
         'conversation_kind':d['kind'],'seq':row['seq'],'time':row['observed_at'],
-        'speaker':row['role']=='assistant'?'她':row['owner']==1?'已确认本人':'群成员:${bound(row['sender'] as String,64)}',
-        'provenance_role':row['role']=='assistant'?'ASSISTANT_HISTORY':row['owner']==1?'REAL_USER_HISTORY':'GROUP_MEMBER_HISTORY',
+        ...speaker,
         'text':chunk,'text_scope':row['role']=='assistant'?'assistant_history':material.kind=='legacy'?'legacy_text_origin_unverified':'outer_sender_comment',
         'message_kind':material.kind,
         if(material.reference.isNotEmpty)'reference_index':material.reference,
@@ -175,8 +187,10 @@ class QqArchiveReader {
         }
       }
       final text=ordered.map((r)=>QqMessageText.project(r['content'] as String)).join('\n');
+      final speaker=await _speaker(row);
       final block=jsonEncode({'seqs':ordered.map((r)=>r['seq']).toList(),'time':row['observed_at'],
         'speaker':row['role']=='assistant'?'她':row['owner']==1?'已确认本人':'群成员:${bound(row['sender'] as String,32)}',
+        'speaker_key':speaker['speaker_key'],if(speaker['display_name']!=null)'display_name':speaker['display_name'],
         'text':QqMessageMaterial.bound(text,400),
         'text_scope':row['role']=='assistant'?'assistant_history':legacy?'legacy_origin_unverified':'outer_sender_comment',
         if(group.any((r)=>(r['seq'] as int)>through))'already_sent_after_pending_input':true,
@@ -189,11 +203,11 @@ class QqArchiveReader {
     return [jsonEncode({'window':'最多20轮来往/40组发言，字数受限；图片和转发仅为未经核验的资料',
       'shown_groups':blocks.length,'partial':blocks.length<groups.length || rows.length>groups.fold<int>(0,(n,g)=>n+g.length) || rows.length>=160}),...blocks.reversed].join('\n');
   }
-  static List<Map<String,Object?>> participationFocus(List<Map<String,Object?>> rows) {
+  Future<List<Map<String,Object?>>> participationFocus(List<Map<String,Object?>> rows) async {
     final result=<Map<String,Object?>>[];var remaining=3000;
     for(final row in rows.reversed) {
       final material=QqMessageMaterial.fromRow(row);
-      final item=<String,Object?>{'seq':row['seq'],
+      final item=<String,Object?>{'seq':row['seq'],...await _speaker(row),
         'outer_comment':QqMessageMaterial.bound(QqMessageText.project(row['content'] as String),600),
         'trusted_direct_mention':row['mentioned']==1,'has_image':material.imageOrigins.isNotEmpty};
       final size=jsonEncode(item).length;if(size>remaining)break;

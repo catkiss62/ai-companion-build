@@ -141,4 +141,21 @@ void main() {
     await h.present(revision: 1); expect(h.planner.calls, 2);
     expect(h.epoch, 2);
   });
+  test('a later chat turn invalidates a delayed motion plan even before an explicit stop notification', () async {
+    final h = _Harness(); addTearDown(h.motion.stop);
+    var current = true; h.planner.pending = Completer();
+    final pending = h.motion.present(id:'message',user:'合成用户',reply:'前半句，后半句。',
+      emotion:'normal',canContinue:()=>current);
+    await tick(); final before = h.commands.length;
+    current = false; h.audio();h.planner.pending!.complete(h.planner.result);
+    await pending; await tick();
+    expect(h.commands.skip(before).every((c)=>c.$1.startsWith('stop')),true);
+    expect(h.commands.where((c)=>c.$1=='motionPlan'),isEmpty);expect(h.cues,isEmpty);
+  });
+  test('retired speech cannot reattach an old Live2D owner after a new dialogue turn', () async {
+    final h = _Harness(); addTearDown(h.motion.stop);
+    await h.present(); await h.motion.stop();final before=h.epoch;
+    await h.motion.resume(id:'message',reply:'前半句，后半句。',revision:0,canContinue:()=>false);
+    h.audio(); await tick();expect(h.epoch,before);expect(h.cues,isEmpty);
+  });
 }

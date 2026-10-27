@@ -2650,7 +2650,8 @@ ${PromptBuilder.visibleChineseGenerationReminder(proactive: true, ordinaryAction
       // Background FlutterEngine owns a NativeTtsBridge only for this explicit
       // user-selected policy.
       final visual = ChatVisualResolver.resolveEmotionKey(message.emotionKey);
-      unawaited(ProactiveSpeechDelivery(db).deliver(message, play: () => tts.speak(
+      final speechDelivery = ProactiveSpeechDelivery(db);
+      unawaited(speechDelivery.deliver(message, play: () => tts.speak(
         text,
         manual: true,
         leadInFactory: (intent) => emotionSounds.play(visual, intent: intent).then<void>((_) {}),
@@ -2662,6 +2663,7 @@ ${PromptBuilder.visibleChineseGenerationReminder(proactive: true, ordinaryAction
           source: message.emotionSource,
         ),
         ownerId: message.id,
+        canContinue: () => speechDelivery.canContinue(message),
       )));
     }
     return ProactiveDecision(

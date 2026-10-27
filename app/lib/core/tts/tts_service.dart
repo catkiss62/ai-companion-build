@@ -336,10 +336,12 @@ class TtsService implements TtsQueueService, TtsSessionFactory, TtsPlaybackLease
     ChatLanguage language = ChatLanguage.chinese,
     bool? formForPlayback,
     Future<void> Function(PlaybackIntent)? leadInFactory,
+    Future<bool> Function()? canContinue,
   }) async {
     final queue = TtsPlaybackQueue(service: this);
     try {
-      final intent = queue.createIntent(formForPlayback: formForPlayback, ownerId: ownerId);
+      final intent = queue.createIntent(formForPlayback: formForPlayback, ownerId: ownerId,
+          canContinue: canContinue);
       final preparedLeadIn = leadInFactory?.call(intent) ?? leadIn;
       await queue.playText(
         visibleText,
@@ -352,7 +354,7 @@ class TtsService implements TtsQueueService, TtsSessionFactory, TtsPlaybackLease
         language: language,
       );
       await queue.waitUntilIdle();
-      return queue.playedAny;
+      return intent.valid && queue.playedAny;
     } catch (e) {
       await _recordError(e.toString());
       return false;
