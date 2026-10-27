@@ -18,10 +18,13 @@ class QqReplyDelivery {
   Future<void> send({required bool group, required String target, required String messageId,
     required String text, required String fileInfo, List<String>? messages, required Future<bool> Function() current,
     required Future<void> Function() beforeSend,
-    required Future<void> Function(int sequence, String text, bool image) sent}) async {
+    required Future<void> Function(int sequence, String text, bool image) sent,
+    String voiceText='',String voiceLanguage='',Future<void> Function(int sequence,String transcript,String language)? sentVoice}) async {
     final chunks=validate(text,messages);
+    final voice=voiceText.isNotEmpty && fileInfo.isNotEmpty;
+    if(voice && (chunks.length>2 || sentVoice==null || !const {'zh','ja','en'}.contains(voiceLanguage)))throw const FormatException('qq_voice_parts');
     var sequence = 0, delivered = 0;
-    Future<void> part(String content, String media) async {
+    Future<void> part(String content, String media,{bool isVoice=false}) async {
       if (!await current()) throw StateError('context_invalidated');
       if(delivered>0) {
         final wait=interval?.call()??Duration(milliseconds:1000+_random.nextInt(1001));
@@ -32,8 +35,20 @@ class QqReplyDelivery {
       if(!await current()) throw StateError('context_invalidated');
       final seq = ++sequence;
       await api.sendMessage(group: group, target: target, messageId: messageId, sequence: seq, text: content, fileInfo: media);
-      await sent(seq, content, media.isNotEmpty);
+      if(isVoice) {await sentVoice!(seq,voiceText,voiceLanguage);}
+      else {await sent(seq, content, media.isNotEmpty);}
       delivered++;
+    }
+    if(voice) {
+      for(final chunk in chunks) {await part(chunk,'');}
+      try {await part('',fileInfo,isVoice:true);}
+      on QqApiException catch(error) {
+        // Explicit rejection is safe to replace with one text transcript.
+        // Unknown delivery is never retried as a second message.
+        if(error.uncertain || !(error.code.startsWith('api_') || const {'http_400','http_403','http_404','http_415'}.contains(error.code)))rethrow;
+        await part(voiceText,'');
+      }
+      return;
     }
     if (fileInfo.isEmpty) {
       for (final chunk in chunks) { await part(chunk, ''); }

@@ -13,6 +13,13 @@ class QqApiException implements Exception {
   String toString() => 'QQ: $code';
 }
 
+class QqMediaUpload {
+  const QqMediaUpload(this.fileInfo,{this.ttl});
+  final String fileInfo;
+  final int? ttl;
+  int reusableUntil(int now) => ttl!=null && ttl!>60 ? now+(ttl!-60)*1000 : now;
+}
+
 class QqApi {
   QqApi({required this.appId, required this.secret, HttpClient? client,
     this.apiBase = 'https://api.bot.qq.com',
@@ -93,11 +100,20 @@ class QqApi {
   /// Official local media flow, no external image hosting. Uploading itself
   /// does not send a QQ message; only the later media message can do that.
   Future<String> uploadImage({required bool group,required String target,required Uint8List bytes,
-    required String filename,required Future<bool> Function() current}) async {
+    required String filename,required Future<bool> Function() current}) async =>
+    (await uploadMedia(group:group,target:target,bytes:bytes,filename:filename,current:current,fileType:1)).fileInfo;
+
+  Future<QqMediaUpload> uploadVoice({required bool group,required String target,required Uint8List bytes,
+    required Future<bool> Function() current}) =>
+    uploadMedia(group:group,target:target,bytes:bytes,filename:'voice.wav',current:current,fileType:3);
+
+  Future<QqMediaUpload> uploadMedia({required bool group,required String target,required Uint8List bytes,
+    required String filename,required Future<bool> Function() current,required int fileType}) async {
+    if(fileType!=1 && fileType!=3)throw QqApiException('media_type');
     if(bytes.isEmpty || bytes.length>10*1024*1024) throw QqApiException('image_too_large');
     Future<void> check() async {if(_closed || !await current()) throw QqApiException('stopped');}
     await check(); final root=_target(group,target);
-    final prepare=await authenticated('POST','$root/upload_prepare',body:{'file_type':1,'file_name':filename,
+    final prepare=await authenticated('POST','$root/upload_prepare',body:{'file_type':fileType,'file_name':filename,
       'file_size':bytes.length,'md5':md5.convert(bytes).toString(),'sha1':sha1.convert(bytes).toString(),
       'md5_10m':md5.convert(bytes.sublist(0,bytes.length<10002432?bytes.length:10002432)).toString()});
     final upload=prepare['upload_id']; final block=int.tryParse('${prepare['block_size']}')??0; final rawParts=prepare['parts'];
@@ -132,7 +148,9 @@ class QqApi {
     await check(); final result=await authenticated('POST','$root/files',body:{'upload_id':upload});
     final info=result['file_info'];
     if(info is! String || info.isEmpty || info.length>48000) throw QqApiException('upload_token_missing');
-    return info;
+    final rawTtl=result['ttl'];
+    final ttl=rawTtl is int && rawTtl>0 && rawTtl<=31536000?rawTtl:null;
+    return QqMediaUpload(info,ttl:ttl);
   }
 
   Future<Map<String, dynamic>> request(String method, String url,

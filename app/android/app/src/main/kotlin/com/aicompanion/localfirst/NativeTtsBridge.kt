@@ -14,6 +14,7 @@ import java.util.concurrent.TimeUnit
 class NativeTtsBridge(
     context: Context,
     flutterEngine: FlutterEngine,
+    private val exportOnly: Boolean = false,
 ) {
     private val hostId = java.util.UUID.randomUUID().toString()
     private val engine = NativeTtsEngine.shared(context.applicationContext)
@@ -39,11 +40,28 @@ class NativeTtsBridge(
                 result.error("tts_bridge_disposed", "TTS bridge is no longer attached to this FlutterEngine", null)
                 return@setMethodCallHandler
             }
+            if (exportOnly && call.method !in setOf("claimVoiceExport", "generateVoiceExport", "endVoiceExport")) {
+                result.notImplemented()
+                return@setMethodCallHandler
+            }
             val lease = call.argument<Number>("lease")?.toLong()
             try {
             when (call.method) {
                 "claimPlayback" -> result.success(engine.claimPlayback(hostId, call.argument<String>("message_id").orEmpty()))
                 "playbackSnapshot" -> result.success(engine.playbackSnapshot())
+                "claimVoiceExport" -> result.success(engine.claimVoiceExport(hostId))
+                "generateVoiceExport" -> {
+                    val id = call.argument<Number>("export_id")?.toLong() ?: error("voice_export_owner")
+                    submit(generationWorker, result, "tts_voice_export_failed") {
+                        engine.generateVoiceExport(hostId, id, call.argument<String>("text").orEmpty(),
+                            call.argument<String>("language").orEmpty(), call.argument<String>("voice").orEmpty())
+                    }
+                }
+                "endVoiceExport" -> {
+                    val id = call.argument<Number>("export_id")?.toLong() ?: error("voice_export_owner")
+                    engine.endVoiceExport(hostId, id, call.argument<Boolean>("cancel") == true)
+                    result.success(null)
+                }
                 "localStatus" -> result.success(engine.localStatus())
                 "status" -> submit(generationWorker, result, "tts_status_failed", lease) {
                     engine.status()
@@ -184,6 +202,7 @@ class NativeTtsBridge(
     fun dispose() {
         if (disposed) return
         disposed = true
+        engine.cancelVoiceExports(hostId)
         PlaybackSessionRegistry.ownsHost(hostId)?.let { engine.stopPlayback(it) }
         channel.setMethodCallHandler(null)
         // The native model/runtime is process-scoped and shared by MainActivity,

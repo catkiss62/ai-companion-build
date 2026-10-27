@@ -114,7 +114,7 @@ void main(){
       evaluationStartedAt:now,qqEvidence:offer.evidence,qqShare:offer),'qq_source_changed');
     expect(await db.messageById('withdrawn'),isNull);
   });
-  test('QQ media upload exercises prepare, exact multipart bytes, finish and files token',()async{
+  for(final type in [1,3]) {test('QQ media type $type upload exercises prepare, exact multipart bytes, finish and files token',()async{
     final server=await HttpServer.bind(InternetAddress.loopbackIPv4,0);final base=Uri.parse('http://127.0.0.1:${server.port}');
     final bytes=Uint8List.fromList(List.generate(19,(i)=>i));final parts=<List<int>>[];final paths=<String>[];
     server.listen((request)async{
@@ -124,21 +124,24 @@ void main(){
       if(request.uri.path.endsWith('/app/getAppAccessToken')){result={'access_token':'fixture-token','expires_in':7200};}
       else if(request.uri.path.endsWith('/upload_prepare')){
         final payload=jsonDecode(utf8.decode(body));expect(payload['file_size'],19);expect(payload['md5'],md5.convert(bytes).toString());
+        expect(payload['file_type'],type);expect(payload['file_name'],type==3?'voice.wav':'image.gif');
         result={'upload_id':'upload-fixture','block_size':10,'parts':[{'index':1,'presigned_url':'https://fixture.cos.myqcloud.com/part/1'},
           {'index':2,'presigned_url':'https://fixture.cos.myqcloud.com/part/2'}]};
       }else if(request.uri.path.startsWith('/part/')){expect(request.headers.value('authorization'),isNull);parts.add(body);result={};}
       else if(request.uri.path.endsWith('/upload_part_finish')){
         final p=jsonDecode(utf8.decode(body));final part=parts[(p['part_index'] as int)-1];expect(p['md5'],md5.convert(part).toString());expect(p['block_size'],part.length);result={};
-      }else if(request.uri.path.endsWith('/files')){expect(jsonDecode(utf8.decode(body)),{'upload_id':'upload-fixture'});result={'file_info':'opaque-media-token'};}
+      }else if(request.uri.path.endsWith('/files')){expect(jsonDecode(utf8.decode(body)),{'upload_id':'upload-fixture'});result={'file_info':'opaque-media-token','ttl':120};}
       else {request.response.statusCode=404;result={'error':'unexpected_path'};}
       request.response.write(jsonEncode(result));await request.response.close();
     });
     final api=QqApi(appId:'12345',secret:'fixture-only',client:_CosLoopback(base),apiBase:base.toString(),tokenBase:base.toString());
     try{
-      expect(await api.uploadImage(group:true,target:'group',bytes:bytes,filename:'image.gif',current:()async=>true),'opaque-media-token');
+      if(type==3) {final uploaded=await api.uploadVoice(group:true,target:'group',bytes:bytes,current:()async=>true);
+        expect(uploaded.fileInfo,'opaque-media-token');expect(uploaded.ttl,120);expect(uploaded.reusableUntil(1000),61000);}
+      else {expect(await api.uploadImage(group:true,target:'group',bytes:bytes,filename:'image.gif',current:()async=>true),'opaque-media-token');}
       expect(parts.expand((p)=>p).toList(),bytes);expect(paths.where((p)=>p.endsWith('/messages')),isEmpty);
     }finally{api.close();await server.close(force:true);}
-  });
+  });}
   test('first-channel vision fallback sends actual image input with thinking disabled',()async{
     final requests=<http.Request>[];
     final client=QwenVisionClient(client:QqNonThinkingVisionTransport(MockClient((r)async{

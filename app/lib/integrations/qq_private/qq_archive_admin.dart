@@ -123,6 +123,7 @@ class QqArchiveAdmin {
         final ids = victims.skip(offset).take(200).map((r) => r['seq']).toList();
         final slots = List.filled(ids.length, '?').join(',');
         await txn.delete('qq_sketches',where:'archive_seq IN ($slots)',whereArgs:ids);
+        await txn.delete('qq_voices',where:'archive_seq IN ($slots)',whereArgs:ids);
         await txn.delete('qq_images', where: 'archive_seq IN ($slots)', whereArgs: ids);
         await txn.delete('qq_deliveries', where: 'conversation_id=? AND through_seq IN ($slots)', whereArgs: [cid, ...ids]);
         await txn.delete('qq_archive', where: 'conversation_id=? AND seq IN ($slots)', whereArgs: [cid, ...ids]);

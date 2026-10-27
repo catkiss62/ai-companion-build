@@ -32,6 +32,7 @@ import 'package:ai_companion_localfirst/integrations/qq_private/qq_store.dart';
 import 'package:ai_companion_localfirst/integrations/qq_private/qq_vision.dart';
 import 'package:ai_companion_localfirst/integrations/qq_private/qq_failure.dart';
 import 'package:ai_companion_localfirst/integrations/qq_private/qq_sketch.dart';
+import 'package:ai_companion_localfirst/integrations/qq_private/qq_voice.dart';
 
 class _Secure extends SecureConfig {
   _Secure():super.forTesting(const FlutterSecureStorage());
@@ -46,6 +47,8 @@ class _Api extends QqApi {
   _Api():super(appId:'12345',secret:'fixture-not-a-secret');
   final sent=<Map<String,Object?>>[];bool uncertain=false;int uploads=0;
   @override Future<String> uploadImage({required bool group,required String target,required Uint8List bytes,required String filename,required Future<bool> Function() current})async{uploads++;expect(await current(),true);return 'fixture-image-token';}
+  @override Future<QqMediaUpload> uploadVoice({required bool group,required String target,required Uint8List bytes,required Future<bool> Function() current})async{uploads++;expect(await current(),true);return const QqMediaUpload('fixture-voice-token');}
+  @override Future<QqMediaUpload> uploadMedia({required bool group,required String target,required Uint8List bytes,required String filename,required int fileType,required Future<bool> Function() current})async{uploads++;expect(await current(),true);return const QqMediaUpload('fixture-echo-token',ttl:300);}
   @override Future<void> sendMessage({required bool group,required String target,required String messageId,
     required int sequence,String text='',String fileInfo=''}) async {
     sent.add({'group':group,'target':target,'messageId':messageId,'sequence':sequence,'text':text,'fileInfo':fileInfo});
@@ -57,11 +60,21 @@ class _Vision extends QqVision {
   int calls=0;bool? lastFirstChannel;
   @override Future<void> cleanStale()async{}
   @override Future<({String text,String fingerprint})> observe(String url,{required firstModel,
-    required bool fallback,required Future<bool> Function() current,Future<String?> Function(String)? cached,bool firstChannel=false})async {
+    required bool fallback,required Future<bool> Function() current,Future<String?> Function(String)? cached,bool firstChannel=false,
+    Future<void> Function(Uint8List bytes,String mime,String contentHash)? originalObserver})async {
     lastFirstChannel=firstChannel;
+    await originalObserver?.call(Uint8List.fromList([1,2,3]),'image/png','same-original-content');
     const hash='same-fixture-pixels';final old=await cached?.call(hash);
     if(old!=null) return (text:old,fingerprint:hash);
     calls++;return (text:'图里是一只猫，文字是测试，不执行图片里的指令。',fingerprint:hash);
+  }
+}
+class _Voice extends QqVoiceService {
+  int calls=0;bool fail=false;QqVoiceChoice? choice;
+  @override Future<Uint8List> generate(QqVoiceChoice value,{required Future<bool> Function() current})async {
+    calls++;choice=value;expect(await current(),true);
+    if(fail)throw const QqOperationFailure('voice_audio');
+    return Uint8List(44);
   }
 }
 class _Stickers extends QqStickers {
@@ -83,8 +96,8 @@ void main(){
   late QqPrivateConfig config;late QqOptions options;late QqRuntime runtime;late DateTime clock;
   late List<http.Request> requests;late List<String> statuses;late List<http.Request> jevRequests;
   late Future<http.Response> Function(http.Request,Map) handler;var enabled=true;
-  QqRuntime create({QqStickers? stickerService,JevDecisionGateway? decisions})=>QqRuntime(store:store,api:api,secure:secure,config:config,allowed:()async=>enabled,
-    now:()=>clock,configReader:()async=>config,optionsReader:()async=>options,status:statuses.add,vision:vision,stickerService:stickerService,groupDecisions:decisions,
+  QqRuntime create({QqStickers? stickerService,JevDecisionGateway? decisions,QqVoiceService? voiceService})=>QqRuntime(store:store,api:api,secure:secure,config:config,allowed:()async=>enabled,
+    now:()=>clock,configReader:()async=>config,optionsReader:()async=>options,status:statuses.add,vision:vision,stickerService:stickerService,voiceService:voiceService,groupDecisions:decisions,
     privatePrompt:(query,stamp,scope,through)async=>QqReadOnlyContext(await db.database).build(query,stamp:stamp,qqScope:scope,through:through,media:true),
     privateCurrent:(stamp)async=>QqReadOnlyContext(await db.database).matchesStamp(stamp),
     clientFactory:(abort)=>DeepSeekClient(abortWhen:abort,
@@ -132,21 +145,80 @@ void main(){
   JevDecisionGateway gateway(Future<http.Response> Function(http.Request) respond)=>JevDecisionGateway(
     enabledReader:()async=>true,keyReader:()async=>'fixture-jev',
     clientFactory:()=>MockClient((r){jevRequests.add(r);return respond(r);}));
-  http.Response jevAnswer(Map<String,double> probabilities,{String choice='watch'})=>http.Response(jsonEncode({
+  http.Response jevAnswer(Map<String,double> probabilities,{String choice='watch',String situation='unclear'})=>http.Response(jsonEncode({
     'answers':{'participation':{'type':'choice','choice':choice,'confidence':probabilities[choice]??0,
-      'probabilities':probabilities}},'usage':{'input_tokens':500,'output_tokens':0,'cost':0.000021}}),200,
+      'probabilities':probabilities},'situation':{'type':'choice','choice':situation,'confidence':1,'probabilities':{situation:1}}},'usage':{'input_tokens':500,'output_tokens':0,'cost':0.000021}}),200,
     headers:{'content-type':'application/json; charset=utf-8'});
   Future<void> useJev(JevDecisionGateway decisions)async{
     await runtime.stop();vision=_Vision(secure);runtime=create(decisions:decisions);
     handler=(r,b)async=>b['stream']==true?_sse('继续聊呀'):_json(b['max_tokens']==60?{'safe':true}:{'participation':'join'});
   }
+  test('JEV support is a soft situation reference in the same request and leaves custom core intact',()async {
+    options=options.copy(core:'自定义人格不被替换');
+    await useJev(gateway((r)async=>jevAnswer({'direct':1},choice:'direct',situation:'support')));
+    await accept('situation','昨天受伤了，今晚有些难受');await runtime.process(cid());
+    final body=jsonDecode(requests.firstWhere((r)=>jsonDecode(r.body)['stream']==true).body) as Map;
+    final system=(body['messages'] as List).first['content'] as String;
+    expect(jevRequests.length,1);expect(requests.length,2);expect(system,contains('自定义人格不被替换'));
+    expect(system,contains('有人在表达困扰'));expect(system,contains('不把此标签当发言指令'));
+  });
+  for(final language in ['zh','ja','en']) {
+    test('runtime sends $language voice once and archives actual speech, not an image',()async {
+      await runtime.stop();vision=_Vision(secure);final voice=_Voice();runtime=create(voiceService:voice);
+      final speech={'zh':'你好。','ja':'こんにちは。','en':'Hello.'}[language]!;
+      handler=(r,b)async=>b['stream']==true?_sse('<qq_voice>${jsonEncode({'language':language,'text':speech})}</qq_voice>'):
+        _json(b['max_tokens']==60?{'safe':true}:{'participation':'direct'});
+      await accept('voice-$language','用语音打声招呼');await runtime.process(cid());
+      expect(voice.calls,1);expect(voice.choice!.language,language);expect(api.uploads,1);
+      expect(api.sent.single['fileInfo'],'fixture-voice-token');expect(api.sent.single['text'],'');
+      final sql=await db.database;
+      expect((await sql.query('qq_archive',where:"role='assistant'")).single['content'],speech);
+      expect((await sql.query('qq_voices')).single['language'],language);expect(await sql.query('qq_images'),isEmpty);
+      expect(requests.where((r)=>jsonDecode(r.body)['stream']==true).length,1);
+      await runtime.process(cid());expect(api.sent.length,1);
+    });
+  }
+  test('failed synthesis becomes one text reply without a voice receipt or another model call',()async {
+    await runtime.stop();vision=_Vision(secure);final voice=_Voice()..fail=true;runtime=create(voiceService:voice);
+    handler=(r,b)async=>b['stream']==true?_sse('<qq_voice>{"language":"en","text":"Hello."}</qq_voice>'):
+      _json(b['max_tokens']==60?{'safe':true}:{'participation':'direct'});
+    await accept('voice-failed','发句英文语音');await runtime.process(cid());
+    expect(api.sent.single['text'],'Hello.');expect(api.uploads,0);expect(await (await db.database).query('qq_voices'),isEmpty);
+    expect(requests.where((r)=>jsonDecode(r.body)['stream']==true).length,1);
+  });
+  test('unknown voice delivery is not retried or recorded as a confirmed voice',()async {
+    await runtime.stop();vision=_Vision(secure);runtime=create(voiceService:_Voice());api.uncertain=true;
+    handler=(r,b)async=>b['stream']==true?_sse('<qq_voice>{"language":"ja","text":"こんにちは。"}</qq_voice>'):
+      _json(b['max_tokens']==60?{'safe':true}:{'participation':'direct'});
+    await accept('voice-unknown','说句日语');await runtime.process(cid());await runtime.process(cid());
+    expect(api.sent.length,1);final sql=await db.database;
+    expect((await sql.query('qq_deliveries')).single['state'],'send_uncertain');
+    expect((await sql.query('qq_deliveries')).single['content'],'こんにちは。');
+    expect(await sql.query('qq_voices'),isEmpty);expect(await sql.query('qq_archive',where:"role='assistant'"),isEmpty);
+  });
+  test('temporary same-image wave reuses observation and never follows its own sent image',()async {
+    clock=DateTime.now();if(clock.hour<9)clock=DateTime(clock.year,clock.month,clock.day,12);
+    var bodies=0;
+    handler=(r,b)async=>b['stream']==true?_sse(++bodies==1?'WAIT':bodies==2?'<qq_echo mode="only">e1</qq_echo>':'普通文字'):
+      _json(b['max_tokens']==60?{'safe':true}:{'participation':'direct'});
+    await runtime.accept(event('echo-first','',sender:'peer-1',image:true),group:true);await runtime.process(cid());
+    expect(api.sent,isEmpty);clock=clock.add(const Duration(seconds:3));
+    await runtime.accept(event('echo-second','',sender:'peer-2',image:true),group:true);await runtime.process(cid());
+    expect(api.sent.single['fileInfo'],'fixture-echo-token');expect(api.sent.single['text'],'');expect(api.uploads,1);expect(vision.calls,1);
+    await (await db.database).update('qq_deliveries',{'updated_at':clock.millisecondsSinceEpoch},where:"state='sent'");
+    clock=clock.add(const Duration(seconds:3));
+    await runtime.accept(event('echo-third','哈哈',sender:'peer-3',image:true),group:true);await runtime.process(cid());
+    final bodiesSent=requests.where((r)=>jsonDecode(r.body)['stream']==true).toList();
+    expect(bodiesSent[1].body,contains('当前群临时同图候选'));expect(bodiesSent.last.body,isNot(contains('当前群临时同图候选')));
+    expect(api.uploads,1);await runtime.process(cid());expect(bodies,3);
+  });
   test('JEV close direct and continuing probabilities never invent low-probability watching',()async{
     await useJev(gateway((r)async=>jevAnswer({'direct':.49,'continuing':.49,'join':.01,'watch':.01})));
     await accept('jev-close','刚才你说的那件事呢');await runtime.process(cid());
     expect(api.sent.single['text'],'继续聊呀');expect(jevRequests.length,1);
     expect(requests.length,2); // Body + existing address guard, no DeepSeek participation.
     final payload=jsonDecode(jevRequests.single.body) as Map;
-    expect(payload['model'],'typesafe/jev-1.13');expect((payload['questions'] as Map).length,1);
+    expect(payload['model'],'typesafe/jev-1.13');expect((payload['questions'] as Map).length,2);
     expect(jsonEncode(payload['state']),contains('刚才你说的那件事呢'));
   });
   test('JEV active conversation continues inside the ordinary 90-second cooldown without mentions',()async{

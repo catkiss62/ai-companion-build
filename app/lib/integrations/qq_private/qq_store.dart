@@ -106,7 +106,7 @@ class QqStore {
     await txn.update('qq_deliveries',{'state':state,'updated_at':DateTime.now().millisecondsSinceEpoch,
       if(text!=null)'content':text,if(sticker!=null)'sticker_key':sticker},where:'id = ?',whereArgs:[b.id]);
   });
-  Future<void> sentPart(QqBatch b,int part,String text,String sticker,int now,{String sketchSvg=''})=>write(b.fence,(txn) async {
+  Future<void> sentPart(QqBatch b,int part,String text,String sticker,int now,{String sketchSvg='',String voiceLanguage=''})=>write(b.fence,(txn) async {
     if(!await QqArchiveReader(txn).matches([for(final r in b.rows){'table':'qq_archive','id':r['id'],'version':r['version']}])) throw const BrainWorkInvalidated();
     await txn.insert('qq_archive',{'id':'reply:${b.id}:$part','conversation_id':b.cid,'platform_id':'',
       'sender':'assistant','role':'assistant','content':text,'observed_at':now,'received_at':now},conflictAlgorithm:ConflictAlgorithm.ignore);
@@ -118,6 +118,11 @@ class QqStore {
     if(sketchSvg.isNotEmpty) {
       final row=(await txn.query('qq_archive',columns:['seq'],where:'id=?',whereArgs:['reply:${b.id}:$part'],limit:1)).single;
       await txn.insert('qq_sketches',{'id':'sketch:${b.id}:$part','archive_seq':row['seq'],'svg':sketchSvg,'description':sticker,'created_at':now},conflictAlgorithm:ConflictAlgorithm.ignore);
+    }
+    if(voiceLanguage.isNotEmpty) {
+      if(!const {'zh','ja','en'}.contains(voiceLanguage) || text.trim().isEmpty || sticker.isNotEmpty || sketchSvg.isNotEmpty)throw const FormatException('voice_archive');
+      final row=(await txn.query('qq_archive',columns:['seq'],where:'id=?',whereArgs:['reply:${b.id}:$part'],limit:1)).single;
+      await txn.insert('qq_voices',{'id':'voice:${b.id}:$part','archive_seq':row['seq'],'language':voiceLanguage,'created_at':now},conflictAlgorithm:ConflictAlgorithm.ignore);
     }
     await txn.update('qq_conversations',{'last_reply_at':now},where:'id = ?',whereArgs:[b.cid]);
   });
@@ -145,6 +150,7 @@ class QqStore {
     await txn.delete('qq_work_items',where:'conversation_id=?',whereArgs:[cid]);
     await txn.delete('qq_styles',where:'conversation_id=?',whereArgs:[cid]);
     await txn.rawDelete('DELETE FROM qq_sketches WHERE archive_seq IN (SELECT seq FROM qq_archive WHERE conversation_id=?)',[cid]);
+    await txn.rawDelete('DELETE FROM qq_voices WHERE archive_seq IN (SELECT seq FROM qq_archive WHERE conversation_id=?)',[cid]);
     await txn.delete('qq_archive',where:'conversation_id=?',whereArgs:[cid]);
     await txn.rawUpdate('UPDATE qq_conversations SET checked_seq=0,summary_seq=0,summary_checked_seq=0,version=version+1 WHERE id=?',[cid]);
     final epoch='qq_archive_epoch_v1:$cid';

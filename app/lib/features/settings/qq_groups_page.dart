@@ -80,6 +80,12 @@ class _QqGroupsPageState extends State<QqGroupsPage> {
         FilledButton(onPressed:_busy?null:()=>_run(() async {
           await QqOptions.update((fresh)=>fresh.copy(core:_core.text.trim(),publicMemory:_public.text.trim()),namespace:_config.namespace);
           if(mounted) setState(()=>_notice='公开资料已保存。');}),child:const Text('保存公开资料')),
+        SwitchListTile(contentPadding:EdgeInsets.zero,title:const Text('允许QQ发送语音（私聊和群聊）'),
+          subtitle:const Text('以明确要求为主，可偶尔选择纯语音；支持中、日、英语。台词随档案保存，音频临时清理；不控制App自动朗读。'),
+          value:_options.voiceEnabled,onChanged:_busy?null:(v)=>_run(() async {await QqOptions.update((fresh)=>fresh.copy(voiceEnabled:v),namespace:_config.namespace);})),
+        SwitchListTile(contentPadding:EdgeInsets.zero,title:const Text('允许临时跟发表情复读'),
+          subtitle:const Text('仅本群新消息中的同图接龙；临时复用，到期失效，不收入永久图库。'),
+          value:_options.echoEnabled,onChanged:_busy?null:(v)=>_run(() async {await QqOptions.update((fresh)=>fresh.copy(echoEnabled:v),namespace:_config.namespace);})),
         const ListTile(contentPadding:EdgeInsets.zero,title:Text('QQ群聊识图：第一通道 DeepSeek'),
           subtitle:Text('跟随第一通道当前模型与接口；App内识图仍使用千问视觉。')),
         SwitchListTile(contentPadding:EdgeInsets.zero,title:const Text('QQ 私聊识图失败时使用第一通道兜底'),

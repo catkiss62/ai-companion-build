@@ -9,16 +9,18 @@ import android.os.Handler
 import android.os.IBinder
 import android.os.Looper
 import com.aicompanion.localfirst.MainActivity
+import com.aicompanion.localfirst.NativeTtsBridge
 import com.aicompanion.localfirst.R
 import io.flutter.FlutterInjector
 import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.embedding.engine.dart.DartExecutor
 import io.flutter.plugin.common.MethodChannel
 
-/** Standalone opt-in host. No overlay permission, window, TTS or screen control. */
+/** Standalone opt-in host. No overlay/window/screen control; silent TTS export only. */
 class QqPrivateService : Service() {
     private var engine: FlutterEngine? = null
     private var channel: MethodChannel? = null
+    private var voiceBridge: NativeTtsBridge? = null
     private val main = Handler(Looper.getMainLooper())
     private var alive = false
     private var dartReady = false
@@ -68,6 +70,7 @@ class QqPrivateService : Service() {
             loader.ensureInitializationComplete(applicationContext, null)
             val created = FlutterEngine(applicationContext)
             engine = created
+            voiceBridge = NativeTtsBridge(applicationContext, created, exportOnly = true)
             channel = MethodChannel(created.dartExecutor.binaryMessenger, RUNTIME).also { ch ->
                 ch.setMethodCallHandler { call, result ->
                     when (call.method) {
@@ -107,6 +110,8 @@ class QqPrivateService : Service() {
     private fun disposeRuntime() {
         channel?.setMethodCallHandler(null)
         channel = null
+        voiceBridge?.dispose()
+        voiceBridge = null
         engine?.destroy()
         engine = null
         dartReady = false

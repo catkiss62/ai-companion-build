@@ -131,6 +131,7 @@ class _QqPrivateSettingsPageState extends State<QqPrivateSettingsPage> {
     'group_low_energy':'疲劳较高，本批暂时旁听',
     'watching':'已看过本批消息，继续旁听', 'resting':'正在休息，群消息只归档',
     'address_rejected':'群聊称呼边界未通过，本批不发送', 'media_failed':'QQ图片发送失败',
+    'preparing_voice':'正在准备QQ语音', 'voice_failed':'语音未能准备，正在改用文字',
     'memory_failed':'QQ整理本轮失败，原文仍保留', 'archive_full':'QQ档案达到容量上限，请先导出或管理档案',
     'group_owner_bound':'已确认群内本人身份', 'binding_request_expired':'身份申请已过期或已使用',
     'legacy_history_failed':'旧版QQ短期记录未能导入，请保留原文件',

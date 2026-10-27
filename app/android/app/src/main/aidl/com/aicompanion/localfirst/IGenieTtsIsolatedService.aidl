@@ -8,6 +8,8 @@ interface IGenieTtsIsolatedService {
     String configureAutoAffinityJson(boolean enabled);
     String importChineseRobertaJson(String path);
     String generateToFile(String text, String language, String voice, double speed);
+    long currentGeneration();
+    String generateToFileAtGeneration(String text, String language, String voice, double speed, long expectedGeneration);
     void stop();
     void releaseRuntime();
 }

@@ -16,6 +16,18 @@ class QqArchiveReader {
   static String bound(String s,int n)=>s.length<=n?s:s.substring(0,n);
   final _descriptors=<String,Map<String,Object?>>{};
   final _names=<String,QqDisplayNames>{};
+  bool? _voiceTable;
+  Future<bool> _hasVoices() async => _voiceTable??= (await sql.rawQuery(
+    "SELECT name FROM sqlite_master WHERE type='table' AND name='qq_voices'")).isNotEmpty;
+  Future<String> _spokenLanguage(Map<String,Object?> row) async {
+    if(row['role']!='assistant' || !await _hasVoices())return '';
+    final voice=await sql.query('qq_voices',columns:['language'],where:'archive_seq=?',whereArgs:[row['seq']],limit:1);
+    return voice.isEmpty?'':voice.single['language'] as String;
+  }
+  static Future<String> voiceSearchSql(DatabaseExecutor sql) async =>
+    (await sql.rawQuery("SELECT name FROM sqlite_master WHERE type='table' AND name='qq_voices'")).isEmpty ? "''" :
+    "COALESCE((SELECT CASE language WHEN 'ja' THEN '语音 日语 日文 Japanese ja' "
+    "WHEN 'en' THEN '语音 英语 英文 English en' ELSE '语音 中文 Chinese zh' END FROM qq_voices WHERE archive_seq=a.seq LIMIT 1),'')";
   Future<Map<String,Object?>> descriptor(String cid) async {
     if(_descriptors.containsKey(cid)) return _descriptors[cid]!;
     final rows=await sql.query('qq_conversations',where:'id=?',whereArgs:[cid],limit:1);
@@ -44,6 +56,7 @@ class QqArchiveReader {
     final allImages=ownTextOnly?<Map<String,Object?>>[]:await sql.query('qq_images',where:'archive_seq=?',whereArgs:[row['seq']],orderBy:'ordinal');
     var images=allImages;final d=await descriptor(row['conversation_id'] as String);
     final speaker=await _speaker(row);
+    final spokenLanguage=await _spokenLanguage(row);
     final material=QqMessageMaterial.fromRow(row);
     var materialTake=2000;
     final text=QqMessageText.project(row['content'] as String);
@@ -55,6 +68,7 @@ class QqArchiveReader {
       return {'source':'QQ','conversation':row['conversation_id'],'conversation_name':d['name'],
         'conversation_kind':d['kind'],'seq':row['seq'],'time':row['observed_at'],
         ...speaker,
+        if(spokenLanguage.isNotEmpty)'medium':'outgoing_voice',if(spokenLanguage.isNotEmpty)'spoken_language':spokenLanguage,
         'text':chunk,'text_scope':row['role']=='assistant'?'assistant_history':material.kind=='legacy'?'legacy_text_origin_unverified':'outer_sender_comment',
         'message_kind':material.kind,
         if(material.reference.isNotEmpty)'reference_index':material.reference,
@@ -121,6 +135,8 @@ class QqArchiveReader {
     final text=QqMessageText.project('${row['content']}').replaceAllMapped(RegExp(r'<@!?([^>]+)>'),
       (m)=>m[1]=='all'?'@全体成员':'@群成员');
     final out=StringBuffer('${at.year}/${two(at.month)}/${two(at.day)} ${two(at.hour)}:${two(at.minute)} · $speaker\n$text');
+    final spokenLanguage=await _spokenLanguage(row);
+    if(spokenLanguage.isNotEmpty)out.write('\n[已发语音 · ${const {'zh':'中文','ja':'日语','en':'英语'}[spokenLanguage]??spokenLanguage}，以上为文字台词]');
     final material=QqMessageMaterial.fromRow(row);
     if(material.kind=='quote' || row['reply_to'] is String && (row['reply_to'] as String).isNotEmpty) out.write('\n[引用资料：原会话、人物及时间未经核验]');
     for(final part in material.parts) {
@@ -174,8 +190,9 @@ class QqArchiveReader {
     for(final group in groups) {
       final ordered=group.reversed.toList(),row=group.first;
       final evidence=<Map<String,Object?>>[],observations=<String>[],materials=<String>[];
-      var partial=false,legacy=false;
+      var partial=false,legacy=false;final spokenLanguages=<String>{};
       for(final item in ordered) {
+        final language=await _spokenLanguage(item);if(language.isNotEmpty)spokenLanguages.add(language);
         final material=QqMessageMaterial.fromRow(item);legacy=legacy || material.kind=='legacy';partial=partial || material.partial;
         if(materials.length<2 && material.parts.isNotEmpty)materials.add(QqMessageMaterial.bound(material.parts.map((p)=>QqMessageText.project(p['text'] as String)).join('\n'),120));
         final images=observations.length>=2?<Map<String,Object?>>[]:await sql.query('qq_images',
@@ -191,6 +208,7 @@ class QqArchiveReader {
       final block=jsonEncode({'seqs':ordered.map((r)=>r['seq']).toList(),'time':row['observed_at'],
         'speaker':row['role']=='assistant'?'她':row['owner']==1?'已确认本人':'群成员:${bound(row['sender'] as String,32)}',
         'speaker_key':speaker['speaker_key'],if(speaker['display_name']!=null)'display_name':speaker['display_name'],
+        if(spokenLanguages.isNotEmpty)'outgoing_voice_languages':spokenLanguages.toList(),
         'text':QqMessageMaterial.bound(text,400),
         'text_scope':row['role']=='assistant'?'assistant_history':legacy?'legacy_origin_unverified':'outer_sender_comment',
         if(group.any((r)=>(r['seq'] as int)>through))'already_sent_after_pending_input':true,
@@ -279,9 +297,10 @@ class QqArchiveReader {
       "WHERE $common AND c.kind='private' ORDER BY a.observed_at DESC,a.seq DESC LIMIT 6",recentArgs);
     final recentGroups=privateMention?<Map<String,Object?>>[]:await sql.rawQuery('SELECT a.* FROM qq_archive a JOIN qq_conversations c ON c.id=a.conversation_id '
       "WHERE $common AND c.kind='group' ORDER BY a.observed_at DESC,a.seq DESC LIMIT 6",recentArgs);
+    final voiceText=await voiceSearchSql(sql);
     final related=terms.isEmpty && !groupMention?<Map<String,Object?>>[]:await sql.rawQuery(
       'SELECT a.* FROM qq_archive a JOIN qq_conversations c ON c.id=a.conversation_id WHERE $common ${groupMention?"AND c.kind='group'":privateMention?"AND c.kind='private'":''} '
-      '${groupMention?'':"AND (${List.filled(terms.length,"instr(lower(a.content || ' ' || a.context_meta || ' ' || COALESCE((SELECT group_concat(description,' ') FROM qq_images WHERE archive_seq=a.seq AND state='viewed'),'')), ?) > 0").join(' OR ')})"} '
+      '${groupMention?'':"AND (${List.filled(terms.length,"instr(lower(a.content || ' ' || a.context_meta || ' ' || $voiceText || ' ' || COALESCE((SELECT group_concat(description,' ') FROM qq_images WHERE archive_seq=a.seq AND state='viewed'),'')), ?) > 0").join(' OR ')})"} '
       'ORDER BY a.observed_at DESC,a.seq DESC LIMIT 12',[...args,if(!groupMention)...terms.map((t)=>t.toLowerCase())]);
     final rows=<int,Map<String,Object?>>{for(final row in [...recent,...recentGroups,...related])row['seq'] as int:row};
     final notes=await sql.rawQuery('SELECT n.* FROM qq_notes n JOIN qq_conversations c ON c.id=n.conversation_id '

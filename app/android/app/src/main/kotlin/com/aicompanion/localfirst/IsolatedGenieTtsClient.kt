@@ -53,6 +53,11 @@ class IsolatedGenieTtsClient(private val context: Context) {
         return path ?: error("Genie TTS 子进程没有返回音频路径，请检查脱敏诊断报告")
     }
 
+    fun currentGeneration(): Long = call { it.currentGeneration() }
+    fun generateToFileAtGeneration(text: String, language: String, voice: String,
+        speed: Double, expectedGeneration: Long): String =
+        call { it.generateToFileAtGeneration(text, language, voice, speed, expectedGeneration) }.orEmpty()
+
     fun stop() {
         runCatching { remote?.stop() }
     }

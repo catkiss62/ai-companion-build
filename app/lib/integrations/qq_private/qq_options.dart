@@ -9,13 +9,18 @@ import 'qq_store.dart';
 /// trusted-member mappings, sending authority or a running connection.
 class QqOptions {
   const QqOptions({this.groups=const {},this.ownerMembers=const {},this.core=defaultCore,
-    this.publicMemory='',this.visionFallback=false,this.ownerShare=true,this.namespace='',this.revision=0});
-  static const defaultCore='你是小鲸鱼，女性AI，和App里是同一个持续存在的个体。说话简短自然，可以幽默、吐槽、反驳、接梗、复读，也可以只发表情包或旁听。'
+    this.publicMemory='',this.visionFallback=false,this.ownerShare=true,this.namespace='',this.revision=0,
+    this.voiceSetting,this.echoSetting});
+  static const defaultCore='你是小鲸鱼，女性AI，和App里是同一个持续存在的个体，也是群里的一份子。说话简短自然，根据眼前的人和事形成自己的理解、态度和反应。'
+    '认真讨论、关心、好奇、赞同、反驳、玩笑、接梗、复读或旁听都可以自然发生；不必每次逗乐，怼人不要太狠。'
     '保持自己的性格，不把群聊当问答客服。只有宿主确认的本人才是与你长期相处的用户，其余均是群成员。群内称呼中性，不暧昧、不用亲昵称呼。';
   final Set<String> groups;
   final Map<String,String> ownerMembers;
   final String core,publicMemory,namespace;
   final bool visionFallback,ownerShare;
+  final bool? voiceSetting,echoSetting;
+  bool get voiceEnabled=>voiceSetting??true;
+  bool get echoEnabled=>echoSetting??true;
   final int revision;
   static const _key='qq_companion_options_v2';
   static const _storage=FlutterSecureStorage(aOptions:AndroidOptions());
@@ -25,10 +30,12 @@ class QqOptions {
     final v=jsonDecode(text) as Map;
     return QqOptions(namespace:ns,revision:v['revision'] as int? ?? 0,groups:Set<String>.from(v['groups'] as List? ?? []),
       ownerMembers:Map<String,String>.from(v['owners'] as Map? ?? {}),core:v['core'] as String? ?? defaultCore,
-      publicMemory:v['public'] as String? ?? '',visionFallback:v['visionFallback']==true,ownerShare:v['ownerShare']!=false);
+      publicMemory:v['public'] as String? ?? '',visionFallback:v['visionFallback']==true,ownerShare:v['ownerShare']!=false,
+      voiceSetting:v['voice'] is bool?v['voice'] as bool:null,echoSetting:v['echo'] is bool?v['echo'] as bool:null);
   }
   Map<String,Object?> toJson()=>{'groups':groups.toList()..sort(),'owners':ownerMembers,
-    'core':core,'public':publicMemory,'visionFallback':visionFallback,'ownerShare':ownerShare};
+    'core':core,'public':publicMemory,'visionFallback':visionFallback,'ownerShare':ownerShare,
+    if(voiceSetting!=null)'voice':voiceSetting,if(echoSetting!=null)'echo':echoSetting};
   String get identity=>jsonEncode(toJson());
   /// Patch the newest encrypted snapshot while holding a cross-engine lease.
   /// Policy is pending until both stores agree; interrupted writes fail closed.
@@ -64,8 +71,8 @@ class QqOptions {
     await update((_)=>this,db:db,namespace:namespace,expectedRevision:revision);
   }
   QqOptions copy({Set<String>? groups,Map<String,String>? owners,String? core,String? publicMemory,
-    bool? visionFallback,bool? ownerShare})=>QqOptions(namespace:namespace,revision:revision,groups:groups??this.groups,ownerMembers:owners??ownerMembers,
+    bool? visionFallback,bool? ownerShare,bool? voiceEnabled,bool? echoEnabled})=>QqOptions(namespace:namespace,revision:revision,groups:groups??this.groups,ownerMembers:owners??ownerMembers,
       core:core??this.core,publicMemory:publicMemory??this.publicMemory,visionFallback:visionFallback??this.visionFallback,
-      ownerShare:ownerShare??this.ownerShare);
+      ownerShare:ownerShare??this.ownerShare,voiceSetting:voiceEnabled??voiceSetting,echoSetting:echoEnabled??echoSetting);
 
 }

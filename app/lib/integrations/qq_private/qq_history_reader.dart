@@ -33,10 +33,11 @@ class QqHistoryReader {
     final chosen=matches.length==1?matches.single:!unknown && matches.isEmpty && directory.length==1?directory.single:null;
     if(keyword.trim().isNotEmpty && !unknown && matches.length<2) {
       final term=keyword.trim().toLowerCase();if(term.length>160) throw const FormatException('qq_keyword');
+      final voiceText=await QqArchiveReader.voiceSearchSql(sql);
       final hits=await sql.rawQuery('SELECT c.id,COUNT(a.seq) AS matches,MAX(a.seq) AS matched_seq FROM qq_archive a '
         'JOIN qq_conversations c ON c.id=a.conversation_id WHERE a.observed_at>=? '
         '${scope==null?'':'AND c.scope=?'} ${requested=='all'?'':'AND c.kind=?'} ${chosen==null?'':'AND c.id=?'} '
-        "AND instr(lower(a.content || ' ' || a.context_meta || ' ' || COALESCE((SELECT group_concat(description,' ') FROM qq_images WHERE archive_seq=a.seq AND state='viewed'),'')),?)>0 "
+        "AND instr(lower(a.content || ' ' || a.context_meta || ' ' || $voiceText || ' ' || COALESCE((SELECT group_concat(description,' ') FROM qq_images WHERE archive_seq=a.seq AND state='viewed'),'')),?)>0 "
         'GROUP BY c.id ORDER BY MAX(a.seq) DESC LIMIT 20',
         [await _reset(),if(scope!=null)scope,if(requested!='all')requested,if(chosen!=null)chosen['id'],term]);
       if(hits.length==1) return read(hits.single['id'] as String,scope:scope,messageSeq:hits.single['matched_seq'] as int);

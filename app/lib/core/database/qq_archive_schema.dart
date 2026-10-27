@@ -4,7 +4,7 @@ import '../qq/qq_message_material.dart';
 
 /// Portable QQ history, with no dependency on main-message/growth consumers.
 abstract final class QqArchiveSchema {
-  static const additions=['qq_ingress','qq_work_items','qq_styles','qq_sketches'];
+  static const additions=['qq_ingress','qq_work_items','qq_styles','qq_sketches','qq_voices'];
   static const tables = ['qq_conversations','qq_archive','qq_images','qq_notes','qq_deliveries','qq_shares','qq_receipts',...additions];
   static const columns = <String,Set<String>>{
     'qq_conversations':{'id','scope','kind','target','checked_seq','summary_checked_seq','summary_seq','last_reply_at','version'},
@@ -18,6 +18,7 @@ abstract final class QqArchiveSchema {
     'qq_work_items':{'id','conversation_id','kind','sources','identity','permit','state','attempts','next_at','run_token','created_at','updated_at'},
     'qq_styles':{'id','conversation_id','content','sources','source_stamp','revision','enabled','edited_at','created_at'},
     'qq_sketches':{'id','archive_seq','svg','description','created_at'},
+    'qq_voices':{'id','archive_seq','language','created_at'},
   };
   static Future<void> create(DatabaseExecutor sql) async {
     await sql.execute('''CREATE TABLE IF NOT EXISTS qq_conversations (
@@ -72,6 +73,10 @@ abstract final class QqArchiveSchema {
     await sql.execute('''CREATE TABLE IF NOT EXISTS qq_sketches(
       id TEXT PRIMARY KEY,archive_seq INTEGER NOT NULL REFERENCES qq_archive(seq),svg TEXT NOT NULL,
       description TEXT NOT NULL,created_at INTEGER NOT NULL)''');
+    await sql.execute('''CREATE TABLE IF NOT EXISTS qq_voices(
+      id TEXT PRIMARY KEY,archive_seq INTEGER NOT NULL REFERENCES qq_archive(seq),
+      language TEXT NOT NULL,created_at INTEGER NOT NULL)''');
+    await sql.execute('CREATE UNIQUE INDEX IF NOT EXISTS qq_voice_source ON qq_voices(archive_seq)');
   }
 
   static Future<void> upgradeMaterial(DatabaseExecutor sql) async {
@@ -110,8 +115,9 @@ abstract final class QqArchiveSchema {
   static void validate(Map<String,dynamic> raw,{required int version}) {
     if(version<62) { for(final t in tables) { raw[t]=<Object?>[]; } return; }
     if(version<64) {for(final t in additions)raw[t]=<Object?>[];}
+    if(version<66)raw['qq_voices']=<Object?>[];
     final conversations=<String,Map>{}; final seqs=<int,String>{}; final maxima=<String,int>{};
-    final noteIds=<String>{}; final observed=<int,int>{};
+    final noteIds=<String>{}; final observed=<int,int>{};final roles=<int,String>{};final voiceSeqs=<int>{};
     for(final table in tables) {
       final rows=raw[table];
       if(rows is! List || rows.length>250000) throw const FormatException('QQ分区缺失或过大');
@@ -143,6 +149,10 @@ abstract final class QqArchiveSchema {
               ['attempts','next_at','created_at','updated_at'].any((k)=>row[k] is! int || (row[k] as int)<0) || (row['attempts'] as int)>3 ||
               jsonDecode(row['identity'] as String) is! Map || jsonDecode(row['permit'] as String) is! Map)throw const FormatException('QQ后台进度无效');
           } else if(row['revision'] is! int || (row['revision'] as int)<1 || !const {0,1}.contains(row['enabled']) || row['edited_at'] is! int || row['created_at'] is! int || jsonDecode(row['source_stamp'] as String) is! List || (row['content'] as String).length>1600)throw const FormatException('群聊表达档案无效');
+        } else if(table=='qq_voices') {
+          if(row['archive_seq'] is! int || roles[row['archive_seq']]!='assistant' ||
+            !voiceSeqs.add(row['archive_seq'] as int) || !const {'zh','ja','en'}.contains(row['language']) ||
+            row['created_at'] is! int || (row['created_at'] as int)<0)throw const FormatException('QQ语音台词来源无效');
         } else if(table=='qq_sketches') {
           final svg=row['svg'] as String;
           if(!seqs.containsKey(row['archive_seq']) || row['created_at'] is! int || svg.length>16000 || !svg.trimLeft().startsWith('<svg') || RegExp(r'<!|<script|<foreignObject|<image|href\s*=|url\s*\(|\bon[a-z]+\s*=',caseSensitive:false).hasMatch(svg))throw const FormatException('QQ涂鸦无效');
@@ -170,6 +180,7 @@ abstract final class QqArchiveSchema {
                 row['observed_at'] is! int || row['received_at'] is! int || row['version'] is! int ||
                 !const {0,1}.contains(row['owner']) || !const {0,1}.contains(row['mentioned'])) throw const FormatException('QQ原文无效');
             seqs[seq]=cid as String; observed[seq]=row['observed_at'] as int;
+            roles[seq]=row['role'] as String;
             if(seq>(maxima[cid]??0)) maxima[cid]=seq;
           } else if(table=='qq_notes') {
             final sources=jsonDecode(row['sources'] as String);

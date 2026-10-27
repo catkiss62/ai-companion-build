@@ -24,7 +24,8 @@ class QqVision {
   bool _closed=false;
   Future<({String text,String fingerprint})> observe(String url,{required DeepSeekModelProfile firstModel,
     required bool fallback,required Future<bool> Function() current,bool firstChannel=false,
-    Future<String?> Function(String)? cached}) async {
+    Future<String?> Function(String)? cached,
+    Future<void> Function(Uint8List bytes,String mime,String contentHash)? originalObserver}) async {
     Future<bool> valid() async=>!_closed && await current();
     if(!await valid()) throw StateError('context_invalidated');
     final root=Directory('${(await getTemporaryDirectory()).path}/qq_vision_v2');await root.create(recursive:true);
@@ -33,8 +34,10 @@ class QqVision {
       downloaded=await SafePublicImageDownloader.download(client:downloader,rawUrl:url,maxBytes:maxDownloadBytes,
         filePrefix:'qq',temporaryDirectory:root,totalTimeout:const Duration(seconds:20));
       final original=await downloaded.file.readAsBytes();
+      final contentHash=sha256.convert(original).toString();
+      if(originalObserver!=null && await valid())await originalObserver(original,downloaded.mimeType,contentHash);
       final route=firstChannel?'first:${firstModel.apiName}':'vision';
-      final fingerprint=sha256.convert(utf8.encode('${QqVisionFrames.cacheVersion}:$route:${sha256.convert(original)}')).toString();
+      final fingerprint=sha256.convert(utf8.encode('${QqVisionFrames.cacheVersion}:$route:$contentHash')).toString();
       final prior=await cached?.call(fingerprint);
       if(prior!=null && prior.isNotEmpty && await valid()) return (text:prior,fingerprint:fingerprint);
       if(!await valid()) throw StateError('context_invalidated');

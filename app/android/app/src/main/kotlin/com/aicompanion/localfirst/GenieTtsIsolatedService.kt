@@ -103,8 +103,17 @@ class GenieTtsIsolatedService : Service() {
             language: String,
             voice: String,
             speed: Double,
-        ): String = serialized {
-            if (text.isBlank()) return@serialized ""
+        ): String = generateFile(text, language, voice, speed, generation.get())
+
+        override fun currentGeneration(): Long = generation.get()
+
+        override fun generateToFileAtGeneration(text: String, language: String, voice: String,
+            speed: Double, expectedGeneration: Long): String =
+            generateFile(text, language, voice, speed, expectedGeneration)
+
+        private fun generateFile(text: String, language: String, voice: String,
+            speed: Double, requestGeneration: Long): String = serialized {
+            if (text.isBlank() || requestGeneration != generation.get()) return@serialized ""
             activeInputChars = text.length
             phoneCount = 0
             phoneMin = 0L
@@ -124,7 +133,6 @@ class GenieTtsIsolatedService : Service() {
             referenceEchoSuspected = false
             referenceEchoReason = ""
             referenceEchoScore = 0.0
-            val requestGeneration = generation.get()
             try {
                 val next = normalizeLanguage(language)
                 if (!initialized || !runtime.isReady || activeLanguage != next) {

@@ -16,6 +16,41 @@ class NativeTtsEngine private constructor(context: Context) {
     @Volatile private var pitch = 1.0
     @Volatile private var volume = 1.0
     @Volatile private var speechGeneration = 0L
+    private val voiceExports = VoiceExportOwnership()
+
+    @Synchronized fun claimVoiceExport(host: String): Long? =
+        voiceExports.claim(host, speechGeneration, PlaybackSessionRegistry.snapshot()["phase"] == "idle")
+
+    @Synchronized private fun exportCurrent(host: String, id: Long): Boolean =
+        voiceExports.current(host, id, speechGeneration) &&
+            PlaybackSessionRegistry.snapshot()["phase"] == "idle"
+
+    fun generateVoiceExport(host: String, id: Long, text: String, language: String, voice: String): ByteArray {
+        check(text.isNotBlank() && text.length <= 120) { "voice_export_text" }
+        check(language in setOf("zh", "ja", "en")) { "voice_export_language" }
+        check(exportCurrent(host, id)) { "voice_export_preempted" }
+        // Capture the CHILD generation before the final main-process check.
+        // A late request after App Stop cannot start with a newer child token.
+        val childGeneration = client.currentGeneration()
+        check(exportCurrent(host, id)) { "voice_export_preempted" }
+        val path = client.generateToFileAtGeneration(text, language, normalizeVoice(voice), 1.0, childGeneration)
+        check(path.isNotBlank()) { "voice_export_preempted" }
+        val output = File(path)
+        return try {
+            check(exportCurrent(host, id)) { "voice_export_preempted" }
+            check(output.isFile && output.length() in 44L..8_388_608L) { "voice_export_audio" }
+            output.readBytes()
+        } finally { output.delete() }
+    }
+
+    @Synchronized fun endVoiceExport(host: String, id: Long, cancel: Boolean) {
+        // A delayed cancellation cannot stop a newer App playback or export.
+        if (voiceExports.finish(host, id, speechGeneration) && cancel) client.stop()
+    }
+
+    @Synchronized fun cancelVoiceExports(host: String) {
+        voiceExports.owned(host)?.let { endVoiceExport(host, it, true) }
+    }
 
     fun requirePlaybackOwner(lease: Long?) {
         if (lease != null) check(lease == generationToken()) { "stale_playback_owner" }
@@ -289,6 +324,7 @@ class NativeTtsEngine private constructor(context: Context) {
     }
 
     @Synchronized fun stop() {
+        voiceExports.invalidate()
         PlaybackSessionRegistry.invalidate(speechGeneration)
         speechGeneration += 1L
         client.stop()
