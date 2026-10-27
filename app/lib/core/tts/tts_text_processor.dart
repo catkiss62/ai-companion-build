@@ -32,6 +32,7 @@ class TtsTextProcessor {
     ChatLanguage language = ChatLanguage.chinese,
     Map<String, String> replacements = const {},
     TtsReadingScope scope = TtsReadingScope.dialogueOnly,
+    bool pronunciationAliases = true,
   }) {
     // Strip inline action blocks before parsing dialogue-only speech. Parsing
     // first would split `保留（动作）正文` into two dialogue segments and the
@@ -44,6 +45,7 @@ class TtsTextProcessor {
       language: language,
       replacements: replacements,
       scope: scope,
+      pronunciationAliases: pronunciationAliases,
     ).map((unit) => unit.text).join('。');
   }
 
@@ -52,6 +54,7 @@ class TtsTextProcessor {
     ChatLanguage language = ChatLanguage.chinese,
     Map<String, String> replacements = const {},
     TtsReadingScope scope = TtsReadingScope.dialogueOnly,
+    bool pronunciationAliases = true,
   }) {
     final segmentSource = scope == TtsReadingScope.dialogueOnly
         ? text.replaceAll(RegExp(r'（[^（）\n]*）|\([^()\n]*\)'), '')
@@ -69,6 +72,7 @@ class TtsTextProcessor {
                 : TtsSpeechRole.dialogue,
             language: language,
             replacements: replacements,
+            pronunciationAliases: pronunciationAliases,
           ),
         )
         .where((item) => item.text.isNotEmpty)
@@ -80,6 +84,7 @@ class TtsTextProcessor {
     required TtsSpeechRole role,
     ChatLanguage language = ChatLanguage.chinese,
     Map<String, String> replacements = const {},
+    bool pronunciationAliases = true,
   }) {
     var result = text.trim();
     if (role == TtsSpeechRole.dialogue) {
@@ -101,7 +106,7 @@ class TtsTextProcessor {
     // Fixed Genie pronunciation compatibility. Phrase-phone overrides in the
     // Android adapter preserve the requested neutral tones after these spoken-
     // text-only aliases are applied.
-    if (language == ChatLanguage.chinese) {
+    if (pronunciationAliases && language == ChatLanguage.chinese) {
       result = result
           .replaceAll(RegExp(r'\bDeepSeek\b', caseSensitive: false), '地铺C咳')
           .replaceAll(RegExp(r'\btoken\b', caseSensitive: false), '拖肯');

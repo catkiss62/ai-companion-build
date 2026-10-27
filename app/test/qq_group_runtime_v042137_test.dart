@@ -43,6 +43,20 @@ class _Secure extends SecureConfig {
   @override Future<String> readAiWangYouModel()async=>'dynamic-second-name';
   @override Future<ChatApiProvider> readChatProvider()async=>ChatApiProvider.deepSeek;
 }
+class _ArchiveFault extends QqStore {
+  _ArchiveFault(super.db,{this.failFinal=false});
+  final bool failFinal;
+  int attempts=0;
+  @override Future<void> sentPart(QqBatch b,int part,String text,String sticker,int now,{String sketchSvg='',String voiceLanguage=''})async {
+    attempts++;
+    if(!failFinal)throw StateError('fixture local archive failure');
+    await super.sentPart(b,part,text,sticker,now,sketchSvg:sketchSvg,voiceLanguage:voiceLanguage);
+  }
+  @override Future<void> mark(QqBatch b,String state,{String? text,String? sticker})async {
+    if(failFinal && state=='sent')throw StateError('fixture final receipt failure');
+    await super.mark(b,state,text:text,sticker:sticker);
+  }
+}
 class _Api extends QqApi {
   _Api():super(appId:'12345',secret:'fixture-not-a-secret');
   final sent=<Map<String,Object?>>[];bool uncertain=false;int uploads=0;
@@ -50,7 +64,7 @@ class _Api extends QqApi {
   @override Future<QqMediaUpload> uploadVoice({required bool group,required String target,required Uint8List bytes,required Future<bool> Function() current})async{uploads++;expect(await current(),true);return const QqMediaUpload('fixture-voice-token');}
   @override Future<QqMediaUpload> uploadMedia({required bool group,required String target,required Uint8List bytes,required String filename,required int fileType,required Future<bool> Function() current})async{uploads++;expect(await current(),true);return const QqMediaUpload('fixture-echo-token',ttl:300);}
   @override Future<void> sendMessage({required bool group,required String target,required String messageId,
-    required int sequence,String text='',String fileInfo=''}) async {
+    required int sequence,String text='',String fileInfo='',Future<bool> Function()? current}) async {
     sent.add({'group':group,'target':target,'messageId':messageId,'sequence':sequence,'text':text,'fileInfo':fileInfo});
     if(uncertain) throw QqApiException('network',uncertain:true);
   }
@@ -123,6 +137,38 @@ void main(){
     runtime=create();
   });
   tearDown(()async{await runtime.stop();api.close();await db.closeForTesting();});
+
+  for(final finalMark in [false,true]) {
+    test('runtime preserves platform success when ${finalMark?'final receipt':'archive'} fails',()async {
+      await runtime.stop();vision=_Vision(secure);final fault=_ArchiveFault(db,failFinal:finalMark);store=fault;runtime=create();
+      handler=(r,b)async=>b['stream']==true?_sse('已经送达'):_json(b['max_tokens']==60?{'safe':true}:{'participation':'direct'});
+      await accept('archive-failure','和你说句话');await runtime.process(cid());await runtime.process(cid());
+      expect(api.sent.length,1);expect(fault.attempts,finalMark?1:2);
+      expect((await (await db.database).query('qq_deliveries')).single['state'],'sent_archive_failed');
+      expect(statuses,contains('sent_archive_failed'));expect(statuses,isNot(contains('reply_failed')));
+      expect((await (await db.database).query('qq_archive',where:"role='assistant'")).length,finalMark?1:0);
+    });
+  }
+  test('near-expired echo cannot cancel an ordinary response selected by the writer',()async {
+    var bodies=0;
+    handler=(r,b)async {
+      if(b['stream']==true){bodies++;if(bodies==1)return _sse('WAIT');clock=clock.add(const Duration(seconds:3));return _sse('我有另一种看法');}
+      return _json(b['max_tokens']==60?{'safe':true}:{'participation':'direct'});
+    };
+    await runtime.accept(event('echo-expiry-one','',sender:'one',image:true),group:true);await runtime.process(cid());
+    clock=clock.add(const Duration(seconds:179));
+    await runtime.accept(event('echo-expiry-two','你怎么看',sender:'two',image:true),group:true);await runtime.process(cid());
+    expect(api.sent.single['text'],'我有另一种看法');expect(api.uploads,0);expect(bodies,2);
+  });
+  test('voice transcript uses original words and removes its duplicate quoted text',()async {
+    await runtime.stop();vision=_Vision(secure);runtime=create(voiceService:_Voice());
+    const words='我用 DeepSeek，注意 token。';
+    handler=(r,b)async=>b['stream']==true?_sse('「$words」<qq_voice>${jsonEncode({'language':'zh','text':words})}</qq_voice>'):
+      _json(b['max_tokens']==60?{'safe':true}:{'participation':'direct'});
+    await accept('voice-words','用语音说说');await runtime.process(cid());
+    expect(api.sent.length,1);expect(api.sent.single['text'],'');
+    expect((await (await db.database).query('qq_archive',where:"role='assistant'")).single['content'],words);
+  });
 
   test('batch policy uses count OR quiet OR max wait; no pending input means no timer',(){
     const p=QqGroupBatch();final t=DateTime(2026,1,1);

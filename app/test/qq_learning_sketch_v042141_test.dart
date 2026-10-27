@@ -31,7 +31,7 @@ class _Secure extends SecureConfig {
 class _Api extends QqApi {
   _Api():super(appId:'fixture',secret:'synthetic');
   final sent=<String>[];
-  @override Future<void> sendMessage({required bool group,required String target,required String messageId,required int sequence,String text='',String fileInfo=''}) async {sent.add(text);}
+  @override Future<void> sendMessage({required bool group,required String target,required String messageId,required int sequence,String text='',String fileInfo='',Future<bool> Function()? current}) async {sent.add(text);}
 }
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();sqfliteFfiInit();

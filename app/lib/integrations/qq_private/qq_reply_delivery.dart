@@ -1,6 +1,15 @@
 import 'dart:math';
 import 'package:qq_private_bridge/qq_private_bridge.dart';
 
+class QqDeliveryFailure implements Exception {
+  const QqDeliveryFailure(this.cause,this.confirmed,{this.archiveFailed=false});
+  final Object cause;
+  final int confirmed;
+  final bool archiveFailed;
+  String get state=>archiveFailed?'sent_archive_failed':
+    cause is QqApiException && (cause as QqApiException).uncertain?'send_uncertain':'partially_sent';
+}
+
 /// One platform message has one local receipt. Unknown delivery never falls
 /// back to a second send; only an explicit type rejection permits splitting.
 class QqReplyDelivery {
@@ -19,6 +28,7 @@ class QqReplyDelivery {
     required String text, required String fileInfo, List<String>? messages, required Future<bool> Function() current,
     required Future<void> Function() beforeSend,
     required Future<void> Function(int sequence, String text, bool image) sent,
+    Future<void> Function()? confirmed,Future<bool> Function()? mediaCurrent,
     String voiceText='',String voiceLanguage='',Future<void> Function(int sequence,String transcript,String language)? sentVoice}) async {
     final chunks=validate(text,messages);
     final voice=voiceText.isNotEmpty && fileInfo.isNotEmpty;
@@ -34,11 +44,24 @@ class QqReplyDelivery {
       await beforeSend();
       if(!await current()) throw StateError('context_invalidated');
       final seq = ++sequence;
-      await api.sendMessage(group: group, target: target, messageId: messageId, sequence: seq, text: content, fileInfo: media);
-      if(isVoice) {await sentVoice!(seq,voiceText,voiceLanguage);}
-      else {await sent(seq, content, media.isNotEmpty);}
+      await api.sendMessage(group: group, target: target, messageId: messageId, sequence: seq, text: content, fileInfo: media,
+        current:() async=>await current() && (media.isEmpty || mediaCurrent==null || await mediaCurrent!()));
       delivered++;
+      // A confirmed platform send cannot become an unsent failure just because
+      // its local transaction fails. Retry the local commit only, never QQ.
+      try {await confirmed?.call();}catch(_) {}
+      for(var attempt=0;;attempt++) {
+        try {
+          if(isVoice) {await sentVoice!(seq,voiceText,voiceLanguage);}
+          else {await sent(seq, content, media.isNotEmpty);}
+          break;
+        } catch(error) {
+          var valid=false;try {valid=await current();}catch(_) {}
+          if(attempt>0 || !valid)throw QqDeliveryFailure(error,delivered,archiveFailed:true);
+        }
+      }
     }
+    Future<void> plan() async {
     if(voice) {
       for(final chunk in chunks) {await part(chunk,'');}
       try {await part('',fileInfo,isVoice:true);}
@@ -56,12 +79,26 @@ class QqReplyDelivery {
     }
     for (final chunk in chunks.take(chunks.isEmpty ? 0 : chunks.length - 1)) { await part(chunk, ''); }
     final caption = chunks.isEmpty ? '' : chunks.last;
+    if(mediaCurrent!=null && !await mediaCurrent!()) {
+      if(caption.isNotEmpty)await part(caption,'');
+      return;
+    }
     try {
       await part(caption, fileInfo);
     } on QqApiException catch (error) {
+      if(error.code=='stopped' && !error.uncertain && await current() && mediaCurrent!=null && !await mediaCurrent!()) {
+        if(caption.isNotEmpty)await part(caption,'');
+        return;
+      }
       if (caption.isEmpty || error.uncertain || !const {'api_22006', 'api_340069'}.contains(error.code)) rethrow;
       await part(caption, '');
       await part('', fileInfo);
+    }
+    }
+    try {await plan();}catch(error) {
+      if(error is QqDeliveryFailure)rethrow;
+      if(delivered>0)throw QqDeliveryFailure(error,delivered);
+      rethrow;
     }
   }
 }

@@ -20,7 +20,7 @@ class _Api extends QqApi {
   String? reject;
   bool uncertain = false;
   @override Future<void> sendMessage({required bool group, required String target, required String messageId,
-    required int sequence, String text = '', String fileInfo = ''}) async {
+    required int sequence, String text = '', String fileInfo = '',Future<bool> Function()? current}) async {
     requests.add({'seq': sequence, 'text': text, 'media': fileInfo});
     if (reject != null) { final code = reject!; reject = null; throw QqApiException(code, uncertain: uncertain); }
   }
@@ -176,7 +176,8 @@ void main() {
   test('disconnect during typing delay stops later messages without repeating the first', () async {
     final api=_Api();var valid=true;
     await expectLater(QqReplyDelivery(api,pause:(_)async {valid=false;}).send(group:true,target:'group',messageId:'new',
-      text:'第一条\n第二条',messages:['第一条','第二条'],fileInfo:'',current:()async=>valid,beforeSend:()async{},sent:(_,__,___)async{}),throwsStateError);
+      text:'第一条\n第二条',messages:['第一条','第二条'],fileInfo:'',current:()async=>valid,beforeSend:()async{},sent:(_,__,___)async{}),
+      throwsA(isA<QqDeliveryFailure>().having((e)=>e.state,'state','partially_sent')));
     expect(api.requests,hasLength(1));expect(api.requests.single['text'],'第一条');api.close();
   });
 

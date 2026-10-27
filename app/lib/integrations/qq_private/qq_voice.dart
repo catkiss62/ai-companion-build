@@ -19,12 +19,14 @@ class QqVoiceChoice {
       if(data is! Map || !const {'zh','ja','en'}.contains(data['language']) || data['text'] is! String)return null;
       final rawText=(data['text'] as String).trim();
       if(rawText.isEmpty || rawText.runes.length>600 || rawText.contains('<qq_'))return null;
-      final text=const TtsTextProcessor().process(rawText,language:ChatLanguage.tryParse(data['language'] as String)!,scope:TtsReadingScope.dialogueOnly);
+      final text=transcript(rawText,data['language'] as String);
       if(text.isEmpty)return null;
       final voice=data['voice'];
       return QqVoiceChoice(data['language'] as String,text,voice:voices.contains(voice)?voice as String:'daily');
     } catch(_) {return null;}
   }
+  static String transcript(String text,String language)=>const TtsTextProcessor().process(text,
+    language:ChatLanguage.tryParse(language)!,scope:TtsReadingScope.dialogueOnly,pronunciationAliases:false);
   static String visible(String raw)=>raw.replaceAll(_tag,'')
     .replaceAll(RegExp(r'<qq_voice\b[\s\S]*$',caseSensitive:false),'').trim();
   static const prompt='【可选QQ语音】本轮可以发中文、日语或英语短语音。明确要求语音时优先考虑；平时主要文字，也可偶尔自然选择声音表达。'

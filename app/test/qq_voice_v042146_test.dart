@@ -31,7 +31,7 @@ class _Api extends QqApi {
   _Api():super(appId:'fixture',secret:'fixture-only');
   final sent=<Map<String,Object?>>[];QqApiException? rejection;
   @override Future<void> sendMessage({required bool group,required String target,required String messageId,
-    required int sequence,String text='',String fileInfo=''})async {
+    required int sequence,String text='',String fileInfo='',Future<bool> Function()? current})async {
     sent.add({'seq':sequence,'text':text,'media':fileInfo});
     if(fileInfo.isNotEmpty && rejection!=null){final e=rejection!;rejection=null;throw e;}
   }

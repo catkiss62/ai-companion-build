@@ -15,10 +15,10 @@ class QqShareOffer {
     if(!await fence.matches(sql) || await BrainWorkFence.value(sql,policyKey)!=policyToken ||
       await BrainWorkFence.value(sql,'qq_master_enabled_v2')!='1') return false;
     final rows=await sql.query('qq_shares',where:'id=?',whereArgs:[id],limit:1);
-    return rows.isNotEmpty && (rows.single['state']=='claimed' || destination=='qq' && rows.single['state']=='sending') && rows.single['destination']==destination &&
+    return rows.isNotEmpty && (rows.single['state']=='claimed' || destination=='qq' && const {'sending','sent_archive_pending'}.contains(rows.single['state'])) && rows.single['destination']==destination &&
       await evidence.matches(sql);
   }
   Future<void> delivered(DatabaseExecutor sql,String target,int at) async {
-    await sql.update('qq_shares',{'state':'sent','destination':target,'updated_at':at},where:"id=? AND state IN ('claimed','sending')",whereArgs:[id]);
+    await sql.update('qq_shares',{'state':'sent','destination':target,'updated_at':at},where:"id=? AND state IN ('claimed','sending','sent_archive_pending')",whereArgs:[id]);
   }
 }

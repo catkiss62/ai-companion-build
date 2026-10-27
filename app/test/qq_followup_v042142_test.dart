@@ -39,7 +39,7 @@ class _Api extends QqApi {
   @override Future<String> uploadImage({required bool group,required String target,required Uint8List bytes,required String filename,required Future<bool> Function() current}) async {
     if(!await current())throw StateError('invalid');return 'synthetic-image';
   }
-  @override Future<void> sendMessage({required bool group,required String target,required String messageId,required int sequence,String text='',String fileInfo=''}) async {
+  @override Future<void> sendMessage({required bool group,required String target,required String messageId,required int sequence,String text='',String fileInfo='',Future<bool> Function()? current}) async {
     sent.add('$target:$text');final signal=signals[target];if(signal!=null && !signal.isCompleted)signal.complete();
   }
 }

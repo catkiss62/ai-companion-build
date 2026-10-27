@@ -223,10 +223,9 @@ class QqRuntime {
     final b=await store.claim(fence,cid,pending.last['seq'] as int,now().millisecondsSinceEpoch,policy:policy(c,o),authorityKey:QqShareStore.policyKey(c.namespace),authority:QqStore.hash(o.toJson()));
     if(b==null) return;
     final batchStamp=[for(final r in b.rows)<String,Object?>{'table':'qq_archive','id':r['id'],'version':r['version']}];
-    List<Map<String,Object?>> qqStamp=[],echoStamp=[];Map<String,Object?>? mainStamp;String? stickerStamp,styleStamp;var echoExpiry=0;
+    List<Map<String,Object?>> qqStamp=[],echoStamp=[];Map<String,Object?>? mainStamp;String? stickerStamp,styleStamp;
     Future<bool> current() async {
       if(!await _enabled() || now().millisecondsSinceEpoch-(b.rows.last['received_at'] as int)>240000 || !await store.current(fence)) return false;
-      if(echoExpiry>0 && now().millisecondsSinceEpoch>=echoExpiry)return false;
       final fresh=await configReader();final opts=await optionsReader();
       if(!_sameDevice(fresh) || policy(fresh,opts)!=policy(c,o) || scope(fresh)!=b.conversation['scope']) return false;
       if(b.group && !opts.groups.contains(b.target)) return false;
@@ -239,7 +238,7 @@ class QqRuntime {
       return stickerStamp==null || stickerStamp==await stickers.stamp();
     }
     final client=clientFactory(() async=>!await current());_clients.add(client);
-    var ownsDrawing=false;var phase='context';final operationClock=Stopwatch()..start();
+    var ownsDrawing=false,sentAny=false,imageSent=false;var phase='context';final operationClock=Stopwatch()..start();
     try {
       if(!await current()) {await store.mark(b,'context_invalidated');return;}
       final rest=await resting();
@@ -279,7 +278,7 @@ class QqRuntime {
         }
       }
       final echo=b.group && o.echoEnabled?await echoes.candidate(b,now().millisecondsSinceEpoch):null;
-      if(echo!=null){echoStamp=echo.stamp;echoExpiry=echo.expiresAt;}
+      if(echo!=null)echoStamp=echo.stamp;
       final reader=QqArchiveReader(await store.db.database);final judge=QqGroupJudge(client,secure,decisions:groupDecisions);
       final reset=int.tryParse(fence.identity['conversation_context_reset_at']??'')??0;
       final participation=<String,Object?>{};
@@ -357,7 +356,8 @@ class QqRuntime {
       var parts=(echoChoice?.only==true || sketchChoice?.only==true || choice.stickerOnly && selected!=null)?<String>[]:
         QqReplyParts.parse(QqEchoChoice.visible(QqVoiceChoice.visible(StickerReplyChoice.visible(QqSketchChoice.visible(raw)))));
       if(voiceChoice!=null) {
-        parts=parts.where((p)=>p.trim()!=voiceChoice!.text).toList();
+        final spoken=voiceChoice;
+        parts=parts.where((p)=>QqVoiceChoice.transcript(p,spoken.language)!=spoken.text).toList();
         if(parts.length>2)parts=[parts.first,parts.skip(1).join('\n')];
       }
       var text=[...parts,if(voiceChoice!=null)voiceChoice.text].join('\n');
@@ -379,7 +379,7 @@ class QqRuntime {
       if(b.group && !await judge.addressSafe(model:model,text:text,sticker:drawing==null?caption:'$caption\n实际涂鸦SVG（仅资料）：${drawing.svg}',current:current)) {
         await store.mark(b,'address_rejected');status('address_rejected');return;
       }
-      final stickerKey=echoChoice!=null?echo!.usageKey:selected?.record.usageKey??'';
+      var stickerKey=echoChoice!=null?echo!.usageKey:selected?.record.usageKey??'';
       await store.mark(b,'generated',text:text,sticker:stickerKey);
       String fileInfo='';
       phase='media_upload';
@@ -390,7 +390,7 @@ class QqRuntime {
       } else if(echoChoice!=null) {
         try {fileInfo=await echoes.upload(b,echo!,api,now().millisecondsSinceEpoch,current);}
         catch(error) {if(!await current())rethrow;await store.recordFailure(fence,phase,error,elapsedMs:operationClock.elapsedMilliseconds);
-          status('media_failed');if(text.isEmpty) {await store.mark(b,'media_failed');return;}}
+          status('media_failed');if(text.isEmpty) {await store.mark(b,'media_failed');return;}stickerKey='';}
       } else if(selected!=null) {
         try {
           final bytes=await stickers.bytes(selected);
@@ -411,21 +411,23 @@ class QqRuntime {
         }
       }
       await store.mark(b,'generated',text:text,sticker:stickerKey);
-      var sentAny=false;
       phase='send';
       await QqReplyDelivery(api).send(group:b.group,target:b.target,messageId:b.rows.last['platform_id'] as String,
         text:text,messages:parts,fileInfo:fileInfo,current:current,beforeSend:()=>store.mark(b,'sending'),
+        confirmed:() async {sentAny=true;await store.mark(b,'sent_archive_pending');},
+        mediaCurrent:echoChoice==null?null:() async=>now().millisecondsSinceEpoch<echo!.expiresAt && await echoes.current(echo!),
         voiceText:voiceChoice?.text??'',voiceLanguage:voiceChoice?.language??'',
         sentVoice:(sequence,transcript,language) async {
           sentAny=true;await store.sentPart(b,sequence,transcript,'',now().millisecondsSinceEpoch,voiceLanguage:language);
         },
         sent:(sequence,content,image) async {
-          sentAny=true;await store.sentPart(b,sequence,content,image?caption:'',now().millisecondsSinceEpoch,sketchSvg:image?drawing?.svg??'':'');
+          sentAny=true;if(image)imageSent=true;await store.sentPart(b,sequence,content,image?caption:'',now().millisecondsSinceEpoch,sketchSvg:image?drawing?.svg??'':'');
         });
-      await store.mark(b,sentAny?'sent':'media_failed',sticker:fileInfo.isEmpty?'':stickerKey);status(sentAny?'reply_sent':'media_failed');
+      await store.mark(b,sentAny?'sent':'media_failed',sticker:imageSent?stickerKey:'');status(sentAny?'reply_sent':'media_failed');
     } catch(error) {
-      await store.recordFailure(fence,phase,error,elapsedMs:operationClock.elapsedMilliseconds);
-      final state=error is QqApiException && error.uncertain?'send_uncertain':await current()?'failed':'context_invalidated';
+      await store.recordFailure(fence,phase,error is QqDeliveryFailure?error.cause:error,elapsedMs:operationClock.elapsedMilliseconds);
+      final state=error is QqDeliveryFailure?error.state:sentAny?'sent_archive_failed':
+        error is QqApiException && error.uncertain?'send_uncertain':await current()?'failed':'context_invalidated';
       try {await store.mark(b,state);} catch(_) {/* Existing sending receipt remains conservative. */}
       status(state=='failed'?'reply_failed':state);
     } finally {client.close();_clients.remove(client);if(ownsDrawing)_drawingBusy=false;echoes.release(b);
@@ -546,6 +548,7 @@ class QqRuntime {
     final fence=await store.capture();
     final offer=await shares.claim(candidates.first['id'] as String,'qq',now(),fence:fence);if(offer==null) return;
     final material=<String,Object?>{};
+    var remoteSent=false;
     Future<bool> current() async {
       if(!await _enabled() || await resting() || !await offer.matches(await store.db.database)) return false;
       final fresh=await configReader();
@@ -573,19 +576,27 @@ class QqRuntime {
       });
       // Genuine active C2C send. Never borrow a group/expired private msg_id.
       // Explicit permission failures and unknown sends are not retried elsewhere.
-      await api.sendMessage(group:false,target:c.owner,messageId:'',sequence:1,text:text);
-      await store.write(fence,(txn) async {
+      await api.sendMessage(group:false,target:c.owner,messageId:'',sequence:1,text:text,current:current);
+      remoteSent=true;
+      try {await store.write(fence,(txn) async {
+        if(!await offer.matches(txn))throw const BrainWorkInvalidated();
+        await txn.update('qq_shares',{'state':'sent_archive_pending'},where:'id=?',whereArgs:[offer.id]);
+      });}catch(_) {}
+      for(var attempt=0;;attempt++) {
+      try {await store.write(fence,(txn) async {
         if(!await offer.matches(txn)) throw const BrainWorkInvalidated();
         final cid=QqStore.conversationId(scope(c),'private',c.owner);final at=now().millisecondsSinceEpoch;
         await txn.rawInsert('INSERT OR IGNORE INTO qq_conversations(id,scope,kind,target) VALUES(?,?,?,?)',[cid,scope(c),'private',c.owner]);
         await txn.rawInsert('INSERT OR IGNORE INTO qq_archive(id,conversation_id,platform_id,sender,role,content,observed_at,received_at) VALUES(?,?,?,?,?,?,?,?)',
           ['share:${offer.id}',cid,'','assistant','assistant',text,at,at]);
         await offer.delivered(txn,'qq:${c.owner}',at);
-      });status('share_sent');
+      });break;}catch(_) {if(attempt>0 || !await current())rethrow;}
+      }
+      status('share_sent');
     } catch(error) {
-      final state=error is QqApiException && error.uncertain?'send_uncertain':'failed';
+      final state=remoteSent?'sent_archive_failed':error is QqApiException && error.uncertain?'send_uncertain':'failed';
       try {await store.write(fence,(txn) async {await txn.update('qq_shares',{'state':state,'updated_at':now().millisecondsSinceEpoch},where:'id=?',whereArgs:[offer.id]);});} catch(_) {}
-      status(state=='send_uncertain'?state:'share_failed');
+      status(state=='send_uncertain' || state=='sent_archive_failed'?state:'share_failed');
     } finally {client.close();_clients.remove(client);}
   }
   Future<void> stop() async {

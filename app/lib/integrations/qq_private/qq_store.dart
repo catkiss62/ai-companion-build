@@ -135,10 +135,12 @@ class QqStore {
     return rows.isEmpty?null:rows.single['description'] as String;
   }
   Future<int> groupRepliesSince(int since) async=>Sqflite.firstIntValue(await (await db.database).rawQuery(
-    "SELECT COUNT(*) FROM qq_deliveries d JOIN qq_conversations c ON c.id=d.conversation_id WHERE c.kind='group' AND d.state IN ('sent','sending','send_uncertain') AND d.updated_at>?",[since]))??0;
+    "SELECT COUNT(*) FROM qq_deliveries d JOIN qq_conversations c ON c.id=d.conversation_id WHERE c.kind='group' AND d.state IN ('sent','sending','send_uncertain','sent_archive_pending','sent_archive_failed','partially_sent') AND d.updated_at>?",[since]))??0;
   Future<void> recover(BrainWorkFence fence)=>write(fence,(txn) async {
     await txn.execute("UPDATE qq_deliveries SET state=CASE WHEN state='sending' THEN 'send_uncertain' ELSE 'interrupted' END WHERE state IN ('checking','generating','generated','sending')");
+    await txn.execute("UPDATE qq_deliveries SET state='sent_archive_failed' WHERE state='sent_archive_pending'");
     await txn.execute("UPDATE qq_shares SET state=CASE WHEN state='sending' THEN 'send_uncertain' ELSE 'interrupted' END WHERE state IN ('claimed','sending')");
+    await txn.execute("UPDATE qq_shares SET state='sent_archive_failed' WHERE state='sent_archive_pending'");
     final now=DateTime.now().millisecondsSinceEpoch;
     await txn.rawUpdate("UPDATE qq_work_items SET state=CASE WHEN attempts>=3 THEN 'failed' ELSE 'pending' END,run_token='',next_at=MAX(next_at,?+120000),updated_at=? WHERE state='running'",[now,now]);
   });

@@ -92,6 +92,16 @@ void main(){
     expect(await offer.matches(await db.database),false);expect(await shares.candidates(now),isEmpty);
     expect(await shares.candidates(now,destination:'qq'),isEmpty);
   });
+  test('confirmed QQ share pending archive remains owned and failure cannot reappear on App',()async {
+    await note();await store.append(fence:await store.capture(),scope:QqRuntime.scope(config),kind:'private',target:'owner',
+      platformId:'qq-active',sender:'owner',owner:true,text:'在QQ',observedAt:now.millisecondsSinceEpoch,receivedAt:now.millisecondsSinceEpoch);
+    final shares=QqShareStore(db),candidate=(await QqShareStore(db).candidates(now,destination:'qq')).single;
+    final offer=(await shares.claim(candidate['id'] as String,'qq',now))!,sql=await db.database;
+    await sql.update('qq_shares',{'state':'sent_archive_pending'},where:'id=?',whereArgs:[offer.id]);
+    expect(await offer.matches(sql),true);
+    await store.recover(await store.capture());expect((await sql.query('qq_shares')).single['state'],'sent_archive_failed');
+    expect(await shares.candidates(now),isEmpty);expect(await shares.candidates(now,destination:'qq'),isEmpty);
+  });
   test('turning owner sharing off invalidates an already-generated offer',()async{
     final id=await note();final offer=(await QqShareStore(db).claim(id,'app',now))!;
     await QqOptions.update((fresh)=>fresh.copy(ownerShare:false),namespace:config.namespace,db:db);

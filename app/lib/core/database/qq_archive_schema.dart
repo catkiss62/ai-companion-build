@@ -226,7 +226,7 @@ abstract final class QqArchiveSchema {
     // A restored profile is portable data, not permission to start learning.
     await sql.rawUpdate("UPDATE settings SET value='0' WHERE key LIKE 'qq_style_enabled_v1:%'");
     await sql.delete('settings',where:'key=?',whereArgs:['qq_master_owner_v2']);
-    await sql.execute("UPDATE qq_deliveries SET state = 'restored_history' WHERE state NOT IN ('sent','send_uncertain')");
+    await sql.execute("UPDATE qq_deliveries SET state = 'restored_history' WHERE state NOT IN ('sent','send_uncertain','sent_archive_pending','sent_archive_failed','partially_sent')");
     await sql.execute("UPDATE qq_shares SET state = 'restored_history' WHERE state != 'sent'");
     await sql.execute("UPDATE qq_work_items SET state='restored_history',run_token='' WHERE state!='complete'");
     await sql.execute("INSERT OR IGNORE INTO qq_ingress(id,expires_at) SELECT id,received_at+86400000 FROM qq_archive WHERE role='user'");

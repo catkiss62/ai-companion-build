@@ -29,7 +29,7 @@ class QqShareStore {
     if(!o.ownerShare || await db.getSetting('qq_master_enabled_v2')!='1' ||
       await db.getSetting(policyKey(c.namespace))!=QqStore.hash(o.toJson()) || (await prefersQq(now,c))!=(destination=='qq')) return [];
     final sql=await db.database;
-    final cooldown=await sql.rawQuery("SELECT 1 FROM qq_shares WHERE state IN ('sent','sending','send_uncertain','claimed','failed','permission_error') AND updated_at>? LIMIT 1",[now.subtract(const Duration(hours:6)).millisecondsSinceEpoch]);
+    final cooldown=await sql.rawQuery("SELECT 1 FROM qq_shares WHERE state IN ('sent','sending','send_uncertain','sent_archive_pending','sent_archive_failed','partially_sent','claimed','failed','permission_error') AND updated_at>? LIMIT 1",[now.subtract(const Duration(hours:6)).millisecondsSinceEpoch]);
     if(cooldown.isNotEmpty) return [];
     final rows=await sql.rawQuery('SELECT s.*,n.content AS memory,n.source_stamp,n.sources,n.valid,c.target '
       'FROM qq_shares s JOIN qq_notes n ON n.id=s.note_id JOIN qq_conversations c ON c.id=n.conversation_id '
@@ -50,7 +50,7 @@ class QqShareStore {
     return (await db.database).transaction((txn) async {
       if(!await captured.matches(txn) || await BrainWorkFence.value(txn,offer.policyKey)!=offer.policyToken ||
           await BrainWorkFence.value(txn,'qq_master_enabled_v2')!='1' || !await offer.evidence.matches(txn)) return null;
-      final other=await txn.rawQuery("SELECT 1 FROM qq_shares WHERE state IN ('sent','sending','send_uncertain','claimed','failed','permission_error') AND updated_at>? LIMIT 1",[now.subtract(const Duration(hours:6)).millisecondsSinceEpoch]);
+      final other=await txn.rawQuery("SELECT 1 FROM qq_shares WHERE state IN ('sent','sending','send_uncertain','sent_archive_pending','sent_archive_failed','partially_sent','claimed','failed','permission_error') AND updated_at>? LIMIT 1",[now.subtract(const Duration(hours:6)).millisecondsSinceEpoch]);
       if(other.isNotEmpty) return null;
       final count=await txn.update('qq_shares',{'state':'claimed','destination':destination,'updated_at':now.millisecondsSinceEpoch},where:'id=? AND state=?',whereArgs:[id,'pending']);
       return count==1?offer:null;

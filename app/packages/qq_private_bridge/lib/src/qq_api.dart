@@ -54,10 +54,12 @@ class QqApi {
   void invalidateToken() { _token = null; }
 
   Future<Map<String, dynamic>> authenticated(String method, String path,
-      {Map<String, Object?>? body, bool sending = false}) async {
+      {Map<String, Object?>? body, bool sending = false, Future<bool> Function()? current}) async {
     for (var attempt = 0; ; attempt++) {
       try {
-        return await request(method, '$apiBase$path', body: body, accessToken: await token(), sending: sending);
+        if(current!=null && !await current())throw QqApiException('stopped');
+        final access=await token();
+        return await request(method, '$apiBase$path', body: body, accessToken: access, sending: sending,current:current);
       } on QqApiException catch (e) {
         // An explicit HTTP 401 rejected the operation: refresh once. Never
         // blindly retry a send whose network result is unknown.
@@ -90,9 +92,9 @@ class QqApi {
     return '/v2/${group?'groups':'users'}/${Uri.encodeComponent(target)}';
   }
   Future<void> sendMessage({required bool group,required String target,required String messageId,
-    required int sequence,String text='',String fileInfo=''}) async {
+    required int sequence,String text='',String fileInfo='',Future<bool> Function()? current}) async {
     if(text.isEmpty && fileInfo.isEmpty || sequence<1) throw QqApiException('invalid_message');
-    final result=await authenticated('POST','${_target(group,target)}/messages',sending:true,body:{
+    final result=await authenticated('POST','${_target(group,target)}/messages',sending:true,current:current,body:{
       'msg_type':fileInfo.isEmpty?0:7,if(text.isNotEmpty)'content':text,if(fileInfo.isNotEmpty)'media':{'file_info':fileInfo},
       if(messageId.isNotEmpty)'msg_id':messageId,'msg_seq':sequence});
     if(result['id'] is! String || (result['id'] as String).isEmpty) throw QqApiException('send_receipt_missing',uncertain:true);
@@ -154,12 +156,19 @@ class QqApi {
   }
 
   Future<Map<String, dynamic>> request(String method, String url,
-      {Map<String, Object?>? body, String? accessToken, bool sending = false}) async {
+      {Map<String, Object?>? body, String? accessToken, bool sending = false, Future<bool> Function()? current}) async {
     if (_closed) throw QqApiException('stopped');
     HttpClientRequest? outgoing;
+    var expired=false;
+    Future<void> check() async {
+      final valid=current==null || await current();
+      if(_closed || expired || !valid) {outgoing?.abort();throw QqApiException('stopped');}
+    }
     try {
       return await (() async {
+        await check();
         outgoing = await _client.openUrl(method, Uri.parse(url));
+        await check();
         outgoing!.headers.set(HttpHeaders.userAgentHeader, 'AICompanion-QQPrivate/0.1');
         outgoing!.headers.contentType = ContentType.json;
         if (accessToken != null) {
@@ -185,6 +194,7 @@ class QqApi {
         }
         return data;
       })().timeout(const Duration(seconds: 20), onTimeout: () {
+        expired=true;
         outgoing?.abort();
         throw QqApiException('timeout', uncertain: sending);
       });
