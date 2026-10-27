@@ -28,4 +28,29 @@
 
 `proactive_night_v042142_test.dart`使用真实Desire评分和选择器覆盖不同起床时间的疲劳平台、普通/强烈驱动、旧fixation维护时间误导、真实新事件/过期/未来时间、同缘由新证据和夜间加分/抽样关闭。原起床、Desire、游戏与QQ回归继续运行。提示词的真实模型执行效果、夜间实际频率和手机后台体验仍需真机观察。
 
-本地源码门136项通过；其余18项受缺资源/缺Kotlin工具链阻挡，不计为通过。Node桥接回归和YAML/diff检查通过。本地无Flutter/Dart/Android SDK，Dart分析与测试、完整源码门及APK验证以本轮CI结果为准；提交时尚未取得新CI结果。
+本地源码门136项通过；其余18项受缺资源/缺Kotlin工具链阻挡，不计为通过。Node桥接回归和YAML/diff检查通过。本地无Flutter/Dart/Android SDK，以下Dart/Android结果均来自本轮真实CI。
+
+本轮运行源码最终候选为`1330046de74a790ae671443a4108a2ec1ede6f0f`，tree`b37a16bb81ab5c6bc914edafdca8821fb82d58f5`；[完整CI](https://github.com/catkiss62/ai-companion-build/actions/runs/40441351357)、[专项CI](https://github.com/catkiss62/ai-companion-build/actions/runs/40441351370)。首轮绘图回归的Mock将同为6000输出预算的流式正文误认成SVG提取；区分stream后该用例及第一组92项通过。最终候选的验证及APK已完成，见下表；被取消的旧候选不作为交付。
+
+历史边界：本轮不自动复活旧complete/cancelled工作项，也不批量重读已消费的历史。旧版错误空结果与合法空结果缺少足够信息区分；学习取消也可能来自真实撤权。修复保证后续格式校验和任务流转，保留原文与现有手动失败重试入口，不伪称已自动补齐所有过去的空摘要或学习缺口。
+
+
+## 已验证交付
+
+| 项目 | 实际结果 |
+|---|---|
+| 完整CI | [40441351357](https://github.com/catkiss62/ai-companion-build/actions/runs/40441351357)，success |
+| 专项CI | [40441351370](https://github.com/catkiss62/ai-companion-build/actions/runs/40441351370)，success |
+| 检查 | 154项源码门、Kotlin回归、Android15原生生命周期验证通过 |
+| Dart测试 | 第一组92、专项1280、全量2900、打包前归档恢复170项分别通过；有重叠，不相加 |
+| Dart分析 | 0 error、955项非fatal提示，未声称零告警 |
+| APK | com.aicompanion.localfirst / 0.42.142+386 / schema64 |
+| APK大小 | 739298814 bytes |
+| APK SHA256 | b54706abe0c4d345247ac07f21e8c9b5b4a3a0a0389c772829854e201cb10e33 |
+| 原签名SHA256 | 305eb3d80983b963c64818ddf1ad561f279de6d47b3ed2c781ada448c7c25148 |
+| Actions资源 | 12708116721 / AI-Companion-v0.42.142-386-QQ-Night-Recovery-APK |
+| Draft Release | 424985879，APK asset680343334，target1330046de74a790ae671443a4108a2ec1ede6f0f |
+
+CI日志中的APK哈希与线上APK asset digest一致；资源ZIP为732109309 bytes、SHA256 c7ac94a660ce736f1da2e7b60af2eeb9e69547c37b784f8cca27a1e46b71f10a，和APK文件是两种校验对象。APK内版本、原证书、完整桌宠/Live2D关联资源及离线功能载荷核验均通过。按用户偏好通过GitHub下载，不重新通过聊天传输大型APK；没有发布正式Release或合并main。
+
+[下载构建产物](https://github.com/catkiss62/ai-companion-build/actions/runs/40441351357/artifacts/12708116721)；[Draft Release](https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-7abb7a2ee8c9ec133ab8)。仍需安装后观察真实上游模型对夜间WAIT契约的执行、实际频率及手机后台体验；自动回归不替代这些运行反馈。

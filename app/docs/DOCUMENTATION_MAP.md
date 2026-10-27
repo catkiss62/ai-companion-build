@@ -1,6 +1,6 @@
 # 文档地图
 
-当前执行：[+386 QQ与夜间修补](QQ_NIGHT_RECOVERY_v042142.md)，状态以总账v3及本轮CI为准。
+当前交付：[+386 QQ与夜间修补](QQ_NIGHT_RECOVERY_v042142.md)，完整CI40441351357和专项40441351370成功；运行源码1330046de74a790ae671443a4108a2ec1ede6f0f，状态与下载见总账v3。
 
 当前交付：[QQ_ARCHIVE_AGENT_v042139.md](QQ_ARCHIVE_AGENT_v042139.md) — +383六组QQ/Agent读取链修复及沉浸布局；完整CI40327576862成功，2829全量Flutter/170存档恢复/54原生测试通过，原签名APK已上传GitHub，真机待验。
 
