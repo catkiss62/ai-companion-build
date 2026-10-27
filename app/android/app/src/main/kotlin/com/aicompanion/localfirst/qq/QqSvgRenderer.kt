@@ -13,6 +13,8 @@ import java.util.concurrent.Semaphore
 
 /** A small, bounded drawing dialect. No WebView, files, URLs, scripts or CSS. */
 internal object QqSvgRenderer {
+    internal class Rejected(val reason: String) : IllegalArgumentException(reason)
+    private fun checkSvg(accepted: Boolean, reason: String) { if(!accepted) throw Rejected(reason) }
     private val executor = Executors.newSingleThreadExecutor()
     private val slot = Semaphore(1)
     fun reply(svg: String?, result: MethodChannel.Result) {
@@ -23,8 +25,9 @@ internal object QqSvgRenderer {
             try {
                 val bytes = render(svg)
                 Handler(Looper.getMainLooper()).post { result.success(bytes) }
-            } catch (_: Exception) {
-                Handler(Looper.getMainLooper()).post { result.error("sketch_invalid", "涂鸦格式不受支持", null) }
+            } catch (error: Exception) {
+                val reason=if(error is Rejected)error.reason else "svg_xml_or_geometry"
+                Handler(Looper.getMainLooper()).post { result.error("sketch_invalid", "涂鸦格式不受支持", mapOf("reason" to reason)) }
             } finally { slot.release() }
         }
     }
@@ -33,14 +36,14 @@ internal object QqSvgRenderer {
     private val tags = setOf("svg", "g", "path", "rect", "circle", "ellipse", "line", "polyline", "polygon", "text")
     private val attributes = setOf("viewBox","width","height","x","y","x1","x2","y1","y2","cx","cy","r","rx","ry","d","points","fill","stroke","stroke-width","opacity","transform","font-size","text-anchor","stroke-linecap","stroke-linejoin")
     private val number = Regex("[-+]?(?:[0-9]+(?:\\.[0-9]*)?|\\.[0-9]+)(?:[eE][-+]?[0-9]+)?")
-    private fun value(raw: String): Float = raw.toFloat().also { require(it.isFinite() && kotlin.math.abs(it)<=8192f) }
+    private fun value(raw: String): Float = (raw.toFloatOrNull() ?: throw Rejected("svg_number")).also { checkSvg(it.isFinite() && kotlin.math.abs(it)<=8192f,"svg_number") }
     private fun numbers(raw: String): List<Float> {
-        require(number.replace(raw, "").all { it.isWhitespace() || it==',' })
-        return number.findAll(raw).map { value(it.value) }.toList().also { require(it.size<=1800) }
+        checkSvg(number.replace(raw, "").all { it.isWhitespace() || it==',' },"svg_number")
+        return number.findAll(raw).map { value(it.value) }.toList().also { checkSvg(it.size<=1800,"svg_limit") }
     }
     private fun color(raw: String): Int? {
         if(raw=="none")return null
-        require(raw.matches(Regex("#[0-9a-fA-F]{3}|#[0-9a-fA-F]{6}|#[0-9a-fA-F]{8}")) || raw in setOf("black","white","red","blue","green","yellow","gray","grey","cyan","magenta","pink","orange","purple","brown","transparent"))
+        checkSvg(raw.matches(Regex("#[0-9a-fA-F]{3}|#[0-9a-fA-F]{6}|#[0-9a-fA-F]{8}")) || raw in setOf("black","white","red","blue","green","yellow","gray","grey","cyan","magenta","pink","orange","purple","brown","transparent"),"svg_color")
         val expanded=if(raw.length==4 && raw.startsWith("#")) "#"+raw.drop(1).map { "$it$it" }.joinToString("") else raw
         return when(expanded) { "pink"->0xffffb6c1.toInt();"orange"->0xffffa500.toInt();"purple"->0xff800080.toInt();"brown"->0xffa52a2a.toInt();else->Color.parseColor(expanded) }
     }
@@ -54,12 +57,12 @@ internal object QqSvgRenderer {
             while(event!=XmlPullParser.END_DOCUMENT) {
                 when(event) {
                     XmlPullParser.START_TAG -> {
-                        val tag=parser.name;require(tag in tags && (parser.namespace.isNullOrEmpty() || parser.namespace=="http://www.w3.org/2000/svg"))
-                        require(++count<=220 && stack.size<12)
-                        if(stack.isEmpty()) {require(tag=="svg" && ++roots==1)} else require(tag!="svg" && stack.last().tag in setOf("svg","g"))
+                        val tag=parser.name;checkSvg(tag in tags && (parser.namespace.isNullOrEmpty() || parser.namespace=="http://www.w3.org/2000/svg"),"svg_tag")
+                        checkSvg(++count<=220 && stack.size<12,"svg_limit")
+                        if(stack.isEmpty()) {checkSvg(tag=="svg" && ++roots==1,"svg_nesting")} else checkSvg(tag!="svg" && stack.last().tag in setOf("svg","g"),"svg_nesting")
                         val a=linkedMapOf<String,String>()
                         for(i in 0 until parser.attributeCount) {
-                            val name=parser.getAttributeName(i);require(name in attributes && parser.getAttributeNamespace(i).isNullOrEmpty())
+                            val name=parser.getAttributeName(i);checkSvg(name in attributes && parser.getAttributeNamespace(i).isNullOrEmpty(),"svg_attribute")
                             a[name]=parser.getAttributeValue(i).also { require(it.length<=12000) }
                         }
                         val inherited=stack.lastOrNull()?.style?:Style()
@@ -71,7 +74,7 @@ internal object QqSvgRenderer {
                         canvas.save()
                         if(tag=="svg") {
                             val box=a["viewBox"]?.let(::numbers)?:listOf(0f,0f,512f,512f)
-                            require(box.size==4 && box[2]>=16 && box[3]>=16 && box[2]<=4096 && box[3]<=4096)
+                            checkSvg(box.size==4 && box[2]>=16 && box[3]>=16 && box[2]<=4096 && box[3]<=4096,"svg_viewbox")
                             val scale=minOf(512f/box[2],512f/box[3]);canvas.translate((512-box[2]*scale)/2,(512-box[3]*scale)/2);canvas.scale(scale,scale);canvas.translate(-box[0],-box[1])
                         }
                         a["transform"]?.let { transform(canvas,it) }
@@ -90,7 +93,9 @@ internal object QqSvgRenderer {
     }
     private fun transform(canvas: Canvas, raw: String) {
         val expression=Regex("(translate|scale|rotate)\\s*\\(([^()]*)\\)")
-        val matches=expression.findAll(raw).toList();require(matches.size<=6 && expression.replace(raw,"").isBlank())
+        // SVG transform lists allow comma-wsp between supported transforms.
+        // Keep the same numeric/operation bounds and reject all other tokens.
+        val matches=expression.findAll(raw).toList();checkSvg(matches.size<=6 && expression.replace(raw,"").all { it.isWhitespace() || it==',' },"svg_transform")
         for(match in matches) {val n=numbers(match.groupValues[2]);when(match.groupValues[1]) {
             "translate"->{require(n.size in 1..2);canvas.translate(n[0],n.getOrElse(1){0f})}
             "scale"->{require(n.size in 1..2 && n.all { kotlin.math.abs(it)<=20f });canvas.scale(n[0],n.getOrElse(1){n[0]})}
@@ -121,7 +126,7 @@ internal object QqSvgRenderer {
     }
     private fun path(raw:String):Path {
         val token=Regex("[MmLlHhVvCcQqZz]|${number.pattern}")
-        require(token.replace(raw,"").all { it.isWhitespace() || it==',' })
+        checkSvg(token.replace(raw,"").all { it.isWhitespace() || it==',' },"svg_path")
         val tokens=token.findAll(raw).map { it.value }.toList();require(tokens.size<=1800)
         val path=Path();var i=0;var command=' ';var x=0f;var y=0f;var startX=0f;var startY=0f;var segments=0
         while(i<tokens.size) {

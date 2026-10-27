@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:typed_data';
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:http/http.dart' as http;
@@ -29,6 +30,7 @@ import 'package:ai_companion_localfirst/integrations/qq_private/qq_readonly_cont
 import 'package:ai_companion_localfirst/integrations/qq_private/qq_runtime.dart';
 import 'package:ai_companion_localfirst/integrations/qq_private/qq_store.dart';
 import 'package:ai_companion_localfirst/integrations/qq_private/qq_vision.dart';
+import 'package:ai_companion_localfirst/integrations/qq_private/qq_failure.dart';
 
 class _Secure extends SecureConfig {
   _Secure():super.forTesting(const FlutterSecureStorage());
@@ -65,7 +67,7 @@ class _Stickers extends QqStickers {
   static const pack=StickerPackMeta(id:'fixture',name:'图库',description:'测试',license:'fixture',rootPath:'/unused',count:1);
   static const record=StickerRecord(packId:'fixture',path:'one.png',tag:'daily',caption:'随手一张无意义表情，也可故意错位',keywords:'',toneScope:'normal',intensity:1,enabled:true);
   @override Future<String> stamp()async=>'same-gallery';
-  @override Future<List<StickerReplyCandidate>> candidates(String seed,String context)async=>[const StickerReplyCandidate('s1',pack,record)];
+  @override Future<List<StickerReplyCandidate>> candidates(String seed,String context,{bool group=false})async=>[const StickerReplyCandidate('s1',pack,record)];
   @override Future<({Uint8List bytes,String filename})> bytes(StickerReplyCandidate c)async=>(bytes:Uint8List.fromList([1,2,3]),filename:'one.png');
 }
 http.Response _json(Object data)=>http.Response(jsonEncode({'choices':[{'message':{'content':jsonEncode(data)},'finish_reason':'stop'}]}),200,
@@ -151,6 +153,53 @@ void main(){
     clock=clock.add(const Duration(seconds:3));await accept('active-2','哈哈接着说');await runtime.process(cid());
     expect(api.sent.length,2);expect(jevRequests.length,2);
     expect(requests.where((r)=>jsonDecode(r.body)['max_tokens']==100),isEmpty);
+  });
+  test('JEV sees new-batch IDs separately from old conversation without an extra vote',()async{
+    await useJev(gateway((r)async=>jevAnswer({'direct':.02,'continuing':.96,'join':.01,'watch':.01})));
+    await accept('focus-old','小鲸鱼刚才说了什么');await runtime.process(cid());
+    clock=clock.add(const Duration(seconds:3));await accept('focus-new','现在群友转聊晚饭');await runtime.process(cid());
+    final payload=jsonDecode(jevRequests.last.body) as Map;
+    final state=payload['state'] as Map;
+    final newRows=await (await db.database).query('qq_archive',where:"role='user'",orderBy:'seq');
+    expect(state['new_message_seqs'],[newRows.last['seq']]);
+    expect(state['recent_participation']['reference_only_not_a_limit'],true);
+    expect(jsonEncode(state['recent_messages']),contains('小鲸鱼刚才说了什么'));
+    expect(jsonEncode(state['recent_messages']),contains('现在群友转聊晚饭'));
+    expect(jevRequests.length,2);expect(api.sent.length,2);
+    // A mocked continuing classification still replies: statistics are not a
+    // hidden hard gate, and no low-probability watch is substituted.
+  });
+  test('103 quote reaches actual reception, vision and final body as separate material',()async{
+    handler=(r,b)async=>b['stream']==true?_sse('这是转来的资料'):_json(b['max_tokens']==60?{'safe':true}:{'participation':'direct'});
+    final e=event('quote-103','你怎么看')..addAll({'message_type':103,'msg_idx':'outer','ref_msg_idx':'inner',
+      'msg_elements':[{'msg_idx':'inner','content':'另处的人说的独特内容','author':{'member_openid':'owner'},
+        'attachments':[{'content_type':'image/png','url':'https://fixture.invalid/quote.png'}]}]});
+    await runtime.accept(e,group:true);await runtime.process(cid());
+    final user=(await (await db.database).query('qq_archive',where:"role='user'")).single;
+    expect(user['content'],'你怎么看');expect(user['owner'],0);expect((await store.images(user['seq'] as int)).length,1);
+    expect(vision.calls,1);expect(api.sent.single['text'],'这是转来的资料');
+    final request=requests.where((r)=>jsonDecode(r.body)['stream']==true).single;
+    expect(request.body,contains('另处的人说的独特内容'));expect(request.body,contains('unverified'));
+  });
+  test('rejected native SVG records reason and sends honest failure without another paid drawing call',()async{
+    var drawingCalls=0,renderCalls=0;
+    const channel=MethodChannel('ai_companion/qq_private_runtime');
+    TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger.setMockMethodCallHandler(channel,(call)async {
+      renderCalls++;throw PlatformException(code:'sketch_invalid',details:{'reason':'svg_path'});
+    });
+    try {
+      handler=(r,b)async {
+        if(b['stream']==true)return _sse('画一下<qq_sketch mode="with_text">画个鲸鱼</qq_sketch>');
+        if(b['max_tokens']==6000) {drawingCalls++;return _json({'svg':'<svg><circle r="20"/></svg>','description':'合成鲸鱼涂鸦'});}
+        return _json(b['max_tokens']==60?{'safe':true}:{'participation':'direct'});
+      };
+      await accept('drawing-rejected','画个自画像');await runtime.process(cid());
+      expect(drawingCalls,1);expect(renderCalls,1);expect(api.sent.single['text'],contains('绘图格式'));
+      final failures=jsonDecode(await db.getSetting(QqFailure.historyKey)??'[]') as List;
+      expect(failures.first['phase'],'sketch_generation');expect(failures.first['code'],'svg_path');
+      expect(jsonEncode(failures),isNot(contains('<svg')));expect(jsonEncode(failures),isNot(contains('fixture.invalid')));
+      await runtime.process(cid());expect(drawingCalls,1);
+    } finally {TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger.setMockMethodCallHandler(channel,null);}
   });
   test('ordinary JEV joins retain cooldown and consumed input is never reconsidered later',()async{
     await useJev(gateway((r)async=>jevAnswer({'direct':.01,'continuing':.01,'join':.97,'watch':.01})));

@@ -20,6 +20,8 @@ import 'package:ai_companion_localfirst/integrations/qq_private/qq_reply_deliver
 import 'package:ai_companion_localfirst/integrations/qq_private/qq_sketch.dart';
 import 'package:ai_companion_localfirst/integrations/qq_private/qq_store.dart';
 import 'package:ai_companion_localfirst/integrations/qq_private/qq_work_queue.dart';
+import 'package:ai_companion_localfirst/integrations/qq_private/qq_incoming.dart';
+import 'package:ai_companion_localfirst/integrations/qq_private/qq_failure.dart';
 
 class _Secure extends SecureConfig {
   _Secure():super.forTesting(const FlutterSecureStorage());
@@ -143,11 +145,20 @@ void main() {
   });
   test('real learner only consumes new human group messages once and honors midflight disable',() async {
     await add('before',text:'旧发言不应自动学');final learning=QqGroupLearning(store);await learning.setEnabled(cid,true);
-    for(var i=0;i<12;i++)await add('human$i',text:'接梗节奏$i');
+    for(var i=0;i<12;i++) {
+      final incoming=QqIncoming.parse({'content':'接梗节奏$i','message_type':103,
+        'msg_elements':[{'content':'其他群独特台词，不应该学习',
+          'attachments':[{'content_type':'image/png','url':'https://fixture.invalid/image.png'}]}]});
+      final seq=(await store.append(fence:await store.capture(),scope:scope,kind:'group',target:'a',platformId:'human$i',sender:'peer',
+        text:incoming.text,contextMeta:incoming.material.encode(),images:1,observedAt:at,receivedAt:at,policy:'p'))!;
+      final row=(await (await db.database).query('qq_archive',where:'seq=?',whereArgs:[seq])).single;
+      await store.observation(await store.capture(),'${row['id']}:0','viewed','截图里的独特台词，不应该学习','synthetic');
+    }
     await store.append(fence:await store.capture(),scope:scope,kind:'group',target:'a',platformId:'assistant',sender:'assistant',text:'不准从这条自我学习',role:'assistant',observedAt:at,receivedAt:at);
     var calls=0;final replies=<Map<String,Object?>>[];
     DeepSeekClient factory(Future<bool> Function() abort)=>DeepSeekClient(abortWhen:abort,jsonClientFactory:()=>MockClient((r)async {
       calls++;final body=jsonDecode(r.body) as Map;final input=jsonEncode(body['messages']);expect(input,isNot(contains('不准从这条自我学习')));expect(input,isNot(contains('旧发言不应自动学')));
+      expect(input,isNot(contains('其他群独特台词')));expect(input,isNot(contains('截图里的独特台词')));
       replies.add(body.cast<String,Object?>());return http.Response(jsonEncode({'choices':[{'message':{'content':jsonEncode({'habits':['接梗时偶尔重复一两个词']})},'finish_reason':'stop'}]}),200,headers:{'content-type':'application/json'});
     }));
     await learning.learn(cid,now:at,secure:_Secure(),clientFactory:factory,allowed:()async=>true);
@@ -178,6 +189,18 @@ void main() {
     final second=client(cancel:true);
     await expectLater(service.generate(b,const QqSketchChoice('小鲸鱼',true),now:at+1000,secure:_Secure(),client:second,current:()async=>active),throwsA(anything));second.close();expect(rendered,1);
     TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger.setMockMethodCallHandler(channel,null);
+  });
+  test('stalled sketch has one total deadline and never starts another model request',() async {
+    await add('slow-draw',text:'画个鲸鱼');
+    final batch=(await store.claim(await store.capture(conversationId:cid),cid,1,at,policy:'p'))!;
+    var calls=0;final pending=Completer<http.Response>();
+    final client=DeepSeekClient(jsonClientFactory:()=>MockClient((r) {calls++;return pending.future;}));
+    try {
+      final service=QqSketchService(store,requestTimeout:const Duration(milliseconds:300));
+      await expectLater(service.generate(batch,const QqSketchChoice('鲸鱼',true),now:at,secure:_Secure(),client:client,current:()async=>true),
+        throwsA(isA<QqOperationFailure>().having((e)=>e.code,'reason','sketch_timeout')));
+      expect(calls,lessThanOrEqualTo(1));
+    } finally {client.close();pending.complete(http.Response('{}',200));}
   });
   test('drawing metadata stays invisible; unsafe SVG and unwanted drawing rejected',() {
     const raw='随手画了个<qq_sketch mode="only">蓝色鲸鱼</qq_sketch>';

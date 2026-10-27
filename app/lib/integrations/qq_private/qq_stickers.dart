@@ -16,11 +16,19 @@ class QqStickers {
   final StickerPackStorage storage;
   Future<String> stamp() async=>jsonEncode([for(final key in [StickerPackStorage.modeSetting,
     StickerPackStorage.enabledPacksSetting,StickerPackStorage.captionOverridesSetting])await db.getSetting(key)]);
-  Future<List<StickerReplyCandidate>> candidates(String seed,String context) async {
+  static bool explicitGroupPlay(String text) {
+    // Mentioning a sticker, complaining about one, or old OCR text is not an
+    // invitation. This only bypasses the existing opportunity probability.
+    if(RegExp(r'(别|不要|不用|停止|减少|少发).{0,10}(表情|斗图)').hasMatch(text)) return false;
+    return RegExp(r'(?:^|[\n，,。！？!?])\s*(?:(?:请|你|小鲸鱼|快|能不能|能|可以|再|要不|给我|给大家|帮我|一起)\s*){0,4}'
+      r'(?:(?:发|来|整|丢|甩|回)(?!了|过|的).{0,8}表情包|(?:来)?斗图(?:吧|呀|吗)?[！!？?。\s]*$)').hasMatch(text);
+  }
+  Future<List<StickerReplyCandidate>> candidates(String seed,String context,{bool group=false}) async {
     final mode=(await db.getSetting(StickerPackStorage.modeSetting)??'natural').toLowerCase();
     if(mode=='off') return [];
     final unit=int.parse(QqStore.hash([seed,'sticker']).substring(0,8),radix:16)/0xffffffff;
-    if(!RegExp(r'(表情包|斗图)').hasMatch(context) && unit>=StickerExpressionService.ordinaryReplyThreshold(mode)) return [];
+    final invited=group?explicitGroupPlay(context):RegExp(r'(表情包|斗图)').hasMatch(context);
+    if(!invited && unit>=StickerExpressionService.ordinaryReplyThreshold(mode)) return [];
     final enabled=await storage.enabledPackIds();
     final recent=await (await db.database).query('qq_deliveries',columns:['sticker_key'],
       where:"state='sent' AND sticker_key != ''",orderBy:'updated_at DESC',limit:20);

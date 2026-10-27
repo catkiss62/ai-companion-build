@@ -10,6 +10,18 @@ import org.robolectric.annotation.Config
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk=[35],manifest=Config.NONE)
 class QqSvgRendererTest {
+    @Test fun rejectionCategoriesIdentifyTheFailingDialectWithoutKeepingSvgOrText() {
+        val cases=mapOf(
+            "<svg><path d='M 0 0 S 1 1 2 2'/></svg>" to "svg_path",
+            "<svg><circle r='20' style='fill:red'/></svg>" to "svg_attribute",
+            "<svg><circle r='20' fill='rgb(1,2,3)'/></svg>" to "svg_color",
+            "<svg><defs/></svg>" to "svg_tag"
+        )
+        for((svg,reason) in cases) {
+            try {QqSvgRenderer.render(svg);fail("unsupported dialect accepted")}
+            catch(error:QqSvgRenderer.Rejected) {assertEquals(reason,error.reason);assertEquals(reason,error.message)}
+        }
+    }
     @Test fun paintsBoundedShapesPathsAndChineseWithoutAWebView() {
         val svg="""<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><rect width="512" height="512" fill="#ffffff"/><g transform="translate(10,10)" stroke="#000000" stroke-width="3"><circle cx="250" cy="220" r="80" fill="#aaffff"/><path d="M 60 300 Q 200 200 300 350 l 50 0 z" fill="none"/><text x="240" y="400" text-anchor="middle">鲸鱼</text></g></svg>"""
         val bytes=QqSvgRenderer.render(svg)
@@ -36,6 +48,11 @@ class QqSvgRendererTest {
     @Test fun prettyPrintedContainersDoNotConsumeTheTextBudget() {
         val svg="<svg>"+"\n    <circle cx='5' cy='5' r='2'/>".repeat(180)+"\n</svg>"
         assertTrue(QqSvgRenderer.render(svg).isNotEmpty())
+    }
+    @Test fun supportsCommaSeparatedTransformListsWithoutAcceptingOtherOperations() {
+        assertTrue(QqSvgRenderer.render("<svg><g transform='translate(10,10), scale(0.8), rotate(5)'><circle cx='100' cy='100' r='20'/></g></svg>").isNotEmpty())
+        try {QqSvgRenderer.render("<svg><g transform='translate(10,10), skewX(30)'/></svg>");fail("unsupported transform accepted")}
+        catch(error:QqSvgRenderer.Rejected) {assertEquals("svg_transform",error.reason)}
     }
     @Test fun supportsRelativeCurvesButRejectsMissingAndJunkCoordinates() {
         assertTrue(QqSvgRenderer.render("<svg><path d='M 1 1 h 20 v 10 c 2 2 3 3 4 4 q 2 2 4 4 Z' fill='#abc'/></svg>").isNotEmpty())

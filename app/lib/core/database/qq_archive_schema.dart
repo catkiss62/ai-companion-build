@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'package:sqflite/sqflite.dart';
+import '../qq/qq_message_material.dart';
 
 /// Portable QQ history, with no dependency on main-message/growth consumers.
 abstract final class QqArchiveSchema {
@@ -7,7 +8,7 @@ abstract final class QqArchiveSchema {
   static const tables = ['qq_conversations','qq_archive','qq_images','qq_notes','qq_deliveries','qq_shares','qq_receipts',...additions];
   static const columns = <String,Set<String>>{
     'qq_conversations':{'id','scope','kind','target','checked_seq','summary_checked_seq','summary_seq','last_reply_at','version'},
-    'qq_archive':{'seq','id','conversation_id','platform_id','sender','owner','role','content','observed_at','received_at','mentioned','reply_to','accepted_identity','accepted_policy','version'},
+    'qq_archive':{'seq','id','conversation_id','platform_id','sender','owner','role','content','context_meta','observed_at','received_at','mentioned','reply_to','accepted_identity','accepted_policy','version'},
     'qq_images':{'id','archive_seq','ordinal','state','description','fingerprint','version'},
     'qq_notes':{'id','conversation_id','content','sources','source_stamp','through_seq','created_at','valid','range_start','range_end','revision','edited_at'},
     'qq_deliveries':{'id','conversation_id','through_seq','state','content','sticker_key','updated_at'},
@@ -28,7 +29,7 @@ abstract final class QqArchiveSchema {
       seq INTEGER PRIMARY KEY AUTOINCREMENT, id TEXT NOT NULL UNIQUE,
       conversation_id TEXT NOT NULL REFERENCES qq_conversations(id), platform_id TEXT NOT NULL,
       sender TEXT NOT NULL, owner INTEGER NOT NULL DEFAULT 0, role TEXT NOT NULL,
-      content TEXT NOT NULL, observed_at INTEGER NOT NULL, received_at INTEGER NOT NULL,
+      content TEXT NOT NULL, context_meta TEXT NOT NULL DEFAULT '', observed_at INTEGER NOT NULL, received_at INTEGER NOT NULL,
       mentioned INTEGER NOT NULL DEFAULT 0, reply_to TEXT NOT NULL DEFAULT '',
       accepted_identity TEXT NOT NULL DEFAULT '', accepted_policy TEXT NOT NULL DEFAULT '', version INTEGER NOT NULL DEFAULT 1)''');
     await sql.execute('CREATE INDEX IF NOT EXISTS qq_archive_conversation ON qq_archive(conversation_id,seq)');
@@ -73,6 +74,13 @@ abstract final class QqArchiveSchema {
       description TEXT NOT NULL,created_at INTEGER NOT NULL)''');
   }
 
+  static Future<void> upgradeMaterial(DatabaseExecutor sql) async {
+    final fields=await sql.rawQuery('PRAGMA table_info(qq_archive)');
+    if(!fields.any((r)=>r['name']=='context_meta')) {
+      await sql.execute("ALTER TABLE qq_archive ADD COLUMN context_meta TEXT NOT NULL DEFAULT ''");
+    }
+  }
+
   static Future<void> upgradeWork(DatabaseExecutor sql) async {
     await create(sql);
     // Keep original receive receipts through current-record deletion. They
@@ -109,6 +117,7 @@ abstract final class QqArchiveSchema {
       if(rows is! List || rows.length>250000) throw const FormatException('QQ分区缺失或过大');
       final ids=<String>{};
       for(final row in rows) {
+        if(table=='qq_archive' && version<65 && row is Map) row.putIfAbsent('context_meta',()=> '');
         if(table=='qq_notes' && version<63 && row is Map) {
           final sources=jsonDecode(row['sources'] as String);
           final times=sources is List?sources.map((id)=>observed[id]).whereType<int>().toList():<int>[];
@@ -155,6 +164,7 @@ abstract final class QqArchiveSchema {
           final cid=row['conversation_id'];
           if(!conversations.containsKey(cid)) throw const FormatException('QQ会话来源缺失');
           if(table=='qq_archive') {
+            QqMessageMaterial.decode(row['context_meta'] as String);
             final seq=row['seq'];
             if(seq is! int || seq<=0 || seqs.containsKey(seq) || !const {'user','assistant'}.contains(row['role']) ||
                 row['observed_at'] is! int || row['received_at'] is! int || row['version'] is! int ||

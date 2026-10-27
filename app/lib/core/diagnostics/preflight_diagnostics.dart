@@ -622,6 +622,9 @@ class PreflightDiagnosticsService {
       report['modelUsage'] = _modelUsageSummary(
         await db.getSetting('deepseek_usage_telemetry_v1') ?? '',
       );
+      report['qqOperations'] = _qqOperationFailures(
+        await db.getSetting('qq_operation_failures_v1') ?? '[]',
+      );
       report['creativeAgent'] = await CreativeStore(db).diagnostics();
       report['finalReplyRouting'] = {
         'configuredProvider': (await SecureConfig.instance.readChatProvider()).storageValue,
@@ -1977,6 +1980,24 @@ class PreflightDiagnosticsService {
   String _fingerprint(String raw) {
     if (raw.trim().isEmpty) return '';
     return sha256.convert(utf8.encode(raw)).toString().substring(0, 12);
+  }
+
+  Map<String,Object?> _qqOperationFailures(String raw) {
+    final rows=<Map<String,Object?>>[];
+    try {
+      final decoded=jsonDecode(raw);
+      if(decoded is List) {
+        for(final item in decoded.take(12)) {
+          if(item is! Map || item['at'] is! int || item['attempt'] is! int || item['elapsed_ms'] is! int ||
+            item['phase'] is! String || !const {'context','vision','participation','reply_generation','first_reply','second_reply',
+              'sketch_generation','group_boundary','media_upload','send'}.contains(item['phase']) ||
+            item['code'] is! String || !RegExp(r'^[a-z0-9_]{1,64}$').hasMatch(item['code'] as String))continue;
+          rows.add({for(final key in ['at','phase','code','attempt','elapsed_ms'])key:item[key]});
+        }
+      }
+    } catch(_) {}
+    return {'recentFailures':rows,'messageBodiesIncluded':false,'svgBodiesIncluded':false,
+      'credentialsIncluded':false,'automaticSketchRetry':false};
   }
 
   Map<String, Object?> _modelUsageSummary(String raw) {

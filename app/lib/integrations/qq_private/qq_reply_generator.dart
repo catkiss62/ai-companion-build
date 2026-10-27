@@ -5,18 +5,20 @@ import '../../core/ai/deepseek_client.dart';
 import '../../core/ai/generation_cancellation.dart';
 import '../../core/ai/model_profile.dart';
 import '../../core/storage/secure_config.dart';
+import 'qq_failure.dart';
 
 /// QQ owns its reply lane. Drafts never leave this adapter: only a complete
 /// response is handed to delivery, so retries/fallback cannot duplicate chunks.
 class QqReplyGenerator {
   QqReplyGenerator({required this.client, required this.secure,
-    required this.current, this.onStatus,
+    required this.current, this.onStatus, this.onFailure,
     this.firstTimeout = const Duration(seconds: 90),
     this.secondTimeout = const Duration(seconds: 45)});
   final DeepSeekClient client;
   final SecureConfig secure;
   final Future<bool> Function() current;
   final void Function(String)? onStatus;
+  final Future<void> Function(String phase,Object error,int attempt)? onFailure;
   final Duration firstTimeout, secondTimeout;
 
   Future<String> generate({required String channel, required DeepSeekModelProfile firstModel,
@@ -34,7 +36,8 @@ class QqReplyGenerator {
       // client's inter-delta timeout. Bound the whole attempt as well, and
       // cancel its transport before allowing the next lane to start.
       final timeout = second ? secondTimeout : firstTimeout;
-      final deadline = Timer(timeout, cancellation.cancel);
+      var expired=false;
+      final deadline = Timer(timeout, (){expired=true;cancellation.cancel();});
       final text = StringBuffer();
       String? finish;
       Future<String> collect() async {
@@ -56,6 +59,7 @@ class QqReplyGenerator {
         return text.toString().trim();
       }
       try { return await cancelWithToken(collect(), cancellation); }
+      catch(error) {if(expired)throw const QqOperationFailure('reply_timeout');rethrow;}
       finally { deadline.cancel(); cancellation.cancel(); }
     }
 
@@ -63,10 +67,11 @@ class QqReplyGenerator {
       for (var retry = 0; retry < 2; retry++) {
         onStatus?.call(retry == 0 ? 'using_second' : 'retrying_second');
         try { return await attempt(true); }
-        catch (_) { if (!await current()) rethrow; }
+        catch (error) {await onFailure?.call('second_reply',error,retry+1);if (!await current()) rethrow;}
       }
       onStatus?.call('fallback_first');
     } else { onStatus?.call('using_first'); }
-    return attempt(false);
+    try {return await attempt(false);}
+    catch(error) {await onFailure?.call('first_reply',error,1);rethrow;}
   }
 }

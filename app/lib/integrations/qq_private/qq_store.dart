@@ -4,8 +4,10 @@ import 'package:sqflite/sqflite.dart';
 import '../../core/database/app_database.dart';
 import '../../core/database/brain_work_fence.dart';
 import '../../core/database/automatic_memory_permit.dart';
+import '../../core/qq/qq_message_material.dart';
 import 'qq_archive_reader.dart';
 import 'qq_work_queue.dart';
+import 'qq_failure.dart';
 
 class QqBatch {
   QqBatch(this.id,this.conversation,this.rows,this.fence);
@@ -24,6 +26,17 @@ class QqBatch {
 class QqStore {
   QqStore(this.db);
   final AppDatabase db;
+  Future<void> recordFailure(BrainWorkFence fence,String phase,Object error,{int attempt=1,int elapsedMs=0}) async {
+    try {
+      await write(fence,(txn) async {
+        final raw=await BrainWorkFence.value(txn,QqFailure.historyKey);
+        List entries=[];try {final decoded=jsonDecode(raw);if(decoded is List)entries=decoded.take(11).toList();}catch(_){}
+        final entry={'at':DateTime.now().millisecondsSinceEpoch,'phase':phase,'code':QqFailure.code(error),
+          'attempt':attempt,'elapsed_ms':elapsedMs};
+        await txn.rawInsert('INSERT OR REPLACE INTO settings(key,value) VALUES(?,?)',[QqFailure.historyKey,jsonEncode([entry,...entries])]);
+      });
+    } catch(_) { /* A diagnostic must not replace the original failure. */ }
+  }
   static String hash(Object? o)=>sha256.convert(utf8.encode(jsonEncode(o))).toString();
   static String conversationId(String scope,String kind,String target)=>hash([scope,kind,target]);
   static const identityKeys=['state_lineage_id','state_generation','runtime_state_epoch_v1',
@@ -46,7 +59,8 @@ class QqStore {
   Future<int?> append({required BrainWorkFence fence,required String scope,required String kind,
     required String target,required String platformId,required String sender,required String text,
     required int observedAt,required int receivedAt,bool owner=false,bool mentioned=false,String replyTo='',int images=0,
-    String role='user',String policy=''})=>write(fence,(txn) async {
+    String role='user',String policy='',String contextMeta=''})=>write(fence,(txn) async {
+      QqMessageMaterial.decode(contextMeta);
       final cid=conversationId(scope,kind,target); final id=hash([scope,kind,target,platformId]);
       final existing=await txn.query('qq_archive',columns:['seq','mentioned'],where:'id = ?',whereArgs:[id],limit:1);
       if(existing.isNotEmpty) {
@@ -65,7 +79,7 @@ class QqStore {
       await txn.insert('qq_conversations',{'id':cid,'scope':scope,'kind':kind,'target':target},conflictAlgorithm:ConflictAlgorithm.ignore);
       await txn.rawInsert('INSERT OR IGNORE INTO settings(key,value) VALUES(?,?)',['qq_style_cursor_v1:$cid','0']);
       final seq=await txn.insert('qq_archive',{'id':id,'conversation_id':cid,'platform_id':platformId,'sender':sender,
-        'owner':owner?1:0,'role':role,'content':QqArchiveReader.bound(text,16000),'observed_at':observedAt,'received_at':receivedAt,
+        'owner':owner?1:0,'role':role,'content':QqArchiveReader.bound(text,16000),'context_meta':contextMeta,'observed_at':observedAt,'received_at':receivedAt,
         'mentioned':mentioned?1:0,'reply_to':replyTo,'accepted_identity':ingressIdentity(fence),'accepted_policy':policy});
       for(var i=0;i<images.clamp(0,8);i++) { await txn.insert('qq_images',{'id':'$id:$i','archive_seq':seq,'ordinal':i}); }
       return seq;
