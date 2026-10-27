@@ -1223,7 +1223,7 @@ class CedarToyAutonomyEngine {
     if (session?.needsContinuation == true) {
       return const CedarAutonomyAvailability(false, 'committed_activity');
     }
-    if (session != null &&
+    if (session != null && !session.isParkedUnresolvedWrite &&
         const <CedarActivityPhase>{
           CedarActivityPhase.awaitingInvitation,
           CedarActivityPhase.waitingUser,
@@ -1669,6 +1669,11 @@ class CedarToyAutonomyEngine {
     final client = _client(token);
     final store = CedarToyActivityStore(db);
     var session = await store.load();
+    if(session?.isParkedUnresolvedWrite==true) {
+      await store.releaseParkedUnresolvedWrite();
+      session=await store.load();
+      if(session?.isParkedUnresolvedWrite==true)return const CedarAutonomyProgress('waiting');
+    }
     if (session?.isUnroutableRemoteWait == true) {
       await store.parkUnroutableRemoteWait();
       session = null;
@@ -1686,6 +1691,7 @@ class CedarToyAutonomyEngine {
         store: store,
         gameId: 'catalog',
         action: '选择游戏',
+        now: now,
         body: (scope) async {
           final catalogOutcome = await client.listGames(
             cancellationToken: scope.cancellation,
@@ -1699,6 +1705,17 @@ class CedarToyAutonomyEngine {
             catalog,
             executionId: scope.executionId,
           );
+          final state=await store.loadState();
+          bool selectable(String id) {
+            final existing=state.sessions[id];
+            return existing==null || existing.phase==CedarActivityPhase.completed || existing.phase==CedarActivityPhase.failed || existing.canRevisitAfterBudget;
+          }
+          final parsed=CedarCatalogParser.parse(catalog),available=<CedarCatalogEntry>[];
+          for(final entry in parsed) {
+            if(selectable(entry.id) && await store.unresolvedWrite(entry.id)==null)available.add(entry);
+          }
+          if(parsed.isNotEmpty && available.isEmpty)return const CedarAutonomyProgress('no_available_game');
+          final selectionCatalog=parsed.isEmpty?catalog:available.map((e)=>'${e.id}·${e.description}·目录').join('\n');
           final recent = await db.recentMessages(limit: 12);
           final recentSuggestions = <CedarCatalogEntry>[];
           final suggestedIds = <String>{};
@@ -1710,7 +1727,7 @@ class CedarToyAutonomyEngine {
               ),
             );
           }
-          for (final entry in CedarCatalogParser.parse(catalog)) {
+          for (final entry in available) {
             if (suggestedIds.contains(entry.id)) recentSuggestions.add(entry);
           }
           final suggestionContext = recentSuggestions.isEmpty
@@ -1729,11 +1746,14 @@ class CedarToyAutonomyEngine {
 $dreamContext
 $wishContext
 
-$catalog''',
+$selectionCatalog''',
           );
           scope.throwIfPreempted();
           final game = _identifier(picked['game']?.toString() ?? '');
-          if (game.isEmpty || !_containsIdentifier(catalog, game)) {
+          final fresh=(await store.loadState()).sessions[game];
+          if (game.isEmpty || !_containsIdentifier(catalog, game) ||
+              !selectable(game) || await store.unresolvedWrite(game)!=null ||
+              (fresh!=null && fresh.phase!=CedarActivityPhase.completed && fresh.phase!=CedarActivityPhase.failed && !fresh.canRevisitAfterBudget)) {
             return const CedarAutonomyProgress('invalid_game_choice');
           }
           final guideOutcome = await client.getGuide(
@@ -1750,6 +1770,9 @@ $catalog''',
             guide: CedarToyClient.playerSafeGuideOutcome(guideOutcome),
             executionId: scope.executionId,
           );
+          if(recorded.canRevisitAfterBudget) {
+            if(!await store.activateSelectedSoloAfterBudget(game,scope.executionId))return const CedarAutonomyProgress('selection_changed');
+          }
           return CedarAutonomyProgress(
             recorded.guideComplete ? 'guide_ready' : 'guide_too_long',
           );

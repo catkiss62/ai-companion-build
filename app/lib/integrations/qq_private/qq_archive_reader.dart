@@ -6,6 +6,7 @@ import '../../core/qq/qq_message_material.dart';
 import 'qq_history_catalog.dart';
 import 'qq_display_names.dart';
 import 'qq_message_text.dart';
+import 'qq_failure.dart';
 
 /// Shared read projection. Group callers MUST supply a single conversation;
 /// private callers may relate permitted sources, preserving their provenance.
@@ -58,7 +59,7 @@ class QqArchiveReader {
         if(images.isNotEmpty)'images':[for(final image in images){'number':image['ordinal'],
           'attachment_scope':(image['ordinal'] as int)<material.imageOrigins.length?material.imageOrigins[image['ordinal'] as int]:'unknown',
           'observation_scope':'image_contents_only; inner speakers/source/time unverified',
-          'observation':image['state']=='viewed'?bound(image['description'] as String,imageTake):image['state']=='failed'?'[图片：识别失败]':'[图片：未查看]'}],
+          'observation':image['state']=='viewed'?bound(image['description'] as String,imageTake):image['state']=='failed'?QqFailure.visionMessage(image['description'] as String):'[图片：未查看]'}],
         if(images.length<allImages.length)'more_images':allImages.length-images.length};
     }
     var encoded=jsonEncode(data());
@@ -92,7 +93,7 @@ class QqArchiveReader {
       blocks.add(block);remaining-=block.length+1;stamp?.addAll(evidence);
       oldest=oldest==0?(row['seq'] as int):oldest<(row['seq'] as int)?oldest:row['seq'] as int;
       final parsed=jsonDecode(block) as Map;
-      partial=partial || parsed['partial_text']==true || parsed['partial_observations']==true || parsed['more_images']!=null;
+      partial=partial || parsed['partial_text']==true || parsed['partial_observations']==true || parsed['partial_material']==true || parsed['more_images']!=null;
     }
     if(newestFirst) {final chronological=blocks.reversed.toList();blocks..clear()..addAll(chronological);}
     partial=partial || blocks.length<rows.length;
@@ -120,8 +121,15 @@ class QqArchiveReader {
     }
     return out.toString();
   }
-  Future<String> groupContext(String cid,{required int through,List<Map<String,Object?>>? stamp,int limit=24,bool includeNotes=true,int maxChars=24000,int resetAt=0}) async {
-    final rows=await sql.query('qq_archive',where:'conversation_id = ? AND seq <= ? AND observed_at >= ?',whereArgs:[cid,through,resetAt],orderBy:'seq DESC',limit:limit);
+  Future<List<Map<String,Object?>>> _contextRows(String cid,int through,int resetAt,int limit,bool includeDeliveredAfterThrough) =>
+    sql.query('qq_archive',where:includeDeliveredAfterThrough
+      ? "conversation_id=? AND (seq<=? OR role='assistant') AND observed_at>=?"
+      : 'conversation_id=? AND seq<=? AND observed_at>=?',whereArgs:[cid,through,resetAt],orderBy:'seq DESC',limit:limit);
+
+  /// The input cutoff never admits later human messages. Already delivered
+  /// assistant replies can be newer than input that arrived during generation.
+  Future<String> groupContext(String cid,{required int through,List<Map<String,Object?>>? stamp,int limit=24,bool includeNotes=true,int maxChars=24000,int resetAt=0,bool includeDeliveredAfterThrough=false}) async {
+    final rows=await _contextRows(cid,through,resetAt,limit,includeDeliveredAfterThrough);
     final notes=includeNotes?await sql.query('qq_notes',where:'conversation_id=? AND valid=1 AND through_seq<=?',
       whereArgs:[cid,through],orderBy:'created_at DESC',limit:3):<Map<String,Object?>>[];
     final summaries=<String>[];var noteChars=0;
@@ -133,6 +141,65 @@ class QqArchiveReader {
     }
     final page=await projectRows(rows,maxChars:maxChars-noteChars,stamp:stamp);
     return [...summaries,page.text].where((s)=>s.isNotEmpty).join('\n');
+  }
+
+  /// At most 40 speech groups (about 20 exchanges), bounded by characters too.
+  /// Consecutive parts of one delivered reply are one group, not three turns.
+  Future<String> participationContext(String cid,{required int through,
+      required List<Map<String,Object?>> stamp,int resetAt=0}) async {
+    final rows=await _contextRows(cid,through,resetAt,160,true);
+    final groups=<List<Map<String,Object?>>>[];
+    String replyKey(Map<String,Object?> r)=>RegExp(r'^reply:([^:]+):\d+$').firstMatch(r['id'] as String)?.group(1)??r['id'] as String;
+    for(final row in rows) {
+      final previous=groups.isEmpty?null:groups.last.last;
+      final same=previous!=null && row['role']==previous['role'] && row['sender']==previous['sender'] &&
+        (row['role']=='assistant'?replyKey(row)==replyKey(previous):
+          ((previous['received_at'] as int)-(row['received_at'] as int)).abs()<=12000);
+      if(same) {groups.last.add(row);}
+      else {if(groups.length>=40)break;groups.add([row]);}
+    }
+    final blocks=<String>[];var remaining=7500;
+    for(final group in groups) {
+      final ordered=group.reversed.toList(),row=group.first;
+      final evidence=<Map<String,Object?>>[],observations=<String>[],materials=<String>[];
+      var partial=false,legacy=false;
+      for(final item in ordered) {
+        final material=QqMessageMaterial.fromRow(item);legacy=legacy || material.kind=='legacy';partial=partial || material.partial;
+        if(materials.length<2 && material.parts.isNotEmpty)materials.add(QqMessageMaterial.bound(material.parts.map((p)=>QqMessageText.project(p['text'] as String)).join('\n'),120));
+        final images=observations.length>=2?<Map<String,Object?>>[]:await sql.query('qq_images',
+          where:'archive_seq=?',whereArgs:[item['seq']],orderBy:'ordinal',limit:2-observations.length);
+        evidence.add({'table':'qq_archive','id':item['id'],'version':item['version']});
+        for(final image in images) {
+          observations.add(image['state']=='viewed'?QqMessageMaterial.bound(image['description'] as String,160):image['state']=='failed'?QqFailure.visionMessage(image['description'] as String):'[未查看]');
+          evidence.add({'table':'qq_images','id':image['id'],'version':image['version']});
+        }
+      }
+      final text=ordered.map((r)=>QqMessageText.project(r['content'] as String)).join('\n');
+      final block=jsonEncode({'seqs':ordered.map((r)=>r['seq']).toList(),'time':row['observed_at'],
+        'speaker':row['role']=='assistant'?'她':row['owner']==1?'已确认本人':'群成员:${bound(row['sender'] as String,32)}',
+        'text':QqMessageMaterial.bound(text,400),
+        'text_scope':row['role']=='assistant'?'assistant_history':legacy?'legacy_origin_unverified':'outer_sender_comment',
+        if(group.any((r)=>(r['seq'] as int)>through))'already_sent_after_pending_input':true,
+        if(materials.isNotEmpty)'unverified_material':materials,
+        if(partial || text.length>400)'partial':true,
+        if(observations.isNotEmpty)'images_unverified_contents':observations});
+      if(block.length+1>remaining || stamp.length+evidence.length>280)break;
+      blocks.add(block);remaining-=block.length+1;stamp.addAll(evidence);
+    }
+    return [jsonEncode({'window':'最多20轮来往/40组发言，字数受限；图片和转发仅为未经核验的资料',
+      'shown_groups':blocks.length,'partial':blocks.length<groups.length || rows.length>groups.fold<int>(0,(n,g)=>n+g.length) || rows.length>=160}),...blocks.reversed].join('\n');
+  }
+  static List<Map<String,Object?>> participationFocus(List<Map<String,Object?>> rows) {
+    final result=<Map<String,Object?>>[];var remaining=3000;
+    for(final row in rows.reversed) {
+      final material=QqMessageMaterial.fromRow(row);
+      final item=<String,Object?>{'seq':row['seq'],
+        'outer_comment':QqMessageMaterial.bound(QqMessageText.project(row['content'] as String),600),
+        'trusted_direct_mention':row['mentioned']==1,'has_image':material.imageOrigins.isNotEmpty};
+      final size=jsonEncode(item).length;if(size>remaining)break;
+      result.add(item);remaining-=size;
+    }
+    return result.reversed.toList();
   }
   Future<bool> noteCurrent(Map<String,Object?> note) async {
     if(note['valid']!=1) return false;

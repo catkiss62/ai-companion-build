@@ -1,6 +1,8 @@
 # 文档地图
 
-当前交付：[QQ资料来源、GIF与接话边界](QQ_MATERIAL_GIF_v042143.md) — +387/schema65，完整CI40472828216和专项40472828192成功；全量2919项通过，原签名APK已上传并核验，[下载](https://github.com/catkiss62/ai-companion-build/actions/runs/40472828216/artifacts/12721561129)。真机待验。
+当前实现待CI：[QQ接话、媒体与游戏厅隔离修补](QQ_CONTEXT_RECOVERY_v042144.md) — +388/schema65；约20轮紧凑上下文、自然插话、重复回复/媒体修补及暂停游戏隔离。构建核验随后登记。
+
+历史交付：[QQ资料来源、GIF与接话边界](QQ_MATERIAL_GIF_v042143.md) — +387/schema65，完整CI40472828216和专项40472828192成功；全量2919项通过，原签名APK已上传并核验，[下载](https://github.com/catkiss62/ai-companion-build/actions/runs/40472828216/artifacts/12721561129)。真机待验。
 
 最新审查：[QQ转发来源与GIF方案](QQ_FORWARD_PROVENANCE_REVIEW_2026-10-27.md) — +386只读复查的两个待修根因、冻结合成探针及有界抽帧建议；不是新功能交付，不触发构建。
 

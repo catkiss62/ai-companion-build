@@ -179,7 +179,7 @@ void main() {
     final channel=const MethodChannel('ai_companion/qq_private_runtime');
     TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger.setMockMethodCallHandler(channel,(call)async {rendered++;expect(call.method,'renderSketch');return Uint8List.fromList([137,80,78,71]);});
     DeepSeekClient client({bool cancel=false})=>DeepSeekClient(abortWhen:()async=>!active,jsonClientFactory:()=>MockClient((r)async {
-      calls++;final body=jsonDecode(r.body) as Map;expect(body['model'],'future-first-model');expect(body['reasoning_effort'],'max');expect(body['thinking'],{'type':'enabled'});
+      calls++;final body=jsonDecode(r.body) as Map;expect(body['model'],'future-first-model');expect(body['reasoning_effort'],'max');expect(body['thinking'],{'type':'enabled'});expect(body['max_tokens'],12000);
       if(cancel)active=false;
       return http.Response(jsonEncode({'choices':[{'message':{'content':jsonEncode({'svg':svg,'description':'蓝色圆圈小鲸鱼'})},'finish_reason':'stop'}]}),200,headers:{'content-type':'application/json'});
     }));

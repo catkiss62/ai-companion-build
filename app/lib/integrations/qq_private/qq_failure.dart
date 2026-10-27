@@ -4,6 +4,7 @@ import 'package:flutter/services.dart';
 import 'package:http/http.dart' as http;
 import 'package:qq_private_bridge/qq_private_bridge.dart';
 import '../../core/ai/deepseek_client.dart';
+import '../../core/ai/qwen_vision_client.dart';
 
 class QqOperationFailure implements Exception {
   const QqOperationFailure(this.code);
@@ -13,6 +14,29 @@ class QqOperationFailure implements Exception {
 /// Categories only. Never persist exception messages, SVG, URLs or credentials.
 abstract final class QqFailure {
   static const historyKey='qq_operation_failures_v1';
+  static QqOperationFailure visionFailure(Object error,String stage) {
+    final reason=error is TimeoutException?'timeout':
+      error is SocketException || error is http.ClientException?'network':
+      error is QwenVisionException?'http_${error.statusCode}':
+      error is HttpException?'http':
+      error is FormatException && error.message=='image_size_rejected'?'size':
+      error is FormatException && error.message=='image_dimensions_rejected'?'dimensions':
+      error is FormatException?'format':'failed';
+    return QqOperationFailure('vision_${stage}_$reason');
+  }
+  static String visionMessage(String code) {
+    final reason=switch(code) {
+      'vision_download_size'=>'图片文件超过本次下载上限',
+      'vision_download_timeout'=>'图片下载超时',
+      'vision_download_network' || 'vision_download_http'=>'图片下载没有成功',
+      'vision_decode_dimensions'=>'图片像素尺寸超过处理上限',
+      'vision_decode_format' || 'vision_decode_failed'=>'图片解码失败',
+      'vision_primary_timeout' || 'vision_fallback_timeout'=>'识图接口等待超时',
+      _ when code.startsWith('vision_primary_') || code.startsWith('vision_fallback_')=>'识图接口没有返回可用结果',
+      _=>'识别失败，具体原因未记录',
+    };
+    return '[图片：$reason；没有看到内容，不能据此判断图片损坏或用户网络有问题]';
+  }
   static String code(Object error) {
     if(error is QqOperationFailure)return error.code;
     if(error is DeepSeekException)return 'model_http_${error.statusCode}';

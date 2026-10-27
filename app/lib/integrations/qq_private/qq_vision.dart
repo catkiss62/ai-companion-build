@@ -10,6 +10,7 @@ import '../../core/ai/model_profile.dart';
 import '../../core/media/safe_public_image_downloader.dart';
 import '../../core/storage/secure_config.dart';
 import 'qq_vision_frames.dart';
+import 'qq_failure.dart';
 
 class QqVision {
   QqVision(this.secure,{http.Client? downloader,QwenVisionClient Function()? visionFactory,QwenVisionClient Function()? fallbackFactory})
@@ -19,6 +20,7 @@ class QqVision {
   final http.Client downloader;
   final QwenVisionClient Function() visionFactory,fallbackFactory;
   final Set<QwenVisionClient> _active={};
+  static const maxDownloadBytes=12*1024*1024;
   bool _closed=false;
   Future<({String text,String fingerprint})> observe(String url,{required DeepSeekModelProfile firstModel,
     required bool fallback,required Future<bool> Function() current,
@@ -26,15 +28,16 @@ class QqVision {
     Future<bool> valid() async=>!_closed && await current();
     if(!await valid()) throw StateError('context_invalidated');
     final root=Directory('${(await getTemporaryDirectory()).path}/qq_vision_v2');await root.create(recursive:true);
-    DownloadedPublicImage? downloaded;
+    DownloadedPublicImage? downloaded;var stage='download';
     try {
-      downloaded=await SafePublicImageDownloader.download(client:downloader,rawUrl:url,maxBytes:5*1024*1024,
+      downloaded=await SafePublicImageDownloader.download(client:downloader,rawUrl:url,maxBytes:maxDownloadBytes,
         filePrefix:'qq',temporaryDirectory:root,totalTimeout:const Duration(seconds:20));
       final original=await downloaded.file.readAsBytes();
       final fingerprint=sha256.convert(utf8.encode('${QqVisionFrames.cacheVersion}:${sha256.convert(original)}')).toString();
       final prior=await cached?.call(fingerprint);
       if(prior!=null && prior.isNotEmpty && await valid()) return (text:prior,fingerprint:fingerprint);
       if(!await valid()) throw StateError('context_invalidated');
+      stage='decode';
       final prepared=await QqVisionFrames.prepare(original,current:valid);
       final bytes=prepared.bytes;
       Future<QwenVisionObservation> attempt(bool first) async {
@@ -57,13 +60,18 @@ class QqVision {
         } finally {timer.cancel();_active.remove(vision);vision.close();}
       }
       QwenVisionObservation result;
+      stage='primary';
       try {result=await attempt(false);} catch(_) {
         if(!fallback || !await valid()) rethrow;
+        stage='fallback';
         result=await attempt(true);
       }
       if(!await valid()) throw StateError('context_invalidated');
       return (text:'${prepared.label}${result.summary}',fingerprint:fingerprint);
-    } finally {if(downloaded!=null && await downloaded.file.exists()) await downloaded.file.delete();}
+    } catch(error) {
+      if(!await valid()) rethrow;
+      throw QqFailure.visionFailure(error,stage);
+    } finally {if(downloaded!=null && await downloaded.file.exists()) {try {await downloaded.file.delete();}catch(_) {}}}
   }
   Future<void> cleanStale() async {
     final root=Directory('${(await getTemporaryDirectory()).path}/qq_vision_v2');

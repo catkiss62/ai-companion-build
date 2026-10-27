@@ -328,6 +328,9 @@ class CedarGameSession {
         nextActor: nextActor,
       );
   bool get needsContinuation => companionCanContinue || companionCanObserve;
+  bool get isParkedUnresolvedWrite => phase==CedarActivityPhase.paused && pauseSource=='blocked_unresolved_write';
+  bool get canRevisitAfterBudget => phase==CedarActivityPhase.paused && pauseSource=='budget_complete' &&
+    mode==CedarParticipationMode.solo && nextActor=='companion' && !hasContinuationCall && !hasPendingTerminalDelivery;
   /// New queries may supply missing facts. Only reuse evidence since the last
   /// accepted mutation; failures never invalidate an already-read snapshot.
   bool repeatsUnchangedRead(String action, Map<String,Object?> params) {
@@ -2058,6 +2061,42 @@ class CedarToyActivityStore {
     if (committed) await CedarPlayTransitionLog(db).record(source: source,
         reason: 'task_complete_pause', before: existing.phase.key, after: 'paused');
     return committed;
+  }
+
+  /// Release a previously parked unknown write from the active slot. The
+  /// receipt and session stay untouched; ordinary user Pause is never resumed.
+  Future<bool> releaseParkedUnresolvedWrite() async {
+    final fence=await db.captureBrainWorkFence(settingKeys:[userControlRevisionKey]);
+    if(fence==null)return false;
+    final handle=await db.database;
+    return handle.transaction((txn) async {
+      if(!await fence.matches(txn) || (await BrainWorkFence.value(txn,CedarTimedPlayTaskStore.activeKey)).isNotEmpty ||
+          (await BrainWorkFence.value(txn,CedarPlaySessionStore.key)).isNotEmpty)return false;
+      final state=await readStateInTransaction(txn),session=state.activeSession;
+      if(session==null || !session.isParkedUnresolvedWrite || state.execution!=null)return false;
+      await writeSettingsInTransaction(txn,{
+        ...stateSettingValues(state.copyWith(activeGameId:'',updatedAt:DateTime.now())),
+        executionFenceSettingKey:'park-unresolved-${_uuid.v4()}',controlRevisionKey:_uuid.v4(),
+      });
+      return true;
+    });
+  }
+
+  /// A fresh autonomous choice may revisit a naturally completed solo period.
+  /// It cannot turn user Pause or an unknown write into an automatic resume.
+  Future<bool> activateSelectedSoloAfterBudget(String gameId,String executionId) async {
+    final handle=await db.database;
+    return handle.transaction((txn) async {
+      if(await BrainWorkFence.value(txn,executionFenceSettingKey)!=executionId ||
+          (await BrainWorkFence.value(txn,CedarTimedPlayTaskStore.activeKey)).isNotEmpty ||
+          (await BrainWorkFence.value(txn,'$uncertainWritePrefix$gameId')).isNotEmpty)return false;
+      final state=await readStateInTransaction(txn),session=state.activeSession;
+      if(session==null || session.gameId!=gameId || !session.canRevisitAfterBudget)return false;
+      final now=DateTime.now();
+      await writeSettingsInTransaction(txn,stateSettingValues(state.copyWith(
+        sessions:Map<String,CedarGameSession>.from(state.sessions)..[gameId]=resumedSession(session,now),updatedAt:now)));
+      return true;
+    });
   }
 
   /// Parks a server wait that supplied neither `next_call` nor a resume time.

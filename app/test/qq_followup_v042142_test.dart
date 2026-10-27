@@ -17,6 +17,7 @@ import 'package:ai_companion_localfirst/integrations/qq_private/qq_options.dart'
 import 'package:ai_companion_localfirst/integrations/qq_private/qq_private_config.dart';
 import 'package:ai_companion_localfirst/integrations/qq_private/qq_runtime.dart';
 import 'package:ai_companion_localfirst/integrations/qq_private/qq_store.dart';
+import 'package:ai_companion_localfirst/integrations/qq_private/qq_sketch.dart';
 
 class _Secure extends SecureConfig {
   _Secure():super.forTesting(const FlutterSecureStorage());
@@ -146,7 +147,7 @@ void main() {
     TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger.setMockMethodCallHandler(channel,(_)async=>Uint8List.fromList([137,80,78,71]));
     respond=(b) async {
       if(b['stream']==true)return _sse(jsonEncode(b['messages']).contains('【可选小涂鸦】')?'给你<qq_sketch mode="with_text">蓝色圆圈</qq_sketch>':'收到');
-      if(b['max_tokens']==6000) {drawings++;entered.complete();await release.future;return _json({'svg':svg,'description':'蓝色圆圈'});}
+      if(b['max_tokens']==QqSketchService.outputTokens) {drawings++;entered.complete();await release.future;return _json({'svg':svg,'description':'蓝色圆圈'});}
       return _json(b['max_tokens']==60?{'safe':true}:{'participation':'direct'});
     };
     try {

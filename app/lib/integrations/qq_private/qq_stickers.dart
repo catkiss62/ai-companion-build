@@ -14,6 +14,10 @@ class QqStickers {
   QqStickers(this.db,{StickerPackStorage? storage}):storage=storage??StickerPackStorage(db:db);
   final AppDatabase db;
   final StickerPackStorage storage;
+  static String choicePrompt(List<StickerReplyCandidate> candidates)=>
+    '${StickerExpressionService.replyChoicePrompt(candidates)}\n'
+    '本轮表情候选所属包（仅资料）：${jsonEncode({for(final c in candidates)c.id:StickerDisplayLabels.packName(c.pack)})}。'
+    '这是当前轮次的局部候选，没有列出某包不表示该包不存在。收到群友的图片不会自动收入表情图库，不虚称已收藏。';
   Future<String> stamp() async=>jsonEncode([for(final key in [StickerPackStorage.modeSetting,
     StickerPackStorage.enabledPacksSetting,StickerPackStorage.captionOverridesSetting])await db.getSetting(key)]);
   static bool explicitGroupPlay(String text) {
@@ -36,8 +40,11 @@ class QqStickers {
     final pool=<({StickerPackMeta pack,StickerRecord record})>[];
     for(final pack in await storage.scanPacks()) {
       if(!enabled.contains(pack.id)) continue;
-      for(final r in await storage.readRecords(pack)) {if(StickerAgencyPolicy.isAssistantSelectable(r)) pool.add((pack:pack,record:r));}
+      try {
+        for(final r in await storage.readRecords(pack)) {if(StickerAgencyPolicy.isAssistantSelectable(r)) pool.add((pack:pack,record:r));}
+      } catch(_) { /* One damaged pack cannot hide the remaining gallery. */ }
     }
+    if(group)return groupSelection(seed,context,[for(final item in pool)StickerReplyCandidate('',item.pack,item.record)],used);
     final fresh=pool.where((r)=>!used.contains(r.record.usageKey)).toList();
     final selected=fresh.isEmpty?pool:fresh;
     selected.sort((a,b){
@@ -45,6 +52,36 @@ class QqStickers {
       return score!=0?score:QqStore.hash([seed,a.record.usageKey]).compareTo(QqStore.hash([seed,b.record.usageKey]));
     });
     return [for(var i=0;i<selected.length && i<8;i++)StickerReplyCandidate('s${i+1}',selected[i].pack,selected[i].record)];
+  }
+  /// Keep a small enabled pack visible beside a much larger one. This changes
+  /// candidate coverage only; the opportunity gate and model's choice remain.
+  static List<StickerReplyCandidate> groupSelection(String seed,String context,
+      List<StickerReplyCandidate> pool,Set<Object?> used) {
+    int score(StickerReplyCandidate c)=>StickerExpressionService.semanticMatchScore(c.record,context)+
+      (context.contains(StickerDisplayLabels.packName(c.pack))?3:0);
+    int compare(StickerReplyCandidate a,StickerReplyCandidate b) {
+      final semantic=score(b).compareTo(score(a));
+      return semantic!=0?semantic:QqStore.hash([seed,a.record.usageKey]).compareTo(QqStore.hash([seed,b.record.usageKey]));
+    }
+    final packs=<String,List<StickerReplyCandidate>>{};
+    for(final c in pool) {(packs[c.pack.id]??=[]).add(c);}
+    final eligible=<StickerReplyCandidate>[];
+    for(final pack in packs.values) {
+      final fresh=pack.where((c)=>!used.contains(c.record.usageKey)).toList();
+      eligible.addAll(fresh.isEmpty?pack:fresh);
+    }
+    eligible.sort(compare);
+    final selected=<StickerReplyCandidate>[],covered=<String>{};
+    for(final c in eligible) {
+      if(covered.add(c.pack.id))selected.add(c);
+      if(selected.length==8)break;
+    }
+    final keys=selected.map((c)=>c.record.usageKey).toSet();
+    for(final c in eligible) {
+      if(selected.length==8)break;
+      if(keys.add(c.record.usageKey))selected.add(c);
+    }
+    return [for(var i=0;i<selected.length;i++)StickerReplyCandidate('s${i+1}',selected[i].pack,selected[i].record)];
   }
   Future<({Uint8List bytes,String filename})> bytes(StickerReplyCandidate candidate) =>SharedMediaLock.run(() async {
     final enabled=await storage.enabledPackIds();

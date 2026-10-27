@@ -31,6 +31,7 @@ import 'package:ai_companion_localfirst/integrations/qq_private/qq_runtime.dart'
 import 'package:ai_companion_localfirst/integrations/qq_private/qq_store.dart';
 import 'package:ai_companion_localfirst/integrations/qq_private/qq_vision.dart';
 import 'package:ai_companion_localfirst/integrations/qq_private/qq_failure.dart';
+import 'package:ai_companion_localfirst/integrations/qq_private/qq_sketch.dart';
 
 class _Secure extends SecureConfig {
   _Secure():super.forTesting(const FlutterSecureStorage());
@@ -190,7 +191,7 @@ void main(){
     try {
       handler=(r,b)async {
         if(b['stream']==true)return _sse('画一下<qq_sketch mode="with_text">画个鲸鱼</qq_sketch>');
-        if(b['max_tokens']==6000) {drawingCalls++;return _json({'svg':'<svg><circle r="20"/></svg>','description':'合成鲸鱼涂鸦'});}
+        if(b['max_tokens']==QqSketchService.outputTokens) {drawingCalls++;return _json({'svg':'<svg><circle r="20"/></svg>','description':'合成鲸鱼涂鸦'});}
         return _json(b['max_tokens']==60?{'safe':true}:{'participation':'direct'});
       };
       await accept('drawing-rejected','画个自画像');await runtime.process(cid());
@@ -201,13 +202,13 @@ void main(){
       await runtime.process(cid());expect(drawingCalls,1);
     } finally {TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger.setMockMethodCallHandler(channel,null);}
   });
-  test('ordinary JEV joins retain cooldown and consumed input is never reconsidered later',()async{
+  test('ordinary JEV joins have no stacked cooldown and consumed input is never reconsidered later',()async{
     await useJev(gateway((r)async=>jevAnswer({'direct':.01,'continuing':.01,'join':.97,'watch':.01})));
     await accept('ordinary-1','群友闲聊');await runtime.process(cid());
     clock=clock.add(const Duration(seconds:3));await accept('ordinary-2','群友继续闲聊');await runtime.process(cid());
-    expect(api.sent.length,1);expect(jevRequests.length,2);expect(statuses,contains('group_cooldown'));
+    expect(api.sent.length,2);expect(jevRequests.length,2);expect(statuses,isNot(contains('group_cooldown')));
     clock=clock.add(const Duration(minutes:5));await runtime.process(cid());
-    expect(jevRequests.length,2);expect(api.sent.length,1);expect(await store.pending(cid()),isEmpty);
+    expect(jevRequests.length,2);expect(api.sent.length,2);expect(await store.pending(cid()),isEmpty);
   });
   test('a valid JEV watch performs no body or DeepSeek second vote and survives idle restart',()async{
     final gate=gateway((r)async=>jevAnswer({'direct':.01,'continuing':.01,'join':.01,'watch':.97}));
@@ -255,6 +256,40 @@ void main(){
     await accept('first','先说一句');final work=runtime.process(cid());await entered.future;
     await accept('second','再说一句');release.complete();await work;
     expect((await store.pending(cid())).single['content'],'再说一句');expect(requests.length,1);
+  });
+  test('empty unsupported attachment is consumed without judging or reanswering old input',() async {
+    await useJev(gateway((r)async=>jevAnswer({'direct':.98,'continuing':.01,'join':.005,'watch':.005})));
+    await accept('question','看见刚才那张图了吗');await runtime.process(cid());
+    final empty=event('empty-media','')..['attachments']=[{'content_type':'video/mp4','url':'https://fixture.invalid/unsupported.mp4'}];
+    await runtime.accept(empty,group:true);await runtime.process(cid());await runtime.process(cid());
+    expect(api.sent.length,1);expect(jevRequests.length,1);expect(await store.pending(cid()),isEmpty);
+  });
+  test('next batch sees delivered answer newer than its own input and may WAIT without a duplicate',() async {
+    final entered=Completer<void>(),release=Completer<void>();var bodies=0;
+    await useJev(gateway((r)async=>jevAnswer({'direct':.98,'continuing':.01,'join':.005,'watch':.005})));
+    handler=(r,b) async {
+      if(b['stream']!=true)return _json({'safe':true});
+      bodies++;
+      if(bodies==1) {entered.complete();await release.future;return _sse('已经看到了合成的小海星图');}
+      expect(jsonEncode(b['messages']),contains('已经看到了合成的小海星图'));
+      return _sse('WAIT');
+    };
+    await accept('image-question','这张图看得清吗');final first=runtime.process(cid());await entered.future;
+    await accept('during-generation','静态图片应该能看清');release.complete();await first;
+    await runtime.process(cid());
+    expect(bodies,2);expect(api.sent.length,1);expect(jevRequests.length,2);
+    final state=jsonDecode(jevRequests.last.body)['state'] as Map;
+    expect(state['recent_messages'],contains('已经看到了合成的小海星图'));
+    expect(jsonEncode(state['new_messages_outer_comments']),contains('静态图片应该能看清'));
+  });
+  test('ordinary joins after many direct replies in another group are not silenced by a shared 30-turn counter',() async {
+    await useJev(gateway((r)async=>jevAnswer({'direct':.01,'continuing':.01,'join':.97,'watch':.01})));
+    final scope=QqRuntime.scope(config);await store.discover(await store.capture(),scope,'group','group-b');
+    final sql=await db.database;
+    for(var i=0;i<31;i++)await sql.insert('qq_deliveries',{'id':'synthetic-other-$i','conversation_id':cid('group-b'),
+      'through_seq':i+1,'state':'sent','updated_at':clock.millisecondsSinceEpoch});
+    await accept('new-interest','聊到一个让她想接梗的话题');await runtime.process(cid());
+    expect(api.sent.length,1);expect(statuses,isNot(contains('group_rate_limited')));
   });
   for(final channel in ['first','second']){
     test('group small card always uses first; selected $channel writes the full reply',()async{

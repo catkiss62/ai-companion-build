@@ -31,13 +31,22 @@ class QqIncoming {
       return result;
     }
     attachments(event['attachments'], 'outer');
-    final original = event['content'] is String ? (event['content'] as String).trim() : '';
+    var original = event['content'] is String ? (event['content'] as String).trim() : '';
     if (original.length > 15000) partial = true;
     final elements = event['msg_elements'];
     final parts = <Map<String, Object?>>[];
+    // Some official events flatten a forwarded card into a text transcript.
+    // Its visible labels describe unverified material, never a live speaker.
+    final flat=RegExp(r'^\[(?:群聊的聊天记录|聊天记录|转发聊天记录)\]\s*\n=== 消息 \d+ ===').hasMatch(original);
+    if(flat) {
+      final safe=original.replaceAll(RegExp(r'https?://[^\s<>]+',caseSensitive:false),'[附件地址已省略]');
+      parts.add({'text':QqMessageMaterial.bound(safe,2000),'index':'','image_ordinals':<int>[]});
+      partial=partial || safe.length>2000;original='';
+    }
     if (elements is List) {
-      if (elements.length > 4) partial = true;
-      for (final element in elements.take(4)) {
+      final available=4-parts.length;
+      if (elements.length > available) partial = true;
+      for (final element in elements.take(available)) {
         if (element is! Map) {partial = true; continue;}
         final text = element['content'] is String ? element['content'] as String : '';
         if (text.length > 2000) partial = true;
