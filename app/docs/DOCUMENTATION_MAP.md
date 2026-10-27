@@ -1,12 +1,12 @@
 # 文档地图
 
-当前实施：[QQ资料来源、GIF与接话边界](QQ_MATERIAL_GIF_v042143.md) — +387/schema65；用户最终范围及验证状态见文档，尚未构建。
+当前交付：[QQ资料来源、GIF与接话边界](QQ_MATERIAL_GIF_v042143.md) — +387/schema65，完整CI40472828216和专项40472828192成功；全量2919项通过，原签名APK已上传并核验，[下载](https://github.com/catkiss62/ai-companion-build/actions/runs/40472828216/artifacts/12721561129)。真机待验。
 
 最新审查：[QQ转发来源与GIF方案](QQ_FORWARD_PROVENANCE_REVIEW_2026-10-27.md) — +386只读复查的两个待修根因、冻结合成探针及有界抽帧建议；不是新功能交付，不触发构建。
 
-当前交付：[+386 QQ与夜间修补](QQ_NIGHT_RECOVERY_v042142.md)，完整CI40441351357和专项40441351370成功；运行源码1330046de74a790ae671443a4108a2ec1ede6f0f，状态与下载见总账v3。
+历史交付：[+386 QQ与夜间修补](QQ_NIGHT_RECOVERY_v042142.md)，完整CI40441351357和专项40441351370成功；运行源码1330046de74a790ae671443a4108a2ec1ede6f0f，状态与下载见总账v3。
 
-当前交付：[QQ_ARCHIVE_AGENT_v042139.md](QQ_ARCHIVE_AGENT_v042139.md) — +383六组QQ/Agent读取链修复及沉浸布局；完整CI40327576862成功，2829全量Flutter/170存档恢复/54原生测试通过，原签名APK已上传GitHub，真机待验。
+历史交付：[QQ_ARCHIVE_AGENT_v042139.md](QQ_ARCHIVE_AGENT_v042139.md) — +383六组QQ/Agent读取链修复及沉浸布局；完整CI40327576862成功，2829全量Flutter/170存档恢复/54原生测试通过，原签名APK已上传GitHub，真机待验。
 
 前一版交付：[QQ_JEV_CONVERSATION_v042138.md](QQ_JEV_CONVERSATION_v042138.md) — +382 JEV群聊判断/连续对话、App本机认主、群记录读取补漏和中文档案/群名；完整CI及原签名APK已成功，真机待验。
 

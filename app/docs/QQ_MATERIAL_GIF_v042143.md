@@ -1,6 +1,6 @@
 # v0.42.143+387：QQ资料来源、GIF与接话边界
 
-实施基线f7f262e7fe28614331dd1512d0ae7cb391a485ba（+386运行源码加复查文档）。当前为本地实施及推送前复核；尚未完成本版本CI/构建，不把源码判断或合成测试写成真机结果。
+实施基线f7f262e7fe28614331dd1512d0ae7cb391a485ba（+386运行源码加复查文档）。本版本已推送、CI与原签名APK构建成功，文件已上传并核验；真机语义频率、平台转发覆盖与GIF性能待安装观察。
 
 ## 本轮范围与用户最终决定
 
@@ -12,7 +12,7 @@
 
 ## 实现与边界
 
-- schema65在qq_archive增加context_meta。纯QQ数据合同保存引用/嵌入片段、索引、图片归属及截断标记，URL仍只在内存里。旧版本迁移/存档导入补空metadata，不猜测或改写旧内容。外层可信账号负责认主，内层名字/群标题/时间一律不能成为授权事实。
+- schema65在qq_archive增加context_meta。纯QQ数据合同保存引用/嵌入片段、索引、图片归属及截断标记，媒体附件地址仍只在内存里。旧版本迁移/存档导入补空metadata，不猜测或改写旧内容。外层可信账号负责认主，内层名字/群标题/时间一律不能成为授权事实。
 - 共享Reader供回复、小卡、摘要、本人App/QQ检索与管理显示使用；材料正文与图片内文字不再冒充外层发言。表达学习使用outer_sender_comment，不输入引用正文及图片观察。摘要和分享继续保留来源不确定性，删除/编辑仍用原行版本和来源证据撤销；不批量改写旧摘要。
 - GIF解码最多120帧、累计原始像素预算1亿（两遍）、处理预算约2.5秒；先获得帧时长，再按时间取最多6帧，图像逐帧释放。预算是在解码步骤间检查，不能中止已进入原生解码的一帧。静态图保留原1000px路径。拼图仍是一张PNG，图片cacheVersion区分旧首帧观察；抽样可能漏掉短暂变化，不宣称看完全文/完整动作。拼图不天然保证更省Token或更快，真机性能与识别效果待验。
 - SVG保持单次付费请求；增加整个生成阶段90秒截止与渲染阶段10秒上限，不因持续有网络进度而无限等下去。仍保留既有每小时4次绘图请求预算（失败也可能已产生模型消耗），额度耗尽会明确提示。上传/发送不增加重试，未知投递仍禁止自动重发。
@@ -26,6 +26,12 @@
 - SVG回归：原生合法简笔形状/路径/文字、逗号transform、拒绝原因与安全边界；模拟原生拒绝时只调用一次绘图，失败只记原因、不自动重新生成。
 - 按项目既有流程运行154项源码门、Flutter分析与重点/全量、存档恢复及Kotlin/Android15验证；推送前本地复核，CI结果与APK核验随后登记。当前环境没有Flutter/Android SDK，不把本地源码检查冒称为已运行Flutter或真机。
 
-## 交付状态
+## 最终交付与验证
 
-本地源码门147项通过，另7项因未准备资源/未安装kotlinc受阻，完整154项须以CI为准。git diff与版本/总账守卫已核对；Dart/Flutter/Android仍待CI。待推送前复核与CI；最终交付以本节后续记录及总账最新条目为准。上轮只读[复查报告](QQ_FORWARD_PROVENANCE_REVIEW_2026-10-27.md)和冻结探针保留为修复前证据，不作为新实现的通过门禁。
+- 运行源码14354a2e9d0528cdf4893126892e53f2706fd1e8，tree40edc292dd54ac67d5c6037d06c659af56a258ba，版本0.42.143+387/schema65。Agent自报版本与pubspec一致。
+- [完整CI40472828216](https://github.com/catkiss62/ai-companion-build/actions/runs/40472828216)与[专项40472828192](https://github.com/catkiss62/ai-companion-build/actions/runs/40472828192)均success。154源码门、Kotlin及Android15原生通过；本轮/关联158项、后续1283项、Flutter全量2919项分别通过，存在重叠不相加；打包前归档/恢复检查通过。Dart分析0error、958非fatal，不冒称零警告。
+- APK739328662 bytes，SHA256 `6beb01ba349abc060656588378967b288a519cfb01c38c03363dff49daf9511c`。CI校验和与GitHub Release资产681013332的digest一致，state=uploaded。原签名证书SHA256为305eb3d80983b963c64818ddf1ad561f279de6d47b3ed2c781ada448c7c25148。
+- [GitHub APK下载入口](https://github.com/catkiss62/ai-companion-build/actions/runs/40472828216/artifacts/12721561129)，Actions artifact12721561129；ZIP732135829 bytes，ZIP digest ec7d6dcc4f2ba8d00fb7a05f19d975420ae85537dba00fc09491b151fd4701ec（不是APK校验和）。备用[草稿Release425185563](https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-cadb47142ba1b2743c3d)，target为上述源码，未发布；包含APK、校验和及CI Monitor。按用户要求从GitHub下载，不另行聊天传输APK。
+- 后续只更新交付文档，使用skip ci，不重构建相同APK。上轮[复查报告](QQ_FORWARD_PROVENANCE_REVIEW_2026-10-27.md)及冻结探针作为修复前证据保留。
+
+旧版没有保存失败SVG及异常分类，不能断定旧版每次绘图失败的具体原因。已补兼容缺口及分类诊断，未增加SVG付费重试、未降低用户的思考力度，未加入表情包近期用图收敛。自动验证与合成渲染不是用户手机、真实模型和官方QQ全部消息格式的实测。
