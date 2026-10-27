@@ -145,8 +145,8 @@ void main() {
     final channel=const MethodChannel('ai_companion/qq_private_runtime');
     TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger.setMockMethodCallHandler(channel,(_)async=>Uint8List.fromList([137,80,78,71]));
     respond=(b) async {
-      if(b['max_tokens']==6000) {drawings++;entered.complete();await release.future;return _json({'svg':svg,'description':'蓝色圆圈'});}
       if(b['stream']==true)return _sse(jsonEncode(b['messages']).contains('【可选小涂鸦】')?'给你<qq_sketch mode="with_text">蓝色圆圈</qq_sketch>':'收到');
+      if(b['max_tokens']==6000) {drawings++;entered.complete();await release.future;return _json({'svg':svg,'description':'蓝色圆圈'});}
       return _json(b['max_tokens']==60?{'safe':true}:{'participation':'direct'});
     };
     try {
@@ -154,11 +154,11 @@ void main() {
       await entered.future.timeout(const Duration(seconds:8));
       for(final target in ['owner','b']) {
         api.signals[target]=Completer<void>();await runtime.accept(event('other-$target',group:target=='b',target:target),group:target=='b');
-        await api.signals[target]!.future.timeout(const Duration(seconds:5));
+        await api.signals[target]!.future.timeout(const Duration(seconds:5),onTimeout:()=>throw TestFailure('reply $target stalled; status=$statuses; sent=${api.sent}'));
       }
       await runtime.accept(event('same-group-next',group:true,target:'a'),group:true);
       expect(api.sent.where((s)=>s.startsWith('a:')),isEmpty);expect(drawings,1);
-      release.complete();await api.signals['a']!.future.timeout(const Duration(seconds:5));
+      release.complete();await api.signals['a']!.future.timeout(const Duration(seconds:5),onTimeout:()=>throw TestFailure('drawing delivery stalled; status=$statuses; sent=${api.sent}'));
       expect(api.sent.where((s)=>s.startsWith('a:')).single,'a:给你');
       api.signals['a']=Completer<void>();await api.signals['a']!.future.timeout(const Duration(seconds:6));
       expect(api.sent.where((s)=>s.startsWith('a:')).toList(),['a:给你','a:收到']);expect(drawings,1);
