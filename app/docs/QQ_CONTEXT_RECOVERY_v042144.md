@@ -1,6 +1,6 @@
 # QQ 接话、媒体与游戏厅隔离修补 · v0.42.144+388
 
-2026-10-27，schema65。用户授权合并修补、推送 `agent/v042107-review-recovery` 并构建APK。当前实现待CI；安装版和构建核验随后登记，不能把本节视为真机验证。
+2026-10-27，schema65。用户授权合并修补、推送 `agent/v042107-review-recovery` 并构建APK。代码、专项/全量CI和原签名APK已完成核验；真实模型语义、手机网络和使用体验仍以安装后观察为准。
 
 ## 证据与范围
 
@@ -26,3 +26,13 @@
 新增真实入口合成回归覆盖：生成期间到达消息、空附件、跨群旧回复计数、无新消息不重读；约20轮多段合并及来源撤销；转发文本/地址隔离；小包候选覆盖；大于旧下载上限的图片及分阶段失败；游戏厅保留未知写入、普通暂停/任务保护与其他游戏选择。已有SVG用例继续确认动态模型/思考力度、单次请求和原生拒绝原因。
 
 本机无Flutter/Dart/Android工具链。源码门、CI中的Dart/Kotlin/Android检查与真机行为分别记录；未调用真实QQ或付费模型进行测试。推送前检查改动及隐私，推送后以实际CI结果和APK签名/校验和作为交付依据。
+
+## 最终交付与验证
+
+- 运行源码 `f144f5a12be2d900dfd08dc4b63dd89375b1d54f`，tree `433dae15968fbddbac06e95ae8e4a74da1dc75ee`，版本0.42.144+388/schema65，包含用户最后追加的QQ群聊第一通道DeepSeek识图。此前两个+388源码版本及构建已被替代，不作为本版下载依据。
+- [完整CI40497868857](https://github.com/catkiss62/ai-companion-build/actions/runs/40497868857)和[专项CI40497868900](https://github.com/catkiss62/ai-companion-build/actions/runs/40497868900)均success，head_sha均为上述源码。154项源码门通过；本轮/关联179项（48秒）、扩展1288项（5分40秒）、全量2940项（10分56秒）分别通过，重叠不相加。打包前存档恢复步骤通过。Dart分析0error、963非fatal，不冒称零警告。
+- Kotlin测试通过（BUILD SUCCESSFUL in4m22s），Android原生job122168329649 success（in4m20s）；这些是CI验证，不是用户手机实测。本地147项源码门通过，其余7项受资源/编译器环境限制，后续已在CI完整环境通过。测试未调用真实QQ或付费模型，也没有修改用户存档。
+- 实际APK包名 `com.aicompanion.localfirst`，版本0.42.144+388。保留原签名，证书SHA256为 `305eb3d80983b963c64818ddf1ad561f279de6d47b3ed2c781ada448c7c25148`。
+- APK739342626 bytes，SHA256 `6b2443e31ec8a9fbe3199d0bdc669cd9c7fc108c8481950284e4b09ea24acea3`；CI的实际APK校验和与GitHub Release425365924/asset681505259的digest一致，状态uploaded。Release保持草稿，target为上述运行源码，没有发布。
+- [GitHub APK下载入口](https://github.com/catkiss62/ai-companion-build/actions/runs/40497868857/artifacts/12732489372)，Actions artifact12732489372；ZIP732151190 bytes，ZIP digest `060acf1752ee4aa4beb11b564547d7e1c318934d15dc71d73ef0d639903679ff`，与APK哈希分清。备用[草稿下载页](https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-66c5917421d8405ec7bd)；APK、校验和和CI Monitor均已上传。按用户偏好从GitHub下载，不重复在聊天中传输大文件。
+- 后续只收口交付文档，skip ci，不重构建同一个APK。旧GIF失败没有具体阶段，仍无法追溯确定原因；新版已补下载/解码/接口枚举。群聊语义和插话频率、用户本机表情资源完好程度以及真实网络识图效果需安装观察，不承诺已找全所有缺陷。

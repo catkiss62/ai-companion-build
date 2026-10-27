@@ -1,6 +1,6 @@
 # 文档地图
 
-当前实现待CI：[QQ接话、媒体与游戏厅隔离修补](QQ_CONTEXT_RECOVERY_v042144.md) — +388/schema65；约20轮紧凑上下文、自然插话、重复回复/媒体修补及暂停游戏隔离。构建核验随后登记。
+当前交付：[QQ接话、媒体与游戏厅隔离修补](QQ_CONTEXT_RECOVERY_v042144.md) — +388/schema65，QQ群聊第一通道DeepSeek识图、约20轮上下文、自然插话、重复回复/媒体/候选与暂停游戏修补；完整CI40497868857及专项40497868900成功，全量2940项通过，原签名APK已核验，[下载](https://github.com/catkiss62/ai-companion-build/actions/runs/40497868857/artifacts/12732489372)。真机待验。
 
 历史交付：[QQ资料来源、GIF与接话边界](QQ_MATERIAL_GIF_v042143.md) — +387/schema65，完整CI40472828216和专项40472828192成功；全量2919项通过，原签名APK已上传并核验，[下载](https://github.com/catkiss62/ai-companion-build/actions/runs/40472828216/artifacts/12721561129)。真机待验。
 
