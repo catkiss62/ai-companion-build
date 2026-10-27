@@ -1,5 +1,7 @@
 # 文档地图
 
+当前执行：[+386 QQ与夜间修补](QQ_NIGHT_RECOVERY_v042142.md)，状态以总账v3及本轮CI为准。
+
 当前交付：[QQ_ARCHIVE_AGENT_v042139.md](QQ_ARCHIVE_AGENT_v042139.md) — +383六组QQ/Agent读取链修复及沉浸布局；完整CI40327576862成功，2829全量Flutter/170存档恢复/54原生测试通过，原签名APK已上传GitHub，真机待验。
 
 前一版交付：[QQ_JEV_CONVERSATION_v042138.md](QQ_JEV_CONVERSATION_v042138.md) — +382 JEV群聊判断/连续对话、App本机认主、群记录读取补漏和中文档案/群名；完整CI及原签名APK已成功，真机待验。

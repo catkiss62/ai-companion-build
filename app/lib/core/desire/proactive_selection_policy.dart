@@ -128,6 +128,7 @@ class ProactiveSelectionPolicy {
     Map<String, DateTime> lastSatisfiedAtByLane = const {},
     DateTime? satisfactionLedgerStartedAt,
     double samplingUnit = 0.0,
+    bool night = false,
   }) {
     if (candidates.isEmpty) return null;
     final recent = recentIntentKinds
@@ -224,7 +225,7 @@ class ProactiveSelectionPolicy {
                 _ => 0.12,
               }
             : 0.0;
-        final rawWaitingData = waiting
+        final rawWaitingData = waiting && !night
             ? _waitingBoost(
                 candidate: effectiveCandidate,
                 thought: thought,
@@ -245,7 +246,7 @@ class ProactiveSelectionPolicy {
         final repeatedSourceDepth = recentSources.isEmpty
             ? 0
             : _repeatDepth(recentSources, recentSources.first);
-        final diversityBoost = repetition &&
+        final diversityBoost = repetition && !night &&
                 ((repeatedNewestDepth >= 2 && intentKind != recent.first) ||
                     (repeatedSourceDepth >= 2 &&
                         sourceType != recentSources.first) ||
@@ -258,7 +259,7 @@ class ProactiveSelectionPolicy {
           effectiveCandidate,
           sourceType: sourceType,
         );
-        final freshnessBalanceBoost = repetition &&
+        final freshnessBalanceBoost = repetition && !night &&
                 visibleFreshShortfall > 0 &&
                 freshCandidate
             ? (0.06 + visibleFreshShortfall * 0.04)
@@ -276,7 +277,7 @@ class ProactiveSelectionPolicy {
           behaviorKind: behaviorKind,
           action: effectiveCandidate.wantAction,
         );
-        final opportunityBoost = repetition
+        final opportunityBoost = repetition && !night
             ? _opportunityBoost(
                 candidate: effectiveCandidate,
                 lane: actionLane,
@@ -354,7 +355,7 @@ class ProactiveSelectionPolicy {
     final top = rawRestWinner
         ? scored.firstWhere((value) => identical(value.original, rawWinner))
         : scored.first;
-    var samplePool = top.adjusted.drive == DriveKey.fatigue ||
+    var samplePool = night || top.adjusted.drive == DriveKey.fatigue ||
             top.adjusted.wantAction == 'rest'
         ? <_ScoredIntent>[top]
         : scored

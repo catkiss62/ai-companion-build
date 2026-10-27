@@ -83,7 +83,7 @@ void main() {
     );
     expect(
       DesireCorePolicy.circadianFatigueFloor(DateTime(2026, 8, 13, 5, 10)),
-      closeTo(0.6967, 0.0001),
+      closeTo(0.78, 0.0001),
     );
 
     final lateNight = DesireCorePolicy.advance(

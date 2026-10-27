@@ -440,9 +440,9 @@ class DesireCorePolicy {
       (120, 0.68),
       (180, 0.74),
       (240, 0.78),
-      (300, 0.72),
-      (360, 0.58),
-      (wakeMinute, 0.54),
+      // Deep-night rest retains its advantage until the sampled wake time.
+      // A single outbound contact is not evidence that the body has woken.
+      (wakeMinute, 0.78),
       (wakeMinute + DailyWakeSchedule.settlingDuration.inMinutes, 0.16),
       (1080, 0.16),
       (1200, 0.18),

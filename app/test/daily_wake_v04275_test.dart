@@ -311,7 +311,7 @@ void main() {
       expect(schedule.promptSection(time(9, 40)), isEmpty);
       double floor(DateTime at) =>
           DesireCorePolicy.circadianFatigueFloor(at, wakeAt: schedule.wakeAt);
-      expect(floor(time(8, 55)), .54);
+      expect(floor(time(8, 55)), .78);
       expect(floor(time(9)), greaterThan(.48));
       expect(floor(time(9, 40)), closeTo(.16, .00001));
       var previous = floor(time(6));

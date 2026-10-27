@@ -84,6 +84,8 @@ import 'desire_satisfaction_ledger.dart';
 import 'desire_engine.dart';
 import 'fatigue_affect_controller.dart';
 import 'proactive_dawn_gate_policy.dart';
+import 'proactive_night_policy.dart';
+import 'daily_wake_store.dart';
 import 'proactive_presentation.dart';
 import 'proactive_rhythm_engine.dart';
 import 'proactive_scene_continuity_policy.dart';
@@ -690,9 +692,19 @@ class ProactiveEngine {
       final fatigueAffect = await FatigueAffectController(db).snapshot(
         now: evaluationStartedAt,
       );
+      final dailyWake = await DailyWakeStore.read(await db.database, evaluationStartedAt);
+      final nightContact = !forceForDebug && ProactiveFrequencyPolicy.isNight(
+        evaluationStartedAt, wakeAt: dailyWake.wakeAt);
+      final nightRestScore = DesireCorePolicy.fatigueRestScore(fatigue, affect: fatigueAffect);
+      DateTime? nightEvidence(CompanionThought? thought) {
+        if (thought == null) return null;
+        if (CedarGameThoughtPolicy.isOutcomeThought(thought)) return CedarGameThoughtPolicy.evidenceAt(thought);
+        return readySinceByThoughtId[thought.id];
+      }
       final previewCandidates = desireEngine.previewCandidates(
         snapshot,
-        thoughts,
+        nightContact ? thoughts.where((t) => ProactiveNightPolicy.currentSource(
+          t, evaluationStartedAt, nightEvidence(t))).toList() : thoughts,
         now: evaluationStartedAt,
         intimacyAllowed: true,
         includeThoughtAlternatives: true,
@@ -864,6 +876,35 @@ class ProactiveEngine {
       final recentIntentKinds = recentFeedback
           .map((item) => item.intentKind)
           .toList(growable: false);
+      final lastNightUserAt = nightContact ? await db.lastUserMessageAt() : null;
+      final nightFeedback = nightContact ? await (await db.database).rawQuery('''
+        SELECT f.* FROM proactive_feedback f JOIN proactive_history h ON h.message_id=f.proactive_message_id
+        WHERE h.decision='sent' AND h.trigger_reason NOT GLOB 'game_share:immediate:*'
+          AND f.sent_at>=? ORDER BY f.sent_at DESC LIMIT 2
+      ''', [ProactiveFrequencyPolicy.boundary(evaluationStartedAt, 0).millisecondsSinceEpoch]) : const <Map<String,Object?>>[];
+      String? nightBlock(DesireIntent candidate) {
+        final thought = candidate.thoughtId == null ? null : thoughtsById[candidate.thoughtId!];
+        final kind = ProactivePresentationPolicy.classify(intent: candidate,
+          sourceType: ProactiveSelectionPolicy.sourceTypeFor(thought: thought, reasonSource: candidate.reasonSource)).key;
+        DateTime? previous;
+        for (final item in nightFeedback) {
+          if (thought != null ? item['topic_key'] != thought.topicKey : item['intent_kind'] != kind) continue;
+          final sentAt=DateTime.fromMillisecondsSinceEpoch(item['sent_at'] as int);
+          if (previous == null || sentAt.isAfter(previous)) previous = sentAt;
+        }
+        return ProactiveNightPolicy.blockReason(intent: candidate, snapshot: snapshot,
+          restScore: nightRestScore, now: evaluationStartedAt, thought: thought,
+          evidenceAt: thought == null ? lastNightUserAt : nightEvidence(thought), previousSameContactAt: previous);
+      }
+      if (nightContact) {
+        // A very strong present emotional drive can compete on its own. Old
+        // callback Thoughts must not be its evidence or silently boost it.
+        unifiedCandidates.removeWhere((candidate) {
+          final behavior = ProactiveSelectionPolicy.behaviorKindFor(candidate);
+          return const {'proactive_message','public_web_share','game_share'}.contains(behavior) && nightBlock(candidate) != null;
+        });
+        unifiedCandidates.sort((a,b) => b.score.compareTo(a.score));
+      }
       final recentTopicKeys = recentFeedback
           .map((item) => item.topicKey)
           .where((value) => value.trim().isNotEmpty)
@@ -898,6 +939,7 @@ class ProactiveEngine {
         },
         satisfactionLedgerStartedAt: satisfactionLedger.startedAt,
         samplingUnit: selectionUnit,
+        night: nightContact,
       );
       var intent = selection?.intent;
       if (forceForDebug && forcedThoughtIdForDebug != null) {
@@ -1253,6 +1295,10 @@ class ProactiveEngine {
           thoughts.add(stagedThought);
         }
         thoughtsById[stagedThought.id] = stagedThought;
+        if (pendingWebShare != null &&
+            publicWebSharing.candidateIdForThought(stagedThought) == pendingWebShare.id) {
+          readySinceByThoughtId[stagedThought.id] = pendingWebShare.discoveredAt;
+        }
         intent = DesireIntent(
           drive: PublicWebSharePolicy.driveFromKey(stagedThought.driveKey),
           score: max(intent.score, stagedThought.strength),
@@ -1269,6 +1315,15 @@ class ProactiveEngine {
           reasonTag: 'rest_selected',
         );
         return const ProactiveDecision(sent: false, reason: '当前更需要休息，不触发主动消息');
+      }
+      // Staging a web candidate can replace an internal action with an
+      // outbound intent. Recheck that transition before any final writer.
+      if (nightContact) {
+        final blocked = nightBlock(intent);
+        if (blocked != null) {
+          await db.finishAutonomousBehavior(autonomousBehaviorEventId, status: 'blocked', reasonTag: blocked);
+          return ProactiveDecision(sent: false, reason: blocked);
+        }
       }
 
     final intentThought = intent.thoughtId == null
@@ -1446,7 +1501,7 @@ class ProactiveEngine {
     // Drive/Thought pulses. The delivery Gate no longer adds the same signal a
     // second time, avoiding double weighting of device activity.
     const presenceBoost = 0.0;
-    final jitter = (_random.nextDouble() - 0.5) * 0.10;
+    final jitter = nightContact ? 0.0 : (_random.nextDouble() - 0.5) * 0.10;
     // Selection penalties decide which motive gets attention. The delivery
     // Gate evaluates the original motive strength so cooldown/diversity is not
     // charged a second time as if it weakened the underlying desire itself.
@@ -1474,7 +1529,7 @@ class ProactiveEngine {
                 ? 0.025
                 : 0.0;
     final threshold = (baseThreshold +
-            rhythmProfile.thresholdAdjustment +
+            (nightContact ? max(0.0, rhythmProfile.thresholdAdjustment) : rhythmProfile.thresholdAdjustment) +
             dawnAdjustment.thresholdPenalty -
             longIdleRelief)
             .clamp(0.52, 0.86)
@@ -1567,7 +1622,7 @@ class ProactiveEngine {
     }
     final recent = await db.recentMessagesForPrompt(limit: 28);
     final startsFreshTopic =
-        ProactivePresentationPolicy.startsFreshTopic(intentKind);
+        nightContact || ProactivePresentationPolicy.startsFreshTopic(intentKind);
     final promptHistory = startsFreshTopic
         ? const <ChatMessage>[]
         : recent;
@@ -1577,7 +1632,7 @@ class ProactiveEngine {
       retrievalQuery: intent.reason,
       recent: promptHistory,
       desire: snapshot,
-      thoughts: thoughts,
+      thoughts: nightContact ? (intentThought == null ? const [] : [intentThought]) : thoughts,
       mode: PromptGenerationMode.proactive,
       now: evaluationStartedAt,
       groundingOverride: proactiveGrounding,
@@ -1678,7 +1733,8 @@ MCP Outcome 是她自己刚完成的真实游戏操作结果，可以用第一�
           "请根据本轮具体念头、疲劳、近期真实互动和收尾状态判断：它是否值得此刻发出，还是留到以后更合适。"
           "用户长时间没回复、熄屏或正在用手机，都不能单独证明应该找用户，也不能断言用户睡着或醒着。"
           "没有足够具体且此刻值得表达的内容就只输出 WAIT；不为通过判断编造紧急性或自称非常想说。"
-          "不要求重大事件：有真实缘由的想念、发现或疑问也可以自然表达。";
+          "不要求重大事件：有真实缘由的想念、发现或疑问也可以自然表达。"
+          "${ProactiveNightPolicy.writerContract}";
     final pendingGameThreadContract = linkedThread == null ||
             !ProactiveSelectionPolicy.isGameTopic(linkedThread.topicKey) ||
             isCedarGameShare
@@ -1705,6 +1761,7 @@ $watchedCedarShareContract
 $cedarTemporalContract
 $pendingGameThreadContract
 $nightContactContract
+${nightContact ? '【夜间当前候选·宿主状态资料】${jsonEncode({'drive': intent.drive.name, 'value': snapshot.drives[intent.drive], 'usual_baseline': snapshot.baselines[intent.drive], 'motive_score': intent.score, 'rest_score': nightRestScore, 'source_event_at': nightEvidence(intentThought)?.toIso8601String()})}' : ''}
 $selectedThoughtData
 ${selection != null && selection.rawRepetitionPenalty > 0 ? '近期同类主动主题已连续出现 ${selection.rawRepeatDepth} 次，本轮已经在本地选择阶段降权；若当前最终意图不是该主题，不要擅自绕回重复的亲密联系。' : ''}
 过去主动消息样本：${rhythmProfile.sampleCount}；当前主题历史样本：${rhythmProfile.topicSampleCount}；同类主动意图样本：${rhythmProfile.intentSampleCount}。当前粗粒度时间段=${rhythmProfile.currentHourBucket}，活动情境=${rhythmProfile.currentActivityContext}。这些只作为轻量节奏参考，不要向用户提及统计。

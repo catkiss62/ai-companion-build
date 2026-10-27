@@ -32,7 +32,8 @@ import 'qq_group_learning.dart';
 import 'qq_sketch.dart';
 
 /// Independent coordinator. Reception only persists and schedules; all model
-/// work is serialized here, never in the WebSocket heartbeat/acceptance path.
+/// work is scheduled here, never in the WebSocket acceptance path. One drawing
+/// may yield the foreground lane; each conversation retains its original lock.
 class QqRuntime {
   QqRuntime({required this.store,required this.api,required this.secure,required this.config,
     required this.allowed,required this.status,DateTime Function()? now,
@@ -59,12 +60,24 @@ class QqRuntime {
   final _legacyIds=<String>{};
   final _enqueued=<String>{};final _imageUrls=<int,List<String>>{};
   Future<void> _acceptTail=Future.value(),_workTail=Future.value();
-  DeepSeekClient? _activeClient;bool _stopped=false;
+  final _clients=<DeepSeekClient>{};final _inflight=<Future<void>>{};
+  bool _stopped=false,_drawingBusy=false;
   GenerationCancellationToken? _activeDecision;
   static String scope(QqPrivateConfig c)=>QqStore.hash([c.appId,c.namespace,c.owner]);
   static String policy(QqPrivateConfig c,QqOptions o)=>QqStore.hash([c.appId,c.namespace,c.owner,c.replyChannel,o.toJson()]);
   bool _sameDevice(QqPrivateConfig c)=>c.appId==config.appId && c.secret==config.secret && c.namespace==config.namespace;
   Future<bool> _enabled() async=>!_stopped && await allowed();
+
+  // Both predecessor failures and task failures are contained here. In
+  // particular, a maintenance read must never skip a later reply's finally.
+  void _queueWork(Future<void> Function() work,String failure,{Completer<void>? release}) {
+    Future<void> run() async {if(!_stopped)await work();}
+    final completed=_workTail.then<void>((_)=>run(),onError:(Object _,StackTrace __)=>run())
+      .catchError((Object _) {try {status(failure);} catch(_) {}});
+    _inflight.add(completed);
+    unawaited(completed.then((_) {_inflight.remove(completed);}));
+    _workTail=release==null?completed:Future.any<void>([completed,release.future]);
+  }
 
   Future<void> importLegacy(List<Map<String,dynamic>> rows) async {
     _legacyIds.addAll(rows.map((r)=>r['id']).whereType<String>());
@@ -189,14 +202,17 @@ class QqRuntime {
   void _enqueue(String cid) {
     if(_stopped || !_enqueued.add(cid)) return;
     _timers.remove(cid)?.cancel();
-    _workTail=_workTail.then((_) async {
+    final release=Completer<void>();
+    _queueWork(() async {
       var recheck=true;
-      try {await process(cid);} catch(_){recheck=false;status('reply_failed');}
+      try {await _process(cid,releaseSlot:() {if(!release.isCompleted)release.complete();});}
+      catch(_){recheck=false;status('reply_failed');}
       finally {_enqueued.remove(cid);if(!_stopped && recheck) await _schedule(cid);}
-    }).catchError((Object _){status('reply_failed');});
+    },'reply_failed',release:release);
   }
   /// Public for deterministic production-path regression, not a second route.
-  Future<void> process(String cid) async {
+  Future<void> process(String cid)=>_process(cid);
+  Future<void> _process(String cid,{void Function()? releaseSlot}) async {
     if(!await _enabled()) return;
     final c=await configReader();final o=await optionsReader();
     if(!_sameDevice(c) || c.owner.isEmpty) return;
@@ -219,7 +235,8 @@ class QqRuntime {
       if(styleStamp!=null && styleStamp!=(await QqGroupLearning(store).projection(cid)).stamp)return false;
       return stickerStamp==null || stickerStamp==await stickers.stamp();
     }
-    final client=clientFactory(() async=>!await current());_activeClient=client;
+    final client=clientFactory(() async=>!await current());_clients.add(client);
+    var ownsDrawing=false;
     try {
       if(!await current()) {await store.mark(b,'context_invalidated');return;}
       final rest=await resting();
@@ -293,7 +310,7 @@ class QqRuntime {
       data+='\n【本批待回应的新消息序号】${b.rows.map((r)=>r['seq']).join(',')}；之前她已发出的内容仅作历史，不重复回答旧轮次。';
       prompt+='\n${StickerExpressionService.replyChoicePrompt(candidates)}';
       prompt+='\n${QqReplyParts.prompt}';
-      final sketchService=QqSketchService(store);final canSketch=await sketchService.eligible(b,now().millisecondsSinceEpoch);
+      final sketchService=QqSketchService(store);final canSketch=!_drawingBusy && await sketchService.eligible(b,now().millisecondsSinceEpoch);
       if(canSketch)prompt+='\n${QqSketchService.prompt}';
       if(!await current()) throw StateError('context_invalidated');
       await store.mark(b,'generating');status('generating');
@@ -313,6 +330,9 @@ class QqRuntime {
       var caption=selected?.record.caption??'';
       QqSketch? drawing;
       if(sketchChoice!=null) {
+        // Keep this cid locked until upload/send completes. Other conversations
+        // can reply while this sole background drawing waits for its model.
+        _drawingBusy=true;ownsDrawing=true;releaseSlot?.call();
         try {status('drawing');drawing=await sketchService.generate(b,sketchChoice,now:now().millisecondsSinceEpoch,secure:secure,client:client,current:current);caption=drawing.description;}
         catch(_) {if(!await current())rethrow;status('sketch_failed');parts=['小涂鸦这次没画成，等会儿再试。'];text=parts.single;}
       }
@@ -343,7 +363,7 @@ class QqRuntime {
       final state=error is QqApiException && error.uncertain?'send_uncertain':await current()?'failed':'context_invalidated';
       try {await store.mark(b,state);} catch(_) {/* Existing sending receipt remains conservative. */}
       status(state=='failed'?'reply_failed':state);
-    } finally {client.close();if(identical(_activeClient,client)) _activeClient=null;
+    } finally {client.close();_clients.remove(client);if(ownsDrawing)_drawingBusy=false;
       for(final row in b.rows) {_imageUrls.remove(row['seq']);}
       if(!_stopped) _enqueueSummary(cid,idle:false);
     }
@@ -366,10 +386,10 @@ class QqRuntime {
   }
   void _enqueueSummary(String cid,{bool idle=true}) {
     if(_stopped) return;
-    _workTail=_workTail.then((_) async {
+    _queueWork(() async {
       // Recovering an idle tail must not jump ahead of a newly arrived reply.
       // The registered work remains durable; this is scheduling, not a reread.
-      if((await store.pending(cid)).isNotEmpty) {
+      if(_enqueued.isNotEmpty || (await store.pending(cid)).isNotEmpty) {
         _summaryTimers.remove(cid)?.cancel();
         if(!_stopped)_summaryTimers[cid]=Timer(const Duration(minutes:5),()=>_enqueueSummary(cid));
         return;
@@ -379,12 +399,16 @@ class QqRuntime {
         final c=await configReader(),o=await optionsReader();
         final conversations=await store.conversations(scope(c));
         final group=conversations.where((r)=>r['id']==cid && r['kind']=='group').firstOrNull;
-        if(group!=null && o.groups.contains(group['target']))await QqGroupLearning(store).learn(cid,now:now().millisecondsSinceEpoch,secure:secure,
-          clientFactory:(abort) {final client=clientFactory(abort);_activeClient=client;return client;},
-          allowed:() async=>await _enabled() && _sameDevice(await configReader()) && policy(await configReader(),await optionsReader())==policy(c,o));
+        if(group!=null && o.groups.contains(group['target'])) {
+          DeepSeekClient? learner;
+          try {await QqGroupLearning(store).learn(cid,now:now().millisecondsSinceEpoch,secure:secure,
+            clientFactory:(abort) {final client=clientFactory(abort);learner=client;_clients.add(client);return client;},
+            allowed:() async=>await _enabled() && _sameDevice(await configReader()) && policy(await configReader(),await optionsReader())==policy(c,o));}
+          finally {if(learner!=null)_clients.remove(learner);}
+        }
       } catch(_) {status('style_learning_failed');}
       finally {await _scheduleMaintenance(cid);}
-    });
+    },'memory_failed');
   }
   Future<void> _scheduleMaintenance(String cid) async {
     _maintenanceTimers.remove(cid)?.cancel();
@@ -418,7 +442,7 @@ class QqRuntime {
       policy(await configReader(),await optionsReader())==policy(c,o) && await store.current(fence) &&
       await claim.permit.matches(await store.db.database) && await reader.matches(stamp) &&
       await QqWorkQueue.current(await store.db.database,claim.workId,claim.runToken);
-    final client=clientFactory(() async=>!await current());_activeClient=client;
+    final client=clientFactory(() async=>!await current());_clients.add(client);
     try {
       final endpoint=await secure.readEndpoint();
       if(!await current()) return;
@@ -431,17 +455,20 @@ class QqRuntime {
             '不输出人格成长、欲望变化、关系强度。没有可靠事实时memory留空。share只供本人私聊/App，不直接发送。'},
           {'role':'user','content':claim.input}]);
       if(!await current()) return;
-      final content=result['memory'] is String?result['memory'] as String:'';
-      final share=conversation['kind']=='group' && o.ownerShare && result['share'] is String?result['share'] as String:'';
+      // An explicitly empty string is a valid result. A missing/wrongly typed
+      // field is a failed extraction and must retain its repair/cursor work.
+      if(result['memory'] is! String || result['share'] is! String)throw const FormatException('qq_memory_format');
+      final content=result['memory'] as String;
+      final share=conversation['kind']=='group' && o.ownerShare?result['share'] as String:'';
       final saved=await store.saveNote(fence,cid,claim.rows,stamp,claim.permit,content,share,now().millisecondsSinceEpoch,repairId:claim.repairId,repairRevision:claim.repairRevision,conversationVersion:claim.conversationVersion,workId:claim.workId,runToken:claim.runToken);
       if(saved && !_stopped) _enqueueSummary(cid,idle:idle);
       if(saved && claim.repairId.isEmpty && share.isNotEmpty && !_stopped) {
-        _workTail=_workTail.then((_)=>shareToOwner()).catchError((Object _){status('share_failed');});
+        _queueWork(shareToOwner,'share_failed');
       }
     } finally {
-      await QqWorkQueue.fail(store.db,claim.workId,claim.runToken,now().millisecondsSinceEpoch);
+      try {await QqWorkQueue.fail(store.db,claim.workId,claim.runToken,now().millisecondsSinceEpoch);}
+      finally {client.close();_clients.remove(client);}
       await _scheduleMaintenance(cid);
-      client.close();if(identical(_activeClient,client)) _activeClient=null;
     }
   }
   Future<void> shareToOwner() async {
@@ -459,7 +486,7 @@ class QqRuntime {
       if(!_sameDevice(fresh) || fresh.owner!=c.owner || fresh.replyChannel!=c.replyChannel || !(await optionsReader()).ownerShare) return false;
       return material.isEmpty || await QqReadOnlyContext.readMain((ctx)=>ctx.matchesStamp(material));
     }
-    final client=clientFactory(() async=>!await current());_activeClient=client;
+    final client=clientFactory(() async=>!await current());_clients.add(client);
     try {
       final prompt=await QqReadOnlyContext.readMain((ctx)=>ctx.build(offer.content,stamp:material,qqScope:scope(c),media:true));
       if(!await current()) return;
@@ -493,12 +520,13 @@ class QqRuntime {
       final state=error is QqApiException && error.uncertain?'send_uncertain':'failed';
       try {await store.write(fence,(txn) async {await txn.update('qq_shares',{'state':state,'updated_at':now().millisecondsSinceEpoch},where:'id=?',whereArgs:[offer.id]);});} catch(_) {}
       status(state=='send_uncertain'?state:'share_failed');
-    } finally {client.close();if(identical(_activeClient,client)) _activeClient=null;}
+    } finally {client.close();_clients.remove(client);}
   }
   Future<void> stop() async {
     _stopped=true;for(final t in [..._timers.values,..._summaryTimers.values,..._maintenanceTimers.values]) {t.cancel();}
-    _timers.clear();_summaryTimers.clear();_maintenanceTimers.clear();_imageUrls.clear();_activeDecision?.cancel();_activeClient?.close();vision.close();
+    _timers.clear();_summaryTimers.clear();_maintenanceTimers.clear();_imageUrls.clear();_activeDecision?.cancel();
+    for(final client in _clients.toList()) {client.close();}vision.close();
     await _acceptTail;
-    try {await _workTail.timeout(const Duration(seconds:2));} catch(_) {}
+    try {await Future.wait(_inflight.toList()).timeout(const Duration(seconds:2));} catch(_) {}
   }
 }

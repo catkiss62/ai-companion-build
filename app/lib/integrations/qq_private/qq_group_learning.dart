@@ -45,8 +45,9 @@ class QqGroupLearning {
       if(delete) {await txn.delete('qq_styles',where:'id=?',whereArgs:[row['id']]);}
       else {await txn.update('qq_styles',{'content':content?.trim()??old['content'],'enabled':enabled==null?old['enabled']:enabled?1:0,
         'revision':(old['revision'] as int)+1,'edited_at':DateTime.now().millisecondsSinceEpoch},where:'id=?',whereArgs:[row['id']]);}
-      await _advance(txn,cid);
-      await txn.rawUpdate("UPDATE qq_work_items SET state='cancelled',run_token='' WHERE conversation_id=? AND kind='style' AND state IN ('pending','running')",[cid]);
+      // Row revisions fence final writers through projection(). Editing an
+      // old observation is not a revocation of consent for unrelated new
+      // sources. Only setEnabled changes the learning epoch/cancels its work.
     });
   }
   Future<({String text,String stamp})> projection(String cid) async {

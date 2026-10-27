@@ -107,7 +107,7 @@ class AgentSelfReader {
   // Historical validator token: v0.42.5+249
   // Historical validator token: v0.42.6+250
   // Historical validator token: buildLabel = 'v0.42.13+257'
-  static const buildLabel = 'v0.42.141+385';
+  static const buildLabel = 'v0.42.142+386';
 
   static const systemFacts = <AgentSystemFact>[
     AgentSystemFact(id:'qq_history',title:'QQ历史档案读取',status:'implemented_bounded',
