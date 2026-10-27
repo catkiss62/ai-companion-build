@@ -14,4 +14,17 @@
 
 新增真实API回环HTTP与生产入口回归覆盖：冷token期间关群、401期间撤销、已确认后撤销、确认后本地事务暂时/持续失败、部分成功/未知、重启回执、防重统计、过期图片保留文字、临近过期候选仍可正常回复、语义台词与合成别名、文字语音去重及主动分享互斥。
 
-推送前审查已核对4项控制流、状态消费者、默认App发音及既有路由。代码只涉及QQ及其明确共享的文字处理开关；没有Android运行代码、主数据库或加密/转移核心修改。本地稀疏检出环境执行154源码门：130通过，24因未检出的资源/Android文件或无kotlinc不能执行；不移除这些门，交由完整CI原流程恢复资源后核验。本机无Dart/Flutter，尚未声称新增回归或本版APK通过；实际结果在CI结束后追加。
+推送前审查已核对4项控制流、状态消费者、默认App发音及既有路由。代码只涉及QQ及其明确共享的文字处理开关；没有Android运行代码、主数据库或加密/转移核心修改。本地稀疏检出环境执行154源码门：130通过，24因未检出的资源/Android文件或无kotlinc不能执行；不移除这些门，交由完整CI原流程恢复资源后核验。本机无Dart/Flutter，以上是推送前环境结果，现已由下方完整CI补齐。
+
+
+## 已验证交付
+
+运行源码`a7751c6b1478ccf394b3a75c2e3270c98d83f0ac`，tree`f2afe2c5fa6b237ab93b467375cc738eb9db6f71`；本地对应53805a9，树相同。后续文档收口使用[skip ci]，不重复构建。
+
+- [专项40572595477](https://github.com/catkiss62/ai-companion-build/actions/runs/40572595477) success：本轮及关联295项、扩展1303项分别通过，重叠不相加。
+- [完整40572595509](https://github.com/catkiss62/ai-companion-build/actions/runs/40572595509) success：154源码门、Android15原生、Kotlin验证通过；全量2999项（11分16秒）及恢复170项分别通过。Dart分析0error、970项非fatal，不称零警告。本轮无CI失败重推。
+- 实际包名com.aicompanion.localfirst、版本0.42.147+391，原签名证书SHA256 `305eb3d80983b963c64818ddf1ad561f279de6d47b3ed2c781ada448c7c25148`；固定Genie及其他载荷核验通过。
+- APK 739378622 bytes；SHA256 `4b9f555bf70795195d04d890aba658db0cb25680878239ca73d0f190b29cfc63`，与Draft425948523 / asset682777305的上传digest、大小一致。Actions外层ZIP的digest不是APK digest。
+- [下载+391 · artifact12767788597](https://github.com/catkiss62/ai-companion-build/actions/runs/40572595509/artifacts/12767788597)。用户从GitHub下载，不再聊天转存。发布保持Draft。
+
+真实QQ/手机弱网、存储故障及语义效果仍需实际使用观察。本轮回归使用合成输入、回环HTTP和本地SQLite，没有真实QQ发言、付费模型调用或修改用户备份。没有重启七类大检查。
