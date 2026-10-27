@@ -18,10 +18,19 @@ QQ语音与临时复读是独立适配器能力，仍遵守绑定、群授权、
 
 共享TTS只新增任务导出边界和子进程代际入口，不改Genie声学模型、语言前端或golden推理。主数据库仅版本及QQ元数据幂等建表迁移变化；加密、转移身份和恢复日志核心不变。旧QQ配置未显式设置新开关时序列化保持原样，避免升级改变授权哈希后静默停聊。
 
-## 验证状态
+## 验证与交付
 
-推送前已完成源代码复查和git diff检查，新增真实入口/SQLite/模拟平台回归：三语纯导出、不外放、不改App偏好、App优先/旧取消、迟到领取、WAV边界；确认/拒绝/投递未知，单次正文、台词回查/备份/删除/旧库；同人/多人/平台重送、同图/异图/跨群/过期/撤源、TTL及自身回声。原生VoiceExportOwnershipTest加入APK流水线过滤器。
+运行源码`1c8c57de1b022cbce3e5d09b40b0af105c55283c`，tree`f433bff105cab38e84e601d3e4dd1fc68a904989`；本地对应`11460e97`，树相同。后续只补本文及v3总账，`[skip ci]`不重构建。
 
-当前本地只有Python源码门环境：154项中147项通过；另外7项依赖CI恢复的外部视觉/Live2D/宠物资源或本机没有的kotlinc，留给现有CI原门核验，不删除或放宽。此时未执行Dart/Flutter/Android，不称测试已通过；本版APK尚未产生。后续在此追加实际CI源码、结果、版本/原签名/哈希及下载入口。
+- [专项CI40545573438](https://github.com/catkiss62/ai-companion-build/actions/runs/40545573438) success：本轮与关联279项、扩展1298项分别通过，两者重叠不相加。
+- [完整CI40545573369](https://github.com/catkiss62/ai-companion-build/actions/runs/40545573369) success：154源码门、Kotlin编译/单元（包含VoiceExportOwnershipTest）、Android15原生验证通过；全量Flutter2983项及打包前归档恢复170项分别通过。Dart分析成功，0error、966项非fatal；不称零警告。
+- 新增真实入口/SQLite/模拟平台回归覆盖：三语纯导出、不外放、不改App偏好、App优先/旧取消、迟到领取、WAV边界；确认/拒绝/投递未知，单次正文、台词回查/备份/删除/旧库；同人/多人/平台重送、同图/异图/跨群/过期/撤源、TTL及自身回声。
+- 实际APK包名`com.aicompanion.localfirst`，版本`0.42.146+390`；Genie等固定载荷逐字节核验通过。原证书SHA256 `305eb3d80983b963c64818ddf1ad561f279de6d47b3ed2c781ada448c7c25148`，可沿用已安装版本升级。
+- APK `739380146` bytes；SHA256 `342e91dc2bad5ef126f79a0f2b555ac5fb472519aa17b6bf8f28527e1fc140ab`。与Draft Release `425742670` / asset `682310125` 的实际上传digest、大小一致；不把Actions外层ZIP的hash当APK hash。
+- [下载APK · Actions artifact12754422897](https://github.com/catkiss62/ai-companion-build/actions/runs/40545573369/artifacts/12754422897)。用户从GitHub下载，不再转存聊天附件。发布保持Draft，未公开发布Release。
+
+首轮专项40545004763因新测试漏传必填stamp参数在分析阶段失败，已修正；最终上述CI均运行修正后的同一源码。被替代的旧构建40545004793不是本次交付依据。本地147项源码门、7项环境缺失仅是推送前结果，现已由完整CI154项补齐。
+
+真实账号语音格式接受/外语音质、手机资源争用延迟、动图实际表现和人物语义效果仍需安装观察。本轮没有调用付费模型、真实QQ群或修改用户备份做测试；不把模拟协议/本地数据库回归称作真实平台或手机验收。七类大检查未重启。
 
 协议参考：[腾讯SDK媒体与TTL](https://github.com/tencent-connect/qqbot-nodejs/blob/main/USAGE.md)、[SDK上传缓存](https://github.com/tencent-connect/qqbot-nodejs/blob/main/src/protocol/utils/upload-cache.ts)、[OpenAkita维护者的QQ官方通道原格式语音说明](https://github.com/openakita/openakita/blob/main/docs/im-channels.md)。资料和本地构造测试不等于本用户账号的真实发送验收。
