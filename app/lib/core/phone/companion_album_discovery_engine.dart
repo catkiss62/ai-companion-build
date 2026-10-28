@@ -225,7 +225,7 @@ class CompanionAlbumDiscoveryEngine {
         context: 'album_discovery',
         primaryProvider: 'vision_route',
         primaryOutcome: 'success',
-        finalProvider: 'vision_route',
+        finalProvider: observation.provider,
         finalOutcome: 'success',
         resultCount: 1,
         latencyBucket:

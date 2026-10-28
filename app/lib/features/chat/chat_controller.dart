@@ -896,7 +896,7 @@ class ChatController extends ChangeNotifier {
         context: 'chat_image',
         primaryProvider: 'vision_route',
         primaryOutcome: 'success',
-        finalProvider: 'vision_route',
+        finalProvider: observation.provider,
         finalOutcome: 'success',
         resultCount: 1,
         latencyBucket:

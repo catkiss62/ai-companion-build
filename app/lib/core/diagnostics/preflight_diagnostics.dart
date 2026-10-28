@@ -629,7 +629,7 @@ class PreflightDiagnosticsService {
       report['creativeAgent'] = await CreativeStore(db).diagnostics();
       report['finalReplyRouting'] = {
         'configuredProvider': (await SecureConfig.instance.readChatProvider()).storageValue,
-        'policy': 'second_channel_for_body_and_semantic_repair; fallback_only_after_channel_failure',
+        'policy': 'third_if_enabled_then_selected_second_or_first; fallback_only_after_channel_failure',
         // These are last notices, not evidence that every earlier turn used a provider.
         'lastProactiveNotice': await db.getSetting('proactive_last_final_provider_notice') ?? '',
         'lastProactiveFailure': _safeJsonObject(
@@ -639,6 +639,14 @@ class PreflightDiagnosticsService {
         'lastRoomNotice': await db.getSetting('cedar_room_last_final_provider_notice') ?? '',
         'lastCalendarNotice': await db.getSetting('calendar_last_final_provider_notice') ?? '',
       };
+      try {
+        final third = await SecureConfig.instance.readThirdChannel();
+        report['thirdChannel'] = {'enabled': third.enabled, 'configured': third.configured,
+          'model': 'gemini-3.8-flash', 'clientAccountPool': false,
+          'totalTimeoutSeconds': 120, 'maxResends': 1, 'credentialsIncluded': false,
+          'appQwenEnabled': await db.getSetting('app_qwen_vision_enabled_v1') != '0',
+          'appVisionFallback': 'qwen_switch_base_chain', 'qqVisionFallback': 'first'};
+      } catch (_) { report['thirdChannel'] = {'status': 'configuration_unavailable'}; }
 
       report['database'] = {
         'schemaVersion': AppDatabase.schemaVersion,
@@ -2044,6 +2052,7 @@ class PreflightDiagnosticsService {
     return <String, Object?>{
       'eventCount': eventCount,
       'deepseekCacheAudit': ModelUsageTelemetry.cacheAudit(raw),
+      'thirdChannelUsage': ModelUsageTelemetry.thirdChannelAudit(raw),
       'byLane': byLane,
       'recentPromptShapes': recentPromptShapes.length <= 24
           ? recentPromptShapes

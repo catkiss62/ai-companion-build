@@ -37,6 +37,8 @@ void main() {
   test('legacy model files retain the maximum work default', () {
     final payload = validPayload();
     (payload['secure'] as Map).remove('work_connection');
+    (payload['secure'] as Map).remove('third_connection');
+    (payload['settings'] as Map).remove('app_qwen_vision_enabled_v1');
     (payload['settings'] as Map).remove('deepseek_reasoning_effort');
     (payload['settings'] as Map).remove('creative_work_model');
     (payload['settings'] as Map).remove('creative_work_effort');
@@ -44,6 +46,8 @@ void main() {
     expect(decoded.settings['creative_work_model'], 'deepseek-flash');
     expect(decoded.settings['creative_work_effort'], 'max');
     expect(jsonDecode(decoded.secure['work_connection']!), {'mode': 'follow'});
+    expect(jsonDecode(decoded.secure['third_connection']!)['enabled'], false);
+    expect(decoded.settings['app_qwen_vision_enabled_v1'], '1');
   });
 
   test('truncated or unrelated files cannot partially overwrite configuration', () {

@@ -84,7 +84,7 @@ class VisionRoutingTransport extends http.BaseClient {
           current: () async => await _valid() && (await secure.readThirdChannel()).encode() == config.encode());
         await _check();
         _validate(jsonEncode(result.completion()));
-        return _response(jsonEncode(result.completion()), 200);
+        return _response(jsonEncode({...result.completion(), '_client_provider': 'third_channel'}), 200);
       } on GenerationCancelledByUserException { rethrow; }
       on GenerationSuspendedByRuntimeGateException { rethrow; }
       catch (_) { await _check(); }
@@ -125,7 +125,8 @@ class VisionRoutingTransport extends http.BaseClient {
         throw QwenVisionException(response.statusCode, 'vision_provider_failed');
       }
       _validate(response.body);
-      return _response(response.body, response.statusCode);
+      return _response(jsonEncode({...Map<String, Object?>.from(jsonDecode(response.body) as Map),
+        '_client_provider': first ? 'deepseek' : 'qwen_vision'}), response.statusCode);
     } catch (_) { await _check(); rethrow; }
     finally { timer.cancel(); _active.remove(client); client.close(); }
   }

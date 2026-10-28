@@ -11,6 +11,30 @@ class ModelUsageTelemetry {
   static const settingKey = 'deepseek_usage_telemetry_v1';
   static const maxEvents = 120;
 
+  /// Gateway-specific visible-output and reasoning counts are disjoint.
+  /// Other providers' completion conventions and prices are not applied here.
+  static Map<String, Object?> thirdChannelAudit(String raw) {
+    final lanes = <String, Map<String, int>>{};
+    try {
+      final decoded = jsonDecode(raw);
+      if (decoded is List) for (final event in decoded.whereType<Map>()) {
+        if (event['provider'] != 'third_channel') continue;
+        final lane = event['lane']?.toString() ?? 'unclassified';
+        final values = lanes.putIfAbsent(lane, () => {'calls': 0, 'inputTokens': 0,
+          'visibleOutputTokens': 0, 'reasoningTokens': 0, 'totalTokens': 0});
+        int count(String key) => (event[key] as num?)?.toInt() ?? 0;
+        final input = count('input_tokens'), output = count('output_tokens'), reasoning = count('reasoning_tokens');
+        values['calls'] = values['calls']! + 1;
+        values['inputTokens'] = values['inputTokens']! + input;
+        values['visibleOutputTokens'] = values['visibleOutputTokens']! + output;
+        values['reasoningTokens'] = values['reasoningTokens']! + reasoning;
+        values['totalTokens'] = values['totalTokens']! + input + output + reasoning;
+      }
+    } catch (_) { /* Best-effort diagnostics. Missing usage is never a zero-cost event. */ }
+    return {'byLane': lanes, 'accounting': 'input_plus_visible_output_plus_reasoning',
+      'priceEstimated': false, 'missingUsageIsZero': false};
+  }
+
   /// DeepSeek-only samples; unlabelled/missing accounting is not zero hit rate.
   static Map<String, Object?> cacheAudit(String raw) {
     final groups = <String, Map<String, Object?>>{};

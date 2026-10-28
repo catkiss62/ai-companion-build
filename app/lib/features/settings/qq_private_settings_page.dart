@@ -160,7 +160,8 @@ class _QqPrivateSettingsPageState extends State<QqPrivateSettingsPage> {
           const SizedBox(height: 16),
           DropdownButtonFormField<String>(initialValue: _replyChannel,
             key: ValueKey('qq-reply-$_replyChannel'),
-            decoration: const InputDecoration(labelText: 'QQ 回复通道'),
+            decoration: const InputDecoration(labelText: 'QQ 基础回复通道',
+              helperText: '第三通道开启时优先第三通道，失败后使用这里的选择。', helperMaxLines: 2),
             items: const [DropdownMenuItem(value: 'first', child: Text('第一通道 · DeepSeek')),
               DropdownMenuItem(value: 'second', child: Text('第二通道 · 失败时 DeepSeek 兜底'))],
             onChanged: _busy ? null : (value) {

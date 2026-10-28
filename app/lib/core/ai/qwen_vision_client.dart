@@ -20,10 +20,12 @@ class QwenVisionObservation {
     this.requestMatch = true,
     this.requestMatchConfidence = 1,
     this.requestMismatchReason = '',
+    this.provider = 'qwen_vision',
   });
 
   final String summary;
   final String model;
+  final String provider;
   /// SHA-256 of the exact bytes encoded into the only vision image input.
   final String inputContentSha256;
   final bool albumSave;
@@ -235,6 +237,7 @@ class QwenVisionClient {
           ? (model.trim().isEmpty ? defaultModel : model.trim())
           : responseModel,
       inputContentSha256: inputContentSha256,
+      provider: root['_client_provider']?.toString() ?? 'qwen_vision',
       albumSave: assessForAlbum && album['save'] == true,
       albumCategory: category,
       albumTags: albumTags,

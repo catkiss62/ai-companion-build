@@ -74,9 +74,10 @@ class ThirdChannelClient {
       cancellation?.throwIfCancelled();
       if (_closed || invalid) throw const GenerationSuspendedByRuntimeGateException();
       if (expired) throw const ThirdChannelFailure('timeout');
-      if (current != null && !await current()) {
-        invalid = true;
-        throw const GenerationSuspendedByRuntimeGateException();
+      if (current != null) {
+        var valid = false;
+        try { valid = await current(); } catch (_) { /* Failed source checks cannot authorize fallback. */ }
+        if (!valid) { invalid = true; throw const GenerationSuspendedByRuntimeGateException(); }
       }
     }
     final abortFuture = aborted.future;
@@ -165,6 +166,10 @@ class ThirdChannelClient {
             await collector.add(jsonDecode(raw), streaming: false);
           }
           final result = collector.finish();
+          final format = responseFormat?['json_schema'];
+          if (format is Map && format['strict'] == true && format['schema'] is Map) {
+            _validateSchema(jsonDecode(result.content), format['schema'] as Map);
+          }
           await check();
           return result;
         } catch (error) {
@@ -185,6 +190,31 @@ class ThirdChannelClient {
     }
   }
   void close() { _closed = true; for (final client in _active.toList()) { client.close(); } }
+
+  // The schema used by vision is deliberately small: validate its primitive,
+  // object and array contract locally even if a gateway ignores strict mode.
+  static void _validateSchema(Object? value, Map schema) {
+    final valid = switch (schema['type']) {
+      'object' => value is Map, 'array' => value is List,
+      'string' => value is String, 'boolean' => value is bool,
+      'number' => value is num && value.isFinite, 'integer' => value is int,
+      'null' => value == null, _ => false,
+    };
+    if (!valid) throw const ThirdChannelFailure('schema_type');
+    if (value is Map) {
+      final properties = schema['properties'] as Map? ?? const {};
+      final required = schema['required'] as List? ?? const [];
+      if (required.any((key) => !value.containsKey(key)) ||
+          schema['additionalProperties'] == false && value.keys.any((key) => !properties.containsKey(key))) {
+        throw const ThirdChannelFailure('schema_fields');
+      }
+      for (final key in value.keys) {
+        if (properties[key] is Map) _validateSchema(value[key], properties[key] as Map);
+      }
+    } else if (value is List && schema['items'] is Map) {
+      for (final item in value) { _validateSchema(item, schema['items'] as Map); }
+    }
+  }
 }
 
 class _ThirdCollector {

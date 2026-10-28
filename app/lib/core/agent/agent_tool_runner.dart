@@ -1665,7 +1665,7 @@ ${CedarToyClient.redactSecrets(outcome.text)}''',
       cancellationToken?.throwIfCancelled();
       await _noteScreenVision(
         outcome: 'success',
-        provider: 'vision_route',
+        provider: observation.provider,
         resultCount: 1,
         elapsed: DateTime.now().difference(visionStartedAt),
       );

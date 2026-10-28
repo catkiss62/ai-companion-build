@@ -15,6 +15,7 @@ import 'package:ai_companion_localfirst/core/ai/routed_vision_client.dart';
 import 'package:ai_companion_localfirst/core/ai/third_channel_client.dart';
 import 'package:ai_companion_localfirst/core/ai/third_channel_config.dart';
 import 'package:ai_companion_localfirst/core/database/app_database.dart';
+import 'package:ai_companion_localfirst/core/diagnostics/model_usage_telemetry.dart';
 import 'package:ai_companion_localfirst/core/storage/secure_config.dart';
 import 'package:ai_companion_localfirst/integrations/qq_private/qq_reply_generator.dart';
 
@@ -26,12 +27,13 @@ String complete(String text) => '${frame({'reasoning_content': '内部思考'})}
 http.Response observed(String text) => http.Response(jsonEncode({'choices': [{'message': {
   'content': jsonEncode({'summary': text})}, 'finish_reason': 'stop'}]}), 200,
   headers: {'content-type': 'application/json; charset=utf-8'});
+class _RealHttp extends HttpOverrides {}
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized(); sqfliteFfiInit();
   late SecureConfig secure;
   final servers = <HttpServer>[];
-  setUp(() { FlutterSecureStorage.setMockInitialValues({}); secure = SecureConfig.forTesting(const FlutterSecureStorage()); });
+  setUp(() { HttpOverrides.global = _RealHttp(); FlutterSecureStorage.setMockInitialValues({}); secure = SecureConfig.forTesting(const FlutterSecureStorage()); });
   tearDown(() async { for (final server in servers) { await server.close(force: true); } servers.clear(); });
   Future<ThirdChannelConfig> gateway(Future<void> Function(HttpRequest, int) post) async {
     final server = await HttpServer.bind(InternetAddress.loopbackIPv4, 0); servers.add(server);
@@ -45,7 +47,7 @@ void main() {
         } else {
           expect(request.uri.path, '/v1/chat/completions');
           expect(request.headers.value('authorization'), 'Bearer synthetic-third');
-          request.response.headers.set('content-type', 'text/event-stream');
+          request.response.headers.set('content-type', 'text/event-stream; charset=utf-8');
           await post(request, ++calls);
         }
       } finally { await request.response.close(); }
@@ -135,6 +137,15 @@ void main() {
       expect(posts, 2);
     } finally { client.close(); }
   });
+  test('third diagnostic accounting excludes other providers and never counts reasoning twice', () {
+    final audit = ModelUsageTelemetry.thirdChannelAudit(jsonEncode([
+      {'provider': 'third_channel', 'lane': 'final_reply', 'input_tokens': 11, 'output_tokens': 3, 'reasoning_tokens': 7, 'total_tokens': 21},
+      {'provider': 'deepseek', 'lane': 'final_reply', 'input_tokens': 99, 'output_tokens': 40, 'reasoning_tokens': 10},
+    ]));
+    final lane = (audit['byLane'] as Map)['final_reply'] as Map;
+    expect(lane, {'calls': 1, 'inputTokens': 11, 'visibleOutputTokens': 3, 'reasoningTokens': 7, 'totalTokens': 21});
+    expect(audit['priceEstimated'], false);
+  });
   for (final finish in ['length', 'content_filter']) {
     test('$finish returns an incomplete body once, structured output fails', () async {
       var posts = 0;
@@ -206,7 +217,8 @@ void main() {
       var second = 0, first = 0;
       final client = DeepSeekClient(streamClientFactory: () => MockClient((request) async {
         if (request.url.host == 'second.invalid') { second++; return http.Response('{}', 503); }
-        first++; return http.Response(complete('第一兜底'), 200);
+        first++; return http.Response.bytes(utf8.encode(complete('第一兜底')), 200,
+          headers: {'content-type': 'text/event-stream; charset=utf-8'});
       }));
       try {
         final text = await QqReplyGenerator(client: client, secure: secure, current: () async => true).generate(
@@ -239,6 +251,37 @@ void main() {
       try {
         await vision.observeBytes(apiKey: '', endpoint: 'http://unused.invalid', model: '', imageBytes: Uint8List.fromList([1]));
         expect(hosts, ['first.invalid']);
+      } finally { vision.close(); }
+    });
+    for (final scope in ['qwen_on', 'qwen_off', 'qq']) {
+      test('third image failure uses the $scope base chain without a second text-provider request', () async {
+        await db.setSetting(RoutedVisionClient.qwenEnabledKey, scope == 'qwen_off' ? '0' : '1');
+        await secure.writeThirdChannel(const ThirdChannelConfig(enabled: true, baseUrl: 'http://gateway.invalid/v1', apiKey: 'third'));
+        var posts = 0; final hosts = <String>[];
+        final vision = RoutedVisionClient(secure: secure, db: db, qq: scope == 'qq',
+          firstModel: () async => DeepSeekModelProfile.flash,
+          thirdFactory: () => ThirdChannelClient(clientFactory: () => MockClient((request) async {
+            if (request.url.path == '/health') return http.Response('{"status":"ok"}', 200);
+            posts++; return http.Response('{"error":{"code":"all_accounts_limited"}}', 503);
+          })), clientFactory: () => MockClient((request) async { hosts.add(request.url.host); return observed('基础视觉'); }));
+        try {
+          expect((await vision.observeBytes(apiKey: '', endpoint: 'http://unused.invalid', model: '', imageBytes: Uint8List.fromList([1]))).summary, '基础视觉');
+          expect(posts, 1); expect(hosts, [scope == 'qwen_on' ? 'qwen.invalid' : 'first.invalid']);
+        } finally { vision.close(); }
+      });
+    }
+    test('a gateway ignoring strict schema cannot silently lose album or match fields', () async {
+      await secure.writeThirdChannel(const ThirdChannelConfig(enabled: true, baseUrl: 'http://gateway.invalid/v1', apiKey: 'third'));
+      var fallback = 0;
+      final vision = RoutedVisionClient(secure: secure, db: db,
+        thirdFactory: () => ThirdChannelClient(clientFactory: () => MockClient((request) async {
+          if (request.url.path == '/health') return http.Response('{"status":"ok"}', 200);
+          return http.Response(jsonEncode({'usage': usage, 'choices': [{'finish_reason': 'stop',
+            'message': {'content': '{"summary":"incomplete schema"}'}}]}), 200);
+        })), clientFactory: () => MockClient((_) async { fallback++; return observed('完整基础观察'); }));
+      try {
+        expect((await vision.observeBytes(apiKey: '', endpoint: 'http://unused.invalid', model: '', imageBytes: Uint8List.fromList([1]))).summary, '完整基础观察');
+        expect(fallback, 1);
       } finally { vision.close(); }
     });
     test('third vision combines the exact image with full strict schema and needs no Qwen key', () async {
