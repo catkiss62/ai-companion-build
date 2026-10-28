@@ -18,7 +18,7 @@ class QqGroupsPage extends StatefulWidget {
   @override State<QqGroupsPage> createState()=>_QqGroupsPageState();
 }
 class _QqGroupsPageState extends State<QqGroupsPage> {
-  final _core=TextEditingController(),_public=TextEditingController();
+  final _core=TextEditingController(),_public=TextEditingController(),_persona=TextEditingController();
   bool _autoSketch=true;
   QqOptions _options=const QqOptions();QqPrivateConfig _config=const QqPrivateConfig();
   List<Map<String,Object?>> _groups=[];List<Map<String,dynamic>> _requests=[];
@@ -33,7 +33,7 @@ class _QqGroupsPageState extends State<QqGroupsPage> {
       final names=await QqDisplayNames.read(await AppDatabase.instance.database,QqRuntime.scope(c));
       if(!mounted) return;
       setState((){_config=c;_options=o;_autoSketch=autoSketch;_names=names;_groups=groups;_requests=requests;_loading=false;
-        if(initial){_core.text=o.core;_public.text=o.publicMemory;}});
+        if(initial){_core.text=o.core;_public.text=o.publicMemory;_persona.text=o.publicPersona;}});
     } catch(_){if(mounted) setState((){_loading=false;_notice='读取失败，请稍后刷新。';});}
   }
   Future<void> _run(Future<void> Function() task) async {
@@ -49,7 +49,7 @@ class _QqGroupsPageState extends State<QqGroupsPage> {
     if(yes!=true || !mounted) return;
     await _run(() async {if(!await QqGroupBinding.confirm(_config,r['code'] as String)) throw StateError('expired');});
   }
-  @override void dispose(){_core.dispose();_public.dispose();super.dispose();}
+  @override void dispose(){_core.dispose();_public.dispose();_persona.dispose();super.dispose();}
   @override Widget build(BuildContext context)=>Scaffold(appBar:AppBar(title:const Text('QQ 群聊与公开资料'),actions:[
     IconButton(onPressed:_busy?null:()=>_load(),icon:const Icon(Icons.refresh))]),body:_loading?const Center(child:CircularProgressIndicator()):ListView(
       padding:const EdgeInsets.all(16),children:[
@@ -75,10 +75,13 @@ class _QqGroupsPageState extends State<QqGroupsPage> {
         TextField(controller:_core,maxLines:5,maxLength:2400,decoration:const InputDecoration(labelText:'群聊基础人格 / 小卡',
           helperText:'只填写适合在群里使用的性格。小卡读取会使用这部分的简短投影。',helperMaxLines:3)),
         const SizedBox(height:12),
+        ExpansionTile(title:const Text('群聊正文公开性格与表达稿'),subtitle:const Text('仅用于生成群聊正文；上方小卡用于参与判断'),children:[
+          TextField(controller:_persona,maxLines:14,maxLength:18000,decoration:const InputDecoration(helperText:'三个表达区块分别保留。只填写允许群聊公开的内容。',helperMaxLines:3)),
+        ]),
         TextField(controller:_public,maxLines:7,maxLength:12000,decoration:const InputDecoration(labelText:'允许在群里表达的背景与共同记忆',
           helperText:'这里保存的内容会对已开启的群公开。留空也可聊天；私人完整记忆仍不会注入群模型。',helperMaxLines:3)),
         FilledButton(onPressed:_busy?null:()=>_run(() async {
-          await QqOptions.update((fresh)=>fresh.copy(core:_core.text.trim(),publicMemory:_public.text.trim()),namespace:_config.namespace);
+          await QqOptions.update((fresh)=>fresh.copy(core:_core.text.trim(),publicMemory:_public.text.trim(),publicPersona:_persona.text),namespace:_config.namespace);
           if(mounted) setState(()=>_notice='公开资料已保存。');}),child:const Text('保存公开资料')),
         SwitchListTile(contentPadding:EdgeInsets.zero,title:const Text('允许QQ发送语音（私聊和群聊）'),
           subtitle:const Text('以明确要求为主，可偶尔选择纯语音；支持中、日、英语。台词随档案保存，音频临时清理；不控制App自动朗读。'),

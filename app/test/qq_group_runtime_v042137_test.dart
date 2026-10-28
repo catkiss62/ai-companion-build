@@ -636,4 +636,40 @@ void main(){
       'source_stamp':jsonEncode([{'table':'qq_notes','id':'cycle','token':'bad'}]),'through_seq':1,'created_at':1});
     expect(await QqArchiveReader(sql).noteCurrent((await sql.query('qq_notes')).single),false);
   });
+  test('+392 trusted mention cannot be swallowed by a valid JEV watch',() async {
+    await useJev(gateway((r)async=>jevAnswer({'watch':1},choice:'watch')));
+    await accept('direct-watch','小鲸鱼在吗',mention:true);await runtime.process(cid());
+    expect(api.sent.single['text'],'继续聊呀');expect(jevRequests,hasLength(1));
+    expect((await store.pending(cid())),isEmpty);
+  });
+  test('+392 late AT during the judge updates evidence without duplicate generation',() async {
+    final entered=Completer<void>(),release=Completer<void>();
+    await useJev(gateway((r)async {entered.complete();await release.future;return jevAnswer({'watch':1},choice:'watch');}));
+    await accept('late-judge','你怎么看');final processing=runtime.process(cid());
+    await entered.future.timeout(const Duration(seconds:3));
+    await accept('late-judge','你怎么看',mention:true);release.complete();await processing;
+    await runtime.process(cid());expect(api.sent,hasLength(1));expect(jevRequests,hasLength(1));
+    expect((await (await db.database).query('qq_archive',where:"role='user'")).length,1);
+  });
+  test('+392 new follow-up retries only the failed boundary, preserving paid reply wording',() async {
+    var bodies=0,failBoundary=true;
+    final decisions=gateway((r)async=>http.Response(jsonEncode({'answers':{
+      'participation':{'type':'choice','choice':'direct','confidence':1,'probabilities':{'direct':1}},
+      'situation':{'type':'choice','choice':'discussion','confidence':1,'probabilities':{'discussion':1}},
+      'pending_relation':{'type':'choice','choice':'continue','confidence':1,'probabilities':{'continue':1}},
+    }}),200,headers:{'content-type':'application/json'}));
+    await runtime.stop();vision=_Vision(secure);runtime=create(decisions:decisions);
+    handler=(r,b)async {
+      if(b['stream']==true) {bodies++;return _sse('保留这一次生成的原词');}
+      if(b['max_tokens']==60 && failBoundary)return http.Response('{}',503);
+      return _json({'safe':true});
+    };
+    await accept('boundary-fail','请回答这个问题');await runtime.process(cid());
+    expect(api.sent,isEmpty);expect(bodies,1);failBoundary=false;clock=clock.add(const Duration(seconds:5));
+    await accept('boundary-follow','刚才卡住了吗');await runtime.process(cid());
+    expect(api.sent.single['text'],'保留这一次生成的原词');expect(bodies,1);
+    final second=jsonDecode(jevRequests.last.body) as Map;
+    expect(jsonEncode(second['state']),contains('previous_request_unfinished'));
+  });
+
 }

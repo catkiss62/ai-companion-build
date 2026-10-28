@@ -1,3 +1,4 @@
+import '../mcp/cedar_outcome_attachments.dart';
 import '../ai/first_channel_model.dart';
 import '../../integrations/qq_private/qq_history_reader.dart';
 import '../../integrations/qq_private/qq_history_catalog.dart';
@@ -32,7 +33,6 @@ import '../mcp/cedar_timed_play_task.dart';
 import '../mcp/cedar_agent_loop_policy.dart';
 import '../mcp/cedar_game_protocol.dart';
 import '../mcp/cedar_play_outcome_bookkeeper.dart';
-import '../mcp/cedar_outcome_media.dart';
 import '../mcp/mcp_http_client.dart';
 import '../mcp/mcp_protocol.dart';
 import '../mcp/mcp_turn_state_resolver.dart';
@@ -1253,145 +1253,10 @@ ${CedarToyClient.redactSecrets(outcome.text)}''',
   }
 
   Future<List<MessageAttachment>> _cedarImageAttachments({
-    required String game,
-    required McpToolOutcome outcome,
-    required String assistantMessageId,
-    GenerationCancellationToken? cancellationToken,
-    PendingMediaOwner? pendingMediaOwner,
-  }) async {
-    if (assistantMessageId.trim().isEmpty) return const <MessageAttachment>[];
-    final result = <MessageAttachment>[];
-    final storage = MessageAttachmentStorage(db: db);
-    try {
-      for (final image in outcome.images
-          .take(CedarOutcomeMediaBridge.maxAttachmentsPerOutcome)) {
-        cancellationToken?.throwIfCancelled();
-        try {
-          if (!image.mimeType.toLowerCase().startsWith('image/')) continue;
-          final bytes = base64Decode(image.data.replaceAll(RegExp(r'\s+'), ''));
-          final draft = await storage.prepareImageBytes(
-            bytes: bytes,
-            source: 'assistant_mcp_image:cedar:$game:mcp_content',
-            mimeType: image.mimeType,
-          );
-          final committed = await storage.commitDraft(
-            draft,
-            messageId: assistantMessageId,
-            pendingOwner: pendingMediaOwner,
-          );
-          if (cancellationToken?.isCancelled == true) {
-            await storage.deleteAttachmentFiles(committed);
-            cancellationToken!.throwIfCancelled();
-          }
-          result.add(committed.copyWith(
-            visionStatus: MessageAttachment.visionCompletedStatus,
-            visionSummary: 'Cedar Toy 游戏返回的真实图片',
-            visionModel: 'mcp_content',
-            visionUpdatedAt: DateTime.now(),
-          ));
-        } on GenerationCancelledByUserException {
-          rethrow;
-        } catch (_) {
-          // A malformed optional image must not erase the real textual outcome.
-        }
-      }
-
-      final remaining = CedarOutcomeMediaBridge.maxAttachmentsPerOutcome -
-          result.length;
-      if (remaining <= 0 || outcome.isError) {
-        return List<MessageAttachment>.unmodifiable(result);
-      }
-      final candidates = CedarOutcomeMediaBridge.candidates(
-        outcome,
-        limit: remaining.clamp(
-          0,
-          CedarOutcomeMediaBridge.maxRemoteAttachmentsPerOutcome,
-        ).toInt(),
-      );
-      if (candidates.isEmpty) {
-        return List<MessageAttachment>.unmodifiable(result);
-      }
-
-      final client = http.Client();
-      try {
-        final remote = await CedarOutcomeMediaBridge.materialize(
-          candidates: candidates,
-          limit: remaining.clamp(
-            0,
-            CedarOutcomeMediaBridge.maxRemoteAttachmentsPerOutcome,
-          ).toInt(),
-          cancellationToken: cancellationToken,
-          discard: storage.deleteAttachmentFiles,
-          materialize: (candidate) async {
-            final downloaded = await cancelWithToken(
-              SafePublicImageDownloader.download(
-                client: client,
-                rawUrl: candidate.url,
-                maxBytes: 12 * 1024 * 1024,
-                filePrefix: 'cedar_remote',
-              ),
-              cancellationToken,
-            );
-            PreparedImageAttachment? draft;
-            MessageAttachment? committed;
-            try {
-              cancellationToken?.throwIfCancelled();
-              draft = await storage.prepareImage(
-                sourcePath: downloaded.file.path,
-                source:
-                    'assistant_mcp_image:cedar:$game:${candidate.fieldName}:${candidate.url}',
-                mimeType: downloaded.mimeType,
-              );
-              cancellationToken?.throwIfCancelled();
-              committed = await storage.commitDraft(
-                draft,
-                messageId: assistantMessageId,
-                pendingOwner: pendingMediaOwner,
-              );
-              draft = null;
-              cancellationToken?.throwIfCancelled();
-              return committed.copyWith(
-                visionStatus: MessageAttachment.visionCompletedStatus,
-                visionSummary:
-                    'Cedar Toy $game 返回的协议图片（${candidate.fieldName}）',
-                visionModel: 'cedar_protocol_media',
-                visionUpdatedAt: DateTime.now(),
-              );
-            } on GenerationCancelledByUserException {
-              if (committed != null) {
-                await storage.deleteAttachmentFiles(committed);
-              }
-              if (draft != null) await storage.discardDraft(draft);
-              rethrow;
-            } catch (_) {
-              if (committed != null) {
-                await storage.deleteAttachmentFiles(committed);
-              }
-              if (draft != null) await storage.discardDraft(draft);
-              rethrow;
-            } finally {
-              try {
-                if (await downloaded.file.exists()) {
-                  await downloaded.file.delete();
-                }
-              } catch (_) {}
-            }
-          },
-        );
-        result.addAll(remote);
-      } finally {
-        client.close();
-      }
-      return List<MessageAttachment>.unmodifiable(result);
-    } on GenerationCancelledByUserException {
-      for (final attachment in result) {
-        try {
-          await storage.deleteAttachmentFiles(attachment);
-        } catch (_) {}
-      }
-      rethrow;
-    }
-  }
+    required String game,required McpToolOutcome outcome,required String assistantMessageId,
+    GenerationCancellationToken? cancellationToken,PendingMediaOwner? pendingMediaOwner,
+  }) => CedarOutcomeAttachments.collect(game:game,outcome:outcome,messageId:assistantMessageId,
+    storage:MessageAttachmentStorage(db:db),cancellationToken:cancellationToken,pendingOwner:pendingMediaOwner);
 
   AgentToolResult _cedarUnavailable(String toolId) => AgentToolResult(
         toolId: toolId,

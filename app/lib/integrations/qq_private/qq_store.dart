@@ -8,6 +8,8 @@ import '../../core/qq/qq_message_material.dart';
 import 'qq_archive_reader.dart';
 import 'qq_work_queue.dart';
 import 'qq_failure.dart';
+import 'qq_failure_history.dart';
+import 'qq_reply_tasks.dart';
 
 class QqBatch {
   QqBatch(this.id,this.conversation,this.rows,this.fence);
@@ -26,17 +28,37 @@ class QqBatch {
 class QqStore {
   QqStore(this.db);
   final AppDatabase db;
-  Future<void> recordFailure(BrainWorkFence fence,String phase,Object error,{int attempt=1,int elapsedMs=0}) async {
-    try {
-      await write(fence,(txn) async {
-        final raw=await BrainWorkFence.value(txn,QqFailure.historyKey);
-        List entries=[];try {final decoded=jsonDecode(raw);if(decoded is List)entries=decoded.take(11).toList();}catch(_){}
-        final entry={'at':DateTime.now().millisecondsSinceEpoch,'phase':phase,'code':QqFailure.code(error),
-          'attempt':attempt,'elapsed_ms':elapsedMs};
-        await txn.rawInsert('INSERT OR REPLACE INTO settings(key,value) VALUES(?,?)',[QqFailure.historyKey,jsonEncode([entry,...entries])]);
-      });
-    } catch(_) { /* A diagnostic must not replace the original failure. */ }
+  final _platformReceipts=<String,({String id,String index})>{};
+  void received(QqBatch b,int part,{required String platformId,String platformIndex=''}) {
+    _platformReceipts['${b.id}:$part']=(id:platformId,index:platformIndex);
+    if(_platformReceipts.length>64)_platformReceipts.remove(_platformReceipts.keys.first);
   }
+
+  Future<void> recordFailure(BrainWorkFence fence,String phase,Object error,{int attempt=1,int elapsedMs=0,String operation='',String conversation=''}) async {
+    try {await write(fence,(txn) async {
+      final raw=await BrainWorkFence.value(txn,QqFailure.historyKey);
+      final at=DateTime.now().millisecondsSinceEpoch;
+      final value=QqFailureHistory.record(raw,operation:operation.isEmpty?hash([at,phase]):operation,
+        at:at,phase:phase,code:QqFailure.code(error),attempt:attempt,elapsedMs:elapsedMs,conversation:conversation);
+      await txn.rawInsert('INSERT OR REPLACE INTO settings(key,value) VALUES(?,?)',[QqFailure.historyKey,value]);
+    });} catch(_) { /* Diagnostics cannot replace the original failure. */ }
+  }
+  static Future<bool> _responded(DatabaseExecutor sql,String cid,int seq) async {
+    final rows=await sql.query('qq_reply_tasks',columns:['sources','stage'],where:'conversation_id=? AND through_seq>=?',whereArgs:[cid,seq],limit:100);
+    if(rows.any((r)=>const {'sent','sent_archive_pending','sent_archive_failed','partially_sent','send_uncertain'}.contains(r['stage']) &&
+      (jsonDecode(r['sources'] as String) as List).contains(seq)))return true;
+    if(rows.any((r)=>(jsonDecode(r['sources'] as String) as List).contains(seq)))return false;
+    // Pre-upgrade sent rows have no task record. Keep their existing receipts.
+    final legacy=await sql.query('qq_deliveries',columns:['state'],where:'conversation_id=? AND through_seq>=?',
+      whereArgs:[cid,seq],orderBy:'through_seq',limit:1);
+    return legacy.isNotEmpty && const {'sent','sent_archive_pending','sent_archive_failed','partially_sent','send_uncertain'}.contains(legacy.single['state']);
+  }
+  Future<bool> mentioned(QqBatch b)=>write(b.fence,(sql) async {
+    final ids=b.rows.map((r)=>r['seq']).toList();final slots=List.filled(ids.length,'?').join(',');
+    final rows=await sql.query('qq_archive',columns:['seq'],where:'seq IN ($slots) AND mentioned=1',whereArgs:ids,limit:1);
+    if(rows.isNotEmpty)await sql.update('qq_attention_events',{'consumed':1},where:'archive_seq IN ($slots)',whereArgs:ids);
+    return rows.isNotEmpty;
+  });
   static String hash(Object? o)=>sha256.convert(utf8.encode(jsonEncode(o))).toString();
   static String conversationId(String scope,String kind,String target)=>hash([scope,kind,target]);
   static const identityKeys=['state_lineage_id','state_generation','runtime_state_epoch_v1',
@@ -65,8 +87,14 @@ class QqStore {
       final existing=await txn.query('qq_archive',columns:['seq','mentioned'],where:'id = ?',whereArgs:[id],limit:1);
       if(existing.isNotEmpty) {
         if(mentioned && existing.single['mentioned']==0) {
-          final changed=await txn.rawUpdate('UPDATE qq_archive SET mentioned=1 WHERE id=? AND seq>(SELECT checked_seq FROM qq_conversations WHERE id=?)',[id,cid]);
-          if(changed>0) return existing.single['seq'] as int;
+          await txn.update('qq_archive',{'mentioned':1},where:'id=?',whereArgs:[id]);
+          final oldSeq=existing.single['seq'] as int;
+          final checked=(await txn.query('qq_conversations',columns:['checked_seq'],where:'id=?',whereArgs:[cid],limit:1)).single['checked_seq'] as int;
+          if(oldSeq>checked)return oldSeq;
+          final answered=await _responded(txn,cid,oldSeq);
+          await txn.insert('qq_attention_events',{'id':id,'conversation_id':cid,'archive_seq':oldSeq,
+            'consumed':answered?1:0,'created_at':receivedAt},conflictAlgorithm:ConflictAlgorithm.ignore);
+          if(!answered)return oldSeq;
         }
         return null;
       }
@@ -86,29 +114,40 @@ class QqStore {
     });
   Future<List<Map<String,Object?>>> pending(String cid) async=>(await db.database).rawQuery(
     'SELECT a.* FROM qq_archive a JOIN qq_conversations c ON c.id=a.conversation_id '
-    "WHERE c.id=? AND a.seq>c.checked_seq AND a.role='user' ORDER BY a.seq LIMIT 40",[cid]);
+    "WHERE c.id=? AND (a.seq>c.checked_seq OR EXISTS(SELECT 1 FROM qq_attention_events e WHERE e.archive_seq=a.seq AND e.consumed=0)) AND a.role='user' ORDER BY a.seq LIMIT 40",[cid]);
   Future<List<Map<String,Object?>>> conversations(String scope) async=>(await db.database).query('qq_conversations',where:'scope = ?',whereArgs:[scope],orderBy:'rowid DESC',limit:200);
   Future<List<Map<String,Object?>>> images(int seq) async=>(await db.database).query('qq_images',where:'archive_seq = ?',whereArgs:[seq],orderBy:'ordinal');
   Future<QqBatch?> claim(BrainWorkFence fence,String cid,int through,int now,{String policy='',String authorityKey='',String authority=''})=>write(fence,(txn) async {
     if(authorityKey.isNotEmpty) {final stored=await BrainWorkFence.value(txn,authorityKey);if(stored.isNotEmpty && stored!=authority)return null;}
     final c=(await txn.query('qq_conversations',where:'id = ?',whereArgs:[cid],limit:1)).single;
     final checked=c['checked_seq'] as int;
-    if(through<=checked) return null;
-    final rows=await txn.query('qq_archive',where:"conversation_id=? AND seq>? AND seq<=? AND role='user'",whereArgs:[cid,checked,through],orderBy:'seq');
-    final admitted=rows.where((r)=>acceptsIngress(r['accepted_identity'] as String,fence) && r['accepted_policy']==policy).toList();
-    if(admitted.isEmpty) { await txn.update('qq_conversations',{'checked_seq':through},where:'id=?',whereArgs:[cid]); return null; }
-    final id=hash([cid,through]);
-    await txn.update('qq_conversations',{'checked_seq':through},where:'id = ?',whereArgs:[cid]);
+    final rows=await txn.query('qq_archive',where:"conversation_id=? AND seq<=? AND role='user' AND (seq>? OR EXISTS(SELECT 1 FROM qq_attention_events e WHERE e.archive_seq=qq_archive.seq AND e.consumed=0))",whereArgs:[cid,through,checked],orderBy:'seq');
+    final admitted=<Map<String,Object?>>[];
+    for(final r in rows) {
+      await txn.update('qq_attention_events',{'consumed':1},where:'archive_seq=?',whereArgs:[r['seq']]);
+      if(acceptsIngress(r['accepted_identity'] as String,fence) && r['accepted_policy']==policy &&
+        ((r['seq'] as int)>checked || !await _responded(txn,cid,r['seq'] as int)))admitted.add(r);
+    }
+    if(admitted.isEmpty) { await txn.update('qq_conversations',{'checked_seq':through>checked?through:checked},where:'id=?',whereArgs:[cid]); return null; }
+    final id=hash([cid,through,if(through<=checked)'mention_evidence']);
+    await txn.update('qq_conversations',{'checked_seq':through>checked?through:checked},where:'id = ?',whereArgs:[cid]);
     await txn.insert('qq_deliveries',{'id':id,'conversation_id':cid,'through_seq':through,'state':'checking','updated_at':now});
-    return QqBatch(id,c,admitted,fence);
+    final batch=QqBatch(id,c,admitted,fence);
+    await QqReplyTasks.begin(txn,batch,now,policy);
+    return batch;
   });
   Future<void> mark(QqBatch b,String state,{String? text,String? sticker})=>write(b.fence,(txn) async {
     await txn.update('qq_deliveries',{'state':state,'updated_at':DateTime.now().millisecondsSinceEpoch,
       if(text!=null)'content':text,if(sticker!=null)'sticker_key':sticker},where:'id = ?',whereArgs:[b.id]);
+    await txn.update('qq_reply_tasks',{'stage':state,'updated_at':DateTime.now().millisecondsSinceEpoch,
+      if(const {'watching','context_invalidated','address_rejected','sent'}.contains(state))'draft':''},where:'id=?',whereArgs:[b.id]);
+    final raw=await BrainWorkFence.value(txn,QqFailure.historyKey);
+    await txn.rawInsert('INSERT OR REPLACE INTO settings(key,value) VALUES(?,?)',[QqFailure.historyKey,QqFailureHistory.finish(raw,b.id,state)]);
   });
   Future<void> sentPart(QqBatch b,int part,String text,String sticker,int now,{String sketchSvg='',String voiceLanguage=''})=>write(b.fence,(txn) async {
     if(!await QqArchiveReader(txn).matches([for(final r in b.rows){'table':'qq_archive','id':r['id'],'version':r['version']}])) throw const BrainWorkInvalidated();
-    await txn.insert('qq_archive',{'id':'reply:${b.id}:$part','conversation_id':b.cid,'platform_id':'',
+    await txn.insert('qq_archive',{'id':'reply:${b.id}:$part','conversation_id':b.cid,'platform_id':_platformReceipts['${b.id}:$part']?.id??'',
+      'context_meta':(_platformReceipts['${b.id}:$part']?.index??'').isEmpty?'':QqMessageMaterial(kind:'message',index:_platformReceipts['${b.id}:$part']!.index).encode(),
       'sender':'assistant','role':'assistant','content':text,'observed_at':now,'received_at':now},conflictAlgorithm:ConflictAlgorithm.ignore);
     if(sticker.isNotEmpty) {
       final row=(await txn.query('qq_archive',columns:['seq'],where:'id = ?',whereArgs:['reply:${b.id}:$part'],limit:1)).single;
@@ -139,6 +178,7 @@ class QqStore {
   Future<void> recover(BrainWorkFence fence)=>write(fence,(txn) async {
     await txn.execute("UPDATE qq_deliveries SET state=CASE WHEN state='sending' THEN 'send_uncertain' ELSE 'interrupted' END WHERE state IN ('checking','generating','generated','sending')");
     await txn.execute("UPDATE qq_deliveries SET state='sent_archive_failed' WHERE state='sent_archive_pending'");
+    await txn.execute("UPDATE qq_reply_tasks SET stage=CASE WHEN stage='sending' THEN 'send_uncertain' WHEN stage='sent_archive_pending' THEN 'sent_archive_failed' ELSE 'interrupted' END WHERE stage IN ('checking','generating','generated','sending','sent_archive_pending')");
     await txn.execute("UPDATE qq_shares SET state=CASE WHEN state='sending' THEN 'send_uncertain' ELSE 'interrupted' END WHERE state IN ('claimed','sending')");
     await txn.execute("UPDATE qq_shares SET state='sent_archive_failed' WHERE state='sent_archive_pending'");
     final now=DateTime.now().millisecondsSinceEpoch;
@@ -147,6 +187,8 @@ class QqStore {
   Future<void> forget(BrainWorkFence fence,String cid)=>write(fence,(txn) async {
     await txn.rawDelete('DELETE FROM qq_shares WHERE note_id IN (SELECT id FROM qq_notes WHERE conversation_id=?)',[cid]);
     await txn.delete('qq_notes',where:'conversation_id=?',whereArgs:[cid]);
+    await txn.delete('qq_reply_tasks',where:'conversation_id=?',whereArgs:[cid]);
+    await txn.delete('qq_attention_events',where:'conversation_id=?',whereArgs:[cid]);
     await txn.delete('qq_deliveries',where:'conversation_id=?',whereArgs:[cid]);
     await txn.rawDelete('DELETE FROM qq_images WHERE archive_seq IN (SELECT seq FROM qq_archive WHERE conversation_id=?)',[cid]);
     await txn.delete('qq_work_items',where:'conversation_id=?',whereArgs:[cid]);

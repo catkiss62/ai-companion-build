@@ -74,8 +74,13 @@ class PublicWebShareCoordinator {
       if (refreshBeforeShare && !await _refreshClaimedCandidate(claimed, instant)) {
         // The refresh can have declined the owned candidate, or lost ownership.
         // Releasing only this token cannot undo another worker's progress.
-        await db.abortPublicWebShareStage(claimed, outcome: 'refresh_declined');
-        return PublicWebShareStageResult(state: 'refresh_declined', candidateId: claimed.id);
+        final rows=await (await db.database).query('public_web_candidates',columns:['lifecycle_state','share_last_error','share_retry_at'],where:'id=?',whereArgs:[claimed.id],limit:1);
+        var state='refresh_declined';
+        if(rows.isNotEmpty && (rows.single['share_last_error'] as String).isNotEmpty) {
+          state=rows.single['lifecycle_state']=='unread'?'refresh_retry_scheduled':'refresh_failed';
+        }
+        await db.abortPublicWebShareStage(claimed, outcome:state);
+        return PublicWebShareStageResult(state:state,candidateId:claimed.id);
       }
       final thought = await db.finishPublicWebShareStage(claimed);
       return PublicWebShareStageResult(

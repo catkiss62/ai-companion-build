@@ -1,3 +1,4 @@
+import 'web_read_failure.dart';
 import 'recent_web_topics.dart';
 import 'dart:convert';
 
@@ -49,11 +50,9 @@ class DeepSeekPublicWebAppraiser implements PublicWebCandidateAppraiser {
     if (verified.isEmpty) {
       return candidates
           .map((item) => item.copyWith(
-                semanticState: item.readState == 'unreadable'
-                    ? 'unreadable'
-                    : 'garbled',
+                semanticState: WebReadFailure.failedRead(item.appraisalReason)?'pending_appraisal':item.readState == 'unreadable'?'unreadable':'garbled',
                 appraisalState: PublicWebAppraisalPolicy.discard,
-                appraisalReason: '没有完成可核验的网页读取与整理',
+                appraisalReason: WebReadFailure.failedRead(item.appraisalReason)?item.appraisalReason:'没有完成可核验的网页读取与整理',
               ))
           .toList(growable: false);
     }
@@ -213,11 +212,9 @@ why_cared 用她自己的第一人称写一句具体原因，例如“这个细�
       return candidates
           .map((item) => updatedByFingerprint[item.fingerprint] ??
               item.copyWith(
-                semanticState: item.readState == 'unreadable'
-                    ? 'unreadable'
-                    : 'garbled',
+                semanticState: WebReadFailure.failedRead(item.appraisalReason)?'pending_appraisal':item.readState == 'unreadable'?'unreadable':'garbled',
                 appraisalState: PublicWebAppraisalPolicy.discard,
-                appraisalReason: '未完成网页读取',
+                appraisalReason: WebReadFailure.failedRead(item.appraisalReason)?item.appraisalReason:'未完成网页读取',
               ))
           .toList(growable: false);
     } on GenerationCancelledByUserException {

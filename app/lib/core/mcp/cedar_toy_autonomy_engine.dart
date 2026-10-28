@@ -1,3 +1,4 @@
+import 'cedar_activity_media.dart';
 import '../ai/first_channel_model.dart';
 import '../self/dream_store.dart';
 import '../desire/daily_wake_store.dart';
@@ -2368,7 +2369,7 @@ ${arrangements.prompt}''',
     final shareLevel = CedarPlatformActionPolicy.isResultSnapshot(action)
         ? 'quiet'
         : verification.shareLevel;
-    final updated = platformAction
+    var updated = platformAction
         ? await store.recordPlatformAction(
             gameId: session.gameId,
             action: action,
@@ -2396,6 +2397,11 @@ ${arrangements.prompt}''',
     await store.resolveRemoteDispatch(gameId: session.gameId,
       executionId: scope.executionId, action: action, authoritative: true,
       params: params, outcome: outcome);
+    if(!outcome.isError && !platformAction) {
+      await CedarActivityMedia(db).receive(session:updated,outcome:outcome,executionId:scope.executionId,cancellationToken:scope.cancellation);
+      final withMedia=await store.loadSession(session.gameId);
+      if(withMedia!=null && withMedia.id==updated.id)updated=withMedia;
+    }
     if (!outcome.isError && !platformAction && !CedarPlatformActionPolicy.isReadOnlyCall(action, params) &&
         !CedarPlatformActionPolicy.explicitlyRejected(outcome.text)) {
       for (final wish in (await WishStore(db).load()).where((w) =>

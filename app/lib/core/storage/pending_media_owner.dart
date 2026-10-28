@@ -8,21 +8,26 @@ import '../database/generation_attempt_fence.dart';
 /// Only the current generation attempt or the captured proactive lease owns it.
 class PendingMediaOwner {
   PendingMediaOwner.generation(GenerationAttemptFence attempt)
-      : attempt = attempt, leaseFence = null, messageId = attempt.assistantMessageId;
+      : attempt = attempt, leaseFence = null, messageId = attempt.assistantMessageId, cedar = false, expiresAt = 0;
   const PendingMediaOwner.proactive({required this.messageId, required BrainWorkFence fence})
-      : leaseFence = fence, attempt = null;
+      : leaseFence = fence, attempt = null, cedar = false, expiresAt = 0;
 
+  const PendingMediaOwner.cedar({required this.messageId,required BrainWorkFence fence,required this.expiresAt})
+      : leaseFence=fence,attempt=null,cedar=true;
+  final bool cedar;
+  final int expiresAt;
   final GenerationAttemptFence? attempt;
   final BrainWorkFence? leaseFence;
   final String messageId;
   BrainWorkFence get fence => attempt?.brainFence ?? leaseFence!;
   String get key => attempt == null
-      ? 'proactive:$messageId:${fence.leaseToken}'
+      ? cedar?'cedar:$messageId:$expiresAt':'proactive:$messageId:${fence.leaseToken}'
       : 'generation:${attempt!.jobId}:${attempt!.runToken}';
 
   Future<bool> matches(DatabaseExecutor txn) async {
     if (messageId.isEmpty) return false;
     if (attempt != null) return attempt!.matches(txn);
+    if(cedar)return DateTime.now().millisecondsSinceEpoch<expiresAt && fence.expectedSettings.containsKey('cedar_toy_execution_fence_v1') && await fence.matches(txn);
     if (fence.leaseKey != 'proactive_lease_until' || fence.leaseToken?.isNotEmpty != true) return false;
     return fence.matches(txn);
   }
@@ -50,11 +55,12 @@ class PendingMediaOwner {
       // Only the recognized persisted token format proves a replacement.
       return !RegExp(r'^.+:[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}\|[0-9]+$').hasMatch(raw);
     }
-    return attempt != null;
+    return cedar?DateTime.now().millisecondsSinceEpoch<expiresAt:attempt != null;
   }
 
   Map<String, Object?> toJson() => {
-    'schema': 2,
+    'schema': cedar?3:2,
+    if(cedar)'expires_at':expiresAt,
     'message_id': messageId,
     'identity': fence.identity,
     'expected_settings': fence.expectedSettings,
@@ -69,7 +75,7 @@ class PendingMediaOwner {
     try {
       // Pending owners are local and disposable. Future attempt fields can
       // bump this version instead of silently weakening an older fence.
-      if (value['schema'] != 2) return null;
+      if (value['schema'] != 2 && value['schema'] != 3) return null;
       final identity = Map<String, String>.from(value['identity'] as Map);
       final expectedSettings = Map<String, String>.from(value['expected_settings'] as Map);
       if (!identity.keys.toSet().containsAll(
@@ -79,6 +85,11 @@ class PendingMediaOwner {
         expectedSettings: expectedSettings);
       final message = value['message_id'] as String;
       if (message.isEmpty) return null;
+      if(value['schema']==3) {
+        final expires=value['expires_at'];
+        if(expires is! int || !fence.expectedSettings.containsKey('cedar_toy_execution_fence_v1'))return null;
+        return PendingMediaOwner.cedar(messageId:message,fence:fence,expiresAt:expires);
+      }
       if (value['job_id'] is String) {
         final source = ConversationSourceStamp.fromJson(value['user_source']);
         if (source == null || source.id != value['user_message_id'] ||

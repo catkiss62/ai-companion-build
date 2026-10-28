@@ -118,6 +118,8 @@ class QqArchiveAdmin {
         }
       }
       await QqWorkQueue.removeSources(txn,cid,deleted);
+      await txn.delete('qq_reply_tasks',where:'conversation_id=?',whereArgs:[cid]);
+      await txn.delete('qq_attention_events',where:'conversation_id=?',whereArgs:[cid]);
       // Deliveries and observations must be removed before their source rows.
       for (var offset = 0; offset < victims.length; offset += 200) {
         final ids = victims.skip(offset).take(200).map((r) => r['seq']).toList();

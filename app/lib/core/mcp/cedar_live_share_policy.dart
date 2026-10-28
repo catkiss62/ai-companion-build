@@ -132,7 +132,7 @@ class CedarLiveSharePolicy {
     return '$judgement\n$recent\n【过程分享判断资料】${jsonEncode({
           'minimum_rounds': (await CedarToyActivityStore(db).currentViewingPace()).shareRounds,
           'interval_elapsed': await intervalElapsed(session:session,now:now),
-          'saved_outcomes': events.map((event) => {'id': event.id, 'action': event.action, 'at': event.createdAt.toIso8601String(), 'text': event.summary.substring(0, event.summary.length.clamp(0, 1000).toInt())}).toList(),
+          'saved_outcomes': events.map((event) => {'id': event.id, 'action': event.action, 'at': event.createdAt.toIso8601String(), 'text': event.summary.substring(0, event.summary.length.clamp(0, 1000).toInt()),'has_actual_image':event.imageReference.isNotEmpty || event.imageData.isNotEmpty}).toList(),
           'last_evaluated_event': state['evaluated'] ?? '',
           'already_shared_or_shown': state['shown'] ?? '',
           'pending_share': state['pending'] ?? '',
@@ -141,6 +141,16 @@ class CedarLiveSharePolicy {
         '间隔未到、没有值得分享的内容或已有待发分享时填false；达到轮数也不自动播报。'
         '可把尚未分享的多步重要变化合并成一条自然感受，避免流水账和重复。'
         '不得把计划动作或尚未返回的结果当已发生；分享决定不影响下一步游戏动作。';
+  }
+
+  Future<List<CedarGameEvent>> mediaEvidence(CedarGameSession session,String thoughtId,String source) async {
+    if(!source.startsWith('mcp/cedar_game:${session.gameId}:'))return [];
+    final state=await _state(session);
+    if(state['pending']==thoughtId && state['pendingEvents'] is List) {
+      final ids=(state['pendingEvents'] as List).whereType<String>().take(80).toSet();
+      return session.events.where((e)=>ids.contains(e.id)).toList();
+    }
+    return session.events.where((e)=>source.endsWith(':${e.id}')).toList();
   }
 
   Future<void> noteForeground(CedarGameSession session) async {
@@ -291,6 +301,7 @@ class CedarLiveSharePolicy {
         'pending': thoughtId,
         'pendingEvidence': text,
         'pendingThrough': events.last.id,
+        'pendingEvents': events.skip(events.indexWhere((e)=>e.id==state['sharedThrough'])+1).map((e)=>e.id).toList(),
       });
       // Consolidate obsolete per-step entries left by the previous release.
       for (final queued in await store.pendingDirectShares()) {
@@ -369,6 +380,7 @@ class CedarLiveSharePolicy {
       'pending': thoughtId,
       'pendingEvidence': text,
       'pendingThrough': latest.id,
+      'pendingEvents': events.skip(events.indexWhere((e)=>e.id==state['sharedThrough'])+1).map((e)=>e.id).toList(),
     });
   }
 }

@@ -29,6 +29,7 @@ class QqReplyDelivery {
     required Future<void> Function() beforeSend,
     required Future<void> Function(int sequence, String text, bool image) sent,
     Future<void> Function()? confirmed,Future<bool> Function()? mediaCurrent,
+    void Function(int sequence,QqMessageReceipt receipt)? received,
     String voiceText='',String voiceLanguage='',Future<void> Function(int sequence,String transcript,String language)? sentVoice}) async {
     final chunks=validate(text,messages);
     final voice=voiceText.isNotEmpty && fileInfo.isNotEmpty;
@@ -47,6 +48,7 @@ class QqReplyDelivery {
       await api.sendMessage(group: group, target: target, messageId: messageId, sequence: seq, text: content, fileInfo: media,
         current:() async=>await current() && (media.isEmpty || mediaCurrent==null || await mediaCurrent!()));
       delivered++;
+      received?.call(seq,api.receiptFor(group:group,target:target,messageId:messageId,sequence:seq));
       // A confirmed platform send cannot become an unsent failure just because
       // its local transaction fails. Retry the local commit only, never QQ.
       try {await confirmed?.call();}catch(_) {}

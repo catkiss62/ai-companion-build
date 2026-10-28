@@ -1,3 +1,4 @@
+import '../database/cedar_media_schema.dart';
 import 'dart:convert';
 import '../wishes/wish_store.dart';
 import '../wishes/wish_game_evidence.dart';
@@ -997,6 +998,7 @@ class CedarToyActivityStore {
     for (final entry in values.entries) {
       await txn.insert('settings', {'key': entry.key, 'value': entry.value},
           conflictAlgorithm: ConflictAlgorithm.replace);
+      if(entry.key==CedarMediaSchema.stateKey)await CedarMediaSchema.prune(txn,entry.value);
     }
   }
 

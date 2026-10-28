@@ -740,7 +740,7 @@ class AgnesWebCompactor {
         partials.addAll(batch.whereType<_AgnesPageSummary>());
       }
       if (partials.length != chunks.length) {
-        output.add(candidate.copyWith(readState: 'summary_failed'));
+        output.add(candidate.copyWith(readState:'summary_failed',appraisalReason:lastFailureReason.isEmpty?'agnes_summary_failed':lastFailureReason));
         continue;
       }
       final merged = partials.length == 1
@@ -752,7 +752,7 @@ class AgnesWebCompactor {
               partials: partials,
             );
       if (merged == null || merged.readerSummary.trim().isEmpty) {
-        output.add(candidate.copyWith(readState: 'summary_failed'));
+        output.add(candidate.copyWith(readState:'summary_failed',appraisalReason:lastFailureReason.isEmpty?'agnes_summary_failed':lastFailureReason));
         continue;
       }
       output.add(candidate.copyWith(
@@ -774,7 +774,7 @@ class AgnesWebCompactor {
       ));
     }
     lastSucceeded = output.any((candidate) => candidate.isVerifiedRead);
-    if (!lastSucceeded) lastFailureReason = 'no_verified_summaries';
+    if (!lastSucceeded && lastFailureReason.isEmpty) lastFailureReason = 'agnes_summary_failed';
     return output;
   }
 
@@ -798,7 +798,10 @@ class AgnesWebCompactor {
 $material
 【公开正文结束】''',
     );
-    return raw == null ? null : _parsePageSummary(raw);
+    if(raw==null)return null;
+    final parsed=_parsePageSummary(raw);
+    if(parsed==null)lastFailureReason='agnes_summary_format';
+    return parsed;
   }
 
   Future<_AgnesPageSummary?> _mergePageSummaries({
@@ -815,7 +818,10 @@ $material
 返回严格 JSON：{"reader_summary":"给用户看的清楚中文概要","key_points":["可复核要点"],"uncertainties":["限制或不确定性"],"topic_tags":["主题标签"],"event_date":"YYYY-MM-DD或空","publication_date":"YYYY-MM-DD或空"}。
 ${jsonEncode(partials.map((item) => item.toJson()).toList(growable: false))}''',
     );
-    return raw == null ? null : _parsePageSummary(raw);
+    if(raw==null)return null;
+    final parsed=_parsePageSummary(raw);
+    if(parsed==null)lastFailureReason='agnes_merge_format';
+    return parsed;
   }
 
   static _AgnesPageSummary? _parsePageSummary(String raw) {
@@ -946,7 +952,7 @@ ${jsonEncode(partials.map((item) => item.toJson()).toList(growable: false))}''',
 
   Future<String?> _complete(String prompt, {int? maxTokens}) async {
     final uri = Uri.tryParse(endpoint.trim());
-    if (uri == null || uri.scheme != 'https' || !uri.hasAuthority) return null;
+    if (uri == null || uri.scheme != 'https' || !uri.hasAuthority) {lastFailureReason='agnes_not_configured';return null;}
     try {
       final response = await _client
           .post(
@@ -971,22 +977,24 @@ ${jsonEncode(partials.map((item) => item.toJson()).toList(growable: false))}''',
             }),
           )
           .timeout(const Duration(seconds: 30));
-      if (response.statusCode != 200) return null;
+      if (response.statusCode != 200) {lastFailureReason='agnes_http_${response.statusCode}';return null;}
       final decoded = jsonDecode(response.body);
-      if (decoded is! Map || decoded['choices'] is! List) return null;
+      if (decoded is! Map || decoded['choices'] is! List) {lastFailureReason='agnes_response_format';return null;}
       final choices = decoded['choices'] as List;
-      if (choices.isEmpty || choices.first is! Map) return null;
+      if (choices.isEmpty || choices.first is! Map) {lastFailureReason='agnes_response_format';return null;}
       final choice = choices.first as Map;
       final finishReason = choice['finish_reason']?.toString().trim() ?? '';
       // Older relays omit this field. An explicit incomplete ending must
       // never promote a partial page summary to verified reading evidence.
-      if (finishReason.isNotEmpty && finishReason != 'stop') return null;
+      if (finishReason.isNotEmpty && finishReason != 'stop') {lastFailureReason='agnes_output_incomplete';return null;}
       final message = choice['message'];
-      if (message is! Map) return null;
+      if (message is! Map) {lastFailureReason='agnes_response_format';return null;}
       final content = message['content']?.toString().trim() ?? '';
-      return content.isEmpty ? null : content;
-    } catch (_) {
-      return null;
+      if(content.isEmpty) {lastFailureReason='agnes_response_format';return null;}
+      return content;
+    } on TimeoutException {lastFailureReason='agnes_timeout';return null;
+    } on FormatException {lastFailureReason='agnes_response_format';return null;
+    } catch (_) {lastFailureReason='agnes_network';return null;
     }
   }
 

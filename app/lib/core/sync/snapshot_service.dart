@@ -1,3 +1,4 @@
+import '../database/cedar_media_schema.dart';
 import '../models/room_background_config.dart';
 import 'dart:convert';
 import 'dart:io';
@@ -1510,6 +1511,7 @@ class SnapshotService {
 
     validateOwnerRows('message_attachments', album: false);
     validateOwnerRows('companion_album_candidates', album: true);
+    CedarMediaSchema.validate(tables,version:(backup['schema_version'] as num?)?.toInt()??0);
   }
 
   static Set<String> _expectedAttachmentPaths(Map<String, dynamic> backup) {

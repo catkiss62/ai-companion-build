@@ -1,3 +1,4 @@
+import '../../integrations/qq_private/qq_failure_history.dart';
 import '../agent/agent_task_loop.dart';
 import '../self/dream_store.dart';
 import '../creative/creative_store.dart';
@@ -1983,19 +1984,21 @@ class PreflightDiagnosticsService {
   }
 
   Map<String,Object?> _qqOperationFailures(String raw) {
+    const phases={'context','vision','participation','reply_generation','first_reply','second_reply',
+      'sketch_generation','group_boundary','media_upload','send','archive','voice','voice_generation','voice_upload'};
+    Map<String,Object?>? safe(Map item) {
+      if(item['at'] is! int || item['attempt'] is! int || item['elapsed_ms'] is! int ||
+        !phases.contains(item['phase']) || item['code'] is! String ||
+        !RegExp(r'^[a-z0-9_]{1,64}$').hasMatch(item['code'] as String))return null;
+      return {for(final k in ['at','phase','code','attempt','elapsed_ms'])k:item[k]};
+    }
     final rows=<Map<String,Object?>>[];
-    try {
-      final decoded=jsonDecode(raw);
-      if(decoded is List) {
-        for(final item in decoded.take(12)) {
-          if(item is! Map || item['at'] is! int || item['attempt'] is! int || item['elapsed_ms'] is! int ||
-            item['phase'] is! String || !const {'context','vision','participation','reply_generation','first_reply','second_reply',
-              'sketch_generation','group_boundary','media_upload','send'}.contains(item['phase']) ||
-            item['code'] is! String || !RegExp(r'^[a-z0-9_]{1,64}$').hasMatch(item['code'] as String))continue;
-          rows.add({for(final key in ['at','phase','code','attempt','elapsed_ms'])key:item[key]});
-        }
-      }
-    } catch(_) {}
+    for(final item in QqFailureHistory.decode(raw)) {
+      final row=safe(item);if(row==null)continue;
+      row['outcome']=QqFailureHistory.safeCode(item['outcome'] as String? ?? 'unknown');
+      if(item['attempts'] is List)row['attempts']=[for(final a in (item['attempts'] as List).whereType<Map>())if(safe(a)!=null)safe(a)];
+      rows.add(row);
+    }
     return {'recentFailures':rows,'messageBodiesIncluded':false,'svgBodiesIncluded':false,
       'credentialsIncluded':false,'automaticSketchRetry':false};
   }

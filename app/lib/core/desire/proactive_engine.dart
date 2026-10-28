@@ -1,3 +1,4 @@
+import '../mcp/cedar_activity_media.dart';
 import '../../integrations/qq_private/qq_history_context_policy.dart';
 import '../../integrations/qq_private/qq_share_store.dart';
 import '../ai/first_channel_model.dart';
@@ -1271,7 +1272,7 @@ class ProactiveEngine {
         if (!staged.ready || staged.thoughtId == null) {
           await db.finishAutonomousBehavior(
             autonomousBehaviorEventId,
-            status: staged.state == 'refresh_declined' ? 'wait' : 'failed',
+            status: const {'refresh_declined','refresh_retry_scheduled','refresh_failed'}.contains(staged.state) ? 'wait' : 'failed',
             reasonTag: staged.state,
           );
           return ProactiveDecision(
@@ -1413,6 +1414,18 @@ class ProactiveEngine {
         (cedarPlan.deferred || cedarPlan.message != null)) {
       return const ProactiveDecision(sent: false, reason: 'cedar_share_delivery_deferred');
     }
+    final cedarShareImages=<CedarShareImage>[];
+    final preparedCedarImages=<CedarShareImage>[];
+    if(isCedarGameShare && intentThought!=null) {
+      for(final session in (await CedarToyActivityStore(db).loadState()).sessions.values) {
+        if(!intentThought.source.startsWith('mcp/cedar_game:${session.gameId}:'))continue;
+        final evidence=await CedarLiveSharePolicy(db).mediaEvidence(session,intentThought.id,intentThought.source);
+        cedarShareImages.addAll(await CedarActivityMedia(db).available(session,evidence));
+      }
+    }
+    final cedarImageContract=isCedarGameShare?
+      '【本次游戏证据中的真实图片】可用${cedarShareImages.length}张。只来自这次分享证据，选定分享时由宿主附上准备成功的真实图片。'
+      '没有实际附件就不能说图发过去了，不承诺附件数量，不把网页链接当成已发送图片。':'';
     final cedarOutcomeAt = isCedarGameShare
         ? CedarGameThoughtPolicy.evidenceAt(intentThought!)
         : null;
@@ -1759,6 +1772,7 @@ $webShareContract
 $sourceAgnosticShareContract
 $watchedCedarShareContract
 $cedarTemporalContract
+$cedarImageContract
 $pendingGameThreadContract
 $nightContactContract
 ${nightContact ? '【夜间当前候选·宿主状态资料】${jsonEncode({'drive': intent.drive.name, 'value': snapshot.drives[intent.drive], 'usual_baseline': snapshot.baselines[intent.drive], 'motive_score': intent.score, 'rest_score': nightRestScore, 'source_event_at': nightEvidence(intentThought)?.toIso8601String()})}' : ''}
@@ -2379,36 +2393,16 @@ ${PromptBuilder.visibleChineseGenerationReminder(proactive: true, ordinaryAction
     final mediaOwner = PendingMediaOwner.proactive(messageId: messageId, fence: wishDeliveryFence);
     pendingMediaOwner = mediaOwner;
     final proactiveAttachments = <MessageAttachment>[];
-    if (isCedarGameShare) {
-      final activityState = await CedarToyActivityStore(db).loadState();
-      final session = activityState.sessions.values.where((item) =>
-          intentThought!.source.startsWith('mcp/cedar_game:${item.gameId}:')).firstOrNull;
-      final event = session?.events.reversed
-          .where((item) => item.imageData.isNotEmpty &&
-            intentThought!.source.endsWith(':${item.id}'))
-          .firstOrNull;
-      if (event != null && event.imageMimeType.startsWith('image/')) {
-        try {
-          final storage = MessageAttachmentStorage(db: db);
-          final draft = await storage.prepareImageBytes(
-            bytes: base64Decode(event.imageData),
-            source: 'assistant_mcp_image:cedar:${session!.gameId}',
-            mimeType: event.imageMimeType,
-          );
-          final attachment = await storage.commitDraft(
-            draft,
-            messageId: messageId,
-            pendingOwner: mediaOwner,
-          );
-          proactiveAttachments.add(attachment.copyWith(
-            visionStatus: MessageAttachment.visionCompletedStatus,
-            visionSummary: 'Cedar Toy 游戏返回的真实图片',
-            visionModel: 'mcp_content',
-            visionUpdatedAt: DateTime.now(),
-          ));
-        } catch (_) {
-          // Keep the genuine text share even if optional image decoding fails.
-        }
+    if(isCedarGameShare) {
+      final media=CedarActivityMedia(db);
+      for(final image in cedarShareImages) {
+        try {proactiveAttachments.add(await media.attach(image,messageId,mediaOwner));preparedCedarImages.add(image);}
+        catch(_) { /* The real text outcome remains; source fences still guard commit. */ }
+      }
+      if(proactiveAttachments.isEmpty && CedarActivityMedia.claimsSentImage(text)) {
+        await db.releasePendingMedia(mediaOwner);
+        await noteGeneration('failed',reasonTag:'cedar_media_unavailable');
+        return const ProactiveDecision(sent:false,reason:'本次图片未能准备，保留真实游戏结果，不发送缺少附件的发图声明');
       }
     }
     SelectedStickerAttachment? selectedSticker;
@@ -2478,6 +2472,7 @@ ${PromptBuilder.visibleChineseGenerationReminder(proactive: true, ordinaryAction
       pendingMediaOwner: mediaOwner,
       workFence: wishDeliveryFence,
       cedarDeliveries: cedarDeliveries.verified,
+      cedarMediaGuard:(sql)=>CedarActivityMedia.matches(sql,preparedCedarImages),
       publicWebSources: promptBuild.publicWebSources,
       backgroundRecall: promptBuild.backgroundRecall,
       qqEvidence:promptBuild.qqEvidence??qqShare?.evidence,

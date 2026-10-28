@@ -20,6 +20,11 @@ class QqMediaUpload {
   int reusableUntil(int now) => ttl!=null && ttl!>60 ? now+(ttl!-60)*1000 : now;
 }
 
+class QqMessageReceipt {
+  const QqMessageReceipt(this.id, {this.index = ''});
+  final String id, index;
+}
+
 class QqApi {
   QqApi({required this.appId, required this.secret, HttpClient? client,
     this.apiBase = 'https://api.bot.qq.com',
@@ -33,6 +38,12 @@ class QqApi {
   DateTime _expires = DateTime(2000);
   Future<String>? _refreshing;
   bool _closed = false;
+  final _receipts = <String,QqMessageReceipt>{};
+  QqMessageReceipt receiptFor({required bool group,required String target,required String messageId,required int sequence}) =>
+    _receipts[jsonEncode([group,target,messageId,sequence])] ?? const QqMessageReceipt('');
+
+  bool confirmedMessage({required bool group,required String target,required String platformId}) =>
+    _receipts.entries.any((e) {final k=jsonDecode(e.key) as List;return k[0]==group && k[1]==target && e.value.id==platformId;});
 
   Future<String> token() {
     if (_token != null && DateTime.now().isBefore(_expires)) return Future.value(_token!);
@@ -98,6 +109,10 @@ class QqApi {
       'msg_type':fileInfo.isEmpty?0:7,if(text.isNotEmpty)'content':text,if(fileInfo.isNotEmpty)'media':{'file_info':fileInfo},
       if(messageId.isNotEmpty)'msg_id':messageId,'msg_seq':sequence});
     if(result['id'] is! String || (result['id'] as String).isEmpty) throw QqApiException('send_receipt_missing',uncertain:true);
+    final index=result['msg_idx'];
+    _receipts[jsonEncode([group,target,messageId,sequence])] = QqMessageReceipt(result['id'] as String,
+      index:(index is String || index is int) && '$index'.length<=128?'$index':'');
+    if(_receipts.length>32)_receipts.remove(_receipts.keys.first);
   }
   /// Official local media flow, no external image hosting. Uploading itself
   /// does not send a QQ message; only the later media message can do that.
@@ -159,7 +174,7 @@ class QqApi {
       {Map<String, Object?>? body, String? accessToken, bool sending = false, Future<bool> Function()? current}) async {
     if (_closed) throw QqApiException('stopped');
     HttpClientRequest? outgoing;
-    var expired=false;
+    var expired=false,wireStarted=false;
     Future<void> check() async {
       final valid=current==null || await current();
       if(_closed || expired || !valid) {outgoing?.abort();throw QqApiException('stopped');}
@@ -175,7 +190,10 @@ class QqApi {
           outgoing!.headers.set(HttpHeaders.authorizationHeader, 'QQBot $accessToken');
           outgoing!.headers.set('X-Union-Appid', appId);
         }
-        if (body != null) outgoing!.write(jsonEncode(body));
+        // dart:io sends headers on the first IOSink write or close. A failed
+        // open/guard before this point is definitely unsent; later is unknown.
+        if (body != null) {wireStarted=true;outgoing!.write(jsonEncode(body));}
+        wireStarted=true;
         final response = await outgoing!.close();
         final bytes = <int>[];
         await for (final part in response) {
@@ -196,10 +214,10 @@ class QqApi {
       })().timeout(const Duration(seconds: 20), onTimeout: () {
         expired=true;
         outgoing?.abort();
-        throw QqApiException('timeout', uncertain: sending);
+        throw QqApiException('timeout', uncertain: sending && wireStarted);
       });
     } on QqApiException { rethrow;
-    } catch (_) { throw QqApiException(_closed ? 'stopped' : 'network', uncertain: sending); }
+    } catch (_) { throw QqApiException(_closed ? 'stopped' : 'network', uncertain: sending && wireStarted); }
   }
 
   void close() { _closed = true; _client.close(force: true); }

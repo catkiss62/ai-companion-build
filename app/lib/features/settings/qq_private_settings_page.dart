@@ -6,6 +6,7 @@ import 'package:flutter/services.dart';
 import '../../integrations/qq_private/qq_private_config.dart';
 import '../../core/storage/secure_config.dart';
 import 'qq_groups_page.dart';
+import 'qq_failures_page.dart';
 import '../../core/database/app_database.dart';
 import '../../integrations/qq_private/qq_options.dart';
 
@@ -155,6 +156,7 @@ class _QqPrivateSettingsPageState extends State<QqPrivateSettingsPage> {
           const Text('QQ 陪伴连接', style: TextStyle(fontSize: 20)),
           const SizedBox(height: 8),
           const Text('本人私聊可读取已有记忆与近期App对话；QQ原文和整理笔记独立保存，App也可按需读取。支持图片观察及从App图库选择表情包。群聊需单独开启，仅使用本群与明确公开的资料，不改变主系统欲望或成长。'),
+          OutlinedButton.icon(onPressed:()=>Navigator.of(context).push(MaterialPageRoute<void>(builder:(_)=>const QqFailuresPage())),icon:const Icon(Icons.error_outline),label:const Text('最近20次错误')),
           const SizedBox(height: 16),
           DropdownButtonFormField<String>(initialValue: _replyChannel,
             key: ValueKey('qq-reply-$_replyChannel'),

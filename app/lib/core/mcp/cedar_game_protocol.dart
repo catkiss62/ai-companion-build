@@ -76,8 +76,11 @@ abstract final class CedarActionFeedback {
     }
     return text;
   }
-  static bool parameterError(String text)=>RegExp(
+  static bool parameterError(String text)=>_explicitEnumError(text) || RegExp(
     r'^\s*(?:错误[:：]\s*)?(?:这杯目前调不出来|未知(?:指令|命令|配方)|参数无效|缺少必填|unknown (?:command|recipe)|invalid (?:command|recipe|argument))',
+    caseSensitive:false,multiLine:true).hasMatch(businessText(text));
+  static bool _explicitEnumError(String text)=>RegExp(
+    r'^\s*(?:错误[:：]\s*)?(?:[^\n。！？]{0,24}(?:参数|方式|类型|模式|选项|字段)|[a-z_][a-z0-9_-]{0,30})\s*(?:必须(?:是|为)|可选值(?:为|是)|只能(?:是|为)|must be(?: one of)?)\s*[^\n]{1,240}',
     caseSensitive:false,multiLine:true).hasMatch(businessText(text));
   static bool gameRefusal(String text)=>RegExp(r'客人尚未购买，库存与资金都没有变化|^(?:答错了|猜错了|这步棋不合法)',multiLine:true).hasMatch(businessText(text));
   static bool noProgress(String text)=>parameterError(text)||gameRefusal(text)||RegExp(

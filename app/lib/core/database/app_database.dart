@@ -1,3 +1,6 @@
+import '../autonomy/public_web_share_recovery.dart';
+import '../autonomy/web_read_failure.dart';
+import 'cedar_media_schema.dart';
 import '../memory/memory_admission_policy.dart';
 import 'automatic_memory_permit.dart';
 import 'qq_archive_schema.dart';
@@ -194,7 +197,8 @@ class AppDatabase {
   // Historical validator compatibility token: static const int schemaVersion = 62;
   // Historical validator compatibility token: static const int schemaVersion = 63;
   // Historical validator compatibility token: static const int schemaVersion = 64;
-  static const int schemaVersion = 66;
+  // Previous QQ schema: 66.
+  static const int schemaVersion = 67;
 
   Database? _db;
   Future<Database>? _opening;
@@ -1266,6 +1270,7 @@ class AppDatabase {
     if (oldVersion < 64) await QqArchiveSchema.upgradeWork(db);
     if (oldVersion < 65) await QqArchiveSchema.upgradeMaterial(db);
     if (oldVersion < 66) await QqArchiveSchema.create(db);
+    if (oldVersion < 67) {await QqArchiveSchema.create(db);await CedarMediaSchema.create(db);await PublicWebShareRecovery.upgrade(db);}
   }
 
   Future<void> _createSchema(Database db) async {
@@ -1466,6 +1471,8 @@ class AppDatabase {
     await _createV60ImmersiveLanguageColumns(db);
     await _createV61AiInterestConsumptionTables(db);
     await QqArchiveSchema.create(db);
+    await CedarMediaSchema.create(db);
+    await PublicWebShareRecovery.upgrade(db);
     await _seedRuleLayers(db);
 
     final initial = DesireSnapshot();
@@ -6405,7 +6412,8 @@ class AppDatabase {
   // Custom room artwork is a persistent settings owner, not disposable chat
   // cache. Keep this predicate on every path that can remove shared bytes.
   static String _backgroundOwnerGuard(String alias) =>
-      "NOT EXISTS (SELECT 1 FROM settings bg WHERE bg.key = '${RoomBackgroundConfig.blobKey}' AND bg.value = $alias.id)";
+      "NOT EXISTS (SELECT 1 FROM settings bg WHERE bg.key = '${RoomBackgroundConfig.blobKey}' AND bg.value = $alias.id) "
+      "AND NOT EXISTS (SELECT 1 FROM cedar_event_media cm WHERE cm.blob_id = $alias.id)";
 
   Future<List<MediaBlob>> allMediaBlobs() async {
     final db = await database;
@@ -8633,6 +8641,7 @@ class AppDatabase {
     required ChatMessage message,
     PendingMediaOwner? pendingMediaOwner,
     List<CedarDeliveryClaim> cedarDeliveries = const [],
+    LocalSourceGuard? cedarMediaGuard,
     required DateTime evaluationStartedAt,
     BrainWorkFence? workFence,
     List<PublicWebSourceStamp> publicWebSources = const [],
@@ -8660,6 +8669,7 @@ class AppDatabase {
       if (backgroundRecall != null && !await backgroundRecall.matches(txn, DateTime.now())) return 'background_recall_changed';
       if(qqEvidence!=null && !await qqEvidence.matches(txn)) return 'qq_source_changed';
       if(qqShare!=null && !await qqShare.matches(txn)) return 'qq_share_changed';
+      if(cedarMediaGuard!=null && !await cedarMediaGuard(txn))return 'cedar_media_source_changed';
       final webNow = DateTime.now();
       if (expectedPublicWebShare != null) {
         final delivered = await txn.query('public_web_candidates', columns: ['shared_message_id'],
@@ -13161,14 +13171,14 @@ class AppDatabase {
       await _recoverStalePublicWebShareStagesTxn(txn, instant);
       final ready = await txn.query(
         'public_web_candidates', columns: ['id'],
-        where: "lifecycle_state = 'share_ready' AND read_state = 'verified' AND semantic_state = 'valid' AND expires_at > ?",
+        where: "lifecycle_state IN ('share_ready','share_staging') AND read_state = 'verified' AND semantic_state = 'valid' AND expires_at > ?",
         whereArgs: [instant.millisecondsSinceEpoch], limit: 1,
       );
       if (ready.isNotEmpty) return null;
       final rows = await txn.query(
         'public_web_candidates',
-        where: "lifecycle_state = 'unread' AND read_state = 'verified' AND semantic_state = 'valid' AND share_score >= 0.68 AND expires_at > ?",
-        whereArgs: [instant.millisecondsSinceEpoch],
+        where: "lifecycle_state = 'unread' AND read_state = 'verified' AND semantic_state = 'valid' AND share_score >= 0.68 AND expires_at > ? AND share_retry_at<=?",
+        whereArgs: [instant.millisecondsSinceEpoch,instant.millisecondsSinceEpoch],
         orderBy: 'discovered_at DESC',
         limit: 1,
       );
@@ -13182,23 +13192,13 @@ class AppDatabase {
         {
           'lifecycle_state': 'share_staging',
           'share_stage_token': token, 'share_stage_until': until.millisecondsSinceEpoch,
-          'last_viewed_at': instant.millisecondsSinceEpoch,
+          'last_viewed_at': instant.millisecondsSinceEpoch,'share_last_error':'',
         },
         where: "id = ? AND lifecycle_state = 'unread'",
         whereArgs: [id],
       );
       if (claimed != 1) return null;
 
-      // One discovery run may store three results, but at most one may become
-      // a proactive share Thought. Siblings remain available as quiet chat
-      // context and can never queue a burst of three notifications.
-      await txn.update(
-        'public_web_candidates',
-        {'lifecycle_state': 'reviewed'},
-        where:
-            "action_run_id = ? AND id != ? AND lifecycle_state = 'unread'",
-        whereArgs: [row['action_run_id'], id],
-      );
       return PublicWebShareStageLease(stageToken: token, stageUntil: until,
         workFence: workFence, originalMaterialHash: PublicWebSourceStamp.hashRow(row),
         candidate: PublicWebShareCandidate(
@@ -13232,8 +13232,8 @@ class AppDatabase {
       ],
       where: "lifecycle_state = 'unread' AND read_state = 'verified' "
           "AND semantic_state = 'valid' AND share_score >= 0.68 "
-          'AND expires_at > ?',
-      whereArgs: <Object?>[instant.millisecondsSinceEpoch],
+          'AND expires_at > ? AND share_retry_at<=?',
+      whereArgs: <Object?>[instant.millisecondsSinceEpoch,instant.millisecondsSinceEpoch],
       orderBy: 'discovered_at DESC',
       limit: 1,
     );
@@ -13370,6 +13370,21 @@ class AppDatabase {
     return db.transaction<bool>((txn) async {
       final instant = now ?? DateTime.now();
       if (!await lease.matches(txn, now: instant, checkOriginalMaterial: true)) return false;
+      final error=refreshed.appraisalReason;
+      if(!eligible && WebReadFailure.failedRead(error)) {
+        final before=(await txn.query('public_web_candidates',where:'id=?',whereArgs:[candidateId],limit:1)).single;
+        final failures=((before['share_retry_count'] as int?)??0)+1;
+        final retry=WebReadFailure.retryable(error) && failures<PublicWebShareRecovery.maxFailures &&
+          (before['expires_at'] as int)>instant.add(PublicWebShareRecovery.cooldown).millisecondsSinceEpoch;
+        await txn.update('public_web_candidates',{'lifecycle_state':retry?'unread':'reviewed',
+          'share_stage_token':'','share_stage_until':0,'share_retry_count':failures.clamp(0,PublicWebShareRecovery.maxFailures),
+          'share_retry_at':retry?instant.add(PublicWebShareRecovery.cooldown).millisecondsSinceEpoch:0,
+          'share_last_error':error,'last_viewed_at':instant.millisecondsSinceEpoch},where:'id=?',whereArgs:[candidateId]);
+        await _setSettingInTransaction(txn,'public_web_share_last_outcome',retry?'refresh_retry_scheduled':'refresh_failed',instant);
+        await _setSettingInTransaction(txn,'public_web_share_last_at','${instant.millisecondsSinceEpoch}',instant);
+        for(final event in providerHealthEvents)await _recordProviderHealthEventTxn(txn,event);
+        return true;
+      }
       final updated = await txn.update(
         'public_web_candidates',
         <String, Object?>{
@@ -13394,7 +13409,7 @@ class AppDatabase {
           'content_sha256': refreshed.contentSha256,
           'page_body': refreshed.pageBody,
           'read_at': refreshed.readAt?.millisecondsSinceEpoch,
-          'search_query': refreshed.searchQuery,
+          'search_query': refreshed.searchQuery,'share_retry_at':0,'share_last_error':'',
           if (!eligible) ...{'lifecycle_state': 'declined', 'share_stage_token': '', 'share_stage_until': 0},
           'last_viewed_at': instant.millisecondsSinceEpoch,
         },
@@ -13457,6 +13472,8 @@ class AppDatabase {
         );
       }
       if (!eligible) {
+        await _setSettingInTransaction(txn,'public_web_share_last_outcome','refresh_declined',instant);
+        await _setSettingInTransaction(txn,'public_web_share_last_at','${instant.millisecondsSinceEpoch}',instant);
         await txn.update(
           'thoughts',
           <String, Object?>{
@@ -13517,6 +13534,10 @@ class AppDatabase {
           'topic_key': match.topicKey.isEmpty ? topic : match.topicKey},
           where: 'id = ?', whereArgs: [id]);
       }
+      // A sibling loses eligibility only after this batch actually formed
+      // one ready Thought. A failed first read no longer eats the whole batch.
+      await txn.update('public_web_candidates',{'lifecycle_state':'reviewed'},
+        where:"action_run_id=? AND id!=? AND lifecycle_state='unread'",whereArgs:[row['action_run_id'],lease.id]);
       await txn.update('public_web_candidates', {'lifecycle_state': 'share_ready',
         'share_stage_token': '', 'share_stage_until': 0, 'last_viewed_at': instant.millisecondsSinceEpoch},
         where: 'id = ?', whereArgs: [lease.id]);
@@ -19200,6 +19221,7 @@ class AppDatabase {
         {'key': key, 'value': value},
         conflictAlgorithm: ConflictAlgorithm.replace,
       );
+      if(key==CedarMediaSchema.stateKey)await CedarMediaSchema.prune(txn,value);
     });
   }
 
@@ -19255,6 +19277,7 @@ class AppDatabase {
           <String, String>{'key': entry.key, 'value': entry.value},
           conflictAlgorithm: ConflictAlgorithm.replace,
         );
+        if(entry.key==CedarMediaSchema.stateKey)await CedarMediaSchema.prune(txn,entry.value);
       }
       return true;
     });
@@ -19271,6 +19294,7 @@ class AppDatabase {
       {'key': key, 'value': value},
       conflictAlgorithm: ConflictAlgorithm.replace,
     );
+    if(key==CedarMediaSchema.stateKey)await CedarMediaSchema.prune(txn,value);
   }
 
   Future<DateTime> relationshipStartedAt({DateTime? fallbackNow}) async {
@@ -20345,6 +20369,7 @@ class AppDatabase {
       'messages',
       'message_language_variants',
       'media_blobs',
+      'cedar_event_media',
       'message_attachments',
       'memory_items',
       'memory_evidence',
@@ -20451,6 +20476,8 @@ class AppDatabase {
     final rawTables = Map<String, dynamic>.from(backup['tables'] as Map);
     ConversationHistoryCatalog.validateArchive(backup, rawTables);
     QqArchiveSchema.validate(rawTables, version: version);
+    CedarMediaSchema.validate(rawTables,version:version);
+    PublicWebShareRecovery.normalizeImport(rawTables,version:version);
     CreativeContract.normalizeImport(rawTables);
     if (version < 44) {
       rawTables['personality_learning_evidence_revisions'] = const <Object?>[];
@@ -20486,6 +20513,7 @@ class AppDatabase {
       'messages',
         'message_language_variants',
         'media_blobs',
+        'cedar_event_media',
         'message_attachments',
         'memory_items',
         'memory_evidence',
@@ -20544,6 +20572,7 @@ class AppDatabase {
         'settings',
       ];
       await txn.delete('pending_media_owners');
+      await txn.delete(CedarMediaSchema.table);
       for(final table in QqArchiveSchema.tables.reversed) { await txn.delete(table); }
       for (final table in ordered) {
         await txn.delete(table);
@@ -21022,6 +21051,7 @@ class AppDatabase {
         whereArgs: const ['behavior', '造梗能力', '造梗|玩梗'],
       );
       await QqArchiveSchema.restored(txn);
+      await PublicWebShareRecovery.restored(txn);
       await _rebuildMediaBlobRefCountsInTransaction(txn);
       // Import preserves source order and the consumed high-water mark as one
       // snapshot; legacy backfill must be part of that same transaction.

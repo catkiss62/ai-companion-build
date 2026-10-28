@@ -83,6 +83,17 @@ class QqStickers {
     }
     return [for(var i=0;i<selected.length;i++)StickerReplyCandidate('s${i+1}',selected[i].pack,selected[i].record)];
   }
+  Future<StickerReplyCandidate?> restoreChoice(String key,String id) async {
+    if(await db.getSetting(StickerPackStorage.modeSetting)=='off')return null;
+    final enabled=await storage.enabledPackIds();
+    for(final pack in await storage.scanPacks()) {
+      if(!enabled.contains(pack.id))continue;
+      for(final r in await storage.readRecords(pack)) {
+        if(r.usageKey==key && StickerAgencyPolicy.isAssistantSelectable(r))return StickerReplyCandidate(id,pack,r);
+      }
+    }
+    return null;
+  }
   Future<({Uint8List bytes,String filename})> bytes(StickerReplyCandidate candidate) =>SharedMediaLock.run(() async {
     final enabled=await storage.enabledPackIds();
     if(!enabled.contains(candidate.pack.id) || await db.getSetting(StickerPackStorage.modeSetting)=='off') throw StateError('sticker_disabled');

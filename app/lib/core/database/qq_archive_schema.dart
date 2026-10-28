@@ -4,7 +4,7 @@ import '../qq/qq_message_material.dart';
 
 /// Portable QQ history, with no dependency on main-message/growth consumers.
 abstract final class QqArchiveSchema {
-  static const additions=['qq_ingress','qq_work_items','qq_styles','qq_sketches','qq_voices'];
+  static const additions=['qq_ingress','qq_work_items','qq_styles','qq_sketches','qq_voices','qq_attention_events','qq_reply_tasks'];
   static const tables = ['qq_conversations','qq_archive','qq_images','qq_notes','qq_deliveries','qq_shares','qq_receipts',...additions];
   static const columns = <String,Set<String>>{
     'qq_conversations':{'id','scope','kind','target','checked_seq','summary_checked_seq','summary_seq','last_reply_at','version'},
@@ -19,6 +19,8 @@ abstract final class QqArchiveSchema {
     'qq_styles':{'id','conversation_id','content','sources','source_stamp','revision','enabled','edited_at','created_at'},
     'qq_sketches':{'id','archive_seq','svg','description','created_at'},
     'qq_voices':{'id','archive_seq','language','created_at'},
+    'qq_attention_events':{'id','conversation_id','archive_seq','consumed','created_at'},
+    'qq_reply_tasks':{'id','conversation_id','through_seq','sources','source_stamp','identity','policy','source_at','expires_at','addressed','stage','draft','failure_phase','last_trigger_seq','valid','updated_at'},
   };
   static Future<void> create(DatabaseExecutor sql) async {
     await sql.execute('''CREATE TABLE IF NOT EXISTS qq_conversations (
@@ -34,6 +36,7 @@ abstract final class QqArchiveSchema {
       mentioned INTEGER NOT NULL DEFAULT 0, reply_to TEXT NOT NULL DEFAULT '',
       accepted_identity TEXT NOT NULL DEFAULT '', accepted_policy TEXT NOT NULL DEFAULT '', version INTEGER NOT NULL DEFAULT 1)''');
     await sql.execute('CREATE INDEX IF NOT EXISTS qq_archive_conversation ON qq_archive(conversation_id,seq)');
+    await sql.execute('CREATE INDEX IF NOT EXISTS qq_archive_platform ON qq_archive(conversation_id,platform_id)');
     await sql.execute('''CREATE TABLE IF NOT EXISTS qq_images (
       id TEXT PRIMARY KEY, archive_seq INTEGER NOT NULL REFERENCES qq_archive(seq),
       ordinal INTEGER NOT NULL, state TEXT NOT NULL DEFAULT 'unseen', description TEXT NOT NULL DEFAULT '',
@@ -77,6 +80,19 @@ abstract final class QqArchiveSchema {
       id TEXT PRIMARY KEY,archive_seq INTEGER NOT NULL REFERENCES qq_archive(seq),
       language TEXT NOT NULL,created_at INTEGER NOT NULL)''');
     await sql.execute('CREATE UNIQUE INDEX IF NOT EXISTS qq_voice_source ON qq_voices(archive_seq)');
+    await sql.execute("""CREATE TABLE IF NOT EXISTS qq_attention_events(
+      id TEXT PRIMARY KEY,conversation_id TEXT NOT NULL REFERENCES qq_conversations(id),
+      archive_seq INTEGER NOT NULL REFERENCES qq_archive(seq),consumed INTEGER NOT NULL DEFAULT 0,
+      created_at INTEGER NOT NULL)""");
+    await sql.execute("""CREATE TABLE IF NOT EXISTS qq_reply_tasks(
+      id TEXT PRIMARY KEY,conversation_id TEXT NOT NULL REFERENCES qq_conversations(id),
+      through_seq INTEGER NOT NULL,sources TEXT NOT NULL,source_stamp TEXT NOT NULL,
+      identity TEXT NOT NULL,policy TEXT NOT NULL,source_at INTEGER NOT NULL,expires_at INTEGER NOT NULL,
+      addressed INTEGER NOT NULL DEFAULT 0,stage TEXT NOT NULL,draft TEXT NOT NULL DEFAULT '',
+      failure_phase TEXT NOT NULL DEFAULT '',last_trigger_seq INTEGER NOT NULL,
+      valid INTEGER NOT NULL DEFAULT 1,updated_at INTEGER NOT NULL)""");
+    await sql.execute('CREATE INDEX IF NOT EXISTS qq_reply_task_pending ON qq_reply_tasks(conversation_id,expires_at)');
+
   }
 
   static Future<void> upgradeMaterial(DatabaseExecutor sql) async {
@@ -116,6 +132,7 @@ abstract final class QqArchiveSchema {
     if(version<62) { for(final t in tables) { raw[t]=<Object?>[]; } return; }
     if(version<64) {for(final t in additions)raw[t]=<Object?>[];}
     if(version<66)raw['qq_voices']=<Object?>[];
+    if(version<67) {raw['qq_attention_events']=<Object?>[];raw['qq_reply_tasks']=<Object?>[];}
     final conversations=<String,Map>{}; final seqs=<int,String>{}; final maxima=<String,int>{};
     final noteIds=<String>{}; final observed=<int,int>{};final roles=<int,String>{};final voiceSeqs=<int>{};
     for(final table in tables) {
@@ -134,11 +151,22 @@ abstract final class QqArchiveSchema {
             row['id'] is! String || (row['id'] as String).isEmpty || !ids.add(row['id'] as String) ||
             row.values.any((v)=>v is! String && v is! int) ||
             row.entries.any((e)=>e.value is String && (e.value as String).length>
-              (const {'qq_receipts','qq_styles'}.contains(table) && e.key=='source_stamp'?256000:24000))) throw const FormatException('QQ记录字段无效');
+              (table=='qq_reply_tasks' && e.key=='draft'?48000:const {'qq_receipts','qq_styles'}.contains(table) && e.key=='source_stamp'?256000:24000))) throw const FormatException('QQ记录字段无效');
         if(table=='qq_conversations') {
           if(!const {'private','group'}.contains(row['kind']) || row['scope'] is! String || row['target'] is! String ||
               ['checked_seq','summary_checked_seq','summary_seq','last_reply_at','version'].any((k)=>row[k] is! int || (row[k] as int)<0)) throw const FormatException('QQ会话无效');
           conversations[row['id'] as String]=row;
+        } else if(table=='qq_attention_events') {
+          if(seqs[row['archive_seq']]!=row['conversation_id'] || !const {0,1}.contains(row['consumed']) || row['created_at'] is! int)throw const FormatException('QQ提及证据无效');
+        } else if(table=='qq_reply_tasks') {
+          final ids=jsonDecode(row['sources'] as String),proof=jsonDecode(row['source_stamp'] as String);
+          if(!conversations.containsKey(row['conversation_id']) || ids is! List || ids.isEmpty || ids.length>80 ||
+            ids.any((id)=>id is! int || seqs[id]!=row['conversation_id']) || seqs[row['through_seq']]!=row['conversation_id'] ||
+            proof is! List || proof.length>160 || proof.any((p)=>p is! Map || p['table']!='qq_archive' || p['id'] is! String || p['version'] is! int) ||
+            !const {0,1}.contains(row['addressed']) || !const {0,1}.contains(row['valid']) ||
+            ['source_at','expires_at','last_trigger_seq','updated_at'].any((k)=>row[k] is! int || (row[k] as int)<0) ||
+            (row['expires_at'] as int)<(row['source_at'] as int))throw const FormatException('QQ待回应来源无效');
+          if((row['draft'] as String).isNotEmpty && jsonDecode(row['draft'] as String) is! Map)throw const FormatException('QQ草稿格式无效');
         } else if(table=='qq_ingress') {
           if(!RegExp(r'^[a-f0-9]{64}$').hasMatch(row['id'] as String) || row['expires_at'] is! int || (row['expires_at'] as int)<0)throw const FormatException('QQ接收回执无效');
         } else if(table=='qq_work_items' || table=='qq_styles') {
@@ -229,6 +257,8 @@ abstract final class QqArchiveSchema {
     await sql.execute("UPDATE qq_deliveries SET state = 'restored_history' WHERE state NOT IN ('sent','send_uncertain','sent_archive_pending','sent_archive_failed','partially_sent')");
     await sql.execute("UPDATE qq_shares SET state = 'restored_history' WHERE state != 'sent'");
     await sql.execute("UPDATE qq_work_items SET state='restored_history',run_token='' WHERE state!='complete'");
+    await sql.update('qq_attention_events',{'consumed':1});
+    await sql.update('qq_reply_tasks',{'valid':0,'draft':'','stage':'restored_history'});
     await sql.execute("INSERT OR IGNORE INTO qq_ingress(id,expires_at) SELECT id,received_at+86400000 FROM qq_archive WHERE role='user'");
     await sql.execute('UPDATE qq_conversations SET checked_seq=COALESCE((SELECT MAX(seq) FROM qq_archive WHERE conversation_id=qq_conversations.id),0), summary_checked_seq=COALESCE((SELECT MAX(seq) FROM qq_archive WHERE conversation_id=qq_conversations.id),0), version=version+1');
   }

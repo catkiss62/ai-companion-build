@@ -86,6 +86,10 @@ class QqSketchService {
     if(!await current())throw const BrainWorkInvalidated();
     final svg=result['svg'],description=result['description'];
     if(svg is! String || !acceptable(svg) || description is! String || description.trim().isEmpty || description.length>500)throw const QqOperationFailure('sketch_format');
+    return renderDraft(svg,description,current);
+  }
+  Future<QqSketch> renderDraft(String svg,String description,Future<bool> Function() current) async {
+    if(!acceptable(svg) || description.trim().isEmpty || description.length>500 || !await current())throw const QqOperationFailure('sketch_format');
     final png=await channel.invokeMethod<Uint8List>('renderSketch',{'svg':svg}).timeout(const Duration(seconds:10),
       onTimeout:()=>throw const QqOperationFailure('sketch_render_timeout'));
     if(png==null || png.isEmpty || png.length>5*1024*1024 || !await current())throw const FormatException('sketch_render');
