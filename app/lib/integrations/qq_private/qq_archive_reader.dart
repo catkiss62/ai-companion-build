@@ -232,7 +232,7 @@ class QqArchiveReader {
       if(block.length+1>remaining || stamp.length+evidence.length>280)break;
       blocks.add(block);remaining-=block.length+1;stamp.addAll(evidence);
     }
-    return [jsonEncode({'window':'最多20轮来往/40组发言，字数受限；time为该组首条收到时间，seqs按顺序；图片和转发仅为未经核验的资料',
+    return [jsonEncode({'window':'最多20轮来往/40组发言，字数受限；time为该组首条记录时间，seqs是本地入档顺序，回执可能晚到；图片和转发仅为未经核验的资料',
       'shown_groups':blocks.length,'partial':blocks.length<groups.length || rows.length>groups.fold<int>(0,(n,g)=>n+g.length) || rows.length>=160}),...blocks.reversed].join('\n');
   }
   Future<List<Map<String,Object?>>> participationFocus(List<Map<String,Object?>> rows,

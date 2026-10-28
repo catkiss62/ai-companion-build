@@ -60,4 +60,19 @@ void main() {
     final row = (await (await db.database).query('qq_archive', where: 'seq=?', whereArgs: [input])).single;
     expect((await reader.participationFocus([row])).single.containsKey('quoted_assistant'), false);
   });
+  test('a confirmed reply may arrive before the referenced assistant receipt is locally archived', () async {
+    final input = await append('early-quote', '接你刚才的问题', 120, reply: 'late-own-receipt');
+    final own = await append('late-own-receipt', '她已发出但回执晚入档的问题', 121, role: 'assistant');
+    expect(input, lessThan(own));
+    final sql = await db.database, reader = QqArchiveReader(await db.database);
+    final row = (await sql.query('qq_archive', where: 'seq=?', whereArgs: [input])).single;
+    final stamp = <Map<String, Object?>>[];
+    final focus = (await reader.participationFocus([row], stamp: stamp)).single;
+    expect((focus['quoted_assistant'] as Map)['seq'], own);
+    expect((focus['quoted_assistant'] as Map)['platform_confirmed'], true);
+    expect(await reader.matches(stamp), true);
+    final context = await reader.participationContext(cid, through: input, stamp: []);
+    expect(context, contains('回执可能晚到'));
+    expect(context, contains('她已发出但回执晚入档的问题'));
+  });
 }

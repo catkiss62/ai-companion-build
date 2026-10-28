@@ -306,9 +306,9 @@ class QqRuntime {
           where:"conversation_id=? AND role='assistant'",whereArgs:[cid],orderBy:'seq DESC',limit:1);
         if(latestOwn.isNotEmpty)participation.addAll({
           'latest_delivered_assistant':latestOwn.single,
-          'inputs_received_before_latest_reply':b.rows.where((r)=>
+          'inputs_archived_before_latest_reply':b.rows.where((r)=>
             (r['seq'] as int)<(latestOwn.single['seq'] as int)).map((r)=>r['seq']).toList(),
-          'temporal_notice':'较早到达的新输入不能被当成对她后来才发出的这条回答的接续；仍可回应更早的她或直接对她说话。'});
+          'temporal_notice':'这里只表示本地入档先后，不是绝对送达先后。临近发送/回执时到达的发言可能已看过她的消息，结合确认引用、对象和语义判断；也可承接更早的她，不能只因同题材认作连续互动。'});
         status('checking_group');
         String decision;final cancellation=GenerationCancellationToken();_activeDecision=cancellation;
         try {decision=await judge.decide(model:model,card:'${QqArchiveReader.bound(o.core,1400)}\n只读节律：${rhythm.small}\nApp只读状态：${jsonEncode(await driveProjection())}\n她上次参与：${b.conversation['last_reply_at']}\n现在：${now().toIso8601String()}',
