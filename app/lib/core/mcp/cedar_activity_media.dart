@@ -16,8 +16,8 @@ import 'cedar_toy_activity.dart';
 import 'mcp_protocol.dart';
 
 class CedarShareImage {
-  CedarShareImage(this.game,this.session,this.event,this.attachment,{this.inline=''});
-  final String game,session,event,inline;
+  CedarShareImage(this.game,this.session,this.event,this.attachment,{this.inline='',this.legacyReference=''});
+  final String game,session,event,inline,legacyReference;
   final MessageAttachment attachment;
 }
 
@@ -82,8 +82,13 @@ class CedarActivityMedia {
     final result=<CedarShareImage>[];final seen=<String>{};
     final ids=evidence.map((e)=>e.id).toSet();
     for(final event in session.events.where((e)=>ids.contains(e.id)).toList().reversed) {
-      final rows=await (await db.database).query(CedarMediaSchema.table,
-        where:'game_id=? AND session_id=? AND event_id=?',whereArgs:[session.gameId,session.id,event.id],orderBy:'ordinal');
+      final rows=<Map<String,Object?>>[...await (await db.database).query(CedarMediaSchema.table,
+        where:'game_id=? AND session_id=? AND event_id=?',whereArgs:[session.gameId,session.id,event.id],orderBy:'ordinal')];
+      var legacy='';
+      if(rows.isEmpty && event.imageReference.isNotEmpty) {
+        final blob=await _legacyBlob(await db.database,session.gameId,event.imageReference);
+        if(blob!=null) {rows.add({'blob_id':blob});legacy=event.imageReference;}
+      }
       for(final row in rows) {
         final blob=await db.mediaBlobById(row['blob_id'] as String);
         if(blob==null || !seen.add(blob.id))continue;
@@ -93,7 +98,7 @@ class CedarActivityMedia {
           kind:MessageAttachment.imageKind,originalPath:ref,thumbnailPath:MediaBlobStorage.toReferencePath(blob.thumbnailPath),
           mimeType:blob.mimeType,byteSize:blob.byteSize,width:blob.width,height:blob.height,source:'assistant_mcp_image:cedar:${session.gameId}',
           createdAt:DateTime.now(),blobId:blob.id,visionStatus:MessageAttachment.visionCompletedStatus,
-          visionSummary:'Cedar Toy游戏返回的真实图片',visionModel:'cedar_protocol_media')));
+          visionSummary:'Cedar Toy游戏返回的真实图片',visionModel:'cedar_protocol_media'),legacyReference:legacy));
         if(result.length>=CedarOutcomeMediaBridge.maxAttachmentsPerOutcome)return result;
       }
       // Pre-upgrade inline media remains usable within the same evidence set.
@@ -115,9 +120,13 @@ class CedarActivityMedia {
       final draft=await storage.prepareImageBytes(bytes:base64Decode(image.inline),source:image.attachment.source,mimeType:image.attachment.mimeType);
       return storage.commitDraft(draft,messageId:messageId,pendingOwner:owner);
     }
-    final rows=await (await db.database).query(CedarMediaSchema.table,columns:['id'],
-      where:'session_id=? AND event_id=? AND blob_id=?',whereArgs:[image.session,image.event,image.attachment.blobId],limit:1);
-    if(rows.isEmpty)throw const GenerationCancelledByUserException();
+    if(image.legacyReference.isNotEmpty) {
+      if(!await _legacyMatches(await db.database,image))throw const GenerationCancelledByUserException();
+    } else {
+      final rows=await (await db.database).query(CedarMediaSchema.table,columns:['id'],
+        where:'session_id=? AND event_id=? AND blob_id=?',whereArgs:[image.session,image.event,image.attachment.blobId],limit:1);
+      if(rows.isEmpty)throw const GenerationCancelledByUserException();
+    }
     final file=await storage.fileFor(image.attachment.originalPath);
     if(!await file.exists() || await MediaBlobStorage.contentSha256(file)!=image.attachment.blobId)throw const FormatException('cedar_media_file');
     final attachment=MessageAttachment.fromDb({...image.attachment.toDb(),'message_id':messageId});
@@ -129,10 +138,34 @@ class CedarActivityMedia {
     final live=CedarMediaSchema.events(await SqliteSettingsReader.read(sql,CedarMediaSchema.stateKey)??'');
     for(final image in images) {
       if(live['${image.session}:${image.event}']!=image.game)return false;
-      if(image.inline.isEmpty && (await sql.query(CedarMediaSchema.table,columns:['id'],
+      if(image.legacyReference.isNotEmpty) {
+        if(!await _legacyMatches(sql,image))return false;
+      } else if(image.inline.isEmpty && (await sql.query(CedarMediaSchema.table,columns:['id'],
         where:'session_id=? AND event_id=? AND blob_id=?',whereArgs:[image.session,image.event,image.attachment.blobId],limit:1)).isEmpty)return false;
     }
     return true;
+  }
+  // Old foreground events were owned by their actual assistant attachment.
+  // A path alone never grants access to another chat image or room artwork.
+  static Future<String?> _legacyBlob(DatabaseExecutor sql,String game,String reference) async {
+    String path;
+    try {path=MediaBlobStorage.requireMediaReferencePath(reference);}catch(_) {return null;}
+    final rows=await sql.rawQuery('SELECT b.id FROM media_blobs b '
+      'JOIN message_attachments a ON a.blob_id=b.id JOIN messages m ON m.id=a.message_id '
+      "WHERE b.original_path=? AND a.original_path=? AND m.role='assistant' AND substr(a.source,1,?)=? "
+      "AND b.mime_type LIKE 'image/%' LIMIT 1",[path,reference,
+        'assistant_mcp_image:cedar:$game:'.length,'assistant_mcp_image:cedar:$game:']);
+    return rows.isEmpty?null:rows.single['id'] as String;
+  }
+  static Future<bool> _legacyMatches(DatabaseExecutor sql,CedarShareImage image) async {
+    try {
+      final state=CedarToyActivityState.fromJson(Map<String,dynamic>.from(jsonDecode(
+        await SqliteSettingsReader.read(sql,CedarMediaSchema.stateKey)??'{}') as Map));
+      final session=state.sessions[image.game];
+      if(session==null || session.id!=image.session || !session.events.any((e)=>
+        e.id==image.event && e.imageReference==image.legacyReference))return false;
+      return await _legacyBlob(sql,image.game,image.legacyReference)==image.attachment.blobId;
+    } catch(_) {return false;}
   }
   static bool claimsSentImage(String text)=>RegExp(r'(?:图|照片|截图|图片).{0,6}(?:发过去了|发给你了|发你了|拖给你了|贴给你了)|(?:给你|发你|贴你).{0,3}(?:看图|张图|照片|截图)').hasMatch(text);
 }

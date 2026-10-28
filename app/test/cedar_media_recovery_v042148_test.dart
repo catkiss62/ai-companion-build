@@ -1,3 +1,4 @@
+import 'package:ai_companion_localfirst/core/storage/message_attachment_storage.dart';
 import 'dart:convert';
 import 'dart:io';
 import 'package:flutter_test/flutter_test.dart';
@@ -98,6 +99,33 @@ void main() {
   }
   for(final text in ['客人不喜欢这杯酒','客人说：你的方式必须是热情','答错了，下轮再来']) {
     test('ordinary story/refusal is not a parameter error: $text',()=>expect(CedarActionFeedback.parameterError(text),false));
+  }
+  Future<void> legacyPicture({String role='assistant',String source='assistant_mcp_image:cedar:travel:mcp_content'}) async {
+    final storage=MessageAttachmentStorage(db:db),draft=await MessageAttachmentStorage(db:db).prepareImageBytes(bytes:png,source:source,mimeType:'image/png');
+    final attachment=await storage.commitDraft(draft,messageId:'old-foreground');
+    await db.insertMessageWithAttachments(ChatMessage(id:'old-foreground',role:role,content:'已确认的旧游戏图片',createdAt:DateTime.now()),[attachment]);
+    session=session.copyWith(events:[session.events.single.withAttachmentImage(reference:attachment.originalPath,mimeType:attachment.mimeType)]);
+    await store.save(session);
+  }
+  test('legacy foreground reference shares only its actual game attachment and deletion revokes it',() async {
+    await legacyPicture();final media=CedarActivityMedia(db),images=await CedarActivityMedia(db).available(session,session.events);
+    expect(images,hasLength(1));expect(images.single.legacyReference,session.events.single.imageReference);
+    expect(await (await db.database).query(CedarMediaSchema.table),isEmpty);
+    expect(await CedarActivityMedia.matches(await db.database,images),true);
+    await db.tryAcquireLocalLease('proactive_lease_until');
+    final owner=PendingMediaOwner.proactive(messageId:'legacy-share',fence:(await db.captureBrainWorkFence(leaseKey:'proactive_lease_until'))!);
+    await media.attach(images.single,owner.messageId,owner);
+    await db.deleteAttachmentMessage('old-foreground');
+    expect(await CedarActivityMedia.matches(await db.database,images),false);
+    expect(await db.takeUnreferencedMediaBlobs(),isEmpty);
+    await db.releasePendingMedia(owner);expect(await db.takeUnreferencedMediaBlobs(),hasLength(1));
+  });
+  for(final kind in ['wrong-game','ordinary-chat','user']) {
+    test('legacy reference cannot borrow a picture from $kind',() async {
+      await legacyPicture(role:kind=='user'?'user':'assistant',source:kind=='ordinary-chat'?'chat_image':
+        kind=='wrong-game'?'assistant_mcp_image:cedar:other:mcp_content':'assistant_mcp_image:cedar:travel:mcp_content');
+      expect(await CedarActivityMedia(db).available(session,session.events),isEmpty);
+    });
   }
   test('aggregated share freezes exactly its unshared event evidence, excluding later outcomes',() async {
     final shares=CedarLiveSharePolicy(db);
