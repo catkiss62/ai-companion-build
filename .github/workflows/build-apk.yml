@@ -1071,7 +1071,7 @@ jobs:
           test -f app/android/app/src/main/jniLibs/arm64-v8a/libc++_shared.so
           test ! -d app/android/app/src/main/assets/tts_models
           test ! -d app/android/app/src/main/assets/legacy_tts
-          echo 'Building v0.42.149+393 Third Channel and QQ Participation.'
+          echo 'Building v0.42.149+393 Third Channel and QQ Participation after focused regression verification.'
 
       - name: Generate complete pet clips from pinned Draft Release asset
         timeout-minutes: 15
