@@ -27,7 +27,7 @@ class QqReplyGenerator {
     required List<Map<String, Object?>> messages,String usageLane='qq_private_reply'}) async {
     final route = FinalReplyRoute(secondChannelEnabled: channel == 'second');
     final third = await client.tryThirdChannel(messages: messages, route: route, secure: secure,
-      maxTokens: 6000, current: current, effort: secondEffort.apiName, usageLane: usageLane);
+      maxTokens: 6000, current: current, usageLane: usageLane);
     if (third != null) {
       if (!await current()) throw StateError('context_invalidated');
       // QQ has no partial-draft display. Never send a truncated public reply

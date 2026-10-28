@@ -178,7 +178,7 @@ class DeepSeekClient {
     required FinalReplyRoute route,
     SecureConfig? secure,
     List<Map<String, Object?>> tools = const [], String? toolChoice,
-    int? maxTokens, String effort = 'high',
+    int? maxTokens,
     GenerationCancellationToken? cancellationToken,
     Future<bool> Function()? current,
     String usageLane = 'final_reply', String usageExecutionId = '',
@@ -207,7 +207,7 @@ class DeepSeekClient {
     _thirdClients.add(client);
     try {
       final result = await client.complete(config: config, messages: prompt, tools: tools,
-        toolChoice: toolChoice, maxTokens: maxTokens ?? 8192, effort: effort,
+        toolChoice: toolChoice, maxTokens: maxTokens ?? 8192,
         cancellation: cancellationToken, current: valid);
       route.usedThirdChannel = true;
       route.thirdChannelIncomplete = result.incomplete;
@@ -243,7 +243,7 @@ class DeepSeekClient {
     if (finalReplyRoute != null) {
       final third = await tryThirdChannel(messages: messages, route: finalReplyRoute,
         secure: thirdChannelSecure, current: thirdChannelCurrent,
-        tools: tools, toolChoice: toolChoice, maxTokens: maxTokens, effort: effort.apiName,
+        tools: tools, toolChoice: toolChoice, maxTokens: maxTokens,
         cancellationToken: thirdCancellationToken ?? cancellationToken, usageLane: usageLane, usageExecutionId: usageExecutionId);
       if (third != null) {
         yield DeepSeekDelta(reasoning: third.reasoning, content: third.content,

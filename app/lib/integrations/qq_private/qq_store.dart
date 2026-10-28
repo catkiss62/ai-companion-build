@@ -29,6 +29,7 @@ class QqStore {
   QqStore(this.db);
   final AppDatabase db;
   final _platformReceipts=<String,({String id,String index})>{};
+  ({String id,String index})? receipt(QqBatch b,int part)=>_platformReceipts['${b.id}:$part'];
   void received(QqBatch b,int part,{required String platformId,String platformIndex=''}) {
     _platformReceipts['${b.id}:$part']=(id:platformId,index:platformIndex);
     if(_platformReceipts.length>64)_platformReceipts.remove(_platformReceipts.keys.first);
@@ -44,10 +45,10 @@ class QqStore {
     });} catch(_) { /* Diagnostics cannot replace the original failure. */ }
   }
   static Future<bool> _responded(DatabaseExecutor sql,String cid,int seq) async {
-    final rows=await sql.query('qq_reply_tasks',columns:['sources','stage'],where:'conversation_id=? AND through_seq>=?',whereArgs:[cid,seq],limit:100);
-    if(rows.any((r)=>const {'sent','sent_archive_pending','sent_archive_failed','partially_sent','send_uncertain'}.contains(r['stage']) &&
-      (jsonDecode(r['sources'] as String) as List).contains(seq)))return true;
-    if(rows.any((r)=>(jsonDecode(r['sources'] as String) as List).contains(seq)))return false;
+    final rows=await sql.rawQuery('SELECT stage FROM qq_reply_tasks WHERE conversation_id=? AND through_seq>=? '
+      'AND EXISTS(SELECT 1 FROM json_each(qq_reply_tasks.sources) WHERE value=?)',[cid,seq,seq]);
+    if(rows.any((r)=>const {'sent','sent_archive_pending','sent_archive_failed','partially_sent','send_uncertain'}.contains(r['stage'])))return true;
+    if(rows.isNotEmpty)return false;
     // Pre-upgrade sent rows have no task record. Keep their existing receipts.
     final legacy=await sql.query('qq_deliveries',columns:['state'],where:'conversation_id=? AND through_seq>=?',
       whereArgs:[cid,seq],orderBy:'through_seq',limit:1);
@@ -176,6 +177,7 @@ class QqStore {
   Future<int> groupRepliesSince(int since) async=>Sqflite.firstIntValue(await (await db.database).rawQuery(
     "SELECT COUNT(*) FROM qq_deliveries d JOIN qq_conversations c ON c.id=d.conversation_id WHERE c.kind='group' AND d.state IN ('sent','sending','send_uncertain','sent_archive_pending','sent_archive_failed','partially_sent') AND d.updated_at>?",[since]))??0;
   Future<void> recover(BrainWorkFence fence)=>write(fence,(txn) async {
+    await txn.delete('qq_reply_tasks',where:'expires_at<?',whereArgs:[DateTime.now().millisecondsSinceEpoch]);
     await txn.execute("UPDATE qq_deliveries SET state=CASE WHEN state='sending' THEN 'send_uncertain' ELSE 'interrupted' END WHERE state IN ('checking','generating','generated','sending')");
     await txn.execute("UPDATE qq_deliveries SET state='sent_archive_failed' WHERE state='sent_archive_pending'");
     await txn.execute("UPDATE qq_reply_tasks SET stage=CASE WHEN stage='sending' THEN 'send_uncertain' WHEN stage='sent_archive_pending' THEN 'sent_archive_failed' ELSE 'interrupted' END WHERE stage IN ('checking','generating','generated','sending','sent_archive_pending')");

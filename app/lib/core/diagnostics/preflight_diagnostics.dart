@@ -642,7 +642,7 @@ class PreflightDiagnosticsService {
       try {
         final third = await SecureConfig.instance.readThirdChannel();
         report['thirdChannel'] = {'enabled': third.enabled, 'configured': third.configured,
-          'model': 'gemini-3.8-flash', 'clientAccountPool': false,
+          'model': 'gemini-3.8-flash', 'clientAccountPool': false,'requestedReasoningEffort':third.reasoningEffort,
           'totalTimeoutSeconds': 120, 'maxResends': 1, 'credentialsIncluded': false,
           'appQwenEnabled': await db.getSetting('app_qwen_vision_enabled_v1') != '0',
           'appVisionFallback': 'qwen_switch_base_chain', 'qqVisionFallback': 'first'};

@@ -246,7 +246,7 @@ class QqRuntime {
     }
     final client=clientFactory(() async=>!await current());_clients.add(client);
     final tasks=QqReplyTasks(store);QqPendingReply? prior;Map<String,dynamic>? reusedDraft;
-    var ownsDrawing=false,sentAny=false,imageSent=false;var phase='context';final operationClock=Stopwatch()..start();
+    var ownsDrawing=false,sentAny=false,imageSent=false,continuedPrior=false;var phase='context';final operationClock=Stopwatch()..start();
     try {
       if(!await current()) {await store.mark(b,'context_invalidated');return;}
       final rhythm=await QqCircadianProjection.read(store.db,now());
@@ -263,6 +263,10 @@ class QqRuntime {
         if(count>=120) {await store.mark(b,'rate_limited');status('group_rate_limited');return;}
       }
       prior=await tasks.pending(b,now().millisecondsSinceEpoch,policy(c,o));
+      if(prior!=null && !await tasks.fits(b,prior)) {
+        await tasks.consume(b,prior,cancel:false);prior=null;
+      }
+      pendingStamp=prior?.stamp??[];
       final model=await FirstChannelModel.read(store.db);
       var viewed=0;
       phase='vision';
@@ -325,8 +329,9 @@ class QqRuntime {
           if(const {'resolved','cancelled','changed'}.contains(judge.pendingRelation)) {
             await tasks.consume(b,prior,cancel:true);prior=null;
           } else if(judge.pendingRelation=='continue' && QqGroupParticipation.addressed(decision,mentioned:mentioned)) {
-            reusedDraft=prior.draft;pendingStamp=prior.stamp;
-            await tasks.consume(b,prior,cancel:false);
+            continuedPrior=await tasks.consume(b,prior,cancel:false);
+            if(continuedPrior) {reusedDraft=prior.draft;pendingStamp=prior.stamp;}
+            else {prior=null;pendingStamp=[];}
           }
         }
         if(decision=='watch') {
@@ -365,6 +370,7 @@ class QqRuntime {
       prompt+='\n${rhythm.prompt}';
       if(mentioned)prompt+='\n【可信直接提及】接话机会已打开，选择具体回应、拒绝或简短反应，勿仅因普通插话频率输出WAIT。';
       if(prior!=null)data+='\n【此前QQ回应的真实状态】${jsonEncode(prior.hint)}';
+      if(!b.group && prior!=null)prompt+='\n${QqReplyTasks.relationPrompt}';
       stickerStamp=await stickers.stamp();
       final stickerContext=b.group?b.rows.map((r)=>r['content'] as String).join('\n'):data;
       final candidates=await stickers.candidates(b.id,stickerContext,group:b.group);
@@ -381,9 +387,18 @@ class QqRuntime {
       final generator=QqReplyGenerator(client:client,secure:secure,current:current,onStatus:status,
         onFailure:(stage,error,attempt)=>store.recordFailure(fence,stage,error,attempt:attempt,operation:b.id,conversation:b.cid));
       final channel=c.replyChannel.isNotEmpty?c.replyChannel:(await secure.readChatProvider()).isGeminiRelay?'second':'first';
-      final raw=reusedDraft?['raw'] is String?reusedDraft!['raw'] as String:await generator.generate(channel:channel,firstModel:model,firstEffort:await FirstChannelModel.readEffort(store.db),
+      var raw=reusedDraft?['raw'] is String?reusedDraft!['raw'] as String:await generator.generate(channel:channel,firstModel:model,firstEffort:await FirstChannelModel.readEffort(store.db),
         secondEffort:ReasoningEffort.fromApiName(await store.db.getSetting('reasoning_effort')),
         messages:[{'role':'system','content':prompt},{'role':'user','content':data}],usageLane:b.group?'qq_group_reply':'qq_private_reply');
+      if(!b.group) {
+        final relation=QqReplyTasks.parseRelation(raw);raw=relation.text;
+        if(prior!=null && const {'resolved','cancelled','changed'}.contains(relation.relation)) {
+          await tasks.consume(b,prior,cancel:true);prior=null;pendingStamp=[];
+        } else if(prior!=null && relation.relation=='continue') {
+          continuedPrior=await tasks.consume(b,prior,cancel:false);
+          if(!continuedPrior)throw StateError('context_invalidated');
+        }
+      }
       final choice=StickerReplyChoice.parse(raw);
       var voiceChoice=o.voiceEnabled?QqVoiceChoice.parse(raw):null;
       final echoChoice=voiceChoice==null && echo!=null && (reusedDraft==null || reusedDraft!['echo_key']==echo.usageKey)?QqEchoChoice.parse(raw):null;
@@ -400,7 +415,7 @@ class QqRuntime {
       var text=[...parts,if(voiceChoice!=null)voiceChoice.text].join('\n');
       if(text=='WAIT') {
         if(await store.mentioned(b))throw const QqOperationFailure('direct_reply_empty');
-        await store.mark(b,'watching');return;
+        await store.mark(b,continuedPrior?'interrupted':'watching');return;
       }
       if(text.isEmpty && selected==null && sketchChoice==null && echoChoice==null) throw StateError('reply_invalid');
       QqReplyDelivery.validate(text,parts);
@@ -460,6 +475,8 @@ class QqRuntime {
       await store.mentioned(b);
       await QqReplyDelivery(api).send(group:b.group,target:b.target,messageId:b.rows.last['platform_id'] as String,
         text:text,messages:parts,fileInfo:fileInfo,current:current,beforeSend:()=>store.mark(b,'sending'),
+        planned:(count)=>tasks.plan(b,count),
+        confirmedPart:(sequence,content,image,language)=>tasks.confirmed(b,sequence,content,image,language),
         received:(sequence,receipt)=>store.received(b,sequence,platformId:receipt.id,platformIndex:receipt.index),
         confirmed:() async {sentAny=true;await store.mark(b,'sent_archive_pending');},
         mediaCurrent:echoChoice==null?null:() async=>now().millisecondsSinceEpoch<echo!.expiresAt && await echoes.current(echo!),

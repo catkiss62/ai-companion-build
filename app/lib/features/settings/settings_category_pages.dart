@@ -56,6 +56,7 @@ class _ModelNetworkSettingsPageState
   final _thirdKey = TextEditingController();
   final _thirdBase = TextEditingController();
   bool _thirdEnabled = false, _testingThird = false, _revealThird = false;
+  String _thirdEffort = 'high';
   bool _qwenEnabled = true;
   final _visionKey = TextEditingController();
   final _visionEndpoint = TextEditingController();
@@ -187,6 +188,7 @@ class _ModelNetworkSettingsPageState
     _aiWangYouModel.text = await _secure.readAiWangYouModel();
     final third = await _secure.readThirdChannel();
     _thirdKey.text = third.apiKey; _thirdBase.text = third.baseUrl; _thirdEnabled = third.enabled;
+    _thirdEffort=third.reasoningEffort;
     _qwenEnabled = await _db.getSetting(RoutedVisionClient.qwenEnabledKey) != '0';
     _visionKey.text = await _secure.readVisionApiKey() ?? '';
     _visionEndpoint.text = await _secure.readVisionEndpoint();
@@ -318,7 +320,7 @@ class _ModelNetworkSettingsPageState
   Future<void> _saveThird() async {
     try {
       await _secure.writeThirdChannel(ThirdChannelConfig(enabled: _thirdEnabled,
-        baseUrl: _thirdBase.text, apiKey: _thirdKey.text));
+        baseUrl: _thirdBase.text, apiKey: _thirdKey.text,effort:_thirdEffort));
       await _db.wakeRetryableGenerationJobs();
       if (mounted) setState(() => _status = '第三通道配置已保存。');
     } catch (error) { if (mounted) setState(() => _status = '第三通道保存失败：$error'); }
@@ -328,7 +330,7 @@ class _ModelNetworkSettingsPageState
     setState(() { _testingThird = true; _status = '正在检查网关和模型响应…'; });
     final client = ThirdChannelClient();
     try {
-      final result = await client.complete(config: ThirdChannelConfig(baseUrl: _thirdBase.text, apiKey: _thirdKey.text),
+      final result = await client.complete(config: ThirdChannelConfig(baseUrl: _thirdBase.text, apiKey: _thirdKey.text,effort:_thirdEffort),
         messages: [{'role': 'user', 'content': '这是接口连接测试，请只回复“连接成功”。'}], maxTokens: 256);
       if (result.incomplete) throw const ThirdChannelFailure('incomplete');
       if (mounted) setState(() => _status = '网关与模型响应通过；测试使用了少量额度。');
@@ -919,6 +921,12 @@ class _ModelNetworkSettingsPageState
                           hintText: 'http://电脑局域网地址:8045/v1', border: OutlineInputBorder())),
                       const SizedBox(height: 12),
                       const Text('固定模型：gemini-3.8-flash。两个账号的切换由网关完成；这里只填写一组地址和 Key。'),
+                      const SizedBox(height:12),
+                      DropdownButtonFormField<String>(value:_thirdEffort,
+                        decoration:const InputDecoration(labelText:'第三通道思考强度',border:OutlineInputBorder()),
+                        items:const [DropdownMenuItem(value:'low',child:Text('Low')),
+                          DropdownMenuItem(value:'medium',child:Text('Medium')),DropdownMenuItem(value:'high',child:Text('High'))],
+                        onChanged:(value)=>setState(()=>_thirdEffort=value??_thirdEffort)),
                       _SaveTestButtons(onSave: () => _sectionAction('third', _saveThird),
                         onTest: _testingThird ? null : () => _sectionAction('third', _testThird), testing: _testingThird),
                       _sectionFeedback('third'),

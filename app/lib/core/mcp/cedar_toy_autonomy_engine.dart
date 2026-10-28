@@ -690,10 +690,11 @@ class CedarToyAutonomyEngine {
     Future<String?> Function()? apiKeyReader,
     Future<String> Function()? endpointReader,
     CedarToyClient Function(String token)? clientFactory,
+    CedarActivityMedia Function(AppDatabase db)? mediaFactory,
   })  : _tokenReader = tokenReader,
         _apiKeyReader = apiKeyReader,
         _endpointReader = endpointReader,
-        _clientFactory = clientFactory;
+        _clientFactory = clientFactory,_mediaFactory=mediaFactory;
 
   static const enabledKey = 'cedar_toy_autonomy_enabled';
   static const shareEnabledKey = 'cedar_toy_game_share_enabled';
@@ -708,6 +709,8 @@ class CedarToyAutonomyEngine {
   final Future<String?> Function()? _apiKeyReader;
   final Future<String> Function()? _endpointReader;
   final CedarToyClient Function(String token)? _clientFactory;
+  final CedarActivityMedia Function(AppDatabase db)? _mediaFactory;
+  CedarActivityMedia get _media => _mediaFactory?.call(db)??CedarActivityMedia(db);
 
   Future<String> _readToken() async =>
       ((await (_tokenReader?.call() ?? secureConfig.readCedarToyToken())) ?? '')
@@ -726,6 +729,8 @@ class CedarToyAutonomyEngine {
   /// Refresh only lightweight discovery metadata. No guide reads, model calls,
   /// play steps or desires are created by this maintenance path.
   Future<CedarAutonomyProgress> refreshCatalogIfDue(DateTime now) async {
+    final sourceFence=await db.captureBrainWorkFence(settingKeys:[CedarToyActivityStore.userControlRevisionKey,CedarToyActivityStore.controlRevisionKey,'cedar_toy_enabled',enabledKey]);
+    if(sourceFence==null)return const CedarAutonomyProgress('brain_work_blocked');
     final store = CedarToyActivityStore(db);
     if (await db.getSetting('cedar_toy_enabled') == '0' ||
         !await db.brainWorkAllowed() || await db.isLocalLeaseHeld('chat_turn_lease')) {
@@ -743,7 +748,7 @@ class CedarToyAutonomyEngine {
     }
     final token = await _readToken();
     if (token.isEmpty) return const CedarAutonomyProgress('missing_config');
-    return _runExecution(store: store, gameId: 'catalog', action: '刷新游戏目录', now: now, body: (scope) async {
+    return _runExecution(store: store, gameId: 'catalog', action: '刷新游戏目录', now: now, sourceFence:sourceFence, body: (scope) async {
       scope.throwIfPreempted();
       await db.setSetting(attemptKey, now.millisecondsSinceEpoch.toString());
       final outcome = await _client(token).listGames(cancellationToken: scope.cancellation);
@@ -762,7 +767,7 @@ class CedarToyAutonomyEngine {
     required String gameId,
     required String action,
     DateTime? now,
-    BrainWorkFence? sourceFence,
+    required BrainWorkFence sourceFence,
     required Future<CedarAutonomyProgress> Function(
       _CedarExecutionScope scope,
     ) body,
@@ -1055,6 +1060,8 @@ class CedarToyAutonomyEngine {
     required DateTime now,
     required bool selfReset,
   }) async {
+    final sourceFence=await db.captureBrainWorkFence(settingKeys:[CedarToyActivityStore.userControlRevisionKey,CedarToyActivityStore.controlRevisionKey,'cedar_toy_enabled',enabledKey]);
+    if(sourceFence==null)return const CedarAutonomyProgress('brain_work_blocked');
     final store = CedarToyActivityStore(db);
     final session = await store.load();
     if (session == null || !session.needsContinuation) {
@@ -1077,6 +1084,8 @@ class CedarToyAutonomyEngine {
         store: store,
         gameId: session.gameId,
         action: 'rest',
+        now:now,
+        sourceFence:sourceFence,
         body: (scope) async {
           final outcome = await _client(token).play(
             session.gameId,
@@ -1118,7 +1127,7 @@ class CedarToyAutonomyEngine {
     if (episode.lockedAt(now)) {
       return const CedarAutonomyProgress('anti_addiction_locked');
     }
-    final reconsidered = await _considerOtherWish(now: now, session: session, episode: episode);
+    final reconsidered = await _considerOtherWish(now: now, session: session, episode: episode, sourceFence:sourceFence);
     if (reconsidered != null) return reconsidered;
     await _saveSoloEpisode(CedarSoloEpisodePolicy.resetForResume(episode, now));
     // The due timestamp and the immediate consumer must share one clock.
@@ -1139,7 +1148,7 @@ class CedarToyAutonomyEngine {
   /// Reconsider only after Desire chose a solo checkpoint, never during a
   /// user's timed task, multiplayer turn, remote continuation or lockout.
   Future<CedarAutonomyProgress?> _considerOtherWish({required DateTime now,
-    required CedarGameSession session, required CedarSoloEpisodeState episode}) async {
+    required CedarGameSession session, required CedarSoloEpisodeState episode, required BrainWorkFence sourceFence}) async {
     if (session.mode != CedarParticipationMode.solo || session.hasContinuationCall ||
         session.phase != CedarActivityPhase.active || episode.antiAddictionPresent ||
         session.hasPendingTerminalDelivery ||
@@ -1166,7 +1175,7 @@ class CedarToyAutonomyEngine {
     if (token.isEmpty || apiKey.isEmpty) return null;
     final endpoint = await _readEndpoint();
     final outcome = await _runExecution(store: store, gameId: session.gameId,
-      action: 'consider_wish', body: (scope) async {
+      action: 'consider_wish', sourceFence:sourceFence, body: (scope) async {
         scope.throwIfPreempted();
         await db.setSetting(key, '${now.millisecondsSinceEpoch}');
         final context = await CedarConversationContext.load(db, now);
@@ -1342,9 +1351,7 @@ class CedarToyAutonomyEngine {
     bool episodeAuthorized = false,
   }) async {
     await CedarTimedPlayTaskStore(db).reconcile(now);
-    final clockFence = await db.captureBrainWorkFence(settingKeys: [
-      'cedar_toy_user_control_revision_v1',
-    ]);
+    final clockFence = await db.captureBrainWorkFence(settingKeys:[CedarToyActivityStore.userControlRevisionKey,CedarToyActivityStore.controlRevisionKey,'cedar_toy_enabled',enabledKey]);
     if (clockFence == null) return const CedarAutonomyProgress('brain_work_blocked');
     final recovery = await _continueUnresolvedWrite(now:now,workFence:clockFence);
     if (recovery != null) return recovery;
@@ -1386,6 +1393,8 @@ class CedarToyAutonomyEngine {
         store: store,
         gameId: queued.targetGameId,
         action: '读取游戏指南',
+        now:now,
+        sourceFence:clockFence,
         body: (scope) async {
           final guideOutcome = await client.getGuide(
             queued.targetGameId,
@@ -1501,6 +1510,8 @@ class CedarToyAutonomyEngine {
     final progress = await _runExecution(
       store: store,
       gameId: session.gameId,
+      now:now,
+      sourceFence:clockFence,
       action: session.companionCanObserve
           ? _identifier(session.continuationAction)
           : '规划下一步',
@@ -1600,7 +1611,7 @@ class CedarToyAutonomyEngine {
     final period=await CedarPlaySessionStore(db).load();
     if(period!=null)await CedarPlaySessionStore(db).save(period.blocked(now),workFence:workFence);
     if(session.continuationWaitScope!='write_reconcile_once' || !session.hasContinuationCall) {
-      final restored=await _runExecution(store:store,gameId:session.gameId,action:'恢复状态核对',now:now,
+      final restored=await _runExecution(store:store,gameId:session.gameId,action:'恢复状态核对',now:now,sourceFence:workFence,
         body:(scope) async {
           final routable=await store.recoverUnresolvedWrite(gameId:session.gameId,
             executionId:scope.executionId,now:now);
@@ -1638,7 +1649,7 @@ class CedarToyAutonomyEngine {
     }
     final delay=await continuationDelay(now:now);
     if(delay==null || delay>Duration.zero)return const CedarAutonomyProgress('not_due');
-    final result=await _runExecution(store:store,gameId:session.gameId,action:'核对真实状态',now:now,
+    final result=await _runExecution(store:store,gameId:session.gameId,action:'核对真实状态',now:now,sourceFence:workFence,
       body:(scope) async {
         if(!await store.recordReconciliationAttempt(session.gameId,scope.executionId,taskId:taskId)) {
           return const CedarAutonomyProgress('preempted_reconciliation');
@@ -1661,7 +1672,7 @@ class CedarToyAutonomyEngine {
 
   Future<CedarAutonomyProgress> progress({required DateTime now}) async {
     final sourceFence=await db.captureBrainWorkFence(settingKeys:[
-      CedarToyActivityStore.userControlRevisionKey,'cedar_toy_enabled',enabledKey]);
+      CedarToyActivityStore.userControlRevisionKey,CedarToyActivityStore.controlRevisionKey,'cedar_toy_enabled',enabledKey]);
     if(sourceFence==null)return const CedarAutonomyProgress('brain_work_blocked');
     final availability = await this.availability(now: now);
     if (!availability.available) return CedarAutonomyProgress(availability.reason);
@@ -1939,6 +1950,8 @@ $selectionCatalog''',
       // harmless read, never a fresh mutation planned from the old snapshot.
       await store.resolveRemoteDispatch(gameId:session.gameId,executionId:scope.executionId,
         action:action,authoritative:true,params:params,outcome:outcome);
+      scope.throwIfPreempted();
+      await _media.receive(session:updated,outcome:outcome,executionId:scope.executionId,cancellationToken:scope.cancellation);
       await db.setSetting('cedar_toy_last_observe_error_category', '');
       await db.setSetting('cedar_toy_last_realtime_observe_error', '');
       return CedarAutonomyProgress(
@@ -2398,7 +2411,7 @@ ${arrangements.prompt}''',
       executionId: scope.executionId, action: action, authoritative: true,
       params: params, outcome: outcome);
     if(!outcome.isError && !platformAction) {
-      await CedarActivityMedia(db).receive(session:updated,outcome:outcome,executionId:scope.executionId,cancellationToken:scope.cancellation);
+      await _media.receive(session:updated,outcome:outcome,executionId:scope.executionId,cancellationToken:scope.cancellation);
       final withMedia=await store.loadSession(session.gameId);
       if(withMedia!=null && withMedia.id==updated.id)updated=withMedia;
     }

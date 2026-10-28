@@ -57,7 +57,7 @@ class ThirdChannelClient {
 
   Future<ThirdChannelResponse> complete({required ThirdChannelConfig config,
     required List<Map<String, Object?>> messages, bool stream = true,
-    int maxTokens = 6000, String effort = 'high',
+    int maxTokens = 6000,
     List<Map<String, Object?>> tools = const [], String? toolChoice,
     Map<String, Object?>? responseFormat, GenerationCancellationToken? cancellation,
     Future<bool> Function()? current}) async {
@@ -117,7 +117,7 @@ class ThirdChannelClient {
               'Authorization': 'Bearer ${config.apiKey.trim()}'})
             ..body = jsonEncode({'model': ThirdChannelConfig.model, 'messages': messages,
               'stream': stream, 'max_tokens': maxTokens.clamp(1, 65536),
-              'reasoning_effort': const {'low', 'medium', 'high'}.contains(effort) ? effort : 'high',
+              'reasoning_effort': config.reasoningEffort,
               if (responseFormat != null) 'response_format': responseFormat,
               if (tools.isNotEmpty) 'tools': tools,
               if (tools.isNotEmpty) 'tool_choice': toolChoice ?? 'auto'});

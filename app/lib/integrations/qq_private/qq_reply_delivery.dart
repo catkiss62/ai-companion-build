@@ -28,6 +28,8 @@ class QqReplyDelivery {
     required String text, required String fileInfo, List<String>? messages, required Future<bool> Function() current,
     required Future<void> Function() beforeSend,
     required Future<void> Function(int sequence, String text, bool image) sent,
+    Future<void> Function(int count)? planned,
+    Future<void> Function(int sequence,String text,bool image,String language)? confirmedPart,
     Future<void> Function()? confirmed,Future<bool> Function()? mediaCurrent,
     void Function(int sequence,QqMessageReceipt receipt)? received,
     String voiceText='',String voiceLanguage='',Future<void> Function(int sequence,String transcript,String language)? sentVoice}) async {
@@ -35,6 +37,8 @@ class QqReplyDelivery {
     final voice=voiceText.isNotEmpty && fileInfo.isNotEmpty;
     if(voice && (chunks.length>2 || sentVoice==null || !const {'zh','ja','en'}.contains(voiceLanguage)))throw const FormatException('qq_voice_parts');
     var sequence = 0, delivered = 0;
+    var expected=voice?chunks.length+1:fileInfo.isNotEmpty && chunks.isEmpty?1:chunks.length;
+    await planned?.call(expected);
     Future<void> part(String content, String media,{bool isVoice=false}) async {
       if (!await current()) throw StateError('context_invalidated');
       if(delivered>0) {
@@ -54,6 +58,7 @@ class QqReplyDelivery {
       try {await confirmed?.call();}catch(_) {}
       for(var attempt=0;;attempt++) {
         try {
+          await confirmedPart?.call(seq,isVoice?voiceText:content,media.isNotEmpty && !isVoice,isVoice?voiceLanguage:'');
           if(isVoice) {await sentVoice!(seq,voiceText,voiceLanguage);}
           else {await sent(seq, content, media.isNotEmpty);}
           break;
@@ -83,6 +88,7 @@ class QqReplyDelivery {
     final caption = chunks.isEmpty ? '' : chunks.last;
     if(mediaCurrent!=null && !await mediaCurrent!()) {
       if(caption.isNotEmpty)await part(caption,'');
+      else await planned?.call(--expected);
       return;
     }
     try {
@@ -90,9 +96,11 @@ class QqReplyDelivery {
     } on QqApiException catch (error) {
       if(error.code=='stopped' && !error.uncertain && await current() && mediaCurrent!=null && !await mediaCurrent!()) {
         if(caption.isNotEmpty)await part(caption,'');
+        else await planned?.call(--expected);
         return;
       }
       if (caption.isEmpty || error.uncertain || !const {'api_22006', 'api_340069'}.contains(error.code)) rethrow;
+      await planned?.call(++expected);
       await part(caption, '');
       await part('', fileInfo);
     }

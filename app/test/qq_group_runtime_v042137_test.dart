@@ -673,4 +673,26 @@ void main(){
     expect(jsonEncode(second['state']),contains('previous_request_unfinished'));
   });
 
+  for(final relation in ['continue','cancelled','changed']) {
+    test('v042150 private failure follow-up consumes $relation in the existing body request',()async {
+      var bodies=0;
+      handler=(r,b)async {
+        if(b['stream']==true) {
+          bodies++;if(bodies==1)return http.Response('{"error":{"message":"synthetic"}}',500);
+          final prompt=jsonEncode(b['messages']);expect(prompt,contains('此前QQ回应的真实状态'));
+          return _sse('<qq_pending>$relation</qq_pending>新的正常回复');
+        }
+        throw StateError('Private continuation does not add a judge call');
+      };
+      await runtime.accept(event('private-old','先前的问题',group:false,sender:'owner'));await runtime.process(cid('owner',false));
+      clock=clock.add(const Duration(seconds:1));
+      await runtime.accept(event('private-new','刚才那个呢',group:false,sender:'owner'));await runtime.process(cid('owner',false));
+      expect(api.sent,hasLength(1));expect(api.sent.single['text'],'新的正常回复');
+      final tasks=await (await db.database).query('qq_reply_tasks',orderBy:'source_at');
+      expect(tasks.first['stage'],relation=='continue'?'continued':'cancelled');
+      expect(tasks.last['stage'],'sent');expect(bodies,2);
+      expect(api.sent.single['text'].toString(),isNot(contains('qq_pending')));
+    });
+  }
+
 }
