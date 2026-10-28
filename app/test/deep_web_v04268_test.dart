@@ -323,7 +323,9 @@ void main() {
           'PRAGMA table_info(public_web_candidates)',
         )).map((r) => r['name']);
         expect(columns, contains('page_body'));
-        expect(AppDatabase.schemaVersion, 66);
+        expect(AppDatabase.schemaVersion, 67);
+        expect(columns, containsAll(['share_retry_at','share_retry_count','share_last_error']));
+        expect((await sql.rawQuery("SELECT name FROM sqlite_master WHERE type='table' AND name='cedar_event_media'")).single['name'],'cedar_event_media');
         expect((await sql.rawQuery("SELECT name FROM sqlite_master WHERE type='table' AND name='qq_archive'")).single['name'],'qq_archive');
       },
     );

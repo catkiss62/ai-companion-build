@@ -1,3 +1,6 @@
+import 'package:ai_companion_localfirst/core/mcp/cedar_activity_media.dart';
+import 'package:ai_companion_localfirst/core/mcp/mcp_protocol.dart';
+import 'package:ai_companion_localfirst/core/database/cedar_media_schema.dart';
 import 'package:ai_companion_localfirst/core/models/room_background_config.dart';
 import 'package:ai_companion_localfirst/core/storage/room_background_storage.dart';
 import 'package:ai_companion_localfirst/core/database/conversation_history_catalog.dart';
@@ -224,6 +227,29 @@ void main() {
   Future<void> writeArchive(Archive archive, String path) async =>
       File(path).writeAsBytes(ZipEncoder().encode(archive));
 
+  test('real ZIP restores event-owned game pictures without a chat attachment owner',() async {
+    await db.setSetting('transfer_lock','0');
+    final activity=CedarToyActivityStore(db),now=DateTime.now();
+    final game=CedarGameSession(id:'zip-game-session',gameId:'travel',guide:'合成指南',guideComplete:true,
+      mode:CedarParticipationMode.solo,phase:CedarActivityPhase.active,updatedAt:now,
+      events:[CedarGameEvent(id:'zip-event',kind:'outcome',summary:'真实游戏结果',createdAt:now,action:'trip_go',readOnly:false)]);
+    await activity.save(game);await db.setSetting(CedarToyActivityStore.executionFenceSettingKey,'zip-execution');
+    final image='iVBORw0KGgoAAAANSUhEUgAAACAAAAAYCAIAAAAUMWhjAAAAJElEQVR4nGP8z0BbwERj80ctGLVg1IJRC0YtGLVg1IJRC6gEAPHIAS8Wxt4fAAAAAElFTkSuQmCC';
+    expect(await CedarActivityMedia(db).receive(session:game,executionId:'zip-execution',
+      outcome:McpToolOutcome(content:[McpContentBlock(kind:McpContentKind.image,data:image,mimeType:'image/png')],isError:false)),1);
+    final saved=(await activity.loadSession('travel'))!,pictures=await CedarActivityMedia(db).available((await activity.loadSession('travel'))!,saved.events);
+    final file=await service.attachmentStorage.fileFor(pictures.single.attachment.originalPath);
+    await db.setSetting('transfer_lock','1');
+    final bundle=await service.exportBackupBundle();final archive=await decode(bundle.filePath);
+    final tables=object(archive,'state.json')['tables'] as Map;
+    expect(tables[CedarMediaSchema.table],hasLength(1));expect(tables['message_attachments'],isEmpty);
+    expect(archive.files.any((f)=>f.name.startsWith('media/originals/')),true);
+    await activity.clear();await file.delete();
+    await service.restoreBackupBundle(bundle.filePath);
+    final restored=(await activity.loadSession('travel'))!;
+    expect(await CedarActivityMedia(db).available(restored,restored.events),hasLength(1));
+    expect(await file.exists(),true);expect(await db.takeUnreferencedMediaBlobs(),isEmpty);
+  });
   test('real ZIP backup carries the directory and restores originals with stale old handles rejected', () async {
     await db.insertMessage(ChatMessage(id:'catalog-source',role:'user',
       content:'完整存档中的蓝色贝壳细节',createdAt:DateTime.utc(2026,10,10)));

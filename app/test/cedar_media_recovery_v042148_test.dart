@@ -9,6 +9,7 @@ import 'package:ai_companion_localfirst/core/database/app_database.dart';
 import 'package:ai_companion_localfirst/core/database/cedar_media_schema.dart';
 import 'package:ai_companion_localfirst/core/mcp/cedar_activity_media.dart';
 import 'package:ai_companion_localfirst/core/mcp/cedar_execution_repair.dart';
+import 'package:ai_companion_localfirst/core/mcp/cedar_live_share_policy.dart';
 import 'package:ai_companion_localfirst/core/mcp/cedar_game_protocol.dart';
 import 'package:ai_companion_localfirst/core/mcp/cedar_toy_activity.dart';
 import 'package:ai_companion_localfirst/core/mcp/mcp_protocol.dart';
@@ -98,6 +99,26 @@ void main() {
   for(final text in ['客人不喜欢这杯酒','客人说：你的方式必须是热情','答错了，下轮再来']) {
     test('ordinary story/refusal is not a parameter error: $text',()=>expect(CedarActionFeedback.parameterError(text),false));
   }
+  test('aggregated share freezes exactly its unshared event evidence, excluding later outcomes',() async {
+    final shares=CedarLiveSharePolicy(db);
+    await shares.noteForeground(session);
+    CedarGameEvent event(String id)=>CedarGameEvent(id:id,kind:'outcome',summary:'新的实际发现$id',
+      createdAt:DateTime.now(),action:'trip_go',readOnly:false);
+    session=session.copyWith(events:[...session.events,event('b'),event('c')]);await store.save(session);
+    final state=(await store.loadState()).copyWith(completedPlayRounds:20);
+    await db.setSettingsAtomically(CedarToyActivityStore.stateSettingValues(state));
+    await shares.offer(session,share:true,now:DateTime.now());
+    final id=(await store.pendingDirectShares()).single,thought=(await db.thoughtById((await store.pendingDirectShares()).single))!;
+    expect((await shares.mediaEvidence(session,id,thought.source)).map((e)=>e.id),['b','c']);
+    final later=session.copyWith(events:[...session.events,event('later')]);await store.save(later);
+    expect((await shares.mediaEvidence(later,id,thought.source)).map((e)=>e.id),['b','c']);
+    expect(await shares.mediaEvidence(later,id,'mcp/cedar_game:other:later'),isEmpty);
+  });
+  test('available pictures use the saved event rather than substituted evidence fields',() async {
+    final forged=CedarGameEvent(id:'synthetic-event',kind:'outcome',summary:'substituted',createdAt:DateTime.now(),
+      action:'trip_go',readOnly:false,imageData:base64Encode(png),imageMimeType:'image/png');
+    expect(await CedarActivityMedia(db).available(session,[forged]),isEmpty);
+  });
   test('real write progress clears earlier parameter failures',() {
     CedarGameEvent event(String id,String text)=>CedarGameEvent(id:id,kind:'outcome',summary:text,createdAt:DateTime.now(),action:'cmd',readOnly:false);
     final errors=[event('a','干预方式必须是 listen/join'),event('b','参数无效')];
