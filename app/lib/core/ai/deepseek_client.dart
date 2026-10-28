@@ -12,6 +12,9 @@ import 'final_reply_route.dart';
 import 'thinking_tool_history.dart';
 import 'relay_text_tail_guard.dart';
 import 'optional_tool_compatibility.dart';
+import '../storage/secure_config.dart';
+import 'third_channel_client.dart';
+import 'third_channel_config.dart';
 
 class DeepSeekToolCallDelta {
   const DeepSeekToolCallDelta({
@@ -81,6 +84,7 @@ class DeepSeekUsageEvent {
     this.endpointHash = '',
     this.usageLatencyMs = -1,
     this.cacheUsageAvailable = false,
+    this.reasoningTokens = 0,
   });
 
   final String lane;
@@ -97,6 +101,7 @@ class DeepSeekUsageEvent {
   /// Request start to provider usage report; not first-token latency.
   final int usageLatencyMs;
   final bool cacheUsageAvailable;
+  final int reasoningTokens;
 }
 
 /// Body-free prompt layout telemetry. Hashes make repeated stable segments
@@ -145,12 +150,16 @@ class DeepSeekClient {
     http.Client Function()? jsonClientFactory,
     Future<bool> Function()? abortWhen,
     Future<void> Function(DeepSeekUsageEvent event)? onUsage,
+    SecureConfig? secureConfig,
+    ThirdChannelClient Function()? thirdClientFactory,
     this.relayTailGrace = const Duration(seconds: 2),
   })  : _client = client ?? http.Client(),
         _streamClientFactory = streamClientFactory ?? http.Client.new,
         _jsonClientFactory = jsonClientFactory ?? http.Client.new,
         _abortWhen = abortWhen,
-        _onUsage = onUsage;
+        _onUsage = onUsage,
+        _secureConfig = secureConfig ?? SecureConfig.instance,
+        _thirdClientFactory = thirdClientFactory;
 
   static const String defaultEndpoint = 'https://api.deepseek.com/chat/completions';
 
@@ -160,6 +169,52 @@ class DeepSeekClient {
   final http.Client Function() _jsonClientFactory;
   final Future<bool> Function()? _abortWhen;
   final Future<void> Function(DeepSeekUsageEvent event)? _onUsage;
+  final SecureConfig _secureConfig;
+  final ThirdChannelClient Function()? _thirdClientFactory;
+  final Set<ThirdChannelClient> _thirdClients = {};
+
+  Future<ThirdChannelResponse?> tryThirdChannel({
+    required List<Map<String, Object?>> messages,
+    required FinalReplyRoute route,
+    SecureConfig? secure,
+    List<Map<String, Object?>> tools = const [], String? toolChoice,
+    int? maxTokens, String effort = 'high',
+    GenerationCancellationToken? cancellationToken,
+    Future<bool> Function()? current,
+    String usageLane = 'final_reply', String usageExecutionId = '',
+  }) async {
+    route.usedThirdChannel = false;
+    if (!route.thirdChannelAvailable) return null;
+    final configStore = secure ?? _secureConfig;
+    ThirdChannelConfig config;
+    try { config = await configStore.readThirdChannel(); }
+    catch (_) { return null; } // Optional, absent on an unconfigured device.
+    if (!config.enabled) return null;
+    final prompt = FinalReplyRoute.prepareMessages(messages);
+    final shape = _promptShape(prompt, tools);
+    Future<bool> valid() async =>
+      (current == null || await current()) &&
+      (_abortWhen == null || !await _abortWhen!()) &&
+      (await configStore.readThirdChannel()).encode() == config.encode();
+    final client = _thirdClientFactory?.call() ?? ThirdChannelClient(onUsage: (usage, attempt, elapsed) async {
+      await _onUsage?.call(DeepSeekUsageEvent(lane: usageLane, executionId: usageExecutionId,
+        inputTokens: usage.input, outputTokens: usage.output, reasoningTokens: usage.reasoning,
+        cacheHitTokens: 0, cacheMissTokens: 0, streaming: true, promptShape: shape,
+        provider: 'third_channel', modelHash: sha256.convert(utf8.encode(ThirdChannelConfig.model)).toString(),
+        endpointHash: sha256.convert(utf8.encode(config.endpoint.toString())).toString(), usageLatencyMs: elapsed));
+    });
+    _thirdClients.add(client);
+    try {
+      final result = await client.complete(config: config, messages: prompt, tools: tools,
+        toolChoice: toolChoice, maxTokens: maxTokens ?? 8192, effort: effort,
+        cancellation: cancellationToken, current: valid);
+      route.usedThirdChannel = true;
+      return result;
+    } on GenerationCancelledByUserException { rethrow; }
+    on GenerationSuspendedByRuntimeGateException { rethrow; }
+    catch (error) { route.recordThirdFailure(error); return null; }
+    finally { _thirdClients.remove(client); client.close(); }
+  }
   final Set<http.Client> _streamClients = <http.Client>{};
 
   Stream<DeepSeekDelta> streamChat({
@@ -178,7 +233,25 @@ class DeepSeekClient {
     Duration requestTimeout = const Duration(seconds: 120),
     String usageLane = 'unclassified',
     String usageExecutionId = '',
+    FinalReplyRoute? finalReplyRoute,
+    SecureConfig? thirdChannelSecure,
+    Future<bool> Function()? thirdChannelCurrent,
   }) async* {
+    if (finalReplyRoute != null) {
+      final third = await tryThirdChannel(messages: messages, route: finalReplyRoute,
+        secure: thirdChannelSecure, current: thirdChannelCurrent,
+        tools: tools, toolChoice: toolChoice, maxTokens: maxTokens, effort: effort.apiName,
+        cancellationToken: cancellationToken, usageLane: usageLane, usageExecutionId: usageExecutionId);
+      if (third != null) {
+        yield DeepSeekDelta(reasoning: third.reasoning, content: third.content,
+          finishReason: third.finishReason, done: true, streamEndReason: 'third_channel_done',
+          toolCallDeltas: [for (var i = 0; i < third.toolCalls.length; i++)
+            DeepSeekToolCallDelta(index: i, id: third.toolCalls[i]['id'] as String,
+              name: (third.toolCalls[i]['function'] as Map)['name'] as String,
+              argumentsFragment: (third.toolCalls[i]['function'] as Map)['arguments'] as String)]);
+        return;
+      }
+    }
     final provider = requestProvider ?? ChatApiProvider.fromEndpoint(endpoint);
     // Historical validator token: provider.effectiveModel(model)
     final effectiveModel = provider.effectiveModel(
@@ -675,6 +748,8 @@ class DeepSeekClient {
       sha256.convert(utf8.encode(value)).toString().substring(0, 12);
 
   void close() {
+    for (final client in _thirdClients.toList()) { client.close(); }
+    _thirdClients.clear();
     for (final streamClient in _streamClients.toList(growable: false)) {
       streamClient.close();
     }

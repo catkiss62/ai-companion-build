@@ -1,3 +1,5 @@
+import 'package:ai_companion_localfirst/core/ai/final_reply_route.dart';
+import 'package:ai_companion_localfirst/core/storage/secure_config.dart';
 import 'dart:async';
 import 'dart:convert';
 
@@ -56,6 +58,8 @@ class _ReplyClient extends DeepSeekClient {
     GenerationCancellationToken? cancellationToken,
     Duration requestTimeout = const Duration(seconds: 120),
     String usageLane = 'unclassified', String usageExecutionId = '',
+    FinalReplyRoute? finalReplyRoute, SecureConfig? thirdChannelSecure,
+    Future<bool> Function()? thirdChannelCurrent,
   }) async* {
     yield const DeepSeekDelta(content: '她轻轻点头。');
     if (!truncate) yield const DeepSeekDelta(done: true, finishReason: 'stop');

@@ -220,6 +220,7 @@ class QqArchiveReader {
       final text=ordered.map((r)=>QqMessageText.project(r['content'] as String)).join('\n');
       final speaker=await _speaker(row);
       final block=jsonEncode({'seqs':ordered.map((r)=>r['seq']).toList(),'time':row['observed_at'],
+        'first_observed_at':ordered.first['observed_at'],'last_observed_at':ordered.last['observed_at'],
         'speaker':row['role']=='assistant'?'她':row['owner']==1?'已确认本人':'群成员:${bound(row['sender'] as String,32)}',
         'speaker_key':speaker['speaker_key'],if(speaker['display_name']!=null)'display_name':speaker['display_name'],
         if(spokenLanguages.isNotEmpty)'outgoing_voice_languages':spokenLanguages.toList(),
@@ -235,12 +236,24 @@ class QqArchiveReader {
     return [jsonEncode({'window':'最多20轮来往/40组发言，字数受限；图片和转发仅为未经核验的资料',
       'shown_groups':blocks.length,'partial':blocks.length<groups.length || rows.length>groups.fold<int>(0,(n,g)=>n+g.length) || rows.length>=160}),...blocks.reversed].join('\n');
   }
-  Future<List<Map<String,Object?>>> participationFocus(List<Map<String,Object?>> rows) async {
+  Future<List<Map<String,Object?>>> participationFocus(List<Map<String,Object?>> rows,
+      {List<Map<String,Object?>>? stamp}) async {
     final result=<Map<String,Object?>>[];var remaining=3000;
     for(final row in rows.reversed) {
       final material=QqMessageMaterial.fromRow(row);
-      final item=<String,Object?>{'seq':row['seq'],...await _speaker(row),
+      final quoted=await _quotedAssistant(row,material);
+      final includeQuote=quoted!=null && (stamp==null || stamp.length<280);
+      if(includeQuote)stamp?.add({'table':'qq_archive','id':quoted!['id'],'version':quoted['version']});
+      final mentionKeys=RegExp(r'<@!?([^>]+)>').allMatches(row['content'] as String)
+        .map((m)=>m[1]!).where((id)=>id!='all').take(8).map((id)=>
+          QqDisplayNames.memberKey(row['conversation_id'] as String,id).substring(0,12)).toSet().toList();
+      final item=<String,Object?>{'seq':row['seq'],'observed_at':row['observed_at'],
+        'received_at':row['received_at'],...await _speaker(row),
         'outer_comment':QqMessageMaterial.bound(QqMessageText.project(row['content'] as String),600),
+        if(mentionKeys.isNotEmpty)'outer_mention_speaker_keys':mentionKeys,
+        if(mentionKeys.isNotEmpty)'mention_scope':'outer_text_target_hint_not_identity_authority',
+        if(includeQuote)'quoted_assistant':{'seq':quoted!['seq'],'observed_at':quoted['observed_at'],
+          'platform_confirmed':true,'text':bound(quoted['content'] as String,300)},
         'trusted_direct_mention':row['mentioned']==1,'has_image':material.imageOrigins.isNotEmpty};
       final size=jsonEncode(item).length;if(size>remaining)break;
       result.add(item);remaining-=size;

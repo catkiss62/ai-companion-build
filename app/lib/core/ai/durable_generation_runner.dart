@@ -214,6 +214,7 @@ class DurableGenerationRunner {
     final finalChannelEffort = ReasoningEffort.fromApiName(
       await db.getSetting('generation_final_effort_v1:${requested.id}') ?? requested.reasoningEffort);
     var finalTextFromGemini = false;
+    var finalTextFromThird = false;
     if (cancellationToken?.isCancelled ?? false) {
       await db.cancelGenerationJobByUser(requested.id);
       return const GenerationRunResult(status: 'cancelled_by_user');
@@ -919,7 +920,14 @@ class DurableGenerationRunner {
             cancellationToken: requestCancellation ?? effectiveCancellation,
             usageLane: usageLane,
             usageExecutionId: job.id,
+            finalReplyRoute: usageLane == 'final_reply' && !takeover.requested ? finalRoute : null,
+            thirdChannelSecure: secureConfig,
+            thirdChannelCurrent: () async => await db.isGenerationRunCurrent(job.id, runToken: job.runToken) && await db.brainWorkAllowed(),
           )) {
+            if (usageLane == 'final_reply') {
+              finalTextFromThird = finalRoute.usedThirdChannel;
+              if (finalTextFromThird) { finalTextFromGemini = true; providerNotice = null; }
+            }
             if (!requestProgressSeen) {
               requestProgressSeen = true;
               firstProgressAt = DateTime.now().millisecondsSinceEpoch;
@@ -2058,6 +2066,7 @@ $finalGenerationReminder
         recentAssistantTexts: recentAssistantTexts,
       );
       final initialCandidateFromGemini = finalTextFromGemini;
+      final initialCandidateFromThird = finalTextFromThird;
       final initialGenerated = generated;
       final initialEnvelope = envelope;
       final initialFinalContent = finalContent;
@@ -2122,6 +2131,7 @@ $finalGenerationReminder
           },
         ];
         final initialWasGemini = finalTextFromGemini;
+        final initialWasThird = finalTextFromThird;
         try {
           // One correction by the provider that wrote the visible draft.
           // DeepSeek takes over only after the configured second channel fails.
@@ -2150,6 +2160,7 @@ $finalGenerationReminder
           if (candidateSource == UserReplyCandidateSource.initial &&
               !(takeover.requested && initialWasGemini)) {
             finalTextFromGemini = initialWasGemini;
+            finalTextFromThird = initialWasThird;
             if (initialWasGemini) providerNotice = '';
             generated = initialGenerated;
             envelope = initialEnvelope;
@@ -2169,6 +2180,7 @@ $finalGenerationReminder
           // notice; do not insert local persona dialogue into chat/history/TTS.
           generated = initialGenerated;
           finalTextFromGemini = initialWasGemini;
+            finalTextFromThird = initialWasThird;
           if (initialWasGemini) providerNotice = '';
           envelope = initialEnvelope;
           finalContent = initialFinalContent;
@@ -2200,6 +2212,7 @@ $finalGenerationReminder
         ablationTransformation = 'grounded_reply_retry_degraded_pass';
         generated = initialGenerated;
         finalTextFromGemini = initialCandidateFromGemini;
+        finalTextFromThird = initialCandidateFromThird;
         envelope = initialEnvelope;
         finalContent = initialFinalContent;
       }
@@ -2235,7 +2248,7 @@ $finalGenerationReminder
         role: 'assistant',
         content: finalContent,
         reasoningContent: visibleReasoning,
-        model: finalTextFromGemini
+        model: finalTextFromThird ? 'gemini-3.8-flash' : finalTextFromGemini
             ? (configuredFinalModel.isEmpty
                 ? ChatApiProvider.aiWangYouModel
                 : configuredFinalModel)
@@ -2391,7 +2404,7 @@ $finalGenerationReminder
       try {
         await db.setSetting('generation_final_route_v1', jsonEncode({
           'jobId': job.id,
-          'reason': finalTextFromGemini ? 'second_channel'
+          'reason': finalTextFromThird ? 'third_channel' : finalTextFromGemini ? 'second_channel'
               : takeover.requested ? 'manual_deepseek'
               : finalProvider.isGeminiRelay ? 'api_failure_fallback' : 'first_channel',
           'model': assistant.model, 'contentIncluded': false,
@@ -2546,7 +2559,7 @@ $finalGenerationReminder
         formContextJson: generationFormContext.encode(),
         content: visible,
         reasoningContent: preserveProviderReasoning(e.reasoning),
-        model: finalTextFromGemini
+        model: finalTextFromThird ? 'gemini-3.8-flash' : finalTextFromGemini
             ? (configuredFinalModel.isEmpty ? ChatApiProvider.aiWangYouModel : configuredFinalModel)
             : firstModel.apiName,
         createdAt: DateTime.now(),

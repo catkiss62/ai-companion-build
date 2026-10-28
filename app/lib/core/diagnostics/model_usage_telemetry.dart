@@ -82,6 +82,9 @@ class ModelUsageTelemetry {
       'execution_id': event.executionId,
       'input_tokens': event.inputTokens,
       'output_tokens': event.outputTokens,
+      'reasoning_tokens': event.reasoningTokens,
+      if (event.provider == 'third_channel')
+        'total_tokens': event.inputTokens + event.outputTokens + event.reasoningTokens,
       'cache_hit_tokens': event.cacheHitTokens,
       'cache_miss_tokens': event.cacheMissTokens,
       'streaming': event.streaming,

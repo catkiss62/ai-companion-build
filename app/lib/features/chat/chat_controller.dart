@@ -1,3 +1,4 @@
+import '../../core/ai/routed_vision_client.dart';
 import '../../core/ai/final_reply_control.dart';
 import '../../core/ai/first_channel_model.dart';
 import 'dart:async';
@@ -82,7 +83,7 @@ class ChatController extends ChangeNotifier {
                 event,
               ),
             ),
-        visionClient = visionClient ?? QwenVisionClient(),
+        visionClient = visionClient ?? RoutedVisionClient(secure: secureConfig, db: db),
         secureConfig = secureConfig ?? SecureConfig.instance,
         android = android ?? AndroidBridge.instance,
         attachmentStorage = attachmentStorage ?? MessageAttachmentStorage(db: db) {
@@ -676,9 +677,8 @@ class ChatController extends ChangeNotifier {
       if (deepSeekKey == null || deepSeekKey.trim().isEmpty) {
         throw StateError('请先到“AI 与陪伴设置”填写所选聊天提供商的 API Key。');
       }
-      final visionKey = await secureConfig.readVisionApiKey();
-      if (visionKey == null || visionKey.trim().isEmpty) {
-        throw StateError('请先到“AI 与陪伴设置”填写千问视觉 API Key。');
+      if (!await RoutedVisionClient.configured(secureConfig, db: db)) {
+        throw StateError('请先配置可用的图片识别接口。');
       }
       if ((await db.getSetting('transfer_lock')) == '1') {
         throw StateError(await _activeWriteFreezeMessage());
@@ -834,9 +834,9 @@ class ChatController extends ChangeNotifier {
     final visionStarted = DateTime.now();
     GenerationJob? trustedGeneration;
     try {
-      final visionKey = await secureConfig.readVisionApiKey();
-      if (visionKey == null || visionKey.trim().isEmpty) {
-        throw StateError('请先到“AI 与陪伴设置”填写千问视觉 API Key。');
+      final visionKey = await secureConfig.readVisionApiKey() ?? '';
+      if (!await RoutedVisionClient.configured(secureConfig, db: db)) {
+        throw StateError('请先配置可用的图片识别接口。');
       }
       final deepSeekKey = await secureConfig.readApiKey();
       if (deepSeekKey == null || deepSeekKey.trim().isEmpty) {
@@ -867,6 +867,11 @@ class ChatController extends ChangeNotifier {
       );
       final albumEnabled =
           (await db.getSetting('simulated_phone_enabled')) != '0';
+      if (visionClient is RoutedVisionClient) {
+        (visionClient as RoutedVisionClient).sourceGuard = () async => !_disposed &&
+          !_discardedImageMessageIds.contains(messageId) && await db.brainWorkAllowed() &&
+          await db.messageById(messageId) != null;
+      }
       final observation = await visionClient.observe(
         apiKey: visionKey,
         endpoint: await secureConfig.readVisionEndpoint(),
@@ -889,9 +894,9 @@ class ChatController extends ChangeNotifier {
       await db.recordProviderHealthEvent(ProviderHealthEvent(
         lane: 'vision',
         context: 'chat_image',
-        primaryProvider: 'qwen_vision',
+        primaryProvider: 'vision_route',
         primaryOutcome: 'success',
-        finalProvider: 'qwen_vision',
+        finalProvider: 'vision_route',
         finalOutcome: 'success',
         resultCount: 1,
         latencyBucket:
@@ -967,7 +972,7 @@ class ChatController extends ChangeNotifier {
           await db.recordProviderHealthEvent(ProviderHealthEvent(
             lane: 'vision',
             context: 'chat_image',
-            primaryProvider: 'qwen_vision',
+            primaryProvider: 'vision_route',
             primaryOutcome: marked ? 'failed' : 'not_called',
             primaryErrorCategory: ProviderHealth.errorCategory(exception),
             finalOutcome: 'failed',

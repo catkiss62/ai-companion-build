@@ -1,3 +1,4 @@
+import '../ai/routed_vision_client.dart';
 import 'dart:convert';
 import 'dart:io';
 
@@ -29,7 +30,7 @@ class CompanionAlbumDiscoveryEngine {
     MessageAttachmentStorage? attachmentStorage,
     http.Client? client,
   })  : config = config ?? SecureConfig.instance,
-        vision = vision ?? QwenVisionClient(),
+        vision = vision ?? RoutedVisionClient(secure: config, db: db),
         albumStorage = albumStorage ?? CompanionAlbumStorage(db: db),
         attachmentStorage = attachmentStorage ?? MessageAttachmentStorage(db: db),
         _client = client ?? http.Client();
@@ -58,8 +59,8 @@ class CompanionAlbumDiscoveryEngine {
     required String requestedSubject,
     DateTime? now,
   }) async {
-    final apiKey = await config.readVisionApiKey();
-    if (apiKey == null || apiKey.trim().isEmpty) return 'vision_unconfigured';
+    final apiKey = await config.readVisionApiKey() ?? '';
+    if (!await RoutedVisionClient.configured(config, db: db)) return 'vision_unconfigured';
     return _process(
       sourceKind: 'user_requested_web',
       sourceId: sourceId,
@@ -79,12 +80,12 @@ class CompanionAlbumDiscoveryEngine {
     if ((await db.getSetting('simulated_phone_enabled')) == '0') {
       return 'disabled';
     }
-    final apiKey = await config.readVisionApiKey();
-    if (apiKey == null || apiKey.trim().isEmpty) {
+    final apiKey = await config.readVisionApiKey() ?? '';
+    if (!await RoutedVisionClient.configured(config, db: db)) {
       await db.recordProviderHealthEvent(const ProviderHealthEvent(
         lane: 'vision',
         context: 'album_discovery',
-        primaryProvider: 'qwen_vision',
+        primaryProvider: 'vision_route',
         primaryOutcome: 'not_configured',
         primaryErrorCategory: 'missing_key',
         finalOutcome: 'not_configured',
@@ -222,9 +223,9 @@ class CompanionAlbumDiscoveryEngine {
       await db.recordProviderHealthEvent(ProviderHealthEvent(
         lane: 'vision',
         context: 'album_discovery',
-        primaryProvider: 'qwen_vision',
+        primaryProvider: 'vision_route',
         primaryOutcome: 'success',
-        finalProvider: 'qwen_vision',
+        finalProvider: 'vision_route',
         finalOutcome: 'success',
         resultCount: 1,
         latencyBucket:
@@ -354,7 +355,7 @@ class CompanionAlbumDiscoveryEngine {
         await db.recordProviderHealthEvent(ProviderHealthEvent(
           lane: 'vision',
           context: 'album_discovery',
-          primaryProvider: 'qwen_vision',
+          primaryProvider: 'vision_route',
           primaryOutcome: 'failed',
           primaryErrorCategory: category,
           finalOutcome: 'failed',

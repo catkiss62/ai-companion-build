@@ -522,6 +522,7 @@ class ImmersiveRoomController extends ChangeNotifier {
         cancellation: cancellation,
         displayReasoning: displayReasoning,
         captureReasoning: captureReasoning,
+        finalReplyRoute: finalRoute,
       );
     }
     Object? lastError;
@@ -541,6 +542,7 @@ class ImmersiveRoomController extends ChangeNotifier {
             cancellation: cancellation,
             displayReasoning: displayReasoning,
             captureReasoning: captureReasoning,
+            finalReplyRoute: finalRoute,
           );
           if (streamingContent.trim().isEmpty) {
             throw const EmptyFinalReplyException();
@@ -591,6 +593,7 @@ class ImmersiveRoomController extends ChangeNotifier {
       cancellation: cancellation,
       displayReasoning: displayReasoning,
       captureReasoning: captureReasoning,
+      finalReplyRoute: finalRoute,
     );
   }
 
@@ -605,6 +608,7 @@ class ImmersiveRoomController extends ChangeNotifier {
     required GenerationCancellationToken cancellation,
     required bool displayReasoning,
     required bool captureReasoning,
+    FinalReplyRoute? finalReplyRoute,
   }) async {
     var finishReason = '';
     var sawTerminalSignal = false;
@@ -621,7 +625,13 @@ class ImmersiveRoomController extends ChangeNotifier {
       // like ordinary chat; existing partial-draft/continuation rules still apply.
       cancellationToken: cancellation,
       usageLane: 'immersive_reply',
+      finalReplyRoute: finalReplyRoute,
+      thirdChannelSecure: secureConfig,
     )) {
+      if (finalReplyRoute?.usedThirdChannel == true) {
+        _finalModelRoute = {'source': 'third', 'model': 'gemini-3.8-flash', 'provider': 'third_channel'};
+        notice = null;
+      }
       cancellation.throwIfCancelled();
       if (delta.reasoning.isNotEmpty) {
         _allStreamingReasoning = mergePersistedReasoning(

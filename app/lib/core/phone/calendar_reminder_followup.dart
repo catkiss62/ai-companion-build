@@ -159,6 +159,9 @@ class CalendarReminderFollowup {
             // As in ordinary chat, let the provider limit this visible reply.
             usageLane: finalChannel ? 'calendar_reminder_final' : 'calendar_reminder',
             usageExecutionId: occurrence,
+            finalReplyRoute: finalRoute,
+            thirdChannelSecure: config,
+            thirdChannelCurrent: current,
           )) {
             buffer.write(delta.content);
             if (delta.done || delta.finishReason != null) done = true;
@@ -189,6 +192,10 @@ class CalendarReminderFollowup {
           }
         }
         text ??= await request(finalChannel: false);
+        if (finalRoute.usedThirdChannel) {
+          model = 'gemini-3.8-flash';
+          await db.setSettingsAtomically({'calendar_last_final_provider_notice': ''}, workFence: fence);
+        }
       } catch (_) {
         return null;
       } finally {

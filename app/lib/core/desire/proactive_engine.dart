@@ -1861,6 +1861,9 @@ ${startsFreshTopic ? '本类型属于新话题通道：ANSWERED CHAT HISTORY 已
           // can exhaust the model's generation budget before it finishes.
           usageLane: gemini ? 'proactive_final_reply' : 'proactive',
           usageExecutionId: heartbeatKey,
+          finalReplyRoute: finalRoute,
+          thirdChannelSecure: secureConfig,
+          thirdChannelCurrent: proactiveRequestAllowed,
         )) {
           if (DateTime.now().difference(lastProactiveLeaseRefresh) >=
               const Duration(minutes: 1)) {
@@ -1952,7 +1955,11 @@ ${startsFreshTopic ? '本类型属于新话题通道：ANSWERED CHAT HISTORY 已
         },
       );
       if (generated == null) return null;
-      if (generated.usedSecondChannel) {
+      if (finalRoute.usedThirdChannel) {
+        visibleModelName = 'gemini-3.8-flash';
+        await db.setSetting('proactive_last_final_provider_notice', '');
+        await noteAttempts(0, generated.failures, outcome: 'third_channel_success');
+      } else if (generated.usedSecondChannel) {
         visibleModelName = finalModelName.isEmpty
             ? finalProvider.effectiveModel(model) : finalModelName;
         await db.setSetting('proactive_last_final_provider_notice', '');

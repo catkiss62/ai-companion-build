@@ -2668,6 +2668,8 @@ game=${session.gameId}
         cancellationToken: cancellationToken,
         requestTimeout: const Duration(seconds: 30),
         usageLane: gemini ? 'cedar_room_final_reply' : 'cedar_room_dialogue',
+        finalReplyRoute: finalRoute,
+        thirdChannelSecure: secureConfig,
       )) {
         content += delta.content;
         if (delta.done || delta.finishReason != null) completed = true;

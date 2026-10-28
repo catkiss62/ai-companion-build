@@ -125,7 +125,7 @@ class _QqPrivateSettingsPageState extends State<QqPrivateSettingsPage> {
     'partially_sent':'部分消息已送达，后续未完成；不会重新发送已发内容',
     'generation_interrupted': '生成被中断；本轮不会自动重复请求',
     'context_invalidated': '存档、绑定或记忆已变化，本轮旧回复已停止；请重新发送',
-    'using_first': '正在使用第一通道', 'using_second': '正在使用第二通道',
+    'using_third': '正在使用第三通道', 'using_first': '正在使用第一通道', 'using_second': '正在使用第二通道',
     'retrying_second': '正在重试第二通道', 'fallback_first': '第二通道失败，正在使用 DeepSeek 兜底',
     'message_expired': '消息超过测试版处理时限，请重新发送', 'queue_full': '待处理消息较多，请稍后发送',
     'waiting_app_chat': '等 App 当前聊天完成后再处理', 'brain_paused': '本机未启用或正在迁移，已暂停',

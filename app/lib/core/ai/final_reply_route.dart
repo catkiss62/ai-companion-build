@@ -4,6 +4,11 @@ class FinalReplyRoute {
   FinalReplyRoute({required this.secondChannelEnabled});
   final bool secondChannelEnabled;
   Object? _failure;
+  Object? _thirdFailure;
+  bool usedThirdChannel = false;
+  bool get thirdChannelAvailable => _thirdFailure == null;
+  Object? get thirdChannelFailure => _thirdFailure;
+  void recordThirdFailure(Object error) { _thirdFailure = error; usedThirdChannel = false; }
   bool get useSecondChannel => secondChannelEnabled && _failure == null;
   void recordFailure(Object error) { _failure = error; }
 

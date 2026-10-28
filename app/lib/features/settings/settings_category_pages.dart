@@ -1,3 +1,6 @@
+import '../../core/ai/third_channel_client.dart';
+import '../../core/ai/third_channel_config.dart';
+import '../../core/ai/routed_vision_client.dart';
 import '../../core/creative/creative_store.dart';
 import '../../core/creative/creative_autonomy_policy.dart';
 import 'dart:async';
@@ -50,6 +53,10 @@ class _ModelNetworkSettingsPageState
   final _aiWangYouApiKey = TextEditingController();
   final _aiWangYouEndpoint = TextEditingController();
   final _aiWangYouModel = TextEditingController();
+  final _thirdKey = TextEditingController();
+  final _thirdBase = TextEditingController();
+  bool _thirdEnabled = false, _testingThird = false, _revealThird = false;
+  bool _qwenEnabled = true;
   final _visionKey = TextEditingController();
   final _visionEndpoint = TextEditingController();
   final _visionModel = TextEditingController();
@@ -178,6 +185,9 @@ class _ModelNetworkSettingsPageState
     _aiWangYouApiKey.text = await _secure.readAiWangYouApiKey() ?? '';
     _aiWangYouEndpoint.text = await _secure.readAiWangYouEndpoint();
     _aiWangYouModel.text = await _secure.readAiWangYouModel();
+    final third = await _secure.readThirdChannel();
+    _thirdKey.text = third.apiKey; _thirdBase.text = third.baseUrl; _thirdEnabled = third.enabled;
+    _qwenEnabled = await _db.getSetting(RoutedVisionClient.qwenEnabledKey) != '0';
     _visionKey.text = await _secure.readVisionApiKey() ?? '';
     _visionEndpoint.text = await _secure.readVisionEndpoint();
     _visionModel.text = await _secure.readVisionModel();
@@ -305,6 +315,27 @@ class _ModelNetworkSettingsPageState
     }
   }
 
+  Future<void> _saveThird() async {
+    try {
+      await _secure.writeThirdChannel(ThirdChannelConfig(enabled: _thirdEnabled,
+        baseUrl: _thirdBase.text, apiKey: _thirdKey.text));
+      await _db.wakeRetryableGenerationJobs();
+      if (mounted) setState(() => _status = '第三通道配置已保存。');
+    } catch (error) { if (mounted) setState(() => _status = '第三通道保存失败：$error'); }
+  }
+
+  Future<void> _testThird() async {
+    setState(() { _testingThird = true; _status = '正在检查网关和模型响应…'; });
+    final client = ThirdChannelClient();
+    try {
+      final result = await client.complete(config: ThirdChannelConfig(baseUrl: _thirdBase.text, apiKey: _thirdKey.text),
+        messages: [{'role': 'user', 'content': '这是接口连接测试，请只回复“连接成功”。'}], maxTokens: 256);
+      if (result.incomplete) throw const ThirdChannelFailure('incomplete');
+      if (mounted) setState(() => _status = '网关与模型响应通过；测试使用了少量额度。');
+    } catch (error) { if (mounted) setState(() => _status = '第三通道测试失败：$error'); }
+    finally { client.close(); if (mounted) setState(() => _testingThird = false); }
+  }
+
   Future<void> _saveVision() async {
     if (!_validHttpEndpoint(_visionEndpoint.text)) {
       setState(() => _status = '千问视觉地址不是有效的 http(s) URL。');
@@ -314,6 +345,7 @@ class _ModelNetworkSettingsPageState
       await _secure.writeVisionEndpoint(_visionEndpoint.text);
       await _secure.writeVisionModel(_visionModel.text);
       await _secure.writeVisionApiKey(_visionKey.text);
+      await _db.setSetting(RoutedVisionClient.qwenEnabledKey, _qwenEnabled ? '1' : '0');
       if (mounted) setState(() => _status = '千问视觉配置已保存。');
     } catch (error) {
       if (mounted) setState(() => _status = '千问视觉保存失败：$error');
@@ -686,6 +718,7 @@ class _ModelNetworkSettingsPageState
     _aiWangYouEndpoint.dispose();
     _aiWangYouModel.dispose();
     _visionKey.dispose();
+    _thirdKey.dispose(); _thirdBase.dispose();
     _visionEndpoint.dispose();
     _visionModel.dispose();
     _tavilyKey.dispose();
@@ -872,6 +905,26 @@ class _ModelNetworkSettingsPageState
                     ],
                   ),
                   _SettingsSectionCard(
+                    title: '第三通道（本地网关）',
+                    subtitle: '开启后优先用于 App、QQ 正文和图片识别；不可用时按各自设置回退。电脑和手机需要能访问同一网关。',
+                    children: [
+                      SwitchListTile(contentPadding: EdgeInsets.zero,
+                        title: const Text('启用第三通道'), value: _thirdEnabled,
+                        onChanged: (value) => setState(() => _thirdEnabled = value)),
+                      _SecretField(controller: _thirdKey, label: '第三通道 API Key', revealed: _revealThird,
+                        onToggle: () => setState(() => _revealThird = !_revealThird)),
+                      const SizedBox(height: 12),
+                      TextField(controller: _thirdBase, keyboardType: TextInputType.url,
+                        decoration: const InputDecoration(labelText: '网关 Base URL',
+                          hintText: 'http://电脑局域网地址:8045/v1', border: OutlineInputBorder())),
+                      const SizedBox(height: 12),
+                      const Text('固定模型：gemini-3.8-flash。两个账号的切换由网关完成；这里只填写一组地址和 Key。'),
+                      _SaveTestButtons(onSave: () => _sectionAction('third', _saveThird),
+                        onTest: _testingThird ? null : () => _sectionAction('third', _testThird), testing: _testingThird),
+                      _sectionFeedback('third'),
+                    ],
+                  ),
+                  _SettingsSectionCard(
                     title: '工作模型',
                     subtitle: '专门制作小作品。模型与力度独立；API 可跟随第一通道或单独配置。',
                     children: [
@@ -955,8 +1008,10 @@ class _ModelNetworkSettingsPageState
                   ),
                   _SettingsSectionCard(
                     title: '千问视觉',
-                    subtitle: '用于用户发送图片和已授权的一次性视觉请求。',
+                    subtitle: '关闭时使用第一通道；开启时千问优先、第一通道兜底。第三通道开启时始终先尝试第三通道。QQ识图不使用千问。',
                     children: [
+                      SwitchListTile(contentPadding: EdgeInsets.zero, title: const Text('启用千问识图'),
+                        value: _qwenEnabled, onChanged: (value) => setState(() => _qwenEnabled = value)),
                       _SecretField(
                         controller: _visionKey,
                         label: '千问视觉 API Key',
@@ -988,7 +1043,7 @@ class _ModelNetworkSettingsPageState
                           onSave: () => _sectionAction('vision', _saveVision),
                           onTest: _testingVision ? null : () => _sectionAction('vision', _testVision),
                           testing: _testingVision,
-                          testLabel: '视觉连接测试',
+                          testLabel: '千问接口测试',
                         ),
                       ),
                       _sectionFeedback('vision'),

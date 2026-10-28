@@ -1,3 +1,4 @@
+import '../ai/routed_vision_client.dart';
 import '../storage/pending_media_owner.dart';
 import 'dart:io';
 
@@ -39,7 +40,7 @@ class AssistantImageAttachmentService {
         attachmentStorage =
             attachmentStorage ?? MessageAttachmentStorage(),
         albumStorage = albumStorage ?? CompanionAlbumStorage(),
-        vision = vision ?? QwenVisionClient(),
+        vision = vision ?? RoutedVisionClient(secure: config),
         _client = client ?? http.Client();
 
   final SecureConfig config;
@@ -55,7 +56,7 @@ class AssistantImageAttachmentService {
     PendingMediaOwner? pendingOwner,
   }) async {
     final apiKey = (await config.readVisionApiKey())?.trim() ?? '';
-    if (apiKey.isEmpty) throw const VisionProviderNotConfigured();
+    if (!await RoutedVisionClient.configured(config)) throw const VisionProviderNotConfigured();
     File? downloaded;
     PreparedImageAttachment? draft;
     try {

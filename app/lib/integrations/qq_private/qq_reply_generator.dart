@@ -4,6 +4,7 @@ import '../../core/ai/chat_api_provider.dart';
 import '../../core/ai/deepseek_client.dart';
 import '../../core/ai/generation_cancellation.dart';
 import '../../core/ai/model_profile.dart';
+import '../../core/ai/final_reply_route.dart';
 import '../../core/storage/secure_config.dart';
 import 'qq_failure.dart';
 
@@ -24,6 +25,18 @@ class QqReplyGenerator {
   Future<String> generate({required String channel, required DeepSeekModelProfile firstModel,
     required ReasoningEffort firstEffort, required ReasoningEffort secondEffort,
     required List<Map<String, Object?>> messages,String usageLane='qq_private_reply'}) async {
+    final route = FinalReplyRoute(secondChannelEnabled: channel == 'second');
+    final third = await client.tryThirdChannel(messages: messages, route: route, secure: secure,
+      maxTokens: 6000, current: current, effort: secondEffort.apiName, usageLane: usageLane);
+    if (third != null) {
+      if (!await current()) throw StateError('context_invalidated');
+      // QQ has no partial-draft display. Never send a truncated public reply
+      // or turn a content-filter terminal into the same prompt on another lane.
+      if (third.incomplete) throw const QqOperationFailure('reply_incomplete');
+      onStatus?.call('using_third');
+      return third.content.trim();
+    }
+    if (route.thirdChannelFailure != null) await onFailure?.call('third_reply', route.thirdChannelFailure!, 1);
     Future<String> attempt(bool second) async {
       if (!await current()) throw StateError('context_invalidated');
       final key = second ? await secure.readAiWangYouApiKey() : await secure.readApiKey();

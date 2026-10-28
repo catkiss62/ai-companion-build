@@ -64,7 +64,7 @@ class ProviderHealth {
     'wikimedia',
     'agnes',
     'deepseek',
-    'qwen_vision',
+    'qwen_vision', 'vision_route', 'third_channel',
     'local_album',
   };
   static const outcomes = <String>{

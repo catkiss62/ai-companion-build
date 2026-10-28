@@ -1078,7 +1078,7 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver, RouteA
                 ),
                 const SizedBox(height: 8),
                 Text(
-                  '发送后会用千问视觉读取缩略图；观察结果作为本轮经历，是否形成长期记忆仍由记忆系统判断。',
+                  '发送后会识别图片缩略图；观察结果作为本轮经历，是否形成长期记忆仍由记忆系统判断。',
                   style: Theme.of(context).textTheme.bodySmall,
                 ),
               ],
@@ -3508,7 +3508,7 @@ class _VisionStatus extends StatelessWidget {
   Widget build(BuildContext context) {
     if (attachment.visionCompleted) {
       return Text(
-        '已识别 · ${attachment.visionModel.isEmpty ? '千问视觉' : attachment.visionModel}',
+        '图片已识别',
         style: Theme.of(context).textTheme.labelSmall,
       );
     }

@@ -49,7 +49,7 @@ def main() -> None:
     require("CedarPlayOutcomeBookkeeper(db).record" in runner, "foreground Cedar result is not booked")
     require("CedarPlayOutcomeBookkeeper(db).record" in autonomy, "autonomous Cedar result is not booked")
     require("action: 'play_game'" in bookkeeper, "real play satisfaction ledger write missing")
-    require("视觉连接测试" in vision_settings, "vision configuration test control missing")
+    require("千问接口测试" in vision_settings, "vision configuration test control missing")
     require("401/403" in vision_error, "vision authorization failure is not explicit")
     require("referenceEchoGuard.assess" in tts, "TTS acoustic echo guard is not wired")
     require("check(!referenceEchoSuspected)" in tts, "suspected reference echo is still playable")

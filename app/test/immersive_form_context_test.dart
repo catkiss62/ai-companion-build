@@ -1,3 +1,5 @@
+import 'package:ai_companion_localfirst/core/ai/final_reply_route.dart';
+import 'package:ai_companion_localfirst/core/storage/secure_config.dart';
 import 'dart:convert';
 
 import 'package:ai_companion_localfirst/core/ai/chat_api_provider.dart';
@@ -165,6 +167,9 @@ class _ReplyClient extends DeepSeekClient {
     Duration requestTimeout = const Duration(seconds: 120),
     String usageLane = 'unclassified',
     String usageExecutionId = '',
+    FinalReplyRoute? finalReplyRoute,
+    SecureConfig? thirdChannelSecure,
+    Future<bool> Function()? thirdChannelCurrent,
   }) async* {
     request = messages;
     yield const DeepSeekDelta(content: '她轻轻点头。');

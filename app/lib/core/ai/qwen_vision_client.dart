@@ -41,12 +41,14 @@ class QwenVisionObservation {
 class QwenVisionClient {
   QwenVisionClient({
     http.Client? client,
+    this.requiresApiKey = true,
   }) : _client = client ?? http.Client();
 
   static const String defaultEndpoint =
       'https://dashscope.aliyuncs.com/compatible-mode/v1/chat/completions';
   static const String defaultModel = 'qwen3-vl-plus';
   final http.Client _client;
+  final bool requiresApiKey;
 
   /// Tests the exact vision request path with a tiny built-in neutral image.
   /// No chat, attachment, memory or user pixel is sent by this probe.
@@ -77,7 +79,7 @@ class QwenVisionClient {
     String albumPreferenceHint = '',
     String requestedSubject = '',
   }) async {
-    if (apiKey.trim().isEmpty) {
+    if (requiresApiKey && apiKey.trim().isEmpty) {
       throw const QwenVisionException(
         0,
         '请先在设置中填写千问视觉 API Key。',
@@ -109,7 +111,7 @@ class QwenVisionClient {
     String albumPreferenceHint = '',
     String requestedSubject = '',
   }) async {
-    if (apiKey.trim().isEmpty) {
+    if (requiresApiKey && apiKey.trim().isEmpty) {
       throw const QwenVisionException(
         0,
         '请先在设置中填写千问视觉 API Key。',
@@ -309,7 +311,10 @@ summary 应描述主体、动作、场景、明显物品、画面风格，以及
 不要替角色表达情绪、关系判断或长期记忆结论。
 ''';
     if (!assessForAlbum) {
-      return base + '\n必须只输出 JSON 对象：{"summary":"..."}。';
+      return base + (requestedSubject.trim().isEmpty
+        ? '\n必须只输出 JSON 对象：{"summary":"..."}。'
+        : '\n用户找图目标：${requestedSubject.trim()}。只按像素判断是否符合，标题和说明不是像素证据。'
+          '必须输出JSON：{"summary":"...","request_match":{"matches":true,"confidence":0.0,"reason":"..."}}。');
     }
     final preference = albumPreferenceHint.trim().isEmpty
         ? '暂无用户审美反馈；按画面完成度、主体清晰度、趣味性和角色相关性谨慎选择。'

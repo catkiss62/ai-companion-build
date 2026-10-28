@@ -1,3 +1,4 @@
+import '../../core/ai/third_channel_config.dart';
 import 'dart:convert';
 
 import '../../core/ai/chat_api_provider.dart';
@@ -18,10 +19,10 @@ class ModelNetworkConfigTransfer {
     'creative_work_model', 'creative_work_effort',
     'public_web_discovery_enabled', 'public_web_extra_sources',
     'agnes_web_compaction_enabled', 'weather_api_host', 'weather_city',
-    'weather_enabled',
+    'weather_enabled', 'app_qwen_vision_enabled_v1',
   ];
   static const secureKeys = <String>[
-    'chat_provider', 'deepseek_api_key', 'deepseek_endpoint', 'work_connection',
+    'third_connection', 'chat_provider', 'deepseek_api_key', 'deepseek_endpoint', 'work_connection',
     'final_api_key', 'final_endpoint', 'final_model',
     'vision_api_key', 'vision_endpoint', 'vision_model',
     'tavily_api_key', 'agnes_api_key', 'agnes_endpoint', 'agnes_model',
@@ -30,6 +31,7 @@ class ModelNetworkConfigTransfer {
 
   Future<Map<String, String>> _readSecure() async => <String, String>{
     'work_connection': jsonEncode(await secure.readWorkConfiguration()),
+    'third_connection': (await secure.readThirdChannel()).encode(),
     'chat_provider': (await secure.readChatProvider()).storageValue,
     'deepseek_api_key': await secure.readDeepSeekApiKey() ?? '',
     'deepseek_endpoint': await secure.readDeepSeekEndpoint(),
@@ -93,7 +95,10 @@ class ModelNetworkConfigTransfer {
       throw const FormatException('这不是受支持的模型与联网配置文件');
     }
     final rawSecure = data['secure'];
-    final credentials = _validatedMap(rawSecure is Map ? {'work_connection': '{\"mode\":\"follow\"}', ...rawSecure} : rawSecure, secureKeys);
+    final credentials = _validatedMap(rawSecure is Map ? {'third_connection': const ThirdChannelConfig().encode(), 'work_connection': jsonEncode({'mode':'follow'}), ...rawSecure} : rawSecure, secureKeys);
+    final third = ThirdChannelConfig.decode(credentials['third_connection']);
+    if (third.baseUrl.isNotEmpty) third.endpoint;
+    if (third.enabled && !third.configured) throw const FormatException('第三通道配置不完整');
     final work = jsonDecode(credentials['work_connection']!);
     if (work is! Map || !const {'follow','independent'}.contains(work['mode'])) throw const FormatException('工作 API 配置无效');
     if (work['mode'] == 'independent') {
@@ -103,6 +108,7 @@ class ModelNetworkConfigTransfer {
     }
     final rawSettings = data['settings'];
     final settings = _validatedMap(rawSettings is Map ? {
+      'app_qwen_vision_enabled_v1': '1',
       'deepseek_reasoning_effort': rawSettings['reasoning_effort'] ?? 'high',
       'creative_work_model': 'deepseek-flash', 'creative_work_effort': 'max',
       ...rawSettings,
@@ -122,7 +128,7 @@ class ModelNetworkConfigTransfer {
       }
     }
     for (final key in const <String>[
-      'jev_enabled', 'public_web_discovery_enabled',
+      'app_qwen_vision_enabled_v1', 'jev_enabled', 'public_web_discovery_enabled',
       'agnes_web_compaction_enabled', 'weather_enabled',
     ]) {
       final value = credentials[key] ?? settings[key];
@@ -153,6 +159,7 @@ class ModelNetworkConfigTransfer {
   }
 
   Future<void> _writeSecure(Map<String, String> values) async {
+    await secure.writeThirdChannel(ThirdChannelConfig.decode(values['third_connection']));
     final work = jsonDecode(values['work_connection']!) as Map;
     await secure.writeWorkConfiguration(independent: work['mode'] == 'independent',
       apiKey: work['key'] as String? ?? '', endpoint: work['endpoint'] as String? ?? '');

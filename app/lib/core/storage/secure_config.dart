@@ -3,6 +3,7 @@ import 'package:crypto/crypto.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 
 import '../ai/chat_api_provider.dart';
+import '../ai/third_channel_config.dart';
 
 class SecureConfig {
   SecureConfig._()
@@ -36,6 +37,19 @@ class SecureConfig {
   static const defaultAgnesModel = 'agnes-2.5-flash';
 
   final FlutterSecureStorage _storage;
+
+  // One atomic device-local connection, like the independent work profile.
+  // Backup snapshots never contain this JSON because it includes credentials.
+  static const _thirdChannelName = 'third_channel_connection_v1';
+  Future<ThirdChannelConfig> readThirdChannel() async =>
+      ThirdChannelConfig.decode(await _storage.read(key: _thirdChannelName));
+  Future<void> writeThirdChannel(ThirdChannelConfig config) async {
+    if (config.baseUrl.trim().isNotEmpty) config.endpoint;
+    if (config.enabled && !config.configured) {
+      throw const FormatException('启用第三通道前请填写网关地址和 Key');
+    }
+    await _storage.write(key: _thirdChannelName, value: config.encode());
+  }
 
   /// Explicit allowlist: never enumerate secure storage, which also owns keys,
   /// Cedar tokens and other credentials. Null preserves an unset/default value.

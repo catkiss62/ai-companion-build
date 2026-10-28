@@ -8,6 +8,7 @@ import '../../core/ai/generation_cancellation.dart';
 import '../../core/ai/jev_decision_gateway.dart';
 import '../../core/ai/model_profile.dart';
 import '../../core/database/brain_work_fence.dart';
+import '../../core/diagnostics/model_usage_telemetry.dart';
 import 'qq_circadian.dart';
 import 'qq_group_persona.dart';
 import 'qq_reply_tasks.dart';
@@ -50,7 +51,8 @@ class QqRuntime {
     JevDecisionGateway? groupDecisions,QqVoiceService? voiceService,this.privatePrompt,this.privateCurrent})
     :now=now??DateTime.now,configReader=configReader??QqPrivateConfig.read,
      optionsReader=optionsReader??QqOptions.read,
-     clientFactory=clientFactory??((abort)=>DeepSeekClient(abortWhen:abort)),vision=vision??QqVision(secure),
+     clientFactory=clientFactory??((abort)=>DeepSeekClient(abortWhen:abort,secureConfig:secure,
+       onUsage:(event)async {if(event.provider=='third_channel')await ModelUsageTelemetry.record(store.db,event);})),vision=vision??QqVision(secure,usageDb:store.db),
      stickers=stickerService??QqStickers(store.db),voice=voiceService??QqVoiceService(),echoes=QqEchoService(store),groupDecisions=groupDecisions??JevDecisionGateway(
        enabledReader:secure.readJevEnabled,keyReader:secure.readOpenRouterApiKey);
   final QqStore store;final QqApi api;final SecureConfig secure;final QqPrivateConfig config;
@@ -273,7 +275,7 @@ class QqRuntime {
           viewed++;
           try {
             final origins=QqMessageMaterial.fromRow(row).imageOrigins;
-            final result=await vision.observe(urls[ordinal],firstModel:model,fallback:o.visionFallback,current:current,firstChannel:b.group,
+            final result=await vision.observe(urls[ordinal],firstModel:model,fallback:false,current:current,firstChannel:true,
               cached:(fp)=>store.cachedImage(cid,fp),
               originalObserver:b.group && o.echoEnabled && ordinal<origins.length && origins[ordinal]=='outer'?
                 (bytes,mime,hash) async {echoes.remember(b,row,image,bytes,mime,hash,now().millisecondsSinceEpoch);}:null);
@@ -300,11 +302,18 @@ class QqRuntime {
           [cid,now().subtract(const Duration(minutes:10)).millisecondsSinceEpoch])).single;
         participation.addAll({'replies_last_10_minutes':recentTurns['replies']??0,
           'reference_only_not_a_limit':true});
+        final latestOwn=await sql.query('qq_archive',columns:['seq','observed_at'],
+          where:"conversation_id=? AND role='assistant'",whereArgs:[cid],orderBy:'seq DESC',limit:1);
+        if(latestOwn.isNotEmpty)participation.addAll({
+          'latest_delivered_assistant':latestOwn.single,
+          'inputs_received_before_latest_reply':b.rows.where((r)=>
+            (r['seq'] as int)<(latestOwn.single['seq'] as int)).map((r)=>r['seq']).toList(),
+          'temporal_notice':'较早到达的新输入不能被当成对她后来才发出的这条回答的接续；仍可回应更早的她或直接对她说话。'});
         status('checking_group');
         String decision;final cancellation=GenerationCancellationToken();_activeDecision=cancellation;
         try {decision=await judge.decide(model:model,card:'${QqArchiveReader.bound(o.core,1400)}\n只读节律：${rhythm.small}\nApp只读状态：${jsonEncode(await driveProjection())}\n她上次参与：${b.conversation['last_reply_at']}\n现在：${now().toIso8601String()}',
           messages:recent,mentioned:mentioned,newMessageSeqs:b.rows.map((r)=>r['seq'] as int).toList(),
-          newMessages:await reader.participationFocus(b.rows),
+          newMessages:await reader.participationFocus(b.rows,stamp:smallStamp),
           recentParticipation:participation,echoCandidate:echo?.hint??const {},pending:prior?.hint??const {},current:current,cancellationToken:cancellation);
         } catch(error) {if(!await current()) rethrow;await store.recordFailure(fence,phase,error,operation:b.id,conversation:b.cid);decision=mentioned?'uncertain':'watch';}
         finally {cancellation.cancel();if(identical(_activeDecision,cancellation)) _activeDecision=null;}

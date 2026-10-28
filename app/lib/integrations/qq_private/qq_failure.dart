@@ -5,6 +5,7 @@ import 'package:http/http.dart' as http;
 import 'package:qq_private_bridge/qq_private_bridge.dart';
 import '../../core/ai/deepseek_client.dart';
 import '../../core/ai/qwen_vision_client.dart';
+import '../../core/ai/third_channel_client.dart';
 
 class QqOperationFailure implements Exception {
   const QqOperationFailure(this.code);
@@ -38,6 +39,7 @@ abstract final class QqFailure {
     return '[图片：$reason；没有看到内容，不能据此判断图片损坏或用户网络有问题]';
   }
   static String code(Object error) {
+    if(error is ThirdChannelFailure)return 'third_${error.code}';
     if(error is QqOperationFailure)return error.code;
     if(error is DeepSeekException)return 'model_http_${error.statusCode}';
     if(error is TimeoutException)return 'timeout';

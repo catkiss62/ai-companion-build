@@ -58,7 +58,8 @@ for source, label in ((WEB, "autonomous search"), (TOOLS, "user-turn search")):
 
 require(CHAT, "context: 'chat_image'", "chat vision telemetry")
 require(ALBUM, "context: 'album_discovery'", "album telemetry")
-require(ALBUM, "primaryProvider: 'qwen_vision'", "Qwen remains album vision provider")
+require(ALBUM, "primaryProvider: 'vision_route'", "album uses the shared configured vision route")
+require(ALBUM, "RoutedVisionClient", "album has routed vision transport")
 assert "deepseek-v4-flash-vision" not in ALBUM.lower()
 assert "deepseek-v4-flash-vision" not in CHAT.lower()
 

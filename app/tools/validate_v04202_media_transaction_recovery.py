@@ -42,7 +42,7 @@ def main() -> None:
     require("quota_exhausted" in provider, "free-quota category missing")
     require("free tier only" in provider, "free-tier-only evidence is not classified")
     require("RegExp(r'\\blease\\b')" in telemetry, "lease classifier still accepts substrings")
-    require("免费额度已经用完" in vision_copy, "quota guidance missing")
+    require("可用额度已经用完" in vision_copy, "quota guidance missing")
     require("backup_export" in freeze_copy, "backup freeze purpose missing")
     require("她没有在换设备" in freeze_copy, "backup freeze still claims device transfer")
     require("freezePurpose" in home, "home freeze presentation is not purpose-aware")
