@@ -21,7 +21,7 @@ class SettingsPage extends StatelessWidget {
       _SettingsDomain(
         icon: Icons.hub_outlined,
         title: '模型与联网',
-        subtitle: 'DeepSeek、千问视觉、Tavily、Agnes 与公开网页发现',
+        subtitle: '聊天通道、图片识别、联网与公开网页发现',
         page: const ModelNetworkSettingsPage(),
       ),
       _SettingsDomain(

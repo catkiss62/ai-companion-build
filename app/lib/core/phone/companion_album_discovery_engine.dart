@@ -25,12 +25,13 @@ class CompanionAlbumDiscoveryEngine {
   CompanionAlbumDiscoveryEngine({
     required this.db,
     SecureConfig? config,
+    Future<bool> Function()? current,
     QwenVisionClient? vision,
     CompanionAlbumStorage? albumStorage,
     MessageAttachmentStorage? attachmentStorage,
     http.Client? client,
   })  : config = config ?? SecureConfig.instance,
-        vision = vision ?? RoutedVisionClient(secure: config, db: db),
+        vision = vision ?? RoutedVisionClient(secure: config, db: db, current: current),
         albumStorage = albumStorage ?? CompanionAlbumStorage(db: db),
         attachmentStorage = attachmentStorage ?? MessageAttachmentStorage(db: db),
         _client = client ?? http.Client();

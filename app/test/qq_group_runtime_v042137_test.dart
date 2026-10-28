@@ -437,7 +437,7 @@ void main(){
     test('real ${group?'group':'private'} image ingress selects its isolated vision route',() async {
       await runtime.accept(event('image-route','看看图片',group:group,sender:group?'peer':'owner',image:true),group:group);
       await runtime.process(group?cid():cid('owner',false));
-      expect(vision.calls,1);expect(vision.lastFirstChannel,group);
+      expect(vision.calls,1);expect(vision.lastFirstChannel,true);
     });
   }
   test('group sticker-only result uploads one selected image and sends no empty text or metadata',()async{

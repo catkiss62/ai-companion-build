@@ -1463,7 +1463,8 @@ ${CedarToyClient.redactSecrets(outcome.text)}''',
         promptData: '公开搜索已执行，但没有带安全图片地址的候选；本轮没有发图。',
       );
     }
-    final service = AssistantImageAttachmentService(config: secureConfig,
+    final service = AssistantImageAttachmentService(config: secureConfig, db: db,
+      current: () async => !(cancellationToken?.isCancelled ?? false),
       attachmentStorage: MessageAttachmentStorage(db: db));
     try {
       for (final candidate in candidates) {
@@ -1561,7 +1562,7 @@ ${CedarToyClient.redactSecrets(outcome.text)}''',
         errorCode: 'ambiguous_album_match',
       );
     }
-    final service = AssistantImageAttachmentService(config: secureConfig,
+    final service = AssistantImageAttachmentService(config: secureConfig, db: db,
       attachmentStorage: MessageAttachmentStorage(db: db));
     try {
       final prepared = await service.prepareAlbumItem(
@@ -1944,7 +1945,8 @@ ${_phoneRecordContract}
         promptData: '公开搜索已执行，但候选没有可下载图片；没有识图或保存。',
       );
     }
-    final engine = CompanionAlbumDiscoveryEngine(db: db);
+    final engine = CompanionAlbumDiscoveryEngine(db: db, config: secureConfig,
+      current: () async => !(cancellationToken?.isCancelled ?? false));
     var semanticMismatchCount = 0;
     try {
       for (final candidate in candidates) {

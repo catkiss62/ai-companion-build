@@ -184,6 +184,7 @@ class DeepSeekClient {
     String usageLane = 'final_reply', String usageExecutionId = '',
   }) async {
     route.usedThirdChannel = false;
+    route.thirdChannelIncomplete = false;
     if (!route.thirdChannelAvailable) return null;
     final configStore = secure ?? _secureConfig;
     ThirdChannelConfig config;
@@ -209,6 +210,7 @@ class DeepSeekClient {
         toolChoice: toolChoice, maxTokens: maxTokens ?? 8192, effort: effort,
         cancellation: cancellationToken, current: valid);
       route.usedThirdChannel = true;
+      route.thirdChannelIncomplete = result.incomplete;
       return result;
     } on GenerationCancelledByUserException { rethrow; }
     on GenerationSuspendedByRuntimeGateException { rethrow; }

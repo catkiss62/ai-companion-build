@@ -35,7 +35,7 @@ void main() {
       .map((line) => jsonDecode(line) as Map).toList();
     final delivered = context.firstWhere((r) => r['seqs'] is List && (r['seqs'] as List).contains(later));
     expect(delivered['already_sent_after_pending_input'], true);
-    expect(delivered['first_observed_at'], 150);
+    expect(delivered['time'], 150);
     expect(jsonEncode(context), isNot(contains('不能混入本批的新发言')));
   });
   test('same-group confirmed assistant quote carries source evidence and deletion invalidates it', () async {

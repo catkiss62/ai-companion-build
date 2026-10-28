@@ -1166,13 +1166,8 @@ class DurableGenerationRunner {
             usageLane: 'final_reply',
             tools: tools,
           );
-          if (result.content.isNotEmpty &&
-              (FinalReplyFailurePolicy.isIncompleteFinishReason(
-                    result.finishReason,
-                  ) ||
-                  FinalReplyFailurePolicy.hasStrongIncompleteStructure(
-                    result.content,
-                  ))) {
+          if (FinalReplyFailurePolicy.isIncompleteFinishReason(result.finishReason) ||
+              result.content.isNotEmpty && FinalReplyFailurePolicy.hasStrongIncompleteStructure(result.content)) {
             throw FinalReplyIncompleteException(
               reasoning: result.reasoning,
               content: result.content,
@@ -1247,6 +1242,10 @@ class DurableGenerationRunner {
               );
               effectiveCancellation.throwIfCancelled();
               if (takeover.requested) break;
+              if (finalRoute.thirdChannelIncomplete) {
+                throw FinalReplyIncompleteException(reasoning: result.reasoning,
+                  content: result.content, finishReason: result.finishReason);
+              }
               if (result.content.isEmpty && result.toolCalls.isEmpty) {
                 throw const EmptyFinalReplyException();
               }

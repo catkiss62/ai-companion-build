@@ -6,6 +6,7 @@ import 'package:http/http.dart' as http;
 import 'package:path/path.dart' as p;
 
 import '../ai/qwen_vision_client.dart';
+import '../database/app_database.dart';
 import '../models/companion_album.dart';
 import '../models/message_attachment.dart';
 import '../models/public_web_candidate.dart';
@@ -32,18 +33,23 @@ class PreparedAssistantImage {
 class AssistantImageAttachmentService {
   AssistantImageAttachmentService({
     SecureConfig? config,
+    AppDatabase? db,
+    this.current,
     MessageAttachmentStorage? attachmentStorage,
     CompanionAlbumStorage? albumStorage,
     QwenVisionClient? vision,
     http.Client? client,
   })  : config = config ?? SecureConfig.instance,
+        db = db ?? AppDatabase.instance,
         attachmentStorage =
             attachmentStorage ?? MessageAttachmentStorage(),
         albumStorage = albumStorage ?? CompanionAlbumStorage(),
-        vision = vision ?? RoutedVisionClient(secure: config),
+        vision = vision ?? RoutedVisionClient(secure: config, db: db, current: current),
         _client = client ?? http.Client();
 
   final SecureConfig config;
+  final AppDatabase db;
+  final Future<bool> Function()? current;
   final MessageAttachmentStorage attachmentStorage;
   final CompanionAlbumStorage albumStorage;
   final QwenVisionClient vision;
@@ -56,7 +62,9 @@ class AssistantImageAttachmentService {
     PendingMediaOwner? pendingOwner,
   }) async {
     final apiKey = (await config.readVisionApiKey())?.trim() ?? '';
-    if (!await RoutedVisionClient.configured(config)) throw const VisionProviderNotConfigured();
+    if (!await RoutedVisionClient.configured(config, db: db)) throw const VisionProviderNotConfigured();
+    if (vision is RoutedVisionClient) (vision as RoutedVisionClient).sourceGuard = () async =>
+      (current == null || await current!()) && (pendingOwner == null || await pendingOwner.matches(await db.database));
     File? downloaded;
     PreparedImageAttachment? draft;
     try {

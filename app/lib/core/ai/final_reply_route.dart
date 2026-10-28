@@ -6,6 +6,7 @@ class FinalReplyRoute {
   Object? _failure;
   Object? _thirdFailure;
   bool usedThirdChannel = false;
+  bool thirdChannelIncomplete = false;
   bool get thirdChannelAvailable => _thirdFailure == null;
   Object? get thirdChannelFailure => _thirdFailure;
   void recordThirdFailure(Object error) { _thirdFailure = error; usedThirdChannel = false; }

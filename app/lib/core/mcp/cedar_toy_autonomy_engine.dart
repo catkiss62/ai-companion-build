@@ -2695,6 +2695,7 @@ game=${session.gameId}
           await db.setSetting('cedar_room_last_final_provider_notice', '');
           return text;
         } on FormatException catch (error) {
+          if (finalRoute.thirdChannelIncomplete) rethrow;
           if (error.message != 'incomplete_room_dialogue') rethrow;
           final text = await request(gemini: true, correction: true);
           await db.setSetting('cedar_room_last_final_provider_notice', '');
@@ -2709,6 +2710,7 @@ game=${session.gameId}
     } on GenerationSuspendedByRuntimeGateException {
       rethrow;
     } catch (error) {
+      if (finalRoute.thirdChannelIncomplete) return '';
       if (finalProvider.isGeminiRelay) {
         finalRoute.recordFailure(error);
         await db.setSetting('cedar_room_last_final_provider_notice',

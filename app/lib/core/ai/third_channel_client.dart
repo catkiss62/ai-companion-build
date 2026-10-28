@@ -277,7 +277,8 @@ class _ThirdCollector {
         tools.add({'id': call['id'], 'type': 'function', 'function': {'name': call['name'], 'arguments': call['arguments']}});
       }
     } else if (calls.isNotEmpty) { throw const ThirdChannelFailure('tool_finish_mismatch'); }
-    if (content.toString().trim().isEmpty && tools.isEmpty) throw const ThirdChannelFailure('empty');
+    if (content.toString().trim().isEmpty && tools.isEmpty &&
+        finishReason != 'length' && finishReason != 'content_filter') throw const ThirdChannelFailure('empty');
     if (structured && jsonDecode(content.toString()) is! Map) throw const ThirdChannelFailure('structured_shape');
     return ThirdChannelResponse(content: content.toString(), reasoning: reasoning.toString(),
       finishReason: finishReason, toolCalls: tools, usage: usage!);

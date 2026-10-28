@@ -16,6 +16,7 @@ import 'package:ai_companion_localfirst/core/ai/third_channel_client.dart';
 import 'package:ai_companion_localfirst/core/ai/third_channel_config.dart';
 import 'package:ai_companion_localfirst/core/database/app_database.dart';
 import 'package:ai_companion_localfirst/core/diagnostics/model_usage_telemetry.dart';
+import 'package:ai_companion_localfirst/core/desire/proactive_final_reply_retry.dart';
 import 'package:ai_companion_localfirst/core/storage/secure_config.dart';
 import 'package:ai_companion_localfirst/integrations/qq_private/qq_reply_generator.dart';
 
@@ -145,6 +146,16 @@ void main() {
     final lane = (audit['byLane'] as Map)['final_reply'] as Map;
     expect(lane, {'calls': 1, 'inputTokens': 11, 'visibleOutputTokens': 3, 'reasoningTokens': 7, 'totalTokens': 21});
     expect(audit['priceEstimated'], false);
+  });
+  test('proactive terminal filtering is not retried through the old second/first loop', () async {
+    final route = FinalReplyRoute(secondChannelEnabled: true);
+    var calls = 0, fallback = 0;
+    final result = await ProactiveFinalReplyRetry.generate<String>(route: route, secondChannelConfigured: true,
+      canContinue: () async => true, request: ({required bool secondChannel}) async {
+        calls++; route.thirdChannelIncomplete = true; return '被截断的候选';
+      }, validateSecondChannel: (_) => throw StateError('must not submit'),
+      onFallback: (_, __) async { fallback++; });
+    expect(result, isNull); expect(calls, 1); expect(fallback, 0);
   });
   for (final finish in ['length', 'content_filter']) {
     test('$finish returns an incomplete body once, structured output fails', () async {
@@ -317,6 +328,21 @@ void main() {
       await secure.writeThirdChannel(config);
       final vision = RoutedVisionClient(secure: secure, db: db, current: () async => valid,
         clientFactory: () => MockClient((_) async { legacy++; return observed('不应调用'); }));
+      try {
+        await expectLater(vision.observeBytes(apiKey: '', endpoint: 'http://unused.invalid', model: '', imageBytes: Uint8List.fromList([1])),
+          throwsA(isA<GenerationSuspendedByRuntimeGateException>())); expect(legacy, 0);
+      } finally { vision.close(); }
+    });
+    test('completed restore with work allowed cannot authorize a fallback from the old vision request', () async {
+      await secure.writeThirdChannel(const ThirdChannelConfig(enabled: true, baseUrl: 'http://gateway.invalid/v1', apiKey: 'third'));
+      var legacy = 0;
+      final vision = RoutedVisionClient(secure: secure, db: db,
+        thirdFactory: () => ThirdChannelClient(clientFactory: () => MockClient((request) async {
+          if (request.url.path == '/health') return http.Response('{"status":"ok"}', 200);
+          await (await db.database).rawInsert('INSERT OR REPLACE INTO settings(key,value) VALUES(?,?)', ['runtime_state_epoch_v1', 'new-restored-epoch']);
+          expect(await db.brainWorkAllowed(), true);
+          return http.Response('{}', 503);
+        })), clientFactory: () => MockClient((_) async { legacy++; return observed('不应调用'); }));
       try {
         await expectLater(vision.observeBytes(apiKey: '', endpoint: 'http://unused.invalid', model: '', imageBytes: Uint8List.fromList([1])),
           throwsA(isA<GenerationSuspendedByRuntimeGateException>())); expect(legacy, 0);

@@ -59,6 +59,23 @@ class VisionRoutingTransport extends http.BaseClient {
 
   @override Future<http.StreamedResponse> send(http.BaseRequest request) async {
     await _check();
+    final ownerGuard = current;
+    final fence = await db?.captureBrainWorkFence();
+    var sourceLost = false;
+    Future<bool> sourceCurrent() async {
+      if (sourceLost) return false;
+      var valid = false;
+      try {
+        valid = !_closed && (ownerGuard == null || await ownerGuard()) &&
+          (db == null || fence != null && await db!.brainWorkFenceCurrent(fence));
+      } catch (_) { /* Failure to verify ownership is not provider failure. */ }
+      if (!valid) sourceLost = true;
+      return valid;
+    }
+    Future<void> checkSource() async {
+      if (!await sourceCurrent()) throw const GenerationSuspendedByRuntimeGateException();
+    }
+    await checkSource();
     if (request is! http.Request) throw const FormatException('vision_request_shape');
     final body = Map<String, Object?>.from(jsonDecode(request.body) as Map);
     ThirdChannelConfig config;
@@ -81,27 +98,31 @@ class VisionRoutingTransport extends http.BaseClient {
         final result = await third.complete(config: config, messages: messages, stream: false,
           maxTokens: 4096, responseFormat: {'type': 'json_schema', 'json_schema': {
             'name': 'image_observation', 'strict': true, 'schema': observationSchema}},
-          current: () async => await _valid() && (await secure.readThirdChannel()).encode() == config.encode());
-        await _check();
+          current: () async => await sourceCurrent() && (await secure.readThirdChannel()).encode() == config.encode());
+        await checkSource();
         _validate(jsonEncode(result.completion()));
         return _response(jsonEncode({...result.completion(), '_client_provider': 'third_channel'}), 200);
       } on GenerationCancelledByUserException { rethrow; }
       on GenerationSuspendedByRuntimeGateException { rethrow; }
-      catch (_) { await _check(); }
+      catch (_) { await checkSource(); }
       finally { _third.remove(third); third.close(); }
     }
     final useQwen = !qq && await (db ?? AppDatabase.instance).getSetting(RoutedVisionClient.qwenEnabledKey) != '0';
     if (useQwen) {
-      try { return await _legacy(body, first: false); }
+      try { return await _legacy(body, first: false, sourceCurrent: sourceCurrent); }
       on GenerationSuspendedByRuntimeGateException { rethrow; }
       on GenerationCancelledByUserException { rethrow; }
-      catch (_) { await _check(); }
+      catch (_) { await checkSource(); }
     }
-    return _legacy(body, first: true);
+    return _legacy(body, first: true, sourceCurrent: sourceCurrent);
   }
 
-  Future<http.StreamedResponse> _legacy(Map<String, Object?> original, {required bool first}) async {
-    await _check();
+  Future<http.StreamedResponse> _legacy(Map<String, Object?> original,
+      {required bool first, required Future<bool> Function() sourceCurrent}) async {
+    Future<void> check() async {
+      if (!await sourceCurrent()) throw const GenerationSuspendedByRuntimeGateException();
+    }
+    await check();
     final key = first ? await secure.readApiKey() : await secure.readVisionApiKey();
     if (key == null || key.trim().isEmpty) throw const QwenVisionException(0, '未配置可用的图片识别接口');
     final endpoint = first ? await secure.readEndpoint() : await secure.readVisionEndpoint();
@@ -112,13 +133,13 @@ class VisionRoutingTransport extends http.BaseClient {
     var checking = false, invalid = false;
     final timer = Timer.periodic(const Duration(milliseconds: 200), (_) async {
       if (checking) return; checking = true;
-      try { if (!await _valid()) { invalid = true; client.close(); } } finally { checking = false; }
+      try { if (!await sourceCurrent()) { invalid = true; client.close(); } } finally { checking = false; }
     });
     try {
       final response = await client.post(Uri.parse(endpoint), headers: {
         'Content-Type': 'application/json', 'Authorization': 'Bearer ${key.trim()}'}, body: jsonEncode(body))
         .timeout(const Duration(seconds: 120));
-      await _check();
+      await check();
       if (invalid) throw const GenerationSuspendedByRuntimeGateException();
       if (response.statusCode < 200 || response.statusCode >= 300) {
         if (first) return _response(response.body, response.statusCode);
@@ -127,7 +148,7 @@ class VisionRoutingTransport extends http.BaseClient {
       _validate(response.body);
       return _response(jsonEncode({...Map<String, Object?>.from(jsonDecode(response.body) as Map),
         '_client_provider': first ? 'deepseek' : 'qwen_vision'}), response.statusCode);
-    } catch (_) { await _check(); rethrow; }
+    } catch (_) { await check(); rethrow; }
     finally { timer.cancel(); _active.remove(client); client.close(); }
   }
 

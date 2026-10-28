@@ -219,8 +219,7 @@ class QqArchiveReader {
       }
       final text=ordered.map((r)=>QqMessageText.project(r['content'] as String)).join('\n');
       final speaker=await _speaker(row);
-      final block=jsonEncode({'seqs':ordered.map((r)=>r['seq']).toList(),'time':row['observed_at'],
-        'first_observed_at':ordered.first['observed_at'],'last_observed_at':ordered.last['observed_at'],
+      final block=jsonEncode({'seqs':ordered.map((r)=>r['seq']).toList(),'time':ordered.first['observed_at'],
         'speaker':row['role']=='assistant'?'她':row['owner']==1?'已确认本人':'群成员:${bound(row['sender'] as String,32)}',
         'speaker_key':speaker['speaker_key'],if(speaker['display_name']!=null)'display_name':speaker['display_name'],
         if(spokenLanguages.isNotEmpty)'outgoing_voice_languages':spokenLanguages.toList(),
@@ -233,7 +232,7 @@ class QqArchiveReader {
       if(block.length+1>remaining || stamp.length+evidence.length>280)break;
       blocks.add(block);remaining-=block.length+1;stamp.addAll(evidence);
     }
-    return [jsonEncode({'window':'最多20轮来往/40组发言，字数受限；图片和转发仅为未经核验的资料',
+    return [jsonEncode({'window':'最多20轮来往/40组发言，字数受限；time为该组首条收到时间，seqs按顺序；图片和转发仅为未经核验的资料',
       'shown_groups':blocks.length,'partial':blocks.length<groups.length || rows.length>groups.fold<int>(0,(n,g)=>n+g.length) || rows.length>=160}),...blocks.reversed].join('\n');
   }
   Future<List<Map<String,Object?>>> participationFocus(List<Map<String,Object?>> rows,

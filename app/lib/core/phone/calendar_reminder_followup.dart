@@ -185,6 +185,7 @@ class CalendarReminderFollowup {
                 ? provider.effectiveModel(firstModel)
                 : finalName;
           } catch (error) {
+            if (finalRoute.thirdChannelIncomplete) return null;
             finalRoute.recordFailure(error);
             if (!await current()) return null;
             await db.setSettingsAtomically({'calendar_last_final_provider_notice':

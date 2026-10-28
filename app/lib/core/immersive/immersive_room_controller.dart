@@ -549,6 +549,7 @@ class ImmersiveRoomController extends ChangeNotifier {
           }
           return finishReason;
         } catch (error) {
+          if (error is _ImmersiveIncompleteReply) rethrow;
           if (error is GenerationCancelledByUserException) rethrow;
           if (streamingContent.trim().isNotEmpty) {
             throw _ImmersiveIncompleteReply(
@@ -653,6 +654,10 @@ class ImmersiveRoomController extends ChangeNotifier {
       }
     }
     _flushStreamNotify();
+    if (finalReplyRoute?.thirdChannelIncomplete == true) {
+      throw _ImmersiveIncompleteReply(content: streamingContent,
+        reasoning: _allStreamingReasoning, finishReason: finishReason);
+    }
     if (!sawTerminalSignal) {
       throw GenerationStreamIncompleteException(
         reasoning: _allStreamingReasoning,

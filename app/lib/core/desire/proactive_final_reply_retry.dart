@@ -52,6 +52,7 @@ class ProactiveFinalReplyRetry {
             attempts++;
             candidate = await request(secondChannel: true);
             if (candidate == null) return null;
+            if (route.thirdChannelIncomplete) return null;
             validateSecondChannel(candidate);
             accepted = true;
           } on GenerationSuspendedByRuntimeGateException {
@@ -85,6 +86,7 @@ class ProactiveFinalReplyRetry {
     // or lease owner. Recheck immediately before opening the fallback request.
     if (!await canContinue()) return null;
     final candidate = await request(secondChannel: false);
+    if (route.thirdChannelIncomplete) return null;
     if (candidate == null || !await canContinue()) return null;
     return ProactiveReplyResult(
       candidate: candidate,
