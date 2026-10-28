@@ -29,8 +29,8 @@ void main() {
         final body=jsonDecode(r.body) as Map;sent.add(body);
         const usage={'prompt_tokens':3,'completion_tokens':2,'completion_tokens_details':{'reasoning_tokens':4}};
         final content=stream?'正常回答':'{"summary":"实际图片"}';
-        if(stream)return http.Response('data:${jsonEncode({'choices':[{'delta':{'content':content},'finish_reason':'stop'}],'usage':usage})}\n\ndata:[DONE]\n\n',200);
-        return http.Response(jsonEncode({'choices':[{'message':{'content':content},'finish_reason':'stop'}],'usage':usage}),200);
+        if(stream)return http.Response('data:${jsonEncode({'choices':[{'delta':{'content':content},'finish_reason':'stop'}],'usage':usage})}\n\ndata:[DONE]\n\n',200,headers:{'content-type':'text/event-stream; charset=utf-8'});
+        return http.Response(jsonEncode({'choices':[{'message':{'content':content},'finish_reason':'stop'}],'usage':usage}),200,headers:{'content-type':'application/json; charset=utf-8'});
       }));
       try {final result=await client.complete(config:ThirdChannelConfig(baseUrl:'http://fixture.invalid/v1',apiKey:'fixture',effort:effort),
         messages:[],stream:stream,responseFormat:stream?null:{'type':'json_object'});
@@ -46,7 +46,7 @@ void main() {
       if(r.url.path=='/health')return http.Response('{"status":"ok"}',200);
       efforts.add((jsonDecode(r.body) as Map)['reasoning_effort'] as String);
       return http.Response('data:${jsonEncode({'choices':[{'delta':{'content':'实际第三回答'},'finish_reason':'stop'}],
-        'usage':{'prompt_tokens':3,'completion_tokens':2}})}\n\ndata:[DONE]\n\n',200);
+        'usage':{'prompt_tokens':3,'completion_tokens':2}})}\n\ndata:[DONE]\n\n',200,headers:{'content-type':'text/event-stream; charset=utf-8'});
     }));
     final client=DeepSeekClient(secureConfig:secure,thirdClientFactory:third);
     try {

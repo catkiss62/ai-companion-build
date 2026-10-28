@@ -25,7 +25,7 @@ class _Paths extends PathProviderPlatform {
   @override Future<String?> getTemporaryPath()async=>path;
 }
 class _Game extends CedarToyClient {
-  _Game():super(token:'fixture');int calls=0;bool photo=true;
+  _Game():super(token:'ctai_v1_synthetic');int calls=0;bool photo=true;
   @override Future<McpToolOutcome> play(String game,String action,Map<String,Object?> params,{GenerationCancellationToken? cancellationToken})async {
     calls++;
     final state={'ok':true,'status':'playing','room_id':'ROOM150','revision':2,'your_turn':false,

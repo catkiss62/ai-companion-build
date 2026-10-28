@@ -57,10 +57,9 @@ void main() {
       expect((jsonDecode(row['source_stamp'] as String) as List).length,lessThanOrEqualTo(160));
     }
     final backup=await db.exportAll();QqArchiveSchema.validate(Map<String,dynamic>.from(backup['tables'] as Map),version:67);
-    final restored=await AppDatabase.createForTesting(databaseFactoryFfi);
-    try {await restored.importAll(Map<String,dynamic>.from(backup));
-      expect((await (await restored.database).query('qq_reply_tasks')).every((r)=>r['valid']==0),true);
-    } finally {await restored.closeForTesting();}
+    await db.closeForTesting();db=await AppDatabase.createForTesting(databaseFactoryFfi);
+    await db.importAll(Map<String,dynamic>.from(backup));
+    expect((await (await db.database).query('qq_reply_tasks')).every((r)=>r['valid']==0),true);
   });
   test('private failures are addressed and have bounded consumable continuation state',() async {
     final first=await claim(await add('private-root',private:true),private:true);await store.mark(first,'failed');
@@ -88,9 +87,22 @@ void main() {
       final pending=(await tasks.pending(next,clock,'p'))!;
       expect(api.calls,1);expect(pending.hint['all_parts_confirmed'],chunks.length==1);
       expect(pending.hint['previous_request_unfinished'],chunks.length!=1);
-      expect(pending.hint['confirmed_delivered'],['一'==chunks.first?'一':chunks.first]);
+      expect(pending.hint['confirmed_delivered'],[chunks.first]);
       expect((pending.hint['confirmed_parts'] as List).single['platform_id'],'real-1');
       expect(pending.draft,isNull);
     });
   }
+  test('unknown and confirmed predecessor facts survive another generation failure',() async {
+    final first=await claim(await add('root-unknown',mention:true));
+    await tasks.saveDraft(first,{'raw':'不能重发的旧正文'});await tasks.plan(first,2);
+    store.received(first,1,platformId:'confirmed-first');await tasks.confirmed(first,1,'已经送达的一段',false,'');
+    await store.mark(first,'send_uncertain');clock+=1000;
+    final next=await claim(await add('retry'));
+    expect(await tasks.consume(next,(await tasks.pending(next,clock,'p'))!,cancel:false),true);
+    await tasks.saveDraft(next,{'raw':'新的草稿'});await store.mark(next,'failed');clock+=1000;
+    final last=await claim(await add('retry-again')),pending=(await tasks.pending(last,clock,'p'))!;
+    expect(pending.hint['delivery_unknown'],true);expect(pending.hint['confirmed_delivered'],['已经送达的一段']);
+    expect(pending.draft,isNull);expect(pending.requests,contains('问题root-unknown'));
+  });
+
 }
