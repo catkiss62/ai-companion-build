@@ -1,6 +1,27 @@
 # QQ、游戏图片与网页分享恢复 · v0.42.148+392
 
-2026-10-28（Asia/Shanghai）。用户已明确授权实施原QQ/游戏方案及新增网页分享修补。基线远端1eed864，运行+391；本轮schema67。**状态：实现与验证进行中，尚未交付APK，不能借用+391测试数字。**
+2026-10-28（Asia/Shanghai）。用户已明确授权实施原QQ/游戏方案及新增网页分享修补。基线远端1eed864，运行+391；本轮schema67。**状态：CI PASSED / APK READY / TRUE DEVICE PENDING。最终交付记录见下；先前检查点保留为历史。**
+
+## 最终交付 · 2026-10-28
+
+**CI PASSED / APK READY / TRUE DEVICE PENDING。** 运行源码 `ed798c02894e4e1b2b606df5965f0cdf3abd7b09`，tree `86130d7437b1e35225405966ad704e53c4527efc`。本轮QQ、游戏图片与网页恢复修改完成；以下成绩来自这一份源码，早期失败/取消候选仅保留为过程记录。
+
+| 验证 | 本轮结果 |
+| --- | --- |
+| [完整CI 40687643403](https://github.com/catkiss62/ai-companion-build/actions/runs/40687643403) | success；154/154源码门、Kotlin通过 |
+| Android 15原生 | 当前候选54项通过 |
+| [专项CI 40687643615](https://github.com/catkiss62/ai-companion-build/actions/runs/40687643615) | success；349专项、1307扩展分别通过 |
+| 全量Flutter | 3054项通过 |
+| 独立存档/创作恢复复验 | 171项通过，包含真实ZIP事件媒体恢复 |
+| Dart分析 | 0error / 996非fatal；不是零告警 |
+
+各组存在重叠，不能相加为独立测试总数。真实QQ与游戏/模型服务未因本次测试产生实际发言、付费调用或远端写操作；语义参与、实际平台事件/回执及手机性能仍待安装观察。全量消息的强提及只使用已验证的同群自身身份，没有映射时沿用语义接话。
+
+[下载原签名+392 APK](https://github.com/catkiss62/ai-companion-build/actions/runs/40687643403/artifacts/12816534851)。包名 `com.aicompanion.localfirst`，实际版本 `0.42.148+392`，schema67，arm64。签名证书SHA-256 `305eb3d80983b963c64818ddf1ad561f279de6d47b3ed2c781ada448c7c25148`，已由成品apksigner校验，与既有安装身份一致。
+
+APK本体 **739437522 bytes**，SHA-256 `647c11e3c0cc1fe2d747f0983e30ec0709c2cefdce9ab44fcc90ccc27b10e7c6`；与未发布Draft **426636318** / asset **684999011** 上传digest一致，Draft target也已更新为运行源码ed798c0。Actions artifact为 **12816534851**，ZIP大小732245766 bytes，不把ZIP摘要或大小当APK摘要/大小。资源完整性、实际包名/版本、原签名和上传均通过，只有这一份+392成品APK。
+
+接下来只以文档skip ci登记交付，不重建相同运行源码。七类全面检查未扩展；真实使用表现待验。
 
 ## 已接入的修改
 
