@@ -364,10 +364,11 @@ void main(){
     await accept('two','复读');await runtime.process(cid());expect(requests.length,2);
     expect((await (await db.database).query('qq_archive')).length,2);
   });
-  test('full and @ variants promote only unchecked input without a second message',()async{
+  test('full and @ variants keep one source and one confirmed response',()async{
     await accept('same','你好');await accept('same','你好',mention:true);
     expect((await store.pending(cid())).length,1);expect((await store.pending(cid())).single['mentioned'],1);
-    await runtime.process(cid());await accept('same','你好',mention:true);await runtime.process(cid());expect(requests.length,1);
+    await runtime.process(cid());expect(api.sent,hasLength(1));final before=requests.length;
+    await accept('same','你好',mention:true);await runtime.process(cid());expect(requests.length,before);expect(api.sent,hasLength(1));
   });
   test('input arriving during the decision remains pending for the next batch',()async{
     final entered=Completer<void>(),release=Completer<void>();

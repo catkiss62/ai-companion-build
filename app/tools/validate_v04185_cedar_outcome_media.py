@@ -45,11 +45,16 @@ assert "public_web" not in media_bridge, "Cedar media bridge must not invoke pub
 assert "RegExp(r'https://" not in media_bridge, "must not scrape prose URLs"
 require(
     "lib/core/agent/agent_tool_runner.dart",
+    "CedarOutcomeAttachments.collect",
+    "attachMediaToEvent",
+    "CEDAR IMAGE ATTACHMENT · TERMINAL COMMIT PENDING",
+)
+require(
+    "lib/core/mcp/cedar_outcome_attachments.dart",
     "SafePublicImageDownloader.download",
     "assistant_mcp_image:cedar:",
     "cedar_protocol_media",
-    "attachMediaToEvent",
-    "CEDAR IMAGE ATTACHMENT · TERMINAL COMMIT PENDING",
+    "cancellationToken:cancellationToken",
 )
 require(
     "lib/core/mcp/cedar_toy_activity.dart",
@@ -61,7 +66,9 @@ require(
 require(
     "lib/features/chat/cedar_toy_activity_window.dart",
     "session.events.last.imageReference",
-    "MessageAttachmentStorage().fileFor(event.imageReference)",
+    "_activityImageFiles",
+    "CedarMediaSchema.table",
+    "MessageAttachmentStorage().fileFor",
     "Image.file",
 )
 require(

@@ -1,3 +1,5 @@
+import '../../core/database/cedar_media_schema.dart';
+import '../../core/storage/media_blob_storage.dart';
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
@@ -581,21 +583,30 @@ class _CedarToyActivityWindowState extends State<CedarToyActivityWindow> {
     );
   }
 
+  Future<List<File>> _activityImageFiles(CedarGameEvent event) async {
+    final refs=<String>{};final session=_session;
+    if(session!=null) {
+      final rows=await (await store.db.database).query(CedarMediaSchema.table,
+        where:'game_id=? AND session_id=? AND event_id=?',whereArgs:[session.gameId,session.id,event.id],orderBy:'ordinal',limit:4);
+      for(final row in rows) {
+        final blob=await store.db.mediaBlobById(row['blob_id'] as String);
+        if(blob!=null)refs.add(MediaBlobStorage.toReferencePath(blob.originalPath));
+      }
+    }
+    if(refs.isEmpty && event.imageReference.isNotEmpty)refs.add(event.imageReference);
+    final files=<File>[];
+    for(final ref in refs) {final file=await MessageAttachmentStorage().fileFor(ref);if(await file.exists())files.add(file);}
+    return files;
+  }
+
   Widget _activityImage(CedarGameEvent event) {
     if (event.imageReference.isNotEmpty) {
-      return FutureBuilder<File>(
-        future: MessageAttachmentStorage().fileFor(event.imageReference),
-        builder: (context, snapshot) {
-          final file = snapshot.data;
-          if (file == null) return const SizedBox.shrink();
-          return ClipRRect(
-            borderRadius: BorderRadius.circular(12),
-            child: Image.file(
-              file,
-              fit: BoxFit.contain,
-              errorBuilder: (_, _, _) => const SizedBox.shrink(),
-            ),
-          );
+      return FutureBuilder<List<File>>(
+        future:_activityImageFiles(event),builder:(context,snapshot) {
+          final files=snapshot.data??const <File>[];
+          return Column(children:[for(final file in files)Padding(padding:const EdgeInsets.only(bottom:6),
+            child:ClipRRect(borderRadius:BorderRadius.circular(12),child:Image.file(file,fit:BoxFit.contain,
+              errorBuilder:(_,_,_)=>const SizedBox.shrink())))]);
         },
       );
     }

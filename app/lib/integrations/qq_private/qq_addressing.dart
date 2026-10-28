@@ -12,7 +12,7 @@ class QqAddressing {
   final QqApi api;
   static final _at = RegExp(r'<@!?(\w[\w-]{0,127})>');
   Future<({bool mentioned,bool selfEcho})> inspect(Map<String,dynamic> event,BrainWorkFence fence,
-      {required String scope,required String group}) async {
+      {required String scope,required String group,String? outerText}) async {
     final cid=QqStore.conversationId(scope,'group',group);
     final id=event['id'];final author=event['author'];
     final sender=author is Map?author['member_openid']:null;
@@ -30,7 +30,7 @@ class QqAddressing {
     if(event['_trusted_event_type']=='GROUP_AT_MESSAGE_CREATE')return (mentioned:true,selfEcho:false);
     if(event['_trusted_event_type']!='GROUP_MESSAGE_CREATE')return (mentioned:false,selfEcho:false);
     String self='';try {self=jsonDecode(await store.db.getSetting(key)??'""') as String;}catch(_){}
-    final content=event['content'] is String?event['content'] as String:'';
+    final content=outerText??(event['content'] is String?event['content'] as String:'');
     final tokens=_at.allMatches(content).map((m)=>m.group(1)!).toSet();
     final mentions=event['mentions'];
     final matched=self.isNotEmpty && tokens.contains(self) && mentions is List && mentions.whereType<Map>().any((m)=>

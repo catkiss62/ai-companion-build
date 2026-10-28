@@ -50,9 +50,13 @@ require(
 require(
     "lib/core/agent/agent_tool_runner.dart",
     "cedar_invitation_required",
+    "CedarOutcomeAttachments.collect",
+    "cedar_guide_too_long",
+)
+require(
+    "lib/core/mcp/cedar_outcome_attachments.dart",
     "prepareImageBytes",
     "assistant_mcp_image:cedar:",
-    "cedar_guide_too_long",
 )
 require(
     "lib/core/desire/proactive_engine.dart",

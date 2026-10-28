@@ -81,7 +81,7 @@ void main() {
     test('Agnes $kind failure remains a provider code rather than page garbling',() async {
       final id=await seed();final page=(await db.publicWebCandidateForRefresh(id))!;
       final client=MockClient((_) async => kind=='http'?http.Response('{}',503):http.Response(jsonEncode({'choices':[{
-        'finish_reason':kind=='length'?'length':'stop','message':{'content':kind=='json'?'{}':'{"reader_summary":"片段"}'}}]}),200));
+        'finish_reason':kind=='length'?'length':'stop','message':{'content':kind=='json'?'{}':'{"reader_summary":"片段"}'}}]}),200,headers:{'content-type':'application/json; charset=utf-8'}));
       final compact=AgnesWebCompactor(apiKey:'synthetic',endpoint:'https://relay.example.com/v1/chat/completions',model:'synthetic',client:client);
       final read=(await compact.summarizeExtracted(query:'合成测试',candidates:[page.copyWith(readState:'extracted')],extractedContents:{page.url:_body})).single;
       final code={'http':'agnes_http_503','length':'agnes_output_incomplete','json':'agnes_summary_format'}[kind]!;

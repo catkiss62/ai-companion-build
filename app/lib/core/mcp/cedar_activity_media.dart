@@ -80,7 +80,8 @@ class CedarActivityMedia {
 
   Future<List<CedarShareImage>> available(CedarGameSession session,List<CedarGameEvent> evidence) async {
     final result=<CedarShareImage>[];final seen=<String>{};
-    for(final event in evidence.reversed) {
+    final ids=evidence.map((e)=>e.id).toSet();
+    for(final event in session.events.where((e)=>ids.contains(e.id)).toList().reversed) {
       final rows=await (await db.database).query(CedarMediaSchema.table,
         where:'game_id=? AND session_id=? AND event_id=?',whereArgs:[session.gameId,session.id,event.id],orderBy:'ordinal');
       for(final row in rows) {

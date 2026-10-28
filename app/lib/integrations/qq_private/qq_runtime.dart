@@ -168,7 +168,7 @@ class QqRuntime {
     if(at==null || now().difference(at)>const Duration(minutes:4) || at.difference(now())>const Duration(minutes:2)) {status('message_expired');return;}
     final incoming=QqIncoming.parse(event);
     final urls=incoming.urls;
-    final addressing=group?await QqAddressing(store,api).inspect(event,fence,scope:scope(c),group:target):(mentioned:false,selfEcho:false);
+    final addressing=group?await QqAddressing(store,api).inspect(event,fence,scope:scope(c),group:target,outerText:incoming.text):(mentioned:false,selfEcho:false);
     if(addressing.selfEcho)return;
     final mentioned=addressing.mentioned;
     final seq=await store.append(fence:fence,scope:scope(c),kind:group?'group':'private',target:target,

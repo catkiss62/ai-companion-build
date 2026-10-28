@@ -25,6 +25,13 @@ abstract final class CedarOutcomeAttachments {
       cancellationToken?.throwIfCancelled();
       if (current != null && !await current()) throw const GenerationCancelledByUserException();
     }
+    Future<void> discard(MessageAttachment attachment) async {
+      if(pendingOwner!=null) {
+        await (await storage.blobStorage.db.database).delete('pending_media_owners',
+          where:'attachment_id=? AND owner_key=?',whereArgs:[attachment.id,pendingOwner.key]);
+      }
+      await storage.deleteAttachmentFiles(attachment);
+    }
     Future<MessageAttachment> commit(PreparedImageAttachment draft) async {
       MessageAttachment? attachment;
       try {
@@ -34,7 +41,7 @@ abstract final class CedarOutcomeAttachments {
         return attachment.copyWith(visionStatus:MessageAttachment.visionCompletedStatus,
           visionSummary:'Cedar Toy游戏返回的真实图片',visionModel:'cedar_protocol_media',visionUpdatedAt:DateTime.now());
       } catch (_) {
-        if (attachment != null) await storage.deleteAttachmentFiles(attachment);
+        if (attachment != null) await discard(attachment);
         await storage.discardDraft(draft);
         rethrow;
       }
@@ -56,11 +63,14 @@ abstract final class CedarOutcomeAttachments {
             .clamp(0,CedarOutcomeMediaBridge.maxRemoteAttachmentsPerOutcome).toInt();
         final candidates = CedarOutcomeMediaBridge.candidates(outcome,limit:remaining);
         final remote = await CedarOutcomeMediaBridge.materialize(candidates:candidates,limit:remaining,
-          cancellationToken:cancellationToken,discard:storage.deleteAttachmentFiles,materialize:(candidate) async {
+          cancellationToken:cancellationToken,discard:discard,materialize:(candidate) async {
             await check();
             try {
               final download = await cancelWithToken(SafePublicImageDownloader.download(client:transport,
-                rawUrl:candidate.url,maxBytes:12*1024*1024,filePrefix:'cedar_remote'),cancellationToken);
+                rawUrl:candidate.url,maxBytes:12*1024*1024,filePrefix:'cedar_remote').then((file) async {
+                  try {await check();return file;}
+                  catch(_) {if(await file.file.exists())await file.file.delete();rethrow;}
+                }),cancellationToken);
               try {
                 await check();
                 final draft = await storage.prepareImage(sourcePath:download.file.path,
@@ -75,7 +85,7 @@ abstract final class CedarOutcomeAttachments {
       await check();
       return List<MessageAttachment>.unmodifiable(result);
     } on GenerationCancelledByUserException {
-      for (final attachment in result) { try { await storage.deleteAttachmentFiles(attachment); } catch (_) {} }
+      for (final attachment in result) { try { await discard(attachment); } catch (_) {} }
       rethrow;
     } finally { if (client == null) transport.close(); }
   }
