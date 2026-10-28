@@ -1774,14 +1774,14 @@ jobs:
               --target "${GITHUB_SHA}" \
               --draft \
               --title 'AI Companion v0.42.149+393 Third Channel and QQ Participation' \
-              --notes 'QQ delivery repair test build: recheck operation authority after token refresh, HTTP 401 retry and connection acquisition; preserve confirmed and partial delivery through local archive failures without resending; isolate optional echo expiry from normal text/voice; retain semantic voice transcripts while pronunciation aliases remain synthesis-only. Preserves prior group identity, memory boundaries, model fallback, voice ownership and game behavior. Original-signature unpublished build; real QQ and device behavior remain subject to testing.'
+              --notes 'Adds a shared local OpenAI-compatible third channel for final replies and vision, with gateway-managed accounts, strict stream completion, bounded retries and per-entry fallback. Adds the App Qwen vision switch and generic image labels. Improves QQ addressee and timing evidence with softer unsolicited joining and no fixed cooldown. Preserves source, cancellation and send fences. Original-signature unpublished test build; LAN gateway, real account failover and model behavior require device verification.'
           else
             test "$(gh release view "${TAG}" --repo "${GITHUB_REPOSITORY}" --json isDraft --jq '.isDraft')" = true
             gh release edit "${TAG}" \
               --repo "${GITHUB_REPOSITORY}" \
               --target "${GITHUB_SHA}" \
               --title 'AI Companion v0.42.149+393 Third Channel and QQ Participation' \
-              --notes 'QQ delivery repair test build: recheck operation authority after token refresh, HTTP 401 retry and connection acquisition; preserve confirmed and partial delivery through local archive failures without resending; isolate optional echo expiry from normal text/voice; retain semantic voice transcripts while pronunciation aliases remain synthesis-only. Preserves prior group identity, memory boundaries, model fallback, voice ownership and game behavior. Original-signature unpublished build; real QQ and device behavior remain subject to testing.'
+              --notes 'Adds a shared local OpenAI-compatible third channel for final replies and vision, with gateway-managed accounts, strict stream completion, bounded retries and per-entry fallback. Adds the App Qwen vision switch and generic image labels. Improves QQ addressee and timing evidence with softer unsolicited joining and no fixed cooldown. Preserves source, cancellation and send fences. Original-signature unpublished test build; LAN gateway, real account failover and model behavior require device verification.'
           fi
           test "$(gh release view "${TAG}" --repo "${GITHUB_REPOSITORY}" --json isDraft --jq '.isDraft')" = true || exit 1
           RELEASE_URL="$(gh release view "${TAG}" --repo "${GITHUB_REPOSITORY}" --json url --jq '.url')"
@@ -1879,7 +1879,7 @@ jobs:
               --target "${GITHUB_SHA}" \
               --draft \
               --title 'AI Companion v0.42.149+393 Third Channel and QQ Participation' \
-              --notes 'Unpublished Draft build diagnostics for QQ memory foundation and independent reply channels. No user content, keys, backups or device diagnostics are included.'
+              --notes 'Unpublished Draft build diagnostics for the third channel, vision routing and QQ participation. No user content, keys, backups or device diagnostics are included.'
           fi
           test "$(gh release view "${TAG}" --repo "${GITHUB_REPOSITORY}" --json isDraft --jq '.isDraft')" = true || exit 1
           RELEASE_URL="$(gh release view "${TAG}" --repo "${GITHUB_REPOSITORY}" --json url --jq '.url')"

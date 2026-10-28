@@ -136,6 +136,7 @@ class VisionRoutingTransport extends http.BaseClient {
       try { if (!await sourceCurrent()) { invalid = true; client.close(); } } finally { checking = false; }
     });
     try {
+      await check();
       final response = await client.post(Uri.parse(endpoint), headers: {
         'Content-Type': 'application/json', 'Authorization': 'Bearer ${key.trim()}'}, body: jsonEncode(body))
         .timeout(const Duration(seconds: 120));

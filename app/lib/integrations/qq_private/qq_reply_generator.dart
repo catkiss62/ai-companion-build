@@ -33,8 +33,11 @@ class QqReplyGenerator {
       // QQ has no partial-draft display. Never send a truncated public reply
       // or turn a content-filter terminal into the same prompt on another lane.
       if (third.incomplete) throw const QqOperationFailure('reply_incomplete');
-      onStatus?.call('using_third');
-      return third.content.trim();
+      if (third.content.length <= 14000) {
+        onStatus?.call('using_third');
+        return third.content.trim();
+      }
+      await onFailure?.call('third_reply', const QqOperationFailure('reply_too_long'), 1);
     }
     if (route.thirdChannelFailure != null) await onFailure?.call('third_reply', route.thirdChannelFailure!, 1);
     Future<String> attempt(bool second) async {

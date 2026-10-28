@@ -864,6 +864,7 @@ class DurableGenerationRunner {
         ReasoningEffort? requestEffort,
         GenerationCancellationToken? requestCancellation,
       }) async {
+        final allowThird = usageLane == 'final_reply' && !takeover.requested;
         var reasoning = '';
         var content = '';
         var emittedVisibleContent = '';
@@ -920,12 +921,13 @@ class DurableGenerationRunner {
             cancellationToken: requestCancellation ?? effectiveCancellation,
             usageLane: usageLane,
             usageExecutionId: job.id,
-            finalReplyRoute: usageLane == 'final_reply' && !takeover.requested ? finalRoute : null,
+            finalReplyRoute: allowThird ? finalRoute : null,
+            thirdCancellationToken: allowThird ? takeover.secondChannelToken(effectiveCancellation) : null,
             thirdChannelSecure: secureConfig,
             thirdChannelCurrent: () async => await db.isGenerationRunCurrent(job.id, runToken: job.runToken) && await db.brainWorkAllowed(),
           )) {
             if (usageLane == 'final_reply') {
-              finalTextFromThird = finalRoute.usedThirdChannel;
+              finalTextFromThird = allowThird && finalRoute.usedThirdChannel;
               if (finalTextFromThird) { finalTextFromGemini = true; providerNotice = null; }
             }
             if (!requestProgressSeen) {
@@ -1214,7 +1216,16 @@ class DurableGenerationRunner {
         if (takeover.requested || !finalRoute.useSecondChannel) {
           finalTextFromGemini = false;
           if (takeover.requested) providerNotice = '本轮已按你的选择使用 DeepSeek 回复。';
-          return generateCheckedDeepSeek(messages, tools: tools);
+          try {
+            return await generateCheckedDeepSeek(messages, tools: tools);
+          } on GenerationCancelledByUserException {
+            effectiveCancellation.throwIfCancelled();
+            if (!takeover.requested) rethrow;
+            finalTextFromGemini = false;
+            finalTextFromThird = false;
+            providerNotice = '本轮已按你的选择使用 DeepSeek 回复。';
+            return generateCheckedDeepSeek(messages, tools: tools);
+          }
         }
         Object? lastError;
         if (configuredFinalApiKey.isNotEmpty) {

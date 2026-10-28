@@ -199,6 +199,7 @@ class ChatController extends ChangeNotifier {
   bool _disposed = false;
   int _recoveryScheduleEpoch = 0;
   bool _secondChannelEnabled = false;
+  bool _thirdChannelEnabled = false;
   FinalReplyControl? _activeReplyControl;
   bool _externalDeepSeekSelected = false;
   String? _externalReplyJobId;
@@ -215,7 +216,7 @@ class ChatController extends ChangeNotifier {
       _activeGenerationAssistantMessageId ??
       _externalGenerationAssistantMessageId;
 
-  bool get showManualReplyControl => _secondChannelEnabled && (generationActive || failedReplyAvailable) &&
+  bool get showManualReplyControl => (_secondChannelEnabled || _thirdChannelEnabled) && (generationActive || failedReplyAvailable) &&
       (_activeReplyControl != null || externalGenerationActive || failedReplyAvailable) && !cancellingGeneration;
 
   bool get manualDeepSeekSelected =>
@@ -407,6 +408,7 @@ class ChatController extends ChangeNotifier {
       model = await FirstChannelModel.read(db);
       effort = await FirstChannelModel.readEffort(db);
       _secondChannelEnabled = (await secureConfig.readChatProvider()).isGeminiRelay;
+      _thirdChannelEnabled = await _readThirdEnabled();
       nsfwActive = (await db.getSetting('nsfw_active')) == '1';
       deepThinking = (await db.getSetting('deep_thinking_enabled')) == '1';
       messages = await db.recentMessages(limit: 120);
@@ -535,6 +537,7 @@ class ChatController extends ChangeNotifier {
     var runtimeChanged = false;
     if (!sending) {
       _secondChannelEnabled = (await secureConfig.readChatProvider()).isGeminiRelay;
+      _thirdChannelEnabled = await _readThirdEnabled();
       final selected = job != null &&
           await db.getSetting(FinalReplyControl.settingKey) == job.id;
       runtimeChanged = _externalDeepSeekSelected != selected || _externalReplyJobId != job?.id;
@@ -620,11 +623,17 @@ class ChatController extends ChangeNotifier {
     _safeNotify();
   }
 
+  Future<bool> _readThirdEnabled() async {
+    try { return (await secureConfig.readThirdChannel()).enabled; }
+    catch (_) { return false; }
+  }
+
   Future<void> _refreshChatRoutingSettings() async {
     nsfwActive = (await db.getSetting('nsfw_active')) == '1';
     model = await FirstChannelModel.read(db);
     effort = await FirstChannelModel.readEffort(db);
     _secondChannelEnabled = (await secureConfig.readChatProvider()).isGeminiRelay;
+      _thirdChannelEnabled = await _readThirdEnabled();
   }
 
   void _applyNsfwRoute(NsfwRouteDecision decision) {
@@ -1775,6 +1784,7 @@ class ChatController extends ChangeNotifier {
     error = null;
     final cancellation = GenerationCancellationToken();
     _secondChannelEnabled = (await secureConfig.readChatProvider()).isGeminiRelay;
+      _thirdChannelEnabled = await _readThirdEnabled();
     _activeReplyControl = FinalReplyControl()..onChanged = _safeNotify;
     _externalDeepSeekSelected = false;
     _activeGenerationCancellation = cancellation;

@@ -169,6 +169,7 @@ class _ReplyClient extends DeepSeekClient {
     String usageExecutionId = '',
     FinalReplyRoute? finalReplyRoute,
     SecureConfig? thirdChannelSecure,
+    GenerationCancellationToken? thirdCancellationToken,
     Future<bool> Function()? thirdChannelCurrent,
   }) async* {
     request = messages;

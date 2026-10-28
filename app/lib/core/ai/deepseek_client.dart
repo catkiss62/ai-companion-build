@@ -237,13 +237,14 @@ class DeepSeekClient {
     String usageExecutionId = '',
     FinalReplyRoute? finalReplyRoute,
     SecureConfig? thirdChannelSecure,
+    GenerationCancellationToken? thirdCancellationToken,
     Future<bool> Function()? thirdChannelCurrent,
   }) async* {
     if (finalReplyRoute != null) {
       final third = await tryThirdChannel(messages: messages, route: finalReplyRoute,
         secure: thirdChannelSecure, current: thirdChannelCurrent,
         tools: tools, toolChoice: toolChoice, maxTokens: maxTokens, effort: effort.apiName,
-        cancellationToken: cancellationToken, usageLane: usageLane, usageExecutionId: usageExecutionId);
+        cancellationToken: thirdCancellationToken ?? cancellationToken, usageLane: usageLane, usageExecutionId: usageExecutionId);
       if (third != null) {
         yield DeepSeekDelta(reasoning: third.reasoning, content: third.content,
           finishReason: third.finishReason, done: true, streamEndReason: 'third_channel_done',

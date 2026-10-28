@@ -59,6 +59,7 @@ class _ReplyClient extends DeepSeekClient {
     Duration requestTimeout = const Duration(seconds: 120),
     String usageLane = 'unclassified', String usageExecutionId = '',
     FinalReplyRoute? finalReplyRoute, SecureConfig? thirdChannelSecure,
+    GenerationCancellationToken? thirdCancellationToken,
     Future<bool> Function()? thirdChannelCurrent,
   }) async* {
     yield const DeepSeekDelta(content: '她轻轻点头。');
