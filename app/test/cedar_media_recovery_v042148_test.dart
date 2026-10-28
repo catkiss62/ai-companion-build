@@ -115,7 +115,11 @@ void main() {
     await db.tryAcquireLocalLease('proactive_lease_until');
     final owner=PendingMediaOwner.proactive(messageId:'legacy-share',fence:(await db.captureBrainWorkFence(leaseKey:'proactive_lease_until'))!);
     await media.attach(images.single,owner.messageId,owner);
-    await db.deleteAttachmentMessage('old-foreground');
+    // Withdraw the synthetic assistant source; the UI deletion API is user-only.
+    await (await db.database).transaction((sql) async {
+      await sql.delete('message_attachments',where:'message_id=?',whereArgs:['old-foreground']);
+      await sql.delete('messages',where:'id=?',whereArgs:['old-foreground']);
+    });
     expect(await CedarActivityMedia.matches(await db.database,images),false);
     expect(await db.takeUnreferencedMediaBlobs(),isEmpty);
     await db.releasePendingMedia(owner);expect(await db.takeUnreferencedMediaBlobs(),hasLength(1));
