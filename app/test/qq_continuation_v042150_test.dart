@@ -99,10 +99,20 @@ void main() {
     await store.mark(first,'send_uncertain');clock+=1000;
     final next=await claim(await add('retry'));
     expect(await tasks.consume(next,(await tasks.pending(next,clock,'p'))!,cancel:false),true);
-    await tasks.saveDraft(next,{'raw':'新的草稿'});await store.mark(next,'failed');clock+=1000;
+    await tasks.saveDraft(next,{'raw':'新的草稿'});await tasks.failure(next,'group_boundary');await store.mark(next,'failed');clock+=1000;
     final last=await claim(await add('retry-again')),pending=(await tasks.pending(last,clock,'p'))!;
     expect(pending.hint['delivery_unknown'],true);expect(pending.hint['confirmed_delivered'],['已经送达的一段']);
     expect(pending.draft,isNull);expect(pending.requests,contains('问题root-unknown'));
+  });
+
+  test('more than a hundred unrelated watched batches cannot hide a successor receipt',() async {
+    final original=await add('old-direct'),first=await claim(original);await tasks.addressed(first);await store.mark(first,'failed');
+    for(var i=0;i<110;i++) {clock+=1000;await store.mark(await claim(await add('watch-$i')),'watching');}
+    clock+=1000;final successor=await claim(await add('answer-followup'));
+    expect(await tasks.consume(successor,(await tasks.pending(successor,clock,'p'))!,cancel:false),true);await store.mark(successor,'sent');
+    expect(await store.append(fence:await store.capture(),scope:scope,kind:'group',target:target,platformId:'old-direct',sender:'peer',
+      text:'问题old-direct',observedAt:clock-111000,receivedAt:clock,mentioned:true,policy:'p'),isNull);
+    expect(await store.pending(cid),isEmpty);
   });
 
 }

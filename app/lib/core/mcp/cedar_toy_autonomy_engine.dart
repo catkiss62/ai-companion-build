@@ -729,7 +729,7 @@ class CedarToyAutonomyEngine {
   /// Refresh only lightweight discovery metadata. No guide reads, model calls,
   /// play steps or desires are created by this maintenance path.
   Future<CedarAutonomyProgress> refreshCatalogIfDue(DateTime now) async {
-    final sourceFence=await db.captureBrainWorkFence(settingKeys:[CedarToyActivityStore.userControlRevisionKey,CedarToyActivityStore.controlRevisionKey,'cedar_toy_enabled',enabledKey]);
+    final sourceFence=await db.captureBrainWorkFence(settingKeys:[CedarToyActivityStore.userControlRevisionKey,'cedar_toy_enabled',enabledKey]);
     if(sourceFence==null)return const CedarAutonomyProgress('brain_work_blocked');
     final store = CedarToyActivityStore(db);
     if (await db.getSetting('cedar_toy_enabled') == '0' ||
@@ -1060,7 +1060,7 @@ class CedarToyAutonomyEngine {
     required DateTime now,
     required bool selfReset,
   }) async {
-    final sourceFence=await db.captureBrainWorkFence(settingKeys:[CedarToyActivityStore.userControlRevisionKey,CedarToyActivityStore.controlRevisionKey,'cedar_toy_enabled',enabledKey]);
+    final sourceFence=await db.captureBrainWorkFence(settingKeys:[CedarToyActivityStore.userControlRevisionKey,'cedar_toy_enabled',enabledKey]);
     if(sourceFence==null)return const CedarAutonomyProgress('brain_work_blocked');
     final store = CedarToyActivityStore(db);
     final session = await store.load();
@@ -1351,7 +1351,7 @@ class CedarToyAutonomyEngine {
     bool episodeAuthorized = false,
   }) async {
     await CedarTimedPlayTaskStore(db).reconcile(now);
-    final clockFence = await db.captureBrainWorkFence(settingKeys:[CedarToyActivityStore.userControlRevisionKey,CedarToyActivityStore.controlRevisionKey,'cedar_toy_enabled',enabledKey]);
+    final clockFence = await db.captureBrainWorkFence(settingKeys:[CedarToyActivityStore.userControlRevisionKey,'cedar_toy_enabled',enabledKey]);
     if (clockFence == null) return const CedarAutonomyProgress('brain_work_blocked');
     final recovery = await _continueUnresolvedWrite(now:now,workFence:clockFence);
     if (recovery != null) return recovery;
@@ -1672,7 +1672,7 @@ class CedarToyAutonomyEngine {
 
   Future<CedarAutonomyProgress> progress({required DateTime now}) async {
     final sourceFence=await db.captureBrainWorkFence(settingKeys:[
-      CedarToyActivityStore.userControlRevisionKey,CedarToyActivityStore.controlRevisionKey,'cedar_toy_enabled',enabledKey]);
+      CedarToyActivityStore.userControlRevisionKey,'cedar_toy_enabled',enabledKey]);
     if(sourceFence==null)return const CedarAutonomyProgress('brain_work_blocked');
     final availability = await this.availability(now: now);
     if (!availability.available) return CedarAutonomyProgress(availability.reason);

@@ -23,7 +23,8 @@ class QqPendingReply {
   List<Map> get confirmations => (delivery['confirmed'] as List? ?? []).whereType<Map>().toList();
   bool get allConfirmed => delivery['planned'] is int && (delivery['planned'] as int)>0 && confirmations.length==delivery['planned'];
   Map<String, dynamic>? get draft {
-    if (row['failure_phase'] != 'group_boundary' || delivered.isNotEmpty || row['stage'] == 'send_uncertain') return null;
+    if (row['failure_phase'] != 'group_boundary' || delivered.isNotEmpty || row['stage'] == 'send_uncertain' ||
+        inherited['unknown']==true || (inherited['confirmed'] as List? ?? []).isNotEmpty) return null;
     try {
       final value = jsonDecode(row['draft'] as String);
       return value is Map ? Map<String, dynamic>.from(value) : null;
