@@ -51,7 +51,7 @@ void main() {
     );
 
     expect(ProviderHealth.errorCategory(failure), 'quota_exhausted');
-    expect(VisionFailurePresentation.message(failure), contains('免费额度已经用完'));
+    expect(VisionFailurePresentation.message(failure), contains('额度已经用完'));
     expect(VisionFailurePresentation.message(failure), isNot(contains('Key')));
     expect(AttachmentPipelineTelemetry.errorCategory(failure), 'api');
   });
