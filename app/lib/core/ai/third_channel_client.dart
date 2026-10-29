@@ -1,5 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:io';
+import 'third_channel_event.dart';
 import 'package:http/http.dart' as http;
 import 'generation_cancellation.dart';
 import 'third_channel_config.dart';
@@ -46,7 +48,7 @@ class ThirdChannelResponse {
 class ThirdChannelClient {
   ThirdChannelClient({http.Client Function()? clientFactory,
     this.totalTimeout = const Duration(seconds: 120),
-    this.healthTimeout = const Duration(milliseconds: 1500),
+    this.healthTimeout = const Duration(seconds: 15),
     this.retryDelay = const Duration(seconds: 2), this.onUsage})
     : _factory = clientFactory ?? http.Client.new;
   final http.Client Function() _factory;
@@ -60,8 +62,13 @@ class ThirdChannelClient {
     int maxTokens = 6000,
     List<Map<String, Object?>> tools = const [], String? toolChoice,
     Map<String, Object?>? responseFormat, GenerationCancellationToken? cancellation,
-    Future<bool> Function()? current}) async {
+    Future<bool> Function()? current,
+    void Function(ThirdChannelEvent)? onDiagnostic}) async {
     final clock = Stopwatch()..start();
+    var stage = 'configuration', transport = 'none';
+    var healthElapsedMs = 0, healthHttpStatus = 0, modelHttpStatus = 0, attempts = 0;
+    Object? diagnosticFailure;
+    ThirdChannelResponse? accepted;
     final aborted = Completer<Never>();
     var invalid = false, expired = false, checking = false, finished = false;
     final clients = <http.Client>{};
@@ -98,17 +105,28 @@ class ThirdChannelClient {
     Future<ThirdChannelResponse> run() async {
       await check();
       if (!config.configured) throw const ThirdChannelFailure('not_configured');
+      Uri healthUri;
+      try { healthUri = config.health; }
+      catch (_) { throw const ThirdChannelFailure('invalid_url'); }
+      stage = 'health';
       final probe = open();
       try {
-        final health = await probe.get(config.health).timeout(healthTimeout);
-        if (health.statusCode != 200 || (jsonDecode(health.body) as Map)['status'] != 'ok') {
-          throw const ThirdChannelFailure('health');
-        }
+        final health = await probe.get(healthUri).timeout(healthTimeout);
+        healthHttpStatus = health.statusCode;
+        if (health.statusCode != 200) throw ThirdChannelFailure('health_http_${health.statusCode}');
+        Object? body;
+        try { body = jsonDecode(health.body); }
+        catch (_) { throw const ThirdChannelFailure('health_response'); }
+        if (body is! Map || body['status'] != 'ok') throw const ThirdChannelFailure('health_response');
       } on ThirdChannelFailure { rethrow; }
-      catch (_) { await check(); throw const ThirdChannelFailure('health'); }
-      finally { release(probe); }
+      catch (error) {
+        await check();
+        transport = _transportKind(error);
+        throw ThirdChannelFailure('health_$transport');
+      } finally { healthElapsedMs = clock.elapsedMilliseconds; release(probe); }
       for (var attempt = 1; attempt <= 2; attempt++) {
         await check();
+        stage = 'model'; attempts = attempt; transport = 'none'; modelHttpStatus = 0;
         final client = open();
         var received = false;
         try {
@@ -123,6 +141,7 @@ class ThirdChannelClient {
               if (tools.isNotEmpty) 'tool_choice': toolChoice ?? 'auto'});
           final response = await client.send(request);
           received = true;
+          modelHttpStatus = response.statusCode;
           if (response.statusCode < 200 || response.statusCode >= 300) {
             // Do not persist response text: it can contain account identities.
             final raw = await response.stream.bytesToString();
@@ -174,6 +193,7 @@ class ThirdChannelClient {
           return result;
         } catch (error) {
           await check();
+          if (error is! ThirdChannelFailure) transport = _transportKind(error);
           final failure = error is ThirdChannelFailure ? error : ThirdChannelFailure(
             received ? 'response_interrupted' : 'connection',
             retryable: error is http.ClientException || error is TimeoutException);
@@ -183,11 +203,40 @@ class ThirdChannelClient {
       }
       throw const ThirdChannelFailure('exhausted');
     }
-    try { return await bounded(run()); }
+    try { final result = await bounded(run()); accepted = result; return result; }
+    catch (error) { diagnosticFailure = error; rethrow; }
     finally {
-      finished = true; deadline.cancel(); gate.cancel();
+      finished = true; deadline.cancel(); gate.cancel(); clock.stop();
       for (final client in clients.toList()) { release(client); }
+      final error = diagnosticFailure;
+      final outcome = error is GenerationCancelledByUserException ? 'cancelled'
+        : error is GenerationSuspendedByRuntimeGateException ? 'suspended'
+        : error != null ? 'failed' : accepted?.incomplete == true ? 'incomplete' : 'success';
+      final code = error is ThirdChannelFailure ? error.code
+        : outcome == 'cancelled' ? 'user_cancelled' : outcome == 'suspended' ? 'not_current'
+        : error != null ? 'unknown' : accepted?.incomplete == true ? accepted!.finishReason : '';
+      if (code == 'timeout' || code == 'health_timeout') transport = 'timeout';
+      try {
+        onDiagnostic?.call(ThirdChannelEvent(at: DateTime.now().millisecondsSinceEpoch,
+          stage: stage, outcome: outcome, code: code, elapsedMs: clock.elapsedMilliseconds,
+          healthElapsedMs: stage == 'health' ? clock.elapsedMilliseconds : healthElapsedMs,
+          attempts: attempts, healthHttpStatus: healthHttpStatus, modelHttpStatus: modelHttpStatus,
+          healthTimeoutMs: healthTimeout.inMilliseconds, transport: transport));
+      } catch (_) { /* Optional diagnostics cannot alter transport or fallback. */ }
     }
+  }
+  static String _transportKind(Object error) {
+    if (error is TimeoutException) return 'timeout';
+    if (error is TlsException) return 'tls';
+    if (error is SocketException) {
+      final text = error.message.toLowerCase();
+      if (const ['failed host lookup', 'name or service not known', 'nodename nor servname',
+          'temporary failure in name resolution', 'no address associated', 'unable to resolve host']
+          .any(text.contains)) return 'dns';
+      return 'connection';
+    }
+    if (error is http.ClientException) return 'connection';
+    return 'unknown';
   }
   void close() { _closed = true; for (final client in _active.toList()) { client.close(); } }
 

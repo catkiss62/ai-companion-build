@@ -1,3 +1,4 @@
+import '../diagnostics/third_channel_diagnostics.dart';
 import '../agent/on_demand_agent_entry.dart';
 import '../agent/agent_progress_tracker.dart';
 import '../agent/agent_runtime_diagnostic.dart';
@@ -202,7 +203,8 @@ class DurableGenerationRunner {
     if (await db.getSetting(FinalReplyControl.settingKey) == requested.id) {
       takeover.requestDeepSeek();
     }
-    final finalRoute = FinalReplyRoute(secondChannelEnabled: finalProvider.isGeminiRelay);
+    final finalRoute = FinalReplyRoute(secondChannelEnabled: finalProvider.isGeminiRelay,
+      onThirdDiagnostic: (await ThirdChannelDiagnostics.capture(db, lane: 'final_reply'))?.record);
     final configuredFinalApiKey =
         (await secureConfig.readFinalReplyApiKey())?.trim() ?? '';
     final configuredFinalEndpoint =
@@ -887,7 +889,12 @@ class DurableGenerationRunner {
             await db.setSetting('generation_request_state_v1', jsonEncode({
               'jobId': job.id,
               'lane': usageLane,
-              'provider': (requestProvider ?? ChatApiProvider.fromEndpoint(requestEndpoint)).name,
+              'provider': allowThird ? (phase == 'waiting' || finalRoute.currentProvider.isEmpty
+                  ? 'routing' : finalRoute.currentProvider)
+                : (requestProvider ?? ChatApiProvider.fromEndpoint(requestEndpoint)).name,
+              'configuredProvider': (requestProvider ?? ChatApiProvider.fromEndpoint(requestEndpoint)).name,
+              if (allowThird) ...{'thirdAttempted': finalRoute.thirdAttempted,
+                'thirdFailureCode': finalRoute.thirdFailureCode},
               'phase': phase,
               'startedAt': requestStartedAt,
               if (firstProgressAt != null) 'firstProgressMs': firstProgressAt! - requestStartedAt,
@@ -2418,6 +2425,7 @@ $finalGenerationReminder
               : takeover.requested ? 'manual_deepseek'
               : finalProvider.isGeminiRelay ? 'api_failure_fallback' : 'first_channel',
           'model': assistant.model, 'contentIncluded': false,
+          'thirdAttempted': finalRoute.thirdAttempted, 'thirdFailureCode': finalRoute.thirdFailureCode,
         }));
       } catch (_) { /* The reply is already committed. */ }
       await recordCommitTiming?.call();

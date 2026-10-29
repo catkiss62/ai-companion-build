@@ -27,7 +27,7 @@ proactive = read("lib/core/desire/proactive_engine.dart")
 # +347: proactive routing now lives in a candidate-only helper. Verify the
 # actual delegation and its bounded retry rather than requiring obsolete
 # inline route mutations. HTTP/cancellation/lease behavior is tested in Dart.
-for token in ["FinalReplyRoute(secondChannelEnabled: finalProvider.isGeminiRelay)",
+for token in ["FinalReplyRoute(secondChannelEnabled: finalProvider.isGeminiRelay,",
               "ProactiveFinalReplyRetry.generate<_ProactiveGenerationCandidate>",
               "route: finalRoute", "secondChannelConfigured: finalApiKey.isNotEmpty",
               "canContinue: proactiveRequestAllowed",

@@ -45,7 +45,7 @@ def main() -> None:
     # candidate helper never delivers messages or charges proactive quota.
     require(proactive, "secureConfig.readFinalReplyApiKey()",
             "secureConfig.readFinalReplyEndpoint()",
-            "FinalReplyRoute(secondChannelEnabled: finalProvider.isGeminiRelay)",
+            "FinalReplyRoute(secondChannelEnabled: finalProvider.isGeminiRelay,",
             "ProactiveFinalReplyRetry.generate<_ProactiveGenerationCandidate>",
             "canContinue: proactiveRequestAllowed",
             "request: ({required bool secondChannel}) => request(gemini: secondChannel)")

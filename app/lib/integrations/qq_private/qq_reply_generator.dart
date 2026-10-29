@@ -1,3 +1,5 @@
+import '../../core/database/app_database.dart';
+import '../../core/diagnostics/third_channel_diagnostics.dart';
 import 'dart:async';
 
 import '../../core/ai/chat_api_provider.dart';
@@ -12,9 +14,10 @@ import 'qq_failure.dart';
 /// response is handed to delivery, so retries/fallback cannot duplicate chunks.
 class QqReplyGenerator {
   QqReplyGenerator({required this.client, required this.secure,
-    required this.current, this.onStatus, this.onFailure,
+    required this.current, this.onStatus, this.onFailure, this.diagnosticDb,
     this.firstTimeout = const Duration(seconds: 90),
     this.secondTimeout = const Duration(seconds: 45)});
+  final AppDatabase? diagnosticDb;
   final DeepSeekClient client;
   final SecureConfig secure;
   final Future<bool> Function() current;
@@ -25,7 +28,9 @@ class QqReplyGenerator {
   Future<String> generate({required String channel, required DeepSeekModelProfile firstModel,
     required ReasoningEffort firstEffort, required ReasoningEffort secondEffort,
     required List<Map<String, Object?>> messages,String usageLane='qq_private_reply'}) async {
-    final route = FinalReplyRoute(secondChannelEnabled: channel == 'second');
+    final route = FinalReplyRoute(secondChannelEnabled: channel == 'second',
+      onThirdDiagnostic: diagnosticDb == null ? null
+        : (await ThirdChannelDiagnostics.capture(diagnosticDb!, lane: usageLane))?.record);
     final third = await client.tryThirdChannel(messages: messages, route: route, secure: secure,
       maxTokens: 6000, current: current, usageLane: usageLane);
     if (third != null) {

@@ -1,3 +1,4 @@
+import '../diagnostics/third_channel_diagnostics.dart';
 import 'cedar_activity_media.dart';
 import '../ai/first_channel_model.dart';
 import '../self/dream_store.dart';
@@ -2671,7 +2672,8 @@ game=${session.gameId}
     ];
 
     final finalProvider = await secureConfig.readChatProvider();
-    final finalRoute = FinalReplyRoute(secondChannelEnabled: finalProvider.isGeminiRelay);
+    final finalRoute = FinalReplyRoute(secondChannelEnabled: finalProvider.isGeminiRelay,
+      onThirdDiagnostic: (await ThirdChannelDiagnostics.capture(db, lane: 'cedar_live_share'))?.record);
     final finalKey = (await secureConfig.readFinalReplyApiKey())?.trim() ?? '';
     final finalEndpoint = await secureConfig.readFinalReplyEndpoint();
     final finalModel = await secureConfig.readFinalReplyModel();

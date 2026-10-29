@@ -34,6 +34,9 @@ jobs:
       - name: QQ continuation receipts, Cedar control media and independent reasoning regression
         run: flutter test --timeout 60s --reporter expanded test/qq_continuation_v042150_test.dart test/cedar_control_media_v042150_test.dart test/third_effort_v042150_test.dart
         working-directory: app
+      - name: Public gateway health deadlines, cancellation and private diagnostics regression
+        run: flutter test --timeout 60s --reporter expanded test/third_channel_network_v042152_test.dart
+        working-directory: app
       - name: Foreground Cedar control, atomic state and QQ terminal-media regression
         run: flutter test --timeout 60s --reporter expanded test/cedar_control_commit_v042151_test.dart test/qq_consumption_media_v042151_test.dart
         working-directory: app

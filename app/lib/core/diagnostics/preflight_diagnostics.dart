@@ -1,3 +1,5 @@
+import 'third_channel_diagnostics.dart';
+import '../ai/third_channel_event.dart';
 import '../../integrations/qq_private/qq_failure_history.dart';
 import '../agent/agent_task_loop.dart';
 import '../self/dream_store.dart';
@@ -643,7 +645,9 @@ class PreflightDiagnosticsService {
         final third = await SecureConfig.instance.readThirdChannel();
         report['thirdChannel'] = {'enabled': third.enabled, 'configured': third.configured,
           'model': 'gemini-3.8-flash', 'clientAccountPool': false,'requestedReasoningEffort':third.reasoningEffort,
-          'totalTimeoutSeconds': 120, 'maxResends': 1, 'credentialsIncluded': false,
+          'totalTimeoutSeconds': 120, 'healthTimeoutSeconds': 15,
+          'diagnostics': await ThirdChannelDiagnostics.read(db),
+          'maxResends': 1, 'credentialsIncluded': false,
           'appQwenEnabled': await db.getSetting('app_qwen_vision_enabled_v1') != '0',
           'appVisionFallback': 'qwen_switch_base_chain', 'qqVisionFallback': 'first'};
       } catch (_) { report['thirdChannel'] = {'status': 'configuration_unavailable'}; }
@@ -2104,6 +2108,8 @@ class PreflightDiagnosticsService {
       final value = jsonDecode(await db.getSetting('generation_final_route_v1') ?? '{}');
       if (value is! Map) return const {};
       return {
+        'thirdAttempted': value['thirdAttempted'] == true,
+        'thirdFailureCode': ThirdChannelEvent.safeCode(value['thirdFailureCode'] ?? ''),
         for (final key in ['jobId', 'reason', 'model'])
           key: value[key]?.toString().substring(0,
               min(160, value[key]?.toString().length ?? 0)) ?? '',
@@ -2117,9 +2123,11 @@ class PreflightDiagnosticsService {
       final value = jsonDecode(await db.getSetting(setting) ?? '{}');
       if (value is! Map) return const {};
       return {
-        for (final key in ['lane', 'provider', 'phase', 'errorType', 'streamEndReason'])
+        for (final key in ['lane', 'provider', 'configuredProvider', 'phase', 'errorType', 'streamEndReason'])
           key: value[key]?.toString().substring(0,
               min(96, value[key]?.toString().length ?? 0)) ?? '',
+        'thirdAttempted': value['thirdAttempted'] == true,
+        'thirdFailureCode': ThirdChannelEvent.safeCode(value['thirdFailureCode'] ?? ''),
         for (final key in ['startedAt', 'updatedAt', 'firstProgressMs', 'firstContentMs', 'elapsedMs',
           'terminalSignalMs', 'streamEndedMs', 'tailWaitMs', 'postStreamMs'])
           key: value[key] is num ? value[key] : 0,

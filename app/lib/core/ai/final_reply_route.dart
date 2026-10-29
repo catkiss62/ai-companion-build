@@ -1,7 +1,13 @@
+import 'third_channel_event.dart';
+
 /// Per visible generation, including any semantic correction. A grounding
 /// rejection is not a transport failure and never switches the provider.
 class FinalReplyRoute {
-  FinalReplyRoute({required this.secondChannelEnabled});
+  FinalReplyRoute({required this.secondChannelEnabled, this.onThirdDiagnostic});
+  final void Function(ThirdChannelEvent)? onThirdDiagnostic;
+  String currentProvider = '';
+  bool thirdAttempted = false;
+  String thirdFailureCode = '';
   final bool secondChannelEnabled;
   Object? _failure;
   Object? _thirdFailure;
@@ -9,7 +15,9 @@ class FinalReplyRoute {
   bool thirdChannelIncomplete = false;
   bool get thirdChannelAvailable => _thirdFailure == null;
   Object? get thirdChannelFailure => _thirdFailure;
-  void recordThirdFailure(Object error) { _thirdFailure = error; usedThirdChannel = false; }
+  void recordThirdFailure(Object error, {String code = 'unknown'}) {
+    _thirdFailure = error; usedThirdChannel = false; thirdFailureCode = ThirdChannelEvent.safeCode(code);
+  }
   bool get useSecondChannel => secondChannelEnabled && _failure == null;
   void recordFailure(Object error) { _failure = error; }
 

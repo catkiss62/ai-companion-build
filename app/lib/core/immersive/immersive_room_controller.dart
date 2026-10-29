@@ -1,3 +1,4 @@
+import '../diagnostics/third_channel_diagnostics.dart';
 import '../ai/first_channel_model.dart';
 import 'dart:async';
 import 'dart:convert';
@@ -509,7 +510,8 @@ class ImmersiveRoomController extends ChangeNotifier {
     required bool captureReasoning,
   }) async {
     _lastFinalReplyUsedFallback = false;
-    final finalRoute = FinalReplyRoute(secondChannelEnabled: finalProvider.isGeminiRelay);
+    final finalRoute = FinalReplyRoute(secondChannelEnabled: finalProvider.isGeminiRelay,
+      onThirdDiagnostic: (await ThirdChannelDiagnostics.capture(db, lane: 'immersive_final_reply'))?.record);
     if (!finalRoute.useSecondChannel) {
       return _streamRequest(
         apiKey: finalApiKey,

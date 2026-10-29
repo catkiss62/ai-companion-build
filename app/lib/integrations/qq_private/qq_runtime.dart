@@ -384,7 +384,7 @@ class QqRuntime {
       if(!await current()) throw StateError('context_invalidated');
       await store.mark(b,'generating');status('generating');
       phase='reply_generation';
-      final generator=QqReplyGenerator(client:client,secure:secure,current:current,onStatus:status,
+      final generator=QqReplyGenerator(client:client,secure:secure,current:current,diagnosticDb:store.db,onStatus:status,
         onFailure:(stage,error,attempt)=>store.recordFailure(fence,stage,error,attempt:attempt,operation:b.id,conversation:b.cid));
       final channel=c.replyChannel.isNotEmpty?c.replyChannel:(await secure.readChatProvider()).isGeminiRelay?'second':'first';
       var raw=reusedDraft?['raw'] is String?reusedDraft!['raw'] as String:await generator.generate(channel:channel,firstModel:model,firstEffort:await FirstChannelModel.readEffort(store.db),
@@ -617,7 +617,7 @@ class QqRuntime {
     try {
       final prompt=await QqReadOnlyContext.readMain((ctx)=>ctx.build(offer.content,stamp:material,qqScope:scope(c),media:true));
       if(!await current()) return;
-      final generator=QqReplyGenerator(client:client,secure:secure,current:current,onStatus:status);
+      final generator=QqReplyGenerator(client:client,secure:secure,current:current,diagnosticDb:store.db,onStatus:status);
       final channel=c.replyChannel.isNotEmpty?c.replyChannel:(await secure.readChatProvider()).isGeminiRelay?'second':'first';
       final raw=await generator.generate(channel:channel,firstModel:await FirstChannelModel.read(store.db),
         firstEffort:await FirstChannelModel.readEffort(store.db),secondEffort:ReasoningEffort.fromApiName(await store.db.getSetting('reasoning_effort')),

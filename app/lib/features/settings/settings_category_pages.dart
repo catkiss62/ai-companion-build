@@ -1,3 +1,4 @@
+import '../../core/diagnostics/third_channel_diagnostics.dart';
 import '../../core/ai/third_channel_client.dart';
 import '../../core/ai/third_channel_config.dart';
 import '../../core/ai/routed_vision_client.dart';
@@ -329,9 +330,11 @@ class _ModelNetworkSettingsPageState
   Future<void> _testThird() async {
     setState(() { _testingThird = true; _status = '正在检查网关和模型响应…'; });
     final client = ThirdChannelClient();
+    final diagnostics = await ThirdChannelDiagnostics.capture(_db, lane: 'connection_test');
     try {
       final result = await client.complete(config: ThirdChannelConfig(baseUrl: _thirdBase.text, apiKey: _thirdKey.text,effort:_thirdEffort),
-        messages: [{'role': 'user', 'content': '这是接口连接测试，请只回复“连接成功”。'}], maxTokens: 256);
+        messages: [{'role': 'user', 'content': '这是接口连接测试，请只回复“连接成功”。'}], maxTokens: 256,
+        onDiagnostic: diagnostics?.record);
       if (result.incomplete) throw const ThirdChannelFailure('incomplete');
       if (mounted) setState(() => _status = '网关与模型响应通过；测试使用了少量额度。');
     } catch (error) { if (mounted) setState(() => _status = '第三通道测试失败：$error'); }

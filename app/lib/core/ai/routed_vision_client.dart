@@ -1,3 +1,4 @@
+import '../diagnostics/third_channel_diagnostics.dart';
 import 'dart:async';
 import 'dart:convert';
 import 'package:crypto/crypto.dart';
@@ -96,6 +97,8 @@ class VisionRoutingTransport extends http.BaseClient {
         messages.add({'role': 'system', 'content': '必须遵守输出schema，所有观察与判断针对本次唯一图片。'
           '未要求收藏评估时album.save=false，其余album字段填中性默认值；未提供找图目标时request_match.matches=true、confidence=1。'});
         final result = await third.complete(config: config, messages: messages, stream: false,
+          onDiagnostic: db == null || fence == null ? null
+            : ThirdChannelDiagnostics(db!, fence, qq ? 'qq_vision' : 'app_vision').record,
           maxTokens: 4096, responseFormat: {'type': 'json_schema', 'json_schema': {
             'name': 'image_observation', 'strict': true, 'schema': observationSchema}},
           current: () async => await sourceCurrent() && (await secure.readThirdChannel()).encode() == config.encode());

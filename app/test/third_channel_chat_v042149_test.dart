@@ -33,7 +33,7 @@ http.Response _stream(String text, {bool tools = false}) => http.Response.bytes(
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized(); sqfliteFfiInit();
-  for (final scenario in ['first_base', 'second_key_missing', 'manual_first', 'active_manual_first', 'tool_entry']) {
+  for (final scenario in ['first_base', 'second_key_missing', 'manual_first', 'active_manual_first', 'tool_entry', 'health_fallback', 'http_fallback']) {
     test('durable App generation preserves $scenario routing and committed model provenance', () async {
       final directory = await Directory.systemTemp.createTemp('third-chat-149-');
       final paths = PathProviderPlatform.instance; PathProviderPlatform.instance = _Paths(directory.path);
@@ -45,15 +45,21 @@ void main() {
       final secure = SecureConfig.forTesting(const FlutterSecureStorage());
       await secure.writeApiKey('first-fixture'); await secure.writeEndpoint('http://first.invalid/chat');
       await secure.writeThirdChannel(const ThirdChannelConfig(enabled: true, baseUrl: 'http://gateway.invalid/v1', apiKey: 'third-fixture'));
-      if (scenario == 'second_key_missing') await secure.writeChatProvider(ChatApiProvider.aiWangYouGemini);
+      if (scenario == 'second_key_missing' || scenario.endsWith('_fallback')) await secure.writeChatProvider(ChatApiProvider.aiWangYouGemini);
+      if (scenario.endsWith('_fallback')) {
+        await secure.writeAiWangYouApiKey('second-fixture');
+        await secure.writeAiWangYouEndpoint('http://second.invalid/v1/chat/completions');
+        await secure.writeAiWangYouModel('fixture-second');
+      }
       var posts = 0, secondPosts = 0;
       final gatewayRequests = <Map>[];
       final entered = Completer<void>(), release = Completer<http.Response>();
       final control = FinalReplyControl();
       final client = DeepSeekClient(secureConfig: secure,
         thirdClientFactory: () => ThirdChannelClient(clientFactory: () => MockClient((request) async {
-          if (request.url.path == '/health') return http.Response('{"status":"ok"}', 200);
+          if (request.url.path == '/health') return http.Response('{"status":"ok"}', scenario == 'health_fallback' ? 503 : 200);
           posts++; gatewayRequests.add(jsonDecode(request.body) as Map);
+          if (scenario == 'http_fallback') return http.Response('private upstream detail', 503);
           if (scenario == 'active_manual_first') {
             if (!entered.isCompleted) entered.complete();
             return release.future;
@@ -81,14 +87,27 @@ void main() {
         final result = await running.timeout(const Duration(seconds: 30));
         expect(result.status, 'completed', reason: '${result.error}');
         final assistant = (await db.messageById('a'))!;
-        expect(secondPosts, 0);
-        if (scenario == 'manual_first' || scenario == 'active_manual_first') {
+        expect(secondPosts, scenario.endsWith('_fallback') ? 1 : 0);
+        if (scenario.endsWith('_fallback')) {
+          expect(assistant.model, 'fixture-second'); expect(assistant.content, contains('慢慢聊'));
+          final route = jsonDecode((await db.getSetting('generation_final_route_v1'))!) as Map;
+          final request = jsonDecode((await db.getSetting('generation_request_state_v1'))!) as Map;
+          final code = scenario == 'health_fallback' ? 'health_http_503' : 'http_503';
+          expect(route['reason'], 'second_channel'); expect(route['thirdAttempted'], true);
+          expect(route['thirdFailureCode'], code); expect(request['thirdFailureCode'], code);
+          expect(request['provider'], 'aiWangYouGemini'); expect(request['phase'], 'committed');
+          final raw = await db.getSetting('third_channel_diagnostics_v1');
+          expect(raw, isNotNull); expect(raw, contains(code)); expect(raw, isNot(contains('private upstream detail')));
+        } else if (scenario == 'manual_first' || scenario == 'active_manual_first') {
           expect(posts, scenario == 'manual_first' ? 0 : 1);
           expect(assistant.content, contains('慢慢聊')); expect(assistant.model, 'deepseek-v4-flash');
         } else {
           expect(posts, greaterThanOrEqualTo(1)); expect(assistant.content, contains('我在听'));
           expect(assistant.model, ThirdChannelConfig.model);
           expect(jsonDecode((await db.getSetting('generation_final_route_v1'))!)['reason'], 'third_channel');
+          final requestState=jsonDecode((await db.getSetting('generation_request_state_v1'))!) as Map;
+          expect(requestState['provider'],'third_channel');
+          expect(requestState['thirdAttempted'],true);
           if (scenario == 'tool_entry') {
             expect(posts, greaterThanOrEqualTo(2));
             expect((gatewayRequests[1]['messages'] as List).any((m) => m['role'] == 'tool' && m['tool_call_id'] == 'gateway-entry'), true);

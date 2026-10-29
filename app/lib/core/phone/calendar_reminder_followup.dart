@@ -1,3 +1,4 @@
+import '../diagnostics/third_channel_diagnostics.dart';
 import '../ai/first_channel_model.dart';
 import '../emotion/emotion_contract.dart';
 import '../emotion/emotion_classifier_service.dart';
@@ -125,7 +126,8 @@ class CalendarReminderFollowup {
     final apiKey=(await config.readApiKey())?.trim() ?? '';
     if(apiKey.isEmpty) return null;
     final provider = await config.readChatProvider();
-      final finalRoute = FinalReplyRoute(secondChannelEnabled: provider.isGeminiRelay);
+      final finalRoute = FinalReplyRoute(secondChannelEnabled: provider.isGeminiRelay,
+      onThirdDiagnostic: (await ThirdChannelDiagnostics.capture(db, lane: 'calendar_followup'))?.record);
       final finalKey = (await config.readFinalReplyApiKey())?.trim() ?? '';
       final finalEndpoint = await config.readFinalReplyEndpoint();
       final finalName = await config.readFinalReplyModel();

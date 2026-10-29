@@ -1,3 +1,4 @@
+import '../diagnostics/third_channel_diagnostics.dart';
 import '../mcp/cedar_activity_media.dart';
 import '../../integrations/qq_private/qq_history_context_policy.dart';
 import '../../integrations/qq_private/qq_share_store.dart';
@@ -1799,7 +1800,8 @@ ${startsFreshTopic ? '本类型属于新话题通道：ANSWERED CHAT HISTORY 已
     final finalApiKey = (await secureConfig.readFinalReplyApiKey())?.trim() ?? '';
     final finalEndpoint = await secureConfig.readFinalReplyEndpoint();
     final finalModelName = await secureConfig.readFinalReplyModel();
-    final finalRoute = FinalReplyRoute(secondChannelEnabled: finalProvider.isGeminiRelay);
+    final finalRoute = FinalReplyRoute(secondChannelEnabled: finalProvider.isGeminiRelay,
+      onThirdDiagnostic: (await ThirdChannelDiagnostics.capture(db, lane: 'proactive_final_reply'))?.record);
     var visibleModelName = model.apiName;
     final lastGroundedUser = proactiveGrounding.lastUserMessageId == null
         ? null
@@ -1886,7 +1888,9 @@ ${startsFreshTopic ? '本类型属于新话题通道：ANSWERED CHAT HISTORY 已
         try {
           await db.setSetting('proactive_request_timing_v1', jsonEncode({
             'lane': gemini ? 'proactive_final_reply' : 'proactive',
-            'provider': gemini ? finalProvider.name : 'deepSeek',
+            'provider': finalRoute.currentProvider.isEmpty ? (gemini ? finalProvider.name : 'deepSeek') : finalRoute.currentProvider,
+            'configuredProvider': gemini ? finalProvider.name : 'deepSeek',
+            'thirdAttempted': finalRoute.thirdAttempted, 'thirdFailureCode': finalRoute.thirdFailureCode,
             'startedAt': startedAt, 'updatedAt': DateTime.now().millisecondsSinceEpoch,
             'phase': 'stream_ended', 'firstContentMs': firstContentMs,
             'terminalSignalMs': terminalSignalMs, 'streamEndedMs': clock.elapsedMilliseconds,

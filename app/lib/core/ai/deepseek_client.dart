@@ -191,6 +191,8 @@ class DeepSeekClient {
     try { config = await configStore.readThirdChannel(); }
     catch (_) { return null; } // Optional, absent on an unconfigured device.
     if (!config.enabled) return null;
+    route.thirdAttempted = true;
+    route.currentProvider = 'third_channel';
     final prompt = FinalReplyRoute.prepareMessages(messages);
     final shape = _promptShape(prompt, tools);
     Future<bool> valid() async =>
@@ -208,13 +210,13 @@ class DeepSeekClient {
     try {
       final result = await client.complete(config: config, messages: prompt, tools: tools,
         toolChoice: toolChoice, maxTokens: maxTokens ?? 8192,
-        cancellation: cancellationToken, current: valid);
+        cancellation: cancellationToken, current: valid, onDiagnostic: route.onThirdDiagnostic);
       route.usedThirdChannel = true;
       route.thirdChannelIncomplete = result.incomplete;
       return result;
     } on GenerationCancelledByUserException { rethrow; }
     on GenerationSuspendedByRuntimeGateException { rethrow; }
-    catch (error) { route.recordThirdFailure(error); return null; }
+    catch (error) { route.recordThirdFailure(error, code: error is ThirdChannelFailure ? error.code : 'unknown'); return null; }
     finally { _thirdClients.remove(client); client.close(); }
   }
   final Set<http.Client> _streamClients = <http.Client>{};
@@ -254,6 +256,9 @@ class DeepSeekClient {
               argumentsFragment: (third.toolCalls[i]['function'] as Map)['arguments'] as String)]);
         return;
       }
+    }
+    if (finalReplyRoute != null) {
+      finalReplyRoute.currentProvider = (requestProvider ?? ChatApiProvider.fromEndpoint(endpoint)).name;
     }
     final provider = requestProvider ?? ChatApiProvider.fromEndpoint(endpoint);
     // Historical validator token: provider.effectiveModel(model)
