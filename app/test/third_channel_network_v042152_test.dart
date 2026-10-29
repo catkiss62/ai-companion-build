@@ -20,7 +20,8 @@ String _sse() => 'data: ${jsonEncode({'model': 'gemini-3.8-flash-tiered',
   'choices': [{'delta': {'content': '完整成功'}, 'finish_reason': 'stop'}],
   'usage': {'prompt_tokens': 10, 'completion_tokens': 2,
     'completion_tokens_details': {'reasoning_tokens': 3}}})}\n\ndata: [DONE]\n\n';
-http.Response _ok() => http.Response(_sse(), 200);
+http.Response _ok() => http.Response.bytes(utf8.encode(_sse()), 200,
+  headers: {'content-type': 'text/event-stream; charset=utf-8'});
 Matcher _code(String value) => isA<ThirdChannelFailure>().having((e) => e.code, 'code', value);
 
 void main() {
