@@ -3,6 +3,9 @@ import 'dart:convert';
 import 'dart:io';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+import 'package:ai_companion_localfirst/core/diagnostics/third_channel_failure_notice.dart';
+import 'package:ai_companion_localfirst/features/chat/chat_controller.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
@@ -179,6 +182,64 @@ void main() {
       final sink = (await ThirdChannelDiagnostics.capture(db, lane: 'final_reply'))!;
       await db.setSetting('runtime_state_epoch_v1', 'restored-152'); sink.record(event(1)); await sink.flush();
       expect(await db.getSetting(ThirdChannelDiagnostics.settingKey), isNull);
+      expect(await db.getSetting(ThirdChannelFailureNotice.settingKey), isNull);
     } finally { await db.closeForTesting(); }
   });
+  test('failed third channel status reaches chat even when its message tail has not changed, and can be dismissed', () async {
+    FlutterSecureStorage.setMockInitialValues({});
+    final db = await AppDatabase.createForTesting(databaseFactoryFfi);
+    final chat = ChatController(db: db, externalRecoveryOrchestrator: true);
+    try {
+      await chat.syncExternalMessages();
+      final sink = (await ThirdChannelDiagnostics.capture(db, lane: 'final_reply'))!;
+      sink.record(event(DateTime.now().millisecondsSinceEpoch)); await sink.flush();
+      expect(await chat.syncExternalMessages(), true);
+      expect(chat.notice, contains('第三通道调用失败（健康检查超时）'));
+      expect(chat.notice, contains('手动关闭第三通道'));
+      expect(chat.messages, isEmpty);
+      final shown = chat.notice;
+      chat.dismissNotice();
+      await Future<void>.delayed(const Duration(milliseconds: 20));
+      await chat.syncExternalMessages();
+      expect(chat.notice, isNull);
+      // A queued event from before dismissal cannot resurrect the banner.
+      sink.record(event(1)); await sink.flush();
+      await chat.syncExternalMessages(); expect(chat.notice, isNull);
+      // A fresh failure is visible again, without changing the enabled setting.
+      sink.record(event(DateTime.now().millisecondsSinceEpoch + 1)); await sink.flush();
+      await chat.syncExternalMessages(); expect(chat.notice, shown);
+      expect(await db.recentMessages(), isEmpty);
+    } finally { chat.dispose(); await db.closeForTesting(); }
+  });
+  for (final outcome in ['cancelled', 'suspended', 'success', 'incomplete']) {
+    test('$outcome is not a third-channel failure banner', () async {
+      final db = await AppDatabase.createForTesting(databaseFactoryFfi);
+      try {
+        final sink = (await ThirdChannelDiagnostics.capture(db, lane: 'final_reply'))!;
+        sink.record(ThirdChannelEvent(at: 1, stage: 'health', outcome: outcome,
+          code: outcome == 'cancelled' ? 'user_cancelled' : 'not_current',
+          elapsedMs: 0, healthElapsedMs: 0, attempts: 0, healthHttpStatus: 0,
+          modelHttpStatus: 0, healthTimeoutMs: 15000)); await sink.flush();
+        expect(await db.getSetting(ThirdChannelFailureNotice.settingKey), isNull);
+      } finally { await db.closeForTesting(); }
+    });
+  }
+  test('connection-test errors remain local and cannot replace an existing runtime banner', () async {
+    final db = await AppDatabase.createForTesting(databaseFactoryFfi);
+    try {
+      await db.setSetting(ThirdChannelFailureNotice.settingKey, 'existing fallback');
+      final sink = (await ThirdChannelDiagnostics.capture(db, lane: 'connection_test'))!;
+      sink.record(event(1)); await sink.flush();
+      expect(await db.getSetting(ThirdChannelFailureNotice.settingKey), 'existing fallback');
+    } finally { await db.closeForTesting(); }
+  });
+  test('banner formats HTTP and DNS failures without retaining raw errors or URLs', () {
+    expect(ThirdChannelFailureNotice.message('health_http_503'), contains('健康检查 HTTP 503'));
+    expect(ThirdChannelFailureNotice.message('http_503', fallback: '第二通道'), contains('模型接口 HTTP 503），本轮已改用第二通道'));
+    expect(ThirdChannelFailureNotice.message('health_dns'), contains('域名解析失败'));
+    expect(ThirdChannelFailureNotice.message('https://PRIVATE.invalid?key=SECRET'), isNot(contains('PRIVATE')));
+    expect(ThirdChannelFailureNotice.message('SECRET'), isNot(contains('SECRET')));
+    expect(ThirdChannelFailureNotice.shouldPersist('第二通道调用失败，本轮已由 DeepSeek 兜底。'), true);
+  });
+
 }

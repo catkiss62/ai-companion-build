@@ -23,6 +23,7 @@ import '../../core/database/app_database.dart';
 import '../../core/diagnostics/attachment_pipeline_telemetry.dart';
 import '../../core/diagnostics/model_usage_telemetry.dart';
 import '../../core/diagnostics/provider_health.dart';
+import '../../core/diagnostics/third_channel_failure_notice.dart';
 import '../../core/diagnostics/vision_failure_presentation.dart';
 import '../../core/diagnostics/visible_reasoning_language_telemetry.dart';
 import '../../core/desire/desire_core_policy.dart';
@@ -535,12 +536,18 @@ class ChatController extends ChangeNotifier {
     final job = await db.blockingGenerationJob() ??
         await db.failedGenerationNeedingAttention();
     var runtimeChanged = false;
+    final persistedNotice =
+        (await db.getSetting(_persistentFallbackNoticeKey))?.trim() ?? '';
+    if (persistedNotice.isNotEmpty && persistedNotice != notice) {
+      notice = persistedNotice;
+      runtimeChanged = true;
+    }
     if (!sending) {
       _secondChannelEnabled = (await secureConfig.readChatProvider()).isGeminiRelay;
       _thirdChannelEnabled = await _readThirdEnabled();
       final selected = job != null &&
           await db.getSetting(FinalReplyControl.settingKey) == job.id;
-      runtimeChanged = _externalDeepSeekSelected != selected || _externalReplyJobId != job?.id;
+      runtimeChanged = runtimeChanged || _externalDeepSeekSelected != selected || _externalReplyJobId != job?.id;
       _externalDeepSeekSelected = selected;
       _externalReplyJobId = job?.id;
       final awaitingDecision = job?.status == 'awaiting_confirmation';
@@ -1520,7 +1527,7 @@ class ChatController extends ChangeNotifier {
       incompleteReplyJobId = null;
       if (result.notice != null) {
         notice = result.notice;
-        if (result.notice!.contains('本轮已由 DeepSeek 兜底')) {
+        if (ThirdChannelFailureNotice.shouldPersist(result.notice!)) {
           await db.setSetting(_persistentFallbackNoticeKey, result.notice!);
         }
       }
@@ -1719,7 +1726,11 @@ class ChatController extends ChangeNotifier {
 
   void dismissNotice() {
     notice = null;
-    unawaited(db.setSetting(_persistentFallbackNoticeKey, ''));
+    unawaited(db.setSettingsAtomically({
+      _persistentFallbackNoticeKey: '',
+      ThirdChannelFailureNotice.dismissedAtKey:
+          DateTime.now().millisecondsSinceEpoch.toString(),
+    }));
     _safeNotify();
   }
 

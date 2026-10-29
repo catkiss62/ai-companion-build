@@ -1,4 +1,5 @@
 import '../diagnostics/third_channel_diagnostics.dart';
+import '../diagnostics/third_channel_failure_notice.dart';
 import '../agent/on_demand_agent_entry.dart';
 import '../agent/agent_progress_tracker.dart';
 import '../agent/agent_runtime_diagnostic.dart';
@@ -2530,6 +2531,9 @@ $finalGenerationReminder
         }
       }
       final completionNotices = [
+        if (finalRoute.thirdChannelFailure != null)
+          ThirdChannelFailureNotice.message(finalRoute.thirdFailureCode,
+            fallback: finalTextFromGemini ? '第二通道' : '第一通道（DeepSeek）'),
         if (providerNotice?.trim().isNotEmpty == true) providerNotice!,
         if (timedNotice != null) timedNotice,
       ];

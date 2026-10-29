@@ -3,6 +3,7 @@ import 'package:sqflite/sqflite.dart';
 import '../ai/third_channel_event.dart';
 import '../database/app_database.dart';
 import '../database/brain_work_fence.dart';
+import 'third_channel_failure_notice.dart';
 
 /// Optional diagnostics never delay a request or grant retry/fallback authority.
 /// Each sink captures its brain identity before the asynchronous transport.
@@ -36,6 +37,19 @@ class ThirdChannelDiagnostics {
         final bounded = rows.length <= maxEvents ? rows : rows.sublist(rows.length - maxEvents);
         await txn.insert('settings', {'key': settingKey, 'value': jsonEncode(bounded)},
           conflictAlgorithm: ConflictAlgorithm.replace);
+        // Persist a visible, dismissible status independently of reply success.
+        // Connection tests already show their own error; cancellation and stale
+        // ownership are never reported as gateway failures.
+        final dismissedAt = int.tryParse(await BrainWorkFence.value(
+          txn, ThirdChannelFailureNotice.dismissedAtKey)) ?? 0;
+        if (lanes.contains(lane) && lane != 'connection_test' &&
+            event.outcome == 'failed' && event.at > dismissedAt &&
+            !{'user_cancelled', 'not_current'}.contains(event.code)) {
+          await txn.insert('settings', {
+            'key': ThirdChannelFailureNotice.settingKey,
+            'value': ThirdChannelFailureNotice.message(event.code),
+          }, conflictAlgorithm: ConflictAlgorithm.replace);
+        }
       });
     }).catchError((Object _) { /* Diagnostics cannot break a reply. */ });
   }
