@@ -1,0 +1,10 @@
+{
+  "version": "0.42.151+395",
+  "schema": 67,
+  "reason": "Build the unchanged runtime after new and existing focused QQ/Cedar regressions passed.",
+  "validated_runtime_commit": "60579d640734ede57dd982c0f733718a88b37db7",
+  "app_lib_tree": "caff7f7d03c0d38b8f682ff1f7f6497e4e7507d1",
+  "focused_validation_run": 40820647733,
+  "validation_state": "New regressions, original channel and +394 regressions, and QQ/game recovery steps passed. Extended suite will rerun on final head alongside the complete build.",
+  "publication": "unpublished original-signature draft only"
+}

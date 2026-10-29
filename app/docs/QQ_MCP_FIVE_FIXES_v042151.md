@@ -13,3 +13,7 @@
 新增生产入口回归两文件：cedar_control_commit_v042151_test.dart、qq_consumption_media_v042151_test.dart，尚待Flutter执行。145本机可执行源码门及23发布身份/4 NDK工具链检查通过，9项固定资源/kotlinc环境限制待完整CI，Dart语法检查0错误。此记录不把静态检查当行为测试成功。目标0.42.151+395/schema67，无新增迁移；verify-only首候选不产生主APK。
 
 首轮专项40820463790在分析阶段失败：旧QQ归档故障夹具重写mark时未接收新增confirmedParts可选参数，invalid_override一处；生产Dart没有其他编译error，行为测试尚未执行。已同步夹具签名并透传新参数，保留原故障注入。verify-only整包40820463730为跳过主APK，不当构建通过。
+
+## 专项通过，进入完整构建
+
+60579d64/treeae8f3716（app/lib caff7f7d），40820647733：分析及原通道、+394接续/媒体/力度、本轮前台控制/状态合并/QQ终态媒体、既有QQ游戏恢复步骤均success，扩展仍运行。此时以相同运行源码请求完整构建，旧扩展会因新HEAD被自动替代，不能记为失败或已通过；最终专项在新HEAD重新执行全部扩展，与完整源码门/全量/恢复/Android/原签名APK并行验证。尚无+395 APK。
