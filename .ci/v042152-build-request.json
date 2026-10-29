@@ -1,10 +1,19 @@
 {
   "version": "0.42.152+396",
   "schema": 67,
-  "source_commit": "080195630968d1cc00e0023cdbf0806c97cb65a4",
-  "source_tree": "4d6845daaa468649dca8f856fd6360c39edd204c",
-  "app_lib_tree": "52db2429defb22d904b8f0fe3fbc1af213b5b0cb",
+  "app_lib_tree": "fa345765b4d8723d5fe6a7f6ae14eddb96e54efa",
   "requested": "User-approved public gateway health and diagnostics fix, plus dismissible third-channel failure notice; build original-signature APK",
-  "validation": "Dart analysis and focused network, routing and new notice tests passed in 40896204361; original QQ/game/web and extension are running. Full validation is required before delivery.",
-  "additional_boundary": "If optional repair failed but the original third-channel reply is retained, notice names that retained original instead of the configured second channel."
+  "validation": "success: 154 source validators, Kotlin, 3180 Flutter, 171 independent restore, 54 Android15; focused 39/25/26/33/352/1310 overlap",
+  "additional_boundary": "If optional repair failed but the original third-channel reply is retained, notice names that retained original instead of the configured second channel.",
+  "build_source_commit": "4a16f4d2a698d7f88412b78886aaec4b6c1ad5d6",
+  "build_source_tree": "f7830195729bfcf02466a183573a0deb152c4d3e",
+  "full_run": 40897371270,
+  "logic_run": 40897371338,
+  "apk_sha256": "d92c10fec78cbcd8109fe5f9daac5a1d7ba37f1282e3bdb06f9e14340e455554",
+  "apk_size": 739500910,
+  "artifact_id": 12910342494,
+  "release_id": 428013748,
+  "release_asset_id": 689022820,
+  "publication": "unpublished original-signature draft only",
+  "closing_change": "Documentation and verified build record only; skip CI; runtime unchanged."
 }
