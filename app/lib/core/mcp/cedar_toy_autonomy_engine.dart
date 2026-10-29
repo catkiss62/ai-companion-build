@@ -1087,12 +1087,24 @@ class CedarToyAutonomyEngine {
         now:now,
         sourceFence:sourceFence,
         body: (scope) async {
-          final outcome = await _client(token).play(
+          final claimKey='cedar_self_reset_claim_v1:${session.gameId}';
+          final claimValue=jsonEncode([session.id,episode.startedAt.millisecondsSinceEpoch,
+            episode.antiAddictionObservedAt?.millisecondsSinceEpoch??0]);
+          if(!await store.admitRemoteDispatch(gameId:session.gameId,action:'rest',params:const {},
+              executionId:scope.executionId,planningFence:sourceFence,claimKey:claimKey,claimValue:claimValue)) {
+            return const CedarAutonomyProgress('self_reset_pending_reconciliation');
+          }
+          var received=false;
+          try {
+          scope.throwIfPreempted();
+          var outcome = await _client(token).play(
             session.gameId,
             'rest',
             const <String, Object?>{},
             cancellationToken: scope.cancellation,
           );
+          received=true;
+          outcome=CedarPlatformActionPolicy.normalizeOutcome(outcome);
           scope.throwIfPreempted();
           await store.recordPlatformAction(
             gameId: session.gameId,
@@ -1101,7 +1113,11 @@ class CedarToyAutonomyEngine {
             executionId: scope.executionId,
             keepExecution: true,
           );
+          await store.resolveRemoteDispatch(gameId:session.gameId,executionId:scope.executionId,
+            action:'rest',params:const {},authoritative:true,outcome:outcome);
           if (outcome.isError) {
+            await db.setSettingsAtomically({claimKey:''},guardKey:CedarToyActivityStore.executionFenceSettingKey,
+              expectedGuardValue:scope.executionId,expectedSettings:{claimKey:claimValue},workFence:sourceFence);
             await store.deferContinuation(
               gameId: session.gameId,
               delay: const Duration(minutes: 2),
@@ -1121,6 +1137,12 @@ class CedarToyAutonomyEngine {
             );
           } catch (_) {}
           return const CedarAutonomyProgress('self_reset_succeeded');
+          }catch(error) {
+            if(!received) {
+              try {await store.markWriteOutcomeUncertain(gameId:session.gameId,action:'rest',params:const {},executionId:scope.executionId);}catch(_){}
+            }
+            rethrow;
+          }
         },
       );
     }

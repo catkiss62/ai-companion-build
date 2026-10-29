@@ -137,10 +137,22 @@ class QqStore {
     await QqReplyTasks.begin(txn,batch,now,policy);
     return batch;
   });
-  Future<void> mark(QqBatch b,String state,{String? text,String? sticker})=>write(b.fence,(txn) async {
+  Future<void> mark(QqBatch b,String state,{String? text,String? sticker,int? confirmedParts})=>write(b.fence,(txn) async {
+    String? journal;
+    if(confirmedParts!=null) {
+      try {
+        final rows=await txn.query('qq_reply_tasks',columns:['draft'],where:'id=?',whereArgs:[b.id],limit:1);
+        final raw=rows.firstOrNull?['draft'] as String? ?? '';
+        final draft=(jsonDecode(raw.isEmpty?'{}':raw) as Map).cast<String,dynamic>();
+        final delivery=draft['delivery'] is Map?Map<String,dynamic>.from(draft['delivery'] as Map):<String,dynamic>{};
+        draft['delivery']={...delivery,'failure_confirmed_count':confirmedParts};
+        final encoded=jsonEncode(draft);if(encoded.length<=48000)journal=encoded;
+      }catch(_){/* Missing facts remain conservative; status still persists. */}
+    }
     await txn.update('qq_deliveries',{'state':state,'updated_at':DateTime.now().millisecondsSinceEpoch,
       if(text!=null)'content':text,if(sticker!=null)'sticker_key':sticker},where:'id = ?',whereArgs:[b.id]);
     await txn.update('qq_reply_tasks',{'stage':state,'updated_at':DateTime.now().millisecondsSinceEpoch,
+      if(journal!=null)'draft':journal,
       if(const {'watching','context_invalidated','address_rejected','sent'}.contains(state))'draft':''},where:'id=?',whereArgs:[b.id]);
     final raw=await BrainWorkFence.value(txn,QqFailure.historyKey);
     await txn.rawInsert('INSERT OR REPLACE INTO settings(key,value) VALUES(?,?)',[QqFailure.historyKey,QqFailureHistory.finish(raw,b.id,state)]);
@@ -177,7 +189,7 @@ class QqStore {
   Future<int> groupRepliesSince(int since) async=>Sqflite.firstIntValue(await (await db.database).rawQuery(
     "SELECT COUNT(*) FROM qq_deliveries d JOIN qq_conversations c ON c.id=d.conversation_id WHERE c.kind='group' AND d.state IN ('sent','sending','send_uncertain','sent_archive_pending','sent_archive_failed','partially_sent') AND d.updated_at>?",[since]))??0;
   Future<void> recover(BrainWorkFence fence)=>write(fence,(txn) async {
-    await txn.delete('qq_reply_tasks',where:'expires_at<?',whereArgs:[DateTime.now().millisecondsSinceEpoch]);
+    await QqReplyTasks.prune(txn,DateTime.now().millisecondsSinceEpoch);
     await txn.execute("UPDATE qq_deliveries SET state=CASE WHEN state='sending' THEN 'send_uncertain' ELSE 'interrupted' END WHERE state IN ('checking','generating','generated','sending')");
     await txn.execute("UPDATE qq_deliveries SET state='sent_archive_failed' WHERE state='sent_archive_pending'");
     await txn.execute("UPDATE qq_reply_tasks SET stage=CASE WHEN stage='sending' THEN 'send_uncertain' WHEN stage='sent_archive_pending' THEN 'sent_archive_failed' ELSE 'interrupted' END WHERE stage IN ('checking','generating','generated','sending','sent_archive_pending')");

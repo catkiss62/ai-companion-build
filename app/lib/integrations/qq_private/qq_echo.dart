@@ -4,6 +4,7 @@ import 'package:qq_private_bridge/qq_private_bridge.dart';
 import 'qq_archive_reader.dart';
 import 'qq_failure.dart';
 import 'qq_store.dart';
+import 'qq_reply_tasks.dart';
 
 class QqEchoChoice {
   const QqEchoChoice(this.only);
@@ -87,10 +88,10 @@ class QqEchoService {
       if(peers.length<2 || description.isEmpty || proof.length>80)continue;
       // App-generated images, platform duplicates and one person's repeats
       // cannot qualify; unknown/sending outcomes also suppress another echo.
-      final own=await sql.query('qq_deliveries',columns:['id'],where:
-        "conversation_id=? AND sticker_key LIKE ? AND state IN ('sending','sent','send_uncertain') AND updated_at>=?",
-        whereArgs:[b.cid,'echo:${image.hash}:%',now-window.inMilliseconds],limit:1);
-      if(own.isNotEmpty)continue;
+      final own=await sql.rawQuery('SELECT d.state,t.draft FROM qq_deliveries d LEFT JOIN qq_reply_tasks t ON t.id=d.id WHERE '
+        "d.conversation_id=? AND d.sticker_key LIKE ? AND d.state IN ('sending','sent','send_uncertain','sent_archive_pending','sent_archive_failed','partially_sent') AND d.updated_at>=?",
+        [b.cid,'echo:${image.hash}:%',now-window.inMilliseconds]);
+      if(own.any((r)=>QqReplyTasks.mediaConfirmedOrUnknown(r['state'] as String,r['draft'] as String?)))continue;
       return QqEchoCandidate(b.cid,image.hash,anchor,description,image.mime,image.bytes!,proof,peers.length,oldest+window.inMilliseconds);
     }
     return null;

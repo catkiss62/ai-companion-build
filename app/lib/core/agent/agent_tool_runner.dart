@@ -5,6 +5,7 @@ import '../../integrations/qq_private/qq_history_reader.dart';
 import '../../integrations/qq_private/qq_history_catalog.dart';
 import '../creative/creative_control.dart';
 import '../database/generation_attempt_fence.dart';
+import '../database/brain_work_fence.dart';
 import 'turn_execution_store.dart';
 import '../storage/pending_media_owner.dart';
 import '../creative/creative_store.dart';
@@ -466,6 +467,7 @@ class AgentToolRunner {
         toolChainScopeId,
         call.arguments['game'] ?? '',
         cancellationToken,
+        attempt:attempt,
       );
     }
     if (call.toolId == AgentToolRegistry.cedarToyPlay.id) {
@@ -533,6 +535,20 @@ class AgentToolRunner {
     } catch (_) {
       return null;
     }
+  }
+
+  Future<BrainWorkFence?> _cedarControlFence(GenerationAttemptFence? attempt) async {
+    final original=attempt?.brainFence??await db.captureBrainWorkFence();
+    if(original==null)return null;
+    var source=original;
+    if(attempt!=null) {
+      final revision=await TurnExecutionStore(db).originalUserControlRevision(attempt.userMessageId);
+      if(revision==null)return null;
+      source=BrainWorkFence(identity:original.identity,leaseKey:original.leaseKey,leaseToken:original.leaseToken,
+        expectedSettings:{...original.expectedSettings,CedarToyActivityStore.userControlRevisionKey:revision});
+    }
+    return db.extendBrainWorkFence(source,settingKeys:[CedarToyActivityStore.userControlRevisionKey,
+      'cedar_toy_enabled','cedar_toy_autonomy_enabled']);
   }
 
   Future<AgentToolResult> _stageTimedCedarPlay(Map<String, String> arguments,
@@ -662,8 +678,12 @@ class AgentToolRunner {
   Future<AgentToolResult> _cedarGetGuide(
     String scope,
     String rawGame,
-    GenerationCancellationToken? cancellationToken,
-  ) async {
+    GenerationCancellationToken? cancellationToken, {
+    GenerationAttemptFence? attempt,
+  }) async {
+    final controlFence=await _cedarControlFence(attempt);
+    if(controlFence==null)return const AgentToolResult(toolId:'cedar_toy.get_guide',status:AgentToolStatus.blocked,
+      displayText:'原游戏请求已停止',promptData:'原始游戏控制或请求身份已失效，没有激活旧指南。',errorCode:'cedar_control_changed');
     final game = _safeCedarIdentifier(rawGame);
     final list = _cedarGameListsByScope[scope] ??
         await CedarToyActivityStore(db).loadCatalog();
@@ -683,6 +703,7 @@ class AgentToolRunner {
         await activityStore.queueSwitch(
           targetGameId: game,
           reason: '目标指南请求发生时另一局原子动作仍在执行；完成后切换。',
+          workFence:controlFence,attemptFence:attempt,
         );
       }
       return const AgentToolResult(
@@ -701,6 +722,7 @@ class AgentToolRunner {
       final session = await activityStore.recordGuide(
         gameId: game,
         guide: playerGuide,
+        workFence:controlFence,attemptFence:attempt,
       );
       if (!session.guideComplete) {
         return const AgentToolResult(
@@ -734,6 +756,9 @@ class AgentToolRunner {
     PendingMediaOwner? pendingMediaOwner,
   }) async {
     final attempt = pendingMediaOwner?.attempt;
+    final controlFence=await _cedarControlFence(attempt);
+    if(controlFence==null)return const AgentToolResult(toolId:'cedar_toy.play',status:AgentToolStatus.blocked,
+      displayText:'原游戏请求已停止',promptData:'原始游戏控制或请求身份已失效，没有发送游戏操作。',errorCode:'cedar_control_changed');
     final effectStore = TurnExecutionStore(db);
     Future<AgentToolResult> replay(Map<String, dynamic> receipt) async {
       final known = receipt['state'] == 'known';
@@ -785,6 +810,7 @@ class AgentToolRunner {
         await activityStore.queueSwitch(
           targetGameId: game,
           reason: '用户本轮明确要求进入该游戏；目标指南尚未读取，完成当前原子动作后切换。',
+          workFence:controlFence,attemptFence:attempt,
         );
       }
       return const AgentToolResult(
@@ -829,6 +855,7 @@ class AgentToolRunner {
         gameId: game,
         mode: mode,
         reason: '真实指南表明这局需要用户参与；先邀请并等待同意，尚未调用 play。',
+        workFence:controlFence,attemptFence:attempt,
       );
       return const AgentToolResult(
         toolId: 'cedar_toy.play',
@@ -910,6 +937,7 @@ class AgentToolRunner {
         await activityStore.queueSwitch(
           targetGameId: game,
           reason: '另一条 Cedar 原子动作正在执行；本轮请求完成后继续。',
+          workFence:controlFence,attemptFence:attempt,
         );
       }
       return const AgentToolResult(
@@ -937,7 +965,7 @@ class AgentToolRunner {
     try {
       if (attempt != null && !isWrite) await effectStore.initializeRemoteReads(attempt);
       executionId =
-          await activityStore.beginExecution(gameId: game, action: action);
+          await activityStore.beginExecution(gameId: game, action: action,workFence:controlFence,attemptFence:attempt);
       if (attempt != null && isWrite) {
         _cedarWriteIndices[writeScope] = effectIndex + 1;
         final existing = await effectStore.reserveRemoteEffect(attempt, effectPayload, effectIndex: effectIndex,
@@ -951,7 +979,7 @@ class AgentToolRunner {
         reserved = true;
       }
       cancellationToken?.throwIfCancelled();
-      if (!await activityStore.admitRemoteDispatch(gameId: game, action: action, params: params, executionId: executionId, turnId: attempt?.userMessageId ?? '')) {
+      if (!await activityStore.admitRemoteDispatch(gameId: game, action: action, params: params, executionId: executionId, turnId: attempt?.userMessageId ?? '',planningFence:controlFence,attemptFence:attempt)) {
         final pending=await activityStore.unresolvedWrite(game);
         final recovered=pending!=null && await activityStore.recoverUnresolvedWrite(
           gameId:game,executionId:executionId,now:DateTime.now());

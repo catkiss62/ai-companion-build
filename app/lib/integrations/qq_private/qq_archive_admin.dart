@@ -5,6 +5,7 @@ import '../../core/database/brain_work_fence.dart';
 import 'qq_archive_reader.dart';
 import 'qq_store.dart';
 import 'qq_work_queue.dart';
+import 'qq_reply_tasks.dart';
 
 /// Calendar buckets are a management view, never a new conversation or a
 /// retrieval cutoff. Historical months remain available until explicitly deleted.
@@ -95,6 +96,7 @@ class QqArchiveAdmin {
       final victims = await txn.query('qq_archive', columns: ['seq'], where: 'conversation_id=? AND observed_at>=? AND observed_at<? ${throughSeq == null ? '' : 'AND seq<=?'}',
         whereArgs: [cid, start.millisecondsSinceEpoch, end.millisecondsSinceEpoch, if (throughSeq != null) throughSeq]);
       final deleted = victims.map((r) => r['seq'] as int).toSet();
+      if(deleted.isEmpty)return const QqArchiveDeletion(0,0,0);
       var removedNotes = 0, rebuilds = 0;
       final notes = await txn.query('qq_notes', where: 'conversation_id=? AND range_start<? AND range_end>=?',
         whereArgs: [cid, end.millisecondsSinceEpoch, start.millisecondsSinceEpoch]);
@@ -118,7 +120,19 @@ class QqArchiveAdmin {
         }
       }
       await QqWorkQueue.removeSources(txn,cid,deleted);
-      await txn.delete('qq_reply_tasks',where:'conversation_id=?',whereArgs:[cid]);
+      for(final task in await txn.query('qq_reply_tasks',where:'conversation_id=?',whereArgs:[cid])) {
+        final keep=(jsonDecode(task['sources'] as String) as List).cast<int>().where((seq)=>!deleted.contains(seq)).toList()..sort();
+        if(keep.isEmpty || !QqReplyTasks.deliveredStages.contains(task['stage'])) {
+          await txn.delete('qq_reply_tasks',where:'id=?',whereArgs:[task['id']]);continue;
+        }
+        final proof=await txn.query('qq_archive',columns:['id','version'],
+          where:'conversation_id=? AND seq IN (${List.filled(keep.length,'?').join(',')})',whereArgs:[cid,...keep]);
+        // Keep only the non-content consumption fact. An edited archive never
+        // authorizes reusing its old pending prompt or continuation draft.
+        await txn.update('qq_reply_tasks',{'sources':jsonEncode(keep),'through_seq':keep.last,
+          'source_stamp':jsonEncode([for(final row in proof){'table':'qq_archive',...row}]),
+          'valid':0,'draft':''},where:'id=?',whereArgs:[task['id']]);
+      }
       await txn.delete('qq_attention_events',where:'conversation_id=?',whereArgs:[cid]);
       // Deliveries and observations must be removed before their source rows.
       for (var offset = 0; offset < victims.length; offset += 200) {

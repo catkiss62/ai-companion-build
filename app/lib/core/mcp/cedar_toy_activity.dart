@@ -15,6 +15,7 @@ import 'cedar_game_protocol.dart';
 import 'cedar_play_session_policy.dart';
 import 'cedar_play_transition_log.dart';
 import 'cedar_solo_episode_policy.dart';
+import 'cedar_state_merge.dart';
 import 'cedar_duel_observer_resolver.dart';
 import 'cedar_toy_client.dart';
 import 'cedar_timed_play_task.dart';
@@ -652,6 +653,8 @@ class CedarToyActivityState {
     this.notices = const <CedarCrossGameNotice>[],
     this.execution,
     this.completedPlayRounds = 0,
+    this.sourceSnapshot,
+    this.sourceFence,
   });
 
   final String activeGameId;
@@ -661,6 +664,9 @@ class CedarToyActivityState {
   final CedarGameExecution? execution;
   final DateTime updatedAt;
   final int completedPlayRounds;
+  // Process-local read context, excluded from portable JSON.
+  final Map<String,Object?>? sourceSnapshot;
+  final BrainWorkFence? sourceFence;
 
   CedarGameSession? get activeSession => sessions[activeGameId];
   bool get hasUserTurnContinuation {
@@ -689,6 +695,8 @@ class CedarToyActivityState {
     bool clearExecution = false,
     DateTime? updatedAt,
     int? completedPlayRounds,
+    Map<String,Object?>? sourceSnapshot,
+    BrainWorkFence? sourceFence,
   }) =>
       CedarToyActivityState(
         activeGameId: activeGameId ?? this.activeGameId,
@@ -698,6 +706,8 @@ class CedarToyActivityState {
         execution: clearExecution ? null : execution ?? this.execution,
         updatedAt: updatedAt ?? this.updatedAt,
         completedPlayRounds: completedPlayRounds ?? this.completedPlayRounds,
+        sourceSnapshot:sourceSnapshot??this.sourceSnapshot,
+        sourceFence:sourceFence??this.sourceFence,
       );
 
   Map<String, Object?> toJson() => <String, Object?>{
@@ -754,7 +764,7 @@ class CedarToyActivityState {
 }
 
 class CedarToyActivityStore {
-  CedarToyActivityStore(this.db);
+  CedarToyActivityStore(this.db,{this.beforeStateCommit});
 
   static const sessionSettingKey = 'cedar_toy_activity_session_v1';
   static const stateSettingKey = 'cedar_toy_activity_state_v2';
@@ -787,6 +797,7 @@ class CedarToyActivityStore {
   static const viewerHeartbeatTtl = Duration(hours: 6);
 
   final AppDatabase db;
+  final Future<void> Function()? beforeStateCommit;
   static const Uuid _uuid = Uuid();
 
   Future<void> beginViewing() async {
@@ -883,12 +894,19 @@ class CedarToyActivityStore {
   }
 
   Future<CedarToyActivityState> loadState() async {
-    final raw = await db.getSetting(stateSettingKey) ?? '';
+    final origin=await db.captureBrainWorkFence(settingKeys:[userControlRevisionKey,executionFenceSettingKey,
+      'cedar_toy_enabled','cedar_toy_autonomy_enabled']);
+    final handle=await db.database;
+    final snapshot=await handle.transaction((txn)async=>(raw:await BrainWorkFence.value(txn,stateSettingKey),
+      legacy:await BrainWorkFence.value(txn,sessionSettingKey),
+      fence:origin!=null && await origin.matches(txn)?origin:null));
+    final raw = snapshot.raw;
     if (raw.trim().isNotEmpty) {
       try {
         final decoded = jsonDecode(raw);
         if (decoded is Map) {
           var state = CedarToyActivityState.fromJson(decoded);
+          state=state.copyWith(sourceSnapshot:state.toJson(),sourceFence:snapshot.fence);
           final guideRepaired = _repairPlayerGuides(state);
           if (guideRepaired != null) {
             state = guideRepaired;
@@ -918,16 +936,13 @@ class CedarToyActivityStore {
                       DateTime.now().difference(execution.startedAt) >
                           const Duration(minutes: 2)))) {
             state = state.copyWith(clearExecution: true);
-            await db.setSettingsAtomically(<String, String>{
-              ...stateSettingValues(state),
-              executionFenceSettingKey: 'cancel-stale-${_uuid.v4()}',
-            });
+            if(await _saveState(state,extra:{executionFenceSettingKey:'cancel-stale-${_uuid.v4()}'}))return loadState();
           }
           return state;
         }
       } catch (_) {}
     }
-    final legacy = await _loadLegacy();
+    final legacy = await _loadLegacy(snapshot:snapshot.legacy);
     final now = DateTime.now();
     final sessions = <String, CedarGameSession>{};
     if (legacy != null) {
@@ -940,14 +955,18 @@ class CedarToyActivityStore {
       activeGameId: legacy?.gameId ?? '',
       sessions: sessions,
       updatedAt: now,
+      sourceFence:snapshot.fence,
     );
+    final original=CedarToyActivityState(activeGameId:legacy?.gameId??'',
+      sessions:{if(legacy!=null)legacy.gameId:legacy},updatedAt:now);
+    state=state.copyWith(sourceSnapshot:original.toJson());
     if (legacy != null) state = _withExtractedNotices(state, legacy);
     await _saveState(state);
     return state;
   }
 
-  Future<CedarGameSession?> _loadLegacy() async {
-    final raw = await db.getSetting(sessionSettingKey) ?? '';
+  Future<CedarGameSession?> _loadLegacy({String? snapshot}) async {
+    final raw = snapshot??await db.getSetting(sessionSettingKey) ?? '';
     if (raw.trim().isEmpty) return null;
     try {
       final decoded = jsonDecode(raw);
@@ -1091,6 +1110,8 @@ class CedarToyActivityStore {
     required String guide,
     String gameTitle = '',
     String executionId = '',
+    BrainWorkFence? workFence,
+    GenerationAttemptFence? attemptFence,
   }) async {
     final clean = guide.trim();
     final complete = clean.isNotEmpty && clean.length <= maxGuidePromptChars;
@@ -1164,11 +1185,11 @@ class CedarToyActivityStore {
       clearExecution: true,
       updatedAt: now,
     );
-    final saved = await _saveState(state, executionId: executionId, extra: {
+    final saved = await _saveState(state, executionId: executionId,workFence:workFence,attemptFence:attemptFence,requireIdle:executionId.isEmpty, extra: {
       if (previousActiveGameId != gameId || existing?.phase == CedarActivityPhase.completed ||
           existing?.phase == CedarActivityPhase.failed) controlRevisionKey: _uuid.v4(),
     });
-    if (!saved && executionId.isNotEmpty) {
+    if (!saved) {
       throw const CedarExecutionPreemptedException('guide_fenced');
     }
     return session;
@@ -1177,12 +1198,14 @@ class CedarToyActivityStore {
   Future<CedarQueuedSwitch> queueSwitch({
     required String targetGameId,
     String reason = '',
+    BrainWorkFence? workFence,
+    GenerationAttemptFence? attemptFence,
   }) async {
-    final fence = await db.captureBrainWorkFence();
+    final fence = workFence??await db.captureBrainWorkFence();
     if (fence == null) throw const CedarExecutionPreemptedException('switch_fenced');
     final handle = await db.database;
     return handle.transaction((txn) async {
-      if (!await fence.matches(txn)) throw const CedarExecutionPreemptedException('switch_fenced');
+      if (!await fence.matches(txn) || attemptFence!=null && !await attemptFence.matches(txn)) throw const CedarExecutionPreemptedException('switch_fenced');
       final state = await readStateInTransaction(txn);
       final existing = state.queuedSwitches.where((item) => item.targetGameId == targetGameId);
       if (existing.isNotEmpty) return existing.first;
@@ -1205,6 +1228,7 @@ class CedarToyActivityStore {
     required String gameId,
     required String action,
     BrainWorkFence? workFence,
+    GenerationAttemptFence? attemptFence,
   }) async {
     final state = await loadState();
     final now = DateTime.now();
@@ -1218,10 +1242,8 @@ class CedarToyActivityStore {
       ),
       updatedAt: now,
     );
-    final committed=await db.setSettingsAtomically(<String, String>{
-      ...stateSettingValues(next),
-      executionFenceSettingKey: executionId,
-    },workFence:workFence);
+    final committed=await _saveState(next,workFence:workFence,attemptFence:attemptFence,
+      extra:{executionFenceSettingKey:executionId});
     if(!committed)throw const CedarExecutionPreemptedException('selection_changed');
     return executionId;
   }
@@ -1269,13 +1291,8 @@ class CedarToyActivityStore {
   Future<void> cancelExecution({String reason = 'cancelled'}) async {
     final state = await loadState();
     final now = DateTime.now();
-    await db.setSettingsAtomically(<String, String>{
-      ...stateSettingValues(state.copyWith(
-        clearExecution: true,
-        updatedAt: now,
-      )),
-      executionFenceSettingKey: 'cancel-$reason-${_uuid.v4()}',
-    });
+    await _saveState(state.copyWith(clearExecution:true,updatedAt:now),
+      extra:{executionFenceSettingKey:'cancel-$reason-${_uuid.v4()}'});
   }
 
   Future<void> deferContinuation({
@@ -1344,16 +1361,20 @@ class CedarToyActivityStore {
   }
   Future<bool> admitRemoteDispatch({required String gameId, required String action,
     required Map<String, Object?> params, required String executionId,
-    BrainWorkFence? planningFence, String turnId = ''}) async {
+    BrainWorkFence? planningFence, GenerationAttemptFence? attemptFence, String turnId = '',
+    String claimKey='',String claimValue=''}) async {
     final handle = await db.database;
     return handle.transaction((txn) async {
       if (planningFence!=null&&!await planningFence.matches(txn)) return false;
+      if (attemptFence!=null&&!await attemptFence.matches(txn)) return false;
       if (await BrainWorkFence.value(txn, executionFenceSettingKey) != executionId) return false;
       if (CedarPlatformActionPolicy.isReadOnlyCall(action, params)) return true;
       final key = '$uncertainWritePrefix$gameId';
       if ((await BrainWorkFence.value(txn, key)).isNotEmpty) return false;
+      if(claimKey.isNotEmpty && (claimValue.isEmpty || await BrainWorkFence.value(txn,claimKey)==claimValue))return false;
       await txn.insert('settings', {'key': key, 'value': jsonEncode({'schema': 1,
         'execution_id': executionId, 'turn_id': turnId, 'action': action, 'params': params, 'state': 'dispatching'})});
+      if(claimKey.isNotEmpty)await txn.insert('settings',{'key':claimKey,'value':claimValue},conflictAlgorithm:ConflictAlgorithm.replace);
       return true;
     });
   }
@@ -1514,6 +1535,8 @@ class CedarToyActivityStore {
     required CedarParticipationMode mode,
     String reason = '',
     String executionId = '',
+    BrainWorkFence? workFence,
+    GenerationAttemptFence? attemptFence,
   }) async {
     var state = await loadState();
     final existing = state.sessions[gameId];
@@ -1543,8 +1566,8 @@ class CedarToyActivityStore {
       clearExecution: true,
       updatedAt: now,
     );
-    final saved = await _saveState(state, executionId: executionId);
-    if (!saved && executionId.isNotEmpty) {
+    final saved = await _saveState(state, executionId: executionId,workFence:workFence,attemptFence:attemptFence,requireIdle:executionId.isEmpty);
+    if (!saved && (executionId.isNotEmpty || workFence!=null || attemptFence!=null)) {
       throw const CedarExecutionPreemptedException('invitation_fenced');
     }
     return next;
@@ -2118,18 +2141,10 @@ class CedarToyActivityStore {
       clearNextActionAt: true,
       updatedAt: now,
     );
-    await db.setSettingsAtomically(<String, String>{
-      ...stateSettingValues(state.copyWith(
-        activeGameId: '',
-        sessions: Map<String, CedarGameSession>.from(state.sessions)
-          ..[session.gameId] = parked,
-        clearExecution: true,
-        updatedAt: now,
-      )),
-      executionFenceSettingKey: 'park-unroutable-wait-${_uuid.v4()}',
-      controlRevisionKey: _uuid.v4(),
-    });
-    return true;
+    return _saveState(state.copyWith(activeGameId:'',
+      sessions:Map<String,CedarGameSession>.from(state.sessions)..[session.gameId]=parked,
+      clearExecution:true,updatedAt:now),extra:{
+        executionFenceSettingKey:'park-unroutable-wait-${_uuid.v4()}',controlRevisionKey:_uuid.v4()});
   }
 
   Future<void> resumeGame([String gameId = '']) async {
@@ -2308,12 +2323,27 @@ ${CedarSaveSlotPolicy.promptGuidance(session.guide, session.lastOutcome)}
     CedarToyActivityState state, {
     String executionId = '',
     Map<String, String> extra = const {},
-  }) async =>
-      db.setSettingsAtomically(
-        {...stateSettingValues(state), ...extra},
-        guardKey: executionId.isEmpty ? null : executionFenceSettingKey,
-        expectedGuardValue: executionId,
-      );
+    BrainWorkFence? workFence,
+    GenerationAttemptFence? attemptFence,
+    bool requireIdle=false,
+  }) async {
+    await beforeStateCommit?.call();
+    final origin=state.sourceFence,base=state.sourceSnapshot;
+    if(origin==null || base==null)return false;
+    final handle=await db.database;
+    return handle.transaction((txn)async {
+      if(!await origin.matches(txn) || workFence!=null && !await workFence.matches(txn) ||
+          attemptFence!=null && !await attemptFence.matches(txn))return false;
+      if(executionId.isNotEmpty && await BrainWorkFence.value(txn,executionFenceSettingKey)!=executionId)return false;
+      final current=await readStateInTransaction(txn);
+      if(requireIdle && current.execution!=null)return false;
+      final merged=CedarStateMerge.merge(base,state.toJson(),current.toJson());
+      if(merged==null)return false;
+      final next=CedarToyActivityState.fromJson(merged);
+      await writeSettingsInTransaction(txn,{...stateSettingValues(next),...extra});
+      return true;
+    });
+  }
 
   static Map<String, String> stateSettingValues(CedarToyActivityState state) {
     final active = state.activeSession;

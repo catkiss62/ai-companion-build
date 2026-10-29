@@ -52,6 +52,25 @@ class QqReplyTasks {
   final QqStore store;
   static const ttl = Duration(minutes: 10);
   static const maxSources = 80;
+  static const deliveredStages = {'sent','sent_archive_pending','sent_archive_failed','partially_sent','send_uncertain'};
+  // A platform timestamp may be two minutes ahead; ingress accepts replays
+  // for four minutes. Retaining facts never extends the pending request TTL.
+  static const deliveredRetention = Duration(minutes: 6);
+  static Future<void> prune(DatabaseExecutor sql,int now) async {
+    await sql.delete('qq_reply_tasks',where:"expires_at<? AND (stage NOT IN ('sent','sent_archive_pending','sent_archive_failed','partially_sent','send_uncertain') OR updated_at<?)",
+      whereArgs:[now,now-deliveredRetention.inMilliseconds]);
+  }
+  static bool mediaConfirmedOrUnknown(String stage,String? raw) {
+    if(const {'sent','sending','send_uncertain','sent_archive_pending'}.contains(stage))return true;
+    if(!const {'sent_archive_failed','partially_sent'}.contains(stage))return false;
+    try {
+      final draft=jsonDecode(raw??'');final delivery=draft is Map?draft['delivery']:null;
+      if(delivery is! Map || delivery['confirmed'] is! List || delivery['failure_confirmed_count'] is! int)return true;
+      final parts=delivery['confirmed'] as List;
+      if(parts.any((p)=>p is! Map || p['image'] is! bool) || parts.length!=delivery['failure_confirmed_count'])return true;
+      return parts.any((p)=>(p as Map)['image']==true);
+    }catch(_){return true;}
+  }
   static Map<String,Object?> _inherited(QqPendingReply pending) {
     final parts=<String,Map>{};
     for(final raw in [...(pending.inherited['confirmed'] as List? ?? []),
@@ -70,7 +89,7 @@ class QqReplyTasks {
     return (text:match==null?raw:raw.substring(match.end),relation:match?.group(1)??'unclear');
   }
   static Future<void> begin(Transaction sql, QqBatch b, int now, String policy) async {
-    await sql.delete('qq_reply_tasks', where: 'expires_at<?', whereArgs: [now]);
+    await prune(sql,now);
     final at = b.rows.last['received_at'] as int;
     await sql.insert('qq_reply_tasks', {
       'id': b.id, 'conversation_id': b.cid, 'through_seq': b.through,

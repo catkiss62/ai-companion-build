@@ -7,6 +7,7 @@ import '../../core/stickers/sticker_pack.dart';
 import '../../core/stickers/sticker_pack_storage.dart';
 import '../../core/storage/shared_media_lock.dart';
 import 'qq_store.dart';
+import 'qq_reply_tasks.dart';
 
 /// Reuses the installed gallery/caption edits, never main chat attachment
 /// creation or its usage counters. QQ receipts own their independent rotation.
@@ -34,9 +35,9 @@ class QqStickers {
     final invited=group?explicitGroupPlay(context):RegExp(r'(表情包|斗图)').hasMatch(context);
     if(!invited && unit>=StickerExpressionService.ordinaryReplyThreshold(mode)) return [];
     final enabled=await storage.enabledPackIds();
-    final recent=await (await db.database).query('qq_deliveries',columns:['sticker_key'],
-      where:"state='sent' AND sticker_key != ''",orderBy:'updated_at DESC',limit:20);
-    final used=recent.map((r)=>r['sticker_key']).toSet();
+    final recent=await (await db.database).rawQuery('SELECT d.sticker_key,d.state,t.draft FROM qq_deliveries d LEFT JOIN qq_reply_tasks t ON t.id=d.id '
+      "WHERE d.state IN ('sent','sending','send_uncertain','sent_archive_pending','sent_archive_failed','partially_sent') AND d.sticker_key != '' ORDER BY d.updated_at DESC LIMIT 20");
+    final used=recent.where((r)=>QqReplyTasks.mediaConfirmedOrUnknown(r['state'] as String,r['draft'] as String?)).map((r)=>r['sticker_key']).toSet();
     final pool=<({StickerPackMeta pack,StickerRecord record})>[];
     for(final pack in await storage.scanPacks()) {
       if(!enabled.contains(pack.id)) continue;

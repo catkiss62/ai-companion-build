@@ -494,7 +494,7 @@ class QqRuntime {
       await store.recordFailure(fence,phase,error is QqDeliveryFailure?error.cause:error,elapsedMs:operationClock.elapsedMilliseconds,operation:b.id,conversation:b.cid);
       final state=error is QqDeliveryFailure?error.state:sentAny?'sent_archive_failed':
         error is QqApiException && error.uncertain?'send_uncertain':await current()?'failed':'context_invalidated';
-      try {await store.mark(b,state);} catch(_) {/* Existing sending receipt remains conservative. */}
+      try {await store.mark(b,state,confirmedParts:error is QqDeliveryFailure?error.confirmed:null);} catch(_) {/* Existing sending receipt remains conservative. */}
       status(state=='failed'?'reply_failed':state);
     } finally {client.close();_clients.remove(client);if(ownsDrawing)_drawingBusy=false;echoes.release(b);
       for(final row in b.rows) {_imageUrls.remove(row['seq']);}
