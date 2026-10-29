@@ -1,0 +1,9 @@
+{
+  "version": "0.42.150+394",
+  "schema": 67,
+  "reason": "Build the completed runtime candidate after verify-only regressions passed.",
+  "validated_runtime_commit": "06925ebf9d0899f7fcc598535a5456aab85c2295",
+  "app_lib_tree": "0d950a3251da850ead83422e2849aa4830d45572",
+  "logic_validation_run": 40770262686,
+  "publication": "existing unpublished draft only"
+}
