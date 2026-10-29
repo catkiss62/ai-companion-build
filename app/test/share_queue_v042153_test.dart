@@ -49,7 +49,10 @@ void main() {
       expect(await db.activeReadyPublicWebShareCandidate(now:now),isNull);
       expect((await db.nextPublicWebCandidateForSharing(now:now))?.id,fresh);
       final fence=(await db.captureBrainWorkFence())!;
-      expect((await db.claimNextPublicWebCandidateForSharing(now:now,workFence:fence))?.id,fresh);
+      final lease=await db.claimNextPublicWebCandidateForSharing(now:now,workFence:fence);
+      expect(lease?.id,fresh);
+      expect(await db.finishPublicWebShareStage(lease!,now:now),isNotNull);
+      expect((await db.activeReadyPublicWebShareCandidate(now:now))?.id,fresh);
       final original=await db.thoughtById(thought);
       if(state=='missing') expect(original,isNull);
       if(state=='dormant') expect(original!.lifecycleState,'dormant');

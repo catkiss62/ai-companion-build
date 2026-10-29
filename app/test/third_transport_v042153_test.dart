@@ -140,6 +140,23 @@ void main() {
     final a=await pool.acquire(config);a.release();final b=await pool.acquire(config);
     expect(b.reused,false);expect(created,2);b.release();pool.close();
   });
+  test('a real failed health call retires the shared transport for the next call',() async {
+    var created=0,health=0;
+    final pool=ThirdChannelTransportPool(clientFactory:() {
+      created++;
+      return MockClient((r) async {
+        if(r.url.path=='/health') return http.Response(++health==1?'{}':'{"status":"ok"}',health==1?503:200);
+        return http.Response.bytes(utf8.encode(_sse('恢复成功')),200);
+      });
+    });
+    final client=ThirdChannelClient(transportPool:pool),events=<ThirdChannelEvent>[];
+    const config=ThirdChannelConfig(baseUrl:'https://fixture.invalid',apiKey:'synthetic');
+    try {
+      await expectLater(client.complete(config:config,messages:[],onDiagnostic:events.add),throwsA(isA<ThirdChannelFailure>()));
+      expect((await client.complete(config:config,messages:[],onDiagnostic:events.add)).content,'恢复成功');
+      expect(created,2);expect(events.last.transportReused,false);
+    } finally {client.close();pool.close();}
+  });
   test('new timing facts are bounded and cannot persist arbitrary ids or effort text',() {
     final safe=ThirdChannelDiagnostics.sanitize({'request_id':'PRIVATE https://host.invalid',
       'reasoning_effort':'PRIVATE','request_bytes':-1,'model_elapsed_ms':999999999,

@@ -911,7 +911,7 @@ class _ModelNetworkSettingsPageState
                   ),
                   _SettingsSectionCard(
                     title: '第三通道（本地网关）',
-                    subtitle: '开启后优先用于 App、QQ 正文和图片识别；不可用时按各自设置回退。电脑和手机需要能访问同一网关。',
+                    subtitle: '开启后优先用于 App、QQ 正文；不可用时按各自设置回退。图片识别按千问和第一通道设置处理。电脑网关需运行，手机需能访问所填地址。',
                     children: [
                       SwitchListTile(contentPadding: EdgeInsets.zero,
                         title: const Text('启用第三通道'), value: _thirdEnabled,
