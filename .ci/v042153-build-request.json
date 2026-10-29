@@ -3,9 +3,20 @@
   "schema": 67,
   "baseline": "8017c21f4ee7e5731591e58abc9b43739058a65c",
   "requested": "User-approved third transport reuse, first/Qwen vision routing, image sender grounding and autonomous sharing fixes; original-signature APK after focused validation",
-  "validation": "Focused transport/share/vision/cancellation groups passed before packaging; final complete CI and device latency pending",
+  "validation": "success:154 source,Kotlin,3232 full Flutter,171 independent restore,54 Android15;focused61/39/25/26/33/352/1314 overlap",
   "publication": "unpublished draft only; no main merge",
   "network": "retain existing Funnel; no server deployment changes",
   "deferred": "health success cache and chat-open prewarm pending lifecycle evidence; new public tunnel requires A/B measurements; no automatic effort change",
-  "app_lib_tree": "d788a373ba7aef6bdd00e2040975fe51d7e54347"
+  "app_lib_tree": "d788a373ba7aef6bdd00e2040975fe51d7e54347",
+  "build_source_commit": "7210591db53a3550630348252ad41a1e1a37abb6",
+  "build_source_tree": "e16f350bdb6c5908c0156530cf4116ca8181464a",
+  "full_run": 40940659163,
+  "logic_run": 40940659131,
+  "apk_sha256": "621611873d5ae39d78867fabbfeb69ec5d4780b50756504652775e7b4bfb10ee",
+  "apk_size": 739513486,
+  "artifact_id": 12928487240,
+  "release_id": 428333994,
+  "release_asset_id": 689739878,
+  "signer_sha256": "305eb3d80983b963c64818ddf1ad561f279de6d47b3ed2c781ada448c7c25148",
+  "closing_change": "Documentation and verified build record only; skip CI; runtime unchanged."
 }
