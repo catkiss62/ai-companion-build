@@ -84,6 +84,33 @@ void main() {
     await store.pause();final ownership=await owner('fresh'),secure=_Secure()..release.complete();
     await execute('cedar_toy.play',secure,ownership);expect(game.calls,['cmd']);
   });
+  for(final tool in ['cedar_toy.play','cedar_toy.get_guide']) {
+    for(final pauseAgain in [false,true]) {
+      test('$tool accepts only its own same-target resume receipt, later pause=$pauseAgain',()async {
+        await store.pause();final ownership=await owner('resume'),session=(await store.loadSession('bar'))!;
+        final admission=await store.applyControl(operation:'resume',gameId:'bar',sessionId:session.id,attemptFence:ownership.attempt);
+        expect(admission.receipt?.committed,true);
+        final secure=_Secure();final pending=execute(tool,secure,ownership);
+        try {
+          await secure.entered.future.timeout(const Duration(seconds:5));if(pauseAgain)await store.pause();
+          secure.release.complete();final result=(await pending).single;
+          if(pauseAgain) {
+            expect(result.succeeded,false);expect(game.calls,isEmpty);
+            expect((await store.loadSession('bar'))!.guide,isNot(contains('迟到的')));
+          }else if(tool=='cedar_toy.play')expect(game.calls,['cmd']);
+          else {expect(result.succeeded,true);expect((await store.loadSession('bar'))!.guide,contains('迟到的'));}
+        }finally {if(!secure.release.isCompleted)secure.release.complete();await pending;}
+      });
+    }
+  }
+  test('a same-turn resume receipt for another game cannot authorize this game',()async {
+    await store.recordGuide(gameId:'other',guide:_guide);await store.pause();
+    final ownership=await owner('other-resume'),session=(await store.loadSession('other'))!;
+    final admission=await store.applyControl(operation:'resume',gameId:'other',sessionId:session.id,attemptFence:ownership.attempt);
+    expect(admission.receipt?.committed,true);
+    final secure=_Secure()..release.complete();final result=(await execute('cedar_toy.play',secure,ownership)).single;
+    expect(result.succeeded,false);expect(game.calls,isEmpty);
+  });
   test('outcome commit preserves an independently queued game and user advice',()async {
     final execution=await store.beginExecution(gameId:'bar',action:'cmd');
     final entered=Completer<void>(),release=Completer<void>();var armed=true;

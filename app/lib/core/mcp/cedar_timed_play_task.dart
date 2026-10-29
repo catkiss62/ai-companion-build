@@ -93,8 +93,8 @@ class CedarTimedPlayTaskStore {
 
   /// A resume accepted in this same user turn may advance its original
   /// control epoch once. Later UI control, a different target, or an unrelated
-  /// turn cannot be used as fresh authorization for this timer.
-  static Future<bool> _userControlAuthorized(DatabaseExecutor txn, {
+  /// turn cannot be used as fresh authorization for another game request.
+  static Future<bool> userControlAuthorized(DatabaseExecutor txn, {
     required String turnId, required String gameId, required String sessionId,
     required String originalRevision, required String currentRevision,
   }) async {
@@ -148,7 +148,7 @@ class CedarTimedPlayTaskStore {
         final controlRevision = await BrainWorkFence.value(txn, CedarToyActivityStore.controlRevisionKey);
         final userControlRevision = await BrainWorkFence.value(txn, CedarToyActivityStore.userControlRevisionKey);
         final originalUserControlRevision = await TurnExecutionStore.originalUserControlRevisionInTransaction(txn, turnId);
-        if (originalUserControlRevision == null || !await _userControlAuthorized(txn, turnId: turnId,
+        if (originalUserControlRevision == null || !await userControlAuthorized(txn, turnId: turnId,
             gameId: session.gameId, sessionId: session.id, originalRevision: originalUserControlRevision,
             currentRevision: userControlRevision)) {
           return const LocalEffectAdmission(LocalEffectAdmissionState.blocked);
@@ -217,7 +217,7 @@ class CedarTimedPlayTaskStore {
         pending['userControlRevision'] != await BrainWorkFence.value(txn, CedarToyActivityStore.userControlRevisionKey)) return false;
     final originalRevision = await TurnExecutionStore.originalUserControlRevisionInTransaction(txn, attempt.userMessageId);
     if (originalRevision == null || originalRevision != pending['originalUserControlRevision'] ||
-        !await _userControlAuthorized(txn, turnId: attempt.userMessageId,
+        !await userControlAuthorized(txn, turnId: attempt.userMessageId,
           gameId: pending['gameId'] as String, sessionId: pending['sessionId'] as String,
           originalRevision: originalRevision, currentRevision: pending['userControlRevision'] as String)) return false;
     final identity = pending['brainIdentity'];

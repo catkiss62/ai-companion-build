@@ -537,12 +537,25 @@ class AgentToolRunner {
     }
   }
 
-  Future<BrainWorkFence?> _cedarControlFence(GenerationAttemptFence? attempt) async {
+  Future<BrainWorkFence?> _cedarControlFence(GenerationAttemptFence? attempt, {required String gameId}) async {
     final original=attempt?.brainFence??await db.captureBrainWorkFence();
     if(original==null)return null;
     var source=original;
     if(attempt!=null) {
-      final revision=await TurnExecutionStore(db).originalUserControlRevision(attempt.userMessageId);
+      final handle=await db.database;
+      final revision=await handle.transaction((txn)async {
+        if(!await attempt.matches(txn))return null;
+        final originalRevision=await TurnExecutionStore.originalUserControlRevisionInTransaction(txn,attempt.userMessageId);
+        if(originalRevision==null)return null;
+        final currentRevision=await BrainWorkFence.value(txn,CedarToyActivityStore.userControlRevisionKey);
+        if(originalRevision!=currentRevision) {
+          final session=(await CedarToyActivityStore.readStateInTransaction(txn)).sessions[gameId];
+          if(session==null || !await CedarTimedPlayTaskStore.userControlAuthorized(txn,
+              turnId:attempt.userMessageId,gameId:gameId,sessionId:session.id,
+              originalRevision:originalRevision,currentRevision:currentRevision))return null;
+        }
+        return currentRevision;
+      });
       if(revision==null)return null;
       source=BrainWorkFence(identity:original.identity,leaseKey:original.leaseKey,leaseToken:original.leaseToken,
         expectedSettings:{...original.expectedSettings,CedarToyActivityStore.userControlRevisionKey:revision});
@@ -681,7 +694,7 @@ class AgentToolRunner {
     GenerationCancellationToken? cancellationToken, {
     GenerationAttemptFence? attempt,
   }) async {
-    final controlFence=await _cedarControlFence(attempt);
+    final controlFence=await _cedarControlFence(attempt,gameId:_safeCedarIdentifier(rawGame));
     if(controlFence==null)return const AgentToolResult(toolId:'cedar_toy.get_guide',status:AgentToolStatus.blocked,
       displayText:'原游戏请求已停止',promptData:'原始游戏控制或请求身份已失效，没有激活旧指南。',errorCode:'cedar_control_changed');
     final game = _safeCedarIdentifier(rawGame);
@@ -756,7 +769,7 @@ class AgentToolRunner {
     PendingMediaOwner? pendingMediaOwner,
   }) async {
     final attempt = pendingMediaOwner?.attempt;
-    final controlFence=await _cedarControlFence(attempt);
+    final controlFence=await _cedarControlFence(attempt,gameId:_safeCedarIdentifier(arguments['game']??''));
     if(controlFence==null)return const AgentToolResult(toolId:'cedar_toy.play',status:AgentToolStatus.blocked,
       displayText:'原游戏请求已停止',promptData:'原始游戏控制或请求身份已失效，没有发送游戏操作。',errorCode:'cedar_control_changed');
     final effectStore = TurnExecutionStore(db);
