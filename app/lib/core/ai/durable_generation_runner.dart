@@ -2533,7 +2533,8 @@ $finalGenerationReminder
       final completionNotices = [
         if (finalRoute.thirdChannelFailure != null)
           ThirdChannelFailureNotice.message(finalRoute.thirdFailureCode,
-            fallback: finalTextFromGemini ? '第二通道' : '第一通道（DeepSeek）'),
+            fallback: finalTextFromThird ? '此前已完成的第三通道回复'
+                : finalTextFromGemini ? '第二通道' : '第一通道（DeepSeek）'),
         if (providerNotice?.trim().isNotEmpty == true) providerNotice!,
         if (timedNotice != null) timedNotice,
       ];
