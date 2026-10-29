@@ -77,23 +77,38 @@ void main() {
     });
   }
   test('a hanging HTTP tail after complete usage/DONE is bounded to two seconds',() async {
-    final server=await HttpServer.bind(InternetAddress.loopbackIPv4,0),pool=ThirdChannelTransportPool();
+    final phases=<String>[];
+    final server=await HttpServer.bind(InternetAddress.loopbackIPv4,0),
+      pool=ThirdChannelTransportPool(clientFactory:()=>_TapClient(phases));
     final release=Completer<void>(),events=<ThirdChannelEvent>[];
     server.listen((r) async {
       try {
         await r.drain();
         if(r.uri.path=='/health') {r.response.write('{"status":"ok"}');}
-        else {r.response.headers.contentType=ContentType('text','event-stream',charset:'utf-8');
-          r.response.write(_sse('完整回答'));await r.response.flush();await release.future;}
+        else {r.response.bufferOutput=false;r.response.headers.contentType=ContentType('text','event-stream',charset:'utf-8');
+          r.response.write(_sse('完整回答'));await r.response.flush();phases.add('server_flushed');await release.future;}
         await r.response.close();
       } catch(_) {}
     });
     final client=ThirdChannelClient(transportPool:pool),clock=Stopwatch()..start();
     try {
       final result=await client.complete(config:ThirdChannelConfig(baseUrl:'http://127.0.0.1:${server.port}',apiKey:'synthetic'),messages:[],onDiagnostic:events.add)
-        .timeout(const Duration(seconds:5));
+        .timeout(const Duration(seconds:5),onTimeout:()=>throw StateError('loopback tail phases: $phases'));
       expect(result.content,'完整回答');expect(clock.elapsedMilliseconds,lessThan(4500));expect(events.single.tailAborted,true);
     } finally {release.complete();client.close();pool.close();await server.close(force:true);}
+  });
+  test('complete SSE with a never-ending synthetic response is also bounded',() async {
+    final controller=StreamController<List<int>>();
+    final client=ThirdChannelClient(clientFactory:()=>MockClient.streaming((request,_) async {
+      if(request.url.path=='/health') return http.StreamedResponse(Stream.value(utf8.encode('{"status":"ok"}')),200);
+      controller.add(utf8.encode(_sse('合成完整回答')));
+      return http.StreamedResponse(controller.stream,200);
+    }));
+    try {
+      final result=await client.complete(config:const ThirdChannelConfig(baseUrl:'https://fixture.invalid',apiKey:'synthetic'),messages:[])
+        .timeout(const Duration(seconds:4));
+      expect(result.content,'合成完整回答');
+    } finally {client.close();await controller.close();}
   });
   test('a changed profile retires the old transport after its last lease',() {
     var created=0,closed=0;
@@ -118,4 +133,18 @@ class _TrackedClient extends MockClient {
   _TrackedClient(this.onClose,void Function() onCreate):super((_) async=>http.Response('{}',200)) {onCreate();}
   final void Function() onClose;
   @override void close() {onClose();super.close();}
+}
+
+class _TapClient extends http.BaseClient {
+  _TapClient(this.phases);
+  final List<String> phases;
+  final http.Client inner=http.Client();
+  @override Future<http.StreamedResponse> send(http.BaseRequest request) async {
+    phases.add('${request.method}_start');final response=await inner.send(request);
+    phases.add('${request.method}_headers');
+    return http.StreamedResponse(response.stream.map((bytes) {
+      phases.add('${request.method}_bytes:${bytes.length}');return bytes;
+    }),response.statusCode,headers:response.headers);
+  }
+  @override void close()=>inner.close();
 }
