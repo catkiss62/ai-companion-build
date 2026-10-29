@@ -1,14 +1,14 @@
 {
   "version": "0.42.151+395",
   "schema": 67,
-  "reason": "Build the unchanged runtime after new and existing focused QQ/Cedar regressions passed.",
-  "validated_runtime_commit": "60579d640734ede57dd982c0f733718a88b37db7",
-  "app_lib_tree": "caff7f7d03c0d38b8f682ff1f7f6497e4e7507d1",
-  "focused_validation_run": 40820647733,
-  "validation_state": "New regressions, original channel and +394 regressions, and QQ/game recovery steps passed. Extended suite will rerun on final head alongside the complete build.",
+  "build_source_commit": "e78a2419a3b8661005f5219faf14c5e332dffd68",
+  "build_source_tree": "af35e3829de0d021197fbece7ad7f1cc855271a7",
+  "app_lib_tree": "ad0727366b02b08b4c7b559534f904e7327d2511",
+  "full_run": 40822285811,
+  "logic_run": 40822285824,
+  "validation": "success; 154 source validators, Kotlin, 3150 Flutter, 171 restore, 54 Android15; focused 35/25/33/352/1310 overlap",
+  "apk_sha256": "b79d6b36e3ae30af66c5aab211d2e269facf8637d9d6d08b1da3c5c89dbfc3a7",
+  "artifact_id": 12875609551,
   "publication": "unpublished original-signature draft only",
-  "revision": "same-turn-resume-receipt",
-  "supersedes_full_run": 40821084656,
-  "new_regression_count_expected": 33,
-  "validation_status": "Prior focused steps passed; extension found two resume_step failures. Final head must rerun all suites."
+  "closing_change": "Documentation and verified build record only; skip CI; runtime unchanged."
 }
