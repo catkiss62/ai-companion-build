@@ -52,9 +52,9 @@ class _ArchiveFault extends QqStore {
     if(!failFinal)throw StateError('fixture local archive failure');
     await super.sentPart(b,part,text,sticker,now,sketchSvg:sketchSvg,voiceLanguage:voiceLanguage);
   }
-  @override Future<void> mark(QqBatch b,String state,{String? text,String? sticker})async {
+  @override Future<void> mark(QqBatch b,String state,{String? text,String? sticker,int? confirmedParts})async {
     if(failFinal && state=='sent')throw StateError('fixture final receipt failure');
-    await super.mark(b,state,text:text,sticker:sticker);
+    await super.mark(b,state,text:text,sticker:sticker,confirmedParts:confirmedParts);
   }
 }
 class _Api extends QqApi {
