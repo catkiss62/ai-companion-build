@@ -110,15 +110,35 @@ void main() {
       expect(result.content,'合成完整回答');
     } finally {client.close();await controller.close();}
   });
-  test('a changed profile retires the old transport after its last lease',() {
+  test('a changed profile retires the old transport after its last lease',() async {
     var created=0,closed=0;
     final pool=ThirdChannelTransportPool(clientFactory:()=>_TrackedClient((){closed++;},()=>created++));
     const one=ThirdChannelConfig(baseUrl:'https://one.invalid',apiKey:'synthetic');
     const two=ThirdChannelConfig(baseUrl:'https://two.invalid',apiKey:'synthetic');
-    final a=pool.acquire(one),b=pool.acquire(one);expect(created,1);expect(b.reused,true);
-    final c=pool.acquire(two);expect(created,2);expect(closed,0);
+    final a=await pool.acquire(one),b=await pool.acquire(one);expect(created,1);expect(b.reused,true);
+    final c=await pool.acquire(two);expect(created,2);expect(closed,0);
     a.release();expect(closed,0);b.release();expect(closed,1);b.release();expect(closed,1);
     c.release();pool.close();expect(closed,2);
+  });
+  test('observable network change and failed transport invalidate reuse without interrupting another lease',() async {
+    var network='wifi',created=0,closed=0;
+    final pool=ThirdChannelTransportPool(networkIdentity:() async=>network,
+      clientFactory:()=>_TrackedClient((){closed++;},()=>created++));
+    const config=ThirdChannelConfig(baseUrl:'https://fixture.invalid',apiKey:'synthetic');
+    final a=await pool.acquire(config);a.release();
+    final b=await pool.acquire(config);expect(b.reused,true);
+    network='vpn';final c=await pool.acquire(config);expect(c.reused,false);expect(created,2);expect(closed,0);
+    b.release();expect(closed,1);
+    c.invalidate();final d=await pool.acquire(config);expect(d.reused,false);expect(created,3);expect(closed,1);
+    c.release();expect(closed,2);d.release();pool.close();expect(closed,3);
+  });
+  test('failure to inspect the network falls back to fresh transports rather than blocking requests',() async {
+    var created=0;
+    final pool=ThirdChannelTransportPool(networkIdentity:() async=>throw StateError('unavailable'),
+      clientFactory:()=>_TrackedClient((){},()=>created++));
+    const config=ThirdChannelConfig(baseUrl:'https://fixture.invalid',apiKey:'synthetic');
+    final a=await pool.acquire(config);a.release();final b=await pool.acquire(config);
+    expect(b.reused,false);expect(created,2);b.release();pool.close();
   });
   test('new timing facts are bounded and cannot persist arbitrary ids or effort text',() {
     final safe=ThirdChannelDiagnostics.sanitize({'request_id':'PRIVATE https://host.invalid',

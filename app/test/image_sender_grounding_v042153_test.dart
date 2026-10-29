@@ -18,6 +18,7 @@ void main() {
     '你发来的图片挺好，我也发了一张照片给你。',
     '你发来的图片我又发了一张图给你。',
     '主人发了图片，我把这张图发给你了。',
+    '我给你刚刚发的图片在这里。', '我向你刚发的图是海边照片。',
   ]) {
     test('assistant image send still needs a current receipt: $text',() {
       final result=OperationalClaimGroundingGuard.evaluate(text:text);

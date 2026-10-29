@@ -87,7 +87,7 @@ class OperationalClaimGroundingGuard {
     r'((图片|照片|这张图|那张图).{0,10}(发|发送|传|贴|甩|丢|扔|拿给你看).{0,6}(了|给你|过去)?)',
   );
   static final RegExp _userImageSender = RegExp(
-    r'(你|您|用户|主人)(刚刚|刚才|之前|已经|这次|又|刚|才|给我|把)*$',
+    r'(?<![给向对替帮])(你|您|用户|主人)(刚刚|刚才|之前|已经|这次|又|刚|才|给我|把)*$',
   );
   static final RegExp _imageFromUser = RegExp(
     r'^(图片|照片|这张图|那张图)(是|就是|还是)?(你|您|用户|主人)'

@@ -118,7 +118,10 @@ class ThirdChannelClient {
       Uri healthUri;
       try { healthUri = config.health; }
       catch (_) { throw const ThirdChannelFailure('invalid_url'); }
-      lease = _pool.acquire(config);
+      final acquired = await _pool.acquire(config);
+      if (finished) { acquired.release(); throw const GenerationSuspendedByRuntimeGateException(); }
+      lease = acquired;
+      await check();
       transportReused = lease!.reused;
       final client = lease!.client;
       stage = 'health';
@@ -285,7 +288,7 @@ class ThirdChannelClient {
       finished = true; deadline.cancel(); gate.cancel(); clock.stop();
       _aborters.remove(stop);
       for (final signal in signals) { if (!signal.isCompleted) signal.complete(); }
-      signals.clear(); lease?.release();
+      signals.clear();
       final error = diagnosticFailure;
       final outcome = error is GenerationCancelledByUserException ? 'cancelled'
         : error is GenerationSuspendedByRuntimeGateException ? 'suspended'
@@ -293,6 +296,8 @@ class ThirdChannelClient {
       final code = error is ThirdChannelFailure ? error.code
         : outcome == 'cancelled' ? 'user_cancelled' : outcome == 'suspended' ? 'not_current'
         : error != null ? 'unknown' : accepted?.incomplete == true ? accepted!.finishReason : '';
+      if (outcome == 'failed' || tailAborted) lease?.invalidate();
+      lease?.release();
       if (code == 'timeout' || code == 'health_timeout') transport = 'timeout';
       try {
         onDiagnostic?.call(ThirdChannelEvent(at: DateTime.now().millisecondsSinceEpoch,
