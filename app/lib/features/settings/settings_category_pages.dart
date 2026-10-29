@@ -1019,7 +1019,7 @@ class _ModelNetworkSettingsPageState
                   ),
                   _SettingsSectionCard(
                     title: '千问视觉',
-                    subtitle: '关闭时使用第一通道；开启时千问优先、第一通道兜底。第三通道开启时始终先尝试第三通道。QQ识图不使用千问。',
+                    subtitle: '关闭时使用第一通道；开启时千问优先、第一通道兜底。QQ识图使用第一通道，第三通道用于正文。',
                     children: [
                       SwitchListTile(contentPadding: EdgeInsets.zero, title: const Text('启用千问识图'),
                         value: _qwenEnabled, onChanged: (value) => setState(() => _qwenEnabled = value)),

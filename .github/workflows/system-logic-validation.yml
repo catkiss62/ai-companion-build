@@ -28,6 +28,9 @@ jobs:
         working-directory: app
       - name: Creative page bridge failure recovery
         run: node app/tools/test_creative_bridge.mjs
+      - name: Third transport reuse, sharing settlement and image sender regression
+        run: flutter test --timeout 60s --reporter expanded test/third_transport_v042153_test.dart test/share_queue_v042153_test.dart test/image_sender_grounding_v042153_test.dart test/proactive_source_fence_g3_test.dart
+        working-directory: app
       - name: Third channel, vision routing and QQ participation regression
         run: flutter test --timeout 60s --reporter expanded test/third_channel_v042149_test.dart test/third_channel_chat_v042149_test.dart test/qq_participation_v042149_test.dart
         working-directory: app

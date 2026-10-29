@@ -4,10 +4,16 @@ class ThirdChannelEvent {
     required this.outcome, required this.code, required this.elapsedMs,
     required this.healthElapsedMs, required this.attempts,
     required this.healthHttpStatus, required this.modelHttpStatus,
-    required this.healthTimeoutMs, this.transport = 'none'});
+    required this.healthTimeoutMs, this.transport = 'none',
+    this.requestId = '', this.effort = '', this.streaming = false,
+    this.modelElapsedMs = 0, this.headersElapsedMs = 0, this.firstEventElapsedMs = 0, this.firstContentElapsedMs = 0,
+    this.requestBytes = 0, this.transportReused = false, this.tailAborted = false});
   final int at, elapsedMs, healthElapsedMs, attempts;
   final int healthHttpStatus, modelHttpStatus, healthTimeoutMs;
   final String stage, outcome, code, transport;
+  final String requestId, effort;
+  final int modelElapsedMs, headersElapsedMs, firstEventElapsedMs, firstContentElapsedMs, requestBytes;
+  final bool streaming, transportReused, tailAborted;
 
   static const knownCodes = {'', 'unknown', 'not_configured', 'invalid_url',
     'health_timeout', 'health_dns', 'health_tls', 'health_connection',
@@ -29,5 +35,10 @@ class ThirdChannelEvent {
     'attempts': attempts, 'health_http_status': healthHttpStatus,
     'model_http_status': modelHttpStatus, 'health_timeout_ms': healthTimeoutMs,
     'transport': transport,
+    'request_id': requestId, 'reasoning_effort': effort, 'streaming': streaming,
+    'model_elapsed_ms': modelElapsedMs, 'headers_elapsed_ms': headersElapsedMs,
+    'first_event_elapsed_ms': firstEventElapsedMs, 'request_bytes': requestBytes,
+    'first_content_elapsed_ms': firstContentElapsedMs,
+    'transport_reused': transportReused, 'sse_tail_aborted': tailAborted,
   };
 }

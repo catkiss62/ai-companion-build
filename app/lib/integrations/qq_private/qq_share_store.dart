@@ -21,7 +21,18 @@ class QqShareStore {
   }
   Future<List<Map<String,Object?>>> candidates(DateTime now,{String destination='app'}) async {
     if(await db.getSetting('qq_master_enabled_v2')!='1') return [];
-    try {return await _candidates(now,destination:destination);} catch(_) {return [];}
+    try {await recoverAbandonedAppClaims(now);return await _candidates(now,destination:destination);} catch(_) {return [];}
+  }
+  /// Repairs older/crashed App claims only after twice the five-minute writer
+  /// lease. App delivery and sent are atomic; QQ uncertain sends are untouched.
+  Future<int> recoverAbandonedAppClaims(DateTime now) async {
+    return (await db.database).transaction((txn) async {
+      if(!await BrainWorkFence.workAllowed(txn)) return 0;
+      return txn.update('qq_shares',{'state':'pending','destination':'',
+        'updated_at':now.add(const Duration(minutes:1)).millisecondsSinceEpoch},
+        where:"state='claimed' AND destination='app' AND updated_at<=?",
+        whereArgs:[now.subtract(const Duration(minutes:10)).millisecondsSinceEpoch]);
+    });
   }
   Future<List<Map<String,Object?>>> _candidates(DateTime now,{String destination='app'}) async {
     final c=await QqPrivateConfig.read();if(c.owner.isEmpty) return [];
@@ -33,8 +44,8 @@ class QqShareStore {
     if(cooldown.isNotEmpty) return [];
     final rows=await sql.rawQuery('SELECT s.*,n.content AS memory,n.source_stamp,n.sources,n.valid,c.target '
       'FROM qq_shares s JOIN qq_notes n ON n.id=s.note_id JOIN qq_conversations c ON c.id=n.conversation_id '
-      "JOIN qq_archive a ON a.seq=n.through_seq WHERE c.scope=? AND c.kind='group' AND s.state='pending' AND n.valid=1 AND a.observed_at>? ORDER BY s.updated_at DESC LIMIT 12",
-      [QqStore.hash([c.appId,c.namespace,c.owner]),now.subtract(const Duration(hours:24)).millisecondsSinceEpoch]);
+      "JOIN qq_archive a ON a.seq=n.through_seq WHERE c.scope=? AND c.kind='group' AND s.state='pending' AND s.updated_at<=? AND n.valid=1 AND a.observed_at>? ORDER BY s.updated_at DESC LIMIT 12",
+      [QqStore.hash([c.appId,c.namespace,c.owner]),now.millisecondsSinceEpoch,now.subtract(const Duration(hours:24)).millisecondsSinceEpoch]);
     final admitted=<Map<String,Object?>>[];final reader=QqArchiveReader(sql);
     for(final row in rows) {if(o.groups.contains(row['target']) && await reader.noteCurrent({...row,'content':row['memory']})) admitted.add(row);}
     return admitted.take(2).toList();
@@ -45,14 +56,16 @@ class QqShareStore {
     if(candidate==null) return null;
     final c=await QqPrivateConfig.read();final o=await QqOptions.read(namespace:c.namespace);
     final captured=fence??await QqStore(db).capture();
+    final previousAt=(candidate['updated_at'] as int?)??0;
+    final claimedAt=now.millisecondsSinceEpoch>previousAt?now.millisecondsSinceEpoch:previousAt+1;
     final offer=QqShareOffer(id:id,noteId:candidate['note_id'] as String,noteToken:QqArchiveReader.noteToken({...candidate,'content':candidate['memory']}),
-      content:candidate['content'] as String,sourceMemory:candidate['memory'] as String,destination:destination,policyKey:policyKey(c.namespace),policyToken:QqStore.hash(o.toJson()),fence:captured);
+      content:candidate['content'] as String,sourceMemory:candidate['memory'] as String,destination:destination,policyKey:policyKey(c.namespace),policyToken:QqStore.hash(o.toJson()),fence:captured,claimedAt:claimedAt);
     return (await db.database).transaction((txn) async {
       if(!await captured.matches(txn) || await BrainWorkFence.value(txn,offer.policyKey)!=offer.policyToken ||
           await BrainWorkFence.value(txn,'qq_master_enabled_v2')!='1' || !await offer.evidence.matches(txn)) return null;
       final other=await txn.rawQuery("SELECT 1 FROM qq_shares WHERE state IN ('sent','sending','send_uncertain','sent_archive_pending','sent_archive_failed','partially_sent','claimed','failed','permission_error') AND updated_at>? LIMIT 1",[now.subtract(const Duration(hours:6)).millisecondsSinceEpoch]);
       if(other.isNotEmpty) return null;
-      final count=await txn.update('qq_shares',{'state':'claimed','destination':destination,'updated_at':now.millisecondsSinceEpoch},where:'id=? AND state=?',whereArgs:[id,'pending']);
+      final count=await txn.update('qq_shares',{'state':'claimed','destination':destination,'updated_at':claimedAt},where:'id=? AND state=? AND updated_at=?',whereArgs:[id,'pending',previousAt]);
       return count==1?offer:null;
     });
   }

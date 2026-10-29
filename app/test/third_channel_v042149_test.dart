@@ -265,87 +265,72 @@ void main() {
       } finally { vision.close(); }
     });
     for (final scope in ['qwen_on', 'qwen_off', 'qq']) {
-      test('third image failure uses the $scope base chain without a second text-provider request', () async {
+      test('enabled third channel is bypassed entirely for $scope vision', () async {
         await db.setSetting(RoutedVisionClient.qwenEnabledKey, scope == 'qwen_off' ? '0' : '1');
-        await secure.writeThirdChannel(const ThirdChannelConfig(enabled: true, baseUrl: 'http://gateway.invalid/v1', apiKey: 'third'));
-        var posts = 0; final hosts = <String>[];
+        await secure.writeThirdChannel(const ThirdChannelConfig(enabled: true,
+          baseUrl: 'http://must-not-contact.invalid/v1', apiKey: 'third'));
+        final hosts = <String>[];
         final vision = RoutedVisionClient(secure: secure, db: db, qq: scope == 'qq',
           firstModel: () async => DeepSeekModelProfile.flash,
-          thirdFactory: () => ThirdChannelClient(clientFactory: () => MockClient((request) async {
-            if (request.url.path == '/health') return http.Response('{"status":"ok"}', 200);
-            posts++; return http.Response('{"error":{"code":"all_accounts_limited"}}', 503);
-          })), clientFactory: () => MockClient((request) async { hosts.add(request.url.host); return observed('基础视觉'); }));
+          clientFactory: () => MockClient((request) async { hosts.add(request.url.host); return observed('基础视觉'); }));
         try {
           expect((await vision.observeBytes(apiKey: '', endpoint: 'http://unused.invalid', model: '', imageBytes: Uint8List.fromList([1]))).summary, '基础视觉');
-          expect(posts, 1); expect(hosts, [scope == 'qwen_on' ? 'qwen.invalid' : 'first.invalid']);
+          expect(hosts, [scope == 'qwen_on' ? 'qwen.invalid' : 'first.invalid']);
         } finally { vision.close(); }
       });
     }
-    test('a gateway ignoring strict schema cannot silently lose album or match fields', () async {
-      await secure.writeThirdChannel(const ThirdChannelConfig(enabled: true, baseUrl: 'http://gateway.invalid/v1', apiKey: 'third'));
-      var fallback = 0;
+    test('first vision keeps exact image, album and match observations with third enabled', () async {
+      await secure.writeVisionApiKey('');
+      await db.setSetting(RoutedVisionClient.qwenEnabledKey, '0');
+      await secure.writeThirdChannel(const ThirdChannelConfig(enabled: true,
+        baseUrl: 'http://must-not-contact.invalid/v1', apiKey: 'third'));
       final vision = RoutedVisionClient(secure: secure, db: db,
-        thirdFactory: () => ThirdChannelClient(clientFactory: () => MockClient((request) async {
-          if (request.url.path == '/health') return http.Response('{"status":"ok"}', 200);
-          return http.Response(jsonEncode({'usage': usage, 'choices': [{'finish_reason': 'stop',
-            'message': {'content': '{"summary":"incomplete schema"}'}}]}), 200);
-        })), clientFactory: () => MockClient((_) async { fallback++; return observed('完整基础观察'); }));
-      try {
-        expect((await vision.observeBytes(apiKey: '', endpoint: 'http://unused.invalid', model: '', imageBytes: Uint8List.fromList([1]))).summary, '完整基础观察');
-        expect(fallback, 1);
-      } finally { vision.close(); }
-    });
-    test('third vision combines the exact image with full strict schema and needs no Qwen key', () async {
-      await secure.writeVisionApiKey(''); var legacy = 0;
-      final config = await gateway((request, _) async {
-        final body = jsonDecode(await utf8.decoder.bind(request).join()) as Map;
-        expect(body['stream'], false); expect(body['max_tokens'], 4096);
-        final format = body['response_format'] as Map;
-        expect(format['type'], 'json_schema');
-        final props = ((format['json_schema'] as Map)['schema'] as Map)['properties'] as Map;
-        expect(props.keys, containsAll(['summary', 'album', 'request_match']));
-        expect(jsonEncode(body['messages']), contains('data:image/png;base64,AQID'));
-        request.response.headers.contentType = ContentType.json;
-        request.response.write(jsonEncode({'model': 'gemini-3.8-flash-tiered', 'usage': usage,
-          'choices': [{'finish_reason': 'stop', 'message': {'content': jsonEncode({'summary': '第三视觉',
-            'album': {'save': true, 'category': 'anime', 'tags': ['anime'], 'reason': 'fixture',
-              'aesthetic_tags': ['test'], 'confidence': 0.9, 'adult_content': false},
-            'request_match': {'matches': true, 'confidence': 0.95, 'reason': 'fixture'}})}}]}));
-      });
-      await secure.writeThirdChannel(config);
-      final vision = RoutedVisionClient(secure: secure, db: db,
-        clientFactory: () => MockClient((_) async { legacy++; return observed('不应使用'); }));
+        firstModel: () async => DeepSeekModelProfile.flash,
+        clientFactory: () => MockClient((request) async {
+          final body = jsonDecode(request.body) as Map;
+          expect(request.url.host, 'first.invalid');
+          expect(body['thinking'], {'type': 'disabled'});
+          expect(jsonEncode(body['messages']), contains('data:image/png;base64,AQID'));
+          return http.Response(jsonEncode({'choices': [{'finish_reason': 'stop', 'message': {'content': jsonEncode({
+            'summary': '完整第一视觉', 'album': {'save': true, 'category': 'anime', 'tags': ['anime'],
+              'reason': 'fixture', 'aesthetic_tags': ['test'], 'confidence': .9, 'adult_content': false},
+            'request_match': {'matches': true, 'confidence': .95, 'reason': 'fixture'}})}}]}), 200,
+            headers: {'content-type': 'application/json; charset=utf-8'});
+        }));
       try {
         final observation = await vision.observeBytes(apiKey: '', endpoint: 'http://unused.invalid', model: '',
-          imageBytes: Uint8List.fromList([1, 2, 3]), assessForAlbum: true, requestedSubject: 'fixture');
-        expect(observation.summary, '第三视觉'); expect(observation.albumSave, true);
-        expect(observation.requestMatchConfidence, 0.95); expect(legacy, 0);
+          imageBytes: Uint8List.fromList([1,2,3]), assessForAlbum: true, requestedSubject: 'fixture');
+        expect(observation.summary, '完整第一视觉'); expect(observation.albumSave, true);
+        expect(observation.requestMatchConfidence, .95);
       } finally { vision.close(); }
     });
-    test('lost source prevents any vision fallback request', () async {
-      var valid = true, legacy = 0;
-      final config = await gateway((request, _) async { valid = false; request.response.statusCode = 429; request.response.write('{}'); });
-      await secure.writeThirdChannel(config);
+    test('third-only configuration does not falsely advertise usable vision', () async {
+      await secure.writeApiKey(''); await secure.writeVisionApiKey('');
+      await secure.writeThirdChannel(const ThirdChannelConfig(enabled: true,
+        baseUrl: 'http://must-not-contact.invalid/v1', apiKey: 'third'));
+      expect(await RoutedVisionClient.configured(secure, db: db), false);
+      expect(await RoutedVisionClient.configured(secure, db: db, qq: true), false);
+    });
+    test('lost source prevents a fallback after the Qwen request', () async {
+      var valid = true, calls = 0;
       final vision = RoutedVisionClient(secure: secure, db: db, current: () async => valid,
-        clientFactory: () => MockClient((_) async { legacy++; return observed('不应调用'); }));
+        clientFactory: () => MockClient((_) async { calls++; valid = false; return http.Response('{}',503); }));
       try {
         await expectLater(vision.observeBytes(apiKey: '', endpoint: 'http://unused.invalid', model: '', imageBytes: Uint8List.fromList([1])),
-          throwsA(isA<GenerationSuspendedByRuntimeGateException>())); expect(legacy, 0);
+          throwsA(isA<GenerationSuspendedByRuntimeGateException>())); expect(calls, 1);
       } finally { vision.close(); }
     });
-    test('completed restore with work allowed cannot authorize a fallback from the old vision request', () async {
-      await secure.writeThirdChannel(const ThirdChannelConfig(enabled: true, baseUrl: 'http://gateway.invalid/v1', apiKey: 'third'));
-      var legacy = 0;
+    test('completed restore cannot authorize first fallback from the old Qwen request', () async {
+      var calls = 0;
       final vision = RoutedVisionClient(secure: secure, db: db,
-        thirdFactory: () => ThirdChannelClient(clientFactory: () => MockClient((request) async {
-          if (request.url.path == '/health') return http.Response('{"status":"ok"}', 200);
-          await (await db.database).rawInsert('INSERT OR REPLACE INTO settings(key,value) VALUES(?,?)', ['runtime_state_epoch_v1', 'new-restored-epoch']);
-          expect(await db.brainWorkAllowed(), true);
-          return http.Response('{}', 503);
-        })), clientFactory: () => MockClient((_) async { legacy++; return observed('不应调用'); }));
+        clientFactory: () => MockClient((_) async {
+          calls++;
+          await db.setSetting('runtime_state_epoch_v1', 'new-restored-epoch');
+          expect(await db.brainWorkAllowed(), true); return http.Response('{}',503);
+        }));
       try {
         await expectLater(vision.observeBytes(apiKey: '', endpoint: 'http://unused.invalid', model: '', imageBytes: Uint8List.fromList([1])),
-          throwsA(isA<GenerationSuspendedByRuntimeGateException>())); expect(legacy, 0);
+          throwsA(isA<GenerationSuspendedByRuntimeGateException>())); expect(calls, 1);
       } finally { vision.close(); }
     });
   });

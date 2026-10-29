@@ -12966,6 +12966,16 @@ class AppDatabase {
     });
   }
 
+  // Readiness belongs to the candidate and its exact Thought together. A
+  // deleted/dormant/snoozed binding must not occupy the ready queue. Filtering
+  // (rather than reviving or retiring the Thought) preserves a deliberate
+  // snooze and lets it compete normally if it later becomes eligible again.
+  static const _readyPublicWebThought = "EXISTS (SELECT 1 FROM thoughts t "
+      "WHERE t.source = 'public_web_candidate:' || LOWER(public_web_candidates.id) "
+      "AND t.topic_key = 'public_web_candidate:' || LOWER(public_web_candidates.id) "
+      "AND t.lifecycle_state IN ('active','fixation') "
+      "AND COALESCE(t.snoozed_until,0) <= ?)";
+
   Future<PublicWebShareCandidate?> activeReadyPublicWebShareCandidate({
     DateTime? now,
   }) async {
@@ -12979,8 +12989,8 @@ class AppDatabase {
         'lifecycle_state',
         'discovered_at',
       ],
-      where: "lifecycle_state = 'share_ready' AND read_state = 'verified' AND semantic_state = 'valid' AND expires_at > ?",
-      whereArgs: [instant.millisecondsSinceEpoch],
+      where: "lifecycle_state = 'share_ready' AND read_state = 'verified' AND semantic_state = 'valid' AND expires_at > ? AND $_readyPublicWebThought",
+      whereArgs: [instant.millisecondsSinceEpoch, instant.millisecondsSinceEpoch],
       orderBy: 'last_viewed_at ASC, discovered_at ASC',
       limit: 1,
     );
@@ -13171,8 +13181,8 @@ class AppDatabase {
       await _recoverStalePublicWebShareStagesTxn(txn, instant);
       final ready = await txn.query(
         'public_web_candidates', columns: ['id'],
-        where: "lifecycle_state IN ('share_ready','share_staging') AND read_state = 'verified' AND semantic_state = 'valid' AND expires_at > ?",
-        whereArgs: [instant.millisecondsSinceEpoch], limit: 1,
+        where: "(lifecycle_state = 'share_staging' OR (lifecycle_state = 'share_ready' AND $_readyPublicWebThought)) AND read_state = 'verified' AND semantic_state = 'valid' AND expires_at > ?",
+        whereArgs: [instant.millisecondsSinceEpoch, instant.millisecondsSinceEpoch], limit: 1,
       );
       if (ready.isNotEmpty) return null;
       final rows = await txn.query(

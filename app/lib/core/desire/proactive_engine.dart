@@ -2,6 +2,7 @@ import '../diagnostics/third_channel_diagnostics.dart';
 import '../mcp/cedar_activity_media.dart';
 import '../../integrations/qq_private/qq_history_context_policy.dart';
 import '../../integrations/qq_private/qq_share_store.dart';
+import '../database/qq_share_contract.dart';
 import '../ai/first_channel_model.dart';
 import '../storage/pending_media_owner.dart';
 import '../agent/turn_execution_contract.dart';
@@ -542,6 +543,7 @@ class ProactiveEngine {
       return const ProactiveDecision(sent: false, reason: '主动心跳正在由另一引擎处理');
     }
     PendingMediaOwner? pendingMediaOwner;
+    QqShareOffer? pendingQqShare;
     final evaluationStartedAt = DateTime.now();
     final heartbeatKey = evaluationStartedAt.microsecondsSinceEpoch.toString();
 
@@ -1611,6 +1613,7 @@ class ProactiveEngine {
     }
     final selectedQqId=intent.reasonSource.startsWith('qq_group_share:')?intent.reasonSource.substring('qq_group_share:'.length):'';
     final qqShare=selectedQqId.isEmpty?null:await QqShareStore(db).claim(selectedQqId,'app',evaluationStartedAt,fence:evaluationFence);
+    pendingQqShare=qqShare;
     if(selectedQqId.isNotEmpty && qqShare==null) return const ProactiveDecision(sent:false,reason:'群聊分享来源或入口已变化');
     final selectedCreativeId = intent.reasonSource.startsWith('creative_share:')
         ? intent.reasonSource.substring('creative_share:'.length) : '';
@@ -2085,6 +2088,9 @@ ${startsFreshTopic ? '本类型属于新话题通道：ANSWERED CHAT HISTORY 已
 
     if (isWait(candidate) && !(stickerChoice.stickerOnly &&
         stickerCandidates.any((c)=>c.id==stickerChoice.id))) {
+      if(qqShare!=null) {
+        await (await db.database).transaction((txn)=>qqShare.settleUnsentApp(txn,declined:true,now:DateTime.now()));
+      }
       if (webShareCandidateId != null) {
         await publicWebSharing.markDeclined(promptBuild.expectedPublicWebShare!,
             workFence: wishDeliveryFence);
@@ -2681,6 +2687,11 @@ ${PromptBuilder.visibleChineseGenerationReminder(proactive: true, ordinaryAction
       deliveryStyle: deliveryStyle,
     );
     } finally {
+      final qqOffer=pendingQqShare;
+      if(qqOffer!=null) {
+        try {await (await db.database).transaction((txn)=>qqOffer.settleUnsentApp(txn,declined:false,now:DateTime.now()));}
+        catch(_) { /* Stale App claims are recoverable after the writer lease. */ }
+      }
       final owner = pendingMediaOwner;
       if (owner != null) {
         try { await db.releasePendingMedia(owner); } catch (_) {}

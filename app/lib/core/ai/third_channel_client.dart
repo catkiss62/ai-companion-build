@@ -5,6 +5,7 @@ import 'third_channel_event.dart';
 import 'package:http/http.dart' as http;
 import 'generation_cancellation.dart';
 import 'third_channel_config.dart';
+import 'third_channel_transport.dart';
 
 class ThirdChannelFailure implements Exception {
   const ThirdChannelFailure(this.code, {this.retryable = false});
@@ -46,15 +47,19 @@ class ThirdChannelResponse {
 /// A complete private attempt is returned atomically. Nothing from a broken
 /// stream escapes into the next attempt, UI, TTS or tool executor.
 class ThirdChannelClient {
-  ThirdChannelClient({http.Client Function()? clientFactory,
+  ThirdChannelClient({http.Client Function()? clientFactory, ThirdChannelTransportPool? transportPool,
     this.totalTimeout = const Duration(seconds: 120),
     this.healthTimeout = const Duration(seconds: 15),
     this.retryDelay = const Duration(seconds: 2), this.onUsage})
-    : _factory = clientFactory ?? http.Client.new;
-  final http.Client Function() _factory;
+    : _pool = transportPool ?? (clientFactory == null ? ThirdChannelTransportPool.shared
+        : ThirdChannelTransportPool(clientFactory: clientFactory)),
+      _ownsPool = transportPool == null && clientFactory != null;
+  final ThirdChannelTransportPool _pool;
+  final bool _ownsPool;
   final Duration totalTimeout, healthTimeout, retryDelay;
   final Future<void> Function(ThirdChannelUsage usage, int attempt, int elapsedMs)? onUsage;
-  final Set<http.Client> _active = {};
+  final Set<void Function()> _aborters = {};
+  static int _sequence = 0;
   bool _closed = false;
 
   Future<ThirdChannelResponse> complete({required ThirdChannelConfig config,
@@ -65,21 +70,26 @@ class ThirdChannelClient {
     Future<bool> Function()? current,
     void Function(ThirdChannelEvent)? onDiagnostic}) async {
     final clock = Stopwatch()..start();
+    final requestId = '${DateTime.now().microsecondsSinceEpoch.toRadixString(36)}-${(++_sequence).toRadixString(36)}';
     var stage = 'configuration', transport = 'none';
     var healthElapsedMs = 0, healthHttpStatus = 0, modelHttpStatus = 0, attempts = 0;
+    var modelElapsedMs = 0, headersElapsedMs = 0, firstEventElapsedMs = 0, firstContentElapsedMs = 0, requestBytes = 0;
+    Stopwatch? activeModelClock;
+    var transportReused = false, tailAborted = false;
     Object? diagnosticFailure;
     ThirdChannelResponse? accepted;
     final aborted = Completer<Never>();
     var invalid = false, expired = false, checking = false, finished = false;
-    final clients = <http.Client>{};
+    final signals = <Completer<void>>{};
+    ThirdChannelTransportLease? lease;
     void abort(Object error) {
       if (finished || aborted.isCompleted) return;
       aborted.completeError(error);
-      for (final client in clients.toList()) { client.close(); }
+      for (final signal in signals) { if (!signal.isCompleted) signal.complete(); }
     }
     Future<void> check() async {
       cancellation?.throwIfCancelled();
-      if (_closed || invalid) throw const GenerationSuspendedByRuntimeGateException();
+      if (_closed || invalid || finished) throw const GenerationSuspendedByRuntimeGateException();
       if (expired) throw const ThirdChannelFailure('timeout');
       if (current != null) {
         var valid = false;
@@ -100,18 +110,27 @@ class ThirdChannelClient {
       unawaited(cancellation.whenCancelled.then((_) => abort(const GenerationCancelledByUserException())));
     }
     Future<T> bounded<T>(Future<T> operation) => Future.any<T>([operation, abortFuture]);
-    http.Client open() { final client = _factory(); clients.add(client); _active.add(client); return client; }
-    void release(http.Client client) { clients.remove(client); _active.remove(client); client.close(); }
+    void stop() => abort(const GenerationSuspendedByRuntimeGateException());
+    _aborters.add(stop);
     Future<ThirdChannelResponse> run() async {
       await check();
       if (!config.configured) throw const ThirdChannelFailure('not_configured');
       Uri healthUri;
       try { healthUri = config.health; }
       catch (_) { throw const ThirdChannelFailure('invalid_url'); }
+      lease = _pool.acquire(config);
+      transportReused = lease!.reused;
+      final client = lease!.client;
       stage = 'health';
-      final probe = open();
+      final probeAbort = Completer<void>(); signals.add(probeAbort);
+      final healthClock = Stopwatch()..start();
       try {
-        final health = await probe.get(healthUri).timeout(healthTimeout);
+        Future<http.Response> probe() async {
+          final request = http.AbortableRequest('GET', healthUri, abortTrigger: probeAbort.future)
+            ..headers['X-Request-ID'] = '$requestId-h';
+          return http.Response.fromStream(await client.send(request));
+        }
+        final health = await probe().timeout(healthTimeout);
         healthHttpStatus = health.statusCode;
         if (health.statusCode != 200) throw ThirdChannelFailure('health_http_${health.statusCode}');
         Object? body;
@@ -123,15 +142,23 @@ class ThirdChannelClient {
         await check();
         transport = _transportKind(error);
         throw ThirdChannelFailure('health_$transport');
-      } finally { healthElapsedMs = clock.elapsedMilliseconds; release(probe); }
+      } finally {
+        healthElapsedMs = healthClock.elapsedMilliseconds;
+        signals.remove(probeAbort);
+        if (!probeAbort.isCompleted) probeAbort.complete();
+      }
       for (var attempt = 1; attempt <= 2; attempt++) {
         await check();
         stage = 'model'; attempts = attempt; transport = 'none'; modelHttpStatus = 0;
-        final client = open();
+        final modelClock = Stopwatch()..start();
+        activeModelClock = modelClock;
+        headersElapsedMs = 0; firstEventElapsedMs = 0; firstContentElapsedMs = 0;
+        final modelAbort = Completer<void>(); signals.add(modelAbort);
         var received = false;
         try {
-          final request = http.Request('POST', config.endpoint)
+          final request = http.AbortableRequest('POST', config.endpoint, abortTrigger: modelAbort.future)
             ..headers.addAll({'Content-Type': 'application/json', 'Accept': stream ? 'text/event-stream' : 'application/json',
+              'X-Request-ID': '$requestId-$attempt',
               'Authorization': 'Bearer ${config.apiKey.trim()}'})
             ..body = jsonEncode({'model': ThirdChannelConfig.model, 'messages': messages,
               'stream': stream, 'max_tokens': maxTokens.clamp(1, 65536),
@@ -139,8 +166,10 @@ class ThirdChannelClient {
               if (responseFormat != null) 'response_format': responseFormat,
               if (tools.isNotEmpty) 'tools': tools,
               if (tools.isNotEmpty) 'tool_choice': toolChoice ?? 'auto'});
+          requestBytes = request.bodyBytes.length;
           final response = await client.send(request);
           received = true;
+          headersElapsedMs = clock.elapsedMilliseconds;
           modelHttpStatus = response.statusCode;
           if (response.statusCode < 200 || response.statusCode >= 300) {
             // Do not persist response text: it can contain account identities.
@@ -162,26 +191,53 @@ class ThirdChannelClient {
           if (stream) {
             final lines = <String>[];
             var done = false;
+            Timer? tail;
+            var tailTimedOut = false;
             Future<void> event() async {
               if (lines.isEmpty) return;
               final data = lines.join('\n'); lines.clear();
-              if (data.trim() == '[DONE]') { done = true; return; }
-              await collector.add(jsonDecode(data));
-            }
-            await for (final line in response.stream.transform(utf8.decoder).transform(const LineSplitter())) {
-              await check();
-              if (line.isEmpty) { await event(); if (done) break; }
-              else if (line.startsWith('data:')) {
-                var value = line.substring(5); if (value.startsWith(' ')) value = value.substring(1);
-                lines.add(value);
+              if (data.trim() == '[DONE]') {
+                done = true;
+                // Drain the HTTP response so IOClient may reuse its socket.
+                // A gateway leaving the response open must not add a long wait.
+                tail = Timer(const Duration(seconds: 2), () {
+                  tailTimedOut = true; tailAborted = true;
+                  if (!modelAbort.isCompleted) modelAbort.complete();
+                });
+                return;
               }
+              if (firstEventElapsedMs == 0) firstEventElapsedMs = clock.elapsedMilliseconds;
+              final raw = jsonDecode(data);
+              if (firstContentElapsedMs == 0 && raw is Map && raw['choices'] is List &&
+                  (raw['choices'] as List).whereType<Map>().any((choice) =>
+                    choice['delta'] is Map && choice['delta']['content'] is String &&
+                    (choice['delta']['content'] as String).isNotEmpty)) {
+                firstContentElapsedMs = clock.elapsedMilliseconds;
+              }
+              await collector.add(raw);
             }
+            try {
+              await for (final line in response.stream.transform(utf8.decoder).transform(const LineSplitter())) {
+                await check();
+                if (done) continue;
+                if (line.isEmpty) { await event(); }
+                else if (line.startsWith('data:')) {
+                  var value = line.substring(5); if (value.startsWith(' ')) value = value.substring(1);
+                  lines.add(value);
+                }
+              }
+            } on http.RequestAbortedException {
+              await check();
+              if (!done || !tailTimedOut) rethrow;
+            } finally { tail?.cancel(); }
             // An unfinished data event at EOF is a broken stream, including
             // a half JSON frame. Only a final standalone DONE may omit LF.
             if (!done && lines.join('\n').trim() == '[DONE]') done = true;
             if (!done) throw const ThirdChannelFailure('stream_interrupted', retryable: true);
           } else {
             final raw = await response.stream.bytesToString();
+            firstEventElapsedMs = clock.elapsedMilliseconds;
+            firstContentElapsedMs = clock.elapsedMilliseconds;
             await collector.add(jsonDecode(raw), streaming: false);
           }
           final result = collector.finish();
@@ -198,7 +254,12 @@ class ThirdChannelClient {
             received ? 'response_interrupted' : 'connection',
             retryable: error is http.ClientException || error is TimeoutException);
           if (!failure.retryable || attempt == 2) throw failure;
-        } finally { release(client); }
+        } finally {
+          modelElapsedMs += modelClock.elapsedMilliseconds;
+          activeModelClock = null;
+          signals.remove(modelAbort);
+          if (!modelAbort.isCompleted) modelAbort.complete();
+        }
         await Future<void>.delayed(retryDelay);
       }
       throw const ThirdChannelFailure('exhausted');
@@ -207,7 +268,9 @@ class ThirdChannelClient {
     catch (error) { diagnosticFailure = error; rethrow; }
     finally {
       finished = true; deadline.cancel(); gate.cancel(); clock.stop();
-      for (final client in clients.toList()) { release(client); }
+      _aborters.remove(stop);
+      for (final signal in signals) { if (!signal.isCompleted) signal.complete(); }
+      signals.clear(); lease?.release();
       final error = diagnosticFailure;
       final outcome = error is GenerationCancelledByUserException ? 'cancelled'
         : error is GenerationSuspendedByRuntimeGateException ? 'suspended'
@@ -221,7 +284,11 @@ class ThirdChannelClient {
           stage: stage, outcome: outcome, code: code, elapsedMs: clock.elapsedMilliseconds,
           healthElapsedMs: stage == 'health' ? clock.elapsedMilliseconds : healthElapsedMs,
           attempts: attempts, healthHttpStatus: healthHttpStatus, modelHttpStatus: modelHttpStatus,
-          healthTimeoutMs: healthTimeout.inMilliseconds, transport: transport));
+          healthTimeoutMs: healthTimeout.inMilliseconds, transport: transport,
+          requestId: requestId, effort: config.reasoningEffort, streaming: stream,
+          modelElapsedMs: modelElapsedMs + (activeModelClock?.elapsedMilliseconds ?? 0), headersElapsedMs: headersElapsedMs,
+          firstEventElapsedMs: firstEventElapsedMs, firstContentElapsedMs: firstContentElapsedMs, requestBytes: requestBytes,
+          transportReused: transportReused, tailAborted: tailAborted));
       } catch (_) { /* Optional diagnostics cannot alter transport or fallback. */ }
     }
   }
@@ -238,7 +305,11 @@ class ThirdChannelClient {
     if (error is http.ClientException) return 'connection';
     return 'unknown';
   }
-  void close() { _closed = true; for (final client in _active.toList()) { client.close(); } }
+  void close() {
+    _closed = true;
+    for (final abort in _aborters.toList()) { abort(); }
+    if (_ownsPool) _pool.close();
+  }
 
   // The schema used by vision is deliberately small: validate its primitive,
   // object and array contract locally even if a gateway ignores strict mode.

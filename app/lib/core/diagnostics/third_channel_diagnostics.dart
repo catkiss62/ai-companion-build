@@ -67,8 +67,17 @@ class ThirdChannelDiagnostics {
       'outcome': member('outcome', {'success', 'incomplete', 'failed', 'cancelled', 'suspended'}, 'failed'),
       'code': ThirdChannelEvent.safeCode(raw['code']),
       'transport': member('transport', {'none', 'dns', 'tls', 'timeout', 'connection', 'unknown'}, 'unknown'),
-      for (final key in ['elapsed_ms', 'health_elapsed_ms', 'health_timeout_ms'])
+      for (final key in ['elapsed_ms', 'health_elapsed_ms', 'health_timeout_ms',
+          'model_elapsed_ms', 'headers_elapsed_ms', 'first_event_elapsed_ms', 'first_content_elapsed_ms'])
         key: number(key, 86400000),
+      'request_id': raw['request_id'] is String &&
+          RegExp(r'^[a-z0-9]{1,20}-[a-z0-9]{1,12}$').hasMatch(raw['request_id'] as String)
+          ? raw['request_id'] : '',
+      'reasoning_effort': member('reasoning_effort', {'low','medium','high'}, ''),
+      'streaming': raw['streaming'] == true,
+      'request_bytes': number('request_bytes', 100000000),
+      'transport_reused': raw['transport_reused'] == true,
+      'sse_tail_aborted': raw['sse_tail_aborted'] == true,
       'attempts': number('attempts', 2),
       'health_http_status': number('health_http_status', 599),
       'model_http_status': number('model_http_status', 599),

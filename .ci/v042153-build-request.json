@@ -1,0 +1,10 @@
+{
+  "version": "0.42.153+397",
+  "schema": 67,
+  "baseline": "8017c21f4ee7e5731591e58abc9b43739058a65c",
+  "requested": "User-approved third transport reuse, first/Qwen vision routing, image sender grounding and autonomous sharing fixes; original-signature APK after focused validation",
+  "validation": "pending",
+  "publication": "unpublished draft only; no main merge",
+  "network": "retain existing Funnel; no server deployment changes",
+  "deferred": "health success cache and chat-open prewarm pending lifecycle evidence; new public tunnel requires A/B measurements; no automatic effort change"
+}

@@ -82,10 +82,27 @@ class OperationalClaimGroundingGuard {
     r'((表情包|表情).{0,8}(发|发送|甩|丢|扔).{0,6}(了|给你|过去))',
   );
   static final RegExp _imageSendClaim = RegExp(
-    r'((我)?(给你)?(发|发送|传|贴|甩|丢|扔)(了|来|过去|给你)?.{0,12}(图片|照片|图))|'
+    r'((我)?(给你)?(发|发送|传|贴|甩|丢|扔)(了|来|过去|给你)?[^我，,。！？!?\n]{0,12}(图片|照片|图))|'
     r'((传|贴)(了)?一张图)|'
     r'((图片|照片|这张图|那张图).{0,10}(发|发送|传|贴|甩|丢|扔|拿给你看).{0,6}(了|给你|过去)?)',
   );
+  static final RegExp _userImageSender = RegExp(
+    r'(你|您|用户|主人)(刚刚|刚才|之前|已经|这次|又|刚|才|给我|把)*$',
+  );
+  static final RegExp _imageFromUser = RegExp(
+    r'^(图片|照片|这张图|那张图)(是|就是|还是)?(你|您|用户|主人)'
+    r'(刚刚|刚才|之前|已经|又|刚|才|给我)*(发|发送|传|贴|甩|丢|扔)',
+  );
+  static bool _claimsImageSend(String sentence) {
+    for (final match in _imageSendClaim.allMatches(sentence)) {
+      // "你发来的图片" reports the user's input, not an assistant tool action.
+      // Inspect each match, so an actual self-send elsewhere is still checked.
+      if (_userImageSender.hasMatch(sentence.substring(0, match.start)) ||
+          _imageFromUser.hasMatch(match.group(0)!)) continue;
+      return true;
+    }
+    return false;
+  }
   static final RegExp _cedarPlayClaim = RegExp(
     r'((刚刚|刚才|已经|真的|确实)?(玩了|玩过|开了一局|打了一局|完成了).{0,18}(游戏|一局|关卡))|'
     r'((刚在|刚从).{0,12}(钓鱼|下矿|采矿|旅行|探索|决斗|对弈|种植|花园|游戏))|'
@@ -262,7 +279,7 @@ class OperationalClaimGroundingGuard {
         );
       }
 
-      if (_imageSendClaim.hasMatch(sentence) &&
+      if (_claimsImageSend(sentence) &&
           !successfulResults.any((result) =>
               result.toolId == 'image.web_send' ||
               result.toolId == 'album.image_send')) {

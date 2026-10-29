@@ -12,6 +12,13 @@ import 'package:ai_companion_localfirst/core/desire/proactive_engine.dart';
 import 'package:ai_companion_localfirst/core/models/desire_state.dart';
 import 'package:ai_companion_localfirst/core/platform/android_bridge.dart';
 import 'package:ai_companion_localfirst/core/storage/secure_config.dart';
+import 'package:ai_companion_localfirst/core/database/automatic_memory_permit.dart';
+import 'package:ai_companion_localfirst/core/models/chat_message.dart';
+import 'package:ai_companion_localfirst/integrations/qq_private/qq_archive_reader.dart';
+import 'package:ai_companion_localfirst/integrations/qq_private/qq_options.dart';
+import 'package:ai_companion_localfirst/integrations/qq_private/qq_private_config.dart';
+import 'package:ai_companion_localfirst/integrations/qq_private/qq_runtime.dart';
+import 'package:ai_companion_localfirst/integrations/qq_private/qq_store.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -115,6 +122,39 @@ void main() {
     return ProactiveEngine(db: db, desireEngine: _MiddayDesireEngine(db), ai: ai,
       android: AndroidBridge.instance, secureConfig: _Config(beforeKey: beforeKey),
       webReader: (page, _, __) async => page.copyWith(appraisalState: 'share_candidate', readAt: DateTime.now()));
+  }
+
+  for (final mode in ['WAIT', 'preempt', 'exception', 'sent']) {
+    test('real proactive QQ story $mode settles the App claim',() async {
+      const c=QqPrivateConfig(appId:'12345',secret:'fixture-only',namespace:'proactive153',owner:'owner',replyChannel:'first');
+      await c.save(); await QqPrivateConfig.bind(c.namespace,c.owner);
+      await QqOptions(namespace:c.namespace,groups:const {'group'},ownerShare:true).save(db:db);
+      await db.setSetting('qq_master_enabled_v2','1');await db.setSetting('post_turn_queue_enabled','0');
+      final store=QqStore(db),scope=QqRuntime.scope(c),at=DateTime.now();
+      final cid=QqStore.conversationId(scope,'group','group'),fence=await store.capture();
+      await store.append(fence:fence,scope:scope,kind:'group',target:'group',platformId:'source153',sender:'peer',
+        text:'群友讨论周末看珊瑚',observedAt:at.millisecondsSinceEpoch,receivedAt:at.millisecondsSinceEpoch);
+      final sql=await db.database,rows=await sql.query('qq_archive',where:'conversation_id=?',whereArgs:[cid]);
+      final stamps=<Map<String,Object?>>[],reader=QqArchiveReader(sql);
+      for(final row in rows) {await reader.render(row,stamp:stamps);}
+      expect(await store.saveNote(fence,cid,rows,stamps,await AutomaticMemoryPermit.capture(sql,'auto_memory'),
+        '群友讨论周末看珊瑚','群里聊到周末去看珊瑚',at.millisecondsSinceEpoch),true);
+      var entered=false;
+      final e=engine(writer:(_) async {
+        entered=true;expect((await sql.query('qq_shares')).single['state'],'claimed');
+        if(mode=='exception') throw http.ClientException('synthetic transport failure');
+        if(mode=='preempt') await db.insertMessage(ChatMessage(id:'new-user153',role:'user',content:'新的消息',
+          createdAt:DateTime.now().add(const Duration(seconds:1))));
+        return _answer(mode=='WAIT'?'WAIT':'「群里聊到珊瑚了，我也有点想看。」');
+      });
+      ProactiveDecision? result;
+      try {result=await e.evaluate(forceForDebug:true);}
+      catch(_) {if(mode!='exception') rethrow;}
+      expect(entered,true,reason:result?.reason);
+      final share=(await sql.query('qq_shares')).single;
+      expect(share['state'],mode=='sent'?'sent':mode=='WAIT'?'skipped':'pending');
+      expect((await sql.query('messages',where:"role='assistant'")).length,mode=='sent'?1:0);
+    });
   }
 
   for (final mode in ['single', 'second_success', 'second_failure']) {
