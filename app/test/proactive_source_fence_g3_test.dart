@@ -143,8 +143,8 @@ void main() {
       final e=engine(writer:(_) async {
         entered=true;expect((await sql.query('qq_shares')).single['state'],'claimed');
         if(mode=='exception') throw http.ClientException('synthetic transport failure');
-        if(mode=='preempt') await db.insertMessage(ChatMessage(id:'new-user153',role:'user',content:'新的消息',
-          createdAt:DateTime.now().add(const Duration(seconds:1))));
+        if(mode=='preempt') { await db.insertMessage(ChatMessage(id:'new-user153',role:'user',content:'新的消息',
+          createdAt:DateTime.now().add(const Duration(seconds:1)))); }
         return _answer(mode=='WAIT'?'WAIT':'「群里聊到珊瑚了，我也有点想看。」');
       });
       ProactiveDecision? result;

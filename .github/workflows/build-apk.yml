@@ -212,8 +212,7 @@
 # v0.40.1-album-identity-closure
 # Historical v0.40.2 workflow compatibility:
 # Historical +312: Build AI Companion v0.42.68+312 APK (Deep Thinking and Web Evidence) | AI-Companion-v0.42.68-312-Deep-Web-APK | v0.42.68-deep-web-test | .ci/v04268-monitor.txt
-# # Historical +396: Build AI Companion v0.42.152+396 APK (Third Channel Public Gateway) | AI-Companion-v0.42.152-396-Third-Channel-Public-Gateway-APK | v0.42.152-third-channel-public-gateway-test | .ci/v042152-monitor.txt
-name: Build AI Companion v0.40.2+130 APK (Provider Diagnostics)
+# name: Build AI Companion v0.40.2+130 APK (Provider Diagnostics)
 # agent/v0402-provider-diagnostics
 # AI-Companion-v0.40.2-130-Provider-Diagnostics-APK
 # v0.40.2-provider-diagnostics
@@ -440,6 +439,7 @@ name: Build AI Companion v0.40.2+130 APK (Provider Diagnostics)
 
 # Historical +314: Build AI Companion v0.42.70+314 APK (Wish Lifecycle) | AI-Companion-v0.42.70-314-Wish-Lifecycle-APK | v0.42.70-wish-lifecycle-test | .ci/v04270-monitor.txt
 # Historical +323: Build AI Companion v0.42.79+323 APK (Wish Chat Fixes) | AI-Companion-v0.42.79-323-Wish-Chat-Fixes-APK | v0.42.79-wish-chat-fixes-test | .ci/v04279-monitor.txt
+# Historical +396: Build AI Companion v0.42.152+396 APK (Third Channel Public Gateway) | AI-Companion-v0.42.152-396-Third-Channel-Public-Gateway-APK | v0.42.152-third-channel-public-gateway-test | .ci/v042152-monitor.txt
 name: Build AI Companion v0.42.153+397 APK (Speed Share Transport)
 
 # BUILD INPUTS: The 96-clip source ZIP is private Draft Release asset 591363139
@@ -1776,14 +1776,14 @@ jobs:
               --target "${GITHUB_SHA}" \
               --draft \
               --title 'AI Companion v0.42.153+397 Speed Share Transport' \
-              --notes 'Allows 15-second public-gateway health checks inside the unchanged 120-second request budget. Records bounded private transport categories and actual channel selection, including failure reasons when falling back. Preserves original provider retries, account scheduling, model effort settings and QQ/game behavior. Original-signature unpublished test build; real-device public-gateway verification remains necessary.'
+              --notes 'Reuses third-channel HTTP connections with per-request cancellation; routes vision through first/Qwen providers; repairs autonomous web and App QQ story queues and explicit user-image references. Preserves 15-second health and 120-second total budgets, effort choices, retrieval and QQ/game behavior. Original-signature unpublished test build; real-device latency remains to be measured.'
           else
             test "$(gh release view "${TAG}" --repo "${GITHUB_REPOSITORY}" --json isDraft --jq '.isDraft')" = true
             gh release edit "${TAG}" \
               --repo "${GITHUB_REPOSITORY}" \
               --target "${GITHUB_SHA}" \
               --title 'AI Companion v0.42.153+397 Speed Share Transport' \
-              --notes 'Allows 15-second public-gateway health checks inside the unchanged 120-second request budget. Records bounded private transport categories and actual channel selection, including failure reasons when falling back. Preserves original provider retries, account scheduling, model effort settings and QQ/game behavior. Original-signature unpublished test build; real-device public-gateway verification remains necessary.'
+              --notes 'Reuses third-channel HTTP connections with per-request cancellation; routes vision through first/Qwen providers; repairs autonomous web and App QQ story queues and explicit user-image references. Preserves 15-second health and 120-second total budgets, effort choices, retrieval and QQ/game behavior. Original-signature unpublished test build; real-device latency remains to be measured.'
           fi
           test "$(gh release view "${TAG}" --repo "${GITHUB_REPOSITORY}" --json isDraft --jq '.isDraft')" = true || exit 1
           RELEASE_URL="$(gh release view "${TAG}" --repo "${GITHUB_REPOSITORY}" --json url --jq '.url')"

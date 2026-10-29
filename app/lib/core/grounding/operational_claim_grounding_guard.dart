@@ -98,7 +98,7 @@ class OperationalClaimGroundingGuard {
       // "你发来的图片" reports the user's input, not an assistant tool action.
       // Inspect each match, so an actual self-send elsewhere is still checked.
       if (_userImageSender.hasMatch(sentence.substring(0, match.start)) ||
-          _imageFromUser.hasMatch(match.group(0)!)) continue;
+          _imageFromUser.hasMatch(match.group(0)!)) { continue; }
       return true;
     }
     return false;

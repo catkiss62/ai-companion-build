@@ -26,9 +26,9 @@ class QqShareOffer {
   /// authority to touch any newer claim or a restored database.
   Future<bool> settleUnsentApp(DatabaseExecutor sql,{required bool declined,required DateTime now}) async {
     if(destination!='app' || !await BrainWorkFence(identity:fence.identity).matches(sql)) return false;
+    final due=declined?now.millisecondsSinceEpoch:now.add(const Duration(minutes:1)).millisecondsSinceEpoch;
     return await sql.update('qq_shares',{'state':declined?'skipped':'pending',
-      'destination':'','updated_at':declined?now.millisecondsSinceEpoch:
-        now.add(const Duration(minutes:1)).millisecondsSinceEpoch},
+      'destination':'','updated_at':due>claimedAt?due:claimedAt+1},
       where:"id=? AND note_id=? AND state='claimed' AND destination='app' AND updated_at=?",
       whereArgs:[id,noteId,claimedAt])==1;
   }

@@ -193,6 +193,8 @@ class ThirdChannelClient {
             var done = false;
             Timer? tail;
             var tailTimedOut = false;
+            final tailEnded = Completer<bool>();
+            final iterator = StreamIterator(response.stream.transform(utf8.decoder).transform(const LineSplitter()));
             Future<void> event() async {
               if (lines.isEmpty) return;
               final data = lines.join('\n'); lines.clear();
@@ -200,8 +202,12 @@ class ThirdChannelClient {
                 done = true;
                 // Drain the HTTP response so IOClient may reuse its socket.
                 // A gateway leaving the response open must not add a long wait.
-                tail = Timer(const Duration(seconds: 2), () {
+                final remaining = totalTimeout - clock.elapsed - const Duration(milliseconds: 20);
+                final grace = remaining < const Duration(seconds: 2)
+                    ? (remaining.isNegative ? Duration.zero : remaining) : const Duration(seconds: 2);
+                tail = Timer(grace, () {
                   tailTimedOut = true; tailAborted = true;
+                  tailEnded.complete(false);
                   if (!modelAbort.isCompleted) modelAbort.complete();
                 });
                 return;
@@ -217,7 +223,11 @@ class ThirdChannelClient {
               await collector.add(raw);
             }
             try {
-              await for (final line in response.stream.transform(utf8.decoder).transform(const LineSplitter())) {
+              while (true) {
+                final next = iterator.moveNext();
+                final hasNext = done ? await Future.any<bool>([next, tailEnded.future]) : await next;
+                if (!hasNext) break;
+                final line = iterator.current;
                 await check();
                 if (done) continue;
                 if (line.isEmpty) { await event(); }
@@ -229,7 +239,12 @@ class ThirdChannelClient {
             } on http.RequestAbortedException {
               await check();
               if (!done || !tailTimedOut) rethrow;
-            } finally { tail?.cancel(); }
+            } finally {
+              tail?.cancel();
+              // Some HTTP response streams await an unfinished chunked body
+              // while canceling. That cleanup must not delay a complete reply.
+              unawaited(iterator.cancel().catchError((Object _) {}));
+            }
             // An unfinished data event at EOF is a broken stream, including
             // a half JSON frame. Only a final standalone DONE may omit LF.
             if (!done && lines.join('\n').trim() == '[DONE]') done = true;

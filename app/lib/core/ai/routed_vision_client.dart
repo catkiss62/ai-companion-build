@@ -3,7 +3,6 @@ import 'dart:convert';
 import 'package:http/http.dart' as http;
 import '../database/app_database.dart';
 import '../storage/secure_config.dart';
-import 'deepseek_client.dart';
 import 'first_channel_model.dart';
 import 'generation_cancellation.dart';
 import 'model_profile.dart';

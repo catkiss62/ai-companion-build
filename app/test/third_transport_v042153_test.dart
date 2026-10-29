@@ -33,8 +33,8 @@ void main() {
       await r.response.close();
     });
     final config=ThirdChannelConfig(baseUrl:'http://127.0.0.1:${server.port}/v1',apiKey:'synthetic',effort:'low');
-    final a=ThirdChannelClient(transportPool:pool,onUsage:(u,_,__) async=>usageA.add(u.total));
-    final b=ThirdChannelClient(transportPool:pool,onUsage:(u,_,__) async=>usageB.add(u.total));
+    final a=ThirdChannelClient(transportPool:pool,onUsage:(u,_,_) async=>usageA.add(u.total));
+    final b=ThirdChannelClient(transportPool:pool,onUsage:(u,_,_) async=>usageB.add(u.total));
     try {
       expect((await a.complete(config:config,messages:[],onDiagnostic:events.add)).content,'成功'); a.close();
       expect((await b.complete(config:config,messages:[],onDiagnostic:events.add)).content,'成功');
