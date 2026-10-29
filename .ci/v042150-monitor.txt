@@ -1,0 +1,7 @@
+status=success
+run_id=40797085398
+run_url=https://github.com/catkiss62/ai-companion-build/actions/runs/40797085398
+head_sha=7c70f6545357aff190e66da6009d9e5a90cc7e54
+signer_sha256=30:5E:B3:D8:09:83:B9:63:C6:48:18:DD:F1:AD:56:1F:27:9D:E6:D4:7B:3E:D2:C7:81:AD:A4:48:C7:C2:51:48
+e725e80cc0c38906ea1e1b446f61104bbdbb9245f6561b12dc0ecbf443fe16ed  AI-Companion-v0.42.150-394-QQ-MCP-Effort-APK.apk
+release_url=https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-854060d261f2af7b8c0f
