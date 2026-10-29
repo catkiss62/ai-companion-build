@@ -1,0 +1,9 @@
+{
+  "version": "0.42.152+396",
+  "schema": 67,
+  "source_commit": "080195630968d1cc00e0023cdbf0806c97cb65a4",
+  "source_tree": "4d6845daaa468649dca8f856fd6360c39edd204c",
+  "app_lib_tree": "52db2429defb22d904b8f0fe3fbc1af213b5b0cb",
+  "requested": "User-approved public gateway health and diagnostics fix, plus dismissible third-channel failure notice; build original-signature APK",
+  "validation": "Dart analysis and focused network, routing and new notice tests passed in 40896204361; original QQ/game/web and extension are running. Full validation is required before delivery."
+}
