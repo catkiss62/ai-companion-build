@@ -2,6 +2,7 @@ package com.aicompanion.localfirst
 
 import android.content.Context
 import android.content.SharedPreferences
+import com.catkiss.senlive2dcompanion.Live2DProfiles
 import com.catkiss.senlive2dcompanion.CaicaiModelRepository
 import java.io.File
 import java.io.IOException
@@ -22,9 +23,10 @@ class PortableCompanionState(
 
     fun begin(): Map<String, Any> {
         check(!busy) { "存档操作正在进行" }
+        require(!CaicaiModelRepository(context,Live2DProfiles.DEEPSEEK).isPending()) { "DeepSeek导入尚未完成渲染确认，请先打开聊天" }
         val lease = models.beginPortableSnapshot()
         try {
-            previous = fields.mapValues { (group, keys) ->
+            previous = allFields.mapValues { (group, keys) ->
                 val all = prefs(group).all
                 keys.keys.filter { all.containsKey(it) }.associateWith { all[it] }
             }
@@ -56,7 +58,8 @@ class PortableCompanionState(
         val values = validatedPreferences(raw) // Validate the entire input before any write.
         if (restoreModels) releaseModel()
         applied = true // Partial preference/index writes must also roll back.
-        for ((group, keys) in fields) replace(prefs(group), keys.keys, values.getValue(group))
+        for ((group, keys) in allFields) if(values.containsKey(group)) replace(prefs(group), keys.keys, values.getValue(group))
+        if(!values.containsKey(Live2DProfiles.REGISTRY)) prefs(Live2DProfiles.REGISTRY).edit().putString("active",Live2DProfiles.CAICAI).commit()
         if (restoreModels) {
             modelsTouched = true
             models.installPortableIndex(lease)
@@ -68,7 +71,7 @@ class PortableCompanionState(
         var failure: Throwable? = null
         try {
             if (applied && !commit) {
-                for ((group, keys) in fields) replace(prefs(group), keys.keys, previous.getValue(group))
+                for ((group, keys) in allFields) replace(prefs(group), keys.keys, previous.getValue(group))
                 if (modelsTouched) replace(prefs("caicai_live2d"), prefs("caicai_live2d").all.keys.union(previousIndex.keys), previousIndex)
             }
             if (modelsTouched && commit) models.finishPortableInstall(lease)
@@ -78,6 +81,7 @@ class PortableCompanionState(
         } finally {
             try {
                 // Read final committed/rolled-back values, never the temporary apply.
+                if (applied) Live2DProfiles.restored(context)
                 if (applied && !modelsTouched) refreshPreferences()
             } catch (error: Throwable) {
                 if (failure != null) failure.addSuppressed(error) else throw error
@@ -125,9 +129,11 @@ class PortableCompanionState(
                     releaseModel: () -> Unit = {}, refreshPreferences: () -> Unit = {}) {
             val values = validatedPreferences(raw)
             if (restoreModels) releaseModel()
-            for ((group, keys) in fields) {
-                replace(context.getSharedPreferences(group, Context.MODE_PRIVATE), keys.keys, values.getValue(group))
+            for ((group, keys) in allFields) {
+                if(values.containsKey(group)) replace(context.getSharedPreferences(group, Context.MODE_PRIVATE), keys.keys, values.getValue(group))
             }
+            if(!values.containsKey(Live2DProfiles.REGISTRY)) context.getSharedPreferences(Live2DProfiles.REGISTRY,Context.MODE_PRIVATE).edit().putString("active",Live2DProfiles.CAICAI).commit()
+            Live2DProfiles.restored(context)
             if (restoreModels) {
                 if (committed) {
                     val repository = CaicaiModelRepository(context)
@@ -183,9 +189,21 @@ class PortableCompanionState(
                 "pet_experimental_levels_white" to 150..255, "pet_experimental_saturation" to .5f..2f),
             "companion_runtime" to mapOf("overlay_user_enabled" to true),
         )
+        private val profileFields: Map<String,Map<String,Any>> = mapOf(
+            "deepseek_stage" to (fields.getValue("caicai_stage").filterKeys { !it.startsWith("rightEar") } +
+                mapOf("anchorX" to 0f..1f, "anchorY" to 0f..1f)),
+            "deepseek_appearance" to mapOf("key11" to 0f..1f,"key12" to 0f..1f,"Clothes1" to .5f..1f,
+                "Clothes4" to 0f..1f,"MouthPressLipOpen" to -1f..1f),
+            "deepseek_motion" to mapOf("jevEnabled" to true),
+            "caicai_appearance" to mapOf("1白袜" to true,"丝袜带子" to true,"双马尾" to true,"发带" to true),
+            Live2DProfiles.REGISTRY to mapOf("active" to setOf(Live2DProfiles.CAICAI,Live2DProfiles.DEEPSEEK),
+                "caicaiFingerprint" to Regex("[0-9a-f]{64}|"),"deepseekFingerprint" to Regex("[0-9a-f]{64}|")),
+        )
+        private val allFields = fields + profileFields
+
         fun validatedPreferences(raw: Map<*, *>): Map<String, Map<String, Any?>> {
-            require(raw.keys == fields.keys) { "存档缺少本机显示设置" }
-            return fields.mapValues { (group, keys) ->
+            require(raw.keys == fields.keys || raw.keys == allFields.keys) { "存档缺少本机显示设置或模型配置版本不受支持" }
+            return allFields.filterKeys { it in raw }.mapValues { (group, keys) ->
                 val values = raw[group] as? Map<*, *> ?: throw IOException("存档设置格式无效")
                 require(values.keys.all { it in keys }) { "存档包含未知本机设置" }
                 values.entries.associate { (name, value) ->
@@ -200,8 +218,12 @@ class PortableCompanionState(
                         is ClosedFloatingPointRange<*> -> {
                             val n = (value as? Number)?.toFloat() ?: throw IOException("设置必须为数值")
                             @Suppress("UNCHECKED_CAST") val range = rule as ClosedFloatingPointRange<Float>
-                            require(n.isFinite() && n in range); n
+                            require(n.isFinite() && n in range)
+                            if(group=="deepseek_appearance" && key in setOf("key11","key12","Clothes4")) require(n==0f || n==1f)
+                            if(group=="deepseek_appearance" && key=="Clothes1") require(n==.5f || n==1f)
+                            n
                         }
+                        is Regex -> { require(value is String && rule.matches(value)); value }
                         is Set<*> -> { require(value is String && value in rule); value }
                         else -> { require(value is Boolean); value }
                     }

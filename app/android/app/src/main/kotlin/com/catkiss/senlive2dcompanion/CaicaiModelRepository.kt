@@ -9,20 +9,23 @@ import java.io.IOException
 import java.util.zip.ZipInputStream
 
 /** Transactional, private import of the two-model ZIP consumed by the Caicai lab. */
-class CaicaiModelRepository(context: Context) {
+class CaicaiModelRepository(context: Context, val profile: String = Live2DProfiles.CAICAI) {
+    init { require(Live2DProfiles.valid(profile)) }
+    private val single get() = profile == Live2DProfiles.DEEPSEEK
     private val app = context.applicationContext
-    private val root = File(app.filesDir, "caicai-live2d").canonicalFile
+    private val root = File(app.filesDir, Live2DProfiles.directory(profile)).canonicalFile
     private val current = File(root, "current")
     private val staging = File(root, "staging")
     private val backup = File(root, "backup")
-    private val prefs = app.getSharedPreferences("caicai_live2d", Context.MODE_PRIVATE)
+    private val prefs = app.getSharedPreferences(Live2DProfiles.index(profile), Context.MODE_PRIVATE)
 
     data class Models(
         val maid: File? = null,
         val accessory: File? = null,
         val detail: String = "请导入菜菜女仆三配件 ZIP",
+        val singleModel: Boolean = false,
     ) {
-        val available: Boolean get() = maid?.isFile == true && accessory?.isFile == true
+        val available: Boolean get() = maid?.isFile == true && (singleModel || accessory?.isFile == true)
     }
 
     fun isPending(): Boolean = synchronized(lock) { prefs.getBoolean("pending", false) }
@@ -32,6 +35,14 @@ class CaicaiModelRepository(context: Context) {
         val accessoryPath = prefs.getString("accessory", "").orEmpty()
         indexedModels(maidPath, accessoryPath)?.let { return@synchronized it }
 
+        if (single) {
+            return@synchronized try {
+                val model = deepseekModel(current)
+                if (!prefs.edit().putString("maid", CaicaiModelPaths.relative(current, model)).commit())
+                    throw IOException("无法恢复DeepSeek索引")
+                Models(model, detail = "DeepSeek已导入", singleModel = true)
+            } catch (error: Exception) { Models(detail = if (current.exists()) "DeepSeek文件读回失败：${error.message}" else "请导入DeepSeek模型ZIP") }
+        }
         // The ZIP's own manifest is the source of truth. Restore a stale or
         // missing preference index only after both files can be read from the
         // promoted current directory. Never turn a failed read into "no import".
@@ -74,24 +85,23 @@ class CaicaiModelRepository(context: Context) {
             CaicaiDiagnostics.record(app, "unpacking")
             unzip(uri)
             // Preserve the standalone app's accessory-lab.json contract and model paths.
-            val manifest = staging.walkTopDown().firstOrNull {
-                it.isFile && it.name.equals("accessory-lab.json", ignoreCase = true)
-            } ?: throw IOException("模型包缺少 accessory-lab.json")
-            val config = JSONObject(manifest.readText(Charsets.UTF_8))
-            val manifestDir = manifest.parentFile ?: throw IOException("模型清单路径无效")
-            val maid = safeChild(manifestDir, config.getString("mainModel"))
-            val accessory = safeChild(manifestDir, config.getString("accessoryModel"))
-            if (maid?.isFile != true || accessory?.isFile != true) {
-                throw IOException("模型包缺少菜菜主模型或 Sen 配件模型")
+            val (maid, accessory) = if (single) Pair(deepseekModel(staging), null) else {
+                val manifest = staging.walkTopDown().firstOrNull {
+                    it.isFile && it.name.equals("accessory-lab.json", ignoreCase = true)
+                } ?: throw IOException("模型包缺少 accessory-lab.json；请确认选中了正确模型")
+                val config = JSONObject(manifest.readText(Charsets.UTF_8))
+                val manifestDir = manifest.parentFile ?: throw IOException("模型清单路径无效")
+                val primary = safeChild(manifestDir, config.getString("mainModel"))
+                val donor = safeChild(manifestDir, config.getString("accessoryModel"))
+                if (primary?.isFile != true || donor?.isFile != true)
+                    throw IOException("模型包缺少菜菜主模型或 Sen 配件模型")
+                validateModelFiles(primary, accessoryDonor = false)
+                validateModelFiles(donor, accessoryDonor = true)
+                Pair(primary, donor)
             }
-            // The lab loads these referenced files immediately. A ZIP with two
-            // model3 manifests but missing moc/texture/physics must not be
-            // reported as a successful import and replace the working package.
-            validateModelFiles(maid, accessoryDonor = false)
-            validateModelFiles(accessory, accessoryDonor = true)
             CaicaiDiagnostics.record(app, "manifest_validated")
             val maidPath = CaicaiModelPaths.relative(staging, maid)
-            val accessoryPath = CaicaiModelPaths.relative(staging, accessory)
+            val accessoryPath = accessory?.let { CaicaiModelPaths.relative(staging, it) }.orEmpty()
             // Settings can import before the stage exists, so the candidate may
             // remain pending indefinitely. Keep it until the replacement ZIP
             // has passed structural checks, then restore the last verified
@@ -107,7 +117,7 @@ class CaicaiModelRepository(context: Context) {
                 }
                 val promotedMaid = safeChild(current, maidPath)
                 val promotedAccessory = safeChild(current, accessoryPath)
-                if (promotedMaid?.isFile != true || promotedAccessory?.isFile != true) {
+                if (promotedMaid?.isFile != true || (!single && promotedAccessory?.isFile != true)) {
                     remove(current)
                     if (backup.exists()) backup.renameTo(current)
                     throw IOException("模型暂存完成，但正式目录中的主模型或配件模型无法读回")
@@ -179,12 +189,13 @@ class CaicaiModelRepository(context: Context) {
         var total = 0L
         val input = app.contentResolver.openInputStream(uri) ?: throw IOException("无法读取 ZIP")
         input.use { raw ->
-            ZipInputStream(raw.buffered()).use { zip ->
+            ZipInputStream(raw.buffered(), if (single) java.nio.charset.Charset.forName("GB18030") else Charsets.UTF_8).use { zip ->
                 val bytes = ByteArray(64 * 1024)
                 while (true) {
                     val entry = zip.nextEntry ?: break
                     if (++entries > 8_000) throw IOException("模型包文件过多")
                     val target = File(staging, entry.name)
+                    if (target.exists() && !entry.isDirectory) throw IOException("ZIP包含重复路径")
                     if (!target.canonicalPath.startsWith(prefix)) throw IOException("ZIP 路径不安全")
                     if (entry.isDirectory) {
                         if (!target.isDirectory && !target.mkdirs()) throw IOException("无法创建模型目录")
@@ -212,9 +223,35 @@ class CaicaiModelRepository(context: Context) {
     private fun indexedModels(maidPath: String, accessoryPath: String): Models? {
         val maid = safeChild(current, maidPath)
         val accessory = safeChild(current, accessoryPath)
-        return if (maid?.isFile == true && accessory?.isFile == true) {
-            Models(maid, accessory, "菜菜女仆与三配件已导入")
+        return if (maid?.isFile == true && (single || accessory?.isFile == true)) {
+            Models(maid, accessory, if (single) "DeepSeek已导入" else "菜菜女仆与三配件已导入", single)
         } else null
+    }
+
+    /** JSON references, not the upload's basename, determine supported structure. */
+    private fun deepseekModel(directory: File): File {
+        val candidates = directory.walkTopDown().filter { it.isFile && it.name.endsWith(".model3.json") }.toList()
+        if (candidates.size != 1) throw IOException("DeepSeek包应包含一个主模型")
+        val model = candidates.single()
+        validateModelFiles(model, accessoryDonor = false)
+        val refs = JSONObject(model.readText(Charsets.UTF_8)).getJSONObject("FileReferences")
+        val cdi = safeChild(model.parentFile!!, refs.getString("DisplayInfo")) ?: throw IOException("参数清单路径无效")
+        val parameters = JSONObject(cdi.readText(Charsets.UTF_8)).getJSONArray("Parameters")
+        val ids = (0 until parameters.length()).map { parameters.getJSONObject(it).getString("Id") }.toSet()
+        if (!ids.containsAll(setOf("AngleX", "PositionX", "LeanInput", "Clothes2", "Movement1", "Movement2", "Movement3", "key13")))
+            throw IOException("素材不是受支持的DeepSeek立绘；请检查当前选中的模型")
+        return model
+    }
+
+    fun fingerprint(): String {
+        val file = currentModels().maid ?: return ""
+        val refs = JSONObject(file.readText(Charsets.UTF_8)).getJSONObject("FileReferences")
+        val moc = safeChild(file.parentFile!!, refs.getString("Moc")) ?: return ""
+        val digest = java.security.MessageDigest.getInstance("SHA-256")
+        moc.inputStream().use { input -> val bytes = ByteArray(65536); while (true) {
+            val n = input.read(bytes); if (n < 0) break; digest.update(bytes, 0, n)
+        } }
+        return digest.digest().joinToString("") { "%02x".format(it.toInt() and 255) }
     }
 
     private fun validateModelFiles(modelFile: File, accessoryDonor: Boolean) {
@@ -281,6 +318,7 @@ class CaicaiModelRepository(context: Context) {
     }
     fun validatePortableDirectory(directory: File): Models {
         if (!directory.exists() || directory.listFiles().orEmpty().isEmpty()) return Models()
+        if (single) return Models(deepseekModel(directory), detail = "DeepSeek已导入", singleModel = true)
         val manifest = directory.walkTopDown().firstOrNull {
             it.isFile && it.name.equals("accessory-lab.json", ignoreCase = true)
         } ?: throw IOException("存档模型缺少 accessory-lab.json")
@@ -298,7 +336,7 @@ class CaicaiModelRepository(context: Context) {
         val edit = prefs.edit().remove("maid").remove("accessory").remove("old_maid")
             .remove("old_accessory").remove("pending")
         if (restored.available) edit.putString("maid", CaicaiModelPaths.relative(current, restored.maid!!))
-            .putString("accessory", CaicaiModelPaths.relative(current, restored.accessory!!))
+            .putString("accessory", restored.accessory?.let { CaicaiModelPaths.relative(current, it) }.orEmpty())
         if (!edit.commit()) throw IOException("无法保存存档模型索引")
     }
     fun finishPortableInstall(token: String) = synchronized(lock) {

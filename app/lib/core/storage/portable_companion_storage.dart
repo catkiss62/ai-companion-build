@@ -124,17 +124,20 @@ class AndroidPortableBackend extends NativePortableBackend {
     NativePortableSnapshot snapshot, {
     required bool commit,
   }) async {
+    var profileChanged=false;
     try {
-      await _channel.invokeMethod<void>('portableFinish', {
+      final state=await _channel.invokeMapMethod<String, Object?>('portableFinish', {
         'token': snapshot.token,
         'commit': commit,
       });
+      if(state!=null) profileChanged=CaicaiLive2DService.acceptProfile(state);
     } finally {
       // Read-only export/validation does not change the installed model.
       // Model restores (including partial failure/rollback) do need a reload.
       if (_reloadAfterFinish.remove(snapshot.token)) {
         CaicaiLive2DService.revision.value++;
       }
+      else if(profileChanged) { CaicaiLive2DService.revision.value++; }
     }
   }
 }

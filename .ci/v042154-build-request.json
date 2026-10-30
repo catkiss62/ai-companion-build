@@ -1,0 +1,11 @@
+{
+  "version": "0.42.154+398",
+  "schema": 67,
+  "baseline": "928630263771771eb8a53d1209d4e16558f7eebd",
+  "scope": "DeepSeek Live2D stage 1: independent import, selection, preferences, legacy restore and native calibration",
+  "quality": "Original textures; existing Caicai 60 FPS target and high precision masks",
+  "deferred": "DeepSeek full gestures, expressions, JEV and idle performance are stages 2 and 3",
+  "private_assets": "User imports original ZIP on device; no private model in repository or APK",
+  "publication": "Original-signature test APK and unpublished draft only; no main merge",
+  "validation": "pending"
+}

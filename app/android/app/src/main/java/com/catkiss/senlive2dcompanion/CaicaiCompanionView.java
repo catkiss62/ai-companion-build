@@ -30,6 +30,7 @@ public final class CaicaiCompanionView extends GLSurfaceView implements SenCompa
         // thread; the included MainActivity demonstrates that boundary.
         void onStatus(String status);
         void onReady(String detail);
+        default void onProfileLoaded(String identity) { }
         void onError(Throwable error);
         void onMotionDiagnosticStep(String label, int index, int total);
         void onMotionDiagnosticComplete(String report);
@@ -67,6 +68,7 @@ public final class CaicaiCompanionView extends GLSurfaceView implements SenCompa
     private final java.util.concurrent.CountDownLatch releaseComplete =
             new java.util.concurrent.CountDownLatch(1);
     private String readyAfterDraw;
+    private String profileAfterDraw;
     private boolean frameFailed;
     private final CaicaiFrameDiagnostics frameDiagnostics=new CaicaiFrameDiagnostics();
     public String frameDiagnostics() { return frameDiagnostics.export(); }
@@ -99,6 +101,8 @@ public final class CaicaiCompanionView extends GLSurfaceView implements SenCompa
                 listener.onStatus(status);
             }
 
+            @Override public void onProfileLoaded(String identity) { profileAfterDraw=identity; }
+
             @Override public void onReady(String detail) {
                 readyAfterDraw = detail;
             }
@@ -106,6 +110,7 @@ public final class CaicaiCompanionView extends GLSurfaceView implements SenCompa
             @Override public void onError(Throwable error) {
                 frameFailed = true;
                 readyAfterDraw = null;
+                profileAfterDraw = null;
                 listener.onError(error);
             }
 
@@ -170,6 +175,7 @@ public final class CaicaiCompanionView extends GLSurfaceView implements SenCompa
                 if (!frameFailed && readyAfterDraw != null) {
                     String detail = readyAfterDraw;
                     readyAfterDraw = null;
+                    if(profileAfterDraw!=null) {String identity=profileAfterDraw;profileAfterDraw=null;listener.onProfileLoaded(identity);}
                     listener.onReady(detail);
                 }
             }
@@ -269,6 +275,15 @@ public final class CaicaiCompanionView extends GLSurfaceView implements SenCompa
                 new SenRenderOptions(autoIdle, SenMotionMode.fromId(motionModeId),
                         evBodyFollowStrength), outfit));
     }
+
+    public void persistCaicaiExpression(String name) {queueRenderer(()->renderer.persistCaicaiExpression(name));}
+    public void restoreCaicaiAppearance() {queueRenderer(renderer::restoreCaicaiAppearance);}
+    public void loadDeepseek(File file,String identity) {
+        queueRenderer(()->renderer.requestDeepseek(file,identity));
+    }
+    public void previewDeepseek(String values) {queueRenderer(()->renderer.previewDeepseek(values));}
+    public void appearanceDeepseek(String values) {queueRenderer(()->renderer.appearanceDeepseek(values));}
+    public void anchorDeepseek(float x,float y) {queueRenderer(()->renderer.anchorDeepseek(x,y));}
 
     // BEGIN AI_COMPANION_HOST_EXTENSION
     public void motionParameters(java.util.function.Consumer<String> callback) {

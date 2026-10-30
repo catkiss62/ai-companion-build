@@ -8,6 +8,7 @@ import '../../core/database/app_database.dart';
 import '../../core/emotion/emotion_contract.dart';
 import '../../core/platform/live2d_model_storage.dart';
 import '../../widgets/caicai_live2d_stage.dart';
+import 'deepseek_calibration_controls.dart';
 
 class Live2DSettingsPage extends StatefulWidget {
   const Live2DSettingsPage({super.key, this.database});
@@ -21,6 +22,7 @@ class _Live2DSettingsPageState extends State<Live2DSettingsPage> {
   bool _enabled = false, _motion = true, _busy = false, _loading = true;
   Map<String, Object?> _status = const {};
   String? _error;
+  bool get _deepseek => _status['profile'] == 'deepseek-avatar';
   double _gain=1, _speed=1, _pivot=.88;
   @override
   void initState() { super.initState(); _load(); }
@@ -57,9 +59,11 @@ class _Live2DSettingsPageState extends State<Live2DSettingsPage> {
     } finally { if(await file.exists()) await file.delete(); }
   });
   Future<void> _delete() async {
+    final deletingProfile=CaicaiLive2DService.activeProfile;
+    final deletingGeneration=CaicaiLive2DService.profileGeneration;
     final confirmed = await showDialog<bool>(context: context, builder: (context) => AlertDialog(
       title: const Text('确认删除 Live2D 模型？'),
-      content: const Text('将删除本机导入的菜菜模型与旧版 Live2D 模型文件，并关闭 Live2D。之后需要重新导入 ZIP。'),
+      content: Text(_deepseek ? '只删除DeepSeek模型文件，保留设置和菜菜模型。之后需要重新导入ZIP。' : '将删除本机导入的菜菜模型与旧版 Live2D 模型文件，并关闭 Live2D。之后需要重新导入 ZIP。'),
       actions: [
         TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('取消')),
         FilledButton(onPressed: () => Navigator.pop(context, true), child: const Text('确认删除')),
@@ -67,9 +71,10 @@ class _Live2DSettingsPageState extends State<Live2DSettingsPage> {
     ));
     if (confirmed != true || !mounted) return;
     await _run(() async {
+      if(CaicaiLive2DService.activeProfile!=deletingProfile || CaicaiLive2DService.profileGeneration!=deletingGeneration) throw StateError('当前模型已切换，请重新选择删除目标');
       await _db.setSetting('chat_portrait_mode', 'static');
       await CaicaiLive2DService.clearImportedModels();
-      await Live2DModelStorage.clearImportedModels();
+      if(deletingProfile=='caicai') await Live2DModelStorage.clearImportedModels();
     });
   }
   Future<void> _control(String method, [Object? value]) => _run(() async {
@@ -111,8 +116,12 @@ class _Live2DSettingsPageState extends State<Live2DSettingsPage> {
     return Scaffold(appBar: AppBar(title: const Text('Live2D 设置')),
       body: _loading ? const Center(child: CircularProgressIndicator()) : ListView(
         padding: const EdgeInsets.all(16), children: [
-          SwitchListTile(title: const Text('启用菜菜 Live2D'),
-            subtitle: const Text('聊天舞台使用女仆与三配件；随小豆丁形态变小／变大'),
+          if(_status.containsKey('profiles')) SegmentedButton<String>(
+            segments:const [ButtonSegment(value:'caicai',label:Text('菜菜')),ButtonSegment(value:'deepseek-avatar',label:Text('DeepSeek'))],
+            selected:{_deepseek?'deepseek-avatar':'caicai'},
+            onSelectionChanged:_busy?null:(values)=>_run(() async { await CaicaiLive2DService.selectProfile(values.single); })),
+          SwitchListTile(title: Text(_deepseek?'启用DeepSeek Live2D':'启用菜菜 Live2D'),
+            subtitle: Text(_deepseek?'使用DeepSeek独立设置；随小豆丁形态变小／变大':'聊天舞台使用女仆与三配件；随小豆丁形态变小／变大'),
             value: _enabled, onChanged: _busy ? null : (value) => _run(() async {
               await _db.setSetting('chat_portrait_mode', value ? 'caicai_live2d' : 'static');
               if (value) {
@@ -126,7 +135,8 @@ class _Live2DSettingsPageState extends State<Live2DSettingsPage> {
             onTap: _busy ? null : () => _run(() async { await CaicaiLive2DService.pickModelZip(); })),
           if (_busy) const LinearProgressIndicator(),
           if (_error != null) Text(_error!, style: TextStyle(color: Theme.of(context).colorScheme.error)),
-          SwitchListTile(title: const Text('Jev 对话动作'), value: _motion,
+          if(_deepseek) DeepseekCalibrationControls(status:_status,busy:_busy,run:_run,preview:_control),
+          if(!_deepseek) SwitchListTile(title: const Text('Jev 对话动作'), value: _motion,
             subtitle: const Text('复用已配置的 Jev，每条新回复批量判断短时动作；自主呼吸和眨眼由本机驱动'),
             onChanged: _busy ? null : (value) => _run(() => _db.setSetting('caicai_jev_motion', value ? '1' : '0'))),
           const Text('点击后返回聊天查看。聊天情绪、临时表情和动作 4.5 秒内淡出；装扮保持。摸头可按住持续。'),
@@ -136,7 +146,7 @@ class _Live2DSettingsPageState extends State<Live2DSettingsPage> {
           ListTile(leading:const Icon(Icons.file_download_outlined),title:const Text('导出 Live2D 诊断'),
             subtitle:const Text('包含近期帧率、头部参数和显示状态，不包含聊天与模型素材'),
             onTap:_busy?null:_exportDiagnostics),
-          Wrap(spacing:8,children:[
+          if(!_deepseek) Wrap(spacing:8,children:[
             ActionChip(label:const Text('左右大幅测试'),onPressed:_busy?null:()=>_control('headSweep','head_x_sweep')),
             ActionChip(label:const Text('上下大幅测试'),onPressed:_busy?null:()=>_control('headSweep','head_y_sweep')),
             ActionChip(label:const Text('结束大幅测试'),onPressed:_busy?null:()=>_control('headSweep','live')),
@@ -145,12 +155,13 @@ class _Live2DSettingsPageState extends State<Live2DSettingsPage> {
           _tuner('头身与整模幅度 · ${(_gain*100).round()}%',_gain,.5,1.5,(v)=>setState(()=>_gain=v)),
           _tuner('待机与动作速度 · ${(_speed*100).round()}%',_speed,.65,1.6,(v)=>setState(()=>_speed=v)),
           _tuner('倾斜支点 · 从模型顶部向下 ${(_pivot*100).round()}%',_pivot,.65,.98,(v)=>setState(()=>_pivot=v)),
-          Wrap(spacing:8,children:[
+          if(!_deepseek) Wrap(spacing:8,children:[
             for(final pair in const {'向左探身':'左侧头','向右探身':'右侧头',
               '小腿支点左倾':'右歪头','小腿支点右倾':'左歪头'}.entries)
               ActionChip(label:Text(pair.key),onPressed:_busy?null:()=>_previewRoot(pair.key,pair.value)),
           ]),
           const SizedBox(height: 18),
+          if(!_deepseek) ...[
           Text('聊天情绪预览（19 种）', style: Theme.of(context).textTheme.titleMedium),
           Wrap(spacing: 8, children: [
             ActionChip(label: const Text('正常'),
@@ -171,17 +182,18 @@ class _Live2DSettingsPageState extends State<Live2DSettingsPage> {
           _presets('动作', ['2奶茶','2插手','2比耶','2点单','2菜单','2餐盘左','2餐盘右']),
           _presets('Wink', ['wink','wink吐舌','比耶wink吐舌']),
           _presets('装扮', ['1白袜','丝袜带子','双马尾','发带']),
+          ],
           const SizedBox(height: 16),
           Wrap(spacing: 8, children: [
             ActionChip(label: const Text('调整位置与缩放'), onPressed: _busy ? null : () => _edit('stage')),
-            ActionChip(label: const Text('调整摸头区域'), onPressed: _busy ? null : () => _edit('head')),
+            if(!_deepseek) ActionChip(label: const Text('调整摸头区域'), onPressed: _busy ? null : () => _edit('head')),
             ActionChip(label: const Text('还原位置'), onPressed: _busy ? null : () => _control('resetStage')),
-            ActionChip(label: const Text('清除手动预设'), onPressed: _busy ? null : () => _control('resetPresets')),
+            if(!_deepseek) ActionChip(label: const Text('清除手动预设'), onPressed: _busy ? null : () => _control('resetPresets')),
             ActionChip(label: const Text('重载模型'), onPressed: _busy ? null : () => _control('reloadModel')),
           ]),
           const Divider(height: 32),
           ListTile(leading: const Icon(Icons.delete_outline), title: const Text('删除导入模型'),
-            subtitle: const Text('确认后删除本机的菜菜及旧版模型文件'), onTap: _busy ? null : _delete),
+            subtitle: Text(_deepseek?'仅删除DeepSeek资源，菜菜保留':'确认后删除本机的菜菜及旧版模型文件'), onTap: _busy ? null : _delete),
         ],
       ));
   }

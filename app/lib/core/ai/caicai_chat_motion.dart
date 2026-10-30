@@ -48,7 +48,7 @@ class CaicaiChatMotion {
 
   Future<void> resume({required String id, required String reply, required int revision,
       bool Function()? canContinue}) async {
-    if (canContinue?.call() == false) return;
+    if (CaicaiLive2DService.activeProfile != 'caicai' || canContinue?.call() == false) return;
     if (_resuming || _owner != null || _speech.isEmpty ||
         _modelRevision != CaicaiLive2DService.revision.value ||
         _lastIdentity != '$id:$revision:${SpokenTextIndex.fingerprint(reply)}') return;
@@ -85,7 +85,8 @@ class CaicaiChatMotion {
 
   bool _current(GenerationCancellationToken token, Map<String, Object?> owner) =>
       identical(_token, token) && !token.isCancelled && identical(_owner, owner) &&
-      _canContinue?.call() != false;
+      _canContinue?.call() != false && CaicaiLive2DService.activeProfile == 'caicai' &&
+      _modelRevision == CaicaiLive2DService.revision.value;
   Future<void> _releaseSpeech(Map<String, Object?> owner) async {
     final lease = _speechLease;
     _speechLease = null;
@@ -108,14 +109,14 @@ class CaicaiChatMotion {
 
   Future<void> present({required String id, required String user, required String reply,
       required String emotion, int revision = 0, bool Function()? canContinue}) async {
-    if (canContinue?.call() == false) return;
+    if (CaicaiLive2DService.activeProfile != 'caicai' || canContinue?.call() == false) return;
     final identity = '$id:$revision:${SpokenTextIndex.fingerprint(reply)}';
     if (_lastIdentity == identity) return;
     final epoch = ++_presentationEpoch;
     _lastIdentity = identity;
     await _clear();
     if (epoch != _presentationEpoch) return;
-    if (canContinue?.call() == false) return;
+    if (CaicaiLive2DService.activeProfile != 'caicai' || canContinue?.call() == false) return;
     _canContinue = canContinue;
     _lastIdentity = identity; _messageId = id;
     _modelRevision = CaicaiLive2DService.revision.value;

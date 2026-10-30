@@ -1857,6 +1857,7 @@ final class SenLive2DModel extends CubismUserModel {
     float getReferenceDrawableTop() { return referenceDrawableTop; }
     float getReferenceDrawableBottom() { return referenceDrawableBottom; }
 
+    boolean expressionEnabled(String name) { return activeExpressionNames.contains(name); } // AI_COMPANION_HOST_PLAN_HOOK
     void setExpression(String name) {
         if ("glasses".equals(normalizeExpressionName(name))) {
             glassesEnabled = !glassesEnabled;

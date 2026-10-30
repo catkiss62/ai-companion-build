@@ -11,8 +11,33 @@ class CaicaiLive2DService {
   static const _channel = MethodChannel('ai_companion/caicai_live2d');
   static final editor = ValueNotifier<Map<String, Object?>?>(null);
   static final revision = ValueNotifier<int>(0);
-  static Future<Map<String, Object?>> get diagnostics async =>
-      (await _channel.invokeMapMethod<String, Object?>('status')) ?? const {};
+  static String activeProfile = 'caicai';
+  static int? _profileGeneration;
+  static int? get profileGeneration => _profileGeneration;
+  static Future<Map<String, Object?>> get diagnostics async {
+    final value = (await _channel.invokeMapMethod<String, Object?>('status')) ?? const {};
+    acceptProfile(value);
+    return value;
+  }
+  static bool acceptProfile(Map<String, Object?> value) {
+    final before=activeProfile;
+    activeProfile=value['profile']?.toString() ?? 'caicai';
+    _profileGeneration=(value['profile_generation'] as num?)?.toInt();
+    if(before!=activeProfile) editor.value=null;
+    return before!=activeProfile;
+  }
+  static Future<void> selectProfile(String profile) async {
+    final value = await _channel.invokeMapMethod<String, Object?>('selectProfile', {'profile': profile});
+    activeProfile = value?['profile']?.toString() ?? profile;
+    _profileGeneration = (value?['profile_generation'] as num?)?.toInt();
+    editor.value = null;
+    revision.value++;
+  }
+  static Future<void> refreshProfile() async {
+    final before = activeProfile;
+    await diagnostics;
+    if (before != activeProfile) { editor.value = null; revision.value++; }
+  }
   static Future<bool> get available async => (await diagnostics)['available'] == true;
   static String nativeEmotionId(String emotion) => switch (emotion) {
         'crying' => 'sad',
@@ -29,11 +54,11 @@ class CaicaiLive2DService {
     return success;
   }
   static Future<void> clearImportedModels() async {
-    await _channel.invokeMethod<void>('clearImportedModels');
+    await _channel.invokeMethod<void>('clearImportedModels', {'profile':activeProfile, 'profile_generation':_profileGeneration});
     revision.value++;
   }
   static Future<Object?> command(String method, [Object? arguments]) =>
-      _channel.invokeMethod<Object?>('control', {'method': method, 'arguments': arguments});
+      _channel.invokeMethod<Object?>('control', {'method': method, 'arguments': arguments, 'profile': activeProfile, 'profile_generation': _profileGeneration});
 }
 
 class CaicaiLive2DStage extends StatefulWidget {

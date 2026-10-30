@@ -27,6 +27,7 @@ final class SenRenderer implements GLSurfaceView.Renderer {
     interface Listener {
         void onStatus(String status);
         void onReady(String detail);
+        default void onProfileLoaded(String identity) { } // AI_COMPANION_HOST_PLAN_HOOK
         void onError(Throwable error);
         void onMotionDiagnosticStep(String label, int index, int total);
         void onMotionDiagnosticComplete(String report);
@@ -51,6 +52,12 @@ final class SenRenderer implements GLSurfaceView.Renderer {
     private final CubismMatrix44 rightEarProjection = CubismMatrix44.create();
     private final CubismMatrix44 interactionMvp = CubismMatrix44.create();
 
+    // BEGIN AI_COMPANION_HOST_EXTENSION
+    private final java.util.Map<String,Boolean> caicaiAppearanceDefaults=new java.util.HashMap<>();
+    private DeepseekAvatarModel deepseek;
+    private File pendingDeepseek;
+    private String pendingDeepseekIdentity, deepseekIdentity;
+    // END AI_COMPANION_HOST_EXTENSION
     private SenLive2DModel model;
     private SenLive2DModel overlayModel;
     private ModelRequest pendingRequest;
@@ -158,6 +165,22 @@ final class SenRenderer implements GLSurfaceView.Renderer {
                 appearance, frozenProfile, options, outfit);
     }
 
+    // BEGIN AI_COMPANION_HOST_EXTENSION
+    void requestDeepseek(File file,String identity) {
+        if(released) return;
+        pendingRequest=null; pendingDeepseek=file; pendingDeepseekIdentity=identity;
+    }
+    void previewDeepseek(String values) {
+        if(deepseek==null) return;
+        try { deepseek.preview(new JSONObject(values)); } catch(JSONException ignored) { }
+    }
+    void appearanceDeepseek(String values) {
+        if(deepseek==null) return;
+        try { deepseek.appearance(new JSONObject(values)); } catch(JSONException ignored) { }
+    }
+    void anchorDeepseek(float x,float y) { if(deepseek!=null) deepseek.configureAnchor(x,y); }
+
+    // END AI_COMPANION_HOST_EXTENSION
     void setStageTransform(float scale, float translateX, float translateY) {
         stageScale = Math.max(0.35f, Math.min(6.0f, scale));
         // Keep at least part of the model inside the viewport at every zoom level. The previous
@@ -468,6 +491,21 @@ final class SenRenderer implements GLSurfaceView.Renderer {
         return Float.isFinite(result[0]) && Float.isFinite(result[1]);
     }
 
+    // BEGIN AI_COMPANION_HOST_EXTENSION
+    void restoreCaicaiAppearance() {
+        if(model==null) return;
+        android.content.SharedPreferences saved=context.getSharedPreferences("caicai_appearance",Context.MODE_PRIVATE);
+        for(String name:Arrays.asList("1白袜","丝袜带子","双马尾","发带"))
+            if(model.expressionEnabled(name)!=saved.getBoolean(name,caicaiAppearanceDefaults.getOrDefault(name,false))) model.setExpression(name);
+    }
+    void persistCaicaiExpression(String name) {
+        if(model==null) return;
+        model.setExpression(name);
+        context.getSharedPreferences("caicai_appearance",Context.MODE_PRIVATE).edit()
+            .putBoolean(name,model.expressionEnabled(name)).apply();
+    }
+
+    // END AI_COMPANION_HOST_EXTENSION
     void applyExpression(String name) {
         if (model != null) model.setExpression(name);
     }
@@ -505,9 +543,10 @@ final class SenRenderer implements GLSurfaceView.Renderer {
     }
     void setCaicaiScene(float width,float height) { caicaiCamera.setScene(width,height); }
     private float sceneHeight() { return caicaiCamera.height(surfaceWidth,surfaceHeight); }
-    boolean hasCaicaiModel() { return model!=null; }
+    boolean hasCaicaiModel() { return model!=null || deepseek!=null; }
     String textureTimingSummary() { return textures.timingSummary(); }
     String caicaiFrameTrace() {
+        if(deepseek!=null) return "surface="+surfaceWidth+"x"+surfaceHeight+" "+deepseek.trace();
         return "surface="+surfaceWidth+"x"+surfaceHeight+" sceneHeight="+sceneHeight()
             +" model="+(model!=null)+" contextRecreated="+contextRecreated
             +" background="+caicaiBackgroundDiagnostics()
@@ -548,8 +587,8 @@ final class SenRenderer implements GLSurfaceView.Renderer {
     void setCaicaiLook(boolean active, float x, float y) {
         if (model != null) model.setCaicaiLook(active, x, y);
     }
-    String motionParameters() { return model == null ? "{}" : model.motionParameters(); }
-    void setSmallForm(boolean small) { if (model != null) model.setSmallForm(small); }
+    String motionParameters() { return deepseek!=null ? deepseek.parameters() : model == null ? "{}" : model.motionParameters(); }
+    void setSmallForm(boolean small) { if(deepseek!=null) deepseek.form(small); else if (model != null) model.setSmallForm(small); }
     private void applyRightEarAdjustment() {
         float[] bounds = overlayModel.currentEarClipBounds(rightEarProjection, false);
         if (bounds == null) return;
@@ -580,7 +619,7 @@ final class SenRenderer implements GLSurfaceView.Renderer {
         try { model.speechPerformance(key, emotion, frames, face, action, wink, animate); }
         catch (JSONException ignored) { model.releaseSpeechPerformance(); }
     }
-    void setSpeechPlayback(boolean playing) { if (model != null) model.setSpeechPlayback(playing); }
+    void setSpeechPlayback(boolean playing) { if(deepseek!=null) deepseek.playback(playing); if (model != null) model.setSpeechPlayback(playing); }
     void releaseSpeechPerformance() { if(model!=null) model.releaseSpeechPerformance(); }
     void clearParameterPlan() { if (model != null) model.clearParameterPlan(); }
 
@@ -592,6 +631,7 @@ final class SenRenderer implements GLSurfaceView.Renderer {
     void setLipSyncValue(float value) {
         lipSyncValue = Math.max(0.0f, Math.min(1.0f, value));
         if (model != null) model.setLipSyncValue(lipSyncValue);
+        if (deepseek != null) deepseek.amplitude(lipSyncValue); // AI_COMPANION_HOST_PLAN_HOOK
     }
 
     void playAction(String name) {
@@ -670,6 +710,7 @@ final class SenRenderer implements GLSurfaceView.Renderer {
             CubismShaderAndroid.getInstance().releaseInvalidShaderProgram();
             CubismShaderAndroid.deleteInstance();
             contextRecreated = model != null || overlayModel != null;
+            if(deepseek!=null) contextRecreated=true; // AI_COMPANION_HOST_PLAN_HOOK
             listener.onStatus("原生 OpenGL 已启动 · 最大贴图 " + maxTextureSize + "px");
         } catch (Throwable error) {
             listener.onError(error);
@@ -683,6 +724,16 @@ final class SenRenderer implements GLSurfaceView.Renderer {
         surfaceHeight = height;
         resizeCaicaiTargets(width,height); // AI_COMPANION_HOST_PLAN_HOOK
         GLES20.glViewport(0, 0, width, height);
+        // BEGIN AI_COMPANION_HOST_EXTENSION
+        if (contextRecreated && deepseek != null) {
+            try {
+                deepseek.reloadRenderer(width,height,maxTextureSize,textures,listener);
+                contextRecreated=false;
+                listener.onProfileLoaded(deepseekIdentity);
+                listener.onReady("DeepSeek原生画面已恢复");
+            } catch(Throwable error) { listener.onError(error); }
+        }
+        // END AI_COMPANION_HOST_EXTENSION
         if (contextRecreated && model != null) {
             try {
                 listener.onStatus("OpenGL 上下文已恢复，正在重建原生贴图…");
@@ -715,6 +766,27 @@ final class SenRenderer implements GLSurfaceView.Renderer {
             loadRequestedModel(request);
         }
 
+        // BEGIN AI_COMPANION_HOST_EXTENSION
+        if(pendingDeepseek!=null && surfaceWidth>0 && surfaceHeight>0) {
+            File file=pendingDeepseek; String identity=pendingDeepseekIdentity;pendingDeepseek=null;
+            try {
+                releaseCurrentModel(); lastFrameNanos=0;
+                deepseek=new DeepseekAvatarModel(context);
+                deepseek.load(file,surfaceWidth,surfaceHeight,maxTextureSize,textures,listener);
+                deepseekIdentity=identity;
+                listener.onProfileLoaded(identity);
+                listener.onReady("DeepSeek Cubism已就绪 · 原分辨率 · GL_LINEAR · 高精度蒙版512px");
+            } catch(Throwable error) {releaseCurrentModel();listener.onError(error);}
+        }
+        if(deepseek!=null) {
+            long now=System.nanoTime();float delta=lastFrameNanos==0?1f/60:Math.min(.05f,(now-lastFrameNanos)/1_000_000_000f);
+            lastFrameNanos=now;
+            try {deepseek.update(delta);deepseek.draw(surfaceWidth,sceneHeight(),stageScale,stageTranslateX,stageTranslateY,
+                lowerLegPivot,caicaiCamera.crop(surfaceWidth,surfaceHeight));}
+            catch(Throwable error){listener.onError(error);releaseCurrentModel();}
+            return;
+        }
+        // END AI_COMPANION_HOST_EXTENSION
         if (model == null) return;
         long now = System.nanoTime();
         float delta = lastFrameNanos == 0L ? 1.0f / 60.0f
@@ -1555,6 +1627,7 @@ final class SenRenderer implements GLSurfaceView.Renderer {
         released = true;
         if (caicaiBackground != null) caicaiBackground.release(); // AI_COMPANION_HOST_PLAN_HOOK
         pendingRequest = null;
+        pendingDeepseek = null; // AI_COMPANION_HOST_PLAN_HOOK
         releaseCurrentModel();
         if (frameworkReady && CubismFramework.isInitialized()) CubismFramework.dispose();
         CubismFramework.cleanUp();
@@ -1614,6 +1687,9 @@ final class SenRenderer implements GLSurfaceView.Renderer {
             next.setLipSyncValue(lipSyncValue);
             next.setCompositeTestMotion(compositeTestMotion);
             next.setStaticMode(staticMode);
+            caicaiAppearanceDefaults.clear(); // AI_COMPANION_HOST_PLAN_HOOK
+            for(String name:Arrays.asList("1白袜","丝袜带子","双马尾","发带")) caicaiAppearanceDefaults.put(name,next.expressionEnabled(name)); // AI_COMPANION_HOST_PLAN_HOOK
+            restoreCaicaiAppearance(); // AI_COMPANION_HOST_PLAN_HOOK
             listener.onStatus("原生渲染：准备加载 Sen 三配件动力层…");
             SenLive2DModel overlay = new SenLive2DModel(
                     CompositeModelRole.SEN_ACCESSORY_DONOR);
@@ -1645,6 +1721,7 @@ final class SenRenderer implements GLSurfaceView.Renderer {
         ahogeMotionInitialized = false;
         ahogeMotionResetRequested = true;
         textures.releaseAll();
+        if(deepseek!=null) {deepseek.closeModel();deepseek=null;} // AI_COMPANION_HOST_PLAN_HOOK
         if (model != null) {
             model.closeModel();
             model = null;

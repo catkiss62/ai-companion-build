@@ -38,7 +38,12 @@ internal class CaicaiPlatformView(
     viewId: Int,
 ) : PlatformView, MethodChannel.MethodCallHandler, CaicaiCompanionView.Listener {
     private val main = Handler(Looper.getMainLooper())
-    private val repository = CaicaiModelRepository(context)
+    private val profile = Live2DProfiles.selected(context)
+    private val profileGeneration = Live2DProfiles.generation
+    private val deepseek = profile == Live2DProfiles.DEEPSEEK
+    private val repository = CaicaiModelRepository(context, profile)
+    private var loadSequence = 0L
+    private var loadIdentity = ""
     private val app = context.applicationContext
     private val root = FrameLayout(context).apply {
         setBackgroundColor(Color.TRANSPARENT)
@@ -59,7 +64,7 @@ internal class CaicaiPlatformView(
     private var hostActive = true
     private var keyboardVisible = false
     private var sceneRatio = 0f
-    private val viewPrefs = app.getSharedPreferences("caicai_stage", Context.MODE_PRIVATE)
+    private val viewPrefs = app.getSharedPreferences(Live2DProfiles.stage(profile), Context.MODE_PRIVATE)
     private val initialPreferences = CaicaiStagePreferences.read(viewPrefs)
     private var motionGain = initialPreferences.motionGain
     private var motionSpeed = initialPreferences.motionSpeed
@@ -108,9 +113,11 @@ internal class CaicaiPlatformView(
             override fun surfaceDestroyed(holder: SurfaceHolder) { CaicaiDiagnostics.record(app, "surface_destroyed") }
         })
         // The standalone app's accepted front-hair connection and secondary motion.
+        if (!deepseek) {
         companion.setGeometryConstraintEnabled(true)
         companion.setFrontHairPoint(FRONT_HAIR_POINT)
         companion.setFrontHairExperimentEnabled(true)
+        }
         companion.setOnTouchListener { view, event -> handleStageTouch(view, event) }
         root.addView(companion, FrameLayout.LayoutParams(-1, -1))
         CaicaiDiagnostics.record(app, "lifecycle_owner", org.json.JSONObject(state()).toString())
@@ -141,6 +148,13 @@ internal class CaicaiPlatformView(
 
     override fun onMethodCall(call: MethodCall, result: MethodChannel.Result) {
         if (disposed) return result.error("caicai_view_disposed", "Live2D view released", null)
+        if (profile != Live2DProfiles.selected(app) || profileGeneration != Live2DProfiles.generation) {
+            result.success(false); return
+        }
+        if (deepseek && call.method in setOf("claimMotion", "motionPlan", "speechCue", "setEmotion", "previewEmotion",
+            "expression", "headSweep", "earTwitch", "headPat", "headPatRare")) {
+            result.success(false); return // Calibration stage never consumes a Caicai performance.
+        }
         val scoped = (call.arguments as? Map<*, *>)?.get("_motion_owner") as? Map<*, *>
         if (scoped != null && (scoped["execution_id"] != executionId || (scoped["epoch"] as? Number)?.toLong() != motionEpoch)) {
             result.success(false); return
@@ -173,7 +187,39 @@ internal class CaicaiPlatformView(
             }
             "claimMotion" -> {
                 motionEpoch++; companion.stopConversationPlan()
-                result.success(mapOf("execution_id" to executionId, "epoch" to motionEpoch))
+                result.success(mapOf("execution_id" to executionId, "epoch" to motionEpoch, "profile" to profile, "generation" to profileGeneration))
+            }
+            "previewParameters" -> {
+                if (!deepseek) return result.success(false)
+                companion.previewDeepseek(org.json.JSONObject(call.arguments as? Map<*, *> ?: emptyMap<Any,Any>()).toString())
+                result.success(true)
+            }
+            "setMorphAnchor" -> {
+                if (!deepseek) return result.success(false)
+                val args = call.arguments as? Map<*, *> ?: return result.success(false)
+                val x = (args["x"] as? Number)?.toFloat() ?: return result.success(false)
+                val y = (args["y"] as? Number)?.toFloat() ?: return result.success(false)
+                if (!x.isFinite() || !y.isFinite() || x !in 0f..1f || y !in 0f..1f) return result.success(false)
+                viewPrefs.edit().putFloat("anchorX",x).putFloat("anchorY",y).apply()
+                companion.anchorDeepseek(x,y);result.success(true)
+            }
+            "setDeepseekAppearance" -> {
+                if (!deepseek) return result.success(false)
+                val args = call.arguments as? Map<*, *> ?: return result.success(false)
+                val allowed = setOf("key11","key12","Clothes1","Clothes4","MouthPressLipOpen")
+                val normalized = mutableMapOf<String,Float>()
+                for ((key,raw) in args) {
+                    if (key !is String || key !in allowed) return result.success(false)
+                    var value = (raw as? Number)?.toFloat() ?: return result.success(false)
+                    if (!value.isFinite()) return result.success(false)
+                    value = when(key) { "Clothes1" -> if(value<.75f) .5f else 1f
+                        "MouthPressLipOpen" -> value.coerceIn(-1f,1f)
+                        else -> if(value>=.5f) 1f else 0f }
+                    normalized[key]=value
+                }
+                val edit=app.getSharedPreferences("deepseek_appearance",Context.MODE_PRIVATE).edit()
+                normalized.forEach { (key,value) -> edit.putFloat(key,value) };edit.apply()
+                companion.appearanceDeepseek(org.json.JSONObject(normalized as Map<*, *>).toString());result.success(true)
             }
             "start" -> { loadCurrentModel(); result.success(state()) }
             "getState" -> result.success(state())
@@ -237,7 +283,7 @@ internal class CaicaiPlatformView(
             "expression" -> {
                 val name = call.arguments?.toString() ?: ""
                 companion.setStaticMode(false)
-                if (name in setOf("1白袜", "丝袜带子", "双马尾", "发带")) companion.applyExpression(name)
+                if (name in setOf("1白袜", "丝袜带子", "双马尾", "发带")) companion.persistCaicaiExpression(name)
                 else companion.playTimedPreset(name)
                 result.success(true)
             }
@@ -359,7 +405,7 @@ internal class CaicaiPlatformView(
     fun state(): Map<String, String> = mapOf(
         "status" to renderStatus, "detail" to renderDetail, "surface" to companion.surfaceDiagnostics(),
         "background" to companion.backgroundDiagnostics(),
-        "feature" to "caicai_live2d", "execution_id" to executionId,
+        "feature" to "caicai_live2d", "execution_id" to executionId, "profile" to profile,
         "view_attached" to companion.isAttachedToWindow.toString(), "view_shown" to companion.isShown.toString(),
         "view_alpha" to companion.alpha.toString(), "keyboard_visible" to keyboardVisible.toString(),
         "scene_ratio" to sceneRatio.toString(),
@@ -378,6 +424,7 @@ internal class CaicaiPlatformView(
     private fun loadCurrentModel() {
         motionEpoch++
         if (disposed) return
+        loadIdentity = "$executionId:${++loadSequence}"
         val models = repository.currentModels()
         if (!models.available) {
             renderStatus = "missing"
@@ -387,7 +434,7 @@ internal class CaicaiPlatformView(
             return
         }
         renderStatus = "loading"
-        renderDetail = "正在加载菜菜女仆与三配件"
+        renderDetail = if(deepseek) "正在加载DeepSeek原分辨率模型" else "正在加载菜菜女仆与三配件"
         awaitingModelStart = true
         modelStarted = false
         CaicaiDiagnostics.record(app, "render_loading")
@@ -396,7 +443,7 @@ internal class CaicaiPlatformView(
         companion.renderMode = GLSurfaceView.RENDERMODE_CONTINUOUSLY
         // Match MainActivity.loadModels() of the v0.1.42 lab. Do not pass all
         // ZIP expressions as startup expressions or change its motion engine.
-        companion.loadModels(
+        if (deepseek) companion.loadDeepseek(models.maid!!,loadIdentity) else companion.loadModels(
             models.maid!!, models.accessory!!, true,
             SenMotionMode.EV_FAITHFUL.id,
             SenRenderOptions.DEFAULT_EV_BODY_FOLLOW_STRENGTH,
@@ -484,6 +531,15 @@ internal class CaicaiPlatformView(
 
     fun refreshPreferences() {
         if (disposed) return
+        if (profile != Live2DProfiles.selected(app)) { dispose(); return }
+        if (deepseek) {
+            companion.anchorDeepseek(viewPrefs.getFloat("anchorX",.5f),viewPrefs.getFloat("anchorY",.25f))
+            val restoredAppearance=app.getSharedPreferences("deepseek_appearance",Context.MODE_PRIVATE).all.toMutableMap()
+            for (key in listOf("key11","key12","Clothes1","Clothes4","MouthPressLipOpen"))
+                if(!restoredAppearance.containsKey(key)) restoredAppearance[key]=if(key=="Clothes1") 1f else 0f
+            companion.appearanceDeepseek(org.json.JSONObject(restoredAppearance).toString())
+        }
+        if (!deepseek) companion.restoreCaicaiAppearance()
         val restored = CaicaiStagePreferences.read(viewPrefs)
         val previous = CaicaiStagePreferences(motionGain, motionSpeed, legPivot,
             stageScale, stageX, stageY, headBox[0], headBox[1], headBox[2], headBox[3])
@@ -500,14 +556,19 @@ internal class CaicaiPlatformView(
     fun speechAmplitude(value: Float) { if (!disposed) companion.setSpeechAmplitude(value) }
 
     override fun onStatus(status: String) {
-        if (awaitingModelStart && status.startsWith("原生渲染：准备加载菜菜女仆主模型")) {
+        if (!deepseek && awaitingModelStart && status.startsWith("原生渲染：准备加载菜菜女仆主模型")) {
             modelStarted = true
         }
         renderDetail = status
         CaicaiDiagnostics.record(app, "render_status", status)
         send("onStatus", mapOf("detail" to status))
     }
+    override fun onProfileLoaded(identity: String) {
+        if (!disposed && identity == loadIdentity && profile == Live2DProfiles.selected(app)
+            && profileGeneration == Live2DProfiles.generation) modelStarted = true
+    }
     override fun onReady(detail: String) {
+        if (disposed || profile != Live2DProfiles.selected(app) || profileGeneration != Live2DProfiles.generation) return
         // A surface recreation can report the old model as ready before the
         // queued import load starts. That callback must not verify the ZIP.
         if (awaitingModelStart && !modelStarted) {
@@ -520,7 +581,14 @@ internal class CaicaiPlatformView(
         renderDetail = detail
         CaicaiDiagnostics.record(app, "render_ready", detail)
         CaicaiDiagnostics.record(app, "first_model_frame", companion.surfaceDiagnostics())
-        if (newlyLoaded) main.post { if (!disposed) repository.confirmPendingImport() }
+        if (newlyLoaded) {
+            val confirmedIdentity = loadIdentity
+            main.post {
+                if (!disposed && loadIdentity == confirmedIdentity) runCatching {
+                    if(Live2DProfiles.confirm(app,profile,profileGeneration)) repository.confirmPendingImport()
+                }.onFailure { onError(it) }
+            }
+        }
         main.post {
             if (!disposed) companion.renderMode = GLSurfaceView.RENDERMODE_CONTINUOUSLY
         }

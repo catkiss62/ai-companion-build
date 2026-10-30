@@ -10,7 +10,9 @@ assert "readyAfterDraw" in host and "releaseComplete.await" in host
 assert "16_666_667L" in host
 assert not (app / "android/app/src/main/java/com/catkiss/senlive2dcompanion/CaicaiTextureSurface.java").exists()
 repo = read("android/app/src/main/kotlin/com/catkiss/senlive2dcompanion/CaicaiModelRepository.kt")
-assert '"caicai-live2d").canonicalFile' in repo
+assert 'Live2DProfiles.directory(profile)).canonicalFile' in repo
+profiles = read("android/app/src/main/kotlin/com/catkiss/senlive2dcompanion/Live2DProfiles.kt")
+assert 'if (profile == CAICAI) "caicai-live2d" else "deepseek-live2d"' in profiles
 assert "CaicaiModelPaths.relative(staging, maid)" in repo
 assert "CaicaiModelPaths.relative(current, maid)" in repo
 assert "relativeTo(staging)" not in repo
