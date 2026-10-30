@@ -563,6 +563,7 @@ final class SenRenderer implements GLSurfaceView.Renderer {
     private void resizeCaicaiTargets(int width,int height) {
         if(width<=0 || height<=0) return;
         if(model!=null) model.resizeRenderTarget(width,height);
+        if(deepseek!=null) deepseek.resizeRenderTarget(width,height);
         if(overlayModel!=null) overlayModel.resizeRenderTarget(width,height);
     }
     private void updateCaicaiRoot() {

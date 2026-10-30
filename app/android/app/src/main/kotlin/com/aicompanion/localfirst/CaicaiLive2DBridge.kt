@@ -162,7 +162,7 @@ class CaicaiLive2DBridge(
                         CaicaiRuntime.releaseModel()
                         pending = null
                         callback.success(mapOf("cancelled" to false, "available" to imported.available,
-                            "pending" to selected.isPending(), "profile" to pendingProfile)))
+                            "pending" to selected.isPending(), "profile" to pendingProfile))
                     }
                 }
             } catch (error: Throwable) {

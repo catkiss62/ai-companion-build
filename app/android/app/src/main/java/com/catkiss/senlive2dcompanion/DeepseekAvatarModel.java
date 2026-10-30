@@ -192,5 +192,6 @@ final class DeepseekAvatarModel extends CubismUserModel {
         getRenderer().setMvpMatrix(mvp);getRenderer().drawModel();
     }
     String trace() { return "deepseek-avatar form="+form+" target="+targetForm+" anchor="+anchorX+","+anchorY+" root="+rootX+","+rootTilt; }
+    void resizeRenderTarget(int width,int height) { if(getRenderer()!=null) getRenderer().setRenderTargetSize(width,height); }
     void closeModel() { delete(); }
 }
