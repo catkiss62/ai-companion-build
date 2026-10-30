@@ -84,7 +84,9 @@ class _Live2DSettingsPageState extends State<Live2DSettingsPage> {
   });
   Future<void> _edit(String mode) => _run(() async {
     FocusManager.instance.primaryFocus?.unfocus();
+    final profile=CaicaiLive2DService.activeProfile, generation=CaicaiLive2DService.profileGeneration;
     final state = await CaicaiLive2DService.command('beginEdit');
+    if(profile!=CaicaiLive2DService.activeProfile || generation!=CaicaiLive2DService.profileGeneration) throw StateError('模型已切换，请重新打开调校');
     if (state is! Map) throw StateError('请先在聊天画面加载模型');
     CaicaiLive2DService.editor.value = {'mode': mode, 'state': state};
     if (mounted) Navigator.of(context).popUntil((route) => route.isFirst);
@@ -152,8 +154,8 @@ class _Live2DSettingsPageState extends State<Live2DSettingsPage> {
             ActionChip(label:const Text('结束大幅测试'),onPressed:_busy?null:()=>_control('headSweep','live')),
             ActionChip(label:const Text('摸头彩蛋预览'),onPressed:_busy?null:()=>_control('headPatRare')),
           ]),
-          _tuner('头身与整模幅度 · ${(_gain*100).round()}%',_gain,.5,1.5,(v)=>setState(()=>_gain=v)),
-          _tuner('待机与动作速度 · ${(_speed*100).round()}%',_speed,.65,1.6,(v)=>setState(()=>_speed=v)),
+          if(!_deepseek) _tuner('头身与整模幅度 · ${(_gain*100).round()}%',_gain,.5,1.5,(v)=>setState(()=>_gain=v)),
+          if(!_deepseek) _tuner('待机与动作速度 · ${(_speed*100).round()}%',_speed,.65,1.6,(v)=>setState(()=>_speed=v)),
           _tuner('倾斜支点 · 从模型顶部向下 ${(_pivot*100).round()}%',_pivot,.65,.98,(v)=>setState(()=>_pivot=v)),
           if(!_deepseek) Wrap(spacing:8,children:[
             for(final pair in const {'向左探身':'左侧头','向右探身':'右侧头',

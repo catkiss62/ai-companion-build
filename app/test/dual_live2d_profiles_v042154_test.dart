@@ -17,7 +17,7 @@ void main() {
       if(call.method=='selectProfile') {profile=(call.arguments as Map)['profile'] as String;epoch++;}
       if(call.method=='status' || call.method=='selectProfile' || call.method=='portableFinish')
         return {'profile':profile,'profile_generation':epoch,'available':true};
-      if(call.method=='portableBegin') return {'token':'lease','preferences':<String,Object?>{}};
+      if(call.method=='portableBegin') return {'token':'lease','live2dDirectory':'/test/models','preferences':<String,Object?>{}};
       return true;
     });
   });

@@ -27,7 +27,7 @@ jobs:
         run: flutter analyze --no-fatal-infos --no-fatal-warnings
         working-directory: app
       - name: Dual Live2D identity, restore and existing presentation regression
-        run: flutter test --timeout 60s --reporter expanded test/dual_live2d_profiles_v042154_test.dart test/portable_live2d_refresh_v04258_test.dart test/caicai_live2d_stage_test.dart test/live2d_settings_page_test.dart test/caicai_motion_planner_test.dart
+        run: flutter test --timeout 60s --reporter expanded test/dual_live2d_profiles_v042154_test.dart test/caicai_stage_editor_test.dart test/portable_live2d_refresh_v04258_test.dart test/caicai_live2d_stage_test.dart test/live2d_settings_page_test.dart test/caicai_motion_planner_test.dart
         working-directory: app
       - name: Creative page bridge failure recovery
         run: node app/tools/test_creative_bridge.mjs

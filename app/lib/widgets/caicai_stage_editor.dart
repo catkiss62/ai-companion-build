@@ -17,9 +17,18 @@ class _CaicaiStageEditorState extends State<CaicaiStageEditor> {
   Rect _startHead = Rect.zero;
   bool _resizeHead = false, _saving = false;
   String? _error;
+  late final String _profile;
+  late final int? _profileGeneration;
+  late final Map<String, Object?>? _editorIdentity;
+  bool get _ownsEditor => _profile == CaicaiLive2DService.activeProfile &&
+      _profileGeneration == CaicaiLive2DService.profileGeneration &&
+      identical(_editorIdentity, CaicaiLive2DService.editor.value);
   @override
   void initState() {
     super.initState();
+    _profile = CaicaiLive2DService.activeProfile;
+    _profileGeneration = CaicaiLive2DService.profileGeneration;
+    _editorIdentity = CaicaiLive2DService.editor.value;
     _scale = (widget.initial['scale'] as num?)?.toDouble() ?? 1;
     _x = (widget.initial['x'] as num?)?.toDouble() ?? 0;
     _y = (widget.initial['y'] as num?)?.toDouble() ?? 0;
@@ -28,14 +37,16 @@ class _CaicaiStageEditorState extends State<CaicaiStageEditor> {
       (a[2] as num).toDouble(), (a[3] as num).toDouble());
   }
   Future<void> _preview(String command, Object value) async {
+    if (!_ownsEditor) return;
     try { await CaicaiLive2DService.command(command, value); }
     catch (e) { if (mounted) setState(() => _error = '预览失败：$e'); }
   }
   Future<void> _finish(bool save) async {
+    if (!_ownsEditor) return;
     setState(() => _saving = true);
     try {
       await CaicaiLive2DService.command('finishEdit', save);
-      CaicaiLive2DService.editor.value = null;
+      if (_ownsEditor) CaicaiLive2DService.editor.value = null;
     } catch (e) { if (mounted) setState(() { _saving = false; _error = '保存失败：$e'; }); }
   }
   @override
