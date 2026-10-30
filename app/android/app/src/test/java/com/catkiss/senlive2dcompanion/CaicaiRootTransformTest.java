@@ -3,6 +3,14 @@ import org.junit.Test;
 import static org.junit.Assert.*;
 import com.live2d.sdk.cubism.framework.math.CubismMatrix44;
 public class CaicaiRootTransformTest {
+    @Test public void positiveRotationLeansTheHeadToScreenLeft() {
+        for(float aspect:new float[]{.45f,1f,2f}) {
+            CaicaiRootTransform left=CaicaiRootTransform.create(1000*aspect,1000,-1,1,1,-1,0,3,.88f);
+            CaicaiRootTransform right=CaicaiRootTransform.create(1000*aspect,1000,-1,1,1,-1,0,-3,.88f);
+            assertTrue(left.c+left.tx<0);
+            assertTrue(right.c+right.tx>0);
+        }
+    }
     @Test public void lowerLegPivotStaysFixedAndPixelsRemainIsotropic() {
         for(float aspect:new float[]{.45f,1f,2f}) {
             CaicaiRootTransform t=CaicaiRootTransform.create(1000*aspect,1000,-.6f,.8f,.9f,-.9f,0,7,.88f);
