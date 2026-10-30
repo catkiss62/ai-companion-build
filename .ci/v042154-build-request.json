@@ -1,11 +1,20 @@
 {
   "version": "0.42.154+398",
   "schema": 67,
-  "baseline": "928630263771771eb8a53d1209d4e16558f7eebd",
-  "scope": "DeepSeek Live2D stage 1: independent import, selection, preferences, legacy restore and native calibration",
-  "quality": "Original textures; existing Caicai 60 FPS target and high precision masks",
-  "deferred": "DeepSeek full gestures, expressions, JEV and idle performance are stages 2 and 3",
-  "private_assets": "User imports original ZIP on device; no private model in repository or APK",
-  "publication": "Original-signature test APK and unpublished draft only; no main merge",
-  "validation": "pending"
+  "build_source_commit": "2eeea611e1c5cd9ac3b76b363e2cb71a8075ef3d",
+  "build_source_tree": "9ce088be3a0e51ec901bc96d2fda560fba4f29e8",
+  "app_lib_tree": "96daf634d3217d5eb53bf9ac86d8f3852fc9397f",
+  "full_run": 41043393789,
+  "logic_run": 41043394612,
+  "validation": "success:155 source,native/Kotlin,54 Android15,3241 fullFlutter,171 restore; focused37/61/39/25/26/33/352/1314 overlap",
+  "artifact_id": 12972184262,
+  "apk_sha256": "6738ee55a268cfbfff273f0563ed930a52019d140021d5bc85bbc0f659dd3aac",
+  "apk_size": 739538118,
+  "release_id": 428886964,
+  "release_asset_id": 691889193,
+  "signer_sha256": "305eb3d80983b963c64818ddf1ad561f279de6d47b3ed2c781ada448c7c25148",
+  "deferred": "Real-device calibration and stages2/3 full expressions, gestures, JEV, idle",
+  "quality": "Original textures; Caicai rendering baseline",
+  "publication": "Unpublished draft; no main merge",
+  "closing_change": "Verified receipt/docs only; skip CI; runtime unchanged"
 }

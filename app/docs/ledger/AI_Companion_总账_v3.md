@@ -1,5 +1,7 @@
 # AI Companion · 总账 v3
 
+2026-10-30 第一阶段隔离校准版交付：v0.42.154+398/schema67，[说明](../DEEPSEEK_LIVE2D_STAGE1_v042154.md)。运行2eeea611e1c5cd9ac3b76b363e2cb71a8075ef3d/tree9ce088be3a0e51ec901bc96d2fda560fba4f29e8，app/lib96daf634d3217d5eb53bf9ac86d8f3852fc9397f；完整41043393789和专项41043394612均success：155源码门、Kotlin/原生单元（含9项profile与方向用例）、Android15原生54、3241全量Flutter、171独立恢复，以及37/61/39/25/26/33/352/1314专项分别通过，重叠不相加；分析0error/1031非fatal。两模型独立导入/资源/舞台/稳定装扮保存、旧档保留另一套、切换/恢复及迟到回调围栏、真实PCM口型和参数/变身锚点/小腿轴预览已实现，菜菜原渲染校验保持；两套不压缩，沿用约60FPS目标。原签名APK739538118 bytes，SHA256 6738ee55a268cfbfff273f0563ed930a52019d140021d5bc85bbc0f659dd3aac，与ci-monitor-v0345成功记录及未发布Draft428886964/asset691889193 digest一致；[下载+398](https://github.com/catkiss62/ai-companion-build/actions/runs/41043393789/artifacts/12972184262)。原签名305eb3d8…c25148、包名/版本/资源已核验。DeepSeek实际MOC显示、帧时与锚点仍待手机校准；完整表情、三手势、新JEV和独立待机属W5–W8后两阶段，未完成，不当整套任务结束。原私有素材不入仓库/APK。工作区离线但源码/APK均已保存GitHub，继续以远端为底；本次仅文档skip ci收尾，不重建相同源码APK、不发布Draft、不合并main。
+
 2026-10-30 +398候选01b9ce00：专项41041284275全成功；完整41041284180的155源码门、Android15原生54、App Kotlin编译及原生单元（含9项profile隔离/恢复）通过，已进入全量Flutter。另以实际CaicaiRootTransform源码编译运行验证：-3度头部向屏幕右、+3度向左，修正DeepSeek两预览按钮正负号并补JVM方向用例，底层算法和菜菜映射不变。最终交付仍需包含该修正的完整CI/原签名APK；当前+398未交付，DeepSeek实机显示及锚点待安装校准。
 
 2026-10-30 +398候选ec0b8754验证：完整41039113541原生54及155源码门通过，App Kotlin编译在新导入回调165行多一右括号处失败；已修正。专项41039113395双模型及恢复前置组合通过，扩展1313过/1败，仅Agent自述buildLabel仍+397，已同步+398；未放宽断言。另补DeepSeek实际Surface尺寸变化的setRenderTargetSize，与菜菜现有处理一致，保留原分辨率。需最终提交重新编译原生单元、全量Flutter及签名APK，仍未交付+398；原+397交付可继续使用。
