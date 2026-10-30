@@ -119,4 +119,15 @@ class CaicaiProfileIsolationTest {
         assertThrows(IllegalArgumentException::class.java) {portable.begin()}
         CaicaiModelRepository(context,Live2DProfiles.DEEPSEEK).confirmPendingImport()
     }
+    @Test fun pendingSelectionCannotCommitInTheMiddleOfRestore() {
+        val repo=CaicaiModelRepository(context,Live2DProfiles.DEEPSEEK)
+        repo.importZip(Uri.fromFile(deepseekZip()));repo.confirmPendingImport()
+        Live2DProfiles.request(context,Live2DProfiles.DEEPSEEK)
+        val portable=PortableCompanionState(context,CaicaiModelRepository(context),releaseModel={})
+        assertThrows(IllegalArgumentException::class.java) {portable.begin()}
+        assertFalse(portable.busy)
+        Live2DProfiles.confirm(context,Live2DProfiles.DEEPSEEK,Live2DProfiles.generation)
+        val token=portable.begin()["token"] as String
+        portable.finish(token,true)
+    }
 }

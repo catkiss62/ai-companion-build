@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:ai_companion_localfirst/core/storage/portable_companion_storage.dart';
 import 'package:ai_companion_localfirst/widgets/caicai_live2d_stage.dart';
 import 'package:flutter/services.dart';
@@ -71,4 +72,19 @@ void main() {
     expect(CaicaiLive2DService.revision.value,before);
     expect(CaicaiLive2DService.editor.value,isNotNull);
   });
+  test('late status from before a selection cannot overwrite its identity',() async {
+    final stale=Completer<Map<String,Object?>>();
+    messenger.setMockMethodCallHandler(channel,(call) async {
+      if(call.method=='status') return stale.future;
+      if(call.method=='selectProfile') return {'profile':'deepseek-avatar','profile_generation':1};
+      calls.add(call);return true;
+    });
+    final pending=CaicaiLive2DService.diagnostics;
+    await CaicaiLive2DService.selectProfile('deepseek-avatar');
+    stale.complete({'profile':'caicai','profile_generation':0});await pending;
+    await CaicaiLive2DService.command('parameters');
+    expect(CaicaiLive2DService.activeProfile,'deepseek-avatar');
+    expect((calls.last.arguments as Map)['profile_generation'],1);
+  });
+
 }

@@ -8,6 +8,8 @@ object Live2DProfiles {
     const val DEEPSEEK = "deepseek-avatar"
     const val REGISTRY = "live2d_profiles_v1"
     @Volatile private var requested: String? = null
+    @Volatile var selectionPending: Boolean = false
+        private set
     @Volatile var generation: Long = 0L
         private set
 
@@ -22,16 +24,18 @@ object Live2DProfiles {
     @Synchronized fun request(context: Context, profile: String) {
         require(valid(profile)) { "不支持的立绘模型" }
         requested = profile
+        selectionPending = true
         generation++
     }
     @Synchronized fun confirm(context: Context, profile: String, epoch: Long): Boolean {
         if (selected(context) != profile || generation != epoch) return false
         check(context.getSharedPreferences(REGISTRY, Context.MODE_PRIVATE).edit()
             .putString("active", profile).commit()) { "无法保存当前立绘" }
+        selectionPending = false
         return true
     }
     @Synchronized fun restored(context: Context) {
-        val before = requested; requested = null
+        val before = requested; requested = null; selectionPending = false
         if (before != null && before != selected(context)) generation++
     }
     fun stage(profile: String) = if (profile == CAICAI) "caicai_stage" else "deepseek_stage"

@@ -85,6 +85,9 @@ class CaicaiLive2DBridge(
                 "control" -> {
                     val args = call.arguments as? Map<*, *>
                     val profile=Live2DProfiles.selected(activity)
+                    val method=args?.get("method")?.toString().orEmpty()
+                    if((portable.busy || mutating || pending!=null) && method !in setOf("getState","getMotionTuning","parameters","exportLive2DDiagnostics"))
+                        return@setMethodCallHandler result.success(false)
                     if ((args?.get("profile") ?: Live2DProfiles.CAICAI) != profile ||
                         (args?.get("profile_generation") as? Number)?.toLong()?.let { it != Live2DProfiles.generation } == true)
                         return@setMethodCallHandler result.success(false)

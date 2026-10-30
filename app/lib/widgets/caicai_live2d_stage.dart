@@ -13,13 +13,19 @@ class CaicaiLive2DService {
   static final revision = ValueNotifier<int>(0);
   static String activeProfile = 'caicai';
   static int? _profileGeneration;
+  static int _identityEpoch=0, _statusSequence=0;
   static int? get profileGeneration => _profileGeneration;
   static Future<Map<String, Object?>> get diagnostics async {
+    final epoch=_identityEpoch, sequence=++_statusSequence;
     final value = (await _channel.invokeMapMethod<String, Object?>('status')) ?? const {};
-    acceptProfile(value);
+    if(epoch==_identityEpoch && sequence==_statusSequence) _readProfile(value);
     return value;
   }
   static bool acceptProfile(Map<String, Object?> value) {
+    _identityEpoch++;
+    return _readProfile(value);
+  }
+  static bool _readProfile(Map<String, Object?> value) {
     final before=activeProfile;
     activeProfile=value['profile']?.toString() ?? 'caicai';
     _profileGeneration=(value['profile_generation'] as num?)?.toInt();
@@ -27,7 +33,9 @@ class CaicaiLive2DService {
     return before!=activeProfile;
   }
   static Future<void> selectProfile(String profile) async {
+    final epoch=++_identityEpoch;
     final value = await _channel.invokeMapMethod<String, Object?>('selectProfile', {'profile': profile});
+    if(epoch!=_identityEpoch) return;
     activeProfile = value?['profile']?.toString() ?? profile;
     _profileGeneration = (value?['profile_generation'] as num?)?.toInt();
     editor.value = null;

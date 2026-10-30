@@ -23,6 +23,10 @@ class PortableCompanionState(
 
     fun begin(): Map<String, Any> {
         check(!busy) { "存档操作正在进行" }
+        require(!Live2DProfiles.selectionPending ||
+            !CaicaiModelRepository(context,Live2DProfiles.selected(context)).currentModels().available) {
+            "模型切换尚未显示确认，请先打开聊天后再存档"
+        }
         require(!CaicaiModelRepository(context,Live2DProfiles.DEEPSEEK).isPending()) { "DeepSeek导入尚未完成渲染确认，请先打开聊天" }
         val lease = models.beginPortableSnapshot()
         try {
@@ -59,7 +63,7 @@ class PortableCompanionState(
         if (restoreModels) releaseModel()
         applied = true // Partial preference/index writes must also roll back.
         for ((group, keys) in allFields) if(values.containsKey(group)) replace(prefs(group), keys.keys, values.getValue(group))
-        if(!values.containsKey(Live2DProfiles.REGISTRY)) prefs(Live2DProfiles.REGISTRY).edit().putString("active",Live2DProfiles.CAICAI).commit()
+        if(!values.containsKey(Live2DProfiles.REGISTRY) && !prefs(Live2DProfiles.REGISTRY).edit().putString("active",Live2DProfiles.CAICAI).commit()) throw IOException("无法保存恢复后的模型选择")
         if (restoreModels) {
             modelsTouched = true
             models.installPortableIndex(lease)
@@ -132,7 +136,7 @@ class PortableCompanionState(
             for ((group, keys) in allFields) {
                 if(values.containsKey(group)) replace(context.getSharedPreferences(group, Context.MODE_PRIVATE), keys.keys, values.getValue(group))
             }
-            if(!values.containsKey(Live2DProfiles.REGISTRY)) context.getSharedPreferences(Live2DProfiles.REGISTRY,Context.MODE_PRIVATE).edit().putString("active",Live2DProfiles.CAICAI).commit()
+            if(!values.containsKey(Live2DProfiles.REGISTRY) && !context.getSharedPreferences(Live2DProfiles.REGISTRY,Context.MODE_PRIVATE).edit().putString("active",Live2DProfiles.CAICAI).commit()) throw IOException("无法恢复模型选择")
             Live2DProfiles.restored(context)
             if (restoreModels) {
                 if (committed) {
