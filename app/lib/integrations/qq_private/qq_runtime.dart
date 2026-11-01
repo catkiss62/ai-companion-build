@@ -536,11 +536,12 @@ class QqRuntime {
       final state=error is QqDeliveryFailure?error.state:sentAny?'sent_archive_failed':
         error is QqApiException && error.uncertain?'send_uncertain':await current()?'failed':'context_invalidated';
       try {await store.mark(b,state,confirmedParts:error is QqDeliveryFailure?error.confirmed:null);} catch(_) {/* Existing sending receipt remains conservative. */}
+      var retryScheduled=false;
       final knownUnsentSend=error is QqDeliveryFailure && error.cause is QqApiException && !(error.cause as QqApiException).uncertain;
       if(state=='failed' && (phase!='send' || knownUnsentSend) && phase!='archive' && QqFailure.retryable(error is QqDeliveryFailure?error.cause:error)) {
-        try {await QqReplyRecovery(store).defer(b,now().millisecondsSinceEpoch);}catch(_) {}
+        try {retryScheduled=await QqReplyRecovery(store).defer(b,now().millisecondsSinceEpoch);}catch(_) {}
       }
-      status(state=='failed'?'reply_failed':state);
+      status(retryScheduled?'reply_retry_wait':state=='failed'?'reply_failed':state);
     } finally {client.close();_clients.remove(client);if(ownsDrawing)_drawingBusy=false;echoes.release(b);
       for(final row in b.rows) {
         final seq=row['seq'];

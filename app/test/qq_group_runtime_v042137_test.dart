@@ -145,6 +145,7 @@ void main(){
     await accept('technical','合成普通消息');await runtime.process(cid());
     final sql=await db.database;
     expect((await sql.query('qq_reply_tasks')).single['stage'],'failed');
+    expect(statuses,contains('reply_retry_wait'));
     handler=(r,b) async=>b['stream']==true?_sse('恢复后回复'):_json(b['max_tokens']==60?{'safe':true}:{'participation':'direct'});
     clock=clock.add(const Duration(seconds:16));await runtime.process(cid());
     expect(api.sent,isNotEmpty);
