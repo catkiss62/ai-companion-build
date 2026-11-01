@@ -1,6 +1,6 @@
 # DeepSeek Live2D 第二阶段 · v0.42.157+401
 
-状态：候选实现完成，CI／原签名 APK 验证中，尚未交付。继承 v0.42.156+400 / schema67，数据库不迁移。
+状态：已完成并交付原签名测试版。v0.42.157+401 / schema67，继承 v0.42.156+400，数据库不迁移。
 
 范围按《DEEPSEEK_LIVE2D_ISOLATION_REVIEW_2026-10-30》第10节锁定：本轮为 W5/W6；第三阶段 W7/W8 的独立随机待机、低频筛选“脱捕”片段及最后资源增长实测仍保留待办。原模型 ZIP 仅私有读取，不提交原曲线、纹理或 MOC，不压缩、不降分辨率、不降低目标60FPS。
 
@@ -19,3 +19,21 @@
 新增生产 JVM 用例覆盖四种曲线、非法数据、白名单、手势中断／回程／不循环、互斥眼型、19种独立情绪、小豆丁不高兴、参数和整模预算。新增 Flutter 用例覆盖真实 Core 限幅、缺失 gate 关闭、口型隔离和完整语音 owner／重播／迟到方案／静音等回归。CI 明确选择 Deepseek*Test，不能因旧 Caicai*Test 过滤器而漏跑。
 
 本地已私有检查原包95条参数曲线格式与时间单调性，无异常。此项不等于手机视觉确认；模型实际观感、手势方向、幅度和口型仍须安装测试版验证。发布前以本文件后续实测记录和唯一活动总账为准，不能把候选状态当交付。
+
+
+## 最终验证与交付
+
+运行源码 `88afc084e01b8fcce282aed7ee620511d712582b`，根树 `a6821c207967c6420c1d20af60a00704068c8da1`，app/lib 子树 `ecebff82fa0d2e6e07b7031b28349f2c6e403e53`。完整 CI [41310676300](https://github.com/catkiss62/ai-companion-build/actions/runs/41310676300) 和专项 CI [41310676240](https://github.com/catkiss62/ai-companion-build/actions/runs/41310676240) 均 success；完整主任务124861883157、Android原生任务124860272814、专项任务124860233476。
+
+- 156项源码门、Android15模拟器54项原生测试通过。
+- 新增9项原生行为用例由 `Deepseek*Test` 过滤器明确执行，JVM任务通过；新增规划／语音／既有兼容专项39项通过。
+- 全量 Flutter 3297项、打包前独立恢复171项通过。
+- 专项39／97／143／37／61／39／25／26／33／359／1322分别通过，存在重叠，不相加。
+- Dart分析0 error，1052项非fatal（90 warning／962 info）。
+- APK实际包名 `com.aicompanion.localfirst`、版本0.42.157+401、ARM64、离线资源及原签名通过CI核验。两套私有模型原件不在APK／公开仓库。
+
+原签名 APK 739,587,838 bytes，SHA-256 `3057eeb378129c0ab1e336bed085f6dccbe1b693a1565305a0fb21c3c5d6beee`；[下载测试版](https://github.com/catkiss62/ai-companion-build/actions/runs/41310676300/artifacts/13085683398)。APK原件、CI校验和及未发布 Draft430585242／asset698494303 digest一致；checksum文本和success monitor的实际上传digest也核对一致，monitor记录最终运行88afc084和41310676300。签名SHA-256为 `305eb3d80983b963c64818ddf1ad561f279de6d47b3ed2c781ada448c7c25148`。Artifact ZIP digest与APK原件digest是不同对象，未混用。
+
+早期06858de候选的扩展专项出现一项版本一致性失败：自我认知模块仍写v0.42.156+400，已同步至+401；最终1322项专项及3297全量均通过。早期被取消／失败的CI不当作最终通过证据。收尾仅写文档并skip ci，不重打同源码APK；Draft仍未发布，未合并main。
+
+手机上的表情方向、手势观感、形态锚点、帧率与多次切换的资源变化仍需安装观察，不能用源码／模拟器测试冒充真机视觉结论。第三阶段 W7/W8 待办继续保留。
