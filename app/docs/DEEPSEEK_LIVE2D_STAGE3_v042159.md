@@ -1,6 +1,6 @@
 # DeepSeek Live2D 第三阶段 · v0.42.159+403
 
-2026-11-02，schema67，承接已交付+402。当前为实现完成、待CI验证候选，尚未交付APK。
+2026-11-02，schema67，承接已交付+402。本版完整CI、专项CI与原签名APK核验已通过，功能和自动回归已交付；手机视觉与私有模型内存实测仍待确认。
 
 ## 本轮实现
 
@@ -21,3 +21,13 @@
 新增Android15生产状态机/变换冒烟，以及Flutter专属预览命令、忙时禁用、DeepSeek摸头框保存/取消与profile身份；继续原双模型、语音owner、菜菜编辑器、完整恢复、源码固定和签名APK回归。私有ZIP/贴图/moc/用户存档不进入源码、APK或公开测试夹具；曲线测试只用合成数据。
 
 当前环境无法直接在用户手机渲染私有模型。自动测试可以证明状态机、边界、存档及生命周期逻辑；不能冒充实际模型的摸头框观感、手势姿态、帧率和多轮切换GPU内存实测。交付后重点看：正常/小豆丁摸头，普通按住与彩蛋，键盘开合时头框与跟随，三手势打断待机后回程，以及快切/前后台后的流畅度。所有未做手机实测项继续明确保留，不能写成已验收恒定60FPS或无显存增长。
+
+## 最终交付证据
+
+- 运行源码 `820da5624a430645e9c7a683ad83ba0adeebcd35`，root tree `a021405fbfe56ee349606911986929c949567d10`，app/lib `1d450a156ea0540248b95612234b3c45450a34f5`。快切触摸快照的局部引用修补已包括，先前取消候选不计作通过。
+- [完整CI 41342674196](https://github.com/catkiss62/ai-companion-build/actions/runs/41342674196) success，主任务124957377624：158源码门、Android15原生57项（0跳过/0失败）、选中原生单元（含11个新增DeepSeek交互/生命周期行为用例）、3310全量Flutter、171独立恢复全部通过。
+- [专项CI 41342674218](https://github.com/catkiss62/ai-companion-build/actions/runs/41342674218) success，任务124955878358。第三阶段与既有交互32项通过；其他专项71/39/97/143/37/61/39/25/26/33/359/1322分别通过，组间重叠不相加。分析0error/1055非fatal（90warning/965info）。
+- [下载+403测试APK](https://github.com/catkiss62/ai-companion-build/actions/runs/41342674196/artifacts/13099611154)。APK **739600610 bytes**，SHA256 **1866650a02bacaaafae9052497d51bc70ba8eb033131416818f9bfc37fce19f1**。artifact ZIP摘要仅代表容器，不当作APK摘要。
+- 实际APK包名 `com.aicompanion.localfirst`、versionName0.42.159/versionCode403、ARM64、完整离线资源与原签名均已核验。签名SHA256 `305eb3d80983b963c64818ddf1ad561f279de6d47b3ed2c781ada448c7c25148`，可沿用既有安装数据覆盖更新。
+- 未发布Draft430810689指向同一源码，APK asset699411840的服务端摘要与CI现场摘要一致。checksum asset699411839（124 bytes，SHA256595b0503454ef2e49676e8384d1a198b73c6b6bbed54d9e87f331830b1fc86b2）、success monitor asset699411855（502 bytes，SHA25639596499582ef34b0ecbe968a1c690e89c8f415825c41be1b1e3fdf80a6c7a6d）和ci-monitor分支记录逐项对应源码、run、签名及APK。
+- 此后只文档`[skip ci]`收尾，不重打相同源码APK，Draft未发布、未合并main；私有原件和个人存档未入仓。上述57项原生检查含生产状态机/数学变换，并非私有DeepSeek模型的手机渲染或GPU内存实测；手机待验证边界按上节保留。
