@@ -19,6 +19,8 @@ public class DeepseekPerformanceTest {
         assertEquals(.5f,clip("[0,0,0,1,1]").sample(.5f).get("Movement1"),.001f);
         assertEquals(0,clip("[0,0,2,1,1]").sample(.5f).get("Movement1"),0);
         assertEquals(1,clip("[0,0,3,1,1]").sample(.5f).get("Movement1"),0);
+        assertEquals(1,clip("[0,0,2,1,1]").sample(1).get("Movement1"),0);
+        assertEquals(1,clip("[0,0,3,1,1]").sample(0).get("Movement1"),0);
         DeepseekMotionClip bezier=clip("[0,0,1,0.2,0,0.8,1,1,1]");
         assertEquals(.5f,bezier.sample(.5f).get("Movement1"),.001f);
         assertEquals(1,bezier.sample(10).get("Movement1"),0);

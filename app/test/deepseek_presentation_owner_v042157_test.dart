@@ -161,4 +161,19 @@ void main() {
     await h.motion.resume(id:'message',reply:'前半句，后半句。',revision:0,canContinue:()=>false);
     h.audio(); await tick();expect(h.epoch,before);expect(h.cues,isEmpty);
   });
+  test('a replaced avatar revision cannot receive a delayed DeepSeek plan', () async {
+    final h=_Harness();addTearDown(h.motion.stop);
+    h.planner.pending=Completer();final pending=h.present();await tick();
+    final before=h.commands.length;CaicaiLive2DService.revision.value++;
+    h.planner.pending!.complete(h.planner.result);await pending;await tick();
+    expect(h.commands.skip(before).where((c)=>!c.$1.startsWith('stop')),isEmpty);
+    expect(h.cues,isEmpty);
+  });
+  test('DeepSeek JEV disabled still shows its own base emotion without a request', () async {
+    final h=_Harness();addTearDown(h.motion.stop);h.settings['deepseek_jev_motion']='0';
+    await h.present();expect(h.planner.calls,0);
+    expect(h.commands.where((c)=>c.$1=='setDeepseekEmotion'),hasLength(1));
+    expect(h.commands.where((c)=>c.$1=='deepseekMotionPlan'),isEmpty);
+  });
+
 }

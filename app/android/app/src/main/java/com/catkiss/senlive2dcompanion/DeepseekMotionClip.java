@@ -43,10 +43,10 @@ final class DeepseekMotionClip {
     }
     private static float sample(double[] s,float time) {
         double x=s[0],y=s[1];
-        if(time<=x) return (float)y;
+        if(time<x) return (float)y;
         for(int p=2;p<s.length;) {
             int type=(int)s[p],n=type==1?7:3;double end=s[p+n-2],value=s[p+n-1];
-            if(time<=end) {
+            if(time<end) {
                 double t=end==x?1:Math.max(0,Math.min(1,(time-x)/(end-x)));
                 if(type==0) return (float)(y+(value-y)*t);
                 if(type==2) return (float)y;

@@ -34,7 +34,7 @@ final class DeepseekAvatarModel extends CubismUserModel {
     private DeepseekMotionClip auxiliary;
     private float effectTime,previewRootX,previewRootTilt;
     private String baseEmotion="normal",speechCue="",clipStatus="";
-    private long speechDeadline;
+    private long speechDeadline,previewEmotionDeadline;
     private static final Set<String> AUXILIARY=new HashSet<>(Arrays.asList(
         "Param31","Param32","Param27","Param28","RCry","Param29","Param30","LCry",
         "SweatBurst1","SweatBurst2","SweatBurst3","SweatBurst4","Param55","Param56","Param57","Param58"));
@@ -175,7 +175,12 @@ final class DeepseekAvatarModel extends CubismUserModel {
     void emotion(String value) {baseEmotion=value;expressions.emotion(value);}
     void performance(JSONObject args,boolean speech) throws org.json.JSONException {
         String emotion=args.optString("emotion",baseEmotion);if(emotion.isEmpty()) emotion=baseEmotion;
-        if(!speech) {speechDeadline=0;speechCue="";emotion(emotion);}
+        if(!speech) {
+            speechDeadline=0;speechCue="";
+            if(args.optBoolean("_preview")) {
+                expressions.emotion(emotion);previewEmotionDeadline=System.nanoTime()+4_000_000_000L;
+            } else {previewEmotionDeadline=0;emotion(emotion);}
+        }
         else {expressions.emotion(emotion);speechDeadline=System.nanoTime()+700_000_000L;}
         String cue=args.optString("cue","");
         if(speech && cue.equals(speechCue)) return;
@@ -191,11 +196,11 @@ final class DeepseekAvatarModel extends CubismUserModel {
     }
     void releaseSpeech() {
         if(speechDeadline==0) return;
-        speechDeadline=0;speechCue="";expressions.emotion(baseEmotion);
+        speechDeadline=0;previewEmotionDeadline=0;speechCue="";expressions.emotion(baseEmotion);
         plan.release();expressions.release();gestures.stop();
     }
     void stopPerformance() {
-        speechDeadline=0;speechCue="";expressions.emotion(baseEmotion);
+        speechDeadline=0;previewEmotionDeadline=0;speechCue="";expressions.emotion(baseEmotion);
         plan.release();expressions.release();gestures.stop();
     }
     private void ownMouth() {
@@ -209,13 +214,16 @@ final class DeepseekAvatarModel extends CubismUserModel {
         if(Math.abs(targetForm-form)<.0001f) form=targetForm;
         applyBase();
         if(speechDeadline!=0 && System.nanoTime()>speechDeadline) releaseSpeech();
+        if(previewEmotionDeadline!=0 && System.nanoTime()>previewEmotionDeadline) {
+            previewEmotionDeadline=0;expressions.emotion(baseEmotion);
+        }
         boolean speaking=mouthOwner.active(System.nanoTime());
         expressions.apply(delta,small || form>.05f,pose);
         plan.apply(delta,pose);
         for(Map.Entry<String,Float> e:preview.entrySet()) if(!speaking || !MOUTH.contains(e.getKey())) set(e.getKey(),e.getValue());
         expressions.overlay(pose);
         effectTime+=delta;
-        if(auxiliary!=null) for(Map.Entry<String,Float> e:auxiliary.sample(effectTime%auxiliary.duration).entrySet()) {
+        if(auxiliary!=null && (expressions.effect("落泪") || expressions.effect("加载") || expressions.effect("流冷汗"))) for(Map.Entry<String,Float> e:auxiliary.sample(effectTime%auxiliary.duration).entrySet()) {
             String id=e.getKey();
             boolean use=id.startsWith("SweatBurst")?expressions.effect("流冷汗"):
                 id.equals("Param55") || id.equals("Param56") || id.equals("Param57") || id.equals("Param58")?

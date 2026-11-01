@@ -201,10 +201,10 @@ internal class CaicaiPlatformView(
                 result.success(true)
             }
             "previewDeepseekPerformance" -> {
-                if(!deepseek) return result.success(false)
+                if(!deepseek || renderStatus!="ready") return result.success(false)
                 motionEpoch++;speechLease=-1;deepseekSpeechSequence++
                 val epoch=motionEpoch;val asset=loadIdentity
-                companion.performDeepseek(org.json.JSONObject(call.arguments as? Map<*,*> ?: emptyMap<Any,Any>()).toString(),false) {
+                companion.performDeepseek(org.json.JSONObject(call.arguments as? Map<*,*> ?: emptyMap<Any,Any>()).put("_preview",true).toString(),false) {
                     !disposed && motionEpoch==epoch && loadIdentity==asset && profileGeneration==Live2DProfiles.generation }
                 result.success(true)
             }
