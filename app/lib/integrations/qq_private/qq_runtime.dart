@@ -1,3 +1,5 @@
+import 'qq_reply_recovery.dart';
+import 'qq_ingress_buffer.dart';
 import 'dart:async';
 import 'dart:convert';
 import 'package:qq_private_bridge/qq_private_bridge.dart';
@@ -47,14 +49,18 @@ class QqRuntime {
   QqRuntime({required this.store,required this.api,required this.secure,required this.config,
     required this.allowed,required this.status,DateTime Function()? now,
     Future<QqPrivateConfig> Function()? configReader,Future<QqOptions> Function()? optionsReader,
-    DeepSeekClient Function(Future<bool> Function())? clientFactory,QqVision? vision,QqStickers? stickerService,
+    QqIngressBuffer? ingressBuffer,DeepSeekClient Function(Future<bool> Function())? clientFactory,QqVision? vision,QqStickers? stickerService,
     JevDecisionGateway? groupDecisions,QqVoiceService? voiceService,this.privatePrompt,this.privateCurrent})
     :now=now??DateTime.now,configReader=configReader??QqPrivateConfig.read,
-     optionsReader=optionsReader??QqOptions.read,
+     ingressBuffer=ingressBuffer??QqIngressBuffer(),optionsReader=optionsReader??QqOptions.read,
      clientFactory=clientFactory??((abort)=>DeepSeekClient(abortWhen:abort,secureConfig:secure,
-       onUsage:(event)async {if(event.provider=='third_channel')await ModelUsageTelemetry.record(store.db,event);})),vision=vision??QqVision(secure,usageDb:store.db),
+       onUsage:(event)async {await ModelUsageTelemetry.record(store.db,event);})),vision=vision??QqVision(secure,usageDb:store.db),
      stickers=stickerService??QqStickers(store.db),voice=voiceService??QqVoiceService(),echoes=QqEchoService(store),groupDecisions=groupDecisions??JevDecisionGateway(
        enabledReader:secure.readJevEnabled,keyReader:secure.readOpenRouterApiKey);
+  final _imageExpires=<int,int>{};
+  final QqIngressBuffer ingressBuffer;
+  Timer? _replyRecoveryTimer;
+  bool _recoveringReplies=false;
   final QqStore store;final QqApi api;final SecureConfig secure;final QqPrivateConfig config;
   final Future<bool> Function() allowed;
   final void Function(String) status;
@@ -122,14 +128,48 @@ class QqRuntime {
       _enqueueSummary(cid); // Recover unfinished tails without replaying participation.
       await _scheduleMaintenance(cid);
     }
+    _replyRecoveryTimer?.cancel();
+    _replyRecoveryTimer=Timer.periodic(const Duration(seconds:5),(_)=>unawaited(wakeReplies()));
+    await wakeReplies();
+  }
+  Future<void> wakeReplies() async {
+    if(_recoveringReplies || !await _enabled())return;
+    _recoveringReplies=true;
+    _imageUrls.removeWhere((seq,_)=>_imageExpires.containsKey(seq) && _imageExpires[seq]!<=now().millisecondsSinceEpoch);
+    _imageExpires.removeWhere((_,at)=>at<=now().millisecondsSinceEpoch);
+    try {
+      final c=await configReader(),o=await optionsReader(),fence=await store.capture();
+      await ingressBuffer.drain(fence,policy(c,o),now().millisecondsSinceEpoch,(event,group,receivedAt) async {
+        if(!await _enabled())return false;
+        await _accept(event,group,receivedAt:receivedAt);
+        return await _enabled();
+      });
+      final due=await QqReplyRecovery(store).due(await store.capture(),now().millisecondsSinceEpoch,_enqueued);
+      for(final cid in due) {if(!_enqueued.contains(cid))_enqueue(cid);}
+      for(final row in await store.conversations(scope(c))) {
+        final cid=row['id'] as String;
+        if(!_timers.containsKey(cid) && !_enqueued.contains(cid))await _schedule(cid);
+      }
+    } catch(_) {status('reply_recovery_wait');}
+    finally {_recoveringReplies=false;}
+  }
+  Future<bool> _holdForBackup(Map<String,dynamic> event,bool group,{int? receivedAt}) async {
+    if(_stopped || await store.db.getSetting('transfer_lock')!='1' ||
+      !(await store.db.getSetting('transfer_lock_owner')??'').contains(':backup_export:') ||
+      await store.db.getSetting('active_brain')=='0')return false;
+    final c=await configReader();if(!_sameDevice(c))return false;
+    await ingressBuffer.hold(event,group,await store.capture(),policy(c,await optionsReader()),receivedAt??now().millisecondsSinceEpoch);
+    return true;
   }
   Future<void> accept(Map<String,dynamic> event,{bool group=false}) {
-    final task=_acceptTail.then((_)=>_accept(event,group));
+    final task=_acceptTail.then((_) async {
+      try {await _accept(event,group);}on BrainWorkInvalidated {if(!await _holdForBackup(event,group))rethrow;}
+    });
     _acceptTail=task.catchError((Object e){status(e.toString().contains('archive_full')?'archive_full':'brain_paused');});
     return task;
   }
-  Future<void> _accept(Map<String,dynamic> event,bool group) async {
-    if(!await _enabled()) return;
+  Future<void> _accept(Map<String,dynamic> event,bool group,{int? receivedAt}) async {
+    if(!await _enabled()) {await _holdForBackup(event,group,receivedAt:receivedAt);return;}
     if(!group && (event.containsKey('group_openid') || event.containsKey('guild_id'))) return;
     final author=event['author'];if(author is! Map || author['bot']==true) return;
     final sender=(group?author['member_openid']:author['user_openid']??author['id'])?.toString()??'';
@@ -175,7 +215,7 @@ class QqRuntime {
     final mentioned=addressing.mentioned;
     final seq=await store.append(fence:fence,scope:scope(c),kind:group?'group':'private',target:target,
       platformId:id,sender:sender,text:incoming.text,contextMeta:incoming.material.encode(),
-      observedAt:at.millisecondsSinceEpoch,receivedAt:now().millisecondsSinceEpoch,owner:group?o.ownerMembers[target]==sender:true,
+      observedAt:at.millisecondsSinceEpoch,receivedAt:receivedAt??now().millisecondsSinceEpoch,owner:group?o.ownerMembers[target]==sender:true,
       mentioned:mentioned,replyTo:incoming.replyTo,images:urls.length,policy:policy(c,o));
     if(seq==null) return; // Platform duplicate is not a new message.
     // Optional display labels cannot recognize an owner or block reception.
@@ -226,8 +266,9 @@ class QqRuntime {
     final authority=await store.db.getSetting(QqShareStore.policyKey(c.namespace));
     if(authority!=null && authority!=QqStore.hash(o.toJson()))return;
     final fence=await store.capture(conversationId:cid);final pending=await store.pending(cid);
-    if(pending.isEmpty) return;
-    final b=await store.claim(fence,cid,pending.last['seq'] as int,now().millisecondsSinceEpoch,policy:policy(c,o),authorityKey:QqShareStore.policyKey(c.namespace),authority:QqStore.hash(o.toJson()));
+    final b=pending.isEmpty
+      ? await QqReplyRecovery(store).claim(fence,cid,now().millisecondsSinceEpoch,policy(c,o))
+      : await store.claim(fence,cid,pending.last['seq'] as int,now().millisecondsSinceEpoch,policy:policy(c,o),authorityKey:QqShareStore.policyKey(c.namespace),authority:QqStore.hash(o.toJson()));
     if(b==null) return;
     final batchStamp=[for(final r in b.rows)<String,Object?>{'table':'qq_archive','id':r['id'],'version':r['version']}];
     List<Map<String,Object?>> qqStamp=[],echoStamp=[],pendingStamp=[];Map<String,Object?>? mainStamp;String? stickerStamp,styleStamp;
@@ -319,7 +360,7 @@ class QqRuntime {
           messages:recent,mentioned:mentioned,newMessageSeqs:b.rows.map((r)=>r['seq'] as int).toList(),
           newMessages:await reader.participationFocus(b.rows,stamp:smallStamp),
           recentParticipation:participation,echoCandidate:echo?.hint??const {},pending:prior?.hint??const {},current:current,cancellationToken:cancellation);
-        } catch(error) {if(!await current()) rethrow;await store.recordFailure(fence,phase,error,operation:b.id,conversation:b.cid);decision=mentioned?'uncertain':'watch';}
+        } catch(error) {rethrow;}
         finally {cancellation.cancel();if(identical(_activeDecision,cancellation)) _activeDecision=null;}
         // Re-read evidence after the async judge; the claimed row is a snapshot.
         mentioned=await store.mentioned(b);
@@ -495,9 +536,17 @@ class QqRuntime {
       final state=error is QqDeliveryFailure?error.state:sentAny?'sent_archive_failed':
         error is QqApiException && error.uncertain?'send_uncertain':await current()?'failed':'context_invalidated';
       try {await store.mark(b,state,confirmedParts:error is QqDeliveryFailure?error.confirmed:null);} catch(_) {/* Existing sending receipt remains conservative. */}
+      if(state=='failed' && phase!='send' && phase!='archive' && QqFailure.retryable(error is QqDeliveryFailure?error.cause:error)) {
+        try {await QqReplyRecovery(store).defer(b,now().millisecondsSinceEpoch);}catch(_) {}
+      }
       status(state=='failed'?'reply_failed':state);
     } finally {client.close();_clients.remove(client);if(ownsDrawing)_drawingBusy=false;echoes.release(b);
-      for(final row in b.rows) {_imageUrls.remove(row['seq']);}
+      for(final row in b.rows) {
+        final seq=row['seq'];
+        final remaining=240000-(now().millisecondsSinceEpoch-(row['received_at'] as int));
+        if(remaining>0 && seq is int) {_imageExpires[seq]=(row['received_at'] as int)+240000;}
+        else {_imageUrls.remove(seq);}
+      }
       if(!_stopped) _enqueueSummary(cid,idle:false);
     }
   }
@@ -658,8 +707,8 @@ class QqRuntime {
     } finally {client.close();_clients.remove(client);}
   }
   Future<void> stop() async {
-    _stopped=true;for(final t in [..._timers.values,..._summaryTimers.values,..._maintenanceTimers.values]) {t.cancel();}
-    _timers.clear();_summaryTimers.clear();_maintenanceTimers.clear();_imageUrls.clear();_activeDecision?.cancel();
+    _stopped=true;_replyRecoveryTimer?.cancel();for(final t in [..._timers.values,..._summaryTimers.values,..._maintenanceTimers.values]) {t.cancel();}
+    _timers.clear();_summaryTimers.clear();_maintenanceTimers.clear();_imageUrls.clear();_imageExpires.clear();_activeDecision?.cancel();
     for(final client in _clients.toList()) {client.close();}vision.close();voice.close();echoes.clear();
     await _acceptTail;
     try {await Future.wait(_inflight.toList()).timeout(const Duration(seconds:2));} catch(_) {}

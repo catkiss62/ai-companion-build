@@ -15,6 +15,7 @@ class DeepseekCalibrationControls extends StatefulWidget {
 }
 
 class _DeepseekCalibrationControlsState extends State<DeepseekCalibrationControls> {
+  double? _smallPreview;
   static const labels = {
     'AngleX':'左右转头', 'AngleY':'低头／仰头', 'AngleZ':'左右歪头',
     'PositionX':'左右侧身', 'PositionY':'身体起伏', 'PositionZ':'身体侧摆',
@@ -94,6 +95,13 @@ class _DeepseekCalibrationControlsState extends State<DeepseekCalibrationControl
     ListTile(title:const Text('嘴型风格'),subtitle:Text(((appearance['MouthPressLipOpen'] as num?)?.toDouble()??0)<0?'猫嘴':'弧线嘴'),
       trailing:PopupMenuButton<double>(enabled:!widget.busy,onSelected:(v)=>_save({'MouthPressLipOpen':v}),
         itemBuilder:(_)=>const [PopupMenuItem(value:-1.0,child:Text('猫嘴')),PopupMenuItem(value:0.0,child:Text('默认')),PopupMenuItem(value:1.0,child:Text('弧线嘴'))])),
+    const Text('小豆丁大小参数'),
+    Text((_smallPreview ?? (appearance['smallForm'] as num?)?.toDouble() ?? .8).toStringAsFixed(2)),
+    Slider(value:(_smallPreview ?? (appearance['smallForm'] as num?)?.toDouble() ?? .8).clamp(0,1).toDouble(),
+      min:0,max:1,divisions:100,
+      onChanged:widget.busy?null:(v)=>setState(()=>_smallPreview=v),
+      onChangeEnd:widget.busy?null:(v)=>_save({'smallForm':v})),
+    const Text('0为原大小；先预览小豆丁再调整，数值单独保存。'),
     Wrap(spacing:8,children:[
       ActionChip(label:const Text('单轴与组合预览'),onPressed:widget.busy?null:_parameter),
       ActionChip(label:const Text('清除参数预览'),onPressed:widget.busy?null:()=>widget.preview('previewParameters',<String,double>{})),

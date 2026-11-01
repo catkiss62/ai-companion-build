@@ -12,7 +12,7 @@ import org.robolectric.annotation.Config
 class QqSvgRendererTest {
     @Test fun rejectionCategoriesIdentifyTheFailingDialectWithoutKeepingSvgOrText() {
         val cases=mapOf(
-            "<svg><path d='M 0 0 S 1 1 2 2'/></svg>" to "svg_path",
+            "<svg><path d='M 0 0 R 1 1 2 2'/></svg>" to "svg_path",
             "<svg><circle r='20' style='fill:red'/></svg>" to "svg_attribute",
             "<svg><circle r='20' fill='rgb(1,2,3)'/></svg>" to "svg_color",
             "<svg><defs/></svg>" to "svg_tag"
@@ -28,6 +28,12 @@ class QqSvgRendererTest {
         val bitmap=BitmapFactory.decodeByteArray(bytes,0,bytes.size)
         assertNotNull(bitmap);assertEquals(512,bitmap.width);assertEquals(512,bitmap.height)
     }
+    @Test fun rendersSmoothCurvesAndEllipticalArcs() {
+        for(d in listOf("M 10 10 C 15 15 20 10 25 20 S 30 30 40 20", "M 10 10 Q 20 20 30 10 T 50 10", "M 100 100 A 40 30 30 0 1 180 160 a 20 20 0 1 0 -40 -20 Z")) {
+            val bytes=QqSvgRenderer.render("<svg><path d='$d' fill='none' stroke='#123456'/></svg>")
+            assertNotNull(BitmapFactory.decodeByteArray(bytes,0,bytes.size))
+        }
+    }
     @Test fun rejectsExecutableExternalAndUnboundedInputs() {
         for(svg in listOf(
             "<svg><script>alert(1)</script></svg>",
@@ -37,7 +43,7 @@ class QqSvgRendererTest {
             "<svg><foreignObject/></svg>",
             "<svg><use href='#x'/></svg>",
             "<svg viewBox='0 0 0.00000001 512'/>",
-            "<svg><path d='M 0 0 A 10 10 0 0 0 20 20'/></svg>",
+            "<svg><path d='M 0 0 A 10 10 0 2 0 20 20'/></svg>",
             "<svg><circle r='NaN'/></svg>",
             "<svg>"+"<g>".repeat(14)+"</g>".repeat(14)+"</svg>",
             "<svg>"+"<circle r='1'/>".repeat(230)+"</svg>"

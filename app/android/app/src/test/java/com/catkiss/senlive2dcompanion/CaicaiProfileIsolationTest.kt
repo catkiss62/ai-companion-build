@@ -97,6 +97,18 @@ class CaicaiProfileIsolationTest {
         assertEquals(Live2DProfiles.DEEPSEEK,Live2DProfiles.selected(context))
         assertEquals(2f,context.getSharedPreferences("deepseek_stage",0).getFloat("scale",0f),0f)
     }
+    @Test fun calibratedSmallFormRoundTripsWithoutTouchingCaicai() {
+        context.getSharedPreferences("deepseek_appearance",0).edit().putFloat("smallForm",.63f).commit()
+        context.getSharedPreferences("caicai_stage",0).edit().putFloat("scale",1.7f).commit()
+        val portable=PortableCompanionState(context,CaicaiModelRepository(context),releaseModel={})
+        val saved=portable.begin();val prefs=saved["preferences"] as Map<*,*>
+        portable.finish(saved["token"] as String,true)
+        context.getSharedPreferences("deepseek_appearance",0).edit().putFloat("smallForm",.8f).commit()
+        val token=portable.begin()["token"] as String
+        portable.apply(token,prefs,restoreModels=false);portable.finish(token,true)
+        assertEquals(.63f,context.getSharedPreferences("deepseek_appearance",0).getFloat("smallForm",0f),0f)
+        assertEquals(1.7f,context.getSharedPreferences("caicai_stage",0).getFloat("scale",0f),0f)
+    }
     @Test fun exportIsReadOnlyAndProfilePayloadRoundTrips() {
         prepareDeepseekSettings();val epoch=Live2DProfiles.generation
         var releases=0

@@ -38,6 +38,13 @@ abstract final class QqFailure {
     };
     return '[图片：$reason；没有看到内容，不能据此判断图片损坏或用户网络有问题]';
   }
+  static bool retryable(Object error) {
+    if(error is TimeoutException || error is SocketException || error is http.ClientException)return true;
+    if(error is DeepSeekException)return error.statusCode==429 || error.statusCode>=500;
+    if(error is QqApiException)return !error.uncertain && (error.code=='network' || error.code=='timeout');
+    if(error is QqOperationFailure)return error.code=='reply_timeout';
+    return error is StateError && error.message=='reply_incomplete';
+  }
   static String code(Object error) {
     if(error is ThirdChannelFailure)return 'third_${error.code}';
     if(error is QqOperationFailure)return error.code;

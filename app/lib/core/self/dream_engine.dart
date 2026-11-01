@@ -40,12 +40,12 @@ class DreamEngine {
         model: reviewModel,
         thinking: true,
         effort: ReasoningEffort.high,
-        maxTokens: 6000,
+        maxTokens: 12000,
         requestTimeout: const Duration(seconds: 120),
         usageLane: 'nightly_dream',
         usageExecutionId: 'dream:${material['day']}',
         messages: [
-          {'role': 'system', 'content': DreamContract.instruction},
+          {'role': 'system', 'content': '${DreamContract.instruction}\n本次为增量小批整理，最多提出两项必要变化。文字保持精简，无变化直接返回{"changes":[]}，不用解释每一条来源。'},
           {'role': 'user', 'content': jsonEncode(material)},
         ],
       );
@@ -105,11 +105,14 @@ class DreamEngine {
           lastWeekly == 0 ||
           instant.millisecondsSinceEpoch - lastWeekly >=
               const Duration(days: 7).inMilliseconds;
+      final batchLimit = (int.tryParse(await db.getSetting('nightly_dream_batch_limit_v1') ?? '') ?? 48).clamp(6,48).toInt();
       final material = await DreamMaterial.collect(
         db,
         state,
         instant,
         weekly: weekly,
+        batchLimit: batchLimit,
+        characterLimit: 16000,
       );
       final usable = await store.usableInsights(state);
       // A quiet week may reconsider existing originals; quiet ordinary days
@@ -120,6 +123,7 @@ class DreamEngine {
         'at': instant.millisecondsSinceEpoch,
         'weekly': weekly,
         'source_count': material.sources.length,
+        'batch_limit': batchLimit,
         'has_backlog': material.hasBacklog,
         'bootstrap': material.bootstrap,
         'recovered_after_process_interruption': interruptedProcess,
@@ -206,6 +210,8 @@ class DreamEngine {
       );
       if (next == null) {
         await db.setSettingsAtomically({
+          if (diagnostic['failure_category'] == 'output_limit')
+            'nightly_dream_batch_limit_v1': '${(batchLimit ~/ 2).clamp(6,48)}',
           DreamStore.diagnosticKey: jsonEncode({
             ...diagnostic,
             'status': payload == null ? 'unavailable' : 'invalid_evidence',

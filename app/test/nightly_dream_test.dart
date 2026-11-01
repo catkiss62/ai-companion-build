@@ -53,6 +53,17 @@ void main() {
     fresh: fresh,
   );
 
+  test('small incremental batches retain the unprocessed cursor instead of skipping backlog',() async {
+    final db=await AppDatabase.createForTesting(databaseFactoryFfi);
+    try {
+      for(var i=0;i<10;i++) await db.insertMessage(ChatMessage(id:'batch-$i',role:'user',content:'合成新经历$i',createdAt:night.subtract(Duration(minutes:20-i))));
+      final first=await DreamMaterial.collect(db,{'cursor':{'chat_seq':0}},night,weekly:false,batchLimit:3,characterLimit:16000);
+      expect(first.sources.where((s)=>s.fresh),hasLength(3));expect(first.hasBacklog,true);
+      final second=await DreamMaterial.collect(db,{'cursor':first.cursor},night,weekly:false,batchLimit:3,characterLimit:16000);
+      expect(second.sources.where((s)=>s.fresh),hasLength(3));
+      expect(first.sources.where((s)=>s.fresh).map((s)=>s.id).toSet().intersection(second.sources.where((s)=>s.fresh).map((s)=>s.id).toSet()),isEmpty);
+    } finally {await db.closeForTesting();}
+  });
   group('reflective meaning and evidence', () {
     test(
       'a single significant experience can form a tentative interpretation',

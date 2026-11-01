@@ -26,6 +26,8 @@ class DreamMaterial {
     Map<String, dynamic> state,
     DateTime now, {
     required bool weekly,
+    int batchLimit = 240,
+    int characterLimit = 64000,
   }) async {
     final handle = await db.database;
     final stamp = await DreamStore.messageStamp(handle);
@@ -68,7 +70,7 @@ class DreamMaterial {
       where: bootstrap ? 'created_at >= ? AND created_at <= ?' : 'source_ingest_seq > ?',
       whereArgs: bootstrap ? [chatAt, now.millisecondsSinceEpoch] : [chatSeq],
       orderBy: bootstrap ? 'source_ingest_seq DESC' : 'source_ingest_seq ASC',
-      limit: bootstrap ? 120 : 240);
+      limit: bootstrap ? batchLimit.clamp(1,120).toInt() : batchLimit.clamp(1,240).toInt());
     if (bootstrap && rows.isEmpty) {
       final high = await handle.rawQuery('SELECT MAX(source_ingest_seq) AS seq FROM messages');
       chatSeq = DreamContract.number(high.single['seq']);
@@ -89,7 +91,7 @@ class DreamMaterial {
       if (candidate != null && usedEvidence.any((e) => e['id'] == candidate.id && e['fingerprint'] == candidate.fingerprint)) {
         source = DreamStore.chatSource(row); // unchanged representative evidence is not a new vote
       }
-      if (source != null && chars + source.text.length > 64000) break;
+      if (source != null && chars + source.text.length > characterLimit) break;
       if (source != null) { sources.add(source); chars += source.text.length; }
       chatSeq = DreamContract.number(row['source_ingest_seq']);
       chatAt = DreamContract.number(row['created_at']);
@@ -106,7 +108,7 @@ class DreamMaterial {
           "read_state = 'verified' AND semantic_state = 'valid' AND lifecycle_state NOT IN ('discarded','declined','user_deleted') AND (read_at > ? OR (read_at = ? AND id > ?)) AND read_at <= ?",
       whereArgs: [webAt, webAt, webId, now.millisecondsSinceEpoch],
       orderBy: 'read_at ASC, id ASC',
-      limit: 12,
+      limit: batchLimit < 240 ? 4 : 12,
     );
     for (final row in pages) {
       final source = DreamStore.webSource(row, fresh: true);
@@ -209,8 +211,8 @@ class DreamMaterial {
       bootstrap: bootstrap,
       hasBacklog:
           consumed < ordered.length ||
-          (!bootstrap && rows.length == 240) ||
-          pages.length == 12,
+          (!bootstrap && rows.length == batchLimit.clamp(1,240)) ||
+          pages.length == (batchLimit < 240 ? 4 : 12),
     );
   }
 }

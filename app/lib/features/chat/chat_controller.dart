@@ -2125,7 +2125,7 @@ class ChatController extends ChangeNotifier {
       play: () async {
         final intent = ttsPlayback.createIntent(ownerId: message.id,
           canContinue: () async => !_disposed && !generationActive && !analyzingImage &&
-              canStart?.call() != false && await proactiveSpeech.canContinue(message),
+              await proactiveSpeech.canContinue(message),
           formForPlayback: message.formContext.isKnown ? message.formContext.form == 'q' : null);
         final visual = ChatVisualResolver.resolveEmotionKey(message.emotionKey);
         await ttsPlayback.playText(message.content, intent: intent,

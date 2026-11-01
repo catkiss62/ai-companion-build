@@ -110,6 +110,7 @@ flutter {
 }
 
 dependencies {
+    implementation("androidx.core:core:1.15.0")
     implementation(files("libs/Live2DCubismCore.aar"))
     implementation("com.microsoft.onnxruntime:onnxruntime-android:1.22.0")
     testImplementation("junit:junit:4.13.2")

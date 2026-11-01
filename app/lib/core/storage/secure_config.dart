@@ -176,10 +176,13 @@ class SecureConfig {
   }
 
   Future<void> writeWorkConfiguration({required bool independent, String apiKey = '', String endpoint = ''}) async {
+    if (independent && apiKey.trim().isEmpty) {
+      throw const FormatException('工作 API Key 不能为空，尚未保存');
+    }
     final uri = Uri.tryParse(endpoint.trim());
-    if (independent && (apiKey.trim().isEmpty || uri == null || !uri.hasAuthority ||
+    if (independent && (uri == null || !uri.hasAuthority || uri.host.isEmpty ||
         !const {'http','https'}.contains(uri.scheme) || uri.userInfo.isNotEmpty)) {
-      throw const FormatException('独立工作接口需要有效的 Key 和 http(s) 地址');
+      throw const FormatException('工作地址需要完整的 http(s) 地址，例如 https://服务地址/v1/chat/completions，尚未保存');
     }
     await _storage.write(key: workConnectionKey, value: jsonEncode(independent
       ? {'mode':'independent','key':apiKey.trim(),'endpoint':endpoint.trim()}

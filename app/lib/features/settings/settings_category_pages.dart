@@ -157,12 +157,19 @@ class _ModelNetworkSettingsPageState
     }
   }
 
-  void _sectionAction(String section, Future<void> Function() action) {
+  Future<void> _sectionAction(String section, Future<void> Function() action) async {
     setState(() {
       _statusSection = section;
       _status = null;
     });
-    action();
+    try {
+      await action();
+    } catch (error) {
+      if (mounted) setState(() {
+        _statusSection = section;
+        _status = error is FormatException ? error.message.toString() : '保存或测试未完成，请检查配置后重试';
+      });
+    }
   }
 
   Widget _sectionFeedback(String section) =>
@@ -965,6 +972,10 @@ class _ModelNetworkSettingsPageState
                         if (model.isEmpty || model.length > 120) { setState(() => _status = '请输入有效的模型名称'); return; }
                         await _secure.writeWorkConfiguration(independent: _independentWorkApi,
                           apiKey: _workKey.text, endpoint: _workEndpoint.text);
+                        final saved = await _secure.readWorkConfiguration();
+                        if ((saved['mode'] == 'independent') != _independentWorkApi) {
+                          throw const FormatException('工作接口未能保存，请重试');
+                        }
                         await _db.setSettingsAtomically({'creative_work_model': model, 'creative_work_effort': _workEffort.apiName});
                         if (mounted) setState(() => _status = '工作模型已保存，对下一次委托生效');
                       }), child: const Text('保存工作模型')),

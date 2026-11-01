@@ -197,7 +197,7 @@ class PortableCompanionState(
             "deepseek_stage" to (fields.getValue("caicai_stage").filterKeys { !it.startsWith("rightEar") } +
                 mapOf("anchorX" to 0f..1f, "anchorY" to 0f..1f)),
             "deepseek_appearance" to mapOf("key11" to 0f..1f,"key12" to 0f..1f,"Clothes1" to .5f..1f,
-                "Clothes4" to 0f..1f,"MouthPressLipOpen" to -1f..1f),
+                "Clothes4" to 0f..1f,"MouthPressLipOpen" to -1f..1f,"smallForm" to 0f..1f),
             "deepseek_motion" to mapOf("jevEnabled" to true),
             "caicai_appearance" to mapOf("1白袜" to true,"丝袜带子" to true,"双马尾" to true,"发带" to true),
             Live2DProfiles.REGISTRY to mapOf("active" to setOf(Live2DProfiles.CAICAI,Live2DProfiles.DEEPSEEK),

@@ -8,6 +8,8 @@ import 'package:path_provider/path_provider.dart';
 import 'package:qq_private_bridge/qq_private_bridge.dart';
 import 'core/database/app_database.dart';
 import 'core/storage/secure_config.dart';
+import 'core/diagnostics/daily_spend.dart';
+import 'integrations/qq_private/qq_ingress_buffer.dart';
 import 'integrations/qq_private/qq_private_config.dart';
 import 'integrations/qq_private/qq_readonly_context.dart';
 import 'integrations/qq_private/qq_runtime.dart';
@@ -15,6 +17,7 @@ import 'integrations/qq_private/qq_store.dart';
 
 Future<void> runQqPrivateBackground() async {
   WidgetsFlutterBinding.ensureInitialized();
+  DailySpend.install(AppDatabase.instance);
   const native=MethodChannel('ai_companion/qq_private_runtime');
   QqRuntime? coordinator;QqGateway? gateway;var stopped=false;
   var lastConnection='startup_failed';
@@ -42,11 +45,12 @@ Future<void> runQqPrivateBackground() async {
     await store.db.database;
     if(stopped) return;
     await store.db.setSettingsAtomically({'qq_master_enabled_v2':'1','qq_master_owner_v2':ownerToken});
+    final support=await getApplicationSupportDirectory();
     final api=QqApi(appId:c.appId,secret:c.secret);
     final runtime=QqRuntime(store:store,api:api,secure:SecureConfig.instance,config:c,allowed:allowed,
+      ingressBuffer:QqIngressBuffer(File('${support.path}/qq_private_inbox_v1/${QqStore.hash([c.appId,c.namespace])}.json')),
       status:(code)=>unawaited(status('task',code)));
     coordinator=runtime;
-    final support=await getApplicationSupportDirectory();
     final namespace=sha256.convert(utf8.encode('${c.appId}:${c.namespace}')).toString();
     final legacy=QqJournal(File('${support.path}/qq_private_v1/$namespace.json'));
     try {await legacy.open();await runtime.importLegacy(legacy.rows);} catch(_) {await status('task','legacy_history_failed');}

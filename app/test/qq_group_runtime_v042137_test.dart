@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:io';
 import 'dart:convert';
 import 'dart:typed_data';
 import 'package:flutter/services.dart';
@@ -139,7 +140,27 @@ void main(){
   tearDown(()async{await runtime.stop();api.close();await db.closeForTesting();});
 
   for(final finalMark in [false,true]) {
-    test('runtime preserves platform success when ${finalMark?'final receipt':'archive'} fails',()async {
+    test('participation transport failure stays failed and automatically reclaims the same request',() async {
+    handler=(r,b) async=>throw const SocketException('synthetic offline');
+    await accept('technical','合成普通消息');await runtime.process(cid());
+    final sql=await db.database;
+    expect((await sql.query('qq_reply_tasks')).single['stage'],'failed');
+    handler=(r,b) async=>b['stream']==true?_sse('恢复后回复'):_json(b['max_tokens']==60?{'safe':true}:{'participation':'direct'});
+    clock=clock.add(const Duration(seconds:16));await runtime.process(cid());
+    expect(api.sent,isNotEmpty);
+    expect((await sql.query('qq_reply_tasks')).single['stage'],'sent');
+  });
+  test('incoming message held during ordinary backup is archived once after unfreeze',() async {
+    final token=await db.acquireTransferFreeze(purpose:'backup_export');
+    await accept('during-backup','合成普通消息');
+    expect(await (await db.database).query('qq_archive'),isEmpty);
+    await db.releaseTransferFreeze(token);await runtime.wakeReplies();
+    final rows=await (await db.database).query('qq_archive',where:"role='user'");
+    expect(rows,hasLength(1));expect(rows.single['platform_id'],'during-backup');
+    await runtime.wakeReplies();
+    expect(await (await db.database).query('qq_archive',where:"role='user'"),hasLength(1));
+  });
+  test('runtime preserves platform success when ${finalMark?'final receipt':'archive'} fails',()async {
       await runtime.stop();vision=_Vision(secure);final fault=_ArchiveFault(db,failFinal:finalMark);store=fault;runtime=create();
       handler=(r,b)async=>b['stream']==true?_sse('已经送达'):_json(b['max_tokens']==60?{'safe':true}:{'participation':'direct'});
       await accept('archive-failure','和你说句话');await runtime.process(cid());await runtime.process(cid());

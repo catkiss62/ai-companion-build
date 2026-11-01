@@ -28,7 +28,7 @@ class IsolatedGenieTtsClient(private val context: Context) {
                 connectionLatch.countDown()
             }
             runCatching {
-                service?.linkToDeath({ handleDeath("binder_died") }, 0)
+                service?.linkToDeath({ handleDeath("binder_died", service) }, 0)
             }
         }
 
@@ -71,7 +71,7 @@ class IsolatedGenieTtsClient(private val context: Context) {
         return try {
             block(service)
         } catch (error: RemoteException) {
-            handleDeath(error.javaClass.simpleName)
+            handleDeath(error.javaClass.simpleName, service.asBinder())
             throw IllegalStateException("Genie TTS 子进程已退出，请重试", error)
         }
     }
@@ -119,8 +119,10 @@ class IsolatedGenieTtsClient(private val context: Context) {
         }
     }
 
-    private fun handleDeath(reason: String) {
+    private fun handleDeath(reason: String, failedBinder: IBinder? = null) {
         synchronized(connectionLock) {
+            if (failedBinder != null && remote?.asBinder() !== failedBinder) return
+            if (remote == null && !binding && !bound) return
             detachLocked()
         }
         val checkpoint = TtsProcessCheckpoint.read(context)

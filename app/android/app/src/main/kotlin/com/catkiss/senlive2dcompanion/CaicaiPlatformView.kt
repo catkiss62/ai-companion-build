@@ -206,7 +206,7 @@ internal class CaicaiPlatformView(
             "setDeepseekAppearance" -> {
                 if (!deepseek) return result.success(false)
                 val args = call.arguments as? Map<*, *> ?: return result.success(false)
-                val allowed = setOf("key11","key12","Clothes1","Clothes4","MouthPressLipOpen")
+                val allowed = setOf("key11","key12","Clothes1","Clothes4","MouthPressLipOpen","smallForm")
                 val normalized = mutableMapOf<String,Float>()
                 for ((key,raw) in args) {
                     if (key !is String || key !in allowed) return result.success(false)
@@ -214,6 +214,7 @@ internal class CaicaiPlatformView(
                     if (!value.isFinite()) return result.success(false)
                     value = when(key) { "Clothes1" -> if(value<.75f) .5f else 1f
                         "MouthPressLipOpen" -> value.coerceIn(-1f,1f)
+                        "smallForm" -> value.coerceIn(0f,1f)
                         else -> if(value>=.5f) 1f else 0f }
                     normalized[key]=value
                 }
@@ -537,6 +538,7 @@ internal class CaicaiPlatformView(
             val restoredAppearance=app.getSharedPreferences("deepseek_appearance",Context.MODE_PRIVATE).all.toMutableMap()
             for (key in listOf("key11","key12","Clothes1","Clothes4","MouthPressLipOpen"))
                 if(!restoredAppearance.containsKey(key)) restoredAppearance[key]=if(key=="Clothes1") 1f else 0f
+            if(!restoredAppearance.containsKey("smallForm")) restoredAppearance["smallForm"]=.8f
             companion.appearanceDeepseek(org.json.JSONObject(restoredAppearance).toString())
         }
         if (!deepseek) companion.restoreCaicaiAppearance()

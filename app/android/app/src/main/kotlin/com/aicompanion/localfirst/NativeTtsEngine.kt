@@ -172,6 +172,7 @@ class NativeTtsEngine private constructor(context: Context) {
                 severity = "error",
                 code = error.javaClass.simpleName,
                 metadata = mapOf(
+                    "failureType" to TtsFailureCategory.of(error),
                     "language" to nextLanguage,
                     "voice" to normalizedVoice,
                     "segmentIndex" to segmentIndex,

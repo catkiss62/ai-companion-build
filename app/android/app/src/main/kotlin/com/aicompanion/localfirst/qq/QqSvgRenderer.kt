@@ -125,28 +125,27 @@ internal object QqSvgRenderer {
         f.style.stroke?.let {canvas.drawPath(path,paint(it,true))}
     }
     private fun path(raw:String):Path {
-        val token=Regex("[MmLlHhVvCcQqZz]|${number.pattern}")
-        checkSvg(token.replace(raw,"").all { it.isWhitespace() || it==',' },"svg_path")
-        val tokens=token.findAll(raw).map { it.value }.toList();require(tokens.size<=1800)
-        val path=Path();var i=0;var command=' ';var x=0f;var y=0f;var startX=0f;var startY=0f;var segments=0
+        // Validate the bounded dialect before using AndroidX's SVG path parser.
+        // Smooth curves and elliptical arcs are normal model output, not code.
+        val token=Regex("[MmLlHhVvCcSsQqTtAaZz]|${number.pattern}")
+        checkSvg(token.replace(raw, "").all { it.isWhitespace() || it==',' },"svg_path")
+        val tokens=token.findAll(raw).map { it.value }.toList()
+        checkSvg(tokens.size<=1800,"svg_limit")
+        if(tokens.isEmpty()) return Path()
+        checkSvg(tokens.first() in setOf("M","m"),"svg_path")
+        var i=0;var command=' ';var segments=0
         while(i<tokens.size) {
-            if(tokens[i].length==1 && tokens[i][0].isLetter())command=tokens[i++][0]
-            require(command!=' ' && ++segments<=400)
-            val relative=command.isLowerCase();val upper=command.uppercaseChar()
-            if(upper=='Z') {path.close();x=startX;y=startY;command=' ';continue}
-            val count=when(upper) {'M','L'->2;'H','V'->1;'C'->6;'Q'->4;else->error("path_command")}
-            require(i+count<=tokens.size);val n=(0 until count).map { value(tokens[i++]) }
-            fun px(j:Int)=n[j]+if(relative)x else 0f
-            fun py(j:Int)=n[j]+if(relative)y else 0f
-            when(upper) {
-                'M'->{val nx=px(0);val ny=py(1);path.moveTo(nx,ny);x=nx;y=ny;startX=x;startY=y;command=if(relative)'l' else 'L'}
-                'L'->{val nx=px(0);val ny=py(1);path.lineTo(nx,ny);x=nx;y=ny}
-                'H'->{x=px(0);path.lineTo(x,y)}
-                'V'->{y=py(0);path.lineTo(x,y)}
-                'C'->{val nx=px(4);val ny=py(5);path.cubicTo(px(0),py(1),px(2),py(3),nx,ny);x=nx;y=ny}
-                'Q'->{val nx=px(2);val ny=py(3);path.quadTo(px(0),py(1),nx,ny);x=nx;y=ny}
-            }
+            if(tokens[i].length==1 && tokens[i][0].isLetter()) command=tokens[i++][0]
+            checkSvg(command!=' ' && ++segments<=400,"svg_path")
+            val upper=command.uppercaseChar()
+            if(upper=='Z') { command=' ';continue }
+            val count=when(upper) {'M','L','T'->2;'H','V'->1;'C'->6;'S','Q'->4;'A'->7;else->throw Rejected("svg_path")}
+            checkSvg(i+count<=tokens.size,"svg_path")
+            val n=(0 until count).map { value(tokens[i++]) }
+            if(upper=='A') checkSvg(n[0]>=0 && n[1]>=0 && n[3] in setOf(0f,1f) && n[4] in setOf(0f,1f),"svg_path")
+            if(upper=='M') command=if(command.isLowerCase()) 'l' else 'L'
         }
-        return path
+        return try { androidx.core.graphics.PathParser.createPathFromPathData(raw) ?: Path() }
+        catch(_:RuntimeException) { throw Rejected("svg_path") }
     }
 }

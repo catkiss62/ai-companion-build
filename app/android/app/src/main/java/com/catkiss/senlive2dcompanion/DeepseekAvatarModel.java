@@ -31,6 +31,8 @@ final class DeepseekAvatarModel extends CubismUserModel {
     private final CaicaiSpeechMouthOwner mouthOwner = new CaicaiSpeechMouthOwner();
     private File source;
     private CubismModelSettingJson setting;
+    private float smallForm=.8f;
+    private boolean small;
     private float form, targetForm, amplitude, anchorX=.5f, anchorY=.25f;
     private float left,right,top,bottom,rootX,rootTilt;
     private int anchorDrawable=-1, anchorVertex;
@@ -94,7 +96,7 @@ final class DeepseekAvatarModel extends CubismUserModel {
         appearance.forEach(this::set);
         set("Clothes3",0); set("Clothes5",0); set("Clothes2",form);
     }
-    void form(boolean small) { targetForm=small?.8f:0f; }
+    void form(boolean small) { this.small=small; targetForm=small?smallForm:0f; }
     void playback(boolean playing) { mouthOwner.playback(playing,System.nanoTime()); }
     void amplitude(float value) { amplitude=Math.max(0,Math.min(1,value)); }
     void configureAnchor(float x,float y) { anchorX=x; anchorY=y; anchorDirty=true; }
@@ -110,6 +112,14 @@ final class DeepseekAvatarModel extends CubismUserModel {
         }
     }
     void appearance(JSONObject values) {
+        if(values.has("smallForm")) {
+            float value=(float)values.optDouble("smallForm",smallForm);
+            Integer i=indices.get("Clothes2");
+            if(Float.isFinite(value) && i!=null) {
+                smallForm=Math.max(model.getParameterMinimumValue(i),Math.min(model.getParameterMaximumValue(i),value));
+                if(small) targetForm=smallForm;
+            }
+        }
         for(String id:appearance.keySet()) if(values.has(id)) {
             float value=(float)values.optDouble(id,Float.NaN);
             if(!Float.isFinite(value)) continue;

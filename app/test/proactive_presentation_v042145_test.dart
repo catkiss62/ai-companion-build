@@ -94,6 +94,19 @@ void main() {
     expect(cues.where((c)=>c=='play'),hasLength(1));
     expect(await db.getSetting(ProactiveSpeechDelivery.spokenKey),'A');
   });
+  test('leaving the page after proactive speech starts neither cancels nor replays cue',() async {
+    final chat=controller();addTearDown(chat.dispose);
+    await db.insertMessage(message('A',1000,proactive:true));chat.messages=await db.recentMessages();
+    generationEntered=Completer<void>();generationRelease=Completer<void>();var visible=true;
+    final playing=chat.onChatOpened(canStart:()=>visible);
+    await generationEntered!.future.timeout(const Duration(seconds:5));
+    visible=false;generationRelease!.complete();
+    await playing.timeout(const Duration(seconds:5));
+    visible=true;await chat.onChatOpened(canStart:()=>visible);
+    expect(generated(),hasLength(1));expect(enqueued(),hasLength(1));
+    expect(cues.where((c)=>c=='play'),hasLength(1));
+    expect(await db.getSetting(ProactiveSpeechDelivery.spokenKey),'A');
+  });
   test('new ordinary turn while proactive audio synthesizes discards its late PCM',() async {
     await db.setSetting('emotion_sound_enabled','0');
     final chat=controller(); addTearDown(chat.dispose);
