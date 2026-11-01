@@ -7,13 +7,13 @@ class ThirdChannelEvent {
     required this.healthTimeoutMs, this.transport = 'none',
     this.requestId = '', this.effort = '', this.streaming = false,
     this.modelElapsedMs = 0, this.headersElapsedMs = 0, this.firstEventElapsedMs = 0, this.firstContentElapsedMs = 0,
-    this.requestBytes = 0, this.transportReused = false, this.tailAborted = false});
+    this.requestBytes = 0, this.transportReused = false, this.tailAborted = false, this.healthCached = false});
   final int at, elapsedMs, healthElapsedMs, attempts;
   final int healthHttpStatus, modelHttpStatus, healthTimeoutMs;
   final String stage, outcome, code, transport;
   final String requestId, effort;
   final int modelElapsedMs, headersElapsedMs, firstEventElapsedMs, firstContentElapsedMs, requestBytes;
-  final bool streaming, transportReused, tailAborted;
+  final bool streaming, transportReused, tailAborted, healthCached;
 
   static const knownCodes = {'', 'unknown', 'not_configured', 'invalid_url',
     'health_timeout', 'health_dns', 'health_tls', 'health_connection',
@@ -40,5 +40,6 @@ class ThirdChannelEvent {
     'first_event_elapsed_ms': firstEventElapsedMs, 'request_bytes': requestBytes,
     'first_content_elapsed_ms': firstContentElapsedMs,
     'transport_reused': transportReused, 'sse_tail_aborted': tailAborted,
+    'health_cached': healthCached,
   };
 }

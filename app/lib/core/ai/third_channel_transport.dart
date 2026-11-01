@@ -9,13 +9,18 @@ import 'third_channel_config.dart';
 /// accounting callbacks and cancellation never belong to this shared object.
 class ThirdChannelTransportPool {
   ThirdChannelTransportPool({http.Client Function()? clientFactory,
-      Future<String> Function()? networkIdentity})
+      Future<String> Function()? networkIdentity, Duration Function()? elapsed})
       : _factory = clientFactory ?? (() => IOClient(HttpClient()
           ..idleTimeout = const Duration(seconds: 90))),
-        _networkIdentity = networkIdentity ?? (clientFactory == null ? _readNetworkIdentity : (() async => 'test'));
+        _networkIdentity = networkIdentity ?? (clientFactory == null ? _readNetworkIdentity : (() async => 'test')),
+        _elapsedOverride = elapsed;
   static final shared = ThirdChannelTransportPool();
   final http.Client Function() _factory;
   final Future<String> Function() _networkIdentity;
+  final Duration Function()? _elapsedOverride;
+  final Stopwatch _clock = Stopwatch()..start();
+  static const healthTtl = Duration(seconds: 60);
+  Duration _elapsed() => _elapsedOverride?.call() ?? _clock.elapsed;
   final Map<String, _TransportEntry> _entries = {};
   final Set<_TransportEntry> _all = {};
   int _unknownNetwork = 0;
@@ -27,7 +32,10 @@ class ThirdChannelTransportPool {
     try {network = await _networkIdentity();}
     catch (_) {network = 'unknown:${++_unknownNetwork}';}
     if (_closed) throw StateError('third_transport_closed');
-    final key = sha256.convert(utf8.encode('${config.encode()}\n$network')).toString();
+    // Enablement and effort belong to each request's authority/body, not its
+    // socket. A short test and saved reply may share only endpoint/auth/network.
+    final key = sha256.convert(utf8.encode(jsonEncode([
+      config.endpoint.toString(), config.apiKey.trim(), network]))).toString();
     // Configuration changes retire old transports without interrupting their
     // in-flight requests. Their own source/config guards revoke authority.
     for (final entry in _entries.values.toList()) {
@@ -38,7 +46,7 @@ class ThirdChannelTransportPool {
     });
     final reused = entry.uses++ > 0;
     entry.references++;
-    return ThirdChannelTransportLease(entry.client, reused, () => _retire(entry), () {
+    return ThirdChannelTransportLease._(entry, reused, _elapsed, () => _retire(entry), () {
       entry.references--;
       _collect(entry);
     });
@@ -55,6 +63,7 @@ class ThirdChannelTransportPool {
   }
   void _retire(_TransportEntry entry) {
     entry.retired = true;
+    entry.healthyAt = null;
     if (identical(_entries[entry.key], entry)) _entries.remove(entry.key);
     _collect(entry);
   }
@@ -72,12 +81,23 @@ class ThirdChannelTransportPool {
 }
 
 class ThirdChannelTransportLease {
-  ThirdChannelTransportLease(this.client, this.reused, this._invalidate, this._release);
-  final http.Client client;
+  ThirdChannelTransportLease._(this._entry, this.reused, this._elapsed, this._invalidate, this._release);
+  final _TransportEntry _entry;
+  final Duration Function() _elapsed;
+  http.Client get client => _entry.client;
   final bool reused;
   final void Function() _invalidate;
   final void Function() _release;
   bool _released = false;
+  bool get recentHealth {
+    final at = _entry.healthyAt;
+    if (_released || _entry.retired || at == null) return false;
+    final age = _elapsed() - at;
+    return !age.isNegative && age < ThirdChannelTransportPool.healthTtl;
+  }
+  void markHealthy() {
+    if (!_released && !_entry.retired) _entry.healthyAt = _elapsed();
+  }
   void invalidate() { if (!_released) _invalidate(); }
   void release() {
     if (!_released) { _released = true; _release(); }
@@ -90,4 +110,5 @@ class _TransportEntry {
   final http.Client client;
   int uses = 0, references = 0;
   bool retired = false;
+  Duration? healthyAt;
 }

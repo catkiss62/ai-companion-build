@@ -585,11 +585,11 @@ internal class CaicaiPlatformView(
         if (disposed) return
         if (profile != Live2DProfiles.selected(app)) { dispose(); return }
         if (deepseek) {
-            companion.anchorDeepseek(viewPrefs.getFloat("anchorX",.5f),viewPrefs.getFloat("anchorY",.25f))
+            companion.anchorDeepseek(viewPrefs.getFloat("anchorX",.5f),viewPrefs.getFloat("anchorY",.21504237f))
             val restoredAppearance=app.getSharedPreferences("deepseek_appearance",Context.MODE_PRIVATE).all.toMutableMap()
             for (key in listOf("key11","key12","Clothes1","Clothes4","MouthPressLipOpen"))
                 if(!restoredAppearance.containsKey(key)) restoredAppearance[key]=if(key=="Clothes1") 1f else 0f
-            if(!restoredAppearance.containsKey("smallForm")) restoredAppearance["smallForm"]=.8f
+            if(!restoredAppearance.containsKey("smallForm")) restoredAppearance["smallForm"]=.55f
             companion.appearanceDeepseek(org.json.JSONObject(restoredAppearance).toString())
         }
         if (!deepseek) companion.restoreCaicaiAppearance()

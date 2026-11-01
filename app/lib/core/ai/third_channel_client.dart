@@ -75,7 +75,7 @@ class ThirdChannelClient {
     var healthElapsedMs = 0, healthHttpStatus = 0, modelHttpStatus = 0, attempts = 0;
     var modelElapsedMs = 0, headersElapsedMs = 0, firstEventElapsedMs = 0, firstContentElapsedMs = 0, requestBytes = 0;
     Stopwatch? activeModelClock;
-    var transportReused = false, tailAborted = false;
+    var transportReused = false, tailAborted = false, healthCached = false;
     Object? diagnosticFailure;
     ThirdChannelResponse? accepted;
     final aborted = Completer<Never>();
@@ -125,30 +125,35 @@ class ThirdChannelClient {
       transportReused = lease!.reused;
       final client = lease!.client;
       stage = 'health';
-      final probeAbort = Completer<void>(); signals.add(probeAbort);
-      final healthClock = Stopwatch()..start();
-      try {
-        Future<http.Response> probe() async {
-          final request = http.AbortableRequest('GET', healthUri, abortTrigger: probeAbort.future)
-            ..headers['X-Request-ID'] = '$requestId-h';
-          return http.Response.fromStream(await client.send(request));
+      healthCached = lease!.recentHealth;
+      if (!healthCached) {
+        final probeAbort = Completer<void>(); signals.add(probeAbort);
+        final healthClock = Stopwatch()..start();
+        try {
+          Future<http.Response> probe() async {
+            final request = http.AbortableRequest('GET', healthUri, abortTrigger: probeAbort.future)
+              ..headers['X-Request-ID'] = '$requestId-h';
+            return http.Response.fromStream(await client.send(request));
+          }
+          final health = await probe().timeout(healthTimeout);
+          healthHttpStatus = health.statusCode;
+          if (health.statusCode != 200) throw ThirdChannelFailure('health_http_${health.statusCode}');
+          Object? body;
+          try { body = jsonDecode(health.body); }
+          catch (_) { throw const ThirdChannelFailure('health_response'); }
+          if (body is! Map || body['status'] != 'ok') throw const ThirdChannelFailure('health_response');
+          await check();
+          lease!.markHealthy();
+        } on ThirdChannelFailure { rethrow; }
+        catch (error) {
+          await check();
+          transport = _transportKind(error);
+          throw ThirdChannelFailure('health_$transport');
+        } finally {
+          healthElapsedMs = healthClock.elapsedMilliseconds;
+          signals.remove(probeAbort);
+          if (!probeAbort.isCompleted) probeAbort.complete();
         }
-        final health = await probe().timeout(healthTimeout);
-        healthHttpStatus = health.statusCode;
-        if (health.statusCode != 200) throw ThirdChannelFailure('health_http_${health.statusCode}');
-        Object? body;
-        try { body = jsonDecode(health.body); }
-        catch (_) { throw const ThirdChannelFailure('health_response'); }
-        if (body is! Map || body['status'] != 'ok') throw const ThirdChannelFailure('health_response');
-      } on ThirdChannelFailure { rethrow; }
-      catch (error) {
-        await check();
-        transport = _transportKind(error);
-        throw ThirdChannelFailure('health_$transport');
-      } finally {
-        healthElapsedMs = healthClock.elapsedMilliseconds;
-        signals.remove(probeAbort);
-        if (!probeAbort.isCompleted) probeAbort.complete();
       }
       for (var attempt = 1; attempt <= 2; attempt++) {
         await check();
@@ -264,6 +269,7 @@ class ThirdChannelClient {
             _validateSchema(jsonDecode(result.content), format['schema'] as Map);
           }
           await check();
+          if (!tailAborted) lease!.markHealthy();
           return result;
         } catch (error) {
           await check();
@@ -308,7 +314,7 @@ class ThirdChannelClient {
           requestId: requestId, effort: config.reasoningEffort, streaming: stream,
           modelElapsedMs: modelElapsedMs + (activeModelClock?.elapsedMilliseconds ?? 0), headersElapsedMs: headersElapsedMs,
           firstEventElapsedMs: firstEventElapsedMs, firstContentElapsedMs: firstContentElapsedMs, requestBytes: requestBytes,
-          transportReused: transportReused, tailAborted: tailAborted));
+          transportReused: transportReused, tailAborted: tailAborted, healthCached: healthCached));
       } catch (_) { /* Optional diagnostics cannot alter transport or fallback. */ }
     }
   }

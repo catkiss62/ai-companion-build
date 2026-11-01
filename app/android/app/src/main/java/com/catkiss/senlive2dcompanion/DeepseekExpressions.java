@@ -30,7 +30,7 @@ final class DeepseekExpressions {
         Map<String,Float> wanted=emotionPose(emotion);
         // Small-form dissatisfaction has its own brows/mouth; ordinary neutral must not erase it.
         if(small) {
-            wanted.put("ParamMouthForm",Math.min(-.72f,wanted.getOrDefault("ParamMouthForm",0f)));
+            wanted.put("ParamMouthForm",-1f);
             wanted.put("ParamBrowLY",Math.min(-.48f,wanted.getOrDefault("ParamBrowLY",0f)));
             wanted.put("ParamBrowRY",Math.min(-.48f,wanted.getOrDefault("ParamBrowRY",0f)));
             wanted.put("CheeckPuff",Math.max(.3f,wanted.getOrDefault("CheeckPuff",0f)));
@@ -54,8 +54,8 @@ final class DeepseekExpressions {
         for(String id:BUTTONS.values()) if(target.accepts(id)) target.write(id,(id.equals(BUTTONS.get(face)) || id.equals(BUTTONS.get(effect)))?weight:0);
         if(weight<.001f) return;
         boolean special=Arrays.asList("圈圈眼","爱心眼","><眼","嫌弃眼").contains(face);
-        if(!special && age<.85f && !wink.isEmpty()) {
-            float close=(float)Math.sin(Math.PI*Math.min(1,age/.85f));
+        if(!special && !wink.isEmpty()) {
+            float close=winkClosure(age,wink.equals("吐舌wink"))*weight;
             String eye=wink.equals("右wink")?"ParamEyeROpen":"ParamEyeLOpen";
             target.write(eye,target.current(eye)*(1-close));
             target.write(wink.equals("右wink")?"REyeSquint":"LEyeSquint",close);
@@ -64,6 +64,12 @@ final class DeepseekExpressions {
     }
     boolean effect(String name) {return weight>.01f && (name.equals(face) || name.equals(effect));}
     String trace() {return emotion+" face="+face+" weight="+weight+" effect="+effect+" wink="+wink;}
+    static float winkClosure(float age,boolean tongue) {
+        if(!Float.isFinite(age) || age<=0) return 0;
+        float duration=tongue?1.6f:1.2f;
+        if(age>=duration) return 0;
+        return Math.min(1,Math.min(age/.18f,(duration-age)/.36f));
+    }
     static float cycle(float elapsed,float period,float min,float max) {
         if(!Float.isFinite(elapsed) || !Float.isFinite(min) || !Float.isFinite(max) || period<=0 || max<=min) return min;
         float phase=elapsed/period;phase-=(float)Math.floor(phase);

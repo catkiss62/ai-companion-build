@@ -27,10 +27,10 @@ class DeepseekMotionPlanner {
       '微张露齿': {'MouthFunnel': .35}},
   };
   static const eyes = <String, String>{
-    '圈圈眼': '呆萌的两个圆圈眼；不是旋转眩晕',
+    '圈圈眼': '双眼变成两个大而空白的O，呆住、脑袋空白或装傻的呆萌反应；不是旋转眩晕或蚊香眼',
     '爱心眼': '心动、着迷或被撩到；普通开心和关心不足以触发',
-    '><眼': '双眼挤成><的开心或窘迫反应；不是单眼wink',
-    '嫌弃眼': '动漫里的屑屑眼，嫌弃或带点鄙视',
+    '><眼': '双眼紧挤成><，被逗得绷不住、强烈开心、害羞窘迫或撒娇抗议；不是单眼wink',
+    '嫌弃眼': '半垂眼、平直上眼皮的屑屑眼，像“就这？”“你认真的？”的无语吐槽或轻微嫌弃；不自动代表真正厌恶',
   };
   static const effects = <String, String>{
     '黑脸': '阴沉或无语到黑脸', '落泪': '难过、委屈或感动到有泪意',
@@ -68,7 +68,7 @@ class DeepseekMotionPlanner {
       q['$prefix${entry.key}_use'] = JevChoiceQuestion(
         '$context 是否适合${entry.key}附加层？按实际语义决定；没有相符反应就不用。'
         '爱心眼只用于心动/着迷；wink需要有意眨眼示意，普通开心或关心不自动触发。'
-        '呆萌圈圈眼与眩晕无关。特殊眼型互斥，也不能同时wink。',
+        '圈圈眼是空白O眼的呆萌反应，与眩晕无关；><眼是双眼挤紧；嫌弃眼可用于轻微吐槽，不必上升为厌恶。特殊眼型互斥，也不能同时wink。',
         const {'yes': '有相符语义', 'no': '无相符语义'}, optional: optional);
       q['$prefix${entry.key}'] = JevChoiceQuestion('$context 假设使用此层，选择符合程度的类型；是否使用由独立_use题决定。',
         entry.value, optional: optional);

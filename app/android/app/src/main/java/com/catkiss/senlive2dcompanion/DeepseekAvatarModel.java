@@ -52,9 +52,9 @@ final class DeepseekAvatarModel extends CubismUserModel {
     private final CaicaiSpeechMouthOwner mouthOwner = new CaicaiSpeechMouthOwner();
     private File source;
     private CubismModelSettingJson setting;
-    private float smallForm=.8f;
+    private float smallForm=.55f;
     private boolean small;
-    private float form, targetForm, amplitude, anchorX=.5f, anchorY=.25f;
+    private float form, targetForm, amplitude, anchorX=.5f, anchorY=.21504237f;
     private float left,right,top,bottom,rootX,rootTilt;
     private int anchorDrawable=-1, anchorVertex;
     private float[] savedParameters;
@@ -63,10 +63,12 @@ final class DeepseekAvatarModel extends CubismUserModel {
 
     DeepseekAvatarModel(Context context) {
         android.content.SharedPreferences prefs=context.getSharedPreferences("deepseek_appearance",Context.MODE_PRIVATE);
+        float savedSmall=prefs.getFloat("smallForm",.55f);
+        smallForm=Float.isFinite(savedSmall)?Math.max(0,Math.min(1,savedSmall)):.55f;
         for(String id:Arrays.asList("key11","key12","Clothes1","Clothes4","MouthPressLipOpen"))
             appearance.put(id,prefs.getFloat(id,id.equals("Clothes1")?1f:0f));
         android.content.SharedPreferences stage=context.getSharedPreferences("deepseek_stage",Context.MODE_PRIVATE);
-        anchorX=stage.getFloat("anchorX",.5f); anchorY=stage.getFloat("anchorY",.25f);
+        anchorX=stage.getFloat("anchorX",.5f); anchorY=stage.getFloat("anchorY",.21504237f);
     }
     void load(File file,int width,int height,int maxTexture,NativeTextureManager textures,SenRenderer.Listener listener) throws IOException {
         source=file; setting=new CubismModelSettingJson(NativeFileLoader.readFile(file));
@@ -85,6 +87,8 @@ final class DeepseekAvatarModel extends CubismUserModel {
         Integer sizeIndex=indices.get("Clothes2");
         if(sizeIndex==null || model.getParameterMinimumValue(sizeIndex)>0 || model.getParameterMaximumValue(sizeIndex)<.8f)
             throw new IOException("DeepSeek大小参数不支持正常0／小豆丁0.8");
+        smallForm=Math.max(model.getParameterMinimumValue(sizeIndex),Math.min(model.getParameterMaximumValue(sizeIndex),smallForm));
+        form(small);
         loadPerformanceClips();
         applyBase(); model.update(); bounds();
         model.saveParameters();
@@ -289,7 +293,7 @@ final class DeepseekAvatarModel extends CubismUserModel {
         CubismMatrix44.multiply(mvp.getArray(),crop,mvp.getArray());
         getRenderer().setMvpMatrix(mvp);getRenderer().drawModel();
     }
-    String trace() { return "deepseek-avatar form="+form+" target="+targetForm+" anchor="+anchorX+","+anchorY+" root="+rootX+","+rootTilt+" face="+expressions.trace()+" gesture="+gestures.trace()+clipStatus+" speech="+(speechDeadline!=0); }
+    String trace() { return "deepseek-avatar form="+form+" target="+targetForm+" smallForm="+smallForm+" anchor="+anchorX+","+anchorY+" root="+rootX+","+rootTilt+" face="+expressions.trace()+" gesture="+gestures.trace()+clipStatus+" speech="+(speechDeadline!=0); }
     void resizeRenderTarget(int width,int height) { if(getRenderer()!=null) getRenderer().setRenderTargetSize(width,height); }
     void closeModel() { delete(); }
 }

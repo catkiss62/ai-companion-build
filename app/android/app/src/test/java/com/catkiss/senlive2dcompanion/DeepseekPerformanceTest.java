@@ -97,4 +97,31 @@ public class DeepseekPerformanceTest {
         assertEquals(-1,DeepseekExpressions.cycle(Float.NaN,1,-1,1),0);
     }
 
+    @Test public void winkHasReadableHoldAndSmoothEntryExitWithoutChangingAnatomicalEye() {
+        assertEquals(0,DeepseekExpressions.winkClosure(0,false),0);
+        assertEquals(.5f,DeepseekExpressions.winkClosure(.09f,false),.001f);
+        assertEquals(1,DeepseekExpressions.winkClosure(.5f,false),0);
+        assertEquals(1,DeepseekExpressions.winkClosure(.8f,false),0);
+        assertEquals(.5f,DeepseekExpressions.winkClosure(1.02f,false),.001f);
+        assertEquals(0,DeepseekExpressions.winkClosure(1.2f,false),0);
+        assertEquals(1,DeepseekExpressions.winkClosure(1.2f,true),0);
+        assertEquals(0,DeepseekExpressions.winkClosure(1.6f,true),0);
+        for(String wink:Arrays.asList("左wink","右wink","吐舌wink")) {
+            DeepseekExpressions e=new DeepseekExpressions();Pose p=new Pose();
+            e.trigger("",wink,"");e.apply(.6f,false,p);e.overlay(p);
+            String closed=wink.equals("右wink")?"ParamEyeROpen":"ParamEyeLOpen";
+            String other=wink.equals("右wink")?"ParamEyeLOpen":"ParamEyeROpen";
+            assertTrue(p.current(closed)<.01f);assertEquals(1,p.current(other),.001f);
+            assertEquals(wink.equals("吐舌wink")?1:0,p.current("TongueOut"),0);
+        }
+    }
+
+    @Test public void smallFormReverseSmileSettlesNearFullDownturnAndNormalCanRecover() {
+        DeepseekExpressions e=new DeepseekExpressions();Pose p=new Pose();
+        for(int i=0;i<30;i++) e.apply(.1f,true,p);
+        assertTrue(p.current("ParamMouthForm")<-.99f);
+        for(int i=0;i<30;i++) e.apply(.1f,false,p);
+        assertEquals(0,p.current("ParamMouthForm"),.001f);
+    }
+
 }

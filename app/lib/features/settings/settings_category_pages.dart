@@ -1,4 +1,6 @@
 import '../../core/diagnostics/third_channel_diagnostics.dart';
+import '../../core/diagnostics/third_channel_test_status.dart';
+import '../../core/ai/third_channel_event.dart';
 import '../../core/ai/third_channel_client.dart';
 import '../../core/ai/third_channel_config.dart';
 import '../../core/ai/routed_vision_client.dart';
@@ -335,16 +337,23 @@ class _ModelNetworkSettingsPageState
   }
 
   Future<void> _testThird() async {
-    setState(() { _testingThird = true; _status = '正在检查网关和模型响应…'; });
+    final tested = ThirdChannelConfig(enabled: _thirdEnabled, baseUrl: _thirdBase.text,
+      apiKey: _thirdKey.text, effort: _thirdEffort);
+    setState(() { _testingThird = true; _status = '正在测试输入框配置的短请求…'; });
     final client = ThirdChannelClient();
     final diagnostics = await ThirdChannelDiagnostics.capture(_db, lane: 'connection_test');
+    ThirdChannelEvent? event;
+    var scope = '本次使用输入框配置；正文使用已保存配置。';
     try {
-      final result = await client.complete(config: ThirdChannelConfig(baseUrl: _thirdBase.text, apiKey: _thirdKey.text,effort:_thirdEffort),
+      scope = ThirdChannelTestStatus.scope(tested, await _secure.readThirdChannel());
+      final result = await client.complete(config: tested,
         messages: [{'role': 'user', 'content': '这是接口连接测试，请只回复“连接成功”。'}], maxTokens: 256,
-        onDiagnostic: diagnostics?.record);
+        onDiagnostic: (value) { event = value; diagnostics?.record(value); });
       if (result.incomplete) throw const ThirdChannelFailure('incomplete');
-      if (mounted) setState(() => _status = '网关与模型响应通过；测试使用了少量额度。');
-    } catch (error) { if (mounted) setState(() => _status = '第三通道测试失败：$error'); }
+      if (mounted) setState(() => _status = '第三通道短请求通过；不保证长正文同样及时。$scope'
+        '${ThirdChannelTestStatus.timing(event)}测试使用了少量额度。');
+    } catch (_) { if (mounted) setState(() => _status = '${ThirdChannelTestStatus.failure(event)}$scope'
+      '${ThirdChannelTestStatus.timing(event)}'); }
     finally { client.close(); if (mounted) setState(() => _testingThird = false); }
   }
 

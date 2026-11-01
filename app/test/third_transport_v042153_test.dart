@@ -38,7 +38,7 @@ void main() {
     try {
       expect((await a.complete(config:config,messages:[],onDiagnostic:events.add)).content,'成功'); a.close();
       expect((await b.complete(config:config,messages:[],onDiagnostic:events.add)).content,'成功');
-      expect(health,2);expect(posts,2);expect(ports,hasLength(1));expect(ids.toSet(),hasLength(4));
+      expect(health,1);expect(posts,2);expect(ports,hasLength(1));expect(ids.toSet(),hasLength(3));
       expect(usageA,[15]);expect(usageB,[15]);
       expect(events.first.transportReused,false);expect(events.last.transportReused,true);
       expect(events.last.effort,'low');expect(events.last.requestBytes,greaterThan(0));

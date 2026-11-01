@@ -70,7 +70,7 @@ class _DeepseekCalibrationControlsState extends State<DeepseekCalibrationControl
   });
   Future<void> _anchor() => widget.run(() async {
     var x=(stage['anchorX'] as num?)?.toDouble() ?? .5;
-    var y=(stage['anchorY'] as num?)?.toDouble() ?? .25;
+    var y=(stage['anchorY'] as num?)?.toDouble() ?? .21504237;
     if (!mounted) return;
     final accepted=await showDialog<bool>(context:context,builder:(context)=>StatefulBuilder(builder:(context,update)=>AlertDialog(
       title:const Text('变身中心'),content:Column(mainAxisSize:MainAxisSize.min,children:[
@@ -122,8 +122,8 @@ class _DeepseekCalibrationControlsState extends State<DeepseekCalibrationControl
       trailing:PopupMenuButton<double>(enabled:!widget.busy,onSelected:(v)=>_save({'MouthPressLipOpen':v}),
         itemBuilder:(_)=>const [PopupMenuItem(value:-1.0,child:Text('猫嘴')),PopupMenuItem(value:0.0,child:Text('默认')),PopupMenuItem(value:1.0,child:Text('弧线嘴'))])),
     const Text('小豆丁大小参数'),
-    Text((_smallPreview ?? (appearance['smallForm'] as num?)?.toDouble() ?? .8).toStringAsFixed(2)),
-    Slider(value:(_smallPreview ?? (appearance['smallForm'] as num?)?.toDouble() ?? .8).clamp(0,1).toDouble(),
+    Text((_smallPreview ?? (appearance['smallForm'] as num?)?.toDouble() ?? .55).toStringAsFixed(2)),
+    Slider(value:(_smallPreview ?? (appearance['smallForm'] as num?)?.toDouble() ?? .55).clamp(0,1).toDouble(),
       min:0,max:1,divisions:100,
       onChanged:widget.busy?null:(v)=>setState(()=>_smallPreview=v),
       onChangeEnd:widget.busy?null:(v)=>_save({'smallForm':v})),

@@ -77,6 +77,7 @@ class ThirdChannelDiagnostics {
       'streaming': raw['streaming'] == true,
       'request_bytes': number('request_bytes', 100000000),
       'transport_reused': raw['transport_reused'] == true,
+      'health_cached': raw['health_cached'] == true,
       'sse_tail_aborted': raw['sse_tail_aborted'] == true,
       'attempts': number('attempts', 2),
       'health_http_status': number('health_http_status', 599),
