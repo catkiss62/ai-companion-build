@@ -1,455 +1,486 @@
 status=failure
 build_result=cancelled
-run_id=41281355498
-run_url=https://github.com/catkiss62/ai-companion-build/actions/runs/41281355498
-head_sha=3279e04f7be267aab633d66178819bb92d15fd5e
+run_id=41281590055
+run_url=https://github.com/catkiss62/ai-companion-build/actions/runs/41281590055
+head_sha=c3d760b92d84daf9cfe7297ad2b6163183e0d9e4
 
 === failed or cancelled job logs ===
 
---- job=caicai-native-smoke conclusion=cancelled id=124773869966 ---
-﻿2026-11-01T06:34:46.0780223Z Current runner version: '2.338.2'
-2026-11-01T06:34:46.0816593Z ##[group]Runner Image Provisioner
-2026-11-01T06:34:46.0817927Z Hosted Compute Agent
-2026-11-01T06:34:46.0818989Z Version: 20261021.618
-2026-11-01T06:34:46.0820489Z Commit: 21505ad2541d5be6135ed84fc33697146cf75b8e
-2026-11-01T06:34:46.0821760Z Build Date: 2026-10-21T00:45:21Z
-2026-11-01T06:34:46.0823059Z Worker ID: {56283657-8cd0-4a5b-bf94-138a250f7ca8}
-2026-11-01T06:34:46.0824325Z Region: eastus
-2026-11-01T06:34:46.0825764Z Cloud: Azure
-2026-11-01T06:34:46.0826869Z ##[endgroup]
-2026-11-01T06:34:46.0829312Z ##[group]Operating System
-2026-11-01T06:34:46.0830749Z Ubuntu
-2026-11-01T06:34:46.0831664Z 26.04.1
-2026-11-01T06:34:46.0832664Z LTS
-2026-11-01T06:34:46.0833545Z ##[endgroup]
-2026-11-01T06:34:46.0834485Z ##[group]Runner Image
-2026-11-01T06:34:46.0835633Z Image: ubuntu-26.04
-2026-11-01T06:34:46.0836626Z Version: 20261025.179.1
-2026-11-01T06:34:46.0838912Z Included Software: https://github.com/actions/runner-images/blob/ubuntu26/20261025.179/images/ubuntu/Ubuntu2604-Readme.md
-2026-11-01T06:34:46.0842059Z Image Release: https://github.com/actions/runner-images/releases/tag/ubuntu26%2F20261025.179
-2026-11-01T06:34:46.0843782Z ##[endgroup]
-2026-11-01T06:34:46.0845937Z ##[group]GITHUB_TOKEN Permissions
-2026-11-01T06:34:46.0848894Z Actions: read
-2026-11-01T06:34:46.0850304Z Contents: write
-2026-11-01T06:34:46.0851277Z Metadata: read
-2026-11-01T06:34:46.0852333Z ##[endgroup]
-2026-11-01T06:34:46.0855725Z Secret source: Actions
-2026-11-01T06:34:46.0857371Z Cache mode: write
-2026-11-01T06:34:46.0858837Z Prepare workflow directory
-2026-11-01T06:34:46.1358487Z Prepare all required actions
-2026-11-01T06:34:46.1432732Z Getting action download info
-2026-11-01T06:34:46.3194642Z Download action repository 'actions/checkout@v4' (SHA:11d5960a326750d5838078e36cf38b85af677262)
-2026-11-01T06:34:46.4288030Z Download action repository 'actions/setup-java@v4' (SHA:cf277c60eb25467037889841efdb72551f06f6c3)
-2026-11-01T06:34:46.6089187Z Download action repository 'reactivecircus/android-emulator-runner@v2' (SHA:a421e43855164a8197daf9d8d40fe71c6996bb0d)
-2026-11-01T06:34:46.7655195Z Download action repository 'actions/upload-artifact@v4' (SHA:ea165f8d65b6e75b540449e92b4886f43607fa02)
-2026-11-01T06:34:46.9599487Z Complete job name: caicai-native-smoke
-2026-11-01T06:34:47.0585979Z ##[group]Run actions/checkout@v4
-2026-11-01T06:34:47.0587146Z with:
-2026-11-01T06:34:47.0587839Z   repository: catkiss62/ai-companion-build
-2026-11-01T06:34:47.0592337Z   token: ***
-2026-11-01T06:34:47.0593038Z   ssh-strict: true
-2026-11-01T06:34:47.0593652Z   ssh-user: git
-2026-11-01T06:34:47.0594286Z   persist-credentials: true
-2026-11-01T06:34:47.0594938Z   clean: true
-2026-11-01T06:34:47.0595529Z   sparse-checkout-cone-mode: true
-2026-11-01T06:34:47.0596242Z   fetch-depth: 1
-2026-11-01T06:34:47.0596848Z   fetch-tags: false
-2026-11-01T06:34:47.0597496Z   show-progress: true
-2026-11-01T06:34:47.0598112Z   lfs: false
-2026-11-01T06:34:47.0598684Z   submodules: false
-2026-11-01T06:34:47.0599344Z   set-safe-directory: true
-2026-11-01T06:34:47.0600380Z   allow-unsafe-pr-checkout: false
-2026-11-01T06:34:47.0601510Z ##[endgroup]
-2026-11-01T06:34:47.3369453Z Syncing repository: catkiss62/ai-companion-build
-2026-11-01T06:34:47.3372716Z ##[group]Getting Git version info
-2026-11-01T06:34:47.3374523Z Working directory is '/home/runner/work/ai-companion-build/ai-companion-build'
-2026-11-01T06:34:47.3376088Z [command]/usr/bin/git version
-2026-11-01T06:34:47.3393878Z git version 2.56.0
-2026-11-01T06:34:47.3418385Z ##[endgroup]
-2026-11-01T06:34:47.3434393Z Temporarily overriding HOME='/home/runner/work/_temp/93e82fc1-de48-4414-a5bc-f8939780dae8' before making global git config changes
-2026-11-01T06:34:47.3437116Z Adding repository directory to the temporary git global config as a safe directory
-2026-11-01T06:34:47.3439577Z [command]/usr/bin/git config --global --add safe.directory /home/runner/work/ai-companion-build/ai-companion-build
-2026-11-01T06:34:47.3512976Z Deleting the contents of '/home/runner/work/ai-companion-build/ai-companion-build'
-2026-11-01T06:34:47.3516506Z ##[group]Initializing the repository
-2026-11-01T06:34:47.3521969Z [command]/usr/bin/git init /home/runner/work/ai-companion-build/ai-companion-build
-2026-11-01T06:34:47.3650677Z hint: Using 'master' as the name for the initial branch. This default branch name
-2026-11-01T06:34:47.3652873Z hint: will change to "main" in Git 3.0. To configure the initial branch name
-2026-11-01T06:34:47.3654788Z hint: to use in all of your new repositories, which will suppress this warning,
-2026-11-01T06:34:47.3656432Z hint: call:
-2026-11-01T06:34:47.3657347Z hint:
-2026-11-01T06:34:47.3658642Z hint: 	git config --global init.defaultBranch <name>
-2026-11-01T06:34:47.3660337Z hint:
-2026-11-01T06:34:47.3661632Z hint: Names commonly chosen instead of 'master' are 'main', 'trunk' and
-2026-11-01T06:34:47.3663708Z hint: 'development'. The just-created branch can be renamed via this command:
-2026-11-01T06:34:47.3665302Z hint:
-2026-11-01T06:34:47.3666245Z hint: 	git branch -m <name>
-2026-11-01T06:34:47.3667320Z hint:
-2026-11-01T06:34:47.3668586Z hint: Disable this message with "git config set advice.defaultBranchName false"
-2026-11-01T06:34:47.3683259Z Initialized empty Git repository in /home/runner/work/ai-companion-build/ai-companion-build/.git/
-2026-11-01T06:34:47.3697306Z [command]/usr/bin/git remote add origin https://github.com/catkiss62/ai-companion-build
-2026-11-01T06:34:47.3753165Z ##[endgroup]
-2026-11-01T06:34:47.3754450Z ##[group]Disabling automatic garbage collection
-2026-11-01T06:34:47.3756787Z [command]/usr/bin/git config --local gc.auto 0
-2026-11-01T06:34:47.3792803Z ##[endgroup]
-2026-11-01T06:34:47.3793855Z ##[group]Setting up auth
-2026-11-01T06:34:47.3800639Z [command]/usr/bin/git config --local --name-only --get-regexp core\.sshCommand
-2026-11-01T06:34:47.3836522Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'core\.sshCommand' && git config --local --unset-all 'core.sshCommand' || :"
-2026-11-01T06:34:47.4344971Z [command]/usr/bin/git config --local --name-only --get-regexp http\.https\:\/\/github\.com\/\.extraheader
-2026-11-01T06:34:47.4382645Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'http\.https\:\/\/github\.com\/\.extraheader' && git config --local --unset-all 'http.https://github.com/.extraheader' || :"
-2026-11-01T06:34:47.4655738Z [command]/usr/bin/git config --local --name-only --get-regexp ^includeIf\.gitdir:
-2026-11-01T06:34:47.4692246Z [command]/usr/bin/git submodule foreach --recursive git config --local --show-origin --name-only --get-regexp remote.origin.url
-2026-11-01T06:34:47.4976551Z [command]/usr/bin/git config --local http.https://github.com/.extraheader AUTHORIZATION: basic ***
-2026-11-01T06:34:47.5018310Z ##[endgroup]
-2026-11-01T06:34:47.5020365Z ##[group]Fetching the repository
-2026-11-01T06:34:47.5030949Z [command]/usr/bin/git -c protocol.version=2 fetch --no-tags --prune --no-recurse-submodules --depth=1 origin +3279e04f7be267aab633d66178819bb92d15fd5e:refs/remotes/origin/agent/v042107-review-recovery
-2026-11-01T06:34:49.9014049Z From https://github.com/catkiss62/ai-companion-build
-2026-11-01T06:34:49.9015937Z  * [new ref]         3279e04f7be267aab633d66178819bb92d15fd5e -> origin/agent/v042107-review-recovery
-2026-11-01T06:34:49.9020778Z ##[endgroup]
-2026-11-01T06:34:49.9022034Z ##[group]Determining the checkout info
-2026-11-01T06:34:49.9023638Z ##[endgroup]
-2026-11-01T06:34:49.9028673Z [command]/usr/bin/git sparse-checkout disable
-2026-11-01T06:34:49.9082412Z [command]/usr/bin/git config --local --unset-all extensions.worktreeConfig
-2026-11-01T06:34:49.9112316Z ##[group]Checking out the ref
-2026-11-01T06:34:49.9116979Z [command]/usr/bin/git checkout --progress --force -B agent/v042107-review-recovery refs/remotes/origin/agent/v042107-review-recovery
-2026-11-01T06:34:50.3403633Z Switched to a new branch 'agent/v042107-review-recovery'
-2026-11-01T06:34:50.3410092Z branch 'agent/v042107-review-recovery' set up to track 'origin/agent/v042107-review-recovery'.
-2026-11-01T06:34:50.3454565Z ##[endgroup]
-2026-11-01T06:34:50.3502352Z [command]/usr/bin/git log -1 --format=%H
-2026-11-01T06:34:50.3526963Z 3279e04f7be267aab633d66178819bb92d15fd5e
-2026-11-01T06:34:50.3837347Z ##[group]Run actions/setup-java@v4
-2026-11-01T06:34:50.3837694Z with:
-2026-11-01T06:34:50.3837918Z   distribution: temurin
-2026-11-01T06:34:50.3838148Z   java-version: 17
-2026-11-01T06:34:50.3838371Z   java-package: jdk
-2026-11-01T06:34:50.3838595Z   check-latest: false
-2026-11-01T06:34:50.3838808Z   server-id: github
-2026-11-01T06:34:50.3839028Z   server-username: GITHUB_ACTOR
-2026-11-01T06:34:50.3839291Z   server-password: GITHUB_TOKEN
-2026-11-01T06:34:50.3839550Z   overwrite-settings: true
-2026-11-01T06:34:50.3839783Z   job-status: success
-2026-11-01T06:34:50.3842602Z   token: ***
-2026-11-01T06:34:50.3842842Z ##[endgroup]
-2026-11-01T06:34:50.5608894Z ##[warning]setup-java v4 is deprecated and will no longer receive updates. Please migrate to actions/setup-java@v5.
-2026-11-01T06:34:50.5617529Z ##[group]Installed distributions
-2026-11-01T06:34:50.5655919Z Resolved Java 17.0.21+9 from tool-cache
-2026-11-01T06:34:50.5656761Z Setting Java 17.0.21+9 as the default
-2026-11-01T06:34:50.5668822Z (node:2399) [DEP0040] DeprecationWarning: The `punycode` module is deprecated. Please use a userland alternative instead.
-2026-11-01T06:34:50.5670211Z (Use `node --trace-deprecation ...` to show where the warning was created)
-2026-11-01T06:34:50.5674043Z Creating toolchains.xml for JDK version 17 from temurin
-2026-11-01T06:34:50.5753610Z Writing to /home/runner/.m2/toolchains.xml
-2026-11-01T06:34:50.5754248Z 
-2026-11-01T06:34:50.5754511Z Java configuration:
-2026-11-01T06:34:50.5755022Z   Distribution: temurin
-2026-11-01T06:34:50.5755512Z   Version: 17.0.21+9
-2026-11-01T06:34:50.5756122Z   Path: /opt/hostedtoolcache/Java_Temurin-Hotspot_jdk/17.0.21-9/x64
-2026-11-01T06:34:50.5756673Z 
-2026-11-01T06:34:50.5757355Z ##[endgroup]
-2026-11-01T06:34:50.5779026Z Creating settings.xml with server-id: github
-2026-11-01T06:34:50.5805610Z Writing to /home/runner/.m2/settings.xml
-2026-11-01T06:34:50.5988438Z ##[group]Run echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
-2026-11-01T06:34:50.5989383Z [36;1mecho 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules[0m
-2026-11-01T06:34:50.5990292Z [36;1msudo udevadm control --reload-rules[0m
-2026-11-01T06:34:50.5990646Z [36;1msudo udevadm trigger --name-match=kvm[0m
-2026-11-01T06:34:50.6038117Z shell: /usr/bin/bash -e {0}
-2026-11-01T06:34:50.6038667Z env:
-2026-11-01T06:34:50.6039102Z   JAVA_HOME: /opt/hostedtoolcache/Java_Temurin-Hotspot_jdk/17.0.21-9/x64
-2026-11-01T06:34:50.6039765Z   JAVA_HOME_17_X64: /opt/hostedtoolcache/Java_Temurin-Hotspot_jdk/17.0.21-9/x64
-2026-11-01T06:34:50.6040598Z ##[endgroup]
-2026-11-01T06:34:50.6240761Z KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"
-2026-11-01T06:34:50.6846310Z ##[group]Run reactivecircus/android-emulator-runner@v2
-2026-11-01T06:34:50.6846749Z with:
-2026-11-01T06:34:50.6846974Z   api-level: 35
-2026-11-01T06:34:50.6847186Z   arch: x86_64
-2026-11-01T06:34:50.6847386Z   target: google_apis
-2026-11-01T06:34:50.6847618Z   disable-animations: true
-2026-11-01T06:34:50.6848064Z   emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none
-2026-11-01T06:34:50.6848584Z   script: bash app/tools/run_native_smoke_v04257.sh
-2026-11-01T06:34:50.6848878Z   cores: 2
-2026-11-01T06:34:50.6849068Z   avd-name: test
-2026-11-01T06:34:50.6849285Z   force-avd-creation: true
-2026-11-01T06:34:50.6849527Z   emulator-boot-timeout: 600
-2026-11-01T06:34:50.6849766Z   emulator-port: 5554
-2026-11-01T06:34:50.6850363Z   disable-spellchecker: false
-2026-11-01T06:34:50.6850633Z   disable-linux-hw-accel: auto
-2026-11-01T06:34:50.6850891Z   enable-hw-keyboard: false
-2026-11-01T06:34:50.6851126Z   channel: stable
-2026-11-01T06:34:50.6851360Z env:
-2026-11-01T06:34:50.6851664Z   JAVA_HOME: /opt/hostedtoolcache/Java_Temurin-Hotspot_jdk/17.0.21-9/x64
-2026-11-01T06:34:50.6852423Z   JAVA_HOME_17_X64: /opt/hostedtoolcache/Java_Temurin-Hotspot_jdk/17.0.21-9/x64
-2026-11-01T06:34:50.6852806Z ##[endgroup]
-2026-11-01T06:34:50.7474135Z ##[group]Configure emulator
-2026-11-01T06:34:50.7476400Z API level: 35
-2026-11-01T06:34:50.7476816Z System image API level: 35
-2026-11-01T06:34:50.7477270Z target: google_apis
-2026-11-01T06:34:50.7478150Z CPU architecture: x86_64
-2026-11-01T06:34:50.7478694Z Hardware profile: 
-2026-11-01T06:34:50.7479289Z Cores: 2
-2026-11-01T06:34:50.7490989Z RAM size: 
-2026-11-01T06:34:50.7491358Z Heap size: 
-2026-11-01T06:34:50.7491698Z SD card path or size: 
-2026-11-01T06:34:50.7492073Z Disk size: 
-2026-11-01T06:34:50.7492385Z AVD name: test
-2026-11-01T06:34:50.7492701Z force avd creation: true
-2026-11-01T06:34:50.7492951Z Emulator boot timeout: 600
-2026-11-01T06:34:50.7493195Z emulator port: 5554
-2026-11-01T06:34:50.7493711Z emulator options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none
-2026-11-01T06:34:50.7494228Z disable animations: true
-2026-11-01T06:34:50.7494479Z disable spellchecker: false
-2026-11-01T06:34:50.7494793Z disable Linux hardware acceleration: false
-2026-11-01T06:34:50.7495128Z enable hardware keyboard: false
-2026-11-01T06:34:50.7495467Z Channel: 0 (stable)
-2026-11-01T06:34:50.7495690Z Script:
-2026-11-01T06:34:50.7495907Z bash app/tools/run_native_smoke_v04257.sh
-2026-11-01T06:34:50.7496202Z Pre emulator launch script:
-2026-11-01T06:34:50.7496668Z ##[endgroup]
-2026-11-01T06:34:50.7497024Z ##[group]Install Android SDK
-2026-11-01T06:34:50.7557789Z [command]/usr/bin/sh -c \yes | sdkmanager --licenses > /dev/null
-2026-11-01T06:34:55.8228562Z Installing latest build tools, platform tools, and platform.
-2026-11-01T06:34:55.8243522Z [command]/usr/bin/sh -c \sdkmanager --install 'build-tools;37.0.0' platform-tools 'platforms;android-35'> /dev/null
-2026-11-01T06:34:57.5951006Z Installing latest emulator.
-2026-11-01T06:34:57.5964706Z [command]/usr/bin/sh -c \sdkmanager --install emulator --channel=0 > /dev/null
-2026-11-01T06:35:05.9000985Z Installing system images.
-2026-11-01T06:35:05.9018855Z [command]/usr/bin/sh -c \sdkmanager --install 'system-images;android-35;google_apis;x86_64' --channel=0 > /dev/null
-2026-11-01T06:35:31.0672428Z ##[endgroup]
-2026-11-01T06:35:31.0674266Z ##[group]Create AVD
-2026-11-01T06:35:31.0676034Z Creating AVD.
-2026-11-01T06:35:31.0693592Z [command]/usr/bin/sh -c \echo no | avdmanager create avd --force -n test --package 'system-images;android-35;google_apis;x86_64'
-2026-11-01T06:35:31.9698626Z Loading local repository...                                                     
-2026-11-01T06:35:32.0293738Z [=========                              ] 25% Loading local repository...       
-2026-11-01T06:35:32.0294908Z Auto-selecting single ABI x86_64
-2026-11-01T06:35:32.0964629Z Do you wish to create a custom hardware profile? [no] [command]/usr/bin/sh -c \printf 'hw.cpu.ncore=2\n' >> /home/runner/.android/avd/test.avd/config.ini
-2026-11-01T06:35:32.0987800Z ##[endgroup]
-2026-11-01T06:35:32.0989766Z ##[group]Launch Emulator
-2026-11-01T06:35:32.0991614Z Starting emulator.
-2026-11-01T06:35:32.1006902Z [command]/usr/bin/sh -c \/usr/local/lib/android/sdk/emulator/emulator -port 5554 -avd test -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none &
-2026-11-01T06:35:32.1123230Z INFO         | Android emulator version 37.2.13.0 (build_id 16740729) (CL:N/A)
-2026-11-01T06:35:32.1123972Z INFO         | Graphics backend: gfxstream
-2026-11-01T06:35:32.1124834Z INFO         | Found systemPath /usr/local/lib/android/sdk/system-images/android-35/google_apis/x86_64/
-2026-11-01T06:35:32.1577552Z INFO         | Saving last run QEMU version for the AVD to 2
-2026-11-01T06:35:32.1578716Z INFO         | Increasing RAM size to 2560MB
-2026-11-01T06:35:32.1579341Z ##############################################################################
-2026-11-01T06:35:32.1580392Z ##                        WARNING - ACTION REQUIRED                         ##
-2026-11-01T06:35:32.1581628Z ##  Consider using the '-metrics-collection' flag to help improve the       ##
-2026-11-01T06:35:32.1582542Z ##  emulator by sending anonymized usage data. Or use the '-no-metrics'     ##
-2026-11-01T06:35:32.1583430Z ##  flag to bypass this warning and turn off the metrics collection.        ##
-2026-11-01T06:35:32.1584308Z ##  In a future release this warning will turn into a one-time blocking     ##
-2026-11-01T06:35:32.1585232Z ##  prompt to ask for explicit user input regarding metrics collection.     ##
-2026-11-01T06:35:32.1585968Z ##                                                                          ##
-2026-11-01T06:35:32.1586713Z ##  Please see '-help-metrics-collection' for more details. You can use     ##
-2026-11-01T06:35:32.1587616Z ##  '-metrics-to-file' or '-metrics-to-console' flags to see what type of   ##
-2026-11-01T06:35:32.1588584Z ##  data is being collected by emulator as part of usage statistics.        ##
-2026-11-01T06:35:32.1589330Z ##############################################################################
-2026-11-01T06:35:32.1590180Z INFO         | Guest GLES Driver: Auto (ext controls)
-2026-11-01T06:35:32.1590949Z INFO         | emuglConfig_init: vulkan_mode_selected:swiftshader gles_mode_selected:swiftshader
-2026-11-01T06:35:32.1591732Z INFO         | Checking system compatibility:
-2026-11-01T06:35:32.1592252Z INFO         |   Checking: hasSufficientDiskSpace
-2026-11-01T06:35:32.1592877Z INFO         |      Ok: Disk space requirements to run avd: `test` are met
-2026-11-01T06:35:32.1593543Z INFO         |   Checking: hasSufficientHwGpu
-2026-11-01T06:35:32.1594184Z INFO         |      Ok: Hardware GPU compatibility checks are not required
-2026-11-01T06:35:32.1594848Z INFO         |   Checking: hasSufficientSystem
-2026-11-01T06:35:32.1595465Z INFO         |      Ok: System requirements to run avd: `test` are met
-2026-11-01T06:35:32.1596941Z WARNING      | Feature QuickbootFileBacked is disabled due to stability issues, if you really want that, the environment variable ANDROID_EMU_FORCE_QUICKBOOT_FILE_BACKED need to set to 1
-2026-11-01T06:35:32.6321880Z ERROR        | Unable to connect to adb daemon on port: 5037
-2026-11-01T06:35:32.6331526Z INFO         | Storing crashdata in: /tmp/android-runner/emu-crash-37.2.13.db, detection is enabled for process: 2835
-2026-11-01T06:35:32.6332594Z INFO         | Initializing gfxstream backend
-2026-11-01T06:35:32.6336269Z INFO         | startOpenglesRendererImpl: gpu info
-2026-11-01T06:35:32.6336817Z INFO         | 
-2026-11-01T06:35:32.6339298Z INFO         | initIcdPaths: ICD set to 'swiftshader', using Swiftshader ICD
-2026-11-01T06:35:32.6340823Z INFO         | Setting ICD filenames for the loader = /usr/local/lib/android/sdk/emulator/lib64/vulkan/vk_swiftshader_icd.json
-2026-11-01T06:35:32.6342317Z INFO         | SharedLibrary::open for [/usr/local/lib/android/sdk/emulator/qemu/linux-x86_64/lib64/vulkan/libvulkan.so]
-2026-11-01T06:35:32.6344015Z INFO         | SharedLibrary::open for [/usr/local/lib/android/sdk/emulator/qemu/linux-x86_64/lib64/vulkan/libvulkan.so.1]
-2026-11-01T06:35:32.6345286Z INFO         | SharedLibrary::open for [/usr/local/lib/android/sdk/emulator/lib64/vulkan/libvulkan.so]
-2026-11-01T06:35:32.6346327Z INFO         | Added library: /usr/local/lib/android/sdk/emulator/lib64/vulkan/libvulkan.so
-2026-11-01T06:35:32.6402676Z INFO         | Selecting Vulkan device: SwiftShader Device (Subzero), Version: 1.3.0
-2026-11-01T06:35:32.6403203Z INFO         | Using Vulkan externalMemoryMode: OpaqueFd for VkEmulation
-2026-11-01T06:35:32.6973477Z INFO         | Format VK_FORMAT_G10X6_B10X6R10X6_2PLANE_422_UNORM_3PACK16 does not support YCbCr sampler conversion
-2026-11-01T06:35:32.7011350Z INFO         | SharedLibrary::open for [libX11]
-2026-11-01T06:35:32.7014049Z WARNING      | Could not open libX11.so, try libX11.so.6
-2026-11-01T06:35:32.7014871Z INFO         | SharedLibrary::open for [libX11.so.6]
-2026-11-01T06:35:32.7015644Z INFO         | SharedLibrary::open for [libX11-xcb]
-2026-11-01T06:35:32.7016940Z WARNING      | Could not open libX11-xcb.so, try libX11-xcb.so.1
-2026-11-01T06:35:32.7017908Z INFO         | SharedLibrary::open for [libX11-xcb.so.1]
-2026-11-01T06:35:32.7094514Z INFO         | Initializing VkEmulation features:
-2026-11-01T06:35:32.7095581Z INFO         |     glInteropSupported: false
-2026-11-01T06:35:32.7096246Z INFO         |     useDeferredCommands: true
-2026-11-01T06:35:32.7096932Z INFO         |     createResourceWithRequirements: true
-2026-11-01T06:35:32.7097630Z INFO         |     useVulkanComposition: false
-2026-11-01T06:35:32.7098306Z INFO         |     useVulkanNativeSwapchain: false
-2026-11-01T06:35:32.7098987Z INFO         |     enable guestRenderDoc: false
-2026-11-01T06:35:32.7099629Z INFO         |     ASTC LDR emulation mode: Gpu
-2026-11-01T06:35:32.7100383Z INFO         |     enable ETC2 emulation: true
-2026-11-01T06:35:32.7100886Z INFO         |     enable Ycbcr emulation: false
-2026-11-01T06:35:32.7101418Z INFO         |     guestVulkanOnly: false
-2026-11-01T06:35:32.7101932Z INFO         |     useDedicatedAllocations: false
-2026-11-01T06:35:32.7102465Z INFO         |     guestVulkanMaxApiVersion: 1.3.0
-2026-11-01T06:35:32.7103089Z INFO         |     enableProtectedMemoryEmulation: false
-2026-11-01T06:35:32.7105196Z INFO         | Graphics Adapter Vendor Google (Google Inc.)
-2026-11-01T06:35:32.7106002Z INFO         | Graphics Adapter Android Emulator OpenGL ES Translator (Google SwiftShader)
-2026-11-01T06:35:32.7106823Z INFO         | Graphics API Version OpenGL ES 3.0 (OpenGL ES 3.0 SwiftShader 4.0.0.1)
-2026-11-01T06:35:32.7109583Z INFO         | Graphics API Extensions GL_OES_EGL_sync GL_OES_EGL_image GL_OES_EGL_image_external GL_OES_depth24 GL_OES_depth32 GL_OES_element_index_uint GL_OES_texture_float GL_OES_texture_float_linear GL_OES_compressed_paletted_texture GL_OES_compressed_ETC1_RGB8_texture GL_OES_depth_texture GL_OES_texture_half_float GL_OES_texture_half_float_linear GL_OES_packed_depth_stencil GL_OES_vertex_half_float GL_OES_standard_derivatives GL_OES_texture_npot GL_OES_rgb8_rgba8 GL_EXT_color_buffer_float GL_EXT_color_buffer_half_float GL_EXT_texture_format_BGRA8888 GL_APPLE_texture_format_BGRA8888 
-2026-11-01T06:35:32.7112530Z INFO         | Graphics Device Extensions N/A
-2026-11-01T06:35:32.7112877Z INFO         | Disabling sparse binding feature support
-2026-11-01T06:35:32.7177235Z INFO         | Sending adb public key [QAAAAGNx1xW1Zxr0aGP1/irWsZ+u80ss+Arp6Mp4unzFNiC4VMo4JUNZwCyg5BwFMCNbA4vyOUR7JsUlDYyk5dwW+fMWS1waLodFH9jiwfnHKeCcnm1C4l7cWcUKFRFIM0NosEJXonHmAklXwOY6RYBTg24dwRJagwaDzFwzROFamPV5719nAVr6s4jY0Cf5cJ3YF5mLxDa3RXer+7EZAGs0KeT2BDtmZNVV/ereDev8J7Kro5wIDlAc5w75a2KhgUlpZGRFwaWYMn5bUphtt4YQgPbaO5AmBUlIjNlyKmU+umY7mXBA1u8H635nuVFHoAlxQQlP2S3yL4LEKt5aE9EGAEiInGrgB0kl5dDt1ROu0L4UgWtptZJbA1TpdPVSZdriPJo4/QnNhZuqkWm7vbCOJSWWBCw6oae6YYKZqBQfeMshDcEeCdsBbeWJcEktzulitL/lL5CVdOapZxeosaMSHQxE4olkxA3Ah3mPcoreoMnBoraeG0n3vJM9NBCfOJyEWGcFKKzTkOwVdQ35TzxH8ZnE7yIOvvydLwBBJQ2D0DnztEGM2Q4c+X9B3bZlIFOhJkllO4WPGW0w/25zAopcCSr3iMuorK++UdSc+/1oIsiL50cnPlWftnDFH3cZp06iVHFLUYSlPQMxhb8g0KmnbU78ozm7yjCT8uRprFxLsLpf1HE2QgEAAQA= runner@unknown]
-2026-11-01T06:35:32.7184576Z INFO         | Userspace boot properties:
-2026-11-01T06:35:32.7185460Z INFO         |   androidboot.boot_devices=pci0000:00/0000:00:03.0 pci0000:00/0000:00:06.0
-2026-11-01T06:35:32.7186142Z INFO         |   androidboot.dalvik.vm.heapsize=576m
-2026-11-01T06:35:32.7186531Z INFO         |   androidboot.debug.hwui.renderer=skiagl
-2026-11-01T06:35:32.7186898Z INFO         |   androidboot.debug.sf.nobootanimation=1
-2026-11-01T06:35:32.7187230Z INFO         |   androidboot.hardware=ranchu
-2026-11-01T06:35:32.7187564Z INFO         |   androidboot.hardware.gltransport=pipe
-2026-11-01T06:35:32.7187910Z INFO         |   androidboot.hardware.vulkan=ranchu
-2026-11-01T06:35:32.7188215Z INFO         |   androidboot.logcat=*:V
-2026-11-01T06:35:32.7188525Z INFO         |   androidboot.opengles.version=196608
-2026-11-01T06:35:32.7188839Z INFO         |   androidboot.qemu=1
-2026-11-01T06:35:32.7195705Z INFO         |   androidboot.qemu.adb.pubkey=QAAAAGNx1xW1Zxr0aGP1/irWsZ+u80ss+Arp6Mp4unzFNiC4VMo4JUNZwCyg5BwFMCNbA4vyOUR7JsUlDYyk5dwW+fMWS1waLodFH9jiwfnHKeCcnm1C4l7cWcUKFRFIM0NosEJXonHmAklXwOY6RYBTg24dwRJagwaDzFwzROFamPV5719nAVr6s4jY0Cf5cJ3YF5mLxDa3RXer+7EZAGs0KeT2BDtmZNVV/ereDev8J7Kro5wIDlAc5w75a2KhgUlpZGRFwaWYMn5bUphtt4YQgPbaO5AmBUlIjNlyKmU+umY7mXBA1u8H635nuVFHoAlxQQlP2S3yL4LEKt5aE9EGAEiInGrgB0kl5dDt1ROu0L4UgWtptZJbA1TpdPVSZdriPJo4/QnNhZuqkWm7vbCOJSWWBCw6oae6YYKZqBQfeMshDcEeCdsBbeWJcEktzulitL/lL5CVdOapZxeosaMSHQxE4olkxA3Ah3mPcoreoMnBoraeG0n3vJM9NBCfOJyEWGcFKKzTkOwVdQ35TzxH8ZnE7yIOvvydLwBBJQ2D0DnztEGM2Q4c+X9B3bZlIFOhJkllO4WPGW0w/25zAopcCSr3iMuorK++UdSc+/1oIsiL50cnPlWftnDFH3cZp06iVHFLUYSlPQMxhb8g0KmnbU78ozm7yjCT8uRprFxLsLpf1HE2QgEAAQA= runner@unknown
-2026-11-01T06:35:32.7203087Z INFO         |   androidboot.qemu.avd_name=test
-2026-11-01T06:35:32.7203727Z INFO         |   androidboot.qemu.camera_hq_edge_processing=0
-2026-11-01T06:35:32.7204389Z INFO         |   androidboot.qemu.camera_protocol_ver=1
-2026-11-01T06:35:32.7205019Z INFO         |   androidboot.qemu.cpuvulkan.version=4206592
-2026-11-01T06:35:32.7205739Z INFO         |   androidboot.qemu.gltransport.drawFlushInterval=800
-2026-11-01T06:35:32.7206438Z INFO         |   androidboot.qemu.gltransport.name=pipe
-2026-11-01T06:35:32.7207047Z INFO         |   androidboot.qemu.hwcodec.avcdec=2
-2026-11-01T06:35:32.7207636Z INFO         |   androidboot.qemu.hwcodec.hevcdec=2
-2026-11-01T06:35:32.7208218Z INFO         |   androidboot.qemu.hwcodec.vpxdec=2
-2026-11-01T06:35:32.7208953Z INFO         |   androidboot.qemu.settings.system.screen_off_timeout=2147483647
-2026-11-01T06:35:32.7209723Z INFO         |   androidboot.qemu.skin=320x640
-2026-11-01T06:35:32.7210493Z INFO         |   androidboot.qemu.virtiowifi=1
-2026-11-01T06:35:32.7211025Z INFO         |   androidboot.qemu.vsync=60
-2026-11-01T06:35:32.7211576Z INFO         |   androidboot.serialno=EMULATOR37X2X13X0
-2026-11-01T06:35:32.7212496Z INFO         |   androidboot.vbmeta.digest=b3271ba499104f4631ae3723913d5c12574e01715fce5b82d60beed097ead264
-2026-11-01T06:35:32.7213409Z INFO         |   androidboot.vbmeta.hash_alg=sha256
-2026-11-01T06:35:32.7213971Z INFO         |   androidboot.vbmeta.size=6720
-2026-11-01T06:35:32.7214504Z INFO         |   androidboot.veritymode=enforcing
-2026-11-01T06:35:32.7378573Z WARNING: cannnot unmap ptr 0x76774b601000 as it is in the protected range from 0x7676ab600000 to 0x76774b800000
-2026-11-01T06:35:32.7668535Z INFO         | Monitoring duration of emulator setup.
-2026-11-01T06:35:33.7682588Z INFO         | Successfully initialized netsim WiFi
-2026-11-01T06:35:33.7683262Z INFO         | Activated packet streamer for bluetooth emulation
-2026-11-01T06:35:33.7741057Z INFO         | Setting display: 0 configuration to: 320x640, dpi: 160x160 
-2026-11-01T06:35:33.7741831Z INFO         | setDisplayActiveConfig: id:0, 320x640
-2026-11-01T06:35:33.7742763Z INFO         | emulatorSetupEnvironment: Environment scene is not required
-2026-11-01T06:35:33.7822468Z INFO         | Loading snapshot 'default_boot'...
-2026-11-01T06:35:33.7824960Z WARNING      | Failed to process .ini file /home/runner/.android/emu-update-last-check.ini for reading.
-2026-11-01T06:35:33.8021749Z WARNING      | Device 'cache' does not have the requested snapshot 'default_boot'
-2026-11-01T06:35:33.8040446Z 
-2026-11-01T06:35:33.8060883Z WARNING      | Failed to load snapshot 'default_boot'
-2026-11-01T06:35:33.8062043Z USER_INFO    | The emulator is performing a cold boot without a saved state because there's no snapshot and you have configured it not to save on exit.
-2026-11-01T06:35:33.8785584Z WARNING      | Failed to process .ini file /home/runner/.android/emu-update-last-check.ini for reading.
-2026-11-01T06:35:42.1075702Z [command]/usr/local/lib/android/sdk/platform-tools/adb -s emulator-5554 shell getprop sys.boot_completed
-2026-11-01T06:35:42.1140747Z * daemon not running; starting now at tcp:5037
-2026-11-01T06:35:42.1694552Z * daemon started successfully
-2026-11-01T06:35:42.1701036Z The process '/usr/local/lib/android/sdk/platform-tools/adb' failed with exit code 1
-2026-11-01T06:35:42.1704515Z adb: device offline
-2026-11-01T06:35:44.1751526Z [command]/usr/local/lib/android/sdk/platform-tools/adb -s emulator-5554 shell getprop sys.boot_completed
-2026-11-01T06:35:44.1787387Z adb: device offline
-2026-11-01T06:35:44.1794354Z The process '/usr/local/lib/android/sdk/platform-tools/adb' failed with exit code 1
-2026-11-01T06:35:46.1861659Z [command]/usr/local/lib/android/sdk/platform-tools/adb -s emulator-5554 shell getprop sys.boot_completed
-2026-11-01T06:35:46.2052285Z 
-2026-11-01T06:35:48.2103729Z [command]/usr/local/lib/android/sdk/platform-tools/adb -s emulator-5554 shell getprop sys.boot_completed
-2026-11-01T06:35:48.2400609Z 
-2026-11-01T06:35:50.2502031Z [command]/usr/local/lib/android/sdk/platform-tools/adb -s emulator-5554 shell getprop sys.boot_completed
-2026-11-01T06:35:50.2659308Z 
-2026-11-01T06:35:52.2777706Z [command]/usr/local/lib/android/sdk/platform-tools/adb -s emulator-5554 shell getprop sys.boot_completed
-2026-11-01T06:35:52.2987950Z 
-2026-11-01T06:35:54.3045203Z [command]/usr/local/lib/android/sdk/platform-tools/adb -s emulator-5554 shell getprop sys.boot_completed
-2026-11-01T06:35:54.3582415Z 
-2026-11-01T06:35:56.3641711Z [command]/usr/local/lib/android/sdk/platform-tools/adb -s emulator-5554 shell getprop sys.boot_completed
-2026-11-01T06:35:56.3936123Z 
-2026-11-01T06:35:58.4071726Z [command]/usr/local/lib/android/sdk/platform-tools/adb -s emulator-5554 shell getprop sys.boot_completed
-2026-11-01T06:35:58.4335757Z 
-2026-11-01T06:36:00.4427322Z [command]/usr/local/lib/android/sdk/platform-tools/adb -s emulator-5554 shell getprop sys.boot_completed
-2026-11-01T06:36:00.4830409Z 
-2026-11-01T06:36:02.4937654Z [command]/usr/local/lib/android/sdk/platform-tools/adb -s emulator-5554 shell getprop sys.boot_completed
-2026-11-01T06:36:02.5175479Z 
-2026-11-01T06:36:04.5207199Z [command]/usr/local/lib/android/sdk/platform-tools/adb -s emulator-5554 shell getprop sys.boot_completed
-2026-11-01T06:36:04.5465949Z 
-2026-11-01T06:36:06.5519146Z [command]/usr/local/lib/android/sdk/platform-tools/adb -s emulator-5554 shell getprop sys.boot_completed
-2026-11-01T06:36:06.5746614Z 
-2026-11-01T06:36:07.4518023Z INFO         | Boot completed in 35312 ms
-2026-11-01T06:36:07.4531095Z INFO         | Increasing screen off timeout, logcat buffer size to 2M.
-2026-11-01T06:36:08.5832118Z [command]/usr/local/lib/android/sdk/platform-tools/adb -s emulator-5554 shell getprop sys.boot_completed
-2026-11-01T06:36:08.6444269Z 1
-2026-11-01T06:36:08.6465136Z Emulator booted.
-2026-11-01T06:36:08.6524302Z [command]/usr/local/lib/android/sdk/platform-tools/adb -s emulator-5554 shell input keyevent 82
-2026-11-01T06:36:14.4869540Z Disabling animations.
-2026-11-01T06:36:14.4943000Z [command]/usr/local/lib/android/sdk/platform-tools/adb -s emulator-5554 shell settings put global window_animation_scale 0.0
-2026-11-01T06:36:14.5276419Z [command]/usr/local/lib/android/sdk/platform-tools/adb -s emulator-5554 shell settings put global transition_animation_scale 0.0
-2026-11-01T06:36:14.5768065Z [command]/usr/local/lib/android/sdk/platform-tools/adb -s emulator-5554 shell settings put global animator_duration_scale 0.0
-2026-11-01T06:36:14.6295954Z ##[endgroup]
-2026-11-01T06:36:14.6350512Z [command]/usr/bin/sh -c bash app/tools/run_native_smoke_v04257.sh
-2026-11-01T06:36:14.9126287Z Downloading https://services.gradle.org/distributions/gradle-8.12-all.zip
-2026-11-01T06:36:17.7620428Z ................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................
-2026-11-01T06:36:17.7663513Z Unzipping /home/runner/.gradle/wrapper/dists/gradle-8.12-all/ejduaidbjup3bmmkhw3rie4zb/gradle-8.12-all.zip to /home/runner/.gradle/wrapper/dists/gradle-8.12-all/ejduaidbjup3bmmkhw3rie4zb
-2026-11-01T06:36:21.3026404Z Set executable permissions for: /home/runner/.gradle/wrapper/dists/gradle-8.12-all/ejduaidbjup3bmmkhw3rie4zb/gradle-8.12/bin/gradle
-2026-11-01T06:36:22.0250897Z 
-2026-11-01T06:36:22.0256909Z Welcome to Gradle 8.12!
-2026-11-01T06:36:22.0257428Z 
-2026-11-01T06:36:22.0257799Z Here are the highlights of this release:
-2026-11-01T06:36:22.0258677Z  - Enhanced error and warning reporting with the Problems API
-2026-11-01T06:36:22.0259684Z  - File-system watching support on Alpine Linux
-2026-11-01T06:36:22.0260765Z  - Build and test Swift 6 libraries and apps
-2026-11-01T06:36:22.0261317Z 
-2026-11-01T06:36:22.0261852Z For more details see https://docs.gradle.org/8.12/release-notes.html
-2026-11-01T06:36:22.0262499Z 
-2026-11-01T06:36:22.2196721Z Starting a Gradle Daemon (subsequent builds will be faster)
-2026-11-01T06:37:37.4122496Z ##[error]The operation was canceled.
-2026-11-01T06:37:37.4271638Z ##[group]Run actions/upload-artifact@v4
-2026-11-01T06:37:37.4272113Z with:
-2026-11-01T06:37:37.4272479Z   name: Caicai-v04243-native-smoke-results
-2026-11-01T06:37:37.4273055Z   path: app/tools/caicai_smoke/build/outputs/androidTest-results/
-2026-11-01T06:37:37.4273596Z   retention-days: 14
-2026-11-01T06:37:37.4274220Z   if-no-files-found: warn
-2026-11-01T06:37:37.4274575Z   compression-level: 6
-2026-11-01T06:37:37.4274898Z   overwrite: false
-2026-11-01T06:37:37.4275219Z   include-hidden-files: false
-2026-11-01T06:37:37.4275572Z env:
-2026-11-01T06:37:37.4276012Z   JAVA_HOME: /opt/hostedtoolcache/Java_Temurin-Hotspot_jdk/17.0.21-9/x64
-2026-11-01T06:37:37.4276770Z   JAVA_HOME_17_X64: /opt/hostedtoolcache/Java_Temurin-Hotspot_jdk/17.0.21-9/x64
-2026-11-01T06:37:37.4277475Z   ANDROID_AVD_HOME: /home/runner/.android/avd
-2026-11-01T06:37:37.4277892Z ##[endgroup]
-2026-11-01T06:37:37.8861156Z (node:3349) [DEP0040] DeprecationWarning: The `punycode` module is deprecated. Please use a userland alternative instead.
-2026-11-01T06:37:37.8866778Z (Use `node --trace-deprecation ...` to show where the warning was created)
-2026-11-01T06:37:37.9003117Z ##[warning]No files were found with the provided path: app/tools/caicai_smoke/build/outputs/androidTest-results/. No artifacts will be uploaded.
-2026-11-01T06:37:37.9609535Z Post job cleanup.
-2026-11-01T06:37:38.3852811Z (node:3364) [DEP0040] DeprecationWarning: The `punycode` module is deprecated. Please use a userland alternative instead.
-2026-11-01T06:37:38.3951331Z (Use `node --trace-deprecation ...` to show where the warning was created)
-2026-11-01T06:37:38.4511973Z Post job cleanup.
-2026-11-01T06:37:38.7642071Z [command]/usr/bin/git version
-2026-11-01T06:37:38.7762543Z git version 2.56.0
-2026-11-01T06:37:38.7884352Z Temporarily overriding HOME='/home/runner/work/_temp/f306e041-f60b-4b03-8b03-feb0799d6742' before making global git config changes
-2026-11-01T06:37:38.7891072Z Adding repository directory to the temporary git global config as a safe directory
-2026-11-01T06:37:38.7943005Z [command]/usr/bin/git config --global --add safe.directory /home/runner/work/ai-companion-build/ai-companion-build
-2026-11-01T06:37:38.8018566Z [command]/usr/bin/git config --local --name-only --get-regexp core\.sshCommand
-2026-11-01T06:37:38.8061529Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'core\.sshCommand' && git config --local --unset-all 'core.sshCommand' || :"
-2026-11-01T06:37:38.9027561Z [command]/usr/bin/git config --local --name-only --get-regexp http\.https\:\/\/github\.com\/\.extraheader
-2026-11-01T06:37:38.9097294Z http.https://github.com/.extraheader
-2026-11-01T06:37:38.9254354Z [command]/usr/bin/git config --local --unset-all http.https://github.com/.extraheader
-2026-11-01T06:37:38.9353217Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'http\.https\:\/\/github\.com\/\.extraheader' && git config --local --unset-all 'http.https://github.com/.extraheader' || :"
-2026-11-01T06:37:38.9880893Z [command]/usr/bin/git config --local --name-only --get-regexp ^includeIf\.gitdir:
-2026-11-01T06:37:38.9950258Z [command]/usr/bin/git submodule foreach --recursive git config --local --show-origin --name-only --get-regexp remote.origin.url
-2026-11-01T06:37:39.1406937Z Cleaning up orphan processes
-2026-11-01T06:37:39.2897047Z Terminate orphan process: pid (2835) (qemu-system-x86_64-headless)
-2026-11-01T06:37:39.3219381Z Terminate orphan process: pid (2840) (crashpad_handler)
-2026-11-01T06:37:39.3488389Z Terminate orphan process: pid (2900) (netsimd)
-2026-11-01T06:37:39.3645212Z Terminate orphan process: pid (2937) (adb)
-2026-11-01T06:37:39.3792236Z Terminate orphan process: pid (3050) (sh)
-2026-11-01T06:37:39.3932892Z Terminate orphan process: pid (3051) (bash)
-2026-11-01T06:37:39.4074212Z Terminate orphan process: pid (3057) (java)
-2026-11-01T06:37:39.4237045Z Terminate orphan process: pid (3100) (java)
-2026-11-01T06:37:39.4358652Z Terminate orphan process: pid (3319) (sh)
-2026-11-01T06:37:39.4513385Z Terminate orphan process: pid (3323) (sh)
-2026-11-01T06:37:39.4596996Z Terminate orphan process: pid (3332) (sh)
-2026-11-01T06:37:39.4681748Z Terminate orphan process: pid (3335) (sh)
-2026-11-01T06:37:39.4764207Z Terminate orphan process: pid (3337) (sh)
-2026-11-01T06:37:39.4847840Z Terminate orphan process: pid (3339) (sh)
-2026-11-01T06:37:39.4931336Z Terminate orphan process: pid (3342) (sh)
-2026-11-01T06:37:39.5021887Z Terminate orphan process: pid (3345) (sh)
-2026-11-01T06:37:39.5105717Z Terminate orphan process: pid (3358) (sh)
-2026-11-01T06:37:39.5189070Z Terminate orphan process: pid (3403) (sh)
-2026-11-01T06:37:39.5263720Z ##[warning]Node.js 20 is deprecated. The following actions target Node.js 20 but are being forced to run on Node.js 24: actions/checkout@v4, actions/setup-java@v4, actions/upload-artifact@v4. For more information see: https://github.blog/changelog/2025-09-19-deprecation-of-node-20-on-github-actions-runners/
-
---- job=build-apk conclusion=cancelled id=124774446060 ---
-Unable to download this completed job log.
-﻿<?xml version="1.0" encoding="utf-8"?><Error><Code>BlobNotFound</Code><Message>The specified blob does not exist.
-RequestId:3b1342c6-501e-00f2-6acb-6960cd000000
-Time:2026-11-01T06:37:44.2355536Z</Message></Error>gh: HTTP 404
+--- job=build-apk conclusion=cancelled id=124775722299 ---
+﻿2026-11-01T06:44:34.4343341Z Current runner version: '2.338.2'
+2026-11-01T06:44:34.4367265Z ##[group]Runner Image Provisioner
+2026-11-01T06:44:34.4368251Z Hosted Compute Agent
+2026-11-01T06:44:34.4368893Z Version: 20261021.618
+2026-11-01T06:44:34.4369590Z Commit: 21505ad2541d5be6135ed84fc33697146cf75b8e
+2026-11-01T06:44:34.4370396Z Build Date: 2026-10-21T00:45:21Z
+2026-11-01T06:44:34.4371079Z Worker ID: {dec31ca9-9674-4169-92a6-6d413e8850f1}
+2026-11-01T06:44:34.4371872Z Region: westus
+2026-11-01T06:44:34.4372464Z Cloud: Azure
+2026-11-01T06:44:34.4373042Z ##[endgroup]
+2026-11-01T06:44:34.4374525Z ##[group]Operating System
+2026-11-01T06:44:34.4375199Z Ubuntu
+2026-11-01T06:44:34.4375942Z 26.04.1
+2026-11-01T06:44:34.4376463Z LTS
+2026-11-01T06:44:34.4377299Z ##[endgroup]
+2026-11-01T06:44:34.4377883Z ##[group]Runner Image
+2026-11-01T06:44:34.4378499Z Image: ubuntu-26.04
+2026-11-01T06:44:34.4379216Z Version: 20261025.179.1
+2026-11-01T06:44:34.4380486Z Included Software: https://github.com/actions/runner-images/blob/ubuntu26/20261025.179/images/ubuntu/Ubuntu2604-Readme.md
+2026-11-01T06:44:34.4382148Z Image Release: https://github.com/actions/runner-images/releases/tag/ubuntu26%2F20261025.179
+2026-11-01T06:44:34.4383145Z ##[endgroup]
+2026-11-01T06:44:34.4384435Z ##[group]GITHUB_TOKEN Permissions
+2026-11-01T06:44:34.4386315Z Actions: read
+2026-11-01T06:44:34.4387284Z Contents: write
+2026-11-01T06:44:34.4387870Z Metadata: read
+2026-11-01T06:44:34.4388475Z ##[endgroup]
+2026-11-01T06:44:34.4391001Z Secret source: Actions
+2026-11-01T06:44:34.4392014Z Cache mode: write
+2026-11-01T06:44:34.4392738Z Prepare workflow directory
+2026-11-01T06:44:34.4756912Z Prepare all required actions
+2026-11-01T06:44:34.4827801Z Getting action download info
+2026-11-01T06:44:34.8253531Z Download action repository 'actions/checkout@v4' (SHA:11d5960a326750d5838078e36cf38b85af677262)
+2026-11-01T06:44:34.9210915Z Download action repository 'actions/setup-java@v4' (SHA:cf277c60eb25467037889841efdb72551f06f6c3)
+2026-11-01T06:44:35.3041454Z Download action repository 'subosito/flutter-action@v2' (SHA:1a449444c387b1966244ae4d4f8c696479add0b2)
+2026-11-01T06:44:35.5440860Z Download action repository 'actions/upload-artifact@v4' (SHA:ea165f8d65b6e75b540449e92b4886f43607fa02)
+2026-11-01T06:44:35.7701171Z Getting action download info
+2026-11-01T06:44:35.8981861Z Download action repository 'actions/cache@v5' (SHA:caa296126883cff596d87d8935842f9db880ef25)
+2026-11-01T06:44:36.0633368Z Complete job name: build-apk
+2026-11-01T06:44:36.1738853Z ##[group]Run actions/checkout@v4
+2026-11-01T06:44:36.1739578Z with:
+2026-11-01T06:44:36.1739930Z   repository: catkiss62/ai-companion-build
+2026-11-01T06:44:36.1742831Z   token: ***
+2026-11-01T06:44:36.1743121Z   ssh-strict: true
+2026-11-01T06:44:36.1743415Z   ssh-user: git
+2026-11-01T06:44:36.1743720Z   persist-credentials: true
+2026-11-01T06:44:36.1744048Z   clean: true
+2026-11-01T06:44:36.1744366Z   sparse-checkout-cone-mode: true
+2026-11-01T06:44:36.1744715Z   fetch-depth: 1
+2026-11-01T06:44:36.1745004Z   fetch-tags: false
+2026-11-01T06:44:36.1745307Z   show-progress: true
+2026-11-01T06:44:36.1745633Z   lfs: false
+2026-11-01T06:44:36.1745904Z   submodules: false
+2026-11-01T06:44:36.1746204Z   set-safe-directory: true
+2026-11-01T06:44:36.1746863Z   allow-unsafe-pr-checkout: false
+2026-11-01T06:44:36.1747578Z ##[endgroup]
+2026-11-01T06:44:36.4671148Z Syncing repository: catkiss62/ai-companion-build
+2026-11-01T06:44:36.4673233Z ##[group]Getting Git version info
+2026-11-01T06:44:36.4673961Z Working directory is '/home/runner/work/ai-companion-build/ai-companion-build'
+2026-11-01T06:44:36.4674938Z [command]/usr/bin/git version
+2026-11-01T06:44:36.4698772Z git version 2.56.0
+2026-11-01T06:44:36.4721453Z ##[endgroup]
+2026-11-01T06:44:36.4736298Z Temporarily overriding HOME='/home/runner/work/_temp/3ebae094-577e-478d-8972-782d7e9e2e3b' before making global git config changes
+2026-11-01T06:44:36.4738208Z Adding repository directory to the temporary git global config as a safe directory
+2026-11-01T06:44:36.4741480Z [command]/usr/bin/git config --global --add safe.directory /home/runner/work/ai-companion-build/ai-companion-build
+2026-11-01T06:44:36.4818417Z Deleting the contents of '/home/runner/work/ai-companion-build/ai-companion-build'
+2026-11-01T06:44:36.4848290Z ##[group]Initializing the repository
+2026-11-01T06:44:36.4857937Z [command]/usr/bin/git init /home/runner/work/ai-companion-build/ai-companion-build
+2026-11-01T06:44:36.4987933Z hint: Using 'master' as the name for the initial branch. This default branch name
+2026-11-01T06:44:36.5019147Z hint: will change to "main" in Git 3.0. To configure the initial branch name
+2026-11-01T06:44:36.5020313Z hint: to use in all of your new repositories, which will suppress this warning,
+2026-11-01T06:44:36.5021168Z hint: call:
+2026-11-01T06:44:36.5021649Z hint:
+2026-11-01T06:44:36.5022299Z hint: 	git config --global init.defaultBranch <name>
+2026-11-01T06:44:36.5023003Z hint:
+2026-11-01T06:44:36.5023713Z hint: Names commonly chosen instead of 'master' are 'main', 'trunk' and
+2026-11-01T06:44:36.5024877Z hint: 'development'. The just-created branch can be renamed via this command:
+2026-11-01T06:44:36.5025860Z hint:
+2026-11-01T06:44:36.5026392Z hint: 	git branch -m <name>
+2026-11-01T06:44:36.5027395Z hint:
+2026-11-01T06:44:36.5028225Z hint: Disable this message with "git config set advice.defaultBranchName false"
+2026-11-01T06:44:36.5029590Z Initialized empty Git repository in /home/runner/work/ai-companion-build/ai-companion-build/.git/
+2026-11-01T06:44:36.5038850Z [command]/usr/bin/git remote add origin https://github.com/catkiss62/ai-companion-build
+2026-11-01T06:44:36.5112906Z ##[endgroup]
+2026-11-01T06:44:36.5114346Z ##[group]Disabling automatic garbage collection
+2026-11-01T06:44:36.5115399Z [command]/usr/bin/git config --local gc.auto 0
+2026-11-01T06:44:36.5156425Z ##[endgroup]
+2026-11-01T06:44:36.5157712Z ##[group]Setting up auth
+2026-11-01T06:44:36.5158566Z [command]/usr/bin/git config --local --name-only --get-regexp core\.sshCommand
+2026-11-01T06:44:36.5196355Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'core\.sshCommand' && git config --local --unset-all 'core.sshCommand' || :"
+2026-11-01T06:44:36.5764983Z [command]/usr/bin/git config --local --name-only --get-regexp http\.https\:\/\/github\.com\/\.extraheader
+2026-11-01T06:44:36.5805582Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'http\.https\:\/\/github\.com\/\.extraheader' && git config --local --unset-all 'http.https://github.com/.extraheader' || :"
+2026-11-01T06:44:36.6114740Z [command]/usr/bin/git config --local --name-only --get-regexp ^includeIf\.gitdir:
+2026-11-01T06:44:36.6151503Z [command]/usr/bin/git submodule foreach --recursive git config --local --show-origin --name-only --get-regexp remote.origin.url
+2026-11-01T06:44:36.6427149Z [command]/usr/bin/git config --local http.https://github.com/.extraheader AUTHORIZATION: basic ***
+2026-11-01T06:44:36.6470191Z ##[endgroup]
+2026-11-01T06:44:36.6471164Z ##[group]Fetching the repository
+2026-11-01T06:44:36.6480487Z [command]/usr/bin/git -c protocol.version=2 fetch --no-tags --prune --no-recurse-submodules --depth=1 origin +c3d760b92d84daf9cfe7297ad2b6163183e0d9e4:refs/remotes/origin/agent/v042107-review-recovery
+2026-11-01T06:44:42.6112960Z From https://github.com/catkiss62/ai-companion-build
+2026-11-01T06:44:42.6114893Z  * [new ref]         c3d760b92d84daf9cfe7297ad2b6163183e0d9e4 -> origin/agent/v042107-review-recovery
+2026-11-01T06:44:42.6128233Z ##[endgroup]
+2026-11-01T06:44:42.6129121Z ##[group]Determining the checkout info
+2026-11-01T06:44:42.6130064Z ##[endgroup]
+2026-11-01T06:44:42.6134295Z [command]/usr/bin/git sparse-checkout disable
+2026-11-01T06:44:42.6188211Z [command]/usr/bin/git config --local --unset-all extensions.worktreeConfig
+2026-11-01T06:44:42.6216980Z ##[group]Checking out the ref
+2026-11-01T06:44:42.6221387Z [command]/usr/bin/git checkout --progress --force -B agent/v042107-review-recovery refs/remotes/origin/agent/v042107-review-recovery
+2026-11-01T06:44:43.0544253Z Switched to a new branch 'agent/v042107-review-recovery'
+2026-11-01T06:44:43.0547764Z branch 'agent/v042107-review-recovery' set up to track 'origin/agent/v042107-review-recovery'.
+2026-11-01T06:44:43.0583528Z ##[endgroup]
+2026-11-01T06:44:43.0632783Z [command]/usr/bin/git log -1 --format=%H
+2026-11-01T06:44:43.0657981Z c3d760b92d84daf9cfe7297ad2b6163183e0d9e4
+2026-11-01T06:44:43.0902049Z ##[group]Run set -euo pipefail
+2026-11-01T06:44:43.0902968Z [36;1mset -euo pipefail[0m
+2026-11-01T06:44:43.0903323Z [36;1mGENIE_TAG='genie-tts-private-runtime-v0.7.6-jiuhu'[0m
+2026-11-01T06:44:43.0903828Z [36;1mGENIE_APK='Genie-TTS-Android-v0.7.6-Jiuhu-4-candidates-test.apk'[0m
+2026-11-01T06:44:43.0904415Z [36;1mGENIE_APK_SHA256='af90aeaf84afdb383bd71584a5512609666c9af38110ea192ebde6f2c84ceb43'[0m
+2026-11-01T06:44:43.0904947Z [36;1mFRONTEND_TAG='genie-tts-private-runtime-v0.6.4'[0m
+2026-11-01T06:44:43.0905330Z [36;1mFRONTEND_APK='Genie-TTS-v0.6.4-Verified.apk'[0m
+2026-11-01T06:44:43.0905714Z [36;1mFRONTEND_SHA='Genie-TTS-v0.6.4-Verified.apk.sha256'[0m
+2026-11-01T06:44:43.0906092Z [36;1mmkdir -p .genie-payload/unpacked[0m
+2026-11-01T06:44:43.0906498Z [36;1m# GitHub's release-by-tag endpoint returns 404 for an unpublished[0m
+2026-11-01T06:44:43.0907326Z [36;1m# draft, even though authenticated release-list calls can see it.[0m
+2026-11-01T06:44:43.0907852Z [36;1m# Resolve the private draft by tag_name, then download each asset by[0m
+2026-11-01T06:44:43.0908353Z [36;1m# its authenticated release-asset ID without publishing the model.[0m
+2026-11-01T06:44:43.0908774Z [36;1mGENIE_RELEASE_ID="$(gh api --paginate \[0m
+2026-11-01T06:44:43.0909158Z [36;1m  "/repos/${GITHUB_REPOSITORY}/releases?per_page=100" \[0m
+2026-11-01T06:44:43.0909651Z [36;1m  --jq ".[] | select(.draft and .tag_name == \"${GENIE_TAG}\") | .id" | head -1)"[0m
+2026-11-01T06:44:43.0910080Z [36;1mtest -n "${GENIE_RELEASE_ID}"[0m
+2026-11-01T06:44:43.0910366Z [36;1mGENIE_ASSET_ID="$(gh api \[0m
+2026-11-01T06:44:43.0910790Z [36;1m  "/repos/${GITHUB_REPOSITORY}/releases/${GENIE_RELEASE_ID}/assets?per_page=100" \[0m
+2026-11-01T06:44:43.0911298Z [36;1m  --jq ".[] | select(.name == \"${GENIE_APK}\") | .id")"[0m
+2026-11-01T06:44:43.0911633Z [36;1mtest -n "${GENIE_ASSET_ID}"[0m
+2026-11-01T06:44:43.0911902Z [36;1mgh api --method GET \[0m
+2026-11-01T06:44:43.0912205Z [36;1m  -H 'Accept: application/octet-stream' \[0m
+2026-11-01T06:44:43.0912611Z [36;1m  "/repos/${GITHUB_REPOSITORY}/releases/assets/${GENIE_ASSET_ID}" \[0m
+2026-11-01T06:44:43.0913022Z [36;1m  > ".genie-payload/${GENIE_APK}"[0m
+2026-11-01T06:44:43.0913434Z [36;1mecho "${GENIE_APK_SHA256}  .genie-payload/${GENIE_APK}" | sha256sum -c -[0m
+2026-11-01T06:44:43.0913928Z [36;1m# The v0.7.6 Jiuhu candidate APK intentionally carries only the[0m
+2026-11-01T06:44:43.0914417Z [36;1m# acoustic pack. Keep the already built-and-verified multilingual[0m
+2026-11-01T06:44:43.0914908Z [36;1m# OpenJTalk dictionary/JNI adapter as a separate pinned dependency;[0m
+2026-11-01T06:44:43.0915385Z [36;1m# never extract its retired Tiandou benchmark into this build.[0m
+2026-11-01T06:44:43.0915795Z [36;1mFRONTEND_RELEASE_ID="$(gh api --paginate \[0m
+2026-11-01T06:44:43.0916175Z [36;1m  "/repos/${GITHUB_REPOSITORY}/releases?per_page=100" \[0m
+2026-11-01T06:44:43.0916912Z [36;1m  --jq ".[] | select(.draft and .tag_name == \"${FRONTEND_TAG}\") | .id" | head -1)"[0m
+2026-11-01T06:44:43.0917355Z [36;1mtest -n "${FRONTEND_RELEASE_ID}"[0m
+2026-11-01T06:44:43.0917723Z [36;1mfor FRONTEND_ASSET in "${FRONTEND_APK}" "${FRONTEND_SHA}"; do[0m
+2026-11-01T06:44:43.0918096Z [36;1m  FRONTEND_ASSET_ID="$(gh api \[0m
+2026-11-01T06:44:43.0918539Z [36;1m    "/repos/${GITHUB_REPOSITORY}/releases/${FRONTEND_RELEASE_ID}/assets?per_page=100" \[0m
+2026-11-01T06:44:43.0919046Z [36;1m    --jq ".[] | select(.name == \"${FRONTEND_ASSET}\") | .id")"[0m
+2026-11-01T06:44:43.0919396Z [36;1m  test -n "${FRONTEND_ASSET_ID}"[0m
+2026-11-01T06:44:43.0919672Z [36;1m  gh api --method GET \[0m
+2026-11-01T06:44:43.0919968Z [36;1m    -H 'Accept: application/octet-stream' \[0m
+2026-11-01T06:44:43.0920584Z [36;1m    "/repos/${GITHUB_REPOSITORY}/releases/assets/${FRONTEND_ASSET_ID}" \[0m
+2026-11-01T06:44:43.0920996Z [36;1m    > ".genie-payload/${FRONTEND_ASSET}"[0m
+2026-11-01T06:44:43.0921279Z [36;1mdone[0m
+2026-11-01T06:44:43.0921779Z [36;1msed "s#  ${FRONTEND_APK}#  .genie-payload/${FRONTEND_APK}#" \[0m
+2026-11-01T06:44:43.0922347Z [36;1m  ".genie-payload/${FRONTEND_SHA}" | sha256sum -c -[0m
+2026-11-01T06:44:43.0922715Z [36;1munzip -q ".genie-payload/${GENIE_APK}" \[0m
+2026-11-01T06:44:43.0923020Z [36;1m  'assets/benchmark_jiuhu/*' \[0m
+2026-11-01T06:44:43.0923317Z [36;1m  'lib/arm64-v8a/libonnxruntime.so' \[0m
+2026-11-01T06:44:43.0923618Z [36;1m  -d .genie-payload/unpacked[0m
+2026-11-01T06:44:43.0923978Z [36;1m# Keep the pinned Jiuhu ORT only as the post-build byte-identity[0m
+2026-11-01T06:44:43.0924461Z [36;1m# reference. The app dependency still supplies the packaged library.[0m
+2026-11-01T06:44:43.0924881Z [36;1munzip -q ".genie-payload/${FRONTEND_APK}" \[0m
+2026-11-01T06:44:43.0925194Z [36;1m  'assets/openjtalk/*' \[0m
+2026-11-01T06:44:43.0925491Z [36;1m  'lib/arm64-v8a/libopenjtalk_native.so' \[0m
+2026-11-01T06:44:43.0925819Z [36;1m  'lib/arm64-v8a/libgenie_frontend.so' \[0m
+2026-11-01T06:44:43.0926125Z [36;1m  'lib/arm64-v8a/libc++_shared.so' \[0m
+2026-11-01T06:44:43.0926419Z [36;1m  -d .genie-payload/unpacked[0m
+2026-11-01T06:44:43.0926827Z [36;1mpython3 - <<'PY'[0m
+2026-11-01T06:44:43.0927132Z [36;1mimport hashlib, json, pathlib, math, struct, wave[0m
+2026-11-01T06:44:43.0927508Z [36;1m[0m
+2026-11-01T06:44:43.0927837Z [36;1mroot = pathlib.Path('.genie-payload/unpacked/assets/benchmark_jiuhu')[0m
+2026-11-01T06:44:43.0928244Z [36;1mpath = root / 'manifest.json'[0m
+2026-11-01T06:44:43.0928599Z [36;1mmanifest = json.loads(path.read_text(encoding='utf-8'))[0m
+2026-11-01T06:44:43.0928963Z [36;1mexpected_models = {[0m
+2026-11-01T06:44:43.0929461Z [36;1m    'models/t2s_encoder_fp32.bin': (11465732, '2729a0bc3bfa297b86dae07190f010653806a5f466ffe654a7cd9291445ee986'),[0m
+2026-11-01T06:44:43.0930248Z [36;1m    'models/t2s_encoder_fp32.onnx': (14568, 'f6eb1acd47c8e6d36b777886981a49122e8e070a5eb9888d458fb188dc139f75'),[0m
+2026-11-01T06:44:43.0931047Z [36;1m    'models/t2s_first_stage_decoder_fp32.onnx': (416803, '868f395999508905128c5325c5db4f4b37b2e70e04d6e2719fec64cbb60ee7f9'),[0m
+2026-11-01T06:44:43.0931855Z [36;1m    'models/t2s_shared_fp32.bin': (306827268, '07c40df473ddb08e259357ddf17173ffc3f82ce1a3e208cd1dd438f0dd01c445'),[0m
+2026-11-01T06:44:43.0932648Z [36;1m    'models/t2s_stage_decoder_fp32.onnx': (417625, '3f02881c517423deb610f86d5441bd9825937c5069f3887cacefa1e9dc403b0d'),[0m
+2026-11-01T06:44:43.0933418Z [36;1m    'models/vits_fp32.bin': (175582720, 'bfd6558dee03e06fafa2225d906f27e0f303395951d8cc4b8f2b26b3da2e99c2'),[0m
+2026-11-01T06:44:43.0934139Z [36;1m    'models/vits_fp32.onnx': (1654702, 'ce3495f0cd976270274d0f5c68377acb10e7347ca03e86346a42a0a99e769168'),[0m
+2026-11-01T06:44:43.0934632Z [36;1m}[0m
+2026-11-01T06:44:43.0934848Z [36;1massert manifest['models'] == {[0m
+2026-11-01T06:44:43.0935165Z [36;1m    'encoder': 'models/t2s_encoder_fp32.onnx',[0m
+2026-11-01T06:44:43.0935571Z [36;1m    'first_decoder': 'models/t2s_first_stage_decoder_fp32.onnx',[0m
+2026-11-01T06:44:43.0936007Z [36;1m    'stage_decoder': 'models/t2s_stage_decoder_fp32.onnx',[0m
+2026-11-01T06:44:43.0936376Z [36;1m    'vocoder': 'models/vits_fp32.onnx',[0m
+2026-11-01T06:44:43.0936897Z [36;1m}[0m
+2026-11-01T06:44:43.0937097Z [36;1m[0m
+2026-11-01T06:44:43.0937295Z [36;1mdef sha256(candidate):[0m
+2026-11-01T06:44:43.0937559Z [36;1m    digest = hashlib.sha256()[0m
+2026-11-01T06:44:43.0937859Z [36;1m    with candidate.open('rb') as source:[0m
+2026-11-01T06:44:43.0938237Z [36;1m        for chunk in iter(lambda: source.read(1024 * 1024), b''):[0m
+2026-11-01T06:44:43.0938602Z [36;1m            digest.update(chunk)[0m
+2026-11-01T06:44:43.0938883Z [36;1m    return digest.hexdigest()[0m
+2026-11-01T06:44:43.0939296Z [36;1m[0m
+2026-11-01T06:44:43.0939554Z [36;1msource_integrity = manifest.get('asset_integrity', {})[0m
+2026-11-01T06:44:43.0939960Z [36;1mfor relative, expected in expected_models.items():[0m
+2026-11-01T06:44:43.0940303Z [36;1m    candidate = root / relative[0m
+2026-11-01T06:44:43.0940724Z [36;1m    expected_bytes, expected_sha = expected[0m
+2026-11-01T06:44:43.0941112Z [36;1m    assert candidate.stat().st_size == expected_bytes, relative[0m
+2026-11-01T06:44:43.0941533Z [36;1m    assert sha256(candidate) == expected_sha, relative[0m
+2026-11-01T06:44:43.0941907Z [36;1m    declared = source_integrity.get(relative, {})[0m
+2026-11-01T06:44:43.0942304Z [36;1m    assert declared.get('bytes') == expected_bytes, relative[0m
+2026-11-01T06:44:43.0942728Z [36;1m    assert declared.get('sha256') == expected_sha, relative[0m
+2026-11-01T06:44:43.0943077Z [36;1mproduction_ids = {[0m
+2026-11-01T06:44:43.0943321Z [36;1m    'jiuhu_idle50',[0m
+2026-11-01T06:44:43.0943561Z [36;1m    'jiuhu_bento_tools',[0m
+2026-11-01T06:44:43.0943820Z [36;1m    'jiuhu_dream_days',[0m
+2026-11-01T06:44:43.0944072Z [36;1m    'jiuhu_devotion',[0m
+2026-11-01T06:44:43.0944300Z [36;1m}[0m
+2026-11-01T06:44:43.0944637Z [36;1mcases = [case for case in manifest['cases'] if case.get('id') in production_ids][0m
+2026-11-01T06:44:43.0945125Z [36;1massert {case['id'] for case in cases} == production_ids[0m
+2026-11-01T06:44:43.0945496Z [36;1massert [case['id'] for case in cases] == [[0m
+2026-11-01T06:44:43.0945798Z [36;1m    'jiuhu_idle50',[0m
+2026-11-01T06:44:43.0946038Z [36;1m    'jiuhu_bento_tools',[0m
+2026-11-01T06:44:43.0946290Z [36;1m    'jiuhu_dream_days',[0m
+2026-11-01T06:44:43.0946536Z [36;1m    'jiuhu_devotion',[0m
+2026-11-01T06:44:43.0946924Z [36;1m][0m
+2026-11-01T06:44:43.0947122Z [36;1mdef normalized(values):[0m
+2026-11-01T06:44:43.0947389Z [36;1m    mean = sum(values) / len(values)[0m
+2026-11-01T06:44:43.0947783Z [36;1m    variance = sum((value - mean) ** 2 for value in values) / len(values)[0m
+2026-11-01T06:44:43.0948202Z [36;1m    scale = max(math.sqrt(variance), 1e-9)[0m
+2026-11-01T06:44:43.0948583Z [36;1m    return [round((value - mean) / scale, 7) for value in values][0m
+2026-11-01T06:44:43.0948934Z [36;1m[0m
+2026-11-01T06:44:43.0949173Z [36;1mdef reference_features(candidate, bins=64):[0m
+2026-11-01T06:44:43.0949543Z [36;1m    with wave.open(str(candidate), 'rb') as source:[0m
+2026-11-01T06:44:43.0949893Z [36;1m        channels = source.getnchannels()[0m
+2026-11-01T06:44:43.0950208Z [36;1m        width = source.getsampwidth()[0m
+2026-11-01T06:44:43.0950518Z [36;1m        rate = source.getframerate()[0m
+2026-11-01T06:44:43.0950818Z [36;1m        frames = source.getnframes()[0m
+2026-11-01T06:44:43.0951121Z [36;1m        raw = source.readframes(frames)[0m
+2026-11-01T06:44:43.0951458Z [36;1m    assert width in (1, 2, 4), (candidate, width)[0m
+2026-11-01T06:44:43.0951777Z [36;1m    formats = {1: 'B', 2: 'h', 4: 'i'}[0m
+2026-11-01T06:44:43.0952098Z [36;1m    unit = struct.calcsize('<' + formats[width])[0m
+2026-11-01T06:44:43.0952513Z [36;1m    values = struct.unpack('<' + formats[width] * (len(raw) // unit), raw)[0m
+2026-11-01T06:44:43.0952923Z [36;1m    peak = float((1 << (width * 8 - 1)) - 1)[0m
+2026-11-01T06:44:43.0953242Z [36;1m    offset = 128.0 if width == 1 else 0.0[0m
+2026-11-01T06:44:43.0953526Z [36;1m    mono = [][0m
+2026-11-01T06:44:43.0953791Z [36;1m    for index in range(0, len(values), channels):[0m
+2026-11-01T06:44:43.0954320Z [36;1m        mono.append(sum((float(value) - offset) / peak for value in values[index:index + channels]) / channels)[0m
+2026-11-01T06:44:43.0954834Z [36;1m    envelope, crossing = [], [][0m
+2026-11-01T06:44:43.0955121Z [36;1m    for bin_index in range(bins):[0m
+2026-11-01T06:44:43.0955422Z [36;1m        start = len(mono) * bin_index // bins[0m
+2026-11-01T06:44:43.0955822Z [36;1m        end = min(len(mono), max(start + 1, len(mono) * (bin_index + 1) // bins))[0m
+2026-11-01T06:44:43.0956215Z [36;1m        chunk = mono[start:end][0m
+2026-11-01T06:44:43.0956990Z [36;1m        rms = math.sqrt(sum(value * value for value in chunk) / len(chunk))[0m
+2026-11-01T06:44:43.0957534Z [36;1m        changes = sum((chunk[i] >= 0) != (chunk[i - 1] >= 0) for i in range(1, len(chunk)))[0m
+2026-11-01T06:44:43.0958144Z [36;1m        envelope.append(math.log(1.0 + 1000.0 * rms))[0m
+2026-11-01T06:44:43.0987780Z [36;1m        crossing.append(changes / max(1, len(chunk) - 1))[0m
+2026-11-01T06:44:43.0988402Z [36;1m    return {[0m
+2026-11-01T06:44:43.0988896Z [36;1m        'duration_ms': frames * 1000 // rate,[0m
+2026-11-01T06:44:43.0989501Z [36;1m        'envelope': normalized(envelope),[0m
+2026-11-01T06:44:43.0990109Z [36;1m        'zero_crossing': normalized(crossing),[0m
+2026-11-01T06:44:43.0990644Z [36;1m    }[0m
+2026-11-01T06:44:43.0991006Z [36;1m[0m
+2026-11-01T06:44:43.0991420Z [36;1mecho_guard = {'version': 1, 'cases': {}}[0m
+2026-11-01T06:44:43.0991972Z [36;1mfor case in cases:[0m
+2026-11-01T06:44:43.0992522Z [36;1m    reference_audio = case.get('reference_audio')[0m
+2026-11-01T06:44:43.0993239Z [36;1m    reference_text = case.get('reference_text', '').strip()[0m
+2026-11-01T06:44:43.0993912Z [36;1m    assert reference_audio, case['id'][0m
+2026-11-01T06:44:43.0994561Z [36;1m    features = reference_features(root / reference_audio)[0m
+2026-11-01T06:44:43.0995518Z [36;1m    features['input_text_sha256'] = hashlib.sha256(reference_text.encode('utf-8')).hexdigest()[0m
+2026-11-01T06:44:43.0996410Z [36;1m    echo_guard['cases'][case['id']] = features[0m
+2026-11-01T06:44:43.0997301Z [36;1m    case.pop('reference_audio', None)[0m
+2026-11-01T06:44:43.0997875Z [36;1m    case.pop('feature_tensors', None)[0m
+2026-11-01T06:44:43.0998485Z [36;1mguard_path = root / 'reference_echo_guard.json'[0m
+2026-11-01T06:44:43.0999507Z [36;1mguard_path.write_text(json.dumps(echo_guard, ensure_ascii=False, separators=(',', ':')), encoding='utf-8')[0m
+2026-11-01T06:44:43.1000518Z [36;1mmanifest['reference_echo_guard'] = guard_path.name[0m
+2026-11-01T06:44:43.1000956Z [36;1mmanifest['cases'] = cases[0m
+2026-11-01T06:44:43.1001232Z [36;1mmanifest['presets'] = [][0m
+2026-11-01T06:44:43.1001512Z [36;1mmanifest['feature_modes'] = [][0m
+2026-11-01T06:44:43.1001783Z [36;1m[0m
+2026-11-01T06:44:43.1001987Z [36;1mdef strings(value):[0m
+2026-11-01T06:44:43.1002254Z [36;1m    if isinstance(value, str):[0m
+2026-11-01T06:44:43.1002527Z [36;1m        yield value[0m
+2026-11-01T06:44:43.1002789Z [36;1m    elif isinstance(value, dict):[0m
+2026-11-01T06:44:43.1003108Z [36;1m        for item in value.values():[0m
+2026-11-01T06:44:43.1003431Z [36;1m            yield from strings(item)[0m
+2026-11-01T06:44:43.1003737Z [36;1m    elif isinstance(value, list):[0m
+2026-11-01T06:44:43.1004021Z [36;1m        for item in value:[0m
+2026-11-01T06:44:43.1004294Z [36;1m            yield from strings(item)[0m
+2026-11-01T06:44:43.1004561Z [36;1m[0m
+2026-11-01T06:44:43.1004763Z [36;1mreferenced = set(strings({[0m
+2026-11-01T06:44:43.1005155Z [36;1m    key: value for key, value in manifest.items() if key != 'asset_files'[0m
+2026-11-01T06:44:43.1005540Z [36;1m}))[0m
+2026-11-01T06:44:43.1005817Z [36;1mexternal_roberta = manifest['frontend']['roberta'][0m
+2026-11-01T06:44:43.1006195Z [36;1mfor candidate in tuple(root.rglob('*')):[0m
+2026-11-01T06:44:43.1006883Z [36;1m    if not candidate.is_file() or candidate == path:[0m
+2026-11-01T06:44:43.1007247Z [36;1m        continue[0m
+2026-11-01T06:44:43.1007549Z [36;1m    relative = candidate.relative_to(root).as_posix()[0m
+2026-11-01T06:44:43.1007982Z [36;1m    # Keep only the seven exact model assets whose graph/data hashes[0m
+2026-11-01T06:44:43.1008462Z [36;1m    # were validated above. In particular, reject interrupted atomic[0m
+2026-11-01T06:44:43.1008927Z [36;1m    # write remnants such as models/.vits_fp32.bin.* rather than[0m
+2026-11-01T06:44:43.1009402Z [36;1m    # copying every file found under models/ into the production APK.[0m
+2026-11-01T06:44:43.1009973Z [36;1m    if ([0m
+2026-11-01T06:44:43.1010207Z [36;1m        relative == external_roberta[0m
+2026-11-01T06:44:43.1010650Z [36;1m        or (relative.startswith('models/') and relative not in expected_models)[0m
+2026-11-01T06:44:43.1011187Z [36;1m        or (not relative.startswith('models/') and relative not in referenced)[0m
+2026-11-01T06:44:43.1011692Z [36;1m    ):[0m
+2026-11-01T06:44:43.1011919Z [36;1m        candidate.unlink()[0m
+2026-11-01T06:44:43.1012192Z [36;1mfor directory in sorted([0m
+2026-11-01T06:44:43.1012567Z [36;1m    (candidate for candidate in root.rglob('*') if candidate.is_dir()),[0m
+2026-11-01T06:44:43.1012998Z [36;1m    key=lambda candidate: len(candidate.parts),[0m
+2026-11-01T06:44:43.1013311Z [36;1m    reverse=True,[0m
+2026-11-01T06:44:43.1013539Z [36;1m):[0m
+2026-11-01T06:44:43.1013728Z [36;1m    try:[0m
+2026-11-01T06:44:43.1013942Z [36;1m        directory.rmdir()[0m
+2026-11-01T06:44:43.1014207Z [36;1m    except OSError:[0m
+2026-11-01T06:44:43.1014446Z [36;1m        pass[0m
+2026-11-01T06:44:43.1014699Z [36;1mmanifest['asset_files'] = sorted([0m
+2026-11-01T06:44:43.1015021Z [36;1m    candidate.relative_to(root).as_posix()[0m
+2026-11-01T06:44:43.1015346Z [36;1m    for candidate in root.rglob('*')[0m
+2026-11-01T06:44:43.1015679Z [36;1m    if candidate.is_file() and candidate != path[0m
+2026-11-01T06:44:43.1016004Z [36;1m) + ['manifest.json'][0m
+2026-11-01T06:44:43.1016270Z [36;1mexpected_reference_inputs = {[0m
+2026-11-01T06:44:43.1016886Z [36;1m    'ref_seq', 'ref_bert', 'ssl_content', 'ref_audio', 'ge', 'ge_advanced'[0m
+2026-11-01T06:44:43.1017260Z [36;1m}[0m
+2026-11-01T06:44:43.1017460Z [36;1mfor case in cases:[0m
+2026-11-01T06:44:43.1017786Z [36;1m    actual_inputs = {item['name'] for item in case['tensors']}[0m
+2026-11-01T06:44:43.1018222Z [36;1m    assert actual_inputs == expected_reference_inputs, ([0m
+2026-11-01T06:44:43.1018690Z [36;1m        f"incomplete Jiuhu V2Pro prompt tensors: {case['id']} {actual_inputs}"[0m
+2026-11-01T06:44:43.1019090Z [36;1m    )[0m
+2026-11-01T06:44:43.1019305Z [36;1mactual_models = {[0m
+2026-11-01T06:44:43.1019581Z [36;1m    candidate.relative_to(root).as_posix()[0m
+2026-11-01T06:44:43.1019939Z [36;1m    for candidate in (root / 'models').iterdir()[0m
+2026-11-01T06:44:43.1020257Z [36;1m    if candidate.is_file()[0m
+2026-11-01T06:44:43.1020511Z [36;1m}[0m
+2026-11-01T06:44:43.1020795Z [36;1massert actual_models == set(expected_models), actual_models[0m
+2026-11-01T06:44:43.1021161Z [36;1mprompt_signatures = {}[0m
+2026-11-01T06:44:43.1021541Z [36;1mindependent_prompt_names = {'ssl_content', 'ref_audio', 'ge', 'ge_advanced'}[0m
+2026-11-01T06:44:43.1021957Z [36;1mfor case in cases:[0m
+2026-11-01T06:44:43.1022199Z [36;1m    signature = tuple([0m
+2026-11-01T06:44:43.1022466Z [36;1m        sha256(root / item['file'])[0m
+2026-11-01T06:44:43.1022759Z [36;1m        for item in case['tensors'][0m
+2026-11-01T06:44:43.1023083Z [36;1m        if item['name'] in independent_prompt_names[0m
+2026-11-01T06:44:43.1023392Z [36;1m    )[0m
+2026-11-01T06:44:43.1023711Z [36;1m    assert len(signature) == len(independent_prompt_names), case['id'][0m
+2026-11-01T06:44:43.1024134Z [36;1m    prompt_signatures[case['id']] = signature[0m
+2026-11-01T06:44:43.1024573Z [36;1massert len(set(prompt_signatures.values())) == len(cases), prompt_signatures[0m
+2026-11-01T06:44:43.1024975Z [36;1m[0m
+2026-11-01T06:44:43.1025182Z [36;1mmanifest['asset_integrity'] = {[0m
+2026-11-01T06:44:43.1025459Z [36;1m    relative: {[0m
+2026-11-01T06:44:43.1025727Z [36;1m        'bytes': (root / relative).stat().st_size,[0m
+2026-11-01T06:44:43.1026055Z [36;1m        'sha256': sha256(root / relative),[0m
+2026-11-01T06:44:43.1026328Z [36;1m    }[0m
+2026-11-01T06:44:43.1026795Z [36;1m    for relative in manifest['asset_files'][0m
+2026-11-01T06:44:43.1027132Z [36;1m    if relative != 'manifest.json'[0m
+2026-11-01T06:44:43.1027406Z [36;1m}[0m
+2026-11-01T06:44:43.1027601Z [36;1mpath.write_text([0m
+2026-11-01T06:44:43.1028045Z [36;1m    json.dumps(manifest, ensure_ascii=False, indent=2),[0m
+2026-11-01T06:44:43.1028386Z [36;1m    encoding='utf-8',[0m
+2026-11-01T06:44:43.1028623Z [36;1m)[0m
+2026-11-01T06:44:43.1028819Z [36;1massert not any([0m
+2026-11-01T06:44:43.1029087Z [36;1m    token in candidate.as_posix().lower()[0m
+2026-11-01T06:44:43.1029523Z [36;1m    for candidate in root.rglob('*')[0m
+2026-11-01T06:44:43.1029926Z [36;1m    for token in ('naiyou_', 'ref01', 'ref02', 'ref04', 'ref06', 'test_backup')[0m
+2026-11-01T06:44:43.1030300Z [36;1m)[0m
+2026-11-01T06:44:43.1030771Z [36;1mprint('Curated paired Jiuhu GPT/T2S + SoVITS/VITS runtime and four independent voices; discarded model temp remnants.')[0m
+2026-11-01T06:44:43.1031314Z [36;1mPY[0m
+2026-11-01T06:44:43.1031531Z [36;1mTTS_MAIN='app/android/app/src/main'[0m
+2026-11-01T06:44:43.1031904Z [36;1mmkdir -p "${TTS_MAIN}/assets" "${TTS_MAIN}/jniLibs/arm64-v8a"[0m
+2026-11-01T06:44:43.1032436Z [36;1mcp -a .genie-payload/unpacked/assets/benchmark_jiuhu "${TTS_MAIN}/assets/benchmark"[0m
+2026-11-01T06:44:43.1033005Z [36;1mcp -a .genie-payload/unpacked/assets/openjtalk "${TTS_MAIN}/assets/"[0m
+2026-11-01T06:44:43.1033504Z [36;1mcp .genie-payload/unpacked/lib/arm64-v8a/libopenjtalk_native.so \[0m
+2026-11-01T06:44:43.1033899Z [36;1m  "${TTS_MAIN}/jniLibs/arm64-v8a/"[0m
+2026-11-01T06:44:43.1034281Z [36;1mcp .genie-payload/unpacked/lib/arm64-v8a/libgenie_frontend.so \[0m
+2026-11-01T06:44:43.1034672Z [36;1m  "${TTS_MAIN}/jniLibs/arm64-v8a/"[0m
+2026-11-01T06:44:43.1035032Z [36;1mcp .genie-payload/unpacked/lib/arm64-v8a/libc++_shared.so \[0m
+2026-11-01T06:44:43.1035399Z [36;1m  "${TTS_MAIN}/jniLibs/arm64-v8a/"[0m
+2026-11-01T06:44:43.1035682Z [36;1mpython3 - <<'PY'[0m
+2026-11-01T06:44:43.1035928Z [36;1mimport hashlib, json, pathlib[0m
+2026-11-01T06:44:43.1036260Z [36;1mroot = pathlib.Path('app/android/app/src/main')[0m
+2026-11-01T06:44:43.1036795Z [36;1mfiles = [[0m
+2026-11-01T06:44:43.1037184Z [36;1m    path for base in (root / 'assets' / 'benchmark', root / 'assets' / 'openjtalk')[0m
+2026-11-01T06:44:43.1037665Z [36;1m    for path in base.rglob('*') if path.is_file()[0m
+2026-11-01T06:44:43.1037971Z [36;1m][0m
+2026-11-01T06:44:43.1038273Z [36;1mfiles.append(root / 'jniLibs/arm64-v8a/libopenjtalk_native.so')[0m
+2026-11-01T06:44:43.1038742Z [36;1mfiles.append(root / 'jniLibs/arm64-v8a/libgenie_frontend.so')[0m
+2026-11-01T06:44:43.1039180Z [36;1mfiles.append(root / 'jniLibs/arm64-v8a/libc++_shared.so')[0m
+2026-11-01T06:44:43.1039534Z [36;1mmanifest = {[0m
+2026-11-01T06:44:43.1039788Z [36;1m    str(path.relative_to(root)): {[0m
+2026-11-01T06:44:43.1040090Z [36;1m        'size': path.stat().st_size,[0m
+2026-11-01T06:44:43.1040490Z [36;1m        'sha256': hashlib.sha256(path.read_bytes()).hexdigest(),[0m
+2026-11-01T06:44:43.1040839Z [36;1m    }[0m
+2026-11-01T06:44:43.1041051Z [36;1m    for path in files[0m
+2026-11-01T06:44:43.1041288Z [36;1m}[0m
+2026-11-01T06:44:43.1041608Z [36;1mpathlib.Path('.genie-payload/extracted-manifest.json').write_text([0m
+2026-11-01T06:44:43.1042078Z [36;1m    json.dumps(manifest, sort_keys=True), encoding='utf-8'[0m
+2026-11-01T06:44:43.1042413Z [36;1m)[0m
+2026-11-01T06:44:43.1042737Z [36;1mprint(f'Restored {len(manifest)} curated Genie/OpenJTalk payload files.')[0m
+2026-11-01T06:44:43.1043131Z [36;1mPY[0m
+2026-11-01T06:44:43.1077176Z shell: /usr/bin/bash --noprofile --norc -e -o pipefail {0}
+2026-11-01T06:44:43.1077554Z env:
+2026-11-01T06:44:43.1080059Z   GH_TOKEN: ***
+2026-11-01T06:44:43.1080286Z ##[endgroup]
+2026-11-01T06:45:00.2191931Z .genie-payload/Genie-TTS-Android-v0.7.6-Jiuhu-4-candidates-test.apk: OK
+2026-11-01T06:45:12.0482086Z .genie-payload/Genie-TTS-v0.6.4-Verified.apk: OK
+2026-11-01T06:45:19.0213793Z Curated paired Jiuhu GPT/T2S + SoVITS/VITS runtime and four independent voices; discarded model temp remnants.
+2026-11-01T06:45:19.9765663Z Restored 49 curated Genie/OpenJTalk payload files.
+2026-11-01T06:45:20.1177618Z ##[group]Run set -euo pipefail
+2026-11-01T06:45:20.1178096Z [36;1mset -euo pipefail[0m
+2026-11-01T06:45:20.1178629Z [36;1mtest -f app/pubspec.yaml[0m
+2026-11-01T06:45:20.1179019Z [36;1mgrep -Fqx 'version: 0.42.155+399' app/pubspec.yaml[0m
+2026-11-01T06:45:20.1179635Z [36;1mgrep -Fqx '  static const int schemaVersion = 67;' app/lib/core/database/app_database.dart[0m
+2026-11-01T06:45:20.1180187Z [36;1mtest -d app/lib[0m
+2026-11-01T06:45:20.1180471Z [36;1mtest -d app/android[0m
+2026-11-01T06:45:20.1180755Z [36;1mtest -d app/test[0m
+2026-11-01T06:45:20.1181029Z [36;1mtest -d app/tools[0m
+2026-11-01T06:45:20.1181466Z [36;1mtest ! -f app/android/app/src/main/assets/emotion_model_19emo/model.onnx[0m
+2026-11-01T06:45:20.1182075Z [36;1mtest -f app/android/app/src/main/assets/benchmark/manifest.json[0m
+2026-11-01T06:45:20.1182874Z [36;1mtest -n "$(find app/android/app/src/main/assets/benchmark/models -maxdepth 1 -type f -name '*.onnx' -print -quit)"[0m
+2026-11-01T06:45:20.1183694Z [36;1mtest -f app/android/app/src/main/jniLibs/arm64-v8a/libopenjtalk_native.so[0m
+2026-11-01T06:45:20.1184238Z [36;1mtest -f app/android/app/src/main/jniLibs/arm64-v8a/libgenie_frontend.so[0m
+2026-11-01T06:45:20.1184749Z [36;1mtest -f app/android/app/src/main/jniLibs/arm64-v8a/libc++_shared.so[0m
+2026-11-01T06:45:20.1185190Z [36;1mtest ! -d app/android/app/src/main/assets/tts_models[0m
+2026-11-01T06:45:20.1185580Z [36;1mtest ! -d app/android/app/src/main/assets/legacy_tts[0m
+2026-11-01T06:45:20.1186115Z [36;1mecho 'Building v0.42.155+399 QQ Stability and Calibration after focused regression verification.'[0m
+2026-11-01T06:45:20.1215477Z shell: /usr/bin/bash --noprofile --norc -e -o pipefail {0}
+2026-11-01T06:45:20.1215820Z ##[endgroup]
+2026-11-01T06:45:20.1653022Z Building v0.42.155+399 QQ Stability and Calibration after focused regression verification.
+2026-11-01T06:45:20.1973854Z ##[group]Run set -euo pipefail
+2026-11-01T06:45:20.1974373Z [36;1mset -euo pipefail[0m
+2026-11-01T06:45:20.1974801Z [36;1mSOURCE="${RUNNER_TEMP}/pet-source-v04229.zip"[0m
+2026-11-01T06:45:20.1975393Z [36;1mcurl --fail --location --silent --show-error --retry 3 \[0m
+2026-11-01T06:45:20.1976078Z [36;1m  --connect-timeout 30 --max-time 300 --speed-limit 1024 --speed-time 60 \[0m
+2026-11-01T06:45:20.1977187Z [36;1m  -H "Authorization: ***" \[0m
+2026-11-01T06:45:20.1977715Z [36;1m  -H 'Accept: application/octet-stream' \[0m
+2026-11-01T06:45:20.1978295Z [36;1m  -H 'X-GitHub-Api-Version: 2022-11-28' \[0m
+2026-11-01T06:45:20.1979051Z [36;1m  "https://api.github.com/repos/${GITHUB_REPOSITORY}/releases/assets/591363139" \[0m
+2026-11-01T06:45:20.1979803Z [36;1m  --output "${SOURCE}"[0m
+2026-11-01T06:45:20.1980361Z [36;1mecho 'ad94e2aa8829ddb5b8f0640e383b29bbccfbb5a77d9a957559e34cff17aea489  '"${SOURCE}" | sha256sum --check --status[0m
+2026-11-01T06:45:20.1980970Z [36;1msudo apt-get update -qq[0m
+2026-11-01T06:45:20.1981278Z [36;1msudo apt-get install -y -qq ffmpeg >/dev/null[0m
+2026-11-01T06:45:20.1981663Z [36;1mpython3 app/tools/prepare_full_pet_clips.py "${SOURCE}"[0m
+2026-11-01T06:45:20.1982006Z [36;1mrm -f "${SOURCE}"[0m
+2026-11-01T06:45:20.2010651Z shell: /usr/bin/bash --noprofile --norc -e -o pipefail {0}
+2026-11-01T06:45:20.2010991Z env:
+2026-11-01T06:45:20.2013425Z   GH_TOKEN: ***
+2026-11-01T06:45:20.2013633Z ##[endgroup]
+2026-11-01T06:45:50.1690114Z 
+2026-11-01T06:45:50.1690912Z Running kernel seems to be up-to-date.
+2026-11-01T06:45:50.1691302Z 
+2026-11-01T06:45:50.1691478Z Restarting services...
+2026-11-01T06:45:50.1801659Z 
+2026-11-01T06:45:50.1802250Z Service restarts being deferred:
+2026-11-01T06:45:50.1807020Z  systemctl restart hosted-compute-agent.service
+2026-11-01T06:45:50.1807469Z 
+2026-11-01T06:45:50.1807830Z No containers need to be restarted.
+2026-11-01T06:45:50.1808305Z 
+2026-11-01T06:45:50.1808563Z No user sessions are running outdated binaries.
+2026-11-01T06:45:50.1808943Z 
+2026-11-01T06:45:50.1809289Z No VM guests are running outdated hypervisor (qemu) binaries on this host.
+2026-11-01T06:46:12.2394147Z Prepared 10/91 new pet clips
+2026-11-01T06:46:34.9530350Z Prepared 20/91 new pet clips
+2026-11-01T06:46:43.1179050Z ##[error]The operation was canceled.
+2026-11-01T06:46:43.1448954Z Post job cleanup.
+2026-11-01T06:46:43.2555270Z [command]/usr/bin/git version
+2026-11-01T06:46:43.2627393Z git version 2.56.0
+2026-11-01T06:46:43.2682583Z Temporarily overriding HOME='/home/runner/work/_temp/7bd58a41-716e-4501-8f39-c50b651cf155' before making global git config changes
+2026-11-01T06:46:43.2687828Z Adding repository directory to the temporary git global config as a safe directory
+2026-11-01T06:46:43.2689503Z [command]/usr/bin/git config --global --add safe.directory /home/runner/work/ai-companion-build/ai-companion-build
+2026-11-01T06:46:43.2767633Z [command]/usr/bin/git config --local --name-only --get-regexp core\.sshCommand
+2026-11-01T06:46:43.2828455Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'core\.sshCommand' && git config --local --unset-all 'core.sshCommand' || :"
+2026-11-01T06:46:43.3249049Z [command]/usr/bin/git config --local --name-only --get-regexp http\.https\:\/\/github\.com\/\.extraheader
+2026-11-01T06:46:43.3331454Z http.https://github.com/.extraheader
+2026-11-01T06:46:43.3368006Z [command]/usr/bin/git config --local --unset-all http.https://github.com/.extraheader
+2026-11-01T06:46:43.3443307Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'http\.https\:\/\/github\.com\/\.extraheader' && git config --local --unset-all 'http.https://github.com/.extraheader' || :"
+2026-11-01T06:46:43.3967882Z [command]/usr/bin/git config --local --name-only --get-regexp ^includeIf\.gitdir:
+2026-11-01T06:46:43.4013399Z [command]/usr/bin/git submodule foreach --recursive git config --local --show-origin --name-only --get-regexp remote.origin.url
+2026-11-01T06:46:43.4487672Z Cleaning up orphan processes
+2026-11-01T06:46:43.4840403Z Terminate orphan process: pid (3505) (python3)
+2026-11-01T06:46:43.4873136Z Terminate orphan process: pid (3978) (ffmpeg)
+2026-11-01T06:46:43.4971629Z ##[warning]Node.js 20 is deprecated. The following actions target Node.js 20 but are being forced to run on Node.js 24: actions/checkout@v4. For more information see: https://github.blog/changelog/2025-09-19-deprecation-of-node-20-on-github-actions-runners/
 release_url=https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-10cc6d35ada5d343acff
