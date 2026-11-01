@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:io';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 import 'package:qq_private_bridge/qq_private_bridge.dart';
@@ -78,13 +79,18 @@ void main() {
   test('saved mapping survives export/import and current explicit evidence can replace it', () async {
     await inspect(event('<@$bot> 合成问题', [self()]));
     final snapshot = Map<String, dynamic>.from(await db.exportAll());
-    final restored = await AppDatabase.createForTesting(databaseFactoryFfi);
+    final directory = await Directory.systemTemp.createTemp('qq-mention-restore-');
+    final restored = await AppDatabase.createForTesting(databaseFactoryFfi,
+      path: '${directory.path}/restored.db');
     try {
       await restored.importAll(snapshot);
       final recovered = QqAddressing(QqStore(restored), api);
       expect((await recovered.inspect(event('<@$bot> 恢复后问题', []),
         await QqStore(restored).capture(), scope: scope, group: 'group-a')).mentioned, true);
-    } finally { await restored.closeForTesting(); }
+    } finally {
+      await restored.closeForTesting();
+      await directory.delete(recursive: true);
+    }
     expect((await inspect(event('<@new-bot> 合成问题', [
       {'id': 'new-bot', 'member_openid': 'new-bot', 'is_you': true, 'scope': 'single'},
     ]))).mentioned, true);
