@@ -40,11 +40,14 @@ class _Harness {
     playbackSnapshot: () async => snapshot,
     command: (method, args) async {
       if (method == 'parameters') return jsonEncode({'AngleY': {'min': -30, 'max': 30}});
-      if (method == 'claimDeepseekMotion') return {'execution_id': 'stage', 'epoch': ++epoch};
+      if (method == 'claimDeepseekMotion') {
+        claims++;if(notReady>0) {notReady--;return false;}
+        return {'execution_id': 'stage', 'epoch': ++epoch};
+      }
       commands.add((method, args is Map ? args : {}));
       return true;
     });
-  var epoch = 0;
+  var epoch = 0, claims = 0, notReady = 0;
   Future<void> present({int revision = 0}) => motion.present(id: 'message', user: '你好',
     reply: '前半句，后半句。', emotion: 'normal', revision: revision);
   void audio({int lease = 1, bool audible = true, double position = 1, String? fingerprint}) {
@@ -174,6 +177,17 @@ void main() {
     await h.present();expect(h.planner.calls,0);
     expect(h.commands.where((c)=>c.$1=='setDeepseekEmotion'),hasLength(1));
     expect(h.commands.where((c)=>c.$1=='deepseekMotionPlan'),isEmpty);
+  });
+
+  test('a fast reply waits for model readiness and only purchases one plan', () async {
+    final h=_Harness();addTearDown(h.motion.stop);h.notReady=1;
+    final pending=h.present();await tick();expect(h.planner.calls,0);
+    await pending;expect(h.claims,2);expect(h.planner.calls,1);
+  });
+  test('switching avatars during the readiness wait purchases no plan', () async {
+    final h=_Harness();addTearDown(h.motion.stop);h.notReady=2;
+    final pending=h.present();await tick();CaicaiLive2DService.activeProfile='caicai';
+    await pending;expect(h.planner.calls,0);expect(h.claims,1);
   });
 
 }

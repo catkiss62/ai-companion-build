@@ -47,6 +47,21 @@ class DeepseekChatMotion {
   bool _resuming = false;
   bool Function()? _canContinue;
 
+  // A newly switched 500MB rig may still be uploading textures when a fast
+  // reply arrives. Wait for the real ready owner without delaying audio or
+  // purchasing a plan for a hidden/replaced stage.
+  Future<Object?> _claim(GenerationCancellationToken token) async {
+    for (var i = 0; i < 60; i++) {
+      if (token.isCancelled || !identical(_token, token) ||
+          _canContinue?.call() == false || CaicaiLive2DService.activeProfile != 'deepseek-avatar' ||
+          _modelRevision != CaicaiLive2DService.revision.value) return null;
+      final owner = await _command('claimDeepseekMotion', null);
+      if (owner is Map) return owner;
+      if (i < 59) await Future<void>.delayed(const Duration(milliseconds: 250));
+    }
+    return null;
+  }
+
   Future<void> resume({required String id, required String reply, required int revision,
       bool Function()? canContinue}) async {
     if (CaicaiLive2DService.activeProfile != 'deepseek-avatar' || canContinue?.call() == false) return;
@@ -59,7 +74,7 @@ class DeepseekChatMotion {
     final token = GenerationCancellationToken();
     _token = token;
     try {
-      final claimed = await _command('claimDeepseekMotion', null);
+      final claimed = await _claim(token);
       if (claimed is! Map) { _lastIdentity = null; return; }
       final owner = Map<String, Object?>.from(claimed);
       if (epoch != _presentationEpoch || token.isCancelled || _canContinue?.call() == false) {
@@ -128,7 +143,7 @@ class DeepseekChatMotion {
     final token = GenerationCancellationToken();
     _token = token;
     try {
-      final claimed = await _command('claimDeepseekMotion', null);
+      final claimed = await _claim(token);
       if (claimed is! Map) { _lastIdentity = null; return; }
       final owner = Map<String, Object?>.from(claimed);
       if (!identical(_token, token) || token.isCancelled || _canContinue?.call() == false) {
