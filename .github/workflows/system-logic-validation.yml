@@ -29,6 +29,9 @@ jobs:
       - name: Conservative third-channel health and effective test configuration regression
         working-directory: app
         run: flutter test --timeout 60s --reporter expanded test/conservative_third_channel_v042158_test.dart test/third_transport_v042153_test.dart test/third_channel_network_v042152_test.dart test/third_channel_v042149_test.dart
+      - name: DeepSeek stage 3 local interactions, head-box and existing ownership
+        working-directory: app
+        run: flutter test --timeout 60s --reporter expanded test/deepseek_stage3_v042159_test.dart test/deepseek_motion_planner_v042157_test.dart test/deepseek_presentation_owner_v042157_test.dart test/caicai_stage_editor_test.dart test/live2d_settings_page_test.dart test/caicai_live2d_stage_test.dart
       - name: DeepSeek Live2D stage 2 independent planner and playback regression
         working-directory: app
         run: flutter test --timeout 60s --reporter expanded test/deepseek_motion_planner_v042157_test.dart test/deepseek_presentation_owner_v042157_test.dart test/dual_live2d_profiles_v042154_test.dart test/speech_presentation_owner_v042121_test.dart

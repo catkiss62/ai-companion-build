@@ -1,0 +1,136 @@
+package com.catkiss.senlive2dcompanion;
+
+import java.util.*;
+import org.junit.Test;
+import static org.junit.Assert.*;
+
+public class DeepseekInteractionTest {
+    static final class Pose implements DeepseekParameterPlan.Target {
+        final Map<String,Float> values=new HashMap<>();
+        public boolean accepts(String id) {return true;}
+        public float current(String id) {return values.getOrDefault(id,id.endsWith("Open")?1f:0f);}
+        public void write(String id,float value) {values.put(id,value);}
+        void lower() {values.clear();values.put("ParamEyeLOpen",.8f);values.put("ParamEyeROpen",.8f);}
+    }
+    @Test public void localIdleIsBoundedSmoothAndNeverOwnsMouthOutfitsOrArms() {
+        DeepseekIdleMotion idle=new DeepseekIdleMotion(new Random(17));idle.tune(1.5f,1.6f);Pose pose=new Pose();
+        float previous=0;int last=idle.family();ArrayDeque<Integer> recent=new ArrayDeque<>();recent.add(last);
+        Set<Integer> seen=new HashSet<>();seen.add(last);
+        for(int i=0;i<18000;i++) {
+            pose.values.clear();idle.update(1f/60,pose);
+            for(Map.Entry<String,Float> value:pose.values.entrySet()) {
+                String id=value.getKey();assertTrue(Float.isFinite(value.getValue()));
+                assertFalse(DeepseekExpressions.MOUTH.contains(id));assertFalse(id.startsWith("Clothes"));
+                assertFalse(DeepseekGestures.CHANNELS.contains(id));assertFalse(id.startsWith("key"));
+                float limit=id.equals("@rootX")?.02f:id.equals("@rootTilt")?1.6f:id.startsWith("Angle")?6:id.startsWith("Position")?2.2f:1;
+                assertTrue(id,Math.abs(value.getValue())<=limit+.0001f);
+            }
+            if(i>0) assertTrue(Math.abs(pose.current("AngleX")-previous)<.4f);previous=pose.current("AngleX");
+            assertTrue(idle.breath()>=.37999f && idle.breath()<=.62001f);
+            if(idle.family()!=last) {
+                assertFalse(recent.contains(idle.family()));recent.addLast(idle.family());
+                if(recent.size()>3) recent.removeFirst();last=idle.family();seen.add(last);
+            }
+        }
+        assertEquals(8,seen.size());
+    }
+    @Test public void attentionUsesScreenDirectionsAndReturnsWithoutHoldingAnOldTarget() {
+        DeepseekIdleMotion idle=new DeepseekIdleMotion(new Random(5));Pose pose=new Pose();
+        idle.look(true,-1,1);
+        for(int i=0;i<40;i++) {pose.lower();idle.update(1f/60,pose);idle.applyAttention(pose,1);}
+        assertTrue(pose.current("ParamEyeBallX")<-.7f);assertTrue(pose.current("AngleX")<-4);
+        assertTrue(pose.current("ParamEyeBallY")>.6f);assertTrue(pose.current("AngleY")>3);
+        idle.look(false,0,0);
+        for(int i=0;i<100;i++) {pose.lower();idle.update(1f/60,pose);idle.applyAttention(pose,1);}
+        assertFalse(idle.attentive());assertTrue(Math.abs(pose.current("ParamEyeBallX"))<=.17f);
+        idle.look(true,Float.NaN,1);assertFalse(idle.attentive());
+    }
+    @Test public void grassIsOccasionalAndNeverRequestedDuringHigherPriorityWorkOrTouch() {
+        DeepseekIdleMotion idle=new DeepseekIdleMotion(new Random(2));Pose pose=new Pose();int requested=0;
+        for(int i=0;i<18000;i++) {idle.update(1f/60,pose);if(idle.grassDue(1f/60,false)) requested++;}
+        assertTrue(requested>=3 && requested<=8);
+        for(int i=0;i<18000;i++) assertFalse(idle.grassDue(1f/60,true));
+        idle.look(true,1,0);assertFalse(idle.grassDue(500,false));
+        idle.clearAttention();idle.resetGrass();assertFalse(idle.grassDue(1,false));
+    }
+    @Test public void naturalBlinkPreservesEmotionalOpeningAndDefersToExplicitEyes() {
+        DeepseekBlink blink=new DeepseekBlink(new Random(3));Pose pose=new Pose();boolean closed=false;
+        for(int i=0;i<900;i++) {
+            pose.lower();blink.update(1f/60,false,pose);
+            closed|=pose.current("ParamEyeLOpen")<.05f;
+            assertTrue(pose.current("ParamEyeLOpen")<=.8f);assertEquals(pose.current("ParamEyeLOpen"),pose.current("ParamEyeROpen"),0);
+            assertFalse(pose.values.containsKey("ParamMouthForm"));
+        }
+        assertTrue(closed);
+        for(int i=0;i<900;i++) {pose.lower();blink.update(1f/60,true,pose);assertEquals(.8f,pose.current("ParamEyeLOpen"),0);}
+    }
+    @Test public void heldComfortFadesToTheLiveFaceAndRareReactionCannotBeInterruptedByAnotherPat() {
+        DeepseekHeadPat pat=new DeepseekHeadPat();Pose pose=new Pose();
+        assertTrue(pat.start(true,false,pose));
+        for(int i=0;i<600;i++) {pose.lower();pat.apply(1f/60,false,pose);}
+        assertEquals("held",pat.state());assertEquals(.12f,pose.current("ParamEyeLOpen"),.001f);
+        assertTrue(pose.current("ParamMouthForm")>.6f);assertFalse(pat.start(true,false,pose));
+        pat.release();for(int i=0;i<40;i++) {pose.lower();pat.apply(1f/60,false,pose);}
+        assertFalse(pat.active());assertEquals(.8f,pose.current("ParamEyeLOpen"),.001f);
+        assertTrue(pat.start(true,true,pose));
+        for(int i=0;i<166;i++) {
+            pose.lower();pat.apply(1f/60,false,pose);pat.release();
+            assertFalse(pat.start(false,false,pose));assertFalse(pat.start(true,true,pose));
+        }
+        for(int i=0;i<5;i++) {pose.lower();pat.apply(1f/60,false,pose);}
+        assertFalse(pat.active());assertTrue(pat.start(false,false,pose));
+    }
+    @Test public void smallFormPatKeepsTsundereMouthAndClearsConflictingSpecialEyes() {
+        DeepseekHeadPat pat=new DeepseekHeadPat();Pose pose=new Pose();pose.write("key4",1);
+        pat.start(true,false,pose);
+        for(int i=0;i<40;i++) {pose.lower();pat.apply(1f/60,true,pose);}
+        assertTrue(pose.current("ParamMouthForm")<-.6f);assertEquals(0,pose.current("key4"),0);
+        assertFalse(pose.values.containsKey("ParamMouthOpenY"));
+        pat.cancel();assertFalse(pat.active());assertEquals("idle",pat.state());
+    }
+    @Test public void patEntersFromTheRenderedHeadInsteadOfSnappingAConversationToIdle() {
+        DeepseekHeadPat pat=new DeepseekHeadPat();Pose pose=new Pose();
+        pose.write("AngleX",12);pose.write("LeanInput",-30);pose.write("@rootTilt",3);
+        pat.start(true,false,pose);pose.lower();pat.apply(1f/60,false,pose);
+        assertTrue(pose.current("AngleX")>11);assertTrue(pose.current("LeanInput")<-28);
+        for(int i=0;i<30;i++) {pose.lower();pat.apply(1f/60,false,pose);}
+        assertEquals(0,pose.current("AngleX"),.001f);assertEquals(0,pose.current("LeanInput"),.001f);
+    }
+    private static DeepseekMotionClip clip(String curves,float duration,Set<String> allowed) throws Exception {
+        return new DeepseekMotionClip("{\"Meta\":{\"Duration\":"+duration+",\"Loop\":true},\"Curves\":["+curves+"]}",allowed);
+    }
+    private static String curve(String id,String segments) {
+        return "{\"Target\":\"Parameter\",\"Id\":\""+id+"\",\"Segments\":"+segments+"}";
+    }
+    @Test public void authoredIdleFiltersEyesMouthClothesTailLightsAndHandsRemainOneOwner() throws Exception {
+        String curves=curve("Movement1","[0,0,0,1,1]");
+        for(String id:Arrays.asList("key3","key8","ParamEyeLOpen","ParamMouthForm","JawOpen","Clothes2","Param55","AngleY","Movement2"))
+            curves+=","+curve(id,"[0,0,0,1,1]");
+        DeepseekMotionClip idle=clip(curves,1,DeepseekGestures.IDLE_CHANNELS);
+        assertEquals(Collections.singleton("Movement1"),idle.sample(.5f).keySet());
+        DeepseekGestures g=new DeepseekGestures();
+        DeepseekMotionClip exit=clip(curve("Movement1","[0,1,0,1,0]"),1,DeepseekGestures.IDLE_CHANNELS);
+        g.registerAmbient(idle,exit);g.register("竖食指",idle,exit);
+        assertTrue(g.requestAmbient());float previous=g.update(.4f).get("Movement1");
+        assertTrue(g.ambientActive());assertFalse(g.requestAmbient());
+        assertTrue(g.request("竖食指",.5f));assertEquals(previous,g.update(.001f).get("Movement1"),.001f);
+        for(int i=0;i<15;i++) g.update(.1f);
+        assertFalse(g.ambientActive());assertTrue(g.busy());assertTrue(g.trace().startsWith("竖食指:"));
+        g.stop();for(int i=0;i<20;i++) g.update(.1f);
+        assertFalse(g.busy());g.clear();assertTrue(g.update(.1f).isEmpty());
+    }
+    @Test public void hitTestingUsesActualAffineDrawIncludingCropRotationScaleAndMorphedBounds() {
+        float[] m={1.3f,.08f,0,0,-.14f,2.7f,0,0,0,0,1,0,.11f,-.9f,0,1};
+        float left=-.6f,right=.9f,top=1.5f,bottom=-.8f;
+        DeepseekHitTransform hit=new DeepseekHitTransform(m,left,right,top,bottom);
+        for(float u:new float[]{.1f,.45f,.8f}) for(float v:new float[]{.05f,.2f,.7f}) {
+            float x=left+(right-left)*u,y=top-(top-bottom)*v;
+            float sx=(m[0]*x+m[4]*y+m[12]+1)/2,sy=(1-m[1]*x-m[5]*y-m[13])/2;
+            float[] out=new float[2];assertTrue(hit.inverse(sx,sy,out));
+            assertEquals(u,out[0],.0001f);assertEquals(v,out[1],.0001f);
+        }
+        m[0]=0;assertTrue(hit.inverse(.5f,.5f,new float[2])); // Snapshot never shares a mutable GL array.
+        assertFalse(DeepseekHitTransform.INVALID.inverse(.5f,.5f,new float[2]));
+        assertFalse(hit.inverse(Float.NaN,.5f,new float[2]));assertFalse(hit.inverse(.5f,.5f,null));
+    }
+}

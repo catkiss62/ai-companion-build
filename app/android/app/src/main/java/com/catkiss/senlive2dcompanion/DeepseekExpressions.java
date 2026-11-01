@@ -26,6 +26,12 @@ final class DeepseekExpressions {
         remaining=3.2f;age=0;
     }
     void release() {remaining=0;}
+    void clearTransient() {face=wink=effect="";remaining=age=weight=0;}
+    boolean active() {return remaining>0 || weight>.001f;}
+    boolean reservesEyes() {
+        return weight>.001f && (Arrays.asList("圈圈眼","爱心眼","><眼","嫌弃眼").contains(face)
+            || !wink.isEmpty() && age<(wink.equals("吐舌wink")?1.6f:1.2f));
+    }
     void apply(float dt,boolean small,DeepseekParameterPlan.Target target) {
         Map<String,Float> wanted=emotionPose(emotion);
         // Small-form dissatisfaction has its own brows/mouth; ordinary neutral must not erase it.

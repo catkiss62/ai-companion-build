@@ -282,6 +282,9 @@ public final class CaicaiCompanionView extends GLSurfaceView implements SenCompa
         queueRenderer(()->renderer.requestDeepseek(file,identity));
     }
     public void previewDeepseek(String values) {queueRenderer(()->renderer.previewDeepseek(values));}
+    public void previewDeepseek(String values,java.util.function.BooleanSupplier valid) {
+        queueRenderer(()->{if(valid.getAsBoolean()) renderer.previewDeepseek(values);});
+    }
     public void performDeepseek(String json,boolean speech,java.util.function.BooleanSupplier valid) {
         queueRenderer(()->{if(valid.getAsBoolean()) renderer.performDeepseek(json,speech);});
     }
@@ -293,6 +296,19 @@ public final class CaicaiCompanionView extends GLSurfaceView implements SenCompa
     }
     public void appearanceDeepseek(String values) {queueRenderer(()->renderer.appearanceDeepseek(values));}
     public void anchorDeepseek(float x,float y) {queueRenderer(()->renderer.anchorDeepseek(x,y));}
+    public void beginDeepseekPat(boolean held,boolean rare,java.util.function.BooleanSupplier valid) {
+        queueRenderer(()->{if(valid.getAsBoolean()) renderer.beginDeepseekPat(held,rare);});
+    }
+    public void releaseDeepseekPat(java.util.function.BooleanSupplier valid) {
+        queueRenderer(()->{if(valid.getAsBoolean()) renderer.releaseDeepseekPat();});
+    }
+    public void lookDeepseek(boolean active,float x,float y,java.util.function.BooleanSupplier valid) {
+        queueRenderer(()->{if(valid.getAsBoolean()) renderer.setCaicaiLook(active,x,y);});
+    }
+    public void suspendDeepseek() {queueRenderer(renderer::suspendDeepseek);}
+    public void previewDeepseekIdle(boolean grass,java.util.function.BooleanSupplier valid) {
+        queueRenderer(()->{if(valid.getAsBoolean()) renderer.previewDeepseekIdle(grass);});
+    }
 
     // BEGIN AI_COMPANION_HOST_EXTENSION
     public void motionParameters(java.util.function.Consumer<String> callback) {

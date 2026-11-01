@@ -54,7 +54,7 @@ final class SenRenderer implements GLSurfaceView.Renderer {
 
     // BEGIN AI_COMPANION_HOST_EXTENSION
     private final java.util.Map<String,Boolean> caicaiAppearanceDefaults=new java.util.HashMap<>();
-    private DeepseekAvatarModel deepseek;
+    private volatile DeepseekAvatarModel deepseek;
     private File pendingDeepseek;
     private String pendingDeepseekIdentity, deepseekIdentity;
     // END AI_COMPANION_HOST_EXTENSION
@@ -185,6 +185,10 @@ final class SenRenderer implements GLSurfaceView.Renderer {
         try { deepseek.appearance(new JSONObject(values)); } catch(JSONException ignored) { }
     }
     void anchorDeepseek(float x,float y) { if(deepseek!=null) deepseek.configureAnchor(x,y); }
+    void beginDeepseekPat(boolean held,boolean rare) {if(deepseek!=null) deepseek.beginPat(held,rare);}
+    void releaseDeepseekPat() {if(deepseek!=null) deepseek.releasePat();}
+    void suspendDeepseek() {if(deepseek!=null) deepseek.suspend();}
+    void previewDeepseekIdle(boolean grass) {if(deepseek!=null) deepseek.previewIdle(grass);}
 
     // END AI_COMPANION_HOST_EXTENSION
     void setStageTransform(float scale, float translateX, float translateY) {
@@ -291,6 +295,7 @@ final class SenRenderer implements GLSurfaceView.Renderer {
         ahogeMotionResetRequested = true;
         if (model != null) model.setStaticMode(enabled);
         if (overlayModel != null) overlayModel.setStaticMode(enabled);
+        if (deepseek != null) deepseek.staticMode(enabled); // AI_COMPANION_HOST_PLAN_HOOK
     }
 
     void emitCompositeReport() {
@@ -483,6 +488,7 @@ final class SenRenderer implements GLSurfaceView.Renderer {
     }
 
     boolean screenToModelNormalized(float screenX, float screenY, float[] result) {
+        if (deepseek != null) return deepseek.screenToModel(screenX,screenY,result); // AI_COMPANION_HOST_PLAN_HOOK
         if (caicaiRoot != null) return caicaiHit(screenX,screenY,result); // AI_COMPANION_HOST_PLAN_HOOK
         if (!modelBoundsValid || result == null || result.length < 2) return false;
         float left = modelBoundsLeft;
@@ -593,6 +599,7 @@ final class SenRenderer implements GLSurfaceView.Renderer {
 
     void playTimedPreset(String name) { if (model != null) model.playTimedPreset(name); }
     void setCaicaiLook(boolean active, float x, float y) {
+        if (deepseek != null) {deepseek.look(active,x,y);return;}
         if (model != null) model.setCaicaiLook(active, x, y);
     }
     String motionParameters() { return deepseek!=null ? deepseek.parameters() : model == null ? "{}" : model.motionParameters(); }
@@ -675,6 +682,7 @@ final class SenRenderer implements GLSurfaceView.Renderer {
     }
 
     void releaseHeadPat() {
+        if (deepseek != null) deepseek.releasePat(); // AI_COMPANION_HOST_PLAN_HOOK
         if (model != null) model.releaseHeadPat();
     }
 
@@ -718,7 +726,7 @@ final class SenRenderer implements GLSurfaceView.Renderer {
             CubismShaderAndroid.getInstance().releaseInvalidShaderProgram();
             CubismShaderAndroid.deleteInstance();
             contextRecreated = model != null || overlayModel != null;
-            if(deepseek!=null) contextRecreated=true; // AI_COMPANION_HOST_PLAN_HOOK
+            if(deepseek!=null) {contextRecreated=true;deepseek.suspend();} // AI_COMPANION_HOST_PLAN_HOOK
             listener.onStatus("原生 OpenGL 已启动 · 最大贴图 " + maxTextureSize + "px");
         } catch (Throwable error) {
             listener.onError(error);
@@ -781,6 +789,7 @@ final class SenRenderer implements GLSurfaceView.Renderer {
                 releaseCurrentModel(); lastFrameNanos=0;
                 deepseek=new DeepseekAvatarModel(context);
                 deepseek.load(file,surfaceWidth,surfaceHeight,maxTextureSize,textures,listener);
+                deepseek.tune(motionGain,motionSpeed);deepseek.staticMode(staticMode);
                 deepseekIdentity=identity;
                 listener.onProfileLoaded(identity);
                 listener.onReady("DeepSeek Cubism已就绪 · 原分辨率 · GL_LINEAR · 高精度蒙版512px");

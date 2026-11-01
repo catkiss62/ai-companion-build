@@ -27,6 +27,7 @@ final class DeepseekParameterPlan {
     void setSpeed(float value) { speed=value; }
     void setGain(float value) { gain=value; }
     void clear() { frames.clear(); previous.clear(); elapsed = 0f; }
+    boolean active() {return !frames.isEmpty();}
     void captureInitial(Target target) {
         for (Frame frame : frames) for (String id : frame.values.keySet())
             if (target.accepts(id)) previous.put(id, target.current(id));

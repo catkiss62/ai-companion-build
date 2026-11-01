@@ -93,6 +93,8 @@ class _CaicaiLive2DStageState extends State<CaicaiLive2DStage> with WidgetsBindi
   int _modelRevision = 0;
   String? _status = '未导入模型';
   bool _keyboardVisible = false;
+  final Stopwatch _hoverClock=Stopwatch()..start();
+  int _lastHoverAt=-33;
 
   @override
   void initState() {
@@ -258,8 +260,20 @@ class _CaicaiLive2DStageState extends State<CaicaiLive2DStage> with WidgetsBindi
           'y': event.localPosition.dy / size.maxHeight,
         });
       }
-      return Listener(
+      void look(PointerEvent event) {
+        if(CaicaiLive2DService.activeProfile!='deepseek-avatar' || !widget.active ||
+            size.maxWidth<=0 || size.maxHeight<=0) return;
+        final now=_hoverClock.elapsedMilliseconds;
+        if(now-_lastHoverAt<33) return;
+        _lastHoverAt=now;
+        unawaited(_channel?.invokeMethod<void>('deepseekLook', {
+          'active':true,'x':event.localPosition.dx*2/size.maxWidth-1,
+          'y':1-event.localPosition.dy*2/size.maxHeight,
+        }));
+      }
+      final stage=Listener(
         behavior: HitTestBehavior.translucent,
+        onPointerHover: look,
         onPointerDown: (e) => touch(e, 0), onPointerMove: (e) => touch(e, 2),
         onPointerUp: (e) => touch(e, 1), onPointerCancel: (e) => touch(e, 3),
         // A GLSurfaceView inside ordinary AndroidView falls back to Virtual
@@ -288,6 +302,11 @@ class _CaicaiLive2DStageState extends State<CaicaiLive2DStage> with WidgetsBindi
           },
         ),
       );
+      return CaicaiLive2DService.activeProfile=='deepseek-avatar'
+        ? MouseRegion(opaque:false,onExit: (_) {
+            unawaited(_channel?.invokeMethod<void>('deepseekLook', {'active':false}));
+          },child:stage)
+        : stage;
     }),
     if (_status != null) Center(child: Container(
       margin: const EdgeInsets.all(20),

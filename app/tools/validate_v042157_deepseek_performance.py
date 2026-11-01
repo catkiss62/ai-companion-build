@@ -5,14 +5,14 @@ app = Path(__file__).resolve().parents[1]
 read = lambda p: (app / p).read_text()
 model = read('android/app/src/main/java/com/catkiss/senlive2dcompanion/DeepseekAvatarModel.java')
 assert model.count('physics.evaluate(model,delta)') == 1
-assert model.count('if(speaking) ownMouth();') == 2
+assert model.count('if(speaking) ownMouth();') == 3  # Static preview also keeps real PCM ownership.
 assert model.index('physics.evaluate(model,delta)') < model.rindex('if(speaking) ownMouth();')
 for token in ('DeepseekExpressions', 'DeepseekGestures', 'DeepseekParameterPlan', 'speechDeadline',
               'loadPerformanceClips', 'MouthPressLipOpen', 'model.getParameterMinimumValue'):
     assert token in model, token
 assert 'animateEffect("Param140"' in model and 'animateEffect("Sweat1"' in model
 assert 'animateEffect("Param55"' not in model
-assert '脱捕.motion3.json' not in model  # Stage 3 random idle is still deferred.
+assert 'readClip("脱捕",DeepseekGestures.IDLE_CHANNELS)' in model  # Stage 3 uses a filtered arm-only owner.
 native = read('android/app/src/main/kotlin/com/catkiss/senlive2dcompanion/CaicaiPlatformView.kt')
 for token in ('claimDeepseekMotion', 'deepseekMotionPlan', 'deepseekSpeechCue', 'previewDeepseekPerformance',
               'scoped["asset"]!=loadIdentity', 'scoped["catalog"]!="deepseek-v2"',

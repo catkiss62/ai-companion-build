@@ -55,8 +55,9 @@ internal class CaicaiPlatformView(
     @Volatile private var motionEpoch = 0L
     @Volatile private var speechLease = -1L
     @Volatile private var deepseekSpeechSequence=0L
+    @Volatile private var interactionSequence=0L
     private val executionId = "caicai-$viewId-${android.os.SystemClock.uptimeMillis()}"
-    private var disposed = false
+    @Volatile private var disposed = false
     @Volatile private var renderStatus = "created"
     @Volatile private var renderDetail = "等待画面连接"
     @Volatile private var awaitingModelStart = false
@@ -76,7 +77,7 @@ internal class CaicaiPlatformView(
     private var stageX = initialPreferences.x
     private var stageY = initialPreferences.y
     private var headBox = initialPreferences.headBox()
-    private var editSnapshot: FloatArray? = null
+    @Volatile private var editSnapshot: FloatArray? = null
     private var strokeDistance = 0f
     private var patCandidate = false
     private var patTriggered = false
@@ -130,6 +131,7 @@ internal class CaicaiPlatformView(
 
     override fun dispose() {
         motionEpoch++
+        interactionSequence++
         if (disposed) return
         disposed = true
         CaicaiDiagnostics.record(app, "lifecycle_terminal", org.json.JSONObject(state()).toString())
@@ -203,6 +205,8 @@ internal class CaicaiPlatformView(
             "previewDeepseekPerformance" -> {
                 if(!deepseek || renderStatus!="ready") return result.success(false)
                 motionEpoch++;speechLease=-1;deepseekSpeechSequence++
+                cancelDeepseekInteractions()
+                companion.setStaticMode(false)
                 val epoch=motionEpoch;val asset=loadIdentity
                 companion.performDeepseek(org.json.JSONObject(call.arguments as? Map<*,*> ?: emptyMap<Any,Any>()).put("_preview",true).toString(),false) {
                     !disposed && motionEpoch==epoch && loadIdentity==asset && profileGeneration==Live2DProfiles.generation }
@@ -239,7 +243,32 @@ internal class CaicaiPlatformView(
             }
             "previewParameters" -> {
                 if (!deepseek) return result.success(false)
-                companion.previewDeepseek(org.json.JSONObject(call.arguments as? Map<*, *> ?: emptyMap<Any,Any>()).toString())
+                motionEpoch++;speechLease=-1;deepseekSpeechSequence++
+                cancelDeepseekInteractions();companion.setStaticMode(false)
+                val seq=interactionSequence;val asset=loadIdentity
+                companion.previewDeepseek(org.json.JSONObject(call.arguments as? Map<*, *> ?: emptyMap<Any,Any>()).toString()) {
+                    interactionCurrent(asset,seq,true) }
+                result.success(true)
+            }
+            "deepseekHeadPat", "deepseekHeadPatRare" -> {
+                if(!deepseek || !interactionCurrent(loadIdentity,interactionSequence,true)) return result.success(false)
+                pat(false,call.method=="deepseekHeadPatRare",true);result.success(true)
+            }
+            "previewDeepseekIdle" -> {
+                if(!deepseek || renderStatus!="ready" || !hostActive || editSnapshot!=null) return result.success(false)
+                motionEpoch++;speechLease=-1;deepseekSpeechSequence++
+                cancelDeepseekInteractions();companion.setStaticMode(false)
+                val sequence=interactionSequence;val asset=loadIdentity
+                companion.previewDeepseekIdle(call.arguments==true) {interactionCurrent(asset,sequence,true)}
+                result.success(true)
+            }
+            "deepseekLook" -> {
+                if(!deepseek) return result.success(false)
+                val args=call.arguments as? Map<*,*> ?: return result.success(false)
+                val x=(args["x"] as? Number)?.toFloat() ?: 0f
+                val y=(args["y"] as? Number)?.toFloat() ?: 0f
+                if(!x.isFinite() || !y.isFinite()) return result.success(false)
+                lookDeepseek(args["active"]==true,x.coerceIn(-1f,1f),y.coerceIn(-1f,1f))
                 result.success(true)
             }
             "setMorphAnchor" -> {
@@ -292,7 +321,7 @@ internal class CaicaiPlatformView(
                 val visible = call.arguments == true
                 if (stageVisible != visible) {
                     CaicaiDiagnostics.record(app, "stage_visibility", "visible=$visible")
-                    if(!visible && deepseek) {motionEpoch++;companion.stopConversationPlan()}
+                    if(!visible && deepseek) {motionEpoch++;cancelDeepseekInteractions();companion.stopConversationPlan()}
                     stageVisible = visible
                     CaicaiStageVisibility.apply(root, visible)
                     if (hostActive) {
@@ -337,7 +366,7 @@ internal class CaicaiPlatformView(
                 else companion.playTimedPreset(name)
                 result.success(true)
             }
-            "static" -> { companion.clearParameterPlan(); companion.setCompositeTestMotion("live"); companion.setStaticMode(call.arguments == true); result.success(true) }
+            "static" -> { if(deepseek) {motionEpoch++;cancelDeepseekInteractions()}; companion.clearParameterPlan(); companion.setCompositeTestMotion("live"); companion.setStaticMode(call.arguments == true); result.success(true) }
             "earTwitch" -> { companion.triggerEarTwitch(); result.success(true) }
             "getMotionTuning" -> result.success(mapOf("gain" to motionGain,"speed" to motionSpeed,"pivot" to legPivot))
             "setMotionTuning" -> {
@@ -358,7 +387,9 @@ internal class CaicaiPlatformView(
                 val x=(a?.get("x") as? Number)?.toFloat()
                 val y=(a?.get("y") as? Number)?.toFloat()
                 val action=(a?.get("action") as? Number)?.toInt()
-                if(x!=null && y!=null && action!=null && x.isFinite() && y.isFinite() && editSnapshot==null) {
+                if(x!=null && y!=null && action!=null && x.isFinite() && y.isFinite() && editSnapshot==null
+                    && (!deepseek || hostActive && stageVisible && renderStatus=="ready")) {
+                    if(deepseek && (action==0 || action==2)) lookDeepseek(true,x*2-1,1-y*2)
                     trackHeadStroke(action,x*companion.width,y*companion.height)
                 }
                 result.success(null)
@@ -371,7 +402,7 @@ internal class CaicaiPlatformView(
                 result.success(true)
             }
             "beginEdit" -> {
-                if(deepseek) {motionEpoch++;companion.stopConversationPlan()}
+                if(deepseek) {motionEpoch++;cancelDeepseekInteractions();companion.stopConversationPlan()}
                 companion.clearParameterPlan()
                 editSnapshot = floatArrayOf(stageScale, stageX, stageY, *headBox)
                 companion.setStaticMode(true)
@@ -440,7 +471,7 @@ internal class CaicaiPlatformView(
         CaicaiDiagnostics.record(app, "host_pause")
         hostActive = false
         if (!disposed) {
-            if(deepseek) companion.stopConversationPlan()
+            if(deepseek) {cancelDeepseekInteractions();companion.stopConversationPlan()}
             companion.clearParameterPlan()
             if (stageVisible) companion.onHostPause()
         }
@@ -475,6 +506,7 @@ internal class CaicaiPlatformView(
 
     private fun loadCurrentModel() {
         motionEpoch++
+        if(deepseek) cancelDeepseekInteractions()
         if (disposed) return
         loadIdentity = "$executionId:${++loadSequence}"
         val models = repository.currentModels()
@@ -562,16 +594,47 @@ internal class CaicaiPlatformView(
                     patTriggered=true; pat(true,Math.random()<.10)
                 }
             }
-            1,3 -> { strokeDistance=0f; patCandidate=false; patTriggered=false; companion.releaseHeadPat() }
+            1,3 -> {
+                strokeDistance=0f;patCandidate=false;patTriggered=false
+                if(deepseek) {
+                    val seq=interactionSequence;val asset=loadIdentity
+                    companion.releaseDeepseekPat {interactionCurrent(asset,seq)}
+                } else companion.releaseHeadPat()
+            }
         }
     }
-    private fun pat(held:Boolean,rare:Boolean) {
+    private fun pat(held:Boolean,rare:Boolean,preview:Boolean=false) {
+        if(deepseek) {
+            if(!interactionCurrent(loadIdentity,interactionSequence,preview)) return
+            motionEpoch++;speechLease=-1;deepseekSpeechSequence++
+            val seq=++interactionSequence;val asset=loadIdentity
+            companion.setStaticMode(false)
+            companion.beginDeepseekPat(held,rare) {interactionCurrent(asset,seq,preview)}
+            CaicaiDiagnostics.record(app,"deepseek_head_pat_started","held=$held rare=$rare")
+            return
+        }
         companion.setStaticMode(false)
         companion.triggerEarTwitch()
         companion.beginCaicaiPat(held,rare)
         CaicaiDiagnostics.record(app,"head_pat_started","held=$held rare=$rare")
     }
-    fun observeTouch(x: Float, y: Float) { if (!disposed && editSnapshot == null) companion.setLookTarget(true,x,y) }
+    private fun interactionCurrent(asset:String,seq:Long,allowHidden:Boolean=false):Boolean = !disposed && hostActive && (stageVisible || allowHidden) &&
+        renderStatus=="ready" && editSnapshot==null && loadIdentity==asset && interactionSequence==seq &&
+        profileGeneration==Live2DProfiles.generation && profile==Live2DProfiles.selected(app)
+    private fun lookDeepseek(active:Boolean,x:Float,y:Float) {
+        val seq=interactionSequence;val asset=loadIdentity
+        if(!interactionCurrent(asset,seq)) return
+        companion.lookDeepseek(active,x,y) {interactionCurrent(asset,seq)}
+    }
+    private fun cancelDeepseekInteractions() {
+        interactionSequence++;strokeDistance=0f;patCandidate=false;patTriggered=false
+        companion.suspendDeepseek()
+    }
+    fun observeTouch(x: Float, y: Float) {
+        if (!disposed && editSnapshot == null) {
+            if(deepseek) lookDeepseek(true,x,y) else companion.setLookTarget(true,x,y)
+        }
+    }
     private fun scenePixelHeight(): Float = if(sceneRatio>0) companion.width.coerceAtLeast(1)*sceneRatio else companion.height.coerceAtLeast(1).toFloat()
     private fun applyStage(persist: Boolean = true) {
         val limit = .9f + .5f * stageScale
@@ -585,6 +648,7 @@ internal class CaicaiPlatformView(
         if (disposed) return
         if (profile != Live2DProfiles.selected(app)) { dispose(); return }
         if (deepseek) {
+            motionEpoch++;deepseekSpeechSequence++;speechLease=-1;cancelDeepseekInteractions()
             companion.anchorDeepseek(viewPrefs.getFloat("anchorX",.5f),viewPrefs.getFloat("anchorY",.21504237f))
             val restoredAppearance=app.getSharedPreferences("deepseek_appearance",Context.MODE_PRIVATE).all.toMutableMap()
             for (key in listOf("key11","key12","Clothes1","Clothes4","MouthPressLipOpen"))

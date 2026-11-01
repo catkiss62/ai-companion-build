@@ -155,7 +155,7 @@ class _Live2DSettingsPageState extends State<Live2DSettingsPage> {
             ActionChip(label:const Text('摸头彩蛋预览'),onPressed:_busy?null:()=>_control('headPatRare')),
           ]),
           _tuner('头身与整模幅度 · ${(_gain*100).round()}%',_gain,.5,1.5,(v)=>setState(()=>_gain=v)),
-          _tuner(_deepseek?'对话动作速度 · ${(_speed*100).round()}%':'待机与动作速度 · ${(_speed*100).round()}%',_speed,.65,1.6,(v)=>setState(()=>_speed=v)),
+          _tuner('待机与动作速度 · ${(_speed*100).round()}%',_speed,.65,1.6,(v)=>setState(()=>_speed=v)),
           _tuner('倾斜支点 · 从模型顶部向下 ${(_pivot*100).round()}%',_pivot,.65,.98,(v)=>setState(()=>_pivot=v)),
           if(!_deepseek) Wrap(spacing:8,children:[
             for(final pair in const {'向左探身':'左侧头','向右探身':'右侧头',
@@ -188,7 +188,7 @@ class _Live2DSettingsPageState extends State<Live2DSettingsPage> {
           const SizedBox(height: 16),
           Wrap(spacing: 8, children: [
             ActionChip(label: const Text('调整位置与缩放'), onPressed: _busy ? null : () => _edit('stage')),
-            if(!_deepseek) ActionChip(label: const Text('调整摸头区域'), onPressed: _busy ? null : () => _edit('head')),
+            ActionChip(label: const Text('调整摸头区域'), onPressed: _busy ? null : () => _edit('head')),
             ActionChip(label: const Text('还原位置'), onPressed: _busy ? null : () => _control('resetStage')),
             if(!_deepseek) ActionChip(label: const Text('清除手动预设'), onPressed: _busy ? null : () => _control('resetPresets')),
             ActionChip(label: const Text('重载模型'), onPressed: _busy ? null : () => _control('reloadModel')),

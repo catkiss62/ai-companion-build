@@ -179,3 +179,4 @@ tools/validate_v042154_dual_live2d.py
 
 tools/validate_v042157_deepseek_performance.py
 tools/validate_v042158_conservative_transport_smallform.py
+tools/validate_v042159_deepseek_stage3.py

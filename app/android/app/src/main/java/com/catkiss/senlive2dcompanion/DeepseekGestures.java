@@ -4,6 +4,9 @@ import java.util.*;
 
 /** One arm owner: authored enter, bounded hold, authored return, smooth interruption. */
 final class DeepseekGestures {
+    private static final String AMBIENT="__idle_grass";
+    static final Set<String> IDLE_CHANNELS=Collections.unmodifiableSet(new HashSet<>(Arrays.asList(
+        "Movement1","Param36","Param39","Param41","Param42","Param43")));
     static final Set<String> CHANNELS=Collections.unmodifiableSet(new HashSet<>(Arrays.asList(
         "Movement1","Movement2","Movement3","Param40","Param36","Param39","Param41","Param42","Param43",
         "Param62","Param59","Param60","Param61")));
@@ -12,7 +15,15 @@ final class DeepseekGestures {
     private String active="",pending="",phase="idle";
     private float elapsed,hold=2;
     void register(String name,DeepseekMotionClip enter,DeepseekMotionClip exit) { clips.put(name,new DeepseekMotionClip[]{enter,exit}); }
+    void registerAmbient(DeepseekMotionClip enter,DeepseekMotionClip exit) {register(AMBIENT,enter,exit);}
+    boolean requestAmbient() {return !busy() && begin(AMBIENT,.4f);}
+    boolean ambientActive() {return active.equals(AMBIENT);}
+    boolean busy() {return !active.isEmpty();}
+    void clear() {active=pending="";phase="idle";elapsed=0;pose.clear();from.clear();}
     boolean request(String name,float holdSeconds) {
+        return !name.equals(AMBIENT) && begin(name,holdSeconds);
+    }
+    private boolean begin(String name,float holdSeconds) {
         if(!clips.containsKey(name)) return false;
         hold=Math.max(.4f,Math.min(6,holdSeconds));
         if(active.equals(name) && !phase.equals("exit")) return true;

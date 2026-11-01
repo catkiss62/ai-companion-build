@@ -30,6 +30,12 @@ final class DeepseekAvatarModel extends CubismUserModel {
     private final DeepseekExpressions expressions=new DeepseekExpressions();
     private final DeepseekGestures gestures=new DeepseekGestures();
     private final DeepseekParameterPlan plan=new DeepseekParameterPlan();
+    private final DeepseekIdleMotion idle=new DeepseekIdleMotion();
+    private final DeepseekBlink blink=new DeepseekBlink();
+    private final DeepseekHeadPat pat=new DeepseekHeadPat();
+    private volatile DeepseekHitTransform hit=DeepseekHitTransform.INVALID;
+    private boolean staticMode,manualPreview;
+    private float[] frozenParameters;
     private DeepseekMotionClip auxiliary;
     private float effectTime,previewRootX,previewRootTilt;
     private String baseEmotion="normal",speechCue="",clipStatus="";
@@ -93,6 +99,7 @@ final class DeepseekAvatarModel extends CubismUserModel {
         applyBase(); model.update(); bounds();
         model.saveParameters();
         savedParameters=new float[model.getParameterCount()];
+        frozenParameters=new float[model.getParameterCount()];
         reloadRenderer(width,height,maxTexture,textures,listener);
     }
     private File child(String relative) throws IOException {
@@ -127,6 +134,7 @@ final class DeepseekAvatarModel extends CubismUserModel {
     void amplitude(float value) { amplitude=Math.max(0,Math.min(1,value)); }
     void configureAnchor(float x,float y) { anchorX=x; anchorY=y; anchorDirty=true; }
     void preview(JSONObject values) {
+        staticMode(false);pat.cancel();idle.resetGrass();
         stopPerformance();preview.clear(); previewRootX=0;previewRootTilt=0;
         for(java.util.Iterator<String> it=values.keys();it.hasNext();) {
             String id=it.next();
@@ -136,6 +144,7 @@ final class DeepseekAvatarModel extends CubismUserModel {
             else if(id.equals("rootTilt")) previewRootTilt=Math.max(-10,Math.min(10,value));
             else if(CONTROLS.contains(id)) preview.put(id,value);
         }
+        manualPreview=!preview.isEmpty() || previewRootX!=0 || previewRootTilt!=0;
     }
     void appearance(JSONObject values) {
         if(values.has("smallForm")) {
@@ -172,10 +181,15 @@ final class DeepseekAvatarModel extends CubismUserModel {
         for(String[] f:files) try {gestures.register(f[0],readClip(f[1],DeepseekGestures.CHANNELS),readClip(f[2],DeepseekGestures.CHANNELS));}
         catch(IOException|org.json.JSONException e) {clipStatus+=" missing:"+f[0];}
         try {auxiliary=readClip("IDLE",AUXILIARY);} catch(IOException|org.json.JSONException e) {clipStatus+=" missing:effects";}
+        try {gestures.registerAmbient(readClip("脱捕",DeepseekGestures.IDLE_CHANNELS),
+            readClip("狗尾草切回默认手",DeepseekGestures.IDLE_CHANNELS));}
+        catch(IOException|org.json.JSONException e) {clipStatus+=" missing:idle-grass";}
     }
-    void tune(float gain,float speed) {plan.setGain(gain);plan.setSpeed(speed);}
+    void tune(float gain,float speed) {plan.setGain(gain);plan.setSpeed(speed);idle.tune(gain,speed);}
     void emotion(String value) {baseEmotion=value;expressions.emotion(value);}
     void performance(JSONObject args,boolean speech) throws org.json.JSONException {
+        if(args.optBoolean("_preview")) {staticMode(false);pat.cancel();}
+        else if(staticMode || manualPreview || pat.active()) return;
         String emotion=args.optString("emotion",baseEmotion);if(emotion.isEmpty()) emotion=baseEmotion;
         if(!speech) {
             speechDeadline=0;speechCue="";
@@ -187,7 +201,8 @@ final class DeepseekAvatarModel extends CubismUserModel {
         String cue=args.optString("cue","");
         if(speech && cue.equals(speechCue)) return;
         if(speech) speechCue=cue;
-        preview.clear();previewRootX=previewRootTilt=0;
+        preview.clear();manualPreview=false;previewRootX=previewRootTilt=0;
+        idle.resetGrass();
         boolean animate=!speech || args.optBoolean("animate");
         expressions.trigger(args.optString("face"),animate?args.optString("wink"):"",args.optString("effect"));
         if(animate) {
@@ -205,6 +220,32 @@ final class DeepseekAvatarModel extends CubismUserModel {
         speechDeadline=0;previewEmotionDeadline=0;speechCue="";expressions.emotion(baseEmotion);
         plan.release();expressions.release();gestures.stop();
     }
+    void look(boolean active,float x,float y) {if(!staticMode) idle.look(active,x,y);}
+    void beginPat(boolean held,boolean rare) {
+        staticMode(false);
+        if(!pat.start(held,rare,pose)) return;
+        stopPerformance();plan.clear();expressions.clearTransient();
+        preview.clear();manualPreview=false;previewRootX=previewRootTilt=0;idle.resetGrass();
+    }
+    void releasePat() {pat.release();}
+    void previewIdle(boolean grass) {
+        staticMode(false);suspend();
+        if(grass) gestures.requestAmbient();
+    }
+    void staticMode(boolean enabled) {
+        if(staticMode==enabled) return;
+        if(enabled && model!=null && frozenParameters!=null)
+            for(int i=0;i<frozenParameters.length;i++) frozenParameters[i]=model.getParameterValue(i);
+        staticMode=enabled;
+        if(enabled) {stopPerformance();plan.clear();gestures.clear();pat.cancel();idle.clearAttention();blink.reset();}
+    }
+    void suspend() {
+        hit=DeepseekHitTransform.INVALID;
+        stopPerformance();plan.clear();gestures.clear();pat.cancel();expressions.clearTransient();
+        preview.clear();manualPreview=false;previewRootX=previewRootTilt=rootX=rootTilt=0;
+        idle.clearAttention();idle.resetGrass();blink.reset();
+    }
+    boolean screenToModel(float x,float y,float[] result) {return hit.inverse(x,y,result);}
     private void animateEffect(String id,float elapsed,float period) {
         Integer i=indices.get(id);if(i==null) return;
         set(id,DeepseekExpressions.cycle(elapsed,period,model.getParameterMinimumValue(i),model.getParameterMaximumValue(i)));
@@ -215,6 +256,13 @@ final class DeepseekAvatarModel extends CubismUserModel {
     }
     void update(float delta) {
         delta=Math.max(0,Math.min(.1f,delta));
+        boolean speaking=mouthOwner.active(System.nanoTime());
+        if(staticMode) {
+            for(int i=0;i<frozenParameters.length;i++) model.setParameterValue(i,frozenParameters[i]);
+            applyBase();if(speaking) ownMouth();
+            if(form>.0001f || anchorDirty) stabilizeMorph(); else model.update();
+            return;
+        }
         model.loadParameters();rootX=previewRootX;rootTilt=previewRootTilt;
         form+=(targetForm-form)*(1-(float)Math.exp(-delta*6));
         if(Math.abs(targetForm-form)<.0001f) form=targetForm;
@@ -223,11 +271,17 @@ final class DeepseekAvatarModel extends CubismUserModel {
         if(previewEmotionDeadline!=0 && System.nanoTime()>previewEmotionDeadline) {
             previewEmotionDeadline=0;expressions.emotion(baseEmotion);
         }
-        boolean speaking=mouthOwner.active(System.nanoTime());
+        if(!manualPreview) idle.update(delta,pose);
+        Integer breath=indices.get("ParamBreath");
+        if(breath!=null) set("ParamBreath",model.getParameterMinimumValue(breath)
+            +(model.getParameterMaximumValue(breath)-model.getParameterMinimumValue(breath))*idle.breath());
         expressions.apply(delta,small || form>.05f,pose);
         plan.apply(delta,pose);
         if(small || form>.05f) expressions.smallReaction(pose);
+        if(!manualPreview) idle.applyAttention(pose,pat.active()?.25f:plan.active()?.35f:1);
+        blink.update(delta,manualPreview || pat.active() || expressions.reservesEyes(),pose);
         for(Map.Entry<String,Float> e:preview.entrySet()) if(!speaking || !MOUTH.contains(e.getKey())) set(e.getKey(),e.getValue());
+        if(manualPreview) {rootX=previewRootX;rootTilt=previewRootTilt;}
         expressions.overlay(pose);
         effectTime+=delta;
         if(auxiliary!=null && expressions.effect("落泪"))
@@ -238,7 +292,11 @@ final class DeepseekAvatarModel extends CubismUserModel {
         if(expressions.effect("流冷汗")) {
             animateEffect("Sweat1",effectTime,1.8f);animateEffect("Sweat2",effectTime+.9f,1.8f);
         }
+        if(speaking && gestures.ambientActive()) gestures.stop();
+        if(idle.grassDue(delta,manualPreview || pat.active() || plan.active() || expressions.active()
+            || previewEmotionDeadline!=0 || speaking || gestures.busy())) gestures.requestAmbient();
         Map<String,Float> arm=gestures.update(delta);arm.forEach(this::set);
+        pat.apply(delta,small || form>.05f,pose);
         if(speaking) ownMouth();
         if(physics!=null) physics.evaluate(model,delta);
         // Reassert every mouth channel, including silent phonemes, after the single physics tick.
@@ -280,6 +338,13 @@ final class DeepseekAvatarModel extends CubismUserModel {
             for(int i=0;i<v.length;i+=2){v[i]+=dx;v[i+1]+=dy;}}
     }
     void draw(float width,float sceneHeight,float scale,float x,float y,float pivot,float[] crop) {
+        // Read only on GL. Publish an immutable snapshot for UI hit testing below.
+        float vl=Float.POSITIVE_INFINITY,vr=Float.NEGATIVE_INFINITY,vt=Float.NEGATIVE_INFINITY,vb=Float.POSITIVE_INFINITY;
+        for(int d=0;d<model.getDrawableCount();d++) if(model.getDrawableOpacity(d)>.01f) {
+            float[] v=model.getDrawableVertexPositions(d);
+            for(int i=0;i<v.length;i+=2) {vl=Math.min(vl,v[i]);vr=Math.max(vr,v[i]);vb=Math.min(vb,v[i+1]);vt=Math.max(vt,v[i+1]);}
+        }
+        if(!Float.isFinite(vl) || vr<=vl || vt<=vb) {vl=left;vr=right;vt=top;vb=bottom;}
         CubismMatrix44 projection=CubismMatrix44.create();float aspect=width/sceneHeight;
         if(model.getCanvasHeight()/model.getCanvasWidth()<sceneHeight/width) {
             modelMatrix.setWidth(2);projection.scale(1,aspect);
@@ -287,13 +352,14 @@ final class DeepseekAvatarModel extends CubismUserModel {
         mvp.setMatrix(projection);CubismMatrix44.multiply(modelMatrix.getArray(),mvp.getArray(),mvp.getArray());
         float[] stage={scale,0,0,0,0,scale,0,0,0,0,1,0,x,y,0,1};
         CubismMatrix44.multiply(mvp.getArray(),stage,mvp.getArray());
-        CaicaiRootTransform root=CaicaiRootTransform.create(width,sceneHeight,mvp.transformX(left),mvp.transformX(right),
-            mvp.transformY(top),mvp.transformY(bottom),rootX,rootTilt,pivot);
+        CaicaiRootTransform root=CaicaiRootTransform.create(width,sceneHeight,mvp.transformX(vl),mvp.transformX(vr),
+            mvp.transformY(vt),mvp.transformY(vb),rootX,rootTilt,pivot);
         CubismMatrix44.multiply(mvp.getArray(),root.matrix(),mvp.getArray());
         CubismMatrix44.multiply(mvp.getArray(),crop,mvp.getArray());
         getRenderer().setMvpMatrix(mvp);getRenderer().drawModel();
+        hit=new DeepseekHitTransform(mvp.getArray(),vl,vr,vt,vb);
     }
-    String trace() { return "deepseek-avatar form="+form+" target="+targetForm+" smallForm="+smallForm+" anchor="+anchorX+","+anchorY+" root="+rootX+","+rootTilt+" face="+expressions.trace()+" gesture="+gestures.trace()+clipStatus+" speech="+(speechDeadline!=0); }
+    String trace() { return "deepseek-avatar form="+form+" target="+targetForm+" smallForm="+smallForm+" anchor="+anchorX+","+anchorY+" root="+rootX+","+rootTilt+" face="+expressions.trace()+" gesture="+gestures.trace()+clipStatus+" speech="+(speechDeadline!=0)+" pat="+pat.state()+" idle="+idle.trace()+" static="+staticMode+" preview="+manualPreview; }
     void resizeRenderTarget(int width,int height) { if(getRenderer()!=null) getRenderer().setRenderTargetSize(width,height); }
-    void closeModel() { delete(); }
+    void closeModel() {hit=DeepseekHitTransform.INVALID;suspend();delete();}
 }

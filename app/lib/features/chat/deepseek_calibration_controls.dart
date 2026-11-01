@@ -88,6 +88,15 @@ class _DeepseekCalibrationControlsState extends State<DeepseekCalibrationControl
   Widget build(BuildContext context) => Column(crossAxisAlignment:CrossAxisAlignment.start,children:[
     const Text('DeepSeek独立表情与手势：临时预览不会保存成装扮。手势自动完成抬臂、保持和放下。'),
     const Text('原分辨率 · 目标60FPS · 高精度蒙版512px'),
+    const Text('本机待机含呼吸、眨眼和小幅随机动作，偶尔拿起狗尾草；触摸或鼠标可引导视线。'),
+    Wrap(spacing:8,children:[
+      ActionChip(label:const Text('自主待机'),onPressed:widget.busy?null:()=>widget.preview('previewDeepseekIdle',false)),
+      ActionChip(label:const Text('狗尾草待机预览'),onPressed:widget.busy?null:()=>widget.preview('previewDeepseekIdle',true)),
+      ActionChip(label:const Text('完全静止'),onPressed:widget.busy?null:()=>widget.preview('static',true)),
+      ActionChip(label:const Text('摸头'),onPressed:widget.busy?null:()=>widget.preview('deepseekHeadPat')),
+      ActionChip(label:const Text('摸头彩蛋预览'),onPressed:widget.busy?null:()=>widget.preview('deepseekHeadPatRare')),
+    ]),
+    const Text('在摸头区域连续滑动后可按住，松开淡出；偶尔会歪头露出疑惑表情。摸头区域和其他设置分别保存。'),
     SwitchListTile(title:const Text('DeepSeek Jev 对话动作'),
       subtitle:const Text('独立四拍与真实语音分段表演；不影响菜菜开关'),
       value:(widget.status['deepseek_motion'] as Map?)?['jevEnabled'] != false,
