@@ -1233,6 +1233,7 @@ jobs:
             --tests 'com.aicompanion.localfirst.CalendarReminderScheduleTest' \
             --tests 'com.aicompanion.localfirst.RoomTiltFilterTest' \
             --tests 'com.aicompanion.localfirst.SpeechPlaybackTimelineTest' \
+            --tests 'com.aicompanion.localfirst.TtsFailureCategoryTest' \
             --tests 'com.aicompanion.localfirst.VoiceExportOwnershipTest' \
             --tests 'com.catkiss.senlive2dcompanion.RoomMotionInterpolatorTest' \
             --tests 'com.aicompanion.localfirst.Overlay*Test' \

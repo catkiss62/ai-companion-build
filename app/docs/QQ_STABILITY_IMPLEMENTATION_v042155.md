@@ -1,6 +1,6 @@
 # v0.42.155+399 稳定性与小形态校准
 
-当前为候选，基线b5eb611018bf5d208f04145bf0ec28d5178f1b36；schema67不变。未完成CI及原签名APK验证前，最后交付仍为+398。
+已交付v0.42.155+399/schema67；运行源码ce6671cc203ccdc63868295a00cff4330dab0193，完整CI与原签名APK均已核验。[下载APK](https://github.com/catkiss62/ai-companion-build/actions/runs/41282163840/artifacts/13073918213)。基线b5eb611018bf5d208f04145bf0ec28d5178f1b36。
 
 用户授权修补QQ漏回复、绘图、工作API保存、主动语音后台播放、梦境失败和用量记录，并增加DeepSeek小形态数值。用户最新观察认为熄屏网络关联不成立，该项搁置，不修改网络部署或省电策略。
 
@@ -19,4 +19,8 @@
 
 新增回归覆盖：未发送自动续跑和退避、备份冻结/解冻、未知/已发送保护、新话题及状态切换、持久收件去重、主动语音离页继续及音效一次、工作API无效编辑保留原配置、梦境增量游标、原生SVG常见命令与拒绝边界、双模型大小设置存档。
 
-验证状态待CI更新。未使用私有模型、真实聊天、API凭据或原始诊断作为公开测试夹具；未改变公网入口、真实QQ账号或远端游戏状态。
+验证：完整[41282163840](https://github.com/catkiss62/ai-companion-build/actions/runs/41282163840)与专项[41282163762](https://github.com/catkiss62/ai-companion-build/actions/runs/41282163762)均success。155源码门、选中Kotlin/原生单元（SVG路径及profile存档）、Android15原生54、全量Flutter3260、独立恢复171分别通过。专项141/37/61/39/25/26/33/357/1320分别通过，重叠不相加；Dart分析0error、1036条非fatal信息/警告。语音分类独立[41283921378](https://github.com/catkiss62/ai-companion-build/actions/runs/41283921378)通过1项JUnit/4断言：验证提交ecf0257316e65fd4f38fbb0dbf8bcfd19b3afc03只比上述测试源码增加隔离工作流，直接编译相同生产与测试文件；后续主构建已补该类筛选。
+
+APK739553854 bytes，SHA256 `c2009158d0d3f8a57cab2ce4ed97a207c14b0e88777bdb229ab4c01a8e811008`；包名`com.aicompanion.localfirst`、版本0.42.155+399、完整离线资源与原签名`305eb3d80983b963c64818ddf1ad561f279de6d47b3ed2c781ada448c7c25148`均核验。成功CI monitor与未发布Draft430405736/asset697626799的上传digest一致。Actions artifact13073918213是ZIP，732361972 bytes，其大小及哈希不当作APK本体数据。
+
+未使用私有模型、真实聊天、API凭据或原始诊断作为公开测试夹具；未改变公网入口、真实QQ账号或远端游戏状态。尚无手机/真实QQ实测，不以CI代替语义、播放音质和锚点的真机观察。TTS合成根因待新版诊断，DeepSeek第二阶段表情仍待实施。交付后仅文档/凭据和测试筛选收口，运行代码及APK保持上述已测试源码。
