@@ -75,7 +75,10 @@ class DeepseekChatMotion {
     _token = token;
     try {
       final claimed = await _claim(token);
-      if (claimed is! Map) { _lastIdentity = null; return; }
+      if (claimed is! Map) {
+        if (identical(_token, token)) _lastIdentity = null;
+        return;
+      }
       final owner = Map<String, Object?>.from(claimed);
       if (epoch != _presentationEpoch || token.isCancelled || _canContinue?.call() == false) {
         await _command('stopDeepseekMotion', {'_motion_owner': owner}); return;
@@ -144,7 +147,10 @@ class DeepseekChatMotion {
     _token = token;
     try {
       final claimed = await _claim(token);
-      if (claimed is! Map) { _lastIdentity = null; return; }
+      if (claimed is! Map) {
+        if (identical(_token, token)) _lastIdentity = null;
+        return;
+      }
       final owner = Map<String, Object?>.from(claimed);
       if (!identical(_token, token) || token.isCancelled || _canContinue?.call() == false) {
         await _command('stopDeepseekMotion', {'_motion_owner': owner}); return;

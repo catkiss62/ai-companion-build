@@ -190,4 +190,11 @@ void main() {
     await pending;expect(h.planner.calls,0);expect(h.claims,1);
   });
 
+  test('a cancelled readiness wait cannot erase a newer reply identity', () async {
+    final h=_Harness();addTearDown(h.motion.stop);h.notReady=1;
+    final first=h.present();await tick();await h.motion.stop();
+    await h.present(revision:1);expect(h.planner.calls,1);
+    await first;await h.present(revision:1);expect(h.planner.calls,1);
+  });
+
 }
