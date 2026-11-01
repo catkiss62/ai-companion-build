@@ -488,7 +488,7 @@ final class SenRenderer implements GLSurfaceView.Renderer {
     }
 
     boolean screenToModelNormalized(float screenX, float screenY, float[] result) {
-        if (deepseek != null) return deepseek.screenToModel(screenX,screenY,result); // AI_COMPANION_HOST_PLAN_HOOK
+        DeepseekAvatarModel activeDeepseek=deepseek; if (activeDeepseek != null) return activeDeepseek.screenToModel(screenX,screenY,result); // AI_COMPANION_HOST_PLAN_HOOK
         if (caicaiRoot != null) return caicaiHit(screenX,screenY,result); // AI_COMPANION_HOST_PLAN_HOOK
         if (!modelBoundsValid || result == null || result.length < 2) return false;
         float left = modelBoundsLeft;

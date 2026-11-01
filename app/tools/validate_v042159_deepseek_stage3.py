@@ -20,7 +20,8 @@ for token in ('"deepseekHeadPat", "deepseekHeadPatRare"','interactionSequence','
               'companion.releaseDeepseekPat','allowHidden:Boolean=false'):
     assert token in native,token
 renderer=read(java+'SenRenderer.java')
-assert 'return deepseek.screenToModel(screenX,screenY,result)' in renderer
+assert 'DeepseekAvatarModel activeDeepseek=deepseek' in renderer
+assert 'return activeDeepseek.screenToModel(screenX,screenY,result)' in renderer
 assert 'deepseek.tune(motionGain,motionSpeed)' in renderer
 planner=read('lib/core/ai/deepseek_motion_planner.dart')
 assert planner.count('gateway.chooseMany(')==1
