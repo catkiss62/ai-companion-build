@@ -1,0 +1,7 @@
+status=success
+run_id=41331640043
+run_url=https://github.com/catkiss62/ai-companion-build/actions/runs/41331640043
+head_sha=9b397a297e5e9ff59f70f040917fc2e3f736bbd4
+signer_sha256=30:5E:B3:D8:09:83:B9:63:C6:48:18:DD:F1:AD:56:1F:27:9D:E6:D4:7B:3E:D2:C7:81:AD:A4:48:C7:C2:51:48
+06b82286adc85d6a260c81ef040e46d9d662ac09808c696d26bca7eb8fe4417e  AI-Companion-v0.42.158-402-Transport-SmallForm-APK.apk
+release_url=https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-0181453bb68746b5ce5f
