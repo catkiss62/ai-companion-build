@@ -1,6 +1,6 @@
 # v0.42.158+402：第三通道保守优化与 DeepSeek 小豆丁修补
 
-2026-11-02，schema67。承接已交付 +401；当前为待 CI 的候选，尚未交付 APK。
+2026-11-02，schema67。承接 +401；本版完整CI、专项CI与原签名APK核验已通过。
 
 ## 本轮范围
 
@@ -21,3 +21,13 @@
 新增/扩展原生行为测试覆盖：缺省与已保存大小、0与旧值优先、模型重建、存档大小/锚点/菜菜摸头框往返、wink进出与停留/角色左右/吐舌、反向微笑恢复。源码门继续固定菜菜原源及资源；完整CI、原生54项模拟器、全量Flutter、独立恢复和签名APK校验均需通过后收尾。
 
 本地没有Flutter/Android编译器，编译与完整行为测试以CI实际结果为准。尚无本版手机实测；不得据缓存方案声称已降低上游80秒生成等待。预期仅减少重复探活及不必要的新连接，实际效果须对照诊断 `health_cached`、模型/首响应耗时。
+
+## 已完成的交付核验
+
+- 测试源码：`9b397a297e5e9ff59f70f040917fc2e3f736bbd4`，root tree `715160dc2d1aa4481ab62199f3cf388efff055f7`，app/lib `0989d60adddb7c751eeb482cfc3fc960c7648ec1`。
+- [完整CI 41331640043](https://github.com/catkiss62/ai-companion-build/actions/runs/41331640043) success，主任务124924270628；157源码门、Android15原生54项（0跳过/0失败）、原生单元（含新大小恢复、存档往返、wink与反向微笑用例）、3306全量Flutter、171独立恢复全部通过。
+- [专项CI 41331640024](https://github.com/catkiss62/ai-companion-build/actions/runs/41331640024) success，任务124922814466；71项第三通道新旧行为回归通过。其余专项39/97/143/37/61/39/25/26/33/359/1322分别通过，组间重叠不相加。分析0error/1054非fatal（90warning/964info）。
+- [下载+402测试APK](https://github.com/catkiss62/ai-companion-build/actions/runs/41331640043/artifacts/13094517650)。APK **739591662 bytes**，SHA256 **06b82286adc85d6a260c81ef040e46d9d662ac09808c696d26bca7eb8fe4417e**。artifact ZIP摘要是容器摘要，不作为APK摘要。
+- 原签名SHA256 `305eb3d80983b963c64818ddf1ad561f279de6d47b3ed2c781ada448c7c25148`；包名 `com.aicompanion.localfirst`、versionName0.42.158/versionCode402、ARM64与完整离线资源均由实际APK核验。
+- 未发布Draft430759444指向同一测试提交；APK asset699091483的服务端SHA与CI计算一致。checksum asset699091489（121 bytes，SHA25694c8bc4dd47b55a20bc4b791fbc730e1b4e4eeee0342dc9a7e5dd5042c878480）、success monitor asset699091484（499 bytes，SHA256bfd3eeaa4a62291951e5089a079cd313ba6452a3b8e281592d9bb3fb8f3e330f）与ci-monitor分支记录、源码身份及APK摘要逐项对应。
+- 后续只文档`[skip ci]`收尾，不重打同一源码APK；Draft保持未发布，未合并main。无本版手机实测，切换后实际大小、wink停留与公网速度改善仍需安装观察。以上行为测试证明恢复/计时逻辑，不冒充私有模型的手机视觉或高峰网络实测。
