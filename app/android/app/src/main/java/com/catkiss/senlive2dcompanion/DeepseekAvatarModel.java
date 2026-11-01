@@ -35,8 +35,7 @@ final class DeepseekAvatarModel extends CubismUserModel {
     private String baseEmotion="normal",speechCue="",clipStatus="";
     private long speechDeadline,previewEmotionDeadline;
     private static final Set<String> AUXILIARY=new HashSet<>(Arrays.asList(
-        "Param31","Param32","Param27","Param28","RCry","Param29","Param30","LCry",
-        "SweatBurst1","SweatBurst2","SweatBurst3","SweatBurst4","Param55","Param56","Param57","Param58"));
+        "Param31","Param32","Param27","Param28","RCry","Param29","Param30","LCry"));
     private final DeepseekParameterPlan.Target pose=new DeepseekParameterPlan.Target() {
         public boolean accepts(String id) {return indices.containsKey(id) || id.equals("@rootX") || id.equals("@rootTilt");}
         public float current(String id) {
@@ -202,6 +201,10 @@ final class DeepseekAvatarModel extends CubismUserModel {
         speechDeadline=0;previewEmotionDeadline=0;speechCue="";expressions.emotion(baseEmotion);
         plan.release();expressions.release();gestures.stop();
     }
+    private void animateEffect(String id,float elapsed,float period) {
+        Integer i=indices.get(id);if(i==null) return;
+        set(id,DeepseekExpressions.cycle(elapsed,period,model.getParameterMinimumValue(i),model.getParameterMaximumValue(i)));
+    }
     private void ownMouth() {
         for(String id:MOUTH) {Integer i=indices.get(id);if(i!=null) set(id,model.getParameterDefaultValue(i));}
         set("ParamMouthOpenY",amplitude);
@@ -223,12 +226,13 @@ final class DeepseekAvatarModel extends CubismUserModel {
         for(Map.Entry<String,Float> e:preview.entrySet()) if(!speaking || !MOUTH.contains(e.getKey())) set(e.getKey(),e.getValue());
         expressions.overlay(pose);
         effectTime+=delta;
-        if(auxiliary!=null && (expressions.effect("落泪") || expressions.effect("加载") || expressions.effect("流冷汗"))) for(Map.Entry<String,Float> e:auxiliary.sample(effectTime%auxiliary.duration).entrySet()) {
-            String id=e.getKey();
-            boolean use=id.startsWith("SweatBurst")?expressions.effect("流冷汗"):
-                id.equals("Param55") || id.equals("Param56") || id.equals("Param57") || id.equals("Param58")?
-                    expressions.effect("加载"):expressions.effect("落泪");
-            if(use) set(id,e.getValue());
+        if(auxiliary!=null && expressions.effect("落泪"))
+            auxiliary.sample(effectTime%auxiliary.duration).forEach(this::set);
+        // CDI: Param140 is the loading animation. Param55..58 are tail lights,
+        // including those embedded in arm clips, and must never enter this owner.
+        if(expressions.effect("加载")) animateEffect("Param140",effectTime,1.2f);
+        if(expressions.effect("流冷汗")) {
+            animateEffect("Sweat1",effectTime,1.8f);animateEffect("Sweat2",effectTime+.9f,1.8f);
         }
         Map<String,Float> arm=gestures.update(delta);arm.forEach(this::set);
         if(speaking) ownMouth();

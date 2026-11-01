@@ -90,4 +90,11 @@ public class DeepseekPerformanceTest {
         assertTrue(p.current("PositionX")<.03f);assertTrue(p.current("@rootX")<.001f);
     }
 
+    @Test public void loadingAndSweatUseActualHelperBoundsAndWrapInsteadOfSticking() {
+        assertEquals(10,DeepseekExpressions.cycle(.5f,1,0,20),.001f);
+        assertEquals(0,DeepseekExpressions.cycle(1,1,0,20),.001f);
+        assertEquals(10,DeepseekExpressions.cycle(1.5f,1,0,20),.001f);
+        assertEquals(-1,DeepseekExpressions.cycle(Float.NaN,1,-1,1),0);
+    }
+
 }

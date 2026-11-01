@@ -64,6 +64,11 @@ final class DeepseekExpressions {
     }
     boolean effect(String name) {return weight>.01f && (name.equals(face) || name.equals(effect));}
     String trace() {return emotion+" face="+face+" weight="+weight+" effect="+effect+" wink="+wink;}
+    static float cycle(float elapsed,float period,float min,float max) {
+        if(!Float.isFinite(elapsed) || !Float.isFinite(min) || !Float.isFinite(max) || period<=0 || max<=min) return min;
+        float phase=elapsed/period;phase-=(float)Math.floor(phase);
+        return min+(max-min)*phase;
+    }
     static Map<String,Float> emotionPose(String emotion) {
         // Mouth form, brows, squint, eye opening: authored DeepSeek semantics, not Caicai values.
         float mouth=0,brow=0,squint=0,open=1,inner=0,x=0,puff=0;

@@ -10,6 +10,8 @@ assert model.index('physics.evaluate(model,delta)') < model.rindex('if(speaking)
 for token in ('DeepseekExpressions', 'DeepseekGestures', 'DeepseekParameterPlan', 'speechDeadline',
               'loadPerformanceClips', 'MouthPressLipOpen', 'model.getParameterMinimumValue'):
     assert token in model, token
+assert 'animateEffect("Param140"' in model and 'animateEffect("Sweat1"' in model
+assert 'animateEffect("Param55"' not in model
 assert '脱捕.motion3.json' not in model  # Stage 3 random idle is still deferred.
 native = read('android/app/src/main/kotlin/com/catkiss/senlive2dcompanion/CaicaiPlatformView.kt')
 for token in ('claimDeepseekMotion', 'deepseekMotionPlan', 'deepseekSpeechCue', 'previewDeepseekPerformance',
