@@ -22,7 +22,9 @@ class DeepseekMotionPlanner {
       '抬眉': {'BrowInnerUp': .6}, '眯笑': {'REyeSquint': .55, 'LEyeSquint': .55}},
     'mouth': {'自然': {}, '微笑': {'ParamMouthForm': .65}, '不高兴': {'ParamMouthForm': -.7},
       '撅嘴': {'ParamMouthForm': -1, 'Mouthpucker': 1}, '鼓脸': {'CheeckPuff': .7},
-      '歪嘴': {'MouthX': .45}, '微张露齿': {'MouthFunnel': .35}},
+      '歪嘴': {'MouthX': .45}, '吐舌': {'TongueOut': 1},
+      '咧嘴': {'ParamMouthForm': .8, 'MouthPuckerWiden': .35},
+      '微张露齿': {'MouthFunnel': .35}},
   };
   static const eyes = <String, String>{
     '圈圈眼': '呆萌的两个圆圈眼；不是旋转眩晕',

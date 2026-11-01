@@ -5,7 +5,7 @@ void main() {
   final parameters = <String, dynamic>{for (final id in [
     'AngleX','AngleY','AngleZ','PositionX','PositionY','PositionZ','LeanInput',
     'ParamEyeBallX','ParamEyeBallY','ParamBrowLY','ParamBrowRY','BrowInnerUp',
-    'REyeSquint','LEyeSquint','ParamMouthForm','Mouthpucker','CheeckPuff','MouthX','MouthFunnel',
+    'REyeSquint','LEyeSquint','TongueOut','MouthPuckerWiden','ParamMouthForm','Mouthpucker','CheeckPuff','MouthX','MouthFunnel',
   ]) id: {'min': id.startsWith('Angle') ? -9 : -30, 'max': 30}};
   test('four beats use real DeepSeek channels and Core bounds', () {
     final p = DeepseekMotionPlanner.buildPlan({
@@ -23,6 +23,10 @@ void main() {
       final keys = (frame['parameters'] as Map).keys;
       expect(keys.any((id) => '$id'.startsWith('Clothes') || '$id'.startsWith('Movement') || id == 'ParamMouthOpenY'), isFalse);
     }
+  });
+  test('tongue cue reaches its full value and keeps clothing out of the plan', () {
+    final p=DeepseekMotionPlanner.buildPlan({'f0_mouth':'吐舌'},parameters);
+    expect(((p['frames'] as List).first['parameters'] as Map)['TongueOut'],1);
   });
   test('missing or invalid use gates fail closed, eyes win over wink', () {
     expect(DeepseekMotionPlanner.preset({'face':'爱心眼','wink':'吐舌wink'}, '')['face'], '');

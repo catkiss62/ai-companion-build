@@ -101,13 +101,13 @@ final class DeepseekParameterPlan {
             // the cadence of idle movement; head, Y, face remain responsive.
             boolean slowAxis = id.equals("@rootX") || id.equals("PositionX")
                 || id.equals("PositionZ");
-            float smoothing = 1f - (float)Math.exp(-delta * (slowAxis ? .85f : spatial ? 3.4f : 5f)
-                / Math.max(.1f, current.duration));
+            float rate=finishing?9f:(slowAxis?1.5f:spatial?3.4f:5f)/Math.max(.1f,current.duration);
+            float smoothing=1f-(float)Math.exp(-delta*rate);
             float lower = target.current(id);
             float old = previous.containsKey(id) ? previous.get(id) : lower;
             float wanted = lower;
             if (!finishing && current.values.containsKey(id)) {
-                float scale=id.startsWith("Angle") || id.startsWith("Position") || id.equals("LeanInput") || id.startsWith("@root") ? gain : 1f;
+                float scale=id.startsWith("Angle") || id.startsWith("Position") || id.startsWith("@root") ? gain : 1f;
                 wanted=current.values.get(id)*scale;
             }
             float value = old + (wanted - old) * smoothing;

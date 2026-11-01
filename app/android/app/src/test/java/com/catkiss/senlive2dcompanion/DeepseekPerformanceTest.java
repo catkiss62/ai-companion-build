@@ -62,6 +62,7 @@ public class DeepseekPerformanceTest {
         DeepseekExpressions e=new DeepseekExpressions();Pose p=new Pose();
         for(int i=0;i<20;i++) e.apply(.1f,true,p);
         assertTrue(p.current("ParamMouthForm")<-.7f);assertTrue(p.current("ParamBrowLY")<-.45f);
+        p.write("ParamMouthForm",1);e.smallReaction(p);assertTrue(p.current("ParamMouthForm")<-.7f);
         Set<Map<String,Float>> distinct=new HashSet<>();
         for(String emotion:Arrays.asList("happy","excited","affection","shy","flustered","tense","worried","helpless","afraid","angry","sad","disgust","serious","surprised","confident","playful","ashamed","calm","confused")) {
             Map<String,Float> pose=DeepseekExpressions.emotionPose(emotion);distinct.add(pose);
@@ -80,4 +81,13 @@ public class DeepseekPerformanceTest {
         for(int i=0;i<30;i++) {p.values.clear();plan.apply(.1f,p);}
         assertTrue(p.values.isEmpty());
     }
+    @Test public void releaseSettlesBeforeRelinquishingSlowBodyAndRootChannels() throws Exception {
+        DeepseekParameterPlan plan=new DeepseekParameterPlan();Pose p=new Pose();
+        plan.start("[{\"time\":0,\"duration\":1,\"parameters\":{\"PositionX\":5},\"root\":{\"x\":0.03}}]");
+        plan.apply(.8f,p);float old=p.current("PositionX");assertTrue(old>1);
+        plan.release();
+        for(int i=0;i<6;i++) {p.values.clear();plan.apply(.1f,p);}
+        assertTrue(p.current("PositionX")<.03f);assertTrue(p.current("@rootX")<.001f);
+    }
+
 }

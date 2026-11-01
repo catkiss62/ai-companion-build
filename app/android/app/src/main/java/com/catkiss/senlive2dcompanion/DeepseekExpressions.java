@@ -44,6 +44,11 @@ final class DeepseekExpressions {
         remaining=Math.max(0,remaining-dt);age+=dt;
         weight+=( (remaining>0?1:0)-weight)*(1-(float)Math.exp(-dt*10));
     }
+    void smallReaction(DeepseekParameterPlan.Target target) {
+        for(String id:Arrays.asList("ParamMouthForm","ParamBrowLY","ParamBrowRY"))
+            target.write(id,Math.min(target.current(id),current.getOrDefault(id,0f)));
+        target.write("CheeckPuff",Math.max(target.current("CheeckPuff"),current.getOrDefault("CheeckPuff",0f)));
+    }
     // Overlay after the parameter plan, preventing simultaneous special-eye states.
     void overlay(DeepseekParameterPlan.Target target) {
         for(String id:BUTTONS.values()) if(target.accepts(id)) target.write(id,(id.equals(BUTTONS.get(face)) || id.equals(BUTTONS.get(effect)))?weight:0);

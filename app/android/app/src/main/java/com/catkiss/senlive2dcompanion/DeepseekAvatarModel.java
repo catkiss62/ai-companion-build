@@ -23,8 +23,7 @@ final class DeepseekAvatarModel extends CubismUserModel {
         "EyeSmile","ParamEyeBallX","ParamEyeBallY","BrowInnerUp","ParamEyeROpen","ParamEyeLOpen",
         "ParamBrowRY","ParamBrowLY","REyeSquint","LEyeSquint","ParamMouthForm","ParamMouthOpenY",
         "JawOpen","TongueOut","MouthX","Mouthpucker","MouthFunnel","MouthPuckerWiden","CheeckPuff"));
-    private static final Set<String> MOUTH = new HashSet<>(Arrays.asList("ParamMouthForm","ParamMouthOpenY",
-        "JawOpen","TongueOut","MouthX","Mouthpucker","MouthFunnel","MouthPuckerWiden","CheeckPuff"));
+    private static final Set<String> MOUTH = DeepseekExpressions.MOUTH;
     private final Map<String,Integer> indices = new HashMap<>();
     private final Map<String,Float> preview = new LinkedHashMap<>();
     private final Map<String,Float> appearance = new LinkedHashMap<>();
@@ -190,7 +189,7 @@ final class DeepseekAvatarModel extends CubismUserModel {
         expressions.trigger(args.optString("face"),animate?args.optString("wink"):"",args.optString("effect"));
         if(animate) {
             String action=args.optString("action");
-            if(action.isEmpty()) gestures.stop(); else gestures.request(action,2.4f);
+            if(action.isEmpty() || !gestures.request(action,2.4f)) gestures.stop();
             plan.replace(args.optJSONArray("frames")==null?"[]":args.getJSONArray("frames").toString(),pose);
         } else {plan.release();gestures.stop();}
     }
@@ -220,6 +219,7 @@ final class DeepseekAvatarModel extends CubismUserModel {
         boolean speaking=mouthOwner.active(System.nanoTime());
         expressions.apply(delta,small || form>.05f,pose);
         plan.apply(delta,pose);
+        if(small || form>.05f) expressions.smallReaction(pose);
         for(Map.Entry<String,Float> e:preview.entrySet()) if(!speaking || !MOUTH.contains(e.getKey())) set(e.getKey(),e.getValue());
         expressions.overlay(pose);
         effectTime+=delta;
