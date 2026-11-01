@@ -41,7 +41,7 @@ abstract final class QqFailure {
   static bool retryable(Object error) {
     if(error is TimeoutException || error is SocketException || error is http.ClientException)return true;
     if(error is DeepSeekException)return error.statusCode==429 || error.statusCode>=500;
-    if(error is QqApiException)return !error.uncertain && (error.code=='network' || error.code=='timeout');
+    if(error is QqApiException)return !error.uncertain && (error.code=='network' || error.code=='timeout' || error.code=='http_429' || RegExp(r'^http_5[0-9][0-9]$').hasMatch(error.code));
     if(error is QqOperationFailure)return error.code=='reply_timeout';
     return error is StateError && error.message=='reply_incomplete';
   }

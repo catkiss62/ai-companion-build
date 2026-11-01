@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'package:ai_companion_localfirst/core/ai/deepseek_client.dart';
 import 'dart:convert';
 import 'dart:io';
 import 'package:flutter_test/flutter_test.dart';
@@ -667,15 +668,28 @@ void main() {
           },
         );
         expect(await e.maybeDream(now: night), isTrue);
-        expect(seen.length, 240);
-        expect(
-          await e.maybeDream(now: night.add(const Duration(days: 1))),
-          isTrue,
-        );
+        expect(seen.length, 48);
+        for(var day=1;day<=5;day++) {
+          expect(await e.maybeDream(now:night.add(Duration(days:day))),isTrue);
+        }
         expect(seen.length, 250);
         expect(seen.toSet().length, 250);
       },
     );
+    test('output limit shrinks the next batch without consuming evidence',() async {
+      await seed();
+      final failed=engine(reviewer:(_) async=>throw const IncompleteJsonCompletionException('length'));
+      expect(await failed.maybeDream(now:night),false);
+      expect(await db.getSetting('nightly_dream_batch_limit_v1'),'24');
+      expect((await DreamStore(db).load())['cursor'],isNull);
+      var seenLimit=0;
+      final recovered=engine(reviewer:(m) async {
+        seenLimit=(m['sources'] as List).where((x)=>x['fresh']==true).length;
+        return {'changes':[]};
+      });
+      expect(await recovered.maybeDream(now:night.add(const Duration(hours:1))),true);
+      expect(seenLimit,1);
+    });
     test('deleted or regenerated originals stop influencing prompts', () async {
       await seed();
       expect(await engine().maybeDream(now: night), isTrue);

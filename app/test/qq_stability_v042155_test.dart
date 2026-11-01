@@ -1,5 +1,7 @@
 import 'dart:convert';
 import 'dart:io';
+import 'package:qq_private_bridge/qq_private_bridge.dart';
+import 'package:ai_companion_localfirst/integrations/qq_private/qq_failure.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 import 'package:ai_companion_localfirst/core/database/app_database.dart';
@@ -19,6 +21,12 @@ void main() {
     final seq=(await store.append(fence:fence,scope:'fixture',kind:'group',target:'g',platformId:id,sender:'peer',text:'合成问题',observedAt:now,receivedAt:now,policy:'policy'))!;
     return (await store.claim(fence,cid,seq,now,policy:'policy'))!;
   }
+  test('only a known unsent transport failure or temporary HTTP error is retryable',() {
+    expect(QqFailure.retryable(QqApiException('network')),true);
+    expect(QqFailure.retryable(QqApiException('http_429')),true);
+    expect(QqFailure.retryable(QqApiException('network',uncertain:true)),false);
+    expect(QqFailure.retryable(QqApiException('http_400')),false);
+  });
   test('unsent technical failure retries without a new message after backoff',() async {
     final b=await batch('one'),retry=QqReplyRecovery(store);
     await store.mark(b,'failed');expect(await retry.defer(b,now),true);

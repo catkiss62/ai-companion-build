@@ -139,11 +139,11 @@ class QqRuntime {
     _imageExpires.removeWhere((_,at)=>at<=now().millisecondsSinceEpoch);
     try {
       final c=await configReader(),o=await optionsReader(),fence=await store.capture();
-      await ingressBuffer.drain(fence,policy(c,o),now().millisecondsSinceEpoch,(event,group,receivedAt) async {
+      try {await ingressBuffer.drain(fence,policy(c,o),now().millisecondsSinceEpoch,(event,group,receivedAt) async {
         if(!await _enabled())return false;
         await _accept(event,group,receivedAt:receivedAt);
         return await _enabled();
-      });
+      });}catch(_) {status('inbox_recovery_wait');}
       final due=await QqReplyRecovery(store).due(await store.capture(),now().millisecondsSinceEpoch,_enqueued);
       for(final cid in due) {if(!_enqueued.contains(cid))_enqueue(cid);}
       for(final row in await store.conversations(scope(c))) {
@@ -536,7 +536,8 @@ class QqRuntime {
       final state=error is QqDeliveryFailure?error.state:sentAny?'sent_archive_failed':
         error is QqApiException && error.uncertain?'send_uncertain':await current()?'failed':'context_invalidated';
       try {await store.mark(b,state,confirmedParts:error is QqDeliveryFailure?error.confirmed:null);} catch(_) {/* Existing sending receipt remains conservative. */}
-      if(state=='failed' && phase!='send' && phase!='archive' && QqFailure.retryable(error is QqDeliveryFailure?error.cause:error)) {
+      final knownUnsentSend=error is QqDeliveryFailure && error.cause is QqApiException && !(error.cause as QqApiException).uncertain;
+      if(state=='failed' && (phase!='send' || knownUnsentSend) && phase!='archive' && QqFailure.retryable(error is QqDeliveryFailure?error.cause:error)) {
         try {await QqReplyRecovery(store).defer(b,now().millisecondsSinceEpoch);}catch(_) {}
       }
       status(state=='failed'?'reply_failed':state);
