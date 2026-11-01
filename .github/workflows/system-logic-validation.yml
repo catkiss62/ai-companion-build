@@ -26,6 +26,9 @@ jobs:
       - name: Analyze all Dart sources
         run: flutter analyze --no-fatal-infos --no-fatal-warnings
         working-directory: app
+      - name: QQ full-group self mention and identity recovery regression
+        run: flutter test --timeout 60s --reporter expanded test/qq_mentions_v042156_test.dart test/qq_addressing_receipts_v042148_test.dart test/qq_group_runtime_v042137_test.dart
+        working-directory: app
       - name: QQ recovery, API saving, proactive audio and dream regression
         run: flutter test --timeout 60s --reporter expanded test/qq_stability_v042155_test.dart test/work_api_save_v042155_test.dart test/qq_group_runtime_v042137_test.dart test/proactive_presentation_v042145_test.dart test/nightly_dream_test.dart
         working-directory: app

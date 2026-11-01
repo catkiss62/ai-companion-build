@@ -22,7 +22,7 @@ void main() {
       text:'合成问题',observedAt:at,receivedAt:at))!;
     return (await store.claim(fence,cid,seq,at))!;
   }
-  test('only a confirmed same-group self echo establishes the group namespace',() async {
+  test('a confirmed same-group self echo still establishes the group namespace',() async {
     final b=await source();store.received(b,1,platformId:'actual-outgoing-id');
     await store.sentPart(b,1,'已确认原话','',DateTime.now().millisecondsSinceEpoch);
     final addressing=QqAddressing(store,api),fence=await store.capture(conversationId:cid);

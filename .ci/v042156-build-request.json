@@ -1,0 +1,8 @@
+{
+  "version": "0.42.156+400",
+  "schema": 67,
+  "base": "3412c66ee8ebb672afb2453675e53be279f58858",
+  "scope": "Full-group self-mention detection, scoped identity cache, legacy/new mention tags, redacted addressing diagnostics",
+  "status": "candidate_not_delivered",
+  "private_inputs_included": false
+}

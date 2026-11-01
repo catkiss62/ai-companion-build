@@ -441,7 +441,7 @@
 # Historical +314: Build AI Companion v0.42.70+314 APK (Wish Lifecycle) | AI-Companion-v0.42.70-314-Wish-Lifecycle-APK | v0.42.70-wish-lifecycle-test | .ci/v04270-monitor.txt
 # Historical +323: Build AI Companion v0.42.79+323 APK (Wish Chat Fixes) | AI-Companion-v0.42.79-323-Wish-Chat-Fixes-APK | v0.42.79-wish-chat-fixes-test | .ci/v04279-monitor.txt
 # Historical +396: Build AI Companion v0.42.152+396 APK (Third Channel Public Gateway) | AI-Companion-v0.42.152-396-Third-Channel-Public-Gateway-APK | v0.42.152-third-channel-public-gateway-test | .ci/v042152-monitor.txt
-name: Build AI Companion v0.42.155+399 APK (QQ Stability and Calibration)
+name: Build AI Companion v0.42.156+400 APK (QQ Mention Repair)
 
 # BUILD INPUTS: The 96-clip source ZIP is private Draft Release asset 591363139
 # (release 397377805), fetched and SHA-256 checked below. The persistent
@@ -1060,7 +1060,7 @@ jobs:
         run: |
           set -euo pipefail
           test -f app/pubspec.yaml
-          grep -Fqx 'version: 0.42.155+399' app/pubspec.yaml
+          grep -Fqx 'version: 0.42.156+400' app/pubspec.yaml
           grep -Fqx '  static const int schemaVersion = 67;' app/lib/core/database/app_database.dart
           test -d app/lib
           test -d app/android
@@ -1074,7 +1074,7 @@ jobs:
           test -f app/android/app/src/main/jniLibs/arm64-v8a/libc++_shared.so
           test ! -d app/android/app/src/main/assets/tts_models
           test ! -d app/android/app/src/main/assets/legacy_tts
-          echo 'Building v0.42.155+399 QQ Stability and Calibration after focused regression verification.'
+          echo 'Building v0.42.156+400 QQ Mention Repair after focused regression verification.'
 
       - name: Generate complete pet clips from pinned Draft Release asset
         timeout-minutes: 15
@@ -1741,26 +1741,26 @@ jobs:
           APK='app/build/app/outputs/flutter-apk/app-release.apk'
           sha256sum "$APK" | tee app/app-release.apk.sha256
 
-      - name: Upload v0.42.155+399 APK as workflow artifact
+      - name: Upload v0.42.156+400 APK as workflow artifact
         uses: actions/upload-artifact@v4
         with:
-          name: AI-Companion-v0.42.155-399-QQ-Stability-and-Calibration-APK
+          name: AI-Companion-v0.42.156-400-QQ-Mention-Repair-APK
           path: |
             app/build/app/outputs/flutter-apk/app-release.apk
             app/app-release.apk.sha256
           if-no-files-found: error
           retention-days: 14
 
-      - name: Upload v0.42.155+399 APK to draft release
+      - name: Upload v0.42.156+400 APK to draft release
         shell: bash
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
-          TAG='v0.42.155-qq-stability-test'
-          APK_NAME='AI-Companion-v0.42.155-399-QQ-Stability-and-Calibration-APK.apk'
+          TAG='v0.42.156-qq-mention-test'
+          APK_NAME='AI-Companion-v0.42.156-400-QQ-Mention-Repair-APK.apk'
           SHA_NAME="${APK_NAME}.sha256"
-          CI_NAME='AI-Companion-v0.42.155-399-QQ-Stability-and-Calibration-CI-Monitor.txt'
+          CI_NAME='AI-Companion-v0.42.156-400-QQ-Mention-Repair-CI-Monitor.txt'
           cp app/build/app/outputs/flutter-apk/app-release.apk "app/${APK_NAME}"
           sed "s#app/build/app/outputs/flutter-apk/app-release.apk#${APK_NAME}#" \
             app/app-release.apk.sha256 > "app/${SHA_NAME}"
@@ -1777,15 +1777,15 @@ jobs:
               --repo "${GITHUB_REPOSITORY}" \
               --target "${GITHUB_SHA}" \
               --draft \
-              --title 'AI Companion v0.42.155+399 QQ Stability and Calibration' \
-              --notes 'Restores unsent QQ replies after transient failures, buffers incoming events during ordinary backup, supports bounded SVG paths, reports work API save errors, and keeps proactive speech running across page visibility changes. Adds independent DeepSeek small-form calibration, QQ usage accounting, smaller dream batches and TTS failure categories. Preserves channel routing and Caicai. Original-signature unpublished test build; real-device confirmation pending.'
+              --title 'AI Companion v0.42.156+400 QQ Mention Repair' \
+              --notes 'Repairs full-group direct mentions through scoped platform is_you metadata, supports old and new mention markers, separates individual self mentions from other members and everyone, and adds body-free addressing diagnostics. Keeps existing group participation, channel routing and Live2D settings. Original-signature unpublished test build; real-device confirmation pending.'
           else
             test "$(gh release view "${TAG}" --repo "${GITHUB_REPOSITORY}" --json isDraft --jq '.isDraft')" = true
             gh release edit "${TAG}" \
               --repo "${GITHUB_REPOSITORY}" \
               --target "${GITHUB_SHA}" \
-              --title 'AI Companion v0.42.155+399 QQ Stability and Calibration' \
-              --notes 'Restores unsent QQ replies after transient failures, buffers incoming events during ordinary backup, supports bounded SVG paths, reports work API save errors, and keeps proactive speech running across page visibility changes. Adds independent DeepSeek small-form calibration, QQ usage accounting, smaller dream batches and TTS failure categories. Preserves channel routing and Caicai. Original-signature unpublished test build; real-device confirmation pending.'
+              --title 'AI Companion v0.42.156+400 QQ Mention Repair' \
+              --notes 'Repairs full-group direct mentions through scoped platform is_you metadata, supports old and new mention markers, separates individual self mentions from other members and everyone, and adds body-free addressing diagnostics. Keeps existing group participation, channel routing and Live2D settings. Original-signature unpublished test build; real-device confirmation pending.'
           fi
           test "$(gh release view "${TAG}" --repo "${GITHUB_REPOSITORY}" --json isDraft --jq '.isDraft')" = true || exit 1
           RELEASE_URL="$(gh release view "${TAG}" --repo "${GITHUB_REPOSITORY}" --json url --jq '.url')"
@@ -1806,7 +1806,7 @@ jobs:
           done
           test "${upload_ok}" = '1'
           MONITOR_BRANCH='ci-monitor-v0345'
-          MONITOR_PATH='.ci/v042155-monitor.txt'
+          MONITOR_PATH='.ci/v042156-monitor.txt'
           MONITOR_CONTENT_FILE="$(mktemp)"
           base64 -w0 "app/${CI_NAME}" > "${MONITOR_CONTENT_FILE}"
           MONITOR_SHA="$(gh api "/repos/${GITHUB_REPOSITORY}/contents/${MONITOR_PATH}?ref=${MONITOR_BRANCH}" --jq '.sha' 2>/dev/null || true)"
@@ -1840,8 +1840,8 @@ jobs:
           BUILD_RESULT: ${{ needs.build-apk.result }}
         run: |
           set -uo pipefail
-          TAG='v0.42.155-qq-stability-test'
-          CI_NAME='AI-Companion-v0.42.155-399-QQ-Stability-and-Calibration-CI-Monitor.txt'
+          TAG='v0.42.156-qq-mention-test'
+          CI_NAME='AI-Companion-v0.42.156-400-QQ-Mention-Repair-CI-Monitor.txt'
           REPORT="${RUNNER_TEMP}/${CI_NAME}"
           JOBS_JSON="${RUNNER_TEMP}/jobs.json"
           {
@@ -1882,7 +1882,7 @@ jobs:
               --repo "${GITHUB_REPOSITORY}" \
               --target "${GITHUB_SHA}" \
               --draft \
-              --title 'AI Companion v0.42.155+399 QQ Stability and Calibration' \
+              --title 'AI Companion v0.42.156+400 QQ Mention Repair' \
               --notes 'Unpublished Draft build diagnostics for the third channel, vision routing and QQ participation. No user content, keys, backups or device diagnostics are included.'
           fi
           test "$(gh release view "${TAG}" --repo "${GITHUB_REPOSITORY}" --json isDraft --jq '.isDraft')" = true || exit 1
@@ -1893,7 +1893,7 @@ jobs:
             --clobber \
             --repo "${GITHUB_REPOSITORY}"
           MONITOR_BRANCH='ci-monitor-v0345'
-          MONITOR_PATH='.ci/v042155-monitor.txt'
+          MONITOR_PATH='.ci/v042156-monitor.txt'
           MONITOR_CONTENT_FILE="$(mktemp)"
           base64 -w0 "${REPORT}" > "${MONITOR_CONTENT_FILE}"
           MONITOR_SHA="$(gh api "/repos/${GITHUB_REPOSITORY}/contents/${MONITOR_PATH}?ref=${MONITOR_BRANCH}" --jq '.sha' 2>/dev/null || true)"

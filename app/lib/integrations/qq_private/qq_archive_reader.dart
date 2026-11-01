@@ -1,4 +1,5 @@
 import 'dart:convert';
+import '../../core/qq/qq_mention_targets.dart';
 import 'package:crypto/crypto.dart';
 import 'package:sqflite/sqflite.dart';
 import '../../core/memory/conversation_recall_policy.dart';
@@ -243,8 +244,7 @@ class QqArchiveReader {
       final quoted=await _quotedAssistant(row,material);
       final includeQuote=quoted!=null && (stamp==null || stamp.length<280);
       if(includeQuote)stamp?.add({'table':'qq_archive','id':quoted!['id'],'version':quoted['version']});
-      final mentionKeys=RegExp(r'<@!?([^>]+)>').allMatches(row['content'] as String)
-        .map((m)=>m[1]!).where((id)=>id!='all').take(8).map((id)=>
+      final mentionKeys=QqMentionTargets.inText(row['content'] as String).take(8).map((id)=>
           QqDisplayNames.memberKey(row['conversation_id'] as String,id).substring(0,12)).toSet().toList();
       final item=<String,Object?>{'seq':row['seq'],'observed_at':row['observed_at'],
         'received_at':row['received_at'],...await _speaker(row),
@@ -253,7 +253,9 @@ class QqArchiveReader {
         if(mentionKeys.isNotEmpty)'mention_scope':'outer_text_target_hint_not_identity_authority',
         if(includeQuote)'quoted_assistant':{'seq':quoted!['seq'],'observed_at':quoted['observed_at'],
           'platform_confirmed':true,'text':bound(quoted['content'] as String,300)},
-        'trusted_direct_mention':row['mentioned']==1,'has_image':material.imageOrigins.isNotEmpty};
+        'trusted_direct_mention':row['mentioned']==1,
+        if(row['mentioned']==1)'addressing':'@小鲸鱼（可信平台直接提及）',
+        'has_image':material.imageOrigins.isNotEmpty};
       final size=jsonEncode(item).length;if(size>remaining)break;
       result.add(item);remaining-=size;
     }

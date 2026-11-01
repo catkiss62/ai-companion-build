@@ -1,6 +1,7 @@
 import 'third_channel_diagnostics.dart';
 import '../ai/third_channel_event.dart';
 import '../../integrations/qq_private/qq_failure_history.dart';
+import '../../integrations/qq_private/qq_addressing.dart';
 import '../agent/agent_task_loop.dart';
 import '../self/dream_store.dart';
 import '../creative/creative_store.dart';
@@ -628,6 +629,8 @@ class PreflightDiagnosticsService {
       report['qqOperations'] = _qqOperationFailures(
         await db.getSetting('qq_operation_failures_v1') ?? '[]',
       );
+      (report['qqOperations'] as Map<String,Object?>)['recentAddressing'] =
+        QqAddressing.auditRows(await db.getSetting(QqAddressing.diagnosticKey) ?? '[]');
       report['creativeAgent'] = await CreativeStore(db).diagnostics();
       report['finalReplyRouting'] = {
         'configuredProvider': (await SecureConfig.instance.readChatProvider()).storageValue,

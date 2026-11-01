@@ -139,6 +139,30 @@ void main(){
   });
   tearDown(()async{await runtime.stop();api.close();await db.closeForTesting();});
 
+  test('full-mode platform self mention overrides watch without a prior echo or owner grant',() async {
+    final e=event('full-self','<@group-self> 合成问题')..['mentions']=[
+      {'id':'other-peer','is_you':false,'scope':'single'},
+      {'id':'group-self','member_openid':'group-self','is_you':true,'scope':'single'}];
+    handler=(r,b)async=>b['stream']==true?_sse('收到了你的问题'):
+      _json(b['max_tokens']==60?{'safe':true}:{'participation':'watch'});
+    await runtime.accept(e,group:true);await runtime.process(cid());
+    final row=(await (await db.database).query('qq_archive',where:"role='user'")).single;
+    expect(row['mentioned'],1);expect(row['owner'],0);expect(api.sent.length,1);
+    expect((await (await db.database).query('qq_deliveries')).single['state'],'sent');
+    expect(statuses,isNot(contains('watching')));
+    expect((await QqArchiveReader(await db.database).participationFocus([row])).single['addressing'],contains('@小鲸鱼'));
+  });
+  test('full-mode other-person and everyone mentions keep ordinary watching',() async {
+    for(final target in ['other-peer','all']) {
+      final e=event('mention-$target','<@$target> 合成群聊')..['mentions']=[
+        {'id':target,'scope':target=='all'?'all':'single','is_you':target=='all'}];
+      await runtime.accept(e,group:true);await runtime.process(cid());
+    }
+    expect(api.sent,isEmpty);
+    expect((await (await db.database).query('qq_archive',where:"role='user'")).every((r)=>r['mentioned']==0),true);
+    expect(statuses,contains('watching'));
+  });
+
   for(final finalMark in [false,true]) {
     test('participation transport failure stays failed and automatically reclaims the same request',() async {
     handler=(r,b) async=>throw const SocketException('synthetic offline');
