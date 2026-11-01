@@ -81,7 +81,7 @@ void main() {
           final body = jsonDecode(request.body) as Map;
           expect(body['model'], 'first-custom');
           expect(body['reasoning_effort'], 'high');
-          expect(body['max_tokens'], 6000);
+          expect(body['max_tokens'], 12000);
           expect(body['thinking'], {'type': 'enabled'});
           return _json('{"changes":[]}');
         })));
