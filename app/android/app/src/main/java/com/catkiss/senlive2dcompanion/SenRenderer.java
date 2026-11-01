@@ -174,6 +174,12 @@ final class SenRenderer implements GLSurfaceView.Renderer {
         if(deepseek==null) return;
         try { deepseek.preview(new JSONObject(values)); } catch(JSONException ignored) { }
     }
+    void performDeepseek(String json,boolean speech) {
+        if(deepseek==null) return;
+        try {deepseek.performance(new JSONObject(json),speech);} catch(JSONException ignored) {deepseek.stopPerformance();}
+    }
+    void emotionDeepseek(String value) {if(deepseek!=null) deepseek.emotion(value);}
+    void stopDeepseek(boolean speech) {if(deepseek!=null) {if(speech) deepseek.releaseSpeech();else deepseek.stopPerformance();}}
     void appearanceDeepseek(String values) {
         if(deepseek==null) return;
         try { deepseek.appearance(new JSONObject(values)); } catch(JSONException ignored) { }
@@ -559,6 +565,7 @@ final class SenRenderer implements GLSurfaceView.Renderer {
     void tuneCaicaiMotion(float gain,float speed,float pivot) {
         motionGain=gain; motionSpeed=speed; lowerLegPivot=pivot;
         if(model!=null) model.tuneMotion(gain,speed);
+        if(deepseek!=null) deepseek.tune(gain,speed);
     }
     private void resizeCaicaiTargets(int width,int height) {
         if(width<=0 || height<=0) return;
@@ -608,7 +615,7 @@ final class SenRenderer implements GLSurfaceView.Renderer {
         try { model.startParameterPlan(json, face, action); }
         catch (org.json.JSONException error) { listener.onStatus("动作计划格式错误：" + error.getMessage()); }
     }
-    void stopConversationPlan() { if(model!=null) model.stopConversationPlan(); }
+    void stopConversationPlan() { if(model!=null) model.stopConversationPlan(); if(deepseek!=null) deepseek.stopPerformance(); }
     void speechPerformance(String key, String emotion, String frames) {
         if (model == null) return;
         try { model.speechPerformance(key, emotion, frames); }

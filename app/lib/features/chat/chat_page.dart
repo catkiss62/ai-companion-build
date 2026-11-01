@@ -13,7 +13,7 @@ import 'package:flutter/rendering.dart' show ScrollDirection;
 import 'package:image_picker/image_picker.dart';
 
 import '../../core/ai/message_language_variant_service.dart';
-import '../../core/ai/caicai_chat_motion.dart';
+import '../../core/ai/live2d_chat_motion.dart';
 import '../../core/ai/deepseek_balance.dart';
 import '../../core/ai/reasoning_translation_service.dart';
 import '../../core/agent/agent_tool.dart';
@@ -109,7 +109,7 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver, RouteA
   double? _caicaiStableHeight;
   final _caicaiViewport = CaicaiStageViewport();
   bool _caicaiEnabled = false;
-  final _caicaiMotion = CaicaiChatMotion();
+  final _caicaiMotion = Live2dChatMotion();
   PlayfulFormState _playfulForm = const PlayfulFormState();
   double _portraitScale = ChatPortraitTransform.defaults.scale;
   Offset _portraitOffset = ChatPortraitTransform.defaults.offset;

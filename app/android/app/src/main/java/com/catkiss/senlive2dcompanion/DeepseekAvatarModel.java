@@ -28,6 +28,29 @@ final class DeepseekAvatarModel extends CubismUserModel {
     private final Map<String,Integer> indices = new HashMap<>();
     private final Map<String,Float> preview = new LinkedHashMap<>();
     private final Map<String,Float> appearance = new LinkedHashMap<>();
+    private final DeepseekExpressions expressions=new DeepseekExpressions();
+    private final DeepseekGestures gestures=new DeepseekGestures();
+    private final DeepseekParameterPlan plan=new DeepseekParameterPlan();
+    private DeepseekMotionClip auxiliary;
+    private float effectTime,previewRootX,previewRootTilt;
+    private String baseEmotion="normal",speechCue="",clipStatus="";
+    private long speechDeadline;
+    private static final Set<String> AUXILIARY=new HashSet<>(Arrays.asList(
+        "Param31","Param32","Param27","Param28","RCry","Param29","Param30","LCry",
+        "SweatBurst1","SweatBurst2","SweatBurst3","SweatBurst4","Param55","Param56","Param57","Param58"));
+    private final DeepseekParameterPlan.Target pose=new DeepseekParameterPlan.Target() {
+        public boolean accepts(String id) {return indices.containsKey(id) || id.equals("@rootX") || id.equals("@rootTilt");}
+        public float current(String id) {
+            if(id.equals("@rootX")) return rootX;
+            if(id.equals("@rootTilt")) return rootTilt;
+            Integer i=indices.get(id);return i==null?0:model.getParameterValue(i);
+        }
+        public void write(String id,float value) {
+            if(id.equals("@rootX")) rootX=Math.max(-.035f,Math.min(.035f,value));
+            else if(id.equals("@rootTilt")) rootTilt=Math.max(-3,Math.min(3,value));
+            else set(id,value);
+        }
+    };
     private final CaicaiSpeechMouthOwner mouthOwner = new CaicaiSpeechMouthOwner();
     private File source;
     private CubismModelSettingJson setting;
@@ -64,6 +87,7 @@ final class DeepseekAvatarModel extends CubismUserModel {
         Integer sizeIndex=indices.get("Clothes2");
         if(sizeIndex==null || model.getParameterMinimumValue(sizeIndex)>0 || model.getParameterMaximumValue(sizeIndex)<.8f)
             throw new IOException("DeepSeek大小参数不支持正常0／小豆丁0.8");
+        loadPerformanceClips();
         applyBase(); model.update(); bounds();
         model.saveParameters();
         savedParameters=new float[model.getParameterCount()];
@@ -91,7 +115,7 @@ final class DeepseekAvatarModel extends CubismUserModel {
             renderer.bindTexture(i,textures.loadPng(file).id);
         }
     }
-    private void set(String id,float value) { Integer i=indices.get(id); if(i!=null) model.setParameterValue(i,value); }
+    private void set(String id,float value) { Integer i=indices.get(id); if(i!=null && Float.isFinite(value)) model.setParameterValue(i,Math.max(model.getParameterMinimumValue(i),Math.min(model.getParameterMaximumValue(i),value))); }
     private void applyBase() {
         appearance.forEach(this::set);
         set("Clothes3",0); set("Clothes5",0); set("Clothes2",form);
@@ -101,13 +125,13 @@ final class DeepseekAvatarModel extends CubismUserModel {
     void amplitude(float value) { amplitude=Math.max(0,Math.min(1,value)); }
     void configureAnchor(float x,float y) { anchorX=x; anchorY=y; anchorDirty=true; }
     void preview(JSONObject values) {
-        preview.clear(); rootX=0;rootTilt=0;
+        stopPerformance();preview.clear(); previewRootX=0;previewRootTilt=0;
         for(java.util.Iterator<String> it=values.keys();it.hasNext();) {
             String id=it.next();
             float value=(float)values.optDouble(id,Double.NaN);
             if(!Float.isFinite(value)) continue;
-            if(id.equals("rootX")) rootX=Math.max(-.15f,Math.min(.15f,value));
-            else if(id.equals("rootTilt")) rootTilt=Math.max(-10,Math.min(10,value));
+            if(id.equals("rootX")) previewRootX=Math.max(-.15f,Math.min(.15f,value));
+            else if(id.equals("rootTilt")) previewRootTilt=Math.max(-10,Math.min(10,value));
             else if(CONTROLS.contains(id)) preview.put(id,value);
         }
     }
@@ -137,20 +161,72 @@ final class DeepseekAvatarModel extends CubismUserModel {
         } } catch(org.json.JSONException ignored) { }
         return result.toString();
     }
+    private DeepseekMotionClip readClip(String name,Set<String> allowed) throws IOException,org.json.JSONException {
+        return new DeepseekMotionClip(new String(NativeFileLoader.readFile(child("Animation/"+name+".motion3.json")),java.nio.charset.StandardCharsets.UTF_8),allowed);
+    }
+    private void loadPerformanceClips() {
+        String[][] files={{"狗尾草","狗尾草切换出来","狗尾草切回默认手"},
+            {"扶胸","默认手切举手","举手切默认手"},{"竖食指","竖手指切出来动画","竖手指切回默认"}};
+        for(String[] f:files) try {gestures.register(f[0],readClip(f[1],DeepseekGestures.CHANNELS),readClip(f[2],DeepseekGestures.CHANNELS));}
+        catch(IOException|org.json.JSONException e) {clipStatus+=" missing:"+f[0];}
+        try {auxiliary=readClip("IDLE",AUXILIARY);} catch(IOException|org.json.JSONException e) {clipStatus+=" missing:effects";}
+    }
+    void tune(float gain,float speed) {plan.setGain(gain);plan.setSpeed(speed);}
+    void emotion(String value) {baseEmotion=value;expressions.emotion(value);}
+    void performance(JSONObject args,boolean speech) throws org.json.JSONException {
+        String emotion=args.optString("emotion",baseEmotion);if(emotion.isEmpty()) emotion=baseEmotion;
+        if(!speech) {speechDeadline=0;speechCue="";emotion(emotion);}
+        else {expressions.emotion(emotion);speechDeadline=System.nanoTime()+700_000_000L;}
+        String cue=args.optString("cue","");
+        if(speech && cue.equals(speechCue)) return;
+        if(speech) speechCue=cue;
+        preview.clear();previewRootX=previewRootTilt=0;
+        boolean animate=!speech || args.optBoolean("animate");
+        expressions.trigger(args.optString("face"),animate?args.optString("wink"):"",args.optString("effect"));
+        if(animate) {
+            String action=args.optString("action");
+            if(action.isEmpty()) gestures.stop(); else gestures.request(action,2.4f);
+            plan.replace(args.optJSONArray("frames")==null?"[]":args.getJSONArray("frames").toString(),pose);
+        } else {plan.release();gestures.stop();}
+    }
+    void releaseSpeech() {
+        if(speechDeadline==0) return;
+        speechDeadline=0;speechCue="";expressions.emotion(baseEmotion);
+        plan.release();expressions.release();gestures.stop();
+    }
+    void stopPerformance() {
+        speechDeadline=0;speechCue="";expressions.emotion(baseEmotion);
+        plan.release();expressions.release();gestures.stop();
+    }
+    private void ownMouth() {
+        for(String id:MOUTH) {Integer i=indices.get(id);if(i!=null) set(id,model.getParameterDefaultValue(i));}
+        set("ParamMouthOpenY",amplitude);
+    }
     void update(float delta) {
-        model.loadParameters();
+        delta=Math.max(0,Math.min(.1f,delta));
+        model.loadParameters();rootX=previewRootX;rootTilt=previewRootTilt;
         form+=(targetForm-form)*(1-(float)Math.exp(-delta*6));
         if(Math.abs(targetForm-form)<.0001f) form=targetForm;
         applyBase();
+        if(speechDeadline!=0 && System.nanoTime()>speechDeadline) releaseSpeech();
         boolean speaking=mouthOwner.active(System.nanoTime());
+        expressions.apply(delta,small || form>.05f,pose);
+        plan.apply(delta,pose);
         for(Map.Entry<String,Float> e:preview.entrySet()) if(!speaking || !MOUTH.contains(e.getKey())) set(e.getKey(),e.getValue());
-        if(speaking) {
-            for(String id:MOUTH) { Integer i=indices.get(id); if(i!=null) set(id,model.getParameterDefaultValue(i)); }
-            set("ParamMouthOpenY",amplitude);
+        expressions.overlay(pose);
+        effectTime+=delta;
+        if(auxiliary!=null) for(Map.Entry<String,Float> e:auxiliary.sample(effectTime%auxiliary.duration).entrySet()) {
+            String id=e.getKey();
+            boolean use=id.startsWith("SweatBurst")?expressions.effect("流冷汗"):
+                id.equals("Param55") || id.equals("Param56") || id.equals("Param57") || id.equals("Param58")?
+                    expressions.effect("加载"):expressions.effect("落泪");
+            if(use) set(id,e.getValue());
         }
+        Map<String,Float> arm=gestures.update(delta);arm.forEach(this::set);
+        if(speaking) ownMouth();
         if(physics!=null) physics.evaluate(model,delta);
-        // Mouth remains owned through silent phonemes as well as voiced samples.
-        if(speaking) set("ParamMouthOpenY",amplitude);
+        // Reassert every mouth channel, including silent phonemes, after the single physics tick.
+        if(speaking) ownMouth();
         if(form>.0001f || anchorDirty) stabilizeMorph(); else model.update();
     }
     private void bounds() {
@@ -201,7 +277,7 @@ final class DeepseekAvatarModel extends CubismUserModel {
         CubismMatrix44.multiply(mvp.getArray(),crop,mvp.getArray());
         getRenderer().setMvpMatrix(mvp);getRenderer().drawModel();
     }
-    String trace() { return "deepseek-avatar form="+form+" target="+targetForm+" anchor="+anchorX+","+anchorY+" root="+rootX+","+rootTilt; }
+    String trace() { return "deepseek-avatar form="+form+" target="+targetForm+" anchor="+anchorX+","+anchorY+" root="+rootX+","+rootTilt+" face="+expressions.trace()+" gesture="+gestures.trace()+clipStatus+" speech="+(speechDeadline!=0); }
     void resizeRenderTarget(int width,int height) { if(getRenderer()!=null) getRenderer().setRenderTargetSize(width,height); }
     void closeModel() { delete(); }
 }

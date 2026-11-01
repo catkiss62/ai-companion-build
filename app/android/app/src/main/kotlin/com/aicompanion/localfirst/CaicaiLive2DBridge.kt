@@ -70,6 +70,7 @@ class CaicaiLive2DBridge(
                         "profiles" to mapOf(Live2DProfiles.CAICAI to repository.currentModels().available,
                             Live2DProfiles.DEEPSEEK to CaicaiModelRepository(activity,Live2DProfiles.DEEPSEEK).currentModels().available),
                         "deepseek_appearance" to appearance, "deepseek_stage" to stage,
+                        "deepseek_motion" to activity.getSharedPreferences("deepseek_motion",android.content.Context.MODE_PRIVATE).all,
                         "render" to CaicaiRuntime.state(),
                         "events" to CaicaiDiagnostics.events(activity),
                     ))
@@ -91,6 +92,19 @@ class CaicaiLive2DBridge(
                     if ((args?.get("profile") ?: Live2DProfiles.CAICAI) != profile ||
                         (args?.get("profile_generation") as? Number)?.toLong()?.let { it != Live2DProfiles.generation } == true)
                         return@setMethodCallHandler result.success(false)
+                    if(method in setOf("getDeepseekJev","setDeepseekJev")) {
+                        if(profile!=Live2DProfiles.DEEPSEEK) return@setMethodCallHandler result.success(false)
+                        val prefs=activity.getSharedPreferences("deepseek_motion",android.content.Context.MODE_PRIVATE)
+                        if(method=="getDeepseekJev") return@setMethodCallHandler result.success(prefs.getBoolean("jevEnabled",true))
+                        val enabled=args?.get("arguments") as? Boolean ?: return@setMethodCallHandler result.success(false)
+                        if(!prefs.edit().putBoolean("jevEnabled",enabled).commit()) return@setMethodCallHandler result.error("save_failed","无法保存DeepSeek动作设置",null)
+                        if(!enabled) CaicaiRuntime.control("stopMotion",null,object:MethodChannel.Result {
+                            override fun success(value:Any?) {}
+                            override fun error(code:String,message:String?,details:Any?) {}
+                            override fun notImplemented() {}
+                        })
+                        return@setMethodCallHandler result.success(true)
+                    }
                     CaicaiRuntime.control(args?.get("method")?.toString() ?: "", args?.get("arguments"), result)
                 }
                 "setEditorFocused" -> {

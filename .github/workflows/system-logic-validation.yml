@@ -26,6 +26,9 @@ jobs:
       - name: Analyze all Dart sources
         run: flutter analyze --no-fatal-infos --no-fatal-warnings
         working-directory: app
+      - name: DeepSeek Live2D stage 2 independent planner and playback regression
+        working-directory: app
+        run: flutter test --timeout 60s --reporter expanded test/deepseek_motion_planner_v042157_test.dart test/deepseek_presentation_owner_v042157_test.dart test/dual_live2d_profiles_v042154_test.dart test/speech_presentation_owner_v042121_test.dart
       - name: QQ full-group self mention and identity recovery regression
         run: flutter test --timeout 60s --reporter expanded test/qq_mentions_v042156_test.dart test/qq_addressing_receipts_v042148_test.dart test/qq_group_runtime_v042137_test.dart
         working-directory: app

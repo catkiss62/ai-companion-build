@@ -282,6 +282,15 @@ public final class CaicaiCompanionView extends GLSurfaceView implements SenCompa
         queueRenderer(()->renderer.requestDeepseek(file,identity));
     }
     public void previewDeepseek(String values) {queueRenderer(()->renderer.previewDeepseek(values));}
+    public void performDeepseek(String json,boolean speech,java.util.function.BooleanSupplier valid) {
+        queueRenderer(()->{if(valid.getAsBoolean()) renderer.performDeepseek(json,speech);});
+    }
+    public void emotionDeepseek(String value,java.util.function.BooleanSupplier valid) {
+        queueRenderer(()->{if(valid.getAsBoolean()) renderer.emotionDeepseek(value);});
+    }
+    public void stopDeepseek(boolean speech,java.util.function.BooleanSupplier valid) {
+        queueRenderer(()->{if(valid.getAsBoolean()) renderer.stopDeepseek(speech);});
+    }
     public void appearanceDeepseek(String values) {queueRenderer(()->renderer.appearanceDeepseek(values));}
     public void anchorDeepseek(float x,float y) {queueRenderer(()->renderer.anchorDeepseek(x,y));}
 

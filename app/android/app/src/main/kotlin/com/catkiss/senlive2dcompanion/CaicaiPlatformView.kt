@@ -43,7 +43,7 @@ internal class CaicaiPlatformView(
     private val deepseek = profile == Live2DProfiles.DEEPSEEK
     private val repository = CaicaiModelRepository(context, profile)
     private var loadSequence = 0L
-    private var loadIdentity = ""
+    @Volatile private var loadIdentity = ""
     private val app = context.applicationContext
     private val root = FrameLayout(context).apply {
         setBackgroundColor(Color.TRANSPARENT)
@@ -54,14 +54,15 @@ internal class CaicaiPlatformView(
     private val channel = MethodChannel(messenger, "ai_companion/caicai_live2d/view/$viewId")
     @Volatile private var motionEpoch = 0L
     @Volatile private var speechLease = -1L
+    @Volatile private var deepseekSpeechSequence=0L
     private val executionId = "caicai-$viewId-${android.os.SystemClock.uptimeMillis()}"
     private var disposed = false
     @Volatile private var renderStatus = "created"
     @Volatile private var renderDetail = "等待画面连接"
     @Volatile private var awaitingModelStart = false
     @Volatile private var modelStarted = false
-    private var stageVisible = true
-    private var hostActive = true
+    @Volatile private var stageVisible = true
+    @Volatile private var hostActive = true
     private var keyboardVisible = false
     private var sceneRatio = 0f
     private val viewPrefs = app.getSharedPreferences(Live2DProfiles.stage(profile), Context.MODE_PRIVATE)
@@ -153,13 +154,60 @@ internal class CaicaiPlatformView(
         }
         if (deepseek && call.method in setOf("claimMotion", "motionPlan", "speechCue", "setEmotion", "previewEmotion",
             "expression", "headSweep", "earTwitch", "headPat", "headPatRare")) {
-            result.success(false); return // Calibration stage never consumes a Caicai performance.
+            result.success(false); return // DeepSeek never consumes a Caicai performance.
         }
         val scoped = (call.arguments as? Map<*, *>)?.get("_motion_owner") as? Map<*, *>
         if (scoped != null && (scoped["execution_id"] != executionId || (scoped["epoch"] as? Number)?.toLong() != motionEpoch)) {
             result.success(false); return
         }
         when (call.method) {
+            "claimDeepseekMotion" -> {
+                if(!deepseek || renderStatus!="ready" || !hostActive || !stageVisible) return result.success(false)
+                motionEpoch++;speechLease=-1;deepseekSpeechSequence++
+                companion.stopConversationPlan()
+                result.success(mapOf("execution_id" to executionId,"epoch" to motionEpoch,"profile" to profile,
+                    "profile_generation" to profileGeneration,"asset" to loadIdentity,"catalog" to "deepseek-v2"))
+            }
+            "deepseekMotionPlan", "deepseekSpeechCue", "setDeepseekEmotion", "stopDeepseekMotion", "stopDeepseekSpeechMotion" -> {
+                val args=call.arguments as? Map<*,*> ?: return result.success(false)
+                if(!deepseek || scoped==null || scoped["profile"]!=profile ||
+                    (scoped["profile_generation"] as? Number)?.toLong()!=profileGeneration ||
+                    scoped["asset"]!=loadIdentity || scoped["catalog"]!="deepseek-v2") return result.success(false)
+                val epoch=motionEpoch;val asset=loadIdentity
+                val valid={ !disposed && motionEpoch==epoch && loadIdentity==asset &&
+                    profileGeneration==Live2DProfiles.generation && hostActive && stageVisible }
+                when(call.method) {
+                    "setDeepseekEmotion" -> companion.emotionDeepseek(args["emotion"]?.toString()?:"normal",valid)
+                    "stopDeepseekMotion" -> {deepseekSpeechSequence++;speechLease=-1;companion.stopDeepseek(false,valid)}
+                    "stopDeepseekSpeechMotion" -> {
+                        val lease=(args["lease"] as? Number)?.toLong() ?: return result.success(false)
+                        if(speechLease!=lease) return result.success(false)
+                        val seq=++deepseekSpeechSequence
+                        companion.stopDeepseek(true) {valid() && deepseekSpeechSequence==seq}
+                    }
+                    else -> {
+                        if(!hostActive || !stageVisible || renderStatus!="ready" ||
+                            !app.getSharedPreferences("deepseek_motion",Context.MODE_PRIVATE).getBoolean("jevEnabled",true)) return result.success(false)
+                        val speech=call.method=="deepseekSpeechCue"
+                        val lease=if(speech) (args["lease"] as? Number)?.toLong() ?: return result.success(false) else -1L
+                        if(speech && !com.aicompanion.localfirst.PlaybackSessionRegistry.current(lease)) return result.success(false)
+                        val seq=if(speech) ++deepseekSpeechSequence else deepseekSpeechSequence
+                        if(speech) speechLease=lease
+                        companion.performDeepseek(org.json.JSONObject(args).toString(),speech) {
+                            valid() && (!speech || (deepseekSpeechSequence==seq && speechLease==lease &&
+                                com.aicompanion.localfirst.PlaybackSessionRegistry.current(lease))) }
+                    }
+                }
+                result.success(true)
+            }
+            "previewDeepseekPerformance" -> {
+                if(!deepseek) return result.success(false)
+                motionEpoch++;speechLease=-1;deepseekSpeechSequence++
+                val epoch=motionEpoch;val asset=loadIdentity
+                companion.performDeepseek(org.json.JSONObject(call.arguments as? Map<*,*> ?: emptyMap<Any,Any>()).toString(),false) {
+                    !disposed && motionEpoch==epoch && loadIdentity==asset && profileGeneration==Live2DProfiles.generation }
+                result.success(true)
+            }
             "speechCue" -> {
                 val args = call.arguments as? Map<*, *> ?: return result.success(false)
                 val lease = (args["lease"] as? Number)?.toLong() ?: return result.success(false)
@@ -244,6 +292,7 @@ internal class CaicaiPlatformView(
                 val visible = call.arguments == true
                 if (stageVisible != visible) {
                     CaicaiDiagnostics.record(app, "stage_visibility", "visible=$visible")
+                    if(!visible && deepseek) {motionEpoch++;companion.stopConversationPlan()}
                     stageVisible = visible
                     CaicaiStageVisibility.apply(root, visible)
                     if (hostActive) {
@@ -322,6 +371,7 @@ internal class CaicaiPlatformView(
                 result.success(true)
             }
             "beginEdit" -> {
+                if(deepseek) {motionEpoch++;companion.stopConversationPlan()}
                 companion.clearParameterPlan()
                 editSnapshot = floatArrayOf(stageScale, stageX, stageY, *headBox)
                 companion.setStaticMode(true)
@@ -355,7 +405,7 @@ internal class CaicaiPlatformView(
                 companion.setStaticMode(false); result.success(true)
             }
             "adjustStage" -> { stageAdjustment = call.arguments == true; result.success(true) }
-            "resetPresets" -> { companion.clearParameterPlan(); companion.setSmallForm(smallForm); result.success(true) }
+            "resetPresets" -> { if(deepseek) {motionEpoch++;companion.stopConversationPlan();companion.previewDeepseek("{}")} ; companion.clearParameterPlan(); companion.setSmallForm(smallForm); result.success(true) }
             "stopMotion" -> { motionEpoch++; companion.stopConversationPlan(); result.success(true) }
             "motionPlan" -> {
                 val args = call.arguments as? Map<*, *>
@@ -390,6 +440,7 @@ internal class CaicaiPlatformView(
         CaicaiDiagnostics.record(app, "host_pause")
         hostActive = false
         if (!disposed) {
+            if(deepseek) companion.stopConversationPlan()
             companion.clearParameterPlan()
             if (stageVisible) companion.onHostPause()
         }

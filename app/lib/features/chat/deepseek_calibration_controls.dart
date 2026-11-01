@@ -1,4 +1,6 @@
 import 'dart:convert';
+import '../../core/ai/deepseek_motion_planner.dart';
+import '../../core/emotion/emotion_contract.dart';
 import 'package:flutter/material.dart';
 import '../../widgets/caicai_live2d_stage.dart';
 
@@ -84,8 +86,32 @@ class _DeepseekCalibrationControlsState extends State<DeepseekCalibrationControl
   });
   @override
   Widget build(BuildContext context) => Column(crossAxisAlignment:CrossAxisAlignment.start,children:[
-    const Text('DeepSeek隔离与校准版：先确认显示、切换和变身。完整手势、表情与JEV将在下一阶段接入。'),
+    const Text('DeepSeek独立表情与手势：临时预览不会保存成装扮。手势自动完成抬臂、保持和放下。'),
     const Text('原分辨率 · 目标60FPS · 高精度蒙版512px'),
+    SwitchListTile(title:const Text('DeepSeek Jev 对话动作'),
+      subtitle:const Text('独立四拍与真实语音分段表演；不影响菜菜开关'),
+      value:(widget.status['deepseek_motion'] as Map?)?['jevEnabled'] != false,
+      onChanged:widget.busy?null:(value)=>widget.run(() async {
+        final ok=await CaicaiLive2DService.command('setDeepseekJev',value);
+        if(ok!=true) throw StateError('无法保存DeepSeek动作设置');
+      })),
+    ExpansionTile(title:const Text('表情与手势预览'),children:[
+      const Text('角色左右眼与屏幕相反。特殊眼型互斥；语音播放期间嘴部由音频接管。'),
+      Wrap(spacing:8,children:[
+        for(final name in [...DeepseekMotionPlanner.eyes.keys,...DeepseekMotionPlanner.effects.keys])
+          ActionChip(label:Text(name),onPressed:widget.busy?null:()=>widget.preview('previewDeepseekPerformance',{'face':name})),
+        for(final name in DeepseekMotionPlanner.winks.keys)
+          ActionChip(label:Text(name),onPressed:widget.busy?null:()=>widget.preview('previewDeepseekPerformance',{'wink':name})),
+        for(final name in DeepseekMotionPlanner.actions.keys.where((x)=>x!='无'))
+          ActionChip(label:Text(name),onPressed:widget.busy?null:()=>widget.preview('previewDeepseekPerformance',{'action':name})),
+        ActionChip(label:const Text('清除临时表演'),onPressed:widget.busy?null:()=>widget.preview('resetPresets')),
+      ]),
+    ]),
+    ExpansionTile(title:const Text('19种情绪预览'),children:[Wrap(spacing:8,children:[
+      for(final e in {'normal':'正常',...EmotionCatalog.labelsByKey}.entries)
+        ActionChip(label:Text(e.value),onPressed:widget.busy?null:()=>widget.preview('previewDeepseekPerformance',
+          {'emotion':CaicaiLive2DService.nativeEmotionId(e.key)})),
+    ])]),
     for(final item in const {'key11':'黑框眼镜','key12':'单片眼镜','Clothes4':'脱鞋'}.entries)
       SwitchListTile(title:Text(item.value),value:((appearance[item.key] as num?)?.toDouble()??0)>=.5,
         onChanged:widget.busy?null:(v)=>_save({item.key:v?1.0:0.0})),

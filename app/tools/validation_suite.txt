@@ -176,3 +176,5 @@ tools/validate_v042112_notebook_planning.py
 tools/validate_v042113_model_dialogue_trial.py
 
 tools/validate_v042154_dual_live2d.py
+
+tools/validate_v042157_deepseek_performance.py
