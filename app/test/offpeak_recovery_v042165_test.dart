@@ -105,8 +105,18 @@ void main() {
     test('saved batch cannot bypass $stop ownership while peak scheduling is bypassed', () async {
       final work = await savedBatch([fixture.write('must-not-run')]);
       final id = work['id'] as String;
-      if (stop == 'paused') await store.stop(id);
-      if (stop == 'deleted') await store.delete(id);
+      if (stop == 'paused' || stop == 'deleted') {
+        // Public controls intentionally cannot operate on unshared private
+        // works. Establish an accessible autonomous work, then require that
+        // the real control succeeded before testing the worker's boundary.
+        final visible = {...work, 'visibility': 'shared'};
+        expect(await store.write(work, visible), true);
+        final target = (await store.captureControlTarget(visible))!;
+        final result = stop == 'paused'
+            ? await store.stopTarget(target) : await store.deleteTarget(target);
+        expect(result.applied, true);
+        expect((await store.get(id))['status'], stop);
+      }
       if (stop == 'disabled') await store.setAutonomyEnabled(false);
       if (stop == 'imported') {
         await db.importAll(Map<String, dynamic>.from(jsonDecode(jsonEncode(await db.exportAll())) as Map));
