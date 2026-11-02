@@ -92,7 +92,11 @@ class SimulatedPhoneReflectionGenerator {
           },
           {
             'role': 'user',
-            'content': '$instruction\n资料=${jsonEncode(evidence)}\n近期正文=${jsonEncode(recentBodies.take(5).toList())}',
+            'content': instruction,
+          },
+          {
+            'role': 'user',
+            'content': '资料=${jsonEncode(evidence)}\n近期正文=${jsonEncode(recentBodies.take(5).toList())}',
           },
         ],
       ).timeout(const Duration(seconds: 20));

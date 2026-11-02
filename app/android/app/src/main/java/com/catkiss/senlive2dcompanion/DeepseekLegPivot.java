@@ -24,7 +24,7 @@ final class DeepseekLegPivot {
         }
         return false;
     }
-    /** Same pose before/after morph. Live legs already include the neck correction.
+    /** Same pose before/after morph. Live legs are raw Core geometry; the MVP owns the neck correction once.
      * Result is model-space pivot x/y and the corresponding horizontal travel span. */
     static float[] map(Bounds normal,Bounds normalLegs,Bounds liveLegs,float pivot) {
         if(!normal.valid() || !normalLegs.valid() || !liveLegs.valid() || !Float.isFinite(pivot)) return null;
@@ -33,6 +33,11 @@ final class DeepseekLegPivot {
         float py=liveLegs.top-(normalLegs.top-y)/normalLegs.height()*liveLegs.height();
         float span=normal.width()/normalLegs.width()*liveLegs.width();
         return Float.isFinite(px) && Float.isFinite(py) && Float.isFinite(span)?new float[]{px,py,span}:null;
+    }
+    /** Apply a model-space correction to this frame's fresh MVP, never to Core vertices. */
+    static void translateModel(float[] m,float x,float y) {
+        if(!Float.isFinite(x) || !Float.isFinite(y)) return;
+        m[12]+=m[0]*x+m[4]*y;m[13]+=m[1]*x+m[5]*y;
     }
     /** Pixel-isotropic root rotation about the explicitly mapped point. */
     static float[] matrix(float width,float height,float px,float py,float span,float shift,float degrees) {

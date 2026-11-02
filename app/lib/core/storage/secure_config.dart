@@ -191,7 +191,7 @@ class SecureConfig {
 
   /// A request uses one atomic credential/endpoint pair. Once captured, recovery
   /// resolves the same device-local profile, never a different lane's key.
-  Future<({String apiKey, String endpoint, String id})?> workConnection({String profileId = ''}) async {
+  Future<({String apiKey, String endpoint, String id})?> workConnection({String profileId = '', bool archive = true}) async {
     Map<String,dynamic> pair;
     if (profileId.isNotEmpty) {
       final raw = await _storage.read(key: '$_workArchivePrefix$profileId');
@@ -207,7 +207,7 @@ class SecureConfig {
     final endpoint = pair['endpoint'] as String? ?? '';
     final id = sha256.convert(utf8.encode(jsonEncode([endpoint, key]))).toString();
     if (profileId.isNotEmpty && id != profileId) return null;
-    if (profileId.isEmpty && key.isNotEmpty) {
+    if (archive && profileId.isEmpty && key.isNotEmpty) {
       await _storage.write(key: '$_workArchivePrefix$id', value: jsonEncode(pair));
     }
     return (apiKey:key, endpoint:endpoint, id:id);

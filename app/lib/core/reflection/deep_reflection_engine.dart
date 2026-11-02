@@ -1,3 +1,4 @@
+import '../ai/background_cost_policy.dart';
 import '../ai/first_channel_model.dart';
 import '../self/dream_store.dart';
 import 'dart:convert';
@@ -182,6 +183,7 @@ current_self_understanding仅供参考她目前的理解，不是新的事件或
 
   Future<bool> maybePrepare({DateTime? now}) async {
     final instant = now ?? DateTime.now();
+    if (await BackgroundCostPolicy.deferredUntil(db, instant) != null) return false;
     if (await db.getSetting(DeepReflectionStore.enabledKey) == '0' ||
         !await db.brainWorkAllowed() ||
         await db.isLocalLeaseHeld('chat_turn_lease') ||

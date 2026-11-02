@@ -12,11 +12,16 @@ class DeepseekMotionPlanner {
   static const channels = <String, Map<String, Map<String, double>>>{
     'head': {'自然': {}, '左转': {'AngleX': -25}, '右转': {'AngleX': 25},
       '低头': {'AngleY': -24}, '抬头': {'AngleY': 24},
-      '左歪头': {'AngleZ': -23}, '右歪头': {'AngleZ': 23}},
+      '左歪头': {'AngleZ': -23}, '右歪头': {'AngleZ': 23},
+      '探头打量': {'AngleX': 18, 'AngleY': -10, 'AngleZ': -16},
+      '扬头得意': {'AngleY': 23, 'AngleZ': 15}},
     'body': {'自然': {}, '左侧身': {'PositionX': -12, 'PositionZ': -8},
       '右侧身': {'PositionX': 12, 'PositionZ': 8}, '轻沉': {'PositionY': -10},
       '轻提': {'PositionY': 10},
-      '好奇探身': {'PositionX': -8, 'PositionZ': 7, 'PositionY': -6}},
+      '好奇探身': {'PositionX': -8, 'PositionZ': 7, 'PositionY': -6},
+      '左摆重心': {'PositionX': -14, 'PositionY': -6, 'PositionZ': 12},
+      '右摆重心': {'PositionX': 14, 'PositionY': -6, 'PositionZ': -12},
+      '轻快舒展': {'PositionX': 6, 'PositionY': 13, 'PositionZ': -7}},
     'lean': {'自然': {}, '贴近屏幕': {'LeanInput': -30}, '站回原位': {'LeanInput': 0}},
     'gaze': {'自然': {}, '看左': {'ParamEyeBallX': -.7}, '看右': {'ParamEyeBallX': .7},
       '看上': {'ParamEyeBallY': .6}, '看下': {'ParamEyeBallY': -.6}},
@@ -92,7 +97,7 @@ class DeepseekMotionPlanner {
           if (e.value.keys.every(parameters.containsKey)) e.key: e.key};
         if (options.length > 1) q['f${i}_${c.key}'] = JevChoiceQuestion(
           'DeepSeek四拍第${i + 1}拍，依次起意、强调、反应、收势。根据回复语义选择${c.key}，'
-          '遵循state.performance_direction。前倾由整轮独立语义题决定。', options);
+          '遵循state.performance_direction。多拍时让头身至少有两次自然变化，不要四拍保持同一歪头和探身；头与身体可以错向，按语气选择侧身、重心或舒展，不为凑动作强行使用。前倾仍只由整轮独立语义题决定。', options);
       }
       q['f${i}_root'] = JevChoiceQuestion('第${i + 1}拍整模轻移／以独立小腿支点倾斜，按语义配合头身。',
         {for (final key in roots.keys) key: key});

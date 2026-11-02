@@ -162,8 +162,11 @@ class DeepSeekSimulatedDiaryGenerator implements SimulatedDiaryGenerator {
                 '优先抓住一两个具体变化，再写我仍在意什么、我怎样理解它；资料少就诚实写短，不要硬凑成长或圆满结论。'
                 '不得逐项复述，不要使用“不是流水账”“轻轻收在这里”“作为AI”等固定元话术。'
                 '避开近期日记的句式、开头、结尾和中心话题；但不能为了不同而发明新事实。'
-                '只返回 {"body":"日记正文","focus_kind":"shared_moment|care|thread|awareness|quiet_day"}。\n'
-                '今日资料=${jsonEncode(material.toPromptJson())}\n'
+                '只返回 {"body":"日记正文","focus_kind":"shared_moment|care|thread|awareness|quiet_day"}。',
+          },
+          {
+            'role': 'user',
+            'content': '今日资料=${jsonEncode(material.toPromptJson())}\n'
                 '近期日记=${jsonEncode(recentBodies.take(7).toList())}',
           },
         ],

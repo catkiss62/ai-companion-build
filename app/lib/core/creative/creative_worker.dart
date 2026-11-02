@@ -1,3 +1,4 @@
+import '../ai/background_cost_policy.dart';
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
@@ -54,6 +55,17 @@ class CreativeWorker {
         (w) => (w['retry_at'] as num? ?? 0) <= now().millisecondsSinceEpoch).toList();
     final autonomousIdle = await CreativeAutonomyPolicy.idle(await db.database, now());
     candidates.removeWhere((w) => CreativeAutonomyPolicy.autonomous(w) && !autonomousIdle);
+    // Private work has no promised publication time. Keep its checkpoints and
+    // pending tool receipts intact; commissions remain immediately runnable.
+    for (final candidate in candidates.toList()) {
+      if (!CreativeAutonomyPolicy.autonomous(candidate)) continue;
+      final connection = await SecureConfig.instance.workConnection(
+          profileId: candidate['api_profile_id'] as String? ?? '', archive: false);
+      if (connection != null && await BackgroundCostPolicy.deferredUntil(db, now(),
+          endpoint: connection.endpoint, model: candidate['model'] as String?) != null) {
+        candidates.remove(candidate);
+      }
+    }
     candidates.sort((a, b) => (CreativeAutonomyPolicy.autonomous(a) ? 1 : 0).compareTo(CreativeAutonomyPolicy.autonomous(b) ? 1 : 0));
     if (candidates.isEmpty ||
         !await db.tryAcquireLocalLease(lease, holdFor: const Duration(seconds: 90))) return;
@@ -142,6 +154,9 @@ class CreativeWorker {
             if (!await current()) return;
           }
           final workEndpoint = connection!.endpoint;
+          if (CreativeAutonomyPolicy.autonomous(work) &&
+              await BackgroundCostPolicy.deferredUntil(db, now(), endpoint: workEndpoint,
+                  model: work['model'] as String?) != null) return;
           if (agent['request_inflight'] == true) {
             agent['recovery'] = '上次请求没有完整返回，未执行其不完整工具。请从现有文件继续，不要重写已完成的部分。';
           }

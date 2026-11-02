@@ -65,7 +65,7 @@ final class DeepseekAvatarModel extends CubismUserModel {
     private float smallForm=.55f;
     private boolean small;
     private float form, targetForm, amplitude, anchorX=.5f, anchorY=.21504237f;
-    private float left,right,top,bottom,rootX,rootTilt,legPivotX,legPivotY;
+    private float left,right,top,bottom,rootX,rootTilt,legPivotX,legPivotY,morphShiftX,morphShiftY;
     private boolean[] legDrawables;
     private int legMeshCount;
     private boolean mappedLegPivot;
@@ -310,6 +310,7 @@ final class DeepseekAvatarModel extends CubismUserModel {
         set("ParamMouthOpenY",amplitude);
     }
     void update(float delta) {
+        morphShiftX=morphShiftY=0;
         delta=Math.max(0,Math.min(.1f,delta));
         boolean speaking=mouthOwner.active(System.nanoTime());
         if(staticMode) {
@@ -402,9 +403,10 @@ final class DeepseekAvatarModel extends CubismUserModel {
         model.update();
         if(neutral==null) return;
         float[] current=model.getDrawableVertexPositions(anchorDrawable);
-        float dx=x-current[anchorVertex],dy=y-current[anchorVertex+1];
-        for(int d=0;d<model.getDrawableCount();d++) {float[] v=model.getDrawableVertexPositions(d);
-            for(int i=0;i<v.length;i+=2){v[i]+=dx;v[i+1]+=dy;}}
+        // Core may retain unchanged drawable buffers across updates. Never translate
+        // those buffers in place: the next neutral evaluation would read its own
+        // previous correction and make the shin pivot drift on an otherwise idle rig.
+        morphShiftX=x-current[anchorVertex];morphShiftY=y-current[anchorVertex+1];
         readBounds(liveLegs,true);
     }
     void draw(float width,float sceneHeight,float scale,float x,float y,float pivot,float[] crop) {
@@ -422,6 +424,7 @@ final class DeepseekAvatarModel extends CubismUserModel {
         mvp.setMatrix(projection);CubismMatrix44.multiply(modelMatrix.getArray(),mvp.getArray(),mvp.getArray());
         float[] stage={scale,0,0,0,0,scale,0,0,0,0,1,0,x,y,0,1};
         CubismMatrix44.multiply(mvp.getArray(),stage,mvp.getArray());
+        DeepseekLegPivot.translateModel(mvp.getArray(),morphShiftX,morphShiftY);
         float[] mapped=form>.0001f?DeepseekLegPivot.map(normalBounds,normalLegs,liveLegs,pivot):null;
         float[] root;mappedLegPivot=mapped!=null;
         if(mappedLegPivot) {
@@ -438,7 +441,7 @@ final class DeepseekAvatarModel extends CubismUserModel {
         getRenderer().setMvpMatrix(mvp);getRenderer().drawModel();
         hit=new DeepseekHitTransform(mvp.getArray(),vl,vr,vt,vb);
     }
-    String trace() { return "deepseek-avatar form="+form+" target="+targetForm+" smallForm="+smallForm+" anchor="+anchorX+","+anchorY+" root="+rootX+","+rootTilt+" legPivot="+legPivotX+","+legPivotY+" mapped="+mappedLegPivot+" legMeshes="+legMeshCount+" leanFocus="+leanFocus.weight()+" face="+expressions.trace()+" gesture="+gestures.trace()+clipStatus+" speech="+(speechDeadline!=0)+" pat="+pat.state()+" idle="+idle.trace()+" static="+staticMode+" preview="+manualPreview; }
+    String trace() { return "deepseek-avatar form="+form+" target="+targetForm+" smallForm="+smallForm+" anchor="+anchorX+","+anchorY+" root="+rootX+","+rootTilt+" legPivot="+(legPivotX+morphShiftX)+","+(legPivotY+morphShiftY)+" rawLegPivot="+legPivotX+","+legPivotY+" morphShift="+morphShiftX+","+morphShiftY+" mapped="+mappedLegPivot+" legMeshes="+legMeshCount+" leanFocus="+leanFocus.weight()+" face="+expressions.trace()+" gesture="+gestures.trace()+clipStatus+" speech="+(speechDeadline!=0)+" pat="+pat.state()+" idle="+idle.trace()+" static="+staticMode+" preview="+manualPreview; }
     void resizeRenderTarget(int width,int height) { if(getRenderer()!=null) getRenderer().setRenderTargetSize(width,height); }
     void closeModel() {hit=DeepseekHitTransform.INVALID;suspend();delete();}
 }

@@ -1,3 +1,4 @@
+import '../ai/background_cost_policy.dart';
 import '../ai/first_channel_model.dart';
 import 'dream_review_diagnostic.dart';
 import 'dart:convert';
@@ -58,6 +59,7 @@ class DreamEngine {
   /// gate, the successful-day limit, or evidence validation.
   Future<bool> maybeDream({DateTime? now, bool manual = false}) async {
     final instant = now ?? DateTime.now();
+    if (!manual && await BackgroundCostPolicy.deferredUntil(db, instant, config: secureConfig) != null) return false;
     final store = DreamStore(db);
     if (await db.getSetting(DreamStore.enabledKey) == '0' ||
         !await DreamStore.idle(await db.database, instant, manual: manual))

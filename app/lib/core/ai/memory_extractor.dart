@@ -1,3 +1,4 @@
+import 'background_cost_policy.dart';
 import '../../integrations/qq_private/qq_history_context_policy.dart';
 import '../database/qq_context_evidence.dart';
 import 'first_channel_model.dart';
@@ -184,6 +185,9 @@ class MemoryExtractor {
     } finally {
       await db.releaseLocalLease('post_turn_memory_lease');
     }
+    // Recovery polls even with zero post-turn jobs. A deferred rollup must not
+    // require another user message to become runnable after the peak window.
+    unawaited(_resumeDeferredSummary());
   }
 
   Future<void> _extractTurnNow({
@@ -1834,12 +1838,30 @@ AI 主动消息：${outbound?.content ?? '(消息正文不可用)'}
         text.contains('api_key');
   }
 
+  Future<void> _resumeDeferredSummary() async {
+    try {
+      if (!await db.brainWorkAllowed() || await db.isLocalLeaseHeld('chat_turn_lease') ||
+          await db.getSetting('conversation_summary_offpeak_pending') != '1' ||
+          await BackgroundCostPolicy.deferredUntil(db, DateTime.now(), config: secureConfig) != null) return;
+      final key = await secureConfig.readApiKey();
+      if (key == null || key.isEmpty) return;
+      await consolidateIfNeeded(apiKey: key, endpoint: await secureConfig.readEndpoint());
+    } catch (_) { /* Raw sources and the pending marker remain durable for recovery. */ }
+  }
+
   Future<void> consolidateIfNeeded({
     required String apiKey,
     required String endpoint,
   }) async {
     if ((await db.getSetting('memory_consolidation_enabled')) == '0') return;
     if (!await db.brainWorkAllowed()) return;
+    if (await BackgroundCostPolicy.deferredUntil(db, DateTime.now(), endpoint: endpoint) != null) {
+      final fence = await db.captureBrainWorkFence(settingKeys: const [
+        'conversation_context_reset_at', 'conversation_context_reset_count', 'memory_consolidation_enabled']);
+      if (fence != null) await db.setSettingsAtomically(
+          {'conversation_summary_offpeak_pending': '1'}, workFence: fence);
+      return;
+    }
     final acquired = await db.tryAcquireLocalLease(
       'conversation_summary_lease_until',
       holdFor: const Duration(minutes: 8),
@@ -1853,7 +1875,10 @@ AI 主动消息：${outbound?.content ?? '(消息正文不可用)'}
           'memory_consolidation_enabled', 'memory_consolidation_enabled_permit_version_v1']);
       if (fence == null || fence.expectedSettings['memory_consolidation_enabled'] == '0') return;
       final work = await db.prepareConversationSummary(workFence: fence);
-      if (work == null) return;
+      if (work == null) {
+        await db.setSettingsAtomically({'conversation_summary_offpeak_pending': ''}, workFence: fence);
+        return;
+      }
       // Event time is descriptive; scanning uses durable ingestion order.
       final transcript = work.materials.map((material) {
         final m = material.message;

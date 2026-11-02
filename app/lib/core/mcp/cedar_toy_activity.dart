@@ -2289,6 +2289,11 @@ class CedarToyActivityStore {
             '${event.action.isEmpty ? 'event' : event.action}:${_bounded(event.summary, 420)}')
         .join(' | ');
     return '''
+【完整真实指南 · 只授权 game=${session.gameId}】
+${session.guide}
+${playProtocol.trim().isEmpty ? '' : '【Cedar 实时玩家操作 schema】\n${playProtocol.trim()}'}
+${CedarPlayerProtocolContract.actionSignaturesFor(session.gameId)}
+
 【CEDAR_ACTIVITY_SESSION · REAL LOCAL STATE】
 game=${session.gameId}
 mode=${session.mode.key}
@@ -2310,10 +2315,6 @@ viewer_url=${session.viewerUrl}
 queued_switches=$queued
 cross_game_notices=$notices
 execution=${execution == null ? '' : '${execution.gameId}:${execution.action}'}
-【完整真实指南 · 只授权 game=${session.gameId}】
-${session.guide}
-${playProtocol.trim().isEmpty ? '' : '【Cedar 实时玩家操作 schema】\n${playProtocol.trim()}'}
-${CedarPlayerProtocolContract.actionSignaturesFor(session.gameId)}
 ${CedarSaveSlotPolicy.promptGuidance(session.guide, session.lastOutcome)}
 【END CEDAR_ACTIVITY_SESSION】
 '''.trim();

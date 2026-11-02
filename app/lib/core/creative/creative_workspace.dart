@@ -176,8 +176,11 @@ class CreativeWorkspace {
     {'role': 'user', 'content': jsonEncode({
       'origin': work['origin'] ?? 'commission', 'private_motive': work['motive'] ?? '',
       'original_request': work['original_request'] ?? work['request_quote'] ?? '',
-      'creative_brief': work['brief'], 'saved_plan': state['plan'],
+      'creative_brief': work['brief'],
       'required_interaction': work['interaction'] ?? 'unspecified',
+    })},
+    {'role': 'user', 'content': jsonEncode({
+      'saved_plan': state['plan'],
       'files': manifest(state), 'last_feedback': state['feedback'],
       'verification': {for (final entry in (state['verification'] as Map? ?? {}).entries)
         if (entry.key != 'cover') entry.key: entry.value},

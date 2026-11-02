@@ -114,8 +114,11 @@ class DeepSeekSimulatedNoteGenerator implements SimulatedNoteGenerator {
             'content': '从这一天的资料里自由挑一个真实细节或心绪，写成自然、不套模板的第一人称短随笔。'
                 '正文 12 到 120 个中文字符；标题 2 到 10 个中文字符。避开近期随笔的开头、句式和中心。'
                 '不要解释资料来源，不要使用“根据资料”“作为AI”“随手记一下”等元话术。'
-                '只返回 {"title":"标题","body":"正文"}。\n'
-                '随机选中的日期资料=${jsonEncode(material.toPromptJson())}\n'
+                '只返回 {"title":"标题","body":"正文"}。',
+          },
+          {
+            'role': 'user',
+            'content': '随机选中的日期资料=${jsonEncode(material.toPromptJson())}\n'
                 '近期随笔=${jsonEncode(recentBodies.take(10).toList())}',
           },
         ],

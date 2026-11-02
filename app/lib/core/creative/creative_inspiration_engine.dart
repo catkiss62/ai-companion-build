@@ -1,3 +1,5 @@
+import '../ai/background_cost_policy.dart';
+import '../ai/prompt_cache_layout.dart';
 import 'dart:convert';
 import 'package:sqflite/sqflite.dart';
 import '../ai/deepseek_client.dart';
@@ -46,12 +48,13 @@ hold允许改已有未开工构思；start只开一个新作品，不能重复�
         thinking: true, maxTokens: null, requestTimeout: const Duration(seconds: 90),
         usageLane: 'creative_inspiration', usageExecutionId: 'inspiration:${material['fingerprint']}',
         messages: [{'role': 'system', 'content': instruction},
-          {'role': 'user', 'content': jsonEncode(material)}]);
+          {'role': 'user', 'content': PromptCacheLayout.material(material, ['persona', 'personality', 'self_understanding'])}]);
     } finally { client.close(); }
   }
 
   Future<bool> maybeThink({DateTime? now, bool manual = false}) async {
     final instant = now ?? DateTime.now();
+    if (!manual && await BackgroundCostPolicy.deferredUntil(db, instant) != null) return false;
     final sql = await db.database;
     if (!await CreativeAutonomyPolicy.idle(sql, instant, grace: !manual) ||
         !await db.tryAcquireLocalLease(CreativeAutonomyPolicy.lease, holdFor: const Duration(minutes: 3))) return false;

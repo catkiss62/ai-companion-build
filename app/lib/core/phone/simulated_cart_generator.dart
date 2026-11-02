@@ -72,8 +72,8 @@ class DeepSeekSimulatedCartGenerator implements SimulatedCartGenerator {
                 '每件价格是 1 到 99 的整数“鲸币”。给每件商品选择一个与标题有关的单个 emoji，'
                 '不要全部使用同一个包裹图标。只返回 JSON：'
                 '{"items":[{"title":"不超过24字","description":"不超过80字的一句理由","token_price":12,"category":"normal或playful","emoji":"🐋"}]}。'
-                '生成日期=${_localDay(now)}；创意 nonce=${now.millisecondsSinceEpoch % 1000003}；'
-                '近期已经出现、必须避开的标题=${recentTitles.take(36).join('｜')}。',
+                '近期已经出现、必须避开的标题=${recentTitles.take(36).join('｜')}。'
+                '生成日期=${_localDay(now)}；创意 nonce=${now.millisecondsSinceEpoch % 1000003}；',
           },
         ],
       ).timeout(const Duration(seconds: 18));

@@ -1,3 +1,4 @@
+import '../../core/ai/background_cost_policy.dart';
 import 'qq_reply_recovery.dart';
 import 'qq_ingress_buffer.dart';
 import 'dart:async';
@@ -570,6 +571,12 @@ class QqRuntime {
         if(!_stopped)_summaryTimers[cid]=Timer(const Duration(minutes:5),()=>_enqueueSummary(cid));
         return;
       }
+      final deferred = await BackgroundCostPolicy.deferredUntil(store.db, now(), config: secure);
+      if (deferred != null) {
+        _maintenanceTimers.remove(cid)?.cancel();
+        if (!_stopped) _maintenanceTimers[cid] = Timer(deferred.difference(now()), () => _enqueueSummary(cid, idle: idle));
+        return;
+      }
       try {await summarize(cid,idle:idle);} catch(_){status('memory_failed');}
       try {
         final c=await configReader(),o=await optionsReader();
@@ -611,6 +618,12 @@ class QqRuntime {
     final conversations=await store.conversations(scope(c));final conversation=conversations.where((x)=>x['id']==cid).firstOrNull;
     if(conversation==null) return;
     final key=await secure.readApiKey();if(key==null || key.isEmpty)return;
+    final deferred = await BackgroundCostPolicy.deferredUntil(store.db, now(), config: secure);
+    if (deferred != null) {
+      _maintenanceTimers.remove(cid)?.cancel();
+      if (!_stopped) _maintenanceTimers[cid] = Timer(deferred.difference(now()), () => _enqueueSummary(cid, idle: idle));
+      return;
+    }
     final claim=await store.claimSummary(fence,cid,idle:idle,at:now().millisecondsSinceEpoch);
     if(claim==null) {await _scheduleMaintenance(cid);return;}
     final stamp=claim.stamp;final reader=QqArchiveReader(await store.db.database);

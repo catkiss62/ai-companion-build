@@ -68,4 +68,38 @@ public class DeepseekLegPivotTest {
         assertNull(DeepseekLegPivot.map(valid,valid,empty,.88f));
         assertNull(DeepseekLegPivot.map(valid,valid,valid,Float.NaN));
     }
+    @Test public void repeatedCorrectionLeavesRetainedCoreVerticesUntouched() {
+        // A Core buffer is allowed to remain unchanged while the rig is idle.
+        float[] retained={-.08f,.44f,.08f,.04f};float[] original=retained.clone();
+        float previous=Float.NaN;
+        for(int frame=0;frame<3600;frame++) {
+            float morph=frame<1200?.55f:frame<2400?0:.55f;
+            float dx=morph>.001f?.07f:0,dy=morph>.001f?.23f:0;
+            float[] m={1.7785187f,0,0,0,0,1.032f,0,0,0,0,1,0,.003508f,-.492301f,0,1};
+            float[] raw=DeepseekLegPivot.map(b(-1,1,1,-3),b(-.4f,.4f,-1,-3),
+                b(retained[0],retained[2],retained[1],retained[3]),.88f);
+            DeepseekLegPivot.translateModel(m,dx,dy);
+            float px=m[0]*raw[0]+m[4]*raw[1]+m[12],py=m[1]*raw[0]+m[5]*raw[1]+m[13];
+            float angle=frame%600<300?7:0;
+            CubismMatrix44.multiply(m,DeepseekLegPivot.matrix(1280,2204,px,py,m[0]*raw[2],0,angle),m);
+            assertArrayEquals(original,retained,0);
+            assertEquals(py,m[1]*raw[0]+m[5]*raw[1]+m[13],.00001f);
+            if(frame>0 && frame!=1200 && frame!=2400) assertEquals(previous,py,.00001f);
+            previous=py;
+        }
+    }
+    @Test public void matrixShiftMatchesOneTimeGeometryShiftWithRotationAndHitInverse() {
+        float[] base={1.4f,.2f,0,0,-.1f,.8f,0,0,0,0,1,0,.02f,-.4f,0,1};
+        float dx=.15f,dy=.6f,x=.12f,y=.3f;
+        float expectedX=base[0]*(x+dx)+base[4]*(y+dy)+base[12];
+        float expectedY=base[1]*(x+dx)+base[5]*(y+dy)+base[13];
+        DeepseekLegPivot.translateModel(base,dx,dy);
+        assertEquals(expectedX,base[0]*x+base[4]*y+base[12],.00001f);
+        assertEquals(expectedY,base[1]*x+base[5]*y+base[13],.00001f);
+        DeepseekHitTransform hit=new DeepseekHitTransform(base,-.4f,.4f,.8f,-.1f);float[] out=new float[2];
+        assertTrue(hit.inverse((expectedX+1)/2,(1-expectedY)/2,out));
+        assertEquals((x+.4f)/.8f,out[0],.00001f);assertEquals((.8f-y)/.9f,out[1],.00001f);
+        float[] before=base.clone();DeepseekLegPivot.translateModel(base,Float.NaN,1);
+        assertArrayEquals(before,base,0);
+    }
 }

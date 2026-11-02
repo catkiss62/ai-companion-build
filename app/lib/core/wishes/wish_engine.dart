@@ -1,3 +1,6 @@
+import '../ai/background_cost_policy.dart';
+import '../ai/prompt_cache_layout.dart';
+import '../diagnostics/model_usage_telemetry.dart';
 import '../ai/first_channel_model.dart';
 import 'dart:convert';
 import 'package:crypto/crypto.dart';
@@ -41,7 +44,7 @@ class WishEngine {
     final config = SecureConfig.instance;
     final key = (await config.readApiKey())?.trim() ?? '';
     if (key.isEmpty) return null;
-    final client = DeepSeekClient();
+    final client = DeepSeekClient(onUsage: (event) => ModelUsageTelemetry.record(db, event));
     try {
       return await client
           .jsonCompletion(
@@ -53,7 +56,7 @@ class WishEngine {
             usageLane: 'companion_wish',
             messages: [
               {'role': 'system', 'content': instruction},
-              {'role': 'user', 'content': jsonEncode(material)},
+              {'role': 'user', 'content': PromptCacheLayout.material(material, ['catalog', 'known_game_guides'])},
             ],
           )
           .timeout(const Duration(seconds: 24));
@@ -120,6 +123,7 @@ expressed=true 仅 assistant_text 确实已经向用户说出了这一具体愿�
       if (instant.millisecondsSinceEpoch - lastAttempt <
           reviewGap.inMilliseconds)
         return false;
+      if (await BackgroundCostPolicy.deferredUntil(db, instant) != null) return false;
       final batch = await _collectSnapshot(instant, fence: fence, wishes: wishes, expectedWishRaw: raw);
       if (batch == null) return false;
       final evidence = batch.evidence;
