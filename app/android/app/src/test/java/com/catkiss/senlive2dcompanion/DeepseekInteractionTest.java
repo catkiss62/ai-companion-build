@@ -179,36 +179,4 @@ public class DeepseekInteractionTest {
         assertTrue("glances="+glances,glances>50 && glances<18000*.15f);
         assertTrue(rollPeak>18);assertTrue(bodyPeak>12);
     }
-    @Test public void smallFormScreenGuardContainsFinalTransformedCornersWithoutChangingNormalStage() {
-        float[] base={.55f,.12f,0,0,-.16f,1.7f,0,0,0,0,1,0,0,-.8f,0,1};
-        for(float travel:new float[]{-2,-1.2f,-.5f,0,.5f,1.2f,2}) {
-            float[] m=base.clone();m[12]=travel;float[] before=m.clone();
-            assertEquals(0,DeepseekHitTransform.smallFormShift(m,-.4f,.4f,.5f,-.5f,0),0);
-            float shift=DeepseekHitTransform.smallFormShift(m,-.4f,.4f,.5f,-.5f,1);
-            assertArrayEquals(before,m,0); // No persistent stage / input matrix mutation.
-            m[12]+=shift;
-            for(float x:new float[]{-.4f,.4f}) for(float y:new float[]{-.5f,.5f}) {
-                float sx=m[0]*x+m[4]*y+m[12];assertTrue(sx>=-.94001f && sx<=.94001f);
-            }
-            float[] point=new float[2];DeepseekHitTransform hit=new DeepseekHitTransform(m,-.4f,.4f,.5f,-.5f);
-            assertTrue(hit.inverse((m[12]+1)/2,(1-m[13])/2,point));
-            assertEquals(.5f,point[0],.0001f);assertEquals(.5f,point[1],.0001f);
-            assertEquals(shift*.5f,DeepseekHitTransform.smallFormShift(before,-.4f,.4f,.5f,-.5f,.5f),.0001f);
-        }
-        assertEquals(0,DeepseekHitTransform.smallFormShift(base,-4,4,1,-1,1),0); // Intentional oversized zoom.
-        assertEquals(0,DeepseekHitTransform.smallFormShift(null,-1,1,1,-1,1),0);
-        base[0]=Float.NaN;assertEquals(0,DeepseekHitTransform.smallFormShift(base,-1,1,1,-1,1),0);
-    }
-    @Test public void smallFormTravelSoftensContinuouslyAtTheEdgeAndLeavesCentralMovementUntouched() {
-        float[] m={1,0,0,0,0,1,0,0,0,0,1,0,0,0,0,1};
-        assertEquals(0,DeepseekHitTransform.smallFormShift(m,-.2f,.2f,.3f,-.3f,1),0);
-        float last=-1;
-        for(int i=0;i<=2000;i++) {
-            m[12]=i*.001f;float adjusted=m[12]+DeepseekHitTransform.smallFormShift(m,-.2f,.2f,.3f,-.3f,1);
-            assertTrue(adjusted>=last-.000001f);
-            if(i>0) assertTrue(adjusted-last<=.00101f);
-            last=adjusted;
-        }
-        assertTrue(last<=.740001f);
-    }
 }

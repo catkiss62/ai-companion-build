@@ -30,10 +30,13 @@ void main() {
       emotion:'playful',spokenText:'让我看看。',parameters:parameters);
     expect(calls,1);
     final q=sent!['questions'] as Map;
-    expect(q.keys,containsAll(['f0_head','f0_body','f0_lean','f3_lean','speech0_delivery']));
-    expect((q['f1_lean']['criteria'] as Map).keys,contains('贴近屏幕'));
+    expect(q.keys,containsAll(['f0_head','f0_body','lean_use','lean_moment','speech0_delivery']));
+    expect(q.keys.any((key)=>RegExp(r'^f[0-3]_lean$').hasMatch('$key')),false);
+    expect((q['lean_use']['criteria'] as Map).keys,containsAll(['yes','no']));
+    expect((q['lean_moment']['criteria'] as Map).keys,['speech0']);
+    expect((q['speech0_delivery']['criteria'] as Map).keys,isNot(contains('lean')));
     final plan=DeepseekMotionPlanner.buildPlan({'f0_head':'右转','f1_body':'左侧身',
-      'f1_lean':'贴近屏幕','f2_lean':'贴近屏幕','f3_lean':'贴近屏幕'},parameters);
+      'lean_use':'yes','lean_moment':'f1'},parameters);
     final frames=plan['frames'] as List;
     expect(frames[0]['parameters']['AngleX'],25);
     expect(frames[1]['parameters']['PositionX'],-12);

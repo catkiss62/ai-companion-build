@@ -60,7 +60,7 @@ class DeepseekMotionPlanner {
     'tilt': '好奇、疑问或带笑打量，轻侧头',
     'avert': '迟疑、害羞或回想，短暂移开视线',
     'emphasize': '认真解释、提醒或打趣的重音，轻抬头',
-    'lean': '俏皮地凑近屏幕、逗弄或亲近对方，拉近距离后站回原位',
+    'lean': '有意凑近对方看清、贴近逗弄或说悄悄话，拉近距离后站回原位；由整轮lean_use安排',
   };
   static String boundedText(String text, int limit) => text.length <= limit ? text
       : '${text.substring(0, limit ~/ 2)}〔中段略〕${text.substring(text.length - limit ~/ 2)}';
@@ -87,12 +87,12 @@ class DeepseekMotionPlanner {
     final q = <String, JevChoiceQuestion>{};
     for (var i = 0; i < 4; i++) {
       for (final c in channels.entries) {
+        if (c.key == 'lean') continue;
         final options = {for (final e in c.value.entries)
           if (e.value.keys.every(parameters.containsKey)) e.key: e.key};
         if (options.length > 1) q['f${i}_${c.key}'] = JevChoiceQuestion(
           'DeepSeek四拍第${i + 1}拍，依次起意、强调、反应、收势。根据回复语义选择${c.key}，'
-          '遵循state.performance_direction。'
-          '${c.key == 'lean' ? '俏皮、打趣或亲近时可贴近屏幕；不要求台词明说靠近。末拍选站回原位。' : ''}', options);
+          '遵循state.performance_direction。前倾由整轮独立语义题决定。', options);
       }
       q['f${i}_root'] = JevChoiceQuestion('第${i + 1}拍整模轻移／以独立小腿支点倾斜，按语义配合头身。',
         {for (final key in roots.keys) key: key});
@@ -102,11 +102,23 @@ class DeepseekMotionPlanner {
       {'normal': '自然', ...EmotionCatalog.labelsByKey});
     _presets(q, '', '本轮回复');
     final spans = SpeechPerformancePlan.candidates(spokenText);
+    if (parameters.containsKey('LeanInput')) {
+      q['lean_use'] = const JevChoiceQuestion(
+        '整轮是否有明确的拉近距离的表演意图，值得有意凑近对方？例如贴近看清对方、凑近逗人、'
+        '贴近说悄悄话或用户要求靠近。不要求台词逐字写靠近，但普通俏皮、开心、关心、害羞、'
+        '吐槽或解释本身都选no。头身已有其他表达，不为增加动作而前倾。整轮最多一次连续前倾。',
+        {'yes': '有拉近距离的表演意图', 'no': '普通互动，无需凑近'});
+      q['lean_moment'] = JevChoiceQuestion(
+        '仅假设lean_use为yes，选择一次前倾最合适的时机；是否使用完全由lean_use决定。'
+        '有实际朗读计划时只放在一个语音段，不在开场重复。',
+        spans.isEmpty ? const {'f0': '起意拍', 'f1': '强调拍', 'f2': '反应拍'} :
+          {for (var i = 0; i < spans.length; i++) 'speech$i': 'speech_stage第${i + 1}段'});
+    }
     for (var i = 0; i < spans.length; i++) {
       q['speech${i}_emotion'] = JevChoiceQuestion('参照speech_stage第${i + 1}段实际朗读文字选择临时情绪；不为变化强选。',
         {'keep': '延续', 'normal': '自然', ...EmotionCatalog.labelsByKey}, optional: true);
       q['speech${i}_delivery'] = JevChoiceQuestion('参照speech_stage第${i + 1}段选择语气动作，发生在真实音频阶段。',
-        deliveries, optional: true);
+        {for (final e in deliveries.entries) if (e.key != 'lean') e.key: e.value}, optional: true);
       _presets(q, 'speech${i}_', 'speech_stage第${i + 1}段', optional: true);
     }
     final answers = await gateway.chooseMany(state: {
@@ -115,8 +127,9 @@ class DeepseekMotionPlanner {
       'parameter_contract': parameters,
       'performance_direction': '普通对话也应有看得见的头身表达，四拍至少两次符合语义的姿态变化，不要全选自然。'
         '转头25、俯仰24、歪头23，避免每拍反向甩头，不因范围大而一直保守。'
-        '独立lean可在俏皮、打趣、亲近或凑近打量时选-30，强调/反应拍可连续保持；末拍本地收回0。'
-        '头身可配合前倾，无关时不强行贴近。嘴部只在没有真实语音时生效。',
+        '前倾不是普通俏皮的默认动作，也不计入姿态变化数量；只由整轮lean_use决定，'
+        'lean_moment安排一次连续前倾，完整到-30后回0。实际朗读时仅在选中的一个语音段出现。'
+        '其他头身动作保持表达，嘴部只在没有真实语音时生效。',
       if (spans.isNotEmpty) 'speech_stage': [for (var i = 0; i < spans.length; i++)
         {'index': i + 1, 'text': boundedText(spans[i].text, 500)}],
       'contract': 'One independent four-beat plan plus optional real-audio spans. No mouth opening, clothes, morph, physics outputs or arbitrary parameter IDs. Head/body inputs within authored -30..30; full front lean -30, return to 0 at the end. Root <=10deg/15%. Eye L/R are anatomical. No V-sign or Caicai props.',
@@ -128,7 +141,8 @@ class DeepseekMotionPlanner {
             (answers['speech${i}_emotion'] == 'keep' || validEmotion(answers['speech${i}_emotion'])))
           {'start': spans[i].start, 'end': spans[i].end,
             'emotion': answers['speech${i}_emotion'] == 'keep' ? '' : answers['speech${i}_emotion'],
-            'delivery': answers['speech${i}_delivery'], ...preset(answers, 'speech${i}_')},
+            'delivery': speechDelivery(answers, i, supportsLean: parameters.containsKey('LeanInput')),
+            ...preset(answers, 'speech${i}_')},
     ]};
   }
   static bool validEmotion(String? value) => value == 'normal' || EmotionCatalog.labelsByKey.containsKey(value);
@@ -151,15 +165,22 @@ class DeepseekMotionPlanner {
   }
   static Map<String, Object?> buildPlan(Map<String, String> answers, Map<String, dynamic> parameters) {
     final interval = answers['tempo'] == '舒展' ? 1.1 : answers['tempo'] == '明快' ? .82 : .95;
-    final hasLean = List.generate(4, (i) => answers['f${i}_lean']).contains('贴近屏幕');
+    final moment = answers['lean_moment'] ?? '';
+    final leanStart = answers['lean_use'] == 'yes' && const ['f0','f1','f2'].contains(moment)
+        ? int.parse(moment.substring(1)) : -1;
     return {'catalog': catalog, 'frames': [for (var i = 0; i < 4; i++)
       {'time': i * interval, 'duration': interval * .65,
-        'parameters': bounded({for (final c in channels.entries)
+        'parameters': bounded({for (final c in channels.entries) if (c.key != 'lean')
           ...?c.value[answers['f${i}_${c.key}']],
-          if (i == 3 && hasLean) 'LeanInput': 0}, parameters),
+          if (leanStart >= 0 && i >= leanStart) 'LeanInput': i < 3 ? -30 : 0}, parameters),
         'root': roots[answers['f${i}_root']] ?? const <String, double>{}}],
       ...preset(answers, ''),
       'emotion': validEmotion(answers['emotion']) ? CaicaiLive2DService.nativeEmotionId(answers['emotion']!) : ''};
+  }
+  static String speechDelivery(Map<String, String> answers, int index, {bool supportsLean = true}) {
+    if (supportsLean && answers['lean_use'] == 'yes' && answers['lean_moment'] == 'speech$index') return 'lean';
+    final chosen = answers['speech${index}_delivery'];
+    return chosen != 'lean' && deliveries.containsKey(chosen) ? chosen! : 'hold';
   }
   static List<Map<String, Object?>> speechFrames(String delivery, Map<String, dynamic> parameters) {
     final targets = switch (delivery) {
@@ -171,8 +192,8 @@ class DeepseekMotionPlanner {
       _ => <String, double>{},
     };
     return targets.isEmpty ? const [] : [
-      {'time': 0.0, 'duration': .42, 'parameters': bounded(targets, parameters)},
-      {'time': delivery == 'lean' ? 1.2 : .8, 'duration': .5,
+      {'time': 0.0, 'duration': delivery == 'lean' ? .7 : .42, 'parameters': bounded(targets, parameters)},
+      {'time': delivery == 'lean' ? 1.35 : .8, 'duration': delivery == 'lean' ? .8 : .5,
         'parameters': delivery == 'lean' ? bounded({'LeanInput': 0}, parameters) : const <String, double>{}},
     ];
   }

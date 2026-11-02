@@ -51,20 +51,22 @@ public class DeepseekStage3SmokeTest {
         for(int i=0;i<60;i++) {p.values.clear();plan.apply(1f/60,p);}
         assertTrue(p.current("AngleX")>23);assertTrue(p.current("LeanInput")<-28);
         assertTrue(p.current("@rootTilt")>5.5f);
-        plan.release();for(int i=0;i<50;i++) {p.values.clear();plan.apply(1f/60,p);}
+        plan.release();for(int i=0;i<80;i++) {p.values.clear();plan.apply(1f/60,p);}
         assertTrue(Math.abs(p.current("LeanInput"))<.01f);
     }
 
-    @Test public void morphedAvatarStaysInsideHorizontalViewportAndHitTestingFollowsCorrection() {
-        for(float offset:new float[]{-1.8f,-1,0,1,1.8f}) {
-            float[] m={.6f,.1f,0,0,-.15f,1.4f,0,0,0,0,1,0,offset,-.6f,0,1};
-            m[12]+=DeepseekHitTransform.smallFormShift(m,-.4f,.4f,.5f,-.5f,1);
-            for(float x:new float[]{-.4f,.4f}) for(float y:new float[]{-.5f,.5f}) {
-                float sx=m[0]*x+m[4]*y+m[12];assertTrue(sx>=-.94001f && sx<=.94001f);
-            }
-            float[] p=new float[2];DeepseekHitTransform hit=new DeepseekHitTransform(m,-.4f,.4f,.5f,-.5f);
-            assertTrue(hit.inverse((1+m[12])/2,(1-m[13])/2,p));
-            assertEquals(.5f,p[0],.0001f);assertEquals(.5f,p[1],.0001f);
+    @Test public void headAnchoredSmallFormUsesMorphedLegPivotOnAndroid() {
+        DeepseekLegPivot.Bounds whole=new DeepseekLegPivot.Bounds(-1,1,1,-3);
+        DeepseekLegPivot.Bounds legs=new DeepseekLegPivot.Bounds(-.4f,.4f,-1,-3);
+        DeepseekLegPivot.Bounds smallLegs=new DeepseekLegPivot.Bounds(-.08f,.08f,.44f,.04f);
+        float[] p=DeepseekLegPivot.map(whole,legs,smallLegs,.88f);assertEquals(.136f,p[1],.00001f);
+        for(float angle:new float[]{-10,10}) {
+            float[] m=DeepseekLegPivot.matrix(1280,2204,p[0],p[1],p[2],0,angle);
+            assertEquals(p[0],m[0]*p[0]+m[4]*p[1]+m[12],.00001f);
+            assertEquals(p[1],m[1]*p[0]+m[5]*p[1]+m[13],.00001f);
         }
+        Pose pose=new Pose();DeepseekLeanFocus focus=new DeepseekLeanFocus();
+        for(int i=0;i<60;i++) {pose.write("LeanInput",-30);pose.write("ParamEyeBallX",.8f);focus.apply(1f/60,pose,false);}
+        assertTrue(Math.abs(pose.current("ParamEyeBallX"))<.001f);
     }
 }

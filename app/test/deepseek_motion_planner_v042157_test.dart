@@ -9,7 +9,7 @@ void main() {
   ]) id: {'min': id.startsWith('Angle') ? -9 : -30, 'max': 30}};
   test('four beats use real DeepSeek channels and Core bounds', () {
     final p = DeepseekMotionPlanner.buildPlan({
-      'f0_head':'左转','f0_lean':'贴近屏幕','f1_root':'左倾','f2_mouth':'撅嘴',
+      'f0_head':'左转','lean_use':'yes','lean_moment':'f0','f1_root':'左倾','f2_mouth':'撅嘴',
       'emotion':'crying',
     }, parameters);
     final frames = p['frames'] as List;
@@ -42,6 +42,31 @@ void main() {
           const ['AngleX','AngleY','AngleZ','PositionY','PositionZ','ParamEyeBallX','BrowInnerUp','LeanInput'].contains(id)), isTrue);
       }
     }
+  });
+  test('ordinary or incomplete gates cannot lean through old per-beat or speech choices', () {
+    for (final gate in [null,'no','invalid']) {
+      final a=<String,String>{if(gate!=null)'lean_use':gate,'lean_moment':'f0',
+        'f0_lean':'贴近屏幕','f2_lean':'贴近屏幕','speech0_delivery':'lean'};
+      final p=DeepseekMotionPlanner.buildPlan(a,parameters);
+      expect((p['frames'] as List).every((f)=>!(f['parameters'] as Map).containsKey('LeanInput')),true);
+      expect(DeepseekMotionPlanner.speechDelivery(a,0),'hold');
+    }
+  });
+  test('one semantic gate selects an opening interval or a single audio cue', () {
+    for (var start=0;start<3;start++) {
+      final p=DeepseekMotionPlanner.buildPlan({'lean_use':'yes','lean_moment':'f$start'},parameters);
+      final f=p['frames'] as List;
+      for(var i=0;i<4;i++) expect(f[i]['parameters']['LeanInput'],i<start?null:i<3?-30:0);
+    }
+    final a={'lean_use':'yes','lean_moment':'speech1','speech0_delivery':'lean',
+      'speech1_delivery':'nod','speech2_delivery':'lean'};
+    final p=DeepseekMotionPlanner.buildPlan(a,parameters);
+    expect((p['frames'] as List).every((f)=>!(f['parameters'] as Map).containsKey('LeanInput')),true);
+    expect([for(var i=0;i<3;i++) DeepseekMotionPlanner.speechDelivery(a,i)],['hold','lean','hold']);
+    expect(DeepseekMotionPlanner.speechDelivery(a,1,supportsLean:false),'nod');
+    final f=DeepseekMotionPlanner.speechFrames('lean',parameters);
+    expect(f.first['parameters'],{'LeanInput':-30});expect(f.last['parameters'],{'LeanInput':0});
+    expect(f.last['time'],greaterThan(1.2));expect(f.last['duration'],greaterThan(.5));
   });
   test('reduced rig skips unsupported channels and nonfinite metadata', () {
     final p = DeepseekMotionPlanner.buildPlan({'f0_head':'右转','f0_mouth':'鼓脸'},

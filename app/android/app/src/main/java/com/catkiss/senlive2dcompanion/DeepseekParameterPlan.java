@@ -96,6 +96,7 @@ final class DeepseekParameterPlan {
         if (current == null) return;
         Set<String> keys = new HashSet<>(previous.keySet());
         keys.addAll(current.values.keySet());
+        boolean leanSettled=true;
         for (String id : keys) {
             if (!target.accepts(id)) { previous.remove(id); continue; }
             // Head, body and whole-model travel should pass through the pose
@@ -107,8 +108,6 @@ final class DeepseekParameterPlan {
             boolean slowAxis = id.equals("@rootX") || id.equals("PositionX")
                 || id.equals("PositionZ");
             float rate=finishing?9f:(slowAxis?1.5f:spatial?3.4f:5f)/Math.max(.1f,current.duration);
-            if(!finishing && id.equals("LeanInput")) rate=6f/Math.min(.65f,current.duration);
-            float smoothing=1f-(float)Math.exp(-delta*rate);
             float lower = target.current(id);
             float old = previous.containsKey(id) ? previous.get(id) : lower;
             float wanted = lower;
@@ -116,12 +115,18 @@ final class DeepseekParameterPlan {
                 float scale=id.startsWith("Angle") || id.startsWith("Position") || id.startsWith("@root") ? gain : 1f;
                 wanted=current.values.get(id)*scale;
             }
+            // About .46s in / .55s out to 95%, independent of a short speech beat.
+            if(id.equals("LeanInput")) rate=wanted<old?6.5f:5.5f;
+            float smoothing=1f-(float)Math.exp(-delta*rate);
             float value = old + (wanted - old) * smoothing;
-            if(id.equals("LeanInput") && Math.abs(wanted-value)<.1f) value=wanted;
+            if(id.equals("LeanInput")) {
+                if(Math.abs(wanted-value)<.1f) value=wanted;
+                leanSettled=Math.abs(wanted-value)<.1f;
+            }
             value=spatialValue(id,value);
             target.write(id, value);
             previous.put(id, value);
         }
-        if (elapsed > end + .65f) clear();
+        if (elapsed > end + .65f && (leanSettled || elapsed > end + 1.5f)) clear();
     }
 }
