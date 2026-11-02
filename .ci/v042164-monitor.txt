@@ -1,0 +1,1210 @@
+status=failure
+build_result=failure
+run_id=41471461758
+run_url=https://github.com/catkiss62/ai-companion-build/actions/runs/41471461758
+head_sha=5dbddae16b7f190063c1dc3d128bd014d719dc19
+
+=== failed or cancelled job logs ===
+
+--- job=build-apk conclusion=failure id=125369146608 ---
+2026-11-02T15:37:02.1332765Z [===============                        ] 38% Unzipping... android-ndk-r28c/tool
+2026-11-02T15:37:02.6337693Z [===============                        ] 39% Unzipping... android-ndk-r28c/tool
+2026-11-02T15:37:02.8443951Z [===============                        ] 40% Unzipping... android-ndk-r28c/tool
+2026-11-02T15:37:03.0762373Z [================                       ] 40% Unzipping... android-ndk-r28c/tool
+2026-11-02T15:37:03.5634529Z [================                       ] 41% Unzipping... android-ndk-r28c/tool
+2026-11-02T15:37:04.0973594Z [================                       ] 42% Unzipping... android-ndk-r28c/tool
+2026-11-02T15:37:05.1480464Z [=================                      ] 43% Unzipping... android-ndk-r28c/tool
+2026-11-02T15:37:05.6813128Z [=================                      ] 44% Unzipping... android-ndk-r28c/tool
+2026-11-02T15:37:05.9710044Z [=================                      ] 45% Unzipping... android-ndk-r28c/tool
+2026-11-02T15:37:06.5812838Z [==================                     ] 45% Unzipping... android-ndk-r28c/tool
+2026-11-02T15:37:07.0082339Z [==================                     ] 46% Unzipping... android-ndk-r28c/tool
+2026-11-02T15:37:07.4158636Z [==================                     ] 47% Unzipping... android-ndk-r28c/tool
+2026-11-02T15:37:07.8201516Z [===================                    ] 48% Unzipping... android-ndk-r28c/tool
+2026-11-02T15:37:08.2534546Z [===================                    ] 49% Unzipping... android-ndk-r28c/tool
+2026-11-02T15:37:08.4376938Z [===================                    ] 50% Unzipping... android-ndk-r28c/tool
+2026-11-02T15:37:08.6331436Z [====================                   ] 50% Unzipping... android-ndk-r28c/tool
+2026-11-02T15:37:09.0877324Z [====================                   ] 51% Unzipping... android-ndk-r28c/tool
+2026-11-02T15:37:09.4658697Z [====================                   ] 52% Unzipping... android-ndk-r28c/tool
+2026-11-02T15:37:09.8871385Z [=====================                  ] 53% Unzipping... android-ndk-r28c/tool
+2026-11-02T15:37:10.1346823Z [=====================                  ] 54% Unzipping... android-ndk-r28c/tool
+2026-11-02T15:37:10.1540053Z [=====================                  ] 54% Unzipping... android-ndk-r28c/buil
+2026-11-02T15:37:10.3805706Z [=====================                  ] 54% Unzipping... android-ndk-r28c/sour
+2026-11-02T15:37:10.3826234Z [=====================                  ] 54% Unzipping... android-ndk-r28c/NOTI
+2026-11-02T15:37:10.3827710Z [=====================                  ] 54% Unzipping... android-ndk-r28c/ndk-
+2026-11-02T15:37:10.3840948Z [=====================                  ] 54% Unzipping... android-ndk-r28c/NOTI
+2026-11-02T15:37:10.3875182Z [=====================                  ] 54% Unzipping... android-ndk-r28c/pyth
+2026-11-02T15:37:10.4287472Z [=====================                  ] 54% Unzipping... android-ndk-r28c/preb
+2026-11-02T15:37:10.4290635Z [=====================                  ] 54% Unzipping... android-ndk-r28c/ndk-
+2026-11-02T15:37:10.4291862Z [=====================                  ] 54% Unzipping... android-ndk-r28c/sour
+2026-11-02T15:37:10.4867062Z [=====================                  ] 54% Unzipping... android-ndk-r28c/simp
+2026-11-02T15:37:10.6415446Z [=====================                  ] 55% Unzipping... android-ndk-r28c/simp
+2026-11-02T15:37:10.7795720Z [=====================                  ] 55% Unzipping... android-ndk-r28c/CHAN
+2026-11-02T15:37:10.7796452Z [=======================================] 100% Unzipping... android-ndk-r28c/CHA
+2026-11-02T15:37:10.9510700Z 
+2026-11-02T15:37:10.9987489Z NDK 28.2.13676358 revision and executable verified.
+2026-11-02T15:37:11.0026409Z ##[group]Run set -euo pipefail
+2026-11-02T15:37:11.0026813Z [36;1mset -euo pipefail[0m
+2026-11-02T15:37:11.0027225Z [36;1mSIGNING_TAG='ai-companion-private-signing-v1'[0m
+2026-11-02T15:37:11.0027728Z [36;1mSIGNING_ASSET='AI-Companion-Private-Test-Signing-v1.p12'[0m
+2026-11-02T15:37:11.0028270Z [36;1mSIGNER_INFO='AI-Companion-Private-Test-Signing-v1.sha256.txt'[0m
+2026-11-02T15:37:11.0028759Z [36;1mSIGNING_DIR="${RUNNER_TEMP}/ai-companion-signing"[0m
+2026-11-02T15:37:11.0029394Z [36;1mKEYSTORE="${SIGNING_DIR}/${SIGNING_ASSET}"[0m
+2026-11-02T15:37:11.0029779Z [36;1mINFO_FILE="${SIGNING_DIR}/${SIGNER_INFO}"[0m
+2026-11-02T15:37:11.0030368Z [36;1mSTORE_PASSWORD="${AI_COMPANION_SIGNING_PASSWORD:?missing AI_COMPANION_SIGNING_PASSWORD repository secret}"[0m
+2026-11-02T15:37:11.0030946Z [36;1mKEY_ALIAS='ai-companion-private-test-v1'[0m
+2026-11-02T15:37:11.0031287Z [36;1mmkdir -p "${SIGNING_DIR}"[0m
+2026-11-02T15:37:11.0031559Z [36;1m[0m
+2026-11-02T15:37:11.0031921Z [36;1m# Resolve only the existing private draft. Lookup or download failure[0m
+2026-11-02T15:37:11.0032436Z [36;1m# must never create a replacement key and break update continuity.[0m
+2026-11-02T15:37:11.0032887Z [36;1mSIGNING_RELEASE_ID="$(gh api --paginate \[0m
+2026-11-02T15:37:11.0033284Z [36;1m  "/repos/${GITHUB_REPOSITORY}/releases?per_page=100" \[0m
+2026-11-02T15:37:11.0033755Z [36;1m  --jq ".[] | select(.draft and .tag_name == \"${SIGNING_TAG}\") | .id")"[0m
+2026-11-02T15:37:11.0034195Z [36;1m[[ "${SIGNING_RELEASE_ID}" =~ ^[1-9][0-9]*$ ]][0m
+2026-11-02T15:37:11.0034603Z [36;1mfor SIGNING_FILE in "${SIGNING_ASSET}" "${SIGNER_INFO}"; do[0m
+2026-11-02T15:37:11.0035010Z [36;1m  SIGNING_ASSET_ID="$(gh api --paginate \[0m
+2026-11-02T15:37:11.0035495Z [36;1m    "/repos/${GITHUB_REPOSITORY}/releases/${SIGNING_RELEASE_ID}/assets?per_page=100" \[0m
+2026-11-02T15:37:11.0036024Z [36;1m    --jq ".[] | select(.name == \"${SIGNING_FILE}\") | .id")"[0m
+2026-11-02T15:37:11.0036414Z [36;1m  [[ "${SIGNING_ASSET_ID}" =~ ^[1-9][0-9]*$ ]][0m
+2026-11-02T15:37:11.0036816Z [36;1m  gh api --method GET -H 'Accept: application/octet-stream' \[0m
+2026-11-02T15:37:11.0037312Z [36;1m    "/repos/${GITHUB_REPOSITORY}/releases/assets/${SIGNING_ASSET_ID}" \[0m
+2026-11-02T15:37:11.0037743Z [36;1m    > "${SIGNING_DIR}/${SIGNING_FILE}"[0m
+2026-11-02T15:37:11.0038090Z [36;1m  test -s "${SIGNING_DIR}/${SIGNING_FILE}"[0m
+2026-11-02T15:37:11.0038399Z [36;1mdone[0m
+2026-11-02T15:37:11.0038615Z [36;1m[0m
+2026-11-02T15:37:11.0038830Z [36;1mchmod 600 "${KEYSTORE}"[0m
+2026-11-02T15:37:11.0039752Z [36;1mSIGNER_SHA256="$(keytool -list -v -keystore "${KEYSTORE}" \[0m
+2026-11-02T15:37:11.0040225Z [36;1m  -storepass "${STORE_PASSWORD}" -alias "${KEY_ALIAS}" |[0m
+2026-11-02T15:37:11.0040648Z [36;1m  sed -n 's/^[[:space:]]*SHA256: //p' | head -1)"[0m
+2026-11-02T15:37:11.0041001Z [36;1mtest -n "${SIGNER_SHA256}"[0m
+2026-11-02T15:37:11.0041343Z [36;1mgrep -Fqx "sha256=${SIGNER_SHA256}" "${INFO_FILE}"[0m
+2026-11-02T15:37:11.0041938Z [36;1mEXPECTED_SIGNER_SHA256='30:5E:B3:D8:09:83:B9:63:C6:48:18:DD:F1:AD:56:1F:27:9D:E6:D4:7B:3E:D2:C7:81:AD:A4:48:C7:C2:51:48'[0m
+2026-11-02T15:37:11.0042505Z [36;1mtest "${SIGNER_SHA256}" = "${EXPECTED_SIGNER_SHA256}"[0m
+2026-11-02T15:37:11.0042952Z [36;1mecho "AI_COMPANION_KEYSTORE_PATH=${KEYSTORE}" >> "${GITHUB_ENV}"[0m
+2026-11-02T15:37:11.0043472Z [36;1mecho "AI_COMPANION_KEYSTORE_PASSWORD=${STORE_PASSWORD}" >> "${GITHUB_ENV}"[0m
+2026-11-02T15:37:11.0043982Z [36;1mecho "AI_COMPANION_KEY_ALIAS=${KEY_ALIAS}" >> "${GITHUB_ENV}"[0m
+2026-11-02T15:37:11.0044469Z [36;1mecho "AI_COMPANION_KEY_PASSWORD=${STORE_PASSWORD}" >> "${GITHUB_ENV}"[0m
+2026-11-02T15:37:11.0044988Z [36;1mecho "AI_COMPANION_SIGNER_SHA256=${SIGNER_SHA256}" >> "${GITHUB_ENV}"[0m
+2026-11-02T15:37:11.0045481Z [36;1mecho "Persistent private test signer ready: ${SIGNER_SHA256}"[0m
+2026-11-02T15:37:11.0075652Z shell: /usr/bin/bash --noprofile --norc -e -o pipefail {0}
+2026-11-02T15:37:11.0076012Z env:
+2026-11-02T15:37:11.0076532Z   JAVA_HOME: /opt/hostedtoolcache/Java_Temurin-Hotspot_jdk/17.0.21-9/x64
+2026-11-02T15:37:11.0077068Z   JAVA_HOME_17_X64: /opt/hostedtoolcache/Java_Temurin-Hotspot_jdk/17.0.21-9/x64
+2026-11-02T15:37:11.0077573Z   FLUTTER_ROOT: /opt/hostedtoolcache/flutter/stable-3.44.9-x64/flutter
+2026-11-02T15:37:11.0078097Z   PUB_CACHE: /home/runner/.pub-cache
+2026-11-02T15:37:11.0081226Z   GH_TOKEN: ***
+2026-11-02T15:37:11.0081639Z   AI_COMPANION_SIGNING_PASSWORD: ***
+2026-11-02T15:37:11.0081932Z ##[endgroup]
+2026-11-02T15:37:14.1048541Z Persistent private test signer ready: 30:5E:B3:D8:09:83:B9:63:C6:48:18:DD:F1:AD:56:1F:27:9D:E6:D4:7B:3E:D2:C7:81:AD:A4:48:C7:C2:51:48
+2026-11-02T15:37:14.1095357Z ##[group]Run set -euo pipefail
+2026-11-02T15:37:14.1095993Z [36;1mset -euo pipefail[0m
+2026-11-02T15:37:14.1096665Z [36;1m# Legacy validator compatibility tokens. Historical gates inspect[0m
+2026-11-02T15:37:14.1097597Z [36;1m# this workflow by filename; execution order now has one source of[0m
+2026-11-02T15:37:14.1098348Z [36;1m# truth in tools/validation_suite.txt.[0m
+2026-11-02T15:37:14.1099753Z [36;1m# validate_v04128_immersive_identity_rendering.py validate_v04129_proactive_rendering_rule_editor_emotion.py[0m
+2026-11-02T15:37:14.1101232Z [36;1m# validate_v04130_presentation_ablation_upload_diagnostics.py validate_v04131_phase2a5_verifier_anr_diagnostics.py[0m
+2026-11-02T15:37:14.1102640Z [36;1m# validate_v04132_phase2b_learning_association.py validate_v04133_competence_curation_emotion.py[0m
+2026-11-02T15:37:14.1104013Z [36;1m# validate_v04134_memory_grounding_agent_foundation.py validate_v04135_interrupted_turn_system_command.py[0m
+2026-11-02T15:37:14.1105479Z [36;1m# validate_v04136_immersive_boundary_stop_style.py validate_v04146_sticker_agent_continuation_identity.py[0m
+2026-11-02T15:37:14.1106739Z [36;1m# validate_v04150_agent_v2_bounded_loop.py validate_v0401_album_identity_closure.py[0m
+2026-11-02T15:37:14.1107890Z [36;1m# validate_v0405_album_image_binding.py validate_v0374_audio_presentation_stabilization.py[0m
+2026-11-02T15:37:14.1109450Z [36;1m# validate_v0376_chat_recovery_presentation.py validate_v04111_personality_learning_semantic_verifier.py[0m
+2026-11-02T15:37:14.1110818Z [36;1m# validate_v04113_phase01_time_audit_hardening.py validate_v04114_agent_truth_screen_observation.py[0m
+2026-11-02T15:37:14.1112079Z [36;1m# validate_v04155_genie_direct_port_lazy_language.py validate_v04156_worldbook_media_refs.py[0m
+2026-11-02T15:37:14.1113245Z [36;1m# validate_v04157_chat_media_expression.py validate_v04158_backup_naiyou_runtime.py[0m
+2026-11-02T15:37:14.1114607Z [36;1m# validate_v04166_phase3c_phone_pacing.py validate_v04167_cedar_toy_mcp.py[0m
+2026-11-02T15:37:14.1115646Z [36;1m# validate_v04168_cedar_game_experience.py validate_v04169_cedar_game_switching.py[0m
+2026-11-02T15:37:14.1116792Z [36;1m# validate_v04170_agent_mcp_runtime_hardening.py validate_v04171_cedar_realtime_room_chat.py[0m
+2026-11-02T15:37:14.1117988Z [36;1m# validate_v04172_cedar_trust_watch_modes.py validate_v04173_cedar_reply_completion.py[0m
+2026-11-02T15:37:14.1119455Z [36;1m# validate_v04174_cedar_game_hall_protocol.py validate_v04175_cedar_agentic_blind_play.py[0m
+2026-11-02T15:37:14.1120777Z [36;1m# validate_v04176_cedar_protocol_continuation.py validate_v04177_cedar_background_turn_loop.py[0m
+2026-11-02T15:37:14.1122002Z [36;1m# validate_v04178_stop_transfer_interlock.py validate_v04179_cedar_runtime_preemption.py[0m
+2026-11-02T15:37:14.1123161Z [36;1m# validate_v04180_cedar_agent_loop.py validate_v04181_cedar_background_agent_tools.py[0m
+2026-11-02T15:37:14.1124302Z [36;1m# validate_v04182_cedar_state_machine_e2e.py validate_v04183_cedar_native_agent_loop.py[0m
+2026-11-02T15:37:14.1125242Z [36;1m# validate_v04184_agent_loop_autonomy_closure.py[0m
+2026-11-02T15:37:14.1126007Z [36;1m# Exact historical command tokens retained for three gates that[0m
+2026-11-02T15:37:14.1126921Z [36;1m# predate the manifest runner and assert their old literal command.[0m
+2026-11-02T15:37:14.1127785Z [36;1m# python3 tools/validate_v04150_agent_v2_bounded_loop.py[0m
+2026-11-02T15:37:14.1128563Z [36;1m# python3 tools/validate_v0401_album_identity_closure.py[0m
+2026-11-02T15:37:14.1129642Z [36;1m# python3 tools/validate_v0405_album_image_binding.py[0m
+2026-11-02T15:37:14.1130331Z [36;1mpython3 tools/test_release_identity_workflow.py[0m
+2026-11-02T15:37:14.1130983Z [36;1mpython3 tools/test_ci_ndk_bootstrap.py[0m
+2026-11-02T15:37:14.1131590Z [36;1mpython3 tools/run_validation_suite.py[0m
+2026-11-02T15:37:14.1164463Z shell: /usr/bin/bash --noprofile --norc -e -o pipefail {0}
+2026-11-02T15:37:14.1164844Z env:
+2026-11-02T15:37:14.1165369Z   JAVA_HOME: /opt/hostedtoolcache/Java_Temurin-Hotspot_jdk/17.0.21-9/x64
+2026-11-02T15:37:14.1165930Z   JAVA_HOME_17_X64: /opt/hostedtoolcache/Java_Temurin-Hotspot_jdk/17.0.21-9/x64
+2026-11-02T15:37:14.1166443Z   FLUTTER_ROOT: /opt/hostedtoolcache/flutter/stable-3.44.9-x64/flutter
+2026-11-02T15:37:14.1166859Z   PUB_CACHE: /home/runner/.pub-cache
+2026-11-02T15:37:14.1167427Z   AI_COMPANION_KEYSTORE_PATH: /home/runner/work/_temp/ai-companion-signing/AI-Companion-Private-Test-Signing-v1.p12
+2026-11-02T15:37:14.1168235Z   AI_COMPANION_KEYSTORE_PASSWORD: ***
+2026-11-02T15:37:14.1168586Z   AI_COMPANION_KEY_ALIAS: ai-companion-private-test-v1
+2026-11-02T15:37:14.1169301Z   AI_COMPANION_KEY_PASSWORD: ***
+2026-11-02T15:37:14.1169801Z   AI_COMPANION_SIGNER_SHA256: 30:5E:B3:D8:09:83:B9:63:C6:48:18:DD:F1:AD:56:1F:27:9D:E6:D4:7B:3E:D2:C7:81:AD:A4:48:C7:C2:51:48
+2026-11-02T15:37:14.1170299Z ##[endgroup]
+2026-11-02T15:37:16.9639856Z 23 isolated release identity/workflow cases passed; no live keys or network used.
+2026-11-02T15:37:17.5264935Z ....
+2026-11-02T15:37:17.5265362Z ----------------------------------------------------------------------
+2026-11-02T15:37:17.5266346Z Ran 4 tests in 0.472s
+2026-11-02T15:37:17.5266569Z 
+2026-11-02T15:37:17.5266706Z OK
+2026-11-02T15:37:17.5812779Z [1/160] tools/validate_v04233_pet_window_jev_caicai.py
+2026-11-02T15:37:17.6050671Z single pet layer, fixed idle-alpha input, deferred Caicai load and Jev guard passed
+2026-11-02T15:37:17.6092804Z [2/160] tools/validate_v04231_caicai_native_idle.py
+2026-11-02T15:37:17.6546951Z Caicai native idle source and assets pinned; model remains private.
+2026-11-02T15:37:17.6598468Z [3/160] tools/validate_v04128_immersive_identity_rendering.py
+2026-11-02T15:37:17.6885286Z v0.41.28 immersive identity/rendering validation passed
+2026-11-02T15:37:17.6928438Z [4/160] tools/validate_v04129_proactive_rendering_rule_editor_emotion.py
+2026-11-02T15:37:17.7191367Z v0.41.29 proactive/rendering/editor/emotion validation passed
+2026-11-02T15:37:17.7232918Z [5/160] tools/validate_v04130_presentation_ablation_upload_diagnostics.py
+2026-11-02T15:37:17.7604973Z v0.41.30 presentation/ablation/upload diagnostics validation passed
+2026-11-02T15:37:17.7656491Z [6/160] tools/validate_v04131_phase2a5_verifier_anr_diagnostics.py
+2026-11-02T15:37:17.7985013Z v0.41.31 Phase 2A.5 verifier/ANR diagnostics validation passed
+2026-11-02T15:37:17.8031055Z [7/160] tools/validate_v04132_phase2b_learning_association.py
+2026-11-02T15:37:17.8396111Z v0.41.32 Phase 2B learning association validation passed
+2026-11-02T15:37:17.8444412Z [8/160] tools/validate_v04133_competence_curation_emotion.py
+2026-11-02T15:37:17.8806658Z v0.41.33 competence curation emotion validation passed
+2026-11-02T15:37:17.8856312Z [9/160] tools/validate_v04134_memory_grounding_agent_foundation.py
+2026-11-02T15:37:17.9649009Z v0.41.34 memory grounding and Agent foundation validation passed
+2026-11-02T15:37:17.9706502Z [10/160] tools/validate_v04135_interrupted_turn_system_command.py
+2026-11-02T15:37:18.0079962Z v0.41.35 interrupted turn and system command validation passed
+2026-11-02T15:37:18.0128942Z [11/160] tools/validate_v04136_immersive_boundary_stop_style.py
+2026-11-02T15:37:18.0477809Z v0.41.36 immersive boundary and stop style validation passed
+2026-11-02T15:37:18.0525636Z [12/160] tools/validate_v04137_memory_lifecycle.py
+2026-11-02T15:37:18.0774382Z v0.41.37 Memory 2D source contract validated
+2026-11-02T15:37:18.0812818Z [13/160] tools/validate_v04138_worldbook_roleplay.py
+2026-11-02T15:37:18.1060861Z v0.41.38 WorldBook 2D roleplay provenance source contract validated
+2026-11-02T15:37:18.1097589Z [14/160] tools/validate_v04139_public_web_reading.py
+2026-11-02T15:37:18.1355925Z v0.41.39 public-web reading and narrow-fix source contract validated
+2026-11-02T15:37:18.1393600Z [15/160] tools/validate_v04140_expression_album_browser.py
+2026-11-02T15:37:18.1666724Z v0.41.40 expression, album-original and browser source contract validated
+2026-11-02T15:37:18.1705305Z [16/160] tools/validate_v04141_roleplay_pronoun_priority.py
+2026-11-02T15:37:18.1948022Z v0.41.41 roleplay/pronoun/priority validation passed
+2026-11-02T15:37:18.1985179Z [17/160] tools/validate_v04142_ai_interest_evidence.py
+2026-11-02T15:37:18.2272007Z v0.41.42 Phase 3A AI-interest evidence validation passed
+2026-11-02T15:37:18.2317460Z [18/160] tools/validate_v04143_phase3b_question_autonomy.py
+2026-11-02T15:37:18.2616704Z v0.41.43 Phase 3B question-autonomy validation passed
+2026-11-02T15:37:18.2658873Z [19/160] tools/validate_v04144_autonomy_arbitration_rework.py
+2026-11-02T15:37:18.2910694Z v0.41.44 autonomy arbitration rework validation passed
+2026-11-02T15:37:18.2952007Z [20/160] tools/validate_v04145_sticker_expression.py
+2026-11-02T15:37:18.3240893Z v0.41.45 sticker expression validation passed
+2026-11-02T15:37:18.3279435Z [21/160] tools/validate_v04146_sticker_agent_continuation_identity.py
+2026-11-02T15:37:18.3550449Z v0.41.46 sticker Agent + continuation identity validation passed
+2026-11-02T15:37:18.3590084Z [22/160] tools/validate_v04147_user_sticker_image_send.py
+2026-11-02T15:37:18.3897374Z v0.41.47 user sticker + image send validation passed
+2026-11-02T15:37:18.3940017Z [23/160] tools/validate_v04148_agent_image_reliability.py
+2026-11-02T15:37:18.4245965Z v0.41.48 Agent image reliability validation passed
+2026-11-02T15:37:18.4289055Z [24/160] tools/validate_v04149_subjective_search_humor.py
+2026-11-02T15:37:18.4607956Z v0.41.49 subjective search + humor restoration validation passed
+2026-11-02T15:37:18.4655835Z [25/160] tools/validate_v04150_agent_v2_bounded_loop.py
+2026-11-02T15:37:18.5041003Z v0.41.50 Agent v2 bounded loop validation passed
+2026-11-02T15:37:18.5091365Z [26/160] tools/validate_current_ledger_handoff.py
+2026-11-02T15:37:18.5478066Z current ledger v2 handoff: OK
+2026-11-02T15:37:18.5478825Z current bytes: 805895
+2026-11-02T15:37:18.5479697Z quick index bytes: 99522
+2026-11-02T15:37:18.5480172Z frozen archive bytes: 1587679
+2026-11-02T15:37:18.5481094Z frozen archive sha256: 602c712f0fb06e70c054c2d54fe0e280f312923864040a3a177ee8e7da67ed70
+2026-11-02T15:37:18.5481776Z recent frozen archive bytes: 98372
+2026-11-02T15:37:18.5482435Z recent frozen archive sha256: 47d053d842a73e3ff8107dabe867bd503e8a7e77daaecc2afb1867068faa952c
+2026-11-02T15:37:18.5525803Z [27/160] tools/validate_v0401_album_identity_closure.py
+2026-11-02T15:37:18.5851064Z v0.40.1 album identity closure validation passed
+2026-11-02T15:37:18.5905083Z [28/160] tools/validate_v0405_album_image_binding.py
+2026-11-02T15:37:18.6171559Z v0.40.5 album image binding validation passed
+2026-11-02T15:37:18.6218464Z [29/160] tools/validate_v0331_desktop_pet_source_parity.py
+2026-11-02T15:37:18.7814804Z v0.33.1 desktop-pet source parity validated: 417 complete source files, 18 actions, 210 preserved runtime frames (201 manifest-referenced).
+2026-11-02T15:37:18.7871487Z [30/160] tools/validate_v0332_desktop_pet_overlay_d2.py
+2026-11-02T15:37:18.8092460Z v0.33.2 overlay pet D2 validated: one shared foreground service, pet/bubble exclusive modes, real three-size windows, single-tap body reactions, double-tap options, drag/fall/land physics.
+2026-11-02T15:37:18.8127619Z [31/160] tools/validate_v0338_pet_semantic_autonomy.py
+2026-11-02T15:37:18.8339886Z v0.33.8 compatibility validated: durable Desire/Thought projection remains read-only and TTS-safe.
+2026-11-02T15:37:18.8376298Z [32/160] tools/validate_v0340_image_messages.py
+2026-11-02T15:37:18.8634851Z v0.34.0 image-message and sleep-frame contracts verified
+2026-11-02T15:37:18.8673191Z [33/160] tools/validate_current_schema24_a.py
+2026-11-02T15:37:18.8927281Z v0.34.1 image vision source contract verified
+2026-11-02T15:37:18.8967246Z [34/160] tools/validate_v0349_layered_web_discovery.py
+2026-11-02T15:37:18.9223212Z v0.34.9 layered public-web discovery validation passed
+2026-11-02T15:37:18.9260245Z [35/160] tools/validate_v0352_prompt_workbench.py
+2026-11-02T15:37:18.9555937Z v0.35.2 prompt workbench static validation passed
+2026-11-02T15:37:18.9595608Z [36/160] tools/validate_v0358_native_tool_runtime.py
+2026-11-02T15:37:18.9822888Z v0.35.8 native tool calling and shared runtime validation passed
+2026-11-02T15:37:18.9859513Z [37/160] tools/validate_v0359_shared_conversation_runtime.py
+2026-11-02T15:37:19.0134587Z v0.35.9 shared conversation runtime validation passed
+2026-11-02T15:37:19.0175091Z [38/160] tools/validate_v0360_ui_relationship_age.py
+2026-11-02T15:37:19.0442090Z v0.36.0 UI domains, relationship age, action tint and overlay Stop validation passed
+2026-11-02T15:37:19.0481658Z [39/160] tools/validate_v0361_cross_app_contact.py
+2026-11-02T15:37:19.0749291Z v0.36.1 cross-App contact, popup sound and delayed probe validation passed
+2026-11-02T15:37:19.0787397Z [40/160] tools/validate_v0362_foreground_tracker_conversation_banner.py
+2026-11-02T15:37:19.1005829Z v0.36.2 foreground tracker, conversation banner and tint validation passed
+2026-11-02T15:37:19.1041647Z [41/160] tools/validate_v0363_hyperos_cover_alarm_guard.py
+2026-11-02T15:37:19.1246151Z v0.36.3 HyperOS cover and delayed-test cancellation guard validation passed
+2026-11-02T15:37:19.1282629Z [42/160] tools/validate_current_chat_visual_stage.py
+2026-11-02T15:37:19.2164461Z current App chat 19-expression visual parity validation passed
+2026-11-02T15:37:19.2222643Z [43/160] tools/validate_v0374_audio_presentation_stabilization.py
+2026-11-02T15:37:19.2503814Z v0.37.4 audio, presentation cursor and rendering validation passed
+2026-11-02T15:37:19.2540665Z [44/160] tools/validate_v0376_chat_recovery_presentation.py
+2026-11-02T15:37:19.2857413Z v0.37.6 chat recovery and presentation validation passed
+2026-11-02T15:37:19.2902072Z [45/160] tools/validate_v0381_adult_relationship_capability.py
+2026-11-02T15:37:19.3159294Z v0.38.1 adult relationship capability validation passed.
+2026-11-02T15:37:19.3197184Z [46/160] tools/validate_v0388_simulated_phone_foundation.py
+2026-11-02T15:37:19.3415700Z v0.38.8 simulated phone foundation validation passed
+2026-11-02T15:37:19.3452734Z [47/160] tools/validate_v0390_immersive_room.py
+2026-11-02T15:37:19.3736021Z v0.39.0 immersive room static contracts passed
+2026-11-02T15:37:19.3780977Z [48/160] tools/validate_v0392_immersive_nsfw_stream.py
+2026-11-02T15:37:19.4029652Z v0.39.2 immersive fullscreen/NSFW/stream contracts passed
+2026-11-02T15:37:19.4068954Z [49/160] tools/validate_v0402_provider_diagnostics.py
+2026-11-02T15:37:19.4368665Z v0.40.2 provider diagnostics validation passed
+2026-11-02T15:37:19.4417996Z [50/160] tools/validate_v04111_personality_learning_semantic_verifier.py
+2026-11-02T15:37:19.4708272Z v0.41.11 personality learning semantic verifier validation passed
+2026-11-02T15:37:19.4754879Z [51/160] tools/validate_v04112_ordinary_time_scene_boundary.py
+2026-11-02T15:37:19.5089908Z v0.41.12 ordinary time scene boundary validation passed
+2026-11-02T15:37:19.5133354Z [52/160] tools/validate_v04113_phase01_time_audit_hardening.py
+2026-11-02T15:37:19.5484353Z v0.41.13 Phase 0+1 time audit hardening validation passed
+2026-11-02T15:37:19.5533144Z [53/160] tools/validate_v04114_agent_truth_screen_observation.py
+2026-11-02T15:37:19.5910589Z v0.41.14 Agent truth and one-time screen validation passed
+2026-11-02T15:37:19.5960909Z [54/160] tools/validate_v0322_overlay_time_diagnostics.py
+2026-11-02T15:37:19.6219527Z v0.32.2 overlay time and diagnostic contracts validated.
+2026-11-02T15:37:19.6262760Z [55/160] tools/validate_v0321_ai_to_self.py
+2026-11-02T15:37:19.6520077Z v0.32.1 AI-to-self somatic contract validated.
+2026-11-02T15:37:19.6560734Z [56/160] tools/validate_v0319_tts_state_cancel_retract.py
+2026-11-02T15:37:19.6833982Z v0.31.9 TTS state and cancelled-turn withdrawal validation passed
+2026-11-02T15:37:19.6876815Z [57/160] tools/validate_v0318_overlay_stop_stream.py
+2026-11-02T15:37:19.7132553Z v0.31.8 overlay stop and live stream validation passed
+2026-11-02T15:37:19.7174927Z [58/160] tools/validate_v0317_true_stop_generation.py
+2026-11-02T15:37:19.7438492Z v0.31.7 true stop generation validation passed
+2026-11-02T15:37:19.7481592Z [59/160] tools/validate_v0316_rule_grouping.py
+2026-11-02T15:37:19.7685142Z v0.31.6 rule grouping validation passed
+2026-11-02T15:37:19.7724807Z [60/160] tools/validate_desire_v20_sql.py
+2026-11-02T15:37:19.7886239Z schema v20 message cleanup preserves visible history and removes retired state
+2026-11-02T15:37:19.7917608Z [61/160] tools/validate_current_schema24_c.py
+2026-11-02T15:37:19.8381336Z v0.31.3 HyperOS file-picker overlay recovery validation passed.
+2026-11-02T15:37:19.8430519Z [62/160] tools/validate_v031_policy_math.py
+2026-11-02T15:37:19.8981377Z v0.31 Desire policy numeric long-run validation passed.
+2026-11-02T15:37:19.9018654Z [63/160] tools/validate_manual_crypto_v26.py
+2026-11-02T15:37:28.1222719Z [OK] AES-256-GCM manual snapshot roundtrip / wrong-pass / truncation
+2026-11-02T15:37:28.1433512Z [64/160] tools/validate_durable_generation_sql.py
+2026-11-02T15:37:28.1624304Z v0.14 durable generation SQLite ownership/atomicity checks passed.
+2026-11-02T15:37:28.1660894Z [65/160] tools/validate_recovery_orchestration_sql.py
+2026-11-02T15:37:28.1847038Z [OK] failed generation attention only targets latest unanswered user turn
+2026-11-02T15:37:28.1847997Z [OK] manual generation retry respects Active Brain and transfer freeze
+2026-11-02T15:37:28.1848707Z [OK] manual generation retry cannot create a second blocking generation
+2026-11-02T15:37:28.1849581Z [OK] manual post-turn retry respects device ownership
+2026-11-02T15:37:28.1850221Z [OK] effective post-turn next-due selection is not tied to oldest created job
+2026-11-02T15:37:28.1850885Z v0.16 recovery orchestration SQLite simulation passed.
+2026-11-02T15:37:28.1880474Z [66/160] tools/validate_reference_library_sql.py
+2026-11-02T15:37:28.2043409Z [OK] disabled document stays excluded after rechunk
+2026-11-02T15:37:28.2044409Z [OK] editing preserves document created_at and updates full raw text
+2026-11-02T15:37:28.2045195Z [OK] rechunk does not mutate full raw text or silently re-enable retrieval
+2026-11-02T15:37:28.2045993Z [OK] document edit + chunk replacement rolls back atomically on failure
+2026-11-02T15:37:28.2047035Z [OK] re-enable keeps document and retrieval chunks in sync
+2026-11-02T15:37:28.2047718Z [OK] delete removes full document and all derived chunks together
+2026-11-02T15:37:28.2048385Z v0.19 Reference Library SQLite consistency checks passed.
+2026-11-02T15:37:28.2073516Z [67/160] tools/validate_awareness_sql.py
+2026-11-02T15:37:28.2261215Z v0.20 awareness SQLite migration/dedupe/expiry/Active-Brain checks passed.
+2026-11-02T15:37:28.2294408Z [68/160] tools/validate_relationship_presentation_sql.py
+2026-11-02T15:37:28.2442085Z [OK] companion-facing Thought SQL excludes residual/acted/dormant/snoozed before LIMIT
+2026-11-02T15:37:28.2443125Z v0.21 relationship presentation SQLite read-model checks passed.
+2026-11-02T15:37:28.2471401Z [69/160] tools/validate_memory_v15_sql.py
+2026-11-02T15:37:28.2639032Z [OK] v14 -> v15 memory semantic migration preserves rows and classifies shared experience
+2026-11-02T15:37:28.2640357Z [OK] current fact replacement preserves historical version and monotonic version number
+2026-11-02T15:37:28.2641172Z [OK] uncertain inference coexists without superseding current fact
+2026-11-02T15:37:28.2641864Z [OK] evidence uniqueness prevents retry from double-reinforcing a memory
+2026-11-02T15:37:28.2642608Z [OK] pinned current fact exposes a deterministic automatic-replacement block
+2026-11-02T15:37:28.2643359Z [OK] manual restore guard prevents two current facts with the same subject key
+2026-11-02T15:37:28.2644130Z [OK] manual edit preserves migrated pre-v15 content as evidence before replacement
+2026-11-02T15:37:28.2644875Z [OK] manual subject edit guard detects an existing active current fact
+2026-11-02T15:37:28.2645555Z [OK] repeated full-state import remains idempotent with memory evidence
+2026-11-02T15:37:28.2646185Z v0.22 long-term memory semantics SQLite checks passed.
+2026-11-02T15:37:28.2668872Z [70/160] tools/validate_proactive_rhythm_v16_sql.py
+2026-11-02T15:37:28.2854845Z [OK] v15 -> v16 proactive rhythm migration preserves legacy rows
+2026-11-02T15:37:28.2855819Z [OK] no-response is weak timing evidence, not topic rejection
+2026-11-02T15:37:28.2856735Z [OK] timing rejection and topic rejection adapt different dimensions
+2026-11-02T15:37:28.2857410Z [OK] short negative streak cannot cause a large personality swing
+2026-11-02T15:37:28.2858118Z [OK] repeated no-response remains bounded and does not become topic suppression
+2026-11-02T15:37:28.2858891Z [OK] anti-silence threshold recovery and 2h/24h spam ceilings stay bounded
+2026-11-02T15:37:28.2859920Z [OK] time-of-day and activity contexts learn independent comfort windows
+2026-11-02T15:37:28.2860547Z [OK] rhythm evidence decays with a 45-day half-life
+2026-11-02T15:37:28.2861200Z [OK] v16 phone/tablet state transfer preserves rhythm context and feedback signals
+2026-11-02T15:37:28.2861934Z v0.23 Proactive Rhythm Learning SQLite/simulation validation passed.
+2026-11-02T15:37:28.2886757Z [71/160] tools/validate_daily_continuity_v17_sql.py
+2026-11-02T15:37:28.3194082Z [OK] v16 -> v17 additive daily continuity table contract
+2026-11-02T15:37:28.3195348Z [OK] retry/exactly-once keeps one UNIQUE row per local day
+2026-11-02T15:37:28.3196179Z [OK] finalized yesterday is immutable across later retries
+2026-11-02T15:37:28.3197099Z [OK] standby/transfer lock blocks durable continuity writes inside transaction
+2026-11-02T15:37:28.3198212Z [OK] unresolved thread carry-forward avoids daily repetition but allows real updates
+2026-11-02T15:37:28.3199662Z [OK] quiet day is stored as neutral continuity, not relationship regression
+2026-11-02T15:37:28.3200666Z [OK] phone/tablet full-state transfer preserves daily continuity rows
+2026-11-02T15:37:28.3201611Z [OK] continuity retention remains bounded to the recent bridge window
+2026-11-02T15:37:28.3202493Z v0.24 Daily Continuity SQLite/simulation validation passed.
+2026-11-02T15:37:28.3241219Z [72/160] tools/validate_transfer_v18_sql.py
+2026-11-02T15:37:28.3459389Z [OK] v18 transfer generation / replay / rollback / fencing SQLite simulation
+2026-11-02T15:37:28.3496364Z [73/160] tools/validate_preflight_redaction_v27.py
+2026-11-02T15:37:33.4196229Z [OK] native diagnostic redaction is deterministic and bounded
+2026-11-02T15:37:33.4337795Z [74/160] tools/validate_preflight_kotlin_v27.py
+2026-11-02T15:37:38.5743428Z [OK] NativePreflightProbe Kotlin compiles against Android/Play-services API stubs
+2026-11-02T15:37:38.5811559Z [75/160] tools/validate_runtime_diagnostic_store_kotlin_v27.py
+2026-11-02T15:37:44.4804931Z [OK] RuntimeDiagnosticStore Kotlin compiles against SharedPreferences/JSON stubs
+2026-11-02T15:37:44.4870467Z [76/160] tools/validate_v0285_coroutine_proxy_jvm.py
+2026-11-02T15:37:52.9896518Z [OK] child-first policy / coroutine proxy / suspend marker / redacted failure evidence
+2026-11-02T15:37:52.9963338Z [77/160] tools/validate_transfer_kotlin_v26.py
+2026-11-02T15:37:59.2228898Z [OK] NativeEventStore ownership + manual crypto (Nearby retired in +324) Kotlin compile against API stubs
+2026-11-02T15:37:59.2295052Z [78/160] tools/validate_v04151_sticker_semantics_gallery.py
+2026-11-02T15:37:59.2507189Z v0.41.51 sticker semantics with v0.41.52 gallery cleanup: PASS
+2026-11-02T15:37:59.2545052Z [79/160] tools/validate_v04152_diary_fresh_topic_balance.py
+2026-11-02T15:37:59.2838637Z v0.41.52 diary and fresh-topic balance validation passed
+2026-11-02T15:37:59.2888302Z [80/160] tools/validate_v04155_genie_direct_port_lazy_language.py
+2026-11-02T15:37:59.3358110Z v0.41.55 pinned Genie direct-port and lazy-language contracts passed
+2026-11-02T15:37:59.3413237Z [81/160] tools/validate_v04156_worldbook_media_refs.py
+2026-11-02T15:37:59.3751105Z v0.41.56 worldbook and shared media reference contracts passed
+2026-11-02T15:37:59.3798610Z [82/160] tools/validate_v04157_chat_media_expression.py
+2026-11-02T15:37:59.4096818Z v0.41.57 chat, media and expression contracts passed
+2026-11-02T15:37:59.4143565Z [83/160] tools/validate_v04158_backup_naiyou_runtime.py
+2026-11-02T15:37:59.4470621Z v0.41.58 backup and Naiyou runtime hotfix contracts passed
+2026-11-02T15:37:59.4515202Z [84/160] tools/validate_v04159_tiandou_pitch_recovery.py
+2026-11-02T15:37:59.4763902Z v0.41.59 integrity and independent-pitch compatibility contract passed
+2026-11-02T15:37:59.4805239Z [85/160] tools/validate_v04160_jiuhu_four_voice_auto.py
+2026-11-02T15:37:59.5069219Z v0.41.60 Jiuhu, automatic-routing, streaming and Gemini relay contract passed
+2026-11-02T15:37:59.5108916Z [86/160] tools/validate_v04161_shuaiapi_immersive_language.py
+2026-11-02T15:37:59.5356696Z v0.41.61 retained immersive language and reasoning contracts passed
+2026-11-02T15:37:59.5398944Z [87/160] tools/validate_v04162_hybrid_final_fallback.py
+2026-11-02T15:37:59.5672111Z v0.41.62 hybrid final reply, fallback, safe drafts and TTS guard contracts passed
+2026-11-02T15:37:59.5712453Z [88/160] tools/validate_v04163_immersive_tts_settings_hardening.py
+2026-11-02T15:37:59.5941104Z v0.41.63 immersive TTS, diagnostics, settings and routing contracts passed
+2026-11-02T15:37:59.5977238Z [89/160] tools/validate_v04164_settings_rollback.py
+2026-11-02T15:37:59.6202867Z v0.41.64 exact +206 settings rollback and Seven Rules reachability passed
+2026-11-02T15:37:59.6242301Z [90/160] tools/validate_v04165_refresh_settings_phone_media.py
+2026-11-02T15:37:59.6519334Z v0.41.65 refresh, settings, phone, media and immersive contracts passed
+2026-11-02T15:37:59.6558197Z [91/160] tools/validate_v04166_phase3c_phone_pacing.py
+2026-11-02T15:37:59.6834504Z v0.41.66 Phase 3C and phone pacing contracts passed
+2026-11-02T15:37:59.6872867Z [92/160] tools/validate_v04167_cedar_toy_mcp.py
+2026-11-02T15:37:59.7194338Z v0.41.67+211 Cedar Toy MCP validation passed.
+2026-11-02T15:37:59.7238943Z [93/160] tools/validate_v04168_cedar_game_experience.py
+2026-11-02T15:37:59.7578550Z v0.41.68+212 Cedar game experience validation passed.
+2026-11-02T15:37:59.7632700Z [94/160] tools/validate_v04169_cedar_game_switching.py
+2026-11-02T15:37:59.7962899Z v0.41.69+213 Cedar game switching validation passed.
+2026-11-02T15:37:59.8008661Z [95/160] tools/validate_v04170_agent_mcp_runtime_hardening.py
+2026-11-02T15:37:59.8331109Z v0.41.70+214 Agent/MCP runtime hardening validation passed.
+2026-11-02T15:37:59.8380064Z [96/160] tools/validate_v04171_cedar_realtime_room_chat.py
+2026-11-02T15:37:59.8714224Z v0.41.71+215 Cedar realtime room chat validation passed.
+2026-11-02T15:37:59.8762326Z [97/160] tools/validate_v04172_cedar_trust_watch_modes.py
+2026-11-02T15:37:59.9112995Z v0.41.72+216 Cedar trust/watch modes validation passed.
+2026-11-02T15:37:59.9169404Z [98/160] tools/validate_v04172_jiuhu_manual_candidates.py
+2026-11-02T15:37:59.9394513Z v0.41.73+217 retired Jiuhu ASMR trials; four-voice regression passed.
+2026-11-02T15:37:59.9436663Z [99/160] tools/validate_v04173_cedar_reply_completion.py
+2026-11-02T15:37:59.9838279Z v0.41.73+217 Cedar entry/reply completion validation passed.
+2026-11-02T15:37:59.9897061Z [100/160] tools/validate_v04174_cedar_game_hall_protocol.py
+2026-11-02T15:38:00.0254647Z v0.41.74+218 Cedar game-hall protocol validation passed.
+2026-11-02T15:38:00.0301482Z [101/160] tools/validate_v04175_cedar_agentic_blind_play.py
+2026-11-02T15:38:00.0601961Z v0.41.81+225 Cedar agentic blind-play validation passed.
+2026-11-02T15:38:00.0648688Z [102/160] tools/validate_v04176_cedar_protocol_continuation.py
+2026-11-02T15:38:00.0976371Z v0.41.81+225 Cedar protocol-continuation validation passed.
+2026-11-02T15:38:00.1020683Z [103/160] tools/validate_v04177_cedar_background_turn_loop.py
+2026-11-02T15:38:00.1316243Z v0.41.81+225 Cedar background turn-loop validation passed.
+2026-11-02T15:38:00.1366525Z [104/160] tools/validate_v04178_stop_transfer_interlock.py
+2026-11-02T15:38:00.1666998Z v0.41.81+225 Stop/transfer interlock validation passed.
+2026-11-02T15:38:00.1712339Z [105/160] tools/validate_v04179_cedar_runtime_preemption.py
+2026-11-02T15:38:00.2005454Z v0.41.81+225 Cedar runtime-preemption validation passed.
+2026-11-02T15:38:00.2049919Z [106/160] tools/validate_v04180_cedar_agent_loop.py
+2026-11-02T15:38:00.2333451Z v0.41.81+225 Cedar Agent-loop validation passed.
+2026-11-02T15:38:00.2380437Z [107/160] tools/validate_v04181_cedar_background_agent_tools.py
+2026-11-02T15:38:00.2668836Z v0.41.81+225 Cedar background Agent-tools validation passed.
+2026-11-02T15:38:00.2714238Z [108/160] tools/validate_v04182_cedar_state_machine_e2e.py
+2026-11-02T15:38:00.3022858Z v0.41.82+226 Cedar state-machine E2E validation passed.
+2026-11-02T15:38:00.3068359Z [109/160] tools/validate_v04183_cedar_native_agent_loop.py
+2026-11-02T15:38:00.3338867Z v0.41.83+227 Cedar native Agent-loop validation passed.
+2026-11-02T15:38:00.3382357Z [110/160] tools/validate_v04184_agent_loop_autonomy_closure.py
+2026-11-02T15:38:00.3692194Z v0.41.84+228 Agent-loop autonomy closure validation passed.
+2026-11-02T15:38:00.3739115Z [111/160] tools/validate_v04185_cedar_outcome_media.py
+2026-11-02T15:38:00.4021093Z v0.41.85+229 Cedar outcome-media validation passed.
+2026-11-02T15:38:00.4073126Z [112/160] tools/validate_v04186_autonomy_tts_diagnostics.py
+2026-11-02T15:38:00.4333222Z v0.41.86+230 autonomy and TTS diagnostics validation passed.
+2026-11-02T15:38:00.4378410Z [113/160] tools/validate_v04187_help_cedar_activity_ui.py
+2026-11-02T15:38:00.4625107Z v0.41.87+231 help and Cedar activity UI validation passed.
+2026-11-02T15:38:00.4669650Z [114/160] tools/validate_v04188_wishlist_cedar_card_guardrails.py
+2026-11-02T15:38:00.4923060Z v0.41.88+232 wishlist, Cedar card, and guardrails validation passed.
+2026-11-02T15:38:00.4975627Z [115/160] tools/validate_v04189_cedar_event_temporal_truth.py
+2026-11-02T15:38:00.5200416Z v0.41.89 Cedar event temporal truth validation passed
+2026-11-02T15:38:00.5246983Z [116/160] tools/validate_v04189_wishlist_safe_subject.py
+2026-11-02T15:38:00.5464720Z v0.41.89 wishlist safe-subject validation passed
+2026-11-02T15:38:00.5506972Z [117/160] tools/validate_v04189_prompt_cache_observability.py
+2026-11-02T15:38:00.5838662Z v0.41.89 prompt cache observability validation passed
+2026-11-02T15:38:00.5895640Z [118/160] tools/validate_v04190_cedar_save_slots_custom_final_model.py
+2026-11-02T15:38:00.6248244Z v0.41.90 Cedar save-slot and custom final-reply validation passed
+2026-11-02T15:38:00.6304230Z [119/160] tools/validate_v04191_fatigue_affect_debt.py
+2026-11-02T15:38:00.6577319Z v0.41.91 fatigue-affect and sleep-debt validation passed
+2026-11-02T15:38:00.6616651Z [120/160] tools/validate_v04192_desire_game_interest.py
+2026-11-02T15:38:00.6886859Z v0.41.92 desire ledger and dynamic game-interest validation passed
+2026-11-02T15:38:00.6929982Z [121/160] tools/validate_v04193_game_reality_grounding.py
+2026-11-02T15:38:00.7218305Z v0.41.93 game reality-grounding validation passed
+2026-11-02T15:38:00.7261939Z [122/160] tools/validate_v04197_natural_reply_liveness.py
+2026-11-02T15:38:00.7523867Z v0.41.97 natural reply liveness validation passed
+2026-11-02T15:38:00.7565034Z [123/160] tools/validate_v04200_live2d_clean_rollback.py
+2026-11-02T15:38:00.7785658Z Legacy Sen adapter stays removed; new Caicai runtime is permitted
+2026-11-02T15:38:00.7823176Z [124/160] tools/validate_v04201_autonomy_media_hardening.py
+2026-11-02T15:38:00.8057320Z v0.42.1 autonomy, vision and TTS media hardening contract remains preserved
+2026-11-02T15:38:00.8095409Z [125/160] tools/validate_v04202_media_transaction_recovery.py
+2026-11-02T15:38:00.8355638Z v0.42.2 media transaction recovery contract passed
+2026-11-02T15:38:00.8401032Z [126/160] tools/validate_v04203_media_empty_turn_hotfix.py
+2026-11-02T15:38:00.8699288Z v0.42.3 media-only empty-turn routing hotfix contract passed
+2026-11-02T15:38:00.8750680Z [127/160] tools/validate_v04204_tts_affinity_tool_activity.py
+2026-11-02T15:38:00.9106319Z v0.42.4 TTS auto-affinity and tool activity contract passed
+2026-11-02T15:38:00.9154384Z [128/160] tools/validate_v04241_caicai_and_final_route.py
+2026-11-02T15:38:00.9406350Z Caicai native host, canonical import, visible final-reply routes and screenshot defaults wired
+2026-11-02T15:38:00.9448144Z [129/160] tools/validate_v04242_caicai_performance.py
+2026-11-02T15:38:00.9663232Z Caicai resize, final composite transform, inverse hit and pat ownership wired
+2026-11-02T15:38:00.9702935Z [130/160] tools/validate_v04243_caicai_interaction.py
+2026-11-02T15:38:00.9918148Z Caicai full-scene crop, post-physics head ownership, event leases, held pat, diagnostics and 60/512 wired
+2026-11-02T15:38:00.9955570Z [131/160] tools/validate_v04253_room_game_session.py
+2026-11-02T15:38:01.0202640Z v0.42.53 immersive isolation, independent emotion, game sessions and facts wired
+2026-11-02T15:38:01.0243721Z [132/160] tools/validate_v04254_timed_game_sharing.py
+2026-11-02T15:38:01.0519544Z v0.42.54 explicit timed task, durable report and native progress sharing wired
+2026-11-02T15:38:01.0559834Z [133/160] tools/validate_v04255_backup_settings.py
+2026-11-02T15:38:01.1764522Z v0.42.55 bounded settings: 3.85 MiB Unicode/NUL SQL roundtrip and day asset OK
+2026-11-02T15:38:01.1869953Z [134/160] tools/validate_v04256_share_portable_state.py
+2026-11-02T15:38:01.2170396Z v0.42.56 rounds, lower-leg tilt, held pat, sidebar and v7 portable inventory wired
+2026-11-02T15:38:01.2210882Z [135/160] tools/validate_v04257_memory_galaxy.py
+2026-11-02T15:38:01.2803717Z v0.42.57 offline galaxy closure: 13 modules; read-only entry/lifecycle wired
+2026-11-02T15:38:01.2861138Z [136/160] tools/validate_v04258_backup_focus_memory.py
+2026-11-02T15:38:01.5379563Z v0.42.58 read-only export refresh, editor unfocus, five colors and 13 pointer tests: OK
+2026-11-02T15:38:01.5436716Z [137/160] tools/validate_v04259_game_cadence_settings_backup.py
+2026-11-02T15:38:01.5649465Z v0.42.59 settings-only export, legacy resource import and unified game sharing wired
+2026-11-02T15:38:01.5686013Z [138/160] tools/validate_v04260_settings_import_live2d.py
+2026-11-02T15:38:01.5895270Z v0.42.60 settings restore keeps the view, syncs final preferences and retains legacy model reload
+2026-11-02T15:38:01.5931393Z [139/160] tools/validate_v04261_timed_play_recovery.py
+2026-11-02T15:38:01.6166778Z v0.42.61 timed recovery, task clock, writer fencing and neutral manual Stop wired
+2026-11-02T15:38:01.6203134Z [140/160] tools/validate_v04265_playful_integrity.py
+2026-11-02T15:38:01.6448842Z v04265 grouped judgments, committed heat and contextual queries wired
+2026-11-02T15:38:01.6486170Z [141/160] tools/validate_v04266_memory_continuity.py
+2026-11-02T15:38:01.6721644Z v04266 bounded recall, explicit-only expansion and optional expression hints wired
+2026-11-02T15:38:01.6757465Z [142/160] tools/validate_v04267_persistent_mood.py
+2026-11-02T15:38:01.7046444Z v04267 mood module, existing batch, commit lifecycle and cached weather boundaries wired
+2026-11-02T15:38:01.7083989Z [143/160] tools/validate_v04268_deep_web.py
+2026-11-02T15:38:01.7378936Z v04268: mode snapshots, shared reading boundary, source evidence, cancellation and build version wired
+2026-11-02T15:38:01.7415984Z [144/160] tools/validate_v04270_wish_lifecycle.py
+2026-11-02T15:38:01.7668233Z v04270 wish generation, evidence, routing, pause, restore and behavioral tests wired
+2026-11-02T15:38:01.7704831Z [145/160] tools/validate_v04271_deep_reflection.py
+2026-11-02T15:38:01.7986247Z v04271 bounded reflection, single final writer, atomic state, hidden sidecar and lightbulb: OK
+2026-11-02T15:38:01.8024389Z [146/160] tools/validate_v04272_proactive_windows.py
+2026-11-02T15:38:01.8306291Z v04272 cumulative local windows, night motivation, atomic shared history and final eligibility: OK
+2026-11-02T15:38:01.8348060Z [147/160] tools/validate_v04273_phone_activity_evidence.py
+2026-11-02T15:38:01.8553615Z v04273: new evidence intervals, baseline/reset scope, lock boundary and diagnostics OK
+2026-11-02T15:38:01.8589263Z [148/160] tools/validate_v04275_daily_wake.py
+2026-11-02T15:38:01.8873155Z v04275 shared atomic wake, fatigue, prompt and autonomous boundaries: OK
+2026-11-02T15:38:01.8913069Z [149/160] tools/validate_v04280_connection_retirement.py
+2026-11-02T15:38:01.9148308Z Nearby retired; +328 reminder commit guards reviewed; shared restore/ownership core preserved
+2026-11-02T15:38:01.9190011Z [150/160] tools/validate_v04290_pet_retouched_assets.py
+2026-11-02T15:38:02.0293871Z v0.42.90 pet revision: complete existing frame coverage and build/verify order OK
+2026-11-02T15:38:02.0369448Z [151/160] tools/validate_v042110_game_arrangements.py
+2026-11-02T15:38:02.0668958Z game arrangements: original sources, captured game/save, late real result and existing-request wiring passed
+2026-11-02T15:38:02.0711969Z [152/160] tools/validate_v042111_game_notebook.py
+2026-11-02T15:38:02.0977161Z independent game notebook, archived migration, read/completion separation and ordinary source boundary wired
+2026-11-02T15:38:02.1020884Z [153/160] tools/validate_v042112_notebook_planning.py
+2026-11-02T15:38:02.1248481Z notebook target IDs, independent pending rotation and atomic dispatch fence wired
+2026-11-02T15:38:02.1288948Z [154/160] tools/validate_v042113_model_dialogue_trial.py
+2026-11-02T15:38:02.1534786Z isolated model dialogue, fixed same-model retry, lifecycle fences and exact background wired
+2026-11-02T15:38:02.1578315Z [155/160] tools/validate_v042154_dual_live2d.py
+2026-11-02T15:38:02.1786836Z Dual Live2D boundaries, original textures and independent import/restore wired
+2026-11-02T15:38:02.1825520Z [156/160] tools/validate_v042157_deepseek_performance.py
+2026-11-02T15:38:02.2042588Z DeepSeek stage 2 isolated planner, authored gestures, PCM ownership and generation guards wired
+2026-11-02T15:38:02.2080029Z [157/160] tools/validate_v042158_conservative_transport_smallform.py
+2026-11-02T15:38:02.2293190Z Conservative third transport and saved DeepSeek small form restoration wired
+2026-11-02T15:38:02.2332290Z [158/160] tools/validate_v042159_deepseek_stage3.py
+2026-11-02T15:38:02.2547895Z DeepSeek stage 3 local idle, blink, independent pats, transform and lifecycle guards wired
+2026-11-02T15:38:02.2586641Z [159/160] tools/validate_v042163_cache_morph.py
+2026-11-02T15:38:02.2793425Z v042163 cache/morph wiring passed; behavior remains covered by Dart/JVM/Android tests
+2026-11-02T15:38:02.2837899Z [160/160] tools/validate_v042164_gaze_relationship.py
+2026-11-02T15:38:02.3054919Z v042164 gaze, read-only probe, version and relationship refresh wiring passed
+2026-11-02T15:38:02.3097181Z validation suite: OK (160 validators)
+2026-11-02T15:38:02.3232929Z ##[group]Run python3 tools/prepare_retouched_pet_frames.py --apply
+2026-11-02T15:38:02.3233834Z [36;1mpython3 tools/prepare_retouched_pet_frames.py --apply[0m
+2026-11-02T15:38:02.3277222Z shell: /usr/bin/bash -e {0}
+2026-11-02T15:38:02.3277669Z env:
+2026-11-02T15:38:02.3278241Z   JAVA_HOME: /opt/hostedtoolcache/Java_Temurin-Hotspot_jdk/17.0.21-9/x64
+2026-11-02T15:38:02.3279497Z   JAVA_HOME_17_X64: /opt/hostedtoolcache/Java_Temurin-Hotspot_jdk/17.0.21-9/x64
+2026-11-02T15:38:02.3280428Z   FLUTTER_ROOT: /opt/hostedtoolcache/flutter/stable-3.44.9-x64/flutter
+2026-11-02T15:38:02.3281135Z   PUB_CACHE: /home/runner/.pub-cache
+2026-11-02T15:38:02.3282132Z   AI_COMPANION_KEYSTORE_PATH: /home/runner/work/_temp/ai-companion-signing/AI-Companion-Private-Test-Signing-v1.p12
+2026-11-02T15:38:02.3283653Z   AI_COMPANION_KEYSTORE_PASSWORD: ***
+2026-11-02T15:38:02.3284295Z   AI_COMPANION_KEY_ALIAS: ai-companion-private-test-v1
+2026-11-02T15:38:02.3285195Z   AI_COMPANION_KEY_PASSWORD: ***
+2026-11-02T15:38:02.3286099Z   AI_COMPANION_SIGNER_SHA256: 30:5E:B3:D8:09:83:B9:63:C6:48:18:DD:F1:AD:56:1F:27:9D:E6:D4:7B:3E:D2:C7:81:AD:A4:48:C7:C2:51:48
+2026-11-02T15:38:02.3286970Z ##[endgroup]
+2026-11-02T15:38:02.6409327Z Pet retouch: 59 preserved 306 sources, 118 derived frames, 177 PNGs verified.
+2026-11-02T15:38:02.6539019Z ##[group]Run flutter pub get
+2026-11-02T15:38:02.6539674Z [36;1mflutter pub get[0m
+2026-11-02T15:38:02.6569732Z shell: /usr/bin/bash -e {0}
+2026-11-02T15:38:02.6570007Z env:
+2026-11-02T15:38:02.6570342Z   JAVA_HOME: /opt/hostedtoolcache/Java_Temurin-Hotspot_jdk/17.0.21-9/x64
+2026-11-02T15:38:02.6570918Z   JAVA_HOME_17_X64: /opt/hostedtoolcache/Java_Temurin-Hotspot_jdk/17.0.21-9/x64
+2026-11-02T15:38:02.6571470Z   FLUTTER_ROOT: /opt/hostedtoolcache/flutter/stable-3.44.9-x64/flutter
+2026-11-02T15:38:02.6571900Z   PUB_CACHE: /home/runner/.pub-cache
+2026-11-02T15:38:02.6572520Z   AI_COMPANION_KEYSTORE_PATH: /home/runner/work/_temp/ai-companion-signing/AI-Companion-Private-Test-Signing-v1.p12
+2026-11-02T15:38:02.6573438Z   AI_COMPANION_KEYSTORE_PASSWORD: ***
+2026-11-02T15:38:02.6573813Z   AI_COMPANION_KEY_ALIAS: ai-companion-private-test-v1
+2026-11-02T15:38:02.6574453Z   AI_COMPANION_KEY_PASSWORD: ***
+2026-11-02T15:38:02.6575000Z   AI_COMPANION_SIGNER_SHA256: 30:5E:B3:D8:09:83:B9:63:C6:48:18:DD:F1:AD:56:1F:27:9D:E6:D4:7B:3E:D2:C7:81:AD:A4:48:C7:C2:51:48
+2026-11-02T15:38:02.6575541Z ##[endgroup]
+2026-11-02T15:38:07.0520580Z Resolving dependencies...
+2026-11-02T15:38:07.4286572Z Downloading packages...
+2026-11-02T15:38:10.5354382Z   archive 4.0.9 (4.6.0 available)
+2026-11-02T15:38:10.5354979Z   clock 1.1.2 (1.1.3 available)
+2026-11-02T15:38:10.5355529Z   code_assets 1.2.1 (2.1.0 available)
+2026-11-02T15:38:10.5355968Z + cross_file 0.3.5+5 (0.4.0 available)
+2026-11-02T15:38:10.5356591Z   crypto 3.0.7 (3.0.8 available)
+2026-11-02T15:38:10.5357076Z + file 7.0.1
+2026-11-02T15:38:10.5357482Z + file_selector_linux 0.9.4+1
+2026-11-02T15:38:10.5358154Z + file_selector_macos 0.9.5+1 (0.9.5+2 available)
+2026-11-02T15:38:10.5358882Z + file_selector_platform_interface 2.7.0
+2026-11-02T15:38:10.5359782Z + file_selector_windows 0.9.3+6
+2026-11-02T15:38:10.5360418Z + flutter_localizations 0.0.0 from sdk flutter
+2026-11-02T15:38:10.5361145Z + flutter_plugin_android_lifecycle 2.0.35
+2026-11-02T15:38:10.5361848Z   flutter_secure_storage 10.3.1 (11.2.0 available)
+2026-11-02T15:38:10.5362358Z   flutter_secure_storage_darwin 0.3.2 (0.4.3 available)
+2026-11-02T15:38:10.5362870Z   flutter_secure_storage_linux 3.0.2 (3.0.3 available)
+2026-11-02T15:38:10.5363434Z   flutter_secure_storage_platform_interface 2.0.3 (2.1.1 available)
+2026-11-02T15:38:10.5363936Z + glob 2.2.0
+2026-11-02T15:38:10.5364221Z   hooks 2.0.2 (2.2.0 available)
+2026-11-02T15:38:10.5364559Z + image_picker 1.2.4
+2026-11-02T15:38:10.5364887Z + image_picker_android 0.8.13+25
+2026-11-02T15:38:10.5365251Z + image_picker_for_web 3.1.1
+2026-11-02T15:38:10.5365630Z + image_picker_ios 0.8.13+10 (0.8.13+14 available)
+2026-11-02T15:38:10.5366298Z + image_picker_linux 0.2.2
+2026-11-02T15:38:10.5366637Z + image_picker_macos 0.2.2+1
+2026-11-02T15:38:10.5367003Z + image_picker_platform_interface 2.11.2
+2026-11-02T15:38:10.5367407Z + image_picker_windows 0.2.2
+2026-11-02T15:38:10.5367745Z + intl 0.20.2 (0.20.3 available)
+2026-11-02T15:38:10.5368096Z   jni 1.0.3 (1.1.1 available)
+2026-11-02T15:38:10.5368448Z   jni_flutter 1.0.2 (1.0.4+1 available)
+2026-11-02T15:38:10.5368832Z   matcher 0.12.19 (0.12.20 available)
+2026-11-02T15:38:10.5369506Z   material_color_utilities 0.13.0 (0.13.1 available)
+2026-11-02T15:38:10.5369952Z   meta 1.18.0 (1.19.0 available)
+2026-11-02T15:38:10.5370297Z + mime 2.1.0
+2026-11-02T15:38:10.5370610Z + native_toolchain_c 0.19.2 (0.19.5 available)
+2026-11-02T15:38:10.5371034Z   objective_c 9.5.0 (9.6.2 available)
+2026-11-02T15:38:10.5371418Z   platform 3.1.6 (3.2.0 available)
+2026-11-02T15:38:10.5371784Z   posix 6.5.2 (6.5.4 available)
+2026-11-02T15:38:10.5372169Z   pub_semver 2.2.0 (2.2.1 available)
+2026-11-02T15:38:10.5372540Z   record_use 0.6.0 (1.1.1 available)
+2026-11-02T15:38:10.5372910Z   sqflite 2.4.3 (2.4.5 available)
+2026-11-02T15:38:10.5373284Z   sqflite_android 2.4.3 (2.4.5 available)
+2026-11-02T15:38:10.5373689Z   sqflite_common 2.5.11 (2.5.14 available)
+2026-11-02T15:38:10.5374083Z + sqflite_common_ffi 2.4.5
+2026-11-02T15:38:10.5374899Z   sqflite_darwin 2.4.3+1 (2.4.4+1 available)
+2026-11-02T15:38:10.5375405Z   sqflite_platform_interface 2.4.1 (2.4.3 available)
+2026-11-02T15:38:10.5375849Z + sqlite3 3.5.2 (3.8.0 available)
+2026-11-02T15:38:10.5376136Z   stack_trace 1.12.1 (1.12.2 available)
+2026-11-02T15:38:10.5376432Z   synchronized 3.4.1+1 (3.5.0 available)
+2026-11-02T15:38:10.5376718Z   test_api 0.7.11 (0.7.15 available)
+2026-11-02T15:38:10.5376999Z   vector_math 2.2.0 (2.4.4 available)
+2026-11-02T15:38:10.5377275Z   vm_service 15.2.0 (15.4.0 available)
+2026-11-02T15:38:10.5377551Z   web 1.1.1 (1.1.2 available)
+2026-11-02T15:38:10.5377801Z   yaml 3.1.3 (3.1.4 available)
+2026-11-02T15:38:10.5378196Z Changed 22 dependencies!
+2026-11-02T15:38:10.5378580Z 37 packages have newer versions incompatible with dependency constraints.
+2026-11-02T15:38:10.5379032Z Try `flutter pub outdated` for more information.
+2026-11-02T15:38:10.8615305Z ##[group]Run flutter test --timeout 60s --reporter expanded test/conservative_third_channel_v042158_test.dart test/third_transport_v042153_test.dart test/third_channel_network_v042152_test.dart test/third_channel_v042149_test.dart
+2026-11-02T15:38:10.8616946Z [36;1mflutter test --timeout 60s --reporter expanded test/conservative_third_channel_v042158_test.dart test/third_transport_v042153_test.dart test/third_channel_network_v042152_test.dart test/third_channel_v042149_test.dart[0m
+2026-11-02T15:38:10.8647906Z shell: /usr/bin/bash -e {0}
+2026-11-02T15:38:10.8648181Z env:
+2026-11-02T15:38:10.8648517Z   JAVA_HOME: /opt/hostedtoolcache/Java_Temurin-Hotspot_jdk/17.0.21-9/x64
+2026-11-02T15:38:10.8649273Z   JAVA_HOME_17_X64: /opt/hostedtoolcache/Java_Temurin-Hotspot_jdk/17.0.21-9/x64
+2026-11-02T15:38:10.8649890Z   FLUTTER_ROOT: /opt/hostedtoolcache/flutter/stable-3.44.9-x64/flutter
+2026-11-02T15:38:10.8650309Z   PUB_CACHE: /home/runner/.pub-cache
+2026-11-02T15:38:10.8650907Z   AI_COMPANION_KEYSTORE_PATH: /home/runner/work/_temp/ai-companion-signing/AI-Companion-Private-Test-Signing-v1.p12
+2026-11-02T15:38:10.8651766Z   AI_COMPANION_KEYSTORE_PASSWORD: ***
+2026-11-02T15:38:10.8652125Z   AI_COMPANION_KEY_ALIAS: ai-companion-private-test-v1
+2026-11-02T15:38:10.8652600Z   AI_COMPANION_KEY_PASSWORD: ***
+2026-11-02T15:38:10.8653076Z   AI_COMPANION_SIGNER_SHA256: 30:5E:B3:D8:09:83:B9:63:C6:48:18:DD:F1:AD:56:1F:27:9D:E6:D4:7B:3E:D2:C7:81:AD:A4:48:C7:C2:51:48
+2026-11-02T15:38:10.8653572Z ##[endgroup]
+2026-11-02T15:38:14.6282362Z 00:00 +0: loading /home/runner/work/ai-companion-build/ai-companion-build/app/test/conservative_third_channel_v042158_test.dart
+2026-11-02T15:38:23.8417206Z 00:00 +0: /home/runner/work/ai-companion-build/ai-companion-build/app/test/conservative_third_channel_v042158_test.dart: short test and enabled reply share endpoint auth network despite different effort
+2026-11-02T15:38:23.9338836Z 00:00 +1: /home/runner/work/ai-companion-build/ai-companion-build/app/test/conservative_third_channel_v042158_test.dart: health cache expires at 60 seconds and a cache read never extends it
+2026-11-02T15:38:23.9402409Z 00:00 +2: /home/runner/work/ai-companion-build/ai-companion-build/app/test/third_transport_v042153_test.dart: health and SSE reuse one actual TCP connection across disposable wrappers
+2026-11-02T15:38:23.9441109Z 00:00 +3: /home/runner/work/ai-companion-build/ai-companion-build/app/test/third_transport_v042153_test.dart: health and SSE reuse one actual TCP connection across disposable wrappers
+2026-11-02T15:38:23.9466728Z 00:00 +4: /home/runner/work/ai-companion-build/ai-companion-build/app/test/third_transport_v042153_test.dart: health and SSE reuse one actual TCP connection across disposable wrappers
+2026-11-02T15:38:23.9493871Z 00:00 +5: /home/runner/work/ai-companion-build/ai-companion-build/app/test/third_transport_v042153_test.dart: health and SSE reuse one actual TCP connection across disposable wrappers
+2026-11-02T15:38:23.9542969Z 00:00 +6: /home/runner/work/ai-companion-build/ai-companion-build/app/test/third_transport_v042153_test.dart: health and SSE reuse one actual TCP connection across disposable wrappers
+2026-11-02T15:38:23.9786231Z 00:00 +7: /home/runner/work/ai-companion-build/ai-companion-build/app/test/third_transport_v042153_test.dart: health and SSE reuse one actual TCP connection across disposable wrappers
+2026-11-02T15:38:23.9888025Z 00:00 +8: /home/runner/work/ai-companion-build/ai-companion-build/app/test/third_transport_v042153_test.dart: health and SSE reuse one actual TCP connection across disposable wrappers
+2026-11-02T15:38:23.9974006Z 00:00 +9: /home/runner/work/ai-companion-build/ai-companion-build/app/test/third_transport_v042153_test.dart: health and SSE reuse one actual TCP connection across disposable wrappers
+2026-11-02T15:38:24.1040981Z 00:00 +10: /home/runner/work/ai-companion-build/ai-companion-build/app/test/third_transport_v042153_test.dart: token stops one active stream without closing another pooled request
+2026-11-02T15:38:24.1413756Z 00:00 +11: /home/runner/work/ai-companion-build/ai-companion-build/app/test/third_transport_v042153_test.dart: wrapper_close stops one active stream without closing another pooled request
+2026-11-02T15:38:24.1681259Z 00:00 +12: /home/runner/work/ai-companion-build/ai-companion-build/app/test/third_transport_v042153_test.dart: a hanging HTTP tail after complete usage/DONE is bounded to two seconds
+2026-11-02T15:38:26.1387069Z 00:02 +13: /home/runner/work/ai-companion-build/ai-companion-build/app/test/third_transport_v042153_test.dart: a hanging HTTP tail after complete usage/DONE is bounded to two seconds
+2026-11-02T15:38:26.1459256Z 00:02 +14: /home/runner/work/ai-companion-build/ai-companion-build/app/test/third_transport_v042153_test.dart: a hanging HTTP tail after complete usage/DONE is bounded to two seconds
+2026-11-02T15:38:26.1482328Z 00:02 +15: /home/runner/work/ai-companion-build/ai-companion-build/app/test/third_transport_v042153_test.dart: a hanging HTTP tail after complete usage/DONE is bounded to two seconds
+2026-11-02T15:38:26.1908910Z 00:02 +16: /home/runner/work/ai-companion-build/ai-companion-build/app/test/third_channel_network_v042152_test.dart: real HTTP 2.8-second health response succeeds and immediately proceeds to one model request
+2026-11-02T15:38:28.2001175Z 00:04 +17: /home/runner/work/ai-companion-build/ai-companion-build/app/test/third_channel_network_v042152_test.dart: real HTTP 2.8-second health response succeeds and immediately proceeds to one model request
+2026-11-02T15:38:28.2036821Z 00:04 +18: /home/runner/work/ai-companion-build/ai-companion-build/app/test/third_channel_network_v042152_test.dart: real HTTP 2.8-second health response succeeds and immediately proceeds to one model request
+2026-11-02T15:38:28.2065567Z 00:04 +19: /home/runner/work/ai-companion-build/ai-companion-build/app/test/third_channel_network_v042152_test.dart: real HTTP 2.8-second health response succeeds and immediately proceeds to one model request
+2026-11-02T15:38:28.2091442Z 00:04 +20: /home/runner/work/ai-companion-build/ai-companion-build/app/test/third_channel_network_v042152_test.dart: real HTTP 2.8-second health response succeeds and immediately proceeds to one model request
+2026-11-02T15:38:28.2155264Z 00:04 +21: /home/runner/work/ai-companion-build/ai-companion-build/app/test/third_channel_network_v042152_test.dart: real HTTP 2.8-second health response succeeds and immediately proceeds to one model request
+2026-11-02T15:38:28.2194053Z 00:04 +22: /home/runner/work/ai-companion-build/ai-companion-build/app/test/third_channel_network_v042152_test.dart: real HTTP 2.8-second health response succeeds and immediately proceeds to one model request
+2026-11-02T15:38:29.0413835Z 00:05 +23: /home/runner/work/ai-companion-build/ai-companion-build/app/test/third_channel_v042149_test.dart: actual HTTP SSE preserves split UTF8, comments, optional data space and separate reasoning
+2026-11-02T15:38:29.1033043Z 00:05 +24: /home/runner/work/ai-companion-build/ai-companion-build/app/test/third_channel_network_v042152_test.dart: health_timeout during health never sends a model request or waits for the delayed response
+2026-11-02T15:38:29.1205239Z 00:05 +25: /home/runner/work/ai-companion-build/ai-companion-build/app/test/third_channel_v042149_test.dart: tool calls accumulate interleaved indices, JSON arguments and legal DONE terminal
+2026-11-02T15:38:29.1285469Z 00:05 +26: /home/runner/work/ai-companion-build/ai-companion-build/app/test/third_channel_network_v042152_test.dart: total_timeout during health never sends a model request or waits for the delayed response
+2026-11-02T15:38:29.1444943Z 00:05 +27: /home/runner/work/ai-companion-build/ai-companion-build/app/test/third_channel_network_v042152_test.dart: total_timeout during health never sends a model request or waits for the delayed response
+2026-11-02T15:38:29.1610025Z 00:05 +28: /home/runner/work/ai-companion-build/ai-companion-build/app/test/third_channel_network_v042152_test.dart: total_timeout during health never sends a model request or waits for the delayed response
+2026-11-02T15:38:29.1746994Z 00:05 +29: /home/runner/work/ai-companion-build/ai-companion-build/app/test/third_channel_network_v042152_test.dart: total_timeout during health never sends a model request or waits for the delayed response
+2026-11-02T15:38:29.1876814Z 00:05 +30: /home/runner/work/ai-companion-build/ai-companion-build/app/test/third_channel_v042149_test.dart: error_frame immediately fails without paid client retries
+2026-11-02T15:38:29.1884189Z 00:05 +31: /home/runner/work/ai-companion-build/ai-companion-build/app/test/third_channel_network_v042152_test.dart: cancel during health never sends a model request or waits for the delayed response
+2026-11-02T15:38:29.1932476Z 00:05 +32: /home/runner/work/ai-companion-build/ai-companion-build/app/test/third_channel_v042149_test.dart: ordinary discussion of upstream warning phrases remains valid when protocol is complete
+2026-11-02T15:38:29.2033579Z 00:05 +33: /home/runner/work/ai-companion-build/ai-companion-build/app/test/third_channel_network_v042152_test.dart: source_changed during health never sends a model request or waits for the delayed response
+2026-11-02T15:38:29.2121770Z 00:05 +34: /home/runner/work/ai-companion-build/ai-companion-build/app/test/third_channel_network_v042152_test.dart: source_changed during health never sends a model request or waits for the delayed response
+2026-11-02T15:38:29.2158118Z 00:05 +35: /home/runner/work/ai-companion-build/ai-companion-build/app/test/third_channel_network_v042152_test.dart: source_changed during health never sends a model request or waits for the delayed response
+2026-11-02T15:38:29.2190019Z 00:05 +36: /home/runner/work/ai-companion-build/ai-companion-build/app/test/third_channel_network_v042152_test.dart: source_changed during health never sends a model request or waits for the delayed response
+2026-11-02T15:38:29.2352198Z 00:05 +37: /home/runner/work/ai-companion-build/ai-companion-build/app/test/third_channel_network_v042152_test.dart: source_changed during health never sends a model request or waits for the delayed response
+2026-11-02T15:38:29.2524134Z 00:05 +38: /home/runner/work/ai-companion-build/ai-companion-build/app/test/third_channel_network_v042152_test.dart: source_changed during health never sends a model request or waits for the delayed response
+2026-11-02T15:38:29.2666422Z 00:05 +39: /home/runner/work/ai-companion-build/ai-companion-build/app/test/third_channel_network_v042152_test.dart: source_changed during health never sends a model request or waits for the delayed response
+2026-11-02T15:38:29.3538187Z 00:05 +40: /home/runner/work/ai-companion-build/ai-companion-build/app/test/third_channel_network_v042152_test.dart: source_changed during health never sends a model request or waits for the delayed response
+2026-11-02T15:38:29.3991538Z 00:05 +41: /home/runner/work/ai-companion-build/ai-companion-build/app/test/third_channel_v042149_test.dart: shared production routes visible body tries third before selected first, keeps thought separate and records the third token contract
+2026-11-02T15:38:29.4061375Z 00:05 +42: /home/runner/work/ai-companion-build/ai-companion-build/app/test/third_channel_v042149_test.dart: shared production routes visible body tries third before selected first, keeps thought separate and records the third token contract
+2026-11-02T15:38:29.4101488Z 00:05 +43: /home/runner/work/ai-companion-build/ai-companion-build/app/test/third_channel_v042149_test.dart: shared production routes visible body tries third before selected first, keeps thought separate and records the third token contract
+2026-11-02T15:38:29.4146351Z 00:05 +44: /home/runner/work/ai-companion-build/ai-companion-build/app/test/third_channel_v042149_test.dart: shared production routes visible body tries third before selected first, keeps thought separate and records the third token contract
+2026-11-02T15:38:29.4196006Z 00:05 +45: /home/runner/work/ai-companion-build/ai-companion-build/app/test/third_channel_v042149_test.dart: shared production routes visible body tries third before selected first, keeps thought separate and records the third token contract
+2026-11-02T15:38:29.4239377Z 00:05 +46: /home/runner/work/ai-companion-build/ai-companion-build/app/test/third_channel_v042149_test.dart: shared production routes visible body tries third before selected first, keeps thought separate and records the third token contract
+2026-11-02T15:38:29.4276521Z 00:05 +47: /home/runner/work/ai-companion-build/ai-companion-build/app/test/third_channel_v042149_test.dart: shared production routes visible body tries third before selected first, keeps thought separate and records the third token contract
+2026-11-02T15:38:29.4339249Z 00:05 +48: /home/runner/work/ai-companion-build/ai-companion-build/app/test/third_channel_v042149_test.dart: shared production routes visible body tries third before selected first, keeps thought separate and records the third token contract
+2026-11-02T15:38:29.4422057Z 00:05 +49: /home/runner/work/ai-companion-build/ai-companion-build/app/test/third_channel_v042149_test.dart: shared production routes visible body tries third before selected first, keeps thought separate and records the third token contract
+2026-11-02T15:38:29.4485267Z 00:05 +50: /home/runner/work/ai-companion-build/ai-companion-build/app/test/third_channel_v042149_test.dart: shared production routes visible body tries third before selected first, keeps thought separate and records the third token contract
+2026-11-02T15:38:30.0153973Z 00:06 +51: /home/runner/work/ai-companion-build/ai-companion-build/app/test/third_channel_network_v042152_test.dart: diagnostic storage retains only bounded whitelisted facts including after import-style malformed data
+2026-11-02T15:38:30.4679946Z 00:06 +52: /home/runner/work/ai-companion-build/ai-companion-build/app/test/third_channel_v042149_test.dart: shared production routes QQ third failure preserves second retry then first fallback, with no third replay
+2026-11-02T15:38:30.5586876Z 00:06 +53: /home/runner/work/ai-companion-build/ai-companion-build/app/test/third_channel_network_v042152_test.dart: a late diagnostic sink captured before restore cannot append to the restored brain
+2026-11-02T15:38:30.9283617Z 00:07 +54: /home/runner/work/ai-companion-build/ai-companion-build/app/test/third_channel_v042149_test.dart: shared production routes App Qwen switch true chooses the base chain and Qwen failure uses first
+2026-11-02T15:38:31.0794340Z 00:07 +55: /home/runner/work/ai-companion-build/ai-companion-build/app/test/third_channel_network_v042152_test.dart: failed third channel status reaches chat even when its message tail has not changed, and can be dismissed
+2026-11-02T15:38:31.4593989Z 00:07 +56: /home/runner/work/ai-companion-build/ai-companion-build/app/test/third_channel_v042149_test.dart: shared production routes App Qwen switch false chooses the base chain and Qwen failure uses first
+2026-11-02T15:38:31.5348629Z 00:07 +57: /home/runner/work/ai-companion-build/ai-companion-build/app/test/third_channel_network_v042152_test.dart: cancelled is not a third-channel failure banner
+2026-11-02T15:38:31.8991367Z 00:08 +58: /home/runner/work/ai-companion-build/ai-companion-build/app/test/third_channel_v042149_test.dart: shared production routes QQ image bypasses Qwen independently of the App switch
+2026-11-02T15:38:31.9858105Z 00:08 +59: /home/runner/work/ai-companion-build/ai-companion-build/app/test/third_channel_network_v042152_test.dart: suspended is not a third-channel failure banner
+2026-11-02T15:38:32.3305332Z 00:08 +60: /home/runner/work/ai-companion-build/ai-companion-build/app/test/third_channel_v042149_test.dart: shared production routes enabled third channel is bypassed entirely for qwen_on vision
+2026-11-02T15:38:32.4291787Z 00:08 +61: /home/runner/work/ai-companion-build/ai-companion-build/app/test/third_channel_network_v042152_test.dart: success is not a third-channel failure banner
+2026-11-02T15:38:32.7643041Z 00:08 +62: /home/runner/work/ai-companion-build/ai-companion-build/app/test/third_channel_v042149_test.dart: shared production routes enabled third channel is bypassed entirely for qwen_off vision
+2026-11-02T15:38:32.8631439Z 00:09 +63: /home/runner/work/ai-companion-build/ai-companion-build/app/test/third_channel_network_v042152_test.dart: incomplete is not a third-channel failure banner
+2026-11-02T15:38:33.1864214Z 00:09 +64: /home/runner/work/ai-companion-build/ai-companion-build/app/test/third_channel_v042149_test.dart: shared production routes enabled third channel is bypassed entirely for qq vision
+2026-11-02T15:38:33.3186606Z 00:09 +65: /home/runner/work/ai-companion-build/ai-companion-build/app/test/third_channel_network_v042152_test.dart: connection-test errors remain local and cannot replace an existing runtime banner
+2026-11-02T15:38:33.6024796Z 00:09 +66: /home/runner/work/ai-companion-build/ai-companion-build/app/test/third_channel_v042149_test.dart: shared production routes first vision keeps exact image, album and match observations with third enabled
+2026-11-02T15:38:33.6054476Z 00:09 +67: /home/runner/work/ai-companion-build/ai-companion-build/app/test/third_channel_v042149_test.dart: shared production routes first vision keeps exact image, album and match observations with third enabled
+2026-11-02T15:38:33.7208434Z 00:09 +68: /home/runner/work/ai-companion-build/ai-companion-build/app/test/third_channel_v042149_test.dart: shared production routes third-only configuration does not falsely advertise usable vision
+2026-11-02T15:38:34.0433485Z 00:10 +69: /home/runner/work/ai-companion-build/ai-companion-build/app/test/third_channel_v042149_test.dart: shared production routes lost source prevents a fallback after the Qwen request
+2026-11-02T15:38:34.3923447Z 00:10 +70: /home/runner/work/ai-companion-build/ai-companion-build/app/test/third_channel_v042149_test.dart: shared production routes completed restore cannot authorize first fallback from the old Qwen request
+2026-11-02T15:38:34.7551533Z 00:10 +71: All tests passed!
+2026-11-02T15:38:34.8543426Z ##[group]Run flutter test --timeout 60s --reporter expanded test/deepseek_stage3_v042159_test.dart test/deepseek_motion_planner_v042157_test.dart test/deepseek_presentation_owner_v042157_test.dart test/caicai_stage_editor_test.dart test/live2d_settings_page_test.dart test/caicai_live2d_stage_test.dart
+2026-11-02T15:38:34.8547206Z [36;1mflutter test --timeout 60s --reporter expanded test/deepseek_stage3_v042159_test.dart test/deepseek_motion_planner_v042157_test.dart test/deepseek_presentation_owner_v042157_test.dart test/caicai_stage_editor_test.dart test/live2d_settings_page_test.dart test/caicai_live2d_stage_test.dart[0m
+2026-11-02T15:38:34.8588872Z shell: /usr/bin/bash -e {0}
+2026-11-02T15:38:34.8589461Z env:
+2026-11-02T15:38:34.8589860Z   JAVA_HOME: /opt/hostedtoolcache/Java_Temurin-Hotspot_jdk/17.0.21-9/x64
+2026-11-02T15:38:34.8590408Z   JAVA_HOME_17_X64: /opt/hostedtoolcache/Java_Temurin-Hotspot_jdk/17.0.21-9/x64
+2026-11-02T15:38:34.8590972Z   FLUTTER_ROOT: /opt/hostedtoolcache/flutter/stable-3.44.9-x64/flutter
+2026-11-02T15:38:34.8591378Z   PUB_CACHE: /home/runner/.pub-cache
+2026-11-02T15:38:34.8591949Z   AI_COMPANION_KEYSTORE_PATH: /home/runner/work/_temp/ai-companion-signing/AI-Companion-Private-Test-Signing-v1.p12
+2026-11-02T15:38:34.8592739Z   AI_COMPANION_KEYSTORE_PASSWORD: ***
+2026-11-02T15:38:34.8593097Z   AI_COMPANION_KEY_ALIAS: ai-companion-private-test-v1
+2026-11-02T15:38:34.8593575Z   AI_COMPANION_KEY_PASSWORD: ***
+2026-11-02T15:38:34.8594049Z   AI_COMPANION_SIGNER_SHA256: 30:5E:B3:D8:09:83:B9:63:C6:48:18:DD:F1:AD:56:1F:27:9D:E6:D4:7B:3E:D2:C7:81:AD:A4:48:C7:C2:51:48
+2026-11-02T15:38:34.8594544Z ##[endgroup]
+2026-11-02T15:38:35.8284822Z 00:00 +0: loading /home/runner/work/ai-companion-build/ai-companion-build/app/test/deepseek_stage3_v042159_test.dart
+2026-11-02T15:38:37.9616304Z 00:00 +0: /home/runner/work/ai-companion-build/ai-companion-build/app/test/deepseek_stage3_v042159_test.dart: JEV offers independent full lean and visible head/body in the same one request
+2026-11-02T15:38:38.0578624Z 00:00 +1: /home/runner/work/ai-companion-build/ai-companion-build/app/test/deepseek_stage3_v042159_test.dart: lean preview returns full authored target and final standing pose
+2026-11-02T15:38:38.0968286Z 00:00 +2: /home/runner/work/ai-companion-build/ai-companion-build/app/test/deepseek_stage3_v042159_test.dart: lean preview returns full authored target and final standing pose
+2026-11-02T15:38:38.1000902Z 00:00 +3: /home/runner/work/ai-companion-build/ai-companion-build/app/test/deepseek_stage3_v042159_test.dart: lean preview returns full authored target and final standing pose
+2026-11-02T15:38:38.1029839Z 00:00 +4: /home/runner/work/ai-companion-build/ai-companion-build/app/test/deepseek_stage3_v042159_test.dart: lean preview returns full authored target and final standing pose
+2026-11-02T15:38:38.1071160Z 00:00 +5: /home/runner/work/ai-companion-build/ai-companion-build/app/test/deepseek_stage3_v042159_test.dart: lean preview returns full authored target and final standing pose
+2026-11-02T15:38:38.1106813Z 00:00 +6: /home/runner/work/ai-companion-build/ai-companion-build/app/test/deepseek_stage3_v042159_test.dart: lean preview returns full authored target and final standing pose
+2026-11-02T15:38:38.1150737Z 00:00 +7: /home/runner/work/ai-companion-build/ai-companion-build/app/test/deepseek_stage3_v042159_test.dart: lean preview returns full authored target and final standing pose
+2026-11-02T15:38:38.1180331Z 00:00 +8: /home/runner/work/ai-companion-build/ai-companion-build/app/test/deepseek_stage3_v042159_test.dart: lean preview returns full authored target and final standing pose
+2026-11-02T15:38:38.8540842Z 00:00 +9: /home/runner/work/ai-companion-build/ai-companion-build/app/test/deepseek_stage3_v042159_test.dart: lean preview returns full authored target and final standing pose
+2026-11-02T15:38:38.9242168Z 00:00 +10: /home/runner/work/ai-companion-build/ai-companion-build/app/test/deepseek_stage3_v042159_test.dart: lean preview returns full authored target and final standing pose
+2026-11-02T15:38:38.9714584Z 00:01 +11: /home/runner/work/ai-companion-build/ai-companion-build/app/test/deepseek_stage3_v042159_test.dart: lean preview returns full authored target and final standing pose
+2026-11-02T15:38:39.0204629Z 00:01 +12: /home/runner/work/ai-companion-build/ai-companion-build/app/test/deepseek_stage3_v042159_test.dart: lean preview returns full authored target and final standing pose
+2026-11-02T15:38:39.0677193Z 00:01 +13: /home/runner/work/ai-companion-build/ai-companion-build/app/test/deepseek_stage3_v042159_test.dart: lean preview returns full authored target and final standing pose
+2026-11-02T15:38:39.1143464Z 00:01 +14: /home/runner/work/ai-companion-build/ai-companion-build/app/test/deepseek_stage3_v042159_test.dart: lean preview returns full authored target and final standing pose
+2026-11-02T15:38:39.1614106Z 00:01 +15: /home/runner/work/ai-companion-build/ai-companion-build/app/test/deepseek_stage3_v042159_test.dart: lean preview returns full authored target and final standing pose
+2026-11-02T15:38:39.1872837Z 00:01 +16: /home/runner/work/ai-companion-build/ai-companion-build/app/test/deepseek_stage3_v042159_test.dart: lean preview returns full authored target and final standing pose
+2026-11-02T15:38:39.1930813Z 00:01 +17: /home/runner/work/ai-companion-build/ai-companion-build/app/test/deepseek_stage3_v042159_test.dart: lean preview returns full authored target and final standing pose
+2026-11-02T15:38:39.2400926Z 00:01 +18: /home/runner/work/ai-companion-build/ai-companion-build/app/test/deepseek_stage3_v042159_test.dart: lean preview returns full authored target and final standing pose
+2026-11-02T15:38:39.2577837Z 00:01 +19: /home/runner/work/ai-companion-build/ai-companion-build/app/test/deepseek_presentation_owner_v042157_test.dart: retired speech cannot reattach an old Live2D owner after a new dialogue turn
+2026-11-02T15:38:39.2656521Z 00:01 +20: /home/runner/work/ai-companion-build/ai-companion-build/app/test/deepseek_stage3_v042159_test.dart: mouth style has only two choices and preserves saved arc: null
+2026-11-02T15:38:39.3126912Z 00:01 +21: /home/runner/work/ai-companion-build/ai-companion-build/app/test/deepseek_stage3_v042159_test.dart: mouth style has only two choices and preserves saved arc: null
+2026-11-02T15:38:39.3164163Z 00:01 +22: /home/runner/work/ai-companion-build/ai-companion-build/app/test/deepseek_stage3_v042159_test.dart: mouth style has only two choices and preserves saved arc: null
+2026-11-02T15:38:39.5721036Z 00:01 +23: /home/runner/work/ai-companion-build/ai-companion-build/app/test/deepseek_stage3_v042159_test.dart: mouth style has only two choices and preserves saved arc: null
+2026-11-02T15:38:39.5784903Z 00:01 +24: /home/runner/work/ai-companion-build/ai-companion-build/app/test/deepseek_presentation_owner_v042157_test.dart: switching avatars during the readiness wait purchases no plan
+2026-11-02T15:38:39.7854557Z 00:01 +25: /home/runner/work/ai-companion-build/ai-companion-build/app/test/deepseek_presentation_owner_v042157_test.dart: switching avatars during the readiness wait purchases no plan
+2026-11-02T15:38:39.8272604Z 00:01 +26: /home/runner/work/ai-companion-build/ai-companion-build/app/test/deepseek_stage3_v042159_test.dart: mouth style has only two choices and preserves saved arc: -1.0
+2026-11-02T15:38:39.9612664Z 00:01 +27: /home/runner/work/ai-companion-build/ai-companion-build/app/test/deepseek_presentation_owner_v042157_test.dart: a cancelled readiness wait cannot erase a newer reply identity
+2026-11-02T15:38:40.0827787Z 00:02 +28: /home/runner/work/ai-companion-build/ai-companion-build/app/test/deepseek_stage3_v042159_test.dart: mouth style has only two choices and preserves saved arc: 1.0
+2026-11-02T15:38:40.1340311Z 00:02 +29: /home/runner/work/ai-companion-build/ai-companion-build/app/test/deepseek_stage3_v042159_test.dart: DeepSeek exposes its own two pats, local idle previews and freeze commands
+2026-11-02T15:38:40.3513478Z 00:02 +30: /home/runner/work/ai-companion-build/ai-companion-build/app/test/deepseek_stage3_v042159_test.dart: busy DeepSeek controls do not submit interaction or idle work
+2026-11-02T15:38:40.4648062Z 00:02 +31: /home/runner/work/ai-companion-build/ai-companion-build/app/test/deepseek_stage3_v042159_test.dart: DeepSeek head-box editing keeps profile ownership and save=true
+2026-11-02T15:38:40.5604595Z 00:02 +32: /home/runner/work/ai-companion-build/ai-companion-build/app/test/deepseek_stage3_v042159_test.dart: DeepSeek head-box editing keeps profile ownership and save=false
+2026-11-02T15:38:40.7975335Z 00:02 +33: /home/runner/work/ai-companion-build/ai-companion-build/app/test/caicai_stage_editor_test.dart: stage preview finishes transaction with save=false
+2026-11-02T15:38:41.6204066Z 00:03 +34: /home/runner/work/ai-companion-build/ai-companion-build/app/test/live2d_settings_page_test.dart: an action returns from nested settings directly to chat
+2026-11-02T15:38:41.7135403Z 00:03 +35: /home/runner/work/ai-companion-build/ai-companion-build/app/test/live2d_settings_page_test.dart: an action returns from nested settings directly to chat
+2026-11-02T15:38:41.7924936Z 00:03 +36: /home/runner/work/ai-companion-build/ai-companion-build/app/test/live2d_settings_page_test.dart: an action returns from nested settings directly to chat
+2026-11-02T15:38:41.8495568Z 00:03 +37: /home/runner/work/ai-companion-build/ai-companion-build/app/test/live2d_settings_page_test.dart: an action returns from nested settings directly to chat
+2026-11-02T15:38:43.2080889Z 00:05 +38: /home/runner/work/ai-companion-build/ai-companion-build/app/test/live2d_settings_page_test.dart: an action returns from nested settings directly to chat
+2026-11-02T15:38:43.8224984Z 00:05 +39: /home/runner/work/ai-companion-build/ai-companion-build/app/test/live2d_settings_page_test.dart: deletion requires confirmation and disables Live2D only after confirmation
+2026-11-02T15:38:45.2443374Z 00:07 +40: All tests passed!
+2026-11-02T15:38:45.3302363Z ##[group]Run flutter test --timeout 60s --reporter expanded test/deepseek_motion_planner_v042157_test.dart test/deepseek_presentation_owner_v042157_test.dart test/dual_live2d_profiles_v042154_test.dart test/speech_presentation_owner_v042121_test.dart
+2026-11-02T15:38:45.3304150Z [36;1mflutter test --timeout 60s --reporter expanded test/deepseek_motion_planner_v042157_test.dart test/deepseek_presentation_owner_v042157_test.dart test/dual_live2d_profiles_v042154_test.dart test/speech_presentation_owner_v042121_test.dart[0m
+2026-11-02T15:38:45.3347103Z shell: /usr/bin/bash -e {0}
+2026-11-02T15:38:45.3347568Z env:
+2026-11-02T15:38:45.3348145Z   JAVA_HOME: /opt/hostedtoolcache/Java_Temurin-Hotspot_jdk/17.0.21-9/x64
+2026-11-02T15:38:45.3349415Z   JAVA_HOME_17_X64: /opt/hostedtoolcache/Java_Temurin-Hotspot_jdk/17.0.21-9/x64
+2026-11-02T15:38:45.3350141Z   FLUTTER_ROOT: /opt/hostedtoolcache/flutter/stable-3.44.9-x64/flutter
+2026-11-02T15:38:45.3350591Z   PUB_CACHE: /home/runner/.pub-cache
+2026-11-02T15:38:45.3351161Z   AI_COMPANION_KEYSTORE_PATH: /home/runner/work/_temp/ai-companion-signing/AI-Companion-Private-Test-Signing-v1.p12
+2026-11-02T15:38:45.3351965Z   AI_COMPANION_KEYSTORE_PASSWORD: ***
+2026-11-02T15:38:45.3352317Z   AI_COMPANION_KEY_ALIAS: ai-companion-private-test-v1
+2026-11-02T15:38:45.3352786Z   AI_COMPANION_KEY_PASSWORD: ***
+2026-11-02T15:38:45.3353253Z   AI_COMPANION_SIGNER_SHA256: 30:5E:B3:D8:09:83:B9:63:C6:48:18:DD:F1:AD:56:1F:27:9D:E6:D4:7B:3E:D2:C7:81:AD:A4:48:C7:C2:51:48
+2026-11-02T15:38:45.3353745Z ##[endgroup]
+2026-11-02T15:38:46.3326374Z 00:00 +0: loading /home/runner/work/ai-companion-build/ai-companion-build/app/test/deepseek_motion_planner_v042157_test.dart
+2026-11-02T15:38:48.1543444Z 00:00 +0: /home/runner/work/ai-companion-build/ai-companion-build/app/test/deepseek_motion_planner_v042157_test.dart: four beats use real DeepSeek channels and Core bounds
+2026-11-02T15:38:48.1808836Z 00:00 +1: /home/runner/work/ai-companion-build/ai-companion-build/app/test/deepseek_motion_planner_v042157_test.dart: tongue cue reaches its full value and keeps clothing out of the plan
+2026-11-02T15:38:48.1836131Z 00:00 +2: /home/runner/work/ai-companion-build/ai-companion-build/app/test/deepseek_motion_planner_v042157_test.dart: missing or invalid use gates fail closed, eyes win over wink
+2026-11-02T15:38:48.1863365Z 00:00 +3: /home/runner/work/ai-companion-build/ai-companion-build/app/test/deepseek_motion_planner_v042157_test.dart: real speech motion never writes mouth, clothes or morph
+2026-11-02T15:38:48.1903366Z 00:00 +4: /home/runner/work/ai-companion-build/ai-companion-build/app/test/deepseek_motion_planner_v042157_test.dart: ordinary or incomplete gates cannot lean through old per-beat or speech choices
+2026-11-02T15:38:48.1936734Z 00:00 +5: /home/runner/work/ai-companion-build/ai-companion-build/app/test/deepseek_motion_planner_v042157_test.dart: one semantic gate selects an opening interval or a single audio cue
+2026-11-02T15:38:48.1978269Z 00:00 +6: /home/runner/work/ai-companion-build/ai-companion-build/app/test/deepseek_motion_planner_v042157_test.dart: reduced rig skips unsupported channels and nonfinite metadata
+2026-11-02T15:38:48.3765127Z 00:00 +7: /home/runner/work/ai-companion-build/ai-companion-build/app/test/deepseek_presentation_owner_v042157_test.dart: opening plays during synthesis and speech needs actual matching audio
+2026-11-02T15:38:48.4687035Z 00:00 +8: /home/runner/work/ai-companion-build/ai-companion-build/app/test/deepseek_presentation_owner_v042157_test.dart: mute releases only owned speech, resume skips already used accents
+2026-11-02T15:38:48.5370644Z 00:00 +9: /home/runner/work/ai-companion-build/ai-companion-build/app/test/deepseek_presentation_owner_v042157_test.dart: unmuting in a later hold inherits the skipped planned emotion
+2026-11-02T15:38:48.5845179Z 00:00 +10: /home/runner/work/ai-companion-build/ai-companion-build/app/test/deepseek_presentation_owner_v042157_test.dart: new lease replays the cue without purchasing another plan
+2026-11-02T15:38:48.6321203Z 00:00 +11: /home/runner/work/ai-companion-build/ai-companion-build/app/test/deepseek_presentation_owner_v042157_test.dart: changed spoken text or another message cannot borrow the plan
+2026-11-02T15:38:48.6782798Z 00:00 +12: /home/runner/work/ai-companion-build/ai-companion-build/app/test/deepseek_presentation_owner_v042157_test.dart: stop during planning prevents late opening and speech resurrection
+2026-11-02T15:38:48.7240229Z 00:00 +13: /home/runner/work/ai-companion-build/ai-companion-build/app/test/deepseek_presentation_owner_v042157_test.dart: late plan attaches at audio position instead of replaying its opening
+2026-11-02T15:38:48.7705154Z 00:00 +14: /home/runner/work/ai-companion-build/ai-companion-build/app/test/deepseek_presentation_owner_v042157_test.dart: TTS off preserves immediate plan and omits speech planning context
+2026-11-02T15:38:48.7962743Z 00:00 +15: /home/runner/work/ai-companion-build/ai-companion-build/app/test/deepseek_presentation_owner_v042157_test.dart: same message source revision can receive a fresh presentation owner
+2026-11-02T15:38:48.8018234Z 00:00 +16: /home/runner/work/ai-companion-build/ai-companion-build/app/test/deepseek_presentation_owner_v042157_test.dart: a later chat turn invalidates a delayed motion plan even before an explicit stop notification
+2026-11-02T15:38:48.8484525Z 00:00 +17: /home/runner/work/ai-companion-build/ai-companion-build/app/test/dual_live2d_profiles_v042154_test.dart: switch invalidates editor and sends model identity with global commands
+2026-11-02T15:38:48.8648376Z 00:00 +18: /home/runner/work/ai-companion-build/ai-companion-build/app/test/deepseek_presentation_owner_v042157_test.dart: retired speech cannot reattach an old Live2D owner after a new dialogue turn
+2026-11-02T15:38:48.8683572Z 00:00 +19: /home/runner/work/ai-companion-build/ai-companion-build/app/test/deepseek_presentation_owner_v042157_test.dart: retired speech cannot reattach an old Live2D owner after a new dialogue turn
+2026-11-02T15:38:48.8710330Z 00:00 +20: /home/runner/work/ai-companion-build/ai-companion-build/app/test/deepseek_presentation_owner_v042157_test.dart: retired speech cannot reattach an old Live2D owner after a new dialogue turn
+2026-11-02T15:38:48.8744737Z 00:00 +21: /home/runner/work/ai-companion-build/ai-companion-build/app/test/dual_live2d_profiles_v042154_test.dart: read-only export finish neither reloads nor adds a status call
+2026-11-02T15:38:48.8770688Z 00:00 +22: /home/runner/work/ai-companion-build/ai-companion-build/app/test/deepseek_presentation_owner_v042157_test.dart: a replaced avatar revision cannot receive a delayed DeepSeek plan
+2026-11-02T15:38:48.8797875Z 00:00 +23: /home/runner/work/ai-companion-build/ai-companion-build/app/test/deepseek_presentation_owner_v042157_test.dart: a replaced avatar revision cannot receive a delayed DeepSeek plan
+2026-11-02T15:38:48.8826705Z 00:00 +24: /home/runner/work/ai-companion-build/ai-companion-build/app/test/deepseek_presentation_owner_v042157_test.dart: a replaced avatar revision cannot receive a delayed DeepSeek plan
+2026-11-02T15:38:48.8863902Z 00:00 +25: /home/runner/work/ai-companion-build/ai-companion-build/app/test/deepseek_presentation_owner_v042157_test.dart: a replaced avatar revision cannot receive a delayed DeepSeek plan
+2026-11-02T15:38:48.9217656Z 00:00 +26: /home/runner/work/ai-companion-build/ai-companion-build/app/test/deepseek_presentation_owner_v042157_test.dart: DeepSeek JEV disabled still shows its own base emotion without a request
+2026-11-02T15:38:48.9254251Z 00:00 +27: /home/runner/work/ai-companion-build/ai-companion-build/app/test/deepseek_presentation_owner_v042157_test.dart: a fast reply waits for model readiness and only purchases one plan
+2026-11-02T15:38:49.1820008Z 00:01 +28: /home/runner/work/ai-companion-build/ai-companion-build/app/test/deepseek_presentation_owner_v042157_test.dart: switching avatars during the readiness wait purchases no plan
+2026-11-02T15:38:49.4377410Z 00:01 +29: /home/runner/work/ai-companion-build/ai-companion-build/app/test/deepseek_presentation_owner_v042157_test.dart: a cancelled readiness wait cannot erase a newer reply identity
+2026-11-02T15:38:49.5341086Z 00:01 +30: /home/runner/work/ai-companion-build/ai-companion-build/app/test/deepseek_presentation_owner_v042157_test.dart: a cancelled readiness wait cannot erase a newer reply identity
+2026-11-02T15:38:49.6021542Z 00:01 +31: /home/runner/work/ai-companion-build/ai-companion-build/app/test/deepseek_presentation_owner_v042157_test.dart: a cancelled readiness wait cannot erase a newer reply identity
+2026-11-02T15:38:49.6490027Z 00:01 +32: /home/runner/work/ai-companion-build/ai-companion-build/app/test/deepseek_presentation_owner_v042157_test.dart: a cancelled readiness wait cannot erase a newer reply identity
+2026-11-02T15:38:49.6924072Z 00:01 +33: /home/runner/work/ai-companion-build/ai-companion-build/app/test/speech_presentation_owner_v042121_test.dart: new lease replays the cue without purchasing another plan
+2026-11-02T15:38:49.6959895Z 00:01 +34: /home/runner/work/ai-companion-build/ai-companion-build/app/test/speech_presentation_owner_v042121_test.dart: changed spoken text or another message cannot borrow the plan
+2026-11-02T15:38:49.7435144Z 00:01 +35: /home/runner/work/ai-companion-build/ai-companion-build/app/test/speech_presentation_owner_v042121_test.dart: stop during planning prevents late opening and speech resurrection
+2026-11-02T15:38:49.7891366Z 00:01 +36: /home/runner/work/ai-companion-build/ai-companion-build/app/test/speech_presentation_owner_v042121_test.dart: late plan attaches at audio position instead of replaying its opening
+2026-11-02T15:38:49.8353349Z 00:01 +37: /home/runner/work/ai-companion-build/ai-companion-build/app/test/speech_presentation_owner_v042121_test.dart: TTS off preserves immediate plan and omits speech planning context
+2026-11-02T15:38:49.8599466Z 00:01 +38: /home/runner/work/ai-companion-build/ai-companion-build/app/test/speech_presentation_owner_v042121_test.dart: same message source revision can receive a fresh presentation owner
+2026-11-02T15:38:49.8642617Z 00:01 +39: /home/runner/work/ai-companion-build/ai-companion-build/app/test/speech_presentation_owner_v042121_test.dart: a later chat turn invalidates a delayed motion plan even before an explicit stop notification
+2026-11-02T15:38:49.9103618Z 00:01 +40: /home/runner/work/ai-companion-build/ai-companion-build/app/test/speech_presentation_owner_v042121_test.dart: retired speech cannot reattach an old Live2D owner after a new dialogue turn
+2026-11-02T15:38:49.9514167Z 00:01 +41: All tests passed!
+2026-11-02T15:38:50.0262544Z ##[group]Run node app/tools/test_creative_bridge.mjs
+2026-11-02T15:38:50.0263002Z [36;1mnode app/tools/test_creative_bridge.mjs[0m
+2026-11-02T15:38:50.0293161Z shell: /usr/bin/bash -e {0}
+2026-11-02T15:38:50.0293467Z env:
+2026-11-02T15:38:50.0293847Z   JAVA_HOME: /opt/hostedtoolcache/Java_Temurin-Hotspot_jdk/17.0.21-9/x64
+2026-11-02T15:38:50.0294455Z   JAVA_HOME_17_X64: /opt/hostedtoolcache/Java_Temurin-Hotspot_jdk/17.0.21-9/x64
+2026-11-02T15:38:50.0295050Z   FLUTTER_ROOT: /opt/hostedtoolcache/flutter/stable-3.44.9-x64/flutter
+2026-11-02T15:38:50.0295519Z   PUB_CACHE: /home/runner/.pub-cache
+2026-11-02T15:38:50.0296206Z   AI_COMPANION_KEYSTORE_PATH: /home/runner/work/_temp/ai-companion-signing/AI-Companion-Private-Test-Signing-v1.p12
+2026-11-02T15:38:50.0297143Z   AI_COMPANION_KEYSTORE_PASSWORD: ***
+2026-11-02T15:38:50.0297539Z   AI_COMPANION_KEY_ALIAS: ai-companion-private-test-v1
+2026-11-02T15:38:50.0298080Z   AI_COMPANION_KEY_PASSWORD: ***
+2026-11-02T15:38:50.0298659Z   AI_COMPANION_SIGNER_SHA256: 30:5E:B3:D8:09:83:B9:63:C6:48:18:DD:F1:AD:56:1F:27:9D:E6:D4:7B:3E:D2:C7:81:AD:A4:48:C7:C2:51:48
+2026-11-02T15:38:50.0299537Z ##[endgroup]
+2026-11-02T15:38:50.1028220Z Creative bridge: serialization, UTF-8 size, dispatch, host rejection, pending choice/save recovery and bounded DOM inspection passed.
+2026-11-02T15:38:50.1109760Z ##[group]Run ./gradlew :app:testDebugUnitTest \
+2026-11-02T15:38:50.1110270Z [36;1m./gradlew :app:testDebugUnitTest \[0m
+2026-11-02T15:38:50.1110715Z [36;1m  --tests 'com.aicompanion.localfirst.qq.*Test' \[0m
+2026-11-02T15:38:50.1111201Z [36;1m  --tests 'com.aicompanion.localfirst.pet.*Test' \[0m
+2026-11-02T15:38:50.1111728Z [36;1m  --tests 'com.catkiss.senlive2dcompanion.Caicai*Test' \[0m
+2026-11-02T15:38:50.1112268Z [36;1m  --tests 'com.catkiss.senlive2dcompanion.Deepseek*Test' \[0m
+2026-11-02T15:38:50.1112904Z [36;1m  --tests 'com.aicompanion.localfirst.CalendarReminderScheduleTest' \[0m
+2026-11-02T15:38:50.1113552Z [36;1m  --tests 'com.aicompanion.localfirst.RoomTiltFilterTest' \[0m
+2026-11-02T15:38:50.1114168Z [36;1m  --tests 'com.aicompanion.localfirst.SpeechPlaybackTimelineTest' \[0m
+2026-11-02T15:38:50.1114796Z [36;1m  --tests 'com.aicompanion.localfirst.TtsFailureCategoryTest' \[0m
+2026-11-02T15:38:50.1115379Z [36;1m  --tests 'com.aicompanion.localfirst.VoiceExportOwnershipTest' \[0m
+2026-11-02T15:38:50.1115978Z [36;1m  --tests 'com.catkiss.senlive2dcompanion.RoomMotionInterpolatorTest' \[0m
+2026-11-02T15:38:50.1116553Z [36;1m  --tests 'com.aicompanion.localfirst.Overlay*Test' \[0m
+2026-11-02T15:38:50.1117100Z [36;1m  --tests 'com.aicompanion.localfirst.HistoricalAnrTraceSanitizerTest' \[0m
+2026-11-02T15:38:50.1117799Z [36;1m  --tests 'com.aicompanion.localfirst.HistoricalNativeTombstoneSanitizerTest' \[0m
+2026-11-02T15:38:50.1118488Z [36;1m  --tests 'com.aicompanion.localfirst.AccessibilityEventLoadShedderTest' \[0m
+2026-11-02T15:38:50.1119356Z [36;1m  --tests 'com.aicompanion.localfirst.MultipartBackupArchiveTest' \[0m
+2026-11-02T15:38:50.1120096Z [36;1m  --tests 'com.aicompanion.localfirst.PrivacyFilterTest' \[0m
+2026-11-02T15:38:50.1120657Z [36;1m  --tests 'com.catkiss62.geniettsbenchmark.AssetIntegrityPolicyTest'[0m
+2026-11-02T15:38:50.1150937Z shell: /usr/bin/bash -e {0}
+2026-11-02T15:38:50.1151212Z env:
+2026-11-02T15:38:50.1151568Z   JAVA_HOME: /opt/hostedtoolcache/Java_Temurin-Hotspot_jdk/17.0.21-9/x64
+2026-11-02T15:38:50.1152104Z   JAVA_HOME_17_X64: /opt/hostedtoolcache/Java_Temurin-Hotspot_jdk/17.0.21-9/x64
+2026-11-02T15:38:50.1152673Z   FLUTTER_ROOT: /opt/hostedtoolcache/flutter/stable-3.44.9-x64/flutter
+2026-11-02T15:38:50.1153264Z   PUB_CACHE: /home/runner/.pub-cache
+2026-11-02T15:38:50.1153846Z   AI_COMPANION_KEYSTORE_PATH: /home/runner/work/_temp/ai-companion-signing/AI-Companion-Private-Test-Signing-v1.p12
+2026-11-02T15:38:50.1154648Z   AI_COMPANION_KEYSTORE_PASSWORD: ***
+2026-11-02T15:38:50.1155009Z   AI_COMPANION_KEY_ALIAS: ai-companion-private-test-v1
+2026-11-02T15:38:50.1155497Z   AI_COMPANION_KEY_PASSWORD: ***
+2026-11-02T15:38:50.1155981Z   AI_COMPANION_SIGNER_SHA256: 30:5E:B3:D8:09:83:B9:63:C6:48:18:DD:F1:AD:56:1F:27:9D:E6:D4:7B:3E:D2:C7:81:AD:A4:48:C7:C2:51:48
+2026-11-02T15:38:50.1156481Z ##[endgroup]
+2026-11-02T15:38:50.2324519Z Downloading https://services.gradle.org/distributions/gradle-8.12-all.zip
+2026-11-02T15:38:52.4053985Z ................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................
+2026-11-02T15:38:52.4094309Z Unzipping /home/runner/.gradle/wrapper/dists/gradle-8.12-all/ejduaidbjup3bmmkhw3rie4zb/gradle-8.12-all.zip to /home/runner/.gradle/wrapper/dists/gradle-8.12-all/ejduaidbjup3bmmkhw3rie4zb
+2026-11-02T15:38:55.2568037Z Set executable permissions for: /home/runner/.gradle/wrapper/dists/gradle-8.12-all/ejduaidbjup3bmmkhw3rie4zb/gradle-8.12/bin/gradle
+2026-11-02T15:38:55.7148439Z 
+2026-11-02T15:38:55.7150288Z Welcome to Gradle 8.12!
+2026-11-02T15:38:55.7150868Z 
+2026-11-02T15:38:55.7151672Z Here are the highlights of this release:
+2026-11-02T15:38:55.7153573Z  - Enhanced error and warning reporting with the Problems API
+2026-11-02T15:38:55.7154939Z  - File-system watching support on Alpine Linux
+2026-11-02T15:38:55.7156233Z  - Build and test Swift 6 libraries and apps
+2026-11-02T15:38:55.7156764Z 
+2026-11-02T15:38:55.7165231Z For more details see https://docs.gradle.org/8.12/release-notes.html
+2026-11-02T15:38:55.7165771Z 
+2026-11-02T15:38:55.8144550Z Starting a Gradle Daemon (subsequent builds will be faster)
+2026-11-02T15:39:28.1147591Z 
+2026-11-02T15:39:28.1161391Z > Configure project :gradle
+2026-11-02T15:39:28.1162215Z WARNING: Unsupported Kotlin plugin version.
+2026-11-02T15:39:28.1182724Z The `embedded-kotlin` and `kotlin-dsl` plugins rely on features of Kotlin `2.0.21` that might work differently than in the requested version `2.2.20`.
+2026-11-02T15:39:32.6146529Z 
+2026-11-02T15:39:32.6147643Z > Task :gradle:checkKotlinGradlePluginConfigurationErrors SKIPPED
+2026-11-02T15:39:46.7146536Z > Task :gradle:pluginDescriptors
+2026-11-02T15:39:46.7147095Z > Task :gradle:processResources
+2026-11-02T15:39:59.6169719Z 
+2026-11-02T15:39:59.6170253Z > Task :gradle:compileKotlin
+2026-11-02T15:39:59.6171353Z w: Language version 1.8 is deprecated and its support will be removed in a future version of Kotlin
+2026-11-02T15:39:59.6173095Z w: file:///opt/hostedtoolcache/flutter/stable-3.44.9-x64/flutter/packages/flutter_tools/gradle/src/main/kotlin/FlutterPlugin.kt:13:37 'ApkVariant' is deprecated. Deprecated in Java
+2026-11-02T15:39:59.6175352Z w: file:///opt/hostedtoolcache/flutter/stable-3.44.9-x64/flutter/packages/flutter_tools/gradle/src/main/kotlin/FlutterPlugin.kt:662:69 'ApkVariant' is deprecated. Deprecated in Java
+2026-11-02T15:39:59.6177707Z w: file:///opt/hostedtoolcache/flutter/stable-3.44.9-x64/flutter/packages/flutter_tools/gradle/src/main/kotlin/FlutterPluginUtils.kt:12:37 'BaseVariantOutput' is deprecated. Deprecated in Java
+2026-11-02T15:39:59.6180731Z w: file:///opt/hostedtoolcache/flutter/stable-3.44.9-x64/flutter/packages/flutter_tools/gradle/src/main/kotlin/plugins/PluginHandler.kt:168:70 Unchecked cast: NamedDomainObjectContainer<out BuildType> to NamedDomainObjectContainer<BuildType>
+2026-11-02T15:39:59.6184031Z w: file:///opt/hostedtoolcache/flutter/stable-3.44.9-x64/flutter/packages/flutter_tools/gradle/src/main/kotlin/plugins/PluginHandler.kt:169:75 Unchecked cast: NamedDomainObjectContainer<out BuildType> to NamedDomainObjectContainer<BuildType>
+2026-11-02T15:39:59.6185664Z 
+2026-11-02T15:39:59.6185850Z > Task :gradle:compileJava NO-SOURCE
+2026-11-02T15:39:59.6186340Z > Task :gradle:compileGroovy NO-SOURCE
+2026-11-02T15:39:59.6186631Z > Task :gradle:classes
+2026-11-02T15:39:59.7156299Z > Task :gradle:jar
+2026-11-02T15:40:29.1152640Z Warning: Flutter support for your project's Gradle version (8.12.0) will soon be dropped. Please upgrade your Gradle version to a version of at least 8.14.0 soon.
+2026-11-02T15:40:29.1153837Z 
+2026-11-02T15:40:29.1163620Z Alternatively, use the flag "--android-skip-build-dependency-validation" to bypass this check.
+2026-11-02T15:40:29.1164587Z > Configure project :app
+2026-11-02T15:40:29.1165805Z 
+2026-11-02T15:40:29.1167664Z Potential fix: Your project's gradle version is typically defined in the gradle wrapper file. By default, this can be found at /home/runner/work/ai-companion-build/ai-companion-build/app/android/gradle/wrapper/gradle-wrapper.properties. 
+2026-11-02T15:40:29.1170553Z For more information, see https://docs.gradle.org/current/userguide/gradle_wrapper.html.
+2026-11-02T15:40:29.1171793Z 
+2026-11-02T15:40:29.1173443Z Warning: Flutter support for your project's Android Gradle Plugin version (Android Gradle Plugin version 8.9.1) will soon be dropped. Please upgrade your Android Gradle Plugin version to a version of at least Android Gradle Plugin version 8.11.1 soon.
+2026-11-02T15:40:29.1175826Z Alternatively, use the flag "--android-skip-build-dependency-validation" to bypass this check.
+2026-11-02T15:40:29.1176763Z 
+2026-11-02T15:40:29.1178483Z Potential fix: Your project's AGP version is typically defined in the plugins block of the `settings.gradle` file (/home/runner/work/ai-companion-build/ai-companion-build/app/android/settings.gradle), by a plugin with the id of com.android.application. 
+2026-11-02T15:40:29.1182855Z If you don't see a plugins block, your project was likely created with an older template version. In this case it is most likely defined in the top-level build.gradle file (/home/runner/work/ai-companion-build/ai-companion-build/app/android/build.gradle) by the following line in the dependencies block of the buildscript: "classpath 'com.android.tools.build:gradle:<version>'".
+2026-11-02T15:40:29.1185477Z 
+2026-11-02T15:40:29.1186590Z Warning: Flutter support for your project's Kotlin version (2.1.0) will soon be dropped. Please upgrade your Kotlin version to a version of at least 2.2.20 soon.
+2026-11-02T15:40:29.1188433Z Alternatively, use the flag "--android-skip-build-dependency-validation" to bypass this check.
+2026-11-02T15:40:29.1189625Z 
+2026-11-02T15:40:29.1191808Z Potential fix: Your project's KGP version is typically defined in the plugins block of the `settings.gradle` file (/home/runner/work/ai-companion-build/ai-companion-build/app/android/settings.gradle), by a plugin with the id of org.jetbrains.kotlin.android. 
+2026-11-02T15:40:29.1195731Z If you don't see a plugins block, your project was likely created with an older template version, in which case it is most likely defined in the top-level build.gradle file (/home/runner/work/ai-companion-build/ai-companion-build/app/android/build.gradle) by the ext.kotlin_version property.
+2026-11-02T15:40:29.1198023Z 
+2026-11-02T15:41:06.0138668Z 
+2026-11-02T15:41:06.0185771Z Your project is configured with Android NDK 27.2.12479018, but the following plugin(s) depend on a different Android NDK version:
+2026-11-02T15:41:06.0187059Z > Configure project :sqflite_android
+2026-11-02T15:41:06.0187812Z - flutter_plugin_android_lifecycle requires Android NDK 27.0.12077973
+2026-11-02T15:41:06.0188650Z - flutter_secure_storage requires Android NDK 27.0.12077973
+2026-11-02T15:41:06.0193657Z - image_picker_android requires Android NDK 27.0.12077973
+2026-11-02T15:41:06.0194337Z - jni requires Android NDK 28.2.13676358
+2026-11-02T15:41:06.0194955Z - jni_flutter requires Android NDK 27.0.12077973
+2026-11-02T15:41:06.0195599Z - sqflite_android requires Android NDK 27.0.12077973
+2026-11-02T15:41:06.0196420Z Fix this issue by using the highest Android NDK version (they are backward compatible).
+2026-11-02T15:41:06.0197618Z Add the following to /home/runner/work/ai-companion-build/ai-companion-build/app/android/app/build.gradle.kts:
+2026-11-02T15:41:06.0198356Z 
+2026-11-02T15:41:06.0198499Z     android {
+2026-11-02T15:41:06.0198827Z         ndkVersion = "28.2.13676358"
+2026-11-02T15:41:06.0199537Z         ...
+2026-11-02T15:41:06.0199832Z     }
+2026-11-02T15:41:07.3138379Z 
+2026-11-02T15:41:07.3139317Z > Task :app:preBuild UP-TO-DATE
+2026-11-02T15:41:07.3139972Z > Task :app:preDebugBuild UP-TO-DATE
+2026-11-02T15:41:18.6167340Z > Task :app:checkKotlinGradlePluginConfigurationErrors SKIPPED
+2026-11-02T15:41:18.6168939Z > Task :flutter_plugin_android_lifecycle:preBuild UP-TO-DATE
+2026-11-02T15:41:18.6190400Z > Task :flutter_plugin_android_lifecycle:preDebugBuild UP-TO-DATE
+2026-11-02T15:41:18.6191226Z > Task :flutter_secure_storage:preBuild UP-TO-DATE
+2026-11-02T15:41:18.6191918Z > Task :flutter_secure_storage:preDebugBuild UP-TO-DATE
+2026-11-02T15:41:18.7139659Z > Task :flutter_plugin_android_lifecycle:writeDebugAarMetadata
+2026-11-02T15:41:18.7141133Z > Task :image_picker_android:preBuild UP-TO-DATE
+2026-11-02T15:41:18.7141936Z > Task :image_picker_android:preDebugBuild UP-TO-DATE
+2026-11-02T15:41:18.7142717Z > Task :flutter_secure_storage:writeDebugAarMetadata
+2026-11-02T15:41:18.7143451Z > Task :image_picker_android:writeDebugAarMetadata
+2026-11-02T15:41:18.7144274Z > Task :jni:preBuild UP-TO-DATE
+2026-11-02T15:41:18.7144878Z > Task :jni:preDebugBuild UP-TO-DATE
+2026-11-02T15:41:18.7145493Z > Task :jni_flutter:preBuild UP-TO-DATE
+2026-11-02T15:41:18.7146167Z > Task :jni_flutter:preDebugBuild UP-TO-DATE
+2026-11-02T15:41:18.7146843Z > Task :jni:writeDebugAarMetadata
+2026-11-02T15:41:18.7147470Z > Task :sqflite_android:preBuild UP-TO-DATE
+2026-11-02T15:41:18.7148126Z > Task :sqflite_android:preDebugBuild UP-TO-DATE
+2026-11-02T15:41:18.7148580Z > Task :jni_flutter:writeDebugAarMetadata
+2026-11-02T15:41:18.7149023Z > Task :app:cleanMergeDebugAssets UP-TO-DATE
+2026-11-02T15:41:18.7149995Z > Task :sqflite_android:writeDebugAarMetadata
+2026-11-02T15:41:19.0139861Z > Task :app:compileDebugAidl
+2026-11-02T15:41:19.0140585Z > Task :app:checkDebugAarMetadata
+2026-11-02T15:41:42.2138984Z > Task :app:compileFlutterBuildDebug
+2026-11-02T15:41:42.3176773Z > Task :app:mergeDebugShaders
+2026-11-02T15:41:42.3189535Z > Task :app:compileDebugShaders NO-SOURCE
+2026-11-02T15:41:42.3199889Z > Task :app:generateDebugAssets UP-TO-DATE
+2026-11-02T15:41:42.3202517Z > Task :flutter_plugin_android_lifecycle:mergeDebugShaders
+2026-11-02T15:41:42.3203201Z > Task :flutter_plugin_android_lifecycle:compileDebugShaders NO-SOURCE
+2026-11-02T15:41:42.3203852Z > Task :flutter_plugin_android_lifecycle:generateDebugAssets UP-TO-DATE
+2026-11-02T15:41:42.3204479Z > Task :flutter_plugin_android_lifecycle:mergeDebugAssets
+2026-11-02T15:41:42.3205257Z > Task :flutter_secure_storage:mergeDebugShaders
+2026-11-02T15:41:42.3205846Z > Task :flutter_secure_storage:compileDebugShaders NO-SOURCE
+2026-11-02T15:41:42.3206554Z > Task :flutter_secure_storage:generateDebugAssets UP-TO-DATE
+2026-11-02T15:41:42.3207470Z > Task :flutter_secure_storage:mergeDebugAssets
+2026-11-02T15:41:42.3208222Z > Task :image_picker_android:mergeDebugShaders
+2026-11-02T15:41:42.3209049Z > Task :image_picker_android:compileDebugShaders NO-SOURCE
+2026-11-02T15:41:42.3209758Z > Task :image_picker_android:generateDebugAssets UP-TO-DATE
+2026-11-02T15:41:42.3212535Z > Task :image_picker_android:mergeDebugAssets
+2026-11-02T15:41:42.3213113Z > Task :jni:mergeDebugShaders
+2026-11-02T15:41:42.3213599Z > Task :jni:compileDebugShaders NO-SOURCE
+2026-11-02T15:41:42.3214163Z > Task :jni:generateDebugAssets UP-TO-DATE
+2026-11-02T15:41:42.3214697Z > Task :jni:mergeDebugAssets
+2026-11-02T15:41:42.3215177Z > Task :jni_flutter:mergeDebugShaders
+2026-11-02T15:41:42.3215778Z > Task :jni_flutter:compileDebugShaders NO-SOURCE
+2026-11-02T15:41:42.3216423Z > Task :jni_flutter:generateDebugAssets UP-TO-DATE
+2026-11-02T15:41:42.3216980Z > Task :jni_flutter:mergeDebugAssets
+2026-11-02T15:41:42.3217472Z > Task :sqflite_android:mergeDebugShaders
+2026-11-02T15:41:42.3218065Z > Task :sqflite_android:compileDebugShaders NO-SOURCE
+2026-11-02T15:41:42.3218517Z > Task :sqflite_android:generateDebugAssets UP-TO-DATE
+2026-11-02T15:41:42.3218861Z > Task :sqflite_android:mergeDebugAssets
+2026-11-02T15:41:46.6139686Z > Task :app:mergeDebugAssets
+2026-11-02T15:41:47.2138991Z > Task :app:copyFlutterAssetsDebug
+2026-11-02T15:41:47.2140261Z > Task :app:generateDebugResValues
+2026-11-02T15:41:47.2141094Z > Task :flutter_plugin_android_lifecycle:generateDebugResValues
+2026-11-02T15:41:47.2142113Z > Task :flutter_plugin_android_lifecycle:generateDebugResources
+2026-11-02T15:41:47.2143058Z > Task :flutter_plugin_android_lifecycle:packageDebugResources
+2026-11-02T15:41:47.2143997Z > Task :flutter_secure_storage:generateDebugResValues
+2026-11-02T15:41:47.2144702Z > Task :flutter_secure_storage:generateDebugResources
+2026-11-02T15:41:47.3147540Z > Task :flutter_secure_storage:packageDebugResources
+2026-11-02T15:41:47.3152142Z > Task :image_picker_android:generateDebugResValues
+2026-11-02T15:41:47.3158482Z > Task :image_picker_android:generateDebugResources
+2026-11-02T15:41:47.3159586Z > Task :image_picker_android:packageDebugResources
+2026-11-02T15:41:47.3160182Z > Task :jni:generateDebugResValues
+2026-11-02T15:41:47.3160667Z > Task :jni:generateDebugResources
+2026-11-02T15:41:47.3161143Z > Task :jni:packageDebugResources
+2026-11-02T15:41:47.3161631Z > Task :jni_flutter:generateDebugResValues
+2026-11-02T15:41:47.3162162Z > Task :jni_flutter:generateDebugResources
+2026-11-02T15:41:47.3162680Z > Task :jni_flutter:packageDebugResources
+2026-11-02T15:41:47.3163175Z > Task :sqflite_android:generateDebugResValues
+2026-11-02T15:41:47.3163521Z > Task :sqflite_android:generateDebugResources
+2026-11-02T15:41:47.3163894Z > Task :sqflite_android:packageDebugResources
+2026-11-02T15:41:47.4152113Z > Task :app:mapDebugSourceSetPaths
+2026-11-02T15:41:47.4153156Z > Task :app:generateDebugResources
+2026-11-02T15:41:47.7138837Z > Task :app:packageDebugResources
+2026-11-02T15:41:47.9138921Z > Task :app:mergeDebugResources
+2026-11-02T15:41:48.6146463Z > Task :app:createDebugCompatibleScreenManifests
+2026-11-02T15:41:48.6170003Z > Task :app:extractDeepLinksDebug
+2026-11-02T15:41:48.6172340Z > Task :flutter_plugin_android_lifecycle:extractDeepLinksDebug
+2026-11-02T15:41:48.6173319Z > Task :flutter_secure_storage:extractDeepLinksDebug
+2026-11-02T15:41:48.6174179Z > Task :image_picker_android:extractDeepLinksDebug
+2026-11-02T15:41:48.7139421Z > Task :app:parseDebugLocalResources
+2026-11-02T15:41:48.7140117Z > Task :jni:extractDeepLinksDebug
+2026-11-02T15:41:48.7140653Z > Task :flutter_secure_storage:processDebugManifest
+2026-11-02T15:41:48.7141062Z 
+2026-11-02T15:41:48.7141239Z > Task :jni:processDebugManifest
+2026-11-02T15:41:48.7142913Z package="com.github.dart_lang.jni" found in source AndroidManifest.xml: /home/runner/.pub-cache/hosted/pub.dev/jni-1.0.3/android/src/main/AndroidManifest.xml.
+2026-11-02T15:41:48.7144753Z Setting the namespace via the package attribute in the source AndroidManifest.xml is no longer supported, and the value is ignored.
+2026-11-02T15:41:48.7146690Z Recommendation: remove package="com.github.dart_lang.jni" from the source AndroidManifest.xml: /home/runner/.pub-cache/hosted/pub.dev/jni-1.0.3/android/src/main/AndroidManifest.xml.
+2026-11-02T15:41:48.7147930Z 
+2026-11-02T15:41:48.7148164Z > Task :image_picker_android:processDebugManifest
+2026-11-02T15:41:48.7149879Z package="io.flutter.plugins.imagepicker" found in source AndroidManifest.xml: /home/runner/.pub-cache/hosted/pub.dev/image_picker_android-0.8.13+25/android/src/main/AndroidManifest.xml.
+2026-11-02T15:41:48.7151854Z Setting the namespace via the package attribute in the source AndroidManifest.xml is no longer supported, and the value is ignored.
+2026-11-02T15:41:48.7153946Z Recommendation: remove package="io.flutter.plugins.imagepicker" from the source AndroidManifest.xml: /home/runner/.pub-cache/hosted/pub.dev/image_picker_android-0.8.13+25/android/src/main/AndroidManifest.xml.
+2026-11-02T15:41:48.7155335Z 
+2026-11-02T15:41:48.7155643Z > Task :flutter_plugin_android_lifecycle:processDebugManifest
+2026-11-02T15:41:48.7157369Z package="io.flutter.plugins.flutter_plugin_android_lifecycle" found in source AndroidManifest.xml: /home/runner/.pub-cache/hosted/pub.dev/flutter_plugin_android_lifecycle-2.0.35/android/src/main/AndroidManifest.xml.
+2026-11-02T15:41:48.7159677Z Setting the namespace via the package attribute in the source AndroidManifest.xml is no longer supported, and the value is ignored.
+2026-11-02T15:41:48.7162017Z Recommendation: remove package="io.flutter.plugins.flutter_plugin_android_lifecycle" from the source AndroidManifest.xml: /home/runner/.pub-cache/hosted/pub.dev/flutter_plugin_android_lifecycle-2.0.35/android/src/main/AndroidManifest.xml.
+2026-11-02T15:41:48.7163690Z 
+2026-11-02T15:41:48.7163894Z > Task :jni_flutter:extractDeepLinksDebug
+2026-11-02T15:41:48.7164481Z > Task :sqflite_android:extractDeepLinksDebug
+2026-11-02T15:41:48.7164850Z 
+2026-11-02T15:41:48.7165074Z > Task :jni_flutter:processDebugManifest
+2026-11-02T15:41:48.7166805Z package="com.github.dart_lang.jni_flutter" found in source AndroidManifest.xml: /home/runner/.pub-cache/hosted/pub.dev/jni_flutter-1.0.2/android/src/main/AndroidManifest.xml.
+2026-11-02T15:41:48.7168692Z Setting the namespace via the package attribute in the source AndroidManifest.xml is no longer supported, and the value is ignored.
+2026-11-02T15:41:48.7171177Z Recommendation: remove package="com.github.dart_lang.jni_flutter" from the source AndroidManifest.xml: /home/runner/.pub-cache/hosted/pub.dev/jni_flutter-1.0.2/android/src/main/AndroidManifest.xml.
+2026-11-02T15:41:48.7172532Z 
+2026-11-02T15:41:48.7172759Z > Task :sqflite_android:processDebugManifest
+2026-11-02T15:41:49.0145402Z > Task :flutter_plugin_android_lifecycle:compileDebugLibraryResources
+2026-11-02T15:41:49.2137960Z 
+2026-11-02T15:41:49.2144804Z > Task :app:processDebugMainManifest
+2026-11-02T15:41:49.2146217Z /home/runner/work/ai-companion-build/ai-companion-build/app/android/app/src/main/AndroidManifest.xml:28:9-41 Warning:
+2026-11-02T15:41:49.2148563Z 	android:extractNativeLibs should not be specified in this source AndroidManifest.xml file. See https://d.android.com/guide/topics/manifest/application-element#extractNativeLibs for more information.
+2026-11-02T15:41:49.2151639Z The AGP Upgrade Assistant can remove the attribute from the AndroidManifest.xml file and update the build file accordingly. See https://d.android.com/studio/build/agp-upgrade-assistant for more information.
+2026-11-02T15:41:49.2153169Z 
+2026-11-02T15:41:49.2153522Z > Task :app:outputDebugAppLinkSettings
+2026-11-02T15:41:49.3153975Z > Task :app:processDebugManifest
+2026-11-02T15:41:49.3163011Z > Task :app:processDebugManifestForPackage
+2026-11-02T15:41:49.3164212Z > Task :flutter_plugin_android_lifecycle:parseDebugLocalResources
+2026-11-02T15:41:49.3165208Z > Task :flutter_secure_storage:compileDebugLibraryResources
+2026-11-02T15:41:49.3166096Z > Task :flutter_secure_storage:parseDebugLocalResources
+2026-11-02T15:41:49.4139965Z > Task :image_picker_android:compileDebugLibraryResources
+2026-11-02T15:41:49.4140940Z > Task :jni:compileDebugLibraryResources
+2026-11-02T15:41:49.4141595Z > Task :image_picker_android:parseDebugLocalResources
+2026-11-02T15:41:49.4142137Z > Task :flutter_secure_storage:generateDebugRFile
+2026-11-02T15:41:49.4142620Z > Task :image_picker_android:generateDebugRFile
+2026-11-02T15:41:49.4143147Z > Task :flutter_plugin_android_lifecycle:generateDebugRFile
+2026-11-02T15:41:50.2150474Z > Task :jni_flutter:compileDebugLibraryResources
+2026-11-02T15:41:50.2151968Z > Task :jni:parseDebugLocalResources
+2026-11-02T15:41:50.2152784Z > Task :jni_flutter:parseDebugLocalResources
+2026-11-02T15:41:50.2153541Z > Task :jni:generateDebugRFile
+2026-11-02T15:41:50.2154226Z > Task :jni_flutter:generateDebugRFile
+2026-11-02T15:41:50.2154985Z > Task :sqflite_android:compileDebugLibraryResources
+2026-11-02T15:41:50.2156047Z > Task :flutter_plugin_android_lifecycle:checkKotlinGradlePluginConfigurationErrors SKIPPED
+2026-11-02T15:41:50.2157114Z > Task :sqflite_android:parseDebugLocalResources
+2026-11-02T15:41:50.3139273Z > Task :flutter_plugin_android_lifecycle:compileDebugKotlin NO-SOURCE
+2026-11-02T15:41:50.3140566Z > Task :sqflite_android:generateDebugRFile
+2026-11-02T15:41:50.3142541Z > Task :flutter_plugin_android_lifecycle:javaPreCompileDebug
+2026-11-02T15:41:50.7138736Z > Task :app:processDebugResources
+2026-11-02T15:41:57.2138458Z > Task :flutter_plugin_android_lifecycle:compileDebugJavaWithJavac
+2026-11-02T15:41:57.2139812Z > Task :flutter_secure_storage:checkKotlinGradlePluginConfigurationErrors SKIPPED
+2026-11-02T15:41:57.2140706Z > Task :flutter_secure_storage:generateDebugBuildConfig
+2026-11-02T15:41:57.2141284Z > Task :flutter_secure_storage:compileDebugKotlin NO-SOURCE
+2026-11-02T15:41:57.2142021Z > Task :image_picker_android:checkKotlinGradlePluginConfigurationErrors SKIPPED
+2026-11-02T15:41:57.2142707Z > Task :flutter_secure_storage:javaPreCompileDebug
+2026-11-02T15:41:57.2143302Z > Task :flutter_plugin_android_lifecycle:bundleLibCompileToJarDebug
+2026-11-02T15:41:57.2144315Z > Task :image_picker_android:javaPreCompileDebug
+2026-11-02T15:42:00.3141675Z > Task :flutter_secure_storage:compileDebugJavaWithJavac
+2026-11-02T15:42:00.3142569Z > Task :flutter_secure_storage:bundleLibCompileToJarDebug
+2026-11-02T15:42:05.1138731Z > Task :jni:checkKotlinGradlePluginConfigurationErrors SKIPPED
+2026-11-02T15:42:05.1140271Z > Task :jni:compileDebugKotlin NO-SOURCE
+2026-11-02T15:42:05.1141593Z > Task :jni_flutter:checkKotlinGradlePluginConfigurationErrors SKIPPED
+2026-11-02T15:42:05.1142737Z > Task :jni:javaPreCompileDebug
+2026-11-02T15:42:05.1143526Z > Task :jni_flutter:javaPreCompileDebug
+2026-11-02T15:42:10.1150393Z > Task :jni:compileDebugJavaWithJavac
+2026-11-02T15:42:10.1180275Z > Task :sqflite_android:checkKotlinGradlePluginConfigurationErrors SKIPPED
+2026-11-02T15:42:10.1181186Z > Task :jni:bundleLibCompileToJarDebug
+2026-11-02T15:42:10.2139627Z > Task :sqflite_android:compileDebugKotlin NO-SOURCE
+2026-11-02T15:42:10.2200033Z > Task :jni_flutter:compileDebugKotlin NO-SOURCE
+2026-11-02T15:42:10.4139999Z > Task :jni_flutter:compileDebugJavaWithJavac
+2026-11-02T15:42:10.4160137Z > Task :jni_flutter:bundleLibCompileToJarDebug
+2026-11-02T15:42:10.4173491Z > Task :sqflite_android:javaPreCompileDebug
+2026-11-02T15:42:10.4209945Z > Task :app:javaPreCompileDebug
+2026-11-02T15:42:11.2150619Z > Task :sqflite_android:compileDebugJavaWithJavac
+2026-11-02T15:42:11.2151556Z > Task :app:preDebugUnitTestBuild UP-TO-DATE
+2026-11-02T15:42:11.2179907Z > Task :sqflite_android:bundleLibCompileToJarDebug
+2026-11-02T15:42:11.2240061Z > Task :app:javaPreCompileDebugUnitTest
+2026-11-02T15:42:11.2240924Z > Task :flutter_plugin_android_lifecycle:processDebugJavaRes NO-SOURCE
+2026-11-02T15:42:11.2291043Z > Task :flutter_plugin_android_lifecycle:bundleLibRuntimeToJarDebug
+2026-11-02T15:42:11.2320007Z > Task :flutter_secure_storage:processDebugJavaRes NO-SOURCE
+2026-11-02T15:42:11.2349869Z > Task :jni:bundleLibRuntimeToJarDebug
+2026-11-02T15:42:11.2380007Z > Task :flutter_secure_storage:bundleLibRuntimeToJarDebug
+2026-11-02T15:42:11.2409840Z > Task :jni:processDebugJavaRes NO-SOURCE
+2026-11-02T15:42:11.2410564Z > Task :jni_flutter:processDebugJavaRes NO-SOURCE
+2026-11-02T15:42:11.2449836Z > Task :jni_flutter:bundleLibRuntimeToJarDebug
+2026-11-02T15:42:11.2479878Z > Task :sqflite_android:processDebugJavaRes NO-SOURCE
+2026-11-02T15:42:11.2509848Z > Task :sqflite_android:bundleLibRuntimeToJarDebug
+2026-11-02T15:42:13.8140327Z > Task :image_picker_android:compileDebugKotlin
+2026-11-02T15:42:14.4138652Z > Task :image_picker_android:compileDebugJavaWithJavac
+2026-11-02T15:42:14.4139753Z > Task :image_picker_android:bundleLibCompileToJarDebug
+2026-11-02T15:42:14.4140490Z > Task :image_picker_android:bundleLibRuntimeToJarDebug
+2026-11-02T15:42:14.4141113Z > Task :image_picker_android:processDebugJavaRes
+2026-11-02T15:42:44.4148828Z > Task :app:compileDebugKotlin
+2026-11-02T15:42:55.1140006Z w: file:///home/runner/work/ai-companion-build/ai-companion-build/app/android/app/src/main/kotlin/com/aicompanion/localfirst/BackgroundSystemBridge.kt:164:20 'fun unsafeCheckOpNoThrow(p0: String, p1: Int, p2: String): Int' is deprecated. Deprecated in Java.
+2026-11-02T15:42:55.1143962Z w: file:///home/runner/work/ai-companion-build/ai-companion-build/app/android/app/src/main/kotlin/com/aicompanion/localfirst/CompanionNotification.kt:177:59 'constructor(p0: Int, p1: CharSequence!, p2: PendingIntent?): Notification.Action.Builder' is deprecated. Deprecated in Java.
+2026-11-02T15:42:55.1148828Z w: file:///home/runner/work/ai-companion-build/ai-companion-build/app/android/app/src/main/kotlin/com/aicompanion/localfirst/CompanionNotification.kt:193:41 'fun setSound(p0: Uri!): Notification.Builder!' is deprecated. Deprecated in Java.
+2026-11-02T15:42:55.1153304Z w: file:///home/runner/work/ai-companion-build/ai-companion-build/app/android/app/src/main/kotlin/com/aicompanion/localfirst/CompanionNotification.kt:194:41 'fun setSound(p0: Uri!): Notification.Builder!' is deprecated. Deprecated in Java.
+2026-11-02T15:42:55.1156739Z w: file:///home/runner/work/ai-companion-build/ai-companion-build/app/android/app/src/main/kotlin/com/aicompanion/localfirst/CompanionNotification.kt:197:39 'fun setSound(p0: Uri!): Notification.Builder!' is deprecated. Deprecated in Java.
+2026-11-02T15:42:55.1161628Z w: file:///home/runner/work/ai-companion-build/ai-companion-build/app/android/app/src/main/kotlin/com/aicompanion/localfirst/CompanionNotification.kt:200:41 'fun setSound(p0: Uri!): Notification.Builder!' is deprecated. Deprecated in Java.
+2026-11-02T15:42:55.1165792Z w: file:///home/runner/work/ai-companion-build/ai-companion-build/app/android/app/src/main/kotlin/com/aicompanion/localfirst/CompanionNotification.kt:203:37 'fun setSound(p0: Uri!): Notification.Builder!' is deprecated. Deprecated in Java.
+2026-11-02T15:42:55.1170216Z w: file:///home/runner/work/ai-companion-build/ai-companion-build/app/android/app/src/main/kotlin/com/aicompanion/localfirst/CreativeWebSandbox.kt:312:61 Only safe (?.) or non-null asserted (!!.) calls are allowed on a nullable receiver of type 'kotlin.Any?'.
+2026-11-02T15:42:55.1174739Z w: file:///home/runner/work/ai-companion-build/ai-companion-build/app/android/app/src/main/kotlin/com/aicompanion/localfirst/CurrentAppResolver.kt:423:20 'fun unsafeCheckOpNoThrow(p0: String, p1: Int, p2: String): Int' is deprecated. Deprecated in Java.
+2026-11-02T15:42:55.1178869Z w: file:///home/runner/work/ai-companion-build/ai-companion-build/app/android/app/src/main/kotlin/com/aicompanion/localfirst/NativeFateWheelActivity.kt:21:16 'var statusBarColor: Int' is deprecated. Deprecated in Java.
+2026-11-02T15:42:55.1183559Z w: file:///home/runner/work/ai-companion-build/ai-companion-build/app/android/app/src/main/kotlin/com/aicompanion/localfirst/NativeFateWheelActivity.kt:22:16 'var navigationBarColor: Int' is deprecated. Deprecated in Java.
+2026-11-02T15:42:55.1187725Z w: file:///home/runner/work/ai-companion-build/ai-companion-build/app/android/app/src/main/kotlin/com/aicompanion/localfirst/NativeFateWheelActivity.kt:33:22 'var allowFileAccessFromFileURLs: Boolean' is deprecated. Deprecated in Java.
+2026-11-02T15:42:55.1192328Z w: file:///home/runner/work/ai-companion-build/ai-companion-build/app/android/app/src/main/kotlin/com/aicompanion/localfirst/NativeFateWheelActivity.kt:34:22 'var allowUniversalAccessFromFileURLs: Boolean' is deprecated. Deprecated in Java.
+2026-11-02T15:42:55.1196457Z w: file:///home/runner/work/ai-companion-build/ai-companion-build/app/android/app/src/main/kotlin/com/aicompanion/localfirst/NativeMemoryGalaxyActivity.kt:30:16 'var statusBarColor: Int' is deprecated. Deprecated in Java.
+2026-11-02T15:42:55.1200758Z w: file:///home/runner/work/ai-companion-build/ai-companion-build/app/android/app/src/main/kotlin/com/aicompanion/localfirst/NativeMemoryGalaxyActivity.kt:31:16 'var navigationBarColor: Int' is deprecated. Deprecated in Java.
+2026-11-02T15:42:55.1204968Z w: file:///home/runner/work/ai-companion-build/ai-companion-build/app/android/app/src/main/kotlin/com/aicompanion/localfirst/NativeMemoryGalaxyActivity.kt:49:22 'var allowFileAccessFromFileURLs: Boolean' is deprecated. Deprecated in Java.
+2026-11-02T15:42:55.1209452Z w: file:///home/runner/work/ai-companion-build/ai-companion-build/app/android/app/src/main/kotlin/com/aicompanion/localfirst/NativeMemoryGalaxyActivity.kt:50:22 'var allowUniversalAccessFromFileURLs: Boolean' is deprecated. Deprecated in Java.
+2026-11-02T15:42:55.1213959Z w: file:///home/runner/work/ai-companion-build/ai-companion-build/app/android/app/src/main/kotlin/com/aicompanion/localfirst/OverlayBubbleService.kt:514:42 'static field TRIM_MEMORY_RUNNING_LOW: Int' is deprecated. Deprecated in Java.
+2026-11-02T15:42:55.1218259Z w: file:///home/runner/work/ai-companion-build/ai-companion-build/app/android/app/src/main/kotlin/com/aicompanion/localfirst/OverlayBubbleService.kt:516:42 'static field TRIM_MEMORY_RUNNING_LOW: Int' is deprecated. Deprecated in Java.
+2026-11-02T15:42:55.1222754Z w: file:///home/runner/work/ai-companion-build/ai-companion-build/app/android/app/src/main/kotlin/com/aicompanion/localfirst/OverlayBubbleService.kt:868:56 'static field SOFT_INPUT_ADJUST_RESIZE: Int' is deprecated. Deprecated in Java.
+2026-11-02T15:42:55.1227310Z w: file:///home/runner/work/ai-companion-build/ai-companion-build/app/android/app/src/main/kotlin/com/aicompanion/localfirst/SystemBridge.kt:1491:20 'fun unsafeCheckOpNoThrow(p0: String, p1: Int, p2: String): Int' is deprecated. Deprecated in Java.
+2026-11-02T15:42:55.1232032Z w: file:///home/runner/work/ai-companion-build/ai-companion-build/app/android/app/src/main/kotlin/com/aicompanion/localfirst/pet/PetActivityInsets.kt:19:29 'fun setDecorFitsSystemWindows(p0: Boolean): Unit' is deprecated. Deprecated in Java.
+2026-11-02T15:42:55.1236243Z w: file:///home/runner/work/ai-companion-build/ai-companion-build/app/android/app/src/main/kotlin/com/aicompanion/localfirst/qq/QqPrivateService.kt:45:35 'constructor(p0: Context!): Notification.Builder' is deprecated. Deprecated in Java.
+2026-11-02T15:42:55.1240465Z w: file:///home/runner/work/ai-companion-build/ai-companion-build/app/android/app/src/main/kotlin/com/catkiss/senlive2dcompanion/CaicaiDiagnostics.kt:21:41 'field versionCode: Int' is deprecated. Deprecated in Java.
+2026-11-02T15:42:57.2138003Z 
+2026-11-02T15:42:57.2142830Z /home/runner/work/ai-companion-build/ai-companion-build/app/android/app/src/main/java/com/live2d/sdk/cubism/framework/model/CubismModel.java:1442: warning: [dep-ann] deprecated item is not annotated with @Deprecated
+2026-11-02T15:42:57.2150961Z > Task :app:compileDebugJavaWithJavac
+2026-11-02T15:42:57.2165169Z     public boolean getOverwriteFlagForModelCullings() {
+2026-11-02T15:42:57.2165949Z                    ^
+2026-11-02T15:42:57.2168025Z /home/runner/work/ai-companion-build/ai-companion-build/app/android/app/src/main/java/com/live2d/sdk/cubism/framework/model/CubismModel.java:1462: warning: [dep-ann] deprecated item is not annotated with @Deprecated
+2026-11-02T15:42:57.2170304Z     public void setOverwriteFlagForModelCullings(boolean value) {
+2026-11-02T15:42:57.2171080Z                 ^
+2026-11-02T15:42:57.2172733Z /home/runner/work/ai-companion-build/ai-companion-build/app/android/app/src/main/java/com/live2d/sdk/cubism/framework/model/CubismModel.java:1483: warning: [dep-ann] deprecated item is not annotated with @Deprecated
+2026-11-02T15:42:57.2174725Z     public boolean getOverwriteFlagForDrawableCullings(int drawableIndex) {
+2026-11-02T15:42:57.2175573Z                    ^
+2026-11-02T15:42:57.2177205Z /home/runner/work/ai-companion-build/ai-companion-build/app/android/app/src/main/java/com/live2d/sdk/cubism/framework/model/CubismModel.java:1505: warning: [dep-ann] deprecated item is not annotated with @Deprecated
+2026-11-02T15:42:57.2179471Z     public void setOverwriteFlagForDrawableCullings(int drawableIndex, boolean value) {
+2026-11-02T15:42:57.2180431Z                 ^
+2026-11-02T15:42:57.5142996Z Note: Some input files use unchecked or unsafe operations.
+2026-11-02T15:42:57.5170541Z Note: Recompile with -Xlint:unchecked for details.
+2026-11-02T15:42:57.5188952Z 4 warnings
+2026-11-02T15:42:58.0138747Z 
+2026-11-02T15:42:58.0139575Z > Task :app:processDebugJavaRes
+2026-11-02T15:42:58.0140229Z > Task :app:bundleDebugClassesToRuntimeJar
+2026-11-02T15:42:58.1138585Z > Task :app:bundleDebugClassesToCompileJar
+2026-11-02T15:43:06.6138546Z 
+2026-11-02T15:43:06.6139654Z > Task :app:compileDebugUnitTestKotlin
+2026-11-02T15:43:06.6141911Z w: file:///home/runner/work/ai-companion-build/ai-companion-build/app/android/app/src/test/java/com/catkiss/senlive2dcompanion/CaicaiModelPathsTest.kt:16:67 Only safe (?.) or non-null asserted (!!.) calls are allowed on a nullable receiver of type 'java.io.File?'.
+2026-11-02T15:43:09.9160185Z 
+2026-11-02T15:43:09.9214313Z > Task :app:compileDebugUnitTestJavaWithJavac
+2026-11-02T15:43:09.9250264Z > Task :app:processDebugUnitTestJavaRes
+2026-11-02T15:43:36.7157167Z 
+2026-11-02T15:43:36.7174186Z > Task :app:testDebugUnitTest
+2026-11-02T15:43:36.7175499Z 
+2026-11-02T15:43:36.8138988Z DeepseekPerformanceTest > expiredEmotionReturnsToNeutralAndSmallFormKeepsOnlyItsOwnBaseline FAILED
+2026-11-02T15:43:36.8140790Z     java.lang.AssertionError at DeepseekPerformanceTest.java:171
+2026-11-02T15:43:37.0137221Z 
+2026-11-02T15:43:37.0137812Z 192 tests completed, 1 failed
+2026-11-02T15:43:37.2147740Z 
+2026-11-02T15:43:37.2148341Z FAILURE: Build failed with an exception.
+2026-11-02T15:43:37.2148783Z 
+2026-11-02T15:43:37.2148940Z * What went wrong:
+2026-11-02T15:43:37.2149755Z Execution failed for task ':app:testDebugUnitTest'.
+2026-11-02T15:43:37.2151182Z > There were failing tests. See the report at: file:///home/runner/work/ai-companion-build/ai-companion-build/app/build/app/reports/tests/testDebugUnitTest/index.html
+2026-11-02T15:43:37.2152321Z 
+2026-11-02T15:43:37.2152462Z * Try:
+2026-11-02T15:43:37.2152865Z > Run with --scan to get full insights.
+2026-11-02T15:43:37.2153213Z 
+2026-11-02T15:43:37.2153362Z BUILD FAILED in 4m 47s
+2026-11-02T15:43:37.2153620Z 
+2026-11-02T15:43:37.2153819Z > Task :app:testDebugUnitTest FAILED
+2026-11-02T15:43:37.2154161Z 
+2026-11-02T15:43:37.2155095Z [Incubating] Problems report is available at: file:///home/runner/work/ai-companion-build/ai-companion-build/app/build/reports/problems/problems-report.html
+2026-11-02T15:43:37.2156170Z 
+2026-11-02T15:43:37.2156709Z Deprecated Gradle features were used in this build, making it incompatible with Gradle 9.0.
+2026-11-02T15:43:37.2157378Z 
+2026-11-02T15:43:37.2158114Z You can use '--warning-mode all' to show the individual deprecation warnings and determine if they come from your own scripts or plugins.
+2026-11-02T15:43:37.2159051Z 
+2026-11-02T15:43:37.2160191Z For more on this, please refer to https://docs.gradle.org/8.12/userguide/command_line_interface.html#sec:command_line_warnings in the Gradle documentation.
+2026-11-02T15:43:37.2161824Z 128 actionable tasks: 127 executed, 1 up-to-date
+2026-11-02T15:43:37.6877986Z ##[error]Process completed with exit code 1.
+2026-11-02T15:43:37.7167366Z Post job cleanup.
+2026-11-02T15:43:37.7236897Z Post job cleanup.
+2026-11-02T15:43:37.8720558Z (node:9248) [DEP0040] DeprecationWarning: The `punycode` module is deprecated. Please use a userland alternative instead.
+2026-11-02T15:43:37.8721754Z (Use `node --trace-deprecation ...` to show where the warning was created)
+2026-11-02T15:43:37.8986430Z Post job cleanup.
+2026-11-02T15:43:38.0016568Z [command]/usr/bin/git version
+2026-11-02T15:43:38.0067726Z git version 2.56.0
+2026-11-02T15:43:38.0144528Z Temporarily overriding HOME='/home/runner/work/_temp/7feede23-21d6-4e0b-9ce1-1909398027ca' before making global git config changes
+2026-11-02T15:43:38.0150153Z Adding repository directory to the temporary git global config as a safe directory
+2026-11-02T15:43:38.0161989Z [command]/usr/bin/git config --global --add safe.directory /home/runner/work/ai-companion-build/ai-companion-build
+2026-11-02T15:43:38.0216584Z [command]/usr/bin/git config --local --name-only --get-regexp core\.sshCommand
+2026-11-02T15:43:38.0278171Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'core\.sshCommand' && git config --local --unset-all 'core.sshCommand' || :"
+2026-11-02T15:43:38.0801184Z [command]/usr/bin/git config --local --name-only --get-regexp http\.https\:\/\/github\.com\/\.extraheader
+2026-11-02T15:43:38.0826898Z http.https://github.com/.extraheader
+2026-11-02T15:43:38.0843604Z [command]/usr/bin/git config --local --unset-all http.https://github.com/.extraheader
+2026-11-02T15:43:38.0891000Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'http\.https\:\/\/github\.com\/\.extraheader' && git config --local --unset-all 'http.https://github.com/.extraheader' || :"
+2026-11-02T15:43:38.1281803Z [command]/usr/bin/git config --local --name-only --get-regexp ^includeIf\.gitdir:
+2026-11-02T15:43:38.1327203Z [command]/usr/bin/git submodule foreach --recursive git config --local --show-origin --name-only --get-regexp remote.origin.url
+2026-11-02T15:43:38.1875408Z Cleaning up orphan processes
+2026-11-02T15:43:38.2381393Z Terminate orphan process: pid (8443) (java)
+2026-11-02T15:43:38.2434840Z Terminate orphan process: pid (8643) (java)
+2026-11-02T15:43:38.2477593Z Terminate orphan process: pid (9036) (java)
+2026-11-02T15:43:38.2571271Z ##[warning]Node.js 20 is deprecated. The following actions target Node.js 20 but are being forced to run on Node.js 24: actions/checkout@v4, actions/setup-java@v4. For more information see: https://github.blog/changelog/2025-09-19-deprecation-of-node-20-on-github-actions-runners/
+release_url=https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-b3e4774934e2fa18e580
