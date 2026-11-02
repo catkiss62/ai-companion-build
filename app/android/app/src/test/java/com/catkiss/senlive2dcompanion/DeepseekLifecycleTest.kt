@@ -87,8 +87,11 @@ class DeepseekLifecycleTest {
         model.performance(JSONObject().put("emotion","playful").put("cue","voice:1").put("animate",false),true)
         model.applyEmotion(.2f,false,pose,start+1_000_000L)
         assertTrue(values["ParamMouthForm"]!!>.7f)
-        model.releaseSpeech()
-        model.applyEmotion(.016f,false,pose,start+20_000_000L)
+        model.releaseSpeech(start+20_000_000L)
+        model.applyEmotion(.016f,false,pose,start+195_000_000L)
+        assertTrue(values["ParamMouthForm"]!!>0f && values["ParamMouthForm"]!!<.7f)
+        model.releaseSpeech(start+200_000_000L) // Duplicate release cannot restart the fade.
+        model.applyEmotion(.016f,false,pose,start+371_000_000L)
         assertEquals(0f,values["ParamMouthForm"]!!,0f)
         assertEquals(0f,values["MouthX"]!!,0f)
         model.performance(JSONObject().put("_preview",true).put("emotion","playful"),false)

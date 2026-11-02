@@ -42,7 +42,7 @@ final class DeepseekAvatarModel extends CubismUserModel {
     private float effectTime,previewRootX,previewRootTilt;
     private String baseEmotion="normal",baseEvent="",previewEmotion="normal",speechEmotion="normal",speechCue="",clipStatus="";
     private boolean emotionSuppressed=true;
-    private long speechDeadline,previewEmotionDeadline;
+    private long speechDeadline,speechFaceFade,previewEmotionDeadline;
     private static final Set<String> AUXILIARY=new HashSet<>(Arrays.asList(
         "Param31","Param32","Param27","Param28","RCry","Param29","Param30","LCry"));
     private final DeepseekParameterPlan.Target pose=new DeepseekParameterPlan.Target() {
@@ -204,12 +204,12 @@ final class DeepseekAvatarModel extends CubismUserModel {
         long now=System.nanoTime();
         String emotion=args.optString("emotion");if(emotion.isEmpty()) emotion=emotionWeight(now)>0?baseEmotion:"normal";
         if(!speech) {
-            speechDeadline=0;speechCue="";
+            speechDeadline=0;speechFaceFade=0;speechCue="";
             if(args.optBoolean("_preview")) {
                 previewEmotion=emotion;previewEmotionDeadline=now+4_500_000_000L;
             } else {previewEmotionDeadline=0;emotion(baseEvent.isEmpty()?"plan:"+now:baseEvent,emotion);}
         }
-        else {speechEmotion=emotion;speechDeadline=now+700_000_000L;}
+        else {speechEmotion=emotion;speechFaceFade=0;speechDeadline=now+700_000_000L;}
         String cue=args.optString("cue","");
         if(speech && cue.equals(speechCue)) return;
         if(speech) speechCue=cue;
@@ -224,12 +224,15 @@ final class DeepseekAvatarModel extends CubismUserModel {
         } else {plan.release();gestures.stop();}
     }
     void releaseSpeech() {
+        releaseSpeech(System.nanoTime());
+    }
+    void releaseSpeech(long now) {
         if(speechDeadline==0) return;
-        speechDeadline=0;previewEmotionDeadline=0;speechCue="";expressions.emotion(baseEmotion);
+        speechDeadline=0;speechFaceFade=now+350_000_000L;previewEmotionDeadline=0;speechCue="";
         plan.release();expressions.release();gestures.stop();
     }
     void stopPerformance() {
-        speechDeadline=0;previewEmotionDeadline=0;speechCue="";expressions.emotion(baseEmotion);
+        speechDeadline=speechFaceFade=0;previewEmotionDeadline=0;speechCue="";expressions.emotion(baseEmotion);
         plan.release();expressions.release();gestures.stop();
     }
     void look(boolean active,float x,float y) {if(!staticMode) idle.look(active,x,y);}
@@ -313,14 +316,17 @@ final class DeepseekAvatarModel extends CubismUserModel {
         if(form>.0001f || anchorDirty) stabilizeMorph(); else model.update();
     }
     void applyEmotion(float delta,boolean small,DeepseekParameterPlan.Target target,long now) {
-        if(speechDeadline!=0 && now>speechDeadline) releaseSpeech();
+        if(speechDeadline!=0 && now>speechDeadline) releaseSpeech(speechDeadline);
+        if(speechFaceFade!=0 && now>=speechFaceFade) speechFaceFade=0;
         if(previewEmotionDeadline!=0 && now>previewEmotionDeadline) previewEmotionDeadline=0;
         float faceWeight=emotionWeight(now);
         String faceEmotion=baseEmotion;
         if(previewEmotionDeadline!=0) {
             faceEmotion=previewEmotion;faceWeight=Math.max(0,Math.min(1,(previewEmotionDeadline-now)/380_000_000f));
         }
-        if(speechDeadline!=0) {faceEmotion=speechEmotion;faceWeight=1;}
+        float speechWeight=speechDeadline!=0?1:speechFaceFade==0?0:
+            Math.max(0,Math.min(1,(speechFaceFade-now)/350_000_000f));
+        if(speechWeight>0) {faceEmotion=speechEmotion;faceWeight=speechWeight+faceWeight*(1-speechWeight);}
         if(faceWeight<=0) faceEmotion="normal";
         expressions.emotion(faceEmotion);
         expressions.apply(delta,small,target,faceWeight);
