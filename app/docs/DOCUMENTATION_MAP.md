@@ -1,9 +1,9 @@
 # 文档地图
 
-- [DeepSeek视线集中与小豆丁边界+405](DEEPSEEK_FOCUS_SMALLFORM_v042161.md)：用户微调反馈；候选实施完成，待CI/手机确认。
+- 当前交付：[DeepSeek视线集中、小豆丁边界及情绪还原+405](DEEPSEEK_FOCUS_SMALLFORM_v042161.md)：完整/专项CI、原签名APK与摘要已核验；手机观感待确认。
 
 
-- 当前交付：[DeepSeek表现幅度修正+404](DEEPSEEK_EXPRESSIVE_v042160.md)：头身表现、独立前倾、19情绪、摸头彩蛋和猫嘴默认；完整/专项CI与原签名APK已核验，手机观感待确认。下方早期条目保留为历史。
+- 前一版交付：[DeepSeek表现幅度修正+404](DEEPSEEK_EXPRESSIVE_v042160.md)：头身表现、独立前倾、19情绪、摸头彩蛋和猫嘴默认；完整/专项CI与原签名APK已核验，手机观感待确认。下方早期条目保留为历史。
 
 
 当前待讨论方案：[群聊情境、三语语音与临时表情复读](QQ_SITUATION_VOICE_ECHO_PLAN_2026-10-27.md)。仅文档；简版人设、以接话为主，新功能未实现，APK暂停。
