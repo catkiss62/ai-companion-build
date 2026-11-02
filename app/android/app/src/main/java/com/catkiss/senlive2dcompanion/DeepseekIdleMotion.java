@@ -75,7 +75,10 @@ final class DeepseekIdleMotion {
         mix(target,"PositionY",clamp(y*6*gain,30),follow*headWeight);
     }
     private static void mix(DeepseekParameterPlan.Target t,String id,float value,float weight) {
-        if(t.accepts(id)) t.write(id,t.current(id)+(value-t.current(id))*weight);
+        // Reapply the authored bound after lerp: float cancellation at full weight
+        // can produce -30.000002 even when both endpoints are within -30..30.
+        if(t.accepts(id)) t.write(id,DeepseekParameterPlan.spatialValue(id,
+            t.current(id)+(value-t.current(id))*weight));
     }
     private static float clamp(float value,float limit) {return Math.max(-limit,Math.min(limit,value));}
     private static void put(DeepseekParameterPlan.Target t,String id,float value) {if(t.accepts(id)) t.write(id,value);}
