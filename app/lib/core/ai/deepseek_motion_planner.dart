@@ -90,12 +90,9 @@ class DeepseekMotionPlanner {
         final options = {for (final e in c.value.entries)
           if (e.value.keys.every(parameters.containsKey)) e.key: e.key};
         if (options.length > 1) q['f${i}_${c.key}'] = JevChoiceQuestion(
-          'DeepSeek四拍第${i + 1}拍，依次起意、强调、反应、收势。根据回复语义选择${c.key}；'
-          '普通对话也应有看得见的头身表达，四拍至少两次符合语义的姿态变化，不要四拍全选自然。'
-          '头转向可用25、俯仰24、歪头23，避免每拍反向甩头；不因范围大就一直保守。'
-          'lean是独立前倾：俏皮、打趣、亲近或凑近打量时可选贴近屏幕，不要求台词明说靠近；'
-          '强调/反应拍可连续保持LeanInput=-30，末拍本地收回0。正文无关时不强行前倾。'
-          '头身可配合前倾，同时保持方向连贯。嘴部只在没有真实语音时生效。', options);
+          'DeepSeek四拍第${i + 1}拍，依次起意、强调、反应、收势。根据回复语义选择${c.key}，'
+          '遵循state.performance_direction。'
+          '${c.key == 'lean' ? '俏皮、打趣或亲近时可贴近屏幕；不要求台词明说靠近。末拍选站回原位。' : ''}', options);
       }
       q['f${i}_root'] = JevChoiceQuestion('第${i + 1}拍整模轻移／以独立小腿支点倾斜，按语义配合头身。',
         {for (final key in roots.keys) key: key});
@@ -116,6 +113,10 @@ class DeepseekMotionPlanner {
       'avatar': 'deepseek-avatar', 'catalog': catalog,
       'user': boundedText(user, 2000), 'reply': boundedText(reply, 4000), 'emotion': emotion,
       'parameter_contract': parameters,
+      'performance_direction': '普通对话也应有看得见的头身表达，四拍至少两次符合语义的姿态变化，不要全选自然。'
+        '转头25、俯仰24、歪头23，避免每拍反向甩头，不因范围大而一直保守。'
+        '独立lean可在俏皮、打趣、亲近或凑近打量时选-30，强调/反应拍可连续保持；末拍本地收回0。'
+        '头身可配合前倾，无关时不强行贴近。嘴部只在没有真实语音时生效。',
       if (spans.isNotEmpty) 'speech_stage': [for (var i = 0; i < spans.length; i++)
         {'index': i + 1, 'text': boundedText(spans[i].text, 500)}],
       'contract': 'One independent four-beat plan plus optional real-audio spans. No mouth opening, clothes, morph, physics outputs or arbitrary parameter IDs. Head/body inputs within authored -30..30; full front lean -30, return to 0 at the end. Root <=10deg/15%. Eye L/R are anatomical. No V-sign or Caicai props.',

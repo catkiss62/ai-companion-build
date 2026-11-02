@@ -91,9 +91,10 @@ public class DeepseekInteractionTest {
     }
     @Test public void patEntersFromTheRenderedHeadInsteadOfSnappingAConversationToIdle() {
         DeepseekHeadPat pat=new DeepseekHeadPat();Pose pose=new Pose();
-        pose.write("AngleX",12);pose.write("LeanInput",-30);pose.write("@rootTilt",3);
+        pose.write("AngleX",28);pose.write("LeanInput",-30);pose.write("@rootTilt",8);pose.write("PositionX",20);
         pat.start(true,false,pose);pose.lower();pat.apply(1f/60,false,pose);
-        assertTrue(pose.current("AngleX")>11);assertTrue(pose.current("LeanInput")<-28);
+        assertTrue(pose.current("AngleX")>27);assertTrue(pose.current("LeanInput")<-28);
+        assertTrue(pose.current("@rootTilt")>7.8f);assertTrue(pose.current("PositionX")>19);
         for(int i=0;i<30;i++) {pose.lower();pat.apply(1f/60,false,pose);}
         assertEquals(0,pose.current("AngleX"),.001f);assertEquals(0,pose.current("LeanInput"),.001f);
     }
