@@ -82,34 +82,36 @@ final class DeepseekExpressions {
         return min+(max-min)*phase;
     }
     static Map<String,Float> emotionPose(String emotion) {
-        // Mouth form, brows, squint, eye opening: authored DeepSeek semantics, not Caicai values.
+        // DeepSeek has separate smile/squint, 0..1.5 opening and ear-linked brows.
+        // Use that range for readable emotion; no special eye buttons or PCM opening here.
         float mouth=0,brow=0,squint=0,open=1,inner=0,x=0,puff=0;
         switch(emotion) {
-            case "happy": mouth=.68f;brow=.22f;squint=.38f;break;
-            case "excited": mouth=.9f;brow=.62f;squint=.65f;open=1.12f;break;
-            case "affection": mouth=.48f;brow=.15f;squint=.44f;break;
-            case "shy": mouth=.25f;brow=.12f;squint=.28f;x=-.2f;break;
-            case "flustered": mouth=-.35f;brow=.58f;open=1.22f;inner=.3f;break;
-            case "tense": mouth=-.42f;brow=-.28f;open=1.08f;break;
-            case "worried": mouth=-.52f;brow=.28f;inner=.65f;open=.9f;break;
-            case "helpless": mouth=-.3f;brow=.12f;squint=.22f;open=.8f;break;
-            case "afraid": mouth=-.6f;brow=.55f;inner=.7f;open=1.3f;break;
-            case "angry": mouth=-.85f;brow=-.7f;puff=.45f;break;
-            case "sad": mouth=-.72f;brow=.25f;inner=.8f;open=.75f;break;
-            case "disgust": mouth=-.6f;brow=-.32f;open=.65f;x=.4f;break;
-            case "serious": mouth=-.2f;brow=-.3f;break;
-            case "surprised": brow=.7f;open=1.45f;inner=.2f;break;
-            case "confident": mouth=.6f;brow=.05f;squint=.18f;x=.25f;break;
-            case "playful": mouth=.78f;brow=.3f;squint=.45f;x=.35f;break;
-            case "ashamed": mouth=-.24f;brow=.25f;squint=.35f;inner=.3f;break;
-            case "calm": mouth=.15f;squint=.1f;break;
-            case "confused": mouth=-.12f;inner=.4f;open=1.12f;break;
+            case "happy": mouth=1;brow=.35f;squint=.85f;break;
+            case "excited": mouth=1;brow=.85f;squint=1;open=1.2f;break;
+            case "affection": mouth=.85f;brow=.25f;squint=.8f;open=.9f;break;
+            case "shy": mouth=.55f;brow=.35f;squint=.6f;x=-.6f;open=.85f;break;
+            case "flustered": mouth=-.65f;brow=.85f;open=1.35f;inner=.5f;x=.45f;break;
+            case "tense": mouth=-.65f;brow=-.65f;open=1.15f;break;
+            case "worried": mouth=-.8f;brow=.65f;inner=.9f;open=.85f;x=-.35f;break;
+            case "helpless": mouth=-.65f;brow=.45f;squint=.25f;open=.7f;x=-.5f;break;
+            case "afraid": mouth=-.85f;brow=.95f;inner=1;open=1.4f;break;
+            case "angry": mouth=-1;brow=-1;open=.85f;puff=.75f;break;
+            case "sad": mouth=-1;brow=.8f;inner=1;open=.65f;break;
+            case "disgust": mouth=-.85f;brow=-.6f;open=.55f;x=.8f;break;
+            case "serious": mouth=-.5f;brow=-.55f;open=.9f;break;
+            case "surprised": mouth=-.6f;brow=1;open=1.5f;inner=.4f;break;
+            case "confident": mouth=.85f;brow=-.2f;squint=.45f;x=.75f;break;
+            case "playful": mouth=1;brow=-.25f;squint=.9f;x=.8f;break;
+            case "ashamed": mouth=-.8f;brow=.45f;squint=.8f;inner=.5f;open=.8f;x=-.55f;break;
+            case "calm": mouth=.4f;brow=.1f;squint=.35f;break;
+            case "confused": mouth=-.25f;brow=.9f;inner=.6f;open=1.2f;x=.75f;break;
             default: break;
         }
         Map<String,Float> pose=new LinkedHashMap<>();
         pose.put("ParamMouthForm",mouth);pose.put("MouthX",x);pose.put("CheeckPuff",puff);
-        pose.put("ParamBrowLY",brow);pose.put("ParamBrowRY",emotion.equals("confused")?-.4f:brow);
-        pose.put("REyeSquint",squint);pose.put("LEyeSquint",squint);pose.put("EyeSmile",squint*.5f);
+        pose.put("ParamBrowLY",brow);pose.put("ParamBrowRY",emotion.equals("confused")?-.65f:emotion.equals("confident")?.45f:emotion.equals("playful")?.55f:brow);
+        pose.put("REyeSquint",squint);pose.put("LEyeSquint",emotion.equals("playful")?.6f:squint);
+        pose.put("EyeSmile",emotion.equals("angry")?-.7f:emotion.equals("disgust")?-.45f:squint);
         pose.put("BrowInnerUp",inner);pose.put("ParamEyeLOpen",open);pose.put("ParamEyeROpen",open);
         return pose;
     }

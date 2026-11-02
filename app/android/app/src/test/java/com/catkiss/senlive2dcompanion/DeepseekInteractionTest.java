@@ -22,10 +22,10 @@ public class DeepseekInteractionTest {
                 String id=value.getKey();assertTrue(Float.isFinite(value.getValue()));
                 assertFalse(DeepseekExpressions.MOUTH.contains(id));assertFalse(id.startsWith("Clothes"));
                 assertFalse(DeepseekGestures.CHANNELS.contains(id));assertFalse(id.startsWith("key"));
-                float limit=id.equals("@rootX")?.02f:id.equals("@rootTilt")?1.6f:id.startsWith("Angle")?6:id.startsWith("Position")?2.2f:1;
+                float limit=id.equals("@rootX")?.15f:id.equals("@rootTilt")?10:id.startsWith("Angle")?30:id.startsWith("Position")?30:1;
                 assertTrue(id,Math.abs(value.getValue())<=limit+.0001f);
             }
-            if(i>0) assertTrue(Math.abs(pose.current("AngleX")-previous)<.4f);previous=pose.current("AngleX");
+            if(i>0) assertTrue(Math.abs(pose.current("AngleX")-previous)<3.5f);previous=pose.current("AngleX");
             assertTrue(idle.breath()>=.37999f && idle.breath()<=.62001f);
             if(idle.family()!=last) {
                 assertFalse(recent.contains(idle.family()));recent.addLast(idle.family());
@@ -38,8 +38,9 @@ public class DeepseekInteractionTest {
         DeepseekIdleMotion idle=new DeepseekIdleMotion(new Random(5));Pose pose=new Pose();
         idle.look(true,-1,1);
         for(int i=0;i<40;i++) {pose.lower();idle.update(1f/60,pose);idle.applyAttention(pose,1);}
-        assertTrue(pose.current("ParamEyeBallX")<-.7f);assertTrue(pose.current("AngleX")<-4);
-        assertTrue(pose.current("ParamEyeBallY")>.6f);assertTrue(pose.current("AngleY")>3);
+        assertTrue(pose.current("ParamEyeBallX")<-.7f);assertTrue(pose.current("AngleX")<-25);
+        assertTrue(pose.current("ParamEyeBallY")>.6f);assertTrue(pose.current("AngleY")>24);
+        assertTrue(pose.current("PositionZ")>7);assertTrue(pose.current("PositionY")>5);
         idle.look(false,0,0);
         for(int i=0;i<100;i++) {pose.lower();idle.update(1f/60,pose);idle.applyAttention(pose,1);}
         assertFalse(idle.attentive());assertTrue(Math.abs(pose.current("ParamEyeBallX"))<=.17f);
@@ -132,5 +133,28 @@ public class DeepseekInteractionTest {
         m[0]=0;assertTrue(hit.inverse(.5f,.5f,new float[2])); // Snapshot never shares a mutable GL array.
         assertFalse(DeepseekHitTransform.INVALID.inverse(.5f,.5f,new float[2]));
         assertFalse(hit.inverse(Float.NaN,.5f,new float[2]));assertFalse(hit.inverse(.5f,.5f,null));
+    }
+
+    @Test public void defaultIdleActuallyUsesHeadBodyAndRootInsteadOfOnlyPassingUpperBounds() {
+        DeepseekIdleMotion idle=new DeepseekIdleMotion(new Random(17));Pose pose=new Pose();
+        Map<String,Float> peaks=new HashMap<>();
+        for(int i=0;i<18000;i++) {
+            pose.values.clear();idle.update(1f/60,pose);
+            for(Map.Entry<String,Float> e:pose.values.entrySet())
+                peaks.put(e.getKey(),Math.max(peaks.getOrDefault(e.getKey(),0f),Math.abs(e.getValue())));
+        }
+        for(String id:Arrays.asList("AngleX","AngleY","AngleZ")) assertTrue(id+peaks,peaks.get(id)>18);
+        for(String id:Arrays.asList("PositionX","PositionY","PositionZ")) assertTrue(id+peaks,peaks.get(id)>8);
+        assertTrue(peaks.toString(),peaks.get("@rootX")>.05f);assertTrue(peaks.toString(),peaks.get("@rootTilt")>4);
+    }
+    @Test public void puzzledEggHasDistinctVisibleEyesBrowsAndBodyThroughoutItsHold() {
+        DeepseekHeadPat pat=new DeepseekHeadPat();Pose pose=new Pose();pat.start(false,true,pose);
+        for(int i=0;i<120;i++) {pose.lower();pat.apply(1f/60,false,pose);}
+        assertEquals("easter_egg",pat.state());
+        assertTrue(pose.current("ParamEyeROpen")-pose.current("ParamEyeLOpen")>.7f);
+        assertTrue(pose.current("ParamBrowRY")-pose.current("ParamBrowLY")>1.4f);
+        assertTrue(pose.current("MouthX")>.7f);assertEquals(-12,pose.current("AngleZ"),.01f);
+        assertEquals(-10,pose.current("AngleY"),.01f);assertEquals(-4,pose.current("PositionY"),.01f);
+        pat.release();assertFalse(pat.start(true,false,pose));
     }
 }

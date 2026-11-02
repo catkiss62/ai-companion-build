@@ -17,6 +17,12 @@ final class DeepseekParameterPlan {
         "EyeSmile","REyeSquint","LEyeSquint","ParamMouthForm","MouthX","Mouthpucker",
         "MouthFunnel","MouthPuckerWiden","CheeckPuff","TongueOut"));
     static boolean supports(String id) { return CHANNELS.contains(id); }
+    // These are input parameter units, not physical degrees. Core remains the final authority.
+    static float spatialValue(String id,float value) {
+        float cap=id.startsWith("Angle") || id.startsWith("Position") || id.equals("LeanInput")?30:
+            id.equals("@rootX")?.15f:id.equals("@rootTilt")?10:Float.POSITIVE_INFINITY;
+        return Math.max(-cap,Math.min(id.equals("LeanInput")?0:cap,value));
+    }
     private static final class Frame {
         float time, duration;
         Map<String, Float> values = new LinkedHashMap<>();
@@ -60,9 +66,7 @@ final class DeepseekParameterPlan {
             while (keys.hasNext()) {
                 String id = keys.next();
                 float value = (float)values.optDouble(id, Double.NaN);
-                if(id.startsWith("Angle")) value=Math.max(-14,Math.min(14,value));
-                if(id.startsWith("Position")) value=Math.max(-8,Math.min(8,value));
-                if(id.equals("LeanInput")) value=Math.max(-30,Math.min(0,value));
+                value=spatialValue(id,value);
                 if (supports(id) && Float.isFinite(value)) f.values.put(id, value);
             }
             // Root movement has its own namespace; never write fabricated Cubism IDs.
@@ -71,7 +75,7 @@ final class DeepseekParameterPlan {
                 for (String key : new String[]{"x","tilt"}) {
                     float v=(float)root.optDouble(key,Double.NaN);
                     if (Float.isFinite(v)) f.values.put(key.equals("x") ? "@rootX" : "@rootTilt",
-                        Math.max(key.equals("x") ? -.035f : -3f,Math.min(key.equals("x") ? .035f : 3f,v)));
+                        spatialValue(key.equals("x") ? "@rootX" : "@rootTilt",v));
                 }
             }
             lastTime = f.time;
@@ -103,6 +107,7 @@ final class DeepseekParameterPlan {
             boolean slowAxis = id.equals("@rootX") || id.equals("PositionX")
                 || id.equals("PositionZ");
             float rate=finishing?9f:(slowAxis?1.5f:spatial?3.4f:5f)/Math.max(.1f,current.duration);
+            if(!finishing && id.equals("LeanInput")) rate=6f/Math.min(.65f,current.duration);
             float smoothing=1f-(float)Math.exp(-delta*rate);
             float lower = target.current(id);
             float old = previous.containsKey(id) ? previous.get(id) : lower;
@@ -112,11 +117,8 @@ final class DeepseekParameterPlan {
                 wanted=current.values.get(id)*scale;
             }
             float value = old + (wanted - old) * smoothing;
-            if(id.startsWith("Angle")) value=Math.max(-14,Math.min(14,value));
-            if(id.startsWith("Position")) value=Math.max(-8,Math.min(8,value));
-            if(id.equals("LeanInput")) value=Math.max(-30,Math.min(0,value));
-            if(id.equals("@rootX")) value=Math.max(-.035f,Math.min(.035f,value));
-            if(id.equals("@rootTilt")) value=Math.max(-3,Math.min(3,value));
+            if(id.equals("LeanInput") && Math.abs(wanted-value)<.1f) value=wanted;
+            value=spatialValue(id,value);
             target.write(id, value);
             previous.put(id, value);
         }

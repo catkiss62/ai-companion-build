@@ -50,16 +50,17 @@ final class DeepseekIdleMotion {
         x+=(targetX*follow-x)*ease;y+=(targetY*follow-y)*ease;
         if(age>=duration) {age-=duration;nextPhrase();}
         float pulse=age<accent?variation*(float)Math.pow(Math.sin(Math.PI*age/accent),2):0;
-        // AngleX has a much larger visual range than Caicai's control rig.
-        put(target,"AngleX",clamp(gain*(wave(clock*1.05f,.4f)*2.6f+side*pulse*(family==0?2.5f:1.4f)),6));
-        put(target,"AngleY",clamp(gain*(wave(clock*.93f,1.8f)*2.4f+pulse*(family==2?2:family==3?-2:0)),6));
-        put(target,"AngleZ",clamp(gain*(wave(clock*.87f,3.2f)*2+side*pulse*(family==4?2:1)),5));
-        put(target,"PositionX",clamp(gain*(wave(clock*.65f,.7f)*1.05f+side*pulse*.45f),2.2f));
-        put(target,"PositionY",clamp(gain*(wave(clock*.72f,2.2f)*.8f+pulse*(family==5?.7f:-.2f)),2));
-        put(target,"PositionZ",clamp(gain*(wave(clock*.62f,4.2f)*1.1f-side*pulse*.4f),2.2f));
+        // Authored inputs are -30..30, including the body controls feeding physics.
+        // Comparable energy to Caicai; smooth timing, rather than tiny caps, avoids jolts.
+        put(target,"AngleX",clamp(gain*(wave(clock*1.05f,.4f)*22+side*pulse*(family==0?14:7)),30));
+        put(target,"AngleY",clamp(gain*(wave(clock*.93f,1.8f)*21+pulse*(family==2?17:family==3?-16:0)),30));
+        put(target,"AngleZ",clamp(gain*(wave(clock*.87f,3.2f)*19+side*pulse*(family==4?15:9)),30));
+        put(target,"PositionX",clamp(gain*(wave(clock*.65f,.7f)*12+side*pulse*4),30));
+        put(target,"PositionY",clamp(gain*(wave(clock*.72f,2.2f)*10+pulse*(family==5?5:-3)),30));
+        put(target,"PositionZ",clamp(gain*(wave(clock*.62f,4.2f)*13-side*pulse*5),30));
         put(target,"LeanInput",0);
-        put(target,"@rootX",clamp(gain*side*pulse*(family==6?.014f:.009f),.02f));
-        put(target,"@rootTilt",clamp(gain*side*pulse*(family==7?1.1f:.7f),1.6f));
+        put(target,"@rootX",clamp(gain*side*pulse*(family==6?.075f:.055f),.15f));
+        put(target,"@rootTilt",clamp(gain*side*pulse*(family==7?6:4.5f),10));
         put(target,"ParamEyeBallX",wave(clock*.48f,1)*.17f);
         put(target,"ParamEyeBallY",wave(clock*.43f,2)*.12f);
     }
@@ -68,8 +69,10 @@ final class DeepseekIdleMotion {
         if(follow<=0) return;
         mix(target,"ParamEyeBallX",x*.8f,follow);
         mix(target,"ParamEyeBallY",y*.7f,follow);
-        mix(target,"AngleX",clamp(x*5.5f*gain,8),follow*headWeight);
-        mix(target,"AngleY",clamp(y*4.5f*gain,7),follow*headWeight);
+        mix(target,"AngleX",clamp(x*27*gain,30),follow*headWeight);
+        mix(target,"AngleY",clamp(y*26*gain,30),follow*headWeight);
+        mix(target,"PositionZ",clamp(-x*8*gain,30),follow*headWeight);
+        mix(target,"PositionY",clamp(y*6*gain,30),follow*headWeight);
     }
     private static void mix(DeepseekParameterPlan.Target t,String id,float value,float weight) {
         if(t.accepts(id)) t.write(id,t.current(id)+(value-t.current(id))*weight);

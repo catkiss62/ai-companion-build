@@ -30,15 +30,15 @@ final class DeepseekHeadPat {
         for(String id:FACE) if(pose.accepts(id)) {
             float target=0;
             switch(id) {
-                case "ParamEyeLOpen":target=rare?.65f:.12f;break;
-                case "ParamEyeROpen":target=rare?1.05f:.12f;break;
+                case "ParamEyeLOpen":target=rare?.55f:.12f;break;
+                case "ParamEyeROpen":target=rare?1.35f:.12f;break;
                 case "LEyeSquint":case "REyeSquint":target=rare?0:.9f;break;
-                case "EyeSmile":target=rare?0:.65f;break;
-                case "ParamBrowLY":target=rare?-.5f:small?-.18f:.22f;break;
-                case "ParamBrowRY":target=rare?.65f:small?-.18f:.22f;break;
-                case "BrowInnerUp":target=rare?.35f:0;break;
-                case "ParamMouthForm":target=rare?-.3f:small?-.7f:.65f;break;
-                case "MouthX":target=rare?.4f:0;break;
+                case "EyeSmile":target=rare?0:.9f;break;
+                case "ParamBrowLY":target=rare?-.65f:small?-.18f:.35f;break;
+                case "ParamBrowRY":target=rare?.9f:small?-.18f:.35f;break;
+                case "BrowInnerUp":target=rare?.55f:0;break;
+                case "ParamMouthForm":target=rare?-.5f:small?-.7f:.9f;break;
+                case "MouthX":target=rare?.75f:0;break;
                 case "CheeckPuff":target=small?.28f:0;break;
                 case "key7":target=rare?0:.25f;break;
                 default:break;
@@ -48,13 +48,12 @@ final class DeepseekHeadPat {
         }
         for(String id:SPATIAL) if(pose.accepts(id)) {
             float base=pose.current(id),target=base;
-            if(id.equals("AngleY")) target-=3.5f;
-            if(id.equals("AngleZ")) target+=rare?-5:2*(float)Math.sin(age*4);
-            if(id.equals("PositionY")) target-=.8f;
+            if(id.equals("AngleY")) target-=10;
+            if(id.equals("AngleZ")) target+=rare?-12:6*(float)Math.sin(age*5);
+            if(id.equals("PositionY")) target-=4;
             float entered=from.getOrDefault(id,base)*(1-in)+target*in;
             float value=entered*(1-out)+base*out;
-            float cap=id.startsWith("Angle")?14:id.startsWith("Position")?8:id.equals("@rootX")?.035f:id.equals("@rootTilt")?3:30;
-            pose.write(id,Math.max(-cap,Math.min(id.equals("LeanInput")?0:cap,value)));
+            pose.write(id,DeepseekParameterPlan.spatialValue(id,value));
         }
         if(out>=1 || rare&&age>=2.8f) {active=false;from.clear();}
     }

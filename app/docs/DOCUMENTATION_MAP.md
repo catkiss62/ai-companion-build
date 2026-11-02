@@ -1,5 +1,8 @@
 # 文档地图
 
+- [DeepSeek表现幅度修正+404](DEEPSEEK_EXPRESSIVE_v042160.md)：对照菜菜恢复头身表现、独立前倾、19情绪、摸头彩蛋和猫嘴默认；本轮候选待CI/手机验证。
+
+
 当前待讨论方案：[群聊情境、三语语音与临时表情复读](QQ_SITUATION_VOICE_ECHO_PLAN_2026-10-27.md)。仅文档；简版人设、以接话为主，新功能未实现，APK暂停。
 
 当前修补：`PROACTIVE_PRESENTATION_QQ_IDENTITY_v042145.md`（+389运行修补已推送；用户暂停APK，先讨论QQ语音/自主表达/远端用图）。已交付+388见`QQ_CONTEXT_RECOVERY_v042144.md`。

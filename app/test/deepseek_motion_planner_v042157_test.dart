@@ -9,7 +9,7 @@ void main() {
   ]) id: {'min': id.startsWith('Angle') ? -9 : -30, 'max': 30}};
   test('four beats use real DeepSeek channels and Core bounds', () {
     final p = DeepseekMotionPlanner.buildPlan({
-      'f0_head':'左转','f0_body':'贴近屏幕','f1_root':'左倾','f2_mouth':'撅嘴',
+      'f0_head':'左转','f0_lean':'贴近屏幕','f1_root':'左倾','f2_mouth':'撅嘴',
       'emotion':'crying',
     }, parameters);
     final frames = p['frames'] as List;
@@ -39,7 +39,7 @@ void main() {
     for (final delivery in DeepseekMotionPlanner.deliveries.keys) {
       for (final frame in DeepseekMotionPlanner.speechFrames(delivery, parameters)) {
         expect((frame['parameters'] as Map).keys.every((id) =>
-          const ['AngleX','AngleY','AngleZ','PositionY','PositionZ','ParamEyeBallX','BrowInnerUp'].contains(id)), isTrue);
+          const ['AngleX','AngleY','AngleZ','PositionY','PositionZ','ParamEyeBallX','BrowInnerUp','LeanInput'].contains(id)), isTrue);
       }
     }
   });

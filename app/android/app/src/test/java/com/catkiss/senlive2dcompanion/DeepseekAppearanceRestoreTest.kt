@@ -61,4 +61,21 @@ class DeepseekAppearanceRestoreTest {
         for ((key,value) in mapOf("headLeft" to .21f,"headTop" to .1f,"headRight" to .75f,"headBottom" to .4f))
             assertEquals(value,head.getFloat(key,0f),0f)
     }
+
+    @Test fun mouthDefaultsToCatAndLegacyZeroArchivesDoNotReplaceASavedArc() {
+        val prefs=context.getSharedPreferences("deepseek_appearance",0)
+        assertEquals(-1f,DeepseekAvatarModel(context).mouthStyle(),0f)
+        for ((saved,effective) in listOf(0f to -1f,-1f to -1f,1f to 1f)) {
+            prefs.edit().putFloat("MouthPressLipOpen",saved).commit()
+            assertEquals(effective,DeepseekAvatarModel(context).mouthStyle(),0f)
+            val portable=PortableCompanionState(context,CaicaiModelRepository(context),releaseModel={},refreshPreferences={})
+            val snapshot=portable.begin();val preferences=snapshot["preferences"] as Map<*,*>
+            portable.finish(snapshot["token"] as String,true)
+            prefs.edit().putFloat("MouthPressLipOpen",-effective).commit()
+            val token=portable.begin()["token"] as String
+            portable.apply(token,preferences,restoreModels=false);portable.finish(token,true)
+            assertEquals(effective,DeepseekAvatarModel(context).mouthStyle(),0f)
+            assertFalse(context.getSharedPreferences("caicai_appearance",0).contains("MouthPressLipOpen"))
+        }
+    }
 }

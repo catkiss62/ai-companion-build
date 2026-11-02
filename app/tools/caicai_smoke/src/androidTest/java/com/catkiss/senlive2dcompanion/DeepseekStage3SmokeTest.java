@@ -30,7 +30,7 @@ public class DeepseekStage3SmokeTest {
         for(int i=0;i<18000;i++) {
             p.values.clear();if(i%180==0) idle.look(true,i%360==0?-1:1,.5f);
             idle.update(1f/60,p);idle.applyAttention(p,1);
-            assertTrue(Math.abs(p.current("AngleX"))<=8);assertTrue(Math.abs(p.current("@rootTilt"))<=1.6f);
+            assertTrue(Math.abs(p.current("AngleX"))<=30);assertTrue(Math.abs(p.current("@rootTilt"))<=10);
             assertFalse(p.values.containsKey("ParamMouthForm"));
             p.write("ParamEyeLOpen",.8f);p.write("ParamEyeROpen",.8f);blink.update(1f/60,i%120<60,p);
             assertTrue(p.current("ParamEyeLOpen")<=.8f);assertTrue(p.values.size()<20);
@@ -43,5 +43,15 @@ public class DeepseekStage3SmokeTest {
         assertTrue(hit.inverse(.5f,1,out));assertEquals(.5f,out[0],.0001f);assertEquals(.5f,out[1],.0001f);
         m[0]=Float.NaN;assertTrue(hit.inverse(.5f,1,out));
         assertFalse(DeepseekHitTransform.INVALID.inverse(.5f,.5f,out));
+    }
+
+    @Test public void leaningAndExpressiveHeadSurviveTheProductionPlanOnAndroid() throws Exception {
+        Pose p=new Pose();DeepseekParameterPlan plan=new DeepseekParameterPlan();
+        plan.start("[{\"time\":0,\"duration\":1,\"parameters\":{\"AngleX\":25,\"LeanInput\":-30},\"root\":{\"tilt\":6}}]");
+        for(int i=0;i<60;i++) {p.values.clear();plan.apply(1f/60,p);}
+        assertTrue(p.current("AngleX")>23);assertTrue(p.current("LeanInput")<-28);
+        assertTrue(p.current("@rootTilt")>5.5f);
+        plan.release();for(int i=0;i<50;i++) {p.values.clear();plan.apply(1f/60,p);}
+        assertTrue(Math.abs(p.current("LeanInput"))<.01f);
     }
 }

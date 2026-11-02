@@ -50,8 +50,8 @@ final class DeepseekAvatarModel extends CubismUserModel {
             Integer i=indices.get(id);return i==null?0:model.getParameterValue(i);
         }
         public void write(String id,float value) {
-            if(id.equals("@rootX")) rootX=Math.max(-.035f,Math.min(.035f,value));
-            else if(id.equals("@rootTilt")) rootTilt=Math.max(-3,Math.min(3,value));
+            if(id.equals("@rootX")) rootX=DeepseekParameterPlan.spatialValue(id,value);
+            else if(id.equals("@rootTilt")) rootTilt=DeepseekParameterPlan.spatialValue(id,value);
             else set(id,value);
         }
     };
@@ -72,7 +72,8 @@ final class DeepseekAvatarModel extends CubismUserModel {
         float savedSmall=prefs.getFloat("smallForm",.55f);
         smallForm=Float.isFinite(savedSmall)?Math.max(0,Math.min(1,savedSmall)):.55f;
         for(String id:Arrays.asList("key11","key12","Clothes1","Clothes4","MouthPressLipOpen"))
-            appearance.put(id,prefs.getFloat(id,id.equals("Clothes1")?1f:0f));
+            appearance.put(id,id.equals("MouthPressLipOpen")?mouthStyle(prefs.getFloat(id,-1f)):
+                prefs.getFloat(id,id.equals("Clothes1")?1f:0f));
         android.content.SharedPreferences stage=context.getSharedPreferences("deepseek_stage",Context.MODE_PRIVATE);
         anchorX=stage.getFloat("anchorX",.5f); anchorY=stage.getFloat("anchorY",.21504237f);
     }
@@ -129,6 +130,8 @@ final class DeepseekAvatarModel extends CubismUserModel {
         appearance.forEach(this::set);
         set("Clothes3",0); set("Clothes5",0); set("Clothes2",form);
     }
+    static float mouthStyle(float value) {return Float.isFinite(value) && value>0?1:-1;}
+    float mouthStyle() {return appearance.get("MouthPressLipOpen");}
     void form(boolean small) { this.small=small; targetForm=small?smallForm:0f; }
     void playback(boolean playing) { mouthOwner.playback(playing,System.nanoTime()); }
     void amplitude(float value) { amplitude=Math.max(0,Math.min(1,value)); }
@@ -159,7 +162,7 @@ final class DeepseekAvatarModel extends CubismUserModel {
             float value=(float)values.optDouble(id,Float.NaN);
             if(!Float.isFinite(value)) continue;
             if(id.equals("Clothes1")) value=value<.75f?.5f:1f;
-            else if(id.equals("MouthPressLipOpen")) value=Math.max(-1,Math.min(1,value));
+            else if(id.equals("MouthPressLipOpen")) value=mouthStyle(value);
             else value=value>=.5f?1:0;
             appearance.put(id,value);
         }
@@ -278,7 +281,7 @@ final class DeepseekAvatarModel extends CubismUserModel {
         expressions.apply(delta,small || form>.05f,pose);
         plan.apply(delta,pose);
         if(small || form>.05f) expressions.smallReaction(pose);
-        if(!manualPreview) idle.applyAttention(pose,pat.active()?.25f:plan.active()?.35f:1);
+        if(!manualPreview) idle.applyAttention(pose,pat.active()?.25f:1);
         blink.update(delta,manualPreview || pat.active() || expressions.reservesEyes(),pose);
         for(Map.Entry<String,Float> e:preview.entrySet()) if(!speaking || !MOUTH.contains(e.getKey())) set(e.getKey(),e.getValue());
         if(manualPreview) {rootX=previewRootX;rootTilt=previewRootTilt;}

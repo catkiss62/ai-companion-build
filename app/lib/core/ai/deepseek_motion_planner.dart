@@ -10,19 +10,21 @@ class DeepseekMotionPlanner {
   final JevDecisionGateway gateway;
   static const catalog = 'deepseek-v2';
   static const channels = <String, Map<String, Map<String, double>>>{
-    'head': {'自然': {}, '左转': {'AngleX': -12}, '右转': {'AngleX': 12},
-      '低头': {'AngleY': -10}, '抬头': {'AngleY': 10},
-      '左歪头': {'AngleZ': -9}, '右歪头': {'AngleZ': 9}},
-    'body': {'自然': {}, '左侧身': {'PositionX': -5, 'PositionZ': -3},
-      '右侧身': {'PositionX': 5, 'PositionZ': 3}, '轻沉': {'PositionY': -5},
-      '轻提': {'PositionY': 5}, '贴近屏幕': {'LeanInput': -30}},
-    'gaze': {'自然': {}, '看左': {'ParamEyeBallX': -.55}, '看右': {'ParamEyeBallX': .55},
-      '看上': {'ParamEyeBallY': .4}, '看下': {'ParamEyeBallY': -.4}},
-    'brows': {'自然': {}, '皱眉': {'ParamBrowLY': -.5, 'ParamBrowRY': -.5},
-      '抬眉': {'BrowInnerUp': .6}, '眯笑': {'REyeSquint': .55, 'LEyeSquint': .55}},
-    'mouth': {'自然': {}, '微笑': {'ParamMouthForm': .65}, '不高兴': {'ParamMouthForm': -.7},
-      '撅嘴': {'ParamMouthForm': -1, 'Mouthpucker': 1}, '鼓脸': {'CheeckPuff': .7},
-      '歪嘴': {'MouthX': .45}, '吐舌': {'TongueOut': 1},
+    'head': {'自然': {}, '左转': {'AngleX': -25}, '右转': {'AngleX': 25},
+      '低头': {'AngleY': -24}, '抬头': {'AngleY': 24},
+      '左歪头': {'AngleZ': -23}, '右歪头': {'AngleZ': 23}},
+    'body': {'自然': {}, '左侧身': {'PositionX': -12, 'PositionZ': -8},
+      '右侧身': {'PositionX': 12, 'PositionZ': 8}, '轻沉': {'PositionY': -10},
+      '轻提': {'PositionY': 10},
+      '好奇探身': {'PositionX': -8, 'PositionZ': 7, 'PositionY': -6}},
+    'lean': {'自然': {}, '贴近屏幕': {'LeanInput': -30}, '站回原位': {'LeanInput': 0}},
+    'gaze': {'自然': {}, '看左': {'ParamEyeBallX': -.7}, '看右': {'ParamEyeBallX': .7},
+      '看上': {'ParamEyeBallY': .6}, '看下': {'ParamEyeBallY': -.6}},
+    'brows': {'自然': {}, '皱眉': {'ParamBrowLY': -.75, 'ParamBrowRY': -.75},
+      '抬眉': {'BrowInnerUp': .85}, '眯笑': {'REyeSquint': .9, 'LEyeSquint': .9}},
+    'mouth': {'自然': {}, '微笑': {'ParamMouthForm': 1}, '不高兴': {'ParamMouthForm': -1},
+      '撅嘴': {'ParamMouthForm': -1, 'Mouthpucker': 1}, '鼓脸': {'CheeckPuff': .85},
+      '歪嘴': {'MouthX': .8}, '吐舌': {'TongueOut': 1},
       '咧嘴': {'ParamMouthForm': .8, 'MouthPuckerWiden': .35},
       '微张露齿': {'MouthFunnel': .35}},
   };
@@ -49,15 +51,16 @@ class DeepseekMotionPlanner {
     '竖食指': '抬臂后食指朝上，用于提醒、解释或灵机一动',
   };
   static const roots = <String, Map<String, double>>{
-    '自然': {}, '左轻移': {'x': -.025, 'tilt': 1.8},
-    '右轻移': {'x': .025, 'tilt': -1.8},
-    '左倾': {'tilt': 2.5}, '右倾': {'tilt': -2.5},
+    '自然': {}, '左轻移': {'x': -.055, 'tilt': 3},
+    '右轻移': {'x': .055, 'tilt': -3},
+    '左倾': {'tilt': 5}, '右倾': {'tilt': -5},
   };
   static const deliveries = <String, String>{
     'hold': '平直叙述，自然保持', 'nod': '认同、肯定或温柔回应，轻点头',
     'tilt': '好奇、疑问或带笑打量，轻侧头',
     'avert': '迟疑、害羞或回想，短暂移开视线',
     'emphasize': '认真解释、提醒或打趣的重音，轻抬头',
+    'lean': '俏皮地凑近屏幕、逗弄或亲近对方，拉近距离后站回原位',
   };
   static String boundedText(String text, int limit) => text.length <= limit ? text
       : '${text.substring(0, limit ~/ 2)}〔中段略〕${text.substring(text.length - limit ~/ 2)}';
@@ -88,13 +91,16 @@ class DeepseekMotionPlanner {
           if (e.value.keys.every(parameters.containsKey)) e.key: e.key};
         if (options.length > 1) q['f${i}_${c.key}'] = JevChoiceQuestion(
           'DeepSeek四拍第${i + 1}拍，依次起意、强调、反应、收势。根据回复语义选择${c.key}；'
-          '头幅度较大，轻转即可，避免连续左右撞击。贴近屏幕只在明确前倾/靠近语义时使用，'
-          '本地会平滑到-30并返回。自然通道不强行添加无关动作。嘴部只在没有真实语音时生效。', options);
+          '普通对话也应有看得见的头身表达，四拍至少两次符合语义的姿态变化，不要四拍全选自然。'
+          '头转向可用25、俯仰24、歪头23，避免每拍反向甩头；不因范围大就一直保守。'
+          'lean是独立前倾：俏皮、打趣、亲近或凑近打量时可选贴近屏幕，不要求台词明说靠近；'
+          '强调/反应拍可连续保持LeanInput=-30，末拍本地收回0。正文无关时不强行前倾。'
+          '头身可配合前倾，同时保持方向连贯。嘴部只在没有真实语音时生效。', options);
       }
       q['f${i}_root'] = JevChoiceQuestion('第${i + 1}拍整模轻移／以独立小腿支点倾斜，按语义配合头身。',
         {for (final key in roots.keys) key: key});
     }
-    q['tempo'] = const JevChoiceQuestion('选择连贯四拍节奏。', {'舒展': '每拍1.1秒', '自然': '每拍0.95秒'});
+    q['tempo'] = const JevChoiceQuestion('选择连贯四拍节奏。', {'舒展': '每拍1.1秒', '自然': '每拍0.95秒', '明快': '每拍0.82秒'});
     q['emotion'] = JevChoiceQuestion('回复结束后持续的情绪，平直时选normal。',
       {'normal': '自然', ...EmotionCatalog.labelsByKey});
     _presets(q, '', '本轮回复');
@@ -112,7 +118,7 @@ class DeepseekMotionPlanner {
       'parameter_contract': parameters,
       if (spans.isNotEmpty) 'speech_stage': [for (var i = 0; i < spans.length; i++)
         {'index': i + 1, 'text': boundedText(spans[i].text, 500)}],
-      'contract': 'One independent four-beat plan plus optional real-audio spans. No mouth opening, clothes, morph, physics outputs or arbitrary parameter IDs. Head <=14, root <=3deg/3.5%. Eye L/R are anatomical. No V-sign or Caicai props.',
+      'contract': 'One independent four-beat plan plus optional real-audio spans. No mouth opening, clothes, morph, physics outputs or arbitrary parameter IDs. Head/body inputs within authored -30..30; full front lean -30, return to 0 at the end. Root <=10deg/15%. Eye L/R are anatomical. No V-sign or Caicai props.',
     }, questions: q, usageLane: 'deepseek_avatar_speaking_motion', cancellationToken: cancellationToken);
     if (answers == null) return null;
     return {...buildPlan(answers, parameters), 'speech': [
@@ -143,26 +149,30 @@ class DeepseekMotionPlanner {
     return out;
   }
   static Map<String, Object?> buildPlan(Map<String, String> answers, Map<String, dynamic> parameters) {
-    final interval = answers['tempo'] == '舒展' ? 1.1 : .95;
+    final interval = answers['tempo'] == '舒展' ? 1.1 : answers['tempo'] == '明快' ? .82 : .95;
+    final hasLean = List.generate(4, (i) => answers['f${i}_lean']).contains('贴近屏幕');
     return {'catalog': catalog, 'frames': [for (var i = 0; i < 4; i++)
       {'time': i * interval, 'duration': interval * .65,
         'parameters': bounded({for (final c in channels.entries)
-          ...?c.value[answers['f${i}_${c.key}']]}, parameters),
+          ...?c.value[answers['f${i}_${c.key}']],
+          if (i == 3 && hasLean) 'LeanInput': 0}, parameters),
         'root': roots[answers['f${i}_root']] ?? const <String, double>{}}],
       ...preset(answers, ''),
       'emotion': validEmotion(answers['emotion']) ? CaicaiLive2DService.nativeEmotionId(answers['emotion']!) : ''};
   }
   static List<Map<String, Object?>> speechFrames(String delivery, Map<String, dynamic> parameters) {
     final targets = switch (delivery) {
-      'nod' => {'AngleY': -7.0, 'PositionY': -2.0},
-      'tilt' => {'AngleZ': 6.0, 'PositionZ': 2.0},
-      'avert' => {'AngleX': -7.0, 'AngleY': -3.0, 'ParamEyeBallX': -.4},
-      'emphasize' => {'AngleY': 7.0, 'BrowInnerUp': .4, 'PositionY': 2.5},
+      'nod' => {'AngleY': -10.0, 'PositionY': -5.0},
+      'tilt' => {'AngleZ': 10.0, 'PositionZ': 5.0},
+      'avert' => {'AngleX': -12.0, 'AngleY': -6.0, 'ParamEyeBallX': -.4},
+      'emphasize' => {'AngleY': 10.0, 'BrowInnerUp': .7, 'PositionY': 5.0},
+      'lean' => {'LeanInput': -30.0},
       _ => <String, double>{},
     };
     return targets.isEmpty ? const [] : [
       {'time': 0.0, 'duration': .42, 'parameters': bounded(targets, parameters)},
-      {'time': .8, 'duration': .5, 'parameters': const <String, double>{}},
+      {'time': delivery == 'lean' ? 1.2 : .8, 'duration': .5,
+        'parameters': delivery == 'lean' ? bounded({'LeanInput': 0}, parameters) : const <String, double>{}},
     ];
   }
 }

@@ -290,7 +290,7 @@ internal class CaicaiPlatformView(
                     var value = (raw as? Number)?.toFloat() ?: return result.success(false)
                     if (!value.isFinite()) return result.success(false)
                     value = when(key) { "Clothes1" -> if(value<.75f) .5f else 1f
-                        "MouthPressLipOpen" -> value.coerceIn(-1f,1f)
+                        "MouthPressLipOpen" -> DeepseekAvatarModel.mouthStyle(value)
                         "smallForm" -> value.coerceIn(0f,1f)
                         else -> if(value>=.5f) 1f else 0f }
                     normalized[key]=value
@@ -652,7 +652,7 @@ internal class CaicaiPlatformView(
             companion.anchorDeepseek(viewPrefs.getFloat("anchorX",.5f),viewPrefs.getFloat("anchorY",.21504237f))
             val restoredAppearance=app.getSharedPreferences("deepseek_appearance",Context.MODE_PRIVATE).all.toMutableMap()
             for (key in listOf("key11","key12","Clothes1","Clothes4","MouthPressLipOpen"))
-                if(!restoredAppearance.containsKey(key)) restoredAppearance[key]=if(key=="Clothes1") 1f else 0f
+                if(!restoredAppearance.containsKey(key)) restoredAppearance[key]=when(key) { "Clothes1" -> 1f; "MouthPressLipOpen" -> -1f; else -> 0f }
             if(!restoredAppearance.containsKey("smallForm")) restoredAppearance["smallForm"]=.55f
             companion.appearanceDeepseek(org.json.JSONObject(restoredAppearance).toString())
         }

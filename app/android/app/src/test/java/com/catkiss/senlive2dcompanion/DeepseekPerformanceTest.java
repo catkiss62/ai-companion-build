@@ -75,8 +75,8 @@ public class DeepseekPerformanceTest {
         DeepseekParameterPlan plan=new DeepseekParameterPlan();Pose p=new Pose();
         plan.start("[{\"time\":0,\"duration\":0.2,\"parameters\":{\"AngleX\":99,\"PositionX\":99,\"ParamMouthOpenY\":1,\"Clothes2\":1,\"Movement1\":1,\"ParamAngleX\":30},\"root\":{\"x\":5,\"tilt\":90}}]");
         plan.setGain(1.5f);plan.apply(.2f,p);
-        assertTrue(p.current("AngleX")<=14);assertTrue(p.current("PositionX")<=8);
-        assertTrue(p.current("@rootX")<=.035f);assertTrue(p.current("@rootTilt")<=3);
+        assertTrue(p.current("AngleX")<=30);assertTrue(p.current("PositionX")<=30);
+        assertTrue(p.current("@rootX")<=.15f);assertTrue(p.current("@rootTilt")<=10);
         for(String id:Arrays.asList("ParamMouthOpenY","Clothes2","Movement1","ParamAngleX")) assertFalse(p.values.containsKey(id));
         for(int i=0;i<30;i++) {p.values.clear();plan.apply(.1f,p);}
         assertTrue(p.values.isEmpty());
@@ -124,4 +124,35 @@ public class DeepseekPerformanceTest {
         assertEquals(0,p.current("ParamMouthForm"),.001f);
     }
 
+
+    @Test public void plannedHeadAndRootSurviveBothParsingAndExecutionAndLeanUsesFullRange() throws Exception {
+        DeepseekParameterPlan plan=new DeepseekParameterPlan();Pose p=new Pose();
+        plan.start("[{\"time\":0,\"duration\":2,\"parameters\":{\"AngleX\":25,\"PositionZ\":20,\"LeanInput\":-30},\"root\":{\"x\":0.075,\"tilt\":6}}]");
+        plan.setGain(1.5f);
+        for(int i=0;i<110;i++) {p.values.clear();plan.apply(1f/60,p);}
+        assertTrue(p.current("AngleX")>29);assertTrue(p.current("PositionZ")>20);
+        assertTrue(p.current("@rootX")>.07f);assertTrue(p.current("@rootTilt")>8);
+        assertTrue(p.current("LeanInput")<-28.5f); // Full -30 target is never multiplied down by gain.
+        plan.release();for(int i=0;i<45;i++) {p.values.clear();plan.apply(1f/60,p);}
+        assertEquals(0,p.current("LeanInput"),.01f);
+    }
+    @Test public void emotionsUseTheActualFaceRangeAndRecoverNeutralWithoutLeavingButtonsOrMouthOpening() {
+        assertEquals(1,DeepseekExpressions.emotionPose("happy").get("ParamMouthForm"),0);
+        assertTrue(DeepseekExpressions.emotionPose("happy").get("REyeSquint")>.8f);
+        assertEquals(-1,DeepseekExpressions.emotionPose("angry").get("ParamBrowLY"),0);
+        assertEquals(1.5f,DeepseekExpressions.emotionPose("surprised").get("ParamEyeLOpen"),0);
+        assertTrue(DeepseekExpressions.emotionPose("confused").get("ParamBrowLY")-
+            DeepseekExpressions.emotionPose("confused").get("ParamBrowRY")>1.4f);
+        DeepseekExpressions e=new DeepseekExpressions();Pose p=new Pose();
+        for(String emotion:Arrays.asList("happy","excited","affection","shy","flustered","tense","worried","helpless","afraid","angry","sad","disgust","serious","surprised","confident","playful","ashamed","calm","confused","normal")) {
+            e.emotion(emotion);for(int i=0;i<100;i++) e.apply(1f/60,false,p);
+            for(Map.Entry<String,Float> item:p.values.entrySet()) {
+                float v=item.getValue();assertTrue(item.toString(),Float.isFinite(v));
+                assertTrue(item.toString(),v>=-1 && v<=(item.getKey().endsWith("Open")?1.5f:1));
+                assertFalse(item.getKey().startsWith("key"));assertFalse(item.getKey().equals("ParamMouthOpenY"));
+            }
+        }
+        assertEquals(0,p.current("ParamMouthForm"),.001f);assertEquals(0,p.current("EyeSmile"),.001f);
+        assertEquals(1,p.current("ParamEyeLOpen"),.001f);
+    }
 }
