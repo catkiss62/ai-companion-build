@@ -31,3 +31,13 @@
 首次候选77ffc759/treeccaa4b26已推送。专项CI41404569001通过分析和网络回归，但原有前倾预览行为测试发现设置入口仍传旧逐拍字段，导致预览没有前倾；同步改用新整轮字段，保留满幅/末拍回正断言，需在最终CI重跑，不将此失败轮算通过。
 
 8dd63550/tree16cd817d的Android15原生59项已通过，修正后的预览/规划/语音所有权专项也通过。复核全部LeanInput回归时发现另一条旧JVM用例仍要求.75秒已精确回0，与本轮放慢回正不符；改为先验证.75秒仍平滑回落，再到1.33秒验证同样的.01结束精度，未降低完整前倾或结束断言。运行代码不变，最终候选需完整CI重新确认；被替代轮不算最终通过。
+
+## 最终CI与交付核验
+
+最终运行源码971ce95b6dbe874b395489475aa35802cf8441cf/tree723d2119ba0906518323a719016da8ac0ba73f2e，app/lib9e18e35bf8a66b922a6d3a00069a4ecf8f8240b0。完整Actions41406574517及专项41406574433均success。完整流程：158源码门、Android15原生59项、含本轮新增几何/视线/慢回正行为用例的正式原生单元、3318全量Flutter及171独立存档/恢复检查全部通过。专项71/40/41/97/143/37/61/39/25/26/33/359/1322各组通过，重叠不相加。分析0error/1058非fatal（90warning/968info），其中两项新增仅测试风格info。旧候选失败/取消记录保留，不计作最终通过。
+
+[下载+406测试包](https://github.com/catkiss62/ai-companion-build/actions/runs/41406574517/artifacts/13125017620)。实际APK **739606770 bytes**，SHA256 **135e15a006191f738c8e7d561fa4f49f643fe525fc76125a649252fc56788a0b**。CI现场app-release.apk摘要、success monitor和Draft资产独立上传digest一致。签名SHA256 **305eb3d80983b963c64818ddf1ad561f279de6d47b3ed2c781ada448c7c25148**，与原安装相同；实际包名com.aicompanion.localfirst、versionName0.42.162/versionCode406、ARM64及完整原资源检查通过，可覆盖安装。
+
+Draft431164533保持未发布，目标为最终源码971ce95b；APK asset700988247。checksum asset700988245为125 bytes、SHA256 04ba301e0217537acd6eef5f8f11aad380e0f8e99b5c125c6c4c8f0fba78f113；monitor asset700988259为503 bytes、SHA256 a78380b3485f8cc6161cf65fbe8f3807bca5b7d8492dc9275d83a9d2b5ddea7a，与ci-monitor-v0345分支.ci/v042162-monitor.txt原文一致。artifact13125017620的ZIP摘要dabc9df7…12bbc7只代表容器，不充当APK摘要。
+
+仅文档skip ci收尾，不重建相同运行代码、不发布Draft或合并main。菜菜原实现/资源、双模型独立存档、已存大小/位置/头部缩小锚点、19情绪及语音口型、原分辨率/目标60FPS保持；第三通道不改、自拍取消。手机私有模型的真实摆动/前倾观感及帧率仍待用户安装确认，不以几何/状态回归冒充真机视觉验收。建议优先预览小豆丁的小腿轴左倾/右倾和前倾贴近，再观察普通对话的前倾频率。
