@@ -35,9 +35,8 @@ class MainActivity : FlutterActivity() {
             event.actionMasked == android.view.MotionEvent.ACTION_MOVE && now-lastCaicaiTouch >= 33) {
             lastCaicaiTouch = now
             val root = window.decorView
-            com.catkiss.senlive2dcompanion.CaicaiRuntime.observeTouch(
-                (event.x * 2f / root.width.coerceAtLeast(1) - 1f).coerceIn(-1f,1f),
-                (1f - event.y * 2f / root.height.coerceAtLeast(1)).coerceIn(-1f,1f))
+            com.catkiss.senlive2dcompanion.CaicaiRuntime.observeWindowTouch(
+                event.x, event.y, root.width, root.height)
         }
         return super.dispatchTouchEvent(event)
     }

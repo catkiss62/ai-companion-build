@@ -111,10 +111,11 @@ class DeepseekMotionPlanner {
     final spans = SpeechPerformancePlan.candidates(spokenText);
     if (parameters.containsKey('LeanInput')) {
       q['lean_use'] = const JevChoiceQuestion(
-        '整轮是否有明确的拉近距离的表演意图，值得有意凑近对方？例如贴近看清对方、凑近逗人、'
-        '贴近说悄悄话或用户要求靠近。不要求台词逐字写靠近，但普通俏皮、开心、关心、害羞、'
-        '吐槽或解释本身都选no。头身已有其他表达，不为增加动作而前倾。整轮最多一次连续前倾。',
-        {'yes': '有拉近距离的表演意图', 'no': '普通互动，无需凑近'});
+        '这轮是否适合用短暂前倾拉近与对方的距离？明确要求靠近、贴近看清、耳语，或带亲近意味的逗弄、'
+        '挑衅、撒娇、想看看对方反应，都可以选yes；不要求台词写出靠近。俏皮、开心、关心、害羞、'
+        '吐槽或解释这些情绪标签单独不足以触发，但与贴近意图同时存在时不能据此否决yes。'
+        '平直叙述、普通说明或没有贴近意味的互动选no。整轮最多一次连续前倾，完成后回正。',
+        {'yes': '适合短暂凑近表达', 'no': '这轮没有贴近意味'});
       q['lean_moment'] = JevChoiceQuestion(
         '仅假设lean_use为yes，选择一次前倾最合适的时机；是否使用完全由lean_use决定。'
         '有实际朗读计划时只放在一个语音段，不在开场重复。',
@@ -134,7 +135,8 @@ class DeepseekMotionPlanner {
       'parameter_contract': parameters,
       'performance_direction': '普通对话也应有看得见的头身表达，四拍至少两次符合语义的姿态变化，不要全选自然。'
         '转头25、俯仰24、歪头23，避免每拍反向甩头，不因范围大而一直保守。'
-        '前倾不是普通俏皮的默认动作，也不计入姿态变化数量；只由整轮lean_use决定，'
+        '前倾可在带亲近意味的逗弄、撒娇或观察反应时自然使用，情绪标签不构成否决条件；'
+        '不因单纯俏皮就必用，也不计入姿态变化数量；只由整轮lean_use决定，'
         'lean_moment安排一次连续前倾，完整到-30后回0。实际朗读时仅在选中的一个语音段出现。'
         '其他头身动作保持表达，嘴部只在没有真实语音时生效。',
       if (spans.isNotEmpty) 'speech_stage': [for (var i = 0; i < spans.length; i++)

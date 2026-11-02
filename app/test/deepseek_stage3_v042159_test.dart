@@ -33,6 +33,10 @@ void main() {
     expect(q.keys,containsAll(['f0_head','f0_body','lean_use','lean_moment','speech0_delivery']));
     expect(q.keys.any((key)=>RegExp(r'^f[0-3]_lean$').hasMatch('$key')),false);
     expect((q['lean_use']['criteria'] as Map).keys,containsAll(['yes','no']));
+    final leanPrompt = q['lean_use']['instructions'] as String;
+    expect(leanPrompt, contains('与贴近意图同时存在时不能据此否决yes'));
+    expect(leanPrompt, contains('整轮最多一次连续前倾'));
+    expect(leanPrompt, isNot(contains('解释本身都选no')));
     expect((q['lean_moment']['criteria'] as Map).keys,['speech0']);
     expect((q['speech0_delivery']['criteria'] as Map).keys,isNot(contains('lean')));
     final plan=DeepseekMotionPlanner.buildPlan({'f0_head':'右转','f1_body':'左侧身',

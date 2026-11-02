@@ -69,4 +69,19 @@ public class DeepseekStage3SmokeTest {
         for(int i=0;i<60;i++) {pose.write("LeanInput",-30);pose.write("ParamEyeBallX",.8f);focus.apply(1f/60,pose,false);}
         assertTrue(Math.abs(pose.current("ParamEyeBallX"))<.001f);
     }
+    @Test public void actualViewportGazeAndHalfDisgustRunOnAndroid() {
+        DeepseekGaze gaze=new DeepseekGaze();
+        float[] m={1,0,0,0,0,1,0,0,0,0,1,0,0,0,0,1};
+        gaze.capture(m,new DeepseekLegPivot.Bounds(-.2f,.2f,.5f,.3f),1000,1800);
+        assertArrayEquals(new float[]{.8f,-1},gaze.direction(.8f,-.9f),.00001f);
+        float[] point=Live2DTouchCoordinates.stage(940,1700,10,200,1000,1600);
+        assertArrayEquals(new float[]{.86f,-.875f},point,.00001f);
+        Pose p=new Pose();DeepseekExpressions expressions=new DeepseekExpressions();
+        for(int i=0;i<60;i++) expressions.apply(.05f,true,p);
+        assertEquals(.775f,p.current("ParamEyeLOpen"),.001f);
+        DeepseekFootProbe probe=new DeepseekFootProbe();float[] original=m.clone();
+        probe.capture(m,m,m,new DeepseekLegPivot.Bounds(-.2f,.2f,-.2f,-.5f),0,-.3f,0);
+        assertArrayEquals(original,m,0);assertTrue(probe.trace().contains("visible_leg_bounds_lower"));
+    }
+
 }

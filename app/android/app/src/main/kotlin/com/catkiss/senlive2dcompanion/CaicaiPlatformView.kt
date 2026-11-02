@@ -631,6 +631,14 @@ internal class CaicaiPlatformView(
         interactionSequence++;strokeDistance=0f;patCandidate=false;patTriggered=false
         companion.suspendDeepseek()
     }
+    private val pointerWindowOrigin = IntArray(2)
+    fun observeWindowTouch(x:Float,y:Float,width:Int,height:Int) {
+        val point = if (deepseek) {
+            companion.getLocationInWindow(pointerWindowOrigin)
+            Live2DTouchCoordinates.stage(x,y,pointerWindowOrigin[0],pointerWindowOrigin[1],companion.width,companion.height)
+        } else Live2DTouchCoordinates.window(x,y,width,height)
+        if (point != null) observeTouch(point[0],point[1])
+    }
     fun observeTouch(x: Float, y: Float) {
         if (!disposed && editSnapshot == null) {
             if(deepseek) lookDeepseek(true,x,y) else companion.setLookTarget(true,x,y)
@@ -767,6 +775,7 @@ object CaicaiRuntime {
         if (active.get() === view) active.clear()
     }
     fun observeTouch(x: Float, y: Float) = active.get()?.observeTouch(x,y)
+    fun observeWindowTouch(x:Float,y:Float,width:Int,height:Int) = active.get()?.observeWindowTouch(x,y,width,height)
     fun hasActiveView(): Boolean = active.get() != null
     fun backgroundMotion(x: Float, y: Float, reset: Boolean = false) = active.get()?.backgroundMotion(x, y, reset)
     fun speechPlayback(playing: Boolean) = active.get()?.speechPlayback(playing)

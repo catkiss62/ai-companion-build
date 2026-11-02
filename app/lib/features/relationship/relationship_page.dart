@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 
 import '../../core/database/app_database.dart';
@@ -9,16 +10,18 @@ import '../../core/relationship/relationship_presentation.dart';
 import 'relationship_companion_state.dart';
 
 class RelationshipPage extends StatefulWidget {
-  const RelationshipPage({super.key});
+  const RelationshipPage({super.key, this.repository});
+  final RelationshipCompanionRepository? repository;
 
   @override
   State<RelationshipPage> createState() => _RelationshipPageState();
 }
 
-class _RelationshipPageState extends State<RelationshipPage> {
+class _RelationshipPageState extends State<RelationshipPage> with WidgetsBindingObserver {
   final db = AppDatabase.instance;
   late final RelationshipCompanionRepository repository =
-      RelationshipCompanionRepository(db);
+      widget.repository ?? RelationshipCompanionRepository(db);
+  Timer? refreshTimer;
 
   RelationshipCompanionSnapshot? snapshot;
   bool loading = true;
@@ -28,7 +31,34 @@ class _RelationshipPageState extends State<RelationshipPage> {
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _load();
+    _startRefresh();
+  }
+
+  void _startRefresh() {
+    refreshTimer?.cancel();
+    refreshTimer = Timer.periodic(const Duration(seconds: 12), (_) {
+      unawaited(_load(silent: true));
+    });
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      unawaited(_load(silent: true));
+      _startRefresh();
+    } else {
+      refreshTimer?.cancel();
+      refreshTimer = null;
+    }
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    refreshTimer?.cancel();
+    super.dispose();
   }
 
   Future<void> _load({bool silent = false}) async {

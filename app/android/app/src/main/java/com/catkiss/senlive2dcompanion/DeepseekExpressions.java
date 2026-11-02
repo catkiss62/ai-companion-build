@@ -44,15 +44,15 @@ final class DeepseekExpressions {
     }
     void apply(float dt,boolean small,DeepseekParameterPlan.Target target,float emotionWeight) {
         Map<String,Float> wanted=emotionPose(emotion);
-        Map<String,Float> neutral=emotionPose("normal");
+        Map<String,Float> neutral=small?smallNeutral():emotionPose("normal");
+        if(small && emotion.equals("normal")) wanted=new LinkedHashMap<>(neutral);
         // Small-form dissatisfaction has its own brows/mouth; ordinary neutral must not erase it.
         if(small) {
             wanted.put("ParamMouthForm",-1f);
             wanted.put("ParamBrowLY",Math.min(-.48f,wanted.getOrDefault("ParamBrowLY",0f)));
             wanted.put("ParamBrowRY",Math.min(-.48f,wanted.getOrDefault("ParamBrowRY",0f)));
             wanted.put("CheeckPuff",Math.max(.3f,wanted.getOrDefault("CheeckPuff",0f)));
-            neutral.put("ParamMouthForm",-1f);neutral.put("ParamBrowLY",-.48f);
-            neutral.put("ParamBrowRY",-.48f);neutral.put("CheeckPuff",.3f);
+            // Neutral is already a half-disgust blend, not a semantic emotion label.
         }
         Set<String> keys=new HashSet<>(current.keySet());keys.addAll(wanted.keySet());
         float mix=1-(float)Math.exp(-Math.max(0,dt)*8);
@@ -96,6 +96,14 @@ final class DeepseekExpressions {
         if(!Float.isFinite(elapsed) || !Float.isFinite(min) || !Float.isFinite(max) || period<=0 || max<=min) return min;
         float phase=elapsed/period;phase-=(float)Math.floor(phase);
         return min+(max-min)*phase;
+    }
+    static Map<String,Float> smallNeutral() {
+        Map<String,Float> base=emotionPose("normal"),disgust=emotionPose("disgust");
+        base.put("ParamMouthForm",-1f);base.put("ParamBrowLY",-.48f);
+        base.put("ParamBrowRY",-.48f);base.put("CheeckPuff",.3f);
+        for(String id:Arrays.asList("ParamEyeLOpen","ParamEyeROpen","ParamBrowLY","ParamBrowRY","MouthX","EyeSmile"))
+            base.put(id,base.get(id)+(disgust.get(id)-base.get(id))*.5f);
+        return base;
     }
     static Map<String,Float> emotionPose(String emotion) {
         // DeepSeek has separate smile/squint, 0..1.5 opening and ear-linked brows.

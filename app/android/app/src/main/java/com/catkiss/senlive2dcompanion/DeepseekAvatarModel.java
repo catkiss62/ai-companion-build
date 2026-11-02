@@ -34,6 +34,8 @@ final class DeepseekAvatarModel extends CubismUserModel {
     private final DeepseekParameterPlan plan=new DeepseekParameterPlan();
     private final DeepseekIdleMotion idle=new DeepseekIdleMotion();
     private final DeepseekLeanFocus leanFocus=new DeepseekLeanFocus();
+    private final DeepseekGaze gaze=new DeepseekGaze();
+    private final DeepseekFootProbe footProbe=new DeepseekFootProbe();
     private final DeepseekBlink blink=new DeepseekBlink();
     private final DeepseekHeadPat pat=new DeepseekHeadPat();
     private volatile DeepseekHitTransform hit=DeepseekHitTransform.INVALID;
@@ -66,7 +68,10 @@ final class DeepseekAvatarModel extends CubismUserModel {
     private boolean small;
     private float form, targetForm, amplitude, anchorX=.5f, anchorY=.21504237f;
     private float left,right,top,bottom,rootX,rootTilt,legPivotX,legPivotY,morphShiftX,morphShiftY;
-    private boolean[] legDrawables;
+    private boolean[] legDrawables,eyeWhiteDrawables;
+    private final DeepseekLegPivot.Bounds frameLegs=new DeepseekLegPivot.Bounds();
+    private final DeepseekLegPivot.Bounds eyeWhites=new DeepseekLegPivot.Bounds();
+    private float motionGain=1,motionSpeed=1,pivotSetting=.88f;
     private int legMeshCount;
     private boolean mappedLegPivot;
     private final DeepseekLegPivot.Bounds normalBounds=new DeepseekLegPivot.Bounds();
@@ -122,6 +127,8 @@ final class DeepseekAvatarModel extends CubismUserModel {
     }
     private void bindLegMeshes() throws IOException {
         Set<String> ids=new HashSet<>(Arrays.asList("Part114","Part30","Part18"));
+        // CDI: normal and small-form eye whites, never the moving pupils.
+        Set<String> whiteIds=new HashSet<>(Arrays.asList("Part49","Part36","Part141","Part146"));
         String info=setting.getDisplayInfoFileName();
         if(info!=null && !info.isEmpty()) try {
             org.json.JSONArray parts=new JSONObject(new String(NativeFileLoader.readFile(child(info)),
@@ -129,16 +136,19 @@ final class DeepseekAvatarModel extends CubismUserModel {
             if(parts!=null) for(int i=0;i<parts.length();i++) {
                 JSONObject part=parts.getJSONObject(i);String name=part.optString("Name");
                 if(name.equals("腿") || name.equals("左腿") || name.equals("右腿")) ids.add(part.getString("Id"));
+                if(name.equals("眼白") || name.equalsIgnoreCase("sclera") || name.equalsIgnoreCase("eye white")) whiteIds.add(part.getString("Id"));
             }
         } catch(org.json.JSONException error) {throw new IOException("DeepSeek腿部标识无效",error);}
-        int[] parents=new int[model.getPartCount()];boolean[] legs=new boolean[parents.length];
+        int[] parents=new int[model.getPartCount()];boolean[] legs=new boolean[parents.length],whites=new boolean[parents.length];
         for(int i=0;i<parents.length;i++) {
             parents[i]=model.getPartParentPartIndex(i);legs[i]=ids.contains(model.getPartId(i).getString());
+            whites[i]=whiteIds.contains(model.getPartId(i).getString());
         }
-        legDrawables=new boolean[model.getDrawableCount()];
+        legDrawables=new boolean[model.getDrawableCount()];eyeWhiteDrawables=new boolean[legDrawables.length];
         for(int d=0;d<legDrawables.length;d++) {
             legDrawables[d]=DeepseekLegPivot.belongsToLeg(model.getDrawableParentPartIndex(d),parents,legs);
             if(legDrawables[d]) legMeshCount++;
+            eyeWhiteDrawables[d]=DeepseekLegPivot.belongsToLeg(model.getDrawableParentPartIndex(d),parents,whites);
         }
     }
     private void readBounds(DeepseekLegPivot.Bounds out,boolean legsOnly) {
@@ -228,7 +238,7 @@ final class DeepseekAvatarModel extends CubismUserModel {
             readClip("狗尾草切回默认手",DeepseekGestures.IDLE_CHANNELS));}
         catch(IOException|org.json.JSONException e) {clipStatus+=" missing:idle-grass";}
     }
-    void tune(float gain,float speed) {plan.setGain(gain);plan.setSpeed(speed);idle.tune(gain,speed);}
+    void tune(float gain,float speed) {motionGain=gain;motionSpeed=speed;plan.setGain(gain);plan.setSpeed(speed);idle.tune(gain,speed);}
     void emotion(String event,String value) {emotion(event,value,System.nanoTime());}
     void emotion(String event,String value,long now) {
         if(emotionLease.present(event,value,now)) {baseEvent=event;emotionSuppressed=false;expressions.begin(pose);}
@@ -273,7 +283,11 @@ final class DeepseekAvatarModel extends CubismUserModel {
         speechDeadline=speechFaceFade=0;previewEmotionDeadline=0;speechCue="";expressions.emotion(baseEmotion);
         plan.release();expressions.release();gestures.stop();
     }
-    void look(boolean active,float x,float y) {if(!staticMode) idle.look(active,x,y);}
+    void look(boolean active,float x,float y) {
+        if(staticMode) return;
+        if(!active) {idle.look(false,0,0);return;}
+        float[] aim=gaze.direction(x,y);if(aim!=null) idle.look(true,aim[0],aim[1]);
+    }
     void beginPat(boolean held,boolean rare) {
         staticMode(false);
         if(!pat.start(held,rare,pose)) return;
@@ -298,7 +312,7 @@ final class DeepseekAvatarModel extends CubismUserModel {
         emotionSuppressed=true;
         preview.clear();manualPreview=false;previewRootX=previewRootTilt=rootX=rootTilt=0;
         idle.clearAttention();idle.resetGrass();blink.reset();
-        leanFocus.reset();
+        leanFocus.reset();gaze.clear();
     }
     boolean screenToModel(float x,float y,float[] result) {return hit.inverse(x,y,result);}
     private void animateEffect(String id,float elapsed,float period) {
@@ -409,12 +423,17 @@ final class DeepseekAvatarModel extends CubismUserModel {
         morphShiftX=x-current[anchorVertex];morphShiftY=y-current[anchorVertex+1];
         readBounds(liveLegs,true);
     }
-    void draw(float width,float sceneHeight,float scale,float x,float y,float pivot,float[] crop) {
+    void draw(float width,float sceneHeight,float viewportHeight,float scale,float x,float y,float pivot,float[] crop) {
+        pivotSetting=pivot;frameLegs.clear();eyeWhites.clear();
         // Read only on GL. Publish an immutable snapshot for UI hit testing below.
         float vl=Float.POSITIVE_INFINITY,vr=Float.NEGATIVE_INFINITY,vt=Float.NEGATIVE_INFINITY,vb=Float.POSITIVE_INFINITY;
         for(int d=0;d<model.getDrawableCount();d++) if(model.getDrawableOpacity(d)>.01f) {
             float[] v=model.getDrawableVertexPositions(d);
-            for(int i=0;i<v.length;i+=2) {vl=Math.min(vl,v[i]);vr=Math.max(vr,v[i]);vb=Math.min(vb,v[i+1]);vt=Math.max(vt,v[i+1]);}
+            for(int i=0;i<v.length;i+=2) {
+                vl=Math.min(vl,v[i]);vr=Math.max(vr,v[i]);vb=Math.min(vb,v[i+1]);vt=Math.max(vt,v[i+1]);
+                if(legDrawables[d]) frameLegs.include(v[i],v[i+1]);
+                if(eyeWhiteDrawables[d]) eyeWhites.include(v[i],v[i+1]);
+            }
         }
         if(!Float.isFinite(vl) || vr<=vl || vt<=vb) {vl=left;vr=right;vt=top;vb=bottom;}
         CubismMatrix44 projection=CubismMatrix44.create();float aspect=width/sceneHeight;
@@ -426,22 +445,32 @@ final class DeepseekAvatarModel extends CubismUserModel {
         CubismMatrix44.multiply(mvp.getArray(),stage,mvp.getArray());
         DeepseekLegPivot.translateModel(mvp.getArray(),morphShiftX,morphShiftY);
         float[] mapped=form>.0001f?DeepseekLegPivot.map(normalBounds,normalLegs,liveLegs,pivot):null;
-        float[] root;mappedLegPivot=mapped!=null;
+        float[] root;float rootSpan;mappedLegPivot=mapped!=null;
         if(mappedLegPivot) {
             legPivotX=mapped[0];legPivotY=mapped[1];
+            rootSpan=Math.abs(mvp.getArray()[0]*mapped[2]);
             root=DeepseekLegPivot.matrix(width,sceneHeight,mvp.transformX(legPivotX),mvp.transformY(legPivotY),
-                Math.abs(mvp.getArray()[0]*mapped[2]),rootX,rootTilt);
+                rootSpan,rootX,rootTilt);
         } else {
             legPivotX=(vl+vr)*.5f;legPivotY=vt-(vt-vb)*pivot;
+            rootSpan=Math.abs(mvp.transformX(vr)-mvp.transformX(vl));
             root=CaicaiRootTransform.create(width,sceneHeight,mvp.transformX(vl),mvp.transformX(vr),
                 mvp.transformY(vt),mvp.transformY(vb),rootX,rootTilt,pivot).matrix();
         }
+        // Probe the same final root; it never changes the pose or the stable morph correction.
+        footProbe.capture(mvp.getArray(),root,crop,frameLegs,legPivotX,legPivotY,
+            Math.max(-.15f,Math.min(.15f,rootX))*rootSpan);
         CubismMatrix44.multiply(mvp.getArray(),root,mvp.getArray());
         CubismMatrix44.multiply(mvp.getArray(),crop,mvp.getArray());
+        gaze.capture(mvp.getArray(),eyeWhites,width,viewportHeight);
         getRenderer().setMvpMatrix(mvp);getRenderer().drawModel();
         hit=new DeepseekHitTransform(mvp.getArray(),vl,vr,vt,vb);
     }
-    String trace() { return "deepseek-avatar form="+form+" target="+targetForm+" smallForm="+smallForm+" anchor="+anchorX+","+anchorY+" root="+rootX+","+rootTilt+" legPivot="+(legPivotX+morphShiftX)+","+(legPivotY+morphShiftY)+" rawLegPivot="+legPivotX+","+legPivotY+" morphShift="+morphShiftX+","+morphShiftY+" mapped="+mappedLegPivot+" legMeshes="+legMeshCount+" leanFocus="+leanFocus.weight()+" face="+expressions.trace()+" gesture="+gestures.trace()+clipStatus+" speech="+(speechDeadline!=0)+" pat="+pat.state()+" idle="+idle.trace()+" static="+staticMode+" preview="+manualPreview; }
+    String trace() { return "deepseek-avatar form="+form+" target="+targetForm+" smallForm="+smallForm+" anchor="+anchorX+","+anchorY+" root="+rootX+","+rootTilt+" legPivot="+(legPivotX+morphShiftX)+","+(legPivotY+morphShiftY)+" rawLegPivot="+legPivotX+","+legPivotY+" morphShift="+morphShiftX+","+morphShiftY+" motionTuning="+motionGain+","+motionSpeed+","+pivotSetting+" "+footProbe.trace()+" "+gaze.trace()+
+        " eye="+pose.current("ParamEyeBallX")+","+pose.current("ParamEyeBallY")+
+        " eyeOpen="+pose.current("ParamEyeLOpen")+","+pose.current("ParamEyeROpen")+
+        " head="+pose.current("AngleX")+","+pose.current("AngleY")+","+pose.current("AngleZ")+
+        " body="+pose.current("PositionX")+","+pose.current("PositionY")+","+pose.current("PositionZ")+" mapped="+mappedLegPivot+" legMeshes="+legMeshCount+" leanFocus="+leanFocus.weight()+" face="+expressions.trace()+" gesture="+gestures.trace()+clipStatus+" speech="+(speechDeadline!=0)+" pat="+pat.state()+" idle="+idle.trace()+" static="+staticMode+" preview="+manualPreview; }
     void resizeRenderTarget(int width,int height) { if(getRenderer()!=null) getRenderer().setRenderTargetSize(width,height); }
     void closeModel() {hit=DeepseekHitTransform.INVALID;suspend();delete();}
 }

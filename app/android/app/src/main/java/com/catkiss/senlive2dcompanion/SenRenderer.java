@@ -798,7 +798,7 @@ final class SenRenderer implements GLSurfaceView.Renderer {
         if(deepseek!=null) {
             long now=System.nanoTime();float delta=lastFrameNanos==0?1f/60:Math.min(.05f,(now-lastFrameNanos)/1_000_000_000f);
             lastFrameNanos=now;
-            try {deepseek.update(delta);deepseek.draw(surfaceWidth,sceneHeight(),stageScale,stageTranslateX,stageTranslateY,
+            try {deepseek.update(delta);deepseek.draw(surfaceWidth,sceneHeight(),surfaceHeight,stageScale,stageTranslateX,stageTranslateY,
                 lowerLegPivot,caicaiCamera.crop(surfaceWidth,surfaceHeight));}
             catch(Throwable error){listener.onError(error);releaseCurrentModel();}
             return;

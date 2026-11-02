@@ -73,7 +73,7 @@ final class DeepseekIdleMotion {
         float follow=Math.min(1,attention/.55f);
         if(follow<=0) return;
         mix(target,"ParamEyeBallX",x*.8f,follow);
-        mix(target,"ParamEyeBallY",y*.7f,follow);
+        mix(target,"ParamEyeBallY",y*(y<0?.9f:.7f),follow);
         mix(target,"AngleX",clamp(x*27*gain,30),follow*headWeight);
         mix(target,"AngleY",clamp(y*26*gain,30),follow*headWeight);
         mix(target,"PositionZ",clamp(-x*8*gain,30),follow*headWeight);
