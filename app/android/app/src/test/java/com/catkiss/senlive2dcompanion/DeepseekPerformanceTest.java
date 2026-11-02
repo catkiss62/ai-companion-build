@@ -169,4 +169,12 @@ public class DeepseekPerformanceTest {
         assertEquals(-1,p.current("ParamMouthForm"),0);assertEquals(-.48f,p.current("ParamBrowLY"),.000001f);
         assertEquals(.3f,p.current("CheeckPuff"),.000001f);
     }
+
+    @Test public void aNewEmotionEntersFromTheVisibleFadedFaceRatherThanRevivingTheOldPeak() {
+        DeepseekExpressions e=new DeepseekExpressions();Pose p=new Pose();e.emotion("playful");
+        for(int i=0;i<100;i++) e.apply(1f/60,false,p,1);
+        e.apply(1f/60,false,p,.5f);assertEquals(.5f,p.current("ParamMouthForm"),.001f);
+        e.begin(p);e.emotion("angry");e.apply(.001f,false,p,1);
+        assertTrue(p.current("ParamMouthForm")>.4f && p.current("ParamMouthForm")<.6f);
+    }
 }

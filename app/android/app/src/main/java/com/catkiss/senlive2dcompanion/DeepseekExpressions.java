@@ -20,6 +20,12 @@ final class DeepseekExpressions {
     private String emotion="normal",face="",wink="",effect="";
     private float remaining,age,weight;
     void emotion(String value) {emotion=value;}
+    void begin(DeepseekParameterPlan.Target target) {
+        // A new event enters from the displayed (possibly fading) face, not the old
+        // unweighted peak retained by this smoothing layer.
+        current.clear();
+        for(String id:emotionPose("normal").keySet()) if(target.accepts(id)) current.put(id,target.current(id));
+    }
     void trigger(String face,String wink,String effect) {
         this.effect=BUTTONS.containsKey(effect) && !Arrays.asList("圈圈眼","爱心眼","><眼","嫌弃眼").contains(effect)?effect:"";
         this.face=BUTTONS.containsKey(face)?face:"";

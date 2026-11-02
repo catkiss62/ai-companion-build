@@ -194,7 +194,7 @@ final class DeepseekAvatarModel extends CubismUserModel {
     void tune(float gain,float speed) {plan.setGain(gain);plan.setSpeed(speed);idle.tune(gain,speed);}
     void emotion(String event,String value) {emotion(event,value,System.nanoTime());}
     void emotion(String event,String value,long now) {
-        if(emotionLease.present(event,value,now)) {baseEvent=event;emotionSuppressed=false;}
+        if(emotionLease.present(event,value,now)) {baseEvent=event;emotionSuppressed=false;expressions.begin(pose);}
         baseEmotion=emotionLease.emotion();
     }
     float emotionWeight(long now) {return emotionSuppressed?0:emotionLease.weight(now);}
@@ -206,13 +206,14 @@ final class DeepseekAvatarModel extends CubismUserModel {
         if(!speech) {
             speechDeadline=0;speechFaceFade=0;speechCue="";
             if(args.optBoolean("_preview")) {
+                expressions.begin(pose);
                 previewEmotion=emotion;previewEmotionDeadline=now+4_500_000_000L;
             } else {previewEmotionDeadline=0;emotion(baseEvent.isEmpty()?"plan:"+now:baseEvent,emotion);}
         }
         else {speechEmotion=emotion;speechFaceFade=0;speechDeadline=now+700_000_000L;}
         String cue=args.optString("cue","");
         if(speech && cue.equals(speechCue)) return;
-        if(speech) speechCue=cue;
+        if(speech) {expressions.begin(pose);speechCue=cue;}
         preview.clear();manualPreview=false;previewRootX=previewRootTilt=0;
         idle.resetGrass();
         boolean animate=!speech || args.optBoolean("animate");
