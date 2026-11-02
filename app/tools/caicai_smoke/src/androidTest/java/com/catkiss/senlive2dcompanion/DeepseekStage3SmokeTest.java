@@ -84,4 +84,17 @@ public class DeepseekStage3SmokeTest {
         assertArrayEquals(original,m,0);assertTrue(probe.trace().contains("visible_leg_bounds_lower"));
     }
 
+    @Test public void smallAxisMovesToLowerLegWithoutChangingTravelOnAndroid() {
+        DeepseekLegPivot.Bounds legs=new DeepseekLegPivot.Bounds(-.08f,.08f,.44f,.04f);
+        float[] mapped=DeepseekLegPivot.map(new DeepseekLegPivot.Bounds(-1,1,1,-3),
+            new DeepseekLegPivot.Bounds(-.4f,.4f,-1,-3),legs,.88f);
+        float[] lower=DeepseekLegPivot.withSmallFormAnchor(mapped,legs,.88f,.55f);
+        assertEquals(.064f,lower[1],.00001f);assertEquals(mapped[2],lower[2],0);
+        for(float angle:new float[]{-10,10}) {
+            float[] root=DeepseekLegPivot.matrix(1280,2204,lower[0],lower[1],lower[2],.1f,angle);
+            assertEquals(lower[0]+lower[2]*.1f,root[0]*lower[0]+root[4]*lower[1]+root[12],.00001f);
+            assertEquals(lower[1],root[1]*lower[0]+root[5]*lower[1]+root[13],.00001f);
+        }
+    }
+
 }

@@ -7,6 +7,60 @@ public class DeepseekLegPivotTest {
     private static DeepseekLegPivot.Bounds b(float l,float r,float t,float bottom) {
         return new DeepseekLegPivot.Bounds(l,r,t,bottom);
     }
+    @Test public void smallAxisUsesCurrentLowerLegsAndKeepsTheSavedControl() {
+        DeepseekLegPivot.Bounds legs=b(-.08f,.08f,.44f,.04f);
+        float[] mapped=DeepseekLegPivot.map(b(-1,1,1,-3),b(-.4f,.4f,-1,-3),legs,.88f);
+        float[] before=mapped.clone();
+        float[] lower=DeepseekLegPivot.withSmallFormAnchor(mapped,legs,.88f,.55f);
+        assertEquals(.064f,lower[1],.00001f);
+        assertEquals(mapped[0],lower[0],0);assertEquals(mapped[2],lower[2],0);
+        assertArrayEquals(before,mapped,0);
+        assertArrayEquals(mapped,DeepseekLegPivot.withSmallFormAnchor(mapped,legs,.88f,0),0);
+        assertEquals(legs.bottom,DeepseekLegPivot.withSmallFormAnchor(mapped,legs,1,.55f)[1],.00001f);
+        assertTrue(DeepseekLegPivot.withSmallFormAnchor(mapped,legs,.7f,.55f)[1]>lower[1]);
+        assertArrayEquals(mapped,DeepseekLegPivot.withSmallFormAnchor(mapped,new DeepseekLegPivot.Bounds(),.88f,.55f),0);
+        assertArrayEquals(mapped,DeepseekLegPivot.withSmallFormAnchor(mapped,legs,.88f,Float.NaN),0);
+        assertNull(DeepseekLegPivot.withSmallFormAnchor(null,legs,.88f,.55f));
+    }
+    @Test public void enteringAndLeavingSmallFormRetraceAContinuousAxisForEverySavedSize() {
+        for(float target:new float[]{.2f,.55f,.8f,1}) {
+            float previous=Float.NaN;
+            float[] forward=new float[101];
+            for(int i=0;i<=100;i++) {
+                float form=target*i/100,ratio=1-.8f*i/100;
+                DeepseekLegPivot.Bounds live=b(-.4f*ratio,.4f*ratio,.8f+(-1-.8f)*ratio,.8f+(-3-.8f)*ratio);
+                float[] mapped=DeepseekLegPivot.map(b(-1,1,1,-3),b(-.4f,.4f,-1,-3),live,.88f);
+                float y=DeepseekLegPivot.withSmallFormAnchor(mapped,live,.88f,form)[1];
+                assertTrue(Float.isFinite(y));
+                if(i>0) assertTrue(Math.abs(y-previous)<.05f);
+                forward[i]=previous=y;
+            }
+            for(int i=100;i>=0;i--) {
+                float form=target*i/100,ratio=1-.8f*i/100;
+                DeepseekLegPivot.Bounds live=b(-.4f*ratio,.4f*ratio,.8f+(-1-.8f)*ratio,.8f+(-3-.8f)*ratio);
+                float[] mapped=DeepseekLegPivot.map(b(-1,1,1,-3),b(-.4f,.4f,-1,-3),live,.88f);
+                assertEquals(forward[i],DeepseekLegPivot.withSmallFormAnchor(mapped,live,.88f,form)[1],.000001f);
+            }
+        }
+    }
+    @Test public void lowerAxisReducesFootRotationWhileWholeModelTravelAndHitInverseStillWork() {
+        DeepseekLegPivot.Bounds live=b(-.08f,.08f,.44f,.04f);
+        float[] mapped=DeepseekLegPivot.map(b(-1,1,1,-3),b(-.4f,.4f,-1,-3),live,.88f);
+        float[] lower=DeepseekLegPivot.withSmallFormAnchor(mapped,live,.88f,.55f);
+        for(float angle:new float[]{-10,10}) {
+            float[] old=DeepseekLegPivot.matrix(1280,2204,0,mapped[1],mapped[2],0,angle);
+            float[] fixed=DeepseekLegPivot.matrix(1280,2204,0,lower[1],lower[2],0,angle);
+            float oldFoot=old[4]*live.bottom+old[12],newFoot=fixed[4]*live.bottom+fixed[12];
+            assertTrue(Math.abs(newFoot)<Math.abs(oldFoot)*.3f);
+            assertEquals(lower[1],fixed[5]*lower[1]+fixed[13],.00001f);
+            float[] travel=DeepseekLegPivot.matrix(1280,2204,0,lower[1],lower[2],.1f,angle);
+            assertEquals(.1f*lower[2],travel[12]-fixed[12],.000001f);
+            DeepseekHitTransform hit=new DeepseekHitTransform(travel,-.08f,.08f,.44f,.04f);
+            float x=.02f,y=.3f,sx=travel[0]*x+travel[4]*y+travel[12],sy=travel[1]*x+travel[5]*y+travel[13];
+            float[] inverse=new float[2];assertTrue(hit.inverse((sx+1)/2,(1-sy)/2,inverse));
+            assertEquals((x+.08f)/.16f,inverse[0],.00001f);assertEquals((.44f-y)/.4f,inverse[1],.00001f);
+        }
+    }
     @Test public void legSelectionFollowsOnlyItsPartTreeAndCannotLoop() {
         int[] parents={-1,0,1,0,3,4};boolean[] legs={false,true,false,false,false,false};
         assertTrue(DeepseekLegPivot.belongsToLeg(2,parents,legs));

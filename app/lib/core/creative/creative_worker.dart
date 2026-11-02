@@ -59,6 +59,9 @@ class CreativeWorker {
     // pending tool receipts intact; commissions remain immediately runnable.
     for (final candidate in candidates.toList()) {
       if (!CreativeAutonomyPolicy.autonomous(candidate)) continue;
+      final saved = CreativeContract.decode(await db.getSetting(
+          CreativeWorkspace.key(candidate['id'] as String)));
+      if (CreativeWorkspace.hasPendingTools(saved, candidate['request_id'])) continue;
       final connection = await SecureConfig.instance.workConnection(
           profileId: candidate['api_profile_id'] as String? ?? '', archive: false);
       if (connection != null && await BackgroundCostPolicy.deferredUntil(db, now(),

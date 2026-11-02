@@ -10,6 +10,7 @@ import 'dart:convert';
 
 import '../database/app_database.dart';
 import '../database/conversation_source_store.dart';
+import '../database/conversation_summary_store.dart';
 import '../database/brain_work_fence.dart';
 import '../database/automatic_memory_permit.dart';
 import '../continuity/daily_continuity_engine.dart';
@@ -1888,7 +1889,8 @@ AI 主动消息：${outbound?.content ?? '(消息正文不可用)'}
       if (fence == null || fence.expectedSettings['memory_consolidation_enabled'] == '0') return;
       final work = await db.prepareConversationSummary(workFence: fence);
       if (work == null) {
-        await db.setSettingsAtomically({'conversation_summary_offpeak_pending': ''}, workFence: fence);
+        await (await db.database).transaction((txn) =>
+            ConversationSummaryStore.settleEmptyScan(txn, workFence: fence));
         return;
       }
       // Event time is descriptive; scanning uses durable ingestion order.

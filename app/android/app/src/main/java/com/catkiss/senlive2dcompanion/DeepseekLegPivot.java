@@ -34,6 +34,19 @@ final class DeepseekLegPivot {
         float span=normal.width()/normalLegs.width()*liveLegs.width();
         return Float.isFinite(px) && Float.isFinite(py) && Float.isFinite(span)?new float[]{px,py,span}:null;
     }
+    /** Keep the small form's axis in its live lower-leg region. The same saved
+     * pivot control spans the lower half of the leg rectangle (88 -> 94%).
+     * Blend by the current morph input in both directions, independent of a
+     * changing size-slider target; x and travel span stay intact. */
+    static float[] withSmallFormAnchor(float[] mapped,Bounds liveLegs,float pivot,float form) {
+        if(mapped==null || !liveLegs.valid() || !Float.isFinite(pivot) ||
+                !Float.isFinite(form) || form<=0) return mapped;
+        float weight=Math.max(0,Math.min(1,form/.2f));
+        weight=weight*weight*(3-2*weight);
+        float lowerFraction=.5f+.5f*Math.max(0,Math.min(1,pivot));
+        float lowerY=liveLegs.top-liveLegs.height()*lowerFraction;
+        return new float[]{mapped[0],mapped[1]+(lowerY-mapped[1])*weight,mapped[2]};
+    }
     /** Apply a model-space correction to this frame's fresh MVP, never to Core vertices. */
     static void translateModel(float[] m,float x,float y) {
         if(!Float.isFinite(x) || !Float.isFinite(y)) return;

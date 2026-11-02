@@ -170,6 +170,14 @@ class CreativeWorkspace {
     return false;
   }
 
+  /// Price scheduling may bypass a new request only for this exact saved batch.
+  /// Full validation and ownership checks still run in the worker before effects.
+  static bool hasPendingTools(Map<String, dynamic> state, Object? requestId) {
+    final pending = state['pending'], next = state['next_tool'];
+    return requestId is String && requestId.isNotEmpty && state['request_id'] == requestId &&
+        pending is List && next is int && next >= 0 && next < pending.length;
+  }
+
   static List<Map<String, Object?>> messages(Map<String, dynamic> state,
       Map<String, dynamic> work) => [
     {'role': 'system', 'content': instruction},

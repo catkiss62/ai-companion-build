@@ -20,6 +20,7 @@ class ConversationSummaryWork {
 class ConversationSummaryStore {
   static const table = 'conversation_summary_sources';
   static const stateKey = 'conversation_summary_scan_state_v1';
+  static const offpeakPendingKey = 'conversation_summary_offpeak_pending';
   static const _uuid = Uuid();
 
   static Future<void> ensureSchema(DatabaseExecutor db) async {
@@ -48,6 +49,22 @@ class ConversationSummaryStore {
   }
 
   static int _nonnegative(Object? value) => value is int && value >= 0 ? value : 0;
+
+  /// A null prepared batch can mean just an unproductive bounded scan. Call in
+  /// one transaction after prepare, so new sources cannot slip between the
+  /// continuation check and marker write. An invalidated owner never writes.
+  static Future<bool> settleEmptyScan(DatabaseExecutor txn, {
+    required BrainWorkFence workFence,
+  }) async {
+    if (!await workFence.matches(txn)) return false;
+    final state = _state(await BrainWorkFence.value(txn, stateKey));
+    final cursor = _nonnegative(state['scan_seq']);
+    final remaining = await txn.query('messages', columns: ['id'],
+        where: 'source_ingest_seq > ?', whereArgs: [cursor], limit: 1);
+    await txn.insert('settings', {'key': offpeakPendingKey,
+      'value': remaining.isNotEmpty ? '1' : ''}, conflictAlgorithm: ConflictAlgorithm.replace);
+    return true;
+  }
 
   static Future<void> _classify(DatabaseExecutor txn, ConversationSourceMaterial material) async {
     final source = material.source;

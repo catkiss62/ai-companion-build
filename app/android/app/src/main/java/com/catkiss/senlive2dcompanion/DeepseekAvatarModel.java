@@ -445,6 +445,7 @@ final class DeepseekAvatarModel extends CubismUserModel {
         CubismMatrix44.multiply(mvp.getArray(),stage,mvp.getArray());
         DeepseekLegPivot.translateModel(mvp.getArray(),morphShiftX,morphShiftY);
         float[] mapped=form>.0001f?DeepseekLegPivot.map(normalBounds,normalLegs,liveLegs,pivot):null;
+        mapped=DeepseekLegPivot.withSmallFormAnchor(mapped,liveLegs,pivot,form);
         float[] root;float rootSpan;mappedLegPivot=mapped!=null;
         if(mappedLegPivot) {
             legPivotX=mapped[0];legPivotY=mapped[1];
