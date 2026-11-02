@@ -134,6 +134,8 @@ public class DeepseekPerformanceTest {
         assertTrue(p.current("@rootX")>.07f);assertTrue(p.current("@rootTilt")>8);
         assertTrue(p.current("LeanInput")<-28.5f); // Full -30 target is never multiplied down by gain.
         plan.release();for(int i=0;i<45;i++) {p.values.clear();plan.apply(1f/60,p);}
+        assertTrue(p.current("LeanInput")<-.1f); // Slower return is still settling at .75s.
+        for(int i=0;i<35;i++) {p.values.clear();plan.apply(1f/60,p);}
         assertEquals(0,p.current("LeanInput"),.01f);
     }
     @Test public void emotionsUseTheActualFaceRangeAndRecoverNeutralWithoutLeavingButtonsOrMouthOpening() {
