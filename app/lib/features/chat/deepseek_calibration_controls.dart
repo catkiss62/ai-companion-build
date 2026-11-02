@@ -91,7 +91,7 @@ class _DeepseekCalibrationControlsState extends State<DeepseekCalibrationControl
     const Text('本机待机含呼吸、眨眼和随机头身动作，偶尔拿起狗尾草；触摸或鼠标可引导眼睛、头部和身体。'),
     Wrap(spacing:8,children:[
       ActionChip(label:const Text('前倾贴近预览'),onPressed:widget.busy?null:()=>widget.preview('previewDeepseekPerformance',
-        DeepseekMotionPlanner.buildPlan({'f0_lean':'贴近屏幕','f1_lean':'贴近屏幕','f2_lean':'贴近屏幕'},
+        DeepseekMotionPlanner.buildPlan({'lean_use':'yes','lean_moment':'f0'},
           {'LeanInput':{'min':-30,'max':30}}))),
       ActionChip(label:const Text('自主待机'),onPressed:widget.busy?null:()=>widget.preview('previewDeepseekIdle',false)),
       ActionChip(label:const Text('狗尾草待机预览'),onPressed:widget.busy?null:()=>widget.preview('previewDeepseekIdle',true)),
