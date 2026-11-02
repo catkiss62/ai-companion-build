@@ -288,8 +288,8 @@ public final class CaicaiCompanionView extends GLSurfaceView implements SenCompa
     public void performDeepseek(String json,boolean speech,java.util.function.BooleanSupplier valid) {
         queueRenderer(()->{if(valid.getAsBoolean()) renderer.performDeepseek(json,speech);});
     }
-    public void emotionDeepseek(String value,java.util.function.BooleanSupplier valid) {
-        queueRenderer(()->{if(valid.getAsBoolean()) renderer.emotionDeepseek(value);});
+    public void emotionDeepseek(String event,String value,java.util.function.BooleanSupplier valid) {
+        queueRenderer(()->{if(valid.getAsBoolean()) renderer.emotionDeepseek(event,value);});
     }
     public void stopDeepseek(boolean speech,java.util.function.BooleanSupplier valid) {
         queueRenderer(()->{if(valid.getAsBoolean()) renderer.stopDeepseek(speech);});

@@ -54,4 +54,17 @@ public class DeepseekStage3SmokeTest {
         plan.release();for(int i=0;i<50;i++) {p.values.clear();plan.apply(1f/60,p);}
         assertTrue(Math.abs(p.current("LeanInput"))<.01f);
     }
+
+    @Test public void morphedAvatarStaysInsideHorizontalViewportAndHitTestingFollowsCorrection() {
+        for(float offset:new float[]{-1.8f,-1,0,1,1.8f}) {
+            float[] m={.6f,.1f,0,0,-.15f,1.4f,0,0,0,0,1,0,offset,-.6f,0,1};
+            m[12]+=DeepseekHitTransform.smallFormShift(m,-.4f,.4f,.5f,-.5f,1);
+            for(float x:new float[]{-.4f,.4f}) for(float y:new float[]{-.5f,.5f}) {
+                float sx=m[0]*x+m[4]*y+m[12];assertTrue(sx>=-.94001f && sx<=.94001f);
+            }
+            float[] p=new float[2];DeepseekHitTransform hit=new DeepseekHitTransform(m,-.4f,.4f,.5f,-.5f);
+            assertTrue(hit.inverse((1+m[12])/2,(1-m[13])/2,p));
+            assertEquals(.5f,p[0],.0001f);assertEquals(.5f,p[1],.0001f);
+        }
+    }
 }

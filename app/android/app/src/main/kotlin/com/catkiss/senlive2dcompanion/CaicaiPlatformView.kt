@@ -179,7 +179,8 @@ internal class CaicaiPlatformView(
                 val valid={ !disposed && motionEpoch==epoch && loadIdentity==asset &&
                     profileGeneration==Live2DProfiles.generation && hostActive && stageVisible }
                 when(call.method) {
-                    "setDeepseekEmotion" -> companion.emotionDeepseek(args["emotion"]?.toString()?:"normal",valid)
+                    "setDeepseekEmotion" -> companion.emotionDeepseek(args["event"]?.toString()?:"deepseek:$epoch",
+                        args["emotion"]?.toString()?:"normal",valid)
                     "stopDeepseekMotion" -> {deepseekSpeechSequence++;speechLease=-1;companion.stopDeepseek(false,valid)}
                     "stopDeepseekSpeechMotion" -> {
                         val lease=(args["lease"] as? Number)?.toLong() ?: return result.success(false)

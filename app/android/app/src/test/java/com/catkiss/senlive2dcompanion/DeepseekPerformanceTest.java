@@ -155,4 +155,18 @@ public class DeepseekPerformanceTest {
         assertEquals(0,p.current("ParamMouthForm"),.001f);assertEquals(0,p.current("EyeSmile"),.001f);
         assertEquals(1,p.current("ParamEyeLOpen"),.001f);
     }
+
+    @Test public void expiredEmotionReturnsToNeutralAndSmallFormKeepsOnlyItsOwnBaseline() {
+        DeepseekExpressions e=new DeepseekExpressions();Pose p=new Pose();e.emotion("playful");
+        for(int i=0;i<100;i++) e.apply(1f/60,false,p,1);
+        assertTrue(p.current("ParamMouthForm")>.99f);assertTrue(p.current("MouthX")>.79f);
+        e.apply(1f/60,false,p,0);
+        for(Map.Entry<String,Float> neutral:DeepseekExpressions.emotionPose("normal").entrySet())
+            assertEquals(neutral.getKey(),neutral.getValue(),p.current(neutral.getKey()),.000001f);
+        e.emotion("angry");for(int i=0;i<100;i++) e.apply(1f/60,true,p,1);
+        assertTrue(p.current("ParamBrowLY")<-.99f);
+        e.apply(1f/60,true,p,0);e.smallReaction(p);
+        assertEquals(-1,p.current("ParamMouthForm"),0);assertEquals(-.48f,p.current("ParamBrowLY"),.000001f);
+        assertEquals(.3f,p.current("CheeckPuff"),.000001f);
+    }
 }

@@ -178,7 +178,7 @@ final class SenRenderer implements GLSurfaceView.Renderer {
         if(deepseek==null) return;
         try {deepseek.performance(new JSONObject(json),speech);} catch(JSONException ignored) {deepseek.stopPerformance();}
     }
-    void emotionDeepseek(String value) {if(deepseek!=null) deepseek.emotion(value);}
+    void emotionDeepseek(String event,String value) {if(deepseek!=null) deepseek.emotion(event,value);}
     void stopDeepseek(boolean speech) {if(deepseek!=null) {if(speech) deepseek.releaseSpeech();else deepseek.stopPerformance();}}
     void appearanceDeepseek(String values) {
         if(deepseek==null) return;

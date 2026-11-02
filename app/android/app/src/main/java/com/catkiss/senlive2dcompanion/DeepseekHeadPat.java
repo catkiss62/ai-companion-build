@@ -30,7 +30,7 @@ final class DeepseekHeadPat {
         for(String id:FACE) if(pose.accepts(id)) {
             float target=0;
             switch(id) {
-                case "ParamEyeLOpen":target=rare?.55f:.12f;break;
+                case "ParamEyeLOpen":target=rare?.7f:.12f;break;
                 case "ParamEyeROpen":target=rare?1.35f:.12f;break;
                 case "LEyeSquint":case "REyeSquint":target=rare?0:.9f;break;
                 case "EyeSmile":target=rare?0:.9f;break;

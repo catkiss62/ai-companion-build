@@ -28,6 +28,8 @@ final class DeepseekAvatarModel extends CubismUserModel {
     private final Map<String,Float> preview = new LinkedHashMap<>();
     private final Map<String,Float> appearance = new LinkedHashMap<>();
     private final DeepseekExpressions expressions=new DeepseekExpressions();
+    // Separate instance: same event-duration policy as Caicai, no shared avatar state.
+    private final CaicaiEmotionLease emotionLease=new CaicaiEmotionLease();
     private final DeepseekGestures gestures=new DeepseekGestures();
     private final DeepseekParameterPlan plan=new DeepseekParameterPlan();
     private final DeepseekIdleMotion idle=new DeepseekIdleMotion();
@@ -38,7 +40,8 @@ final class DeepseekAvatarModel extends CubismUserModel {
     private float[] frozenParameters;
     private DeepseekMotionClip auxiliary;
     private float effectTime,previewRootX,previewRootTilt;
-    private String baseEmotion="normal",speechCue="",clipStatus="";
+    private String baseEmotion="normal",baseEvent="",previewEmotion="normal",speechEmotion="normal",speechCue="",clipStatus="";
+    private boolean emotionSuppressed=true;
     private long speechDeadline,previewEmotionDeadline;
     private static final Set<String> AUXILIARY=new HashSet<>(Arrays.asList(
         "Param31","Param32","Param27","Param28","RCry","Param29","Param30","LCry"));
@@ -61,7 +64,7 @@ final class DeepseekAvatarModel extends CubismUserModel {
     private float smallForm=.55f;
     private boolean small;
     private float form, targetForm, amplitude, anchorX=.5f, anchorY=.21504237f;
-    private float left,right,top,bottom,rootX,rootTilt;
+    private float left,right,top,bottom,rootX,rootTilt,smallClipX;
     private int anchorDrawable=-1, anchorVertex;
     private float[] savedParameters;
     private boolean anchorDirty=true;
@@ -189,18 +192,24 @@ final class DeepseekAvatarModel extends CubismUserModel {
         catch(IOException|org.json.JSONException e) {clipStatus+=" missing:idle-grass";}
     }
     void tune(float gain,float speed) {plan.setGain(gain);plan.setSpeed(speed);idle.tune(gain,speed);}
-    void emotion(String value) {baseEmotion=value;expressions.emotion(value);}
+    void emotion(String event,String value) {emotion(event,value,System.nanoTime());}
+    void emotion(String event,String value,long now) {
+        if(emotionLease.present(event,value,now)) {baseEvent=event;emotionSuppressed=false;}
+        baseEmotion=emotionLease.emotion();
+    }
+    float emotionWeight(long now) {return emotionSuppressed?0:emotionLease.weight(now);}
     void performance(JSONObject args,boolean speech) throws org.json.JSONException {
         if(args.optBoolean("_preview")) {staticMode(false);pat.cancel();}
         else if(staticMode || manualPreview || pat.active()) return;
-        String emotion=args.optString("emotion",baseEmotion);if(emotion.isEmpty()) emotion=baseEmotion;
+        long now=System.nanoTime();
+        String emotion=args.optString("emotion");if(emotion.isEmpty()) emotion=emotionWeight(now)>0?baseEmotion:"normal";
         if(!speech) {
             speechDeadline=0;speechCue="";
             if(args.optBoolean("_preview")) {
-                expressions.emotion(emotion);previewEmotionDeadline=System.nanoTime()+4_000_000_000L;
-            } else {previewEmotionDeadline=0;emotion(emotion);}
+                previewEmotion=emotion;previewEmotionDeadline=now+4_500_000_000L;
+            } else {previewEmotionDeadline=0;emotion(baseEvent.isEmpty()?"plan:"+now:baseEvent,emotion);}
         }
-        else {expressions.emotion(emotion);speechDeadline=System.nanoTime()+700_000_000L;}
+        else {speechEmotion=emotion;speechDeadline=now+700_000_000L;}
         String cue=args.optString("cue","");
         if(speech && cue.equals(speechCue)) return;
         if(speech) speechCue=cue;
@@ -245,6 +254,7 @@ final class DeepseekAvatarModel extends CubismUserModel {
     void suspend() {
         hit=DeepseekHitTransform.INVALID;
         stopPerformance();plan.clear();gestures.clear();pat.cancel();expressions.clearTransient();
+        emotionSuppressed=true;
         preview.clear();manualPreview=false;previewRootX=previewRootTilt=rootX=rootTilt=0;
         idle.clearAttention();idle.resetGrass();blink.reset();
     }
@@ -270,15 +280,11 @@ final class DeepseekAvatarModel extends CubismUserModel {
         form+=(targetForm-form)*(1-(float)Math.exp(-delta*6));
         if(Math.abs(targetForm-form)<.0001f) form=targetForm;
         applyBase();
-        if(speechDeadline!=0 && System.nanoTime()>speechDeadline) releaseSpeech();
-        if(previewEmotionDeadline!=0 && System.nanoTime()>previewEmotionDeadline) {
-            previewEmotionDeadline=0;expressions.emotion(baseEmotion);
-        }
         if(!manualPreview) idle.update(delta,pose);
         Integer breath=indices.get("ParamBreath");
         if(breath!=null) set("ParamBreath",model.getParameterMinimumValue(breath)
             +(model.getParameterMaximumValue(breath)-model.getParameterMinimumValue(breath))*idle.breath());
-        expressions.apply(delta,small || form>.05f,pose);
+        applyEmotion(delta,small || form>.05f,pose,System.nanoTime());
         plan.apply(delta,pose);
         if(small || form>.05f) expressions.smallReaction(pose);
         if(!manualPreview) idle.applyAttention(pose,pat.active()?.25f:1);
@@ -305,6 +311,19 @@ final class DeepseekAvatarModel extends CubismUserModel {
         // Reassert every mouth channel, including silent phonemes, after the single physics tick.
         if(speaking) ownMouth();
         if(form>.0001f || anchorDirty) stabilizeMorph(); else model.update();
+    }
+    void applyEmotion(float delta,boolean small,DeepseekParameterPlan.Target target,long now) {
+        if(speechDeadline!=0 && now>speechDeadline) releaseSpeech();
+        if(previewEmotionDeadline!=0 && now>previewEmotionDeadline) previewEmotionDeadline=0;
+        float faceWeight=emotionWeight(now);
+        String faceEmotion=baseEmotion;
+        if(previewEmotionDeadline!=0) {
+            faceEmotion=previewEmotion;faceWeight=Math.max(0,Math.min(1,(previewEmotionDeadline-now)/380_000_000f));
+        }
+        if(speechDeadline!=0) {faceEmotion=speechEmotion;faceWeight=1;}
+        if(faceWeight<=0) faceEmotion="normal";
+        expressions.emotion(faceEmotion);
+        expressions.apply(delta,small,target,faceWeight);
     }
     private void bounds() {
         left=bottom=Float.POSITIVE_INFINITY;right=top=Float.NEGATIVE_INFINITY;
@@ -359,10 +378,15 @@ final class DeepseekAvatarModel extends CubismUserModel {
             mvp.transformY(vt),mvp.transformY(vb),rootX,rootTilt,pivot);
         CubismMatrix44.multiply(mvp.getArray(),root.matrix(),mvp.getArray());
         CubismMatrix44.multiply(mvp.getArray(),crop,mvp.getArray());
+        // Clothes2 morphs the mesh while stage scale remains unchanged. Bound actual
+        // post-rotation screen travel, including native body motion, only in small form.
+        smallClipX=DeepseekHitTransform.smallFormShift(mvp.getArray(),vl,vr,vt,vb,
+            form/Math.max(.001f,smallForm));
+        mvp.getArray()[12]+=smallClipX;
         getRenderer().setMvpMatrix(mvp);getRenderer().drawModel();
         hit=new DeepseekHitTransform(mvp.getArray(),vl,vr,vt,vb);
     }
-    String trace() { return "deepseek-avatar form="+form+" target="+targetForm+" smallForm="+smallForm+" anchor="+anchorX+","+anchorY+" root="+rootX+","+rootTilt+" face="+expressions.trace()+" gesture="+gestures.trace()+clipStatus+" speech="+(speechDeadline!=0)+" pat="+pat.state()+" idle="+idle.trace()+" static="+staticMode+" preview="+manualPreview; }
+    String trace() { return "deepseek-avatar form="+form+" target="+targetForm+" smallForm="+smallForm+" anchor="+anchorX+","+anchorY+" root="+rootX+","+rootTilt+" smallClipX="+smallClipX+" face="+expressions.trace()+" gesture="+gestures.trace()+clipStatus+" speech="+(speechDeadline!=0)+" pat="+pat.state()+" idle="+idle.trace()+" static="+staticMode+" preview="+manualPreview; }
     void resizeRenderTarget(int width,int height) { if(getRenderer()!=null) getRenderer().setRenderTargetSize(width,height); }
     void closeModel() {hit=DeepseekHitTransform.INVALID;suspend();delete();}
 }

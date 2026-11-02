@@ -16,6 +16,7 @@ final class DeepseekExpressions {
         BUTTONS=Collections.unmodifiableMap(b);
     }
     private final Map<String,Float> current=new HashMap<>();
+    private final Map<String,Float> applied=new HashMap<>();
     private String emotion="normal",face="",wink="",effect="";
     private float remaining,age,weight;
     void emotion(String value) {emotion=value;}
@@ -33,27 +34,36 @@ final class DeepseekExpressions {
             || !wink.isEmpty() && age<(wink.equals("吐舌wink")?1.6f:1.2f));
     }
     void apply(float dt,boolean small,DeepseekParameterPlan.Target target) {
+        apply(dt,small,target,1);
+    }
+    void apply(float dt,boolean small,DeepseekParameterPlan.Target target,float emotionWeight) {
         Map<String,Float> wanted=emotionPose(emotion);
+        Map<String,Float> neutral=emotionPose("normal");
         // Small-form dissatisfaction has its own brows/mouth; ordinary neutral must not erase it.
         if(small) {
             wanted.put("ParamMouthForm",-1f);
             wanted.put("ParamBrowLY",Math.min(-.48f,wanted.getOrDefault("ParamBrowLY",0f)));
             wanted.put("ParamBrowRY",Math.min(-.48f,wanted.getOrDefault("ParamBrowRY",0f)));
             wanted.put("CheeckPuff",Math.max(.3f,wanted.getOrDefault("CheeckPuff",0f)));
+            neutral.put("ParamMouthForm",-1f);neutral.put("ParamBrowLY",-.48f);
+            neutral.put("ParamBrowRY",-.48f);neutral.put("CheeckPuff",.3f);
         }
         Set<String> keys=new HashSet<>(current.keySet());keys.addAll(wanted.keySet());
         float mix=1-(float)Math.exp(-Math.max(0,dt)*8);
+        float emotionMix=Float.isFinite(emotionWeight)?Math.max(0,Math.min(1,emotionWeight)):0;
         for(String id:keys) {
             float v=current.getOrDefault(id,target.current(id));v+=(wanted.getOrDefault(id,target.current(id))-v)*mix;
-            current.put(id,v);if(target.accepts(id)) target.write(id,v);
+            current.put(id,v);
+            float base=neutral.getOrDefault(id,target.current(id)),shown=base+(v-base)*emotionMix;
+            applied.put(id,shown);if(target.accepts(id)) target.write(id,shown);
         }
         remaining=Math.max(0,remaining-dt);age+=dt;
         weight+=( (remaining>0?1:0)-weight)*(1-(float)Math.exp(-dt*10));
     }
     void smallReaction(DeepseekParameterPlan.Target target) {
         for(String id:Arrays.asList("ParamMouthForm","ParamBrowLY","ParamBrowRY"))
-            target.write(id,Math.min(target.current(id),current.getOrDefault(id,0f)));
-        target.write("CheeckPuff",Math.max(target.current("CheeckPuff"),current.getOrDefault("CheeckPuff",0f)));
+            target.write(id,Math.min(target.current(id),applied.getOrDefault(id,0f)));
+        target.write("CheeckPuff",Math.max(target.current("CheeckPuff"),applied.getOrDefault("CheeckPuff",0f)));
     }
     // Overlay after the parameter plan, preventing simultaneous special-eye states.
     void overlay(DeepseekParameterPlan.Target target) {

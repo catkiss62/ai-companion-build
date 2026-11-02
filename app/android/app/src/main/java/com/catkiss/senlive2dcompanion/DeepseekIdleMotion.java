@@ -50,10 +50,14 @@ final class DeepseekIdleMotion {
         x+=(targetX*follow-x)*ease;y+=(targetY*follow-y)*ease;
         if(age>=duration) {age-=duration;nextPhrase();}
         float pulse=age<accent?variation*(float)Math.pow(Math.sin(Math.PI*age/accent),2):0;
-        // Authored inputs are -30..30, including the body controls feeding physics.
-        // Comparable energy to Caicai; smooth timing, rather than tiny caps, avoids jolts.
-        put(target,"AngleX",clamp(gain*(wave(clock*1.05f,.4f)*22+side*pulse*(family==0?14:7)),30));
-        put(target,"AngleY",clamp(gain*(wave(clock*.93f,1.8f)*21+pulse*(family==2?17:family==3?-16:0)),30));
+        // Most of idle faces the viewer. A few short accents glance away and return;
+        // roll/body energy stays intact. Explicit attention and JEV still own their full range.
+        float glance=family==0 || family==2 || family==3?Math.min(1,pulse):0;
+        float focus=.25f+.75f*glance;
+        float headX=clamp(gain*(wave(clock*1.05f,.4f)*22*focus+side*pulse*(family==0?14:2)),30);
+        float headY=clamp(gain*(wave(clock*.93f,1.8f)*21*focus+pulse*(family==2?17:family==3?-16:0)),30);
+        put(target,"AngleX",headX);
+        put(target,"AngleY",headY);
         put(target,"AngleZ",clamp(gain*(wave(clock*.87f,3.2f)*19+side*pulse*(family==4?15:9)),30));
         put(target,"PositionX",clamp(gain*(wave(clock*.65f,.7f)*12+side*pulse*4),30));
         put(target,"PositionY",clamp(gain*(wave(clock*.72f,2.2f)*10+pulse*(family==5?5:-3)),30));
@@ -61,8 +65,9 @@ final class DeepseekIdleMotion {
         put(target,"LeanInput",0);
         put(target,"@rootX",clamp(gain*side*pulse*(family==6?.075f:.055f),.15f));
         put(target,"@rootTilt",clamp(gain*side*pulse*(family==7?6:4.5f),10));
-        put(target,"ParamEyeBallX",wave(clock*.48f,1)*.17f);
-        put(target,"ParamEyeBallY",wave(clock*.43f,2)*.12f);
+        // Gently counter the resting head turn instead of independently scanning the room.
+        put(target,"ParamEyeBallX",clamp(-headX/30*.35f+wave(clock*.48f,1)*.06f,.5f));
+        put(target,"ParamEyeBallY",clamp(-headY/30*.3f+wave(clock*.43f,2)*.05f,.5f));
     }
     void applyAttention(DeepseekParameterPlan.Target target,float headWeight) {
         float follow=Math.min(1,attention/.55f);

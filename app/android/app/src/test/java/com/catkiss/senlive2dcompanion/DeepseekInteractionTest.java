@@ -43,7 +43,8 @@ public class DeepseekInteractionTest {
         assertTrue(pose.current("PositionZ")>7);assertTrue(pose.current("PositionY")>5);
         idle.look(false,0,0);
         for(int i=0;i<100;i++) {pose.lower();idle.update(1f/60,pose);idle.applyAttention(pose,1);}
-        assertFalse(idle.attentive());assertTrue(Math.abs(pose.current("ParamEyeBallX"))<=.17f);
+        assertFalse(idle.attentive());float restingEye=pose.current("ParamEyeBallX");idle.applyAttention(pose,1);
+        assertEquals(restingEye,pose.current("ParamEyeBallX"),0);
         idle.look(true,Float.NaN,1);assertFalse(idle.attentive());
     }
     @Test public void grassIsOccasionalAndNeverRequestedDuringHigherPriorityWorkOrTouch() {
@@ -152,10 +153,62 @@ public class DeepseekInteractionTest {
         DeepseekHeadPat pat=new DeepseekHeadPat();Pose pose=new Pose();pat.start(false,true,pose);
         for(int i=0;i<120;i++) {pose.lower();pat.apply(1f/60,false,pose);}
         assertEquals("easter_egg",pat.state());
-        assertTrue(pose.current("ParamEyeROpen")-pose.current("ParamEyeLOpen")>.7f);
+        assertEquals(.7f,pose.current("ParamEyeLOpen"),.001f);
+        assertEquals(1.35f,pose.current("ParamEyeROpen"),.001f);
         assertTrue(pose.current("ParamBrowRY")-pose.current("ParamBrowLY")>1.4f);
         assertTrue(pose.current("MouthX")>.7f);assertEquals(-12,pose.current("AngleZ"),.01f);
         assertEquals(-10,pose.current("AngleY"),.01f);assertEquals(-4,pose.current("PositionY"),.01f);
         pat.release();assertFalse(pat.start(true,false,pose));
+    }
+
+    @Test public void idleUsuallyFacesViewerButStillHasBriefGlancesAndLivelyRollAndBody() {
+        DeepseekIdleMotion idle=new DeepseekIdleMotion(new Random(17));Pose p=new Pose();
+        int centered=0,glances=0;float rollPeak=0,bodyPeak=0;
+        for(int i=0;i<18000;i++) {
+            p.values.clear();idle.update(1f/60,p);
+            float hx=p.current("AngleX"),hy=p.current("AngleY");
+            if(Math.abs(hx)<=9 && Math.abs(hy)<=9) centered++;
+            if(Math.abs(hx)>18 || Math.abs(hy)>18) glances++;
+            rollPeak=Math.max(rollPeak,Math.abs(p.current("AngleZ")));
+            bodyPeak=Math.max(bodyPeak,Math.abs(p.current("PositionZ")));
+            // Unprompted eyes counter the head instead of reinforcing room-scanning.
+            assertTrue(Math.abs(p.current("ParamEyeBallX")+hx/30*.35f)<=.06001f);
+            assertTrue(Math.abs(p.current("ParamEyeBallY")+hy/30*.3f)<=.05001f);
+        }
+        assertTrue("centered="+centered,centered>18000*.8f);
+        assertTrue("glances="+glances,glances>50 && glances<18000*.15f);
+        assertTrue(rollPeak>18);assertTrue(bodyPeak>12);
+    }
+    @Test public void smallFormScreenGuardContainsFinalTransformedCornersWithoutChangingNormalStage() {
+        float[] base={.55f,.12f,0,0,-.16f,1.7f,0,0,0,0,1,0,0,-.8f,0,1};
+        for(float travel:new float[]{-2,-1.2f,-.5f,0,.5f,1.2f,2}) {
+            float[] m=base.clone();m[12]=travel;float[] before=m.clone();
+            assertEquals(0,DeepseekHitTransform.smallFormShift(m,-.4f,.4f,.5f,-.5f,0),0);
+            float shift=DeepseekHitTransform.smallFormShift(m,-.4f,.4f,.5f,-.5f,1);
+            assertArrayEquals(before,m,0); // No persistent stage / input matrix mutation.
+            m[12]+=shift;
+            for(float x:new float[]{-.4f,.4f}) for(float y:new float[]{-.5f,.5f}) {
+                float sx=m[0]*x+m[4]*y+m[12];assertTrue(sx>=-.94001f && sx<=.94001f);
+            }
+            float[] point=new float[2];DeepseekHitTransform hit=new DeepseekHitTransform(m,-.4f,.4f,.5f,-.5f);
+            assertTrue(hit.inverse((m[12]+1)/2,(1-m[13])/2,point));
+            assertEquals(.5f,point[0],.0001f);assertEquals(.5f,point[1],.0001f);
+            assertEquals(shift*.5f,DeepseekHitTransform.smallFormShift(before,-.4f,.4f,.5f,-.5f,.5f),.0001f);
+        }
+        assertEquals(0,DeepseekHitTransform.smallFormShift(base,-4,4,1,-1,1),0); // Intentional oversized zoom.
+        assertEquals(0,DeepseekHitTransform.smallFormShift(null,-1,1,1,-1,1),0);
+        base[0]=Float.NaN;assertEquals(0,DeepseekHitTransform.smallFormShift(base,-1,1,1,-1,1),0);
+    }
+    @Test public void smallFormTravelSoftensContinuouslyAtTheEdgeAndLeavesCentralMovementUntouched() {
+        float[] m={1,0,0,0,0,1,0,0,0,0,1,0,0,0,0,1};
+        assertEquals(0,DeepseekHitTransform.smallFormShift(m,-.2f,.2f,.3f,-.3f,1),0);
+        float last=-1;
+        for(int i=0;i<=2000;i++) {
+            m[12]=i*.001f;float adjusted=m[12]+DeepseekHitTransform.smallFormShift(m,-.2f,.2f,.3f,-.3f,1);
+            assertTrue(adjusted>=last-.000001f);
+            if(i>0) assertTrue(adjusted-last<=.00101f);
+            last=adjusted;
+        }
+        assertTrue(last<=.740001f);
     }
 }

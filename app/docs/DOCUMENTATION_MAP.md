@@ -1,5 +1,8 @@
 # 文档地图
 
+- [DeepSeek视线集中与小豆丁边界+405](DEEPSEEK_FOCUS_SMALLFORM_v042161.md)：用户微调反馈；候选实施完成，待CI/手机确认。
+
+
 - 当前交付：[DeepSeek表现幅度修正+404](DEEPSEEK_EXPRESSIVE_v042160.md)：头身表现、独立前倾、19情绪、摸头彩蛋和猫嘴默认；完整/专项CI与原签名APK已核验，手机观感待确认。下方早期条目保留为历史。
 
 
