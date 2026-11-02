@@ -39,3 +39,5 @@
 本地预检：Dart改动语法解析无错误；生产SDK矩阵/Root/LegPivot/HitTransform通过8组独立Java行为场景（本地仅JUnit断言/日志适配，正式JUnit与Android仍待CI）。159门中的150项可执行通过，9项因未物化历史资源或缺kotlinc交由完整CI恢复后执行，不计本地全通过。
 
 首轮候选bbf5e254的专项已过分析（0 error/1061非fatal）和71/40/41/97/143/37组旧回归；新增10项8过2败，均为新测试夹具错误：anyOf(null,空串)把null当可省略参数，及http.Response未声明中文UTF-8。改用isNull/isEmpty与明确UTF-8响应；保留无attempt/无lease/最新资料等行为断言，失败候选不计最终通过。恢复轮询对空队列和关闭队列均补摘要pending入口，失败重试保留5分钟退避，防止网络失败时每轮询收费。
+
+候选3e536b12完整已过159门、Android15原生59、正式原生单元与分析；扩展1321过/1败及全量3328过/1败都只指向AgentSelfReader.buildLabel仍为+406。同步生产构建标识为+407，测试继续从pubspec读取预期而不放宽身份断言，重新完整验证后交付。
