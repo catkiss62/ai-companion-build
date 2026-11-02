@@ -1,6 +1,6 @@
 # v0.42.163+407：第一通道缓存、后台避峰与小豆丁支点
 
-状态：IMPLEMENTATION IN PROGRESS / CI PENDING / APK PENDING / TRUE DEVICE PENDING。基线为已交付+406/schema67；仅向已授权的agent/v042107-review-recovery分支推送，保留原签名和存档格式。第二、第三通道的正文/识图/网络/回退链路不改；共用正文PromptBuilder和durable生成器无差异。
+状态：CI PASSED / APK READY / TRUE DEVICE PENDING。基线为已交付+406/schema67；仅向已授权的agent/v042107-review-recovery分支推送，保留原签名和存档格式。第二、第三通道的正文/识图/网络/回退链路不改；共用正文PromptBuilder和durable生成器无差异。
 
 ## 修改前的风险备忘
 
@@ -41,3 +41,17 @@
 首轮候选bbf5e254的专项已过分析（0 error/1061非fatal）和71/40/41/97/143/37组旧回归；新增10项8过2败，均为新测试夹具错误：anyOf(null,空串)把null当可省略参数，及http.Response未声明中文UTF-8。改用isNull/isEmpty与明确UTF-8响应；保留无attempt/无lease/最新资料等行为断言，失败候选不计最终通过。恢复轮询对空队列和关闭队列均补摘要pending入口，失败重试保留5分钟退避，防止网络失败时每轮询收费。
 
 候选3e536b12完整已过159门、Android15原生59、正式原生单元与分析；扩展1321过/1败及全量3328过/1败都只指向AgentSelfReader.buildLabel仍为+406。同步生产构建标识为+407，测试继续从pubspec读取预期而不放宽身份断言，重新完整验证后交付。
+
+## 后续微调：指针向下看
+
+用户补充向右下指针时下看不明显。本轮仅核对并记录，+407不改此数值：stageTouch与hover都是x=2x−1、y=1−2y，方向没有颠倒；B眼球X=.8、Y=.7，菜菜Y=.8，且B头Y仍参与跟随。下一轮先在普通眼型/正前姿态比对ParamEyeBallY的0/−.4/−.7/−1，再判断仅下看增益或头眼配合，不能未经视觉确认就把上下两方向一起拉满。保留前倾时正视对方与摸头/手动预览的优先级。
+
+## +407最终验证与交付
+
+最终运行源码bd9694ff72f1abdadf7f0f8f6040b99619c7cbbc，源码树f1231904f0648e04073119a1b688f584e5b4114f，app/lib子树242f31d2721cef56c5004e191c94fdece3759c9e。完整Actions41440983646与专项41440983674均success；构建job125265249593、Android15原生job125262519572、专项job125262489186。159源码门、Android原生59项、包含8组支点/矩阵/触摸场景的正式原生单元、3329全量Flutter、171独立存档/恢复全通过。专项71/40/41/97/143/37/11/61/39/25/26/33/359/1322各组通过，重叠不相加。分析0 error/1062非fatal，未冒称清零历史提示。
+
+原签名APK739604630 bytes；SHA256 49ef1e8cf1846b9681f9fb2efae8d89e5009dd49aa2e0aea2f398747d5589ad2。实际包名com.aicompanion.localfirst、versionName0.42.163、versionCode407已匹配pubspec，自我查询构建标识也同步407。V2证书SHA256 305eb3d80983b963c64818ddf1ad561f279de6d47b3ed2c781ada448c7c25148，与既有签名一致，可覆盖安装。纹理、原生TTS/桌宠和打包资源的既有逐字节完整性检查全部通过。
+
+[下载+407 APK容器](https://github.com/catkiss62/ai-companion-build/actions/runs/41440983646/artifacts/13141886212)，容器digest e0cb9415bc28b455d89c4a84046b0d5d5a59b71a4d4d9ea1f5fa56637a2fa98f不充当APK摘要。未发布Draft431321650目标bd9694ff，APK asset701684359的size/digest与构建日志一致；checksum asset701684357为121 bytes、digest337be685660caeddcdcd5b1c0a411a7f6c327ef655f3843f5400b840c4253d11；monitor asset701684386为499 bytes、digestf48be406f89ed31392a481f205c0d01e58aedd8f1d248d6f8ba6ef1eede35895，与ci-monitor-v0345分支.ci/v042163-monitor.txt原文一致，status=success/41440983646/bd9694ff。
+
+旧失败候选和中断不计最终通过。维护清理后本地已由远端恢复并核对整树f1231904，无旧+395覆盖新源码；本地恢复提交不推送。最终仅文档skip ci收口，不再重建相同运行代码。不得把自动测试说成已在用户真机观察；小豆丁漂移、身体观感和实际缓存节省仍待安装使用后导出确认。向下看问题仅列为下一轮微调，本版没有偷偷增加纵向增益。以后每次升版先同步pubspec与AgentSelfReader.buildLabel，避免完整回归末尾才发现身份字段遗漏。
