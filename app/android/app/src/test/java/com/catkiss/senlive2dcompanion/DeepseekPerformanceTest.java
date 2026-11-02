@@ -168,8 +168,11 @@ public class DeepseekPerformanceTest {
         e.emotion("angry");for(int i=0;i<100;i++) e.apply(1f/60,true,p,1);
         assertTrue(p.current("ParamBrowLY")<-.99f);
         e.apply(1f/60,true,p,0);e.smallReaction(p);
-        assertEquals(-1,p.current("ParamMouthForm"),0);assertEquals(-.48f,p.current("ParamBrowLY"),.000001f);
+        assertEquals(-1,p.current("ParamMouthForm"),0);assertEquals(-.54f,p.current("ParamBrowLY"),.000001f);
         assertEquals(.3f,p.current("CheeckPuff"),.000001f);
+        assertEquals(.775f,p.current("ParamEyeLOpen"),.000001f);
+        assertEquals(.4f,p.current("MouthX"),.000001f);
+        assertEquals(-.225f,p.current("EyeSmile"),.000001f);
     }
 
     @Test public void aNewEmotionEntersFromTheVisibleFadedFaceRatherThanRevivingTheOldPeak() {
