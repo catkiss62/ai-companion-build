@@ -120,7 +120,10 @@ class MemoryExtractor {
     bool retryIfBusy = true,
     int? maxJobs,
   }) async {
-    if ((await db.getSetting('post_turn_queue_enabled')) == '0') return;
+    if ((await db.getSetting('post_turn_queue_enabled')) == '0') {
+      unawaited(_resumeDeferredSummary());
+      return;
+    }
     if (!await db.brainWorkAllowed()) return;
     await db.recoverStalePostTurnJobs();
     final acquired = await db.tryAcquireLocalLease(
@@ -1843,8 +1846,17 @@ AI 主动消息：${outbound?.content ?? '(消息正文不可用)'}
       if (!await db.brainWorkAllowed() || await db.isLocalLeaseHeld('chat_turn_lease') ||
           await db.getSetting('conversation_summary_offpeak_pending') != '1' ||
           await BackgroundCostPolicy.deferredUntil(db, DateTime.now(), config: secureConfig) != null) return;
+      final instant = DateTime.now();
+      final retry = int.tryParse(await db.getSetting('conversation_summary_offpeak_retry_at') ?? '') ?? 0;
+      if (retry > instant.millisecondsSinceEpoch) return;
       final key = await secureConfig.readApiKey();
       if (key == null || key.isEmpty) return;
+      final fence = await db.captureBrainWorkFence(settingKeys: const [
+        'conversation_context_reset_at', 'conversation_context_reset_count',
+        'conversation_summary_offpeak_pending', 'conversation_summary_offpeak_retry_at']);
+      if (fence == null || fence.expectedSettings['conversation_summary_offpeak_pending'] != '1' ||
+          !await db.setSettingsAtomically({'conversation_summary_offpeak_retry_at':
+          '${instant.add(const Duration(minutes: 5)).millisecondsSinceEpoch}'}, workFence: fence)) return;
       await consolidateIfNeeded(apiKey: key, endpoint: await secureConfig.readEndpoint());
     } catch (_) { /* Raw sources and the pending marker remain durable for recovery. */ }
   }

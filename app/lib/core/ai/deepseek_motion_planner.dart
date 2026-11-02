@@ -97,7 +97,9 @@ class DeepseekMotionPlanner {
           if (e.value.keys.every(parameters.containsKey)) e.key: e.key};
         if (options.length > 1) q['f${i}_${c.key}'] = JevChoiceQuestion(
           'DeepSeek四拍第${i + 1}拍，依次起意、强调、反应、收势。根据回复语义选择${c.key}，'
-          '遵循state.performance_direction。多拍时让头身至少有两次自然变化，不要四拍保持同一歪头和探身；头与身体可以错向，按语气选择侧身、重心或舒展，不为凑动作强行使用。前倾仍只由整轮独立语义题决定。', options);
+          '遵循state.performance_direction。'
+          '${c.key == 'head' || c.key == 'body' ? '多拍时让头身至少有两次自然变化，不要四拍保持同一歪头和探身；头与身体可以错向，按语气选择侧身、重心或舒展，不为凑动作强行使用。' : ''}'
+          '前倾仍只由整轮独立语义题决定。', options);
       }
       q['f${i}_root'] = JevChoiceQuestion('第${i + 1}拍整模轻移／以独立小腿支点倾斜，按语义配合头身。',
         {for (final key in roots.keys) key: key});

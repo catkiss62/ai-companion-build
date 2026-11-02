@@ -72,8 +72,8 @@ void main() {
       calls++; return null;
     }).maybeRefresh(now: peak), false);
     expect(calls, 0);
-    expect(await db.getSetting(CreativeAutonomyPolicy.attemptKey), anyOf(null, ''));
-    expect(await db.getSetting(WishEngine.attemptKey), anyOf(null, ''));
+    expect(await db.getSetting(CreativeAutonomyPolicy.attemptKey), anyOf(isNull, isEmpty));
+    expect(await db.getSetting(WishEngine.attemptKey), anyOf(isNull, isEmpty));
     expect(await db.isLocalLeaseHeld(CreativeAutonomyPolicy.lease), false);
     expect(await db.isLocalLeaseHeld(WishEngine.leaseKey), false);
   });
@@ -169,7 +169,9 @@ void main() {
     expect(summary.detail, contains('80.0%（1 次完整用量'));
     expect(summary.label, isNot('今日：—'));
   });
-  test('recovery resumes a deferred summary even with no new post-turn job', () async {
+  for (final queueEnabled in [true, false]) {
+  test('recovery resumes a deferred summary with empty queue (enabled=$queueEnabled)', () async {
+    await db.setSetting('post_turn_queue_enabled', queueEnabled ? '1' : '0');
     await db.setSetting(BackgroundCostPolicy.enabledKey, '0');
     await db.setSetting('conversation_summary_offpeak_pending', '1');
     var calls = 0;
@@ -185,6 +187,7 @@ void main() {
     expect(calls, 0);
     client.close();
   });
+  }
 
   test('phone instructions remain a common prefix while every reading receives fresh material', () async {
     final requests = <List<dynamic>>[];
@@ -192,7 +195,7 @@ void main() {
       clientFactory: () => DeepSeekClient(client: MockClient((request) async {
         requests.add((jsonDecode(request.body) as Map)['messages'] as List);
         return http.Response(jsonEncode({'choices': [{'message': {'content':
-          jsonEncode({'title': '灯下', 'body': '我想起今天窗边的那一点亮光，心里还有点暖'})}}]}), 200);
+          jsonEncode({'title': '灯下', 'body': '我想起今天窗边的那一点亮光，心里还有点暖'})}}]}), 200, headers: {'content-type': 'application/json; charset=utf-8'});
       })));
     for (final fact in ['旧资料', '全新资料']) {
       await generator.generate(material: SimulatedNoteMaterial(localDay: '2026-11-02', items: [fact]),

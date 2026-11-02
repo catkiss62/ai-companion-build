@@ -12,7 +12,7 @@ class DailySpend {
     DeepSeekClient.costRecorder = (attempt) => record(db, attempt);
   }
 
-  // Official CNY pricing, checked 2026-10-11:
+  // Official CNY pricing, checked 2026-11-02:
   // https://api-docs.deepseek.com/zh-cn/quick_start/pricing/
   // Holiday exclusions can lower peak pricing; this remains an estimate.
   static double? estimate(Map<String, Object?> attempt) {
