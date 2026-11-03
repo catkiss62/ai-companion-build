@@ -22,8 +22,10 @@ MCP 客户端调用外部工具，不等于已经向外提供 App 自身的诊�
 
 | 候选 | 核心方式 | 对本项目的价值 | 初步位置 |
 | --- | --- | --- | --- |
-| Soodok/Deepseek-Harness-Local-Android | bionic Node 本机运行；官方 DSH 引擎与移动适配、运行时扩展中心 | 无需电脑，适合手机内调试、编写和安装连接插件；有正式发布与运行时管理 | 优先试用候选，未定案 |
-| dphmoblie/deepseek-harness-android | PRoot + Ubuntu 24.04 + Node，本机运行 | Linux 工具环境较完整，插件导入/更新/回滚与诊断有文档 | 兼容与备选基线，需验证与伴侣同时运行的资源占用 |
+| kelai141/dsh-mobile-apk（DeepCode） | APK 内嵌 Termux 原生运行时快照，本机 Node/DSH；不要求另装 Termux | Android 能力通过 Cordis 插件提供；已有设备桥、安全模式、原生修复与诊断导出，适合薄连接插件 | 本轮新增第一试用候选，尚未定案 |
+| DSH-APP/DSHA | Ubuntu 24.04/glibc，本机 Node/DSH；当前正式版默认 proot、可选 proroot | 依赖 Linux 原生模块或完整工具链时值得优先验证；插件导入、事务与备份恢复有文档 | 主要兼容性备选；若必需插件依赖 glibc，可提升为主候选 |
+| Soodok/Deepseek-Harness-Local-Android | bionic Node 本机运行；官方 DSH 引擎与移动适配、运行时扩展中心 | 无需电脑；有运行时换装恢复及插件兼容检查，仍是有效候选 | 保留本机路线对照；首轮优先推荐不代表已胜过新增候选 |
+| dphmoblie/deepseek-harness-android | PRoot + Ubuntu 24.04 + Node，本机运行 | Linux 工具环境较完整，插件导入/更新/回滚与诊断有文档 | 次级备选，暂不扩大首轮验收面 |
 | qsnddayst/dsh-android | Kotlin 壳 + 内嵌 Node/工具链 + WebView | 设备桥与本机通信方案清晰，可作接口实现参考 | 参考实现；发布与日常维护需进一步核对 |
 | saya-ch/dsh-mobile | Android 客户端/浏览器连接电脑上的 DSH | 重任务可放电脑，移动端延续会话、插件与工具 | 远程工作流备选；不当作手机本地引擎 |
 
@@ -35,6 +37,21 @@ MCP 客户端调用外部工具，不等于已经向外提供 App 自身的诊�
 - saya-ch：main 42cabbd8b634d73df9f0d9fc26ead1ce3f1f07a2；README 的插件 0.8.1 与 Android App 0.7.1 独立编号，不混为同一个版本。
 
 选择标准：真实工具可用、插件装卸与重启后保持、上游引擎版本可查询、MCP/HTTP 接口可用、前后台切换与故障可诊断、运行时升级可回退。星标数量不代替上述验证。
+
+
+### 2.1 用户新增候选复核（2026-11-03）
+
+GitHub API 当次星标快照：Soodok 454、kelai 1,001、DSHA 2,909。Soodok 并非这三款中关注度最高者。三仓当次均未归档且近期有提交；活跃提交和测试数量不等于已验证稳定性。
+
+- kelai 当前最新非预发布为 **v0.14.10**（2026-10-28），arm64 APK 163,401,646 字节（约155.83 MiB）。该标签的 `scripts/snapshot-config/engine-overlay.json` 固定 DSH **0.2.1-rc.3**，包含官方 `dsh-mcp-client` 与 `dsh-mcp-resources`；`plugins/dsh-android-bridge/src/index.ts` 使用 Cordis 注入和官方工具接口。这是静态来源证据，不等于与 Companion 的连接已通。市场兼容表区分可用、桌面、原生依赖与未知，未登记插件不能算已支持。壳仓包含协调仓来源的插件副本，未来定制构建须固定完整来源链，不能只改一处副本。
+- 用户给出的 DSHA **v0.1.7-rc2** 是2026-09-28的正式发布，build147 / DSH0.1.7-rc.2；不能仅因名称含rc判为预发布。当前 Latest 为 **v0.2.1-rc.2 / build190**（2026-10-22），DSH0.2.1-rc.2 / mobile UI3.2.1，Standard APK292,198,739字节（278.66 MiB）。新版包名 `dsh.android.client` 与旧 `com.dsh.client` 数据独立，需导出/恢复迁移，不能承诺原位覆盖自动继承。
+- DSHA 对应正式标签的 `ContainerRuntime.java` 与 `docs/runtime-engines.md` 确认 proot 默认、proroot显式可选。proroot采用进程内路径翻译/LD_PRELOAD/二进制补丁，不能按传统ptrace PRoot一概估计速度；其“零ptrace”也不等于零成本、全兼容或全源码可重编。随包proroot为专有许可上游二进制，区别于DSHA宿主开源代码。
+- Soodok 最新非预发布仍为 **v1.4.76**（2026-10-31），arm64完整正式签名APK155,038,341字节（约147.86 MiB）。当前主干与此前正式标签、beta各自固定，不把主干README功能直接算到正式APK里。其构建同样收集Termux/bionic组件；“免Termux”指不必安装独立Termux App，不能把kelai描述成必须另装Termux或必然更慢。
+- 三者均有上游平台适配与插件安装边界。完整Ubuntu对Linux/glibc依赖有兼容价值，但不证明所有桌面插件可运行；Soodok与kelai也不能因为提供插件目录就视为所有插件已实测。对纯JS诊断连接，完整Ubuntu不是必要条件。
+- 不采用跨设备README启动数字给三者排名；DSHA文档的同台有限proot/proroot样本也不代替本机对照。APK体积不能推出运行内存，正式选型仍须与伴侣Live2D/Genie-TTS/QQ同机实测。
+- 第一阶段倾向kelai，是基于其本机运行、现成插件桥与恢复诊断结构的工程判断；不是实测性能或稳定性结论。DSHA保留为Linux依赖兼容对照，Soodok继续保留。薄连接通过公共协议实现，不因此重写或绑定任一安卓壳；这些App的“本机”指Agent运行时，模型推理仍取决于配置的API。
+
+以上仅更新方案文档，不改App运行代码、不增加安装包构建，也未实施诊断互通。
 
 ## 3. 兼容方法
 
@@ -100,6 +117,8 @@ App 包内包含所需原生能力；DSH 制作的是 App 明确支持的扩展�
 
 - [官方 DSH](https://github.com/deepseek-ai/deepseek-harness)
 - [官方 MCP 接入](https://github.com/deepseek-ai/deepseek-harness/blob/master/docs/subsystems/mcp.zh.md)
+- [kelai / DeepCode 本机版](https://github.com/kelai141/dsh-mobile-apk) / [正式版 v0.14.10](https://github.com/kelai141/dsh-mobile-apk/releases/tag/v0.14.10)
+- [DSHA 本机版](https://github.com/DSH-APP/DSHA) / [当前正式版 v0.2.1-rc.2](https://github.com/DSH-APP/DSHA/releases/tag/v0.2.1-rc.2) / [用户给出的旧版](https://github.com/DSH-APP/DSHA/releases/tag/v0.1.7-rc2)
 - [Soodok 本机版](https://github.com/Soodok/Deepseek-Harness-Local-Android) / [正式版 v1.4.76](https://github.com/Soodok/Deepseek-Harness-Local-Android/releases/tag/v1.4.76)
 - [dphmoblie 本机版](https://github.com/dphmoblie/deepseek-harness-android) / [正式版 v0.3.7](https://github.com/dphmoblie/deepseek-harness-android/releases/tag/v0.3.7)
 - [qsnddayst 实现参考](https://github.com/qsnddayst/dsh-android)
