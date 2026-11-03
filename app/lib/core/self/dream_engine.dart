@@ -201,7 +201,9 @@ class DreamEngine {
           if (diagnostic['failure_category'] == 'output_limit')
             phase == 'catchup_read' ? catchupBatchKey : 'nightly_dream_batch_limit_v1': '${(batchLimit ~/ 2).clamp(6,240)}',
           if (requestAttempt != null) DreamStore.attemptKey: jsonEncode({...requestAttempt,
-            'same_failures': DreamContract.number(requestAttempt['same_failures']) + 1}),
+            'same_failures': payload != null ||
+                const {'output_limit', 'invalid_json', 'invalid_evidence'}.contains(diagnostic['failure_category'])
+                ? DreamContract.number(requestAttempt['same_failures']) + 1 : 0}),
           DreamStore.diagnosticKey: jsonEncode({...diagnostic,
             'status': payload == null ? 'unavailable' : 'invalid_evidence',
             if (payload == null && !diagnostic.containsKey('failure_category')) 'failure_category': 'unavailable'}),

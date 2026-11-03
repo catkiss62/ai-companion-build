@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:io';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 import 'package:ai_companion_localfirst/core/database/app_database.dart';
@@ -107,7 +108,8 @@ void main() {
     final before = await DreamStore(db).load();
     expect(before['catchup'], isNotNull);
     final exported = await db.exportAll();
-    final restored = await AppDatabase.createForTesting(databaseFactoryFfi);
+    final directory = await Directory.systemTemp.createTemp('dream-catchup-restore-');
+    final restored = await AppDatabase.createForTesting(databaseFactoryFfi, path: '${directory.path}/restored.db');
     try {
       await restored.importAll(exported);
       final state = await DreamStore(restored).load();
@@ -118,7 +120,7 @@ void main() {
         calls++; expect(m['phase'], 'catchup_read'); return {'changes': []};
       }).maybeDream(now: now, manual: true), isTrue);
       expect(calls, 1);
-    } finally { await restored.closeForTesting(); }
+    } finally { await restored.closeForTesting(); await directory.delete(recursive: true); }
   });
 
   test('output truncation shrinks historical input and does not advance the journal', () async {
