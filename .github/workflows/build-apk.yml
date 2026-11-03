@@ -758,8 +758,31 @@ jobs:
           path: app/tools/caicai_smoke/build/outputs/androidTest-results/
           retention-days: 14
 
+  voice-export-native-tests:
+    needs: detect-change-scope
+    if: ${{ needs.detect-change-scope.outputs.run-full-build == 'true' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - name: Test production PCM pitch and export ownership without model payload
+        working-directory: app/android
+        run: |
+          chmod +x gradlew
+          ./gradlew -p ../tools/voice_export_tests testDebugUnitTest --stacktrace
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: QQ-Voice-Export-Native-Tests
+          path: app/tools/voice_export_tests/build/test-results/
+          retention-days: 14
+
   build-apk:
-    needs: [detect-change-scope, caicai-native-smoke]
+    needs: [detect-change-scope, caicai-native-smoke, voice-export-native-tests]
     if: ${{ needs.detect-change-scope.outputs.run-full-build == 'true' }}
     runs-on: ubuntu-latest
     timeout-minutes: 120
@@ -1840,6 +1863,7 @@ jobs:
     needs:
       - detect-change-scope
       - caicai-native-smoke
+      - voice-export-native-tests
       - build-apk
     if: ${{ always() && needs.detect-change-scope.outputs.run-full-build == 'true' && needs.build-apk.result != 'success' }}
     runs-on: ubuntu-latest
