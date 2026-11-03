@@ -2,7 +2,12 @@ import 'dart:convert';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
+import 'package:sqflite_common_ffi/sqflite_ffi.dart';
+import 'package:ai_companion_localfirst/core/database/app_database.dart';
+import 'package:ai_companion_localfirst/core/models/chat_message.dart';
+import 'package:ai_companion_localfirst/core/wishes/wish_store.dart';
 import 'package:ai_companion_localfirst/core/ai/caicai_motion_planner.dart';
+import 'package:ai_companion_localfirst/core/ai/background_cost_policy.dart';
 import 'package:ai_companion_localfirst/core/ai/deepseek_motion_planner.dart';
 import 'package:ai_companion_localfirst/core/ai/jev_decision_gateway.dart';
 import 'package:ai_companion_localfirst/core/wishes/companion_wish.dart';
@@ -10,6 +15,38 @@ import 'package:ai_companion_localfirst/core/wishes/wish_engine.dart';
 import 'package:ai_companion_localfirst/core/wishes/wish_review_material.dart';
 
 void main() {
+  TestWidgetsFlutterBinding.ensureInitialized();
+  sqfliteFfiInit();
+  test('real wish refresh accepts a shared non-game intention and keeps history as dedup only', () async {
+    final db = await AppDatabase.createForTesting(databaseFactoryFfi);
+    try {
+      await db.setSetting(BackgroundCostPolicy.enabledKey, '0');
+      final now = DateTime.utc(2026, 11, 3, 13);
+      await db.insertMessage(ChatMessage(id: 'cloud', role: 'user',
+        content: '今天窗外的云像小鲸鱼，想跟你一起看看。', createdAt: now.subtract(const Duration(minutes: 1))));
+      final store = WishStore(db); await store.initialize();
+      final old = CompanionWish(id: 'closed', goal: '想在旧游戏里得到一朵花', reason: '旧好奇',
+        route: 'game', criterion: '实际获得花朵回执', baseline: 'LONG_OLD_RECEIPT',
+        state: 'completed', createdAt: now.subtract(const Duration(days: 3)), updatedAt: now);
+      expect(await store.save([old], expected: await db.getSetting(WishStore.stateKey) ?? '',
+        fence: (await db.captureBrainWorkFence())!), true);
+      expect(await WishEngine(db, reviewer: (material) async {
+        expect(material['wishes'], isEmpty);
+        expect((material['wish_history'] as List).single['goal'], old.goal);
+        expect(jsonEncode(material), isNot(contains('LONG_OLD_RECEIPT')));
+        final source = (material['sources'] as List).where((e) => e['kind'] == 'user_text').first;
+        return {'updates': [], 'new_wish': {'goal': '想和你一起记住窗外像鲸鱼的云', 'reason': '你提起窗外的云让我也想看',
+          'route': 'user', 'criterion': '用户实际分享看到的云朵形状', 'completion_kind': 'user_text',
+          'source_ids': [source['id']]}};
+      }).maybeRefresh(now: now), true);
+      final saved = await store.load();
+      expect(saved.first.route, 'user');expect(saved.last.toJson(), old.toJson());
+      final diagnostic = jsonDecode((await db.getSetting(WishEngine.diagnosticKey))!);
+      expect(diagnostic['active_routes']['user'], 1);
+      expect(diagnostic['dedup_history'], 1);
+      expect(diagnostic['source_kinds']['user_text'], greaterThanOrEqualTo(1));
+    } finally { await db.closeForTesting(); }
+  });
   test('DeepSeek exposes complete presets and the same visible beat template as Caicai', () async {
     Map? sent;
     final gateway = JevDecisionGateway(enabledReader: () async => true,
@@ -67,6 +104,12 @@ void main() {
     expect(history.last['goal'], items.last.goal);
     expect(jsonEncode(history), isNot(contains('完整旧回执')));
     expect(jsonEncode(items.map((w) => w.toJson()).toList()), original);
+    final many = [for (var i = 0; i < 130; i++) wish('paused$i', 'user', state: 'paused'),
+      wish('last-live', 'user'), for (var i = 0; i < 130; i++) wish('old$i', 'game', state: 'completed')];
+    final bounded = WishReviewMaterial.wishes(many);
+    expect((bounded['wishes'] as List).first['id'], 'last-live');
+    expect(bounded['wishes'], hasLength(117));
+    expect(bounded['wish_history'], hasLength(116));
     for (final route in ['user', 'aspiration']) {
       final result = WishPolicy.apply(wishes: [], payload: {'new_wish': {
         'goal': '想和你一起记录窗外的云', 'reason': '今天看见云很漂亮', 'route': route,
