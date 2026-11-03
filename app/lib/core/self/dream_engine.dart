@@ -75,7 +75,7 @@ class DreamEngine {
               stamp: await DreamStore.messageStamp(await db.database), sources: [],
               fence: fence, now: instant, manual: manual, completed: false,
               diagnostic: {'status': 'catchup_started', 'phase': 'catchup_read',
-                'at': instant.millisecondsSinceEpoch, 'has_backlog': true});
+                'at': instant.millisecondsSinceEpoch, 'has_backlog': true, 'content_included': false});
         }
       }
       final day = DreamContract.day(instant);
@@ -117,6 +117,7 @@ class DreamEngine {
       final needsReview = phase == 'catchup_integrate' ? !draftUnchanged && material.sources.isNotEmpty :
           material.hasNew || (phase == 'ordinary' && weekly && material.sources.isNotEmpty);
       final diagnostic = <String, Object?>{
+        'content_included': false,
         'at': instant.millisecondsSinceEpoch, 'weekly': phase != 'catchup_read' && weekly,
         'phase': phase, 'source_count': material.sources.length, 'batch_limit': batchLimit,
         'has_backlog': catchup != null || material.hasBacklog, 'bootstrap': material.bootstrap,
