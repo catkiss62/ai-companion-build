@@ -184,15 +184,22 @@ public class DeepseekPerformanceTest {
             DeepseekExpressions.emotionPose("confused").get("ParamBrowRY")>1.4f);
         DeepseekExpressions e=new DeepseekExpressions();Pose p=new Pose();
         for(String emotion:Arrays.asList("happy","excited","affection","shy","flustered","tense","worried","helpless","afraid","angry","sad","disgust","serious","surprised","confident","playful","ashamed","calm","confused","normal")) {
-            e.emotion(emotion);for(int i=0;i<100;i++) e.apply(1f/60,false,p);
+            e.emotion(emotion);for(int i=0;i<100;i++) {
+                // The production idle layer supplies a fresh lower head pose each frame.
+                p.write("AngleZ",0);e.apply(1f/60,false,p);
+            }
             for(Map.Entry<String,Float> item:p.values.entrySet()) {
                 float v=item.getValue();assertTrue(item.toString(),Float.isFinite(v));
-                assertTrue(item.toString(),v>=-1 && v<=(item.getKey().endsWith("Open")?1.5f:1));
+                if(item.getKey().equals("AngleZ")) assertTrue(item.toString(),Math.abs(v)<=30);
+                else assertTrue(item.toString(),v>=-1 && v<=(item.getKey().endsWith("Open")?1.5f:1));
+                assertTrue(item.getKey(),item.getKey().equals("AngleZ") ||
+                    DeepseekExpressions.emotionPose("normal").containsKey(item.getKey()));
                 assertFalse(item.getKey().startsWith("key"));assertFalse(item.getKey().equals("ParamMouthOpenY"));
             }
         }
         assertEquals(0,p.current("ParamMouthForm"),.001f);assertEquals(0,p.current("EyeSmile"),.001f);
         assertEquals(1,p.current("ParamEyeLOpen"),.001f);
+        assertEquals(0,p.current("AngleZ"),.001f);
     }
 
     @Test public void expiredEmotionReturnsToNeutralAndSmallFormKeepsOnlyItsOwnBaseline() {
