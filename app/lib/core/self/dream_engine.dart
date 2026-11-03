@@ -163,8 +163,11 @@ class DreamEngine {
         final paid = budget['day'] == day ? DreamContract.number(budget['requests']) : 0;
         final key = reviewer == null ? (await secureConfig.readApiKey())?.trim() ?? '' : 'injected';
         if (key.isEmpty) {
-          await db.setSettingsAtomically({DreamStore.diagnosticKey: jsonEncode({...diagnostic,
-            'status': 'unavailable', 'failure_category': 'missing_api_key'})},
+          await db.setSettingsAtomically({
+            DreamStore.attemptKey: jsonEncode({'day': day, 'count': attempts + 1,
+              'retry_at': instant.add(Duration(minutes: 30 * (1 << attempts.clamp(0, 3).toInt()))).millisecondsSinceEpoch}),
+            DreamStore.diagnosticKey: jsonEncode({...diagnostic,
+              'status': 'unavailable', 'failure_category': 'missing_api_key'})},
             workFence: fence, expectedSettings: {DreamStore.stateKey: raw});
           return false;
         }
