@@ -80,19 +80,14 @@ class Phase2BConsolidationEngine {
           reason: 'brain_work_blocked_after_lease',
         );
       }
-      final result = await db.backfillPhase2BTopicKeys();
-      await db.setSetting(
-        'phase2b_consolidation_last_at',
-        instant.millisecondsSinceEpoch.toString(),
-      );
-      await db.setSetting(
-        'phase2b_consolidation_last_outcome',
-        'completed',
-      );
-      await db.setSetting(
-        'phase2b_consolidation_last_counts',
-        '${result.memories}|${result.candidates}',
-      );
+      final fence = await db.captureBrainWorkFence(leaseKey: lease);
+      if (fence == null) return const Phase2BConsolidationResult(ran: false, reason: 'ownership_lost');
+      final result = await db.backfillPhase2BTopicKeys(workFence: fence);
+      if (!await db.setSettingsAtomically({
+        'phase2b_consolidation_last_at': instant.millisecondsSinceEpoch.toString(),
+        'phase2b_consolidation_last_outcome': 'completed',
+        'phase2b_consolidation_last_counts': '${result.memories}|${result.candidates}',
+      }, workFence: fence)) return const Phase2BConsolidationResult(ran: false, reason: 'ownership_lost');
       return Phase2BConsolidationResult(
         ran: true,
         reason: 'completed',

@@ -20,6 +20,9 @@ class RelationshipAssimilator {
     if (!acquired) return 0;
     try {
       if (!await db.brainWorkAllowed()) return 0;
+      final fence = await db.captureBrainWorkFence(leaseKey: 'relationship_assimilation_lease_until',
+          settingKeys: const ['relationship_continuity_enabled']);
+      if (fence == null || fence.expectedSettings['relationship_continuity_enabled'] == '0') return 0;
       final events = await db.pendingRelationshipEvents(limit: limit);
       var applied = 0;
       for (final event in events) {
@@ -37,6 +40,7 @@ class RelationshipAssimilator {
         try {
           final committed = await db.assimilateRelationshipEventAtomic(
             event: event,
+            workFence: fence,
             pulses: pulses,
             baselineLearning: _baselineLearning(event),
             thoughtDrive: thoughtDrive,

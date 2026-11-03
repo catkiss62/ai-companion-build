@@ -10252,11 +10252,12 @@ class AppDatabase {
     });
   }
 
-  Future<({int memories, int candidates})> backfillPhase2BTopicKeys() async {
+  Future<({int memories, int candidates})> backfillPhase2BTopicKeys({BrainWorkFence? workFence}) async {
     final db = await database;
     var memoryUpdates = 0;
     var candidateUpdates = 0;
     await db.transaction((txn) async {
+      if (workFence != null && !await workFence.matches(txn)) return;
       final memories = await txn.query(
         'memory_items',
         columns: const ['id', 'subject_key'],
@@ -16776,9 +16777,11 @@ class AppDatabase {
     required DriveKey thoughtDrive,
     required String thoughtText,
     required double thoughtStrength,
+    BrainWorkFence? workFence,
   }) async {
     final db = await database;
     return db.transaction<bool>((txn) async {
+      if (workFence != null && !await workFence.matches(txn)) return false;
       final rows = await txn.query(
         'relationship_events',
         where: 'id = ? AND internalized_at IS NULL',
@@ -16787,6 +16790,12 @@ class AppDatabase {
       );
       if (rows.isEmpty) return false;
       final currentEvent = RelationshipEvent.fromDb(rows.first);
+      // Pulses belong to the exact pending event snapshot, not a later reinforcement.
+      if (currentEvent.kind != event.kind || currentEvent.summary != event.summary ||
+          currentEvent.intensity != event.intensity || currentEvent.valence != event.valence ||
+          currentEvent.sourceMessageId != event.sourceMessageId ||
+          currentEvent.createdAt != event.createdAt ||
+          jsonEncode(currentEvent.metadata) != jsonEncode(event.metadata)) return false;
       final now = DateTime.now();
       final nowMs = now.millisecondsSinceEpoch;
 
@@ -16936,22 +16945,26 @@ class AppDatabase {
     required double retentionScore,
     required DateTime checkedAt,
     String? status,
+    BrainWorkFence? workFence,
   }) async {
     final db = await database;
-    final changed = await db.update(
-      'memory_items',
-      {
-        'retention_score': retentionScore.clamp(0.0, 1.0),
-        'retention_checked_at': checkedAt.millisecondsSinceEpoch,
-        if (status != null) 'status': status,
-      },
-      where: "id = ? AND status = 'active' AND pinned = 0 "
-          'AND COALESCE(retention_checked_at, updated_at) = ?'
-          '${expectedUpdatedAt == null ? '' : ' AND updated_at = ?'}',
-      whereArgs: [id, expectedCheckedAt.millisecondsSinceEpoch,
-        if (expectedUpdatedAt != null) expectedUpdatedAt.millisecondsSinceEpoch],
-    );
-    return changed == 1;
+    return db.transaction<bool>((txn) async {
+      if (workFence != null && !await workFence.matches(txn)) return false;
+      final changed = await txn.update(
+        'memory_items',
+        {
+          'retention_score': retentionScore.clamp(0.0, 1.0),
+          'retention_checked_at': checkedAt.millisecondsSinceEpoch,
+          if (status != null) 'status': status,
+        },
+        where: "id = ? AND source_valid = 1 AND status = 'active' AND pinned = 0 "
+            'AND COALESCE(retention_checked_at, updated_at) = ?'
+            '${expectedUpdatedAt == null ? '' : ' AND updated_at = ?'}',
+        whereArgs: [id, expectedCheckedAt.millisecondsSinceEpoch,
+          if (expectedUpdatedAt != null) expectedUpdatedAt.millisecondsSinceEpoch],
+      );
+      return changed == 1;
+    });
   }
 
   Future<List<MemoryItem>> memoryMaintenanceCandidates({int limit = 500}) async {

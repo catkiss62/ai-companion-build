@@ -45,13 +45,20 @@ class DreamCatchup {
     if (latest.isEmpty) return null;
     final pages = await handle.query('public_web_candidates',
         columns: ['id', 'read_at'],
-        where: "read_state = 'verified' AND semantic_state = 'valid' AND lifecycle_state NOT IN ('discarded','declined','user_deleted')",
+        where: "read_state = 'verified' AND semantic_state = 'valid' AND lifecycle_state NOT IN ('discarded','declined','user_deleted') AND read_at <= ?",
+        whereArgs: [now.millisecondsSinceEpoch],
         orderBy: 'read_at DESC, id DESC', limit: 1);
+    final oldWebAt = DreamContract.number(cursor['web_at']);
+    final oldWebId = DreamContract.string(cursor['web_id']);
+    final usePage = pages.isNotEmpty &&
+        (DreamContract.number(pages.single['read_at']) > oldWebAt ||
+         DreamContract.number(pages.single['read_at']) == oldWebAt &&
+         DreamContract.string(pages.single['id']).compareTo(oldWebId) > 0);
     final boundary = <String, Object?>{
       'chat_seq': latest.single['source_ingest_seq'],
       'chat_at': latest.single['created_at'], 'chat_id': latest.single['id'],
-      'web_at': pages.isEmpty ? cursor['web_at'] ?? 0 : pages.single['read_at'],
-      'web_id': pages.isEmpty ? cursor['web_id'] ?? '' : pages.single['id'],
+      'web_at': usePage ? pages.single['read_at'] : oldWebAt,
+      'web_id': usePage ? pages.single['id'] : oldWebId,
     };
     final baseline = jsonDecode(jsonEncode(DreamContract.records(state['insights'])));
     return {

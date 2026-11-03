@@ -47,6 +47,11 @@ class MemoryMaintenanceEngine {
       if (!await db.brainWorkAllowed()) {
         return const MemoryMaintenanceResult(checked: 0, archived: 0, averageRetention: 1.0);
       }
+      final fence = await db.captureBrainWorkFence(leaseKey: 'memory_maintenance_lease_until',
+          settingKeys: const ['memory_fading_enabled']);
+      if (fence == null || fence.expectedSettings['memory_fading_enabled'] == '0') {
+        return const MemoryMaintenanceResult(checked: 0, archived: 0, averageRetention: 1.0);
+      }
       final now = DateTime.now();
       final lastRaw =
           int.tryParse(await db.getSetting('last_memory_maintenance_at') ?? '0') ?? 0;
@@ -108,6 +113,7 @@ class MemoryMaintenanceEngine {
             item.recallCount < 5;
         final changed = await db.updateMemoryRetentionIfUnchanged(
           id: item.id,
+          workFence: fence,
           expectedCheckedAt: checkedAt,
           expectedUpdatedAt: item.updatedAt,
           retentionScore: retention,
@@ -124,10 +130,7 @@ class MemoryMaintenanceEngine {
             'memory_maintenance_lease_until',
             holdFor: const Duration(minutes: 6),
           )) {
-        await db.setSetting(
-          'last_memory_maintenance_at',
-          now.millisecondsSinceEpoch.toString(),
-        );
+        await db.setSettingsAtomically({'last_memory_maintenance_at': now.millisecondsSinceEpoch.toString()}, workFence: fence);
       }
       return MemoryMaintenanceResult(
         checked: checked,

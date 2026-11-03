@@ -45,6 +45,7 @@ class _MemoryPageState extends State<MemoryPage> {
   };
 
   static String semanticLabel(MemoryItem item) {
+    if (!item.sourceValid) return '来源已撤销，不参与记忆检索';
     if (item.status == 'superseded') return switch (item.supersessionReason) {
       'correction' => '已纠正的旧说法',
       'change' => '后来改变的历史版本',

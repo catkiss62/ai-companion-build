@@ -34,7 +34,7 @@ jobs:
         run: flutter test --timeout 60s --reporter expanded test/relationship_refresh_v042164_test.dart
       - name: Dream backlog journal, new arrivals, snapshot and speech face regression
         working-directory: app
-        run: flutter test --timeout 90s --reporter expanded test/dream_catchup_v042168_test.dart test/nightly_dream_test.dart test/dream_source_continuity_test.dart
+        run: flutter test --timeout 90s --reporter expanded test/dream_catchup_v042168_test.dart test/memory_reaudit_v042168_test.dart test/memory_revision_continuity_test.dart test/nightly_dream_test.dart test/dream_source_continuity_test.dart
       - name: Analyze all Dart sources
         run: flutter analyze --no-fatal-infos --no-fatal-warnings
         working-directory: app

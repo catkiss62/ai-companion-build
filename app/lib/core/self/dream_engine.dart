@@ -160,7 +160,17 @@ class DreamEngine {
         }
         final budget = DreamContract.decode(await db.getSetting(requestBudgetKey));
         final paid = budget['day'] == day ? DreamContract.number(budget['requests']) : 0;
-        final hash = sha256.convert(utf8.encode('${reviewModel.apiName}|$inputText')).toString();
+        final key = reviewer == null ? (await secureConfig.readApiKey())?.trim() ?? '' : 'injected';
+        if (key.isEmpty) {
+          await db.setSettingsAtomically({DreamStore.diagnosticKey: jsonEncode({...diagnostic,
+            'status': 'unavailable', 'failure_category': 'missing_api_key'})},
+            workFence: fence, expectedSettings: {DreamStore.stateKey: raw});
+          return false;
+        }
+        // Configuration repair must immediately unlock a previously failed input.
+        // Only the one-way digest is persisted, never credentials or prompt text.
+        final config = reviewer == null ? '${await secureConfig.readEndpoint()}|$key' : key;
+        final hash = sha256.convert(utf8.encode('${reviewModel.apiName}|$config|$inputText')).toString();
         final sameFailures = sameAttemptDay && attempt['input_hash'] == hash ? DreamContract.number(attempt['same_failures']) : 0;
         if (paid >= 24 || sameFailures >= 3) {
           await db.setSettingsAtomically({DreamStore.diagnosticKey: jsonEncode({...diagnostic,
