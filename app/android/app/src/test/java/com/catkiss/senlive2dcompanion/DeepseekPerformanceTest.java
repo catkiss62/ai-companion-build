@@ -94,6 +94,20 @@ public class DeepseekPerformanceTest {
         }
         assertFalse(plan.reservesEyes());assertEquals(.8f,p.current("ParamEyeLOpen"),.001f);
     }
+    @Test public void emotionalHeadAccentAddsToIdleAndReleasesWithItsEmotionLease() {
+        DeepseekExpressions e=new DeepseekExpressions();Pose p=new Pose();e.emotion("playful");
+        for(int i=0;i<20;i++) {p.write("AngleZ",5);e.apply(.1f,false,p,1);}
+        assertEquals(18,p.current("AngleZ"),.01f);
+        p.write("AngleZ",5);e.apply(.1f,false,p,0);assertEquals(5,p.current("AngleZ"),0);
+        e.emotion("normal");
+        for(int i=0;i<20;i++) {p.write("AngleZ",-6);e.apply(.1f,false,p,1);}
+        assertEquals(-6,p.current("AngleZ"),.01f);
+        for(String emotion:Arrays.asList("happy","excited","affection","shy","flustered","tense",
+            "worried","helpless","afraid","angry","sad","disgust","serious","surprised",
+            "confident","playful","ashamed","calm","confused")) {
+            assertTrue(Math.abs(DeepseekExpressions.emotionRoll(emotion))<=16);
+        }
+    }
     @Test public void parameterPlanRejectsAudioOutfitsPhysicsAndEnforcesSafeRigBudget() throws Exception {
         DeepseekParameterPlan plan=new DeepseekParameterPlan();Pose p=new Pose();
         plan.start("[{\"time\":0,\"duration\":0.2,\"parameters\":{\"AngleX\":99,\"PositionX\":99,\"ParamMouthOpenY\":1,\"Clothes2\":1,\"Movement1\":1,\"ParamAngleX\":30},\"root\":{\"x\":5,\"tilt\":90}}]");

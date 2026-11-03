@@ -18,12 +18,13 @@ final class DeepseekExpressions {
     private final Map<String,Float> current=new HashMap<>();
     private final Map<String,Float> applied=new HashMap<>();
     private String emotion="normal",face="",wink="",effect="";
-    private float remaining,age,weight;
+    private float remaining,age,weight,emotionRoll;
     void emotion(String value) {emotion=value;}
     void begin(DeepseekParameterPlan.Target target) {
         // A new event enters from the displayed (possibly fading) face, not the old
         // unweighted peak retained by this smoothing layer.
         current.clear();
+        emotionRoll=0;
         for(String id:emotionPose("normal").keySet()) if(target.accepts(id)) current.put(id,target.current(id));
     }
     void trigger(String face,String wink,String effect) {
@@ -64,6 +65,11 @@ final class DeepseekExpressions {
             float base=neutral.getOrDefault(id,target.current(id)),shown=base+(v-base)*emotionMix;
             applied.put(id,shown);if(target.accepts(id)) target.write(id,shown);
         }
+        // Caicai's emotion template includes a head accent. Add it to current
+        // idle instead of replacing that layer with a fixed head pose.
+        emotionRoll+=(emotionRoll(emotion)-emotionRoll)*mix;
+        if(target.accepts("AngleZ")) target.write("AngleZ",DeepseekParameterPlan.spatialValue(
+            "AngleZ",target.current("AngleZ")+emotionRoll*emotionMix));
         remaining=Math.max(0,remaining-dt);age+=dt;
         weight+=( (remaining>0?1:0)-weight)*(1-(float)Math.exp(-dt*10));
     }
@@ -105,6 +111,28 @@ final class DeepseekExpressions {
         for(String id:Arrays.asList("ParamEyeLOpen","ParamEyeROpen","ParamBrowLY","ParamBrowRY","MouthX","EyeSmile"))
             base.put(id,base.get(id)+(disgust.get(id)-base.get(id))*.5f);
         return base;
+    }
+    static float emotionRoll(String emotion) {
+        switch(emotion) {
+            case "happy": return 4;
+            case "excited": return -7;
+            case "affection": return -10;
+            case "shy": case "ashamed": return -12;
+            case "flustered": return 10;
+            case "tense": return -5;
+            case "worried": return -7;
+            case "confused": return -16;
+            case "helpless": return -10;
+            case "afraid": return 5;
+            case "angry": return 7;
+            case "sad": return -8;
+            case "disgust": return -11;
+            case "surprised": return 7;
+            case "confident": return -9;
+            case "playful": return 13;
+            case "calm": return 2;
+            default: return 0;
+        }
     }
     static Map<String,Float> emotionPose(String emotion) {
         // DeepSeek has separate smile/squint, 0..1.5 opening and ear-linked brows.
