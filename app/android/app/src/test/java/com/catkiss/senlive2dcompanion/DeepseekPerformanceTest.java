@@ -108,13 +108,15 @@ public class DeepseekPerformanceTest {
             assertTrue(Math.abs(DeepseekExpressions.emotionRoll(emotion))<=16);
         }
     }
-    @Test public void parameterPlanRejectsAudioOutfitsPhysicsAndEnforcesSafeRigBudget() throws Exception {
+    @Test public void parameterPlanAllowsSilentMouthButRejectsOutfitsPhysicsAndEnforcesRigBudget() throws Exception {
         DeepseekParameterPlan plan=new DeepseekParameterPlan();Pose p=new Pose();
         plan.start("[{\"time\":0,\"duration\":0.2,\"parameters\":{\"AngleX\":99,\"PositionX\":99,\"ParamMouthOpenY\":1,\"Clothes2\":1,\"Movement1\":1,\"ParamAngleX\":30},\"root\":{\"x\":5,\"tilt\":90}}]");
         plan.setGain(1.5f);plan.apply(.2f,p);
         assertTrue(p.current("AngleX")<=30);assertTrue(p.current("PositionX")<=30);
         assertTrue(p.current("@rootX")<=.15f);assertTrue(p.current("@rootTilt")<=10);
-        for(String id:Arrays.asList("ParamMouthOpenY","Clothes2","Movement1","ParamAngleX")) assertFalse(p.values.containsKey(id));
+        assertTrue(p.current("ParamMouthOpenY")>.9f);
+        DeepseekSpeechMouth.apply(.25f,p);assertEquals(.3f,p.current("ParamMouthOpenY"),.001f);
+        for(String id:Arrays.asList("Clothes2","Movement1","ParamAngleX")) assertFalse(p.values.containsKey(id));
         for(int i=0;i<30;i++) {p.values.clear();plan.apply(.1f,p);}
         assertTrue(p.values.isEmpty());
     }

@@ -120,8 +120,10 @@ final class DeepseekParameterPlan {
                 float scale=id.startsWith("Angle") || id.startsWith("Position") || id.startsWith("@root") ? gain : 1f;
                 wanted=current.values.get(id)*scale;
                 // Keep the local body alive beneath a sustained semantic pose.
-                if(id.startsWith("Position")) wanted+=lower*.30f;
-                wanted=spatialValue(id,wanted);
+                if(id.startsWith("Position")) {
+                    wanted+=lower*.30f;
+                    wanted=spatialValue(id,wanted);
+                }
             }
             // About .46s in / .55s out to 95%, independent of a short speech beat.
             if(id.equals("LeanInput")) rate=wanted<old?6.5f:5.5f;
