@@ -1,6 +1,6 @@
 # +409 小豆丁下段支点与避峰接续修补
 
-目标0.42.165+409/schema67；基线d45803066bd26dcb7d4b6b57b46f196d672cb226/treebbfd0be7ae8988e8f806001194737d6c7d73ae2b。CI PENDING / APK PENDING / TRUE DEVICE PENDING。
+目标0.42.165+409/schema67；基线d45803066bd26dcb7d4b6b57b46f196d672cb226/treebbfd0be7ae8988e8f806001194737d6c7d73ae2b。CI PASSED / APK VERIFIED / TRUE DEVICE PENDING。
 
 用户已授权实施上一轮三处结论，证据见[CACHE_LIVE2D_REVIEW_2026-11-03.md](CACHE_LIVE2D_REVIEW_2026-11-03.md)。修改前记录边界：
 
@@ -19,3 +19,14 @@
 
 
 首候选d962c27e/tree2f5f6edd：专项41514720744的新增12例10过2败。暂停/删除夹具对尚未公开的私有作品调用公共控制，操作按原权限返回unavailable，测试未先断言控制生效；因此后续工具合法执行。修正为先建立可访问的自主作品，调用真实目标控制并断言applied/status，再检查Worker保持停止。生产修补不变，保留私有权限限制；失败不算交付，待新HEAD完整重跑。
+
+
+## 最终交付 · 2026-11-03
+
+运行源ad8cbf66f627b5d18146e2fa676eddcf8c85ab1f，tree41f045d09183eecfba99b6056034d5d884bee9c4，app-lib a67f67eff42b4476fb68069d7d3170322616cfdd，v0.42.165+409/schema67。完整CI41515578032及专项41515578043均success：161源码门、Android15原生61、正式原生单元、3344全量Flutter和171独立存档恢复通过。新增12项组合场景全部通过；其余专项3/71/40/41/97/143/37/11/61/39/25/26/33/359/1322分别通过，含重叠不相加。分析0error/1063非fatal，新增一条仅为测试未用import，收口删除；未重跑分析，不将计数改写成已验证的1062。首次候选的夹具失败及被替代轮保持历史，不充作通过。
+
+原签名APK739609578 bytes，SHA256 `fa706369f5c02ebc6075b1d6f0946f09a317d31108eec304e2da42b68309995c`。CI现场、success monitor、未发布Draft431911878/asset703109497摘要一致；Draft目标ad8cbf66，实际包名com.aicompanion.localfirst及版本0.42.165+409均由CI核验；证书SHA256 305eb3d80983b963c64818ddf1ad561f279de6d47b3ed2c781ada448c7c25148与既有签名一致，可覆盖安装。没有在本机重新下载整包，核对的是CI现场与上传端摘要。
+
+[下载+409](https://github.com/catkiss62/ai-companion-build/actions/runs/41515578032/artifacts/13178160703)。Artifact外层ZIP732417935 bytes、digest ecdd64f1ef40d3b7467f22043352020219ceacb21fd6bb1f976dd921f308db1d，与APK自身摘要不同。校验文件asset703109494为119 bytes、digest aecbff14533add41b656ee3dcbef71e2c0c48bfa5f80b09121ae40223d54b8e4；monitor asset703109533为497 bytes、digest08a911cf73be141e2b7903ac1d6491fe9b2603eb7b97f28dd7e77f59ded4a9e7，与ci-monitor-v0345分支.ci/v042165-monitor.txt的success/41515578032/ad8cbf66及APK摘要一致。
+
+后续仅文档与一个未用的测试import清理skip ci，不改运行源码，不重复构建、不发布Draft、不合并main。手机上的脚部观感仍待安装：此次针对根旋转轴下移，身体自身变形与有意的整体平移仍保留，不声称双脚绝对锁死。记录脚晃的新导出仍可分辨下缘自身变化、旋转和平移。缓存实际命中率和花费仍需新用量记录，不能由这些功能测试推断省费比例。

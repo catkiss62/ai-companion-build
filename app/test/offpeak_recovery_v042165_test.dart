@@ -2,7 +2,6 @@ import 'dart:convert';
 import 'package:ai_companion_localfirst/core/ai/background_cost_policy.dart';
 import 'package:ai_companion_localfirst/core/ai/deepseek_client.dart';
 import 'package:ai_companion_localfirst/core/ai/memory_extractor.dart';
-import 'package:ai_companion_localfirst/core/creative/creative_autonomy_policy.dart';
 import 'package:ai_companion_localfirst/core/creative/creative_contract.dart';
 import 'package:ai_companion_localfirst/core/creative/creative_store.dart';
 import 'package:ai_companion_localfirst/core/creative/creative_worker.dart';
