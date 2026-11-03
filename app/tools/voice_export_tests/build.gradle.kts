@@ -8,6 +8,12 @@ val syncProductionSources = tasks.register<Sync>("syncProductionSources") {
     }
     into(layout.buildDirectory.dir("generated/production-sources"))
 }
+val syncProductionTests = tasks.register<Sync>("syncProductionTests") {
+    from("../../android/app/src/test/kotlin/com/aicompanion/localfirst") {
+        include("VoiceExportPcmTuningTest.kt", "VoiceExportOwnershipTest.kt")
+    }
+    into(layout.buildDirectory.dir("generated/production-tests"))
+}
 android {
     namespace = "com.aicompanion.voiceexporttests"
     compileSdk = 35
@@ -18,13 +24,11 @@ android {
     }
     kotlinOptions { jvmTarget = "17" }
     sourceSets.getByName("main").java.srcDir(layout.buildDirectory.dir("generated/production-sources"))
-    sourceSets.getByName("test").java.apply {
-        srcDir("../../android/app/src/test/kotlin")
-        include("com/aicompanion/localfirst/VoiceExportPcmTuningTest.kt")
-        include("com/aicompanion/localfirst/VoiceExportOwnershipTest.kt")
-    }
+    // Kotlin source discovery does not honor Java include filters on a shared
+    // directory. Sync the two original test files into their own source root.
+    sourceSets.getByName("test").java.srcDir(layout.buildDirectory.dir("generated/production-tests"))
 }
-tasks.named("preBuild").configure { dependsOn(syncProductionSources) }
+tasks.named("preBuild").configure { dependsOn(syncProductionSources, syncProductionTests) }
 dependencies {
     implementation("androidx.media3:media3-common:1.8.0")
     testImplementation("junit:junit:4.13.2")
