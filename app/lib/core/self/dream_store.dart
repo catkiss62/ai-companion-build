@@ -268,6 +268,7 @@ class DreamStore {
     required Map<String, Object?> diagnostic,
     required DateTime now,
     bool manual = false,
+    bool completed = true,
   }) async {
     final handle = await db.database;
     return handle.transaction((txn) async {
@@ -283,7 +284,7 @@ class DreamStore {
         stateKey: jsonEncode(next),
         diagnosticKey: jsonEncode(diagnostic),
         attemptKey: '',
-        'last_self_reflection_at': '${now.millisecondsSinceEpoch}',
+        if (completed) 'last_self_reflection_at': '${now.millisecondsSinceEpoch}',
         'last_self_reflection_error': '',
       }.entries) {
         await txn.insert('settings', {
@@ -319,7 +320,10 @@ class DreamStore {
       'content_included': false,
       'last_source_count': DreamContract.number(last['source_count']),
       'last_changed_count': DreamContract.number(last['changed_count']),
-      'has_backlog': last['has_backlog'] == true,
+      'has_backlog': state['catchup'] is Map || last['has_backlog'] == true,
+      'catchup_active': state['catchup'] is Map,
+      'catchup_batches': state['catchup'] is Map ? DreamContract.number((state['catchup'] as Map)['batches']) : 0,
+      'last_phase': DreamContract.string(last['phase']),
       'meaning': '整理/提交状态，不证明实际行为已改变',
     };
   }

@@ -34,6 +34,8 @@ final class DeepseekAvatarModel extends CubismUserModel {
     private final DeepseekParameterPlan plan=new DeepseekParameterPlan();
     private final DeepseekIdleMotion idle=new DeepseekIdleMotion();
     private final DeepseekLeanFocus leanFocus=new DeepseekLeanFocus();
+    private final DeepseekViewerFocus viewerFocus=new DeepseekViewerFocus();
+    private long avertUntil;
     private final DeepseekGaze gaze=new DeepseekGaze();
     private final DeepseekFootProbe footProbe=new DeepseekFootProbe();
     private final DeepseekBlink blink=new DeepseekBlink();
@@ -261,10 +263,11 @@ final class DeepseekAvatarModel extends CubismUserModel {
         String cue=args.optString("cue","");
         if(speech && cue.equals(speechCue)) return;
         if(speech) {expressions.begin(pose);speechCue=cue;}
+        avertUntil=speech && args.optString("delivery").equals("avert")?now+1_300_000_000L:0;
         preview.clear();manualPreview=false;previewRootX=previewRootTilt=0;
         idle.resetGrass();
         boolean animate=!speech || args.optBoolean("animate");
-        expressions.trigger(args.optString("face"),animate?args.optString("wink"):"",args.optString("effect"));
+        expressions.trigger(speech && args.optString("face").equals("嫌弃眼")?"":args.optString("face"),animate?args.optString("wink"):"",args.optString("effect"));
         if(animate) {
             String action=args.optString("action");
             if(action.isEmpty() || !gestures.request(action,2.4f)) gestures.stop();
@@ -312,7 +315,7 @@ final class DeepseekAvatarModel extends CubismUserModel {
         emotionSuppressed=true;
         preview.clear();manualPreview=false;previewRootX=previewRootTilt=rootX=rootTilt=0;
         idle.clearAttention();idle.resetGrass();blink.reset();
-        leanFocus.reset();gaze.clear();
+        leanFocus.reset();viewerFocus.reset();avertUntil=0;gaze.clear();
     }
     boolean screenToModel(float x,float y,float[] result) {return hit.inverse(x,y,result);}
     private void animateEffect(String id,float elapsed,float period) {
@@ -320,6 +323,8 @@ final class DeepseekAvatarModel extends CubismUserModel {
         set(id,DeepseekExpressions.cycle(elapsed,period,model.getParameterMinimumValue(i),model.getParameterMaximumValue(i)));
     }
     private void ownMouth() {
+        // key6 replaces the authored mouth mesh; parameter lip-sync alone cannot animate it.
+        set("key6",0);
         for(String id:MOUTH) {Integer i=indices.get(id);if(i!=null) set(id,model.getParameterDefaultValue(i));}
         set("ParamMouthOpenY",amplitude);
     }
@@ -345,10 +350,10 @@ final class DeepseekAvatarModel extends CubismUserModel {
         plan.apply(delta,pose);
         if(small || form>.05f) expressions.smallReaction(pose);
         if(!manualPreview) idle.applyAttention(pose,pat.active()?.25f:1);
-        blink.update(delta,manualPreview || pat.active() || expressions.reservesEyes() || plan.reservesEyes(),pose);
+        blink.update(delta,manualPreview || pat.active() || expressions.reservesEyes(speaking) || plan.reservesEyes(),pose);
         for(Map.Entry<String,Float> e:preview.entrySet()) if(!speaking || !MOUTH.contains(e.getKey())) set(e.getKey(),e.getValue());
         if(manualPreview) {rootX=previewRootX;rootTilt=previewRootTilt;}
-        expressions.overlay(pose);
+        expressions.overlay(pose,speaking);
         effectTime+=delta;
         if(auxiliary!=null && expressions.effect("落泪"))
             auxiliary.sample(effectTime%auxiliary.duration).forEach(this::set);
@@ -367,6 +372,8 @@ final class DeepseekAvatarModel extends CubismUserModel {
         if(physics!=null) physics.evaluate(model,delta);
         // Reassert every mouth channel, including silent phonemes, after the single physics tick.
         if(speaking) ownMouth();
+        viewerFocus.apply(delta,pose,(speaking || plan.active()) && System.nanoTime()>=avertUntil,
+            manualPreview || pat.active() || previewEmotionDeadline!=0);
         leanFocus.apply(delta,pose,manualPreview || pat.active());
         if(form>.0001f || anchorDirty) stabilizeMorph(); else model.update();
     }

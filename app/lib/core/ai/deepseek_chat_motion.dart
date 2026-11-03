@@ -258,6 +258,7 @@ class DeepseekChatMotion {
         'lease': lease, 'cue': key, 'emotion': _spokenEmotion,
         'frames': animate ? DeepseekMotionPlanner.speechFrames(cue['delivery']?.toString() ?? 'hold', _parameters) : const [],
         'animate': animate,
+        'delivery': cue['delivery']?.toString() ?? 'hold',
         'face': cue['face']?.toString() ?? '',
         'effect': cue['effect']?.toString() ?? '',
         'wink': cue['wink']?.toString() ?? '',

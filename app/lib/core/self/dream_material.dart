@@ -1,3 +1,4 @@
+import 'dart:convert';
 import '../database/conversation_source_store.dart';
 import '../database/app_database.dart';
 import '../memory/memory_retrieval_policy.dart';
@@ -28,6 +29,7 @@ class DreamMaterial {
     required bool weekly,
     int batchLimit = 240,
     int characterLimit = 64000,
+    Map<String, Object?>? upperCursor,
   }) async {
     final handle = await db.database;
     final stamp = await DreamStore.messageStamp(handle);
@@ -67,8 +69,8 @@ class DreamMaterial {
       }
     }
     final rows = await handle.query('messages', columns: DreamStore.chatColumns,
-      where: bootstrap ? 'created_at >= ? AND created_at <= ?' : 'source_ingest_seq > ?',
-      whereArgs: bootstrap ? [chatAt, now.millisecondsSinceEpoch] : [chatSeq],
+      where: bootstrap ? 'created_at >= ? AND created_at <= ?' : 'source_ingest_seq > ?${upperCursor == null ? '' : ' AND source_ingest_seq <= ?'}',
+      whereArgs: bootstrap ? [chatAt, now.millisecondsSinceEpoch] : [chatSeq, if (upperCursor != null) upperCursor['chat_seq']],
       orderBy: bootstrap ? 'source_ingest_seq DESC' : 'source_ingest_seq ASC',
       limit: bootstrap ? batchLimit.clamp(1,120).toInt() : batchLimit.clamp(1,240).toInt());
     if (bootstrap && rows.isEmpty) {
@@ -91,8 +93,8 @@ class DreamMaterial {
       if (candidate != null && usedEvidence.any((e) => e['id'] == candidate.id && e['fingerprint'] == candidate.fingerprint)) {
         source = DreamStore.chatSource(row); // unchanged representative evidence is not a new vote
       }
-      if (source != null && chars + source.text.length > characterLimit) break;
-      if (source != null) { sources.add(source); chars += source.text.length; }
+      if (source != null && chars + jsonEncode(source.toJson()).length > characterLimit && consumed > 0) break;
+      if (source != null) { sources.add(source); chars += jsonEncode(source.toJson()).length; }
       chatSeq = DreamContract.number(row['source_ingest_seq']);
       chatAt = DreamContract.number(row['created_at']);
       chatId = DreamContract.string(row['id']);
@@ -105,8 +107,9 @@ class DreamMaterial {
       'public_web_candidates',
       columns: DreamStore.webColumns,
       where:
-          "read_state = 'verified' AND semantic_state = 'valid' AND lifecycle_state NOT IN ('discarded','declined','user_deleted') AND (read_at > ? OR (read_at = ? AND id > ?)) AND read_at <= ?",
-      whereArgs: [webAt, webAt, webId, now.millisecondsSinceEpoch],
+          "read_state = 'verified' AND semantic_state = 'valid' AND lifecycle_state NOT IN ('discarded','declined','user_deleted') AND (read_at > ? OR (read_at = ? AND id > ?)) AND read_at <= ?${upperCursor == null ? '' : ' AND (read_at < ? OR (read_at = ? AND id <= ?))'}",
+      whereArgs: [webAt, webAt, webId, now.millisecondsSinceEpoch,
+        if (upperCursor != null) ...[upperCursor['web_at'],upperCursor['web_at'],upperCursor['web_id']]],
       orderBy: 'read_at ASC, id ASC',
       limit: batchLimit < 240 ? 4 : 12,
     );
@@ -146,8 +149,11 @@ class DreamMaterial {
         final source = DreamStore.chatSource(row);
         if (source == null || knownIds.contains(source.id)) continue;
         // Never put not-yet-processed backlog in the old/context bucket.
-        if (DreamContract.number(row['source_ingest_seq']) > chatSeq)
-          continue;
+        if (DreamContract.number(row['source_ingest_seq']) > chatSeq) continue;
+        final pending = state['catchup'];
+        if (pending is Map && pending['cursor'] is Map && pending['boundary'] is Map &&
+            DreamContract.number(row['source_ingest_seq']) > DreamContract.number((pending['cursor'] as Map)['chat_seq']) &&
+            DreamContract.number(row['source_ingest_seq']) <= DreamContract.number((pending['boundary'] as Map)['chat_seq'])) continue;
         if (!weekly &&
             !MemoryRetrievalPolicy.hasDirectTextEvidence(query, source.text))
           continue;

@@ -668,9 +668,9 @@ void main() {
           },
         );
         expect(await e.maybeDream(now: night), isTrue);
-        expect(seen.length, 48);
-        for(var day=1;day<=5;day++) {
-          expect(await e.maybeDream(now:night.add(Duration(days:day))),isTrue);
+        expect(seen, isEmpty); // First step durably partitions the historical range.
+        for(var step=0;step<12 && (await DreamStore(db).load())['catchup'] != null;step++) {
+          expect(await e.maybeDream(now:night,manual:true),isTrue);
         }
         expect(seen.length, 250);
         expect(seen.toSet().length, 250);

@@ -76,10 +76,12 @@ class DeepseekMotionPlanner {
 
   static void _presets(Map<String, JevChoiceQuestion> q, String prefix, String context,
       {bool optional = false}) {
-    final meanings = {'face': eyes, 'effect': effects, 'wink': winks};
+    final speech = prefix.startsWith('speech');
+    final meanings = {'face': {for (final e in eyes.entries) if (!speech || e.key != '嫌弃眼') e.key: e.value}, 'effect': effects, 'wink': winks};
     final directions = <String, String>{
       'face': '只判断本段是否适合四种特殊眼型之一，不在这里选择类型。'
-        '圈圈眼用于呆住、脑袋空白或装傻，><眼用于绷不住的开心、窘迫或撒娇抗议，嫌弃眼可用于轻微无语吐槽；'
+        '圈圈眼用于呆住、脑袋空白或装傻，><眼用于绷不住的开心、窘迫或撒娇抗议；'
+        '${speech ? '语音期间不使用眼嘴绑定的嫌弃眼特效，普通嫌弃情绪仍可使用。' : '嫌弃眼可用于轻微无语吐槽；'}'
         '爱心眼允许轻微含蓄的心动、被撩到或着迷，普通开心、关心或礼貌温柔本身不足以使用爱心眼。'
         '按实际语气，轻微、中等或强烈的自然反应都可使用，不必等情绪强烈；中性或不相符时不用。',
       'effect': '只判断本段是否适合附加效果之一，不在这里选择类型。'
@@ -179,7 +181,9 @@ class DeepseekMotionPlanner {
   }
   static bool validEmotion(String? value) => value == 'normal' || EmotionCatalog.labelsByKey.containsKey(value);
   static Map<String, String> preset(Map<String, String> a, String p) {
-    final face = a['${p}face_use'] == 'yes' && eyes.containsKey(a['${p}face']) ? a['${p}face']! : '';
+    final selected = a['${p}face'];
+    final allowed = !(p.startsWith('speech') && selected == '嫌弃眼');
+    final face = allowed && a['${p}face_use'] == 'yes' && eyes.containsKey(a['${p}face']) ? a['${p}face']! : '';
     return {'face': face,
       'effect': a['${p}effect_use'] == 'yes' && effects.containsKey(a['${p}effect']) ? a['${p}effect']! : '',
       'wink': face.isEmpty && a['${p}wink_use'] == 'yes' && winks.containsKey(a['${p}wink']) ? a['${p}wink']! : '',

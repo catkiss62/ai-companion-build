@@ -37,8 +37,9 @@ final class DeepseekExpressions {
     void release() {remaining=0;}
     void clearTransient() {face=wink=effect="";remaining=age=weight=0;}
     boolean active() {return remaining>0 || weight>.001f;}
-    boolean reservesEyes() {
-        return weight>.001f && (Arrays.asList("圈圈眼","爱心眼","><眼","嫌弃眼").contains(face)
+    boolean reservesEyes() {return reservesEyes(false);}
+    boolean reservesEyes(boolean speaking) {
+        return weight>.001f && (Arrays.asList("圈圈眼","爱心眼","><眼","嫌弃眼").contains(face) && !(speaking && face.equals("嫌弃眼"))
             || !wink.isEmpty() && age<(wink.equals("吐舌wink")?1.6f:1.2f));
     }
     void apply(float dt,boolean small,DeepseekParameterPlan.Target target) {
@@ -79,8 +80,10 @@ final class DeepseekExpressions {
         target.write("CheeckPuff",Math.max(target.current("CheeckPuff"),applied.getOrDefault("CheeckPuff",0f)));
     }
     // Overlay after the parameter plan, preventing simultaneous special-eye states.
-    void overlay(DeepseekParameterPlan.Target target) {
-        for(String id:BUTTONS.values()) if(target.accepts(id)) target.write(id,(id.equals(BUTTONS.get(face)) || id.equals(BUTTONS.get(effect)))?weight:0);
+    void overlay(DeepseekParameterPlan.Target target) {overlay(target,false);}
+    void overlay(DeepseekParameterPlan.Target target,boolean speaking) {
+        for(String id:BUTTONS.values()) if(target.accepts(id)) target.write(id,
+            !(speaking && id.equals("key6")) && (id.equals(BUTTONS.get(face)) || id.equals(BUTTONS.get(effect)))?weight:0);
         if(weight<.001f) return;
         boolean special=Arrays.asList("圈圈眼","爱心眼","><眼","嫌弃眼").contains(face);
         if(!special && !wink.isEmpty()) {
