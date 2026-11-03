@@ -114,6 +114,12 @@ public class DeepseekStage3SmokeTest {
         }
         assertTrue(full>=2.49f);assertFalse(posture.active());
         e.clearTransient();p.write("key11",0);e.accessory(p);assertEquals(0,p.current("key11"),0);
+        DeepseekViewerFocus focus=new DeepseekViewerFocus();
+        for(int i=0;i<60;i++) {
+            p.write("AngleX",25);p.write("AngleY",-24);focus.apply(.05f,p,true,false);
+        }
+        assertEquals(-25f/30*.85f,p.current("ParamEyeBallX"),.001f);
+        assertEquals(.56f,p.current("ParamEyeBallY"),.001f);assertEquals(25,p.current("AngleX"),0);
     }
 
 }

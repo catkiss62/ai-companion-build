@@ -19,11 +19,24 @@ public class DeepseekViewerFocusTest {
             p.write("ParamEyeLOpen",.2f);p.write("PositionZ",23);
             focus.apply(.05f,p,true,false);
         }
-        assertEquals(-25f/30*.65f,p.current("ParamEyeBallX"),.001f);
-        assertEquals(.4f,p.current("ParamEyeBallY"),.001f);
+        assertEquals(-25f/30*.85f,p.current("ParamEyeBallX"),.001f);
+        assertEquals(.56f,p.current("ParamEyeBallY"),.001f);
+        assertTrue(Math.abs(p.current("ParamEyeBallX"))>25f/30*.65f);
         assertEquals(25,p.current("AngleX"),0);assertEquals(-24,p.current("AngleY"),0);
         assertEquals(18,p.current("AngleZ"),0);assertEquals(23,p.current("PositionZ"),0);
         assertEquals(.2f,p.current("ParamEyeLOpen"),0);
+    }
+    @Test public void strongerCompensationIsBoundedAndDoesNotChangeHeadAtExtremeAngles() {
+        for(float sign:new float[]{-1,1}) {
+            Pose p=new Pose();DeepseekViewerFocus focus=new DeepseekViewerFocus();
+            for(int i=0;i<60;i++) {
+                p.write("AngleX",sign*45);p.write("AngleY",sign*45);
+                focus.apply(.05f,p,true,false);
+            }
+            assertEquals(-sign*.85f,p.current("ParamEyeBallX"),.001f);
+            assertEquals(-sign*.70f,p.current("ParamEyeBallY"),.001f);
+            assertEquals(sign*45,p.current("AngleX"),0);assertEquals(sign*45,p.current("AngleY"),0);
+        }
     }
     @Test public void manualAndPatOwnershipBypassFocusAndEndingReturnsToLiveIdle() {
         Pose p=new Pose();DeepseekViewerFocus focus=new DeepseekViewerFocus();
