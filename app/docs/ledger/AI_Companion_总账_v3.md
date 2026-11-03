@@ -1,4 +1,4 @@
-2026-11-03 本轮在 +409 基线上处理 QQ 导出音高（v0.42.166+410）：保留正文模型语气和原有参考音频，使用保存音调减 1 半音，离线写入上传 WAV；CI/签名 APK 验证尚未完成，不覆盖下面 +409 已交付状态。见[实施记录](../QQ_VOICE_PITCH_v042166.md)。同时新增[DSH 安卓互通与渐进插件化方案](../DSH_INTEROP_PLUGIN_ROADMAP_2026-11-03.md)，记录候选比较、先诊断后试点路线及协议/存档边界；互通与插件宿主尚未实施，完整插件化留待后续架构审查。
+2026-11-03 当前交付：v0.42.166+410 / schema67，[QQ 导出音高对齐](../QQ_VOICE_PITCH_v042166.md)。保留正文模型语气与已有参考音频；按保存音调减 1 半音离线写入上传 WAV，保持语速/采样率，导出归属、抢占与取消继续有效。运行源码30fac7b4a1aa3c5002090048d2ec2e8ef4c74cc0；[完整CI41576740750](https://github.com/catkiss62/ai-companion-build/actions/runs/41576740750)与[专项41576740765](https://github.com/catkiss62/ai-companion-build/actions/runs/41576740765)success，161源码门/3352 Flutter/171恢复/Android15原生61/离线导出9项分别通过（重叠不相加），分析0error/1063非fatal。原签名APK740650302 bytes，SHA256 6cc226ceab205c8dcda43dac5834b9134a28d2ffc321cbb31fc26fd8b2266923，与Draft432254690 / asset704339417一致；[下载+410](https://github.com/catkiss62/ai-companion-build/actions/runs/41576740750/artifacts/13205700894)。已保存[DSH安卓互通与渐进插件化方案](../DSH_INTEROP_PLUGIN_ROADMAP_2026-11-03.md)，含4个候选与分阶段接口/存档边界，尚未实施互通或插件宿主。后续仅文档skip ci收口，不重新构建；用户真机听感待对比。下面+409交付及早期记录为历史，不覆盖本条。
 
 # AI Companion · 总账 v3
 
