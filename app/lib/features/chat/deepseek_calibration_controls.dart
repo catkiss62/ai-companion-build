@@ -84,6 +84,27 @@ class _DeepseekCalibrationControlsState extends State<DeepseekCalibrationControl
       if(ok!=true) throw StateError('请先返回聊天加载DeepSeek模型');
     }
   });
+  Future<void> _combination() async {
+    var face='',wink='',comic='';
+    final effects=<String>{};
+    if(!mounted) return;
+    final accepted=await showDialog<bool>(context:context,builder:(context)=>StatefulBuilder(
+      builder:(context,update)=>AlertDialog(title:const Text('表情叠加预览'),
+        content:SingleChildScrollView(child:Column(mainAxisSize:MainAxisSize.min,crossAxisAlignment:CrossAxisAlignment.start,children:[
+          const Text('眼型保留眨眼、眉毛与嘴形。附加效果可多选；兔牙与吐舌wink冲突时保留wink。'),
+          Wrap(spacing:6,children:[for(final name in DeepseekMotionPlanner.eyes.keys)
+            FilterChip(label:Text(name),selected:face==name,onSelected:(v)=>update(()=>face=v?name:''))]),
+          Wrap(spacing:6,children:[for(final name in DeepseekMotionPlanner.winks.keys)
+            FilterChip(label:Text(name),selected:wink==name,onSelected:(v)=>update(()=>wink=v?name:''))]),
+          Wrap(spacing:6,children:[for(final name in DeepseekMotionPlanner.effects.keys)
+            FilterChip(label:Text(name),selected:effects.contains(name),onSelected:(v)=>update(() {if(v) {effects.add(name);} else {effects.remove(name);}}))]),
+          FilterChip(label:const Text('装懂小老师（眼镜＋兔牙）'),selected:comic.isNotEmpty,
+            onSelected:(v)=>update(()=>comic=v?'装懂小老师':'')),
+        ])),actions:[TextButton(onPressed:()=>Navigator.pop(context,false),child:const Text('取消')),
+          FilledButton(onPressed:()=>Navigator.pop(context,true),child:const Text('预览'))])));
+    if(accepted==true) await widget.preview('previewDeepseekPerformance',
+      {'face':face,'wink':wink,'effects':effects.toList(),'comic':comic});
+  }
   @override
   Widget build(BuildContext context) => Column(crossAxisAlignment:CrossAxisAlignment.start,children:[
     const Text('DeepSeek独立表情与手势：临时预览不会保存成装扮。手势自动完成抬臂、保持和放下。'),
@@ -108,8 +129,10 @@ class _DeepseekCalibrationControlsState extends State<DeepseekCalibrationControl
         if(ok!=true) throw StateError('无法保存DeepSeek动作设置');
       })),
     ExpansionTile(title:const Text('表情与手势预览'),children:[
-      const Text('角色左右眼与屏幕相反。特殊眼型互斥；语音播放期间嘴部由音频接管。'),
+      const Text('角色左右眼与屏幕相反。不同眼型互斥，眨眼、眉嘴和附加效果可组合；语音接管嘴巴张合。'),
       Wrap(spacing:8,children:[
+        ActionChip(label:const Text('表情叠加预览'),onPressed:widget.busy?null:_combination),
+        ActionChip(label:const Text('装懂小老师'),onPressed:widget.busy?null:()=>widget.preview('previewDeepseekPerformance',{'comic':'装懂小老师'})),
         for(final name in [...DeepseekMotionPlanner.eyes.keys,...DeepseekMotionPlanner.effects.keys])
           ActionChip(label:Text(name),onPressed:widget.busy?null:()=>widget.preview('previewDeepseekPerformance',{'face':name})),
         for(final name in DeepseekMotionPlanner.winks.keys)
@@ -118,6 +141,10 @@ class _DeepseekCalibrationControlsState extends State<DeepseekCalibrationControl
           ActionChip(label:Text(name),onPressed:widget.busy?null:()=>widget.preview('previewDeepseekPerformance',{'action':name})),
         ActionChip(label:const Text('清除临时表演'),onPressed:widget.busy?null:()=>widget.preview('resetPresets')),
       ]),
+      Wrap(spacing:8,children:[for(final e in DeepseekMotionPlanner.mouthPreviews.entries)
+        ActionChip(label:Text(e.key),onPressed:widget.busy?null:()=>widget.preview('previewDeepseekPerformance',
+          {'frames':[{'time':0,'duration':.5,'parameters':e.value},
+            {'time':3.3,'duration':.6,'parameters':<String,double>{}}]}))]),
     ]),
     ExpansionTile(title:const Text('19种情绪预览'),children:[Wrap(spacing:8,children:[
       for(final e in {'normal':'正常',...EmotionCatalog.labelsByKey}.entries)

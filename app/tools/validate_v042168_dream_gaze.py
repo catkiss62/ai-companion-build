@@ -9,7 +9,7 @@ assert 'write("Angle' not in focus and 'write("Position' not in focus
 model = read(java + 'DeepseekAvatarModel.java')
 assert model.index('physics.evaluate') < model.index('viewerFocus.apply') < model.index('leanFocus.apply')
 assert 'set("key6",0)' in model and 'expressions.overlay(pose,speaking)' in model
-assert 'reservesEyes(speaking)' in model and 'viewerFocus.reset()' in model
+assert 'expressions.reservedEyeMask()' in model and 'viewerFocus.reset()' in model
 engine = read('lib/core/self/dream_engine.dart')
 assert 'catchup_read' in engine and 'catchup_integrate' in engine
 assert 'paid >= 24' in engine and 'sameFailures >= 3' in engine

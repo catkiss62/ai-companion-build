@@ -23,7 +23,8 @@ class _Planner extends DeepseekMotionPlanner {
     'emotion': 'playful',
     'speech': [
       {'start': 0, 'end': 3, 'emotion': 'shy', 'delivery': 'nod',
-        'face': '脸红', 'wink': '吐舌wink', 'action': '扶胸'},
+        'face': '脸红', 'wink': '吐舌wink', 'action': '扶胸',
+        'effects':['脸红','流冷汗'],'comic':'装懂小老师','lean':true},
       {'start': 3, 'end': 6, 'emotion': '', 'delivery': 'hold'},
     ],
   };
@@ -75,6 +76,8 @@ void main() {
     expect(h.cues.first['face'], '脸红');
     expect(h.cues.first['wink'], '吐舌wink');
     expect(h.cues.first['action'], '扶胸');
+    expect(h.cues.first['effects'],['脸红','流冷汗']);expect(h.cues.first['comic'],'装懂小老师');
+    expect(h.cues.first['lean'],true);
     expect(h.cues.first['animate'], isTrue);
     expect(h.planner.calls, 1);
   });
@@ -87,6 +90,7 @@ void main() {
     expect(h.cues.length, greaterThan(before));
     expect(h.cues[before]['frames'], isEmpty);
     expect(h.cues[before]['animate'], isFalse);
+    expect(h.cues[before]['lean'],false);
     expect(h.planner.calls, 1);
   });
   test('unmuting in a later hold inherits the skipped planned emotion', () async {

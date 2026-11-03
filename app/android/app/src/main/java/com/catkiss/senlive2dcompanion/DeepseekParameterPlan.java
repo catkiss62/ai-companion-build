@@ -15,7 +15,7 @@ final class DeepseekParameterPlan {
         "AngleX","AngleY","AngleZ","PositionX","PositionY","PositionZ","LeanInput",
         "ParamEyeBallX","ParamEyeBallY","ParamBrowLY","ParamBrowRY","BrowInnerUp",
         "ParamEyeLOpen","ParamEyeROpen","EyeSmile","REyeSquint","LEyeSquint","ParamMouthForm","MouthX","Mouthpucker",
-        "MouthFunnel","MouthPuckerWiden","CheeckPuff","TongueOut"));
+        "MouthFunnel","MouthPuckerWiden","CheeckPuff","TongueOut","ParamMouthOpenY"));
     static boolean supports(String id) { return CHANNELS.contains(id); }
     // These are input parameter units, not physical degrees. Core remains the final authority.
     static float spatialValue(String id,float value) {
@@ -30,12 +30,13 @@ final class DeepseekParameterPlan {
     private final List<Frame> frames = new ArrayList<>();
     private final Map<String, Float> previous = new HashMap<>();
     private float elapsed, gain=1f, speed=1f;
+    private int eyeMask;
     void setSpeed(float value) { speed=value; }
     void setGain(float value) { gain=value; }
-    void clear() { frames.clear(); previous.clear(); elapsed = 0f; }
+    void clear() { frames.clear(); previous.clear(); elapsed = 0f;eyeMask=0; }
     boolean active() {return !frames.isEmpty();}
-    boolean reservesEyes() {return active() && (previous.containsKey("ParamEyeLOpen")
-        || previous.containsKey("ParamEyeROpen"));}
+    boolean reservesEyes() {return reservedEyeMask()!=0;}
+    int reservedEyeMask() {return active()?eyeMask:0;}
     void captureInitial(Target target) {
         for (Frame frame : frames) for (String id : frame.values.keySet())
             if (target.accepts(id)) previous.put(id, target.current(id));
@@ -96,6 +97,8 @@ final class DeepseekParameterPlan {
         }
         boolean finishing = elapsed > end;
         if (current == null) return;
+        eyeMask=finishing?0:(current.values.containsKey("ParamEyeLOpen")?1:0)
+            |(current.values.containsKey("ParamEyeROpen")?2:0);
         Set<String> keys = new HashSet<>(previous.keySet());
         keys.addAll(current.values.keySet());
         boolean leanSettled=true;
@@ -116,6 +119,9 @@ final class DeepseekParameterPlan {
             if (!finishing && current.values.containsKey(id)) {
                 float scale=id.startsWith("Angle") || id.startsWith("Position") || id.startsWith("@root") ? gain : 1f;
                 wanted=current.values.get(id)*scale;
+                // Keep the local body alive beneath a sustained semantic pose.
+                if(id.startsWith("Position")) wanted+=lower*.30f;
+                wanted=spatialValue(id,wanted);
             }
             // About .46s in / .55s out to 95%, independent of a short speech beat.
             if(id.equals("LeanInput")) rate=wanted<old?6.5f:5.5f;

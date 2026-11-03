@@ -37,9 +37,9 @@ public class DeepseekViewerFocusTest {
     @Test public void fixedMouthFaceIsVisibleAtOpeningButDisabledForRealSpeech() {
         Pose p=new Pose();DeepseekExpressions e=new DeepseekExpressions();
         e.trigger("嫌弃眼","","");e.apply(.3f,false,p);e.overlay(p,false);
-        assertTrue(p.current("key6")>.8f);assertTrue(e.reservesEyes(false));
+        assertTrue(p.current("key6")>.8f);assertFalse(e.reservesEyes(false));
         e.overlay(p,true);assertEquals(0,p.current("key6"),0);assertFalse(e.reservesEyes(true));
         e.trigger("爱心眼","","");e.apply(.3f,false,p);e.overlay(p,true);
-        assertTrue(p.current("key4")>.8f);assertTrue(e.reservesEyes(true));
+        assertTrue(p.current("key4")>.8f);assertFalse(e.reservesEyes(true));
     }
 }

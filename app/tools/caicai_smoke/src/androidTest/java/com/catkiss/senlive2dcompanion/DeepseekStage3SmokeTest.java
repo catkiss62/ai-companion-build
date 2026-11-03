@@ -97,4 +97,23 @@ public class DeepseekStage3SmokeTest {
         }
     }
 
+    @Test public void layeredExpressionAudioAndIndependentPostureRunOnAndroid() {
+        Pose p=new Pose();DeepseekExpressions e=new DeepseekExpressions();DeepseekPosture posture=new DeepseekPosture();
+        e.emotion("playful");e.trigger("爱心眼","右wink",Arrays.asList("脸红","流冷汗"),"装懂小老师");
+        posture.request("speech:0",0);float full=0;
+        for(int i=0;i<300;i++) {
+            p.values.clear();e.apply(1f/60,false,p);e.overlay(p,true);
+            p.write("key11",0);e.accessory(p);posture.apply(1f/60,p);
+            DeepseekSpeechMouth.apply(.4f,p);
+            if(i==30) {
+                assertTrue(p.current("key4")>.9f);assertTrue(p.current("key7")>.9f);assertTrue(p.current("key13")>.9f);
+                assertTrue(p.current("key11")>.9f);assertTrue(p.current("ParamEyeROpen")<.01f);
+                assertTrue(p.current("ParamMouthForm")>.8f);assertEquals(.48f,p.current("ParamMouthOpenY"),.001f);
+            }
+            if(p.current("LeanInput")==-30) full+=1f/60;
+        }
+        assertTrue(full>=2.49f);assertFalse(posture.active());
+        e.clearTransient();p.write("key11",0);e.accessory(p);assertEquals(0,p.current("key11"),0);
+    }
+
 }

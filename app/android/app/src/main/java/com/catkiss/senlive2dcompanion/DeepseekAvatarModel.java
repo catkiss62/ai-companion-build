@@ -32,6 +32,8 @@ final class DeepseekAvatarModel extends CubismUserModel {
     private final CaicaiEmotionLease emotionLease=new CaicaiEmotionLease();
     private final DeepseekGestures gestures=new DeepseekGestures();
     private final DeepseekParameterPlan plan=new DeepseekParameterPlan();
+    private final DeepseekPosture posture=new DeepseekPosture();
+    private final DeepseekSpeechMouth speechMouth=new DeepseekSpeechMouth();
     private final DeepseekIdleMotion idle=new DeepseekIdleMotion();
     private final DeepseekLeanFocus leanFocus=new DeepseekLeanFocus();
     private final DeepseekViewerFocus viewerFocus=new DeepseekViewerFocus();
@@ -253,6 +255,7 @@ final class DeepseekAvatarModel extends CubismUserModel {
         long now=System.nanoTime();
         String emotion=args.optString("emotion");if(emotion.isEmpty()) emotion=emotionWeight(now)>0?baseEmotion:"normal";
         if(!speech) {
+            posture.clear();
             speechDeadline=0;speechFaceFade=0;speechCue="";
             if(args.optBoolean("_preview")) {
                 expressions.begin(pose);
@@ -267,7 +270,14 @@ final class DeepseekAvatarModel extends CubismUserModel {
         preview.clear();manualPreview=false;previewRootX=previewRootTilt=0;
         idle.resetGrass();
         boolean animate=!speech || args.optBoolean("animate");
-        expressions.trigger(speech && args.optString("face").equals("嫌弃眼")?"":args.optString("face"),animate?args.optString("wink"):"",args.optString("effect"));
+        java.util.List<String> effects=new java.util.ArrayList<>();
+        org.json.JSONArray extras=args.optJSONArray("effects");
+        if(extras!=null) for(int i=0;i<Math.min(7,extras.length());i++) effects.add(extras.optString(i));
+        else effects.add(args.optString("effect")); // Older in-memory plans remain readable.
+        expressions.trigger(args.optString("face"),
+            animate?args.optString("wink"):"",effects,args.optString("comic"));
+        if(!speech && args.has("lean_at")) posture.request("opening",(float)args.optDouble("lean_at",0));
+        if(speech && animate && args.optBoolean("lean")) posture.request("speech:"+cue,0);
         if(animate) {
             String action=args.optString("action");
             if(action.isEmpty() || !gestures.request(action,2.4f)) gestures.stop();
@@ -281,8 +291,10 @@ final class DeepseekAvatarModel extends CubismUserModel {
         if(speechDeadline==0) return;
         speechDeadline=0;speechFaceFade=now+350_000_000L;previewEmotionDeadline=0;speechCue="";
         plan.release();expressions.release();gestures.stop();
+        if(!mouthOwner.active(now)) posture.release();
     }
     void stopPerformance() {
+        posture.clear();
         speechDeadline=speechFaceFade=0;previewEmotionDeadline=0;speechCue="";expressions.emotion(baseEmotion);
         plan.release();expressions.release();gestures.stop();
     }
@@ -323,10 +335,9 @@ final class DeepseekAvatarModel extends CubismUserModel {
         set(id,DeepseekExpressions.cycle(elapsed,period,model.getParameterMinimumValue(i),model.getParameterMaximumValue(i)));
     }
     private void ownMouth() {
-        // key6 replaces the authored mouth mesh; parameter lip-sync alone cannot animate it.
+        // Fixed-mouth contempt stays opening-only; all other expression shapes survive PCM.
         set("key6",0);
-        for(String id:MOUTH) {Integer i=indices.get(id);if(i!=null) set(id,model.getParameterDefaultValue(i));}
-        set("ParamMouthOpenY",amplitude);
+        DeepseekSpeechMouth.apply(amplitude,pose);
     }
     void update(float delta) {
         morphShiftX=morphShiftY=0;
@@ -348,12 +359,14 @@ final class DeepseekAvatarModel extends CubismUserModel {
             +(model.getParameterMaximumValue(breath)-model.getParameterMinimumValue(breath))*idle.breath());
         applyEmotion(delta,small || form>.05f,pose,System.nanoTime());
         plan.apply(delta,pose);
+        posture.apply(delta,pose);
         if(small || form>.05f) expressions.smallReaction(pose);
         if(!manualPreview) idle.applyAttention(pose,pat.active()?.25f:1);
-        blink.update(delta,manualPreview || pat.active() || expressions.reservesEyes(speaking) || plan.reservesEyes(),pose);
+        blink.update(delta,manualPreview || pat.active()?3:expressions.reservedEyeMask() | plan.reservedEyeMask(),pose);
         for(Map.Entry<String,Float> e:preview.entrySet()) if(!speaking || !MOUTH.contains(e.getKey())) set(e.getKey(),e.getValue());
         if(manualPreview) {rootX=previewRootX;rootTilt=previewRootTilt;}
         expressions.overlay(pose,speaking);
+        expressions.accessory(pose);
         effectTime+=delta;
         if(auxiliary!=null && expressions.effect("落泪"))
             auxiliary.sample(effectTime%auxiliary.duration).forEach(this::set);
@@ -368,11 +381,13 @@ final class DeepseekAvatarModel extends CubismUserModel {
             || previewEmotionDeadline!=0 || speaking || gestures.busy())) gestures.requestAmbient();
         Map<String,Float> arm=gestures.update(delta);arm.forEach(this::set);
         pat.apply(delta,small || form>.05f,pose);
+        if(speaking) speechMouth.capture(pose);
         if(speaking) ownMouth();
         if(physics!=null) physics.evaluate(model,delta);
-        // Reassert every mouth channel, including silent phonemes, after the single physics tick.
+        if(speaking) speechMouth.restore(pose);
+        // Preserve expressive shape while PCM reasserts opening after the single physics tick.
         if(speaking) ownMouth();
-        viewerFocus.apply(delta,pose,(speaking || plan.active()) && System.nanoTime()>=avertUntil,
+        viewerFocus.apply(delta,pose,(speaking || plan.active() || posture.active()) && System.nanoTime()>=avertUntil,
             manualPreview || pat.active() || previewEmotionDeadline!=0);
         leanFocus.apply(delta,pose,manualPreview || pat.active());
         if(form>.0001f || anchorDirty) stabilizeMorph(); else model.update();
@@ -478,7 +493,7 @@ final class DeepseekAvatarModel extends CubismUserModel {
         " eye="+pose.current("ParamEyeBallX")+","+pose.current("ParamEyeBallY")+
         " eyeOpen="+pose.current("ParamEyeLOpen")+","+pose.current("ParamEyeROpen")+
         " head="+pose.current("AngleX")+","+pose.current("AngleY")+","+pose.current("AngleZ")+
-        " body="+pose.current("PositionX")+","+pose.current("PositionY")+","+pose.current("PositionZ")+" mapped="+mappedLegPivot+" legMeshes="+legMeshCount+" leanFocus="+leanFocus.weight()+" face="+expressions.trace()+" gesture="+gestures.trace()+clipStatus+" speech="+(speechDeadline!=0)+" pat="+pat.state()+" idle="+idle.trace()+" static="+staticMode+" preview="+manualPreview; }
+        " body="+pose.current("PositionX")+","+pose.current("PositionY")+","+pose.current("PositionZ")+" mapped="+mappedLegPivot+" legMeshes="+legMeshCount+" leanFocus="+leanFocus.weight()+" posture="+posture.trace()+" face="+expressions.trace()+" gesture="+gestures.trace()+clipStatus+" speech="+(speechDeadline!=0)+" pat="+pat.state()+" idle="+idle.trace()+" static="+staticMode+" preview="+manualPreview; }
     void resizeRenderTarget(int width,int height) { if(getRenderer()!=null) getRenderer().setRenderTargetSize(width,height); }
     void closeModel() {hit=DeepseekHitTransform.INVALID;suspend();delete();}
 }

@@ -47,12 +47,12 @@ public class DeepseekPerformanceTest {
         assertTrue(g.trace().startsWith(":idle"));
         assertFalse(g.request("unknown",1));
     }
-    @Test public void specialEyesAreExclusiveAndSuppressWinkButPermitBlush() {
+    @Test public void specialEyeAppearanceIsExclusiveButPermitsWinkAndBlush() {
         DeepseekExpressions e=new DeepseekExpressions();Pose p=new Pose();
         e.trigger("爱心眼","吐舌wink","脸红");e.apply(.2f,false,p);e.overlay(p);
         assertTrue(p.current("key4")>.5f);assertTrue(p.current("key7")>.5f);
         for(String id:Arrays.asList("key3","key5","key6")) assertEquals(0,p.current(id),0);
-        assertEquals(0,p.current("TongueOut"),0);assertEquals(1,p.current("ParamEyeLOpen"),.001f);
+        assertEquals(1,p.current("TongueOut"),0);assertTrue(p.current("ParamEyeLOpen")<.15f);
         e.trigger("圈圈眼","","");e.apply(.2f,false,p);e.overlay(p);
         assertEquals(0,p.current("key4"),0);assertTrue(p.current("key3")>.5f);
         e.release();for(int i=0;i<20;i++) {e.apply(.1f,false,p);e.overlay(p);}
@@ -66,7 +66,7 @@ public class DeepseekPerformanceTest {
         Set<Map<String,Float>> distinct=new HashSet<>();
         for(String emotion:Arrays.asList("happy","excited","affection","shy","flustered","tense","worried","helpless","afraid","angry","sad","disgust","serious","surprised","confident","playful","ashamed","calm","confused")) {
             Map<String,Float> pose=DeepseekExpressions.emotionPose(emotion);distinct.add(pose);
-            assertFalse(pose.containsKey("ParamMouthOpenY"));
+            assertTrue(pose.get("ParamMouthOpenY")>=0 && pose.get("ParamMouthOpenY")<=.65f);
             assertFalse(pose.containsKey("key4")); // Heart eyes need a semantic opt-in.
         }
         assertEquals(19,distinct.size());
@@ -175,7 +175,7 @@ public class DeepseekPerformanceTest {
         for(int i=0;i<35;i++) {p.values.clear();plan.apply(1f/60,p);}
         assertEquals(0,p.current("LeanInput"),.01f);
     }
-    @Test public void emotionsUseTheActualFaceRangeAndRecoverNeutralWithoutLeavingButtonsOrMouthOpening() {
+    @Test public void emotionsUseAuthoredMouthShapesAndRecoverNeutralWithoutLeavingButtonsOrOpening() {
         assertEquals(1,DeepseekExpressions.emotionPose("happy").get("ParamMouthForm"),0);
         assertTrue(DeepseekExpressions.emotionPose("happy").get("REyeSquint")>.8f);
         assertEquals(-1,DeepseekExpressions.emotionPose("angry").get("ParamBrowLY"),0);
@@ -194,7 +194,7 @@ public class DeepseekPerformanceTest {
                 else assertTrue(item.toString(),v>=-1 && v<=(item.getKey().endsWith("Open")?1.5f:1));
                 assertTrue(item.getKey(),item.getKey().equals("AngleZ") ||
                     DeepseekExpressions.emotionPose("normal").containsKey(item.getKey()));
-                assertFalse(item.getKey().startsWith("key"));assertFalse(item.getKey().equals("ParamMouthOpenY"));
+                assertFalse(item.getKey().startsWith("key"));
             }
         }
         assertEquals(0,p.current("ParamMouthForm"),.001f);assertEquals(0,p.current("EyeSmile"),.001f);

@@ -61,12 +61,10 @@ void main() {
       reply: '哼，你再说一遍？', emotion: 'playful', spokenText: '哼，你再说一遍？', parameters: parameters);
     final questions = sent!['questions'] as Map;
     for (final prefix in ['', 'speech0_']) {
-      for (final layer in ['face', 'effect', 'wink']) {
-        final prompt = questions['$prefix${layer}_use']['instructions'] as String;
-        expect(prompt, contains('已有其他层不是不用的理由'));
-        expect(prompt, contains('普通形态和小豆丁使用同样的资格'));
-      }
-      expect(questions['${prefix}effect_use']['instructions'], contains('不必等情绪强烈'));
+      expect(questions.keys,containsAll(['${prefix}face_use','${prefix}wink_use','${prefix}comic',
+        for(final id in DeepseekMotionPlanner.effectIds.values) '${prefix}effect_$id']));
+      expect(questions['${prefix}face_use']['instructions'],contains('其他层已经使用不构成否决'));
+      expect(questions['${prefix}effect_sweat']['instructions'],contains('可叠加'));
     }
     expect(questions['f0_head']['criteria']['右转'], contains('25'));
     expect(questions.keys, containsAll(['f0_eyes', 'f3_intensity']));
@@ -82,7 +80,7 @@ void main() {
       'effect_use': 'yes', 'effect': '脸红', 'f0_eyes': '左笑眼wink', 'f0_mouth': '不高兴'}, parameters);
     expect(special['face'], '爱心眼'); expect(special['effect'], '脸红');
     expect((special['frames'] as List).first['parameters']['ParamMouthForm'], -1);
-    expect((special['frames'] as List).first['parameters'], isNot(contains('ParamEyeLOpen')));
+    expect((special['frames'] as List).first['parameters']['ParamEyeLOpen'],0);
   });
 
   test('dedup history keeps original goals while live criteria and protected archive remain intact', () {

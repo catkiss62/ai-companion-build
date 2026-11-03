@@ -44,12 +44,9 @@ void main() {
     final frames=plan['frames'] as List;
     expect(frames[0]['parameters']['AngleX'],25);
     expect(frames[1]['parameters']['PositionX'],-12);
-    expect(frames[1]['parameters']['LeanInput'],-30);
-    expect(frames[2]['parameters']['LeanInput'],-30);
-    expect(frames[3]['parameters']['LeanInput'],0);
-    final speech=DeepseekMotionPlanner.speechFrames('lean',parameters);
-    expect((speech.first['parameters'] as Map)['LeanInput'],-30);
-    expect((speech.last['parameters'] as Map)['LeanInput'],0);
+    expect(plan['lean_at'],.95);
+    expect(frames.every((f)=>!(f['parameters'] as Map).containsKey('LeanInput')),true);
+    expect(DeepseekMotionPlanner.speechFrames('lean',parameters),isEmpty);
   });
   testWidgets('lean preview returns full authored target and final standing pose', (tester) async {
     Object? preview;
@@ -57,8 +54,8 @@ void main() {
       status:const {},busy:false,run:(task)=>task(),preview:(method,[value]) async {preview=value;},
     )))));
     await tester.tap(find.text('前倾贴近预览'));await tester.pump();
-    final frames=(preview as Map)['frames'] as List;
-    expect(frames.first['parameters']['LeanInput'],-30);expect(frames.last['parameters']['LeanInput'],0);
+    expect((preview as Map)['lean_at'],0);
+    expect((preview as Map)['frames'],isNotEmpty);
   });
   for(final saved in [null,0.0,-1.0,1.0]) {
     testWidgets('mouth style has only two choices and preserves saved arc: $saved', (tester) async {

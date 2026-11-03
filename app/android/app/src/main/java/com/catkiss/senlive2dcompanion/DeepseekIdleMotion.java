@@ -59,9 +59,9 @@ final class DeepseekIdleMotion {
         put(target,"AngleX",headX);
         put(target,"AngleY",headY);
         put(target,"AngleZ",clamp(gain*(wave(clock*.87f,3.2f)*19+side*pulse*(family==4?15:9)),30));
-        put(target,"PositionX",clamp(gain*(wave(clock*.95f,.7f)*12+side*pulse*4),30));
-        put(target,"PositionY",clamp(gain*(wave(clock*1.05f,2.2f)*10+pulse*(family==5?5:-3)),30));
-        put(target,"PositionZ",clamp(gain*(wave(clock*.98f,4.2f)*13-side*pulse*5),30));
+        put(target,"PositionX",clamp(gain*(wave(clock*.95f,.7f)*24+side*pulse*8),30));
+        put(target,"PositionY",clamp(gain*(wave(clock*1.05f,2.2f)*24+pulse*(family%3==1?12:-8)),30));
+        put(target,"PositionZ",clamp(gain*(wave(clock*.98f,4.2f)*26-side*pulse*10),30));
         put(target,"LeanInput",0);
         put(target,"@rootX",clamp(gain*side*pulse*(family==6?.075f:.055f),.15f));
         put(target,"@rootTilt",clamp(gain*side*pulse*(family==7?6:4.5f),10));

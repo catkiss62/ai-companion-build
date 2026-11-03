@@ -21,8 +21,10 @@ for token in ('claimDeepseekMotion', 'deepseekMotionPlan', 'deepseekSpeechCue', 
 planner = read('lib/core/ai/deepseek_motion_planner.dart')
 assert planner.count('gateway.chooseMany(') == 1
 assert "usageLane: 'deepseek_avatar_speaking_motion'" in planner
-for unsupported in ('ParamAngleX3', '2比耶', '2奶茶', 'ParamMouthOpenY'):
+for unsupported in ('ParamAngleX3', '2比耶', '2奶茶'):
     assert unsupported not in planner, unsupported
+assert 'DeepseekSpeechMouth.apply(amplitude,pose)' in model
+assert 'mouthPreviews' in planner
 controller = read('lib/core/ai/deepseek_chat_motion.dart')
 for token in ('claimDeepseekMotion', 'deepseekSpeechCue', 'getDeepseekJev',
               "state['spoken_fingerprint'] == _fingerprint", 'revision.value', "state['audible'] == true"):

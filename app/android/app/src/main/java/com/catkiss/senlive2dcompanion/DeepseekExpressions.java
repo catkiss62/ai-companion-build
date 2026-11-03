@@ -17,7 +17,11 @@ final class DeepseekExpressions {
     }
     private final Map<String,Float> current=new HashMap<>();
     private final Map<String,Float> applied=new HashMap<>();
-    private String emotion="normal",face="",wink="",effect="";
+    private String emotion="normal",face="",wink="",comic="";
+    private final Set<String> effects=new LinkedHashSet<>();
+    private final Set<String> selectedEffects=new LinkedHashSet<>();
+    private boolean speaking;
+    static final Set<String> EYE_STYLES=new HashSet<>(Arrays.asList("圈圈眼","爱心眼","><眼","嫌弃眼"));
     private float remaining,age,weight,emotionRoll;
     void emotion(String value) {emotion=value;}
     void begin(DeepseekParameterPlan.Target target) {
@@ -28,19 +32,29 @@ final class DeepseekExpressions {
         for(String id:emotionPose("normal").keySet()) if(target.accepts(id)) current.put(id,target.current(id));
     }
     void trigger(String face,String wink,String effect) {
-        this.effect=BUTTONS.containsKey(effect) && !Arrays.asList("圈圈眼","爱心眼","><眼","嫌弃眼").contains(effect)?effect:"";
+        trigger(face,wink,Arrays.asList(effect),"");
+    }
+    void trigger(String face,String wink,Collection<String> extras,String comic) {
         this.face=BUTTONS.containsKey(face)?face:"";
         this.wink=Arrays.asList("左wink","右wink","吐舌wink").contains(wink)?wink:"";
-        // Match Caicai's 4.12s hold; the existing smooth release supplies the tail.
+        this.comic="装懂小老师".equals(comic)?comic:"";
+        effects.clear();selectedEffects.clear();
+        if(extras!=null) for(String effect:extras)
+            if(BUTTONS.containsKey(effect) && !EYE_STYLES.contains(effect)) selectedEffects.add(effect);
+        if(!this.comic.isEmpty()) selectedEffects.add("兔牙");
+        effects.addAll(selectedEffects);
+        if(this.wink.equals("吐舌wink")) effects.remove("兔牙");
+        // A single special eye appearance still composes with authored eyelids and brows.
         remaining=4.12f;age=0;
     }
     void release() {remaining=0;}
-    void clearTransient() {face=wink=effect="";remaining=age=weight=0;}
+    void clearTransient() {face=wink=comic="";effects.clear();selectedEffects.clear();remaining=age=weight=0;}
     boolean active() {return remaining>0 || weight>.001f;}
     boolean reservesEyes() {return reservesEyes(false);}
-    boolean reservesEyes(boolean speaking) {
-        return weight>.001f && (Arrays.asList("圈圈眼","爱心眼","><眼","嫌弃眼").contains(face) && !(speaking && face.equals("嫌弃眼"))
-            || !wink.isEmpty() && age<(wink.equals("吐舌wink")?1.6f:1.2f));
+    boolean reservesEyes(boolean speaking) {return reservedEyeMask()!=0;}
+    int reservedEyeMask() {
+        return weight>.001f && !wink.isEmpty() && age<(wink.equals("吐舌wink")?1.6f:1.2f)
+            ?(wink.equals("右wink")?2:1):0;
     }
     void apply(float dt,boolean small,DeepseekParameterPlan.Target target) {
         apply(dt,small,target,1);
@@ -79,14 +93,22 @@ final class DeepseekExpressions {
             target.write(id,Math.min(target.current(id),applied.getOrDefault(id,0f)));
         target.write("CheeckPuff",Math.max(target.current("CheeckPuff"),applied.getOrDefault("CheeckPuff",0f)));
     }
-    // Overlay after the parameter plan, preventing simultaneous special-eye states.
+    // Only conflicting eye appearances are exclusive; lids, brows and mouth remain composable.
     void overlay(DeepseekParameterPlan.Target target) {overlay(target,false);}
     void overlay(DeepseekParameterPlan.Target target,boolean speaking) {
-        for(String id:BUTTONS.values()) if(target.accepts(id)) target.write(id,
-            !(speaking && id.equals("key6")) && (id.equals(BUTTONS.get(face)) || id.equals(BUTTONS.get(effect)))?weight:0);
+        this.speaking=speaking;
+        for(Map.Entry<String,String> button:BUTTONS.entrySet()) if(target.accepts(button.getValue())) {
+            boolean selected=button.getKey().equals(face) || effects.contains(button.getKey());
+            target.write(button.getValue(),!(speaking && button.getKey().equals("嫌弃眼")) && selected?weight:0);
+        }
         if(weight<.001f) return;
-        boolean special=Arrays.asList("圈圈眼","爱心眼","><眼","嫌弃眼").contains(face);
-        if(!special && !wink.isEmpty()) {
+        if(!comic.isEmpty()) {
+            Map<String,Float> playful=emotionPose("confident");
+            for(String id:Arrays.asList("ParamMouthForm","MouthFunnel","MouthPuckerWiden","MouthX",
+                "ParamBrowLY","ParamBrowRY","REyeSquint","LEyeSquint"))
+                if(target.accepts(id)) target.write(id,target.current(id)+(playful.get(id)-target.current(id))*weight);
+        }
+        if(!wink.isEmpty()) {
             float close=winkClosure(age,wink.equals("吐舌wink"))*weight;
             String eye=wink.equals("右wink")?"ParamEyeROpen":"ParamEyeLOpen";
             target.write(eye,target.current(eye)*(1-close));
@@ -94,8 +116,21 @@ final class DeepseekExpressions {
             if(wink.equals("吐舌wink")) target.write("TongueOut",close>.35f?1:0);
         }
     }
-    boolean effect(String name) {return weight>.01f && (name.equals(face) || name.equals(effect));}
-    String trace() {return emotion+" face="+face+" weight="+weight+" effect="+effect+" wink="+wink;}
+    // Transient accessory overlay never mutates appearance preferences. Latest manual choice wins on release.
+    void accessory(DeepseekParameterPlan.Target target) {
+        if(!comic.isEmpty() && weight>.001f && target.accepts("key11"))
+            target.write("key11",target.current("key11")+(1-target.current("key11"))*weight);
+    }
+    boolean effect(String name) {return weight>.01f && (name.equals(face) || effects.contains(name));}
+    String trace() {
+        Set<String> effective=new LinkedHashSet<>(effects);
+        if(weight<=.001f) effective.clear();
+        return emotion+" selected_face="+face+" effective_face="+(weight>.001f && !(speaking && face.equals("嫌弃眼"))?face:"")+
+            " selected_effects="+selectedEffects+" effective_effects="+effective+" selected_wink="+wink+" effective_wink="+
+            (weight>.001f && age<(wink.equals("吐舌wink")?1.6f:1.2f)?wink:"")+" comic="+comic+
+            " suppressed="+(selectedEffects.contains("兔牙") && !effects.contains("兔牙")?"rabbit_teeth/tongue_wink":"")+
+            (speaking && face.equals("嫌弃眼")?" fixed_mouth_during_audio":"")+" weight="+weight;
+    }
     static float winkClosure(float age,boolean tongue) {
         if(!Float.isFinite(age) || age<=0) return 0;
         float duration=tongue?1.6f:1.2f;
@@ -109,7 +144,7 @@ final class DeepseekExpressions {
     }
     static Map<String,Float> smallNeutral() {
         Map<String,Float> base=emotionPose("normal"),disgust=emotionPose("disgust");
-        base.put("ParamMouthForm",-1f);base.put("ParamBrowLY",-.48f);
+        base.put("ParamMouthForm",-1f);base.put("ParamMouthOpenY",0f);base.put("ParamBrowLY",-.48f);
         base.put("ParamBrowRY",-.48f);base.put("CheeckPuff",.3f);
         for(String id:Arrays.asList("ParamEyeLOpen","ParamEyeROpen","ParamBrowLY","ParamBrowRY","MouthX","EyeSmile"))
             base.put(id,base.get(id)+(disgust.get(id)-base.get(id))*.5f);
@@ -139,7 +174,7 @@ final class DeepseekExpressions {
     }
     static Map<String,Float> emotionPose(String emotion) {
         // DeepSeek has separate smile/squint, 0..1.5 opening and ear-linked brows.
-        // Use that range for readable emotion; no special eye buttons or PCM opening here.
+        // Use authored mouth shapes off audio; PCM overrides only opening during playback.
         float mouth=0,brow=0,squint=0,open=1,inner=0,x=0,puff=0;
         switch(emotion) {
             case "happy": mouth=1;brow=.35f;squint=.85f;break;
@@ -165,6 +200,32 @@ final class DeepseekExpressions {
         }
         Map<String,Float> pose=new LinkedHashMap<>();
         pose.put("ParamMouthForm",mouth);pose.put("MouthX",x);pose.put("CheeckPuff",puff);
+        float opening=0,funnel=0,width=0,pucker=0;
+        switch(emotion) {
+            case "happy": opening=.22f;funnel=.25f;width=.3f;break;
+            case "excited": opening=.55f;width=.65f;break;
+            case "affection": opening=.10f;funnel=.12f;width=.12f;break;
+            case "shy": opening=.04f;width=-.12f;break;
+            case "flustered": opening=.22f;width=-.2f;break;
+            case "tense": opening=.05f;width=-.25f;break;
+            case "worried": opening=.06f;width=-.15f;break;
+            case "helpless": opening=.08f;funnel=.10f;break;
+            case "afraid": opening=.30f;width=-.4f;break;
+            case "angry": opening=.06f;pucker=.25f;break;
+            case "sad": opening=.10f;width=-.2f;break;
+            case "disgust": opening=.04f;funnel=.12f;width=-.15f;break;
+            case "serious": width=-.1f;break;
+            case "surprised": opening=.45f;width=-.5f;break;
+            case "confident": opening=.09f;funnel=.38f;width=.35f;break;
+            case "playful": opening=.16f;funnel=.4f;width=.45f;break;
+            case "ashamed": opening=.04f;width=-.3f;break;
+            case "calm": width=.1f;break;
+            case "confused": opening=.12f;width=-.2f;break;
+            default: break;
+        }
+        pose.put("ParamMouthOpenY",opening);pose.put("MouthFunnel",funnel);
+        pose.put("MouthPuckerWiden",width);pose.put("Mouthpucker",pucker);
+        pose.put("JawOpen",0f);pose.put("TongueOut",0f);
         pose.put("ParamBrowLY",brow);pose.put("ParamBrowRY",emotion.equals("confused")?-.65f:emotion.equals("confident")?.45f:emotion.equals("playful")?.55f:brow);
         pose.put("REyeSquint",squint);pose.put("LEyeSquint",emotion.equals("playful")?.6f:squint);
         pose.put("EyeSmile",emotion.equals("angry")?-.7f:emotion.equals("disgust")?-.45f:squint);
