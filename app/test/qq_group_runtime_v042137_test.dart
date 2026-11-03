@@ -61,11 +61,15 @@ class _ArchiveFault extends QqStore {
 class _Api extends QqApi {
   _Api():super(appId:'12345',secret:'fixture-not-a-secret');
   final sent=<Map<String,Object?>>[];bool uncertain=false;int uploads=0;
+  QqApiException? nextKnownUnsent;int sendAttempts=0;
   @override Future<String> uploadImage({required bool group,required String target,required Uint8List bytes,required String filename,required Future<bool> Function() current})async{uploads++;expect(await current(),true);return 'fixture-image-token';}
   @override Future<QqMediaUpload> uploadVoice({required bool group,required String target,required Uint8List bytes,required Future<bool> Function() current})async{uploads++;expect(await current(),true);return const QqMediaUpload('fixture-voice-token');}
   @override Future<QqMediaUpload> uploadMedia({required bool group,required String target,required Uint8List bytes,required String filename,required int fileType,required Future<bool> Function() current})async{uploads++;expect(await current(),true);return const QqMediaUpload('fixture-echo-token',ttl:300);}
   @override Future<void> sendMessage({required bool group,required String target,required String messageId,
     required int sequence,String text='',String fileInfo='',Future<bool> Function()? current}) async {
+    sendAttempts++;
+    final failure=nextKnownUnsent;nextKnownUnsent=null;
+    if(failure!=null) throw failure;
     sent.add({'group':group,'target':target,'messageId':messageId,'sequence':sequence,'text':text,'fileInfo':fileInfo});
     if(uncertain) throw QqApiException('network',uncertain:true);
   }
@@ -140,6 +144,23 @@ void main(){
   });
   tearDown(()async{await runtime.stop();api.close();await db.closeForTesting();});
 
+  for (final code in ['network', 'timeout', 'http_429']) {
+    test('known-unsent first send $code retries the production runtime once', () async {
+      handler=(r,b)async=>b['stream']==true?_sse('恢复后只送一次'):
+        _json(b['max_tokens']==60?{'safe':true}:{'participation':'direct'});
+      api.nextKnownUnsent=QqApiException(code);
+      await accept('known-unsent-$code','小鲸鱼，回答一下');await runtime.process(cid());
+      expect(api.sendAttempts,1);expect(api.sent,isEmpty);
+      expect(statuses,contains('reply_retry_wait'));
+      final sql=await db.database;
+      expect((await sql.query('qq_deliveries')).single['state'],'failed');
+      clock=clock.add(const Duration(seconds:16));await runtime.process(cid());
+      expect(api.sendAttempts,2);expect(api.sent,hasLength(1));
+      expect((await sql.query('qq_deliveries')).single['state'],'sent');
+      clock=clock.add(const Duration(seconds:61));await runtime.process(cid());
+      expect(api.sendAttempts,2);
+    });
+  }
   test('full-mode platform self mention overrides watch without a prior echo or owner grant',() async {
     final e=event('full-self','<@group-self> 合成问题')..['mentions']=[
       {'id':'other-peer','is_you':false,'scope':'single'},

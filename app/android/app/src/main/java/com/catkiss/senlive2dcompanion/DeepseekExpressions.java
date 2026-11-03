@@ -30,7 +30,8 @@ final class DeepseekExpressions {
         this.effect=BUTTONS.containsKey(effect) && !Arrays.asList("圈圈眼","爱心眼","><眼","嫌弃眼").contains(effect)?effect:"";
         this.face=BUTTONS.containsKey(face)?face:"";
         this.wink=Arrays.asList("左wink","右wink","吐舌wink").contains(wink)?wink:"";
-        remaining=3.2f;age=0;
+        // Match Caicai's 4.12s hold; the existing smooth release supplies the tail.
+        remaining=4.12f;age=0;
     }
     void release() {remaining=0;}
     void clearTransient() {face=wink=effect="";remaining=age=weight=0;}

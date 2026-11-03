@@ -541,7 +541,9 @@ class QqRuntime {
         error is QqApiException && error.uncertain?'send_uncertain':await current()?'failed':'context_invalidated';
       try {await store.mark(b,state,confirmedParts:error is QqDeliveryFailure?error.confirmed:null);} catch(_) {/* Existing sending receipt remains conservative. */}
       var retryScheduled=false;
-      final knownUnsentSend=error is QqDeliveryFailure && error.cause is QqApiException && !(error.cause as QqApiException).uncertain;
+      // First-part failures propagate directly; a delivery wrapper means a part
+      // was already sent. Only an explicit known-unsent API failure may replay.
+      final knownUnsentSend=error is QqApiException && !error.uncertain;
       if(state=='failed' && (phase!='send' || knownUnsentSend) && phase!='archive' && QqFailure.retryable(error is QqDeliveryFailure?error.cause:error)) {
         try {retryScheduled=await QqReplyRecovery(store).defer(b,now().millisecondsSinceEpoch);}catch(_) {}
       }

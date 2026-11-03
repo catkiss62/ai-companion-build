@@ -14,7 +14,7 @@ final class DeepseekParameterPlan {
     private static final Set<String> CHANNELS = new HashSet<>(Arrays.asList(
         "AngleX","AngleY","AngleZ","PositionX","PositionY","PositionZ","LeanInput",
         "ParamEyeBallX","ParamEyeBallY","ParamBrowLY","ParamBrowRY","BrowInnerUp",
-        "EyeSmile","REyeSquint","LEyeSquint","ParamMouthForm","MouthX","Mouthpucker",
+        "ParamEyeLOpen","ParamEyeROpen","EyeSmile","REyeSquint","LEyeSquint","ParamMouthForm","MouthX","Mouthpucker",
         "MouthFunnel","MouthPuckerWiden","CheeckPuff","TongueOut"));
     static boolean supports(String id) { return CHANNELS.contains(id); }
     // These are input parameter units, not physical degrees. Core remains the final authority.
@@ -34,6 +34,8 @@ final class DeepseekParameterPlan {
     void setGain(float value) { gain=value; }
     void clear() { frames.clear(); previous.clear(); elapsed = 0f; }
     boolean active() {return !frames.isEmpty();}
+    boolean reservesEyes() {return active() && (previous.containsKey("ParamEyeLOpen")
+        || previous.containsKey("ParamEyeROpen"));}
     void captureInitial(Target target) {
         for (Frame frame : frames) for (String id : frame.values.keySet())
             if (target.accepts(id)) previous.put(id, target.current(id));

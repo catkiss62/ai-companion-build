@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'generation_cancellation.dart';
 import 'jev_decision_gateway.dart';
 import 'speech_performance_plan.dart' show SpeechPerformancePlan;
@@ -25,6 +26,8 @@ class DeepseekMotionPlanner {
     'lean': {'自然': {}, '贴近屏幕': {'LeanInput': -30}, '站回原位': {'LeanInput': 0}},
     'gaze': {'自然': {}, '看左': {'ParamEyeBallX': -.7}, '看右': {'ParamEyeBallX': .7},
       '看上': {'ParamEyeBallY': .6}, '看下': {'ParamEyeBallY': -.6}},
+    'eyes': {'自主眨眼': {}, '左笑眼wink': {'ParamEyeLOpen': 0, 'LEyeSquint': 1},
+      '右笑眼wink': {'ParamEyeROpen': 0, 'REyeSquint': 1}},
     'brows': {'自然': {}, '皱眉': {'ParamBrowLY': -.75, 'ParamBrowRY': -.75},
       '抬眉': {'BrowInnerUp': .85}, '眯笑': {'REyeSquint': .9, 'LEyeSquint': .9}},
     'mouth': {'自然': {}, '微笑': {'ParamMouthForm': 1}, '不高兴': {'ParamMouthForm': -1},
@@ -55,6 +58,7 @@ class DeepseekMotionPlanner {
     '扶胸': '抬起手臂将手掌放在胸前，表达郑重或感动',
     '竖食指': '抬臂后食指朝上，用于提醒、解释或灵机一动',
   };
+  static const intensities = {'轻巧': .8, '鲜明': 1.0, '夸张': 1.12};
   static const roots = <String, Map<String, double>>{
     '自然': {}, '左轻移': {'x': -.055, 'tilt': 3},
     '右轻移': {'x': .055, 'tilt': -3},
@@ -72,13 +76,30 @@ class DeepseekMotionPlanner {
 
   static void _presets(Map<String, JevChoiceQuestion> q, String prefix, String context,
       {bool optional = false}) {
-    for (final entry in {'face': eyes, 'effect': effects, 'wink': winks}.entries) {
+    final meanings = {'face': eyes, 'effect': effects, 'wink': winks};
+    final directions = <String, String>{
+      'face': '只判断本段是否适合四种特殊眼型之一，不在这里选择类型。'
+        '圈圈眼用于呆住、脑袋空白或装傻，><眼用于绷不住的开心、窘迫或撒娇抗议，嫌弃眼可用于轻微无语吐槽；'
+        '爱心眼允许轻微含蓄的心动、被撩到或着迷，普通开心、关心或礼貌温柔本身不足以使用爱心眼。'
+        '按实际语气，轻微、中等或强烈的自然反应都可使用，不必等情绪强烈；中性或不相符时不用。',
+      'effect': '只判断本段是否适合附加效果之一，不在这里选择类型。'
+        '黑脸用于阴沉无语，落泪用于难过委屈或感动，脸红用于害羞脸热，加载用于思考卡壳，'
+        '兔牙用于憨憨搞怪，大钢盆用于明确戴盆搞怪，流冷汗用于尴尬慌张。'
+        '轻微、中等或强烈的自然反应都可使用，不必等情绪强烈；中性或无关时不用，不为增加频率强选。',
+      'wink': '只判断本段是否适合有意眨眼示意、心照不宣、调侃中的明确强调点或文字描写wink。'
+        '普通俏皮、开心、关心、得意或庆祝不自动等于需要眨眼；中性、无关或不合实际语气时不用。'
+        '已有完整wink时不必再用四拍眼睛动作重复强调。',
+    };
+    for (final entry in meanings.entries) {
       q['$prefix${entry.key}_use'] = JevChoiceQuestion(
-        '$context 是否适合${entry.key}附加层？按实际语义决定；没有相符反应就不用。'
-        '爱心眼只用于心动/着迷；wink需要有意眨眼示意，普通开心或关心不自动触发。'
-        '圈圈眼是空白O眼的呆萌反应，与眩晕无关；><眼是双眼挤紧；嫌弃眼可用于轻微吐槽，不必上升为厌恶。特殊眼型互斥，也不能同时wink。',
-        const {'yes': '有相符语义', 'no': '无相符语义'}, optional: optional);
-      q['$prefix${entry.key}'] = JevChoiceQuestion('$context 假设使用此层，选择符合程度的类型；是否使用由独立_use题决定。',
+        '$context：${directions[entry.key]}'
+        '这是独立附加层，可与19种情绪、五官、身体和手势组合；已有其他层不是不用的理由。'
+        '特殊眼型之间互斥、不能同时wink，其他脸部参数仍可表达不同语气，爱心眼并不固定嘴巴和眉毛。'
+        '普通形态和小豆丁使用同样的资格，只看本段语义。',
+        const {'yes': '有相符的自然反应，使用此附加层。', 'no': '中性或无相符反应，不使用此层。'}, optional: optional);
+      q['$prefix${entry.key}'] = JevChoiceQuestion(
+        '$context 假设使用此层，选择与实际回复最贴合的类型和程度；这里只判断类型，不判断用不用。'
+        '是否播放由独立_use题决定，不因存在类型题而必须播放，也不自动选最夸张的类型。',
         entry.value, optional: optional);
     }
     q['${prefix}action'] = JevChoiceQuestion('$context 选择相符手势，无关就选无；三组手势由本地互斥和收势。',
@@ -94,13 +115,15 @@ class DeepseekMotionPlanner {
       for (final c in channels.entries) {
         if (c.key == 'lean') continue;
         final options = {for (final e in c.value.entries)
-          if (e.value.keys.every(parameters.containsKey)) e.key: e.key};
+          if (e.value.keys.every(parameters.containsKey)) e.key: '${e.key}，参数目标 ${jsonEncode(e.value)}'};
         if (options.length > 1) q['f${i}_${c.key}'] = JevChoiceQuestion(
           'DeepSeek四拍第${i + 1}拍，依次起意、强调、反应、收势。根据回复语义选择${c.key}，'
-          '遵循state.performance_direction。'
+          '遵循state.performance_direction。普通对话也要有明确可见的头身表达，不因参数范围大而保守。'
           '${c.key == 'head' || c.key == 'body' ? '多拍时让头身至少有两次自然变化，不要四拍保持同一歪头和探身；头与身体可以错向，按语气选择侧身、重心或舒展，不为凑动作强行使用。' : ''}'
           '前倾仍只由整轮独立语义题决定。', options);
       }
+      q['f${i}_intensity'] = JevChoiceQuestion('第${i + 1}拍头身与整模位移幅度：默认鲜明；重要语气可连续强调，后续收势。',
+        const {'轻巧': '基准80%，明确安静语境', '鲜明': '基准100%，普通对话默认', '夸张': '基准112%，语义强调'});
       q['f${i}_root'] = JevChoiceQuestion('第${i + 1}拍整模轻移／以独立小腿支点倾斜，按语义配合头身。',
         {for (final key in roots.keys) key: key});
     }
@@ -177,12 +200,40 @@ class DeepseekMotionPlanner {
     final moment = answers['lean_moment'] ?? '';
     final leanStart = answers['lean_use'] == 'yes' && const ['f0','f1','f2'].contains(moment)
         ? int.parse(moment.substring(1)) : -1;
-    return {'catalog': catalog, 'frames': [for (var i = 0; i < 4; i++)
-      {'time': i * interval, 'duration': interval * .65,
-        'parameters': bounded({for (final c in channels.entries) if (c.key != 'lean')
-          ...?c.value[answers['f${i}_${c.key}']],
-          if (leanStart >= 0 && i >= leanStart) 'LeanInput': i < 3 ? -30 : 0}, parameters),
-        'root': roots[answers['f${i}_root']] ?? const <String, double>{}}],
+    final frames = <Map<String, Object?>>[];
+    final overlay = preset(answers, '');
+    final explicitEyes = overlay['face']!.isNotEmpty || overlay['wink']!.isNotEmpty;
+    for (var i = 0; i < 4; i++) {
+      final intensity = intensities[answers['f${i}_intensity']] ?? 1.0;
+      final values = <String, double>{};
+      for (final c in channels.entries) {
+        if (c.key == 'lean' || (c.key == 'eyes' && explicitEyes)) continue;
+        final selected = c.value[answers['f${i}_${c.key}']];
+        if (selected == null) continue;
+        for (final e in selected.entries) {
+          values[e.key] = e.value * (c.key == 'head' || c.key == 'body' ? intensity : 1);
+        }
+      }
+      if (leanStart >= 0 && i >= leanStart) values['LeanInput'] = i < 3 ? -30 : 0;
+      final root = {for (final e in (roots[answers['f${i}_root']] ?? const <String, double>{}).entries)
+        e.key: e.value * intensity};
+      if (root.isNotEmpty) {
+        for (final id in ['PositionX', 'PositionZ']) {
+          if (values.containsKey(id)) values[id] = values[id]! * .75;
+        }
+      }
+      final targets = bounded(values, parameters);
+      frames.add({'time': i * interval, 'duration': interval * .34,
+        'parameters': targets, 'root': root});
+      // Match Caicai: facial accents release inside a beat; body travel continues.
+      if (targets.keys.any((id) => const {'TongueOut', 'ParamEyeLOpen', 'ParamEyeROpen'}.contains(id))) {
+        final release = Map<String, double>.from(targets)..removeWhere((id, _) =>
+          const {'TongueOut', 'ParamEyeLOpen', 'ParamEyeROpen', 'LEyeSquint', 'REyeSquint'}.contains(id));
+        frames.add({'time': (i + .60) * interval, 'duration': interval * .30,
+          'parameters': release, 'root': root});
+      }
+    }
+    return {'catalog': catalog, 'frames': frames,
       ...preset(answers, ''),
       'emotion': validEmotion(answers['emotion']) ? CaicaiLive2DService.nativeEmotionId(answers['emotion']!) : ''};
   }

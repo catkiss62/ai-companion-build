@@ -345,7 +345,7 @@ final class DeepseekAvatarModel extends CubismUserModel {
         plan.apply(delta,pose);
         if(small || form>.05f) expressions.smallReaction(pose);
         if(!manualPreview) idle.applyAttention(pose,pat.active()?.25f:1);
-        blink.update(delta,manualPreview || pat.active() || expressions.reservesEyes(),pose);
+        blink.update(delta,manualPreview || pat.active() || expressions.reservesEyes() || plan.reservesEyes(),pose);
         for(Map.Entry<String,Float> e:preview.entrySet()) if(!speaking || !MOUTH.contains(e.getKey())) set(e.getKey(),e.getValue());
         if(manualPreview) {rootX=previewRootX;rootTilt=previewRootTilt;}
         expressions.overlay(pose);

@@ -209,6 +209,9 @@ void main() {
     expect(requests.single, contains('PAGE_DETAIL_SECRET'));
     expect(requests.single, isNot(contains('SEALED_SECRET')));
     expect(await db.getSetting('last_memory_error'), '');
+    final prefixBefore = ((jsonDecode(requests.single) as Map)['messages'] as List).first;
+    expect(prefixBefore['content'], contains('threads'));
+    expect(prefixBefore['content'], isNot(contains('PAGE_DETAIL_SECRET')));
     requests.clear();
     final outside = ChatMessage(id: 'outside', role: 'user',
       content: '星光迷宫很好玩', createdAt: DateTime.now());
@@ -219,6 +222,10 @@ void main() {
     expect(requests, hasLength(1));
     expect(requests.single, contains('星光迷宫'));
     expect(requests.single, isNot(contains('PAGE_DETAIL_SECRET')));
+    final messagesAfter = (jsonDecode(requests.single) as Map)['messages'] as List;
+    expect(messagesAfter.first, prefixBefore);
+    expect(messagesAfter.last['content'], contains(outside.content));
+    expect(messagesAfter.last['role'], 'user');
     client.close();
   });
 

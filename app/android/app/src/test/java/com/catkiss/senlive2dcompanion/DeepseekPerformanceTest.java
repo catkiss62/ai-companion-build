@@ -71,6 +71,29 @@ public class DeepseekPerformanceTest {
         }
         assertEquals(19,distinct.size());
     }
+    @Test public void heartAndBlushRemainIndependentOfFacialMoodAndMatchCaicaiHold() {
+        for(String emotion:Arrays.asList("happy","angry","confused")) {
+            DeepseekExpressions e=new DeepseekExpressions();Pose p=new Pose();
+            e.emotion(emotion);e.trigger("爱心眼","","脸红");
+            for(int i=0;i<38;i++) {e.apply(.1f,false,p);e.overlay(p);}
+            assertTrue(p.current("key4")>.99f);assertTrue(p.current("key7")>.99f);
+            assertEquals(DeepseekExpressions.emotionPose(emotion).get("ParamMouthForm"),p.current("ParamMouthForm"),.01f);
+            assertEquals(DeepseekExpressions.emotionPose(emotion).get("ParamBrowRY"),p.current("ParamBrowRY"),.01f);
+            for(int i=0;i<15;i++) {e.apply(.1f,false,p);e.overlay(p);}
+            assertTrue(p.current("key4")<.001f);assertTrue(p.current("key7")<.001f);
+            assertEquals(DeepseekExpressions.emotionPose(emotion).get("ParamMouthForm"),p.current("ParamMouthForm"),.01f);
+        }
+    }
+    @Test public void beatWinkOwnsEyesUntilItsReleaseAndThenReturnsToLiveEyes() throws Exception {
+        DeepseekParameterPlan plan=new DeepseekParameterPlan();Pose p=new Pose();
+        plan.start("[{\"time\":0,\"duration\":0.3,\"parameters\":{\"ParamEyeLOpen\":0,\"LEyeSquint\":1}},{\"time\":0.6,\"duration\":0.3,\"parameters\":{}}]");
+        plan.apply(.3f,p);assertTrue(plan.reservesEyes());assertTrue(p.current("ParamEyeLOpen")<.01f);
+        assertEquals(1,p.current("ParamEyeROpen"),0);
+        for(int i=0;i<20;i++) {
+            p.values.clear();p.write("ParamEyeLOpen",.8f);plan.apply(.1f,p);
+        }
+        assertFalse(plan.reservesEyes());assertEquals(.8f,p.current("ParamEyeLOpen"),.001f);
+    }
     @Test public void parameterPlanRejectsAudioOutfitsPhysicsAndEnforcesSafeRigBudget() throws Exception {
         DeepseekParameterPlan plan=new DeepseekParameterPlan();Pose p=new Pose();
         plan.start("[{\"time\":0,\"duration\":0.2,\"parameters\":{\"AngleX\":99,\"PositionX\":99,\"ParamMouthOpenY\":1,\"Clothes2\":1,\"Movement1\":1,\"ParamAngleX\":30},\"root\":{\"x\":5,\"tilt\":90}}]");

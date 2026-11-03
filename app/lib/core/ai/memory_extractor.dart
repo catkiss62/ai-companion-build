@@ -417,14 +417,6 @@ ${previousAssistant.content}
           maxTokens: 4096,
           usageLane: 'memory_extraction',
           messages: [
-          if (usedBackgroundRecall) {'role': 'system', 'content':
-            '本轮AI正文使用过后台旧经历上下文。AI重新提起不证明旧事件再次发生、用户重新确认或性格得到新证据。仅凭AI复述不得新增/强化该旧经历、人格或待办；本轮真实用户新表达仍按其内容独立整理。'},
-          {'role': 'system', 'content':'${ToolProvenancePolicy.roomCapability}\n${ToolProvenancePolicy.memorySourceRule}\n'
-            '历史房间工具结果元数据（只证明列出的调用，不证明其他调用从未发生）：${jsonEncode(roomOutcomes)}'},
-          {'role': 'system', 'content': '$creativeFacts\n$creativeSnapshot\n'
-              '整理本轮确实触及的作品经历时，以上本地记录优先于旧记忆、旧念头和旧未完成事项的进度推测。'
-              '不得仅因没有完成正文就写成尚未制作，不把已有实际交互改写为口头模拟。'
-              '制作状态属于作品事实，不要扩写成新的系统能力或永久人格；不相关作品不新增记忆或待办。'},
           {
             'role': 'system',
             'content': '''
@@ -533,6 +525,14 @@ thread action：open / update / resolve / dismiss。update/resolve/dismiss 已�
 没有对应内容时使用空数组/空对象。不要输出 JSON 以外的文字。
 '''.trim(),
           },
+          if (usedBackgroundRecall) {'role': 'system', 'content':
+            '本轮AI正文使用过后台旧经历上下文。AI重新提起不证明旧事件再次发生、用户重新确认或性格得到新证据。仅凭AI复述不得新增/强化该旧经历、人格或待办；本轮真实用户新表达仍按其内容独立整理。'},
+          {'role': 'system', 'content':'${ToolProvenancePolicy.roomCapability}\n${ToolProvenancePolicy.memorySourceRule}\n'
+            '历史房间工具结果元数据（只证明列出的调用，不证明其他调用从未发生）：${jsonEncode(roomOutcomes)}'},
+          {'role': 'system', 'content': '$creativeFacts\n$creativeSnapshot\n'
+              '整理本轮确实触及的作品经历时，以上本地记录优先于旧记忆、旧念头和旧未完成事项的进度推测。'
+              '不得仅因没有完成正文就写成尚未制作，不把已有实际交互改写为口头模拟。'
+              '制作状态属于作品事实，不要扩写成新的系统能力或永久人格；不相关作品不新增记忆或待办。'},
           {
             'role': 'user',
             'content': '''
