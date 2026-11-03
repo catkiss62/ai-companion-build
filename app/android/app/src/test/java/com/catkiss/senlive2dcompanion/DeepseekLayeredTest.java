@@ -70,6 +70,7 @@ public class DeepseekLayeredTest {
         posture.request("1:0",0);float full=0;boolean returned=false;
         for(int i=0;i<330;i++) {
             if(i==50 || i==100) plan.replace("[{\"time\":0,\"duration\":0.4,\"parameters\":{\"AngleZ\":10}}]",p);
+            if(i==125) plan.release(); // Natural audio/face completion does not own posture.
             p.values.clear();plan.apply(1f/60,p);posture.apply(1f/60,p);
             float value=p.current("LeanInput");
             if(i==29) assertTrue(value< -10 && value> -20);

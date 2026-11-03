@@ -148,7 +148,7 @@ class DeepseekMotionPlanner {
         {'yes': '适合短暂凑近表达', 'no': '这轮没有贴近意味'});
       q['lean_moment'] = JevChoiceQuestion(
         '仅假设lean_use为yes，选择一次前倾最合适的时机；是否使用完全由lean_use决定。'
-        '有实际朗读计划时只放在一个语音段，不在开场重复。',
+        '有实际朗读计划时只选一个语音段作为开始时机，不在开场重复；靠近、停留和回正可跨越后续语音段。',
         spans.isEmpty ? const {'f0': '起意拍', 'f1': '强调拍', 'f2': '反应拍'} :
           {for (var i = 0; i < spans.length; i++) 'speech$i': 'speech_stage第${i + 1}段'});
     }
@@ -169,7 +169,7 @@ class DeepseekMotionPlanner {
         '转头25、俯仰24、歪头23，避免每拍反向甩头，不因范围大而一直保守。'
         '前倾可在带亲近意味的逗弄、撒娇或观察反应时自然使用，情绪标签不构成否决条件；'
         '不因单纯俏皮就必用，也不计入姿态变化数量；只由整轮lean_use决定，'
-        'lean_moment安排一次连续前倾，完整到-30后回0。实际朗读时仅在选中的一个语音段出现。'
+        'lean_moment安排一次连续前倾，完整到-30后回0。实际朗读时在选中的语音段开始，独立完成靠近、停留和回正，不因换段或自然播完而截短。'
         '其他头身动作和表情可在前倾时继续；真实语音仅接管嘴巴张合。',
       if (spans.isNotEmpty) 'speech_stage': [for (var i = 0; i < spans.length; i++)
         {'index': i + 1, 'text': boundedText(spans[i].text, 500)}],

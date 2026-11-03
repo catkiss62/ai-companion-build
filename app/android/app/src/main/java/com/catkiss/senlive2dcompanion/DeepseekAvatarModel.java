@@ -291,7 +291,7 @@ final class DeepseekAvatarModel extends CubismUserModel {
         if(speechDeadline==0) return;
         speechDeadline=0;speechFaceFade=now+350_000_000L;previewEmotionDeadline=0;speechCue="";
         plan.release();expressions.release();gestures.stop();
-        if(!mouthOwner.active(now)) posture.release();
+        // Natural audio completion does not truncate the independent bounded posture.
     }
     void stopPerformance() {
         posture.clear();

@@ -7,6 +7,9 @@ assert model.count('physics.evaluate(model,delta)')==1
 assert model.count('if(speaking) ownMouth();')==3
 assert model.index('physics.evaluate')<model.rindex('if(speaking) ownMouth();')
 assert 'DeepseekSpeechMouth.apply(amplitude,pose)' in model
+release=model.split('void releaseSpeech(long now)',1)[1].split('void stopPerformance()',1)[0]
+assert 'posture.clear' not in release and 'posture.release' not in release
+assert model.index('speechMouth.capture(pose)') < model.index('physics.evaluate') < model.index('speechMouth.restore(pose)')
 assert 'model.getParameterDefaultValue(i));}\n        set("ParamMouthOpenY",amplitude)' not in model
 for token in ('posture.apply(delta,pose)', 'posture.clear()', 'expressions.accessory(pose)',
               'expressions.reservedEyeMask() | plan.reservedEyeMask()', 'optJSONArray("effects")'):
