@@ -1,6 +1,6 @@
 # DeepSeek 表情组合、嘴形与独立前倾
 
-2026-11-04；候选 v0.42.169+413 / schema67。基线 `162cc1763925a250c5af66d7b09469f9c4da2236`（已交付 +412）。IMPLEMENTATION IN PROGRESS / CI PENDING / APK PENDING / TRUE DEVICE PENDING。
+2026-11-04；已交付 v0.42.169+413 / schema67。基线 `162cc1763925a250c5af66d7b09469f9c4da2236`（已交付 +412）。CI PASSED / APK READY / TRUE DEVICE PENDING。
 
 ## 已授权范围与碰撞风险
 
@@ -32,10 +32,20 @@
 
 ## 验证与交付
 
-本机独立Java行为检查已覆盖真实Expressions/Blink/Posture/SpeechMouth/Idle逻辑，JSON与Android集成由正式CI补齐；本机没有Flutter/Kotlin完整工具链。新增JVM、Flutter和Android smoke回归检查叠加、冲突、语音嘴形、连续动作前倾、期限/取消、身体起伏与保存隔离；不是复制旧测试成绩。
+本机独立Java行为检查已覆盖真实Expressions/Blink/Posture/SpeechMouth/Idle逻辑，JSON与Android集成已由正式CI验证；本机没有Flutter/Kotlin完整工具链。新增JVM、Flutter和Android smoke回归检查叠加、冲突、语音嘴形、连续动作前倾、期限/取消、身体起伏与保存隔离；不是复制旧测试成绩。
 
 验证记录：首个最终构建在Maven下载Kotlin插件时读取超时，未运行该阶段测试。只重跑失败构建后，217项原生测试中2项失败：旧测试仍禁止所有非语音嘴巴张合；新加的目标预限幅改变了gain=1.5时的头部到位速度。前者更新为允许静音嘴形且断言PCM张合优先；后者将预限幅限制在新增身体叠加部分，头部/整模保持原响应，所有最终输出仍限幅。本机已补跑真实ParameterPlan执行轨迹与PCM覆盖验证；最终修补提交重新进行正式CI，不将失败轮计作通过。
 
-CI/APK结果待本轮提交后填写。私有模型、聊天、备份、诊断和6张用户参考截图不入仓库。无私有模型的状态/轨迹测试不能替代真实模型渲染；露齿/张嘴的准确观感、组合下的眼睑表现、身体幅度及手机FPS仍需真机确认。
+最终运行源码 `002a1c2653e1780dff688a2eb644348fd2ff8994`，根树 `07de4b3211da15d1a893801b7a20a883f97f0eb8`，app树 `8bd36ef3ba9a2439d8a8360f8254b8934bbb660f`，app/lib树 `0da77d485de23725dc75e3d4599e3c4b6e4726d8`。49项变更逐文件与GitHub核验，菜菜主源码和原模型资源没有变更。
 
-仅在本轮正式CI通过后交付原签名APK；不合并main、不发布Draft。根总账快速索引保持冻结，本文件和总账v3记录当前进度。
+- [完整CI 41709341864](https://github.com/catkiss62/ai-companion-build/actions/runs/41709341864)：success；163源码保护门、正式原生单元（前述2项已修复）、3374全量Flutter、171独立归档恢复全部通过。
+- [独立逻辑CI 41709341852](https://github.com/catkiss62/ai-companion-build/actions/runs/41709341852)：success；新增表现专项、现有播放/切换/保存回归及记忆、QQ、缓存等检查通过。重叠测试不相加。
+- Android15模拟器62项通过，原生语音导出/音调/所有权检查通过。源码分析0错误，1063项非阻断提示。
+- [下载安装包 +413](https://github.com/catkiss62/ai-companion-build/actions/runs/41709341864/artifacts/13268533597)：包名 `com.aicompanion.localfirst`，实际版本 `0.42.169+413`，ARM64；原分辨率资源与签名均已核验。
+- 原始APK 740681882 bytes，SHA256 `2cff709c230253d841e2ad04bc4f63bd35b475624f6d9fe0471fc2866af622ea`；原签名 `305eb3d80983b963c64818ddf1ad561f279de6d47b3ed2c781ada448c7c25148`。
+- Actions artifact `13268533597` 的外层ZIP为733487033 bytes，ZIP摘要 `1f6dafcb95f7a3e148c6d1e4fed18748fb4bc08f93d1420510dc8767576d7a70`。ZIP摘要与原始APK摘要含义不同。
+- 未发布Draft `433108280`，APK asset `707019869`，校验文件 `707019870`，success monitor `707019891`；release target、CI head、monitor均为上述最终运行源码，三处原始APK摘要一致。
+
+交付后仅文档[skip ci]收口，不修改运行代码、不重复构建相同源码、不发布Draft、不合并main。历史取消、网络失败和原生断言失败轮均不计作最终验证通过。私有模型、聊天、备份、诊断和6张用户参考截图不入仓库。无私有模型的状态/轨迹测试不能替代真实模型渲染；露齿/张嘴的准确观感、组合下的眼睑表现、身体幅度及手机FPS仍需真机确认。
+
+本轮正式CI通过后交付原签名APK；不合并main、不发布Draft。根总账快速索引保持冻结，本文件和总账v3记录当前进度。
