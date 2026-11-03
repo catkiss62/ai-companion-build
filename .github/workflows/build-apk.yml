@@ -1815,14 +1815,14 @@ jobs:
               --target "${GITHUB_SHA}" \
               --draft \
               --title 'AI Companion v0.42.167+411 Avatar Parity Cache Wishes and QQ Recovery' \
-              --notes 'Moves only the DeepSeek small-form rotation anchor into the current lower-leg region with continuous morph blending and the existing saved pivot control. Preserves normal-form and Caicai calibration, head/body energy and whole-model travel. Resumes already-paid local autonomous work tools during peak hours while keeping the next model request deferred. Keeps deferred summary recovery alive across empty bounded scan slices; atomically clears its marker only after scanning reaches the tail. Preserves ownership, pause/import, source revision and tool receipt checks. Original-signature unpublished test build; phone visual confirmation pending.'
+              --notes 'Aligns DeepSeek four-beat intensity, layered expression decisions, emotional head accents and preset hold with the calibrated Caicai template. Moves stable memory-extraction rules before live facts. Compacts wish-review history without changing the saved ledger and clarifies non-game shared intentions and real game-role constraints. Restores bounded retry only for explicitly known-unsent QQ failures. Preserves model isolation, ownership, PCM mouth, source revisions and original signing identity. Unpublished test build; phone visual confirmation pending.'
           else
             test "$(gh release view "${TAG}" --repo "${GITHUB_REPOSITORY}" --json isDraft --jq '.isDraft')" = true
             gh release edit "${TAG}" \
               --repo "${GITHUB_REPOSITORY}" \
               --target "${GITHUB_SHA}" \
               --title 'AI Companion v0.42.167+411 Avatar Parity Cache Wishes and QQ Recovery' \
-              --notes 'Moves only the DeepSeek small-form rotation anchor into the current lower-leg region with continuous morph blending and the existing saved pivot control. Preserves normal-form and Caicai calibration, head/body energy and whole-model travel. Resumes already-paid local autonomous work tools during peak hours while keeping the next model request deferred. Keeps deferred summary recovery alive across empty bounded scan slices; atomically clears its marker only after scanning reaches the tail. Preserves ownership, pause/import, source revision and tool receipt checks. Original-signature unpublished test build; phone visual confirmation pending.'
+              --notes 'Aligns DeepSeek four-beat intensity, layered expression decisions, emotional head accents and preset hold with the calibrated Caicai template. Moves stable memory-extraction rules before live facts. Compacts wish-review history without changing the saved ledger and clarifies non-game shared intentions and real game-role constraints. Restores bounded retry only for explicitly known-unsent QQ failures. Preserves model isolation, ownership, PCM mouth, source revisions and original signing identity. Unpublished test build; phone visual confirmation pending.'
           fi
           test "$(gh release view "${TAG}" --repo "${GITHUB_REPOSITORY}" --json isDraft --jq '.isDraft')" = true || exit 1
           RELEASE_URL="$(gh release view "${TAG}" --repo "${GITHUB_REPOSITORY}" --json url --jq '.url')"
@@ -1921,7 +1921,7 @@ jobs:
               --target "${GITHUB_SHA}" \
               --draft \
               --title 'AI Companion v0.42.167+411 Avatar Parity Cache Wishes and QQ Recovery' \
-              --notes 'Moves only the DeepSeek small-form rotation anchor into the current lower-leg region with continuous morph blending and the existing saved pivot control. Preserves normal-form and Caicai calibration, head/body energy and whole-model travel. Resumes already-paid local autonomous work tools during peak hours while keeping the next model request deferred. Keeps deferred summary recovery alive across empty bounded scan slices; atomically clears its marker only after scanning reaches the tail. Preserves ownership, pause/import, source revision and tool receipt checks. Original-signature unpublished test build; phone visual confirmation pending.'
+              --notes 'Aligns DeepSeek four-beat intensity, layered expression decisions, emotional head accents and preset hold with the calibrated Caicai template. Moves stable memory-extraction rules before live facts. Compacts wish-review history without changing the saved ledger and clarifies non-game shared intentions and real game-role constraints. Restores bounded retry only for explicitly known-unsent QQ failures. Preserves model isolation, ownership, PCM mouth, source revisions and original signing identity. Unpublished test build; phone visual confirmation pending.'
           fi
           test "$(gh release view "${TAG}" --repo "${GITHUB_REPOSITORY}" --json isDraft --jq '.isDraft')" = true || exit 1
           RELEASE_URL="$(gh release view "${TAG}" --repo "${GITHUB_REPOSITORY}" --json url --jq '.url')"
