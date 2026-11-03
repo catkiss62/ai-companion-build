@@ -85,9 +85,10 @@ class _Vision extends QqVision {
   }
 }
 class _Voice extends QqVoiceService {
-  int calls=0;bool fail=false;QqVoiceChoice? choice;
-  @override Future<Uint8List> generate(QqVoiceChoice value,{required Future<bool> Function() current})async {
-    calls++;choice=value;expect(await current(),true);
+  int calls=0;bool fail=false;QqVoiceChoice? choice;double? selectedPitch;
+  @override Future<Uint8List> generate(QqVoiceChoice value,{required Future<bool> Function() current,
+    double selectedPitchSemitones=0.0})async {
+    calls++;choice=value;selectedPitch=selectedPitchSemitones;expect(await current(),true);
     if(fail)throw const QqOperationFailure('voice_audio');
     return Uint8List(44);
   }
@@ -260,8 +261,9 @@ void main(){
       final speech={'zh':'你好。','ja':'こんにちは。','en':'Hello.'}[language]!;
       handler=(r,b)async=>b['stream']==true?_sse('<qq_voice>${jsonEncode({'language':language,'text':speech})}</qq_voice>'):
         _json(b['max_tokens']==60?{'safe':true}:{'participation':'direct'});
+      await db.setSetting('tts_pitch_semitones','2.0');
       await accept('voice-$language','用语音打声招呼');await runtime.process(cid());
-      expect(voice.calls,1);expect(voice.choice!.language,language);expect(api.uploads,1);
+      expect(voice.calls,1);expect(voice.choice!.language,language);expect(voice.selectedPitch,2.0);expect(api.uploads,1);
       expect(api.sent.single['fileInfo'],'fixture-voice-token');expect(api.sent.single['text'],'');
       final sql=await db.database;
       expect((await sql.query('qq_archive',where:"role='assistant'")).single['content'],speech);

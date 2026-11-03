@@ -5,6 +5,7 @@ import 'package:flutter/services.dart';
 import '../../core/models/chat_language_variant.dart';
 import '../../core/tts/genie_fixed_text_segmenter.dart';
 import '../../core/tts/tts_text_processor.dart';
+import '../../core/tts/tts_playback_tuning.dart';
 import 'qq_failure.dart';
 
 class QqVoiceChoice {
@@ -47,7 +48,8 @@ class QqVoiceService {
   Future<void> _end(int id,bool cancel) async {
     try {await channel.invokeMethod<void>('endVoiceExport',{'export_id':id,'cancel':cancel}).timeout(const Duration(seconds:2));}catch(_){}
   }
-  Future<Uint8List> generate(QqVoiceChoice choice,{required Future<bool> Function() current}) async {
+  Future<Uint8List> generate(QqVoiceChoice choice,{required Future<bool> Function() current,
+    double selectedPitchSemitones=0.0}) async {
     if(_closed || _running)throw const QqOperationFailure('voice_busy');
     _running=true;int? id;var complete=false,finished=false;
     final abort=Completer<Uint8List>();var checking=false;
@@ -91,7 +93,15 @@ class QqVoiceService {
         audio.add(bytes);
       }
       if(!await current())throw const QqOperationFailure('voice_cancelled');
-      final wav=QqVoiceWav.join(audio);complete=true;return wav;
+      final wav=QqVoiceWav.join(audio);
+      // QQ has no Q-form playback session. Use the same saved-slider/adult
+      // pitch rule as App playback, but bake it into the file being uploaded.
+      final pitch=TtsPlaybackTuning.pitchRatioForForm(selectedPitchSemitones,qForm:false);
+      final tuned=await guarded(channel.invokeMethod<Uint8List>('tuneVoiceExport',
+        {'export_id':id,'wav':wav,'pitch':pitch}));
+      if(tuned==null || tuned.length<44)throw const QqOperationFailure('voice_audio');
+      if(!await current())throw const QqOperationFailure('voice_cancelled');
+      final result=QqVoiceWav.join([tuned]);complete=true;return result;
     } on PlatformException catch(e) {
       throw QqOperationFailure(e.message?.contains('voice_export_preempted')==true?'voice_preempted':'voice_generation_failed');
     } finally {

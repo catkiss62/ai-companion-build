@@ -59,12 +59,13 @@ void main() {
       final calls=<MethodCall>[];
       messenger.setMockMethodCallHandler(channel,(call)async {
         calls.add(call);
-        return switch(call.method){'claimVoiceExport'=>7,'generateVoiceExport'=>wav(),_=>null};
+        return switch(call.method){'claimVoiceExport'=>7,'generateVoiceExport'=>wav(),
+          'tuneVoiceExport'=>(call.arguments as Map)['wav'],_=>null};
       });
       final service=QqVoiceService();
       try {
         final audio=await service.generate(QqVoiceChoice(sample.$1,sample.$2),current:()async=>true);
-        expect(audio.length,244);expect(calls.map((c)=>c.method),['claimVoiceExport','generateVoiceExport','endVoiceExport']);
+        expect(audio.length,244);expect(calls.map((c)=>c.method),['claimVoiceExport','generateVoiceExport','tuneVoiceExport','endVoiceExport']);
         expect((calls[1].arguments as Map)['language'],sample.$1);
         expect((calls.last.arguments as Map)['cancel'],false);
       } finally {service.close();}

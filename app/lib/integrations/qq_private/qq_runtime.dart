@@ -41,6 +41,7 @@ import 'qq_work_queue.dart';
 import 'qq_group_learning.dart';
 import 'qq_sketch.dart';
 import 'qq_voice.dart';
+import '../../core/tts/tts_playback_tuning.dart';
 import 'qq_echo.dart';
 
 /// Independent coordinator. Reception only persists and schedules; all model
@@ -503,7 +504,9 @@ class QqRuntime {
       if(voiceChoice!=null) {
         phase='voice_generation';releaseSlot?.call();status('preparing_voice');
         try {
-          final wav=await voice.generate(voiceChoice,current:current);
+          final wav=await voice.generate(voiceChoice,current:current,
+            selectedPitchSemitones:TtsPlaybackTuning.pitchSemitonesFromSetting(
+              await store.db.getSetting('tts_pitch_semitones')));
           phase='voice_upload';
           fileInfo=(await api.uploadVoice(group:b.group,target:b.target,bytes:wav,current:current)).fileInfo;
         } catch(error) {

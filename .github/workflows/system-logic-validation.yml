@@ -23,6 +23,9 @@ jobs:
         working-directory: app
       - run: flutter pub get
         working-directory: app
+      - name: QQ exported pitch, cancellation and reference selection regression
+        working-directory: app
+        run: flutter test --timeout 60s --reporter expanded test/qq_voice_pitch_v042166_test.dart test/qq_voice_v042146_test.dart test/tts_playback_tuning_test.dart
       - name: Paid local continuation and deferred summary scan regression
         working-directory: app
         run: flutter test --timeout 60s --reporter expanded test/offpeak_recovery_v042165_test.dart

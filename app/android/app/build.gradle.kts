@@ -113,6 +113,8 @@ dependencies {
     implementation("androidx.core:core:1.15.0")
     implementation(files("libs/Live2DCubismCore.aar"))
     implementation("com.microsoft.onnxruntime:onnxruntime-android:1.22.0")
+    // Offline PCM pitch adjustment for QQ files; no player or codec service.
+    implementation("androidx.media3:media3-common:1.8.0")
     testImplementation("junit:junit:4.13.2")
     testImplementation("org.json:json:20250517")
     testImplementation("org.robolectric:robolectric:4.14.1")

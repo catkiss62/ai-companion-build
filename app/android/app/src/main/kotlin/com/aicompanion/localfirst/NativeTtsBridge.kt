@@ -40,7 +40,7 @@ class NativeTtsBridge(
                 result.error("tts_bridge_disposed", "TTS bridge is no longer attached to this FlutterEngine", null)
                 return@setMethodCallHandler
             }
-            if (exportOnly && call.method !in setOf("claimVoiceExport", "generateVoiceExport", "endVoiceExport")) {
+            if (exportOnly && call.method !in setOf("claimVoiceExport", "generateVoiceExport", "tuneVoiceExport", "endVoiceExport")) {
                 result.notImplemented()
                 return@setMethodCallHandler
             }
@@ -55,6 +55,14 @@ class NativeTtsBridge(
                     submit(generationWorker, result, "tts_voice_export_failed") {
                         engine.generateVoiceExport(hostId, id, call.argument<String>("text").orEmpty(),
                             call.argument<String>("language").orEmpty(), call.argument<String>("voice").orEmpty())
+                    }
+                }
+                "tuneVoiceExport" -> {
+                    val id = call.argument<Number>("export_id")?.toLong() ?: error("voice_export_owner")
+                    val wav = call.argument<ByteArray>("wav") ?: error("voice_export_audio")
+                    val pitch = call.argument<Number>("pitch")?.toDouble() ?: error("voice_export_pitch")
+                    submit(generationWorker, result, "tts_voice_export_failed") {
+                        engine.tuneVoiceExport(hostId, id, wav, pitch)
                     }
                 }
                 "endVoiceExport" -> {

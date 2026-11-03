@@ -43,6 +43,13 @@ class NativeTtsEngine private constructor(context: Context) {
         } finally { output.delete() }
     }
 
+    fun tuneVoiceExport(host: String, id: Long, wav: ByteArray, exportPitch: Double): ByteArray {
+        check(exportCurrent(host, id)) { "voice_export_preempted" }
+        val output = VoiceExportPcmTuning.apply(wav, exportPitch) { !exportCurrent(host, id) }
+        check(exportCurrent(host, id)) { "voice_export_preempted" }
+        return output
+    }
+
     @Synchronized fun endVoiceExport(host: String, id: Long, cancel: Boolean) {
         // A delayed cancellation cannot stop a newer App playback or export.
         if (voiceExports.finish(host, id, speechGeneration) && cancel) client.stop()
