@@ -51,6 +51,7 @@ abstract final class QqFailureHistory {
   }
   static String safeCode(String value) => RegExp(r'^[a-z0-9_]{1,64}$').hasMatch(value) ? value : 'operation_failed';
   static Map<String,Object?> safeDetails(Map value)=>{
+    if(const {'state','argument','type','native','format','timeout','http','exception','other','unknown'}.contains(value['cause_kind']))'cause_kind':value['cause_kind'],
     for(final k in ['svg_chars','stage_elapsed_ms'])
       if(value[k] is int) k:(value[k] as int).clamp(0,k=='svg_chars'?16001:180000)};
   static String phaseName(String phase) => const {

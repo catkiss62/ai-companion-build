@@ -25,6 +25,7 @@ class _Review extends CreativeVisualReview {
     if(reject)throw const FormatException('fixture failure');
     return '主体清晰，建议提高按钮文字与背景的对比。';
   }
+}
 class _Vision extends QwenVisionClient {
   _Vision(this.after);
   final void Function() after;

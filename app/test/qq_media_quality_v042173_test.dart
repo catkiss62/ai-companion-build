@@ -35,7 +35,7 @@ void main() {
     await store.append(fence:fence,scope:'fixture417',kind:'group',target:'one',platformId:'request',sender:'peer',text:'画个圆',observedAt:at,receivedAt:at,policy:'p');
     return (await store.claim(await store.capture(conversationId:cid),cid,1,at,policy:'p'))!;
   }
-  http.Response output(String svg)=>http.Response(jsonEncode({'choices':[{'message':{'content':jsonEncode({'svg':svg,'description':'圆形图案'})},'finish_reason':'stop'}]}),200);
+  http.Response output(String svg)=>http.Response(jsonEncode({'choices':[{'message':{'content':jsonEncode({'svg':svg,'description':'圆形图案'})},'finish_reason':'stop'}]}),200,headers:{'content-type':'application/json; charset=utf-8'});
   test('one known dialect repair preserves budget and shared ownership then sends no QQ message',()async {
     final b=await batch();var calls=0,renders=0;final failures=<QqSketchFailure>[];
     TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger.setMockMethodCallHandler(channel,(m)async {

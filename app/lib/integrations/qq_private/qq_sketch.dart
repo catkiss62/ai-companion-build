@@ -119,7 +119,7 @@ class QqSketchService {
         final code=expired?'sketch_timeout':rawCode=='operation_failed'?'sketch_model_failed':rawCode;
         final failure=error is QqSketchFailure?error:QqSketchFailure(code,
           stage:error is IncompleteJsonCompletionException || error is MalformedJsonCompletionException || error is EmptyJsonCompletionException?'sketch_json':stage,
-          elapsedMs:watch.elapsedMilliseconds,attempt:attempt,svgChars:svg.length);
+          elapsedMs:watch.elapsedMilliseconds,attempt:attempt,svgChars:svg.length,causeKind:QqFailure.kind(error));
         if(attempt!=1 || expired || !repairable(svg,failure.code))throw failure;
         try {await onRepair?.call(failure);}catch(_) {/* Recording is best effort. */}
         previous=svg;reason=failure.code;
@@ -142,7 +142,7 @@ class QqSketchService {
       if(!await current())throw const BrainWorkInvalidated();
       final code=QqFailure.code(error);
       throw QqSketchFailure(code=='operation_failed'?'sketch_native_failed':code,
-        stage:'sketch_render',elapsedMs:watch.elapsedMilliseconds,attempt:attempt,svgChars:svg.length);
+        stage:'sketch_render',elapsedMs:watch.elapsedMilliseconds,attempt:attempt,svgChars:svg.length,causeKind:QqFailure.kind(error));
     }
   }
   static Future<Uint8List?> preview(String svg) async {

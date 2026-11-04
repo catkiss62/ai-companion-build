@@ -14,14 +14,18 @@ class QqOperationFailure implements Exception {
 
 class QqSketchFailure extends QqOperationFailure {
   const QqSketchFailure(super.code,{required this.stage,required this.elapsedMs,
-    this.attempt=1,this.svgChars=0});
+    this.attempt=1,this.svgChars=0,this.causeKind='unknown'});
   final String stage;
+  final String causeKind;
   final int elapsedMs,attempt,svgChars;
-  Map<String,Object?> get details=>{'svg_chars':svgChars.clamp(0,16001),'stage_elapsed_ms':elapsedMs.clamp(0,180000)};
+  Map<String,Object?> get details=>{'svg_chars':svgChars.clamp(0,16001),'stage_elapsed_ms':elapsedMs.clamp(0,180000),'cause_kind':causeKind};
 }
 
 /// Categories only. Never persist exception messages, SVG, URLs or credentials.
 abstract final class QqFailure {
+  static String kind(Object error)=>error is StateError?'state':error is ArgumentError?'argument':
+    error is TypeError?'type':error is PlatformException?'native':error is FormatException?'format':
+    error is TimeoutException?'timeout':error is DeepSeekException?'http':error is Exception?'exception':'other';
   static const historyKey='qq_operation_failures_v1';
   static QqOperationFailure visionFailure(Object error,String stage) {
     final reason=error is TimeoutException?'timeout':
