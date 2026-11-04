@@ -109,6 +109,7 @@ public class DeepseekStage3SmokeTest {
                 assertTrue(p.current("key4")>.9f);assertTrue(p.current("key7")>.9f);assertTrue(p.current("key13")>.9f);
                 assertTrue(p.current("key11")>.9f);assertTrue(p.current("ParamEyeROpen")<.01f);
                 assertTrue(p.current("ParamMouthForm")>.8f);assertEquals(.48f,p.current("ParamMouthOpenY"),.001f);
+                assertEquals(0,p.current("MouthX"),0);
             }
             if(p.current("LeanInput")==-30) full+=1f/60;
         }

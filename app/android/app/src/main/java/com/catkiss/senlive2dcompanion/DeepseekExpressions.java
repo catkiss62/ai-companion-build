@@ -174,7 +174,7 @@ final class DeepseekExpressions {
     }
     static Map<String,Float> emotionPose(String emotion) {
         // DeepSeek has separate smile/squint, 0..1.5 opening and ear-linked brows.
-        // Use authored mouth shapes off audio; PCM overrides only opening during playback.
+        // Use authored mouth shapes off audio; PCM owns opening and horizontal centering.
         float mouth=0,brow=0,squint=0,open=1,inner=0,x=0,puff=0;
         switch(emotion) {
             case "happy": mouth=1;brow=.35f;squint=.85f;break;
@@ -217,7 +217,7 @@ final class DeepseekExpressions {
             case "serious": width=-.1f;break;
             case "surprised": opening=.45f;width=-.5f;break;
             case "confident": opening=.09f;funnel=.38f;width=.35f;break;
-            case "playful": opening=.16f;funnel=.4f;width=.45f;break;
+            case "playful": break; // Restore the +412 closed-mouth grin and original width.
             case "ashamed": opening=.04f;width=-.3f;break;
             case "calm": width=.1f;break;
             case "confused": opening=.12f;width=-.2f;break;

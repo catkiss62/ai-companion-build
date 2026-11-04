@@ -56,11 +56,11 @@ public class DeepseekLayeredTest {
         Pose p=new Pose();p.write("ParamMouthForm",.85f);p.write("MouthX",.7f);p.write("MouthPuckerWiden",.4f);
         p.write("key6",1);p.write("JawOpen",1);DeepseekSpeechMouth.apply(.4f,p);
         assertEquals(.48f,p.current("ParamMouthOpenY"),.0001f);assertEquals(.85f,p.current("ParamMouthForm"),0);
-        assertEquals(.7f,p.current("MouthX"),0);assertEquals(.4f,p.current("MouthPuckerWiden"),0);
+        assertEquals(0,p.current("MouthX"),0);assertEquals(.4f,p.current("MouthPuckerWiden"),0);
         assertEquals(0,p.current("key6"),0);assertEquals(0,p.current("JawOpen"),0);
         DeepseekSpeechMouth mouth=new DeepseekSpeechMouth();mouth.capture(p);
-        p.write("ParamMouthForm",0);p.write("MouthX",0);mouth.restore(p);
-        assertEquals(.85f,p.current("ParamMouthForm"),0);assertEquals(.7f,p.current("MouthX"),0);
+        p.write("ParamMouthForm",0);p.write("MouthX",-.6f);mouth.restore(p);DeepseekSpeechMouth.apply(.4f,p);
+        assertEquals(.85f,p.current("ParamMouthForm"),0);assertEquals(0,p.current("MouthX"),0);
         p.write("ParamMouthOpenY",.7f);DeepseekSpeechMouth.apply(0,p);
         assertEquals(0,p.current("ParamMouthOpenY"),0);
         assertEquals(1,DeepseekSpeechMouth.opening(1),0);assertEquals(0,DeepseekSpeechMouth.opening(Float.NaN),0);

@@ -6,7 +6,7 @@ model=(java/'DeepseekAvatarModel.java').read_text()
 assert model.count('physics.evaluate(model,delta)')==1
 assert model.count('if(speaking) ownMouth();')==3
 assert model.index('physics.evaluate')<model.rindex('if(speaking) ownMouth();')
-assert 'DeepseekSpeechMouth.apply(amplitude,pose)' in model
+assert 'DeepseekSpeechMouth.apply(amplitude,pose,neutralX)' in model
 release=model.split('void releaseSpeech(long now)',1)[1].split('void stopPerformance()',1)[0]
 assert 'posture.clear' not in release and 'posture.release' not in release
 assert model.index('speechMouth.capture(pose)') < model.index('physics.evaluate') < model.index('speechMouth.restore(pose)')

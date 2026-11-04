@@ -335,9 +335,11 @@ final class DeepseekAvatarModel extends CubismUserModel {
         set(id,DeepseekExpressions.cycle(elapsed,period,model.getParameterMinimumValue(i),model.getParameterMaximumValue(i)));
     }
     private void ownMouth() {
-        // Fixed-mouth contempt stays opening-only; all other expression shapes survive PCM.
+        // Suppress the fixed-mouth button and lateral skew; keep smile and other shapes.
         set("key6",0);
-        DeepseekSpeechMouth.apply(amplitude,pose);
+        Integer mouthX=indices.get("MouthX");
+        float neutralX=mouthX==null?0:model.getParameterDefaultValue(mouthX);
+        DeepseekSpeechMouth.apply(amplitude,pose,neutralX);
     }
     void update(float delta) {
         morphShiftX=morphShiftY=0;
