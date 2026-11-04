@@ -73,13 +73,14 @@ void main() {
     try {await expectLater(service.review(db,pixels,'fixture',()async=>true),throwsFormatException);expect(calls,0);}
     finally {await db.closeForTesting();}
   });
-  for(final unavailable in [false,true]) {
-    test('worker ${unavailable?'keeps optional failure bounded':'reviews once'} and still requires actual functional preview',()async {
+  for(final mode in ['review','unavailable','no_image']) {
+    final unavailable=mode=='unavailable',missing=mode=='no_image';
+    test('worker $mode keeps review optional and requires actual functional preview',()async {
       final db=await AppDatabase.createForTesting(databaseFactoryFfi);final store=CreativeStore(db);
       final dir=await Directory.systemTemp.createTemp('creative417_');final image=File('${dir.path}/preview.png');await image.writeAsBytes(pixels);
       final reviewer=_Review()..reject=unavailable;var requests=0;var clock=DateTime(2026,11,5,12);
       FlutterSecureStorage.setMockInitialValues({'deepseek_api_key':'fixture-key'});
-      TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger.setMockMethodCallHandler(CreativeWorker.preview,(m)async=>fixture.nativePreviewResult(m.arguments,{'screenshot':image.path}));
+      TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger.setMockMethodCallHandler(CreativeWorker.preview,(m)async=>fixture.nativePreviewResult(m.arguments,{'screenshot':missing?'':image.path}));
       final id=(await store.commission(deepThinking:true,requestId:'r417',messageId:'m417',brief:'一盏灯',requestQuote:'做一盏灯',latestText:'做一盏灯'))['id'] as String;
       final runtime=CreativeWorker(db,now:()=>clock,visualReview:reviewer,clientFactory:(abort)=>DeepSeekClient(abortWhen:abort,
         streamClientFactory:()=>MockClient((r)async {
@@ -91,9 +92,9 @@ void main() {
         })));
       try {
         for(var i=0;i<4;i++) {await runtime.runOnce();if((await store.get(id))['status']=='ready')break;clock=clock.add(const Duration(hours:1));}
-        final work=await store.get(id);expect(work['status'],'ready');expect(reviewer.calls,1);expect(requests,2);
+        final work=await store.get(id);expect(work['status'],'ready');expect(reviewer.calls,missing?0:1);expect(requests,2);
         final agent=CreativeContract.decode(await db.getSetting(CreativeWorkspace.key(id)));
-        expect((agent['visual_review'] as Map)['status'],unavailable?'unavailable':'done');
+        expect((agent['visual_review'] as Map)['status'],unavailable || missing?'unavailable':'done');
         expect((agent['verification'] as Map)['ok'],true);
       } finally {
         TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger.setMockMethodCallHandler(CreativeWorker.preview,null);

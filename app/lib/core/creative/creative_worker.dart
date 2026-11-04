@@ -2,6 +2,7 @@ import '../ai/background_cost_policy.dart';
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
+import 'dart:typed_data';
 import 'package:flutter/services.dart';
 import '../agent/agent_native_tool_accumulator.dart';
 import '../ai/deepseek_client.dart';
@@ -332,7 +333,14 @@ class CreativeWorker {
                 if(args['source_hash']!=hash)throw const FormatException('视觉复审hash与当前作品不一致');
                 final verification=agent['verification'];
                 if(verification is! Map)throw const FormatException('先预览当前作品');
-                final pixels=CreativeVisualBudget.pixels(verification,hash);
+                if(verification['ok']!=true || verification['hash']!=hash)throw const FormatException('先成功预览当前版本，不能用视觉复审跳过功能验收');
+                final Uint8List pixels;
+                try {pixels=CreativeVisualBudget.pixels(verification,hash);}
+                on FormatException {
+                  agent['visual_review']={...CreativeVisualBudget.reserve(requestId,hash),'status':'unavailable',
+                    'advice':'当前预览截图不可用，未调用视觉接口；不声称看图通过，保留已完成的功能验证。'};
+                  result=CreativeVisualBudget.feedback(agent['visual_review'] as Map);break;
+                }
                 agent['visual_review']=CreativeVisualBudget.reserve(requestId,hash);
                 // Persist consumption before sending pixels; resume cannot pay twice.
                 await checkpoint({'note':'正在复查作品画面'});
