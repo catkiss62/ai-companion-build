@@ -1,4 +1,6 @@
-当前候选：[+414 DeepSeek调皮闭嘴与语音嘴形修补](DEEPSEEK_MOUTH_REFRESH_v042170.md)。两项实现，刷新与+412/菜菜一致保持；最终CI/APK待验证。
+当前只读审查：[QQ点名、后台停滞与口型同步](QQ_LIPSYNC_BACKGROUND_REVIEW_20261104.md)。无运行代码修改，修补优先级及证据边界见记录。
+
+当前交付：[+414 DeepSeek调皮闭嘴与语音嘴形修补](DEEPSEEK_MOUTH_REFRESH_v042170.md)。完整/独立CI通过，原签名APK已核验；用户反馈Live2D整体基本正常。
 
 当前交付：[+413 DeepSeek分层表情、嘴形与独立前倾](DEEPSEEK_LAYERED_v042169.md)。3374全量、171独立恢复、Android62及正式原生回归通过；原签名APK与眼神补充项已交付，真机观感待确认。
 
