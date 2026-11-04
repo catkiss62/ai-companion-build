@@ -85,6 +85,9 @@ void main() {
     expect(QqSketchService.repairable('<svg><script>bad</script></svg>','svg_tag'),false);
     expect(QqSketchService.repairable('<svg><path','sketch_format'),false);
     expect(QqSketchService.repairable(bad,'network'),false);
+    final oversized='```svg\n${' '*50000}\n```';
+    expect(QqSketchService.normalize(oversized),oversized);
+    expect(QqSketchService.acceptable(oversized),false);
   });
   test('confirmed voice usage deduplicates and strips private material',()async {
     final b=await batch();await store.sentPart(b,1,'fixture spoken words','',at,voiceLanguage:'zh',voiceProfile:'lively');

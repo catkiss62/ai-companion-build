@@ -193,7 +193,8 @@ class CreativeWorkspace {
       'verification': {for (final entry in (state['verification'] as Map? ?? {}).entries)
         if (entry.key != 'cover') entry.key: entry.value},
       'recovery': state['recovery'] ?? '',
-      if(state['visual_review'] is Map) 'visual_review': state['visual_review'],
+      if(state['visual_review'] is Map) 'visual_review': {
+        for(final k in ['request_id','hash','status'])k:(state['visual_review'] as Map)[k]},
     })},
     ...(state['history'] as List).whereType<Map>().map((m) => Map<String, Object?>.from(m)),
   ];

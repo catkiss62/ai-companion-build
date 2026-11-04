@@ -50,6 +50,8 @@ class QqSketchService {
   static bool acceptable(String svg)=>svg.length<=16000 && svg.trimLeft().startsWith('<svg') &&
     !RegExp(r'<!|<\?|<script|<foreignObject|<image|href\s*=|url\s*\(|\bon[a-z]+\s*=',caseSensitive:false).hasMatch(svg);
   static String normalize(String raw) {
+    // Bound the input before matching wrappers, not only after normalization.
+    if(raw.length>16032)return raw;
     var svg=raw.trim();
     final wrapped=RegExp(r'^```(?:svg|xml)?\s*([\s\S]*?)\s*```$',caseSensitive:false).firstMatch(svg);
     if(wrapped!=null)svg=wrapped.group(1)!.trim();

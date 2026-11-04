@@ -56,9 +56,11 @@ void main() {
   });
   test('design rules remain a stable work-only prefix without screenshot duplication',() {
     final agent=CreativeWorkspace.create('a','r');agent['verification']={'cover':base64Encode(pixels),'ok':true};
+    agent['visual_review']={'request_id':'r','hash':'h','status':'done','advice':'long-review-already-in-tool-history'};
     final msgs=CreativeWorkspace.messages(agent,{'brief':'fixture','origin':'commission'});
     expect(msgs.first['content'],contains('视觉设计'));expect(msgs.first['content'],contains('普通作品无需额外识图'));
     expect(jsonEncode(msgs),isNot(contains(base64Encode(pixels))));
+    expect(jsonEncode(msgs),isNot(contains('long-review-already-in-tool-history')));
   });
   test('late visual feedback is rejected and its transport closes on ownership loss',()async {
     final db=await AppDatabase.createForTesting(databaseFactoryFfi);var active=true;
