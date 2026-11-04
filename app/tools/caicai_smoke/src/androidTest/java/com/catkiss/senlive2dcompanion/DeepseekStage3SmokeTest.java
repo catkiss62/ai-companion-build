@@ -9,6 +9,20 @@ import static org.junit.Assert.*;
 /** Actual production interaction state on Android; no private model is bundled. */
 @RunWith(AndroidJUnit4.class)
 public class DeepseekStage3SmokeTest {
+    @Test public void acousticMouthUsesActualPcmAndReleasesWithoutChangingTheSmileOnAndroid() {
+        java.nio.ByteBuffer b=java.nio.ByteBuffer.allocate(1920).order(java.nio.ByteOrder.LITTLE_ENDIAN);
+        for(int i=0;i<960;i++) b.putShort((short)(6000*(Math.sin(2*Math.PI*350*i/24000)+.65*Math.sin(2*Math.PI*2500*i/24000))));
+        DeepseekAudioMouth.Shape shape=new DeepseekAudioMouth().analyze(b.array(),0,960,24000,1,16,1);
+        assertTrue(shape.width>.2f);
+        Pose p=new Pose();p.write("ParamMouthForm",1);p.write("MouthPressLipOpen",-1);
+        DeepseekSpeechMouth mouth=new DeepseekSpeechMouth();mouth.signal(shape.width,shape.opening,1);
+        mouth.advance(.1f,true,2);mouth.capture(p);mouth.applyFrame(.4f,p,0);
+        assertTrue(p.current("MouthPuckerWiden")>.1f);assertEquals(0,p.current("MouthX"),0);
+        mouth.restore(p);mouth.applyFrame(.4f,p,0);assertEquals(1,p.current("ParamMouthForm"),0);
+        mouth.advance(.016f,false,3);p.write("MouthPuckerWiden",0);mouth.applyFrame(0,p,0);
+        assertEquals(0,p.current("MouthPuckerWiden"),0);assertEquals(0,p.current("ParamMouthOpenY"),0);
+        assertEquals(-1,p.current("MouthPressLipOpen"),0);
+    }
     private static final class Pose implements DeepseekParameterPlan.Target {
         final Map<String,Float> values=new HashMap<>();
         public boolean accepts(String id) {return true;}

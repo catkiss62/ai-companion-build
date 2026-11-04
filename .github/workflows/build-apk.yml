@@ -444,7 +444,7 @@
 # Historical +314: Build AI Companion v0.42.70+314 APK (Wish Lifecycle) | AI-Companion-v0.42.70-314-Wish-Lifecycle-APK | v0.42.70-wish-lifecycle-test | .ci/v04270-monitor.txt
 # Historical +323: Build AI Companion v0.42.79+323 APK (Wish Chat Fixes) | AI-Companion-v0.42.79-323-Wish-Chat-Fixes-APK | v0.42.79-wish-chat-fixes-test | .ci/v04279-monitor.txt
 # Historical +396: Build AI Companion v0.42.152+396 APK (Third Channel Public Gateway) | AI-Companion-v0.42.152-396-Third-Channel-Public-Gateway-APK | v0.42.152-third-channel-public-gateway-test | .ci/v042152-monitor.txt
-name: Build AI Companion v0.42.171+415 APK (Background Continuity Repair)
+name: Build AI Companion v0.42.172+416 APK (Acoustic Speech Mouth)
 
 # BUILD INPUTS: The 96-clip source ZIP is private Draft Release asset 591363139
 # (release 397377805), fetched and SHA-256 checked below. The persistent
@@ -1100,7 +1100,7 @@ jobs:
           test -f app/android/app/src/main/jniLibs/arm64-v8a/libc++_shared.so
           test ! -d app/android/app/src/main/assets/tts_models
           test ! -d app/android/app/src/main/assets/legacy_tts
-          echo 'Building v0.42.171+415 Background Continuity Repair after focused regression verification.'
+          echo 'Building v0.42.172+416 Acoustic Speech Mouth after focused regression verification.'
 
       - name: Generate complete pet clips from pinned Draft Release asset
         timeout-minutes: 15
@@ -1785,26 +1785,26 @@ jobs:
           APK='app/build/app/outputs/flutter-apk/app-release.apk'
           sha256sum "$APK" | tee app/app-release.apk.sha256
 
-      - name: Upload v0.42.171+415 APK as workflow artifact
+      - name: Upload v0.42.172+416 APK as workflow artifact
         uses: actions/upload-artifact@v4
         with:
-          name: AI-Companion-v0.42.171-415-Background-Continuity-APK
+          name: AI-Companion-v0.42.172-416-Acoustic-Speech-Mouth-APK
           path: |
             app/build/app/outputs/flutter-apk/app-release.apk
             app/app-release.apk.sha256
           if-no-files-found: error
           retention-days: 14
 
-      - name: Upload v0.42.171+415 APK to draft release
+      - name: Upload v0.42.172+416 APK to draft release
         shell: bash
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
-          TAG='v0.42.171-background-continuity-test'
-          APK_NAME='AI-Companion-v0.42.171-415-Background-Continuity-APK.apk'
+          TAG='v0.42.172-acoustic-mouth-test'
+          APK_NAME='AI-Companion-v0.42.172-416-Acoustic-Speech-Mouth-APK.apk'
           SHA_NAME="${APK_NAME}.sha256"
-          CI_NAME='AI-Companion-v0.42.171-415-Background-Continuity-CI-Monitor.txt'
+          CI_NAME='AI-Companion-v0.42.172-416-Acoustic-Speech-Mouth-CI-Monitor.txt'
           cp app/build/app/outputs/flutter-apk/app-release.apk "app/${APK_NAME}"
           sed "s#app/build/app/outputs/flutter-apk/app-release.apk#${APK_NAME}#" \
             app/app-release.apk.sha256 > "app/${SHA_NAME}"
@@ -1821,15 +1821,15 @@ jobs:
               --repo "${GITHUB_REPOSITORY}" \
               --target "${GITHUB_SHA}" \
               --draft \
-              --title 'AI Companion v0.42.171+415 Background Continuity Repair' \
-              --notes 'Adds bounded acknowledgement recovery for silent background wake requests, gates expensive Accessibility window queries before persistence and confirms overlay permission loss through spaced checks. Preserves QQ participation, Live2D mouth sync, saved settings and original signing identity. Unpublished test build; phone background and browser-download confirmation pending.'
+              --title 'AI Companion v0.42.172+416 Acoustic Speech Mouth' \
+              --notes 'Adds local acoustic width and opening hints synchronized to the actual AudioTrack playback head. Preserves emotional smiles, saved cat-mouth style, tongue winks, centered speaking mouth, original Caicai RMS and unchanged glasses-rabbit JEV frequency. No extra model requests or TTS changes. Original signer; unpublished test build; phone mouth-shape confirmation pending.'
           else
             test "$(gh release view "${TAG}" --repo "${GITHUB_REPOSITORY}" --json isDraft --jq '.isDraft')" = true
             gh release edit "${TAG}" \
               --repo "${GITHUB_REPOSITORY}" \
               --target "${GITHUB_SHA}" \
-              --title 'AI Companion v0.42.171+415 Background Continuity Repair' \
-              --notes 'Adds bounded acknowledgement recovery for silent background wake requests, gates expensive Accessibility window queries before persistence and confirms overlay permission loss through spaced checks. Preserves QQ participation, Live2D mouth sync, saved settings and original signing identity. Unpublished test build; phone background and browser-download confirmation pending.'
+              --title 'AI Companion v0.42.172+416 Acoustic Speech Mouth' \
+              --notes 'Adds local acoustic width and opening hints synchronized to the actual AudioTrack playback head. Preserves emotional smiles, saved cat-mouth style, tongue winks, centered speaking mouth, original Caicai RMS and unchanged glasses-rabbit JEV frequency. No extra model requests or TTS changes. Original signer; unpublished test build; phone mouth-shape confirmation pending.'
           fi
           test "$(gh release view "${TAG}" --repo "${GITHUB_REPOSITORY}" --json isDraft --jq '.isDraft')" = true || exit 1
           RELEASE_URL="$(gh release view "${TAG}" --repo "${GITHUB_REPOSITORY}" --json url --jq '.url')"
@@ -1850,19 +1850,19 @@ jobs:
           done
           test "${upload_ok}" = '1'
           MONITOR_BRANCH='ci-monitor-v0345'
-          MONITOR_PATH='.ci/v042171-monitor.txt'
+          MONITOR_PATH='.ci/v042172-monitor.txt'
           MONITOR_CONTENT_FILE="$(mktemp)"
           base64 -w0 "app/${CI_NAME}" > "${MONITOR_CONTENT_FILE}"
           MONITOR_SHA="$(gh api "/repos/${GITHUB_REPOSITORY}/contents/${MONITOR_PATH}?ref=${MONITOR_BRANCH}" --jq '.sha' 2>/dev/null || true)"
           if test -n "${MONITOR_SHA}"; then
             gh api --method PUT "/repos/${GITHUB_REPOSITORY}/contents/${MONITOR_PATH}" \
-              -f message='Update v0.42.171 CI success monitor' \
+              -f message='Update v0.42.172 CI success monitor' \
               -F "content=@${MONITOR_CONTENT_FILE}" \
               -f branch="${MONITOR_BRANCH}" \
               -f sha="${MONITOR_SHA}" >/dev/null
           else
             gh api --method PUT "/repos/${GITHUB_REPOSITORY}/contents/${MONITOR_PATH}" \
-              -f message='Create v0.42.171 CI success monitor' \
+              -f message='Create v0.42.172 CI success monitor' \
               -F "content=@${MONITOR_CONTENT_FILE}" \
               -f branch="${MONITOR_BRANCH}" >/dev/null
           fi
@@ -1885,8 +1885,8 @@ jobs:
           BUILD_RESULT: ${{ needs.build-apk.result }}
         run: |
           set -uo pipefail
-          TAG='v0.42.171-background-continuity-test'
-          CI_NAME='AI-Companion-v0.42.171-415-Background-Continuity-CI-Monitor.txt'
+          TAG='v0.42.172-acoustic-mouth-test'
+          CI_NAME='AI-Companion-v0.42.172-416-Acoustic-Speech-Mouth-CI-Monitor.txt'
           REPORT="${RUNNER_TEMP}/${CI_NAME}"
           JOBS_JSON="${RUNNER_TEMP}/jobs.json"
           {
@@ -1927,8 +1927,8 @@ jobs:
               --repo "${GITHUB_REPOSITORY}" \
               --target "${GITHUB_SHA}" \
               --draft \
-              --title 'AI Companion v0.42.171+415 Background Continuity Repair' \
-              --notes 'Adds bounded acknowledgement recovery for silent background wake requests, gates expensive Accessibility window queries before persistence and confirms overlay permission loss through spaced checks. Preserves QQ participation, Live2D mouth sync, saved settings and original signing identity. Unpublished test build; phone background and browser-download confirmation pending.'
+              --title 'AI Companion v0.42.172+416 Acoustic Speech Mouth' \
+              --notes 'Adds local acoustic width and opening hints synchronized to the actual AudioTrack playback head. Preserves emotional smiles, saved cat-mouth style, tongue winks, centered speaking mouth, original Caicai RMS and unchanged glasses-rabbit JEV frequency. No extra model requests or TTS changes. Original signer; unpublished test build; phone mouth-shape confirmation pending.'
           fi
           test "$(gh release view "${TAG}" --repo "${GITHUB_REPOSITORY}" --json isDraft --jq '.isDraft')" = true || exit 1
           RELEASE_URL="$(gh release view "${TAG}" --repo "${GITHUB_REPOSITORY}" --json url --jq '.url')"
@@ -1938,7 +1938,7 @@ jobs:
             --clobber \
             --repo "${GITHUB_REPOSITORY}"
           MONITOR_BRANCH='ci-monitor-v0345'
-          MONITOR_PATH='.ci/v042171-monitor.txt'
+          MONITOR_PATH='.ci/v042172-monitor.txt'
           MONITOR_CONTENT_FILE="$(mktemp)"
           base64 -w0 "${REPORT}" > "${MONITOR_CONTENT_FILE}"
           MONITOR_SHA="$(gh api "/repos/${GITHUB_REPOSITORY}/contents/${MONITOR_PATH}?ref=${MONITOR_BRANCH}" --jq '.sha' 2>/dev/null || true)"

@@ -680,6 +680,9 @@ internal class CaicaiPlatformView(
 
     fun speechPlayback(playing: Boolean) { if (!disposed) companion.setSpeechPlayback(playing) }
     fun speechAmplitude(value: Float) { if (!disposed) companion.setSpeechAmplitude(value) }
+    fun speechMouth(value: Float, width: Float, opening: Float) {
+        if (!disposed) companion.setSpeechMouth(value, width, opening)
+    }
 
     override fun onStatus(status: String) {
         if (!deepseek && awaitingModelStart && status.startsWith("原生渲染：准备加载菜菜女仆主模型")) {
@@ -780,6 +783,7 @@ object CaicaiRuntime {
     fun backgroundMotion(x: Float, y: Float, reset: Boolean = false) = active.get()?.backgroundMotion(x, y, reset)
     fun speechPlayback(playing: Boolean) = active.get()?.speechPlayback(playing)
     fun speechAmplitude(value: Float) = active.get()?.speechAmplitude(value)
+    fun speechAmplitude(value: Float, width: Float, opening: Float) = active.get()?.speechMouth(value,width,opening)
     fun control(method: String, arguments: Any?, result: MethodChannel.Result) {
         val view = active.get()
         if (view == null) result.success(false) else view.onMethodCall(MethodCall(method, arguments), result)

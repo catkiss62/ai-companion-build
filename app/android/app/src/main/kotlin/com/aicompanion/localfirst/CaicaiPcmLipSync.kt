@@ -4,6 +4,7 @@ import android.media.AudioTrack
 import android.os.Handler
 import android.os.Looper
 import com.catkiss.senlive2dcompanion.CaicaiRuntime
+import com.catkiss.senlive2dcompanion.DeepseekAudioMouth
 import java.nio.ByteBuffer
 import java.nio.ByteOrder
 import kotlin.math.sqrt
@@ -11,7 +12,9 @@ import kotlin.math.sqrt
 /** Envelope indexed by the actual AudioTrack playback head, including speed changes.
  * No second player, resampling, or changes to the PCM sent to the speaker. */
 internal class CaicaiPcmLipSync(private val valid: () -> Boolean = { true }) {
-    private data class Block(val start: Long, val end: Long, val value: Float)
+    private data class Block(val start: Long, val end: Long, val value: Float,
+        val shape: DeepseekAudioMouth.Shape)
+    private val mouthAnalysis = DeepseekAudioMouth()
     private val blocks = ArrayDeque<Block>()
     private val handler = Handler(Looper.getMainLooper())
     @Volatile private var stopped = false
@@ -22,12 +25,13 @@ internal class CaicaiPcmLipSync(private val valid: () -> Boolean = { true }) {
             val track = target ?: return
             val playing = runCatching { track.playState == AudioTrack.PLAYSTATE_PLAYING }.getOrDefault(false)
             val head = runCatching { track.playbackHeadPosition.toLong() and 0xffff_ffffL }.getOrDefault(0L)
-            val value = synchronized(blocks) {
+            val block = synchronized(blocks) {
                 while (blocks.isNotEmpty() && blocks.first().end <= head) blocks.removeFirst()
-                blocks.firstOrNull()?.takeIf { head >= it.start && playing }?.value ?: 0f
+                blocks.firstOrNull()?.takeIf { head >= it.start && playing }
             }
             CaicaiRuntime.speechPlayback(playing)
-            CaicaiRuntime.speechAmplitude(value)
+            val shape = block?.shape ?: DeepseekAudioMouth.NEUTRAL
+            CaicaiRuntime.speechAmplitude(block?.value ?: 0f, shape.width, shape.opening)
             handler.postDelayed(this, 40L)
         }
     }
@@ -54,7 +58,10 @@ internal class CaicaiPcmLipSync(private val valid: () -> Boolean = { true }) {
                 at += 4
             }
             val rms = if (n == 0) 0f else sqrt(sum / n).toFloat()
-            pending.add(Block(startFrame + frame, startFrame + end, (rms * 6f).coerceIn(0f, 1f)))
+            val shape = mouthAnalysis.analyze(bytes, offset + frame * frameBytes, end - frame,
+                sampleRate, channels, bits, format)
+            pending.add(Block(startFrame + frame, startFrame + end,
+                (rms * 6f).coerceIn(0f, 1f), shape))
             frame = end
         }
         synchronized(blocks) { blocks.addAll(pending) }

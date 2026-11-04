@@ -344,6 +344,11 @@ public final class CaicaiCompanionView extends GLSurfaceView implements SenCompa
         queueRenderer(() -> renderer.setLipSyncValue(amplitude));
     }
 
+    public void setSpeechMouth(float amplitude,float width,float opening) {
+        // A single GL command keeps the shape on the same playback-head frame.
+        queueRenderer(() -> renderer.setSpeechMouth(amplitude,width,opening));
+    }
+
     @Override
     public void setLookTarget(boolean active, float normalizedX, float normalizedY) {
         queueRenderer(() -> renderer.setCaicaiLook(active, normalizedX, normalizedY));

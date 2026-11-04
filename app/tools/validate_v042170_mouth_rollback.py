@@ -7,7 +7,7 @@ model = (java / 'DeepseekAvatarModel.java').read_text()
 mouth = (java / 'DeepseekSpeechMouth.java').read_text()
 owner = model.split('private void ownMouth()', 1)[1].split('void update(', 1)[0]
 assert 'model.getParameterDefaultValue(mouthX)' in owner
-assert 'DeepseekSpeechMouth.apply(amplitude,pose,neutralX)' in owner
+assert 'speechMouth.applyFrame(amplitude,pose,neutralX)' in owner
 assert model.count('if(speaking) ownMouth();') == 3
 static = model.split('if(staticMode)', 1)[1].split('model.loadParameters()', 1)[0]
 assert 'applyBase();if(speaking) ownMouth();' in static

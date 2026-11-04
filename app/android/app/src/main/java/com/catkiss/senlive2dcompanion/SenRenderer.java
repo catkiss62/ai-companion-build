@@ -649,6 +649,11 @@ final class SenRenderer implements GLSurfaceView.Renderer {
         if (deepseek != null) deepseek.amplitude(lipSyncValue); // AI_COMPANION_HOST_PLAN_HOOK
     }
 
+    void setSpeechMouth(float amplitude,float width,float opening) {
+        setLipSyncValue(amplitude); // Caicai retains its exact original RMS path.
+        if(deepseek!=null) deepseek.speechShape(width,opening);
+    }
+
     void playAction(String name) {
         if (model != null) model.playAction(name);
     }

@@ -23,7 +23,7 @@ assert planner.count('gateway.chooseMany(') == 1
 assert "usageLane: 'deepseek_avatar_speaking_motion'" in planner
 for unsupported in ('ParamAngleX3', '2比耶', '2奶茶'):
     assert unsupported not in planner, unsupported
-assert 'DeepseekSpeechMouth.apply(amplitude,pose,neutralX)' in model
+assert 'speechMouth.applyFrame(amplitude,pose,neutralX)' in model
 assert 'mouthPreviews' in planner
 controller = read('lib/core/ai/deepseek_chat_motion.dart')
 for token in ('claimDeepseekMotion', 'deepseekSpeechCue', 'getDeepseekJev',

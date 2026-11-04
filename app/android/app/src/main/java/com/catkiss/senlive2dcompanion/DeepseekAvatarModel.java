@@ -187,8 +187,12 @@ final class DeepseekAvatarModel extends CubismUserModel {
     static float mouthStyle(float value) {return Float.isFinite(value) && value>0?1:-1;}
     float mouthStyle() {return appearance.get("MouthPressLipOpen");}
     void form(boolean small) { this.small=small; targetForm=small?smallForm:0f; }
-    void playback(boolean playing) { mouthOwner.playback(playing,System.nanoTime()); }
+    void playback(boolean playing) {
+        mouthOwner.playback(playing,System.nanoTime());
+        if(!playing) speechMouth.resetSignal();
+    }
     void amplitude(float value) { amplitude=Math.max(0,Math.min(1,value)); }
+    void speechShape(float width,float opening) {speechMouth.signal(width,opening,System.nanoTime());}
     void configureAnchor(float x,float y) { anchorX=x; anchorY=y; anchorDirty=true; }
     void preview(JSONObject values) {
         staticMode(false);pat.cancel();idle.resetGrass();
@@ -328,6 +332,7 @@ final class DeepseekAvatarModel extends CubismUserModel {
         preview.clear();manualPreview=false;previewRootX=previewRootTilt=rootX=rootTilt=0;
         idle.clearAttention();idle.resetGrass();blink.reset();
         leanFocus.reset();viewerFocus.reset();avertUntil=0;gaze.clear();
+        speechMouth.resetSignal();
     }
     boolean screenToModel(float x,float y,float[] result) {return hit.inverse(x,y,result);}
     private void animateEffect(String id,float elapsed,float period) {
@@ -339,12 +344,13 @@ final class DeepseekAvatarModel extends CubismUserModel {
         set("key6",0);
         Integer mouthX=indices.get("MouthX");
         float neutralX=mouthX==null?0:model.getParameterDefaultValue(mouthX);
-        DeepseekSpeechMouth.apply(amplitude,pose,neutralX);
+        speechMouth.applyFrame(amplitude,pose,neutralX);
     }
     void update(float delta) {
         morphShiftX=morphShiftY=0;
         delta=Math.max(0,Math.min(.1f,delta));
         boolean speaking=mouthOwner.active(System.nanoTime());
+        speechMouth.advance(delta,speaking,System.nanoTime());
         if(staticMode) {
             for(int i=0;i<frozenParameters.length;i++) model.setParameterValue(i,frozenParameters[i]);
             applyBase();if(speaking) ownMouth();

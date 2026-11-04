@@ -1,3 +1,5 @@
+当前实现待 CI：[+416 DeepSeek 本地声学口型](DEEPSEEK_ACOUSTIC_MOUTH_v042172.md)。真实 PCM 播放头驱动宽窄/开合；眼镜兔牙保持现状观察，旧调频候选搁置；菜菜/QQ/语音推理保持，APK与真机待验。
+
 当前交付：[+415 后台唤醒与窗口查询修补](BACKGROUND_CONTINUITY_v042171.md)。完整/独立CI及原签名APK已核验；QQ判断与口型保持，后台/下载场景待真机验证。
 
 当前只读审查：[QQ点名、后台停滞与口型同步](QQ_LIPSYNC_BACKGROUND_REVIEW_20261104.md)。无运行代码修改，修补优先级及证据边界见记录。
