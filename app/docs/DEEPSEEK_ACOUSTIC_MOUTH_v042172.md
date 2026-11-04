@@ -1,3 +1,5 @@
+2026-11-05 真机反馈：用户明确确认口型没有问题，本项观感记为通过；没有逐项重报暂停/倍速/切模型，不自动将下方历史待验清单全部视为已验。当前新讨论入口为 QQ_VOICE_SKETCH_AESTHETICS_REVIEW_20261105.md，本文件后续只读留证。
+
 # DeepSeek 本地说话口型 · v0.42.172+416
 
 状态：已实现，完整 CI / 独立 CI / 原签名 APK 均通过并核验；真机观感待验。schema67。分支 `agent/v042107-review-recovery`，基线 `77fa667113140d16c472ce636728c23c0b801e64`，任务开始总账 `0bcb2814aca879e19f1943f7d1148a744a852d7a`。本地测试不冒充 Android / Kotlin / Flutter 正式编译。
