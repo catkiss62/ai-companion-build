@@ -12,6 +12,14 @@ class QqOperationFailure implements Exception {
   final String code;
 }
 
+class QqSketchFailure extends QqOperationFailure {
+  const QqSketchFailure(super.code,{required this.stage,required this.elapsedMs,
+    this.attempt=1,this.svgChars=0});
+  final String stage;
+  final int elapsedMs,attempt,svgChars;
+  Map<String,Object?> get details=>{'svg_chars':svgChars.clamp(0,16001),'stage_elapsed_ms':elapsedMs.clamp(0,180000)};
+}
+
 /// Categories only. Never persist exception messages, SVG, URLs or credentials.
 abstract final class QqFailure {
   static const historyKey='qq_operation_failures_v1';
@@ -51,6 +59,7 @@ abstract final class QqFailure {
     if(error is DeepSeekException)return 'model_http_${error.statusCode}';
     if(error is TimeoutException)return 'timeout';
     if(error is SocketException || error is http.ClientException)return 'network';
+    if(error is HttpException)return 'model_transport';
     if(error is IncompleteJsonCompletionException)return error.finishReason=='length'?'model_output_limit':'model_incomplete';
     if(error is MalformedJsonCompletionException || error is EmptyJsonCompletionException || error is FormatException)return 'model_format';
     if(error is QqApiException)return 'qq_${error.code}';
@@ -67,11 +76,12 @@ abstract final class QqFailure {
   static String sketchMessage(Object error) {
     final reason=code(error);
     if(reason=='sketch_budget')return '这小时的绘图请求次数用完了，要等下个小时才能再画。';
+    if(reason=='sketch_no_key')return '绘图需要第一通道接口，请先检查API设置。';
     if(reason.contains('timeout'))return '这次画图等了太久，已经停下了，没有发出图片。';
     if(reason=='model_output_limit' || reason=='model_incomplete')return '这次画稿还没生成完整，就被接口截断了，没有得到图片。';
     if(reason.startsWith('svg_') || reason.contains('format'))return '这次画稿没能转成图片，绘图格式出了问题。';
     if(reason=='sketch_render_busy')return '绘图这边还在忙，这次没有生成图片。';
-    if(reason=='network' || reason.startsWith('model_http_'))return '这次绘图请求没成功，暂时没画出来。';
+    if(reason=='network' || reason=='model_transport' || reason.startsWith('sketch_model_') || reason.startsWith('model_http_'))return '这次绘图请求没成功，暂时没画出来。';
     return '小涂鸦这次没画成。';
   }
 }

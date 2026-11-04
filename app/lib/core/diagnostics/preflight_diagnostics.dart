@@ -1,6 +1,7 @@
 import 'third_channel_diagnostics.dart';
 import '../ai/third_channel_event.dart';
 import '../../integrations/qq_private/qq_failure_history.dart';
+import '../../integrations/qq_private/qq_voice_usage.dart';
 import '../../integrations/qq_private/qq_addressing.dart';
 import '../agent/agent_task_loop.dart';
 import '../self/dream_store.dart';
@@ -631,6 +632,9 @@ class PreflightDiagnosticsService {
       );
       (report['qqOperations'] as Map<String,Object?>)['recentAddressing'] =
         QqAddressing.auditRows(await db.getSetting(QqAddressing.diagnosticKey) ?? '[]');
+      (report['qqOperations'] as Map<String,Object?>)['recentVoiceChoices'] = [
+        for(final row in QqVoiceUsage.decode(await db.getSetting(QqVoiceUsage.key) ?? '[]'))
+          {for(final k in ['at','voice','language'])k:row[k]}];
       report['creativeAgent'] = await CreativeStore(db).diagnostics();
       report['finalReplyRouting'] = {
         'configuredProvider': (await SecureConfig.instance.readChatProvider()).storageValue,
@@ -2008,12 +2012,13 @@ class PreflightDiagnosticsService {
 
   Map<String,Object?> _qqOperationFailures(String raw) {
     const phases={'context','vision','participation','reply_generation','first_reply','second_reply',
-      'sketch_generation','group_boundary','media_upload','send','archive','voice','voice_generation','voice_upload'};
+      'sketch_generation','sketch_request','sketch_json','sketch_validation','sketch_render','sketch_budget',
+      'group_boundary','media_upload','send','archive','voice','voice_generation','voice_upload'};
     Map<String,Object?>? safe(Map item) {
       if(item['at'] is! int || item['attempt'] is! int || item['elapsed_ms'] is! int ||
         !phases.contains(item['phase']) || item['code'] is! String ||
         !RegExp(r'^[a-z0-9_]{1,64}$').hasMatch(item['code'] as String))return null;
-      return {for(final k in ['at','phase','code','attempt','elapsed_ms'])k:item[k]};
+      return {for(final k in ['at','phase','code','attempt','elapsed_ms'])k:item[k],...QqFailureHistory.safeDetails(item)};
     }
     final rows=<Map<String,Object?>>[];
     for(final item in QqFailureHistory.decode(raw)) {
@@ -2023,7 +2028,8 @@ class PreflightDiagnosticsService {
       rows.add(row);
     }
     return {'recentFailures':rows,'messageBodiesIncluded':false,'svgBodiesIncluded':false,
-      'credentialsIncluded':false,'automaticSketchRetry':false};
+      'credentialsIncluded':false,'automaticSketchRetry':false,
+      'formatRepairMaxAttempts':2,'repairConsumesBudget':true,'repairSharesRequestDeadline':true};
   }
 
   Map<String, Object?> _modelUsageSummary(String raw) {

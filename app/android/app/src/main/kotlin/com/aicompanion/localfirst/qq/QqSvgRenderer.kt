@@ -18,7 +18,10 @@ internal object QqSvgRenderer {
     private val executor = Executors.newSingleThreadExecutor()
     private val slot = Semaphore(1)
     fun reply(svg: String?, result: MethodChannel.Result) {
-        if (svg == null || svg.length > 16000 || !slot.tryAcquire()) {
+        if (svg == null || svg.length > 16000) {
+            result.error("sketch_invalid", "涂鸦格式不受支持", mapOf("reason" to if(svg==null) "svg_xml_or_geometry" else "svg_limit")); return
+        }
+        if (!slot.tryAcquire()) {
             result.error("sketch_invalid_or_busy", "涂鸦不可用或正在绘制", null); return
         }
         executor.execute {

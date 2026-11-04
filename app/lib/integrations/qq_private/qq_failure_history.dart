@@ -15,16 +15,17 @@ abstract final class QqFailureHistory {
   }
   static String record(String raw, {required String operation, required int at,
     required String phase, required String code, String conversation = '',
-    int attempt = 1, int elapsedMs = 0}) {
+    int attempt = 1, int elapsedMs = 0, Map<String,Object?> details = const {}}) {
     final rows = decode(raw);
     final index = rows.indexWhere((r) => r['operation'] == operation);
     final old = index < 0 ? <String, dynamic>{} : rows.removeAt(index);
     final attempts = old['attempts'] is List ? List<Object?>.from(old['attempts'] as List) : <Object?>[];
-    attempts.add({'at': at, 'phase': phase, 'code': safeCode(code), 'attempt': attempt, 'elapsed_ms': elapsedMs});
+    final metrics=safeDetails(details);
+    attempts.add({'at': at, 'phase': phase, 'code': safeCode(code), 'attempt': attempt, 'elapsed_ms': elapsedMs,...metrics});
     return jsonEncode([{
       'operation': operation, 'conversation': conversation,
       'at': old['at'] ?? at, 'last_at': at, 'phase': phase, 'code': safeCode(code),
-      'attempt': attempt, 'elapsed_ms': elapsedMs, 'outcome': 'pending',
+      'attempt': attempt, 'elapsed_ms': elapsedMs, 'outcome': 'pending',...metrics,
       if(old['continued_to'] is String)'continued_to':old['continued_to'],
       'attempts': attempts.reversed.take(12).toList().reversed.toList(),
     }, ...rows].take(limit).toList());
@@ -49,10 +50,14 @@ abstract final class QqFailureHistory {
     return jsonEncode(rows);
   }
   static String safeCode(String value) => RegExp(r'^[a-z0-9_]{1,64}$').hasMatch(value) ? value : 'operation_failed';
+  static Map<String,Object?> safeDetails(Map value)=>{
+    for(final k in ['svg_chars','stage_elapsed_ms'])
+      if(value[k] is int) k:(value[k] as int).clamp(0,k=='svg_chars'?16001:180000)};
   static String phaseName(String phase) => const {
     'context': '上下文', 'participation': '参与判断', 'vision': '识图',
     'reply_generation': '正文生成', 'first_reply': '第一通道', 'second_reply': '第二通道',
     'group_boundary': '称呼核验', 'sketch_generation': '涂鸦', 'voice': '语音',
+    'sketch_request':'画稿请求','sketch_json':'画稿JSON','sketch_validation':'画稿检查','sketch_render':'图片转换','sketch_budget':'绘图额度',
     'media_upload': '媒体上传', 'voice_generation':'语音合成','voice_upload':'语音上传', 'send': '投递', 'archive': '本地归档',
   }[phase] ?? phase;
   static String outcomeName(String state) => switch (state) {

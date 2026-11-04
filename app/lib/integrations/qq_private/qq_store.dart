@@ -9,6 +9,7 @@ import 'qq_archive_reader.dart';
 import 'qq_work_queue.dart';
 import 'qq_failure.dart';
 import 'qq_failure_history.dart';
+import 'qq_voice_usage.dart';
 import 'qq_reply_tasks.dart';
 
 class QqBatch {
@@ -40,7 +41,10 @@ class QqStore {
       final raw=await BrainWorkFence.value(txn,QqFailure.historyKey);
       final at=DateTime.now().millisecondsSinceEpoch;
       final value=QqFailureHistory.record(raw,operation:operation.isEmpty?hash([at,phase]):operation,
-        at:at,phase:phase,code:QqFailure.code(error),attempt:attempt,elapsedMs:elapsedMs,conversation:conversation);
+        at:at,phase:error is QqSketchFailure?error.stage:phase,code:QqFailure.code(error),
+        attempt:error is QqSketchFailure?error.attempt:attempt,
+        elapsedMs:error is QqSketchFailure?error.elapsedMs:elapsedMs,conversation:conversation,
+        details:error is QqSketchFailure?error.details:const {});
       await txn.rawInsert('INSERT OR REPLACE INTO settings(key,value) VALUES(?,?)',[QqFailure.historyKey,value]);
     });} catch(_) { /* Diagnostics cannot replace the original failure. */ }
   }
@@ -157,7 +161,7 @@ class QqStore {
     final raw=await BrainWorkFence.value(txn,QqFailure.historyKey);
     await txn.rawInsert('INSERT OR REPLACE INTO settings(key,value) VALUES(?,?)',[QqFailure.historyKey,QqFailureHistory.finish(raw,b.id,state)]);
   });
-  Future<void> sentPart(QqBatch b,int part,String text,String sticker,int now,{String sketchSvg='',String voiceLanguage=''})=>write(b.fence,(txn) async {
+  Future<void> sentPart(QqBatch b,int part,String text,String sticker,int now,{String sketchSvg='',String voiceLanguage='',String voiceProfile=''})=>write(b.fence,(txn) async {
     if(!await QqArchiveReader(txn).matches([for(final r in b.rows){'table':'qq_archive','id':r['id'],'version':r['version']}])) throw const BrainWorkInvalidated();
     await txn.insert('qq_archive',{'id':'reply:${b.id}:$part','conversation_id':b.cid,'platform_id':_platformReceipts['${b.id}:$part']?.id??'',
       'context_meta':(_platformReceipts['${b.id}:$part']?.index??'').isEmpty?'':QqMessageMaterial(kind:'message',index:_platformReceipts['${b.id}:$part']!.index).encode(),
@@ -175,6 +179,11 @@ class QqStore {
       if(!const {'zh','ja','en'}.contains(voiceLanguage) || text.trim().isEmpty || sticker.isNotEmpty || sketchSvg.isNotEmpty)throw const FormatException('voice_archive');
       final row=(await txn.query('qq_archive',columns:['seq'],where:'id=?',whereArgs:['reply:${b.id}:$part'],limit:1)).single;
       await txn.insert('qq_voices',{'id':'voice:${b.id}:$part','archive_seq':row['seq'],'language':voiceLanguage,'created_at':now},conflictAlgorithm:ConflictAlgorithm.ignore);
+      if(QqVoiceUsage.voices.contains(voiceProfile)) {
+        final raw=await BrainWorkFence.value(txn,QqVoiceUsage.key);
+        await txn.rawInsert('INSERT OR REPLACE INTO settings(key,value) VALUES(?,?)',[QqVoiceUsage.key,
+          QqVoiceUsage.record(raw,seq:row['seq'] as int,at:now,voice:voiceProfile,language:voiceLanguage)]);
+      }
     }
     await txn.update('qq_conversations',{'last_reply_at':now},where:'id = ?',whereArgs:[b.cid]);
   });

@@ -471,7 +471,8 @@ class QqRuntime {
         _drawingBusy=true;ownsDrawing=true;releaseSlot?.call();
         try {status('drawing');drawing=reusedDraft?['sketch_svg'] is String && (reusedDraft!['sketch_svg'] as String).isNotEmpty?
             await sketchService.renderDraft(reusedDraft!['sketch_svg'] as String,reusedDraft!['sketch_description'] as String,current):
-            await sketchService.generate(b,sketchChoice,now:now().millisecondsSinceEpoch,secure:secure,client:client,current:current);caption=drawing.description;}
+            await sketchService.generate(b,sketchChoice,now:now().millisecondsSinceEpoch,secure:secure,client:client,current:current,
+              onRepair:(failure)=>store.recordFailure(fence,phase,failure,operation:b.id,conversation:b.cid));caption=drawing.description;}
         catch(error) {if(!await current())rethrow;await store.recordFailure(fence,phase,error,elapsedMs:operationClock.elapsedMilliseconds,operation:b.id,conversation:b.cid);
           status('sketch_failed');parts=[QqFailure.sketchMessage(error)];text=parts.single;}
       }
@@ -527,7 +528,7 @@ class QqRuntime {
         mediaCurrent:echoChoice==null?null:() async=>now().millisecondsSinceEpoch<echo!.expiresAt && await echoes.current(echo!),
         voiceText:voiceChoice?.text??'',voiceLanguage:voiceChoice?.language??'',
         sentVoice:(sequence,transcript,language) async {
-          sentAny=true;await store.sentPart(b,sequence,transcript,'',now().millisecondsSinceEpoch,voiceLanguage:language);
+          sentAny=true;await store.sentPart(b,sequence,transcript,'',now().millisecondsSinceEpoch,voiceLanguage:language,voiceProfile:voiceChoice?.voice??'');
         },
         sent:(sequence,content,image) async {
           sentAny=true;if(image)imageSent=true;await store.sentPart(b,sequence,content,image?caption:'',now().millisecondsSinceEpoch,sketchSvg:image?drawing?.svg??'':'');

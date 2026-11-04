@@ -10,6 +10,21 @@ import org.robolectric.annotation.Config
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk=[35],manifest=Config.NONE)
 class QqSvgRendererTest {
+    @Test fun invalidInputIsNotReportedAsRendererContention() {
+        class Capture : io.flutter.plugin.common.MethodChannel.Result {
+            var code: String? = null
+            var reason: Any? = null
+            override fun success(result: Any?) { fail("invalid SVG accepted") }
+            override fun error(errorCode: String, message: String?, details: Any?) {
+                code=errorCode;reason=(details as? Map<*,*>)?.get("reason")
+            }
+            override fun notImplemented() { fail("not implemented") }
+        }
+        val missing=Capture();QqSvgRenderer.reply(null,missing)
+        assertEquals("sketch_invalid",missing.code)
+        val oversized=Capture();QqSvgRenderer.reply("x".repeat(16001),oversized)
+        assertEquals("sketch_invalid",oversized.code);assertEquals("svg_limit",oversized.reason)
+    }
     @Test fun rejectionCategoriesIdentifyTheFailingDialectWithoutKeepingSvgOrText() {
         val cases=mapOf(
             "<svg><path d='M 0 0 R 1 1 2 2'/></svg>" to "svg_path",

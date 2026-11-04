@@ -16,10 +16,12 @@ import 'creative_delivery.dart';
 import 'creative_store.dart';
 import 'creative_workspace.dart';
 import 'creative_preview_proof.dart';
+import 'creative_visual_review.dart';
 
 class CreativeWorker {
-  CreativeWorker(this.db, {this.clientFactory, DateTime Function()? now, this.triggerSource = 'direct'})
-      : now = now ?? DateTime.now;
+  CreativeWorker(this.db, {this.clientFactory, DateTime Function()? now, this.triggerSource = 'direct',CreativeVisualReview? visualReview})
+      : now = now ?? DateTime.now,visualReview=visualReview??CreativeVisualReview();
+  final CreativeVisualReview visualReview;
   final DeepSeekClient Function(Future<bool> Function() abort)? clientFactory;
   final DateTime Function() now;
   final String triggerSource;
@@ -321,6 +323,32 @@ class CreativeWorker {
                   'page_text': CreativeContract.clip(observed?['page_text'], 1800),
                   'elements': CreativeContract.clip(jsonEncode(observed?['elements'] ?? []), 3000)};
                 patch.addAll({'errors': errors, 'note': ok ? '试玩通过，正在完成作品' : '试玩发现问题，正在修复'});
+              case 'work_visual_review':
+                final requestId=work['request_id'] as String;
+                final previous=CreativeVisualBudget.prior(agent,requestId);
+                if(previous!=null) {result=CreativeVisualBudget.feedback(previous);break;}
+                final html=CreativeWorkspace.assemble(agent);
+                final hash=CreativeContract.hash(html);
+                if(args['source_hash']!=hash)throw const FormatException('视觉复审hash与当前作品不一致');
+                final verification=agent['verification'];
+                if(verification is! Map)throw const FormatException('先预览当前作品');
+                final pixels=CreativeVisualBudget.pixels(verification,hash);
+                agent['visual_review']=CreativeVisualBudget.reserve(requestId,hash);
+                // Persist consumption before sending pixels; resume cannot pay twice.
+                await checkpoint({'note':'正在复查作品画面'});
+                try {
+                  final advice=await visualReview.review(db,pixels,work['brief'] as String? ?? '',current);
+                  if(!await current())throw const BrainWorkInvalidated();
+                  agent['visual_review']={...CreativeVisualBudget.reserve(requestId,hash),'status':'done','advice':advice};
+                } catch(error) {
+                  if(!await current())throw const BrainWorkInvalidated();
+                  // Optional vision failure does not erase its paid reservation,
+                  // break functional validation, or trigger an automatic retry.
+                  agent['visual_review']={...CreativeVisualBudget.reserve(requestId,hash),'status':'unavailable',
+                    'advice':'本次未完成看图复审，不声称画面已通过；按实际功能检查继续。'};
+                }
+                result=CreativeVisualBudget.feedback(agent['visual_review'] as Map);
+                patch={'status':'building','note':'画面复查已记录，正在完成作品'};
               case 'work_finish':
                 if (i != pending.length - 1) throw const FormatException('work_finish 必须是本轮最后一个调用');
                 if (CreativeWorkspace.pendingHasFailure(agent)) {
@@ -394,7 +422,7 @@ class CreativeWorker {
             patch.addAll({'status': 'paused', 'note': _savedNote(agent, '连续修复未完成，已暂停'), 'retry_at': 0});
           }
           patch['agent_trace'] = traces({'kind': 'tool', 'tool':
-            {'work_plan','work_read','work_write','work_patch','work_preview','work_finish'}.contains(name) ? name : 'unknown',
+            {'work_plan','work_read','work_write','work_patch','work_preview','work_visual_review','work_finish'}.contains(name) ? name : 'unknown',
             'ok': result['ok'] == true,
             'files': CreativeWorkspace.files(agent).length});
           patch['tool_calls'] = (work['tool_calls'] as num? ?? 0).toInt() + 1;
