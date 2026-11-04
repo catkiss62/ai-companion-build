@@ -638,6 +638,11 @@ final class SenRenderer implements GLSurfaceView.Renderer {
     void releaseSpeechPerformance() { if(model!=null) model.releaseSpeechPerformance(); }
     void clearParameterPlan() { if (model != null) model.clearParameterPlan(); }
 
+    void setSpeechMouth(float amplitude,float width,float opening) {
+        setLipSyncValue(amplitude); // Caicai retains its exact original RMS path.
+        if(deepseek!=null) deepseek.speechShape(width,opening);
+    }
+
     // END AI_COMPANION_HOST_EXTENSION
     void selectEmotion(String name) {
         if (model != null) model.selectEmotion(name);
@@ -647,11 +652,6 @@ final class SenRenderer implements GLSurfaceView.Renderer {
         lipSyncValue = Math.max(0.0f, Math.min(1.0f, value));
         if (model != null) model.setLipSyncValue(lipSyncValue);
         if (deepseek != null) deepseek.amplitude(lipSyncValue); // AI_COMPANION_HOST_PLAN_HOOK
-    }
-
-    void setSpeechMouth(float amplitude,float width,float opening) {
-        setLipSyncValue(amplitude); // Caicai retains its exact original RMS path.
-        if(deepseek!=null) deepseek.speechShape(width,opening);
     }
 
     void playAction(String name) {

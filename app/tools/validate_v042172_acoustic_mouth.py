@@ -1,5 +1,6 @@
 """Playback/ownership wiring; acoustic, release and layering behavior has JVM/Android tests."""
 from pathlib import Path
+import re
 
 app = Path(__file__).resolve().parents[1]
 java = app / 'android/app/src/main/java/com/catkiss/senlive2dcompanion'
@@ -14,6 +15,12 @@ for token in ('val shape: DeepseekAudioMouth.Shape', 'playbackHeadPosition.toLon
     assert token in pcm, token
 assert 'deepseek.speechShape(width,opening)' in (java / 'SenRenderer.java').read_text()
 renderer = (java / 'SenRenderer.java').read_text()
+extensions = re.findall(r"// BEGIN AI_COMPANION_HOST_EXTENSION\n(.*?)// END AI_COMPANION_HOST_EXTENSION", renderer, re.S)
+assert any('void setSpeechMouth(' in block for block in extensions)
+frozen = read('tools/validate_v04231_caicai_native_idle.py')
+assert '"DeepseekAudioMouth.java"' in frozen
+assert 'tree_digest("src/main/java/com/catkiss/senlive2dcompanion", 26,' in frozen
+assert 'c631e3c9cdc9a018571bbe4bdebbce39a88830c5a587cfc8dd60a5db40e0d4f6' in frozen
 dispatch = renderer.split('void setSpeechMouth(', 1)[1].split('void playAction(', 1)[0]
 assert 'setLipSyncValue(amplitude)' in dispatch and 'if(deepseek!=null)' in dispatch
 bridge = read('android/app/src/main/kotlin/com/catkiss/senlive2dcompanion/CaicaiPlatformView.kt')
