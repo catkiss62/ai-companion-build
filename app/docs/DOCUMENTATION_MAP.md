@@ -1,8 +1,8 @@
-当前候选：[+415 后台唤醒与窗口查询修补](BACKGROUND_CONTINUITY_v042171.md)。QQ判断和口型保持，新增有限恢复、查询节流与权限复查；CI/APK/真机待验。
+当前交付：[+415 后台唤醒与窗口查询修补](BACKGROUND_CONTINUITY_v042171.md)。完整/独立CI及原签名APK已核验；QQ判断与口型保持，后台/下载场景待真机验证。
 
 当前只读审查：[QQ点名、后台停滞与口型同步](QQ_LIPSYNC_BACKGROUND_REVIEW_20261104.md)。无运行代码修改，修补优先级及证据边界见记录。
 
-当前交付：[+414 DeepSeek调皮闭嘴与语音嘴形修补](DEEPSEEK_MOUTH_REFRESH_v042170.md)。完整/独立CI通过，原签名APK已核验；用户反馈Live2D整体基本正常。
+上版交付：[+414 DeepSeek调皮闭嘴与语音嘴形修补](DEEPSEEK_MOUTH_REFRESH_v042170.md)。完整/独立CI通过，原签名APK已核验；用户反馈Live2D整体基本正常。
 
 当前交付：[+413 DeepSeek分层表情、嘴形与独立前倾](DEEPSEEK_LAYERED_v042169.md)。3374全量、171独立恢复、Android62及正式原生回归通过；原签名APK与眼神补充项已交付，真机观感待确认。
 

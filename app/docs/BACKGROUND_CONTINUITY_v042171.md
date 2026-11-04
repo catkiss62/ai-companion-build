@@ -16,7 +16,18 @@
 
 语音子进程断连没有可靠根因，尚未宣称修复，也不据此压缩模型或认定OOM；本轮修复有证据的控制流空缺并增强观测。没有当场ANR栈，不能宣称已复现或彻底消除浏览器下载卡死。
 
-IMPLEMENTED / CI PENDING / APK PENDING / TRUE DEVICE PENDING。源码接线和静态验证的成绩与正式CI、真机验证分开补记。后续需要用户验证长时间切出后的恢复、下载期间悬浮窗反应及持续撤权停止；细口型为下一轮独立任务。
+IMPLEMENTED / CI PASSED / APK VERIFIED / TRUE DEVICE PENDING。源码接线和静态验证的成绩与正式CI、真机验证分开补记。后续需要用户验证长时间切出后的恢复、下载期间悬浮窗反应及持续撤权停止；细口型为下一轮独立任务。
 
 
 审阅补充：初候选6895cd45的节流缺少末次窗口查询保障，快速切换时可能保留旧前台归属；已补单个合并延后查询、最新资料和生命周期取消，以及截止/慢查询退让行为回归。初候选及被替代CI不计作最终通过，最终提交重新验证。
+
+
+## 最终验证与交付
+
+最终运行 `6ce93731da4622ab004b48ef072c4c0dc8b93ab5` / tree `545cb3b69e707b6f3f42aa99adb5a59bbdadc590`。完整构建 [41809482331](https://github.com/catkiss62/ai-companion-build/actions/runs/41809482331) 与独立逻辑 [41809482395](https://github.com/catkiss62/ai-companion-build/actions/runs/41809482395) 均success。最终提交的源码门、正式Kotlin/原生单元（含本轮13项新增行为回归）、Flutter全量、独立存档恢复、Android模拟器及音频导出均通过；分析步骤成功，未把非fatal存量提示当作新增错误。没有另读全份Actions日志来重复统计总例数，以上为同一提交的正式步骤结果。
+
+原签名 `305eb3d80983b963c64818ddf1ad561f279de6d47b3ed2c781ada448c7c25148`，APK 740686158 bytes，SHA256 `7d054ce73989c190a646cfd04dd1bb9bfb11146ae1f6dd5e7d80ce4269f42203`；与success monitor和Draft 433751004/asset 709085629 一致。Actions artifact 13314095128（ZIP 733491372 bytes）属于相同HEAD；ZIP摘要与APK摘要分开核对。[下载+415](https://github.com/catkiss62/ai-companion-build/actions/runs/41809482331/artifacts/13314095128)。草稿仍draft=true，未公开发布、未合并main。
+
+初候选6895cd45因末次窗口保障补齐被替代，旧流程取消结果不计最终通过。GitHub blob/ref调用曾发生传输超时，重查HEAD后按CAS重试，未force覆盖或把未知写入当作成功。最终收口仅文档skip-ci，不重建相同运行源码。
+
+IMPLEMENTED / CI PASSED / APK VERIFIED / TRUE DEVICE PENDING。手机长时间切出后的恢复、下载时实际卡顿及HyperOS权限返回仍需用户验证；原始ANR/语音子进程断连根因未证实，不声称本轮已彻底解决所有停滞。用户已确认QQ昵称旁听合理，取消昵称调整建议；后续若后台真机正常，再独立讨论细口型。
