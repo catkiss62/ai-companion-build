@@ -1,10 +1,23 @@
 package com.aicompanion.localfirst
 
+import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class AccessibilityEventLoadShedderTest {
+    @Test fun `trailing query keeps a fixed deadline and respects slow query cooldown`() {
+        val gate = AccessibilityEventLoadShedder()
+        assertEquals(1L, gate.windowProbeDelay(1_000))
+        assertTrue(gate.shouldProbeWindows(1_000))
+        assertEquals(400L, gate.windowProbeDelay(1_100))
+        assertEquals(200L, gate.windowProbeDelay(1_300))
+        gate.noteProbeDuration(1_350, 250)
+        assertEquals(2_850L, gate.windowProbeDelay(1_500))
+        assertFalse(gate.shouldProbeWindows(4_349))
+        assertEquals(1L, gate.windowProbeDelay(4_349))
+        assertTrue(gate.shouldProbeWindows(4_350))
+    }
     @Test fun `window floods cannot bypass remote query gates or slow query cooldown`() {
         val gate = AccessibilityEventLoadShedder()
         assertTrue(gate.shouldProbeRoot(0, true)); assertTrue(gate.shouldProbeWindows(0))

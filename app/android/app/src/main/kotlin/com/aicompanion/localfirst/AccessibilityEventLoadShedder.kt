@@ -32,6 +32,12 @@ class AccessibilityEventLoadShedder(
     }
 
     @Synchronized
+    fun windowProbeDelay(nowElapsedMs: Long): Long = maxOf(
+        (probeBackoffUntil - nowElapsedMs).takeIf { probeBackoffUntil != Long.MIN_VALUE } ?: 0L,
+        500L - elapsedSince(nowElapsedMs, lastWindowProbeAt), 1L,
+    )
+
+    @Synchronized
     fun shouldProbeWindows(nowElapsedMs: Long): Boolean {
         if (nowElapsedMs < probeBackoffUntil) return false
         if (elapsedSince(nowElapsedMs, lastWindowProbeAt) < 500L) return false

@@ -17,6 +17,9 @@ access = (native / 'AccessibilityBridgeService.kt').read_text()
 assert access.index('eventLoadShedder.shouldProbeRoot') < access.index('rootInActiveWindow')
 assert access.index('eventLoadShedder.shouldProbeWindows') < access.index('refreshForegroundWindowTracker(sourcePackage)')
 assert 'noteAccessibilityQueries' in access and 'root?.recycle()' in access
+assert 'deferWindowProbe(sourcePackage)' in access and 'if (windowProbePending) return' in access
+assert 'windowProbeHandler.removeCallbacks(deferredWindowProbe)' in access
+assert 'activeService !== this@AccessibilityBridgeService' in access
 diagnostics = (app / 'lib/core/diagnostics/preflight_diagnostics.dart').read_text()
 for key in ('rootProbeProcessCount', 'windowProbeProcessCount', 'queryCoalescedProcessCount', 'queryMaxDurationMs'):
     assert key in diagnostics, key

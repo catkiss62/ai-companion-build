@@ -23,6 +23,38 @@ import java.util.concurrent.TimeUnit
 class AccessibilityBridgeService : AccessibilityService() {
     private var systemCoverActive = false
     private val eventLoadShedder = AccessibilityEventLoadShedder()
+    private val windowProbeHandler = android.os.Handler(android.os.Looper.getMainLooper())
+    private var windowProbePending = false
+    private var pendingWindowPackage = ""
+    private val deferredWindowProbe = object : Runnable {
+        override fun run() {
+            if (!windowProbePending || activeService !== this@AccessibilityBridgeService) return
+            val now = SystemClock.elapsedRealtime()
+            if (!eventLoadShedder.shouldProbeWindows(now)) {
+                windowProbeHandler.postDelayed(this, eventLoadShedder.windowProbeDelay(now))
+                return
+            }
+            windowProbePending = false
+            val started = SystemClock.elapsedRealtime()
+            runCatching { refreshForegroundWindowTracker(pendingWindowPackage) }
+            pendingWindowPackage = ""
+            val duration = SystemClock.elapsedRealtime() - started
+            eventLoadShedder.noteProbeDuration(SystemClock.elapsedRealtime(), duration)
+            CompanionRuntimeState.noteAccessibilityQueries(false, true, false, duration)
+        }
+    }
+    private fun cancelWindowProbe() {
+        windowProbePending = false
+        pendingWindowPackage = ""
+        windowProbeHandler.removeCallbacks(deferredWindowProbe)
+    }
+    private fun deferWindowProbe(eventPackage: String) {
+        pendingWindowPackage = eventPackage
+        if (windowProbePending) return
+        windowProbePending = true
+        windowProbeHandler.postDelayed(deferredWindowProbe,
+            eventLoadShedder.windowProbeDelay(SystemClock.elapsedRealtime()))
+    }
     private val eventWriter = ThreadPoolExecutor(
         1,
         1,
@@ -56,7 +88,8 @@ class AccessibilityBridgeService : AccessibilityService() {
         val elapsedNow = SystemClock.elapsedRealtime()
         val windowChanged = e.eventType == AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED ||
             e.eventType == AccessibilityEvent.TYPE_WINDOWS_CHANGED
-        val shouldProbeRoot = eventLoadShedder.shouldProbeRoot(elapsedNow, windowChanged)
+        // A pending final-window read takes precedence over another root-only probe.
+        val shouldProbeRoot = !windowProbePending && eventLoadShedder.shouldProbeRoot(elapsedNow, windowChanged)
         val rootStarted = SystemClock.elapsedRealtime()
         val hasReadableRoot = shouldProbeRoot && runCatching {
             val root = rootInActiveWindow
@@ -76,19 +109,25 @@ class AccessibilityBridgeService : AccessibilityService() {
         )
         val power = getSystemService(PowerManager::class.java)
         if (!power.isInteractive) {
+            cancelWindowProbe()
             CurrentAppResolver.clearTrackedApp(this, "screen_off_accessibility")
         } else if (CurrentAppResolver.isLauncherPackage(sourcePackage)) {
+            cancelWindowProbe()
             CurrentAppResolver.clearTrackedApp(this, "launcher_window")
         } else if (windowChanged) {
             if (eventLoadShedder.shouldProbeWindows(elapsedNow)) {
                 val started = SystemClock.elapsedRealtime()
                 windowProbed = true
-                refreshForegroundWindowTracker(sourcePackage)
+                cancelWindowProbe()
+                runCatching { refreshForegroundWindowTracker(sourcePackage) }
                 windowDuration = SystemClock.elapsedRealtime() - started
                 eventLoadShedder.noteProbeDuration(SystemClock.elapsedRealtime(), windowDuration)
-            } else if (CurrentAppResolver.isTrackablePackage(this, sourcePackage)) {
-                // Preserve the immediate foreground hint without another remote tree query.
-                CurrentAppResolver.noteForegroundApp(this, sourcePackage, "accessibility_event")
+            } else {
+                deferWindowProbe(sourcePackage)
+                if (CurrentAppResolver.isTrackablePackage(this, sourcePackage)) {
+                    // Preserve the immediate hint, then reconcile the final interactive window once.
+                    CurrentAppResolver.noteForegroundApp(this, sourcePackage, "accessibility_event")
+                }
             }
         }
         CompanionRuntimeState.noteAccessibilityQueries(shouldProbeRoot, windowProbed,
@@ -263,6 +302,7 @@ class AccessibilityBridgeService : AccessibilityService() {
     }
 
     override fun onUnbind(intent: Intent?): Boolean {
+        cancelWindowProbe()
         if (activeService === this) activeService = null
         CompanionRuntimeState.markAccessibilityDisconnected(this, "unbound")
         NativeEventStore.addDeviceEvent(
@@ -276,6 +316,7 @@ class AccessibilityBridgeService : AccessibilityService() {
     }
 
     override fun onDestroy() {
+        cancelWindowProbe()
         if (activeService === this) activeService = null
         if (CompanionRuntimeState.accessibilityConnected) {
             CompanionRuntimeState.markAccessibilityDisconnected(this, "destroyed")
