@@ -34,6 +34,9 @@ review = read('lib/core/creative/creative_visual_review.dart')
 assert 'RoutedVisionClient(db:db,current:current)' in review
 assert 'Duration(seconds:45)' in review and "verification['hash']!=hash" in review
 assert 'bytes.length>180000' in review and "'request_id':requestId" in review
+assert 'vision.reviewWorkBytes' in review
+vision = read('lib/core/ai/qwen_vision_client.dart')
+assert 'bool creativeReview = false' in vision and 'creativeReview ? 900 : 4096' in vision
 diagnostics = read('lib/core/diagnostics/preflight_diagnostics.dart')
 assert 'recentVoiceChoices' in diagnostics and 'QqFailureHistory.safeDetails(item)' in diagnostics
 for name in ('build-apk.yml','system-logic-validation.yml'):

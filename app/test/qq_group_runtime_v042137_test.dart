@@ -370,7 +370,7 @@ void main(){
     final request=requests.where((r)=>jsonDecode(r.body)['stream']==true).single;
     expect(request.body,contains('另处的人说的独特内容'));expect(request.body,contains('unverified'));
   });
-  test('rejected native SVG records reason and sends honest failure without another paid drawing call',()async{
+  test('rejected native SVG repairs once and then reports failure without replaying paid calls',()async{
     var drawingCalls=0,renderCalls=0;
     const channel=MethodChannel('ai_companion/qq_private_runtime');
     TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger.setMockMethodCallHandler(channel,(call)async {
@@ -383,11 +383,11 @@ void main(){
         return _json(b['max_tokens']==60?{'safe':true}:{'participation':'direct'});
       };
       await accept('drawing-rejected','画个自画像');await runtime.process(cid());
-      expect(drawingCalls,1);expect(renderCalls,1);expect(api.sent.single['text'],contains('绘图格式'));
+      expect(drawingCalls,2);expect(renderCalls,2);expect(api.sent.single['text'],contains('绘图格式'));
       final failures=jsonDecode(await db.getSetting(QqFailure.historyKey)??'[]') as List;
-      expect(failures.first['phase'],'sketch_generation');expect(failures.first['code'],'svg_path');
+      expect(failures.first['phase'],'sketch_render');expect(failures.first['code'],'svg_path');
       expect(jsonEncode(failures),isNot(contains('<svg')));expect(jsonEncode(failures),isNot(contains('fixture.invalid')));
-      await runtime.process(cid());expect(drawingCalls,1);
+      await runtime.process(cid());expect(drawingCalls,2);expect(api.sent.length,1);
     } finally {TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger.setMockMethodCallHandler(channel,null);}
   });
   test('ordinary JEV joins have no stacked cooldown and consumed input is never reconsidered later',()async{

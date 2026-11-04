@@ -30,9 +30,8 @@ class _Vision extends QwenVisionClient {
   _Vision(this.after);
   final void Function() after;
   bool closed=false;
-  @override Future<QwenVisionObservation> observeBytes({required String apiKey,required String endpoint,
-    required String model,required Uint8List imageBytes,String caption='',bool assessForAlbum=false,
-    String albumPreferenceHint='',String requestedSubject=''}) async {
+  @override Future<QwenVisionObservation> reviewWorkBytes({required String apiKey,required String endpoint,
+    required String model,required Uint8List imageBytes,String brief=''}) async {
     after();return const QwenVisionObservation(summary:'fixture advice',model:'fixture',inputContentSha256:'fixture');
   }
   @override void close(){closed=true;super.close();}
@@ -74,6 +73,37 @@ void main() {
     final service=CreativeVisualReview(factory:(_,__){calls++;return _Vision((){});},configured:(_)async=>false);
     try {await expectLater(service.review(db,pixels,'fixture',()async=>true),throwsFormatException);expect(calls,0);}
     finally {await db.closeForTesting();}
+  });
+  test('actual vision request uses work critique mode while ordinary observation stays neutral',() async {
+    var calls=0;
+    QwenVisionClient makeClient()=>QwenVisionClient(requiresApiKey:false,client:MockClient((request) async {
+      calls++;
+      final body=jsonDecode(request.body) as Map;
+      final messages=body['messages'] as List;
+      final system=(messages.first as Map)['content'] as String;
+      final user=(messages.last as Map)['content'] as List;
+      expect(request.url.isAbsolute,true);
+      expect(jsonEncode(user),contains('data:image/png;base64,'));
+      if(calls==1) {
+        expect(system,contains('视觉复审'));expect(system,contains('最多提出3条'));
+        expect(body['max_tokens'],900);expect(jsonEncode(user),contains('只作主题资料'));
+      } else {
+        expect(system,contains('中性、简洁'));expect(system,isNot(contains('最多提出3条')));
+        expect(body['max_tokens'],4096);
+      }
+      return http.Response(jsonEncode({'choices':[{'finish_reason':'stop','message':{
+        'content':jsonEncode({'summary':'主体明确，按钮文字对比可以提高。'})}}]}),200,
+        headers:{'content-type':'application/json; charset=utf-8'});
+    }));
+    final db=await AppDatabase.createForTesting(databaseFactoryFfi);
+    final service=CreativeVisualReview(factory:(_,__)=>makeClient(),configured:(_)async=>true);
+    try {
+      expect(await service.review(db,pixels,'只作主题资料',()async=>true),contains('文字对比'));
+    } finally {await db.closeForTesting();}
+    final client=makeClient();
+    await client.observeBytes(apiKey:'fixture',endpoint:QwenVisionClient.defaultEndpoint,
+      model:QwenVisionClient.defaultModel,imageBytes:pixels);
+    expect(calls,2);client.close();
   });
   for(final mode in ['review','unavailable','no_image']) {
     final unavailable=mode=='unavailable',missing=mode=='no_image';
