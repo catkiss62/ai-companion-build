@@ -22,7 +22,6 @@ import java.util.concurrent.TimeUnit
 
 class AccessibilityBridgeService : AccessibilityService() {
     private var systemCoverActive = false
-    private var lastRootProbeElapsedMs = Long.MIN_VALUE
     private val eventLoadShedder = AccessibilityEventLoadShedder()
     private val eventWriter = ThreadPoolExecutor(
         1,
@@ -57,12 +56,16 @@ class AccessibilityBridgeService : AccessibilityService() {
         val elapsedNow = SystemClock.elapsedRealtime()
         val windowChanged = e.eventType == AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED ||
             e.eventType == AccessibilityEvent.TYPE_WINDOWS_CHANGED
-        val shouldProbeRoot = windowChanged ||
-            lastRootProbeElapsedMs == Long.MIN_VALUE ||
-            elapsedNow - lastRootProbeElapsedMs >= 1_500L
-        val hasReadableRoot = shouldProbeRoot &&
-            runCatching { rootInActiveWindow != null }.getOrDefault(false)
-        if (shouldProbeRoot) lastRootProbeElapsedMs = elapsedNow
+        val shouldProbeRoot = eventLoadShedder.shouldProbeRoot(elapsedNow, windowChanged)
+        val rootStarted = SystemClock.elapsedRealtime()
+        val hasReadableRoot = shouldProbeRoot && runCatching {
+            val root = rootInActiveWindow
+            if (root == null) false else { runCatching { root.recycle() }; true }
+        }.getOrDefault(false)
+        val rootDuration = if (shouldProbeRoot) SystemClock.elapsedRealtime() - rootStarted else 0L
+        eventLoadShedder.noteProbeDuration(SystemClock.elapsedRealtime(), rootDuration)
+        var windowProbed = false
+        var windowDuration = 0L
         CompanionRuntimeState.noteAccessibilityEvent(
             context = this,
             eventType = AccessibilityEvent.eventTypeToString(e.eventType),
@@ -77,8 +80,19 @@ class AccessibilityBridgeService : AccessibilityService() {
         } else if (CurrentAppResolver.isLauncherPackage(sourcePackage)) {
             CurrentAppResolver.clearTrackedApp(this, "launcher_window")
         } else if (windowChanged) {
-            refreshForegroundWindowTracker(sourcePackage)
+            if (eventLoadShedder.shouldProbeWindows(elapsedNow)) {
+                val started = SystemClock.elapsedRealtime()
+                windowProbed = true
+                refreshForegroundWindowTracker(sourcePackage)
+                windowDuration = SystemClock.elapsedRealtime() - started
+                eventLoadShedder.noteProbeDuration(SystemClock.elapsedRealtime(), windowDuration)
+            } else if (CurrentAppResolver.isTrackablePackage(this, sourcePackage)) {
+                // Preserve the immediate foreground hint without another remote tree query.
+                CurrentAppResolver.noteForegroundApp(this, sourcePackage, "accessibility_event")
+            }
         }
+        CompanionRuntimeState.noteAccessibilityQueries(shouldProbeRoot, windowProbed,
+            !shouldProbeRoot || (windowChanged && !windowProbed), rootDuration + windowDuration)
 
         if (e.isPassword || sourcePackage.isBlank()) return
 
@@ -163,7 +177,9 @@ class AccessibilityBridgeService : AccessibilityService() {
         val candidates = observedWindows.mapNotNull { window ->
             if (window.type != AccessibilityWindowInfo.TYPE_APPLICATION) return@mapNotNull null
             val packageName = runCatching {
-                window.root?.packageName?.toString().orEmpty()
+                val root = window.root
+                try { root?.packageName?.toString().orEmpty() }
+                finally { runCatching { root?.recycle() } }
             }.getOrDefault("")
             if (!CurrentAppResolver.isTrackablePackage(this, packageName)) return@mapNotNull null
             WindowCandidate(
@@ -200,6 +216,7 @@ class AccessibilityBridgeService : AccessibilityService() {
                 else -> "no_external_candidate"
             },
         )
+        observedWindows.forEach { window -> runCatching { window.recycle() } }
     }
 
     private fun isLikelySystemSurface(sourcePackage: String, sourceClass: String): Boolean {

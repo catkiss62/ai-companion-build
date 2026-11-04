@@ -54,6 +54,60 @@ class OverlayServiceRecoveryTest {
         set(service, "chatSending", true)
         return service
     }
+    @Test fun lostWakeReplyRetriesFreshAndOldSuccessCannotAcknowledgeTheNewRequest() {
+        val channel = Channel(); val service = service(channel)
+        try {
+            set(service, "pendingBrainWakeReason", "test_wake")
+            invoke(service, "signalBackgroundBrainWake")
+            val old = channel.calls.single().second
+            shadowOf(Looper.getMainLooper()).idleFor(Duration.ofMillis(6_600))
+            assertEquals(2, channel.calls.size)
+            old.success(mapOf("ok" to true))
+            assertEquals("test_wake", get(service, "pendingBrainWakeReason"))
+            assertEquals(true, get(service, "brainWakeInFlight"))
+            channel.calls.last().second.success(mapOf("ok" to true))
+            assertNull(get(service, "pendingBrainWakeReason"))
+            shadowOf(Looper.getMainLooper()).idleFor(Duration.ofSeconds(20))
+            assertEquals(2, channel.calls.size)
+        } finally { cleanup(service) }
+    }
+    @Test fun rapidWakeSignalsCoalesceAndTheLatestReasonStillGetsDelivered() {
+        val channel = Channel(); val service = service(channel)
+        try {
+            set(service, "pendingBrainWakeReason", "first"); invoke(service, "signalBackgroundBrainWake")
+            repeat(100) { set(service, "pendingBrainWakeReason", "latest"); invoke(service, "signalBackgroundBrainWake") }
+            assertEquals(1, channel.calls.size)
+            channel.calls.first().second.success(mapOf("ok" to true))
+            shadowOf(Looper.getMainLooper()).idle()
+            assertEquals(2, channel.calls.size)
+            assertEquals("latest", get(service, "pendingBrainWakeReason"))
+            channel.calls.last().second.success(mapOf("ok" to true))
+            assertNull(get(service, "pendingBrainWakeReason"))
+        } finally { cleanup(service) }
+    }
+    @Test fun aSilentChannelHasAFiniteRetryBudgetAndKeepsTheWakeForRecovery() {
+        val channel = Channel(); val service = service(channel)
+        try {
+            set(service, "pendingBrainWakeReason", "silent"); invoke(service, "signalBackgroundBrainWake")
+            shadowOf(Looper.getMainLooper()).idleFor(Duration.ofSeconds(80))
+            assertEquals(5, channel.calls.size)
+            assertEquals("silent", get(service, "pendingBrainWakeReason"))
+            assertEquals(false, get(service, "brainWakeInFlight"))
+            assertEquals(false, get(service, "brainWakeRetryScheduled"))
+        } finally { cleanup(service) }
+    }
+    @Test fun anOldEngineCallbackCannotClearTheNewEnginesPendingWake() {
+        val old = Channel(); val fresh = Channel(); val service = service(old)
+        try {
+            set(service, "pendingBrainWakeReason", "old"); invoke(service, "signalBackgroundBrainWake")
+            invoke(service, "invalidateBrainWakeRequest"); set(service, "backgroundCommands", fresh)
+            set(service, "pendingBrainWakeReason", "new"); invoke(service, "signalBackgroundBrainWake")
+            old.calls.single().second.success(mapOf("ok" to true))
+            assertEquals("new", get(service, "pendingBrainWakeReason"))
+            fresh.calls.single().second.success(mapOf("ok" to true))
+            assertNull(get(service, "pendingBrainWakeReason"))
+        } finally { cleanup(service) }
+    }
     @Test fun readyChannelWithoutSnapshotReplyReleasesUnknownUiAndIgnoresLateReply() {
         val channel = Channel(); val service = service(channel)
         try {

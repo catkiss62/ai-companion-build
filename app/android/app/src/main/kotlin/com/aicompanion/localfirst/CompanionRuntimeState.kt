@@ -5,6 +5,7 @@ import android.os.SystemClock
 import java.security.MessageDigest
 import java.util.ArrayDeque
 import java.util.UUID
+import java.util.concurrent.atomic.AtomicLong
 import java.util.concurrent.atomic.AtomicInteger
 
 /**
@@ -65,6 +66,10 @@ object CompanionRuntimeState {
     private val accessibilityPendingAllowedEventCount = AtomicInteger(0)
     private val accessibilityDeviceEventScheduledProcessCount = AtomicInteger(0)
     private val accessibilityDeviceEventCoalescedProcessCount = AtomicInteger(0)
+    private val accessibilityRootProbeCount = AtomicInteger(0)
+    private val accessibilityWindowProbeCount = AtomicInteger(0)
+    private val accessibilityQueryCoalescedCount = AtomicInteger(0)
+    private val accessibilityQueryMaxDurationMs = AtomicLong(0)
     @Volatile private var accessibilityLastTelemetryFlushElapsedMs: Long = Long.MIN_VALUE
     @Volatile private var accessibilityProcessLastEventAt: Long = 0L
     @Volatile private var accessibilityProcessLastEventType: String = ""
@@ -320,6 +325,10 @@ object CompanionRuntimeState {
                 accessibilityDeviceEventScheduledProcessCount.get(),
             "accessibilityDeviceEventCoalescedProcessCount" to
                 accessibilityDeviceEventCoalescedProcessCount.get(),
+            "accessibilityRootProbeProcessCount" to accessibilityRootProbeCount.get(),
+            "accessibilityWindowProbeProcessCount" to accessibilityWindowProbeCount.get(),
+            "accessibilityQueryCoalescedProcessCount" to accessibilityQueryCoalescedCount.get(),
+            "accessibilityQueryMaxDurationMs" to accessibilityQueryMaxDurationMs.get(),
             "accessibilityLastEventAt" to prefs.getLong(KEY_ACCESSIBILITY_LAST_EVENT, 0L),
             "accessibilityLastEventType" to
                 (prefs.getString(KEY_ACCESSIBILITY_LAST_EVENT_TYPE, "") ?: ""),
@@ -509,6 +518,13 @@ object CompanionRuntimeState {
         if (windowChanged) accessibilityProcessLastWindowEventAt = now
         if (hasReadableRoot) accessibilityProcessLastRootAt = now
         flushAccessibilityEventTelemetry(context, force = false)
+    }
+
+    fun noteAccessibilityQueries(root: Boolean, windows: Boolean, coalesced: Boolean, durationMs: Long) {
+        if (root) accessibilityRootProbeCount.incrementAndGet()
+        if (windows) accessibilityWindowProbeCount.incrementAndGet()
+        if (coalesced) accessibilityQueryCoalescedCount.incrementAndGet()
+        accessibilityQueryMaxDurationMs.updateAndGet { old -> maxOf(old, durationMs) }
     }
 
     fun noteAccessibilityDeviceEvent(scheduled: Boolean) {

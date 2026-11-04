@@ -152,6 +152,13 @@ class OverlayBubbleService : Service() {
     private var backgroundCommands: MethodChannel? = null
     private var pendingBrainWakeReason: String? = null
     private var brainWakeAttempt = 0
+    private var brainWakeRequest = 0L
+    private var brainWakeInFlight = false
+    private var brainWakeRetryScheduled = false
+    private var brainWakeTimeout: Runnable? = null
+    private var backgroundWakeRestarts = 0
+    private val permissionProbe = OverlayPermissionProbe()
+    private var permissionChatWasVisible = false
     private val pendingInlineReplies = mutableListOf<PendingInlineReply>()
     private var inlineReplyInFlight = false
     private var backgroundEngineStarting = false
@@ -169,23 +176,13 @@ class OverlayBubbleService : Service() {
 
     private val permissionWatch = object : Runnable {
         override fun run() {
+            if (!lifetime.alive) return
             if (!CompanionRuntimeState.isOverlayUserEnabled(this@OverlayBubbleService)) {
                 destroyReason = "user_disabled"
                 stopSelf()
                 return
             }
-            if (!Settings.canDrawOverlays(this@OverlayBubbleService)) {
-                NativeEventStore.addDeviceEvent(
-                    this@OverlayBubbleService,
-                    source = "system",
-                    eventType = "overlay_permission_lost",
-                    appPackage = packageName,
-                    summary = "悬浮陪伴运行期间，系统悬浮窗权限被撤销。",
-                )
-                destroyReason = "overlay_permission_lost"
-                stopSelf()
-                return
-            }
+            if (!checkOverlayPermission()) return
             if (!CompanionRuntimeState.isOverlaySystemCoverActive()) {
                 if (CompanionRuntimeState.overlayInputSuspect) {
                     if (CompanionRuntimeState.overlayCoverState != "failed" &&
@@ -208,8 +205,58 @@ class OverlayBubbleService : Service() {
                     ensureOverlayHealth("permission_watch")
                 }
             }
-            mainHandler.postDelayed(this, PERMISSION_WATCH_MS)
+            mainHandler.removeCallbacks(this)
+            val delay = if (permissionProbe.checks > 0)
+                permissionProbe.delayUntilNext(android.os.SystemClock.uptimeMillis()) else PERMISSION_WATCH_MS
+            mainHandler.postDelayed(this, delay)
         }
+    }
+
+    private fun checkOverlayPermission(): Boolean {
+        val wasSuspect = permissionProbe.checks > 0
+        val now = android.os.SystemClock.uptimeMillis()
+        when (permissionProbe.observe(Settings.canDrawOverlays(this), now)) {
+            OverlayPermissionProbe.Result.GRANTED -> {
+                if (wasSuspect) {
+                    NativeEventStore.addDeviceEvent(this, source = "system",
+                        eventType = "overlay_permission_recovered", appPackage = packageName,
+                        summary = "悬浮权限复查恢复，保留原后台引擎。")
+                    if (permissionChatWasVisible && chatExpanded &&
+                        !CompanionRuntimeState.isOverlaySystemCoverActive() && !CompanionRuntimeState.isAppVisible()) {
+                        chatRoot?.visibility = View.VISIBLE
+                        CompanionRuntimeState.setOverlayChatExpanded(true)
+                    }
+                    permissionChatWasVisible = false
+                }
+                return true
+            }
+            OverlayPermissionProbe.Result.SUSPECT -> {
+                if (!wasSuspect) {
+                    // Stop drawing immediately while confirmation is pending; do not recreate windows.
+                    permissionChatWasVisible = chatRoot?.visibility == View.VISIBLE
+                    chatRoot?.visibility = View.GONE
+                    petOverlayWindow?.setVisible(false)
+                    bubbleRoot?.visibility = View.GONE
+                    CompanionRuntimeState.setOverlayVisible(false)
+                    CompanionRuntimeState.setOverlayChatExpanded(false)
+                    NativeEventStore.addDeviceEvent(this, source = "system",
+                        eventType = "overlay_permission_suspect", appPackage = packageName,
+                        summary = "悬浮权限暂不可用，隐藏窗口并有限复查。")
+                }
+                mainHandler.removeCallbacks(permissionWatch)
+                mainHandler.postDelayed(permissionWatch, permissionProbe.delayUntilNext(now))
+            }
+            OverlayPermissionProbe.Result.CONFIRMED -> {
+                mainHandler.removeCallbacks(permissionWatch)
+                NativeEventStore.addDeviceEvent(this, source = "system",
+                    eventType = "overlay_permission_lost", appPackage = packageName,
+                    summary = "悬浮权限在分隔复查中持续不可用，停止常驻服务。",
+                    metadata = mapOf("checks" to permissionProbe.checks))
+                destroyReason = "overlay_permission_lost"
+                stopSelf()
+            }
+        }
+        return false
     }
 
     private val deviceStateReceiver = object : BroadcastReceiver() {
@@ -350,10 +397,16 @@ class OverlayBubbleService : Service() {
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
-        if (!CompanionRuntimeState.isOverlayUserEnabled(this) || !Settings.canDrawOverlays(this)) {
+        if (!CompanionRuntimeState.isOverlayUserEnabled(this) || (!running && !Settings.canDrawOverlays(this))) {
             destroyReason = "start_command_precondition_failed"
             stopSelf(startId)
             return START_NOT_STICKY
+        }
+        if (!checkOverlayPermission()) {
+            if (permissionProbe.checks >= 3) return START_NOT_STICKY
+            // While hidden, retain unread/inline-reply/wake delivery; defer visual-only commands.
+            if (intent?.action !in setOf(ACTION_SET_UNREAD, ACTION_INCREMENT_UNREAD, ACTION_CLEAR_UNREAD,
+                    ACTION_NOTIFICATION_REPLY, ACTION_WAKE_BRAIN)) return START_STICKY
         }
         when (intent?.action) {
             ACTION_SET_UNREAD -> {
@@ -493,10 +546,8 @@ class OverlayBubbleService : Service() {
             ACTION_WAKE_BRAIN -> {
                 val wakeReason = intent.getStringExtra(EXTRA_REASON) ?: "native_wake"
                 pendingBrainWakeReason = wakeReason.take(120)
-                // A previous wake may have exhausted its short delivery retry
-                // window while the FlutterEngine itself was still starting. A
-                // fresh native wake is new evidence, so give it a fresh budget.
-                brainWakeAttempt = 0
+                // Coalesce event storms without resetting an in-flight request's failure budget.
+                if (!brainWakeInFlight && !brainWakeRetryScheduled && backgroundEngine == null) brainWakeAttempt = 0
                 if (backgroundEngine == null) startBackgroundBrain()
                 signalBackgroundBrainWake()
                 return START_STICKY
@@ -558,6 +609,7 @@ class OverlayBubbleService : Service() {
         running = false
         pendingShowAfterUnlock = false
         pendingBrainWakeReason = null
+        invalidateBrainWakeRequest()
         brainWakeAttempt = 0
         backgroundEngineStarting = false
         backgroundEngineRestartScheduled = false
@@ -614,6 +666,7 @@ class OverlayBubbleService : Service() {
     override fun onBind(intent: Intent?): IBinder? = null
 
     private fun createBubble(): Boolean {
+        if (!lifetime.alive || !Settings.canDrawOverlays(this)) return false
         if (entryMode(this) == ENTRY_MODE_PET) return createPetEntry()
         val size = dp(BUBBLE_AVATAR_DP)
         val container = OverlayBubbleRoot(this).apply {
@@ -774,6 +827,7 @@ class OverlayBubbleService : Service() {
     }
 
     private fun createChatWindow(): Boolean {
+        if (!lifetime.alive || !Settings.canDrawOverlays(this)) return false
         if (!lifetime.alive) return false
         chatRoot?.let {
             if (it.isAttachedToWindow && !chatRemovalPending) return true
@@ -978,7 +1032,7 @@ class OverlayBubbleService : Service() {
     }
 
     private fun showChatOverlay(reason: String) {
-        if (!lifetime.alive) return
+        if (!lifetime.alive || !Settings.canDrawOverlays(this)) return
         if (reason != "detached_recovery") {
             chatHealthRecoveryAttempts = 0
             chatRemovalAttempts = 0
@@ -2636,10 +2690,7 @@ class OverlayBubbleService : Service() {
                     appPackage = packageName,
                     summary = "${error.javaClass.simpleName}: ${error.message ?: "unknown"}",
                 )
-                if (!Settings.canDrawOverlays(this)) {
-                    destroyReason = "overlay_permission_lost"
-                    stopSelf()
-                } else {
+                if (checkOverlayPermission()) {
                     mainHandler.postDelayed(
                         { ensureOverlayHealth("update_failed", rebuildInputChannel = true) },
                         250L,
@@ -2662,6 +2713,7 @@ class OverlayBubbleService : Service() {
         if (!lifetime.alive) return
         if (backgroundEngine != null || backgroundEngineStarting) return
         backgroundEngineStarting = true
+        invalidateBrainWakeRequest()
         var engine: FlutterEngine? = null
         try {
             val loader = FlutterInjector.instance().flutterLoader()
@@ -2774,14 +2826,15 @@ class OverlayBubbleService : Service() {
         }
     }
 
-    private fun restartBackgroundEngineIfUnready(expectedEngine: FlutterEngine) {
+    private fun restartBackgroundEngineIfUnready(expectedEngine: FlutterEngine, reason: String = "ready_timeout") {
         if (!lifetime.alive || backgroundEngine !== expectedEngine || backgroundBrainReady) return
+        invalidateBrainWakeRequest()
         NativeEventStore.addDeviceEvent(
             context = this,
             source = "system",
-            eventType = "background_brain_ready_timeout",
+            eventType = if (reason == "ready_timeout") "background_brain_ready_timeout" else "background_brain_wake_unresponsive",
             appPackage = packageName,
-            summary = "后台 FlutterEngine 已创建，但 Dart 恢复循环未在时限内就绪，准备重建。",
+            summary = "后台 Dart 未在有限探测内确认就绪，准备有限重建。",
         )
         backgroundCommands?.setMethodCallHandler(null)
         backgroundCommands = null
@@ -2800,7 +2853,7 @@ class OverlayBubbleService : Service() {
         runCatching { expectedEngine.destroy() }
         backgroundEngine = null
         backgroundBrainReady = false
-        CompanionRuntimeState.noteBackgroundBrainFailure(this, "ready_timeout")
+        CompanionRuntimeState.noteBackgroundBrainFailure(this, reason)
         stopPetAutonomyPolling()
         backgroundEngineStartAttempts += 1
         scheduleBackgroundEngineRestart()
@@ -2908,54 +2961,81 @@ class OverlayBubbleService : Service() {
         }, delayMs)
     }
 
+    private fun invalidateBrainWakeRequest() {
+        brainWakeRequest++
+        brainWakeInFlight = false
+        brainWakeRetryScheduled = false
+        brainWakeTimeout?.let(mainHandler::removeCallbacks)
+        brainWakeTimeout = null
+    }
+
     private fun signalBackgroundBrainWake() {
+        if (!lifetime.alive || brainWakeInFlight || brainWakeRetryScheduled) return
         val reason = pendingBrainWakeReason ?: return
         val channel = backgroundCommands
-        if (channel == null) {
+        if (channel == null || !backgroundBrainReady) {
             scheduleBackgroundWakeRetry()
             return
         }
-        channel.invokeMethod(
-            "wakeBackground",
-            mapOf("reason" to reason),
-            object : MethodChannel.Result {
-                override fun success(result: Any?) {
-                    if (pendingBrainWakeReason == reason) {
-                        pendingBrainWakeReason = null
-                        brainWakeAttempt = 0
-                    }
-                }
-                override fun error(errorCode: String, errorMessage: String?, errorDetails: Any?) {
-                    scheduleBackgroundWakeRetry()
-                }
-                override fun notImplemented() {
-                    scheduleBackgroundWakeRetry()
-                }
-            },
-        )
+        val ownedEngine = backgroundEngine
+        val request = ++brainWakeRequest
+        brainWakeInFlight = true
+        fun complete(ok: Boolean) {
+            if (!lifetime.alive || request != brainWakeRequest || !brainWakeInFlight ||
+                backgroundCommands !== channel || backgroundEngine !== ownedEngine) return
+            brainWakeInFlight = false
+            brainWakeTimeout?.let(mainHandler::removeCallbacks)
+            brainWakeTimeout = null
+            if (ok) {
+                brainWakeAttempt = 0
+                backgroundWakeRestarts = 0
+                if (pendingBrainWakeReason == reason) pendingBrainWakeReason = null
+                else mainHandler.post { signalBackgroundBrainWake() }
+            } else scheduleBackgroundWakeRetry()
+        }
+        val timeout = Runnable {
+            if (request == brainWakeRequest && brainWakeInFlight &&
+                backgroundCommands === channel && backgroundEngine === ownedEngine && lifetime.alive) {
+                RuntimeDiagnosticStore.record(this, category = "background", phase = "wake_timeout",
+                    severity = "warning", code = "no_callback",
+                    metadata = mapOf("count" to brainWakeAttempt))
+                complete(false)
+            }
+        }
+        brainWakeTimeout = timeout
+        // Handler uptime excludes deep sleep; retries use a fresh round trip after the main loop resumes.
+        mainHandler.postDelayed(timeout, 6_000L)
+        try {
+            channel.invokeMethod("wakeBackground", mapOf("reason" to reason), object : MethodChannel.Result {
+                override fun success(result: Any?) { complete((result as? Map<*, *>)?.get("ok") == true) }
+                override fun error(errorCode: String, errorMessage: String?, errorDetails: Any?) { complete(false) }
+                override fun notImplemented() { complete(false) }
+            })
+        } catch (_: Throwable) { complete(false) }
     }
 
     private fun scheduleBackgroundWakeRetry() {
-        if (!lifetime.alive || pendingBrainWakeReason == null) return
+        if (!lifetime.alive || pendingBrainWakeReason == null || brainWakeRetryScheduled) return
         if (brainWakeAttempt >= 4) {
-            NativeEventStore.addDeviceEvent(
-                this,
-                source = "system",
-                eventType = "background_brain_wake_deferred",
-                appPackage = packageName,
-                summary = "后台大脑唤醒信号暂未送达，保留给下一次服务事件处理。",
-            )
+            val engine = backgroundEngine
+            if (engine != null && backgroundBrainReady && backgroundWakeRestarts < 2) {
+                backgroundWakeRestarts++
+                backgroundBrainReady = false
+                restartBackgroundEngineIfUnready(engine, "wake_timeout")
+                return
+            }
+            NativeEventStore.addDeviceEvent(this, source = "system",
+                eventType = "background_brain_wake_deferred", appPackage = packageName,
+                summary = "后台唤醒达到有限重试上限，保留信号和恢复状态。")
             return
         }
-        brainWakeAttempt += 1
-        val delay = when (brainWakeAttempt) {
-            1 -> 500L
-            2 -> 1_200L
-            3 -> 2_500L
-            else -> 5_000L
-        }
+        brainWakeAttempt++
+        val request = brainWakeRequest
+        brainWakeRetryScheduled = true
+        val delay = when (brainWakeAttempt) { 1 -> 500L; 2 -> 1_200L; 3 -> 2_500L; else -> 5_000L }
         mainHandler.postDelayed({
-            if (!lifetime.alive) return@postDelayed
+            if (!lifetime.alive || request != brainWakeRequest) return@postDelayed
+            brainWakeRetryScheduled = false
             signalBackgroundBrainWake()
         }, delay)
     }

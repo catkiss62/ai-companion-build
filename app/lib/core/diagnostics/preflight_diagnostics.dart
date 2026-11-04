@@ -1618,6 +1618,14 @@ class PreflightDiagnosticsService {
         'deviceEventCoalescedProcessCount':
             capabilities['accessibilityDeviceEventCoalescedProcessCount'] ?? 0,
         'deviceEventWritesRunOffMainThread': true,
+        'rootProbeProcessCount':
+            capabilities['accessibilityRootProbeProcessCount'] ?? 0,
+        'windowProbeProcessCount':
+            capabilities['accessibilityWindowProbeProcessCount'] ?? 0,
+        'queryCoalescedProcessCount':
+            capabilities['accessibilityQueryCoalescedProcessCount'] ?? 0,
+        'queryMaxDurationMs':
+            capabilities['accessibilityQueryMaxDurationMs'] ?? 0,
         'runtimeTelemetryWriteCoalescingMs': 2000,
         'lastEventAt': accessibilityLastEventAt,
         'lastEventType': capabilities['accessibilityLastEventType'] ?? '',

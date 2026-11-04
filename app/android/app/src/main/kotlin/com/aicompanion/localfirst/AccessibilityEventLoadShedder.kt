@@ -12,6 +12,32 @@ class AccessibilityEventLoadShedder(
     private var lastPersistedAt = Long.MIN_VALUE
     private var lastWindowPersistedAt = Long.MIN_VALUE
     private var lastSignature = 0
+    private var lastRootProbeAt = Long.MIN_VALUE
+    private var lastWindowProbeAt = Long.MIN_VALUE
+    private var probeBackoffUntil = Long.MIN_VALUE
+
+    @Synchronized
+    fun noteProbeDuration(nowElapsedMs: Long, durationMs: Long) {
+        if (durationMs >= 200L) probeBackoffUntil = nowElapsedMs + 3_000L
+    }
+
+    /** Gate the Binder queries themselves, before event persistence is considered. */
+    @Synchronized
+    fun shouldProbeRoot(nowElapsedMs: Long, windowChanged: Boolean): Boolean {
+        if (nowElapsedMs < probeBackoffUntil) return false
+        val interval = if (windowChanged) 500L else ordinaryMinIntervalMs
+        if (elapsedSince(nowElapsedMs, lastRootProbeAt) < interval) return false
+        lastRootProbeAt = nowElapsedMs
+        return true
+    }
+
+    @Synchronized
+    fun shouldProbeWindows(nowElapsedMs: Long): Boolean {
+        if (nowElapsedMs < probeBackoffUntil) return false
+        if (elapsedSince(nowElapsedMs, lastWindowProbeAt) < 500L) return false
+        lastWindowProbeAt = nowElapsedMs
+        return true
+    }
 
     @Synchronized
     fun shouldPersist(

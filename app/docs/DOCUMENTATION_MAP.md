@@ -1,3 +1,5 @@
+当前候选：[+415 后台唤醒与窗口查询修补](BACKGROUND_CONTINUITY_v042171.md)。QQ判断和口型保持，新增有限恢复、查询节流与权限复查；CI/APK/真机待验。
+
 当前只读审查：[QQ点名、后台停滞与口型同步](QQ_LIPSYNC_BACKGROUND_REVIEW_20261104.md)。无运行代码修改，修补优先级及证据边界见记录。
 
 当前交付：[+414 DeepSeek调皮闭嘴与语音嘴形修补](DEEPSEEK_MOUTH_REFRESH_v042170.md)。完整/独立CI通过，原签名APK已核验；用户反馈Live2D整体基本正常。
