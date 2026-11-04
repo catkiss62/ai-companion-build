@@ -38,5 +38,7 @@ for source in (analyzer, mouth):
     assert 'android.' not in source and 'SharedPreferences' not in source and 'http' not in source
 for workflow in ('build-apk.yml',):
     assert "--tests 'com.catkiss.senlive2dcompanion.Deepseek*Test'" in (app.parent / '.github/workflows' / workflow).read_text()
+version = next(line.split(':',1)[1].strip() for line in read('pubspec.yaml').splitlines() if line.startswith('version:'))
+assert f"grep -Fqx 'version: {version}'" in (app.parent / '.github/workflows/build-apk.yml').read_text()
 assert 'acousticMouthUsesActualPcm' in read('tools/caicai_smoke/src/androidTest/java/com/catkiss/senlive2dcompanion/DeepseekStage3SmokeTest.java')
 print('v042172 read-only PCM shape, actual playback head, isolated model dispatch and bounded release wired')
