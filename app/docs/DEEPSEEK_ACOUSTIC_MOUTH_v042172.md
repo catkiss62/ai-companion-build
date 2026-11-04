@@ -1,6 +1,6 @@
 # DeepSeek 本地说话口型 · v0.42.172+416
 
-状态：已实现并完成本地轻量行为验证；正式 CI / APK / 真机待验。schema67。分支 `agent/v042107-review-recovery`，基线 `77fa667113140d16c472ce636728c23c0b801e64`，任务开始总账 `0bcb2814aca879e19f1943f7d1148a744a852d7a`。本地测试不冒充 Android / Kotlin / Flutter 正式编译。
+状态：已实现，完整 CI / 独立 CI / 原签名 APK 均通过并核验；真机观感待验。schema67。分支 `agent/v042107-review-recovery`，基线 `77fa667113140d16c472ce636728c23c0b801e64`，任务开始总账 `0bcb2814aca879e19f1943f7d1148a744a852d7a`。本地测试不冒充 Android / Kotlin / Flutter 正式编译。
 
 ## 用户最新决定与边界
 
@@ -35,5 +35,16 @@
 - 本地 Java17 轻量 harness：8 项新行为测试通过。真实生产 analyzer / mouth 与 JUnit 测试源码参与；只有 Target 接口和 JUnit 运行壳替身，不当成 Android 正式测试。
 - 覆盖等音量不同共振、采样率/格式/声道/偏移、音量变化、PCM 不变、静音/DC/噪声/短块/坏输入、物理前后叠加不累加、微笑与猫嘴/吐舌、停播/暂停/过期和原 RMS 降级。
 - 新源码门验证共享播放头、单 GL 幅度/嘴形提交、旧 Caicai 分发、每帧一次平滑、静态/物理双侧与释放；新增真实 Android 声学/嘴形释放回归，正式 JVM 命名匹配既有 Deepseek 测试组。
-- CI 待验：源码门、正式原生与 Kotlin 编译、Android 模拟器、Flutter 全量、存档恢复、语音导出、原签名 APK。成功后回填同一 HEAD、签名与文件摘要。
+- 最终同 HEAD 的 166 项源码门、正式 JVM / Kotlin 编译与测试、Android 模拟器、Flutter analyze / 全量测试、存档恢复、语音导出、APK 签名 / 包版本 / 资源检查均通过。新8项嘴形行为已纳入正式 Deepseek 测试组；本地 harness 不替代此正式结果。
 - 真机待验：DeepSeek 普通/调皮/开心及吐舌语音嘴形、短句/分段/倍速、暂停/切歌/停止/切模型的嘴形释放。菜菜开合与眼镜兔牙触发频率应保持。精准音素对齐未实现，视效果再讨论，不自动扩大任务。
+
+
+## 最终交付证据
+
+- 运行提交 `97a82e02e6ac53a77fc654af8d1393f8c0f8ff27`，tree `2cba172880d3008fd32b1b01153957006c311140`；v0.42.172+416 / schema67，分支 `agent/v042107-review-recovery`。
+- [完整构建 41854204390](https://github.com/catkiss62/ai-companion-build/actions/runs/41854204390)、[独立检查 41854204420](https://github.com/catkiss62/ai-companion-build/actions/runs/41854204420) 均 completed / success，head_sha 相同；全部必需步骤成功，失败报告步骤按条件 skipped。
+- [下载原签名 APK 压缩包](https://github.com/catkiss62/ai-companion-build/actions/runs/41854204390/artifacts/13339128654)：artifact `13339128654`，ZIP 733494953 bytes。ZIP 摘要 `sha256:a96ed9076da891d1267667951e487705d413991a980751307afddd931aaf1d26` **不是**原始 APK 摘要。
+- 原始 APK 740690506 bytes，SHA256 `b43fc8f0b2e4ff10b7d50ade8bad8522452e53079c1f2fb780d8a639ff00d522`；与 `.ci/v042172-monitor.txt` 成功报告及 Draft `433935839` / APK asset `710024737` 的 digest 一致。
+- 原证书 SHA256 `305eb3d80983b963c64818ddf1ad561f279de6d47b3ed2c781ada448c7c25148`；原签名、包名和版本步骤均成功，沿用更新身份。Draft 保持 unpublished / draft=true，target 为同一运行 HEAD，未发布或合并 main。
+- 失败候选9979fe46（漏裸版本行）、854464ec（宿主边界/新增类分类）及旧独立取消均保留在过程记录，不计最终通过。只做文档 skip-ci 收口，不重建相同运行代码。
+- **TRUE DEVICE PENDING**：真实 DeepSeek 语音嘴形、暂停/停止/倍速/切模型、猫嘴/微笑/吐舌与菜菜对照仍待手机确认；未宣称精确音素、实际 TTS 对齐准确率或手机性能通过。眼镜兔牙完整保持当前规则，继续观察，不自动收紧。
