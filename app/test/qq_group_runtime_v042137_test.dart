@@ -48,10 +48,10 @@ class _ArchiveFault extends QqStore {
   _ArchiveFault(super.db,{this.failFinal=false});
   final bool failFinal;
   int attempts=0;
-  @override Future<void> sentPart(QqBatch b,int part,String text,String sticker,int now,{String sketchSvg='',String voiceLanguage=''})async {
+  @override Future<void> sentPart(QqBatch b,int part,String text,String sticker,int now,{String sketchSvg='',String voiceLanguage='',String voiceProfile=''})async {
     attempts++;
     if(!failFinal)throw StateError('fixture local archive failure');
-    await super.sentPart(b,part,text,sticker,now,sketchSvg:sketchSvg,voiceLanguage:voiceLanguage);
+    await super.sentPart(b,part,text,sticker,now,sketchSvg:sketchSvg,voiceLanguage:voiceLanguage,voiceProfile:voiceProfile);
   }
   @override Future<void> mark(QqBatch b,String state,{String? text,String? sticker,int? confirmedParts})async {
     if(failFinal && state=='sent')throw StateError('fixture final receipt failure');
