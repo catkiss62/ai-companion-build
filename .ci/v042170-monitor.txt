@@ -1,0 +1,7 @@
+status=success
+run_id=41754631896
+run_url=https://github.com/catkiss62/ai-companion-build/actions/runs/41754631896
+head_sha=33b3c7e9df7e7cdd3ee10a95e1ddd1f4d98416a9
+signer_sha256=30:5E:B3:D8:09:83:B9:63:C6:48:18:DD:F1:AD:56:1F:27:9D:E6:D4:7B:3E:D2:C7:81:AD:A4:48:C7:C2:51:48
+0b8ffe696de013944e7cac92938baf5d6159dae8f4adb3ad73e06153d19e69a6  AI-Companion-v0.42.170-414-DeepSeek-Mouth-APK.apk
+release_url=https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-be9ca1850bc272d70fbe
