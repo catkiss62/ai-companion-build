@@ -1,0 +1,7 @@
+status=success
+run_id=41964189821
+run_url=https://github.com/catkiss62/ai-companion-build/actions/runs/41964189821
+head_sha=8c2eb1f8cb69a09fa88d8f20f26686867e656236
+signer_sha256=30:5E:B3:D8:09:83:B9:63:C6:48:18:DD:F1:AD:56:1F:27:9D:E6:D4:7B:3E:D2:C7:81:AD:A4:48:C7:C2:51:48
+26d0035f8845579aaed5f6307af3e52298882b6d744fe408b403fd21e3b56c02  AI-Companion-v0.42.174-418-QQ-Group-Expression-APK.apk
+release_url=https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-9aa0da492e2a0ffce575
