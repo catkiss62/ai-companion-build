@@ -1,3 +1,5 @@
+当前候选：[+418 群聊表达节奏](QQ_GROUP_EXPRESSION_v042174.md)。已实现，CI/APK/真机待验；已交付仍为+417。
+
 当前交付：[+417 QQ媒体与作品审美](QQ_MEDIA_CREATIVE_DESIGN_v042173.md)。完整/独立CI、原签名APK及摘要均核验；QQ语气/绘图与作品观感待真机。[下载+417](https://github.com/catkiss62/ai-companion-build/actions/runs/41887382083/artifacts/13354597649)。失败路线、费用边界与下一步见该文档最终交付节。
 
 前置只读分析（后续实现见+417）：[QQ语音、涂鸦失败与作品审美](QQ_VOICE_SKETCH_AESTHETICS_REVIEW_20261105.md)。+416口型用户确认通过；语气历史缺字段、绘图定位缺口与官方Claude审美方案见记录。运行未改，无新CI/APK，候选待讨论。

@@ -268,13 +268,15 @@ void main(){
     handler=(r,b)async=>b['stream']==true?_sse('继续聊呀'):_json(b['max_tokens']==60?{'safe':true}:{'participation':'join'});
   }
   test('JEV support is a soft situation reference in the same request and leaves custom core intact',()async {
-    options=options.copy(core:'自定义人格不被替换');
+    options=options.copy(core:'自定义人格不被替换',publicPersona:'自定义公开卡保留');
     await useJev(gateway((r)async=>jevAnswer({'direct':1},choice:'direct',situation:'support')));
     await accept('situation','昨天受伤了，今晚有些难受');await runtime.process(cid());
     final body=jsonDecode(requests.firstWhere((r)=>jsonDecode(r.body)['stream']==true).body) as Map;
     final system=(body['messages'] as List).first['content'] as String;
     expect(jevRequests.length,1);expect(requests.length,2);expect(system,contains('自定义人格不被替换'));
     expect(system,contains('有人在表达困扰'));expect(system,contains('不把此标签当发言指令'));
+    expect(system,contains('自定义公开卡保留'));expect(system,contains('群聊表达节奏'));
+    expect(system,contains('无需禁止任何词'));expect(system,contains('不机械轮换'));
   });
   for(final language in ['zh','ja','en']) {
     test('runtime sends $language voice once and archives actual speech, not an image',()async {
