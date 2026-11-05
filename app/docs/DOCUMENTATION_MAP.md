@@ -1,3 +1,5 @@
+当前候选：[+419 QQ 绑定本人身份确认](QQ_OWNER_RECOGNITION_v042175.md)。CI、APK 和真机待验。
+
 当前交付：[+418 群聊表达节奏](QQ_GROUP_EXPRESSION_v042174.md)。完整/独立CI、原签名APK已核验，聊天观感待真机。[下载+418](https://github.com/catkiss62/ai-companion-build/actions/runs/41964189821/artifacts/13388675677)。
 
 当前交付：[+417 QQ媒体与作品审美](QQ_MEDIA_CREATIVE_DESIGN_v042173.md)。完整/独立CI、原签名APK及摘要均核验；QQ语气/绘图与作品观感待真机。[下载+417](https://github.com/catkiss62/ai-companion-build/actions/runs/41887382083/artifacts/13354597649)。失败路线、费用边界与下一步见该文档最终交付节。

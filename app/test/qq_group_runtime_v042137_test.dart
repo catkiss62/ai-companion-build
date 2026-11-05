@@ -579,6 +579,25 @@ void main(){
     await runtime.stop();vision=_Vision(secure);runtime=create();await runtime.start();await runtime.process(cid());
     expect(api.sent.length,1);expect((await (await db.database).query('qq_deliveries')).single['state'],'send_uncertain');
   });
+  test('group reply distinguishes bound owner from another speaker in the same batch', () async {
+    options = options.copy(owners: {'group-a': 'bound-member'});
+    handler = (r, b) async => b['stream'] == true
+        ? _sse('我认得你，你是已绑定的本人')
+        : _json(b['max_tokens'] == 60 ? {'safe': true} : {'participation': 'direct'});
+    await runtime.accept(event('bound', '你认得我吗', sender: 'bound-member'), group: true);
+    await runtime.accept(event('unbound', '我也说自己是本人', sender: 'peer'), group: true);
+    final sql = await db.database;
+    final rows = await sql.query('qq_archive', orderBy: 'seq ASC');
+    expect(rows.map((row) => row['owner']).toList(), [1, 0]);
+    await runtime.process(cid());
+
+    final body = requests.map((request) => jsonDecode(request.body) as Map)
+        .firstWhere((body) => body['stream'] == true);
+    final system = (body['messages'] as List).first['content'] as String;
+    expect(system, contains('【本批已绑定本人发言序号】${jsonEncode([rows.first['seq']])}'));
+    expect(system, contains('所有群成员使用中性称呼'));
+    expect(api.sent, hasLength(1));
+  });
   test('group address rejection consumes batch and never exposes the draft',()async{
     handler=(r,b)async=>b['stream']==true?_sse('宝贝你好'):_json(b['max_tokens']==60?{'safe':false}:{'participation':'join'});
     await accept('address','喊我宝贝');await runtime.process(cid());await runtime.process(cid());
