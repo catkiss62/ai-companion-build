@@ -1375,7 +1375,8 @@ class DurableGenerationRunner {
             final reads=request.toolIds(cedarConfigured:cedarConfigured,
               cedarBlindPlay:blindPlayRequested || agentToolResults.any((r)=>r.toolId.startsWith('cedar_toy.')));
             final readHistory=<Map<String,Object?>>[...history,{'role':'system','content':
-              '你本次选择的目标：${request.goal}。按真实结果规划、执行、核对并调整路径，足够时直接结束。'
+              '你本次选择的目标：${request.goal}。起始线索：${request.families.join('、')}。'
+              '按真实结果规划、执行、核对并切换工具，足够时直接结束。'
               '本轮已有授权目标与读取结果应复用；读取不产生新的操作许可。'
               '任务观察：${jsonEncode(await AgentRuntimeDiagnostic.read(db,turnId:user.id))}'}];
             while(!agentProgress.stalled && agentPlanningRounds<planningRoundLimit() && agentToolCalls<toolCallLimit()) {

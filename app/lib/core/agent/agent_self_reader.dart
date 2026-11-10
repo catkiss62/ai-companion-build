@@ -144,7 +144,7 @@ class AgentSelfReader {
       id: 'phone_album',
       title: '模拟手机与私人相册',
       status: 'implemented',
-      detail: '可用 phone.search/phone.read 按需读取自己的浏览记录、日记、随笔、心情、愿望、塔罗和相册；自然问她搜过/写过/存过什么会读取真实记录。浏览记录带搜索词、来源归属与读取时间；塔罗区分抽给谁和正逆位。购物车仅在明确询问时读取，属于未购买的趣味想象。相册检索读取保存时摘要，不会假装重新看见原图。',
+      detail: '可用 phone.search/phone.read 读取自己的浏览记录、日记、随笔、心情、愿望、塔罗和相册。浏览记录保留来源；塔罗区分对象和正逆位。相册用 album.search 按保存时间、标签或内容定位，album.inspect 识别同一张图片的实际画面。购物车属于未购买的趣味想象。',
     ),
     AgentSystemFact(
       id: 'backup_transfer',
@@ -162,7 +162,7 @@ class AgentSelfReader {
       id: 'agent_foundation_v04134',
       title: '按需 Agent 与查手机读取',
       status: 'implemented_bounded',
-      detail: '普通对话提供可选内部Agent入口；她决定查证或规划时才请求第一通道，直接聊天不增加规划调用。入口支持多步骤规划、搜索/读取记忆原文、房间、查手机、游戏目录与实际能力，可读runtime诊断；已有明确授权目标可沿相同执行器完成，按需读取本身不新增写入许可。明确任务只展开相关能力；用户明确命令时可保存当前附件或执行有界联网找图—识图—同图保存。',
+      detail: '普通对话可按需进入内部 Agent；直接聊天不增加规划请求。进入后可在可用的 App 读取工具之间切换，支持多步核验和 runtime 诊断。已有授权目标沿相同执行器完成；保存附件、联网找图后保存等操作按对应的用户授权执行。',
     ),
     AgentSystemFact(
       id: 'agent_v2_bounded_loop_v04150',

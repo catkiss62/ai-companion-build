@@ -175,10 +175,14 @@ void main() {
           if(names.any((name)=>name!='agent_request')) {
             plans++;
             if(scenario=='cancel' && plans==4)cancellation.cancel();
-            if(names.contains('system_self_read'))systemPlans++;
+            final checkingRuntime = !memory || scenario=='reenter' && finals==2;
+            if(checkingRuntime && names.contains('system_self_read'))systemPlans++;
             if(scenario=='changed' && systemPlans==2) await db.setSetting('cedar_toy_enabled','0');
             if(memory && plans<=7) return reply(call('chat_history_read',{'source_id':'h$plans'}),finish:'tool_calls');
-            if((!memory || scenario=='reenter' && !names.contains('chat_history_read')) && (scenario=='stalled' || systemPlans<=2))return reply(call('system_self_read',{'scope':'runtime'}),finish:'tool_calls');
+            if(checkingRuntime && (scenario=='stalled' || systemPlans<=2)) {
+              expect(names,contains('system_self_read'));
+              return reply(call('system_self_read',{'scope':'runtime'}),finish:'tool_calls');
+            }
             return reply({'content':'资料已经足够。'});
           }
           if(body.containsKey('max_tokens'))return reply({'content':'{}'});

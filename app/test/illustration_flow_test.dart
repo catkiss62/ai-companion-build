@@ -1,6 +1,9 @@
 import 'dart:convert';
 import 'dart:io';
 
+import 'package:ai_companion_localfirst/core/agent/agent_tool.dart';
+import 'package:ai_companion_localfirst/core/agent/agent_tool_planner.dart';
+import 'package:ai_companion_localfirst/core/agent/agent_tool_runner.dart';
 import 'package:ai_companion_localfirst/core/database/app_database.dart';
 import 'package:ai_companion_localfirst/core/illustration/illustration_client.dart';
 import 'package:ai_companion_localfirst/core/illustration/illustration_cue.dart';
@@ -8,6 +11,9 @@ import 'package:ai_companion_localfirst/core/illustration/illustration_job.dart'
 import 'package:ai_companion_localfirst/core/illustration/illustration_prompt.dart';
 import 'package:ai_companion_localfirst/core/illustration/illustration_worker.dart';
 import 'package:ai_companion_localfirst/core/models/chat_message.dart';
+import 'package:ai_companion_localfirst/core/models/companion_album.dart';
+import 'package:ai_companion_localfirst/core/platform/android_bridge.dart';
+import 'package:ai_companion_localfirst/core/storage/companion_album_storage.dart';
 import 'package:ai_companion_localfirst/core/storage/secure_config.dart';
 import 'package:archive/archive.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
@@ -34,6 +40,116 @@ const _plan = IllustrationPlan(
   description: '雨天窗边的插画',
 );
 
+Future<void> _expectAgentCanInspect(
+  AppDatabase db,
+  CompanionAlbumItem album,
+) async {
+  final sql = await db.database;
+  final savedAt = album.savedAt!.millisecondsSinceEpoch;
+  for (final fixture in [
+    ('older-generated', 'saved', 0, -1000, 'generated'),
+    ('newer-unrelated', 'saved', 0, 1000, 'landscape'),
+    ('recent-deleted', 'soft_deleted', 0, 2000, 'generated'),
+    ('recent-hidden', 'saved', 1, 3000, 'generated'),
+  ]) {
+    await sql.insert('companion_album_candidates', {
+      'id': fixture.$1,
+      'source_kind': 'fixture',
+      'source_id': fixture.$1,
+      'title': fixture.$1,
+      'lifecycle_state': fixture.$2,
+      'nsfw': fixture.$3,
+      'created_at': savedAt + fixture.$4,
+      'saved_at': savedAt + fixture.$4,
+      'updated_at': savedAt + fixture.$4,
+      'user_tags_json': jsonEncode([fixture.$5]),
+    });
+  }
+  final runner = AgentToolRunner(db: db, android: AndroidBridge.instance);
+  Future<AgentToolResult> run(String id, Map<String, String> arguments) async =>
+      (await runner.runPlan(
+        AgentToolPlan(
+          calls: [
+            AgentToolCall(
+              toolId: id,
+              arguments: arguments,
+              reasonTag: 'model_selected',
+            ),
+          ],
+        ),
+      )).single;
+  final listed = await run('album.search', {
+    'order': 'latest',
+    'tag': 'generated',
+  });
+  final handle = 'phone:album:${album.id}';
+  expect(listed.resultCount, 2);
+  expect(listed.promptData, contains('creation_intent'));
+  expect(listed.promptData, isNot(contains('recent-deleted')));
+  expect(listed.promptData.indexOf(handle), greaterThanOrEqualTo(0));
+  expect(
+    listed.promptData.indexOf(handle),
+    lessThan(listed.promptData.indexOf('older-generated')),
+  );
+  final thumbnail = await CompanionAlbumStorage(
+    db: db,
+  ).fileFor(album.thumbnailPath);
+  final thumbnailBytes = await thumbnail.readAsBytes();
+  var calls = 0;
+  await http.runWithClient(
+    () async {
+      for (final target in [
+        {'selection': 'latest', 'tag': 'generated'},
+        {'handle': handle},
+      ]) {
+        final observed = await run('album.inspect', target);
+        expect(
+          observed.status,
+          AgentToolStatus.succeeded,
+          reason: observed.errorCode,
+        );
+        expect(observed.promptData, contains(handle));
+        expect(observed.promptData, contains('白色方块'));
+        expect(observed.promptData, isNot(contains(_plan.description)));
+        expect(observed.attachments, isEmpty);
+      }
+      for (final id in ['recent-deleted', 'recent-hidden', 'older-generated']) {
+        final unavailable = await run('album.inspect', {
+          'handle': 'phone:album:$id',
+        });
+        expect(unavailable.status, AgentToolStatus.noResult);
+      }
+    },
+    () => MockClient((request) async {
+      calls++;
+      final body = jsonDecode(request.body) as Map;
+      final user = (body['messages'] as List).last as Map;
+      final image = (user['content'] as List).first as Map;
+      expect(
+        (image['image_url'] as Map)['url'],
+        'data:image/png;base64,${base64Encode(thumbnailBytes)}',
+      );
+      expect(request.body, isNot(contains(_plan.description)));
+      return http.Response(
+        jsonEncode({
+          'choices': [
+            {
+              'message': {
+                'content': jsonEncode({'summary': '画面里是白色方块'}),
+              },
+              'finish_reason': 'stop',
+            },
+          ],
+        }),
+        200,
+        headers: {'content-type': 'application/json; charset=utf-8'},
+      );
+    }),
+  );
+  expect(calls, 2);
+  expect(await db.allMediaBlobs(), hasLength(1));
+}
+
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
   sqfliteFfiInit();
@@ -56,6 +172,42 @@ void main() {
   });
 
   test(
+    'explicit album visit exposes inspection if semantic routing missed it',
+    () {
+      final definitions = AgentToolPlanner.nativeToolDefinitionsFor(
+        '笨，去相册看嘛',
+        semanticReadAuthoritative: true,
+      );
+      final names = definitions.map(
+        (entry) => (entry['function'] as Map)['name'],
+      );
+      expect(names, containsAll(['album_search', 'album_inspect']));
+      expect(names, isNot(contains('album_image_send')));
+      expect(AgentToolPlanner.nativeToolDefinitionsFor('抱抱我'), isEmpty);
+      expect(AgentToolPlanner.nativeToolDefinitionsFor('不要去相册看'), isEmpty);
+    },
+  );
+
+  test(
+    'self-image tag depends on identity independently of style or outfit',
+    () {
+      expect(_plan.depictsCompanion, isTrue);
+      final data = _plan.toJson();
+      for (final (fields, expected) in [
+        ({'style': 'free', 'subject': 'self'}, true),
+        ({'style': 'free', 'subject': 'other'}, false),
+        ({'subject': 'unknown'}, false),
+        ({'appearance': 'red hair'}, false),
+      ]) {
+        expect(
+          IllustrationPlan.fromJson({...data, ...fields})!.depictsCompanion,
+          expected,
+        );
+      }
+    },
+  );
+
+  test(
     'chat and diary share bytes after one retry, and diary pins them',
     () async {
       final directory = await Directory.systemTemp.createTemp(
@@ -63,7 +215,9 @@ void main() {
       );
       final previousPaths = PathProviderPlatform.instance;
       PathProviderPlatform.instance = _Paths(directory.path);
-      FlutterSecureStorage.setMockInitialValues({});
+      FlutterSecureStorage.setMockInitialValues({
+        'deepseek_api_key': 'vision-fixture',
+      });
       final db = await AppDatabase.createForTesting(databaseFactoryFfi);
       try {
         await SecureConfig.instance.writeIllustration(
@@ -140,6 +294,10 @@ void main() {
         expect(seeds[0], seeds[1]);
         expect(attachment.visionCompleted, isFalse);
         expect((await db.messageById('reply'))!.content, '我来画');
+        expect(
+          (await db.companionAlbumItems()).single.tags,
+          containsAll(['generated', 'anime', 'self_image']),
+        );
         await db.setCompanionAlbumTags(
           chat.key,
           tags: ['generated', 'self_image'],
@@ -167,7 +325,11 @@ void main() {
         expect(album.id, chat.key);
         expect(album.blobId, attachment.blobId);
         expect(album.categorySource, 'user');
-        expect(album.tags, containsAll(['generated', 'diary', 'self_image']));
+        expect(
+          album.tags,
+          containsAll(['generated', 'diary', 'anime', 'self_image']),
+        );
+        await _expectAgentCanInspect(db, album);
         expect(
           await db.getSetting(
             '${IllustrationJob.diaryMediaPrefix}${diary.ownerId}',

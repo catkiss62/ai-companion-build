@@ -20,6 +20,7 @@ class IllustrationPlan {
     this.outfit = '',
     this.appearance = '',
     this.camera = '',
+    this.subject = '',
   });
 
   final String style;
@@ -28,12 +29,20 @@ class IllustrationPlan {
   final String outfit;
   final String appearance;
   final String camera;
+  final String subject;
+
+  bool get depictsCompanion => switch (subject) {
+    'self' => true,
+    'other' || 'unknown' => false,
+    _ => whaleIllustrationPresets.containsKey(style) && appearance.isEmpty,
+  };
 
   static const instructions =
-      '输出 JSON，字段 style、scene、camera、outfit、appearance、description。'
+      '输出 JSON，字段 style、subject、scene、camera、outfit、appearance、description。'
       'style: cute 可爱插画、mature 成熟插画、chibi Q版插画、free 自由创作。'
       '前三种都描绘同一个蓝发、耳鳍、鲸尾的鲸鱼娘，画风与她的性格状态、年龄或小豆丁无关。'
       '画其他人物、风景、物品或完全换形象时用 free，并自行描述主体。'
+      'subject 表示目标角色：画你自己用 self，换装或换画风仍可为 self。画其他人物、风景或物品用 other，身份不明确用 unknown。'
       'scene 用简洁英文逗号标签描述主体、动作、表情、环境、光线。'
       'camera 用独立的英文镜头标签描述景别、视角，可自由选择，给一个一致的构图，例如 medium shot, from above。'
       '镜头、服装分别放 camera、outfit，避免重复写进 scene。默认女仆装时 outfit 留空，换装则写英文服装标签。'
@@ -60,6 +69,12 @@ class IllustrationPlan {
     final camera = field('camera', 160);
     final outfit = field('outfit', 240);
     final appearance = field('appearance', 300);
+    final rawSubject = data['subject'];
+    final subject = rawSubject is String
+        ? rawSubject.trim()
+        : rawSubject == null
+        ? ''
+        : 'unknown';
     if (!styles.contains(style) ||
         scene.isEmpty ||
         description.isEmpty ||
@@ -75,6 +90,9 @@ class IllustrationPlan {
       camera: camera,
       outfit: outfit,
       appearance: appearance,
+      subject: const {'', 'self', 'other', 'unknown'}.contains(subject)
+          ? subject
+          : 'unknown',
     );
   }
 
@@ -85,6 +103,7 @@ class IllustrationPlan {
     'camera': camera,
     'outfit': outfit,
     'appearance': appearance,
+    'subject': subject,
   };
 }
 

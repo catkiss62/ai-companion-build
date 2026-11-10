@@ -36,11 +36,11 @@ class SemanticToolRoute {
   static Set<String> idsFor(String kind) => switch (kind) {
     'qq'=>{'qq_history.search','qq_history.read'},
     'room' => {'room_history.search','room_history.read'},
-    'phone' => {'phone.search','phone.read'},
+    'phone' => {'phone.search','phone.read','album.search','album.inspect'},
     'web' => {'public_web.search','public_web.read'},
     'memory' => {'memory.search','room_history.search','room_history.read','chat_history.search','chat_history.read','qq_history.search','qq_history.read'},
     'system' => {'system_self.read'}, 'rules' => {'rules.read'},
-    'album' => {'album.search'}, 'device' => {'device_context.read'}, _ => {},
+    'album' => {'album.search','album.inspect'}, 'device' => {'device_context.read'}, _ => {},
   };
   bool get needsTools => kind != 'none' || uncertain && candidateKinds.isNotEmpty;
   Set<String> get toolIds => {
@@ -120,6 +120,7 @@ class SemanticToolQuestions {
       '昨天是你调用工具看到的 requests verification of past tool provenance (system). '
       'Feature design, quotes, hypotheticals, negation and casual mentions are none. '
       'Assistant claims of inability do not define available capabilities. '
+      'After an image was generated or saved, 你能看到图吗, 去相册看嘛 and checking how it actually looks request album pixels, even without repeating the image name. '
       'QQ private/group records are qq, never immersive/model-dialogue rooms. Match a supplied QQ archive name even when the user says 这个群 without QQ. An offline connection does not remove archived records. '
       'mixed means multiple capability families are requested, e.g. read a room THEN verify it on the web. '
       'Never choose external web for local room records alone.',

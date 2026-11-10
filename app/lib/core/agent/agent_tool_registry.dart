@@ -90,7 +90,16 @@ class AgentToolRegistry {
   static const albumSearch = AgentToolDefinition(
     id: 'album.search',
     title: '回想已存相册',
-    description: '按当前问题模糊检索她已经保存的本地相册内容，不读取图片文件且不修改相册。',
+    description: '按内容检索或按保存时间浏览自己的 App 相册，可按标签筛选。返回图片句柄和已存索引，观察画面继续用 album.inspect。',
+    risk: AgentToolRisk.readOnly,
+    executable: true,
+    userTurnAvailable: true,
+    autonomousAvailable: false,
+  );
+  static const albumInspect = AgentToolDefinition(
+    id: 'album.inspect',
+    title: '看已存相册的图片',
+    description: '用当前识图设置观察一张相册图片的实际像素。用目录或手机记录返回的 handle；明确指最新或刚画完时可按最新及标签定位。',
     risk: AgentToolRisk.readOnly,
     executable: true,
     userTurnAvailable: true,
@@ -309,6 +318,7 @@ class AgentToolRegistry {
     chatHistorySearch,
     chatHistoryRead,
     albumSearch,
+    albumInspect,
     deviceContextRead,
     systemSelfRead,
     roomHistorySearch,

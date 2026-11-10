@@ -14328,6 +14328,7 @@ class AppDatabase {
     required String ownerId,
     required MessageAttachment attachment,
     required String description,
+    required bool depictsCompanion,
     required String terminal,
     required BrainWorkFence fence,
   }) async {
@@ -14358,7 +14359,9 @@ class AppDatabase {
         whereArgs: [blob.thumbnailSha256],
         limit: 1,
       );
-      final tags = ['generated', if (diary) 'diary'];
+      final tags = [
+        'generated', 'anime', if (depictsCompanion) 'self_image', if (diary) 'diary',
+      ];
       if (existingAlbum.isEmpty) {
         await txn.insert('companion_album_candidates', {
           'id': jobKey, 'source_kind': 'generated_illustration', 'source_id': ownerId,

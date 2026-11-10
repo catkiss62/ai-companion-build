@@ -234,6 +234,7 @@ class IllustrationWorker {
             'seed': seed,
             'description': chosenPlan.description,
             'style': chosenPlan.style,
+            'depicts_companion': chosenPlan.depictsCompanion,
             'positive': prompt.positive,
             'negative': prompt.negative,
             'blob_id': attachment.blobId,
@@ -243,6 +244,7 @@ class IllustrationWorker {
             ownerId: ownerId,
             attachment: attachment,
             description: chosenPlan.description,
+            depictsCompanion: chosenPlan.depictsCompanion,
             terminal: jsonEncode(terminal),
             fence: fence,
           );

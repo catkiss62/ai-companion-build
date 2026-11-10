@@ -45,6 +45,7 @@ import '../models/desire_state.dart';
 import '../models/message_attachment.dart';
 import '../models/public_web_candidate.dart';
 import '../phone/companion_album_search_policy.dart';
+import '../phone/companion_album_agent_reader.dart';
 import '../phone/companion_album_discovery_engine.dart';
 import '../phone/simulated_phone_reader.dart';
 import '../history/room_history_reader.dart';
@@ -428,7 +429,11 @@ class AgentToolRunner {
         scope: toolChainScopeId.isNotEmpty ? toolChainScopeId : userMessageId);
     }
     if (call.toolId == AgentToolRegistry.albumSearch.id) {
-      return _searchAlbum(call.arguments['query'] ?? '');
+      return _searchAlbum(call.arguments);
+    }
+    if (call.toolId == AgentToolRegistry.albumInspect.id) {
+      return CompanionAlbumAgentReader(db: db, secureConfig: secureConfig)
+          .inspect(call.arguments, cancellationToken);
     }
     if (call.toolId == AgentToolRegistry.deviceContextRead.id) {
       return _readDeviceContext();
@@ -1877,7 +1882,7 @@ ${_phoneRecordContract}
     );
   }
 
-  static const _phoneRecordContract = '这些是她自己的手机里实际保存的记录。浏览器 self_search_evidence=true 才能依据原搜索词、来源和时间认作自己的历史搜索；autonomous=自主搜索，agent_tool/user_turn=用户委托后的搜索。unknown 不补造归属。此次只翻记录，没有重新联网；历史网页内容是当时保存的材料。塔罗按 subject 区分她与用户、按 reversed 区分正逆位，可结合实际牌解读，没有抽新牌。相册摘要不等于此次重新看了原图。购物车 fictional=true 的内容是趣味想象，未购买，不证明拥有实物、真实能力、经历或必须实现的愿望。';
+  static const _phoneRecordContract = '这些是她自己的手机里实际保存的记录。浏览器 self_search_evidence=true 才能依据原搜索词、来源和时间认作自己的历史搜索；autonomous=自主搜索，agent_tool/user_turn=用户委托后的搜索。unknown 不补造归属。此次只翻记录，没有重新联网；历史网页内容是当时保存的材料。塔罗按 subject 区分她与用户、按 reversed 区分正逆位，可结合实际牌解读，没有抽新牌。需要看相册的实际画面时，把 phone:album:… 句柄交给 album.inspect。购物车 fictional=true 的内容是趣味想象，未购买，不证明拥有实物、真实能力、经历或必须实现的愿望。';
 
   Future<AgentToolResult> _confirmAttachmentSaved(String userMessageId) async {
     final attachments = await db.messageAttachmentsFor(userMessageId);
@@ -2414,10 +2419,14 @@ ${lines.join('\n')}
     );
   }
 
-  Future<AgentToolResult> _searchAlbum(String query) async {
-    final normalized = query.trim();
+  Future<AgentToolResult> _searchAlbum(Map<String, String> arguments) async {
+    final query = arguments['query']?.trim() ?? '';
+    final tag = arguments['tag'] ?? '';
+    final order = arguments['order'] ?? '';
+    final recent = order == 'latest' || query.isEmpty;
     await _noteAlbumSearch('request');
-    if (normalized.isEmpty || normalized.length > 160) {
+    if (query.length > 160 || !const {'', 'latest', 'relevance'}.contains(order) ||
+        (tag.isNotEmpty && !companionAlbumTagKeys.contains(tag))) {
       await _noteAlbumSearch('blocked');
       return const AgentToolResult(
         toolId: 'album.search',
@@ -2428,12 +2437,12 @@ ${lines.join('\n')}
       );
     }
     try {
-      final items = await db.companionAlbumItems(limit: 240);
-      final matches = CompanionAlbumSearchPolicy.rank(
-        query: normalized,
-        items: items,
-        limit: 5,
-      );
+      final items = await CompanionAlbumAgentReader(db: db, secureConfig: secureConfig)
+          .items(tag: tag, limit: recent ? 5 : 500);
+      final matches = recent
+          ? items.map((item) => CompanionAlbumSearchMatch(
+              item: item, score: 0, confidence: 'saved_time')).toList()
+          : CompanionAlbumSearchPolicy.rank(query: query, items: items, limit: 5);
       if (matches.isEmpty) {
         await _noteAlbumSearch('no_result');
         return const AgentToolResult(
@@ -2444,18 +2453,20 @@ ${lines.join('\n')}
         );
       }
 
-      final ambiguous = matches.first.confidence == 'ambiguous_recent' ||
+      final ambiguous = !recent && (matches.first.confidence == 'ambiguous_recent' ||
           (matches.length > 1 &&
-              (matches.first.score - matches[1].score).abs() < 1.5);
+              (matches.first.score - matches[1].score).abs() < 1.5));
       final lines = matches.map((match) {
         final item = match.item;
         final savedAt = item.savedAt ?? item.createdAt;
         return '''
 - [PRIVATE_SAVED_ALBUM confidence=${match.confidence}]
+  handle: ${CompanionAlbumAgentReader.handlePrefix}${item.id}
   title: ${_oneLine(item.title, 180)}
-  visual_summary: ${_oneLine(item.summary, 900)}
+  ${item.sourceKind == 'generated_illustration' ? 'creation_intent' : 'saved_summary'}: ${_oneLine(item.summary, 900)}
   save_reason: ${_oneLine(item.reason, 500)}
   tags: ${item.tags.map(_albumCategoryLabel).join(', ')}
+  tag_keys: ${item.tags.join(', ')}
   source_domain: ${_oneLine(item.sourceDomain, 120).isEmpty ? 'local_chat' : _oneLine(item.sourceDomain, 120)}
   saved_at: ${savedAt.toLocal().toIso8601String()}
 '''.trimRight();
@@ -2466,8 +2477,8 @@ ${lines.join('\n')}
         status: AgentToolStatus.succeeded,
         displayText: '从相册找到 ${matches.length} 个可能结果',
         promptData: '''
-已真实、只读地检索她的本地已保存相册。以下摘要来自保存时的识图结果，可能不完整；不得声称重新看见了原图，也不得把摘要当成绝对准确的视觉事实。
-${ambiguous ? '结果不唯一。不要假装确定是哪一张；请结合当前对话简短追问，或清楚说明找到的是几个可能结果。' : '可以基于最匹配条目自然回想，但不要补写条目中没有的细节。'}
+这是已存相册目录。creation_intent 是出图时的创作意图，saved_summary 是已有摘要。要回答图上实际画了什么，用对应 handle 调用 album.inspect 观察同一张图。
+${recent ? '结果按实际保存时间从新到旧排列。' : ambiguous ? '有多个可能结果；先结合上下文或标签、时间继续定位，仍不明确再向用户确认。' : '结果按内容相关性排列。'}
 ${lines.join('\n')}
 '''.trim(),
         resultCount: matches.length,
@@ -2508,6 +2519,8 @@ ${lines.join('\n')}
         'anime' => '二次元作品',
         'landscape' => '风景',
         'sticker' => '表情包',
+        'generated' => '生图',
+        'diary' => '日记',
         _ => '其他收藏',
       };
 

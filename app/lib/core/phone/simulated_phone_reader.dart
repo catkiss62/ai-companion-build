@@ -127,6 +127,8 @@ class SimulatedPhoneReader {
         source: item.sourceDomain,
         facts: {'source_kind': item.sourceKind, 'lifecycle': item.lifecycle,
           'saved_at': item.savedAt?.millisecondsSinceEpoch,
+          'tag_keys': item.tags,
+          'description_kind': item.sourceKind == 'generated_illustration' ? 'creation_intent' : 'saved_summary',
           'original_available': item.hasOriginal, 'image_reobserved': false},
       ));
     }

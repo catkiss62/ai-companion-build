@@ -33,7 +33,7 @@ class AgentProgressTracker {
       if(id=='rules.read') ...['rule_layers','reference_documents','reference_items'],
       if(id=='memory.search') ...['memory_items','memory_evidence','unfinished_threads','qq_archive','qq_images','qq_notes'],
       if(id.startsWith('phone.')) ...['thoughts','public_web_knowledge','companion_browser_visits','memory_items'],
-      if(id=='album.search') 'companion_album_candidates',
+      if(id.startsWith('phone.') || id.startsWith('album.')) 'companion_album_candidates',
     ];
     final sql=await db.database;
     final data=<Object?>[
@@ -51,6 +51,7 @@ class AgentProgressTracker {
   void rememberRead(AgentToolCall call, String state, AgentToolResult result) {
     // Original-history reads carry final-transaction source dependencies and
     // are always executed again rather than replaying potentially stale text.
+    if (call.toolId == 'album.inspect' && !result.succeeded) return;
     if (result.historySources.isEmpty && result.qqEvidence==null) _reads[_key(call, state)] = result;
   }
 

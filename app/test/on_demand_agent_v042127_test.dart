@@ -35,14 +35,18 @@ void main(){
     final ids=request.toolIds(cedarConfigured:true);
     expect(ids,contains('cedar_toy.list_games'));expect(ids,contains('device_context.read'));
     expect(ids,contains('system_self.read'));expect(ids,isNot(contains('cedar_toy.play')));
+    expect(ids,containsAll(['album.search','album.inspect','qq_history.read']));
     expect(ids,isNot(contains('screen_observation.inspect')));
     expect(request.definitions(ids),isNotEmpty);
-    expect(const OnDemandAgentEntry('问题',{'web'}).toolIds(cedarBlindPlay:true),isEmpty);
+    final blind = const OnDemandAgentEntry('问题',{'web'}).toolIds(cedarBlindPlay:true);
+    expect(blind, isNot(contains('public_web.search')));
+    expect(blind, isNot(contains('public_web.read')));
+    expect(blind, contains('album.inspect'));
     expect(OnDemandAgentEntry.parse([const DeepSeekToolCall(id:'r',name:'agent_request',
       arguments:'{"goal":"","families":["system"]}')]),isNull);
   });
   for(final second in [false,true]){
-    for(final action in ['direct','choose','cancel']){
+    for(final action in ['direct','choose','switch_family','cancel']){
       test('real ${second?'second':'first'} channel $action chooses the optional entry without per-turn planning',()async{
         final files=await Directory.systemTemp.createTemp('optional-agent-');
         final previous=PathProviderPlatform.instance;PathProviderPlatform.instance=_Paths(files.path);
@@ -63,6 +67,11 @@ void main(){
             plans++;expect(request.url.host,isNot('relay.invalid'));
             if(action=='cancel')token.cancel();
             if(plans==1)return _reply(_call('system_self_read',{'scope':'facts'}),finish:'tool_calls');
+            if(plans==2 && action=='switch_family'){
+              expect(names,contains('album_search'));
+              expect(jsonEncode(body['messages']),contains('system_self.read'));
+              return _reply(_call('album_search',{'order':'latest'}),finish:'tool_calls');
+            }
             return _reply({'content':'已经足够。'});
           }
           if(body.containsKey('max_tokens'))return _reply({'content':'{}'});
@@ -96,9 +105,11 @@ void main(){
             expect(result.status,'cancelled_by_user');expect(await db.messageById('a'),isNull);
           }else{
             expect(result.status,'completed',reason:result.error?.toString());
-            expect(finals,action=='direct'?1:2);expect(plans,action=='direct'?0:2);
+            expect(finals,action=='direct'?1:2);
+            expect(plans,switch(action){'direct'=>0,'switch_family'=>3,_=>2});
             final records=await db.recentAgentToolOutcomeRecords(limit:10);
             expect(records.where((r)=>r.toolId=='system_self.read'),hasLength(action=='direct'?0:1));
+            expect(records.where((r)=>r.toolId=='album.search'),hasLength(action=='switch_family'?1:0));
             expect((await db.messageById('a'))!.content,isNot(contains('agent_request')));
           }
         }finally{
