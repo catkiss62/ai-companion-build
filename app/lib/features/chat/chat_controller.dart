@@ -1607,11 +1607,23 @@ class ChatController extends ChangeNotifier {
           : ChatLanguage.chinese;
       final speechText = projectedAssistant.contentFor(speechLanguage);
       final leadIn = emotionCueStarted ? emotionLeadIn : Future<void>.value();
-      final intent = playbackIntent;
-      if (intent != null) {
-        unawaited(_playReplySpeech(
-          result.assistant!, speechText, intent, leadIn, speechLanguage,
-        ));
+      if (autoTts) {
+        final intent = playbackIntent!;
+        unawaited(
+          ttsPlayback.playText(
+            speechText,
+            intent: playbackIntent,
+            manual: false,
+            ownerId: result.assistant!.id,
+            emotion: _ttsEmotionCue(result.assistant!),
+            leadIn: leadIn,
+            language: speechLanguage,
+          ).then<void>((_) async {
+            if (intent.valid) await ttsPlayback.waitUntilIdle();
+          }, onError: (Object _, StackTrace __) async {
+            if (intent.valid) await ttsPlayback.stop();
+          }).whenComplete(() => _finishSmallFormTail(result.assistant!.id)),
+        );
       }
       await memoryExtractor.extractFromTurn(
         user: user,
@@ -2114,23 +2126,6 @@ class ChatController extends ChangeNotifier {
     } finally {
       _preparingLanguageVariants.remove(key);
       _safeNotify();
-    }
-  }
-
-  Future<void> _playReplySpeech(
-    ChatMessage reply, String text, PlaybackIntent intent,
-    Future<void> leadIn, ChatLanguage language,
-  ) async {
-    try {
-      await ttsPlayback.playText(
-        text, intent: intent, manual: false, ownerId: reply.id,
-        emotion: _ttsEmotionCue(reply), leadIn: leadIn, language: language,
-      );
-      if (intent.valid) await ttsPlayback.waitUntilIdle();
-    } catch (_) {
-      if (intent.valid) await ttsPlayback.stop();
-    } finally {
-      _finishSmallFormTail(reply.id);
     }
   }
 

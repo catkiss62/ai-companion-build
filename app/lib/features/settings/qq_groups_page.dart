@@ -54,7 +54,7 @@ class _QqGroupsPageState extends State<QqGroupsPage> {
   @override Widget build(BuildContext context)=>Scaffold(appBar:AppBar(title:const Text('QQ 群聊与公开资料'),actions:[
     IconButton(onPressed:_busy?null:()=>_load(),icon:const Icon(Icons.refresh))]),body:_loading?const Center(child:CircularProgressIndicator()):ListView(
       padding:const EdgeInsets.all(16),children:[
-        const Text('群聊使用同一个小鲸鱼，但只读取本群资料和你在下面明确公开的内容。私人完整记忆不会注入群模型。群内称呼保持中性。'),
+        const Text('群聊使用同一个小鲸鱼，只读取本群资料和你在下面明确公开的内容。群里通常用中性称呼，已确认的绑定本人也可被称为“主人”。'),
         const SizedBox(height:12),
         const Text('先把机器人加入群并 @ 一次，再刷新列表。未开启的群只登记入口，不读私人记忆或调用模型。普通消息旁听还需腾讯平台提供群全量消息权限；仅收到@时无法看到未投递的消息。'),
         for(final g in _groups) Column(children:[SwitchListTile(contentPadding:EdgeInsets.zero,
