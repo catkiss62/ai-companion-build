@@ -2,8 +2,8 @@
 
 ## 当前接班快照
 
-- 开发分支 `agent/v042107-review-recovery`。已交付独立生图测试版 `v0.42.178+422`、schema67，构建提交 `d3ef0c1`。[下载 APK](https://github.com/catkiss62/ai-companion-build/actions/runs/42838498287/artifacts/13779705107)
-- 独立系统逻辑 CI 和签名 APK 构建已通过。用户真机确认生图正常，发现相册检索与观察断链，见本页「Agent 读取与相册观察」。
+- 开发分支 `agent/v042107-review-recovery`。已交付相册 Agent 测试版 `v0.42.179+423`、schema67，构建提交 `7b60a25`。[下载 APK](https://github.com/catkiss62/ai-companion-build/actions/runs/42881157026/artifacts/13796077131)
+- 独立系统逻辑 CI 和签名 APK 构建已通过。上一版生图已由用户真机确认。本版相册像素观察、Agent 工具切换及新图标签待真机核对。
 - 新窗口先核对最新运行提交、最近 5 笔和对应 Actions 摘要，再按本页任务入口定点读取。
 
 ## 维护约定
@@ -20,7 +20,10 @@
 - 已实现：新生图入库加「二次元」。计划单独标记目标角色，确认是她自己才加「形象插画」。旧计划仅在使用鲸鱼预设且未替换身份外观时自动判定。标签在现有相册事务中合并，聊天和日记共用同一份图。已有相册标签无批量回填。
 - 恢复与回归：一次会话中断丢失未提交工作，按已核对方案恢复后先做本地提交。测试用 SQLite FFI 需要系统 soname，本地补链接后验证。两个旧重入测试用工具菜单的互斥推断阶段，改按实际重入阶段模拟，保留原本的运行状态 Outcome 断言。
 - 本地验证通过：Flutter 3.44.9 共 117 项定向测试，覆盖跨工具读取、三通道、Cedar 重入、按时间及标签选图、所选预览字节、拒绝已删图片、形象标签与媒体去重。Dart 静态分析无错误，受保护文件校验和 Git 差异检查通过。本地缺部分与这组测试无关的展示资源，GitHub CI、签名 APK 及识图真机仍待验证。
-- 构建候选：`v0.42.179+423`，沿用 schema67 与原签名。工作流使用独立测试草稿、产物名和监控路径；历史版本门槛逐项加入 `+423`。
+- 推送与构建：`v0.42.179+423` 沿用 schema67 与原签名。工作流使用独立测试草稿、产物名和监控路径。历史版本检查逐项加入 `+423`，Agent 自报版本随应用同步。用 GitHub Git Data API 快进开发分支，本地 `fa39f5a` / `6d3cd40` 分别对应远端 `1e819c2` / `7b60a25`，两组源码树已核对一致。
+- CI 通过：独立 CI 和签名 APK 工作流均从 `7b60a25c2b2a615dd71e02ed2550fb3ea09d631e` 成功完成。打包前通过 167 项源码检查、全量 Flutter、Kotlin、Android 兼容和恢复相关验证。四项本地缺资源或编译器的检查已由远端工作流通过。[独立 CI](https://github.com/catkiss62/ai-companion-build/actions/runs/42881157096) [APK 构建](https://github.com/catkiss62/ai-companion-build/actions/runs/42881157026)
+- APK 已交付：独立草稿 `440819895`，资产 `732686402`，740764518 字节。签名指纹与既有版本一致，APK SHA-256 `cef4889209dc1d5978f94dd263cd7fc414626b173b367c9f3a989861fb67cd19` 已与草稿资产摘要核对。[下载 APK](https://github.com/catkiss62/ai-companion-build/actions/runs/42881157026/artifacts/13796077131) [草稿](https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-95e883b95a26c12dd930)
+- 待真机：从普通聊天让她查看刚生成的图片，核对返回内容依据实际画面。确认新图「二次元」和本人「形象插画」标签。
 
 ## 2026-11-10 · 独立生图能力
 
