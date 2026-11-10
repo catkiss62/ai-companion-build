@@ -1,4 +1,6 @@
 import 'dart:convert';
+
+import '../illustration/illustration_prompt.dart';
 import 'dart:async';
 
 import '../ai/deepseek_client.dart';
@@ -55,10 +57,11 @@ class SimulatedDiaryMaterial {
 }
 
 class SimulatedDiaryDraft {
-  const SimulatedDiaryDraft({required this.body, required this.focusKind});
+  const SimulatedDiaryDraft({required this.body, required this.focusKind, this.illustration});
 
   final String body;
   final String focusKind;
+  final IllustrationPlan? illustration;
 }
 
 abstract interface class SimulatedDiaryGenerator {
@@ -138,6 +141,8 @@ class DeepSeekSimulatedDiaryGenerator implements SimulatedDiaryGenerator {
   }) async {
     final apiKey = (await _secureConfig.readApiKey())?.trim() ?? '';
     if (apiKey.isEmpty) return null;
+  final drawing = await _secureConfig.readIllustration();
+    final wantsIllustration = drawing.active && drawing.diary;
     final client = _clientFactory();
     try {
       final payload = await client.jsonCompletion(
@@ -145,7 +150,7 @@ class DeepSeekSimulatedDiaryGenerator implements SimulatedDiaryGenerator {
         endpoint: await _secureConfig.readEndpoint(),
         model: await modelLoader(),
         thinking: false,
-        maxTokens: 1100,
+        maxTokens: wantsIllustration ? 1650 : 1100,
         usageLane: 'simulated_diary',
         messages: [
           const {
@@ -163,6 +168,12 @@ class DeepSeekSimulatedDiaryGenerator implements SimulatedDiaryGenerator {
                 '不得逐项复述，不要使用“不是流水账”“轻轻收在这里”“作为AI”等固定元话术。'
                 '避开近期日记的句式、开头、结尾和中心话题；但不能为了不同而发明新事实。'
                 '只返回 {"body":"日记正文","focus_kind":"shared_moment|care|thread|awareness|quiet_day"}。',
+          },
+          if (wantsIllustration) {
+            'role': 'system',
+            'content': '在日记 JSON 里额外返回一个 illustration 对象，为当天日记画一张插画。'
+                '选一个画面或安静日子的象征意象。不要新增现实事实。'
+                '${IllustrationPlan.instructions}',
           },
           {
             'role': 'user',
@@ -190,7 +201,11 @@ class DeepSeekSimulatedDiaryGenerator implements SimulatedDiaryGenerator {
     if (body.length < 60 || body.length > 800 || !allowed.contains(focus)) {
       throw const FormatException('日记 JSON 字段不完整或越界');
     }
-    return SimulatedDiaryDraft(body: body, focusKind: focus);
+    final visual = payload['illustration'];
+    return SimulatedDiaryDraft(
+      body: body, focusKind: focus,
+      illustration: visual is Map<String, dynamic> ? IllustrationPlan.fromJson(visual) : null,
+    );
   }
 
   static String _cleanBody(Object? raw) => raw

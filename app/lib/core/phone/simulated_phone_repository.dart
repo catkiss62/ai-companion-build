@@ -1,4 +1,7 @@
 import '../ai/first_channel_model.dart';
+import '../illustration/illustration_job.dart';
+import '../illustration/illustration_worker.dart';
+import '../storage/secure_config.dart';
 import '../wishes/wish_store.dart';
 import '../mood/mood_service.dart';
 import 'dart:convert';
@@ -168,7 +171,7 @@ class SimulatedPhoneRepository {
 
   static const enabledKey = 'simulated_phone_enabled';
   static const _leaseKey = 'simulated_phone_refresh_lease_until';
-  static const _diaryKey = 'simulated_phone_diary_json';
+  static const _diaryKey = IllustrationJob.diaryEntriesKey;
   static const _diaryAttemptAtKey = 'simulated_phone_diary_attempt_at';
   static const _diaryPendingKey = 'simulated_phone_diary_pending_v1';
   static const _diaryRepairAtKey = 'simulated_phone_diary_repair_at';
@@ -576,9 +579,23 @@ class SimulatedPhoneRepository {
     );
     final updated = existing == null ? [next, ...entries] :
         entries.map((entry) => entry.id == existing.id ? next : entry).toList();
-    await _writeList(_diaryKey, updated.take(180).toList());
     pending.remove(day);
-    await _writeRefreshSetting(_diaryPendingKey, jsonEncode(pending));
+    final connection = await SecureConfig.instance.readIllustration();
+    final job = existing == null && connection.active && connection.diary
+        ? IllustrationJob(source: IllustrationSource.diary, ownerId: next.id,
+            intent: '给这篇日记画一张插画', context: next.body, plan: generated.illustration)
+        : null;
+    final fence = _refreshFence;
+    if (fence == null || !await db.setSettingsAtomically({
+      _diaryKey: jsonEncode(updated.take(180).map((entry) => entry.toJson()).toList()),
+      _diaryPendingKey: jsonEncode(pending),
+      if (job != null) job.key: jsonEncode(job.initial()),
+      for (final expired in updated.skip(180))
+        '${IllustrationJob.diaryMediaPrefix}${expired.id}': '',
+    }, workFence: fence, expectedSettings: _enabledGuard)) {
+      throw const BrainWorkInvalidated();
+    }
+    if (job != null) IllustrationWorker(db).start();
   }
 
   Future<void> _refreshMood(DateTime now) async {

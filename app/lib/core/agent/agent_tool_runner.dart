@@ -1617,7 +1617,7 @@ ${CedarToyClient.redactSecrets(outcome.text)}''',
         displayText: '已从相册准备真实图片',
         promptData: '''
 【ALBUM IMAGE ATTACHMENT · TERMINAL COMMIT PENDING】
-已从本地 saved、非 NSFW 相册中匹配真实图片。title=${_oneLine(prepared.sourceTitle, 220)}，已存视觉摘要=${_bounded(prepared.summary, 1000)}。
+已从本地 saved、非 NSFW 相册中匹配真实图片。title=${_oneLine(prepared.sourceTitle, 220)}，${selected.sourceKind == 'generated_illustration' ? '已存创作意图（未识图）' : '已存视觉摘要'}=${_bounded(prepared.summary, 1000)}。
 本轮没有重新联网识图，也没有修改相册或已读状态。附件只在 assistant message 事务成功后才算发送。
 '''.trim(),
         resultCount: 1,

@@ -129,6 +129,23 @@ class AssistantImageAttachmentService {
     }
     final relative = item.hasOriginal ? item.originalPath : item.thumbnailPath;
     final file = await albumStorage.fileFor(relative);
+    if (item.sourceKind == 'generated_illustration') {
+      if (!item.hasOriginal || item.blobId.isEmpty) {
+        throw const FileSystemException('生成插画的原图已不可用');
+      }
+      final reference = await attachmentStorage.referenceSharedImage(
+        file, messageId: messageId, source: 'assistant_illustration:album',
+        database: db, pendingOwner: pendingOwner,
+      );
+      return PreparedAssistantImage(
+        attachment: reference.copyWith(
+          visionStatus: 'generated',
+          visionSummary: item.summary.replaceFirst('创作意图：', ''),
+        ),
+        summary: item.summary,
+        sourceTitle: item.title,
+      );
+    }
     final mime = item.hasOriginal && item.originalMimeType.trim().isNotEmpty
         ? item.originalMimeType
         : _mimeFor(relative);

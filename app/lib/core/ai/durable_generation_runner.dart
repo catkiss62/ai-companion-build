@@ -1,3 +1,6 @@
+import '../illustration/illustration_cue.dart';
+import '../illustration/illustration_job.dart';
+import '../illustration/illustration_worker.dart';
 import '../diagnostics/third_channel_diagnostics.dart';
 import '../diagnostics/third_channel_failure_notice.dart';
 import '../agent/on_demand_agent_entry.dart';
@@ -786,7 +789,16 @@ class DurableGenerationRunner {
                 'tool': r['tool_id'], 'status': r['status'], 'finished_at': r['finished_at'],
                 'result_count': r['result_count']}).toList()
           : const <Map<String, Object?>>[];
+      final drawingConnection = await secureConfig.readIllustration();
+      final drawingRequested = IllustrationCue.explicitRequest(user.content);
+      final canOfferDrawing = drawingConnection.active && !IllustrationCue.vetoed(user.content) &&
+          (drawingRequested || (drawingConnection.autonomous && !nsfwRoute.active));
       final baseRequestMessages = <Map<String, Object?>>[
+        if (canOfferDrawing) {
+          'role': 'system', 'content': IllustrationCue.instruction(requested: drawingRequested),
+        } else if (drawingRequested) {
+          'role': 'system', 'content': '当前生图服务未启用或未配置。只可告知用户可在「能力 → 生图」设置。',
+        },
         if(priorRemoteHistory.isNotEmpty) {'role':'system','content':
           '【同一用户请求的持久操作回执·独立于回复】${jsonEncode(priorRemoteHistory)}'
           'known表示已取得回包；仍须阅读回包判断实际动作成功或失败。已成功操作不重做；'
@@ -2369,6 +2381,19 @@ $finalGenerationReminder
         text: assistant.content,
         now: assistant.createdAt,
       );
+      final drawingCue = canOfferDrawing ? IllustrationCue.read(generated.content) : null;
+      final illustration = canOfferDrawing && (drawingCue != null || drawingRequested)
+          ? IllustrationJob(
+              source: IllustrationSource.chat,
+              ownerId: assistant.id,
+              intent: drawingCue ?? user.content,
+              context: [
+                ...previous.reversed.take(4).toList().reversed.map((m) => '${m.role}: ${m.content}'),
+                'user: ${user.content}', 'assistant: ${assistant.content}',
+              ].join('\n'),
+              requiresAutonomy: !drawingRequested,
+            )
+          : null;
       ConversationSourceStamp? committedMoeSource;
       bool committed;
       if (takeover.requested && finalTextFromGemini) continue;
@@ -2377,6 +2402,7 @@ $finalGenerationReminder
           jobId: job.id,
           runToken: job.runToken,
           assistant: assistant,
+          illustration: illustration,
           pendingMediaOwner: pendingMediaOwner,
           generationAttempt: originalAttempt,
           historySources:[for(final result in agentToolResults)...result.historySources],
@@ -2413,6 +2439,8 @@ $finalGenerationReminder
         return const GenerationRunResult(status: 'suspended');
       }
       agentAttachmentsCommitted = true;
+      if (illustration != null) IllustrationWorker(db).start();
+
       if (finalProvider.isGeminiRelay && finalReasoning.isNotEmpty) {
         onDelta?.call(DeepSeekDelta(reasoning: '【最终回复】\n$finalReasoning'));
         reasoningDeltaForwardedToSurface = onDelta != null;

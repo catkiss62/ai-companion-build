@@ -1,3 +1,4 @@
+import '../illustration/illustration_job.dart';
 import '../autonomy/public_web_share_recovery.dart';
 import '../autonomy/web_read_failure.dart';
 import 'cedar_media_schema.dart';
@@ -6413,7 +6414,8 @@ class AppDatabase {
   // cache. Keep this predicate on every path that can remove shared bytes.
   static String _backgroundOwnerGuard(String alias) =>
       "NOT EXISTS (SELECT 1 FROM settings bg WHERE bg.key = '${RoomBackgroundConfig.blobKey}' AND bg.value = $alias.id) "
-      "AND NOT EXISTS (SELECT 1 FROM cedar_event_media cm WHERE cm.blob_id = $alias.id)";
+      "AND NOT EXISTS (SELECT 1 FROM cedar_event_media cm WHERE cm.blob_id = $alias.id) "
+      "AND NOT EXISTS (SELECT 1 FROM settings ill WHERE ill.key LIKE '${IllustrationJob.diaryMediaPrefix}%' AND ill.value = $alias.id)";
 
   Future<List<MediaBlob>> allMediaBlobs() async {
     final db = await database;
@@ -8265,6 +8267,7 @@ class AppDatabase {
     required String runToken,
     required ChatMessage assistant,
     PendingMediaOwner? pendingMediaOwner,
+    IllustrationJob? illustration,
     GenerationAttemptFence? generationAttempt,
     List<QualifiedConversationSource> historySources = const [],
     TurnCommitEvidence turnCommitEvidence = const TurnCommitEvidence(),
@@ -8363,6 +8366,7 @@ class AppDatabase {
           conflictAlgorithm: ConflictAlgorithm.abort,
         );
         await _insertLanguageVariants(txn, assistant);
+        await illustration?.admit(txn);
         for (final attachment in assistant.attachments) {
           await txn.insert(
             'message_attachments',
@@ -8640,6 +8644,7 @@ class AppDatabase {
   Future<String?> commitProactiveMessageIfCurrent({
     required ChatMessage message,
     PendingMediaOwner? pendingMediaOwner,
+    IllustrationJob? illustration,
     List<CedarDeliveryClaim> cedarDeliveries = const [],
     LocalSourceGuard? cedarMediaGuard,
     required DateTime evaluationStartedAt,
@@ -8751,6 +8756,7 @@ class AppDatabase {
       await ConversationSourceStore.insertMessage(txn, message.toDb(),
         conflictAlgorithm: ConflictAlgorithm.abort);
       await _insertLanguageVariants(txn, message);
+      await illustration?.admit(txn);
       for (final attachment in message.attachments) {
         await txn.insert(
           'message_attachments',
@@ -14313,6 +14319,75 @@ class AppDatabase {
       limit: 1,
     );
     return rows.isEmpty ? null : CompanionAlbumItem.fromDb(rows.first);
+  }
+
+  /// Publish the generated original to its album and message/diary owners
+  /// together. Intent is recorded separately from a vision observation.
+  Future<bool> commitIllustration({
+    required IllustrationSource source,
+    required String ownerId,
+    required MessageAttachment attachment,
+    required String description,
+    required String terminal,
+    required BrainWorkFence fence,
+  }) async {
+    final db = await database;
+    final diary = source == IllustrationSource.diary;
+    final jobKey = IllustrationJob.keyFor(source, ownerId);
+    return db.transaction((txn) async {
+      if (!await fence.matches(txn)) return false;
+      final state = IllustrationJob.decode(await BrainWorkFence.value(txn, jobKey));
+      if (state?['state'] != 'queued') return false;
+      if (diary) {
+        final entries = await BrainWorkFence.value(txn, IllustrationJob.diaryEntriesKey);
+        if (!IllustrationJob.diaryContains(entries, ownerId)) return false;
+      } else {
+        final owner = await txn.query('messages', columns: ['role'],
+            where: 'id = ?', whereArgs: [ownerId], limit: 1);
+        if (owner.isEmpty || owner.single['role'] != 'assistant' ||
+            attachment.messageId != ownerId) return false;
+      }
+      final blobs = await txn.query('media_blobs', where: 'id = ?',
+          whereArgs: [attachment.blobId], limit: 1);
+      if (blobs.isEmpty) return false;
+      final blob = MediaBlob.fromDb(blobs.single);
+      final now = DateTime.now().millisecondsSinceEpoch;
+      await txn.insert('companion_album_candidates', {
+        'id': jobKey, 'source_kind': 'generated_illustration', 'source_id': ownerId,
+        'title': _bounded(description, 120),
+        'vision_summary': '创作意图：${_bounded(description, 180)}',
+        'vision_model': '', 'ai_reason': '她为${diary ? '日记' : '这次聊天'}绘制的插画',
+        'category': 'generated',
+        'user_tags_json': jsonEncode(['generated', if (diary) 'diary']),
+        'category_source': 'generated', 'lifecycle_state': 'saved',
+        'thumbnail_path': attachment.thumbnailPath,
+        'content_sha256': blob.thumbnailSha256,
+        'original_path': attachment.originalPath,
+        'original_content_sha256': blob.originalSha256,
+        'original_mime_type': blob.mimeType, 'original_byte_size': blob.byteSize,
+        'original_status': 'stored', 'blob_id': blob.id,
+        'width': blob.width, 'height': blob.height,
+        'created_at': now, 'updated_at': now, 'saved_at': now, 'unread': 1,
+      }, conflictAlgorithm: ConflictAlgorithm.abort);
+      await txn.rawUpdate(
+        'UPDATE media_blobs SET album_ref_count = album_ref_count + 1 WHERE id = ?',
+        [blob.id],
+      );
+      if (diary) {
+        await txn.insert('settings', {
+          'key': '${IllustrationJob.diaryMediaPrefix}$ownerId', 'value': blob.id,
+        }, conflictAlgorithm: ConflictAlgorithm.replace);
+      } else {
+        final generated = attachment.copyWith(
+          visionStatus: 'generated', visionSummary: _bounded(description, 180),
+        );
+        await txn.insert('message_attachments', generated.toDb(),
+            conflictAlgorithm: ConflictAlgorithm.abort);
+        await _retainMessageMediaBlob(txn, generated);
+      }
+      await txn.update('settings', {'value': terminal}, where: 'key = ?', whereArgs: [jobKey]);
+      return true;
+    });
   }
 
   Future<bool> beginCompanionAlbumCandidate({
@@ -20457,7 +20532,9 @@ class AppDatabase {
       final result = <String, Object?>{};
       for (final table in tables) {
         if (table == 'settings') {
-          result[table] = (await SqliteSettingsReader.readAll(txn)).where((r)=>!const {'qq_master_enabled_v2','qq_master_owner_v2'}.contains(r['key'])).toList();
+          result[table] = (await SqliteSettingsReader.readAll(txn))
+              .where((r) => !const {'qq_master_enabled_v2', 'qq_master_owner_v2'}.contains(r['key']))
+              .map(IllustrationJob.forPortableSnapshot).toList();
         } else if (table == 'post_turn_jobs') {
           // Completed maintenance jobs are device-local bookkeeping; only carry
           // unfinished work across a phone/tablet Active Brain transfer.

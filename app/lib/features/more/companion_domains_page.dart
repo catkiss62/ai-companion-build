@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../memory/memory_page.dart';
+import '../illustration/illustration_settings_page.dart';
 import '../reference/reference_library_page.dart';
 import '../relationship/relationship_page.dart';
 import '../self/personality_appearance_page.dart';
@@ -72,6 +73,12 @@ class CapabilitiesDomainPage extends StatelessWidget {
             title: '模型、联网、识图与 TTS',
             subtitle: '现有能力配置真源；后续再按能力继续细拆',
             onTap: () => Navigator.of(context).pushNamed('/settings'),
+          ),
+          _DomainEntry(
+            icon: Icons.auto_awesome_outlined,
+            title: '生图',
+            subtitle: '出图服务、主动附图和日记配图',
+            onTap: () => _push(context, const IllustrationSettingsPage()),
           ),
           _DomainEntry(
             icon: Icons.sports_esports_outlined,

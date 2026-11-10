@@ -1,3 +1,6 @@
+import '../illustration/illustration_cue.dart';
+import '../illustration/illustration_job.dart';
+import '../illustration/illustration_worker.dart';
 import '../diagnostics/third_channel_diagnostics.dart';
 import '../mcp/cedar_activity_media.dart';
 import '../../integrations/qq_private/qq_history_context_policy.dart';
@@ -1661,7 +1664,13 @@ class ProactiveEngine {
     if (webShareCandidateId != null && promptBuild.expectedPublicWebShare == null) {
       return const ProactiveDecision(sent: false, reason: '网页分享来源或线索状态已变化');
     }
+    final drawingConnection = await secureConfig.readIllustration();
+    final canOfferDrawing = drawingConnection.active && drawingConnection.autonomous &&
+        !isCedarGameShare && webShareCandidateId == null && qqShare == null;
     final context = promptBuild.messages.toList(growable: true);
+    if (canOfferDrawing) {
+      context.add({'role': 'system', 'content': IllustrationCue.instruction(requested: false)});
+    }
     context.add({'role':'system','content':QqHistoryContextPolicy.proactiveBoundary});
     if (startsFreshTopic) {
       final closed = await (await db.database).query('unfinished_threads',
@@ -2474,8 +2483,14 @@ ${PromptBuilder.visibleChineseGenerationReminder(proactive: true, ordinaryAction
       await noteGeneration('guard_blocked', reasonTag: 'cedar_delivery_unverified');
       return const ProactiveDecision(sent: false, reason: 'cedar_share_delivery_unverified');
     }
+    final drawingCue = canOfferDrawing ? IllustrationCue.read(candidate.content) : null;
+    final illustration = drawingCue == null ? null : IllustrationJob(
+      source: IllustrationSource.proactive, ownerId: message.id,
+      intent: drawingCue, context: message.content, requiresAutonomy: true,
+    );
     final commitBlock = await db.commitProactiveMessageIfCurrent(
       message: message,
+      illustration: illustration,
       actedThoughtId: !isCedarGameShare ? intentThought?.id : null,
       feedback: {
         'thought_id': intent.thoughtId,
@@ -2529,6 +2544,7 @@ ${PromptBuilder.visibleChineseGenerationReminder(proactive: true, ordinaryAction
         deliveryStyle: deliveryStyle,
       );
     }
+    if (illustration != null) IllustrationWorker(db).start();
     if (cedarCandidates.isNotEmpty && cedarDeliveries.verified.length != cedarCandidates.length) {
       // Optional verifier failure may keep the first natural message. It is
       // still unproved responsibility, and later checks inspect this saved body.

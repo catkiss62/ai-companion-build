@@ -7,6 +7,8 @@ import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
 
 import '../../core/database/app_database.dart';
+import '../../core/illustration/illustration_job.dart';
+import '../illustration/illustration_result_view.dart';
 import '../../core/phone/mood_chart_layout.dart';
 import '../../core/phone/simulated_phone_repository.dart';
 import '../../core/models/companion_album.dart';
@@ -2799,6 +2801,8 @@ class EntryDetailPage extends StatelessWidget {
               style:
                   const TextStyle(color: text1, fontSize: 15.5, height: 1.8),
             ),
+            if (entry.kind == 'diary')
+              IllustrationResultView(source: IllustrationSource.diary, ownerId: entry.id),
           ],
         ),
       );
@@ -3069,6 +3073,8 @@ String albumCategoryLabel(String value) => switch (value) {
       'anime' => '二次元',
       'landscape' => '风景',
       'sticker' => '表情包',
+      'generated' => '生图',
+      'diary' => '日记',
       _ => '其他',
     };
 

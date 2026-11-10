@@ -106,6 +106,9 @@ class ChatMessage {
             ? '[我发送了一张表情包]'
             : '[我发送了一张表情包；索引说明（图片内容或常见用法参考，具体含义结合当时语境）：$meaning]';
       }
+      if (isAssistant && item.source.startsWith('assistant_illustration:')) {
+        return '[我发了一张原创插画；创作意图：${item.visionSummary.trim()}]';
+      }
       if (isAssistant) {
         if (item.visionCompleted) {
           return '[我发送了一张图片；图片内容：${item.visionSummary.trim()}]';

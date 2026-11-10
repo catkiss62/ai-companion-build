@@ -1,3 +1,4 @@
+import '../illustration/illustration_worker.dart';
 import '../mcp/cedar_play_session_policy.dart';
 import 'dart:math';
 
@@ -57,6 +58,7 @@ class RecoveryOrchestrator {
     bool allowProactive = true,
   }) async {
     await db.ensureReady();
+    IllustrationWorker(db).start();
     try {
       await ImmersiveArchiveWorker(db).drainOne();
     } catch (_) {

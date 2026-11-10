@@ -1,3 +1,5 @@
+import '../../core/illustration/illustration_job.dart';
+import '../illustration/illustration_result_view.dart';
 import '../creative/creative_pages.dart';
 import '../creative/balance_with_spend.dart';
 import 'chat_tail_follower.dart';
@@ -2983,6 +2985,7 @@ class _MessageBubble extends StatelessWidget {
             onFinished: onAnimationFinished,
             footer: _footer(context),
           ),
+          IllustrationResultView(source: IllustrationSource.chat, ownerId: message.id),
         ],
       );
     }
@@ -3013,6 +3016,13 @@ class _MessageBubble extends StatelessWidget {
                 onRetry: onRetryVision,
               ),
           ],
+        if (message.isAssistant)
+          IllustrationResultView(
+            source: message.isProactive ? IllustrationSource.proactive : IllustrationSource.chat,
+            ownerId: message.id,
+            attachmentVisible: message.attachments.any(
+              (a) => a.source.startsWith('assistant_illustration:')),
+          ),
         if (message.content.trim().isNotEmpty) ...[
           if (message.hasAttachments) const SizedBox(height: 8),
           if (message.isAssistant)

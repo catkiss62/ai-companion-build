@@ -3,6 +3,7 @@ import 'package:crypto/crypto.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 
 import '../ai/chat_api_provider.dart';
+import '../illustration/illustration_client.dart';
 import '../ai/third_channel_config.dart';
 
 class SecureConfig {
@@ -50,6 +51,18 @@ class SecureConfig {
     }
     await _storage.write(key: _thirdChannelName, value: config.encode());
   }
+
+  static const _illustrationName = 'illustration_connection_v1';
+  Future<IllustrationConnection> readIllustration() async {
+    try {
+      return IllustrationConnection.decode(await _storage.read(key: _illustrationName));
+    } catch (_) {
+      return const IllustrationConnection();
+    }
+  }
+
+  Future<void> writeIllustration(IllustrationConnection connection) =>
+      _storage.write(key: _illustrationName, value: connection.encode());
 
   /// Explicit allowlist: never enumerate secure storage, which also owns keys,
   /// Cedar tokens and other credentials. Null preserves an unset/default value.

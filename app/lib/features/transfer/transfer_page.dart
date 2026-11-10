@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 import '../../core/database/app_database.dart';
 import '../../core/platform/android_bridge.dart';
 import '../../core/sync/snapshot_cache_janitor.dart';
+import '../../core/sync/check_pack_export.dart';
 import '../../core/sync/snapshot_service.dart';
 import '../../core/sync/snapshot_restore_coordinator.dart';
 import '../../core/phone/calendar_reminder_store.dart';
@@ -541,6 +542,20 @@ class _TransferPageState extends State<TransferPage> {
     }
   }
 
+  Future<void> _exportCheckPack() async {
+    setState(() => busy = true);
+    try {
+      final saved = await CheckPackExport(db).save();
+      _append(saved ? '精简检查包已保存，包含近期记录和图片索引。' : '已取消保存检查包。');
+    } on FormatException catch (error) {
+      _append('检查包导出失败：${error.message}');
+    } catch (_) {
+      _append('检查包导出失败，请稍后重试。');
+    } finally {
+      if (mounted) setState(() => busy = false);
+    }
+  }
+
   Future<void> _backupImport() => _restoreBackupFromPicker(
         picker: android.openPlainBackup,
         cancelMessage: '已取消选择备份文件。',
@@ -667,6 +682,16 @@ class _TransferPageState extends State<TransferPage> {
             child: const Text('恢复旧版文件夹备份'),
           ),
         ),
+        const SizedBox(height: 22),
+        Align(
+          alignment: Alignment.centerLeft,
+          child: OutlinedButton.icon(
+            onPressed: busy ? null : _exportCheckPack,
+            icon: const Icon(Icons.description_outlined),
+            label: const Text('导出精简检查包'),
+          ),
+        ),
+        const Text('包含近期聊天、日记和相册索引，不含图片文件或 API 配置，供排查使用。'),
         const SizedBox(height: 22),
         Text('换机与旧接管包', style: Theme.of(context).textTheme.titleMedium),
         const SizedBox(height: 4),

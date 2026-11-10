@@ -149,6 +149,8 @@ const Set<String> companionAlbumTagKeys = <String>{
   'anime',
   'landscape',
   'sticker',
+  'generated',
+  'diary',
   'other',
 };
 
