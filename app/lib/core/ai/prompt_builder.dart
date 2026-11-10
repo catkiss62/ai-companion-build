@@ -16,6 +16,7 @@ import '../autonomy/public_web_share_policy.dart';
 import '../autonomy/web_page_evidence.dart';
 import 'generation_cancellation.dart';
 import '../mood/mood_service.dart';
+import '../history/conversation_history_reader.dart';
 import '../memory/conversation_recall_policy.dart';
 import '../memory/remembered_user_facts.dart';
 import '../agent/agent_tool.dart';
@@ -215,6 +216,14 @@ class PromptBuilder {
       ],
       activeSession: session,
     );
+    final requestedHistoryDay = mode == PromptGenerationMode.userTurn &&
+            retrievalQuery == null && !freshTopicSourceOnly && !worldBookContext.hasRoleplay
+        ? ConversationRecallPolicy.historyDay(baseQuery, now: instant)
+        : null;
+    final datedHistory = requestedHistoryDay == null
+        ? ''
+        : await ConversationHistoryReader(db).recallDay(requestedHistoryDay,
+            excludedMessageIds: {latestUserMessageId, ...excludedAssistantSources});
     final promptRecent = worldBookContext.hasRoleplay
         ? WorldBookHistoryPolicy.forActiveRoleplay(
             recent,
@@ -437,6 +446,7 @@ class PromptBuilder {
         ..writeln(DailyContinuityPresentation.formatForPrompt(dailyContinuity))
         ..writeln(referenceLibrary.formatForPrompt(references))
         ..writeln(_publicKnowledgeSection(publicKnowledge));
+      if (datedHistory.isNotEmpty) context.writeln(datedHistory);
     } else {
       context.writeln(
         '【新话题来源隔离】本轮不提供旧 Memory、关系事件、近日连续性、参考资料或既有公共知识正文；'

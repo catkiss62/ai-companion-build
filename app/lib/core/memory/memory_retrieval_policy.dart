@@ -69,6 +69,21 @@ class MemoryRetrievalPolicy {
       .toLowerCase()
       .replaceAll(RegExp(r'[^a-z0-9_\\u3400-\\u9fff]+'), '');
 
+  /// Aliases extend the existing searchable tags on accepted memories.
+  static List<String> normalizeRecallAliases(Object? raw) {
+    if (raw is! List) return const [];
+    final aliases = <String>{};
+    for (final value in raw.whereType<String>().take(8)) {
+      final alias = value.trim();
+      final size = alias.runes.length;
+      if (size < 3 || size > 16 || RegExp(r'[\r\n\t]').hasMatch(alias) ||
+          tokensFor(alias).isEmpty) continue;
+      aliases.add(alias);
+      if (aliases.length == 2) break;
+    }
+    return aliases.toList(growable: false);
+  }
+
   static bool hasDirectTextEvidence(String query, String candidate) {
     final queryTokens = tokensFor(query);
     final candidateTokens = tokensFor(candidate);

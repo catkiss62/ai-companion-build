@@ -36,6 +36,7 @@ import '../memory/memory_maintenance_engine.dart';
 import '../memory/memory_grounding_policy.dart';
 import '../memory/memory_lifecycle_policy.dart';
 import '../memory/memory_revision.dart';
+import '../memory/memory_retrieval_policy.dart';
 import '../memory/shared_growth_policy.dart';
 import '../mcp/cedar_game_arrangements.dart';
 import 'deepseek_client.dart';
@@ -463,6 +464,7 @@ ${CedarGameArrangementStore.instruction}
 13.2 每条 memory 还要给出生命周期建议，但手机本地规则拥有最终决定权：
    - fact_state：stable / ongoing / completed / cancelled / unknown，表示事实本身处于什么阶段。
    - attention_state：active / snoozed / closed，表示现在是否值得继续追问；已完成、取消的事项必须 closed。
+   - recall_aliases：可选，最多两个与该条记忆同义的短检索词，例如“自行车通勤”可用“骑单车”。保留主体、时间限定和语义；泛词、猜测、一次性玩笑和无需别名的记忆填空数组。此字段只帮助检索，不构成新事实。
    - recall_policy：contextual / reminiscence / identity / followup。普通工作进度默认 contextual；只有当前确实存在的未完成线程才可 followup；真正有情感、共同经历或身份意义的内容才可 reminiscence / identity。
    - spontaneous_salience：0~1，表示适不适合由 AI 自己想起并主动提到，不等于重要性。普通工作、维护和系统优化通常应接近 0；大事、感动或愤怒的经历、双方爱好、值得纪念的共同经历才可较高。
    - 已完成的 Live2D、呆毛等共同制作经历可以作为历史被自然回忆，但不能继续冒充待办或催收。
@@ -512,7 +514,7 @@ thread action：open / update / resolve / dismiss。update/resolve/dismiss 已�
 必须输出严格 JSON，例如：
 {
   "game_arrangements":[],
-  "memories":[{"kind":"user_profile","semantic":"current_fact","action":"replace","revision_kind":"change","target_id":"已有记忆ID或空字符串","subject_key":"user.device_evening","topic_key":"user.device_evening","actor":"user","relation":"uses","object":"user.device.android_tablet","owner":"user","temporal_scope":"stable","fact_state":"stable","attention_state":"closed","recall_policy":"contextual","spontaneous_salience":0.0,"content":"用户通常晚上会换到自己的安卓平板继续聊天","user_evidence_quote":"用户本轮原话中的逐字证据；未使用 knowledge 时可留空","importance":0.72,"confidence":0.93,"tags":["设备","习惯"]}],
+  "memories":[{"kind":"user_profile","semantic":"current_fact","action":"replace","revision_kind":"change","target_id":"已有记忆ID或空字符串","subject_key":"user.device_evening","topic_key":"user.device_evening","actor":"user","relation":"uses","object":"user.device.android_tablet","owner":"user","temporal_scope":"stable","fact_state":"stable","attention_state":"closed","recall_policy":"contextual","spontaneous_salience":0.0,"content":"用户通常晚上会换到自己的安卓平板继续聊天","user_evidence_quote":"用户本轮原话中的逐字证据；未使用 knowledge 时可留空","importance":0.72,"confidence":0.93,"tags":["设备","习惯"],"recall_aliases":[]}],
   "thoughts":[{"drive":"attachment","topic_key":"user.return_tonight","text":"你刚才主动回来继续和我聊了","strength":0.28,"continuity":"revised"}],
   "threads":[{"action":"open","thread_id":"","topic_key":"user.return_tonight","title":"等用户今晚回来","detail":"用户说晚些时候会回来继续聊","importance":0.66}],
   "relationship_events":[{"kind":"promise","topic_key":"user.return_tonight","summary":"用户说晚些时候会回来继续聊天","intensity":0.55,"valence":0.35}],
@@ -1427,6 +1429,9 @@ AI 主动消息：${outbound?.content ?? '(消息正文不可用)'}
           const <String>[]),
         if (hasSpecialStyle) '特殊风格体验',
         if (hasSpecialStyle) style.label,
+        if (!hasSpecialStyle && !externalQqReference &&
+            (item['semantic'] == 'current_fact' || item['semantic'] == 'shared_experience'))
+          ...MemoryRetrievalPolicy.normalizeRecallAliases(item['recall_aliases']),
       }.take(12).toList(growable: false);
       final subjectKey = hasSpecialStyle && kind == 'shared_experience'
           ? ''

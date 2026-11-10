@@ -30,6 +30,61 @@ class ConversationRecallPolicy {
     return selected;
   }
 
+  static final _historyDayPattern = RegExp(
+    r'(?:(?<year>\d{4})年)?(?<month>\d{1,2})月(?<day>\d{1,2})[日号]'
+    r'|(?<isoYear>\d{4})-(?<isoMonth>\d{2})-(?<isoDay>\d{2})'
+    r'|(?<week>上上|上|本|这)(?:周|星期)(?<weekday>[一二三四五六日天])'
+    r'|(?<relative>今天|昨天|前天|大前天)',
+  );
+
+  /// A single day of ordinary chat in the device's calendar.
+  /// Range questions and other archives retain their explicit tool path.
+  static DateTime? historyDay(String query, {required DateTime now}) {
+    if (query.length > 160 ||
+        RegExp(r'QQ|群聊|模型对谈|沉浸房间|角色扮演|作品内', caseSensitive: false)
+            .hasMatch(query)) return null;
+    final pastChat = RegExp(
+      r'(?:聊|说|谈|提)(?:了|过|的|到)|聊天记录|原话|(?:聊|说)(?:啥|什么)来着',
+    ).hasMatch(query);
+    final asksForHistory = RegExp(
+      r'[?？]|聊天记录|原话|记得|查(?:一下|一查)|翻(?:一下|一翻)|找(?:一下|出来)'
+      r'|(?:聊|说|谈)(?:了些|了|过)?(?:啥|什么|哪些)|叫(?:啥|什么)',
+    ).hasMatch(query);
+    if (!asksForHistory) return null;
+    final matches = _historyDayPattern.allMatches(query).toList();
+    if (matches.length != 1) return null;
+    final match = matches.single;
+    final local = now.toLocal();
+    final today = DateTime(local.year, local.month, local.day);
+    final relative = match.namedGroup('relative');
+    final weekday = match.namedGroup('weekday');
+    DateTime date;
+    if (relative != null) {
+      final daysAgo = const {'今天': 0, '昨天': 1, '前天': 2, '大前天': 3}[relative]!;
+      date = DateTime(today.year, today.month, today.day - daysAgo);
+    } else if (weekday != null) {
+      final week = match.namedGroup('week');
+      final offset = week == '上上' ? -14 : week == '上' ? -7 : 0;
+      final target = weekday == '天' ? 7 : '一二三四五六日'.indexOf(weekday) + 1;
+      date = DateTime(today.year, today.month,
+          today.day + offset + target - today.weekday);
+    } else {
+      final year = match.namedGroup('year') ?? match.namedGroup('isoYear');
+      final month = int.parse((match.namedGroup('month') ?? match.namedGroup('isoMonth'))!);
+      final day = int.parse((match.namedGroup('day') ?? match.namedGroup('isoDay'))!);
+      date = DateTime(year == null ? today.year : int.parse(year), month, day);
+      if (year == null && date.isAfter(today)) {
+        date = DateTime(today.year - 1, month, day);
+      }
+      if (date.year < 1 || date.month != month || date.day != day) return null;
+    }
+    if (date.isAfter(today)) return null;
+    if (!pastChat && !(date.isBefore(today) &&
+        RegExp(r'(?:昨天|前天|[日号一二三四五六日天]|我们|我俩|你|我)'
+            r'(?:聊|说)(?:些|了些)?(?:啥|什么)').hasMatch(query))) return null;
+    return date;
+  }
+
   static bool isFollowup(String query) {
     if (RegExp(r'换个|换一|不说|不聊|别提|不是说|另一个|另外|顺便|说到别的').hasMatch(query)) return false;
     return RegExp(r'那个|那件|那次|那台|这件|这段|这个.{0,4}(事|话题)|刚才.{0,4}(说|聊)|后来|接着说|继续说|然后呢|它.{0,4}(后来|怎么|怎样)').hasMatch(query);

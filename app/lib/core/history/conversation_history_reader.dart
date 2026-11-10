@@ -29,13 +29,16 @@ class _ChatScope {
   final List<ConversationSourceMaterial> sources;
   String get digest => ConversationHistoryReader.hash([kind, id, title, summary,
     sources.map((s) => s.source.toJson()).toList()]);
-  String get transcript => sources.map((s) {
-    final m = s.message;
-    final role = m.isUser ? 'REAL_USER_HISTORY' : 'ASSISTANT_HISTORY';
-    final at = ModelDialogueTime.format(m.createdAt.millisecondsSinceEpoch);
-    return '[消息 ' + m.id + ' | $role | $at | ' + m.historicalFormLabel +
-      (m.isProactive ? ' | 主动发言' : '') + ']\n' + m.promptContent;
-  }).join('\n\n');
+  String get transcript =>
+      sources.map((source) => _historyLine(source.message)).join('\n\n');
+}
+
+String _historyLine(ChatMessage message, {String? excerpt}) {
+  final role = message.isUser ? 'REAL_USER_HISTORY' : 'ASSISTANT_HISTORY';
+  final at = ModelDialogueTime.format(message.createdAt.millisecondsSinceEpoch);
+  return '[消息 ' + message.id + ' | $role | $at | ' + message.historicalFormLabel +
+      (message.isProactive ? ' | 主动发言' : '') + ']\n' +
+      (excerpt ?? message.promptContent);
 }
 
 /// An explicit tool lane. Normal MemoryBrain admission and its small automatic
@@ -57,6 +60,38 @@ class ConversationHistoryReader {
   }
   AgentToolResult _empty(String tool, String note) => AgentToolResult(toolId: tool,
     status: AgentToolStatus.noResult, displayText: note, promptData: note, resultCount: 0);
+
+  /// Bounded, source-checked excerpts for a day explicitly requested in chat.
+  Future<String> recallDay(DateTime day, {Set<String> excludedMessageIds = const {}}) async {
+    final fence = await db.captureBrainWorkFence();
+    if (fence == null) return '';
+    final start = DateTime(day.year, day.month, day.day);
+    final end = DateTime(day.year, day.month, day.day + 1);
+    final lines = await db.readSourceSnapshot(workFence: fence, read: (tx) async {
+      final rows = await tx.query('messages', columns: ['id'],
+        where: "role IN ('user','assistant') AND created_at >= ? AND created_at < ?",
+        whereArgs: [start.millisecondsSinceEpoch, end.millisecondsSinceEpoch],
+        orderBy: 'created_at DESC,id DESC', limit: 32);
+      final snippets = <String>[];
+      for (final row in rows) {
+        final id = row['id'] as String;
+        if (excludedMessageIds.contains(id)) continue;
+        final material = await _material(tx, id);
+        if (material == null) continue;
+        final text = material.message.promptContent;
+        if (text.trim().isEmpty) continue;
+        final excerpt = clip(text, 260);
+        snippets.add(_historyLine(material.message,
+          excerpt: excerpt.length == text.length ? excerpt : '$excerpt…〔摘录截断〕'));
+        if (snippets.length == 6) break;
+      }
+      return snippets.reversed.toList(growable: false);
+    });
+    if (lines == null) return '';
+    final date = start.toIso8601String().split('T').first;
+    final text = lines.isEmpty ? '这次没有读到符合条件的普通聊天原话。' : lines.join('\n\n');
+    return '【$date 普通聊天摘录】$contract\n以下为有界摘录，全天内容以继续追读为准。\n$text';
+  }
 
   Future<void> _prepare(BrainWorkFence fence) async {
     await (await db.database).transaction((tx) async {

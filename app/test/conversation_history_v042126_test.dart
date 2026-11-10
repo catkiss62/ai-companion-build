@@ -48,6 +48,28 @@ void main() {
     });
   }
 
+  test('date recall uses only eligible ordinary speech on the requested local day', () async {
+    final day = DateTime(2025, 1, 2);
+    await message('before-day', '日期前的原话', at: DateTime(2025, 1, 1, 23, 59));
+    await message('day-user', '蓝色贝壳是我们那天的话题',
+      at: DateTime(2025, 1, 2, 9), reasoning: 'PRIVATE_REASONING');
+    await message('day-assistant', '后来把贝壳放在窗台了',
+      at: DateTime(2025, 1, 2, 9, 1), role: 'assistant');
+    await message('excluded', '本轮待排除的消息', at: DateTime(2025, 1, 2, 10));
+    await message('fiction-day', '虚构场景不得进入日期摘录',
+      at: DateTime(2025, 1, 2, 11), roleplay: true);
+    await message('next-day', '次日零点的原话', at: DateTime(2025, 1, 3));
+    final result = await reader.recallDay(day, excludedMessageIds: {'excluded'});
+    expect(result, contains('2025-01-02 普通聊天摘录'));
+    expect(result, contains('[消息 day-user | REAL_USER_HISTORY'));
+    expect(result, contains('[消息 day-assistant | ASSISTANT_HISTORY'));
+    expect(result, contains('蓝色贝壳是我们那天的话题'));
+    for (final excluded in ['日期前的原话', '次日零点的原话', 'PRIVATE_REASONING',
+        '本轮待排除的消息', '虚构场景不得进入日期摘录']) {
+      expect(result, isNot(contains(excluded)));
+    }
+  });
+
   test('old raw detail absent from memories is searchable beyond recent caps and backfills locally',() async {
     await message('old-detail','蓝色贝壳的编号是K-735，摘要从未记录这个编号。');
     final sql = await db.database;
