@@ -64,6 +64,29 @@ class QqStore {
     if(rows.isNotEmpty)await sql.update('qq_attention_events',{'consumed':1},where:'archive_seq IN ($slots)',whereArgs:ids);
     return rows.isNotEmpty;
   });
+  static const groupWakeCooldown = Duration(minutes: 30);
+  static String groupWakeKey(String cid) => 'qq_group_wake_at_v1:$cid';
+
+  Future<Set<int>> directMentionSeqs(QqBatch b) => write(b.fence, (sql) async {
+    final ids = b.rows.map((r) => r['seq']).toList();
+    final slots = List.filled(ids.length, '?').join(',');
+    final rows = await sql.query('qq_archive', columns: ['seq'],
+      where: "conversation_id=? AND seq IN ($slots) AND role='user' AND mentioned=1",
+      whereArgs: [b.cid, ...ids]);
+    return rows.map((row) => row['seq'] as int).toSet();
+  });
+
+  Future<bool> reserveGroupWake(QqBatch b, int seq, int now) => write(b.fence, (sql) async {
+    final key = groupWakeKey(b.cid);
+    final previous = int.tryParse(await BrainWorkFence.value(sql, key));
+    if (previous != null && now - previous < groupWakeCooldown.inMilliseconds) return false;
+    final rows = await sql.query('qq_archive', columns: ['seq'],
+      where: "conversation_id=? AND seq=? AND role='user' AND mentioned=1", whereArgs: [b.cid, seq]);
+    if (rows.isEmpty) return false;
+    await sql.rawInsert('INSERT OR REPLACE INTO settings(key,value) VALUES(?,?)', [key, '$now']);
+    return true;
+  });
+
   static String hash(Object? o)=>sha256.convert(utf8.encode(jsonEncode(o))).toString();
   static String conversationId(String scope,String kind,String target)=>hash([scope,kind,target]);
   static const identityKeys=['state_lineage_id','state_generation','runtime_state_epoch_v1',

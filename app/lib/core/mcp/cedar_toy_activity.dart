@@ -331,7 +331,8 @@ class CedarGameSession {
       );
   bool get needsContinuation => companionCanContinue || companionCanObserve;
   bool get isParkedUnresolvedWrite => phase==CedarActivityPhase.paused && pauseSource=='blocked_unresolved_write';
-  bool get canRevisitAfterBudget => phase==CedarActivityPhase.paused && pauseSource=='budget_complete' &&
+  bool get canRevisitAfterBudget => phase==CedarActivityPhase.paused &&
+    const {'budget_complete', 'solo_variety'}.contains(pauseSource) &&
     mode==CedarParticipationMode.solo && nextActor=='companion' && !hasContinuationCall && !hasPendingTerminalDelivery;
   /// New queries may supply missing facts. Only reuse evidence since the last
   /// accepted mutation; failures never invalidate an already-read snapshot.
@@ -653,6 +654,8 @@ class CedarToyActivityState {
     this.notices = const <CedarCrossGameNotice>[],
     this.execution,
     this.completedPlayRounds = 0,
+    this.candleCompletedAt = 0,
+    this.switchAwayFromGameId = '',
     this.sourceSnapshot,
     this.sourceFence,
   });
@@ -664,6 +667,25 @@ class CedarToyActivityState {
   final CedarGameExecution? execution;
   final DateTime updatedAt;
   final int completedPlayRounds;
+  final int candleCompletedAt;
+  final String switchAwayFromGameId;
+
+  static final _candleEnding = RegExp(r'第\s*(\d+)\s*/\s*(\d+)\s*幕\s*(?:[·・|｜—-]\s*)?已落幕');
+
+  static bool isCandleEnding(String text) => _candleEnding.allMatches(text)
+      .any((match) => match[1] == match[2] && match[1] != '0');
+
+  bool defersAutonomousGame(String gameId, DateTime now) {
+    if (gameId.isEmpty) return false;
+    if (switchAwayFromGameId == gameId) return true;
+    if (gameId != 'candle') return false;
+    final recent = now.subtract(const Duration(hours: 48)).millisecondsSinceEpoch;
+    if (candleCompletedAt > 0 && candleCompletedAt > recent) return true;
+    return sessions[gameId]?.events.any((event) => event.kind == 'outcome' &&
+        event.createdAt.millisecondsSinceEpoch > recent &&
+        isCandleEnding(event.summary)) ?? false;
+  }
+
   // Process-local read context, excluded from portable JSON.
   final Map<String,Object?>? sourceSnapshot;
   final BrainWorkFence? sourceFence;
@@ -695,6 +717,8 @@ class CedarToyActivityState {
     bool clearExecution = false,
     DateTime? updatedAt,
     int? completedPlayRounds,
+    int? candleCompletedAt,
+    String? switchAwayFromGameId,
     Map<String,Object?>? sourceSnapshot,
     BrainWorkFence? sourceFence,
   }) =>
@@ -706,6 +730,8 @@ class CedarToyActivityState {
         execution: clearExecution ? null : execution ?? this.execution,
         updatedAt: updatedAt ?? this.updatedAt,
         completedPlayRounds: completedPlayRounds ?? this.completedPlayRounds,
+        candleCompletedAt: candleCompletedAt ?? this.candleCompletedAt,
+        switchAwayFromGameId: switchAwayFromGameId ?? this.switchAwayFromGameId,
         sourceSnapshot:sourceSnapshot??this.sourceSnapshot,
         sourceFence:sourceFence??this.sourceFence,
       );
@@ -713,6 +739,8 @@ class CedarToyActivityState {
   Map<String, Object?> toJson() => <String, Object?>{
         'version': 2,
         'completed_play_rounds': completedPlayRounds,
+        'candle_completed_at': candleCompletedAt,
+        'switch_away_from_game_id': switchAwayFromGameId,
         'active_game_id': activeGameId,
         'sessions': sessions.values.map((item) => item.toJson()).toList(),
         'queued_switches': queuedSwitches.map((item) => item.toJson()).toList(),
@@ -741,6 +769,8 @@ class CedarToyActivityState {
           ((json['completed_play_rounds'] as num?)?.toInt() ?? 0)
               .clamp(0, 9007199254740991)
               .toInt(),
+      candleCompletedAt: (json['candle_completed_at'] as num?)?.toInt() ?? 0,
+      switchAwayFromGameId: json['switch_away_from_game_id']?.toString() ?? '',
       queuedSwitches: (json['queued_switches'] as List?)
               ?.whereType<Map>()
               .map((item) => CedarQueuedSwitch.fromJson(item))
@@ -1776,19 +1806,21 @@ class CedarToyActivityStore {
             updatedAt: now,
           )
         : next;
+    final playedRound = !outcome.isError &&
+        !CedarPlatformActionPolicy.isReadOnlyCall(action, submittedParams) &&
+        !CedarPlatformActionPolicy.explicitlyRejected(fullText) &&
+        !CedarActionFeedback.noProgress(fullText) &&
+        CedarSoloEpisodePolicy.isStateChangingAction(action) &&
+        !CedarPlatformActionPolicy.isResultSnapshot(action) &&
+        !const {'wait', 'poll'}.contains(action);
+    final reachedCandleEnding = gameId == 'candle' && !outcome.isError &&
+        CedarToyActivityState.isCandleEnding(fullText) &&
+        !CedarToyActivityState.isCandleEnding(existing.lastOutcome);
     state = state.copyWith(
       activeGameId: next.isUnroutableRemoteWait ? '' : gameId,
-      completedPlayRounds:
-          state.completedPlayRounds +
-          (!outcome.isError &&
-                  !CedarPlatformActionPolicy.isReadOnlyCall(action, submittedParams) &&
-                  !CedarPlatformActionPolicy.explicitlyRejected(fullText) &&
-                  !CedarActionFeedback.noProgress(fullText) &&
-                  CedarSoloEpisodePolicy.isStateChangingAction(action) &&
-                  !CedarPlatformActionPolicy.isResultSnapshot(action) &&
-                  !const {'wait', 'poll'}.contains(action)
-              ? 1
-              : 0),
+      completedPlayRounds: state.completedPlayRounds + (playedRound ? 1 : 0),
+      candleCompletedAt: reachedCandleEnding ? now.millisecondsSinceEpoch : null,
+      switchAwayFromGameId: playedRound && gameId != state.switchAwayFromGameId ? '' : null,
       sessions: Map<String, CedarGameSession>.from(state.sessions)
         ..[gameId] = storedNext,
       clearExecution: !keepExecution,
@@ -2151,11 +2183,21 @@ class CedarToyActivityStore {
     await applyControl(operation: 'resume', gameId: gameId);
   }
 
-  Future<void> rememberUserAdvice(String text) async {
-    if (!CedarGameAdvicePolicy.isLikelyAdvice(text)) return;
+  static final _switchGameAdvice = RegExp(
+    r'换个游戏|换一个游戏|玩玩别的|玩点别的|玩一下别的|试试别的游戏|别再玩(?:这个|《烛》)',
+  );
+
+  Future<void> rememberUserAdvice(String text, {bool allowSessionAdvice = true}) async {
+    final switchGame = _switchGameAdvice.hasMatch(text) &&
+        !RegExp(r'(?:不用|不必|不要)换|别换|不想换').hasMatch(text);
+    if (!switchGame &&
+        (!allowSessionAdvice || !CedarGameAdvicePolicy.isLikelyAdvice(text))) return;
     final state = await loadState();
     final session = state.activeSession;
-    if (session == null || !session.continuable) return;
+    if (session == null) return;
+    final avoid = switchGame && session.mode == CedarParticipationMode.solo
+        ? session.gameId : null;
+    if (!session.continuable && avoid == null) return;
     final note = CedarGameAdvicePolicy.bounded(text);
     final values = <String>[
       ...session.adviceNotes.where((item) => item != note),
@@ -2166,6 +2208,7 @@ class CedarToyActivityStore {
         : values.sublist(values.length - CedarGameAdvicePolicy.maxNotes);
     final now = DateTime.now();
     await _saveState(state.copyWith(
+      switchAwayFromGameId: avoid,
       sessions: Map<String, CedarGameSession>.from(state.sessions)
         ..[session.gameId] = session.copyWith(
           adviceNotes: bounded,
@@ -2173,6 +2216,40 @@ class CedarToyActivityStore {
         ),
       updatedAt: now,
     ));
+  }
+
+  Future<bool> releaseDeferredSoloGame(DateTime now) async {
+    final fence = await db.captureBrainWorkFence(settingKeys: [
+      userControlRevisionKey, executionFenceSettingKey, CedarTimedPlayTaskStore.activeKey,
+    ]);
+    if (fence == null) return false;
+    final handle = await db.database;
+    return handle.transaction((txn) async {
+      if (!await fence.matches(txn) ||
+          (await BrainWorkFence.value(txn, CedarTimedPlayTaskStore.activeKey)).isNotEmpty) return false;
+      final state = await readStateInTransaction(txn);
+      final session = state.activeSession;
+      if (session == null || state.execution != null ||
+          !state.defersAutonomousGame(session.gameId, now) ||
+          session.mode != CedarParticipationMode.solo ||
+          session.hasContinuationCall || session.hasPendingTerminalDelivery ||
+          session.hasPendingRoomMessage || session.ownRoomAliases.isNotEmpty ||
+          (await BrainWorkFence.value(txn, '$uncertainWritePrefix${session.gameId}')).isNotEmpty) return false;
+      // Finish the optional solo period without changing any remote save.
+      final sessions = Map<String, CedarGameSession>.from(state.sessions);
+      if (session.needsContinuation && session.nextActor == 'companion') {
+        sessions[session.gameId] = session.copyWith(
+          phase: CedarActivityPhase.paused, pauseSource: 'solo_variety', updatedAt: now,
+        );
+      } else if (session.phase != CedarActivityPhase.completed &&
+          session.phase != CedarActivityPhase.failed) {
+        return false;
+      }
+      await writeSettingsInTransaction(txn, stateSettingValues(state.copyWith(
+        activeGameId: '', sessions: sessions, updatedAt: now,
+      )));
+      return true;
+    });
   }
 
   Future<void> resume() async {

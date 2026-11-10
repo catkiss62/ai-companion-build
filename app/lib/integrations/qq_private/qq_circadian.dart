@@ -6,9 +6,13 @@ import '../../core/desire/daily_wake_store.dart';
 /// QQ only projects an existing App day. It never calls DailyWakeStore.read,
 /// which can sample and persist a missing schedule.
 class QqCircadianProjection {
-  const QqCircadianProjection(this.phase, {required this.known});
+  const QqCircadianProjection(this.phase, {required this.known, this.nearWake = false});
   final String phase;
   final bool known;
+  final bool nearWake;
+  String get wakeReplyPrompt => nearWake
+      ? '离平时起床时间不远，但被叫醒时还没睡够。先回应这次@，可以自然说还没醒透、想再眯一会。'
+      : '现在是夜间休息，被这次@叫醒。先回应正事，可以自然说一声接着睡。';
   bool get resting => phase == 'resting';
   String get small => '$phase${known ? '' : ' (当天记录缺失，保守只读回退)'}';
   String get prompt => switch (phase) {
@@ -21,7 +25,10 @@ class QqCircadianProjection {
   static QqCircadianProjection derive(DateTime now, {int? wakeMinute}) {
     final known = wakeMinute != null && wakeMinute >= 480 && wakeMinute <= 540;
     final wake = DailyWakeSchedule.atMinute(now, known ? wakeMinute! : 540);
-    if (now.isBefore(wake)) return QqCircadianProjection('resting', known: known);
+    if (now.isBefore(wake)) {
+      return QqCircadianProjection('resting', known: known,
+        nearWake: wake.difference(now) <= const Duration(hours: 2));
+    }
     if (known && now.isBefore(wake.add(DailyWakeSchedule.settlingDuration))) {
       return const QqCircadianProjection('waking', known: true);
     }

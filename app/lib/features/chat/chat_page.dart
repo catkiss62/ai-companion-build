@@ -1245,6 +1245,12 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver, RouteA
         break;
       }
     }
+    final visualQForm = _playfulForm.qForm ||
+        controller.holdsSmallForm(
+          _playfulForm.manualRevision,
+          presentingText: _typewriterEnabled &&
+              latestAssistantId != null && _animatedMessageId == latestAssistantId,
+        );
     final timelineList = controller.loading
         ? const Center(child: CircularProgressIndicator())
         : ListView.builder(
@@ -1314,6 +1320,7 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver, RouteA
                         onAnimationFinished: () {
                           if (_animatedMessageId == item.message!.id) {
                             _animatedMessageId = null;
+                            controller.smallFormTextPresented(item.message!.id);
                             unawaited(_markLatestAssistantPresented());
                           }
                         },
@@ -1421,7 +1428,7 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver, RouteA
                       // Keep AndroidView and its GL buffer full size under the IME.
                       height: _caicaiEnabled ? _caicaiStableHeight : constraints.maxHeight,
                       child: _caicaiEnabled
-                          ? CaicaiLive2DStage(qForm: _playfulForm.qForm, emotion: _currentEmotion.key, active: widget.active,
+                          ? CaicaiLive2DStage(qForm: visualQForm, emotion: _currentEmotion.key, active: widget.active,
                               sceneSize: Size(constraints.maxWidth, _caicaiStableHeight!),
                               depthEnabled: _backgroundDepth, depthStrength: _backgroundDepthStrength,
                               backgroundAsset: _useNightBackground
@@ -1430,8 +1437,8 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver, RouteA
                           : IgnorePointer(
                         child: ChatPortraitStage(
                           emotion: _currentEmotion,
-                          qForm: _playfulForm.qForm,
-                          portraitSet: _playfulForm.qForm
+                          qForm: visualQForm,
+                          portraitSet: visualQForm
                               ? ChatPortraitSet.smallWhale
                               : _portraitSet,
                           transform: ChatPortraitTransform(
@@ -1451,13 +1458,13 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver, RouteA
                           enabled: _emotionAnimationEnabled,
                           active: widget.active && _appResumed,
                           generating: controller.generationActive,
-                          qForm: _playfulForm.qForm)),
+                          qForm: visualQForm)),
                     Positioned(
                       top: 10,
                       right: 10,
                       child: PlayfulHeatGauge(
                         heat: _playfulForm.heat,
-                        qForm: _playfulForm.qForm,
+                        qForm: visualQForm,
                         locked: _playfulForm.locked,
                         onSelected: _onPlayfulFormAction,
                       ),

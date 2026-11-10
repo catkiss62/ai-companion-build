@@ -359,7 +359,31 @@ class ChatController extends ChangeNotifier {
     notifyListeners();
   }
 
+  // The committed form controls the next turn; this only holds the current
+  // reply's portrait until the relevant playback or text presentation ends.
+  ({String replyId, int revision, bool voice})? _smallFormTail;
+
+  bool holdsSmallForm(int manualRevision, {required bool presentingText}) {
+    final tail = _smallFormTail;
+    return tail != null &&
+        tail.replyId == latestDialogueMessage?.id &&
+        tail.revision == manualRevision &&
+        (tail.voice || presentingText);
+  }
+
+  void smallFormTextPresented(String id) {
+    if (_smallFormTail?.voice == false) _finishSmallFormTail(id);
+  }
+
+  void _finishSmallFormTail([String? id]) {
+    final tail = _smallFormTail;
+    if (tail == null || (id != null && tail.replyId != id)) return;
+    _smallFormTail = null;
+    _safeNotify();
+  }
+
   Future<void> _stopTurnAudio() async {
+    _finishSmallFormTail();
     await Future.wait<void>([
       ttsPlayback.stop(),
       emotionSounds.stop(),
@@ -1532,6 +1556,20 @@ class ChatController extends ChangeNotifier {
         }
       }
       var projectedAssistant = result.assistant!;
+      final replyForm = projectedAssistant.formContext;
+      if (replyForm.form == 'q' && replyForm.afterForm == 'normal') {
+        _smallFormTail = (
+          replyId: projectedAssistant.id,
+          revision: replyForm.manualRevision,
+          voice: autoTts,
+        );
+      }
+      if (autoTts) {
+        playbackIntent = ttsPlayback.createIntent(
+          ownerId: projectedAssistant.id,
+          formForPlayback: replyForm.isKnown ? replyForm.form == 'q' : null,
+        );
+      }
       messages = [...messages, projectedAssistant];
       await _loadToolOutcomes();
       await _incrementOverlayUnread();
@@ -1539,9 +1577,9 @@ class ChatController extends ChangeNotifier {
       // The cue belongs to the visible reply, not to an early hidden
       // <emotion> envelope. Start it in the same UI commit that exposes the
       // body so slow final providers cannot play a sound seconds too early.
-      if (autoTts) playbackIntent = ttsPlayback.createIntent(ownerId: projectedAssistant.id,
-        formForPlayback: projectedAssistant.formContext.isKnown ? projectedAssistant.formContext.form == 'q' : null);
-      startEmotionCue(projectedAssistant.emotionKey);
+      if (playbackIntent?.valid != false) {
+        startEmotionCue(projectedAssistant.emotionKey);
+      }
       _safeNotify();
 
       // A selected foreign language causes one thinking-off projection of the
@@ -1568,21 +1606,11 @@ class ChatController extends ChangeNotifier {
           ? latestSpeechLanguage
           : ChatLanguage.chinese;
       final speechText = projectedAssistant.contentFor(speechLanguage);
-      final leadIn = emotionCueStarted
-          ? emotionLeadIn
-          : startEmotionCue(result.assistant!.emotionKey);
-      if (autoTts) {
-        unawaited(
-          ttsPlayback.playText(
-            speechText,
-            intent: playbackIntent,
-            manual: false,
-            ownerId: result.assistant!.id,
-            emotion: _ttsEmotionCue(result.assistant!),
-            leadIn: leadIn,
-            language: speechLanguage,
-          ),
-        );
+      final intent = playbackIntent;
+      if (intent != null) {
+        unawaited(_playReplySpeech(
+          result.assistant!, speechText, intent, emotionLeadIn, speechLanguage,
+        ));
       }
       await memoryExtractor.extractFromTurn(
         user: user,
@@ -2088,7 +2116,25 @@ class ChatController extends ChangeNotifier {
     }
   }
 
+  Future<void> _playReplySpeech(
+    ChatMessage reply, String text, PlaybackIntent intent,
+    Future<void> leadIn, ChatLanguage language,
+  ) async {
+    try {
+      await ttsPlayback.playText(
+        text, intent: intent, manual: false, ownerId: reply.id,
+        emotion: _ttsEmotionCue(reply), leadIn: leadIn, language: language,
+      );
+      if (intent.valid) await ttsPlayback.waitUntilIdle();
+    } catch (_) {
+      if (intent.valid) await ttsPlayback.stop();
+    } finally {
+      _finishSmallFormTail(reply.id);
+    }
+  }
+
   Future<void> stopSpeech() async {
+    _finishSmallFormTail();
     final consumed = proactiveSpeech.stopRequested();
     final stopped = ttsPlayback.stop();
     await Future.wait([consumed, stopped, emotionSounds.stop()]);

@@ -65,6 +65,19 @@ void main() {
     expect(saved.id,session.id);expect(saved.phase,CedarActivityPhase.paused);expect(saved.pauseSource,'blocked_unresolved_write');
     expect(game.plays,0);
   });
+  test('completed Candle story cools down across saves and can be revisited later', () {
+    final completed = DateTime(2026, 10, 27, 12);
+    expect(CedarToyActivityState.isCandleEnding('第13/13幕 · 已落幕'), isTrue);
+    expect(CedarToyActivityState.isCandleEnding('第12/13幕 · 已落幕'), isFalse);
+    final state = CedarToyActivityState.fromJson(CedarToyActivityState(
+      activeGameId: '', sessions: const {}, updatedAt: completed,
+      candleCompletedAt: completed.millisecondsSinceEpoch,
+    ).toJson());
+    expect(state.defersAutonomousGame('candle', completed.add(const Duration(hours: 1))), isTrue);
+    expect(state.defersAutonomousGame('fishing', completed), isFalse);
+    expect(state.defersAutonomousGame('candle', completed.add(const Duration(hours: 48))), isFalse);
+  });
+
   test('normal user pause and a current timed task are not released',()async {
     await parked(source:'local_control');expect(await store.releaseParkedUnresolvedWrite(),false);expect(await store.load(),isNotNull);
     await parked();await db.setSetting(CedarTimedPlayTaskStore.activeKey,'synthetic-active-task');

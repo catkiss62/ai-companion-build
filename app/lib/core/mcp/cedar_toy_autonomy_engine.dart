@@ -1064,6 +1064,9 @@ class CedarToyAutonomyEngine {
     final sourceFence=await db.captureBrainWorkFence(settingKeys:[CedarToyActivityStore.userControlRevisionKey,'cedar_toy_enabled',enabledKey]);
     if(sourceFence==null)return const CedarAutonomyProgress('brain_work_blocked');
     final store = CedarToyActivityStore(db);
+    if (await store.releaseDeferredSoloGame(now)) {
+      return const CedarAutonomyProgress('solo_variety_released');
+    }
     final session = await store.load();
     if (session == null || !session.needsContinuation) {
       return const CedarAutonomyProgress('resume_session_missing');
@@ -1216,7 +1219,10 @@ class CedarToyAutonomyEngine {
             delay: const Duration(minutes: 8), executionId: scope.executionId);
           return const CedarAutonomyProgress('wish_checkpoint_rest');
         }
-        if (!targets.any((w) => w.gameId == target)) return const CedarAutonomyProgress('wish_checkpoint_keep');
+        if (!targets.any((w) => w.gameId == target) ||
+            (await store.loadState()).defersAutonomousGame(target, now)) {
+          return const CedarAutonomyProgress('wish_checkpoint_keep');
+        }
         final guide = await _client(token).getGuide(target, cancellationToken: scope.cancellation);
         scope.throwIfPreempted();
         if (guide.isError || guide.text.trim().isEmpty ||
@@ -1390,6 +1396,10 @@ class CedarToyAutonomyEngine {
     final delay = await continuationDelay(now: now);
     if (delay == null) return const CedarAutonomyProgress('no_continuation');
     if (delay > Duration.zero) return const CedarAutonomyProgress('not_due');
+    final store = CedarToyActivityStore(db);
+    if (acceptedTask == null && await store.releaseDeferredSoloGame(now)) {
+      return const CedarAutonomyProgress('solo_variety_released');
+    }
     final token = await _readToken();
     final apiKey = await _readApiKey();
     if (token.isEmpty || apiKey.isEmpty) {
@@ -1401,7 +1411,6 @@ class CedarToyAutonomyEngine {
         gameId:session.gameId,delay:const Duration(minutes:1),now:now);
       return const CedarAutonomyProgress('missing_config');
     }
-    final store = CedarToyActivityStore(db);
     final state = await store.loadState();
     final session = state.activeSession;
     final endpoint = await _readEndpoint();
@@ -1747,6 +1756,7 @@ class CedarToyAutonomyEngine {
           );
           final state=await store.loadState();
           bool selectable(String id) {
+            if (state.defersAutonomousGame(id, now)) return false;
             final existing=state.sessions[id];
             return existing==null || existing.phase==CedarActivityPhase.completed || existing.phase==CedarActivityPhase.failed || existing.canRevisitAfterBudget;
           }
@@ -1790,9 +1800,11 @@ $selectionCatalog''',
           );
           scope.throwIfPreempted();
           final game = _identifier(picked['game']?.toString() ?? '');
-          final fresh=(await store.loadState()).sessions[game];
+          final freshState = await store.loadState();
+          final fresh = freshState.sessions[game];
           if (game.isEmpty || !_containsIdentifier(catalog, game) ||
-              !selectable(game) || await store.unresolvedWrite(game)!=null ||
+              !selectable(game) || freshState.defersAutonomousGame(game, now) ||
+              await store.unresolvedWrite(game)!=null ||
               (fresh!=null && fresh.phase!=CedarActivityPhase.completed && fresh.phase!=CedarActivityPhase.failed && !fresh.canRevisitAfterBudget)) {
             return const CedarAutonomyProgress('invalid_game_choice');
           }

@@ -553,6 +553,43 @@ void main(){
     expect(requests,isEmpty);expect(vision.calls,0);expect((await store.images(1)).single['state'],'unseen');
     clock=DateTime(2026,10,26,12);await runtime.process(cid());expect(requests,isEmpty);
   });
+  test('night wake is tied to a trusted @ and cooldown; morning has a sleepy reply', () async {
+    options = options.copy(owners: {'group-a': 'bound-member'});
+    handler = (r, b) async => b['stream'] == true
+        ? _sse('我醒了，怎么了')
+        : _json(b['max_tokens'] == 60 ? {'safe': true} : {'wake': true});
+    clock = DateTime(2026, 10, 26, 1);
+    await accept('name-only', '小鲸鱼你在吗');
+    await runtime.process(cid());
+    expect(requests, isEmpty);
+    await runtime.accept(event('owner-wake', '醒醒', sender: 'bound-member', mention: true), group: true);
+    await runtime.process(cid());
+    expect(api.sent.single['messageId'], 'owner-wake');
+    final body = jsonDecode(requests.first.body) as Map;
+    final prompt = (body['messages'] as List).first['content'] as String;
+    expect(prompt, contains('现在是夜间休息'));
+    expect(prompt, contains('可叫“主人”'));
+    final afterWake = requests.length;
+    await accept('repeat', '能帮我回答一下吗', mention: true);
+    await runtime.process(cid());
+    expect(requests, hasLength(afterWake));
+    clock = DateTime(2026, 10, 26, 8);
+    await accept('morning-question', '这件事你怎么看', mention: true);
+    await runtime.process(cid());
+    expect(api.sent.last['messageId'], 'morning-question');
+    expect(requests.map((r) => r.body).join(), contains('还没睡够'));
+  });
+
+  test('ordinary night @ without a request only runs the wake decision', () async {
+    clock = DateTime(2026, 10, 26, 2);
+    handler = (r, b) async => _json({'wake': false});
+    await accept('only-hey', '在吗在吗', mention: true);
+    await runtime.process(cid());
+    expect(requests, hasLength(1));
+    expect(api.sent, isEmpty);
+    expect(await db.getSetting(QqStore.groupWakeKey(cid())), isNull);
+  });
+
   test('viewed pictures retain descriptions, not temporary URLs; cache is per conversation',()async{
     await accept('image1','看看猫',image:true);await runtime.process(cid());
     await accept('image2','同一张猫',image:true);await runtime.process(cid());expect(vision.calls,1);

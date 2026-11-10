@@ -119,8 +119,10 @@ void main() {
     final seq=(await add('human'))!;final sql=await db.database;final learning=QqGroupLearning(store);
     expect(await learning.enabled(cid),false);await learning.setEnabled(cid,true);
     final row=(await sql.query('qq_archive')).single;final stamp=<Map<String,Object?>>[];await QqArchiveReader(sql).render(row,stamp:stamp);
-    await sql.insert('qq_styles',{'id':'style-fixture','conversation_id':cid,'content':'接梗时偶尔简短复读','sources':jsonEncode([seq]),'source_stamp':jsonEncode(stamp),'created_at':at});
-    expect((await learning.projection(cid)).text,contains('简短复读'));
+    await sql.insert('qq_styles',{'id':'style-fixture','conversation_id':cid,'content':'回复短一些\n用反问补刀','sources':jsonEncode([seq]),'source_stamp':jsonEncode(stamp),'created_at':at});
+    expect((await learning.projection(cid)).text,contains('回复短一些'));
+    expect((await learning.projection(cid)).text,isNot(contains('反问补刀')));
+    expect((await learning.profiles(cid)).single['content'],contains('反问补刀'));
     final profile=(await learning.profiles(cid)).single;await learning.edit(profile,content:'先简短反应，再偶尔补一句');
     await expectLater(learning.edit(profile,content:'过时编辑'),throwsA(anything));
     var edited=(await learning.profiles(cid)).single;await learning.edit(edited,enabled:false);

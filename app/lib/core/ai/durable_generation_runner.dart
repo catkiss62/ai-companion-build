@@ -530,8 +530,10 @@ class DurableGenerationRunner {
               CedarToyArcadeSkill.requestsExternalGameKnowledge(user.content)) ||
           (cedarConfigured && (taskIntent.gameAction == 'play' ||
             (effectiveCedarCertain && const {'act_now','accept'}.contains(effectiveCedarIntent))));
+      await cedarActivityStore.rememberUserAdvice(
+        user.content, allowSessionAdvice: !mentionsCatalogGame,
+      );
       if (!mentionsCatalogGame) {
-        await cedarActivityStore.rememberUserAdvice(user.content);
         cedarState = await cedarActivityStore.loadState();
         cedarSession = cedarState.activeSession;
       }
@@ -1345,6 +1347,10 @@ class DurableGenerationRunner {
               agentToolCalls<toolCallLimit();
           final result=await generateFinalAttempt([
             ...history, if(offer) {'role':'system','content':OnDemandAgentEntry.prompt},
+            {'role':'system','content':
+              '【本轮回答对象】以最后一条真实用户消息为当前问题。'
+              '旧问题、旧回复、摘要和工具资料只帮助理解本轮。'
+              '用户没有明确续问时，不重新回答历史里已答过的问题。'},
           ],tools:offer ? [OnDemandAgentEntry.definition] : const []);
           if(!offer || result.toolCalls.isEmpty) return result;
           // Entry selection itself consumes model work. Switching families or
