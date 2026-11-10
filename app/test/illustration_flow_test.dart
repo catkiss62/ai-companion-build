@@ -140,6 +140,10 @@ void main() {
         expect(seeds[0], seeds[1]);
         expect(attachment.visionCompleted, isFalse);
         expect((await db.messageById('reply'))!.content, '我来画');
+        await db.setCompanionAlbumTags(
+          chat.key,
+          tags: ['generated', 'self_image'],
+        );
 
         const diary = IllustrationJob(
           source: IllustrationSource.diary,
@@ -156,23 +160,21 @@ void main() {
         );
         await diary.admit(await db.database);
         await worker.drainOne();
-        expect(await db.allMediaBlobs(), hasLength(1));
-        final album = await db.companionAlbumItems();
-        expect(album, hasLength(2));
-        expect(album.map((item) => item.blobId).toSet(), {attachment.blobId});
-        expect(
-          album.singleWhere((item) => item.sourceId == diary.ownerId).tags,
-          containsAll(['generated', 'diary']),
-        );
+        final blobs = await db.allMediaBlobs();
+        expect(blobs, hasLength(1));
+        expect(blobs.single.albumRefCount, 1);
+        final album = (await db.companionAlbumItems()).single;
+        expect(album.id, chat.key);
+        expect(album.blobId, attachment.blobId);
+        expect(album.categorySource, 'user');
+        expect(album.tags, containsAll(['generated', 'diary', 'self_image']));
         expect(
           await db.getSetting(
             '${IllustrationJob.diaryMediaPrefix}${diary.ownerId}',
           ),
           attachment.blobId,
         );
-        for (final item in album) {
-          await db.deleteCompanionAlbumItem(item.id);
-        }
+        await db.deleteCompanionAlbumItem(album.id);
         await db.deleteAttachmentMessage('reply');
         expect(await db.takeUnreferencedMediaBlobs(), isEmpty);
 

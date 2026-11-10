@@ -14352,27 +14352,45 @@ class AppDatabase {
       if (blobs.isEmpty) return false;
       final blob = MediaBlob.fromDb(blobs.single);
       final now = DateTime.now().millisecondsSinceEpoch;
-      await txn.insert('companion_album_candidates', {
-        'id': jobKey, 'source_kind': 'generated_illustration', 'source_id': ownerId,
-        'title': _bounded(description, 120),
-        'vision_summary': '创作意图：${_bounded(description, 180)}',
-        'vision_model': '', 'ai_reason': '她为${diary ? '日记' : '这次聊天'}绘制的插画',
-        'category': 'generated',
-        'user_tags_json': jsonEncode(['generated', if (diary) 'diary']),
-        'category_source': 'generated', 'lifecycle_state': 'saved',
-        'thumbnail_path': attachment.thumbnailPath,
-        'content_sha256': blob.thumbnailSha256,
-        'original_path': attachment.originalPath,
-        'original_content_sha256': blob.originalSha256,
-        'original_mime_type': blob.mimeType, 'original_byte_size': blob.byteSize,
-        'original_status': 'stored', 'blob_id': blob.id,
-        'width': blob.width, 'height': blob.height,
-        'created_at': now, 'updated_at': now, 'saved_at': now, 'unread': 1,
-      }, conflictAlgorithm: ConflictAlgorithm.abort);
-      await txn.rawUpdate(
-        'UPDATE media_blobs SET album_ref_count = album_ref_count + 1 WHERE id = ?',
-        [blob.id],
+      final existingAlbum = await txn.query(
+        'companion_album_candidates',
+        where: "content_sha256 = ? AND lifecycle_state IN ('saved','soft_deleted')",
+        whereArgs: [blob.thumbnailSha256],
+        limit: 1,
       );
+      final tags = ['generated', if (diary) 'diary'];
+      if (existingAlbum.isEmpty) {
+        await txn.insert('companion_album_candidates', {
+          'id': jobKey, 'source_kind': 'generated_illustration', 'source_id': ownerId,
+          'title': _bounded(description, 120),
+          'vision_summary': '创作意图：${_bounded(description, 180)}',
+          'vision_model': '', 'ai_reason': '她为${diary ? '日记' : '这次聊天'}绘制的插画',
+          'category': 'generated', 'user_tags_json': jsonEncode(tags),
+          'category_source': 'generated', 'lifecycle_state': 'saved',
+          'thumbnail_path': attachment.thumbnailPath,
+          'content_sha256': blob.thumbnailSha256,
+          'original_path': attachment.originalPath,
+          'original_content_sha256': blob.originalSha256,
+          'original_mime_type': blob.mimeType, 'original_byte_size': blob.byteSize,
+          'original_status': 'stored', 'blob_id': blob.id,
+          'width': blob.width, 'height': blob.height,
+          'created_at': now, 'updated_at': now, 'saved_at': now, 'unread': 1,
+        }, conflictAlgorithm: ConflictAlgorithm.abort);
+        await txn.rawUpdate(
+          'UPDATE media_blobs SET album_ref_count = album_ref_count + 1 WHERE id = ?',
+          [blob.id],
+        );
+      } else {
+        // Album identity is the thumbnail hash. Reuse the existing row while
+        // adding the separate chat or diary owner below in this transaction.
+        final album = CompanionAlbumItem.fromDb(existingAlbum.single);
+        if (!album.nsfw) {
+          await txn.update('companion_album_candidates', {
+            'user_tags_json': jsonEncode(normalizeAlbumTags([...album.tags, ...tags])),
+            'updated_at': now,
+          }, where: 'id = ?', whereArgs: [album.id]);
+        }
+      }
       if (diary) {
         await txn.insert('settings', {
           'key': '${IllustrationJob.diaryMediaPrefix}$ownerId', 'value': blob.id,
