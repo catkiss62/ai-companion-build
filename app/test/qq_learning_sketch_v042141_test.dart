@@ -107,6 +107,38 @@ void main() {
     expect(await db.getSetting('qq_options_policy_v2:fixture'),QqStore.hash(current.toJson()));
     await expectLater(stale.copy(ownerShare:false).save(db:db),throwsStateError);
   });
+
+  test('public persona default replaces the old draft once per namespace',() async {
+    const namespace='fixture';
+    const policyKey='qq_options_policy_v2:$namespace';
+    const old=QqOptions(namespace:namespace,groups:{'a'},ownerMembers:{'a':'trusted-member'},
+      core:'自定义参与卡',publicMemory:'已公开背景',personaSetting:'旧公开稿',
+      ownerShare:false,voiceSetting:false,echoSetting:false);
+    await old.save(db:db);
+    final results=await Future.wait(List.generate(2,(_)=>
+      QqOptions.ensurePublicPersonaDefault(db:db,namespace:namespace)));
+    final upgraded=results.last;
+    expect(results.map((value)=>value.revision),everyElement(2));
+    expect(upgraded.publicPersona,contains('【默认归因】'));
+    expect(upgraded.publicPersona,contains('被点名时，先接对方找你说的事'));
+    expect(upgraded.publicPersona,contains('可以自然叫“主人”'));
+    expect(upgraded.publicPersona,isNot(contains('宿主')));
+    expect(upgraded.toJson(),{...old.toJson(),'persona':upgraded.publicPersona});
+    expect(await db.getSetting(policyKey),QqStore.hash(upgraded.toJson()));
+
+    final edited=await QqOptions.update((fresh)=>fresh.copy(publicPersona:'升级后手动写的新稿'),
+      db:db,namespace:namespace);
+    final restarted=await QqOptions.ensurePublicPersonaDefault(db:db,namespace:namespace);
+    expect(restarted.publicPersona,edited.publicPersona);
+    expect(restarted.revision,edited.revision);
+    // If the encrypted write committed but its SQL authority did not, only
+    // repair the authority. The draft and revision must not change again.
+    await db.setSetting(policyKey,'updating:persona-default-v1:interrupted');
+    final repaired=await QqOptions.ensurePublicPersonaDefault(db:db,namespace:namespace);
+    expect(repaired.revision,edited.revision);
+    expect(repaired.publicPersona,edited.publicPersona);
+    expect(await db.getSetting(policyKey),QqStore.hash(edited.toJson()));
+  });
   test('all semantic parts validated before first platform send',() async {
     final api=_Api();
     await expectLater(QqReplyDelivery(api,pause:(_)async{}).send(group:true,target:'a',messageId:'source',text:'',messages:['a'*1801,'b'*1801,'c'*1700],fileInfo:'',current:()async=>true,beforeSend:()async{},sent:(_,__,___)async{}),throwsFormatException);

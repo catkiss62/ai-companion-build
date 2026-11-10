@@ -19,6 +19,7 @@ import 'core/mcp/cedar_game_arrangements.dart';
 import 'core/phone/calendar_reminder_store.dart';
 import 'core/storage/portable_companion_storage.dart';
 import 'core/sync/snapshot_restore_coordinator.dart';
+import 'integrations/qq_private/qq_options.dart';
 
 
 @pragma('vm:entry-point')
@@ -93,6 +94,8 @@ class _StartupRecoveryRootState extends State<_StartupRecoveryRoot> {
           await CedarGameArrangementStore(AppDatabase.instance).migrateLegacy();
           await DailyWakeStore.read(await AppDatabase.instance.database, DateTime.now());
           if (Platform.isAndroid) {
+            unawaited(QqOptions.ensurePublicPersonaDefault().then<void>((_) {},
+                onError: (Object _, StackTrace __) {}));
             try { await CalendarReminderStore(AppDatabase.instance).sync(); } catch (_) {}
           }
         },

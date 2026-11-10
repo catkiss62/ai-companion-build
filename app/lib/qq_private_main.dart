@@ -10,6 +10,7 @@ import 'core/database/app_database.dart';
 import 'core/storage/secure_config.dart';
 import 'core/diagnostics/daily_spend.dart';
 import 'integrations/qq_private/qq_ingress_buffer.dart';
+import 'integrations/qq_private/qq_options.dart';
 import 'integrations/qq_private/qq_private_config.dart';
 import 'integrations/qq_private/qq_readonly_context.dart';
 import 'integrations/qq_private/qq_runtime.dart';
@@ -43,6 +44,7 @@ Future<void> runQqPrivateBackground() async {
     final store=QqStore(AppDatabase.instance);
     // Open/upgrade through the host before the protocol receives any handle.
     await store.db.database;
+    await QqOptions.ensurePublicPersonaDefault(db:store.db,namespace:c.namespace);
     if(stopped) return;
     await store.db.setSettingsAtomically({'qq_master_enabled_v2':'1','qq_master_owner_v2':ownerToken});
     final support=await getApplicationSupportDirectory();

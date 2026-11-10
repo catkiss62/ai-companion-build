@@ -1606,10 +1606,11 @@ class ChatController extends ChangeNotifier {
           ? latestSpeechLanguage
           : ChatLanguage.chinese;
       final speechText = projectedAssistant.contentFor(speechLanguage);
+      final leadIn = emotionCueStarted ? emotionLeadIn : Future<void>.value();
       final intent = playbackIntent;
       if (intent != null) {
         unawaited(_playReplySpeech(
-          result.assistant!, speechText, intent, emotionLeadIn, speechLanguage,
+          result.assistant!, speechText, intent, leadIn, speechLanguage,
         ));
       }
       await memoryExtractor.extractFromTurn(

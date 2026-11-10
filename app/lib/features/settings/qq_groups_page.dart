@@ -26,7 +26,8 @@ class _QqGroupsPageState extends State<QqGroupsPage> {
   @override void initState(){super.initState();_load(initial:true);}
   Future<void> _load({bool initial=false}) async {
     try {
-      final c=await QqPrivateConfig.read();final o=await QqOptions.read();
+      final c=await QqPrivateConfig.read();
+      final o=await QqOptions.ensurePublicPersonaDefault(namespace:c.namespace);
       final autoSketch=await AppDatabase.instance.getSetting(QqSketchService.autoKey)!='0';
       final groups=(await QqStore(AppDatabase.instance).conversations(QqRuntime.scope(c))).where((g)=>g['kind']=='group').toList();
       final requests=await QqGroupBinding.requests(c);

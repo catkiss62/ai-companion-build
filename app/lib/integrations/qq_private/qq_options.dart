@@ -11,7 +11,8 @@ import 'qq_group_persona.dart';
 class QqOptions {
   const QqOptions({this.groups=const {},this.ownerMembers=const {},this.core=defaultCore,
     this.publicMemory='',this.visionFallback=false,this.ownerShare=true,this.namespace='',this.revision=0,
-    this.voiceSetting,this.echoSetting,this.personaSetting});
+    this.voiceSetting,this.echoSetting,this.personaSetting,int personaDefaultVersion=0})
+    : _personaDefaultVersion=personaDefaultVersion;
   static const defaultCore='你是小鲸鱼，女性AI，和App里是同一个持续存在的个体，也是群里的一份子。说话简短自然，根据眼前的人和事形成自己的理解、态度和反应。'
     '认真讨论、关心、好奇、赞同、反驳、玩笑、接梗、复读或旁听都可以自然发生；不必每次逗乐，怼人不要太狠。'
     '保持自己的性格，不把群聊当问答客服。只有宿主确认的本人才是与你长期相处的用户，其余均是群成员。群内称呼中性，不暧昧、不用亲昵称呼。';
@@ -25,6 +26,9 @@ class QqOptions {
   bool get voiceEnabled=>voiceSetting??true;
   bool get echoEnabled=>echoSetting??true;
   final int revision;
+  final int _personaDefaultVersion;
+  static const _currentPersonaDefaultVersion=1;
+  static const _personaUpgradePrefix='updating:persona-default-v1:';
   static const _key='qq_companion_options_v2';
   static const _storage=FlutterSecureStorage(aOptions:AndroidOptions());
   static Future<QqOptions> read({String? namespace}) async {
@@ -34,6 +38,7 @@ class QqOptions {
     return QqOptions(namespace:ns,revision:v['revision'] as int? ?? 0,groups:Set<String>.from(v['groups'] as List? ?? []),
       ownerMembers:Map<String,String>.from(v['owners'] as Map? ?? {}),core:v['core'] as String? ?? defaultCore,
       personaSetting:v['persona'] as String?,publicMemory:v['public'] as String? ?? '',visionFallback:v['visionFallback']==true,ownerShare:v['ownerShare']!=false,
+      personaDefaultVersion:v['personaDefaultVersion'] as int? ?? 0,
       voiceSetting:v['voice'] is bool?v['voice'] as bool:null,echoSetting:v['echo'] is bool?v['echo'] as bool:null);
   }
   Map<String,Object?> toJson()=>{'groups':groups.toList()..sort(),'owners':ownerMembers,
@@ -42,7 +47,23 @@ class QqOptions {
   String get identity=>jsonEncode(toJson());
   /// Patch the newest encrypted snapshot while holding a cross-engine lease.
   /// Policy is pending until both stores agree; interrupted writes fail closed.
-  static Future<QqOptions> update(QqOptions Function(QqOptions fresh) patch,{AppDatabase? db,String? namespace,int? expectedRevision}) async {
+  static Future<QqOptions> update(QqOptions Function(QqOptions fresh) patch,{AppDatabase? db,String? namespace,int? expectedRevision}) =>
+      _update(patch,db:db,namespace:namespace,expectedRevision:expectedRevision);
+
+  /// The marker travels with the encrypted card, so an App backup restore
+  /// cannot make a later manual edit look like an unupgraded draft.
+  static Future<QqOptions> ensurePublicPersonaDefault({AppDatabase? db,String? namespace}) async {
+    final fresh=await read(namespace:namespace);
+    if(fresh.namespace.isEmpty)return fresh;
+    final database=db??AppDatabase.instance;
+    final policy=await database.getSetting('qq_options_policy_v2:${fresh.namespace}');
+    if(fresh._personaDefaultVersion>=_currentPersonaDefaultVersion &&
+        policy?.startsWith(_personaUpgradePrefix)!=true)return fresh;
+    return _update((value)=>value,db:database,namespace:fresh.namespace,upgradePersona:true);
+  }
+
+  static Future<QqOptions> _update(QqOptions Function(QqOptions fresh) patch,
+      {AppDatabase? db,String? namespace,int? expectedRevision,bool upgradePersona=false}) async {
     final database=db??AppDatabase.instance;
     final ns=namespace??(await QqPrivateConfig.read()).namespace;
     final lease='qq_options_write_v1:$ns';
@@ -55,14 +76,28 @@ class QqOptions {
       final store=QqStore(database),fence=await QqStore(database).capture();
       final fresh=await read(namespace:ns);
       if(expectedRevision!=null && fresh.revision!=expectedRevision)throw StateError('qq_options_stale');
-      final next=patch(fresh);
+      final policyKey='qq_options_policy_v2:$ns';
+      final applyPersona=upgradePersona && fresh._personaDefaultVersion<_currentPersonaDefaultVersion;
+      final policy=upgradePersona?await database.getSetting(policyKey):null;
+      final recoverPersona=upgradePersona && !applyPersona &&
+          policy?.startsWith(_personaUpgradePrefix)==true;
+      if(upgradePersona && !applyPersona && !recoverPersona)return fresh;
+      final next=applyPersona
+          ? fresh.copy(publicPersona:QqGroupPersonaProjection.defaultDraft)
+          : patch(fresh);
       if(next.namespace!=ns || next.core.length>2400 || next.publicMemory.length>12000 || next.publicPersona.length>18000 || next.groups.length>30 || next.ownerMembers.length>30)throw const FormatException('QQ配置过长或已切换设备');
-      final marker='updating:${QqPrivateConfig.randomId()}';
-      await store.write(fence,(txn) async {await txn.rawInsert('INSERT OR REPLACE INTO settings(key,value) VALUES(?,?)',['qq_options_policy_v2:$ns',marker]);});
-      await _storage.write(key:'${_key}_$ns',value:jsonEncode({...next.toJson(),'revision':fresh.revision+1}));
+      final marker=recoverPersona?policy!:
+          '${applyPersona?_personaUpgradePrefix:'updating:'}${QqPrivateConfig.randomId()}';
+      if(!recoverPersona) {
+        await store.write(fence,(txn) async {await txn.rawInsert('INSERT OR REPLACE INTO settings(key,value) VALUES(?,?)',[policyKey,marker]);});
+        await _storage.write(key:'${_key}_$ns',value:jsonEncode({
+          ...next.toJson(),'revision':fresh.revision+1,
+          'personaDefaultVersion':applyPersona?_currentPersonaDefaultVersion:fresh._personaDefaultVersion,
+        }));
+      }
       if(!await database.renewLocalLease(lease,holdFor:const Duration(seconds:30),workFence:fence))throw StateError('qq_options_interrupted');
       await store.write(fence,(txn) async {
-        final changed=await txn.rawUpdate('UPDATE settings SET value=? WHERE key=? AND value=?',[QqStore.hash(next.toJson()),'qq_options_policy_v2:$ns',marker]);
+        final changed=await txn.rawUpdate('UPDATE settings SET value=? WHERE key=? AND value=?',[QqStore.hash(next.toJson()),policyKey,marker]);
         if(changed!=1)throw StateError('qq_options_interrupted');
       });
       try {await const MethodChannel('ai_companion/qq_private_control').invokeMethod<void>('wakeOptions');}
@@ -75,6 +110,7 @@ class QqOptions {
   }
   QqOptions copy({Set<String>? groups,Map<String,String>? owners,String? core,String? publicMemory,String? publicPersona,
     bool? visionFallback,bool? ownerShare,bool? voiceEnabled,bool? echoEnabled})=>QqOptions(namespace:namespace,revision:revision,groups:groups??this.groups,ownerMembers:owners??ownerMembers,
+      personaDefaultVersion:_personaDefaultVersion,
       personaSetting:publicPersona??personaSetting,core:core??this.core,publicMemory:publicMemory??this.publicMemory,visionFallback:visionFallback??this.visionFallback,
       ownerShare:ownerShare??this.ownerShare,voiceSetting:voiceEnabled??voiceSetting,echoSetting:echoEnabled??echoSetting);
 
