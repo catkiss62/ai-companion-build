@@ -2,9 +2,8 @@
 
 ## 当前接班快照
 
-- 开发分支 `agent/v042107-review-recovery` 已交付生图连接和 QQ 追问修复 `v0.42.182+426`、schema67，构建提交 `c0e848b`。[下载 APK](https://github.com/catkiss62/ai-companion-build/actions/runs/42992753273/artifacts/13844273450)
-- 独立系统逻辑 CI 和签名 APK 构建均已通过。用户在 `+425` 复现 App 试生成失败与 QQ 插画失败，HTML 可出图。新版 App 试生成、QQ 追问出图与画风效果待真机验证。
-- 当前候选 `v0.42.183+427` 修复小豆丁末轮显示与自拍请求，待 CI、签名构建和真机验证。
+- 开发分支 `agent/v042107-review-recovery` 已交付小豆丁收尾与自拍入口修复 `v0.42.183+427`、schema67，构建提交 `c71b263`。[下载 APK](https://github.com/catkiss62/ai-companion-build/actions/runs/43076564140/artifacts/13883599822)
+- 独立系统逻辑 CI 和签名 APK 构建均已通过。真机待核对静态立绘及两套 Live2D 的末轮保形、语音结束恢复本体与 App/QQ 自拍出图。
 - 新窗口先核对最新运行提交、最近 5 笔和对应 Actions 摘要，再按本页任务入口定点读取。
 
 ## 维护约定
@@ -20,6 +19,8 @@
 - 已实现：普通回复和确认截断回复返回已保存的同轮结算形态，前台用既有语音完成或打字机完成事件释放显示。语音前奏、手动停止、气焰结算与原生模型参数沿既有链路。
 - 已实现：明确请求新自拍走共享识别，QQ 确认后交现有生图接口。自拍教程和原图重发不触发新增规则。此前画风口语与 120 秒接口上限由 App 和 QQ 共用，平台提及、显式画法和上传规则属于 QQ。
 - 本地 159 项 Flutter 定向回归通过，覆盖普通聊天末轮在打字机显示和原生语音完成信号之前保形、两句 QQ 自拍实际走模拟图片投递，以及形态快照和 TTS 旧回归。首轮夹具强制走非默认同步回后整理，来源检查打断了测试，恢复生产默认队列并等本地任务退出后验证通过。历史版本门、语音状态源码门、发布身份及 NDK 校验通过。
+- 远端构建提交 `c71b2638cb32552fab568af52cf75c7463ad1289` 与本地 `6941598` 源码树一致。独立 CI、167 项源码检查、全量 Flutter、原生 Android 回归与存档恢复校验均通过。[独立 CI](https://github.com/catkiss62/ai-companion-build/actions/runs/43076564142) [APK 构建](https://github.com/catkiss62/ai-companion-build/actions/runs/43076564140)
+- 测试草稿 `442090301` 的 APK 资产 `736593183` 已上传，大小 740779894 字节。APK SHA-256 为 `2990df7fe398bbfd6288d318ac4d8f393074e864a237398137557cd570ee1bb5`，与监控和草稿一致。沿用原签名。真机测试需分别观察两套 Live2D 的末轮回复和 QQ 两句自拍请求。[下载 APK](https://github.com/catkiss62/ai-companion-build/actions/runs/43076564140/artifacts/13883599822) [草稿](https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-d8164921d178a4eaa2b3)
 
 ## 2026-11-11 · 生图等待上限与 QQ 追问
 
