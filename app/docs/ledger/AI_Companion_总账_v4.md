@@ -2,9 +2,8 @@
 
 ## 当前接班快照
 
-- 开发分支 `agent/v042107-review-recovery` 已交付 QQ 生图测试版 `v0.42.180+424`、schema67，构建提交 `dd2898f`。[下载 APK](https://github.com/catkiss62/ai-companion-build/actions/runs/42947309151/artifacts/13824224753)
-- 独立系统逻辑 CI 和签名 APK 构建均已通过。用户真机验收了 `+423`，并确认 `+424` 能发送 QQ 插画，随后发现带画风的追画请求会漏执行。
-- 当前候选 `v0.42.181+425` 修复 QQ 插画衔接，待 CI、签名构建和真机验证。
+- 开发分支 `agent/v042107-review-recovery` 已交付 QQ 生图衔接修复 `v0.42.181+425`、schema67，构建提交 `7950db8`。[下载 APK](https://github.com/catkiss62/ai-companion-build/actions/runs/42966840807/artifacts/13832557558)
+- 独立系统逻辑 CI 和签名 APK 构建均已通过。用户确认 `+424` 能发送 QQ 插画，并发现带画风的追画请求会漏执行。修复后的连续 QQ 生图和画风区分待真机验证。
 - 新窗口先核对最新运行提交、最近 5 笔和对应 Actions 摘要，再按本页任务入口定点读取。
 
 ## 维护约定
@@ -20,6 +19,8 @@
 - 已实现：共享请求识别覆盖「来张可爱画风的……图」等明确的画风要求。QQ 沿用 JEV 的接话判断，无额外 JEV 请求。明确向她请求插画且当前可用时，回复漏写标签由宿主补上原请求。保留正文的拒绝或澄清出口及同一发言者的后续取消。生成或上传失败时直接显示对应状态，避免同时发送图注或等待话术。保留发送恢复的生图已启动标记。
 - 已实现：明确区分常规比例的可爱插画与大头小身的 Q 版，规划优先遵从当前请求明确指定的画风。Q 版表情包仅讨论。建议将它作为 Q 版图的用途，和已有表情包共用单轮媒体选择，临时生成默认随消息发送，收藏时按同一媒体引用复用。
 - 本地 123 项 Flutter 定向测试通过，覆盖真实措辞的连续两次出图、群聊插话时不代接请求、拒绝和取消、生成与上传失败、发送恢复、App 聊天和日记媒体复用。17 项历史版本检查、23 项发布身份和 4 项 NDK 启动检查通过。本地资源缺失导致全量源码检查在桌宠资源处停止，交由含固定资源生成步骤的远端构建验证。
+- 远端 `7950db89003ba801c8de5703877820298ac3d111` 与本地 `f1306fa` 源码树一致。独立 CI、167 项源码检查、全量 Flutter、原生 Android 校验和存档恢复校验均通过。[独立 CI](https://github.com/catkiss62/ai-companion-build/actions/runs/42966840719) [APK 构建](https://github.com/catkiss62/ai-companion-build/actions/runs/42966840807)
+- 测试草稿 `441297549` 的 APK 资产 `734359748` 已上传，大小 740773606 字节。APK SHA-256 为 `0d5a18d65e21417d66b555361181f0929e663810498b4cc9d51dd6c1b55ef171`，与监控和草稿一致。延用原签名。真机待验证相同场景连续请求两种画风。[下载 APK](https://github.com/catkiss62/ai-companion-build/actions/runs/42966840807/artifacts/13832557558) [草稿](https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-38af7db6f38b8d25a86d)
 
 ## 2026-11-11 · QQ 生图与 App 画风提示词
 
