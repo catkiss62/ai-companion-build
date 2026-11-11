@@ -363,6 +363,17 @@ class ChatController extends ChangeNotifier {
   // reply's portrait until the relevant playback or text presentation ends.
   ({String replyId, int revision, bool voice})? _smallFormTail;
 
+  void _holdFinalSmallForm(ChatMessage reply, {required bool voice}) {
+    final form = reply.formContext;
+    if (form.form == 'q' && form.afterForm == 'normal') {
+      _smallFormTail = (
+        replyId: reply.id,
+        revision: form.manualRevision,
+        voice: voice,
+      );
+    }
+  }
+
   bool holdsSmallForm(int manualRevision, {required bool presentingText}) {
     final tail = _smallFormTail;
     return tail != null &&
@@ -1557,13 +1568,7 @@ class ChatController extends ChangeNotifier {
       }
       var projectedAssistant = result.assistant!;
       final replyForm = projectedAssistant.formContext;
-      if (replyForm.form == 'q' && replyForm.afterForm == 'normal') {
-        _smallFormTail = (
-          replyId: projectedAssistant.id,
-          revision: replyForm.manualRevision,
-          voice: autoTts,
-        );
-      }
+      _holdFinalSmallForm(projectedAssistant, voice: autoTts);
       if (autoTts) {
         playbackIntent = ttsPlayback.createIntent(
           ownerId: projectedAssistant.id,
@@ -1736,6 +1741,7 @@ class ChatController extends ChangeNotifier {
         incompleteReplyDraft = null;
         incompleteReplyJobId = null;
         notice = result.notice;
+        _holdFinalSmallForm(result.assistant!, voice: false);
         messages = await db.recentMessages(limit: 120);
         if (user != null && user.isUser) {
           await memoryExtractor.extractFromTurn(

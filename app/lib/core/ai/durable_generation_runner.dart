@@ -2579,7 +2579,7 @@ $finalGenerationReminder
       }
       return GenerationRunResult(
         status: 'completed',
-        assistant: assistant,
+        assistant: await _withSettledForm(assistant),
         specialStyleTrialId: generationSpecialStyleTrialId,
         specialStyleKey: generationSpecialStyleKey,
         notice: completionNotices.isEmpty ? null : completionNotices.join('\n'),
@@ -2840,10 +2840,31 @@ $finalGenerationReminder
     return committed
         ? GenerationRunResult(
             status: 'completed',
-            assistant: assistant,
+            assistant: await _withSettledForm(assistant),
             notice: '已确认截断回复；它现在会按正常回复进入上下文与后续记忆整理。',
           )
         : const GenerationRunResult(status: 'suspended');
+  }
+
+  Future<ChatMessage> _withSettledForm(ChatMessage assistant) async {
+    final original = assistant.formContext;
+    if (original.form != 'q') return assistant;
+    // The transaction records the after-form on the saved message. The
+    // generation snapshot alone cannot tell the UI to hold the final Q reply.
+    try {
+      final saved = await db.messageById(assistant.id);
+      if (saved == null) return assistant;
+      final settled = saved.formContext;
+      if (settled.form == original.form &&
+          settled.capturedAt == original.capturedAt &&
+          settled.manualRevision == original.manualRevision &&
+          settled.afterForm.isNotEmpty) {
+        return assistant.copyWith(formContextJson: saved.formContextJson);
+      }
+    } catch (_) {
+      // A presentation read cannot fail a reply that already committed.
+    }
+    return assistant;
   }
 
   Future<void> _publishToolRuntime({

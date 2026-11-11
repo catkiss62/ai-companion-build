@@ -48,6 +48,17 @@ abstract final class IllustrationCue {
         ).hasMatch(value);
   }
 
+  static bool requestsNewSelfie(String text) {
+    final value = text.trim();
+    return value.length <= 180 &&
+        !vetoed(value) &&
+        RegExp(
+          r'(?:^|[。！？!?；;])\s*(?:(?:那就|那|再|你|请|帮我|给我|麻烦|能不能|可以|试试|试着)\s*)*'
+          r'(?:来|画|生成)(?:一)?(?:张|个)\s*(?:你(?:自己)?的\s*)?自拍'
+          r'(?!教程|技巧|方法|指南|设置|提示词)',
+        ).hasMatch(value);
+  }
+
   static bool explicitRequest(String text) {
     final value = text.trim();
     if (vetoed(value) ||
@@ -57,6 +68,7 @@ abstract final class IllustrationCue {
       return false;
     }
     return requestsStyledArtwork(value) ||
+        requestsNewSelfie(value) ||
         RegExp(
           r'^生图[。！!]?$|画一张|画个|画幅|画一幅|画给我|给我画|生成一张.{0,16}(图|照片|插画)|^生图[：:\s]|来张.{0,8}自拍|画张|画一下',
         ).hasMatch(value);

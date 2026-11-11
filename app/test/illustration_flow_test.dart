@@ -178,6 +178,11 @@ void main() {
       expect(IllustrationCue.explicitRequest('那你来张可爱画风的，吃布丁的图'), isTrue);
       expect(IllustrationCue.explicitRequest('再来一张Q版的，捧着布丁'), isTrue);
       expect(IllustrationCue.explicitRequest('现在呢？再试试生成张q版的'), isTrue);
+      expect(IllustrationCue.explicitRequest('画个自拍'), isTrue);
+      expect(IllustrationCue.explicitRequest('来个自拍'), isTrue);
+      expect(IllustrationCue.explicitRequest('来个自拍教程'), isFalse);
+      expect(IllustrationCue.requestsNewSelfie('把刚才那张自拍再发一次'), isFalse);
+      expect(IllustrationCue.requestsNewSelfie('别来个自拍了'), isFalse);
       expect(IllustrationCue.explicitRequest('来张相册里的可爱画风图'), isFalse);
       expect(IllustrationCue.explicitRequest('如果来张可爱画风的图会怎样'), isFalse);
       expect(IllustrationCue.explicitRequest('不要来张Q版的图了'), isFalse);

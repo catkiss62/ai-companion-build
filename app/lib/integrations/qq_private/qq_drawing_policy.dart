@@ -20,7 +20,8 @@ abstract final class QqDrawingPolicy {
   static QqDrawingFormat? requestedFormat(String text) {
     final format = _format.allMatches(text).lastOrNull?.group(1)?.toLowerCase();
     if (format == null) {
-      return IllustrationCue.requestsStyledArtwork(text)
+      return IllustrationCue.requestsStyledArtwork(text) ||
+              IllustrationCue.requestsNewSelfie(text)
           ? QqDrawingFormat.illustration
           : null;
     }
