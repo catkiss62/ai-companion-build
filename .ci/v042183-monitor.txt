@@ -1,0 +1,7 @@
+status=success
+run_id=43076564140
+run_url=https://github.com/catkiss62/ai-companion-build/actions/runs/43076564140
+head_sha=c71b2638cb32552fab568af52cf75c7463ad1289
+signer_sha256=30:5E:B3:D8:09:83:B9:63:C6:48:18:DD:F1:AD:56:1F:27:9D:E6:D4:7B:3E:D2:C7:81:AD:A4:48:C7:C2:51:48
+2990df7fe398bbfd6288d318ac4d8f393074e864a237398137557cd570ee1bb5  AI-Companion-v0.42.183-427-Smallform-Selfie-APK.apk
+release_url=https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-d8164921d178a4eaa2b3
