@@ -2,9 +2,8 @@
 
 ## 当前接班快照
 
-- 开发分支 `agent/v042107-review-recovery` 已交付 QQ 生图衔接修复 `v0.42.181+425`、schema67，构建提交 `7950db8`。[下载 APK](https://github.com/catkiss62/ai-companion-build/actions/runs/42966840807/artifacts/13832557558)
-- 独立系统逻辑 CI 和签名 APK 构建均已通过。用户确认 `+424` 能发送 QQ 插画，并发现带画风的追画请求会漏执行。修复后的连续 QQ 生图和画风区分待真机验证。
-- 当前候选 `v0.42.182+426` 已修复报告中两种 Q 版追问及共享生图等待上限，待 CI、签名构建和真机验证。
+- 开发分支 `agent/v042107-review-recovery` 已交付生图连接和 QQ 追问修复 `v0.42.182+426`、schema67，构建提交 `c0e848b`。[下载 APK](https://github.com/catkiss62/ai-companion-build/actions/runs/42992753273/artifacts/13844273450)
+- 独立系统逻辑 CI 和签名 APK 构建均已通过。用户在 `+425` 复现 App 试生成失败与 QQ 插画失败，HTML 可出图。新版 App 试生成、QQ 追问出图与画风效果待真机验证。
 - 新窗口先核对最新运行提交、最近 5 笔和对应 Actions 摘要，再按本页任务入口定点读取。
 
 ## 维护约定
@@ -20,6 +19,8 @@
 - 已实现：共享客户端等待上限改为 120 秒，App 队列租约覆盖规划、最多两次生图请求和本地提交。沿用 HTML 对应的模型与参数。QQ 识别明确的生图画风和去除开头 QQ 提及后的追问，身份权限继续由平台来源判断，JEV 无新增调用。
 - 已实现：App 试生成按结果写入脱敏接口健康统计。QQ 失败记录导出补上生图阶段，群回复区分超时、HTTP 响应、无效图片与上传失败。服务地址、密钥和原始返回内容不进诊断。
 - 本地 128 项 Flutter 定向测试通过，含第 55 秒回图、到时取消等待、HTTP 与无效图分类、两种真实 QQ 说法、既有发送和备份媒体回归。17 项历史版本检查、23 项发布身份和 4 项 NDK 启动检查通过。已知本地展示资源未随源码提供，完整资源和全量测试由远端验证。
+- 另有 4 项接口健康测试通过。远端构建提交 `c0e848b74a1e744727ae9af86a375c144a3f9a54` 与本地 `5612cf7` 源码树一致。独立 CI、167 项源码检查、全量 Flutter、原生 Android 回归与存档恢复校验均通过。[独立 CI](https://github.com/catkiss62/ai-companion-build/actions/runs/42992753363) [APK 构建](https://github.com/catkiss62/ai-companion-build/actions/runs/42992753273)
+- 测试草稿 `441483237` 的 APK 资产 `734967418` 已上传，大小 740778058 字节。APK SHA-256 为 `74c15ec8aa5adda9c6f3f695e29c1c88ddf0942662ca7b9fbda0f478d113adef`，与监控和草稿一致。延用原签名。待在真机上用 App 试生成和 QQ 原话验证当前服务。[下载 APK](https://github.com/catkiss62/ai-companion-build/actions/runs/42992753273/artifacts/13844273450) [草稿](https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-335dc701053eaaae2146)
 
 ## 2026-11-11 · QQ 生图请求衔接
 
