@@ -19,7 +19,11 @@ abstract final class QqDrawingPolicy {
 
   static QqDrawingFormat? requestedFormat(String text) {
     final format = _format.allMatches(text).lastOrNull?.group(1)?.toLowerCase();
-    if (format == null) return null;
+    if (format == null) {
+      return IllustrationCue.requestsStyledArtwork(text)
+          ? QqDrawingFormat.illustration
+          : null;
+    }
     return const {'svg', '涂鸦', '小涂鸦'}.contains(format)
         ? QqDrawingFormat.sketch
         : QqDrawingFormat.illustration;

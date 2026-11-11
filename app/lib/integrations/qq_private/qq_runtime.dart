@@ -19,6 +19,7 @@ import 'qq_addressing.dart';
 import '../../core/stickers/sticker_expression_service.dart';
 import '../../core/stickers/sticker_reply_choice.dart';
 import '../../core/illustration/illustration_client.dart';
+import '../../core/illustration/illustration_cue.dart';
 import '../../core/storage/secure_config.dart';
 import 'qq_archive_reader.dart';
 import 'qq_display_names.dart';
@@ -363,6 +364,7 @@ class QqRuntime {
       final reader=QqArchiveReader(await store.db.database);final judge=QqGroupJudge(client,secure,decisions:groupDecisions);
       final reset=int.tryParse(fence.identity['conversation_context_reset_at']??'')??0;
       final participation=<String,Object?>{};
+      var drawingAddressed=!b.group;
       if (wakingGroup) {
         phase = 'participation';
         if (boundOwnerReplySeq == null) {
@@ -427,9 +429,10 @@ class QqRuntime {
           if(!mentioned) {await store.mark(b,'watching');status('watching');return;}
           await tasks.addressed(b);
         }
+        drawingAddressed=QqGroupParticipation.addressed(decision,mentioned:mentioned);
         // Semantic attention is decided BEFORE ordinary participation limits.
         // A real exchange can continue without repeated @ or a 90-second gap.
-        if(!QqGroupParticipation.addressed(decision,mentioned:mentioned)) {
+        if(!drawingAddressed) {
           if(((await driveProjection())['fatigue']??0)>=.85) {await store.mark(b,'low_energy');status('group_low_energy');return;}
         }
       }
@@ -481,9 +484,16 @@ class QqRuntime {
       prompt+='\n${QqReplyParts.prompt}';
       final sketchService=QqSketchService(store);
       final drawingRequest=b.rows.map((row)=>row['content']).join('\n');
-      final requestedFormat=QqDrawingPolicy.requestedFormat(drawingRequest);
-      final drawingRequested=QqDrawingPolicy.requested(drawingRequest);
-      final canDraw=!wakingGroup && !_drawingBusy;
+      final formattedRow=b.rows.reversed.where((row)=>
+          QqDrawingPolicy.requestedFormat(row['content'] as String)!=null).firstOrNull;
+      final formattedRequest=formattedRow?['content'] as String? ?? '';
+      final requestedFormat=QqDrawingPolicy.requestedFormat(formattedRequest);
+      final drawingRequested=requestedFormat!=null || QqDrawingPolicy.requested(drawingRequest);
+      final explicitIllustration=drawingAddressed && requestedFormat==QqDrawingFormat.illustration;
+      final cancelledDrawing=formattedRow!=null && b.rows.any((row)=>
+          row['sender']==formattedRow['sender'] && (row['seq'] as int)>(formattedRow['seq'] as int) &&
+          IllustrationCue.vetoed(row['content'] as String));
+      final canDraw=!wakingGroup && !_drawingBusy && !cancelledDrawing;
       final drawingAt=now().millisecondsSinceEpoch;
       final canSketch=canDraw && requestedFormat!=QqDrawingFormat.illustration &&
           await sketchService.eligible(b,drawingAt);
@@ -501,8 +511,9 @@ class QqRuntime {
       }
       if(canSketch)prompt+='\n${QqSketchService.prompt}';
       if(canIllustrate)prompt+='\n${QqIllustrationChoice.prompt}';
-      if(canDraw && requestedFormat==QqDrawingFormat.illustration && !canIllustrate) {
-        prompt+='\n本轮 QQ 生图未启用或尚未配置，请用文字说明当前无法生图。';
+      if(explicitIllustration && !cancelledDrawing) {
+        prompt+=canIllustrate?'\n${QqIllustrationChoice.requestedPrompt}':
+          '\n本轮无法启动 QQ 生图。请用文字说明当前无法画图，勿请对方等待。';
       }
       prompt+=wakingGroup?'\n本轮只发文字。':o.voiceEnabled?'\n${QqVoiceChoice.prompt}':'\n本轮QQ语音关闭，只选择可用文字/图片表达。';
       if(echo!=null)prompt+='\n${echo.prompt}';
@@ -524,12 +535,19 @@ class QqRuntime {
           if(!continuedPrior)throw StateError('context_invalidated');
         }
       }
+      final skippedIllustration=QqIllustrationChoice.skipped(raw);
+      var illustrationChoice=canIllustrate && !skippedIllustration?QqIllustrationChoice.parse(raw):null;
+      if(explicitIllustration && canIllustrate && !skippedIllustration &&
+          illustrationChoice==null && reusedDraft==null && raw.trim()!='WAIT') {
+        raw=QqIllustrationChoice.explicitRequestReply(raw,formattedRequest);
+        illustrationChoice=QqIllustrationChoice.parse(raw);
+      }
       final choice=StickerReplyChoice.parse(raw);
-      var voiceChoice=!wakingGroup && o.voiceEnabled?QqVoiceChoice.parse(raw):null;
-      final echoChoice=voiceChoice==null && echo!=null && (reusedDraft==null || reusedDraft!['echo_key']==echo.usageKey)?QqEchoChoice.parse(raw):null;
+      final prioritizeIllustration=explicitIllustration && illustrationChoice!=null;
+      var voiceChoice=!prioritizeIllustration && !wakingGroup && o.voiceEnabled?QqVoiceChoice.parse(raw):null;
+      final echoChoice=!prioritizeIllustration && voiceChoice==null && echo!=null && (reusedDraft==null || reusedDraft!['echo_key']==echo.usageKey)?QqEchoChoice.parse(raw):null;
       final sketchChoice=voiceChoice==null && echoChoice==null && canSketch?QqSketchChoice.parse(raw):null;
-      final illustrationChoice=voiceChoice==null && echoChoice==null && sketchChoice==null && canIllustrate
-          ?QqIllustrationChoice.parse(raw):null;
+      if(voiceChoice!=null || echoChoice!=null || sketchChoice!=null)illustrationChoice=null;
       final hasDrawing=sketchChoice!=null || illustrationChoice!=null;
       var selected=!wakingGroup && voiceChoice==null && echoChoice==null && !hasDrawing
           ?candidates.where((x)=>x.id==choice.id).firstOrNull:null;
@@ -587,8 +605,7 @@ class QqRuntime {
           status('illustration_failed');
           final notice=error is IllustrationFailure && error.code=='already_started'
               ? '这次插画没发出去。' : '这次插画没画出来。';
-          if(parts.length<3) parts=[...parts,notice];
-          text=parts.join('\n');
+          parts=[notice];text=notice;
         }
       }
       await tasks.saveDraft(b,{'raw':hasDrawing && drawing==null && illustration==null?parts.join(QqReplyParts.separator):raw,
@@ -611,8 +628,7 @@ class QqRuntime {
           if(!await current())rethrow;
           await store.recordFailure(fence,phase,error,elapsedMs:operationClock.elapsedMilliseconds,operation:b.id,conversation:b.cid);
           status('media_failed');
-          if(parts.length<3) parts=[...parts,'插画这次没上传成功。'];
-          text=parts.join('\n');
+          text='插画这次没上传成功。';parts=[text];
           illustration=null;
         }
       } else if(drawing!=null) {

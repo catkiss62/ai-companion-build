@@ -173,6 +173,17 @@ void main() {
   });
 
   test(
+    'recognizes a styled picture request while leaving album lookup alone',
+    () {
+      expect(IllustrationCue.explicitRequest('那你来张可爱画风的，吃布丁的图'), isTrue);
+      expect(IllustrationCue.explicitRequest('再来一张Q版的，捧着布丁'), isTrue);
+      expect(IllustrationCue.explicitRequest('来张相册里的可爱画风图'), isFalse);
+      expect(IllustrationCue.explicitRequest('如果来张可爱画风的图会怎样'), isFalse);
+      expect(IllustrationCue.explicitRequest('不要来张Q版的图了'), isFalse);
+    },
+  );
+
+  test(
     'App only adds nsfw for the two requested styles and QQ always excludes it',
     () {
       for (final style in IllustrationPlan.styles) {

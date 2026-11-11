@@ -35,6 +35,19 @@ abstract final class IllustrationCue {
   static bool vetoed(String text) =>
       RegExp(r'别画|不用画|不要画|先不画|不生图|暂停生图|取消生图|今天不画').hasMatch(text);
 
+  static bool requestsStyledArtwork(String text) {
+    final value = text.trim();
+    return value.length <= 180 &&
+        !vetoed(value) &&
+        !RegExp(r'相册|图库|现成|原图|截图|提示词|我自己画|我来画|别来|不用来|不要来').hasMatch(value) &&
+        RegExp(
+          r'^(?:(?:那就|那|再|你|请|帮我|给我|麻烦|能不能|可以)\s*)*'
+          r'(?:来|整|做|生成)(?:一)?(?:张|幅)[^\n。！？!?；;]{0,36}'
+          r'(?:画风|q\s*版|chibi)[^\n。！？!?；;]{0,48}(?:图|插画|自拍|$)',
+          caseSensitive: false,
+        ).hasMatch(value);
+  }
+
   static bool explicitRequest(String text) {
     final value = text.trim();
     if (vetoed(value) ||
@@ -43,9 +56,10 @@ abstract final class IllustrationCue {
         RegExp(r'怎么生图|生图设置|生图功能|提示词|测试接口|我自己画|我来画').hasMatch(value)) {
       return false;
     }
-    return RegExp(
-      r'^生图[。！!]?$|画一张|画个|画幅|画一幅|画给我|给我画|生成一张.{0,16}(图|照片|插画)|^生图[：:\s]|来张.{0,8}自拍|画张|画一下',
-    ).hasMatch(value);
+    return requestsStyledArtwork(value) ||
+        RegExp(
+          r'^生图[。！!]?$|画一张|画个|画幅|画一幅|画给我|给我画|生成一张.{0,16}(图|照片|插画)|^生图[：:\s]|来张.{0,8}自拍|画张|画一下',
+        ).hasMatch(value);
   }
 
   static String instruction({required bool requested}) => requested

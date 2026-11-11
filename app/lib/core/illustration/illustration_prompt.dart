@@ -39,7 +39,10 @@ class IllustrationPlan {
 
   static const instructions =
       '输出 JSON，字段 style、subject、scene、camera、outfit、appearance、description。'
-      'style: cute 可爱插画、mature 成熟插画、chibi Q版插画、free 自由创作。'
+      'style: cute 常规比例的可爱插画，mature 常规比例的成熟插画，'
+      'chibi 大头小身的Q版插画，free 自由创作。'
+      '只说可爱画风时用 cute，明确说 Q版、chibi 或大头小身时用 chibi；'
+      '指定画风时按要求选择，可爱的表情或动作本身不要求 Q版。'
       '前三种都描绘同一个蓝发、耳鳍、鲸尾的鲸鱼娘，画风与她的性格状态、年龄或小豆丁无关。'
       '画其他人物、风景、物品或完全换形象时用 free，并自行描述主体。'
       'subject 表示目标角色：画你自己用 self，换装或换画风仍可为 self。画其他人物、风景或物品用 other，身份不明确用 unknown。'
