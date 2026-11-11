@@ -28,6 +28,7 @@ import 'qq_group_participation.dart';
 import 'qq_incoming.dart';
 import 'qq_failure.dart';
 import '../../core/qq/qq_message_material.dart';
+import '../../core/qq/qq_mention_targets.dart';
 import 'qq_group_binding.dart';
 import 'qq_options.dart';
 import 'qq_private_config.dart';
@@ -483,10 +484,15 @@ class QqRuntime {
       if (!wakingGroup) prompt+='\n${QqStickers.choicePrompt(candidates)}';
       prompt+='\n${QqReplyParts.prompt}';
       final sketchService=QqSketchService(store);
-      final drawingRequest=b.rows.map((row)=>row['content']).join('\n');
-      final formattedRow=b.rows.reversed.where((row)=>
-          QqDrawingPolicy.requestedFormat(row['content'] as String)!=null).firstOrNull;
-      final formattedRequest=formattedRow?['content'] as String? ?? '';
+      final drawingInputs=[
+        for(final row in b.rows)
+          (row:row,text:QqMentionTargets.withoutLeadingMentions(row['content'] as String)),
+      ];
+      final drawingRequest=drawingInputs.map((input)=>input.text).join('\n');
+      final formatted=drawingInputs.reversed.where((input)=>
+          QqDrawingPolicy.requestedFormat(input.text)!=null).firstOrNull;
+      final formattedRow=formatted?.row;
+      final formattedRequest=formatted?.text ?? '';
       final requestedFormat=QqDrawingPolicy.requestedFormat(formattedRequest);
       final drawingRequested=requestedFormat!=null || QqDrawingPolicy.requested(drawingRequest);
       final explicitIllustration=drawingAddressed && requestedFormat==QqDrawingFormat.illustration;
@@ -603,8 +609,7 @@ class QqRuntime {
           if(!await current())rethrow;
           await store.recordFailure(fence,phase,error,elapsedMs:operationClock.elapsedMilliseconds,operation:b.id,conversation:b.cid);
           status('illustration_failed');
-          final notice=error is IllustrationFailure && error.code=='already_started'
-              ? '这次插画没发出去。' : '这次插画没画出来。';
+          final notice=QqFailure.illustrationMessage(error);
           parts=[notice];text=notice;
         }
       }

@@ -46,6 +46,7 @@ class ProviderHealth {
     'appraisal',
     'vision',
     'album',
+    'illustration',
   };
   static const contexts = <String>{
     'autonomous',
@@ -66,6 +67,7 @@ class ProviderHealth {
     'deepseek',
     'qwen_vision', 'vision_route', 'third_channel',
     'local_album',
+    'illustration_relay',
   };
   static const outcomes = <String>{
     'success',

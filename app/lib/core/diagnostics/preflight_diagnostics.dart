@@ -2012,7 +2012,7 @@ class PreflightDiagnosticsService {
 
   Map<String,Object?> _qqOperationFailures(String raw) {
     const phases={'context','vision','participation','reply_generation','first_reply','second_reply',
-      'sketch_generation','sketch_request','sketch_json','sketch_validation','sketch_render','sketch_budget',
+      'illustration_generation','sketch_generation','sketch_request','sketch_json','sketch_validation','sketch_render','sketch_budget',
       'group_boundary','media_upload','send','archive','voice','voice_generation','voice_upload'};
     Map<String,Object?>? safe(Map item) {
       if(item['at'] is! int || item['attempt'] is! int || item['elapsed_ms'] is! int ||

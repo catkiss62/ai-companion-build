@@ -51,7 +51,8 @@ class IllustrationWorker {
     if (pending.isEmpty || !await db.brainWorkAllowed()) return;
     if (!await db.tryAcquireLocalLease(
       _lease,
-      holdFor: const Duration(minutes: 5),
+      // Two image requests plus planning and local storage must fit the lease.
+      holdFor: client.requestTimeout * 2 + const Duration(minutes: 2),
     ))
       return;
     try {

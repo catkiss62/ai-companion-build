@@ -79,6 +79,21 @@ abstract final class QqFailure {
     }
     return 'operation_failed';
   }
+  static String illustrationMessage(Object error) {
+    if (error is! IllustrationFailure) return '这次插画没画出来。';
+    return switch (error.code) {
+      'already_started' => '这次插画没发出去。',
+      'busy' => '画图这边还在忙，这次没有启动。',
+      'planning' => '这次没有拿到可用的绘图方案。',
+      'timeout' => '生图服务等超时了，这次没收到图。',
+      'authorization' => '生图服务鉴权失败，这次没画出来。',
+      'quota' => '生图服务额度不足或触发限流，这次没画出来。',
+      'invalid_image' => '生图服务没有返回可用的图片。',
+      'network' => '这次没能连上生图服务。',
+      _ when error.httpStatus != null => '生图服务返回 HTTP ${error.httpStatus}，这次没画出来。',
+      _ => '这次插画没画出来。',
+    };
+  }
   static String sketchMessage(Object error) {
     final reason=code(error);
     if(reason=='sketch_budget')return '这小时的绘图请求次数用完了，要等下个小时才能再画。';

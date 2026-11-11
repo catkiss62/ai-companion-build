@@ -12,7 +12,7 @@ abstract final class QqDrawingPolicy {
   static final _format = RegExp(
     r'^\s*(?:(?:请你|请|你|麻烦|帮我|给我)\s*)*(?:用|使用)\s*'
     r'(svg|小涂鸦|涂鸦|生图(?:接口|功能)?|nai)\s*(?:帮我|给我)?\s*'
-    r'(?:画|绘制|生成|出图|做一|[。！!]|$)',
+    r'(?:画|绘制|生成|出图|做一|的\s*(?:q\s*版|chibi|(?:可爱|成熟)(?:画风|版))|[。！!]|$)',
     caseSensitive: false,
     multiLine: true,
   );

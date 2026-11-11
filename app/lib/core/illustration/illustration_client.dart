@@ -75,6 +75,9 @@ class IllustrationFailure implements Exception {
   const IllustrationFailure(this.code);
   final String code;
 
+  int? get httpStatus =>
+      code.startsWith('http_') ? int.tryParse(code.substring(5)) : null;
+
   String get label => switch (code) {
     'configuration' => '请在「能力 → 生图」检查服务地址和密钥',
     'disabled' => '生图已关闭',
@@ -86,6 +89,7 @@ class IllustrationFailure implements Exception {
     'storage' => '图片已返回，但本地保存失败',
     'storage_unavailable' => '本地图片存储不可用',
     'restore' => '备份中这次配图尚未完成',
+    _ when httpStatus != null => '生图服务返回 HTTP $httpStatus',
     _ => '生图服务连接失败，请检查 API',
   };
 }
@@ -97,10 +101,14 @@ class IllustrationBytes {
 }
 
 class IllustrationClient {
-  IllustrationClient({http.Client Function()? clientFactory})
-    : _clientFactory = clientFactory ?? http.Client.new;
+  IllustrationClient({
+    http.Client Function()? clientFactory,
+    this.requestTimeout = defaultRequestTimeout,
+  }) : _clientFactory = clientFactory ?? http.Client.new;
 
   final http.Client Function() _clientFactory;
+  final Duration requestTimeout;
+  static const defaultRequestTimeout = Duration(minutes: 2);
   static const model = 'nai-diffusion-4-5-full';
   static const maxBytes = 25 * 1024 * 1024;
 
@@ -121,7 +129,7 @@ class IllustrationClient {
         connection.apiKey.trim(),
         prompt,
         seed,
-      ).timeout(const Duration(seconds: 50));
+      ).timeout(requestTimeout);
     } on TimeoutException {
       throw const IllustrationFailure('timeout');
     } on IllustrationFailure {
@@ -171,7 +179,9 @@ class IllustrationClient {
     if (response.statusCode == 402 || response.statusCode == 429) {
       throw const IllustrationFailure('quota');
     }
-    if (response.statusCode != 200) throw const IllustrationFailure('network');
+    if (response.statusCode != 200) {
+      throw IllustrationFailure('http_${response.statusCode}');
+    }
     final result = BytesBuilder(copy: false);
     await for (final chunk in response.stream) {
       if (result.length + chunk.length > maxBytes) {

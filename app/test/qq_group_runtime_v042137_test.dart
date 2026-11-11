@@ -149,12 +149,14 @@ void main(){
     handler=(r,b)async=>b['stream']==true?_sse('哈哈哈'):_json(b['max_tokens']==60?{'safe':true}:{'participation':'watch'});
     runtime=create();
   });
-  for (final scenario in ['automatic', 'automatic_svg', 'disabled', 'disabled_during_generation', 'generation_failure', 'retry_delivery', 'upload_failure', 'styled_followup', 'styled_declined', 'styled_unaddressed', 'styled_cancelled']) {
+  for (final scenario in ['automatic', 'automatic_svg', 'disabled', 'disabled_during_generation', 'generation_failure', 'retry_delivery', 'upload_failure', 'styled_followup', 'styled_declined', 'styled_unaddressed', 'styled_cancelled', 'chibi_format', 'chibi_mention_retry']) {
     test('QQ drawing choice and delivery: $scenario', () async {
       final automatic = scenario.startsWith('automatic');
       final useSvg = scenario == 'automatic_svg';
       final styled = scenario.startsWith('styled');
       final drawsStyled = scenario == 'styled_followup';
+      final chibi = scenario.startsWith('chibi_');
+      final mentionRetry = scenario == 'chibi_mention_retry';
       final target = automatic
           ? Iterable<int>.generate(1000).map((i) => 'auto-drawing-$i')
               .firstWhere((id) => int.parse(QqStore.hash([cid(id), 1]).substring(0, 8), radix:16)%40 == 0)
@@ -169,6 +171,7 @@ void main(){
         final body=jsonDecode(request.body) as Map;
         expect((body['input'] as String).split(', '),isNot(contains('nsfw')));
         expect((body['parameters']['negative_prompt'] as String).split(', '),contains('nsfw'));
+        if(chibi)expect(body['input'],contains('chibi'));
         if(scenario=='disabled_during_generation') options=options.copy(illustrationEnabled:false);
         if(scenario=='generation_failure')return http.Response('fixture failure',503);
         return http.Response.bytes(base64Decode(pngData),200);
@@ -181,6 +184,7 @@ void main(){
           if(b['stream']==true){
             offeredIllustration=r.body.contains('【可选生图】');
             offeredSketch=r.body.contains('【可选小涂鸦】');
+            if(chibi)return _sse('这次给你画个Q版。');
             if(scenario=='styled_cancelled')return _sse('好，先聊点别的');
             if(styled && r.body.contains('吃布丁')) {
               return _sse(scenario=='styled_declined'
@@ -195,11 +199,15 @@ void main(){
           }
           if(b['max_tokens']==720){
             planned++;
+            if(chibi) {
+              expect(r.body,contains(mentionRetry?'现在呢？再试试生成张q版的':'用生图的Q版'));
+              expect(r.body,isNot(contains('<@fixture-bot>')));
+            }
             if(styled && r.body.contains('吃布丁')) {
               expect(r.body,contains('那你来张可爱画风的，吃布丁的图'));
               expect(r.body,contains('只说可爱画风时用 cute'));
             }
-            return _json({'style':'cute','scene':'standing under a streetlight','description':'雨夜街灯下的鲸鱼'});
+            return _json({'style':chibi?'chibi':'cute','scene':'standing under a streetlight','description':'雨夜街灯下的鲸鱼'});
           }
           if(b['max_tokens']==QqSketchService.outputTokens){
             svgPlans++;
@@ -218,7 +226,12 @@ void main(){
           api.sent.clear();api.imageFiles.clear();planned=0;generated=0;
           clock=clock.add(const Duration(seconds:30));
         }
-        await accept('qq-drawing-$scenario',automatic?'雨夜街灯真好看':styled?'那你来张可爱画风的，吃布丁的图':'用生图画张雨夜插画',target:target);
+        final request = switch (scenario) {
+          'chibi_mention_retry' => '<@fixture-bot> 现在呢？再试试生成张q版的',
+          'chibi_format' => '用生图的Q版',
+          _ => automatic?'雨夜街灯真好看':styled?'那你来张可爱画风的，吃布丁的图':'用生图画张雨夜插画',
+        };
+        await accept('qq-drawing-$scenario',request,target:target,mention:mentionRetry);
         if(drawsStyled) await accept('qq-drawing-reaction','哈哈哈',target:target);
         if(scenario=='styled_cancelled')await accept('qq-drawing-cancel','先别画了',target:target);
         await runtime.process(cid(target));
@@ -229,18 +242,18 @@ void main(){
         if(useSvg){
           expect(svgPlans,1);
           expect(api.imageFiles,['sketch.png']);
-        }else if(scenario=='automatic' || scenario=='retry_delivery' || scenario=='upload_failure' || drawsStyled){
+        }else if(scenario=='automatic' || scenario=='retry_delivery' || scenario=='upload_failure' || drawsStyled || chibi){
           expect(api.imageFiles,['illustration.png']);
         }else{
           expect(api.imageFiles,isEmpty);
         }
         if(scenario=='disabled_during_generation')expect(api.sent,isEmpty);
         if(scenario=='disabled')expect(api.sent.single['text'],'雨夜的颜色很好看');
-        if(scenario=='generation_failure')expect(api.sent.single['text'],'这次插画没画出来。');
+        if(scenario=='generation_failure')expect(api.sent.single['text'],'生图服务返回 HTTP 503，这次没画出来。');
         if(scenario=='upload_failure')expect(api.sent.single['text'],'插画这次没上传成功。');
         if(scenario=='styled_declined')expect(api.sent.single['text'],'换个主题吧');
         if(scenario=='styled_cancelled')expect(api.sent.single['text'],'好，先聊点别的');
-        if(drawsStyled)expect(api.sent.single['fileInfo'],'fixture-image-token');
+        if(drawsStyled || chibi)expect(api.sent.single['fileInfo'],'fixture-image-token');
         if(automatic)expect(await db.getSetting('qq_sketch_auto_last_v1:${cid(target)}'),isNotNull);
         if(scenario=='retry_delivery'){
           expect(api.sent,isEmpty);

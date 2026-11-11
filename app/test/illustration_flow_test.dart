@@ -177,11 +177,81 @@ void main() {
     () {
       expect(IllustrationCue.explicitRequest('那你来张可爱画风的，吃布丁的图'), isTrue);
       expect(IllustrationCue.explicitRequest('再来一张Q版的，捧着布丁'), isTrue);
+      expect(IllustrationCue.explicitRequest('现在呢？再试试生成张q版的'), isTrue);
       expect(IllustrationCue.explicitRequest('来张相册里的可爱画风图'), isFalse);
       expect(IllustrationCue.explicitRequest('如果来张可爱画风的图会怎样'), isFalse);
       expect(IllustrationCue.explicitRequest('不要来张Q版的图了'), isFalse);
     },
   );
+
+  const connection = IllustrationConnection(
+    baseUrl: 'https://illustration.fixture.test',
+    apiKey: 'fixture-key',
+  );
+  const testPrompt = IllustrationPrompt('quiet blue ocean', 'watermark');
+  testWidgets('relay accepts an image after the old 50-second limit', (
+    tester,
+  ) async {
+    final png = base64Decode(
+      'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+jfnQAAAAASUVORK5CYII=',
+    );
+    final client = IllustrationClient(
+      clientFactory: () => MockClient((_) async {
+        await Future<void>.delayed(const Duration(seconds: 55));
+        return http.Response.bytes(png, 200);
+      }),
+    );
+    final result = client.generate(connection, testPrompt, seed: 1);
+    await tester.pump(const Duration(seconds: 55));
+    expect((await result).bytes, png);
+  });
+
+  testWidgets('relay terminates a stalled image request at its deadline', (
+    tester,
+  ) async {
+    final client = IllustrationClient(
+      clientFactory: () => MockClient((_) async {
+        await Future<void>.delayed(const Duration(seconds: 121));
+        return http.Response('', 503);
+      }),
+    );
+    final result = expectLater(
+      client.generate(connection, testPrompt, seed: 1),
+      throwsA(
+        isA<IllustrationFailure>().having(
+          (error) => error.code,
+          'code',
+          'timeout',
+        ),
+      ),
+    );
+    await tester.pump(const Duration(seconds: 121));
+    await result;
+  });
+
+  test('relay keeps HTTP errors distinct from a malformed image', () async {
+    for (final (status, code) in [
+      (400, 'http_400'),
+      (503, 'http_503'),
+      (200, 'invalid_image'),
+    ]) {
+      final client = IllustrationClient(
+        clientFactory: () => MockClient(
+          (_) async => http.Response('fixture error body', status),
+        ),
+      );
+      await expectLater(
+        client.generate(connection, testPrompt, seed: 1),
+        throwsA(
+          isA<IllustrationFailure>().having(
+            (error) => error.code,
+            'code',
+            code,
+          ),
+        ),
+      );
+    }
+  });
 
   test(
     'App only adds nsfw for the two requested styles and QQ always excludes it',

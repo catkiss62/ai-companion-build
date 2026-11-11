@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../core/database/app_database.dart';
+import '../../core/diagnostics/provider_health.dart';
 import '../../core/illustration/illustration_client.dart';
 import '../../core/illustration/illustration_job.dart';
 import '../../core/illustration/illustration_prompt.dart';
@@ -82,14 +83,7 @@ class _IllustrationSettingsPageState extends State<IllustrationSettingsPage> {
       _notice = '正在试生成一张图片…';
     });
     try {
-      final result = await IllustrationClient().generate(
-        value,
-        const IllustrationPrompt(
-          'watercolor, quiet blue ocean, one small white cloud, wide shot, best quality',
-          'nsfw, lowres, watermark',
-        ),
-        seed: IllustrationClient.newSeed(),
-      );
+      final result = await _generateTest(value);
       if (!mounted) return;
       setState(() => _notice = '连接成功，已收到一张测试图片。');
       await showDialog<void>(
@@ -109,6 +103,53 @@ class _IllustrationSettingsPageState extends State<IllustrationSettingsPage> {
       if (mounted) setState(() => _notice = '试生成失败，请检查连接。');
     } finally {
       if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  Future<IllustrationBytes> _generateTest(
+    IllustrationConnection connection,
+  ) async {
+    final clock = Stopwatch()..start();
+    String category = 'none';
+    try {
+      return await IllustrationClient().generate(
+        connection,
+        const IllustrationPrompt(
+          'watercolor, quiet blue ocean, one small white cloud, wide shot, best quality',
+          'nsfw, lowres, watermark',
+        ),
+        seed: IllustrationClient.newSeed(),
+      );
+    } on IllustrationFailure catch (error) {
+      category = switch (error.code) {
+        'authorization' || 'timeout' || 'network' => error.code,
+        'quota' => 'quota_exhausted',
+        'configuration' => 'missing_key',
+        'invalid_image' => 'invalid_response',
+        _ when (error.httpStatus ?? 0) >= 500 => 'server_http',
+        _ when (error.httpStatus ?? 0) >= 400 => 'client_http',
+        _ when error.httpStatus != null => 'invalid_response',
+        _ => 'other',
+      };
+      rethrow;
+    } catch (_) {
+      category = 'other';
+      rethrow;
+    } finally {
+      final success = category == 'none';
+      await AppDatabase.instance.recordProviderHealthEvent(
+        ProviderHealthEvent(
+          lane: 'illustration',
+          context: 'settings_test',
+          primaryProvider: 'illustration_relay',
+          primaryOutcome: success ? 'success' : 'failed',
+          primaryErrorCategory: category,
+          finalProvider: 'illustration_relay',
+          finalOutcome: success ? 'success' : 'failed',
+          resultCount: success ? 1 : 0,
+          latencyBucket: ProviderHealth.latencyBucket(clock.elapsed),
+        ),
+      );
     }
   }
 
@@ -183,7 +224,7 @@ class _IllustrationSettingsPageState extends State<IllustrationSettingsPage> {
             ),
           ],
         ),
-        const Text('试生成会调用服务一次，可能产生费用。'),
+        const Text('试生成会调用服务一次，最多等待两分钟，可能产生费用。'),
         if (_notice.isNotEmpty)
           Padding(
             padding: const EdgeInsets.only(top: 10),

@@ -21,5 +21,15 @@ abstract final class QqMentionTargets {
     };
   }
 
+  /// Removes visible mention syntax from the command text only.
+  static String withoutLeadingMentions(String text) {
+    var command = text.trimLeft();
+    while (true) {
+      final match = _legacy.matchAsPrefix(command) ?? _xml.matchAsPrefix(command);
+      if (match == null || !valid(match[1])) return command;
+      command = command.substring(match.end).trimLeft();
+    }
+  }
+
   static bool individual(Map entry) => entry['scope'] == null || entry['scope'] == 'single';
 }
