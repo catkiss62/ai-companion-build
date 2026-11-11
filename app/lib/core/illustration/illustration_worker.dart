@@ -7,7 +7,6 @@ import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
 
 import '../ai/deepseek_client.dart';
-import '../ai/first_channel_model.dart';
 import '../database/app_database.dart';
 import '../database/brain_work_fence.dart';
 import '../storage/message_attachment_storage.dart';
@@ -15,6 +14,7 @@ import '../storage/secure_config.dart';
 import '../storage/shared_media_lock.dart';
 import 'illustration_client.dart';
 import 'illustration_job.dart';
+import 'illustration_planner.dart';
 import 'illustration_prompt.dart';
 
 class IllustrationWorker {
@@ -284,37 +284,17 @@ class IllustrationWorker {
     IllustrationSource source,
     Future<bool> Function() current,
   ) async {
-    final apiKey = (await secure.readApiKey())?.trim() ?? '';
-    if (apiKey.isEmpty || !await current()) return null;
     final planner = DeepSeekClient(abortWhen: () async => !await current());
     try {
-      final payload = await planner.jsonCompletion(
-        apiKey: apiKey,
-        endpoint: await secure.readEndpoint(),
-        model: await FirstChannelModel.read(db),
-        thinking: false,
-        maxTokens: 720,
-        usageLane: 'illustration_planning',
-        requestTimeout: const Duration(seconds: 32),
-        messages: [
-          {
-            'role': 'system',
-            'content':
-                '你为小鲸鱼构思一张原创插画。只输出 JSON。${IllustrationPlan.instructions}'
-                '如果原话只是在讨论图片或询问操作，没有现在画图的意图，返回 {"skip":true}。'
-                '日记安静时可以画一个意象，保留想象与事实的区分。',
-          },
-          {
-            'role': 'user',
-            'content': jsonEncode({
-              'source': source.name,
-              'creative_intent': state['intent'],
-              'context': state['context'],
-            }),
-          },
-        ],
+      return await IllustrationPlanner.request(
+        db: db,
+        secure: secure,
+        client: planner,
+        source: source.name,
+        intent: state['intent'] as String? ?? '',
+        context: state['context'] as String? ?? '',
+        current: current,
       );
-      return IllustrationPlan.fromJson(payload);
     } catch (_) {
       return null;
     } finally {

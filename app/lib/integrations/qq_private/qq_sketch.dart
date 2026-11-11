@@ -10,6 +10,7 @@ import '../../core/database/brain_work_fence.dart';
 import '../../core/storage/secure_config.dart';
 import 'qq_store.dart';
 import 'qq_failure.dart';
+import 'qq_drawing_policy.dart';
 
 class QqSketchChoice {
   const QqSketchChoice(this.brief,this.only);
@@ -34,19 +35,15 @@ class QqSketchService {
   final Duration requestTimeout;
   static const autoKey='qq_sketch_auto_v1';
   static const outputTokens=12000;
-  static bool explicit(String input)=>!RegExp(r'(不要|不用|别|不必).{0,6}(画|涂鸦|svg)',caseSensitive:false).hasMatch(input) &&
-    RegExp(r'(画[一两个张幅]|画画|画点|画下|绘制|涂鸦|svg)',caseSensitive:false).hasMatch(input);
+  static bool explicit(String input) => QqDrawingPolicy.explicitSketch(input);
   Future<bool> eligible(QqBatch b,int now) async {
-    if(explicit(b.rows.map((r)=>r['content']).join('\n')))return true;
+    if(QqDrawingPolicy.requested(b.rows.map((r)=>r['content']).join('\n')))return true;
     if(!b.group || await store.db.getSetting(autoKey)=='0')return false;
-    final last=int.tryParse(await store.db.getSetting('qq_sketch_auto_last_v1:${b.cid}')??'')??0;
-    final global=int.tryParse(await store.db.getSetting('qq_sketch_auto_global_v1')??'')??0;
-    if(now-last<const Duration(days:1).inMilliseconds || now-global<const Duration(hours:12).inMilliseconds)return false;
-    return int.parse(b.id.substring(0,8),radix:16)%40==0;
+    return QqDrawingPolicy.autonomousOpportunity(store, b, now);
   }
   static String get prompt=>'【可选小涂鸦】这轮允许简单随手画；只有你确实想画或回应明确画画请求时，在末尾加<qq_sketch mode="with_text">180字以内的画面描述</qq_sketch>。'
     '可mode="only"仅发图。不是作品制作，不需要包装；不凑次数。你只选画面，宿主会另用第一通道画成图片，不能虚称已发出。'
-    '与表情包二选一，涂鸦只放一次，不解释标签。不想画就正常回复。';
+    '一轮只选一种媒体，涂鸦只放一次，不解释标签。不想画就正常回复。';
   static bool acceptable(String svg)=>svg.length<=16000 && svg.trimLeft().startsWith('<svg') &&
     !RegExp(r'<!|<\?|<script|<foreignObject|<image|href\s*=|url\s*\(|\bon[a-z]+\s*=',caseSensitive:false).hasMatch(svg);
   static String normalize(String raw) {
@@ -67,9 +64,9 @@ class QqSketchService {
       final count=pieces.length==2 && pieces.first=='$hour'?(int.tryParse(pieces.last)??4):0;
       if(count>=4)throw const QqOperationFailure('sketch_budget');
       await txn.rawInsert('INSERT OR REPLACE INTO settings(key,value) VALUES(?,?)',['qq_sketch_budget_v1','$hour:${count+1}']);
-      if(attempt==1 && !explicit(b.rows.map((r)=>r['content']).join('\n'))) {
-        await txn.rawInsert('INSERT OR REPLACE INTO settings(key,value) VALUES(?,?)',['qq_sketch_auto_last_v1:${b.cid}','$now']);
-        await txn.rawInsert('INSERT OR REPLACE INTO settings(key,value) VALUES(?,?)',['qq_sketch_auto_global_v1','$now']);
+      if(attempt==1 && !QqDrawingPolicy.requested(b.rows.map((r)=>r['content']).join('\n')) &&
+          !await QqDrawingPolicy.reserveAutonomous(txn, b, now)) {
+        throw const QqOperationFailure('sketch_budget');
       }
     });} on BrainWorkInvalidated {rethrow;} catch(error) {
       throw QqSketchFailure(QqFailure.code(error),stage:'sketch_budget',elapsedMs:0,attempt:attempt);

@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'package:sqflite/sqflite.dart';
 import 'qq_archive_reader.dart';
 import 'qq_store.dart';
+import 'qq_drawing_policy.dart';
 import 'qq_failure.dart';
 import 'qq_failure_history.dart';
 import '../../core/database/brain_work_fence.dart';
@@ -52,6 +53,7 @@ class QqReplyTasks {
   final QqStore store;
   static const ttl = Duration(minutes: 10);
   static const maxSources = 80;
+  static const illustrationStartedKey = 'illustration_started';
   static const deliveredStages = {'sent','sent_archive_pending','sent_archive_failed','partially_sent','send_uncertain'};
   // A platform timestamp may be two minutes ahead; ingress accepts replays
   // for four minutes. Retaining facts never extends the pending request TTL.
@@ -111,6 +113,25 @@ class QqReplyTasks {
     final raw = jsonEncode({...previous,...draft});
     if (raw.length > 48000) throw const FormatException('qq_draft_size');
     await sql.update('qq_reply_tasks', {'draft':raw}, where:'id=? AND valid=1', whereArgs:[b.id]);
+  });
+  Future<bool> reserveIllustration(
+    QqBatch b, {
+    required String rawReply,
+    required bool autonomous,
+    required int now,
+  }) => store.write(b.fence, (sql) async {
+    final rows = await sql.query('qq_reply_tasks', columns: ['draft'],
+      where: 'id=? AND valid=1', whereArgs: [b.id], limit: 1);
+    if (rows.isEmpty) return false;
+    final existing = rows.single['draft'] as String;
+    final draft = existing.isEmpty ? <String, dynamic>{}
+        : (jsonDecode(existing) as Map).cast<String, dynamic>();
+    if (draft[illustrationStartedKey] == true) return false;
+    final updated = jsonEncode({...draft, 'raw': rawReply, illustrationStartedKey: true});
+    if (updated.length > 48000) throw const FormatException('qq_draft_size');
+    if (autonomous && !await QqDrawingPolicy.reserveAutonomous(sql, b, now)) return false;
+    await sql.update('qq_reply_tasks', {'draft': updated}, where: 'id=?', whereArgs: [b.id]);
+    return true;
   });
   Future<void> failure(QqBatch b, String phase) => store.write(b.fence, (sql) async {
     await sql.update('qq_reply_tasks', {'failure_phase':phase}, where:'id=?', whereArgs:[b.id]);

@@ -6,6 +6,7 @@ import 'package:qq_private_bridge/qq_private_bridge.dart';
 import '../../core/ai/deepseek_client.dart';
 import '../../core/ai/qwen_vision_client.dart';
 import '../../core/ai/third_channel_client.dart';
+import '../../core/illustration/illustration_client.dart';
 
 class QqOperationFailure implements Exception {
   const QqOperationFailure(this.code);
@@ -58,6 +59,7 @@ abstract final class QqFailure {
     return error is StateError && error.message=='reply_incomplete';
   }
   static String code(Object error) {
+    if(error is IllustrationFailure)return 'illustration_${error.code}';
     if(error is ThirdChannelFailure)return 'third_${error.code}';
     if(error is QqOperationFailure)return error.code;
     if(error is DeepSeekException)return 'model_http_${error.statusCode}';

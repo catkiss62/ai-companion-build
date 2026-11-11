@@ -153,9 +153,15 @@ class IllustrationPrompt {
     'fish ears',
   };
   static const _legacyFraming = {'0.7::close-up::', 'full body'};
+  static final _nsfw = RegExp(r'\bnsfw\b', caseSensitive: false);
 
-  factory IllustrationPrompt.compose(IllustrationPlan plan) {
+  factory IllustrationPrompt.compose(
+    IllustrationPlan plan, {
+    bool generalAudience = false,
+  }) {
     final preset = whaleIllustrationPresets[plan.style];
+    final appNsfwStyle =
+        !generalAudience && const {'cute', 'mature'}.contains(plan.style);
     return IllustrationPrompt(
       _join([
         if (preset != null)
@@ -168,24 +174,33 @@ class IllustrationPrompt {
         if (plan.outfit.isNotEmpty) plan.outfit,
         plan.scene,
         ...?preset?.artists,
+        if (appNsfwStyle) 'nsfw',
         _quality,
         if (plan.camera.isNotEmpty) plan.camera,
-      ]),
+      ], excludeNsfw: generalAudience),
       _join([
         for (final tag
             in preset?.negative ?? const ['nsfw', 'lowres', 'watermark'])
-          if (plan.appearance.isEmpty || !_identityNegatives.contains(tag)) tag,
+          if ((!appNsfwStyle || tag.toLowerCase() != 'nsfw') &&
+              (plan.appearance.isEmpty || !_identityNegatives.contains(tag)))
+            tag,
+        if (generalAudience) 'nsfw',
       ]),
     );
   }
 
   // Match the standard HTML page's comma ordering and duplicate handling.
-  static String _join(Iterable<String> parts) {
+  static String _join(Iterable<String> parts, {bool excludeNsfw = false}) {
     final seen = <String>{};
     return parts
         .expand((part) => part.split(','))
         .map((tag) => tag.trim())
-        .where((tag) => tag.isNotEmpty && seen.add(tag.toLowerCase()))
+        .where(
+          (tag) =>
+              tag.isNotEmpty &&
+              (!excludeNsfw || !_nsfw.hasMatch(tag)) &&
+              seen.add(tag.toLowerCase()),
+        )
         .join(', ');
   }
 }

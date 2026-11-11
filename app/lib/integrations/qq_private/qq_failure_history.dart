@@ -57,7 +57,7 @@ abstract final class QqFailureHistory {
   static String phaseName(String phase) => const {
     'context': '上下文', 'participation': '参与判断', 'vision': '识图',
     'reply_generation': '正文生成', 'first_reply': '第一通道', 'second_reply': '第二通道',
-    'group_boundary': '称呼核验', 'sketch_generation': '涂鸦', 'voice': '语音',
+    'group_boundary': '称呼核验', 'sketch_generation': '涂鸦', 'illustration_generation': '生图', 'voice': '语音',
     'sketch_request':'画稿请求','sketch_json':'画稿JSON','sketch_validation':'画稿检查','sketch_render':'图片转换','sketch_budget':'绘图额度',
     'media_upload': '媒体上传', 'voice_generation':'语音合成','voice_upload':'语音上传', 'send': '投递', 'archive': '本地归档',
   }[phase] ?? phase;

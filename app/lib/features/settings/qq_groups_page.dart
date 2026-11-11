@@ -95,6 +95,15 @@ class _QqGroupsPageState extends State<QqGroupsPage> {
         SwitchListTile(contentPadding:EdgeInsets.zero,title:const Text('允许向本人分享群聊见闻'),subtitle:const Text('仅向你分享，仍受睡眠、节奏和防重复控制。'),
           value:_options.ownerShare,onChanged:_busy?null:(v)=>_run(() async {await QqOptions.update((fresh)=>fresh.copy(ownerShare:v),namespace:_config.namespace);})),
         SwitchListTile(contentPadding:EdgeInsets.zero,title:const Text('允许偶尔主动发小涂鸦'),subtitle:const Text('低频群聊机会；明确请求画画仍可回应。跟随第一通道当前模型和思考力度，不使用作品流程。'),value:_autoSketch,onChanged:_busy?null:(v)=>_run(()=>AppDatabase.instance.setSetting(QqSketchService.autoKey,v?'1':'0'))),
+        SwitchListTile(
+          contentPadding:EdgeInsets.zero,
+          title:const Text('允许 QQ 生图（私聊和群聊）'),
+          subtitle:const Text('使用「能力 → 生图」的服务地址和密钥。群聊中她也可以低频主动选用，与主动涂鸦共用频率。'),
+          value:_options.illustrationEnabled,
+          onChanged:_busy?null:(value)=>_run(() async {
+            await QqOptions.update((fresh)=>fresh.copy(illustrationEnabled:value),namespace:_config.namespace);
+          }),
+        ),
         const SizedBox(height:12),const Text('群聊优先用JEV快速判断，未启用或请求失败时第一通道兜底。每条新消息可触发，短时连发合并；正在和她聊天时可连续接话，普通加入保持较低频率。复读、玩梗和纯表情包也可参与，旁听过的消息不会反复读取。'),
         const SizedBox(height:12),const Text('夜间沿用共同起床边界：群里仍可接收归档，默认不识图、不主动接话，也不批量补看整夜图片。本人私聊保留回应。QQ不会增加主系统疲劳、压力或互动满足。'),
         if(_notice.isNotEmpty) Padding(padding:const EdgeInsets.only(top:12),child:Text(_notice)),

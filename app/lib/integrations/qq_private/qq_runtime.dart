@@ -18,6 +18,7 @@ import 'qq_reply_tasks.dart';
 import 'qq_addressing.dart';
 import '../../core/stickers/sticker_expression_service.dart';
 import '../../core/stickers/sticker_reply_choice.dart';
+import '../../core/illustration/illustration_client.dart';
 import '../../core/storage/secure_config.dart';
 import 'qq_archive_reader.dart';
 import 'qq_display_names.dart';
@@ -40,6 +41,8 @@ import 'qq_vision.dart';
 import 'qq_work_queue.dart';
 import 'qq_group_learning.dart';
 import 'qq_sketch.dart';
+import 'qq_drawing_policy.dart';
+import 'qq_illustration.dart';
 import 'qq_voice.dart';
 import '../../core/tts/tts_playback_tuning.dart';
 import 'qq_echo.dart';
@@ -52,12 +55,15 @@ class QqRuntime {
     required this.allowed,required this.status,DateTime Function()? now,
     Future<QqPrivateConfig> Function()? configReader,Future<QqOptions> Function()? optionsReader,
     QqIngressBuffer? ingressBuffer,DeepSeekClient Function(Future<bool> Function())? clientFactory,QqVision? vision,QqStickers? stickerService,
-    JevDecisionGateway? groupDecisions,QqVoiceService? voiceService,this.privatePrompt,this.privateCurrent})
+    JevDecisionGateway? groupDecisions,QqVoiceService? voiceService,
+    IllustrationClient? illustrationClient,this.privatePrompt,this.privateCurrent})
     :now=now??DateTime.now,configReader=configReader??QqPrivateConfig.read,
      ingressBuffer=ingressBuffer??QqIngressBuffer(),optionsReader=optionsReader??QqOptions.read,
      clientFactory=clientFactory??((abort)=>DeepSeekClient(abortWhen:abort,secureConfig:secure,
        onUsage:(event)async {await ModelUsageTelemetry.record(store.db,event);})),vision=vision??QqVision(secure,usageDb:store.db),
-     stickers=stickerService??QqStickers(store.db),voice=voiceService??QqVoiceService(),echoes=QqEchoService(store),groupDecisions=groupDecisions??JevDecisionGateway(
+     stickers=stickerService??QqStickers(store.db),voice=voiceService??QqVoiceService(),
+     illustrations=QqIllustrationService(store,illustrationClient??IllustrationClient()),
+     echoes=QqEchoService(store),groupDecisions=groupDecisions??JevDecisionGateway(
        enabledReader:secure.readJevEnabled,keyReader:secure.readOpenRouterApiKey);
   final _imageExpires=<int,int>{};
   final QqIngressBuffer ingressBuffer;
@@ -72,6 +78,7 @@ class QqRuntime {
   final DeepSeekClient Function(Future<bool> Function()) clientFactory;
   final QqVision vision;final QqStickers stickers;
   final QqVoiceService voice;
+  final QqIllustrationService illustrations;
   final QqEchoService echoes;
   final JevDecisionGateway groupDecisions;
   final Future<String> Function(String,Map<String,Object?>,String,int)? privatePrompt;
@@ -472,8 +479,31 @@ class QqRuntime {
       data+='\n【本批待回应的新消息序号】${b.rows.map((r)=>r['seq']).join(',')}；她已发出的内容是已经送达的历史。新消息可能在上一轮生成期间到达，先看刚发出的回答是否已回应它；已回答的内容不要再换句话复述，没有新的回应需要就输出WAIT。';
       if (!wakingGroup) prompt+='\n${QqStickers.choicePrompt(candidates)}';
       prompt+='\n${QqReplyParts.prompt}';
-      final sketchService=QqSketchService(store);final canSketch=!wakingGroup && !_drawingBusy && await sketchService.eligible(b,now().millisecondsSinceEpoch);
+      final sketchService=QqSketchService(store);
+      final drawingRequest=b.rows.map((row)=>row['content']).join('\n');
+      final requestedFormat=QqDrawingPolicy.requestedFormat(drawingRequest);
+      final drawingRequested=QqDrawingPolicy.requested(drawingRequest);
+      final canDraw=!wakingGroup && !_drawingBusy;
+      final drawingAt=now().millisecondsSinceEpoch;
+      final canSketch=canDraw && requestedFormat!=QqDrawingFormat.illustration &&
+          await sketchService.eligible(b,drawingAt);
+      final illustrationConnection=canDraw && o.illustrationEnabled &&
+          requestedFormat!=QqDrawingFormat.sketch
+          ? await secure.readIllustration()
+          : const IllustrationConnection();
+      final canIllustrate=illustrationConnection.configured &&
+          (drawingRequested || await QqDrawingPolicy.autonomousOpportunity(store,b,drawingAt));
+      Future<bool> illustrationCurrent() async {
+        if (!await current()) return false;
+        final fresh=await secure.readIllustration();
+        return fresh.baseUrl==illustrationConnection.baseUrl &&
+            fresh.apiKey==illustrationConnection.apiKey;
+      }
       if(canSketch)prompt+='\n${QqSketchService.prompt}';
+      if(canIllustrate)prompt+='\n${QqIllustrationChoice.prompt}';
+      if(canDraw && requestedFormat==QqDrawingFormat.illustration && !canIllustrate) {
+        prompt+='\n本轮 QQ 生图未启用或尚未配置，请用文字说明当前无法生图。';
+      }
       prompt+=wakingGroup?'\n本轮只发文字。':o.voiceEnabled?'\n${QqVoiceChoice.prompt}':'\n本轮QQ语音关闭，只选择可用文字/图片表达。';
       if(echo!=null)prompt+='\n${echo.prompt}';
       if(!await current()) throw StateError('context_invalidated');
@@ -498,10 +528,14 @@ class QqRuntime {
       var voiceChoice=!wakingGroup && o.voiceEnabled?QqVoiceChoice.parse(raw):null;
       final echoChoice=voiceChoice==null && echo!=null && (reusedDraft==null || reusedDraft!['echo_key']==echo.usageKey)?QqEchoChoice.parse(raw):null;
       final sketchChoice=voiceChoice==null && echoChoice==null && canSketch?QqSketchChoice.parse(raw):null;
-      var selected=!wakingGroup && voiceChoice==null && echoChoice==null && sketchChoice==null?candidates.where((x)=>x.id==choice.id).firstOrNull:null;
-      if(reusedDraft!=null && (reusedDraft!['sticker_key'] as String? ?? '').isNotEmpty)selected=await stickers.restoreChoice(reusedDraft!['sticker_key'] as String,choice.id??'saved');
-      var parts=(echoChoice?.only==true || sketchChoice?.only==true || choice.stickerOnly && selected!=null)?<String>[]:
-        QqReplyParts.parse(QqEchoChoice.visible(QqVoiceChoice.visible(StickerReplyChoice.visible(QqSketchChoice.visible(raw)))));
+      final illustrationChoice=voiceChoice==null && echoChoice==null && sketchChoice==null && canIllustrate
+          ?QqIllustrationChoice.parse(raw):null;
+      final hasDrawing=sketchChoice!=null || illustrationChoice!=null;
+      var selected=!wakingGroup && voiceChoice==null && echoChoice==null && !hasDrawing
+          ?candidates.where((x)=>x.id==choice.id).firstOrNull:null;
+      if(!hasDrawing && reusedDraft!=null && (reusedDraft!['sticker_key'] as String? ?? '').isNotEmpty)selected=await stickers.restoreChoice(reusedDraft!['sticker_key'] as String,choice.id??'saved');
+      var parts=(echoChoice?.only==true || sketchChoice?.only==true || illustrationChoice?.only==true || choice.stickerOnly && selected!=null)?<String>[]:
+        QqReplyParts.parse(QqEchoChoice.visible(QqVoiceChoice.visible(StickerReplyChoice.visible(QqSketchChoice.visible(QqIllustrationChoice.visible(raw))))));
       if(voiceChoice!=null) {
         final spoken=voiceChoice;
         parts=parts.where((p)=>QqVoiceChoice.transcript(p,spoken.language)!=spoken.text).toList();
@@ -512,23 +546,52 @@ class QqRuntime {
         if(await store.mentioned(b))throw const QqOperationFailure('direct_reply_empty');
         await store.mark(b,continuedPrior?'interrupted':'watching');return;
       }
-      if(text.isEmpty && selected==null && sketchChoice==null && echoChoice==null) throw StateError('reply_invalid');
+      if(text.isEmpty && selected==null && !hasDrawing && echoChoice==null) throw StateError('reply_invalid');
       QqReplyDelivery.validate(text,parts);
       var caption=echoChoice!=null?echo!.description:selected?.record.caption??'';
       QqSketch? drawing;
+      QqIllustration? illustration;
       if(sketchChoice!=null) {
         phase='sketch_generation';
         // Keep this cid locked until upload/send completes. Other conversations
         // can reply while this sole background drawing waits for its model.
-        _drawingBusy=true;ownsDrawing=true;releaseSlot?.call();
-        try {status('drawing');drawing=reusedDraft?['sketch_svg'] is String && (reusedDraft!['sketch_svg'] as String).isNotEmpty?
+        try {
+          if (_drawingBusy) throw const QqOperationFailure('sketch_render_busy');
+          _drawingBusy=true;ownsDrawing=true;releaseSlot?.call();
+          status('drawing');drawing=reusedDraft?['sketch_svg'] is String && (reusedDraft!['sketch_svg'] as String).isNotEmpty?
             await sketchService.renderDraft(reusedDraft!['sketch_svg'] as String,reusedDraft!['sketch_description'] as String,current):
             await sketchService.generate(b,sketchChoice,now:now().millisecondsSinceEpoch,secure:secure,client:client,current:current,
               onRepair:(failure)=>store.recordFailure(fence,phase,failure,operation:b.id,conversation:b.cid));caption=drawing.description;}
         catch(error) {if(!await current())rethrow;await store.recordFailure(fence,phase,error,elapsedMs:operationClock.elapsedMilliseconds,operation:b.id,conversation:b.cid);
           status('sketch_failed');parts=[QqFailure.sketchMessage(error)];text=parts.single;}
       }
-      await tasks.saveDraft(b,{'raw':sketchChoice!=null && drawing==null?parts.join(QqReplyParts.separator):raw,
+      if(illustrationChoice!=null) {
+        phase='illustration_generation';
+        try {
+          if (_drawingBusy) throw const IllustrationFailure('busy');
+          if (reusedDraft?[QqReplyTasks.illustrationStartedKey]==true) {
+            throw const IllustrationFailure('already_started');
+          }
+          _drawingBusy=true;ownsDrawing=true;releaseSlot?.call();
+          status('illustrating');
+          illustration=await illustrations.generate(
+            batch:b,choice:illustrationChoice,connection:illustrationConnection,secure:secure,
+            planner:client,rawReply:raw,
+            context:drawingRequest.length<=1200?drawingRequest:drawingRequest.substring(drawingRequest.length-1200),
+            autonomous:!drawingRequested,now:now().millisecondsSinceEpoch,current:illustrationCurrent,
+          );
+          caption='生图意图：${illustration.description}';
+        } catch(error) {
+          if(!await current())rethrow;
+          await store.recordFailure(fence,phase,error,elapsedMs:operationClock.elapsedMilliseconds,operation:b.id,conversation:b.cid);
+          status('illustration_failed');
+          final notice=error is IllustrationFailure && error.code=='already_started'
+              ? '这次插画没发出去。' : '这次插画没画出来。';
+          if(parts.length<3) parts=[...parts,notice];
+          text=parts.join('\n');
+        }
+      }
+      await tasks.saveDraft(b,{'raw':hasDrawing && drawing==null && illustration==null?parts.join(QqReplyParts.separator):raw,
         'sticker_key':selected?.record.usageKey??'','echo_key':echoChoice!=null?echo!.usageKey:'',
         'sketch_svg':drawing?.svg??'','sketch_description':drawing?.description??''});
       phase='group_boundary';
@@ -540,7 +603,19 @@ class QqRuntime {
       await store.mark(b,'generated',text:text,sticker:stickerKey);
       String fileInfo='';
       phase='media_upload';
-      if(drawing!=null) {
+      if(illustration!=null) {
+        try {
+          fileInfo=await api.uploadImage(group:b.group,target:b.target,bytes:illustration.image.bytes,
+            filename:illustration.filename,current:illustrationCurrent);
+        } catch(error) {
+          if(!await current())rethrow;
+          await store.recordFailure(fence,phase,error,elapsedMs:operationClock.elapsedMilliseconds,operation:b.id,conversation:b.cid);
+          status('media_failed');
+          if(parts.length<3) parts=[...parts,'插画这次没上传成功。'];
+          text=parts.join('\n');
+          illustration=null;
+        }
+      } else if(drawing!=null) {
         try {fileInfo=await api.uploadImage(group:b.group,target:b.target,bytes:drawing.png,filename:'sketch.png',current:current);}
         catch(error) {if(!await current())rethrow;await store.recordFailure(fence,phase,error,elapsedMs:operationClock.elapsedMilliseconds,operation:b.id,conversation:b.cid);
           status('media_failed');parts=['画出来了，但图片这次没上传成功。'];text=parts.single;drawing=null;}
@@ -578,7 +653,8 @@ class QqRuntime {
         confirmedPart:(sequence,content,image,language)=>tasks.confirmed(b,sequence,content,image,language),
         received:(sequence,receipt)=>store.received(b,sequence,platformId:receipt.id,platformIndex:receipt.index),
         confirmed:() async {sentAny=true;await store.mark(b,'sent_archive_pending');},
-        mediaCurrent:echoChoice==null?null:() async=>now().millisecondsSinceEpoch<echo!.expiresAt && await echoes.current(echo!),
+        mediaCurrent:illustration!=null?illustrationCurrent:echoChoice==null?null:
+          () async=>now().millisecondsSinceEpoch<echo!.expiresAt && await echoes.current(echo!),
         voiceText:voiceChoice?.text??'',voiceLanguage:voiceChoice?.language??'',
         sentVoice:(sequence,transcript,language) async {
           sentAny=true;await store.sentPart(b,sequence,transcript,'',now().millisecondsSinceEpoch,voiceLanguage:language,voiceProfile:voiceChoice?.voice??'');

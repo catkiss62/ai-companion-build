@@ -1,6 +1,7 @@
 import 'dart:convert';
 import '../../core/database/brain_work_fence.dart';
 import 'qq_archive_reader.dart';
+import 'qq_reply_tasks.dart';
 import 'qq_store.dart';
 
 /// Only unsent work can be retried without a fresh platform message.
@@ -80,8 +81,10 @@ class QqReplyRecovery {
       final original=await sql.query('qq_archive',where:"conversation_id=? AND role='user' AND seq IN (${List.filled(ids.length,'?').join(',')})",whereArgs:[cid,...ids],orderBy:'seq');
       if(original.length!=ids.length)continue;
       final conversation=(await sql.query('qq_conversations',where:'id=?',whereArgs:[cid],limit:1)).single;
-      // New attempt recomputes context; retain only retry accounting, no stale draft.
-      final next={key:{'attempts':((retry['attempts'] as num?)?.toInt() ?? 0)+1,'next_at':0}};
+      // New attempt recomputes context. Keep the paid work reservation
+      // even though the prepared reply and its media are no longer available.
+      final next={key:{'attempts':((retry['attempts'] as num?)?.toInt() ?? 0)+1,'next_at':0},
+        if(draft[QqReplyTasks.illustrationStartedKey]==true)QqReplyTasks.illustrationStartedKey:true};
       await sql.update('qq_reply_tasks',{'stage':'checking','draft':jsonEncode(next),'updated_at':now},where:'id=?',whereArgs:[row['id']]);
       await sql.update('qq_deliveries',{'state':'checking','updated_at':now},where:'id=?',whereArgs:[row['id']]);
       return QqBatch(row['id'] as String,conversation,original,fence);

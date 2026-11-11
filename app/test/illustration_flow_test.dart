@@ -164,12 +164,45 @@ void main() {
     expect(prompt.positive, isNot(contains('full body')));
     expect(prompt.positive, isNot(contains('maid dress')));
     expect(prompt.positive, contains('cetacean tail'));
-    expect(prompt.negative, contains('nsfw'));
+    expect(prompt.positive.split(', '), contains('nsfw'));
+    expect(prompt.negative.split(', '), isNot(contains('nsfw')));
     expect(IllustrationCue.visible('好呀<illust'), '好呀');
     expect(IllustrationCue.visible('好呀<illustrate>一杯茶</illustrate>'), '好呀');
     expect(IllustrationCue.explicitRequest('别画一张了'), isFalse);
     expect(IllustrationCue.explicitRequest('给我画一张海边'), isTrue);
   });
+
+  test(
+    'App only adds nsfw for the two requested styles and QQ always excludes it',
+    () {
+      for (final style in IllustrationPlan.styles) {
+        final plan = IllustrationPlan(
+          style: style,
+          scene: 'by a window',
+          description: '窗边',
+        );
+        final app = IllustrationPrompt.compose(plan);
+        final qq = IllustrationPrompt.compose(plan, generalAudience: true);
+        final changed = const {'cute', 'mature'}.contains(style);
+        expect(
+          app.positive.split(', ').contains('nsfw'),
+          changed,
+          reason: style,
+        );
+        expect(
+          app.negative.split(', ').contains('nsfw'),
+          !changed,
+          reason: style,
+        );
+        expect(qq.positive.split(', '), isNot(contains('nsfw')), reason: style);
+        expect(
+          qq.negative.split(', ').where((tag) => tag == 'nsfw'),
+          hasLength(1),
+          reason: style,
+        );
+      }
+    },
+  );
 
   test(
     'explicit album visit exposes inspection if semantic routing missed it',

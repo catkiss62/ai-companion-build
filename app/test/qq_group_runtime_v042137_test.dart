@@ -15,6 +15,7 @@ import 'package:ai_companion_localfirst/core/stickers/sticker_pack.dart';
 import 'package:ai_companion_localfirst/integrations/qq_private/qq_stickers.dart';
 import 'package:ai_companion_localfirst/core/ai/deepseek_client.dart';
 import 'package:ai_companion_localfirst/core/ai/jev_decision_gateway.dart';
+import 'package:ai_companion_localfirst/core/illustration/illustration_client.dart';
 import 'package:ai_companion_localfirst/integrations/qq_private/qq_display_names.dart';
 import 'package:ai_companion_localfirst/core/database/app_database.dart';
 import 'package:ai_companion_localfirst/core/database/qq_context_evidence.dart';
@@ -43,6 +44,8 @@ class _Secure extends SecureConfig {
   @override Future<String> readAiWangYouEndpoint()async=>'https://second.test/chat';
   @override Future<String> readAiWangYouModel()async=>'dynamic-second-name';
   @override Future<ChatApiProvider> readChatProvider()async=>ChatApiProvider.deepSeek;
+  @override Future<IllustrationConnection> readIllustration()async=>const IllustrationConnection(
+    baseUrl:'https://illustration.fixture.test',apiKey:'fixture-illustration');
 }
 class _ArchiveFault extends QqStore {
   _ArchiveFault(super.db,{this.failFinal=false});
@@ -61,8 +64,9 @@ class _ArchiveFault extends QqStore {
 class _Api extends QqApi {
   _Api():super(appId:'12345',secret:'fixture-not-a-secret');
   final sent=<Map<String,Object?>>[];bool uncertain=false;int uploads=0;
+  final imageFiles=<String>[];
   QqApiException? nextKnownUnsent;int sendAttempts=0;
-  @override Future<String> uploadImage({required bool group,required String target,required Uint8List bytes,required String filename,required Future<bool> Function() current})async{uploads++;expect(await current(),true);return 'fixture-image-token';}
+  @override Future<String> uploadImage({required bool group,required String target,required Uint8List bytes,required String filename,required Future<bool> Function() current})async{uploads++;imageFiles.add(filename);expect(await current(),true);return 'fixture-image-token';}
   @override Future<QqMediaUpload> uploadVoice({required bool group,required String target,required Uint8List bytes,required Future<bool> Function() current})async{uploads++;expect(await current(),true);return const QqMediaUpload('fixture-voice-token');}
   @override Future<QqMediaUpload> uploadMedia({required bool group,required String target,required Uint8List bytes,required String filename,required int fileType,required Future<bool> Function() current})async{uploads++;expect(await current(),true);return const QqMediaUpload('fixture-echo-token',ttl:300);}
   @override Future<void> sendMessage({required bool group,required String target,required String messageId,
@@ -116,10 +120,12 @@ void main(){
   late QqPrivateConfig config;late QqOptions options;late QqRuntime runtime;late DateTime clock;
   late List<http.Request> requests;late List<String> statuses;late List<http.Request> jevRequests;
   late Future<http.Response> Function(http.Request,Map) handler;var enabled=true;
-  QqRuntime create({QqStickers? stickerService,JevDecisionGateway? decisions,QqVoiceService? voiceService})=>QqRuntime(store:store,api:api,secure:secure,config:config,allowed:()async=>enabled,
+  QqRuntime create({QqStickers? stickerService,JevDecisionGateway? decisions,QqVoiceService? voiceService,
+    IllustrationClient? illustrationClient})=>QqRuntime(store:store,api:api,secure:secure,config:config,allowed:()async=>enabled,
     now:()=>clock,configReader:()async=>config,optionsReader:()async=>options,status:statuses.add,vision:vision,stickerService:stickerService,voiceService:voiceService,groupDecisions:decisions,
     privatePrompt:(query,stamp,scope,through)async=>QqReadOnlyContext(await db.database).build(query,stamp:stamp,qqScope:scope,through:through,media:true),
     privateCurrent:(stamp)async=>QqReadOnlyContext(await db.database).matchesStamp(stamp),
+    illustrationClient:illustrationClient,
     clientFactory:(abort)=>DeepSeekClient(abortWhen:abort,
       jsonClientFactory:()=>MockClient((r){requests.add(r);return handler(r,jsonDecode(r.body) as Map);}),
       streamClientFactory:()=>MockClient((r){requests.add(r);return handler(r,jsonDecode(r.body) as Map);})));
@@ -142,6 +148,86 @@ void main(){
     handler=(r,b)async=>b['stream']==true?_sse('哈哈哈'):_json(b['max_tokens']==60?{'safe':true}:{'participation':'watch'});
     runtime=create();
   });
+  for (final scenario in ['automatic', 'automatic_svg', 'disabled', 'disabled_during_generation', 'generation_failure', 'retry_delivery']) {
+    test('QQ drawing choice and delivery: $scenario', () async {
+      final automatic = scenario.startsWith('automatic');
+      final useSvg = scenario == 'automatic_svg';
+      final target = automatic
+          ? Iterable<int>.generate(1000).map((i) => 'auto-drawing-$i')
+              .firstWhere((id) => int.parse(QqStore.hash([cid(id), 1]).substring(0, 8), radix:16)%40 == 0)
+          : 'group-a';
+      options=options.copy(groups:{target},illustrationEnabled:scenario!='disabled');
+      const pngData='iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+jfnQAAAAASUVORK5CYII=';
+      var planned=0,generated=0,svgPlans=0;
+      var offeredIllustration=false,offeredSketch=false;
+      await runtime.stop();
+      runtime=create(illustrationClient:IllustrationClient(clientFactory:()=>MockClient((request) async {
+        generated++;
+        final body=jsonDecode(request.body) as Map;
+        expect((body['input'] as String).split(', '),isNot(contains('nsfw')));
+        expect((body['parameters']['negative_prompt'] as String).split(', '),contains('nsfw'));
+        if(scenario=='disabled_during_generation') options=options.copy(illustrationEnabled:false);
+        if(scenario=='generation_failure')return http.Response('fixture failure',503);
+        return http.Response.bytes(base64Decode(pngData),200);
+      })));
+      const channel=MethodChannel('ai_companion/qq_private_runtime');
+      final messenger=TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger;
+      messenger.setMockMethodCallHandler(channel,(call) async => base64Decode(pngData));
+      try {
+        handler=(r,b)async {
+          if(b['stream']==true){
+            offeredIllustration=r.body.contains('【可选生图】');
+            offeredSketch=r.body.contains('【可选小涂鸦】');
+            return _sse(useSvg
+                ? '<qq_sketch mode="only">画个蓝色圆圈</qq_sketch>'
+                : scenario=='retry_delivery'
+                  ? '<qq_illustration mode="only">雨夜插画</qq_illustration>'
+                  : '雨夜的颜色很好看<qq_illustration mode="with_text">雨夜插画</qq_illustration>');
+          }
+          if(b['max_tokens']==720){
+            planned++;
+            return _json({'style':'cute','scene':'standing under a streetlight','description':'雨夜街灯下的鲸鱼'});
+          }
+          if(b['max_tokens']==QqSketchService.outputTokens){
+            svgPlans++;
+            return _json({'svg':'<svg><circle r="20"/></svg>','description':'蓝色圆圈'});
+          }
+          return _json(b['max_tokens']==60?{'safe':true}:{'participation':automatic?'join':'direct'});
+        };
+        if(scenario=='retry_delivery')api.nextKnownUnsent=QqApiException('network');
+        await accept('qq-drawing-$scenario',automatic?'雨夜街灯真好看':'用生图画张雨夜插画',target:target);
+        await runtime.process(cid(target));
+        expect(offeredIllustration,scenario!='disabled');
+        expect(offeredSketch,automatic);
+        expect(planned,useSvg||scenario=='disabled'?0:1);
+        expect(generated,planned);
+        if(useSvg){
+          expect(svgPlans,1);
+          expect(api.imageFiles,['sketch.png']);
+        }else if(scenario=='automatic' || scenario=='retry_delivery'){
+          expect(api.imageFiles,['illustration.png']);
+        }else{
+          expect(api.imageFiles,isEmpty);
+        }
+        if(scenario=='disabled_during_generation')expect(api.sent,isEmpty);
+        if(scenario=='disabled')expect(api.sent.single['text'],'雨夜的颜色很好看');
+        if(scenario=='generation_failure')expect(api.sent.map((x)=>x['text']),contains('这次插画没画出来。'));
+        if(automatic)expect(await db.getSetting('qq_sketch_auto_last_v1:${cid(target)}'),isNotNull);
+        if(scenario=='retry_delivery'){
+          expect(api.sent,isEmpty);
+          clock=clock.add(const Duration(seconds:16));
+          await runtime.process(cid(target));
+          expect(generated,1);
+          expect(api.imageFiles,hasLength(1));
+          expect(api.sent.single['text'],'这次插画没发出去。');
+        }
+        expect(api.sent.every((x)=>!(x['text'] as String).contains('<qq_')),isTrue);
+        expect(await db.companionAlbumItems(),isEmpty);
+      } finally {
+        messenger.setMockMethodCallHandler(channel,null);
+      }
+    });
+  }
   tearDown(()async{await runtime.stop();api.close();await db.closeForTesting();});
 
   for (final code in ['network', 'timeout', 'http_429']) {
