@@ -1,0 +1,7 @@
+status=success
+run_id=42947309151
+run_url=https://github.com/catkiss62/ai-companion-build/actions/runs/42947309151
+head_sha=dd2898f7cc95fc7f931261169efa039dec324f3e
+signer_sha256=30:5E:B3:D8:09:83:B9:63:C6:48:18:DD:F1:AD:56:1F:27:9D:E6:D4:7B:3E:D2:C7:81:AD:A4:48:C7:C2:51:48
+a4705d0d9ba6c4237b0189e639bdebfe7532d1dfc80636c39aae080e6879a51f  AI-Companion-v0.42.180-424-QQ-Illustration-APK.apk
+release_url=https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-462678391c673a2565b7
