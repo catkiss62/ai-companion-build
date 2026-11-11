@@ -1,0 +1,7 @@
+status=success
+run_id=42992753273
+run_url=https://github.com/catkiss62/ai-companion-build/actions/runs/42992753273
+head_sha=c0e848b74a1e744727ae9af86a375c144a3f9a54
+signer_sha256=30:5E:B3:D8:09:83:B9:63:C6:48:18:DD:F1:AD:56:1F:27:9D:E6:D4:7B:3E:D2:C7:81:AD:A4:48:C7:C2:51:48
+74c15ec8aa5adda9c6f3f695e29c1c88ddf0942662ca7b9fbda0f478d113adef  AI-Companion-v0.42.182-426-Illustration-Relay-APK.apk
+release_url=https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-335dc701053eaaae2146
