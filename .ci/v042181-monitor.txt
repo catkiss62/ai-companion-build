@@ -1,0 +1,7 @@
+status=success
+run_id=42966840807
+run_url=https://github.com/catkiss62/ai-companion-build/actions/runs/42966840807
+head_sha=7950db89003ba801c8de5703877820298ac3d111
+signer_sha256=30:5E:B3:D8:09:83:B9:63:C6:48:18:DD:F1:AD:56:1F:27:9D:E6:D4:7B:3E:D2:C7:81:AD:A4:48:C7:C2:51:48
+0d5a18d65e21417d66b555361181f0929e663810498b4cc9d51dd6c1b55ef171  AI-Companion-v0.42.181-425-QQ-Drawing-Followup-APK.apk
+release_url=https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-38af7db6f38b8d25a86d
