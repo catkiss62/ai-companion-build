@@ -2,8 +2,8 @@
 
 ## 当前接班快照
 
-- 开发分支 `agent/v042107-review-recovery`。已交付相册 Agent 测试版 `v0.42.179+423`、schema67，构建提交 `7b60a25`。[下载 APK](https://github.com/catkiss62/ai-companion-build/actions/runs/42881157026/artifacts/13796077131)
-- 独立系统逻辑 CI 和签名 APK 构建已通过。用户真机反馈 `+423` 没有问题。
+- 开发分支 `agent/v042107-review-recovery` 已交付 QQ 生图测试版 `v0.42.180+424`、schema67，构建提交 `dd2898f`。[下载 APK](https://github.com/catkiss62/ai-companion-build/actions/runs/42947309151/artifacts/13824224753)
+- 独立系统逻辑 CI 和签名 APK 构建均已通过。用户真机验收了 `+423`。本版 QQ 实际发送待真机确认。
 - 新窗口先核对最新运行提交、最近 5 笔和对应 Actions 摘要，再按本页任务入口定点读取。
 
 ## 维护约定
@@ -17,7 +17,10 @@
 - 用户验收 `+423` 后同意接入 QQ 生图。QQ 使用独立的本机授权开关，正文模型在现有回复请求中选择 SVG、生图或文字。群聊主动选择两种画法都沿用 QQ 原有低频机会。
 - App 可爱和成熟画风将 `nsfw` 移至正向。QQ 使用现有生图连接、预设和第一通道画面规划，以面向全年龄的方式组装，`nsfw` 强制放入负向。QQ 上传与发送沿用现有权限和回执。
 - 已实现，构建候选为 `v0.42.180+424`。QQ 生图授权默认关闭，与 App 生图开关独立。群聊自主 SVG 和插画共用现有低频额度。接口失败可回文字，QQ 重试保留生图已启动标记，避免重复扣费。
-- 本地验证通过 160 项定向测试，覆盖两种群聊自主画法、App 与 QQ 负面词差异、授权变化、发送恢复及 App 原有相册与日记流程。167 项源码检查中的 163 项本地通过，其余四项需要完整资源或 Kotlin 编译器，由构建工作流验证。CI、APK 和 QQ 真机发送待验证。
+- 本地验证通过 160 项定向测试，覆盖两种群聊自主画法、App 与 QQ 提示词差异、授权变化、发送恢复及 App 原有相册与日记流程。首次回归发现 QQ 自动重试丢失生图记录，修复后同一任务的重试保留记录并回文字。四项本地缺资源或 Kotlin 编译器的检查由构建工作流通过。
+- 远端构建提交 `dd2898f7cc95fc7f931261169efa039dec324f3e` 与本地 `49e3ab5` 的源码树一致。独立 CI 和完整构建均已通过，含 167 项源码检查、全量 Flutter、Kotlin、Android 兼容及存档恢复校验。[独立 CI](https://github.com/catkiss62/ai-companion-build/actions/runs/42947309105) [APK 构建](https://github.com/catkiss62/ai-companion-build/actions/runs/42947309151)
+- 独立草稿 `441192281` 的原签名 APK 资产 `733922752` 已上传，共 740772826 字节。APK SHA-256 为 `a4705d0d9ba6c4237b0189e639bdebfe7532d1dfc80636c39aae080e6879a51f`，与草稿摘要一致。[下载 APK](https://github.com/catkiss62/ai-companion-build/actions/runs/42947309151/artifacts/13824224753) [草稿](https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-462678391c673a2565b7)
+- 真机可在「QQ → 群聊与公开资料」打开「允许 QQ 生图」，再验证明确选画法及群聊主动发图。群发使用负向提示词约束画面，上传的是本次回复生成的图片。
 
 ## 2026-11-11 · Agent 读取与相册观察
 
