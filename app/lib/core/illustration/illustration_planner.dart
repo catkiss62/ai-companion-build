@@ -25,7 +25,7 @@ abstract final class IllustrationPlanner {
       model: await FirstChannelModel.read(db),
       thinking: false,
       maxTokens: 720,
-      usageLane: generalAudience
+      usageLane: source == 'creative_work' ? 'creative_illustration_planning' : generalAudience
           ? 'qq_illustration_planning'
           : 'illustration_planning',
       requestTimeout: const Duration(seconds: 32),
@@ -36,7 +36,7 @@ abstract final class IllustrationPlanner {
               '你为小鲸鱼构思一张原创插画。只输出 JSON。'
               '${IllustrationPlan.instructions}'
               '构图以创作意图为主。当前用户明确指定的画风优先于意图里的概括或更早的聊天。'
-              '${generalAudience ? '创作意图来自她的 QQ 回复或当前明确的绘图请求，也可以是她主动想画的。画面适合全年龄。' : '如果原话只是在讨论图片或询问操作，没有现在画图的意图，返回 {"skip":true}。日记安静时可以画一个意象，保留想象与事实的区分。'}',
+              '${source == 'creative_work' ? '创作意图用于作品配图。按请求的构图提供完整画面，适合全年龄。' : generalAudience ? '创作意图来自她的 QQ 回复或当前明确的绘图请求，也可以是她主动想画的。画面适合全年龄。' : '如果原话只是在讨论图片或询问操作，没有现在画图的意图，返回 {"skip":true}。日记安静时可以画一个意象，保留想象与事实的区分。'}',
         },
         {
           'role': 'user',

@@ -38,6 +38,29 @@ class QqIllustrationChoice {
 
   static bool skipped(String raw) => raw.contains(_skip);
 
+  // Compatibility for a clear acceptance when the reply model omitted its
+  // tool marker. Questions, conditions and ordinary conversation stay text.
+  static final _wait = RegExp(r'(?:稍等(?:一下)?|等着(?:吧)?|等我一下|等一下)[，,。！!～~\s]*');
+  static final _promise = RegExp(
+    r'(?:我(?:这就|马上|现在|这次|去|来)?(?:给你)?|(?:这就|马上|现在|这次)?给你)(?:去|来)?(?:画|生图|生成)'
+    r'|给你整(?:一|个)|等我(?:给你)?(?:画|生图|生成)',
+  );
+  static final _uncertain = RegExp(
+    r'[？?]|(?:能|行|好|可以)吗|要不要|想要|你要|哪[种个]|什么|怎么|'
+    r'的话|如果|之后|待会|等会|晚点|改天|以后|下次|先别|不想|不(?:能|会|画|行|可以|方便|给你|去画)|没法|换个',
+  );
+
+  static bool clearlyAccepts(String text) =>
+      !_uncertain.hasMatch(text) && _promise.hasMatch(text);
+
+  static String deliveredCaption(String text) {
+    final withoutWait = text.replaceAll(_wait, '').trim();
+    return clearlyAccepts(withoutWait) ? '' : withoutWait;
+  }
+
+  static bool unfulfilledPromise(String text) =>
+      clearlyAccepts(text) || (_wait.stringMatch(text)?.trim() == text.trim());
+
   static String explicitRequestReply(String raw, String request) {
     final brief = request.replaceAll(RegExp('[<>]'), '');
     final bounded = brief.length <= 180 ? brief : brief.substring(0, 180);
@@ -53,7 +76,7 @@ class QqIllustrationChoice {
       '用户指定画法时优先照做。一轮只选一种媒体，简单图标和随手涂鸦适合 SVG；正常聊天也可以只回文字。';
 
   static const requestedPrompt =
-      '【本轮明确请求插画】按最新的画图要求给出插画标签。需要拒绝、澄清或只讨论画图时，'
+      '【本轮明确请求插画】确定这轮会画就按最新要求给出插画标签，正文只写可随成图一起发的内容。需要拒绝、澄清或只讨论画图时，'
       '正常回复并在末尾加 $_skip，宿主本轮只发文字。';
 }
 

@@ -32,6 +32,8 @@ class QqReplyDelivery {
     Future<void> Function(int sequence,String text,bool image,String language)? confirmedPart,
     Future<void> Function()? confirmed,Future<bool> Function()? mediaCurrent,
     void Function(int sequence,QqMessageReceipt receipt)? received,
+    Future<bool> Function(QqApiException error)? retryImage,
+    bool requireMedia=false,
     String voiceText='',String voiceLanguage='',Future<void> Function(int sequence,String transcript,String language)? sentVoice}) async {
     final chunks=validate(text,messages);
     final voice=voiceText.isNotEmpty && fileInfo.isNotEmpty;
@@ -49,8 +51,19 @@ class QqReplyDelivery {
       await beforeSend();
       if(!await current()) throw StateError('context_invalidated');
       final seq = ++sequence;
-      await api.sendMessage(group: group, target: target, messageId: messageId, sequence: seq, text: content, fileInfo: media,
-        current:() async=>await current() && (media.isEmpty || mediaCurrent==null || await mediaCurrent!()));
+      Future<bool> canSend() async =>
+          await current() && (media.isEmpty || mediaCurrent == null || await mediaCurrent());
+      Future<void> sendPart() => api.sendMessage(group: group, target: target,
+        messageId: messageId, sequence: seq, text: content, fileInfo: media, current: canSend);
+      try {
+        await sendPart();
+      } on QqApiException catch (error) {
+        if (media.isEmpty || isVoice || error.uncertain || retryImage == null ||
+            !await retryImage(error) || !await canSend()) rethrow;
+        // Same platform sequence and uploaded file. Confirmed earlier parts
+        // stay in the archive and are never replayed.
+        await sendPart();
+      }
       delivered++;
       received?.call(seq,api.receiptFor(group:group,target:target,messageId:messageId,sequence:seq));
       // A confirmed platform send cannot become an unsent failure just because
@@ -87,6 +100,7 @@ class QqReplyDelivery {
     for (final chunk in chunks.take(chunks.isEmpty ? 0 : chunks.length - 1)) { await part(chunk, ''); }
     final caption = chunks.isEmpty ? '' : chunks.last;
     if(mediaCurrent!=null && !await mediaCurrent!()) {
+      if (requireMedia) throw QqApiException('stopped');
       if(caption.isNotEmpty)await part(caption,'');
       else await planned?.call(--expected);
       return;
@@ -94,7 +108,7 @@ class QqReplyDelivery {
     try {
       await part(caption, fileInfo);
     } on QqApiException catch (error) {
-      if(error.code=='stopped' && !error.uncertain && await current() && mediaCurrent!=null && !await mediaCurrent!()) {
+      if(!requireMedia && error.code=='stopped' && !error.uncertain && await current() && mediaCurrent!=null && !await mediaCurrent!()) {
         if(caption.isNotEmpty)await part(caption,'');
         else await planned?.call(--expected);
         return;

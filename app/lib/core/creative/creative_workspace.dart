@@ -179,8 +179,12 @@ class CreativeWorkspace {
   }
 
   static List<Map<String, Object?>> messages(Map<String, dynamic> state,
-      Map<String, dynamic> work) => [
+      Map<String, dynamic> work, {bool imageTool = false}) => [
     {'role': 'system', 'content': instruction},
+    if (imageTool) {'role': 'system', 'content':
+      '配图可选。需要插画、照片或有细节的主视觉时可以 work_generate_image。每次制作可请求一次。'
+      '使用返回的完整本地地址作为 img src 或 CSS url，直接加载。完成并引用时，宿主会同时存进相册。'
+      '配图不可用时继续制作，装饰可用 SVG，主图不可用时可调整构图。'},
     {'role': 'user', 'content': jsonEncode({
       'origin': work['origin'] ?? 'commission', 'private_motive': work['motive'] ?? '',
       'original_request': work['original_request'] ?? work['request_quote'] ?? '',
@@ -189,6 +193,7 @@ class CreativeWorkspace {
     })},
     {'role': 'user', 'content': jsonEncode({
       'saved_plan': state['plan'],
+      if (state['illustration'] is Map) 'illustration': state['illustration'],
       'files': manifest(state), 'last_feedback': state['feedback'],
       'verification': {for (final entry in (state['verification'] as Map? ?? {}).entries)
         if (entry.key != 'cover') entry.key: entry.value},
@@ -206,6 +211,10 @@ class CreativeWorkspace {
         'required': required, 'additionalProperties': false}},
   };
   static const _string = <String, Object?>{'type': 'string'};
+  static final imageTool = _tool('work_generate_image',
+    '可选生成作品配图。brief 描述画面、人物、风格及希望的构图，最多500字。',
+    {'brief': _string}, ['brief']);
+
   static final tools = <Map<String, Object?>>[
     _tool('work_plan', '保存作品体验与接续计划；先理解原始委托再制作。', {
       'title': _string, 'intro': _string, 'plan': _string,

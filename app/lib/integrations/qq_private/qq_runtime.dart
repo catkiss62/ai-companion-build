@@ -298,7 +298,8 @@ class QqRuntime {
     }
     final client=clientFactory(() async=>!await current());_clients.add(client);
     final tasks=QqReplyTasks(store);QqPendingReply? prior;Map<String,dynamic>? reusedDraft;
-    var ownsDrawing=false,sentAny=false,imageSent=false,continuedPrior=false;var phase='context';final operationClock=Stopwatch()..start();
+    var ownsDrawing=false,sentAny=false,imageSent=false,continuedPrior=false;
+    var illustrationPrepared=false, illustrationRetried=false;var phase='context';final operationClock=Stopwatch()..start();
     try {
       if(!await current()) {await store.mark(b,'context_invalidated');return;}
       final rhythm=await QqCircadianProjection.read(store.db,now());
@@ -553,7 +554,8 @@ class QqRuntime {
       final skippedIllustration=QqIllustrationChoice.skipped(raw);
       var illustrationChoice=canIllustrate && !skippedIllustration?QqIllustrationChoice.parse(raw):null;
       if(explicitIllustration && canIllustrate && !skippedIllustration &&
-          illustrationChoice==null && reusedDraft==null && raw.trim()!='WAIT') {
+          illustrationChoice==null && reusedDraft==null &&
+          QqIllustrationChoice.clearlyAccepts(QqIllustrationChoice.visible(raw))) {
         raw=QqIllustrationChoice.explicitRequestReply(raw,formattedRequest);
         illustrationChoice=QqIllustrationChoice.parse(raw);
       }
@@ -569,6 +571,12 @@ class QqRuntime {
       if(!hasDrawing && reusedDraft!=null && (reusedDraft!['sticker_key'] as String? ?? '').isNotEmpty)selected=await stickers.restoreChoice(reusedDraft!['sticker_key'] as String,choice.id??'saved');
       var parts=(echoChoice?.only==true || sketchChoice?.only==true || illustrationChoice?.only==true || choice.stickerOnly && selected!=null)?<String>[]:
         QqReplyParts.parse(QqEchoChoice.visible(QqVoiceChoice.visible(StickerReplyChoice.visible(QqSketchChoice.visible(QqIllustrationChoice.visible(raw))))));
+      if (illustrationChoice != null) {
+        parts = parts.map(QqIllustrationChoice.deliveredCaption).where((part) => part.isNotEmpty).toList();
+      } else if (drawingRequested && sketchChoice == null) {
+        parts = parts.map((part) => QqIllustrationChoice.unfulfilledPromise(part)
+            ? '这次没能画出来。' : part).toList();
+      }
       if(voiceChoice!=null) {
         final spoken=voiceChoice;
         parts=parts.where((p)=>QqVoiceChoice.transcript(p,spoken.language)!=spoken.text).toList();
@@ -613,6 +621,7 @@ class QqRuntime {
             context:drawingRequest.length<=1200?drawingRequest:drawingRequest.substring(drawingRequest.length-1200),
             autonomous:!drawingRequested,now:now().millisecondsSinceEpoch,current:illustrationCurrent,
           );
+          illustrationPrepared=true;
           caption='生图意图：${illustration.description}';
         } catch(error) {
           if(!await current())rethrow;
@@ -632,12 +641,28 @@ class QqRuntime {
       }
       var stickerKey=echoChoice!=null?echo!.usageKey:selected?.record.usageKey??'';
       await store.mark(b,'generated',text:text,sticker:stickerKey);
+      Future<bool> retryIllustration(QqApiException error) async {
+        if (illustrationRetried || !QqFailure.retryable(error) ||
+            !await illustrationCurrent()) return false;
+        illustrationRetried=true;
+        await store.recordFailure(fence,phase,error,attempt:1,operation:b.id,conversation:b.cid);
+        status('illustration_retry');
+        await Future<void>.delayed(const Duration(seconds: 2));
+        return illustrationCurrent();
+      }
       String fileInfo='';
       phase='media_upload';
       if(illustration!=null) {
         try {
-          fileInfo=await api.uploadImage(group:b.group,target:b.target,bytes:illustration.image.bytes,
-            filename:illustration.filename,current:illustrationCurrent);
+          final prepared = illustration;
+          Future<String> upload() => api.uploadImage(group:b.group,target:b.target,
+            bytes:prepared.image.bytes,filename:prepared.filename,current:illustrationCurrent);
+          try {
+            fileInfo = await upload();
+          } on QqApiException catch (error) {
+            if (!await retryIllustration(error)) rethrow;
+            fileInfo = await upload();
+          }
         } catch(error) {
           if(!await current())rethrow;
           await store.recordFailure(fence,phase,error,elapsedMs:operationClock.elapsedMilliseconds,operation:b.id,conversation:b.cid);
@@ -683,6 +708,8 @@ class QqRuntime {
         confirmedPart:(sequence,content,image,language)=>tasks.confirmed(b,sequence,content,image,language),
         received:(sequence,receipt)=>store.received(b,sequence,platformId:receipt.id,platformIndex:receipt.index),
         confirmed:() async {sentAny=true;await store.mark(b,'sent_archive_pending');},
+        retryImage:illustration!=null?retryIllustration:null,
+        requireMedia:illustration!=null,
         mediaCurrent:illustration!=null?illustrationCurrent:echoChoice==null?null:
           () async=>now().millisecondsSinceEpoch<echo!.expiresAt && await echoes.current(echo!),
         voiceText:voiceChoice?.text??'',voiceLanguage:voiceChoice?.language??'',
@@ -704,7 +731,7 @@ class QqRuntime {
       // First-part failures propagate directly; a delivery wrapper means a part
       // was already sent. Only an explicit known-unsent API failure may replay.
       final knownUnsentSend=error is QqApiException && !error.uncertain;
-      if(state=='failed' && (phase!='send' || knownUnsentSend) && phase!='archive' && QqFailure.retryable(error is QqDeliveryFailure?error.cause:error)) {
+      if(!illustrationPrepared && state=='failed' && (phase!='send' || knownUnsentSend) && phase!='archive' && QqFailure.retryable(error is QqDeliveryFailure?error.cause:error)) {
         try {retryScheduled=await QqReplyRecovery(store).defer(b,now().millisecondsSinceEpoch);}catch(_) {}
       }
       status(retryScheduled?'reply_retry_wait':state=='failed'?'reply_failed':state);

@@ -1,3 +1,6 @@
+import 'dart:convert';
+
+import '../models/chat_message.dart';
 import '../models/desire_state.dart';
 import '../models/proactive_intent.dart';
 import '../models/unfinished_thread.dart';
@@ -70,6 +73,37 @@ class ProactivePresentationPolicy {
           true,
         _ => false,
       };
+
+  static String recentCheckInContext({
+    required ProactiveIntentKind kind,
+    required String action,
+    required String sourceType,
+    required bool nightContact,
+    required DateTime now,
+    required List<ChatMessage> recent,
+  }) {
+    if (nightContact || kind != ProactiveIntentKind.curiosity ||
+        action != 'check_in' ||
+        !const {'drive_state', 'awareness', 'internal', 'inference', 'screen_observation'}.contains(sourceType)) {
+      return '';
+    }
+    final since = now.subtract(const Duration(hours: 1));
+    final quotes = recent.reversed
+        .where((message) => message.isUser && !message.isProactive &&
+            message.content.trim().isNotEmpty &&
+            !message.createdAt.isBefore(since) && !message.createdAt.isAfter(now))
+        .take(3)
+        .map((message) => {
+              'at': message.createdAt.toLocal().toIso8601String(),
+              'said': String.fromCharCodes(message.content.trim().runes.take(220)),
+            })
+        .toList();
+    if (quotes.isEmpty) return '';
+    return '【用户近期已说过的话·仅用于核对近况】${jsonEncode(quotes.reversed.toList())}\n'
+        '这些是已回答的历史发言，CURRENT_USER_TURN 仍为 NONE。'
+        '确认近况时，以最近的明确更新为准，别把已经确定的事重新问成选择题。'
+        '只使用原话足以支持的事实，后续动向仍未知。';
+  }
 
   static String promptHint(
     ProactiveIntentKind kind,

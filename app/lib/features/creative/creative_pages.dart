@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../../core/database/app_database.dart';
 import '../../core/creative/creative_contract.dart';
+import '../../core/creative/creative_illustration.dart';
 import '../../core/creative/creative_store.dart';
 import '../../core/creative/creative_control.dart';
 import '../../core/creative/creative_autonomy_policy.dart';
@@ -121,7 +122,10 @@ class _CreativeCardsState extends State<CreativeCards> {
         if (value == 'export') {
           if (!CreativeAutonomyPolicy.visible(await store.get(id))) return;
           final html = await widget.chat.db.getSetting('${CreativeContract.sourcePrefix}${work['current']}');
-          if (html != null) await AndroidBridge.instance.savePromptPack(content: html, suggestedName: 'work_$id.html');
+          if (html != null) {
+            final standalone = await CreativeIllustration.standaloneHtml(widget.chat.db, id, html);
+            await AndroidBridge.instance.savePromptPack(content: standalone, suggestedName: 'work_$id.html');
+          }
         }
         if (value == 'delete') {
           final yes = await showDialog<bool>(context: context, builder: (c) => AlertDialog(
@@ -324,6 +328,7 @@ class _CreativePlayerPageState extends State<CreativePlayerPage> {
       final state = await play.open(restart: restart);
       final source = await AppDatabase.instance.getSetting('${CreativeContract.sourcePrefix}${state['version']}');
       if (source == null) throw const FormatException('找不到作品源码');
+      final images = await CreativeIllustration.load(AppDatabase.instance, play.workId, source);
       final selected = ChatDialogueColorOption.fromSetting(await AppDatabase.instance.getSetting(ChatDialogueColorOption.settingKey));
       if (mounted) setState(() {
         version = state['version'] as String; sessionId = state['session_id'] as String;
@@ -335,7 +340,8 @@ class _CreativePlayerPageState extends State<CreativePlayerPage> {
           (state['public'] is Map && (state['public'] as Map).isNotEmpty) ||
           (state['public'] is List && (state['public'] as List).isNotEmpty);
         webSurface = RepaintBoundary(child: AndroidView(key: ValueKey(generation), viewType: 'ai_companion/creative_player',
-          creationParams: {'html': source, 'state': jsonEncode(state['public'])},
+          creationParams: {'html': source, 'state': jsonEncode(state['public']),
+            if (images.isNotEmpty) 'images': images},
           creationParamsCodec: const StandardMessageCodec(),
           onPlatformViewCreated: (id) => _created(id, viewGeneration, viewVersion, viewSession)));
       });

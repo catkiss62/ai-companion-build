@@ -22,7 +22,8 @@ class CreativeBridge(context: Context, engine: FlutterEngine) {
                     val checks = call.argument<List<Map<String, String>>>("checks") ?: emptyList()
                     val assertions = call.argument<List<Map<String, String>>>("restore_assertions") ?: emptyList()
                     val requireRestore = call.argument<Boolean>("require_restore") ?: false
-                    preview.run(html, checks, assertions, requireRestore) { result.success(it) }
+                    val images = CreativeWebSandbox.images(call.argument<Any>("images"))
+                    preview.run(html, checks, assertions, requireRestore, images) { result.success(it) }
                 }
                 "cancel" -> { preview.cancel(); result.success(null) }
                 else -> result.notImplemented()
@@ -58,7 +59,8 @@ class CreativeBridge(context: Context, engine: FlutterEngine) {
                                 override fun notImplemented() { error("unavailable","互动暂不可用",null) }
                             })
                         } catch (_: Exception) { }
-                    }, { error -> if (!disposed) playerChannel.invokeMethod("error", error) })
+                    }, { error -> if (!disposed) playerChannel.invokeMethod("error", error) },
+                        images = CreativeWebSandbox.images(data["images"]))
                     playerChannel.setMethodCallHandler { call, result ->
                         if (call.method == "load" && !disposed) {
                             try {

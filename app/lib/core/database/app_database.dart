@@ -21,6 +21,7 @@ import 'conversation_source_store.dart';
 import 'conversation_summary_store.dart';
 import 'conversation_history_catalog.dart';
 import '../creative/creative_contract.dart';
+import '../creative/creative_illustration.dart';
 import '../creative/creative_autonomy_policy.dart';
 import '../creative/creative_share.dart';
 import '../phone/calendar_reminder_state.dart';
@@ -6415,7 +6416,8 @@ class AppDatabase {
   static String _backgroundOwnerGuard(String alias) =>
       "NOT EXISTS (SELECT 1 FROM settings bg WHERE bg.key = '${RoomBackgroundConfig.blobKey}' AND bg.value = $alias.id) "
       "AND NOT EXISTS (SELECT 1 FROM cedar_event_media cm WHERE cm.blob_id = $alias.id) "
-      "AND NOT EXISTS (SELECT 1 FROM settings ill WHERE ill.key LIKE '${IllustrationJob.diaryMediaPrefix}%' AND ill.value = $alias.id)";
+      "AND NOT EXISTS (SELECT 1 FROM settings ill WHERE ill.key LIKE '${IllustrationJob.diaryMediaPrefix}%' AND ill.value = $alias.id) "
+      "AND NOT EXISTS (SELECT 1 FROM settings art WHERE art.key GLOB '${CreativeIllustration.ownerPrefix}*' AND art.value = $alias.id)";
 
   Future<List<MediaBlob>> allMediaBlobs() async {
     final db = await database;
@@ -14352,48 +14354,9 @@ class AppDatabase {
           whereArgs: [attachment.blobId], limit: 1);
       if (blobs.isEmpty) return false;
       final blob = MediaBlob.fromDb(blobs.single);
-      final now = DateTime.now().millisecondsSinceEpoch;
-      final existingAlbum = await txn.query(
-        'companion_album_candidates',
-        where: "content_sha256 = ? AND lifecycle_state IN ('saved','soft_deleted')",
-        whereArgs: [blob.thumbnailSha256],
-        limit: 1,
-      );
-      final tags = [
-        'generated', 'anime', if (depictsCompanion) 'self_image', if (diary) 'diary',
-      ];
-      if (existingAlbum.isEmpty) {
-        await txn.insert('companion_album_candidates', {
-          'id': jobKey, 'source_kind': 'generated_illustration', 'source_id': ownerId,
-          'title': _bounded(description, 120),
-          'vision_summary': '创作意图：${_bounded(description, 180)}',
-          'vision_model': '', 'ai_reason': '她为${diary ? '日记' : '这次聊天'}绘制的插画',
-          'category': 'generated', 'user_tags_json': jsonEncode(tags),
-          'category_source': 'generated', 'lifecycle_state': 'saved',
-          'thumbnail_path': attachment.thumbnailPath,
-          'content_sha256': blob.thumbnailSha256,
-          'original_path': attachment.originalPath,
-          'original_content_sha256': blob.originalSha256,
-          'original_mime_type': blob.mimeType, 'original_byte_size': blob.byteSize,
-          'original_status': 'stored', 'blob_id': blob.id,
-          'width': blob.width, 'height': blob.height,
-          'created_at': now, 'updated_at': now, 'saved_at': now, 'unread': 1,
-        }, conflictAlgorithm: ConflictAlgorithm.abort);
-        await txn.rawUpdate(
-          'UPDATE media_blobs SET album_ref_count = album_ref_count + 1 WHERE id = ?',
-          [blob.id],
-        );
-      } else {
-        // Album identity is the thumbnail hash. Reuse the existing row while
-        // adding the separate chat or diary owner below in this transaction.
-        final album = CompanionAlbumItem.fromDb(existingAlbum.single);
-        if (!album.nsfw) {
-          await txn.update('companion_album_candidates', {
-            'user_tags_json': jsonEncode(normalizeAlbumTags([...album.tags, ...tags])),
-            'updated_at': now,
-          }, where: 'id = ?', whereArgs: [album.id]);
-        }
-      }
+      await _saveGeneratedAlbumImage(txn, blob, id: jobKey, ownerId: ownerId,
+        description: description, depictsCompanion: depictsCompanion,
+        reason: diary ? '她为日记绘制的插画' : '她为这次聊天绘制的插画', diary: diary);
       if (diary) {
         await txn.insert('settings', {
           'key': '${IllustrationJob.diaryMediaPrefix}$ownerId', 'value': blob.id,
@@ -14409,6 +14372,55 @@ class AppDatabase {
       await txn.update('settings', {'value': terminal}, where: 'key = ?', whereArgs: [jobKey]);
       return true;
     });
+  }
+
+  Future<void> _saveGeneratedAlbumImage(
+    Transaction txn, MediaBlob blob, {
+    required String id, required String ownerId, required String description,
+    required bool depictsCompanion, required String reason, bool diary = false,
+  }) async {
+    final now = DateTime.now().millisecondsSinceEpoch;
+    final existingAlbum = await txn.query(
+      'companion_album_candidates',
+      where: "content_sha256 = ? AND lifecycle_state IN ('saved','soft_deleted')",
+      whereArgs: [blob.thumbnailSha256],
+      limit: 1,
+    );
+    final tags = [
+      'generated', 'anime', if (depictsCompanion) 'self_image', if (diary) 'diary',
+    ];
+    if (existingAlbum.isEmpty) {
+      await txn.insert('companion_album_candidates', {
+        'id': id, 'source_kind': 'generated_illustration', 'source_id': ownerId,
+        'title': _bounded(description, 120),
+        'vision_summary': '创作意图：${_bounded(description, 180)}',
+        'vision_model': '', 'ai_reason': reason,
+        'category': 'generated', 'user_tags_json': jsonEncode(tags),
+        'category_source': 'generated', 'lifecycle_state': 'saved',
+        'thumbnail_path': 'media/${blob.thumbnailPath}',
+        'content_sha256': blob.thumbnailSha256,
+        'original_path': 'media/${blob.originalPath}',
+        'original_content_sha256': blob.originalSha256,
+        'original_mime_type': blob.mimeType, 'original_byte_size': blob.byteSize,
+        'original_status': 'stored', 'blob_id': blob.id,
+        'width': blob.width, 'height': blob.height,
+        'created_at': now, 'updated_at': now, 'saved_at': now, 'unread': 1,
+      }, conflictAlgorithm: ConflictAlgorithm.abort);
+      await txn.rawUpdate(
+        'UPDATE media_blobs SET album_ref_count = album_ref_count + 1 WHERE id = ?',
+        [blob.id],
+      );
+    } else {
+      // Album identity is the thumbnail hash. Reuse the existing row while
+      // keeping the independent chat, diary or work owner.
+      final album = CompanionAlbumItem.fromDb(existingAlbum.single);
+      if (!album.nsfw) {
+        await txn.update('companion_album_candidates', {
+          'user_tags_json': jsonEncode(normalizeAlbumTags([...album.tags, ...tags])),
+          'updated_at': now,
+        }, where: 'id = ?', whereArgs: [album.id]);
+      }
+    }
   }
 
   Future<bool> beginCompanionAlbumCandidate({
@@ -19357,6 +19369,7 @@ class AppDatabase {
     Map<String, String> expectedSettings = const {},
     BrainWorkFence? workFence,
     LocalSourceGuard? sourceGuard,
+    CreativeAlbumImage? creativeAlbumImage,
   }) async {
     final db = await database;
     return db.transaction<bool>((txn) async {
@@ -19387,6 +19400,17 @@ class AppDatabase {
         if (rows.first['matches'] != 1) return false;
       }
       if (sourceGuard != null && !await sourceGuard(txn)) return false;
+      if (creativeAlbumImage != null) {
+        final image = creativeAlbumImage;
+        final owner = CreativeIllustration.owner(image.workId, image.blobId);
+        if (await BrainWorkFence.value(txn, owner) != image.blobId) return false;
+        final blobs = await txn.query('media_blobs', where: 'id = ?',
+          whereArgs: [image.blobId], limit: 1);
+        if (blobs.isEmpty) return false;
+        await _saveGeneratedAlbumImage(txn, MediaBlob.fromDb(blobs.single),
+          id: 'creative_illustration:${_uuid.v4()}', ownerId: owner, description: image.description,
+          depictsCompanion: image.depictsCompanion, reason: '她为作品绘制的插画');
+      }
       for (final entry in values.entries) {
         if (AutomaticMemoryPermit.features.contains(entry.key) && await BrainWorkFence.value(txn, entry.key) != entry.value) {
           await txn.insert('settings', {'key': AutomaticMemoryPermit.versionKey(entry.key), 'value': _uuid.v4()}, conflictAlgorithm: ConflictAlgorithm.replace);

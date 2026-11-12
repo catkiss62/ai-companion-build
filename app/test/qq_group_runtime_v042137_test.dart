@@ -66,7 +66,8 @@ class _Api extends QqApi {
   _Api():super(appId:'12345',secret:'fixture-not-a-secret');
   final sent=<Map<String,Object?>>[];bool uncertain=false;int uploads=0;
   final imageFiles=<String>[];
-  QqApiException? nextKnownUnsent;int sendAttempts=0;
+  QqApiException? nextKnownUnsent, nextImageFailure;int sendAttempts=0;
+  final imageSendSequences=<int>[];
   bool imageUploadFails=false;
   @override Future<String> uploadImage({required bool group,required String target,required Uint8List bytes,required String filename,required Future<bool> Function() current})async{uploads++;imageFiles.add(filename);expect(await current(),true);if(imageUploadFails)throw QqApiException('network');return 'fixture-image-token';}
   @override Future<QqMediaUpload> uploadVoice({required bool group,required String target,required Uint8List bytes,required Future<bool> Function() current})async{uploads++;expect(await current(),true);return const QqMediaUpload('fixture-voice-token');}
@@ -76,6 +77,12 @@ class _Api extends QqApi {
     sendAttempts++;
     final failure=nextKnownUnsent;nextKnownUnsent=null;
     if(failure!=null) throw failure;
+    if (fileInfo == 'fixture-image-token') {
+      imageSendSequences.add(sequence);
+      final imageFailure = nextImageFailure;
+      nextImageFailure = null;
+      if (imageFailure != null) throw imageFailure;
+    }
     sent.add({'group':group,'target':target,'messageId':messageId,'sequence':sequence,'text':text,'fileInfo':fileInfo});
     if(uncertain) throw QqApiException('network',uncertain:true);
   }
@@ -183,7 +190,7 @@ void main(){
     ), isTrue);
     expect(await reserve(first, now + interval.inMilliseconds), isTrue);
   });
-  for (final scenario in ['automatic', 'automatic_svg', 'disabled', 'disabled_during_generation', 'generation_failure', 'retry_delivery', 'upload_failure', 'styled_followup', 'styled_declined', 'styled_unaddressed', 'styled_cancelled', 'chibi_format', 'chibi_mention_retry', 'selfie_draw', 'selfie_request']) {
+  for (final scenario in ['automatic', 'automatic_svg', 'disabled', 'disabled_during_generation', 'generation_failure', 'retry_delivery', 'retry_image_only', 'uncertain_image', 'plain_refusal', 'clarify_image', 'bare_wait', 'upload_failure', 'styled_followup', 'styled_declined', 'styled_unaddressed', 'styled_cancelled', 'chibi_format', 'chibi_mention_retry', 'selfie_draw', 'selfie_request']) {
     test('QQ drawing choice and delivery: $scenario', () async {
       final automatic = scenario.startsWith('automatic');
       final useSvg = scenario == 'automatic_svg';
@@ -192,6 +199,8 @@ void main(){
       final chibi = scenario.startsWith('chibi_');
       final selfie = scenario.startsWith('selfie_');
       final mentionRetry = scenario == 'chibi_mention_retry';
+      final textOnly = const {'plain_refusal', 'clarify_image', 'bare_wait'}.contains(scenario);
+      final retryWithCaption = scenario == 'retry_image_only' || scenario == 'uncertain_image';
       final target = automatic
           ? Iterable<int>.generate(1000).map((i) => 'auto-drawing-$i')
               .firstWhere((id) =>
@@ -230,6 +239,11 @@ void main(){
             offeredSketch=r.body.contains('【可选小涂鸦】');
             if(chibi || selfie)return _sse(selfie?'给你画个自拍。':'这次给你画个Q版。');
             if(scenario=='styled_cancelled')return _sse('好，先聊点别的');
+            if(scenario=='plain_refusal')return _sse('这次我先不画。');
+            if(scenario=='clarify_image')return _sse('你要横版还是竖版？');
+            if(scenario=='bare_wait')return _sse('等着');
+            if(retryWithCaption)return _sse(
+                '先说一声<qq_next_message/>雨夜的灯<qq_illustration>雨夜插画</qq_illustration>');
             if(styled && r.body.contains('吃布丁')) {
               return _sse(scenario=='styled_declined'
                   ? '换个主题吧<qq_illustration_skip/>'
@@ -261,6 +275,9 @@ void main(){
           return _json(b['max_tokens']==60?{'safe':true}:{'participation':automatic||scenario=='styled_unaddressed'?'join':'direct'});
         };
         if(scenario=='retry_delivery')api.nextKnownUnsent=QqApiException('network');
+        if(retryWithCaption) {
+          api.nextImageFailure = QqApiException('network', uncertain: scenario == 'uncertain_image');
+        }
         if(scenario=='upload_failure')api.imageUploadFails=true;
         if(drawsStyled) {
           await accept('qq-drawing-first','用生图画张雨夜插画',target:target);
@@ -284,12 +301,14 @@ void main(){
         await runtime.process(cid(target));
         expect(offeredIllustration,scenario!='disabled' && scenario!='styled_cancelled');
         expect(offeredSketch,useSvg);
-        expect(planned,useSvg||scenario=='disabled'||styled&&!drawsStyled?0:1);
+        expect(planned,useSvg||textOnly||scenario=='disabled'||styled&&!drawsStyled?0:1);
         expect(generated,planned);
         if(useSvg){
           expect(svgPlans,1);
           expect(api.imageFiles,['sketch.png']);
-        }else if(scenario=='automatic' || scenario=='retry_delivery' || scenario=='upload_failure' || drawsStyled || chibi || selfie){
+        }else if(scenario=='upload_failure'){
+          expect(api.imageFiles,['illustration.png','illustration.png']);
+        }else if(scenario=='automatic' || scenario=='retry_delivery' || retryWithCaption || drawsStyled || chibi || selfie){
           expect(api.imageFiles,['illustration.png']);
         }else{
           expect(api.imageFiles,isEmpty);
@@ -312,13 +331,26 @@ void main(){
         }
         if(selfie)expect(await db.getSetting(illustrationKey),'${startedAt-1000}');
         if(scenario=='retry_delivery'){
-          expect(api.sent,isEmpty);
+          expect(api.sendAttempts,2);
+          expect(api.sent.single['fileInfo'],'fixture-image-token');
           clock=clock.add(const Duration(seconds:16));
           await runtime.process(cid(target));
           expect(generated,1);
           expect(api.imageFiles,hasLength(1));
-          expect(api.sent.single['text'],'这次插画没发出去。');
+          expect(api.sent,hasLength(1));
         }
+        if(scenario=='retry_image_only'){
+          expect(api.imageSendSequences,[2,2]);
+          expect(api.sent.map((message)=>message['text']),['先说一声','雨夜的灯']);
+          expect(api.sent.last['fileInfo'],'fixture-image-token');
+        }
+        if(scenario=='uncertain_image'){
+          expect(api.imageSendSequences,[2]);
+          expect(api.sent.single['text'],'先说一声');
+        }
+        if(scenario=='plain_refusal')expect(api.sent.single['text'],'这次我先不画。');
+        if(scenario=='clarify_image')expect(api.sent.single['text'],'你要横版还是竖版？');
+        if(scenario=='bare_wait')expect(api.sent.single['text'],'这次没能画出来。');
         expect(api.sent.every((x)=>!(x['text'] as String).contains('<qq_')),isTrue);
         expect(await db.companionAlbumItems(),isEmpty);
       } finally {

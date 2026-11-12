@@ -11,7 +11,13 @@ import '../database/app_database.dart';
 import '../database/brain_work_fence.dart';
 import '../diagnostics/model_usage_telemetry.dart';
 import '../storage/secure_config.dart';
+import '../storage/message_attachment_storage.dart';
+import '../storage/shared_media_lock.dart';
+import '../illustration/illustration_client.dart';
+import '../illustration/illustration_planner.dart';
+import '../illustration/illustration_prompt.dart';
 import 'creative_contract.dart';
+import 'creative_illustration.dart';
 import 'creative_autonomy_policy.dart';
 import 'creative_delivery.dart';
 import 'creative_store.dart';
@@ -20,9 +26,11 @@ import 'creative_preview_proof.dart';
 import 'creative_visual_review.dart';
 
 class CreativeWorker {
-  CreativeWorker(this.db, {this.clientFactory, DateTime Function()? now, this.triggerSource = 'direct',CreativeVisualReview? visualReview})
-      : now = now ?? DateTime.now,visualReview=visualReview??CreativeVisualReview();
+  CreativeWorker(this.db, {this.clientFactory, DateTime Function()? now, this.triggerSource = 'direct',CreativeVisualReview? visualReview, IllustrationClient? illustrationClient})
+      : now = now ?? DateTime.now,visualReview=visualReview??CreativeVisualReview(),
+        illustrationClient=illustrationClient??IllustrationClient();
   final CreativeVisualReview visualReview;
+  final IllustrationClient illustrationClient;
   final DeepSeekClient Function(Future<bool> Function() abort)? clientFactory;
   final DateTime Function() now;
   final String triggerSource;
@@ -98,13 +106,14 @@ class CreativeWorker {
           jsonEncode(await store.get(id)) == jsonEncode(work) &&
           (!CreativeAutonomyPolicy.autonomous(work) || await CreativeAutonomyPolicy.idle(await db.database, now(), grace: false));
       Future<void> checkpoint(Map<String, dynamic> patch,
-          {Map<String, String> extra = const {}}) async {
+          {Map<String, String> extra = const {}, BrainWorkFence? effectFence,
+          CreativeAlbumImage? albumImage}) async {
         if (!await current()) throw const BrainWorkInvalidated();
         CreativeWorkspace.validate(agent, id);
         final after = {...work, ...patch,
           'trigger_source': triggerSource,
           'agent_step': (work['agent_step'] as num? ?? 0).toInt() + 1};
-        if (!await store.write(work, after, fence: fence, extra: {
+        if (!await store.write(work, after, fence: effectFence ?? fence, albumImage: albumImage, extra: {
           ...extra, CreativeWorkspace.key(id): jsonEncode(agent),
         })) throw const BrainWorkInvalidated();
         work = after;
@@ -177,6 +186,9 @@ class CreativeWorker {
               usage = event;
               if (await db.brainWorkFenceCurrent(fence)) await ModelUsageTelemetry.record(db, event);
             });
+          final imageTool = await db.getSetting(CreativeIllustration.enabledKey) == '1' &&
+              (await SecureConfig.instance.readIllustration()).active &&
+              agent['illustration'] == null;
           final content = StringBuffer();
           final reasoning = StringBuffer();
           final calls = AgentNativeToolCallAccumulator();
@@ -188,7 +200,8 @@ class CreativeWorker {
               thinking: true, maxTokens: agent['larger_output'] == true ? 128000 : 64000,
               requestTimeout: const Duration(seconds: 180),
               usageLane: 'creative_build', usageExecutionId: '$id:${work['agent_step']}',
-              messages: CreativeWorkspace.messages(agent, work), tools: CreativeWorkspace.tools,
+              messages: CreativeWorkspace.messages(agent, work, imageTool: imageTool),
+              tools: [...CreativeWorkspace.tools, if (imageTool) CreativeWorkspace.imageTool],
             )) {
               content.write(delta.content); reasoning.write(delta.reasoning);
               calls.addAll(delta.toolCallDeltas);
@@ -248,6 +261,7 @@ class CreativeWorker {
           var patch = <String, dynamic>{'status': 'building', 'note': '正在继续制作'};
           var extra = <String, String>{};
           var published = false;
+          CreativeAlbumImage? albumImage;
           try {
             final args = CreativeContract.decode(call['arguments'] as String);
             switch (name) {
@@ -282,16 +296,94 @@ class CreativeWorker {
                   patch['draft'] = hash;
                   extra['${CreativeContract.sourcePrefix}$hash'] = html;
                 }
+              case 'work_generate_image':
+                final previous = agent['illustration'] as Map?;
+                if (previous != null) {
+                  result = previous['url'] is String
+                      ? {'ok': true, 'url': previous['url'], 'description': previous['description']}
+                      : _noImage('本次制作已经尝试配图');
+                  break;
+                }
+                final brief = (args['brief'] as String? ?? '').trim();
+                if (brief.isEmpty || brief.length > 500) {
+                  throw const FormatException('请提供500字以内的配图意图');
+                }
+                final secure = SecureConfig.instance;
+                final connection = await secure.readIllustration();
+                final extended = await db.extendBrainWorkFence(fence,
+                  settingKeys: [CreativeIllustration.enabledKey]);
+                final imageFence = extended == null ? null : CreativeAutonomyPolicy.autonomous(work)
+                    ? CreativeAutonomyFence(extended, now) : extended;
+                if (imageFence == null || !connection.active ||
+                    await db.getSetting(CreativeIllustration.enabledKey) != '1') {
+                  result = _noImage('当前未授权作品配图，或生图接口未启用');
+                  break;
+                }
+                Future<bool> imageCurrent() async {
+                  if (!await current() || !await db.brainWorkFenceCurrent(imageFence) ||
+                      await db.getSetting(CreativeIllustration.enabledKey) != '1') return false;
+                  final fresh = await secure.readIllustration();
+                  return fresh.active && fresh.apiKey == connection.apiKey && fresh.baseUrl == connection.baseUrl;
+                }
+                // Persist the paid action before any external call. After
+                // interruption the Agent receives fallback guidance, not a rebill.
+                agent['illustration'] = {'state': 'started'};
+                await checkpoint({'note': '正在为作品绘制配图'});
+                final planner = client ??= clientFactory?.call(() async => !await current()) ??
+                    DeepSeekClient(abortWhen: () async => !await current(),
+                      onUsage: (event) async {
+                        if (await db.brainWorkFenceCurrent(fence)) await ModelUsageTelemetry.record(db, event);
+                      });
+                try {
+                  final plan = await IllustrationPlanner.request(
+                    db: db, secure: secure, client: planner, source: 'creative_work',
+                    intent: brief, context: CreativeContract.clip(work['brief'], 1000),
+                    current: imageCurrent, generalAudience: true,
+                  );
+                  if (plan == null || !await imageCurrent()) throw const IllustrationFailure('planning');
+                  final image = await illustrationClient.generate(connection,
+                    IllustrationPrompt.compose(plan, generalAudience: true), seed: IllustrationClient.newSeed());
+                  if (!await imageCurrent()) throw const BrainWorkInvalidated();
+                  if (image.bytes.length > CreativeIllustration.maxBytes) {
+                    throw const IllustrationFailure('image_size');
+                  }
+                  final storage = MessageAttachmentStorage(db: db);
+                  final draft = await storage.prepareImageBytes(
+                    bytes: image.bytes, source: 'assistant_illustration:creative_work', mimeType: image.mimeType);
+                  try {
+                    await SharedMediaLock.run(() async {
+                      if (!await imageCurrent()) throw const BrainWorkInvalidated();
+                      final attachment = await storage.commitDraft(draft, messageId: id);
+                      if (!await imageCurrent()) throw const BrainWorkInvalidated();
+                      final blob = attachment.blobId;
+                      agent['illustration'] = {'state': 'ready', 'blob_id': blob,
+                        'url': CreativeIllustration.url(blob), 'description': plan.description,
+                        'depicts_companion': plan.depictsCompanion};
+                      await checkpoint({'note': '配图已准备，正在制作作品'}, effectFence: imageFence,
+                        extra: {CreativeIllustration.owner(id, blob): blob});
+                    }, db: db);
+                  } finally {
+                    await storage.discardDraft(draft);
+                  }
+                  result = {'ok': true, 'url': agent['illustration']['url'],
+                    'description': plan.description};
+                } catch (_) {
+                  if (!await current()) throw const BrainWorkInvalidated();
+                  agent['illustration'] = {'state': 'unavailable'};
+                  result = _noImage('本次配图未能完成');
+                }
               case 'work_preview':
                 final checks = _checks(args['checks']);
                 final restoreAssertions = CreativePreviewProof.assertions(args['restore_assertions']);
                 final html = CreativeWorkspace.assemble(agent);
                 final hash = CreativeContract.hash(html);
+                final assets = await CreativeIllustration.load(db, id, html, requiredForPreview: true);
                 final companion = work['interaction'] == 'companion' || (agent['plan'] as Map?)?['interaction'] == 'companion';
                 await checkpoint({'status': 'checking', 'note': '正在后台试玩', 'draft': hash},
                   extra: {'${CreativeContract.sourcePrefix}$hash': html});
                 final observed = await preview.invokeMapMethod<String, dynamic>('preview', {
                   'html': html, 'checks': checks, 'restore_assertions': restoreAssertions,
+                  if (assets.isNotEmpty) 'images': assets,
                   'require_restore': companion,
                 }).timeout(const Duration(seconds: 30));
                 if (!await current()) throw const BrainWorkInvalidated();
@@ -388,6 +480,13 @@ class CreativeWorker {
                   'status': 'ready', 'note': autonomous ? '作品已私下保存' : '做好了，可以打开试玩',
                   'cover': verified['cover'] ?? '', 'errors': <Object?>[],
                   'updated': now().millisecondsSinceEpoch, 'retry_at': 0});
+                final illustration = agent['illustration'] as Map?;
+                final blob = illustration?['blob_id'];
+                if (blob is String && CreativeIllustration.references(html).contains(blob)) {
+                  albumImage = (workId: id, blobId: blob,
+                    description: illustration?['description'] as String? ?? '',
+                    depictsCompanion: illustration?['depicts_companion'] == true);
+                }
                 extra['${CreativeContract.sourcePrefix}$hash'] = html;
                 if (!autonomous) {
                   extra[CreativeDelivery.key(id)] = jsonEncode(CreativeDelivery.pending(work, hash, verified, now().millisecondsSinceEpoch));
@@ -430,7 +529,7 @@ class CreativeWorker {
             patch.addAll({'status': 'paused', 'note': _savedNote(agent, '连续修复未完成，已暂停'), 'retry_at': 0});
           }
           patch['agent_trace'] = traces({'kind': 'tool', 'tool':
-            {'work_plan','work_read','work_write','work_patch','work_preview','work_visual_review','work_finish'}.contains(name) ? name : 'unknown',
+            {'work_plan','work_read','work_write','work_patch','work_preview','work_visual_review','work_generate_image','work_finish'}.contains(name) ? name : 'unknown',
             'ok': result['ok'] == true,
             'files': CreativeWorkspace.files(agent).length});
           patch['tool_calls'] = (work['tool_calls'] as num? ?? 0).toInt() + 1;
@@ -439,7 +538,7 @@ class CreativeWorker {
           }
           // File effects, tool receipt and cursor are one transaction. Replaying
           // after a process exit cannot append the same chunk twice.
-          await checkpoint(patch, extra: extra);
+          await checkpoint(patch, extra: extra, albumImage: albumImage);
           if (published || failures >= maxFailures) {
             await store.collectUnusedSources();
             return;
@@ -490,6 +589,12 @@ class CreativeWorker {
       await db.releaseLocalLease(lease);
     }
   }
+
+  static Map<String, Object?> _noImage(String reason) => {
+    'ok': true,
+    'available': false,
+    'guidance': '$reason。继续完成作品：装饰可改用本地 SVG，主视觉依赖配图时请重新安排版式。不要引用不存在的图片。',
+  };
 
   static String _savedNote(Map<String, dynamic> agent, String reason) =>
       '$reason；${CreativeWorkspace.files(agent).isEmpty ? '尚未生成有效草稿' : '已保存制作进度'}';

@@ -29,7 +29,24 @@ import java.security.MessageDigest
 object CreativeWebSandbox {
     const val ORIGIN = "https://companion-work.invalid/"
     const val MAX_HTML = 800_000
-    const val POLICY = "default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; img-src data:; font-src data:; media-src data:; connect-src 'none'; frame-src 'none'; object-src 'none'; base-uri 'none'; form-action 'none'"
+    const val POLICY = "default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; img-src data: https://companion-work.invalid/generated/; font-src data:; media-src data:; connect-src 'none'; frame-src 'none'; object-src 'none'; base-uri 'none'; form-action 'none'"
+
+    data class Image(val mime: String, val bytes: ByteArray)
+    private val imageUrl = Regex("https://companion-work[.]invalid/generated/[0-9a-f]{64}[.]image")
+
+    fun images(raw: Any?): Map<String, Image> {
+        val entries = raw as? Map<*, *> ?: return emptyMap()
+        if (entries.size > 3) return emptyMap()
+        return entries.mapNotNull { (key, value) ->
+            val url = (key as? String)?.takeIf(imageUrl::matches) ?: return@mapNotNull null
+            val image = value as? Map<*, *> ?: return@mapNotNull null
+            val mime = image["mime"] as? String ?: return@mapNotNull null
+            if (mime !in setOf("image/png", "image/jpeg", "image/webp")) return@mapNotNull null
+            val bytes = (image["bytes"] as? ByteArray)?.takeIf { it.size in 1..4*1024*1024 }
+                ?: return@mapNotNull null
+            url to Image(mime, bytes)
+        }.toMap()
+    }
 
     fun turnId(value: Any?): String? = when (value) {
         is String -> value.takeIf { it.isNotBlank() && it.length <= 80 }
@@ -106,7 +123,8 @@ object CreativeWebSandbox {
     }
 
     @SuppressLint("SetJavaScriptEnabled", "AddJavascriptInterface")
-    fun create(context: Context, onMessage: (String) -> Unit, onError: (String) -> Unit): WebView {
+    fun create(context: Context, onMessage: (String) -> Unit, onError: (String) -> Unit,
+               images: Map<String, Image> = emptyMap(), onImage: (String) -> Unit = {}): WebView {
         check(Looper.myLooper() == Looper.getMainLooper())
         return WebView(context).apply {
             setBackgroundColor(Color.WHITE)
@@ -121,6 +139,12 @@ object CreativeWebSandbox {
             webViewClient = object : WebViewClient() {
                 override fun shouldOverrideUrlLoading(view: WebView, request: WebResourceRequest) = true
                 override fun shouldInterceptRequest(view: WebView, request: WebResourceRequest): WebResourceResponse? {
+                    val url = request.url.toString()
+                    val image = images[url]
+                    if (image != null && request.method == "GET" && !request.isForMainFrame) {
+                        onImage(url)
+                        return WebResourceResponse(image.mime, null, ByteArrayInputStream(image.bytes))
+                    }
                     return WebResourceResponse("text/plain", "UTF-8", ByteArrayInputStream(ByteArray(0)))
                 }
                 override fun onRenderProcessGone(view: WebView, detail: android.webkit.RenderProcessGoneDetail): Boolean {
@@ -200,11 +224,13 @@ class CreativePreview(private val context: Context) {
 
     fun run(html: String, checks: List<Map<String, String>>,
             restoreAssertions: List<Map<String, String>> = emptyList(), requireRestore: Boolean = false,
+            images: Map<String, CreativeWebSandbox.Image> = emptyMap(),
             done: (Map<String, Any?>) -> Unit) {
         handler.post {
             if (stop != null) { done(mapOf("ok" to false,"errors" to listOf("预览正在使用"))); return@post }
             val errors = mutableListOf<String>()
             val checked = mutableListOf<String>()
+            val servedImages = java.util.concurrent.ConcurrentHashMap.newKeySet<String>()
             val sourceHash = MessageDigest.getInstance("SHA-256").digest(html.toByteArray(Charsets.UTF_8))
                 .joinToString("") { "%02x".format(it.toInt() and 0xff) }
             var assertions = emptyList<RestoreAssertion>()
@@ -238,6 +264,7 @@ class CreativePreview(private val context: Context) {
                 if (finished) return
                 finished = true
                 if (reason != null) errors.add(reason)
+                if (!servedImages.containsAll(images.keys)) errors.add("作品配图没有全部加载，请检查引用并直接加载")
                 handler.removeCallbacks(timeout)
                 var screenshot: String? = null
                 val bitmap = frame
@@ -345,7 +372,8 @@ class CreativePreview(private val context: Context) {
                             }
                             else -> CreativeWebSandbox.reply(view,id,null,"未知作品接口")
                         }
-                    }, { if (!finished && owner == generation) errors.add(it) })
+                    }, { if (!finished && owner == generation) errors.add(it) },
+                        images = images, onImage = { servedImages.add(it) })
                     page=view
                     presentation!!.setContentView(view)
                     if (!presentation!!.isShowing) presentation!!.show()

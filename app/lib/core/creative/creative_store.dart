@@ -11,6 +11,7 @@ import 'creative_workspace.dart';
 import 'creative_autonomy_policy.dart';
 import 'creative_share.dart';
 import 'creative_facts.dart';
+import 'creative_illustration.dart';
 
 class CreativeStore {
   CreativeStore(this.db, {this.beforeLocalCommit});
@@ -56,12 +57,14 @@ class CreativeStore {
   }
 
   Future<bool> write(Map<String, dynamic> before, Map<String, dynamic> after,
-      {Map<String, String> extra = const {}, BrainWorkFence? fence}) async {
+      {Map<String, String> extra = const {}, BrainWorkFence? fence,
+      CreativeAlbumImage? albumImage}) async {
     final owned = fence ?? await db.captureBrainWorkFence();
     if (owned == null) return false;
     final id = after['id'] as String;
     return db.setSettingsAtomically({key(id): jsonEncode(after), ...extra},
-        expectedSettings: {key(id): before.isEmpty ? '' : jsonEncode(before)}, workFence: owned);
+        expectedSettings: {key(id): before.isEmpty ? '' : jsonEncode(before)},
+        workFence: owned, creativeAlbumImage: albumImage);
   }
 
   /// Compatibility entry for trusted local callers. Chat tools must use the
@@ -572,14 +575,25 @@ class CreativeStore {
       final rows = await txn.query('settings', columns: ['key', 'value'],
         where: 'key LIKE ? OR key LIKE ?', whereArgs: [
           '${CreativeContract.metaPrefix}%', '${CreativeContract.playPrefix}%']);
-      final keep = <String>{};
+      final versionsByWork = <String, Set<String>>{};
+      final draftOwners = <String>{};
       for (final row in rows) {
+        final key = row['key'] as String;
+        final meta = key.startsWith(CreativeContract.metaPrefix);
+        final id = key.substring((meta ? CreativeContract.metaPrefix : CreativeContract.playPrefix).length);
         final data = CreativeContract.decode(row['value'] as String?);
+        if (data['status'] == 'deleted') continue;
+        final versions = versionsByWork.putIfAbsent(id, () => <String>{});
         for (final field in ['draft', 'current', 'version']) {
-          if (data[field] is String) keep.add(data[field] as String);
+          final version = data[field];
+          if (version is String && version.isNotEmpty) versions.add(version);
         }
-        keep.addAll((data['versions'] as List? ?? []).whereType<String>());
+        versions.addAll((data['versions'] as List? ?? []).whereType<String>());
+        if (meta && (CreativeContract.active.contains(data['status']) || data['status'] == 'paused')) {
+          draftOwners.add(id);
+        }
       }
+      final keep = versionsByWork.values.expand((versions) => versions).toSet();
       final sources = await txn.query('settings', columns: ['key'], where: 'key LIKE ?',
           whereArgs: ['${CreativeContract.sourcePrefix}%']);
       for (final row in sources) {
@@ -587,6 +601,28 @@ class CreativeStore {
         if (!keep.contains(key.substring(CreativeContract.sourcePrefix.length))) {
           await txn.delete('settings', where: 'key = ?', whereArgs: [key]);
         }
+      }
+      final owners = await txn.query('settings', columns: ['key', 'value'], where: 'key GLOB ?',
+          whereArgs: ['${CreativeIllustration.ownerPrefix}*']);
+      final referenced = <String, Set<String>>{};
+      for (final row in owners) {
+        final key = row['key'] as String;
+        final tail = key.substring(CreativeIllustration.ownerPrefix.length);
+        final split = tail.lastIndexOf(':');
+        final id = split < 0 ? '' : tail.substring(0, split);
+        final blob = split < 0 ? '' : tail.substring(split + 1);
+        if (id.isNotEmpty && row['value'] == blob) {
+          if (draftOwners.contains(id)) continue;
+          if (!referenced.containsKey(id)) {
+            final ids = referenced[id] = <String>{};
+            for (final version in versionsByWork[id] ?? const <String>{}) {
+              final source = await BrainWorkFence.value(txn, '${CreativeContract.sourcePrefix}$version');
+              ids.addAll(CreativeIllustration.references(source ?? ''));
+            }
+          }
+          if (referenced[id]!.contains(blob)) continue;
+        }
+        await txn.delete('settings', where: 'key = ?', whereArgs: [key]);
       }
     });
   }

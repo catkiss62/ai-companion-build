@@ -3,6 +3,7 @@ import 'package:ai_companion_localfirst/core/desire/desire_engine.dart';
 import 'package:ai_companion_localfirst/core/desire/proactive_presentation.dart';
 import 'package:ai_companion_localfirst/core/desire/proactive_rhythm_engine.dart';
 import 'package:ai_companion_localfirst/core/models/desire_state.dart';
+import 'package:ai_companion_localfirst/core/models/chat_message.dart';
 import 'package:ai_companion_localfirst/core/models/proactive_intent.dart';
 
 void main() {
@@ -29,6 +30,31 @@ void main() {
       ProactivePresentationPolicy.startsFreshTopic(ProactiveIntentKind.followup),
       isFalse,
     );
+  });
+
+  test('daytime check-in sees the recently confirmed end of work', () {
+    final at = DateTime(2026, 11, 12, 18, 54);
+    ChatMessage message(String id, String role, String content, int minutesAgo) =>
+        ChatMessage(id: id, role: role, content: content,
+          createdAt: at.subtract(Duration(minutes: minutesAgo)));
+    final recent = [
+      message('old', 'user', '昨晚在家', 70),
+      message('u', 'user', '下班咯', 21),
+      message('a', 'assistant', '应该到家了', 20),
+    ];
+    String context({String action = 'check_in', String source = 'awareness',
+      ProactiveIntentKind kind = ProactiveIntentKind.curiosity, bool night = false}) =>
+        ProactivePresentationPolicy.recentCheckInContext(kind: kind, action: action,
+          sourceType: source, nightContact: night, now: at, recent: recent);
+    expect(context(), contains('下班咯'));
+    expect(context(), contains('18:33'));
+    expect(context(), contains('CURRENT_USER_TURN 仍为 NONE'));
+    expect(context(), isNot(contains('应该到家了')));
+    expect(context(), isNot(contains('昨晚在家')));
+    expect(context(action: 'discover_interest'), isEmpty);
+    expect(context(source: 'public_web'), isEmpty);
+    expect(context(kind: ProactiveIntentKind.socialShare), isEmpty);
+    expect(context(night: true), isEmpty);
   });
 
   test('follow-up presentation allows older recalled topics', () {

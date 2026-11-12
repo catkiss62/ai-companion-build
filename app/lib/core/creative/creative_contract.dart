@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'package:crypto/crypto.dart';
 import 'creative_workspace.dart';
 import 'creative_autonomy_policy.dart';
+import 'creative_illustration.dart';
 
 /// Portable, self-contained works. No network credentials or host file paths.
 class CreativeContract {
@@ -63,6 +64,17 @@ class CreativeContract {
       if (!key.startsWith('creative_')) continue;
       final value = row['value'];
       if (value is! String) throw const FormatException('作品存档损坏');
+      if (key == CreativeIllustration.enabledKey) {
+        if (!const {'', '0', '1'}.contains(value)) throw const FormatException('作品配图开关无效');
+        continue;
+      }
+      if (key.startsWith(CreativeIllustration.ownerPrefix)) {
+        if (key.length > 256 || !RegExp(r'^[a-f0-9]{64}$').hasMatch(value) ||
+            !key.endsWith(':$value') || key.length <= CreativeIllustration.ownerPrefix.length + 65) {
+          throw const FormatException('作品配图引用无效');
+        }
+        continue;
+      }
       if (key == CreativeAutonomyPolicy.enabledKey) {
         if (!{'', '0', '1'}.contains(value)) throw const FormatException('自主创作开关无效');
         continue;

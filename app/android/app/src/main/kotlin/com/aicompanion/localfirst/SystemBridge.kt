@@ -52,6 +52,7 @@ class SystemBridge(
     private var reportSourcePath: String? = null
     private var promptDocumentResult: MethodChannel.Result? = null
     private var promptDocumentOperation: String? = null
+    private var promptDocumentSaveLimit = MAX_PROMPT_PACK_BYTES
     private var promptDocumentContent: String? = null
     private var ttsModelDocumentResult: MethodChannel.Result? = null
     private var directPickerGuardDepth = 0
@@ -599,6 +600,7 @@ class SystemBridge(
             val result = promptDocumentResult ?: return
             val operation = promptDocumentOperation
             val content = promptDocumentContent
+            val saveLimit = promptDocumentSaveLimit
             val uri = data?.data
             clearPromptDocumentState()
             if (resultCode != Activity.RESULT_OK || uri == null) {
@@ -610,7 +612,7 @@ class SystemBridge(
                     when (operation) {
                         "save" -> {
                             val bytes = requireNotNull(content).toByteArray(Charsets.UTF_8)
-                            require(bytes.size <= MAX_PROMPT_PACK_BYTES) { "prompt_pack_too_large" }
+                            require(bytes.size <= saveLimit) { "prompt_pack_too_large" }
                             activity.contentResolver.openOutputStream(uri, "w").use { output ->
                                 requireNotNull(output).write(bytes)
                             }
@@ -1091,8 +1093,9 @@ class SystemBridge(
         suggestedName: String,
         result: MethodChannel.Result,
     ) {
-        if (!beginPromptDocumentOperation("save", content, result)) return
         val htmlSource = suggestedName.endsWith(".html")
+        val limit = if (htmlSource) MAX_WORK_EXPORT_BYTES else MAX_PROMPT_PACK_BYTES
+        if (!beginPromptDocumentOperation("save", content, result, limit)) return
         val safeStem = suggestedName
             .removeSuffix(".json").removeSuffix(".html")
             .replace(Regex("[^A-Za-z0-9._-]"), "_")
@@ -1158,18 +1161,20 @@ class SystemBridge(
         operation: String,
         content: String?,
         result: MethodChannel.Result,
+        saveLimit: Int = MAX_PROMPT_PACK_BYTES,
     ): Boolean {
         if (promptDocumentResult != null) {
             result.error("prompt_pack_busy", "Another prompt import/export picker is already open", null)
             return false
         }
         if (operation == "save" && (content.isNullOrBlank() ||
-                    content.toByteArray(Charsets.UTF_8).size > MAX_PROMPT_PACK_BYTES)) {
+                    content.toByteArray(Charsets.UTF_8).size > saveLimit)) {
             result.error("prompt_pack_invalid", "Prompt pack is empty or too large", null)
             return false
         }
         promptDocumentResult = result
         promptDocumentOperation = operation
+        promptDocumentSaveLimit = saveLimit
         promptDocumentContent = content
         return true
     }
@@ -1753,6 +1758,7 @@ class SystemBridge(
         private const val REQUEST_TTS_ROBERTA_OPEN = 4212
         private const val MAX_PLAIN_BACKUP_BYTES = 8L * 1024L * 1024L * 1024L
         private const val MAX_PROMPT_PACK_BYTES = 2 * 1024 * 1024
+        private const val MAX_WORK_EXPORT_BYTES = 18 * 1024 * 1024
         private const val MAX_TTS_MODEL_BYTES = 1024L * 1024L * 1024L
     }
 }

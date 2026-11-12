@@ -5,6 +5,7 @@ import '../../core/ai/third_channel_client.dart';
 import '../../core/ai/third_channel_config.dart';
 import '../../core/ai/routed_vision_client.dart';
 import '../../core/creative/creative_store.dart';
+import '../../core/creative/creative_illustration.dart';
 import '../../core/creative/creative_autonomy_policy.dart';
 import 'dart:async';
 import 'dart:convert';
@@ -78,6 +79,7 @@ class _ModelNetworkSettingsPageState
   DeepSeekModelProfile _model = DeepSeekModelProfile.pro;
   ReasoningEffort _effort = ReasoningEffort.high;
   bool _creativeAutonomy = false;
+  bool _creativeIllustration = false;
   bool _publicWeb = true;
   bool _agnesCompaction = true;
   bool _loading = true;
@@ -217,6 +219,7 @@ class _ModelNetworkSettingsPageState
     final activeModel = await _db.getSetting('model');
     final storedDeepSeekModel = await _db.getSetting('deepseek_model');
     _creativeAutonomy = await _db.getSetting(CreativeAutonomyPolicy.enabledKey) == '1';
+    _creativeIllustration = await _db.getSetting(CreativeIllustration.enabledKey) == '1';
     final workApi = await _secure.readWorkConfiguration();
     _independentWorkApi = workApi['mode'] == 'independent';
     _workKey.text = workApi['key'] as String? ?? '';
@@ -998,6 +1001,15 @@ class _ModelNetworkSettingsPageState
                         onChanged: (value) async {
                           await CreativeStore(_db).setAutonomyEnabled(value);
                           if (mounted) setState(() => _creativeAutonomy = value);
+                        }),
+                      SwitchListTile(contentPadding: EdgeInsets.zero,
+                        title: const Text('允许作品生图'),
+                        subtitle: const Text('制作时可用已启用的生图接口配图，作品用到的插画会存入相册。'),
+                        value: _creativeIllustration,
+                        onChanged: (value) async {
+                          if (await _db.setSettingsAtomically({
+                            CreativeIllustration.enabledKey: value ? '1' : '0',
+                          }) && mounted) setState(() => _creativeIllustration = value);
                         }),
                       TextButton(onPressed: !_creativeAutonomy ? null : () => _sectionAction('work', () async {
                         await CreativeStore(_db).resumeAutonomous();
