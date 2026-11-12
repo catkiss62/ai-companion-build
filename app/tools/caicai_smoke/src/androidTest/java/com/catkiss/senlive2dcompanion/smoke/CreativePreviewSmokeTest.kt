@@ -23,10 +23,11 @@ class CreativePreviewSmokeTest {
       <script>const g=document.getElementById('sky').getContext('2d');g.fillStyle='#ea5d95';g.fillRect(0,0,240,100);
       document.getElementById('light').onclick=()=>{document.getElementById('state').textContent='亮了';g.fillStyle='#f8c981';g.fillRect(30,10,80,70)};</script>"""
     private fun check(source: String, checks: List<Map<String,String>> = listOf(mapOf("click" to "#light","selector" to "#state","text" to "亮了")),
-                      assertions: List<Map<String,String>> = emptyList(), requireRestore: Boolean = false): Map<String,Any?> {
+                      assertions: List<Map<String,String>> = emptyList(), requireRestore: Boolean = false,
+                      images: Map<String, CreativeWebSandbox.Image> = emptyMap()): Map<String,Any?> {
         val latch=CountDownLatch(1)
         var result:Map<String,Any?>?=null
-        CreativePreview(context).run(source,checks,assertions,requireRestore) { result=it;latch.countDown() }
+        CreativePreview(context).run(source,checks,assertions,requireRestore,images) { result=it;latch.countDown() }
         assertTrue("preview timeout",latch.await(30,TimeUnit.SECONDS))
         return requireNotNull(result)
     }
@@ -47,6 +48,20 @@ class CreativePreviewSmokeTest {
             automation.executeShellCommand("cat /data/local/tmp/creative-preview.png")
         ).use { it.readBytes() }
         assertArrayEquals("Keep the actual frame before test cleanup",screenshot.readBytes(),retained)
+    }
+    @Test fun rendersOnlyTheImageGrantedToThisWork() {
+        val granted = "${CreativeWebSandbox.ORIGIN}generated/${"a".repeat(64)}.image"
+        val other = "${CreativeWebSandbox.ORIGIN}generated/${"b".repeat(64)}.image"
+        val bytes = android.util.Base64.decode(
+            "iVBORw0KGgoAAAANSUhEUgAAACAAAAAgCAIAAAD8GO2jAAAAK0lEQVR42u3NQQEAQAQAMC6hYNJJdCX4bQWW1ROXXhwTCAQCgUAgEAgEWz7rPQHu8hmbmAAAAABJRU5ErkJggg==",
+            android.util.Base64.DEFAULT)
+        val source = html + """<img id="granted" src="$granted" alt="配图"><img id="other" src="$other" alt="无授权">
+            <script>document.getElementById('light').onclick=()=>{
+              const granted=document.getElementById('granted'),other=document.getElementById('other');
+              document.getElementById('state').textContent=granted.complete && granted.naturalWidth===32 && other.naturalWidth===0?'亮了':'配图错误';
+            };</script>"""
+        val result = check(source, images = mapOf(granted to CreativeWebSandbox.Image("image/png", bytes)))
+        assertEquals(result.toString(), true, result["ok"])
     }
     @Test fun previewBridgeUsesValidSimulatedChoices() {
         val source=html+"""<script>document.getElementById('light').onclick=async()=>{

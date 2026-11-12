@@ -116,6 +116,10 @@ void main() {
         await db.deleteCompanionAlbumItem(album.single.id);
         expect(await db.removeUnreferencedMediaBlob(blob), isNull);
         expect((await CreativeIllustration.load(db, id, html)).keys, [url]);
+        final snapshot = Map<String, dynamic>.from(await db.exportAll());
+        await db.importAll(snapshot);
+        expect((await CreativeIllustration.load(db, id, html)).keys, [url]);
+        expect(await db.removeUnreferencedMediaBlob(blob), isNull);
       } finally {
         messenger.setMockMethodCallHandler(CreativeWorker.preview, null);
         PathProviderPlatform.instance = originalPaths;

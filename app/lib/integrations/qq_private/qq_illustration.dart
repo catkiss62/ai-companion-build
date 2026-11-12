@@ -21,6 +21,7 @@ class QqIllustrationChoice {
     caseSensitive: false,
   );
   static const _skip = '<qq_illustration_skip/>';
+  static final _skipTag = RegExp(r'<qq_illustration_skip\s*/>', caseSensitive: false);
 
   static QqIllustrationChoice? parse(String raw) {
     final match = _tag.firstMatch(raw);
@@ -33,10 +34,10 @@ class QqIllustrationChoice {
   static String visible(String raw) => raw
       .replaceAll(_tag, '')
       .replaceAll(_incomplete, '')
-      .replaceAll(_skip, '')
+      .replaceAll(_skipTag, '')
       .trim();
 
-  static bool skipped(String raw) => raw.contains(_skip);
+  static bool skipped(String raw) => _skipTag.hasMatch(raw);
 
   // Compatibility for a clear acceptance when the reply model omitted its
   // tool marker. Questions, conditions and ordinary conversation stay text.
@@ -47,7 +48,7 @@ class QqIllustrationChoice {
   );
   static final _uncertain = RegExp(
     r'[？?]|(?:能|行|好|可以)吗|要不要|想要|你要|哪[种个]|什么|怎么|'
-    r'的话|如果|之后|待会|等会|晚点|改天|以后|下次|先别|不想|不(?:能|会|画|行|可以|方便|给你|去画)|没法|换个',
+    r'的话|如果|之后|待会|等会|晚点|改天|以后|下次|先别|算了|但是|不过|没空|不太|不想|不(?:能|会|画|行|可以|方便|给你|去画)|没法|换个',
   );
 
   static bool clearlyAccepts(String text) =>

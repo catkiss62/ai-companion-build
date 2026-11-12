@@ -1,7 +1,7 @@
 name: Creative private display probe
 on:
   push:
-    branches: [agent/v04295-creative-workspace]
+    branches: [agent/v04295-creative-workspace, agent/v042107-review-recovery]
     paths:
       - app/android/app/src/main/kotlin/com/aicompanion/localfirst/CreativeWebSandbox.kt
       - app/tools/caicai_smoke/**
