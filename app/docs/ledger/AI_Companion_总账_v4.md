@@ -2,8 +2,8 @@
 
 ## 当前接班快照
 
-- 开发分支 `agent/v042107-review-recovery` 已交付 QQ 群主动语音调整 `v0.42.185+429`、schema67，构建提交 `773f676`。[下载 APK](https://github.com/catkiss62/ai-companion-build/actions/runs/43197171137/artifacts/13935357104)
-- 独立系统逻辑 CI 和签名 APK 构建均已通过。真机待观察同群语音频率。QQ 生图审查的后续事项见本页 +429 记录，+428 的自主生图观察和 +427 的末轮保形验证见各自记录。
+- 开发分支 `agent/v042107-review-recovery` 已交付 `v0.42.186+430`、schema67，构建提交 `61ecd45`。本版含 QQ 生图意图与原图补发、作品可选配图、主动近况上下文。[下载 APK](https://github.com/catkiss62/ai-companion-build/actions/runs/43233978120/artifacts/13955030293)
+- 独立 CI、全量 3438 项 Flutter 测试、Android 15 模拟器作品预览和原签名构建通过。真机待验 QQ 补发、作品配图与主动近况。+429 的 QQ 语音频率仍可顺带观察。
 - 新窗口先核对最新运行提交、最近 5 笔和对应 Actions 摘要，再按本页任务入口定点读取。
 
 ## 维护约定
@@ -25,6 +25,10 @@
 
 - 阶段验证：独立 CI [43231305827](https://github.com/catkiss62/ai-companion-build/actions/runs/43231305827) 全部通过。Android 15 模拟器 [43231305974](https://github.com/catkiss62/ai-companion-build/actions/runs/43231305974) 的 22 项作品预览测试通过，含实际加载授权配图、拦截未授权图片。原生与语音构建前置任务通过。
 - 签名构建 [43231306215](https://github.com/catkiss62/ai-companion-build/actions/runs/43231306215) 在第 149 项源码校验停下。作品媒体所有权变更导致旧数据库文件哈希不匹配。复核数据库差异后更新此文件的精确哈希，其他受保护文件的校验值保留，重新构建。
+
+- 最终验证：`61ecd45304949cc186d7313ca8f49fd868c767be` 与本地 `f01532c` 源码树一致。167 项源码校验、独立 CI、Dart 分析、3438 项全量 Flutter 测试、Android 原生及打包前存档恢复检查均通过。[独立 CI](https://github.com/catkiss62/ai-companion-build/actions/runs/43233978126) · [签名构建](https://github.com/catkiss62/ai-companion-build/actions/runs/43233978120)
+- 已交付草稿 `443031835`，APK 资产 `739853924`，740790630 字节。APK SHA-256 为 `2eba70a119ac447ef8c580af81d04364bad7fe9bef5bd3eced16aa56a2948fed`，与草稿摘要一致，签名指纹与 +429 一致。[下载 APK](https://github.com/catkiss62/ai-companion-build/actions/runs/43233978120/artifacts/13955030293) · [草稿](https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-209d57ad73c493d6bd4f)
+- 真机待验证：群里明确画图与澄清/拒绝，图库收到的成图与作品同一素材，以及已下班后主动问近况的自然表现。作品开关默认关闭，位于「模型与联网 → 工作模型」。
 
 ## 2026-11-12 · QQ 群主动语音与生图审查
 
