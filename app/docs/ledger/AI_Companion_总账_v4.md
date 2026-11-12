@@ -2,8 +2,8 @@
 
 ## 当前接班快照
 
-- 开发分支 `agent/v042107-review-recovery` 已交付小豆丁收尾与自拍入口修复 `v0.42.183+427`、schema67，构建提交 `c71b263`。[下载 APK](https://github.com/catkiss62/ai-companion-build/actions/runs/43076564140/artifacts/13883599822)
-- 独立系统逻辑 CI 和签名 APK 构建均已通过。真机待核对静态立绘及两套 Live2D 的末轮保形、语音结束恢复本体与 App/QQ 自拍出图。
+- 开发分支 `agent/v042107-review-recovery` 已交付 QQ 群自主生图调整 `v0.42.184+428`、schema67，构建提交 `798d003`。[下载 APK](https://github.com/catkiss62/ai-companion-build/actions/runs/43186089331/artifacts/13930128287)
+- 独立系统逻辑 CI 和签名 APK 构建均已通过。真机待观察按情境主动出图、同群五分钟和跨群独立。上版小豆丁末轮保形和 App/QQ 自拍的真机观察见下方 +427 记录。
 - 新窗口先核对最新运行提交、最近 5 笔和对应 Actions 摘要，再按本页任务入口定点读取。
 
 ## 维护约定
@@ -19,6 +19,8 @@
 - 已实现，待 CI：普通群聊可以按话题选生图，仅在模型实际选择后登记同群 5 分钟间隔。登记和同一批次已开始标记在同一事务中写入。SVG 继续读取原有键，之前的 SVG 或共用冷却记录不会延迟首次自主生图。测试覆盖抽样外批次、跨群、五分钟边界、SVG 独立及明确请求绕过冷却。测试版本 `v0.42.184+428`。
 - 构建准备：23 项发布身份和工作流检查通过。首批 Actions 启动后发现草稿说明沿用了上版文案，历史源码检查的版本允许列表也只到 +427。已修正说明并将 +428 加入 17 个历史检查文件，保留旧版本条目。以最后一次运行作为验收依据。
 - 中途验证：`95f6e80` 的两组 QQ 定向回归和 Android 原生检查通过。独立全量 CI 中 Agent 自我信息仍报 +427，导致发布清单一致性测试失败。已同步自我信息版本，并重跑独立 CI 和 APK 构建。失败运行 [43184695806](https://github.com/catkiss62/ai-companion-build/actions/runs/43184695806)。
+- 最终验证：`798d0034ded9c0efb79631e592cfb5ecc76813b7` 与本地 `f147f52` 源码树一致。两组 QQ 定向回归、独立 CI、Android 原生、源码检查、Dart 分析、打包全量 Flutter 和存档恢复检查通过。独立 CI 首次尝试有一条依赖系统时钟的旧游戏厅用例失败，使用同一提交重跑后通过。[独立 CI 第二次尝试](https://github.com/catkiss62/ai-companion-build/actions/runs/43186089348/attempts/2) · [签名 APK 构建](https://github.com/catkiss62/ai-companion-build/actions/runs/43186089331)
+- 测试草稿 `442679206` 的 APK 资产 `738856700` 已上传，大小 740781226 字节。APK SHA-256 为 `bdd3e2069e746d9aaca07ccf4c5a22e19f43b2f3416e376e2df63fe964a231c2`，与构建监控及草稿资产一致。原签名验证通过。真机待观察群聊的自主触发节奏。[下载 APK](https://github.com/catkiss62/ai-companion-build/actions/runs/43186089331/artifacts/13930128287) · [草稿](https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-7ba74728963ae55d031f)
 
 ## 2026-11-12 · 小豆丁回复收尾与自拍入口
 
