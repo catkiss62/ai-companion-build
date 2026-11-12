@@ -462,6 +462,53 @@ void main(){
     expect(system,contains('自定义公开卡保留'));expect(system,contains('群聊表达节奏'));
     expect(system,contains('无需禁止任何词'));expect(system,contains('不机械轮换'));
   });
+  test('group voice hint uses twenty delivered replies in that group', () async {
+    final scope = QqRuntime.scope(config);
+    final fence = await store.capture();
+    for (final target in ['group-a', 'group-b']) {
+      await store.discover(fence, scope, 'group', target);
+    }
+    final at = clock.millisecondsSinceEpoch;
+    Future<void> delivered(String target, int turn, {bool voice = false}) async {
+      final batch = QqBatch('voice-history-$target-$turn',
+        {'id': cid(target)}, [], fence);
+      await store.sentPart(batch, 1, 'fixture text', '', at);
+      await store.sentPart(batch, 2, 'fixture second part', '', at,
+        voiceLanguage: voice ? 'zh' : '');
+    }
+    final reader = QqArchiveReader(await db.database);
+    await delivered('group-b', 1, voice: true);
+    for (var turn = 1; turn < 20; turn++) {
+      await delivered('group-a', turn);
+    }
+    expect(await reader.shouldSuggestGroupVoice(cid(), resetAt: 0), isFalse);
+    await delivered('group-a', 20);
+    expect(await reader.shouldSuggestGroupVoice(cid(), resetAt: 0), isTrue);
+    expect(await reader.shouldSuggestGroupVoice(cid(), resetAt: at + 1), isFalse);
+
+    handler = (request, body) async {
+      if (body['stream'] == true) {
+        final system = (body['messages'] as List).first['content'] as String;
+        expect(system, contains(QqVoiceChoice.groupPrompt));
+        expect(system, contains(QqVoiceChoice.groupReminder));
+        return _sse('这句我接住了');
+      }
+      return _json(body['max_tokens'] == 60 ? {'safe': true} : {'participation': 'direct'});
+    };
+    await accept('voice-hint', '今天这个梗也太好笑了', mention: true);
+    await runtime.process(cid());
+    expect(api.sent.single['text'], '这句我接住了');
+    expect(api.uploads, 0);
+    expect(requests.where((r) => jsonDecode(r.body)['stream'] == true), hasLength(1));
+
+    await delivered('group-a', 21, voice: true);
+    expect(await reader.shouldSuggestGroupVoice(cid(), resetAt: 0), isFalse);
+    for (var turn = 22; turn <= 41; turn++) {
+      await delivered('group-a', turn);
+    }
+    expect(await reader.shouldSuggestGroupVoice(cid(), resetAt: 0), isTrue);
+  });
+
   for(final language in ['zh','ja','en']) {
     test('runtime sends $language voice once and archives actual speech, not an image',()async {
       await runtime.stop();vision=_Vision(secure);final voice=_Voice();runtime=create(voiceService:voice);

@@ -18,6 +18,29 @@ class QqArchiveReader {
   final _descriptors=<String,Map<String,Object?>>{};
   final _names=<String,QqDisplayNames>{};
   bool? _voiceTable;
+  static final _replyPartId = RegExp(r'^reply:([^:]+):\d+$');
+  static String _replyKey(String id) => _replyPartId.firstMatch(id)?.group(1) ?? id;
+
+  Future<bool> shouldSuggestGroupVoice(String cid, {required int resetAt}) async {
+    const replyWindow = 20;
+    // A delivered reply has at most three text parts and one split image.
+    // The archive contains only parts confirmed by QQ.
+    final parts = await sql.rawQuery('''
+      SELECT a.id, EXISTS(SELECT 1 FROM qq_voices v WHERE v.archive_seq=a.seq) AS spoken
+      FROM qq_archive a
+      WHERE a.conversation_id=? AND a.role='assistant' AND a.observed_at>=?
+      ORDER BY a.seq DESC LIMIT ?
+    ''', [cid, resetAt, replyWindow * 4]);
+    final replies = <String>{};
+    for (final part in parts) {
+      final key = _replyKey(part['id'] as String);
+      if (replies.length == replyWindow && !replies.contains(key)) continue;
+      if (part['spoken'] == 1) return false;
+      replies.add(key);
+    }
+    return replies.length == replyWindow;
+  }
+
   Future<bool> _hasVoices() async => _voiceTable??= (await sql.rawQuery(
     "SELECT name FROM sqlite_master WHERE type='table' AND name='qq_voices'")).isNotEmpty;
   Future<String> _spokenLanguage(Map<String,Object?> row) async {
@@ -192,11 +215,10 @@ class QqArchiveReader {
       required List<Map<String,Object?>> stamp,int resetAt=0}) async {
     final rows=await _contextRows(cid,through,resetAt,160,true);
     final groups=<List<Map<String,Object?>>>[];
-    String replyKey(Map<String,Object?> r)=>RegExp(r'^reply:([^:]+):\d+$').firstMatch(r['id'] as String)?.group(1)??r['id'] as String;
     for(final row in rows) {
       final previous=groups.isEmpty?null:groups.last.last;
       final same=previous!=null && row['role']==previous['role'] && row['sender']==previous['sender'] &&
-        (row['role']=='assistant'?replyKey(row)==replyKey(previous):
+        (row['role']=='assistant'?_replyKey(row['id'] as String)==_replyKey(previous['id'] as String):
           ((previous['received_at'] as int)-(row['received_at'] as int)).abs()<=12000);
       if(same) {groups.last.add(row);}
       else {if(groups.length>=40)break;groups.add([row]);}

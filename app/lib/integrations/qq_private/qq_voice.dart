@@ -30,7 +30,11 @@ class QqVoiceChoice {
     language:ChatLanguage.tryParse(language)!,scope:TtsReadingScope.dialogueOnly,pronunciationAliases:false);
   static String visible(String raw)=>raw.replaceAll(_tag,'')
     .replaceAll(RegExp(r'<qq_voice\b[\s\S]*$',caseSensitive:false),'').trim();
-  static const prompt='【可选QQ语音】本轮可以发中文、日语或英语短语音。明确要求语音时优先考虑；平时主要文字，也可偶尔自然选择声音表达。'
+  static const _intro='【可选QQ语音】本轮可以发中文、日语或英语短语音。明确要求语音时优先考虑。';
+  static const prompt='${_intro}平时主要文字，也可偶尔自然选择声音表达。$_format';
+  static const groupPrompt='${_intro}一句接梗、短吐槽、惊讶或打招呼，语气能让这句更有意思时，就可以用一条短语音。长段解释用文字。$_format';
+  static const groupReminder='最近20条已送达的本群回复都用了其他形式。这轮如果有一句适合开口，多考虑用短语音，按情境选择表达方式。';
+  static const _format=
     '在回复最后加且只加一次<qq_voice>{"language":"zh|ja|en","text":"实际要说的目标语言台词","voice":"daily|gentle|lively|cute"}</qq_voice>。'
     '语气按这句实际表达选择：daily日常，自然聊天、轻松吐槽、普通开心或轻微俏皮也适合；gentle温柔，安抚、低声亲近或关心；'
     'lively活泼，明显兴奋、热烈惊喜或高涨情绪；cute可爱，明确撒娇、卖萌。不要仅因角色活泼或一句调侃就选lively，也不用轮换凑齐语气。'

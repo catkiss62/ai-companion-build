@@ -521,7 +521,16 @@ class QqRuntime {
         prompt+=canIllustrate?'\n${QqIllustrationChoice.requestedPrompt}':
           '\n本轮无法启动 QQ 生图。请用文字说明当前无法画图，勿请对方等待。';
       }
-      prompt+=wakingGroup?'\n本轮只发文字。':o.voiceEnabled?'\n${QqVoiceChoice.prompt}':'\n本轮QQ语音关闭，只选择可用文字/图片表达。';
+      if (wakingGroup) {
+        prompt+='\n本轮只发文字。';
+      } else if (!o.voiceEnabled) {
+        prompt+='\n本轮QQ语音关闭，只选择可用文字/图片表达。';
+      } else {
+        prompt+='\n${b.group ? QqVoiceChoice.groupPrompt : QqVoiceChoice.prompt}';
+        if (b.group && await reader.shouldSuggestGroupVoice(cid, resetAt: reset)) {
+          prompt+='\n${QqVoiceChoice.groupReminder}';
+        }
+      }
       if(echo!=null)prompt+='\n${echo.prompt}';
       if(!await current()) throw StateError('context_invalidated');
       await store.mark(b,'generating');status('generating');
