@@ -2,8 +2,8 @@
 
 ## 当前接班快照
 
-- 开发分支 `agent/v042107-review-recovery` 已交付 `v0.42.186+430`、schema67，构建提交 `61ecd45`。本版含 QQ 生图意图与原图补发、作品可选配图、主动近况上下文。[下载 APK](https://github.com/catkiss62/ai-companion-build/actions/runs/43233978120/artifacts/13955030293)
-- 独立 CI、全量 3438 项 Flutter 测试、Android 15 模拟器作品预览和原签名构建通过。真机待验 QQ 补发、作品配图与主动近况。+429 的 QQ 语音频率仍可顺带观察。
+- 开发分支 `agent/v042107-review-recovery` 已交付 `v0.42.187+431`、schema67，构建提交 `f758706`。QQ 群可自然接住陌生消息并按群授权查原文，App 补千帆搜索，两端按来源分级。[下载 APK](https://github.com/catkiss62/ai-companion-build/actions/runs/43260113150/artifacts/13964924777)
+- 独立 CI、全量 3446 项 Flutter 测试及原签名 arm64 构建通过。真机待验千帆账户、QQ 主动查证与只读到普通帖子时的接话表现。+430 的 QQ 补发、作品配图与主动近况仍待真机反馈。
 - 新窗口先核对最新运行提交、最近 5 笔和对应 Actions 摘要，再按本页任务入口定点读取。
 
 ## 维护约定
@@ -23,6 +23,9 @@
 - 追加范围：千帆优先搜索中文时效消息后，代码按已识别的一手来源和普通平台帖分级。App 和 QQ 共用规则，明确信息源的定向搜索继续尊重站点限制。按规范链接和正文重复度归并明显重复，保留来源信息和群聊未确认时的接话空间。来源排序本身不新增模型或搜索请求。
 - 来源分级实现使用主题相关官网、可由 URL 识别的官方账号、编辑媒体和资料库。普通动态和视频链接缺少可核验作者 ID 时保持发布者未确认。排序发生在提取正文之前，固定提取额度可优先覆盖搜索结果排序靠后的一手网页。原文归并的首轮回归发现简短转载前缀可能拉低相似度，补了长正文包含关系，并验证公告里的时间数字改变后保留为独立内容。
 - 首候选 `929f1e17` 独立 CI 与本地 132 项回归通过。来源分级是构建启动后追加的需求，本地新一轮八项定向回归已通过，最终以包含分级的重新构建为准。[首轮 CI](https://github.com/catkiss62/ai-companion-build/actions/runs/43255149717)
+- 验证完成。首候选构建被包含分级的新提交替换。最终源码 `f758706008940a8714dcb86f2f96dd3379d83000`，tree `a8f8427875d6796a94edb1b1d82e71b980453789`。本地 133 项相关 Flutter 回归、独立 CI、全量 3446 项 Flutter 测试和签名 arm64 构建通过。[被替换的构建](https://github.com/catkiss62/ai-companion-build/actions/runs/43255149744) [最终 CI](https://github.com/catkiss62/ai-companion-build/actions/runs/43260113070) [签名构建](https://github.com/catkiss62/ai-companion-build/actions/runs/43260113150)
+- APK SHA-256 为 `adc74e8ab98491fecaf8c50c0fcf84c54ef3f89bd248d5928927f9fe74884f58`，签名指纹仍为 `305eb3d80983b963c64818ddf1ad561f279de6d47b3ed2c781ada448c7c25148`。产物与构建提交已核对，草稿保留。[下载 APK](https://github.com/catkiss62/ai-companion-build/actions/runs/43260113150/artifacts/13964924777) [构建草稿](https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-935b8e3cb14ba31519e8)
+- 真机待验。千帆 Key 尚未用真实账户验证，Tavily Key 仍用于提取原文。QQ 群默认关闭联网，按群启用后重点验证主动查证、普通 B 站动态与官方公告的区别，以及原文受限时仍能继续接话。
 
 ## 2026-11-12 · QQ 生图恢复、作品配图与主动近况
 
