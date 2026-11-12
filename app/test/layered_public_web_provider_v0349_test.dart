@@ -2,6 +2,8 @@ import 'dart:async';
 import 'dart:convert';
 
 import 'package:ai_companion_localfirst/core/autonomy/layered_public_web_provider.dart';
+import 'package:ai_companion_localfirst/core/autonomy/public_web_source_policy.dart';
+import 'package:ai_companion_localfirst/core/autonomy/public_web_topic.dart';
 import 'package:ai_companion_localfirst/core/autonomy/wikimedia_public_web_provider.dart';
 import 'package:ai_companion_localfirst/core/ai/generation_cancellation.dart';
 import 'package:ai_companion_localfirst/core/models/public_web_candidate.dart';
@@ -11,6 +13,56 @@ import 'package:http/testing.dart';
 
 void main() {
   final now = DateTime.utc(2026, 8, 18, 6);
+
+  test('Baidu reading budget prefers matching first-party pages and groups obvious copies', () async {
+    const query = '异环最新版本公告';
+    const official = 'https://yh.wanmei.com/news/version';
+    const mirror = 'https://gnn.gamer.com.tw/detail.php?sn=42';
+    const forum = 'https://forum.gamer.com.tw/C.php?bsn=42';
+    const spoof = 'https://yh.wanmei.com.unverified.org/news/version';
+    final policy = PublicWebSourcePolicy(query);
+    expect(policy.grade(spoof), PublicWebSourceGrade.unconfirmed);
+    expect(policy.grade(forum), PublicWebSourceGrade.unconfirmed);
+    expect(policy.grade(mirror), PublicWebSourceGrade.editorial);
+    expect(policy.grade(official), PublicWebSourceGrade.firstParty);
+    final arknights = PublicWebSourcePolicy('明日方舟新版本');
+    expect(arknights.grade('https://weibo.com/6279793937/abc'), PublicWebSourceGrade.firstParty);
+    expect(arknights.grade('https://space.bilibili.com/161775300/dynamic'), PublicWebSourceGrade.firstParty);
+    expect(arknights.grade('https://www.bilibili.com/opus/161775300'), PublicWebSourceGrade.unconfirmed);
+    expect(policy.grade('https://weibo.com/6279793937/abc'), PublicWebSourceGrade.unconfirmed);
+    final original = List.filled(8, '异环停服维护公告。更新计划在12点完成，之后按游戏内通知开放。').join();
+    final calls = <String>[];
+    final provider = LayeredPublicWebProvider(
+      tavilyApiKey: 'fixture-tavily',
+      baiduApiKey: 'fixture-baidu',
+      agnesEnabled: false,
+      sourcePolicy: policy,
+      topic: PublicWebTopic.routes(query, hasBaidu: true, qq: true).first,
+      client: MockClient((request) async {
+        calls.add(request.url.path);
+        if (request.url.path.endsWith('web_search')) {
+          return http.Response(jsonEncode({'references': [
+            for (final url in [forum, spoof, mirror, official, '$official?utm_source=copy'])
+              {'title': '异环维护公告', 'url': url, 'snippet': '仅搜索片段'},
+          ]}), 200, headers: const {'content-type': 'application/json; charset=utf-8'});
+        }
+        expect(request.url.path, '/extract');
+        expect(jsonDecode(request.body)['urls'], [official, mirror]);
+        return http.Response(jsonEncode({'results': [
+          {'url': official, 'raw_content': original},
+          {'url': mirror, 'raw_content': '转载自官网。\n$original'},
+        ]}), 200, headers: const {'content-type': 'application/json; charset=utf-8'});
+      }),
+    );
+    addTearDown(provider.close);
+    final result = await provider.discover(query: query, driveKey: 'curiosity',
+      intentAction: 'qq_public_fact_check', interestKey: 'test', now: now);
+    expect(calls, ['/v2/ai_search/web_search', '/extract']);
+    expect(result.candidates.map((item) => item.readState), ['extracted', 'extracted']);
+    expect(policy.distinctOriginals(result.candidates).single.url, official);
+    final updated = result.candidates.last.copyWith(pageBody: original.replaceAll('12点', '16点'));
+    expect(policy.distinctOriginals([updated, result.candidates.first]), hasLength(2));
+  });
 
   test('extra source lines are bounded, https-only, and reject local targets', () {
     final domains = LayeredPublicWebProvider.parseExtraSourceDomains('''

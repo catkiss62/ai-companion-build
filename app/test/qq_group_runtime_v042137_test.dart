@@ -399,6 +399,8 @@ void main(){
           expect(r.body, contains('必要时自然改口'));
           final reads = const {'explicit','automatic','direct_link','ambiguous'}.contains(scenario);
           expect(r.body.contains('original_excerpt'), reads);
+          expect((payload['messages'] as List).any((entry) =>
+            (entry['content'] as String).contains('"source_grade":"发布者未确认"')), reads);
           expect(r.body.contains('已打开来源'), reads);
           expect(r.body, isNot(contains('搜索摘要不可当原文')));
           if (scenario == 'title_only') expect(r.body, contains('未取得可确认的相关原文'));

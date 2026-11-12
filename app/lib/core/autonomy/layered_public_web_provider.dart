@@ -9,6 +9,7 @@ import '../ai/generation_cancellation.dart';
 import '../models/public_web_candidate.dart';
 import 'wikimedia_public_web_provider.dart';
 import 'web_page_evidence.dart';
+import 'public_web_source_policy.dart';
 import 'public_web_topic.dart';
 
 /// Search discovers URLs, Tavily Extract reads their public bodies, and Agnes
@@ -27,6 +28,7 @@ class LayeredPublicWebProvider implements PublicWebProvider {
     this.recentMode = false,
     this.topic,
     this.baiduApiKey = '',
+    this.sourcePolicy,
     http.Client? client,
     PublicWebProvider? fallback,
   })  : _client = client ?? http.Client(),
@@ -42,6 +44,7 @@ class LayeredPublicWebProvider implements PublicWebProvider {
   final bool recentMode;
   final PublicWebTopic? topic;
   final String baiduApiKey;
+  final PublicWebSourcePolicy? sourcePolicy;
   final http.Client _client;
   final PublicWebProvider _fallback;
 
@@ -640,9 +643,13 @@ class LayeredPublicWebProvider implements PublicWebProvider {
     final chosen = <_TavilyResult>[];
     final seen = <String>{};
     void add(Iterable<_TavilyResult> values, int limit) {
-      for (final value in values) {
+      final ordered = sourcePolicy?.rank(values, (item) => item.url) ?? values;
+      for (final value in ordered) {
         if (chosen.length >= limit) break;
-        if (seen.add(value.url)) chosen.add(value);
+        final url = sourcePolicy == null
+            ? value.url
+            : PublicWebSourcePolicy.canonical(value.url);
+        if (seen.add(url)) chosen.add(value);
       }
     }
 
