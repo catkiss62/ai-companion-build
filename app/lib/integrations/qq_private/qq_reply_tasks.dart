@@ -129,7 +129,7 @@ class QqReplyTasks {
     if (draft[illustrationStartedKey] == true) return false;
     final updated = jsonEncode({...draft, 'raw': rawReply, illustrationStartedKey: true});
     if (updated.length > 48000) throw const FormatException('qq_draft_size');
-    if (autonomous && !await QqDrawingPolicy.reserveAutonomous(sql, b, now)) return false;
+    if (autonomous && !await QqDrawingPolicy.reserveAutonomousIllustration(sql, b, now)) return false;
     await sql.update('qq_reply_tasks', {'draft': updated}, where: 'id=?', whereArgs: [b.id]);
     return true;
   });

@@ -26,6 +26,7 @@ import 'package:ai_companion_localfirst/core/models/chat_message.dart';
 import 'package:ai_companion_localfirst/core/models/desire_state.dart';
 import 'package:ai_companion_localfirst/core/storage/secure_config.dart';
 import 'package:ai_companion_localfirst/integrations/qq_private/qq_archive_reader.dart';
+import 'package:ai_companion_localfirst/integrations/qq_private/qq_drawing_policy.dart';
 import 'package:ai_companion_localfirst/integrations/qq_private/qq_options.dart';
 import 'package:ai_companion_localfirst/integrations/qq_private/qq_private_config.dart';
 import 'package:ai_companion_localfirst/integrations/qq_private/qq_readonly_context.dart';
@@ -149,6 +150,39 @@ void main(){
     handler=(r,b)async=>b['stream']==true?_sse('哈哈哈'):_json(b['max_tokens']==60?{'safe':true}:{'participation':'watch'});
     runtime=create();
   });
+  test('QQ autonomous illustration cooldown is per group and separate from SVG', () async {
+    final sql = await db.database;
+    final fence = await store.capture();
+    QqBatch batch(String target, {bool group = true}) => QqBatch(
+      '00000000',
+      {'id': cid(target, group), 'kind': group ? 'group' : 'private'},
+      [],
+      fence,
+    );
+    final first = batch('group-a');
+    final other = batch('group-b');
+    final private = batch('owner', group: false);
+    final now = clock.millisecondsSinceEpoch;
+    const interval = Duration(minutes: 5);
+    Future<bool> reserve(QqBatch b, int at) => sql.transaction(
+      (txn) => QqDrawingPolicy.reserveAutonomousIllustration(txn, b, at),
+    );
+
+    expect(await QqDrawingPolicy.autonomousIllustrationOpportunity(store, first, now), isTrue);
+    expect(await db.getSetting('qq_illustration_auto_last_v1:${first.cid}'), isNull);
+    expect(await reserve(first, now), isTrue);
+    expect(await QqDrawingPolicy.autonomousIllustrationOpportunity(store, first, now), isFalse);
+    expect(await reserve(first, now + interval.inMilliseconds - 1), isFalse);
+    expect(await QqDrawingPolicy.autonomousIllustrationOpportunity(store, other, now), isTrue);
+    expect(await reserve(other, now), isTrue);
+    expect(await QqDrawingPolicy.autonomousOpportunity(store, first, now), isTrue);
+    expect(await QqDrawingPolicy.autonomousIllustrationOpportunity(store, private, now), isFalse);
+    expect(await reserve(private, now), isFalse);
+    expect(await QqDrawingPolicy.autonomousIllustrationOpportunity(
+      store, first, now + interval.inMilliseconds,
+    ), isTrue);
+    expect(await reserve(first, now + interval.inMilliseconds), isTrue);
+  });
   for (final scenario in ['automatic', 'automatic_svg', 'disabled', 'disabled_during_generation', 'generation_failure', 'retry_delivery', 'upload_failure', 'styled_followup', 'styled_declined', 'styled_unaddressed', 'styled_cancelled', 'chibi_format', 'chibi_mention_retry', 'selfie_draw', 'selfie_request']) {
     test('QQ drawing choice and delivery: $scenario', () async {
       final automatic = scenario.startsWith('automatic');
@@ -160,9 +194,18 @@ void main(){
       final mentionRetry = scenario == 'chibi_mention_retry';
       final target = automatic
           ? Iterable<int>.generate(1000).map((i) => 'auto-drawing-$i')
-              .firstWhere((id) => int.parse(QqStore.hash([cid(id), 1]).substring(0, 8), radix:16)%40 == 0)
+              .firstWhere((id) =>
+                  (int.parse(QqStore.hash([cid(id), 1]).substring(0, 8), radix:16)%40 == 0) == useSvg)
           : 'group-a';
       options=options.copy(groups:{target},illustrationEnabled:scenario!='disabled');
+      final startedAt=clock.millisecondsSinceEpoch;
+      final sketchKey='qq_sketch_auto_last_v1:${cid(target)}';
+      final illustrationKey='qq_illustration_auto_last_v1:${cid(target)}';
+      if(scenario=='automatic') {
+        await db.setSetting(sketchKey,'${startedAt-1000}');
+        await db.setSetting('qq_sketch_auto_global_v1','${startedAt-1000}');
+      }
+      if(selfie)await db.setSetting(illustrationKey,'${startedAt-1000}');
       const pngData='iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+jfnQAAAAASUVORK5CYII=';
       var planned=0,generated=0,svgPlans=0;
       var offeredIllustration=false,offeredSketch=false;
@@ -240,7 +283,7 @@ void main(){
         if(scenario=='styled_cancelled')await accept('qq-drawing-cancel','先别画了',target:target);
         await runtime.process(cid(target));
         expect(offeredIllustration,scenario!='disabled' && scenario!='styled_cancelled');
-        expect(offeredSketch,automatic);
+        expect(offeredSketch,useSvg);
         expect(planned,useSvg||scenario=='disabled'||styled&&!drawsStyled?0:1);
         expect(generated,planned);
         if(useSvg){
@@ -258,7 +301,16 @@ void main(){
         if(scenario=='styled_declined')expect(api.sent.single['text'],'换个主题吧');
         if(scenario=='styled_cancelled')expect(api.sent.single['text'],'好，先聊点别的');
         if(drawsStyled || chibi || selfie)expect(api.sent.single['fileInfo'],'fixture-image-token');
-        if(automatic)expect(await db.getSetting('qq_sketch_auto_last_v1:${cid(target)}'),isNotNull);
+        if(scenario=='automatic') {
+          expect(await db.getSetting(illustrationKey),'$startedAt');
+          expect(await db.getSetting(sketchKey),'${startedAt-1000}');
+          expect(await db.getSetting('qq_sketch_auto_global_v1'),'${startedAt-1000}');
+        }
+        if(useSvg) {
+          expect(await db.getSetting(sketchKey),'$startedAt');
+          expect(await db.getSetting(illustrationKey),isNull);
+        }
+        if(selfie)expect(await db.getSetting(illustrationKey),'${startedAt-1000}');
         if(scenario=='retry_delivery'){
           expect(api.sent,isEmpty);
           clock=clock.add(const Duration(seconds:16));

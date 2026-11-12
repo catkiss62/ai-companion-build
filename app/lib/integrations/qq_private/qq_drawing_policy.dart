@@ -9,6 +9,8 @@ enum QqDrawingFormat { sketch, illustration }
 abstract final class QqDrawingPolicy {
   static const _globalLast = 'qq_sketch_auto_global_v1';
   static String _conversationLast(String cid) => 'qq_sketch_auto_last_v1:$cid';
+  static const _illustrationCooldown = Duration(minutes: 5);
+  static String _illustrationLast(String cid) => 'qq_illustration_auto_last_v1:$cid';
   static final _format = RegExp(
     r'^\s*(?:(?:请你|请|你|麻烦|帮我|给我)\s*)*(?:用|使用)\s*'
     r'(svg|小涂鸦|涂鸦|生图(?:接口|功能)?|nai)\s*(?:帮我|给我)?\s*'
@@ -84,5 +86,40 @@ abstract final class QqDrawingPolicy {
       );
     }
     return true;
+  }
+
+  static Future<bool> autonomousIllustrationOpportunity(
+    QqStore store,
+    QqBatch batch,
+    int now,
+  ) async {
+    return batch.group &&
+        await _illustrationCooldownReady(await store.db.database, batch.cid, now);
+  }
+
+  static Future<bool> reserveAutonomousIllustration(
+    DatabaseExecutor db,
+    QqBatch batch,
+    int now,
+  ) async {
+    if (!batch.group || !await _illustrationCooldownReady(db, batch.cid, now)) {
+      return false;
+    }
+    await db.rawInsert(
+      'INSERT OR REPLACE INTO settings(key,value) VALUES(?,?)',
+      [_illustrationLast(batch.cid), '$now'],
+    );
+    return true;
+  }
+
+  static Future<bool> _illustrationCooldownReady(
+    DatabaseExecutor db,
+    String cid,
+    int now,
+  ) async {
+    final last = int.tryParse(
+      await BrainWorkFence.value(db, _illustrationLast(cid)),
+    );
+    return last == null || now - last >= _illustrationCooldown.inMilliseconds;
   }
 }

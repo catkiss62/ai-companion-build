@@ -508,7 +508,7 @@ class QqRuntime {
           ? await secure.readIllustration()
           : const IllustrationConnection();
       final canIllustrate=illustrationConnection.configured &&
-          (drawingRequested || await QqDrawingPolicy.autonomousOpportunity(store,b,drawingAt));
+          (drawingRequested || await QqDrawingPolicy.autonomousIllustrationOpportunity(store,b,drawingAt));
       Future<bool> illustrationCurrent() async {
         if (!await current()) return false;
         final fresh=await secure.readIllustration();

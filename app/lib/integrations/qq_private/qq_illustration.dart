@@ -46,6 +46,7 @@ class QqIllustrationChoice {
 
   static const prompt =
       '【可选生图】你可以用一张有完整构图、角色、光影或细节的原创插画来表达。'
+      '当画面能接住眼前的话题或表达具体想法时，才考虑主动生图。'
       '想用时，在回复末尾加<qq_illustration mode="with_text">180字内的画面意图</qq_illustration>。'
       '可用 mode="only" 仅发图。插画随这次回复一起送出，正文可写图注，不用请对方等待。画面应适合全年龄。'
       '可爱插画是常规比例的可爱画风，Q版是大头小身的画风。指定画风时在意图中写清楚。'
