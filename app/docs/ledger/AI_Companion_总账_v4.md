@@ -2,8 +2,8 @@
 
 ## 当前接班快照
 
-- 开发分支 `agent/v042107-review-recovery` 已交付 QQ 群自主生图调整 `v0.42.184+428`、schema67，构建提交 `798d003`。[下载 APK](https://github.com/catkiss62/ai-companion-build/actions/runs/43186089331/artifacts/13930128287)
-- 独立系统逻辑 CI 和签名 APK 构建均已通过。真机待观察按情境主动出图、同群五分钟和跨群独立。上版小豆丁末轮保形和 App/QQ 自拍的真机观察见下方 +427 记录。
+- 开发分支 `agent/v042107-review-recovery` 已交付 QQ 群主动语音调整 `v0.42.185+429`、schema67，构建提交 `773f676`。[下载 APK](https://github.com/catkiss62/ai-companion-build/actions/runs/43197171137/artifacts/13935357104)
+- 独立系统逻辑 CI 和签名 APK 构建均已通过。真机待观察同群语音频率。QQ 生图审查的后续事项见本页 +429 记录，+428 的自主生图观察和 +427 的末轮保形验证见各自记录。
 - 新窗口先核对最新运行提交、最近 5 笔和对应 Actions 摘要，再按本页任务入口定点读取。
 
 ## 维护约定
@@ -16,6 +16,11 @@
 
 - 开工：基线 `d87cd91`、`v0.42.184+428`。提高 QQ 群语音的自然使用机会。最近 20 条同群已送达回复均为非语音时，在正文请求里加一条软提醒。按回复批次计数，沿用语音开关和现有媒体选择。
 - 同轮审查 QQ 生图的请求归属、冷却、素材和提示词边界、异步取消及上传恢复。生图相关发现单独记录，供下一轮确认。
+- 已实现：群聊语音提示覆盖接梗、吐槽、惊讶和问候。软提醒仅向本群正文注入，最近 20 个不同的已送达回复批次均无语音才出现。读取现有 QQ 归档与语音回执，合成失败回落成的文字按文字计，未确认投递不计入。
+- 本地验证：SQLite 边界检查覆盖 19/20 轮、四段回复、群隔离、上下文重置及语音滑出窗口。23 项发布身份与流程用例通过，发布清单与 Agent 版本一致。
+- 生图审查完成。待跟进项为请求归属与明确同意、生成中的取消、公开群的成图审核、已生成媒体的安全恢复。详细风险和路径已在审查对话交付。
+- 最终验证：远端 `773f676d131828d631c9fadd865fb0f1740ee8da` 与本地 `45dd284` 源码树一致。QQ 定向回归、独立 CI、Android 原生、源码检查、Dart 分析、打包全量 Flutter 与存档恢复检查均通过。[独立 CI](https://github.com/catkiss62/ai-companion-build/actions/runs/43197171328) · [APK 构建](https://github.com/catkiss62/ai-companion-build/actions/runs/43197171137)
+- 签名测试包已上传到草稿 `442796936`，APK 资产 `739061837`，大小 740783650 字节。SHA-256 为 `5e4e64fd8508294ebe6d28d46e66915c3e1cb9bfa827201971b95bfd1d670317`，与构建监控及草稿资产一致。沿用原签名，真机待观察。[下载 APK](https://github.com/catkiss62/ai-companion-build/actions/runs/43197171137/artifacts/13935357104) · [草稿](https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-d8c7cc92eb09f6f75e27)
 
 ## 2026-11-12 · QQ 群自主生图
 
