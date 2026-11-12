@@ -1,0 +1,7 @@
+status=success
+run_id=43197171137
+run_url=https://github.com/catkiss62/ai-companion-build/actions/runs/43197171137
+head_sha=773f676d131828d631c9fadd865fb0f1740ee8da
+signer_sha256=30:5E:B3:D8:09:83:B9:63:C6:48:18:DD:F1:AD:56:1F:27:9D:E6:D4:7B:3E:D2:C7:81:AD:A4:48:C7:C2:51:48
+5e4e64fd8508294ebe6d28d46e66915c3e1cb9bfa827201971b95bfd1d670317  AI-Companion-v0.42.185-429-QQ-Group-Voice-APK.apk
+release_url=https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-d8c7cc92eb09f6f75e27
