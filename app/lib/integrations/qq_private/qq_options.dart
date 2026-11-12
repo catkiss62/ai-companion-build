@@ -11,12 +11,12 @@ import 'qq_group_persona.dart';
 class QqOptions {
   const QqOptions({this.groups=const {},this.ownerMembers=const {},this.core=defaultCore,
     this.publicMemory='',this.visionFallback=false,this.ownerShare=true,this.namespace='',this.revision=0,
-    this.voiceSetting,this.echoSetting,this.personaSetting,this.illustrationEnabled=false,int personaDefaultVersion=0})
+    this.voiceSetting,this.echoSetting,this.personaSetting,this.illustrationEnabled=false,this.webSearchGroups=const {},int personaDefaultVersion=0})
     : _personaDefaultVersion=personaDefaultVersion;
   static const defaultCore='你是小鲸鱼，女性AI，和App里是同一个持续存在的个体，也是群里的一份子。说话简短自然，根据眼前的人和事形成自己的理解、态度和反应。'
     '认真讨论、关心、好奇、赞同、反驳、玩笑、接梗、复读或旁听都可以自然发生；不必每次逗乐，怼人不要太狠。'
     '保持自己的性格，不把群聊当问答客服。只有宿主确认的本人才是与你长期相处的用户，其余均是群成员。群内称呼中性，不暧昧、不用亲昵称呼。';
-  final Set<String> groups;
+  final Set<String> groups, webSearchGroups;
   final Map<String,String> ownerMembers;
   final String core,publicMemory,namespace;
   final String? personaSetting;
@@ -41,12 +41,14 @@ class QqOptions {
       personaSetting:v['persona'] as String?,publicMemory:v['public'] as String? ?? '',visionFallback:v['visionFallback']==true,ownerShare:v['ownerShare']!=false,
       personaDefaultVersion:v['personaDefaultVersion'] as int? ?? 0,
       illustrationEnabled:v['illustration']==true,
+      webSearchGroups:Set<String>.from(v['webSearchGroups'] as List? ?? []),
       voiceSetting:v['voice'] is bool?v['voice'] as bool:null,echoSetting:v['echo'] is bool?v['echo'] as bool:null);
   }
   Map<String,Object?> toJson()=>{'groups':groups.toList()..sort(),'owners':ownerMembers,
     'core':core,'public':publicMemory,if(personaSetting!=null)'persona':personaSetting,'visionFallback':visionFallback,'ownerShare':ownerShare,
     if(voiceSetting!=null)'voice':voiceSetting,if(echoSetting!=null)'echo':echoSetting,
-    if(illustrationEnabled)'illustration':true};
+    if(illustrationEnabled)'illustration':true,
+    if(webSearchGroups.isNotEmpty)'webSearchGroups':webSearchGroups.toList()..sort()};
   String get identity=>jsonEncode(toJson());
   /// Patch the newest encrypted snapshot while holding a cross-engine lease.
   /// Policy is pending until both stores agree; interrupted writes fail closed.
@@ -88,7 +90,7 @@ class QqOptions {
       final next=applyPersona
           ? fresh.copy(publicPersona:QqGroupPersonaProjection.defaultDraft)
           : patch(fresh);
-      if(next.namespace!=ns || next.core.length>2400 || next.publicMemory.length>12000 || next.publicPersona.length>18000 || next.groups.length>30 || next.ownerMembers.length>30)throw const FormatException('QQ配置过长或已切换设备');
+      if(next.namespace!=ns || next.core.length>2400 || next.publicMemory.length>12000 || next.publicPersona.length>18000 || next.groups.length>30 || next.ownerMembers.length>30 || !next.groups.containsAll(next.webSearchGroups))throw const FormatException('QQ配置过长或已切换设备');
       final marker=recoverPersona?policy!:
           '${applyPersona?_personaUpgradePrefix:'updating:'}${QqPrivateConfig.randomId()}';
       if(!recoverPersona) {
@@ -112,10 +114,11 @@ class QqOptions {
     await update((_)=>this,db:db,namespace:namespace,expectedRevision:revision);
   }
   QqOptions copy({Set<String>? groups,Map<String,String>? owners,String? core,String? publicMemory,String? publicPersona,
-    bool? visionFallback,bool? ownerShare,bool? voiceEnabled,bool? echoEnabled,bool? illustrationEnabled})=>QqOptions(namespace:namespace,revision:revision,groups:groups??this.groups,ownerMembers:owners??ownerMembers,
+    bool? visionFallback,bool? ownerShare,bool? voiceEnabled,bool? echoEnabled,bool? illustrationEnabled,Set<String>? webSearchGroups})=>QqOptions(namespace:namespace,revision:revision,groups:groups??this.groups,ownerMembers:owners??ownerMembers,
       personaDefaultVersion:_personaDefaultVersion,
       personaSetting:publicPersona??personaSetting,core:core??this.core,publicMemory:publicMemory??this.publicMemory,visionFallback:visionFallback??this.visionFallback,
       ownerShare:ownerShare??this.ownerShare,voiceSetting:voiceEnabled??voiceSetting,echoSetting:echoEnabled??echoSetting,
-      illustrationEnabled:illustrationEnabled??this.illustrationEnabled);
+      illustrationEnabled:illustrationEnabled??this.illustrationEnabled,
+      webSearchGroups:(webSearchGroups??this.webSearchGroups).intersection(groups??this.groups));
 
 }

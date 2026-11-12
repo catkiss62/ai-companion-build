@@ -1,3 +1,5 @@
+import '../../core/autonomy/layered_public_web_provider.dart';
+import '../../core/autonomy/public_web_topic.dart';
 import '../../core/diagnostics/third_channel_diagnostics.dart';
 import '../../core/diagnostics/third_channel_test_status.dart';
 import '../../core/ai/third_channel_event.dart';
@@ -66,6 +68,8 @@ class _ModelNetworkSettingsPageState
   final _visionEndpoint = TextEditingController();
   final _visionModel = TextEditingController();
   final _tavilyKey = TextEditingController();
+  final _baiduSearchKey = TextEditingController();
+  bool _revealBaiduSearch = false;
   final _extraSources = TextEditingController();
   final _agnesKey = TextEditingController();
   final _agnesEndpoint = TextEditingController();
@@ -206,6 +210,7 @@ class _ModelNetworkSettingsPageState
     _visionEndpoint.text = await _secure.readVisionEndpoint();
     _visionModel.text = await _secure.readVisionModel();
     _tavilyKey.text = await _secure.readTavilyApiKey() ?? '';
+    _baiduSearchKey.text = await _secure.readBaiduSearchApiKey() ?? '';
     _extraSources.text = await _db.getSetting('public_web_extra_sources') ?? '';
     _agnesKey.text = await _secure.readAgnesApiKey() ?? '';
     _agnesEndpoint.text = await _secure.readAgnesEndpoint();
@@ -481,6 +486,7 @@ class _ModelNetworkSettingsPageState
   Future<void> _savePublicWeb() async {
     try {
       await _secure.writeTavilyApiKey(_tavilyKey.text);
+      await _secure.writeBaiduSearchApiKey(_baiduSearchKey.text);
       await _db.setSetting(
         'public_web_extra_sources',
         _extraSources.text.trim(),
@@ -525,6 +531,28 @@ class _ModelNetworkSettingsPageState
       if (mounted) setState(() => _status = '联网测试失败：请检查网络或 Tavily Key。');
     } finally {
       client.close();
+      if (mounted) setState(() => _testingWeb = false);
+    }
+  }
+
+  Future<void> _testBaiduSearch() async {
+    final key = _baiduSearchKey.text.trim();
+    if (key.isEmpty) {
+      setState(() => _status = '请填写百度千帆搜索 API Key。');
+      return;
+    }
+    setState(() { _testingWeb = true; _status = '正在测试百度搜索…'; });
+    const query = '百度智能云 千帆 官方文档';
+    final provider = LayeredPublicWebProvider(baiduApiKey: key,
+      topic: const PublicWebTopic(query, baidu: true), pageReadingEnabled: false);
+    try {
+      final result = await provider.discover(query: query, driveKey: 'curiosity',
+        intentAction: 'settings_search_test', interestKey: 'settings', now: DateTime.now());
+      if (mounted) setState(() => _status = result.succeeded && result.candidates.isNotEmpty
+          ? '百度搜索测试通过，消耗一次搜索请求。正式查证会继续读取结果原文。'
+          : '百度搜索测试未取得结果，请检查 Key 和接口额度。');
+    } finally {
+      provider.close();
       if (mounted) setState(() => _testingWeb = false);
     }
   }
@@ -746,6 +774,7 @@ class _ModelNetworkSettingsPageState
     _visionEndpoint.dispose();
     _visionModel.dispose();
     _tavilyKey.dispose();
+    _baiduSearchKey.dispose();
     _extraSources.dispose();
     _agnesKey.dispose();
     _agnesEndpoint.dispose();
@@ -1115,6 +1144,17 @@ class _ModelNetworkSettingsPageState
                         revealed: _revealTavily,
                         onToggle: () =>
                             setState(() => _revealTavily = !_revealTavily),
+                      ),
+                      _SecretField(
+                        controller: _baiduSearchKey,
+                        label: '百度千帆搜索 API Key（可选）',
+                        revealed: _revealBaiduSearch,
+                        onToggle: () => setState(() => _revealBaiduSearch = !_revealBaiduSearch),
+                      ),
+                      const Text('App 和已授权的 QQ 群共用。百度负责找链接，网页原文仍使用 Tavily 提取。'),
+                      TextButton(
+                        onPressed: _testingWeb ? null : () => _sectionAction('web', _testBaiduSearch),
+                        child: const Text('测试百度搜索'),
                       ),
                       const SizedBox(height: 12),
                       TextField(

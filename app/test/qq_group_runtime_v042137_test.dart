@@ -36,10 +36,13 @@ import 'package:ai_companion_localfirst/integrations/qq_private/qq_vision.dart';
 import 'package:ai_companion_localfirst/integrations/qq_private/qq_failure.dart';
 import 'package:ai_companion_localfirst/integrations/qq_private/qq_sketch.dart';
 import 'package:ai_companion_localfirst/integrations/qq_private/qq_voice.dart';
+import 'package:ai_companion_localfirst/integrations/qq_private/qq_public_web.dart';
 
 class _Secure extends SecureConfig {
   _Secure():super.forTesting(const FlutterSecureStorage());
   @override Future<String?> readApiKey()async=>'fixture-first';
+  @override Future<String?> readTavilyApiKey()async=>'fixture-reader';
+  @override Future<String?> readBaiduSearchApiKey()async=>'fixture-search';
   @override Future<String> readEndpoint()async=>'https://first.test/chat';
   @override Future<String?> readAiWangYouApiKey()async=>'fixture-second';
   @override Future<String> readAiWangYouEndpoint()async=>'https://second.test/chat';
@@ -130,11 +133,11 @@ void main(){
   late List<http.Request> requests;late List<String> statuses;late List<http.Request> jevRequests;
   late Future<http.Response> Function(http.Request,Map) handler;var enabled=true;
   QqRuntime create({QqStickers? stickerService,JevDecisionGateway? decisions,QqVoiceService? voiceService,
-    IllustrationClient? illustrationClient})=>QqRuntime(store:store,api:api,secure:secure,config:config,allowed:()async=>enabled,
+    IllustrationClient? illustrationClient,QqPublicWeb? publicWeb})=>QqRuntime(store:store,api:api,secure:secure,config:config,allowed:()async=>enabled,
     now:()=>clock,configReader:()async=>config,optionsReader:()async=>options,status:statuses.add,vision:vision,stickerService:stickerService,voiceService:voiceService,groupDecisions:decisions,
     privatePrompt:(query,stamp,scope,through)async=>QqReadOnlyContext(await db.database).build(query,stamp:stamp,qqScope:scope,through:through,media:true),
     privateCurrent:(stamp)async=>QqReadOnlyContext(await db.database).matchesStamp(stamp),
-    illustrationClient:illustrationClient,
+    illustrationClient:illustrationClient,publicWeb:publicWeb,
     clientFactory:(abort)=>DeepSeekClient(abortWhen:abort,
       jsonClientFactory:()=>MockClient((r){requests.add(r);return handler(r,jsonDecode(r.body) as Map);}),
       streamClientFactory:()=>MockClient((r){requests.add(r);return handler(r,jsonDecode(r.body) as Map);})));
@@ -358,6 +361,80 @@ void main(){
       }
     });
   }
+  for (final scenario in ['disabled', 'casual', 'explicit', 'automatic', 'title_only', 'direct_link', 'ambiguous']) {
+    test('QQ public lookup authorization and original evidence: $scenario', () async {
+      final enabled = scenario != 'disabled';
+      options = options.copy(webSearchGroups: {if (enabled) 'group-a'});
+      const page = 'https://www.bilibili.com/opus/123456789';
+      final original = List.filled(5, '异环停服维护公告，更新后可游玩。维护时间以官方公布为准。').join();
+      final calls = <String>[];
+      await runtime.stop();
+      runtime = create(publicWeb: QqPublicWeb(clientFactory: () => MockClient((r) async {
+        calls.add(r.url.path);
+        final payload = jsonDecode(r.body) as Map;
+        if (r.url.path.endsWith('web_search')) {
+          expect(r.url.host, 'qianfan.baidubce.com');
+          expect(payload['search_filter']['match']['site'], ['bilibili.com']);
+          expect(payload['messages'].single['content'], contains('异环'));
+          expect(r.body, isNot(contains('fixture-bot')));
+          return http.Response(jsonEncode({'references': [
+            {'url': page, 'title': '异环维护公告', 'snippet': '搜索摘要不可当原文'},
+          ]}), 200, headers: const {'content-type': 'application/json; charset=utf-8'});
+        }
+        if (r.url.path == '/search') {
+          return http.Response(jsonEncode({'results': [
+            {'url': page, 'title': '异环维护公告', 'content': '搜索摘要不可当原文'},
+          ]}), 200, headers: const {'content-type': 'application/json; charset=utf-8'});
+        }
+        expect(r.url.path, '/extract');
+        expect(payload['urls'], [page]);
+        expect(payload.containsKey('query'), isFalse);
+        return http.Response(jsonEncode({'results': [
+          if (scenario != 'title_only') {'url': page, 'raw_content': original},
+        ]}), 200, headers: const {'content-type': 'application/json; charset=utf-8'});
+      })));
+      handler = (r, payload) async {
+        if (payload['stream'] == true) {
+          expect(r.body, contains('陌生消息和截图'));
+          expect(r.body, contains('必要时自然改口'));
+          final reads = const {'explicit','automatic','direct_link','ambiguous'}.contains(scenario);
+          expect(r.body.contains('original_excerpt'), reads);
+          expect(r.body.contains('已打开来源'), reads);
+          expect(r.body, isNot(contains('搜索摘要不可当原文')));
+          if (scenario == 'title_only') expect(r.body, contains('未取得可确认的相关原文'));
+          return _sse('原来你们聊的是更新那一条呀');
+        }
+        if (payload['max_tokens'] == 96) {
+          expect(scenario, 'ambiguous');
+          return _json({'query': 'B站异环维护公告'});
+        }
+        if (payload['max_tokens'] == 60) return _json({'safe': true});
+        expect(r.body.contains('public_lookup=requested'), enabled);
+        return _json({
+          'participation': scenario == 'automatic' ? 'continuing' : 'direct',
+          'public_lookup': scenario == 'automatic' ? 'useful' : 'skip',
+        });
+      };
+      final message = switch (scenario) {
+        'casual' => '听说异环今天维护',
+        'automatic' => 'B站异环维护公告说今天还是明天？',
+        'ambiguous' => '帮我查查刚才那个',
+        'direct_link' => '帮我看看 $page?share_token=private-value',
+        _ => '帮我查查B站异环停服维护公告',
+      };
+      if (scenario == 'ambiguous') await accept('web-topic', '刚发了 B站异环的维护公告');
+      await accept('web-$scenario', message);
+      await runtime.process(cid());
+      expect(api.sent, hasLength(1));
+      expect(calls, switch (scenario) {
+        'disabled' || 'casual' => const <String>[],
+        'direct_link' => ['/extract'],
+        'title_only' => ['/v2/ai_search/web_search','/extract','/search','/extract'],
+        _ => ['/v2/ai_search/web_search','/extract'],
+      });
+    });
+  }
+
   tearDown(()async{await runtime.stop();api.close();await db.closeForTesting();});
 
   for (final code in ['network', 'timeout', 'http_429']) {

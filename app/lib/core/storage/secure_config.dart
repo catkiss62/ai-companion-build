@@ -26,6 +26,7 @@ class SecureConfig {
       'https://dashscope.aliyuncs.com/compatible-mode/v1/chat/completions';
   static const defaultVisionModel = 'qwen3-vl-plus';
   static const _tavilyApiKeyName = 'tavily_api_key';
+  static const _baiduSearchApiKeyName = 'baidu_search_api_key';
   static const _agnesApiKeyName = 'agnes_api_key';
   static const _agnesEndpointName = 'agnes_chat_endpoint';
   static const _agnesModelName = 'agnes_model';
@@ -346,6 +347,12 @@ class SecureConfig {
       await _storage.write(key: _visionModelName, value: trimmed);
     }
   }
+
+  Future<String?> readBaiduSearchApiKey() =>
+      _storage.read(key: _baiduSearchApiKeyName);
+
+  Future<void> writeBaiduSearchApiKey(String value) =>
+      _writeOptionalSecret(_baiduSearchApiKeyName, value);
 
   Future<String?> readTavilyApiKey() =>
       _storage.read(key: _tavilyApiKeyName);

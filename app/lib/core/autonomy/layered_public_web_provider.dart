@@ -9,10 +9,11 @@ import '../ai/generation_cancellation.dart';
 import '../models/public_web_candidate.dart';
 import 'wikimedia_public_web_provider.dart';
 import 'web_page_evidence.dart';
+import 'public_web_topic.dart';
 
 /// Search discovers URLs, Tavily Extract reads their public bodies, and Agnes
-/// produces bounded dual summaries. Extra domains never replace the
-/// unrestricted Tavily request.
+/// produces bounded summaries when requested. The ordinary App route also
+/// runs its configured supplemental search. An explicit topic targets one engine.
 class LayeredPublicWebProvider implements PublicWebProvider {
   LayeredPublicWebProvider({
     this.tavilyApiKey = '',
@@ -24,6 +25,8 @@ class LayeredPublicWebProvider implements PublicWebProvider {
     this.pageReadingEnabled = true,
     this.extraSources = '',
     this.recentMode = false,
+    this.topic,
+    this.baiduApiKey = '',
     http.Client? client,
     PublicWebProvider? fallback,
   })  : _client = client ?? http.Client(),
@@ -37,6 +40,8 @@ class LayeredPublicWebProvider implements PublicWebProvider {
   final bool pageReadingEnabled;
   final String extraSources;
   final bool recentMode;
+  final PublicWebTopic? topic;
+  final String baiduApiKey;
   final http.Client _client;
   final PublicWebProvider _fallback;
 
@@ -92,16 +97,24 @@ class LayeredPublicWebProvider implements PublicWebProvider {
       );
     }
 
+    final selected = topic;
     final domains = parseExtraSourceDomains(extraSources);
-    final batches = await Future.wait([
-      _search(normalized),
-      domains.isEmpty
-          ? Future<_TavilyBatch>.value(const _TavilyBatch())
-          : _search(normalized, includeDomains: domains),
-    ]);
+    final batches = selected != null
+        ? [
+            selected.baidu
+                ? await _searchBaidu(normalized, selected)
+                : await _search(normalized, includeDomains: selected.domains),
+            const _TavilyBatch(),
+          ]
+        : await Future.wait([
+            _search(normalized),
+            domains.isEmpty
+                ? Future<_TavilyBatch>.value(const _TavilyBatch())
+                : _search(normalized, includeDomains: domains),
+          ]);
     final global = batches[0];
     final supplemental = batches[1];
-
+    final searchProvider = selected?.baidu == true ? 'baidu_qianfan' : 'tavily';
     var drafts = _merge(
       global.results,
       supplemental.results,
@@ -110,6 +123,7 @@ class LayeredPublicWebProvider implements PublicWebProvider {
       interestKey: interestKey,
       searchQuery: normalized,
       now: now,
+      searchProvider: searchProvider,
     );
     var imageFallbackAttempted = false;
     var imageFallbackSucceeded = false;
@@ -135,7 +149,7 @@ class LayeredPublicWebProvider implements PublicWebProvider {
     }
     if (drafts.isEmpty && recentMode) {
       return PublicWebProviderResult(candidates: const [], provider: providerKey,
-        primaryProvider: 'tavily', primaryFailureReason: global.failureReason,
+        primaryProvider: searchProvider, primaryFailureReason: global.failureReason,
         failureReason: global.failureReason); // A successful empty search is no-result, not a provider failure.
     }
     if (drafts.isEmpty) {
@@ -151,7 +165,7 @@ class LayeredPublicWebProvider implements PublicWebProvider {
           return PublicWebProviderResult(
             candidates: fallback.candidates,
             provider: fallback.provider,
-            primaryProvider: 'tavily',
+            primaryProvider: searchProvider,
             primaryFailureReason: global.failureReason.isNotEmpty
                 ? global.failureReason
                 : 'empty_result',
@@ -204,7 +218,7 @@ class LayeredPublicWebProvider implements PublicWebProvider {
           provider: fallbackDrafts.any((item) => item.isVerifiedRead)
               ? '${fallback.provider}+extract+agnes'
               : fallback.provider,
-          primaryProvider: 'tavily',
+          primaryProvider: searchProvider,
           primaryFailureReason: global.failureReason.isNotEmpty
               ? global.failureReason
               : 'empty_result',
@@ -233,7 +247,7 @@ class LayeredPublicWebProvider implements PublicWebProvider {
         failureReason: global.failureReason.isNotEmpty
             ? global.failureReason
             : fallback.failureReason,
-        primaryProvider: 'tavily',
+        primaryProvider: searchProvider,
         primaryFailureReason: global.failureReason.isNotEmpty
             ? global.failureReason
             : 'empty_result',
@@ -255,7 +269,7 @@ class LayeredPublicWebProvider implements PublicWebProvider {
         provider: imageFallbackSucceeded
             ? '$providerKey+wikimedia'
             : providerKey,
-        primaryProvider: 'tavily',
+        primaryProvider: searchProvider,
         fallbackProvider: 'wikimedia',
         fallbackEligible: imageFallbackAttempted,
         fallbackAttempted: imageFallbackAttempted,
@@ -305,10 +319,10 @@ class LayeredPublicWebProvider implements PublicWebProvider {
     return PublicWebProviderResult(
       candidates: drafts,
       provider: drafts.any((e) => e.provider.endsWith('+agnes'))
-          ? 'tavily_layered+agnes'
+          ? '${selected?.baidu == true ? searchProvider : providerKey}+agnes'
           : imageFallbackSucceeded
               ? '$providerKey+wikimedia'
-              : providerKey,
+              : selected?.baidu == true ? searchProvider : providerKey,
       compactionAttempted: compactionAttempted,
       compactionEnabled: agnesEnabled,
       compactionConfigured: agnesApiKey.trim().isNotEmpty,
@@ -317,7 +331,7 @@ class LayeredPublicWebProvider implements PublicWebProvider {
       compactionOutputCount:
           drafts.where((e) => e.provider.endsWith('+agnes')).length,
       compactionFailureReason: compactionFailureReason,
-      primaryProvider: 'tavily',
+      primaryProvider: searchProvider,
       fallbackProvider: 'wikimedia',
       fallbackEligible: imageFallbackAttempted,
       fallbackAttempted: imageFallbackAttempted,
@@ -478,6 +492,64 @@ class LayeredPublicWebProvider implements PublicWebProvider {
     }
   }
 
+  Future<_TavilyBatch> _searchBaidu(String query, PublicWebTopic target) async {
+    if (baiduApiKey.trim().isEmpty) {
+      return const _TavilyBatch(failureReason: 'baidu_not_configured');
+    }
+    // The API documents a 72-unit query, with each Chinese character using
+    // two units. Preserve the beginning and keep Unicode scalars intact.
+    var units = 0;
+    final bounded = String.fromCharCodes(query.runes.takeWhile((rune) {
+      units += rune > 127 ? 2 : 1;
+      return units <= 72;
+    }));
+    try {
+      final response = await _client.post(
+        Uri.https('qianfan.baidubce.com', '/v2/ai_search/web_search'),
+        headers: {'Content-Type': 'application/json', 'Authorization': 'Bearer ${baiduApiKey.trim()}'},
+        body: jsonEncode({
+          'messages': [{'role': 'user', 'content': bounded}],
+          'search_source': 'baidu_search_v2',
+          'edition': 'standard',
+          'resource_type_filter': [{'type': 'web', 'top_k': 5}],
+          if (target.domains.isNotEmpty) 'search_filter': {'match': {'site': target.domains}},
+          if (target.fresh) 'search_recency_filter': 'week',
+        }),
+      ).timeout(const Duration(seconds: 12));
+      if (response.statusCode != 200) {
+        return _TavilyBatch(failureReason: 'baidu_http_${response.statusCode}');
+      }
+      final result = jsonDecode(utf8.decode(response.bodyBytes));
+      if (result is! Map || result['references'] is! List) {
+        return const _TavilyBatch(failureReason: 'baidu_invalid_response');
+      }
+      final hits = <_TavilyResult>[];
+      for (final raw in (result['references'] as List).whereType<Map>()) {
+        final uri = PublicWebTopic.publicPage(raw['url']?.toString() ?? '');
+        final title = _plain(raw['title']?.toString() ?? '');
+        if (uri == null || title.isEmpty || !PublicWebTopic.matchesDomain(uri.host, target.domains)) continue;
+        hits.add(_TavilyResult(title: _bounded(title, 160), url: uri.toString(), domain: uri.host,
+          content: _bounded(_plain(raw['snippet']?.toString() ?? raw['content']?.toString() ?? ''), 800)));
+        if (hits.length == 5) break;
+      }
+      return _TavilyBatch(results: hits);
+    } on TimeoutException {
+      return const _TavilyBatch(failureReason: 'baidu_timeout');
+    } catch (_) {
+      return const _TavilyBatch(failureReason: 'baidu_network_or_parse');
+    }
+  }
+
+  /// A short QQ lookup reads the same original page as App extraction. Its
+  /// reply consumes selected excerpts directly, with no extra summary call.
+  Future<String?> readTopicPage(Uri url) async {
+    final public = PublicWebTopic.publicPage(url.toString());
+    if (public == null) return null;
+    return (await _extract([public.toString()])).contents[public.toString()];
+  }
+
+  void close() => _client.close();
+
   Future<_TavilyBatch> _search(
     String query, {
     List<String> includeDomains = const [],
@@ -495,7 +567,7 @@ class LayeredPublicWebProvider implements PublicWebProvider {
     final body = <String, Object?>{
       'query': query,
       'topic': 'general',
-      if (recentMode) 'time_range': 'week',
+      if (recentMode || topic?.fresh == true) 'time_range': 'week',
       'search_depth': 'basic',
       'max_results': includeDomains.isEmpty ? 5 : 3,
       'include_answer': false,
@@ -528,6 +600,8 @@ class LayeredPublicWebProvider implements PublicWebProvider {
       for (final item in raw.whereType<Map>()) {
         final uri = Uri.tryParse(item['url']?.toString() ?? '');
         if (!_safePublicHttps(uri)) continue;
+        if (topic != null && (PublicWebTopic.publicPage(uri.toString()) == null ||
+            !PublicWebTopic.matchesDomain(uri!.host, includeDomains))) continue;
         final title = _plain(item['title']?.toString() ?? '');
         final content = _plain(item['content']?.toString() ?? '');
         if (title.isEmpty || content.isEmpty) continue;
@@ -561,6 +635,7 @@ class LayeredPublicWebProvider implements PublicWebProvider {
     required String interestKey,
     required String searchQuery,
     required DateTime now,
+    required String searchProvider,
   }) {
     final chosen = <_TavilyResult>[];
     final seen = <String>{};
@@ -572,7 +647,7 @@ class LayeredPublicWebProvider implements PublicWebProvider {
     }
 
     if (supplemental.isEmpty) {
-      add(global, 3);
+      add(global, topic != null && !agnesEnabled ? 2 : 3);
     } else {
       add(global, 2);
       add(supplemental, 3);
@@ -588,7 +663,7 @@ class LayeredPublicWebProvider implements PublicWebProvider {
               sourceDomain: item.domain,
               provider: supplemental.contains(item)
                   ? 'tavily_source'
-                  : 'tavily',
+                  : searchProvider,
               language: 'zh',
               driveKey: driveKey,
               intentAction: intentAction,

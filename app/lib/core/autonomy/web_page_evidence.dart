@@ -33,10 +33,10 @@ class WebPageEvidence {
       !readAt.isAfter(now) &&
       now.difference(readAt) <= freshFor;
 
-  static List<String> parts(String body) {
+  static List<String> parts(String body, {int maxChars = partChars}) {
     final output = <String>[];
     for (var start = 0; start < body.length;) {
-      var end = (start + partChars).clamp(0, body.length);
+      var end = (start + maxChars).clamp(0, body.length);
       // Keep UTF-16 surrogate pairs intact at boundaries.
       if (end < body.length &&
           end > start &&

@@ -61,6 +61,21 @@ class _QqGroupsPageState extends State<QqGroupsPage> {
           title:Text(_names.group(g['target'] as String)),subtitle:Text('群标识末六位 ${QqDisplayNames.shortId(g['target'] as String)} · ${_options.ownerMembers.containsKey(g['target'])?'已确认你在本群的身份':'尚未关联本人；昵称不自动认主'}'),
           value:_options.groups.contains(g['target']),onChanged:_busy?null:(enabled)=>_run(() async {
             await QqOptions.update((fresh) {final ids={...fresh.groups};enabled?ids.add(g['target'] as String):ids.remove(g['target']);return fresh.copy(groups:ids);},namespace:_config.namespace);})),
+          if (_options.groups.contains(g['target'])) SwitchListTile(
+            contentPadding: EdgeInsets.zero,
+            title: const Text('允许本群查公开网页'),
+            subtitle: const Text('群友明确请她查，或她需要核对公开消息时可用。只向搜索服务发送公开查询词或公开链接。'),
+            value: _options.webSearchGroups.contains(g['target']),
+            onChanged: _busy ? null : (value) => _run(() async {
+              final target = g['target'] as String;
+              await QqOptions.update((fresh) {
+                final groups = {...fresh.webSearchGroups};
+                if (value && fresh.groups.contains(target)) { groups.add(target); }
+                else { groups.remove(target); }
+                return fresh.copy(webSearchGroups: groups);
+              }, namespace: _config.namespace);
+            }),
+          ),
           Align(alignment:Alignment.centerRight,child:TextButton(onPressed:_busy?null:()=>_run(() => editQqGroupName(context,_config,g['target'] as String)),child:const Text('群名称 / 备注'))),
           Align(alignment:Alignment.centerRight,child:TextButton(onPressed:_busy?null:() async {
             await Navigator.of(context).push(MaterialPageRoute<void>(builder:(_)=>QqGroupIdentityPage(config:_config,group:g['target'] as String)));

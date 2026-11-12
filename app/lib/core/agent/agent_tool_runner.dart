@@ -22,6 +22,7 @@ import '../ai/generation_cancellation.dart';
 import '../ai/model_profile.dart';
 import '../ai/qwen_vision_client.dart';
 import '../autonomy/layered_public_web_provider.dart';
+import '../autonomy/public_web_topic.dart';
 import '../autonomy/public_web_appraisal_policy.dart';
 import '../autonomy/public_web_deepseek_appraiser.dart';
 import '../database/app_database.dart';
@@ -2160,83 +2161,107 @@ summary=${_oneLine(candidate.summary, 500)}
         errorCode: 'invalid_query',
       );
     }
-    final provider = LayeredPublicWebProvider(
-      tavilyApiKey: await secureConfig.readTavilyApiKey() ?? '',
-      agnesApiKey: await secureConfig.readAgnesApiKey() ?? '',
-      agnesEndpoint: await secureConfig.readAgnesEndpoint(),
-      agnesModel: await secureConfig.readAgnesModel(),
-      agnesEnabled:
-          (await db.getSetting('agnes_web_compaction_enabled')) != '0',
-      extraSources: await db.getSetting('public_web_extra_sources') ?? '',
-    );
-    final providerStarted = DateTime.now();
-    final result = await provider.discover(
-      query: normalized,
-      driveKey: 'curiosity',
-      intentAction: 'answer_user_with_tool',
-      interestKey: 'user_turn',
-      now: DateTime.now(),
-      cancellationToken: cancellationToken,
-    );
-    final providerElapsed = DateTime.now().difference(providerStarted);
-    await db.recordProviderHealthEvent(ProviderHealth.webSearchEvent(
-      result: result,
-      context: 'user_turn',
-      elapsed: providerElapsed,
-    ));
-    await db.recordProviderHealthEvent(ProviderHealth.webCompactionEvent(
-      result: result,
-      context: 'user_turn',
-      elapsed: providerElapsed,
-    ));
-    await db.recordProviderHealthEvent(ProviderHealth.webExtractionEvent(
-      result: result,
-      context: 'user_turn',
-      elapsed: providerElapsed,
-    ));
-    cancellationToken?.throwIfCancelled();
-    await _recordCompactionTelemetry(result, DateTime.now());
-    if (!result.succeeded) {
+    final baidu = await secureConfig.readBaiduSearchApiKey() ?? '';
+    final extraSources = await db.getSetting('public_web_extra_sources') ?? '';
+    final routes = PublicWebTopic.routes(normalized,
+      hasBaidu: baidu.isNotEmpty,
+      configuredDomains: LayeredPublicWebProvider.parseExtraSourceDomains(extraSources));
+    final targets = <PublicWebTopic?>[
+      for (final route in routes)
+        if (!route.baidu && route.domains.isEmpty && !route.fresh) null else route,
+    ];
+    if (baidu.isEmpty && routes.first.domains.isEmpty) {
+      // Preserve the ordinary App search and its optional supplemental query.
+      targets..clear()..add(null);
+    }
+    final tavily = await secureConfig.readTavilyApiKey() ?? '';
+    final agnesKey = await secureConfig.readAgnesApiKey() ?? '';
+    final agnesEndpoint = await secureConfig.readAgnesEndpoint();
+    final agnesModel = await secureConfig.readAgnesModel();
+    final agnesEnabled = (await db.getSetting('agnes_web_compaction_enabled')) != '0';
+    var candidates = <PublicWebCandidateDraft>[];
+    var hadSearch = false;
+    var hadBody = false;
+    var failureReason = '';
+    for (final target in targets) {
+      cancellationToken?.throwIfCancelled();
+      final provider = LayeredPublicWebProvider(
+        tavilyApiKey: tavily, agnesApiKey: agnesKey, agnesEndpoint: agnesEndpoint,
+        agnesModel: agnesModel, agnesEnabled: agnesEnabled, extraSources: extraSources,
+        topic: target, baiduApiKey: baidu,
+      );
+      final providerStarted = DateTime.now();
+      final PublicWebProviderResult result;
+      try {
+        result = await provider.discover(
+          query: normalized, driveKey: 'curiosity', intentAction: 'answer_user_with_tool',
+          interestKey: 'user_turn', now: DateTime.now(), cancellationToken: cancellationToken,
+        );
+      } finally {
+        provider.close();
+      }
+      final providerElapsed = DateTime.now().difference(providerStarted);
+      await db.recordProviderHealthEvent(ProviderHealth.webSearchEvent(
+        result: result,
+        context: 'user_turn',
+        elapsed: providerElapsed,
+      ));
+      await db.recordProviderHealthEvent(ProviderHealth.webCompactionEvent(
+        result: result,
+        context: 'user_turn',
+        elapsed: providerElapsed,
+      ));
+      await db.recordProviderHealthEvent(ProviderHealth.webExtractionEvent(
+        result: result,
+        context: 'user_turn',
+        elapsed: providerElapsed,
+      ));
+      cancellationToken?.throwIfCancelled();
+      await _recordCompactionTelemetry(result, DateTime.now());
+      failureReason = result.failureReason;
+      if (!result.succeeded) continue;
+      hadSearch = true;
+      hadBody = hadBody || result.extractionSucceeded;
+      final appraised = await DeepSeekPublicWebAppraiser(
+        model: await FirstChannelModel.read(db),
+        apiKey: await secureConfig.readApiKey() ?? '',
+        endpoint: await secureConfig.readEndpoint(),
+        client: _ai,
+      ).appraise(
+        query: normalized,
+        candidates: result.candidates,
+        sourceIntent: const DesireIntent(
+          drive: DriveKey.curiosity,
+          score: 1,
+          reason: '用户明确要求联网查询',
+          wantAction: 'answer_user_with_tool',
+          reasonSource: 'user_turn_tool',
+        ),
+        socialExcess: 0,
+        cancellationToken: cancellationToken,
+      );
+      cancellationToken?.throwIfCancelled();
+      candidates = appraised
+          .where((candidate) =>
+              PublicWebReadService.usable(candidate) &&
+              candidate.semanticState != 'mismatch' &&
+              candidate.semanticState != 'garbled' &&
+              candidate.semanticState != 'unreadable' &&
+              candidate.semanticState != 'unsafe' &&
+              candidate.appraisalState != PublicWebAppraisalPolicy.discard)
+          .take(3)
+          .toList(growable: false);
+      if (candidates.isNotEmpty) break;
+    }
+    if (!hadSearch) {
       return AgentToolResult(
-        toolId: callIdPublicWeb,
-        status: AgentToolStatus.failed,
-        displayText: '公开网页搜索失败',
-        promptData:
-            '公开网页搜索失败（${_bounded(result.failureReason, 100)}）；不得编造搜索结果。',
-        errorCode: _bounded(result.failureReason, 100),
+        toolId: callIdPublicWeb, status: AgentToolStatus.failed, displayText: '公开网页搜索失败',
+        promptData: '公开网页搜索失败（${_bounded(failureReason, 100)}）；不得编造搜索结果。',
+        errorCode: _bounded(failureReason, 100),
       );
     }
-    final appraised = await DeepSeekPublicWebAppraiser(
-      model: await FirstChannelModel.read(db),
-      apiKey: await secureConfig.readApiKey() ?? '',
-      endpoint: await secureConfig.readEndpoint(),
-      client: _ai,
-    ).appraise(
-      query: normalized,
-      candidates: result.candidates,
-      sourceIntent: const DesireIntent(
-        drive: DriveKey.curiosity,
-        score: 1,
-        reason: '用户明确要求联网查询',
-        wantAction: 'answer_user_with_tool',
-        reasonSource: 'user_turn_tool',
-      ),
-      socialExcess: 0,
-      cancellationToken: cancellationToken,
-    );
-    cancellationToken?.throwIfCancelled();
-    final candidates = appraised
-        .where((candidate) =>
-            PublicWebReadService.usable(candidate) &&
-            candidate.semanticState != 'mismatch' &&
-            candidate.semanticState != 'garbled' &&
-            candidate.semanticState != 'unreadable' &&
-            candidate.semanticState != 'unsafe' &&
-            candidate.appraisalState != PublicWebAppraisalPolicy.discard)
-        .take(3)
-        .toList(growable: false);
     if (candidates.isEmpty) {
-      final stage = result.extractionSucceeded
+      final stage = hadBody
           ? 'DeepSeek 没有确认出语义有效的整理结果'
           : 'Tavily Extract 没有读到可用正文';
       return AgentToolResult(
