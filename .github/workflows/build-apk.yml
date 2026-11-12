@@ -1825,14 +1825,14 @@ jobs:
               --target "${GITHUB_SHA}" \
               --draft \
               --title 'AI Companion v0.42.184+428 QQ Autonomous Illustration' \
-              --notes 'Preserves the final small-form reply through playback and recognizes new selfie requests. Original signer; unpublished test build.'
+              --notes 'Lets QQ group replies choose illustrations by context with a five-minute cooldown per group. Original signer; unpublished test build.'
           else
             test "$(gh release view "${TAG}" --repo "${GITHUB_REPOSITORY}" --json isDraft --jq '.isDraft')" = true
             gh release edit "${TAG}" \
               --repo "${GITHUB_REPOSITORY}" \
               --target "${GITHUB_SHA}" \
               --title 'AI Companion v0.42.184+428 QQ Autonomous Illustration' \
-              --notes 'Preserves the final small-form reply through playback and recognizes new selfie requests. Original signer; unpublished test build.'
+              --notes 'Lets QQ group replies choose illustrations by context with a five-minute cooldown per group. Original signer; unpublished test build.'
           fi
           test "$(gh release view "${TAG}" --repo "${GITHUB_REPOSITORY}" --json isDraft --jq '.isDraft')" = true || exit 1
           RELEASE_URL="$(gh release view "${TAG}" --repo "${GITHUB_REPOSITORY}" --json url --jq '.url')"
@@ -1931,7 +1931,7 @@ jobs:
               --target "${GITHUB_SHA}" \
               --draft \
               --title 'AI Companion v0.42.184+428 QQ Autonomous Illustration' \
-              --notes 'Preserves the final small-form reply through playback and recognizes new selfie requests. Original signer; unpublished test build.'
+              --notes 'Lets QQ group replies choose illustrations by context with a five-minute cooldown per group. Original signer; unpublished test build.'
           fi
           test "$(gh release view "${TAG}" --repo "${GITHUB_REPOSITORY}" --json isDraft --jq '.isDraft')" = true || exit 1
           RELEASE_URL="$(gh release view "${TAG}" --repo "${GITHUB_REPOSITORY}" --json url --jq '.url')"
