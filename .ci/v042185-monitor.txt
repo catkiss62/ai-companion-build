@@ -1,7 +1,7 @@
 status=success
-run_id=43930897145
-run_url=https://github.com/catkiss62/ai-companion-build/actions/runs/43930897145
-head_sha=15e0958bca2722515ef3dbcc69e3ebc818aeccfc
+run_id=43941615828
+run_url=https://github.com/catkiss62/ai-companion-build/actions/runs/43941615828
+head_sha=efbe55d7fa58fd86abb408504bb2dbe70d26667e
 signer_sha256=30:5E:B3:D8:09:83:B9:63:C6:48:18:DD:F1:AD:56:1F:27:9D:E6:D4:7B:3E:D2:C7:81:AD:A4:48:C7:C2:51:48
-2f3e6a015a10ec8f6b722f8a95f99d25c681d13d1f6b1dd09ea48f1b186543b8  AI-Companion-v0.42.194-438-Context-Limits-Fixes-APK.apk
-release_url=https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-e051dd095a1dc94dd344
+58a6693fcef70a995f39123bd46171972bf55f51ef222246c195b1ac44b1e4a1  AI-Companion-v0.42.195-439-Semantic-Query-Cache-Fix-APK.apk
+release_url=https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-d8bce0df507025ad805c
