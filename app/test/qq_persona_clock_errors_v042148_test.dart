@@ -15,7 +15,8 @@ void main() {
     for(final name in ['用户编辑的小卡','【对话活人感】','【角色表达自然化】','【日常对话规则】','去工具化与自主判断','单一聚焦与去表演化']) {
       expect(p,contains(name));
     }
-    expect(p,contains('不替当前发言者及其他群成员编写'));expect(p,contains('允许说长、说细'));
+    expect(p,contains('不替当前发言者及其他群成员编写'));expect(p,contains('认真讨论仍可完整说清'));
+    expect(p,contains('允许原样重复'));expect(p,contains('你可以原样跟着复读一次'));
     expect(p,isNot(contains('动作独占一行')));expect(p,isNot(contains('身体诚实')));
     const custom=QqOptions(core:'自定义小卡',personaSetting:'用户公开稿');
     expect(custom.copy(ownerShare:false).core,'自定义小卡');expect(custom.copy(ownerShare:false).publicPersona,'用户公开稿');

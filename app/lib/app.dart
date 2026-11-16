@@ -4,6 +4,7 @@ import 'core/desire/daily_wake_store.dart';
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 
 import 'core/platform/android_bridge.dart';
@@ -161,7 +162,22 @@ class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
+    return PopScope(
+      canPop: false,
+      onPopInvokedWithResult: (didPop, result) async {
+        if (didPop) return;
+        if (MediaQuery.viewInsetsOf(context).bottom > 0) {
+          FocusManager.instance.primaryFocus?.unfocus();
+          return;
+        }
+        if (index != 1) {
+          setState(() => index = 1);
+          return;
+        }
+        await const MethodChannel('ai_companion/task_navigation')
+            .invokeMethod<void>('background');
+      },
+      child: Scaffold(
       body: SafeArea(
         bottom: false,
         child: IndexedStack(
@@ -184,7 +200,7 @@ class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
         selectedIndex: index,
         onDestinationSelected: (value) => setState(() => index = value),
       ),
-    );
+    ));
   }
 }
 

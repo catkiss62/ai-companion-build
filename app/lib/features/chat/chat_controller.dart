@@ -716,13 +716,17 @@ class ChatController extends ChangeNotifier {
   Future<bool> sendPreparedImage(
     PreparedImageAttachment draft, {
     String caption = '',
-  }) async {
+  }) => sendPreparedImages([draft], caption: caption);
+
+  Future<bool> sendPreparedImages(List<PreparedImageAttachment> drafts, {String caption = ''}) async {
+    if (drafts.isEmpty) return false;
+    final draft = drafts.first;
     final turnDeepThinking = deepThinking;
     if (sending || savingImage || analyzingImage) return false;
     error = null;
     savingImage = true;
     _safeNotify();
-    MessageAttachment? committed;
+    final committed = <MessageAttachment>[];
     try {
       final deepSeekKey = await secureConfig.readApiKey();
       if (deepSeekKey == null || deepSeekKey.trim().isEmpty) {
@@ -752,10 +756,9 @@ class ChatController extends ChangeNotifier {
       final deviceId = await db.ensureDeviceId();
       final message = await SharedMediaLock.run(() async {
         try {
-          committed = await attachmentStorage.commitDraft(
-            draft,
-            messageId: messageId,
-          );
+          for (final item in drafts) {
+            committed.add(await attachmentStorage.commitDraft(item, messageId: messageId));
+          }
           await AttachmentPipelineTelemetry.record(
             db,
             stage: 'commit',
@@ -786,10 +789,10 @@ class ChatController extends ChangeNotifier {
           content: caption.trim(),
           createdAt: DateTime.now(),
           deviceId: deviceId,
-          attachments: [committed!],
+          attachments: committed,
           expectsReply: false,
         );
-        await db.insertMessageWithAttachments(message, [committed!],
+        await db.insertMessageWithAttachments(message, committed,
           deepThinking: turnDeepThinking);
         return message;
       }, db: db);
@@ -798,14 +801,11 @@ class ChatController extends ChangeNotifier {
       unawaited(_analyzeImageMessage(message.id));
       return true;
     } catch (exception) {
-      if (committed != null) {
-        try {
-          await attachmentStorage.deleteAttachmentFiles(committed!);
-        } catch (_) {}
-      } else {
-        try {
-          await attachmentStorage.discardDraft(draft);
-        } catch (_) {}
+      for (final item in committed) {
+        try { await attachmentStorage.deleteAttachmentFiles(item); } catch (_) {}
+      }
+      for (final item in drafts) {
+        try { await attachmentStorage.discardDraft(item); } catch (_) {}
       }
       error = '图片消息保存失败：$exception';
       return false;
@@ -850,8 +850,8 @@ class ChatController extends ChangeNotifier {
       return;
     }
     final attachment = message.attachments.firstWhere(
-      (item) => item.isImage,
-      orElse: () => message.attachments.first,
+      (item) => item.isImage && const {'pending', 'analyzing'}.contains(item.visionStatus),
+      orElse: () => message.attachments.firstWhere((item) => item.isImage && !item.visionCompleted, orElse: () => message.attachments.first),
     );
     if (attachment.visionCompleted) {
       await db.releaseLocalLease('image_vision_lease');
@@ -928,7 +928,8 @@ class ChatController extends ChangeNotifier {
         endpoint: await secureConfig.readVisionEndpoint(),
         model: await secureConfig.readVisionModel(),
         imageFile: thumbnail,
-        caption: message.content,
+        caption: message.attachments.length == 1 ? message.content :
+          '同一条消息的第 ${message.attachments.indexOf(attachment)+1}/${message.attachments.length} 张图片。用户附言：${message.content}。仅描述当前图片，最终回复将结合全部图片。',
         assessForAlbum: albumEnabled,
         albumPreferenceHint:
             albumEnabled ? await db.companionAlbumPreferenceHint() : '',
@@ -1560,7 +1561,10 @@ class ChatController extends ChangeNotifier {
     if (result.completed) {
       incompleteReplyDraft = null;
       incompleteReplyJobId = null;
-      if (result.notice != null) {
+      if (result.notice != null &&
+          (!ThirdChannelFailureNotice.shouldPersist(result.notice!) ||
+            (int.tryParse(await db.getSetting(ThirdChannelFailureNotice.dismissedAtKey) ?? '') ?? 0)
+              < (job.startedAt ?? job.createdAt).millisecondsSinceEpoch)) {
         notice = result.notice;
         if (ThirdChannelFailureNotice.shouldPersist(result.notice!)) {
           await db.setSetting(_persistentFallbackNoticeKey, result.notice!);

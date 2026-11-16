@@ -193,7 +193,7 @@ class QqPrivateService : Service() {
         fun enabled(context: Context) = prefs(context).getBoolean("enabled", false)
         fun autoReconnect(context: Context) = prefs(context).getBoolean("autoReconnect", false)
         fun setAutoReconnect(context: Context, value: Boolean) {
-            prefs(context).edit().putBoolean("autoReconnect", value).apply()
+            prefs(context).edit().putBoolean("autoReconnect", value).putString("autoReconnectReason", "user_setting").apply()
             if (!value) live?.let { service ->
                 val wasRecovering = service.retryPending
                 service.recoveryGeneration++
@@ -213,7 +213,7 @@ class QqPrivateService : Service() {
         fun wakeWork(cid: String) { if (cid.matches(Regex("[a-f0-9]{64}"))) live?.channel?.invokeMethod("maintenance", cid) }
         fun snapshot(context: Context): Map<String, Any> {
             val p = prefs(context)
-            return mapOf("enabled" to enabled(context), "autoReconnect" to autoReconnect(context), "running" to (live != null),
+            return mapOf("enabled" to enabled(context), "autoReconnect" to autoReconnect(context), "autoReconnectReason" to p.getString("autoReconnectReason", "unknown").orEmpty(), "running" to (live != null),
                 "connection" to (if (enabled(context) && live == null) "not_running" else p.getString("connection", "stopped").orEmpty()),
                 "task" to p.getString("task", "idle").orEmpty())
         }
@@ -230,10 +230,15 @@ class QqPrivateService : Service() {
             val intent = Intent(context, QqPrivateService::class.java)
             if (Build.VERSION.SDK_INT >= 26) context.startForegroundService(intent) else context.startService(intent)
         }
-        fun stop(context: Context, done: () -> Unit) {
+        fun stop(context: Context, preservePreference: Boolean = false, done: () -> Unit) {
             live?.let { it.recoveryGeneration++ }
             // Explicit close and snapshot restore revoke automatic connection consent too.
-            prefs(context).edit().putBoolean("enabled", false).putBoolean("autoReconnect", false).putString("connection", "stopped").apply()
+            prefs(context).edit().apply {
+                putBoolean("enabled", false)
+                if (!preservePreference) putBoolean("autoReconnect", false)
+                putString("autoReconnectReason", if (preservePreference) "internal_restart" else "explicit_stop_or_restore")
+                putString("connection", "stopped")
+            }.apply()
             val active = live
             var finished = false
             val finish = {
@@ -268,7 +273,7 @@ class QqPrivateBridge(context: Context, engine: FlutterEngine) {
                     "snapshot" -> result.success(QqPrivateService.snapshot(app))
                     "start" -> { QqPrivateService.start(app); result.success(null) }
                     "setAutoReconnect" -> { QqPrivateService.setAutoReconnect(app, call.argument<Boolean>("enabled") == true); result.success(null) }
-                    "stop" -> QqPrivateService.stop(app) { result.success(null) }
+                    "stop" -> QqPrivateService.stop(app, preservePreference = call.argument<Boolean>("preservePreference") == true) { result.success(null) }
                     else -> result.notImplemented()
                 }
             } catch (_: Throwable) { result.error("qq_service_failed", "QQ 后台服务启动失败，请回到设置重试。", null) }

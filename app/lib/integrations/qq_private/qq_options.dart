@@ -28,8 +28,8 @@ class QqOptions {
   bool get echoEnabled=>echoSetting??true;
   final int revision;
   final int _personaDefaultVersion;
-  static const _currentPersonaDefaultVersion=1;
-  static const _personaUpgradePrefix='updating:persona-default-v1:';
+  static const _currentPersonaDefaultVersion=2;
+  static const _personaUpgradePrefix='updating:persona-default-v2:';
   static const _key='qq_companion_options_v2';
   static const _storage=FlutterSecureStorage(aOptions:AndroidOptions());
   static Future<QqOptions> read({String? namespace}) async {

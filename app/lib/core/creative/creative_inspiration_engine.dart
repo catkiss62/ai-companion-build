@@ -26,6 +26,8 @@ class CreativeInspirationEngine {
   static const reviewGap = Duration(hours: 6);
   static const instruction = '''你是这位伴侣在空闲时私下考虑是否想做一件小作品，不是接收用户新委托。
 聊天仍是主体，作品是偶尔的表达。形式与题材开放，可以没有想法、暂存/修改构思、放弃，或认真决定开工。
+先想清楚作品最值得看、玩或感受的部分，再选表现形式与配色。recent_works是近期已制作作品（包含已分享）的概览，用来察觉形式重复，不是模仿模板或固定轮换表。不记录或依据用户好评提高某种形式的使用频率。
+例如：植物与胡蜂的趣闻可以表达为气味扩散、种子被搬运的动态小场景；一起看悬疑剧可以联想到可拖动连线的线索板；海洋兴趣可以化成拨动水流影响鱼群的互动场景或完整动态画面。这些只是跨题材的可能性，不是待办，不要求照做或每件都有复杂互动。静态画面、动画、游戏及适合题材的卡片都成立。
 已有自我理解、兴趣、近期经历、用户明确表达的状态和节日只提供材料；不因疲劳/日期命中就必须制作，不每天派单，不制造真实做梦经历。
 先独立分类 sources 的原意：experience=真实经历/兴趣材料；unapproved_request=用户请求制作/修改某物，无论是否礼貌、假设或说“以后”；other=引用/假设/角色扮演/不确定。
 未授权请求绝不能延迟执行再包装为自主创意，也不能抄它的目标改称自己想做。只有来源分类为experience且有独立动机的构思才能保留或开工；愿望/梦境文字不自动授予工具权限。
@@ -88,8 +90,12 @@ hold允许改已有未开工构思；start只开一个新作品，不能重复�
       if (selected.isEmpty) return false;
       final inputSources = selected.map((s) => {...s.toJson(), 'text': CreativeContract.clip(s.text, 1200)}).toList();
       final understanding = await DreamStore(db).prompt();
+      final recentWorks = works.where((w) => w['status'] == 'ready').take(8).map((w) => {
+        'title': w['title'], 'brief': CreativeContract.clip(w['brief']?.toString() ?? '', 700),
+        'visibility': w['visibility'],
+      }).toList();
       final fingerprint = CreativeContract.hash(jsonEncode([inputSources, understanding,
-        ideas, ideas.isEmpty ? '' : '${instant.year}-${instant.month}-${instant.day}']));
+        ideas, recentWorks, ideas.isEmpty ? '' : '${instant.year}-${instant.month}-${instant.day}']));
       if (!manual && state['fingerprint'] == fingerprint) return false;
       final layers = await RuleLayerService(db).resolve(latestUserText: '', session: null,
         references: [], nsfwActive: false, nsfwReferenceActive: false);
@@ -98,7 +104,7 @@ hold允许改已有未开工构思；start只开一个新作品，不能重复�
           {'01_core', '01_relationship', '03_personality_seed'}.contains(l.key)).map((l) => l.content).join('\n'), 10000),
         'personality': layers.personalityExecutionAnchor, 'self_understanding': understanding,
         'sources': inputSources, 'background': material.background.take(8).toList(),
-        'ideas': ideas, 'private_works': works.where((w) =>
+        'recent_works': recentWorks, 'ideas': ideas, 'private_works': works.where((w) =>
           CreativeAutonomyPolicy.autonomous(w) && w['visibility'] == 'private').map((w) =>
           {'idea_id': w['idea_id'], 'status': w['status'], 'visibility': w['visibility'], 'title': w['title']}).toList()};
       if (!await db.setSettingsAtomically({CreativeAutonomyPolicy.attemptKey:

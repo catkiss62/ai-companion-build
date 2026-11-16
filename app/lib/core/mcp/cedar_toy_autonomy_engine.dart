@@ -1393,6 +1393,32 @@ class CedarToyAutonomyEngine {
         gameId:activeSession.gameId,delay:const Duration(minutes:1),now:now);
       return const CedarAutonomyProgress('missing_config');
     }
+    final recoveryStore = CedarToyActivityStore(db);
+    if (acceptedTask != null) await recoveryStore.restoreTimedRemoteWait(acceptedTask['id'].toString());
+    final stalled = await recoveryStore.load();
+    if (acceptedTask != null && stalled?.isUnroutableRemoteWait == true &&
+        acceptedTask['sessionId'] == stalled!.id) {
+      final last = (acceptedTask['remoteRecoveryAt'] as num?)?.toInt() ?? 0;
+      if (now.millisecondsSinceEpoch - last < const Duration(minutes: 1).inMilliseconds) {
+        return const CedarAutonomyProgress('remote_recovery_not_due');
+      }
+      final key = CedarTimedPlayTaskStore.activeKey;
+      final raw = await db.getSetting(key) ?? '';
+      final latest = CedarTimedPlayTaskStore.decode(raw);
+      if (latest?['id'] != acceptedTask['id'] || !await db.setSettingsAtomically({
+        key: jsonEncode({...latest!, 'remoteRecoveryAt': now.millisecondsSinceEpoch}),
+      }, expectedSettings: {key: raw}, workFence: clockFence)) {
+        return const CedarAutonomyProgress('remote_recovery_superseded');
+      }
+      final recoveryClient = _client(await _readToken());
+      final recoveryKey = await _readApiKey();
+      final recoveryEndpoint = await _readEndpoint();
+      return _runExecution(store: recoveryStore, gameId: stalled.gameId,
+        action: '核对等待中的游戏', now: now, sourceFence: clockFence,
+        body: (scope) => _advanceSessionLocked(now: now, apiKey: recoveryKey,
+          endpoint: recoveryEndpoint, client: recoveryClient, store: recoveryStore,
+          session: stalled, scope: scope, readOnlyRecovery: true));
+    }
     final delay = await continuationDelay(now: now);
     if (delay == null) return const CedarAutonomyProgress('no_continuation');
     if (delay > Duration.zero) return const CedarAutonomyProgress('not_due');
@@ -1723,6 +1749,9 @@ class CedarToyAutonomyEngine {
       if(session!=null)return const CedarAutonomyProgress('waiting');
     }
     if (session?.isUnroutableRemoteWait == true) {
+      if (await CedarTimedPlayTaskStore(db).active() != null) {
+        return continueDue(now: now);
+      }
       await store.parkUnroutableRemoteWait();
       session = null;
       await db.setSetting(
@@ -2048,6 +2077,7 @@ $selectionCatalog''',
     required CedarToyActivityStore store,
     required CedarGameSession session,
     required _CedarExecutionScope scope,
+    bool readOnlyRecovery = false,
   }) async {
     final state = await store.loadState();
     final playProtocol = await store.loadPlayProtocol();
@@ -2087,6 +2117,7 @@ $selectionCatalog''',
           continuationParamsJson: session.continuationParamsJson,
           lastOutcome: session.lastOutcome,
         );
+        if (readOnlyRecovery && !CedarPlatformActionPolicy.isReadOnlyCall(candidate.action, hydrated)) return false;
         if (session.nextActor == 'companion' && session.repeatsUnchangedRead(candidate.action, hydrated)) return false;
         if (CedarSaveSlotPolicy.blocksAutonomousAction(
           guide: session.guide,
@@ -2106,6 +2137,7 @@ $selectionCatalog''',
       },
       decisionProblem:(candidate)=>CedarExecutionRepair.issue(session,candidate.action,candidate.params),
       instruction: '''${CedarToyArcadeSkill.prompt}
+${readOnlyRecovery ? '当前定时任务仍有效，但远端等待未给next_call或唤醒时间。只从真实指南选择一次只读状态/规则查询，查清究竟应由谁行动及如何继续；不下注、不重开、不重放之前操作。' : ''}
 
 你是 AI 伴侣的后台 Agent，正在推进一局真实 Cedar Toy 游戏。你拥有且必须使用本请求提供的 cedar_toy_play 函数；只调用一次，不输出正文或自由 JSON。参数必须来自完整指南与本机真实局面，不得猜造游戏、房间、revision、棋步或结果。
 共玩、多人模式必须已有用户邀请/同意；混合模式可以独自开始，但只有用户明确同意后才能进入共玩分支。单人模式每次只推进一步。不得打开 GitHub 或补写结果。

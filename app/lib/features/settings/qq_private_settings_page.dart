@@ -63,7 +63,7 @@ class _QqPrivateSettingsPageState extends State<QqPrivateSettingsPage> {
     } finally { if (mounted) setState(() => _busy = false); }
   }
 
-  Future<void> _stop() async {await AppDatabase.instance.setSetting('qq_master_enabled_v2','0');await _channel.invokeMethod<void>('stop');}
+  Future<void> _stop({bool preservePreference=false}) async {await AppDatabase.instance.setSetting('qq_master_enabled_v2','0');await _channel.invokeMethod<void>('stop', {'preservePreference':preservePreference});}
 
   Future<void> _start() => _run(() async { await _saveAndStart(); });
 
@@ -72,8 +72,9 @@ class _QqPrivateSettingsPageState extends State<QqPrivateSettingsPage> {
     if (!RegExp(r'^\d{3,32}$').hasMatch(id) || secret.isEmpty || secret.length > 4096) {
       setState(() => _notice = '请填写机器人 AppID 和 AppSecret。'); return false;
     }
-    final keepConnection=autoReconnect??_state['autoReconnect']==true;
-    await _stop();
+    final liveState=await _channel.invokeMapMethod<String,dynamic>('snapshot');
+    final keepConnection=autoReconnect??liveState?['autoReconnect']==true;
+    await _stop(preservePreference:true);
     var config = await QqPrivateConfig.read();
     if (config.appId != id || config.secret != secret || config.namespace.isEmpty) {
       config = QqPrivateConfig(appId: id, secret: secret, namespace: QqPrivateConfig.randomId(), replyChannel: _replyChannel);

@@ -4,6 +4,8 @@ import '../../core/illustration/illustration_client.dart';
 import '../../core/illustration/illustration_planner.dart';
 import '../../core/illustration/illustration_prompt.dart';
 import '../../core/storage/secure_config.dart';
+import '../../core/storage/message_attachment_storage.dart';
+import '../../core/storage/shared_media_lock.dart';
 import 'qq_reply_tasks.dart';
 import 'qq_store.dart';
 
@@ -70,7 +72,7 @@ class QqIllustrationChoice {
 
   static const prompt =
       '【可选生图】你可以用一张有完整构图、角色、光影或细节的原创插画来表达。'
-      '当画面能接住眼前的话题或表达具体想法时，才考虑主动生图。'
+      '你可以主动画自拍、Q版表情、话题梗图、庆祝画面或其他想分享的插画，无需等别人要求。结合话题与自己的兴趣选择，文字也成立。'
       '想用时，在回复末尾加<qq_illustration mode="with_text">180字内的画面意图</qq_illustration>。'
       '可用 mode="only" 仅发图。插画随这次回复一起送出，正文可写图注，不用请对方等待。画面应适合全年龄。'
       '可爱插画是常规比例的可爱画风，Q版是大头小身的画风。指定画风时在意图中写清楚。'
@@ -139,6 +141,25 @@ class QqIllustrationService {
       seed: IllustrationClient.newSeed(),
     );
     if (!await current()) throw const BrainWorkInvalidated();
+    final storage = MessageAttachmentStorage(db: store.db);
+    final draft = await storage.prepareImageBytes(bytes: image.bytes,
+      source: 'assistant_illustration:qq', mimeType: image.mimeType);
+    try {
+      await SharedMediaLock.run(() async {
+        if (!await current()) throw const BrainWorkInvalidated();
+        final attachment = await storage.commitDraft(draft, messageId: 'qq:${batch.id}');
+        final saved = await store.db.saveQqIllustration(operationId: batch.id,
+          attachment: attachment, description: plan.description,
+          depictsCompanion: plan.depictsCompanion, fence: batch.fence);
+        if (!saved) {
+          await storage.deleteAttachmentFiles(attachment);
+          throw const BrainWorkInvalidated();
+        }
+      }, db: store.db);
+
+    } finally {
+      await storage.discardDraft(draft);
+    }
     return QqIllustration(image, plan.description);
   }
 }

@@ -1642,7 +1642,7 @@ class ProactiveEngine {
     }
     final recent = await db.recentMessagesForPrompt(limit: 28);
     final startsFreshTopic =
-        nightContact || ProactivePresentationPolicy.startsFreshTopic(intentKind);
+        nightContact || (creativeShare == null && ProactivePresentationPolicy.startsFreshTopic(intentKind));
     final promptHistory = startsFreshTopic
         ? const <ChatMessage>[]
         : recent;
@@ -1689,7 +1689,7 @@ class ProactiveEngine {
         '这些是已经得到解答的主题，不是新话题素材。若选中念头仍在索要其中同一问题的答案，'
         '沿用已解答状态；没有相关新信息就不要再次追问。可以回味经历，或表达真正不同的新疑问。'});
     }
-    if (creativeShare != null) context.add({'role': 'system', 'content': creativeShare.prompt});
+    if (creativeShare != null) context.add({'role': 'system', 'content': '${creativeShare.prompt}\n作品分享结合近期对话：若题材已经聊过，接着介绍这次作品新增的体验，不把旧资料称为刚刚第一次发现。作品仍可自然分享，不需要重复整段知识。'});
     if(qqShare!=null) context.add({'role':'system','content':qqShare.prompt});
     if (reflectionInvitation != null) {
       context.add({'role': 'system', 'content': reflectionInvitation.invitation});

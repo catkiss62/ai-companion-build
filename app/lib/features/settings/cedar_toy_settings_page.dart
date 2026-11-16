@@ -168,14 +168,14 @@ class _CedarToySettingsPageState extends State<CedarToySettingsPage> {
       StatefulBuilder(builder: (context, refresh) => AlertDialog(
         title: const Text('游戏记事本'),
         content: SizedBox(width: 420, height: notes.isEmpty ? 72 : 360, child: notes.isEmpty
-          ? const Text('暂无游戏约定。聊天中明确的游戏计划和偏好会记在这里。')
+          ? const Text('暂无游戏记录。聊天中的约定、游戏印象和经验会记在这里。')
           : ListView(shrinkWrap: true, children: [
-              const Text('待办会保留到实际完成或取消；持续偏好保持有效。'),
+              const Text('印象只供选择时参考，不是命令；经验以当前游戏规则核对。待办会保留到实际完成或取消；持续偏好保持有效。'),
               ...notes.map((note) => ListTile(
                 contentPadding: EdgeInsets.zero,
                 title: Text(note.content),
                 subtitle: Text('${note.metadata['scope']?['title'] ?? ''} · '
-                  '${note.factState == 'completed' ? '已完成' : note.factState == 'cancelled' ? '已取消' : note.persistent ? '持续偏好' : '待完成'}'),
+                  '${note.factState == 'completed' ? '已完成' : note.factState == 'cancelled' ? '已取消' : note.metadata['kind'] == 'impression' ? '印象' : note.metadata['kind'] == 'experience' ? '经验' : note.persistent ? '持续偏好' : '待完成'}'),
                 trailing: IconButton(tooltip: '删除', icon: const Icon(Icons.delete_outline),
                   onPressed: () async {
                     if (!await store.deleteNote(note.id)) return;

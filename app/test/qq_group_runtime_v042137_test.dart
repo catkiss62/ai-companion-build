@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'package:path_provider_platform_interface/path_provider_platform_interface.dart';
 import 'dart:io';
 import 'dart:convert';
 import 'dart:typed_data';
@@ -37,6 +38,13 @@ import 'package:ai_companion_localfirst/integrations/qq_private/qq_failure.dart'
 import 'package:ai_companion_localfirst/integrations/qq_private/qq_sketch.dart';
 import 'package:ai_companion_localfirst/integrations/qq_private/qq_voice.dart';
 import 'package:ai_companion_localfirst/integrations/qq_private/qq_public_web.dart';
+
+class _Paths extends PathProviderPlatform {
+  _Paths(this.path);
+  final String path;
+  @override Future<String?> getApplicationSupportPath() async => path;
+  @override Future<String?> getTemporaryPath() async => path;
+}
 
 class _Secure extends SecureConfig {
   _Secure():super.forTesting(const FlutterSecureStorage());
@@ -148,7 +156,12 @@ void main(){
     if(image)'attachments':[{'content_type':'image/png','url':'https://fixture.test/image.png?temporary-token=not-for-export'}]};
   String cid([String target='group-a',bool group=true])=>QqStore.conversationId(QqRuntime.scope(config),group?'group':'private',target);
   Future<void> accept(String id,String text,{String target='group-a',bool mention=false,bool image=false})=>runtime.accept(event(id,text,target:target,mention:mention,image:image),group:true);
+  late Directory mediaRoot;
+  late PathProviderPlatform previousPaths;
   setUp(()async{
+    mediaRoot=await Directory.systemTemp.createTemp('qq-illustration-test-');
+    previousPaths=PathProviderPlatform.instance;
+    PathProviderPlatform.instance=_Paths(mediaRoot.path);
     FlutterSecureStorage.setMockInitialValues({});
     db=await AppDatabase.createForTesting(databaseFactoryFfi);store=QqStore(db);secure=_Secure();api=_Api();vision=_Vision(secure);
     clock=DateTime(2026,10,26,12);requests=[];statuses=[];jevRequests=[];enabled=true;
@@ -218,7 +231,7 @@ void main(){
         await db.setSetting('qq_sketch_auto_global_v1','${startedAt-1000}');
       }
       if(selfie)await db.setSetting(illustrationKey,'${startedAt-1000}');
-      const pngData='iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+jfnQAAAAASUVORK5CYII=';
+      const pngData='iVBORw0KGgoAAAANSUhEUgAAACAAAAAgCAIAAAD8GO2jAAAAK0lEQVR42u3NQQEAQAQAMC6hYNJJdCX4bQWW1ROXXhwTCAQCgUAgEAgEWz7rPQHu8hmbmAAAAABJRU5ErkJggg==';
       var planned=0,generated=0,svgPlans=0;
       var offeredIllustration=false,offeredSketch=false;
       await runtime.stop();
@@ -312,7 +325,7 @@ void main(){
         }else if(scenario=='upload_failure'){
           expect(api.imageFiles,['illustration.png','illustration.png']);
         }else if(scenario=='automatic' || scenario=='retry_delivery' || retryWithCaption || drawsStyled || chibi || selfie){
-          expect(api.imageFiles,['illustration.png']);
+          expect(api.imageFiles,['illustration.png'], reason: api.sent.toString());
         }else{
           expect(api.imageFiles,isEmpty);
         }
@@ -355,7 +368,12 @@ void main(){
         if(scenario=='clarify_image')expect(api.sent.single['text'],'你要横版还是竖版？');
         if(scenario=='bare_wait')expect(api.sent.single['text'],'这次没能画出来。');
         expect(api.sent.every((x)=>!(x['text'] as String).contains('<qq_')),isTrue);
-        expect(await db.companionAlbumItems(),isEmpty);
+        final saved=generated>0 && !const {'generation_failure','disabled_during_generation'}.contains(scenario);
+        expect(await db.companionAlbumItems(),hasLength(saved?1:0));
+        if(saved) {
+          final album=(await db.companionAlbumItems()).single;
+          expect(album.tags,containsAll(['generated','anime']));
+        }
       } finally {
         messenger.setMockMethodCallHandler(channel,null);
       }
@@ -437,7 +455,7 @@ void main(){
     });
   }
 
-  tearDown(()async{await runtime.stop();api.close();await db.closeForTesting();});
+  tearDown(()async{await runtime.stop();api.close();await db.closeForTesting();PathProviderPlatform.instance=previousPaths;await mediaRoot.delete(recursive:true);});
 
   for (final code in ['network', 'timeout', 'http_429']) {
     test('known-unsent first send $code retries the production runtime once', () async {

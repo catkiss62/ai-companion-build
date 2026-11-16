@@ -198,6 +198,23 @@ void main() {
     expect((await capture('new')).ingestSeq, greaterThan(changed.ingestSeq));
   });
 
+  test('multiple images release one reply only after every image is observed', () async {
+    final images = [for (var i=0;i<3;i++) MessageAttachment(id:'img-$i',messageId:'multi',kind:'image',
+      originalPath:'$i.jpg',thumbnailPath:'$i-small.jpg',mimeType:'image/jpeg',byteSize:1,
+      width:1,height:1,source:'gallery',createdAt:DateTime.fromMillisecondsSinceEpoch(1000+i))];
+    await db.insertMessageWithAttachments(message('multi',1000),images);
+    for(var i=0;i<3;i++) {
+      expect(await db.markAttachmentVisionAnalyzing('img-$i'),isTrue);
+      final job=await db.completeAttachmentVisionAndCreateGeneration(attachmentId:'img-$i',
+        summary:'第$i张图片',visionModel:'fixture',assistantMessageId:'multi-answer',
+        model:'deepseek-flash',reasoningEffort:'high');
+      expect(job == null,i<2);
+    }
+    final sql=await db.database;
+    expect(await sql.query('generation_jobs',where:'user_message_id = ?',whereArgs:['multi']),hasLength(1));
+    expect((await db.messageById('multi'))!.attachments.every((a)=>a.visionCompleted),isTrue);
+  });
+
   test('attachment semantic changes invalidate stamp; file relocation does not', () async {
     final image = MessageAttachment(id: 'image', messageId: 'u', kind: 'image',
       originalPath: 'a.jpg', thumbnailPath: 'a-small.jpg', mimeType: 'image/jpeg',

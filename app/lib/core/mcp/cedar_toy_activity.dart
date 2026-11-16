@@ -2161,6 +2161,26 @@ class CedarToyActivityStore {
   /// Parks a server wait that supplied neither `next_call` nor a resume time.
   /// The remote save remains resumable, while the empty active slot allows the
   /// Agent to choose another game instead of deadlocking the whole arcade.
+  Future<void> restoreTimedRemoteWait(String taskId) async {
+    final sql = await db.database;
+    await sql.transaction((txn) async {
+      if (await BrainWorkFence.value(txn, 'active_brain') == '0' ||
+          await BrainWorkFence.value(txn, 'transfer_lock') == '1') return;
+      final task = CedarTimedPlayTaskStore.decode(await BrainWorkFence.value(txn, CedarTimedPlayTaskStore.activeKey));
+      if (task?['id'] != taskId) return;
+      final state = await readStateInTransaction(txn);
+      final session = state.sessions[task!['gameId']];
+      if (state.activeGameId.isNotEmpty || state.execution != null || session == null ||
+          session.id != task['sessionId'] || session.phase != CedarActivityPhase.paused ||
+          session.pauseSource != 'remote_wait_unroutable') return;
+      final now = DateTime.now();
+      await writeSettingsInTransaction(txn, stateSettingValues(state.copyWith(
+        activeGameId: session.gameId,
+        sessions: Map<String,CedarGameSession>.from(state.sessions)..[session.gameId] =
+          session.copyWith(phase: CedarActivityPhase.waitingRemote, updatedAt: now), updatedAt: now)));
+    });
+  }
+
   Future<bool> parkUnroutableRemoteWait() async {
     final state = await loadState();
     final session = state.activeSession;
@@ -2388,6 +2408,7 @@ latest_platform_event=$latestPlatformEvent
 recent_submitted_inputs=${session.events.where((e) => e.inputJson.isNotEmpty).toList().reversed.take(6).map((e) => '${e.action}: ${e.inputJson}').join(' | ')}
 last_action=${session.lastAction}
 last_outcome=${session.lastOutcome}
+游戏余额与规则：区分可下注的游戏币/筹码和兑换奖品所需的赢取额度。不要从筹码总数推断能够兑奖；需要时先查询当前余额、额度与奖品条件。规划与战报都沿用远端返回的名称和数值。规则未知时查指南，不把旧战报当规则。
 viewer_url=${session.viewerUrl}
 queued_switches=$queued
 cross_game_notices=$notices

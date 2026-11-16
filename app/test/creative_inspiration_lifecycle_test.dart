@@ -45,6 +45,22 @@ void main() {
       'evidence': [{'id': source['id'], 'quote': source['text']}]};
   }
 
+  test('inspiration sees shared and private forms without a feedback scoring field', () async {
+    await privateWork('published-card', shared: true);
+    await privateWork('private-card');
+    var reviewed = false;
+    await CreativeInspirationEngine(db, reviewer: (input) async {
+      reviewed = true;
+      final recent = (input['recent_works'] as List).whereType<Map>().toList();
+      expect(recent, hasLength(2));
+      expect(recent.map((w) => w['visibility']), containsAll(['shared', 'private']));
+      expect(recent.every((w) => w['brief'] == '树叶小灯'), isTrue);
+      expect(recent.any((w) => w.containsKey('feedback') || w.containsKey('rating')), isFalse);
+      return {'action': 'none'};
+    }).maybeThink(now: clock, manual: true);
+    expect(reviewed, isTrue);
+  });
+
   test('private work outlives its clipped idea and can retire to release a private slot', () async {
     final old = await privateWork('old-idea');
     for (var i = 1; i < CreativeAutonomyPolicy.maxPrivateWorks; i++) {

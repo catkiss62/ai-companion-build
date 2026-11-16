@@ -225,6 +225,23 @@ void main() {
     expect((await CedarPlaySessionStore(db).load())!.usedMs, 60000);
   });
 
+  test('timed task can restore its parked remote wait without reviving user Pause', () async {
+    await start();
+    final store = CedarToyActivityStore(db);
+    final state = await store.loadState();
+    final session = state.activeSession!;
+    await db.setSettingsAtomically(CedarToyActivityStore.stateSettingValues(state.copyWith(
+      activeGameId: '', sessions: {...state.sessions, session.gameId: session.copyWith(
+        phase: CedarActivityPhase.paused, pauseSource: 'remote_wait_unroutable',
+        nextActor: 'wait', clearNextActionAt: true)})));
+    final task = (await CedarTimedPlayTaskStore(db).active())!;
+    await store.restoreTimedRemoteWait(task['id'].toString());
+    expect((await store.load())!.isUnroutableRemoteWait, isTrue);
+    await store.pauseAndRelease();
+    await store.restoreTimedRemoteWait(task['id'].toString());
+    expect(await store.load(), isNull);
+  });
+
   test('unroutable server wait is distinct from a local Stop and remains nonterminal', () async {
     await start();
     await CedarToyActivityStore(db).recordPlay(gameId: 'white_room', action: 'explore',

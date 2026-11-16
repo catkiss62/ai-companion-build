@@ -128,10 +128,11 @@ class CedarArrangementReviewBundle {
   final BrainWorkFence? fence;
   String get prompt => items.isEmpty ? '' : '''【本存档游戏记事本 · 待办与持续偏好】
 ${jsonEncode({'scope':scope!.toJson(),'arrangements':items.map((m)=>{'id':m.id,'text':m.content,
-  'lifetime':m.persistent?'persistent':'once','condition':m.metadata['condition'],
+  'lifetime':m.persistent?'persistent':'once','kind':m.metadata['kind']??'arrangement','condition':m.metadata['condition'],
   'completion_basis':m.metadata['completion_basis'],'actor':m.actorKey,'executor':m.metadata['executor']}).toList(),
   'actual_results':events.map((e)=>{'event_id':e.id,'at':e.createdAt.millisecondsSinceEpoch,
     'action':e.action,'input':e.inputJson,'result':_text(e.summary,1200),'actor':'companion'}).toList()})}
+kind=impression是用户随口提及留下的印象，不是命令，不要求执行；kind=experience是可随新证据修订的经验，涉及规则/余额时以当前MCP为准。印象随时间变淡，不自动转成待办或追问。
 结合真实局面考虑这些安排，不因它们存在就重复购买、重开或强行执行；用户停止/邀请/存档权限始终优先。
 读取、进入游戏、准备执行或被中断都不算完成。persistent为持续偏好/限制，一次遵守不能清除；once才可核验归档。
 已有真实成功结果确实实现某个具体目标时，才在 arrangement_reviews_json 填入 [{"id":"该安排ID","event_id":"对应已发生结果ID"}]。
@@ -148,7 +149,8 @@ class CedarGameArrangementStore {
   static const deletionRevisionKey = 'cedar_game_notebook_delete_revision_v1';
   static const planningRevisionKey = 'cedar_game_notebook_planning_revision_v1';
   static const instruction = '''
-游戏记事本：在同一次整理中返回 game_arrangements 数组，和 memories 分开处理。只根据【刚发生的对话】提取本轮明确新增/改约/取消的游戏打算、双方约定或用户要求，包括AI明确提出的计划和持续游戏偏好/限制。玩笑、假设、已发生操作的复述不创建待办；不从旧经历补造约定，不猜坐标、存档或盆号。
+游戏记事本：除了明确约定，也可记下本轮与游戏有关的印象（例如“最近没玩某游戏”，不推断必须去玩）和明确纠正的游戏经验，分别标记kind=impression/experience；约定为kind=arrangement。印象和经验用persistent，后续同主题更新原条目，不将好奇询问改写成命令。
+在同一次整理中返回 game_arrangements 数组，和 memories 分开处理。只根据【刚发生的对话】提取本轮新增/改约/取消的游戏打算、双方约定、用户要求或有原话依据的印象/经验，包括AI明确提出的计划和持续游戏偏好/限制。玩笑、假设、已发生操作的复述不创建待办；不从旧经历补造约定，不猜坐标、存档或盆号。
 每项字段：action=remember/update/cancel，target_id（改约、取消或同一计划再次提及时复用目标索引中的ID；新计划为空），game（本轮明确提及的游戏名称或ID，没有则空字符串；手机只在能唯一匹配真实当前存档时接受），topic_key（稳定英文小写主题，1～60字符，a-z、0-9、下划线、点、连字符），text（具体内容），condition（条件，可空），lifetime=once/persistent（一次目标/持续偏好或限制），completion_basis=action/state，actor=user/ai/shared，executor=ai/user/shared/unknown，user_quote，assistant_quote。改约/取消优先绑定原条目target_id；topic_key只给新计划命名，旧主题无需重新猜测。无法确定对应哪条不猜测。
 user安排须逐字user_quote，ai计划须逐字assistant_quote，shared须双方逐字引文；用户要求只能由用户新明确说法取消或改约。明确同意不代表未来操作已完成。本轮明确约定下一次再做可保留。游戏安排不重复写入 memories/threads/thoughts，不因此定时跟进；另有本轮真正想讨论的问题才单独记念头。每轮最多2项，没有适合内容返回 []。
 ''';
@@ -322,6 +324,7 @@ user安排须逐字user_quote，ai计划须逐字assistant_quote，shared须双�
         final meta=<String,Object?>{'version':1,'scope_id':scope.id,'scope':scope.toJson(),
           'condition':condition,'completion_basis':p['completion_basis']=='state'?'state':'action',
           'executor':const {'ai','user','shared'}.contains(p['executor'])?p['executor']:'unknown',
+          'kind':const {'impression','experience'}.contains(p['kind'])?p['kind']:'arrangement',
           'formed_at':formedAt.millisecondsSinceEpoch,'user_source':u.toJson(),'assistant_source':a.toJson()};
         if(old==null) {
           final receipt='cedar_game_arrangement_applied_v1:${_digest([assistant.id,a.stamp.revision,scope.id,topic])}';
@@ -363,7 +366,11 @@ user安排须逐字user_quote，ai计划须逐字assistant_quote，shared须双�
       if(scope==null)return CedarArrangementReviewBundle(fence:fence);
       final items=<CedarGameNote>[];
       for(final m in await _items(txn)) {
-        if(m.factState=='ongoing'&&m.metadata['scope_id']==scope.id&&await _validMetadata(txn,m.metadata))items.add(m);
+        if(m.factState=='ongoing'&&m.metadata['scope_id']==scope.id&&await _validMetadata(txn,m.metadata)) {
+          final formed = (m.metadata['formed_at'] as num?)?.toInt() ?? 0;
+          if (m.metadata['kind'] == 'impression' && DateTime.now().millisecondsSinceEpoch - formed > const Duration(days: 14).inMilliseconds) continue;
+          items.add(m);
+        }
       }
       final events=live.events.where(successfulReceipt).where((e)=>CedarArrangementScope.slotForEvent(live,e)==scope.slot)
         .toList()..sort((a,b)=>b.createdAt.compareTo(a.createdAt));

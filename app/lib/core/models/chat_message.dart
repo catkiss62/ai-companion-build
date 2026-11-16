@@ -123,7 +123,9 @@ class ChatMessage {
       }
       return '[用户发送了一张图片；视觉识别尚未完成]';
     }).toList(growable: false);
-    final label = observations.join('\n');
+    final label = observations.length > 1
+        ? observations.indexed.map((entry) => '图 ${entry.$1+1}：${entry.$2}').join('\n')
+        : observations.join('\n');
     if (isAssistant) return caption.isEmpty ? label : '$caption\n$label';
     return caption.isEmpty ? label : '$label\n附言：$caption';
   }

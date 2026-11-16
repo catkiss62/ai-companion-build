@@ -6246,7 +6246,7 @@ class AppDatabase {
     };
   }
 
-  Future<GenerationJob> completeAttachmentVisionAndCreateGeneration({
+  Future<GenerationJob?> completeAttachmentVisionAndCreateGeneration({
     required String attachmentId,
     required String summary,
     required String visionModel,
@@ -6316,6 +6316,13 @@ class AppDatabase {
         where: 'id = ?',
         whereArgs: [attachmentId],
       );
+      // Complete observations independently; only the final image releases
+      // this single user message to the reply generator.
+      final remaining = await txn.query('message_attachments', columns: ['id'],
+        where: 'message_id = ? AND kind = ? AND vision_status != ?',
+        whereArgs: [messageId, 'image', MessageAttachment.visionCompletedStatus], limit: 1);
+      await ConversationSourceStore.sourceChanged(txn, messageId);
+      if (remaining.isNotEmpty) return;
       await txn.update(
         'messages',
         {'expects_reply': 1},
@@ -6353,7 +6360,7 @@ class AppDatabase {
         'resume_reason': '',
       });
     });
-    return (await generationJobById(jobId))!;
+    return await generationJobById(jobId);
   }
 
   Future<List<MessageAttachment>> deleteAttachmentMessage(String messageId) async {
@@ -14370,6 +14377,23 @@ class AppDatabase {
         await _retainMessageMediaBlob(txn, generated);
       }
       await txn.update('settings', {'value': terminal}, where: 'key = ?', whereArgs: [jobKey]);
+      return true;
+    });
+  }
+
+  Future<bool> saveQqIllustration({required String operationId,
+    required MessageAttachment attachment, required String description,
+    required bool depictsCompanion, required BrainWorkFence fence}) async {
+    final sql = await database;
+    return sql.transaction((txn) async {
+      if (!await fence.matches(txn)) return false;
+      final blobs = await txn.query('media_blobs', where: 'id = ?',
+        whereArgs: [attachment.blobId], limit: 1);
+      if (blobs.isEmpty) return false;
+      await _saveGeneratedAlbumImage(txn, MediaBlob.fromDb(blobs.single),
+        id: 'qq_illustration:$operationId', ownerId: operationId,
+        description: description, depictsCompanion: depictsCompanion,
+        reason: '她在 QQ 创作的插画');
       return true;
     });
   }

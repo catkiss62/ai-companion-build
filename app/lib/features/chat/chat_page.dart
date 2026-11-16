@@ -822,7 +822,7 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver, RouteA
       if (!mounted || response.isEmpty) return;
       final files = response.files;
       if (files != null && files.isNotEmpty) {
-        await _prepareAndConfirmImage(files.first, source: 'recovered');
+        await _prepareAndConfirmImages(files, source: 'recovered');
       } else if (response.exception != null) {
         _showMessage('没有恢复刚才选择的图片：${response.exception}');
       }
@@ -888,16 +888,18 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver, RouteA
             ? 'flutter_image_picker_camera'
             : 'flutter_image_picker_gallery',
       );
-      XFile? image;
+      List<XFile> images = [];
       try {
-        image = await _imagePicker.pickImage(
-          source: source,
-          requestFullMetadata: false,
-        );
+        if (source == ImageSource.gallery) {
+          images = await _imagePicker.pickMultiImage(requestFullMetadata: false);
+        } else {
+          final image = await _imagePicker.pickImage(source: source, requestFullMetadata: false);
+          if (image != null) images = [image];
+        }
         await AttachmentPipelineTelemetry.record(
           AppDatabase.instance,
           stage: 'picker',
-          outcome: image == null ? 'cancelled' : 'completed',
+          outcome: images.isEmpty ? 'cancelled' : 'completed',
           source: sourceKey,
           duration: DateTime.now().difference(pickerStarted),
         );
@@ -941,9 +943,9 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver, RouteA
           rethrow;
         }
       }
-      if (image != null && mounted) {
-        await _prepareAndConfirmImage(
-          image,
+      if (images.isNotEmpty && mounted) {
+        await _prepareAndConfirmImages(
+          images,
           source: sourceKey,
         );
       }
@@ -974,132 +976,64 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver, RouteA
     }
   }
 
-  Future<void> _prepareAndConfirmImage(
-    XFile image, {
-    required String source,
-  }) async {
-    PreparedImageAttachment? draft;
-    int? selectedByteSize;
+  Future<void> _prepareAndConfirmImages(List<XFile> images, {required String source}) async {
+    final drafts = <PreparedImageAttachment>[];
+    final selected = <PreparedImageAttachment>[];
+    final caption = TextEditingController(text: input.text);
+    var saved = false;
     try {
-      selectedByteSize = await image.length();
-    } catch (_) {
-      // The prepare stage will report a categorized failure if the file is
-      // actually unreadable; metadata lookup itself stays best-effort.
-    }
-    final prepareStarted = DateTime.now();
-    await AttachmentPipelineTelemetry.record(
-      AppDatabase.instance,
-      stage: 'prepare',
-      outcome: 'started',
-      source: source,
-      byteSize: selectedByteSize,
-      now: prepareStarted,
-    );
-    try {
-      draft = await controller.prepareImage(
-        sourcePath: image.path,
-        source: source,
-        mimeType: image.mimeType,
-      );
-      await AttachmentPipelineTelemetry.record(
-        AppDatabase.instance,
-        stage: 'prepare',
-        outcome: 'completed',
-        source: source,
-        duration: DateTime.now().difference(prepareStarted),
-        byteSize: draft.byteSize,
-        width: draft.width,
-        height: draft.height,
-      );
-      if (!mounted) {
-        await controller.discardPreparedImage(draft);
-        return;
+      for (final image in images) {
+        await AttachmentPipelineTelemetry.record(AppDatabase.instance,
+          stage: 'prepare', outcome: 'started', source: source);
+        late PreparedImageAttachment draft;
+        try {
+          draft = await controller.prepareImage(sourcePath: image.path,
+            source: source, mimeType: image.mimeType);
+        } catch (error) {
+          await AttachmentPipelineTelemetry.record(AppDatabase.instance,
+            stage: 'prepare', outcome: 'failed', source: source, error: error);
+          rethrow;
+        }
+        drafts.add(draft);
+        await AttachmentPipelineTelemetry.record(AppDatabase.instance,
+          stage: 'prepare', outcome: 'completed', source: source,
+          byteSize: draft.byteSize, width: draft.width, height: draft.height);
       }
-      final caption = await _showImageConfirmation(draft);
-      if (caption == null) {
-        await controller.discardPreparedImage(draft);
-        return;
-      }
-      final saved = await controller.sendPreparedImage(draft, caption: caption);
+      selected.addAll(drafts);
+      if (!mounted) return;
+      final accepted = await showDialog<bool>(context: context, barrierDismissible: false,
+        builder: (context) => StatefulBuilder(builder: (context, update) => AlertDialog(
+          title: Text('一起发送 ${selected.length} 张图片'),
+          content: SizedBox(width: 340, child: SingleChildScrollView(child: Column(
+            mainAxisSize: MainAxisSize.min, children: [
+              Wrap(spacing: 8, runSpacing: 8, children: [for (final draft in selected)
+                Stack(children: [Image.file(draft.thumbnailFile, width: 120, height: 120, fit: BoxFit.contain),
+                  Positioned(right: 0, top: 0, child: IconButton(tooltip: '移除这张图片',
+                    onPressed: () => update(() => selected.remove(draft)), icon: const Icon(Icons.close)))])]),
+              const SizedBox(height: 12),
+              TextField(controller: caption, maxLines: 3,
+                decoration: const InputDecoration(labelText: '附言（可选）', border: OutlineInputBorder())),
+              const SizedBox(height: 8),
+              const Text('这些图片作为一条消息发送，识别完成后一起回复'),
+            ]))),
+          actions: [TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('取消')),
+            FilledButton(onPressed: selected.isEmpty ? null : () => Navigator.pop(context, true), child: const Text('发送'))],
+        )));
+      if (accepted != true || !mounted) return;
+      saved = await controller.sendPreparedImages(selected, caption: caption.text);
       if (mounted && saved) {
+        input.clear();
         _showMessage('图片已保存在本机，正在识别并准备回复…');
       }
-    } catch (exception) {
-      if (draft == null) {
-        await AttachmentPipelineTelemetry.record(
-          AppDatabase.instance,
-          stage: 'prepare',
-          outcome: 'failed',
-          source: source,
-          duration: DateTime.now().difference(prepareStarted),
-          error: exception,
-        );
-      }
-      if (draft != null) {
-        try {
-          await controller.discardPreparedImage(draft);
-        } catch (_) {}
-      }
-      if (mounted) _showMessage('图片准备失败：$exception');
-    }
-  }
-
-  Future<String?> _showImageConfirmation(PreparedImageAttachment draft) async {
-    final caption = TextEditingController();
-    try {
-      return await showDialog<String>(
-        context: context,
-        barrierDismissible: false,
-        builder: (context) => AlertDialog(
-          title: const Text('发送这张图片？'),
-          content: SingleChildScrollView(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                ClipRRect(
-                  borderRadius: BorderRadius.circular(12),
-                  child: Image.file(
-                    draft.thumbnailFile,
-                    height: 230,
-                    fit: BoxFit.contain,
-                    errorBuilder: (_, __, ___) => const SizedBox(
-                      height: 150,
-                      child: Center(child: Text('缩略图生成失败')),
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 12),
-                TextField(
-                  controller: caption,
-                  maxLines: 3,
-                  decoration: const InputDecoration(
-                    labelText: '附言（可选）',
-                    border: OutlineInputBorder(),
-                  ),
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  '发送后会识别图片缩略图；观察结果作为本轮经历，是否形成长期记忆仍由记忆系统判断。',
-                  style: Theme.of(context).textTheme.bodySmall,
-                ),
-              ],
-            ),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(context),
-              child: const Text('取消'),
-            ),
-            FilledButton(
-              onPressed: () => Navigator.pop(context, caption.text),
-              child: const Text('发送'),
-            ),
-          ],
-        ),
-      );
+    } catch (error) {
+      if (mounted) _showMessage('图片准备失败：$error');
     } finally {
       caption.dispose();
+      for (final draft in drafts) {
+        if (!saved || !selected.contains(draft)) {
+          await controller.discardPreparedImage(draft);
+        }
+      }
     }
   }
 

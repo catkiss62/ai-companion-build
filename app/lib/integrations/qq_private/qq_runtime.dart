@@ -531,7 +531,7 @@ class QqRuntime {
       final cancelledDrawing=formattedRow!=null && b.rows.any((row)=>
           row['sender']==formattedRow['sender'] && (row['seq'] as int)>(formattedRow['seq'] as int) &&
           IllustrationCue.vetoed(row['content'] as String));
-      final canDraw=!wakingGroup && !_drawingBusy && !cancelledDrawing;
+      final canDraw=!_drawingBusy && !cancelledDrawing;
       final drawingAt=now().millisecondsSinceEpoch;
       final canSketch=canDraw && requestedFormat!=QqDrawingFormat.illustration &&
           await sketchService.eligible(b,drawingAt);
@@ -554,7 +554,7 @@ class QqRuntime {
           '\n本轮无法启动 QQ 生图。请用文字说明当前无法画图，勿请对方等待。';
       }
       if (wakingGroup) {
-        prompt+='\n本轮只发文字。';
+        prompt+='\n本轮是你主动发起的群聊，可以选择文字或已开放的生图表达，结合眼前想分享的内容自行决定。';
       } else if (!o.voiceEnabled) {
         prompt+='\n本轮QQ语音关闭，只选择可用文字/图片表达。';
       } else {
