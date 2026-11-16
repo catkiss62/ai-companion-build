@@ -208,6 +208,91 @@ void main(){
     ), isTrue);
     expect(await reserve(first, now + interval.inMilliseconds), isTrue);
   });
+  test('mature slang recognizes concrete requests and short picture revisions', () {
+    for (final text in ['来张涩图', '画一张色图', '用生图画张色图', '来点涩图', '画一张更涩的自拍']) {
+      expect(QqDrawingPolicy.requestsMatureArtwork(text), true, reason: text);
+    }
+    for (final text in ['这张也太涩了', '来张彩色图', '来张配色图', '不要来张涩图', '这张不够色', '涩图']) {
+      expect(QqDrawingPolicy.requestsMatureArtwork(text), false, reason: text);
+    }
+    expect(QqDrawingPolicy.requestsMatureArtwork('涩图', directlyMentioned: true), true);
+    for (final text in ['更涩', '更色', '不够涩', '不够色', '那就再色一点', '这张还不够涩', '再画一张更涩的']) {
+      expect(QqDrawingPolicy.continuesMatureArtwork(text), true, reason: text);
+    }
+  });
+  for (final scenario in ['direct', 'revision', 'quoted_revision', 'unknown_quote', 'no_source', 'other_group', 'expired', 'explicit_chibi', 'other_subject']) {
+    test('QQ mature illustration wording: $scenario', () async {
+      options=options.copy(illustrationEnabled:true);
+      const png='iVBORw0KGgoAAAANSUhEUgAAACAAAAAgCAIAAAD8GO2jAAAAK0lEQVR42u3NQQEAQAQAMC6hYNJJdCX4bQWW1ROXXhwTCAQCgUAgEAgEWz7rPQHu8hmbmAAAAABJRU5ErkJggg==';
+      final prompts=<String>[];
+      final plans=<String>[];
+      await runtime.stop();
+      runtime=create(illustrationClient:IllustrationClient(clientFactory:()=>MockClient((request) async {
+        final payload=jsonDecode(request.body) as Map;
+        prompts.add(payload['input'] as String);
+        expect((payload['input'] as String).split(', '),isNot(contains('nsfw')));
+        expect((payload['parameters']['negative_prompt'] as String).split(', '),contains('nsfw'));
+        return http.Response.bytes(base64Decode(png),200);
+      })));
+      handler=(r,b)async {
+        if(b['stream']==true) return _sse(r.body.contains('【本轮明确请求插画】')?'给你画一张。':'我看见啦');
+        if(b['max_tokens']==720) {
+          plans.add(r.body);
+          return _json({
+            'style':scenario=='explicit_chibi'?'chibi':'cute',
+            'subject':scenario=='other_subject'?'other':'self',
+            'scene':scenario=='other_subject'?'red fox in a rainy street':'standing beneath a streetlight',
+            'description':scenario=='other_subject'?'雨夜里的一只红狐':'雨夜街灯下的小鲸鱼',
+          });
+        }
+        return _json(b['max_tokens']==60?{'safe':true}:{'participation':'direct'});
+      };
+      final seeds = const {'revision','quoted_revision','unknown_quote','other_group','expired'}.contains(scenario);
+      if(seeds) {
+        await accept('mature-source','画个自拍');
+        await runtime.process(cid());
+        expect(api.sent.single['fileInfo'],'fixture-image-token');
+        expect(plans,hasLength(1));
+        if(scenario=='quoted_revision') {
+          await (await db.database).update('qq_archive',{'platform_id':'delivered-illustration-fixture'},
+              where:"role='assistant' AND conversation_id=?",whereArgs:[cid()]);
+        }
+        plans.clear();prompts.clear();api.sent.clear();
+        clock=clock.add(Duration(seconds:scenario=='expired'?180:30));
+      }
+      final request = switch (scenario) {
+        'revision' || 'quoted_revision' || 'unknown_quote' || 'no_source' || 'other_group' || 'expired' => '这张还不够色',
+        'explicit_chibi' => '来张涩图，要Q版',
+        'other_subject' => '来张涩图，主角是雨夜里的红狐',
+        _ => '来张涩图',
+      };
+      final target = scenario=='other_group'?'group-b':'group-a';
+      final incoming=event('mature-request',request,target:target,mention:true);
+      if(scenario=='quoted_revision' || scenario=='unknown_quote') {
+        incoming['message_reference']={'message_id':scenario=='quoted_revision'
+            ?'delivered-illustration-fixture':'unknown-quote-source'};
+      }
+      await runtime.accept(incoming,group:true);
+      await runtime.process(cid(target));
+      if(const {'unknown_quote','no_source','other_group','expired'}.contains(scenario)) {
+        expect(plans,isEmpty);expect(prompts,isEmpty);
+        expect(api.sent.single['text'],'我看见啦');
+      } else {
+        expect(plans,hasLength(1));expect(prompts,hasLength(1));
+        expect(api.sent.single['fileInfo'],'fixture-image-token');
+        if(scenario=='explicit_chibi') {
+          expect(prompts.single,contains('chibi'));
+          expect(prompts.single,isNot(contains('2::koikatsu_')));
+        } else if(scenario=='other_subject') {
+          expect(prompts.single,contains('red fox in a rainy street'));
+          expect(prompts.single,isNot(contains('whale emblem')));
+        } else {
+          expect(prompts.single,contains('2::koikatsu_'));
+          if(scenario=='revision' || scenario=='quoted_revision')expect(plans.single,contains('此前已发的插画内容'));
+        }
+      }
+    });
+  }
   for (final scenario in ['automatic', 'automatic_svg', 'disabled', 'disabled_during_generation', 'generation_failure', 'retry_delivery', 'retry_image_only', 'uncertain_image', 'plain_refusal', 'clarify_image', 'bare_wait', 'upload_failure', 'styled_followup', 'styled_declined', 'styled_unaddressed', 'styled_cancelled', 'chibi_format', 'chibi_mention_retry', 'selfie_draw', 'selfie_request']) {
     test('QQ drawing choice and delivery: $scenario', () async {
       final automatic = scenario.startsWith('automatic');

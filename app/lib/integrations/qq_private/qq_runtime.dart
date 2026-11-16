@@ -550,11 +550,30 @@ class QqRuntime {
           (row:row,text:QqMentionTargets.withoutLeadingMentions(row['content'] as String)),
       ];
       final drawingRequest=drawingInputs.map((input)=>input.text).join('\n');
-      final formatted=drawingInputs.reversed.where((input)=>
-          QqDrawingPolicy.requestedFormat(input.text)!=null).firstOrNull;
+      ({Map<String,Object?> row, String text})? formatted;
+      QqDrawingFormat? requestedFormat;
+      var preferMature = false;
+      var previousIllustration = '';
+      for (final input in drawingInputs.reversed) {
+        final format = QqDrawingPolicy.requestedFormat(input.text);
+        final allowMature = b.group && drawingAddressed && format != QqDrawingFormat.sketch;
+        final textOnly = allowMature && QqMessageMaterial.fromRow(input.row).imageOrigins.isEmpty;
+        final newMature = allowMature && QqDrawingPolicy.requestsMatureArtwork(input.text,
+            directlyMentioned: input.row['mentioned'] == 1 && textOnly);
+        final revision = textOnly && QqDrawingPolicy.continuesMatureArtwork(input.text)
+            ? await reader.illustrationForRevision(input.row, resetAt: reset) : null;
+        if (format == null && !newMature && revision == null) continue;
+        formatted = input;
+        requestedFormat = format ?? QqDrawingFormat.illustration;
+        preferMature = (newMature || revision != null) && !QqDrawingPolicy.hasExplicitStyle(input.text);
+        if (revision != null) {
+          previousIllustration = revision.description;
+          qqStamp.addAll(revision.stamp);
+        }
+        break;
+      }
       final formattedRow=formatted?.row;
       final formattedRequest=formatted?.text ?? '';
-      final requestedFormat=QqDrawingPolicy.requestedFormat(formattedRequest);
       final drawingRequested=requestedFormat!=null || QqDrawingPolicy.requested(drawingRequest);
       final explicitIllustration=drawingAddressed && requestedFormat==QqDrawingFormat.illustration;
       final cancelledDrawing=formattedRow!=null && b.rows.any((row)=>
@@ -581,6 +600,12 @@ class QqRuntime {
       if(explicitIllustration && !cancelledDrawing) {
         prompt+=canIllustrate?'\n${QqIllustrationChoice.requestedPrompt}':
           '\n本轮无法启动 QQ 生图。请用文字说明当前无法画图，勿请对方等待。';
+        if (canIllustrate && preferMature) {
+          prompt += '\n群友的口语是在请求成熟感的插画。用构图、光线、表情和服装表现。';
+          if (previousIllustration.isNotEmpty) {
+            data += '\n【本群上一张已送达插画，仅供延续场景】${jsonEncode(previousIllustration)}';
+          }
+        }
       }
       if (wakingGroup) {
         prompt+='\n本轮是你主动发起的群聊，可以选择文字或已开放的生图表达，结合眼前想分享的内容自行决定。';
@@ -680,9 +705,10 @@ class QqRuntime {
             planner:client,rawReply:raw,
             context:drawingRequest.length<=1200?drawingRequest:drawingRequest.substring(drawingRequest.length-1200),
             autonomous:!drawingRequested,now:now().millisecondsSinceEpoch,current:illustrationCurrent,
+            preferMature: preferMature, previousIllustration: previousIllustration,
           );
           illustrationPrepared=true;
-          caption='生图意图：${illustration.description}';
+          caption='${QqArchiveReader.illustrationCaptionPrefix}${illustration.description}';
         } catch(error) {
           if(!await current())rethrow;
           await store.recordFailure(fence,phase,error,elapsedMs:operationClock.elapsedMilliseconds,operation:b.id,conversation:b.cid);

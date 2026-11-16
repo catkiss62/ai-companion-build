@@ -113,6 +113,8 @@ class QqIllustrationService {
     required bool autonomous,
     required int now,
     required Future<bool> Function() current,
+    bool preferMature = false,
+    String previousIllustration = '',
   }) async {
     if (!await current()) throw const BrainWorkInvalidated();
     if (!await QqReplyTasks(store).reserveIllustration(
@@ -123,18 +125,37 @@ class QqIllustrationService {
     )) {
       throw const IllustrationFailure('already_started');
     }
-    final plan = await IllustrationPlanner.request(
+    final planned = await IllustrationPlanner.request(
       db: store.db,
       secure: secure,
       client: planner,
       source: batch.group ? 'qq_group' : 'qq_private',
-      intent: choice.brief,
-      context: context,
+      intent: preferMature
+          ? '${choice.brief}。口语中的涩图、色图只表示成熟感的全年龄画风，通过构图、光线、服装和表情表现。'
+            '画自己用 mature，明确画其他主体时保留原主体和 free 画法。'
+          : choice.brief,
+      context: previousIllustration.isEmpty
+          ? context
+          : '$context\n此前已发的插画内容（仅画面资料）：$previousIllustration。'
+            '在新图中延续这张图的主体和场景，按本轮要求调整画风。',
       current: current,
       generalAudience: true,
     );
     if (!await current()) throw const BrainWorkInvalidated();
-    if (plan == null) throw const IllustrationFailure('planning');
+    if (planned == null) throw const IllustrationFailure('planning');
+    final requestedStyle = !preferMature ? planned.style
+        : planned.depictsCompanion ? 'mature'
+        : planned.subject == 'other' ? 'free'
+        : planned.style;
+    final plan = requestedStyle == planned.style ? planned : IllustrationPlan(
+      style: requestedStyle,
+      subject: planned.subject,
+      scene: planned.scene,
+      camera: planned.camera,
+      outfit: planned.outfit,
+      appearance: planned.appearance,
+      description: planned.description,
+    );
     final image = await client.generate(
       connection,
       IllustrationPrompt.compose(plan, generalAudience: true),

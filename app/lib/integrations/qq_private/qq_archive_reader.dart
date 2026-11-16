@@ -85,6 +85,48 @@ class QqArchiveReader {
       [row['conversation_id'],reply,material.reference,material.reference]);
     return rows.isEmpty?null:rows.single;
   }
+
+  static const illustrationCaptionPrefix = '生图意图：';
+
+  /// Short revision requests can use a confirmed QQ picture as their subject.
+  /// An explicit quote must resolve to that picture, never a nearby substitute.
+  Future<({String description, List<Map<String,Object?>> stamp})?> illustrationForRevision(
+    Map<String,Object?> focus, {required int resetAt}
+  ) async {
+    final material = QqMessageMaterial.fromRow(focus);
+    final quoted = material.kind == 'quote' || material.reference.isNotEmpty ||
+        (focus['reply_to'] as String? ?? '').isNotEmpty;
+    final received = focus['received_at'] as int;
+    final seq = focus['seq'] as int;
+    final Map<String,Object?>? source;
+    if (quoted) {
+      source = await _quotedAssistant(focus, material);
+    } else {
+      const window = Duration(minutes: 2);
+      final latest = await sql.query('qq_archive',
+        where: "conversation_id=? AND role='assistant' AND seq<? AND received_at>=?",
+        whereArgs: [focus['conversation_id'], seq, received - window.inMilliseconds],
+        orderBy: 'seq DESC', limit: 1);
+      source = latest.firstOrNull;
+    }
+    if (source == null || (source['seq'] as int) >= seq ||
+        (source['observed_at'] as int) < resetAt || (source['received_at'] as int) > received) {
+      return null;
+    }
+    final images = await sql.query('qq_images',
+      where: "archive_seq=? AND state='viewed' AND description LIKE ?",
+      whereArgs: [source['seq'], '$illustrationCaptionPrefix%'],
+      orderBy: 'ordinal', limit: 1);
+    final image = images.firstOrNull;
+    if (image == null) return null;
+    final description = (image['description'] as String).substring(illustrationCaptionPrefix.length).trim();
+    if (description.isEmpty) return null;
+    return (description: bound(description, 180), stamp: [
+      {'table':'qq_archive', 'id':source['id'], 'version':source['version']},
+      {'table':'qq_images', 'id':image['id'], 'version':image['version']},
+    ]);
+  }
+
   Future<String> render(Map<String,Object?> row,{List<Map<String,Object?>>? stamp,int? maxChars,int offset=0,bool ownTextOnly=false}) async {
     final allImages=ownTextOnly?<Map<String,Object?>>[]:await sql.query('qq_images',where:'archive_seq=?',whereArgs:[row['seq']],orderBy:'ordinal');
     var images=allImages;final d=await descriptor(row['conversation_id'] as String);

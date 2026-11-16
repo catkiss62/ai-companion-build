@@ -131,7 +131,7 @@ class _QqPrivateSettingsPageState extends State<QqPrivateSettingsPage> {
     'context_invalidated': '存档、绑定或记忆已变化，本轮旧回复已停止；请重新发送',
     'using_third': '正在使用第三通道', 'using_first': '正在使用第一通道', 'using_second': '正在使用第二通道',
     'retrying_second': '正在重试第二通道', 'fallback_first': '第二通道失败，正在使用 DeepSeek 兜底',
-    'message_expired': '消息超过测试版处理时限，请重新发送', 'queue_full': '待处理消息较多，请稍后发送',
+    'message_expired': '消息超过处理时限，请重新发送', 'queue_full': '待处理消息较多，请稍后发送',
     'waiting_app_chat': '等 App 当前聊天完成后再处理', 'brain_paused': '本机未启用或正在迁移，已暂停',
     'group_discovered':'已发现群，请在群聊设置中开启', 'checking_group':'正在判断是否接话',
     'group_cooldown':'已看过本批消息，普通接话间隔内',
@@ -155,7 +155,7 @@ class _QqPrivateSettingsPageState extends State<QqPrivateSettingsPage> {
     final connected = _state['enabled'] == true;
     final paired = _config.owner.isNotEmpty;
     final codeValid = _config.pairCode.isNotEmpty && DateTime.now().millisecondsSinceEpoch < _config.pairUntil;
-    return Scaffold(appBar: AppBar(title: const Text('QQ 接入 · 测试版')),
+    return Scaffold(appBar: AppBar(title: const Text('QQ 接入')),
       body: _loading ? const Center(child: CircularProgressIndicator()) : ListView(
         padding: const EdgeInsets.all(16), children: [
           const Text('QQ 陪伴连接', style: TextStyle(fontSize: 20)),

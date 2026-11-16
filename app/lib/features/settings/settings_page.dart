@@ -56,7 +56,7 @@ class SettingsPage extends StatelessWidget {
       ),
       _SettingsDomain(
         icon: Icons.chat_bubble_outline,
-        title: 'QQ 私聊 · 测试版',
+        title: 'QQ 私聊',
         subtitle: '独立后台连接、绑定身份与只读记忆',
         page: const QqPrivateSettingsPage(),
       ),
